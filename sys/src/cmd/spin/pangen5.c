@@ -1,13 +1,10 @@
 /***** spin: pangen5.c *****/
 
-/* Copyright (c) 1999-2003 by Lucent Technologies, Bell Laboratories.     */
-/* All Rights Reserved.  This software is for educational purposes only.  */
-/* No guarantee whatsoever is expressed or implied by the distribution of */
-/* this code.  Permission is given to distribute this code provided that  */
-/* this introductory message is not removed and no monies are exchanged.  */
-/* Software written by Gerard J. Holzmann.  For tool documentation see:   */
-/*             http://spinroot.com/                                       */
-/* Send all bug-reports and/or questions to: bugs@spinroot.com            */
+/*
+ * This file is part of the public release of Spin. It is subject to the
+ * terms in the LICENSE file that is included in this source directory.
+ * Tool documentation is available at http://spinroot.com
+ */
 
 #include "spin.h"
 #include "y.tab.h"
@@ -140,6 +137,7 @@ eligible(FSM_trans *v)
 	||  lt->ntyp == C_CODE
 	||  lt->ntyp == C_EXPR
 	||  has_lab(el, 0)		/* any label at all */
+	||  lt->ntyp == SET_P		/* to prevent multiple set_p merges */
 
 	||  lt->ntyp == DO
 	||  lt->ntyp == UNLESS
@@ -211,12 +209,17 @@ popbuild(void)
 static int
 build_step(FSM_trans *v)
 {	FSM_state *f;
-	Element	*el = v->step;
+	Element	*el;
 #if 0
 	Lextok	*lt = ZN;
 #endif
-	int	st  = v->to;
+	int	st;
 	int	r;
+
+	if (!v) return -1;
+
+	el = v->step;
+	st = v->to;
 
 	if (!el) return -1;
 
@@ -234,9 +237,7 @@ build_step(FSM_trans *v)
 	lt = v->step->n;
 	if (verbose&32)
 	{	if (++howdeep == 1)
-			printf("spin: %s, line %3d, merge:\n",
-				lt->fn->name,
-				lt->ln);
+			printf("spin: %s:%d, merge:\n", lt->fn->name, lt->ln);
 		printf("\t[%d] <seqno %d>\t", howdeep, el->seqno);
 		comment(stdout, lt, 0);
 		printf(";\n");
@@ -257,7 +258,7 @@ build_step(FSM_trans *v)
 }
 
 static void
-FSM_MERGER(char *pname_unused)	/* find candidates for safely merging steps */
+FSM_MERGER(/* char *pname */ void)	/* find candidates for safely merging steps */
 {	FSM_state *f, *g;
 	FSM_trans *t;
 	Lextok	*lt;
@@ -281,14 +282,14 @@ FSM_MERGER(char *pname_unused)	/* find candidates for safely merging steps */
 			continue;
 
 		g = fsm_tbl[t->to];
-		if (!eligible(g->t))
+		if (!g || !eligible(g->t))
 		{
 #define SINGLES
 #ifdef SINGLES
 			t->step->merge_single = t->to;
 #if 0
 			if ((verbose&32))
-			{	printf("spin: %s, line %3d, merge_single:\n\t<seqno %d>\t",
+			{	printf("spin: %s:%d, merge_single:\n\t<seqno %d>\t",
 					t->step->n->fn->name,
 					t->step->n->ln,
 					t->step->seqno);
@@ -321,14 +322,17 @@ FSM_MERGER(char *pname_unused)	/* find candidates for safely merging steps */
 		lt = t->step->n;
 #if 0
 	4.1.3:
-	an rv send operation inside an atomic, *loses* atomicity
-	when executed
-	and should therefore never be merged with a subsequent
+	an rv send operation ('s') inside an atomic, *loses* atomicity
+	when executed, and should therefore never be merged with a subsequent
 	statement within the atomic sequence
-	the same is not true for non-rv send operations
+	the same is not true for non-rv send operations;
+	6.2.2:
+	RUN statements can start a new process at a higher priority level
+	which interferes with statement merging, so it too is not a suitable
+	merge target
 #endif
 
-		if (lt->ntyp == 'c'	/* potentially blocking stmnts */
+		if ((lt->ntyp == 'c' && !any_oper(lt->lft, RUN)) /* 2nd clause 6.2.2 */
 		||  lt->ntyp == 'r'
 		||  (lt->ntyp == 's' && u_sync == 0))	/* added !u_sync in 4.1.3 */
 		{	if (!canfill_in(t))		/* atomic, non-global, etc. */
@@ -346,9 +350,8 @@ FSM_MERGER(char *pname_unused)	/* find candidates for safely merging steps */
 #if 0
 			if ((verbose&32)
 			&& t->step->merge_start)
-			{	printf("spin: %s, line %3d, merge_START:\n\t<seqno %d>\t",
-						lt->fn->name,
-						lt->ln,
+			{	printf("spin: %s:%d, merge_START:\n\t<seqno %d>\t",
+						lt->fn->name, lt->ln,
 						t->step->seqno);
 				comment(stdout, lt, 0);
 				printf(";\n");
@@ -532,6 +535,7 @@ ana_var(FSM_trans *t, Lextok *now, int usage)
 	if (now->sym->name[0] == '_'
 	&&  (strcmp(now->sym->name, "_") == 0
 	||   strcmp(now->sym->name, "_pid") == 0
+	||   strcmp(now->sym->name, "_priority") == 0
 	||   strcmp(now->sym->name, "_last") == 0))
 		return;
 
@@ -588,10 +592,17 @@ ana_stmnt(FSM_trans *t, Lextok *now, int usage)
 	case C_EXPR:
 		break;
 
+	case ',': /* reached with SET_P and array initializers */
+		if (now->lft && now->lft->rgt)
+		{	ana_stmnt(t, now->lft->rgt, RVAL);
+		}
+		break;
+
 	case '!':	
 	case UMIN:
 	case '~':
 	case ENABLED:
+	case GET_P:
 	case PC_VAL:
 	case LEN:
 	case FULL:
@@ -601,6 +612,11 @@ ana_stmnt(FSM_trans *t, Lextok *now, int usage)
 	case ASSERT:
 	case 'c':
 		ana_stmnt(t, now->lft, RVAL);
+		break;
+
+	case SET_P:
+		ana_stmnt(t, now->lft, RVAL); /* ',' */
+		ana_stmnt(t, now->lft->rgt, RVAL);
 		break;
 
 	case '/':
@@ -626,8 +642,11 @@ ana_stmnt(FSM_trans *t, Lextok *now, int usage)
 		break;
 
 	case ASGN:
+		if (check_track(now) == STRUCT) { break; }
+
 		ana_stmnt(t, now->lft, LVAL);
-		ana_stmnt(t, now->rgt, RVAL);
+		if (now->rgt->ntyp)
+			ana_stmnt(t, now->rgt, RVAL);
 		break;
 
 	case PRINT:
@@ -679,7 +698,8 @@ ana_stmnt(FSM_trans *t, Lextok *now, int usage)
 		break;
 
 	default:
-		printf("spin: bad node type %d line %d (ana_stmnt)\n", now->ntyp, now->ln);
+		printf("spin: %s:%d, bad node type %d (ana_stmnt)\n",
+			now->fn->name, now->ln, now->ntyp);
 		fatal("aborting", (char *) 0);
 	}
 }
@@ -692,10 +712,7 @@ ana_src(int dataflow, int merger)	/* called from main.c and guided.c */
 	int counter = 1;
 #endif
 	for (p = rdy; p; p = p->nxt)
-	{	if (p->tn == eventmapnr
-		||  p->tn == claimnr)
-			continue;
-
+	{
 		ana_seq(p->s);
 		fsm_table();
 
@@ -711,7 +728,7 @@ ana_src(int dataflow, int merger)	/* called from main.c and guided.c */
 		{	FSM_ANA();
 		}
 		if (merger)
-		{	FSM_MERGER(p->n->name);
+		{	FSM_MERGER(/* p->n->name */);
 			huntele(e, e->status, -1)->merge_in = 1; /* start-state */
 #if 0
 			printf("\n");
@@ -726,8 +743,7 @@ ana_src(int dataflow, int merger)	/* called from main.c and guided.c */
 	{
 		if (!(e->status&DONE) && (verbose&32))
 		{	printf("unreachable code: ");
-			printf("%s, line %3d:  ",
-				e->n->fn->name, e->n->ln);
+			printf("%s:%3d  ", e->n->fn->name, e->n->ln);
 			comment(stdout, e->n, 0);
 			printf("\n");
 		}
@@ -735,7 +751,7 @@ ana_src(int dataflow, int merger)	/* called from main.c and guided.c */
 	}
 	if (export_ast)
 	{	AST_slice();
-		exit(0);
+		alldone(0);	/* changed in 5.3.0: was exit(0) */
 	}
 }
 
@@ -831,9 +847,15 @@ ana_seq(Sequence *s)
 		{	if (e->n->ntyp == GOTO)
 			{	g = get_lab(e->n, 1);
 				g = huntele(g, e->status, -1);
+				if (!g)
+				{	fatal("unexpected error 2", (char *) 0);
+				}
 				To = g->seqno;
 			} else if (e->nxt)
 			{	g = huntele(e->nxt, e->status, -1);
+				if (!g)
+				{	fatal("unexpected error 3", (char *) 0);
+				}
 				To = g->seqno;
 			} else
 				To = 0;

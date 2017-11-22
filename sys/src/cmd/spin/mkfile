@@ -8,14 +8,14 @@ SPIN_OS=\
 	guided.$O\
 	main.$O\
 	mesg.$O\
+	msc_tcl.$O\
 	pangen1.$O\
 	pangen2.$O\
 	pangen3.$O\
 	pangen4.$O\
 	pangen5.$O\
 	pangen6.$O\
-	pc_zpp.$O\
-	ps_msc.$O\
+	pangen7.$O\
 	reprosrc.$O\
 	run.$O\
 	sched.$O\
@@ -45,7 +45,7 @@ BIN=/$objtype/bin
 </sys/src/cmd/mkone
 
 CC=pcc -c
-CFLAGS=-B -D_POSIX_SOURCE
+CFLAGS=-B -D_POSIX_SOURCE -D_PLAN9
 YFLAGS=-S -d
 
 $SPIN_OS:	spin.h

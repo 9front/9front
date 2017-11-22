@@ -1,20 +1,10 @@
 /***** spin: pangen6.c *****/
 
-/* Copyright (c) 2000-2003 by Lucent Technologies, Bell Laboratories.     */
-/* All Rights Reserved.  This software is for educational purposes only.  */
-/* No guarantee whatsoever is expressed or implied by the distribution of */
-/* this code.  Permission is given to distribute this code provided that  */
-/* this introductory message is not removed and no monies are exchanged.  */
-/* Software written by Gerard J. Holzmann.  For tool documentation see:   */
-/*             http://spinroot.com/                                       */
-/* Send all bug-reports and/or questions to: bugs@spinroot.com            */
-
-/* Abstract syntax tree analysis / slicing (spin option -A) */
-/* AST_store stores the fsms's for each proctype            */
-/* AST_track keeps track of variables used in properties    */
-/* AST_slice starts the slicing algorithm                   */
-/*      it first collects more info and then calls          */
-/*      AST_criteria to process the slice criteria          */
+/*
+ * This file is part of the public release of Spin. It is subject to the
+ * terms in the LICENSE file that is included in this source directory.
+ * Tool documentation is available at http://spinroot.com
+ */
 
 #include "spin.h"
 #include "y.tab.h"
@@ -90,7 +80,6 @@ static Slicer	*slicer;
 static Slicer	*rel_vars;	/* all relevant variables */
 static int	AST_Changes;
 static int	AST_Round;
-static FSM_state no_state;
 static RPN	*rpn;
 static int	in_recv = 0;
 
@@ -145,7 +134,7 @@ name_def_indices(Lextok *n, int code)
 {
 	if (!n || !n->sym) return;
 
-	if (n->sym->nel != 1)
+	if (n->sym->nel > 1 || n->sym->isarray)
 		def_use(n->lft, code);		/* process the index */
 
 	if (n->sym->type == STRUCT		/* and possible deeper ones */
@@ -202,6 +191,8 @@ def_use(Lextok *now, int code)
 	case '~':
 	case 'c':
 	case ENABLED:
+	case SET_P:
+	case GET_P:
 	case ASSERT:
 	case EVAL:
 		def_use(now->lft, USE|code);
@@ -503,7 +494,7 @@ AST_mutual(Lextok *a, Lextok *b, int toplevel)
 	if (strcmp(as->name, bs->name) != 0)
 		return 0;
 
-	if (as->type == STRUCT && a->rgt && b->rgt)
+	if (as->type == STRUCT && a->rgt && b->rgt)	/* we know that a and b are not null */
 		return AST_mutual(a->rgt->lft, b->rgt->lft, 0);
 
 	return 1;
@@ -545,14 +536,14 @@ AST_other(AST *a)	/* check chan params in asgns and recvs */
 			case 'r':
 				/* guess sends where name may originate */
 				for (cl = chanlist; cl; cl = cl->nxt)	/* all sends */
-				{	int a = AST_nrpar(cl->s);
-					int b = AST_nrpar(t->step->n);
-					if (a != b)	/* matching nrs of params */
+				{	int aa = AST_nrpar(cl->s);
+					int bb = AST_nrpar(t->step->n);
+					if (aa != bb)	/* matching nrs of params */
 						continue;
 
-					a = AST_ord(cl->s, cl->n);
-					b = AST_ord(t->step->n, u->n);
-					if (a != b)	/* same position in parlist */
+					aa = AST_ord(cl->s, cl->n);
+					bb = AST_ord(t->step->n, u->n);
+					if (aa != bb)	/* same position in parlist */
 						continue;
 
 					AST_add_alias(cl->n, 4); /* RCV assume possible match */
@@ -692,9 +683,7 @@ AST_relevant(Lextok *n)
 	}
 
 	for (a = ast; a; a = a->nxt)		/* all other stmnts */
-	{	if (strcmp(a->p->n->name, ":never:") != 0
-		&&  strcmp(a->p->n->name, ":trace:") != 0
-		&&  strcmp(a->p->n->name, ":notrace:") != 0)
+	{	if (a->p->b != N_CLAIM && a->p->b != E_TRACE && a->p->b != N_TRACE)
 		for (f = a->fsm; f; f = f->nxt)
 		for (t = f->t; t; t = t->nxt)
 		{	if (!(t->relevant&1))
@@ -786,10 +775,8 @@ AST_tagruns(void)
 	 */
 
 	for (a = ast; a; a = a->nxt)
-	{	if (strcmp(a->p->n->name, ":never:") == 0
-		||  strcmp(a->p->n->name, ":trace:") == 0
-		||  strcmp(a->p->n->name, ":notrace:") == 0
-		||  strcmp(a->p->n->name, ":init:") == 0)
+	{	if (a->p->b == N_CLAIM || a->p->b == I_PROC
+		||  a->p->b == E_TRACE || a->p->b == N_TRACE)
 		{	a->relevant |= 1;	/* the proctype is relevant */
 			continue;
 		}
@@ -823,9 +810,9 @@ AST_report(AST *a, Element *e)	/* ALSO deduce irrelevant vars */
 		printf("spin: redundant in proctype %s (for given property):\n",
 			a->p->n->name);
 	}
-	printf("      line %3d %s (state %d)",
-		e->n?e->n->ln:-1,
+	printf("      %s:%d (state %d)",
 		e->n?e->n->fn->name:"-",
+		e->n?e->n->ln:-1,
 		e->seqno);
 	printf("	[");
 	comment(stdout, e->n, 0);
@@ -1016,7 +1003,8 @@ name_AST_track(Lextok *n, int code)
 	printf(" -- %d\n", code);
 #endif
 	if (in_recv && (code&DEF) && (code&USE))
-	{	printf("spin: error: DEF and USE of same var in rcv stmnt: ");
+	{	printf("spin: %s:%d, error: DEF and USE of same var in rcv stmnt: ",
+			n->fn->name, n->ln);
 		AST_var(n, n->sym, 1);
 		printf(" -- %d\n", code);
 		nr_errs++;
@@ -1065,6 +1053,8 @@ AST_track(Lextok *now, int code)	/* called from main.c */
 	case '~':
 	case 'c':
 	case ENABLED:
+	case SET_P:
+	case GET_P:
 	case ASSERT:
 		AST_track(now->lft, USE|code);
 		break;
@@ -1075,8 +1065,8 @@ AST_track(Lextok *now, int code)	/* called from main.c */
 
 	case NAME:
 		name_AST_track(now, code);
-		if (now->sym->nel != 1)
-			AST_track(now->lft, USE|code);	/* index */
+		if (now->sym->nel > 1 || now->sym->isarray)
+			AST_track(now->lft, USE);	/* index, was USE|code */
 		break;
 
 	case 'R':
@@ -1569,7 +1559,8 @@ AST_ctrl(AST *a)
 			{	t->relevant &= ~2;	/* clear mark */
 				if (verbose&32)
 				{	printf("\t\tnomark ");
-					comment(stdout, t->step->n, 0);
+					if (t->step && t->step->n)
+						comment(stdout, t->step->n, 0);
 					printf("\n");
 	}		}	}
 
@@ -1601,7 +1592,8 @@ AST_ctrl(AST *a)
 			t->relevant |= 2;	/* lift */
 			if (verbose&32)
 			{	printf("\t\t\tliftmark ");
-				comment(stdout, t->step->n, 0);
+				if (t->step && t->step->n)
+					comment(stdout, t->step->n, 0);
 				printf("\n");
 			}
 			AST_spread(a, t->to);	/* and spread to all guards */
@@ -1621,10 +1613,9 @@ AST_control_dep(void)
 {	AST *a;
 
 	for (a = ast; a; a = a->nxt)
-		if (strcmp(a->p->n->name, ":never:") != 0
-		&&  strcmp(a->p->n->name, ":trace:") != 0
-		&&  strcmp(a->p->n->name, ":notrace:") != 0)
-			AST_ctrl(a);
+	{	if (a->p->b != N_CLAIM && a->p->b != E_TRACE && a->p->b != N_TRACE)
+		{	AST_ctrl(a);
+	}	}
 }
 
 static void
@@ -1634,9 +1625,7 @@ AST_prelabel(void)
 	FSM_trans *t;
 
 	for (a = ast; a; a = a->nxt)
-	{	if (strcmp(a->p->n->name, ":never:") != 0
-		&&  strcmp(a->p->n->name, ":trace:") != 0
-		&&  strcmp(a->p->n->name, ":notrace:") != 0)
+	{	if (a->p->b != N_CLAIM && a->p->b != E_TRACE && a->p->b != N_TRACE)
 		for (f = a->fsm; f; f = f->nxt)
 		for (t = f->t; t; t = t->nxt)
 		{	if (t->step
@@ -1692,8 +1681,7 @@ AST_slice(void)
 	int spurious = 0;
 
 	if (!slicer)
-	{	non_fatal("no slice criteria (or no claim) specified",
-		(char *) 0);
+	{	printf("spin: warning: no slice criteria found (no assertions and no claim)\n");
 		spurious = 1;
 	}
 	AST_dorelevant();		/* mark procs refered to in remote refs */
@@ -1730,9 +1718,7 @@ void
 AST_store(ProcList *p, int start_state)
 {	AST *n_ast;
 
-	if (strcmp(p->n->name, ":never:") != 0
-	&&  strcmp(p->n->name, ":trace:") != 0
-	&&  strcmp(p->n->name, ":notrace:") != 0)
+	if (p->b != N_CLAIM && p->b != E_TRACE && p->b != N_TRACE)
 	{	n_ast = (AST *) emalloc(sizeof(AST));
 		n_ast->p = p;
 		n_ast->i_st = start_state;
@@ -1809,12 +1795,10 @@ AST_par_init(void)	/* parameter passing -- hidden assignments */
 	int cnt;
 
 	for (a = ast; a; a = a->nxt)
-	{	if (strcmp(a->p->n->name, ":never:") == 0
-		||  strcmp(a->p->n->name, ":trace:") == 0
-		||  strcmp(a->p->n->name, ":notrace:") == 0
-		||  strcmp(a->p->n->name, ":init:") == 0)
-			continue;			/* have no params */
-
+	{	if (a->p->b == N_CLAIM || a->p->b == I_PROC
+		||  a->p->b == E_TRACE || a->p->b == N_TRACE)
+		{	continue;			/* has no params */
+		}
 		cnt = 0;
 		for (f = a->p->p; f; f = f->rgt)	/* types */
 		for (t = f->lft; t; t = t->rgt)		/* formals */
@@ -1845,9 +1829,8 @@ AST_var_init(void)		/* initialized vars (not chans) - hidden assignments */
 	}	}
 
 	for (a = ast; a; a = a->nxt)
-	{	if (strcmp(a->p->n->name, ":never:") != 0
-		&&  strcmp(a->p->n->name, ":trace:") != 0
-		&&  strcmp(a->p->n->name, ":notrace:") != 0)	/* claim has no locals */
+	{	if (a->p->b != N_CLAIM
+		&&  a->p->b != E_TRACE && a->p->b != N_TRACE)	/* has no locals */
 		for (walk = all_names; walk; walk = walk->next)	
 		{	sp = walk->entry;
 			if (sp
@@ -1995,7 +1978,7 @@ subgraph(AST *a, FSM_state *f, int out)
 	h = fsm_tbl[out];
 
 	i = f->from / BPW;
-	j = f->from % BPW;
+	j = f->from % BPW; /* assert(j <= 32); else lshift undefined? */
 	g = h->mod;
 
 	if (verbose&32)
@@ -2023,28 +2006,30 @@ act_dom(AST *a)
 		d. the dominator is reachable, and not equal to this node
 #endif
 		for (t = f->p, i = 0; t; t = t->nxt)
-			i += fsm_tbl[t->to]->seen;
-		if (i <= 1) continue;					/* a. */
-
+		{	i += fsm_tbl[t->to]->seen;
+		}
+		if (i <= 1)
+		{	continue;					/* a. */
+		}
 		for (cnt = 1; cnt < a->nstates; cnt++)	/* 0 is endstate */
 		{	if (cnt == f->from
 			||  !fsm_tbl[cnt]->seen)
-				continue;				/* c. */
-
+			{	continue;				/* c. */
+			}
 			i = cnt / BPW;
-			j = cnt % BPW;
+			j = cnt % BPW;	/* assert(j <= 32); */
 			if (!(f->dom[i]&(1<<j)))
-				continue;
-
+			{	continue;
+			}
 			for (t = fsm_tbl[cnt]->t, i = 0; t; t = t->nxt)
-				i += fsm_tbl[t->to]->seen;
+			{	i += fsm_tbl[t->to]->seen;
+			}
 			if (i <= 1)
-				continue;				/* b. */
-
+			{	continue;				/* b. */
+			}
 			if (f->mod)			/* final check in 2nd phase */
-				subgraph(a, f, cnt);	/* possible entry-exit pair */
-		}
-	}
+			{	subgraph(a, f, cnt);	/* possible entry-exit pair */
+	}	}	}
 }
 
 static void
@@ -2178,27 +2163,26 @@ init_dom(AST *a)
 	for (f = a->fsm; f; f = f->nxt)
 	{	if (!f->seen) continue;
 
-		f->dom = (ulong *)
-			emalloc(a->nwords * sizeof(ulong));
+		f->dom = (ulong *) emalloc(a->nwords * sizeof(ulong));
 
 		if (f->from == a->i_st)
 		{	i = a->i_st / BPW;
-			j = a->i_st % BPW;
+			j = a->i_st % BPW; /* assert(j <= 32); */
 			f->dom[i] = (1<<j);			/* (1) */
 		} else						/* (2) */
 		{	for (i = 0; i < a->nwords; i++)
-				f->dom[i] = (ulong) ~0;			/* all 1's */
-
+			{	f->dom[i] = (ulong) ~0;		/* all 1's */
+			}
 			if (a->nstates % BPW)
 			for (i = (a->nstates % BPW); i < (int) BPW; i++)
-				f->dom[a->nwords-1] &= ~(1<<i);	/* clear tail */
-
+			{	f->dom[a->nwords-1] &= ~(1<< ((ulong) i)); /* clear tail */
+			}
 			for (cnt = 0; cnt < a->nstates; cnt++)
-				if (!fsm_tbl[cnt]->seen)
+			{	if (!fsm_tbl[cnt]->seen)
 				{	i = cnt / BPW;
-					j = cnt % BPW;
-					f->dom[i] &= ~(1<<j);
-	}	}		}
+					j = cnt % BPW; /* assert(j <= 32); */
+					f->dom[i] &= ~(1<< ((ulong) j));
+	}	}	}	}
 }
 
 static int
@@ -2226,7 +2210,7 @@ dom_perculate(AST *a, FSM_state *f)
 	}
 
 	i = f->from / BPW;
-	j = f->from % BPW;
+	j = f->from % BPW;	/* assert(j <= 32); */
 	ndom[i] |= (1<<j);			/* (5a) */
 
 	for (i = 0; i < a->nwords; i++)
@@ -2261,6 +2245,7 @@ AST_dominant(void)
 	FSM_trans *t;
 	AST *a;
 	int oi;
+	static FSM_state no_state;
 #if 0
 	find dominators
 	Aho, Sethi, & Ullman, Compilers - principles, techniques, and tools

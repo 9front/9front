@@ -1,22 +1,25 @@
 /***** tl_spin: tl_rewrt.c *****/
 
-/* Copyright (c) 1995-2003 by Lucent Technologies, Bell Laboratories.     */
-/* All Rights Reserved.  This software is for educational purposes only.  */
-/* No guarantee whatsoever is expressed or implied by the distribution of */
-/* this code.  Permission is given to distribute this code provided that  */
-/* this introductory message is not removed and no monies are exchanged.  */
-/* Software written by Gerard J. Holzmann.  For tool documentation see:   */
-/*             http://spinroot.com/                                       */
-/* Send all bug-reports and/or questions to: bugs@spinroot.com            */
-
-/* Based on the translation algorithm by Gerth, Peled, Vardi, and Wolper, */
-/* presented at the PSTV Conference, held in 1995, Warsaw, Poland 1995.   */
+/*
+ * This file is part of the public release of Spin. It is subject to the
+ * terms in the LICENSE file that is included in this source directory.
+ * Tool documentation is available at http://spinroot.com
+ *
+ * Based on the translation algorithm by Gerth, Peled, Vardi, and Wolper,
+ * presented at the PSTV Conference, held in 1995, Warsaw, Poland 1995.
+ */
 
 #include "tl.h"
 
 extern int	tl_verbose;
 
 static Node	*can = ZN;
+
+void
+ini_rewrt(void)
+{
+	can = ZN;
+}
 
 Node *
 right_linked(Node *n)
@@ -137,6 +140,9 @@ addcan(int tok, Node *n)
 	}
 
 	s = DoDump(N);
+	if (!s)
+	{	fatal("unexpected error 6", (char *) 0);
+	}
 	if (can->ntyp != tok)	/* only one element in list so far */
 	{	ptr = &can;
 		goto insert;
@@ -146,7 +152,10 @@ addcan(int tok, Node *n)
 	prev = ZN;
 	for (m = can; m->ntyp == tok && m->rgt; prev = m, m = m->rgt)
 	{	t = DoDump(m->lft);
-		cmp = strcmp(s->name, t->name);
+		if (t != ZS)
+			cmp = strcmp(s->name, t->name);
+		else
+			cmp = 0;
 		if (cmp == 0)	/* duplicate */
 			return;
 		if (cmp < 0)

@@ -1,16 +1,13 @@
 /***** tl_spin: tl_lex.c *****/
 
-/* Copyright (c) 1995-2003 by Lucent Technologies, Bell Laboratories.     */
-/* All Rights Reserved.  This software is for educational purposes only.  */
-/* No guarantee whatsoever is expressed or implied by the distribution of */
-/* this code.  Permission is given to distribute this code provided that  */
-/* this introductory message is not removed and no monies are exchanged.  */
-/* Software written by Gerard J. Holzmann.  For tool documentation see:   */
-/*             http://spinroot.com/                                       */
-/* Send all bug-reports and/or questions to: bugs@spinroot.com            */
-
-/* Based on the translation algorithm by Gerth, Peled, Vardi, and Wolper, */
-/* presented at the PSTV Conference, held in 1995, Warsaw, Poland 1995.   */
+/*
+ * This file is part of the public release of Spin. It is subject to the
+ * terms in the LICENSE file that is included in this source directory.
+ * Tool documentation is available at http://spinroot.com
+ *
+ * Based on the translation algorithm by Gerth, Peled, Vardi, and Wolper,
+ * presented at the PSTV Conference, held in 1995, Warsaw, Poland 1995.
+ */
 
 #include <stdlib.h>
 #include <ctype.h>
@@ -18,6 +15,7 @@
 
 static Symbol	*symtab[Nhash+1];
 static int	tl_lex(void);
+extern int tl_peek(int);
 
 extern YYSTYPE	tl_yylval;
 extern char	yytext[];
@@ -26,11 +24,19 @@ extern char	yytext[];
 
 static void
 tl_getword(int first, int (*tst)(int))
-{	int i=0; char c;
+{	int i=0; int c;
 
 	yytext[i++] = (char ) first;
-	while (tst(c = tl_Getchar()))
-		yytext[i++] = c;
+
+	c = tl_Getchar();
+	while (c != -1 && tst(c))
+	{	yytext[i++] = (char) c;
+		c = tl_Getchar();
+	}
+
+/*	while (tst(c = tl_Getchar()))
+ *		yytext[i++] = c;
+ */
 	yytext[i] = '\0';
 	tl_UnGetchar();
 }
@@ -54,9 +60,83 @@ int
 tl_yylex(void)
 {	int c = tl_lex();
 #if 0
-	printf("c = %d\n", c);
+	printf("c = %c (%d)\n", c, c);
 #endif
 	return c;
+}
+
+static int
+is_predicate(int z)
+{	char c, c_prev = z;
+	char want = (z == '{') ? '}' : ')';
+	int i = 0, j, nesting = 0;
+	char peek_buf[512];
+
+	c = tl_peek(i++);	/* look ahead without changing position */
+	while ((c != want || nesting > 0) && c != -1 && i < 2047)
+	{	if (islower((int) c) || c == '_')
+		{	peek_buf[0] = c;
+			j = 1;
+			while (j < (int) sizeof(peek_buf)
+			&&    (isalnum((int)(c = tl_peek(i))) || c == '_'))
+			{	peek_buf[j++] = c;
+				i++;
+			}
+			c = 0;	/* make sure we don't match on z or want on the peekahead */
+			if (j >= (int) sizeof(peek_buf))
+			{	peek_buf[j-1] = '\0';
+				fatal("name '%s' in ltl formula too long", peek_buf);
+			}
+			peek_buf[j] = '\0';
+			if (strcmp(peek_buf, "always") == 0
+			||  strcmp(peek_buf, "equivalent") == 0
+			||  strcmp(peek_buf, "eventually") == 0
+			||  strcmp(peek_buf, "until") == 0
+			||  strcmp(peek_buf, "next") == 0
+			||  strcmp(peek_buf, "c_expr") == 0)
+			{	return 0;
+			}
+		} else
+		{	int c_nxt = tl_peek(i);
+			if (((c == 'U' || c == 'V' || c == 'X')
+			&& !isalnum_(c_prev)
+			&& (c_nxt == -1 || !isalnum_(c_nxt)))
+			||  (c == '<' && c_nxt == '>')
+			||  (c == '<' && c_nxt == '-')
+			||  (c == '-' && c_nxt == '>')
+			||  (c == '[' && c_nxt == ']'))
+			{	return 0;
+		}	}
+
+		if (c == z)
+		{	nesting++;
+		}
+		if (c == want)
+		{	nesting--;
+		}
+		c_prev = c;
+		c = tl_peek(i++);
+	}
+	return 1;
+}
+
+static void
+read_upto_closing(int z)
+{	char c, want = (z == '{') ? '}' : ')';
+	int i = 0, nesting = 0;
+
+	c = tl_Getchar();
+	while ((c != want || nesting > 0) && c != -1 && i < 2047) /* yytext is 2048 */
+	{	yytext[i++] = c;
+		if (c == z)
+		{	nesting++;
+		}
+		if (c == want)
+		{	nesting--;
+		}
+		c = tl_Getchar();
+	}
+	yytext[i] = '\0';
 }
 
 static int
@@ -74,6 +154,20 @@ tl_lex(void)
 
 	} while (c == ' ');	/* '\t' is removed in tl_main.c */
 
+	if (c == '{' || c == '(')	/* new 6.0.0 */
+	{	if (is_predicate(c))
+		{	read_upto_closing(c);
+			tl_yylval = tl_nn(PREDICATE,ZN,ZN);
+			if (!tl_yylval)
+			{	fatal("unexpected error 4", (char *) 0);
+			}
+			tl_yylval->sym = tl_lookup(yytext);
+			return PREDICATE;
+	}	}
+
+	if (c == '}')
+	{	tl_yyerror("unexpected '}'");
+	}
 	if (islower(c))
 	{	tl_getword(c, isalnum_);
 		if (strcmp("true", yytext) == 0)
@@ -82,10 +176,34 @@ tl_lex(void)
 		if (strcmp("false", yytext) == 0)
 		{	Token(FALSE);
 		}
+		if (strcmp("always", yytext) == 0)
+		{	Token(ALWAYS);
+		}
+		if (strcmp("eventually", yytext) == 0)
+		{	Token(EVENTUALLY);
+		}
+		if (strcmp("until", yytext) == 0)
+		{	Token(U_OPER);
+		}
+#ifdef NXT
+		if (strcmp("next", yytext) == 0)
+		{	Token(NEXT);
+		}
+#endif
+		if (strcmp("c_expr", yytext) == 0)
+		{	Token(CEXPR);
+		}
+		if (strcmp("not", yytext) == 0)
+		{	Token(NOT);
+		}
 		tl_yylval = tl_nn(PREDICATE,ZN,ZN);
+		if (!tl_yylval)
+		{	fatal("unexpected error 5", (char *) 0);
+		}
 		tl_yylval->sym = tl_lookup(yytext);
 		return PREDICATE;
 	}
+
 	if (c == '<')
 	{	c = tl_Getchar();
 		if (c == '>')
@@ -124,7 +242,7 @@ tl_lex(void)
 Symbol *
 tl_lookup(char *s)
 {	Symbol *sp;
-	int h = hash(s);
+	unsigned int h = hash(s);
 
 	for (sp = symtab[h]; sp; sp = sp->next)
 		if (strcmp(sp->name, s) == 0)
