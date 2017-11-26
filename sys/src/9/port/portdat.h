@@ -991,3 +991,13 @@ enum
 #pragma	varargck	type	"V"	uchar*
 #pragma	varargck	type	"E"	uchar*
 #pragma	varargck	type	"M"	uchar*
+
+/*
+ * Log console output so it can be retrieved via /dev/kmesg.
+ * This is good for catching boot-time messages after the fact.
+ */
+struct {
+	Lock lk;
+	uint n;
+	char buf[16384];
+} kmesg;

@@ -63,16 +63,6 @@ prflush(void)
 			break;
 }
 
-/*
- * Log console output so it can be retrieved via /dev/kmesg.
- * This is good for catching boot-time messages after the fact.
- */
-struct {
-	Lock lk;
-	char buf[16384];
-	uint n;
-} kmesg;
-
 static void
 kmesgputs(char *str, int n)
 {

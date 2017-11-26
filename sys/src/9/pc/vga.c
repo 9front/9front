@@ -217,6 +217,8 @@ vgascreenwin(VGAscr* scr)
 
 	qunlock(&drawlock);
 
+	vgascreenputs(kmesg.buf, kmesg.n);
+
 	screenputs = vgascreenputs;
 }
 
