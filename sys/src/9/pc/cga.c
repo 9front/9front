@@ -169,13 +169,46 @@ cgascreenputs(char* s, int n)
 	unlock(&cgascreenlock);
 }
 
+static void
+cgatokmesg(void)
+{
+	int i, n;
+	char *p;
+
+	ilock(&kmesg.lk);
+	n = kmesg.n;
+	for(i = cgapos-2; i >= 0 && n < sizeof kmesg.buf-UTFmax-1; i -= 2){
+		if((i % Width) == Width-2)
+			n++;
+		n += runelen(cp437[CGASCREENBASE[i]]);
+	}
+	n -= kmesg.n;
+	if(n > 0){
+		memmove(kmesg.buf+n, kmesg.buf, kmesg.n);
+		kmesg.n += n;
+		p = kmesg.buf;
+		for(i += 2; i >= 0 && i < cgapos && p < kmesg.buf+n; i += 2){
+			p += runetochar(p, &cp437[CGASCREENBASE[i]]);
+			if((i % Width) == Width-2)
+				*p++ = '\n';
+		}
+	}
+	iunlock(&kmesg.lk);
+}
+
 void
 screeninit(void)
 {
-
 	cgapos = cgaregr(0x0E)<<8;
 	cgapos |= cgaregr(0x0F);
 	cgapos *= 2;
+
+	if(cgapos >= Width*Height){
+		cgapos = 0;
+		movecursor();
+	}
+
+	cgatokmesg();
 
 	screenputs = cgascreenputs;
 }
