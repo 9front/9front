@@ -721,7 +721,7 @@ obsdload(void)
 	assert(obsdarg0 == nil);
 	PUT32(v, 28, obsdarglen); /* bootargc */
 	rset(RSP, sp);
-	rset(RPC, eh.entry);
+	rset(RPC, (u32int)eh.entry & 0x0fffffff);
 	return 1;
 }
 
