@@ -9,24 +9,37 @@
 void
 aesCBCencrypt(uchar *p, int len, AESstate *s)
 {
-	uchar *p2, *ip, *eip;
-	uchar q[AESbsize];
+	uchar *ip, *eip;
 
-	for(; len >= AESbsize; len -= AESbsize){
-		p2 = p;
-		ip = s->ivec;
-		for(eip = ip+AESbsize; ip < eip; )
-			*p2++ ^= *ip++;
-		aes_encrypt(s->ekey, s->rounds, p, q);
-		memmove(s->ivec, q, AESbsize);
-		memmove(p, q, AESbsize);
-		p += AESbsize;
+	if(((p-(uchar*)0) & 3) == 0){
+		for(; len >= AESbsize; len -= AESbsize){
+			ip = s->ivec;
+			((u32int*)ip)[0] ^= ((u32int*)p)[0];
+			((u32int*)ip)[1] ^= ((u32int*)p)[1];
+			((u32int*)ip)[2] ^= ((u32int*)p)[2];
+			((u32int*)ip)[3] ^= ((u32int*)p)[3];
+
+			aes_encrypt(s->ekey, s->rounds, ip, ip);
+
+			((u32int*)p)[0] = ((u32int*)ip)[0];
+			((u32int*)p)[1] = ((u32int*)ip)[1];
+			((u32int*)p)[2] = ((u32int*)ip)[2];
+			((u32int*)p)[3] = ((u32int*)ip)[3];
+			p += AESbsize;
+		}
+	} else {
+		for(; len >= AESbsize; len -= AESbsize){
+			ip = s->ivec;
+			for(eip = ip+AESbsize; ip < eip; )
+				*ip++ ^= *p++;
+			aes_encrypt(s->ekey, s->rounds, s->ivec, s->ivec);
+			memmove(p - AESbsize, s->ivec, AESbsize);
+		}
 	}
 
 	if(len > 0){
 		ip = s->ivec;
-		aes_encrypt(s->ekey, s->rounds, ip, q);
-		memmove(s->ivec, q, AESbsize);
+		aes_encrypt(s->ekey, s->rounds, ip, ip);
 		for(eip = ip+len; ip < eip; )
 			*p++ ^= *ip++;
 	}
@@ -36,24 +49,45 @@ void
 aesCBCdecrypt(uchar *p, int len, AESstate *s)
 {
 	uchar *ip, *eip, *tp;
-	uchar tmp[AESbsize], q[AESbsize];
+	u32int t[4];
 
-	for(; len >= AESbsize; len -= AESbsize){
-		memmove(tmp, p, AESbsize);
-		aes_decrypt(s->dkey, s->rounds, p, q);
-		memmove(p, q, AESbsize);
-		tp = tmp;
-		ip = s->ivec;
-		for(eip = ip+AESbsize; ip < eip; ){
-			*p++ ^= *ip;
-			*ip++ = *tp++;
+	if(((p-(uchar*)0) & 3) == 0){
+		for(; len >= AESbsize; len -= AESbsize){
+			t[0] = ((u32int*)p)[0];
+			t[1] = ((u32int*)p)[1];
+			t[2] = ((u32int*)p)[2];
+			t[3] = ((u32int*)p)[3];
+
+			aes_decrypt(s->dkey, s->rounds, p, p);
+
+			ip = s->ivec;
+			((u32int*)p)[0] ^= ((u32int*)ip)[0];
+			((u32int*)p)[1] ^= ((u32int*)ip)[1];
+			((u32int*)p)[2] ^= ((u32int*)ip)[2];
+			((u32int*)p)[3] ^= ((u32int*)ip)[3];
+			p += AESbsize;
+
+			((u32int*)ip)[0] = t[0];
+			((u32int*)ip)[1] = t[1];
+			((u32int*)ip)[2] = t[2];
+			((u32int*)ip)[3] = t[3];
+		}
+	} else {
+		for(; len >= AESbsize; len -= AESbsize){
+			tp = (uchar*)t;
+			memmove(tp, p, AESbsize);
+			aes_decrypt(s->dkey, s->rounds, p, p);
+			ip = s->ivec;
+			for(eip = ip+AESbsize; ip < eip; ){
+				*p++ ^= *ip;
+				*ip++ = *tp++;
+			}
 		}
 	}
 
 	if(len > 0){
 		ip = s->ivec;
-		aes_encrypt(s->ekey, s->rounds, ip, q);
-		memmove(s->ivec, q, AESbsize);
+		aes_encrypt(s->ekey, s->rounds, ip, ip);
 		for(eip = ip+len; ip < eip; )
 			*p++ ^= *ip++;
 	}
