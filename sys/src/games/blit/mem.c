@@ -161,7 +161,7 @@ memwrite(u32int a, u16int v, u16int m)
 	case 01400012: uarttxbuf = (uchar) v; return;
 	case 01400024: return; /* mouse: purpose unknown */
 	case 01400026: return; /* mouse: purpose unknown */
-	case 01400030: daddr = ((daddr >> 2) & ~m | v & m) << 2; return;
+	case 01400030: daddr = ((daddr >> 2) & ~m | v & m) << 2; updated = Rect(0, 0, SX, SY); return;
 	case 01400040: dstat = dstat & ~m | v & m; invert = -(dstat & 1); updated = Rect(0, 0, SX, SY); return;
 	case 01400056: /* sound; exact function unknown */ return;
 	case 01400060: kbdctrl = v; return;
