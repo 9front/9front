@@ -1,12 +1,17 @@
 #include "os.h"
 
+#define ROTL(x,n)	(((x)<<n)|((x)>>32-n))
+
+#define F0(x,y,z)	(0x5a827999 + ((z) ^ ((x) & ((y) ^ (z)))))
+#define F1(x,y,z)	(0x6ed9eba1 + ((x) ^ (y) ^ (z)))
+#define F2(x,y,z)	(0x8f1bbcdc + (((x) & (y)) | (((x) | (y)) & (z))))
+#define F3(x,y,z)	(0xca62c1d6 + ((x) ^ (y) ^ (z)))
+
 void
 _sha1block(uchar *p, ulong len, u32int *s)
 {
-	u32int a, b, c, d, e, x;
+	u32int w[16], a, b, c, d, e;
 	uchar *end;
-	u32int *wp, *wend;
-	u32int w[80];
 
 	/* at this point, we have a multiple of 64 bytes */
 	for(end = p+len; p < end;){
@@ -16,168 +21,113 @@ _sha1block(uchar *p, ulong len, u32int *s)
 		d = s[3];
 		e = s[4];
 
-		wend = w + 15;
-		for(wp = w; wp < wend; wp += 5){
-			wp[0] = (p[0]<<24) | (p[1]<<16) | (p[2]<<8) | p[3];
-			e += ((a<<5) | (a>>27)) + wp[0];
-			e += 0x5a827999 + (((c^d)&b)^d);
-			b = (b<<30)|(b>>2);
+#define STEP(a,b,c,d,e,f,i) \
+	if(i < 16) {\
+		w[i] = p[0]<<24 | p[1]<<16 | p[2]<<8 | p[3]; \
+		p += 4; \
+	} else { \
+		u32int x = w[i-3&15] ^ w[i-8&15] ^ w[i-14&15] ^ w[i-16&15]; \
+		w[i&15] = ROTL(x, 1); \
+	} \
+	e += ROTL(a, 5) + w[i&15] + f(b,c,d); \
+	b = ROTL(b, 30);
 
-			wp[1] = (p[4]<<24) | (p[5]<<16) | (p[6]<<8) | p[7];
-			d += ((e<<5) | (e>>27)) + wp[1];
-			d += 0x5a827999 + (((b^c)&a)^c);
-			a = (a<<30)|(a>>2);
+		STEP(a,b,c,d,e,F0,0);
+		STEP(e,a,b,c,d,F0,1);
+		STEP(d,e,a,b,c,F0,2);
+		STEP(c,d,e,a,b,F0,3);
+		STEP(b,c,d,e,a,F0,4);
+	
+		STEP(a,b,c,d,e,F0,5);
+		STEP(e,a,b,c,d,F0,6);
+		STEP(d,e,a,b,c,F0,7);
+		STEP(c,d,e,a,b,F0,8);
+		STEP(b,c,d,e,a,F0,9);
+	
+		STEP(a,b,c,d,e,F0,10);
+		STEP(e,a,b,c,d,F0,11);
+		STEP(d,e,a,b,c,F0,12);
+		STEP(c,d,e,a,b,F0,13);
+		STEP(b,c,d,e,a,F0,14);
+	
+		STEP(a,b,c,d,e,F0,15);
+		STEP(e,a,b,c,d,F0,16);
+		STEP(d,e,a,b,c,F0,17);
+		STEP(c,d,e,a,b,F0,18);
+		STEP(b,c,d,e,a,F0,19);
+	
+		STEP(a,b,c,d,e,F1,20);
+		STEP(e,a,b,c,d,F1,21);
+		STEP(d,e,a,b,c,F1,22);
+		STEP(c,d,e,a,b,F1,23);
+		STEP(b,c,d,e,a,F1,24);
+	
+		STEP(a,b,c,d,e,F1,25);
+		STEP(e,a,b,c,d,F1,26);
+		STEP(d,e,a,b,c,F1,27);
+		STEP(c,d,e,a,b,F1,28);
+		STEP(b,c,d,e,a,F1,29);
+	
+		STEP(a,b,c,d,e,F1,30);
+		STEP(e,a,b,c,d,F1,31);
+		STEP(d,e,a,b,c,F1,32);
+		STEP(c,d,e,a,b,F1,33);
+		STEP(b,c,d,e,a,F1,34);
+	
+		STEP(a,b,c,d,e,F1,35);
+		STEP(e,a,b,c,d,F1,36);
+		STEP(d,e,a,b,c,F1,37);
+		STEP(c,d,e,a,b,F1,38);
+		STEP(b,c,d,e,a,F1,39);
+	
+		STEP(a,b,c,d,e,F2,40);
+		STEP(e,a,b,c,d,F2,41);
+		STEP(d,e,a,b,c,F2,42);
+		STEP(c,d,e,a,b,F2,43);
+		STEP(b,c,d,e,a,F2,44);
+	
+		STEP(a,b,c,d,e,F2,45);
+		STEP(e,a,b,c,d,F2,46);
+		STEP(d,e,a,b,c,F2,47);
+		STEP(c,d,e,a,b,F2,48);
+		STEP(b,c,d,e,a,F2,49);
+	
+		STEP(a,b,c,d,e,F2,50);
+		STEP(e,a,b,c,d,F2,51);
+		STEP(d,e,a,b,c,F2,52);
+		STEP(c,d,e,a,b,F2,53);
+		STEP(b,c,d,e,a,F2,54);
+	
+		STEP(a,b,c,d,e,F2,55);
+		STEP(e,a,b,c,d,F2,56);
+		STEP(d,e,a,b,c,F2,57);
+		STEP(c,d,e,a,b,F2,58);
+		STEP(b,c,d,e,a,F2,59);
+	
+		STEP(a,b,c,d,e,F3,60);
+		STEP(e,a,b,c,d,F3,61);
+		STEP(d,e,a,b,c,F3,62);
+		STEP(c,d,e,a,b,F3,63);
+		STEP(b,c,d,e,a,F3,64);
+	
+		STEP(a,b,c,d,e,F3,65);
+		STEP(e,a,b,c,d,F3,66);
+		STEP(d,e,a,b,c,F3,67);
+		STEP(c,d,e,a,b,F3,68);
+		STEP(b,c,d,e,a,F3,69);
+	
+		STEP(a,b,c,d,e,F3,70);
+		STEP(e,a,b,c,d,F3,71);
+		STEP(d,e,a,b,c,F3,72);
+		STEP(c,d,e,a,b,F3,73);
+		STEP(b,c,d,e,a,F3,74);
+	
+		STEP(a,b,c,d,e,F3,75);
+		STEP(e,a,b,c,d,F3,76);
+		STEP(d,e,a,b,c,F3,77);
+		STEP(c,d,e,a,b,F3,78);
+		STEP(b,c,d,e,a,F3,79);
 
-			wp[2] = (p[8]<<24) | (p[9]<<16) | (p[10]<<8) | p[11];
-			c += ((d<<5) | (d>>27)) + wp[2];
-			c += 0x5a827999 + (((a^b)&e)^b);
-			e = (e<<30)|(e>>2);
-
-			wp[3] = (p[12]<<24) | (p[13]<<16) | (p[14]<<8) | p[15];
-			b += ((c<<5) | (c>>27)) + wp[3];
-			b += 0x5a827999 + (((e^a)&d)^a);
-			d = (d<<30)|(d>>2);
-
-			wp[4] = (p[16]<<24) | (p[17]<<16) | (p[18]<<8) | p[19];
-			a += ((b<<5) | (b>>27)) + wp[4];
-			a += 0x5a827999 + (((d^e)&c)^e);
-			c = (c<<30)|(c>>2);
-			
-			p += 20;
-		}
-
-		wp[0] = (p[0]<<24) | (p[1]<<16) | (p[2]<<8) | p[3];
-		e += ((a<<5) | (a>>27)) + wp[0];
-		e += 0x5a827999 + (((c^d)&b)^d);
-		b = (b<<30)|(b>>2);
-
-		x = wp[-2] ^ wp[-7] ^ wp[-13] ^ wp[-15];
-		wp[1] = (x<<1) | (x>>31);
-		d += ((e<<5) | (e>>27)) + wp[1];
-		d += 0x5a827999 + (((b^c)&a)^c);
-		a = (a<<30)|(a>>2);
-
-		x = wp[-1] ^ wp[-6] ^ wp[-12] ^ wp[-14];
-		wp[2] = (x<<1) | (x>>31);
-		c += ((d<<5) | (d>>27)) + wp[2];
-		c += 0x5a827999 + (((a^b)&e)^b);
-		e = (e<<30)|(e>>2);
-
-		x = wp[0] ^ wp[-5] ^ wp[-11] ^ wp[-13];
-		wp[3] = (x<<1) | (x>>31);
-		b += ((c<<5) | (c>>27)) + wp[3];
-		b += 0x5a827999 + (((e^a)&d)^a);
-		d = (d<<30)|(d>>2);
-
-		x = wp[1] ^ wp[-4] ^ wp[-10] ^ wp[-12];
-		wp[4] = (x<<1) | (x>>31);
-		a += ((b<<5) | (b>>27)) + wp[4];
-		a += 0x5a827999 + (((d^e)&c)^e);
-		c = (c<<30)|(c>>2);
-
-		wp += 5;
-		p += 4;
-
-		wend = w + 40;
-		for(; wp < wend; wp += 5){
-			x = wp[-3] ^ wp[-8] ^ wp[-14] ^ wp[-16];
-			wp[0] = (x<<1) | (x>>31);
-			e += ((a<<5) | (a>>27)) + wp[0];
-			e += 0x6ed9eba1 + (b^c^d);
-			b = (b<<30)|(b>>2);
-
-			x = wp[-2] ^ wp[-7] ^ wp[-13] ^ wp[-15];
-			wp[1] = (x<<1) | (x>>31);
-			d += ((e<<5) | (e>>27)) + wp[1];
-			d += 0x6ed9eba1 + (a^b^c);
-			a = (a<<30)|(a>>2);
-
-			x = wp[-1] ^ wp[-6] ^ wp[-12] ^ wp[-14];
-			wp[2] = (x<<1) | (x>>31);
-			c += ((d<<5) | (d>>27)) + wp[2];
-			c += 0x6ed9eba1 + (e^a^b);
-			e = (e<<30)|(e>>2);
-
-			x = wp[0] ^ wp[-5] ^ wp[-11] ^ wp[-13];
-			wp[3] = (x<<1) | (x>>31);
-			b += ((c<<5) | (c>>27)) + wp[3];
-			b += 0x6ed9eba1 + (d^e^a);
-			d = (d<<30)|(d>>2);
-
-			x = wp[1] ^ wp[-4] ^ wp[-10] ^ wp[-12];
-			wp[4] = (x<<1) | (x>>31);
-			a += ((b<<5) | (b>>27)) + wp[4];
-			a += 0x6ed9eba1 + (c^d^e);
-			c = (c<<30)|(c>>2);
-		}
-
-		wend = w + 60;
-		for(; wp < wend; wp += 5){
-			x = wp[-3] ^ wp[-8] ^ wp[-14] ^ wp[-16];
-			wp[0] = (x<<1) | (x>>31);
-			e += ((a<<5) | (a>>27)) + wp[0];
-			e += 0x8f1bbcdc + ((b&c)|((b|c)&d));
-			b = (b<<30)|(b>>2);
-
-			x = wp[-2] ^ wp[-7] ^ wp[-13] ^ wp[-15];
-			wp[1] = (x<<1) | (x>>31);
-			d += ((e<<5) | (e>>27)) + wp[1];
-			d += 0x8f1bbcdc + ((a&b)|((a|b)&c));
-			a = (a<<30)|(a>>2);
-
-			x = wp[-1] ^ wp[-6] ^ wp[-12] ^ wp[-14];
-			wp[2] = (x<<1) | (x>>31);
-			c += ((d<<5) | (d>>27)) + wp[2];
-			c += 0x8f1bbcdc + ((e&a)|((e|a)&b));
-			e = (e<<30)|(e>>2);
-
-			x = wp[0] ^ wp[-5] ^ wp[-11] ^ wp[-13];
-			wp[3] = (x<<1) | (x>>31);
-			b += ((c<<5) | (c>>27)) + wp[3];
-			b += 0x8f1bbcdc + ((d&e)|((d|e)&a));
-			d = (d<<30)|(d>>2);
-
-			x = wp[1] ^ wp[-4] ^ wp[-10] ^ wp[-12];
-			wp[4] = (x<<1) | (x>>31);
-			a += ((b<<5) | (b>>27)) + wp[4];
-			a += 0x8f1bbcdc + ((c&d)|((c|d)&e));
-			c = (c<<30)|(c>>2);
-		}
-
-		wend = w + 80;
-		for(; wp < wend; wp += 5){
-			x = wp[-3] ^ wp[-8] ^ wp[-14] ^ wp[-16];
-			wp[0] = (x<<1) | (x>>31);
-			e += ((a<<5) | (a>>27)) + wp[0];
-			e += 0xca62c1d6 + (b^c^d);
-			b = (b<<30)|(b>>2);
-
-			x = wp[-2] ^ wp[-7] ^ wp[-13] ^ wp[-15];
-			wp[1] = (x<<1) | (x>>31);
-			d += ((e<<5) | (e>>27)) + wp[1];
-			d += 0xca62c1d6 + (a^b^c);
-			a = (a<<30)|(a>>2);
-
-			x = wp[-1] ^ wp[-6] ^ wp[-12] ^ wp[-14];
-			wp[2] = (x<<1) | (x>>31);
-			c += ((d<<5) | (d>>27)) + wp[2];
-			c += 0xca62c1d6 + (e^a^b);
-			e = (e<<30)|(e>>2);
-
-			x = wp[0] ^ wp[-5] ^ wp[-11] ^ wp[-13];
-			wp[3] = (x<<1) | (x>>31);
-			b += ((c<<5) | (c>>27)) + wp[3];
-			b += 0xca62c1d6 + (d^e^a);
-			d = (d<<30)|(d>>2);
-
-			x = wp[1] ^ wp[-4] ^ wp[-10] ^ wp[-12];
-			wp[4] = (x<<1) | (x>>31);
-			a += ((b<<5) | (b>>27)) + wp[4];
-			a += 0xca62c1d6 + (c^d^e);
-			c = (c<<30)|(c>>2);
-		}
-
-		/* save state */
 		s[0] += a;
 		s[1] += b;
 		s[2] += c;
