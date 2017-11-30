@@ -4,8 +4,8 @@
  *   note: the following upper and lower case macro names are distinct
  *	   and reflect the functions defined in FIPS pub. 180-2.
  */
-#include <u.h>
-#include <libc.h>
+
+#include "os.h"
 
 #define ROTR(x,n)	(((x) >> (n)) | ((x) << (64-(n))))
 #define sigma0(x)	(ROTR((x),1) ^ ROTR((x),8) ^ ((x) >> 7))

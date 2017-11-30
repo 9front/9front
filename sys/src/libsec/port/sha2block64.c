@@ -5,8 +5,7 @@
  *	   and reflect the functions defined in FIPS pub. 180-2.
  */
 
-#include <u.h>
-#include <libc.h>
+#include "os.h"
 
 #define ROTR(x,n)	(((x) >> (n)) | ((x) << (32-(n))))
 #define sigma0(x)	(ROTR((x),7) ^ ROTR((x),18) ^ ((x) >> 3))
