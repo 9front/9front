@@ -8,22 +8,11 @@
 
 char pic[] = "/lib/bunny.bit";
 
-int vgactl;
 int debug;
 int doblank;
 int chatty = 0;
 
 char user[256];
-
-void
-blankscreen(int blank)
-{
-	if(vgactl < 0)
-		return;
-	seek(vgactl, 0, 0);
-	if(fprint(vgactl, blank? "blank": "unblank") < 0)
-		fprint(2, "blankscreen: can't blank: %r\n");
-}
 
 void
 error(char *fmt, ...)
@@ -122,7 +111,6 @@ checkpassword(void)
 			fprint(2, "%s's screenlock password: ", user);
 		memset(buf, 0, sizeof buf);
 		readline(buf, sizeof buf);
-		blankscreen(0);
 		if(chatty || !must)
 			fprint(2, "\n");
 		if(buf[0] == '\0' || buf[0] == '\04'){
@@ -142,14 +130,16 @@ checkpassword(void)
 		doblank = 1;
 	}
 	memset(buf, 0, sizeof buf);
-	blankscreen(0);
 }
 
 void
 blanker(void *)
 {
-	int tics;
+	int fd, tics;
 
+	fd = open("/dev/mousectl", OWRITE);
+	if(fd < 0)
+		return;
 	tics = 0;
 	for(;;){
 		if(doblank > 0){
@@ -157,7 +147,7 @@ blanker(void *)
 			tics = 10;
 		}
 		if(tics > 0 && --tics == 0)
-			blankscreen(1);
+			write(fd, "blank", 5);
 		sleep(1000);
 	}
 }
@@ -268,10 +258,6 @@ void
 threadmain(int argc, char *argv[])
 {
 	readfile("#c/user", user, sizeof user, 1);
-
-	if((vgactl = open("/dev/vgactl", OWRITE)) < 0)
-		vgactl = open("#v/vgactl", OWRITE);
-
 	ARGBEGIN{
 	case 'd':
 		debug++;
