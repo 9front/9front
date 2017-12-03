@@ -80,7 +80,7 @@ blanker(void *)
 		return;
 
 	for(;;){
-		if(((ulong)time(0) - (ulong)blank) >= 5){
+		if(blank != 0 && ((ulong)time(0) - (ulong)blank) >= 5){
 			blank = 0;
 			write(fd, "blank", 5);
 		}
@@ -128,8 +128,8 @@ lockscreen(void)
 	buf[sizeof buf-1] = 0;
 	if(tokenize(buf, flds, Nfld) != Nfld)
 		sysfatal("can't tokenize /dev/screen header");
-	snprint(newcmd, sizeof newcmd, "-r %s %s %d %d",
-		flds[1], flds[2], atoi(flds[3]), atoi(flds[4]));
+	snprint(newcmd, sizeof newcmd, "-r %s %s %s %s",
+		flds[1], flds[2], flds[3], flds[4]);
 
 	newwindow(newcmd);
 	if((fd = open("/dev/consctl", OWRITE)) >= 0)
@@ -146,6 +146,7 @@ lockscreen(void)
 
 	if(initdraw(nil, nil, "screenlock") < 0)
 		sysfatal("initdraw failed");
+	screen = _screen->image;	/* fullscreen */
 
 	if((fd = open(pic, OREAD)) >= 0){
 		if((i = readimage(display, fd, 0)) != nil){
