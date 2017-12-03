@@ -76,6 +76,8 @@ is discarded.
 .SH SOURCE
 .B /sys/src/libc/9syscall
 .br
+.B /sys/src/libc/9sys/rerrstr.c
+.br
 .B /sys/src/libc/9sys/werrstr.c
 .SH DIAGNOSTICS
 .I Errstr
