@@ -24,7 +24,7 @@ readline(char *buf, int nbuf)
 	int i;
 
 	i = 0;
-	while(i < nbuf-1)
+	while(i < nbuf-1){
 		if(read(0, &c, 1) != 1 || c == '\04' || c == '\177'){
 			i = 0;
 			break;
@@ -36,6 +36,8 @@ readline(char *buf, int nbuf)
 			i = 0;
 		else
 			buf[i++] = c;
+		blank = time(0);
+	}
 	buf[i] = '\0';
 }
 
@@ -62,8 +64,6 @@ checkpassword(void)
 			break;
 
 		auth_freeAI(ai);
-		blank = time(0);
-
 		border(screen, screen->r, 8, display->black, ZP);
 		flushimage(display, 1);
 	}
