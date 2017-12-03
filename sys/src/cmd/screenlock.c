@@ -7,52 +7,14 @@
 #include <auth.h>
 
 char pic[] = "/lib/bunny.bit";
-
 int debug;
-int doblank;
-int chatty = 0;
-
-char user[256];
-
-void
-error(char *fmt, ...)
-{
-	Fmt f;
-	char buf[64];
-	va_list arg;
-
-	fmtfdinit(&f, 1, buf, sizeof buf);
-	fmtprint(&f, "screenlock: ");
-	va_start(arg, fmt);
-	fmtvprint(&f, fmt, arg);
-	va_end(arg);
-	fmtprint(&f, "\n");
-	fmtfdflush(&f);
-	threadexitsall("fatal error");
-}
+long blank;
 
 void
 usage(void)
 {
-	fprint(2, "usage: %s\n", argv0);
+	fprint(2, "usage: %s [-d]\n", argv0);
 	exits("usage");
-}
-
-
-void
-readfile(char *name, char *buf, int nbuf, int addnul)
-{
-	int fd;
-
-	fd = open(name, OREAD);
-	if(fd == -1)
-		error("%s - can't open: %r", name);
-	nbuf = read(fd, buf, nbuf-addnul);
-	close(fd);
-	if(nbuf == -1)
-		error("%s - can't can't read: %r", name);
-	if(addnul)
-		buf[nbuf] = '\0';
 }
 
 void
@@ -80,74 +42,48 @@ readline(char *buf, int nbuf)
 void
 checkpassword(void)
 {
-	int fd, consctl, must;
 	char buf[256];
 	AuthInfo *ai;
-	static int opened;
-
-	must = 1;
-	if(!opened){
-		fd = open("/dev/cons", OREAD);
-		if(fd == -1)
-			error("can't open cons: %r");
-		dup(fd, 0);
-		close(fd);
-		fd = open("/dev/cons", OWRITE);
-		if(fd == -1)
-			error("can't open cons: %r");
-		dup(fd, 1);
-		dup(1, 2);
-		close(fd);
-		consctl = open("/dev/consctl", OWRITE);
-		if(consctl == -1)
-			error("can't open consctl: %r");
-		if(write(consctl, "rawon", 5) != 5)
-			error("can't turn off echo\n");
-		opened = 1;
-	}
 
 	for(;;){
-		if(chatty || !must)
-			fprint(2, "%s's screenlock password: ", user);
 		memset(buf, 0, sizeof buf);
 		readline(buf, sizeof buf);
-		if(chatty || !must)
-			fprint(2, "\n");
-		if(buf[0] == '\0' || buf[0] == '\04'){
-			if(must)
-				continue;
-			error("no password typed");
-		}
+
+		border(screen, screen->r, 8, display->white, ZP);
+		flushimage(display, 1);
 
 		/* authenticate */
-		ai = auth_userpasswd(user, buf);
+		ai = auth_userpasswd(getuser(), buf);
 		if(ai != nil && ai->cap != nil)
 			break;
-		auth_freeAI(ai);
 
-		if(chatty || !must)
-			fprint(2, "password mismatch\n");
-		doblank = 1;
+		rerrstr(buf, sizeof buf);
+		if(strncmp(buf, "needkey ", 8) == 0)
+			break;
+
+		auth_freeAI(ai);
+		blank = time(0);
+
+		border(screen, screen->r, 8, display->black, ZP);
+		flushimage(display, 1);
 	}
+	auth_freeAI(ai);
 	memset(buf, 0, sizeof buf);
 }
 
 void
 blanker(void *)
 {
-	int fd, tics;
+	int fd;
 
-	fd = open("/dev/mousectl", OWRITE);
-	if(fd < 0)
+	if((fd = open("/dev/mousectl", OWRITE)) < 0)
 		return;
-	tics = 0;
+
 	for(;;){
-		if(doblank > 0){
-			doblank = 0;
-			tics = 10;
-		}
-		if(tics > 0 && --tics == 0)
+		if(((ulong)time(0) - (ulong)blank) >= 5){
+			blank = 0;
 			write(fd, "blank", 5);
+		}
 		sleep(1000);
 	}
 }
@@ -155,37 +91,21 @@ blanker(void *)
 void
 grabmouse(void*)
 {
-	int fd, x, y;
 	char ibuf[256], obuf[256];
+	int fd;
 
-	if(debug)
-		return;
-	fd = open("/dev/mouse", ORDWR);
-	if(fd < 0)
-		error("can't open /dev/mouse: %r");
+	if((fd = open("/dev/mouse", ORDWR)) < 0)
+		sysfatal("can't open /dev/mouse: %r");
 
 	snprint(obuf, sizeof obuf, "m %d %d",
 		screen->r.min.x + Dx(screen->r)/2,
 		screen->r.min.y + Dy(screen->r)/2);
-	while(read(fd, ibuf, sizeof ibuf) > 0){
-		ibuf[12] = 0;
-		ibuf[24] = 0;
-		x = atoi(ibuf+1);
-		y = atoi(ibuf+13);
-		if(x != screen->r.min.x + Dx(screen->r)/2 ||
-		   y != screen->r.min.y + Dy(screen->r)/2){
-			fprint(fd, "%s", obuf);
-			doblank = 1;
-		}
-	}
-}
 
-/* lay down text at `p' */
-static void
-screenstring(Point p, char *s)
-{
-	string(screen, p, screen->display->white, ZP, font, s);
-	flushimage(display, 1);
+	while(read(fd, ibuf, sizeof ibuf) > 0){
+		if(!debug)
+			fprint(fd, "%s", obuf);
+		blank = time(0);
+	}
 }
 
 void
@@ -200,30 +120,35 @@ lockscreen(void)
 	Rectangle r;
 	Tm *tm;
 
-	fd = open("/dev/screen", OREAD);
-	if(fd < 0)
-		error("can't open /dev/screen: %r");
+	if((fd = open("/dev/screen", OREAD)) < 0)
+		sysfatal("can't open /dev/screen: %r");
 	if(read(fd, buf, Nfld*Fldlen) != Nfld*Fldlen)
-		error("can't read /dev/screen: %r");
+		sysfatal("can't read /dev/screen: %r");
 	close(fd);
 	buf[sizeof buf-1] = 0;
 	if(tokenize(buf, flds, Nfld) != Nfld)
-		error("can't tokenize /dev/screen header");
+		sysfatal("can't tokenize /dev/screen header");
 	snprint(newcmd, sizeof newcmd, "-r %s %s %d %d",
-		flds[1], flds[2], atoi(flds[3]) - 1, atoi(flds[4]) - 1);
-	newwindow(newcmd);
-	if (initdraw(nil, nil, "screenlock") < 0)
-		sysfatal("initdraw failed");
-	if(display == nil)
-		error("no display");
+		flds[1], flds[2], atoi(flds[3]), atoi(flds[4]));
 
-	/* screen is now open and covered.  grab mouse and hold on tight */
-	procrfork(grabmouse, nil, 4096, RFFDG);
-	procrfork(blanker, nil, 4096, RFFDG);
-	fd = open(pic, OREAD);
-	if(fd > 0){
-		i = readimage(display, fd, 0);
-		if(i){
+	newwindow(newcmd);
+	if((fd = open("/dev/consctl", OWRITE)) >= 0)
+		write(fd, "rawon", 5);
+
+	if((fd = open("/dev/cons", OREAD)) < 0)
+		sysfatal("can't open cons: %r");
+	dup(fd, 0);
+
+	if((fd = open("/dev/cons", OWRITE)) < 0)
+		sysfatal("can't open cons: %r");
+	dup(fd, 1);
+	dup(fd, 2);
+
+	if(initdraw(nil, nil, "screenlock") < 0)
+		sysfatal("initdraw failed");
+
+	if((fd = open(pic, OREAD)) >= 0){
+		if((i = readimage(display, fd, 0)) != nil){
  			r = screen->r;
 			p = Pt(r.max.x / 2, r.max.y * 2 / 3); 
 			dx = (Dx(screen->r) - Dx(i->r)) / 2;
@@ -234,20 +159,23 @@ lockscreen(void)
 			r.max.y -= dy;
 			draw(screen, screen->r, display->black, nil, ZP);
 			draw(screen, r, i, nil, i->r.min);
-			flushimage(display, 1);
 		}
 		close(fd);
 
 		/* identify the user on screen, centered */
-		tm = localtime(time(0));
+		tm = localtime(time(&blank));
 		s = smprint("user %s at %d:%02.2d", getuser(), tm->hour, tm->min);
 		p = subpt(p, Pt(stringwidth(font, "m") * strlen(s) / 2, 0));
-		screenstring(p, s);
+		string(screen, p, screen->display->white, ZP, font, s);
 	}
+	flushimage(display, 1);
+
+	/* screen is now open and covered.  grab mouse and hold on tight */
+	procrfork(grabmouse, nil, 8*1024, RFFDG);
+	procrfork(blanker, nil, 8*1024, RFFDG);
 
 	/* clear the cursor */
-	fd = open("/dev/cursor", OWRITE);
-	if(fd > 0){
+	if((fd = open("/dev/cursor", OWRITE)) >= 0){
 		memset(cbuf, 0, sizeof cbuf);
 		write(fd, cbuf, sizeof cbuf);
 		/* leave it open */
@@ -257,7 +185,6 @@ lockscreen(void)
 void
 threadmain(int argc, char *argv[])
 {
-	readfile("#c/user", user, sizeof user, 1);
 	ARGBEGIN{
 	case 'd':
 		debug++;
@@ -269,7 +196,6 @@ threadmain(int argc, char *argv[])
 	if(argc != 0)
 		usage();
 
-	doblank = 1;
 	lockscreen();
 	checkpassword();
 	threadexitsall(nil);
