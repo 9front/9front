@@ -111,8 +111,8 @@ startfactotum(char *user, char *password, char *srvname)
 	fd = open("/mnt/factotum/ctl", ORDWR);
 	if(fd < 0)
 		sysfatal("opening factotum: %r");
-	fprint(fd, "key proto=dp9ik dom=%s user=%q !password=%q\n", getauthdom(), user, password);
-	fprint(fd, "key proto=p9sk1 dom=%s user=%q !password=%q\n", getauthdom(), user, password);
+	fprint(fd, "key proto=dp9ik dom=%q user=%q !password=%q\n", getauthdom(), user, password);
+	fprint(fd, "key proto=p9sk1 dom=%q user=%q !password=%q\n", getauthdom(), user, password);
 	close(fd);
 }
 
@@ -131,6 +131,8 @@ main(int argc, char *argv[])
 	char srvname[2*ANAMELEN];
 	char *user, *pass, *sysname, *tz, *cputype, *service;
 	AuthInfo *ai;
+
+	quotefmtinstall();
 
 	ARGBEGIN{
 	case 'a':
