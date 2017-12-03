@@ -91,8 +91,8 @@ blanker(void *)
 void
 grabmouse(void*)
 {
+	int fd, x, y;
 	char ibuf[256], obuf[256];
-	int fd;
 
 	if((fd = open("/dev/mouse", ORDWR)) < 0)
 		sysfatal("can't open /dev/mouse: %r");
@@ -102,9 +102,16 @@ grabmouse(void*)
 		screen->r.min.y + Dy(screen->r)/2);
 
 	while(read(fd, ibuf, sizeof ibuf) > 0){
-		if(!debug)
-			fprint(fd, "%s", obuf);
-		blank = time(0);
+		ibuf[12] = 0;
+		ibuf[24] = 0;
+		x = atoi(ibuf+1);
+		y = atoi(ibuf+13);
+		if(x != screen->r.min.x + Dx(screen->r)/2 ||
+		   y != screen->r.min.y + Dy(screen->r)/2){
+			if(!debug)
+				fprint(fd, "%s", obuf);
+			blank = time(0);
+		}
 	}
 }
 
