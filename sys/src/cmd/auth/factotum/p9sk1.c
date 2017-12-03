@@ -19,6 +19,10 @@
  *	 write tickreq[tickreqlen]		(p9sk1 only)
  *	read ticket + authenticator
  *	write authenticator
+ *
+ * Login protocol:
+ *	write user
+ *	write password
  */
 
 #include "dat.h"
@@ -55,6 +59,10 @@ enum
 	 SHaveTreq,	/* p9sk1 only */
 	SNeedTicket,
 	SHaveAuth,
+
+	/* login phases */
+	SNeedUser,
+	SNeedPass,
 	
 	Maxphase,
 };
@@ -74,9 +82,12 @@ static char *phasenames[Maxphase] =
 [SHaveTreq]		"SHaveTreq",
 [SNeedTicket]		"SNeedTicket",
 [SHaveAuth]		"SHaveAuth",
+
+[SNeedUser]		"SNeedUser",
+[SNeedPass]		"SNeedPass",
 };
 
-static int gettickets(State*, Ticketreq*, uchar*, char*, int);
+static int gettickets(State*, uchar*, char*, int);
 
 static int
 p9skinit(Proto *p, Fsstate *fss)
@@ -86,8 +97,12 @@ p9skinit(Proto *p, Fsstate *fss)
 	Key *k;
 	Keyinfo ki;
 	Attr *attr;
+	char *role;
 
-	if((iscli = isclient(_strfindattr(fss->attr, "role"))) < 0)
+	role = _strfindattr(fss->attr, "role");
+	if(role != nil && strcmp(role, "login") == 0)
+		iscli = 0;
+	else if((iscli = isclient(role)) < 0)
 		return failure(fss, nil);
 
 	s = emalloc(sizeof *s);
@@ -99,8 +114,13 @@ p9skinit(Proto *p, Fsstate *fss)
 		fss->phase = CHaveChal;
 		genrandom((uchar*)s->cchal, CHALLEN);
 	}else{
+		fss->phase = SNeedChal;
 		s->tr.type = AuthTreq;
 		attr = setattr(_copyattr(fss->attr), "proto=%q", p->name);
+		if(strcmp(role, "login") == 0){
+			attr = setattr(attr, "role=server");
+			fss->phase = SNeedUser;
+		}
 		mkkeyinfo(&ki, fss, attr);
 		ki.user = nil;
 		ret = findkey(&k, &ki, "user? dom?");
@@ -114,7 +134,6 @@ p9skinit(Proto *p, Fsstate *fss)
 		s->key = k;
 		memmove(&s->k, k->priv, sizeof(Authkey));
 		genrandom((uchar*)s->tr.chal, sizeof s->tr.chal);
-		fss->phase = SNeedChal;
 	}
 	s->tbuflen = 0;
 	s->secret = nil;
@@ -317,10 +336,11 @@ p9skwrite(Fsstate *fss, void *a, uint n)
 			safecpy(s->tr.uid, s->tr.hostid, sizeof s->tr.uid);
 
 		/* get tickets from authserver or invent if we can */
+		memmove(&s->k, s->key->priv, sizeof(Authkey));
 		if(fss->phase == CNeedPAKreq)
-			ret = gettickets(s, &s->tr, (uchar*)a + m, tbuf, sizeof(tbuf));
+			ret = gettickets(s, (uchar*)a + m, tbuf, sizeof(tbuf));
 		else
-			ret = gettickets(s, &s->tr, nil, tbuf, sizeof(tbuf));
+			ret = gettickets(s, nil, tbuf, sizeof(tbuf));
 		if(ret <= 0){
 			_freeattr(attr);
 			return failure(fss, nil);
@@ -397,6 +417,73 @@ p9skwrite(Fsstate *fss, void *a, uint n)
 		|| tsmemcmp(auth.chal, s->cchal, CHALLEN) != 0)
 			return failure(fss, Easproto);
 		memmove(s->rand+NONCELEN, auth.rand, NONCELEN);
+		return establish(fss);
+
+	case SNeedUser:
+		if(n >= sizeof(s->tr.hostid))
+			return failure(fss, "user id too long");
+		strncpy(s->tr.hostid, a, n);
+		s->tr.hostid[n] = 0;
+		strncpy(s->tr.uid, a, n);
+		s->tr.uid[n] = 0;
+		fss->phase = SNeedPass;
+		return RpcOk;
+
+	case SNeedPass:
+		{
+			Authkey ks;
+			uchar tk[NONCELEN];
+			char pass[PASSWDLEN];
+
+			if(n >= sizeof(pass))
+				return failure(fss, "password too long");
+
+			/* save server key */
+			memmove(&ks, &s->k, sizeof(ks));
+
+			/* derive client key */
+			strncpy(pass, a, n);
+			pass[n] = 0;
+			passtokey(&s->k, pass);
+			memset(pass, 0, sizeof(pass));
+
+			if(fss->proto == &dp9ik){
+				uchar ys[PAKYLEN];
+				PAKpriv ps;
+
+				authpak_hash(&s->k, s->tr.hostid);
+
+				authpak_new(&ps, &ks, ys, 1);
+				ret = gettickets(s, ys, tbuf, sizeof(tbuf));
+				if(ret > 0 && authpak_finish(&ps, &ks, s->y))
+					return failure(fss, Easproto);
+			} else {
+				ret = gettickets(s, nil, tbuf, sizeof(tbuf));
+			}
+			if(ret <= 0)
+				return failure(fss, nil);
+
+			/* verify client ticket */
+			m = convM2T(tbuf, ret, &s->t, &s->k);
+			if(m <= 0 || (fss->proto == &dp9ik && s->t.form == 0))
+				return failure(fss, Easproto);
+			if(s->t.num != AuthTc || tsmemcmp(s->t.chal, s->tr.chal, CHALLEN) != 0)
+				return failure(fss, Ebadkey);
+			memmove(tk, s->t.key, sizeof(tk));
+
+			/* restore sever key */
+			memmove(&s->k, &ks, sizeof(ks));
+
+			/* verify server ticket */
+			m = convM2T(tbuf+m, ret-m, &s->t, &s->k);
+			if(m <= 0 || (fss->proto == &dp9ik && s->t.form == 0))
+				return failure(fss, Easproto);
+			if(s->t.num != AuthTs || tsmemcmp(s->t.chal, s->tr.chal, CHALLEN) != 0
+			|| tsmemcmp(tk, s->t.key, sizeof(tk)) != 0)
+				return failure(fss, Ebadkey);
+
+		}
+		genrandom(s->rand, 2*NONCELEN);
 		return establish(fss);
 	}
 }
@@ -530,9 +617,10 @@ mkservertickets(State *s, uchar *y, char *tbuf, int tbuflen)
 }
 
 static int
-getastickets(State *s, Ticketreq *tr, uchar *y, char *tbuf, int tbuflen)
+getastickets(State *s, uchar *y, char *tbuf, int tbuflen)
 {
-	int asfd, rv;
+	Ticketreq *tr = &s->tr;
+ 	int asfd, rv;
 	char *dom;
 
 	if((dom = _strfindattr(s->key->attr, "dom")) == nil){
@@ -569,19 +657,18 @@ Out:
 }
 
 static int
-gettickets(State *s, Ticketreq *tr, uchar *y, char *tbuf, int tbuflen)
+gettickets(State *s, uchar *y, char *tbuf, int tbuflen)
 {
 	int ret;
 
-	if(tr->authdom[0] == 0
-	|| tr->authid[0] == 0
-	|| tr->hostid[0] == 0
-	|| tr->uid[0] == 0){
+	if(s->tr.authdom[0] == 0
+	|| s->tr.authid[0] == 0
+	|| s->tr.hostid[0] == 0
+	|| s->tr.uid[0] == 0){
 		werrstr("bad ticket request");
 		return -1;
 	}
-	memmove(&s->k, s->key->priv, sizeof(Authkey));
-	ret = getastickets(s, tr, y, tbuf, tbuflen);
+	ret = getastickets(s, y, tbuf, tbuflen);
 	if(ret > 0)
 		return ret;
 	return mkservertickets(s, y, tbuf, tbuflen);
