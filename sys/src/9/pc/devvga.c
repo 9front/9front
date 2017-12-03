@@ -212,11 +212,13 @@ vgaread(Chan* c, void* a, long n, vlong off)
 }
 
 static char Ebusy[] = "vga already configured";
+static char Enoscreen[] = "set the screen size first";
 
 static void
 vgactl(Cmdbuf *cb)
 {
 	int align, i, size, x, y, z;
+	Rectangle r;
 	char *chanstr, *p;
 	ulong chan;
 	Cmdtab *ct;
@@ -229,8 +231,7 @@ vgactl(Cmdbuf *cb)
 	switch(ct->index){
 	case CMhwgc:
 		if(scr->gscreen == nil)
-			error("hwgc: no gscreen");
-
+			error(Enoscreen);
 		if(strcmp(cb->f[1], "off") == 0){
 			lock(&cursor);
 			if(scr->cur){
@@ -305,26 +306,19 @@ vgactl(Cmdbuf *cb)
 
 	case CMsize:
 		x = strtoul(cb->f[1], &p, 0);
-		if(x == 0 || x > 10240)
-			error(Ebadarg);
 		if(*p)
 			p++;
-
 		y = strtoul(p, &p, 0);
-		if(y == 0 || y > 10240)
-			error(Ebadarg);
 		if(*p)
 			p++;
-
 		z = strtoul(p, &p, 0);
-
+		if(badrect(Rect(0,0,x,y)))
+			error(Ebadarg);
 		chanstr = cb->f[2];
 		if((chan = strtochan(chanstr)) == 0)
 			error("bad channel");
-
 		if(chantodepth(chan) != z)
 			error("depth, channel do not match");
-
 		cursoroff();
 		deletescreenimage();
 		if(screensize(x, y, z, chan))
@@ -334,30 +328,25 @@ vgactl(Cmdbuf *cb)
 
 	case CMactualsize:
 		if(scr->gscreen == nil)
-			error("set the screen size first");
-
+			error(Enoscreen);
 		x = strtoul(cb->f[1], &p, 0);
-		if(x == 0 || x > 2048)
-			error(Ebadarg);
 		if(*p)
 			p++;
-
 		y = strtoul(p, nil, 0);
-		if(y == 0 || y > 2048)
+		r = Rect(0,0,x,y);
+		if(badrect(r))
 			error(Ebadarg);
-
-		if(x > scr->gscreen->r.max.x || y > scr->gscreen->r.max.y)
+		if(!rectinrect(r, scr->gscreen->r))
 			error("physical screen bigger than virtual");
-
-		physgscreenr = Rect(0,0,x,y);
-		scr->gscreen->clipr = physgscreenr;
-		return;
+		cursoroff();
+		deletescreenimage();
+		physgscreenr = r;
+		goto Resized;
 	
 	case CMpalettedepth:
 		x = strtoul(cb->f[1], &p, 0);
 		if(x != 8 && x != 6)
 			error(Ebadarg);
-
 		scr->palettedepth = x;
 		return;
 
@@ -370,6 +359,7 @@ vgactl(Cmdbuf *cb)
 			break;
 		if(scr->gscreen == nil)
 			return;
+		r = physgscreenr;
 		x = scr->gscreen->r.max.x;
 		y = scr->gscreen->r.max.y;
 		z = scr->gscreen->depth;
@@ -378,14 +368,17 @@ vgactl(Cmdbuf *cb)
 		deletescreenimage();
 		if(screensize(x, y, z, chan))
 			error(Egreg);
+		physgscreenr = r;
 		/* no break */
 	case CMdrawinit:
 		if(scr->gscreen == nil)
-			error("drawinit: no gscreen");
+			error(Enoscreen);
 		if(scr->dev && scr->dev->drawinit)
 			scr->dev->drawinit(scr);
 		hwblank = scr->blank != nil;
 		hwaccel = scr->fill != nil || scr->scroll != nil;
+	Resized:
+		scr->gscreen->clipr = panning ? scr->gscreen->r : physgscreenr;
 		vgascreenwin(scr);
 		resetscreenimage();
 		cursoron();
@@ -405,19 +398,21 @@ vgactl(Cmdbuf *cb)
 
 	case CMpanning:
 		if(strcmp(cb->f[1], "on") == 0){
-			if(scr == nil || scr->cur == nil)
-				error("set screen first");
+			if(scr->cur == nil)
+				error("set cursor first");
 			if(!scr->cur->doespanning)
 				error("panning not supported");
-			scr->gscreen->clipr = scr->gscreen->r;
 			panning = 1;
 		}
 		else if(strcmp(cb->f[1], "off") == 0){
-			scr->gscreen->clipr = physgscreenr;
 			panning = 0;
 		}else
 			break;
-		return;
+		if(scr->gscreen == nil)
+			return;
+		cursoroff();
+		deletescreenimage();
+		goto Resized;
 
 	case CMhwaccel:
 		if(strcmp(cb->f[1], "on") == 0)

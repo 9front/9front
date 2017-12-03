@@ -193,6 +193,7 @@ vgascreenwin(VGAscr* scr)
 		freememimage(i);
 	}
 
+	r = scr->gscreen->clipr;
 	window = insetrect(r, 20);
 	memimagedraw(scr->gscreen, window, conscol, ZP, memopaque, ZP, S);
 	window = insetrect(window, 4);
