@@ -1,49 +1,36 @@
 #include <u.h>
 #include <libc.h>
 #include <auth.h>
-#include <authsrv.h>
 #include "authlocal.h"
-
-/*
- * compute the proper response.  We encrypt the ascii of
- * challenge number, with trailing binary zero fill.
- * This process was derived empirically.
- * this was copied from inet's guard.
- */
-static void
-netresp(char key[DESKEYLEN], long chal, char *answer)
-{
-	uchar buf[8];
-
-	memset(buf, 0, sizeof buf);
-	snprint((char *)buf, sizeof buf, "%lud", chal);
-	if(encrypt(key, buf, 8) < 0)
-		abort();
-	sprint(answer, "%.8ux", buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3]);
-}
 
 AuthInfo*
 auth_userpasswd(char *user, char *passwd)
 {
-	char resp[16], key[DESKEYLEN];
+	AuthRpc *rpc;
 	AuthInfo *ai;
-	Chalstate *ch;
+	char *s;
+	int afd;
 
-	/*
-	 * Probably we should have a factotum protocol
-	 * to check a raw password.  For now, we use
-	 * p9cr, which is simplest to speak.
-	 */
-	if((ch = auth_challenge("user=%q proto=p9cr role=server", user)) == nil)
+	afd = open("/mnt/factotum/rpc", ORDWR);
+	if(afd < 0)
 		return nil;
-
-	passtodeskey(key, passwd);
-	netresp(key, atol(ch->chal), resp);
-	memset(key, 0, sizeof(key));
-
-	ch->resp = resp;
-	ch->nresp = strlen(resp);
-	ai = auth_response(ch);
-	auth_freechal(ch);
+	ai = nil;
+	rpc = auth_allocrpc(afd);
+	if(rpc == nil)
+		goto Out;
+	s = "proto=dp9ik role=login";
+	if(auth_rpc(rpc, "start", s, strlen(s)) != ARok){
+		s = "proto=p9sk1 role=login";
+		if(auth_rpc(rpc, "start", s, strlen(s)) != ARok)
+			goto Out;
+	}
+	if(auth_rpc(rpc, "write", user, strlen(user)) != ARok
+	|| auth_rpc(rpc, "write", passwd, strlen(passwd)) != ARok)
+		goto Out;
+	ai = auth_getinfo(rpc);
+Out:
+	if(rpc != nil)
+		auth_freerpc(rpc);
+	close(afd);
 	return ai;
 }
