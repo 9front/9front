@@ -713,6 +713,7 @@ enum {
 static uchar*
 readmbr(Disk *disk)
 {
+	int dosparts, protected;
 	uchar *mbr, *magic;
 	Tentry *t;
 	int i;
@@ -722,16 +723,24 @@ readmbr(Disk *disk)
 	if(magic[0] != 0x55 || magic[1] != 0xAA)
 		sysfatal("did not find master boot record");
 
+	dosparts = protected = 0;
 	for(i=0; i<NTentry; i++){
 		t = (Tentry*)&mbr[disk->secsize - 2 - (i+1)*Tentrysiz];
 		switch(t->type){
 		case 0xEE:
+			protected = 1;
 		case 0xEF:
 		case 0x00:
 			continue;
 		}
-		sysfatal("dos partition table in use");
+		dosparts++;
 	}
+
+	if(dosparts && protected && !(printflag || rdonly))
+		sysfatal("potential hybrid MBR/GPT detected, not editing");
+
+	if(dosparts && !protected)
+		sysfatal("dos partition table in use and no protective partition found");
 
 	return mbr;
 }
