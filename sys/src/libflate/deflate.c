@@ -1063,6 +1063,11 @@ mkgzprecode(Huff *tab, ulong *count, int n, int maxbits)
 	}
 	if(bitcount[0] != 0)
 		return 0;
+	if(nbits == 0){
+		bitcount[1] = 1;
+		nbits = 1;
+		tab[0].bits = 1;
+	}
 	return hufftabinit(tab, n, bitcount, nbits);
 }
 
