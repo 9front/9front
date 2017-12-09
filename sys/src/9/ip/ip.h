@@ -644,7 +644,7 @@ extern void	arpenter(Fs*, int version, uchar *ip, uchar *mac, int len, int noref
  * ipaux.c
  */
 
-extern int	myetheraddr(uchar*, char*);
+extern int	parseether(uchar*, char*);
 extern vlong	parseip(uchar*, char*);
 extern vlong	parseipmask(uchar*, char*);
 extern char*	v4parseip(uchar*, char*);

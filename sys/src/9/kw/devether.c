@@ -336,29 +336,6 @@ addethercard(char* t, int (*r)(Ether*))
 	ncard++;
 }
 
-int
-parseether(uchar *to, char *from)
-{
-	char nip[4];
-	char *p;
-	int i;
-
-	p = from;
-	for(i = 0; i < Eaddrlen; i++){
-		if(*p == 0)
-			return -1;
-		nip[0] = *p++;
-		if(*p == 0)
-			return -1;
-		nip[1] = *p++;
-		nip[2] = 0;
-		to[i] = strtoul(nip, 0, 16);
-		if(*p == ':')
-			p++;
-	}
-	return 0;
-}
-
 static void
 etherreset(void)
 {
