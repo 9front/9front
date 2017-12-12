@@ -93,7 +93,7 @@ mkdir -p cron
 mkdir -p dist/plan9front
 mkdir -p lib/audio/icon
 mkdir -p lib/firmware
-mkdir -p lib/ndb
+mkdir -p lib/ndb/dhcp
 mkdir -p lib/tftpd
 mkdir -p mail/box/glenda/mbox
 mkdir -p mail/faxoutqueue
