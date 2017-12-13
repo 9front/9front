@@ -423,14 +423,14 @@ viomacok(VIODev *d, u8int *mac)
 			return (d->net.flags & VNETNOUNI) == 0;
 		if(memcmp(mac, d->net.mac, 6) == 0) return 1;
 		if(d->net.macbloom == 0) return 0;
-		return d->net.macbloom & 1ULL<<bloomhash(mac);
+		return d->net.macbloom >> bloomhash(mac) & 1;
 	}else if(memcmp(mac, bcast, 6) == 0)
 		return (d->net.flags & VNETNOBCAST) == 0;
 	else{
 		if((d->net.flags & (VNETNOMULTI|VNETALLMULTI)) != 0)
 			return (d->net.flags & VNETNOMULTI) == 0;
 		if(d->net.multibloom == 0) return 0;
-		return d->net.multibloom & 1ULL<<bloomhash(mac);
+		return d->net.multibloom >> bloomhash(mac) & 1;
 	}
 }
 
