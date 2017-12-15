@@ -107,5 +107,17 @@ The interface remains promiscuous until the control file is
 closed.
 The extra packets are passed up connections only of types \-1
 and \-2.
+.PP
+Writing packets to the
+.B data
+file automatically fills the
+source address before sending. To allow implementations of
+layer 2 bridges like
+.IR bridge (3),
+connections can be set to bridge mode by writing
+.B bridge
+to the
+.B ctl
+file.
 .SH SOURCE
 .B /sys/src/9/*/devether.c

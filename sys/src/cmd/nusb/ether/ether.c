@@ -306,6 +306,11 @@ writeconndata(Req *r)
 
 	/* copy in the ethernet packet */
 	memmove(b->wp, p, r->ifcall.count);
+
+	/* fill source mac address if not bridged */
+	if(!conn[NUM(r->fid->qid.path)].bridge)
+		memmove(b->wp+6, macaddr, 6);
+
 	b->wp += r->ifcall.count;
 
 	etheriq(b, 0);

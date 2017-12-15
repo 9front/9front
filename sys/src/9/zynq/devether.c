@@ -285,7 +285,8 @@ etherwrite(Chan* chan, void* buf, long n, vlong)
 		nexterror();
 	}
 	memmove(bp->rp, buf, n);
-	memmove(bp->rp+Eaddrlen, ether->ea, Eaddrlen);
+	if(!ether->f[NETID(chan->qid.path)]->bridge)
+		memmove(bp->rp+Eaddrlen, ether->ea, Eaddrlen);
 	poperror();
 	bp->wp += n;
 

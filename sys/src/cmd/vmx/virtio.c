@@ -655,7 +655,10 @@ mkvionet(char *net)
 	}else{
 		fd = dial(netmkaddr("-1", net, nil), nil, nil, &cfd);
 		if(fd < 0) return -1;
-		if(cfd >= 0) fprint(cfd, "promiscuous");
+		if(cfd >= 0) {
+			write(cfd, "promiscuous", 11);
+			write(cfd, "bridge", 6);
+		}
 	}
 	
 	d = mkviodev(0x1000, 0x020000, 1, 3);
