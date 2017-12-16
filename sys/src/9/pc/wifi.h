@@ -2,6 +2,8 @@ typedef struct Wkey Wkey;
 typedef struct Wnode Wnode;
 typedef struct Wifi Wifi;
 typedef struct Wifipkt Wifipkt;
+typedef struct DMAT DMAT;
+typedef struct DMTE DMTE;
 
 enum {
 	Essidlen = 32,
@@ -52,6 +54,19 @@ struct Wnode
 	uchar	brsne[258];
 };
 
+struct DMTE
+{
+	uchar	ip[16];
+	uchar	mac[6];
+	uchar	valid;
+};
+
+struct DMAT
+{
+	DMTE	tab[127];	/* prime */
+	uvlong	map;
+};
+
 struct Wifi
 {
 	Ether	*ether;
@@ -76,6 +91,8 @@ struct Wifi
 	Wnode	*bss;
 
 	Wnode	node[32];
+
+	DMAT	dmat;
 };
 
 struct Wifipkt

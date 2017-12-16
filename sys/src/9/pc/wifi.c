@@ -7,6 +7,7 @@
 #include "ureg.h"
 #include "../port/error.h"
 #include "../port/netif.h"
+#include "../ip/ip.h"
 
 #include "etherif.h"
 #include "wifi.h"
@@ -49,6 +50,8 @@ static uchar basicrates[] = {
 static Block* wifidecrypt(Wifi *, Wnode *, Block *);
 static Block* wifiencrypt(Wifi *, Wnode *, Block *);
 static void freewifikeys(Wifi *, Wnode *);
+
+static void dmatproxy(Block *bp, int upstream, uchar proxy[Eaddrlen], DMAT *t);
 
 static uchar*
 srcaddr(Wifipkt *w)
@@ -133,6 +136,9 @@ wifiiq(Wifi *wifi, Block *b)
 		memmove(e->d, dstaddr(&h), Eaddrlen);
 		memmove(e->s, srcaddr(&h), Eaddrlen);
 		memmove(e->type, s.type, 2);
+
+		dmatproxy(b, 0, wifi->ether->ea, &wifi->dmat);
+
 		etheriq(wifi->ether, b, 1);
 		return;
 	}
@@ -502,6 +508,7 @@ wifideauth(Wifi *wifi, Wnode *wn)
 	/* deassociate node, clear keys */
 	setstatus(wifi, wn, Sunauth);
 	freewifikeys(wifi, wn);
+	memset(&wifi->dmat, 0, sizeof(wifi->dmat));
 	wn->aid = 0;
 
 	if(wn == wifi->bss){
@@ -644,9 +651,10 @@ wifietheroq(Wifi *wifi, Block *b)
 	if((wn = wifi->bss) == nil)
 		goto drop;
 
+	dmatproxy(b, 1, wifi->ether->ea, &wifi->dmat);
+
 	memmove(&e, b->rp, ETHERHDRSIZE);
 	b->rp += ETHERHDRSIZE;
-
 	if(wn->status == Sblocked){
 		/* only pass EAPOL frames when port is blocked */
 		if((e.type[0]<<8 | e.type[1]) != 0x888e)
@@ -1687,4 +1695,182 @@ ccmpdecrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc)
 	return aesCCMdecrypt(2, 8, nonce, auth,
 		setupCCMP(w, tsc, nonce, auth),
 		b->rp, BLEN(b), (AESstate*)k->key);
+}
+
+/*
+ * Dynamic Mac Address Translation (DMAT)
+ *
+ * Wifi does not allow spoofing of the source mac which breaks
+ * bridging. To solve this we proxy mac addresses, maintaining
+ * a translation table from ip address to destination mac address.
+ * Upstream ARP and NDP packets get ther source mac address changed
+ * to proxy and a translation entry is added with the original mac
+ * for downstream translation. The proxy does not appear in the
+ * table.
+ */
+static void
+dmatproxy(Block *bp, int upstream, uchar proxy[Eaddrlen], DMAT *t)
+{
+	static uchar arp4[] = {
+		0x00, 0x01,
+		0x08, 0x00,
+		0x06, 0x04,
+		0x00,
+	};
+	uchar ip[IPaddrlen], mac[Eaddrlen], *end, *a, *o;
+	ulong csum, c, h;
+	Etherpkt *pkt;
+	int proto, i;
+	DMTE *te;
+
+	end = bp->wp;
+	pkt = (Etherpkt*)bp->rp;
+	a = pkt->data;
+	if(a >= end)
+		return;
+
+	if(upstream)
+		memmove(pkt->s, proxy, Eaddrlen);
+	else if(t->map == 0 || (pkt->d[0]&1) != 0 || memcmp(pkt->d, proxy, Eaddrlen) != 0)
+		return;
+
+	switch(pkt->type[0]<<8 | pkt->type[1]){
+	default:
+		return;
+	case 0x0800:	/* IPv4 */
+	case 0x86dd:	/* IPv6 */
+		switch(a[0]&0xF0){
+		default:
+			return;
+		case 0x40:	/* IPv4 */
+			if(a+20 > end)
+				return;
+			v4tov6(ip, a+12+4*(upstream==0));
+			proto = a[9];
+			a += (a[0]&15)*4;
+			break;
+		case 0x60:	/* IPv6 */
+			if(a+40 > end)
+				return;
+			memmove(ip, a+8+16*(upstream==0), 16);
+			proto = a[6];
+			a += 40;
+			break;
+		}
+		if(!upstream)
+			break;
+		switch(proto){
+		case 58:	/* ICMPv6 */
+			if(a+8 > end)
+				return;
+			switch(a[0]){
+			default:
+				return;
+			case 133:	/* Router Solicitation */
+				o = a+8;
+				break;
+			case 134:	/* Router Advertisement */
+				o = a+8+8;
+				break;
+			case 135:	/* Neighbor Solicitation */
+			case 136:	/* Neighbor Advertisement */
+				o = a+8+16;
+				break;
+			case 137:	/* Redirect */
+				o = a+8+16+16;
+				break;
+			}
+			memset(mac, 0xFF, Eaddrlen);
+			csum = (a[2]<<8 | a[3])^0xFFFF;
+			while(o+8 <= end && o[1] != 0){
+				switch(o[0]){
+				case 1:	/* SLLA, for RS, RA and NS */
+				case 2:	/* TLLA, for NA and RD */
+					for(i=0; i<Eaddrlen; i += 2)
+						csum += (o[2+i]<<8 | o[3+i])^0xFFFF;
+					memmove(mac, o+2, Eaddrlen);
+					memmove(o+2, proxy, Eaddrlen);
+					for(i=0; i<Eaddrlen; i += 2)
+						csum += (o[2+i]<<8 | o[3+i]);
+					break;
+				}
+				o += o[1]*8;
+			}
+			while((c = csum >> 16) != 0)
+				csum = (csum & 0xFFFF) + c;
+			csum ^= 0xFFFF;
+			a[2] = csum>>8;
+			a[3] = csum;
+			break;
+		case 17:	/* UDP (bootp) */
+			if(a+42 > end
+			|| (a[0]<<8 | a[1]) != 68
+			|| (a[2]<<8 | a[3]) != 67
+			|| a[8] != 1
+			|| a[9] != 1
+			|| a[10] != Eaddrlen
+			|| (a[18]&0x80) != 0
+			|| memcmp(a+36, proxy, Eaddrlen) == 0)
+				return;
+
+			csum = (a[6]<<8 | a[7])^0xFFFF;
+
+			/* set the broadcast flag so response reaches us */
+			csum += (a[18]<<8)^0xFFFF;
+			a[18] |= 0x80;
+			csum += (a[18]<<8);
+
+			while((c = csum >> 16) != 0)
+				csum = (csum & 0xFFFF) + c;
+			csum ^= 0xFFFF;
+
+			a[6] = csum>>8;
+			a[7] = csum;
+		default:
+			return;
+		}
+		break;
+	case 0x0806:	/* ARP */
+		if(a+26 > end || memcmp(a, arp4, sizeof(arp4)) != 0 || (a[7] != 1 && a[7] != 2))
+			return;
+		v4tov6(ip, a+14+10*(upstream==0));
+		if(upstream){
+			memmove(mac, a+8, Eaddrlen);
+			memmove(a+8, proxy, Eaddrlen);
+		}
+		break;
+	}
+
+	h = (	(ip[IPaddrlen-1] ^ proxy[2])<<24 |
+		(ip[IPaddrlen-2] ^ proxy[3])<<16 |
+		(ip[IPaddrlen-3] ^ proxy[4])<<8  |
+		(ip[IPaddrlen-4] ^ proxy[5]) ) % nelem(t->tab);
+	te = &t->tab[h];
+	h &= 63;
+
+	if(upstream){
+		if((mac[0]&1) != 0 || memcmp(mac, proxy, Eaddrlen) == 0)
+			return;
+		for(i=0; te->valid && i<nelem(t->tab); i++){
+			if(memcmp(te->ip, ip, IPaddrlen) == 0)
+				break;
+			if(++te >= &t->tab[nelem(t->tab)])
+				te = t->tab;
+		}
+		memmove(te->mac, mac, Eaddrlen);
+		memmove(te->ip, ip, IPaddrlen);
+		te->valid = 1;
+		t->map |= 1ULL<<h;
+	} else {
+		if((t->map>>h & 1) == 0)
+			return;
+		for(i=0; te->valid && i<nelem(t->tab); i++){
+			if(memcmp(te->ip, ip, IPaddrlen) == 0){
+				memmove(pkt->d, te->mac, Eaddrlen);
+				return;
+			}
+			if(++te >= &t->tab[nelem(t->tab)])
+				te = t->tab;
+		}
+	}
 }

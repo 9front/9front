@@ -125,7 +125,7 @@ ethermii.$O:			ethermii.h
 etheriwl.$O:			wifi.h
 etherwpi.$O:			wifi.h
 etherrt2860.$O: 		wifi.h
-wifi.$O:			wifi.h
+wifi.$O:			wifi.h etherif.h ../port/netif.h ../ip/ip.h /sys/include/libsec.h
 
 init.h:D:		../port/initcode.c ../pc/init9.c
 	$CC ../port/initcode.c
