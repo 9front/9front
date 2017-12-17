@@ -20,6 +20,7 @@ dev
 	fs
 
 	ether		netif
+	bridge		netif log
 	ip		arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium ptclbsum386 inferno
 
 	draw		screen vga vgax swcursor
