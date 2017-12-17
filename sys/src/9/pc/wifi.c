@@ -7,7 +7,6 @@
 #include "ureg.h"
 #include "../port/error.h"
 #include "../port/netif.h"
-#include "../ip/ip.h"
 
 #include "etherif.h"
 #include "wifi.h"
@@ -1708,6 +1707,9 @@ ccmpdecrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc)
  * for downstream translation. The proxy does not appear in the
  * table.
  */
+#include "../ip/ip.h"
+#include "../ip/ipv6.h"
+
 static void
 dmatproxy(Block *bp, int upstream, uchar proxy[Eaddrlen], DMAT *t)
 {
@@ -1737,30 +1739,30 @@ dmatproxy(Block *bp, int upstream, uchar proxy[Eaddrlen], DMAT *t)
 	switch(pkt->type[0]<<8 | pkt->type[1]){
 	default:
 		return;
-	case 0x0800:	/* IPv4 */
-	case 0x86dd:	/* IPv6 */
+	case ETIP4:
+	case ETIP6:
 		switch(a[0]&0xF0){
 		default:
 			return;
-		case 0x40:	/* IPv4 */
-			if(a+20 > end)
+		case IP_VER4:
+			if(a+IP4HDR > end || (a[0]&15) < IP_HLEN4)
 				return;
 			v4tov6(ip, a+12+4*(upstream==0));
 			proto = a[9];
 			a += (a[0]&15)*4;
 			break;
-		case 0x60:	/* IPv6 */
-			if(a+40 > end)
+		case IP_VER6:
+			if(a+IP6HDR > end)
 				return;
 			memmove(ip, a+8+16*(upstream==0), 16);
 			proto = a[6];
-			a += 40;
+			a += IP6HDR;
 			break;
 		}
 		if(!upstream)
 			break;
 		switch(proto){
-		case 58:	/* ICMPv6 */
+		case ICMPv6:
 			if(a+8 > end)
 				return;
 			switch(a[0]){
@@ -1784,8 +1786,8 @@ dmatproxy(Block *bp, int upstream, uchar proxy[Eaddrlen], DMAT *t)
 			csum = (a[2]<<8 | a[3])^0xFFFF;
 			while(o+8 <= end && o[1] != 0){
 				switch(o[0]){
-				case 1:	/* SLLA, for RS, RA and NS */
-				case 2:	/* TLLA, for NA and RD */
+				case SRC_LLADDR:
+				case TARGET_LLADDR:
 					for(i=0; i<Eaddrlen; i += 2)
 						csum += (o[2+i]<<8 | o[3+i])^0xFFFF;
 					memmove(mac, o+2, Eaddrlen);
@@ -1802,7 +1804,7 @@ dmatproxy(Block *bp, int upstream, uchar proxy[Eaddrlen], DMAT *t)
 			a[2] = csum>>8;
 			a[3] = csum;
 			break;
-		case 17:	/* UDP (bootp) */
+		case UDP:	/* for BOOTP */
 			if(a+42 > end
 			|| (a[0]<<8 | a[1]) != 68
 			|| (a[2]<<8 | a[3]) != 67
@@ -1830,7 +1832,7 @@ dmatproxy(Block *bp, int upstream, uchar proxy[Eaddrlen], DMAT *t)
 			return;
 		}
 		break;
-	case 0x0806:	/* ARP */
+	case ETARP:
 		if(a+26 > end || memcmp(a, arp4, sizeof(arp4)) != 0 || (a[7] != 1 && a[7] != 2))
 			return;
 		v4tov6(ip, a+14+10*(upstream==0));
