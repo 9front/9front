@@ -970,9 +970,20 @@ clampmss(Host *d, uchar *p, int n, int o)
 		return;
 	if((e = p+(p[12]>>4)*4) > p+n)
 		return;
-	for(h = p+TcpHdr; h+4 <= e && h[1] > 0; h += h[1])
+	for(h = p+TcpHdr; h < e;){
+		switch(h[0]){
+		case 0:
+			return;
+		case 1:
+			h++;
+			continue;
+		}
+		if(h[1] < 2 || h[1] > e - h)
+			return;
 		if(h[0] == 2 && h[1] == 4)
 			goto Found;
+		h += h[1];
+	}
 	return;
 Found:
 	oldmss = h[2]<<8 | h[3];
