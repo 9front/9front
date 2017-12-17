@@ -1,5 +1,5 @@
 /*
- * IPv4 Ethernet bridge
+ * IP Ethernet bridge
  */
 #include "u.h"
 #include "../port/lib.h"
@@ -7,13 +7,13 @@
 #include "dat.h"
 #include "fns.h"
 #include "../ip/ip.h"
+#include "../ip/ipv6.h"
 #include "../port/netif.h"
 #include "../port/error.h"
 
 typedef struct Bridge 	Bridge;
 typedef struct Port 	Port;
 typedef struct Centry	Centry;
-typedef struct Iphdr	Iphdr;
 typedef struct Tcphdr	Tcphdr;
 
 enum
@@ -138,27 +138,12 @@ struct Port
 };
 
 enum {
-	IP_TCPPROTO	= 6,
 	EOLOPT		= 0,
 	NOOPOPT		= 1,
 	MSSOPT		= 2,
 	MSS_LENGTH	= 4,		/* Mean segment size */
 	SYN		= 0x02,		/* Pkt. is synchronise */
-	IPHDR		= 20,		/* sizeof(Iphdr) */
-};
-
-struct Iphdr
-{
-	uchar	vihl;		/* Version and header length */
-	uchar	tos;		/* Type of service */
-	uchar	length[2];	/* packet length */
-	uchar	id[2];		/* ip->identification */
-	uchar	frag[2];	/* Fragment information */
-	uchar	ttl;		/* Time to live */
-	uchar	proto;		/* Protocol */
-	uchar	cksum[2];	/* Header checksum */
-	uchar	src[4];		/* IP source */
-	uchar	dst[4];		/* IP destination */
+	TCPHDR		= 20,
 };
 
 struct Tcphdr
@@ -864,34 +849,38 @@ static void
 tcpmsshack(Etherpkt *epkt, int n)
 {
 	int hl, optlen;
-	Iphdr *iphdr;
 	Tcphdr *tcphdr;
 	ulong mss, cksum;
 	uchar *optr;
 
 	/* ignore non-ipv4 packets */
-	if(nhgets(epkt->type) != ETIP4)
+	switch(nhgets(epkt->type)){
+	case ETIP4:
+	case ETIP6:
+		break;
+	default:
 		return;
-	iphdr = (Iphdr*)(epkt->data);
+	}
 	n -= ETHERHDRSIZE;
-	if(n < IPHDR)
+	if(n < 1)
 		return;
-
-	/* ignore bad packets */
-	if(iphdr->vihl != (IP_VER4|IP_HLEN4)) {
-		hl = (iphdr->vihl&0xF)<<2;
-		if((iphdr->vihl&0xF0) != IP_VER4 || hl < (IP_HLEN4<<2))
+	switch(epkt->data[0]&0xF0){
+	case IP_VER4:
+		hl = (epkt->data[0]&15)<<2;
+		if(n < hl+TCPHDR || hl < IP4HDR || epkt->data[9] != TCP)
 			return;
-	} else
-		hl = IP_HLEN4<<2;
-
-	/* ignore non-tcp packets */
-	if(iphdr->proto != IP_TCPPROTO)
+		n -= hl;
+		tcphdr = (Tcphdr*)(epkt->data + hl);
+		break;
+	case IP_VER6:
+		if(n < IP6HDR+TCPHDR || epkt->data[6] != TCP)
+			return;
+		n -= IP6HDR;
+		tcphdr = (Tcphdr*)(epkt->data + IP6HDR);
+		break;
+	default:
 		return;
-	n -= hl;
-	if(n < sizeof(Tcphdr))
-		return;
-	tcphdr = (Tcphdr*)((uchar*)(iphdr) + hl);
+	}
 	// MSS can only appear in SYN packet
 	if(!(tcphdr->flag[1] & SYN))
 		return;
@@ -900,8 +889,8 @@ tcpmsshack(Etherpkt *epkt, int n)
 		return;
 
 	// check for MSS option
-	optr = (uchar*)tcphdr + sizeof(Tcphdr);
-	n = hl - sizeof(Tcphdr);
+	optr = (uchar*)tcphdr + TCPHDR;
+	n = hl - TCPHDR;
 	for(;;) {
 		if(n <= 0 || *optr == EOLOPT)
 			return;
@@ -922,10 +911,11 @@ tcpmsshack(Etherpkt *epkt, int n)
 	mss = nhgets(optr+2);
 	if(mss <= TcpMssMax)
 		return;
+
 	// fit checksum
 	cksum = nhgets(tcphdr->cksum);
 	if(optr-(uchar*)tcphdr & 1) {
-print("tcpmsshack: odd alignment!\n");
+// print("tcpmsshack: odd alignment!\n");
 		// odd alignments are a pain
 		cksum += nhgets(optr+1);
 		cksum -= (optr[1]<<8)|(TcpMssMax>>8);
@@ -1028,7 +1018,7 @@ etherread(void *a)
 static int
 fragment(Etherpkt *epkt, int n)
 {
-	Iphdr *iphdr;
+	Ip4hdr *iphdr;
 
 	if(n <= TunnelMtu)
 		return 0;
@@ -1036,14 +1026,14 @@ fragment(Etherpkt *epkt, int n)
 	/* ignore non-ipv4 packets */
 	if(nhgets(epkt->type) != ETIP4)
 		return 0;
-	iphdr = (Iphdr*)(epkt->data);
+	iphdr = (Ip4hdr*)(epkt->data);
 	n -= ETHERHDRSIZE;
 	/*
 	 * ignore: IP runt packets, bad packets (I don't handle IP
 	 * options for the moment), packets with don't-fragment set,
 	 * and short blocks.
 	 */
-	if(n < IPHDR || iphdr->vihl != (IP_VER4|IP_HLEN4) ||
+	if(n < IP4HDR || iphdr->vihl != (IP_VER4|IP_HLEN4) ||
 	    iphdr->frag[0] & (IP_DF>>8) || nhgets(iphdr->length) > n)
 		return 0;
 
@@ -1053,7 +1043,7 @@ fragment(Etherpkt *epkt, int n)
 static void
 etherwrite(Port *port, Block *bp)
 {
-	Iphdr *eh, *feh;
+	Ip4hdr *eh, *feh;
 	Etherpkt *epkt;
 	int n, lid, len, seglen, dlen, blklen, mf;
 	Block *nb;
@@ -1075,26 +1065,26 @@ etherwrite(Port *port, Block *bp)
 		return;
 	}
 
-	seglen = (TunnelMtu - ETHERHDRSIZE - IPHDR) & ~7;
-	eh = (Iphdr*)(epkt->data);
+	seglen = (TunnelMtu - ETHERHDRSIZE - IP4HDR) & ~7;
+	eh = (Ip4hdr*)(epkt->data);
 	len = nhgets(eh->length);
 	frag = nhgets(eh->frag);
 	mf = frag & IP_MF;
 	frag <<= 3;
-	dlen = len - IPHDR;
+	dlen = len - IP4HDR;
 	lid = nhgets(eh->id);
-	bp->rp += ETHERHDRSIZE+IPHDR;
+	bp->rp += ETHERHDRSIZE+IP4HDR;
 	
 	if(0)
 		print("seglen=%d, dlen=%d, mf=%x, frag=%d\n",
 			seglen, dlen, mf, frag);
 	for(fragoff = 0; fragoff < dlen; fragoff += seglen) {
-		nb = allocb(ETHERHDRSIZE+IPHDR+seglen);
+		nb = allocb(ETHERHDRSIZE+IP4HDR+seglen);
 		
-		feh = (Iphdr*)(nb->wp+ETHERHDRSIZE);
+		feh = (Ip4hdr*)(nb->wp+ETHERHDRSIZE);
 
-		memmove(nb->wp, epkt, ETHERHDRSIZE+IPHDR);
-		nb->wp += ETHERHDRSIZE+IPHDR;
+		memmove(nb->wp, epkt, ETHERHDRSIZE+IP4HDR);
+		nb->wp += ETHERHDRSIZE+IP4HDR;
 
 		if((fragoff + seglen) >= dlen) {
 			seglen = dlen - fragoff;
@@ -1103,7 +1093,7 @@ etherwrite(Port *port, Block *bp)
 		else	
 			hnputs(feh->frag, (frag+fragoff>>3) | IP_MF);
 
-		hnputs(feh->length, seglen + IPHDR);
+		hnputs(feh->length, seglen + IP4HDR);
 		hnputs(feh->id, lid);
 
 		if(seglen){
