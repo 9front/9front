@@ -122,8 +122,9 @@ enum {					/* Tcr */
 	Macv30		= 0x24000000,	/* RTL8101E? (untested) */
 	Macv39		= 0x44800000,	/* RTL8106E */
 	Macv40		= 0x4c000000,	/* RTL8168G */
+	Macv42		= 0x50800000,	/* RTL8168GU */
 	Macv44		= 0x5c800000,	/* RTL8411B */
-	Macv45		= 0x50800000,	/* RTL8168GU */
+	Macv45		= 0x54000000,	/* RTL8111HN */
 
 	Ifg0		= 0x01000000,	/* Interframe Gap 0 */
 	Ifg1		= 0x02000000,	/* Interframe Gap 1 */
@@ -1054,6 +1055,7 @@ vetmacv(Ctlr *ctlr, uint *macv)
 	case Macv30:
 	case Macv39:
 	case Macv40:
+	case Macv42:
 	case Macv44:
 	case Macv45:
 		break;
