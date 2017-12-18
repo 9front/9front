@@ -572,6 +572,8 @@ portbind(Bridge *b, int argc, char *argv[])
 		// setup connection to be promiscuous
 		snprint(buf, sizeof(buf), "connect -1");
 		devtab[ctl->type]->write(ctl, buf, strlen(buf), 0);
+		snprint(buf, sizeof(buf), "nonblocking");
+		devtab[ctl->type]->write(ctl, buf, strlen(buf), 0);
 		snprint(buf, sizeof(buf), "promiscuous");
 		devtab[ctl->type]->write(ctl, buf, strlen(buf), 0);
 		snprint(buf, sizeof(buf), "bridge");
