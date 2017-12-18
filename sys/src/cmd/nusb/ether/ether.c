@@ -58,8 +58,6 @@ struct Dq
 	Block		**qt;
 
 	int		size;
-
-	int		nb;
 };
 
 struct Conn
@@ -262,12 +260,6 @@ readconndata(Req *r)
 
 	d = r->fid->aux;
 	qlock(d);
-	if(d->q==nil && d->nb){
-		qunlock(d);
-		r->ofcall.count = 0;
-		respond(r, nil);
-		return;
-	}
 	r->aux = nil;
 	*d->rt = r;
 	d->rt = (Req**)&r->aux;
@@ -278,18 +270,12 @@ readconndata(Req *r)
 static void
 writeconndata(Req *r)
 {
-	Dq *d;
 	void *p;
 	int n;
 	Block *b;
 
-	d = r->fid->aux;
 	p = r->ifcall.data;
 	n = r->ifcall.count;
-	if((n == 11) && memcmp(p, "nonblocking", n)==0){
-		d->nb = 1;
-		goto out;
-	}
 
 	/* minimum frame length for rtl8150 */
 	if(n < 60)
@@ -315,7 +301,6 @@ writeconndata(Req *r)
 
 	etheriq(b, 0);
 
-out:
 	r->ofcall.count = r->ifcall.count;
 	respond(r, nil);
 }
@@ -725,7 +710,7 @@ etheriq(Block *b, int wire)
 		qlock(c);
 		if(!c->used)
 			goto next;
-		if(c->bridge && !wire && !fromme)
+		if(c->bridge && (tome || !wire && !fromme))
 			goto next;
 		if(c->type > 0 && c->type != t)
 			goto next;
