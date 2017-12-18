@@ -174,8 +174,8 @@ etheriq(Ether* ether, Block* bp, int fromwire)
 	for(fp = ether->f; fp < ep; fp++){
 		if((f = *fp) != nil && (f->type == type || f->type < 0) &&
 		    (tome || multi || f->prom)){
-			/* Don't want to hear bridged packets */
-			if(f->bridge && !fromwire && !fromme)
+			/* Don't want to hear loopback or bridged packets */
+			if(f->bridge && (tome || !fromwire && !fromme))
 				continue;
 			if(!f->headersonly){
 				if(fromwire && fx == 0)
