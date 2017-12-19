@@ -197,7 +197,7 @@ findmessage(Mailbox *, Message *parent, int n)
 	Message *m;
 
 	for(m = parent->part; m; m = m->next)
-		if(!m->digest && n-- == 0)
+		if(m->digest == nil && n-- == 0)
 			return m;
 	return 0;
 }

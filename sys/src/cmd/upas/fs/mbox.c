@@ -596,7 +596,7 @@ void
 parse(Mailbox *mb, Message *m, int addfrom, int justmime)
 {
 	sanemsg(m);
-	assert(m->end - m->start > 0 || m->mimeflag&Mtrunc && m->end - m->start == 0);
+	assert(m->end - m->start > 0 || (m->mimeflag&Mtrunc) != 0 && m->end - m->start == 0);
 	if((m->cstate & Cheader) == 0)
 		parseheaders(mb, m, addfrom, justmime);
 	parsebody(m, mb);
