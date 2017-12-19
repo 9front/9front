@@ -319,7 +319,7 @@ found:
 void
 digestmessage(Mailbox *mb, Message *m)
 {
-	assert(m->digest == 0);
+	assert(m->digest == nil);
 	m->digest = emalloc(SHA1dlen);
 	sha1((uchar*)m->start, m->end - m->start, m->digest, nil);
 	if(mtreeisdup(mb, m)){
@@ -351,7 +351,7 @@ cachebody(Mailbox *mb, Message *m)
 		m->size -= m->badchars;		/* sneaky */
 		m->ibadchars = m->badchars;
 	}
-	if(m->digest == 0)
+	if(m->digest == nil)
 		digestmessage(mb, m);
 	if(m->lines == 0)
 		m->lines = countlines(m);
@@ -396,7 +396,7 @@ insurecache(Mailbox *mb, Message *m)
 		msgdecref(mb, m);
 		return -1;
 	}
-	if(m->digest == 0)
+	if(m->digest == nil)
 		sysfatal("digest?");
 	countparts(m);
 	return 0;

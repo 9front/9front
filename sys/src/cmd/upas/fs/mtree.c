@@ -18,7 +18,7 @@ mtreeisdup(Mailbox *mb, Message *m)
 	Mtree t;
 
 	assert(Topmsg(mb, m) && m->digest);
-	if(!m->digest)
+	if(m->digest == nil)
 		return 0;
 	memset(&t, 0, sizeof t);
 	t.m = m;

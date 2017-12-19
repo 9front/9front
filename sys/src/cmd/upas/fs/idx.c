@@ -206,13 +206,13 @@ static int
 validmessage(Mailbox *mb, Message *m, int level)
 {
 	if(level){
-		if(m->digest != 0)
+		if(m->digest != nil)
 			goto lose;
 		if(m->fileid <= 1000000ull<<8)
 		if(m->fileid != 0)
 			goto lose;
 	}else{
-		if(m->digest == 0)
+		if(m->digest == nil)
 			goto lose;
 		if(m->size == 0)
 			goto lose;
@@ -280,18 +280,17 @@ nibble(int c)
 static uchar*
 hackdigest(char *s)
 {
-	uchar t[SHA1dlen];
 	int i;
 
 	if(strcmp(s, "-") == 0)
-		return 0;
+		return nil;
 	if(strlen(s) != 2*SHA1dlen){
 		eprint("bad digest %s\n", s);
-		return 0;
+		return nil;
 	}
 	for(i = 0; i < SHA1dlen; i++)
-		t[i] = nibble(s[2*i])<<4 | nibble(s[2*i + 1]);
-	memmove(s, t, SHA1dlen);
+		((uchar*)s)[i] = nibble(s[2*i])<<4 | nibble(s[2*i + 1]);
+	s[i] = 0;
 	return (uchar*)s;
 }
 
@@ -342,8 +341,8 @@ rdidx(Biobuf *b, Mailbox *mb, Message *parent, int npart, int level)
 	ll = &parent->part;
 	nparts = npart;
 	for(; npart != 0 && (s = Brdstr(b, '\n', 1)); npart--){
-		m = 0;
-		digest = 0;
+		m = nil;
+		digest = nil;
 		n = tokenize(s, f, nelem(f));
 		if(n != Idxfields){
 dead:
@@ -357,11 +356,11 @@ dead:
 			continue;
 		}
 		digest = hackdigest(f[0]);
-		if(digest == 0 ^ level != 0)
-			goto dead;
-		if(level == 0)
+		if(level == 0){
+			if(digest == nil)
+				goto dead;
 			m = mtreefind(mb, digest);
-		else
+		} else
 			m = findmessage(mb, parent, nparts - npart);
 		if(m){
 			/*

@@ -127,7 +127,7 @@ okmsg(Mailbox *mb, Message *m, Inbuf *b)
 	if(m->size > Maxmsg)
 		return -1;
 	m->bend = m->rbend = m->end;
-	if(m->digest == 0)
+	if(m->digest == nil)
 		digestmessage(mb, m);
 	return 0;
 }
