@@ -1019,7 +1019,8 @@ Ether:
 		memmove(p+4, p, 2*Eaddrlen);
 		p += 4, n -= 4;
 		goto Ether;
-	case 0x0800:	/* IP */
+	case 0x0800:	/* IPv4 */
+	case 0x86DD:	/* IPv6 */
 		break;
 	}
 	switch(p[EtherHdr] & 0xF0){
@@ -1534,8 +1535,13 @@ ip2tunnel(void)
 		localip, localmask);
 	while((n = read(ipdfd, buf+EtherHdr, sizeof buf-EtherHdr)) > 0){
 		memset(buf, 0, 2*Eaddrlen);
-		buf[EtherType+0] = 0x08;
-		buf[EtherType+1] = 0x00;
+		if((buf[EtherHdr]&0xF0) == 0x60){
+			buf[EtherType+0] = 0x86;
+			buf[EtherType+1] = 0xDD;
+		} else{
+			buf[EtherType+0] = 0x08;
+			buf[EtherType+1] = 0x00;
+		}
 		routepkt(myhost, buf, n+EtherHdr);
 	}
 }
