@@ -17,7 +17,6 @@
 
 enum {
 	Qdir,
-	Qvgabios,
 	Qvgactl,
 	Qvgaovl,
 	Qvgaovlctl,
@@ -25,7 +24,6 @@ enum {
 
 static Dirtab vgadir[] = {
 	".",	{ Qdir, 0, QTDIR },		0,	0550,
-	"vgabios",	{ Qvgabios, 0 },	0x100000, 0440,
 	"vgactl",		{ Qvgactl, 0 },		0,	0660,
 	"vgaovl",		{ Qvgaovl, 0 },		0,	0660,
 	"vgaovlctl",	{ Qvgaovlctl, 0 },	0, 	0660,
@@ -154,14 +152,6 @@ vgaread(Chan* c, void* a, long n, vlong off)
 
 	case Qdir:
 		return devdirread(c, a, n, vgadir, nelem(vgadir), devgen);
-
-	case Qvgabios:
-		if(offset >= 0x100000)
-			return 0;
-		if(offset+n >= 0x100000)
-			n = 0x100000 - offset;
-		memmove(a, (uchar*)kaddr(0)+offset, n);
-		return n;
 
 	case Qvgactl:
 		scr = &vgascreen[0];

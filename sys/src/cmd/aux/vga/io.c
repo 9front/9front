@@ -245,7 +245,7 @@ doreadbios(char* buf, long len, long offset)
 	if(biosfd < 0)
 		biosfd = open("/dev/realmodemem", OREAD);
 	if(biosfd < 0)
-		biosfd = devopen("#v/vgabios", OREAD);
+		biosfd = open("#P/realmodemem", OREAD);
 	if(biosfd < 0)
 		return -1;
 	seek(biosfd, offset, 0);
