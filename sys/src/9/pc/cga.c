@@ -199,6 +199,8 @@ cgatokmesg(void)
 void
 screeninit(void)
 {
+	static int once;
+
 	cgapos = cgaregr(0x0E)<<8;
 	cgapos |= cgaregr(0x0F);
 	cgapos *= 2;
@@ -208,8 +210,10 @@ screeninit(void)
 		movecursor();
 	}
 
-	cgatokmesg();
+	if(once == 0){
+		once = 1;
+		cgatokmesg();
+	}
 
 	screenputs = cgascreenputs;
 }
-
