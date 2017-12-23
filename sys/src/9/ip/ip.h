@@ -315,7 +315,6 @@ struct Ipifc
 	Medium	*m;		/* Media pointer */
 	int	maxtu;		/* Maximum transfer unit */
 	int	mintu;		/* Minumum tranfer unit */
-	int	mbps;		/* megabits per second */
 	void	*arg;		/* medium specific */
 	int	reassemble;	/* reassemble IP packets before forwarding */
 

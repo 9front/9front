@@ -188,13 +188,6 @@ etherbind(Ipifc *ifc, int argc, char **argv)
 	ptr += 6;
 	parsemac(ifc->mac, ptr, 6);
 
-	ptr = strstr(buf, "mbps: ");
-	if(ptr){
-		ptr += 6;
-		ifc->mbps = atoi(ptr);
-	} else
-		ifc->mbps = 100;
-
 	/*
  	 *  open arp conversation
 	 */
