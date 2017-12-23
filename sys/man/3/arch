@@ -15,6 +15,7 @@ arch \- architecture-specific information and control
 .B /dev/iow
 .B /dev/irqalloc
 .B /dev/msr
+.B /dev/realmodemem
 .SH DESCRIPTION
 This device presents textual information about PC hardware and allows
 user-level control of the I/O ports on x86-class machines.
@@ -128,6 +129,12 @@ file descriptor.
 Reads and writes to
 .I msr
 go to the P4/P6/Core/Core2/AMD64 MSRs.
+.PP
+The
+.I realmodemem
+file provides access to the first megabyte of memory. This
+allows reading BIOS data structures and option ROMs.
+Writing is limited to the VGA framebuffer at [0xA0000-0xBFFFF].
 .PP
 Reads and writes to
 .I ec
