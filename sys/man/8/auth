@@ -205,6 +205,8 @@ The remaining commands need not be run on an authentication server.
 .PP
 .I Debug
 attempts to authenticate using each
+.B dp9ik
+and
 .B p9sk1
 key found in
 .I factotum
