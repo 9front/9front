@@ -34,7 +34,7 @@ struct Mntrpc
 
 enum
 {
-	TAGSHIFT = 5,			/* ulong has to be 32 bits */
+	TAGSHIFT = 5,
 	TAGMASK = (1<<TAGSHIFT)-1,
 	NMASK = (64*1024)>>TAGSHIFT,
 };
@@ -48,7 +48,7 @@ static struct Mntalloc
 	ulong	nrpcfree;
 	ulong	nrpcused;
 	ulong	id;
-	ulong	tagmask[NMASK];
+	u32int	tagmask[NMASK];
 } mntalloc;
 
 static Chan*	mntchan(void);
@@ -78,7 +78,7 @@ mntreset(void)
 {
 	mntalloc.id = 1;
 	mntalloc.tagmask[0] = 1;			/* don't allow 0 as a tag */
-	mntalloc.tagmask[NMASK-1] = 0x80000000UL;	/* don't allow NOTAG */
+	mntalloc.tagmask[NMASK-1] = 0x80000000;		/* don't allow NOTAG */
 	fmtinstall('F', fcallfmt);
 	fmtinstall('D', dirfmt);
 /* We can't install %M since eipfmt does and is used in the kernel [sape] */
@@ -1264,17 +1264,16 @@ static int
 alloctag(void)
 {
 	int i, j;
-	ulong v;
+	u32int v;
 
 	for(i = 0; i < NMASK; i++){
 		v = mntalloc.tagmask[i];
-		if(v == ~0UL)
+		if(v == -1)
 			continue;
-		for(j = 0; j < 1<<TAGSHIFT; j++)
-			if((v & (1<<j)) == 0){
-				mntalloc.tagmask[i] |= 1<<j;
-				return (i<<TAGSHIFT) + j;
-			}
+		for(j = 0; (v & 1) != 0; j++)
+			v >>= 1;
+		mntalloc.tagmask[i] |= 1<<j;
+		return i<<TAGSHIFT | j;
 	}
 	panic("no friggin tags left");
 	return NOTAG;
