@@ -189,21 +189,18 @@ nodelookup(Wifi *wifi, uchar *bssid, int new)
 	if(memcmp(bssid, wifi->ether->bcast, Eaddrlen) == 0)
 		return nil;
 	if((wn = wifi->bss) != nil){
-		if(memcmp(wn->bssid, bssid, Eaddrlen) == 0){
-			wn->lastseen = MACHP(0)->ticks;
+		if(memcmp(wn->bssid, bssid, Eaddrlen) == 0)
 			return wn;
-		}
 	}
 	if((nn = wifi->node) == wn)
 		nn++;
 	for(wn = wifi->node; wn != &wifi->node[nelem(wifi->node)]; wn++){
 		if(wn == wifi->bss)
 			continue;
-		if(memcmp(wn->bssid, bssid, Eaddrlen) == 0){
-			wn->lastseen = MACHP(0)->ticks;
+		if(memcmp(wn->bssid, bssid, Eaddrlen) == 0)
 			return wn;
-		}
-		if((long)(wn->lastseen - nn->lastseen) < 0)
+		if((long)(wn->lastsend - nn->lastsend) < 0
+		|| (long)(wn->lastseen - nn->lastseen) < 0)
 			nn = wn;
 	}
 	if(!new)
@@ -211,7 +208,6 @@ nodelookup(Wifi *wifi, uchar *bssid, int new)
 	freewifikeys(wifi, nn);
 	memset(nn, 0, sizeof(Wnode));
 	memmove(nn->bssid, bssid, Eaddrlen);
-	nn->lastseen = MACHP(0)->ticks;
 	return nn;
 }
 
@@ -577,6 +573,7 @@ wifiproc(void *arg)
 			/* encrypted */
 			if((wn = nodelookup(wifi, w->a2, 0)) == nil)
 				continue;
+			wn->lastseen = MACHP(0)->ticks;
 			if((b = wifidecrypt(wifi, wn, b)) != nil){
 				w = (Wifipkt*)b->rp;
 				if(w->fc[1] & 0x40)
@@ -598,6 +595,7 @@ wifiproc(void *arg)
 		case 0x80:	/* beacon */
 			if((wn = nodelookup(wifi, w->a3, 1)) == nil)
 				continue;
+			wn->lastseen = MACHP(0)->ticks;
 			b->rp += wifihdrlen(w);
 			recvbeacon(wifi, wn, b->rp, BLEN(b));
 
@@ -615,6 +613,7 @@ wifiproc(void *arg)
 			continue;
 		if((wn = nodelookup(wifi, w->a3, 0)) == nil)
 			continue;
+		wn->lastseen = MACHP(0)->ticks;
 		switch(w->fc[0] & 0xf0){
 		case 0x10:	/* assoc response */
 		case 0x30:	/* reassoc response */
