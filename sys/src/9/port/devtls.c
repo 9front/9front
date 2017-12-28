@@ -516,7 +516,7 @@ tlswstat(Chan *c, uchar *dp, int n)
 		error(Eshortstat);
 	if(!emptystr(d->uid))
 		kstrdup(&tr->user, d->uid);
-	if(d->mode != ~0UL)
+	if(d->mode != -1)
 		tr->perm = d->mode;
 
 	free(d);
