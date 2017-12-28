@@ -168,9 +168,14 @@ wifitx(Wifi *wifi, Wnode *wn, Block *b)
 			return;
 	}
 
-	if((wn->txcount++ & 255) == 255){
-		if(wn->actrate != nil && wn->actrate < wn->maxrate)
-			wn->actrate++;
+	if((wn->txcount++ & 255) == 255 && wn->actrate != nil && wn->actrate != wn->maxrate){
+		uchar *a, *p;
+
+		for(a = wn->maxrate, p = wifi->rates; *p; p++){
+			if(*p < *a && *p > *wn->actrate)
+				a = p;
+		}
+		wn->actrate = a;
 	}
 
 	(*wifi->transmit)(wifi, wn, b);
@@ -222,9 +227,15 @@ wifitxfail(Wifi *wifi, Block *b)
 	wn = nodelookup(wifi, w->a1, 0);
 	if(wn == nil)
 		return;
-	wn->txerror++;
-	if(wn->actrate != nil && wn->actrate > wn->minrate)
-		wn->actrate--;
+	if((wn->txerror++ & 8) == 7 &&  wn->actrate != nil && wn->minrate != wn->actrate){
+		uchar *a, *p;
+
+		for(a = wn->minrate, p = wifi->rates; *p; p++){
+			if(*p > *a && *p < *wn->actrate)
+				a = p;
+		}
+		wn->actrate = a;
+	}
 }
 
 static uchar*
@@ -445,15 +456,15 @@ recvbeacon(Wifi *wifi, Wnode *wn, uchar *d, int len)
 			break;
 		case 1:		/* supported rates */
 		case 50:	/* extended rates */
-			if(wn->minrate != nil || wn->maxrate != nil || wifi->rates == nil)
+			if(wn->actrate != nil || wifi->rates == nil)
 				break;	/* already set */
 			while(d < x){
-				t = *d++ & 0x7f;
+				t = *d++ | 0x80;
 				for(p = wifi->rates; *p != 0; p++){
-					if((*p & 0x7f) == t){
-						if(wn->minrate == nil || t < (*wn->minrate & 0x7f))
+					if(*p == t){
+						if(wn->minrate == nil || t < *wn->minrate)
 							wn->minrate = p;
-						if(wn->maxrate == nil || t > (*wn->maxrate & 0x7f))
+						if(wn->maxrate == nil || t > *wn->maxrate)
 							wn->maxrate = p;
 						break;
 					}
@@ -741,7 +752,7 @@ Scan:
 	while((wn = wifi->bss) != nil){
 		ether->link = (wn->status == Sassoc) || (wn->status == Sblocked);
 		if(ether->link && (rate = wn->actrate) != nil)
-			ether->mbps = ((*rate & 0x7f)+1)/2;
+			ether->mbps = ((*rate & 0x7f)+3)/4;
 		now = MACHP(0)->ticks;
 		if(wn->status != Sneedauth && TK2SEC(now - wn->lastseen) > 20 || goodbss(wifi, wn) == 0){
 			wifideauth(wifi, wn);
