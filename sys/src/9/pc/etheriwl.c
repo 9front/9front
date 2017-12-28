@@ -19,8 +19,12 @@
 #include "wifi.h"
 
 enum {
+	MaxQueue	= 24*1024,	/* total buffer is 2*MaxQueue: 48k at 22Mbit ≅ 20ms */
+
 	Ntxlog		= 8,
 	Ntx		= 1<<Ntxlog,
+	Ntxqmax		= MaxQueue/1500,
+
 	Nrxlog		= 8,
 	Nrx		= 1<<Nrxlog,
 
@@ -1666,7 +1670,7 @@ static int
 txqready(void *arg)
 {
 	TXQ *q = arg;
-	return q->n < Ntx;
+	return q->n < Ntxqmax;
 }
 
 static char*
@@ -1680,11 +1684,11 @@ qcmd(Ctlr *ctlr, uint qid, uint code, uchar *data, int size, Block *block)
 
 	ilock(ctlr);
 	q = &ctlr->tx[qid];
-	while(q->n >= Ntx && !ctlr->broken){
+	while(q->n >= Ntxqmax && !ctlr->broken){
 		iunlock(ctlr);
 		qlock(q);
 		if(!waserror()){
-			tsleep(q, txqready, q, 10);
+			tsleep(q, txqready, q, 5);
 			poperror();
 		}
 		qunlock(q);
@@ -1929,6 +1933,7 @@ static struct ratetab {
 	{   4,  20, RFlagCCK },
 	{  11,  55, RFlagCCK },
 	{  22, 110, RFlagCCK },
+
 	{  12, 0xd, 0 },
 	{  18, 0xf, 0 },
 	{  24, 0x5, 0 },
@@ -1945,6 +1950,7 @@ static uchar iwlrates[] = {
 	0x80 | 4,
 	0x80 | 11,
 	0x80 | 22,
+
 	0x80 | 12,
 	0x80 | 18,
 	0x80 | 24,
@@ -2026,11 +2032,11 @@ transmit(Wifi *wifi, Wnode *wn, Block *b)
 				flags |= TFlagFullTxOp;
 		}
 	}
+	if(p >= wifi->rates)
+		rate = p - wifi->rates;
+	else
+		rate = 0;
 	qunlock(ctlr);
-
-	rate = 0;
-	if(p >= iwlrates && p < &iwlrates[nelem(ratetab)])
-		rate = p - iwlrates;
 
 	/* select first available antenna */
 	ant = ctlr->rfcfg.txantmask & 7;
@@ -2192,6 +2198,8 @@ iwlattach(Ether *edev)
 			error("wifi disabled by switch");
 
 		if(ctlr->wifi == nil){
+			qsetlimit(edev->oq, MaxQueue);
+
 			ctlr->wifi = wifiattach(edev, transmit);
 			/* tested with 2230, it has transmit issues using higher bit rates */
 			if(ctlr->type != Type2030)

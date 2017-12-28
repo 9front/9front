@@ -11,15 +11,20 @@
 #include "wifi.h"
 
 enum {
-	Nrxlog = 6,
-	Nrx    = 1<<Nrxlog,
-	Ntx    = 256,
+	MaxQueue	= 24*1024,	/* total buffer is 2*MaxQueue: 48k at 22Mbit ≅ 20ms */
 
-	Rbufsize = 3*1024,
-	Rdscsize = 8,
+	Ntxlog		= 8,
+	Ntx		= 1<<Ntxlog,
+	Ntxqmax		= MaxQueue/1500,
 
-	Tdscsize = 64,
-	Tcmdsize = 128,
+	Nrxlog		= 6,
+	Nrx		= 1<<Nrxlog,
+
+	Rbufsize	= 3*1024,
+	Rdscsize	= 8,
+
+	Tdscsize	= 64,
+	Tcmdsize	= 128,
 };
 
 /* registers */
@@ -956,7 +961,7 @@ static int
 txqready(void *arg)
 {
 	TXQ *q = arg;
-	return q->n < Ntx;
+	return q->n < Ntxqmax;
 }
 
 static char*
@@ -971,11 +976,11 @@ qcmd(Ctlr *ctlr, uint qid, uint code, uchar *data, int size, Block *block)
 
 	ilock(ctlr);
 	q = &ctlr->tx[qid];
-	while(q->n >= Ntx && !ctlr->broken){
+	while(q->n >= Ntxqmax && !ctlr->broken){
 		iunlock(ctlr);
 		qlock(q);
 		if(!waserror()){
-			tsleep(q, txqready, q, 10);
+			tsleep(q, txqready, q, 5);
 			poperror();
 		}
 		qunlock(q);
@@ -1144,6 +1149,7 @@ static uchar wpirates[] = {
 	0x80 | 72,
 	0x80 | 96,
 	0x80 | 108,
+
 	0x80 | 2,
 	0x80 | 4,
 	0x80 | 11,
@@ -1164,6 +1170,7 @@ static struct {
 	{  72, 0xb },
 	{  96, 0x1 },
 	{ 108, 0x3 },
+
 	{   2,  10 },
 	{   4,  20 },
 	{  11,  55 },
@@ -1436,11 +1443,11 @@ transmit(Wifi *wifi, Wnode *wn, Block *b)
 			p = wn->actrate;
 		}
 	}
+	if(p >= wifi->rates)
+		rate = p - wifi->rates;
+	else
+		rate = 0;
 	qunlock(ctlr);
-
-	rate = 0;
-	if(p >= wpirates && p < &wpirates[nelem(ratetab)])
-		rate = p - wpirates;
 
 	memset(p = c, 0, sizeof(c));
 	put16(p, BLEN(b)), p += 2;
@@ -1582,6 +1589,8 @@ wpiattach(Ether *edev)
 			error("wifi disabled by switch");
 
 		if(ctlr->wifi == nil){
+			qsetlimit(edev->oq, MaxQueue);
+
 			ctlr->wifi = wifiattach(edev, transmit);
 			ctlr->wifi->rates = wpirates;
 		}
