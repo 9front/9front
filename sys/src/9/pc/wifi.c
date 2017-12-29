@@ -223,7 +223,8 @@ wifitxfail(Wifi *wifi, Block *b)
 	wn = nodelookup(wifi, w->a1, 0);
 	if(wn == nil)
 		return;
-	if((wn->txerror++ & 8) == 7 &&  wn->actrate != nil && wn->minrate != wn->actrate){
+	wn->txerror++;
+	if(wn->actrate != nil && wn->minrate != wn->actrate){
 		uchar *a, *p;
 
 		for(a = wn->minrate, p = wifi->rates; *p; p++){
