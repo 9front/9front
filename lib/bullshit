@@ -37,6 +37,7 @@ GPU |
 shader
 agile ^
 advanced ^
+converged ^
 leveraged ^
 extended ^
 basic ^
