@@ -26,12 +26,12 @@ enum {
 
 typedef struct Bytes{
 	int len;
-	uchar data[1];  // [len]
+	uchar data[];
 } Bytes;
 
 typedef struct Ints{
 	int len;
-	int data[1];  // [len]
+	int data[];
 } Ints;
 
 typedef struct Algs{

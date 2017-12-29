@@ -53,7 +53,7 @@ typedef struct Elist Elist;
 
 struct Bytes {
 	int	len;
-	uchar	data[1];
+	uchar	data[];
 };
 
 struct Ints {
