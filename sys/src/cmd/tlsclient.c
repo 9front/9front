@@ -49,6 +49,8 @@ main(int argc, char **argv)
 	Thumbprint *thumb;
 	AuthInfo *ai = nil;
 
+	fmtinstall('B', mpfmt);
+	fmtinstall('[', encodefmt);
 	fmtinstall('H', encodefmt);
 
 	ARGBEGIN{
@@ -121,6 +123,9 @@ main(int argc, char **argv)
 	fd = tlsClient(fd, conn);
 	if(fd < 0)
 		sysfatal("tlsclient: %r");
+
+	if(debug)
+		X509dump(conn->cert, conn->certlen);
 
 	if(thumb){
 		if(!okCertificate(conn->cert, conn->certlen, thumb))

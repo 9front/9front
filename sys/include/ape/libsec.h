@@ -382,7 +382,9 @@ int		pkcs1unpadbuf(uchar *buf, int len, mpint *modulus, int blocktype);
 int		asn1encodeRSApub(RSApub *pk, uchar *buf, int len);
 int		asn1encodedigest(DigestState* (*fun)(uchar*, ulong, uchar*, DigestState*),
 			uchar *digest, uchar *buf, int len);
- 
+
+int		X509digestSPKI(uchar *, int, DigestState* (*)(uchar*, ulong, uchar*, DigestState*), uchar *);
+
 /*
  * elgamal
  */

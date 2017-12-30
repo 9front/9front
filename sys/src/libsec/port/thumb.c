@@ -66,6 +66,11 @@ okCertificate(uchar *cert, int len, Thumbprint *table)
 	if(okThumbprint(hash, SHA2_256dlen, table))
 		return 1;
 
+	if(X509digestSPKI(cert, len, sha2_256, hash) < 0)
+		return 0;
+	if(okThumbprint(hash, SHA2_256dlen, table))
+		return 1;
+
 	len = enc64(thumb, sizeof(thumb), hash, SHA2_256dlen);
 	while(len > 0 && thumb[len-1] == '=')
 		len--;

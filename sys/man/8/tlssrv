@@ -134,9 +134,8 @@ flag
 (and, optionally, the
 .B -x
 flag)
-is given, the remote server must present a key
-whose SHA1 hash is listed in
-the file
+is given, the remote server must present a public key
+whose SHA1 or SHA256 hash is listed in the file
 .I trustedkeys
 but not in the file
 .IR excludedkeys .

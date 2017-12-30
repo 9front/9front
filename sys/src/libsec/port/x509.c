@@ -2897,6 +2897,32 @@ errret:
 	return cert;
 }
 
+static void
+digestSPKI(int alg, uchar *pubkey, int npubkey, DigestState* (*fun)(uchar*, ulong, uchar*, DigestState*), uchar *digest)
+{
+	Bytes *b = nil;
+	Elem e = mkseq(mkel(mkalg(alg), mkel(mkbits(pubkey, npubkey), nil)));
+	encode(e, &b);
+	freevalfields(&e.val);
+	(*fun)(b->data, b->len, digest, nil);
+	freebytes(b);
+}
+
+int
+X509digestSPKI(uchar *cert, int ncert, DigestState* (*fun)(uchar*, ulong, uchar*, DigestState*), uchar *digest)
+{
+	CertX509 *c;
+
+	c = decode_cert(cert, ncert);
+	if(c == nil){
+		werrstr("cannot decode cert");
+		return -1;
+	}
+	digestSPKI(c->publickey_alg, c->publickey->data, c->publickey->len, fun, digest);
+	freecert(c);
+	return 0;
+}
+
 static char*
 tagdump(Tag tag)
 {
@@ -3047,6 +3073,16 @@ X509dump(uchar *cert, int ncert)
 		ecdomfree(&ecdom);
 		break;
 	}
+
+	digestSPKI(c->publickey_alg, c->publickey->data, c->publickey->len, sha2_256, digest);
+	print("publickey_thumbprint sha256=%.*[\n", SHA2_256dlen, digest);
+
+	sha2_256(cert, ncert, digest, nil);
+	print("cert_thumbprint sha256=%.*[\n", SHA2_256dlen, digest);
+
+	sha1(cert, ncert, digest, nil);
+	print("cert_thumbprint sha1=%.*H\n", SHA1dlen, digest);
+
 	freecert(c);
 	print("end X509dump\n");
 }
