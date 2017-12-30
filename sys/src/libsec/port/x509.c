@@ -1474,8 +1474,7 @@ freevalfields(Value* v)
 		freeints(v->u.objidval);
 		break;
 	case VString:
-		if(v->u.stringval)
-			free(v->u.stringval);
+		free(v->u.stringval);
 		break;
 	case VSeq:
 		el = v->u.seqval;
@@ -1490,6 +1489,7 @@ freevalfields(Value* v)
 		freeelist(el);
 		break;
 	}
+	memset(v, 0, sizeof(*v));
 }
 
 static mpint*
@@ -1585,9 +1585,9 @@ typedef struct CertX509 {
 	char*	validity_end;
 	char*	subject;
 	int	publickey_alg;
-	Bytes*	publickey;
+	Bits*	publickey;
 	int	signature_alg;
-	Bytes*	signature;
+	Bits*	signature;
 	int	curve;
 } CertX509;
 
@@ -1733,8 +1733,8 @@ freecert(CertX509* c)
 	free(c->validity_start);
 	free(c->validity_end);
 	free(c->subject);
-	freebytes(c->publickey);
-	freebytes(c->signature);
+	freebits(c->publickey);
+	freebits(c->signature);
 	free(c);
 }
 
@@ -1827,11 +1827,10 @@ parse_curve(Elem* e)
 }
 
 static CertX509*
-decode_cert(Bytes* a)
+decode_cert(uchar *buf, int len)
 {
 	int ok = 0;
 	int n;
-	CertX509* c = nil;
 	Elem  ecert;
 	Elem* ecertinfo;
 	Elem* esigalg;
@@ -1849,8 +1848,9 @@ decode_cert(Bytes* a)
 	Bits* bits = nil;
 	Bytes* b;
 	Elem* e;
+	CertX509* c = nil;
 
-	if(decode(a->data, a->len, &ecert) != ASN_OK)
+	if(decode(buf, len, &ecert) != ASN_OK)
 		goto errret;
 
 	c = (CertX509*)emalloc(sizeof(CertX509));
@@ -1942,18 +1942,19 @@ decode_cert(Bytes* a)
 		if(c->curve < 0)
 			goto errret;
 	}
-  	if(!is_bitstring(&elpubkey->tl->hd, &bits))
+	elpubkey = elpubkey->tl;
+	if(!is_bitstring(&elpubkey->hd, &bits))
 		goto errret;
-	if(bits->unusedbits != 0)
-		goto errret;
- 	c->publickey = makebytes(bits->data, bits->len);
+	elpubkey->hd.val.u.bitstringval = nil;	/* transfer ownership */
+	c->publickey = bits;
 
 	/*resume Certificate */
 	if(c->signature_alg < 0)
 		goto errret;
- 	if(!is_bitstring(esig, &bits))
+	if(!is_bitstring(esig, &bits))
 		goto errret;
- 	c->signature = makebytes(bits->data, bits->len);
+	esig->val.u.bitstringval = nil;	/* transfer ownership */
+	c->signature = bits;
 	ok = 1;
 
 errret:
@@ -2000,12 +2001,6 @@ errret:
 
 }
 
-static RSApub*
-decode_rsapubkey(Bytes* a)
-{
-	return asn1toRSApub(a->data, a->len);
-}
-
 /*
  *	RSAPrivateKey ::= SEQUENCE {
  *		version Version,
@@ -2018,16 +2013,16 @@ decode_rsapubkey(Bytes* a)
  *		exponent2 INTEGER, -- d mod (q-1)
  *		coefficient INTEGER -- (inverse of q) mod p }
  */
-static RSApriv*
-decode_rsaprivkey(Bytes* a)
+RSApriv*
+asn1toRSApriv(uchar *buf, int len)
 {
 	int version;
 	Elem e;
 	Elist *el;
-	RSApriv* key;
+	Bytes *b;
+	RSApriv* key = nil;
 
-	key = nil;
-	if(decode(a->data, a->len, &e) != ASN_OK)
+	if(decode(buf, len, &e) != ASN_OK)
 		goto errret;
 	if(!is_seq(&e, &el))
 		goto errret;
@@ -2038,8 +2033,8 @@ decode_rsaprivkey(Bytes* a)
 	if(elistlen(el) != 9){
 		if(elistlen(el) == 3
 		&& parse_alg(&el->tl->hd) == ALG_rsaEncryption
-		&& is_octetstring(&el->tl->tl->hd, &a)){
-			key = decode_rsaprivkey(a);
+		&& is_octetstring(&el->tl->tl->hd, &b)){
+			key = asn1toRSApriv(b->data, b->len);
 			if(key != nil)
 				goto done;
 		}
@@ -2098,16 +2093,15 @@ errret:
  *		priv_key INTEGER, -- secret
  *	}
  */
-static DSApriv*
-decode_dsaprivkey(Bytes* a)
+DSApriv*
+asn1toDSApriv(uchar *buf, int len)
 {
 	int version;
 	Elem e;
 	Elist *el;
-	DSApriv* key;
+	DSApriv* key = nil;
 
-	key = dsaprivalloc();
-	if(decode(a->data, a->len, &e) != ASN_OK)
+	if(decode(buf, len, &e) != ASN_OK)
 		goto errret;
 	if(!is_seq(&e, &el) || elistlen(el) != 6)
 		goto errret;
@@ -2115,6 +2109,7 @@ decode_dsaprivkey(Bytes* a)
 	if(!is_int(&el->hd, &version) || version != 0)
 		goto errret;
 
+	key = dsaprivalloc();
 	el = el->tl;
 	if((key->pub.p = asn1mpint(&el->hd)) == nil)
 		goto errret;
@@ -2143,46 +2138,21 @@ errret:
 	return nil;
 }
 
-RSApriv*
-asn1toRSApriv(uchar *kd, int kn)
-{
-	Bytes *b;
-	RSApriv *key;
-
-	b = makebytes(kd, kn);
-	key = decode_rsaprivkey(b);
-	freebytes(b);
-	return key;
-}
-
-DSApriv*
-asn1toDSApriv(uchar *kd, int kn)
-{
-	Bytes *b;
-	DSApriv *key;
-
-	b = makebytes(kd, kn);
-	key = decode_dsaprivkey(b);
-	freebytes(b);
-	return key;
-}
-
 /*
  * digest(CertificateInfo)
  * Our ASN.1 library doesn't return pointers into the original
  * data array, so we need to do a little hand decoding.
  */
 static int
-digest_certinfo(Bytes *cert, DigestAlg *da, uchar *digest)
+digest_certinfo(uchar *cert, int ncert, DigestAlg *da, uchar *digest)
 {
 	uchar *info, *p, *pend;
-	ulong infolen;
 	int isconstr, length;
 	Tag tag;
 	Elem elem;
 
-	p = cert->data;
-	pend = cert->data + cert->len;
+	p = cert;
+	pend = cert + ncert;
 	if(tag_decode(&p, pend, &tag, &isconstr) != ASN_OK ||
 	   tag.class != Universal || tag.num != SEQUENCE ||
 	   length_decode(&p, pend, &length) != ASN_OK ||
@@ -2195,8 +2165,7 @@ digest_certinfo(Bytes *cert, DigestAlg *da, uchar *digest)
 	freevalfields(&elem.val);
 	if(elem.tag.num != SEQUENCE)
 		return -1;
-	infolen = p - info;
-	(*da->fun)(info, infolen, digest, nil);
+	(*da->fun)(info, p - info, digest, nil);
 	return da->len;
 }
 
@@ -2320,27 +2289,32 @@ end:
 	return err;
 }
 
+static void
+copysubject(char *name, int nname, char *subject)
+{
+	char *e;
+
+	if(name == nil)
+		return;
+	memset(name, 0, nname);
+	if(subject == nil)
+		return;
+	strncpy(name, subject, nname-1);
+	e = strnchr(name, ',');
+	if(e != nil)
+		*e = 0;	/* take just CN part of Distinguished Name */
+}
+
 ECpub*
 X509toECpub(uchar *cert, int ncert, char *name, int nname, ECdomain *dom)
 {
 	CertX509 *c;
 	ECpub *pub;
-	Bytes *b;
 
-	if(name != nil)
-		memset(name, 0, nname);
-
-	b = makebytes(cert, ncert);
-	c = decode_cert(b);
-	freebytes(b);
+	c = decode_cert(cert, ncert);
 	if(c == nil)
 		return nil;
-	if(name != nil && c->subject != nil){
-		char *e = strchr(c->subject, ',');
-		if(e != nil)
-			*e = 0;	/* take just CN part of Distinguished Name */
-		strncpy(name, c->subject, nname);
-	}
+	copysubject(name, nname, c->subject);
 	pub = nil;
 	if(c->publickey_alg == ALG_ecPublicKey){
 		ecdominit(dom, namedcurves[c->curve]);
@@ -2356,19 +2330,14 @@ char*
 X509ecdsaverify(uchar *cert, int ncert, ECdomain *dom, ECpub *pk)
 {
 	char *e;
-	Bytes *b;
 	CertX509 *c;
 	int digestlen;
 	uchar digest[MAXdlen];
 
-	b = makebytes(cert, ncert);
-	c = decode_cert(b);
-	if(c == nil){
-		freebytes(b);
+	c = decode_cert(cert, ncert);
+	if(c == nil)
 		return "cannot decode cert";
-	}
-	digestlen = digest_certinfo(b, digestalg[c->signature_alg], digest);
-	freebytes(b);
+	digestlen = digest_certinfo(cert, ncert, digestalg[c->signature_alg], digest);
 	if(digestlen <= 0){
 		freecert(c);
 		return "cannot decode certinfo";
@@ -2381,27 +2350,16 @@ X509ecdsaverify(uchar *cert, int ncert, ECdomain *dom, ECpub *pk)
 RSApub*
 X509toRSApub(uchar *cert, int ncert, char *name, int nname)
 {
-	Bytes *b;
 	CertX509 *c;
 	RSApub *pub;
 
-	if(name != nil)
-		memset(name, 0, nname);
-
-	b = makebytes(cert, ncert);
-	c = decode_cert(b);
-	freebytes(b);
+	c = decode_cert(cert, ncert);
 	if(c == nil)
 		return nil;
-	if(name != nil && c->subject != nil){
-		char *e = strchr(c->subject, ',');
-		if(e != nil)
-			*e = 0;	/* take just CN part of Distinguished Name */
-		strncpy(name, c->subject, nname);
-	}
+	copysubject(name, nname, c->subject);
 	pub = nil;
 	if(c->publickey_alg == ALG_rsaEncryption)
-		pub = decode_rsapubkey(c->publickey);
+		pub = asn1toRSApub(c->publickey->data, c->publickey->len);
 	freecert(c);
 	return pub;
 }
@@ -2410,19 +2368,14 @@ char*
 X509rsaverify(uchar *cert, int ncert, RSApub *pk)
 {
 	char *e;
-	Bytes *b;
 	CertX509 *c;
 	int digestlen;
 	uchar digest[MAXdlen];
 
-	b = makebytes(cert, ncert);
-	c = decode_cert(b);
-	if(c == nil){
-		freebytes(b);
+	c = decode_cert(cert, ncert);
+	if(c == nil)
 		return "cannot decode cert";
-	}
-	digestlen = digest_certinfo(b, digestalg[c->signature_alg], digest);
-	freebytes(b);
+	digestlen = digest_certinfo(cert, ncert, digestalg[c->signature_alg], digest);
 	if(digestlen <= 0){
 		freecert(c);
 		return "cannot decode certinfo";
@@ -2643,20 +2596,14 @@ mkDN(char *dn)
 static Bytes*
 encode_digest(DigestAlg *da, uchar *digest)
 {
-	Bytes *ans;
-	int err;
-	Elem e;
-
-	e = mkseq(
+	Bytes *b = nil;
+	Elem e = mkseq(
 		mkel(mkalg(da->alg),
 		mkel(mkoctet(digest, da->len),
 		nil)));
-	err = encode(e, &ans);
+	encode(e, &b);
 	freevalfields(&e.val);
-	if(err != ASN_OK)
-		return nil;
-
-	return ans;
+	return b;
 }
 
 int
@@ -2875,12 +2822,10 @@ X509rsagen(RSApriv *priv, char *subj, ulong valid[2], int *certlen)
 	free(buf);
 	if(encode(e, &certbytes) != ASN_OK)
 		goto errret;
-	if(certlen)
+	if(certlen != nil)
 		*certlen = certbytes->len;
-	cert = malloc(certbytes->len);
-	if(cert != nil)
-		memmove(cert, certbytes->data, certbytes->len);
-	freebytes(certbytes);
+	cert = (uchar*)certbytes;
+	memmove(cert, certbytes->data, certbytes->len);
 errret:
 	freevalfields(&e.val);
 	free(subj);
@@ -2942,12 +2887,10 @@ X509rsareq(RSApriv *priv, char *subj, int *certlen)
 	free(buf);
 	if(encode(e, &certbytes) != ASN_OK)
 		goto errret;
-	if(certlen)
+	if(certlen != nil)
 		*certlen = certbytes->len;
-	cert = malloc(certbytes->len);
-	if(cert != nil)
-		memmove(cert, certbytes->data, certbytes->len);
-	freebytes(certbytes);
+	cert = (uchar*)certbytes;
+	memmove(cert, certbytes->data, certbytes->len);
 errret:
 	freevalfields(&e.val);
 	free(subj);
@@ -3048,7 +2991,6 @@ void
 X509dump(uchar *cert, int ncert)
 {
 	char *e;
-	Bytes *b;
 	CertX509 *c;
 	RSApub *rsapub;
 	ECpub *ecpub;
@@ -3057,15 +2999,13 @@ X509dump(uchar *cert, int ncert)
 	uchar digest[MAXdlen];
 
 	print("begin X509dump\n");
-	b = makebytes(cert, ncert);
-	c = decode_cert(b);
+	c = decode_cert(cert, ncert);
 	if(c == nil){
-		freebytes(b);
 		print("cannot decode cert\n");
 		return;
 	}
-	digestlen = digest_certinfo(b, digestalg[c->signature_alg], digest);
-	freebytes(b);
+
+	digestlen = digest_certinfo(cert, ncert, digestalg[c->signature_alg], digest);
 	if(digestlen <= 0){
 		freecert(c);
 		print("cannot decode certinfo\n");
@@ -3082,10 +3022,11 @@ X509dump(uchar *cert, int ncert)
 
 	switch(c->publickey_alg){
 	case ALG_rsaEncryption:
-		rsapub = decode_rsapubkey(c->publickey);
+		rsapub = asn1toRSApub(c->publickey->data, c->publickey->len);
 		if(rsapub != nil){
 			print("rsa pubkey e=%B n(%d)=%B\n", rsapub->ek, mpsignif(rsapub->n), rsapub->n);
-			e = X509rsaverifydigest(c->signature->data, c->signature->len, digest, digestlen, rsapub);
+			e = X509rsaverifydigest(c->signature->data, c->signature->len,
+				digest, digestlen, rsapub);
 			if(e==nil)
 				e = "nil (meaning ok)";
 			print("self-signed X509rsaverifydigest returns: %s\n", e);
@@ -3096,7 +3037,8 @@ X509dump(uchar *cert, int ncert)
 		ecdominit(&ecdom, namedcurves[c->curve]);
 		ecpub = ecdecodepub(&ecdom, c->publickey->data, c->publickey->len);
 		if(ecpub != nil){
-			e = X509ecdsaverifydigest(c->signature->data, c->signature->len, digest, digestlen, &ecdom, ecpub);
+			e = X509ecdsaverifydigest(c->signature->data, c->signature->len,
+				digest, digestlen, &ecdom, ecpub);
 			if(e==nil)
 				e = "nil (meaning ok)";
 			print("self-signed X509ecdsaverifydigest returns: %s\n", e);
