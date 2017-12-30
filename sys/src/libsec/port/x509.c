@@ -2300,7 +2300,7 @@ copysubject(char *name, int nname, char *subject)
 	if(subject == nil)
 		return;
 	strncpy(name, subject, nname-1);
-	e = strnchr(name, ',');
+	e = strchr(name, ',');
 	if(e != nil)
 		*e = 0;	/* take just CN part of Distinguished Name */
 }
