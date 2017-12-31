@@ -171,6 +171,13 @@ extern int  enc32(char *, int, uchar *, int);
 extern int  dec64(uchar *, int, char *, int);
 extern int  enc64(char *, int, uchar *, int);
 
+extern	int	dec64chr(int);
+extern	int	enc64chr(int);
+extern	int	dec32chr(int);
+extern	int	enc32chr(int);
+extern	int	dec16chr(int);
+extern	int	enc16chr(int);
+
 extern int tokenize(char*, char**, int);
 extern int getfields(char*, char**, int, int, char*);
 extern int gettokens(char*, char**, int, char*);
