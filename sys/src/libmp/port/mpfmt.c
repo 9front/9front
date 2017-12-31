@@ -17,8 +17,6 @@ toencx(mpint *b, char *buf, int len, int (*enc)(char*, int, uchar*, int))
 	return rv;
 }
 
-static char set16[] = "0123456789ABCDEF";
-
 static int
 topow2(mpint *b, char *buf, int len, int s)
 {
@@ -39,7 +37,7 @@ topow2(mpint *b, char *buf, int len, int s)
 			if(j != 0 || out != buf){
 				if(out >= eout)
 					return -1;
-				*out++ = set16[j];
+				*out++ = enc16chr(j);
 			}
 		}
 	}

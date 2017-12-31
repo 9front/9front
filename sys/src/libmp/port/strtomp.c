@@ -2,58 +2,16 @@
 #include <mp.h>
 #include "dat.h"
 
-static struct {
-	int	inited;
-
-	uchar	t64[256];
-	uchar	t32[256];
-	uchar	t16[256];
-	uchar	t10[256];
-} tab;
-
-enum {
-	INVAL=	255
-};
-
-static char set64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-static char set32[] = "23456789abcdefghijkmnpqrstuvwxyz";
-static char set16[] = "0123456789ABCDEF0123456789abcdef";
-static char set10[] = "0123456789";
-
-static void
-init(void)
-{
-	char *p;
-
-	memset(tab.t64, INVAL, sizeof(tab.t64));
-	memset(tab.t32, INVAL, sizeof(tab.t32));
-	memset(tab.t16, INVAL, sizeof(tab.t16));
-	memset(tab.t10, INVAL, sizeof(tab.t10));
-
-	for(p = set64; *p; p++)
-		tab.t64[*p] = p-set64;
-	for(p = set32; *p; p++)
-		tab.t32[*p] = p-set32;
-	for(p = set16; *p; p++)
-		tab.t16[*p] = (p-set16)%16;
-	for(p = set10; *p; p++)
-		tab.t10[*p] = (p-set10);
-
-	tab.inited = 1;
-}
-
 static char*
 frompow2(char *a, mpint *b, int s)
 {
 	char *p, *next;
-	int i;
 	mpdigit x;
-	int sn;
+	int i;
 
-	sn = 1<<s;
-	for(p = a; *p; p++)
-		if(tab.t16[*(uchar*)p] >= sn)
-			break;
+	i = 1<<s;
+	for(p = a; (dec16chr(*p) & 255) < i; p++)
+		;
 
 	mpbits(b, (p-a)*s);
 	b->top = 0;
@@ -64,7 +22,7 @@ frompow2(char *a, mpint *b, int s)
 		for(i = 0; i < Dbits; i += s){
 			if(p <= a)
 				break;
-			x |= tab.t16[*(uchar*)--p]<<i;
+			x |= dec16chr(*--p)<<i;
 		}
 		b->p[b->top++] = x;
 	}
@@ -78,9 +36,8 @@ from8(char *a, mpint *b)
 	mpdigit x, y;
 	int i;
 
-	for(p = a; *p; p++)
-		if(tab.t10[*(uchar*)p] >= 8)
-			break;
+	for(p = a; ((*p - '0') & 255) < 8; p++)
+		;
 
 	mpbits(b, (p-a)*3);
 	b->top = 0;
@@ -89,7 +46,7 @@ from8(char *a, mpint *b)
 	i = 0;
 	x = y = 0;
 	while(p > a){
-		y = tab.t10[*(uchar*)--p];
+		y = *--p - '0';
 		x |= y << i;
 		i += 3;
 		if(i >= Dbits){
@@ -124,8 +81,8 @@ from10(char *a, mpint *b)
 		// do a billion at a time in native arithmetic
 		x = 0;
 		for(i = 0; i < 9; i++){
-			y = tab.t10[*(uchar*)a];
-			if(y == INVAL)
+			y = *a - '0';
+			if(y > 9)
 				break;
 			a++;
 			x *= 10;
@@ -139,7 +96,7 @@ from10(char *a, mpint *b)
 		uitomp(x, r);
 		mpmul(b, pow, b);
 		mpadd(b, r, b);
-		if(i != 9)
+		if(i < 9)
 			break;
 	}
 	mpfree(pow);
@@ -148,14 +105,14 @@ from10(char *a, mpint *b)
 }
 
 static char*
-fromdecx(char *a, mpint *b, uchar tab[256], int (*dec)(uchar*, int, char*, int))
+fromdecx(char *a, mpint *b, int (*chr)(int), int (*dec)(uchar*, int, char*, int))
 {
 	char *buf = a;
 	uchar *p;
 	int n, m;
 
 	b->top = 0;
-	for(; tab[*(uchar*)a] != INVAL; a++)
+	for(; (*chr)(*a) >= 0; a++)
 		;
 	n = a-buf;
 	if(n > 0){
@@ -180,9 +137,6 @@ strtomp(char *a, char **pp, int base, mpint *b)
 		b = mpnew(0);
 		setmalloctag(b, getcallerpc(&a));
 	}
-
-	if(tab.inited == 0)
-		init();
 
 	while(*a==' ' || *a=='\t')
 		a++;
@@ -230,10 +184,10 @@ strtomp(char *a, char **pp, int base, mpint *b)
 		e = frompow2(a, b, 4);
 		break;
 	case 32:
-		e = fromdecx(a, b, tab.t32, dec32);
+		e = fromdecx(a, b, dec32chr, dec32);
 		break;
 	case 64:
-		e = fromdecx(a, b, tab.t64, dec64);
+		e = fromdecx(a, b, dec64chr, dec64);
 		break;
 	default:
 		abort();
