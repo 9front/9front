@@ -535,21 +535,6 @@ out:
 	return ret;
 }
 
-int
-Hfmt(Fmt *f)
-{
-	uchar *p, *e;
-
-	p = va_arg(f->args, uchar*);
-	e = p;
-	if(f->prec >= 0)
-		e += f->prec;
-	for(; p != e; p++)
-		if(fmtprint(f, "%.2x", *p) < 0)
-			return -1;
-	return 0;
-}
-
 void
 dumpkeydescr(Keydescr *kd)
 {
@@ -1180,7 +1165,7 @@ main(int argc, char *argv[])
 	int n, try;
 
 	quotefmtinstall();
-	fmtinstall('H', Hfmt);
+	fmtinstall('H', encodefmt);
 	fmtinstall('E', eipfmt);
 
 	rsne = nil;
@@ -1492,7 +1477,7 @@ Connect:
 					rsc = 0LL;
 				}
 				/* install pairwise receive key (PTK) */
-				if(fprint(cfd, "rxkey %.*H %s:%.*H@%llux", Eaddrlen, conn.amac,
+				if(fprint(cfd, "rxkey %E %s:%.*H@%llux", conn.amac,
 					peercipher->name, peercipher->keylen, ptk+32, tsc) < 0)
 					sysfatal("write rxkey: %r");
 
@@ -1504,7 +1489,7 @@ Connect:
 
 				tsc = 0LL;
 				/* install pairwise transmit key (PTK) */ 
-				if(fprint(cfd, "txkey %.*H %s:%.*H@%llux", Eaddrlen, conn.amac,
+				if(fprint(cfd, "txkey %E %s:%.*H@%llux", conn.amac,
 					peercipher->name, peercipher->keylen, ptk+32, tsc) < 0)
 					sysfatal("write txkey: %r");
 				newptk = 0; /* prevent PTK re-installation on (replayed) retransmits */
@@ -1528,8 +1513,8 @@ Connect:
 				continue;
 			/* install group key (GTK) */
 			if(gtklen >= groupcipher->keylen && gtkkid != -1)
-				if(fprint(cfd, "rxkey%d %.*H %s:%.*H@%llux",
-					gtkkid, Eaddrlen, conn.amac, 
+				if(fprint(cfd, "rxkey%d %E %s:%.*H@%llux",
+					gtkkid, conn.amac, 
 					groupcipher->name, groupcipher->keylen, gtk, rsc) < 0)
 					sysfatal("write rxkey%d: %r", gtkkid);
 		}
