@@ -48,17 +48,14 @@ encodefmt(Fmt *f)
 	// convert
 	out = buf;
 	switch(f->r){
-	case '<':
-		rv = enc32(out, len, b, ilen);
-		break;
 	case '[':
 		rv = enc64(out, len, b, ilen);
 		break;
+	case '<':
+		rv = enc32(out, len, b, ilen);
+		break;
 	case 'H':
 		rv = enc16(out, len, b, ilen);
-		if(rv >= 0 && (f->flags & FmtLong))
-			for(p = buf; *p; p++)
-				*p = tolower(*p);
 		break;
 	default:
 		rv = -1;
@@ -66,6 +63,10 @@ encodefmt(Fmt *f)
 	}
 	if(rv < 0)
 		goto error;
+
+	if((f->flags & FmtLong) != 0 && f->r != '[')
+		for(p = buf; *p; p++)
+			*p = tolower(*p);
 
 	fmtstrcpy(f, buf);
 	if(buf != obuf)

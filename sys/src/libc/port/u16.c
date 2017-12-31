@@ -1,6 +1,28 @@
 #include <u.h>
 #include <libc.h>
-static char t16e[] = "0123456789ABCDEF";
+
+#define between(x,min,max)	(((min-1-x) & (x-max-1))>>8)
+
+int
+enc16chr(int o)
+{
+	int c;
+
+	c  = between(o,  0,  9) & ('0'+o);
+	c |= between(o, 10, 15) & ('A'+(o-10));
+	return c;
+}
+
+int
+dec16chr(int c)
+{
+	int o;
+
+	o  = between(c, '0', '9') & (1+(c-'0'));
+	o |= between(c, 'A', 'F') & (1+10+(c-'A'));
+	o |= between(c, 'a', 'f') & (1+10+(c-'a'));
+	return o-1;
+}
 
 int
 dec16(uchar *out, int lim, char *in, int n)
@@ -10,14 +32,8 @@ dec16(uchar *out, int lim, char *in, int n)
 	uchar *eout = out + lim;
 
 	while(n-- > 0){
-		c = *in++;
-		if('0' <= c && c <= '9')
-			c = c - '0';
-		else if('a' <= c && c <= 'z')
-			c = c - 'a' + 10;
-		else if('A' <= c && c <= 'Z')
-			c = c - 'A' + 10;
-		else
+		c = dec16chr(*in++);
+		if(c < 0)
 			continue;
 		w = (w<<4) + c;
 		i++;
@@ -44,8 +60,8 @@ enc16(char *out, int lim, uchar *in, int n)
 		c = *in++;
 		if(out + 2 >= eout)
 			goto exhausted;
-		*out++ = t16e[c>>4];
-		*out++ = t16e[c&0xf];
+		*out++ = enc16chr(c>>4);
+		*out++ = enc16chr(c&15);
 	}
 exhausted:
 	*out = 0;

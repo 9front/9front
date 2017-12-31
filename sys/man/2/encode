@@ -1,6 +1,8 @@
 .TH ENCODE 2
 .SH NAME
-dec64, enc64, dec32, enc32, dec16, enc16, encodefmt \- encoding byte arrays as strings
+dec64, enc64, dec32, enc32, dec16, enc16, \
+dec64chr, enc64chr, dec32chr, enc32chr, dec16chr, enc16chr, \
+encodefmt \- encoding byte arrays as strings
 .SH SYNOPSIS
 .B #include <u.h>
 .br
@@ -25,8 +27,28 @@ int	dec16(uchar *out, int lim, char *in, int n)
 int	enc16(char *out, int lim, uchar *in, int n)
 .PP
 .B
+int	dec64chr(int c)
+.PP
+.B
+int	enc64chr(int o)
+.PP
+.B
+int	dec32chr(int c)
+.PP
+.B
+int	enc32chr(int o)
+.PP
+.B
+int	dec16chr(int c)
+.PP
+.B
+int	enc16chr(int o)
+.PP
+.B
 int	encodefmt(Fmt*)
 .SH DESCRIPTION
+The functions described here handle encoding and decoding of
+bytes to printable ASCII strings as specified by RFC4648. 
 .PP
 .IR Enc16 ,
 .I enc32
@@ -47,6 +69,20 @@ The decoding fails if the output buffer is not large enough or,
 for base 32, if the input buffer length is not a multiple
 of 8.
 .PP
+.IR Dec16chr ,
+.I dec32chr
+and
+.I dec64chr
+return the value for a symbol of the alphabet or -1 when the
+symbol is not in the alphabet.
+.PP
+.IR Enc16chr ,
+.I enc32chr
+and
+.I enc64chr
+encode a symbol of the alphabet given a value.
+if the value is out of range then zero is returned.
+.PP
 .I Encodefmt
 can be used with
 .IR fmtinstall (2)
@@ -62,7 +98,8 @@ in upper case.  The
 flag forces lower case.
 .TP
 .B <
-base 32
+base 32. The default is upper case, same as
+.BR H .
 .TP
 .B [
 base 64 (same as MIME)
@@ -80,8 +117,19 @@ For example, to display a 15 byte array as hex:
 
 .EE
 .SH SOURCE
+.B /sys/src/libc/port/u16.c
+.br
 .B /sys/src/libc/port/u32.c
 .br
 .B /sys/src/libc/port/u64.c
 .br
 .B /sys/src/libc/port/encodefmt.c
+.SH HISTORY
+In Jan 2018, base 32 encoding was changed from non-standard
+to standard RFC4648 alphabet.
+.TP
+old:
+.B "23456789abcdefghijkmnpqrstuvwxyz"
+.TP
+new:
+.B "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
