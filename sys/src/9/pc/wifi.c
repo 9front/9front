@@ -806,29 +806,6 @@ wifiattach(Ether *ether, void (*transmit)(Wifi*, Wnode*, Block*))
 	return wifi;
 }
 
-static int
-hextob(char *s, char **sp, uchar *b, int n)
-{
-	int r;
-
-	n <<= 1;
-	for(r = 0; r < n && *s; s++){
-		*b <<= 4;
-		if(*s >= '0' && *s <= '9')
-			*b |= (*s - '0');
-		else if(*s >= 'a' && *s <= 'f')
-			*b |= 10+(*s - 'a');
-		else if(*s >= 'A' && *s <= 'F')
-			*b |= 10+(*s - 'A');
-		else break;
-		if((++r & 1) == 0)
-			b++;
-	}
-	if(sp != nil)
-		*sp = s;
-	return r >> 1;
-}
-
 static char *ciphers[] = {
 	[0]	"clear",
 	[TKIP]	"tkip",
@@ -838,45 +815,55 @@ static char *ciphers[] = {
 static Wkey*
 parsekey(char *s)
 {
-	char buf[256], *p;
+	static char Ebadkey[] = "bad key";
 	uchar key[32];
-	int i, n;
+	int len, cipher;
+	char *e;
 	Wkey *k;
 
-	strncpy(buf, s, sizeof(buf)-1);
-	buf[sizeof(buf)-1] = 0;
-	if((p = strchr(buf, ':')) != nil)
-		*p++ = 0;
-	else
-		p = buf;
-	n = hextob(p, &p, key, sizeof(key));
-	for(i=0; i<nelem(ciphers); i++)
-		if(strcmp(ciphers[i], buf) == 0)
-			break;
-	switch(i){
-	case 0:
-		k = secalloc(sizeof(Wkey));
-		break;
+	for(cipher=0; cipher<nelem(ciphers); cipher++){
+		if(strncmp(s, ciphers[cipher], len = strlen(ciphers[cipher])) == 0){
+			if(cipher == 0)	/* clear */
+				return nil;
+			if(s[len] == ':'){
+				s += len+1;
+				break;
+			}
+		}
+	}
+	if(cipher >= nelem(ciphers))
+		error(Ebadkey);
+
+	if((e = strchr(s, '@')) == nil)
+		e = strchr(s, 0);
+
+	len = dec16(key, sizeof(key), s, e - s);
+
+	switch(cipher){
 	case TKIP:
-		if(n != 32)
-			return nil;	
-		k = secalloc(sizeof(Wkey) + n);
-		memmove(k->key, key, n);
+		if(len != 32)
+			error(Ebadkey);
+		k = secalloc(sizeof(Wkey) + len);
+		memmove(k->key, key, len);
 		break;
 	case CCMP:
-		if(n != 16)
-			return nil;
+		if(len != 16)
+			error(Ebadkey);
 		k = secalloc(sizeof(Wkey) + sizeof(AESstate));
-		setupAESstate((AESstate*)k->key, key, n, nil);
+		setupAESstate((AESstate*)k->key, key, len, nil);
 		break;
 	default:
+		error(Ebadkey);
 		return nil;
 	}
+
 	memset(key, 0, sizeof(key));
-	if(*p == '@')
-		k->tsc = strtoull(++p, nil, 16);
-	k->len = n;
-	k->cipher = i;
+
+	if(*e++ == '@')
+		k->tsc = strtoull(e, nil, 16);
+	k->len = len;
+	k->cipher = cipher;
+
 	return k;
 }
 
@@ -998,7 +985,7 @@ wifictl(Wifi *wifi, void *buf, long n)
 		if(cb->f[1] == nil)
 			wn->rsnelen = 0;
 		else
-			wn->rsnelen = hextob(cb->f[1], nil, wn->rsne, sizeof(wn->rsne));
+			wn->rsnelen = dec16(wn->rsne, sizeof(wn->rsne), cb->f[1], strlen(cb->f[1]));
 		if(wn->aid == 0){
 			setstatus(wifi, wn, Sconn);
 			sendauth(wifi, wn);
@@ -1012,13 +999,7 @@ wifictl(Wifi *wifi, void *buf, long n)
 		if(cb->f[1] == nil)
 			error(Ebadarg);
 		k = parsekey(cb->f[1]);
-		if(k == nil)
-			error("bad key");
 		memset(cb->f[1], 0, strlen(cb->f[1]));
-		if(k->cipher == 0){
-			secfree(k);
-			k = nil;
-		}
 		if(ct->index < CMtxkey0)
 			kk = &wn->rxkey[ct->index - CMrxkey0];
 		else
