@@ -507,33 +507,6 @@ p9skclose(Fsstate *fss)
 }
 
 static int
-unhex(char c)
-{
-	if('0' <= c && c <= '9')
-		return c-'0';
-	if('a' <= c && c <= 'f')
-		return c-'a'+10;
-	if('A' <= c && c <= 'F')
-		return c-'A'+10;
-	abort();
-	return -1;
-}
-
-static int
-hexparse(char *hex, uchar *dat, int ndat)
-{
-	int i;
-
-	if(strlen(hex) != 2*ndat)
-		return -1;
-	if(hex[strspn(hex, "0123456789abcdefABCDEF")] != '\0')
-		return -1;
-	for(i=0; i<ndat; i++)
-		dat[i] = (unhex(hex[2*i])<<4)|unhex(hex[2*i+1]);
-	return 0;
-}
-
-static int
 p9skaddkey(Key *k, int before)
 {
 	Authkey *akey;
@@ -547,13 +520,13 @@ p9skaddkey(Key *k, int before)
 	akey = emalloc(sizeof(Authkey));
 	if(s = _strfindattr(k->privattr, "!hex")){
 		if(k->proto == &dp9ik){
-			if(hexparse(s, akey->aes, AESKEYLEN) < 0){
+			if(dec16(akey->aes, AESKEYLEN, s, strlen(s)) != AESKEYLEN){
 				free(akey);
 				werrstr("malformed key data");
 				return -1;
 			}
 		} else {
-			if(hexparse(s, (uchar*)akey->des, DESKEYLEN) < 0){
+			if(dec16((uchar*)akey->des, DESKEYLEN, s, strlen(s)) != DESKEYLEN){
 				free(akey);
 				werrstr("malformed key data");
 				return -1;

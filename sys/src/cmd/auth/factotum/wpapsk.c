@@ -35,35 +35,13 @@ struct State
 	uchar	resp[PTKlen];
 };
 
-static int
-hextob(char *s, char **sp, uchar *b, int n)
-{
-	int r;
-
-	n <<= 1;
-	for(r = 0; r < n && *s; s++){
-		*b <<= 4;
-		if(*s >= '0' && *s <= '9')
-			*b |= (*s - '0');
-		else if(*s >= 'a' && *s <= 'f')
-			*b |= 10+(*s - 'a');
-		else if(*s >= 'A' && *s <= 'F')
-			*b |= 10+(*s - 'A');
-		else break;
-		if((++r & 1) == 0)
-			b++;
-	}
-	if(sp != nil)
-		*sp = s;
-	return r >> 1;
-}
-
 static void
 pass2pmk(char *pass, char *ssid, uchar pmk[PMKlen])
 {
-	if(hextob(pass, nil, pmk, PMKlen) == PMKlen)
+	int npass = strlen(pass);
+	if(npass == 2*PMKlen && dec16(pmk, PMKlen, pass, npass) == PMKlen)
 		return;
-	pbkdf2_x((uchar*)pass, strlen(pass), (uchar*)ssid, strlen(ssid), 4096, pmk, PMKlen, hmac_sha1, SHA1dlen);
+	pbkdf2_x((uchar*)pass, npass, (uchar*)ssid, strlen(ssid), 4096, pmk, PMKlen, hmac_sha1, SHA1dlen);
 }
 
 static void
