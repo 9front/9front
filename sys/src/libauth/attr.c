@@ -128,7 +128,7 @@ Attr*
 _parseattr(char *s)
 {
 	char *p, *t, *tok[256];
-	int i, ntok, type;
+	int i, ntok;
 	Attr *a;
 
 	s = strdup(s);
@@ -139,25 +139,17 @@ _parseattr(char *s)
 	a = nil;
 	for(i=ntok-1; i>=0; i--){
 		t = tok[i];
-		if(p = strchr(t, '=')){
+		if((p = strchr(t, '=')) != nil){
 			*p++ = '\0';
-		//	if(p-2 >= t && p[-2] == ':'){
-		//		p[-2] = '\0';
-		//		type = AttrDefault;
-		//	}else
-				type = AttrNameval;
-			a = _mkattr(type, t, p, a);
-			setmalloctag(a, getcallerpc(&s));
-		}
-		else if(t[strlen(t)-1] == '?'){
-			t[strlen(t)-1] = '\0';
+			a = _mkattr(AttrNameval, t, p, a);
+		}else if((p = strchr(t, '\0')-1) >= t && *p == '?'){
+			*p = '\0';
 			a = _mkattr(AttrQuery, t, "", a);
-			setmalloctag(a, getcallerpc(&s));
 		}else{
 			/* really a syntax error, but better to provide some indication */
 			a = _mkattr(AttrNameval, t, "", a);
-			setmalloctag(a, getcallerpc(&s));
 		}
+		setmalloctag(a, getcallerpc(&s));
 	}
 	free(s);
 	return cleanattr(a);
