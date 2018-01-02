@@ -81,6 +81,8 @@ in conjunction with a cryptographic protocol.
 can act in the role of client for any process possessing the
 same user id as it.  For select protocols such as
 .B p9sk1
+and
+.B dp9ik
 it can also act as a client for other processes provided
 its user id may speak for the other process' user id (see
 .IR authsrv (6)).
@@ -98,19 +100,24 @@ supports the following protocols:
 a metaprotocol used to negotiate which actual protocol to use.
 .TP
 .B p9sk1
-a Plan 9 shared key protocol described in
+legacy Plan 9 shared key protocol described in
 .IR authsrv (6)'s
-``File Service'' section.
+``Ticket Service''
+and
+``P9sk1'' sections.
 .TP
-.B p9sk2
-a variant of
+.B dp9ik
+extended version of
 .B p9sk1
-described in
+that adds password bruteforce resistance and forward secrecy (see
 .IR authsrv (6)'s
-``Remote Execution'' section.
+``Password authenticated key exchange''
+and
+``Dp9ik''
+sections).
 .TP
 .B p9cr
-a Plan 9 protocol that can use either
+legacy Plan 9 protocol that can use either
 .B p9sk1
 keys or SecureID tokens.
 .TP
@@ -141,9 +148,6 @@ passwords in the clear.
 .B vnc
 .IR vnc (1)'s
 challenge/response.
-.TP
-.B wep
-WEP passwords for wireless ethernet cards.
 .TP
 .B wpapsk
 WPA passwords for wireless ethernet cards.
@@ -193,9 +197,11 @@ don't look for a secstore.
 .TP
 .B \-S
 indicates that the agent is running on a
-CPU server.  On starting, it will attempt to get a
+CPU server.  On starting, it will attempt to get
 .B p9sk1
-key from NVRAM using
+and
+.B dp9ik
+keys from NVRAM using
 .B readnvram
 (see
 .IR authsrv (2)),
@@ -265,11 +271,13 @@ does not appear when reading the
 file.
 The required attributes depend on the authentication protocol.
 .PP
-.BR P9sk1 ,
-.BR p9sk2 ,
+.BR Dp9ik ,
+.B p9sk1
 and
-.BR p9cr
+.B p9cr
 all require a key with
+.BR proto = dp9ik
+or
 .BR proto = p9sk1 ,
 a
 .B dom
@@ -283,7 +291,7 @@ attribute specifying the password or hexadecimal secret
 to be used.  Here is an example:
 .PP
 .EX
-    proto=p9sk1 dom=avayalabs.com user=presotto !password=lucent
+    proto=dp9ik dom=9front user=glenda !password=secret
 .EE
 .PP
 .BR Apop ,
@@ -338,23 +346,9 @@ and
 By convention, programs using the RSA protocol also require a
 .B service
 attribute set to
-.BR ssh ,
-.BR sshserve ,
+.B ssh
 or
 .BR tls .
-.PP
-.B Wep
-requires a
-.BR key1 ,
-.BR key2 ,
-or
-.BR key3
-set to the password to be used.
-Starting the protocol causes
-.I factotum
-to configure the wireless ethernet card
-.B #l/ether0
-for WEP encryption with the given password.
 .PP
 All keys can have additional attributes that act either as comments
 or as selectors to distinguish them in the
@@ -402,9 +396,11 @@ protocols (in particular, the Plan 9 ones).
 .PP
 Whenever
 .I factotum
-runs as a server, it must have a
+runs as a server, it must have
+.B dp9ik
+or
 .B p9sk1
-key in order to communicate with the authentication
+keys in order to communicate with the authentication
 server for validating passwords and challenge/responses of
 other users.
 .SS "Key Templates
@@ -743,3 +739,5 @@ is the reason for the error.
 .RE
 .SH SOURCE
 .B /sys/src/cmd/auth/factotum
+.SH "SEE ALSO"
+.IR authsrv (6)
