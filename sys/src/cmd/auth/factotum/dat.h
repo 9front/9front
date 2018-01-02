@@ -225,8 +225,6 @@ extern Proto chap, mschap, mschapv2, mschap2;	/* chap.c */
 extern Proto p9cr, vnc;			/* p9cr.c */
 extern Proto pass;			/* pass.c */
 extern Proto rsa;			/* rsa.c */
-extern Proto wep;			/* wep.c */
-/* extern Proto srs;			/* srs.c */
 extern Proto httpdigest;		/* httpdigest.c */
 extern Proto ecdsa;			/* ecdsa.c */
 extern Proto wpapsk;			/* wpapsk.c */
