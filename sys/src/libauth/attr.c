@@ -5,28 +5,26 @@
 int
 _attrfmt(Fmt *fmt)
 {
-	char *b, buf[1024], *ebuf;
 	Attr *a;
+	int first = 1;
 
-	ebuf = buf+sizeof buf;
-	b = buf;
-	strcpy(buf, " ");
-	for(a=va_arg(fmt->args, Attr*); a; a=a->next){
+	for(a=va_arg(fmt->args, Attr*); a != nil; a=a->next){
 		if(a->name == nil)
 			continue;
 		switch(a->type){
+		default:
+			continue;
 		case AttrQuery:
-			b = seprint(b, ebuf, " %q?", a->name);
+			fmtprint(fmt, first+" %q?", a->name);
 			break;
 		case AttrNameval:
-			b = seprint(b, ebuf, " %q=%q", a->name, a->val);
-			break;
 		case AttrDefault:
-			b = seprint(b, ebuf, " %q:=%q", a->name, a->val);
+			fmtprint(fmt, first+" %q=%q", a->name, a->val);
 			break;
 		}
+		first = 0;
 	}
-	return fmtstrcpy(fmt, buf+1);
+	return 0;
 }
 
 Attr*
