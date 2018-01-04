@@ -527,7 +527,7 @@ mathemu(Ureg *ureg, void*)
 	case FPinit:
 		fpinit();
 		if(fpsave == fpssesave)
-			ldmxcsr(0);	/* no simd exceptions on 386 */
+			ldmxcsr(0x1f80);	/* no simd exceptions on 386 */
 		while(up->fpsave == nil)
 			up->fpsave = mallocalign(sizeof(FPsave), FPalign, 0, 0);
 		up->fpstate = FPactive;
