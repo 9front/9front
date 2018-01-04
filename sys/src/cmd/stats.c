@@ -26,12 +26,13 @@ struct Graph
 
 enum
 {
-	/* old /dev/swap */
+	/* /dev/swap */
 	Mem		= 0,
 	Maxmem,
 	Swap,
 	Maxswap,
-
+	Reclaim,
+	Maxreclaim,
 	Kern,
 	Maxkern,
 	Draw,
@@ -48,6 +49,7 @@ enum
 	Load,
 	Idle,
 	InIntr,
+
 	/* /net/ether0/stats */
 	In		= 0,
 	Link,
@@ -69,7 +71,7 @@ struct Machine
 	int		tempfd;
 	int		disable;
 
-	uvlong		devswap[8];
+	uvlong		devswap[10];
 	uvlong		devsysstat[10];
 	uvlong		prevsysstat[10];
 	int		nproc;
@@ -120,6 +122,7 @@ enum Menu2
 	Mload,
 	Mmem,
 	Mswap,
+	Mreclaim,
 	Mkern,
 	Mdraw,
 	Msyscall,
@@ -144,6 +147,7 @@ char	*menu2str[Nmenu2+1] = {
 	"add  load    ",
 	"add  mem     ",
 	"add  swap    ",
+	"add  reclaim ",
 	"add  kern    ",
 	"add  draw    ",
 	"add  syscall ",
@@ -167,6 +171,7 @@ void	contextval(Machine*, uvlong*, uvlong*, int),
 	idleval(Machine*, uvlong*, uvlong*, int),
 	memval(Machine*, uvlong*, uvlong*, int),
 	swapval(Machine*, uvlong*, uvlong*, int),
+	reclaimval(Machine*, uvlong*, uvlong*, int),
 	kernval(Machine*, uvlong*, uvlong*, int),
 	drawval(Machine*, uvlong*, uvlong*, int),
 	syscallval(Machine*, uvlong*, uvlong*, int),
@@ -192,6 +197,7 @@ void	(*newvaluefn[Nmenu2])(Machine*, uvlong*, uvlong*, int init) = {
 	loadval,
 	memval,
 	swapval,
+	reclaimval,
 	kernval,
 	drawval,
 	syscallval,
@@ -205,7 +211,7 @@ Image	*cols[Ncolor][3];
 Graph	*graph;
 Machine	*mach;
 char	*mysysname;
-char	argchars[] = "8bcdeEfiIkmlnpstwz";
+char	argchars[] = "8bcdeEfiIkmlnprstwz";
 int	pids[NPROC];
 int 	parity;	/* toggled to avoid patterns in textured background */
 int	nmach;
@@ -465,42 +471,58 @@ readnums(Machine *m, int n, uvlong *a, int spanlines)
 int
 readswap(Machine *m, uvlong *a)
 {
+	static int xxx = 0;
+
 	if(strstr(m->buf, "memory\n")){
 		/* new /dev/swap - skip first 3 numbers */
 		if(!readnums(m, 7, a, 1))
 			return 0;
-		a[0] = a[3];
-		a[1] = a[4];
-		a[2] = a[5];
-		a[3] = a[6];
 
-		a[4] = 0;
-		a[5] = 0;
+		a[Mem] = a[3];
+		a[Maxmem] = a[4];
+		a[Swap] = a[5];
+		a[Maxswap] = a[6];
+
+		a[Reclaim] = 0;
+		a[Maxreclaim] = 0;
+		if(m->bufp = strstr(m->buf, "reclaim")){
+			while(m->bufp > m->buf && m->bufp[-1] != '\n')
+				m->bufp--;
+			a[Reclaim] = strtoull(m->bufp, &m->bufp, 10);
+			while(*m->bufp++ == '/')
+				a[Maxreclaim] = strtoull(m->bufp, &m->bufp, 10);
+		}
+
+		a[Kern] = 0;
+		a[Maxkern] = 0;
 		if(m->bufp = strstr(m->buf, "kernel malloc")){
 			while(m->bufp > m->buf && m->bufp[-1] != '\n')
 				m->bufp--;
-			a[4] = strtoull(m->bufp, &m->bufp, 10);
+			a[Kern] = strtoull(m->bufp, &m->bufp, 10);
 			while(*m->bufp++ == '/')
-				a[5] = strtoull(m->bufp, &m->bufp, 10);
+				a[Maxkern] = strtoull(m->bufp, &m->bufp, 10);
 		}
 
-		a[6] = 0;
-		a[7] = 0;
+		a[Draw] = 0;
+		a[Maxdraw] = 0;
 		if(m->bufp = strstr(m->buf, "kernel draw")){
 			while(m->bufp > m->buf && m->bufp[-1] != '\n')
 				m->bufp--;
-			a[6] = strtoull(m->bufp, &m->bufp, 10);
+			a[Draw] = strtoull(m->bufp, &m->bufp, 10);
 			while(*m->bufp++ == '/')
-				a[7] = strtoull(m->bufp, &m->bufp, 10);
+				a[Maxdraw] = strtoull(m->bufp, &m->bufp, 10);
 		}
 
 		return 1;
 	}
 
-	a[4] = 0;
-	a[5] = 0;
-	a[6] = 0;
-	a[7] = 0;
+	a[Reclaim] = 0;
+	a[Maxreclaim] = 0;
+	a[Kern] = 0;
+	a[Maxkern] = 0;
+	a[Draw] = 0;
+	a[Maxdraw] = 0;
+
 	return readnums(m, 4, a, 0);
 }
 
@@ -636,7 +658,7 @@ alarmed(void *a, char *s)
 int
 needswap(int init)
 {
-	return init | present[Mmem] | present[Mswap] | present[Mkern] | present[Mdraw];
+	return init | present[Mmem] | present[Mswap] | present[Mreclaim] | present[Mkern] | present[Mdraw];
 }
 
 
@@ -742,6 +764,15 @@ swapval(Machine *m, uvlong *v, uvlong *vmax, int)
 {
 	*v = m->devswap[Swap];
 	*vmax = m->devswap[Maxswap];
+	if(*vmax == 0)
+		*vmax = 1;
+}
+
+void
+reclaimval(Machine *m, uvlong *v, uvlong *vmax, int)
+{
+	*v = m->devswap[Reclaim];
+	*vmax = m->devswap[Maxreclaim];
 	if(*vmax == 0)
 		*vmax = 1;
 }
@@ -1326,6 +1357,9 @@ main(int argc, char *argv[])
 		break;
 	case 'p':
 		addgraph(Mtlbpurge);
+		break;
+	case 'r':
+		addgraph(Mreclaim);
 		break;
 	case 's':
 		addgraph(Msyscall);

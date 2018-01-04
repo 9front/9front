@@ -297,6 +297,19 @@ found:
 }
 
 ulong
+imagecached(void)
+{
+	Image *i, *ie;
+	ulong np;
+
+	np = 0;
+	ie = &imagealloc.list[conf.nimage];
+	for(i = imagealloc.list; i < ie; i++)
+		np += i->pgref;
+	return np;
+}
+
+ulong
 imagereclaim(ulong pages)
 {
 	static Image *i, *ie;

@@ -133,6 +133,7 @@ uintptr		ibrk(uintptr, int);
 void		ilock(Lock*);
 void		interrupted(void);
 void		iunlock(Lock*);
+ulong		imagecached(void);
 ulong		imagereclaim(ulong);
 long		incref(Ref*);
 void		initseg(void);

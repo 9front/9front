@@ -517,25 +517,29 @@ static long
 swapread(Chan *c, void *va, long n, vlong off)
 {
 	char tmp[256];		/* must be >= 18*NUMSIZE (Qswap) */
+	ulong reclaim;
 
 	switch((ulong)c->qid.path){
 	case Qdir:
 		return devdirread(c, va, n, swapdir, nelem(swapdir), devgen);
 	case Qswap:
+		reclaim = imagecached() + fscache.pgref + swapimage.pgref;
 		snprint(tmp, sizeof tmp,
 			"%llud memory\n"
 			"%llud pagesize\n"
 			"%lud kernel\n"
 			"%lud/%lud user\n"
 			"%lud/%lud swap\n"
+			"%lud/%lud reclaim\n"
 			"%llud/%llud/%llud kernel malloc\n"
 			"%llud/%llud/%llud kernel draw\n"
 			"%llud/%llud/%llud kernel secret\n",
 			(uvlong)conf.npage*BY2PG,
 			(uvlong)BY2PG,
 			conf.npage-conf.upages,
-			palloc.user-palloc.freecount-fscache.pgref-swapimage.pgref, palloc.user,
+			palloc.user-palloc.freecount-reclaim, palloc.user,
 			conf.nswap-swapalloc.free, conf.nswap,
+			reclaim, palloc.user,
 			(uvlong)mainmem->curalloc,
 			(uvlong)mainmem->cursize,
 			(uvlong)mainmem->maxsize,

@@ -39,6 +39,9 @@ percentage battery life remaining.
 .B "c context
 number of process context switches per second.
 .TP
+.B "d draw
+draw memory allocation size in bytes.
+.TP
 .B 
 .B "e ether
 total number of packets sent and received per second.
@@ -58,6 +61,9 @@ system load, % time in idle, and % time in interrupts.
 The last two are averaged over all processors on a
 multiprocessor.
 .TP
+.B "k kern
+kernel memory allocation size in bytes.
+.TP
 .B "l load
 (default) system load average.
 The load is computed as a running average of
@@ -68,18 +74,16 @@ total pages of active memory.
 The graph displays the fraction
 of the machine's total memory in use.
 .TP
-.B "k kern
-kernel memory allocation size in bytes.
-.TP
-.B "d draw
-draw memory allocation size in bytes.
-.TP
-.B 
 .B "n etherin,out,err
 number of packets sent and received per second, and total number of errors, displayed as separate graphs.
 .TP
 .B "p tlbpurge
 number of translation lookaside buffer flushes per second.
+.TP
+.B "r reclaim 
+total pages of reclaimable memory.
+The graph displays the fraction
+of the machine's total memory in use.
 .TP
 .B "s syscall
 number of system calls per second.
