@@ -30,8 +30,9 @@ case go
 	9fat=$rd
 	export 9fat
 
+	bootfile=`{basename $bootfile}
+
 	if(! test -f /tmp/plan9.ini) {
-		bootfile=9pc
 		@{
 			echo 'bootfile='^$bootfile
 			echo 'bootargs=local!'^$fs' '$"fsflags
@@ -82,7 +83,7 @@ case go
 
 	logprog mount -c /srv/dos /n/9fat $9fat
 
-	logprog rm -f /n/9fat/^(9bootfat plan9.ini 9pc)
+	logprog rm -f /n/9fat/^(9bootfat plan9.ini $bootfile)
 
 	logprog cp /n/newfs/386/9bootfat /n/9fat/9bootfat
 	# make file continous on disk
@@ -92,7 +93,7 @@ case go
 	logprog cp /tmp/plan9.ini /n/9fat/plan9.ini
 
 	# copy kernel
-	logprog cp /n/newfs/386/9pc /n/9fat/9pc
+	logprog cp /n/newfs/$cputype/$bootfile /n/9fat/
 
 	# copy efi bootloader
 	logprog mkdir -p /n/9fat/efi/boot
