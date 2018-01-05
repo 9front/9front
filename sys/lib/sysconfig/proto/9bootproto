@@ -1,0 +1,15 @@
+uid=sys
+gid=sys
+386	d775
+	9bootfat	664
+	9boothyb	664
+	9bootiso	664
+	9bootpxe	664
+	efiboot.fat	664
+	bootia32.efi	664
+	bootx64.efi	664
+	mbr		664
+	pbs		664
+
+cfg	d775
+	plan9.ini	664

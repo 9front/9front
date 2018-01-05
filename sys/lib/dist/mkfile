@@ -1,20 +1,46 @@
-proto=/n/src9/sys/lib/sysconfig/proto/cdproto
-iso=/tmp/9front.iso
+proto=/n/src9/sys/lib/sysconfig/proto/distproto
 
-cd:V:	$iso
+cd:V:	/tmp/9front.386.iso.gz
 
-binds:V:
-	test -d /n/src9/.hg && bind /n/src9 /n/src9/dist/plan9front
-	bind cfg /n/src9/cfg
-	bind mail/lib /n/src9/mail/lib
-	bind ndb /n/src9/lib/ndb
-	bind -a adm/timezone /n/src9/adm/timezone
-	bind usr /n/src9/usr
+%.gz:D:	%
+	gzip -9 < $prereq > $target
 
-%.iso:  $proto
+%.386.iso:
+	@{
+	objtype=386
+	kernel=/n/src9/$objtype/9pc
+	mk $target.$pid.pc.iso
+	mv $target.$pid.pc.iso $target
+	}
+
+%.amd64.iso:
+	@{
+	objtype=amd64
+	kernel=/n/src9/$objtype/9pc64
+	mk $target.$pid.pc.iso
+	mv $target.$pid.pc.iso $target
+	}
+
+%.zynq.img:
+	@{
+	objtype=arm
+	kernel=/n/src9/$objtype/9zynq
+	echo 'bootfile='^`{basename $kernel} > /env/plan9.ini
+	fatfiles=(/env/plan9.ini $kernel)
+	mb=1919	# storage vendors idea of 2GB
+	mk $target.$pid.disk
+	mv $target.$pid.disk $target
+	}
+
+%.pc.iso:D:	$proto /n/src9/sys/lib/sysconfig/proto/9bootproto /n/src9/cfg/plan9.ini $kernel
 	@{rfork n
 	mk binds
-	disk/mk9660 -c9j -B 386/9bootiso -E 386/efiboot.fat -p $proto -s /n/src9 -v 'Plan 9 Front' $target
+	{grep -v '^bootfile=' /n/src9/cfg/plan9.ini
+	echo 'bootfile='^`{echo $kernel | sed 's!^/n/src9!!'}} > /env/plan9.ini
+	bind /env/plan9.ini /n/src9/cfg/plan9.ini
+	disk/mk9660 -c9j -B 386/9bootiso -E 386/efiboot.fat \
+		-p <{cat $proto /n/src9/sys/lib/sysconfig/proto/9bootproto} \
+		-s /n/src9 -v 'Plan 9 Front ('^$objtype^')' $target
 	if(test -r /n/src9/386/9boothyb){
 		dd -if /dev/zero -bs 2048 -count 1024 >> $target
 		disk/partfs -m /n/partfs $target
@@ -36,17 +62,6 @@ binds:V:
 		unmount /n/esp
 		rm -f /srv/$s
 	}}
-
-%.zynq.img:
-	@{
-	objtype=arm
-	kernel=/n/src9/$objtype/9zynq
-	echo 'bootfile='^`{basename $kernel} > /env/plan9.ini
-	fatfiles=(/env/plan9.ini $kernel)
-	mb=1919	# storage vendors idea of 2GB
-	mk $target.$pid.disk
-	mv $target.$pid.disk $target
-	}
 
 %.disk:D:	$proto $fatfiles
 	@{rfork n
@@ -80,3 +95,11 @@ binds:V:
 	while(test -e /srv/$s.cmd) sleep 1
 	exit ''
 	}
+
+binds:V:
+	test -d /n/src9/.hg && bind /n/src9 /n/src9/dist/plan9front
+	bind cfg /n/src9/cfg
+	bind mail/lib /n/src9/mail/lib
+	bind ndb /n/src9/lib/ndb
+	bind -a adm/timezone /n/src9/adm/timezone
+	bind usr /n/src9/usr

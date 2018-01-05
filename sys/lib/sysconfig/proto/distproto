@@ -8,7 +8,6 @@ adm	d775 adm adm
 	timezone	d775
 		*
 cfg	d775
-	plan9.ini
 	pxe	d775
 cron	d775
 lib	d775
