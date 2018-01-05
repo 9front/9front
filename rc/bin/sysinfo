@@ -13,8 +13,8 @@ fn print{
 	logprog cat '#P/irqalloc'
 	logprog cat '#P/ioalloc'
 	logprog cat '#c/config'
-	logprog cat '#c/swap'
 	logprog cat '#c/sysstat'
+	logprog cat '#¶/swap'
 	logprog awk '/^Plan 9/{p=1}
 /^init: starting/{exit}
 {if(p)print}' '#c/kmesg'
