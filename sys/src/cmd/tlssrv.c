@@ -33,7 +33,6 @@ void
 usage(void)
 {
 	fprint(2, "usage: tlssrv [-D] -[aA] [-k keyspec]] [-c cert] [-l logfile] [-r remotesys] cmd [args...]\n");
-	fprint(2, "  after  auth/secretpem key.pem > /mnt/factotum/ctl\n");
 	exits("usage");
 }
 
