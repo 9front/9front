@@ -6,12 +6,12 @@
 
 int debug, auth, dialfile;
 char *keyspec = "";
-char *servername, *file, *filex, *ccert;
+char *servername, *file, *filex, *ccert, *dumpcert;
 
 void
 usage(void)
 {
-	fprint(2, "usage: tlsclient [-D] [-a [-k keyspec] ] [-c lib/tls/clientcert] [-t /sys/lib/tls/xxx] [-x /sys/lib/tls/xxx.exclude] [-n servername] [-o] dialstring [cmd [args...]]\n");
+	fprint(2, "usage: tlsclient [-D] [-a [-k keyspec] ] [-c clientcert.pem] [-d servercert] [-t /sys/lib/tls/xxx] [-x /sys/lib/tls/xxx.exclude] [-n servername] [-o] dialstring [cmd [args...]]\n");
 	exits("usage");
 }
 
@@ -43,13 +43,12 @@ reporter(char *fmt, ...)
 void
 main(int argc, char **argv)
 {
-	int fd;
+	int fd, dfd;
 	char *addr;
 	TLSconn *conn;
 	Thumbprint *thumb;
 	AuthInfo *ai = nil;
 
-	fmtinstall('B', mpfmt);
 	fmtinstall('[', encodefmt);
 	fmtinstall('H', encodefmt);
 
@@ -71,6 +70,9 @@ main(int argc, char **argv)
 		break;
 	case 'c':
 		ccert = EARGF(usage());
+		break;
+	case 'd':
+		dumpcert = EARGF(usage());
 		break;
 	case 'n':
 		servername = EARGF(usage());
@@ -123,6 +125,15 @@ main(int argc, char **argv)
 	fd = tlsClient(fd, conn);
 	if(fd < 0)
 		sysfatal("tlsclient: %r");
+
+	if(dumpcert){
+		if((dfd = create(dumpcert, OWRITE, 0666)) < 0)
+			sysfatal("create: %r");
+		if(conn->cert != nil)
+			write(dfd, conn->cert, conn->certlen);
+		write(dfd, "", 0);
+		close(dfd);
+	}
 
 	if(thumb){
 		if(!okCertificate(conn->cert, conn->certlen, thumb))

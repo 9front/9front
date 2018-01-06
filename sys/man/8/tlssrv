@@ -45,7 +45,11 @@ logfile
 ]
 [
 .B -c
-.I cert.pem
+.I clientcert.pem
+]
+[
+.B -d
+.I servercert
 ]
 [
 .B -t
@@ -128,6 +132,13 @@ Specifying a certificate in pem(8) format with the
 flag, causes the client to submit this certificate upon
 server's request. A corresponding key has to be present in
 .IR factotum (4).
+The
+.B -d
+flag writes the server's certificate to the file
+.I servercert
+in binary ASN.1 encoding.
+If the server doesnt provide a certificate, an empty
+file is created.
 If the
 .B -t
 flag
