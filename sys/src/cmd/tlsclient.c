@@ -124,9 +124,6 @@ main(int argc, char **argv)
 	if(fd < 0)
 		sysfatal("tlsclient: %r");
 
-	if(debug)
-		X509dump(conn->cert, conn->certlen);
-
 	if(thumb){
 		if(!okCertificate(conn->cert, conn->certlen, thumb))
 			sysfatal("cert for %s not recognized: %r", servername ? servername : addr);
