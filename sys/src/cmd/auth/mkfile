@@ -5,6 +5,7 @@
 TARG=\
 	as\
 	asaudit\
+	asn1dump\
 	asn12dsa\
 	asn12rsa\
 	authsrv\
