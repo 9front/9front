@@ -2084,61 +2084,6 @@ errret:
 }
 
 /*
- * 	DSAPrivateKey ::= SEQUENCE{
- *		version Version,
- *		p INTEGER,
- *		q INTEGER,
- *		g INTEGER, -- alpha
- *		pub_key INTEGER, -- key
- *		priv_key INTEGER, -- secret
- *	}
- */
-DSApriv*
-asn1toDSApriv(uchar *buf, int len)
-{
-	int version;
-	Elem e;
-	Elist *el;
-	DSApriv* key = nil;
-
-	if(decode(buf, len, &e) != ASN_OK)
-		goto errret;
-	if(!is_seq(&e, &el) || elistlen(el) != 6)
-		goto errret;
-	version = -1;
-	if(!is_int(&el->hd, &version) || version != 0)
-		goto errret;
-
-	key = dsaprivalloc();
-	el = el->tl;
-	if((key->pub.p = asn1mpint(&el->hd)) == nil)
-		goto errret;
-
-	el = el->tl;
-	if((key->pub.q = asn1mpint(&el->hd)) == nil)
-		goto errret;
-
-	el = el->tl;
-	if((key->pub.alpha = asn1mpint(&el->hd)) == nil)
-		goto errret;
-
-	el = el->tl;
-	if((key->pub.key = asn1mpint(&el->hd)) == nil)
-		goto errret;
-
-	el = el->tl;
-	if((key->secret = asn1mpint(&el->hd)) == nil)
-		goto errret;
-
-	freevalfields(&e.val);
-	return key;
-errret:
-	freevalfields(&e.val);
-	dsaprivfree(key);
-	return nil;
-}
-
-/*
  * digest(CertificateInfo)
  * Our ASN.1 library doesn't return pointers into the original
  * data array, so we need to do a little hand decoding.

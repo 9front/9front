@@ -465,7 +465,6 @@ void		dsaprivfree(DSApriv*);
 DSAsig*		dsasigalloc(void);
 void		dsasigfree(DSAsig*);
 DSApub*		dsaprivtopub(DSApriv*);
-DSApriv*	asn1toDSApriv(uchar*, int);
 
 /*
  * TLS
