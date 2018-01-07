@@ -919,8 +919,10 @@ rtl8169receive(Ether* edev)
 	int x;
 
 	ctlr = edev->ctlr;
-	x = ctlr->rdh;
-	for(;;){
+	if(ctlr->nrq < ctlr->nrd/2)
+		rtl8169replenish(ctlr);
+
+	for(x = ctlr->rdh; x != ctlr->rdt;){
 		d = &ctlr->rd[x];
 		if((control = d->control) & Own)
 			break;
