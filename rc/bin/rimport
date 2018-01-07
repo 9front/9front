@@ -3,7 +3,7 @@ rfork e
 
 argv0=$0
 fn usage {
-	echo 'usage:' $argv0 '[-abcCnq] [-s name] [-u user] [-k keypattern] [-p] host tree [mountpoint]' >[1=2]
+	echo 'usage:' $argv0 '[-abcCnq] [-s name] [-u user] [-k keypattern] [-p] [-t timeout] host tree [mountpoint]' >[1=2]
 	exit 'usage'
 }
 
@@ -29,7 +29,7 @@ while(~ $1 -*){
 	case *
 		~ $#* 1 && usage
 		switch($1){
-		case -[uk]; connect=($connect $1 $2)
+		case -[ukt]; connect=($connect $1 $2)
 		case -s; sname=`{basename $2}
 		case *; usage
 		}

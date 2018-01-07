@@ -3,7 +3,7 @@ rfork e
 
 argv0=$0
 fn usage {
-	echo 'usage:' $argv0 '[-u user] [-k keypattern] [-P patternfile] [-p] [-h host] [-c cmd arg ...]' >[1=2]
+	echo 'usage:' $argv0 '[-u user] [-k keypattern] [-P patternfile] [-p] [-t timeout] [-h host] [-c cmd arg ...]' >[1=2]
 	exit 'usage'
 }
 
@@ -63,7 +63,7 @@ while(~ $1 -*){
 		~ $#* 1 && usage
 		switch($1){
 		case -P; exportfs=($exportfs $1 $2)
-		case -[uk]; connect=($connect $1 $2)
+		case -[ukt]; connect=($connect $1 $2)
 		case -h; host=$2
 		case -c; cmd=$*(2-); *=()
 		case *; usage
