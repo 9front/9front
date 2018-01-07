@@ -3,7 +3,7 @@ rfork e
 
 argv0=$0
 fn usage {
-	echo 'usage:' $argv0 '[-abcCnq] [-s remotename] [-m remotemtpt] [-u user] [-k keypattern] [-P patternfile] [-p] tree host [remotecmd [args ...]]' >[1=2]
+	echo 'usage:' $argv0 '[-abcCnq] [-s remotename] [-m remotemtpt] [-u user] [-k keypattern] [-P patternfile] [-p] [-t timeout] tree host [remotecmd [args ...]]' >[1=2]
 	exit 'usage'
 }
 
@@ -30,7 +30,7 @@ while(~ $1 -*){
 		~ $#* 1 && usage
 		switch($1){
 		case -P; exportfs=($exportfs $1 $2)
-		case -[uk]; connect=($connect $1 $2)
+		case -[ukt]; connect=($connect $1 $2)
 		case -s; sname=`{basename $2}
 		case -m; mtpt=$2
 		case *; usage
