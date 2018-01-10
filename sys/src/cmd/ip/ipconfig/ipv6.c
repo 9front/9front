@@ -838,7 +838,7 @@ sendra(int fd, uchar *dst, int rlt, Ipifc *ifc)
 
 			prfo->type = V6nd_pfxinfo;
 			prfo->len = 4;
-			prfo->lar = AFMASK;
+			prfo->lar = AFMASK|OLMASK;
 			hnputl(prfo->validlt, lifc->validlt);
 			hnputl(prfo->preflt, lifc->preflt);
 			pktsz += sizeof *prfo;
