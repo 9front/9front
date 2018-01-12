@@ -1713,7 +1713,7 @@ dmatproxy(Block *bp, int upstream, uchar proxy[Eaddrlen], DMAT *t)
 		0x06, 0x04,
 		0x00,
 	};
-	uchar ip[IPaddrlen], mac[Eaddrlen], *end, *a, *o;
+	uchar ip[IPaddrlen], mac[Eaddrlen], *targ, *end, *a, *o;
 	ulong csum, c, h;
 	Etherpkt *pkt;
 	int proto, i;
@@ -1730,6 +1730,7 @@ dmatproxy(Block *bp, int upstream, uchar proxy[Eaddrlen], DMAT *t)
 	else if(t->map == 0 || (pkt->d[0]&1) != 0 || memcmp(pkt->d, proxy, Eaddrlen) != 0)
 		return;
 
+	targ = nil;
 	switch(pkt->type[0]<<8 | pkt->type[1]){
 	default:
 		return;
@@ -1768,8 +1769,10 @@ dmatproxy(Block *bp, int upstream, uchar proxy[Eaddrlen], DMAT *t)
 			case 134:	/* Router Advertisement */
 				o = a+8+8;
 				break;
-			case 135:	/* Neighbor Solicitation */
 			case 136:	/* Neighbor Advertisement */
+				targ = a+8;
+				/* wet floor */
+			case 135:	/* Neighbor Solicitation */
 				o = a+8+16;
 				break;
 			case 137:	/* Redirect */
@@ -1837,6 +1840,7 @@ dmatproxy(Block *bp, int upstream, uchar proxy[Eaddrlen], DMAT *t)
 		break;
 	}
 
+Again:
 	h = (	(ip[IPaddrlen-1] ^ proxy[2])<<24 |
 		(ip[IPaddrlen-2] ^ proxy[3])<<16 |
 		(ip[IPaddrlen-3] ^ proxy[4])<<8  |
@@ -1857,6 +1861,11 @@ dmatproxy(Block *bp, int upstream, uchar proxy[Eaddrlen], DMAT *t)
 		memmove(te->ip, ip, IPaddrlen);
 		te->valid = 1;
 		t->map |= 1ULL<<h;
+		if(targ != nil){
+			memmove(ip, targ, IPaddrlen);
+			targ = nil;
+			goto Again;
+		}
 	} else {
 		if((t->map>>h & 1) == 0)
 			return;
