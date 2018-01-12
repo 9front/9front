@@ -100,6 +100,8 @@ wifiiq(Wifi *wifi, Block *b)
 	hdrlen = wifihdrlen(w);
 	if(BLEN(b) < hdrlen)
 		goto drop;
+	if(memcmp(srcaddr(w), wifi->ether->ea, Eaddrlen) == 0)
+		goto drop;
 	if(w->fc[1] & 0x40){
 		/* encrypted */
 		qpass(wifi->iq, b);
