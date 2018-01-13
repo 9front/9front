@@ -588,20 +588,15 @@ configure(Ether* ether, int promiscuous)
 static void
 promiscuous(void* arg, int on)
 {
-	configure(arg, on);
+	Ether *ether = arg;
+	configure(ether, on || ether->nmaddr > 0);
 }
 
 static void
-multicast(void* ether, uchar *addr, int add)
+multicast(void* arg, uchar *, int)
 {
-	USED(addr);
-	/*
-	 * TODO: if (add) add addr to list of mcast addrs in controller
-	 *	else remove addr from list of mcast addrs in controller
-	 * enable multicast input (see CbMAS) instead of promiscuous mode.
-	 */
-	if (add)
-		configure(ether, 1);
+	Ether *ether = arg;
+	configure(ether, ether->prom || ether->nmaddr > 0);
 }
 
 static void
