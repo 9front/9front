@@ -299,7 +299,7 @@ promiscuous(void* arg, int on)
 
 	ctlr->iow(ctlr, Rap, 15);
 	x = ctlr->ior(ctlr, Rdp) & ~Prom;
-	if(on)
+	if(on || ether->nmaddr > 0)
 		x |= Prom;
 	ctlr->iow(ctlr, Rdp, x);
 	ctlr->iow(ctlr, Rap, 0);
@@ -315,7 +315,8 @@ promiscuous(void* arg, int on)
 static void
 multicast(void* arg, uchar*, int)
 {
-	promiscuous(arg, 1);
+	Ether *ether = arg;
+	promiscuous(arg, ether->prom);
 }
 
 static void
