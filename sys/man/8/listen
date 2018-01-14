@@ -1,6 +1,6 @@
 .TH LISTEN 8
 .SH NAME
-listen, listen1, tcp7, tcp9, tcp19, tcp21, tcp23, tcp25, tcp53, tcp110, tcp113, tcp143, tcp445, tcp513, tcp515, tcp564, tcp565, tcp566, tcp567, tcp993, tcp995, tcp1723, tcp17007, tcp17008, tcp17009, tcp17010, tcp17013 \- listen for calls on a network device
+listen, listen1, tcp7, tcp9, tcp19, tcp21, tcp23, tcp25, tcp53, tcp110, tcp113, tcp143, tcp445, tcp513, tcp515, tcp564, tcp565, tcp566, tcp567, tcp993, tcp995, tcp1723, tcp17007, tcp17008, tcp17009, tcp17010, tcp17013, tcp17019, tcp17020 \- listen for calls on a network device
 .SH SYNOPSIS
 .B aux/listen
 .RB [ -iq ]
@@ -12,7 +12,9 @@ listen, listen1, tcp7, tcp9, tcp19, tcp21, tcp23, tcp25, tcp53, tcp110, tcp113, 
 .IR namespace ]
 .RB [ -p
 .IR maxprocs ]
-.RI [ net ]
+.RB [ -a
+.IR addr ]
+.RI [ proto ]
 .PP
 .B aux/listen1
 [
@@ -28,11 +30,18 @@ listen, listen1, tcp7, tcp9, tcp19, tcp21, tcp23, tcp25, tcp53, tcp110, tcp113, 
 .I args...
 ]
 .SH DESCRIPTION
-.I listen
+.I Listen
 listens on a network for inbound calls to local services.
-.I Net
+.I Proto
 is the network protocol on which to listen, by default
-.BR /net/tcp .
+.BR tcp .
+Incoming calls to any address
+.B *
+are accepted unless
+.I addr
+is specified with the
+.B -a
+option. 
 The services available are executable, non-empty files in
 .I srvdir
 or
@@ -144,6 +153,10 @@ replaces
 and
 .IR cpu (1)
 using TLS for encryption. 
+.TP
+.B tcp17020
+TLS encrypted 9P fileserver (t9fs) for
+.IR srvtls (4)
 .TP
 .B tcp7
 echo any bytes received (bit mirror)
