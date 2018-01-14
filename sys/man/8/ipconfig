@@ -371,7 +371,6 @@ bindings.
 % aux/listen -d /rc/bin/service.alt /net.alt/tcp
 .EE
 .PP
-Get all addresses via DHCP.
 Configure the IPv6 link-local address automatically
 and listen for router announcements.
 .IP
