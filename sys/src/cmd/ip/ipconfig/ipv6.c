@@ -318,31 +318,6 @@ catch(void *a, char *msg)
 		noted(NDFLT);
 }
 
-/*
- * based on libthread's threadsetname, but drags in less library code.
- * actually just sets the arguments displayed.
- */
-void
-procsetname(char *fmt, ...)
-{
-	int fd;
-	char *cmdname;
-	char buf[128];
-	va_list arg;
-
-	va_start(arg, fmt);
-	cmdname = vsmprint(fmt, arg);
-	va_end(arg);
-	if (cmdname == nil)
-		return;
-	snprint(buf, sizeof buf, "#p/%d/args", getpid());
-	if((fd = open(buf, OWRITE)) >= 0){
-		write(fd, cmdname, strlen(cmdname)+1);
-		close(fd);
-	}
-	free(cmdname);
-}
-
 int
 dialicmp(uchar *dst, int dport, int *ctlfd)
 {
@@ -383,18 +358,14 @@ dialicmp(uchar *dst, int dport, int *ctlfd)
 
 /* add ipv6 addr to an interface */
 int
-ip6cfg(int autoconf)
+ip6cfg(void)
 {
 	int tentative, dupfound = 0, n;
 	char *p, buf[256];
-	uchar ethaddr[6];
 	Biobuf *bp;
 
-	if (autoconf) {			/* create link-local addr */
-		if (myetheraddr(ethaddr, conf.dev) < 0)
-			sysfatal("myetheraddr w/ %s failed: %r", conf.dev);
-		ea2lla(conf.laddr, ethaddr);
-	}
+	if(!validip(conf.laddr) || isv4(conf.laddr))
+		return -1;
 
 	tentative = dupl_disc;
 
@@ -562,7 +533,6 @@ recvrahost(uchar buf[], int pktlen)
 	static int first = 1;
 
 	ra = (Routeradv*)buf;
-//	memmove(conf.v6gaddr, ra->src, IPaddrlen);
 	conf.ttl = ra->cttl;
 	conf.mflag = (MFMASK & ra->mor);
 	conf.oflag = (OCMASK & ra->mor);
@@ -570,7 +540,6 @@ recvrahost(uchar buf[], int pktlen)
 	conf.reachtime = nhgetl(ra->rchbltime);
 	conf.rxmitra =   nhgetl(ra->rxmtimer);
 
-//	issueadd6(&conf);		/* for conf.v6gaddr? */
 	if (fprint(conf.cfd, "ra6 recvra 1") < 0)
 		ralog("write(ra6 recvra 1) failed: %r");
 	issuebasera6(&conf);
@@ -592,7 +561,6 @@ recvrahost(uchar buf[], int pktlen)
 					"router adv %I", ra->src);
 				return;
 			}
-
 			snprint(abuf, sizeof abuf, "%s/arp", conf.mpoint);
 			arpfd = open(abuf, OWRITE);
 			if (arpfd < 0) {
@@ -650,6 +618,8 @@ recvrahost(uchar buf[], int pktlen)
 			break;
 		}
 	}
+	if(conf.routerlt != 0 && ISIPV6LINKLOCAL(ra->src))
+		adddefroute(conf.mpoint, ra->src);
 }
 
 /*

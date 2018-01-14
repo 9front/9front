@@ -9,6 +9,8 @@
 #include "../dhcp.h"
 #include "ipconfig.h"
 
+#include <libsec.h> /* genrandom() */
+
 #define DEBUG if(debug)warning
 
 /* possible verbs */
@@ -190,7 +192,7 @@ void	doremove(void);
 void	dounbind(void);
 void	getoptions(uchar*);
 int	ip4cfg(void);
-int	ip6cfg(int a);
+int	ip6cfg(void);
 void	lookforip(char*);
 void	mkclientid(void);
 void	ndbconfig(void);
@@ -593,10 +595,6 @@ main(int argc, char **argv)
 void
 doadd(int retry)
 {
-	int ppp;
-
-	ppp = strcmp(conf.type, "ppp") == 0;
-
 	/* get number of preexisting interfaces */
 	nip = nipifcs(conf.mpoint);
 	if(beprimary == -1 && nip == 0)
@@ -609,20 +607,13 @@ doadd(int retry)
 		binddevice();
 	}
 
-	if (ipv6auto && !ppp) {
-		if (ip6cfg(ipv6auto) < 0)
-			sysfatal("can't automatically start IPv6 on %s",
-				conf.dev);
-	} else if (validip(conf.laddr) && !isv4(conf.laddr)) {
-		if (ip6cfg(0) < 0)
-			sysfatal("can't start IPv6 on %s, address %I",
-				conf.dev, conf.laddr);
-	}
-
-	if(!validip(conf.laddr) && !ppp)
+	if(!validip(conf.laddr))
 		if(dondbconfig)
 			ndbconfig();
-		else
+		else if(ipv6auto){
+			mklladdr();
+			dodhcp = 0;
+		} else
 			dodhcp = 1;
 
 	/* run dhcp if we need something */
@@ -642,10 +633,15 @@ doadd(int retry)
 	if(noconfig)
 		return;
 
-	if(ip4cfg() < 0)
-		sysfatal("can't start ip");
-	else if(dodhcp && conf.lease != Lforever)
-		dhcpwatch(0);
+	if(!isv4(conf.laddr)){
+		if(ip6cfg() < 0)
+			sysfatal("can't start IPv6 on %s, address %I", conf.dev, conf.laddr);
+	} else {
+		if(ip4cfg() < 0)
+			sysfatal("can't start IPv4 on %s, address %I", conf.dev, conf.laddr);
+		else if(dodhcp && conf.lease != Lforever)
+			dhcpwatch(0);
+	}
 
 	/* leave everything we've learned somewhere other procs can find it */
 	if(beprimary){
@@ -736,23 +732,37 @@ adddefroute(char *mpoint, uchar *gaddr)
 	close(cfd);
 }
 
+int
+isether(void)
+{
+	return strcmp(conf.type, "ether") == 0 || strcmp(conf.type, "gbe") == 0;
+}
+
+/* create link local address */
+void
+mklladdr(void)
+{
+	if(!isether() || myetheraddr(conf.hwa, conf.dev) != 0)
+		genrandom(conf.hwa, sizeof(conf.hwa));
+	ea2lla(conf.laddr, conf.hwa);
+}
+
 /* create a client id */
 void
 mkclientid(void)
 {
-	if(strcmp(conf.type, "ether") == 0 || strcmp(conf.type, "gbe") == 0)
-		if(myetheraddr(conf.hwa, conf.dev) == 0){
-			conf.hwalen = 6;
-			conf.hwatype = 1;
-			conf.cid[0] = conf.hwatype;
-			memmove(&conf.cid[1], conf.hwa, conf.hwalen);
-			conf.cidlen = conf.hwalen+1;
-		} else {
-			conf.hwatype = -1;
-			snprint((char*)conf.cid, sizeof conf.cid,
-				"plan9_%ld.%d", lrand(), getpid());
-			conf.cidlen = strlen((char*)conf.cid);
-		}
+	if(isether() && myetheraddr(conf.hwa, conf.dev) == 0){
+		conf.hwalen = 6;
+		conf.hwatype = 1;
+		conf.cid[0] = conf.hwatype;
+		memmove(&conf.cid[1], conf.hwa, conf.hwalen);
+		conf.cidlen = conf.hwalen+1;
+	} else {
+		conf.hwatype = -1;
+		snprint((char*)conf.cid, sizeof conf.cid,
+			"plan9_%ld.%d", lrand(), getpid());
+		conf.cidlen = strlen((char*)conf.cid);
+	}
 }
 
 /* bind ip into the namespace */
@@ -775,8 +785,7 @@ controldevice(void)
 	int fd;
 	Ctl *cp;
 
-	if (firstctl == nil ||
-	    strcmp(conf.type, "ether") != 0 && strcmp(conf.type, "gbe") != 0)
+	if (firstctl == nil || !isether())
 		return;
 
 	snprint(ctlfile, sizeof ctlfile, "%s/clone", conf.dev);
@@ -827,7 +836,7 @@ ip4cfg(void)
 	char buf[256];
 	int n;
 
-	if(!validip(conf.laddr))
+	if(!validip(conf.laddr) || !isv4(conf.laddr))
 		return -1;
 
 	n = sprint(buf, "add");
@@ -951,7 +960,7 @@ dhcpwatch(int needconfig)
 	}
 
 	dolog = 1;			/* log, don't print */
-	procsetname("dhcpwatch");
+	procsetname("dhcpwatch on %s", conf.dev);
 	/* keep trying to renew the lease */
 	for(;;){
 		secs = conf.lease/2;
@@ -1770,6 +1779,31 @@ parseverb(char *name)
 	return -1;
 }
 
+/*
+ * based on libthread's threadsetname, but drags in less library code.
+ * actually just sets the arguments displayed.
+ */
+void
+procsetname(char *fmt, ...)
+{
+	int fd;
+	char *cmdname;
+	char buf[128];
+	va_list arg;
+
+	va_start(arg, fmt);
+	cmdname = vsmprint(fmt, arg);
+	va_end(arg);
+	if (cmdname == nil)
+		return;
+	snprint(buf, sizeof buf, "#p/%d/args", getpid());
+	if((fd = open(buf, OWRITE)) >= 0){
+		write(fd, cmdname, strlen(cmdname)+1);
+		close(fd);
+	}
+	free(cmdname);
+}
+
 /* get everything out of ndb */
 void
 ndbconfig(void)
@@ -1783,8 +1817,7 @@ ndbconfig(void)
 	db = ndbopen(dbfile);
 	if(db == nil)
 		sysfatal("can't open ndb: %r");
-	if (strcmp(conf.type, "ether") != 0 && strcmp(conf.type, "gbe") != 0 ||
-	    myetheraddr(conf.hwa, conf.dev) != 0)
+	if (!isether() || myetheraddr(conf.hwa, conf.dev) != 0)
 		sysfatal("can't read hardware address");
 	sprint(etheraddr, "%E", conf.hwa);
 	nattr = 0;

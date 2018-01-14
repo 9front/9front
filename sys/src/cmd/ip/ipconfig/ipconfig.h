@@ -57,12 +57,10 @@ struct Conf
 	int 	maxraint; /* rfc2461, p.39: 4sec ≤ maxraint ≤ 1800sec, def 600 */
 	int	minraint;	/* 3sec ≤ minraint ≤ 0.75*maxraint */
 	int	linkmtu;
+	int	routerlt;	/* router life time */
 	int	reachtime;	/* 3,600,000 msec, default 0 */
 	int	rxmitra;	/* default 0 */
 	int	ttl;		/* default 0 (unspecified) */
-	/* default gateway params */
-	uchar	v6gaddr[IPaddrlen];
-	int	routerlt;	/* router life time */
 
 	/* prefix related */
 	uchar	v6pref[IPaddrlen];
@@ -108,10 +106,10 @@ void	dhcpwatch(int);
 void	doadd(int);
 void	doremove(void);
 void	dounbind(void);
-int	ipconfig4(void);
-int	ipconfig6(int);
+int	isether(void);
 long	jitter(void);
 void	lookforip(char*);
+void	mklladdr(void);
 void	mkclientid(void);
 int	nipifcs(char*);
 int	openlisten(void);
@@ -143,7 +141,6 @@ void	warning(char *fmt, ...);
  */
 
 void	doipv6(int);
-int	ipconfig6(int);
 void	recvra6(void);
 void	sendra6(void);
 void	v6paraminit(Conf *);
