@@ -588,8 +588,9 @@ chap(Ticketreq *tr)
 	/*
 	 *  get chap reply
 	 */
-	if(readn(0, &reply, sizeof(reply)) < 0)
+	if(readn(0, &reply, OCHAPREPLYLEN) < 0)
 		exits(0);
+
 	safecpy(tr->uid, reply.uid, sizeof(tr->uid));
 	if(tr->uid[0] == 0)
 		exits(0);
@@ -625,6 +626,9 @@ chap(Ticketreq *tr)
 	tickauthreply(tr, &hkey);
 
 	syslog(0, AUTHLOG, "chap-ok %s %s", tr->uid, raddr);
+
+	/* no secret after ticket */
+	exits(0);
 }
 
 enum {
