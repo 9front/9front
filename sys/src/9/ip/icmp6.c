@@ -796,6 +796,8 @@ icmpiput6(Proto *icmp, Ipifc *ipifc, Block *bp)
 	case NbrSolicit:
 		np = (Ndpkt*) p;
 		pktflags = 0;
+		if(ipifc->sendra6)
+			pktflags |= Rflag;
 		switch (targettype(icmp->f, ipifc, np->target)) {
 		case Tunirany:
 			pktflags |= Oflag;
