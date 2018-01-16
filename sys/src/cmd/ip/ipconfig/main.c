@@ -645,7 +645,7 @@ doadd(int retry)
 
 	/* leave everything we've learned somewhere other procs can find it */
 	if(beprimary){
-		if(!dondbconfig)
+		if(!dondbconfig && !ipv6auto)
 			putndb();
 		refresh();
 	}
