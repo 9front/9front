@@ -728,7 +728,7 @@ adddefroute(char *mpoint, uchar *gaddr)
 	if(isv4(gaddr))
 		fprint(cfd, "add 0 0 %I", gaddr);
 	else
-		fprint(cfd, "add :: /0 %I", gaddr);
+		fprint(cfd, "add 2000:: /3 %I", gaddr);
 	close(cfd);
 }
 
