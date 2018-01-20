@@ -558,46 +558,44 @@ greiput(Proto *proto, Ipifc *, Block *bp)
 	if(flags & GRE_seq)
 		hdrlen += 4;
 
-	if(BLEN(bp) - hdrlen < sizeof(Ip4hdr)){
-		print("greretunnel: packet too short (s=%V d=%V)\n",
-			gre->src, gre->dst);
-		freeb(bp);
-		return;
-	}
-	ip = (Ip4hdr *)(bp->rp + hdrlen);
-
 	qlock(proto);
-	/*
-	 * Look for a conversation structure for this port and address, or
-	 * match the retunnel part, or match on the raw flag.
-	 */
-	for(p = proto->conv; *p; p++) {
-		c = *p;
 
-		if(c->inuse == 0)
-			continue;
+	if(eproto != 0x880B && BLEN(bp) - hdrlen >= sizeof(Ip4hdr)){
+		ip = (Ip4hdr *)(bp->rp + hdrlen);
 
 		/*
-		 * Do not stop this session - blocking here
-		 * implies that etherread is blocked.
+		 * Look for a conversation structure for this port and address, or
+		 * match the retunnel part, or match on the raw flag.
 		 */
-		grec = c->ptcl;
-		if(memcmp(ip->dst, grec->hoa, sizeof ip->dst) == 0){
-			grepdin++;
-			grebdin += BLEN(bp);
-			gredownlink(c, bp);
-			qunlock(proto);
-			return;
-		}
+		for(p = proto->conv; *p; p++) {
+			c = *p;
 
-		if(memcmp(ip->src, grec->hoa, sizeof ip->src) == 0){
-			grepuin++;
-			grebuin += BLEN(bp);
-			greuplink(c, bp);
-			qunlock(proto);
-			return;
+			if(c->inuse == 0)
+				continue;
+
+			/*
+			 * Do not stop this session - blocking here
+			 * implies that etherread is blocked.
+			 */
+			grec = c->ptcl;
+			if(memcmp(ip->dst, grec->hoa, sizeof ip->dst) == 0){
+				grepdin++;
+				grebdin += BLEN(bp);
+				gredownlink(c, bp);
+				qunlock(proto);
+				return;
+			}
+
+			if(memcmp(ip->src, grec->hoa, sizeof ip->src) == 0){
+				grepuin++;
+				grebuin += BLEN(bp);
+				greuplink(c, bp);
+				qunlock(proto);
+				return;
+			}
 		}
 	}
+
 
 	/*
 	 * when we get here, none of the forwarding tunnels matched.  now
