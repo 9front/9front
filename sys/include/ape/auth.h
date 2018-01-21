@@ -135,7 +135,8 @@ extern void		auth_freeAI(AuthInfo *ai);
 extern int		auth_chuid(AuthInfo *ai, char *ns);
 extern Chalstate	*auth_challenge(char*, ...);
 extern AuthInfo*	auth_response(Chalstate*);
-extern int		auth_respond(void*, uint, char*, uint, void*, uint, AuthGetkey *getkey, char*, ...);
+extern int		auth_respond(void*, uint, char*, uint, void*, uint, AuthGetkey*, char*, ...);
+extern int		auth_respondAI(void *, uint, char*, uint, void*, uint, AuthInfo**, AuthGetkey*, char*, ...);
 extern void		auth_freechal(Chalstate*);
 extern AuthInfo*	auth_userpasswd(char *user, char *passwd);
 extern UserPasswd*	auth_getuserpasswd(AuthGetkey *getkey, char*, ...);
@@ -147,6 +148,7 @@ extern uint		auth_rpc(AuthRpc *rpc, char *verb, void *a, int n);
 #pragma varargck argpos auth_proxy 3
 #pragma varargck argpos auth_challenge 1
 #pragma varargck argpos auth_respond 8
+#pragma varargck argpos auth_respondAI 9
 #pragma varargck argpos auth_getuserpasswd 2
 
 #endif

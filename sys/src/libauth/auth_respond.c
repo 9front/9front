@@ -22,11 +22,11 @@ dorpc(AuthRpc *rpc, char *verb, char *val, int len, AuthGetkey *getkey)
 	}
 }
 
-int
-auth_respond(void *chal, uint nchal, char *user, uint nuser, void *resp, uint nresp, AuthGetkey *getkey, char *fmt, ...)
+static int
+dorespond(void *chal, uint nchal, char *user, uint nuser, void *resp, uint nresp,
+	AuthInfo **ai, AuthGetkey *getkey, char *fmt, va_list arg)
 {
 	char *p, *s;
-	va_list arg;
 	int afd;
 	AuthRpc *rpc;
 	Attr *a;
@@ -40,11 +40,8 @@ auth_respond(void *chal, uint nchal, char *user, uint nuser, void *resp, uint nr
 	}
 
 	quotefmtinstall();	/* just in case */
-	va_start(arg, fmt);
-	p = vsmprint(fmt, arg);
-	va_end(arg);
-
-	if(p==nil
+	
+	if((p = vsmprint(fmt, arg))==nil
 	|| dorpc(rpc, "start", p, strlen(p), getkey) != ARok
 	|| dorpc(rpc, "write", chal, nchal, getkey) != ARok
 	|| dorpc(rpc, "read", nil, 0, getkey) != ARok){
@@ -59,6 +56,9 @@ auth_respond(void *chal, uint nchal, char *user, uint nuser, void *resp, uint nr
 		nresp = rpc->narg;
 	memmove(resp, rpc->arg, nresp);
 
+	if(ai != nil)
+		*ai = auth_getinfo(rpc);
+
 	if((a = auth_attr(rpc)) != nil
 	&& (s = _strfindattr(a, "user")) != nil && strlen(s) < nuser)
 		strcpy(user, s);
@@ -69,4 +69,30 @@ auth_respond(void *chal, uint nchal, char *user, uint nuser, void *resp, uint nr
 	close(afd);
 	auth_freerpc(rpc);
 	return nresp;	
+}
+
+int
+auth_respond(void *chal, uint nchal, char *user, uint nuser, void *resp, uint nresp,
+	AuthGetkey *getkey, char *fmt, ...)
+{
+	va_list arg;
+	int ret;
+
+	va_start(arg, fmt);
+	ret = dorespond(chal, nchal, user, nuser, resp, nresp, nil, getkey, fmt, arg);
+	va_end(arg);
+	return ret;
+}
+
+int
+auth_respondAI(void *chal, uint nchal, char *user, uint nuser, void *resp, uint nresp,
+	AuthInfo **ai, AuthGetkey *getkey, char *fmt, ...)
+{
+	va_list arg;
+	int ret;
+
+	va_start(arg, fmt);
+	ret = dorespond(chal, nchal, user, nuser, resp, nresp, ai, getkey, fmt, arg);
+	va_end(arg);
+	return ret;
 }
