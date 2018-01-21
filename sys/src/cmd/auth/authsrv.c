@@ -27,6 +27,7 @@ enum {
 	MShashlen = 16,
 	MSchallen = 8,
 	MSresplen = 24,
+	MSchallenv2 = 16,
 };
 
 void	pak(Ticketreq*);
@@ -35,7 +36,7 @@ void	challengebox(Ticketreq*);
 void	changepasswd(Ticketreq*);
 void	apop(Ticketreq*, int);
 void	chap(Ticketreq*);
-void	mschap(Ticketreq*);
+void	mschap(Ticketreq*, int);
 void	vnc(Ticketreq*);
 int	speaksfor(char*, char*);
 void	replyerror(char*, ...);
@@ -49,6 +50,7 @@ void	ntv2hash(uchar hash[MShashlen], char *passwd, char *user, char *dom);
 void	mschalresp(uchar resp[MSresplen], uchar hash[MShashlen], uchar chal[MSchallen]);
 void	desencrypt(uchar data[8], uchar key[7]);
 void	tickauthreply(Ticketreq*, Authkey*);
+void	tickauthreply2(Ticketreq*, Authkey*, uchar *, int, uchar *, int);
 void	safecpy(char*, char*, int);
 
 void
@@ -98,7 +100,10 @@ main(int argc, char *argv[])
 			chap(&tr);
 			break;
 		case AuthMSchap:
-			mschap(&tr);
+			mschap(&tr, MSchallen);
+			break;
+		case AuthMSchapv2:
+			mschap(&tr, MSchallenv2);
 			break;
 		case AuthCram:
 			apop(&tr, AuthCram);
@@ -674,24 +679,23 @@ getname(int id, uchar *ntblob, int ntbloblen, char *buf, int nbuf)
 static uchar ntblobsig[] = {0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 void
-mschap(Ticketreq *tr)
+mschap(Ticketreq *tr, int nchal)
 {
 	char *secret;
 	char sbuf[SECRETLEN], windom[128];
-	uchar chal[CHALLEN], ntblob[1024];
+	uchar chal[16], ntblob[1024];
 	uchar hash[MShashlen];
-	uchar hash2[MShashlen];
 	uchar resp[MSresplen];
 	OMSchapreply reply;
 	int dupe, lmok, ntok, ntbloblen;
+	uchar phash[SHA1dlen], chash[SHA1dlen], ahash[SHA1dlen];
 	DigestState *s;
-	uchar digest[SHA1dlen];
 
 	/*
 	 *  Create a challenge and send it.
 	 */
 	genrandom(chal, sizeof(chal));
-	if(write(1, chal, sizeof(chal)) != sizeof(chal))
+	if(write(1, chal, nchal) != nchal)
 		exits(0);
 
 	/*
@@ -704,7 +708,7 @@ mschap(Ticketreq *tr)
 	 * CIFS/NTLMv2 uses variable length NT response.
 	 */
 	ntbloblen = 0;
-	if(memcmp(reply.NTresp+16, ntblobsig, sizeof(ntblobsig)) == 0){
+	if(nchal == MSchallen && memcmp(reply.NTresp+16, ntblobsig, sizeof(ntblobsig)) == 0){
 		/* Version[1], HiVision[1], Z[6] */
 		ntbloblen += 1+1+6;
 		memmove(ntblob, reply.NTresp+16, ntbloblen);
@@ -784,13 +788,24 @@ mschap(Ticketreq *tr)
 			windom[0] = '\0';	/* try NIL domain */
 		}
 		dupe = 0;
+	} else if(nchal == MSchallenv2){
+		s = sha1((uchar*)reply.LMresp, MSchallenv2, nil, nil);
+		s = sha1(chal, MSchallenv2, nil, s);
+		sha1((uchar*)tr->uid, strlen(tr->uid), chash, s);
+
+		nthash(hash, secret);
+		mschalresp(resp, hash, chash);
+		ntok = lmok = tsmemcmp(resp, reply.NTresp, MSresplen) == 0;
+		dupe = 0;
 	} else {
 		lmhash(hash, secret);
 		mschalresp(resp, hash, chal);
 		lmok = tsmemcmp(resp, reply.LMresp, MSresplen) == 0;
+
 		nthash(hash, secret);
 		mschalresp(resp, hash, chal);
 		ntok = tsmemcmp(resp, reply.NTresp, MSresplen) == 0;
+
 		dupe = tsmemcmp(reply.LMresp, reply.NTresp, MSresplen) == 0;
 	}
 
@@ -815,21 +830,37 @@ mschap(Ticketreq *tr)
 
 	succeed(tr->uid);
 
+	nthash(hash, secret);
+	md4(hash, 16, hash, nil);
+
 	/*
 	 *  reply with ticket & authenticator
 	 */
-	tickauthreply(tr, &hkey);
+	if(nchal == MSchallenv2){
+		s = sha1(hash, 16, nil, nil);
+		sha1((uchar*)reply.NTresp, MSresplen, nil, s);
+		sha1((uchar*)"This is the MPPE Master Key", 27, phash, s);
+
+		s = sha1(hash, 16, nil, nil);
+		sha1((uchar*)reply.NTresp, MSresplen, nil, s);
+		sha1((uchar*)"Magic server to client signing constant", 39, ahash, s);
+
+		s = sha1(ahash, 20, nil, nil);
+		sha1(chash, 8, nil, s);
+		sha1((uchar*)"Pad to make it do more than one iteration", 41, ahash, s);
+
+		tickauthreply2(tr, &hkey, phash, 16, ahash, 20);
+	} else {
+		s = sha1(hash, 16, nil, nil);
+		sha1(hash, 16, nil, s);
+		sha1(chal, 8, phash, s);
+
+		tickauthreply2(tr, &hkey, phash, 16, nil, 0);
+	}
 
 	syslog(0, AUTHLOG, "mschap-ok %s/%s(%s)", tr->uid, tr->hostid, raddr);
 
-	nthash(hash, secret);
-	md4(hash, 16, hash2, 0);
-	s = sha1(hash2, 16, 0, 0);
-	sha1(hash2, 16, 0, s);
-	sha1(chal, 8, digest, s);
-
-	if(write(1, digest, 16) != 16)
-		exits(0);
+	exits(0);
 }
 
 void
@@ -1059,8 +1090,21 @@ mkticket(Ticketreq *tr, Ticket *t)
 /*
  *  reply with ticket and authenticator
  */
+/*
+ *  reply with ticket and authenticator
+ */
 void
 tickauthreply(Ticketreq *tr, Authkey *key)
+{
+	tickauthreply2(tr, key, nil, 0, nil, 0);
+}
+
+/*
+ *  reply with ticket and authenticator with
+ *  secret s[ns] and authenticator data a[na].
+ */
+void
+tickauthreply2(Ticketreq *tr, Authkey *key, uchar *ps, int ns, uchar *pa, int na)
 {
 	Ticket t;
 	Authenticator a;
@@ -1068,6 +1112,10 @@ tickauthreply(Ticketreq *tr, Authkey *key)
 	int n;
 
 	mkticket(tr, &t);
+	if(t.form != 0 && ns > 0){
+		assert(ns <= NONCELEN);
+		memmove(t.key, ps, ns);
+	}
 	t.num = AuthTs;
 	n = 0;
 	buf[n++] = AuthOK;
@@ -1075,11 +1123,16 @@ tickauthreply(Ticketreq *tr, Authkey *key)
 	memset(&a, 0, sizeof(a));
 	memmove(a.chal, t.chal, CHALLEN);
 	genrandom(a.rand, NONCELEN);
+	if(t.form != 0 && na > 0){
+		assert(na <= NONCELEN);
+		memmove(a.rand, pa, na);
+	}
 	a.num = AuthAc;
 	n += convA2M(&a, buf+n, sizeof(buf)-n, &t);
 	if(write(1, buf, n) != n)
 		exits(0);
 }
+
 
 void
 safecpy(char *to, char *from, int len)

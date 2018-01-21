@@ -61,6 +61,7 @@ enum
 	AuthHttp=13,	/* http domain login */
 	AuthVNC=14,	/* VNC server login (deprecated) */
 	AuthPAK=19,	/* authenticated diffie hellman key agreement */
+	AuthMSchapv2=21,/* MS chap v2 authentication for ppp */
 	AuthTs=64,	/* ticket encrypted with server's key */
 	AuthTc,		/* ticket encrypted with client's key */
 	AuthAs,		/* server generated authenticator */
