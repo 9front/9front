@@ -137,8 +137,7 @@ add
 to the
 .IR factotum (4)
 key pattern when looking for a user name and password
-for authentication; the default key pattern is
-.B "proto=pass" "service=ppp"
+for authentication.
 .TP
 .B m
 set the maximum transfer unit (default 1450)
@@ -277,9 +276,3 @@ set the receive window to
 .I gre
 in
 .IR ip (3)
-.SH BUGS
-.I Ppp
-should use factotum to execute
-the client side of the challenge-reponse
-protocol, but instead it reads a password
-from factotum and runs the protocol itself.
