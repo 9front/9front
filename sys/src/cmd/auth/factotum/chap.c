@@ -1,14 +1,14 @@
 /*
  * CHAP, MSCHAP
  * 
- * The client does not authenticate the server, hence no CAI
+ * The client does not authenticate the server
  *
  * Client protocol:
  *	write Chapchal 
  *	read response Chapreply or MSchaprely structure
  *
  * Server protocol:
- *	read challenge: 8 bytes binary
+ *	read challenge: 8 bytes binary (or 16 bytes for mschapv2)
  *	write user: utf8
  *	write response: Chapreply or MSchapreply structure
  */
@@ -24,6 +24,7 @@ enum {
 	MShashlen = 16,
 	MSchallen = 8,
 	MSresplen = 24,
+
 	MSchallenv2 = 16,
 
 	Chapreplylen = MD5LEN+1,
@@ -35,6 +36,7 @@ static int doreply(State *s, uchar *reply, int nreply);
 static int dochap(char *passwd, int id, char chal[ChapChallen], uchar *resp, int resplen);
 static int domschap(char *passwd, uchar chal[MSchallen], uchar *resp, int resplen);
 static int domschap2(char *passwd, char *user, char *dom, uchar chal[MSchallen], uchar *resp, int resplen);
+static void nthash(uchar hash[MShashlen], char *passwd);
 
 struct State
 {
@@ -44,12 +46,13 @@ struct State
 	Authkey k;
 	Ticket t;
 	Ticketreq tr;
-	char chal[ChapChallen];
+	int nchal;
+	char chal[16];
 	int nresp;
 	uchar resp[4096];
 	char err[ERRMAX];
 	char user[64];
-	uchar secret[16];	/* for mschap */
+	uchar secret[16+20];	/* for mschap: MPPE Master secret + authenticator (v2) */
 	int nsecret;
 };
 
@@ -61,8 +64,6 @@ enum
 	SHaveChal,
 	SNeedUser,
 	SNeedResp,
-	SHaveZero,
-	SHaveCAI,
 
 	Maxphase
 };
@@ -75,8 +76,6 @@ static char *phasenames[Maxphase] =
 [SHaveChal]	"SHaveChal",
 [SNeedUser]	"SNeedUser",
 [SNeedResp]	"SNeedResp",
-[SHaveZero]	"SHaveZero",
-[SHaveCAI]	"SHaveCAI",
 };
 
 static int
@@ -88,19 +87,24 @@ chapinit(Proto *p, Fsstate *fss)
 	if((iscli = isclient(_strfindattr(fss->attr, "role"))) < 0)
 		return failure(fss, nil);
 
-	if(!iscli && p == &mschapv2)
-		return failure(fss, "role must be client");
-
 	s = emalloc(sizeof *s);
 	s->nresp = 0;
 	s->nsecret = 0;
+	strcpy(s->user, "none");
 	fss->phasename = phasenames;
 	fss->maxphase = Maxphase;
 	s->asfd = -1;
-	if(p == &mschap || p == &mschapv2 || p == &mschap2){
-		s->astype = AuthMSchap;
-	}else {
-		s->astype = AuthChap;
+	if(p == &mschapv2) {
+		s->nchal = MSchallenv2;
+		s->astype = AuthMSchapv2;
+	} else {
+		if(p == &mschap || p == &mschap2){
+			s->nchal = MSchallen;
+			s->astype = AuthMSchap;
+		}else {
+			s->nchal = ChapChallen;
+			s->astype = AuthChap;
+		}
 	}
 	if(iscli)
 		fss->phase = CNeedChal;
@@ -137,7 +141,7 @@ static int
 chapwrite(Fsstate *fss, void *va, uint n)
 {
 	int ret, nreply;
-	char *a, *v;
+	char *a, *pass;
 	Key *k;
 	Keyinfo ki;
 	State *s;
@@ -145,8 +149,11 @@ chapwrite(Fsstate *fss, void *va, uint n)
 	MSchapreply *mcr;
 	OChapreply *ocr;
 	OMSchapreply *omcr;
+	uchar pchal[MSchallenv2];
+	uchar digest[SHA1dlen];
 	uchar reply[4096];
 	char *user, *dom;
+	DigestState *ds;
 
 	s = fss->ps;
 	a = va;
@@ -158,11 +165,13 @@ chapwrite(Fsstate *fss, void *va, uint n)
 		ret = findkey(&k, mkkeyinfo(&ki, fss, nil), "%s", fss->proto->keyprompt);
 		if(ret != RpcOk)
 			return ret;
-		v = _strfindattr(k->privattr, "!password");
-		if(v == nil){
+		user = nil;
+		pass = _strfindattr(k->privattr, "!password");
+		if(pass == nil){
 			closekey(k);
 			return failure(fss, "key has no password");
 		}
+		s->nsecret = 0;
 		s->nresp = 0;
 		memset(s->resp, 0, sizeof(s->resp));
 		setattrs(fss->attr, k->attr);
@@ -177,46 +186,64 @@ chapwrite(Fsstate *fss, void *va, uint n)
 				dom = _strfindattr(fss->attr, "windom");
 				if(dom == nil)
 					dom = "";
-				s->nresp = domschap2(v, user, dom, (uchar*)a, s->resp, sizeof(s->resp));
+				s->nresp = domschap2(pass, user, dom, (uchar*)a, s->resp, sizeof(s->resp));
+			} else {
+				s->nresp = domschap(pass, (uchar*)a, s->resp, sizeof(s->resp));
 			}
-			else if(fss->proto == &mschapv2 || n == MSchallenv2){
-				uchar pchal[MSchallenv2];
-				DigestState *ds;
+			nthash(digest, pass);
+			md4(digest, 16, digest, nil);
+			ds = sha1(digest, 16, nil, nil);
+			sha1(digest, 16, nil, ds);
+			sha1((uchar*)a, 8, s->secret, ds);
+			s->nsecret = 16;
+			break;
+		case AuthMSchapv2:
+			if(n < MSchallenv2)
+				break;
+			user = _strfindattr(fss->attr, "user");
+			if(user == nil)
+				break;
+			genrandom((uchar*)pchal, MSchallenv2);
 
-				if(n < MSchallenv2)
-					break;
-				user = _strfindattr(fss->attr, "user");
-				if(user == nil)
-					break;
+			/* ChallengeHash() */
+			ds = sha1(pchal, MSchallenv2, nil, nil);
+			ds = sha1((uchar*)a, MSchallenv2, nil, ds);
+			sha1((uchar*)user, strlen(user), reply, ds);
 
-				genrandom((uchar*)pchal, MSchallenv2);
+			s->nresp = domschap(pass, reply, s->resp, sizeof(s->resp));
+			if(s->nresp <= 0)
+				break;
 
-				/* ChallengeHash() */
-				ds = sha1(pchal, MSchallenv2, nil, nil);
-				ds = sha1((uchar*)a, MSchallenv2, nil, ds);
-				sha1((uchar*)user, strlen(user), reply, ds);
+			mcr = (MSchapreply*)s->resp;
+			memset(mcr->LMresp, 0, sizeof(mcr->LMresp));
+			memmove(mcr->LMresp, pchal, MSchallenv2);
 
-				s->nresp = domschap(v, reply, s->resp, sizeof(s->resp));
-				if(s->nresp <= 0)
-					break;
+			nthash(digest, pass);
+			md4(digest, 16, digest, nil);
+			ds = sha1(digest, 16, nil, nil);
+			sha1((uchar*)mcr->NTresp, MSresplen, nil, ds);
+			sha1((uchar*)"This is the MPPE Master Key", 27, s->secret, ds);
 
-				mcr = (MSchapreply*)s->resp;
-				memset(mcr->LMresp, 0, sizeof(mcr->LMresp));
-				memmove(mcr->LMresp, pchal, MSchallenv2);
-			}
-			else {
-				s->nresp = domschap(v, (uchar*)a, s->resp, sizeof(s->resp));
-			}
+			ds = sha1(digest, 16, nil, nil);
+			sha1((uchar*)mcr->NTresp, MSresplen, nil, ds);
+			sha1((uchar*)"Magic server to client signing constant", 39, digest, ds);
+
+			ds = sha1(digest, 20, nil, nil);
+			sha1(reply, 8, nil, ds);	/* ChallngeHash */
+			sha1((uchar*)"Pad to make it do more than one iteration", 41, s->secret+16, ds);
+			s->nsecret = 16+20;
 			break;
 		case AuthChap:
 			if(n < ChapChallen+1)
 				break;
-			s->nresp = dochap(v, *a, a+1, s->resp, sizeof(s->resp));
+			s->nresp = dochap(pass, *a, a+1, s->resp, sizeof(s->resp));
 			break;
 		}
 		closekey(k);
 		if(s->nresp <= 0)
 			return failure(fss, "chap botch");
+		if(user != nil)
+			safecpy(s->user, user, sizeof s->user);
 		fss->phase = CHaveResp;
 		return RpcOk;
 
@@ -244,6 +271,7 @@ chapwrite(Fsstate *fss, void *va, uint n)
 			memmove(ocr->resp, cr->resp, sizeof(ocr->resp));
 			break;
 		case AuthMSchap:
+		case AuthMSchapv2:
 			if(n < MSchapreplylen)
 				return failure(fss, "did not get MSchapreply");
 			if(n > sizeof(reply)+MSchapreplylen-OMSCHAPREPLYLEN)
@@ -284,12 +312,20 @@ chapread(Fsstate *fss, void *va, uint *n)
 			*n = s->nresp;
 		memmove(va, s->resp, *n);
 		fss->phase = Established;
-		fss->haveai = 0;
+		if(s->nsecret == 0){
+			fss->haveai = 0;
+			return RpcOk;
+		}
+		fss->ai.cuid = s->user;
+		fss->ai.suid = "none";	/* server not authenticated */
+		fss->ai.secret = s->secret;
+		fss->ai.nsecret = s->nsecret;
+		fss->haveai = 1;
 		return RpcOk;
 
 	case SHaveChal:
-		if(*n > sizeof s->chal)
-			*n = sizeof s->chal;
+		if(*n > s->nchal)
+			*n = s->nchal;
 		memmove(va, s->chal, *n);
 		fss->phase = SNeedUser;
 		return RpcOk;
@@ -322,9 +358,9 @@ dochal(State *s)
 		goto err;
 	
 	alarm(30*1000);
-	n = readn(s->asfd, s->chal, sizeof s->chal);
+	n = readn(s->asfd, s->chal, s->nchal);
 	alarm(0);
-	if(n != sizeof s->chal)
+	if(n != s->nchal)
 		goto err;
 
 	return 0;
@@ -348,15 +384,11 @@ doreply(State *s, uchar *reply, int nreply)
 		goto err;
 	}
 	n = _asgetresp(s->asfd, &s->t, &a, &s->k);
+	alarm(0);
 	if(n < 0){
-		alarm(0);
 		/* leave connection open so we can try again */
 		return -1;
 	}
-	s->nsecret = readn(s->asfd, s->secret, sizeof s->secret);
-	alarm(0);
-	if(s->nsecret < 0)
-		s->nsecret = 0;
 	close(s->asfd);
 	s->asfd = -1;
 
@@ -372,6 +404,17 @@ doreply(State *s, uchar *reply, int nreply)
 	|| tsmemcmp(a.chal, s->tr.chal, sizeof(a.chal)) != 0){
 		werrstr(Easproto);
 		return -1;
+	}
+	s->nsecret = 0;
+	if(s->t.form != 0){
+		if(s->astype == AuthMSchap || s->astype == AuthMSchapv2){
+			memmove(s->secret, s->t.key, 16);
+			if(s->astype == AuthMSchapv2){
+				memmove(s->secret+16, a.rand, 20);
+				s->nsecret = 16+20;
+			} else
+				s->nsecret = 16;
+		}
 	}
 	return 0;
 err:
