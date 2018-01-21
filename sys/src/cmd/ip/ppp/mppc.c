@@ -577,7 +577,6 @@ netlog("******* bad count - got %ux expected %ux\n", count&0xfff, ecount);
 	if(count & Pencrypt) {
 //netlog("mppc unencrypt count = %ux\n", count);
 		rc4(&s->rc4key, p, n);
-fprint(2, "plain=%.*H\n", n, p);
 	}
 
 	if(!(count & Pcompress))
