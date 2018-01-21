@@ -120,7 +120,7 @@ static	void		uncresetack(void*, Block*);
 static  int		ipcheck(uchar*, int);
 static  void		hischeck(Uncstate*);
 
-static	void		setkey(uchar *key, uchar *startkey);
+static	void setkey(uchar *key, uchar *startkey);
 
 Comptype cmppc = {
 	compinit,
@@ -155,8 +155,8 @@ compinit(PPP *ppp)
 
 	if(ppp->sendencrypted) {
 		cs->encrypt = 1;
-		memmove(cs->startkey, ppp->key, 16);
-		memmove(cs->key, ppp->key, 16);
+		memmove(cs->startkey, ppp->sendkey, 16);
+		memmove(cs->key, cs->startkey, 16);
 		setkey(cs->key, cs->startkey);
 		setupRC4state(&cs->rc4key, cs->key, 16);
 	}
@@ -467,8 +467,8 @@ uncinit(PPP *ppp)
 	s = mallocz(sizeof(Uncstate), 1);
 
 	s->count = 0xfff;	/* count of non existant last packet */
-	memmove(s->startkey, ppp->key, 16);
-	memmove(s->key, ppp->key, 16);
+	memmove(s->startkey, ppp->recvkey, 16);
+	memmove(s->key, s->startkey, 16);
 	setkey(s->key, s->startkey);
 	setupRC4state(&s->rc4key, s->key, 16);
 
@@ -577,12 +577,11 @@ netlog("******* bad count - got %ux expected %ux\n", count&0xfff, ecount);
 	if(count & Pencrypt) {
 //netlog("mppc unencrypt count = %ux\n", count);
 		rc4(&s->rc4key, p, n);
+fprint(2, "plain=%.*H\n", n, p);
 	}
 
-	if(!(count & Pcompress)) {
-//netlog("uncompress blen = %d\n", BLEN(b));
-		return  b;
-	}
+	if(!(count & Pcompress))
+		return b;
 
 	bits = 0;
 	sreg = 0;
@@ -727,6 +726,27 @@ uncfini(void *as)
 	
 	s = as;	
 	free(s);
+}
+
+void
+getasymkey(uchar *key, uchar *masterkey, int send, int server)
+{
+	uchar digest[SHA1dlen];
+	uchar pad[40];
+	SHAstate *s;
+	char *m;
+
+	s = sha1(masterkey, 16, nil, nil);
+	memset(pad, 0, 40);
+	sha1(pad, 40, nil, s);
+	if(send ^ server)
+		m = "On the client side, this is the send key; on the server side, it is the receive key.";
+	else
+		m = "On the client side, this is the receive key; on the server side, it is the send key.";
+	sha1((uchar*)m, 84, nil, s);
+	memset(pad, 0xf2, 40);
+	sha1(pad, 40, digest, s);
+	memmove(key, digest, 16);
 }
 
 static void

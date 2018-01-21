@@ -114,7 +114,6 @@ static	void		setphase(PPP*, int);
 static	void		terminate(PPP*, int);
 static	int		validv4(Ipaddr);
 static  void		dmppkt(char *s, uchar *a, int na);
-static	void		getauth(PPP*);
 
 void
 pppopen(PPP *ppp, int mediain, int mediaout, char *net,
@@ -191,7 +190,7 @@ init(PPP* ppp)
 		ppp->chap = mallocz(sizeof(*ppp->chap), 1);
 		if(ppp->chap == nil)
 			abort();
-		ppp->chap->proto = APmschap;
+		ppp->chap->proto = APmschapv2;
 		ppp->chap->state = Cunauth;
 		auth_freechal(ppp->chap->cs);
 		ppp->chap->cs = nil;
@@ -252,6 +251,7 @@ setphase(PPP *ppp, int phase)
 				break;
 			case APmd5:
 			case APmschap:
+			case APmschapv2:
 				break;
 			default:
 				setphase(ppp, Pnet);
@@ -713,6 +713,7 @@ config(PPP *ppp, Pstate *p, int newid)
 			syslog(0, "ppp", "requesting %I", ppp->local);
 			putv4o(b, Oipaddr, ppp->local);
 		}
+		primary = 1;
 		if(primary && (p->optmask & Fipdns))
 			putv4o(b, Oipdns, ppp->dns[0]);
 		if(primary && (p->optmask & Fipdns2))
@@ -852,15 +853,15 @@ getopts(PPP *ppp, Pstate *p, Block *b)
 				}
 				if(proto != Pchap)
 					break;
-				if(o->data[2] != APmd5 && o->data[2] != APmschap)
+				if(o->data[2] != APmd5
+				&& o->data[2] != APmschap
+				&& o->data[2] != APmschapv2)
 					break;
 				chapproto = o->data[2];
 				continue;
 			}
 			break;
 		case Pccp:
-			if(nocompress)
-				break;
 			switch(o->type){
 			case Octhwack:
 				break;
@@ -880,10 +881,6 @@ getopts(PPP *ppp, Pstate *p, Block *b)
 			case Ocmppc:
 				x = nhgetl(o->data);
 
-				// hack for Mac
-				// if(x == 0)
-				//	continue;
-
 				/* stop ppp loops */
 				if((x&0x41) == 0 || ppp->ctries++ > 5) {
 					/*
@@ -895,7 +892,7 @@ getopts(PPP *ppp, Pstate *p, Block *b)
 				}
 				if(rejecting)
 					continue;
-				if(x & 1) {
+				if((x & 0x01000001) == 1){
 					ctype = &cmppc;
 					ppp->sendencrypted = (o->data[3]&0x40) == 0x40;
 					continue;
@@ -1965,6 +1962,20 @@ putlqm(PPP *ppp)
 	ppp->out.reports++;
 }
 
+static char*
+getaproto(int proto)
+{
+	switch(proto){
+	case APmd5:
+		return "chap";
+	case APmschap:
+		return "mschap";
+	case APmschapv2:
+		return "mschapv2";
+	}
+	return nil;
+}
+
 /*
  * init challenge response dialog
  */
@@ -1975,24 +1986,14 @@ chapinit(PPP *ppp)
 	Lcpmsg *m;
 	Chap *c;
 	int len;
-	char *aproto;
-
-	getauth(ppp);
 
 	c = ppp->chap;
 	c->id++;
-
-	switch(c->proto){
-	default:
-		abort();
-	case APmd5:
-		aproto = "chap";
-		break;
-	case APmschap:
-		aproto = "mschap";
-		break;
+	if(c->ai != nil){
+		auth_freeAI(c->ai);
+		c->ai = nil;
 	}
-	if((c->cs = auth_challenge("proto=%q role=server", aproto)) == nil)
+	if((c->cs = auth_challenge("proto=%q role=server", getaproto(c->proto))) == nil)
 		sysfatal("auth_challenge: %r");
 	syslog(0, LOG, ": remote=%I: sending %d byte challenge", ppp->remote, c->cs->nchal);
 	len = 4 + 1 + c->cs->nchal + strlen(ppp->chapname);
@@ -2011,72 +2012,42 @@ chapinit(PPP *ppp)
 }
 
 /*
- * BUG factotum should do this
- */
-enum {
-	MShashlen = 16,
-	MSresplen = 24,
-	MSchallen = 8,
-};
-
-void
-desencrypt(uchar data[8], uchar key[7])
-{
-	ulong ekey[32];
-
-	key_setup(key, ekey);
-	block_cipher(ekey, data, 0);
-}
-
-void
-nthash(uchar hash[MShashlen], char *passwd)
-{
-	uchar buf[512];
-	int i;
-	
-	for(i=0; *passwd && i<sizeof(buf); passwd++) {
-		buf[i++] = *passwd;
-		buf[i++] = 0;
-	}
-	memset(hash, 0, 16);
-	md4(buf, i, hash, 0);
-}
-
-void
-mschalresp(uchar resp[MSresplen], uchar hash[MShashlen], uchar chal[MSchallen])
-{
-	int i;
-	uchar buf[21];
-	
-	memset(buf, 0, sizeof(buf));
-	memcpy(buf, hash, MShashlen);
-
-	for(i=0; i<3; i++) {
-		memmove(resp+i*MSchallen, chal, MSchallen);
-		desencrypt(resp+i*MSchallen, buf+i*7);
-	}
-}
-
-/*
  *  challenge response dialog
  */
-extern	int	_asrdresp(int, uchar*, int);
+static void
+setppekey(PPP *ppp, int isserver)
+{
+	Chap *c = ppp->chap;
+
+	switch(c->proto){
+	case APmschap:
+		if(c->ai == nil || c->ai->nsecret != 16)
+			sysfatal("could not get the encryption key");
+		memmove(ppp->sendkey, c->ai->secret, 16);
+		memmove(ppp->recvkey, c->ai->secret, 16);
+		break;
+	case APmschapv2:
+		if(c->ai == nil || c->ai->nsecret != 16+20)
+			sysfatal("could not get the encryption key + authenticator");
+		getasymkey(ppp->sendkey, c->ai->secret, 1, isserver);
+		getasymkey(ppp->recvkey, c->ai->secret, 0, isserver);
+		break;
+	}
+	auth_freeAI(c->ai);
+	c->ai = nil;
+}
 
 static void
 getchap(PPP *ppp, Block *b)
 {
-	AuthInfo *ai;
 	Lcpmsg *m;
 	int len, vlen, i, id, n, nresp;
-	char md5buf[512], code;
+	char code;
 	Chap *c;
 	Chapreply cr;
 	MSchapreply mscr;
 	char uid[PATH];
-	uchar digest[16], *p, *resp, sdigest[SHA1dlen];
-	uchar mshash[MShashlen], mshash2[MShashlen];
-	DigestState *s;
-	uchar msresp[2*MSresplen+1];
+	uchar resp[256], *p;
 
 	m = (Lcpmsg*)b->rptr;
 	len = nhgets(m->len);
@@ -2087,50 +2058,23 @@ getchap(PPP *ppp, Block *b)
 	}
 
 	qlock(ppp);
-
+	c = ppp->chap;
+	vlen = m->data[0];
 	switch(m->code){
 	case Cchallenge:
-		getauth(ppp);
-
-		vlen = m->data[0];
-		if(vlen > len - 5) {
-			netlog("PPP: chap: bad challenge len\n");
-			break;
-		}
-
 		id = m->id;
-		switch(ppp->chap->proto){
-		default:
-			abort();
-		case APmd5:
-			n = strlen(ppp->secret);
-			if(n + vlen + 1 > sizeof(md5buf)) {
-				netlog("PPP: chap: bad challenge len\n");
-				goto end;
-			}
-			md5buf[0] = m->id;
-			memcpy(md5buf+1, ppp->secret, n);
-			memcpy(md5buf+1+n, m->data+1, vlen);
-			md5((uchar*)md5buf, n + vlen + 1, digest, nil);
-			resp = digest;
-			nresp = 16;
-			break;
-		case APmschap:
-			nthash(mshash, ppp->secret);
-			memset(msresp, 0, sizeof msresp);
-			mschalresp(msresp+MSresplen, mshash, m->data+1);
-			resp = msresp;
-			nresp = sizeof msresp;
-			nthash(mshash, ppp->secret);
-			md4(mshash, 16, mshash2, 0);
-			s = sha1(mshash2, 16, 0, 0);
-			sha1(mshash2, 16, 0, s);
-			sha1(m->data+1, 8, sdigest, s);
-			memmove(ppp->key, sdigest, 16);
-			break;
-		}
-		len = 4 + 1 + nresp + strlen(ppp->chapname);
+		memset(ppp->chapname, 0, sizeof(ppp->chapname));
+		nresp = auth_respondAI(m->data+1, vlen,
+			ppp->chapname, sizeof(ppp->chapname), 
+			resp, sizeof(resp), &c->ai,
+			auth_getkey,
+			"proto=%s role=client service=ppp %s", getaproto(c->proto), keyspec);
+		if(nresp < 0)
+			sysfatal("auth_respond: %r");
+		if(c->proto == APmschap || c->proto == APmschapv2)
+			while(nresp < 49) resp[nresp++] = 0;
 		freeb(b);
+		len = 4 + 1 + nresp + strlen(ppp->chapname);
 		b = alloclcp(Cresponse, id, len, &m);
 		*b->wptr++ = nresp;
 		memmove(b->wptr, resp, nresp);
@@ -2138,14 +2082,12 @@ getchap(PPP *ppp, Block *b)
 		memmove(b->wptr, ppp->chapname, strlen(ppp->chapname));
 		b->wptr += strlen(ppp->chapname);
 		hnputs(m->len, len);
-		netlog("PPP: sending response len %d\n", len);
+		netlog("ppp: sending response len %d\n", len);
 		putframe(ppp, Pchap, b);
 		break;
 	case Cresponse:
-		c = ppp->chap;
-		vlen = m->data[0];
-		if(m->id != c->id) {
-			netlog("PPP: chap: bad response id\n");
+		if(m->id != c->id || c->cs == nil) {
+			netlog("ppp: chap: bad response id\n");
 			break;
 		}
 		switch(c->proto) {
@@ -2153,10 +2095,9 @@ getchap(PPP *ppp, Block *b)
 			sysfatal("unknown chap protocol: %d", c->proto);
 		case APmd5:
 			if(vlen > len - 5 || vlen != 16) {
-				netlog("PPP: chap: bad response len\n");
+				netlog("ppp: chap: bad response len\n");
 				break;
 			}
-
 			cr.id = m->id;
 			memmove(cr.resp, m->data+1, 16);
 			memset(uid, 0, sizeof(uid));
@@ -2169,8 +2110,9 @@ getchap(PPP *ppp, Block *b)
 			c->cs->nresp = sizeof cr;
 			break;
 		case APmschap:
-			if(vlen > len - 5 || vlen != 49) {
-				netlog("PPP: chap: bad response len\n");
+		case APmschapv2:
+			if(vlen > len - 5 || vlen < 48) {
+				netlog("ppp: chap: bad response len\n");
 				break;
 			}
 			memset(&mscr, 0, sizeof(mscr));
@@ -2196,42 +2138,53 @@ getchap(PPP *ppp, Block *b)
 			break;
 		} 
 
-		syslog(0, LOG, ": remote=%I vlen %d proto %d response user %s nresp %d", ppp->remote, vlen, c->proto, c->cs->user, c->cs->nresp);
-		if((ai = auth_response(c->cs)) == nil || auth_chuid(ai, nil) < 0){
+		syslog(0, LOG, ": remote=%I vlen %d proto %d response user %s nresp %d",
+			ppp->remote, vlen, c->proto, c->cs->user, c->cs->nresp);
+
+		if((c->ai = auth_response(c->cs)) == nil || auth_chuid(c->ai, nil) < 0){
 			c->state = Cunauth;
 			code = Cfailure;
-			syslog(0, LOG, ": remote=%I: auth failed: %r, uid=%s", ppp->remote, uid);
+			syslog(0, LOG, ": remote=%I: auth failed: %r, uid=%s",
+				ppp->remote, uid);
 		}else{
 			c->state = Cauthok;
 			code = Csuccess;
-			syslog(0, LOG, ": remote=%I: auth ok: uid=%s nsecret=%d", ppp->remote, uid, ai->nsecret);
-			if(c->proto == APmschap){
-				if(ai->nsecret != sizeof(ppp->key))
-					sysfatal("could not get the encryption key");
-				memmove(ppp->key, ai->secret, sizeof(ppp->key));
-			}
+			syslog(0, LOG, ": remote=%I: auth ok: uid=%s nsecret=%d",
+				ppp->remote, uid, c->ai->nsecret);
 		}
-		auth_freeAI(ai);
 		auth_freechal(c->cs);
 		c->cs = nil;
 		freeb(b);
 
 		/* send reply */
-		len = 4;
-		b = alloclcp(code, c->id, len, &m);
-		hnputs(m->len, len);
+		if(code == Csuccess && c->proto == APmschapv2 && c->ai->nsecret == 16+20){
+			b = alloclcp(code, c->id, 4+2+2*20+1, &m);
+			b->wptr += sprint((char*)m->data, "S=%.20H", c->ai->secret+16);
+		} else {
+			b = alloclcp(code, c->id, 4, &m);
+		}
+		hnputs(m->len, BLEN(b));
 		putframe(ppp, Pchap, b);
 
-		if(c->state == Cauthok) {
+		if(c->state == Cauthok){
+			setppekey(ppp, 1);
 			setphase(ppp, Pnet);
 		} else {
 			/* restart chapp negotiation */
 			chapinit(ppp);
 		}
-		
 		break;
 	case Csuccess:
+		if(c->proto == APmschapv2 && c->ai != nil && c->ai->nsecret == 16+20){
+			n = snprint((char*)resp, sizeof(resp), "S=%.20H", c->ai->secret+16);
+			if(len - 4 < n || tsmemcmp(m->data, resp, n) != 0){
+				netlog("ppp: chap: bad authenticator\n");
+				terminate(ppp, 0);
+				break;
+			}
+		}
 		netlog("ppp: chap succeeded\n");
+		setppekey(ppp, 0);
 		setphase(ppp, Pnet);
 		break;
 	case Cfailure:
@@ -2242,7 +2195,6 @@ getchap(PPP *ppp, Block *b)
 		syslog(0, LOG, "chap code %d?", m->code);
 		break;
 	}
-end:
 	qunlock(ppp);
 	freeb(b);
 }
@@ -2253,26 +2205,31 @@ putpaprequest(PPP *ppp)
 	Block *b;
 	Lcpmsg *m;
 	Chap *c;
+	UserPasswd *up;
 	int len, nlen, slen;
 
-	getauth(ppp);
+	up = auth_getuserpasswd(auth_getkey, "proto=pass service=ppp %s", keyspec);
+	if(up == nil)
+		sysfatal("auth_getuserpasswd: %r");
 
 	c = ppp->chap;
 	c->id++;
-	netlog("PPP: pap: send authreq %d %s %s\n", c->id, ppp->chapname, "****");
+	netlog("ppp: pap: send authreq %d %s %s\n", c->id, up->user, "****");
 
-	nlen = strlen(ppp->chapname);
-	slen = strlen(ppp->secret);
+	nlen = strlen(up->user);
+	slen = strlen(up->passwd);
 	len = 4 + 1 + nlen + 1 + slen;
 	b = alloclcp(Pauthreq, c->id, len, &m);
 
 	*b->wptr++ = nlen;
-	memmove(b->wptr, ppp->chapname, nlen);
+	memmove(b->wptr, up->user, nlen);
 	b->wptr += nlen;
 	*b->wptr++ = slen;
-	memmove(b->wptr, ppp->secret, slen);
+	memmove(b->wptr, up->passwd, slen);
 	b->wptr += slen;
 	hnputs(m->len, len);
+
+	free(up);
 
 	putframe(ppp, Ppasswd, b);
 	freeb(b);
@@ -2304,13 +2261,13 @@ getpap(PPP *ppp, Block *b)
 	qlock(ppp);
 	switch(m->code){
 	case Pauthreq:
-		netlog("PPP: pap auth request, not supported\n");
+		netlog("ppp: pap auth request, not supported\n");
 		break;
 	case Pauthack:
 		if(ppp->phase == Pauth
 		&& ppp->chap->proto == APpasswd
 		&& m->id <= ppp-> chap->id){
-			netlog("PPP: pap succeeded\n");
+			netlog("ppp: pap succeeded\n");
 			setphase(ppp, Pnet);
 		}
 		break;
@@ -2318,13 +2275,13 @@ getpap(PPP *ppp, Block *b)
 		if(ppp->phase == Pauth
 		&& ppp->chap->proto == APpasswd
 		&& m->id <= ppp-> chap->id){
-			netlog("PPP: pap failed (%d:%.*s)\n",
+			netlog("ppp: pap failed (%d:%.*s)\n",
 				m->data[0], m->data[0], (char*)m->data+1);
 			terminate(ppp, 0);
 		}
 		break;
 	default:
-		netlog("PPP: unknown pap messsage %d\n", m->code);
+		netlog("ppp: unknown pap messsage %d\n", m->code);
 	}
 	qunlock(ppp);
 	freeb(b);
@@ -2702,6 +2659,7 @@ main(int argc, char **argv)
 	fmtinstall('I', eipfmt);
 	fmtinstall('V', eipfmt);
 	fmtinstall('E', eipfmt);
+	fmtinstall('H', encodefmt);
 
 	dev = nil;
 
@@ -2969,19 +2927,4 @@ putndb(PPP *ppp, char *net)
 		write(fd, "refresh", 7);
 		close(fd);
 	}
-}
-
-static void
-getauth(PPP *ppp)
-{
-	UserPasswd *up;
-
-	if(*ppp->chapname)
-		return;
-
-	up = auth_getuserpasswd(auth_getkey,"proto=pass service=ppp %s", keyspec);
-	if(up != nil){
-		strcpy(ppp->chapname, up->user);
-		strcpy(ppp->secret, up->passwd);
-	}		
 }

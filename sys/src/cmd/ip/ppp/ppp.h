@@ -113,6 +113,7 @@ enum {
 	/* authentication protocols */
 	APmd5=		5,
 	APmschap=	128,
+	APmschapv2=	129,
 	APpasswd=	Ppasswd,		/* use Pap, not Chap */
 
 	/* lcp flags */
@@ -221,7 +222,8 @@ struct Chap
 	int	state;		/* chap state */
 	uchar	id;		/* id of current message */
 	int	timeout;	/* for current state */
-	Chalstate *cs;
+	AuthInfo	*ai;
+	Chalstate	*cs;
 };
 
 struct Qualstats
@@ -292,11 +294,11 @@ struct PPP
 	void		*uncstate;	/* uncompression state */
 	
 	/* encryption key */
-	uchar		key[16];
+	uchar		sendkey[16];
+	uchar		recvkey[16];
 	int		sendencrypted;
 
 	/* authentication */
-	char		secret[256];	/* md5 key */
 	char		chapname[256];	/* chap system name */
 
 	/* link quality monitoring */
@@ -373,6 +375,8 @@ extern Block*	alloclcp(int, int, int, Lcpmsg**);
 extern ushort	ptclcsum(Block*, int, int);
 extern ushort	ptclbsum(uchar*, int);
 extern ushort	ipcsum(uchar*);
+
+void getasymkey(uchar *key, uchar *masterkey, int send, int server);
 
 extern	Comptype	cmppc;
 extern	Uncomptype	uncmppc;
