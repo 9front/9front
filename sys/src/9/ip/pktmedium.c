@@ -24,6 +24,7 @@ Medium pktmedium =
 .unbind=	pktunbind,
 .bwrite=	pktbwrite,
 .pktin=		pktin,
+.unbindonclose=	1,
 };
 
 /*
