@@ -237,6 +237,7 @@ main(int argc, char *argv[])
 
 	syslog(0, LOG, ": src=%I: server exits", srv.remote);
 
+	postnote(PNGROUP, getpid(), "die");
 	exits(0);
 }
 
@@ -626,8 +627,8 @@ callalloc(int id)
 {
 	uint h;
 	Call *c;
-	char buf[300], *argv[30], local[20], remote[20], **p;
-	int fd, pfd[2], n;
+	char *argv[30], local[20], remote[20], **p;
+	int pfd[2];
 
 	h = id%Nhash;
 
@@ -646,16 +647,6 @@ callalloc(int id)
 
 	if(pipe(pfd) < 0)
 		myfatal("callalloc: pipe failed: %r");
-
-	sprint(buf, "%s/ipifc/clone", srv.pppdir);
-	fd = open(buf, OWRITE);
-	if(fd < 0)
-		myfatal("callalloc: could not open %s: %r", buf);
-
-	n = sprint(buf, "iprouting");
-	if(write(fd, buf, n) < n)
-		myfatal("callalloc: write to ifc failed: %r");
-	close(fd);
 
 	p = argv;
 	*p++ = srv.pppexec;
