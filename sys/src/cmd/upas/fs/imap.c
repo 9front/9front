@@ -916,7 +916,11 @@ imap4read(Imap *imap, Mailbox *mb)
 
 	f = imap->f;
 	n = imap->nuid;
-	if(n < imap->nmsg) idprint(imap, "partial sync %d < %d\n", n, imap->nmsg);
+	if(n > imap->muid){
+		idprint(imap, "partial sync %d > %d\n", n, imap->muid);
+		n = imap->nuid = imap->muid;
+	} else if(n < imap->nmsg)
+		idprint(imap, "partial sync %d < %d\n", n, imap->nmsg);
 	qsort(f, n, sizeof f[0], (int(*)(void*, void*))fetchicmp);
 	ll = &mb->root->part;
 	for(i = 0; (m = *ll) != nil || i < n; ){
