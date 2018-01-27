@@ -67,6 +67,7 @@ char	Ename[] = 	"illegal name";
 char	Ebadctl[] =	"unknown control message";
 char	Ebadargs[] =	"invalid arguments";
 char 	Enotme[] =	"path not served by this file server";
+char	Eio[] =		"I/O error";
 
 char *dirtab[] = {
 [Qdir]		".",
@@ -424,7 +425,7 @@ fileinfo(Mailbox *mb, Message *m, int t, char **pp)
 		break;
 	case Qdate:
 		p = m->date822;
-		if(!p){
+		if(p == nil){
 			p = buf;
 			len = snprint(buf, sizeof buf, "%#Δ", m->fileid);
 		}
@@ -442,14 +443,13 @@ fileinfo(Mailbox *mb, Message *m, int t, char **pp)
 		p = m->messageid;
 		break;
 	case Qfrom:
-		if(m->from)
+		if(m->from != nil)
 			p = m->from;
 		else
 			p = m->unixfrom;
 		break;
 	case Qffrom:
-		if(m->ffrom)
-			p = m->ffrom;
+		p = m->ffrom;
 		break;
 	case Qlines:
 		len = snprint(buf, sizeof buf, "%lud", m->lines);
@@ -458,7 +458,8 @@ fileinfo(Mailbox *mb, Message *m, int t, char **pp)
 	case Qraw:
 		cachebody(mb, m);
 		p = m->start;
-		if(strncmp(m->start, "From ", 5) == 0)
+		if(p != nil)
+		if(strncmp(p, "From ", 5) == 0)
 		if(e = strchr(p, '\n'))
 			p = e + 1;
 		len = m->rbend - p;
@@ -521,7 +522,6 @@ fileinfo(Mailbox *mb, Message *m, int t, char **pp)
 		break;
 	case Qtype:
 		p = m->type;
-		len = strlen(m->type);
 		break;
 	case Qunixdate:
 		p = buf;
@@ -947,7 +947,8 @@ ropen(Fid *f)
 
 	/* make sure we've decoded */
 	if(file == Qbody){
-		cachebody(f->mb, f->m);
+		if(cachebody(f->mb, f->m) == -1)
+			return Eio;
 		decode(f->m);
 		convert(f->m);
 		putcache(f->mb, f->m);
