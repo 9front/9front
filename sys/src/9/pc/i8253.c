@@ -133,6 +133,7 @@ guesscpuhz(int aalcycles)
 	if(m->machno != 0){
 		m->cpuhz = MACHP(0)->cpuhz;
 		m->cpumhz = MACHP(0)->cpumhz;
+		m->cyclefreq = MACHP(0)->cyclefreq;
 		m->loopconst = MACHP(0)->loopconst;
 		return;
 	}
