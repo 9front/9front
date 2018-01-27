@@ -1,6 +1,6 @@
 .TH NDB 2
 .SH NAME
-ndbopen, ndbcat, ndbchanged, ndbclose, ndbreopen, ndbsearch, ndbsnext, ndbgetvalue, ndbfree, ipattr, ndbgetipaddr, ndbipinfo, csipinfo, ndbhash, ndbparse, csgetvalue, ndbfindattr, dnsquery, ndbdiscard, ndbconcatenate, ndbreorder, ndbsubstitute, ndbgetval, csgetval, ndblookval \- network database
+ndbopen, ndbcat, ndbchanged, ndbclose, ndbreopen, ndbsearch, ndbsnext, ndbgetvalue, ndbfree, ipattr, ndbgetipaddr, ndbipinfo, csipinfo, ndbhash, ndbparse, csgetvalue, ndbfindattr, dnsquery, ndbdiscard, ndbconcatenate, ndbreorder, ndbsubstitute \- network database
 .SH SYNOPSIS
 .B #include <u.h>
 .br
@@ -300,9 +300,9 @@ and
 is to
 .I ndbipinfo
 as
-.I csgetval
+.I csgetvalue
 is to
-.IR ndbgetval .
+.IR ndbgetvalue .
 .PP
 The next three routines are used by programs that create the
 hash tables and database files.
@@ -493,28 +493,3 @@ to
 .SH SEE ALSO
 .IR ndb (6),
 .IR ndb (8)
-.SH DIAGNOSTICS
-.IR Ndbgetvalue ,
-.IR csgetvalue ,
-and
-.I ndblookvalue
-set
-.I errstr
-to
-.L "buffer too short"
-if the buffer provided isn't long enough for the
-returned value.
-.SH BUGS
-.IR Ndbgetval ,
-.IR csgetval ,
-and
-.I ndblookval
-are deprecated versions of
-.IR ndbgetvalue ,
-.IR csgetvalue ,
-and
-.IR ndblookvalue .
-They expect a fixed 64 byte long result
-buffer and existed when the values of a
-.I Ndbtuple
-structure were fixed length.

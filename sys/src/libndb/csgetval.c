@@ -85,24 +85,3 @@ csgetvalue(char *netroot, char *attr, char *val, char *rattr, Ndbtuple **pp)
 
 	return rv;
 }
-
-Ndbtuple*
-csgetval(char *netroot, char *attr, char *val, char *rattr, char *buf)
-{
-	Ndbtuple *t;
-	char *p;
-
-	p = csgetvalue(netroot, attr, val, rattr, &t);
-	if(p == nil){
-		if(buf != nil)
-			*buf = 0;
-	} else {
-		if(buf != nil){
-			strncpy(buf, p, Ndbvlen-1);
-			buf[Ndbvlen-1] = 0;
-		}
-		free(p);
-	}
-	ndbsetmalloctag(t, getcallerpc(&netroot));
-	return t;
-}

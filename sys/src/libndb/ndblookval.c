@@ -29,16 +29,3 @@ ndbfindattr(Ndbtuple *entry, Ndbtuple *line, char *attr)
 
 	return nil;
 }
-
-Ndbtuple*
-ndblookval(Ndbtuple *entry, Ndbtuple *line, char *attr, char *to)
-{
-	Ndbtuple *t;
-
-	t = ndbfindattr(entry, line, attr);
-	if(t != nil){
-		strncpy(to, t->val, Ndbvlen-1);
-		to[Ndbvlen-1] = 0;
-	}
-	return t;
-}

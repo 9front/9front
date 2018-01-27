@@ -53,24 +53,3 @@ ndbgetvalue(Ndb *db, Ndbs *s, char *attr, char *val, char *rattr, Ndbtuple **pp)
 	}
 	return nil;
 }
-
-Ndbtuple*
-ndbgetval(Ndb *db, Ndbs *s, char *attr, char *val, char *rattr, char *buf)
-{
-	Ndbtuple *t;
-	char *p;
-
-	p = ndbgetvalue(db, s, attr, val, rattr, &t);
-	if(p == nil){
-		if(buf != nil)
-			*buf = 0;
-	} else {
-		if(buf != nil){
-			strncpy(buf, p, Ndbvlen-1);
-			buf[Ndbvlen-1] = 0;
-		}
-		free(p);
-	}
-	ndbsetmalloctag(t, getcallerpc(&db));
-	return t;
-}
