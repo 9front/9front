@@ -316,8 +316,7 @@ dblookup1(char *name, int type, int auth, int ttl)
 			nstrcpy(dname, nt->val, sizeof dname);
 			found = 1;
 		}
-		if(strcmp(attr, nt->attr) == 0){
-			rp = (*f)(t, nt);
+		if(strcmp(attr, nt->attr) == 0 && (rp = (*f)(t, nt)) != nil){
 			rp->auth = auth;
 			rp->db = 1;
 			if(ttl)
@@ -336,12 +335,11 @@ dblookup1(char *name, int type, int auth, int ttl)
 
 	/* search whole entry */
 	for(nt = t; nt; nt = nt->entry)
-		if(nt->ptr == 0 && strcmp(attr, nt->attr) == 0){
-			rp = (*f)(t, nt);
+		if(nt->ptr == 0 && strcmp(attr, nt->attr) == 0 && (rp = (*f)(t, nt)) != nil){
+			rp->auth = auth;
 			rp->db = 1;
 			if(ttl)
 				rp->ttl = ttl;
-			rp->auth = auth;
 			if(dp == nil)
 				dp = idnlookup(dname, Cin, 1);
 			rp->owner = dp;
@@ -358,26 +356,22 @@ dblookup1(char *name, int type, int auth, int ttl)
  *  make various types of resource records from a database entry
  */
 static RR*
-addrrr(Ndbtuple *entry, Ndbtuple *pair)
+addrrr(Ndbtuple*, Ndbtuple *pair)
 {
 	RR *rp;
-	uchar addr[IPaddrlen];
+	uchar ip[IPaddrlen];
 
-	USED(entry);
-	parseip(addr, pair->val);
-	if(isv4(addr))
-		rp = rralloc(Ta);
-	else
-		rp = rralloc(Taaaa);
-	rp->ip = dnlookup(pair->val, Cin, 1);
+	if(parseip(ip, pair->val) == -1)
+		return nil;
+	rp = rralloc(isv4(ip) ? Ta : Taaaa);
+	rp->ip = ipalookup(ip, Cin, 1);
 	return rp;
 }
 static RR*
-nullrr(Ndbtuple *entry, Ndbtuple *pair)
+nullrr(Ndbtuple*, Ndbtuple *pair)
 {
 	RR *rp;
 
-	USED(entry);
 	rp = rralloc(Tnull);
 	rp->null->data = (uchar*)estrdup(pair->val);
 	rp->null->dlen = strlen((char*)rp->null->data);
@@ -389,13 +383,12 @@ nullrr(Ndbtuple *entry, Ndbtuple *pair)
  *  <= 255 byte ones.
  */
 static RR*
-txtrr(Ndbtuple *entry, Ndbtuple *pair)
+txtrr(Ndbtuple*, Ndbtuple *pair)
 {
 	RR *rp;
 	Txt *t, **l;
 	int i, len, sofar;
 
-	USED(entry);
 	rp = rralloc(Ttxt);
 	l = &rp->txt;
 	rp->txt = nil;
@@ -420,11 +413,10 @@ txtrr(Ndbtuple *entry, Ndbtuple *pair)
 	return rp;
 }
 static RR*
-cnamerr(Ndbtuple *entry, Ndbtuple *pair)
+cnamerr(Ndbtuple*, Ndbtuple *pair)
 {
 	RR *rp;
 
-	USED(entry);
 	rp = rralloc(Tcname);
 	rp->host = idnlookup(pair->val, Cin, 1);
 	return rp;
@@ -453,11 +445,10 @@ nsrr(Ndbtuple *entry, Ndbtuple *pair)
 	return rp;
 }
 static RR*
-ptrrr(Ndbtuple *entry, Ndbtuple *pair)
+ptrrr(Ndbtuple*, Ndbtuple *pair)
 {
 	RR *rp;
 
-	USED(entry);
 	rp = rralloc(Tns);
 	rp->ptr = dnlookup(pair->val, Cin, 1);
 	return rp;
@@ -815,33 +806,29 @@ baddelegation(RR *rp, RR *nsrp, uchar *addr)
 }
 
 int
-myaddr(char *addr)
+myip(uchar *ip)
 {
 	char *line, *sp;
-	char buf[64];
+	char buf[Maxpath];
+	uchar ipa[IPaddrlen];
 	Biobuf *bp;
 
 	if(ipcmp(ipaddr, IPnoaddr) == 0)
 		if(myipaddr(ipaddr, mntpt) < 0)
 			return -1;
 
-	snprint(buf, sizeof buf, "%I", ipaddr);
-	if (strcmp(addr, buf) == 0) {
-		dnslog("rejecting my ip %s as local dns server", addr);
+	if(ipcmp(ipaddr, ip) == 0)
 		return 1;
-	}
 
 	snprint(buf, sizeof buf, "%s/ipselftab", mntpt);
 	bp = Bopen(buf, OREAD);
-	if (bp != nil) {
-		while ((line = Brdline(bp, '\n')) != nil) {
+	if(bp != nil) {
+		while((line = Brdline(bp, '\n')) != nil) {
 			line[Blinelen(bp) - 1] = '\0';
-			sp = strchr(line, ' ');
-			if (sp) {
+			if((sp = strchr(line, ' ')) != nil) {
 				*sp = '\0';
-				if (strcmp(addr, line) == 0) {
-					dnslog("rejecting my ip %s as local dns server",
-						addr);
+				if(parseip(ipa, line) != -1 && ipcmp(ipa, ip) == 0) {
+					Bterm(bp);
 					return 1;
 				}
 			}
@@ -851,39 +838,52 @@ myaddr(char *addr)
 	return 0;
 }
 
-static char *locdns[20];
-static QLock locdnslck;
-
 static void
 addlocaldnsserver(DN *dp, int class, char *ipaddr, int i)
 {
-	int n;
-	DN *nsdp;
-	RR *rp;
-	char buf[32];
 	uchar ip[IPaddrlen];
+	DN *nsdp, *ipdp;
+	RR *rp, *tp;
+	int type, n;
+	char buf[32];
+
+	if(parseip(ip, ipaddr) == -1 || ipcmp(ip, IPnoaddr) == 0){
+		dnslog("rejecting bad ip %s as local dns server", ipaddr);
+		return;
+	}
 
 	/* reject our own ip addresses so we don't query ourselves via udp */
-	if (myaddr(ipaddr))
+	if(myip(ip)){
+		dnslog("rejecting my ip %I as local dns server", ip);
 		return;
+	}
 
-	qlock(&locdnslck);
-	for (n = 0; n < i && n < nelem(locdns) && locdns[n]; n++)
-		if (strcmp(locdns[n], ipaddr) == 0) {
-			dnslog("rejecting duplicate local dns server ip %s",
-				ipaddr);
-			qunlock(&locdnslck);
-			return;
+	/* A or AAAA record */
+	type = isv4(ip) ? Ta : Taaaa;
+	ipdp = ipalookup(ip, class, 1);
+
+	/* check duplicate ip */
+	for(n = 0; n < i; n++){
+		snprint(buf, sizeof buf, "local#dns#server%d", n);
+		nsdp = dnlookup(buf, class, 0);
+		if(nsdp == nil)
+			continue;
+		rp = rrlookup(nsdp, type, NOneg);
+		for(tp = rp; tp != nil; tp = tp->next){
+			if(tp->ip == ipdp){
+				dnslog("rejecting duplicate local dns server ip %I", ip);
+				rrfreelist(rp);
+				return;
+			}
 		}
-	if (n < nelem(locdns))
-		if (locdns[n] == nil || ++n < nelem(locdns))
-			locdns[n] = strdup(ipaddr); /* remember 1st few local ns */
-	qunlock(&locdnslck);
+		rrfreelist(rp);
+	}
+
+	snprint(buf, sizeof buf, "local#dns#server%d", i);
+	nsdp = dnlookup(buf, class, 1);
 
 	/* ns record for name server, make up an impossible name */
 	rp = rralloc(Tns);
-	snprint(buf, sizeof buf, "local#dns#server%d", i);
-	nsdp = dnlookup(buf, class, 1);
 	rp->host = nsdp;
 	rp->owner = dp;			/* e.g., local#dns#servers */
 	rp->local = 1;
@@ -892,12 +892,8 @@ addlocaldnsserver(DN *dp, int class, char *ipaddr, int i)
 	rrattach(rp, Authoritative);	/* will not attach rrs in my area */
 	dnagenever(dp);
 
-	/* A or AAAA record */
-	if (parseip(ip, ipaddr) >= 0 && isv4(ip))
-		rp = rralloc(Ta);
-	else
-		rp = rralloc(Taaaa);
-	rp->ip = dnlookup(ipaddr, class, 1);
+	rp = rralloc(type);
+	rp->ip = ipdp;
 	rp->owner = nsdp;
 	rp->local = 1;
 	rp->db = 1;
@@ -905,7 +901,7 @@ addlocaldnsserver(DN *dp, int class, char *ipaddr, int i)
 	rrattach(rp, Authoritative);	/* will not attach rrs in my area */
 	dnagenever(nsdp);
 
-	dnslog("added local dns server %s at %s", buf, ipaddr);
+	dnslog("added local dns server %s at %I", buf, ip);
 }
 
 /*
@@ -917,7 +913,7 @@ dnsservers(int class)
 {
 	int i, n;
 	char *p;
-	char *args[5];
+	char *args[16];
 	Ndbtuple *t, *nt;
 	RR *nsrp;
 	DN *dp;
@@ -1208,8 +1204,7 @@ insidens(uchar *ip)
 
 	for (t = innmsrvs; t != nil; t = t->entry)
 		if (strcmp(t->attr, "ip") == 0) {
-			parseip(ipa, t->val);
-			if (memcmp(ipa, ip, sizeof ipa) == 0)
+			if (parseip(ipa, t->val) != -1 && ipcmp(ipa, ip) == 0)
 				return 1;
 		}
 	return 0;
@@ -1224,7 +1219,8 @@ outsidensip(int n, uchar *ip)
 	i = 0;
 	for (t = outnmsrvs; t != nil; t = t->entry)
 		if (strcmp(t->attr, "ip") == 0 && i++ == n) {
-			parseip(ip, t->val);
+			if (parseip(ip, t->val) == -1)
+				return -1;
 			return 0;
 		}
 	return -1;

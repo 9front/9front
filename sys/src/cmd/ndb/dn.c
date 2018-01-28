@@ -233,6 +233,15 @@ idnlookup(char *name, int class, int enter)
 	return dnlookup(name, class, enter);
 }
 
+DN*
+ipalookup(uchar *ip, int class, int enter)
+{
+	char addr[64];
+
+	snprint(addr, sizeof(addr), "%I", ip);
+	return dnlookup(addr, class, enter);
+}
+
 static int
 rrsame(RR *rr1, RR *rr2)
 {

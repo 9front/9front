@@ -922,13 +922,12 @@ static int
 mydnsquery(Query *qp, int medium, uchar *udppkt, int len)
 {
 	int rv, nfd;
-	char conndir[40], addr[128], domain[64];
+	char conndir[40], addr[128];
 	uchar belen[2];
 	NetConnInfo *nci;
 
 	rv = -1;
-	snprint(domain, sizeof(domain), "%I", udppkt);
-	if (myaddr(domain))
+	if (myip(udppkt))
 		return rv;
 	switch (medium) {
 	case Udp:
@@ -958,9 +957,8 @@ mydnsquery(Query *qp, int medium, uchar *udppkt, int len)
 	case Tcp:
 		/* send via TCP & keep fd around for reply */
 		memmove(qp->tcpip, udppkt, sizeof qp->tcpip);
-		snprint(addr, sizeof addr, "%s/tcp!%s!dns",
-				(mntpt && *mntpt) ? mntpt : "/net",
-				domain);
+		snprint(addr, sizeof addr, "%s/tcp!%I!dns",
+			(mntpt && *mntpt) ? mntpt : "/net", udppkt);
 		alarm(10*1000);
 		qp->tcpfd = dial(addr, nil, conndir, &qp->tcpctlfd);
 		alarm(0);
@@ -1049,7 +1047,7 @@ xmitquery(Query *qp, int medium, int depth, uchar *obuf, int inns, int len)
 		if((1<<p->nx) > qp->ndest)
 			continue;
 
-		if(memcmp(p->a, IPnoaddr, sizeof IPnoaddr) == 0)
+		if(ipcmp(p->a, IPnoaddr) == 0)
 			continue;		/* mistake */
 
 		procsetname("udp %sside query to %I/%s %s %s",
@@ -1387,7 +1385,7 @@ queryns(Query *qp, int depth, uchar *ibuf, uchar *obuf, ulong waitms, int inns)
 			if(debug)
 				dnslog("queryns got reply from %I", srcip);
 			for(p = qp->dest; p < qp->curdest; p++)
-				if(memcmp(p->a, srcip, sizeof p->a) == 0)
+				if(ipcmp(p->a, srcip) == 0)
 					break;
 			if(p >= qp->curdest){
 				dnslog("response from %I but no destination", srcip);
