@@ -49,7 +49,7 @@ if(~ $wflag yes){
 	}
 	dd -quiet 1 -bs 1024 -count 8 -if $disk -iseek 248 \
 		>/tmp/_venticonf.old || exit backup
-	dd -quiet 1 -count 2 </dev/zero >> /tmp/venticonf.$pid || exit dd
+	dd -quiet 1 -bs 1024 -count 8 </dev/zero >> /tmp/venticonf.$pid || exit dd
 	dd -quiet 1 -bs 1024 -count 8 -if /tmp/venticonf.$pid \
 		-of $disk -trunc 0 -oseek 248 || exit dd2
 	exit 0
