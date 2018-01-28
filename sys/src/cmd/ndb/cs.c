@@ -146,8 +146,12 @@ struct Network
 	char		*net;
 	Ndbtuple	*(*lookup)(Network*, char*, char*);
 	char		*(*trans)(Ndbtuple*, Network*, char*, char*, int);
-	int		considered;		/* flag: ignored for "net!"? */
-	int		fasttimeouthack;	/* flag. was for IL */
+
+	char		considered;		/* flag: ignored for "net!"? */
+	char		fasttimeouthack;	/* flag. was for IL */
+	char		v4only;
+	char		v6only;
+
 	Network		*next;
 };
 
@@ -159,15 +163,15 @@ enum {
  *  net doesn't apply to (r)udp, icmp(v6), or telco (for speed).
  */
 Network network[] = {
-	{ "il",		iplookup,	iptrans,	0, 1, },
-	{ "tcp",	iplookup,	iptrans,	0, 0, },
-	{ "il",		iplookup,	iptrans,	0, 0, },
-	{ "udp",	iplookup,	iptrans,	1, 0, },
-	{ "icmp",	iplookup,	iptrans,	1, 0, },
-	{ "icmpv6",	iplookup,	iptrans,	1, 0, },
-	{ "rudp",	iplookup,	iptrans,	1, 0, },
-	{ "ssh",	iplookup,	iptrans,	1, 0, },
-	{ "telco",	telcolookup,	telcotrans,	1, 0, },
+	{ "il",		iplookup,	iptrans,	0, 1, 1, 0, },
+	{ "tcp",	iplookup,	iptrans,	0, 0, 0, 0, },
+	{ "il",		iplookup,	iptrans,	0, 0, 1, 0, },
+	{ "udp",	iplookup,	iptrans,	1, 0, 0, 0, },
+	{ "icmp",	iplookup,	iptrans,	1, 0, 1, 0, },
+	{ "icmpv6",	iplookup,	iptrans,	1, 0, 0, 1, },
+	{ "rudp",	iplookup,	iptrans,	1, 0, 1, 0, },
+	{ "ssh",	iplookup,	iptrans,	1, 0, 0, 0, },
+	{ "telco",	telcolookup,	telcotrans,	1, 0, 0, 0, },
 	{ 0 },
 };
 
@@ -1369,6 +1373,13 @@ ipattrlookup(Ndb *db, char *ipa, char *attr, char *val, int vlen)
 	return 0;
 }
 
+static int
+isv4str(char *s)
+{
+	uchar ip[IPaddrlen];
+	return parseip(ip, s) != -1 && isv4(ip);
+}
+
 /*
  *  lookup (and translate) an ip destination
  */
@@ -1385,7 +1396,6 @@ iplookup(Network *np, char *host, char *serv)
 	uchar tnet[IPaddrlen];
 	Ipifc *ifc;
 	Iplifc *lifc;
-	int v6;
 
 	/*
 	 *  start with the service since it's the most likely to fail
@@ -1444,20 +1454,19 @@ iplookup(Network *np, char *host, char *serv)
 	 */
 	t = 0;
 	werrstr("can't translate address");
-	v6 = strcmp(np->net, "il") != 0;
 	if(strcmp(attr, "dom") == 0)
-		t = dnsiplookup(host, &s, v6);
+		t = dnsiplookup(host, &s, !np->v4only);
 	if(t == nil)
 		free(ndbgetvalue(db, &s, attr, host, "ip", &t));
 	if(t == nil){
 		dnsname = ndbgetvalue(db, &s, attr, host, "dom", nil);
 		if(dnsname){
-			t = dnsiplookup(dnsname, &s, v6);
+			t = dnsiplookup(dnsname, &s, !np->v4only);
 			free(dnsname);
 		}
 	}
 	if(t == nil)
-		t = dnsiplookup(host, &s, v6);
+		t = dnsiplookup(host, &s, !np->v4only);
 	if(t == nil)
 		return nil;
 
@@ -1492,13 +1501,6 @@ iplookup(Network *np, char *host, char *serv)
 	return t;
 }
 
-static int
-isv4str(char *s)
-{
-	uchar ip[IPaddrlen];
-	return parseip(ip, s) != -1 && isv4(ip);
-}
-
 /*
  *  translate an ip address
  */
@@ -1525,12 +1527,10 @@ iptrans(Ndbtuple *t, Network *np, char *serv, char *rem, int hack)
 		snprint(reply, sizeof(reply), "%s/%s/clone %s%s",
 			mntpt, np->net, ts, x);
 	else {
-		/* il and icmp only supports ipv4 addresses */
-		if((strcmp(np->net, "il") == 0 || strcmp(np->net, "icmp") == 0) && !isv4str(t->val))
+		if(np->v4only && !isv4str(t->val))
 			return nil;
 
-		/* icmpv6 does not support ipv4 addresses */
-		if(strcmp(np->net, "icmpv6") == 0 && isv4str(t->val))
+		if(np->v6only && isv4str(t->val))
 			return nil;
 
 		snprint(reply, sizeof(reply), "%s/%s/clone %s!%s%s%s",
