@@ -494,7 +494,6 @@ void	addarea(DN *dp, RR *rp, Ndbtuple *t);
 
 /* dblookup.c */
 int	baddelegation(RR*, RR*, uchar*);
-RR*	dbinaddr(DN*, int);
 RR*	dblookup(char*, int, int, int, int);
 RR*	dnsservers(int);
 RR*	domainlist(int);

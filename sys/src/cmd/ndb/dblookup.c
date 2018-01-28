@@ -839,7 +839,7 @@ myip(uchar *ip)
 }
 
 static void
-addlocaldnsserver(DN *dp, int class, char *ipaddr, int i)
+addlocaldnsserver(DN *dp, int class, char *addr, int i)
 {
 	uchar ip[IPaddrlen];
 	DN *nsdp, *ipdp;
@@ -847,8 +847,8 @@ addlocaldnsserver(DN *dp, int class, char *ipaddr, int i)
 	int type, n;
 	char buf[32];
 
-	if(parseip(ip, ipaddr) == -1 || ipcmp(ip, IPnoaddr) == 0){
-		dnslog("rejecting bad ip %s as local dns server", ipaddr);
+	if(parseip(ip, addr) == -1 || ipcmp(ip, IPnoaddr) == 0){
+		dnslog("rejecting bad ip %s as local dns server", addr);
 		return;
 	}
 
