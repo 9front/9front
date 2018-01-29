@@ -449,11 +449,8 @@ TEXT _wrmsrinst(SB), $0
 	MOVQ	BP, AX				/* BP set to -1 if traped */
 	RET
 
-TEXT invlpg(SB), 1, $-4				/* INVLPG va+0(FP) */
-	MOVQ	RARG, va+0(FP)
-
-	INVLPG	va+0(FP)
-
+TEXT invlpg(SB), 1, $-4
+	INVLPG	(RARG)
 	RET
 
 TEXT wbinvd(SB), 1, $-4

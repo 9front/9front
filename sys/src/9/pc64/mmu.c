@@ -485,15 +485,13 @@ kmap(Page *page)
 		return (KMap*)KADDR(pa);
 
 	x = splhi();
-	va = KMAP + ((uintptr)up->kmapindex << PGSHIFT);
+	va = KMAP + (((uintptr)up->kmapindex++ << PGSHIFT) & (KMAPSIZE-1));
 	pte = mmuwalk(m->pml4, va, 0, 1);
-	if(pte == 0 || *pte & PTEVALID)
+	if(pte == 0 || (*pte & PTEVALID) != 0)
 		panic("kmap: pa=%#p va=%#p", pa, va);
 	*pte = pa | PTEWRITE|PTEVALID;
- 	up->kmapindex = (up->kmapindex + 1) % (1<<PTSHIFT);
-	if(up->kmapindex == 0)
-		mmuflushtlb();
 	splx(x);
+	invlpg(va);
 	return (KMap*)va;
 }
 
