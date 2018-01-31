@@ -32,7 +32,7 @@ cd:V:	/tmp/9front.386.iso.gz
 	mv $target.$pid.disk $target
 	}
 
-%.pc.iso:D:	$proto /n/src9/sys/lib/sysconfig/proto/9bootproto /n/src9/cfg/plan9.ini $kernel
+%.pc.iso:D:	$proto /n/src9/sys/lib/sysconfig/proto/9bootproto $kernel
 	@{rfork n
 	mk binds
 	{grep -v '^bootfile=' /n/src9/cfg/plan9.ini
