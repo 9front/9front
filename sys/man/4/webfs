@@ -4,6 +4,8 @@ webfs \- world wide web file system
 .SH SYNOPSIS
 .B webfs
 [
+.B -Dd
+] [
 .B -A
 .I useragent
 ] [
@@ -30,6 +32,11 @@ and, if
 .I service
 is specified, will post a service file descriptor in 
 .BR /srv/\fIservice .
+The
+.B -d
+flag enables general debug printing to standard error while the
+.B -D
+flag enables 9P debug prints.
 .PP
 If the environment variable
 .B httpproxy

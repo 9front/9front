@@ -781,7 +781,7 @@ Srv fs =
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-D] [-A useragent] [-T timeout] [-m mtpt] [-s service]\n", argv0);
+	fprint(2, "usage: %s [-Dd] [-A useragent] [-T timeout] [-m mtpt] [-s service]\n", argv0);
 	exits("usage");
 }
 
