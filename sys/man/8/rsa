@@ -149,7 +149,7 @@ attributes if they are missing,
 and prints a full key.
 .PP
 .I Asn12rsa
-reads an RSA private key stored as ASN.1
+reads an RSA private or public key stored as ASN.1
 encoded in the binary Distinguished Encoding Rules (DER)
 and prints a Plan 9 RSA key,
 inserting
