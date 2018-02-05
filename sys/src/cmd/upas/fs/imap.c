@@ -79,6 +79,8 @@ needtoquote(Rune r)
 		return Qquote;
 	if(r <= ' ')
 		return Qquote;
+	if(r == '(' || r == ')' || r == '{' || r == '%' || r == '*' || r == ']')
+		return Qquote;
 	if(r == '\\' || r == '"')
 		return Qbackslash;
 	return Qok;
