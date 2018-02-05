@@ -1,0 +1,75 @@
+.TH PTRAP 4
+.SH NAME
+ptrap \- \fIplumber\fR(4) filter
+.SH SYNOPSIS
+.B ptrap
+.I port
+[\fB!\fR]\fIregexp\fR
+[
+.I port
+[\fB!\fR]\fIregexp\fR ...
+]
+.SH DESCRIPTION
+.I Ptrap
+is a program that mounts itself over a
+.IR plumber (4)
+service mounted at
+.B /mnt/plumb
+and filters incoming messages according to the rules provided on the command line.
+.PP
+.I Ptrap
+accepts an arbitrary number of argument pairs; each pair consists of a port name
+.I port
+and a regular expression
+.I regexp
+(see
+.IR regexp (6)).
+Each incoming message that does not match
+.I regexp
+is discarded.
+The
+.I regexp
+can be optionally prefixed by
+.B !
+to indicate logical inversion (i.e. messages matching the regexp are discarded).
+.SH EXAMPLES
+Start a 
+.IR sam (1)
+instance dedicated to editing kernel source code:
+.IP
+.EX
+ptrap edit '^/sys/src/9/'
+sam
+.EE
+.PP
+In another window, start a second
+.IR sam (1)
+instance for all other editing jobs:
+.IP
+.EX
+ptrap edit '!^/sys/src/9/'
+sam
+.EE
+.SH SOURCE
+.B /sys/src/cmd/ptrap.c
+.SH SEE ALSO
+.IR plumber (4),
+.IR plumb (6)
+.SH BUGS
+Multiple filters specified on the same port ignore all but the last one.
+.PP
+.I Ptrap
+would be more useful if it could inhibit sending the message to other clients.
+.PP
+As far as
+.IR plumber (4)
+is concerned, even messages dropped by
+.I ptrap
+are "accepted", which means rules that are supposed to apply to messages not accepted by clients are not invoked (e.g. a rule starting an editor if no one is listening to the
+.I edit
+port will not work if there is a
+.I ptrap
+on that port).
+.SH HISTORY
+.I Ptrap
+first appeared in 9front (February, 2018).
