@@ -6,15 +6,16 @@ if(~ $"m 01CD00101){
 	echo 9660
 	exit
 }
+dd -if $1 -count 1 >/env/block >[2]/dev/null
 fn fat {
-	m=`{dd -if $1 -bs 1 -count 3 -skip $2 >[2]/dev/null}
+	m=`{dd -if /env/block -bs 1 -count 3 -skip $1 >[2]/dev/null}
 	~ $"m FAT
 }
-if(fat $1 54 || fat $1 82){
+if(fat 54 || fat 82){
 	echo dos
 	exit
 }
-m=`{dd -if $1 -bs 4 -count 1 >[2]/dev/null | xd | sed 's,0000000  ,,;q'}
+m=`{dd -if /env/block -bs 4 -count 1 >[2]/dev/null | xd | sed 's,0000000  ,,;q'}
 if(~ $"m 529ab12b){
 	echo paqfs
 	exit
@@ -23,13 +24,12 @@ if(~ $"m 011ce50d){
 	echo hjfs
 	exit
 }
-m=`{dd -if $1 -bs 16 -count 1 -skip 16 >[2]/dev/null}
+m=`{dd -if /env/block -bs 16 -count 1 -skip 16 >[2]/dev/null}
 if(~ $"m 'kfs wren device'){
 	echo kfs
 	exit
 }
-dd -if $1 -count 1 >[2]/dev/null | \
-awk '
+</env/block awk '
 /^(blocksize|daddrbits|daddrbits|indirblks|dirblks|namelen)/{p[$1]=$2}
 END{
 	ca["fs", "blocksize"] = 4*1024
