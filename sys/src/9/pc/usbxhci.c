@@ -800,7 +800,7 @@ completering(Ring *r, u32int *er)
 	pa = (*(u64int*)er) & ~15ULL;
 	ilock(r);
 
-	for(x = r->rp; (int)(r->wp - x) > 0; x++){
+	for(x = r->rp; (int)(r->wp - x) > 0;){
 		td = &r->base[4*(x++ & r->mask)];
 		if((u64int)PADDR(td) == pa){
 			r->rp = x;
