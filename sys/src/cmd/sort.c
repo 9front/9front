@@ -941,13 +941,14 @@ doargs(int argc, char *argv[])
 uchar*
 skip(uchar *l, int n1, int n2, int bflag, int endfield)
 {
-	int i, c, tc;
+	int i, c, ln, tc;
 	Rune r;
 
 	if(endfield && n1 < 0)
 		return 0;
 
 	c = *l++;
+	ln = 1;
 	tc = args.tabchar;
 	if(tc) {
 		if(tc < Runeself) {
@@ -962,15 +963,15 @@ skip(uchar *l, int n1, int n2, int bflag, int endfield)
 			}
 		} else {
 			l--;
-			l += chartorune(&r, (char*)l);
+			l += ln = chartorune(&r, (char*)l);
 			for(i=n1; i>0; i--) {
 				while(r != tc) {
 					if(r == '\n')
 						return 0;
-					l += chartorune(&r, (char*)l);
+					l += ln = chartorune(&r, (char*)l);
 				}
 				if(!(endfield && i == 1))
-					l += chartorune(&r, (char*)l);
+					l += ln = chartorune(&r, (char*)l);
 			}
 			c = r;
 		}
@@ -987,10 +988,12 @@ skip(uchar *l, int n1, int n2, int bflag, int endfield)
 	}
 
 	if(bflag)
-		while(c == ' ' || c == '\t')
+		while(c == ' ' || c == '\t'){
 			c = *l++;
+			ln = 1;
+		}
 
-	l--;
+	l -= ln;
 	for(i=n2; i>0; i--) {
 		c = *l;
 		if(c < Runeself) {
