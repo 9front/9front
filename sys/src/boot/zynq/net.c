@@ -168,20 +168,25 @@ ethinit(ulong *r)
 		while((mdread(r, MDSTATUS) & LINK) == 0)
 			;
 	}
+	*(u32int*)(SLCR_BASE + SLCR_UNLOCK) = UNLOCK_KEY;
 	v = mdread(r, MDPHYCTRL);
 	if((v & 0x40) != 0){
 		puts("1000BASE-T");
 		while((mdread(r, MDGSTATUS) & RECVOK) != RECVOK)
 			;
 		r[NET_CFG] |= GIGE_EN;
+		*(u32int*)(SLCR_BASE + GEM0_CLK_CTRL) = 1 << 20 | 8 << 8 | 1;
 	}else if((v & 0x20) != 0){
 		puts("100BASE-TX");
-		r[NET_CFG] = NET_CFG & ~GIGE_EN | SPEED;
+		r[NET_CFG] = r[NET_CFG] & ~GIGE_EN | SPEED;
+		*(u32int*)(SLCR_BASE + GEM0_CLK_CTRL) = 5 << 20 | 8 << 8 | 1;
 	}else if((v & 0x10) != 0){
 		puts("10BASE-T");
-		r[NET_CFG] = NET_CFG & ~(GIGE_EN | SPEED);
+		r[NET_CFG] = r[NET_CFG] & ~(GIGE_EN | SPEED);
+		*(u32int*)(SLCR_BASE + GEM0_CLK_CTRL) = 20 << 20 | 20 << 8 | 1;
 	}else
 		puts("???");
+	*(u32int*)(SLCR_BASE + SLCR_UNLOCK) = LOCK_KEY;
 	if((v & 0x08) != 0)
 		puts(" Full Duplex\n");
 	else{
