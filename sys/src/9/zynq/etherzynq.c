@@ -96,6 +96,10 @@ enum {
 	FrameEnd = 1<<15,
 };
 
+enum {
+	GEM0_CLK_CTRL = 0x140/4,
+};
+
 typedef struct Ctlr Ctlr;
 
 struct Ctlr {
@@ -157,14 +161,17 @@ ethproc(void *ved)
 				;
 			edev->mbps = 1000;
 			c->r[NET_CFG] |= GIGE_EN;
+			slcr[GEM0_CLK_CTRL] = 1 << 20 | 8 << 8 | 1;
 		}else if((v & 0x20) != 0){
 			sp = "100BASE-TX";
 			edev->mbps = 100;
-			c->r[NET_CFG] = NET_CFG & ~GIGE_EN | SPEED;
+			c->r[NET_CFG] = c->r[NET_CFG] & ~GIGE_EN | SPEED;
+			slcr[GEM0_CLK_CTRL] = 5 << 20 | 8 << 8 | 1;
 		}else if((v & 0x10) != 0){
 			sp = "10BASE-T";
 			edev->mbps = 10;
-			c->r[NET_CFG] = NET_CFG & ~(GIGE_EN | SPEED);
+			c->r[NET_CFG] = c->r[NET_CFG] & ~(GIGE_EN | SPEED);
+			slcr[GEM0_CLK_CTRL] = 20 << 20 | 20 << 8 | 1;
 		}else
 			sp = "???";
 		if((v & 0x08) != 0){
