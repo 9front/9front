@@ -18,10 +18,9 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
+#include "../port/etherif.h"
 
 #define malign(n)	xspanalloc((n), 32, 0)
-
-#include "etherif.h"
 #include "etherga620fw.h"
 
 enum {
@@ -1260,7 +1259,6 @@ ga620pnp(Ether* edev)
 	 */
 	edev->attach = ga620attach;
 	edev->transmit = ga620transmit;
-	edev->interrupt = ga620interrupt;
 	edev->ifstat = ga620ifstat;
 	edev->ctl = ga620ctl;
 
@@ -1268,6 +1266,8 @@ ga620pnp(Ether* edev)
 	edev->promiscuous = ga620promiscuous;
 	edev->multicast = ga620multicast;
 	edev->shutdown = ga620shutdown;
+
+	intrenable(edev->irq, ga620interrupt, edev, edev->tbdf, edev->name);
 
 	return 0;
 }

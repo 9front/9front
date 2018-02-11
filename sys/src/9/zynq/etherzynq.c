@@ -5,7 +5,7 @@
 #include "fns.h"
 #include "io.h"
 #include "../port/netif.h"
-#include "etherif.h"
+#include "../port/etherif.h"
 
 #define Rbsz		ROUNDUP(sizeof(Etherpkt)+16, 64)
 
@@ -409,9 +409,7 @@ etherpnp(Ether *edev)
 	edev->port = ETH0_BASE;
 	ct.r = vmap(edev->port, BY2PG);
 	edev->irq = ETH0IRQ;
-	edev->irqlevel = LEVEL;
 	edev->ctlr = &ct;
-	edev->interrupt = ethirq;
 	edev->transmit = ethtx;
 	edev->attach = ethattach;
 	edev->promiscuous = ethprom;
@@ -423,6 +421,8 @@ etherpnp(Ether *edev)
 		edev->ctlr = nil;
 		return -1;
 	}
+
+	intrenable(edev->irq, ethirq, edev, LEVEL, edev->name);
 	return 0;
 }
 

@@ -11,7 +11,7 @@
 #include "io.h"
 
 #include "../port/netif.h"
-#include "etherif.h"
+#include "../port/etherif.h"
 #include "../port/flashif.h"
 
 #include "arm.h"
@@ -393,17 +393,6 @@ archconfinit(void)
 void
 archkwlink(void)
 {
-}
-
-int
-archether(unsigned ctlno, Ether *ether)
-{
-	if(ctlno >= 2)
-		return -1;
-	ether->type = "88e1116";
-	ether->port = ctlno;
-//	ether->mbps = 1000;
-	return 1;
 }
 
 /* LED/USB gpios */

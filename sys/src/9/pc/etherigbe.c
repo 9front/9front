@@ -24,8 +24,8 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
+#include "../port/etherif.h"
 
-#include "etherif.h"
 #include "ethermii.h"
 
 enum {
@@ -2020,7 +2020,6 @@ igbepnp(Ether* edev)
 	 */
 	edev->attach = igbeattach;
 	edev->transmit = igbetransmit;
-	edev->interrupt = igbeinterrupt;
 	edev->ifstat = igbeifstat;
 	edev->ctl = igbectl;
 
@@ -2028,6 +2027,8 @@ igbepnp(Ether* edev)
 	edev->promiscuous = igbepromiscuous;
 	edev->shutdown = igbeshutdown;
 	edev->multicast = igbemulticast;
+
+	intrenable(edev->irq, igbeinterrupt, edev, edev->tbdf, edev->name);
 
 	return 0;
 }

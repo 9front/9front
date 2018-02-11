@@ -29,8 +29,8 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
+#include "../port/etherif.h"
 
-#include "etherif.h"
 #include "ethermii.h"
 
 #define DEBUG
@@ -1137,14 +1137,15 @@ vgbepnp(Ether* edev)
 	memmove(edev->ea, ctlr->ea, Eaddrlen);
 	edev->attach = vgbeattach;
 	edev->transmit = vgbetransmit;
-	edev->interrupt = vgbeinterrupt;
 	edev->ifstat = vgbeifstat;
 //	edev->promiscuous = vgbepromiscuous;
 	edev->multicast = vgbemulticast;
 //	edev->shutdown = vgbeshutdown;
 	edev->ctl = vgbectl;
-
 	edev->arg = edev;
+
+	intrenable(edev->irq, vgbeinterrupt, edev, edev->tbdf, edev->name);
+
 	return 0;
 }
 

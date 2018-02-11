@@ -24,8 +24,7 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
-
-#include "etherif.h"
+#include "../port/etherif.h"
 
 #define DEBUG		0
 #define debug		if(DEBUG)print
@@ -1219,13 +1218,15 @@ reset(Ether* ether)
 	 */
 	ether->attach = attach;
 	ether->transmit = transmit;
-	ether->interrupt = interrupt;
 	ether->ifstat = ifstat;
 
 	ether->arg = ether;
 	ether->promiscuous = promiscuous;
 	ether->multicast = multicast;
 	ether->shutdown = shutdown;
+
+	intrenable(ether->irq, interrupt, ether, ether->tbdf, ether->name);
+
 	return 0;
 }
 

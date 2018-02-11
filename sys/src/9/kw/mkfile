@@ -124,7 +124,7 @@ arch.$O clock.$O fpiarm.$O main.$O mmu.$O screen.$O sdscsi.$O syscall.$O \
 	trap.$O: /$objtype/include/ureg.h
 
 archkw.$O devether.$O ether1116.$O ethermii.$O: \
-	etherif.h ethermii.h ../port/netif.h
+	ethermii.h ../port/etherif.h ../port/netif.h
 archkw.$O devflash.$O flashkw.$O: ../port/flashif.h
 fpi.$O fpiarm.$O fpimem.$O: fpi.h
 l.$O lexception.$O lproc.$O mmu.$O: arm.s arm.h mem.h

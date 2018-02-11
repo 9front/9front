@@ -7,9 +7,8 @@
 #include "ureg.h"
 #include "../port/error.h"
 #include "../port/netif.h"
-
-#include "etherif.h"
-#include "wifi.h"
+#include "../port/etherif.h"
+#include "../port/wifi.h"
 
 #include <libsec.h>
 

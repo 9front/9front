@@ -6,9 +6,8 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
-
-#include "etherif.h"
-#include "wifi.h"
+#include "../port/etherif.h"
+#include "../port/wifi.h"
 
 enum {
 	MaxQueue	= 24*1024,	/* total buffer is 2*MaxQueue: 48k at 22Mbit ≅ 20ms */
@@ -1846,7 +1845,6 @@ again:
 	edev->irq = ctlr->pdev->intl;
 	edev->tbdf = ctlr->pdev->tbdf;
 	edev->arg = edev;
-	edev->interrupt = wpiinterrupt;
 	edev->attach = wpiattach;
 	edev->ifstat = wpiifstat;
 	edev->ctl = wpictl;
@@ -1859,6 +1857,8 @@ again:
 		edev->ctlr = nil;
 		goto again;
 	}
+
+	intrenable(edev->irq, wpiinterrupt, edev, edev->tbdf, edev->name);
 
 	return 0;
 }

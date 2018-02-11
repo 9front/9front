@@ -12,8 +12,8 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
+#include "../port/etherif.h"
 
-#include "etherif.h"
 #include "ethermii.h"
 
 enum {					/* Registers */
@@ -1232,13 +1232,14 @@ dp83820pnp(Ether* edev)
 
 	edev->attach = dp83820attach;
 	edev->transmit = dp83820transmit;
-	edev->interrupt = dp83820interrupt;
 	edev->ifstat = dp83820ifstat;
 
 	edev->arg = edev;
 	edev->promiscuous = dp83820promiscuous;
 	edev->multicast = dp83820multicast;
 	edev->shutdown = dp83820shutdown;
+
+	intrenable(edev->irq, dp83820interrupt, edev, edev->tbdf, edev->name);
 
 	return 0;
 }

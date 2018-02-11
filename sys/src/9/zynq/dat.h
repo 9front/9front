@@ -161,10 +161,11 @@ struct Mach
 
 struct ISAConf
 {
-	int dummy;
-	char *type;
-	ulong port;
-	int irq;
+	char	*type;
+	ulong	port;
+	int	irq;
+	int	nopt;
+	char	*opt[1];
 };
 #define BUSUNKNOWN -1
 

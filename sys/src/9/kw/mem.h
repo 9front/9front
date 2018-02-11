@@ -5,9 +5,6 @@
 #define MiB		1048576u		/* Mebi 0x0000000000100000 */
 #define GiB		1073741824u		/* Gibi 000000000040000000 */
 
-#define HOWMANY(x, y)	(((x)+((y)-1))/(y))
-#define ROUNDUP(x, y)	(HOWMANY((x), (y))*(y))	/* ceiling */
-#define ROUNDDN(x, y)	(((x)/(y))*(y))		/* floor */
 #define MIN(a, b)	((a) < (b)? (a): (b))
 #define MAX(a, b)	((a) > (b)? (a): (b))
 
@@ -36,7 +33,7 @@
  */
 #define	BY2PG		(4*KiB)			/* bytes per page */
 #define	PGSHIFT		12			/* log(BY2PG) */
-#define	PGROUND(s)	ROUNDUP(s, BY2PG)
+#define	PGROUND(s)	ROUND(s, BY2PG)
 #define	ROUND(s, sz)	(((s)+(sz-1))&~(sz-1))
 
 #define	MAXMACH		1			/* max # cpus system can run */

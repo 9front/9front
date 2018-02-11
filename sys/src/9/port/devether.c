@@ -8,8 +8,9 @@
 #include "ureg.h"
 #include "../port/error.h"
 #include "../port/netif.h"
+#include "../port/etherif.h"
 
-#include "etherif.h"
+extern int eipfmt(Fmt*);
 
 static Ether *etherxx[MaxEther];
 
@@ -184,6 +185,7 @@ etheriq(Ether* ether, Block* bp, int fromwire)
 				else if(xbp = iallocb(len)){
 					memmove(xbp->wp, pkt, len);
 					xbp->wp += len;
+					xbp->flag = bp->flag;
 					if(qpass(f->in, xbp) < 0) {
 						// print("soverflow for f->in\n");
 						ether->soverflows++;
@@ -347,7 +349,6 @@ etherprobe(int cardno, int ctlrno)
 	int i, lg;
 	ulong mb, bsz;
 	Ether *ether;
-	char buf[128], name[32];
 
 	ether = malloc(sizeof(Ether));
 	if(ether == nil){
@@ -355,31 +356,44 @@ etherprobe(int cardno, int ctlrno)
 		return nil;
 	}
 	memset(ether, 0, sizeof(Ether));
+	ether->tbdf = BUSUNKNOWN;
+	ether->irq = -1;
 	ether->ctlrno = ctlrno;
 	ether->mbps = 10;
 	ether->minmtu = ETHERMINTU;
 	ether->maxmtu = ETHERMAXTU;
 
+	if(cardno < 0){
+		if(isaconfig("ether", ctlrno, ether) == 0){
+			free(ether);
+			return nil;
+		}
+		for(cardno = 0; cards[cardno].type; cardno++){
+			if(cistrcmp(cards[cardno].type, ether->type))
+				continue;
+			for(i = 0; i < ether->nopt; i++){
+				if(strncmp(ether->opt[i], "ea=", 3))
+					continue;
+				if(parseether(ether->ea, &ether->opt[i][3]))
+					memset(ether->ea, 0, Eaddrlen);
+			}
+			break;
+		}
+	}
+
 	if(cardno >= MaxEther || cards[cardno].type == nil){
 		free(ether);
 		return nil;
 	}
+	snprint(ether->name, sizeof(ether->name), "ether%d", ctlrno);
 	if(cards[cardno].reset(ether) < 0){
 		free(ether);
 		return nil;
 	}
 
-	snprint(name, sizeof(name), "ether%d", ctlrno);
-
-	intrenable(ether->irqlevel, ether->interrupt, ether);
-
-	i = sprint(buf, "#l%d: %s: %dMbps port 0x%luX irq %d",
-		ctlrno, cards[cardno].type, ether->mbps, ether->port, ether->irq);
-	i += sprint(buf+i, ": %2.2ux%2.2ux%2.2ux%2.2ux%2.2ux%2.2ux",
-		ether->ea[0], ether->ea[1], ether->ea[2],
-		ether->ea[3], ether->ea[4], ether->ea[5]);
-	sprint(buf+i, "\n");
-	print(buf);
+	print("#l%d: %s: %dMbps port 0x%luX irq %d ea %E\n",
+		ctlrno, cards[cardno].type,
+		ether->mbps, ether->port, ether->irq, ether->ea);
 
 	/* compute log10(ether->mbps) into lg */
 	for(lg = 0, mb = ether->mbps; mb >= 10; lg++)
@@ -393,13 +407,14 @@ etherprobe(int cardno, int ctlrno)
 	while (bsz > mainmem->maxsize / 8 && bsz > 128*1024)
 		bsz /= 2;
 
-	netifinit(ether, name, Ntypes, bsz);
+	netifinit(ether, ether->name, Ntypes, bsz);
 	if(ether->oq == nil) {
 		ether->oq = qopen(bsz, Qmsg, 0, 0);
 		ether->limit = bsz;
 	}
 	if(ether->oq == nil)
-		panic("etherreset %s: can't allocate output queue of %ld bytes", name, bsz);
+		panic("etherreset %s: can't allocate output queue of %ld bytes", ether->name, bsz);
+
 	ether->alen = Eaddrlen;
 	memmove(ether->addr, ether->ea, Eaddrlen);
 	memset(ether->bcast, 0xFF, Eaddrlen);
@@ -412,6 +427,17 @@ etherreset(void)
 {
 	Ether *ether;
 	int cardno, ctlrno;
+
+	fmtinstall('E', eipfmt);
+
+	for(ctlrno = 0; ctlrno < MaxEther; ctlrno++){
+		if((ether = etherprobe(-1, ctlrno)) == nil)
+			continue;
+		etherxx[ctlrno] = ether;
+	}
+
+	if(getconf("*noetherprobe"))
+		return;
 
 	cardno = ctlrno = 0;
 	while(cards[cardno].type != nil && ctlrno < MaxEther){
@@ -487,3 +513,141 @@ Dev etherdevtab = {
 	devremove,
 	etherwstat,
 };
+
+enum { PktHdr = 42 };
+typedef struct Netconsole Netconsole;
+struct Netconsole {
+	char buf[512];
+	int n;
+	Lock;
+	Ether *ether;
+};
+static Netconsole *netcons;
+
+extern ushort ipcsum(uchar *);
+
+void
+netconsputc(Uart *, int c)
+{
+	char *p;
+	u16int cs;
+
+	ilock(netcons);
+	netcons->buf[netcons->n++] = c;
+	if(c != '\n' && netcons->n < sizeof(netcons->buf)){
+		iunlock(netcons);
+		return;
+	}
+	p = netcons->buf;
+	p[16] = netcons->n - 14 >> 8;
+	p[17] = netcons->n - 14;
+	p[24] = 0;
+	p[25] = 0;
+	cs = ipcsum((uchar*) p + 14);
+	p[24] = cs >> 8;
+	p[25] = cs;
+	p[38] = netcons->n - 34 >> 8;
+	p[39] = netcons->n - 34;
+	memmove(p+Eaddrlen, netcons->ether->ea, Eaddrlen);
+	qiwrite(netcons->ether->oq, p, netcons->n);
+	netcons->n = PktHdr;
+	iunlock(netcons);
+	if(netcons->ether->transmit != nil)
+		netcons->ether->transmit(netcons->ether);
+}
+
+PhysUart netconsphys = {
+	.putc = netconsputc,
+};
+Uart netconsuart = { .phys = &netconsphys };
+
+void
+netconsole(void)
+{
+	char *p;
+	char *r;
+	int i;
+	int srcport, devno, dstport;
+	u8int srcip[4], dstip[4];
+	u64int dstmac;
+	Netconsole *nc;
+
+	if((p = getconf("console")) == nil || strncmp(p, "net ", 4) != 0)
+		return;
+	p += 4;
+	for(i = 0; i < 4; i++){
+		srcip[i] = strtol(p, &r, 0);
+		p = r + 1;
+		if(i == 3) break;
+		if(*r != '.') goto err;
+	}
+	if(*r == '!'){
+		srcport = strtol(p, &r, 0);
+		p = r + 1;
+	}else
+		srcport = 6665;
+	if(*r == '/'){
+		devno = strtol(p, &r, 0);
+		p = r + 1;
+	}else
+		devno = 0;
+	if(*r != ',') goto err;
+	for(i = 0; i < 4; i++){
+		dstip[i] = strtol(p, &r, 0);
+		p = r + 1;
+		if(i == 3) break;
+		if(*r != '.') goto err;
+	}
+	if(*r == '!'){
+		dstport = strtol(p, &r, 0);
+		p = r + 1;
+	}else
+		dstport = 6666;
+	if(*r == '/'){
+		dstmac = strtoull(p, &r, 16);
+		if(r - p != 12) goto err;
+	}else
+		dstmac = ((uvlong)-1) >> 16;
+	if(*r != 0) goto err;
+	
+	if(devno >= MaxEther || etherxx[devno] == nil){
+		print("netconsole: no device #l%d\n", devno);
+		return;
+	}
+	
+	nc = malloc(sizeof(Netconsole));
+	if(nc == nil){
+		print("netconsole: out of memory");
+		return;
+	}
+	memset(nc, 0, sizeof(Netconsole));
+	nc->ether = etherxx[devno];
+	
+	uchar header[PktHdr] = {
+		/* 0 */ dstmac >> 40, dstmac >> 32, dstmac >> 24, dstmac >> 16, dstmac >> 8, dstmac >> 0,
+		/* 6 */ 0, 0, 0, 0, 0, 0,
+		/* 12 */ 0x08, 0x00,
+		/* 14 */ 0x45, 0x00,
+		/* 16 */ 0x00, 0x00, /* total length */
+		/* 18 */ 0x00, 0x00, 0x00, 0x00,
+		/* 22 */ 64, /* ttl */
+		/* 23 */ 0x11, /* protocol */
+		/* 24 */ 0x00, 0x00, /* checksum */
+		/* 26 */ srcip[0], srcip[1], srcip[2], srcip[3],
+		/* 30 */ dstip[0], dstip[1], dstip[2], dstip[3],
+		/* 34 */ srcport >> 8, srcport, dstport >> 8, dstport,
+		/* 38 */ 0x00, 0x00, /* length */
+		/* 40 */ 0x00, 0x00 /* checksum */
+	};
+	
+	memmove(nc->buf, header, PktHdr);
+	nc->n = PktHdr;
+	
+	netcons = nc;
+	consuart = &netconsuart;
+	return;
+
+err:
+	print("netconsole: invalid string %#q\n", getconf("console"));
+	print("netconsole: usage: srcip[!srcport][/srcdev],dstip[!dstport][/dstmac]\n");
+}

@@ -10,8 +10,8 @@ dev
 	env
 	pipe
 	dup
-	ether netif
-	ip		arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium inferno
+	ether	netif
+	ip	arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium inferno
 	ssl
 	tls
 	cap

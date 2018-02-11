@@ -8,7 +8,7 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
-#include "etherif.h"
+#include "../port/etherif.h"
 
 #include "wavelan.h"
 

@@ -11,8 +11,7 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
-
-#include "etherif.h"
+#include "../port/etherif.h"
 
 enum {					/* registers */
 	Idr0		= 0x0000,	/* MAC address */
@@ -817,13 +816,14 @@ rtl8139pnp(Ether* edev)
 
 	edev->attach = rtl8139attach;
 	edev->transmit = rtl8139transmit;
-	edev->interrupt = rtl8139interrupt;
 	edev->ifstat = rtl8139ifstat;
 
 	edev->arg = edev;
 	edev->promiscuous = rtl8139promiscuous;
 	edev->multicast = rtl8139multicast;
 //	edev->shutdown = rtl8139shutdown;
+
+	intrenable(edev->irq, rtl8139interrupt, edev, edev->tbdf, edev->name);
 
 	/*
 	 * This should be much more dynamic but will do for now.

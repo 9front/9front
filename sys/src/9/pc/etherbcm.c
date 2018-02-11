@@ -15,8 +15,7 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
-
-#include "etherif.h"
+#include "../port/etherif.h"
 
 #define Rbsz		ROUNDUP(sizeof(Etherpkt)+4, 4)
 
@@ -873,7 +872,6 @@ again:
 	edev->port = ctlr->port;
 	edev->irq = ctlr->pdev->intl;
 	edev->tbdf = ctlr->pdev->tbdf;
-	edev->interrupt = bcminterrupt;
 	edev->transmit = bcmtransmit;
 	edev->multicast = bcmmulticast;
 	edev->promiscuous = bcmpromiscuous;
@@ -884,6 +882,9 @@ again:
 		edev->ctlr = nil;
 		goto again;
 	}
+
+	intrenable(edev->irq, bcminterrupt, edev, edev->tbdf, edev->name);
+
 	return 0;
 }
 

@@ -6,9 +6,9 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
-#include "msaturn.h"
+#include "../port/etherif.h"
 
-#include "etherif.h"
+#include "msaturn.h"
 
 enum{
 	Etcr = Saturn + 0x0c00,
@@ -209,7 +209,6 @@ reset(Ether* ether)
 
 	ether->ctlr = ctlr;
 	ether->transmit = transmit;
-	ether->interrupt = interrupt;
 	ether->irq = Vecether;
 	ether->arg = ether;
 	memmove(ether->ea, (ushort*)Emacaddr0, Eaddrlen);
@@ -218,6 +217,9 @@ reset(Ether* ether)
 	*eimr = Ei_rxdone|Ei_txretry|Ei_txdone;
 	
 	iprint("reset: ercr %.4uX\n", *ercr);
+
+	intrenable(ether->irq, interrupt, ether, ether->name);
+
 	return 0;
 }
 

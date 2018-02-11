@@ -16,8 +16,8 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
+#include "../port/etherif.h"
 
-#include "etherif.h"
 #include "ethermii.h"
 #include "../ip/ip.h"
 
@@ -143,6 +143,9 @@ struct Ctlr {
 
 	Mii	*mii;
 	int	port;
+
+	int	linkchg;		/* link status changed? */
+	uvlong	starttime;		/* last activity time */
 
 	/* stats */
 	ulong	intrs;
@@ -579,14 +582,16 @@ dump(uchar *bp, long max)
 static void
 etheractive(Ether *ether)
 {
-	ether->starttime = TK2MS(MACHP(0)->ticks)/1000;
+	Ctlr *ctlr = ether->ctlr;
+	ctlr->starttime = TK2MS(MACHP(0)->ticks)/1000;
 }
 
 static void
 ethercheck(Ether *ether)
 {
-	if (ether->starttime != 0 &&
-	    TK2MS(MACHP(0)->ticks)/1000 - ether->starttime > Etherstuck) {
+	Ctlr *ctlr = ether->ctlr;
+	if (ctlr->starttime != 0 &&
+	    TK2MS(MACHP(0)->ticks)/1000 - ctlr->starttime > Etherstuck) {
 		etheractive(ether);
 		if (ether->ctlrno == 0)	/* only complain about main ether */
 			iprint("#l%d: ethernet stuck\n", ether->ctlrno);
@@ -833,7 +838,7 @@ interrupt(Ureg*, void *arg)
 		 */
 		if(irqe & IEphystschg) {
 			ether->link = (reg->ps0 & PS0linkup) != 0;
-			ether->linkchg = 1;
+			ctlr->linkchg = 1;
 		}
 		if(irqe & IEtxerrq(Qno))
 			ether->oerrs++;
@@ -858,10 +863,10 @@ interrupt(Ureg*, void *arg)
 		irq  &= ~(Irxerr | Irxerrq(Qno));
 	}
 
-	if(ether->linkchg && (reg->ps1 & PS1an_done)) {
+	if(ctlr->linkchg && (reg->ps1 & PS1an_done)) {
 		handled++;
 		ether->link = (reg->ps0 & PS0linkup) != 0;
-		ether->linkchg = 0;
+		ctlr->linkchg = 0;
 	}
 	ctlr->newintrs++;
 
@@ -1652,7 +1657,6 @@ ifstat(Ether *ether, void *a, long n, ulong off)
 	p = seprint(p, e, "transmitted broadcast frames: %lud\n", ctlr->txbcastpkt);
 	p = seprint(p, e, "transmitted multicast frames: %lud\n", ctlr->txmcastpkt);
 	p = seprint(p, e, "transmit frames dropped by collision: %lud\n", ctlr->txcollpktdrop);
-	p = seprint(p, e, "misaligned buffers: %lud\n", ether->pktsmisaligned);
 
 	p = seprint(p, e, "bad mac control frames: %lud\n", ctlr->badmacctlpkts);
 	p = seprint(p, e, "transmitted flow control messages: %lud\n", ctlr->txflctl);
@@ -1689,7 +1693,7 @@ reset(Ether *ether)
 		ether->irq = IRQ0gbe1sum;
 		break;
 	default:
-		panic("ether1116: bad ether ctlr #%d", ether->ctlrno);
+		return -1;
 	}
 	ctlr->reg = (Gbereg*)soc.ether[ether->ctlrno];
 
@@ -1728,7 +1732,6 @@ iprint("ether1116: reset: zero ether->ea\n");
 
 	ether->attach = attach;
 	ether->transmit = transmit;
-	ether->interrupt = interrupt;
 	ether->ifstat = ifstat;
 	ether->shutdown = shutdown;
 	ether->ctl = ctl;
@@ -1736,6 +1739,9 @@ iprint("ether1116: reset: zero ether->ea\n");
 	ether->arg = ether;
 	ether->promiscuous = promiscuous;
 	ether->multicast = multicast;
+
+	intrenable(Irqlo, ether->irq, interrupt, ether, ether->name);
+
 	return 0;
 }
 

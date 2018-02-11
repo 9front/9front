@@ -17,8 +17,8 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
+#include "../port/etherif.h"
 
-#include "etherif.h"
 #include "ethermii.h"
 
 enum {
@@ -1032,13 +1032,14 @@ vt6102pnp(Ether* edev)
 	 */
 	edev->attach = vt6102attach;
 	edev->transmit = vt6102transmit;
-	edev->interrupt = vt6102interrupt;
 	edev->ifstat = vt6102ifstat;
 	edev->ctl = nil;
 
 	edev->arg = edev;
 	edev->promiscuous = vt6102promiscuous;
 	edev->multicast = vt6102multicast;
+
+	intrenable(edev->irq, vt6102interrupt, edev, edev->tbdf, edev->name);
 
 	return 0;
 }

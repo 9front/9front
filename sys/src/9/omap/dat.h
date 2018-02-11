@@ -240,6 +240,8 @@ struct ISAConf {
 	char	*opt[NISAOPT];
 };
 
+#define BUSUNKNOWN -1
+
 #define	MACHP(n)	(machaddr[n])
 
 /*

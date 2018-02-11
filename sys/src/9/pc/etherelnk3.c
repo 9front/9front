@@ -16,8 +16,7 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
-
-#include "etherif.h"
+#include "../port/etherif.h"
 
 #define XCVRDEBUG		if(0)print
 
@@ -2124,13 +2123,14 @@ etherelnk3reset(Ether* ether)
 	 */
 	ether->attach = attach;
 	ether->transmit = transmit;
-	ether->interrupt = interrupt;
 	ether->ifstat = ifstat;
 
 	ether->promiscuous = promiscuous;
 	ether->multicast = multicast;
 	ether->shutdown = shutdown;
 	ether->arg = ether;
+
+	intrenable(ether->irq, interrupt, ether, ether->tbdf, ether->name);
 
 	return 0;
 }

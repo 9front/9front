@@ -257,7 +257,7 @@ configdispc(void)
 			(sp->vsw-1);
 
 	dispc->pol_req = Ipc | Ihs | Ivs | Acb;
-	dispc->divisor = 1 << 16 | HOWMANY(432000, sp->pixelclock);
+	dispc->divisor = 1 << 16 | ((432000+sp->pixelclock-1)/sp->pixelclock);
 
 	dispc->lcdsize = (sp->ht - 1) << 16 | (sp->wid - 1);
 	coherence();

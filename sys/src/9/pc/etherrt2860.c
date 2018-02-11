@@ -14,9 +14,8 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
-
-#include "etherif.h"
-#include "wifi.h"
+#include "../port/etherif.h"
+#include "../port/wifi.h"
 
 /* for consistency */
 typedef signed char s8int;
@@ -3544,7 +3543,6 @@ again:
 	edev->irq = ctlr->pdev->intl;
 	edev->tbdf = ctlr->pdev->tbdf;
 	edev->arg = edev;
-	edev->interrupt = rt2860interrupt;
 	edev->attach = rt2860attach;
 	edev->ifstat = rt2860ifstat;
 	edev->ctl = rt2860ctl;
@@ -3556,6 +3554,9 @@ again:
 		edev->ctlr = nil;
 		goto again;
 	}
+
+	intrenable(edev->irq, rt2860interrupt, edev, edev->tbdf, edev->name);
+
 	return 0;
 }
 

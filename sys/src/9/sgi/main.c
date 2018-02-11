@@ -502,3 +502,9 @@ setupwatchpts(Proc *, Watchpt *, int n)
 	if(n > 0)
 		error("no watchpoints");
 }
+
+int
+isaconfig(char *, int, ISAConf*)
+{
+	return 0;
+}

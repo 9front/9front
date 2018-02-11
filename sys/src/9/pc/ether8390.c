@@ -10,8 +10,8 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
+#include "../port/etherif.h"
 
-#include "etherif.h"
 #include "ether8390.h"
 
 enum {					/* NIC core registers */
@@ -801,12 +801,13 @@ dp8390reset(Ether* ether)
 	 */
 	ether->attach = attach;
 	ether->transmit = transmit;
-	ether->interrupt = interrupt;
 	ether->ifstat = 0;
 
 	ether->promiscuous = promiscuous;
 	ether->multicast = multicast;
 	ether->arg = ether;
+
+	intrenable(ether->irq, interrupt, ether, ether->tbdf, ether->name);
 
 	return 0;
 }

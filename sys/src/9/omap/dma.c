@@ -235,7 +235,7 @@ dmastart(void *to, int tmode, void *from, int fmode, uint len, Rendez *rend,
 	*done = 0;
 	iunlock(&alloclck);
 
-	ruplen = ROUNDUP(len, sizeof(ulong));
+	ruplen = ROUND(len, sizeof(ulong));
 	assert(to != from);
 
 	cp = regs->chan + chan;

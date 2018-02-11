@@ -11,8 +11,8 @@
 #include "imm.h"
 #include "../port/error.h"
 #include "../port/netif.h"
+#include "../port/etherif.h"
 
-#include "etherif.h"
 #include "../ppc/ethermii.h"
 
 #define DBG 1
@@ -719,7 +719,6 @@ reset(Ether* ether)
 	ether->mbps = 100;	/* TO DO: could be 10mbps */
 	ether->attach = attach;
 	ether->transmit = transmit;
-	ether->interrupt = interrupt;
 	ether->ifstat = ifstat;
 
 	ether->arg = ether;
@@ -735,6 +734,8 @@ reset(Ether* ether)
 		print("no ether address");
 		return -1;
 	}
+
+	intrenable(ether->irq, interrupt, ether, ether->name);
 
 	return 0;
 }

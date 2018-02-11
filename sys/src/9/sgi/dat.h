@@ -13,6 +13,7 @@ typedef struct PMMU	PMMU;
 typedef struct Softtlb	Softtlb;
 typedef struct Ureg	Ureg;
 typedef struct Proc	Proc;
+typedef struct ISAConf	ISAConf;
 typedef uvlong		Tval;
 
 #define MAXSYSARG	5	/* for mount(fd, afd, mpt, flag, arg) */
@@ -69,6 +70,16 @@ struct Conf
 	int	monitor;
 	int	keyboard;
 };
+
+struct ISAConf
+{
+	char	*type;
+	ulong	port;
+	int	irq;
+	int	nopt;
+	char	*opt[1];
+};
+#define BUSUNKNOWN -1
 
 /*
  * floating point registers

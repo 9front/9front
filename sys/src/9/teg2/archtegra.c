@@ -12,7 +12,7 @@
 #include "arm.h"
 
 #include "../port/netif.h"
-#include "etherif.h"
+#include "../port/etherif.h"
 #include "../port/flashif.h"
 #include "../port/usb.h"
 #include "../port/portusbehci.h"

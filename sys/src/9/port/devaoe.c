@@ -12,7 +12,7 @@
 #include "ureg.h"
 #include "../port/error.h"
 #include "../port/netif.h"
-#include "etherif.h"
+#include "../port/etherif.h"
 #include "../ip/ip.h"
 #include "../port/aoe.h"
 #include <fis.h>

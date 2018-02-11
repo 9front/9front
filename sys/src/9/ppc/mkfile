@@ -52,7 +52,6 @@ OBJ=\
 HFILES=\
 	dat.h\
 	errstr.h\
-	etherif.h\
 	fns.h\
 	init.h\
 	io.h\
@@ -94,7 +93,7 @@ clock.$O devether.$O main.$O trap.$O:	/$objtype/include/ureg.h
 
 %.$O:	$HFILES
 
-$ETHER: 			etherif.h ../port/netif.h
+$ETHER: 			../port/etherif.h ../port/netif.h
 
 init.h:	../port/initcode.c init9.s
 	$CC ../port/initcode.c

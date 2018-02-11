@@ -11,8 +11,7 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
-
-#include "etherif.h"
+#include "../port/etherif.h"
 
 /*
  * note: the 82575, 82576 and 82580 are operated using registers aliased
@@ -2105,7 +2104,6 @@ pnp(Ether *edev, int type)
 	 */
 	edev->attach = i82563attach;
 //	edev->transmit = i82563transmit;
-	edev->interrupt = i82563interrupt;
 	edev->ifstat = i82563ifstat;
 	edev->ctl = i82563ctl;
 
@@ -2113,6 +2111,8 @@ pnp(Ether *edev, int type)
 	edev->promiscuous = i82563promiscuous;
 	edev->shutdown = i82563shutdown;
 	edev->multicast = i82563multicast;
+
+	intrenable(edev->irq, i82563interrupt, edev, edev->tbdf, edev->name);
 
 	return 0;
 }

@@ -22,6 +22,7 @@ ulong	getrandom(void);
 int	gettlbp(ulong, ulong*);
 ulong	gettlbvirt(int);
 int	hpc3irqlevel(int);
+int	isaconfig(char*, int, ISAConf*);
 void	icflush(void *, ulong);
 void	idlehands(void);
 void	introff(int);

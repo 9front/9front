@@ -11,8 +11,7 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
-
-#include "etherif.h"
+#include "../port/etherif.h"
 
 enum {						/* all windows */
 	CommandR		= 0x000E,

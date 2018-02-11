@@ -15,8 +15,8 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
+#include "../port/etherif.h"
 
-#include "etherif.h"
 #include "ethermii.h"
 
 typedef struct Ctlr Ctlr;
@@ -1655,7 +1655,6 @@ rtl8169pnp(Ether* edev)
 
 	edev->attach = rtl8169attach;
 	edev->transmit = rtl8169transmit;
-	edev->interrupt = rtl8169interrupt;
 	edev->ifstat = rtl8169ifstat;
 
 	edev->arg = edev;
@@ -1666,6 +1665,9 @@ rtl8169pnp(Ether* edev)
 	ilock(&ctlr->reglock);
 	rtl8169link(edev);
 	iunlock(&ctlr->reglock);
+
+	intrenable(edev->irq, rtl8169interrupt, edev, 0, edev->name);
+
 	return 0;
 }
 

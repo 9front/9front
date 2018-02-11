@@ -6,7 +6,7 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
-#include "etherif.h"
+#include "../port/etherif.h"
 
 /*
  * virtio ethernet driver
@@ -661,13 +661,14 @@ reset(Ether* edev)
 
 	edev->attach = attach;
 	edev->shutdown = shutdown;
-	edev->interrupt = interrupt;
 	edev->ifstat = ifstat;
 
 	if((ctlr->feat & (Fctrlvq|Fctrlrx)) == (Fctrlvq|Fctrlrx)){
 		edev->multicast = multicast;
 		edev->promiscuous = promiscuous;
 	}
+
+	intrenable(edev->irq, interrupt, edev, edev->tbdf, edev->name);
 
 	return 0;
 }

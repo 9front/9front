@@ -25,7 +25,8 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
-#include "etherif.h"
+#include "../port/etherif.h"
+
 #include "wavelan.h"
 
 enum
@@ -1234,7 +1235,6 @@ wavelanreset(Ether* ether, Ctlr *ctlr)
 	ether->mbps = 10;
 	ether->attach = w_attach;
 	ether->detach = w_detach;
-	ether->interrupt = w_interrupt;
 	ether->transmit = w_transmit;
 	ether->ifstat = w_ifstat;
 	ether->ctl = w_ctl;
@@ -1243,6 +1243,8 @@ wavelanreset(Ether* ether, Ctlr *ctlr)
 	ether->multicast = w_multicast;
 	ether->scanbs = w_scanbs;
 	ether->arg = ether;
+
+	intrenable(ether->irq, w_interrupt, ether, ether->tbdf, ether->name);
 
 	DEBUG("#l%d: irq %d port %lx type %s",
 		ether->ctlrno, ether->irq, ether->port,	ether->type);

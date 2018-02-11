@@ -5,7 +5,7 @@
 #include "fns.h"
 #include "io.h"
 #include "../port/netif.h"
-#include "etherif.h"
+#include "../port/etherif.h"
 
 typedef struct Hio Hio;
 typedef struct Desc Desc;
@@ -451,19 +451,21 @@ pnp(Ether *edev)
 	edev->ctlr = &ct;
 	edev->port = HPC3_ETHER;
 	edev->irq = IRQENET;
-	edev->irqlevel = hpc3irqlevel(edev->irq);
 	edev->ctlr = &ct;
 	edev->promiscuous = promiscuous;
 	edev->multicast = multicast;
-	edev->interrupt = interrupt;
 	edev->attach = attach;
 	edev->arg = edev;
 	edev->mbps = 10;
 	edev->link = 1;
+
 	if(init(edev) < 0){
 		edev->ctlr = nil;
 		return -1;
 	}
+
+	intrenable(hpc3irqlevel(edev->irq), interrupt, edev);
+
 	return 0;
 }
 

@@ -10,7 +10,7 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
-#include "etherif.h"
+#include "../port/etherif.h"
 
 #define LOG(a)
 
@@ -478,12 +478,14 @@ pnp(Ether* ether)
 	ether->transmit = etherxentransmit;
 	ether->irq = -1;
 	ether->tbdf = BUSUNKNOWN;
-	ether->interrupt = etherxenintr;
 	ether->ifstat = ifstat;
 	ether->ctl = etherxenctl;
 	ether->promiscuous = nil;
 	ether->multicast = etherxenmulticast;
 	ether->arg = ether;
+
+	intrenable(ether->irq, etherxenintr, ether, ether->tbdf, ether->name);
+
 	return 0;
 }
 

@@ -10,7 +10,7 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
-#include "etherif.h"
+#include "../port/etherif.h"
 
 /*
  * // comments note conflicts with 82563-style drivers,
@@ -953,11 +953,12 @@ pnp(Ether *e)
 	e->attach = attach;
 	e->ctl = ctl;
 	e->ifstat = ifstat;
-	e->interrupt = interrupt;
 	e->multicast = multicast;
 	e->promiscuous = promiscuous;
 	e->shutdown = shutdown;
 	e->transmit = transmit;
+
+	intrenable(e->irq, interrupt, e, e->tbdf, e->name);
 
 	return 0;
 }

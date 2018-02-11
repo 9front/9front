@@ -15,8 +15,8 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
+#include "../port/etherif.h"
 
-#include "etherif.h"
 #include "ethermii.h"
 
 enum {					/* registers */
@@ -1207,7 +1207,6 @@ rtl8169pnp(Ether* edev)
 
 	edev->attach = rtl8169attach;
 	edev->transmit = rtl8169transmit;
-	edev->interrupt = rtl8169interrupt;
 	edev->ifstat = rtl8169ifstat;
 
 	edev->arg = edev;
@@ -1215,6 +1214,8 @@ rtl8169pnp(Ether* edev)
 	edev->multicast = rtl8169multicast;
 
 	rtl8169link(edev);
+
+	intrenable(edev->irq, rtl8169interrupt, edev, edev->tbdf, edev->name);
 
 	return 0;
 }

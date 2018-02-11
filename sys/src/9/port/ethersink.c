@@ -10,7 +10,7 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
-#include "etherif.h"
+#include "../port/etherif.h"
 
 static long
 ctl(Ether *ether, void *buf, long n)
@@ -40,16 +40,11 @@ nop(Ether*)
 static int
 reset(Ether* ether)
 {
-	uchar ea[Eaddrlen];
-
 	if(ether->type==nil)
 		return -1;
-	memset(ea, 0, sizeof ea);
 	ether->mbps = 1000;
 	ether->attach = nop;
 	ether->transmit = nop;
-	ether->irq = -1;
-	ether->interrupt = nil;
 	ether->ifstat = nil;
 	ether->ctl = ctl;
 	ether->promiscuous = nil;

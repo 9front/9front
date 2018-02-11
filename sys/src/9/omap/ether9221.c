@@ -18,8 +18,7 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
-
-#include "etherif.h"
+#include "../port/etherif.h"
 
 /* currently using kprocs is a lot slower than not (87 s. to boot vs 60) */
 #undef USE_KPROCS
@@ -943,7 +942,6 @@ smcpnp(Ether* edev)
 	 */
 	edev->attach = smcattach;
 	edev->transmit = smctransmitcall;
-	edev->interrupt = smcinterrupt;
 	edev->ifstat = smcifstat;
 /*	edev->ctl = smcctl;			/* no ctl msgs supported */
 
@@ -951,6 +949,9 @@ smcpnp(Ether* edev)
 	edev->promiscuous = smcpromiscuous;
 	edev->multicast = smcmulticast;
 	edev->shutdown = smcshutdown;
+
+	intrenable(edev->irq, smcinterrupt, edev, 0, edev->name);
+
 	return 0;
 }
 

@@ -14,8 +14,7 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
-
-#include "../pc/etherif.h"
+#include "../port/etherif.h"
 
 #ifndef KiB
 #define KiB		1024u			/* Kibi 0x0000000000000400 */

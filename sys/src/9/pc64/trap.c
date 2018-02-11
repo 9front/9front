@@ -47,6 +47,15 @@ intrenable(int irq, void (*f)(Ureg*, void*), void* a, int tbdf, char *name)
 		irq = -1;
 	}
 
+
+	/*
+	 * IRQ2 doesn't really exist, it's used to gang the interrupt
+	 * controllers together. A device set to IRQ2 will appear on
+	 * the second interrupt controller as IRQ9.
+	 */
+	if(irq == 2)
+		irq = 9;
+
 	if((v = xalloc(sizeof(Vctl))) == nil)
 		panic("intrenable: out of memory");
 	v->isintr = 1;
@@ -83,6 +92,8 @@ intrdisable(int irq, void (*f)(Ureg *, void *), void *a, int tbdf, char *name)
 	Vctl **pv, *v;
 	int vno;
 
+	if(irq == 2)
+		irq = 9;
 	if(arch->intrvecno == nil || (tbdf != BUSUNKNOWN && (irq == 0xff || irq == 0))){
 		/*
 		 * on APIC machine, irq is pretty meaningless

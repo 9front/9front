@@ -10,7 +10,7 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
-#include "etherif.h"
+#include "../port/etherif.h"
 
 #define Pciwaddrh(x)	0
 #define Pciwaddrl(x)	PCIWADDR(x)
@@ -2247,11 +2247,12 @@ pnp(Ether *e)
 	e->attach = attach;
 	e->ctl = ctl;
 	e->ifstat = ifstat;
-	e->interrupt = interrupt;
 	e->multicast = multicast;
 	e->promiscuous = promiscuous;
 	e->shutdown = shutdown;
 	e->transmit = nil;
+
+	intrenable(e->irq, interrupt, e, e->tbdf, e->name);
 
 	return 0;
 }

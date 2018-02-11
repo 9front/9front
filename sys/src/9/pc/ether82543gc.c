@@ -18,8 +18,7 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
-
-#include "etherif.h"
+#include "../port/etherif.h"
 
 enum {
 	Ctrl		= 0x00000000,	/* Device Control */

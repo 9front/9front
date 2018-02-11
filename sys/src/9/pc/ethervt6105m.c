@@ -20,8 +20,8 @@
 #include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
+#include "../port/etherif.h"
 
-#include "etherif.h"
 #include "ethermii.h"
 
 enum {
@@ -1200,7 +1200,6 @@ vt6105Mpnp(Ether* edev)
 	 */
 	edev->attach = vt6105Mattach;
 	edev->transmit = vt6105Mtransmit;
-	edev->interrupt = vt6105Minterrupt;
 	edev->ifstat = vt6105Mifstat;
 	edev->ctl = nil;
 
@@ -1209,6 +1208,8 @@ vt6105Mpnp(Ether* edev)
 	edev->multicast = vt6105Mmulticast;
 
 	edev->maxmtu = ETHERMAXTU+Bslop;
+
+	intrenable(edev->irq, vt6105Minterrupt, edev, edev->tbdf, edev->name);
 
 	return 0;
 }

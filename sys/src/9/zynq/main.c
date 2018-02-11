@@ -306,7 +306,7 @@ getconf(char *n)
 int
 isaconfig(char *, int, ISAConf*)
 {
-	return 1;
+	return 0;
 }
 
 void
