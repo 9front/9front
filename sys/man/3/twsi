@@ -1,14 +1,14 @@
 .TH TWSI 3 
 .SH NAME
-twsi - two-wire serial interface (TWSI) and inter-integrated circuit (I⁲C) interface
+twsi - two-wire serial interface (TWSI) and inter-integrated circuit (I²C) interface
 .SH SYNOPSIS
-.B bind -a #⁲ /dev
+.B bind -a #² /dev
 .sp 0.3v
 .B /dev/twsi*
 .SH DESCRIPTION
 The
 .I twsi
-device serves a one-level directory containing one file per TWSI or I⁲C bus.
+device serves a one-level directory containing one file per TWSI or I²C bus.
 Bytes written are transmitted on the bus;
 bytes received from the bus are queued and delivered by reading.
 Seeking to a given offset before reading or writing causes the
@@ -19,7 +19,7 @@ or
 .IR write
 call.
 .SH FILES
-.B #⁲/twsi*
+.B #²/twsi*
 .SH SOURCE
 .B /sys/src/9/*/devtwsi.c
 .SH BUGS
