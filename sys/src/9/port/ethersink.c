@@ -33,22 +33,35 @@ ctl(Ether *ether, void *buf, long n)
 }
 
 static void
-nop(Ether*)
+attach(Ether *ether)
+{
+	/* silently discard output */
+	qnoblock(ether->oq, 1);
+	qsetlimit(ether->oq, 0);
+}
+
+static void
+multicast(void *, uchar*, int)
+{
+}
+
+static void
+promiscuous(void *, int)
 {
 }
 
 static int
 reset(Ether* ether)
 {
+	static uchar zeros[Eaddrlen];
+
 	if(ether->type==nil)
 		return -1;
 	ether->mbps = 1000;
-	ether->attach = nop;
-	ether->transmit = nop;
-	ether->ifstat = nil;
+	ether->attach = attach;
+	ether->multicast = multicast;
+	ether->promiscuous = promiscuous;
 	ether->ctl = ctl;
-	ether->promiscuous = nil;
-	ether->multicast = nil;
 	ether->arg = ether;
 	return 0;
 }

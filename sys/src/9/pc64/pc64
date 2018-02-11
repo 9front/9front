@@ -68,7 +68,7 @@ link
 #	ethervgbe	pci ethermii
 #	ethervt6102	pci ethermii
 #	ethervt6105m	pci ethermii
-#	ethersink
+	ethersink
 #	ethersmc	devi82365 cis
 	etheryuk	pci
 #	etherwavelan	wavelan devi82365 cis pci
