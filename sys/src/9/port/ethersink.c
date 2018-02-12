@@ -53,8 +53,6 @@ promiscuous(void *, int)
 static int
 reset(Ether* ether)
 {
-	static uchar zeros[Eaddrlen];
-
 	if(ether->type==nil)
 		return -1;
 	ether->mbps = 1000;
