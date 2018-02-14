@@ -85,6 +85,7 @@ char *nouid = "?uid?";
 
 char *nosuchfile = "file does not exist";
 char *keyspec = "";
+int docache = 0;
 
 void
 usage(void)
@@ -148,6 +149,9 @@ main(int argc, char *argv[])
 		break;
 	case 'q':
 		quiet = 1;
+		break;
+	case 'c':
+		docache = 1;
 		break;
 	} ARGEND
 	if(argc != 1)
@@ -582,6 +586,8 @@ rclunk(Fid *f)
 		f->node->opens--;
 	}
 	f->busy = 0;
+	if(!docache && ISCACHED(f->node))
+		uncache(f->node);
 	return 0;
 }
 

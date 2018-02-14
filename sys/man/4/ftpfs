@@ -4,7 +4,7 @@ ftpfs  \- file transfer protocol (FTP) file system
 .SH SYNOPSIS
 .B ftpfs
 [
-.B -/dqnt
+.B -/dqntc
 ]
 [
 .B -m
@@ -89,6 +89,10 @@ To avoid seeing startup messages from the server use option
 .BR -q .
 To see all messages from the server use option
 .BR -d .
+.PP
+By default ftpfs only caches while a file operation is in progress. The
+.BR -c
+flag enables caching, increasing performance but allowing outdated file and directory data to persist.
 .PP
 Some systems will hangup an ftp connection that has no activity
 for a given period.  The
@@ -183,13 +187,8 @@ only one directory, usually
 However, walking to any valid directory on that machine will succeed
 and cause that directory entry to appear under the mount point.
 .PP
-.I Ftpfs
-caches files and directories.  A directory will fall from the cache
-after 5 quiescent minutes or if the local user changes the
-directory by writing or removing a file.
-Otherwise, remote
-changes to the directory that occur after the directory has
-been cached might not be immediately visible.
+If caching is active, remote
+changes that have been cached will not be visible.
 Attempting to walk to
 .IB directory /.flush.ftpfs
 will flush
