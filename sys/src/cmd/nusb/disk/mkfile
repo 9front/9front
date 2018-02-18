@@ -6,9 +6,8 @@ OFILES=\
 	scsireq.$O\
 	scsierrs.$O\
 
-HFILES =\
+HFILES=../lib/usb.h\
 	scsireq.h\
-	../lib/usb.h\
 	ums.h\
 
 LIB=../lib/usb.a$O

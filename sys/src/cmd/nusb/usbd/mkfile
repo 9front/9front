@@ -5,7 +5,7 @@ OFILES=\
 	hub.$O\
 	hname.$O\
 
-HFILES=\
+HFILES=../lib/usb.h\
 	dat.h\
 	fns.h\
 

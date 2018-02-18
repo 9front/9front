@@ -4,7 +4,7 @@ BIN=/$objtype/bin/nusb
 LIB=../lib/usb.a$O
 
 TARG=ptp
-HFILES=
+HFILES=../lib/usb.h
 OFILES=ptp.$O
 
 </sys/src/cmd/mkone
