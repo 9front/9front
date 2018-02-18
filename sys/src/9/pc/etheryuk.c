@@ -1430,7 +1430,7 @@ rx(Ether *e, uint l, uint x, uint flag)
 	}else{
 		b->wp += l;
 		b->flag |= flag;
-		etheriq(e, b, 1);
+		etheriq(e, b);
 	}
 	unstarve(&c->rxmit);
 }

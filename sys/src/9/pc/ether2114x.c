@@ -477,7 +477,7 @@ interrupt(Ureg*, void* arg)
 				else if(bp = iallocb(Rbsz)){
 					len = ((des->status & Fl)>>16)-4;
 					des->bp->wp = des->bp->rp+len;
-					etheriq(ether, des->bp, 1);
+					etheriq(ether, des->bp);
 					des->bp = bp;
 					des->addr = PCIWADDR(bp->rp);
 				}

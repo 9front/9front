@@ -1062,7 +1062,7 @@ i82563rproc(void *arg)
 					bp->checksum = rd->checksum;
 					bp->flag |= Bpktck;
 				}
-				etheriq(edev, bp, 1);
+				etheriq(edev, bp);
 			} else
 				freeb(bp);
 			ctlr->rb[rdh] = nil;

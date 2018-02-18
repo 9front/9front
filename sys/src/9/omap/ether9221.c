@@ -642,7 +642,7 @@ smcreceive(Ether *edev)
 
 			/* and push the Block upstream */
 			if (ctlr->inited)
-				etheriq(edev, bp, 1);
+				etheriq(edev, bp);
 			else
 				freeb(bp);
 

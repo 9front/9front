@@ -113,7 +113,6 @@ char*	mtrr(uvlong, uvlong, char *);
 void	mtrrclock(void);
 int	mtrrprint(char *, long);
 void	mtrrsync(void);
-void	netconsole(void);
 uchar	nvramread(int);
 void	nvramwrite(int, uchar);
 void	outb(int, int);

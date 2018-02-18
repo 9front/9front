@@ -405,7 +405,7 @@ receive(Ether* ether)
 		bp->wp++;
 	}
 	  
-	etheriq(ether, bp, 1);
+	etheriq(ether, bp);
 	ether->inpackets++;
 	outs(port + MmuCmd, McRelease);
 }

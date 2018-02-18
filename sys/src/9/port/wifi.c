@@ -139,7 +139,7 @@ wifiiq(Wifi *wifi, Block *b)
 
 		dmatproxy(b, 0, wifi->ether->ea, &wifi->dmat);
 
-		etheriq(wifi->ether, b, 1);
+		etheriq(wifi->ether, b);
 		return;
 	}
 drop:

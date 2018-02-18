@@ -643,7 +643,7 @@ receive(Ether *ether)
 		 * in memory (mv-s104860-u0 §8.3.4.1)
 		 */
 		b->rp += 2;
-		etheriq(ether, b, 1);
+		etheriq(ether, b);
 		etheractive(ether);
 		if (i % (Nrx / 2) == 0) {
 			rxreplenish(ctlr);

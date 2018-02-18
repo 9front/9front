@@ -367,7 +367,7 @@ interrupt(Ureg*, void *arg)
 				dczap(b->rp, len);
 				if(nb = iallocb(Bufsize)){
 					b->wp += len;
-					etheriq(ether, b, 1);
+					etheriq(ether, b);
 					b = nb;
 					b->rp = (uchar*)(((ulong)b->rp + CACHELINESZ-1) & ~(CACHELINESZ-1));
 					b->wp = b->rp;

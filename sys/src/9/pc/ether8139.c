@@ -583,7 +583,7 @@ rtl8139receive(Ether* edev)
 				bp->wp += length;
 			}
 			bp->wp -= 4;
-			etheriq(edev, bp, 1);
+			etheriq(edev, bp);
 		}
 
 		capr = ROUNDUP(capr, 4);

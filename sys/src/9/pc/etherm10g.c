@@ -1087,7 +1087,7 @@ m10rx(void *v)
 		replenish(&c->bg);
 		sleep(&c->rxrendez, rxcansleep, c);
 		while(b = nextblock(c))
-			etheriq(e, b, 1);
+			etheriq(e, b);
 	}
 }
 

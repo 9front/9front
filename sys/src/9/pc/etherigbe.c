@@ -1142,7 +1142,7 @@ igberproc(void* arg)
 					bp->checksum = rd->checksum;
 					bp->flag |= Bpktck;
 				}
-				etheriq(edev, bp, 1);
+				etheriq(edev, bp);
 			}
 			else if(ctlr->rb[rdh] != nil){
 				freeb(ctlr->rb[rdh]);

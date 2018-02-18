@@ -3,6 +3,13 @@ enum {
 	Ntypes		= 8,
 };
 
+typedef struct Macent Macent;
+struct Macent
+{
+	uchar	ea[Eaddrlen];
+	ushort	port;
+};
+
 typedef struct Ether Ether;
 struct Ether {
 	ISAConf;			/* hardware info */
@@ -11,7 +18,6 @@ struct Ether {
 	int	ctlrno;
 	int	minmtu;
 	int 	maxmtu;
-	uchar	ea[Eaddrlen];
 
 	void	(*attach)(Ether*);	/* filled in by reset routine */
 	void	(*detach)(Ether*);
@@ -25,9 +31,12 @@ struct Ether {
 	Queue*	oq;
 
 	Netif;
+
+	uchar	ea[Eaddrlen];
+	Macent	mactab[127];		/* for bridge */
 };
 
-extern Block* etheriq(Ether*, Block*, int);
+extern void etheriq(Ether*, Block*);
 extern void addethercard(char*, int(*)(Ether*));
 extern ulong ethercrc(uchar*, int);
 extern int parseether(uchar*, char*);

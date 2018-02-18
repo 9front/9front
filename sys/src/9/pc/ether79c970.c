@@ -424,7 +424,7 @@ intrloop:
 				if(bb != nil){
 					len = (dre->md2 & 0x0FFF)-4;
 					bb->wp = bb->rp+len;
-					etheriq(ether, bb, 1);
+					etheriq(ether, bb);
 				}
 				dre->addr = PADDR(bp->rp);
 			}

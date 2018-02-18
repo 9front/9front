@@ -545,7 +545,7 @@ interrupt(Ureg*, void* arg)
 						freeb(des->bp);
 					}else{
 						des->bp->wp = des->bp->rp+len;
-						etheriq(ether, des->bp, 1);
+						etheriq(ether, des->bp);
 					}
 					des->bp = bp;
 					des->addr = PADDR(bp->rp);

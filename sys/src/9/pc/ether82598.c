@@ -584,7 +584,7 @@ loop1:
 		b->checksum = r->cksum;
 	}
 //	r->status = 0;
-	etheriq(e, b, 1);
+	etheriq(e, b);
 	c->rdfree--;
 	rdh = Next(rdh, m);
 	goto loop1;			/* UGH */

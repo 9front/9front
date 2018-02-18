@@ -865,7 +865,7 @@ vt6105Mreceive(Ether* edev)
 			}
 			len = ((ds->status & LengthMASK)>>LengthSHIFT)-4;
 			ds->bp->wp = ds->bp->rp+len;
-			etheriq(edev, ds->bp, 1);
+			etheriq(edev, ds->bp);
 			bp->rp = (uchar*)ROUNDUP((ulong)bp->rp, 4);
 			ds->addr = PCIWADDR(bp->rp);
 			ds->bp = bp;

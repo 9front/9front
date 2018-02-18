@@ -834,7 +834,7 @@ receive905(Ether* ether)
 		else if(bp = iallocb(sizeof(Etherpkt)+4)){
 			len = pd->control & rxBytes;
 			pd->bp->wp = pd->bp->rp+len;
-			etheriq(ether, pd->bp, 1);
+			etheriq(ether, pd->bp);
 			pd->bp = bp;
 			pd->addr = PADDR(bp->rp);
 			coherence();
@@ -944,7 +944,7 @@ receive(Ether* ether)
 		if(ctlr->busmaster == 1)
 			ctlr->rbp->wp = startdma(ether, PADDR(bp->rp));
 
-		etheriq(ether, ctlr->rbp, 1);
+		etheriq(ether, ctlr->rbp);
 		ctlr->rbp = bp;
 	}
 }

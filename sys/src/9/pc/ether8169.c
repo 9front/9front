@@ -970,7 +970,7 @@ rtl8169receive(Ether* edev)
 				bp->flag |= Bipck;
 				break;
 			}
-			etheriq(edev, bp, 1);
+			etheriq(edev, bp);
 		}else{
 			if(!(control & Res))
 				ctlr->frag++;

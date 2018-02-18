@@ -720,7 +720,7 @@ vt6102receive(Ether* edev)
 		else if(bp = iallocb(Rdbsz+3)){
 			len = ((ds->status & LengthMASK)>>LengthSHIFT)-4;
 			ds->bp->wp = ds->bp->rp+len;
-			etheriq(edev, ds->bp, 1);
+			etheriq(edev, ds->bp);
 			bp->rp = (uchar*)ROUNDUP((ulong)bp->rp, 4);
 			ds->addr = PCIWADDR(bp->rp);
 			ds->bp = bp;

@@ -851,7 +851,7 @@ gc82543recv(Ether* edev, int icr)
 			ctlr->rb[rdh] = nil;
 			bp->wp += rdesc->length;
 			bp->next = nil;
-			etheriq(edev, bp, 1);
+			etheriq(edev, bp);
 		}
 
 		if(ctlr->rb[rdh] != nil){

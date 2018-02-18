@@ -452,7 +452,7 @@ w_rxdone(Ether* ether)
 	}
 
 	ctlr->nrx++;
-	etheriq(ether,bp,1);
+	etheriq(ether, bp);
 	ctlr->signal = ((ctlr->signal*15)+((f.qinfo>>8) & 0xFF))/16;
 	ctlr->noise = ((ctlr->noise*15)+(f.qinfo & 0xFF))/16;
 	return;

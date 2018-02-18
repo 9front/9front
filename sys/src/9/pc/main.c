@@ -60,7 +60,6 @@ main(void)
 	}else
 		links();
 	chandevreset();
-	netconsole();
 	pageinit();
 	userinit();
 	schedinit();

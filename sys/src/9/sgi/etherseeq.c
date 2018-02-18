@@ -250,7 +250,7 @@ rxproc(void *arg)
 			b = allocb(n);
 			b->wp += n;
 			memmove(b->rp, p->base+2, n);
-			etheriq(edev, b, 1);
+			etheriq(edev, b);
 		}
 		p->addr = PADDR(p->base);
 		p->count = Ioc|Empty|Rbsize;

@@ -176,7 +176,7 @@ interrupt(Ureg*, void*arg)
 				memmove(b->wp, pkt, len+sizeof(ushort));
 				b->rp += sizeof(ushort);
 				b->wp = b->rp + len;
-				etheriq(ether, b, 1);
+				etheriq(ether, b);
 			}else
 				ether->soverflows++;
 			rx=*ersr&Ersr_rxfpmask;

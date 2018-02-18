@@ -248,7 +248,7 @@ vifrecvdone(Ether *ether, netif_rx_response_t *rr)
 	bp->list = 0;
 	if (rr->flags & NETRXF_data_validated)
 		bp->flag |= Btcpck|Budpck;
-	etheriq(ether, bp, 1);
+	etheriq(ether, bp);
 	return 0;
 }
 

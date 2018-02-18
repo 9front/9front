@@ -655,7 +655,7 @@ receive(Ether* ether)
 				bp = xbp;
 			}
 			if(pbp != nil)
-				etheriq(ether, pbp, 1);
+				etheriq(ether, pbp);
 		}
 		else{
 			rfd->count = 0;

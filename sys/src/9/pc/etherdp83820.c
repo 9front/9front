@@ -839,7 +839,7 @@ dp83820interrupt(Ureg*, void* arg)
 					bp = desc->bp;
 					desc->bp = nil;
 					bp->wp += cmdsts & SizeMASK;
-					etheriq(edev, bp, 1);
+					etheriq(edev, bp);
 				}
 				else if(0 && !(cmdsts & Ok)){
 					iprint("dp83820: rx %8.8uX:", cmdsts);

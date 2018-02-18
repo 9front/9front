@@ -11,6 +11,7 @@
 #include "../port/etherif.h"
 
 extern int eipfmt(Fmt*);
+extern ushort ipcsum(uchar *);
 
 static Ether *etherxx[MaxEther];
 
@@ -70,7 +71,12 @@ ethercreate(Chan*, char*, int, ulong)
 static void
 etherclose(Chan* chan)
 {
-	netifclose(etherxx[chan->dev], chan);
+	Ether *ether = etherxx[chan->dev];
+
+	if(NETTYPE(chan->qid.path) == Ndataqid && ether->f[NETID(chan->qid.path)]->bridge)
+		memset(ether->mactab, 0, sizeof(ether->mactab));
+
+	netifclose(ether, chan);
 }
 
 static long
@@ -109,152 +115,154 @@ etherwstat(Chan* chan, uchar* dp, int n)
 static void
 etherrtrace(Netfile* f, Etherpkt* pkt, int len)
 {
-	int i, n;
 	Block *bp;
 
 	if(qwindow(f->in) <= 0)
 		return;
-	if(len > 58)
-		n = 58;
-	else
-		n = len;
 	bp = iallocb(64);
 	if(bp == nil)
 		return;
-	memmove(bp->wp, pkt->d, n);
-	i = TK2MS(MACHP(0)->ticks);
-	bp->wp[58] = len>>8;
-	bp->wp[59] = len;
-	bp->wp[60] = i>>24;
-	bp->wp[61] = i>>16;
-	bp->wp[62] = i>>8;
-	bp->wp[63] = i;
+	memmove(bp->wp, pkt, len < 64 ? len : 64);
+	if(f->type != -2){
+		u32int ms = TK2MS(MACHP(0)->ticks);
+		bp->wp[58] = len>>8;
+		bp->wp[59] = len;
+		bp->wp[60] = ms>>24;
+		bp->wp[61] = ms>>16;
+		bp->wp[62] = ms>>8;
+		bp->wp[63] = ms;
+	}
 	bp->wp += 64;
 	qpass(f->in, bp);
 }
 
-Block*
-etheriq(Ether* ether, Block* bp, int fromwire)
+static Macent*
+macent(Ether *ether, uchar *ea)
 {
-	Etherpkt *pkt;
-	ushort type;
-	int len, multi, tome, fromme;
-	Netfile **ep, *f, **fp, *fx;
+	u32int h = (ea[0] | ea[1]<<8 | ea[2]<<16 | ea[3]<<24) ^ (ea[4] | ea[5]<<8);
+	return &ether->mactab[h % nelem(ether->mactab)];
+}
+
+/*
+ * Multiplex the packet to all the connections which want it.
+ * If the packet is not to be used subsequently (tome || from == nil),
+ * attempt to simply pass it into one of the connections, thereby
+ * saving a copy of the data (usual case hopefully).
+ */
+static Block*
+ethermux(Ether *ether, Block *bp, Netfile **from)
+{
 	Block *xbp;
+	Etherpkt *pkt;
+	Netfile *f, *x, **fp;
+	int len, multi, tome, port, type, dispose;
 
-	ether->inpackets++;
-
-	pkt = (Etherpkt*)bp->rp;
 	len = BLEN(bp);
-	type = (pkt->type[0]<<8)|pkt->type[1];
-	fx = 0;
-	ep = &ether->f[Ntypes];
-
-	multi = pkt->d[0] & 1;
-	/* check for valid multicast addresses */
-	if(multi && memcmp(pkt->d, ether->bcast, sizeof(pkt->d)) != 0 && ether->prom == 0){
-		if(!activemulti(ether, pkt->d, sizeof(pkt->d))){
-			if(fromwire){
-				freeb(bp);
-				bp = 0;
-			}
+	if(len < ETHERHDRSIZE)
+		goto Drop;
+	pkt = (Etherpkt*)bp->rp;
+	if(!(multi = pkt->d[0] & 1)){
+		tome = memcmp(pkt->d, ether->ea, Eaddrlen) == 0;
+		if(!tome && from != nil && ether->prom == 0)
 			return bp;
+	} else {
+		tome = 0;
+		if(from == nil && ether->prom == 0
+		&& memcmp(pkt->d, ether->bcast, Eaddrlen) != 0
+		&& !activemulti(ether, pkt->d, Eaddrlen))
+			goto Drop;
+	}
+
+	port = -1;
+	if(ether->prom){
+		if((from == nil || (*from)->bridge) && (pkt->s[0] & 1) == 0){
+			Macent *t = macent(ether, pkt->s);
+			t->port = from == nil ? 0 : 1+(from - ether->f);
+			memmove(t->ea, pkt->s, Eaddrlen);
+		}
+		if(!tome && !multi){
+			Macent *t = macent(ether, pkt->d);
+			if(memcmp(t->ea, pkt->d, Eaddrlen) == 0)
+				port = t->port;
 		}
 	}
 
-	/* is it for me? */
-	tome = memcmp(pkt->d, ether->ea, sizeof(pkt->d)) == 0;
-	fromme = memcmp(pkt->s, ether->ea, sizeof(pkt->s)) == 0;
+	x = nil;
+	type = (pkt->type[0]<<8)|pkt->type[1];
+	dispose = tome || from == nil || port > 0;
 
-	/*
-	 * Multiplex the packet to all the connections which want it.
-	 * If the packet is not to be used subsequently (fromwire != 0),
-	 * attempt to simply pass it into one of the connections, thereby
-	 * saving a copy of the data (usual case hopefully).
-	 */
-	for(fp = ether->f; fp < ep; fp++){
-		if(f = *fp)
-		if(f->type == type || f->type < 0)
-		if(tome || multi || f->prom){
-			/* Don't want to hear loopback or bridged packets */
-			if(f->bridge && (tome || !fromwire && !fromme))
+	for(fp = ether->f; fp < &ether->f[Ntypes]; fp++){
+		if((f = *fp) == nil)
+			continue;
+		if(f->type != type && f->type >= 0)
+			continue;
+		if(!tome && !multi && !f->prom)
+			continue;
+		if(f->bridge){
+			if(tome || fp == from)
 				continue;
-			if(!f->headersonly){
-				if(fromwire && fx == 0)
-					fx = f;
-				else if(xbp = iallocb(len)){
-					memmove(xbp->wp, pkt, len);
-					xbp->wp += len;
-					xbp->flag = bp->flag;
-					if(qpass(f->in, xbp) < 0) {
-						// print("soverflow for f->in\n");
-						ether->soverflows++;
-					}
-				}
-				else {
-					// print("soverflow iallocb\n");
-					ether->soverflows++;
-				}
-			}
-			else
-				etherrtrace(f, pkt, len);
+			if(port >= 0 && port != 1+(fp - ether->f))
+				continue;
 		}
-	}
-
-	if(fx){
-		if(qpass(fx->in, bp) < 0) {
-			// print("soverflow for fx->in\n");
+		if(f->headersonly || f->type == -2){
+			etherrtrace(f, pkt, len);
+			continue;
+		}
+		if(dispose && x == nil)
+			x = f;
+		else if((xbp = iallocb(len)) != nil){
+			memmove(xbp->wp, pkt, len);
+			xbp->wp += len;
+			xbp->flag = bp->flag;
+			if(qpass(f->in, xbp) < 0)
+				ether->soverflows++;
+		} else
 			ether->soverflows++;
-		}
-		return 0;
 	}
-	if(fromwire){
-		freeb(bp);
-		return 0;
+	if(x != nil){
+		if(qpass(x->in, bp) < 0)
+			ether->soverflows++;
+		return nil;
 	}
 
+	if(dispose){
+Drop:		freeb(bp);
+		return nil;
+	}
 	return bp;
 }
 
-static int
-etheroq(Ether* ether, Block* bp)
+void
+etheriq(Ether* ether, Block* bp)
 {
-	int len, loopback;
-	Etherpkt *pkt;
+	ether->inpackets++;
+	ethermux(ether, bp, nil);
+}
+
+static void
+etheroq(Ether* ether, Block* bp, Netfile **from)
+{
+	if((*from)->bridge == 0)
+		memmove(((Etherpkt*)bp->rp)->s, ether->ea, Eaddrlen);
+
+	bp = ethermux(ether, bp, from);
+	if(bp == nil)
+		return;
 
 	ether->outpackets++;
-
-	/*
-	 * Check if the packet has to be placed back onto the input queue,
-	 * i.e. if it's a loopback or broadcast packet or the interface is
-	 * in promiscuous mode.
-	 * If it's a loopback packet indicate to etheriq that the data isn't
-	 * needed and return, etheriq will pass-on or free the block.
-	 * To enable bridging to work, only packets that were originated
-	 * by this interface are fed back.
-	 */
-	pkt = (Etherpkt*)bp->rp;
-	len = BLEN(bp);
-	loopback = memcmp(pkt->d, ether->ea, sizeof(pkt->d)) == 0;
-	if(loopback || memcmp(pkt->d, ether->bcast, sizeof(pkt->d)) == 0 || ether->prom)
-		if(etheriq(ether, bp, loopback) == 0)
-			return len;
-
 	qbwrite(ether->oq, bp);
 	if(ether->transmit != nil)
 		ether->transmit(ether);
-	return len;
 }
 
 static long
 etherwrite(Chan* chan, void* buf, long n, vlong)
 {
-	Ether *ether;
+	Ether *ether = etherxx[chan->dev];
 	Block *bp;
 	int nn, onoff;
 	Cmdbuf *cb;
 
-	ether = etherxx[chan->dev];
 	if(NETTYPE(chan->qid.path) != Ndataqid) {
 		nn = netifwrite(ether, chan, buf, n);
 		if(nn >= 0)
@@ -287,21 +295,19 @@ etherwrite(Chan* chan, void* buf, long n, vlong)
 		nexterror();
 	}
 	memmove(bp->rp, buf, n);
-	if(!ether->f[NETID(chan->qid.path)]->bridge)
-		memmove(bp->rp+Eaddrlen, ether->ea, Eaddrlen);
 	poperror();
 	bp->wp += n;
 
-	return etheroq(ether, bp);
+	etheroq(ether, bp, &ether->f[NETID(chan->qid.path)]);
+	return n;
 }
 
 static long
 etherbwrite(Chan* chan, Block* bp, ulong)
 {
 	Ether *ether;
-	long n;
+	long n = BLEN(bp);
 
-	n = BLEN(bp);
 	if(NETTYPE(chan->qid.path) != Ndataqid){
 		if(waserror()) {
 			freeb(bp);
@@ -312,8 +318,8 @@ etherbwrite(Chan* chan, Block* bp, ulong)
 		freeb(bp);
 		return n;
 	}
-	ether = etherxx[chan->dev];
 
+	ether = etherxx[chan->dev];
 	if(n > ether->maxmtu){
 		freeb(bp);
 		error(Etoobig);
@@ -322,8 +328,8 @@ etherbwrite(Chan* chan, Block* bp, ulong)
 		freeb(bp);
 		error(Etoosmall);
 	}
-
-	return etheroq(ether, bp);
+	etheroq(ether, bp, &ether->f[NETID(chan->qid.path)]);
+	return n;
 }
 
 static struct {
@@ -422,6 +428,8 @@ etherprobe(int cardno, int ctlrno)
 	return ether;
 }
 
+static void netconsole(int);
+
 static void
 etherreset(void)
 {
@@ -436,22 +444,23 @@ etherreset(void)
 		etherxx[ctlrno] = ether;
 	}
 
-	if(getconf("*noetherprobe"))
-		return;
-
-	cardno = ctlrno = 0;
-	while(cards[cardno].type != nil && ctlrno < MaxEther){
-		if(etherxx[ctlrno] != nil){
+	if(getconf("*noetherprobe") == nil){
+		cardno = ctlrno = 0;
+		while(cards[cardno].type != nil && ctlrno < MaxEther){
+			if(etherxx[ctlrno] != nil){
+				ctlrno++;
+				continue;
+			}
+			if((ether = etherprobe(cardno, ctlrno)) == nil){
+				cardno++;
+				continue;
+			}
+			etherxx[ctlrno] = ether;
 			ctlrno++;
-			continue;
 		}
-		if((ether = etherprobe(cardno, ctlrno)) == nil){
-			cardno++;
-			continue;
-		}
-		etherxx[ctlrno] = ether;
-		ctlrno++;
 	}
+
+	netconsole(1);
 }
 
 static void
@@ -459,6 +468,8 @@ ethershutdown(void)
 {
 	Ether *ether;
 	int i;
+
+	netconsole(0);
 
 	for(i = 0; i < MaxEther; i++){
 		ether = etherxx[i];
@@ -524,9 +535,7 @@ struct Netconsole {
 };
 static Netconsole *netcons;
 
-extern ushort ipcsum(uchar *);
-
-void
+static void
 netconsputc(Uart *, int c)
 {
 	char *p;
@@ -556,13 +565,11 @@ netconsputc(Uart *, int c)
 		netcons->ether->transmit(netcons->ether);
 }
 
-PhysUart netconsphys = {
-	.putc = netconsputc,
-};
-Uart netconsuart = { .phys = &netconsphys };
+static PhysUart netconsphys = { .putc = netconsputc };
+static Uart netconsuart = { .phys = &netconsphys };
 
-void
-netconsole(void)
+static void
+netconsole(int on)
 {
 	char *p;
 	char *r;
@@ -572,8 +579,15 @@ netconsole(void)
 	u64int dstmac;
 	Netconsole *nc;
 
+	if(!on){
+		if(consuart == &netconsuart)
+			consuart = nil;
+		return;
+	}
+
 	if((p = getconf("console")) == nil || strncmp(p, "net ", 4) != 0)
 		return;
+
 	p += 4;
 	for(i = 0; i < 4; i++){
 		srcip[i] = strtol(p, &r, 0);

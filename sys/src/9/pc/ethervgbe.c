@@ -531,7 +531,7 @@ vgberxeof(Ether* edev)
 			/* plant new block, might fail if out of memory */
 			if(vgbenewrx(ctlr, i) == 0){
 				block->wp = block->rp + length;
-				etheriq(edev, block, 1);
+				etheriq(edev, block);
 				continue;
 			}
 		}

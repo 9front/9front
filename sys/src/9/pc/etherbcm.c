@@ -414,7 +414,7 @@ bcmreceive(Ether *edev)
 		if(pkt[3] & FrameError) {
 			freeb(bp); /* dump erroneous packets */ 
 		} else {
-			etheriq(edev, bp, 1);
+			etheriq(edev, bp);
 		}
 	}
 }

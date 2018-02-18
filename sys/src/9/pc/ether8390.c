@@ -439,7 +439,7 @@ receive(Ether* ether)
 			/*
 			 * Copy the packet to whoever wants it.
 			 */
-			etheriq(ether, bp, 1);
+			etheriq(ether, bp);
 		}
 
 		/*

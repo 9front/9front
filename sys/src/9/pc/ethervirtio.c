@@ -325,7 +325,7 @@ rxproc(void *v)
 			blocks[i] = nil;
 
 			b->wp = b->rp + u->len - VheaderSize;
-			etheriq(edev, b, 1);
+			etheriq(edev, b);
 			q->lastused++;
 		}
 	}

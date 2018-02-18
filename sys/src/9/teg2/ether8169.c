@@ -828,7 +828,7 @@ qpkt(Ether *edev, int rdh, ulong control)
 
 	allcache->invse(bp->rp, len);	/* clear any stale cached packet */
 	ckrderrs(ctlr, bp, control);
-	etheriq(edev, bp, 1);
+	etheriq(edev, bp);
 
 	if(Debug > 1)
 		iprint("R%d ", len);

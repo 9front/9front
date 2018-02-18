@@ -235,7 +235,7 @@ ethrx(Ether *edev)
 		bp->wp = bp->rp + (r[1] & 0x1fff);
 		invaldse(bp->rp, bp->wp);
 		inval2pa(PADDR(bp->rp), PADDR(bp->wp));
-		etheriq(edev, bp, 1);
+		etheriq(edev, bp);
 		c->rxconsi = (c->rxconsi + 1) & (RXRING - 1);
 		replenish(c);
 	}

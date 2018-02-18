@@ -626,7 +626,7 @@ ga620receive(Ether* edev)
 		if(!(rbd->flags & Ferror) && len != 0){
 			bp = rbd->opaque;
 			bp->wp = bp->rp+len;
-			etheriq(edev, bp, 1);
+			etheriq(edev, bp);
 		}
 		else
 			freeb(rbd->opaque);
