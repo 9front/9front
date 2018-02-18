@@ -228,10 +228,10 @@ smscreceive(Dev *ep)
 			break;
 		if((hd & Rxerror) == 0){
 			if(n == BLEN(b)){
-				etheriq(b, 1);
+				etheriq(b);
 				return 0;
 			}
-			etheriq(copyblock(b, n), 1);
+			etheriq(copyblock(b, n));
 		}
 		b->rp += (n + 3) & ~3;
 	}
@@ -284,7 +284,7 @@ smscinit(Dev *d)
 	if(!doreset(d, Hwcfg, Lrst) || !doreset(d, Pmctrl, Phyrst))
 		return -1;
 	if(!setmac)
-		if(eepromr(d, MACoffset, macaddr, 6) < 0)
+		if(eepromr(d, MACoffset, macaddr, Eaddrlen) < 0)
 			return -1;
 	wr(d, Addrl, GET4(macaddr));
 	wr(d, Addrh, GET2(macaddr+4));

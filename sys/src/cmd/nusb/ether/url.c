@@ -282,7 +282,7 @@ urlreceive(Dev *ep)
 	if((hd & Vpm) == 0)
 		freeb(b);
 	else
-		etheriq(b, 1);
+		etheriq(b);
 	return 0;
 }
 

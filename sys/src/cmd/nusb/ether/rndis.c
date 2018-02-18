@@ -75,13 +75,13 @@ rndisreceive(Dev *ep)
 		else{
 			doff = GET4(b->rp+8);
 			dlen = GET4(b->rp+12);
-			if((len = GET4(b->rp+4)) != n || 8+doff+dlen > len || dlen < Ehdrsz)
+			if((len = GET4(b->rp+4)) != n || 8+doff+dlen > len || dlen < ETHERHDRSIZE)
 				werrstr("bad packet: doff %d, dlen %d, len %d", doff, dlen, len);
 			else{
 				b->rp += 8 + doff;
 				b->wp = b->rp + dlen;
 
-				etheriq(b, 1);
+				etheriq(b);
 				return 0;
 			}
 		}
@@ -150,10 +150,10 @@ rndisinit(Dev *d)
 		else {
 			sz = GET4(res+16);
 			off = GET4(res+20);
-			if(8+off+sz > r || sz != 6)
+			if(8+off+sz > r || sz != Eaddrlen)
 				werrstr("invalid mac: off %d, sz %d, len %d", off, sz, r);
 			else{
-				memcpy(macaddr, res+8+off, 6);
+				memcpy(macaddr, res+8+off, Eaddrlen);
 				/* set the filter */
 				if(rndisout(d, 0, mfilter, sizeof(mfilter)) < 0)
 					werrstr("send filter: %r");

@@ -186,7 +186,7 @@ auereceive(Dev *ep)
 		return 0;
 	}
 	b->wp = b->rp + n;
-	etheriq(b, 1);
+	etheriq(b);
 	return 0;
 }
 

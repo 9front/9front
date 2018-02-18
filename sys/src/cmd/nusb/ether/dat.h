@@ -1,8 +1,6 @@
 typedef struct Block Block;
 struct Block
 {
-	Ref;
-
 	Block	*next;
 
 	uchar	*rp;
@@ -15,20 +13,29 @@ struct Block
 #define BLEN(s)	((s)->wp - (s)->rp)
 
 Block*	allocb(int size);
-void	freeb(Block*);
 Block*	copyblock(Block*, int);
-
-typedef struct Ehdr Ehdr;
-struct Ehdr
-{
-	uchar	d[6];
-	uchar	s[6];
-	uchar	type[2];
-};
+#define	freeb(b) free(b)
 
 enum {
-	Ehdrsz	= 6+6+2,
-	Maxpkt	= 2000,
+	Eaddrlen=	6,
+	ETHERHDRSIZE=	14,		/* size of an ethernet header */
+	Maxpkt=		2000,
+};
+
+typedef struct Macent Macent;
+struct Macent
+{
+	uchar	ea[Eaddrlen];
+	ushort	port;
+};
+
+typedef struct Etherpkt Etherpkt;
+struct Etherpkt
+{
+	uchar	d[Eaddrlen];
+	uchar	s[Eaddrlen];
+	uchar	type[2];
+	uchar	data[1500];
 };
 
 enum
@@ -41,14 +48,16 @@ enum
 int debug;
 int setmac;
 
-/* to be filled in by *init() */
-uchar macaddr[6];
-
 int nprom;
 int nmulti;
-uchar multiaddr[32][6];
+uchar multiaddr[32][Eaddrlen];
 
-void	etheriq(Block*, int wire);
+/* to be filled in by *init() */
+uchar macaddr[Eaddrlen];
+
+Macent mactab[127];
+
+void	etheriq(Block*);
 
 int	(*epreceive)(Dev*);
 void	(*eptransmit)(Dev*, Block*);

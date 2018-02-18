@@ -227,10 +227,10 @@ asixreceive(Dev *ep)
 		if((n != hd) || (n > BLEN(b)))
 			break;
 		if(n == BLEN(b)){
-			etheriq(b, 1);
+			etheriq(b);
 			return 0;
 		}
-		etheriq(copyblock(b, n), 1);
+		etheriq(copyblock(b, n));
 		b->rp += n;
 	}
 	freeb(b);
@@ -309,7 +309,7 @@ a88178init(Dev *d)
 	asixset(d, Creset, Rippd|Rprl);
 	sleep(150);
 	asixset(d, Cwrxctl, 0);
-	if(asixget(d, Crmac, macaddr, 6) < 0)
+	if(asixget(d, Crmac, macaddr, Eaddrlen) < 0)
 		return -1;
 	asixphy = getphy(d);
 	if(ee17 < 0 || (ee17 & 0x7) == 0){
@@ -364,7 +364,7 @@ a88772init(Dev *d)
 	getrxctl(d);
 	if(asixset(d, Cwrxctl, 0) < 0)
 		return -1;
-	if(asixget(d, Crmac, macaddr, 6) < 0)
+	if(asixget(d, Crmac, macaddr, Eaddrlen) < 0)
 		return -1;
 	if(asixset(d, Creset, Rprl) < 0)
 		return -1;

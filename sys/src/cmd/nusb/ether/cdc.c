@@ -23,7 +23,7 @@ cdcreceive(Dev *ep)
 		return -1;
 	}
 	b->wp += n;
-	etheriq(b, 1);
+	etheriq(b);
 	return 0;
 }
 

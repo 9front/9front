@@ -68,6 +68,7 @@ struct Conn
 	int		type;
 	int		prom;
 	int		bridge;
+	int		headersonly;
 
 	Dq		*dq;
 };
@@ -77,6 +78,8 @@ struct Stats
 	int		in;
 	int		out;
 };
+
+uchar bcast[Eaddrlen] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
 Stats stats;
 Conn conn[32];
@@ -268,6 +271,9 @@ readconndata(Req *r)
 }
 
 static void
+etheroq(Block*, Conn*);
+
+static void
 writeconndata(Req *r)
 {
 	void *p;
@@ -292,31 +298,12 @@ writeconndata(Req *r)
 
 	/* copy in the ethernet packet */
 	memmove(b->wp, p, r->ifcall.count);
-
-	/* fill source mac address if not bridged */
-	if(!conn[NUM(r->fid->qid.path)].bridge)
-		memmove(b->wp+6, macaddr, 6);
-
 	b->wp += r->ifcall.count;
 
-	etheriq(b, 0);
+	etheroq(b, &conn[NUM(r->fid->qid.path)]);
 
 	r->ofcall.count = r->ifcall.count;
 	respond(r, nil);
-}
-
-static char*
-mac2str(uchar *m)
-{
-	int i;
-	char *t = "0123456789abcdef";
-	static char buf[13];
-	buf[13] = 0;
-	for(i=0; i<6; i++){
-		buf[i*2] = t[m[i]>>4];
-		buf[i*2+1] = t[m[i]&0xF];
-	}
-	return buf;
 }
 
 static void
@@ -384,6 +371,17 @@ fsread(Req *r)
 	}
 }
 
+static int
+activemulti(uchar *ea)
+{
+	int i;
+
+	for(i=0; i<nmulti; i++)
+		if(memcmp(ea, multiaddr[i], Eaddrlen) == 0)
+			return i;
+	return -1;
+}
+
 static void
 fswrite(Req *r)
 {
@@ -399,6 +397,8 @@ fswrite(Req *r)
 		p = (char*)r->ifcall.data;
 		if(n >= 6 && memcmp(p, "bridge", 6)==0){
 			conn[NUM(path)].bridge = 1;
+		} else if(n >= 11 && memcmp(p, "headersonly", 11)==0){
+			conn[NUM(path)].headersonly = 1;
 		} else if(n >= 11 && memcmp(p, "promiscuous", 11)==0){
 			if(conn[NUM(path)].prom == 0){
 				conn[NUM(path)].prom = 1;
@@ -406,25 +406,23 @@ fswrite(Req *r)
 					(*eppromiscuous)(epctl, 1);
 			}
 		} else if(n >= 9+12 && (memcmp(p, "addmulti ", 9)==0 || memcmp(p, "remmulti ", 9)==0)){
-			uchar ea[6];
+			uchar ea[Eaddrlen];
 			int i;
 
 			if(parseether(ea, p+9) < 0){
 				respond(r, "bad ether address");
 				return;
 			}
-			for(i=0; i<nmulti; i++)
-				if(memcmp(ea, multiaddr[i], 6) == 0)
-					break;
-			if(i < nmulti){
+			i = activemulti(ea);
+			if(i >= 0){
 				if(*p == 'r'){
-					memmove(multiaddr[i], multiaddr[--nmulti], 6);
+					memmove(multiaddr[i], multiaddr[--nmulti], Eaddrlen);
 					if(epmulticast != nil)
 						(*epmulticast)(epctl, ea, 0);
 				}
 			} else if(nmulti < nelem(multiaddr)){
 				if(*p == 'a'){
-					memmove(multiaddr[nmulti++], ea, 6);
+					memmove(multiaddr[nmulti++], ea, Eaddrlen);
 					if(epmulticast != nil)
 						(*epmulticast)(epctl, ea, 1);
 				}
@@ -508,6 +506,7 @@ fsopen(Req *r)
 			c->type = 0;
 			c->prom = 0;
 			c->bridge = 0;
+			c->headersonly = 0;
 		}
 		if(d != nil){
 			d->next = c->dq;
@@ -580,6 +579,8 @@ fsdestroyfid(Fid *fid)
 					(*eppromiscuous)(epctl, 0);
 			}
 		}
+		if(TYPE(fid->qid.path) == Qdata && c->bridge)
+			memset(mactab, 0, sizeof(mactab));
 		c->used--;
 		qunlock(c);
 	}
@@ -684,68 +685,156 @@ inote(void *, char *msg)
 	return 0;
 }
 
-void
-etheriq(Block *b, int wire)
+static void
+cpass(Conn *c, Block *bp)
 {
-	int i, t, tome, fromme, multi;
-	Block *q;
-	Conn *c;
 	Dq *d;
-	Ehdr *h;
 
-	if(BLEN(b) < Ehdrsz){
-		freeb(b);
-		return;
-	}
+	qlock(c);
+	for(d = c->dq; d != nil; d = d->next){
+		qlock(d);
+		if(d->size < 100000){
+			Block *q;
 
-	h = (Ehdr*)b->rp;
-	t = (h->type[0]<<8)|h->type[1];
-
-	multi = h->d[0]&1;
-	tome = memcmp(h->d, macaddr, sizeof(macaddr)) == 0;
-	fromme = memcmp(h->s, macaddr, sizeof(macaddr)) == 0;
-
-	for(i=0; i<nconn; i++){
-		c = &conn[i];
-		qlock(c);
-		if(!c->used)
-			goto next;
-		if(c->bridge && (tome || !wire && !fromme))
-			goto next;
-		if(c->type > 0 && c->type != t)
-			goto next;
-		if(!c->prom && !multi && !tome)
-			goto next;
-		for(d=c->dq; d; d=d->next){
-			if(d->size > 100000)
-				continue;
-			if(c->type == -2) {
-				q = copyblock(b, 64);
-			} else if(wire && b->ref == 1) {
-				incref(b);
-				q = b;
-			} else {
-				q = copyblock(b, BLEN(b));
-			}
-			qlock(d);
+			if(d->next == nil) {
+				q = bp;
+				bp = nil;
+			} else
+				q = copyblock(bp, BLEN(bp));
 			q->next = nil;
 			*d->qt = q;
 			d->qt = &q->next;
 			d->size += BLEN(q);
 			matchrq(d);
-			qunlock(d);
 		}
-next:
-		qunlock(c);
+		qunlock(d);
 	}
-	if(wire) {
-		freeb(b);
-		stats.in++;
+	qunlock(c);
+
+	if(bp != nil)
+		freeb(bp);
+}
+
+static void
+etherrtrace(Conn *c, Etherpkt *pkt, int len)
+{
+	Block *bp;
+
+	bp = allocb(64);
+	memmove(bp->wp, pkt, len < 64 ? len : 64);
+	if(c->type != -2){
+		u32int ms = nsec()/1000000LL;
+		bp->wp[58] = len>>8;
+		bp->wp[59] = len;
+		bp->wp[60] = ms>>24;
+		bp->wp[61] = ms>>16;
+		bp->wp[62] = ms>>8;
+		bp->wp[63] = ms;
+	}
+	bp->wp += 64;
+	cpass(c, bp);
+}
+
+static Macent*
+macent(uchar *ea)
+{
+	u32int h = (ea[0] | ea[1]<<8 | ea[2]<<16 | ea[3]<<24) ^ (ea[4] | ea[5]<<8);
+	return &mactab[h % nelem(mactab)];
+}
+
+static Block*
+ethermux(Block *bp, Conn *from)
+{
+	Etherpkt *pkt;
+	Conn *c, *x;
+	int len, multi, tome, port, type, dispose;
+
+	len = BLEN(bp);
+	if(len < ETHERHDRSIZE)
+		goto Drop;
+	pkt = (Etherpkt*)bp->rp;
+	if(!(multi = pkt->d[0] & 1)){
+		tome = memcmp(pkt->d, macaddr, Eaddrlen) == 0;
+		if(!tome && from != nil && nprom == 0)
+			return bp;
 	} else {
-		/* transmit frees buffer */
-		(*eptransmit)(epout, b);
-		stats.out++;
+		tome = 0;
+		if(from == nil && nprom == 0
+		&& memcmp(pkt->d, bcast, Eaddrlen) != 0
+		&& activemulti(pkt->d) < 0)
+			goto Drop;
 	}
+
+	port = -1;
+	if(nprom){
+		if((from == nil || from->bridge) && (pkt->s[0] & 1) == 0){
+			Macent *t = macent(pkt->s);
+			t->port = from == nil ? 0 : 1+(from - conn);
+			memmove(t->ea, pkt->s, Eaddrlen);
+		}
+		if(!tome && !multi){
+			Macent *t = macent(pkt->d);
+			if(memcmp(t->ea, pkt->d, Eaddrlen) == 0)
+				port = t->port;
+		}
+	}
+
+	x = nil;
+	type = (pkt->type[0]<<8)|pkt->type[1];
+	dispose = tome || from == nil || port > 0;
+
+	for(c = conn; c < &conn[nconn]; c++){
+		if(!c->used)
+			continue;
+		if(c->type != type && c->type >= 0)
+			continue;
+		if(!tome && !multi && !c->prom)
+			continue;
+		if(c->bridge){
+			if(tome || c == from)
+				continue;
+			if(port >= 0 && port != 1+(c - conn))
+				continue;
+		}
+		if(c->headersonly || c->type == -2){
+			etherrtrace(c, pkt, len);
+			continue;
+		}
+		if(dispose && x == nil)
+			x = c;
+		else
+			cpass(c, copyblock(bp, len));
+	}
+	if(x != nil){
+		cpass(x, bp);
+		return nil;
+	}
+
+	if(dispose){
+Drop:		freeb(bp);
+		return nil;
+	}
+	return bp;
+}
+
+void
+etheriq(Block *bp)
+{
+	stats.in++;
+	ethermux(bp, nil);
+}
+
+static void
+etheroq(Block *bp, Conn *from)
+{
+	if(!from->bridge)
+		memmove(((Etherpkt*)bp->rp)->s, macaddr, Eaddrlen);
+	bp = ethermux(bp, from);
+	if(bp == nil)
+		return;
+	stats.out++;
+	/* transmit frees buffer */
+	(*eptransmit)(epout, bp);
 }
 
 static void
@@ -776,7 +865,7 @@ usbreadproc(void *)
 
 Srv fs = 
 {
-.attach=		fsattach,
+.attach=	fsattach,
 .destroyfid=	fsdestroyfid,
 .walk1=		fswalk1,
 .open=		fsopen,
@@ -900,15 +989,7 @@ allocb(int size)
 	b->rp = b->base;
 	b->wp = b->base;
 	b->next = nil;
-	b->ref = 1;
 	return b;
-}
-
-void
-freeb(Block *b)
-{
-	if(decref(b) == 0)
-		free(b);
 }
 
 Block*
