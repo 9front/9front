@@ -1,0 +1,63 @@
+.TH MINES 1
+.SH NAME
+mines \- minesweeper
+.SH SYNOPSIS
+.B games/mines
+[
+.B -aeqg
+]
+.SH DESCRIPTION
+.I Mines
+is an implementation of the game Minesweeper.
+The game is played on a rectangular grid.
+A certain number of mines is hidden beneath some of the tiles.
+Left clicking on a tile uncovers it.
+If a mine is revealed, the player loses.
+Otherwise, a number is shown that indicates the number of mines in the 8 adjacent tiles.
+The player wins once they have uncovered all tiles free from mines.
+.PP
+Right clicking marks a square, cycling through the flag marker indicating a mine and the query marker with no specific meaning (provided solely for the player's convenience).
+Middle clicking will uncover all adjacent squares, if it is safe to do so (assuming the flag markers are set correctly).
+.PP
+The number at the top left indicates the number of mines remaining that are not marked by flags.
+The number in the top right indicates the number of seconds elapsed.
+The smiley face can be clicked to restart the game.
+.PP
+The 
+.B n
+key restarts the game.
+The
+.BR b ,
+.B a
+and
+.B e
+keys restart the game and set the difficulty to beginner, advanced and expert, respectively.
+The
+.B q
+and
+.B DEL
+keys quit the game.
+.PP
+There are a number of options:
+.TP
+.B -a
+Start at advanced difficulty.
+.TP
+.B -e
+Start at expert difficulty.
+.TP
+.B -q
+Disable the query marker.
+.TP
+.B -g
+It's a secret to everybody.
+.SH SOURCE
+.B /sys/src/games/mines
+.SH HISTORY
+.I Mines
+was written in 2001 by Antonin Vecera for Plan 9 Third Edition.
+It was added to 9front in May 2011.
+.SH LICENSE
+.I Mines
+is licensed under the GNU General Public License, Version 2, reproduced in the file
+.BR /lib/legal/gpl .

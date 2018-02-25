@@ -398,6 +398,14 @@ void main(int argc, char **argv) {
 	} ARGEND
 
 	if(argc > 0) Usage();
+	
+	{
+		Tm *tm;
+		
+		tm = localtime(time(0));
+		if(tm->mon == 3 && tm->mday == 1)
+			UseGhost = !UseGhost;
+	}
 
 	if(initdraw(nil, nil, "mines") < 0) {
 		fprint(2, "%s: can't open display: %r\n", argv0);

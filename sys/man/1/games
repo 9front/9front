@@ -1,6 +1,6 @@
 .TH GAMES 1
 .SH NAME
-4s, 5s, blabs, catclock, doom, festoon, geigerstats, glendy, juggle, life, mandel, mahjongg, memo, midi, mines, mole, packet, sokoban, sudoku \- time wasters
+4s, 5s, blabs, catclock, doom, festoon, geigerstats, glendy, juggle, life, mandel, mahjongg, memo, midi, mole, packet, sokoban, sudoku \- time wasters
 .SH SYNOPSIS
 .B games/4s
 .br
@@ -107,8 +107,6 @@
 ] [
 .I midifile
 ]
-.br
-.B games/mines
 .br
 .B games/mole
 .br
