@@ -4,9 +4,10 @@ TARG=mines
 
 OFILES=\
 	mines.$O \
+	ghost.$O \
 	gfx.$O \
 
-HFILES=dat.h
+HFILES=dat.h fns.h
 
 BIN=/$objtype/bin/games
 

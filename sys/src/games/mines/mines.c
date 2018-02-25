@@ -3,10 +3,16 @@
 #include <draw.h>
 #include <event.h>
 #include "dat.h"
+#include "fns.h"
 
-int MaxX, MaxY, Mines, Level, UnknownCell, Playing, MinesRemain, Time, Status, UseQuery = TRUE, UseColor = TRUE;
+struct {
+	int MaxX, MaxY, Mines;
+} Settings[] = { {8, 8, 10}, {16, 16, 40}, {30, 16, 99}, {0, 0, 0} };
+
+int MaxX, MaxY, Mines, Level, UnknownCell, Playing, MinesRemain, Time, Status, UseQuery = TRUE, UseGhost = FALSE, UseColor = TRUE;
 
 Point Origin;
+Mouse LastMouse;
 
 Image *RGB000000, *RGB0000FF, *RGB007F00, *RGB7F7F7F, *RGBBFBFBF, *RGBFF0000, *RGBFFFF00, *RGBFFFFFF, *ImageButton[5], *ImageSign, *ImageDigit[10], *ImageCell[16];
 
@@ -374,13 +380,19 @@ void RightClick(Point Cell) {
 
 void Usage(void) {
 
-	fprint(2, "Usage: %s\n", argv0);
+	fprint(2, "Usage: %s [-aeq]\n", argv0);
 	exits("usage");
 }
 
 void main(int argc, char **argv) {
 
+	Level = Beginner;
+
 	ARGBEGIN {
+	case 'a': Level = Advanced; break;
+	case 'e': Level = Expert; break;
+	case 'q': UseQuery = FALSE; break;
+	case 'g': UseGhost = TRUE; break;
 	default:
 		Usage();
 	} ARGEND
@@ -499,7 +511,7 @@ void main(int argc, char **argv) {
 
 	srand(time(0)); /* initialize generator of random numbers */
 
-	NewMineField(Beginner);
+	NewMineField(Level);
 
 	eresized(0);
 
@@ -507,22 +519,40 @@ void main(int argc, char **argv) {
 
 	{
 		int PushButton = FALSE, Button = FALSE, CurrentButton, ChargedButton = FALSE, MiddleButton = FALSE, LastButton = 0;
+		int Counter = 0;
 		ulong Key, Etimer;
+		uvlong LastAction;
 		Event Event;
 		Point CurrentCell, Cell = Pt(-1, -1);
 
-		Etimer = etimer(0, 1000);
+		Etimer = etimer(0, UseGhost ? 10 : 1000);
+		LastAction = nsec();
 
 		for(;;) {
 			Key = event(&Event);
 
 			if(Key == Etimer) {
-
-				if(Playing && Time < INT_MAX)
-					DisplayCounter(Origin.x -34 + MaxX * 16, ++Time);
+			
+				if(nsec() - LastAction > 5000000000ULL && LastMouse.buttons == 0)
+					GhostMode();
+			
+				if(++Counter == (UseGhost ? 100 : 1)){
+				
+					Counter = 0;
+					
+					if(Playing && Time < INT_MAX)
+						DisplayCounter(Origin.x -34 + MaxX * 16, ++Time);
+				
+				}
 			}
 
 			if(Key == Emouse) {
+			
+				if(!eqpt(LastMouse.xy, Event.mouse.xy) || LastMouse.buttons != Event.mouse.buttons){
+					LastAction = nsec();
+					GhostReset();
+				}
+				LastMouse = Event.mouse;
 
 				/* mouse over button? */
 				CurrentButton = FALSE;
@@ -626,6 +656,9 @@ void main(int argc, char **argv) {
 			}
 
 			if(Key == Ekeyboard) {
+			
+				LastAction = nsec();
+				GhostReset();
 
 				switch(Event.kbdc) {
 					case 'n':

@@ -46,13 +46,11 @@ struct {
 	int Mine, Picture, Neighbours;
 } FieldCell;
 
-struct {
-	int MaxX, MaxY, Mines;
-} Settings[] = { {8, 8, 10}, {16, 16, 40}, {30, 16, 99}, {0, 0, 0} };
 
-extern int MaxX, MaxY, Mines, Level, UnknownCell, Playing, MinesRemain, Time, Status, UseQuery, UseColor;
+extern int MaxX, MaxY, Mines, Level, UnknownCell, Playing, MinesRemain, Time, Status, UseQuery, UseGhost, UseColor;
 extern Point Origin;
 extern FieldCell **MineField;
+extern Mouse LastMouse;
 
 extern uchar SrcDigit0[];
 extern uchar SrcDigit1[];
