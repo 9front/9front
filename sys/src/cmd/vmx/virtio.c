@@ -4,6 +4,9 @@
 #include "dat.h"
 #include "fns.h"
 
+#include <ip.h>		/* parseether() */
+#include <libsec.h>	/* genrandom() */
+
 typedef struct VIODev VIODev;
 typedef struct VIOQueue VIOQueue;
 typedef struct VIOBuf VIOBuf;
@@ -633,10 +636,11 @@ mkvionet(char *net)
 {
 	int fd, cfd;
 	VIODev *d;
-	int i;
+	char *ea;
 	int flags;
 	enum { VNETFILE = 1 };
 
+	ea = nil;
 	flags = 0;
 	for(;;){
 		if(strncmp(net, "hdr!", 4) == 0){
@@ -645,6 +649,12 @@ mkvionet(char *net)
 		}else if(strncmp(net, "file!", 5) == 0){
 			net += 5;
 			flags |= VNETFILE;
+		}else if(strncmp(net, "ea:", 3) == 0){
+			net = strchr(ea = net+3, '!');
+			if(net++ == nil){
+				werrstr("missing: !");
+				return -1;
+			}
 		}else
 			break;
 	}
@@ -665,9 +675,10 @@ mkvionet(char *net)
 	mkvioqueue(d, 1024, viowakeup);
 	mkvioqueue(d, 1024, viowakeup);
 	mkvioqueue(d, 32, vionetcmd);
-	for(i = 0; i < 6; i++)
-		d->net.mac[i] = rand();
-	d->net.mac[0] = d->net.mac[0] & ~1 | 2;
+	if(ea == nil || parseether(d->net.mac, ea)){
+		genrandom(d->net.mac, 6);
+		d->net.mac[0] = d->net.mac[0] & ~1 | 2;
+	}
 	d->net.flags = flags;
 	d->devfeat = 1<<5|1<<16|1<<17|1<<18|1<<20;
 	d->io = vionetio;

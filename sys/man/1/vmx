@@ -100,6 +100,8 @@ Alternatively, a dial string such as \fLudp!\fIhost\fL!\fIport\fR can be used.
 It can also be prefixed by \fLfile!\fR to interpret the argument as a file instead and it can be prefixed by \fLhdr!\fR to enable headers matching the binary
 .IR snoopy (8)
 format.
+The MAC address can be specified with the \fLea:\fInnnnnnnnnnnn\fL!\fR prefix,
+otherwise a random address is used.
 .PP
 A
 .B -d

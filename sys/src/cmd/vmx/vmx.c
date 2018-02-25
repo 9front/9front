@@ -87,7 +87,6 @@ vmxsetup(void)
 	rc = read(ctlfd, name, sizeof(name) - 1);
 	if(rc < 0) sysfatal("read: %r");
 	name[rc] = 0;
-	srand(atoi(name));
 	if(segname == nil){
 		segname = smprint("vm.%s", name);
 		segrclose = ORCLOSE;
