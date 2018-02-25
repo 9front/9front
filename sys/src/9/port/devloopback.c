@@ -127,7 +127,7 @@ loopbackattach(char *spec)
 	if(dev >= Nloopbacks)
 		error(Enodev);
 
-	c = devattach('X', spec);
+	c = devattach(loopbackdevtab.dc, spec);
 	if(waserror()){
 		chanfree(c);
 		nexterror();
@@ -715,7 +715,7 @@ gtime(uchar *p)
 }
 
 Dev loopbackdevtab = {
-	'X',
+	L'λ',
 	"loopback",
 
 	devreset,

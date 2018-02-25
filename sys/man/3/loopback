@@ -3,7 +3,7 @@
 loopback \- network link simulation
 .SH SYNOPSIS
 .nf
-.B bind -a #X /net
+.B bind -a #λ /net
 
 .BI /net/loopback n /[0-1]
 .BI /net/loopback n /[0-1]/data
