@@ -20,7 +20,6 @@ struct Ether {
 	int 	maxmtu;
 
 	void	(*attach)(Ether*);	/* filled in by reset routine */
-	void	(*detach)(Ether*);
 	void	(*transmit)(Ether*);
 	long	(*ifstat)(Ether*, void*, long, ulong);
 	long 	(*ctl)(Ether*, void*, long); /* custom ctl messages */

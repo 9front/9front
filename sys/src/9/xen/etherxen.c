@@ -474,7 +474,6 @@ pnp(Ether* ether)
 	memmove(ether->ea, ea, sizeof ether->ea);
 	ether->mbps = 100;	// XXX what speed?
 	ether->attach = etherxenattach;
-	ether->detach = nil;
 	ether->transmit = etherxentransmit;
 	ether->irq = -1;
 	ether->tbdf = BUSUNKNOWN;

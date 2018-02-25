@@ -80,7 +80,7 @@ netifgen(Chan *c, char*, Dirtab *vp, int, int i, Dir *dp)
 			break;
 		case 1:
 			q.path = Naddrqid;
-			devdir(c, q, "addr", 0, eve, 0666, dp);
+			devdir(c, q, "addr", 0, eve, 0444, dp);
 			break;
 		case 2:
 			q.path = Nstatqid;

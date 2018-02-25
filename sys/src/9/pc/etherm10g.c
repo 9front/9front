@@ -1614,7 +1614,6 @@ m10gpnp(Ether *e)
 	memmove(e->ea, c->ra, Eaddrlen);
 
 	e->attach = m10gattach;
-	e->detach = m10gshutdown;
 	e->transmit = m10gtransmit;
 	e->interrupt = m10ginterrupt;
 	e->ifstat = m10gifstat;

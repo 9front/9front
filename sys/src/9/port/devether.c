@@ -14,23 +14,35 @@ extern int eipfmt(Fmt*);
 extern ushort ipcsum(uchar *);
 
 static Ether *etherxx[MaxEther];
+static Ether *etherprobe(int cardno, int ctlrno, char *conf);
 
 Chan*
 etherattach(char* spec)
 {
 	ulong ctlrno;
-	char *p;
+	char *conf;
 	Chan *chan;
 
 	ctlrno = 0;
-	if(spec && *spec){
-		ctlrno = strtoul(spec, &p, 0);
-		if((ctlrno == 0 && p == spec) || *p || (ctlrno >= MaxEther))
-			error(Ebadarg);
+	if(*spec){
+		ctlrno = strtoul(spec, &conf, 0);
+		if(ctlrno >= MaxEther)
+			error(Enodev);
+		if(conf == spec)
+			error(Ebadspec);
+		if(*conf){
+			if(*conf != ':')
+				error(Ebadspec);
+			*conf++ = 0;
+			if(!iseve())
+				error(Enoattach);
+			if(etherxx[ctlrno] != nil)
+				error(Einuse);
+			etherxx[ctlrno] = etherprobe(-1, ctlrno, conf);
+		}
 	}
-	if(etherxx[ctlrno] == 0)
+	if(etherxx[ctlrno] == nil)
 		error(Enodev);
-
 	chan = devattach('l', spec);
 	if(waserror()){
 		chanfree(chan);
@@ -350,7 +362,7 @@ addethercard(char* t, int (*r)(Ether*))
 }
 
 static Ether*
-etherprobe(int cardno, int ctlrno)
+etherprobe(int cardno, int ctlrno, char *conf)
 {
 	int i, lg;
 	ulong mb, bsz;
@@ -370,36 +382,41 @@ etherprobe(int cardno, int ctlrno)
 	ether->maxmtu = ETHERMAXTU;
 
 	if(cardno < 0){
-		if(isaconfig("ether", ctlrno, ether) == 0){
-			free(ether);
-			return nil;
-		}
-		for(cardno = 0; cards[cardno].type; cardno++){
-			if(cistrcmp(cards[cardno].type, ether->type))
-				continue;
-			for(i = 0; i < ether->nopt; i++){
-				if(strncmp(ether->opt[i], "ea=", 3))
-					continue;
+		if(conf != nil){
+			kstrdup(&ether->type, conf);
+			ether->nopt = tokenize(ether->type, ether->opt, nelem(ether->opt));
+			if(ether->nopt < 1)
+				goto Nope;
+			memmove(&ether->opt[0], &ether->opt[1], --ether->nopt*sizeof(ether->opt[0]));
+		} else if(isaconfig("ether", ctlrno, ether) == 0)
+			goto Nope;
+
+		for(cardno = 0; cards[cardno].type != nil; cardno++)
+			if(cistrcmp(cards[cardno].type, ether->type) == 0)
+				break;
+		if(cards[cardno].type == nil)
+			goto Nope;
+
+		for(i = 0; i < ether->nopt; i++){
+			if(strncmp(ether->opt[i], "ea=", 3) == 0){
 				if(parseether(ether->ea, &ether->opt[i][3]))
 					memset(ether->ea, 0, Eaddrlen);
 			}
-			break;
 		}
 	}
-
-	if(cardno >= MaxEther || cards[cardno].type == nil){
-		free(ether);
-		return nil;
-	}
+	if(cardno >= MaxEther || cards[cardno].type == nil)
+		goto Nope;
 	snprint(ether->name, sizeof(ether->name), "ether%d", ctlrno);
 	if(cards[cardno].reset(ether) < 0){
+Nope:
+		if(conf != nil) free(ether->type);	/* see kstrdup() above */
 		free(ether);
 		return nil;
 	}
+	ether->type = cards[cardno].type;
 
 	print("#l%d: %s: %dMbps port 0x%luX irq %d ea %E\n",
-		ctlrno, cards[cardno].type,
-		ether->mbps, ether->port, ether->irq, ether->ea);
+		ctlrno, ether->type, ether->mbps, ether->port, ether->irq, ether->ea);
 
 	/* compute log10(ether->mbps) into lg */
 	for(lg = 0, mb = ether->mbps; mb >= 10; lg++)
@@ -439,7 +456,7 @@ etherreset(void)
 	fmtinstall('E', eipfmt);
 
 	for(ctlrno = 0; ctlrno < MaxEther; ctlrno++){
-		if((ether = etherprobe(-1, ctlrno)) == nil)
+		if((ether = etherprobe(-1, ctlrno, nil)) == nil)
 			continue;
 		etherxx[ctlrno] = ether;
 	}
@@ -451,7 +468,7 @@ etherreset(void)
 				ctlrno++;
 				continue;
 			}
-			if((ether = etherprobe(cardno, ctlrno)) == nil){
+			if((ether = etherprobe(cardno, ctlrno, nil)) == nil){
 				cardno++;
 				continue;
 			}

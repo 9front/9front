@@ -159,13 +159,14 @@ struct Mach
 	int	stack[1];
 };
 
+#define NISAOPT		8
 struct ISAConf
 {
 	char	*type;
 	ulong	port;
 	int	irq;
 	int	nopt;
-	char	*opt[1];
+	char	*opt[NISAOPT];
 };
 #define BUSUNKNOWN -1
 

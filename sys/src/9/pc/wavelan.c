@@ -1234,7 +1234,6 @@ wavelanreset(Ether* ether, Ctlr *ctlr)
 	ether->ctlr = ctlr;
 	ether->mbps = 10;
 	ether->attach = w_attach;
-	ether->detach = w_detach;
 	ether->transmit = w_transmit;
 	ether->ifstat = w_ifstat;
 	ether->ctl = w_ctl;
