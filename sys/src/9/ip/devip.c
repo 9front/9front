@@ -256,32 +256,6 @@ ipreset(void)
 	fmtinstall('M', eipfmt);
 }
 
-static Fs*
-ipgetfs(int dev)
-{
-	extern void (*ipprotoinit[])(Fs*);
-	Fs *f;
-	int i;
-
-	if(dev >= Nfs)
-		return nil;
-
-	qlock(&fslock);
-	if(ipfs[dev] == nil){
-		f = smalloc(sizeof(Fs));
-		ip_init(f);
-		arpinit(f);
-		netloginit(f);
-		for(i = 0; ipprotoinit[i]; i++)
-			ipprotoinit[i](f);
-		f->dev = dev;
-		ipfs[dev] = f;
-	}
-	qunlock(&fslock);
-
-	return ipfs[dev];
-}
-
 IPaux*
 newipaux(char *owner, char *tag)
 {
@@ -303,14 +277,30 @@ newipaux(char *owner, char *tag)
 static Chan*
 ipattach(char* spec)
 {
+	ulong dev;
 	Chan *c;
-	int dev;
 
-	dev = atoi(spec);
+	dev = strtoul(spec, nil, 0);
 	if(dev >= Nfs)
-		error("bad specification");
+		error(Ebadspec);
 
-	ipgetfs(dev);
+	qlock(&fslock);
+	if(ipfs[dev] == nil){
+		extern void (*ipprotoinit[])(Fs*);
+		Fs *f;
+		int i;
+
+		f = smalloc(sizeof(Fs));
+		ip_init(f);
+		arpinit(f);
+		netloginit(f);
+		for(i = 0; ipprotoinit[i]; i++)
+			ipprotoinit[i](f);
+		f->dev = dev;
+		ipfs[dev] = f;
+	}
+	qunlock(&fslock);
+
 	c = devattach('I', spec);
 	mkqid(&c->qid, QID(0, 0, Qtopdir), 0, QTDIR);
 	c->dev = dev;
