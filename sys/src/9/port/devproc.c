@@ -661,19 +661,19 @@ readns1(Chan *c, Proc *p, char *buf, int nbuf)
 
 	if(bestmid == ~0) {
 		c->nrock = bestmid;
-		i = snprint(buf, nbuf, "cd %s\n", p->dot->path->s);
+		i = snprint(buf, nbuf, "cd %q\n", p->dot->path->s);
 	} else {
 		c->nrock = bestmid+1;
 
 		int2flag(cm->mflag, flag);
 		if(strcmp(cm->to->path->s, "#M") == 0){
 			srv = srvname(cm->to->mchan);
-			i = snprint(buf, nbuf, "mount %s %s %s %s\n", flag,
-				srv==nil? cm->to->mchan->path->s : srv,
-				mh->from->path->s, cm->spec? cm->spec : "");
+			i = snprint(buf, nbuf, (cm->spec && *cm->spec)?
+				"mount %s %q %q %q\n": "mount %s %q %q\n", flag,
+				srv? srv: cm->to->mchan->path->s, mh->from->path->s, cm->spec);
 			free(srv);
 		}else{
-			i = snprint(buf, nbuf, "bind %s %s %s\n", flag,
+			i = snprint(buf, nbuf, "bind %s %q %q\n", flag,
 				cm->to->path->s, mh->from->path->s);
 		}
 	}

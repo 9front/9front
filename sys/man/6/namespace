@@ -13,8 +13,7 @@ subroutines
 which is typically called by
 .IR init (8).
 Each line specifies one name space operation.
-Spaces and tabs separate arguments to operations;
-no quotes or escapes are recognized.
+Spaces and tabs separate arguments to operations.
 Blank lines and lines with
 .B #
 as the first non-space character are ignored.

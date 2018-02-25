@@ -90,7 +90,7 @@ main(int argc, char **argv)
 		switch(n){
 		case 2:
 			if(strcmp(av[0], "cd") == 0){
-				Bprint(&stdout, "%s %s\n", av[0], av[1]);
+				Bprint(&stdout, "%s %s\n", av[0], quote(av[1]));
 				continue;
 			}
 			/* fall through */
