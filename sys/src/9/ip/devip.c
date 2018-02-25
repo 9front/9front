@@ -277,12 +277,12 @@ newipaux(char *owner, char *tag)
 static Chan*
 ipattach(char* spec)
 {
-	ulong dev;
 	Chan *c;
+	ulong dev;
 
-	dev = strtoul(spec, nil, 0);
+	dev = strtoul(spec, nil, 10);
 	if(dev >= Nfs)
-		error(Ebadspec);
+		error(Enodev);
 
 	qlock(&fslock);
 	if(ipfs[dev] == nil){

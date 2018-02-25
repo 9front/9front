@@ -25,7 +25,7 @@ etherattach(char* spec)
 
 	ctlrno = 0;
 	if(*spec){
-		ctlrno = strtoul(spec, &conf, 0);
+		ctlrno = strtoul(spec, &conf, 10);
 		if(ctlrno >= MaxEther)
 			error(Enodev);
 		if(conf == spec)

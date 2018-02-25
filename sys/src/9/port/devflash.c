@@ -167,11 +167,11 @@ static Chan*
 flashattach(char *spec)
 {
 	Flash *f;
-	int bank;
 	Chan *c;
+	ulong bank;
 
-	bank = strtol(spec, nil, 0);
-	if(bank < 0 || bank >= Nbanks ||
+	bank = strtoul(spec, nil, 10);
+	if(bank >= Nbanks ||
 	   (f = flash.card[bank]) == nil ||
 	   f->attach != nil && f->attach(f) < 0)
 		error(Enodev);

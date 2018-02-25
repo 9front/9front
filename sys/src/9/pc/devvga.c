@@ -90,7 +90,7 @@ static Chan*
 vgaattach(char* spec)
 {
 	if(*spec && strcmp(spec, "0"))
-		error(Eio);
+		error(Enodev);
 	return devattach('v', spec);
 }
 

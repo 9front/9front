@@ -662,8 +662,8 @@ sdattach(char* spec)
 	if(spec[0] != 's' || spec[1] != 'd')
 		error(Ebadspec);
 	idno = spec[2];
-	subno = strtol(&spec[3], &p, 0);
-	if(p == &spec[3])
+	subno = strtol(&spec[3], &p, 10);
+	if(subno < 0 || p == &spec[3])
 		error(Ebadspec);
 
 	if((sdev=sdgetdev(idno)) == nil)

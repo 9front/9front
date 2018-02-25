@@ -120,16 +120,13 @@ audioclone(Chan *c, Audio *adev)
 static Chan*
 audioattach(char *spec)
 {
-	static int attached = 0;
+	static ulong attached = 0;
 	Audiochan *ac;
 	Audio *adev;
 	Chan *c;
-	int i;
+	ulong i;
 
-	if(spec != nil && *spec != '\0')
-		i = strtol(spec, 0, 10);
-	else
-		i = 0;
+	i = strtoul(spec, nil, 10);
 	for(adev = audiodevs; adev; adev = adev->next)
 		if(adev->ctlrno == i)
 			break;

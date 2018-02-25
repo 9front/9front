@@ -364,14 +364,14 @@ static Chan*
 sdpattach(char* spec)
 {
 	Chan *c;
-	int dev;
 	char buf[100];
 	Sdp *sdp;
 	int start;
+	ulong dev;
 
-	dev = atoi(spec);
-	if(dev<0 || dev >= Nfs)
-		error("bad specification");
+	dev = strtoul(spec, nil, 10);
+	if(dev >= Nfs)
+		error(Enodev);
 
 	c = devattach('E', spec);
 	c->qid = (Qid){QID(0, Qtopdir), 0, QTDIR};
@@ -384,7 +384,7 @@ sdpattach(char* spec)
 	qunlock(sdp);
 
 	if(start) {
-		snprint(buf, sizeof(buf), "sdpackproc%d", dev);
+		snprint(buf, sizeof(buf), "sdpackproc%lud", dev);
 		kproc(buf, sdpackproc, sdp);
 	}
 	

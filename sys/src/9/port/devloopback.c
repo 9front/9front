@@ -121,14 +121,11 @@ loopbackattach(char *spec)
 	Queue *q;
 	Chan *c;
 	int chan;
-	int dev;
+	ulong dev;
 
-	dev = 0;
-	if(spec != nil){
-		dev = atoi(spec);
-		if(dev >= Nloopbacks)
-			error(Ebadspec);
-	}
+	dev = strtoul(spec, nil, 10);
+	if(dev >= Nloopbacks)
+		error(Enodev);
 
 	c = devattach('X', spec);
 	if(waserror()){

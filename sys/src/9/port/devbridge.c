@@ -193,14 +193,14 @@ bridgeinit(void)
 }
 
 static Chan*
-bridgeattach(char* spec)
+bridgeattach(char *spec)
 {
 	Chan *c;
-	int dev;
+	ulong dev;
 
-	dev = atoi(spec);
-	if(dev<0 || dev >= Maxbridge)
-		error("bad specification");
+	dev = strtoul(spec, nil, 10);
+	if(dev >= Maxbridge)
+		error(Enodev);
 
 	c = devattach('B', spec);
 	mkqid(&c->qid, QID(0, Qtopdir), 0, QTDIR);
