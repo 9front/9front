@@ -117,7 +117,7 @@ are listed, it searches all files matching
 .B *.b *.c *.C *.h *.l *.m *.s *.y
 .B *.asm *.cc *.cs *.lx *.cgi *.pl
 .B *.py *.tex *.ms *.java *.xy *.go
-.B *.goc
+.B *.goc *.cpp
 .SH SOURCE
 .B /sys/src/cmd/grep
 .br
