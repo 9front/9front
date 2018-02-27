@@ -320,6 +320,14 @@ getr(void)
 	return r;
 }
 
+void
+ungetr(Rune r)
+{
+	if(r == '\n')
+		line--;
+	Bungetrune(&bin);
+}
+
 long
 yylex(void)
 {
@@ -339,22 +347,16 @@ Loop:
 	case '\t':
 	case ' ':
 		goto Loop;
-	case '\n':
-	case '*':
-	case '+':
-	case '-':
-	case ':':
-	case ',':
-	case '(':
-	case ')':
-	case '=':
+	case '\n': case '*': case '+':
+	case '-': case ':': case ',':
+	case '(': case ')': case '=':
 		return r;
 	case '/':
 		r = getr();
-		if(r == '/') {
+		if(r == '/')
 			return LSS;
-		} else
-			Bungetrune(&bin);
+		else
+			ungetr(r);
 		return '/';
 	case '"':
 		for(bp = buf; bp < buf+5; bp++) {
@@ -369,30 +371,20 @@ Loop:
 	ep = buf+nelem(buf)-1;
 	isnum = 1;
 	for(;;) {
-		if(runetomix(r) == -1) 
+		if(runetomix(r) == -1)
 			yyerror("Invalid character %C", r);
 		if(bp == ep)
 			yyerror("Symbol or number too long");
 		*bp++ = r;
 		if(isnum && (r >= Runeself || !isdigit(r)))
 			isnum = 0;
-		r = getr();
-		switch(r) {
-		case Beof:
-		case '\t':
-		case '\n':
-		case '+':
-		case '-':
-		case '*':
-		case ':':
-		case ',':
-		case '(':
-		case ')':
-		case '=':
-		case ' ':
-		case '/':
-		case '#':
-			Bungetrune(&bin);
+		switch(r = getr()) {
+		case Beof: case '\t': case '\n':
+		case '+': case '-': case '*':
+		case ':': case ',': case '(':
+		case ')': case '=': case ' ':
+		case '/': case '#':
+			ungetr(r);
 			*bp = '\0';
 			goto End;
 		}
@@ -408,6 +400,18 @@ End:
 }
 
 Sym*
+getsym(char *name)
+{
+	Sym *s;
+
+	s = emallocz(sizeof(*s) + strlen(name));
+	strcpy(s->nbuf, name);
+	s->name = s->nbuf;
+	s->lex = LSYMREF;
+	return s;
+}
+
+Sym*
 sym(char *name)
 {
 	Sym *s, l;
@@ -416,11 +420,7 @@ sym(char *name)
 	s = (Sym*)avllookup(syms, &l, 0);
 	if(s != nil)
 		return s;
-
-	s = emallocz(sizeof(*s) + strlen(name));
-	strcpy(s->nbuf, name);
-	s->name = s->nbuf;
-	s->lex = LSYMREF;
+	s = getsym(name);
 	avlinsert(syms, s);
 	return s;
 }

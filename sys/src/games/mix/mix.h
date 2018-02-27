@@ -39,6 +39,7 @@ void yyerror(char*, ...);
 void vmerror(char*, ...);
 void skipto(char);
 Sym *sym(char*);
+Sym *getsym(char*);
 void sinit(void);
 int asmfile(char*);
 int V(u32int, int);
