@@ -26,14 +26,10 @@ of a
 PostScript,
 PDF,
 or 
-.IR tex (1)
-or 
 .IR troff (1)
 device independent output
 file.
-.I Tex
-or 
-.I troff
+.I Troff
 output is simply converted to PostScript in order to be viewed.
 It can also be used to view any number of
 graphics files
@@ -192,7 +188,6 @@ Preview this manual in a new window.
 .SH "SEE ALSO
 .IR gs (1),
 .IR jpg (1),
-.IR tex (1),
 .IR troff (1)
 .SH SOURCE
 .B /sys/src/cmd/page.c

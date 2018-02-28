@@ -12,14 +12,10 @@
 .if \\n($1>0 .sp .65
 ..
 .SH NAME
-pic, tpic \- troff and tex preprocessors for drawing pictures
+pic \- troff preprocessor for drawing pictures
+
 .SH SYNOPSIS
 .B pic
-[
-.I files
-]
-.PP
-.B tpic
 [
 .I files
 ]
@@ -292,44 +288,6 @@ may contain newlines.
 The
 .B undef
 statement removes the definition of a macro.
-.PP
-.I Tpic
-is a
-.IR tex (1)
-preprocessor that accepts
-.IR pic
-language.
-It produces Tex commands that define a box called
-.BR \egraph ,
-which contains the picture.
-The box may be output this way:
-.IP
-.L
-\ecenterline{\ebox\egraph}
-.SH EXAMPLES
-.EX
-arrow "input" above; box "process"; arrow "output" above
-move
-A: ellipse 
-   circle rad .1 with .w at A.e
-   circle rad .05 at 0.5 <A.c, A.ne>
-   circle rad .065 at 0.5 <A.c, A.ne>
-   spline from last circle.nw left .25 then left .05 down .05
-   arc from A.c to A.se rad 0.5
-   for i = 1 to 10 do { line from A.s+.025*i,.01*i down i/50 } 
-.EE
-.PP
-.PS
-arrow "input" above; box "process"; arrow "output" above
-move
-A: ellipse 
-   circle rad .1 with .w at A.e
-   circle rad .05 at 0.5 <A.c, A.ne>
-   circle rad .065 at 0.5 <A.c, A.ne>
-   spline from last circle.nw left .25 then left .05 down .05
-   arc from A.c to A.se rad 0.5
-   for i = 1 to 10 do { line from A.s+.025*i,.01*i down i/50 } 
-.PE
 .SH SOURCE
 .B /sys/src/cmd/pic
 .SH "SEE ALSO"

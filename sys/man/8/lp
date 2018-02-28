@@ -37,9 +37,7 @@ characters.
 .RB [ DLcimnorxy ]
 .TP
 .I dvipost
-converts
-.IR tex (1)
-output to PostScript.
+converts tex output to PostScript.
 .RB [ Lcinor ]
 .TP
 .I g3post

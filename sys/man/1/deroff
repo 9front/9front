@@ -1,15 +1,12 @@
 .TH DEROFF 1 
 .SH NAME
-deroff, delatex \- remove formatting requests
+deroff \- remove formatting requests
 .SH SYNOPSIS
 .B deroff
 [
 .I option ...
 ]
 .I file ...
-.PP
-.B delatex
-.I file
 .SH DESCRIPTION
 .I Deroff
 reads each file in sequence
@@ -77,32 +74,16 @@ documents.
 Same as
 .BR -mm ,
 but remove lists as well.
-.PP
-.I Delatex
-does for
-.I tex
-and
-.I latex
-(see
-.IR tex (1))
-files what
-.B deroff -wi
-does for
-.I troff
-files.
 .SH SOURCE
 .B /sys/src/cmd/deroff.c
 .br
 .B /sys/src/cmd/tex/local/delatex.c
 .SH "SEE ALSO"
 .IR troff (1), 
-.IR tex (1),
 .IR spell (1)
 .SH BUGS
-These filters are not complete interpreters of
-.I troff
-or
-.IR tex .
+This filter is not a complete interpreter of
+.I troff .
 For example, macro definitions containing
 .L \e$
 cause chaos in
