@@ -371,6 +371,7 @@ devtype(Igfx *igfx)
 	case 0x0166:	/* 3rd Gen Core - ThinkPad X230 */
 	case 0x0152:	/* 2nd/3rd Gen Core - Core-i3 */
 		return TypeIVB;
+	case 0x0046:	/* Thinkpad T510 */
 	case 0x0102:	/* Dell Optiplex 790 */
 	case 0x0126:	/* Thinkpad X220 */
 		return TypeSNB;
