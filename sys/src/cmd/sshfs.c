@@ -934,7 +934,7 @@ recvproc(void *)
 	SFid *sf;
 	int t, id;
 	u32int code;
-	char *msg, *lang, *hand;
+	char *msg, *lang, *hand, *s;
 	int msgn, langn, handn;
 	int okresp;
 	char *e;
@@ -1011,6 +1011,14 @@ recvproc(void *)
 			sf->handn = handn;
 			sf->hand = emalloc9p(sf->handn);
 			memcpy(sf->hand, hand, sf->handn);
+			if(r->req->ifcall.type == Tcreate){
+				s = sf->fn;
+				sf->fn = pathcat(s, r->req->ifcall.name);
+				free(s);
+				sf->qid = (Qid){qidcalc(sf->fn), 0, (r->req->ifcall.perm & DMDIR) != 0 ? QTDIR : 0};
+				r->req->ofcall.qid = sf->qid;
+				r->req->fid->qid = sf->qid;
+			}
 			wunlock(sf);
 			if(r->req->ifcall.type == Tread){
 				r->req->aux = nil;
