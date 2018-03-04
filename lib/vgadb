@@ -430,6 +430,8 @@ ctlr
 	ctlr=geode linear=1
 
 ctlr
+	vid=0x8086 did=0x0046	# Intel Ironlake Arrandale
+	vid=0x8086 did=0x0102	# Intel 2nd Gen Core (HD 2000)
 	vid=0x8086 did=0x0126	# Intel 2nd Gen Core (HD 3000)
 	vid=0x8086 did=0x0166	# Intel 3rd Gen Core
 	vid=0x8086 did=0x2a42	# Intel 4 Series Mobile
