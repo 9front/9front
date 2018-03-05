@@ -217,6 +217,7 @@ struct Isoio
 	int	delay;		/* max number of bytes to buffer */
 	int	hs;		/* is high speed? */
 	Isoio*	next;		/* in list of active Isoios */
+	int	ival;		/* ep->pollival (/8 for HS) */
 	ulong	td0frno;	/* first frame used in ctlr */
 	union{
 		Itd*	tdi;	/* next td processed by interrupt */
@@ -423,7 +424,6 @@ edalloc(Ctlr *ctlr)
 	unlock(&edpool);
 
 	memset(ed, 0, sizeof(Ed));	/* safety */
-	assert(((uintptr)ed & 0xF) == 0);
 	return ed;
 }
 
@@ -832,7 +832,7 @@ static char*
 seprintitd(char *s, char *se, Itd *td)
 {
 	int i;
-	ulong b0, b1;
+	ulong b0, b1, b2;
 	char flags[6];
 	char *rw;
 
@@ -840,12 +840,12 @@ seprintitd(char *s, char *se, Itd *td)
 		return seprint(s, se, "<nil itd>\n");
 	b0 = td->buffer[0];
 	b1 = td->buffer[1];
+	b2 = td->buffer[2];
 
 	s = seprint(s, se, "itd %#p", td);
 	rw = (b1 & Itdin) ? "in" : "out";
 	s = seprint(s, se, " %s ep %uld dev %uld max %uld mult %uld",
-		rw, (b0>>8)&Epmax, (b0&Devmax),
-		td->buffer[1] & 0x7ff, b1 & 3);
+		rw, (b0>>8)&Epmax, (b0&Devmax), b1 & 0x7ff, b2 & 3);
 	s = seprintlink(s, se, " link", td->link, 1);
 	s = seprint(s, se, "\n");
 	for(i = 0; i < nelem(td->csw); i++){
@@ -862,9 +862,9 @@ seprintitd(char *s, char *se, Itd *td)
 			flags[4] = 't';
 		flags[5] = 0;
 		s = seprint(s, se, "\ttd%d %s", i, flags);
-		s = seprint(s, se, " len %uld", (td->csw[i] >> 16) & 0x7ff);
-		s = seprint(s, se, " pg %uld", (td->csw[i] >> 12) & 0x7);
-		s = seprint(s, se, " off %uld\n", td->csw[i] & 0xfff);
+		s = seprint(s, se, " len %lud", (td->csw[i] >> 16) & 0xfff);
+		s = seprint(s, se, " pg %lud", (td->csw[i] >> 12) & 0x7);
+		s = seprint(s, se, " off %lud\n", td->csw[i] & 0xfff);
 	}
 	s = seprint(s, se, "\tbuffs:");
 	for(i = 0; i < nelem(td->buffer); i++)
@@ -1051,7 +1051,7 @@ isodump(Isoio* iso, int all)
 {
 	Itd *td, *tdi, *tdu;
 	Sitd *std, *stdi, *stdu;
-	char buf[256];
+	char buf[1024];
 	int i;
 
 	if(iso == nil){
@@ -1069,7 +1069,7 @@ isodump(Isoio* iso, int all)
 	if(iso->err != nil)
 		print("\terr='%s'\n", iso->err);
 	if(all == 0)
-		if(iso->hs != 0){
+		if(iso->hs){
 			tdi = iso->tdi;
 			seprintitd(buf, buf+sizeof(buf), tdi);
 			print("\ttdi %s\n", buf);
@@ -1087,7 +1087,7 @@ isodump(Isoio* iso, int all)
 	else
 		for(i = 0; i < Nisoframes; i++)
 			if(iso->tdps[i] != nil)
-				if(iso->hs != 0){
+				if(iso->hs){
 					td = iso->itdps[i];
 					seprintitd(buf, buf+sizeof(buf), td);
 					if(td == iso->tdi)
@@ -1239,31 +1239,38 @@ static void
 itdinit(Ctlr *ctlr, Isoio *iso, Itd *td)
 {
 	int p, t;
-	ulong pa, tsize, size;
+	ulong pg, pa, tsize, size;
 
 	/*
 	 * BUG: This does not put an integral number of samples
 	 * on each µframe unless samples per packet % 8 == 0
 	 * Also, all samples are packed early on each frame.
 	 */
-	p = 0;
 	size = td->ndata = td->mdata;
 	if(ctlr->dmaflush != nil)
 		(*ctlr->dmaflush)(1, td->data, size);
 	pa = PADDR(td->data);
-	for(t = 0; size > 0 && t < 8; t++){
+	pg = pa & ~0xFFF;
+	for(p = 0; p < nelem(td->buffer); p++)
+		td->buffer[p] = (td->buffer[p] & 0xFFF) | ((p << 12) + pg);
+	coherence();
+	for(t = 0; t < nelem(td->csw); t++){
+		if(size == 0){
+			td->csw[t] = 0;
+			continue;
+		}
 		tsize = size;
 		if(tsize > iso->maxsize)
 			tsize = iso->maxsize;
-		size -= tsize;
+		p = (pa - pg) >> 12;
 		assert(p < nelem(td->buffer));
+		assert(p < 6 || (pa & ~0xFFF) == ((pa+tsize-1) & ~0xFFF));
 		td->csw[t] = tsize << Itdlenshift | p << Itdpgshift |
 			(pa & 0xFFF) << Itdoffshift | Itdactive | Itdioc;
-		coherence();
-		if(((pa+tsize) & ~0xFFF) != (pa & ~0xFFF))
-			p++;
+		size -= tsize;
 		pa += tsize;
 	}
+	coherence();
 }
 
 static void
@@ -1334,16 +1341,16 @@ isodelay(void *a)
 	return delay <= iso->delay;
 }
 
-
 static int
 isohsinterrupt(Ctlr *ctlr, Isoio *iso)
 {
-	int err, i, nframes, t;
+	int err, len, i, nframes, t;
 	Itd *tdi;
 
 	tdi = iso->tdi;
 	if(tdi == nil || itdactive(tdi))			/* not all tds are done */
 		return 0;
+
 	ctlr->nisointr++;
 	ddiprint("isohsintr: iso %#p: tdi %#p tdu %#p\n", iso, tdi, iso->tdu);
 	if(iso->state != Qrun && iso->state != Qdone)
@@ -1355,23 +1362,21 @@ isohsinterrupt(Ctlr *ctlr, Isoio *iso)
 	if(nframes > Nisoframes)
 		nframes = Nisoframes;
 
-	if(iso->tok == Tdtokin)
-		tdi->ndata = 0;
-	/* else, it has the number of bytes transferred */
-
 	for(i = 0; i < nframes && itdactive(tdi) == 0; i++){
-		if(iso->tok == Tdtokin)
-			tdi->ndata += (tdi->csw[i] >> Itdlenshift) & Itdlenmask;
 		err = 0;
-		coherence();
+		len = 0;
 		for(t = 0; t < nelem(tdi->csw); t++){
 			tdi->csw[t] &= ~Itdioc;
 			coherence();
 			err |= tdi->csw[t] & Itderrors;
+			if(err == 0 && iso->tok == Tdtokin)
+				len += (tdi->csw[t] >> Itdlenshift) & Itdlenmask;
 		}
-		if(err == 0)
+		if(err == 0) {
 			iso->nerrs = 0;
-		else if(iso->nerrs++ > iso->nframes/2){
+			if(iso->tok == Tdtokin)
+				tdi->ndata = len;
+		} else if(iso->nerrs++ > iso->nframes/2){
 			if(iso->err == nil){
 				iso->err = ierrmsg(err);
 				diprint("isohsintr: tdi %#p error %#ux %s\n",
@@ -1381,6 +1386,7 @@ isohsinterrupt(Ctlr *ctlr, Isoio *iso)
 			tdi->ndata = 0;
 		}else
 			tdi->ndata = 0;
+
 		if(tdi->next == iso->tdu || tdi->next->next == iso->tdu){
 			memset(iso->tdu->data, 0, iso->tdu->mdata);
 			itdinit(ctlr, iso, iso->tdu);
@@ -1434,7 +1440,6 @@ isofsinterrupt(Ctlr *ctlr, Isoio *iso)
 			iso->nerrs = 0;
 			if(iso->tok == Tdtokin)
 				stdi->ndata = (stdi->csw>>Stdlenshift)&Stdlenmask;
-			/* else len is assumed correct */
 		}else if(iso->nerrs++ > iso->nframes/2){
 			if(iso->err == nil){
 				iso->err = serrmsg(err);
@@ -1868,7 +1873,7 @@ xdump(char* pref, void *qh)
 }
 
 static long
-episohscpy(Ctlr *ctlr, Ep *ep, Isoio* iso, uchar *b, long count)
+isohscpy(Ctlr *ctlr, Isoio* iso, uchar *b, long count)
 {
 	int nr;
 	long tot;
@@ -1881,10 +1886,7 @@ episohscpy(Ctlr *ctlr, Ep *ep, Isoio* iso, uchar *b, long count)
 		nr = tdu->ndata;
 		if(tot + nr > count)
 			nr = count - tot;
-		if(nr == 0)
-			print("ehci: ep%d.%d: too many polls\n",
-				ep->dev->nb, ep->nb);
-		else{
+		if(nr > 0){
 			iunlock(ctlr);		/* We could page fault here */
 			if(ctlr->dmaflush != nil)
 				(*ctlr->dmaflush)(0, tdu->data, tdu->mdata);
@@ -1906,7 +1908,7 @@ episohscpy(Ctlr *ctlr, Ep *ep, Isoio* iso, uchar *b, long count)
 }
 
 static long
-episofscpy(Ctlr *ctlr, Ep *ep, Isoio* iso, uchar *b, long count)
+isofscpy(Ctlr *ctlr, Isoio* iso, uchar *b, long count)
 {
 	int nr;
 	long tot;
@@ -1914,17 +1916,12 @@ episofscpy(Ctlr *ctlr, Ep *ep, Isoio* iso, uchar *b, long count)
 
 	for(tot = 0; iso->stdi != iso->stdu && tot < count; tot += nr){
 		stdu = iso->stdu;
-		if(stdu->csw & Stdactive){
-			diprint("ehci: episoread: %#p tdu active\n", iso);
+		if(stdu->csw & Stdactive)
 			break;
-		}
 		nr = stdu->ndata;
 		if(tot + nr > count)
 			nr = count - tot;
-		if(nr == 0)
-			print("ehci: ep%d.%d: too many polls\n",
-				ep->dev->nb, ep->nb);
-		else{
+		if(nr > 0) {
 			iunlock(ctlr);		/* We could page fault here */
 			if(ctlr->dmaflush != nil)
 				(*ctlr->dmaflush)(0, stdu->data, stdu->mdata);
@@ -1991,12 +1988,10 @@ episoread(Ep *ep, Isoio *iso, void *a, long count)
 	}
 	iso->state = Qdone;
 	coherence();
-	assert(iso->tdu != iso->tdi);
-
-	if(iso->hs != 0)
-		tot = episohscpy(ctlr, ep, iso, b, count);
+	if(iso->hs)
+		tot = isohscpy(ctlr, iso, b, count);
 	else
-		tot = episofscpy(ctlr, ep, iso, b, count);
+		tot = isofscpy(ctlr, iso, b, count);
 	iunlock(ctlr);
 	qunlock(iso);
 	poperror();
@@ -2691,7 +2686,6 @@ isofsinit(Ep *ep, Isoio *iso)
 	ulong frno;
 	Ctlr *ctlr;
 
-	iso->hs = 0;
 	ctlr = ep->hp->aux;
 	left = 0;
 	ltd = nil;
@@ -2719,73 +2713,56 @@ isofsinit(Ep *ep, Isoio *iso)
 				td->mdata = ep->maxpkt;
 			}
 		}
-		coherence();
-
 		iso->sitdps[frno] = td;
-		coherence();
 		sitdinit(ctlr, iso, td);
 		if(ltd != nil)
 			ltd->next = td;
 		ltd = td;
-		frno = TRUNC(frno+ep->pollival, Nisoframes);
+		frno = TRUNC(frno+iso->ival, Nisoframes);
 	}
-	ltd->next = iso->sitdps[iso->td0frno];
-	coherence();
+	iso->stdu = iso->stdi = ltd->next = iso->sitdps[iso->td0frno];
 }
 
 static void
 isohsinit(Ep *ep, Isoio *iso)
 {
-	int ival, p;
 	long left;
-	ulong frno, i, pa;
+	ulong frno, i;
 	Itd *ltd, *td;
 	Ctlr *ctlr;
 
-	iso->hs = 1;
-	ival = (ep->pollival+7)/8;
 	ctlr = ep->hp->aux;
 	left = 0;
 	ltd = nil;
 	frno = iso->td0frno;
 	for(i = 0; i < iso->nframes; i++){
 		td = itdalloc(ctlr);
-		td->data = iso->data + i * 8 * iso->maxsize;
-		pa = PADDR(td->data) & ~0xFFF;
-		for(p = 0; p < nelem(td->buffer); p++){
-			td->buffer[p] = pa;
-			pa += 0x1000;
-		}
-		td->buffer[0] |= (ep->nb&Epmax)<<Itdepshift | (ep->dev->nb&Devmax)<<Itddevshift;
+		td->buffer[0] = (ep->nb&Epmax)<<Itdepshift | (ep->dev->nb&Devmax)<<Itddevshift;
+		td->buffer[1] = (ep->maxpkt << Itdmaxpktshift) | (ep->mode == OREAD? Itdin: Itdout);
+		td->buffer[2] = (ep->ntds << Itdntdsshift);
+		td->data = iso->data + i * 8*iso->maxsize;
 		if(ep->mode == OREAD)
-			td->buffer[1] |= Itdin;
-		else
-			td->buffer[1] |= Itdout;
-		td->buffer[1] |= ep->maxpkt << Itdmaxpktshift;
-		td->buffer[2] |= ep->ntds << Itdntdsshift;
-
-		if(ep->mode == OREAD)
-			td->mdata = 8 * iso->maxsize;
+			td->mdata = 8*iso->maxsize;
 		else{
 			td->mdata = (ep->hz + left) * ep->pollival / 1000;
 			td->mdata *= ep->samplesz;
 			left = (ep->hz + left) * ep->pollival % 1000;
+			if(td->mdata > 8*iso->maxsize)
+				td->mdata = 8*iso->maxsize;
 		}
-		coherence();
 		iso->itdps[frno] = td;
-		coherence();
 		itdinit(ctlr, iso, td);
 		if(ltd != nil)
 			ltd->next = td;
 		ltd = td;
-		frno = TRUNC(frno + ival, Nisoframes);
+		frno = TRUNC(frno + iso->ival, Nisoframes);
 	}
+	iso->tdu = iso->tdi = ltd->next = iso->itdps[iso->td0frno];
 }
 
 static void
 isoopen(Ctlr *ctlr, Ep *ep)
 {
-	int ival;		/* pollival in ms */
 	int tpf;		/* tds per frame */
 	int i, n, w, woff;
 	ulong frno;
@@ -2806,15 +2783,17 @@ isoopen(Ctlr *ctlr, Ep *ep)
 	iso->state = Qidle;
 	coherence();
 	iso->debug = ep->debug;
-	tpf = 1;
-	ival = ep->pollival;
-	if(ep->dev->speed == Highspeed){
+	iso->hs = (ep->dev->speed == Highspeed);
+	if(iso->hs){
 		tpf = 8;
-		ival = (ival+7)/8;
+		iso->ival = (ep->pollival+7)/8;
+	} else {
+		tpf = 1;
+		iso->ival = ep->pollival;
 	}
-	if(ival < 1)
+	if(iso->ival < 1)
 		error("bad pollival");
-	iso->nframes = Nisoframes / ival;
+	iso->nframes = Nisoframes / iso->ival;
 	if(iso->nframes < 3)
 		error("ehci isoopen bug");	/* we need at least 3 tds */
 	iso->maxsize = ep->ntds * ep->maxpkt;
@@ -2826,7 +2805,7 @@ isoopen(Ctlr *ctlr, Ep *ep)
 	ctlr->nreqs++;
 	dprint("ehci: load %uld isoload %uld\n", ctlr->load, ctlr->isoload);
 	diprint("iso nframes %d pollival %uld ival %d maxpkt %uld ntds %d\n",
-		iso->nframes, ep->pollival, ival, ep->maxpkt, ep->ntds);
+		iso->nframes, ep->pollival, iso->ival, ep->maxpkt, ep->ntds);
 	iunlock(ctlr);
 	if(ctlr->poll.does)
 		wakeup(&ctlr->poll);
@@ -2835,27 +2814,23 @@ isoopen(Ctlr *ctlr, Ep *ep)
 	 * From here on this cannot raise errors
 	 * unless we catch them and release here all memory allocated.
 	 */
-	assert(ep->maxpkt > 0 && ep->ntds > 0 && ep->ntds < 4);
-	assert(ep->maxpkt <= 1024);
 	iso->tdps = smalloc(sizeof(void*) * Nisoframes);
-	iso->data = (*ctlr->dmaalloc)(iso->nframes * tpf * ep->ntds * ep->maxpkt);
+	iso->data = (*ctlr->dmaalloc)(iso->nframes * tpf * iso->maxsize);
 	iso->td0frno = TRUNC(ctlr->opio->frno + 10, Nisoframes);
 	/* read: now; write: 1s ahead */
 
-	if(ep->dev->speed == Highspeed)
+	if(iso->hs)
 		isohsinit(ep, iso);
 	else
 		isofsinit(ep, iso);
-	iso->tdu = iso->tdi = iso->itdps[iso->td0frno];
-	iso->stdu = iso->stdi = iso->sitdps[iso->td0frno];
-	coherence();
 
 	ilock(ctlr);
 	frno = iso->td0frno;
 	for(i = 0; i < iso->nframes; i++){
 		*iso->tdps[frno] = ctlr->frames[frno];
-		frno = TRUNC(frno+ival, Nisoframes);
+		frno = TRUNC(frno+iso->ival, Nisoframes);
 	}
+	coherence();
 
 	/*
 	 * Iso uses a virtual frame window of Nisoframes, and we must
@@ -2871,14 +2846,9 @@ isoopen(Ctlr *ctlr, Ep *ep)
 		for(i = 0; i < iso->nframes; i++){
 			assert(woff+frno < ctlr->nframes);
 			assert(iso->tdps[frno] != nil);
-			if(ep->dev->speed == Highspeed)
-				ctlr->frames[woff+frno] = PADDR(iso->tdps[frno])
-					|Litd;
-			else
-				ctlr->frames[woff+frno] = PADDR(iso->tdps[frno])
-					|Lsitd;
+			ctlr->frames[woff+frno] = PADDR(iso->tdps[frno]) | (iso->hs? Litd: Lsitd);
 			coherence();
-			frno = TRUNC(frno+ival, Nisoframes);
+			frno = TRUNC(frno+iso->ival, Nisoframes);
 		}
 	}
 	coherence();
@@ -2999,13 +2969,11 @@ cancelio(Ctlr *ctlr, Qio *io)
 }
 
 static void
-cancelisoio(Ctlr *ctlr, Isoio *iso, int ival, ulong load)
+cancelisoio(Ctlr *ctlr, Isoio *iso, ulong load)
 {
 	int frno, i, n, t, w, woff;
 	ulong *lp, *tp;
 	Isoio **il;
-	Itd *td;
-	Sitd *std;
 
 	ilock(ctlr);
 	if(iso->state == Qclose){
@@ -3027,23 +2995,21 @@ cancelisoio(Ctlr *ctlr, Isoio *iso, int ival, ulong load)
 	if(*il == nil)
 		panic("cancleiso: not found");
 	*il = iso->next;
+	iso->next = nil;
 
-	if(iso->hs)
-		ival = (ival+7)/8;
 	frno = iso->td0frno;
 	for(i = 0; i < iso->nframes; i++){
 		tp = iso->tdps[frno];
-		if(iso->hs != 0){
-			td = iso->itdps[frno];
+		if(iso->hs){
+			Itd *td = iso->itdps[frno];
 			for(t = 0; t < nelem(td->csw); t++)
 				td->csw[t] &= ~(Itdioc|Itdactive);
 		}else{
-			std = iso->sitdps[frno];
+			Sitd *std = iso->sitdps[frno];
 			std->csw &= ~(Stdioc|Stdactive);
 		}
 		coherence();
-		for(lp = &ctlr->frames[frno]; !(*lp & Lterm);
-		    lp = &LPTR(*lp)[0])
+		for(lp = &ctlr->frames[frno]; !(*lp & Lterm); lp = &LPTR(*lp)[0])
 			if(LPTR(*lp) == tp)
 				break;
 		if(*lp & Lterm)
@@ -3061,7 +3027,7 @@ cancelisoio(Ctlr *ctlr, Isoio *iso, int ival, ulong load)
 			}
 		}
 		coherence();
-		frno = TRUNC(frno+ival, Nisoframes);
+		frno = TRUNC(frno+iso->ival, Nisoframes);
 	}
 	iunlock(ctlr);
 
@@ -3079,18 +3045,17 @@ cancelisoio(Ctlr *ctlr, Isoio *iso, int ival, ulong load)
 
 	frno = iso->td0frno;
 	for(i = 0; i < iso->nframes; i++){
-		if(iso->hs != 0)
+		if(iso->hs)
 			itdfree(ctlr, iso->itdps[frno]);
 		else
 			sitdfree(ctlr, iso->sitdps[frno]);
 		iso->tdps[frno] = nil;
-		frno = TRUNC(frno+ival, Nisoframes);
+		frno = TRUNC(frno+iso->ival, Nisoframes);
 	}
 	free(iso->tdps);
 	iso->tdps = nil;
-	free(iso->data);
+	(*ctlr->dmafree)(iso->data);
 	iso->data = nil;
-	coherence();
 }
 
 static void
@@ -3131,7 +3096,7 @@ epclose(Ep *ep)
 		break;
 	case Tiso:
 		iso = ep->aux;
-		cancelisoio(ctlr, iso, ep->pollival, ep->load);
+		cancelisoio(ctlr, iso, ep->load);
 		break;
 	default:
 		panic("epclose: bad ttype");
