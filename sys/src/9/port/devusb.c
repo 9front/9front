@@ -90,6 +90,7 @@ enum
 	CMtmout,		/* timeout n (activate timeouts for ep) */
 	CMsampledelay,		/* maximum delay introduced by buffering (iso) */
 	CMpreset,		/* reset the port */
+	CMuframes,		/* set uframe mode (iso) */
 
 	/* Hub feature selectors */
 	Rportenable	= 1,
@@ -135,6 +136,7 @@ static Cmdtab epctls[] =
 	{CMtmout,	"timeout",	2},
 	{CMsampledelay,	"sampledelay",	2},
 	{CMpreset,	"reset",	1},
+	{CMuframes,	"uframes",	2},
 };
 
 static Dirtab usbdir[] =
@@ -291,9 +293,11 @@ seprintep(char *s, char *se, Ep *ep, int all)
 	s = seprint(s, se, " %s", usbmodename[ep->mode]);
 	s = seprint(s, se, " speed %s", spname[d->speed]);
 	s = seprint(s, se, " maxpkt %ld", ep->maxpkt);
+	s = seprint(s, se, " ntds %ld", ep->ntds);
 	s = seprint(s, se, " pollival %ld", ep->pollival);
 	s = seprint(s, se, " samplesz %ld", ep->samplesz);
 	s = seprint(s, se, " hz %ld", ep->hz);
+	s = seprint(s, se, " uframes %ld", ep->uframes);
 	s = seprint(s, se, " hub %d", ep->dev->hub);
 	s = seprint(s, se, " port %d", ep->dev->port);
 	s = seprint(s, se, " rootport %d", ep->dev->rootport);
@@ -352,7 +356,7 @@ epalloc(Hci *hp)
 	ep->hp = hp;
 	ep->maxpkt = 8;
 	ep->ntds = 1;
-	ep->samplesz = ep->pollival = ep->hz = 0; /* make them void */
+	ep->uframes = ep->samplesz = ep->pollival = ep->hz = 0; /* make them void */
 	qunlock(&epslck);
 	return ep;
 }
@@ -523,6 +527,7 @@ newdevep(Ep *ep, int i, int tt, int mode)
 		nep->pollival = 10;
 		nep->samplesz = 4;
 		nep->hz = 44100;
+		nep->uframes = 0;
 		break;
 	}
 	deprint("newdevep ep%d.%d %#p\n", d->nb, nep->nb, nep);
@@ -1334,6 +1339,17 @@ epctl(Ep *ep, Chan *c, void *a, long n)
 		qlock(ep);
 		ep->hz = l;
 		setmaxpkt(ep, "hz");
+		qunlock(ep);
+		break;
+	case CMuframes:
+		if(ep->ttype != Tiso)
+			error("not an iso endpoint");
+		l = strtoul(cb->f[1], nil, 0);
+		deprint("usb uframes %s %d\n", cb->f[0], l);
+		if(l != 0 && l != 1)
+			error("uframes not in [0:1]");
+		qlock(ep);
+		ep->uframes = l;
 		qunlock(ep);
 		break;
 	case CMclrhalt:

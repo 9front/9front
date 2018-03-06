@@ -398,6 +398,13 @@ Use
 as the number of transactions per frame (or µframe), as reported
 by the descriptor.
 .TP
+.BI uframes " n"
+If
+.I n
+is set to 1 for an isochronous endpoint,
+.IR read(2)
+from the data file will not cross μframe boundaries.
+.TP
 .B clrhalt
 Clear the halt condition for an endpoint.
 Used to recover from a stall caused by a device to signal its driver

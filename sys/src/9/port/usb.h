@@ -173,6 +173,7 @@ struct Ep
 	int	ntds;		/* nb. of Tds per µframe */
 	int	tmout;		/* 0 or timeout for transfers (ms) */
 	int	sampledelay;	/* maximum delay introduced by buffering (iso) */
+	int	uframes;	/* uframes mode (iso); 0 = normal behaviour, 1 = return only one uframe per read */
 };
 
 /*

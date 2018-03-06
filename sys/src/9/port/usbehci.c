@@ -218,6 +218,7 @@ struct Isoio
 	int	hs;		/* is high speed? */
 	Isoio*	next;		/* in list of active Isoios */
 	int	ival;		/* ep->pollival (/8 for HS) */
+	int	uframes;	/* ep->uframes */
 	ulong	td0frno;	/* first frame used in ctlr */
 	union{
 		Itd*	tdi;	/* next td processed by interrupt */
@@ -267,6 +268,7 @@ struct Itd
 	Itd*	next;
 	ulong	ndata;		/* number of bytes in data */
 	ulong	mdata;		/* max number of bytes in data */
+	ushort	posi, posp;
 	uchar*	data;
 };
 
@@ -844,8 +846,8 @@ seprintitd(char *s, char *se, Itd *td)
 
 	s = seprint(s, se, "itd %#p", td);
 	rw = (b1 & Itdin) ? "in" : "out";
-	s = seprint(s, se, " %s ep %uld dev %uld max %uld mult %uld",
-		rw, (b0>>8)&Epmax, (b0&Devmax), b1 & 0x7ff, b2 & 3);
+	s = seprint(s, se, " %s ep %uld dev %uld max %uld mult %uld mdata %uld pos (%ud,%ud)",
+		rw, (b0>>8)&Epmax, (b0&Devmax), b1 & 0x7ff, b2 & 3, td->mdata, td->posi, td->posp);
 	s = seprintlink(s, se, " link", td->link, 1);
 	s = seprint(s, se, "\n");
 	for(i = 0; i < nelem(td->csw); i++){
@@ -1072,17 +1074,21 @@ isodump(Isoio* iso, int all)
 		if(iso->hs){
 			tdi = iso->tdi;
 			seprintitd(buf, buf+sizeof(buf), tdi);
-			print("\ttdi %s\n", buf);
+			print("\ttdi ");
+			putstrn(buf, strlen(buf));
 			tdu = iso->tdu;
 			seprintitd(buf, buf+sizeof(buf), tdu);
-			print("\ttdu %s\n", buf);
+			print("\ttdu ");
+			putstrn(buf, strlen(buf));
 		}else{
 			stdi = iso->stdi;
 			seprintsitd(buf, buf+sizeof(buf), stdi);
-			print("\tstdi %s\n", buf);
+			print("\tstdi ");
+			putstrn(buf, strlen(buf));
 			stdu = iso->stdu;
 			seprintsitd(buf, buf+sizeof(buf), stdu);
-			print("\tstdu %s\n", buf);
+			print("\tstdu ");
+			putstrn(buf, strlen(buf));
 		}
 	else
 		for(i = 0; i < Nisoframes; i++)
@@ -1094,7 +1100,8 @@ isodump(Isoio* iso, int all)
 						print("i->");
 					if(td == iso->tdu)
 						print("i->");
-					print("[%d]\t%s", i, buf);
+					print("[%d]\t", i);
+					putstrn(buf, strlen(buf));
 				}else{
 					std = iso->sitdps[i];
 					seprintsitd(buf, buf+sizeof(buf), std);
@@ -1102,7 +1109,8 @@ isodump(Isoio* iso, int all)
 						print("i->");
 					if(std == iso->stdu)
 						print("u->");
-					print("[%d]\t%s", i, buf);
+					print("[%d]\t", i);
+					putstrn(buf, strlen(buf));
 				}
 }
 
@@ -1247,6 +1255,7 @@ itdinit(Ctlr *ctlr, Isoio *iso, Itd *td)
 	 * Also, all samples are packed early on each frame.
 	 */
 	size = td->ndata = td->mdata;
+	td->posi = td->posp = 0;
 	if(ctlr->dmaflush != nil)
 		(*ctlr->dmaflush)(1, td->data, size);
 	pa = PADDR(td->data);
@@ -1269,6 +1278,11 @@ itdinit(Ctlr *ctlr, Isoio *iso, Itd *td)
 			(pa & 0xFFF) << Itdoffshift | Itdactive | Itdioc;
 		size -= tsize;
 		pa += tsize;
+	}
+	if(iso->debug >= 3){
+		char buf[1024];
+		seprintitd(buf, buf + sizeof(buf), td);
+		putstrn(buf, strlen(buf));
 	}
 	coherence();
 }
@@ -1344,7 +1358,7 @@ isodelay(void *a)
 static int
 isohsinterrupt(Ctlr *ctlr, Isoio *iso)
 {
-	int err, len, i, nframes, t;
+	int err, i, nframes, t;
 	Itd *tdi;
 
 	tdi = iso->tdi;
@@ -1364,18 +1378,13 @@ isohsinterrupt(Ctlr *ctlr, Isoio *iso)
 
 	for(i = 0; i < nframes && itdactive(tdi) == 0; i++){
 		err = 0;
-		len = 0;
 		for(t = 0; t < nelem(tdi->csw); t++){
 			tdi->csw[t] &= ~Itdioc;
 			coherence();
 			err |= tdi->csw[t] & Itderrors;
-			if(err == 0 && iso->tok == Tdtokin)
-				len += (tdi->csw[t] >> Itdlenshift) & Itdlenmask;
 		}
 		if(err == 0) {
 			iso->nerrs = 0;
-			if(iso->tok == Tdtokin)
-				tdi->ndata = len;
 		} else if(iso->nerrs++ > iso->nframes/2){
 			if(iso->err == nil){
 				iso->err = ierrmsg(err);
@@ -1875,31 +1884,46 @@ xdump(char* pref, void *qh)
 static long
 isohscpy(Ctlr *ctlr, Isoio* iso, uchar *b, long count)
 {
-	int nr;
+	int len, nr;
 	long tot;
 	Itd *tdu;
+	uchar *dp;
 
-	for(tot = 0; iso->tdi != iso->tdu && tot < count; tot += nr){
+	ddiprint("hscpy: tdi %p tdu %p\n", iso->tdi, iso->tdu);
+	for(tot = 0; iso->tdi != iso->tdu && tot < count; ){
+loop:
 		tdu = iso->tdu;
 		if(itdactive(tdu))
 			break;
-		nr = tdu->ndata;
-		if(tot + nr > count)
-			nr = count - tot;
-		if(nr > 0){
-			iunlock(ctlr);		/* We could page fault here */
-			if(ctlr->dmaflush != nil)
-				(*ctlr->dmaflush)(0, tdu->data, tdu->mdata);
-			memmove(b+tot, tdu->data, nr);
-			ilock(ctlr);
-			if(iso->tdu != tdu)
-				continue;
-			if(nr < tdu->ndata)
-				memmove(tdu->data, tdu->data+nr, tdu->ndata - nr);
-			tdu->ndata -= nr;
-			coherence();
+		while(tdu->posi < 8 && tot < count){
+			len = tdu->csw[tdu->posi] >> Itdlenshift & Itdlenmask;
+			if((tdu->csw[tdu->posi] & Itderrors) != 0 || tdu->posp > len)
+				tdu->posp = len;
+			nr = len - tdu->posp;
+			if(nr > count - tot) nr = count - tot;
+			ddiprint("hscpy: tdi %p tdu %p posi %d posp %d len %d nr %d\n", iso->tdi, iso->tdu, tdu->posi, tdu->posp, len, nr);
+			dp = tdu->data + tdu->posi * iso->maxsize + tdu->posp;
+			if(nr > 0){
+				iunlock(ctlr);
+				if(ctlr->dmaflush != nil)
+					(*ctlr->dmaflush)(0, dp, nr);
+				memmove(b+tot, dp, nr);
+				ilock(ctlr);
+				if(iso->tdu != tdu || dp != tdu->data + tdu->posi * iso->maxsize + tdu->posp)
+					goto loop;
+				tot += nr;
+				tdu->posp += nr;
+				if(iso->uframes == 1)
+					count = tot;
+				coherence();
+			}
+			if(tdu->posp == len){
+				tdu->posp = 0;
+				tdu->posi++;
+				coherence();
+			}
 		}
-		if(tdu->ndata == 0){
+		if(tdu->posi == 8){
 			itdinit(ctlr, iso, tdu);
 			iso->tdu = tdu->next;
 		}
@@ -2793,6 +2817,7 @@ isoopen(Ctlr *ctlr, Ep *ep)
 	}
 	if(iso->ival < 1)
 		error("bad pollival");
+	iso->uframes = ep->uframes;
 	iso->nframes = Nisoframes / iso->ival;
 	if(iso->nframes < 3)
 		error("ehci isoopen bug");	/* we need at least 3 tds */
