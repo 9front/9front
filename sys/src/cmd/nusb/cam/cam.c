@@ -202,6 +202,11 @@ strread(Req *req, char *str, int len)
 {
 	ReadState *rs;
 	
+	if(req->fid->aux != nil){
+		free(((ReadState*)req->fid->aux)->buf);
+		free(req->fid->aux);
+		req->fid->aux = nil;
+	}
 	if(str == nil)
 		return;
 	rs = emallocz(sizeof(ReadState), 1);
@@ -223,7 +228,7 @@ fsread(Req *req)
 	}
 	f = req->fid->file;
 	c = f->aux;
-	if(req->fid->aux == nil)
+	if(req->fid->aux == nil || req->ifcall.offset == 0)
 		if(f == c->formatsfile)
 			strread(req, formatread(c), -1);
 		else if(f == c->ctlfile)
@@ -267,8 +272,10 @@ err:		respond(req, "the front fell off");
 	werrstr("invalid argument");
 	if(ctlwrite(c, s) < 0)
 		responderror(req);
-	else
+	else{
+		req->ofcall.count = req->ifcall.count;
 		respond(req, nil);
+	}
 	free(s);
 }
 

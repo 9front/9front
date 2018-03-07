@@ -507,7 +507,7 @@ ctlwrite(Cam *c, char *msg)
 		p = findparam(f[1]);
 		if(p == nil)
 			return -1;
-		if((uint)uid >= nunit || unit[uid] == nil){
+		if(p->type != PARAMSPEC && ((uint)uid >= nunit || unit[uid] == nil)){
 			werrstr("no such unit");
 			return -1;
 		}
