@@ -221,6 +221,8 @@ struct Altc
 {
 	int	attrib;
 	int	interval;
+	int	maxpkt;
+	int	ntds;
 	void*	aux;		/* for the driver program */
 };
 

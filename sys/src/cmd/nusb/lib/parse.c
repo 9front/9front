@@ -145,6 +145,8 @@ parseendpt(Usbdev *d, Conf *c, Iface *ip, Altc *altc, uchar *b, int n, Ep **epp)
 	ep->maxpkt = GET2(dep->wMaxPacketSize);
 	ep->ntds = 1 + ((ep->maxpkt >> 11) & 3);
 	ep->maxpkt &= 0x7FF;
+	altc->maxpkt = ep->maxpkt;
+	altc->ntds = ep->ntds;
 	ep->addr = addr;
 	ep->type = type;
 	ep->isotype = (dep->bmAttributes>>2) & 0x03;
