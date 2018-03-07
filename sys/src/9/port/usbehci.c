@@ -3063,7 +3063,10 @@ cancelisoio(Ctlr *ctlr, Isoio *iso, ulong load)
 	 */
 	wakeup(iso);
 	diprint("cancelisoio iso %#p waiting for I/O to cease\n", iso);
-	tsleep(&up->sleep, return0, 0, 5);
+	if(!waserror()){
+		tsleep(&up->sleep, return0, 0, 5);
+		poperror();
+	}
 	qlock(iso);
 	qunlock(iso);
 	diprint("cancelisoio iso %#p releasing iso\n", iso);
