@@ -1,6 +1,6 @@
 .TH MP 2
 .SH NAME
-mpsetminbits, mpnew, mpfree, mpbits, mpnorm, mpcopy, mpassign, mprand, mpnrand, strtomp, mpfmt,mptoa, betomp, mptobe, mptober, letomp, mptole, mptolel, mptoui, uitomp, mptoi, itomp, uvtomp, mptouv, vtomp, mptov, mpdigdiv, mpadd, mpsub, mpleft, mpright, mpmul, mpexp, mpmod, mpmodadd, mpmodsub, mpmodmul, mpdiv, mpcmp, mpsel, mpextendedgcd, mpinvert, mpsignif, mplowbits0, mpvecdigmuladd, mpvecdigmulsub, mpvecadd, mpvecsub, mpveccmp, mpvecmul, mpmagcmp, mpmagadd, mpmagsub, crtpre, crtin, crtout, crtprefree, crtresfree \- extended precision arithmetic
+mpsetminbits, mpnew, mpfree, mpbits, mpnorm, mpcopy, mpassign, mprand, mpnrand, strtomp, mpfmt,mptoa, betomp, mptobe, mptober, letomp, mptole, mptolel, mptoui, uitomp, mptoi, itomp, uvtomp, mptouv, vtomp, mptov, mptod, dtomp, mpdigdiv, mpadd, mpsub, mpleft, mpright, mpmul, mpexp, mpmod, mpmodadd, mpmodsub, mpmodmul, mpdiv, mpcmp, mpsel, mpextendedgcd, mpinvert, mpsignif, mplowbits0, mpvecdigmuladd, mpvecdigmulsub, mpvecadd, mpvecsub, mpveccmp, mpvecmul, mpmagcmp, mpmagadd, mpmagsub, crtpre, crtin, crtout, crtprefree, crtresfree \- extended precision arithmetic
 .SH SYNOPSIS
 .B #include <u.h>
 .br
@@ -86,6 +86,12 @@ mpint*	uvtomp(uvlong, mpint*)
 .PP
 .B
 uvlong	mptouv(mpint*)
+.PP
+.B
+mpint*	dtomp(double, mpint*)
+.PP
+.B
+double	mptod(mpint*)
 .PP
 .B
 void	mpadd(mpint *b1, mpint *b2, mpint *sum)
@@ -271,8 +277,9 @@ This includes
 .IR strtomp ,
 .IR itomp ,
 .IR uitomp ,
+.IR btomp ,
 and
-.IR btomp .
+.IR dtomp .
 These functions, in addition to
 .I mpnew
 and
@@ -474,7 +481,7 @@ is
 .BR nil ,
 a new integer is allocated and returned as the result.
 .PP
-The integer conversions are:
+The integer (and floating point) conversions are:
 .TF Mptouv
 .TP
 .I mptoui
@@ -500,11 +507,22 @@ The integer conversions are:
 .TP
 .I vtomp
 .BR "vlong" -> mpint
+.TP
+.I mptod
+.BR mpint -> "double"
+.TP
+.I dtomp
+.BR "double" -> mpint
 .PD
 .PP
 When converting to the base integer types, if the integer is too large,
 the largest integer of the appropriate sign
 and size is returned.
+.PP
+When converting to and from floating point, results are rounded using IEEE 754 "round to nearest".
+If the integer is too large in magnitude,
+.I mptod 
+returns infinity of the appropriate sign.
 .PP
 The mathematical functions are:
 .TF mpmagadd
