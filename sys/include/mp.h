@@ -62,6 +62,8 @@ uvlong	mptouv(mpint*);			/* unsigned vlong */
 mpint*	uvtomp(uvlong, mpint*);
 vlong	mptov(mpint*);			/* vlong */
 mpint*	vtomp(vlong, mpint*);
+double	mptod(mpint*);			/* double */
+mpint*	dtomp(double, mpint*);
 
 /* divide 2 digits by one */
 void	mpdigdiv(mpdigit *dividend, mpdigit divisor, mpdigit *quotient);
