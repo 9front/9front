@@ -2,6 +2,7 @@
 #include <libc.h>
 #include <draw.h>
 #include <event.h>
+#include <mp.h>
 #include "dat.h"
 #include "fns.h"
 
@@ -533,6 +534,7 @@ void main(int argc, char **argv) {
 		Event Event;
 		Point CurrentCell, Cell = Pt(-1, -1);
 
+		GhostInit();
 		Etimer = etimer(0, UseGhost ? 10 : 1000);
 		LastAction = nsec();
 
@@ -541,7 +543,7 @@ void main(int argc, char **argv) {
 
 			if(Key == Etimer) {
 			
-				if(nsec() - LastAction > 5000000000ULL && LastMouse.buttons == 0)
+				if(nsec() - LastAction > 1000000000ULL && LastMouse.buttons == 0)
 					GhostMode();
 			
 				if(++Counter == (UseGhost ? 100 : 1)){
@@ -556,11 +558,11 @@ void main(int argc, char **argv) {
 
 			if(Key == Emouse) {
 			
-				if(!eqpt(LastMouse.xy, Event.mouse.xy) || LastMouse.buttons != Event.mouse.buttons){
+				if(!GhostCheck(Event.mouse.xy) || LastMouse.buttons != Event.mouse.buttons){
 					LastAction = nsec();
-					GhostReset();
+					LastMouse = Event.mouse;
+					GhostReset(Event.mouse.buttons != 0);
 				}
-				LastMouse = Event.mouse;
 
 				/* mouse over button? */
 				CurrentButton = FALSE;
@@ -666,7 +668,7 @@ void main(int argc, char **argv) {
 			if(Key == Ekeyboard) {
 			
 				LastAction = nsec();
-				GhostReset();
+				GhostReset(1);
 
 				switch(Event.kbdc) {
 					case 'n':
