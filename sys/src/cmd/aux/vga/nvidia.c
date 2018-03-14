@@ -187,6 +187,7 @@ snarf(Vga* vga, Ctlr* ctlr)
 			nv->arch = 10;
 			break;
 		case 0x0200:	/* GeForce3 */
+		case 0x0220:	/* GeForce 6200 AGP */
 		case 0x0250:	/* GeForce4 Ti */
 		case 0x0280:	/* GeForce4 Ti (8x AGP) */
 			nv->arch = 20;
