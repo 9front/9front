@@ -740,7 +740,6 @@ rdconf(void)
 	/* only read config file once */
 	if (configed)
 		return;
-	configed = 1;
 
 	dprint("rdconf\n");
 	/* add the std "fs" tree */
@@ -792,6 +791,7 @@ rdconf(void)
 			e++;
 		mconfig(p, e - p);
 	}
+	configed = 1;
 	poperror();
 	free(c);
 
