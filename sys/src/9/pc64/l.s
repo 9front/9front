@@ -952,6 +952,7 @@ _intrnested:
 	CALL	trap(SB)
 
 _intrestore:
+TEXT _intrr(SB), 1, $-4
 	POPQ	AX
 
 	POPQ	AX
