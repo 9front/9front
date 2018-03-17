@@ -526,8 +526,22 @@ getnode(Req *r, uvlong path)
 		x->handle = 0xffffffff;
 		x->d.qid.type = QTDIR;
 		x->d.mode = DMDIR|0777;
-		x->d.name = emalloc9p(10);
-		sprint(x->d.name, "%x", x->store);
+
+		if(ptprpc(r, GetStorageInfo, 1|DataRecv, NUM(path), &p, &np) < 0)
+			break;
+		if(debug)
+			hexdump("storageinfo", p, np);
+		if(np < 26){
+			werrstr("bad storageinfo");
+			break;
+		}
+
+		if((x->d.name = ptpstring2(p+26, p+np)) == nil){
+			werrstr("bad storageinfo");
+			break;
+		}
+
+		free(p);
 		goto Addnode;
 
 	case Qobj:
