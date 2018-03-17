@@ -57,6 +57,9 @@ It's a secret to everybody.
 .I Mines
 was written in 2001 by Antonin Vecera for Plan 9 Third Edition.
 It was added to 9front in May 2011.
+The
+.B -g
+option was added by 9front in February 2018.
 .SH LICENSE
 .I Mines
 is licensed under the GNU General Public License, Version 2, reproduced in the file
