@@ -30,6 +30,7 @@ LIBS=\
 	libndb\
 	libplumb\
 	libregexp\
+	libsat\
 	libscribble\
 	libsec\
 	libstdio\

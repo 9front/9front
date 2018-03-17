@@ -1,0 +1,231 @@
+.TH SAT 2
+.SH NAME
+satnew, satadd1, sataddv, satrange1, satrangev, satsolve, satmore, satval, satreset, satfree \- boolean satisfiability (SAT) solver
+.SH SYNOPSIS
+.de PB
+.PP
+.ft L
+.nf
+..
+.PB
+#include <u.h>
+#include <libc.h>
+#include <sat.h>
+.PB
+struct SATParam {
+	void (*errfun)(char *msg, void *erraux);
+	void *erraux;
+	long (*randfn)(void *randaux);
+	void *randaux;
+	/* + finetuning parameters, see sat.h */
+};
+.PB
+struct SATSolve {
+	SATParam;
+	/* + internals */
+};
+.PB
+.ta +\w'\fLSATSolve* \fP'u
+SATSolve*	satnew(void);
+void	satfree(SATSolve *s);
+SATSolve*	satadd1(SATSolve *s, int *lit, int nlit);
+SATSolve*	sataddv(SATSolve *s, ...);
+SATSolve*	satrange1(SATSolve *s, int *lit, int nlit,
+			int min, int max);
+SATSolve*	satrangev(SATSolve *s, int min, int max, ...);
+int	satsolve(SATSolve *s);
+int	satmore(SATSolve *s);
+int	satval(SATSolve *s, int lit);
+void	satreset(SATSolve *s);
+.SH DESCRIPTION
+.PP
+.I Libsat
+is a solver for the boolean satisfiability problem, i.e. given a boolean formula it will either find an assignment to the variables that makes it true, or report that this is impossible.
+The input formula must be in conjunctive normal form (CNF), i.e. of the form
+.IP
+.if t (x\d\s71\s10\u ∨ x\d\s72\s10\u ∨ x\d\s73\s10\u ∨ …) ∧ (y\d\s71\s10\u ∨ y\d\s72\s10\u ∨ y \d\s73\s10\u ∨ …) ∧ …,
+.if n (x1 ∨ x2 ∨ x3 ∨ ...) ∧ (y1 ∨ y2 ∨ y3 ∨ ...) ∧ ...,
+.PP
+where each
+.if t x\d\s7i\s10\u or y\d\s7i\s10\u
+.if n x_i or y_i
+can optionally be negated.
+.PP
+For example, consider
+.IP
+.if t (x\d\s71\s10\u ∨ x\d\s72\s10\u ∨ x\d\s73\s10\u) ∧ (¬x\d\s71\s10\u ∨ ¬x\d\s72\s10\u) ∧ (¬x\d\s72\s10\u ∨ ¬x\d\s73\s10\u) ∧ (¬x\d\s71\s10\u ∨ ¬x\d\s73\s10\u).
+.if n (x1 ∨ x2 ∨ x3) ∧ (¬x1 ∨ ¬x2) ∧ (¬x2 ∨ ¬x3) ∧ (¬x1 ∨ ¬x3).
+.PP
+This formula encodes the constraint that exactly one of the three variables be true. To represent this as input for
+.I libsat
+we assign positive integers to each variable.
+Negation is represented by the corresponding negative number, hence our example corresponds to the set of "clauses"
+.IP
+1, 2, 3
+.br
+-1, -2
+.br
+-1, -3
+.br
+-2, -3
+.PP
+To actually solve this problem we would create a
+.B SATSolve
+structure and add clauses one by one using
+.I satadd1
+or
+.I sataddv
+(the former takes an
+.B int
+array, the latter a variadic list terminated by 0).
+The
+.B SATSolve
+is modified inplace but returned for convenience.
+Passing
+.B nil
+as a first argument will create and return a new structure.
+Alternatively,
+.I satnew
+will create an empty structure.
+.PP
+Once clauses have been added,
+.I satsolve
+will invoke the actual solver.
+It returns 1 if it found an assignment and 0 if there is no assignment (the formula is unsatisfiable).
+If an assignment has been found, further clauses can be added to constrain it further and
+.I satsolve
+rerun.
+.I Satmore
+performs this automatically, excluding the current values of the variables.
+It is equivalent to
+.I satsolve
+if no variables have assigned values.
+.PP
+Once a solution has been found,
+.I satval
+returns the value of literal
+.I lit.
+It returns 1 for true, 0 for false and -1 for undetermined.
+If the formula is satisfiable, an undetermined variable is one where either value will satisfy the formula.
+If the formula is unsatisfiable, all variables are undetermined.
+.PP
+.I Satrange1
+and
+.I satrangev
+function like their
+.I satadd
+brethren but rather than adding a single clause they add multiple clauses corresponding to the constraint that at least
+.I min
+and at most
+.I max
+literals from the provided array be true.
+For example, the clause from above corresponds to
+.IP
+.B "satrangev(s, 1, 1, 1, 2, 3, 0);"
+.PP
+.I Satreset
+resets all solver state, deleting all learned clauses and variable assignments.
+It retains all user provided clauses.
+.I Satfree
+deletes a solver structure and frees all associated storage.
+.PP
+There are a number of user-adjustable parameters in the 
+.B SATParam
+structure embedded in
+.BR SATSolve .
+.I Randfun
+is called with argument
+.I randaux
+to generate random numbers between 0 and
+.if t 2\u\s731\s10\d-1;
+.if n 2^31-1;
+it defaults to
+.IR lrand (2).
+.I Errfun
+is called on fatal errors (see DIAGNOSTICS).
+Additionally, a number of finetuning parameters are defined in
+.BR sat.h .
+By tweaking their values, the run-time for a given problem can be reduced.
+.SH EXAMPLE
+Find all solutions to the example clause from above:
+.PB
+.ta .5i 1i 1.5i
+	SATSolve *s;
+	
+	s = nil;
+	s = sataddv(s, 1, 2, 3, 0);
+	s = sataddv(s, -1, -2, 0);
+	s = sataddv(s, -1, -3, 0);
+	s = sataddv(s, -2, -3, 0);
+	while(satmore(s) > 0)
+		print("x1=%d x2=%d x3=%d\\n",
+			satval(s, 1),
+			satval(s, 2),
+			satval(s, 3));
+	satfree(s);
+.SH SOURCE
+.B /sys/src/libsat
+.SH "SEE ALSO"
+Donald Knuth, ``The Art of Computer Programming'', Volume 4, Fascicle 6.
+.SH DIAGNOSTICS
+.I Satnew
+returns
+.B nil
+on certain fatal error conditions (such as
+.IR malloc (2)
+failure).
+Other routines will call
+.I errfun
+with an error string and
+.IR erraux .
+If no
+.I errfun
+is provided or if it returns,
+.IR sysfatal (2)
+is called.
+It is permissible to use
+.IR setjmp (2)
+to return from an error condition.
+Call
+.I satfree
+to clean up the
+.B SATSolve
+structure in this case.
+Note that calling the
+.I satadd
+or
+.I satrange
+routines with
+.B nil
+first argument will invoke
+.I sysfatal
+on error, since no
+.I errfun
+has been defined yet.
+.SH BUGS
+Variable numbers should be consecutive numbers starting from 1, since variable data is kept in arrays internally.
+.PP
+Large clauses of several thousand literals are probably inefficient and should be split up using auxiliary variables.
+Very large clauses exceeding about 16,000 literals will not work at all.
+.PP
+There is no way to remove clauses (since it's unclear what the semantics should be).
+.PP
+The details about the tuning parameters are subject to change.
+.PP
+Calling
+.I satadd
+or
+.I satrange
+after 
+.I satsolve
+or
+.I satmore
+may reset variable values.
+.PP
+.I Satmore
+will always return 1 when there are no assigned variables in the solution.
+.P
+Some debugging routines called under "shouldn't happen" conditions are non-reentrant.
+.SH HISTORY
+.I Libsat
+first appeared in 9front in March, 2018.

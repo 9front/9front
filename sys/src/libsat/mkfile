@@ -1,0 +1,22 @@
+</$objtype/mkfile
+
+LIB=/$objtype/lib/libsat.a
+
+OFILES=\
+	misc.$O \
+	satadd.$O \
+	satrange.$O \
+	satsolve.$O \
+	satmore.$O \
+	debug.$O \
+
+HFILES=\
+	/sys/include/sat.h\
+	impl.h\
+
+UPDATE=\
+	mkfile\
+	$HFILES\
+	${OFILES:%.$O=%.c}\
+
+</sys/src/cmd/mksyslib
