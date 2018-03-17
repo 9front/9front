@@ -902,10 +902,6 @@ TEXT forkret(SB), 1, $-4
 
 	BYTE $0x48; SYSRET			/* SYSRETQ */
 
-TEXT noteret(SB), 1, $-4
-	CLI
-	JMP _intrestore
-
 /*
  * Interrupt/exception handling.
  */
@@ -951,8 +947,8 @@ _intrnested:
 	PUSHQ	SP
 	CALL	trap(SB)
 
-_intrestore:
 TEXT _intrr(SB), 1, $-4
+_intrestore:
 	POPQ	AX
 
 	POPQ	AX
@@ -980,6 +976,10 @@ TEXT _intrr(SB), 1, $-4
 _iretnested:
 	ADDQ	$40, SP
 	IRETQ
+
+TEXT noteret(SB), 1, $-4
+	CLI
+	JMP	_intrestore
 
 TEXT vectortable(SB), $0
 	CALL _strayintr(SB); BYTE $0x00		/* divide error */
