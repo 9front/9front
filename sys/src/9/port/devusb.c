@@ -293,11 +293,11 @@ seprintep(char *s, char *se, Ep *ep, int all)
 	s = seprint(s, se, " %s", usbmodename[ep->mode]);
 	s = seprint(s, se, " speed %s", spname[d->speed]);
 	s = seprint(s, se, " maxpkt %ld", ep->maxpkt);
-	s = seprint(s, se, " ntds %ld", ep->ntds);
+	s = seprint(s, se, " ntds %d", ep->ntds);
 	s = seprint(s, se, " pollival %ld", ep->pollival);
 	s = seprint(s, se, " samplesz %ld", ep->samplesz);
 	s = seprint(s, se, " hz %ld", ep->hz);
-	s = seprint(s, se, " uframes %ld", ep->uframes);
+	s = seprint(s, se, " uframes %d", ep->uframes);
 	s = seprint(s, se, " hub %d", ep->dev->hub);
 	s = seprint(s, se, " port %d", ep->dev->port);
 	s = seprint(s, se, " rootport %d", ep->dev->rootport);
