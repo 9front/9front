@@ -203,8 +203,8 @@ restart:
 		r = (Rectangle){subpt(p, q), addpt(p, q)};
 		lockdisplay(display);
 		draw(disp, r, i, nil, i->r.min);
-		flushimage(display, 1);
 		freeimage(i);
+		flushimage(display, 1);
 		unlockdisplay(display);
 	}
 	fprint(2, "readimage: %r\n");
@@ -233,11 +233,17 @@ threadmain(int argc, char **argv)
 	threadcreate(resizethread, nil, mainstacksize);
 	proccreate(videoproc, nil, mainstacksize);
 	display->locking = 1;
+	flushimage(display, 1);
 	unlockdisplay(display);
-	while(readmouse(mc) >= 0){
+	while(recv(mc->c, &mc->Mouse) >= 0){
+		if(mc->buttons == 0)
+			continue;
+		lockdisplay(display);
 		if((mc->buttons & 4) != 0)
 			rmb();
 		else if((mc->buttons & 2) != 0)
 			mmb();
+		flushimage(display, 1);
+		unlockdisplay(display);
 	}
 }
