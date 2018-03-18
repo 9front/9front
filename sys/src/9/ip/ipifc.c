@@ -1095,7 +1095,7 @@ iptentative(Fs *f, uchar *addr)
  *	0		- no match
  *	Runi
  *	Rbcast
- *	Rmcast
+ *	Rmulti
  */
 int
 ipforme(Fs *f, uchar *addr)
@@ -1163,7 +1163,6 @@ findipifc(Fs *f, uchar *remote, int type)
 
 enum {
 	unknownv6,		/* UGH */
-//	multicastv6,
 	unspecifiedv6,
 	linklocalv6,
 	globalv6,
@@ -1237,140 +1236,135 @@ findprimaryipv4(Fs *f, uchar *local)
 			return;
 		}
 	}
+	ipmove(local, IPnoaddr);
+}
+
+static int
+comprefixlen(uchar *a, uchar *b, int n)
+{
+	int i, c;
+
+	for(i = 0; i < n; i++){
+		if((c = a[i] ^ b[i]) == 0)
+			continue;
+		for(i <<= 3; (c & 0x80) == 0; i++)
+			c <<= 1;
+		return i;
+	}
+	return i << 3;
 }
 
 /*
- *  find the local address 'closest' to the remote system, copy it to
- *  local and return the ifc for that address
+ *  return v4 address associated with an interface close to remote
+ */
+int
+ipv4local(Ipifc *ifc, uchar *local, uchar *remote)
+{
+	Iplifc *lifc;
+	int a, b;
+
+	b = -1;
+	for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
+		if(!isv4(lifc->local))
+			continue;
+		a = comprefixlen(lifc->local+IPv4off, remote, IPv4addrlen);
+		if(a > b){
+			b = a;
+			memmove(local, lifc->local+IPv4off, IPv4addrlen);
+		}
+	}
+	return b >= 0;
+}
+
+/*
+ *  return v6 address associated with an interface close to remote
+ */
+int
+ipv6local(Ipifc *ifc, uchar *local, uchar *remote)
+{
+	struct {
+		int	atype;
+		int	deprecated;
+		int	comprefixlen;
+	} a, b;
+	int atype;
+	Iplifc *lifc;
+
+	if(isv4(remote)){
+		ipmove(local, v4prefix);
+		return ipv4local(ifc, local+IPv4off, remote+IPv4off);
+	}
+
+	atype = v6addrtype(remote);
+	ipmove(local, v6Unspecified);
+	b.atype = unknownv6;
+	b.deprecated = 1;
+	b.comprefixlen = 0;
+
+	for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
+		if(lifc->tentative)
+			continue;
+
+		a.atype = v6addrtype(lifc->local);
+		a.deprecated = !v6addrcurr(lifc);
+		a.comprefixlen = comprefixlen(lifc->local, remote, IPaddrlen);
+
+		/* prefer appropriate scope */
+		if(a.atype != b.atype){
+			if(a.atype > b.atype && b.atype < atype ||
+			   a.atype < b.atype && b.atype > atype)
+				goto Good;
+			continue;
+		}
+		/* prefer non-deprecated addresses */
+		if(a.deprecated != b.deprecated){
+			if(b.deprecated)
+				goto Good;
+			continue;
+		}
+		/* prefer longer common prefix */
+		if(a.comprefixlen != b.comprefixlen){
+			if(a.comprefixlen > b.comprefixlen)
+				goto Good;
+			continue;
+		}
+		continue;
+	Good:
+		b = a;
+		ipmove(local, lifc->local);
+	}
+
+	return b.atype >= atype;
+}
+
+/*
+ *  find the local address 'closest' to the remote system, copy it to local
  */
 void
 findlocalip(Fs *f, uchar *local, uchar *remote)
 {
-	int version, atype = unspecifiedv6, atypel = unknownv6;
-	int atyper, deprecated;
-	uchar gate[IPaddrlen], gnet[IPaddrlen];
-	Ipifc *ifc;
-	Iplifc *lifc;
 	Route *r;
 
-	USED(atype);
-	USED(atypel);
 	qlock(f->ipifc);
-	r = v6lookup(f, remote, nil);
- 	version = (memcmp(remote, v4prefix, IPv4off) == 0)? V4: V6;
-
-	if(r != nil){
-		ifc = r->ifc;
-		if(r->type & Rv4)
-			v4tov6(gate, r->v4.gate);
-		else {
-			ipmove(gate, r->v6.gate);
-			ipmove(local, v6Unspecified);
+	if((r = v6lookup(f, remote, nil)) != nil){
+		if(r->type & Runi){
+			ipmove(local, remote);
+			goto out;
 		}
-
-		switch(version) {
-		case V4:
-			/* find ifc address closest to the gateway to use */
-			for(lifc = ifc->lifc; lifc; lifc = lifc->next){
-				maskip(gate, lifc->mask, gnet);
-				if(ipcmp(gnet, lifc->net) == 0){
-					ipmove(local, lifc->local);
-					goto out;
-				}
-			}
-			break;
-		case V6:
-			/* find ifc address with scope matching the destination */
-			atyper = v6addrtype(remote);
-			deprecated = 0;
-			for(lifc = ifc->lifc; lifc; lifc = lifc->next){
-				atypel = v6addrtype(lifc->local);
-				/* prefer appropriate scope */
-				if(atypel > atype && atype < atyper ||
-				   atypel < atype && atype > atyper){
-					ipmove(local, lifc->local);
-					deprecated = !v6addrcurr(lifc);
-					atype = atypel;
-				} else if(atypel == atype){
-					/* avoid deprecated addresses */
-					if(deprecated && v6addrcurr(lifc)){
-						ipmove(local, lifc->local);
-						atype = atypel;
-						deprecated = 0;
-					}
-				}
-				if(atype == atyper && !deprecated)
-					goto out;
-			}
-			if(atype >= atyper)
+		if((r->type & (Rifc|Rbcast|Rmulti|Rv4)) == Rv4){
+			ipmove(local, v4prefix);
+			if(ipv4local(r->ifc, local+IPv4off, r->v4.gate))
 				goto out;
-			break;
-		default:
-			panic("findlocalip: version %d", version);
 		}
+		if(ipv6local(r->ifc, local, remote))
+			goto out;
 	}
-
-	switch(version){
-	case V4:
+	if(isv4(remote))
 		findprimaryipv4(f, local);
-		break;
-	case V6:
+	else
 		findprimaryipv6(f, local);
-		break;
-	default:
-		panic("findlocalip2: version %d", version);
-	}
-
 out:
 	qunlock(f->ipifc);
-}
-
-/*
- *  return first v4 address associated with an interface
- */
-int
-ipv4local(Ipifc *ifc, uchar *addr)
-{
-	Iplifc *lifc;
-
-	for(lifc = ifc->lifc; lifc; lifc = lifc->next){
-		if(isv4(lifc->local)){
-			memmove(addr, lifc->local+IPv4off, IPv4addrlen);
-			return 1;
-		}
-	}
-	return 0;
-}
-
-/*
- *  return first v6 address associated with an interface
- */
-int
-ipv6local(Ipifc *ifc, uchar *addr)
-{
-	Iplifc *lifc;
-
-	for(lifc = ifc->lifc; lifc; lifc = lifc->next){
-		if(!isv4(lifc->local) && !(lifc->tentative)){
-			ipmove(addr, lifc->local);
-			return 1;
-		}
-	}
-	return 0;
-}
-
-int
-ipv6anylocal(Ipifc *ifc, uchar *addr)
-{
-	Iplifc *lifc;
-
-	for(lifc = ifc->lifc; lifc; lifc = lifc->next){
-		if(!isv4(lifc->local)){
-			ipmove(addr, lifc->local);
-			return SRC_UNI;
-		}
-	}
-	return SRC_UNSPEC;
 }
 
 /*
@@ -1604,29 +1598,6 @@ ipifcregisterproxy(Fs *f, Ipifc *ifc, uchar *ip)
 		}
 	}
 }
-
-
-/* added for new v6 mesg types */
-static void
-adddefroute6(Fs *f, uchar *gate, int force)
-{
-	Route *r;
-
-	r = v6lookup(f, v6Unspecified, nil);
-	/*
-	 * route entries generated by all other means take precedence
-	 * over router announcements.
-	 */
-	if (r && !force && strcmp(r->tag, "ra") != 0)
-		return;
-
-	v6delroute(f, v6Unspecified, v6Unspecified, 1);
-	v6addroute(f, "ra", v6Unspecified, v6Unspecified, gate, 0);
-}
-
-enum {
-	Ngates = 3,
-};
 
 char*
 ipifcadd6(Ipifc *ifc, char**argv, int argc)

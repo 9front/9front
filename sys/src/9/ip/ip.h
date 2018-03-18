@@ -21,10 +21,10 @@ typedef struct	Proto	Proto;
 typedef struct	Arpent	Arpent;
 typedef struct	Arp Arp;
 typedef struct	Route	Route;
+typedef struct	Routehint Routehint;
 
 typedef struct	Routerparams	Routerparams;
 typedef struct 	Hostparams	Hostparams;
-typedef struct 	v6router	v6router;
 typedef struct	v6params	v6params;
 
 #pragma incomplete Arp
@@ -164,6 +164,12 @@ struct Ip4hdr
 	uchar	dst[4];		/* IP destination */
 };
 
+struct Routehint
+{
+	Route	*r;			/* last route used */
+	ulong	rgen;			/* routetable generation for *r */
+};
+
 /*
  *  one per conversation directory
  */
@@ -191,8 +197,6 @@ struct Conv
 	int	length;
 	int	state;
 
-	int	maxfragsize;		/* If set, used for fragmentation */
-
 	/* udp specific */
 	int	headers;		/* data src/dst headers in udp */
 	int	reliable;		/* true if reliable udp */
@@ -217,8 +221,7 @@ struct Conv
 
 	void*	ptcl;			/* protocol specific stuff */
 
-	Route	*r;			/* last route used */
-	ulong	rgen;			/* routetable generation for *r */
+	Routehint;
 };
 
 struct Medium
@@ -443,23 +446,10 @@ struct Fs
 	long	ndbmtime;
 };
 
-/* one per default router known to host */
-struct v6router {
-	uchar	inuse;
-	Ipifc	*ifc;
-	int	ifcid;
-	uchar	routeraddr[IPaddrlen];
-	long	ltorigin;
-	Routerparams	rp;
-};
-
 struct v6params
 {
 	Routerparams	rp;		/* v6 params, one copy per node now */
 	Hostparams	hp;
-	v6router	v6rlist[3];	/* max 3 default routers, currently */
-	int		cdrouter;	/* uses only v6rlist[cdrouter] if   */
-					/* cdrouter >= 0. */
 };
 
 
@@ -586,8 +576,8 @@ extern void	v4addroute(Fs *f, char *tag, uchar *a, uchar *mask, uchar *gate, int
 extern void	v6addroute(Fs *f, char *tag, uchar *a, uchar *mask, uchar *gate, int type);
 extern void	v4delroute(Fs *f, uchar *a, uchar *mask, int dolock);
 extern void	v6delroute(Fs *f, uchar *a, uchar *mask, int dolock);
-extern Route*	v4lookup(Fs *f, uchar *a, Conv *c);
-extern Route*	v6lookup(Fs *f, uchar *a, Conv *c);
+extern Route*	v4lookup(Fs *f, uchar *a, Routehint *h);
+extern Route*	v6lookup(Fs *f, uchar *a, Routehint *h);
 extern long	routeread(Fs *f, char*, ulong, int);
 extern long	routewrite(Fs *f, Chan*, char*, int);
 extern void	routetype(int, char*);
@@ -654,6 +644,7 @@ extern int	isv4(uchar*);
 extern void	v4tov6(uchar *v6, uchar *v4);
 extern int	v6tov4(uchar *v4, uchar *v6);
 extern int	eipfmt(Fmt*);
+extern int	convipvers(Conv *c);
 
 #define	ipmove(x, y) memmove(x, y, IPaddrlen)
 #define	ipcmp(x, y) ( (x)[IPaddrlen-1] != (y)[IPaddrlen-1] || memcmp(x, y, IPaddrlen) )
@@ -686,9 +677,8 @@ extern int	ipisbm(uchar *);
 extern int	ipismulticast(uchar *);
 extern Ipifc*	findipifc(Fs*, uchar *remote, int type);
 extern void	findlocalip(Fs*, uchar *local, uchar *remote);
-extern int	ipv4local(Ipifc *ifc, uchar *addr);
-extern int	ipv6local(Ipifc *ifc, uchar *addr);
-extern int	ipv6anylocal(Ipifc *ifc, uchar *addr);
+extern int	ipv4local(Ipifc *ifc, uchar *local, uchar *remote);
+extern int	ipv6local(Ipifc *ifc, uchar *local, uchar *remote);
 extern Iplifc*	iplocalonifc(Ipifc *ifc, uchar *ip);
 extern int	ipproxyifc(Fs *f, Ipifc *ifc, uchar *ip);
 extern int	ipismulticast(uchar *ip);
@@ -714,8 +704,8 @@ extern void	icmpttlexceeded(Fs*, uchar*, Block*);
 extern ushort	ipcsum(uchar*);
 extern void	ipiput4(Fs*, Ipifc*, Block*);
 extern void	ipiput6(Fs*, Ipifc*, Block*);
-extern int	ipoput4(Fs*, Block*, int, int, int, Conv*);
-extern int	ipoput6(Fs*, Block*, int, int, int, Conv*);
+extern int	ipoput4(Fs*, Block*, int, int, int, Routehint*);
+extern int	ipoput6(Fs*, Block*, int, int, int, Routehint*);
 extern int	ipstats(Fs*, char*, int);
 extern ushort	ptclbsum(uchar*, int);
 extern ushort	ptclcsum(Block*, int, int);

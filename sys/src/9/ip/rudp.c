@@ -567,7 +567,7 @@ rudpiput(Proto *rudp, Ipifc *ifc, Block *bp)
 			if(ipforme(f, laddr) == Runi)
 				ipmove(c->laddr, laddr);
 			else
-				v4tov6(c->laddr, ifc->lifc->local);
+				ipv6local(ifc, c->laddr, c->raddr);
 		}
 		break;
 	}
