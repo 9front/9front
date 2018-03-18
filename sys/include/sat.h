@@ -7,6 +7,10 @@ typedef struct SATBlock SATBlock;
 typedef struct SATVar SATVar;
 typedef struct SATLit SATLit;
 typedef struct SATConflict SATConflict;
+#pragma incomplete SATClause
+#pragma incomplete SATVar
+#pragma incomplete SATLit
+#pragma incomplete SATConflict
 
 /* user adjustable parameters */
 struct SATParam {
