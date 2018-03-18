@@ -468,7 +468,6 @@ static void
 recvrarouter(uchar buf[], int pktlen)
 {
 	USED(buf, pktlen);
-	ralog("i am a router and got a router advert");
 }
 
 /* host receiving a router advertisement calls this */
