@@ -919,12 +919,7 @@ Fsstdconnect(Conv *c, char *argv[], int argc)
 			return p;
 	}
 
-	if( (memcmp(c->raddr, v4prefix, IPv4off) == 0 &&
-		memcmp(c->laddr, v4prefix, IPv4off) == 0)
-		|| ipcmp(c->raddr, IPnoaddr) == 0)
-		c->ipversion = V4;
-	else
-		c->ipversion = V6;
+	c->ipversion = convipvers(c);
 
 	return nil;
 }
@@ -1150,12 +1145,6 @@ ipwrite(Chan* ch, void *v, long n, vlong off)
 			if (parseip(ia, cb->f[1]) == -1)
 				error(Ebadip);
 			ipifcremmulti(c, c->raddr, ia);
-		} else if(strcmp(cb->f[0], "maxfragsize") == 0){
-			if(cb->nf < 2)
-				error("maxfragsize needs size");
-
-			c->maxfragsize = (int)strtol(cb->f[1], nil, 0);
-			
 		} else if(x->ctl != nil) {
 			p = x->ctl(c, cb->f, cb->nf);
 			if(p != nil)
@@ -1329,7 +1318,6 @@ retry:
 	c->lport = 0;
 	c->rport = 0;
 	c->restricted = 0;
-	c->maxfragsize = 0;
 	c->ttl = MAXTTL;
 	qreopen(c->rq);
 	qreopen(c->wq);

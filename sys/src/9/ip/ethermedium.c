@@ -477,7 +477,7 @@ sendarp(Ipifc *ifc, Arpent *a)
 	memset(bp->rp, 0, n);
 	e = (Etherarp*)bp->rp;
 	memmove(e->tpa, a->ip+IPv4off, sizeof(e->tpa));
-	ipv4local(ifc, e->spa);
+	ipv4local(ifc, e->spa, e->tpa);
 	memmove(e->sha, ifc->mac, sizeof(e->sha));
 	memset(e->d, 0xff, sizeof(e->d));		/* ethernet broadcast */
 	memmove(e->s, ifc->mac, sizeof(e->s));
@@ -496,7 +496,6 @@ sendarp(Ipifc *ifc, Arpent *a)
 static void
 resolveaddr6(Ipifc *ifc, Arpent *a)
 {
-	int sflag;
 	Block *bp;
 	Etherrock *er = ifc->arg;
 	uchar ipsrc[IPaddrlen];
@@ -526,8 +525,8 @@ resolveaddr6(Ipifc *ifc, Arpent *a)
 	a->rxtsrem--;
 	arprelease(er->f->arp, a);
 
-	if(sflag = ipv6anylocal(ifc, ipsrc))
-		icmpns(er->f, ipsrc, sflag, a->ip, TARG_MULTI, ifc->mac);
+	if(ipv6local(ifc, ipsrc, a->ip))
+		icmpns(er->f, ipsrc, SRC_UNI, a->ip, TARG_MULTI, ifc->mac);
 }
 
 /*

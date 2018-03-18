@@ -323,7 +323,6 @@ v4addroute(Fs *f, char *tag, uchar *a, uchar *mask, uchar *gate, int type)
 }
 
 #define	V6H(a)	(((a)[IPllen-1] & 0x07ffffff)>>(32-Lroot-5))
-#define ISDFLT(a, mask, tag) ((ipcmp((a),v6Unspecified)==0) && (ipcmp((mask),v6Unspecified)==0) && (strcmp((tag), "ra")!=0))
 
 void
 v6addroute(Fs *f, char *tag, uchar *a, uchar *mask, uchar *gate, int type)
@@ -332,12 +331,6 @@ v6addroute(Fs *f, char *tag, uchar *a, uchar *mask, uchar *gate, int type)
 	ulong sa[IPllen], ea[IPllen];
 	ulong x, y;
 	int h, eh;
-
-	/*
-	if(ISDFLT(a, mask, tag))
-		f->v6p->cdrouter = -1;
-	*/
-
 
 	for(h = 0; h < IPllen; h++){
 		x = nhgetl(a+4*h);
@@ -482,15 +475,15 @@ v6delroute(Fs *f, uchar *a, uchar *mask, int dolock)
 }
 
 Route*
-v4lookup(Fs *f, uchar *a, Conv *c)
+v4lookup(Fs *f, uchar *a, Routehint *rh)
 {
 	Route *p, *q;
 	ulong la;
 	uchar gate[IPaddrlen];
 	Ipifc *ifc;
 
-	if(c != nil && c->r != nil && c->r->ifc != nil && c->rgen == v4routegeneration)
-		return c->r;
+	if(rh != nil && rh->r != nil && rh->r->ifc != nil && rh->rgen == v4routegeneration)
+		return rh->r;
 
 	la = nhgetl(a);
 	q = nil;
@@ -517,16 +510,16 @@ v4lookup(Fs *f, uchar *a, Conv *c)
 		q->ifcid = ifc->ifcid;
 	}
 
-	if(c != nil){
-		c->r = q;
-		c->rgen = v4routegeneration;
+	if(rh != nil){
+		rh->r = q;
+		rh->rgen = v4routegeneration;
 	}
 
 	return q;
 }
 
 Route*
-v6lookup(Fs *f, uchar *a, Conv *c)
+v6lookup(Fs *f, uchar *a, Routehint *rh)
 {
 	Route *p, *q;
 	ulong la[IPllen];
@@ -536,18 +529,18 @@ v6lookup(Fs *f, uchar *a, Conv *c)
 	Ipifc *ifc;
 
 	if(memcmp(a, v4prefix, IPv4off) == 0){
-		q = v4lookup(f, a+IPv4off, c);
+		q = v4lookup(f, a+IPv4off, rh);
 		if(q != nil)
 			return q;
 	}
 
-	if(c != nil && c->r != nil && c->r->ifc != nil && c->rgen == v6routegeneration)
-		return c->r;
+	if(rh != nil && rh->r != nil && rh->r->ifc != nil && rh->rgen == v6routegeneration)
+		return rh->r;
 
 	for(h = 0; h < IPllen; h++)
 		la[h] = nhgetl(a+4*h);
 
-	q = 0;
+	q = nil;
 	for(p=f->v6root[V6H(la)]; p;){
 		for(h = 0; h < IPllen; h++){
 			x = la[h];
@@ -588,9 +581,10 @@ next:		;
 		q->ifc = ifc;
 		q->ifcid = ifc->ifcid;
 	}
-	if(c != nil){
-		c->r = q;
-		c->rgen = v6routegeneration;
+
+	if(rh != nil){
+		rh->r = q;
+		rh->rgen = v6routegeneration;
 	}
 	
 	return q;

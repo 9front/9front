@@ -267,17 +267,6 @@ espclose(Conv *c)
 }
 
 static int
-convipvers(Conv *c)
-{
-	if((memcmp(c->raddr, v4prefix, IPv4off) == 0 &&
-	    memcmp(c->laddr, v4prefix, IPv4off) == 0) ||
-	    ipcmp(c->raddr, IPnoaddr) == 0)
-		return V4;
-	else
-		return V6;
-}
-
-static int
 pktipvers(Fs *f, Block **bpp)
 {
 	if (*bpp == nil || BLEN(*bpp) == 0) {

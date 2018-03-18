@@ -28,7 +28,7 @@ static Block*	procxtns(IP *ip, Block *bp, int doreasm);
 int		unfraglen(Block *bp, uchar *nexthdr, int setfh);
 
 int
-ipoput6(Fs *f, Block *bp, int gating, int ttl, int tos, Conv *c)
+ipoput6(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
 {
 	int medialen, len, chunk, uflen, flen, seglen, lid, offset, fragoff;
 	int morefrags, blklen, rv = 0, tentative;
@@ -74,9 +74,8 @@ ipoput6(Fs *f, Block *bp, int gating, int ttl, int tos, Conv *c)
 		goto free;
 	}
 
-	r = v6lookup(f, eh->dst, c);
+	r = v6lookup(f, eh->dst, rh);
 	if(r == nil){
-//		print("no route for %I, src %I free\n", eh->dst, eh->src);
 		ip->stats[OutNoRoutes]++;
 		netlog(f, Logip, "no interface %I\n", eh->dst);
 		rv = -1;
@@ -231,7 +230,6 @@ ipiput6(Fs *f, Ipifc *ifc, Block *bp)
 	IP *ip;
 	Ip6hdr *h;
 	Proto *p;
-	Route *r, *sr;
 
 	ip = f->ip;
 	ip->stats[InReceives]++;
@@ -274,6 +272,9 @@ ipiput6(Fs *f, Ipifc *ifc, Block *bp)
 
 	/* route */
 	if(notforme) {
+		Route *r;
+		Routehint rh;
+
 		if(!ip->iprouting){
 			freeblist(bp);
 			return;
@@ -288,10 +289,9 @@ ipiput6(Fs *f, Ipifc *ifc, Block *bp)
 		}
 			
 		/* don't forward to source's network */
-		sr = v6lookup(f, h->src, nil);
-		r  = v6lookup(f, h->dst, nil);
-
-		if(r == nil || sr == r){
+		rh.r = nil;
+		r  = v6lookup(f, h->dst, &rh);
+		if(r == nil || r->ifc == ifc){
 			ip->stats[OutDiscards]++;
 			freeblist(bp);
 			return;
@@ -315,7 +315,7 @@ ipiput6(Fs *f, Ipifc *ifc, Block *bp)
 		h = (Ip6hdr *)bp->rp;
 		tos = IPV6CLASS(h);
 		hop = h->ttl;
-		ipoput6(f, bp, 1, hop-1, tos, nil);
+		ipoput6(f, bp, 1, hop-1, tos, &rh);
 		return;
 	}
 

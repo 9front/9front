@@ -189,7 +189,7 @@ udpkick(void *x, Block *bp)
 	Udppriv *upriv;
 	Fs *f;
 	int version;
-	Conv *rc;
+	Routehint *rh;
 
 	upriv = c->p->priv;
 	f = c->p->f;
@@ -222,18 +222,12 @@ udpkick(void *x, Block *bp)
 	}
 
 	if(ucb->headers) {
-		if(memcmp(laddr, v4prefix, IPv4off) == 0
-		|| ipcmp(laddr, IPnoaddr) == 0)
-			version = 4;
+		if(isv4(laddr) || ipcmp(laddr, IPnoaddr) == 0)
+			version = V4;
 		else
-			version = 6;
+			version = V6;
 	} else {
-		if( (memcmp(c->raddr, v4prefix, IPv4off) == 0 &&
-			memcmp(c->laddr, v4prefix, IPv4off) == 0)
-			|| ipcmp(c->raddr, IPnoaddr) == 0)
-			version = 4;
-		else
-			version = 6;
+		version = convipvers(c);
 	}
 
 	dlen = blocklen(bp);
@@ -253,14 +247,14 @@ udpkick(void *x, Block *bp)
 			v6tov4(uh4->udpdst, raddr);
 			hnputs(uh4->udpdport, rport);
 			v6tov4(uh4->udpsrc, laddr);
-			rc = nil;
+			rh = nil;
 		} else {
 			v6tov4(uh4->udpdst, c->raddr);
 			hnputs(uh4->udpdport, c->rport);
 			if(ipcmp(c->laddr, IPnoaddr) == 0)
 				findlocalip(f, c->laddr, c->raddr);
 			v6tov4(uh4->udpsrc, c->laddr);
-			rc = c;
+			rh = c;
 		}
 		hnputs(uh4->udpsport, c->lport);
 		hnputs(uh4->udplen, ptcllen);
@@ -269,7 +263,7 @@ udpkick(void *x, Block *bp)
 		hnputs(uh4->udpcksum,
 		       ptclcsum(bp, UDP4_PHDR_OFF, dlen+UDP_UDPHDR_SZ+UDP4_PHDR_SZ));
 		uh4->vihl = IP_VER4;
-		ipoput4(f, bp, 0, c->ttl, c->tos, rc);
+		ipoput4(f, bp, 0, c->ttl, c->tos, rh);
 		break;
 
 	case V6:
@@ -287,14 +281,14 @@ udpkick(void *x, Block *bp)
 			ipmove(uh6->udpdst, raddr);
 			hnputs(uh6->udpdport, rport);
 			ipmove(uh6->udpsrc, laddr);
-			rc = nil;
+			rh = nil;
 		} else {
 			ipmove(uh6->udpdst, c->raddr);
 			hnputs(uh6->udpdport, c->rport);
 			if(ipcmp(c->laddr, IPnoaddr) == 0)
 				findlocalip(f, c->laddr, c->raddr);
 			ipmove(uh6->udpsrc, c->laddr);
-			rc = c;
+			rh = c;
 		}
 		hnputs(uh6->udpsport, c->lport);
 		hnputs(uh6->udplen, ptcllen);
@@ -306,7 +300,7 @@ udpkick(void *x, Block *bp)
 		uh6->viclfl[0] = IP_VER6;
 		hnputs(uh6->len, ptcllen);
 		uh6->nextheader = IP_UDPPROTO;
-		ipoput6(f, bp, 0, c->ttl, c->tos, rc);
+		ipoput6(f, bp, 0, c->ttl, c->tos, rh);
 		break;
 
 	default:
@@ -336,7 +330,7 @@ udpiput(Proto *udp, Ipifc *ifc, Block *bp)
 	upriv->ustats.udpInDatagrams++;
 
 	uh4 = (Udp4hdr*)(bp->rp);
-	version = ((uh4->vihl&0xF0)==IP_VER6) ? 6 : 4;
+	version = ((uh4->vihl&0xF0)==IP_VER6) ? V6 : V4;
 
 	/* Put back pseudo header for checksum
 	 * (remember old values for icmpnoconv()) */
@@ -424,18 +418,8 @@ udpiput(Proto *udp, Ipifc *ifc, Block *bp)
 	if(c->state == Announced){
 		if(ucb->headers == 0){
 			/* create a new conversation */
-			if(ipforme(f, laddr) != Runi) {
-				switch(version){
-				case V4:
-					v4tov6(laddr, ifc->lifc->local);
-					break;
-				case V6:
-					ipmove(laddr, ifc->lifc->local);
-					break;
-				default:
-					panic("udpiput3: version %d", version);
-				}
-			}
+			if(ipforme(f, laddr) != Runi)
+				ipv6local(ifc, laddr, raddr);
 			c = Fsnewcall(c, raddr, rport, laddr, lport, version);
 			if(c == nil){
 				qunlock(udp);
@@ -533,7 +517,7 @@ udpadvise(Proto *udp, Block *bp, char *msg)
 	int version;
 
 	h4 = (Udp4hdr*)(bp->rp);
-	version = ((h4->vihl&0xF0)==IP_VER6) ? 6 : 4;
+	version = ((h4->vihl&0xF0)==IP_VER6) ? V6 : V4;
 
 	switch(version) {
 	case V4:

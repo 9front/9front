@@ -331,7 +331,7 @@ mkechoreply6(Block *bp, Ipifc *ifc)
 	ipmove(addr, p->src);
 	if(!isv6mcast(p->dst))
 		ipmove(p->src, p->dst);
-	else if (!ipv6anylocal(ifc, p->src))
+	else if (!ipv6local(ifc, p->src, addr))
 		return nil;
 	ipmove(p->dst, addr);
 	p->type = EchoReplyV6;
@@ -440,7 +440,7 @@ icmphostunr(Fs *f, Ipifc *ifc, Block *bp, int code, int free)
 	np = (IPICMP *)nbp->rp;
 
 	rlock(ifc);
-	if(ipv6anylocal(ifc, np->src))
+	if(ipv6local(ifc, np->src, p->src))
 		netlog(f, Logicmp, "send icmphostunr -> src %I dst %I\n", p->src, p->dst);
 	else {
 		netlog(f, Logicmp, "icmphostunr fail -> src %I dst %I\n", p->src, p->dst);
@@ -487,7 +487,7 @@ icmpttlexceeded6(Fs *f, Ipifc *ifc, Block *bp)
 	nbp = newIPICMP(sz);
 	np = (IPICMP *) nbp->rp;
 
-	if(ipv6anylocal(ifc, np->src))
+	if(ipv6local(ifc, np->src, p->src))
 		netlog(f, Logicmp, "send icmpttlexceeded6 -> src %I dst %I\n",
 			p->src, p->dst);
 	else {
@@ -526,7 +526,7 @@ icmppkttoobig6(Fs *f, Ipifc *ifc, Block *bp)
 	nbp = newIPICMP(sz);
 	np = (IPICMP *)nbp->rp;
 
-	if(ipv6anylocal(ifc, np->src))
+	if(ipv6local(ifc, np->src, p->src))
 		netlog(f, Logicmp, "send icmppkttoobig6 -> src %I dst %I\n",
 			p->src, p->dst);
 	else {
@@ -778,18 +778,11 @@ icmpiput6(Proto *icmp, Ipifc *ipifc, Block *bp)
 			}
 			bp->rp -= IPICMPSZ;
 		}
-
 		goticmpkt6(icmp, bp, 0);
 		break;
 
 	case RouterAdvert:
 	case RouterSolicit:
-		/* using lsrc as a temp, munge hdr for goticmp6 */
-		if (0) {
-			memmove(lsrc, p->src, IPaddrlen);
-			memmove(p->src, p->dst, IPaddrlen);
-			memmove(p->dst, lsrc, IPaddrlen);
-		}
 		goticmpkt6(icmp, bp, p->type);
 		break;
 
@@ -809,21 +802,21 @@ icmpiput6(Proto *icmp, Ipifc *ipifc, Block *bp)
 					8*np->olen-2, 0);
 				pktflags |= Sflag;
 			}
-			if(ipv6local(ipifc, lsrc))
-				icmpna(icmp->f, lsrc,
-					(ipcmp(np->src, v6Unspecified) == 0?
-						v6allnodesL: np->src),
-					np->target, ipifc->mac, pktflags);
-			else
-				freeblist(bp);
+			if(!ipv6local(ipifc, lsrc, np->src))
+				break;
+			icmpna(icmp->f, lsrc,
+				(ipcmp(np->src, v6Unspecified) == 0?
+					v6allnodesL: np->src),
+				np->target, ipifc->mac, pktflags);
 			break;
-
 		case Tunitent:
-			/* not clear what needs to be done. send up
-			 * an icmp mesg saying don't use this address? */
-		default:
-			freeblist(bp);
+			/*
+			 * not clear what needs to be done. send up
+			 * an icmp mesg saying don't use this address?
+			 */
+			break;
 		}
+		freeblist(bp);
 		break;
 
 	case NbrAdvert:
@@ -839,8 +832,7 @@ icmpiput6(Proto *icmp, Ipifc *ipifc, Block *bp)
 		lifc = iplocalonifc(ipifc, np->target);
 		if(lifc && lifc->tentative)
 			refresh = 0;
-		arpenter(icmp->f, V6, np->target, np->lnaddr, 8*np->olen-2,
-			refresh);
+		arpenter(icmp->f, V6, np->target, np->lnaddr, 8*np->olen-2, refresh);
 		freeblist(bp);
 		break;
 

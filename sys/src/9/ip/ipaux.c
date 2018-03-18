@@ -366,3 +366,12 @@ iphtlook(Ipht *ht, uchar *sa, ushort sp, uchar *da, ushort dp)
 	unlock(ht);
 	return nil;
 }
+
+int
+convipvers(Conv *c)
+{
+	if(isv4(c->raddr) && isv4(c->laddr) || ipcmp(c->raddr, IPnoaddr) == 0)
+		return V4;
+	else
+		return V6;
+}

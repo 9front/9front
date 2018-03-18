@@ -539,7 +539,6 @@ arpread(Arp *arp, char *p, ulong offset, int len)
 extern int
 rxmitsols(Arp *arp)
 {
-	uint sflag;
 	Block *next, *xp;
 	Arpent *a, *b, **l;
 	Fs *f;
@@ -582,8 +581,8 @@ rxmitsols(Arp *arp)
 
 
 	qunlock(arp);	/* for icmpns */
-	if((sflag = ipv6anylocal(ifc, ipsrc)) != SRC_UNSPEC) 
-		icmpns(f, ipsrc, sflag, a->ip, TARG_MULTI, ifc->mac); 
+	if(ipv6local(ifc, ipsrc, a->ip)) 
+		icmpns(f, ipsrc, SRC_UNI, a->ip, TARG_MULTI, ifc->mac); 
 
 	runlock(ifc);
 	qlock(arp);	

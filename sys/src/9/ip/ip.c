@@ -63,8 +63,6 @@ ip_init_6(Fs *f)
 
 	v6p->hp.rxmithost	= 1000;		/* v6 RETRANS_TIMER */
 
-	v6p->cdrouter 		= -1;
-
 	f->v6p			= v6p;
 }
 
@@ -118,7 +116,7 @@ iprouting(Fs *f, int on)
 }
 
 int
-ipoput4(Fs *f, Block *bp, int gating, int ttl, int tos, Conv *c)
+ipoput4(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
 {
 	Ipifc *ifc;
 	uchar *gate;
@@ -156,7 +154,7 @@ ipoput4(Fs *f, Block *bp, int gating, int ttl, int tos, Conv *c)
 		goto free;
 	}
 
-	r = v4lookup(f, eh->dst, c);
+	r = v4lookup(f, eh->dst, rh);
 	if(r == nil){
 		ip->stats[OutNoRoutes]++;
 		netlog(f, Logip, "no interface %V\n", eh->dst);
@@ -193,10 +191,7 @@ ipoput4(Fs *f, Block *bp, int gating, int ttl, int tos, Conv *c)
 		goto raise;
 
 	/* If we dont need to fragment just send it */
-	if(c && c->maxfragsize && c->maxfragsize < ifc->maxtu)
-		medialen = c->maxfragsize - ifc->m->hsize;
-	else
-		medialen = ifc->maxtu - ifc->m->hsize;
+	medialen = ifc->maxtu - ifc->m->hsize;
 	if(len <= medialen) {
 		if(!gating)
 			hnputs(eh->id, incref(&ip->id4));
@@ -315,8 +310,6 @@ ipiput4(Fs *f, Ipifc *ifc, Block *bp)
 	int notforme;
 	uchar *dp, v6dst[IPaddrlen];
 	IP *ip;
-	Route *r;
-	Conv conv;
 
 	if(BLKIPVER(bp) != IP_VER4) {
 		ipiput6(f, ifc, bp);
@@ -377,15 +370,17 @@ ipiput4(Fs *f, Ipifc *ifc, Block *bp)
 
 	/* route */
 	if(notforme) {
+		Route *r;
+		Routehint rh;
+
 		if(!ip->iprouting){
 			freeblist(bp);
 			return;
 		}
 
 		/* don't forward to source's network */
-		memmove(&conv, ifc->conv, sizeof conv);
-		conv.r = nil;
-		r = v4lookup(f, h->dst, &conv);
+		rh.r = nil;
+		r = v4lookup(f, h->dst, &rh);
 		if(r == nil || r->ifc == ifc){
 			ip->stats[OutDiscards]++;
 			freeblist(bp);
@@ -419,7 +414,7 @@ if(r->ifc == nil) panic("nil route ifc");
 		ip->stats[ForwDatagrams]++;
 		tos = h->tos;
 		hop = h->ttl;
-		ipoput4(f, bp, 1, hop - 1, tos, &conv);
+		ipoput4(f, bp, 1, hop - 1, tos, &rh);
 		return;
 	}
 
