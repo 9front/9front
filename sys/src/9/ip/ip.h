@@ -628,6 +628,7 @@ extern Arpent*	arpget(Arp*, Block *bp, int version, Ipifc *ifc, uchar *ip, uchar
 extern void	arprelease(Arp*, Arpent *a);
 extern Block*	arpresolve(Arp*, Arpent *a, Medium *type, uchar *mac);
 extern void	arpenter(Fs*, int version, uchar *ip, uchar *mac, int len, int norefresh);
+extern void	ndpsendsol(Fs*, Ipifc*, Arpent*);
 
 /*
  * ipaux.c

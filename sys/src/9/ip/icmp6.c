@@ -345,7 +345,7 @@ mkechoreply6(Block *bp, Ipifc *ifc)
  *	tuni == TARG_MULTI => multicast for address resolution,
  * 	and tuni == TARG_UNI => neighbor reachability.
  */
-extern void
+void
 icmpns(Fs *f, uchar* src, int suni, uchar* targ, int tuni, uchar* mac)
 {
 	Block *nbp;
@@ -357,18 +357,18 @@ icmpns(Fs *f, uchar* src, int suni, uchar* targ, int tuni, uchar* mac)
 	np = (Ndpkt*) nbp->rp;
 
 	if(suni == SRC_UNSPEC)
-		memmove(np->src, v6Unspecified, IPaddrlen);
+		ipmove(np->src, v6Unspecified);
 	else
-		memmove(np->src, src, IPaddrlen);
+		ipmove(np->src, src);
 
 	if(tuni == TARG_UNI)
-		memmove(np->dst, targ, IPaddrlen);
+		ipmove(np->dst, targ);
 	else
 		ipv62smcast(np->dst, targ);
 
 	np->type = NbrSolicit;
 	np->code = 0;
-	memmove(np->target, targ, IPaddrlen);
+	ipmove(np->target, targ);
 	if(suni != SRC_UNSPEC) {
 		np->otype = SRC_LLADDR;
 		np->olen = 1;		/* 1+1+6 = 8 = 1 8-octet */
@@ -388,7 +388,7 @@ icmpns(Fs *f, uchar* src, int suni, uchar* targ, int tuni, uchar* mac)
 /*
  * sends out an ICMPv6 neighbor advertisement. pktflags == RSO flags.
  */
-extern void
+void
 icmpna(Fs *f, uchar* src, uchar* dst, uchar* targ, uchar* mac, uchar flags)
 {
 	Block *nbp;
@@ -399,13 +399,13 @@ icmpna(Fs *f, uchar* src, uchar* dst, uchar* targ, uchar* mac, uchar flags)
 	nbp = newIPICMP(NDPKTSZ);
 	np = (Ndpkt*)nbp->rp;
 
-	memmove(np->src, src, IPaddrlen);
-	memmove(np->dst, dst, IPaddrlen);
+	ipmove(np->src, src);
+	ipmove(np->dst, dst);
 
 	np->type = NbrAdvert;
 	np->code = 0;
 	np->icmpid[0] = flags;
-	memmove(np->target, targ, IPaddrlen);
+	ipmove(np->target, targ);
 
 	np->otype = TARGET_LLADDR;
 	np->olen = 1;
@@ -420,7 +420,7 @@ icmpna(Fs *f, uchar* src, uchar* dst, uchar* targ, uchar* mac, uchar flags)
 	ipoput6(f, nbp, 0, MAXTTL, DFLTTOS, nil);
 }
 
-extern void
+void
 icmphostunr(Fs *f, Ipifc *ifc, Block *bp, int code, int free)
 {
 	int osz = BLEN(bp);
@@ -449,7 +449,7 @@ icmphostunr(Fs *f, Ipifc *ifc, Block *bp, int code, int free)
 		goto freebl;
 	}
 
-	memmove(np->dst, p->src, IPaddrlen);
+	ipmove(np->dst, p->src);
 	np->type = UnreachableV6;
 	np->code = code;
 	memmove(nbp->rp + IPICMPSZ, bp->rp, sz - IPICMPSZ);
@@ -468,7 +468,7 @@ freebl:
 		freeblist(bp);
 }
 
-extern void
+void
 icmpttlexceeded6(Fs *f, Ipifc *ifc, Block *bp)
 {
 	int osz = BLEN(bp);
@@ -496,7 +496,7 @@ icmpttlexceeded6(Fs *f, Ipifc *ifc, Block *bp)
 		return;
 	}
 
-	memmove(np->dst, p->src, IPaddrlen);
+	ipmove(np->dst, p->src);
 	np->type = TimeExceedV6;
 	np->code = 0;
 	memmove(nbp->rp + IPICMPSZ, bp->rp, sz - IPICMPSZ);
@@ -507,7 +507,7 @@ icmpttlexceeded6(Fs *f, Ipifc *ifc, Block *bp)
 	ipoput6(f, nbp, 0, MAXTTL, DFLTTOS, nil);
 }
 
-extern void
+void
 icmppkttoobig6(Fs *f, Ipifc *ifc, Block *bp)
 {
 	int osz = BLEN(bp);
@@ -535,7 +535,7 @@ icmppkttoobig6(Fs *f, Ipifc *ifc, Block *bp)
 		return;
 	}
 
-	memmove(np->dst, p->src, IPaddrlen);
+	ipmove(np->dst, p->src);
 	np->type = PacketTooBigV6;
 	np->code = 0;
 	hnputl(np->icmpid, ifc->maxtu - ifc->m->hsize);

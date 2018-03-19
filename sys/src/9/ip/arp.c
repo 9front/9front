@@ -47,7 +47,7 @@ char *Ebadarp = "bad arp";
 
 #define haship(s) ((s)[IPaddrlen-1]%NHASH)
 
-extern int 	ReTransTimer = RETRANS_TIMER;
+int 	ReTransTimer = RETRANS_TIMER;
 
 static void 	rxmitproc(void *v);
 
@@ -223,7 +223,7 @@ arpget(Arp *arp, Block *bp, int version, Ipifc *ifc, uchar *ip, uchar *mac)
 	qlock(arp);
 	hash = haship(ip);
 	for(a = arp->hash[hash]; a != nil; a = a->hash){
-		if(memcmp(ip, a->ip, sizeof(a->ip)) == 0)
+		if(ipcmp(ip, a->ip) == 0)
 		if(type == a->type)
 			break;
 	}
@@ -536,13 +536,35 @@ arpread(Arp *arp, char *p, ulong offset, int len)
 	return n;
 }
 
-extern int
+void
+ndpsendsol(Fs *f, Ipifc *ifc, Arpent *a)
+{
+	uchar targ[IPaddrlen], src[IPaddrlen];
+
+	ipmove(targ, a->ip);
+
+	if(a->last != nil){
+		ipmove(src, ((Ip6hdr*)a->last->rp)->src);
+		arprelease(f->arp, a);
+
+		if(iplocalonifc(ifc, src) || ipproxyifc(f, ifc, src))
+			goto send;
+	} else {
+		arprelease(f->arp, a);
+	}
+
+	if(!ipv6local(ifc, src, targ))
+		return;
+send:
+	icmpns(f, src, SRC_UNI, targ, TARG_MULTI, ifc->mac);
+}
+
+int
 rxmitsols(Arp *arp)
 {
 	Block *next, *xp;
 	Arpent *a, *b, **l;
 	Fs *f;
-	uchar ipsrc[IPaddrlen];
 	Ipifc *ifc = nil;
 	long nrxt;
 
@@ -579,10 +601,7 @@ rxmitsols(Arp *arp)
 	if(a == nil)
 		goto dodrops;
 
-
-	qunlock(arp);	/* for icmpns */
-	if(ipv6local(ifc, ipsrc, a->ip)) 
-		icmpns(f, ipsrc, SRC_UNI, a->ip, TARG_MULTI, ifc->mac); 
+	ndpsendsol(f, ifc, a);	/* unlocks arp */
 
 	runlock(ifc);
 	qlock(arp);	

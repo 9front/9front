@@ -113,7 +113,7 @@ icmpcreate(Conv *c)
 	c->wq = qbypass(icmpkick, c);
 }
 
-extern char*
+char*
 icmpconnect(Conv *c, char **argv, int argc)
 {
 	char *e;
@@ -126,7 +126,7 @@ icmpconnect(Conv *c, char **argv, int argc)
 	return nil;
 }
 
-extern int
+int
 icmpstate(Conv *c, char *state, int n)
 {
 	USED(c);
@@ -137,7 +137,7 @@ icmpstate(Conv *c, char *state, int n)
 	);
 }
 
-extern char*
+char*
 icmpannounce(Conv *c, char **argv, int argc)
 {
 	char *e;
@@ -150,7 +150,7 @@ icmpannounce(Conv *c, char **argv, int argc)
 	return nil;
 }
 
-extern void
+void
 icmpclose(Conv *c)
 {
 	qclose(c->rq);
@@ -214,7 +214,7 @@ ip4me(Fs *f, uchar ip4[4])
 	return (ipforme(f, addr) & Runi) != 0;
 }
 
-extern void
+void
 icmpttlexceeded(Fs *f, uchar *ia, Block *bp)
 {
 	Block	*nbp;
@@ -270,13 +270,13 @@ icmpunreachable(Fs *f, Block *bp, int code, int seq)
 	ipoput4(f, nbp, 0, MAXTTL, DFLTTOS, nil);
 }
 
-extern void
+void
 icmpnoconv(Fs *f, Block *bp)
 {
 	icmpunreachable(f, bp, 3, 0);
 }
 
-extern void
+void
 icmpcantfrag(Fs *f, Block *bp, int mtu)
 {
 	icmpunreachable(f, bp, 4, mtu);

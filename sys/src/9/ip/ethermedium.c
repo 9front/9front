@@ -498,7 +498,6 @@ resolveaddr6(Ipifc *ifc, Arpent *a)
 {
 	Block *bp;
 	Etherrock *er = ifc->arg;
-	uchar ipsrc[IPaddrlen];
 
 	/* don't do anything if it's been less than a second since the last */
 	if(NOW - a->ctime < ReTransTimer){
@@ -523,10 +522,7 @@ resolveaddr6(Ipifc *ifc, Arpent *a)
 	}
 
 	a->rxtsrem--;
-	arprelease(er->f->arp, a);
-
-	if(ipv6local(ifc, ipsrc, a->ip))
-		icmpns(er->f, ipsrc, SRC_UNI, a->ip, TARG_MULTI, ifc->mac);
+	ndpsendsol(er->f, ifc, a);	/* unlocks arp */
 }
 
 /*
@@ -610,7 +606,7 @@ recvarp(Ipifc *ifc)
 
 	case ARPREQUEST:
 		/* don't answer arps till we know who we are */
-		if(ifc->lifc == 0)
+		if(ifc->lifc == nil)
 			break;
 
 		/* check for machine using my ip or ether address */
