@@ -1,7 +1,7 @@
 .TH TIMEPIC 1
 .SH NAME
 timepic \- troff preprocessor for drawing timing diagrams
-.SH SYNOPSYS
+.SH SYNOPSIS
 .B timepic
 [
 .I files

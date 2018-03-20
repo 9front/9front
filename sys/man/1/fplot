@@ -1,7 +1,7 @@
 .TH FPLOT 1
 .SH NAME
 fplot \- plot elementary function
-.SH SYNOPSYS
+.SH SYNOPSIS
 .B fplot
 [
 .B -c

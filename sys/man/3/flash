@@ -1,7 +1,7 @@
 .TH FLASH 3
 .SH NAME
 flash \- flash memory
-.SH SYNOPSYS
+.SH SYNOPSIS
 .nf
 .BI "bind -a #F" \fR[\fPn\fR]\fP " /dev"
 .sp 0.3v

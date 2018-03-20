@@ -1,7 +1,7 @@
 .TH QR 1
 .SH NAME
 qr \- generate QR code
-.SH SYNOPSYS
+.SH SYNOPSIS
 .B qr
 [
 .B -LMQHna
