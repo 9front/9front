@@ -106,6 +106,7 @@ satrealloc(SATSolve *s, void *v, ulong n)
 	v = realloc(v, n);
 	if(v == nil)
 		saterror(s, "realloc: %r");
+	setmalloctag(v, getcallerpc(&s));
 	return v;
 }
 

@@ -82,7 +82,7 @@ solvinit(SATSolve *s)
 {
 	satdebuginit(s);
 	satheapreset(s);
-	s->decbd = satrealloc(s, s->decbd, s->nvar * sizeof(int));
+	s->decbd = satrealloc(s, s->decbd, (s->nvar + 1) * sizeof(int));
 	s->decbd[0] = 0;
 	s->trail = satrealloc(s, s->trail, sizeof(int) * s->nvar);
 	s->fullrlits = satrealloc(s, s->fullrlits, sizeof(int) * s->nvar);
