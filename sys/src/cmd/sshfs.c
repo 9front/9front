@@ -1320,7 +1320,7 @@ void
 usage(void)
 {
 	static char *common = "[-abdRUG] [-s service] [-m mtpt] [-u uidfile] [-g gidfile]";
-	fprint(2, "usage: %s %s [-- ssh-options] host\n", argv0, common);
+	fprint(2, "usage: %s %s [-- ssh-options] [user@]host\n", argv0, common);
 	fprint(2, "       %s %s -c cmdline\n", argv0, common);
 	fprint(2, "       %s %s -p\n", argv0, common);
 	exits("usage");
