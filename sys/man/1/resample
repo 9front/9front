@@ -15,6 +15,9 @@ resample, resize - resample a picture
 .br
 .B resize
 [
+.B -n
+]
+[
 .B -x
 .I size
 ] [
@@ -33,6 +36,13 @@ uses a Kaiser window which produces high quality results and
 .I resize
 uses bilinear interpolation which is faster but produces more
 fuzzy images.
+By specifying the
+.B -n
+option,
+.I resize
+can also use nearest neighbour interpolation which preserves the individual pixels and is appropriate for pixel art or
+.IR qr (1)
+output.
 .PP
 The size of the resampled image can be specified
 with the
