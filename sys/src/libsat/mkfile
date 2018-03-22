@@ -9,6 +9,7 @@ OFILES=\
 	satsolve.$O \
 	satmore.$O \
 	debug.$O \
+	satget.$O \
 
 HFILES=\
 	/sys/include/sat.h\

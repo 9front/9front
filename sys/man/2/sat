@@ -36,6 +36,7 @@ SATSolve*	satrangev(SATSolve *s, int min, int max, ...);
 int	satsolve(SATSolve *s);
 int	satmore(SATSolve *s);
 int	satval(SATSolve *s, int lit);
+int	satget(SATSolve *s, int i, int *lit, int nlit);
 void	satreset(SATSolve *s);
 .SH DESCRIPTION
 .PP
@@ -122,6 +123,23 @@ literals from the provided array be true.
 For example, the clause from above corresponds to
 .IP
 .B "satrangev(s, 1, 1, 1, 2, 3, 0);"
+.PP
+For debugging purposes, clauses can be retrieved using
+.IR satget .
+It stores the literals of the clause with index
+.I i
+(starting from 0) at location
+.IR lit .
+If there are more than
+.I nlit
+literals, only the first
+.I nlit
+literals are stored.
+If it was successful, it returns the total number of literals in the clause (which may exceed
+.IR nlit ).
+Otherwise (if
+.I idx
+was out of bounds) it returns -1.
 .PP
 .I Satreset
 resets all solver state, deleting all learned clauses and variable assignments.
