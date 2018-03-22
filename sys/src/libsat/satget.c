@@ -8,7 +8,7 @@ satget(SATSolve *s, int i, int *t, int n)
 {
 	SATClause *c;
 	SATLit *l;
-	int j, k;
+	int j, k, m;
 	
 	for(c = s->cl; c != s->learncl; c = c->next)
 		if(i-- == 0){
@@ -23,6 +23,12 @@ satget(SATSolve *s, int i, int *t, int n)
 				if(n > 1) t[1] = signf(l->bimp[k]);
 				return 2;
 			}
+	m = s->lvl == 0 ? s->ntrail : s->decbd[1];
+	for(k = 0; k < m; k++)
+		if(i-- == 0){
+			if(n > 0) t[0] = signf(s->trail[k]);
+			return 1;
+		}
 	for(; c != 0; c = c->next)
 		if(i-- == 0){
 			for(j = 0; j < n && j < c->n; j++)
