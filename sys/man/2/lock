@@ -304,7 +304,7 @@ The 100ms and full second sleeps are only heuristics to
 avoid tying up the CPU when a process deadlocks.
 As discussed above,
 if a lock is to be held for much more than a few instructions,
-the queueing lock types should be almost always be used.
+the queueing lock types should almost always be used.
 .PP
 It is an error for a program to
 .I fork
