@@ -20,6 +20,8 @@ satmore(SATSolve *s)
 	}
 	if(n > 0)
 		satadd1(s, a, n);
+	if(n == 1)
+		s->var[abs(a[0])-1].flags &= ~VARUSER;
 	free(a);
 	s->scrap = nil;
 	return satsolve(s);
