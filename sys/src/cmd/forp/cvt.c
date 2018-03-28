@@ -344,7 +344,7 @@ opmul(int *n1v, int s1, int *n2v, int s2)
 	s1--;
 	s2--;
 	r = emalloc(sizeof(int) * (s1 + s2 + 2));
-	nq = 2 * (min(s1, s2) + 1);
+	nq = 2 * (min(s1, s2) + 2);
 	q0 = emalloc(nq * sizeof(int));
 	q1 = emalloc(nq * sizeof(int));
 	nq0 = nq1 = 0;
@@ -402,7 +402,7 @@ static void
 opdiv(Node *q, Node *r, Node *n1, Node *n2)
 {
 	Node *s;
-	int i;
+	int i, s1, sr,zr;
 	
 	if(q == nil) q = node(ASTTEMP);
 	if(r == nil) r = node(ASTTEMP);
@@ -413,8 +413,12 @@ opdiv(Node *q, Node *r, Node *n1, Node *n2)
 	for(i = 0; i < n2->size; i++)
 		r->vars[i] = satvar++;
 	s = node(ASTBIN, OPEQ, node(ASTBIN, OPADD, node(ASTBIN, OPMUL, q, n2), r), n1); convert(s, -1); assume(s);
-	s = node(ASTBIN, OPGE, r, node(ASTNUM, mpnew(0))); convert(s, -1); assume(s);
-	s = node(ASTBIN, OPLT, r, node(ASTUN, OPABS, n2)); convert(s, -1); assume(s);
+	s = node(ASTBIN, OPLT, node(ASTUN, OPABS, r), node(ASTUN, OPABS, n2)); convert(s, -1); assume(s);
+	s1 = n1->vars[n1->size - 1];
+	sr = r->vars[r->size - 1];
+	zr = -sator1(sat, r->vars, r->size);
+	sataddv(sat, zr, sr, -s1, 0);
+	sataddv(sat, zr, -sr, s1, 0);
 }
 
 void
