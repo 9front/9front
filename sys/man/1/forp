@@ -1,0 +1,193 @@
+.TH FORP 1
+.SH NAME
+forp \- formula prover
+.SH SYNOPSIS
+.B forp
+[
+.B -m
+]
+[
+.I file
+]
+.SH DESCRIPTION
+.I Forp
+is a tool for proving formulae involving finite-precision arithmetic.
+Given a formula it will attempt to find a counterexample; if it can't find one the formula has been proven correct.
+.PP
+.I Forp
+is invoked on an input file with the syntax as defined below.
+If no input file is provided, standard input is used instead.
+The
+.B -m
+flag instructs
+.I forp
+to produce a table of all counterexamples rather than report just one.
+Note that counterexamples may report bits as
+.BR ? ,
+meaning that either value will lead to a counterexample.
+.PP
+The input file consists of statements terminated by semicolons and comments using C syntax (using
+.B //
+or
+.B "/* */"
+syntax).
+Valid statements are
+.IP
+Variable definitions, roughly:
+.I type
+.I var
+.B ;
+.br
+Expressions (including assignments):
+.I expr
+.B ;
+.br
+Assertions:
+.B obviously
+.I expr
+.B ;
+.br
+Assumptions:
+.B assume
+.I expr
+.B ;
+.PP
+Assertions are formulae to be proved.
+If multiple assertions are given, they are effectively "and"-ed together.
+Each input file must have at least one assertion to be valid.
+Assumptions are formulae that are assumed, i.e. counterexamples that would violate assumptions are never considered.
+Exercise care with them, as contradictory assumptions will lead to any formula being true (the logician's principle of explosion).
+.PP
+Variables can be defined with C notation, but the only types supported are
+.B bit
+and 1D arrays of
+.B bit
+(corresponding to machine integers of the specified size).
+Signed integers are indicated with the keyword
+.BR signed .
+Like
+.B int
+in C, the
+.B bit
+keyword can be omitted in the presence of
+.BR signed .
+For example,
+.PP
+.EX
+	bit a, b[4], c[8];
+	signed bit d[3];
+	signed e[16];
+.EE
+.PP
+is a set of valid declarations.
+.PP
+Unlike a programming language, it is perfectly legitimate to use a variable before it is assigned value; this means the variable is an "input" variable.
+.I Forp
+tries to find assignments for all input variables that render the assertions invalid.
+.PP
+Expressions can be formed just as in C, however when used in an expression, all variables are automatically promoted to an infinite size signed type.
+The valid operators are listed below, in decreasing precedence. Note that logical operations treat all non-zero values as 1, whereas bitwise operators operate on all bits independently.
+.TP "\w'\fL<\fR, \fL<=\fR, \fL>\fR, \fL>=\fR  'u"
+\fL!\fR, \fL~\fR, \fL-\fR
+(Unary operators) Logical and bitwise "not", arithmetic negation. Because of promotion, \fL~\fR and \fL-\fR operate beyond the width of variables.
+.TP
+\fL*\fR, \fL/\fR, \fL%\fR
+Multiplication, division, modulo.
+Division and modulo add an assumption that the divisor is non-zero.
+.TP
+\fL+\fR, \fL-\fR
+Addition, subtraction.
+.TP
+\fL<<\fR, \fL>>\fR
+Left shift, arithmetic right shift. Because of promotion, this is effectively a logical right shift on unsigned variables.
+.TP
+\fL<\fR, \fL<=\fR, \fL>\fR, \fL>=\fR
+Less than, less than or equal to, greater than, greather than or equal to.
+.TP
+\fL==\fR, \fL!=\fR
+Equal to, not equal to.
+.TP
+\fL&\fR
+Bitwise "and".
+.TP
+\fL^\fR
+Bitwise "xor".
+.TP
+\fL|\fR
+Bitwise "or".
+.TP
+\fL&&\fR
+Logical "and"
+.TP
+\fL||\fR
+Logical "or".
+.TP
+\fL<=>\fR, \fL=>\fR
+Logical equivalence and logical implication (equivalent to
+.B "(a != 0) == (b != 0)"
+and
+.BR "!a || b" ,
+respectively).
+.TP
+\fL?:\fR
+Ternary operator (\fLa?b:c\fR equals \fLb\fR if \fLa\fR is true and \fLc\fR otherwise).
+.TP
+\fL=\fR
+Assignment.
+.PP
+One subtle point concerning assignments is that they forcibly override any previous values, i.e. expressions use the value of the latest assignments preceding them.
+Note that the values reported as the counterexample are always the values given by the last assignment.
+.SH "EXAMPLES"
+We know that, mathematically, \fIa\fR + \fIb\fR ≥ \fIa\fR if \fIb\fR ≥ 0 (which is always true for an unsigned number).
+We can ask
+.I forp
+to prove this using
+.PP
+.EX
+	bit a[32], b[32];
+	obviously a + b >= a;
+.EE
+.PP
+.I Forp
+will report "Proved", since it cannot find a counterexample for which this is not true.
+In C, on the other hand, we know that this is not necessarily true.
+The reason is that, depending on the types involved, results are truncated.
+We can emulate this by writing
+.PP
+.EX
+	bit a[32], b[32], c[32];
+	c = a + b;
+	obviously c >= a;
+.EE
+.PP
+Given this,
+.I forp
+will now report it as incorrect by providing a counterexample, for example
+.PP
+.EX
+	a = 10000000000000000000000000000000
+	b = 10000000000000000000000000000000
+	c = 00000000000000000000000000000000
+.EE
+.PP
+Can we use \fIc\fR < \fIa\fR to check for overflow?
+We can ask
+.I forp
+to confirm this using
+.PP
+.EX
+	bit a[32], b[32], c[32];
+	c = a + b;
+	obviously c < a <=> c != a+b;
+.EE
+.PP
+Here the statement to be proved is "\fIc\fR is less than \fIa\fR if and only if \fIc\fR does not equal the mathematical sum \fIa\fR + \fIb\fR (i.e. overflow has occured)".
+.SH SOURCE
+.B /sys/src/cmd/forp
+.SH "SEE ALSO"
+.IR spin (1)
+.SH BUGS
+Any proof is only as good as the assumptions made, in particular care has to be taken with respect to truncation of intermediate results.
+.SH HISTORY
+.I Forp
+first appeared in 9front in March, 2018.
