@@ -1,0 +1,14 @@
+</$objtype/mkfile
+
+BIN=/$objtype/bin
+TARG=forp
+OFILES=\
+	forp.$O\
+	parse.$O\
+	misc.$O\
+	cvt.$O\
+	logic.$O\
+
+HFILES=dat.h fns.h
+
+</sys/src/cmd/mkone
