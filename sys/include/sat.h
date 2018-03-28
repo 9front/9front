@@ -105,4 +105,4 @@ int satmore(SATSolve *);
 int satval(SATSolve *, int);
 void satfree(SATSolve *);
 void satreset(SATSolve *);
-
+int satget(SATSolve *, int, int *, int);
