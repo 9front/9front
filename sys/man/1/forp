@@ -88,8 +88,12 @@ tries to find assignments for all input variables that render the assertions inv
 Expressions can be formed just as in C, however when used in an expression, all variables are automatically promoted to an infinite size signed type.
 The valid operators are listed below, in decreasing precedence. Note that logical operations treat all non-zero values as 1, whereas bitwise operators operate on all bits independently.
 .TP "\w'\fL<\fR, \fL<=\fR, \fL>\fR, \fL>=\fR  'u"
-\fL!\fR, \fL~\fR, \fL-\fR
-(Unary operators) Logical and bitwise "not", arithmetic negation. Because of promotion, \fL~\fR and \fL-\fR operate beyond the width of variables.
+\fL[]\fR
+Array indexing. The syntax is \fIvar\fL[\fIidx\fL:\fIn\fR] to address \fIn\fR bits with the least-significant bit at \fIidx\fR.
+Omiting \fL:\fIn\fR addresses a single bit.
+.TP
+\fL!\fR, \fL~\fR, \fL+\fR, \fL-\fR
+(Unary operators) Logical and bitwise "not", unary plus (no-op), arithmetic negation. Because of promotion, \fL~\fR and \fL-\fR operate beyond the width of variables.
 .TP
 \fL*\fR, \fL/\fR, \fL%\fR
 Multiplication, division, modulo.
@@ -188,6 +192,12 @@ Here the statement to be proved is "\fIc\fR is less than \fIa\fR if and only if 
 .IR spin (1)
 .SH BUGS
 Any proof is only as good as the assumptions made, in particular care has to be taken with respect to truncation of intermediate results.
+.PP
+Array indices must be constants.
+.PP
+Left shifting can produce a huge number of intermediate bits.
+.I Forp
+will try to identify the minimum needed number but it may be a good idea to help it by assigning the result of a left shift to a variable.
 .SH HISTORY
 .I Forp
 first appeared in 9front in March, 2018.
