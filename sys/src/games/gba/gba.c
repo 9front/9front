@@ -145,7 +145,7 @@ loadsave(char *file)
 	
 	buf = emalloc(strlen(file) + 4);
 	strcpy(buf, file);
-	p = strchr(buf, '.');
+	p = strrchr(buf, '.');
 	if(p == nil)
 		p = buf + strlen(buf);
 	strcpy(p, ".sav");
