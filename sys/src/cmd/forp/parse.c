@@ -291,12 +291,8 @@ expr(int level)
 	mpint *num;
 	int t;
 	
-	if(level == MAXPREC+1){
+	if(level == MAXPREC+2){
 		switch(t = lex()){
-		case '~': return node(ASTUN, OPCOM, expr(level));
-		case '!': return node(ASTUN, OPNOT, expr(level));
-		case '+': return expr(level);
-		case '-': return node(ASTUN, OPNEG, expr(level));
 		case '(':
 			a = expr(0);
 			expect(')');
@@ -318,7 +314,7 @@ expr(int level)
 		default:
 			error(nil, "unexpected %t", t);
 		}
-	}else if(level == MAXPREC){
+	}else if(level == MAXPREC+1){
 		a = expr(level + 1);
 		if(got('[')){
 			b = expr(0);
@@ -330,6 +326,14 @@ expr(int level)
 			a = node(ASTIDX, a, b, c);
 		}
 		return a;
+	}else if(level == MAXPREC){
+		switch(t = lex()){
+		case '~': return node(ASTUN, OPCOM, expr(level));
+		case '!': return node(ASTUN, OPNOT, expr(level));
+		case '+': return expr(level);
+		case '-': return node(ASTUN, OPNEG, expr(level));
+		default: superman(t); return expr(level+1); break;
+		}
 	}else if(level == 3){
 		a = expr(level + 1);
 		if(got('?')){
