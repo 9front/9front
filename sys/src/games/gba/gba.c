@@ -218,8 +218,8 @@ screeninit(void)
 
 	p = divpt(addpt(screen->r.min, screen->r.max), 2);
 	picr = (Rectangle){subpt(p, Pt(scale * 120, scale * 80)), addpt(p, Pt(scale * 120, scale * 80))};
+	freeimage(tmp);
 	tmp = allocimage(display, Rect(0, 0, scale * 240, scale > 1 ? 1 : scale * 160), CHAN4(CIgnore, 1, CBlue, 5, CGreen, 5, CRed, 5), scale > 1, 0);
-	bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
 	draw(screen, screen->r, bg, nil, ZP);	
 }
 
@@ -443,6 +443,7 @@ threadmain(int argc, char **argv)
 	if(mc == nil)
 		sysfatal("initmouse: %r");
 	proccreate(keyproc, nil, mainstacksize);
+	bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
 	screeninit();
 
 	eventinit();

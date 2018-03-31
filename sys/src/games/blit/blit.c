@@ -38,12 +38,8 @@ screeninit(void)
 		picr.max.y += screen->r.min.y - picr.min.y;
 		picr.min.y = screen->r.min.y;
 	}
-	if(tmp != nil) freeimage(tmp);
+	freeimage(tmp);
 	tmp = allocimage(display, Rect(0, 0, scale * SX, scale > 1 ? 1 : scale * SY), CHAN1(CMap, 1), scale > 1, 0);
-	if(bg != nil) freeimage(bg);
-	bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
-	colbg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, colbgv);
-	colfg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, colfgv);	
 	draw(screen, screen->r, bg, nil, ZP);
 	updated = Rect(0, 0, SX, SY);	
 }
@@ -207,7 +203,10 @@ threadmain(int argc, char **argv)
 	meminit();
 	if(initdraw(nil, nil, nil) < 0)
 		sysfatal("initdraw: %r");
-	
+
+	bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
+	colbg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, colbgv);
+	colfg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, colfgv);	
 	screeninit();
 	proccreate(keyproc, nil, mainstacksize);
 	mc = initmouse(nil, screen);
