@@ -48,11 +48,16 @@ case 9front
 	9fs 9front.org
 	for(i in 9front extra fqa hardware iso lists pkg sites)
 		bind /n/9front.org/$i /n/$i
+case 9bugs
+	9fs contrib.9front.org
+	bind /n/contrib.9front.org/bugs /n/bugs
+case 9contrib
+	9fs contrib.9front.org
+	for(i in contrib sources)
+		bind /n/contrib.9front.org/$i /n/$i
+case 9grep
 	9fs tcp!9front.org!7734
 	bind -b /n/9front.org!7734 /n/lists
-	9fs contrib.9front.org
-	for(i in bugs contrib sources)
-		bind /n/contrib.9front.org/$i /n/$i
 # arbitrary venti archives
 case vac:*
 	vacfs <{echo $1}
