@@ -13,5 +13,5 @@ extern void _assert(char *, unsigned);
 #ifdef __cplusplus
 }
 #endif
-#define assert(e) {if(!(e))_assert(__FILE__, __LINE__);}
+#define assert(e) ((e) ? (void)0 : _assert(__FILE__, __LINE__))
 #endif /* NDEBUG */
