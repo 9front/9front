@@ -377,10 +377,6 @@ to put itself in
 .B /srv
 with a name of the form
 .BR /srv/upasfs.\fIuser\fP .
-.TP
-.B -m
-specifies a mount point other than
-.BR /mail/fs .
 .PD
 .PP
 .I Fs
