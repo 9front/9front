@@ -200,7 +200,7 @@ ip4reply(Fs *f, uchar ip4[4])
 	if(ipismulticast(addr))
 		return 0;
 	i = ipforme(f, addr);
-	return i == 0 || (i & Runi) != 0;
+	return i == 0 || i == Runi;
 }
 
 static int
@@ -211,7 +211,7 @@ ip4me(Fs *f, uchar ip4[4])
 	v4tov6(addr, ip4);
 	if(ipismulticast(addr))
 		return 0;
-	return (ipforme(f, addr) & Runi) != 0;
+	return ipforme(f, addr) == Runi;
 }
 
 void
@@ -401,7 +401,7 @@ icmpiput(Proto *icmp, Ipifc*, Block *bp)
 		break;
 	case Unreachable:
 		if(p->code >= nelem(unreachcode)) {
-			snprint(m2, sizeof m2, "unreachable %V->%V code %d",
+			snprint(m2, sizeof m2, "unreachable %V -> %V code %d",
 				p->src, p->dst, p->code);
 			msg = m2;
 		} else
@@ -452,7 +452,7 @@ raise:
 	freeblist(bp);
 }
 
-void
+static void
 icmpadvise(Proto *icmp, Block *bp, char *msg)
 {
 	Conv	**c, *s;
@@ -478,7 +478,7 @@ icmpadvise(Proto *icmp, Block *bp, char *msg)
 	freeblist(bp);
 }
 
-int
+static int
 icmpstats(Proto *icmp, char *buf, int len)
 {
 	Icmppriv *priv;

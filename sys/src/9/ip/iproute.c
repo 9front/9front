@@ -35,9 +35,8 @@ freeroute(Route *r)
 static Route*
 allocroute(int type)
 {
-	Route *r;
+	Route *r, **l;
 	int n;
-	Route **l;
 
 	if(type & Rv4){
 		n = sizeof(RouteTree) + sizeof(V4route);
@@ -72,9 +71,9 @@ addqueue(Route **q, Route *r)
 		return;
 
 	l = allocroute(r->type);
+	l->left = r;
 	l->mid = *q;
 	*q = l;
-	l->left = r;
 }
 
 /*
@@ -99,11 +98,11 @@ lcmp(ulong *a, ulong *b)
  */
 enum
 {
-	Rpreceeds,
-	Rfollows,
-	Requals,
-	Rcontains,
-	Rcontained,
+	Rpreceeds,	/* a left of b */
+	Rfollows,	/* a right of b */
+	Requals,	/* a equals b */
+	Rcontains,	/* a contians b */
+	Roverlaps,	/* a overlaps b */
 };
 
 static int
@@ -112,44 +111,87 @@ rangecompare(Route *a, Route *b)
 	if(a->type & Rv4){
 		if(a->v4.endaddress < b->v4.address)
 			return Rpreceeds;
-
 		if(a->v4.address > b->v4.endaddress)
 			return Rfollows;
-
 		if(a->v4.address <= b->v4.address
 		&& a->v4.endaddress >= b->v4.endaddress){
 			if(a->v4.address == b->v4.address
-			&& a->v4.endaddress == b->v4.endaddress)
-				return Requals;
+			&& a->v4.endaddress == b->v4.endaddress){
+				if(a->v4.source <= b->v4.source
+				&& a->v4.endsource >= b->v4.endsource){
+					if(a->v4.source == b->v4.source
+					&& a->v4.endsource == b->v4.endsource)
+						return Requals;
+					return Rcontains;
+				}
+				return Roverlaps;
+			}
 			return Rcontains;
 		}
-		return Rcontained;
+		return Roverlaps;
 	}
 
 	if(lcmp(a->v6.endaddress, b->v6.address) < 0)
 		return Rpreceeds;
-
 	if(lcmp(a->v6.address, b->v6.endaddress) > 0)
 		return Rfollows;
-
 	if(lcmp(a->v6.address, b->v6.address) <= 0
 	&& lcmp(a->v6.endaddress, b->v6.endaddress) >= 0){
 		if(lcmp(a->v6.address, b->v6.address) == 0
-		&& lcmp(a->v6.endaddress, b->v6.endaddress) == 0)
-				return Requals;
+		&& lcmp(a->v6.endaddress, b->v6.endaddress) == 0){
+			if(lcmp(a->v6.source, b->v6.source) <= 0
+			&& lcmp(a->v6.endsource, b->v6.endsource) >= 0){
+				if(lcmp(a->v6.source, b->v6.source) == 0
+				&& lcmp(a->v6.endsource, b->v6.endsource) == 0)
+					return Requals;
+				return Rcontains;
+			}
+			return Roverlaps;
+		}
 		return Rcontains;
 	}
+	return Roverlaps;
+}
 
-	return Rcontained;
+/* return 1 if a matches b, otherwise 0 */
+static int
+matchroute(Route *a, Route *b)
+{
+	if(a == b)
+		return 1;
+
+	if((a->type^b->type) & (Rifc|Runi|Rmulti|Rbcast))
+		return 0;
+
+	if(a->type & Rv4){
+		if(memcmp(a->v4.gate, IPnoaddr+IPv4off, IPv4addrlen) != 0
+		&& memcmp(a->v4.gate, b->v4.gate, IPv4addrlen) != 0)
+			return 0;
+	} else {
+		if(ipcmp(a->v6.gate, IPnoaddr) != 0
+		&& ipcmp(a->v6.gate, b->v6.gate) != 0)
+			return 0;
+	}
+
+	if(a->ifc != nil && b->ifc != nil && (a->ifc != b->ifc || a->ifcid != b->ifcid))
+		return 0;
+
+	if(*a->tag != 0 && strncmp(a->tag, b->tag, sizeof(a->tag)) != 0)
+		return 0;
+
+	return 1;
 }
 
 static void
 copygate(Route *old, Route *new)
 {
+	old->type = new->type;
+	old->ifc = new->ifc;
+	old->ifcid = new->ifcid;
 	if(new->type & Rv4)
 		memmove(old->v4.gate, new->v4.gate, IPv4addrlen);
 	else
-		memmove(old->v6.gate, new->v6.gate, IPaddrlen);
+		ipmove(old->v6.gate, new->v6.gate);
 }
 
 /*
@@ -162,12 +204,12 @@ walkadd(Fs *f, Route **root, Route *p)
 
 	l = p->left;
 	r = p->right;
-	p->left = 0;
-	p->right = 0;
+	p->left = nil;
+	p->right = nil;
 	addnode(f, root, p);
-	if(l)
+	if(l != nil)
 		walkadd(f, root, l);
-	if(r)
+	if(r != nil)
 		walkadd(f, root, r);
 }
 
@@ -180,16 +222,16 @@ calcd(Route *p)
 	Route *q;
 	int d;
 
-	if(p) {
+	if(p != nil) {
 		d = 0;
 		q = p->left;
-		if(q)
+		if(q != nil)
 			d = q->depth;
 		q = p->right;
-		if(q && q->depth > d)
+		if(q != nil && q->depth > d)
 			d = q->depth;
 		q = p->mid;
-		if(q && q->depth > d)
+		if(q != nil && q->depth > d)
 			d = q->depth;
 		p->depth = d+1;
 	}
@@ -210,8 +252,8 @@ balancetree(Route **cur)
 	 * rotate tree node
 	 */
 	p = *cur;
-	dl = 0; if(l = p->left) dl = l->depth;
-	dr = 0; if(r = p->right) dr = r->depth;
+	dl = 0; if((l = p->left) != nil) dl = l->depth;
+	dr = 0; if((r = p->right) != nil) dr = r->depth;
 
 	if(dl > dr+1) {
 		p->left = l->right;
@@ -239,7 +281,7 @@ addnode(Fs *f, Route **cur, Route *new)
 	Route *p;
 
 	p = *cur;
-	if(p == 0) {
+	if(p == nil) {
 		*cur = new;
 		new->depth = 1;
 		return;
@@ -269,15 +311,13 @@ addnode(Fs *f, Route **cur, Route *new)
 		 *  supercede the old entry if the old one isn't
 		 *  a local interface.
 		 */
-		if((p->type & Rifc) == 0){
-			p->type = new->type;
-			p->ifcid = -1;
+		if((p->type & Rifc) == 0)
 			copygate(p, new);
-		} else if(new->type & Rifc)
+		else if(new->type & Rifc)
 			p->ref++;
 		freeroute(new);
 		break;
-	case Rcontained:
+	case Roverlaps:
 		addnode(f, &p->mid, new);
 		break;
 	}
@@ -285,225 +325,259 @@ addnode(Fs *f, Route **cur, Route *new)
 	balancetree(cur);
 }
 
-#define	V4H(a)	((a&0x07ffffff)>>(32-Lroot-5))
-
-void
-v4addroute(Fs *f, char *tag, uchar *a, uchar *mask, uchar *gate, int type)
-{
-	Route *p;
-	ulong sa;
-	ulong m;
-	ulong ea;
-	int h, eh;
-
-	m = nhgetl(mask);
-	sa = nhgetl(a) & m;
-	ea = sa | ~m;
-
-	eh = V4H(ea);
-	for(h=V4H(sa); h<=eh; h++) {
-		p = allocroute(Rv4 | type);
-		p->v4.address = sa;
-		p->v4.endaddress = ea;
-		memmove(p->v4.gate, gate, sizeof(p->v4.gate));
-		memmove(p->tag, tag, sizeof(p->tag));
-
-		wlock(&routelock);
-		addnode(f, &f->v4root[h], p);
-		while(p = f->queue) {
-			f->queue = p->mid;
-			walkadd(f, &f->v4root[h], p->left);
-			freeroute(p);
-		}
-		wunlock(&routelock);
-	}
-	v4routegeneration++;
-
-	ipifcaddroute(f, Rv4, a, mask, gate, type);
-}
-
-#define	V6H(a)	(((a)[IPllen-1] & 0x07ffffff)>>(32-Lroot-5))
-
-void
-v6addroute(Fs *f, char *tag, uchar *a, uchar *mask, uchar *gate, int type)
-{
-	Route *p;
-	ulong sa[IPllen], ea[IPllen];
-	ulong x, y;
-	int h, eh;
-
-	for(h = 0; h < IPllen; h++){
-		x = nhgetl(a+4*h);
-		y = nhgetl(mask+4*h);
-		sa[h] = x & y;
-		ea[h] = x | ~y;
-	}
-
-	eh = V6H(ea);
-	for(h = V6H(sa); h <= eh; h++) {
-		p = allocroute(type);
-		memmove(p->v6.address, sa, IPaddrlen);
-		memmove(p->v6.endaddress, ea, IPaddrlen);
-		memmove(p->v6.gate, gate, IPaddrlen);
-		memmove(p->tag, tag, sizeof(p->tag));
-
-		wlock(&routelock);
-		addnode(f, &f->v6root[h], p);
-		while(p = f->queue) {
-			f->queue = p->mid;
-			walkadd(f, &f->v6root[h], p->left);
-			freeroute(p);
-		}
-		wunlock(&routelock);
-	}
-	v6routegeneration++;
-
-	ipifcaddroute(f, 0, a, mask, gate, type);
-}
-
-Route**
+/*
+ *  find node matching r
+ */
+static Route**
 looknode(Route **cur, Route *r)
 {
 	Route *p;
 
 	for(;;){
 		p = *cur;
-		if(p == 0)
-			return 0;
-	
+		if(p == nil)
+			return nil;
 		switch(rangecompare(r, p)){
 		case Rcontains:
-			return 0;
+			return nil;
 		case Rpreceeds:
 			cur = &p->left;
 			break;
 		case Rfollows:
 			cur = &p->right;
 			break;
-		case Rcontained:
+		case Roverlaps:
 			cur = &p->mid;
 			break;
 		case Requals:
+			if((p->type & Rifc) == 0 && !matchroute(r, p))
+				return nil;
 			return cur;
 		}
 	}
 }
 
-void
-v4delroute(Fs *f, uchar *a, uchar *mask, int dolock)
+static Route*
+looknodetag(Route *r, char *tag)
 {
-	Route **r, *p;
-	Route rt;
-	int h, eh;
-	ulong m;
+	Route *x;
 
-	m = nhgetl(mask);
-	rt.v4.address = nhgetl(a) & m;
-	rt.v4.endaddress = rt.v4.address | ~m;
-	rt.type = Rv4;
+	if(r == nil)
+		return nil;
 
-	eh = V4H(rt.v4.endaddress);
-	for(h=V4H(rt.v4.address); h<=eh; h++) {
-		if(dolock)
-			wlock(&routelock);
-		r = looknode(&f->v4root[h], &rt);
-		if(r) {
-			p = *r;
-			if(--(p->ref) == 0){
-				*r = 0;
-				addqueue(&f->queue, p->left);
-				addqueue(&f->queue, p->mid);
-				addqueue(&f->queue, p->right);
-				freeroute(p);
-				while(p = f->queue) {
-					f->queue = p->mid;
-					walkadd(f, &f->v4root[h], p->left);
-					freeroute(p);
-				}
-			}
-		}
-		if(dolock)
-			wunlock(&routelock);
+	if((x = looknodetag(r->mid, tag)) != nil)
+		return x;
+	if((x = looknodetag(r->left, tag)) != nil)
+		return x;
+	if((x = looknodetag(r->right, tag)) != nil)
+		return x;
+
+	if((r->type & Rifc) == 0){
+		if(tag == nil || strncmp(tag, r->tag, sizeof(r->tag)) == 0)
+			return r;
 	}
-	v4routegeneration++;
 
-	ipifcremroute(f, Rv4, a, mask);
+	return nil;
+}
+
+#define	V4H(a)	((a&0x07ffffff)>>(32-Lroot-5))
+#define	V6H(a)	(((a)[IPllen-1]&0x07ffffff)>>(32-Lroot-5))
+
+static void
+routeadd(Fs *f, Route *r)
+{
+	Route **h, **e, *p;
+
+	if(r->type & Rv4){
+		h = &f->v4root[V4H(r->v4.address)];
+		e = &f->v4root[V4H(r->v4.endaddress)];
+	} else {
+		h = &f->v6root[V6H(r->v6.address)];
+		e = &f->v6root[V6H(r->v6.endaddress)];
+	}
+
+	for(; h <= e; h++) {
+		p = allocroute(r->type);
+
+		p->ifc = r->ifc;
+		p->ifcid = r->ifcid;
+
+		if(r->type & Rv4)
+			memmove(&p->v4, &r->v4, sizeof(r->v4));
+		else
+			memmove(&p->v6, &r->v6, sizeof(r->v6));
+
+		memmove(p->tag, r->tag, sizeof(r->tag));
+
+		addnode(f, h, p);
+		while((p = f->queue) != nil) {
+			f->queue = p->mid;
+			walkadd(f, h, p->left);
+			freeroute(p);
+		}
+	}
+
+	if(r->type & Rv4)
+		v4routegeneration++;
+	else
+		v6routegeneration++;
+}
+
+static void
+routerem(Fs *f, Route *r)
+{
+	Route **h, **e, **l, *p;
+
+	if(r->type & Rv4){
+		h = &f->v4root[V4H(r->v4.address)];
+		e = &f->v4root[V4H(r->v4.endaddress)];
+	} else {
+		h = &f->v6root[V6H(r->v6.address)];
+		e = &f->v6root[V6H(r->v6.endaddress)];
+	}
+
+	for(; h <= e; h++) {
+		if((l = looknode(h, r)) == nil)
+			continue;
+		p = *l;
+		if(--(p->ref) != 0)
+			continue;
+		*l = nil;
+		addqueue(&f->queue, p->left);
+		addqueue(&f->queue, p->mid);
+		addqueue(&f->queue, p->right);
+		freeroute(p);
+
+		while((p = f->queue) != nil) {
+			f->queue = p->mid;
+			walkadd(f, h, p->left);
+			freeroute(p);
+		}
+	}
+
+	if(r->type & Rv4)
+		v4routegeneration++;
+	else
+		v6routegeneration++;
+}
+
+static Route
+mkroute(uchar *a, uchar *mask, uchar *s, uchar *smask, uchar *gate, int type, Ipifc *ifc, char *tag)
+{
+	ulong x, y;
+	Route r;
+	int h;
+
+	memset(&r, 0, sizeof(r));
+
+	r.type = type;
+
+	if(type & Rv4){
+		x = nhgetl(a+IPv4off);
+		y = nhgetl(mask+IPv4off);
+		r.v4.address = x & y;
+		r.v4.endaddress = x | ~y;
+
+		x = nhgetl(s+IPv4off);
+		y = nhgetl(smask+IPv4off);
+		if(y != 0)
+			r.type |= Rsrc;
+		r.v4.source = x & y;
+		r.v4.endsource = x | ~y;
+
+		memmove(r.v4.gate, gate+IPv4off, IPv4addrlen);
+	} else {
+		for(h = 0; h < IPllen; h++){
+			x = nhgetl(a+4*h);
+			y = nhgetl(mask+4*h);
+			r.v6.address[h] = x & y;
+			r.v6.endaddress[h] = x | ~y;
+
+			x = nhgetl(s+4*h);
+			y = nhgetl(smask+4*h);
+			if(y != 0)
+				r.type |= Rsrc;
+			r.v6.source[h] = x & y;
+			r.v6.endsource[h] = x | ~y;
+		}
+
+		memmove(r.v6.gate, gate, IPaddrlen);
+	}
+
+	if(ifc != nil){
+		r.ifc = ifc;
+		r.ifcid = ifc->ifcid;
+	}
+
+	if(tag != nil)
+		strncpy(r.tag, tag, sizeof(r.tag));
+
+	return r;
 }
 
 void
-v6delroute(Fs *f, uchar *a, uchar *mask, int dolock)
+addroute(Fs *f, uchar *a, uchar *mask, uchar *s, uchar *smask, uchar *gate, int type, Ipifc *ifc, char *tag)
 {
-	Route **r, *p;
-	Route rt;
-	int h, eh;
-	ulong x, y;
+	Route r = mkroute(a, mask, s, smask, gate, type, ifc, tag);
+	wlock(&routelock);
+	routeadd(f, &r);
+	wunlock(&routelock);
+}
 
-	for(h = 0; h < IPllen; h++){
-		x = nhgetl(a+4*h);
-		y = nhgetl(mask+4*h);
-		rt.v6.address[h] = x & y;
-		rt.v6.endaddress[h] = x | ~y;
-	}
-	rt.type = 0;
-
-	eh = V6H(rt.v6.endaddress);
-	for(h=V6H(rt.v6.address); h<=eh; h++) {
-		if(dolock)
-			wlock(&routelock);
-		r = looknode(&f->v6root[h], &rt);
-		if(r) {
-			p = *r;
-			if(--(p->ref) == 0){
-				*r = 0;
-				addqueue(&f->queue, p->left);
-				addqueue(&f->queue, p->mid);
-				addqueue(&f->queue, p->right);
-				freeroute(p);
-				while(p = f->queue) {
-					f->queue = p->mid;
-					walkadd(f, &f->v6root[h], p->left);
-					freeroute(p);
-				}
-			}
-		}
-		if(dolock)
-			wunlock(&routelock);
-	}
-	v6routegeneration++;
-
-	ipifcremroute(f, 0, a, mask);
+void
+remroute(Fs *f, uchar *a, uchar *mask, uchar *s, uchar *smask, uchar *gate, int type, Ipifc *ifc, char *tag)
+{
+	Route r = mkroute(a, mask, s, smask, gate, type, ifc, tag);
+	wlock(&routelock);
+	routerem(f, &r);
+	wunlock(&routelock);
 }
 
 Route*
-v4lookup(Fs *f, uchar *a, Routehint *rh)
+v4lookup(Fs *f, uchar *a, uchar *s, Routehint *rh)
 {
+	uchar local[IPaddrlen], gate[IPaddrlen];
+	ulong la, ls;
 	Route *p, *q;
-	ulong la;
-	uchar gate[IPaddrlen];
 	Ipifc *ifc;
 
 	if(rh != nil && rh->r != nil && rh->r->ifc != nil && rh->rgen == v4routegeneration)
 		return rh->r;
 
 	la = nhgetl(a);
+	ls = nhgetl(s);
 	q = nil;
-	for(p=f->v4root[V4H(la)]; p;)
-		if(la >= p->v4.address) {
-			if(la <= p->v4.endaddress) {
-				q = p;
-				p = p->mid;
-			} else
-				p = p->right;
-		} else
+	for(p = f->v4root[V4H(la)]; p != nil;){
+		if(la < p->v4.address){
 			p = p->left;
+			continue;
+		}
+		if(la > p->v4.endaddress){
+			p = p->right;
+			continue;
+		}
+		if(p->type & Rsrc){
+			if(ls < p->v4.source){
+				p = p->mid;
+				continue;
+			}
+			if(ls > p->v4.endsource){
+				p = p->mid;
+				continue;
+			}
+		}
+		q = p;
+		p = p->mid;
+	}
 
-	if(q && (q->ifc == nil || q->ifcid != q->ifc->ifcid)){
+	if(q != nil && (q->ifc == nil || q->ifcid != q->ifc->ifcid)){
 		if(q->type & Rifc) {
 			hnputl(gate+IPv4off, q->v4.address);
 			memmove(gate, v4prefix, IPv4off);
 		} else
 			v4tov6(gate, q->v4.gate);
-		ifc = findipifc(f, gate, q->type);
+		v4tov6(local, s);
+		ifc = findipifc(f, local, gate, q->type);
 		if(ifc == nil)
 			return nil;
 		q->ifc = ifc;
@@ -519,29 +593,30 @@ v4lookup(Fs *f, uchar *a, Routehint *rh)
 }
 
 Route*
-v6lookup(Fs *f, uchar *a, Routehint *rh)
+v6lookup(Fs *f, uchar *a, uchar *s, Routehint *rh)
 {
-	Route *p, *q;
-	ulong la[IPllen];
-	int h;
-	ulong x, y;
 	uchar gate[IPaddrlen];
+	ulong la[IPllen], ls[IPllen];
+	ulong x, y;
+	Route *p, *q;
 	Ipifc *ifc;
+	int h;
 
-	if(memcmp(a, v4prefix, IPv4off) == 0){
-		q = v4lookup(f, a+IPv4off, rh);
-		if(q != nil)
-			return q;
-	}
+	if(isv4(a) && isv4(s))
+		return v4lookup(f, a+IPv4off, s+IPv4off, rh);
+	if(isv4(s))
+		return nil;
 
 	if(rh != nil && rh->r != nil && rh->r->ifc != nil && rh->rgen == v6routegeneration)
 		return rh->r;
 
-	for(h = 0; h < IPllen; h++)
+	for(h = 0; h < IPllen; h++){
 		la[h] = nhgetl(a+4*h);
+		ls[h] = nhgetl(s+4*h);
+	}
 
 	q = nil;
-	for(p=f->v6root[V6H(la)]; p;){
+	for(p = f->v6root[V6H(la)]; p != nil;){
 		for(h = 0; h < IPllen; h++){
 			x = la[h];
 			y = p->v6.address[h];
@@ -564,18 +639,42 @@ v6lookup(Fs *f, uchar *a, Routehint *rh)
 			}
 			break;
 		}
+		if(p->type & Rsrc){
+			for(h = 0; h < IPllen; h++){
+				x = ls[h];
+				y = p->v6.source[h];
+				if(x == y)
+					continue;
+				if(x < y){
+					p = p->mid;
+					goto next;
+				}
+				break;
+			}
+			for(h = 0; h < IPllen; h++){
+				x = ls[h];
+				y = p->v6.endsource[h];
+				if(x == y)
+					continue;
+				if(x > y){
+					p = p->mid;
+					goto next;
+				}
+				break;
+			}
+		}
 		q = p;
 		p = p->mid;
 next:		;
 	}
 
-	if(q && (q->ifc == nil || q->ifcid != q->ifc->ifcid)){
+	if(q != nil && (q->ifc == nil || q->ifcid != q->ifc->ifcid)){
 		if(q->type & Rifc) {
 			for(h = 0; h < IPllen; h++)
 				hnputl(gate+4*h, q->v6.address[h]);
-			ifc = findipifc(f, gate, q->type);
+			ifc = findipifc(f, s, gate, q->type);
 		} else
-			ifc = findipifc(f, q->v6.gate, q->type);
+			ifc = findipifc(f, s, q->v6.gate, q->type);
 		if(ifc == nil)
 			return nil;
 		q->ifc = ifc;
@@ -590,201 +689,266 @@ next:		;
 	return q;
 }
 
-void
-routetype(int type, char *p)
+static int
+parseroutetype(char *p)
 {
-	memset(p, ' ', 4);
-	p[4] = 0;
+	int type = 0;
+	switch(*p++){
+	default:	return -1;	
+	case '4':	type |= Rv4;
+	case '6':	break;
+	}
+	for(;;) switch(*p++){
+	default: 
+		return -1;
+	case 'i':
+		if(((type ^= Rifc) & Rifc) != Rifc) return -1;
+		break;
+	case 'u':
+		if(((type ^= Runi) & (Runi|Rbcast|Rmulti)) != Runi) return -1;
+		break;
+	case 'b':
+		if(((type ^= Rbcast) & (Runi|Rbcast|Rmulti)) != Rbcast) return -1;
+		break;
+	case 'm':
+		if(((type ^= Rmulti) & (Runi|Rbcast|Rmulti)) != Rmulti) return -1;
+		break;
+	case 'p':
+		if(((type ^= Rptpt) & Rptpt) != Rptpt) return -1;
+		break;
+	case '\0':
+		return type;
+	}
+}
+
+void
+routetype(int type, char p[8])
+{
 	if(type & Rv4)
 		*p++ = '4';
 	else
 		*p++ = '6';
+
 	if(type & Rifc)
 		*p++ = 'i';
+
 	if(type & Runi)
 		*p++ = 'u';
 	else if(type & Rbcast)
 		*p++ = 'b';
 	else if(type & Rmulti)
 		*p++ = 'm';
+
 	if(type & Rptpt)
-		*p = 'p';
+		*p++ = 'p';
+	*p = 0;
 }
 
-static char *rformat = "%-15I %-4M %-15I %4.4s %4.4s %3s\n";
-
-void
-convroute(Route *r, uchar *addr, uchar *mask, uchar *gate, char *t, int *nifc)
+static void
+convroute(Route *r, uchar *addr, uchar *mask, uchar *src, uchar *smask, uchar *gate)
 {
 	int i;
 
 	if(r->type & Rv4){
 		memmove(addr, v4prefix, IPv4off);
 		hnputl(addr+IPv4off, r->v4.address);
+
 		memset(mask, 0xff, IPv4off);
 		hnputl(mask+IPv4off, ~(r->v4.endaddress ^ r->v4.address));
+
+		memmove(src, v4prefix, IPv4off);
+		hnputl(src+IPv4off, r->v4.source);
+
+		memset(smask, 0xff, IPv4off);
+		hnputl(smask+IPv4off, ~(r->v4.endsource ^ r->v4.source));
+
 		memmove(gate, v4prefix, IPv4off);
 		memmove(gate+IPv4off, r->v4.gate, IPv4addrlen);
 	} else {
 		for(i = 0; i < IPllen; i++){
 			hnputl(addr + 4*i, r->v6.address[i]);
 			hnputl(mask + 4*i, ~(r->v6.endaddress[i] ^ r->v6.address[i]));
+			hnputl(src + 4*i, r->v6.source[i]);
+			hnputl(smask + 4*i, ~(r->v6.endsource[i] ^ r->v6.source[i]));
 		}
 		memmove(gate, r->v6.gate, IPaddrlen);
 	}
-
-	routetype(r->type, t);
-
-	if(r->ifc)
-		*nifc = r->ifc->conv->x;
-	else
-		*nifc = -1;
 }
 
-/*
- *  this code is not in rr to reduce stack size
- */
-static void
-sprintroute(Route *r, Routewalk *rw)
+static char*
+seprintroute(char *p, char *e, Route *r)
 {
-	int nifc, n;
-	char t[5], *iname, ifbuf[5];
-	uchar addr[IPaddrlen], mask[IPaddrlen], gate[IPaddrlen];
-	char *p;
+	uchar addr[IPaddrlen], mask[IPaddrlen], src[IPaddrlen], smask[IPaddrlen], gate[IPaddrlen];
+	char type[8], ifbuf[4], *iname;
 
-	convroute(r, addr, mask, gate, t, &nifc);
-	iname = "-";
-	if(nifc != -1) {
-		iname = ifbuf;
-		snprint(ifbuf, sizeof ifbuf, "%d", nifc);
-	}
-	p = seprint(rw->p, rw->e, rformat, addr, mask, gate, t, r->tag, iname);
+	convroute(r, addr, mask, src, smask, gate);
+	routetype(r->type, type);
+	if(r->ifc != nil && r->ifcid == r->ifc->ifcid)
+		snprint(iname = ifbuf, sizeof ifbuf, "%d", r->ifc->conv->x);
+	else
+		iname = "-";
+	return seprint(p, e, "%-15I %-4M %-15I %-4s %4.4s %3s %-15I %-4M\n",
+		addr, mask, gate, type, r->tag, iname, src, smask);
+}
+
+typedef struct Routewalk Routewalk;
+struct Routewalk
+{
+	int	o;
+	int	h;
+	char*	p;
+	char*	e;
+};
+
+static int
+rr1(Routewalk *rw, Route *r)
+{
+	int n = seprintroute(rw->p, rw->e, r) - rw->p;
 	if(rw->o < 0){
-		n = p - rw->p;
 		if(n > -rw->o){
-			memmove(rw->p, rw->p-rw->o, n+rw->o);
-			rw->p = p + rw->o;
+			memmove(rw->p, rw->p - rw->o, n + rw->o);
+			rw->p += n + rw->o;
 		}
 		rw->o += n;
 	} else
-		rw->p = p;
+		rw->p += n;
+	return rw->p < rw->e;
 }
 
-/*
- *  recurse descending tree, applying the function in Routewalk
- */
 static int
 rr(Route *r, Routewalk *rw)
 {
 	int h;
 
-	if(rw->e <= rw->p)
-		return 0;
 	if(r == nil)
 		return 1;
-
 	if(rr(r->left, rw) == 0)
 		return 0;
-
 	if(r->type & Rv4)
 		h = V4H(r->v4.address);
 	else
 		h = V6H(r->v6.address);
-
-	if(h == rw->h)
-		rw->walk(r, rw);
-
+	if(h == rw->h){
+		if(rr1(rw, r) == 0)
+			return 0;
+	}
 	if(rr(r->mid, rw) == 0)
 		return 0;
-
 	return rr(r->right, rw);
-}
-
-void
-ipwalkroutes(Fs *f, Routewalk *rw)
-{
-	rlock(&routelock);
-	if(rw->e > rw->p) {
-		for(rw->h = 0; rw->h < nelem(f->v4root); rw->h++)
-			if(rr(f->v4root[rw->h], rw) == 0)
-				break;
-	}
-	if(rw->e > rw->p) {
-		for(rw->h = 0; rw->h < nelem(f->v6root); rw->h++)
-			if(rr(f->v6root[rw->h], rw) == 0)
-				break;
-	}
-	runlock(&routelock);
 }
 
 long
 routeread(Fs *f, char *p, ulong offset, int n)
 {
-	Routewalk rw;
+	Routewalk rw[1];
 
-	rw.p = p;
-	rw.e = p+n;
-	rw.o = -offset;
-	rw.walk = sprintroute;
-
-	ipwalkroutes(f, &rw);
-
-	return rw.p - p;
-}
-
-/*
- *  this code is not in routeflush to reduce stack size
- */
-void
-delroute(Fs *f, Route *r, int dolock)
-{
-	uchar addr[IPaddrlen];
-	uchar mask[IPaddrlen];
-	uchar gate[IPaddrlen];
-	char t[5];
-	int nifc;
-
-	convroute(r, addr, mask, gate, t, &nifc);
-	if(r->type & Rv4)
-		v4delroute(f, addr+IPv4off, mask+IPv4off, dolock);
-	else
-		v6delroute(f, addr, mask, dolock);
-}
-
-/*
- *  recurse until one route is deleted
- *    returns 0 if nothing is deleted, 1 otherwise
- */
-int
-routeflush(Fs *f, Route *r, char *tag)
-{
-	if(r == nil)
+	rw->p = p;
+	rw->e = p+n;
+	rw->o = -offset;
+	if(rw->o > 0)
 		return 0;
-	if(routeflush(f, r->mid, tag))
-		return 1;
-	if(routeflush(f, r->left, tag))
-		return 1;
-	if(routeflush(f, r->right, tag))
-		return 1;
-	if((r->type & Rifc) == 0){
-		if(tag == nil || strncmp(tag, r->tag, sizeof(r->tag)) == 0){
-			delroute(f, r, 0);
-			return 1;
-		}
+
+	rlock(&routelock);
+	if(rw->p < rw->e) {
+		for(rw->h = 0; rw->h < nelem(f->v4root); rw->h++)
+			if(rr(f->v4root[rw->h], rw) == 0)
+				break;
 	}
-	return 0;
+	if(rw->p < rw->e) {
+		for(rw->h = 0; rw->h < nelem(f->v6root); rw->h++)
+			if(rr(f->v6root[rw->h], rw) == 0)
+				break;
+	}
+	runlock(&routelock);
+
+	return rw->p - p;
+}
+
+/*
+ *	4	add	addr	mask	gate
+ *	5	add	addr	mask	gate			ifc
+ *	6	add	addr	mask	gate				src	smask
+ *	7	add	addr	mask	gate			ifc	src	smask
+ *	8	add	addr	mask	gate		tag	ifc	src	smask
+ *	9	add	addr	mask	gate	type	tag	ifc	src	smask
+ *	3	remove	addr	mask
+ *	4	remove	addr	mask	gate
+ *	5	remove	addr	mask					src	smask
+ *	6	remove	addr	mask	gate				src	smask
+ *	7	remove	addr	mask	gate			ifc	src	smask
+ *	8	remove	addr	mask	gate		tag	ifc	src	smask
+ *	9	remove	addr	mask	gate	type	tag	ifc	src	smask
+ */
+static Route
+parseroute(Fs *f, char **argv, int argc)
+{
+	uchar addr[IPaddrlen], mask[IPaddrlen];
+	uchar src[IPaddrlen], smask[IPaddrlen];
+	uchar gate[IPaddrlen];
+	Ipifc *ifc;
+	char *tag;
+	int type;
+
+	type = 0;
+	tag = nil;
+	ifc = nil;
+	ipmove(gate, IPnoaddr);
+	ipmove(src, IPnoaddr);
+	ipmove(smask, IPnoaddr);
+
+	if(argc < 3)
+		error(Ebadctl);
+	if(parseip(addr, argv[1]) == -1)
+		error(Ebadip);
+	parseipmask(mask, argv[2]);
+
+	if(strcmp(argv[0], "add") == 0 || (argc > 3 && argc != 5)){
+		if(argc < 4)
+			error(Ebadctl);
+		if(parseip(gate, argv[3]) == -1)
+			error(Ebadip);
+	}
+	if(argc > 4 && (strcmp(argv[0], "add") != 0 || argc != 5)){
+		if(parseip(src, argv[argc-2]) == -1)
+			error(Ebadip);
+		parseipmask(smask, argv[argc-1]);
+	}
+	if(argc == 5 && strcmp(argv[0], "add") == 0)
+		ifc = findipifcstr(f, argv[4]);
+	if(argc > 6)
+		ifc = findipifcstr(f, argv[argc-3]);
+	if(argc > 7)
+		tag = argv[argc-4];
+	if(argc > 8){
+		if((type = parseroutetype(argv[argc-5])) < 0)
+			error(Ebadctl);
+	} else {
+		if(isv4(addr))
+			type |= Rv4;
+	}
+	if(argc > 9)
+		error(Ebadctl);
+
+	if(type & Rv4){
+		if(!isv4(addr))
+			error(Ebadip);
+		if(ipcmp(smask, IPnoaddr) != 0 && !isv4(src))
+			error(Ebadip);
+		if(ipcmp(gate, IPnoaddr) != 0 && !isv4(gate))
+			error(Ebadip);
+	} else {
+		if(isv4(addr))
+			error(Ebadip);
+	}
+
+	return mkroute(addr, mask, src, smask, gate, type, ifc, tag);	
 }
 
 long
 routewrite(Fs *f, Chan *c, char *p, int n)
 {
-	int h, changed;
-	char *tag;
 	Cmdbuf *cb;
-	uchar addr[IPaddrlen];
-	uchar mask[IPaddrlen];
-	uchar gate[IPaddrlen];
-	IPaux *a, *na;
+	IPaux *a;
 
 	cb = parsecmd(p, n);
 	if(waserror()){
@@ -794,52 +958,35 @@ routewrite(Fs *f, Chan *c, char *p, int n)
 	if(cb->nf < 1)
 		error("short control request");
 	if(strcmp(cb->f[0], "flush") == 0){
-		tag = cb->f[1];
+		char *tag = cb->nf < 2 ? nil : cb->f[1];
+		Route *x;
+		int h;
+
+		wlock(&routelock);
 		for(h = 0; h < nelem(f->v4root); h++)
-			for(changed = 1; changed;){
-				wlock(&routelock);
-				changed = routeflush(f, f->v4root[h], tag);
-				wunlock(&routelock);
-			}
+			while((x = looknodetag(f->v4root[h], tag)) != nil)
+				routerem(f, x);
 		for(h = 0; h < nelem(f->v6root); h++)
-			for(changed = 1; changed;){
-				wlock(&routelock);
-				changed = routeflush(f, f->v6root[h], tag);
-				wunlock(&routelock);
-			}
-	} else if(strcmp(cb->f[0], "remove") == 0){
-		if(cb->nf < 3)
-			error(Ebadarg);
-		if (parseip(addr, cb->f[1]) == -1)
-			error(Ebadip);
-		parseipmask(mask, cb->f[2]);
-		if(memcmp(addr, v4prefix, IPv4off) == 0)
-			v4delroute(f, addr+IPv4off, mask+IPv4off, 1);
-		else
-			v6delroute(f, addr, mask, 1);
-	} else if(strcmp(cb->f[0], "add") == 0){
-		if(cb->nf < 4)
-			error(Ebadarg);
-		if(parseip(addr, cb->f[1]) == -1 ||
-		    parseip(gate, cb->f[3]) == -1)
-			error(Ebadip);
-		parseipmask(mask, cb->f[2]);
-		tag = "none";
-		if(c != nil){
+			while((x = looknodetag(f->v6root[h], tag)) != nil)
+				routerem(f, x);
+		wunlock(&routelock);
+	} else if(strcmp(cb->f[0], "add") == 0 || strcmp(cb->f[0], "remove") == 0){
+		Route r = parseroute(f, cb->f, cb->nf);
+		if(*r.tag == 0){
 			a = c->aux;
-			tag = a->tag;
+			strncpy(r.tag, a->tag, sizeof(r.tag));
 		}
-		if(memcmp(addr, v4prefix, IPv4off) == 0)
-			v4addroute(f, tag, addr+IPv4off, mask+IPv4off, gate+IPv4off, 0);
+		wlock(&routelock);
+		if(strcmp(cb->f[0], "add") == 0)
+			routeadd(f, &r);
 		else
-			v6addroute(f, tag, addr, mask, gate, 0);
+			routerem(f, &r);
+		wunlock(&routelock);
 	} else if(strcmp(cb->f[0], "tag") == 0) {
 		if(cb->nf < 2)
 			error(Ebadarg);
-
 		a = c->aux;
-		na = newipaux(a->owner, cb->f[1]);
-		c->aux = na;
+		c->aux = newipaux(a->owner, cb->f[1]);
 		free(a);
 	} else
 		error(Ebadctl);

@@ -38,7 +38,7 @@ ipoput6(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
 	IP *ip;
 	Ip6hdr *eh;
 	Ipifc *ifc;
-	Route *r, *sr;
+	Route *r;
 
 	ip = f->ip;
 
@@ -74,23 +74,16 @@ ipoput6(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
 		goto free;
 	}
 
-	r = v6lookup(f, eh->dst, rh);
-	if(r == nil){
+	r = v6lookup(f, eh->dst, eh->src, rh);
+	if(r == nil || (r->type & Rv4) != 0 || (ifc = r->ifc) == nil){
 		ip->stats[OutNoRoutes]++;
-		netlog(f, Logip, "no interface %I\n", eh->dst);
+		netlog(f, Logip, "no interface %I -> %I\n", eh->src, eh->dst);
 		rv = -1;
 		goto free;
 	}
 
-	ifc = r->ifc;
-	if(r->type & (Rifc|Runi))
+	if(r->type & (Rifc|Runi|Rbcast|Rmulti))
 		gate = eh->dst;
-	else if(r->type & (Rbcast|Rmulti)) {
-		gate = eh->dst;
-		sr = v6lookup(f, eh->src, nil);
-		if(sr && (sr->type & Runi))
-			ifc = sr->ifc;
-	}
 	else
 		gate = r->v6.gate;
 
@@ -226,7 +219,6 @@ ipiput6(Fs *f, Ipifc *ifc, Block *bp)
 {
 	int hl, hop, tos, notforme, tentative;
 	uchar proto;
-	uchar v6dst[IPaddrlen];
 	IP *ip;
 	Ip6hdr *h;
 	Proto *p;
@@ -251,10 +243,8 @@ ipiput6(Fs *f, Ipifc *ifc, Block *bp)
 	}
 
 	h = (Ip6hdr *)bp->rp;
-
-	memmove(&v6dst[0], &h->dst[0], IPaddrlen);
-	notforme = ipforme(f, v6dst) == 0;
-	tentative = iptentative(f, v6dst);
+	notforme = ipforme(f, h->dst) == 0;
+	tentative = iptentative(f, h->dst);
 
 	if(tentative && h->proto != ICMPv6) {
 		print("tentative addr, drop\n");
@@ -290,8 +280,8 @@ ipiput6(Fs *f, Ipifc *ifc, Block *bp)
 			
 		/* don't forward to source's network */
 		rh.r = nil;
-		r  = v6lookup(f, h->dst, &rh);
-		if(r == nil || r->ifc == ifc){
+		r  = v6lookup(f, h->dst, h->src, &rh);
+		if(r == nil || (r->type & Rv4) != 0 || r->ifc == ifc){
 			ip->stats[OutDiscards]++;
 			freeblist(bp);
 			return;

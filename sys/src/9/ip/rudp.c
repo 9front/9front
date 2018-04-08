@@ -564,10 +564,10 @@ rudpiput(Proto *rudp, Ipifc *ifc, Block *bp)
 			c->rport = rport;
 
 			/* reply with the same ip address (if not broadcast) */
-			if(ipforme(f, laddr) == Runi)
-				ipmove(c->laddr, laddr);
-			else
+			if(ipforme(f, laddr) != Runi)
 				ipv6local(ifc, c->laddr, c->raddr);
+			else
+				ipmove(c->laddr, laddr);
 		}
 		break;
 	}

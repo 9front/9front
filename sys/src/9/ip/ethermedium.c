@@ -33,9 +33,9 @@ static void	etherunbind(Ipifc *ifc);
 static void	etherbwrite(Ipifc *ifc, Block *bp, int version, uchar *ip);
 static void	etheraddmulti(Ipifc *ifc, uchar *a, uchar *ia);
 static void	etherremmulti(Ipifc *ifc, uchar *a, uchar *ia);
+static void	etherareg(Fs *f, Ipifc *ifc, uchar *ip, uchar *proxy);
 static Block*	multicastarp(Fs *f, Arpent *a, Medium*, uchar *mac);
 static void	sendarp(Ipifc *ifc, Arpent *a);
-static void	sendgarp(Ipifc *ifc, uchar*);
 static int	multicastea(uchar *ea, uchar *ip);
 static void	recvarpproc(void*);
 static void	resolveaddr6(Ipifc *ifc, Arpent *a);
@@ -53,8 +53,7 @@ Medium ethermedium =
 .bwrite=	etherbwrite,
 .addmulti=	etheraddmulti,
 .remmulti=	etherremmulti,
-.ares=		arpenter,
-.areg=		sendgarp,
+.areg=		etherareg,
 .pref2addr=	etherpref2addr,
 };
 
@@ -70,8 +69,7 @@ Medium gbemedium =
 .bwrite=	etherbwrite,
 .addmulti=	etheraddmulti,
 .remmulti=	etherremmulti,
-.ares=		arpenter,
-.areg=		sendgarp,
+.areg=		etherareg,
 .pref2addr=	etherpref2addr,
 };
 
@@ -271,7 +269,7 @@ etherbwrite(Ipifc *ifc, Block *bp, int version, uchar *ip)
 
 	/* get mac address of destination */
 	a = arpget(er->f->arp, bp, version, ifc, ip, mac);
-	if(a){
+	if(a != nil){
 		/* check for broadcast or multicast */
 		bp = multicastarp(er->f, a, ifc->m, mac);
 		if(bp==nil){
@@ -471,8 +469,8 @@ sendarp(Ipifc *ifc, Arpent *a)
 	arprelease(er->f->arp, a);
 
 	n = sizeof(Etherarp);
-	if(n < a->type->mintu)
-		n = a->type->mintu;
+	if(n < ifc->m->mintu)
+		n = ifc->m->mintu;
 	bp = allocb(n);
 	memset(bp->rp, 0, n);
 	e = (Etherarp*)bp->rp;
@@ -536,10 +534,6 @@ sendgarp(Ipifc *ifc, uchar *ip)
 	Etherarp *e;
 	Etherrock *er = ifc->arg;
 
-	/* don't arp for our initial non address */
-	if(ipcmp(ip, IPnoaddr) == 0)
-		return;
-
 	n = sizeof(Etherarp);
 	if(n < ifc->m->mintu)
 		n = ifc->m->mintu;
@@ -585,7 +579,7 @@ recvarp(Ipifc *ifc)
 	case ARPREPLY:
 		/* check for machine using my ip address */
 		v4tov6(ip, e->spa);
-		if(iplocalonifc(ifc, ip) || ipproxyifc(er->f, ifc, ip)){
+		if(iplocalonifc(ifc, ip) != nil || ipproxyifc(er->f, ifc, ip)){
 			if(memcmp(e->sha, ifc->mac, sizeof(e->sha)) != 0){
 				print("arprep: 0x%E/0x%E also has ip addr %V\n",
 					e->s, e->sha, e->spa);
@@ -594,14 +588,13 @@ recvarp(Ipifc *ifc)
 		}
 
 		/* make sure we're not entering broadcast addresses */
-		if(ipcmp(ip, ipbroadcast) == 0 ||
-			!memcmp(e->sha, etherbroadcast, sizeof(e->sha))){
+		if(ipcmp(ip, ipbroadcast) == 0 || memcmp(e->sha, etherbroadcast, sizeof(e->sha)) == 0){
 			print("arprep: 0x%E/0x%E cannot register broadcast address %I\n",
 				e->s, e->sha, e->spa);
 			break;
 		}
 
-		arpenter(er->f, V4, e->spa, e->sha, sizeof(e->sha), 0);
+		arpenter(er->f, V4, e->spa, e->sha, sizeof(e->sha), e->tpa, 0);
 		break;
 
 	case ARPREQUEST:
@@ -611,9 +604,9 @@ recvarp(Ipifc *ifc)
 
 		/* check for machine using my ip or ether address */
 		v4tov6(ip, e->spa);
-		if(iplocalonifc(ifc, ip) || ipproxyifc(er->f, ifc, ip)){
+		if(iplocalonifc(ifc, ip) != nil || ipproxyifc(er->f, ifc, ip)){
 			if(memcmp(e->sha, ifc->mac, sizeof(e->sha)) != 0){
-				if (memcmp(eprinted, e->spa, sizeof(e->spa))){
+				if(memcmp(eprinted, e->spa, sizeof(e->spa)) != 0){
 					/* print only once */
 					print("arpreq: 0x%E also has ip addr %V\n", e->sha, e->spa);
 					memmove(eprinted, e->spa, sizeof(e->spa));
@@ -627,12 +620,11 @@ recvarp(Ipifc *ifc)
 		}
 
 		/* refresh what we know about sender */
-		arpenter(er->f, V4, e->spa, e->sha, sizeof(e->sha), 1);
+		arpenter(er->f, V4, e->spa, e->sha, sizeof(e->sha), e->tpa, 1);
 
 		/* answer only requests for our address or systems we're proxying for */
 		v4tov6(ip, e->tpa);
-		if(!iplocalonifc(ifc, ip))
-		if(!ipproxyifc(er->f, ifc, ip))
+		if(iplocalonifc(ifc, ip) == nil && !ipproxyifc(er->f, ifc, ip))
 			break;
 
 		n = sizeof(Etherarp);
@@ -742,7 +734,7 @@ ethermediumlink(void)
 static void
 etherpref2addr(uchar *pref, uchar *ea)
 {
-	pref[8] = ea[0] | 0x2;
+	pref[8] = ea[0] ^ 0x2;
 	pref[9] = ea[1];
 	pref[10] = ea[2];
 	pref[11] = 0xFF;
@@ -750,4 +742,32 @@ etherpref2addr(uchar *pref, uchar *ea)
 	pref[13] = ea[3];
 	pref[14] = ea[4];
 	pref[15] = ea[5];
+}
+
+static void
+etherareg(Fs *f, Ipifc *ifc, uchar *ip, uchar *proxy)
+{
+	static char tdad[] = "dad6";
+	uchar mcast[IPaddrlen];
+
+	if(ipcmp(ip, IPnoaddr) == 0)
+		return;
+
+	if(isv4(ip)){
+		sendgarp(ifc, ip);
+		return;
+	}
+
+	if(!iptentative(f, ip)){
+		icmpna(f, proxy, v6allnodesL, ip, ifc->mac, 1<<5);
+		return;
+	}
+
+	/* temporarily add route for duplicate address detection */
+	ipv62smcast(mcast, ip);
+	addroute(f, mcast, IPallbits, v6Unspecified, IPallbits, ip, Rmulti, ifc, tdad);
+
+	icmpns(f, 0, SRC_UNSPEC, ip, TARG_MULTI, ifc->mac);
+
+	remroute(f, mcast, IPallbits, v6Unspecified, IPallbits, ip, Rmulti, ifc, tdad);
 }

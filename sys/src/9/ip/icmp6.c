@@ -211,7 +211,7 @@ newIPICMP(int packetlen)
 	return nbp;
 }
 
-void
+static void
 icmpadvise6(Proto *icmp, Block *bp, char *msg)
 {
 	ushort recid;
@@ -223,7 +223,8 @@ icmpadvise6(Proto *icmp, Block *bp, char *msg)
 
 	for(c = icmp->conv; *c; c++) {
 		s = *c;
-		if(s->lport == recid && ipcmp(s->raddr, p->dst) == 0){
+		if(s->lport == recid)
+		if(ipcmp(s->laddr, p->dst) == 0 || ipcmp(s->raddr, p->dst) == 0){
 			if(s->ignoreadvice)
 				break;
 			qhangup(s->rq, msg);
@@ -280,7 +281,7 @@ icmpkick6(void *x, Block *bp)
 	ipoput6(c->p->f, bp, 0, c->ttl, c->tos, nil);
 }
 
-char*
+static char*
 icmpctl6(Conv *c, char **argv, int argc)
 {
 	Icmpcb6 *icb;
@@ -311,10 +312,14 @@ goticmpkt6(Proto *icmp, Block *bp, int muxkey)
 
 	for(c = icmp->conv; *c; c++){
 		s = *c;
-		if(s->lport == recid && ipcmp(s->raddr, addr) == 0){
+		if(s->lport != recid)
+			continue;
+		if(ipcmp(s->laddr, addr) == 0){
 			qpass(s->rq, concatblock(bp));
 			return;
 		}
+		if(ipcmp(s->raddr, addr) == 0)
+			qpass(s->rq, copyblock(bp, blocklen(bp)));
 	}
 
 	freeblist(bp);
@@ -416,7 +421,7 @@ icmpna(Fs *f, uchar* src, uchar* dst, uchar* targ, uchar* mac, uchar flags)
 	np->ttl = HOP_LIMIT;
 	np->vcf[0] = 0x06 << 4;
 	ipriv->out[NbrAdvert]++;
-	netlog(f, Logicmp, "sending neighbor advertisement %I\n", src);
+	netlog(f, Logicmp, "sending neighbor advertisement %I\n", targ);
 	ipoput6(f, nbp, 0, MAXTTL, DFLTTOS, nil);
 }
 
@@ -692,26 +697,19 @@ targettype(Fs *f, Ipifc *ifc, uchar *target)
 	int t;
 
 	rlock(ifc);
-	if(ipproxyifc(f, ifc, target)) {
-		runlock(ifc);
-		return Tuniproxy;
-	}
-
-	for(lifc = ifc->lifc; lifc; lifc = lifc->next)
-		if(ipcmp(lifc->local, target) == 0) {
-			t = (lifc->tentative)? Tunitent: Tunirany;
-			runlock(ifc);
-			return t;
-		}
-
+	if((lifc = iplocalonifc(ifc, target)) != nil)
+		t = lifc->tentative? Tunitent: Tunirany;
+	else if(ipproxyifc(f, ifc, target))
+		t = Tuniproxy;
+	else
+		t = 0;
 	runlock(ifc);
-	return 0;
+	return t;
 }
 
 static void
 icmpiput6(Proto *icmp, Ipifc *ipifc, Block *bp)
 {
-	int refresh = 1;
 	char *msg, m2[128];
 	uchar pktflags;
 	uchar *packet = bp->rp;
@@ -797,16 +795,12 @@ icmpiput6(Proto *icmp, Ipifc *ipifc, Block *bp)
 			/* fall through */
 
 		case Tuniproxy:
-			if(ipcmp(np->src, v6Unspecified) != 0) {
-				arpenter(icmp->f, V6, np->src, np->lnaddr,
-					8*np->olen-2, 0);
+			if(ipv6local(ipifc, lsrc, np->src)) {
+				arpenter(icmp->f, V6, np->src, np->lnaddr, 8*np->olen-2, lsrc, 0);
 				pktflags |= Sflag;
-			}
-			if(!ipv6local(ipifc, lsrc, np->src))
-				break;
-			icmpna(icmp->f, lsrc,
-				(ipcmp(np->src, v6Unspecified) == 0?
-					v6allnodesL: np->src),
+			} else
+				ipmove(lsrc, np->target);
+			icmpna(icmp->f, lsrc, (pktflags & Sflag) ? np->src : v6allnodesL,
 				np->target, ipifc->mac, pktflags);
 			break;
 		case Tunitent:
@@ -830,9 +824,10 @@ icmpiput6(Proto *icmp, Ipifc *ipifc, Block *bp)
 		 * the arp table.
 		 */
 		lifc = iplocalonifc(ipifc, np->target);
-		if(lifc && lifc->tentative)
-			refresh = 0;
-		arpenter(icmp->f, V6, np->target, np->lnaddr, 8*np->olen-2, refresh);
+		if(lifc != nil && lifc->tentative)
+			arpenter(icmp->f, V6, np->target, np->lnaddr, 8*np->olen-2, np->target, 0);
+		else if(ipv6local(ipifc, lsrc, np->target))
+			arpenter(icmp->f, V6, np->target, np->lnaddr, 8*np->olen-2, lsrc, 1);
 		freeblist(bp);
 		break;
 
@@ -846,7 +841,7 @@ raise:
 	freeblist(bp);
 }
 
-int
+static int
 icmpstats6(Proto *icmp6, char *buf, int len)
 {
 	Icmppriv6 *priv;
@@ -872,6 +867,14 @@ extern char*	icmpannounce(Conv *c, char **argv, int argc);
 extern char*	icmpconnect(Conv *c, char **argv, int argc);
 extern void	icmpclose(Conv *c);
 
+static void
+icmpclose6(Conv *c)
+{
+	Icmpcb6 *icb = (Icmpcb6*)c->ptcl;
+	icb->headers = 0;
+	icmpclose(c);
+}
+
 void
 icmp6init(Fs *fs)
 {
@@ -883,7 +886,7 @@ icmp6init(Fs *fs)
 	icmp6->announce = icmpannounce;
 	icmp6->state = icmpstate;
 	icmp6->create = icmpcreate6;
-	icmp6->close = icmpclose;
+	icmp6->close = icmpclose6;
 	icmp6->rcv = icmpiput6;
 	icmp6->stats = icmpstats6;
 	icmp6->ctl = icmpctl6;

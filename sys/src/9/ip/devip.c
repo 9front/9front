@@ -848,7 +848,7 @@ setladdrport(Conv* c, char* str, int announcing)
 		else {
 			if(parseip(addr, str) == -1)
 				return Ebadip;
-			if(ipforme(c->p->f, addr) || ipismulticast(addr))
+			if(ipforme(c->p->f, addr) != 0 || ipismulticast(addr))
 				ipmove(c->laddr, addr);
 			else
 				return "not a local IP address";

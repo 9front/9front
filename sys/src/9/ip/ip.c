@@ -124,7 +124,7 @@ ipoput4(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
 	Block *xp, *nb;
 	Ip4hdr *eh, *feh;
 	int lid, len, seglen, chunk, dlen, blklen, offset, medialen;
-	Route *r, *sr;
+	Route *r;
 	IP *ip;
 	int rv = 0;
 
@@ -154,24 +154,16 @@ ipoput4(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
 		goto free;
 	}
 
-	r = v4lookup(f, eh->dst, rh);
-	if(r == nil){
+	r = v4lookup(f, eh->dst, eh->src, rh);
+	if(r == nil || (ifc = r->ifc) == nil){
 		ip->stats[OutNoRoutes]++;
-		netlog(f, Logip, "no interface %V\n", eh->dst);
+		netlog(f, Logip, "no interface %V -> %V\n", eh->src, eh->dst);
 		rv = -1;
 		goto free;
 	}
 
-	ifc = r->ifc;
-	if(r->type & (Rifc|Runi))
+	if(r->type & (Rifc|Runi|Rbcast|Rmulti))
 		gate = eh->dst;
-	else
-	if(r->type & (Rbcast|Rmulti)) {
-		gate = eh->dst;
-		sr = v4lookup(f, eh->src, nil);
-		if(sr != nil && (sr->type & Runi))
-			ifc = sr->ifc;
-	}
 	else
 		gate = r->v4.gate;
 
@@ -380,7 +372,7 @@ ipiput4(Fs *f, Ipifc *ifc, Block *bp)
 
 		/* don't forward to source's network */
 		rh.r = nil;
-		r = v4lookup(f, h->dst, &rh);
+		r = v4lookup(f, h->dst, h->src, &rh);
 		if(r == nil || r->ifc == ifc){
 			ip->stats[OutDiscards]++;
 			freeblist(bp);

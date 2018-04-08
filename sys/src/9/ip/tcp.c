@@ -864,8 +864,7 @@ tcpmtu(Route *r, int version, uint *scale)
 	 * otherwise, we use the default MSS which assumes a
 	 * safe minimum MTU of 1280 bytes for V6.
 	 */  
-	if(r != nil){
-		ifc = r->ifc;
+	if(r != nil && (ifc = r->ifc) != nil){
 		mtu = ifc->maxtu - ifc->m->hsize;
 		if(version == V4)
 			return mtu - (TCP4_PKT + TCP4_HDRSIZE);
@@ -1314,7 +1313,7 @@ tcpsndsyn(Conv *s, Tcpctl *tcb)
 	tcb->sndsyntime = NOW;
 
 	/* set desired mss and scale */
-	tcb->mss = tcpmtu(v6lookup(s->p->f, s->raddr, s), s->ipversion, &tcb->scale);
+	tcb->mss = tcpmtu(v6lookup(s->p->f, s->raddr, s->laddr, s), s->ipversion, &tcb->scale);
 	tpriv = s->p->priv;
 	tpriv->stats[Mss] = tcb->mss;
 }
@@ -1492,7 +1491,7 @@ sndsynack(Proto *tcp, Limbo *lp)
 	seg.ack = lp->irs+1;
 	seg.flags = SYN|ACK;
 	seg.urg = 0;
-	seg.mss = tcpmtu(v6lookup(tcp->f, lp->raddr, nil), lp->version, &scale);
+	seg.mss = tcpmtu(v6lookup(tcp->f, lp->raddr, lp->laddr, nil), lp->version, &scale);
 	seg.wnd = QMAX;
 
 	/* if the other side set scale, we should too */
@@ -1768,7 +1767,7 @@ tcpincoming(Conv *s, Tcp *segp, uchar *src, uchar *dst, uchar version)
 	tcb->flags |= SYNACK;
 
 	/* set desired mss and scale */
-	tcb->mss = tcpmtu(v6lookup(s->p->f, src, s), version, &tcb->scale);
+	tcb->mss = tcpmtu(v6lookup(s->p->f, src, dst, s), version, &tcb->scale);
 
 	/* our sending max segment size cannot be bigger than what he asked for */
 	if(lp->mss != 0 && lp->mss < tcb->mss)
