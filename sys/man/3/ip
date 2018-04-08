@@ -345,12 +345,14 @@ The file
 .I iproute
 controls information about IP routing.
 When read, it returns one line per routing entry.
-Each line contains six white-space-separated fields:
+Each line contains eight white-space-separated fields:
 target address, target mask, address of next hop, flags,
-tag, and interface number.
+tag, interface number, source address, source mask.
 The entry used for routing an IP packet is the one with
-the longest mask for which destination address ANDed with
-target mask equals the target address.
+the longest destination and source mask for which
+destination address ANDed with target mask equals the
+target and also the source ANDed with the source mask equals
+the source address.
 The one-character flags are:
 .TF m
 .TP
@@ -385,20 +387,47 @@ changes the route table.  The messages are:
 .TF "\fLtag \fIstring\fR"
 .PD
 .TP
-.B flush
-Remove all routes.
+.BI flush\ tag
+Remove routes of the specified tag, or all routes if
+.I tag
+is omitted.
 .TP
 .BI tag\  string
 Associate the tag,
 .IR string ,
 with all subsequent routes added via this file descriptor.
 .TP
-.BI add\  "target mask nexthop"
-Add the route to the table.  If one already exists with the
-same target and mask, replace it.
+.BI add "target mask nexthop"
 .TP
-.BI remove\  "target mask"
-Remove a route with a matching target and mask.
+.BI add "target mask nexthop interface"
+.TP
+.BI add "target mask nexthop source smask"
+.TP
+.BI add "target mask nexthop interface source smask"
+.TP
+.BI add "target mask nexthop tag interface source smask"
+.TP
+.BI add "target mask nexthop type tag interface source smask"
+Add the route to the table.  If one already exists with the
+same target and mask, replace it. The
+.I interface
+can be given as eigther the interface number or a local
+IP address on the desired interface.
+.TP
+.BI remove "target mask"
+.TP
+.BI remove "target mask nexthop"
+.TP
+.BI remove "target mask source smask"
+.TP
+.BI remove "target mask nexthop source smask"
+.TP
+.BI remove "target mask nexthop interface source smask"
+.TP
+.BI remove "target mask nexthop tag interface source smask"
+.TP
+.BI remove "target mask nexthop type tag interface source smask"
+Remove the matching route.
 .
 .SS "Address resolution
 The file
@@ -408,7 +437,8 @@ The kernel automatically updates the v4 ARP and v6 Neighbour Discovery
 information for Ethernet interfaces.
 When read, the file returns one line per address containing the
 type of medium, the status of the entry (OK, WAIT), the IP
-address, and the medium address.
+address, the medium address and the IP address of the interface
+where the entry is valid.
 Writing to
 .B /net/arp
 administers the ARP information.
@@ -419,9 +449,11 @@ The control messages are:
 .B flush
 Remove all entries.
 .TP
-.BI add\  "type IP-addr Media-addr"
+.BI add\  "type IP-addr Media-addr [Interface-IP-addr]"
 Add an entry or replace an existing one for the
-same IP address.
+same IP address. The optional interface IP address specifies the
+interface where the ARP entry will be valid. This is needed
+for IPv6 link local addresses.
 .TP
 .BI del\  "IP-addr"
 Delete an individual entry.
@@ -509,7 +541,6 @@ three white-space-separated fields: IP address, usage count,
 and flags.  The usage count is the number of interfaces to which
 the address applies.  The flags are the same as for routing
 entries.
-Note that the `IPv4 route' flag will never be set.
 .br
 .ne 3
 .
