@@ -135,10 +135,10 @@ Config:
 static void
 configroothub(Hub *h)
 {
-	Dev *d;
-	char buf[128];
+	char buf[1024];
 	char *p;
 	int nr;
+	Dev *d;
 
 	d = h->dev;
 	h->nport = 2;
