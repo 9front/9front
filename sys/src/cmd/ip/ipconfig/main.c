@@ -153,7 +153,6 @@ int	ipv6auto = 0;
 int	myifc = -1;
 char	*dbfile;
 char	*ndboptions;
-int	nip;
 int	noconfig;
 int	nodhcpwatch;
 char 	optmagic[4] = { 0x63, 0x82, 0x53, 0x63 };
@@ -177,10 +176,8 @@ char *verbs[] = {
 [Vpkt]		"pkt",
 };
 
-void	adddefroute(char*, uchar*);
 int	addoption(char*);
 void	binddevice(void);
-void	bootprequest(void);
 void	controldevice(void);
 void	dhcpquery(int, int);
 void	dhcprecv(void);
@@ -193,10 +190,8 @@ void	dounbind(void);
 void	getoptions(uchar*);
 int	ip4cfg(void);
 int	ip6cfg(void);
-void	lookforip(char*);
 void	mkclientid(void);
 void	ndbconfig(void);
-int	nipifcs(char*);
 int	openlisten(void);
 uchar*	optaddaddr(uchar*, int, uchar*);
 uchar*	optaddbyte(uchar*, int, int);
@@ -218,8 +213,6 @@ int	parseoptions(uchar *p, int n);
 int	parseverb(char*);
 void	pppbinddev(void);
 void	putndb(void);
-void	usage(void);
-int	validip(uchar*);
 
 void
 usage(void)
@@ -381,6 +374,19 @@ finddev(char *dir, char *name, char *dev)
 	return dev;
 }
 
+static int
+findifc(char *net, char *dev)
+{
+	Ipifc *nifc;
+
+	ifc = readipifc(net, ifc, -1);
+	for(nifc = ifc; nifc != nil; nifc = nifc->next)
+		if(strcmp(nifc->dev, dev) == 0)
+			return nifc->index;
+
+	return -1;
+}
+
 static void
 init(void)
 {
@@ -390,6 +396,9 @@ init(void)
 	fmtinstall('M', eipfmt);
 	fmtinstall('V', eipfmt);
  	nsec();			/* make sure time file is open before forking */
+
+	conf.cfd = -1;
+	conf.rfd = -1;
 
 	setnetmtpt(conf.mpoint, sizeof conf.mpoint, nil);
 	conf.cputype = getenv("cputype");
@@ -574,9 +583,35 @@ main(int argc, char **argv)
 	argv0 = "ipconfig";		/* boot invokes us as tcp? */
 
 	action = parseargs(argc, argv);
+
+	myifc = findifc(conf.mpoint, conf.dev);
+	if(myifc < 0) {
+		switch(action){
+		default:
+			if(noconfig)
+				break;
+			/* bind new interface */
+			controldevice();
+			binddevice();
+			myifc = findifc(conf.mpoint, conf.dev);
+		case Vremove:
+		case Vunbind:
+			break;
+		}
+		if(myifc < 0)
+			sysfatal("interface not found for: %s", conf.dev);
+	} else {
+		/* open old interface */
+		binddevice();
+	}
+
 	switch(action){
 	case Vadd:
 		doadd(retry);
+		break;
+	case Vaddpref6:
+	case Vra6:
+		doipv6(action);
 		break;
 	case Vremove:
 		doremove();
@@ -584,30 +619,14 @@ main(int argc, char **argv)
 	case Vunbind:
 		dounbind();
 		break;
-	case Vaddpref6:
-	case Vra6:
-		doipv6(action);
-		break;
 	}
-	exits(0);
+	exits(nil);
 }
 
 void
 doadd(int retry)
 {
-	/* get number of preexisting interfaces */
-	nip = nipifcs(conf.mpoint);
-	if(beprimary == -1 && nip == 0)
-		beprimary = 1;
-
-	/* get ipifc into name space and condition device for ip */
-	if(!noconfig){
-		lookforip(conf.mpoint);
-		controldevice();
-		binddevice();
-	}
-
-	if(!validip(conf.laddr))
+	if(!validip(conf.laddr)){
 		if(dondbconfig)
 			ndbconfig();
 		else if(ipv6auto){
@@ -615,9 +634,12 @@ doadd(int retry)
 			dodhcp = 0;
 		} else
 			dodhcp = 1;
+	}
 
 	/* run dhcp if we need something */
 	if(dodhcp){
+		fprint(conf.rfd, "tag dhcp");
+
 		mkclientid();
 		dhcpquery(!noconfig, Sselecting);
 	}
@@ -654,83 +676,69 @@ doadd(int retry)
 void
 doremove(void)
 {
-	char file[128];
-	int cfd;
-	Ipifc *nifc;
-	Iplifc *lifc;
-
 	if(!validip(conf.laddr))
 		sysfatal("remove requires an address");
-	ifc = readipifc(conf.mpoint, ifc, -1);
-	for(nifc = ifc; nifc != nil; nifc = nifc->next){
-		if(strcmp(nifc->dev, conf.dev) != 0)
-			continue;
-		for(lifc = nifc->lifc; lifc != nil; lifc = lifc->next){
-			if(ipcmp(conf.laddr, lifc->ip) != 0)
-				continue;
-			if (validip(conf.mask) &&
-			    ipcmp(conf.mask, lifc->mask) != 0)
-				continue;
-			if (validip(conf.raddr) &&
-			    ipcmp(conf.raddr, lifc->net) != 0)
-				continue;
-
-			snprint(file, sizeof file, "%s/ipifc/%d/ctl",
-				conf.mpoint, nifc->index);
-			cfd = open(file, ORDWR);
-			if(cfd < 0){
-				warning("can't open %s: %r", conf.mpoint);
-				continue;
-			}
-			if(fprint(cfd, "remove %I %M", lifc->ip, lifc->mask) < 0)
-				warning("can't remove %I %M from %s: %r",
-					lifc->ip, lifc->mask, file);
-		}
-	}
+	if(fprint(conf.cfd, "remove %I %M", conf.laddr, conf.mask) < 0)
+		warning("can't remove %I %M: %r", conf.laddr, conf.mask);
 }
 
 void
 dounbind(void)
 {
-	Ipifc *nifc;
-	char file[128];
-	int cfd;
-
-	ifc = readipifc(conf.mpoint, ifc, -1);
-	for(nifc = ifc; nifc != nil; nifc = nifc->next){
-		if(strcmp(nifc->dev, conf.dev) == 0){
-			snprint(file, sizeof file, "%s/ipifc/%d/ctl",
-				conf.mpoint, nifc->index);
-			cfd = open(file, ORDWR);
-			if(cfd < 0){
-				warning("can't open %s: %r", conf.mpoint);
-				break;
-			}
-			if(fprint(cfd, "unbind") < 0)
-				warning("can't unbind from %s: %r", file);
-			break;
-		}
-	}
+	if(fprint(conf.cfd, "unbind") < 0)
+		warning("can't unbind %s: %r", conf.dev);
 }
 
-/* set the default route */
-void
-adddefroute(char *mpoint, uchar *gaddr)
+int
+issrcspec(uchar *src, uchar *smask)
 {
-	char buf[256];
-	int cfd;
-
-	sprint(buf, "%s/iproute", mpoint);
-	cfd = open(buf, ORDWR);
-	if(cfd < 0)
-		return;
-
-	if(isv4(gaddr))
-		fprint(cfd, "add 0 0 %I", gaddr);
-	else
-		fprint(cfd, "add 2000:: /3 %I", gaddr);
-	close(cfd);
+	return isv4(src)? memcmp(smask+IPv4off, IPnoaddr+IPv4off, 4): ipcmp(smask, IPnoaddr);
 }
+void
+addroute(uchar *dst, uchar *mask, uchar *gate, uchar *laddr, uchar *src, uchar *smask)
+{
+	char *cmd;
+
+	if(issrcspec(src, smask))
+		cmd = "add %I %M %I %I %I %M";
+	else
+		cmd = "add %I %M %I %I";
+	fprint(conf.rfd, cmd, dst, mask, gate, laddr, src, smask);
+}
+void
+removeroute(uchar *dst, uchar *mask, uchar *src, uchar *smask)
+{
+	char *cmd;
+
+	if(issrcspec(src, smask))
+		cmd = "remove %I %M %I %M";
+	else
+		cmd = "remove %I %M";
+	fprint(conf.rfd, cmd, dst, mask, src, smask);
+}
+void
+adddefroute(uchar *gaddr, uchar *laddr, uchar *src, uchar *smask)
+{
+	uchar dst[IPaddrlen], mask[IPaddrlen];
+
+	if(isv4(gaddr)){
+		parseip(dst, "0.0.0.0");
+		parseipmask(mask, "0.0.0.0");
+		if(src == nil)
+			src = dst;
+		if(smask == nil)
+			smask = mask;
+	} else {
+		parseip(dst, "2000::");
+		parseipmask(mask, "/3");
+		if(src == nil)
+			src = IPnoaddr;
+		if(smask == nil)
+			smask = IPnoaddr;
+	}
+	addroute(dst, mask, gaddr, laddr, src, smask);
+}
+
 
 int
 isether(void)
@@ -742,8 +750,13 @@ isether(void)
 void
 mklladdr(void)
 {
-	if(!isether() || myetheraddr(conf.hwa, conf.dev) != 0)
+	if(isether() && myetheraddr(conf.hwa, conf.dev) == 0){
+		conf.hwalen = 6;
+		conf.hwatype = 1;
+	} else {
 		genrandom(conf.hwa, sizeof(conf.hwa));
+		conf.hwatype = -1;
+	}
 	ea2lla(conf.laddr, conf.hwa);
 }
 
@@ -763,18 +776,6 @@ mkclientid(void)
 			"plan9_%ld.%d", lrand(), getpid());
 		conf.cidlen = strlen((char*)conf.cid);
 	}
-}
-
-/* bind ip into the namespace */
-void
-lookforip(char *net)
-{
-	char proto[64];
-
-	snprint(proto, sizeof proto, "%s/ipifc", net);
-	if(access(proto, 0) == 0)
-		return;
-	sysfatal("no ip stack bound onto %s", net);
 }
 
 /* send some ctls to a device */
@@ -807,9 +808,15 @@ binddevice(void)
 {
 	char buf[256];
 
-	if(strcmp(conf.type, "ppp") == 0)
+	if(myifc >= 0){
+		/* open the old interface */
+		snprint(buf, sizeof buf, "%s/ipifc/%d/ctl", conf.mpoint, myifc);
+		conf.cfd = open(buf, ORDWR);
+		if(conf.cfd < 0)
+			sysfatal("open %s: %r", buf);
+	} else if(strcmp(conf.type, "ppp") == 0)
 		pppbinddev();
-	else if(myifc < 0){
+	else {
 		/* get a new ip interface */
 		snprint(buf, sizeof buf, "%s/ipifc/clone", conf.mpoint);
 		conf.cfd = open(buf, ORDWR);
@@ -819,14 +826,9 @@ binddevice(void)
 		/* specify medium as ethernet, bind the interface to it */
 		if(fprint(conf.cfd, "bind %s %s", conf.type, conf.dev) < 0)
 			sysfatal("%s: bind %s %s: %r", buf, conf.type, conf.dev);
-	} else {
-		/* open the old interface */
-		snprint(buf, sizeof buf, "%s/ipifc/%d/ctl", conf.mpoint, myifc);
-		conf.cfd = open(buf, ORDWR);
-		if(conf.cfd < 0)
-			sysfatal("open %s: %r", buf);
 	}
-
+	snprint(buf, sizeof buf, "%s/iproute", conf.mpoint);
+	conf.rfd = open(buf, OWRITE);
 }
 
 /* add a logical interface to the ip stack */
@@ -857,8 +859,8 @@ ip4cfg(void)
 		return -1;
 	}
 
-	if(beprimary==1 && validip(conf.gaddr))
-		adddefroute(conf.mpoint, conf.gaddr);
+	if(validip(conf.gaddr) && isv4(conf.gaddr))
+		adddefroute(conf.gaddr, conf.laddr, conf.laddr, conf.mask);
 
 	return 0;
 }
@@ -867,20 +869,15 @@ ip4cfg(void)
 void
 ipunconfig(void)
 {
-	char buf[256];
-	int n;
-
 	if(!validip(conf.laddr))
 		return;
+
 	DEBUG("couldn't renew IP lease, releasing %I", conf.laddr);
-	n = sprint(buf, "remove");
-	n += snprint(buf+n, sizeof buf-n, " %I", conf.laddr);
 
 	if(!validip(conf.mask))
 		ipmove(conf.mask, defmask(conf.laddr));
-	n += snprint(buf+n, sizeof buf-n, " %I", conf.mask);
 
-	write(conf.cfd, buf, n);
+	doremove();
 
 	ipmove(conf.laddr, IPnoaddr);
 	ipmove(conf.raddr, IPnoaddr);
@@ -1172,10 +1169,8 @@ dhcprecv(void)
 		break;
 	case Offer:
 		DEBUG("got offer from %V ", bp->siaddr);
-		if(conf.state != Sselecting){
-//			DEBUG("");
+		if(conf.state != Sselecting)
 			break;
-		}
 		lease = optgetulong(bp->optdata, ODlease);
 		if(lease == 0){
 			/*
@@ -1731,33 +1726,6 @@ putndb(void)
 		return;
 	write(fd, buf, p-buf);
 	close(fd);
-}
-
-/* return number of networks */
-int
-nipifcs(char *net)
-{
-	int n;
-	Ipifc *nifc;
-	Iplifc *lifc;
-
-	n = 0;
-	ifc = readipifc(net, ifc, -1);
-	for(nifc = ifc; nifc != nil; nifc = nifc->next){
-		/*
-		 * ignore loopback devices when trying to
-		 * figure out if we're the primary interface.
-		 */
-		if(strcmp(nifc->dev, "/dev/null") != 0)
-			for(lifc = nifc->lifc; lifc != nil; lifc = lifc->next)
-				if(validip(lifc->ip)){
-					n++;
-					break;
-				}
-		if(strcmp(nifc->dev, conf.dev) == 0)
-			myifc = nifc->index;
-	}
-	return n;
 }
 
 /* return true if this is a valid v4 address */

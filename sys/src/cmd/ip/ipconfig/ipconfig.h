@@ -8,7 +8,7 @@ struct Conf
 	char	*dev;
 	char	mpoint[32];
 	int	cfd;			/* ifc control channel */
-	int	dfd;			/* ifc data channel (for ppp) */
+	int	rfd;			/* iproute control channel */
 	char	*cputype;
 	uchar	hwa[32];		/* hardware address */
 	int	hwatype;
@@ -45,9 +45,6 @@ struct Conf
 	/*
 	 * IPv6
 	 */
-
-	/* solicitation specific - XXX add support for IPv6 leases */
-//	ulong	solicit_retries;
 
 	/* router-advertisement related */
 	uchar	sendra;
@@ -86,7 +83,6 @@ extern int	ipv6auto;
 extern int	debug;
 extern int	dodhcp;
 extern int	dolog;
-extern int	nip;
 extern int	plan9;
 extern int	dupl_disc;
 
@@ -94,45 +90,18 @@ extern Conf	conf;
 extern int	myifc;
 extern char	*vs;
 
-void	adddefroute(char*, uchar*);
-void	binddevice(void);
-void	bootprequest(void);
-void	controldevice(void);
-void	dhcpquery(int, int);
-void	dhcprecv(void);
-void	dhcpsend(int);
-void	dhcptimer(void);
-void	dhcpwatch(int);
+void	adddefroute(uchar*, uchar*, uchar*, uchar*);
+void	removedefroute(int, uchar*, uchar*);
+
 void	doadd(int);
 void	doremove(void);
 void	dounbind(void);
 int	isether(void);
 long	jitter(void);
-void	lookforip(char*);
 void	mklladdr(void);
-void	mkclientid(void);
-int	nipifcs(char*);
-int	openlisten(void);
-uchar	*optaddaddr(uchar*, int, uchar*);
-uchar	*optaddbyte(uchar*, int, int);
-uchar	*optaddstr(uchar*, int, char*);
-uchar	*optadd(uchar*, int, void*, int);
-uchar	*optaddulong(uchar*, int, ulong);
-uchar	*optaddvec(uchar*, int, uchar*, int);
-int	optgetaddrs(uchar*, int, uchar*, int);
-int	optgetaddr(uchar*, int, uchar*);
-int	optgetbyte(uchar*, int);
-int	optgetstr(uchar*, int, char*, int);
-uchar	*optget(uchar*, int, int*);
-ulong	optgetulong(uchar*, int);
-int	optgetvec(uchar*, int, uchar*, int);
-int	parseoptions(uchar *p, int n);
-int	parseverb(char*);
 void	procsetname(char *fmt, ...);
-void	putndb(void);
 void	refresh(void);
 ulong	randint(ulong low, ulong hi);
-void	usage(void);
 int	validip(uchar*);
 void	warning(char *fmt, ...);
 
@@ -141,9 +110,7 @@ void	warning(char *fmt, ...);
  */
 
 void	doipv6(int);
-void	recvra6(void);
-void	sendra6(void);
-void	v6paraminit(Conf *);
+void	v6paraminit(Conf*);
 
 typedef struct Headers Headers;
 typedef struct Ip4hdr  Ip4hdr;
@@ -186,6 +153,7 @@ enum {
 	OCMASK = 1 << 6,
 	OLMASK = 1 << 7,
 	AFMASK = 1 << 6,
+	RFMASK = 1 << 5,
 };
 
 enum {

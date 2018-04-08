@@ -151,14 +151,14 @@ ralog(char *fmt, ...)
 	syslog(debug, RALOG, msg);
 }
 
-extern void
+void
 ea2lla(uchar *lla, uchar *ea)
 {
 	assert(IPaddrlen == 16);
 	memset(lla, 0, IPaddrlen);
 	lla[0]  = 0xFE;
 	lla[1]  = 0x80;
-	lla[8]  = ea[0] | 0x2;
+	lla[8]  = ea[0] ^ 0x2;
 	lla[9]  = ea[1];
 	lla[10] = ea[2];
 	lla[11] = 0xFF;
@@ -168,7 +168,7 @@ ea2lla(uchar *lla, uchar *ea)
 	lla[15] = ea[5];
 }
 
-extern void
+void
 ipv62smcast(uchar *smcast, uchar *a)
 {
 	assert(IPaddrlen == 16);
@@ -208,7 +208,7 @@ optname(unsigned opt)
 {
 	static char buf[32];
 
-	if (opt >= nelem(icmp6opts) || icmp6opts[opt] == nil) {
+	if(opt >= nelem(icmp6opts) || icmp6opts[opt] == nil) {
 		snprint(buf, sizeof buf, "unknown option %d", opt);
 		return buf;
 	} else
@@ -218,12 +218,12 @@ optname(unsigned opt)
 static char*
 opt_seprint(uchar *ps, uchar *pe, char *sps, char *spe)
 {
-	int otype, osz, pktsz;
+	int otype, osz, pktlen;
 	uchar *a;
 	char *p = sps, *e = spe;
 
 	a = ps;
-	for (pktsz = pe - ps; pktsz > 0; pktsz -= osz) {
+	for (pktlen = pe - ps; pktlen > 0; pktlen -= osz) {
 		otype = a[0];
 		osz = a[1] * 8;
 
@@ -232,14 +232,14 @@ opt_seprint(uchar *ps, uchar *pe, char *sps, char *spe)
 			return seprint(p, e, " option=%s ", optname(otype));
 		case V6nd_srclladdr:
 		case V6nd_targlladdr:
-			if (pktsz < osz || osz != 8)
+			if(pktlen < osz || osz != 8)
 				return seprint(p, e, " option=%s bad size=%d",
 					optname(otype), osz);
 			p = seprint(p, e, " option=%s maddr=%E", optname(otype),
 				a+2);
 			break;
 		case V6nd_pfxinfo:
-			if (pktsz < osz || osz != 32)
+			if(pktlen < osz || osz != 32)
 				return seprint(p, e, " option=%s: bad size=%d",
 					optname(otype), osz);
 
@@ -259,56 +259,6 @@ opt_seprint(uchar *ps, uchar *pe, char *sps, char *spe)
 }
 
 static void
-pkt2str(uchar *ps, uchar *pe, char *sps, char *spe)
-{
-	int pktlen;
-	char *tn, *p, *e;
-	uchar *a;
-	Hdr *h;
-
-	h = (Hdr*)ps;
-	a = ps + 4;
-	p = sps;
-	e = spe;
-
-	pktlen = pe - ps;
-	if(pktlen < ICMP6LEN) {
-		seprint(sps, spe, "short pkt");
-		return;
-	}
-
-	tn = icmpmsg6[h->type];
-	if(tn == nil)
-		p = seprint(p, e, "t=%ud c=%d ck=%4.4ux", h->type,
-			h->code, (ushort)NetS(h->cksum));
-	else
-		p = seprint(p, e, "t=%s c=%d ck=%4.4ux", tn,
-			h->code, (ushort)NetS(h->cksum));
-
-	switch(h->type){
-	case RouterSolicit:
-		ps += 8;
-		p = seprint(p, e, " unused=%1.1d ", NetL(a)!=0);
-		opt_seprint(ps, pe, p, e);
-		break;
-	case RouterAdvert:
-		ps += 16;
-		p = seprint(p, e, " hoplim=%3.3d mflag=%1.1d oflag=%1.1d"
-			" unused=%1.1d routerlt=%d reachtime=%d rxmtimer=%d",
-			a[0],
-			(*(a+1) & (1 << 7)) != 0,
-			(*(a+1) & (1 << 6)) != 0,
-			(*(a+1) & 63) != 0,
-			NetS(a+2), NetL(a+4), NetL(a+8));
-		opt_seprint(ps, pe, p, e);
-		break;
-	default:
-		seprint(p, e, " unexpected icmp6 pkt type");
-		break;
-	}
-}
-
-static void
 catch(void *a, char *msg)
 {
 	USED(a);
@@ -318,51 +268,112 @@ catch(void *a, char *msg)
 		noted(NDFLT);
 }
 
-int
-dialicmp(uchar *dst, int dport, int *ctlfd)
+static int
+dialicmpv6(uchar *ip, int port)
 {
-	int fd, cfd, n, m;
-	char cmsg[100], name[128], connind[40];
-	char hdrs[] = "headers";
+	char addr[128], local[128];
+	int fd, cfd;
 
-	snprint(name, sizeof name, "%s/icmpv6/clone", conf.mpoint);
-	cfd = open(name, ORDWR);
-	if(cfd < 0)
-		sysfatal("dialicmp: can't open %s: %r", name);
-
-	n = snprint(cmsg, sizeof cmsg, "connect %I!%d!r %d", dst, dport, dport);
-	m = write(cfd, cmsg, n);
-	if (m < n)
-		sysfatal("dialicmp: can't write %s to %s: %r", cmsg, name);
-
-	seek(cfd, 0, 0);
-	n = read(cfd, connind, sizeof connind);
-	if (n < 0)
-		connind[0] = 0;
-	else if (n < sizeof connind)
-		connind[n] = 0;
-	else
-		connind[sizeof connind - 1] = 0;
-
-	snprint(name, sizeof name, "%s/icmpv6/%s/data", conf.mpoint, connind);
-	fd = open(name, ORDWR);
-	if(fd < 0)
-		sysfatal("dialicmp: can't open %s: %r", name);
-
-	n = sizeof hdrs - 1;
-	if(write(cfd, hdrs, n) < n)
-		sysfatal("dialicmp: can't write `%s' to %s: %r", hdrs, name);
-	*ctlfd = cfd;
+	snprint(addr, sizeof(addr), "%s/icmpv6!%I!%d!r", conf.mpoint, ip, port);
+	snprint(local, sizeof(local), "%I!%d", conf.laddr, port);
+	if((fd = dial(addr, local, nil, &cfd)) < 0)
+		sysfatal("dialicmp6: %r");
+	fprint(cfd, "headers");
+	fprint(cfd, "ignoreadvice");
+	if(ISIPV6MCAST(ip))
+		fprint(cfd, "addmulti %I", conf.laddr);
+	close(cfd);
 	return fd;
+}
+
+static int
+arpenter(uchar *ip, uchar *mac)
+{
+	char buf[256];
+	int fd, n;
+
+	if(!validip(ip))
+		return 0;
+	snprint(buf, sizeof buf, "%s/arp", conf.mpoint);
+	if((fd = open(buf, OWRITE)) < 0){
+		warning("couldn't open %s: %r", buf);
+		return -1;
+	}
+	n = snprint(buf, sizeof buf, "add %s %I %E %I\n", conf.type, ip, mac, conf.laddr);
+	if(write(fd, buf, n) != n) {
+		warning("arpenter: %s: %r", buf);
+		close(fd);
+		return 0;
+	}
+	close(fd);
+	return 1;
+}
+
+static int
+arpcheck(uchar *ip)
+{
+	char buf[256], *f[5], *p;
+	uchar addr[IPaddrlen];
+	Biobuf *bp;
+	int rv;
+
+	snprint(buf, sizeof buf, "%s/arp", conf.mpoint);
+	bp = Bopen(buf, OREAD);
+	if(bp == nil){
+		warning("couldn't open %s: %r", buf);
+		return -1;
+	}
+	rv = 0;
+	while((p = Brdline(bp, '\n')) != nil){
+		p[Blinelen(bp)-1] = 0;
+		if(tokenize(p, f, nelem(f)) < 3)
+			continue;
+		if(parseip(addr, f[2]) != -1)
+			continue;
+		if(ipcmp(addr, ip) == 0){
+			rv = 1;
+			break;
+		}
+	}
+	Bterm(bp);
+	return rv;
+}
+
+static int
+masklen(uchar *mask)
+{
+	int len;
+
+	for(len=0; len < 128; len += 8){
+		if(*mask != 255)
+			break;
+		mask++;
+	}
+	while(len < 128 && (*mask & (0x80 >> (len & 7))) != 0)
+		len++;
+	return len;
+}
+
+static void
+genipmkask(uchar *mask, int len)
+{
+	memset(mask, 0, IPaddrlen);
+	if(len < 0)
+		len = 0;
+	else if(len > 128)
+		len = 128;
+	for(; len >= 8; len -= 8)
+		*mask++ = 255;
+	if(len > 0)
+		*mask = ~((1<<(8-len))-1);
 }
 
 /* add ipv6 addr to an interface */
 int
 ip6cfg(void)
 {
-	int tentative, dupfound = 0, n;
-	char *p, buf[256];
-	Biobuf *bp;
+	int tentative, n;
+	char buf[256];
 
 	if(!validip(conf.laddr) || isv4(conf.laddr))
 		return -1;
@@ -370,7 +381,7 @@ ip6cfg(void)
 	tentative = dupl_disc;
 
 Again:
-	if (tentative)
+	if(tentative)
 		n = sprint(buf, "try");
 	else
 		n = sprint(buf, "add");
@@ -390,30 +401,15 @@ Again:
 		return -1;
 	}
 
-	if (!tentative)
+	if(!tentative){
+		if(validip(conf.gaddr) && !isv4(conf.gaddr))
+			adddefroute(conf.gaddr, conf.laddr, conf.laddr, conf.mask);
 		return 0;
-
-	sleep(3000);
-
-	/* read arp table, look for addr duplication */
-	snprint(buf, sizeof buf, "%s/arp", conf.mpoint);
-	bp = Bopen(buf, OREAD);
-	if (bp == 0) {
-		warning("couldn't open %s: %r", buf);
-		return -1;
 	}
 
-	snprint(buf, sizeof buf, "%I", conf.laddr);
-	while(p = Brdline(bp, '\n')){
-		p[Blinelen(bp)-1] = 0;
-		if(cistrstr(p, buf) != 0) {
-			dupfound = 1;
-			break;
-		}
-	}
-	Bterm(bp);
+	sleep(1000);
 
-	if (!dupfound) {
+	if(arpcheck(conf.laddr) <= 0) {
 		tentative = 0;
 		goto Again;
 	}
@@ -426,31 +422,57 @@ Again:
 static int
 recvra6on(Ipifc *ifc)
 {
-	if (ifc == nil)
+	if(ifc == nil)
 		return 0;
-	else if (ifc->sendra6 > 0)
+	else if(ifc->sendra6 > 0)
 		return IsRouter;
-	else if (ifc->recvra6 > 0)
+	else if(ifc->recvra6 > 0)
 		return IsHostRecv;
 	else
 		return IsHostNoRecv;
 }
 
-/* send icmpv6 router solicitation to multicast address for all routers */
+static int
+findllip(uchar *ip, Ipifc *ifc)
+{
+	Iplifc *lifc;
+
+	for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
+		if(ISIPV6LINKLOCAL(lifc->ip)){
+			ipmove(ip, lifc->ip);
+			return 1;
+		}
+	}
+	ipmove(ip, v6Unspecified);
+	return 0;
+}
+
 static void
-sendrs(int fd)
+sendrs(int fd, uchar *dst)
 {
 	Routersol *rs;
-	uchar buff[sizeof *rs];
+	Lladdropt *llao;
+	uchar buf[1024];
+	int pktlen;
 
-	memset(buff, 0, sizeof buff);
-	rs = (Routersol *)buff;
-	memmove(rs->dst, v6allroutersL, IPaddrlen);
-	memmove(rs->src, v6Unspecified, IPaddrlen);
+	memset(buf, 0, sizeof buf);
+
+	rs = (Routersol *)buf;
 	rs->type = ICMP6_RS;
+	ipmove(rs->dst, dst);
+	ipmove(rs->src, conf.laddr);
+	pktlen = sizeof *rs;
 
-	if(write(fd, rs, sizeof buff) < sizeof buff)
-		ralog("sendrs: write failed, pkt size %d", sizeof buff);
+	if(conf.hwalen > 0){
+		llao = (Lladdropt *)&buf[pktlen];
+		llao->type = V6nd_srclladdr;
+		llao->len = (2+7+conf.hwalen)/8;
+		memmove(llao->lladdr, conf.hwa, conf.hwalen);
+		pktlen += 8 * llao->len;
+	}
+
+	if(write(fd, rs, pktlen) != pktlen)
+		ralog("sendrs: write failed, pkt size %d", pktlen);
 	else
 		ralog("sendrs: sent solicitation to %I from %I on %s",
 			rs->dst, rs->src, conf.dev);
@@ -477,8 +499,11 @@ ewrite(int fd, char *str)
 {
 	int n;
 
+	if(fd < 0)
+		return;
+
 	n = strlen(str);
-	if (write(fd, str, n) != n)
+	if(write(fd, str, n) != n)
 		ralog("write(%s) failed: %r", str);
 }
 
@@ -522,103 +547,85 @@ issueadd6(Conf *cf)
 static void
 recvrahost(uchar buf[], int pktlen)
 {
-	int arpfd, m, n;
-	char abuf[100];
-	uchar optype;
+	int m, n, optype;
 	Lladdropt *llao;
 	Mtuopt *mtuo;
 	Prefixopt *prfo;
 	Routeradv *ra;
 	static int first = 1;
 
+	m = sizeof *ra;
 	ra = (Routeradv*)buf;
+	if(pktlen < m)
+		return;
+
+	if(!ISIPV6LINKLOCAL(ra->src))
+		return;
+
 	conf.ttl = ra->cttl;
 	conf.mflag = (MFMASK & ra->mor);
 	conf.oflag = (OCMASK & ra->mor);
 	conf.routerlt =  nhgets(ra->routerlt);
 	conf.reachtime = nhgetl(ra->rchbltime);
 	conf.rxmitra =   nhgetl(ra->rxmtimer);
-
-	if (fprint(conf.cfd, "ra6 recvra 1") < 0)
-		ralog("write(ra6 recvra 1) failed: %r");
 	issuebasera6(&conf);
 
-	m = sizeof *ra;
-	while (pktlen - m > 0) {
-		optype = buf[m];
+	while(pktlen - m >= 8) {
+		n = m;
+		optype = buf[n];
+		m += 8 * buf[n+1];
+		if(pktlen < m)
+			return;
+
 		switch (optype) {
 		case V6nd_srclladdr:
-			llao = (Lladdropt *)&buf[m];
-			m += 8 * buf[m+1];
-			if (llao->len != 1) {
-				ralog("recvrahost: illegal len (%d) for source "
-					"link layer address option", llao->len);
-				return;
-			}
-			if (!ISIPV6LINKLOCAL(ra->src)) {
-				ralog("recvrahost: non-link-local src addr for "
-					"router adv %I", ra->src);
-				return;
-			}
-			snprint(abuf, sizeof abuf, "%s/arp", conf.mpoint);
-			arpfd = open(abuf, OWRITE);
-			if (arpfd < 0) {
-				ralog("recvrahost: couldn't open %s to write: %r",
-					abuf);
-				return;
-			}
-
-			n = snprint(abuf, sizeof abuf, "add ether %I %E",
-				ra->src, llao->lladdr);
-			if (write(arpfd, abuf, n) < n)
-				ralog("recvrahost: couldn't write to %s/arp",
-					conf.mpoint);
-			close(arpfd);
-			break;
-		case V6nd_targlladdr:
-		case V6nd_redirhdr:
-			m += 8 * buf[m+1];
-			ralog("ignoring unexpected option type `%s' in Routeradv",
-				optname(optype));
+			llao = (Lladdropt *)&buf[n];
+			if(llao->len == 1 && conf.hwalen == 6)
+				arpenter(ra->src, llao->lladdr);
 			break;
 		case V6nd_mtu:
-			mtuo = (Mtuopt*)&buf[m];
-			m += 8 * mtuo->len;
+			mtuo = (Mtuopt*)&buf[n];
 			conf.linkmtu = nhgetl(mtuo->mtu);
 			break;
 		case V6nd_pfxinfo:
-			prfo = (Prefixopt*)&buf[m];
-			m += 8 * prfo->len;
-			if (prfo->len != 4) {
-				ralog("illegal len (%d) for prefix option",
-					prfo->len);
+			prfo = (Prefixopt*)&buf[n];
+			if(prfo->len != 4) {
+				ralog("illegal len (%d) for prefix option", prfo->len);
 				return;
 			}
-			memmove(conf.v6pref, prfo->pref, IPaddrlen);
-			conf.prefixlen = prfo->plen;
+			if((prfo->plen & 127) == 0
+			|| !validip(prfo->pref)
+			|| isv4(prfo->pref)
+			|| ipcmp(prfo->pref, v6loopback) == 0
+			|| ISIPV6MCAST(prfo->pref)
+			|| ISIPV6LINKLOCAL(prfo->pref)){
+				ralog("igoring bogus prefix from %I on %s; pfx %I /%d",
+					ra->src, conf.dev, prfo->pref, prfo->plen);
+				break;
+			}
+			if(first) {
+				first = 0;
+				ralog("got initial RA from %I on %s; pfx %I /%d",
+					ra->src, conf.dev, prfo->pref, prfo->plen);
+			}
+			conf.prefixlen = prfo->plen & 127;
+			genipmkask(conf.mask, conf.prefixlen);
+			maskip(prfo->pref, conf.mask, conf.v6pref);
 			conf.onlink =   ((prfo->lar & OLMASK) != 0);
 			conf.autoflag = ((prfo->lar & AFMASK) != 0);
 			conf.validlt = nhgetl(prfo->validlt);
 			conf.preflt =  nhgetl(prfo->preflt);
 			issueadd6(&conf);
-			if (first) {
-				first = 0;
-				ralog("got initial RA from %I on %s; pfx %I",
-					ra->src, conf.dev, prfo->pref);
-			}
-			break;
-		case V6nd_srcaddrs:
-			/* netsbd sends this, so quietly ignore it for now */
-			m += 8 * buf[m+1];
-			break;
-		default:
-			m += 8 * buf[m+1];
-			ralog("ignoring optype %d in Routeradv", optype);
+			if(conf.routerlt == 0)
+				break;
+			if((prfo->lar & RFMASK) != 0)
+				ipmove(conf.gaddr, prfo->pref);
+			else
+				ipmove(conf.gaddr, ra->src);
+			adddefroute(conf.gaddr, conf.laddr, conf.v6pref, conf.mask);
 			break;
 		}
 	}
-	if(conf.routerlt != 0 && ISIPV6LINKLOCAL(ra->src))
-		adddefroute(conf.mpoint, ra->src);
 }
 
 /*
@@ -627,57 +634,62 @@ recvrahost(uchar buf[], int pktlen)
 void
 recvra6(void)
 {
-	int fd, cfd, n, sendrscnt, sleepfor;
+	int fd, n, sendrscnt, recvracnt, sleepfor;
 	uchar buf[4096];
-	Ipifc *ifc = nil;
+	Ipifc *ifc;
 
-	/* TODO: why not v6allroutersL? */
-	fd = dialicmp(v6allnodesL, ICMP6_RA, &cfd);
-	if (fd < 0)
+	ifc = readipifc(conf.mpoint, nil, myifc);
+	if(ifc == nil)
+		sysfatal("can't read ipifc: %r");
+
+	if(!findllip(conf.laddr, ifc))
+		sysfatal("no link local address");
+
+	fd = dialicmpv6(v6allnodesL, ICMP6_RA);
+	if(fd < 0)
 		sysfatal("can't open icmp_ra connection: %r");
 
 	notify(catch);
 	sendrscnt = Maxv6rss;
+	recvracnt = 0;
 
 	switch(rfork(RFPROC|RFMEM|RFFDG|RFNOWAIT|RFNOTEG)){
 	case -1:
 		sysfatal("can't fork: %r");
 	default:
+		close(fd);
 		return;
 	case 0:
 		break;
 	}
 
-	procsetname("recvra6 on %s", conf.dev);
+	procsetname("recvra6 on %s %I", conf.dev, conf.laddr);
 	ralog("recvra6 on %s", conf.dev);
-	sleepfor = jitter();
+	sleepfor = Minv6interradelay;
 	for (;;) {
-		/*
-		 * We only get 3 (Maxv6rss) tries, so make sure we
-		 * wait long enough to be certain that at least one RA
-		 * will be transmitted.
-		 */
-		if (sleepfor < 7000)
-			sleepfor = 7000;
 		alarm(sleepfor);
 		n = read(fd, buf, sizeof buf);
-		alarm(0);
+		sleepfor = alarm(0);
+
+		/* wait for alarm to expire */
+		if(sendrscnt < 0 && sleepfor > 100)
+			continue;
 
 		ifc = readipifc(conf.mpoint, ifc, myifc);
-		if (ifc == nil) {
-			ralog("recvra6: can't read router params on %s",
-				conf.mpoint);
-			continue;
+		if(ifc == nil) {
+			ralog("recvra6: can't read router params on %s, quitting on %s",
+				conf.mpoint, conf.dev);
+			exits(nil);
 		}
 		
-		if (n <= 0) {
-			if (sendrscnt > 0) {
+		if(n <= 0) {
+			if(sendrscnt > 0) {
 				sendrscnt--;
-				if (recvra6on(ifc) == IsHostRecv)
-					sendrs(fd);
+				if(recvra6on(ifc) == IsHostRecv)
+					sendrs(fd, v6allroutersL);
 				sleepfor = V6rsintvl + nrand(100);
 			}
-			if (sendrscnt == 0) {
+			if(sendrscnt == 0) {
 				sendrscnt--;
 				sleepfor = 0;
 				ralog("recvra6: no router advs after %d sols on %s",
@@ -686,8 +698,15 @@ recvra6(void)
 			continue;
 		}
 
+		/* got at least initial ra; no whining */
+		sendrscnt = -1;
 		sleepfor = 0;
-		sendrscnt = -1;		/* got at least initial ra; no whining */
+
+		if(++recvracnt >= Maxv6initras){
+			recvracnt = 0;
+			sleepfor = Maxv6radelay;
+		}
+
 		switch (recvra6on(ifc)) {
 		case IsRouter:
 			recvrarouter(buf, n);
@@ -697,8 +716,7 @@ recvra6(void)
 			break;
 		case IsHostNoRecv:
 			ralog("recvra6: recvra off, quitting on %s", conf.dev);
-			close(fd);
-			exits(0);
+			exits(nil);
 		}
 	}
 }
@@ -711,123 +729,97 @@ recvra6(void)
 int
 recvrs(uchar *buf, int pktlen, uchar *sol)
 {
-	int n, optsz, arpfd;
-	char abuf[256];
+	int n;
 	Routersol *rs;
 	Lladdropt *llao;
 
+	n = sizeof *rs + sizeof *llao;
 	rs = (Routersol *)buf;
-	n = sizeof *rs;
-	optsz = pktlen - n;
-	pkt2str(buf, buf+pktlen, abuf, abuf+nelem(abuf));
-
-	if (optsz != sizeof *llao)
-		return 0;
-	if (buf[n] != V6nd_srclladdr || 8*buf[n+1] != sizeof *llao) {
-		ralog("rs opt err %s", abuf);
-		return -1;
-	}
-
-	ralog("rs recv %s", abuf);
-
-	if (memcmp(rs->src, v6Unspecified, IPaddrlen) == 0)
+	if(pktlen < n)
 		return 0;
 
-	snprint(abuf, sizeof abuf, "%s/arp", conf.mpoint);
-	arpfd = open(abuf, OWRITE);
-	if (arpfd < 0) {
-		ralog("recvrs: can't open %s/arp to write: %r", conf.mpoint);
-		return -1;
-	}
+	llao = (Lladdropt *)&buf[sizeof *rs];
+	if(llao->type != V6nd_srclladdr || llao->len != 1 || conf.hwalen != 6)
+		return 0;
 
-	llao = (Lladdropt *)buf[n];
-	n = snprint(abuf, sizeof abuf, "add ether %I %E", rs->src, llao->lladdr);
-	if (write(arpfd, abuf, n) < n) {
-		ralog("recvrs: can't write to %s/arp: %r", conf.mpoint);
-		close(arpfd);
-		return -1;
-	}
+	if(!validip(rs->src)
+	|| isv4(rs->src)
+	|| ipcmp(rs->src, v6loopback) == 0
+	|| ISIPV6MCAST(rs->src))
+		return 0;
 
-	memmove(sol, rs->src, IPaddrlen);
-	close(arpfd);
+	if((n = arpenter(rs->src, llao->lladdr)) <= 0)
+		return n;
+
+	ipmove(sol, rs->src);
 	return 1;
 }
 
 void
 sendra(int fd, uchar *dst, int rlt, Ipifc *ifc)
 {
-	int pktsz, preflen;
-	char abuf[1024], tmp[40];
-	uchar buf[1024], macaddr[6], src[IPaddrlen];
-	Iplifc *lifc, *nlifc;
+	uchar buf[1024];
+	Iplifc *lifc;
 	Lladdropt *llao;
 	Prefixopt *prfo;
 	Routeradv *ra;
+	int pktlen;
 
 	memset(buf, 0, sizeof buf);
-	ra = (Routeradv *)buf;
 
-	myetheraddr(macaddr, conf.dev);
-	ea2lla(src, macaddr);
-	memmove(ra->src, src, IPaddrlen);
-	memmove(ra->dst, dst, IPaddrlen);
+	ra = (Routeradv *)buf;
+	ipmove(ra->dst, dst);
+	ipmove(ra->src, conf.laddr);
 	ra->type = ICMP6_RA;
 	ra->cttl = conf.ttl;
-
-	if (conf.mflag > 0)
+	if(conf.mflag > 0)
 		ra->mor |= MFMASK;
-	if (conf.oflag > 0)
+	if(conf.oflag > 0)
 		ra->mor |= OCMASK;
-	if (rlt > 0)
+	if(rlt > 0)
 		hnputs(ra->routerlt, conf.routerlt);
 	else
 		hnputs(ra->routerlt, 0);
 	hnputl(ra->rchbltime, conf.reachtime);
 	hnputl(ra->rxmtimer, conf.rxmitra);
+	pktlen = sizeof *ra;
 
-	pktsz = sizeof *ra;
-
-	/* include all global unicast prefixes on interface in prefix options */
-	for (lifc = (ifc? ifc->lifc: nil); lifc; lifc = nlifc) {
-		nlifc = lifc->next;
-		prfo = (Prefixopt *)(buf + pktsz);
-		/* global unicast address? */
-		if (!ISIPV6LINKLOCAL(lifc->ip) && !ISIPV6MCAST(lifc->ip) &&
-		    memcmp(lifc->ip, IPnoaddr, IPaddrlen) != 0 &&
-		    memcmp(lifc->ip, v6loopback, IPaddrlen) != 0 &&
-		    !isv4(lifc->ip)) {
-			memmove(prfo->pref, lifc->net, IPaddrlen);
-
-			/* hack to find prefix length */
-			snprint(tmp, sizeof tmp, "%M", lifc->mask);
-			preflen = atoi(&tmp[1]);
-			prfo->plen = preflen & 0xff;
-			if (prfo->plen == 0)
-				continue;
-
-			prfo->type = V6nd_pfxinfo;
-			prfo->len = 4;
-			prfo->lar = AFMASK|OLMASK;
-			hnputl(prfo->validlt, lifc->validlt);
-			hnputl(prfo->preflt, lifc->preflt);
-			pktsz += sizeof *prfo;
-		}
-	}
 	/*
 	 * include link layer address (mac address for now) in
 	 * link layer address option
 	 */
-	llao = (Lladdropt *)(buf + pktsz);
-	llao->type = V6nd_srclladdr;
-	llao->len = 1;
-	memmove(llao->lladdr, macaddr, sizeof macaddr);
-	pktsz += sizeof *llao;
+	if(conf.hwalen > 0){
+		llao = (Lladdropt *)&buf[pktlen];
+		llao->type = V6nd_srclladdr;
+		llao->len = (2+7+conf.hwalen)/8;
+		memmove(llao->lladdr, conf.hwa, conf.hwalen);
+		pktlen += 8 * llao->len;
+	}
 
-	pkt2str(buf+40, buf+pktsz, abuf, abuf+1024);
-	if(write(fd, buf, pktsz) < pktsz)
-		ralog("sendra fail %s: %r", abuf);
-	else if (debug)
-		ralog("sendra succ %s", abuf);
+	/* include all global unicast prefixes on interface in prefix options */
+	for (lifc = (ifc != nil? ifc->lifc: nil); lifc != nil; lifc = lifc->next) {
+		if(pktlen > sizeof buf - 4*8)
+			break;
+		if(!validip(lifc->ip)
+		|| isv4(lifc->ip)
+		|| ipcmp(lifc->ip, v6loopback) == 0
+		|| ISIPV6MCAST(lifc->ip)
+		|| ISIPV6LINKLOCAL(lifc->ip))
+			continue;
+		prfo = (Prefixopt *)&buf[pktlen];
+		prfo->type = V6nd_pfxinfo;
+		prfo->len = 4;
+		prfo->plen = masklen(lifc->mask) & 127;
+		if(prfo->plen == 0)
+			continue;
+		ipmove(prfo->pref, lifc->net);
+		prfo->lar = AFMASK|OLMASK;
+		hnputl(prfo->validlt, lifc->validlt);
+		hnputl(prfo->preflt, lifc->preflt);
+		pktlen += 8 * prfo->len;
+	}
+
+	write(fd, buf, pktlen);
 }
 
 /*
@@ -836,80 +828,68 @@ sendra(int fd, uchar *dst, int rlt, Ipifc *ifc)
 void
 sendra6(void)
 {
-	int fd, cfd, n, dstknown = 0, sendracnt, sleepfor, nquitmsgs;
-	long lastra, now;
+	int fd, n, sleepfor, nquitmsgs;
 	uchar buf[4096], dst[IPaddrlen];
-	Ipifc *ifc = nil;
+	Ipifc *ifc;
 
-	fd = dialicmp(v6allnodesL, ICMP6_RS, &cfd);
-	if (fd < 0)
+	ifc = readipifc(conf.mpoint, nil, myifc);
+	if(ifc == nil)
+		sysfatal("can't read ipifc: %r");
+
+	if(!findllip(conf.laddr, ifc))
+		sysfatal("no link local address");
+
+	fd = dialicmpv6(v6allroutersL, ICMP6_RS);
+	if(fd < 0)
 		sysfatal("can't open icmp_rs connection: %r");
 
 	notify(catch);
-	sendracnt = Maxv6initras;
 	nquitmsgs = Maxv6finalras;
 
 	switch(rfork(RFPROC|RFMEM|RFFDG|RFNOWAIT|RFNOTEG)){
 	case -1:
 		sysfatal("can't fork: %r");
 	default:
+		close(fd);
 		return;
 	case 0:
 		break;
 	}
 
-	procsetname("sendra6 on %s", conf.dev);
+	procsetname("sendra6 on %s %I", conf.dev, conf.laddr);
 	ralog("sendra6 on %s", conf.dev);
-	sleepfor = jitter();
+	sleepfor = 100 + jitter();
 	for (;;) {
-		lastra = time(0);
-		if (sleepfor < 0)
-			sleepfor = 0;
 		alarm(sleepfor);
 		n = read(fd, buf, sizeof buf);
-		alarm(0);
+		sleepfor = alarm(0);
+
+		if(n > 0 && recvrs(buf, n, dst) > 0)
+			sendra(fd, dst, 1, ifc);
+
+		/* wait for alarm to expire */
+		if(sleepfor > 100)
+			continue;
+		sleepfor = Minv6interradelay;
 
 		ifc = readipifc(conf.mpoint, ifc, myifc);
-		if (ifc == nil) {
-			ralog("sendra6: can't read router params on %s",
-				conf.mpoint);
-			continue;
+		if(ifc == nil) {
+			ralog("sendra6: can't read router params on %s, quitting on %s",
+				conf.mpoint, conf.dev);
+			exits(nil);
 		}
-
-		if (ifc->sendra6 <= 0)
-			if (nquitmsgs > 0) {
-				sendra(fd, v6allnodesL, 0, ifc);
+		if(ifc->sendra6 <= 0){
+			if(nquitmsgs > 0) {
 				nquitmsgs--;
-				sleepfor = Minv6interradelay + jitter();
+				sendra(fd, v6allnodesL, 0, ifc);
 				continue;
 			} else {
-				ralog("sendra6: sendra off, quitting on %s",
-					conf.dev);
-				exits(0);
+				ralog("sendra6: sendra off, quitting on %s", conf.dev);
+				exits(nil);
 			}
-
-		nquitmsgs = Maxv6finalras;
-
-		if (n <= 0) {			/* no RS */
-			if (sendracnt > 0)
-				sendracnt--;
-		} else {			/* respond to RS */
-			dstknown = recvrs(buf, n, dst);
-			now = time(0);
-
-			if (now - lastra < Minv6interradelay) {
-				/* too close, skip */
-				sleepfor = lastra + Minv6interradelay +
-					jitter() - now;
-				continue;
-			}
-			sleep(jitter());
 		}
+		sendra(fd, v6allnodesL, 1, ifc);
 		sleepfor = randint(ifc->rp.minraint, ifc->rp.maxraint);
-		if (dstknown > 0)
-			sendra(fd, dst, 1, ifc);
-		else
-			sendra(fd, v6allnodesL, 1, ifc);
 	}
 }
 
@@ -918,16 +898,18 @@ startra6(void)
 {
 	static char routeon[] = "iprouting 1";
 
-	if (conf.recvra > 0)
+	mklladdr();
+
+	if(conf.recvra > 0)
 		recvra6();
 
-	if (conf.sendra > 0) {
-		if (write(conf.cfd, routeon, sizeof routeon - 1) < 0) {
+	if(conf.sendra > 0) {
+		if(write(conf.cfd, routeon, sizeof routeon - 1) < 0) {
 			warning("write (iprouting 1) failed: %r");
 			return;
 		}
 		sendra6();
-		if (conf.recvra <= 0)
+		if(conf.recvra <= 0)
 			recvra6();
 	}
 }
@@ -935,12 +917,7 @@ startra6(void)
 void
 doipv6(int what)
 {
-	nip = nipifcs(conf.mpoint);
-	if(!noconfig){
-		lookforip(conf.mpoint);
-		controldevice();
-		binddevice();
-	}
+	fprint(conf.rfd, "tag ra6");
 
 	switch (what) {
 	default:
