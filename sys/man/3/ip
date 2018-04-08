@@ -387,7 +387,7 @@ changes the route table.  The messages are:
 .TF "\fLtag \fIstring\fR"
 .PD
 .TP
-.BI flush\ tag
+.BI flush\  tag
 Remove routes of the specified tag, or all routes if
 .I tag
 is omitted.
@@ -397,36 +397,36 @@ Associate the tag,
 .IR string ,
 with all subsequent routes added via this file descriptor.
 .TP
-.BI add "target mask nexthop"
+.BI add\  "target mask nexthop"
 .TP
-.BI add "target mask nexthop interface"
+.BI add\  "target mask nexthop interface"
 .TP
-.BI add "target mask nexthop source smask"
+.BI add\  "target mask nexthop source smask"
 .TP
-.BI add "target mask nexthop interface source smask"
+.BI add\  "target mask nexthop interface source smask"
 .TP
-.BI add "target mask nexthop tag interface source smask"
+.BI add\  "target mask nexthop tag interface source smask"
 .TP
-.BI add "target mask nexthop type tag interface source smask"
+.BI add\  "target mask nexthop type tag interface source smask"
 Add the route to the table.  If one already exists with the
 same target and mask, replace it. The
 .I interface
 can be given as eigther the interface number or a local
 IP address on the desired interface.
 .TP
-.BI remove "target mask"
+.BI remove\  "target mask"
 .TP
-.BI remove "target mask nexthop"
+.BI remove\  "target mask nexthop"
 .TP
-.BI remove "target mask source smask"
+.BI remove\  "target mask source smask"
 .TP
-.BI remove "target mask nexthop source smask"
+.BI remove\  "target mask nexthop source smask"
 .TP
-.BI remove "target mask nexthop interface source smask"
+.BI remove\  "target mask nexthop interface source smask"
 .TP
-.BI remove "target mask nexthop tag interface source smask"
+.BI remove\  "target mask nexthop tag interface source smask"
 .TP
-.BI remove "target mask nexthop type tag interface source smask"
+.BI remove\  "target mask nexthop type tag interface source smask"
 Remove the matching route.
 .
 .SS "Address resolution
@@ -449,7 +449,7 @@ The control messages are:
 .B flush
 Remove all entries.
 .TP
-.BI add\  "type IP-addr Media-addr [Interface-IP-addr]"
+.BI add\  "type IP-addr Media-addr Interface-IP-addr"
 Add an entry or replace an existing one for the
 same IP address. The optional interface IP address specifies the
 interface where the ARP entry will be valid. This is needed
