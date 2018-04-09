@@ -57,8 +57,6 @@ ushort firstseq;
 vlong sum;
 int waittime = 5000;
 
-static char *network, *target;
-
 void lost(Req*, void*);
 void reply(Req*, void*);
 
@@ -183,63 +181,12 @@ clean(ushort seq, vlong now, void *v)
 	unlock(&listlock);
 }
 
-static uchar loopbacknet[IPaddrlen] = {
-	0, 0, 0, 0,
-	0, 0, 0, 0,
-	0, 0, 0xff, 0xff,
-	127, 0, 0, 0
-};
-static uchar loopbackmask[IPaddrlen] = {
-	0xff, 0xff, 0xff, 0xff,
-	0xff, 0xff, 0xff, 0xff,
-	0xff, 0xff, 0xff, 0xff,
-	0xff, 0, 0, 0
-};
-
-/*
- * find first ip addr suitable for proto and
- * that isn't the friggin loopback address.
- * deprecate link-local and multicast addresses.
- */
-static int
-myipvnaddr(uchar *ip, Proto *proto, char *net)
-{
-	int ipisv4, wantv4;
-	Ipifc *nifc;
-	Iplifc *lifc;
-	uchar mynet[IPaddrlen], linklocal[IPaddrlen];
-	static Ipifc *ifc;
-
-	ipmove(linklocal, IPnoaddr);
-	wantv4 = proto->version == 4;
-	ifc = readipifc(net, ifc, -1);
-	for(nifc = ifc; nifc; nifc = nifc->next)
-		for(lifc = nifc->lifc; lifc; lifc = lifc->next){
-			maskip(lifc->ip, loopbackmask, mynet);
-			if(ipcmp(mynet, loopbacknet) == 0)
-				continue;
-			if(ISIPV6MCAST(lifc->ip) || ISIPV6LINKLOCAL(lifc->ip)) {
-				ipmove(linklocal, lifc->ip);
-				continue;
-			}
-			ipisv4 = isv4(lifc->ip) != 0;
-			if(ipcmp(lifc->ip, IPnoaddr) != 0 && wantv4 == ipisv4){
-				ipmove(ip, lifc->ip);
-				return 0;
-			}
-		}
-	/* no global unicast addrs found, fall back to link-local, if any */
-	ipmove(ip, linklocal);
-	return ipcmp(ip, IPnoaddr) == 0? -1: 0;
-}
-
 void
 sender(int fd, int msglen, int interval, int n)
 {
 	int i, extra;
 	ushort seq;
 	char buf[64*1024+512];
-	uchar me[IPaddrlen], mev4[IPv4addrlen];
 	Icmphdr *icmp;
 	Req *r;
 
@@ -252,16 +199,6 @@ sender(int fd, int msglen, int interval, int n)
 		buf[i] = i;
 	icmp->type = proto->echocmd;
 	icmp->code = 0;
-
-	/* arguably the kernel should fill in the right src addr. */
-	myipvnaddr(me, proto, network);
-	if (proto->version == 4) {
-		v6tov4(mev4, me);
-		memmove(((Ip4hdr *)buf)->src, mev4, IPv4addrlen);
-	} else
-		ipmove(((Ip6hdr *)buf)->src, me);
-	if (addresses)
-		print("\t%I -> %s\n", me, target);
 
 	if(rint != 0 && interval <= 0)
 		rint = 0;
@@ -357,146 +294,16 @@ rcvr(int fd, int msglen, int interval, int nmsg)
 			lostmsgs+rcvdmsgs);
 }
 
-static int
-isdottedquad(char *name)
-{
-	int dot = 0, digit = 0;
-
-	for (; *name != '\0'; name++)
-		if (*name == '.')
-			dot++;
-		else if (isdigit(*name))
-			digit++;
-		else
-			return 0;
-	return dot && digit;
-}
-
-static int
-isv6lit(char *name)
-{
-	int colon = 0, hex = 0;
-
-	for (; *name != '\0'; name++)
-		if (*name == ':')
-			colon++;
-		else if (isxdigit(*name))
-			hex++;
-		else
-			return 0;
-	return colon;
-}
-
-/* from /sys/src/libc/9sys/dial.c */
-
 enum
 {
 	Maxstring	= 128,
 	Maxpath		= 256,
 };
 
-typedef struct DS DS;
-struct DS {
-	/* dist string */
-	char	buf[Maxstring];
-	char	*netdir;
-	char	*proto;
-	char	*rem;
-
-	/* other args */
-	char	*local;
-	char	*dir;
-	int	*cfdp;
-};
-
-/*
- *  parse a dial string
- */
-static void
-_dial_string_parse(char *str, DS *ds)
-{
-	char *p, *p2;
-
-	strncpy(ds->buf, str, Maxstring);
-	ds->buf[Maxstring-1] = 0;
-
-	p = strchr(ds->buf, '!');
-	if(p == 0) {
-		ds->netdir = 0;
-		ds->proto = "net";
-		ds->rem = ds->buf;
-	} else {
-		if(*ds->buf != '/' && *ds->buf != '#'){
-			ds->netdir = 0;
-			ds->proto = ds->buf;
-		} else {
-			for(p2 = p; *p2 != '/'; p2--)
-				;
-			*p2++ = 0;
-			ds->netdir = ds->buf;
-			ds->proto = p2;
-		}
-		*p = 0;
-		ds->rem = p + 1;
-	}
-}
-
-/* end excerpt from /sys/src/libc/9sys/dial.c */
-
-/* side effect: sets network & target */
-static int
-isv4name(char *name)
-{
-	int r = 1;
-	char *root, *ip, *pr;
-	DS ds;
-
-	_dial_string_parse(name, &ds);
-
-	/* cope with leading /net.alt/icmp! and the like */
-	root = nil;
-	if (ds.netdir != nil) {
-		pr = strrchr(ds.netdir, '/');
-		if (pr == nil)
-			pr = ds.netdir;
-		else {
-			*pr++ = '\0';
-			root = ds.netdir;
-			network = strdup(root);
-		}
-		if (strcmp(pr, v4pr.net) == 0)
-			return 1;
-		if (strcmp(pr, v6pr.net) == 0)
-			return 0;
-	}
-
-	/* if it's a literal, it's obvious from syntax which proto it is */
-	free(target);
-	target = strdup(ds.rem);
-	if (isdottedquad(ds.rem))
-		return 1;
-	else if (isv6lit(ds.rem))
-		return 0;
-
-	/* map name to ip and look at its syntax */
-	ip = csgetvalue(root, "sys", ds.rem, "ip", nil);
-	if (ip == nil)
-		ip = csgetvalue(root, "dom", ds.rem, "ip", nil);
-	if (ip == nil)
-		ip = csgetvalue(root, "sys", ds.rem, "ipv6", nil);
-	if (ip == nil)
-		ip = csgetvalue(root, "dom", ds.rem, "ipv6", nil);
-	if (ip != nil)
-		r = isv4name(ip);
-	free(ip);
-	return r;
-}
-
 void
 main(int argc, char **argv)
 {
 	int fd, msglen, interval, nmsg;
-	char *ds;
 
 	nsec();		/* make sure time file is already open */
 
@@ -564,18 +371,23 @@ main(int argc, char **argv)
 
 	notify(catch);
 
-	if (!isv4name(argv[0]))
+	if(strstr(argv[0], "icmpv6!") != nil)
 		proto = &v6pr;
-	ds = netmkaddr(argv[0], proto->net, "1");
-	fd = dial(ds, 0, 0, 0);
+again:
+	fd = dial(netmkaddr(argv[0], proto->net, "1"), nil, nil, nil);
 	if(fd < 0){
-		fprint(2, "%s: couldn't dial %s: %r\n", argv0, ds);
+		if(proto == &v4pr){
+			proto = &v6pr;
+			goto again;
+		}
+		fprint(2, "%s: couldn't dial: %r\n", argv0);
 		exits("dialing");
 	}
-
-	if (!quiet)
+	if (!quiet){
+		NetConnInfo *nci = getnetconninfo(nil, fd);
 		print("sending %d %d byte messages %d ms apart to %s\n",
-			nmsg, msglen, interval, ds);
+			nmsg, msglen, interval, nci != nil? nci->raddr: argv[0]);
+	}
 
 	switch(rfork(RFPROC|RFMEM|RFFDG)){
 	case -1:
