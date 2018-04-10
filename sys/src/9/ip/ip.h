@@ -181,9 +181,9 @@ struct Conv
 	Proto*	p;
 
 	int	restricted;		/* remote port is restricted */
+	int	ignoreadvice;		/* don't terminate connection on icmp errors */
 	uint	ttl;			/* max time to live */
 	uint	tos;			/* type of service */
-	int	ignoreadvice;		/* don't terminate connection on icmp errors */
 
 	uchar	ipversion;
 	uchar	laddr[IPaddrlen];	/* local IP address */

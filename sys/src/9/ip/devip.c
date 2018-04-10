@@ -549,7 +549,7 @@ closeconv(Conv *cv)
 	}
 
 	/* close all incoming calls since no listen will ever happen */
-	for(nc = cv->incall; nc; nc = cv->incall){
+	for(nc = cv->incall; nc != nil; nc = cv->incall){
 		cv->incall = nc->next;
 		closeconv(nc);
 	}
@@ -561,9 +561,9 @@ closeconv(Conv *cv)
 	while((mp = cv->multi) != nil)
 		ipifcremmulti(cv, mp->ma, mp->ia);
 
-	cv->r = nil;
-	cv->rgen = 0;
-	cv->p->close(cv);
+	if(cv->p->close != nil)
+		(*cv->p->close)(cv);
+
 	cv->state = Idle;
 	qunlock(cv);
 }
@@ -1318,7 +1318,9 @@ retry:
 	c->lport = 0;
 	c->rport = 0;
 	c->restricted = 0;
+	c->ignoreadvice = 0;
 	c->ttl = MAXTTL;
+	c->tos = 0;
 	qreopen(c->rq);
 	qreopen(c->wq);
 	qreopen(c->eq);
