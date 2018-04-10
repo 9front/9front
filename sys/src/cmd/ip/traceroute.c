@@ -180,9 +180,8 @@ udpprobe(int cfd, int dfd, char *dest, int interval)
 #define MSG "traceroute probe"
 #define MAGIC 0xdead
 
-/* ICMPv4 only */
 static int
-icmpprobe(int cfd, int dfd, char *dest, int interval)
+icmpprobe(int cfd, int dfd, int version, char *dest, int interval)
 {
 	int x, i, n, len, rv;
 	char buf[512], err[ERRMAX], msg[Maxstring];
@@ -194,15 +193,16 @@ icmpprobe(int cfd, int dfd, char *dest, int interval)
 		return -1;
 
 	rv = -1;
-	ip = (Icmphdr *)(buf + IPV4HDR_LEN);
+	len = (version == 4)? IPV4HDR_LEN: IPV6HDR_LEN;
+	ip = (Icmphdr *)(buf + len);
+	len += ICMP_HDRSIZE + sizeof(MSG);
 	for(i = 0; i < 3; i++){
 		alarm(interval/3);
-		ip->type = EchoRequest;
+		ip->type = (version == 4)? EchoRequest: EchoRequestV6;
 		ip->code = 0;
 		strcpy((char*)ip->data, MSG);
 		ip->seq[0] = MAGIC;
 		ip->seq[1] = MAGIC>>8;
-		len = IPV4HDR_LEN + ICMP_HDRSIZE + sizeof(MSG);
 
 		/* send a request */
 		if(write(dfd, buf, len) < len)
@@ -222,7 +222,7 @@ icmpprobe(int cfd, int dfd, char *dest, int interval)
 			continue;
 		}
 		x = (ip->seq[1]<<8) | ip->seq[0];
-		if(n >= len && ip->type == EchoReply && x == MAGIC &&
+		if(n >= len && ip->type == ((version == 4)? EchoReply: EchoReplyV6) && x == MAGIC &&
 		    strcmp((char*)ip->data, MSG) == 0){
 			rv = 0;
 			break;
@@ -283,7 +283,9 @@ call(DS *ds, char *clone, char *dest, int ttl, long *interval)
 	if(strcmp(ds->proto, "udp") == 0)
 		rv = udpprobe(cfd, dfd, dest, 3000);
 	else if(strcmp(ds->proto, "icmp") == 0)
-		rv = icmpprobe(cfd, dfd, dest, 3000);
+		rv = icmpprobe(cfd, dfd, 4, dest, 3000);
+	else if(strcmp(ds->proto, "icmpv6") == 0)
+		rv = icmpprobe(cfd, dfd, 6, dest, 3000);
 	else	/* il and tcp */
 		rv = tcpilprobe(cfd, dfd, dest, 3000);
 out:
