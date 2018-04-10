@@ -54,6 +54,7 @@ struct Machine
 {
 	Lock;
 	char	*name;
+	int	version;
 	int	pingfd;
 	int	nproc;
 
@@ -423,7 +424,7 @@ pingreply(Machine *m, Req *r)
 
 
 void
-pingclean(Machine *m, ushort seq, vlong now, int)
+pingclean(Machine *m, ushort seq, vlong now)
 {
 	Req **l, *r;
 	vlong x, y;
@@ -445,31 +446,31 @@ pingclean(Machine *m, ushort seq, vlong now, int)
 	}
 }
 
-/* IPv4 only */
 void
 pingsend(Machine *m)
 {
 	int i;
-	char buf[128], err[ERRMAX];
+	uchar buf[128];
+	char err[ERRMAX];
 	Icmphdr *ip;
 	Req *r;
 
-	ip = (Icmphdr *)(buf + IPV4HDR_LEN);
+	ip = (Icmphdr *)(buf + (m->version==4? IPV4HDR_LEN: IPV6HDR_LEN));
 	memset(buf, 0, sizeof buf);
 	r = malloc(sizeof *r);
 	if(r == nil)
 		return;
 
-	for(i = 32; i < MSGLEN; i++)
+	for(i = ip->data-buf; i < MSGLEN; i++)
 		buf[i] = i;
-	ip->type = EchoRequest;
+	ip->type = m->version==4? EchoRequest: EchoRequestV6;
 	ip->code = 0;
 	ip->seq[0] = m->seq;
 	ip->seq[1] = m->seq>>8;
 	r->seq = m->seq;
 	r->time = nsec();
 	lock(m);
-	pingclean(m, -1, r->time, 0);
+	pingclean(m, -1, r->time);
 	r->next = m->list;
 	m->list = r;
 	unlock(m);
@@ -481,7 +482,6 @@ pingsend(Machine *m)
 	m->seq++;
 }
 
-/* IPv4 only */
 void
 pingrcv(void *arg)
 {
@@ -489,27 +489,25 @@ pingrcv(void *arg)
 	uchar buf[512];
 	ushort x;
 	Icmphdr *ip;
-	Ip4hdr *ip4;
 	Machine *m = arg;
 
-	ip4 = (Ip4hdr *)buf;
-	ip = (Icmphdr *)(buf + IPV4HDR_LEN);
+	ip = (Icmphdr *)(buf + (m->version==4? IPV4HDR_LEN: IPV6HDR_LEN));
 	for(;;){
 		n = read(m->pingfd, buf, sizeof(buf));
 		if(n <= 0)
 			break;
 		if(n < MSGLEN)
 			continue;
-		for(i = 32; i < MSGLEN; i++)
+		for(i = ip->data-buf; i < MSGLEN; i++)
 			if(buf[i] != (i&0xff))
 				break;
 		if(i != MSGLEN)
 			continue;
 		x = (ip->seq[1]<<8) | ip->seq[0];
-		if(ip->type != EchoReply || ip->code != 0)
+		if(ip->type != (m->version==4? EchoReply: EchoReplyV6) || ip->code != 0)
 			continue;
 		lock(m);
-		pingclean(m, x, nsec(), ip4->ttl);
+		pingclean(m, x, nsec());
 		unlock(m);
 	}
 }
@@ -527,12 +525,21 @@ initmach(Machine *m, char *name)
 		m->name = estrdup(p+1);
 	}else
 		p = name;
-
 	m->name = estrdup(p);
 	m->nproc = 1;
-	m->pingfd = dial(netmkaddr(m->name, "icmp", "1"), nil, nil, &cfd);
-	if(m->pingfd < 0)
+
+	m->version = 4;
+	if(strstr(name, "icmpv6!") != nil)
+		m->version = 6;
+again:
+	m->pingfd = dial(netmkaddr(m->name, m->version==4? "icmp": "icmpv6", "1"), nil, nil, &cfd);
+	if(m->pingfd < 0){
+		if(m->version == 4){
+			m->version = 6;
+			goto again;
+		}
 		sysfatal("dialing %s: %r", m->name);
+	}
 	write(cfd, "ignoreadvice", 12);
 	close(cfd);
 	startproc(pingrcv, m);
