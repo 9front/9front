@@ -86,14 +86,6 @@ v6addrtype(uchar *addr)
 #define v6addrcurr(lifc) ((lifc)->preflt == ~0L || \
 			(lifc)->origint + (lifc)->preflt >= NOW/1000)
 
-static uchar*
-defsmask(uchar *a)
-{
-	if(v6addrtype(a) == linklocalv6)
-		return IPallbits;
-	return IPnoaddr;
-}
-
 static int
 comprefixlen(uchar *a, uchar *b, int n)
 {
@@ -516,7 +508,10 @@ ipifcadd(Ipifc *ifc, char **argv, int argc, int tentative, Iplifc *lifcp)
 		;
 	*l = lifc;
 
-	addroute(f, rem, mask, ip, defsmask(ip), rem, type, ifc, tifc);
+	/* add route for this logical interface */
+	addroute(f, rem, mask, ip, IPallbits, rem, type, ifc, tifc);
+	if(v6addrtype(ip) != linklocalv6)
+		addroute(f, rem, mask, ip, IPnoaddr, rem, type, ifc, tifc);
 
 	addselfcache(f, ifc, lifc, ip, Runi);
 
@@ -606,8 +601,12 @@ ipifcremlifc(Ipifc *ifc, Iplifc **l)
 
 	/* remove the route for this logical interface */
 	remroute(f, lifc->remote, lifc->mask,
-		lifc->local, defsmask(lifc->local),
+		lifc->local, IPallbits,
 		lifc->remote, lifc->type, ifc, tifc);
+	if(v6addrtype(lifc->local) != linklocalv6)
+		remroute(f, lifc->remote, lifc->mask,
+			lifc->local, IPnoaddr,
+			lifc->remote, lifc->type, ifc, tifc);
 
 	/* unregister proxy */
 	if(lifc->type & Rptpt){
@@ -887,7 +886,9 @@ addselfcache(Fs *f, Ipifc *ifc, Iplifc *lifc, uchar *a, int type)
 
 		/* add to routing table */
 		addroute(f, a, IPallbits,
-			lifc->local, defsmask(a),
+			lifc->local, 
+			((type & (Rbcast|Rmulti)) != 0 || v6addrtype(a) == linklocalv6) ?
+				IPallbits : IPnoaddr,
 			a, type, ifc, tifc);
 
 		if((type & Rmulti) && ifc->m->addmulti != nil)
@@ -1005,7 +1006,9 @@ remselfcache(Fs *f, Ipifc *ifc, Iplifc *lifc, uchar *a)
 
 	/* remove from routing table */
 	remroute(f, a, IPallbits,
-		lifc->local, defsmask(a),
+		lifc->local, 
+		((p->type & (Rbcast|Rmulti)) != 0 || v6addrtype(a) == linklocalv6) ?
+			IPallbits : IPnoaddr,
 		a, p->type, ifc, tifc);
 
 	if((p->type & Rmulti) && ifc->m->remmulti != nil){
