@@ -548,6 +548,7 @@ static void
 recvrahost(uchar buf[], int pktlen)
 {
 	int m, n, optype;
+	uchar src[IPaddrlen];
 	Lladdropt *llao;
 	Mtuopt *mtuo;
 	Prefixopt *prfo;
@@ -616,13 +617,17 @@ recvrahost(uchar buf[], int pktlen)
 			conf.validlt = nhgetl(prfo->validlt);
 			conf.preflt =  nhgetl(prfo->preflt);
 			issueadd6(&conf);
+			
 			if(conf.routerlt == 0)
 				break;
 			if((prfo->lar & RFMASK) != 0)
 				ipmove(conf.gaddr, prfo->pref);
 			else
 				ipmove(conf.gaddr, ra->src);
-			adddefroute(conf.gaddr, conf.laddr, conf.v6pref, conf.mask);
+
+			memmove(src, conf.v6pref, 8);
+			memmove(src+8, conf.laddr+8, 8);
+			adddefroute(conf.gaddr, conf.laddr, src, conf.mask);
 			break;
 		}
 	}

@@ -737,6 +737,10 @@ adddefroute(uchar *gaddr, uchar *laddr, uchar *src, uchar *smask)
 			smask = IPnoaddr;
 	}
 	addroute(dst, mask, gaddr, laddr, src, smask);
+
+	/* also add a source specific route */
+	if(ipcmp(src, IPnoaddr) != 0 && ipcmp(src, v4prefix) != 0)
+		addroute(dst, mask, gaddr, laddr, src, IPallbits);
 }
 
 
