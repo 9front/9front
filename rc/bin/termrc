@@ -2,8 +2,11 @@
 # this file is run if service=terminal
 TIMESYNCARGS=(-rLa1000000)
 
+# parallelism for mk
+NPROC=`{wc -l </dev/sysstat}
+
 # bind all likely devices
-for(i in S f k t m i v L P u U A '$' Σ κ)
+for(i in v t m i f S P L A '$')
 	bind -a '#'^$i /dev >/dev/null >[2=1]
 rm -f /env/i
 
@@ -24,15 +27,6 @@ unmount /mnt/temp
 # usb listener
 nusbrc
 
-# set up any partitions
-diskparts
-
-# start up local swapping
-disk=`{ls /dev/sd*/swap >[2]/dev/null}
-if (! ~ $#disk 0)
-	swap $disk(1) >/dev/null >[2=1]
-rm -f /env/disk
-
 # we do this before we have a name.  we may need to do network
 # setup so that we can get a name.
 if(test -e /rc/bin/termrc.local)
@@ -47,8 +41,14 @@ if(~ $#sysname 0 || ~ $sysname ''){
 	echo -n $sysname >/dev/sysname
 }
 
-# parallelism for mk
-NPROC=`{wc -l </dev/sysstat}
+# set up any partitions
+diskparts
+
+# start up local swapping
+disk=`{ls /dev/sd*/swap >[2]/dev/null}
+if (! ~ $#disk 0)
+	swap $disk(1) >/dev/null >[2=1]
+rm -f /env/disk
 
 # machine specific startup (e.g., for devices not probed)
 if(test -e /cfg/$sysname/termrc)

@@ -33,12 +33,8 @@ and
 .B $terminal
 these scripts start appropriate network processes and
 administrative daemons and enable swapping.
-.I Cpurc
+.I Termrc
 sets
-.B /env/boottime
-to the time
-.I cpurc
-was executed and
 .B /env/NPROC
 to a value suitable for parallel compilation in
 .IR mk (1).
@@ -54,9 +50,6 @@ exists for the machine named
 .BR $sysname ,
 .I termrc
 will execute it next.
-Automatic initialization of the mouse and
-VGA on a PC is suppressed, if the user is
-.BR none .
 These files should be edited by local installations
 to reflect the configuration of their systems.
 .PP
