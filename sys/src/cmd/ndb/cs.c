@@ -80,7 +80,6 @@ Job	*joblist;
 Mlist	*mlist;
 int	mfd[2];
 int	debug;
-int	paranoia;
 int	ipv6lookups = 1;
 jmp_buf	masterjmp;	/* return through here after a slave process has been created */
 int	*isslave;	/* *isslave non-zero means this is a slave process */
@@ -127,7 +126,6 @@ QLock	dblock;		/* mutex on database operations */
 QLock	netlock;	/* mutex for netinit() */
 
 char	*logfile = "cs";
-char	*paranoiafile = "cs.paranoia";
 
 char	mntpt[Maxpath];
 char	netndb[Maxpath];
@@ -809,15 +807,6 @@ rwrite(Job *job, Mfile *mf)
 	}
 
 	/*
-	 *  toggle debugging
-	 */
-	if(strncmp(job->request.data, "paranoia", 8)==0){
-		paranoia ^= 1;
-		syslog(1, logfile, "paranoia %d", paranoia);
-		goto send;
-	}
-
-	/*
 	 *  add networks to the default list
 	 */
 	if(strncmp(job->request.data, "add ", 4)==0){
@@ -856,8 +845,6 @@ query:
 
 	if(debug)
 		syslog(0, logfile, "write %s", job->request.data);
-	if(paranoia)
-		syslog(0, paranoiafile, "write %s by %s", job->request.data, mf->user);
 	/*
 	 *  break up name
 	 */
