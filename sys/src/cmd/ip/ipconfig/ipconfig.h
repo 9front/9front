@@ -25,7 +25,7 @@ struct Conf
 	uchar	dns[2*IPaddrlen];
 	uchar	fs[2*IPaddrlen];
 	uchar	auth[2*IPaddrlen];
-	uchar	ntp[IPaddrlen];
+	uchar	ntp[2*IPaddrlen];
 	int	mtu;
 
 	/* dhcp specific */
