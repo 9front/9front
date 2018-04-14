@@ -3,7 +3,7 @@
 
 typedef struct DS DS;
 
-static int	call(char*, char*, DS*);
+static int	call(char*, char*, char*, DS*);
 static int	csdial(DS*);
 static void	_dial_string_parse(char*, DS*);
 
@@ -70,7 +70,7 @@ static int
 csdial(DS *ds)
 {
 	int n, fd, rv;
-	char *p, buf[Maxstring], clone[Maxpath], err[ERRMAX];
+	char *rem, *loc, buf[Maxstring], clone[Maxpath], err[ERRMAX];
 
 	/*
 	 *  open connection server
@@ -80,7 +80,7 @@ csdial(DS *ds)
 	if(fd < 0){
 		/* no connection server, don't translate */
 		snprint(clone, sizeof(clone), "%s/%s/clone", ds->netdir, ds->proto);
-		return call(clone, ds->rem, ds);
+		return call(clone, ds->rem, ds->local, ds);
 	}
 
 	/*
@@ -101,11 +101,14 @@ csdial(DS *ds)
 	seek(fd, 0, 0);
 	while((n = read(fd, buf, sizeof(buf) - 1)) > 0){
 		buf[n] = 0;
-		p = strchr(buf, ' ');
-		if(p == nil)
+		rem = strchr(buf, ' ');
+		if(rem == nil)
 			continue;
-		*p++ = 0;
-		rv = call(buf, p, ds);
+		*rem++ = 0;
+		loc = strchr(rem, ' ');
+		if(loc != nil)
+			*loc++ = 0;
+		rv = call(buf, rem, ds->local!=nil? ds->local: loc, ds);
 		if(rv >= 0)
 			break;
 		errstr(err, sizeof err);
@@ -124,7 +127,7 @@ csdial(DS *ds)
 }
 
 static int
-call(char *clone, char *dest, DS *ds)
+call(char *clone, char *remote, char *local, DS *ds)
 {
 	int fd, cfd, n;
 	char cname[Maxpath], name[Maxpath], data[Maxpath], *p;
@@ -161,10 +164,10 @@ call(char *clone, char *dest, DS *ds)
 	snprint(data, sizeof(data), "%s/%s/data", cname, name);
 
 	/* connect */
-	if(ds->local)
-		snprint(name, sizeof(name), "connect %s %s", dest, ds->local);
+	if(local != nil)
+		snprint(name, sizeof(name), "connect %s %s", remote, local);
 	else
-		snprint(name, sizeof(name), "connect %s", dest);
+		snprint(name, sizeof(name), "connect %s", remote);
 	if(write(cfd, name, strlen(name)) < 0){
 		close(cfd);
 		return -1;
