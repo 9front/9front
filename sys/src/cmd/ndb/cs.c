@@ -112,7 +112,6 @@ char	*genquery(Mfile*, char*);
 char*	ipinfoquery(Mfile*, char**, int);
 int	needproto(Network*, Ndbtuple*);
 int	lookup(Mfile*);
-Ndbtuple*	reorder(Ndbtuple*, Ndbtuple*);
 void	ipid(void);
 void	readipinterfaces(void);
 void*	emalloc(int);
@@ -175,11 +174,9 @@ Network network[] = {
 
 QLock ipifclock;
 Ipifc *ipifcs;
+static Ndbtuple* myipinfo(Ndb *db, char **list, int n);
 
-char	eaddr[16];		/* ascii ethernet address */
-char	ipaddr[64];		/* ascii internet address */
-uchar	ipa[IPaddrlen];		/* binary internet address */
-char	*mysysname;
+char *mysysname;
 
 Network *netlist;		/* networks ordered by preference */
 Network *last;
@@ -979,11 +976,9 @@ isvalidip(uchar *ip)
 void
 readipinterfaces(void)
 {
-	if(myipaddr(ipa, mntpt) != 0)
-		ipmove(ipa, IPnoaddr);
-	sprint(ipaddr, "%I", ipa);
-	if (debug)
-		syslog(0, logfile, "ipaddr is %s", ipaddr);
+	qlock(&ipifclock);
+	ipifcs = readipifc(mntpt, ipifcs, -1);
+	qunlock(&ipifclock);
 }
 
 /*
@@ -992,94 +987,86 @@ readipinterfaces(void)
 void
 ipid(void)
 {
+	char eaddr[16], buf[Maxpath];
 	uchar addr[6];
 	Ndbtuple *t, *tt;
 	char *p, *attr;
 	Ndbs s;
 	int f, n;
 	Dir *d;
-	char buf[Maxpath];
 
-	/* use environment, ether addr, or ipaddr to get system name */
-	if(mysysname == nil){
-		/*
-		 *  environment has priority.
-		 *
-		 *  on the sgi power the default system name
-		 *  is the ip address.  ignore that.
-		 *
-		 */
-		p = getenv("sysname");
-		if(p != nil && *p){
-			attr = ipattr(p);
-			if(strcmp(attr, "ip") != 0)
-				mysysname = estrdup(p);
+	if(mysysname != nil)
+		return;
+
+	/*
+	 *  environment has priority.
+	 *
+	 *  on the sgi power the default system name
+	 *  is the ip address.  ignore that.
+	 *
+	 */
+	p = getenv("sysname");
+	if(p != nil && *p != 0){
+		attr = ipattr(p);
+		if(strcmp(attr, "ip") != 0) {
+			mysysname = p;
+			goto setsys;
 		}
+		free(p);
+	}
 
-		/*
-		 *  the /net/ndb contains what the network
-		 *  figured out from DHCP.  use that name if
-		 *  there is one.
-		 */
-		if(mysysname == nil && netdb != nil){
-			ndbreopen(netdb);
-			for(tt = t = ndbparse(netdb); t != nil; t = t->entry){
-				if(strcmp(t->attr, "sys") == 0){
-					mysysname = estrdup(t->val);
-					break;
-				}
-			}
-			ndbfree(tt);
-		}
+	/* try configured interfaces */
+	attr = "sys";
+	t = s.t = myipinfo(db, &attr, 1);
+	if(t != nil)
+		goto found;
 
-		/* next network database, ip address, and ether address to find a name */
-		if(mysysname == nil){
-			t = nil;
-			if(isvalidip(ipa))
-				free(ndbgetvalue(db, &s, "ip", ipaddr, "sys", &t));
-			if(t == nil){
-				n = 0;
-				d = nil;
-				f = open(mntpt, OREAD);
-				if(f >= 0){
-					n = dirreadall(f, &d);
-					close(f);
-				}
-				for(f = 0; f < n; f++){
-					if((d[f].mode & DMDIR) == 0 || strncmp(d[f].name, "ether", 5) != 0)
-						continue;
-					snprint(buf, sizeof buf, "%s/%s", mntpt, d[f].name);
-					if(myetheraddr(addr, buf) >= 0){
-						snprint(eaddr, sizeof(eaddr), "%E", addr);
-						free(ndbgetvalue(db, &s, "ether", eaddr, "sys", &t));
-						if(t != nil)
-							break;
-					}
-				}
+	/* try ethernet interfaces */
+	n = 0;
+	d = nil;
+	f = open(mntpt, OREAD);
+	if(f >= 0){
+		n = dirreadall(f, &d);
+		close(f);
+	}
+	for(f = 0; f < n; f++){
+		if((d[f].mode & DMDIR) == 0 || strncmp(d[f].name, "ether", 5) != 0)
+			continue;
+		snprint(buf, sizeof buf, "%s/%s", mntpt, d[f].name);
+		if(myetheraddr(addr, buf) >= 0){
+			snprint(eaddr, sizeof(eaddr), "%E", addr);
+			free(ndbgetvalue(db, &s, "ether", eaddr, "sys", &t));
+			if(t != nil){
 				free(d);
-			}
-			for(tt = t; tt != nil; tt = tt->entry){
-				if(strcmp(tt->attr, "sys") == 0){
-					mysysname = estrdup(tt->val);
-					break;
-				}
-			}
-			ndbfree(t);
-		}
-
-		/* nothing else worked, use the ip address */
-		if(mysysname == nil && isvalidip(ipa))
-			mysysname = estrdup(ipaddr);
-
-
-		/* set /dev/sysname if we now know it */
-		if(mysysname != nil){
-			f = open("/dev/sysname", OWRITE);
-			if(f >= 0){
-				write(f, mysysname, strlen(mysysname));
-				close(f);
+				goto found;
 			}
 		}
+	}
+	free(d);
+
+	/* nothing else worked, use ip address */
+	attr = "ip";
+	t = s.t = myipinfo(db, &attr, 1);
+	if(t == nil)
+		return;
+	
+found:
+	/* found in database */
+	if((tt = ndbfindattr(t, s.t, "sys")) != nil)
+		mysysname = estrdup(tt->val);
+	else if((tt = ndbfindattr(t, s.t, "ip")) != nil)
+		mysysname = estrdup(tt->val);
+	ndbfree(t);
+
+	if(mysysname == nil)
+		return;
+
+setsys:
+	/* set /dev/sysname if we now know it */
+	f = open("/dev/sysname", OWRITE);
+	if(f >= 0){
+		write(f, mysysname, strlen(mysysname));
+		close(f);
 	}
 }
 
@@ -1119,15 +1106,14 @@ netinit(int background)
 		np->considered = 1;
 	}
 
-	/* find out what our ip address is */
+	/* find out what our ip addresses are */
 	readipinterfaces();
 
 	/* set the system name if we need to, these days ip is all we have */
 	ipid();
 
 	if(debug)
-		syslog(0, logfile, "mysysname %s eaddr %s ipaddr %s ipa %I",
-			mysysname?mysysname:"???", eaddr, ipaddr, ipa);
+		syslog(0, logfile, "mysysname %s", mysysname?mysysname:"???");
 
 	if(background){
 		qunlock(&netlock);
@@ -1333,31 +1319,64 @@ ipserv(Network *np, char *name, char *buf, int blen)
 	return buf;
 }
 
-/*
- *  lookup an ip attribute
- */
-int
-ipattrlookup(Ndb *db, char *ipa, char *attr, char *val, int vlen)
+static Ndbtuple*
+myipinfo(Ndb *db, char **list, int n)
 {
-
 	Ndbtuple *t, *nt;
-	char *alist[2];
+	char ip[64];
+	Ipifc *ifc;
+	Iplifc *lifc;
 
-	alist[0] = attr;
-	t = ndbipinfo(db, "ip", ipa, alist, 1);
-	if(t == nil)
-		return 0;
-	for(nt = t; nt != nil; nt = nt->entry){
-		if(strcmp(nt->attr, attr) == 0){
-			nstrcpy(val, nt->val, vlen);
-			ndbfree(t);
-			return 1;
+	t = nil;
+	qlock(&ipifclock);
+	for(ifc = ipifcs; ifc != nil; ifc = ifc->next){
+		for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
+			snprint(ip, sizeof(ip), "%I", lifc->ip);
+			nt = ndbipinfo(db, "ip", ip, list, n);
+			t = ndbconcatenate(t, nt);
 		}
 	}
+	qunlock(&ipifclock);
 
-	/* we shouldn't get here */
-	ndbfree(t);
-	return 0;
+	return t;
+}
+
+/*
+ * reorder according to our interfaces
+ */
+static Ndbtuple*
+ipreorder(Ndbtuple *t)
+{
+	Ndbtuple *nt;
+	uchar ip[IPaddrlen];
+	uchar net[IPaddrlen];
+	uchar tnet[IPaddrlen];
+	Ipifc *ifc;
+	Iplifc *lifc;
+
+	if(t == nil)
+		return nil;
+
+	qlock(&ipifclock);
+	for(ifc = ipifcs; ifc != nil; ifc = ifc->next){
+		for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
+			maskip(lifc->ip, lifc->mask, net);
+			for(nt = t; nt != nil; nt = nt->entry){
+				if(strcmp(nt->attr, "ip") != 0)
+					continue;
+				if(parseip(ip, nt->val) == -1)
+					continue;
+				maskip(ip, lifc->mask, tnet);
+				if(memcmp(net, tnet, IPaddrlen) == 0){
+					qunlock(&ipifclock);
+					return ndbreorder(t, nt);
+				}
+			}
+		}
+	}
+	qunlock(&ipifclock);
+
+	return t;
 }
 
 static int
@@ -1368,30 +1387,25 @@ isv4str(char *s)
 }
 
 /*
- *  lookup (and translate) an ip destination
+ *  lookup an ip destination
  */
-Ndbtuple*
-iplookup(Network *np, char *host, char *serv)
+static Ndbtuple*
+iplookuphost(Network *np, char *host)
 {
 	char *attr, *dnsname;
 	Ndbtuple *t, *nt;
 	Ndbs s;
-	char ts[Maxservice];
-	char dollar[Maxhost];
-	uchar ip[IPaddrlen];
-	uchar net[IPaddrlen];
-	uchar tnet[IPaddrlen];
-	Ipifc *ifc;
-	Iplifc *lifc;
 
 	/*
-	 *  start with the service since it's the most likely to fail
-	 *  and costs the least
+	 *  turn '[ip address]' into just 'ip address'
 	 */
-	werrstr("can't translate address");
-	if(serv == nil || ipserv(np, serv, ts, sizeof ts) == nil){
-		werrstr("can't translate service");
-		return nil;
+	if(*host == '['){
+		char tmp[Maxhost], *x;
+
+		nstrcpy(tmp, host, sizeof tmp);
+		host = tmp;
+		if((x = strchr(++host, ']')) != nil)
+			*x = 0;
 	}
 
 	/* for dial strings with no host */
@@ -1404,30 +1418,6 @@ iplookup(Network *np, char *host, char *serv)
 	if(strcmp("::", host) == 0)
 		return ndbnew("ip", "*");
 
-
-	/*
-	 *  '$' means the rest of the name is an attribute that we
-	 *  need to search for
-	 */
-	if(*host == '$'){
-		if(ipattrlookup(db, ipaddr, host+1, dollar, sizeof dollar))
-			host = dollar;
-	}
-
-	/*
-	 *  turn '[ip address]' into just 'ip address'
-	 */
-	if(*host == '['){
-		char *x;
-
-		if(host != dollar){
-			nstrcpy(dollar, host, sizeof dollar);
-			host = dollar;
-		}
-		if(x = strchr(++host, ']'))
-			*x = 0;
-	}
-
 	/*
 	 *  just accept addresses
 	 */
@@ -1439,21 +1429,30 @@ iplookup(Network *np, char *host, char *serv)
 	 *  give the domain name server the first opportunity to
 	 *  resolve domain names.  if that fails try the database.
 	 */
-	t = 0;
-	werrstr("can't translate address");
+	t = nil;
 	if(strcmp(attr, "dom") == 0)
 		t = dnsiplookup(host, &s, !np->v4only);
-	if(t == nil)
-		free(ndbgetvalue(db, &s, attr, host, "ip", &t));
 	if(t == nil){
-		dnsname = ndbgetvalue(db, &s, attr, host, "dom", nil);
-		if(dnsname){
-			t = dnsiplookup(dnsname, &s, !np->v4only);
-			free(dnsname);
+		for(nt = ndbsearch(db, &s, attr, host); nt != nil; nt = ndbsnext(&s, attr, host)){
+			if(ndbfindattr(nt, s.t, "ip") == nil){
+				ndbfree(nt);
+				continue;
+			}
+			t = ndbconcatenate(t, ndbreorder(nt, s.t));
 		}
+		s.t = t;
 	}
-	if(t == nil)
-		t = dnsiplookup(host, &s, !np->v4only);
+	if(t == nil){
+		if(strcmp(attr, "dom") != 0){
+			dnsname = ndbgetvalue(db, &s, attr, host, "dom", nil);
+			if(dnsname != nil){
+				t = dnsiplookup(dnsname, &s, !np->v4only);
+				free(dnsname);
+			}
+		}
+		if(t == nil)
+			t = dnsiplookup(host, &s, !np->v4only);
+	}
 	if(t == nil)
 		return nil;
 
@@ -1461,32 +1460,45 @@ iplookup(Network *np, char *host, char *serv)
 	 *  reorder the tuple to have the matched line first and
 	 *  save that in the request structure.
 	 */
-	t = reorder(t, s.t);
+	return ndbreorder(t, s.t);
+}
+
+
+Ndbtuple*
+iplookup(Network *np, char *host, char *serv)
+{
+	Ndbtuple *l, *t, *nt;
+	char ts[Maxservice], *attr;
 
 	/*
-	 * reorder according to our interfaces
+	 *  start with the service since it's the most likely to fail
+	 *  and costs the least
 	 */
-	qlock(&ipifclock);
-	for(ifc = ipifcs; ifc != nil; ifc = ifc->next){
-		for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
-			maskip(lifc->ip, lifc->mask, net);
-			for(nt = t; nt; nt = nt->entry){
-				if(strcmp(nt->attr, "ip") != 0)
-					continue;
-				parseip(ip, nt->val);
-				maskip(ip, lifc->mask, tnet);
-				if(memcmp(net, tnet, IPaddrlen) == 0){
-					t = reorder(t, nt);
-					qunlock(&ipifclock);
-					return t;
-				}
-			}
-		}
+	if(serv == nil || ipserv(np, serv, ts, sizeof ts) == nil){
+		werrstr("can't translate service");
+		return nil;
 	}
-	qunlock(&ipifclock);
 
-	return t;
+	/*
+	 *  '$' means the rest of the name is an attribute that we
+	 *  need to search for
+	 */
+ 	werrstr("can't translate address");
+	if(*host == '$'){
+		t = nil;
+		attr = host+1;
+		l = myipinfo(db, &attr, 1);
+		for(nt = l; nt != nil; nt = nt->entry){
+			if(strcmp(nt->attr, attr) == 0)
+				t = ndbconcatenate(t, iplookuphost(np, nt->val));
+		}
+		ndbfree(l);
+	} else
+		t = iplookuphost(np, host);
+
+	return ipreorder(t);
 }
+
 
 /*
  *  translate an ip address
@@ -1505,6 +1517,7 @@ iptrans(Ndbtuple *t, Network *np, char *serv, char *rem, int hack)
 		werrstr("can't translate service");
 		return nil;
 	}
+
 	if(rem != nil)
 		snprint(x, sizeof(x), "!%s", rem);
 	else
@@ -1543,7 +1556,7 @@ telcolookup(Network *np, char *host, char *serv)
 	if(t == nil)
 		return ndbnew("telco", host);
 
-	return reorder(t, s.t);
+	return ndbreorder(t, s.t);
 }
 
 /*
@@ -1569,34 +1582,6 @@ telcotrans(Ndbtuple *t, Network *np, char *serv, char *rem, int)
 		snprint(reply, sizeof(reply), "%s/%s/clone %s%s", mntpt, np->net,
 			t->val, x);
 	return estrdup(reply);
-}
-
-/*
- *  reorder the tuple to put x's line first in the entry
- */
-Ndbtuple*
-reorder(Ndbtuple *t, Ndbtuple *x)
-{
-	Ndbtuple *nt;
-	Ndbtuple *line;
-
-	/* find start of this entry's line */
-	for(line = x; line->entry == line->line; line = line->line)
-		;
-	line = line->line;
-	if(line == t)
-		return t;	/* already the first line */
-
-	/* remove this line and everything after it from the entry */
-	for(nt = t; nt->entry != line; nt = nt->entry)
-		;
-	nt->entry = nil;
-
-	/* make that the start of the entry */
-	for(nt = line; nt->entry != nil; nt = nt->entry)
-		;
-	nt->entry = t;
-	return line;
 }
 
 /*
@@ -1780,7 +1765,7 @@ genquery(Mfile *mf, char *query)
 
 	/* give dns a chance */
 	if((strcmp(attr[0], "dom") == 0 || strcmp(attr[0], "ip") == 0) && val[0]){
-		t = dnsiplookup(val[0], &s, 1);
+		t = dnsiplookup(val[0], &s, ipv6lookups);
 		if(t != nil){
 			if(qmatch(t, attr, val, n)){
 				qreply(mf, t);
@@ -1836,8 +1821,8 @@ char*
 ipinfoquery(Mfile *mf, char **list, int n)
 {
 	int i, nresolve;
-	int resolve[Maxattr];
-	Ndbtuple *t, *nt, **l;
+	uchar resolve[Maxattr];
+	Ndbtuple *t, *nt, *tt, **l;
 	char *attr, *val;
 
 	/* skip 'ipinfo' */
@@ -1846,19 +1831,19 @@ ipinfoquery(Mfile *mf, char **list, int n)
 	if(n < 1)
 		return "bad query";
 
-	/* get search attribute=value, or assume ip=myipaddr */
+	/* get search attribute=value, or assume myip */
 	attr = *list;
 	if((val = strchr(attr, '=')) != nil){
 		*val++ = 0;
 		list++;
 		n--;
 	}else{
-		attr = "ip";
-		val = ipaddr;
+		attr = nil;
+		val = nil;
 	}
-
 	if(n < 1)
 		return "bad query";
+
 
 	/*
 	 *  don't let ndbipinfo resolve the addresses, we're
@@ -1873,9 +1858,27 @@ ipinfoquery(Mfile *mf, char **list, int n)
 		} else
 			resolve[i] = 0;
 
-	t = ndbipinfo(db, attr, val, list, n);
+	if(attr == nil)
+		t = myipinfo(db, list, n);
+	else
+		t = ndbipinfo(db, attr, val, list, n);
+
 	if(t == nil)
 		return "no match";
+
+	/* remove duplicates */
+	for(nt = t; nt != nil; nt = nt->entry){
+		for(l = &nt->entry; (tt = *l) != nil;){
+			if(strcmp(nt->attr, tt->attr) != 0
+			|| strcmp(nt->val, tt->val) != 0){
+				l = &tt->entry;
+				continue;
+			}
+			*l = tt->entry;
+			tt->entry = nil;
+			ndbfree(tt);
+		}
+	}
 
 	if(nresolve != 0){
 		for(l = &t; *l != nil;){
