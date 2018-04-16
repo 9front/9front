@@ -295,7 +295,7 @@ fsattach(Req *r)
 	if(r->ifcall.aname && r->ifcall.aname[0]){
 		uchar addr[IPaddrlen];
 
-		if(parseip(addr, r->ifcall.aname) < 0){
+		if(parseip(addr, r->ifcall.aname) == -1){
 			respond(r, "bad ip specified");
 			return;
 		}
@@ -459,7 +459,7 @@ threadmain(int argc, char **argv)
 	case 0:
 		break;
 	case 1:
-		if(parseip(ipaddr, *argv) < 0)
+		if(parseip(ipaddr, *argv) == -1)
 			usage();
 		break;
 	default:

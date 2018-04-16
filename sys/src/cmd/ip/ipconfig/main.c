@@ -1715,7 +1715,8 @@ putndb(void)
 			uchar ip[IPaddrlen];
 
 			if((nt = ndbfindattr(t, t, "ip")) == nil
-			|| parseip(ip, nt->val) < 0 || ipcmp(ip, conf.laddr) != 0){
+			|| parseip(ip, nt->val) == -1
+			|| ipcmp(ip, conf.laddr) != 0){
 				p = seprint(p, e, "\n");
 				for(nt = t; nt != nil; nt = nt->entry)
 					p = seprint(p, e, "%s=%s%s", nt->attr, nt->val,
@@ -1837,7 +1838,7 @@ ndbconfig(void)
 			ok = parseip(conf.fs+IPaddrlen*nfs++, nt->val);
 		else if(nauth < sizeof(conf.auth)/IPaddrlen && strcmp(nt->attr, "auth") == 0)
 			ok = parseip(conf.auth+IPaddrlen*nauth++, nt->val);
-		if (!ok)
+		if(ok == -1)
 			fprint(2, "%s: bad %s address in ndb: %s\n", argv0,
 				nt->attr, nt->val);
 	}

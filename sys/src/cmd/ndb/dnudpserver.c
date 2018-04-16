@@ -80,7 +80,7 @@ addforwtarg(char *host)
 		return -1;
 	}
 	tp = forwtarg + forwtcount;
-	if (parseip(tp->addr, host) < 0) {
+	if(parseip(tp->addr, host) == -1) {
 		dnslog("can't parse ip %s", host);
 		return -1;
 	}

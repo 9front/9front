@@ -2901,7 +2901,8 @@ putndb(PPP *ppp, char *net)
 			uchar ip[IPaddrlen];
 
 			if((nt = ndbfindattr(t, t, "ip")) == nil
-			|| parseip(ip, nt->val) < 0 || ipcmp(ip, ppp->local) != 0){
+			|| parseip(ip, nt->val) == -1
+			|| ipcmp(ip, ppp->local) != 0){
 				p = seprint(p, e, "\n");
 				for(nt = t; nt != nil; nt = nt->entry)
 					p = seprint(p, e, "%s=%s%s", nt->attr, nt->val,
