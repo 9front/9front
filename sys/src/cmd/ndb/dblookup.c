@@ -20,8 +20,11 @@ enum {
 	Ptrttl = 2*Min,
 };
 
-static Ndb *db;
-static Lock	dblock;
+static Ndb	*db;
+static QLock	dblock;
+
+static Ipifc	*ipifcs;
+static QLock	ipifclock;
 
 static RR*	addrrr(Ndbtuple*, Ndbtuple*);
 static RR*	cnamerr(Ndbtuple*, Ndbtuple*);
@@ -67,7 +70,7 @@ opendatabase(void)
 	char netdbnm[256];
 	Ndb *xdb, *netdb;
 
-	if (db)
+	if(db != nil)
 		return 0;
 
 	xdb = ndbopen(dbfile);		/* /lib/ndb */
@@ -84,7 +87,7 @@ opendatabase(void)
 		netdb->nohash = 1;
 
 	db = ndbcat(netdb, xdb);	/* both */
-	return db? 0: -1;
+	return db!=nil ? 0: -1;
 }
 
 /*
@@ -122,7 +125,7 @@ dblookup(char *name, int class, int type, int auth, int ttl)
 		return rp;
 	}
 
-	lock(&dblock);
+	qlock(&dblock);
 	dp = idnlookup(name, class, 1);
 
 	if(opendatabase() < 0)
@@ -166,7 +169,7 @@ out:
 		dp->respcode = err;
 	}
 
-	unlock(&dblock);
+	qunlock(&dblock);
 	return rp;
 }
 
@@ -675,12 +678,15 @@ db2cache(int doit)
 
 	refresh_areas(owned);
 
-	lock(&dblock);
-
+	qlock(&dblock);
 	if(opendatabase() < 0){
-		unlock(&dblock);
+		qunlock(&dblock);
 		return;
 	}
+
+	qlock(&ipifclock);
+	ipifcs = readipifc(mntpt, ipifcs, -1);
+	qunlock(&ipifclock);
 
 	/*
 	 *  file may be changing as we are reading it, so loop till
@@ -737,11 +743,10 @@ db2cache(int doit)
 		createptrs();
 	}
 
-	unlock(&dblock);
+	qunlock(&dblock);
 }
 
 extern char	mntpt[Maxpath];		/* net mountpoint */
-static uchar	ipaddr[IPaddrlen];	/* my ip address */
 
 /*
  *  get all my xxx
@@ -750,24 +755,30 @@ static uchar	ipaddr[IPaddrlen];	/* my ip address */
 Ndbtuple*
 lookupinfo(char *attr)
 {
-	char buf[64];
-	char *a[2];
-	Ndbtuple *t;
+	Ndbtuple *t, *nt;
+	char ip[64];
+	Ipifc *ifc;
+	Iplifc *lifc;
 
-	if(ipcmp(ipaddr, IPnoaddr) == 0)
-		if(myipaddr(ipaddr, mntpt) < 0)
-			return nil;
-
-	snprint(buf, sizeof buf, "%I", ipaddr);
-	a[0] = attr;
-
-	lock(&dblock);
+	t = nil;
+	qlock(&dblock);
 	if(opendatabase() < 0){
-		unlock(&dblock);
+		qunlock(&dblock);
 		return nil;
 	}
-	t = ndbipinfo(db, "ip", buf, a, 1);
-	unlock(&dblock);
+	qlock(&ipifclock);
+	if(ipifcs == nil)
+		ipifcs = readipifc(mntpt, ipifcs, -1);
+	for(ifc = ipifcs; ifc != nil; ifc = ifc->next){
+		for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
+			snprint(ip, sizeof(ip), "%I", lifc->ip);
+			nt = ndbipinfo(db, "ip", ip, &attr, 1);
+			t = ndbconcatenate(t, nt);
+		}
+	}
+	qunlock(&ipifclock);
+	qunlock(&dblock);
+
 	return t;
 }
 
@@ -808,33 +819,20 @@ baddelegation(RR *rp, RR *nsrp, uchar *addr)
 int
 myip(uchar *ip)
 {
-	char *line, *sp;
-	char buf[Maxpath];
-	uchar ipa[IPaddrlen];
-	Biobuf *bp;
+	Ipifc *ifc;
+	Iplifc *lifc;
 
-	if(ipcmp(ipaddr, IPnoaddr) == 0)
-		if(myipaddr(ipaddr, mntpt) < 0)
-			return -1;
-
-	if(ipcmp(ipaddr, ip) == 0)
-		return 1;
-
-	snprint(buf, sizeof buf, "%s/ipselftab", mntpt);
-	bp = Bopen(buf, OREAD);
-	if(bp != nil) {
-		while((line = Brdline(bp, '\n')) != nil) {
-			line[Blinelen(bp) - 1] = '\0';
-			if((sp = strchr(line, ' ')) != nil) {
-				*sp = '\0';
-				if(parseip(ipa, line) != -1 && ipcmp(ipa, ip) == 0) {
-					Bterm(bp);
-					return 1;
-				}
+	qlock(&ipifclock);
+	for(ifc = ipifcs; ifc != nil; ifc = ifc->next){
+		for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
+			if(ipcmp(ip, lifc->ip) == 0){
+				qunlock(&ipifclock);
+				return 1;
 			}
 		}
-		Bterm(bp);
 	}
+	qunlock(&ipifclock);
+
 	return 0;
 }
 
@@ -1170,11 +1168,11 @@ insideaddr(char *dom)
 	if (dom[0] == '\0' || strcmp(dom, ".") == 0)	/* dns root? */
 		return 1;			/* hack for initialisation */
 
-	lock(&dblock);
+	qlock(&dblock);
 	if (indoms == nil)
 		loaddomsrvs();
 	if (indoms == nil) {
-		unlock(&dblock);
+		qunlock(&dblock);
 		return 1;  /* no "inside-dom" sys, try inside nameservers */
 	}
 
@@ -1192,7 +1190,7 @@ insideaddr(char *dom)
 			break;
 		}
 	}
-	unlock(&dblock);
+	qunlock(&dblock);
 	return rv;
 }
 

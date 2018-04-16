@@ -17,7 +17,6 @@ static RR *serveraddrs;
 
 char	*dbfile;
 int	debug;
-uchar	ipaddr[IPaddrlen];	/* my ip address */
 char	*logfile = "dnsdebug";
 int	maxage  = 60*60;
 char	mntpt[Maxpath];
@@ -73,8 +72,6 @@ main(int argc, char *argv[])
 	nowns = nsec();
 	dninit();
 	fmtinstall('R', prettyrrfmt);
-	if(myipaddr(ipaddr, mntpt) < 0)
-		sysfatal("can't read my ip address");
 	opendatabase();
 
 	if(cfg.resolver)

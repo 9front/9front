@@ -11,7 +11,6 @@ Cfg cfg;
 char	*caller = "";
 char	*dbfile;
 int	debug;
-uchar	ipaddr[IPaddrlen];	/* my ip address */
 char	*logfile = "dns";
 int	maxage = 60*60;
 char	mntpt[Maxpath];
@@ -79,9 +78,7 @@ main(int argc, char *argv[])
 	else
 		snprint(mntpt, sizeof mntpt, "/net%s", ext);
 
-	if(myipaddr(ipaddr, mntpt) < 0)
-		sysfatal("can't read my ip address");
-	dnslog("dnstcp call from %s to %I", caller, ipaddr);
+	dnslog("dnstcp call from %s", caller);
 	memset(callip, 0, sizeof callip);
 	parseip(callip, caller);
 

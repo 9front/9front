@@ -24,6 +24,25 @@ char *errmsgs[] = {
 	[10] "domain name not in zone",
 };
 
+static uchar loopbacknet[IPaddrlen] = {
+	0, 0, 0, 0,
+	0, 0, 0, 0,
+	0, 0, 0xff, 0xff,
+	127, 0, 0, 0
+};
+static uchar loopbackmask[IPaddrlen] = {
+	0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff,
+	0xff, 0, 0, 0
+};
+static uchar loopback6[IPaddrlen] = {
+	0, 0, 0, 0,
+	0, 0, 0, 0,
+	0, 0, 0, 0,
+	0, 0, 0, 1
+};
+
 void
 usage(void)
 {
@@ -91,14 +110,16 @@ pname(uchar **p, char *s)
 void
 main(int argc, char *argv[])
 {
+	static char *query[] = { "dom", "dnsdomain", "ns", "inform" };
+	char *sysname, *dnsdomain, *dom, *inform, *ns, net[32];
 	int debug, len, fd;
 	uint err;
-	char *sysname, *dnsdomain, *dom, *inform, *ns, net[32];
-	uchar *p, buf[4096], addr[IPv4addrlen], v6addr[IPaddrlen];
+	uchar *p, buf[4096], mynet[IPaddrlen];
 	ushort txid;
 	Ndb *db;
 	Ndbtuple *t, *tt;
-	static char *query[] = { "dom", "dnsdomain", "ns", "inform" };
+	Ipifc *ifc;
+	Iplifc *lifc;
 
 	fmtinstall('I', eipfmt);
 	fmtinstall('V', eipfmt);
@@ -152,11 +173,7 @@ main(int argc, char *argv[])
 	if(!dnsdomain)
 		sysfatal("no relevant dnsdomain=");
 
-	myipaddr(v6addr, net);
-	memmove(addr, v6addr + IPaddrlen - IPv4addrlen, IPv4addrlen);
-
 	if(debug){
-		print("ip=%V\n", addr);
 		print("ns=%s\n", ns);
 		print("dnsdomain=%s\n", dnsdomain);
 		print("dom=%s\n", dom);
@@ -180,19 +197,50 @@ main(int argc, char *argv[])
 	p16(&p, Cin);		/* zone class */
 
 	/* delete old name */
-        pname(&p, dom);		/* name */
+   	pname(&p, dom);		/* name */
 	p16(&p, Ta);		/* type: v4 addr */
 	p16(&p, Call);		/* class */
 	p32(&p, 0);		/* TTL */
 	p16(&p, 0);		/* data len */
 
-	/* add new A record */
-	pname(&p, dom);		/* name */
-	p16(&p, Ta);		/* type: v4 addr */
-	p16(&p, Cin);		/* class */
-	p32(&p, 60*60*25);	/* TTL (25 hours) */
-	p16(&p, IPv4addrlen);	/* data len */
-	pmem(&p, addr, IPv4addrlen);	/* v4 address */
+   	pname(&p, dom);		/* name */
+	p16(&p, Taaaa);		/* type: v6 addr */
+	p16(&p, Call);		/* class */
+	p32(&p, 0);		/* TTL */
+	p16(&p, 0);		/* data len */
+
+	for(ifc = readipifc(net, nil, -1); ifc != nil; ifc = ifc->next){
+		for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
+			/* unspecified */
+			if(ipcmp(lifc->ip, IPnoaddr) == 0)
+				continue;
+
+			/* ipv6 loopback */
+			if(ipcmp(lifc->ip, loopback6) == 0)
+				continue;
+
+			/* ipv4 loopback */
+			maskip(lifc->ip, loopbackmask, mynet);
+			if(ipcmp(mynet, loopbacknet) == 0)
+				continue;
+
+			if(debug)
+				print("ip=%I\n", lifc->ip);
+
+			/* add new A record */
+			pname(&p, dom);		/* name */
+			p16(&p, isv4(lifc->ip)?Ta:Taaaa);
+			p16(&p, Cin);		/* class */
+			p32(&p, 60*60*25);	/* TTL (25 hours) */
+			if(isv4(lifc->ip)){
+				p16(&p, IPv4addrlen);
+				pmem(&p, lifc->ip+IPv4off, IPv4addrlen);
+			} else {
+				p16(&p, IPaddrlen);
+				pmem(&p, lifc->ip, IPaddrlen);
+			}
+		}
+	}
 
 	len = p - buf;
 	if(write(fd, buf, len) != len)
@@ -207,13 +255,11 @@ main(int argc, char *argv[])
 	}while(g16(&p) != txid);
 	alarm(0);
 
-	close(fd);
-
 	err = g16(&p) & 7;
 	if(err != 0 && err != 7)	/* err==7 is just a "yes, I know" warning */
 		if(err < nelem(errmsgs))
 			sysfatal("%s", errmsgs[err]);
 		else
 			sysfatal("unknown dns server error %d", err);
-	exits(0);
+	exits(nil);
 }
