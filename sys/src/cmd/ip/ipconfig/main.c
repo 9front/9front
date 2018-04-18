@@ -666,11 +666,9 @@ doadd(int retry)
 	}
 
 	/* leave everything we've learned somewhere other procs can find it */
-	if(beprimary){
-		if(!dondbconfig && !ipv6auto)
-			putndb();
-		refresh();
-	}
+	if(beprimary && !dondbconfig && !ipv6auto)
+		putndb();
+	refresh();
 }
 
 void
@@ -1004,10 +1002,9 @@ dhcpwatch(int needconfig)
 			 * leave everything we've learned somewhere that
 			 * other procs can find it.
 			 */
-			if(beprimary){
+			if(beprimary)
 				putndb();
-				refresh();
-			}
+			refresh();
 		}
 	}
 }

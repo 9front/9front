@@ -11,6 +11,8 @@
 #include "ipconfig.h"
 #include "../icmp.h"
 
+#include <libsec.h>
+
 #pragma varargck argpos ralog 1
 
 #define RALOG "v6routeradv"
@@ -544,16 +546,32 @@ issueadd6(Conf *cf)
 	free(cfg);
 }
 
+static int
+seen(Conf *cf)
+{
+	static uchar tab[SHA1dlen*100], *w;
+	uchar hash[SHA1dlen], *r;
+
+	sha1((uchar*)cf, sizeof(*cf), hash, nil);
+	if(w == nil || w == &tab[sizeof(tab)])
+		w = tab;
+	for(r = tab; r < w; r += SHA1dlen)
+		if(memcmp(r, hash, SHA1dlen) == 0)
+			return 1;
+	memmove(w, hash, SHA1dlen);
+	w += SHA1dlen;
+	return 0;
+}
+
 static void
 recvrahost(uchar buf[], int pktlen)
 {
-	int m, n, optype;
+	int m, n, optype, needrefresh;
 	uchar src[IPaddrlen];
 	Lladdropt *llao;
 	Mtuopt *mtuo;
 	Prefixopt *prfo;
 	Routeradv *ra;
-	static int first = 1;
 
 	m = sizeof *ra;
 	ra = (Routeradv*)buf;
@@ -571,6 +589,7 @@ recvrahost(uchar buf[], int pktlen)
 	conf.rxmitra =   nhgetl(ra->rxmtimer);
 	issuebasera6(&conf);
 
+	needrefresh = 0;
 	while(pktlen - m >= 8) {
 		n = m;
 		optype = buf[n];
@@ -590,25 +609,9 @@ recvrahost(uchar buf[], int pktlen)
 			break;
 		case V6nd_pfxinfo:
 			prfo = (Prefixopt*)&buf[n];
-			if(prfo->len != 4) {
-				ralog("illegal len (%d) for prefix option", prfo->len);
-				return;
-			}
-			if((prfo->plen & 127) == 0
-			|| !validip(prfo->pref)
-			|| isv4(prfo->pref)
-			|| ipcmp(prfo->pref, v6loopback) == 0
-			|| ISIPV6MCAST(prfo->pref)
-			|| ISIPV6LINKLOCAL(prfo->pref)){
-				ralog("igoring bogus prefix from %I on %s; pfx %I /%d",
-					ra->src, conf.dev, prfo->pref, prfo->plen);
+			if(prfo->len != 4)
 				break;
-			}
-			if(first) {
-				first = 0;
-				ralog("got initial RA from %I on %s; pfx %I /%d",
-					ra->src, conf.dev, prfo->pref, prfo->plen);
-			}
+
 			conf.prefixlen = prfo->plen & 127;
 			genipmkask(conf.mask, conf.prefixlen);
 			maskip(prfo->pref, conf.mask, conf.v6pref);
@@ -619,18 +622,42 @@ recvrahost(uchar buf[], int pktlen)
 			issueadd6(&conf);
 			
 			if(conf.routerlt == 0)
-				break;
-			if((prfo->lar & RFMASK) != 0)
+				ipmove(conf.gaddr, IPnoaddr);
+			else if((prfo->lar & RFMASK) != 0)
 				ipmove(conf.gaddr, prfo->pref);
 			else
 				ipmove(conf.gaddr, ra->src);
 
-			memmove(src, conf.v6pref, 8);
-			memmove(src+8, conf.laddr+8, 8);
-			adddefroute(conf.gaddr, conf.laddr, src, conf.mask);
+			/* report prefix only once */
+			if(seen(&conf))
+				break;
+
+			if(conf.prefixlen  == 0
+			|| !validip(conf.v6pref)
+			|| isv4(conf.v6pref)
+			|| ipcmp(conf.v6pref, v6loopback) == 0
+			|| ISIPV6MCAST(conf.v6pref)
+			|| ISIPV6LINKLOCAL(conf.v6pref)){
+				ralog("igoring bogus prefix from %I on %s; pfx %I %M",
+					ra->src, conf.dev, conf.v6pref, conf.mask);
+				break;
+			}
+
+			ralog("got initial RA from %I on %s; pfx %I %M",
+				ra->src, conf.dev, conf.v6pref, conf.mask);
+
+			if(validip(conf.gaddr)){
+				memmove(src, conf.v6pref, 8);
+				memmove(src+8, conf.laddr+8, 8);
+				adddefroute(conf.gaddr, conf.laddr, src, conf.mask);
+			}
+			needrefresh = 1;
 			break;
 		}
 	}
+
+	if(needrefresh)
+		refresh();
 }
 
 /*
@@ -929,6 +956,7 @@ doipv6(int what)
 		sysfatal("unknown IPv6 verb");
 	case Vaddpref6:
 		issueadd6(&conf);
+		refresh();
 		break;
 	case Vra6:
 		issuebasera6(&conf);
