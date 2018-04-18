@@ -38,7 +38,7 @@ setup(int argc, char **argv)
 static void
 querydns(int fd, char *line, int n)
 {
-	char buf[1024];
+	char buf[8192+1];
 
 	seek(fd, 0, 0);
 	if(write(fd, line, n) != n) {
@@ -46,10 +46,9 @@ querydns(int fd, char *line, int n)
 		return;
 	}
 	seek(fd, 0, 0);
-	buf[0] = '\0';
-	while((n = read(fd, buf, sizeof(buf))) > 0){
-		buf[n] = '\0';
-		print("%s\n", buf);
+	while((n = read(fd, buf, sizeof(buf)-1)) > 0){
+		buf[n++] = '\n';
+		write(1, buf, n);
 	}
 }
 
