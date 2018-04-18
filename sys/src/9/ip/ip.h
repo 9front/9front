@@ -258,7 +258,7 @@ struct Iplifc
 	uchar	mask[IPaddrlen];
 	uchar	remote[IPaddrlen];
 	uchar	net[IPaddrlen];
-	uchar	type;		/* ruoute type */
+	uchar	type;		/* route type */
 	uchar	tentative;	/* =1 => v6 dup disc on, =0 => confirmed unique */
 	uchar	onlink;		/* =1 => onlink, =0 offlink. */
 	uchar	autoflag;	/* v6 autonomous flag */
@@ -310,14 +310,11 @@ struct Ipifc
 	int	maxtu;		/* Maximum transfer unit */
 	int	mintu;		/* Minumum tranfer unit */
 	void	*arg;		/* medium specific */
-	int	reassemble;	/* reassemble IP packets before forwarding */
 
-	/* these are used so that we can unbind on the fly */
-	Lock	idlock;
+	uchar	reflect;	/* allow forwarded packets to go out the same interface */
+	uchar	reassemble;	/* reassemble IP packets before forwarding to this interface */
+	
 	uchar	ifcid;		/* incremented each 'bind/unbind/add/remove' */
-	int	ref;		/* number of proc's using this ipifc */
-	Rendez	wait;		/* where unbinder waits for ref == 0 */
-	int	unbinding;
 
 	uchar	mac[MAClen];	/* MAC address */
 
@@ -680,7 +677,7 @@ extern char*	ipifcadd6(Ipifc *ifc, char**argv, int argc);
 extern void	iprouting(Fs*, int);
 extern void	icmpnoconv(Fs*, Block*);
 extern void	icmpcantfrag(Fs*, Block*, int);
-extern void	icmpttlexceeded(Fs*, uchar*, Block*);
+extern void	icmpttlexceeded(Fs*, Ipifc*, Block*);
 extern ushort	ipcsum(uchar*);
 extern void	ipiput4(Fs*, Ipifc*, Block*);
 extern void	ipiput6(Fs*, Ipifc*, Block*);

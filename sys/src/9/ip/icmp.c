@@ -215,22 +215,25 @@ ip4me(Fs *f, uchar ip4[4])
 }
 
 void
-icmpttlexceeded(Fs *f, uchar *ia, Block *bp)
+icmpttlexceeded(Fs *f, Ipifc *ifc, Block *bp)
 {
 	Block	*nbp;
 	Icmp	*p, *np;
+	uchar	ia[IPv4addrlen];
 
 	p = (Icmp *)bp->rp;
-	if(!ip4reply(f, p->src))
+	if(!ip4reply(f, p->src) || !ipv4local(ifc, ia, p->src))
 		return;
 
-	netlog(f, Logicmp, "sending icmpttlexceeded -> %V\n", p->src);
+	netlog(f, Logicmp, "sending icmpttlexceeded %V -> src %V dst %V\n",
+		ia, p->src, p->dst);
+
 	nbp = allocb(ICMP_IPSIZE + ICMP_HDRSIZE + ICMP_IPSIZE + 8);
 	nbp->wp += ICMP_IPSIZE + ICMP_HDRSIZE + ICMP_IPSIZE + 8;
 	np = (Icmp *)nbp->rp;
 	np->vihl = IP_VER4;
+	memmove(np->src, ia, sizeof(np->src));
 	memmove(np->dst, p->src, sizeof(np->dst));
-	v6tov4(np->src, ia);
 	memmove(np->data, bp->rp, ICMP_IPSIZE + 8);
 	np->type = TimeExceed;
 	np->code = 0;

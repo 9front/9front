@@ -629,7 +629,8 @@ dodrops:
 
 	for(; xp != nil; xp = next){
 		next = xp->list;
-		icmphostunr(f, ifc, xp, Icmp6_adr_unreach, 1);
+		icmphostunr6(f, ifc, xp, Icmp6_adr_unreach, 1);
+		freeblist(xp);
 	}
 
 	return nrxt;

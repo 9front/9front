@@ -231,6 +231,8 @@ ipifcunbind(Ipifc *ifc)
 		(*ifc->m->unbind)(ifc);
 	memset(ifc->dev, 0, sizeof(ifc->dev));
 	ifc->arg = nil;
+
+	ifc->reflect = 0;
 	ifc->reassemble = 0;
 
 	/* close queues to stop queuing of packets */
@@ -357,8 +359,8 @@ ipifccreate(Conv *c)
 		error(Enomem);
 	ifc = (Ipifc*)c->ptcl;
 	ifc->conv = c;
-	ifc->unbinding = 0;
 	ifc->m = nil;
+	ifc->reflect = 0;
 	ifc->reassemble = 0;
 }
 
@@ -764,7 +766,6 @@ static char*
 ipifcctl(Conv* c, char **argv, int argc)
 {
 	Ipifc *ifc;
-	int i;
 
 	ifc = (Ipifc*)c->ptcl;
 	if(strcmp(argv[0], "add") == 0)
@@ -777,15 +778,16 @@ ipifcctl(Conv* c, char **argv, int argc)
 		return ipifcunbind(ifc);
 	else if(strcmp(argv[0], "mtu") == 0)
 		return ipifcsetmtu(ifc, argv, argc);
-	else if(strcmp(argv[0], "reassemble") == 0){
-		ifc->reassemble = 1;
+	else if(strcmp(argv[0], "iprouting") == 0){
+		iprouting(c->p->f, argc>1? atoi(argv[1]): 1);
 		return nil;
 	}
-	else if(strcmp(argv[0], "iprouting") == 0){
-		i = 1;
-		if(argc > 1)
-			i = atoi(argv[1]);
-		iprouting(c->p->f, i);
+	else if(strcmp(argv[0], "reflect") == 0){
+		ifc->reflect = argc>1? atoi(argv[1]): 1;
+		return nil;
+	}
+	else if(strcmp(argv[0], "reassemble") == 0){
+		ifc->reassemble = argc>1? atoi(argv[1]): 1;
 		return nil;
 	}
 	else if(strcmp(argv[0], "add6") == 0)

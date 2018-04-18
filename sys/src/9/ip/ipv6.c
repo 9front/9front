@@ -116,7 +116,7 @@ ipoput6(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
 		return 0;
 	}
 
-	if(gating && ifc->reassemble <= 0) {
+	if(gating && !ifc->reassemble) {
 		/*
 		 * v6 intermediate nodes are not supposed to fragment pkts;
 		 * we fragment if ifc->reassemble is turned on; an exception
@@ -248,43 +248,39 @@ ipiput6(Fs *f, Ipifc *ifc, Block *bp)
 
 	if(tentative && h->proto != ICMPv6) {
 		print("tentative addr, drop\n");
-		freeblist(bp);
-		return;
+		goto drop;
 	}
 
 	/* Check header version */
 	if(BLKIPVER(bp) != IP_VER6) {
 		ip->stats[InHdrErrors]++;
 		netlog(f, Logip, "ip: bad version %ux\n", (h->vcf[0]&0xF0)>>2);
-		freeblist(bp);
-		return;
+		goto drop;
 	}
 
 	/* route */
 	if(notforme) {
 		Route *r;
 		Routehint rh;
+		Ipifc *toifc;
 
-		if(!ip->iprouting){
-			freeblist(bp);
-			return;
-		}
+		if(!ip->iprouting)
+			goto drop;
 
 		/* don't forward to link-local destinations */
 		if(islinklocal(h->dst) ||
 		   (isv6mcast(h->dst) && (h->dst[1]&0xF) <= Link_local_scop)){
 			ip->stats[OutDiscards]++;
-			freeblist(bp);
-			return;
+			goto drop;
 		}
 			
 		/* don't forward to source's network */
 		rh.r = nil;
 		r  = v6lookup(f, h->dst, h->src, &rh);
-		if(r == nil || (r->type & Rv4) != 0 || r->ifc == ifc){
+		if(r == nil || (toifc = r->ifc) == nil || (r->type & Rv4) != 0
+		|| (toifc == ifc && !ifc->reflect)){
 			ip->stats[OutDiscards]++;
-			freeblist(bp);
-			return;
+			goto drop;
 		}
 
 		/* don't forward if packet has timed out */
@@ -292,12 +288,11 @@ ipiput6(Fs *f, Ipifc *ifc, Block *bp)
 		if(hop < 1) {
 			ip->stats[InHdrErrors]++;
 			icmpttlexceeded6(f, ifc, bp);
-			freeblist(bp);
-			return;
+			goto drop;
 		}
 
 		/* process headers & reassemble if the interface expects it */
-		bp = procxtns(ip, bp, r->ifc->reassemble);
+		bp = procxtns(ip, bp, toifc->reassemble);
 		if(bp == nil)
 			return;
 
@@ -325,6 +320,7 @@ ipiput6(Fs *f, Ipifc *ifc, Block *bp)
 
 	ip->stats[InDiscards]++;
 	ip->stats[InUnknownProtos]++;
+drop:
 	freeblist(bp);
 }
 

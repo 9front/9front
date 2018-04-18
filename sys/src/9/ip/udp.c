@@ -404,7 +404,7 @@ udpiput(Proto *udp, Ipifc *ifc, Block *bp)
 			icmpnoconv(f, bp);
 			break;
 		case V6:
-			icmphostunr(f, ifc, bp, Icmp6_port_unreach, 0);
+			icmphostunr6(f, ifc, bp, Icmp6_port_unreach, 0);
 			break;
 		default:
 			panic("udpiput2: version %d", version);

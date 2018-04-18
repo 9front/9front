@@ -333,8 +333,7 @@ ipiput4(Fs *f, Ipifc *ifc, Block *bp)
 	if((bp->flag & Bipck) == 0 && ipcsum(&h->vihl)) {
 		ip->stats[InHdrErrors]++;
 		netlog(f, Logip, "ip: checksum error %V\n", h->src);
-		freeblist(bp);
-		return;
+		goto drop;
 	}
 	v4tov6(v6dst, h->dst);
 	notforme = ipforme(f, v6dst) == 0;
@@ -345,8 +344,7 @@ ipiput4(Fs *f, Ipifc *ifc, Block *bp)
 		if(hl < (IP_HLEN4<<2)) {
 			ip->stats[InHdrErrors]++;
 			netlog(f, Logip, "ip: %V bad hivl %ux\n", h->src, h->vihl);
-			freeblist(bp);
-			return;
+			goto drop;
 		}
 		/* If this is not routed strip off the options */
 		if(notforme == 0) {
@@ -364,33 +362,30 @@ ipiput4(Fs *f, Ipifc *ifc, Block *bp)
 	if(notforme) {
 		Route *r;
 		Routehint rh;
+		Ipifc *toifc;
 
-		if(!ip->iprouting){
-			freeblist(bp);
-			return;
-		}
+		if(!ip->iprouting)
+			goto drop;
 
 		/* don't forward to source's network */
 		rh.r = nil;
 		r = v4lookup(f, h->dst, h->src, &rh);
-		if(r == nil || r->ifc == ifc){
+		if(r == nil || (toifc = r->ifc) == nil
+		|| (toifc == ifc && !ifc->reflect)){
 			ip->stats[OutDiscards]++;
-			freeblist(bp);
-			return;
+			goto drop;
 		}
 
 		/* don't forward if packet has timed out */
 		hop = h->ttl;
 		if(hop < 1) {
 			ip->stats[InHdrErrors]++;
-			icmpttlexceeded(f, ifc->lifc->local, bp);
-			freeblist(bp);
-			return;
+			icmpttlexceeded(f, ifc, bp);
+			goto drop;
 		}
 
 		/* reassemble if the interface expects it */
-if(r->ifc == nil) panic("nil route ifc");
-		if(r->ifc->reassemble){
+		if(toifc->reassemble){
 			frag = nhgets(h->frag);
 			if(frag & ~IP_DF) {
 				h->tos = 0;
@@ -434,6 +429,7 @@ if(r->ifc == nil) panic("nil route ifc");
 	}
 	ip->stats[InDiscards]++;
 	ip->stats[InUnknownProtos]++;
+drop:
 	freeblist(bp);
 }
 

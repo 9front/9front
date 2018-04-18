@@ -194,16 +194,19 @@ Set the maximum transfer unit for this device to
 The mtu is the maximum size of the packet including any
 medium-specific headers.
 .TP
-.BI reassemble
-Reassemble IP fragments before forwarding to this interface
-.TP
 .BI iprouting\  n
 Allow
 .RI ( n
 is missing or non-zero) or disallow
 .RI ( n
-is 0) forwarding packets between this interface and
-others.
+is 0) forwarding packets between this interface and others.
+.TP
+.BI reflect\  n
+When forwarding, allow packets from this interface to be
+echoed back on the same interface.
+.TP
+.BI reassemble\  n
+Reassemble IP fragments before forwarding to this interface
 .
 .\" remainder from netif.c (thus called from devether.c),
 .\" except add6 and ra6 from ipifc.c

@@ -426,7 +426,7 @@ icmpna(Fs *f, uchar* src, uchar* dst, uchar* targ, uchar* mac, uchar flags)
 }
 
 void
-icmphostunr(Fs *f, Ipifc *ifc, Block *bp, int code, int free)
+icmphostunr6(Fs *f, Ipifc *ifc, Block *bp, int code, int tome)
 {
 	int osz = BLEN(bp);
 	int sz = MIN(IPICMPSZ + osz, v6MINTU);
@@ -435,25 +435,18 @@ icmphostunr(Fs *f, Ipifc *ifc, Block *bp, int code, int free)
 	Ip6hdr *p;
 	Proto *icmp = f->t2p[ICMPv6];
 	Icmppriv6 *ipriv = icmp->priv;
+	uchar ia[IPaddrlen];
 
 	p = (Ip6hdr *)bp->rp;
+	if(isv6mcast(p->src) || !ipv6local(ifc, ia, p->src))
+		return;
 
-	if(isv6mcast(p->src))
-		goto freebl;
+	netlog(f, Logicmp, "send icmphostunr %I -> src %I dst %I\n",
+		ia, p->src, p->dst);
 
 	nbp = newIPICMP(sz);
 	np = (IPICMP *)nbp->rp;
-
-	rlock(ifc);
-	if(ipv6local(ifc, np->src, p->src))
-		netlog(f, Logicmp, "send icmphostunr -> src %I dst %I\n", p->src, p->dst);
-	else {
-		netlog(f, Logicmp, "icmphostunr fail -> src %I dst %I\n", p->src, p->dst);
-		runlock(ifc);
-		freeblist(nbp);
-		goto freebl;
-	}
-
+	ipmove(np->src, ia);
 	ipmove(np->dst, p->src);
 	np->type = UnreachableV6;
 	np->code = code;
@@ -463,14 +456,10 @@ icmphostunr(Fs *f, Ipifc *ifc, Block *bp, int code, int free)
 	np->vcf[0] = 0x06 << 4;
 	ipriv->out[UnreachableV6]++;
 
-	if(free)
+	if(tome)
 		ipiput6(f, ifc, nbp);
 	else 
 		ipoput6(f, nbp, 0, MAXTTL, DFLTTOS, nil);
-	runlock(ifc);
-freebl:
-	if(free)
-		freeblist(bp);
 }
 
 void
@@ -483,24 +472,18 @@ icmpttlexceeded6(Fs *f, Ipifc *ifc, Block *bp)
 	Ip6hdr *p;
 	Proto *icmp = f->t2p[ICMPv6];
 	Icmppriv6 *ipriv = icmp->priv;
+	uchar ia[IPaddrlen];
 
 	p = (Ip6hdr *)bp->rp;
-
-	if(isv6mcast(p->src))
+	if(isv6mcast(p->src) || !ipv6local(ifc, ia, p->src))
 		return;
+
+	netlog(f, Logicmp, "send icmpttlexceeded6 %I -> src %I dst %I\n",
+		ia, p->src, p->dst);
 
 	nbp = newIPICMP(sz);
 	np = (IPICMP *) nbp->rp;
-
-	if(ipv6local(ifc, np->src, p->src))
-		netlog(f, Logicmp, "send icmpttlexceeded6 -> src %I dst %I\n",
-			p->src, p->dst);
-	else {
-		netlog(f, Logicmp, "icmpttlexceeded6 fail -> src %I dst %I\n",
-			p->src, p->dst);
-		return;
-	}
-
+	ipmove(np->src, ia);
 	ipmove(np->dst, p->src);
 	np->type = TimeExceedV6;
 	np->code = 0;
@@ -522,24 +505,18 @@ icmppkttoobig6(Fs *f, Ipifc *ifc, Block *bp)
 	Ip6hdr *p;
 	Proto *icmp = f->t2p[ICMPv6];
 	Icmppriv6 *ipriv = icmp->priv;
+	uchar ia[IPaddrlen];
 
 	p = (Ip6hdr *)bp->rp;
-
-	if(isv6mcast(p->src))
+	if(isv6mcast(p->src) || !ipv6local(ifc, ia, p->src))
 		return;
+
+	netlog(f, Logicmp, "send icmppkttoobig6 %I -> src %I dst %I\n",
+		ia, p->src, p->dst);
 
 	nbp = newIPICMP(sz);
 	np = (IPICMP *)nbp->rp;
-
-	if(ipv6local(ifc, np->src, p->src))
-		netlog(f, Logicmp, "send icmppkttoobig6 -> src %I dst %I\n",
-			p->src, p->dst);
-	else {
-		netlog(f, Logicmp, "icmppkttoobig6 fail -> src %I dst %I\n",
-			p->src, p->dst);
-		return;
-	}
-
+	ipmove(np->src, ia);
 	ipmove(np->dst, p->src);
 	np->type = PacketTooBigV6;
 	np->code = 0;
