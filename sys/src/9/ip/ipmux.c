@@ -758,7 +758,7 @@ nomatch:
 		ip6 = (Ip6hdr*)bp->rp;
 		p = f->t2p[ip6->proto];
 	}
-	if(p && p->rcv)
+	if(p != nil && p->rcv != nil)
 		(*p->rcv)(p, ifc, bp);
 	else
 		freeblist(bp);
