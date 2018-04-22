@@ -117,7 +117,6 @@ netdevread(void *a)
 			/*
 			 * get here if mchan is a pipe and other side hangs up
 			 * clean up this interface & get out
-ZZZ is this a good idea?
 			 */
 			poperror();
 			er->readp = nil;

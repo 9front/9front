@@ -75,14 +75,13 @@ loopbackread(void *a)
 	lb = ifc->arg;
 	lb->readp = up;	/* hide identity under a rock for unbind */
 	if(waserror()){
-		lb->readp = 0;
+		lb->readp = nil;
 		pexit("hangup", 1);
 	}
 	for(;;){
 		bp = qbread(lb->q, Maxtu);
 		if(bp == nil)
 			continue;
-		ifc->in++;
 		if(!canrlock(ifc)){
 			freeb(bp);
 			continue;
@@ -91,6 +90,7 @@ loopbackread(void *a)
 			runlock(ifc);
 			nexterror();
 		}
+		ifc->in++;
 		if(ifc->lifc == nil)
 			freeb(bp);
 		else
