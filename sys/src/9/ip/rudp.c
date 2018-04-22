@@ -280,7 +280,7 @@ rudpclose(Conv *c)
 	/* force out any delayed acks */
 	ucb = (Rudpcb*)c->ptcl;
 	qlock(ucb);
-	for(r = ucb->r; r; r = r->next){
+	for(r = ucb->r; r != nil; r = r->next){
 		if(r->acksent != r->rcvseq)
 			relsendack(c, r, 0);
 	}
@@ -573,13 +573,11 @@ rudpiput(Proto *rudp, Ipifc *ifc, Block *bp)
 	}
 
 	if(qfull(c->rq)) {
-		netlog(f, Logrudp, "rudp: qfull %I.%d -> %I.%d\n", raddr, rport,
-			laddr, lport);
+		netlog(f, Logrudp, "rudp: qfull %I.%d -> %I.%d\n",
+			raddr, rport, laddr, lport);
 		freeblist(bp);
 	} else {
-		if(bp->next)
-			bp = concatblock(bp);
-		qpass(c->rq, bp);
+		qpass(c->rq, concatblock(bp));
 	}
 	qunlock(ucb);
 }
@@ -638,8 +636,7 @@ rudpadvise(Proto *rudp, Block *bp, char *msg)
 	pdest = nhgets(h->udpdport);
 
 	/* Look for a connection */
-	for(p = rudp->conv; *p; p++) {
-		s = *p;
+	for(p = rudp->conv; (s = *p) != nil; p++) {
 		if(s->rport == pdest)
 		if(s->lport == psource)
 		if(ipcmp(s->raddr, dest) == 0)
