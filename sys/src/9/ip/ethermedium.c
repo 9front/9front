@@ -33,7 +33,7 @@ static void	etherunbind(Ipifc *ifc);
 static void	etherbwrite(Ipifc *ifc, Block *bp, int version, uchar *ip);
 static void	etheraddmulti(Ipifc *ifc, uchar *a, uchar *ia);
 static void	etherremmulti(Ipifc *ifc, uchar *a, uchar *ia);
-static void	etherareg(Fs *f, Ipifc *ifc, uchar *ip, uchar *proxy);
+static void	etherareg(Fs *f, Ipifc *ifc, Iplifc *lifc, uchar *ip);
 static Block*	multicastarp(Fs *f, Arpent *a, Medium*, uchar *mac);
 static void	sendarp(Ipifc *ifc, Arpent *a);
 static int	multicastea(uchar *ea, uchar *ip);
@@ -219,8 +219,8 @@ etherbind(Ipifc *ifc, int argc, char **argv)
 	poperror();
 
 	kproc("etherread4", etherread4, ifc);
-	kproc("recvarpproc", recvarpproc, ifc);
 	kproc("etherread6", etherread6, ifc);
+	kproc("recvarpproc", recvarpproc, ifc);
 }
 
 /*
@@ -231,27 +231,27 @@ etherunbind(Ipifc *ifc)
 {
 	Etherrock *er = ifc->arg;
 
-	if(er->read4p)
+	if(er->read4p != nil)
 		postnote(er->read4p, 1, "unbind", 0);
-	if(er->read6p)
+	if(er->read6p != nil)
 		postnote(er->read6p, 1, "unbind", 0);
-	if(er->arpp)
+	if(er->arpp != nil)
 		postnote(er->arpp, 1, "unbind", 0);
 
 	/* wait for readers to die */
-	while(er->arpp != 0 || er->read4p != 0 || er->read6p != 0)
+	while(er->arpp != nil || er->read4p != nil || er->read6p != nil)
 		tsleep(&up->sleep, return0, 0, 300);
 
 	if(er->mchan4 != nil)
 		cclose(er->mchan4);
-	if(er->achan != nil)
-		cclose(er->achan);
 	if(er->cchan4 != nil)
 		cclose(er->cchan4);
 	if(er->mchan6 != nil)
 		cclose(er->mchan6);
 	if(er->cchan6 != nil)
 		cclose(er->cchan6);
+	if(er->achan != nil)
+		cclose(er->achan);
 
 	free(er);
 }
@@ -329,7 +329,7 @@ etherread4(void *a)
 	er = ifc->arg;
 	er->read4p = up;	/* hide identity under a rock for unbind */
 	if(waserror()){
-		er->read4p = 0;
+		er->read4p = nil;
 		pexit("hangup", 1);
 	}
 	for(;;){
@@ -369,7 +369,7 @@ etherread6(void *a)
 	er = ifc->arg;
 	er->read6p = up;	/* hide identity under a rock for unbind */
 	if(waserror()){
-		er->read6p = 0;
+		er->read6p = nil;
 		pexit("hangup", 1);
 	}
 	for(;;){
@@ -571,6 +571,11 @@ recvarp(Ipifc *ifc)
 	if(ebp == nil)
 		return;
 
+	if(!canrlock(ifc)){
+		freeb(ebp);
+		return;
+	}
+
 	e = (Etherarp*)ebp->rp;
 	switch(nhgets(e->op)) {
 	default:
@@ -647,8 +652,14 @@ recvarp(Ipifc *ifc)
 		memmove(r->s, ifc->mac, sizeof(r->s));
 		rbp->wp += n;
 
+		runlock(ifc);
+		freeb(ebp);
+
 		devtab[er->achan->type]->bwrite(er->achan, rbp, 0);
+		return;
 	}
+
+	runlock(ifc);
 	freeb(ebp);
 }
 
@@ -660,7 +671,7 @@ recvarpproc(void *v)
 
 	er->arpp = up;
 	if(waserror()){
-		er->arpp = 0;
+		er->arpp = nil;
 		pexit("hangup", 1);
 	}
 	for(;;)
@@ -745,10 +756,10 @@ etherpref2addr(uchar *pref, uchar *ea)
 }
 
 static void
-etherareg(Fs *f, Ipifc *ifc, uchar *ip, uchar *proxy)
+etherareg(Fs *f, Ipifc *ifc, Iplifc *lifc, uchar *ip)
 {
 	static char tdad[] = "dad6";
-	uchar mcast[IPaddrlen];
+	uchar a[IPaddrlen];
 
 	if(ipcmp(ip, IPnoaddr) == 0)
 		return;
@@ -758,16 +769,25 @@ etherareg(Fs *f, Ipifc *ifc, uchar *ip, uchar *proxy)
 		return;
 	}
 
-	if(!iptentative(f, ip)){
-		icmpna(f, proxy, v6allnodesL, ip, ifc->mac, 1<<5);
+	if((lifc->type&Rv4) != 0)
+		return;
+
+	if(!lifc->tentative){
+		icmpna(f, lifc->local, v6allnodesL, ip, ifc->mac, 1<<5);
 		return;
 	}
 
+	if(ipcmp(lifc->local, ip) != 0)
+		return;
+
 	/* temporarily add route for duplicate address detection */
-	ipv62smcast(mcast, ip);
-	addroute(f, mcast, IPallbits, v6Unspecified, IPallbits, ip, Rmulti, ifc, tdad);
-
+	ipv62smcast(a, ip);
+	addroute(f, a, IPallbits, v6Unspecified, IPallbits, ip, Rmulti, ifc, tdad);
+	if(waserror()){
+		remroute(f, a, IPallbits, v6Unspecified, IPallbits, ip, Rmulti, ifc, tdad);
+		nexterror();
+	}
 	icmpns(f, 0, SRC_UNSPEC, ip, TARG_MULTI, ifc->mac);
-
-	remroute(f, mcast, IPallbits, v6Unspecified, IPallbits, ip, Rmulti, ifc, tdad);
+	poperror();
+	remroute(f, a, IPallbits, v6Unspecified, IPallbits, ip, Rmulti, ifc, tdad);
 }

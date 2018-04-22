@@ -293,32 +293,37 @@ arpresolve(Arp *arp, Arpent *a, Medium *type, uchar *mac)
 }
 
 int
-arpenter(Fs *fs, int version, uchar *ip, uchar *mac, int n, uchar *src, int refresh)
+arpenter(Fs *fs, int version, uchar *ip, uchar *mac, int n, uchar *ia, int refresh)
 {
 	Arp *arp;
 	Route *r;
 	Arpent *a, *f, **l;
 	Ipifc *ifc;
 	Block *bp, *next;
-	Medium *m;
 	uchar v6ip[IPaddrlen];
 
 	arp = fs->arp;
 	switch(version){
 	case V4:
-		r = v4lookup(fs, ip, src, nil);
+		r = v4lookup(fs, ip, ia, nil);
 		v4tov6(v6ip, ip);
 		ip = v6ip;
 		break;
 	case V6:
-		r = v6lookup(fs, ip, src, nil);
+		r = v6lookup(fs, ip, ia, nil);
 		break;
 	default:
 		panic("arpenter: version %d", version);
 		return -1;	/* to supress warnings */
 	}
-	if(r == nil || (ifc = r->ifc) == nil || (m = ifc->m) == nil || m->maclen != n || m->maclen == 0)
+	if(r == nil || (ifc = r->ifc) == nil)
 		return -1;
+
+	rlock(ifc);
+	if(ifc->m == nil || ifc->m->maclen != n || ifc->m->maclen == 0){
+		runlock(ifc);
+		return -1;
+	}
 
 	qlock(arp);
 	for(a = arp->hash[haship(ip)]; a != nil; a = a->hash){
@@ -351,28 +356,17 @@ arpenter(Fs *fs, int version, uchar *ip, uchar *mac, int n, uchar *src, int refr
 			qunlock(arp);
 
 			while(bp != nil){
-				if(!canrlock(ifc)){
-					freeblistchain(bp);
-					break;
-				}
-				if(ifc->m != m){
-					runlock(ifc);
-					freeblistchain(bp);
-					break;
-				}
 				next = bp->list;
 				bp->list = nil;
 				if(waserror()){
-					runlock(ifc);
 					freeblistchain(next);
 					break;
 				}
-				m->bwrite(ifc, concatblock(bp), version, ip);
-				runlock(ifc);
+				ifc->m->bwrite(ifc, concatblock(bp), version, ip);
 				poperror();
 				bp = next;
 			}
-
+			runlock(ifc);
 			return 1;
 		}
 	}
@@ -383,8 +377,9 @@ arpenter(Fs *fs, int version, uchar *ip, uchar *mac, int n, uchar *src, int refr
 		a->ctime = NOW;
 		memmove(a->mac, mac, n);
 	}
-
 	qunlock(arp);
+	runlock(ifc);
+
 	return refresh == 0;
 }
 
@@ -396,7 +391,7 @@ arpwrite(Fs *fs, char *s, int len)
 	Arpent *a, *x;
 	Medium *m;
 	char *f[5], buf[256];
-	uchar ip[IPaddrlen], src[IPaddrlen], mac[MAClen];
+	uchar ip[IPaddrlen], ia[IPaddrlen], mac[MAClen];
 
 	arp = fs->arp;
 
@@ -438,7 +433,7 @@ arpwrite(Fs *fs, char *s, int len)
 				error(Ebadip);
 			if((n = parsemac(mac, f[2], sizeof(mac))) <= 0)
 				error(Ebadarp);
-			findlocalip(fs, src, ip);
+			findlocalip(fs, ia, ip);
 			break;
 		case 4:
 			m = ipfindmedium(f[1]);
@@ -448,7 +443,7 @@ arpwrite(Fs *fs, char *s, int len)
 				error(Ebadip);
 			if((n = parsemac(mac, f[3], sizeof(mac))) != m->maclen)
 				error(Ebadarp);
-			findlocalip(fs, src, ip);
+			findlocalip(fs, ia, ip);
 			break;
 		case 5:
 			m = ipfindmedium(f[1]);
@@ -458,11 +453,11 @@ arpwrite(Fs *fs, char *s, int len)
 				error(Ebadip);
 			if((n = parsemac(mac, f[3], sizeof(mac))) != m->maclen)
 				error(Ebadarp);
-			if(parseip(src, f[4]) == -1)
+			if(parseip(ia, f[4]) == -1)
 				error(Ebadip);
 			break;
 		}
-		if(arpenter(fs, V6, ip, mac, n, src, 0) <= 0)
+		if(arpenter(fs, V6, ip, mac, n, ia, 0) <= 0)
 			error("destination unreachable");
 	} else if(strcmp(f[0], "del") == 0){
 		if (n != 2)
@@ -495,8 +490,8 @@ convmac(char *p, uchar *mac, int n)
 int
 arpread(Arp *arp, char *s, ulong offset, int len)
 {
-	uchar ip[IPaddrlen], src[IPaddrlen];
-	char mac[2*MAClen+1], *p, *state;
+	char mac[2*MAClen+1], *state, *mname, *p;
+	uchar ip[IPaddrlen], ia[IPaddrlen];
 	Ipifc *ifc;
 	Arpent *a;
 	long n, o;
@@ -504,18 +499,25 @@ arpread(Arp *arp, char *s, ulong offset, int len)
 	p = s;
 	o = -offset;
 	for(a = arp->cache; len > 0 && a < &arp->cache[NCACHE]; a++){
-		if(a->state == 0 || (ifc = a->ifc) == nil || a->ifcid != ifc->ifcid)
+		if(a->state == 0 || (ifc = a->ifc) == nil)
 			continue;
 
+		rlock(ifc);
 		qlock(arp);
 		state = arpstate[a->state];
 		ipmove(ip, a->ip);
+		if(ifc->m == nil || a->ifcid != ifc->ifcid || !ipv6local(ifc, ia, ip)){
+			qunlock(arp);
+			runlock(ifc);
+			continue;
+		}
+		mname = ifc->m->name;
 		convmac(mac, a->mac, ifc->m->maclen);
 		qunlock(arp);
+		runlock(ifc);
 
-		ipv6local(ifc, src, ip);
 		n = snprint(p, len, "%-6.6s %-4.4s %-40.40I %-16.16s %I\n",
-			ifc->m->name, state, ip, mac, src);
+			mname, state, ip, mac, ia);
 		if(o < 0) {
 			if(n > -o)
 				memmove(p, p-o, n+o);
@@ -549,17 +551,20 @@ ndpsendsol(Fs *f, Ipifc *ifc, Arpent *a)
 	if(!ipv6local(ifc, src, targ))
 		return;
 send:
-	icmpns(f, src, SRC_UNI, targ, TARG_MULTI, ifc->mac);
+	if(!waserror()){
+		icmpns(f, src, SRC_UNI, targ, TARG_MULTI, ifc->mac);
+		poperror();
+	}
 }
 
-int
+long
 rxmitsols(Arp *arp)
 {
 	Block *next, *xp;
 	Arpent *a, *b, **l;
-	Fs *f;
-	Ipifc *ifc = nil;
+	Ipifc *ifc;
 	long nrxt;
+	Fs *f;
 
 	qlock(arp);
 	f = arp->f;
@@ -573,6 +578,7 @@ rxmitsols(Arp *arp)
 	if(nrxt > 3*ReTransTimer/4) 
 		goto dodrops; 		/* return nrxt; */
 
+	ifc = nil;
 	for(; a != nil; a = a->nextrxt){
 		ifc = a->ifc;
 		if(a->rxtsrem > 0 && ifc != nil && canrlock(ifc)){
@@ -628,8 +634,19 @@ dodrops:
 	qunlock(arp);
 
 	for(; xp != nil; xp = next){
+		Ip6hdr *eh;
+		Route *r;
+
 		next = xp->list;
-		icmphostunr6(f, ifc, xp, Icmp6_adr_unreach, 1);
+		eh = (Ip6hdr*)xp->rp;
+		r = v6lookup(f, eh->src, eh->dst, nil);
+		if(r != nil && (ifc = r->ifc) != nil && canrlock(ifc)){
+			if(!waserror()){
+				icmphostunr6(f, ifc, xp, Icmp6_adr_unreach, (r->type & Runi) != 0);
+				poperror();
+			}
+			runlock(ifc);
+		}
 		freeblist(xp);
 	}
 

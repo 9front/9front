@@ -472,7 +472,7 @@ espiput(Proto *esp, Ipifc*, Block *bp)
 
 	ecb = c->ptcl;
 	/* too hard to do decryption/authentication on block lists */
-	if(bp->next)
+	if(bp->next != nil)
 		bp = concatblock(bp);
 
 	if(BLEN(bp) < vers.hdrlen + ecb->espivlen + Esptaillen + ecb->ahlen) {

@@ -243,7 +243,7 @@ struct Medium
 	void	(*pktin)(Fs *f, Ipifc *ifc, Block *bp);
 
 	/* address resolution */
-	void	(*areg)(Fs *f, Ipifc *ifc, uchar *ip, uchar *proxy);			/* register */
+	void	(*areg)(Fs *f, Ipifc *ifc, Iplifc *lifc, uchar *ip);
 
 	/* v6 address generation */
 	void	(*pref2addr)(uchar *pref, uchar *ea);
@@ -608,7 +608,7 @@ extern int	arpwrite(Fs*, char*, int);
 extern Arpent*	arpget(Arp*, Block *bp, int version, Ipifc *ifc, uchar *ip, uchar *h);
 extern void	arprelease(Arp*, Arpent *a);
 extern Block*	arpresolve(Arp*, Arpent *a, Medium *type, uchar *mac);
-extern int	arpenter(Fs*, int version, uchar *ip, uchar *mac, int n, uchar *src, int norefresh);
+extern int	arpenter(Fs*, int version, uchar *ip, uchar *mac, int n, uchar *ia, int norefresh);
 extern void	ndpsendsol(Fs*, Ipifc*, Arpent*);
 
 /*
@@ -654,8 +654,6 @@ extern Medium	pktmedium;
 extern Medium*	ipfindmedium(char *name);
 extern void	addipmedium(Medium *med);
 extern int	ipforme(Fs*, uchar *addr);
-extern int	iptentative(Fs*, uchar *addr);
-extern int	ipisbm(uchar *ip);
 extern int	ipismulticast(uchar *ip);
 extern Ipifc*	findipifc(Fs*, uchar *local, uchar *remote, int type);
 extern Ipifc*	findipifcstr(Fs *f, char *s);
