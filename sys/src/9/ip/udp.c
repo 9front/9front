@@ -474,13 +474,11 @@ udpiput(Proto *udp, Ipifc *ifc, Block *bp)
 	}
 
 	if(qfull(c->rq)){
-		netlog(f, Logudp, "udp: qfull %I.%d -> %I.%d\n", raddr, rport,
-		       laddr, lport);
+		netlog(f, Logudp, "udp: qfull %I.%d -> %I.%d\n",
+			raddr, rport, laddr, lport);
 		freeblist(bp);
 	} else {
-		if(bp->next)
-			bp = concatblock(bp);
-		qpass(c->rq, bp);
+		qpass(c->rq, concatblock(bp));
 	}
 	qunlock(c);
 
@@ -514,34 +512,25 @@ udpadvise(Proto *udp, Block *bp, char *msg)
 	uchar source[IPaddrlen], dest[IPaddrlen];
 	ushort psource, pdest;
 	Conv *s, **p;
-	int version;
 
 	h4 = (Udp4hdr*)(bp->rp);
-	version = ((h4->vihl&0xF0)==IP_VER6) ? V6 : V4;
+	h6 = (Udp6hdr*)(bp->rp);
 
-	switch(version) {
-	case V4:
+	if((h4->vihl&0xF0)==IP_VER4) {
 		v4tov6(dest, h4->udpdst);
 		v4tov6(source, h4->udpsrc);
 		psource = nhgets(h4->udpsport);
 		pdest = nhgets(h4->udpdport);
-		break;
-	case V6:
-		h6 = (Udp6hdr*)(bp->rp);
+	} else {
 		ipmove(dest, h6->udpdst);
 		ipmove(source, h6->udpsrc);
 		psource = nhgets(h6->udpsport);
 		pdest = nhgets(h6->udpdport);
-		break;
-	default:
-		panic("udpadvise: version %d", version);
-		return;  /* to avoid a warning */
 	}
 
 	/* Look for a connection */
 	qlock(udp);
-	for(p = udp->conv; *p; p++) {
-		s = *p;
+	for(p = udp->conv; (s = *p) != nil; p++) {
 		if(s->rport == pdest)
 		if(s->lport == psource)
 		if(ipcmp(s->raddr, dest) == 0)
