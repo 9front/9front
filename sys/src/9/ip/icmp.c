@@ -288,22 +288,20 @@ icmpcantfrag(Fs *f, Block *bp, int mtu)
 static void
 goticmpkt(Proto *icmp, Block *bp)
 {
+	ushort	recid;
+	uchar	dst[IPaddrlen], src[IPaddrlen];
 	Conv	**c, *s;
 	Icmp	*p;
-	uchar	dst[IPaddrlen];
-	ushort	recid;
 
 	p = (Icmp *) bp->rp;
-	v4tov6(dst, p->src);
+	v4tov6(dst, p->dst);
+	v4tov6(src, p->src);
 	recid = nhgets(p->icmpid);
 
-	for(c = icmp->conv; *c; c++) {
-		s = *c;
+	for(c = icmp->conv; (s = *c) != nil; c++){
 		if(s->lport == recid)
-		if(ipcmp(s->raddr, dst) == 0){
-			qpass(s->rq, concatblock(bp));
-			return;
-		}
+		if(ipcmp(s->laddr, dst) == 0 || ipcmp(s->raddr, src) == 0)
+			qpass(s->rq, copyblock(bp, blocklen(bp)));
 	}
 	freeblist(bp);
 }
@@ -317,6 +315,7 @@ mkechoreply(Block *bp, Fs *f)
 	q = (Icmp *)bp->rp;
 	if(!ip4me(f, q->dst) || !ip4reply(f, q->src))
 		return nil;
+
 	q->vihl = IP_VER4;
 	memmove(ip, q->src, sizeof(q->dst));
 	memmove(q->src, q->dst, sizeof(q->src));
@@ -392,9 +391,9 @@ icmpiput(Proto *icmp, Ipifc*, Block *bp)
 
 	switch(p->type) {
 	case EchoRequest:
-		if (iplen < n)
+		if(iplen < n)
 			bp = trimblock(bp, 0, iplen);
-		if(bp->next)
+		if(bp->next != nil)
 			bp = concatblock(bp);
 		r = mkechoreply(bp, icmp->f);
 		if(r == nil)
@@ -458,18 +457,19 @@ raise:
 static void
 icmpadvise(Proto *icmp, Block *bp, char *msg)
 {
+	ushort	recid;
+	uchar	dst[IPaddrlen], src[IPaddrlen];
 	Conv	**c, *s;
 	Icmp	*p;
-	uchar	dst[IPaddrlen];
-	ushort	recid;
 
 	p = (Icmp *) bp->rp;
 	v4tov6(dst, p->dst);
+	v4tov6(src, p->src);
 	recid = nhgets(p->icmpid);
 
-	for(c = icmp->conv; *c; c++) {
-		s = *c;
+	for(c = icmp->conv; (s = *c) != nil; c++){
 		if(s->lport == recid)
+		if(ipcmp(s->laddr, src) == 0)
 		if(ipcmp(s->raddr, dst) == 0){
 			if(s->ignoreadvice)
 				break;
@@ -494,7 +494,7 @@ icmpstats(Proto *icmp, char *buf, int len)
 	for(i = 0; i < Nstats; i++)
 		p = seprint(p, e, "%s: %lud\n", statnames[i], priv->stats[i]);
 	for(i = 0; i <= Maxtype; i++){
-		if(icmpnames[i])
+		if(icmpnames[i] != nil)
 			p = seprint(p, e, "%s: %lud %lud\n", icmpnames[i], priv->in[i], priv->out[i]);
 		else
 			p = seprint(p, e, "%d: %lud %lud\n", i, priv->in[i], priv->out[i]);

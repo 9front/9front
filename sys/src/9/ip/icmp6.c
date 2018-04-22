@@ -221,10 +221,10 @@ icmpadvise6(Proto *icmp, Block *bp, char *msg)
 	p = (IPICMP *)bp->rp;
 	recid = nhgets(p->icmpid);
 
-	for(c = icmp->conv; *c; c++) {
-		s = *c;
+	for(c = icmp->conv; (s = *c) != nil; c++){
 		if(s->lport == recid)
-		if(ipcmp(s->laddr, p->dst) == 0 || ipcmp(s->raddr, p->dst) == 0){
+		if(ipcmp(s->laddr, p->src) == 0)
+		if(ipcmp(s->raddr, p->dst) == 0){
 			if(s->ignoreadvice)
 				break;
 			qhangup(s->rq, msg);
@@ -309,19 +309,11 @@ goticmpkt6(Proto *icmp, Block *bp, int muxkey)
 		recid = muxkey;
 		addr = p->dst;
 	}
-
-	for(c = icmp->conv; *c; c++){
-		s = *c;
-		if(s->lport != recid)
-			continue;
-		if(ipcmp(s->laddr, addr) == 0){
-			qpass(s->rq, concatblock(bp));
-			return;
-		}
-		if(ipcmp(s->raddr, addr) == 0)
+	for(c = icmp->conv; (s = *c) != nil; c++){
+		if(s->lport == recid)
+		if(ipcmp(s->laddr, p->dst) == 0 || ipcmp(s->raddr, addr) == 0)
 			qpass(s->rq, copyblock(bp, blocklen(bp)));
 	}
-
 	freeblist(bp);
 }
 
@@ -417,7 +409,7 @@ icmpna(Fs *f, uchar* src, uchar* dst, uchar* targ, uchar* mac, uchar flags)
 	memmove(np->lnaddr, mac, sizeof(np->lnaddr));
 
 	set_cksum(nbp);
-	np = (Ndpkt*) nbp->rp;
+	np = (Ndpkt*)nbp->rp;
 	np->ttl = HOP_LIMIT;
 	np->vcf[0] = 0x06 << 4;
 	ipriv->out[NbrAdvert]++;
@@ -673,24 +665,22 @@ targettype(Fs *f, Ipifc *ifc, uchar *target)
 	Iplifc *lifc;
 	int t;
 
-	rlock(ifc);
 	if((lifc = iplocalonifc(ifc, target)) != nil)
 		t = lifc->tentative? Tunitent: Tunirany;
 	else if(ipproxyifc(f, ifc, target))
 		t = Tuniproxy;
 	else
 		t = 0;
-	runlock(ifc);
 	return t;
 }
 
 static void
-icmpiput6(Proto *icmp, Ipifc *ipifc, Block *bp)
+icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 {
 	char *msg, m2[128];
 	uchar pktflags;
 	uchar *packet = bp->rp;
-	uchar lsrc[IPaddrlen];
+	uchar ia[IPaddrlen];
 	Block *r;
 	IPICMP *p = (IPICMP *)packet;
 	Icmppriv6 *ipriv = icmp->priv;
@@ -698,16 +688,16 @@ icmpiput6(Proto *icmp, Ipifc *ipifc, Block *bp)
 	Ndpkt* np;
 	Proto *pr;
 
-	if(!valid(icmp, ipifc, bp, ipriv) || p->type > Maxtype6)
+	if(!valid(icmp, ifc, bp, ipriv) || p->type > Maxtype6)
 		goto raise;
 
 	ipriv->in[p->type]++;
 
 	switch(p->type) {
 	case EchoRequestV6:
-		if(bp->next)
+		if(bp->next != nil)
 			bp = concatblock(bp);
-		r = mkechoreply6(bp, ipifc);
+		r = mkechoreply6(bp, ifc);
 		if(r == nil)
 			goto raise;
 		ipriv->out[EchoReply]++;
@@ -747,7 +737,7 @@ icmpiput6(Proto *icmp, Ipifc *ipifc, Block *bp)
 			}
 			p = (IPICMP *)bp->rp;
 			pr = Fsrcvpcolx(icmp->f, p->proto);
-			if(pr && pr->advise) {
+			if(pr != nil && pr->advise != nil) {
 				(*pr->advise)(pr, bp, m2);
 				return;
 			}
@@ -764,21 +754,21 @@ icmpiput6(Proto *icmp, Ipifc *ipifc, Block *bp)
 	case NbrSolicit:
 		np = (Ndpkt*) p;
 		pktflags = 0;
-		if(ipifc->sendra6)
+		if(ifc->sendra6)
 			pktflags |= Rflag;
-		switch (targettype(icmp->f, ipifc, np->target)) {
+		switch (targettype(icmp->f, ifc, np->target)) {
 		case Tunirany:
 			pktflags |= Oflag;
 			/* fall through */
 
 		case Tuniproxy:
-			if(ipv6local(ipifc, lsrc, np->src)) {
-				arpenter(icmp->f, V6, np->src, np->lnaddr, 8*np->olen-2, lsrc, 0);
+			if(ipv6local(ifc, ia, np->src)) {
+				arpenter(icmp->f, V6, np->src, np->lnaddr, 8*np->olen-2, ia, 0);
 				pktflags |= Sflag;
 			} else
-				ipmove(lsrc, np->target);
-			icmpna(icmp->f, lsrc, (pktflags & Sflag) ? np->src : v6allnodesL,
-				np->target, ipifc->mac, pktflags);
+				ipmove(ia, np->target);
+			icmpna(icmp->f, ia, (pktflags & Sflag)? np->src: v6allnodesL,
+				np->target, ifc->mac, pktflags);
 			break;
 		case Tunitent:
 			/*
@@ -800,11 +790,11 @@ icmpiput6(Proto *icmp, Ipifc *ipifc, Block *bp)
 		 * detection part of ipconfig can discover duplication through
 		 * the arp table.
 		 */
-		lifc = iplocalonifc(ipifc, np->target);
+		lifc = iplocalonifc(ifc, np->target);
 		if(lifc != nil && lifc->tentative)
 			arpenter(icmp->f, V6, np->target, np->lnaddr, 8*np->olen-2, np->target, 0);
-		else if(ipv6local(ipifc, lsrc, np->target))
-			arpenter(icmp->f, V6, np->target, np->lnaddr, 8*np->olen-2, lsrc, 1);
+		else if(ipv6local(ifc, ia, np->target))
+			arpenter(icmp->f, V6, np->target, np->lnaddr, 8*np->olen-2, ia, 1);
 		freeblist(bp);
 		break;
 
