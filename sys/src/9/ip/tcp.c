@@ -3229,8 +3229,7 @@ tcpadvise(Proto *tcp, Block *bp, char *msg)
 		v4tov6(source, h4->tcpsrc);
 		psource = nhgets(h4->tcpsport);
 		pdest = nhgets(h4->tcpdport);
-	}
-	else {
+	} else {
 		ipmove(dest, h6->tcpdst);
 		ipmove(source, h6->tcpsrc);
 		psource = nhgets(h6->tcpsport);
@@ -3239,8 +3238,7 @@ tcpadvise(Proto *tcp, Block *bp, char *msg)
 
 	/* Look for a connection */
 	qlock(tcp);
-	for(p = tcp->conv; *p; p++) {
-		s = *p;
+	for(p = tcp->conv; (s = *p) != nil; p++) {
 		tcb = (Tcpctl*)s->ptcl;
 		if(s->rport == pdest)
 		if(s->lport == psource)
