@@ -22,6 +22,7 @@ freeroute(Route *r)
 {
 	Route **l;
 
+	r->ref = 0;
 	r->left = nil;
 	r->right = nil;
 	if(r->type & Rv4)
@@ -541,8 +542,13 @@ v4lookup(Fs *f, uchar *a, uchar *s, Routehint *rh)
 	Route *p, *q;
 	Ipifc *ifc;
 
-	if(rh != nil && rh->r != nil && rh->r->ifc != nil && rh->rgen == v4routegeneration)
-		return rh->r;
+	if(rh != nil
+	&& rh->rgen == v4routegeneration
+	&& (q = rh->r) != nil
+	&& (ifc = q->ifc) != nil
+	&& q->ifcid == ifc->ifcid
+	&& q->ref > 0)
+		return q;
 
 	la = nhgetl(a);
 	ls = nhgetl(s);
@@ -570,7 +576,10 @@ v4lookup(Fs *f, uchar *a, uchar *s, Routehint *rh)
 		p = p->mid;
 	}
 
-	if(q != nil && (q->ifc == nil || q->ifcid != q->ifc->ifcid)){
+	if(q == nil || q->ref == 0)
+		return nil;
+
+	if(q->ifc == nil || q->ifcid != q->ifc->ifcid){
 		if(q->type & Rifc) {
 			hnputl(gate+IPv4off, q->v4.address);
 			memmove(gate, v4prefix, IPv4off);
@@ -602,13 +611,19 @@ v6lookup(Fs *f, uchar *a, uchar *s, Routehint *rh)
 	Ipifc *ifc;
 	int h;
 
-	if(isv4(a) && isv4(s))
-		return v4lookup(f, a+IPv4off, s+IPv4off, rh);
-	if(isv4(s))
+	if(isv4(s)){
+		if(isv4(a))
+			return v4lookup(f, a+IPv4off, s+IPv4off, rh);
 		return nil;
+	}
 
-	if(rh != nil && rh->r != nil && rh->r->ifc != nil && rh->rgen == v6routegeneration)
-		return rh->r;
+	if(rh != nil
+	&& rh->rgen == v6routegeneration
+	&& (q = rh->r) != nil
+	&& (ifc = q->ifc) != nil
+	&& q->ifcid == ifc->ifcid
+	&& q->ref > 0)
+		return q;
 
 	for(h = 0; h < IPllen; h++){
 		la[h] = nhgetl(a+4*h);
@@ -668,7 +683,10 @@ v6lookup(Fs *f, uchar *a, uchar *s, Routehint *rh)
 next:		;
 	}
 
-	if(q != nil && (q->ifc == nil || q->ifcid != q->ifc->ifcid)){
+	if(q == nil || q->ref == 0)
+		return nil;
+
+	if(q->ifc == nil || q->ifcid != q->ifc->ifcid){
 		if(q->type & Rifc) {
 			for(h = 0; h < IPllen; h++)
 				hnputl(gate+4*h, q->v6.address[h]);
