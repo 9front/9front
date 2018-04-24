@@ -46,6 +46,7 @@ satandv(SATSolve *sat, ...)
 	va_list va;
 	
 	va_start(va, sat);
+	satvafix(va);
 	r = satand1(sat, (int*)va, -1);
 	va_end(va);
 	return r;
@@ -90,6 +91,7 @@ satorv(SATSolve *sat, ...)
 	int r;
 	
 	va_start(va, sat);
+	satvafix(va);
 	r = sator1(sat, (int*)va, -1);
 	va_end(va);
 	return r;
@@ -267,6 +269,7 @@ satlogicv(SATSolve *sat, u64int op, ...)
 	int r;
 	
 	va_start(va, op);
+	satvafix(va);
 	r = satlogic1(sat, op, (int*)va, -1);
 	va_end(va);
 	return r;

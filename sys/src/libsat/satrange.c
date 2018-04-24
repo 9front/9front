@@ -62,6 +62,7 @@ satrangev(SATSolve *s, int min, int max, ...)
 	
 	va_start(va, max);
 	/* horrible hack */
+	satvafix(va);
 	s = satrange1(s, (int*)va, -1, min, max);
 	va_end(va);
 	return s;
