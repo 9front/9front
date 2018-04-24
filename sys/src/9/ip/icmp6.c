@@ -752,7 +752,7 @@ icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 		break;
 
 	case NbrSolicit:
-		np = (Ndpkt*) p;
+		np = (Ndpkt*)p;
 		pktflags = 0;
 		if(ifc->sendra6)
 			pktflags |= Rflag;
@@ -763,7 +763,8 @@ icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 
 		case Tuniproxy:
 			if(ipv6local(ifc, ia, np->src)) {
-				arpenter(icmp->f, V6, np->src, np->lnaddr, 8*np->olen-2, ia, 0);
+				if(arpenter(icmp->f, V6, np->src, np->lnaddr, 8*np->olen-2, ia, ifc, 0) < 0)
+					break;
 				pktflags |= Sflag;
 			} else
 				ipmove(ia, np->target);
@@ -781,7 +782,7 @@ icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 		break;
 
 	case NbrAdvert:
-		np = (Ndpkt*) p;
+		np = (Ndpkt*)p;
 
 		/*
 		 * if the target address matches one of the local interface
@@ -792,9 +793,9 @@ icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 		 */
 		lifc = iplocalonifc(ifc, np->target);
 		if(lifc != nil && lifc->tentative)
-			arpenter(icmp->f, V6, np->target, np->lnaddr, 8*np->olen-2, np->target, 0);
+			arpenter(icmp->f, V6, np->target, np->lnaddr, 8*np->olen-2, np->target, ifc, 0);
 		else if(ipv6local(ifc, ia, np->target))
-			arpenter(icmp->f, V6, np->target, np->lnaddr, 8*np->olen-2, ia, 1);
+			arpenter(icmp->f, V6, np->target, np->lnaddr, 8*np->olen-2, ia, ifc, 1);
 		freeblist(bp);
 		break;
 

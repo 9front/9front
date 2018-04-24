@@ -36,9 +36,9 @@ static void	etherremmulti(Ipifc *ifc, uchar *a, uchar *ia);
 static void	etherareg(Fs *f, Ipifc *ifc, Iplifc *lifc, uchar *ip);
 static Block*	multicastarp(Fs *f, Arpent *a, Medium*, uchar *mac);
 static void	sendarp(Ipifc *ifc, Arpent *a);
+static void	sendndp(Ipifc *ifc, Arpent *a);
 static int	multicastea(uchar *ea, uchar *ip);
 static void	recvarpproc(void*);
-static void	resolveaddr6(Ipifc *ifc, Arpent *a);
 static void	etherpref2addr(uchar *pref, uchar *ea);
 
 Medium ethermedium =
@@ -272,13 +272,13 @@ etherbwrite(Ipifc *ifc, Block *bp, int version, uchar *ip)
 	if(a != nil){
 		/* check for broadcast or multicast */
 		bp = multicastarp(er->f, a, ifc->m, mac);
-		if(bp==nil){
+		if(bp == nil){
 			switch(version){
 			case V4:
 				sendarp(ifc, a);
 				break;
 			case V6:
-				resolveaddr6(ifc, a);
+				sendndp(ifc, a);
 				break;
 			default:
 				panic("etherbwrite: version %d", version);
@@ -492,7 +492,7 @@ sendarp(Ipifc *ifc, Arpent *a)
 }
 
 static void
-resolveaddr6(Ipifc *ifc, Arpent *a)
+sendndp(Ipifc *ifc, Arpent *a)
 {
 	Block *bp;
 	Etherrock *er = ifc->arg;
@@ -511,15 +511,6 @@ resolveaddr6(Ipifc *ifc, Arpent *a)
 		freeblist(bp);
 	}
 
-	/* try to keep it around for a second more */
-	a->ctime = NOW;
-	a->rtime = NOW + ReTransTimer;
-	if(a->rxtsrem <= 0) {
-		arprelease(er->f->arp, a);
-		return;
-	}
-
-	a->rxtsrem--;
 	ndpsendsol(er->f, ifc, a);	/* unlocks arp */
 }
 
@@ -560,7 +551,7 @@ sendgarp(Ipifc *ifc, uchar *ip)
 static void
 recvarp(Ipifc *ifc)
 {
-	int n;
+	int n, forme;
 	Block *ebp, *rbp;
 	Etherarp *e, *r;
 	uchar ip[IPaddrlen];
@@ -582,6 +573,10 @@ recvarp(Ipifc *ifc)
 		break;
 
 	case ARPREPLY:
+		/* make sure not to enter multi/broadcat address */
+		if(e->sha[0] & 1)
+			break;
+
 		/* check for machine using my ip address */
 		v4tov6(ip, e->spa);
 		if(iplocalonifc(ifc, ip) != nil || ipproxyifc(er->f, ifc, ip)){
@@ -592,17 +587,15 @@ recvarp(Ipifc *ifc)
 			}
 		}
 
-		/* make sure we're not entering broadcast addresses */
-		if(ipcmp(ip, ipbroadcast) == 0 || memcmp(e->sha, etherbroadcast, sizeof(e->sha)) == 0){
-			print("arprep: 0x%E/0x%E cannot register broadcast address %I\n",
-				e->s, e->sha, e->spa);
-			break;
-		}
-
-		arpenter(er->f, V4, e->spa, e->sha, sizeof(e->sha), e->tpa, 0);
+		/* refresh what we know about sender */
+		arpenter(er->f, V4, e->spa, e->sha, sizeof(e->sha), e->tpa, ifc, 1);
 		break;
 
 	case ARPREQUEST:
+		/* don't reply to multi/broadcat addresses */
+		if(e->sha[0] & 1)
+			break;
+
 		/* don't answer arps till we know who we are */
 		if(ifc->lifc == nil)
 			break;
@@ -613,23 +606,28 @@ recvarp(Ipifc *ifc)
 			if(memcmp(e->sha, ifc->mac, sizeof(e->sha)) != 0){
 				if(memcmp(eprinted, e->spa, sizeof(e->spa)) != 0){
 					/* print only once */
-					print("arpreq: 0x%E also has ip addr %V\n", e->sha, e->spa);
+					print("arpreq: 0x%E also has ip addr %V\n",
+						e->sha, e->spa);
 					memmove(eprinted, e->spa, sizeof(e->spa));
 				}
+				break;
 			}
 		} else {
 			if(memcmp(e->sha, ifc->mac, sizeof(e->sha)) == 0){
-				print("arpreq: %V also has ether addr %E\n", e->spa, e->sha);
+				print("arpreq: %V also has ether addr %E\n",
+					e->spa, e->sha);
 				break;
 			}
 		}
 
-		/* refresh what we know about sender */
-		arpenter(er->f, V4, e->spa, e->sha, sizeof(e->sha), e->tpa, 1);
-
-		/* answer only requests for our address or systems we're proxying for */
+		/*
+		 * when request is for our address or systems we're proxying for,
+		 * enter senders address into arp table and reply, otherwise just
+		 * refresh the senders address.
+		 */
 		v4tov6(ip, e->tpa);
-		if(iplocalonifc(ifc, ip) == nil && !ipproxyifc(er->f, ifc, ip))
+		forme = iplocalonifc(ifc, ip) != nil || ipproxyifc(er->f, ifc, ip);
+		if(arpenter(er->f, V4, e->spa, e->sha, sizeof(e->sha), e->tpa, ifc, !forme) < 0 || !forme)
 			break;
 
 		n = sizeof(Etherarp);
@@ -761,7 +759,7 @@ etherareg(Fs *f, Ipifc *ifc, Iplifc *lifc, uchar *ip)
 	static char tdad[] = "dad6";
 	uchar a[IPaddrlen];
 
-	if(ipcmp(ip, IPnoaddr) == 0)
+	if(ipcmp(ip, IPnoaddr) == 0 || ipcmp(ip, v4prefix) == 0)
 		return;
 
 	if(isv4(ip)){

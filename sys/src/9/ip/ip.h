@@ -589,17 +589,16 @@ struct Arpent
 {
 	uchar	ip[IPaddrlen];
 	uchar	mac[MAClen];
-	Arpent*	hash;
-	Block*	hold;
-	Block*	last;
-	uint	ctime;			/* time entry was created or refreshed */
-	uint	utime;			/* time entry was last used */
-	uchar	state;
+	Arpent	*hash;
 	Arpent	*nextrxt;		/* re-transmit chain */
-	uint	rtime;			/* time for next retransmission */
-	uchar	rxtsrem;
+	Block	*hold;
+	Block	*last;
 	Ipifc	*ifc;
 	uchar	ifcid;			/* must match ifc->id */
+	uchar	state;
+	uchar	rxtsrem;		/* re-tranmissions remaining */
+	ulong	ctime;			/* time entry was created or refreshed */
+	ulong	utime;			/* time entry was last used */
 };
 
 extern void	arpinit(Fs*);
@@ -608,7 +607,7 @@ extern int	arpwrite(Fs*, char*, int);
 extern Arpent*	arpget(Arp*, Block *bp, int version, Ipifc *ifc, uchar *ip, uchar *h);
 extern void	arprelease(Arp*, Arpent *a);
 extern Block*	arpresolve(Arp*, Arpent *a, Medium *type, uchar *mac);
-extern int	arpenter(Fs*, int version, uchar *ip, uchar *mac, int n, uchar *ia, int norefresh);
+extern int	arpenter(Fs*, int version, uchar *ip, uchar *mac, int n, uchar *ia, Ipifc *ifc, int refresh);
 extern void	ndpsendsol(Fs*, Ipifc*, Arpent*);
 
 /*

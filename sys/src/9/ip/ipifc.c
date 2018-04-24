@@ -1145,7 +1145,7 @@ findipifcstr(Fs *f, char *s)
 			return (Ipifc*)c->ptcl;
 	}
 	if(parseip(ip, s) != -1)
-		return findipifc(f, IPnoaddr, ip, Runi);
+		return findipifc(f, ip, ip, Runi);
 	return nil;
 }
 
