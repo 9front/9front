@@ -217,6 +217,21 @@ satadd1(SATSolve *s, int *a, int n)
 	return s;
 }
 
+void
+satvafix(va_list va)
+{
+	int *d;
+	uintptr *s;
+
+	if(sizeof(int)==sizeof(uintptr)) return;
+	d = (int *) va;
+	s = (uintptr *) va;
+	do
+		*d++ = *s;
+	while((int)*s++ != 0);
+		
+}
+
 SATSolve *
 sataddv(SATSolve *s, ...)
 {
@@ -224,6 +239,7 @@ sataddv(SATSolve *s, ...)
 	
 	va_start(va, s);
 	/* horrible hack */
+	satvafix(va);
 	s = satadd1(s, (int*)va, -1);
 	va_end(va);
 	return s;

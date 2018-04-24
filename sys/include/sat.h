@@ -106,3 +106,4 @@ int satval(SATSolve *, int);
 void satfree(SATSolve *);
 void satreset(SATSolve *);
 int satget(SATSolve *, int, int *, int);
+void satvafix(va_list);
