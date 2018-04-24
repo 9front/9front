@@ -323,8 +323,8 @@ optern(Node *rn, Node *n1, Node *n2, Node *n3, uint sz)
 	uint m;
 	int i, a, b, q;
 	
-	m = n1->size;
-	if(n2->size > m) m = n2->size;
+	m = n2->size;
+	if(n3->size > m) m = n3->size;
 	if(m > sz) m = sz;
 	nodevars(rn, m);
 	q = tologic(n1);
