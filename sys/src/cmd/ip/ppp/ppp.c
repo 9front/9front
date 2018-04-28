@@ -1510,19 +1510,6 @@ setdefroute(char *net, Ipaddr gate)
 	close(fd);
 }
 
-enum
-{
-	Mofd=	32,
-};
-struct
-{
-	Lock;
-
-	int	fd[Mofd];
-	int	cfd[Mofd];
-	int	n;
-} old;
-
 static char*
 ipopen(PPP *ppp)
 {
