@@ -64,7 +64,7 @@ if(test -r /net/ipselftab){
 				case $addrs
 					# try /lib/ndb first, then do dhcp
 					ip/ipconfig -N ether $ether >[2]/dev/null \
-					|| ip/ipconfig ether $ether -h $sysname
+					|| ip/ipconfig -h $sysname ether $ether
 				}
 			}
 		}
