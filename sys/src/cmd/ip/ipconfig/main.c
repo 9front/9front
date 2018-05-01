@@ -3,216 +3,49 @@
  */
 #include <u.h>
 #include <libc.h>
-#include <ip.h>
 #include <bio.h>
+#include <ip.h>
 #include <ndb.h>
-#include "../dhcp.h"
 #include "ipconfig.h"
+#include "../dhcp.h"
 
 #include <libsec.h> /* genrandom() */
 
-#define DEBUG if(debug)warning
-
-/* possible verbs */
-enum
-{
-	/* commands */
-	Vadd,
-	Vremove,
-	Vunbind,
-	Vaddpref6,
-	Vra6,
-	/* media */
-	Vether,
-	Vgbe,
-	Vppp,
-	Vloopback,
-	Vtorus,
-	Vtree,
-	Vpkt,
-};
-
-enum
-{
-	Taddr,
-	Taddrs,
-	Tstr,
-	Tbyte,
-	Tulong,
-	Tvec,
-};
-
-typedef struct Option Option;
-struct Option
-{
-	char	*name;
-	int	type;
-};
-
-/*
- * I was too lazy to look up the types for each of these
- * options.  If someone feels like it, please mail me a
- * corrected array -- presotto
- */
-Option option[256] =
-{
-[OBmask]		{ "ipmask",		Taddr },
-[OBtimeoff]		{ "timeoff",		Tulong },
-[OBrouter]		{ "ipgw",		Taddrs },
-[OBtimeserver]		{ "time",		Taddrs },
-[OBnameserver]		{ "name",		Taddrs },
-[OBdnserver]		{ "dns",		Taddrs },
-[OBlogserver]		{ "log",		Taddrs },
-[OBcookieserver]	{ "cookie",		Taddrs },
-[OBlprserver]		{ "lpr",		Taddrs },
-[OBimpressserver]	{ "impress",		Taddrs },
-[OBrlserver]		{ "rl",			Taddrs },
-[OBhostname]		{ "sys",		Tstr },
-[OBbflen]		{ "bflen",		Tulong },
-[OBdumpfile]		{ "dumpfile",		Tstr },
-[OBdomainname]		{ "dom",		Tstr },
-[OBswapserver]		{ "swap",		Taddrs },
-[OBrootpath]		{ "rootpath",		Tstr },
-[OBextpath]		{ "extpath",		Tstr },
-[OBipforward]		{ "ipforward",		Taddrs },
-[OBnonlocal]		{ "nonlocal",		Taddrs },
-[OBpolicyfilter]	{ "policyfilter",	Taddrs },
-[OBmaxdatagram]		{ "maxdatagram",	Tulong },
-[OBttl]			{ "ttl",		Tulong },
-[OBpathtimeout]		{ "pathtimeout",	Taddrs },
-[OBpathplateau]		{ "pathplateau",	Taddrs },
-[OBmtu]			{ "mtu",		Tulong },
-[OBsubnetslocal]	{ "subnetslocal",	Taddrs },
-[OBbaddr]		{ "baddr",		Taddrs },
-[OBdiscovermask]	{ "discovermask",	Taddrs },
-[OBsupplymask]		{ "supplymask",		Taddrs },
-[OBdiscoverrouter]	{ "discoverrouter",	Taddrs },
-[OBrsserver]		{ "rs",			Taddrs },
-[OBstaticroutes]	{ "staticroutes",	Taddrs },
-[OBtrailerencap]	{ "trailerencap",	Taddrs },
-[OBarptimeout]		{ "arptimeout",		Tulong },
-[OBetherencap]		{ "etherencap",		Taddrs },
-[OBtcpttl]		{ "tcpttl",		Tulong },
-[OBtcpka]		{ "tcpka",		Tulong },
-[OBtcpkag]		{ "tcpkag",		Tulong },
-[OBnisdomain]		{ "nisdomain",		Tstr },
-[OBniserver]		{ "ni",			Taddrs },
-[OBntpserver]		{ "ntp",		Taddrs },
-[OBnetbiosns]		{ "netbiosns",		Taddrs },
-[OBnetbiosdds]		{ "netbiosdds",		Taddrs },
-[OBnetbiostype]		{ "netbiostype",	Taddrs },
-[OBnetbiosscope]	{ "netbiosscope",	Taddrs },
-[OBxfontserver]		{ "xfont",		Taddrs },
-[OBxdispmanager]	{ "xdispmanager",	Taddrs },
-[OBnisplusdomain]	{ "nisplusdomain",	Tstr },
-[OBnisplusserver]	{ "nisplus",		Taddrs },
-[OBhomeagent]		{ "homeagent",		Taddrs },
-[OBsmtpserver]		{ "smtp",		Taddrs },
-[OBpop3server]		{ "pop3",		Taddrs },
-[OBnntpserver]		{ "nntp",		Taddrs },
-[OBwwwserver]		{ "www",		Taddrs },
-[OBfingerserver]	{ "finger",		Taddrs },
-[OBircserver]		{ "irc",		Taddrs },
-[OBstserver]		{ "st",			Taddrs },
-[OBstdaserver]		{ "stdar",		Taddrs },
-
-[ODipaddr]		{ "ipaddr",		Taddr },
-[ODlease]		{ "lease",		Tulong },
-[ODoverload]		{ "overload",		Taddr },
-[ODtype]		{ "type",		Tbyte },
-[ODserverid]		{ "serverid",		Taddr },
-[ODparams]		{ "params",		Tvec },
-[ODmessage]		{ "message",		Tstr },
-[ODmaxmsg]		{ "maxmsg",		Tulong },
-[ODrenewaltime]		{ "renewaltime",	Tulong },
-[ODrebindingtime]	{ "rebindingtime",	Tulong },
-[ODvendorclass]		{ "vendorclass",	Tvec },
-[ODclientid]		{ "clientid",		Tvec },
-[ODtftpserver]		{ "tftp",		Taddr },
-[ODbootfile]		{ "bootfile",		Tstr },
-};
-
-uchar defrequested[] = {
-	OBmask, OBrouter, OBdnserver, OBhostname, OBdomainname, OBntpserver,
-};
-
-uchar	requested[256];
-int	nrequested;
-
-int	Oflag;
-int	beprimary = -1;
 Conf	conf;
-int	debug;
-int	dodhcp;
-int	dolog;
-int	dondbconfig = 0;
-int	dupl_disc = 1;		/* flag: V6 duplicate neighbor discovery */
-Ctl	*firstctl, **ctll;
-Ipifc	*ifc;
-int	ipv6auto = 0;
 int	myifc = -1;
-char	*dbfile;
-char	*ndboptions;
+int	beprimary = -1;
 int	noconfig;
-int	nodhcpwatch;
-char 	optmagic[4] = { 0x63, 0x82, 0x53, 0x63 };
+Ipifc	*ifc;
+Ctl	*firstctl, **ctll = &firstctl;
+
+int	debug;
+int	dolog;
+
 int	plan9 = 1;
+int	Oflag;
+int	rflag;
+
+int	dodhcp;
+int	nodhcpwatch;
 int	sendhostname;
+char	*ndboptions;
+
+int	ipv6auto;
+int	dupl_disc = 1;		/* flag: V6 duplicate neighbor discovery */
+
+int	dondbconfig;
+char	*dbfile;
 
 static char logfile[] = "ipconfig";
 
-char *verbs[] = {
-[Vadd]		"add",
-[Vremove]	"remove",
-[Vunbind]	"unbind",
-[Vether]	"ether",
-[Vgbe]		"gbe",
-[Vppp]		"ppp",
-[Vloopback]	"loopback",
-[Vaddpref6]	"add6",
-[Vra6]		"ra6",
-[Vtorus]	"torus",
-[Vtree]		"tree",
-[Vpkt]		"pkt",
-};
+static void	binddevice(void);
+static void	controldevice(void);
+extern void	pppbinddev(void);
 
-int	addoption(char*);
-void	binddevice(void);
-void	controldevice(void);
-void	dhcpquery(int, int);
-void	dhcprecv(void);
-void	dhcpsend(int);
-void	dhcptimer(void);
-void	dhcpwatch(int);
-void	doadd(int);
-void	doremove(void);
-void	dounbind(void);
-void	getoptions(uchar*);
-int	ip4cfg(void);
-int	ip6cfg(void);
-void	mkclientid(void);
-void	ndbconfig(void);
-int	openlisten(void);
-uchar*	optaddaddr(uchar*, int, uchar*);
-uchar*	optaddbyte(uchar*, int, int);
-uchar*	optaddstr(uchar*, int, char*);
-uchar*	optadd(uchar*, int, void*, int);
-uchar*	optaddulong(uchar*, int, ulong);
-uchar*	optaddvec(uchar*, int, uchar*, int);
-int	optgetaddrs(uchar*, int, uchar*, int);
-int	optgetp9addrs(uchar*, int, uchar*, int);
-int	optgetaddr(uchar*, int, uchar*);
-int	optgetbyte(uchar*, int);
-int	optgetstr(uchar*, int, char*, int);
-uchar*	optget(uchar*, int, int*);
-ulong	optgetulong(uchar*, int);
-int	optgetvec(uchar*, int, uchar*, int);
-char*	optgetx(uchar*, uchar);
-Bootp*	parsebootp(uchar*, int);
-int	parseoptions(uchar *p, int n);
-int	parseverb(char*);
-void	pppbinddev(void);
-void	putndb(void);
+static void	doadd(void);
+static void	doremove(void);
+static void	dounbind(void);
+static void	ndbconfig(void);
 
 void
 usage(void)
@@ -222,6 +55,29 @@ usage(void)
 		"\t[-f dbfile][-x mtpt][-o dhcpopt] type dev [verb] [laddr [mask "
 		"[raddr [fs [auth]]]]]\n", argv0);
 	exits("usage");
+}
+
+static void
+init(void)
+{
+	srand(truerand());
+	fmtinstall('E', eipfmt);
+	fmtinstall('I', eipfmt);
+	fmtinstall('M', eipfmt);
+	fmtinstall('V', eipfmt);
+ 	nsec();			/* make sure time file is open before forking */
+
+	conf.cfd = -1;
+	conf.rfd = -1;
+
+	setnetmtpt(conf.mpoint, sizeof conf.mpoint, nil);
+	conf.cputype = getenv("cputype");
+	if(conf.cputype == nil)
+		conf.cputype = "386";
+
+	v6paraminit(&conf);
+
+	dhcpinit();
 }
 
 void
@@ -274,82 +130,6 @@ parsenorm(int argc, char **argv)
 	}
 }
 
-static void
-parse6pref(int argc, char **argv)
-{
-	switch(argc){
-	case 6:
-		conf.preflt = strtoul(argv[5], 0, 10);
-		/* fall through */
-	case 5:
-		conf.validlt = strtoul(argv[4], 0, 10);
-		/* fall through */
-	case 4:
-		conf.autoflag = (atoi(argv[3]) != 0);
-		/* fall through */
-	case 3:
-		conf.onlink = (atoi(argv[2]) != 0);
-		/* fall through */
-	case 2:
-		conf.prefixlen = atoi(argv[1]);
-		/* fall through */
-	case 1:
-		if (parseip(conf.v6pref, argv[0]) == -1)
-			sysfatal("bad address %s", argv[0]);
-		break;
-	}
-	DEBUG("parse6pref: pref %I len %d", conf.v6pref, conf.prefixlen);
-}
-
-/* parse router advertisement (keyword, value) pairs */
-static void
-parse6ra(int argc, char **argv)
-{
-	int i, argsleft;
-	char *kw, *val;
-
-	if (argc % 2 != 0)
-		usage();
-
-	i = 0;
-	for (argsleft = argc; argsleft > 1; argsleft -= 2) {
-		kw =  argv[i];
-		val = argv[i+1];
-		if (strcmp(kw, "recvra") == 0)
-			conf.recvra = (atoi(val) != 0);
-		else if (strcmp(kw, "sendra") == 0)
-			conf.sendra = (atoi(val) != 0);
-		else if (strcmp(kw, "mflag") == 0)
-			conf.mflag = (atoi(val) != 0);
-		else if (strcmp(kw, "oflag") == 0)
-			conf.oflag = (atoi(val) != 0);
-		else if (strcmp(kw, "maxraint") == 0)
-			conf.maxraint = atoi(val);
-		else if (strcmp(kw, "minraint") == 0)
-			conf.minraint = atoi(val);
-		else if (strcmp(kw, "linkmtu") == 0)
-			conf.linkmtu = atoi(val);
-		else if (strcmp(kw, "reachtime") == 0)
-			conf.reachtime = atoi(val);
-		else if (strcmp(kw, "rxmitra") == 0)
-			conf.rxmitra = atoi(val);
-		else if (strcmp(kw, "ttl") == 0)
-			conf.ttl = atoi(val);
-		else if (strcmp(kw, "routerlt") == 0)
-			conf.routerlt = atoi(val);
-		else {
-			warning("bad ra6 keyword %s", kw);
-			usage();
-		}
-		i += 2;
-	}
-
-	/* consistency check */
-	if (conf.maxraint < conf.minraint)
-		sysfatal("maxraint %d < minraint %d",
-			conf.maxraint, conf.minraint);
-}
-
 static char*
 finddev(char *dir, char *name, char *dev)
 {
@@ -374,43 +154,30 @@ finddev(char *dir, char *name, char *dev)
 	return dev;
 }
 
+/* look for an action */
 static int
-findifc(char *net, char *dev)
+parseverb(char *name)
 {
-	Ipifc *nifc;
+	static char *verbs[] = {
+		[Vadd]		"add",
+		[Vremove]	"remove",
+		[Vunbind]	"unbind",
+		[Vether]	"ether",
+		[Vgbe]		"gbe",
+		[Vppp]		"ppp",
+		[Vloopback]	"loopback",
+		[Vaddpref6]	"add6",
+		[Vra6]		"ra6",
+		[Vtorus]	"torus",
+		[Vtree]		"tree",
+		[Vpkt]		"pkt",
+	};
+	int i;
 
-	ifc = readipifc(net, ifc, -1);
-	for(nifc = ifc; nifc != nil; nifc = nifc->next)
-		if(strcmp(nifc->dev, dev) == 0)
-			return nifc->index;
-
+	for(i = 0; i < nelem(verbs); i++)
+		if(verbs[i] != nil && strcmp(name, verbs[i]) == 0)
+			return i;
 	return -1;
-}
-
-static void
-init(void)
-{
-	srand(truerand());
-	fmtinstall('E', eipfmt);
-	fmtinstall('I', eipfmt);
-	fmtinstall('M', eipfmt);
-	fmtinstall('V', eipfmt);
- 	nsec();			/* make sure time file is open before forking */
-
-	conf.cfd = -1;
-	conf.rfd = -1;
-
-	setnetmtpt(conf.mpoint, sizeof conf.mpoint, nil);
-	conf.cputype = getenv("cputype");
-	if(conf.cputype == nil)
-		conf.cputype = "386";
-
-	ctll = &firstctl;
-	v6paraminit(&conf);
-
-	/* init set of requested dhcp parameters with the default */
-	nrequested = sizeof defrequested;
-	memcpy(requested, defrequested, nrequested);
 }
 
 static int
@@ -498,14 +265,26 @@ parseargs(int argc, char **argv)
 	return action;
 }
 
+static int
+findifc(char *net, char *dev)
+{
+	Ipifc *nifc;
+
+	ifc = readipifc(net, ifc, -1);
+	for(nifc = ifc; nifc != nil; nifc = nifc->next)
+		if(strcmp(nifc->dev, dev) == 0)
+			return nifc->index;
+
+	return -1;
+}
+
 void
 main(int argc, char **argv)
 {
-	int retry, action;
+	int action;
 	Ctl *cp;
 
 	init();
-	retry = 0;
 	ARGBEGIN {
 	case '6': 			/* IPv6 auto config */
 		ipv6auto = 1;
@@ -566,7 +345,7 @@ main(int argc, char **argv)
 		beprimary = 0;
 		break;
 	case 'r':
-		retry = 1;
+		rflag = 1;
 		break;
 	case 'u':		/* IPv6: duplicate neighbour disc. off */
 		dupl_disc = 0;
@@ -607,7 +386,12 @@ main(int argc, char **argv)
 
 	switch(action){
 	case Vadd:
-		doadd(retry);
+		if(dondbconfig){
+			dodhcp = 0;
+			ndbconfig();
+			return;
+		}
+		doadd();
 		break;
 	case Vaddpref6:
 	case Vra6:
@@ -623,14 +407,51 @@ main(int argc, char **argv)
 	exits(nil);
 }
 
-void
-doadd(int retry)
+static int
+isether(void)
+{
+	return strcmp(conf.type, "ether") == 0 || strcmp(conf.type, "gbe") == 0;
+}
+
+/* create link local address */
+static void
+mklladdr(void)
+{
+	if(isether() && myetheraddr(conf.hwa, conf.dev) == 0){
+		conf.hwalen = 6;
+		conf.hwatype = 1;
+	} else {
+		genrandom(conf.hwa, sizeof(conf.hwa));
+		conf.hwatype = -1;
+	}
+	ea2lla(conf.lladdr, conf.hwa);
+}
+
+/* create a client id */
+static void
+mkclientid(void)
+{
+	if(isether() && myetheraddr(conf.hwa, conf.dev) == 0){
+		conf.hwalen = 6;
+		conf.hwatype = 1;
+		conf.cid[0] = conf.hwatype;
+		memmove(&conf.cid[1], conf.hwa, conf.hwalen);
+		conf.cidlen = conf.hwalen+1;
+	} else {
+		conf.hwatype = -1;
+		snprint((char*)conf.cid, sizeof conf.cid,
+			"plan9_%ld.%d", lrand(), getpid());
+		conf.cidlen = strlen((char*)conf.cid);
+	}
+}
+
+static void
+doadd(void)
 {
 	if(!validip(conf.laddr)){
-		if(dondbconfig)
-			ndbconfig();
-		else if(ipv6auto){
+		if(ipv6auto){
 			mklladdr();
+			ipmove(conf.laddr, conf.lladdr);
 			dodhcp = 0;
 		} else
 			dodhcp = 1;
@@ -645,13 +466,14 @@ doadd(int retry)
 	}
 
 	if(!validip(conf.laddr))
-		if(retry && dodhcp && !noconfig){
+		if(rflag && dodhcp && !noconfig){
 			warning("couldn't determine ip address, retrying");
 			dhcpwatch(1);
 			return;
 		} else
 			sysfatal("no success with DHCP");
 
+	DEBUG("adding address %I %M on %s", conf.laddr, conf.mask, conf.dev);
 	if(noconfig)
 		return;
 
@@ -671,7 +493,7 @@ doadd(int retry)
 	refresh();
 }
 
-void
+static void
 doremove(void)
 {
 	if(!validip(conf.laddr))
@@ -680,108 +502,15 @@ doremove(void)
 		warning("can't remove %I %M: %r", conf.laddr, conf.mask);
 }
 
-void
+static void
 dounbind(void)
 {
 	if(fprint(conf.cfd, "unbind") < 0)
 		warning("can't unbind %s: %r", conf.dev);
 }
 
-int
-issrcspec(uchar *src, uchar *smask)
-{
-	return isv4(src)? memcmp(smask+IPv4off, IPnoaddr+IPv4off, 4): ipcmp(smask, IPnoaddr);
-}
-void
-addroute(uchar *dst, uchar *mask, uchar *gate, uchar *laddr, uchar *src, uchar *smask)
-{
-	char *cmd;
-
-	if(issrcspec(src, smask))
-		cmd = "add %I %M %I %I %I %M";
-	else
-		cmd = "add %I %M %I %I";
-	fprint(conf.rfd, cmd, dst, mask, gate, laddr, src, smask);
-}
-void
-removeroute(uchar *dst, uchar *mask, uchar *src, uchar *smask)
-{
-	char *cmd;
-
-	if(issrcspec(src, smask))
-		cmd = "remove %I %M %I %M";
-	else
-		cmd = "remove %I %M";
-	fprint(conf.rfd, cmd, dst, mask, src, smask);
-}
-void
-adddefroute(uchar *gaddr, uchar *laddr, uchar *src, uchar *smask)
-{
-	uchar dst[IPaddrlen], mask[IPaddrlen];
-
-	if(isv4(gaddr)){
-		parseip(dst, "0.0.0.0");
-		parseipmask(mask, "0.0.0.0");
-		if(src == nil)
-			src = dst;
-		if(smask == nil)
-			smask = mask;
-	} else {
-		parseip(dst, "2000::");
-		parseipmask(mask, "/3");
-		if(src == nil)
-			src = IPnoaddr;
-		if(smask == nil)
-			smask = IPnoaddr;
-	}
-	addroute(dst, mask, gaddr, laddr, src, smask);
-
-	/* also add a source specific route */
-	if(ipcmp(src, IPnoaddr) != 0 && ipcmp(src, v4prefix) != 0)
-		addroute(dst, mask, gaddr, laddr, src, IPallbits);
-}
-
-
-int
-isether(void)
-{
-	return strcmp(conf.type, "ether") == 0 || strcmp(conf.type, "gbe") == 0;
-}
-
-/* create link local address */
-void
-mklladdr(void)
-{
-	if(isether() && myetheraddr(conf.hwa, conf.dev) == 0){
-		conf.hwalen = 6;
-		conf.hwatype = 1;
-	} else {
-		genrandom(conf.hwa, sizeof(conf.hwa));
-		conf.hwatype = -1;
-	}
-	ea2lla(conf.laddr, conf.hwa);
-}
-
-/* create a client id */
-void
-mkclientid(void)
-{
-	if(isether() && myetheraddr(conf.hwa, conf.dev) == 0){
-		conf.hwalen = 6;
-		conf.hwatype = 1;
-		conf.cid[0] = conf.hwatype;
-		memmove(&conf.cid[1], conf.hwa, conf.hwalen);
-		conf.cidlen = conf.hwalen+1;
-	} else {
-		conf.hwatype = -1;
-		snprint((char*)conf.cid, sizeof conf.cid,
-			"plan9_%ld.%d", lrand(), getpid());
-		conf.cidlen = strlen((char*)conf.cid);
-	}
-}
-
 /* send some ctls to a device */
-void
+static void
 controldevice(void)
 {
 	char ctlfile[256];
@@ -805,7 +534,7 @@ controldevice(void)
 }
 
 /* bind an ip stack to a device, leave the control channel open */
-void
+static void
 binddevice(void)
 {
 	char buf[256];
@@ -867,7 +596,7 @@ ip4cfg(void)
 	return 0;
 }
 
-/* remove a logical interface to the ip stack */
+/* remove a logical interface from the ip stack */
 void
 ipunconfig(void)
 {
@@ -886,762 +615,15 @@ ipunconfig(void)
 	ipmove(conf.mask, IPnoaddr);
 }
 
-void
-ding(void*, char *msg)
-{
-	if(strstr(msg, "alarm"))
-		noted(NCONT);
-	noted(NDFLT);
-}
-
-void
-dhcpquery(int needconfig, int startstate)
-{
-	if(needconfig)
-		fprint(conf.cfd, "add %I %I", IPnoaddr, IPnoaddr);
-
-	conf.fd = openlisten();
-	if(conf.fd < 0){
-		conf.state = Sinit;
-		return;
-	}
-	notify(ding);
-
-	conf.xid = lrand();
-	conf.starttime = time(0);
-	conf.state = startstate;
-	switch(startstate){
-	case Sselecting:
-		conf.offered = 0;
-		dhcpsend(Discover);
-		break;
-	case Srenewing:
-		dhcpsend(Request);
-		break;
-	default:
-		sysfatal("internal error 0");
-	}
-	conf.resend = 0;
-	conf.timeout = time(0) + 4;
-
-	while(conf.state != Sbound && conf.state != Sinit){
-		dhcprecv();
-		dhcptimer();
-	}
-	close(conf.fd);
-
-	if(needconfig)
-		fprint(conf.cfd, "remove %I %I", IPnoaddr, IPnoaddr);
-
-}
-
-enum {
-	/*
-	 * was an hour, needs to be less for the ARM/GS1 until the timer
-	 * code has been cleaned up (pb).
-	 */
-	Maxsleep = 450,
-};
-
-void
-dhcpwatch(int needconfig)
-{
-	ulong secs, s, t;
-
-	if(nodhcpwatch)
-		return;
-
-	switch(rfork(RFPROC|RFFDG|RFNOWAIT|RFNOTEG)){
-	default:
-		return;
-	case 0:
-		break;
-	}
-
-	dolog = 1;			/* log, don't print */
-	procsetname("dhcpwatch on %s", conf.dev);
-	/* keep trying to renew the lease */
-	for(;;){
-		secs = conf.lease/2;
-		if(secs < 5)
-			secs = 5;
-
-		/* avoid overflows */
-		for(s = secs; s > 0; s -= t){
-			if(s > Maxsleep)
-				t = Maxsleep;
-			else
-				t = s;
-			sleep(t*1000);
-		}
-
-		if(conf.lease > 0){
-			/*
-			 * during boot, the starttime can be bogus so avoid
-			 * spurious ipunconfig's
-			 */
-			t = time(0) - conf.starttime;
-			if(t > (3*secs)/2)
-				t = secs;
-			if(t >= conf.lease){
-				conf.lease = 0;
-				if(!noconfig){
-					ipunconfig();
-					needconfig = 1;
-				}
-			} else
-				conf.lease -= t;
-		}
-		dhcpquery(needconfig, needconfig? Sselecting: Srenewing);
-
-		if(needconfig && conf.state == Sbound){
-			if(ip4cfg() < 0)
-				sysfatal("can't start ip: %r");
-			needconfig = 0;
-			/*
-			 * leave everything we've learned somewhere that
-			 * other procs can find it.
-			 */
-			if(beprimary)
-				putndb();
-			refresh();
-		}
-	}
-}
-
-void
-dhcptimer(void)
-{
-	ulong now;
-
-	now = time(0);
-	if(now < conf.timeout)
-		return;
-
-	switch(conf.state) {
-	default:
-		sysfatal("dhcptimer: unknown state %d", conf.state);
-	case Sinit:
-	case Sbound:
-		break;
-	case Sselecting:
-	case Srequesting:
-	case Srebinding:
-		dhcpsend(conf.state == Sselecting? Discover: Request);
-		conf.timeout = now + 4;
-		if(++conf.resend > 5)
-			conf.state = Sinit;
-		break;
-	case Srenewing:
-		dhcpsend(Request);
-		conf.timeout = now + 1;
-		if(++conf.resend > 3) {
-			conf.state = Srebinding;
-			conf.resend = 0;
-		}
-		break;
-	}
-}
-
-void
-dhcpsend(int type)
-{
-	Bootp bp;
-	uchar *p;
-	int n;
-	uchar vendor[64];
-	Udphdr *up = (Udphdr*)bp.udphdr;
-
-	memset(&bp, 0, sizeof bp);
-
-	hnputs(up->rport, 67);
-	bp.op = Bootrequest;
-	hnputl(bp.xid, conf.xid);
-	hnputs(bp.secs, time(0)-conf.starttime);
-	hnputs(bp.flags, 0);
-	memmove(bp.optmagic, optmagic, 4);
-	if(conf.hwatype >= 0 && conf.hwalen < sizeof bp.chaddr){
-		memmove(bp.chaddr, conf.hwa, conf.hwalen);
-		bp.hlen = conf.hwalen;
-		bp.htype = conf.hwatype;
-	}
-	p = bp.optdata;
-	p = optaddbyte(p, ODtype, type);
-	p = optadd(p, ODclientid, conf.cid, conf.cidlen);
-	switch(type) {
-	default:
-		sysfatal("dhcpsend: unknown message type: %d", type);
-	case Discover:
-		ipmove(up->raddr, IPv4bcast);	/* broadcast */
-		if(*conf.hostname && sendhostname)
-			p = optaddstr(p, OBhostname, conf.hostname);
-		if(plan9){
-			n = snprint((char*)vendor, sizeof vendor,
-				"plan9_%s", conf.cputype);
-			p = optaddvec(p, ODvendorclass, vendor, n);
-		}
-		p = optaddvec(p, ODparams, requested, nrequested);
-		if(validip(conf.laddr))
-			p = optaddaddr(p, ODipaddr, conf.laddr);
-		break;
-	case Request:
-		switch(conf.state){
-		case Srenewing:
-			ipmove(up->raddr, conf.server);
-			v6tov4(bp.ciaddr, conf.laddr);
-			break;
-		case Srebinding:
-			ipmove(up->raddr, IPv4bcast);	/* broadcast */
-			v6tov4(bp.ciaddr, conf.laddr);
-			break;
-		case Srequesting:
-			ipmove(up->raddr, IPv4bcast);	/* broadcast */
-			p = optaddaddr(p, ODipaddr, conf.laddr);
-			p = optaddaddr(p, ODserverid, conf.server);
-			break;
-		}
-		p = optaddulong(p, ODlease, conf.offered);
-		if(plan9){
-			n = snprint((char*)vendor, sizeof vendor,
-				"plan9_%s", conf.cputype);
-			p = optaddvec(p, ODvendorclass, vendor, n);
-		}
-		p = optaddvec(p, ODparams, requested, nrequested);
-		if(*conf.hostname && sendhostname)
-			p = optaddstr(p, OBhostname, conf.hostname);
-		break;
-	case Release:
-		ipmove(up->raddr, conf.server);
-		v6tov4(bp.ciaddr, conf.laddr);
-		p = optaddaddr(p, ODipaddr, conf.laddr);
-		p = optaddaddr(p, ODserverid, conf.server);
-		break;
-	}
-
-	*p++ = OBend;
-
-	n = p - (uchar*)&bp;
-	USED(n);
-
-	/*
-	 *  We use a maximum size DHCP packet to survive the
-	 *  All_Aboard NAT package from Internet Share.  It
-	 *  always replies to DHCP requests with a packet of the
-	 *  same size, so if the request is too short the reply
-	 *  is truncated.
-	 */
-	if(write(conf.fd, &bp, sizeof bp) != sizeof bp)
-		warning("dhcpsend: write failed: %r");
-}
-
-void
-dhcprecv(void)
-{
-	int i, n, type;
-	ulong lease;
-	char err[ERRMAX];
-	uchar buf[8000], vopts[256], taddr[IPaddrlen];
-	Bootp *bp;
-
-	memset(buf, 0, sizeof buf);
-	alarm(1000);
-	n = read(conf.fd, buf, sizeof buf);
-	alarm(0);
-
-	if(n < 0){
-		rerrstr(err, sizeof err);
-		if(strstr(err, "interrupt") == nil)
-			warning("dhcprecv: bad read: %s", err);
-		else
-			DEBUG("dhcprecv: read timed out");
-		return;
-	}
-
-	bp = parsebootp(buf, n);
-	if(bp == 0) {
-		DEBUG("parsebootp failed: dropping packet");
-		return;
-	}
-
-	type = optgetbyte(bp->optdata, ODtype);
-	switch(type) {
-	default:
-		warning("dhcprecv: unknown type: %d", type);
-		break;
-	case Offer:
-		DEBUG("got offer from %V ", bp->siaddr);
-		if(conf.state != Sselecting)
-			break;
-		lease = optgetulong(bp->optdata, ODlease);
-		if(lease == 0){
-			/*
-			 * The All_Aboard NAT package from Internet Share
-			 * doesn't give a lease time, so we have to assume one.
-			 */
-			warning("Offer with %lud lease, using %d", lease, MinLease);
-			lease = MinLease;
-		}
-		DEBUG("lease=%lud ", lease);
-		if(!optgetaddr(bp->optdata, ODserverid, conf.server)) {
-			warning("Offer from server with invalid serverid");
-			break;
-		}
-
-		v4tov6(conf.laddr, bp->yiaddr);
-		memmove(conf.sname, bp->sname, sizeof conf.sname);
-		conf.sname[sizeof conf.sname-1] = 0;
-		DEBUG("server=%I sname=%s", conf.server, conf.sname);
-		conf.offered = lease;
-		conf.state = Srequesting;
-		dhcpsend(Request);
-		conf.resend = 0;
-		conf.timeout = time(0) + 4;
-		break;
-	case Ack:
-		DEBUG("got ack from %V ", bp->siaddr);
-		if (conf.state != Srequesting && conf.state != Srenewing &&
-		    conf.state != Srebinding)
-			break;
-
-		/* ignore a bad lease */
-		lease = optgetulong(bp->optdata, ODlease);
-		if(lease == 0){
-			/*
-			 * The All_Aboard NAT package from Internet Share
-			 * doesn't give a lease time, so we have to assume one.
-			 */
-			warning("Ack with %lud lease, using %d", lease, MinLease);
-			lease = MinLease;
-		}
-		DEBUG("lease=%lud ", lease);
-
-		/* address and mask */
-		if(!validip(conf.laddr) || !Oflag)
-			v4tov6(conf.laddr, bp->yiaddr);
-		if(!validip(conf.mask) || !Oflag){
-			if(!optgetaddr(bp->optdata, OBmask, conf.mask))
-				ipmove(conf.mask, IPnoaddr);
-			if(ipcmp(conf.mask, IPv4bcast) == 0)
-				ipmove(conf.mask, IPnoaddr);
-		}
-		DEBUG("ipaddr=%I ipmask=%M ", conf.laddr, conf.mask);
-
-		/*
-		 * get a router address either from the router option
-		 * or from the router that forwarded the dhcp packet
-		 */
-		if(validip(conf.gaddr) && Oflag) {
-			DEBUG("ipgw=%I ", conf.gaddr);
-		} else if(optgetaddr(bp->optdata, OBrouter, conf.gaddr)){
-			DEBUG("ipgw=%I ", conf.gaddr);
-		} else if(memcmp(bp->giaddr, IPnoaddr+IPv4off, IPv4addrlen)!=0){
-			v4tov6(conf.gaddr, bp->giaddr);
-			DEBUG("giaddr=%I ", conf.gaddr);
-		}
-
-		/* get dns servers */
-		memset(conf.dns, 0, sizeof conf.dns);
-		n = optgetaddrs(bp->optdata, OBdnserver, conf.dns,
-			sizeof conf.dns/IPaddrlen);
-		for(i = 0; i < n; i++)
-			DEBUG("dns=%I ", conf.dns + i*IPaddrlen);
-
-		/* get ntp servers */
-		memset(conf.ntp, 0, sizeof conf.ntp);
-		n = optgetaddrs(bp->optdata, OBntpserver, conf.ntp,
-			sizeof conf.ntp/IPaddrlen);
-		for(i = 0; i < n; i++)
-			DEBUG("ntp=%I ", conf.ntp + i*IPaddrlen);
-
-		/* get names */
-		optgetstr(bp->optdata, OBhostname,
-			conf.hostname, sizeof conf.hostname);
-		optgetstr(bp->optdata, OBdomainname,
-			conf.domainname, sizeof conf.domainname);
-
-		/* get anything else we asked for */
-		getoptions(bp->optdata);
-
-		/* get plan9-specific options */
-		n = optgetvec(bp->optdata, OBvendorinfo, vopts, sizeof vopts-1);
-		if(n > 0 && parseoptions(vopts, n) == 0){
-			if(validip(conf.fs) && Oflag)
-				n = 1;
-			else {
-				n = optgetp9addrs(vopts, OP9fs, conf.fs, 2);
-				if (n == 0)
-					n = optgetaddrs(vopts, OP9fsv4,
-						conf.fs, 2);
-			}
-			for(i = 0; i < n; i++)
-				DEBUG("fs=%I ", conf.fs + i*IPaddrlen);
-
-			if(validip(conf.auth) && Oflag)
-				n = 1;
-			else {
-				n = optgetp9addrs(vopts, OP9auth, conf.auth, 2);
-				if (n == 0)
-					n = optgetaddrs(vopts, OP9authv4,
-						conf.auth, 2);
-			}
-			for(i = 0; i < n; i++)
-				DEBUG("auth=%I ", conf.auth + i*IPaddrlen);
-
-			n = optgetp9addrs(vopts, OP9ipaddr, taddr, 1);
-			if (n > 0)
-				memmove(conf.laddr, taddr, IPaddrlen);
-			n = optgetp9addrs(vopts, OP9ipmask, taddr, 1);
-			if (n > 0)
-				memmove(conf.mask, taddr, IPaddrlen);
-			n = optgetp9addrs(vopts, OP9ipgw, taddr, 1);
-			if (n > 0)
-				memmove(conf.gaddr, taddr, IPaddrlen);
-			DEBUG("new ipaddr=%I new ipmask=%M new ipgw=%I",
-				conf.laddr, conf.mask, conf.gaddr);
-		}
-		conf.lease = lease;
-		conf.state = Sbound;
-		DEBUG("server=%I sname=%s", conf.server, conf.sname);
-		break;
-	case Nak:
-		conf.state = Sinit;
-		warning("recved dhcpnak on %s", conf.mpoint);
-		break;
-	}
-}
-
-/* return pseudo-random integer in range low...(hi-1) */
-ulong
-randint(ulong low, ulong hi)
-{
-	if (hi < low)
-		return low;
-	return low + nrand(hi - low);
-}
-
-long
-jitter(void)		/* compute small pseudo-random delay in ms */
-{
-	return randint(0, 10*1000);
-}
-
+/* return true if this is not a null address */
 int
-openlisten(void)
+validip(uchar *addr)
 {
-	int n, fd, cfd;
-	char data[128], devdir[40];
-
-	if (validip(conf.laddr) &&
-	    (conf.state == Srenewing || conf.state == Srebinding))
-		sprint(data, "%s/udp!%I!68", conf.mpoint, conf.laddr);
-	else
-		sprint(data, "%s/udp!*!68", conf.mpoint);
-	for (n = 0; (cfd = announce(data, devdir)) < 0; n++) {
-		if(!noconfig)
-			sysfatal("can't announce for dhcp: %r");
-
-		/* might be another client - wait and try again */
-		warning("can't announce %s: %r", data);
-		sleep(jitter());
-		if(n > 10)
-			return -1;
-	}
-
-	if(fprint(cfd, "headers") < 0)
-		sysfatal("can't set header mode: %r");
-
-	sprint(data, "%s/data", devdir);
-	fd = open(data, ORDWR);
-	if(fd < 0)
-		sysfatal("open %s: %r", data);
-	close(cfd);
-	return fd;
+	return ipcmp(addr, IPnoaddr) != 0 && ipcmp(addr, v4prefix) != 0;
 }
 
-uchar*
-optadd(uchar *p, int op, void *d, int n)
-{
-	p[0] = op;
-	p[1] = n;
-	memmove(p+2, d, n);
-	return p+n+2;
-}
-
-uchar*
-optaddbyte(uchar *p, int op, int b)
-{
-	p[0] = op;
-	p[1] = 1;
-	p[2] = b;
-	return p+3;
-}
-
-uchar*
-optaddulong(uchar *p, int op, ulong x)
-{
-	p[0] = op;
-	p[1] = 4;
-	hnputl(p+2, x);
-	return p+6;
-}
-
-uchar *
-optaddaddr(uchar *p, int op, uchar *ip)
-{
-	p[0] = op;
-	p[1] = 4;
-	v6tov4(p+2, ip);
-	return p+6;
-}
-
-/* add dhcp option op with value v of length n to dhcp option array p */
-uchar *
-optaddvec(uchar *p, int op, uchar *v, int n)
-{
-	p[0] = op;
-	p[1] = n;
-	memmove(p+2, v, n);
-	return p+2+n;
-}
-
-uchar *
-optaddstr(uchar *p, int op, char *v)
-{
-	int n;
-
-	n = strlen(v);
-	p[0] = op;
-	p[1] = n;
-	memmove(p+2, v, n);
-	return p+2+n;
-}
-
-/*
- * parse p, looking for option `op'.  if non-nil, np points to minimum length.
- * return nil if option is too small, else ptr to opt, and
- * store actual length via np if non-nil.
- */
-uchar*
-optget(uchar *p, int op, int *np)
-{
-	int len, code;
-
-	while ((code = *p++) != OBend) {
-		if(code == OBpad)
-			continue;
-		len = *p++;
-		if(code != op) {
-			p += len;
-			continue;
-		}
-		if(np != nil){
-			if(*np > len) {
-				return 0;
-			}
-			*np = len;
-		}
-		return p;
-	}
-	return 0;
-}
-
-int
-optgetbyte(uchar *p, int op)
-{
-	int len;
-
-	len = 1;
-	p = optget(p, op, &len);
-	if(p == nil)
-		return 0;
-	return *p;
-}
-
-ulong
-optgetulong(uchar *p, int op)
-{
-	int len;
-
-	len = 4;
-	p = optget(p, op, &len);
-	if(p == nil)
-		return 0;
-	return nhgetl(p);
-}
-
-int
-optgetaddr(uchar *p, int op, uchar *ip)
-{
-	int len;
-
-	len = 4;
-	p = optget(p, op, &len);
-	if(p == nil)
-		return 0;
-	v4tov6(ip, p);
-	return 1;
-}
-
-/* expect at most n addresses; ip[] only has room for that many */
-int
-optgetaddrs(uchar *p, int op, uchar *ip, int n)
-{
-	int len, i;
-
-	len = 4;
-	p = optget(p, op, &len);
-	if(p == nil)
-		return 0;
-	len /= IPv4addrlen;
-	if(len > n)
-		len = n;
-	for(i = 0; i < len; i++)
-		v4tov6(&ip[i*IPaddrlen], &p[i*IPv4addrlen]);
-	return i;
-}
-
-/* expect at most n addresses; ip[] only has room for that many */
-int
-optgetp9addrs(uchar *ap, int op, uchar *ip, int n)
-{
-	int len, i, slen, addrs;
-	char *p;
-
-	len = 1;			/* minimum bytes needed */
-	p = (char *)optget(ap, op, &len);
-	if(p == nil)
-		return 0;
-	addrs = *p++;			/* first byte is address count */
-	for (i = 0; i < n  && i < addrs && len > 0; i++) {
-		slen = strlen(p) + 1;
-		if (parseip(&ip[i*IPaddrlen], p) == -1)
-			fprint(2, "%s: bad address %s\n", argv0, p);
-		DEBUG("got plan 9 option %d addr %I (%s)",
-			op, &ip[i*IPaddrlen], p);
-		p += slen;
-		len -= slen;
-	}
-	return addrs;
-}
-
-int
-optgetvec(uchar *p, int op, uchar *v, int n)
-{
-	int len;
-
-	len = 1;
-	p = optget(p, op, &len);
-	if(p == nil)
-		return 0;
-	if(len > n)
-		len = n;
-	memmove(v, p, len);
-	return len;
-}
-
-int
-optgetstr(uchar *p, int op, char *s, int n)
-{
-	int len;
-
-	len = 1;
-	p = optget(p, op, &len);
-	if(p == nil)
-		return 0;
-	if(len >= n)
-		len = n-1;
-	memmove(s, p, len);
-	s[len] = 0;
-	return len;
-}
-
-/*
- * sanity check options area
- * 	- options don't overflow packet
- * 	- options end with an OBend
- */
-int
-parseoptions(uchar *p, int n)
-{
-	int code, len, nin = n;
-
-	while (n > 0) {
-		code = *p++;
-		n--;
-		if(code == OBend)
-			return 0;
-		if(code == OBpad)
-			continue;
-		if(n == 0) {
-			warning("parseoptions: bad option: 0x%ux: truncated: "
-				"opt length = %d", code, nin);
-			return -1;
-		}
-
-		len = *p++;
-		n--;
-		DEBUG("parseoptions: %s(%d) len %d, bytes left %d",
-			option[code].name, code, len, n);
-		if(len > n) {
-			warning("parseoptions: bad option: 0x%ux: %d > %d: "
-				"opt length = %d", code, len, n, nin);
-			return -1;
-		}
-		p += len;
-		n -= len;
-	}
-
-	/* make sure packet ends with an OBend after all the optget code */
-	*p = OBend;
-	return 0;
-}
-
-/*
- * sanity check received packet:
- * 	- magic is dhcp magic
- * 	- options don't overflow packet
- */
-Bootp *
-parsebootp(uchar *p, int n)
-{
-	Bootp *bp;
-
-	bp = (Bootp*)p;
-	if(n < bp->optmagic - p) {
-		warning("parsebootp: short bootp packet");
-		return nil;
-	}
-
-	if(conf.xid != nhgetl(bp->xid))		/* not meant for us */
-		return nil;
-
-	if(bp->op != Bootreply) {
-		warning("parsebootp: bad op %d", bp->op);
-		return nil;
-	}
-
-	n -= bp->optmagic - p;
-	p = bp->optmagic;
-
-	if(n < 4) {
-		warning("parsebootp: no option data");
-		return nil;
-	}
-	if(memcmp(optmagic, p, 4) != 0) {
-		warning("parsebootp: bad opt magic %ux %ux %ux %ux",
-			p[0], p[1], p[2], p[3]);
-		return nil;
-	}
-	p += 4;
-	n -= 4;
-	DEBUG("parsebootp: new packet");
-	if(parseoptions(p, n) < 0)
-		return nil;
-	return bp;
-}
-
-/* put server addresses into the ndb entry */
-char*
+/* put server ip addresses into the ndb entry */
+static char*
 putaddrs(char *p, char *e, char *attr, uchar *a, int len)
 {
 	int i;
@@ -1651,22 +633,20 @@ putaddrs(char *p, char *e, char *attr, uchar *a, int len)
 	return p;
 }
 
-void
-refresh(void)
+/* put space separated names into ndb entry */
+static char*
+putnames(char *p, char *e, char *attr, char *s)
 {
-	char file[64];
-	int fd;
+	char *x;
 
-	snprint(file, sizeof file, "%s/cs", conf.mpoint);
-	if((fd = open(file, OWRITE)) >= 0){
-		write(fd, "refresh", 7);
-		close(fd);
+	for(; *s != 0; s = x+1){
+		if((x = strchr(s, ' ')) == nil)
+			x = strchr(s, 0);
+		p = seprint(p, e, "%s=%.*s\n", attr, (int)(x - s), s);
+		if(*x == 0)
+			break;
 	}
-	snprint(file, sizeof file, "%s/dns", conf.mpoint);
-	if((fd = open(file, OWRITE)) >= 0){
-		write(fd, "refresh", 7);
-		close(fd);
-	}
+	return p;
 }
 
 /* make an ndb entry and put it into /net/ndb for the servers to see */
@@ -1693,12 +673,14 @@ putndb(void)
 	if(*conf.domainname)
 		p = seprint(p, e, "\tdom=%s.%s\n",
 			conf.hostname, conf.domainname);
+	if(*conf.dnsdomain)
+		p = putnames(p, e, "\tdnsdomain", conf.dnsdomain);
+	if(validip(conf.dns))
+		p = putaddrs(p, e, "\tdns", conf.dns, sizeof conf.dns);
 	if(validip(conf.fs))
 		p = putaddrs(p, e, "\tfs", conf.fs, sizeof conf.fs);
 	if(validip(conf.auth))
 		p = putaddrs(p, e, "\tauth", conf.auth, sizeof conf.auth);
-	if(validip(conf.dns))
-		p = putaddrs(p, e, "\tdns", conf.dns, sizeof conf.dns);
 	if(validip(conf.ntp))
 		p = putaddrs(p, e, "\tntp", conf.ntp, sizeof conf.ntp);
 	if(ndboptions)
@@ -1730,23 +712,87 @@ putndb(void)
 	close(fd);
 }
 
-/* return true if this is a valid v4 address */
-int
-validip(uchar *addr)
+static int
+issrcspec(uchar *src, uchar *smask)
 {
-	return ipcmp(addr, IPnoaddr) != 0 && ipcmp(addr, v4prefix) != 0;
+	return isv4(src)? memcmp(smask+IPv4off, IPnoaddr+IPv4off, 4): ipcmp(smask, IPnoaddr);
 }
 
-/* look for an action */
-int
-parseverb(char *name)
+void
+addroute(uchar *dst, uchar *mask, uchar *gate, uchar *ia, uchar *src, uchar *smask)
 {
-	int i;
+	char *cmd;
 
-	for(i = 0; i < nelem(verbs); i++)
-		if(verbs[i] != nil && strcmp(name, verbs[i]) == 0)
-			return i;
-	return -1;
+	if(issrcspec(src, smask))
+		cmd = "add %I %M %I %I %I %M";
+	else
+		cmd = "add %I %M %I %I";
+	fprint(conf.rfd, cmd, dst, mask, gate, ia, src, smask);
+}
+
+void
+removeroute(uchar *dst, uchar *mask, uchar *src, uchar *smask)
+{
+	char *cmd;
+
+	if(issrcspec(src, smask))
+		cmd = "remove %I %M %I %M";
+	else
+		cmd = "remove %I %M";
+	fprint(conf.rfd, cmd, dst, mask, src, smask);
+}
+
+void
+adddefroute(uchar *gaddr, uchar *ia, uchar *src, uchar *smask)
+{
+	uchar dst[IPaddrlen], mask[IPaddrlen];
+
+	if(isv4(gaddr)){
+		parseip(dst, "0.0.0.0");
+		parseipmask(mask, "0.0.0.0");
+		if(src == nil)
+			src = dst;
+		if(smask == nil)
+			smask = mask;
+	} else {
+		parseip(dst, "2000::");
+		parseipmask(mask, "/3");
+		if(src == nil)
+			src = IPnoaddr;
+		if(smask == nil)
+			smask = IPnoaddr;
+	}
+	addroute(dst, mask, gaddr, ia, src, smask);
+
+	/* also add a source specific route */
+	if(ipcmp(src, IPnoaddr) != 0 && ipcmp(src, v4prefix) != 0)
+		addroute(dst, mask, gaddr, ia, src, IPallbits);
+}
+
+void
+refresh(void)
+{
+	char file[64];
+	int fd;
+
+	snprint(file, sizeof file, "%s/cs", conf.mpoint);
+	if((fd = open(file, OWRITE)) >= 0){
+		write(fd, "refresh", 7);
+		close(fd);
+	}
+	snprint(file, sizeof file, "%s/dns", conf.mpoint);
+	if((fd = open(file, OWRITE)) >= 0){
+		write(fd, "refresh", 7);
+		close(fd);
+	}
+}
+
+void
+catch(void*, char *msg)
+{
+	if(strstr(msg, "alarm"))
+		noted(NCONT);
+	noted(NDFLT);
 }
 
 /*
@@ -1774,6 +820,83 @@ procsetname(char *fmt, ...)
 	free(cmdname);
 }
 
+/* return pseudo-random integer in range low...(hi-1) */
+ulong
+randint(ulong low, ulong hi)
+{
+	if (hi < low)
+		return low;
+	return low + nrand(hi - low);
+}
+
+long
+jitter(void)		/* compute small pseudo-random delay in ms */
+{
+	return randint(0, 10*1000);
+}
+
+int
+countaddrs(uchar *a, int len)
+{
+	int i;
+
+	for(i = 0; i < len && validip(a); i += IPaddrlen, a += IPaddrlen)
+		;
+	return i / IPaddrlen;
+}
+
+void
+addaddrs(uchar *to, int nto, uchar *from, int nfrom)
+{
+	int i, j;
+
+	for(i = 0; i < nfrom; i += IPaddrlen, from += IPaddrlen){
+		if(!validip(from))
+			continue;
+		for(j = 0; j < nto && validip(to+j); j += IPaddrlen){
+			if(ipcmp(to+j, from) == 0)
+				return;
+		}
+		if(j == nto)
+			return;
+		ipmove(to+j, from);
+	}
+}
+
+void
+addnames(char *d, char *s, int len)
+{
+	char *p, *e, *f;
+	int n;
+
+	for(;;s++){
+		if((e = strchr(s, ' ')) == nil)
+			e = strchr(s, 0);
+		n = e - s;
+		if(n == 0)
+			goto next;
+		for(p = d;;p++){
+			if((f = strchr(p, ' ')) == nil)
+				f = strchr(p, 0);
+			if(f - p == n && memcmp(s, p, n) == 0)
+				goto next;
+			p = f;
+			if(*p == 0)
+				break;
+		}
+		if(1 + n + p - d >= len)
+			break;
+		if(p > d)
+			*p++ = ' ';
+		p[n] = 0;
+		memmove(p, s, n);
+next:
+		s = e;
+		if(*s == 0)
+			break;
+	}
+}
+
 static Ndbtuple*
 uniquent(Ndbtuple *t)
 {
@@ -1792,148 +915,149 @@ uniquent(Ndbtuple *t)
 	return t;
 }
 
-/* get everything out of ndb */
+/* read configuration (except laddr) for myip from ndb */
 void
-ndbconfig(void)
+ndb2conf(Ndb *db, uchar *myip)
 {
-	int nattr, nauth = 0, ndns = 0, nfs = 0, nntp = 0, ok;
-	char etheraddr[32];
-	char *attrs[10];
-	Ndb *db;
+	int nattr;
+	char *attrs[10], val[64];
+	uchar ip[IPaddrlen];
 	Ndbtuple *t, *nt;
 
-	db = ndbopen(dbfile);
+	ipmove(conf.mask, defmask(conf.laddr));
+
+	memset(conf.gaddr, 0, sizeof(conf.gaddr));
+	memset(conf.dns, 0, sizeof(conf.dns));
+	memset(conf.ntp, 0, sizeof(conf.ntp));
+	memset(conf.fs, 0, sizeof(conf.fs));
+	memset(conf.auth, 0, sizeof(conf.auth));
+	memset(conf.dnsdomain, 0, sizeof(conf.dnsdomain));
+
 	if(db == nil)
-		sysfatal("can't open ndb: %r");
-	if (!isether() || myetheraddr(conf.hwa, conf.dev) != 0)
-		sysfatal("can't read hardware address");
-	sprint(etheraddr, "%E", conf.hwa);
+		return;
+
 	nattr = 0;
-	attrs[nattr++] = "ip";
 	attrs[nattr++] = "ipmask";
 	attrs[nattr++] = "ipgw";
-	/* the @ triggers resolution to an IP address; see ndb(2) */
+
 	attrs[nattr++] = "@dns";
 	attrs[nattr++] = "@ntp";
 	attrs[nattr++] = "@fs";
 	attrs[nattr++] = "@auth";
-	attrs[nattr] = nil;
-	t = ndbipinfo(db, "ether", etheraddr, attrs, nattr);
+
+	attrs[nattr++] = "dnsdomain";
+
+	snprint(val, sizeof(val), "%I", myip);
+	t = ndbipinfo(db, "ip", val, attrs, nattr);
 	for(nt = t; nt != nil; nt = nt->entry) {
-		ok = 1;
-		if(strcmp(nt->attr, "ip") == 0)
-			ok = parseip(conf.laddr, uniquent(nt)->val);
-		else if(strcmp(nt->attr, "ipmask") == 0)
-			parseipmask(conf.mask, uniquent(nt)->val);  /* could be -1 */
-		else if(strcmp(nt->attr, "ipgw") == 0)
-			ok = parseip(conf.gaddr, uniquent(nt)->val);
-		else if(ndns < sizeof(conf.dns)/IPaddrlen && strcmp(nt->attr, "dns") == 0)
-			ok = parseip(conf.dns+IPaddrlen*ndns++, nt->val);
-		else if(nntp < sizeof(conf.ntp)/IPaddrlen && strcmp(nt->attr, "ntp") == 0)
-			ok = parseip(conf.ntp+IPaddrlen*nntp++, nt->val);
-		else if(nfs < sizeof(conf.fs)/IPaddrlen && strcmp(nt->attr, "fs") == 0)
-			ok = parseip(conf.fs+IPaddrlen*nfs++, nt->val);
-		else if(nauth < sizeof(conf.auth)/IPaddrlen && strcmp(nt->attr, "auth") == 0)
-			ok = parseip(conf.auth+IPaddrlen*nauth++, nt->val);
-		if(ok == -1)
+		if(strcmp(nt->attr, "dnsdomain") == 0) {
+			addnames(conf.dnsdomain, nt->val, sizeof(conf.dnsdomain));
+			continue;
+		}
+		if(strcmp(nt->attr, "ipmask") == 0) {
+			nt = uniquent(nt);
+			parseipmask(conf.mask, nt->val);  /* could be -1 */
+			continue;
+		}
+		if(parseip(ip, nt->val) == -1) {
 			fprint(2, "%s: bad %s address in ndb: %s\n", argv0,
 				nt->attr, nt->val);
+			continue;
+		}
+		if(strcmp(nt->attr, "ipgw") == 0) {
+			nt = uniquent(nt);
+			ipmove(conf.gaddr, ip);
+		} else if(strcmp(nt->attr, "dns") == 0) {
+			addaddrs(conf.dns, sizeof(conf.dns), ip, IPaddrlen);
+		} else if(strcmp(nt->attr, "ntp") == 0) {
+			addaddrs(conf.ntp, sizeof(conf.ntp), ip, IPaddrlen);
+		} else if(strcmp(nt->attr, "fs") == 0) {
+			addaddrs(conf.fs, sizeof(conf.fs), ip, IPaddrlen);
+		} else if(strcmp(nt->attr, "auth") == 0) {
+			addaddrs(conf.auth, sizeof(conf.auth), ip, IPaddrlen);
+		}
 	}
 	ndbfree(t);
-	if(!validip(conf.laddr))
-		sysfatal("address not found in ndb");
 }
 
-int
-addoption(char *opt)
+Ndb*
+opendatabase(void)
 {
-	int i;
-	Option *o;
+	static Ndb *db;
 
-	if(opt == nil)
-		return -1;
-	for(o = option; o < &option[nelem(option)]; o++)
-		if(o->name && strcmp(opt, o->name) == 0){
-			i = o - option;
-			if(memchr(requested, i, nrequested) == 0 &&
-			    nrequested < nelem(requested))
-				requested[nrequested++] = i;
-			return 0;
-		}
-	return -1;
+	if(db != nil)
+		ndbclose(db);
+	db = ndbopen(dbfile);
+	return db;
 }
 
-char*
-optgetx(uchar *p, uchar opt)
+/* add addresses for my ethernet address from ndb */
+static void
+ndbconfig(void)
 {
-	int i, n;
-	ulong x;
-	char *s, *ns;
-	char str[256];
-	uchar ip[IPaddrlen], ips[16*IPaddrlen], vec[256];
-	Option *o;
+	uchar ips[128*IPaddrlen];
+	char etheraddr[32], *attr;
+	Ndbtuple *t, *nt;
+	Ndb *db;
+	int n, i;
 
-	o = &option[opt];
-	if(o->name == nil)
-		return nil;
+	db = opendatabase();
+	if(db == nil)
+		sysfatal("can't open ndb: %r");
 
-	s = nil;
-	switch(o->type){
-	case Taddr:
-		if(optgetaddr(p, opt, ip))
-			s = smprint("%s=%I", o->name, ip);
-		break;
-	case Taddrs:
-		n = optgetaddrs(p, opt, ips, 16);
-		if(n > 0)
-			s = smprint("%s=%I", o->name, ips);
-		for(i = 1; i < n; i++){
-			ns = smprint("%s %s=%I", s, o->name, &ips[i*IPaddrlen]);
-			free(s);
-			s = ns;
-		}
-		break;
-	case Tulong:
-		x = optgetulong(p, opt);
-		if(x != 0)
-			s = smprint("%s=%lud", o->name, x);
-		break;
-	case Tbyte:
-		x = optgetbyte(p, opt);
-		if(x != 0)
-			s = smprint("%s=%lud", o->name, x);
-		break;
-	case Tstr:
-		if(optgetstr(p, opt, str, sizeof str))
-			s = smprint("%s=%s", o->name, str);
-		break;
-	case Tvec:
-		n = optgetvec(p, opt, vec, sizeof vec);
-		if(n > 0)
-			/* what's %H?  it's not installed */
-			s = smprint("%s=%.*H", o->name, n, vec);
-		break;
+	if(validip(conf.laddr)){
+		ndb2conf(db, conf.laddr);
+		doadd();
+		return;
 	}
-	return s;
-}
 
-void
-getoptions(uchar *p)
-{
-	int i;
-	char *s, *t;
+	memset(ips, 0, sizeof(ips));
 
-	for(i = nelem(defrequested); i < nrequested; i++){
-		s = optgetx(p, requested[i]);
-		if(s != nil)
-			DEBUG("%s ", s);
-		if(ndboptions == nil)
-			ndboptions = smprint("\t%s", s);
-		else{
-			t = ndboptions;
-			ndboptions = smprint("\t%s%s", s, ndboptions);
-			free(t);
+	if(!isether() || myetheraddr(conf.hwa, conf.dev) != 0)
+		sysfatal("can't read hardware address");
+	snprint(etheraddr, sizeof(etheraddr), "%E", conf.hwa);
+
+	attr = "ip";
+	t = ndbipinfo(db, "ether", etheraddr, &attr, 1);
+	for(nt = t; nt != nil; nt = nt->entry) {
+		if(parseip(conf.laddr, nt->val) == -1){
+			fprint(2, "%s: bad %s address in ndb: %s\n", argv0,
+				nt->attr, nt->val);
+			continue;
 		}
-		free(s);
+		addaddrs(ips, sizeof(ips), conf.laddr, IPaddrlen);
+	}
+	ndbfree(t);
+
+	n = countaddrs(ips, sizeof(ips));
+	if(n == 0)
+		sysfatal("no ip addresses found in ndb");
+
+	/* add link local address first, if not already done */
+	if(!validip(conf.lladdr) && !findllip(conf.lladdr, ifc)){
+		for(i = 0; i < n; i++){
+			ipmove(conf.laddr, ips+i*IPaddrlen);
+			if(ISIPV6LINKLOCAL(conf.laddr)){
+				ipv6auto = 0;
+				ipmove(conf.lladdr, conf.laddr);
+				ndb2conf(db, conf.laddr);
+				doadd();
+				break;
+			}
+		}
+		if(ipv6auto){
+			ipmove(conf.laddr, IPnoaddr);
+			doadd();
+		}
+	}
+
+	/* add v4 addresses and v6 if link local address is available */
+	for(i = 0; i < n; i++){
+		ipmove(conf.laddr, ips+i*IPaddrlen);
+		if(isv4(conf.laddr)
+		|| validip(conf.lladdr) && ipcmp(conf.laddr, conf.lladdr) != 0){
+			ndb2conf(db, conf.laddr);
+			doadd();
+		}
 	}
 }

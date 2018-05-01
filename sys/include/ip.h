@@ -88,8 +88,8 @@ enum {
 	V6nd_home	= 8,
 	V6nd_srcaddrs	= 9,		/* rfc3122 */
 	V6nd_ip		= 17,
-	/* /lib/rfc/drafts/draft-jeong-dnsop-ipv6-dns-discovery-12.txt */
-	V6nd_rdns	= 25,
+	V6nd_rdns	= 25,		/* rfc6106 */
+	V6nd_rdnssl	= 31,
 	/* plan 9 extensions */
 	V6nd_9fs	= 250,
 	V6nd_9auth	= 251,

@@ -71,6 +71,6 @@ ndbnew(char *attr, char *val)
 void
 ndbsetmalloctag(Ndbtuple *t, uintptr tag)
 {
-	for(; t; t=t->entry)
+	for(; t != nil; t=t->entry)
 		setmalloctag(t, tag);
 }

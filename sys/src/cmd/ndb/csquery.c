@@ -16,7 +16,7 @@ usage(void)
 void
 query(char *addr)
 {
-	char buf[8192];
+	char buf[8192+1];
 	int fd, n;
 
 	fd = open(server, ORDWR);
@@ -31,8 +31,10 @@ query(char *addr)
 	}
 	if(!statusonly){
 		seek(fd, 0, 0);
-		while((n = read(fd, buf, sizeof(buf))) > 0)
+		while((n = read(fd, buf, sizeof(buf)-1)) > 0){
+			buf[n++] = '\n';
 			write(1, buf, n);
+		}
 		write(1, "\n", 1);
 	}
 	close(fd);

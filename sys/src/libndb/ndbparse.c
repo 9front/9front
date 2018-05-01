@@ -30,9 +30,9 @@ ndbparse(Ndb *db)
 	Ndbtuple *first, *last;
 	int len;
 
-	first = last = 0;
+	first = last = nil;
 	for(;;){
-		if((line = Brdline(&db->b, '\n')) == 0)
+		if((line = Brdline(&db->b, '\n')) == nil)
 			break;
 		len = Blinelen(&db->b);
 		if(line[len-1] != '\n')
@@ -42,15 +42,15 @@ ndbparse(Ndb *db)
 			break;
 		}
 		t = _ndbparseline(line);
-		if(t == 0)
+		if(t == nil)
 			continue;
 		setmalloctag(t, getcallerpc(&db));
-		if(first)
+		if(first != nil)
 			last->entry = t;
 		else
 			first = t;
 		last = t;
-		while(last->entry)
+		while(last->entry != nil)
 			last = last->entry;
 	}
 	ndbsetmalloctag(first, getcallerpc(&db));

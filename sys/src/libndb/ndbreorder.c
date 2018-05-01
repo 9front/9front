@@ -4,7 +4,7 @@
 #include <ndb.h>
 
 /*
- *  reorder the tuple to put x's line first in the entry and x fitst in its line
+ *  reorder the tuple to put x's line first in the entry and x first in its line
  */
 Ndbtuple*
 ndbreorder(Ndbtuple *t, Ndbtuple *x)

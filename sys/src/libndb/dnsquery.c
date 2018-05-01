@@ -129,17 +129,14 @@ doquery(int fd, char *dn, char *type)
 
 		t = _ndbparseline(buf);
 		if(t != nil){
-			if(first)
+			if(first != nil)
 				last->entry = t;
 			else
 				first = t;
 			last = t;
-
-			while(last->entry)
+			while(last->entry != nil)
 				last = last->entry;
 		}
 	}
-
-	ndbsetmalloctag(first, getcallerpc(&fd));
 	return first;
 }
