@@ -1386,6 +1386,20 @@ isv4str(char *s)
 	return parseip(ip, s) != -1 && isv4(ip);
 }
 
+static Ndbtuple*
+ndbline(Ndbtuple *t)
+{
+	Ndbtuple *nt;
+
+	for(nt = t; nt != nil; nt = nt->entry){
+		if(nt->entry == nil)
+			nt->line = t;
+		else
+			nt->line = nt->entry;
+	}
+	return t;
+}
+
 /*
  *  lookup an ip destination
  */
@@ -1410,20 +1424,20 @@ iplookuphost(Network *np, char *host)
 
 	/* for dial strings with no host */
 	if(strcmp(host, "*") == 0)
-		return ndbnew("ip", "*");
+		return ndbline(ndbnew("ip", "*"));
 
 	/*
 	 *  hack till we go v6 :: = 0.0.0.0
 	 */
 	if(strcmp("::", host) == 0)
-		return ndbnew("ip", "*");
+		return ndbline(ndbnew("ip", "*"));
 
 	/*
 	 *  just accept addresses
 	 */
 	attr = ipattr(host);
 	if(strcmp(attr, "ip") == 0)
-		return ndbnew("ip", host);
+		return ndbline(ndbnew("ip", host));
 
 	/*
 	 *  give the domain name server the first opportunity to
@@ -1627,14 +1641,8 @@ dnsip6lookup(char *mntpt, char *buf, Ndbtuple *t)
 		if (strcmp(tt->attr, "ipv6") == 0)
 			strcpy(tt->attr, "ip");
 
-	if (t == nil)
-		return t6;
-
 	/* append t6 list to t list */
-	for (tt = t; tt->entry != nil; tt = tt->entry)
-		;
-	tt->entry = t6;
-	return t;
+	return ndbconcatenate(t, t6);
 }
 
 /*
@@ -1911,12 +1919,7 @@ ipinfoquery(Mfile *mf, char **list, int n)
 	}
 
 	/* make it all one line */
-	for(nt = t; nt != nil; nt = nt->entry){
-		if(nt->entry == nil)
-			nt->line = t;
-		else
-			nt->line = nt->entry;
-	}
+	t = ndbline(t);
 
 	qreply(mf, t);
 
