@@ -1,3 +1,23 @@
+/* possible verbs */
+enum
+{
+	/* commands */
+	Vadd,
+	Vremove,
+	Vunbind,
+	Vaddpref6,
+	Vra6,
+
+	/* media */
+	Vether,
+	Vgbe,
+	Vppp,
+	Vloopback,
+	Vtorus,
+	Vtree,
+	Vpkt,
+};
+
 typedef struct Conf Conf;
 typedef struct Ctl Ctl;
 
@@ -22,7 +42,7 @@ struct Conf
 	uchar	laddr[IPaddrlen];
 	uchar	mask[IPaddrlen];
 	uchar	raddr[IPaddrlen];
-	uchar	dns[2*IPaddrlen];
+	uchar	dns[8*IPaddrlen];
 	uchar	fs[2*IPaddrlen];
 	uchar	auth[2*IPaddrlen];
 	uchar	ntp[2*IPaddrlen];
@@ -60,12 +80,15 @@ struct Conf
 	int	ttl;		/* default 0 (unspecified) */
 
 	/* prefix related */
+	uchar	lladdr[IPaddrlen];
 	uchar	v6pref[IPaddrlen];
 	int	prefixlen;
 	uchar	onlink;		/* flag: address is `on-link' */
 	uchar	autoflag;	/* flag: autonomous */
 	ulong	validlt;	/* valid lifetime (seconds) */
 	ulong	preflt;		/* preferred lifetime (seconds) */
+
+	char	dnsdomain[256];
 };
 
 struct Ctl
@@ -74,152 +97,60 @@ struct Ctl
 	char	*ctl;
 };
 
-extern Ctl *firstctl, **ctll;
-
-extern Conf conf;
-
-extern int	noconfig;
-extern int	ipv6auto;
-extern int	debug;
-extern int	dodhcp;
-extern int	dolog;
-extern int	plan9;
-extern int	dupl_disc;
-
 extern Conf	conf;
 extern int	myifc;
-extern char	*vs;
+extern int	beprimary;
+extern int	noconfig;
+
+extern int	debug;
+extern int	dolog;
+
+extern int	plan9;
+extern int	Oflag;
+
+extern int	dupl_disc;
+
+extern int	nodhcpwatch;
+extern int	sendhostname;
+extern char	*ndboptions;
+
+void	usage(void);
+int	ip4cfg(void);
+void	ipunconfig(void);
 
 void	adddefroute(uchar*, uchar*, uchar*, uchar*);
 void	removedefroute(int, uchar*, uchar*);
 
-void	doadd(int);
-void	doremove(void);
-void	dounbind(void);
-int	isether(void);
 long	jitter(void);
-void	mklladdr(void);
 void	procsetname(char *fmt, ...);
+void	catch(void*, char*);
+int	countaddrs(uchar *a, int len);
+void	addaddrs(uchar *to, int nto, uchar *from, int nfrom);
+void	addnames(char *d, char *s, int len);
+Ndb*	opendatabase(void);
+void	ndb2conf(Ndb *db, uchar *ip);
+void	putndb(void);
 void	refresh(void);
 ulong	randint(ulong low, ulong hi);
 int	validip(uchar*);
 void	warning(char *fmt, ...);
+#define DEBUG if(debug)warning
+
+/*
+ * DHCP
+ */
+void	dhcpinit(void);
+void	dhcpquery(int, int);
+void	dhcpwatch(int);
+int	addoption(char*);
 
 /*
  * IPv6
  */
-
-void	doipv6(int);
 void	v6paraminit(Conf*);
-
-typedef struct Headers Headers;
-typedef struct Ip4hdr  Ip4hdr;
-typedef struct Lladdropt Lladdropt;
-typedef struct Mtuopt Mtuopt;
-typedef struct Prefixopt Prefixopt;
-typedef struct Routeradv Routeradv;
-typedef struct Routersol Routersol;
-
-enum {
-	IsRouter 	= 1,
-	IsHostRecv	= 2,
-	IsHostNoRecv	= 3,
-
-	MAClen		= 6,
-
-	IPv4		= 4,
-	IPv6		= 6,
-	Defmtu		= 1400,
-
-	IP_HOPBYHOP	= 0,
-	ICMPv4		= 1,
-	IP_IGMPPROTO	= 2,
-	IP_TCPPROTO	= 6,
-	IP_UDPPROTO	= 17,
-	IP_ILPROTO	= 40,
-	IP_v6ROUTE	= 43,
-	IP_v6FRAG	= 44,
-	IP_IPsecESP	= 50,
-	IP_IPsecAH	= 51,
-	IP_v6NOMORE	= 59,
-	ICMP6_RS	= 133,
-	ICMP6_RA	= 134,
-
-	IP_IN_IP	= 41,
-};
-
-enum {
-	MFMASK = 1 << 7,
-	OCMASK = 1 << 6,
-	OLMASK = 1 << 7,
-	AFMASK = 1 << 6,
-	RFMASK = 1 << 5,
-};
-
-enum {
-	MAXTTL		= 255,
-	D64HLEN		= IPV6HDR_LEN - IPV4HDR_LEN,
-	IP_MAX		= 32*1024,
-};
-
-struct Headers {
-	uchar	dst[IPaddrlen];
-	uchar	src[IPaddrlen];
-};
-
-struct Routersol {
-	uchar	vcf[4];		/* version:4, traffic class:8, flow label:20 */
-	uchar	ploadlen[2];	/* payload length: packet length - 40 */
-	uchar	proto;		/* next header	type */
-	uchar	ttl;		/* hop limit */
-	uchar	src[IPaddrlen];
-	uchar	dst[IPaddrlen];
-	uchar	type;
-	uchar	code;
-	uchar	cksum[2];
-	uchar	res[4];
-};
-
-struct Routeradv {
-	uchar	vcf[4];		/* version:4, traffic class:8, flow label:20 */
-	uchar	ploadlen[2];	/* payload length: packet length - 40 */
-	uchar	proto;		/* next header	type */
-	uchar	ttl;		/* hop limit */
-	uchar	src[IPaddrlen];
-	uchar	dst[IPaddrlen];
-	uchar	type;
-	uchar	code;
-	uchar	cksum[2];
-	uchar	cttl;
-	uchar	mor;
-	uchar	routerlt[2];
-	uchar	rchbltime[4];
-	uchar	rxmtimer[4];
-};
-
-struct Lladdropt {
-	uchar	type;
-	uchar	len;
-	uchar	lladdr[MAClen];
-};
-
-struct Prefixopt {
-	uchar	type;
-	uchar	len;
-	uchar	plen;
-	uchar	lar;
-	uchar	validlt[4];
-	uchar	preflt[4];
-	uchar	reserv[4];
-	uchar	pref[IPaddrlen];
-};
-
-struct Mtuopt {
-	uchar	type;
-	uchar	len;
-	uchar	reserv[2];
-	uchar	mtu[4];
-};
-
+void	parse6pref(int argc, char **argv);
+void	parse6ra(int argc, char **argv);
+void	doipv6(int);
 void	ea2lla(uchar *lla, uchar *ea);
-void	ipv62smcast(uchar *smcast, uchar *a);
+int	findllip(uchar *ip, Ipifc *ifc);
+int	ip6cfg(void);
