@@ -182,8 +182,8 @@ splitknown(CList **clp, int *nclp, int i, int *lastq)
 		cl[ncl - 1 + j].mines = cl[i].pts == cl[i].mines;
 		cl[ncl - 1 + j].pts = 1;
 		cl[ncl - 1 + j].pt[0] = cl[i].pt[j];
-		cl[*lastq].next = i;
-		*lastq = i;
+		cl[*lastq].next = ncl - 1 + j;
+		*lastq = ncl - 1 + j;
 	}
 	cl[i].mines = cl[i].pts == cl[i].mines;
 	*nclp += cl[i].pts - 1;
