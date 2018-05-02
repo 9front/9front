@@ -255,7 +255,7 @@ merge(CList **clp, int *nclp, int start, int split)
 		next: ;
 		}
 		qi = q->next;
-		q->next = -1;
+		q->next = -2;
 	}
 	if(zero != 0){
 		for(i = 0, j = 0; i < *nclp; i++)
