@@ -25,7 +25,7 @@ usage(void)
 void
 ea2eui64(uchar *lla, uchar *ea)
 {
-	*lla++ = *ea++ | V60globaladm;	/* oui (company id) */
+	*lla++ = *ea++ ^ V60globaladm;	/* oui (company id) */
 	*lla++ = *ea++;			/* " */
 	*lla++ = *ea++;			/* " */
 	*lla++ = 0xFF;			/* mac-48 in eui-64 (sic) */
