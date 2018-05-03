@@ -193,10 +193,13 @@ look in
 .I dbfile
 (default
 .BR /lib/ndb/local )
-for the IP parameters for the specified IP address or if the
-IP is omited and the device is an ethernet then all IP parameters
+for the IP parameters for the specified
+.I local
+IP address or if
+.I local
+is omited and the device is an ethernet then all IP parameters
 associated with the MAC address. IPv6 addresses are added only
-if a IPv6 link local address exists on the interface or the
+if a IPv6 link-local address exists on the interface or the
 .B 6
 flag has been given to automatically configure one.
 .TP
@@ -206,13 +209,11 @@ A command line address of 0 implies no override.
 .TP
 .B p
 write configuration information to
-.BR /net/ndb ,
-even if other network interfaces are already configured
+.BR /net/ndb .
 .TP
 .B P
 do not write configuration information to
-.BR /net/ndb ,
-even if this is the first network interface to be configured
+.BR /net/ndb .
 .TP
 .B r
 by default,
@@ -229,7 +230,7 @@ before adding new ones.
 .TP
 .B f
 use the ndb database file
-.I dbfile .
+.IR dbfile .
 .TP
 .B x
 use the IP stack mounted at
