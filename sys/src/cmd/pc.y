@@ -55,7 +55,7 @@ numalloc(void)
 	
 	r = emalloc(sizeof(Num));
 	r->ref = 1;
-	r->p = emalloc(0);
+	r->p = emalloc(sizeof(mpdigit));
 	mpassign(mpzero, r);
 	return r;
 }
