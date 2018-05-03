@@ -95,8 +95,10 @@ plumbpackattr(Plumbattr *attr)
 	for(a=attr; a!=nil; a=a->next)
 		n += Strlen(a->name) + 1 + Strlen(quote(a->value, buf, bufe)) + 1;
 	s = malloc(n);
-	if(s == nil)
+	if(s == nil){
+		free(buf);
 		return nil;
+	}
 	t = s;
 	*t = '\0';
 	for(a=attr; a!=nil; a=a->next){
