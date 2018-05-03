@@ -36,7 +36,7 @@ mplogic(mpint *b1, mpint *b2, mpint *sum, int fl)
 		b2 = t;
 		fl = fl >> 2 & 0x03 | fl << 2 & 0x0c | fl & 0x30;
 	}
-	mpbits(sum, b1->top*Dbits);
+	mpbits(sum, b1->top*Dbits+1);
 	dp1 = b1->p;
 	dp2 = b2->p;
 	dpo = sum->p;
@@ -60,6 +60,8 @@ mplogic(mpint *b1, mpint *b2, mpint *sum, int fl)
 		dpo[i] = d;
 	}
 	sum->top = i;
+	if(co)
+		dpo[sum->top++] = co;
 	mpnorm(sum);
 }
 
@@ -105,7 +107,7 @@ mpxor(mpint *b1, mpint *b2, mpint *sum)
 	}
 	fl = (b1->sign & 10) ^ (b2->sign & 12);
 	sum->sign = (int)(fl << 28) >> 31 | 1;
-	mpbits(sum, b1->top*Dbits);
+	mpbits(sum, b1->top*Dbits+1);
 	dp1 = b1->p;
 	dp2 = b2->p;
 	dpo = sum->p;
@@ -126,6 +128,8 @@ mpxor(mpint *b1, mpint *b2, mpint *sum)
 		dpo[i] = d;
 	}
 	sum->top = i;
+	if(co)
+		dpo[sum->top++] = co;
 	mpnorm(sum);
 }
 
