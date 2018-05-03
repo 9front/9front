@@ -22,7 +22,9 @@ mpdiv(mpint *dividend, mpint *divisor, mpint *quotient, mpint *remainder)
 
 	// division by one or small powers of two
 	if(divisor->top == 1 && (divisor->p[0] & divisor->p[0]-1) == 0){
-		vlong r = (vlong)dividend->sign * (dividend->p[0] & divisor->p[0]-1);
+		vlong r = 0;
+		if(dividend->top > 0)
+			r = (vlong)dividend->sign * (dividend->p[0] & divisor->p[0]-1);
 		if(quotient != nil){
 			sign = divisor->sign;
 			for(s = 0; ((divisor->p[0] >> s) & 1) == 0; s++)

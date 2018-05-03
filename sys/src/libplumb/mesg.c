@@ -76,21 +76,29 @@ quote(char *s, char *buf, char *bufe)
 char*
 plumbpackattr(Plumbattr *attr)
 {
-	int n;
+	int n, l;
 	Plumbattr *a;
 	char *s, *t, *buf, *bufe;
 
 	if(attr == nil)
 		return nil;
-	if((buf = malloc(4096)) == nil)
+	n = 0;
+	for(a=attr; a!=nil; a=a->next){
+		l = Strlen(a->value);
+		if(l > n)
+			n = l;
+	}
+	if((buf = malloc(n*2+3)) == nil)
 		return nil;
-	bufe = buf + 4096;
+	bufe = buf + n*2+3;
 	n = 0;
 	for(a=attr; a!=nil; a=a->next)
 		n += Strlen(a->name) + 1 + Strlen(quote(a->value, buf, bufe)) + 1;
 	s = malloc(n);
-	if(s == nil)
+	if(s == nil){
+		free(buf);
 		return nil;
+	}
 	t = s;
 	*t = '\0';
 	for(a=attr; a!=nil; a=a->next){
@@ -221,9 +229,11 @@ plumbunpackattr(char *p)
 	char *q, *v, *buf, *bufe;
 	int c, quoting;
 
-	if((buf = malloc(4096)) == nil)
+	c = strlen(p) + 1;
+
+	if((buf = malloc(c)) == nil)
 		return nil;
-	bufe = buf + 4096;
+	bufe = buf + c;
 	attr = prev = nil;
 	while(*p!='\0' && *p!='\n'){
 		while(*p==' ' || *p=='\t')
@@ -340,6 +350,7 @@ plumbunpackpartial(char *buf, int n, int *morep)
 	m = malloc(sizeof(Plumbmsg));
 	if(m == nil)
 		return nil;
+	setmalloctag(m, getcallerpc(&buf));
 	memset(m, 0, sizeof(Plumbmsg));
 	if(morep != nil)
 		*morep = 0;
@@ -384,7 +395,11 @@ plumbunpackpartial(char *buf, int n, int *morep)
 Plumbmsg*
 plumbunpack(char *buf, int n)
 {
-	return plumbunpackpartial(buf, n, nil);
+	Plumbmsg *m;
+	m = plumbunpackpartial(buf, n, nil);
+	if(m != nil)
+		setmalloctag(m, getcallerpc(&buf));
+	return m;
 }
 
 Plumbmsg*
