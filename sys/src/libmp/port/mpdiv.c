@@ -9,7 +9,7 @@
 void
 mpdiv(mpint *dividend, mpint *divisor, mpint *quotient, mpint *remainder)
 {
-	int j, s, vn, sign;
+	int j, s, vn, sign, qsign, rsign;
 	mpdigit qd, *up, *vp, *qp;
 	mpint *u, *v, *t;
 
@@ -49,6 +49,13 @@ mpdiv(mpint *dividend, mpint *divisor, mpint *quotient, mpint *remainder)
 			mpassign(mpzero, quotient);
 		return;
 	}
+	
+	qsign = divisor->sign * dividend->sign;
+	rsign = dividend->sign;
+	if(quotient != nil)
+		quotient->sign = qsign;
+	if(remainder != nil)
+		remainder->sign = rsign;
 
 	// D1: shift until divisor, v, has hi bit set (needed to make trial
 	//     divisor accurate)
@@ -121,14 +128,11 @@ mpdiv(mpint *dividend, mpint *divisor, mpint *quotient, mpint *remainder)
 	if(qp != nil){
 		assert((quotient->flags & MPtimesafe) == 0);
 		mpnorm(quotient);
-		if(dividend->sign != divisor->sign)
-			quotient->sign = -1;
 	}
 
 	if(remainder != nil){
 		assert((remainder->flags & MPtimesafe) == 0);
 		mpright(u, s, remainder);	// u is the remainder shifted
-		remainder->sign = dividend->sign;
 	}
 
 	mpfree(t);
