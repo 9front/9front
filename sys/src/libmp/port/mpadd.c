@@ -21,7 +21,6 @@ mpmagadd(mpint *b1, mpint *b2, mpint *sum)
 	m = b2->top;
 	if(n == 0){
 		mpassign(mpzero, sum);
-		sum->sign = 1;
 		return;
 	}
 	if(m == 0){
