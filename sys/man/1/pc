@@ -33,6 +33,9 @@ Expressions can use the C-like operators
 .TP
 .B < >= < <= == !=
 .PP
+The \fB$\fR operator performs sign extension. \fIn\fB$\fIx\fR truncates \fIx\fR to \fIn\fR bits and sign extends.
+If \fIn\fR is omitted, it is inferred from the highest set bit (the result is always ≤ 0 in this case).
+.PP
 Variables can be defined using
 .BR = .
 The builtin variable

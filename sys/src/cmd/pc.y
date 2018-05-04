@@ -195,6 +195,10 @@ numbin(int op, Num *a, Num *b)
 		else
 			mpassign(b, a);
 		break;
+	case '$':
+		a->b = b->b;
+		mpxtend(b, mptoi(a), a);
+		break;
 	}
 	numdecref(b);
 	return a;
@@ -389,6 +393,7 @@ hexfix(Symbol *s)
 %left unary
 %left '*' '/' '%'
 %right LOEXP
+%right '$'
 
 %{
 	int save;
@@ -501,6 +506,7 @@ expr: LNUM
 	| '-' expr %prec unary { $$ = nummod($2); if($$ != nil) mpsub(mpzero, $$, $$); }
 	| '~' expr %prec unary { $$ = nummod($2); if($$ != nil) mpnot($$, $$); }
 	| '!' expr %prec unary { $$ = nummod($2); if($$ != nil) {itomp(mpcmp($$, mpzero) == 0, $$); $$->b = 0; } }
+	| '$' expr { $$ = nummod($2); if($$ != nil) if($2->sign > 0) mpxtend($2, mpsignif($2), $$); else mpassign($2, $$); }
 	| expr '?' expr ':' expr %prec '?' {
 		if($1 == nil || mpcmp($1, mpzero) != 0){
 			$$ = $3;
@@ -541,6 +547,7 @@ expr: LNUM
 		if($$ == nil) error("no last result");
 		else numincref($$);
 	}
+	| expr '$' expr { $$ = numbin('$', $1, $3); }
 
 elist: { $$.n = 0; } | elist1
 elist1: expr { $$.x[0] = $1; $$.n = 1; }
