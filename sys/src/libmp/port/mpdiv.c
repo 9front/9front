@@ -52,10 +52,6 @@ mpdiv(mpint *dividend, mpint *divisor, mpint *quotient, mpint *remainder)
 	
 	qsign = divisor->sign * dividend->sign;
 	rsign = dividend->sign;
-	if(quotient != nil)
-		quotient->sign = qsign;
-	if(remainder != nil)
-		remainder->sign = rsign;
 
 	// D1: shift until divisor, v, has hi bit set (needed to make trial
 	//     divisor accurate)
@@ -128,11 +124,15 @@ mpdiv(mpint *dividend, mpint *divisor, mpint *quotient, mpint *remainder)
 	if(qp != nil){
 		assert((quotient->flags & MPtimesafe) == 0);
 		mpnorm(quotient);
+		if(quotient->top != 0)
+			quotient->sign = qsign;
 	}
 
 	if(remainder != nil){
 		assert((remainder->flags & MPtimesafe) == 0);
 		mpright(u, s, remainder);	// u is the remainder shifted
+		if(remainder->top != 0)
+			remainder->sign = rsign;
 	}
 
 	mpfree(t);
