@@ -1,0 +1,16 @@
+</$objtype/mkfile
+
+TARG=test
+OFILES=\
+	main.$O\
+	ld.$O\
+	gen.tab.$O\
+
+HFILES=dat.h fns.h
+
+CLEANFILES=gen.tab.c
+
+</sys/src/cmd/mkone
+
+gen.tab.c:D: testgen.rc
+	rc testgen.rc >gen.tab.c

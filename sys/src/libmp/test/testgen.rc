@@ -1,0 +1,275 @@
+#!/bin/rc
+echo '
+cmp	in	in	retsign
+magcmp	in	in	retsign
+add	in	in	out
+sub	in	in	out
+magadd	in	in	out
+magsub	in	in	out
+and	in	in	out
+bic	in	in	out
+or	in	in	out
+xor	in	in	out
+not	in	out
+left	in	int	out
+right	in	int	out
+asr	in	int	out
+div_	in	in	out	out
+' | sed 's/#.*//g' | awk '
+BEGIN {
+	print "#include <u.h>"
+	print "#include <libc.h>"
+	print "#include <mp.h>"
+	print "#include \"dat.h\""
+	print "#include \"fns.h\""
+}
+function initio()
+{
+	for(j=2;j<=NF;j++){
+		if($j == "in")
+			printf "ldtomp(l%d, m%d);\n", j, j
+		if($j == "out")
+			printf "mptarget(m%d);\n", j
+	}
+}
+function fail0()
+{
+	printf "fprint(2, \"FAIL: mp%s(", $1
+	first = 1
+	for(j=2;j<=NF;j++){
+		if(!first) printf ", "
+		first = 0
+		if($j == "in")
+			printf "%%L"
+		if($j == "int")
+			printf "%%d"
+		if($j == "out")
+			printf "out"
+	}
+	printf "): "
+	if(test) printf "%s: ", test
+}
+function fail1()
+{
+	for(j=2;j<=NF;j++){
+		if($j == "in")
+			printf ", l%d", j
+		if($j == "int")
+			printf ", i%d", j
+	}
+}
+function testarg(ref,i,t)
+{
+	if(t == "in"){
+		printf "if(!ldmpeq(l%d, m%d)){\n", ref, i
+		fail0()
+		printf "arg %d: input corrupted\\n\"", ref - 1
+		fail1()
+		printf ");\n"
+		printf "fail=1;\n}\n"
+	}
+	if(t == "out"){
+		printf "if(m%d->top == 0 && m%d->sign < 0){\n", i, i
+		fail0()
+		printf "arg %d: got -0, shouldn''t happen\\n\"", ref - 1
+		fail1()
+		printf ");\n"
+		print "fail=1;"
+		printf "}else if(m%d->top != 0 && m%d->p[m%d->top - 1] == 0){\n", i, i, i
+		fail0()
+		printf "arg %d: got denormalised result\\n\"", ref - 1
+		fail1()
+		printf ");\n"
+		print "fail=1;"
+		printf "}else if(!ldmpeq(l%d, m%d)){\n", ref, i
+		fail0()
+		printf "arg %d: got %%#B, expected %%L\\n\"", ref - 1
+		fail1()
+		printf ", m%d, l%d);\n", i, ref
+		printf "fail=1;\n"
+		printf "}\n"
+	}
+}
+
+NF > 0 && !($NF ~ /^ret/) {
+	printf "void ld%s(", $1
+	for(i=2;i<=NF;i++){
+		if($i == "in" || $i == "out")
+			printf "ldint *"
+		if($i == "int")
+			printf "int"
+		if(i<NF) printf ", "
+	}
+	printf ");\n"
+
+	printf "void\ntest%s(void)\n{\n", $1
+	print "int fail=0;"
+	for(i=2;i<=NF;i++){
+		if($i == "in" || $i == "out"){
+			printf "ldint *l%d = ldnew(0);\n", i
+			printf "mpint *m%d = mpnew(0);\n", i
+		}
+		if($i == "int" || $i == "in")
+			printf "int i%d;\n", i
+	}
+	for(i=2;i<=NF;i++){
+		if($i == "in"){
+			printf "for(i%d=0;i%d<NTEST;i%d++){\n", i, i, i
+			printf "testgen(i%d, l%d);\n", i, i
+		}
+		if($i == "int")
+			printf "for(i%d=-128;i%d<=128;i%d++){\n", i, i, i
+	}
+	
+	test=""
+	printf "ld%s(", $1
+	for(i=2;i<=NF;i++){
+		if($i == "in" || $i == "out")
+			printf "l%d", i
+		if($i == "int")
+			printf "i%d", i
+		if(i<NF) printf ", "
+	}
+	printf ");\n"
+	initio()
+
+	printf "mp%s(", $1
+	for(i=2;i<=NF;i++){
+		if($i == "in" || $i == "out")
+			printf "m%d", i
+		if($i == "int")
+			printf "i%d", i
+		if(i<NF) printf ", "
+	}
+	printf ");\n"
+	
+	for(i=2;i<=NF;i++)
+		testarg(i, i, $i)
+	
+	for(i=2;i<=NF;i++){
+		if($i != "out") continue
+		for(k=2;k<=NF;k++){
+			if($k != "in") continue
+			test="alias "(i-1)" and "(k-1)
+			initio()
+			printf "mp%s(", $1
+			for(l=2;l<=NF;l++){
+				if(l == i){
+					printf "m%d", k
+				}else{
+					if($l == "in" || $l == "out")
+						printf "m%d", l
+					if($l == "int")
+						printf "i%d", l
+				}
+				if(l<NF) printf ", "
+			}
+			printf ");\n"
+			for(l=2;l<=NF;l++)
+				if(l != k && l != i)
+					testarg(l, l, $l)
+			testarg(i, k, "out")
+		}
+	}
+
+	for(i=2;i<=NF;i++)
+		if($i == "in" || $i == "int")
+			printf "}\n"
+	for(i=2;i<=NF;i++)
+		if($i == "in" || $i == "out"){
+			printf "ldfree(l%d);\nmpfree(m%d);\n", i, i
+		}
+	printf "if(!fail) fprint(2, \"mp%s: passed\\n\");\n", $1
+	printf "}\n"
+	tests[ntests++] = $1
+	next
+}
+NF > 0 {
+	sign=$NF=="retsign";
+	NF--
+	printf "int ld%s(", $1
+	for(i=2;i<=NF;i++){
+		if($i == "in" || $i == "out")
+			printf "ldint *"
+		if($i == "int")
+			printf "int"
+		if(i<NF) printf ", "
+	}
+	printf ");\n"
+
+	printf "void\ntest%s(void)\n{\n", $1
+	print "int fail=0;"
+	print "int a, b;"
+	for(i=2;i<=NF;i++){
+		if($i == "in" || $i == "out"){
+			printf "ldint *l%d = ldnew(0);\n", i
+			printf "mpint *m%d = mpnew(0);\n", i
+		}
+		if($i == "int" || $i == "in")
+			printf "int i%d;\n", i
+	}
+	for(i=2;i<=NF;i++){
+		if($i == "in"){
+			printf "for(i%d=0;i%d<NTEST;i%d++){\n", i, i, i
+			printf "testgen(i%d, l%d);\n", i, i
+		}
+		if($i == "int")
+			printf "for(i%d=-128;i%d<=128;i%d++){\n", i, i, i
+	}
+	
+	test=""
+	printf "a=ld%s(", $1
+	for(i=2;i<=NF;i++){
+		if($i == "in" || $i == "out")
+			printf "l%d", i
+		if($i == "int")
+			printf "i%d", i
+		if(i<NF) printf ", "
+	}
+	printf ");\n"
+	initio()
+
+	printf "b=mp%s(", $1
+	for(i=2;i<=NF;i++){
+		if($i == "in" || $i == "out")
+			printf "m%d", i
+		if($i == "int")
+			printf "i%d", i
+		if(i<NF) printf ", "
+	}
+	printf ");\n"
+
+	if(sign) printf "if(b<0) b=-1;\nif(b>0) b=1;\n"
+	printf "if(a != b){\n", ref, i
+	fail0()
+	printf "return value: got %%d, expected %%d\\n\""
+	fail1()
+	printf ", b, a);\n"
+	printf "fail=1;\n"
+	printf "}\n"
+	
+	for(i=2;i<=NF;i++)
+		testarg(i, i, $i)
+	
+	for(i=2;i<=NF;i++)
+		if($i == "in" || $i == "int")
+			printf "}\n"
+	for(i=2;i<=NF;i++)
+		if($i == "in" || $i == "out"){
+			printf "ldfree(l%d);\nmpfree(m%d);\n", i, i
+		}
+	printf "if(!fail) fprint(2, \"mp%s: passed\\n\");\n", $1
+	printf "}\n"
+	tests[ntests++] = $1
+}
+END {
+	printf "void\ntests()\n{\n"
+	for(i = 0; i < ntests; i++)
+		printf "test%s();\n", tests[i]
+	printf "}\n"
+}
+' | awk '
+/^[ 	]*}/ { ind = substr(ind, 2) }
+{ printf "%s%s\n", ind, $0 }
+/{ *$/ { ind = "\t" ind }
+'
