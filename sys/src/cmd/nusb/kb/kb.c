@@ -55,9 +55,8 @@ struct Hidreport
 	int	b;
 	int	m;
 
-	int	absx;
-	int	absy;
 	int	absz;
+	u8int	abs;
 
 	int	nk;
 	uchar	k[64];
@@ -550,25 +549,21 @@ hidparse(int t, int f, int g[], int l[], int, void *a)
 			break;
 		case 0x010030:
 			if((f & (Fabs|Frel)) == Fabs){
-				p->x = (v - p->absx);
-				p->absx = v;
-			} else {
-				p->x = v;
-				p->absx += v;
+				v = ((vlong)(v - g[LogiMin]) << 31) / (g[LogiMax] - g[LogiMin]);
+				p->abs = 1;
 			}
+			p->x = v;
 			break;
 		case 0x010031:
 			if((f & (Fabs|Frel)) == Fabs){
-				p->y = (v - p->absy);
-				p->absy = v;
-			} else {
-				p->y = v;
-				p->absy += v;
+				v = ((vlong)(v - g[LogiMin]) << 31) / (g[LogiMax] - g[LogiMin]);
+				p->abs = 1;
 			}
+			p->y = v;
 			break;
 		case 0x010038:
 			if((f & (Fabs|Frel)) == Fabs){
-				p->z = (v - p->absz);
+				p->z = v - p->absz;
 				p->absz = v;
 			} else {
 				p->z = v;
@@ -632,6 +627,7 @@ readerproc(void* a)
 
 		p.o = 0;
 		p.e = p.p + c;
+		p.abs = 0;
 		repparse(f->rep, f->rep+f->nrep, hidparse, &p);
 
 		if(p.nk != 0 || nlastk != 0){
@@ -684,9 +680,12 @@ readerproc(void* a)
 		if(p.z != 0)
 			b |= (p.z > 0) ? 8 : 16;
 
-		if(p.x != 0 || p.y != 0 || p.z != 0 || b != lastb){
+		if(p.abs || p.x != 0 || p.y != 0 || p.z != 0 || b != lastb){
 			if(debug)
-				fprint(2, "ptr: b=%x m=%x x=%d y=%d z=%d\n", p.b, p.m, p.x, p.y, p.z);
+				if(p.abs)
+					fprint(2, "ptr: b=%x m=%x x=%f y=%f z=%d\n", p.b, p.m, (uint)p.x / 2147483648.0, (uint)p.y / 2147483648.0, p.z);
+				else
+					fprint(2, "ptr: b=%x m=%x x=%d y=%d z=%d\n", p.b, p.m, p.x, p.y, p.z);
 
 			if(f->minfd < 0){
 				f->minfd = open("/dev/mousein", OWRITE);
@@ -694,7 +693,7 @@ readerproc(void* a)
 					hdfatal(f, "open /dev/mousein");
 			}
 
-			seprint(mbuf, mbuf+sizeof(mbuf), "m%11d %11d %11d", p.x, p.y, b);
+			seprint(mbuf, mbuf+sizeof(mbuf), "%c%11d %11d %11d", "ma"[p.abs], p.x, p.y, b);
 			write(f->minfd, mbuf, strlen(mbuf));
 
 			lastb = b;
@@ -767,6 +766,7 @@ threadmain(int argc, char* argv[])
 		switch(ep->iface->csp){
 		case KbdCSP:
 		case PtrCSP:
+		case PtrNonBootCSP:
 		case HidCSP:
 			hdsetup(d, ep);
 			break;

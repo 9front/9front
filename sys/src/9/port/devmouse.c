@@ -351,6 +351,8 @@ setbuttonmap(char* map)
 	}
 }
 
+void scmousetrack(int, int, int, ulong);
+
 static long
 mousewrite(Chan *c, void *va, long n, vlong)
 {
@@ -468,6 +470,8 @@ mousewrite(Chan *c, void *va, long n, vlong)
 
 		if(buf[0] == 'A')
 			absmousetrack(pt.x, pt.y, b, msec);
+		else if(buf[0] == 'a')
+			scmousetrack(pt.x, pt.y, b, msec);
 		else
 			mousetrack(pt.x, pt.y, b, msec);
 		return n;
@@ -638,6 +642,22 @@ absmousetrack(int x, int y, int b, ulong msec)
 	wakeup(&mouse.r);
 
 	mouseredraw();
+}
+
+void
+scmousetrack(int x, int y, int b, ulong msec)
+{
+	vlong vx, vy;
+
+	if(gscreen==nil)
+		return;
+	
+	vx = (vlong)(uint)x * (gscreen->clipr.max.x - gscreen->clipr.min.x);
+	x = (vx + (1<<30) - (~vx>>31&1) >> 31) + gscreen->clipr.min.x;
+	vy = (vlong)(uint)y * (gscreen->clipr.max.y - gscreen->clipr.min.y);
+	y = (vy + (1<<30) - (~vy>>31&1) >> 31) + gscreen->clipr.min.y;
+	
+	absmousetrack(x, y, b, msec);
 }
 
 static ulong
