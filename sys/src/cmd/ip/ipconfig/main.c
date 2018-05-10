@@ -318,8 +318,7 @@ main(int argc, char **argv)
 		plan9 = 0;
 		break;
 	case 'h':
-		snprint(conf.hostname, sizeof conf.hostname, "%s",
-			EARGF(usage()));
+		snprint(conf.hostname, sizeof conf.hostname, "%s", EARGF(usage()));
 		sendhostname = 1;
 		break;
 	case 'm':
@@ -389,7 +388,7 @@ main(int argc, char **argv)
 		if(dondbconfig){
 			dodhcp = 0;
 			ndbconfig();
-			return;
+			break;
 		}
 		doadd();
 		break;

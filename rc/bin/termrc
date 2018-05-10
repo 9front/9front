@@ -6,7 +6,7 @@ TIMESYNCARGS=(-rLa1000000)
 NPROC=`{wc -l </dev/sysstat}
 
 # bind all likely devices
-for(i in v t m i f S P L A '$')
+for(i in u v t m i f S P L A '$')
 	bind -a '#'^$i /dev >/dev/null >[2=1]
 rm -f /env/i
 
@@ -57,12 +57,19 @@ if(test -e /cfg/$sysname/termrc)
 # automatic ip address setup
 if(test -r /net/ipselftab){
 	if(! grep u /net/ipselftab | grep -sv 127.0.0.1){
-		ether=`{ndb/query sys $sysname ether}
-		if(~ $#ether 1){
-			# try /lib/ndb first, then do dhcp
-			ip/ipconfig -N >[2]/dev/null || ip/ipconfig -h $sysname
+		addrs=`{ndb/query -a sys $sysname ether}
+		if(! ~ $#addrs 0){
+			for(ether in /net/ether*){
+				addr=`{cat $ether/addr}
+				switch($addr){
+				case $addrs
+					# try /lib/ndb first, then do dhcp
+					ip/ipconfig -N ether $ether >[2]/dev/null \
+					|| ip/ipconfig -h $sysname ether $ether
+				}
+			}
 		}
-		rm -f /env/ether
+		rm -f /env/ether /env/addrs /env/addr
 	}
 }
 

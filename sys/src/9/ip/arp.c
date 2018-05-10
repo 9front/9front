@@ -303,7 +303,7 @@ arpenter(Fs *fs, int version, uchar *ip, uchar *mac, int n, uchar *ia, Ipifc *if
 					freeblistchain(next);
 					break;
 				}
-				ifc->m->bwrite(ifc, concatblock(bp), version, ip);
+				ipifcoput(ifc, bp, version, ip);
 				poperror();
 			}
 			return 1;

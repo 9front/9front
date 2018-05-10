@@ -250,7 +250,7 @@ ipifcunbind(Ipifc *ifc)
 
 char sfixedformat[] = "device %s maxtu %d sendra %d recvra %d mflag %d oflag"
 " %d maxraint %d minraint %d linkmtu %d reachtime %d rxmitra %d ttl %d routerlt"
-" %d pktin %lud pktout %lud errin %lud errout %lud\n";
+" %d pktin %lud pktout %lud errin %lud errout %lud speed %d delay %d\n";
 
 char slineformat[] = "	%-40I %-10M %-40I %-12lud %-12lud\n";
 
@@ -267,7 +267,8 @@ ipifcstate(Conv *c, char *state, int n)
 		ifc->rp.mflag, ifc->rp.oflag, ifc->rp.maxraint,
 		ifc->rp.minraint, ifc->rp.linkmtu, ifc->rp.reachtime,
 		ifc->rp.rxmitra, ifc->rp.ttl, ifc->rp.routerlt,
-		ifc->in, ifc->out, ifc->inerr, ifc->outerr);
+		ifc->in, ifc->out, ifc->inerr, ifc->outerr,
+		ifc->speed, ifc->delay);
 
 	rlock(ifc);
 	for(lifc = ifc->lifc; lifc != nil && n > m; lifc = lifc->next)
@@ -308,6 +309,50 @@ ipifcinuse(Conv *c)
 	ifc = (Ipifc*)c->ptcl;
 	return ifc->m != nil;
 }
+
+static void
+ipifcsetdelay(Ipifc *ifc, int delay)
+{
+	if(delay < 0)
+		delay = 0;
+	else if(delay > 1000)
+		delay = 1000;
+	ifc->delay = delay;
+	ifc->burst = ((vlong)delay * ifc->speed) / 8000;
+	if(ifc->burst < ifc->maxtu)
+		ifc->burst = ifc->maxtu;
+}
+
+static void
+ipifcsetspeed(Ipifc *ifc, int speed)
+{
+	if(speed < 0)
+		speed = 0;
+	ifc->speed = speed;
+	ifc->load = 0;
+	ipifcsetdelay(ifc, ifc->delay);
+}
+
+void
+ipifcoput(Ipifc *ifc, Block *bp, int version, uchar *ip)
+{
+	if(ifc->speed){
+		ulong now = MACHP(0)->ticks;
+		int dt = TK2MS(now - ifc->ticks);
+		ifc->ticks = now;
+		ifc->load -= ((vlong)dt * ifc->speed) / 8000;
+		if(ifc->load < 0 || dt < 0 || dt > 1000)
+			ifc->load = 0;
+		else if(ifc->load > ifc->burst){
+			freeblist(bp);
+			return;
+		}
+	}
+	bp = concatblock(bp);
+	ifc->load += BLEN(bp);
+	ifc->m->bwrite(ifc, bp, version, ip);
+}
+
 
 /*
  *  called when a process writes to an interface's 'data'
@@ -358,6 +403,8 @@ ipifccreate(Conv *c)
 	ifc->m = nil;
 	ifc->reflect = 0;
 	ifc->reassemble = 0;
+	ipifcsetspeed(ifc, 0);
+	ipifcsetdelay(ifc, 40);
 }
 
 /*
@@ -772,6 +819,14 @@ ipifcctl(Conv* c, char **argv, int argc)
 		return ipifcunbind(ifc);
 	else if(strcmp(argv[0], "mtu") == 0)
 		return ipifcsetmtu(ifc, argv, argc);
+	else if(strcmp(argv[0], "speed") == 0){
+		ipifcsetspeed(ifc, argc>1? atoi(argv[1]): 0);
+		return nil;
+	}
+	else if(strcmp(argv[0], "delay") == 0){
+		ipifcsetdelay(ifc, argc>1? atoi(argv[1]): 0);
+		return nil;
+	}
 	else if(strcmp(argv[0], "iprouting") == 0){
 		iprouting(c->p->f, argc>1? atoi(argv[1]): 1);
 		return nil;

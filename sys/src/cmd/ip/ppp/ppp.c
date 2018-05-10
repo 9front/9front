@@ -1497,7 +1497,7 @@ ppptimer(PPP *ppp)
 }
 
 static void
-setdefroute(char *net, Ipaddr gate)
+defroute(char *net, char *verb, Ipaddr gate, Ipaddr local)
 {
 	int fd;
 	char path[128];
@@ -1506,7 +1506,10 @@ setdefroute(char *net, Ipaddr gate)
 	fd = open(path, ORDWR);
 	if(fd < 0)
 		return;
-	fprint(fd, "add 0 0 %I", gate);
+	fprint(fd, "tag ppp");
+	if(primary)
+		fprint(fd, "%s 0.0.0.0 0.0.0.0 %I", verb, gate);
+	fprint(fd, "%s 0.0.0.0 0.0.0.0 %I %I 255.255.255.255", verb, gate, local);
 	close(fd);
 }
 
@@ -1550,8 +1553,9 @@ ipopen(PPP *ppp)
 			close(cfd);
 			return "can't set addresses";
 		}
-		if(primary)
-			setdefroute(ppp->net, ppp->remote);
+		if(baud)
+			fprint(cfd, "speed %d", baud);
+		defroute(ppp->net, "add", ppp->remote, ppp->local);
 		ppp->ipfd = fd;
 		ppp->ipcfd = cfd;
 
@@ -1570,6 +1574,7 @@ ipopen(PPP *ppp)
 		/* we may have changed addresses */
 		if(ipcmp(ppp->local, ppp->curlocal) != 0 ||
 		   ipcmp(ppp->remote, ppp->curremote) != 0){
+			defroute(ppp->net, "remove", ppp->curremote, ppp->curlocal);
 			snprint(buf, sizeof buf, "remove %I 255.255.255.255 %I",
 			    ppp->curlocal, ppp->curremote);
 			if(fprint(ppp->ipcfd, "%s", buf) < 0)
@@ -1578,6 +1583,7 @@ ipopen(PPP *ppp)
 			    ppp->local, ppp->remote, ppp->mtu-10);
 			if(fprint(ppp->ipcfd, "%s", buf) < 0)
 				syslog(0, "ppp", "can't %s: %r", buf);
+			defroute(ppp->net, "add", ppp->remote, ppp->local);
 		}
 		syslog(0, "ppp", "%I/%I -> %I/%I", ppp->curlocal, ppp->curremote,
 		   ppp->local, ppp->remote);
@@ -2634,7 +2640,7 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	int mtu, baud, framing, user, mediain, mediaout, cfd;
+	int mtu, framing, user, mediain, mediaout, cfd;
 	Ipaddr ipaddr, remip;
 	char *dev, *modemcmd;
 	char net[128];
@@ -2654,7 +2660,6 @@ main(int argc, char **argv)
 	invalidate(remip);
 
 	mtu = Defmtu;
-	baud = 0;
 	framing = 0;
 	setnetmtpt(net, sizeof(net), nil);
 	user = 0;

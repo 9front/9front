@@ -1,6 +1,6 @@
 .TH IPCONFIG 8
 .SH NAME
-ipconfig, rip, linklocal, ipv6on \- Internet configuration and routing
+ipconfig, rip, linklocal \- Internet configuration and routing
 .SH SYNOPSIS
 .in +0.25i
 .ti -0.25i
@@ -52,14 +52,6 @@ ipconfig, rip, linklocal, ipv6on \- Internet configuration and routing
 ]
 .I mac
 \&...
-.PP
-.B ipv6on
-[
-.I netmtpt
-.I ndbfile
-[
-.I gwv4
-]\|]
 .SH DESCRIPTION
 .I Ipconfig
 binds a device interface to a mounted IP stack (default
@@ -73,12 +65,13 @@ The addresses can be specified in the command line or obtained via DHCP.
 If DHCP is requested, it will also obtain the addresses of DNS
 servers, NTP servers, gateways, a Plan 9 file server,
 and a Plan 9 authentication server.
-If this is the first non-loopback
-interface on the IP stack, the information will be written to
+Information from DHCP and IPv6 router advertisements is written to
 .B /net/ndb
 in the form of an
 .IR ndb (8)
-entry.
+entry unless the
+.B P
+flag has been specified.
 .PP
 .I Type
 may be
@@ -175,7 +168,7 @@ turn on debugging.
 the default gateway.
 .TP
 .B G
-use only generic DHCP options.  Without this option,
+use only generic DHCP and RA options.  Without this option,
 .I ipconfig
 adds to requests a Vendor Class option with value
 .BI plan9_$ cputype
@@ -197,10 +190,18 @@ determine parameters but don't configure the interface.
 .TP
 .B N
 look in
-.B /lib/ndb
-for the IP parameters.  This only works if the
-interface is an ethernet.  It uses the ethernet address to find
-a matching entry.
+.I dbfile
+(default
+.BR /lib/ndb/local )
+for the IP parameters for the specified
+.I local
+IP address or if
+.I local
+is omited and the device is an ethernet then all IP parameters
+associated with the MAC address. IPv6 addresses are added only
+if a IPv6 link-local address exists on the interface or the
+.B 6
+flag has been given to automatically configure one.
 .TP
 .B O
 addresses specified on the command line override those obtained via DHCP.
@@ -208,13 +209,11 @@ A command line address of 0 implies no override.
 .TP
 .B p
 write configuration information to
-.BR /net/ndb ,
-even if other network interfaces are already configured
+.BR /net/ndb .
 .TP
 .B P
 do not write configuration information to
-.BR /net/ndb ,
-even if this is the first network interface to be configured
+.BR /net/ndb .
 .TP
 .B r
 by default,
@@ -231,7 +230,7 @@ before adding new ones.
 .TP
 .B f
 use the ndb database file
-.I dbfile .
+.IR dbfile .
 .TP
 .B x
 use the IP stack mounted at
@@ -322,18 +321,6 @@ and
 .I 6to4
 gateway
 .IR gwipv4 .
-.PP
-.I Ipv6on
-uses the network database at
-.I ndbfile
-to configure the network mounted on
-.I netmtpt
-with a link-local address (derived from its MAC address)
-and attempts to add a default IPv6 route to the local
-IPv4 gateway's IPv6 address.
-If
-.I gwv4
-is supplied, it will be used as the gateway IPv4 address.
 .SH EXAMPLES
 Configure Ethernet 0 as the primary IP interface.
 Get all addresses via DHCP.  Start up a connection server
@@ -386,8 +373,6 @@ ip/ipconfig ra6 recvra 1
 .B /sys/src/cmd/ip/rip.c
 .br
 .B /sys/src/cmd/ip/linklocal.c
-.br
-.B /rc/bin/ipv6on
 .SH "SEE ALSO"
 .IR ether (3),
 .IR ip (3),

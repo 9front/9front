@@ -53,6 +53,10 @@ ppp, pppoe, pptp, pptpd \- point-to-point protocol
 .I mtu
 ]
 [
+.B -b
+.I baud
+]
+[
 .B -x
 .I pppnetmntpt
 ]
