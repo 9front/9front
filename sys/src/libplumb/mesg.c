@@ -178,31 +178,6 @@ plumbsend(int fd, Plumbmsg *m)
 	return n;
 }
 
-static int
-plumbline(char **linep, char *buf, int i, int n, int *bad)
-{
-	int starti;
-	char *p;
-
-	starti = i;
-	while(i<n && buf[i]!='\n')
-		i++;
-	if(i == n)
-		*bad = 1;
-	else{
-		p = malloc((i-starti) + 1);
-		if(p == nil)
-			*bad = 1;
-		else{
-			memmove(p, buf+starti, i-starti);
-			p[i-starti] = '\0';
-		}
-		*linep = p;
-		i++;
-	}
-	return i;
-}
-
 void
 plumbfree(Plumbmsg *m)
 {
@@ -340,56 +315,78 @@ plumbdelattr(Plumbattr *attr, char *name)
 	return attr;
 }
 
+static char*
+plumbline(char *buf, int *o, int n)
+{
+	char *p;
+	int i;
+
+	i = *o;
+	if(i < 0 || i >= n)
+		return nil;
+	p = memchr(buf+i, '\n', n - i);
+	if(p == nil)
+		return nil;
+	n = p - (buf+i);
+	buf = malloc(n+1);
+	if(buf == nil)
+		return nil;
+	memmove(buf, p - n, n);
+	buf[n] = '\0';
+	*o = i + n+1;
+	return buf;
+}
+
 Plumbmsg*
 plumbunpackpartial(char *buf, int n, int *morep)
 {
 	Plumbmsg *m;
-	int i, bad;
 	char *ntext, *attr;
+	int i;
 
+	if(morep != nil)
+		*morep = 0;
 	m = malloc(sizeof(Plumbmsg));
 	if(m == nil)
 		return nil;
 	setmalloctag(m, getcallerpc(&buf));
 	memset(m, 0, sizeof(Plumbmsg));
-	if(morep != nil)
-		*morep = 0;
-	bad = 0;
-	i = plumbline(&m->src, buf, 0, n, &bad);
-	i = plumbline(&m->dst, buf, i, n, &bad);
-	i = plumbline(&m->wdir, buf, i, n, &bad);
-	i = plumbline(&m->type, buf, i, n, &bad);
-	i = plumbline(&attr, buf, i, n, &bad);
-	i = plumbline(&ntext, buf, i, n, &bad);
-	if(bad){
-		plumbfree(m);
-		return nil;
-	}
+	i = 0;
+	if((m->src = plumbline(buf, &i, n)) == nil)
+		goto bad;
+	if((m->dst = plumbline(buf, &i, n)) == nil)
+		goto bad;
+	if((m->wdir = plumbline(buf, &i, n)) == nil)
+		goto bad;
+	if((m->type = plumbline(buf, &i, n)) == nil)
+		goto bad;
+	if((attr = plumbline(buf, &i, n)) == nil)
+		goto bad;
 	m->attr = plumbunpackattr(attr);
 	free(attr);
+	if((ntext = plumbline(buf, &i, n)) == nil)
+		goto bad;
 	m->ndata = atoi(ntext);
-	if(m->ndata != n-i){
-		bad = 1;
-		if(morep!=nil && m->ndata>n-i)
-			*morep = m->ndata - (n-i);
-	}
 	free(ntext);
-	if(!bad){
-		m->data = malloc(n-i+1);	/* +1 for '\0' */
-		if(m->data == nil)
-			bad = 1;
-		else{
-			memmove(m->data, buf+i, m->ndata);
-			m->ndata = n-i;
-			/* null-terminate in case it's text */
-			m->data[m->ndata] = '\0';
-		}
+	if(m->ndata < 0)
+		goto bad;
+	n -= i;
+	if(n < m->ndata){
+		if(morep != nil)
+			*morep = m->ndata - n;
+		goto bad;
 	}
-	if(bad){
-		plumbfree(m);
-		m = nil;
-	}
+	m->data = malloc(m->ndata+1);	/* +1 for '\0' */
+	if(m->data == nil)
+		goto bad;
+	memmove(m->data, buf+i, m->ndata);
+	/* null-terminate in case it's text */
+	m->data[m->ndata] = '\0';
+
 	return m;
+bad:
+	plumbfree(m);
+	return nil;
 }
 
 Plumbmsg*
@@ -409,14 +406,15 @@ plumbrecv(int fd)
 	Plumbmsg *m;
 	int n, more;
 
-	buf = malloc(8192);
+	buf = malloc(n = 8192);
 	if(buf == nil)
 		return nil;
-	n = read(fd, buf, 8192);
-	m = nil;
-	if(n > 0){
+	n = read(fd, buf, n);
+	if(n <= 0)
+		m = nil;
+	else {
 		m = plumbunpackpartial(buf, n, &more);
-		if(m==nil && more>0){
+		if(m == nil && more > 0){
 			/* we now know how many more bytes to read for complete message */
 			buf = realloc(old = buf, n+more);
 			if(buf == nil){
