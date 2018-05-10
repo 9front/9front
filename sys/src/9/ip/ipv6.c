@@ -103,7 +103,7 @@ ipoput6(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
 	medialen = ifc->maxtu - ifc->m->hsize;
 	if(len <= medialen) {
 		hnputs(eh->ploadlen, len - IP6HDR);
-		ifc->m->bwrite(ifc, concatblock(bp), V6, gate);
+		ipifcoput(ifc, bp, V6, gate);
 		runlock(ifc);
 		poperror();
 		return 0;
@@ -193,8 +193,7 @@ ipoput6(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
 			if(xp->rp == xp->wp)
 				xp = xp->next;
 		}
-
-		ifc->m->bwrite(ifc, nb, V6, gate);
+		ipifcoput(ifc, nb, V6, gate);
 		ip->stats[FragCreates]++;
 	}
 	ip->stats[FragOKs]++;

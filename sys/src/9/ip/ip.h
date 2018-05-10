@@ -327,6 +327,12 @@ struct Ipifc
 	uchar	recvra6;	/* flag: recv router advs on this ifc */
 	Routerparams rp;	/* router parameters as in RFC 2461, pp.40—43.
 					used only if node is router */
+
+	int	speed;		/* link speed in bits per second */
+	int	delay;		/* burst delay in ms */
+	int	burst;		/* burst delay in bytes */
+	int	load;		/* bytes in flight */
+	ulong	ticks;
 };
 
 /*
@@ -652,6 +658,7 @@ extern Medium	pktmedium;
  */
 extern Medium*	ipfindmedium(char *name);
 extern void	addipmedium(Medium *med);
+extern void	ipifcoput(Ipifc *ifc, Block *bp, int version, uchar *ip);
 extern int	ipforme(Fs*, uchar *addr);
 extern int	ipismulticast(uchar *ip);
 extern Ipifc*	findipifc(Fs*, uchar *local, uchar *remote, int type);

@@ -194,6 +194,17 @@ Set the maximum transfer unit for this device to
 The mtu is the maximum size of the packet including any
 medium-specific headers.
 .TP
+.BI speed\  n
+Set the maximum transmit speed in bits per second.
+TP
+.BI delay\  n
+Set the maximum burst delay in milliseconds. (Default is 40ms)
+When
+.B speed
+has been set and packets in flight exceed the maximum burst
+delay then packets send on the interface are discarded until
+the load drops below the maximum.
+.TP
 .BI iprouting\  n
 Allow
 .RI ( n

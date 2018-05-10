@@ -180,6 +180,7 @@ ipoput4(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
 		runlock(ifc);
 		nexterror();
 	}
+
 	if(ifc->m == nil)
 		goto raise;
 
@@ -196,7 +197,7 @@ ipoput4(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
 		eh->cksum[0] = 0;
 		eh->cksum[1] = 0;
 		hnputs(eh->cksum, ipcsum(&eh->vihl));
-		ifc->m->bwrite(ifc, concatblock(bp), V4, gate);
+		ipifcoput(ifc, bp, V4, gate);
 		runlock(ifc);
 		poperror();
 		return 0;
@@ -280,7 +281,7 @@ if((eh->frag[0] & (IP_DF>>8)) && !gating) print("%V: DF set\n", eh->dst);
 		feh->cksum[0] = 0;
 		feh->cksum[1] = 0;
 		hnputs(feh->cksum, ipcsum(&feh->vihl));
-		ifc->m->bwrite(ifc, nb, V4, gate);
+		ipifcoput(ifc, nb, V4, gate);
 		ip->stats[FragCreates]++;
 	}
 	ip->stats[FragOKs]++;
