@@ -29,11 +29,12 @@ int cookielen;
 uchar etherdst[6];
 int mtu = 1492;
 int pktcompress, hdrcompress;
+char *baud;
 
 void
 usage(void)
 {
-	fprint(2, "usage: pppoe [-PdcC] [-A acname] [-S srvname] [-k keyspec] [-m mtu] [-x pppnet] [ether0]\n");
+	fprint(2, "usage: pppoe [-PdcC] [-A acname] [-S srvname] [-k keyspec] [-m mtu] [-b baud] [-x pppnet] [ether0]\n");
 	exits("usage");
 }
 
@@ -75,6 +76,9 @@ main(int argc, char **argv)
 		break;
 	case 'k':
 		keyspec = EARGF(usage());
+		break;
+	case 'b':
+		baud = EARGF(usage());
 		break;
 	case 'c':
 		pktcompress = 1;
@@ -533,6 +537,10 @@ execppp(int fd)
 		argv[argc++] = "-d";
 	if(primary)
 		argv[argc++] = "-P";
+	if(baud){
+		argv[argc++] = "-b";
+		argv[argc++] = baud;
+	}
 	if(hdrcompress)
 		argv[argc++] = "-C";
 	if(pktcompress)
