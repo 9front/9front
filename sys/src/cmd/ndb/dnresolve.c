@@ -18,7 +18,7 @@ enum
 	Answerr=	-1,
 	Answnone,
 
-	Maxdest=	24,	/* maximum destinations for a request message */
+	Maxdest=	32,	/* maximum destinations for a request message */
 	Maxoutstanding=	15,	/* max. outstanding queries per domain name */
 
 	/*
@@ -28,8 +28,6 @@ enum
 	 */
 	Maxtrans=	5,	/* maximum transmissions to a server */
 	Maxretries=	10,	/* cname+actual resends: was 32; have pity on user */
-	Maxwaitms=	5000,	/* wait no longer for a remote dns query */
-	Minwaitms=	500,	/* willing to wait for a remote dns query */
 };
 enum { Hurry, Patient, };
 enum { Outns, Inns, };
@@ -61,21 +59,6 @@ struct Query {
 	int	tcpfd;		/* if Tcp, read replies from here */
 	int	tcpctlfd;
 	uchar	tcpip[IPaddrlen];
-};
-
-/* estimated % probability of such a record existing at all */
-int likely[] = {
-	[Ta]		95,
-	[Taaaa]		10,
-	[Tcname]	15,
-	[Tmx]		60,
-	[Tns]		90,
-	[Tnull]		5,
-	[Tptr]		35,
-	[Tsoa]		90,
-	[Tsrv]		60,
-	[Ttxt]		15,
-	[Tall]		95,
 };
 
 static RR*	dnresolve1(char*, int, int, Request*, int, int);
@@ -764,12 +747,13 @@ queryloops(Query *qp, RR *rp)
 }
 
 /*
- *  Get next server address(es) into qp->dest[nd] and beyond
+ *  Get next server type address(es) into qp->dest[nd] and beyond
  */
 static int
-serveraddrs(Query *qp, int nd, int depth)
+serveraddrs(Query *qp, int nd, int depth, int type)
 {
 	RR *rp, *arp, *trp;
+	ulong mark;
 	Dest *p;
 
 	if(nd >= Maxdest)		/* dest array is full? */
@@ -780,23 +764,20 @@ serveraddrs(Query *qp, int nd, int depth)
 	 *  if we find one, mark it so we ignore this on
 	 *  subsequent passes.
 	 */
-	arp = 0;
+	mark = 1UL<<type;
+	arp = nil;
 	for(rp = qp->nsrp; rp; rp = rp->next){
 		assert(rp->magic == RRmagic);
-		if(rp->marker)
+		if(rp->marker & mark)
 			continue;
-		arp = rrlookup(rp->host, Ta, NOneg);
-		if(arp == nil)
-			arp = rrlookup(rp->host, Taaaa, NOneg);
+		arp = rrlookup(rp->host, type, NOneg);
 		if(arp){
-			rp->marker = 1;
+			rp->marker |= mark;
 			break;
 		}
-		arp = dblookup(rp->host->name, Cin, Ta, 0, 0);
-		if(arp == nil)
-			arp = dblookup(rp->host->name, Cin, Taaaa, 0, 0);
+		arp = dblookup(rp->host->name, Cin, type, 0, 0);
 		if(arp){
-			rp->marker = 1;
+			rp->marker |= mark;
 			break;
 		}
 	}
@@ -806,9 +787,9 @@ serveraddrs(Query *qp, int nd, int depth)
 	 *  server addresses, try resolving one via the network.
 	 *  Mark any we try to resolve so we don't try a second time.
 	 */
-	if(arp == 0){
+	if(arp == nil){
 		for(rp = qp->nsrp; rp; rp = rp->next)
-			if(rp->marker == 0)
+			if((rp->marker & mark) == 0)
 			if(queryloops(qp, rp))
 				/*
 				 * give up as we should have got the address
@@ -818,14 +799,11 @@ serveraddrs(Query *qp, int nd, int depth)
 				return nd;
 
 		for(rp = qp->nsrp; rp; rp = rp->next){
-			if(rp->marker)
+			if(rp->marker & mark)
 				continue;
-			rp->marker = 1;
-			arp = dnresolve(rp->host->name, Cin, Ta, qp->req, 0,
+			rp->marker |= mark;
+			arp = dnresolve(rp->host->name, Cin, type, qp->req, 0,
 				depth+1, Recurse, 1, 0);
-			if(arp == nil)
-				arp = dnresolve(rp->host->name, Cin, Taaaa,
-					qp->req, 0, depth+1, Recurse, 1, 0);
 			rrfreelist(rrremneg(&arp));
 			if(arp)
 				break;
@@ -836,7 +814,9 @@ serveraddrs(Query *qp, int nd, int depth)
 	for(trp = arp; trp && nd < Maxdest; trp = trp->next){
 		p = &qp->dest[nd];
 		memset(p, 0, sizeof *p);
-		parseip(p->a, trp->ip->name);
+		if(parseip(p->a, trp->ip->name) == -1)
+			continue;
+
 		/*
 		 * straddling servers can reject all nameservers if they are all
 		 * inside, so be sure to list at least one outside ns at
@@ -1023,8 +1003,9 @@ xmitquery(Query *qp, int medium, int depth, uchar *obuf, int inns, int len)
 	p = qp->dest;
 	n = qp->curdest - p;
 	if (qp->ndest > n) {
-		n = serveraddrs(qp, n, depth);	/* populates qp->dest. */
-		assert(n >= 0 && n <= Maxdest);
+		/* populates qp->dest with v4 and v6 addresses. */
+		n = serveraddrs(qp, n, depth, Ta);
+		n = serveraddrs(qp, n, depth, Taaaa);
 		if (n == 0 && cfg.straddle && cfg.inside) {
 			/* get ips of "outside-ns-ips" */
 			while(n < Maxdest){
@@ -1346,7 +1327,7 @@ queryns(Query *qp, int depth, uchar *ibuf, uchar *obuf, ulong waitms, int inns)
 	 *  each cycle send one more message than the previous.
 	 *  retry a query via tcp if its response is truncated.
 	 */
-	for(ndest = 1; ndest < Maxdest; ndest++){
+	for(ndest = 2; ndest < Maxdest; ndest += 2){
 		qp->ndest = ndest;
 		qp->tcpset = 0;
 		if (xmitquery(qp, Udp, depth, obuf, inns, len) < 0)
@@ -1419,20 +1400,6 @@ queryns(Query *qp, int depth, uchar *ibuf, uchar *obuf, ulong waitms, int inns)
 	return Answnone;
 }
 
-/* compute wait, weighted by probability of success, with bounds */
-static ulong
-weight(ulong ms, unsigned pcntprob)
-{
-	ulong wait;
-
-	wait = (ms * pcntprob) / 100;
-	if (wait < Minwaitms)
-		wait = Minwaitms;
-	if (wait > Maxwaitms)
-		wait = Maxwaitms;
-	return wait;
-}
-
 /*
  * in principle we could use a single descriptor for a udp port
  * to send all queries and receive all the answers to them,
@@ -1442,11 +1409,7 @@ static int
 udpquery(Query *qp, char *mntpt, int depth, int patient, int inns)
 {
 	int fd, rv;
-	ulong pcntprob;
-	uvlong wait, reqtm;
 	uchar *obuf, *ibuf;
-
-	rv = -1;
 
 	/* use alloced buffers rather than ones from the stack */
 	ibuf = emalloc(64*1024);		/* max. tcp reply size */
@@ -1456,24 +1419,11 @@ udpquery(Query *qp, char *mntpt, int depth, int patient, int inns)
 	if (fd < 0) {
 		dnslog("can't get udpport for %s query of name %s: %r",
 			mntpt, qp->dp->name);
+		rv = -1;
 		goto Out;
 	}
-
-	/*
-	 * Our QIP servers are busted and respond to AAAA and CNAME queries
-	 * with (sometimes malformed [too short] packets and) no answers and
-	 * just NS RRs but not Rname errors.  so make time-to-wait
-	 * proportional to estimated probability of an RR of that type existing.
-	 */
-	if (qp->type >= nelem(likely))
-		pcntprob = 35;			/* unpopular query type */
-	else
-		pcntprob = likely[qp->type];
-	reqtm = (patient? 2 * Maxreqtm: Maxreqtm);
-	wait = weight(reqtm / 3, pcntprob);	/* time for one udp query */
-
 	qp->udpfd = fd;
-	rv = queryns(qp, depth, ibuf, obuf, wait, inns);
+	rv = queryns(qp, depth, ibuf, obuf, 500UL<<(patient != 0), inns);
 	qp->udpfd = -1;
 	close(fd);
 
@@ -1562,7 +1512,7 @@ seerootns(void)
 	req.aborttime = timems() + Maxreqtm;
 	req.from = "internal";
 	queryinit(&q, dnlookup(root, Cin, 1), Tns, &req);
-	nsrp = dblookup(root, Cin, Tns, 0, 0);
+	nsrp = randomize(dblookup(root, Cin, Tns, 0, 0));
 	for (rr = nsrp; rr != nil; rr = rr->next)
 		dnslog("seerootns query nsrp: %R", rr);
 	rv = netqueryns(&q, 0, nsrp);		/* lookup ". ns" using nsrp */

@@ -257,6 +257,7 @@ dblookup1(char *name, int type, int auth, int ttl)
 	/*
 	 *  find a matching entry in the database
 	 */
+	t = nil;
 	nstrcpy(dname, name, sizeof dname);
 	for(x=0; x<4; x++){
 		switch(x){
@@ -277,10 +278,23 @@ dblookup1(char *name, int type, int auth, int ttl)
 				continue;
 			break;
 		}
-		t = nil;
-		free(ndbgetvalue(db, &s, "dom", dname, attr, &t));
-		if(t == nil && strchr(dname, '.') == nil)
-			free(ndbgetvalue(db, &s, "sys", dname, attr, &t));
+		for(nt = ndbsearch(db, &s, "dom", dname); nt != nil; nt = ndbsnext(&s, "dom", dname)) {
+			if(ndbfindattr(nt, s.t, attr) == nil) {
+				ndbfree(nt);
+				continue;
+			}
+			t = ndbconcatenate(t, ndbreorder(nt, s.t));
+		}
+		if(t == nil && strchr(dname, '.') == nil) {
+			for(nt = ndbsearch(db, &s, "sys", dname); nt != nil; nt = ndbsnext(&s, "sys", dname)) {
+				if(ndbfindattr(nt, s.t, attr) == nil) {
+					ndbfree(nt);
+					continue;
+				}
+				t = ndbconcatenate(t, ndbreorder(nt, s.t));
+			}
+		}
+		s.t = t;
 		if(t != nil)
 			break;
 	}
@@ -289,6 +303,7 @@ dblookup1(char *name, int type, int auth, int ttl)
 //		dnslog("dblookup1(%s) name not found", name);
 		return nil;
 	}
+
 
 	/* search whole entry for default domain name */
 	for(nt = t; nt; nt = nt->entry)

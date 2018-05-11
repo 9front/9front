@@ -73,6 +73,7 @@ main(int argc, char *argv[])
 	dninit();
 	fmtinstall('R', prettyrrfmt);
 	opendatabase();
+	srand(truerand());
 
 	if(cfg.resolver)
 		squirrelserveraddrs();

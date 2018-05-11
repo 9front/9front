@@ -197,7 +197,7 @@ main(int argc, char *argv[])
 	free(dir);
 	mountinit(servefile, mntpt);	/* forks, parent exits */
 
-	srand(now*getpid());
+	srand(truerand());
 	db2cache(1);
 
 	if (cfg.straddle && !seerootns())
