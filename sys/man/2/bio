@@ -153,12 +153,12 @@ returns the integer file descriptor of the associated open file.
 .PP
 .I Bterm
 flushes the buffer for
-.IR bp
+.I bp
 and returns
 .IR Bflush 's
 return value.
 If the buffer was allocated by
-.IR Bopen
+.I Bopen
 or
 .IR Bfdopen ,
 the buffer is
@@ -270,7 +270,7 @@ outputs the low order 8 bits of
 on
 .IR bp .
 If this causes a
-.IR write
+.I write
 to occur and there is an error,
 a negative value is returned.
 Otherwise, a zero is returned.
@@ -291,7 +291,7 @@ on the output stream.
 is a buffered interface to
 .IR print (2).
 If this causes a
-.IR write
+.I write
 to occur and there is an error,
 a negative value
 .RB ( Beof )
@@ -312,7 +312,7 @@ of data starting at
 to
 .IR bp .
 If this causes a
-.IR write
+.I write
 to occur and there is an error,
 a negative value is returned.
 Otherwise, the number of bytes written is returned.
@@ -349,7 +349,7 @@ is called with a non-nil
 function, then that function is called for I/O in lieu of
 .IR read (2)
 and
-.IR write (2).
+.IR write .
 A nil argument for
 .I iof
 restores normal behaviour.
@@ -357,6 +357,7 @@ restores normal behaviour.
 .B /sys/src/libbio
 .SH SEE ALSO
 .IR open (2),
+.IR read (2),
 .IR print (2),
 .IR exits (2),
 .IR utf (6),

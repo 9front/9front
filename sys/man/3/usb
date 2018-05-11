@@ -402,7 +402,7 @@ by the descriptor.
 If
 .I n
 is set to 1 for an isochronous endpoint,
-.IR read(2)
+.IR read (2)
 from the data file will not cross μframe boundaries.
 .TP
 .B clrhalt

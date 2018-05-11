@@ -105,7 +105,9 @@ Reading the
 file will stall the reading process until the virtual CPU reaches a point where it cannot continue (a "VM exit").
 This may be due to the an access to hardware or a software exception.
 Each exit is indicated by a single line in a format compatible with
-.IR tokenize (2).
+.I tokenize
+(see
+.IR getfields (2)).
 The first column contains the cause of the exit and the second column contains the "exit qualification" field that may contain more details on the exit (see Intel SDM).
 The remaining columns come in pairs and contain further info and the values of relevant registers.
 

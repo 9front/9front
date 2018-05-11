@@ -72,14 +72,16 @@ if
 .B -m
 is not specified.
 The default mount options are equivalent to calling
-.IR mount (1)
+.I mount
+(see
+.IR bind (1))
 with
 .BR -c .
 .B -a
 and
 .B -b
 have the same function as they do with
-.IR mount (1).
+.IR mount .
 The default remote root is the user's home directory but can be changed with
 .BR -r .
 .PP
@@ -130,7 +132,9 @@ Version 4 and later also handle uid/gid translation at the server end which woul
 .PP
 Some 9P operations that should be atomic are not atomic because they do not map 1:1 to SFTP operations.
 In particular there is no guarantee that a failed
-.IR wstat (5)
+.I wstat
+(see
+.IR stat (5))
 did not change some of the fields.
 .PP
 The code is naive about links and assumes files with distinct names to be distinct, assigning them different QIDs.

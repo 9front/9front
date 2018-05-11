@@ -156,7 +156,9 @@ using TLS for encryption.
 .TP
 .B tcp17020
 TLS encrypted 9P fileserver (t9fs) for
-.IR srvtls (4)
+.I srvtls
+(see
+.IR srv (4)).
 .TP
 .B tcp7
 echo any bytes received (bit mirror)

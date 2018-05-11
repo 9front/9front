@@ -158,7 +158,9 @@ to generate random numbers between 0 and
 .if t 2\u\s731\s10\d-1;
 .if n 2^31-1;
 it defaults to
-.IR lrand (2).
+.I lrand
+(see
+.IR rand (2)).
 .I Errfun
 is called on fatal errors (see DIAGNOSTICS).
 Additionally, a number of finetuning parameters are defined in
@@ -199,7 +201,9 @@ with an error string and
 If no
 .I errfun
 is provided or if it returns,
-.IR sysfatal (2)
+.I sysfatal
+(see
+.IR perror (2))
 is called.
 It is permissible to use
 .IR setjmp (2)

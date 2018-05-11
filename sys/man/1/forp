@@ -141,7 +141,7 @@ Assignment.
 .PP
 One subtle point concerning assignments is that they forcibly override any previous values, i.e. expressions use the value of the latest assignments preceding them.
 Note that the values reported as the counterexample are always the values given by the last assignment.
-.SH "EXAMPLES"
+.SH EXAMPLES
 We know that, mathematically, \fIa\fR + \fIb\fR ≥ \fIa\fR if \fIb\fR ≥ 0 (which is always true for an unsigned number).
 We can ask
 .I forp
