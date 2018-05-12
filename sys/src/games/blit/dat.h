@@ -1,7 +1,3 @@
-typedef signed char s8int;
-typedef signed short s16int;
-typedef signed long s32int;
-
 extern u32int curpc, irq;
 extern int trace, debug;
 

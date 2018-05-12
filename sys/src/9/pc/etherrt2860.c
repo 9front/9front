@@ -17,9 +17,6 @@
 #include "../port/etherif.h"
 #include "../port/wifi.h"
 
-/* for consistency */
-typedef signed char s8int;
-
 enum {
 	/* PCI registers */
 	PciCfg = 0x0000,

@@ -1,7 +1,3 @@
-typedef char s8int;
-typedef short s16int;
-typedef int s32int;
-
 typedef struct PCIDev PCIDev;
 typedef struct PCICap PCICap;
 typedef struct PCIBar PCIBar;
