@@ -1,0 +1,35 @@
+.SH ATARI 1
+.SH NAME
+2600 \- emulator
+.SH SYNOPSIS
+.B games/2600
+[
+.B -a
+]
+.I romfile
+.SH DESCRIPTION
+.I 2600
+is an emulator for the Atari 2600.
+It exectues the romfile given as an argument,
+and controls as if using a regular 4-direction 1-button joystick,
+using \fBspace\fR button and directional keys.
+The \fBq\fR, \fBw\fR, \fBe\fR, \fBr\fR keys correspond respectively to the reset, select, player 1 difficulty and color mode switches.
+Other keys:
+.TP
+Esc
+Pause the emulator.
+.TP
+Del
+Exit the emulator.
+.PP
+Command line options:
+.TP
+.B -a
+Enable audio output.
+.SH SOURCE
+.B /sys/src/games/2600
+.SH BUGS
+Yes.
+.SH HISTORY
+.I 2600
+first appeared in 9front (November, 2014).

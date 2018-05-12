@@ -24,6 +24,7 @@ HFILES=
 BIN=/$objtype/bin/games
 
 DIRS=\
+	2600\
 	blabs\
 	blit\
 	c64\
