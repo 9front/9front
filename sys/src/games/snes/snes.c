@@ -4,21 +4,16 @@
 #include <draw.h>
 #include <keyboard.h>
 #include <mouse.h>
-#include <ctype.h>
+#include <emu.h>
 #include "dat.h"
 #include "fns.h"
 
 uchar *prg, *sram;
 int nprg, nsram, hirom, battery;
 
-int ppuclock, spcclock, dspclock, stimerclock, saveclock, msgclock, paused, perfclock, cpupause;
-Mousectl *mc;
-Channel *flushc, *msgc;
-QLock pauselock;
-u32int keys;
-int savefd, scale, profile, mouse, loadreq, savereq;
-Rectangle picr;
-Image *tmp, *bg;
+int ppuclock, spcclock, dspclock, stimerclock, saveclock, msgclock, cpupause;
+Channel *msgc;
+int savefd, mouse;
 
 void
 flushram(void)
@@ -114,187 +109,13 @@ loadbat(char *file)
 }
 
 void
-keyproc(void *)
-{
-	int fd, n, k;
-	static char buf[256];
-	char *s;
-	Rune r;
-
-	fd = open("/dev/kbd", OREAD);
-	if(fd < 0)
-		sysfatal("open: %r");
-	for(;;){
-		if(buf[0] != 0){
-			n = strlen(buf)+1;
-			memmove(buf, buf+n, sizeof(buf)-n);
-		}
-		if(buf[0] == 0){
-			n = read(fd, buf, sizeof(buf)-1);
-			if(n <= 0)
-				sysfatal("read /dev/kbd: %r");
-			buf[n-1] = 0;
-			buf[n] = 0;
-		}
-		if(buf[0] == 'c'){
-			if(utfrune(buf, KF|5))
-				savereq = 1;
-			if(utfrune(buf, KF|6))
-				loadreq = 1;
-			if(utfrune(buf, Kdel)){
-				close(fd);
-				threadexitsall(nil);
-			}
-			if(utfrune(buf, 't'))
-				trace = !trace;
-		}
-		if(buf[0] != 'k' && buf[0] != 'K')
-			continue;
-		s = buf + 1;
-		k = 0xffff;
-		while(*s != 0){
-			s += chartorune(&r, s);
-			switch(r){
-			case Kdel: close(fd); threadexitsall(nil);
-			case 'z': k |= 1<<31; break;
-			case 'x': k |= 1<<23; break;
-			case 'a': k |= 1<<30; break;
-			case 's': k |= 1<<22; break;
-			case 'q': k |= 1<<21; break;
-			case 'w': k |= 1<<20; break;
-			case Kshift: k |= 1<<29; break;
-			case 10: k |= 1<<28; break;
-			case Kup: k |= 1<<27; break;
-			case Kdown: k |= 1<<26; break;
-			case Kleft: k |= 1<<25; break;
-			case Kright: k |= 1<<24; break;
-			case Kesc:
-				if(paused)
-					qunlock(&pauselock);
-				else
-					qlock(&pauselock);
-				paused = !paused;
-				break;
-			}
-		}
-		if(!mouse)
-			keys = k;
-	}
-}
-
-void
-screeninit(void)
-{
-	Point p;
-
-	p = divpt(addpt(screen->r.min, screen->r.max), 2);
-	picr = (Rectangle){subpt(p, Pt(scale * 128, scale * 112)), addpt(p, Pt(scale * 128, scale * 127))};
-	if(tmp != nil) freeimage(tmp);
-	tmp = allocimage(display, Rect(0, 0, scale * 256, scale > 1 ? 1 : scale * 239), RGB15, scale > 1, 0);
-	if(bg != nil) freeimage(bg);
-	bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
-	draw(screen, screen->r, bg, nil, ZP);	
-}
-
-void
-screenproc(void *)
-{
-	extern uchar pic[256*239*2*3];
-	char *s;
-	Mouse m;
-	Point p;
-
-	enum { AMOUSE, ARESIZE, AFLUSH, AMSG, AEND };
-	Alt a[AEND+1] = {
-		{ mc->c,	&m,	CHANRCV },
-		{ mc->resizec,	nil,	CHANRCV },
-		{ flushc,	nil,	CHANRCV },
-		{ msgc,		&s,	CHANRCV },
-		{ nil,		nil,	CHANEND }
-	};
-
-	for(;;){
-		switch(alt(a)){
-		case AMOUSE:
-			if(mouse && ptinrect(m.xy, picr)){
-				p = subpt(m.xy, picr.min);
-				p.x /= scale;
-				p.y /= scale;
-				keys = keys & 0xff3f0000 | p.x | p.y << 8;
-				if((m.buttons & 1) != 0)
-					keys |= 1<<22;
-				if((m.buttons & 4) != 0)
-					keys |= 1<<23;
-				if((m.buttons & 2) != 0)
-					lastkeys = keys;
-			}
-			break;
-		case ARESIZE:
-			if(getwindow(display, Refnone) < 0)
-				sysfatal("resize failed: %r");
-			screeninit();
-			/* wet floor */
-		case AFLUSH:
-			if(scale == 1){
-				loadimage(tmp, tmp->r, pic, 256*239*2);
-				draw(screen, picr, tmp, nil, ZP);
-			} else {
-				Rectangle r;
-				uchar *s;
-				int w;
-
-				s = pic;
-				r = picr;
-				w = 256*2*scale;
-				while(r.min.y < picr.max.y){
-					loadimage(tmp, tmp->r, s, w);
-					s += w;
-					r.max.y = r.min.y+scale;
-					draw(screen, r, tmp, nil, ZP);
-					r.min.y = r.max.y;
-				}
-			}
-			flushimage(display, 1);
-			break;
-		case AMSG:
-			draw(screen, rectaddpt(Rect(10, 10, 200, 30), screen->r.min), bg, nil, ZP);
-			if(s != nil){
-				string(screen, addpt(screen->r.min, Pt(10, 10)), display->black, ZP, 
-					display->defaultfont, s);
-				free(s);
-			}
-			break;
-		}
-	}
-}
-
-void
-timing(void)
-{
-	static vlong old;
-	vlong new;
-	
-	new = nsec();
-	if(new != old)
-		message("%6.2f%%", 1e11 / (new - old));
-	old = nsec();
-}
-
-void
 threadmain(int argc, char **argv)
 {
 	int t;
 	extern u16int pc;
 
-	scale = 1;
 	hirom = -1;
 	ARGBEGIN {
-	case '2':
-		scale = 2;
-		break;
-	case '3':
-		scale = 3;
-		break;
 	case 'a':
 		audioinit();
 		break;
@@ -308,9 +129,6 @@ threadmain(int argc, char **argv)
 	case 'h':
 		hirom++;
 		break;
-	case 'T':
-		profile++;
-		break;
 	default:
 		goto usage;
 	} ARGEND;
@@ -321,16 +139,20 @@ usage:
 		threadexitsall("usage");
 	}
 	loadrom(argv[0]);
-	if(initdraw(nil, nil, argv0) < 0)
-		sysfatal("initdraw: %r");
-	flushc = chancreate(sizeof(ulong), 1);
-	msgc = chancreate(sizeof(char*), 0);
-	mc = initmouse(nil, screen);
-	if(mc == nil)
-		sysfatal("initmouse: %r");
-	screeninit();
-	proccreate(keyproc, 0, 8192);
-	proccreate(screenproc, 0, 8192);
+	initemu(256, 239, 2, RGB15, !mouse, nil);
+	regkey("b", 'z', 1<<31);
+	regkey("a", 'x', 1<<23);
+	regkey("y", 'a', 1<<30);
+	regkey("x", 's', 1<<22);
+	regkey("l1", 'q', 1<<21);
+	regkey("r1", 'w', 1<<20);
+	regkey("control", Kshift, 1<<29);
+	regkey("start", '\n', 1<<28);
+	regkey("up", Kup, 1<<27);
+	regkey("down", Kdown, 1<<26);
+	regkey("left", Kleft, 1<<25);
+	regkey("right", Kright, 1<<24);
+	msgc = chancreate(sizeof(char*), 1);
 	loadbat(argv[0]);
 	cpureset();
 	memreset();
@@ -358,7 +180,6 @@ usage:
 		stimerclock += t;
 		ppuclock += t;
 		dspclock += t;
-		perfclock -= t;
 
 		while(ppuclock >= 4){
 			ppustep();
@@ -386,18 +207,43 @@ usage:
 				msgclock = 0;
 			}
 		}
-		if(profile && perfclock <= 0){
-			perfclock = FREQ;
-			timing();
-		}
 	}
 }
 
 void
 flush(void)
 {
-	sendul(flushc, 1);	/* flush screen */
-	audioout();
+	char *s;
+	Mouse m;
+	Point p;
+
+	extern Rectangle picr;
+	extern Mousectl *mc;
+	flushmouse(!mouse);
+	while(nbrecv(mc->c, &m) > 0){
+		if(ptinrect(m.xy, picr)){
+			p = subpt(m.xy, picr.min);
+			p.x /= scale;
+			p.y /= scale;
+			keys = keys & 0xff3f0000 | p.x | p.y << 8;
+			if((m.buttons & 1) != 0)
+				keys |= 1<<22;
+			if((m.buttons & 4) != 0)
+				keys |= 1<<23;
+			if((m.buttons & 2) != 0)
+				lastkeys = keys;
+		}
+	}
+	flushscreen();
+	while(nbrecv(msgc, &s) > 0){
+		if(s != nil){
+			string(screen, addpt(screen->r.min, Pt(10, 10)), display->black, ZP, 
+				display->defaultfont, s);
+			free(s);
+			flushimage(display, 1);
+		}
+	}
+	flushaudio(audioout);
 }
 
 void

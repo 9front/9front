@@ -1,0 +1,20 @@
+</$objtype/mkfile
+
+LIB=/$objtype/lib/libemu.a
+
+OFILES=\
+	emu.$O\
+
+HFILES=\
+	/sys/include/draw.h\
+	/sys/include/emu.h\
+	/sys/include/mouse.h\
+	/sys/include/keyboard.h
+
+UPDATE=\
+	mkfile\
+	$HFILES\
+	${OFILES:%.$O=%.c}\
+	${LIB:/$objtype/%=/386/%}\
+
+</sys/src/cmd/mksyslib

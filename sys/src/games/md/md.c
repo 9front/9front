@@ -3,11 +3,9 @@
 #include <thread.h>
 #include <draw.h>
 #include <keyboard.h>
-#include <mouse.h>
+#include <emu.h>
 #include "dat.h"
 #include "fns.h"
-
-int debug;
 
 u16int *prg;
 int nprg;
@@ -15,16 +13,7 @@ u8int *sram;
 u32int sramctl, nsram, sram0, sram1;
 int savefd = -1;
 
-int keys;
-
 int dmaclock, vdpclock, z80clock, audioclock, ymclock, saveclock;
-
-int scale, paused;
-QLock pauselock;
-Mousectl *mc;
-Channel *flushc;
-Rectangle picr;
-Image *tmp, *bg;
 
 void
 flushram(void)
@@ -114,145 +103,13 @@ loadrom(char *file)
 }
 
 void
-screeninit(void)
-{
-	Point p;
-
-	originwindow(screen, Pt(0, 0), screen->r.min);
-	p = divpt(addpt(screen->r.min, screen->r.max), 2);
-	picr = (Rectangle){subpt(p, Pt(scale * 160, scale * 112)), addpt(p, Pt(scale * 160, scale * 112))};
-	if(tmp != nil) freeimage(tmp);
-	tmp = allocimage(display, Rect(0, 0, scale * 320, scale > 1 ? 1 : scale * 224), XRGB32, scale > 1, 0);
-	if(bg != nil) freeimage(bg);
-	bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
-	draw(screen, screen->r, bg, nil, ZP);	
-}
-
-void
-screenproc(void *)
-{
-	extern u8int pic[320*224*4*4];
-	extern int intla;
-	Rectangle r;
-	uchar *s;
-	int w, h;
-
-	enum { AMOUSE, ARESIZE, AFLUSH, AEND };
-	Alt a[AEND+1] = {
-		{ mc->c,	nil,	CHANRCV },
-		{ mc->resizec,	nil,	CHANRCV },
-		{ flushc,	nil,	CHANRCV },
-		{ nil,		nil,	CHANEND }
-	};
-
-	for(;;){
-		switch(alt(a)){
-		case ARESIZE:
-			if(getwindow(display, Refnone) < 0)
-				sysfatal("resize failed: %r");
-			screeninit();
-			/* wet floor */
-		case AFLUSH:
-			if(scale == 1){
-				loadimage(tmp, tmp->r, pic, 320*224*4);
-				draw(screen, picr, tmp, nil, ZP);
-			}else{
-				s = pic;
-				r = picr;
-				w = 320*4*scale;
-				h = scale;
-				if(intla && (h & 1) == 0)
-					h >>= 1;
-				while(r.min.y < picr.max.y){
-					loadimage(tmp, tmp->r, s, w);
-					s += w;
-					r.max.y = r.min.y+h;
-					draw(screen, r, tmp, nil, ZP);
-					r.min.y = r.max.y;
-				}
-			}
-			flushimage(display, 1);
-			break;
-		}
-	}
-}
-
-void
-keyproc(void *)
-{
-	int fd, n, k;
-	static char buf[256];
-	char *s;
-	Rune r;
-
-	fd = open("/dev/kbd", OREAD);
-	if(fd < 0)
-		sysfatal("open: %r");
-	for(;;){
-		if(buf[0] != 0){
-			n = strlen(buf)+1;
-			memmove(buf, buf+n, sizeof(buf)-n);
-		}
-		if(buf[0] == 0){
-			n = read(fd, buf, sizeof(buf)-1);
-			if(n <= 0)
-				sysfatal("read /dev/kbd: %r");
-			buf[n-1] = 0;
-			buf[n] = 0;
-		}
-		if(buf[0] == 'c'){
-			if(utfrune(buf, Kdel)){
-				close(fd);
-				threadexitsall(nil);
-			}
-			if(utfrune(buf, 't'))
-				trace = !trace;
-		}
-		if(buf[0] != 'k' && buf[0] != 'K')
-			continue;
-		s = buf + 1;
-		k = 0xc00;
-		while(*s != 0){
-			s += chartorune(&r, s);
-			if(r >= '0' && r <= '9') debug = r - '0';
-			switch(r){
-			case Kdel: close(fd); threadexitsall(nil);
-			case 'c':	k |= 0x0020; break;
-			case 'x':	k |= 0x0010; break;
-			case 'z':	k |= 0x1000; break;
-			case 10:	k |= 0x2000; break;
-			case Kup:	k |= 0x0101; break;
-			case Kdown:	k |= 0x0202; break;
-			case Kleft:	k |= 0x0004; break;
-			case Kright:	k |= 0x0008; break;
-			case Kesc:
-				if(paused)
-					qunlock(&pauselock);
-				else
-					qlock(&pauselock);
-				paused = !paused;
-				break;
-			}
-		}
-		keys = ~k;
-	}
-}
-
-void
 threadmain(int argc, char **argv)
 {
 	int t;
 
-	scale = 1;
 	ARGBEGIN{
 	case 'a':
 		initaudio();
-		break;
-	case '2':
-		scale = 2;
-		break;
-	case '3':
-		scale = 3;
 		break;
 	default:
 		;
@@ -263,15 +120,15 @@ threadmain(int argc, char **argv)
 		threadexitsall("usage");
 	}
 	loadrom(*argv);
-	if(initdraw(nil, nil, argv0) < 0)
-		sysfatal("initdraw: %r");
-	flushc = chancreate(sizeof(ulong), 1);
-	mc = initmouse(nil, screen);
-	if(mc == nil)
-		sysfatal("initmouse: %r");
-	screeninit();
-	proccreate(keyproc, nil, 8192);
-	proccreate(screenproc, nil, 8192);
+	initemu(320, 224, 4, XRGB32, 1, nil);
+	regkey("a", 'c', 1<<5);
+	regkey("b", 'x', 1<<4);
+	regkey("y", 'z', 1<<12);
+	regkey("start", '\n', 1<<13);
+	regkey("up", Kup, 0x101);
+	regkey("down", Kdown, 0x202);
+	regkey("left", Kleft, 1<<2);
+	regkey("right", Kright, 1<<3);
 	cpureset();
 	vdpmode();
 	ymreset();
@@ -320,22 +177,7 @@ threadmain(int argc, char **argv)
 void
 flush(void)
 {
-	static vlong old, delta;
-	vlong new, diff;
-
-	sendul(flushc, 1);	/* flush screen */
-	if(audioout() < 0){
-		new = nsec();
-		diff = 0;
-		if(old != 0){
-			diff = BILLION/60 - (new - old) - delta;
-			if(diff >= MILLION)
-				sleep(diff/MILLION);
-		}
-		old = nsec();
-		if(diff != 0){
-			diff = (old - new) - (diff / MILLION) * MILLION;
-			delta += (diff - delta) / 100;
-		}
-	}
+	flushmouse(1);
+	flushscreen();
+	flushaudio(audioout);
 }

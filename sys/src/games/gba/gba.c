@@ -2,35 +2,18 @@
 #include <libc.h>
 #include <thread.h>
 #include <draw.h>
-#include <mouse.h>
 #include <keyboard.h>
+#include <emu.h>
 #include "dat.h"
 #include "fns.h"
 
 int cpuhalt;
-int scale, profile;
-Rectangle picr;
-Image *bg, *tmp;
-Mousectl *mc;
-int keys, paused, framestep, backup;
-QLock pauselock;
+Image *tmp;
+int backup;
 int savefd, saveframes;
 int clock;
-int savereq, loadreq;
 
 char *biosfile = "/sys/games/lib/gbabios.bin";
-
-void *
-emalloc(ulong sz)
-{
-	void *v;
-	
-	v = malloc(sz);
-	if(v == nil)
-		sysfatal("malloc: %r");
-	setmalloctag(v, getcallerpc(&sz));
-	return v;
-}
 
 void
 writeback(void)
@@ -212,172 +195,14 @@ loadrom(char *file)
 }
 
 void
-screeninit(void)
-{
-	Point p;
-
-	p = divpt(addpt(screen->r.min, screen->r.max), 2);
-	picr = (Rectangle){subpt(p, Pt(scale * 120, scale * 80)), addpt(p, Pt(scale * 120, scale * 80))};
-	freeimage(tmp);
-	tmp = allocimage(display, Rect(0, 0, scale * 240, scale > 1 ? 1 : scale * 160), CHAN4(CIgnore, 1, CBlue, 5, CGreen, 5, CRed, 5), scale > 1, 0);
-	draw(screen, screen->r, bg, nil, ZP);	
-}
-
-void
-keyproc(void *)
-{
-	int fd, n, k;
-	static char buf[256];
-	char *s;
-	Rune r;
-
-	fd = open("/dev/kbd", OREAD);
-	if(fd < 0)
-		sysfatal("open: %r");
-	for(;;){
-		if(buf[0] != 0){
-			n = strlen(buf)+1;
-			memmove(buf, buf+n, sizeof(buf)-n);
-		}
-		if(buf[0] == 0){
-			n = read(fd, buf, sizeof(buf)-1);
-			if(n <= 0)
-				sysfatal("read /dev/kbd: %r");
-			buf[n-1] = 0;
-			buf[n] = 0;
-		}
-		if(buf[0] == 'c'){
-			if(utfrune(buf, KF|5))
-				savereq = 1;
-			if(utfrune(buf, KF|6))
-				loadreq = 1;
-			if(utfrune(buf, Kdel)){
-				close(fd);
-				threadexitsall(nil);
-			}
-			if(utfrune(buf, 't'))
-				trace = !trace;
-		}
-		if(buf[0] != 'k' && buf[0] != 'K')
-			continue;
-		s = buf + 1;
-		k = 0;
-		while(*s != 0){
-			s += chartorune(&r, s);
-			switch(r){
-			case Kdel: close(fd); threadexitsall(nil);
-			case 'z': k |= 1<<1; break;
-			case 'x': k |= 1<<0; break;
-			case 'a': k |= 1<<9; break;
-			case 's': k |= 1<<8; break;
-			case Kshift: k |= 1<<2; break;
-			case 10: k |= 1<<3; break;
-			case Kup: k |= 1<<6; break;
-			case Kdown: k |= 1<<7; break;
-			case Kleft: k |= 1<<5; break;
-			case Kright: k |= 1<<4; break;
-			case Kesc:
-				if(paused)
-					qunlock(&pauselock);
-				else
-					qlock(&pauselock);
-				paused = !paused;
-				break;
-			case KF|1:	
-				if(paused){
-					qunlock(&pauselock);
-					paused=0;
-				}
-				framestep = !framestep;
-				break;
-			}
-		}
-		k &= ~(k << 1 & 0xa0 | k >> 1 & 0x50);
-		keys = k;
-	}
-
-}
-
-void
-timing(void)
-{
-	static int fcount;
-	static vlong old;
-	static char buf[32];
-	vlong new;
-	
-	if(++fcount == 60)
-		fcount = 0;
-	else
-		return;
-	new = nsec();
-	if(new != old)
-		sprint(buf, "%6.2f%%", 1e11 / (new - old));
-	else
-		buf[0] = 0;
-	draw(screen, rectaddpt(Rect(10, 10, 200, 30), screen->r.min), bg, nil, ZP);
-	string(screen, addpt(screen->r.min, Pt(10, 10)), display->black, ZP, display->defaultfont, buf);
-	old = nsec();
-}
-
-void
 flush(void)
 {
-	extern uchar pic[];
-	Mouse m;
 	int x;
-	static vlong old, delta;
-	vlong new, diff;
 
-	if(nbrecvul(mc->resizec) > 0){
-		if(getwindow(display, Refnone) < 0)
-			sysfatal("resize failed: %r");
-		screeninit();
-	}
-	while(nbrecv(mc->c, &m) > 0)
-		;
-	if(scale == 1){
-		loadimage(tmp, tmp->r, pic, 240*160*2);
-		draw(screen, picr, tmp, nil, ZP);
-	} else {
-		Rectangle r;
-		uchar *s;
-		int w;
+	flushmouse(1);
+	flushscreen();
+	flushaudio(audioout);
 
-		s = pic;
-		r = picr;
-		w = 240*2*scale;
-		while(r.min.y < picr.max.y){
-			loadimage(tmp, tmp->r, s, w);
-			s += w;
-			r.max.y = r.min.y+scale;
-			draw(screen, r, tmp, nil, ZP);
-			r.min.y = r.max.y;
-		}
-	}
-	flushimage(display, 1);
-	if(profile)
-		timing();
-	if(audioout() < 0){
-		new = nsec();
-		diff = 0;
-		if(old != 0){
-			diff = BILLION/60 - (new - old) - delta;
-			if(diff >= MILLION)
-				sleep(diff/MILLION);
-		}
-		old = nsec();
-		if(diff != 0){
-			diff = (old - new) - (diff / MILLION) * MILLION;
-			delta += (diff - delta) / 100;
-		}
-	}
-	if(framestep){
-		paused = 1;
-		qlock(&pauselock);
-		framestep = 0;
-	}
-	
 	if(saveframes > 0 && --saveframes == 0)
 		flushback();
 	
@@ -395,7 +220,7 @@ flush(void)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-23aT] [-s savetype] [-b biosfile] rom\n", argv0);
+	fprint(2, "usage: %s [-aT] [-s savetype] [-b biosfile] rom\n", argv0);
 	exits("usage");
 }
 
@@ -405,14 +230,7 @@ threadmain(int argc, char **argv)
 	char *s;
 	int t;
 
-	scale = 1;
 	ARGBEGIN {
-	case '2':
-		scale = 2;
-		break;
-	case '3':
-		scale = 3;
-		break;
 	case 'a':
 		audioinit();
 		break;
@@ -425,9 +243,6 @@ threadmain(int argc, char **argv)
 	case 'b':
 		biosfile = strdup(EARGF(usage()));
 		break;
-	case 'T':
-		profile++;
-		break;
 	default:
 		usage();
 	} ARGEND;
@@ -436,16 +251,17 @@ threadmain(int argc, char **argv)
 
 	loadbios();
 	loadrom(argv[0]);
-	
-	if(initdraw(nil, nil, nil) < 0)
-		sysfatal("initdraw: %r");
-	mc = initmouse(nil, screen);
-	if(mc == nil)
-		sysfatal("initmouse: %r");
-	proccreate(keyproc, nil, mainstacksize);
-	bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
-	screeninit();
-
+	initemu(240, 160, 2, CHAN4(CIgnore, 1, CBlue, 5, CGreen, 5, CRed, 5), 1, nil);
+	regkey("b", 'z', 1<<1);
+	regkey("a", 'x', 1<<0);
+	regkey("l1", 'a', 1<<9);
+	regkey("r1", 's', 1<<8);
+	regkey("control", Kshift, 1<<2);
+	regkey("start", '\n', 1<<3);
+	regkey("up", Kup, 1<<6);
+	regkey("down", Kdown, 1<<7);
+	regkey("left", Kleft, 1<<5);
+	regkey("right", Kright, 1<<4);
 	eventinit();
 	memreset();
 	reset();

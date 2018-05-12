@@ -1,6 +1,7 @@
 #include <u.h>
 #include <libc.h>
 #include <thread.h>
+#include <emu.h>
 #include "dat.h"
 #include "fns.h"
 

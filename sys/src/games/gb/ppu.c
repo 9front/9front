@@ -1,11 +1,11 @@
 #include <u.h>
 #include <libc.h>
 #include <thread.h>
+#include <emu.h>
 #include "dat.h"
 #include "fns.h"
 
 u8int ppustate, ppuy;
-u32int pic[PICW*PICH*3];
 ulong hblclock, rendclock;
 jmp_buf mainjmp, renderjmp;
 static int cyc, done, ppux, ppux0;
@@ -63,7 +63,7 @@ ppurender(void)
 			}
 		ppux = 0;
 		ppux0 = 0;
-		picp = pic + ppuy * PICW * scale;
+		picp = (u32int*)pic + ppuy * PICW * scale;
 		y = ppuy + reg[SCY] << 1 & 14;
 		ta = 0x1800 | reg[LCDC] << 7 & 0x400 | ppuy + reg[SCY] << 2 & 0x3e0 | reg[SCX] >> 3;
 		x = -(reg[SCX] & 7);
@@ -197,7 +197,7 @@ sprites(void)
 	int x, x1;
 	u16int chr;
 	
-	picp = pic + ppuy * PICW * scale;
+	picp = (u32int*)pic + ppuy * PICW * scale;
 	for(q = spr; q < sprm; q++){
 		if(q->x <= ppux0 || q->x >= ppux + 8)
 			continue;
@@ -254,18 +254,31 @@ static void
 lineexpand(void)
 {
 	u32int *picp, *p, *q, l;
-	int i, s;
+	int i;
 
-	s = scale;
-	picp = pic + ppuy * PICW * s;
+	picp = (u32int*)pic + ppuy * PICW * scale;
 	p = picp + PICW;
 	q = picp + PICW * scale;
 	for(i = PICW; --i >= 0; ){
 		l = *--p;
-		*--q = l;
-		*--q = l;
-		if(scale == 3)
-			*--q = l;
+		switch(scale){
+		case 16: *--q = l;
+		case 15: *--q = l;
+		case 14: *--q = l;
+		case 13: *--q = l;
+		case 12: *--q = l;
+		case 11: *--q = l;
+		case 10: *--q = l;
+		case 9: *--q = l;
+		case 8: *--q = l;
+		case 7: *--q = l;
+		case 6: *--q = l;
+		case 5: *--q = l;
+		case 4: *--q = l;
+		case 3: *--q = l;
+		case 2: *--q = l;
+		case 1: *--q = l;
+		}
 	}
 }
 

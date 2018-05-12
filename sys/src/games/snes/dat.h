@@ -1,14 +1,10 @@
-typedef signed char s8int;
-typedef signed short s16int;
-
 extern u8int rP, dma, nmi, irq, emu, wai;
 extern u16int rA, rX, rY, rS, rD, pc;
 extern u32int rPB, rDB, curpc, hdma;
-extern int trace;
 
 extern uchar *prg, *sram;
 extern int nprg, nsram, hirom;
-extern u32int keys, keylatch, lastkeys;
+extern u32int keylatch, lastkeys;
 extern u8int reg[32768], mem[131072], spcmem[65536], vram[65536], oam[544];
 extern u16int cgram[256], vramlatch;
 extern u8int mdr, mdr1, mdr2;
@@ -25,7 +21,7 @@ extern u8int dspstate;
 extern u16int dspcounter, noise;
 
 extern int ppuclock, spcclock, dspclock, stimerclock, cpupause;
-extern int battery, saveclock, scale, mouse;
+extern int battery, saveclock, mouse;
 
 enum {
 	FLAGC = 1<<0,

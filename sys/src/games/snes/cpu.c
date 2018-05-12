@@ -1,6 +1,7 @@
 #include <u.h>
 #include <libc.h>
 #include <thread.h>
+#include <emu.h>
 #include "dat.h"
 #include "fns.h"
 
@@ -639,8 +640,6 @@ cpureset(void)
 	rS = 0x100;
 	rP = 0x35;
 }
-
-int trace;
 
 int
 cpustep(void)

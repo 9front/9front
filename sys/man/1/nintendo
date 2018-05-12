@@ -4,7 +4,7 @@ gb, gba, nes, snes \- emulators
 .SH SYNOPSIS
 .B games/gb
 [
-.B -23acdT
+.B -acdT
 ]
 [
 .B -C
@@ -14,7 +14,7 @@ gb, gba, nes, snes \- emulators
 .br
 .B games/gba
 [
-.B -23aT
+.B -aT
 ] [
 .B -b
 .I biosfile
@@ -26,13 +26,13 @@ gb, gba, nes, snes \- emulators
 .br
 .B games/nes
 [
-.B -23aos
+.B -aos
 ]
 .I romfile
 .br
 .B games/snes
 [
-.B -23ahmsT
+.B -ahmsT
 ]
 .I romfile
 .SH DESCRIPTION
@@ -43,7 +43,7 @@ and
 .I snes
 are emulators for the Nintendo Game Boy and Game Boy Color (GB and GBC), Nintendo Game Boy Advance (GBA), Nintendo Entertainment System (NES), and Super Nintendo Entertainment System (SNES).
 They execute the romfile given as an argument.
-The \fBz\fR, \fBx\fR, \fBa\fR, \fBs\fR, return and shift keys correspond to B, A, Y, X, Start and Select, respectively.
+The \fBz\fR, \fBx\fR, \fBa\fR, \fBs\fR, \fBq\fR, \fBw\fRreturn and shift keys correspond to B, A, Y, X, L1, L2, Start and Select, respectively.
 Other keys:
 .TP
 F5
@@ -60,14 +60,8 @@ Exit the emulator.
 .PP
 Command line options:
 .TP
-.B -2 -3
-Scale the screen by the given factor.
-.TP
 .B -a
 Enable audio output.
-.TP
-.B -T
-Display percentage of how fast the emulator is running relative to a real console.
 .PP
 .B gb
 options:

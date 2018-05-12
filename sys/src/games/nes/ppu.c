@@ -3,18 +3,17 @@
 #include <thread.h>
 #include <draw.h>
 #include <mouse.h>
+#include <emu.h>
 #include "dat.h"
 #include "fns.h"
 
 int ppuy, ppux, odd;
-uchar pic[256*240*4*9];
 
 static void
 pixel(int x, int y, int val, int back)
 {
-	int Y;
 	union { u8int c[4]; u32int l; } u;
-	u32int *p, l;
+	u32int *p;
 	static u8int palred[64] = {
 		0x7C, 0x00, 0x00, 0x44, 0x94, 0xA8, 0xA8, 0x88, 
 		0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
@@ -50,32 +49,31 @@ pixel(int x, int y, int val, int back)
 	u.c[1] = palgreen[val];
 	u.c[2] = palred[val];
 	u.c[3] = back ? 0 : 0xFF;
-	l = u.l;
-	if(scale == 3){
-		p = ((u32int*)pic) + y * 3 * 3 * 256 + 3 * x;
-		for(Y = 0; Y < 3; Y++){
-			*p++ = l;
-			*p++ = l;
-			*p = l;
-			p += 3 * 256 - 2;
-		}
-	}else if(scale == 2){
-		p = ((u32int*)pic) + y * 2 * 2 * 256 + 2 * x;
-		*p++ = l;
-		*p = l;
-		p += 2 * 256 - 1;
-		*p++ = l;
-		*p = l;
-	}else{
-		p = ((u32int*)pic) + y * 256 + x;
-		*p = l;
+	p = (u32int *)pic + y * 256 * scale + x * scale;
+	switch(scale){
+	case 16: *p++ = u.l;
+	case 15: *p++ = u.l;
+	case 14: *p++ = u.l;
+	case 13: *p++ = u.l;
+	case 12: *p++ = u.l;
+	case 11: *p++ = u.l;
+	case 10: *p++ = u.l;
+	case 9: *p++ = u.l;
+	case 8: *p++ = u.l;
+	case 7: *p++ = u.l;
+	case 6: *p++ = u.l;
+	case 5: *p++ = u.l;
+	case 4: *p++ = u.l;
+	case 3: *p++ = u.l;
+	case 2: *p++ = u.l;
+	default: *p = u.l;
 	}
 }
 
 static int
 iscolor(int x, int y)
 {
-	return pic[y * scale * scale * 256 * 4 + x * scale * 4 + 3] != 0;
+	return pic[(scale * 4) * (y * 256 + x) + 3] != 0;
 }
 
 static int
@@ -252,52 +250,9 @@ drawsprites(int show)
 static void
 flush(void)
 {
-	extern Rectangle picr;
-	extern Image *tmp, *bg;
-	extern Mousectl *mc;
-	static vlong old, delta;
-	vlong new, diff;
-	Mouse m;
-	Point p;
-	int h;
-
-	h = 240;
-	if(oflag)
-		h -= 16;
-	while(nbrecv(mc->c, &m) > 0)
-		;
-	if(nbrecvul(mc->resizec) > 0){
-		if(getwindow(display, Refnone) < 0)
-			sysfatal("resize failed: %r");
-		p = divpt(addpt(screen->r.min, screen->r.max), 2);
-		picr = (Rectangle){subpt(p, Pt(scale * 128, scale * h/2)), addpt(p, Pt(scale * 128, scale * h/2))};
-		if(bg->chan != screen->chan){
-			freeimage(bg);
-			bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
-		}
-		draw(screen, screen->r, bg, nil, ZP);
-	}
-	if(screen->chan != tmp->chan || !rectinrect(picr, screen->r)){
-		loadimage(tmp, tmp->r, pic + oflag*8*256*4*scale*scale, 256*h*4*scale*scale);
-		draw(screen, picr, tmp, nil, ZP);
-	}else
-		loadimage(screen, picr, pic + oflag*8*256*4*scale*scale, 256*h*4*scale*scale);
-	flushimage(display, 1);
-	memset(pic, sizeof pic, 0);
-	if(audioout() < 0){
-		new = nsec();
-		diff = 0;
-		if(old != 0){
-			diff = BILLION/60 - (new - old) - delta;
-			if(diff >= MILLION)
-				sleep(diff/MILLION);
-		}
-		old = nsec();
-		if(diff != 0){
-			diff = (old - new) - (diff / MILLION) * MILLION;
-			delta += (diff - delta) / 100;
-		}
-	}
+	flushmouse(1);
+	flushscreen();
+	flushaudio(audioout);
 }
 
 void

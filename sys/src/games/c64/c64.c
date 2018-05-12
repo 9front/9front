@@ -4,18 +4,15 @@
 #include <draw.h>
 #include <mouse.h>
 #include <keyboard.h>
+#include <emu.h>
 #include "dat.h"
 #include "fns.h"
 
 char *bindir = "/sys/lib/c64";
-Image *tmp, *bg, *red;
-Rectangle picr, progr;
-Mousectl *mc;
-QLock pauselock;
-int paused, scale;
+Image *red;
+Rectangle progr;
 u8int *rom;
 int nrom;
-u64int keys;
 u16int joys;
 uchar *tape, tapever, tapeplay;
 ulong tapelen;
@@ -26,7 +23,8 @@ progress(int a, int b)
 {
 	static int cur;
 	int w;
-	
+
+	extern Image *bg;
 	if(b == 0 || a == 0){
 		if(cur != 0){
 			draw(screen, progr, bg, nil, ZP);
@@ -212,21 +210,6 @@ keyproc(void *)
 }
 
 static void
-screeninit(void)
-{
-	Point p, q;
-
-	p = divpt(addpt(screen->r.min, screen->r.max), 2);
-	picr = (Rectangle){subpt(p, Pt(picw/2*scale, pich/2*scale)), addpt(p, Pt(picw/2*scale, pich/2*scale))};
-	p.y += pich*scale*3/4;
-	q = Pt(Dx(screen->r) * 2/5, 8);
-	progr = (Rectangle){subpt(p, q), addpt(p, q)};
-	freeimage(tmp);
-	tmp = allocimage(display, Rect(0, 0, picw*scale, scale > 1 ? 1 : pich), XRGB32, 1, 0);
-	draw(screen, screen->r, bg, nil, ZP);
-}
-
-static void
 usage(void)
 {
 	fprint(2, "usage: %s [ -23a ] [ rom ]\n", argv0);
@@ -236,17 +219,9 @@ usage(void)
 void
 threadmain(int argc, char **argv)
 {
-	scale = 1;
-
 	memreset();
 
 	ARGBEGIN {
-	case '2':
-		scale = 2;
-		break;
-	case '3':
-		scale = 3;
-		break;
 	case 'c':
 		loadcart(EARGF(usage()));
 		break;
@@ -272,16 +247,8 @@ threadmain(int argc, char **argv)
 	loadsys("crom.bin", crom, 4096);
 	
 	vicreset();
-	
-	if(initdraw(nil, nil, nil) < 0)
-		sysfatal("initdraw: %r");
-	mc = initmouse(nil, screen);
-	if(mc == nil)
-		sysfatal("initmouse: %r");
-	bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
+	initemu(picw, pich, 4, XRGB32, 1, keyproc);
 	red = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xFF0000FF);
-	screeninit();
-	proccreate(keyproc, nil, mainstacksize);
 
 	nmien = IRQRESTORE;
 	pc = memread(0xFFFC) | memread(0xFFFD) << 8;
@@ -309,7 +276,8 @@ menu(void)
 	static Menu m = {
 		items, nil, 0
 	};
-	
+
+	extern Mousectl *mc;
 	switch(menuhit(3, mc, &m, nil)){
 	case JOY:
 		joymode = (joymode + 1) % 3;
@@ -332,52 +300,11 @@ menu(void)
 void
 flush(void)
 {
-	extern u8int pic[];
-//	vlong new, diff;
-//	static vlong old, delta;
-
-	if(nbrecvul(mc->resizec) > 0){
-		if(getwindow(display, Refnone) < 0)
-			sysfatal("resize failed: %r");
-		screeninit();
-	}
+	extern Mousectl *mc;
+	flushmouse(0);
 	while(nbrecv(mc->c, &mc->Mouse) > 0)
 		if((mc->buttons & 4) != 0)
 			menu();
-	if(scale == 1){
-		loadimage(tmp, tmp->r, pic, picw*pich*4);
-		draw(screen, picr, tmp, nil, ZP);
-	}else{
-		Rectangle r;
-		uchar *s;
-		int w;
-
-		s = pic;
-		r = picr;
-		w = picw*4*scale;
-		while(r.min.y < picr.max.y){
-			loadimage(tmp, tmp->r, s, w);
-			s += w;
-			r.max.y = r.min.y+scale;
-			draw(screen, r, tmp, nil, ZP);
-			r.min.y = r.max.y;
-		}
-	}
-	flushimage(display, 1);
-/*
-	if(audioout() < 0){
-		new = nsec();
-		diff = 0;
-		if(old != 0){
-			diff = BILLION/60 - (new - old) - delta;
-			if(diff >= MILLION)
-				sleep(diff/MILLION);
-		}
-		old = nsec();
-		if(diff != 0){
-			diff = (old - new) - (diff / MILLION) * MILLION;
-			delta += (diff - delta) / 100;
-		}
-	}
-*/
+	flushscreen();
+	flushaudio(nil);
 }

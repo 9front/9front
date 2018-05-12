@@ -1,6 +1,7 @@
 #include <u.h>
 #include <libc.h>
 #include <thread.h>
+#include <emu.h>
 #include "dat.h"
 #include "fns.h"
 
@@ -19,7 +20,7 @@ extern u32int irql[8];
 u32int irqla[8];
 u16int rS;
 static u32int op;
-int trace, tim;
+int tim;
 #define ra (r+8)
 
 static void

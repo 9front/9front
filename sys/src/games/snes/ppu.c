@@ -1,6 +1,7 @@
 #include <u.h>
 #include <libc.h>
 #include <thread.h>
+#include <emu.h>
 #include "dat.h"
 #include "fns.h"
 
@@ -8,7 +9,6 @@ int ppux, ppuy, rx;
 static u8int mode, bright, pixelpri[2], hires;
 static u32int pixelcol[2];
 u16int vtime = 0x1ff, htime = 0x1ff, subcolor;
-uchar pic[256*239*2*3];
 u16int hofs[5], vofs[5];
 s16int m7[6];
 
@@ -40,30 +40,31 @@ darken(u16int v)
 static void
 pixeldraw(int x, int y, u16int v, int s)
 {
-	uchar *p;
-	u16int *q;
+	u16int *p;
 	union { u16int w; u8int b[2]; } u;
 
 	if(bright != 0xf && s >= 0)
 		v = darken(v);
-	if(scale == 1){
-		p = pic + (x + y * 256) * 2;
-		p[0] = v;
-		p[1] = v >> 8;
-		return;
-	}
+	p = (u16int *)pic + (x + y * 256) * scale;
 	u.b[0] = v;
 	u.b[1] = v >> 8;
-	if(scale == 2){
-		q = (u16int*)pic + (x + y * 256) * 2;
-		if(s < 1)
-			q[0] = u.w;
-		q[1] = u.w;
-	}else{
-		q = (u16int*)pic + (x + y * 256) * 3;
-		q[0] = u.w;
-		q[1] = u.w;
-		q[2] = u.w;
+	switch(scale){
+	case 16: *p++ = u.w;
+	case 15: *p++ = u.w;
+	case 14: *p++ = u.w;
+	case 13: *p++ = u.w;
+	case 12: *p++ = u.w;
+	case 11: *p++ = u.w;
+	case 10: *p++ = u.w;
+	case 9: *p++ = u.w;
+	case 8: *p++ = u.w;
+	case 7: *p++ = u.w;
+	case 6: *p++ = u.w;
+	case 5: *p++ = u.w;
+	case 4: *p++ = u.w;
+	case 3: *p++ = u.w;
+	case 2: if(s < 1) *p++ = u.w;
+	default: *p = u.w;
 	}
 }
 

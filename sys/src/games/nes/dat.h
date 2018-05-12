@@ -6,14 +6,14 @@ extern u16int pput, ppuv;
 extern u8int ppusx, vrambuf;
 extern int mirr, ppux, ppuy, odd, vramlatch, keylatch, keylatch2;
 
-extern int map, scale, mmc3hack, oflag;
+extern int map, mmc3hack, oflag;
 extern uchar *prg, *chr;
 extern int nprg, nchr, map, chrram;
 
 extern u8int apuseq, apuctr[13];
 extern u16int dmcaddr, dmccnt;
 
-extern int keys, keys2, clock, ppuclock, apuclock, dmcclock, dmcfreq, saveclock, paused;
+extern int clock, ppuclock, apuclock, dmcclock, dmcfreq, saveclock;
 
 extern void (*mapper[])(int, u8int);
 
@@ -78,8 +78,6 @@ enum {
 
 enum {
 	FREQ = 21477272,
-	MILLION = 1000000,
-	BILLION = 1000000000,
 	APUDIV = 89490,
 	RATE = 44100,
 	SAMPDIV = FREQ / RATE,

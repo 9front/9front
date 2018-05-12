@@ -1,5 +1,6 @@
 #include <u.h>
 #include <libc.h>
+#include <emu.h>
 #include "dat.h"
 #include "fns.h"
 
@@ -288,8 +289,6 @@ interrupt(int nmi, int brk)
 	pc |= memread(0xFFFB | (!nmi << 2)) << 8;
 	rP |= FLAGI;
 }
-
-int trace;
 
 void
 step(void)

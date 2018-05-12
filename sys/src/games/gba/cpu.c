@@ -1,6 +1,7 @@
 #include <u.h>
 #include <libc.h>
 #include <thread.h>
+#include <emu.h>
 #include "dat.h"
 #include "fns.h"
 
@@ -34,7 +35,7 @@ u32int curpc;
 int irq;
 
 u32int instr0, instr1, pipel = -1;
-int cyc, trace;
+int cyc;
 
 Var cpuvars[] = {
 	ARR(r), VAR(cpsr), VAR(spsr), ARR(saver), VAR(irq),

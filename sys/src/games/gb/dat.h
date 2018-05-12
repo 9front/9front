@@ -1,10 +1,6 @@
-typedef char s8int;
-typedef short s16int;
-typedef long s32int;
 typedef struct Event Event;
 typedef struct MBC3Timer MBC3Timer;
 
-extern int trace;
 extern u16int curpc;
 
 extern uchar *rom, *back, reg[256], oam[256];
@@ -24,7 +20,6 @@ extern u8int apustatus;
 
 extern u8int mode;
 extern u8int mbc, feat;
-extern int keys, scale;
 
 enum {
 	JOYP = 0x00,
@@ -129,8 +124,6 @@ enum {
 	TIMERSIZ = 18,
 	PICW = 160,
 	PICH = 144,
-	MILLION = 1000000,
-	BILLION = 1000000000,
 	FREQ = 1<<23
 };
 

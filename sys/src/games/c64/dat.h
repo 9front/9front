@@ -1,10 +1,8 @@
-typedef char s8int;
-
 extern u8int reg[47], crom[4096], krom[8192], brom[8192], cram[1024], cart[16384];
 
 extern u16int pc, curpc;
 extern u8int rP;
-extern int nrdy, irq, nmi, irqen, nmien, trace;
+extern int nrdy, irq, nmi, irqen, nmien;
 
 extern u8int pla;
 
@@ -12,9 +10,8 @@ extern uchar *tape, tapever, tapeplay;
 extern ulong tapelen;
 
 extern u16int ppux, ppuy, picw, pich;
-extern u64int keys;
 extern u16int joys;
-extern int scale, region;
+extern int region;
 
 enum {
 	FLAGC = 1<<0,
@@ -81,8 +78,6 @@ enum {
 };
 
 enum {
-	BILLION = 1000*1000*1000,
-	MILLION = 1000*1000,
 	HZ = 3579545,
 	RATE = 44100,
 	SAMPDIV = HZ / 3 / RATE,

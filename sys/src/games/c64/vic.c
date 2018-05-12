@@ -1,6 +1,7 @@
 #include <u.h>
 #include <libc.h>
 #include <thread.h>
+#include <emu.h>
 #include "dat.h"
 #include "fns.h"
 
@@ -9,7 +10,6 @@ u16int ppux, ppuy, lastx, wrapx, maxy, lvis, rvis, uvis, dvis, picw, pich, lbord
 u16int vc, vcbase, vmli;
 u8int badln, rc, displ, fract, visreg, hbord, vbord, rbord0, lbord0;
 u16int chrp[40];
-u8int pic[420*263*4*3];
 u64int pxs, npxs, npxs0, opxs;
 u8int fg;
 
@@ -92,24 +92,40 @@ vicreset(void)
 void
 pixeldraw(u64int p, int n)
 {
-	int i, j;
+	int i;
+	union { u8int c[4]; u32int l; } u;
 	static u8int cr[] = {0, 255, 136, 170, 204, 0, 0, 238, 221, 102, 255, 51, 119, 170, 0, 187};
 	static u8int cg[] = {0, 255, 0, 255, 68, 204, 0, 238, 136, 68, 119, 51, 119, 255, 136, 187};
 	static u8int cb[] = {0, 255, 0, 238, 204, 85, 170, 119, 85, 0, 119, 51, 119, 102, 255, 187};
-	u8int *q, c;
-	
-	q = pic + picidx * 4 * scale;
+	u8int c;
+	u32int *q;
+
+	q = (u32int *)pic + picidx * scale;
 	for(i = 0; i < n; i++){
 		c = p >> 56;
 		p <<= 8;
-	
-		j = scale;
-		do{
-			*q++ = cb[c];
-			*q++ = cg[c];
-			*q++ = cr[c];
-			q++;
-		}while(--j);
+		u.c[0] = cb[c];
+		u.c[1] = cg[c];
+		u.c[2] = cr[c];
+		u.c[3] = 0;
+		switch(scale){
+		case 16: *q++ = u.l;
+		case 15: *q++ = u.l;
+		case 14: *q++ = u.l;
+		case 13: *q++ = u.l;
+		case 12: *q++ = u.l;
+		case 11: *q++ = u.l;
+		case 10: *q++ = u.l;
+		case 9: *q++ = u.l;
+		case 8: *q++ = u.l;
+		case 7: *q++ = u.l;
+		case 6: *q++ = u.l;
+		case 5: *q++ = u.l;
+		case 4: *q++ = u.l;
+		case 3: *q++ = u.l;
+		case 2: *q++ = u.l;
+		default: *q++ = u.l;
+		}
 	}
 	picidx += n;
 }

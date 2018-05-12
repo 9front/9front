@@ -1,9 +1,4 @@
-typedef signed char s8int;
-typedef signed short s16int;
-typedef signed long s32int;
-
 extern u32int curpc, irq;
-extern int trace, debug;
 
 extern u8int reg[32];
 extern u8int dma;
@@ -17,8 +12,6 @@ extern int nprg;
 extern u8int *sram;
 extern u32int sramctl, sram0, sram1;
 extern int savefd, saveclock;
-
-extern int keys, scale;
 
 extern u16int vram[32768], vsram[40];
 extern u32int cramc[64];
@@ -82,8 +75,6 @@ enum {
 	RATE = 44100,
 	SAMPDIV = FREQ / RATE,
 	SAVEFREQ = FREQ / 4,
-	MILLION = 1000 * 1000,
-	BILLION = 1000 * 1000 * 1000,
 };
 
 enum {

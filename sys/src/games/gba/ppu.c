@@ -1,6 +1,7 @@
 #include <u.h>
 #include <libc.h>
 #include <thread.h>
+#include <emu.h>
 #include "dat.h"
 #include "fns.h"
 
@@ -11,7 +12,6 @@ int ppux0;
 u32int pixcol[480];
 u8int pixpri[480];
 u8int pixwin[240];
-uchar pic[240*160*3*2];
 int objalpha;
 
 typedef struct bg bg;
@@ -643,40 +643,6 @@ colormath(int x1)
 }
 
 void
-linecopy(void)
-{
-	u32int *p;
-	uchar *q;
-	u16int *r;
-	u16int v;
-	union { u16int w; u8int b[2]; } u;
-	int n;
-	
-	p = pixcol;
-	q = pic + ppuy * 240 * 2 * scale;
-	r = (u16int*)q;
-	n = 240;
-	while(n--){
-		v = *p++;
-		if(scale == 1){
-			*q++ = v;
-			*q++ = v >> 8;
-			continue;
-		}
-		u.b[0] = v;
-		u.b[1] = v >> 8;
-		if(scale == 2){
-			*r++ = u.w;
-			*r++ = u.w;
-		}else{
-			*r++ = u.w;
-			*r++ = u.w;
-			*r++ = u.w;
-		}
-	}
-}
-
-void
 syncppu(int x1)
 {
 	int i;
@@ -725,6 +691,43 @@ syncppu(int x1)
 }
 
 void
+linecopy(u32int *p, int y)
+{
+	uchar *q;
+	u16int *r;
+	u16int v;
+	union { u16int w; u8int b[2]; } u;
+	int n;
+
+	q = pic + y * 240 * 2 * scale;
+	r = (u16int*)q;
+	n = 240;
+	while(n--){
+		v = *p++;
+		u.b[0] = v;
+		u.b[1] = v >> 8;
+		switch(scale){
+		case 16: *r++ = u.w;
+		case 15: *r++ = u.w;
+		case 14: *r++ = u.w;
+		case 13: *r++ = u.w;
+		case 12: *r++ = u.w;
+		case 11: *r++ = u.w;
+		case 10: *r++ = u.w;
+		case 9: *r++ = u.w;
+		case 8: *r++ = u.w;
+		case 7: *r++ = u.w;
+		case 6: *r++ = u.w;
+		case 5: *r++ = u.w;
+		case 4: *r++ = u.w;
+		case 3: *r++ = u.w;
+		case 2: *r++ = u.w;
+		default: *r++ = u.w;
+		}
+	}
+}
+
+void
 hblanktick(void *)
 {
 	extern Event evhblank;
@@ -755,7 +758,7 @@ hblanktick(void *)
 	}else{
 		syncppu(240);
 		if(ppuy < 160)
-			linecopy();
+			linecopy(pixcol, ppuy);
 		addevent(&evhblank, 68*4);
 		hblank = 1;
 		if((stat & IRQHBLEN) != 0)

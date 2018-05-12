@@ -1,9 +1,4 @@
-typedef char s8int;
-typedef short s16int;
-typedef long s32int;
-typedef vlong s64int;
-
-extern int cpuhalt, trace, keys;
+extern int cpuhalt;
 
 extern u32int curpc;
 extern int irq;
@@ -18,7 +13,6 @@ extern int nrom, nback, backup;
 extern int hblank, ppuy;
 
 extern int clock;
-extern int scale;
 
 typedef struct Event Event;
 struct Event {
@@ -141,8 +135,6 @@ enum {
 	KB = 1024,
 	BACKTYPELEN = 64,
 	HZ = 16777216,
-	MILLION = 1000000,
-	BILLION = 1000000000,
 };
 
 typedef struct Var Var;

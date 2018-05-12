@@ -1,10 +1,10 @@
 #include <u.h>
 #include <libc.h>
 #include <thread.h>
+#include <emu.h>
 #include "dat.h"
 #include "fns.h"
 
-u8int pic[320*224*4*4];
 u16int vdpstat = 0x3400;
 int vdpx, vdpy, vdpyy, frame, intla;
 u16int hctr;
@@ -29,32 +29,31 @@ vdpmode(void)
 static void
 pixeldraw(int x, int y, int v)
 {
-	u8int *p;
-	u32int *q;
-	union { u32int w; u8int b[4]; } u;
+	u32int *p;
+	union { u32int l; u8int b[4]; } u;
 
-	if(scale == 1){
-		p = pic + (x + y * 320) * 4;
-		p[0] = v >> 16;
-		p[1] = v >> 8;
-		p[2] = v;
-		return;
-	}
+	p = (u32int *)pic + (x + y * 320) * scale;
 	u.b[0] = v >> 16;
 	u.b[1] = v >> 8;
 	u.b[2] = v;
 	u.b[3] = 0;
-	if(scale == 2){
-		if(intla)
-			y = y << 1 | frame;
-		q = (u32int*)pic + (x + y * 320) * 2;
-		q[0] = u.w;
-		q[1] = u.w;
-	}else{
-		q = (u32int*)pic + (x + y * 320) * 3;
-		q[0] = u.w;
-		q[1] = u.w;
-		q[2] = u.w;
+	switch(scale){
+	case 16: *p++ = u.l;
+	case 15: *p++ = u.l;
+	case 14: *p++ = u.l;
+	case 13: *p++ = u.l;
+	case 12: *p++ = u.l;
+	case 11: *p++ = u.l;
+	case 10: *p++ = u.l;
+	case 9: *p++ = u.l;
+	case 8: *p++ = u.l;
+	case 7: *p++ = u.l;
+	case 6: *p++ = u.l;
+	case 5: *p++ = u.l;
+	case 4: *p++ = u.l;
+	case 3: *p++ = u.l;
+	case 2: *p++ = u.l;	/* intla ignored */
+	default: *p = u.l;
 	}
 }
 

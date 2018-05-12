@@ -1,6 +1,7 @@
 #include <u.h>
 #include <libc.h>
 #include <thread.h>
+#include <emu.h>
 #include "dat.h"
 #include "fns.h"
 
@@ -31,7 +32,7 @@ regread(u16int a)
 	switch(a | 1){
 	case 0x0001: return 0xa0;
 	case 0x0003:
-		v = keys;
+		v = ~(keys & 0xffff);
 		if((ctl[0] & 0x40) == 0)
 			v >>= 8;
 		return ctl[0] & 0xc0 | v & 0x3f;

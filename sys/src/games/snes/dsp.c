@@ -1,6 +1,7 @@
 #include <u.h>
 #include <libc.h>
 #include <thread.h>
+#include <emu.h>
 #include "dat.h"
 #include "fns.h"
 
@@ -77,7 +78,7 @@ audioout(void)
 		return -1;
 	if(sbufp == sbuf)
 		return 0;
-	rc = write(fd, sbuf, (sbufp - sbuf) * 2);
+	rc = warp10 ? (sbufp - sbuf) * 2 : write(fd, sbuf, (sbufp - sbuf) * 2);
 	if(rc > 0)
 		sbufp -= (rc+1)/2;
 	if(sbufp < sbuf)
