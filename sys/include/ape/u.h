@@ -20,5 +20,9 @@ typedef uchar	u8int;
 typedef ushort	u16int;
 typedef ulong	u32int;
 typedef uvlong	u64int;
+typedef signed char	s8int;
+typedef signed short	s16int;
+typedef signed int	s32int;
+typedef signed long long	s64int;
 
 #endif
