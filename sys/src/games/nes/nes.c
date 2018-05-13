@@ -3,7 +3,7 @@
 #include <draw.h>
 #include <thread.h>
 #include <keyboard.h>
-#include <emu.h>
+#include "../eui.h"
 #include "dat.h"
 #include "fns.h"
 

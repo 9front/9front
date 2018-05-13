@@ -4,7 +4,7 @@
 #include <draw.h>
 #include <keyboard.h>
 #include <mouse.h>
-#include <emu.h>
+#include "eui.h"
 
 typedef struct Kfn Kfn;
 

@@ -2,7 +2,7 @@
 #include <libc.h>
 #include <thread.h>
 #include <draw.h>
-#include <emu.h>
+#include "../eui.h"
 #include "dat.h"
 #include "fns.h"
 

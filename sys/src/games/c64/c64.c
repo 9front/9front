@@ -4,7 +4,7 @@
 #include <draw.h>
 #include <mouse.h>
 #include <keyboard.h>
-#include <emu.h>
+#include "../eui.h"
 #include "dat.h"
 #include "fns.h"
 
