@@ -428,6 +428,7 @@
 208C  b=          ₌	subscript equals sign
 208D  b(          ₍	subscript opening parenthesis
 208E  b)          ₎	subscript closing parenthesis
+208F  bN          ₏	subscript latin small letter n
 20AC  e$          €	euro symbol
 2102  CC          ℂ	double-struck capital c
 210A  $g          ℊ	script small g
@@ -550,6 +551,8 @@
 262D  SU          ☭	hammer and sickle
 2639  :(          ☹	sad face
 263A  :)          ☺	smiley face
+2640  fs          ♀	female sign
+2642  ms          ♂	male sign
 2654  wk          ♔	white chess king
 2655  wq          ♕	white chess queen
 2656  wr          ♖	white chess rook
