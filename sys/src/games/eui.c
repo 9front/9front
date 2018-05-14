@@ -30,7 +30,8 @@ struct Kfn{
 	void(*fn)(void);
 	Kfn *n;
 };
-Kfn kfn, kkn;
+static Kfn kfn, kkn;
+static int ax0, ax1;
 
 void *
 emalloc(ulong sz)
@@ -152,7 +153,10 @@ keyproc(void *)
 					k |= kp->k;
 			}
 		}
-		k &= ~(k << 1 & 0xa0 | k >> 1 & 0x50);
+		if((k & ax0) == ax0)
+			k &= ~ax0;
+		if((k & ax1) == ax1)
+			k &= ~ax1;
 		keys = k;
 	}
 }
@@ -291,6 +295,10 @@ regkey(char *joyk, Rune r, int k)
 		;
 	kp->n = emalloc(sizeof *kp);
 	strncpy(kp->n->joyk, joyk, sizeof(kp->n->joyk)-1);
+	if(strcmp(joyk, "up") == 0 || strcmp(joyk, "down") == 0)
+		ax0 |= k;
+	if(strcmp(joyk, "left") == 0 || strcmp(joyk, "right") == 0)
+		ax1 |= k;
 	kp->n->r = r;
 	kp->n->k = k;
 }
@@ -310,7 +318,7 @@ initemu(int dx, int dy, int bpp, ulong chan, int dokey, void(*kproc)(void*))
 	if(dokey)
 		proccreate(kproc != nil ? kproc : keyproc, nil, mainstacksize);
 	if(kproc == nil)
-		proccreate(joyproc, nil, mainstacksize*2);
+		proccreate(joyproc, nil, mainstacksize);
 	bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
 	screeninit();
 }
