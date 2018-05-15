@@ -1364,6 +1364,8 @@ threadmain(int argc, char **argv)
 		sshfssrv.wstat = nil;
 		sshfssrv.remove = nil;
 	}
+	if(mtpt == nil)
+		root = ".";
 	
 	if(pflag){
 		rdfd = 0;
