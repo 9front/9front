@@ -1081,12 +1081,8 @@ netinit(int background)
 	Network *np;
 
 	if(background){
-		switch(rfork(RFPROC|RFNOTEG|RFMEM|RFNOWAIT)){
-		case 0:
-			break;
-		default:
+		if(rfork(RFPROC|RFNOTEG|RFMEM|RFNOWAIT) != 0)
 			return;
-		}
 		qlock(&netlock);
 	}
 
@@ -1627,6 +1623,43 @@ slave(char *host)
 
 }
 
+static int
+mountdns(void)
+{
+	static QLock mountlock;
+	static int mounted;
+	char buf[128], *p;
+	int fd;
+
+	if(mounted)
+		return 0;
+
+	qlock(&mountlock);
+	snprint(buf, sizeof(buf), "%s/dns", mntpt);
+	if(access(buf, AEXIST) == 0)
+		goto done;
+	if(strcmp(mntpt, "/net") == 0)
+		snprint(buf, sizeof(buf), "/srv/dns");
+	else {
+		snprint(buf, sizeof(buf), "/srv/dns%s", mntpt);
+		while((p = strchr(buf+8, '/')) != nil)
+			*p = '_';
+	}
+	if((fd = open(buf, ORDWR)) < 0){
+err:
+		qunlock(&mountlock);
+		return -1;	
+	}
+	if(mount(fd, -1, mntpt, MAFTER, "") < 0){
+		close(fd);
+		goto err;
+	}
+done:
+	mounted = 1;
+	qunlock(&mountlock);
+	return 0;
+}
+
 static Ndbtuple*
 dnsip6lookup(char *mntpt, char *buf, Ndbtuple *t)
 {
@@ -1659,6 +1692,11 @@ dnsiplookup(char *host, Ndbs *s, int v6)
 	if(*isslave == 0){
 		qlock(&dblock);
 		werrstr("too much activity");
+		return nil;
+	}
+
+	if(mountdns() < 0){
+		qlock(&dblock);
 		return nil;
 	}
 
