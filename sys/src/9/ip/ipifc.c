@@ -507,7 +507,7 @@ ipifcadd(Ipifc *ifc, char **argv, int argc, int tentative, Iplifc *lifcp)
 		return up->errstr;
 	}
 
-	if(mtu >= ifc->m->mintu && mtu <= ifc->m->maxtu)
+	if(mtu > 0 && mtu >= ifc->m->mintu && mtu <= ifc->m->maxtu)
 		ifc->maxtu = mtu;
 
 	/* ignore if this is already a local address for this ifc */

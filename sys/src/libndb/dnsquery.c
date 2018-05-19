@@ -12,13 +12,12 @@ static Ndbtuple *doquery(int, char *dn, char *type);
  *  search for a tuple that has the given 'attr=val' and also 'rattr=x'.
  *  copy 'x' into 'buf' and return the whole tuple.
  *
- *  return 0 if not found.
+ *  return nil if not found.
  */
 Ndbtuple*
 dnsquery(char *net, char *val, char *type)
 {
-	char rip[128];
-	char *p;
+	char buf[128];
 	Ndbtuple *t;
 	int fd;
 
@@ -28,37 +27,18 @@ dnsquery(char *net, char *val, char *type)
 
 	if(net == nil)
 		net = "/net";
-	snprint(rip, sizeof(rip), "%s/dns", net);
-	fd = open(rip, ORDWR);
-	if(fd < 0){
-		if(strcmp(net, "/net") == 0)
-			snprint(rip, sizeof(rip), "/srv/dns");
-		else {
-			snprint(rip, sizeof(rip), "/srv/dns%s", net);
-			p = strrchr(rip, '/');
-			*p = '_';
-		}
-		fd = open(rip, ORDWR);
-		if(fd < 0)
-			return nil;
-		if(mount(fd, -1, net, MBEFORE, "") < 0){
-			close(fd);
-			return nil;
-		}
-		/* fd is now closed */
-		snprint(rip, sizeof(rip), "%s/dns", net);
-		fd = open(rip, ORDWR);
-		if(fd < 0)
-			return nil;
-	}
+
+	snprint(buf, sizeof(buf), "%s/dns", net);
+	if((fd = open(buf, ORDWR)) < 0)
+		return nil;
 
 	/* zero out the error string */
 	werrstr("");
 
 	/* if this is a reverse lookup, first lookup the domain name */
 	if(strcmp(type, "ptr") == 0){
-		mkptrname(val, rip, sizeof rip);
-		t = doquery(fd, rip, "ptr");
+		mkptrname(val, buf, sizeof buf);
+		t = doquery(fd, buf, "ptr");
 	} else
 		t = doquery(fd, val, type);
 

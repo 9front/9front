@@ -355,7 +355,7 @@ ficonv(int *dst, uchar *src, int bits, int skip, int count)
 			else if(d < -1.0)
 				*dst++ = MININT;
 			else
-				*dst++ = d*((float)MAXINT);
+				*dst++ = d*((double)MAXINT);
 		}
 	}
 }
