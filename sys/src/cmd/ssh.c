@@ -1160,6 +1160,9 @@ main(int argc, char *argv[])
 	case 'R':
 		raw = 0;
 		break;
+	case 'r':
+		raw = 2; /* bloody */
+		break;
 	case 'u':
 		user = EARGF(usage());
 		break;
@@ -1193,8 +1196,9 @@ main(int argc, char *argv[])
 	for(cmd = nil; *argv != nil; argv++){
 		if(cmd == nil){
 			cmd = strdup(*argv);
-			raw = 0;
-		}else {
+			if(raw == 1)
+				raw = 0;
+		}else{
 			s = smprint("%s %k", cmd, *argv);
 			free(cmd);
 			cmd = s;

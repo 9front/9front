@@ -8,6 +8,8 @@ ssh - secure shell remote login client
 ] [
 .B -R
 ] [
+.B -r
+] [
 .B -t
 .I thumbfile
 ] [
@@ -67,7 +69,7 @@ is interpreted as a subsystem name such as sftp (see
 Without
 .IR cmd ,
 a shell is started on the remote side.
-When the
+In that case and when the
 .B $TERM
 environment variable is set (such as when started under
 a terminal emulator like
@@ -75,6 +77,10 @@ a terminal emulator like
 a pseudo terminal will be requested for the shell.
 This can be disabled with the
 .B -R
+option.
+A pseudo-terminal can be requested in all cases
+with the
+.B -r
 option.
 .PP
 The
