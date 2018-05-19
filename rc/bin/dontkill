@@ -9,3 +9,4 @@ if (! ~ $#* 1) {
 psu | awk '$NF ~ /'$1'/ {
 print "@{echo noswap >/proc/"$2"/ctl}"
 }' | rc >/dev/null >[2=1]
+exit ''
