@@ -11,6 +11,7 @@
  *	read challenge: 8 bytes binary (or 16 bytes for mschapv2)
  *	write user: utf8
  *	write response: Chapreply or MSchapreply structure
+ *	... retry another user
  */
 
 #include <ctype.h>
@@ -285,8 +286,10 @@ chapwrite(Fsstate *fss, void *va, uint n)
 			memmove(omcr->NTresp, mcr->NTresp, n+sizeof(mcr->NTresp)-MSchapreplylen);
 			break;
 		}
-		if(doreply(s, reply, nreply) < 0)
+		if(doreply(s, reply, nreply) < 0){
+			fss->phase = SNeedUser;
 			return failure(fss, nil);
+		}
 		fss->phase = Established;
 		fss->ai.cuid = s->t.cuid;
 		fss->ai.suid = s->t.suid;

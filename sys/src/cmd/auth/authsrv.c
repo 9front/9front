@@ -422,57 +422,53 @@ apop(Ticketreq *tr, int type)
 	challen = p - chal;
 	print("%c%-5d%s", AuthOKvar, challen, chal);
 
-	/* give user a few attempts */
-	for(tries = 0; ; tries++) {
-		/*
-		 *  get ticket request
-		 */
-		n = readn(0, trbuf, sizeof(trbuf));
-		if(n <= 0 || convM2TR(trbuf, n, &treq) <= 0)
-			exits(0);
-		tr = &treq;
-		if(tr->type != type || tr->uid[0] == 0)
-			exits(0);
+	tries = 5;
+Retry:
+	if(--tries < 0)
+		exits(0);
 
-		/*
-		 * read response
-		 */
-		if(readn(0, buf, MD5dlen*2) != MD5dlen*2)
-			exits(0);
-		for(i = 0; i < MD5dlen; i++)
-			resp[i] = (h2b(buf[2*i])<<4)|h2b(buf[2*i+1]);
+	/*
+	 *  get ticket request
+	 */
+	n = readn(0, trbuf, sizeof(trbuf));
+	if(n <= 0 || convM2TR(trbuf, n, &treq) <= 0)
+		exits(0);
+	tr = &treq;
+	if(tr->type != type || tr->uid[0] == 0)
+		exits(0);
 
-		/*
-		 * lookup
-		 */
-		secret = findsecret(KEYDB, tr->uid, sbuf);
-		if(!getkey(tr->hostid, &hkey) || secret == nil){
-			replyerror("apop-fail bad response %s", raddr);
-			logfail(tr->uid);
-			if(tries > 5)
-				exits(0);
-			continue;
-		}
+	/*
+	 * read response
+	 */
+	if(readn(0, buf, MD5dlen*2) != MD5dlen*2)
+		exits(0);
+	for(i = 0; i < MD5dlen; i++)
+		resp[i] = (h2b(buf[2*i])<<4)|h2b(buf[2*i+1]);
 
-		/*
-		 *  check for match
-		 */
-		if(type == AuthCram){
-			hmac_md5((uchar*)chal, challen,
-				(uchar*)secret, strlen(secret),
-				digest, nil);
-		} else {
-			s = md5((uchar*)chal, challen, 0, 0);
-			md5((uchar*)secret, strlen(secret), digest, s);
-		}
-		if(tsmemcmp(digest, resp, MD5dlen) != 0){
-			replyerror("apop-fail bad response %s", raddr);
-			logfail(tr->uid);
-			if(tries > 5)
-				exits(0);
-			continue;
-		}
-		break;
+	/*
+	 * lookup
+	 */
+	secret = findsecret(KEYDB, tr->uid, sbuf);
+	if(!getkey(tr->hostid, &hkey) || secret == nil){
+		replyerror("apop-fail bad response %s", raddr);
+		goto Retry;
+	}
+
+	/*
+	 *  check for match
+	 */
+	if(type == AuthCram){
+		hmac_md5((uchar*)chal, challen,
+			(uchar*)secret, strlen(secret),
+			digest, nil);
+	} else {
+		s = md5((uchar*)chal, challen, 0, 0);
+		md5((uchar*)secret, strlen(secret), digest, s);
+	}
+	if(tsmemcmp(digest, resp, MD5dlen) != 0){
+		replyerror("apop-fail bad response %s", raddr);
+		logfail(tr->uid);
+		goto Retry;
 	}
 
 	succeed(tr->uid);
@@ -582,6 +578,7 @@ chap(Ticketreq *tr)
 	uchar digest[MD5dlen];
 	char chal[CHALLEN];
 	OChapreply reply;
+	int tries;
 
 	/*
 	 *  Create a challenge and send it.
@@ -589,6 +586,11 @@ chap(Ticketreq *tr)
 	genrandom((uchar*)chal, sizeof(chal));
 	if(write(1, chal, sizeof(chal)) != sizeof(chal))
 		exits(0);
+
+	tries = 5;
+Retry:
+	if(--tries < 0)
+		exits(0);	
 
 	/*
 	 *  get chap reply
@@ -606,8 +608,7 @@ chap(Ticketreq *tr)
 	secret = findsecret(KEYDB, tr->uid, sbuf);
 	if(!getkey(tr->hostid, &hkey) || secret == nil){
 		replyerror("chap-fail bad response %s", raddr);
-		logfail(tr->uid);
-		return;
+		goto Retry;
 	}
 
 	/*
@@ -620,7 +621,7 @@ chap(Ticketreq *tr)
 	if(tsmemcmp(digest, reply.resp, MD5dlen) != 0){
 		replyerror("chap-fail bad response %s", raddr);
 		logfail(tr->uid);
-		return;
+		goto Retry;
 	}
 
 	succeed(tr->uid);
@@ -690,12 +691,18 @@ mschap(Ticketreq *tr, int nchal)
 	int dupe, lmok, ntok, ntbloblen;
 	uchar phash[SHA1dlen], chash[SHA1dlen], ahash[SHA1dlen];
 	DigestState *s;
+	int tries;
 
 	/*
 	 *  Create a challenge and send it.
 	 */
 	genrandom(chal, sizeof(chal));
 	if(write(1, chal, nchal) != nchal)
+		exits(0);
+
+	tries = 5;
+Retry:
+	if(--tries < 0)
 		exits(0);
 
 	/*
@@ -758,39 +765,43 @@ mschap(Ticketreq *tr, int nchal)
 	secret = findsecret(KEYDB, tr->uid, sbuf);
 	if(!getkey(tr->hostid, &hkey) || secret == nil){
 		replyerror("mschap-fail bad response %s/%s(%s)", tr->uid, tr->hostid, raddr);
-		logfail(tr->uid);
-		return;
+		goto Retry;
 	}
 
 	if(ntbloblen > 0){
 		getname(MsvAvNbDomainName, ntblob, ntbloblen, windom, sizeof(windom));
-
 		for(;;){
 			ntv2hash(hash, secret, tr->uid, windom);
 
 			/*
 			 * LmResponse = Cat(HMAC_MD5(LmHash, Cat(SC, CC)), CC)
 			 */
-			s = hmac_md5(chal, 8, hash, MShashlen, nil, nil);
-			hmac_md5((uchar*)reply.LMresp+16, 8, hash, MShashlen, resp, s);
+			s = hmac_md5(chal, nchal, hash, MShashlen, nil, nil);
+			hmac_md5((uchar*)reply.LMresp+16, nchal, hash, MShashlen, resp, s);
 			lmok = tsmemcmp(resp, reply.LMresp, 16) == 0;
 
 			/*
 			 * NtResponse = Cat(HMAC_MD5(NtHash, Cat(SC, NtBlob)), NtBlob)
 			 */
-			s = hmac_md5(chal, 8, hash, MShashlen, nil, nil);
+			s = hmac_md5(chal, nchal, hash, MShashlen, nil, nil);
 			hmac_md5(ntblob, ntbloblen, hash, MShashlen, resp, s);
 			ntok = tsmemcmp(resp, reply.NTresp, 16) == 0;
 
-			if(lmok || ntok || windom[0] == '\0')
+			/*
+			 * LM response can be all zeros or signature key,
+			 * so make it valid when the NT respone matches.
+			 */
+			lmok |= ntok;
+
+			if(lmok || windom[0] == '\0')
 				break;
 
 			windom[0] = '\0';	/* try NIL domain */
 		}
 		dupe = 0;
 	} else if(nchal == MSchallenv2){
-		s = sha1((uchar*)reply.LMresp, MSchallenv2, nil, nil);
-		s = sha1(chal, MSchallenv2, nil, s);
+		s = sha1((uchar*)reply.LMresp, nchal, nil, nil);
+		s = sha1(chal, nchal, nil, s);
 		sha1((uchar*)tr->uid, strlen(tr->uid), chash, s);
 
 		nthash(hash, secret);
@@ -805,7 +816,6 @@ mschap(Ticketreq *tr, int nchal)
 		nthash(hash, secret);
 		mschalresp(resp, hash, chal);
 		ntok = tsmemcmp(resp, reply.NTresp, MSresplen) == 0;
-
 		dupe = tsmemcmp(reply.LMresp, reply.NTresp, MSresplen) == 0;
 	}
 
@@ -825,7 +835,7 @@ mschap(Ticketreq *tr, int nchal)
 	if((!ntok && !lmok) || ((!ntok || !lmok) && !dupe)){
 		replyerror("mschap-fail bad response %s/%s(%s)", tr->uid, tr->hostid, raddr);
 		logfail(tr->uid);
-		return;
+		goto Retry;
 	}
 
 	succeed(tr->uid);

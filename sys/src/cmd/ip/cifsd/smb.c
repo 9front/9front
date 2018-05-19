@@ -44,7 +44,7 @@ err:
 	c = ce = nil;
 	mode = 0;
 	if(needauth){
-		if(smbcs)
+		if(smbcs != nil)
 			auth_freechal(smbcs);
 		if(smbcs = auth_challenge("proto=mschap role=server")){
 			c = (uchar*)smbcs->chal;
@@ -107,22 +107,24 @@ smbsessionsetupandx(Req *r, uchar *h, uchar *p, uchar *e)
 			smbcs->nresp = (nte - nt)+sizeof(*mcr)-sizeof(mcr->NTresp);
 			if(smbcs->nresp < sizeof(*mcr))
 				smbcs->nresp = sizeof(*mcr);
-			smbcs->resp = mallocz(smbcs->nresp, 1);
-			mcr = (MSchapreply*)smbcs->resp;
+			mcr = mallocz(smbcs->nresp, 1);
 			if((lme - lm) <= sizeof(mcr->LMresp))
 				memmove(mcr->LMresp, lm, lme - lm);
 			if((nte - nt) > 0)
 				memmove(mcr->NTresp, nt, nte - nt);
-			if((ai = auth_response(smbcs)) == nil)
+			smbcs->resp = mcr;
+			ai = auth_response(smbcs);
+			if(ai == nil){
 				logit("auth_response: %r");
-			auth_freechal(smbcs);
-			smbcs = nil;
-			free(mcr);
-			if(ai == nil)
-				break;
+				free(mcr);
+				break;	/* allow retry with the same challenge */
+			}
 			if(auth_chuid(ai, nil) < 0)
 				logit("auth_chuid: %r");
 			auth_freeAI(ai);
+			auth_freechal(smbcs);
+			smbcs = nil;
+			free(mcr);
 		}
 		remoteuser = getuser();
 		logit("auth successfull");
