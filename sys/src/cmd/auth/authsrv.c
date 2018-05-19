@@ -52,6 +52,7 @@ void	desencrypt(uchar data[8], uchar key[7]);
 void	tickauthreply(Ticketreq*, Authkey*);
 void	tickauthreply2(Ticketreq*, Authkey*, uchar *, int, uchar *, int);
 void	safecpy(char*, char*, int);
+void	catch(void*, char*);
 
 void
 main(int argc, char *argv[])
@@ -691,6 +692,7 @@ mschap(Ticketreq *tr, int nchal)
 	int dupe, lmok, ntok, ntbloblen;
 	uchar phash[SHA1dlen], chash[SHA1dlen], ahash[SHA1dlen];
 	DigestState *s;
+	long timeout;
 	int tries;
 
 	/*
@@ -750,9 +752,14 @@ Retry:
 		/* Z[4] */
 		if(ntbloblen > sizeof(ntblob)-4)
 			exits(0);
-		if(readn(0, ntblob+ntbloblen, 4) < 0)
-			exits(0);
-		ntbloblen += 4;
+
+		/* LINUX omits the final Z(4), so read with short timeout */
+		notify(catch);
+		timeout = alarm(50);
+		if(readn(0, ntblob+ntbloblen, 4) == 4)
+			ntbloblen += 4;
+		alarm(timeout);
+		notify(nil);
 	}
 
 	safecpy(tr->uid, reply.uid, sizeof(tr->uid));
@@ -1151,3 +1158,10 @@ safecpy(char *to, char *from, int len)
 	to[len-1] = 0;
 }
 
+void
+catch(void*, char *msg)
+{
+	if(strstr(msg, "alarm") != nil)
+		noted(NCONT);
+	noted(NDFLT);
+}
