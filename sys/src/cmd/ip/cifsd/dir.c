@@ -65,8 +65,11 @@ xdirstat0(char **path, int (*namecmp)(char *, char *), char *err)
 	Dir *d, *t;
 	int n, i;
 
-	if(d = dirstat(*path))
+	if(d = dirstat(*path)){
+		if(d->name[0] == 0)
+			d->name = "/";
 		return d;
+	}
 	if(!splitpath(*path, &base, &name))
 		return nil;
 	if((n = xdirread0(&base, namecmp, &t)) < 0)

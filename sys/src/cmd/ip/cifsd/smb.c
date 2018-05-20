@@ -1614,8 +1614,11 @@ unsup:
 		goto unsup;
 	}
 	if(57+((rsc+1)&~1)+((rpc+3)&~3)+((rdc+3)&~3) > remotebuffersize){
-		logit("[%.4x] %s response doesnt fit in client buffer", t.cmd, t.name);
-		goto unsup;
+		rdc = remotebuffersize-(57+((rsc+1)&~1)+((rpc+3)&~3)) & ~3;
+		if(rdc <= 0){
+			logit("[%.4x] %s response doesnt fit in client buffer", t.cmd, t.name);
+			goto unsup;
+		}
 	}
 
 	t.in.param.b = t.in.param.p = pa; t.in.param.e = pe;
