@@ -39,8 +39,9 @@ emalloc(ulong n)
 void
 screeninit(void)
 {
-	bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
+	freescreen(scr);
 	scr = allocscreen(screen, bg, 0);
+	freeimage(disp);
 	disp = allocwindow(scr, screen->r, 0, 0xCCCCCCFF);
 	draw(screen, screen->r, bg, nil, ZP);
 	flushimage(display, 1);
@@ -225,6 +226,7 @@ threadmain(int argc, char **argv)
 	
 	if(initdraw(nil, nil, "camv") < 0)
 		sysfatal("initdraw: %r");
+	bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
 	screeninit();
 	kc = initkeyboard(nil);
 	if(kc == nil) sysfatal("initkeyboard: %r");
