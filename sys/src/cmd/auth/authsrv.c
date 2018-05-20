@@ -9,7 +9,7 @@
 
 Ndb *db;
 char raddr[128];
-uchar zeros[16];
+uchar zeros[32];
 
 typedef struct Keyslot Keyslot;
 struct Keyslot
@@ -36,6 +36,7 @@ void	challengebox(Ticketreq*);
 void	changepasswd(Ticketreq*);
 void	apop(Ticketreq*, int);
 void	chap(Ticketreq*);
+void	ntlm(Ticketreq*);
 void	mschap(Ticketreq*, int);
 void	vnc(Ticketreq*);
 int	speaksfor(char*, char*);
@@ -105,6 +106,9 @@ main(int argc, char *argv[])
 			break;
 		case AuthMSchapv2:
 			mschap(&tr, MSchallenv2);
+			break;
+		case AuthNTLM:
+			ntlm(&tr);
 			break;
 		case AuthCram:
 			apop(&tr, AuthCram);
@@ -638,61 +642,156 @@ Retry:
 	exits(0);
 }
 
-enum {
-	MsvAvEOL = 0,
-	MsvAvNbComputerName,
-	MsvAvNbDomainName,
-	MsvAvDnsComputerName,
-	MsvAvDnsomainName,
-};
-
-char*
-getname(int id, uchar *ntblob, int ntbloblen, char *buf, int nbuf)
-{
-	int aid, alen, i;
-	uchar *p, *e;
-	char *d;
-	Rune r;
-
-	d = buf;
-	p = ntblob+8+8+8+4;	/* AvPair offset */
-	e = ntblob+ntbloblen;
-	while(p+4 <= e){
-		aid = *p++;
-		aid |= *p++ << 8;
-		alen = *p++;
-		alen |= *p++ << 8;
-
-		if(p+alen > e)
-			break;
-		if(aid == id){
-			for(i=0; i+1 < alen && d-buf < nbuf-(UTFmax+1); i+=2){
-				r = p[i] | p[i+1]<<8;
-				d += runetochar(d, &r);
-			}
-			break;
-		}
-		p += alen;
-	}
-	*d = '\0';
-	return buf;
-}
-
 static uchar ntblobsig[] = {0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+void
+ntlm(Ticketreq *tr)
+{
+	char *secret;
+	char sbuf[SECRETLEN], windom[DOMLEN];
+	uchar chal[MSchallen], ntblob[1024];
+	uchar hash[MShashlen];
+	uchar resp[MSresplen];
+	NTLMreply reply;
+	int dupe, lmok, ntok, ntbloblen;
+	DigestState *s;
+	int tries;
+
+	/*
+	 *  Create a challenge and send it.
+	 */
+	genrandom(chal, sizeof(chal));
+	if(write(1, chal, MSchallen) != MSchallen)
+		exits(0);
+
+	tries = 5;
+Retry:
+	if(--tries < 0)
+		exits(0);
+
+	/*
+	 *  get NTLM reply
+	 */
+	if(readn(0, &reply, NTLMREPLYLEN) < 0)
+		exits(0);
+
+	ntbloblen = 0;
+	if(memcmp(reply.NTresp+16, ntblobsig, sizeof(ntblobsig)) == 0){
+		ntbloblen = reply.len[0] | reply.len[1]<<8;
+		ntbloblen -= NTLMREPLYLEN;
+		if(ntbloblen < 0 || ntbloblen > sizeof(ntblob)-8)
+			exits(0);
+		if(readn(0, ntblob+8, ntbloblen) < 0)
+			exits(0);
+		memmove(ntblob, reply.NTresp+16, 8);
+		ntbloblen += 8;
+	}
+
+	safecpy(tr->uid, reply.uid, sizeof(tr->uid));
+	if(tr->uid[0] == 0)
+		exits(0);
+
+	safecpy(windom, reply.dom, sizeof(windom));
+
+	/*
+	 * lookup
+	 */
+	secret = findsecret(KEYDB, tr->uid, sbuf);
+	if(!getkey(tr->hostid, &hkey) || secret == nil){
+		replyerror("ntlm-fail bad response %s@%s/%s(%s)", tr->uid, windom, tr->hostid, raddr);
+		goto Retry;
+	}
+
+	if(ntbloblen > 0){
+		/* NTLMv2 */
+		ntv2hash(hash, secret, tr->uid, windom);
+
+		/*
+		 * LmResponse = Cat(HMAC_MD5(LmHash, Cat(SC, CC)), CC)
+		 */
+		s = hmac_md5(chal, MSchallen, hash, MShashlen, nil, nil);
+		hmac_md5((uchar*)reply.LMresp+16, MSchallen, hash, MShashlen, resp, s);
+		lmok = tsmemcmp(resp, reply.LMresp, 16) == 0;
+
+		/*
+		 * NtResponse = Cat(HMAC_MD5(NtHash, Cat(SC, NtBlob)), NtBlob)
+		 */
+		s = hmac_md5(chal, MSchallen, hash, MShashlen, nil, nil);
+		hmac_md5(ntblob, ntbloblen, hash, MShashlen, resp, s);
+		ntok = tsmemcmp(resp, reply.NTresp, 16) == 0;
+
+		/*
+		 * LM response can be all zeros or signature key,
+		 * so make it valid when the NT respone matches.
+		 */
+		lmok |= ntok;
+		dupe = 0;
+	} else if(memcmp(reply.NTresp, zeros, MSresplen) == 0){
+		/* LMv2 */
+		ntv2hash(hash, secret, tr->uid, windom);
+
+		/*
+		 * LmResponse = Cat(HMAC_MD5(LmHash, Cat(SC, CC)), CC)
+		 */
+		s = hmac_md5(chal, MSchallen, hash, MShashlen, nil, nil);
+		hmac_md5((uchar*)reply.LMresp+16, MSchallen, hash, MShashlen, resp, s);
+		lmok = ntok = tsmemcmp(resp, reply.LMresp, 16) == 0;
+		dupe = 0;
+	} else {
+		/* LM+NTLM */
+		lmhash(hash, secret);
+		mschalresp(resp, hash, chal);
+		lmok = tsmemcmp(resp, reply.LMresp, MSresplen) == 0;
+
+		nthash(hash, secret);
+		mschalresp(resp, hash, chal);
+		ntok = tsmemcmp(resp, reply.NTresp, MSresplen) == 0;
+		dupe = tsmemcmp(reply.LMresp, reply.NTresp, MSresplen) == 0;
+	}
+
+	/*
+	 * It is valid to send the same response in both the LM and NTLM 
+	 * fields provided one of them is correct, if neither matches,
+	 * or the two fields are different and either fails to match, 
+	 * the whole sha-bang fails.
+	 *
+	 * This is an improvement in security as it allows clients who
+	 * wish to do NTLM auth (which is insecure) not to send
+	 * LM tokens (which is very insecure).
+	 *
+	 * Windows servers supports clients doing this also though
+	 * windows clients don't seem to use the feature.
+	 */
+	if((!ntok && !lmok) || ((!ntok || !lmok) && !dupe)){
+		replyerror("ntlm-fail bad response %s@%s/%s(%s)", tr->uid, windom, tr->hostid, raddr);
+		logfail(tr->uid);
+		goto Retry;
+	}
+
+	succeed(tr->uid);
+
+	/*
+	 *  reply with ticket & authenticator
+	 */
+	tickauthreply(tr, &hkey);
+
+	syslog(0, AUTHLOG, "ntlm-ok %s@%s/%s(%s)", tr->uid, windom, tr->hostid, raddr);
+
+	exits(0);
+}
 
 void
 mschap(Ticketreq *tr, int nchal)
 {
 	char *secret;
-	char sbuf[SECRETLEN], windom[128];
-	uchar chal[16], ntblob[1024];
+	char sbuf[SECRETLEN];
+	uchar chal[16];
 	uchar hash[MShashlen];
 	uchar resp[MSresplen];
 	OMSchapreply reply;
-	int dupe, lmok, ntok, ntbloblen;
+	int dupe, lmok, ntok;
 	uchar phash[SHA1dlen], chash[SHA1dlen], ahash[SHA1dlen];
 	DigestState *s;
-	long timeout;
 	int tries;
 
 	/*
@@ -713,55 +812,6 @@ Retry:
 	if(readn(0, &reply, OMSCHAPREPLYLEN) < 0)
 		exits(0);
 
-	/*
-	 * CIFS/NTLMv2 uses variable length NT response.
-	 */
-	ntbloblen = 0;
-	if(nchal == MSchallen && memcmp(reply.NTresp+16, ntblobsig, sizeof(ntblobsig)) == 0){
-		/* Version[1], HiVision[1], Z[6] */
-		ntbloblen += 1+1+6;
-		memmove(ntblob, reply.NTresp+16, ntbloblen);
-
-		/* Time[8], CC[8], Z[4] */
-		if(readn(0, ntblob+ntbloblen, 8+8+4) < 0)
-			exits(0);
-		ntbloblen += 8+8+4;
-
-		/* variable AvPairs */
-		for(;;){
-			int len, id;
-
-			if(ntbloblen > sizeof(ntblob)-4)
-				exits(0);
-			/* AvId[2], AvLen[2], Vairable[AvLen] */
-			if(readn(0, ntblob+ntbloblen, 4) < 0)
-				exits(0);
-			id = ntblob[ntbloblen+0] | ntblob[ntbloblen+1]<<8;
-			len = ntblob[ntbloblen+2] | ntblob[ntbloblen+3]<<8;
-			ntbloblen += 4;
-
-			if(ntbloblen+len > sizeof(ntblob))
-				exits(0);
-			if(readn(0, ntblob+ntbloblen, len) < 0)
-				exits(0);
-			ntbloblen += len;
-			if(id == MsvAvEOL)
-				break;
-		}
-
-		/* Z[4] */
-		if(ntbloblen > sizeof(ntblob)-4)
-			exits(0);
-
-		/* LINUX omits the final Z(4), so read with short timeout */
-		notify(catch);
-		timeout = alarm(50);
-		if(readn(0, ntblob+ntbloblen, 4) == 4)
-			ntbloblen += 4;
-		alarm(timeout);
-		notify(nil);
-	}
-
 	safecpy(tr->uid, reply.uid, sizeof(tr->uid));
 	if(tr->uid[0] == 0)
 		exits(0);
@@ -775,38 +825,8 @@ Retry:
 		goto Retry;
 	}
 
-	if(ntbloblen > 0){
-		getname(MsvAvNbDomainName, ntblob, ntbloblen, windom, sizeof(windom));
-		for(;;){
-			ntv2hash(hash, secret, tr->uid, windom);
-
-			/*
-			 * LmResponse = Cat(HMAC_MD5(LmHash, Cat(SC, CC)), CC)
-			 */
-			s = hmac_md5(chal, nchal, hash, MShashlen, nil, nil);
-			hmac_md5((uchar*)reply.LMresp+16, nchal, hash, MShashlen, resp, s);
-			lmok = tsmemcmp(resp, reply.LMresp, 16) == 0;
-
-			/*
-			 * NtResponse = Cat(HMAC_MD5(NtHash, Cat(SC, NtBlob)), NtBlob)
-			 */
-			s = hmac_md5(chal, nchal, hash, MShashlen, nil, nil);
-			hmac_md5(ntblob, ntbloblen, hash, MShashlen, resp, s);
-			ntok = tsmemcmp(resp, reply.NTresp, 16) == 0;
-
-			/*
-			 * LM response can be all zeros or signature key,
-			 * so make it valid when the NT respone matches.
-			 */
-			lmok |= ntok;
-
-			if(lmok || windom[0] == '\0')
-				break;
-
-			windom[0] = '\0';	/* try NIL domain */
-		}
-		dupe = 0;
-	} else if(nchal == MSchallenv2){
+	if(nchal == MSchallenv2){
+		/* MSCHAPv2 */
 		s = sha1((uchar*)reply.LMresp, nchal, nil, nil);
 		s = sha1(chal, nchal, nil, s);
 		sha1((uchar*)tr->uid, strlen(tr->uid), chash, s);
@@ -816,6 +836,7 @@ Retry:
 		ntok = lmok = tsmemcmp(resp, reply.NTresp, MSresplen) == 0;
 		dupe = 0;
 	} else {
+		/* MSCHAP (LM+NTLM) */
 		lmhash(hash, secret);
 		mschalresp(resp, hash, chal);
 		lmok = tsmemcmp(resp, reply.LMresp, MSresplen) == 0;
