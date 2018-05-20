@@ -63,6 +63,7 @@ struct AuthInfo
 struct Chalstate
 {
 	char	*user;
+	char	*dom;
 	char	chal[MAXCHLEN];
 	int	nchal;
 	void	*resp;
@@ -81,7 +82,7 @@ struct	Chapreply		/* for protocol "chap" */
 	char	resp[MD5LEN];
 };
 
-struct	MSchapreply	/* for protocol "mschap" */
+struct	MSchapreply		/* for protocol "mschap" and "ntlm" */
 {
 	char	LMresp[24];		/* Lan Manager response */
 	char	NTresp[24];		/* NT response */
