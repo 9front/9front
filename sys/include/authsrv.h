@@ -11,6 +11,7 @@ typedef struct	Nvrsafe		Nvrsafe;
 typedef struct	Passwordreq	Passwordreq;
 typedef struct	OChapreply	OChapreply;
 typedef struct	OMSchapreply	OMSchapreply;
+typedef struct	NTLMreply	NTLMreply;
 
 typedef struct	Authkey		Authkey;
 
@@ -62,6 +63,7 @@ enum
 	AuthVNC=14,	/* VNC server login (deprecated) */
 	AuthPAK=19,	/* authenticated diffie hellman key agreement */
 	AuthMSchapv2=21,/* MS chap v2 authentication for ppp */
+	AuthNTLM=22,	/* NTLM authentication for cifs */
 	AuthTs=64,	/* ticket encrypted with server's key */
 	AuthTc,		/* ticket encrypted with client's key */
 	AuthAs,		/* server generated authenticator */
@@ -126,6 +128,16 @@ struct	OMSchapreply
 	char	NTresp[24];		/* NT response */
 };
 #define OMSCHAPREPLYLEN	(ANAMELEN+24+24)
+
+struct	NTLMreply
+{
+	uchar	len[2];			/* size of structure (lsb first) */
+	char	uid[ANAMELEN];
+	char	dom[DOMLEN];
+	char	LMresp[24];		/* Lan Manager response */
+	char	NTresp[24];		/* NT response (variable length) */
+};
+#define NTLMREPLYLEN	(2+ANAMELEN+DOMLEN+24+24)
 
 struct	Authkey
 {
