@@ -75,16 +75,16 @@ struct Operator {
 	"/",	OBINARY,	0,	100,	div,
 	"%",	OBINARY,	0,	100,	mod,
 	"^",	OBINARY,	1,	200,	pot,
-	"sin",	OUNARY,		0,	50,	osin,
-	"cos",	OUNARY,		0,	50,	ocos,
-	"tan",	OUNARY,		0,	50,	otan,
-	"asin",	OUNARY,		0,	50,	oasin,
-	"acos",	OUNARY,		0,	50,	oacos,
-	"atan",	OUNARY,		0,	50,	oatan,
-	"sqrt",	OUNARY,		0,	50,	osqrt,
-	"exp",	OUNARY,		0,	50,	oexp,
-	"log",	OUNARY,		0,	50,	olog,
-	"ln",	OUNARY,		0,	50,	oln,
+	"sin",	OUNARY,		0,	300,	osin,
+	"cos",	OUNARY,		0,	300,	ocos,
+	"tan",	OUNARY,		0,	300,	otan,
+	"asin",	OUNARY,		0,	300,	oasin,
+	"acos",	OUNARY,		0,	300,	oacos,
+	"atan",	OUNARY,		0,	300,	oatan,
+	"sqrt",	OUNARY,		0,	300,	osqrt,
+	"exp",	OUNARY,		0,	300,	oexp,
+	"log",	OUNARY,		0,	300,	olog,
+	"ln",	OUNARY,		0,	300,	oln,
 };
 
 struct Constant {
@@ -105,10 +105,17 @@ int nfns;
 Token *opstackbot;
 double xmin = -10, xmax = 10;
 double ymin = -10, ymax = 10;
+double gymin, gymax;
 Image *color;
-int cflag;
+int cflag, aflag;
 char *imagedata;
 int picx = 640, picy = 480;
+
+typedef struct FRectangle FRectangle;
+struct FRectangle {
+	double xmin, xmax, ymin, ymax;
+} *zoomst;
+int nzoomst;
 
 void *
 emalloc(int size)
@@ -321,6 +328,8 @@ calc(Code *c, double x)
 		case OUNARY: case OBINARY:
 			o->f();
 		}
+	if(*sp < gymin) gymin = *sp;
+	if(*sp > gymax) gymax = *sp;
 	return *sp;
 }
 
@@ -401,8 +410,155 @@ drawgraph(Code *co, Rectangle *r)
 {
 	int x;
 	
+	gymin = Inf(1);
+	gymax = Inf(-1);
 	for(x = r->min.x; x < r->max.x; x++)
 		drawinter(co, r, convx(r, x), convx(r, x + 1), 0);
+}
+
+void
+tickfmt(double d, double m, int n, char *fmt)
+{
+	double e1, e2;
+	int x;
+	
+	e1 = log10(fabs(m));
+	e2 = log10(fabs(m + n * d));
+	if(e2 > e1) e1 = e2;
+	if(e2 >= 4 || e2 < -3){
+		x = ceil(e1-log10(d)-1);
+		snprint(fmt, 32, "%%.%de", x);
+	}else{
+		x = ceil(-log10(d));
+		snprint(fmt, 32, "%%.%df", x);
+	}
+}
+
+int
+xticklabel(char *fmt, double g, int p, int x, int y)
+{
+	char buf[32];
+	Rectangle lr;
+	int ny;
+
+	snprint(buf, sizeof(buf), fmt, g);
+	lr.min = Pt(p, y+2);
+	lr.max = addpt(lr.min, stringsize(display->defaultfont, buf));
+	lr = rectsubpt(lr, Pt(Dx(lr) / 2-1, 0));
+	if(lr.max.y >= screen->r.max.y){
+		ny = y - 7 - Dy(lr);
+		lr = rectsubpt(lr, Pt(0, lr.min.y - ny));
+	}
+	if(rectinrect(lr, screen->r) && (lr.min.x > x || lr.max.x <= x)){
+		string(screen, lr.min, display->black, ZP, display->defaultfont, buf);
+		return 1;
+	}
+	return 0;
+}
+
+int
+yticklabel(char *fmt, double g, int p, int x, int y)
+{
+	char buf[32];
+	Rectangle lr;
+	int nx;
+
+	snprint(buf, sizeof(buf), fmt, g);
+	lr.min = Pt(0, 0);
+	lr.max = stringsize(display->defaultfont, buf);
+	lr = rectaddpt(lr, Pt(x-Dx(lr)-2, p - Dy(lr) / 2));
+	if(lr.min.x < screen->r.min.x){
+		nx = x + 7;
+		lr = rectsubpt(lr, Pt(lr.min.x - nx, 0));
+	}
+	if(rectinrect(lr, screen->r) && (lr.min.y > y || lr.max.y <= y)){
+		string(screen, lr.min, display->black, ZP, display->defaultfont, buf);
+		return 1;
+	}
+	return 0;
+}
+
+int
+calcm(double min, double max, int e, double *dp, double *mp)
+{
+	double d, m, r;
+
+	d = pow(10, e>>1);
+	if((e & 1) != 0) d *= 5;
+	m = min;
+	if(min < 0 && max > 0)
+		m += fmod(-m, d);
+	else{
+		r = fmod(m, d);
+		if(r < 0)
+			m -= r;
+		else
+			m += d - r;
+	}
+	if(dp != nil) *dp = d;
+	if(mp != nil) *mp = m;
+	return (max-m)*0.999/d;
+}
+
+int
+ticks(double min, double max, double *dp, double *mp)
+{
+	int e, n;
+	double m;
+	int beste;
+	double bestm;
+	
+	e = 2 * ceil(log10(max - min));
+	beste = 0;
+	bestm = Inf(1);
+	for(;e>-100;e--){
+		n = calcm(min, max, e, nil, nil);
+		if(n <= 0) continue;
+		if(n < 10) m = 10.0 / n;
+		else m = n / 10.0;
+		if(m < bestm){
+			beste = e;
+			bestm = m;
+		}
+		if(n > 10) break;
+	}
+	calcm(min, max, beste, dp, mp);
+	return (max - *mp) / *dp;
+}
+
+void
+drawaxes(void)
+{
+	int x, y, p;
+	double dx, dy, mx, my;
+	int nx, ny;
+	int i;
+	char fmt[32];
+
+	if(xmin < 0 && xmax > 0)
+		x = deconvx(&screen->r, 0);
+	else
+		x = screen->r.min.x+5;
+	line(screen, Pt(x, screen->r.min.y), Pt(x, screen->r.max.y), Endarrow, 0, 0, display->black, ZP);
+	if(ymin < 0 && ymax > 0)
+		y = deconvy(&screen->r, 0);
+	else
+		y = screen->r.max.y-5;
+	line(screen, Pt(screen->r.min.x, y), Pt(screen->r.max.x, y), 0, Endarrow, 0, display->black, ZP);
+	nx = ticks(xmin, xmax, &dx, &mx);
+	tickfmt(dx, mx, nx, fmt);
+	for(i = 0; i <= nx; i++){
+		p = deconvx(&screen->r, dx*i+mx);
+		if(xticklabel(fmt, dx*i+mx, p, x, y))
+			line(screen, Pt(p, y), Pt(p, y-5), 0, 0, 0, display->black, ZP);
+	}
+	ny = ticks(ymin, ymax, &dy, &my);
+	tickfmt(dy, my, ny, fmt);
+	for(i = 0; i <= ny; i++){
+		p = deconvy(&screen->r, dy*i+my);
+		if(yticklabel(fmt, dy*i+my, p, x, y))
+			line(screen, Pt(x, p), Pt(x+5, p), 0, 0, 0, display->black, ZP);
+	}
 }
 
 void
@@ -413,13 +569,15 @@ drawgraphs(void)
 	color = display->black;
 	for(i = 0; i < nfns; i++)
 		drawgraph(&fns[i], &screen->r);
+	if(!aflag)
+		drawaxes();
 	flushimage(display, 1);
 }
 
 void
 usage(void)
 {
-	fprint(2, "usage: fplot [-c [-s size]] [-r range] functions ...\n");
+	fprint(2, "usage: fplot [-a] [-c [-s size]] [-r range] functions ...\n");
 	exits("usage");
 }
 
@@ -430,10 +588,13 @@ zoom(void)
 	Rectangle r;
 	double xmin_, xmax_, ymin_, ymax_;
 	
-	m.buttons = 7;
+	m.buttons = 0;
 	r = egetrect(1, &m);
 	if(Dx(r) < 1 || Dy(r) < 1)
 		return;
+	zoomst = realloc(zoomst, sizeof(FRectangle) * (nzoomst + 1));
+	if(zoomst == nil) sysfatal("realloc: %r");
+	zoomst[nzoomst++] = (FRectangle){xmin, xmax, ymin, ymax};
 	xmin_ = convx(&screen->r, r.min.x);
 	xmax_ = convx(&screen->r, r.max.x);
 	ymin_ = convy(&screen->r, r.max.y);
@@ -442,6 +603,20 @@ zoom(void)
 	xmax = xmax_;
 	ymin = ymin_;
 	ymax = ymax_;
+	draw(screen, screen->r, display->white, nil, ZP);
+	drawgraphs();
+}
+
+void
+unzoom(void)
+{
+	if(nzoomst == 0) return;
+	xmin = zoomst[nzoomst - 1].xmin;
+	xmax = zoomst[nzoomst - 1].xmax;
+	ymin = zoomst[nzoomst - 1].ymin;
+	ymax = zoomst[nzoomst - 1].ymax;
+	zoomst = realloc(zoomst, sizeof(FRectangle) * --nzoomst);
+	if(zoomst == nil && nzoomst != 0) sysfatal("realloc: %r");
 	draw(screen, screen->r, display->white, nil, ZP);
 	drawgraphs();
 }
@@ -497,8 +672,10 @@ main(int argc, char **argv)
 	Event e;
 	Rectangle r;
 	int i;
+	static int lbut;
 
 	ARGBEGIN {
+	case 'a': aflag++; break;
 	case 'r': parserange(EARGF(usage())); break;
 	case 's': parsesize(EARGF(usage())); break;
 	case 'c': cflag++; break;
@@ -526,10 +703,27 @@ main(int argc, char **argv)
 		drawgraphs();
 		for(;;) {
 			switch(event(&e)) {
+			case Emouse:
+				if((e.mouse.buttons & 1) != 0)
+					zoom();
+				if((~e.mouse.buttons & lbut & 4) != 0)
+					unzoom();
+				lbut = e.mouse.buttons;
+				break;
 			case Ekeyboard:
 				switch(e.kbdc) {
-				case 'q': exits(nil);
-				case 'z': zoom();
+				case 'q': case 127: exits(nil); break;
+				case 'y':
+					if(!isInf(ymin, 1) && !isInf(ymax, -1)){
+						zoomst = realloc(zoomst, sizeof(FRectangle) * (nzoomst + 1));
+						if(zoomst == nil) sysfatal("realloc: %r");
+						zoomst[nzoomst++] = (FRectangle){xmin, xmax, ymin, ymax};
+						ymin = gymin-0.05*(gymax-gymin);
+						ymax = gymax+0.05*(gymax-gymin);
+						draw(screen, screen->r, display->white, nil, ZP);
+						drawgraphs();
+					}
+					break;
 				}
 			}
 		}

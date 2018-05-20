@@ -27,6 +27,11 @@ option's argument (in the WIDTHxHEIGHT format). The
 .B -r
 option accepts as argument the x and y ranges, in the format
 .LR "xmin:xmax ymin:ymax".
+By default
+.I fplot
+draws coordinate axes and tick marks; the
+.B -a
+option inhibits this.
 .PP
 Each function to be plotted may be a combination of the independent variable x, 
 the elementary operations (+, -, *, / and %), and the functions described in
@@ -55,9 +60,11 @@ either exits with
 .LR "syntax error"
 or an empty status.
 .SH BUGS
-Parentheses after unary operators are not special, e.g. sin(x)/2 is parsed as sin x/2 = sin(x/2) and not (sin x)/2.
-.PP
 There is no unary plus or minus.
+.PP
+Axes are not drawn in
+.B -c
+output.
 .SH HISTORY
 .I Fplot
 first appeared in 9front (July, 2011).
