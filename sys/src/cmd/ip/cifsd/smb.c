@@ -46,7 +46,7 @@ err:
 	if(needauth){
 		if(smbcs != nil)
 			auth_freechal(smbcs);
-		if(smbcs = auth_challenge("proto=mschap role=server")){
+		if(smbcs = auth_challenge("proto=ntlm role=server")){
 			c = (uchar*)smbcs->chal;
 			ce = c + smbcs->nchal;
 			mode = NEGOTIATE_USER_SECURITY | NEGOTIATE_ENCRYPT_PASSWORDS;
@@ -104,6 +104,7 @@ smbsessionsetupandx(Req *r, uchar *h, uchar *p, uchar *e)
 			if(smbcs == nil || strlen(user) == 0)
 				break;
 			smbcs->user = user;
+			smbcs->dom = dom;
 			smbcs->nresp = (nte - nt)+sizeof(*mcr)-sizeof(mcr->NTresp);
 			if(smbcs->nresp < sizeof(*mcr))
 				smbcs->nresp = sizeof(*mcr);

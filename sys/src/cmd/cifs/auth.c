@@ -78,8 +78,6 @@ auth_proto(char *proto, char *windom, char *keyp, uchar *chal, int len)
 
 	mcr = (MSchapreply*)resp;
 	nresp = sizeof(resp);
-	if(strcmp(proto, "mschap") == 0)
-		nresp = sizeof(*mcr);	/* backwards compatibility with old factotum */
 	nresp = auth_respond(chal, len, user, sizeof user, resp, nresp,
 		auth_getkey, "proto=%s role=client service=cifs windom=%s %s",
 		proto, windom, keyp);
@@ -109,7 +107,7 @@ auth_proto(char *proto, char *windom, char *keyp, uchar *chal, int len)
 static Auth *
 auth_lm_and_ntlm(char *windom, char *keyp, uchar *chal, int len)
 {
-	return auth_proto("mschap", windom, keyp, chal, len);
+	return auth_proto("ntlm", windom, keyp, chal, len);
 }
 
 /*
@@ -136,7 +134,7 @@ auth_ntlm(char *windom, char *keyp, uchar *chal, int len)
 static Auth *
 auth_ntlmv2(char *windom, char *keyp, uchar *chal, int len)
 {
-	return auth_proto("mschap2", windom, keyp, chal, len);
+	return auth_proto("ntlmv2", windom, keyp, chal, len);
 }
 
 struct {

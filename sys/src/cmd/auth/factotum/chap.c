@@ -10,6 +10,7 @@
  * Server protocol:
  *	read challenge: 8 bytes binary (or 16 bytes for mschapv2)
  *	write user: utf8
+ *	write dom: utf8 (ntlm)
  *	write response: Chapreply or MSchapreply structure
  *	... retry another user
  */
@@ -36,7 +37,7 @@ static int dochal(State *s);
 static int doreply(State *s, uchar *reply, int nreply);
 static int dochap(char *passwd, int id, char chal[ChapChallen], uchar *resp, int resplen);
 static int domschap(char *passwd, uchar chal[MSchallen], uchar *resp, int resplen);
-static int domschap2(char *passwd, char *user, char *dom, uchar chal[MSchallen], uchar *resp, int resplen);
+static int dontlmv2(char *passwd, char *user, char *dom, uchar chal[MSchallen], uchar *resp, int resplen);
 static void nthash(uchar hash[MShashlen], char *passwd);
 
 struct State
@@ -53,6 +54,7 @@ struct State
 	uchar resp[4096];
 	char err[ERRMAX];
 	char user[64];
+	char dom[DOMLEN];
 	uchar secret[16+20];	/* for mschap: MPPE Master secret + authenticator (v2) */
 	int nsecret;
 };
@@ -64,6 +66,7 @@ enum
 
 	SHaveChal,
 	SNeedUser,
+	SNeedDom,
 	SNeedResp,
 
 	Maxphase
@@ -76,6 +79,7 @@ static char *phasenames[Maxphase] =
 
 [SHaveChal]	"SHaveChal",
 [SNeedUser]	"SNeedUser",
+[SNeedDom]	"SNeedDom",
 [SNeedResp]	"SNeedResp",
 };
 
@@ -98,14 +102,15 @@ chapinit(Proto *p, Fsstate *fss)
 	if(p == &mschapv2) {
 		s->nchal = MSchallenv2;
 		s->astype = AuthMSchapv2;
+	} else if(p == &mschap){
+		s->nchal = MSchallen;
+		s->astype = AuthMSchap;
+	} else if(p == &ntlm || p == &ntlmv2){
+		s->nchal = MSchallen;
+		s->astype = AuthNTLM;
 	} else {
-		if(p == &mschap || p == &mschap2){
-			s->nchal = MSchallen;
-			s->astype = AuthMSchap;
-		}else {
-			s->nchal = ChapChallen;
-			s->astype = AuthChap;
-		}
+		s->nchal = ChapChallen;
+		s->astype = AuthChap;
 	}
 	if(iscli)
 		fss->phase = CNeedChal;
@@ -150,6 +155,7 @@ chapwrite(Fsstate *fss, void *va, uint n)
 	MSchapreply *mcr;
 	OChapreply *ocr;
 	OMSchapreply *omcr;
+	NTLMreply *ntcr;
 	uchar pchal[MSchallenv2];
 	uchar digest[SHA1dlen];
 	uchar reply[4096];
@@ -177,20 +183,25 @@ chapwrite(Fsstate *fss, void *va, uint n)
 		memset(s->resp, 0, sizeof(s->resp));
 		setattrs(fss->attr, k->attr);
 		switch(s->astype){
-		case AuthMSchap:
+		case AuthNTLM:
 			if(n < MSchallen)
 				break;
-			if(fss->proto == &mschap2){
+			if(fss->proto == &ntlmv2){
 				user = _strfindattr(fss->attr, "user");
 				if(user == nil)
 					break;
 				dom = _strfindattr(fss->attr, "windom");
 				if(dom == nil)
 					dom = "";
-				s->nresp = domschap2(pass, user, dom, (uchar*)a, s->resp, sizeof(s->resp));
+				s->nresp = dontlmv2(pass, user, dom, (uchar*)a, s->resp, sizeof(s->resp));
 			} else {
 				s->nresp = domschap(pass, (uchar*)a, s->resp, sizeof(s->resp));
 			}
+			break;
+		case AuthMSchap:
+			if(n < MSchallen)
+				break;
+			s->nresp = domschap(pass, (uchar*)a, s->resp, sizeof(s->resp));
 			nthash(digest, pass);
 			md4(digest, 16, digest, nil);
 			ds = sha1(digest, 16, nil, nil);
@@ -253,6 +264,14 @@ chapwrite(Fsstate *fss, void *va, uint n)
 			return failure(fss, "user name too long");
 		memmove(s->user, va, n);
 		s->user[n] = '\0';
+		fss->phase = (s->astype == AuthNTLM)? SNeedDom: SNeedResp;
+		return RpcOk;
+
+	case SNeedDom:
+		if(n >= sizeof s->dom)
+			return failure(fss, "domain name too long");
+		memmove(s->dom, va, n);
+		s->dom[n] = '\0';
 		fss->phase = SNeedResp;
 		return RpcOk;
 
@@ -275,15 +294,29 @@ chapwrite(Fsstate *fss, void *va, uint n)
 		case AuthMSchapv2:
 			if(n < MSchapreplylen)
 				return failure(fss, "did not get MSchapreply");
-			if(n > sizeof(reply)+MSchapreplylen-OMSCHAPREPLYLEN)
-				return failure(fss, "MSchapreply too long");
 			mcr = (MSchapreply*)va;
-			nreply = n+OMSCHAPREPLYLEN-MSchapreplylen;
+			nreply = OMSCHAPREPLYLEN;
 			memset(reply, 0, nreply);
 			omcr = (OMSchapreply*)reply;
 			strecpy(omcr->uid, omcr->uid+sizeof(omcr->uid), s->user);
 			memmove(omcr->LMresp, mcr->LMresp, sizeof(omcr->LMresp));
-			memmove(omcr->NTresp, mcr->NTresp, n+sizeof(mcr->NTresp)-MSchapreplylen);
+			memmove(omcr->NTresp, mcr->NTresp, sizeof(mcr->NTresp));
+			break;
+		case AuthNTLM:
+			if(n < MSchapreplylen)
+				return failure(fss, "did not get MSchapreply");
+			if(n > sizeof(reply)+MSchapreplylen-NTLMREPLYLEN)
+				return failure(fss, "MSchapreply too long");
+			mcr = (MSchapreply*)va;
+			nreply = n+NTLMREPLYLEN-MSchapreplylen;
+			memset(reply, 0, nreply);
+			ntcr = (NTLMreply*)reply;
+			ntcr->len[0] = nreply;
+			ntcr->len[1] = nreply>>8;
+			strecpy(ntcr->uid, ntcr->uid+sizeof(ntcr->uid), s->user);
+			strecpy(ntcr->dom, ntcr->dom+sizeof(ntcr->dom), s->dom);
+			memmove(ntcr->LMresp, mcr->LMresp, sizeof(ntcr->LMresp));
+			memmove(ntcr->NTresp, mcr->NTresp, n+sizeof(mcr->NTresp)-MSchapreplylen);
 			break;
 		}
 		if(doreply(s, reply, nreply) < 0){
@@ -402,12 +435,12 @@ doreply(State *s, uchar *reply, int nreply)
 		werrstr(Easproto);
 		return -1;
 	}
-	s->key->successes++;
 	if(a.num != AuthAc
 	|| tsmemcmp(a.chal, s->tr.chal, sizeof(a.chal)) != 0){
 		werrstr(Easproto);
 		return -1;
 	}
+	s->key->successes++;
 	s->nsecret = 0;
 	if(s->t.form != 0){
 		if(s->astype == AuthMSchap || s->astype == AuthMSchapv2){
@@ -457,8 +490,18 @@ Proto mschapv2 = {
 .keyprompt= "user? !password?"
 };
 
-Proto mschap2 = {
-.name=	"mschap2",	/* really NTLMv2 */
+Proto ntlm = {
+.name=	"ntlm",
+.init=	chapinit,
+.write=	chapwrite,
+.read=	chapread,
+.close=	chapclose,
+.addkey= replacekey,
+.keyprompt= "user? !password?"
+};
+
+Proto ntlmv2 = {
+.name=	"ntlmv2",
 .init=	chapinit,
 .write=	chapwrite,
 .read=	chapread,
@@ -582,7 +625,7 @@ domschap(char *passwd, uchar chal[MSchallen], uchar *resp, int resplen)
 }
 
 static int
-domschap2(char *passwd, char *user, char *dom, uchar chal[MSchallen], uchar *resp, int resplen)
+dontlmv2(char *passwd, char *user, char *dom, uchar chal[MSchallen], uchar *resp, int resplen)
 {
 	uchar hash[MShashlen], *p, *e;
 	MSchapreply *r;

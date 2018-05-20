@@ -74,6 +74,15 @@ auth_response(Chalstate *c)
 			goto Out;
 		}
 	}
+	if(c->dom){
+		if(auth_rpc(c->rpc, "write", c->dom, strlen(c->dom)) != ARok){
+			/*
+			 * if this fails we're out of phase with factotum.
+			 * give up.
+			 */
+			goto Out;
+		}
+	}
 
 	if(auth_rpc(c->rpc, "write", c->resp, c->nresp) != ARok){
 		/*
