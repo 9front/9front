@@ -535,7 +535,7 @@ mathemu(Ureg *ureg, void*)
 	case FPinit:
 		fpinit();
 		index = up->fpstate >> FPindexs;
-		if(index < 0 || index > FPindexm)
+		if(index < 0 || index > (FPindexm>>FPindexs))
 			panic("fpslot index overflow: %d", index);
 		if(userureg(ureg)){
 			if(index != 0)
@@ -684,7 +684,7 @@ procsave(Proc *p)
 		 * emulation fault to activate the FPU.
 		 */
 		fpsave(p->fpsave);
-		p->fpstate = FPinactive | (p->fpstate & (FPpush|FPnouser|FPkernel|FPindexm));
+		p->fpstate = FPinactive | (p->fpstate & ~FPactive);
 		break;
 	}
 
@@ -729,7 +729,8 @@ fpurestore(int ostate)
 		if((astate & ~(FPnouser|FPkernel|FPindexm)) == FPactive)
 			_stts();
 		up->fpsave = up->fpslot[ostate>>FPindexs];
-		ostate = FPinactive | (ostate & (FPillegal|FPpush|FPnouser|FPkernel|FPindexm));
+		if(ostate & FPactive)
+			ostate = FPinactive | (ostate & ~FPactive);
 	}
 	up->fpstate = ostate;
 }
