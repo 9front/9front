@@ -542,9 +542,9 @@ awaitack(int fd, int block)
 		if (Debug)
 			syslog(dbg, flog, "tftpd %d read ack of %d bytes "
 				"for block %d", pid, al, ackblock);
-		if(ackblock == block)
+		if(ackblock == (block & 0xffff))
 			return Ackok;		/* for block just sent */
-		else if(ackblock == block + 1)	/* intel pxe eof bug */
+		else if(ackblock == (block + 1 & 0xffff))	/* intel pxe eof bug */
 			return Ackok;
 		else if(ackblock == 0xffff)
 			return Ackrexmit;
