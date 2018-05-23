@@ -49,7 +49,7 @@ query, ipquery, mkhash, mkdb, mkhosts, cs, csquery, dns, dnstcp, dnsquery, dnsde
 .B -s
 ]
 [
-.I server
+.I /net/cs
 [
 .I addr...
 ]
@@ -91,6 +91,8 @@ query, ipquery, mkhash, mkdb, mkhosts, cs, csquery, dns, dnstcp, dnsquery, dnsde
 .B ndb/dnsquery
 [
 .B -x
+] [
+.I /net/dns
 ]
 .br
 .B ndb/dnsdebug
