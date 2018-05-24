@@ -6,35 +6,6 @@
 #include "dns.h"
 #include "ip.h"
 
-static int domount;
-static char *mtpt, *dns, *srv;
-
-static int
-setup(int argc, char **argv)
-{
-	int fd;
-
-	if(argc == 1){
-		domount = 0;
-		mtpt = argv[0];
-	}
-
-	fd = open(dns, ORDWR);
-	if(fd < 0){
-		if(domount == 0)
-			sysfatal("can't open %s: %r", dns);
-		fd = open(srv, ORDWR);
-		if(fd < 0)
-			sysfatal("can't open %s: %r", srv);
-		if(mount(fd, -1, mtpt, MBEFORE, "") < 0)
-			sysfatal("can't mount(%s, %s): %r", srv, mtpt);
-		fd = open(dns, ORDWR);
-		if(fd < 0)
-			sysfatal("can't open %s: %r", dns);
-	}
-	return fd;
-}
-
 static void
 querydns(int fd, char *line, int n)
 {
@@ -52,11 +23,37 @@ querydns(int fd, char *line, int n)
 	}
 }
 
+/*
+ *  convert address into a reverse lookup address
+ */
+static void
+mkptrname(char *ip, char *rip, int rlen)
+{
+	uchar a[IPaddrlen];
+	char *p, *e;
+	int i;
+
+	if(cistrstr(ip, "in-addr.arpa") || cistrstr(ip, "ip6.arpa") || parseip(a, ip) == -1)
+		snprint(rip, rlen, "%s", ip);
+	else if(isv4(a))
+		snprint(rip, rlen, "%ud.%ud.%ud.%ud.in-addr.arpa",
+			a[15], a[14], a[13], a[12]);
+	else{
+		p = rip;
+		e = rip + rlen;
+		for(i = 15; i >= 0; i--){
+			p = seprint(p, e, "%ux.", a[i]&0xf);
+			p = seprint(p, e, "%ux.", a[i]>>4);
+		}
+		seprint(p, e, "ip6.arpa");
+	}
+}
+
 static void
 query(int fd)
 {
-	int n, len;
-	char *lp, *p, *np;
+	int n;
+	char *lp;
 	char buf[1024], line[1024];
 	Biobuf in;
 
@@ -84,31 +81,10 @@ query(int fd)
 				n += 3;
 			}
 
-		/* inverse queries may need to be permuted */
-		if(n > 4 && strcmp(" ptr", &line[n-4]) == 0 &&
-		    cistrstr(line, ".arpa") == nil){
-			/* TODO: reversing v6 addrs is harder */
-			for(p = line; *p; p++)
-				if(*p == ' '){
-					*p = '.';
-					break;
-				}
-			np = buf;
-			len = 0;
-			while(p >= line){
-				len++;
-				p--;
-				if(*p == '.'){
-					memmove(np, p+1, len);
-					np += len;
-					len = 0;
-				}
-			}
-			memmove(np, p+1, len);
-			np += len;
-			strcpy(np, "in-addr.arpa ptr");	/* TODO: ip6.arpa for v6 */
-			strcpy(line, buf);
-			n = strlen(line);
+		if(n > 4 && strcmp(" ptr", &line[n-4]) == 0){
+			line[n-4] = 0;
+			mkptrname(line, buf, sizeof buf);
+			n = snprint(line, sizeof line, "%s ptr", buf);
 		}
 
 		querydns(fd, line, n);
@@ -119,21 +95,25 @@ query(int fd)
 void
 main(int argc, char *argv[])
 {
-	mtpt = "/net";
-	dns = "/net/dns";
-	srv = "/srv/dns";
-	domount = 1;
+	char *dns  = "/net/dns";
+	int fd;
+
 	ARGBEGIN {
 	case 'x':
-		mtpt = "/net.alt";
 		dns = "/net.alt/dns";
-		srv = "/srv/dns_net.alt";
 		break;
 	default:
-		fprint(2, "usage: %s [-x] [dns-mount-point]\n", argv0);
+		fprint(2, "usage: %s [-x] [/net/dns]\n", argv0);
 		exits("usage");
 	} ARGEND;
 
-	query(setup(argc, argv));
+	if(argc > 0)
+		dns = argv[0];
+
+	fd = open(dns, ORDWR);
+	if(fd < 0)
+		sysfatal("can't open %s: %r", dns);
+
+	query(fd);
 	exits(0);
 }

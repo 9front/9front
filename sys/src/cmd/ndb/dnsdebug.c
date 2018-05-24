@@ -121,6 +121,32 @@ longtime(long t)
 	return x;
 }
 
+/*
+ *  convert address into a reverse lookup address
+ */
+static void
+mkptrname(char *ip, char *rip, int rlen)
+{
+	uchar a[IPaddrlen];
+	char *p, *e;
+	int i;
+
+	if(cistrstr(ip, "in-addr.arpa") || cistrstr(ip, "ip6.arpa") || parseip(a, ip) == -1)
+		snprint(rip, rlen, "%s", ip);
+	else if(isv4(a))
+		snprint(rip, rlen, "%ud.%ud.%ud.%ud.in-addr.arpa",
+			a[15], a[14], a[13], a[12]);
+	else{
+		p = rip;
+		e = rip + rlen;
+		for(i = 15; i >= 0; i--){
+			p = seprint(p, e, "%ux.", a[i]&0xf);
+			p = seprint(p, e, "%ux.", a[i]>>4);
+		}
+		seprint(p, e, "ip6.arpa");
+	}
+}
+
 int
 prettyrrfmt(Fmt *f)
 {
@@ -372,7 +398,6 @@ void
 doquery(char *name, char *tstr)
 {
 	int len, type, rooted;
-	char *p, *np;
 	char buf[1024];
 	RR *rr, *rp;
 	Request req;
@@ -387,6 +412,13 @@ doquery(char *name, char *tstr)
 		else
 			tstr = "ip";
 
+	/* look it up */
+	type = rrtype(tstr);
+	if(type < 0){
+		print("!unknown type %s\n", tstr);
+		return;
+	}
+
 	/* if name end in '.', remove it */
 	len = strlen(name);
 	if(len > 0 && name[len-1] == '.'){
@@ -396,34 +428,10 @@ doquery(char *name, char *tstr)
 		rooted = 0;
 
 	/* inverse queries may need to be permuted */
-	strncpy(buf, name, sizeof buf);
-	if(strcmp("ptr", tstr) == 0 && cistrstr(name, ".arpa") == nil){
-		/* TODO: reversing v6 addrs is harder */
-		for(p = name; *p; p++)
-			;
-		*p = '.';
-		np = buf;
-		len = 0;
-		while(p >= name){
-			len++;
-			p--;
-			if(*p == '.'){
-				memmove(np, p+1, len);
-				np += len;
-				len = 0;
-			}
-		}
-		memmove(np, p+1, len);
-		np += len;
-		strcpy(np, "in-addr.arpa");	/* TODO: ip6.arpa for v6 */
-	}
-
-	/* look it up */
-	type = rrtype(tstr);
-	if(type < 0){
-		print("!unknown type %s\n", tstr);
-		return;
-	}
+	if(type == Tptr)
+		mkptrname(name, buf, sizeof buf);
+	else
+		strncpy(buf, name, sizeof buf);
 
 	memset(&req, 0, sizeof req);
 	getactivity(&req, 0);
