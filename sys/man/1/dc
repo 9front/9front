@@ -231,6 +231,14 @@ Print the first ten values of
 0sa1
 lyx
 .EE
+.LP
+Print π.
+.IP
+.EX
+1sq180sr60st2si[3li*1+d1+*3*suli27*12-lq*5lr*+lt
+5*/d48+Psy10lqlid2*1-***10lulqli5*2-*lr+lylt*-**
+srsqlult*stli1+silmx]smlmx
+.EE
 .SH SOURCE
 .B /sys/src/cmd/dc.c
 .SH "SEE ALSO"
