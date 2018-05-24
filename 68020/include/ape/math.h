@@ -15,6 +15,7 @@ extern double asin(double);
 extern double atan(double);
 extern double atan2(double, double);
 extern double cos(double);
+extern double hypot(double, double);
 extern double sin(double);
 extern double tan(double);
 extern double cosh(double);
@@ -36,6 +37,7 @@ extern double NaN(void);
 extern int isNaN(double);
 extern double Inf(int);
 extern int isInf(double, int);
+extern double fmin(double, double);
 
 #ifdef _RESEARCH_SOURCE
 /* does >> treat left operand as unsigned ? */
