@@ -187,6 +187,7 @@ char *confend;
 
 static void apmconf(int);
 static void e820conf(void);
+static void ramdiskconf(int);
 static void uartconf(char*);
 
 static char*
@@ -249,6 +250,7 @@ Clear:
 		memset(confend, 0, BOOTARGSLEN);
 
 		e820conf();
+		ramdiskconf(0);
 	}
 	nowait = 1;
 	inblock = 0;
@@ -411,6 +413,78 @@ e820conf(void)
 
 	if(confend == s)
 		return;
+
+	*confend++ = '\n';
+	*confend = 0;
+
+	print(s);
+}
+
+static int
+checksum(void *v, int n)
+{
+	uchar *p, s;
+
+	s = 0;
+	p = v;
+	while(n-- > 0)
+		s += *p++;
+	return s;
+}
+
+static void
+ramdiskconf(int id)
+{
+	struct {
+		/* ACPI header */
+		char	sig[4];
+		u32int	len;
+		uchar	revision;
+		uchar	csum;
+		char	oem_id[6];
+		char	oem_table_id[8];
+		u32int	oem_revision;
+		char	asl_compiler_id[4];
+		u32int	asl_compiler_revision;
+
+		u32int	safe_hook;
+
+		/* MDI structure */
+		u16int	bytes;
+		uchar	version_minor;
+		uchar	version_major;
+		u32int	diskbuf;
+		u32int	disksize;
+		u32int	cmdline;
+		u32int	oldint13;
+		u32int	oldint15;
+		u16int	olddosmem;
+		uchar	bootloaderid;
+		uchar	sector_shift;
+		u16int	dpt_ptr;
+	} *mbft;
+	int shift;
+	char *s;
+
+#define BDA	((uchar*)0x400)
+	mbft = (void*)((((BDA[0x14]<<8) | BDA[0x13])<<10) - 1024);
+	for(; (ulong)&mbft->sector_shift < 0xA0000; mbft = (void*)((ulong)mbft + 16)){
+		if(memcmp("mBFT", mbft, 4) == 0
+		&& mbft->len < 1024 && (uchar*)mbft + mbft->len > &mbft->sector_shift
+		&& checksum(mbft, mbft->len) == 0)
+			goto Found;
+	}
+	return;
+Found:
+	shift = mbft->sector_shift;
+	if(shift == 0)
+		shift = 9;
+
+	s = confend;
+	addconfx("ramdisk", 1, id);
+	addconfx("=0x", 8, mbft->diskbuf);
+	addconfx(" 0x", 8, mbft->disksize<<shift);
+	addconfx(" 0x", 8, 1UL<<shift);
 
 	*confend++ = '\n';
 	*confend = 0;
