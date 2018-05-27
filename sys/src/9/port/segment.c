@@ -64,6 +64,9 @@ newseg(int type, uintptr base, ulong size)
 	s->sema.prev = &s->sema;
 	s->sema.next = &s->sema;
 
+	if((type & SG_TYPE) == SG_PHYSICAL)
+		return s;
+
 	mapsize = ROUND(size, PTEPERTAB)/PTEPERTAB;
 	if(mapsize > nelem(s->ssegmap)){
 		s->map = malloc(mapsize*sizeof(Pte*));
@@ -104,13 +107,16 @@ putseg(Segment *s)
 	} else if(decref(s) != 0)
 		return;
 
-	emap = &s->map[s->mapsize];
-	for(pte = s->map; pte < emap; pte++)
-		if(*pte != nil)
-			freepte(s, *pte);
+	if(s->mapsize > 0){
+		emap = &s->map[s->mapsize];
+		for(pte = s->map; pte < emap; pte++)
+			if(*pte != nil)
+				freepte(s, *pte);
 
-	if(s->map != s->ssegmap)
-		free(s->map);
+		if(s->map != s->ssegmap)
+			free(s->map);
+	}
+
 	if(s->profile != nil)
 		free(s->profile);
 
@@ -212,7 +218,7 @@ segpage(Segment *s, Page *p)
 	uintptr soff;
 	Page **pg;
 
-	if(p->va < s->base || p->va >= s->top)
+	if(p->va < s->base || p->va >= s->top || s->mapsize == 0)
 		panic("segpage");
 
 	soff = p->va - s->base;

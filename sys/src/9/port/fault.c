@@ -5,63 +5,6 @@
 #include	"fns.h"
 #include	"../port/error.h"
 
-int
-fault(uintptr addr, int read)
-{
-	Segment *s;
-	char *sps;
-	int pnd, attr;
-
-	if(up == nil)
-		panic("fault: nil up");
-	if(up->nlocks){
-		Lock *l = up->lastlock;
-		print("fault: nlocks %d, proc %lud %s, addr %#p, lock %#p, lpc %#p\n", 
-			up->nlocks, up->pid, up->text, addr, l, l ? l->pc : 0);
-	}
-
-	pnd = up->notepending;
-	sps = up->psstate;
-	up->psstate = "Fault";
-
-	m->pfault++;
-	for(;;) {
-		spllo();
-
-		s = seg(up, addr, 1);		/* leaves s locked if seg != nil */
-		if(s == nil) {
-			up->psstate = sps;
-			return -1;
-		}
-
-		attr = s->type;
-		if((attr & SG_TYPE) == SG_PHYSICAL)
-			attr |= s->pseg->attr;
-		if((attr & SG_FAULT) != 0 || !read && (attr & SG_RONLY) != 0) {
-			qunlock(s);
-			up->psstate = sps;
-			if(up->kp && up->nerrlab)	/* for segio */
-				error(Eio);
-			return -1;
-		}
-
-		if(fixfault(s, addr, read) == 0)
-			break;
-
-		splhi();
-		switch(up->procctl){
-		case Proc_exitme:
-		case Proc_exitbig:
-			procctl();
-		}
-	}
-
-	up->psstate = sps;
-	up->notepending |= pnd;
-
-	return 0;
-}
-
 static void
 faulterror(char *s, Chan *c)
 {
@@ -196,10 +139,7 @@ done:
 		(*p)->txtflush = ~0;
 }
 
-void	(*checkaddr)(uintptr, Segment *, Page *);
-uintptr	addr2check;
-
-int
+static int
 fixfault(Segment *s, uintptr addr, int read)
 {
 	int type;
@@ -276,25 +216,98 @@ fixfault(Segment *s, uintptr addr, int read)
 		(*pg)->modref = PG_MOD|PG_REF;
 		break;
 
-	case SG_PHYSICAL:
-		if(*pg == nil){
-			new = smalloc(sizeof(Page));
-			new->va = addr;
-			new->pa = s->pseg->pa+(addr-s->base);
-			new->ref = 1;
-			*pg = new;
-		}
-		/* wet floor */
 	case SG_FIXED:			/* Never paged out */
-		if (checkaddr && addr == addr2check)
-			(*checkaddr)(addr, s, *pg);
-		mmuphys = PPN((*pg)->pa) |PTEWRITE|PTEUNCACHED|PTEVALID;
+		mmuphys = PPN((*pg)->pa) | PTEWRITE | PTEUNCACHED | PTEVALID;
 		(*pg)->modref = PG_MOD|PG_REF;
 		break;
 	}
 	qunlock(s);
 
 	putmmu(addr, mmuphys, *pg);
+
+	return 0;
+}
+
+static void
+mapphys(Segment *s, uintptr addr, int attr)
+{
+	uintptr mmuphys;
+	Page pg = {0};
+
+	addr &= ~(BY2PG-1);
+	pg.ref = 1;
+	pg.va = addr;
+	pg.pa = s->pseg->pa+(addr-s->base);
+
+	mmuphys = PPN(pg.pa) | PTEVALID;
+	if((attr & SG_RONLY) == 0)
+		mmuphys |= PTEWRITE;
+	if((attr & SG_CACHED) == 0)
+		mmuphys |= PTEUNCACHED;
+	qunlock(s);
+
+	putmmu(addr, mmuphys, &pg);
+}
+
+int
+fault(uintptr addr, int read)
+{
+	Segment *s;
+	char *sps;
+	int pnd, attr;
+
+	if(up == nil)
+		panic("fault: nil up");
+	if(up->nlocks){
+		Lock *l = up->lastlock;
+		print("fault: nlocks %d, proc %lud %s, addr %#p, lock %#p, lpc %#p\n", 
+			up->nlocks, up->pid, up->text, addr, l, l ? l->pc : 0);
+	}
+
+	pnd = up->notepending;
+	sps = up->psstate;
+	up->psstate = "Fault";
+
+	m->pfault++;
+	for(;;) {
+		spllo();
+
+		s = seg(up, addr, 1);		/* leaves s locked if seg != nil */
+		if(s == nil) {
+			up->psstate = sps;
+			return -1;
+		}
+
+		attr = s->type;
+		if((attr & SG_TYPE) == SG_PHYSICAL)
+			attr |= s->pseg->attr;
+
+		if((attr & SG_FAULT) != 0 || !read && (attr & SG_RONLY) != 0) {
+			qunlock(s);
+			up->psstate = sps;
+			if(up->kp && up->nerrlab)	/* for segio */
+				error(Eio);
+			return -1;
+		}
+
+		if((attr & SG_TYPE) == SG_PHYSICAL){
+			mapphys(s, addr, attr);
+			break;
+		}
+
+		if(fixfault(s, addr, read) == 0)
+			break;
+
+		splhi();
+		switch(up->procctl){
+		case Proc_exitme:
+		case Proc_exitbig:
+			procctl();
+		}
+	}
+
+	up->psstate = sps;
+	up->notepending |= pnd;
 
 	return 0;
 }
