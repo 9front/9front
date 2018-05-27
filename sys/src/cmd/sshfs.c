@@ -600,6 +600,7 @@ attrfixupqid(Qid *qid)
 	if(flags & SSH_FILEXFER_ATTR_PERMISSIONS){
 		if(p + 4 > rxpkt + rxlen) return -1;
 		if((GET4(p) & 0170000) != 0040000) qid->type = 0;
+		else qid->type = QTDIR;
 		p += 4;
 	}
 	if(flags & SSH_FILEXFER_ATTR_ACMODTIME){
@@ -722,21 +723,40 @@ sshfsattach(Req *r)
 {
 	SFid *sf;
 
-	if(r->ifcall.aname != nil && *r->ifcall.aname != 0 && r->aux == nil){
+	if(r->aux == nil){
+		sf = emalloc9p(sizeof(SFid));
+		if(r->ifcall.aname != nil)
+			switch(*r->ifcall.aname){
+			case '~':
+				switch(r->ifcall.aname[1]){
+				case 0: sf->fn = estrdup9p("."); break;
+				case '/': sf->fn = estrdup9p(r->ifcall.aname + 2); break;
+				default:
+					free(sf);
+					respond(r, "invalid attach name");
+					return;
+				}
+				break;
+			case '/':
+				sf->fn = estrdup9p(r->ifcall.aname);
+				break;
+			case 0:
+				sf->fn = estrdup9p(root);
+				break;
+			default:
+				sf->fn = pathcat(root, r->ifcall.aname);
+			}
+		else
+			sf->fn = estrdup9p(root);
+		r->fid->aux = sf;
 		submitreq(r);
-		return;
+	}else{
+		sf = r->fid->aux;
+		sf->qid = (Qid){qidcalc(sf->fn), 0, QTDIR};
+		r->ofcall.qid = sf->qid;
+		r->fid->qid = sf->qid;
+		respond(r, nil);
 	}
-	sf = emalloc9p(sizeof(SFid));
-	if(r->ifcall.aname != nil && *r->ifcall.aname != 0)
-		sf->fn = estrdup9p(r->ifcall.aname);
-	else
-		sf->fn = estrdup9p(root);
-	root = ".";
-	sf->qid = (Qid){qidcalc(sf->fn), 0, QTDIR};
-	r->ofcall.qid = sf->qid;
-	r->fid->qid = sf->qid;
-	r->fid->aux = sf;
-	respond(r, nil);
 }
 
 void
@@ -783,7 +803,7 @@ sendproc(void *)
 		sf = r->req->fid != nil ? r->req->fid->aux : nil;
 		switch(r->req->ifcall.type){
 		case Tattach:
-			sendpkt("bus", SSH_FXP_STAT, r->reqid, r->req->ifcall.aname, strlen(r->req->ifcall.aname));
+			sendpkt("bus", SSH_FXP_STAT, r->reqid, sf->fn, strlen(sf->fn));
 			break;
 		case Twalk:
 			sendpkt("bus", SSH_FXP_STAT, r->reqid, r->req->aux, strlen(r->req->aux));
@@ -1364,8 +1384,6 @@ threadmain(int argc, char **argv)
 		sshfssrv.wstat = nil;
 		sshfssrv.remove = nil;
 	}
-	if(mtpt == nil)
-		root = ".";
 	
 	if(pflag){
 		rdfd = 0;

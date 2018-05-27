@@ -82,8 +82,6 @@ and
 .B -b
 have the same function as they do with
 .IR mount .
-The default remote root is the user's home directory but can be changed with
-.BR -r .
 .PP
 If
 .B -s
@@ -92,11 +90,20 @@ it will post itself in
 .IR srv (3)
 with service name
 .IR service .
-If the service file is mounted, the
-.IR attach (5)
-name can be used to specify which directory on the remote host will be mounted.
-If it is omitted or empty, the user's home directory is used.
-Relative paths are also relative to this directory.
+If the service file is mounted, the attach name (the third argument to
+.IR mount (1)) can be used to specify which directory on the remote host will be mounted.
+.PP
+By default, relative paths are assumed relative to the user's home directory.
+The
+.B -r
+option can be used to specify an alternative base for relative paths.
+The initial mount at
+.B -m
+also uses this directory.
+If an attach name starts with
+.BR ~ ,
+the user's home directory is substituted for
+.BR ~ .
 .PP
 Since the only supported version 3 of the SFTP protocol has no way to look up numeric user and group IDs,
 .I sshfs
