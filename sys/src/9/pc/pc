@@ -106,6 +106,7 @@ misc
 	sdmmc		pci pmmc
 	sdnvme		pci
 	sdloop
+	sdram
 
 	uarti8250
 	uartisa

@@ -305,6 +305,7 @@ main()
 	i8253init();
 	cpuidentify();
 	meminit();
+	ramdiskinit();
 	confinit();
 	xinit();
 	archinit();
