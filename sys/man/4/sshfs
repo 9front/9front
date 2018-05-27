@@ -64,9 +64,9 @@ Unless
 .B -M
 is specified,
 .I sshfs
-will mount itself under the mountpoint specified by
+will mount itself at the mountpoint specified by
 .IR mtpt ,
-or under
+or at
 .B /n/ssh
 if
 .B -m
