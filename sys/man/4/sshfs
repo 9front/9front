@@ -91,7 +91,8 @@ it will post itself in
 with service name
 .IR service .
 If the service file is mounted, the attach name (the third argument to
-.IR mount (1)) can be used to specify which directory on the remote host will be mounted.
+.IR mount (1))
+can be used to specify which directory on the remote host will be mounted.
 .PP
 By default, relative paths are assumed relative to the user's home directory.
 The
