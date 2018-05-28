@@ -105,7 +105,8 @@ xcom(Node *n)
 	case OADD:
 		xcom(l);
 		xcom(r);
-		if(n->type->etype != TIND)
+		if(n->type->etype != TIND &&
+		   !(l->type->etype == TIND && r->type->etype == TIND))
 			break;
 
 		switch(r->addable) {
