@@ -222,7 +222,6 @@ flushmouse(int discard)
 void
 flushscreen(void)
 {
-	flushmouse(1);
 	if(scale == 1){
 		loadimage(fb, fb->r, pic, vwdx * vwdy * vwbpp);
 		draw(screen, picr, fb, nil, ZP);
