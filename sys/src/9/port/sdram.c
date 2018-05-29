@@ -12,9 +12,8 @@
 
 #include "../port/sd.h"
 
-typedef struct Ctlr Ctlr;
-struct Ctlr {
-	SDev	*dev;
+typedef struct Ramdisk Ramdisk;
+struct Ramdisk {
 	Segment	*seg;
 	Segio	sio;
 
@@ -27,7 +26,7 @@ struct Ctlr {
 	Physseg;
 };
 
-static Ctlr ctlrs[4];
+static Ramdisk rds[4];
 
 extern SDifc sdramifc;
 
@@ -74,7 +73,7 @@ ramdiskalloc(uvlong base, ulong pages)
 }
 
 static void
-ramdiskinit0(Ctlr *ctlr, uvlong base, uvlong size, ulong ss)
+ramdiskinit0(Ramdisk *rd, uvlong base, uvlong size, ulong ss)
 {
 	ulong nb, off;
 
@@ -90,22 +89,22 @@ ramdiskinit0(Ctlr *ctlr, uvlong base, uvlong size, ulong ss)
 	base &= ~(BY2PG-1);
 
 	if(size == 0 || size != (uintptr)size){
-		print("%s: invalid parameters\n", ctlr->name);
+		print("%s: invalid parameters\n", rd->name);
 		return;
 	}
 
 	base = ramdiskalloc(base, size/BY2PG);
 	if(base == 0){
-		print("%s: allocation failed\n", ctlr->name);
+		print("%s: allocation failed\n", rd->name);
 		return;
 	}
-	ctlr->nb = nb;
-	ctlr->ss = ss;
-	ctlr->off = off;
-	ctlr->pa = base;
-	ctlr->size = size;
-	print("%s: %llux+%lud %llud %lud (%lud sectors)\n",
-		ctlr->name, (uvlong)ctlr->pa, ctlr->off, (uvlong)ctlr->size, ctlr->ss, ctlr->nb);
+	rd->nb = nb;
+	rd->ss = ss;
+	rd->off = off;
+
+	rd->pa = base;
+	rd->size = size;
+	rd->attr = SG_CACHED;
 }
 
 static vlong
@@ -125,18 +124,18 @@ getsizenum(char **p)
 void
 ramdiskinit(void)
 {
-	Ctlr *ctlr;
+	Ramdisk *rd;
 	uvlong a[3];
 	char *p;
-	int ctlrno, n;
+	int subno, n;
 
-	for(ctlrno=0; ctlrno<nelem(ctlrs); ctlrno++){
-		ctlr = &ctlrs[ctlrno];
-		if(ctlr->nb != 0)
+	for(subno=0; subno<nelem(rds); subno++){
+		rd = &rds[subno];
+		if(rd->nb != 0)
 			continue;
 
-		snprint(ctlr->name = ctlr->buf, sizeof(ctlr->buf), "ramdisk%d", ctlrno);
-		if((p = getconf(ctlr->name)) == nil)
+		snprint(rd->name = rd->buf, sizeof(rd->buf), "ramdisk%d", subno);
+		if((p = getconf(rd->name)) == nil)
 			continue;
 
 		for(n = 0; n < nelem(a); n++){
@@ -153,13 +152,13 @@ ramdiskinit(void)
 		}
 		switch(n){
 		case 1:	/* ramdiskX=size */
-			ramdiskinit0(ctlr, 0, a[0], 0);
+			ramdiskinit0(rd, 0, a[0], 0);
 			break;
 		case 2:	/* ramdiskX=size ss */
-			ramdiskinit0(ctlr, 0, a[0], (ulong)a[1]);
+			ramdiskinit0(rd, 0, a[0], (ulong)a[1]);
 			break;
 		case 3:	/* ramdiskX=base size ss */
-			ramdiskinit0(ctlr, a[0], a[1], (ulong)a[2]);
+			ramdiskinit0(rd, a[0], a[1], (ulong)a[2]);
 			break;
 		}
 	}
@@ -169,65 +168,69 @@ static SDev*
 rampnp(void)
 {
 	SDev *sdev;
-	Ctlr *ctlr;
 
-	for(ctlr = ctlrs; ctlr < &ctlrs[nelem(ctlrs)]; ctlr++){
-		if(ctlr->nb == 0 || ctlr->dev != nil)
-			continue;
-		sdev = malloc(sizeof(SDev));
-		if(sdev == nil)
-			break;
-		sdev->idno = 'Z';
-		sdev->ifc = &sdramifc;
-		sdev->nunit = 1;
-		sdev->ctlr = ctlr;
-		ctlr->dev = sdev;
-		return sdev;
-	}
-	return nil;
+	sdev = xalloc(sizeof(SDev));
+	if(sdev == nil)
+		return nil;
+
+	sdev->idno = 'Z';
+	sdev->ifc = &sdramifc;
+	sdev->nunit = nelem(rds);
+
+	return sdev;
 }
 
 static int
-ramenable(SDev* dev)
+ramverify(SDunit *unit)
 {
-	Ctlr *ctlr = dev->ctlr;
+	Ramdisk *rd = &rds[unit->subno];
 
-	ctlr->attr = SG_CACHED;
-	ctlr->seg = newseg(SG_PHYSICAL, UTZERO, ctlr->size/BY2PG);
-	if(ctlr->seg == nil)
+	if(rd->nb == 0)
 		return 0;
-	ctlr->seg->pseg = ctlr;
-	return 1;
-}
 
-static int
-ramverify(SDunit*)
-{
+	unit->inquiry[0] = 0;
+	unit->inquiry[1] = 0;
+	unit->inquiry[4] = sizeof unit->inquiry - 4;
+	strcpy((char*)unit->inquiry+8, rd->name);
+
 	return 1;
 }
 
 static int
 ramonline(SDunit *unit)
 {
-	Ctlr *ctlr = unit->dev->ctlr;
-	unit->sectors = ctlr->nb;
-	unit->secsize = ctlr->ss;
-	return 1;
+	Ramdisk *rd = &rds[unit->subno];
+
+	if(unit->sectors != 0)
+		return 1;
+
+	rd->seg = newseg(SG_PHYSICAL, UTZERO, rd->size/BY2PG);
+	if(rd->seg == nil)
+		return 0;
+	rd->seg->pseg = rd;
+	unit->sectors = rd->nb;
+	unit->secsize = rd->ss;
+
+	return 2;
 }
 
 static int
 ramrctl(SDunit *unit, char *p, int l)
 {
-	return snprint(p, l, "geometry %llud %ld\n",
-		unit->sectors, unit->secsize);
+	Ramdisk *rd = &rds[unit->subno];
+
+	return snprint(p, l, "geometry %llud %ld\nalignment %lud %lud\n",
+		unit->sectors, unit->secsize,
+		(ulong)BY2PG, rd->off / unit->secsize);
 }
 
 static long
 rambio(SDunit *unit, int, int write, void *data, long nb, uvlong bno)
 {
-	Ctlr *ctlr = unit->dev->ctlr;
+	Ramdisk *rd = &rds[unit->subno];
 	long secsize = unit->secsize;
-	return segio(&ctlr->sio, ctlr->seg, data, nb*secsize, bno*secsize + ctlr->off, !write);
+
+	return segio(&rd->sio, rd->seg, data, nb*secsize, bno*secsize + rd->off, !write);
 }
 
 static int
@@ -247,7 +250,6 @@ ramrio(SDreq *r)
 SDifc sdramifc = {
 	.name	= "ram",
 	.pnp	= rampnp,
-	.enable	= ramenable,
 	.verify	= ramverify,
 	.online	= ramonline,
 	.rctl	= ramrctl,
