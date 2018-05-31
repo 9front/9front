@@ -116,7 +116,7 @@ void I_FinishUpdate(void)
 		Pt(scale*SCREENWIDTH/2, scale*SCREENHEIGHT/2));
 
 	/* the row image, y-axis gets scaled with repl flag */
-	rowimg = allocimage(display, Rect(0, 0, scale*SCREENWIDTH, 1), RGB24, 1, DNofill);
+	rowimg = allocimage(display, Rect(0, 0, scale*SCREENWIDTH, 1), RGB24, scale > 1, DNofill);
 	if(rowimg == nil)
 		sysfatal("allocimage: %r");
 
