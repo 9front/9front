@@ -10,6 +10,7 @@ OFILES=tcs.$O\
 	utf.$O\
 	html.$O\
 	kuten208.$O\
+	kuten212.$O\
 	gb.$O\
 	gbk.$O\
 	ksc.$O\

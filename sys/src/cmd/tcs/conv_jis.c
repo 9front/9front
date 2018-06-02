@@ -10,6 +10,7 @@
 #include	"hdr.h"
 #include	"conv.h"
 #include	"kuten208.h"
+#include	"kuten212.h"
 #include	"jis.h"
 
 /*
@@ -195,7 +196,7 @@ again:
 static void
 ujis(int c, Rune **r, long input_loc)
 {
-	static enum { state0, state1 } state = state0;
+	static enum { state0, state1, state2, state3 } state = state0;
 	static int lastc;
 	int n;
 	long l;
@@ -216,16 +217,12 @@ ujis(int c, Rune **r, long input_loc)
 				emit(BADMAP);
 			return;
 		}
-		if(c == 0x8f){	/* codeset 3 */
-			nerrors++;
-			if(squawk)
-				EPR "%s: unknown codeset 3 near byte %ld in %s\n", argv0, input_loc, file);
-			if(!clean)
-				emit(BADMAP);
-			return;
+		if(c == 0x8f)	/* codeset 3 */
+			state = state2;
+		else{
+			lastc = c;
+			state = state1;
 		}
-		lastc = c;
-		state = state1;
 		return;
 
 	case state1:	/* two part char */
@@ -250,6 +247,56 @@ ujis(int c, Rune **r, long input_loc)
 			emit(l);
 		}
 		state = state0;
+		return;
+	
+	case state2:	/* three part char, part #2 */
+		if(c < 0){
+			if(squawk)
+				EPR "%s: unexpected EOF in %s\n", argv0, file);
+			c = 0xA1;
+		}
+		if(c < 0xa1 || c > 0xfe){
+			if(squawk)
+				EPR "%s: invalid byte 0x%x in codeset 3\n", argv0, c);
+			state = state0;
+		}else{
+			lastc = c;
+			state = state3;
+		}
+		return;
+
+	case state3:	/* three part char, part #3 */
+		if(c < 0){
+			if(squawk)
+				EPR "%s: unexpected EOF in %s\n", argv0, file);
+			c = 0xA1;
+		}
+		if(c < 0xa1 || c > 0xfe){
+			if(squawk)
+				EPR "%s: invalid byte 0x%x in codeset 3\n", argv0, c);
+			state = state0;
+			return;
+		}
+		
+		n = (lastc&0x7F)*100 + (c&0x7F) - 3232;	/* kuten212 */
+		if((n >= KUTEN212MAX) || ((l = tabkuten212[n]) == -1)){
+			nerrors++;
+			if(squawk)
+				EPR "%s: unknown kuten212 %d (from 0x%x,0x%x) near byte %ld in %s\n", argv0, n, lastc, c, input_loc, file);
+			if(!clean)
+				emit(BADMAP);
+		} else {
+			if(l < 0){
+				l = -l;
+				if(squawk)
+					EPR "%s: ambiguous kuten212 %d (mapped to 0x%lx) near byte %ld in %s\n", argv0, n, l, input_loc, file);
+			}
+			emit(l);
+		}
+		state = state0;
+		return;
+		
+		
 	}
 }
 
