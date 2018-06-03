@@ -828,7 +828,7 @@ unitgen(Chan *c, ulong type, Dir *dp)
 	Qid q;
 
 	d = unit2dev(UNIT(c->qid));
-	perm = 0644;
+	perm = 0664;
 	size = 0;
 	vers = d->vers;
 	t = QTFILE;
@@ -841,7 +841,7 @@ unitgen(Chan *c, ulong type, Dir *dp)
 		break;
 	case Qdata:
 		p = "data";
-		perm = 0640;
+		perm = 0660;
 		if(UP(d))
 			size = d->bsize;
 		break;
@@ -881,7 +881,7 @@ topgen(Chan *c, ulong type, Dir *d)
 		return -1;
 	case Qtopctl:
 		p = "ctl";
-		perm = 0644;
+		perm = 0664;
 		break;
 	case Qtoplog:
 		p = "log";
@@ -949,24 +949,24 @@ aoegen(Chan *c, char *, Dirtab *, int, int s, Dir *dp)
 		return unitgen(c, TYPE(c->qid), dp);
 	case Qdevlinkdir:
 		i = UNIT(c->qid);
-		if(s == DEVDOTDOT){
-			mkqid(&q, QID(i, Qunitdir), 0, QTDIR);
-			devdir(c, q, "devlink", 0, eve, 0555, dp);
-			return 1;
-		}
 		if(i >= Maxunits || i >= units.ref)
 			return -1;
 		d = unit2dev(i);
+		if(s == DEVDOTDOT){
+			mkqid(&q, QID(i, Qunitdir), 0, QTDIR);
+			devdir(c, q, unitname(d), 0, eve, 0555, dp);
+			return 1;
+		}
 		if(s >= d->ndl)
 			return -1;
 		uprint("%d", s);
 		mkqid(&q, Q3(s, i, Qdevlink), 0, QTFILE);
-		devdir(c, q, up->genbuf, 0, eve, 0755, dp);
+		devdir(c, q, up->genbuf, 0, eve, 0444, dp);
 		return 1;
 	case Qdevlink:
 		uprint("%d", s);
 		mkqid(&q, Q3(s, UNIT(c->qid), Qdevlink), 0, QTFILE);
-		devdir(c, q, up->genbuf, 0, eve, 0755, dp);
+		devdir(c, q, up->genbuf, 0, eve, 0444, dp);
 		return 1;
 	}
 }
