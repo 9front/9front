@@ -547,13 +547,13 @@ dhcprecv(void)
 
 			n = optgetp9addrs(vopts, OP9ipaddr, taddr, 1);
 			if (n > 0)
-				memmove(conf.laddr, taddr, IPaddrlen);
+				ipmove(conf.laddr, taddr);
 			n = optgetp9addrs(vopts, OP9ipmask, taddr, 1);
 			if (n > 0)
-				memmove(conf.mask, taddr, IPaddrlen);
+				ipmove(conf.mask, taddr);
 			n = optgetp9addrs(vopts, OP9ipgw, taddr, 1);
 			if (n > 0)
-				memmove(conf.gaddr, taddr, IPaddrlen);
+				ipmove(conf.gaddr, taddr);
 			DEBUG("new ipaddr=%I new ipmask=%M new ipgw=%I",
 				conf.laddr, conf.mask, conf.gaddr);
 		}
