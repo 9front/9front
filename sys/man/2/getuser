@@ -32,6 +32,8 @@ Unlike
 caches the string, reading the file only once.
 .SH SOURCE
 .B /sys/src/libc/port/getuser.c
+.br
+.B /sys/src/libc/9sys/sysname.c 
 .SH SEE ALSO
 .IR intro (2),
 .IR cons (3)
