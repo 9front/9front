@@ -37,7 +37,7 @@ envgen(Chan *c, char *name, Dirtab*, int, int s, Dir *dp)
 	Evalue *e;
 
 	if(s == DEVDOTDOT){
-		devdir(c, c->qid, "#e", 0, eve, DMDIR|0775, dp);
+		devdir(c, c->qid, "#e", 0, eve, 0775, dp);
 		return 1;
 	}
 
@@ -56,7 +56,8 @@ envgen(Chan *c, char *name, Dirtab*, int, int s, Dir *dp)
 
 	/* make sure name string continues to exist after we release lock */
 	kstrcpy(up->genbuf, e->name, sizeof up->genbuf);
-	devdir(c, e->qid, up->genbuf, e->len, eve, 0666, dp);
+	devdir(c, e->qid, up->genbuf, e->len, eve,
+		eg == &confegrp || eg != up->egrp ? 0664: 0666, dp);
 	runlock(eg);
 	return 1;
 }
@@ -394,7 +395,7 @@ ksetenv(char *ename, char *eval, int conf)
 	char buf[2*KNAMELEN];
 	
 	snprint(buf, sizeof(buf), "#e%s/%s", conf?"c":"", ename);
-	c = namec(buf, Acreate, OWRITE, 0600);
+	c = namec(buf, Acreate, OWRITE, 0666);
 	devtab[c->type]->write(c, eval, strlen(eval), 0);
 	cclose(c);
 }
