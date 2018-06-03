@@ -40,12 +40,12 @@ findlifc(uchar *ip)
 	Ipifc *ifc;
 	Iplifc *lifc;
 
-	for(ifc = ipifcs; ifc; ifc = ifc->next){
+	for(ifc = ipifcs; ifc != nil; ifc = ifc->next){
 		for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
 			if(lifc->net[0] == 0)
 				continue;
 			maskip(ip, lifc->mask, x);
-			if(memcmp(x, lifc->net, IPaddrlen) == 0)
+			if(ipcmp(x, lifc->net) == 0)
 				return lifc;
 		}
 	}
@@ -58,9 +58,9 @@ forme(uchar *ip)
 	Ipifc *ifc;
 	Iplifc *lifc;
 
-	for(ifc = ipifcs; ifc; ifc = ifc->next){
+	for(ifc = ipifcs; ifc != nil; ifc = ifc->next){
 		for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next)
-			if(memcmp(ip, lifc->ip, IPaddrlen) == 0)
+			if(ipcmp(ip, lifc->ip) == 0)
 				return 1;
 	}
 	return 0;
@@ -157,32 +157,32 @@ lookupip(uchar *ipaddr, Info *iip, int gate)
 		else
 		if(strcmp(nt->attr, "dhcp") == 0){
 			if(iip->dhcpgroup[0] == 0)
-				strcpy(iip->dhcpgroup, nt->val);
+				strncpy(iip->dhcpgroup, nt->val, sizeof(iip->dhcpgroup)-1);
 		}
 		else
 		if(strcmp(nt->attr, "bootf") == 0){
 			if(iip->bootf[0] == 0)
-				strcpy(iip->bootf, nt->val);
+				strncpy(iip->bootf, nt->val, sizeof(iip->bootf)-1);
 		}
 		else
 		if(strcmp(nt->attr, "bootf2") == 0){
 			if(iip->bootf2[0] == 0)
-				strcpy(iip->bootf2, nt->val);
+				strncpy(iip->bootf2, nt->val, sizeof(iip->bootf2)-1);
 		}
 		else
 		if(strcmp(nt->attr, "vendor") == 0){
 			if(iip->vendor[0] == 0)
-				strcpy(iip->vendor, nt->val);
+				strncpy(iip->vendor, nt->val, sizeof(iip->vendor)-1);
 		}
 		else
 		if(strcmp(nt->attr, "dom") == 0){
 			if(iip->domain[0] == 0)
-				strcpy(iip->domain, nt->val);
+				strncpy(iip->domain, nt->val, sizeof(iip->domain)-1);
 		}
 		else
 		if(strcmp(nt->attr, "rootpath") == 0){
 			if(iip->rootpath[0] == 0)
-				strcpy(iip->rootpath, nt->val);
+				strncpy(iip->rootpath, nt->val, sizeof(iip->rootpath)-1);
 		}
 	}
 	ndbfree(t);
@@ -256,11 +256,14 @@ lookup(Bootp *bp, Info *iip, Info *riip)
 	 *  same net as riip
 	 */
 	t = ndbsearch(db, &s, hwattr, hwval);
-	while(t){
-		for(nt = t; nt; nt = nt->entry){
+	while(t != nil){
+		for(nt = t; nt != nil; nt = nt->entry){
 			if(strcmp(nt->attr, "ip") != 0)
 				continue;
-			parseip(ciaddr, nt->val);
+			if(parseip(ciaddr, nt->val) == -1)
+				continue;
+			if(!validip(ciaddr))
+				continue;
 			if(lookupip(ciaddr, iip, 0) < 0)
 				continue;
 			if(samenet(riip->ipaddr, iip)){
@@ -280,9 +283,9 @@ lookup(Bootp *bp, Info *iip, Info *riip)
 Ndbtuple*
 lookupinfo(uchar *ipaddr, char **attr, int n)
 {
-	char ip[32];
+	char ip[64];
 
-	sprint(ip, "%I", ipaddr);
+	snprint(ip, sizeof ip, "%I", ipaddr);
 	return ndbipinfo(db, "ip", ip, attr, n);
 }
 
@@ -290,16 +293,18 @@ lookupinfo(uchar *ipaddr, char **attr, int n)
  *  return the ip addresses for a type of server for system ip
  */
 int
-lookupserver(char *attr, uchar **ipaddrs, Ndbtuple *t)
+lookupserver(char *attr, uchar **ipaddrs, int naddrs, Ndbtuple *t)
 {
 	Ndbtuple *nt;
 	int rv = 0;
 
-	for(nt = t; rv < 2 && nt != nil; nt = nt->entry)
-		if(strcmp(nt->attr, attr) == 0){
-			parseip(ipaddrs[rv], nt->val);
-			rv++;
-		}
+	for(nt = t; rv < naddrs && nt != nil; nt = nt->entry){
+		if(strcmp(nt->attr, attr) != 0)
+			continue;
+		if(parseip(ipaddrs[rv], nt->val) == -1)
+			continue;
+		rv++;
+	}
 	return rv;
 }
 
@@ -307,13 +312,14 @@ lookupserver(char *attr, uchar **ipaddrs, Ndbtuple *t)
  *  just lookup the name
  */
 void
-lookupname(char *val, Ndbtuple *t)
+lookupname(char *val, int len, Ndbtuple *t)
 {
 	Ndbtuple *nt;
 
 	for(nt = t; nt != nil; nt = nt->entry)
 		if(strcmp(nt->attr, "dom") == 0){
-			strcpy(val, nt->val);
+			strncpy(val, nt->val, len-1);
+			val[len-1] = 0;
 			break;
 		}
 }

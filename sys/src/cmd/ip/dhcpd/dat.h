@@ -67,10 +67,10 @@ extern int	syncbinding(Binding*, int);
 /* from ndb.c */
 extern int	lookup(Bootp*, Info*, Info*);
 extern int	lookupip(uchar*, Info*, int);
-extern void	lookupname(char*, Ndbtuple*);
+extern void	lookupname(char*, int, Ndbtuple*);
 extern Iplifc*	findlifc(uchar*);
 extern int	forme(uchar*);
-extern int	lookupserver(char*, uchar**, Ndbtuple *t);
+extern int	lookupserver(char*, uchar**, int, Ndbtuple *t);
 extern Ndbtuple* lookupinfo(uchar *ipaddr, char **attr, int n);
 
 /* from icmp.c */

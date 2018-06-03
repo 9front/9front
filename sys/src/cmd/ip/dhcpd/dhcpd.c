@@ -51,7 +51,7 @@ struct Req
 #define TFTP "/lib/tftpd"
 
 char	*blog = "ipboot";
-char	mysysname[64];
+char	*mysysname;
 Ipifc	*ipifcs;
 int	debug;
 int	nobootp;
@@ -273,8 +273,7 @@ main(int argc, char **argv)
 	} ARGEND;
 
 	while(argc > 1){
-		parseip(ip, argv[0]);
-		if(!validip(ip))
+		if(parseip(ip, argv[0]) == -1 || !validip(ip))
 			usage();
 		n = atoi(argv[1]);
 		if(n <= 0)
@@ -290,7 +289,7 @@ main(int argc, char **argv)
 			optname[i] = smprint("%d", i);
 
 	/* what is my name? */
-	strcpy(mysysname, readsysname());
+	mysysname = readsysname();
 
 	/* put process in background */
 	if(!debug)
@@ -554,7 +553,7 @@ rcvrequest(Req *rp)
 		 */
 		/* check for hard assignment */
 		if(rp->staticbinding){
-			if(memcmp(rp->ip, rp->ii.ipaddr, IPaddrlen) != 0){
+			if(ipcmp(rp->ip, rp->ii.ipaddr) != 0){
 				warning(0, "!Request(%s via %I): %I not valid for %E",
 					rp->id, rp->gii.ipaddr, rp->ip, rp->bp->chaddr);
 				sendnak(rp, "not valid");
@@ -577,7 +576,7 @@ rcvrequest(Req *rp)
 				rp->id, rp->gii.ipaddr, rp->ip);
 			return;
 		}
-		if(memcmp(rp->ip, b->ip, IPaddrlen) != 0 || now > b->lease){
+		if(ipcmp(rp->ip, b->ip) != 0 || now > b->lease){
 			warning(0, "!Request(%s via %I): %I not valid",
 				rp->id, rp->gii.ipaddr, rp->ip);
 			sendnak(rp, "not valid");
@@ -1109,7 +1108,7 @@ parseoptions(Req *rp)
 			memmove(rp->vendorclass, o, n);
 			rp->vendorclass[n] = 0;
 			if(strncmp((char*)rp->vendorclass, "p9-", 3) == 0)
-				strcpy(rp->cputype, (char*)rp->vendorclass+3);
+				strncpy(rp->cputype, (char*)rp->vendorclass+3, sizeof(rp->cputype));
 			break;
 		case OBend:
 			return;
@@ -1131,15 +1130,15 @@ void
 miscoptions(Req *rp, uchar *ip)
 {
 	int i, j, na;
-	uchar x[2*IPaddrlen], vopts[Maxoptlen];
+	uchar *addrs[8];
 	uchar *op, *omax;
-	uchar *addrs[2];
+	uchar x[nelem(addrs)*IPaddrlen], vopts[Maxoptlen];
 	char *p;
 	char *attr[100], **a;
 	Ndbtuple *t;
 
-	addrs[0] = x;
-	addrs[1] = x+IPaddrlen;
+	for(i=0; i<nelem(addrs); i++)
+		addrs[i] = &x[i*IPaddrlen];
 
 	/* always supply these */
 	maskopt(rp, OBmask, rp->gii.ipmask);
@@ -1203,17 +1202,17 @@ miscoptions(Req *rp, uchar *ip)
 
 	/* lookup anything we might be missing */
 	if(*rp->ii.domain == 0)
-		lookupname(rp->ii.domain, t);
+		lookupname(rp->ii.domain, sizeof(rp->ii.domain), t);
 
 	/* add any requested ones that we know about */
 	for(i = 0; i < sizeof(rp->requested); i++)
 		switch(rp->requested[i]){
 		case OBrouter:
-			j = lookupserver("ipgw", addrs, t);
+			j = lookupserver("ipgw", addrs, nelem(addrs), t);
 			addrsopt(rp, OBrouter, addrs, j);
 			break;
 		case OBdnserver:
-			j = lookupserver("dns", addrs, t);
+			j = lookupserver("dns", addrs, nelem(addrs), t);
 			addrsopt(rp, OBdnserver, addrs, j);
 			break;
 		case OBhostname:
@@ -1222,11 +1221,11 @@ miscoptions(Req *rp, uchar *ip)
 			break;
 		case OBdomainname:
 			p = strchr(rp->ii.domain, '.');
-			if(p)
+			if(p != nil)
 				stringopt(rp, OBdomainname, p+1);
 			break;
 		case OBnetbiosns:
-			j = lookupserver("wins", addrs, t);
+			j = lookupserver("wins", addrs, nelem(addrs), t);
 			addrsopt(rp, OBnetbiosns, addrs, j);
 			break;
 		case OBnetbiostype:
@@ -1234,23 +1233,23 @@ miscoptions(Req *rp, uchar *ip)
 			byteopt(rp, OBnetbiostype, 0x2);
 			break;
 		case OBsmtpserver:
-			j = lookupserver("smtp", addrs, t);
+			j = lookupserver("smtp", addrs, nelem(addrs), t);
 			addrsopt(rp, OBsmtpserver, addrs, j);
 			break;
 		case OBpop3server:
-			j = lookupserver("pop3", addrs, t);
+			j = lookupserver("pop3", addrs, nelem(addrs), t);
 			addrsopt(rp, OBpop3server, addrs, j);
 			break;
 		case OBwwwserver:
-			j = lookupserver("www", addrs, t);
+			j = lookupserver("www", addrs, nelem(addrs), t);
 			addrsopt(rp, OBwwwserver, addrs, j);
 			break;
 		case OBntpserver:
-			j = lookupserver("ntp", addrs, t);
+			j = lookupserver("ntp", addrs, nelem(addrs), t);
 			addrsopt(rp, OBntpserver, addrs, j);
 			break;
 		case OBtimeserver:
-			j = lookupserver("time", addrs, t);
+			j = lookupserver("time", addrs, nelem(addrs), t);
 			addrsopt(rp, OBtimeserver, addrs, j);
 			break;
 		case OBttl:
@@ -1269,14 +1268,14 @@ miscoptions(Req *rp, uchar *ip)
 		rp->max = vopts + sizeof(vopts) - 1;
 
 		/* emit old v4 addresses first to make sure that they fit */
-		addrsopt(rp, OP9fsv4, addrs, lookupserver("fs", addrs, t));
-		addrsopt(rp, OP9authv4, addrs, lookupserver("auth", addrs, t));
+		addrsopt(rp, OP9fsv4, addrs, lookupserver("fs", addrs, nelem(addrs), t));
+		addrsopt(rp, OP9authv4, addrs, lookupserver("auth", addrs, nelem(addrs), t));
 
-		p9addrsopt(rp, OP9fs, addrs, lookupserver("fs", addrs, t));
-		p9addrsopt(rp, OP9auth, addrs, lookupserver("auth", addrs, t));
-		p9addrsopt(rp, OP9ipaddr, addrs, lookupserver("ip", addrs, t));
-		p9addrsopt(rp, OP9ipmask, addrs, lookupserver("ipmask", addrs, t));
-		p9addrsopt(rp, OP9ipgw, addrs, lookupserver("ipgw", addrs, t));
+		p9addrsopt(rp, OP9fs, addrs, lookupserver("fs", addrs, nelem(addrs), t));
+		p9addrsopt(rp, OP9auth, addrs, lookupserver("auth", addrs, nelem(addrs), t));
+		p9addrsopt(rp, OP9ipaddr, addrs, lookupserver("ip", addrs, nelem(addrs), t));
+		p9addrsopt(rp, OP9ipmask, addrs, lookupserver("ipmask", addrs, nelem(addrs), t));
+		p9addrsopt(rp, OP9ipgw, addrs, lookupserver("ipgw", addrs, nelem(addrs), t));
 
 		/* point back to packet, encapsulate vopts into packet */
 		j = rp->p - vopts;
