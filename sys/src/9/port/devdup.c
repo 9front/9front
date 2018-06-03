@@ -17,7 +17,7 @@ dupgen(Chan *c, char *, Dirtab*, int, int s, Dir *dp)
 	Qid q;
 
 	if(s == DEVDOTDOT){
-		devdir(c, c->qid, ".", 0, eve, DMDIR|0555, dp);
+		devdir(c, c->qid, ".", 0, eve, 0555, dp);
 		return 1;
 	}
 	if(s == 0)

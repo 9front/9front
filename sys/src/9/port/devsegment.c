@@ -87,7 +87,7 @@ segmentgen(Chan *c, char*, Dirtab*, int, int s, Dir *dp)
 			q.vers = 0;
 			q.path = PATH(0, Qtopdir);
 			q.type = QTDIR;
-			devdir(c, q, "#g", 0, eve, DMDIR|0777, dp);
+			devdir(c, q, "#g", 0, eve, 0777, dp);
 			break;
 		}
 
@@ -104,7 +104,7 @@ segmentgen(Chan *c, char*, Dirtab*, int, int s, Dir *dp)
 		q.path = PATH(s, Qsegdir);
 		q.type = QTDIR;
 		kstrcpy(up->genbuf, g->name, sizeof up->genbuf);
-		devdir(c, q, up->genbuf, 0, g->uid, DMDIR|0777, dp);
+		devdir(c, q, up->genbuf, 0, g->uid, 0777, dp);
 		unlock(&globalseglock);
 		break;
 	case Qsegdir:
@@ -112,7 +112,7 @@ segmentgen(Chan *c, char*, Dirtab*, int, int s, Dir *dp)
 			q.vers = 0;
 			q.path = PATH(0, Qtopdir);
 			q.type = QTDIR;
-			devdir(c, q, "#g", 0, eve, DMDIR|0777, dp);
+			devdir(c, q, "#g", 0, eve, 0777, dp);
 			break;
 		}
 		/* fall through */

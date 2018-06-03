@@ -277,7 +277,7 @@ devstat(Chan *c, uchar *db, int n, Dirtab *tab, int ntab, Devgen *gen)
 					for(elem=p=c->path->s; *p; p++)
 						if(*p == '/')
 							elem = p+1;
-				devdir(c, c->qid, elem, 0, eve, DMDIR|0555, &dir);
+				devdir(c, c->qid, elem, 0, eve, 0555, &dir);
 				n = convD2M(&dir, db, n);
 				if(n == 0)
 					error(Ebadarg);

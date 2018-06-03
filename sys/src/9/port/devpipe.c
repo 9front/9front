@@ -102,7 +102,7 @@ pipegen(Chan *c, char*, Dirtab *tab, int ntab, int i, Dir *dp)
 	Pipe *p;
 
 	if(i == DEVDOTDOT){
-		devdir(c, c->qid, "#|", 0, eve, DMDIR|0555, dp);
+		devdir(c, c->qid, "#|", 0, eve, 0555, dp);
 		return 1;
 	}
 	i++;	/* skip . */
@@ -165,7 +165,7 @@ pipestat(Chan *c, uchar *db, int n)
 
 	switch(NETTYPE(c->qid.path)){
 	case Qdir:
-		devdir(c, c->qid, ".", 0, eve, DMDIR|0555, &dir);
+		devdir(c, c->qid, ".", 0, eve, 0555, &dir);
 		break;
 	case Qdata0:
 		devdir(c, c->qid, "data", qlen(p->q[0]), eve, p->perm, &dir);

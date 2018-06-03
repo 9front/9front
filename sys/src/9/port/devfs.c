@@ -811,7 +811,7 @@ mgen(Chan *c, char*, Dirtab*, int, int i, Dir *dp)
 	qid.vers = 0;
 	if(c->qid.path == Qtop){
 		if(i == DEVDOTDOT){
-			devdir(c, tqid, "#k", 0, eve, DMDIR|0775, dp);
+			devdir(c, tqid, "#k", 0, eve, 0775, dp);
 			return 1;
 		}
 		t = gettree(i, Optional);
@@ -820,7 +820,7 @@ mgen(Chan *c, char*, Dirtab*, int, int i, Dir *dp)
 			return -1;
 		}
 		qid.path = mkpath(i, Qdir);
-		devdir(c, qid, t->name, 0, eve, DMDIR|0775, dp);
+		devdir(c, qid, t->name, 0, eve, 0775, dp);
 		return 1;
 	}
 
@@ -832,7 +832,7 @@ mgen(Chan *c, char*, Dirtab*, int, int i, Dir *dp)
 	}
 	if((c->qid.type & QTDIR) != 0){
 		if(i == DEVDOTDOT){
-			devdir(c, tqid, "#k", 0, eve, DMDIR|0775, dp);
+			devdir(c, tqid, "#k", 0, eve, 0775, dp);
 			return 1;
 		}
 		if(treeno == 0){
@@ -857,7 +857,7 @@ mgen(Chan *c, char*, Dirtab*, int, int i, Dir *dp)
 
 	if(i == DEVDOTDOT){
 		qid.path = mkpath(treeno, Qdir);
-		devdir(c, qid, t->name, 0, eve, DMDIR|0775, dp);
+		devdir(c, qid, t->name, 0, eve, 0775, dp);
 		return 1;
 	}
 	dprint("no\n");
@@ -909,7 +909,7 @@ mstat(Chan *c, uchar *db, int n)
 	memset(&d, 0, sizeof d);
 	switch(p){
 	case Qtop:
-		devdir(c, tqid, "#k", 0, eve, DMDIR|0775, &d);
+		devdir(c, tqid, "#k", 0, eve, 0775, &d);
 		break;
 	case Qctl:
 		devdir(c, cqid, "ctl", 0, eve, 0664, &d);
@@ -917,7 +917,7 @@ mstat(Chan *c, uchar *db, int n)
 	default:
 		t = gettree(path2treeno(p), Mustexist);
 		if(c->qid.type & QTDIR)
-			devdir(c, c->qid, t->name, 0, eve, DMDIR|0775, &d);
+			devdir(c, c->qid, t->name, 0, eve, 0775, &d);
 		else{
 			mp = getdev(t, path2devno(p) - Qfirst, Mustexist);
 			q = c->qid;

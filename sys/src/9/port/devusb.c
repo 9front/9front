@@ -629,7 +629,7 @@ usbgen(Chan *c, char *, Dirtab*, int, int s, Dir *dp)
 		mkqid(&q, Qep0dir+4*s, 0, QTDIR);
 		putep(ep);
 		poperror();
-		devdir(c, q, up->genbuf, 0, eve, 0755, dp);
+		devdir(c, q, up->genbuf, 0, eve, 0775, dp);
 		if(0)ddprint("ok\n");
 		return 1;
 

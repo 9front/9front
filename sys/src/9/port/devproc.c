@@ -231,7 +231,7 @@ procgen(Chan *c, char *name, Dirtab *tab, int, int s, Dir *dp)
 		if(name != nil && strcmp(name, up->genbuf) != 0)
 			return -1;
 		mkqid(&qid, (s+1)<<QSHIFT, pid, QTDIR);
-		devdir(c, qid, up->genbuf, 0, p->user, DMDIR|0555, dp);
+		devdir(c, qid, up->genbuf, 0, p->user, 0555, dp);
 		return 1;
 	}
 	if(c->qid.path == Qtrace){

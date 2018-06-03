@@ -72,7 +72,7 @@ netifgen(Chan *c, char*, Dirtab *vp, int, int i, Dir *dp)
 		case DEVDOTDOT:
 			q.type = QTDIR;
 			q.path = 0;
-			devdir(c, q, ".", 0, eve, DMDIR|0555, dp);
+			devdir(c, q, ".", 0, eve, 0555, dp);
 			break;
 		case 0:
 			q.path = Ncloneqid;
@@ -99,7 +99,7 @@ netifgen(Chan *c, char*, Dirtab *vp, int, int i, Dir *dp)
 			q.type = QTDIR;
 			q.path = NETQID(i, N3rdqid);
 			snprint(up->genbuf, sizeof up->genbuf, "%d", i);
-			devdir(c, q, up->genbuf, 0, eve, DMDIR|0555, dp);
+			devdir(c, q, up->genbuf, 0, eve, 0555, dp);
 			break;
 		}
 		return 1;
@@ -121,7 +121,7 @@ netifgen(Chan *c, char*, Dirtab *vp, int, int i, Dir *dp)
 		q.type = QTDIR;
 		q.path = N2ndqid;
 		strcpy(up->genbuf, nif->name);
-		devdir(c, q, up->genbuf, 0, eve, DMDIR|0555, dp);
+		devdir(c, q, up->genbuf, 0, eve, 0555, dp);
 		break;
 	case 0:
 		q.path = NETQID(NETID(c->qid.path), Ndataqid);
