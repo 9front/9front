@@ -31,6 +31,8 @@ Avltree *avlcreate(int(*cmp)(Avl*, Avl*));
 Avl     *avlinsert(Avltree *tree, Avl *new);
 Avl     *avldelete(Avltree *tree, Avl *key);
 Avl     *avllookup(Avltree *tree, Avl *key, int dir);
+Avl     *avlmin(Avltree *tree);
+Avl     *avlmax(Avltree *tree);
 Avl     *avlnext(Avl *n);
 Avl     *avlprev(Avl *n);
 
