@@ -41,5 +41,8 @@ nuke:V:
 clean:V:
 	rm -f *.[$OS] y.tab.? y.output y.error $CLEANFILES
 
+%.acid:V:
+	$CC $CFLAGS -a `{basename $stem .$objtype}^.c >$target
+
 update:V:
 	update $UPDATEFLAGS $UPDATE
