@@ -220,7 +220,7 @@ flush(void)
 	extern Rectangle picr;
 	extern Mousectl *mc;
 	flushmouse(!mouse);
-	while(nbrecv(mc->c, &m) > 0){
+	while(mouse && nbrecv(mc->c, &m) > 0){
 		if(ptinrect(m.xy, picr)){
 			p = subpt(m.xy, picr.min);
 			p.x /= scale;
