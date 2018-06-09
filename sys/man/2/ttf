@@ -1,0 +1,211 @@
+.TH TTF 2
+.SH NAME
+ttfopen, ttfscale, ttfclose, ttffindchar, ttfenumchar, ttfgetglyph,
+ttfputglyph, ttfgetcontour, ttfrender, ttfrunerender, ttfnewbitmap,
+ttffreebitmap, ttfblit \- TrueType renderer
+.SH SYNOPSIS
+.de PB
+.PP
+.ft L
+.nf
+..
+.PB
+#include <u.h>
+#include <libc.h>
+#include <bio.h>
+#include <ttf.h>
+.PB
+struct TTBitmap {
+	u8int *bit;
+	int width, height, stride;
+};
+.PB
+struct TTGlyph {
+	TTBitmap;
+	int xminpx, xmaxpx, yminpx, ymaxpx, advanceWidthpx;
+	/* + internals */
+};
+.PB
+struct TTFont {
+	int ppem, ascentpx, descentpx;
+	/* + internals */
+};
+.PB
+.ta +\w'\fLTTBitmap* \fP'u
+TTFont*	ttfopen(char *filename, int size, int flags);
+TTFont*	ttfscale(TTFont *f, int size, int flags);
+void	ttfclose(TTFont *f);
+.PB
+int	ttffindchar(TTFont *f, Rune r);
+int	ttfenumchar(TTFont *f, Rune r, Rune *rp);
+.PB
+TTGlyph*	ttfgetglyph(TTFont *f, int glyphidx, int render);
+void	ttfputglyph(TTGlyph *g);
+int	ttfgetcontour(TTGlyph *g, int idx, float **fp, int *nfp);
+.PB
+TTBitmap*	ttfrender(TTFont *f, char *s, char *e, int w, int h,
+			int flags, char **pp);
+TTBitmap*	ttfrunerender(TTFont *f, Rune *s, Rune *e, int w, int h,
+			int flags, char **pp);
+.PB
+TTBitmap*	ttfnewbitmap(int w, int h);
+void	ttfblit(TTBitmap *dst, int dstx, int dsty, TTBitmap *src,
+			int srcx, int srcy, int w, int h);
+void	ttffreebitmap(TTBitmap *);
+.SH DESCRIPTION
+.PP
+.I Libttf
+is a parser and renderer of TrueType fonts.
+Given a \fLttf\fR font file it can produce the rendered versions of characters at a given size.
+.PP
+.I Ttfopen
+opens the font at
+.I filename
+and initialises it for rendering at size
+.I size
+(specified in pixels per em).
+.I Flags
+is reserved for future use and should be zero.
+If rendering at multiple sizes is desired,
+.I ttfscale
+reopens the font at a different size (internally the size-independent data is shared).
+.I TTfclose
+closes an opened font.
+Each instance of a font created by
+.I ttfopen
+and
+.I ttfscale
+must be closed separately.
+.PP
+A character in a TrueType font is called a glyph.
+Glyphs are numbered starting from 0 and the glyph indices do not need to follow any established coding scheme.
+.I Ttffindchar
+finds the glyph number of a given rune (Unicode codepoint).
+If the character does not exist in the font, zero is returned.
+Note that, in TrueType fonts, glyph 0 conventionally contains the "glyph not found" character.
+.I Ttfenumchar
+is like
+.I ttffindchar
+but will continue searching if the character is not in the font, returning the rune number for which it found a glyph in
+.BR *rp .
+It returns character in ascending Unicode order and it can be used to enumerate the characters in a font.
+Zero is returned if there are no further characters.
+.PP
+.I Ttfgetglyph
+interprets the actual data for a glyph specified by its index
+.IR glyphidx .
+With
+.I render
+set to zero, the data is left uninterpreted; currently its only use is
+.I ttfgetcontour.
+With
+.I render
+set to one, the glyph is also rendered, i.e. a pixel representation is produced and stored in the
+.I TTBitmap
+embedded in the
+.I TTGlyph
+structure it returns.
+Although TrueType uses a right handed coordinate system (y increases going up), the bitmap data returns follows Plan 9 conventions (and is compatible with the
+.IR draw (3)
+mask argument).
+The bottom left hand corner is at position (\fIxmin\fR, \fIymin\fR) in the TrueType coordinate system.
+.I Ttfputglyph
+should be used to return
+.I TTGlyph
+structures for cleanup.
+.PP
+.I Ttfgetcontour
+can be used to obtain raw contour data for a glyph.
+Given an index
+.I i
+it returns the corresponding contour (counting from zero), storing a pointer to a list of (\fIx\fR, \fIy\fR) pairs in
+.BR *fp .
+The array is allocated with
+.BR malloc (2).
+The (always odd) number of points is stored in
+.BR *np .
+The contours correspond to closed quadratic Bézier curves and the points with odd indices are the control points.
+For an invalid index, zero is returned and
+.B *fp
+and
+.B *np
+are not accessed.
+For a valid index, the number returned is the number of contours with index ≥ \fIi\fR.
+.PP
+.I Ttfrender
+and
+.I ttfrunerender
+typeset a string of text (specified as UTF-8 or raw Unicode, respectively) and return a bitmap of size
+.I w
+and
+.IR h .
+It attempts to typeset text starting from
+.I s
+and up to and not including
+.IR e .
+If
+.I e
+is
+.BR nil ,
+text is typeset until a null byte is encountered.
+.I Flags
+specifies the alignment.
+.BR TTFLALIGN ,
+.BR TTFRALIGN
+and
+.B TTFCENTER
+specify left-aligned, right-aligned and centered text, respectively.
+.B TTFJUSTIFY
+can be or'ed with these three options to produce text where any ``wrapped'' line is justified.
+.PP
+For reasons of efficiency and simplicity,
+.I libttf
+includes its own format for 1 bpp bitmaps.
+In these bitmaps,
+0 corresponds to transparent and 1 corresponds to opaque.
+Otherwise, the format is identical to
+.B k1
+.IR image (6)
+bitmaps.
+.I Ttfnewbitmap
+and
+.I ttffreebitmap
+allocate and deallocate such bitmaps, respectively.
+.I TTGlyph
+structures can be used in place of bitmaps but must be deallocated with
+.IR ttfputglyph ,
+not
+.IR ttffreebitmap .
+.I Ttfblit
+copies part of one bitmap onto another.
+Note that bits are or'ed together \(-- blitting a transparent over an opaque pixel does not produce an transparent pixel.
+.SH SOURCE
+.B /sys/src/libttf
+.SH "SEE ALSO"
+Apple, ``TrueType™ Reference Manual''.
+.br
+Microsoft, ``OpenType® specification''.
+.br
+FreeType, source code (the only accurate source).
+.br
+.IR ttfrender (1).
+.SH DIAGNOSTICS
+Following standard conventions, routines returning pointers return
+.B nil
+on error and return an error message in
+.BR errstr .
+.SH BUGS
+Both ``standards'' are packages of contradictions and lies.
+.PP
+Apple Advanced Typography and Microsoft OpenType extensions are not supported; similarly non-TrueType (Postscript, Bitmap) fonts packaged as
+.B .ttf
+files are not supported.
+.PP
+The library is immature and interfaces are virtually guaranteed to change.
+.PP
+Fonts packaged as
+.B .ttc
+files are not supported.
+.SH HISTORY
+.I Libttf
+first appeared in 9front in June, 2018.

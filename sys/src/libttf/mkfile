@@ -1,0 +1,23 @@
+</$objtype/mkfile
+
+LIB=/$objtype/lib/libttf.a
+
+OFILES=\
+	head.$O \
+	cmap.$O \
+	hint.$O \
+	scan.$O \
+	glyf.$O \
+	render.$O \
+	bit.$O \
+
+HFILES=\
+	/sys/include/ttf.h\
+	impl.h\
+
+UPDATE=\
+	mkfile\
+	$HFILES\
+	${OFILES:%.$O=%.c}\
+
+</sys/src/cmd/mksyslib
