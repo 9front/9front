@@ -346,7 +346,7 @@ regwrite(u16int p, u8int v)
 			if(mouse)
 				mouselatch();
 			else
-				keylatch = keys;
+				keylatch = keys | 0xffff;
 		}
 		break;
 	case 0x4200:
