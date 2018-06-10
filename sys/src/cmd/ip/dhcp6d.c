@@ -7,6 +7,20 @@
 
 enum {
 	Eaddrlen = 6,
+
+	SOLICIT	= 1,
+	ADVERTISE,
+	REQUEST,
+	CONFIRM,
+	RENEW,
+	REBIND,
+	REPLY,
+	RELEASE,
+	DECLINE,
+	RECONFIGURE,
+	INFOREQ,
+	RELAYFORW,
+	RELAYREPL,
 };
 
 typedef struct Req Req;
@@ -49,6 +63,8 @@ struct Otab
 static Otab otab[];
 static Ipifc *ipifcs;
 static ulong starttime;
+static char *ndbfile;
+static char *netmtpt = "/net";
 static int debug;
 
 static uchar v6loopback[IPaddrlen] = {
@@ -63,14 +79,22 @@ static uchar v6loopback[IPaddrlen] = {
  * and reload as needed.
  */
 static Ndb *
-opendb(char *ndbfile)
+opendb(void)
 {
+	static ulong lastcheck;
 	static Ndb *db;
+	ulong now = time(nil);
+
 	/* check no more often than once every minute */
-	if(db == nil)
+	if(db == nil) {
 		db = ndbopen(ndbfile);
-	else if (ndbchanged(db))
-		ndbreopen(db);
+		if(db != nil)
+			lastcheck = now;
+	} else if(now >= lastcheck + 60) {
+		if (ndbchanged(db))
+			ndbreopen(db);
+		lastcheck = now;
+	}
 	return db;
 }
 
@@ -246,8 +270,6 @@ usage(void)
 void
 main(int argc, char *argv[])
 {
-	char *ndbfile = nil;
-	char *net = "/net";
 	uchar ibuf[4096], obuf[4096];
 	Req r[1];
 	int fd, n, i;
@@ -264,7 +286,7 @@ main(int argc, char *argv[])
 		ndbfile = EARGF(usage());
 		break;
 	case 'x':
-		net = EARGF(usage());
+		netmtpt = EARGF(usage());
 		break;
 	default:
 		usage();
@@ -272,10 +294,10 @@ main(int argc, char *argv[])
 
 	starttime = time(nil) - 946681200UL;
 
-	if(opendb(ndbfile) == nil)
+	if(opendb() == nil)
 		sysfatal("opendb: %r");
 
-	fd = openlisten(net);
+	fd = openlisten(netmtpt);
 
 	/* put process in background */
 	if(!debug)
@@ -300,7 +322,7 @@ main(int argc, char *argv[])
 		r->tra = r->req.p[1]<<16 | r->req.p[2]<<8 | r->req.p[3];
 		r->req.t = r->req.p[0];
 
-		if((r->ifc = findifc(net, r->udp->ifcaddr)) == nil)
+		if((r->ifc = findifc(netmtpt, r->udp->ifcaddr)) == nil)
 			continue;
 
 		if(debug)
@@ -311,12 +333,12 @@ main(int argc, char *argv[])
 		switch(r->req.t){
 		default:
 			continue;
-		case 1:		/* solicit */
-			r->resp.t = 2;	/* advertise */
+		case SOLICIT:
+			r->resp.t = ADVERTISE;
 			break;
-		case 3:		/* request */
-		case 11:	/* information request */
-			r->resp.t = 7;	/* reply */
+		case REQUEST:
+		case INFOREQ:
+			r->resp.t = REPLY;
 			break;
 		}
 		r->resp.p[0] = r->resp.t;
@@ -339,8 +361,7 @@ main(int argc, char *argv[])
 		if(addoption(r, 1) < 0)
 			continue;
 
-		/* Lookup taret ip addresses */
-		if((r->db = opendb(ndbfile)) == nil)
+		if((r->db = opendb()) == nil)
 			continue;
 		r->nips = lookupips(r->ips, sizeof(r->ips), r->db, r->mac)/IPaddrlen;
 		if(debug){
@@ -377,17 +398,24 @@ oclientid(uchar *w, int n, Otab*, Req *r)
 static int
 oserverid(uchar *w, int n, Otab*, Req *r)
 {
+	int len;
+	uchar *p;
+
 	if(n < 4+4+Eaddrlen)
 		return -1;
 	w[0] = 0, w[1] = 1;	/* duid type: link layer address + time*/
 	w[2] = 0, w[3] = 1;	/* hw type: ethernet */
-	w += 4;
-	w[0] = starttime>>24;
-	w[1] = starttime>>16;
-	w[2] = starttime>>8;
-	w[3] = starttime;
-	w += 4;
-	myetheraddr(w, r->ifc->dev);
+	w[4] = starttime>>24;
+	w[5] = starttime>>16;
+	w[6] = starttime>>8;
+	w[7] = starttime;
+	myetheraddr(w+8, r->ifc->dev);
+
+	/* check if server id matches from the request */
+	p = gettlv(2, &len, r->req.p, r->req.e);
+	if(p != nil && (len != 4+4+Eaddrlen || memcmp(w, p, 4+4+Eaddrlen) != 0))
+		return -1;
+
 	return 4+4+Eaddrlen;
 }
 
