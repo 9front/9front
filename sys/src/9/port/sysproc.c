@@ -602,8 +602,6 @@ syssleep(va_list list)
 		else
 			yield();
 	} else {
-		if(ms < TK2MS(1))
-			ms = TK2MS(1);
 		tsleep(&up->sleep, return0, 0, ms);
 	}
 	return 0;
