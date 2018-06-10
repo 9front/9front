@@ -1,6 +1,6 @@
 .TH DHCPD 8
 .SH NAME
-dhcpd, dhcpleases, rarpd, tftpd \- Internet booting
+dhcpd, dhcp6d, dhcpleases, rarpd, tftpd \- Internet booting
 .SH SYNOPSIS
 .PP
 .B ip/dhcpd
@@ -20,6 +20,13 @@ dhcpd, dhcpleases, rarpd, tftpd \- Internet booting
 .PP
 .B ip/dhcpleases
 .PP
+.B ip/dhcp6d
+.RB [ -d ]
+.RB [ -f
+.IR ndb-file ]
+.RB [ -x
+.IR netmtpt ]
+.PP
 .B ip/rarpd
 .RB [ -d ]
 .RB [ -e
@@ -37,7 +44,8 @@ dhcpd, dhcpleases, rarpd, tftpd \- Internet booting
 These programs support booting over the Internet.
 They should all be run on the same server to
 allow other systems to be booted.
-.I Dhcpd
+.IR Dhcpd ,
+.I dhcp6d
 and
 .I tftpd
 are used to boot everything;
@@ -220,6 +228,10 @@ Use
 .I secs
 as the minimum lease time for static addresses.
 .PD
+.PP
+.I Dhcp6d
+provides DHCPv6 service for IPv6 clients. Only network boot and
+DNS parameters are supported.
 .PP
 .I Dhcpleases
 prints out the currently valid DHCP leases found in the

@@ -2,6 +2,7 @@
 
 TARG = 	6in4\
 	ayiya\
+	dhcp6d\
 	dhcpclient\
 	ftpd\
 	gping\
