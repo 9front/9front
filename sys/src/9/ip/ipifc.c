@@ -1510,21 +1510,19 @@ ipifcremmulti(Conv *c, uchar *ma, uchar *ia)
 		return; 	/* we don't have it open */
 
 	*l = multi->next;
-	free(multi);
+	multi->next = nil;
 
 	f = c->p->f;
 	if((ifc = findipifc(f, ia, ma, Rmulti)) != nil){
 		wlock(ifc);
-		if(waserror()){
-			wunlock(ifc);
-			nexterror();
+		if(!waserror()){
+			if((lifc = iplocalonifc(ifc, ia)) != nil)
+				remselfcache(f, ifc, lifc, ma);
+			poperror();
 		}
-		if((lifc = iplocalonifc(ifc, ia)) != nil)
-			remselfcache(f, ifc, lifc, ma);
 		wunlock(ifc);
-		poperror();
 	}
-
+	free(multi);
 }
 
 /* register the address on this network for address resolution */
