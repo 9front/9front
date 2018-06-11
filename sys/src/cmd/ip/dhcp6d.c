@@ -113,6 +113,21 @@ findifc(char *net, uchar ip[IPaddrlen])
 	return nil;
 }
 
+static Iplifc*
+localonifc(Ipifc *ifc, uchar ip[IPaddrlen])
+{
+	Iplifc *lifc;
+	uchar net[IPaddrlen];
+
+	for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
+		maskip(ip, lifc->mask, net);
+		if(ipcmp(net, lifc->net) == 0)
+			return lifc;
+	}
+
+	return nil;
+}
+
 static int
 openlisten(char *net)
 {
@@ -310,20 +325,26 @@ main(int argc, char *argv[])
 		break;
 	}
 
-	while((n = read(fd, ibuf, sizeof(ibuf))) > Udphdrsize+4){
-		r->req.p = ibuf+Udphdrsize;
-		r->req.e = ibuf+n;
+	while((n = read(fd, ibuf, sizeof(ibuf))) > 0){
+		if(n < Udphdrsize+4)
+			continue;
+
+		r->udp = (Udphdr*)ibuf;
+		if(isv4(r->udp->raddr))
+			continue;
+		if((r->ifc = findifc(netmtpt, r->udp->ifcaddr)) == nil)
+			continue;
+		if(localonifc(r->ifc, r->udp->raddr) == nil)
+			continue;
 
 		memmove(obuf, ibuf, Udphdrsize);
-		r->udp = (Udphdr*)obuf;
+		r->req.p = ibuf+Udphdrsize;
+		r->req.e = ibuf+n;
 		r->resp.p = obuf+Udphdrsize;
 		r->resp.e = &obuf[sizeof(obuf)];
 
 		r->tra = r->req.p[1]<<16 | r->req.p[2]<<8 | r->req.p[3];
 		r->req.t = r->req.p[0];
-
-		if((r->ifc = findifc(netmtpt, r->udp->ifcaddr)) == nil)
-			continue;
 
 		if(debug)
 		fprint(2, "%I->%I(%s) typ=%d tra=%x\n",
