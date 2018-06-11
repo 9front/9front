@@ -430,7 +430,7 @@ icmphostunr6(Fs *f, Ipifc *ifc, Block *bp, int code, int tome)
 	uchar ia[IPaddrlen];
 
 	p = (Ip6hdr *)bp->rp;
-	if(isv6mcast(p->src) || !ipv6local(ifc, ia, p->src))
+	if(isv6mcast(p->dst) || isv6mcast(p->src) || !ipv6local(ifc, ia, p->src))
 		return;
 
 	netlog(f, Logicmp, "send icmphostunr %I -> src %I dst %I\n",
@@ -467,7 +467,7 @@ icmpttlexceeded6(Fs *f, Ipifc *ifc, Block *bp)
 	uchar ia[IPaddrlen];
 
 	p = (Ip6hdr *)bp->rp;
-	if(isv6mcast(p->src) || !ipv6local(ifc, ia, p->src))
+	if(isv6mcast(p->dst) || isv6mcast(p->src) || !ipv6local(ifc, ia, p->src))
 		return;
 
 	netlog(f, Logicmp, "send icmpttlexceeded6 %I -> src %I dst %I\n",
@@ -500,7 +500,7 @@ icmppkttoobig6(Fs *f, Ipifc *ifc, Block *bp)
 	uchar ia[IPaddrlen];
 
 	p = (Ip6hdr *)bp->rp;
-	if(isv6mcast(p->src) || !ipv6local(ifc, ia, p->src))
+	if(isv6mcast(p->dst) || isv6mcast(p->src) || !ipv6local(ifc, ia, p->src))
 		return;
 
 	netlog(f, Logicmp, "send icmppkttoobig6 %I -> src %I dst %I\n",
