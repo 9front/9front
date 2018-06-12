@@ -148,7 +148,7 @@ openlisten(char *net)
 		if(strcmp(ifc->dev, "/dev/null") == 0)
 			continue;
 		for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
-			if(ISIPV6LINKLOCAL(lifc->ip))
+			if(!ISIPV6LINKLOCAL(lifc->ip))
 				continue;
 			if(fprint(cfd, "addmulti %I ff02::1:2", lifc->ip) < 0)
 				fprint(2, "addmulti: %I: %r\n", lifc->ip);
