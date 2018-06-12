@@ -36,6 +36,7 @@ LIBS=\
 	libstdio\
 	libsunrpc\
 	libthread\
+	libttf\
 	libventi\
 
 
