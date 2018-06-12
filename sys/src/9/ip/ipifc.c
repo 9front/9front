@@ -498,9 +498,10 @@ ipifcadd(Ipifc *ifc, char **argv, int argc, int tentative, Iplifc *lifcp)
 	}
 
 	wlock(ifc);
-	if(ifc->m == nil)
+	if(ifc->m == nil){
+		wunlock(ifc);
 		return "ipifc not yet bound to device";
-
+	}
 	f = ifc->conv->p->f;
 	if(waserror()){
 		wunlock(ifc);
@@ -893,7 +894,6 @@ addselfcache(Fs *f, Ipifc *ifc, Iplifc *lifc, uchar *a, int type)
 	int h;
 
 	type |= (lifc->type & Rv4);
-
 	qlock(f->self);
 	if(waserror()){
 		qunlock(f->self);
@@ -1470,11 +1470,6 @@ ipifcaddmulti(Conv *c, uchar *ma, uchar *ia)
 		if(ipcmp(ma, (*l)->ma) == 0 && ipcmp(ia, (*l)->ia) == 0)
 			return;		/* it's already there */
 
-	multi = *l = smalloc(sizeof(*multi));
-	ipmove(multi->ma, ma);
-	ipmove(multi->ia, ia);
-	multi->next = nil;
-
 	f = c->p->f;
 	if((ifc = findipifc(f, ia, ma, Rmulti)) != nil){
 		wlock(ifc);
@@ -1487,6 +1482,12 @@ ipifcaddmulti(Conv *c, uchar *ma, uchar *ia)
 		wunlock(ifc);
 		poperror();
 	}
+
+	multi = smalloc(sizeof(*multi));
+	ipmove(multi->ma, ma);
+	ipmove(multi->ia, ia);
+	multi->next = nil;
+	*l = multi;
 }
 
 
