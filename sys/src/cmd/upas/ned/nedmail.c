@@ -2327,8 +2327,6 @@ mcmd(Cmd *c, Message *m)
 	}
 
 	ai = 1;
-	av[ai++] = "-8";
-
 	subject = nil;
 	if(m->subject){
 		av[ai++] = "-s";
@@ -2346,6 +2344,8 @@ mcmd(Cmd *c, Message *m)
 	av[ai++] = rooted(extendp(m->path, "raw"));
 	if(strchr(c->av[0], 'M') == nil)
 		av[ai++] = "-n";
+	else
+		av[ai++] = "-8";
 	for(i = 1; i < c->an && ai < nelem(av)-1; i++)
 		av[ai++] = c->av[i];
 	av[ai] = 0;
