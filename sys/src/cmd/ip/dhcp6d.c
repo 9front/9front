@@ -134,6 +134,7 @@ openlisten(char *net)
 	int fd, cfd;
 	char data[128], devdir[40];
 	Ipifc *ifc;
+	Iplifc *lifc;
 
 	sprint(data, "%s/udp!*!dhcp6s", net);
 	cfd = announce(data, devdir);
@@ -144,12 +145,14 @@ openlisten(char *net)
 
 	ipifcs = readipifc(net, ipifcs, -1);
 	for(ifc = ipifcs; ifc != nil; ifc = ifc->next){
-		if(ifc->lifc == nil)
-			continue;
 		if(strcmp(ifc->dev, "/dev/null") == 0)
 			continue;
-		if(fprint(cfd, "addmulti %I ff02::1:2", ifc->lifc->ip) < 0)
-			fprint(2, "can't add interface %s: %r", ifc->dev);
+		for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
+			if(ISIPV6LINKLOCAL(lifc->ip))
+				continue;
+			if(fprint(cfd, "addmulti %I ff02::1:2", lifc->ip) < 0)
+				fprint(2, "addmulti: %I: %r\n", lifc->ip);
+		}
 	}
 
 	sprint(data, "%s/data", devdir);
