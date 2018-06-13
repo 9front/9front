@@ -431,11 +431,11 @@ mbc5(int a, int v)
 		default:
 			nope(a);
 		}
-	switch(a >> 13){
-	case 0: ramen = (v & 0xf) == 0xa; break;
-	case 1: b0 = b0 & 0x100 | v; break;
-	case 2: b0 = b0 & 0xff | v << 8 & 0x100; break;
-	case 3: b1 = v & 0xff; b1 %= nbackbank; break;
+	switch(a >> 12){
+	case 0: case 1: ramen = (v & 0xf) == 0xa; break;
+	case 2: b0 = b0 & 0x100 | v; break;
+	case 3: b0 = b0 & 0xff | v << 8 & 0x100; break;
+	case 4: b1 = v & 0xff; b1 %= nbackbank; break;
 	}
 	b0 %= nrom >> 14;
 	romb = rom + (b0 << 14); 
