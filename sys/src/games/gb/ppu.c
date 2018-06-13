@@ -210,7 +210,8 @@ sprites(void)
 			chr = q->chr;
 			if((chr & ((q->t & SPRXFL) != 0 ? 0x0101 : 0x8080)) != 0 && (attr & TILSPR) == 0 &&
 					((mode & COL) != 0 && (reg[LCDC] & BGPRI) == 0 ||
-					(attr & TILPRI) == 0 && ((q->t & SPRPRI) == 0 || (attr & TILCOL0) != 0)))
+					(attr & TILCOL0) != 0 ||
+					(attr & TILPRI) == 0 && (q->t & SPRPRI) == 0))
 				if((q->t & SPRXFL) == 0)
 					picp[x] = pal[q->pal | chr >> 15 | chr >> 6 & 2] | TILSPR << prish;
 				else
