@@ -192,11 +192,11 @@ screeninit(void)
 		scale = Dx(screen->r) / vwdx;
 		if(Dy(screen->r) / vwdy < scale)
 			scale = Dy(screen->r) / vwdy;
-		if(scale <= 0)
-			scale = 1;
-		else if(scale > 16)
-			scale = 16;
 	}
+	if(scale <= 0)
+		scale = 1;
+	else if(scale > 16)
+		scale = 16;
 	p = divpt(addpt(screen->r.min, screen->r.max), 2);
 	picr = Rpt(subpt(p, Pt(scale * vwdx/2, scale * vwdy/2)),
 		addpt(p, Pt(scale * vwdx/2, scale * vwdy/2)));
