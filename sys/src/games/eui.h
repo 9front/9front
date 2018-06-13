@@ -7,7 +7,7 @@ extern u64int keys, keys2;
 extern int trace, paused;
 extern int savereq, loadreq;
 extern QLock pauselock;
-extern int scale, warp10;
+extern int scale, fixscale, warp10;
 extern uchar *pic;
 
 void*	emalloc(ulong);

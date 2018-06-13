@@ -109,6 +109,13 @@ loadbat(char *file)
 }
 
 void
+usage(void)
+{
+	fprint(2, "usage: %s [-23ahmsT] [-x scale] rom\n", argv0);
+	exits("usage");
+}
+
+void
 threadmain(int argc, char **argv)
 {
 	int t;
@@ -129,15 +136,14 @@ threadmain(int argc, char **argv)
 	case 'h':
 		hirom++;
 		break;
+	case 'x':
+		fixscale = strtol(EARGF(usage()), nil, 0);
+		break;
 	default:
-		goto usage;
+		usage();
 	} ARGEND;
-	
-	if(argc != 1){
-usage:
-		fprint(2, "usage: %s [-23ahmsT] rom\n", argv0);
-		threadexitsall("usage");
-	}
+	if(argc < 1)
+		usage();
 	loadrom(argv[0]);
 	initemu(256, 239, 2, RGB15, !mouse, nil);
 	regkey("b", 'z', 1<<31);

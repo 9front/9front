@@ -220,7 +220,7 @@ flush(void)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-aT] [-s savetype] [-b biosfile] rom\n", argv0);
+	fprint(2, "usage: %s [-a] [-s savetype] [-b biosfile] [-x scale] rom\n", argv0);
 	exits("usage");
 }
 
@@ -242,6 +242,9 @@ threadmain(int argc, char **argv)
 		break;
 	case 'b':
 		biosfile = strdup(EARGF(usage()));
+		break;
+	case 'x':
+		fixscale = strtol(EARGF(usage()), nil, 0);
 		break;
 	default:
 		usage();

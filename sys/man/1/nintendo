@@ -9,6 +9,9 @@ gb, gba, nes, snes \- emulators
 [
 .B -C
 .I ...
+] [
+.B -x
+.I scale
 ]
 .I romfile
 .br
@@ -21,18 +24,27 @@ gb, gba, nes, snes \- emulators
 ] [
 .B -s
 .I savetype
+] [
+.B -x
+.I scale
 ]
 .I romfile
 .br
 .B games/nes
 [
 .B -aos
+] [
+.B -x
+.I scale
 ]
 .I romfile
 .br
 .B games/snes
 [
 .B -ahmsT
+] [
+.B -x
+.I scale
 ]
 .I romfile
 .SH DESCRIPTION
@@ -62,6 +74,9 @@ Command line options:
 .TP
 .B -a
 Enable audio output.
+.TP
+.B -x
+Scale the screen to a given factor regardless of the window's size.
 .PP
 .B gb
 options:

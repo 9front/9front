@@ -212,7 +212,7 @@ keyproc(void *)
 static void
 usage(void)
 {
-	fprint(2, "usage: %s [ -23a ] [ rom ]\n", argv0);
+	fprint(2, "usage: %s [-Nap] [-c cart] [-t tape] [-d bindir] [-x scale] rom\n", argv0);
 	exits("usage");
 }
 
@@ -236,6 +236,9 @@ threadmain(int argc, char **argv)
 		break;
 	case 'd':
 		bindir = strdup(EARGF(usage()));
+		break;
+	case 'x':
+		fixscale = strtol(EARGF(usage()), nil, 0);
 		break;
 	default:
 		usage();

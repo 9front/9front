@@ -103,6 +103,13 @@ loadrom(char *file)
 }
 
 void
+usage(void)
+{
+	fprint(2, "usage: %s [-a] [-x scale] rom\n", argv0);
+	exits("usage");
+}
+
+void
 threadmain(int argc, char **argv)
 {
 	int t;
@@ -111,14 +118,14 @@ threadmain(int argc, char **argv)
 	case 'a':
 		initaudio();
 		break;
+	case 'x':
+		fixscale = strtol(EARGF(usage()), nil, 0);
+		break;
 	default:
-		;
+		usage();
 	} ARGEND;
-	
-	if(argc != 1){
-		fprint(2, "usage: %s [-23a] rom\n", argv0);
-		threadexitsall("usage");
-	}
+	if(argc < 1)
+		usage();
 	loadrom(*argv);
 	initemu(320, 224, 4, XRGB32, 1, nil);
 	regkey("a", 'c', 1<<5);

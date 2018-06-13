@@ -221,7 +221,7 @@ flush(void)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-23aTcd] [-C col0,col1,col2,col3] rom\n", argv0);
+	fprint(2, "usage: %s [-aTcd] [-C col0,col1,col2,col3] [-x scale] rom\n", argv0);
 	exits("usage");
 }
 
@@ -276,6 +276,9 @@ threadmain(int argc, char **argv)
 		break;
 	case 'C':
 		colparse(EARGF(usage()));
+		break;
+	case 'x':
+		fixscale = strtol(EARGF(usage()), nil, 0);
 		break;
 	default:
 		usage();

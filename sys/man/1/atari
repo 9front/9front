@@ -1,10 +1,13 @@
-.SH ATARI 1
+.TH ATARI 1
 .SH NAME
 2600 \- emulator
 .SH SYNOPSIS
 .B games/2600
 [
 .B -a
+] [
+.B -x
+.I scale
 ]
 .I romfile
 .SH DESCRIPTION
@@ -26,6 +29,9 @@ Command line options:
 .TP
 .B -a
 Enable audio output.
+.TP
+.B -x
+Scale the screen to a given factor regardless of the window's size.
 .SH SOURCE
 .B /sys/src/games/2600
 .SH BUGS

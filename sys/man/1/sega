@@ -5,6 +5,9 @@ md \- emulator
 .B games/md
 [
 .B -a
+] [
+.B -x
+.I scale
 ]
 .I romfile
 .SH DESCRIPTION
@@ -24,6 +27,9 @@ Command line options:
 .TP
 .B -a
 Enable audio output.
+.TP
+.B -x
+Scale the screen to a given factor regardless of the window's size.
 .SH SOURCE
 .B /sys/src/games/md
 .SH BUGS

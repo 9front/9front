@@ -50,20 +50,27 @@ loadrom(char *name)
 }
 
 void
+usage(void)
+{
+	fprint(2, "usage: %s [-a] [-x scale] rom\n", argv0);
+	exits("usage");
+}
+
+void
 threadmain(int argc, char **argv)
 {
 	ARGBEGIN {
 	case 'a':
 		initaudio();
 		break;
+	case 'x':
+		fixscale = strtol(EARGF(usage()), nil, 0);
+		break;
 	default:
-		goto usage;
+		usage();
 	} ARGEND;
-	if(argc != 1){
-	usage:
-		fprint(2, "usage: %s [ -23a ] rom\n", argv0);
-		exits("usage");
-	}
+	if(argc != 1)
+		usage();
 	loadrom(argv[0]);
 	initemu(PICW, PICH, 4, XRGB32, 1, nil);
 	regkey("a", ' ', 1<<4);

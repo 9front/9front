@@ -12,7 +12,7 @@ u64int keys, keys2;
 int trace, paused;
 int savereq, loadreq;
 QLock pauselock;
-int scale, warp10;
+int scale, fixscale, warp10;
 uchar *pic;
 Rectangle picr;
 Mousectl *mc;
@@ -188,11 +188,15 @@ screeninit(void)
 {
 	Point p;
 
-	scale = Dx(screen->r) / vwdx;
-	if(scale <= 0)
-		scale = 1;
-	else if(scale > 16)
-		scale = 16;
+	if(!fixscale){
+		scale = Dx(screen->r) / vwdx;
+		if(Dy(screen->r) / vwdy < scale)
+			scale = Dy(screen->r) / vwdy;
+		if(scale <= 0)
+			scale = 1;
+		else if(scale > 16)
+			scale = 16;
+	}
 	p = divpt(addpt(screen->r.min, screen->r.max), 2);
 	picr = Rpt(subpt(p, Pt(scale * vwdx/2, scale * vwdy/2)),
 		addpt(p, Pt(scale * vwdx/2, scale * vwdy/2)));
@@ -319,5 +323,6 @@ initemu(int dx, int dy, int bpp, ulong chan, int dokey, void(*kproc)(void*))
 	if(kproc == nil)
 		proccreate(joyproc, nil, mainstacksize);
 	bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
+	scale = fixscale;
 	screeninit();
 }

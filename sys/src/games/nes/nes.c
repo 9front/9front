@@ -118,6 +118,13 @@ loadrom(char *file, int sflag)
 }
 
 void
+usage(void)
+{
+	fprint(2, "usage: %s [-aos] [-x scale] rom\n", argv0);
+	exits("usage");
+}
+
+void
 threadmain(int argc, char **argv)
 {
 	int t, sflag;
@@ -133,15 +140,14 @@ threadmain(int argc, char **argv)
 	case 's':
 		sflag = 1;
 		break;
+	case 'x':
+		fixscale = strtol(EARGF(usage()), nil, 0);
+		break;
 	default:
-		goto usage;
+		usage();
 	} ARGEND;
-
-	if(argc != 1){
-	usage:
-		fprint(2, "usage: %s [-23aos] rom\n", argv0);
-		threadexitsall("usage");
-	}
+	if(argc < 1)
+		usage();
 	loadrom(argv[0], sflag);
 	initemu(256, 240 - oflag * 16, 4, XRGB32, 1, nil);
 	regkey("b", 'z', 1<<1);
