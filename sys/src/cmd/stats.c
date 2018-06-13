@@ -1131,7 +1131,7 @@ resize(void)
 	/* label right, if requested */
 	if(ylabels && dy>Nlab*(font->height+1)){
 		wid = labelwidth();
-		if(wid < (maxx-startx)-30){
+		if(wid < dx-10){
 			/* else there's not enough room */
 			maxx -= 1+Lx+wid;
 			draw(screen, Rect(maxx, starty, maxx+1, screen->r.max.y), display->black, nil, ZP);
@@ -1156,9 +1156,9 @@ resize(void)
 
 	/* create graphs */
 	for(i=0; i<nmach; i++){
-		machr = Rect(startx+i*dx, starty, maxx, screen->r.max.y);
-		if(i < nmach-1)
-			machr.max.x = startx+(i+1)*dx - 1;
+		machr = Rect(startx+i*dx, starty, startx+(i+1)*dx - 1, screen->r.max.y);
+		if(i == nmach-1)
+			machr.max.x = maxx;
 		y = starty;
 		for(j=0; j<ngraph; j++, y+=dy){
 			g = &graph[i*ngraph+j];
