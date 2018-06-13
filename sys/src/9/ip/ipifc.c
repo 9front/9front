@@ -1466,6 +1466,9 @@ ipifcaddmulti(Conv *c, uchar *ma, uchar *ia)
 	Ipifc *ifc;
 	Fs *f;
 
+	if(isv4(ma) != isv4(ia))
+		error("incompatible multicast/interface ip address");
+
 	for(l = &c->multi; *l != nil; l = &(*l)->next)
 		if(ipcmp(ma, (*l)->ma) == 0 && ipcmp(ia, (*l)->ia) == 0)
 			return;		/* it's already there */
