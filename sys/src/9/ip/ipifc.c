@@ -1274,7 +1274,7 @@ ipv4local(Ipifc *ifc, uchar *local, uchar *remote)
 
 	b = -1;
 	for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
-		if((lifc->type & Rv4) == 0)
+		if((lifc->type & Rv4) == 0 || ipcmp(lifc->local, IPnoaddr) == 0)
 			continue;
 		a = comprefixlen(lifc->local+IPv4off, remote, IPv4addrlen);
 		if(a > b){
@@ -1465,6 +1465,9 @@ ipifcaddmulti(Conv *c, uchar *ma, uchar *ia)
 	Iplifc *lifc;
 	Ipifc *ifc;
 	Fs *f;
+
+	if(isv4(ma) != isv4(ia))
+		error("incompatible multicast/interface ip address");
 
 	for(l = &c->multi; *l != nil; l = &(*l)->next)
 		if(ipcmp(ma, (*l)->ma) == 0 && ipcmp(ia, (*l)->ia) == 0)
