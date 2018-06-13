@@ -41,10 +41,11 @@ development team.
 .I Sysupdate
 updates the local mercurial repository by executing
 the following commands:
-.PP
-.B bind -ac /dist/plan9front /
-.br
-.B hg -v pull -u
+.IP
+.EX
+bind -ac /dist/plan9front /
+hg -v pull -u
+.EE
 .PP
 If the
 .B -i
