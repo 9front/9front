@@ -947,12 +947,12 @@ tempval(Machine *m, uvlong *v, uvlong *vmax, int)
 {
 	ulong l;
 
-	*vmax = sleeptime;
+	*vmax = 100;
 	l = m->temp[0];
 	if(l == ~0 || l == 0)
 		*v = 0;
 	else
-		*v = (l-20)*27;
+		*v = l;
 }
 
 void
