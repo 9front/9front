@@ -449,12 +449,16 @@ sendarp(Ipifc *ifc, Arpent *a)
 	Block *bp;
 	Etherarp *e;
 	Etherrock *er = ifc->arg;
+	uchar targ[IPv4addrlen], src[IPv4addrlen];
 
 	/* don't do anything if it's been less than a second since the last */
 	if(NOW - a->ctime < 1000){
 		arprelease(er->f->arp, a);
 		return;
 	}
+
+	/* try to keep it around for a second more */
+	a->ctime = NOW;
 
 	/* remove all but the last message */
 	while((bp = a->hold) != nil){
@@ -464,9 +468,11 @@ sendarp(Ipifc *ifc, Arpent *a)
 		freeblist(bp);
 	}
 
-	/* try to keep it around for a second more */
-	a->ctime = NOW;
+	memmove(targ, a->ip+IPv4off, IPv4addrlen);
 	arprelease(er->f->arp, a);
+
+	if(!ipv4local(ifc, src, targ))
+		return;
 
 	n = sizeof(Etherarp);
 	if(n < ifc->m->mintu)
@@ -474,8 +480,8 @@ sendarp(Ipifc *ifc, Arpent *a)
 	bp = allocb(n);
 	memset(bp->rp, 0, n);
 	e = (Etherarp*)bp->rp;
-	memmove(e->tpa, a->ip+IPv4off, sizeof(e->tpa));
-	ipv4local(ifc, e->spa, e->tpa);
+	memmove(e->tpa, targ, sizeof(e->tpa));
+	memmove(e->spa, src, sizeof(e->spa));
 	memmove(e->sha, ifc->mac, sizeof(e->sha));
 	memset(e->d, 0xff, sizeof(e->d));		/* ethernet broadcast */
 	memmove(e->s, ifc->mac, sizeof(e->s));

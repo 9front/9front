@@ -1274,7 +1274,7 @@ ipv4local(Ipifc *ifc, uchar *local, uchar *remote)
 
 	b = -1;
 	for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
-		if((lifc->type & Rv4) == 0)
+		if((lifc->type & Rv4) == 0 || ipcmp(lifc->local, IPnoaddr) == 0)
 			continue;
 		a = comprefixlen(lifc->local+IPv4off, remote, IPv4addrlen);
 		if(a > b){
