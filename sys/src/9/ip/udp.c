@@ -190,6 +190,7 @@ udpkick(void *x, Block *bp)
 	Fs *f;
 	int version;
 	Routehint *rh;
+	ushort csum;
 
 	upriv = c->p->priv;
 	f = c->p->f;
@@ -260,8 +261,10 @@ udpkick(void *x, Block *bp)
 		hnputs(uh4->udplen, ptcllen);
 		uh4->udpcksum[0] = 0;
 		uh4->udpcksum[1] = 0;
-		hnputs(uh4->udpcksum,
-		       ptclcsum(bp, UDP4_PHDR_OFF, dlen+UDP_UDPHDR_SZ+UDP4_PHDR_SZ));
+		csum = ptclcsum(bp, UDP4_PHDR_OFF, dlen+UDP_UDPHDR_SZ+UDP4_PHDR_SZ);
+		if(csum == 0)
+			csum = 0xffff;	/* -0 */
+		hnputs(uh4->udpcksum, csum);
 		uh4->vihl = IP_VER4;
 		ipoput4(f, bp, 0, c->ttl, c->tos, rh);
 		break;
@@ -294,8 +297,10 @@ udpkick(void *x, Block *bp)
 		hnputs(uh6->udplen, ptcllen);
 		uh6->udpcksum[0] = 0;
 		uh6->udpcksum[1] = 0;
-		hnputs(uh6->udpcksum,
-		       ptclcsum(bp, UDP6_PHDR_OFF, dlen+UDP_UDPHDR_SZ+UDP6_PHDR_SZ));
+		csum = ptclcsum(bp, UDP6_PHDR_OFF, dlen+UDP_UDPHDR_SZ+UDP6_PHDR_SZ);
+		if(csum == 0)
+			csum = 0xffff;	/* -0 */
+		hnputs(uh6->udpcksum, csum);
 		memset(uh6, 0, 8);
 		uh6->viclfl[0] = IP_VER6;
 		hnputs(uh6->len, ptcllen);
