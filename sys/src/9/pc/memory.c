@@ -103,7 +103,7 @@ memdebug(void)
 	mapprint(&rmapupa);
 }
 
-void
+static void
 mapfree(RMap* rmap, ulong addr, ulong size)
 {
 	Map *mp;
@@ -149,7 +149,7 @@ mapfree(RMap* rmap, ulong addr, ulong size)
 	unlock(rmap);
 }
 
-ulong
+static ulong
 mapalloc(RMap* rmap, ulong addr, int size, int align)
 {
 	Map *mp;

@@ -100,7 +100,7 @@ memdebug(void)
 	mapprint(&rmapupa);
 }
 
-void
+static void
 mapfree(RMap* rmap, uintptr addr, uintptr size)
 {
 	Map *mp;
@@ -146,7 +146,7 @@ mapfree(RMap* rmap, uintptr addr, uintptr size)
 	unlock(rmap);
 }
 
-uintptr
+static uintptr
 mapalloc(RMap* rmap, uintptr addr, int size, int align)
 {
 	Map *mp;
