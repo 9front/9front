@@ -60,7 +60,6 @@ enum
 struct Confmem
 {
 	uintptr	base;
-	uintptr	limit;
 	usize	npage;
 	uintptr	kbase;
 	uintptr	klimit;
@@ -70,7 +69,7 @@ struct Conf
 {
 	ulong	nmach;		/* processors */
 	ulong	nproc;		/* processes */
-	Confmem	mem[1];		/* physical memory */
+	Confmem	mem[2];		/* physical memory */
 	ulong	npage;		/* total physical pages of memory */
 	usize	upages;		/* user page pool */
 	ulong	copymode;	/* 0 is copy on write, 1 is copy on reference */

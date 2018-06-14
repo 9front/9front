@@ -177,10 +177,14 @@ confinit(void)
 	conf.ialloc = 16*1024*1024;
 	conf.nimage = 200;
 	conf.mem[0].base = PGROUND((ulong)end - KZERO);
-	conf.mem[0].limit = 1024*1024*1024;
+	conf.mem[0].npage = (1024*1024*1024 - conf.mem[0].base) >> PGSHIFT;
+
+	ramdiskinit();
+
 	conf.npage = 0;
 	for(i = 0; i < nelem(conf.mem); i++)
-		conf.npage += conf.mem[i].npage = (conf.mem[i].limit - conf.mem[i].base) >> PGSHIFT;
+		conf.npage += conf.mem[i].npage;
+
 	kmem = 200*1024*1024;
 	conf.upages = conf.npage - kmem/BY2PG;
 	kmem -= conf.upages*sizeof(Page)
