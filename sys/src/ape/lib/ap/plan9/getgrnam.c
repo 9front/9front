@@ -17,6 +17,7 @@ getgrnam(const char *name)
 	mem = 0;
 	if(_getpw(&num, &nam, &mem)){
 		holdgroup.gr_name = nam;
+		holdgroup.gr_passwd = "";
 		holdgroup.gr_gid = num;
 		holdgroup.gr_mem = _grpmems(mem);
 		return &holdgroup;

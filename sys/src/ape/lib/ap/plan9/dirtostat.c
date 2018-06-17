@@ -27,6 +27,7 @@ _dirtostat(struct stat *s, Dir *d, Fdinfo *fi)
 	s->st_nlink = 1;
 	s->st_uid = 1;
 	s->st_gid = 1;
+	s->st_rdev = 0;
 	if(fi && (fi->flags&FD_BUFFERED))
 		s->st_size = fi->buf->n;
 	else
