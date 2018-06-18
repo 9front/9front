@@ -1,6 +1,8 @@
 #!/bin/rc
 rfork e
 
+nl='
+'
 out=/dev/audio
 typ=()
 tmp=()
@@ -31,7 +33,7 @@ fn play1 {
 	if not {
 		switch($2){
 		case *plain*
-			sed 's///g' | while(j=`{read}){
+			sed 's///g' | while(j=`$nl{read}){
 				echo $"j >[1=2]
 				if(~ $"j http:* https:* HTTP:* HTTPS:*){
 					hget -r 'User-Agent: play' -r 'Icy-MetaData: 0' $"j | play1 $"j
@@ -104,5 +106,5 @@ while(~ $1 -*){
 
 >$out {
 	if(~ $#* 0){play1 stdin; exit}
-	for(i){echo $i} | play1 args plain
+	for(i){echo $"i} | play1 args plain
 } 
