@@ -193,6 +193,7 @@ copygate(Route *old, Route *new)
 		memmove(old->v4.gate, new->v4.gate, IPv4addrlen);
 	else
 		ipmove(old->v6.gate, new->v6.gate);
+	strncpy(old->tag, new->tag, sizeof(new->tag));
 }
 
 /*
@@ -967,6 +968,7 @@ routewrite(Fs *f, Chan *c, char *p, int n)
 {
 	Cmdbuf *cb;
 	IPaux *a;
+	Route *x, r;
 
 	cb = parsecmd(p, n);
 	if(waserror()){
@@ -977,19 +979,22 @@ routewrite(Fs *f, Chan *c, char *p, int n)
 		error("short control request");
 	if(strcmp(cb->f[0], "flush") == 0){
 		char *tag = cb->nf < 2 ? nil : cb->f[1];
-		Route *x;
 		int h;
 
 		wlock(&routelock);
 		for(h = 0; h < nelem(f->v4root); h++)
-			while((x = looknodetag(f->v4root[h], tag)) != nil)
-				routerem(f, x);
+			while((x = looknodetag(f->v4root[h], tag)) != nil){
+				memmove(&r, x, sizeof(RouteTree) + sizeof(V4route));
+				routerem(f, &r);
+			}
 		for(h = 0; h < nelem(f->v6root); h++)
-			while((x = looknodetag(f->v6root[h], tag)) != nil)
-				routerem(f, x);
+			while((x = looknodetag(f->v6root[h], tag)) != nil){
+				memmove(&r, x, sizeof(RouteTree) + sizeof(V6route));
+				routerem(f, &r);
+			}
 		wunlock(&routelock);
 	} else if(strcmp(cb->f[0], "add") == 0 || strcmp(cb->f[0], "remove") == 0){
-		Route r = parseroute(f, cb->f, cb->nf);
+		r = parseroute(f, cb->f, cb->nf);
 		if(*r.tag == 0){
 			a = c->aux;
 			strncpy(r.tag, a->tag, sizeof(r.tag));
