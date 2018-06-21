@@ -32,6 +32,7 @@ extern char *strtok(char *, const char *);
 extern void *memset(void *, int, size_t);
 extern char *strerror(int);
 extern size_t strlen(const char *);
+extern size_t strnlen(const char *, size_t);
 
 #ifdef _REENTRANT_SOURCE
 extern char *strerror_r(int, const char *, int);
