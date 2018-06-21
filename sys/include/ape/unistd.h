@@ -121,6 +121,7 @@ extern pid_t setsid(void);
 
 /* files and directories */
 extern int chdir(const char *);
+extern int chroot(const char *);
 extern int link(const char *, const char *);
 extern char *getcwd(char *, size_t);
 extern int unlink(const char *);

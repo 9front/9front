@@ -22,6 +22,7 @@ OFILES=\
 	brk.$O\
 	cfgetospeed.$O\
 	chdir.$O\
+	chroot.$O\
 	chmod.$O\
 	chown.$O\
 	close.$O\
