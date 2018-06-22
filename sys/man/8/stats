@@ -100,6 +100,9 @@ fraction of the number of swap pages configured by the machine.
 display the signal strength detected by the 802.11b wireless ether card; the value
 is usually below 50% unless the receiver is in the same room as the transmitter, so
 a midrange value represents a strong signal.
+.TP
+.B "z temp
+current temperature reported by the cpu.
 .PD
 .PP
 The graphs are plotted with time on the horizontal axis.
