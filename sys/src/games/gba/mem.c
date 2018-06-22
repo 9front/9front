@@ -315,6 +315,11 @@ memwrite(u32int a, u32int v, int n)
 		return;
 	case 5:
 		b = a & sizeof(pram) - 1;
+		if(n == 1){
+			b &= ~1;
+			n = 2;
+			v |= v << 8;
+		}
 		cyc += (n+1) >> 1;
 		ar16write(pram + b/2, b & 1, v, n);
 		return;
@@ -322,13 +327,20 @@ memwrite(u32int a, u32int v, int n)
 		b = a & 128*KB - 1;
 		if(b >= 64*KB)
 			b &= ~(32*KB);
+		if(n == 1 && ((reg[DISPCNT] & 7) > 2 && b < 80*KB || b < 64*KB)){
+			b &= ~1;
+			n = 2;
+			v |= v << 8;
+		}
 		cyc += (n+1) >> 1;
-		arwrite(vram + b, v, n);
+		if(n != 1)
+			arwrite(vram + b, v, n);
 		return;
 	case 7:
 		b = a & sizeof(oam) - 1;
 		cyc++;
-		ar16write(oam + b/2, b & 1, v, n);
+		if(n != 1)
+			ar16write(oam + b/2, b & 1, v, n);
 		return;
 	case 8: case 9: case 10: case 11: case 12: case 13:
 		if(backup == EEPROM){
