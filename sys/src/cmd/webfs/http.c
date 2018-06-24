@@ -795,12 +795,16 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 				i -= (i % 100);
 				goto Status;
 			}
+			goto Error;
 		case 100:	/* Continue */
 		case 101:	/* Switching Protocols */
+		case 102:	/* Processing */
+		case 103:	/* Early Hints */
 			while(k = rhdr){
 				rhdr = k->next;
 				free(k);
 			}
+			strcpy(status, "0 No status");
 			goto Cont;
 		case 304:	/* Not Modified */
 			nobody = 1;
