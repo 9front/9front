@@ -1,12 +1,13 @@
 #
-#	The master for this file is /n/fs/lib/ndb/common
+#	Root server hints
+#	https://www.internic.net/domain/named.root
 #
 
 #
 # real dns root server ips
 #
 dom=A.ROOT-SERVERS.NET ip=198.41.0.4
-dom=B.ROOT-SERVERS.NET ip=192.228.79.201	# jan 2004
+dom=B.ROOT-SERVERS.NET ip=199.9.14.201
 dom=C.ROOT-SERVERS.NET ip=192.33.4.12
 dom=D.ROOT-SERVERS.NET ip=199.7.91.13
 dom=E.ROOT-SERVERS.NET ip=192.203.230.10
@@ -20,9 +21,10 @@ dom=L.ROOT-SERVERS.NET ip=199.7.83.42		# nov 2007
 dom=M.ROOT-SERVERS.NET ip=202.12.27.33
 
 dom=A.ROOT-SERVERS.NET ip=2001:503:ba3e::2:30
-dom=B.ROOT-SERVERS.NET ip=2001:500:84::b
+dom=B.ROOT-SERVERS.NET ip=2001:500:200::b
 dom=C.ROOT-SERVERS.NET ip=2001:500:2::c
 dom=D.ROOT-SERVERS.NET ip=2001:500:2d::d
+dom=E.ROOT-SERVERS.NET ip=2001:500:a8::e
 dom=F.ROOT-SERVERS.NET ip=2001:500:2f::f
 dom=H.ROOT-SERVERS.NET ip=2001:500:1::53	# dec 2015
 dom=I.ROOT-SERVERS.NET ip=2001:7fe::53
