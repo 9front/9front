@@ -24,6 +24,7 @@ struct Dict
 };
 
 #define NAME(x)		p = pname(p, ep, x, dp)
+#define LABEL(x)	p = pname(p, ep, x, nil)
 #define SYMBOL(x)	p = psym(p, ep, x)
 #define STRING(x)	p = pstr(p, ep, x)
 #define BYTES(x, n)	p = pbytes(p, ep, x, n)
@@ -125,42 +126,44 @@ pname(uchar *p, uchar *ep, char *np, Dict *dp)
 	if(strlen(np) >= Domlen) /* make sure we don't exceed DNS limits */
 		return ep+1;
 
-	last = 0;
+	last = nil;
 	while(*np){
-		/* look through every component in the dictionary for a match */
-		for(i = 0; i < dp->n; i++)
-			if(strcmp(np, dp->x[i].name) == 0){
-				if(ep - p < 2)
-					return ep+1;
-				if ((dp->x[i].offset>>8) & 0xc0)
-					dnslog("convDNS2M: offset too big for "
-						"DNS packet format");
-				*p++ = dp->x[i].offset>>8 | 0xc0;
-				*p++ = dp->x[i].offset;
-				return p;
-			}
-
-		/* if there's room, enter this name in dictionary */
-		if(dp->n < Ndict)
-			if(last){
-				/* the whole name is already in dp->buf */
-				last = strchr(last, '.') + 1;
-				dp->x[dp->n].name = last;
-				dp->x[dp->n].offset = p - dp->start;
-				dp->n++;
-			} else {
-				/* add to dp->buf */
-				i = strlen(np);
-				if(dp->ep + i + 1 < &dp->buf[sizeof dp->buf]){
-					memmove(dp->ep, np, i);
-					dp->ep[i] = 0;
-					dp->x[dp->n].name = dp->ep;
-					last = dp->ep;
-					dp->x[dp->n].offset = p - dp->start;
-					dp->ep += i + 1;
-					dp->n++;
+		if(dp != nil){
+			/* look through every component in the dictionary for a match */
+			for(i = 0; i < dp->n; i++){
+				if(strcmp(np, dp->x[i].name) == 0){
+					if(ep - p < 2)
+						return ep+1;
+					if ((dp->x[i].offset>>8) & 0xc0)
+						break;
+					*p++ = dp->x[i].offset>>8 | 0xc0;
+					*p++ = dp->x[i].offset;
+					return p;
 				}
 			}
+			/* if there's room, enter this name in dictionary */
+			if(dp->n < Ndict){
+				if(last != nil){
+					/* the whole name is already in dp->buf */
+					last = strchr(last, '.') + 1;
+					dp->x[dp->n].name = last;
+					dp->x[dp->n].offset = p - dp->start;
+					dp->n++;
+				} else {
+					/* add to dp->buf */
+					i = strlen(np);
+					if(dp->ep + i + 1 < &dp->buf[sizeof dp->buf]){
+						memmove(dp->ep, np, i);
+						dp->ep[i] = 0;
+						dp->x[dp->n].name = dp->ep;
+						last = dp->ep;
+						dp->x[dp->n].offset = p - dp->start;
+						dp->ep += i + 1;
+						dp->n++;
+					}
+				}
+			}
+		}
 
 		/* put next component into message */
 		cp = strchr(np, '.');
@@ -259,7 +262,7 @@ convRR2M(RR *rp, uchar *p, uchar *ep, Dict *dp)
 		USHORT(rp->srv->pri);
 		USHORT(rp->srv->weight);
 		USHORT(rp->port);
-		STRING(rp->host->name);	/* rfc2782 sez no name compression */
+		LABEL(rp->host->name);	/* rfc2782 sez no name compression */
 		break;
 	case Ttxt:
 		for(t = rp->txt; t != nil; t = t->next)
