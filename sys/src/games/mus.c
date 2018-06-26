@@ -2,20 +2,12 @@
 #include <libc.h>
 
 typedef struct Trk Trk;
-typedef struct Ch Ch;
-
-struct Ch{
-	uchar n[128];
-	uchar pitch;
-	uchar ctl[10];
-};
 struct Trk{
 	u32int len;
 	uchar *dat;
 	uchar *p;
 	uchar *end;
-	Ch c[16];
-	long delay;
+	uchar v[16];
 	int done;
 };
 Trk t;
@@ -38,19 +30,15 @@ r8(void)
 	return *t.p++;
 }
 
-u32int
+void
 delay(void)
 {
-	u32int t;
 	uchar v;
 
-	t = 0;
 	do{
 		v = r8();
-		t = t << 7 | v & 0x7f;
 		*mp++ = v;
 	}while(v & 0x80);
-	return t;
 }
 
 void
@@ -69,71 +57,41 @@ putcmd(uchar *cmd, int n)
 void
 ev(void)
 {
-	uchar e, v;
-	Ch *c;
-	uchar cmd[3], *p;
+	uchar e, v, cmd[3], *p;
 
 	e = r8();
-	c = &t.c[e & 15];
 	p = cmd;
 	switch(e >> 4 & 7){
 	case 0:
 		v = r8() & 0x7f;
-		c->n[v] = 0;
 		*p++ = e | 0x80;
 		*p++ = v;
 		*p++ = 0x40;
 		break;
 	case 1:
 		v = r8();
-		if(v & 0x80){
-			c->n[v] = r8() & 0x7f;
-			c->ctl[3] = c->n[v];
-		}else
-			c->n[v] = c->ctl[3];
 		*p++ = e | 0x80;
 		*p++ = v & 0x7f;
-		*p++ = c->n[v];
+		if(v & 0x80)
+			t.v[e & 15] = r8() & 0x7f;
+		*p++ = t.v[e & 15];
 		break;
 	case 2:
-		c->pitch = r8();
+		v = r8();
 		*p++ = e | 0xc0;
-		PBIT16(p, c->pitch << 7 & 0x7f7f);
+		PBIT16(p, v << 7 & 0x7f7f);
 		p += 2;
 		break;
 	case 3:
 		v = r8();
 		*p++ = 0xb | e & 15;
 		switch(v){
-		case 10:
-			for(v=0; v<128; v++)
-				c->n[v] = 0;
-			*p++ = 0x78;
-			break;
-		case 11:
-			for(v=0; v<128; v++)
-				c->n[v] = 0;
-			*p++ = 0x7b;
-			break;
-		case 12:
-			*p++ = 0x7e;
-			break;
-		case 13:
-			*p++ = 0x7f;
-			break;
-		case 14:
-			memset(c->n, 0, sizeof c->n);
-			memset(c->ctl, 0, sizeof c->ctl);
-			c->ctl[3] = 0x7f;
-			c->ctl[4] = 64;
-			if((e & 15) == 15)
-				c->pitch = 60;
-			else
-				c->pitch = 128;
-			*p++ = 0x79;
-			break;
-		default:
-			sysfatal("unknown system event %ux\n", v);
+		case 10: *p++ = 0x78; break;
+		case 11: *p++ = 0x7b; break;
+		case 12: *p++ = 0x7e; break;
+		case 13: *p++ = 0x7f; break;
+		case 14: *p++ = 0x79; break;
+		default: sysfatal("unknown system event %ux\n", v);
 		}
 		*p++ = 0;
 		break;
@@ -141,7 +99,6 @@ ev(void)
 		v = r8();
 		if(v > 9)
 			sysfatal("unknown controller %ux\n", v);
-		c->ctl[v] = r8() & 0x7f;
 		*p++ = 0xb0 | e & 15;
 		switch(v){
 		case 1: *p++ = 0x00; break;
@@ -154,7 +111,7 @@ ev(void)
 		case 8: *p++ = 0x40; break;
 		case 9: *p++ = 0x43; break;
 		}
-		*p++ = c->ctl[v];
+		*p++ = r8() & 0x7f;
 		if(v == 0)
 			cmd[0] += 0x10;
 		break;
@@ -168,13 +125,12 @@ ev(void)
 		sysfatal("unknown event %ux\n", e >> 4 & 7);
 	}
 	if((e & 15) == 9)
-		cmd[0] += 1;
+		cmd[0] |= 6;
 	if((e & 15) == 15)
 		cmd[0] &= ~6;
 	putcmd(cmd, p-cmd);
-	t.delay = 0;
 	if(e & 0x80)
-		t.delay = delay();
+		delay();
 	else
 		*mp++ = 0;
 }
@@ -182,16 +138,7 @@ ev(void)
 void
 reset(void)
 {
-	Ch *c;
-
-	c = t.c;
-	while(c < t.c + nelem(t.c)){
-		c->pitch = 128;
-		c->ctl[3] = 0x7f;
-		c->ctl[4] = 64;
-		c++;
-	}
-	t.c[15].pitch = 60;
+	memset(t.v, 0x7f, sizeof t.v);
 	mcmd = mallocz(t.len * 2, 1);
 	if(mcmd == nil)
 		sysfatal("mallocz: %r");
@@ -221,6 +168,11 @@ barf(void)
 		0x00, 0xb8, 0x07, 0x7f,
 		0x00, 0xb9, 0x07, 0x7f,
 		0x00, 0xba, 0x07, 0x7f,
+		0x00, 0xbb, 0x07, 0x7f,
+		0x00, 0xbc, 0x07, 0x7f,
+		0x00, 0xbd, 0x07, 0x7f,
+		0x00, 0xbe, 0x07, 0x7f,
+		0x00, 0xbf, 0x07, 0x7f,
 		0x00, 0xff, 0x51, 0x03, 0x1b, 0x8a, 0x06,
 		0x00
 	};

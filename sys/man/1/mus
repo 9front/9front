@@ -20,4 +20,4 @@ or from standard input, and produces a MIDI format file on standard output.
 .B /sys/src/games/mus.c
 .SH HISTORY
 .I Mus
-appeared first for 9front (September, 2015).
+first appeared in 9front (September, 2015).
