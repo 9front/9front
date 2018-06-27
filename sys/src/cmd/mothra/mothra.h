@@ -78,7 +78,7 @@ enum{
 };
 
 void finish(Www *w);
-void plrdhtml(char *, int, Www *);
+void plrdhtml(char *, int, Www *, int);
 void plrdplain(char *, int, Www *);
 void htmlerror(char *, int, char *, ...);	/* user-supplied routine */
 void seturl(Url *, char *, char *);

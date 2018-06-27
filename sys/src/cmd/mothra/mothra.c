@@ -14,6 +14,7 @@
 #include "rtext.h"
 int debug=0;
 int verbose=0;		/* -v flag causes html errors to be written to file-descriptor 2 */
+int killimgs=0;	/* should mothra kill images? */
 int defdisplay=1;	/* is the default (initial) display visible? */
 int visxbar=0;	/* horizontal scrollbar visible? */
 int topxbar=0;	/* horizontal scrollbar at top? */
@@ -306,6 +307,7 @@ void main(int argc, char *argv[]){
 	ARGBEGIN{
 	case 'd': debug=1; break;
 	case 'v': verbose=1; break;
+	case 'k': killimgs=1; break;
 	case 'm':
 		if(mtpt = ARGF())
 			break;
@@ -329,7 +331,7 @@ void main(int argc, char *argv[]){
 	switch(argc){
 	default:
 	Usage:
-		fprint(2, "Usage: %s [-dva] [-m mtpt] [url]\n", argv0);
+		fprint(2, "Usage: %s [-dvak] [-m mtpt] [url]\n", argv0);
 		exits("usage");
 	case 0:
 		url=getenv("url");
@@ -687,7 +689,9 @@ void docmd(Panel *p, char *s){
 		mothon(current, !mothmode);
 		break;
 	case 'k':
-		killpix(current);
+		killimgs = !killimgs;
+		if (killimgs)
+			killpix(current);
 		break;
 	case 'w':
 	case 'W':
@@ -837,7 +841,7 @@ void gettext(Www *w, int fd, int type){
 		break;
 	case 0:
 		if(type==HTML)
-			plrdhtml(w->url->fullname, fd, w);
+			plrdhtml(w->url->fullname, fd, w, killimgs);
 		else
 			plrdplain(w->url->fullname, fd, w);
 		_exits(0);

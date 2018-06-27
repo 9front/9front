@@ -704,7 +704,7 @@ void plrdplain(char *name, int fd, Www *dst){
 	plaintext(&g);
 	finish(dst);
 }
-void plrdhtml(char *name, int fd, Www *dst){
+void plrdhtml(char *name, int fd, Www *dst, int killimgs){
 	int tagerr;
 	Stack *sp;
 	char buf[20];
@@ -1222,7 +1222,8 @@ void plrdhtml(char *name, int fd, Www *dst){
 		}
 		pl_popstate(g.state);
 		*g.tp='\0';
-		getpix(dst->text, dst);
+		if (!killimgs)
+			getpix(dst->text, dst);
 		finish(dst);
 		return;
 	}

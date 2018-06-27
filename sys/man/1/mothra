@@ -56,6 +56,8 @@ There are a number of options:
 Alt display. Starts in alt display mode, see menu
 commands table below.
 .TP
+.B -k
+Kill images. Don't fetch/display images.
 .B -m
 Specify the
 .IR webfs (4)
@@ -132,7 +134,7 @@ Jump to page
 from the list of previously viewed pages.
 .TP
 .BI k
-Kill images on the current page.
+Toggle killing of images.
 .TP
 .BI m
 Enter or exit moth mode.
