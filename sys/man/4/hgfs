@@ -33,7 +33,7 @@ The repository may be specified by passing the working directory
 .I dir
 as the final argument. When omitted,
 .I hgfs
-locates the repository by waking
+locates the repository by walking
 upwards from the current working directory until the
 .B .hg
 sub-directory is found. If no
