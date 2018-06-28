@@ -1278,7 +1278,7 @@ Next1:	switch(recvpkt()){
 	/* parent reads and dispatches packets */
 	if(n > 0) {
 		send.pid = n;
-		while((send.eof|recv.eof) == 0){
+		while(recv.eof == 0){
 			recvpkt();
 			qlock(&sl);					
 			dispatch();
