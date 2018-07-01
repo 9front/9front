@@ -28,10 +28,11 @@ static struct {
 	{"sys: trap: address error",		SIGSEGV},
 	{"sys: trap: TLB",			SIGSEGV},
 	{"sys: write on closed pipe",		SIGPIPE},
-	{"alarm",				SIGALRM},
 	{"term",				SIGTERM},
 	{"usr1",				SIGUSR1},
 	{"usr2",				SIGUSR2},
+	{"virtual alarm",			SIGVTALRM},
+	{"profiling alarm",			SIGPROF},
 };
 #define NSIGTAB ((sizeof sigtab)/(sizeof (sigtab[0])))
 

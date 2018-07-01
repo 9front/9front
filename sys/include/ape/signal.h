@@ -37,9 +37,11 @@ typedef int sig_atomic_t;
 #define SIGTSTP	18	/* interactive stop */
 #define SIGTTIN	19	/* read from ctl tty by member of background */
 #define SIGTTOU	20	/* write to ctl tty by member of background */
+#define SIGVTALRM 21 /* virtual alarm clock */
+#define SIGPROF 22  /* profiling alarm clock */
 
 #ifdef _BSD_EXTENSION
-#define NSIG 21
+#define NSIG 23
 #endif
 
 #ifdef __cplusplus

@@ -15,6 +15,7 @@ OFILES=\
 	gethostbyaddr.$O\
 	gethostbyname.$O\
 	gethostname.$O\
+	getitimer.$O\
 	getnameinfo.$O\
 	getopt.$O\
 	getpeername.$O\
