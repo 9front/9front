@@ -21,7 +21,7 @@ Timer timers[3] = {
 };
 
 void
-timerloop(Timer *timer, const struct timeval tval)
+timerloop(int signal, const struct timeval tval)
 {
 	pid_t ppid;
 	struct timespec t, s;
@@ -31,7 +31,7 @@ timerloop(Timer *timer, const struct timeval tval)
 	t.tv_nsec = tval.tv_usec*1000;
 	for(;;){
 		nanosleep(&t, &s);
-		kill(ppid, timer->signal);
+		kill(ppid, signal);
 	}
 }
 
@@ -64,7 +64,7 @@ setitimer(int which, const struct itimerval *new, struct itimerval *curr)
 		errno = EFAULT;
 		return -1;
 	case 0:
-		timerloop(timer, new->it_interval);
+		timerloop(timer->signal, new->it_interval);
 		exit(0);
 	}
 	return 0;
