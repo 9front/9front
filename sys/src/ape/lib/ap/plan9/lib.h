@@ -44,7 +44,7 @@ typedef struct Fdinfo{
 #define FD_BUFFEREDX	0x8
 #define FD_ISTTY	0x20
 
-#define MAXSIG SIGUSR2
+#define MAXSIG SIGPROF
 
 extern Fdinfo	_fdinfo[];
 
