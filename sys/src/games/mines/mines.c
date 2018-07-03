@@ -534,7 +534,7 @@ void main(int argc, char **argv) {
 		Event Event;
 		Point CurrentCell, Cell = Pt(-1, -1);
 
-		GhostInit();
+		if(UseGhost) GhostInit();
 		Etimer = etimer(0, UseGhost ? 10 : 1000);
 		LastAction = nsec();
 
@@ -543,7 +543,7 @@ void main(int argc, char **argv) {
 
 			if(Key == Etimer) {
 			
-				if(nsec() - LastAction > 1000000000ULL && LastMouse.buttons == 0)
+				if(UseGhost && nsec() - LastAction > 1000000000ULL && LastMouse.buttons == 0)
 					GhostMode();
 			
 				if(++Counter == (UseGhost ? 100 : 1)){
@@ -558,7 +558,7 @@ void main(int argc, char **argv) {
 
 			if(Key == Emouse) {
 			
-				if(!GhostCheck(Event.mouse.xy) || LastMouse.buttons != Event.mouse.buttons){
+				if(UseGhost && !GhostCheck(Event.mouse.xy) || LastMouse.buttons != Event.mouse.buttons){
 					LastAction = nsec();
 					LastMouse = Event.mouse;
 					GhostReset(Event.mouse.buttons != 0);
@@ -668,7 +668,7 @@ void main(int argc, char **argv) {
 			if(Key == Ekeyboard) {
 			
 				LastAction = nsec();
-				GhostReset(1);
+				if(UseGhost) GhostReset(1);
 
 				switch(Event.kbdc) {
 					case 'n':
