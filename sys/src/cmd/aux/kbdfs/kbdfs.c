@@ -107,6 +107,7 @@ char *mntpt = "/dev";
 int debug;
 
 Channel *keychan;	/* chan(Key) */
+Channel *mctlchan;	/* chan(Key) */
 
 Channel *kbdreqchan;	/* chan(Req*) */
 Channel *consreqchan;	/* chan(Req*) */
@@ -450,25 +451,28 @@ Nextmsg:
 		chartorune(&k.r, p+1);
 		if(k.r == 0)
 			break;
-		k.b = k.r;
+		k.b = 0;
 		k.down = (p[0] == 'r');
-		/*
-		 * assign button according to keymap.
-		 */
 		for(i=0; i<Nscan; i++){
-			if((a->shift && kbtabshift[i] == k.r) || (kbtab[i] == k.r)){
-				if(kbtab[i])
-					k.b = kbtab[i];
+			if(kbtab[i] == k.r || kbtabshift[i] == k.r || kbtabctl[i] == k.r){
+				/* assign button from kbtab */
+				k.b = kbtab[i];
+				/* handle ^X forms */
+				if(k.r == kbtab[i] && kbtabctl[i] && !a->shift && !a->altgr && a->ctl)
+					k.r = kbtabctl[i];
 				break;
 			}
 		}
-		send(keychan, &k);
+		/* button unknown to kbtab, use rune if no modifier keys are active */
+		if(k.b == 0 && !a->shift && !a->altgr && !a->ctl)
+			k.b = k.r;
 		if(k.r == Kshift)
 			a->shift = k.down;
 		else if(k.r == Kaltgr)
 			a->altgr = k.down;
 		else if(k.r == Kctl)
 			a->ctl = k.down;
+		send(keychan, &k);
 		break;
 
 	case 'c':
@@ -529,14 +533,14 @@ void
 kbdiproc(void *)
 {
 	char buf[1024];
-	Scan scan;
+	Scan a;
 	int n;
 
 	threadsetname("kbdiproc");
 
-	memset(&scan, 0, sizeof scan);
+	memset(&a, 0, sizeof(a));
 	while((n = read(kbdifd, buf, sizeof buf)) > 0)
-		kbdin(&scan, buf, n);
+		kbdin(&a, buf, n);
 
 	shutdown();
 }
@@ -564,36 +568,32 @@ keyproc(void *)
 {
 	Rune rb[Nscan+1];
 	Key key;
-	int i, nb, mouseb;
+	int i, nb;
 	char *s;
 
 	threadsetname("keyproc");
 
 	nb = 0;
-	mouseb = 0;
 	while(recv(keychan, &key) > 0){
-		if(msinfd >= 0 && key.r >= Kmouse+1 && key.r <= Kmouse+5){
-			i = 1<<(key.r-(Kmouse+1));
-			if(key.down)
-				mouseb |= i;
-			else
-				mouseb &= ~i;
-			fprint(msinfd, "m%11d %11d %11d", 0, 0, mouseb);
-			continue; /* ignored when mapped to mouse button */
+		if(key.r >= Kmouse+1 && key.r <= Kmouse+5){
+			if(msinfd >= 0)
+				send(mctlchan, &key);
+			continue;
 		}
-
 		rb[0] = 0;
-		for(i=0; i<nb && rb[i+1] != key.b; i++)
-			;
-		if(!key.down){
-			while(i < nb && rb[i+1] == key.b){
-				memmove(rb+i+1, rb+i+2, (nb-i+1) * sizeof(rb[0]));
-				nb--;
-				rb[0] = 'K';
+		if(key.b){
+			for(i=0; i<nb && rb[i+1] != key.b; i++)
+				;
+			if(!key.down){
+				while(i < nb && rb[i+1] == key.b){
+					memmove(rb+i+1, rb+i+2, (nb-i+1) * sizeof(rb[0]));
+					nb--;
+					rb[0] = 'K';
+				}
+			} else if(i == nb && nb < nelem(rb)-1 && key.b){
+				rb[++nb] = key.b;
+				rb[0] = 'k';
 			}
-		} else if(i == nb && nb < nelem(rb)-1 && key.b){
-			rb[++nb] = key.b;
-			rb[0] = 'k';
 		}
 		if(rb[0]){
 			if(kbdopen){
@@ -601,17 +601,8 @@ keyproc(void *)
 				if(nbsendp(kbdchan, s) <= 0)
 					free(s);
 			}
-			if(mctlfd >= 0){
-				if(key.r == Kshift){
-					if(key.down){
-						fprint(mctlfd, "buttonmap 132");
-					} else {
-						fprint(mctlfd, "swap");
-						fprint(mctlfd, "swap");
-					}
-				}
-				fprint(mctlfd, "twitch");
-			}
+			if(mctlfd >= 0)
+				send(mctlchan, &key);
 		}
 		if(key.down && key.r)
 			send(rawchan, &key.r);
@@ -776,9 +767,49 @@ intrproc(void *)
 {
 	threadsetname("intrproc");
 
+	while(recv(intchan, nil) > 0)
+		write(notefd, "interrupt", 9);
+}
+
+/*
+ * Process Kmouse keys and mouse button swap on shift,
+ * unblank screen by twiching.
+ */
+void
+mctlproc(void *)
+{
+	Key key;
+	int i, mouseb = 0;
+
+	threadsetname("mctlproc");
+
 	for(;;){
-		if(recv(intchan, nil) > 0)
-			write(notefd, "interrupt", 9);
+		if(nbrecv(mctlchan, &key) <= 0){
+			if(mctlfd >= 0)
+				fprint(mctlfd, "twitch");
+			if(recv(mctlchan, &key) <= 0)
+				break;
+		}
+
+		if(mctlfd >= 0 && key.r == Kshift){
+			if(key.down){
+				fprint(mctlfd, "buttonmap 132");
+			} else {
+				fprint(mctlfd, "swap");
+				fprint(mctlfd, "swap");
+			}
+			continue;
+		}
+
+		if(msinfd >= 0 && key.r >= Kmouse+1 && key.r <= Kmouse+5){
+			i = 1<<(key.r-(Kmouse+1));
+			if(key.down)
+				mouseb |= i;
+			else
+				mouseb &= ~i;
+			fprint(msinfd, "m%11d %11d %11d", 0, 0, mouseb);
+			continue;
+		}
 	}
 }
 
@@ -959,6 +990,8 @@ ctlproc(void *)
 
 	if(kbdifd >= 0)
 		proccreate(kbdiproc, nil, STACK);	/* kbdifd -> kbdin() */
+	if(mctlfd >= 0 || msinfd >= 0)
+		proccreate(mctlproc, nil, STACK);	/* mctlchan -> mctlfd, msinfd */
 	if(scanfd >= 0)
 		proccreate(scanproc, nil, STACK);	/* scanfd -> keychan */
 	if(consfd >= 0)
@@ -966,7 +999,7 @@ ctlproc(void *)
 	if(notefd >= 0)
 		proccreate(intrproc, nil, STACK);	/* intchan -> notefd */
 
-	threadcreate(keyproc, nil, STACK);		/* keychan -> rawchan, kbdchan */
+	threadcreate(keyproc, nil, STACK);		/* keychan -> mctlchan, rawchan, kbdchan */
 	threadcreate(runeproc, nil, STACK);		/* rawchan -> runechan */
 
 	aconsr[0] = consreqchan;
@@ -1363,10 +1396,8 @@ fswrite(Req *r)
 		}
 		break;
 
-	case Qkbin:
 	case Qkbdin:
-		if(n == 0)
-			break;
+	case Qkbin:
 		if(f->aux == nil){
 			f->aux = emalloc9p(sizeof(Scan));
 			memset(f->aux, 0, sizeof(Scan));
@@ -1529,9 +1560,9 @@ threadmain(int argc, char** argv)
 	if(kbdifd < 0){
 		scanfd = eopen(dev("scancode"), OREAD);
 		ledsfd = eopen(dev("leds"), OWRITE);
-		mctlfd = eopen(dev("mousectl"), OWRITE);
-		msinfd = eopen(dev("mousein"), OWRITE);
 	}
+	mctlfd = eopen(dev("mousectl"), OWRITE);
+	msinfd = eopen(dev("mousein"), OWRITE);
 
 	notefd = procopen(getpid(), "notepg", OWRITE);
 
@@ -1539,6 +1570,7 @@ threadmain(int argc, char** argv)
 	kbdreqchan = chancreate(sizeof(Req*), 0);
 
 	keychan = chancreate(sizeof(Key), 8);
+	mctlchan = chancreate(sizeof(Key), 8);
 	ctlchan = chancreate(sizeof(int), 0);
 	rawchan = chancreate(sizeof(Rune), 0);
 	runechan = chancreate(sizeof(Rune), 32);
