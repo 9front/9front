@@ -48,6 +48,8 @@ dialstringparse(char *str, DS *ds)
 	ds->service = strchr(ds->host, '!');
 	if(ds->service)
 		*ds->service++ = 0;
+	else
+		ds->service = "smtp";
 	if(*ds->host == '$')
 		expand(ds);
 }
@@ -293,7 +295,6 @@ mxdial0(char *addr, char *ddomain, char *gdomain, Mxtab *mx)
 
 	dprint("mxdial(%s, %s, %s, mx)\n", addr, ddomain, gdomain);
 	memset(mx, 0, sizeof *mx);
-	addr = netmkaddr(addr, 0, "smtp");
 	d = mx->ds;
 	dialstringparse(addr, d + 0);
 	nd = 1;
