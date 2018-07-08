@@ -203,6 +203,8 @@ main(int argc, char **argv)
 		domain = domainname_read();
 	if(host == 0)
 		host = sysname_read();
+	if(user == nil)
+		user = getuser();
 	strcpy(hostdomain, domainify(host, domain));
 	strcpy(hellodomain, domainify(sysname_read(), domain));
 
@@ -464,9 +466,7 @@ smtpcram(DS *ds)
 	l = dec64((uchar*)ch, sizeof ch, p, strlen(p));
 	ch[l] = 0;
 	n = auth_respond(ch, l, usr, sizeof usr, rbuf, sizeof rbuf, auth_getkey,
-		user!=nil?
-		"proto=cram role=client server=%q user=%q":
-		"proto=cram role=client server=%q",
+		"proto=cram role=client server=%q user=%q",
 		ds->host, user);
 	if(n == -1)
 		return "cannot find SMTP password";
@@ -495,9 +495,7 @@ doauth(char *methods)
 	if(strstr(methods, "CRAM-MD5"))
 		return smtpcram(&ds);
 	p = auth_getuserpasswd(nil,
-		user!=nil?
-		"proto=pass service=smtp server=%q user=%q":
-		"proto=pass service=smtp server=%q",
+		"proto=pass service=smtp server=%q user=%q",
 		ds.host, user);
 	if (p == nil) {
 		syslog(0, "smtp.fail", "failed to get userpasswd: %r");
