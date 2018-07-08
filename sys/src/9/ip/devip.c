@@ -260,15 +260,10 @@ IPaux*
 newipaux(char *owner, char *tag)
 {
 	IPaux *a;
-	int n;
 
 	a = smalloc(sizeof(*a));
 	kstrdup(&a->owner, owner);
-	memset(a->tag, ' ', sizeof(a->tag));
-	n = strlen(tag);
-	if(n > sizeof(a->tag))
-		n = sizeof(a->tag);
-	memmove(a->tag, tag, n);
+	strncpy(a->tag, tag, sizeof(a->tag));
 	return a;
 }
 
