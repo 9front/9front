@@ -196,7 +196,7 @@ nstrcpy(char *to, char *from, int len)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-dn] [-f ndb-file] [-x netmtpt]\n", argv0);
+	fprint(2, "usage: %s [-46dn] [-f ndb-file] [-x netmtpt]\n", argv0);
 	exits("usage");
 }
 
@@ -237,6 +237,9 @@ main(int argc, char *argv[])
 	ARGBEGIN{
 	case '4':
 		lookipvers = V4;
+		break;
+	case '6':
+		lookipvers = V6;
 		break;
 	case 'd':
 		debug = 1;
@@ -796,6 +799,15 @@ rwrite(Job *job, Mfile *mf)
 	if(strncmp(job->request.data, "debug", 5)==0){
 		debug ^= 1;
 		syslog(1, logfile, "debug %d", debug);
+		goto send;
+	}
+
+	/*
+	 *  toggle ipv4 lookups
+	 */
+	if(strncmp(job->request.data, "ipv4", 4)==0){
+		lookipvers ^= V4;
+		syslog(1, logfile, "ipv4lookups %d", (lookipvers & V4) != 0);
 		goto send;
 	}
 
