@@ -181,6 +181,11 @@ readevent(Tracker *src)
 		get16(src);
 		break;
 	case 0xF:
+		if((t & 0xF) == 0){
+			while(get8(src) != 0xF7)
+				;
+			return;
+		}
 		t = get8(src);
 		n = get8(src);
 		switch(t){
