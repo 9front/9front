@@ -208,7 +208,7 @@ struct Ilpriv
 
 
 void	ilrcvmsg(Conv*, Block*);
-void	ilsendctl(Conv*, Ilhdr*, int, ulong, ulong, int);
+int	ilsendctl(Conv*, Ilhdr*, int, ulong, ulong, int);
 void	ilackq(Ilcb*, Block*);
 void	ilprocess(Conv*, Ilhdr*, Block*);
 void	ilpullup(Conv*);
@@ -984,7 +984,7 @@ iloutoforder(Conv *s, Ilhdr *h, Block *bp)
 	qunlock(&ic->outo);
 }
 
-void
+int
 ilsendctl(Conv *ipc, Ilhdr *inih, int type, ulong id, ulong ack, int ilspec)
 {
 	Ilhdr *ih;
@@ -1043,7 +1043,7 @@ if(ipc->p==nil)
 		iltype[ih->iltype], nhgetl(ih->ilid), nhgetl(ih->ilack), 
 		nhgets(ih->ilsrc), nhgets(ih->ildst));
 
-	ipoput4(ipc->p->f, bp, 0, ttl, tos, ipc);
+	return ipoput4(ipc->p->f, bp, 0, ttl, tos, ipc);
 }
 
 void
@@ -1283,7 +1283,8 @@ ilstart(Conv *c, int type, int fasttimeout)
 	case IL_CONNECT:
 		ic->state = Ilsyncer;
 		iphtadd(&ipriv->ht, c);
-		ilsendctl(c, nil, Ilsync, ic->start, ic->recvd, 0);
+		if(ilsendctl(c, nil, Ilsync, ic->start, ic->recvd, 0) < 0)
+			ilhangup(c, "no route");
 		break;
 	}
 
