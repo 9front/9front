@@ -83,7 +83,7 @@ keyfs(void)
 	buf = smprint("/mnt/keys/%s/aeskey", nvr.authid);
 	fd = open(buf, OREAD);
 	if(fd < 0){
-		print("can't get key from keyfs: %r\n");
+		print("BAD: can't get key from keyfs: %r\n");
 		return;
 	}
 	werrstr("short read");
