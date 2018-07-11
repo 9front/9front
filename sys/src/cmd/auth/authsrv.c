@@ -139,6 +139,7 @@ pak1(char *u, Keyslot *k)
 
 	safecpy(k->id, u, sizeof(k->id));
 	if(!findkey(KEYDB, k->id, k) || tsmemcmp(k->aes, zeros, AESKEYLEN) == 0) {
+		syslog(0, AUTHLOG, "pak-fail no AES key for id %s", k->id);
 		/* make one up so caller doesn't know it was wrong */
 		mkkey(k->id, k);
 		authpak_hash(k, k->id);
