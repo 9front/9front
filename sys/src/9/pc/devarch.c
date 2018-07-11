@@ -758,11 +758,13 @@ cpuidentify(void)
 	m->cpuidmodel = m->cpuidax >> 4 & 0xf;
 	m->cpuidstepping = m->cpuidax & 0xf;
 	switch(m->cpuidfamily){
-	case 6:
-		m->cpuidmodel += m->cpuidax >> 16 & 0xf;
-		/* wet floor */
 	case 15:
 		m->cpuidfamily += m->cpuidax >> 20 & 0xff;
+		m->cpuidmodel += m->cpuidax >> 16 & 0xf;
+		break;
+	case 6:
+		m->cpuidmodel += m->cpuidax >> 16 & 0xf;
+		break;
 	}
 
 	if(strncmp(m->cpuidid, "AuthenticAMD", 12) == 0 ||
