@@ -238,6 +238,9 @@ struct Mach
 	int	cpuiddx;
 	char	cpuidid[16];
 	char*	cpuidtype;
+	uchar	cpuidfamily;
+	uchar	cpuidmodel;
+	uchar	cpuidstepping;
 	int	havetsc;
 	int	havepge;
 	int	havewatchpt8;

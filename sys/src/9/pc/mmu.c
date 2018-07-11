@@ -198,7 +198,7 @@ flushmmu(void)
 void
 flushpg(ulong va)
 {
-	if(X86FAMILY(m->cpuidax) >= 4)
+	if(m->cpuidfamily >= 4)
 		invlpg(va);
 	else
 		putcr3(getcr3());

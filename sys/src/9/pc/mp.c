@@ -216,7 +216,7 @@ mpinit(void)
 	 *  set conf.copymode here if nmach > 1.
 	 *  Should look for an ExtINT line and enable it.
 	 */
-	if(X86FAMILY(m->cpuidax) == 3 || conf.nmach > 1)
+	if(m->cpuidfamily == 3 || conf.nmach > 1)
 		conf.copymode = 1;
 }
 

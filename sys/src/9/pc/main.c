@@ -569,7 +569,7 @@ void
 mathinit(void)
 {
 	trapenable(VectorCERR, matherror, 0, "matherror");
-	if(X86FAMILY(m->cpuidax) == 3)
+	if(m->cpuidfamily == 3)
 		intrenable(IrqIRQ13, matherror, 0, BUSUNKNOWN, "matherror");
 	trapenable(VectorCNA, mathemu, 0, "mathemu");
 	trapenable(VectorCSO, mathover, 0, "mathover");

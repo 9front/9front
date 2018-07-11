@@ -753,6 +753,17 @@ cpuidentify(void)
 	m->cpuidax = regs[0];
 	m->cpuidcx = regs[2];
 	m->cpuiddx = regs[3];
+	
+	m->cpuidfamily = m->cpuidax >> 8 & 0xf;
+	m->cpuidmodel = m->cpuidax >> 4 & 0xf;
+	m->cpuidstepping = m->cpuidax & 0xf;
+	switch(m->cpuidfamily){
+	case 6:
+		m->cpuidmodel += m->cpuidax >> 16 & 0xf;
+		/* wet floor */
+	case 15:
+		m->cpuidfamily += m->cpuidax >> 20 & 0xff;
+	}
 
 	if(strncmp(m->cpuidid, "AuthenticAMD", 12) == 0 ||
 	   strncmp(m->cpuidid, "Geode by NSC", 12) == 0)
@@ -764,8 +775,8 @@ cpuidentify(void)
 	else
 		tab = x86intel;
 
-	family = X86FAMILY(m->cpuidax);
-	model = X86MODEL(m->cpuidax);
+	family = m->cpuidfamily;
+	model = m->cpuidmodel;
 	for(t=tab; t->name; t++)
 		if((t->family == family && t->model == model)
 		|| (t->family == family && t->model == -1)
@@ -994,7 +1005,7 @@ archctlwrite(Chan*, void *a, long n, vlong)
 		if(strcmp(cb->f[1], "mb386") == 0)
 			coherence = mb386;
 		else if(strcmp(cb->f[1], "mb586") == 0){
-			if(X86FAMILY(m->cpuidax) < 5)
+			if(m->cpuidfamily < 5)
 				error("invalid coherence ctl on this cpu family");
 			coherence = mb586;
 		}else if(strcmp(cb->f[1], "mfence") == 0){
@@ -1093,13 +1104,13 @@ archinit(void)
 	 *  We get another chance to set it in mpinit() for a
 	 *  multiprocessor.
 	 */
-	if(X86FAMILY(m->cpuidax) == 3)
+	if(m->cpuidfamily == 3)
 		conf.copymode = 1;
 
-	if(X86FAMILY(m->cpuidax) >= 4)
+	if(m->cpuidfamily >= 4)
 		cmpswap = cmpswap486;
 
-	if(X86FAMILY(m->cpuidax) >= 5)
+	if(m->cpuidfamily >= 5)
 		coherence = mb586;
 
 	if(m->cpuiddx & Sse2)

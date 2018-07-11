@@ -35,7 +35,7 @@ cputemprd0(Chan*, void *a, long n, vlong offset)
 		 * magic undocumented msr.  tj(max) is 100 or 85.
 		 */
 		tj = 100;
-		d = X86MODEL(m->cpuidax);
+		d = m->cpuidmodel;
 		d |= (m->cpuidax>>12) & 0xf0;
 		if((d == 0xf && (m->cpuidax & 0xf)>1) || d == 0xe){
 			if(rdmsr(0xee, &emsr) == 0){
@@ -109,7 +109,7 @@ amd0ftemprd(Chan*, void *a, long n, vlong offset)
 	for(j = 0; j < max; j++){
 		pcicfgw32(p, 0xe4, pcicfgr32(p, 0xe4) & ~4 | j<<2);
 		i = pcicfgr32(p, 0xe4);
-		if(X86STEPPING(m->cpuidax) == 2)
+		if(m->cpuidstepping == 2)
 			t = i>>16 & 0xff;
 		else{
 			t = i>>14 & 0x3ff;
@@ -165,8 +165,8 @@ cputemplink(void)
 {
 	if(intelcputempok())
 		addarchfile("cputemp", 0444, intelcputemprd, nil);
-	if(X86FAMILY(m->cpuidax) == 0x0f && !strcmp(m->cpuidid, "AuthenticAMD"))
+	if(m->cpuidfamily == 0x0f && !strcmp(m->cpuidid, "AuthenticAMD"))
 		addarchfile("cputemp", 0444, amd0ftemprd, nil);
-	if(X86FAMILY(m->cpuidax) == 0x10 && !strcmp(m->cpuidid, "AuthenticAMD"))
+	if(m->cpuidfamily == 0x10 && !strcmp(m->cpuidid, "AuthenticAMD"))
 		addarchfile("cputemp", 0444, amd10temprd, nil);
 }
