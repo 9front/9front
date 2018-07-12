@@ -1,0 +1,8 @@
+</$objtype/mkfile
+
+BIN=/$objtype/bin/games
+TARG=opl3
+OFILES=opl3.$O opl3m.$O
+HFILES=
+
+</sys/src/cmd/mkone

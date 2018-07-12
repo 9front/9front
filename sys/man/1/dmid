@@ -1,0 +1,68 @@
+.TH DMID 1
+.SH NAME
+dmid \- MIDI to OPL3 converter using GENMIDI-type instrument banks
+.SH SYNOPSIS
+.B dmid
+[
+.B -2
+] [
+.B -i
+.I bank
+] [
+.I file
+]
+.SH DESCRIPTION
+.I Dmid
+decodes MIDI instructions either from
+.I file
+or from standard input,
+and produces
+.SM OPL3
+instructions suitable for playback by
+.IR opl3 (1).
+To program instruments, an OPL2 instrument bank formatted as
+.SM GENMIDI
+lumps from
+.I doom
+must be provided.
+Since it is assumed that the bank is contained in a
+.I doom WAD
+file, its default location is
+.BR /mnt/wad/genmidi .
+This may be overridden with the
+.B -i
+command line option.
+.PP
+In
+.SM GENMIDI
+lumps, two voices are defined per instrument.
+For compatibility, the
+.B -2
+flag disables the second voice, reducing the number of
+.SM OPL
+channels needed.
+It also disables
+.SM OPL3
+specific features and produces an IMF-format stream,
+which can be used in other game engines.
+.SH EXAMPLES
+Play a MUS file from a
+.I doom WAD
+file:
+.IP
+.EX
+% games/wadfs /sys/games/lib/doom/doom2.wad
+createfile SW18_7: file already exists
+% games/mus /mnt/wad/d_doom | games/dmid | games/opl3 >/dev/audio
+.EE
+.SH SOURCE
+.B /sys/src/games/dmid.c
+.SH "SEE ALSO"
+.IR games (1) ,
+.IR mus (1) ,
+.IR opl3 (1) ,
+.IR audio (3) ,
+.IR wadfs (4)
+.SH HISTORY
+.I Dmid
+first appeared in 9front (July, 2018).

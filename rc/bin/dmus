@@ -1,0 +1,10 @@
+#!/bin/rc
+if(test -f /mnt/wad/genmidi)
+	c=(games/dmid '|' games/opl3)
+if not
+	c=(games/midi -c)
+if(~ `{file -m $1} audio/mus)
+	c=(games/mus '<' $1 '|' $c)
+if not
+	c=('<' $1 $c)
+eval $c

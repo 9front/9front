@@ -16,6 +16,7 @@ TARG=4s\
 	mandel\
 	midi\
 	wadfs\
+	dmid\
 
 OFILES=
 HFILES=
@@ -38,6 +39,7 @@ DIRS=\
 	music\
 	md\
 	nes\
+	opl3\
 	snes\
 	sokoban\
 	sudoku\

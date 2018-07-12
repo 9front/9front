@@ -1,0 +1,59 @@
+.TH OPL3 1
+.SH NAME
+opl3 \- OPL3 chip emulator
+.SH SYNOPSIS
+.B opl3
+[
+.B -n
+.I rate
+] [
+.I file
+]
+.SH DESCRIPTION
+.I Opl3
+is an emulator of a single Yamaha 262 chip, also known as
+.SM OPL3.
+.PP
+The emulated chip is programmed by a stream of commands either from
+.I file
+or from standard in.
+It then synthesizes a number of stereo 16 bit little-endian samples for a sampling rate of 44.1 kHz,
+and writes them to standard out.
+.PP
+Commands are 5 bytes wide, in little-endian byte order:
+.PP
+.RS
+.IR register [2]
+.IR value [1]
+.IR delay [2]
+.RE
+.PP
+Each command specifies a
+.I value
+to be written to an
+.SM OPL3
+chip
+.IR register ,
+modifying its internal state.
+.PP
+The
+.I delay
+field provides timing.
+It is a multiple of a command period, during which the
+.SM OPL3
+chip may be sampled before processing the next command.
+The period itself is the inverse of the command rate, 44100 Hz by default.
+This rate can be set using the
+.B -n
+parameter.
+.SH SOURCE
+.B /sys/src/games/opl3
+.SH "SEE ALSO"
+.IR audio (3)
+.SH HISTORY
+.I Opl3
+first appeared in 9front (July, 2018), based on
+.I ymf262.c
+from the Multiple Arcade Machine Emulator (
+.SM MAME
+).
