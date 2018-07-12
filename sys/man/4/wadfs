@@ -136,7 +136,7 @@ Open
 and play a MUS file:
 .IP
 .EX
-% wadfs /sys/games/lib/doom/doom2.wad
+% games/wadfs /sys/games/lib/doom/doom2.wad
 createfile SW18_7: file already exists
 % games/mus /mnt/wad/d_romero | games/midi
 .EE
@@ -158,7 +158,7 @@ finally, compile and save the new
 file.
 .IP
 .EX
-% wadfs -m /mnt/wad2
+% games/wadfs -m /mnt/wad2
 % cd /mnt/wad2
 % mkdir ff
 adding end marker FF_END
