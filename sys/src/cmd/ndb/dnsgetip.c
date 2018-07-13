@@ -18,27 +18,49 @@ int	testing		= 0;
 int	traceactivity	= 0;
 char	*zonerefreshprogram;
 
-int aflag;
+int aflag = 0;
+int addresses = 0;
 
-void
+char Ebotch[] = "dns botch";
+
+char*
 resolve(char *name, int type)
 {
+	int status;
+	char *errmsg;
 	Request req;
-	RR *rp;
+	RR *rr, *rp, *neg;
+
+	status = Rok;
+	errmsg = nil;
 
 	memset(&req, 0, sizeof req);
 	getactivity(&req, 0);
 	req.isslave = 1;
 	req.aborttime = NS2MS(nowns) + Maxreqtm;
 
-	rp = dnresolve(name, Cin, type, &req, 0, 0, Recurse, 0, 0);
-	rrremneg(&rp);
-	while(rp != nil){
+	rr = dnresolve(name, Cin, type, &req, 0, 0, Recurse, 0, &status);
+	neg = rrremneg(&rr);
+	if(rr == nil || neg != nil){
+		if(neg != nil)
+			status = neg->negrcode;
+		errmsg = Ebotch;
+		if(status > 0 && status < nrname)
+			errmsg = rname[status];
+	}
+
+	rrfreelist(neg);
+
+	for(rp = rr; rp != nil; rp = rp->next){
 		print("%s\n", rp->ip->name);
+		addresses++;
 		if(!aflag)
 			exits(nil);
-		rp = rp->next;
 	}
+
+	rrfreelist(rr);
+
+	return errmsg;
 }
 
 void
@@ -51,6 +73,8 @@ usage(void)
 void
 main(int argc, char **argv)
 {
+	char *e4, *e6;
+
 	strcpy(mntpt, "/net");
 	cfg.inside = 1;
 	cfg.resolver = 1;
@@ -76,8 +100,15 @@ main(int argc, char **argv)
 		print("%s\n", *argv);
 	else {
 		dninit();
-		resolve(*argv, Ta);
-		resolve(*argv, Taaaa);
+		e4 = resolve(*argv, Ta);
+		e6 = resolve(*argv, Taaaa);
+
+		if(addresses == 0){
+			if(e4 == e6)
+				sysfatal("%s: dns failure: %s", *argv, e4);
+
+			sysfatal("%s: dns failure: v4: %s: v6: %s", *argv, e4, e6);
+		}
 	}
 	exits(nil);
 }
