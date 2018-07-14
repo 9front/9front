@@ -35,7 +35,7 @@ fn sigint {
 }
 
 fn fatal {
-	echo $*
+	echo $* >[1=2]
 	exit $"*
 }
 
