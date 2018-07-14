@@ -72,9 +72,8 @@ other than the default
 .TP
 .B -a
 announce on
-.I announce-string
-instead of
-.LR tcp!*!9fs .
+.IR announce-string ,
+can be specified multiple times.
 .TP
 .B -C
 use a newer, faster, and incompatible cache-device layout.
