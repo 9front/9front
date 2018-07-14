@@ -20,7 +20,7 @@ fn ask {
 	}
 }
 
-if(test -f /dev/vgactl){
+if(test -f /dev/vgactl || bind -a '#v' /dev >[2] /dev/null){
 	ask vgasize ' is (text, 640x480x8, 1024x768x16, ...)' 1024x768x16
 	if(! ~ $"vgasize '' text none){
 		ask monitor ' is (vesa, xga, lcd, ...)' vesa
