@@ -307,6 +307,9 @@ mntattach(Chan *c, Chan *ac, char *spec, int flags)
 	Mnt *m;
 	Mntrpc *r;
 
+	if(ac != nil && ac->mchan != c)
+		error(Ebadusefd);
+
 	m = c->mux;
 	if(m == nil){
 		mntversion(c, nil, 0, 0);
