@@ -462,15 +462,7 @@ void I_PlaySong(musicinfo_t *m, int loop)
 	case 0:
 		dup(mpfd[1], 1);
 		for(n=3; n<20; n++) close(n);
-		close(0);
-		snprint(name, sizeof(name), "/tmp/doom.%d", getpid());
-		if(create(name, ORDWR|ORCLOSE, 0666) != 0)
-			sysfatal("create: %r");
-		n = W_LumpLength(m->lumpnum);
-		if(write(0, m->data, n) != n)
-			sysfatal("write: %r");
-		if(seek(0, 0, 0) != 0)
-			sysfatal("seek: %r");
+		snprint(name, sizeof(name), "/mnt/wad/d_%s", m->name);
 		if(bind("/fd/1", "/dev/audio", MREPL) < 0)
 			sysfatal("bind: %r");
 		while(loop && fork() > 0){
