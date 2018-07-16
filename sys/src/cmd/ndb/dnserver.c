@@ -67,34 +67,34 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 				Oquery;
 			return;
 		}
-	} else
-		if(norecursion) {
-			/* we don't recurse and we're not authoritative */
-			repp->flags = Rok | Fresp | Oquery;
-			return;
+	}
+	if(myarea == nil && norecursion) {
+		/* we don't recurse and we're not authoritative */
+		repp->flags = Rok | Fresp | Oquery;
+		neg = nil;
+	} else {
+		/*
+		 *  get the answer if we can, in *repp
+		 */
+		if(reqp->flags & Frecurse)
+			neg = doextquery(repp, req, Recurse);
+		else
+			neg = doextquery(repp, req, Dontrecurse);
+
+		/* authority is transitive */
+		if(myarea != nil || (repp->an && repp->an->auth))
+			repp->flags |= Fauth;
+
+		/* pass on error codes */
+		if(repp->an == nil){
+			dp = dnlookup(repp->qd->owner->name, repp->qd->owner->class, 0);
+			if(dp->rr == nil)
+				if(reqp->flags & Frecurse)
+					repp->flags |= dp->respcode | Fauth;
 		}
-
-	/*
-	 *  get the answer if we can, in *repp
-	 */
-	if(reqp->flags & Frecurse)
-		neg = doextquery(repp, req, Recurse);
-	else
-		neg = doextquery(repp, req, Dontrecurse);
-
-	/* authority is transitive */
-	if(myarea != nil || (repp->an && repp->an->auth))
-		repp->flags |= Fauth;
-
-	/* pass on error codes */
-	if(repp->an == nil){
-		dp = dnlookup(repp->qd->owner->name, repp->qd->owner->class, 0);
-		if(dp->rr == nil)
-			if(reqp->flags & Frecurse)
-				repp->flags |= dp->respcode | Fauth;
 	}
 
-	if(myarea == nil)
+	if(myarea == nil){
 		/*
 		 *  add name server if we know
 		 */
@@ -120,6 +120,7 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 			if(repp->ns)
 				break;
 		}
+	}
 
 	/*
 	 *  add ip addresses as hints
@@ -135,7 +136,7 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 	 *  add an soa to the authority section to help client
 	 *  with negative caching
 	 */
-	if(repp->an == nil)
+	if(repp->an == nil){
 		if(myarea != nil){
 			rrcopy(myarea->soarr, &tp);
 			rrcat(&repp->ns, tp);
@@ -146,6 +147,7 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 			}
 			repp->flags |= neg->negrcode;
 		}
+	}
 
 	/*
 	 *  get rid of duplicates
