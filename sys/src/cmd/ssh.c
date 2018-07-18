@@ -1151,7 +1151,9 @@ main(int argc, char *argv[])
 	fmtinstall('k', kfmt);
 
 	tty.term = getenv("TERM");
-	raw = tty.term != nil && *tty.term != 0;
+	if(tty.term == nil)
+		tty.term = "";
+	raw = *tty.term != 0;
 
 	ARGBEGIN {
 	case 'd':
