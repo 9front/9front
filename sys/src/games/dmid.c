@@ -31,7 +31,7 @@ enum{
 struct Inst{
 	int fixed;
 	int dbl;
-	uchar fine;
+	int fine;
 	uchar n;
 	uchar i[13];
 	uchar i2[13];
@@ -225,13 +225,16 @@ getch(void)
 void
 setoct(Opl *o)
 {
-	int n, b, f;
+	int n, b, f, d;
+	double e;
 
-	n = o->n + o->c->bend / 0x1000 & 0x7f;
-	f = freq[n] + (o->c->bend % 0x1000) * (freq[n+1] - freq[n]) / 0x1000;
-	f = (f * (1 << 20)) / 49716;
-	//if(o->i == o->c->i->i2)
-	//	f += o->c->i->fine;	/* nope */
+	d = o->c->bend;
+	d += o->i == o->c->i->i2 ? o->c->i->fine : 0;
+	n = o->n + d / 0x1000 & 0x7f;
+	e = freq[n] + (d % 0x1000) * (freq[n+1] - freq[n]) / 0x1000;
+	if(o->c->i->fixed)
+		e = (double)(int)e;
+	f = (e * (1 << 20)) / 49716;
 	for(b=1; b<8; b++, f>>=1)
 		if(f < 1024)
 			break;
@@ -448,7 +451,7 @@ readinst(char *file)
 		i->fixed = n & 1<<0;
 		i->dbl = opl2 ? 0 : n & 1<<2;
 		get8(nil);
-		i->fine = get8(nil) / 2 - 64;
+		i->fine = (get8(nil) - 128) * 64;
 		i->n = get8(nil);
 		bread(i->i, sizeof i->i);
 		get8(nil);
