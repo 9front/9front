@@ -54,9 +54,7 @@ bios32locate(void)
 	BIOS32sdh *sdh;
 
 	VFLAG("bios32link\n");
-	if((sdh = sigsearch("_32_")) == nil)
-		return -1;
-	if(checksum(sdh, sizeof(BIOS32sdh)))
+	if((sdh = sigsearch("_32_", sizeof(BIOS32sdh))) == nil)
 		return -1;
 	VFLAG("sdh @ %#p, entry %#ux\n", sdh, l32get(sdh->physaddr));
 

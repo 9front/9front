@@ -748,7 +748,7 @@ pcirouting(void)
 	Pcidev *sbpci, *pci;
 	uchar *p, pin, irq, link, *map;
 
-	if((p = sigsearch("$PIR")) == nil)
+	if((p = sigsearch("$PIR", 0)) == nil)
 		return;
 
 	r = (Router*)p;

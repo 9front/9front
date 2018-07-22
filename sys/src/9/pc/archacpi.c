@@ -788,7 +788,7 @@ identify(void)
 		return 1;
 	pa = (uintptr)strtoull(cp, nil, 16);
 	if(pa <= 1)
-		rsd = sigsearch("RSD PTR ");
+		rsd = rsdsearch();
 	else if(pa < MemMin)
 		rsd = KADDR(pa);
 	else

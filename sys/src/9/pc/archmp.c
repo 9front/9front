@@ -395,7 +395,7 @@ identify(void)
 	 * if correct, check the version.
 	 * To do: check extended table checksum.
 	 */
-	if((_mp_ = sigsearch("_MP_")) == nil || checksum(_mp_, _MP_sz) != 0 || _mp_->physaddr == 0)
+	if((_mp_ = sigsearch("_MP_", _MP_sz)) == nil || _mp_->physaddr == 0)
 		return 1;
 
 	len = PCMPsz;
