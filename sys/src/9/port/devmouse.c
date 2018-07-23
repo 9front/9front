@@ -291,7 +291,7 @@ mouseread(Chan *c, void *va, long n, vlong off)
 				b = 16;
 			else if (b == 16)
 				b = 8;
-		sprint(buf, "m%11d %11d %11d %11lud ",
+		sprint(buf, "m%11d %11d %11d %11ld ",
 			m.xy.x, m.xy.y, b, m.msec);
 
 		mouse.lastcounter = m.counter;
@@ -448,7 +448,7 @@ mousewrite(Chan *c, void *va, long n, vlong)
 		if(*p == 0)
 			error(Eshort);
 		b = strtol(p, &p, 0);
-		msec = strtol(p, 0, 0);
+		msec = (ulong)strtoll(p, 0, 0);
 		if(msec == 0)
 			msec = TK2MS(MACHP(0)->ticks);
 

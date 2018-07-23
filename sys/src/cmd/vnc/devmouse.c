@@ -191,7 +191,7 @@ mouseread(Chan *c, void *va, long n, vlong off)
 			m = mouse.Mousestate;
 		unlock(&mouse);
 
-		sprint(buf, "m%11d %11d %11d %11lud ",
+		sprint(buf, "m%11d %11d %11d %11ld ",
 			m.xy.x, m.xy.y, m.buttons, m.msec);
 
 		mouse.lastcounter = m.counter;
