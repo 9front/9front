@@ -293,7 +293,7 @@ Initially, the server and client keys
 .I Ks
 and
 .I Kc
-where equivalent to the password derived 56-bit DES keys, which
+were equivalent to the password derived 56-bit DES keys, which
 made the encrypted tickets subject to offline dictionary attacks
 and provided too small a key space against brute force attacks
 on current hardware.
