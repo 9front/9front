@@ -396,7 +396,7 @@ emouse(void)
 	m.buttons = b;
 	m.xy.x = atoi((char*)eb->buf+1+0*12);
 	m.xy.y = atoi((char*)eb->buf+1+1*12);
-	m.msec = atoi((char*)eb->buf+1+3*12);
+	m.msec = (ulong)atoll((char*)eb->buf+1+3*12);
 	if (logfid)
 		fprint(logfid, "b: %d xy: %P\n", m.buttons, m.xy);
 	free(eb);
@@ -470,6 +470,6 @@ eatomouse(Mouse *m, char *buf, int n)
 	m->xy.x = atoi(buf+1+0*12);
 	m->xy.y = atoi(buf+1+1*12);
 	m->buttons = atoi(buf+1+2*12);
-	m->msec = atoi(buf+1+3*12);
+	m->msec = (ulong)atoll(buf+1+3*12);
 	return n;
 }

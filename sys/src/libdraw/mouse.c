@@ -73,7 +73,7 @@ _ioproc(void *arg)
 			m.xy.x = atoi(buf+1+0*12);
 			m.xy.y = atoi(buf+1+1*12);
 			m.buttons = atoi(buf+1+2*12);
-			m.msec = atoi(buf+1+3*12);
+			m.msec = (ulong)atoll(buf+1+3*12);
 			if(send(mc->c, &m) < 0)
 				continue;
 			/*

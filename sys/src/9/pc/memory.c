@@ -21,8 +21,9 @@ enum {
 	MemUPA		= 0,		/* unbacked physical address */
 	MemRAM		= 1,		/* physical memory */
 	MemUMB		= 2,		/* upper memory block (<16MB) */
-	MemReserved	= 3,
-	NMemType	= 4,
+	MemACPI		= 3,		/* ACPI tables */
+	MemReserved	= 4,
+	NMemType	= 5,
 
 	KB		= 1024,
 
@@ -75,6 +76,13 @@ static RMap rmapumbrw = {
 	&mapumbrw[nelem(mapumbrw)-1],
 };
 
+static Map mapacpi[16];
+static RMap rmapacpi = {
+	"ACPI tables",
+	mapacpi,
+	&mapacpi[nelem(mapacpi)-1],
+};
+
 void
 mapprint(RMap *rmap)
 {
@@ -101,6 +109,7 @@ memdebug(void)
 	mapprint(&rmapumb);
 	mapprint(&rmapumbrw);
 	mapprint(&rmapupa);
+	mapprint(&rmapacpi);
 }
 
 static void
@@ -327,16 +336,20 @@ checksum(void *v, int n)
 }
 
 static void*
-sigscan(uchar* addr, int len, char* signature)
+sigscan(uchar *addr, int len, char *sig, int size, int step)
 {
-	int sl;
 	uchar *e, *p;
+	int sl;
 
-	e = addr+len;
-	sl = strlen(signature);
-	for(p = addr; p+sl < e; p += 16)
-		if(memcmp(p, signature, sl) == 0)
-			return p;
+	sl = strlen(sig);
+	e = addr+len-(size > sl ? size : sl);
+	for(p = addr; p <= e; p += step){
+		if(memcmp(p, sig, sl) != 0)
+			continue;
+		if(size && checksum(p, size) != 0)
+			continue;
+		return p;
+	}
 	return nil;
 }
 
@@ -359,7 +372,7 @@ convmemsize(void)
 }
 
 void*
-sigsearch(char* signature)
+sigsearch(char* signature, int size)
 {
 	uintptr p;
 	uchar *bda;
@@ -376,18 +389,44 @@ sigsearch(char* signature)
 	bda = KADDR(0x400);
 	if(memcmp(KADDR(0xfffd9), "EISA", 4) == 0){
 		if((p = (bda[0x0f]<<8)|bda[0x0e]) != 0){
-			if((r = sigscan(KADDR(p<<4), 1024, signature)) != nil)
+			if((r = sigscan(KADDR(p<<4), 1024, signature, size, 16)) != nil)
 				return r;
 		}
 	}
-	if((r = sigscan(KADDR(convmemsize()), 1024, signature)) != nil)
+	if((r = sigscan(KADDR(convmemsize()), 1024, signature, size, 16)) != nil)
 		return r;
 
 	/* hack for virtualbox: look in KiB below 0xa0000 */
-	if((r = sigscan(KADDR(0xa0000-1024), 1024, signature)) != nil)
+	if((r = sigscan(KADDR(0xa0000-1024), 1024, signature, size, 16)) != nil)
 		return r;
 
-	return sigscan(KADDR(0xe0000), 0x20000, signature);
+	return sigscan(KADDR(0xe0000), 0x20000, signature, size, 16);
+}
+
+void*
+rsdsearch(void)
+{
+	static char signature[] = "RSD PTR ";
+	uchar *v, *p;
+	Map *m;
+
+	if((p = sigsearch(signature, 36)) != nil)
+		return p;
+	if((p = sigsearch(signature, 20)) != nil)
+		return p;
+	for(m = rmapacpi.map; m < rmapacpi.mapend && m->size; m++){
+		if(m->size > 0x7FFFFFFF)
+			continue;
+		if((v = vmap(m->addr, m->size)) != nil){
+			p = sigscan(v, m->size, signature, 36, 4);
+			if(p == nil)
+				p = sigscan(v, m->size, signature, 20, 4);
+			vunmap(v, m->size);
+			if(p != nil)
+				return vmap(m->addr + (p - v), 64);
+		}
+	}
+	return nil;
 }
 
 static void
@@ -683,6 +722,10 @@ map(ulong base, ulong len, int type)
 		mapfree(&rmapupa, base, len);
 		flags = 0;
 		break;
+	case MemACPI:
+		mapfree(&rmapacpi, base, len);
+		flags = 0;
+		break;
 	default:
 	case MemReserved:
 		flags = 0;
@@ -774,7 +817,18 @@ e820scan(void)
 		 */
 		if(last < base)
 			map(last, base-last, MemUPA);
-		map(base, len, (e->type == 1) ? MemRAM : MemReserved);
+
+		switch(e->type){
+		case 1:
+			map(base, len, MemRAM);
+			break;
+		case 3:
+			map(base, len, MemACPI);
+			break;
+		default:
+			map(base, len, MemReserved);
+		}
+
 		last = base + len;
 		if(last == 0)
 			break;
