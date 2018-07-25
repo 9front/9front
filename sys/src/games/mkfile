@@ -17,6 +17,8 @@ TARG=4s\
 	midi\
 	wadfs\
 	dmid\
+	dpic\
+	todpic\
 
 OFILES=
 HFILES=

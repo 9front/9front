@@ -1,0 +1,118 @@
+.TH DPIC 1
+.SH NAME
+dpic, todpic \- Doom picture decoder and encoder
+.SH SYNOPSIS
+.B dpic
+[
+.B -f
+] [
+.B -p
+.I palette
+] [
+.I pic
+]
+.PP
+.B todpic
+[
+.B -fw
+] [
+.B -b
+.I bgcol
+] [
+.B -p
+.I palette
+] [
+.I image
+]
+.SH DESCRIPTION
+.I Dpic
+reads a doom picture formatted image (default standard input),
+converts it to a Plan 9
+.IR image (6)
+and writes it to standard out.
+.I Todpic
+does the opposite transformation.
+.PP
+A color palette is needed for the process;
+its location is set to
+.B /mnt/wad/playpal
+by default.
+This may be overridden with the
+.B -p
+command line option.
+Both programs also accept an
+.B -f
+flag to indicate processing a doom 64x64 flat picture.
+.PP
+When encoding a doom picture,
+x and y offsets are set to the input's top left corner coordinates.
+The
+.B -w
+flag sets the offsets so as to center the picture when drawn by the doom engine,
+which is useful for wall patches.
+The
+.B -b
+option sets the RGB24 color to signal transparent pixels,
+.L 0x00FFFF
+by default.
+.SH EXAMPLES
+Create a patch
+.I WAD
+(see
+.BR wadfs (4))
+replacing a sky texture.
+First, create a 256x128 image, mirror it, and convert it for use with
+.BR tweak (1).
+.IP
+.EX
+% png -9t tuttleglenda.png \\
+	| resample -x 128 -y 128 \\
+	| crop -r 0 0 256 128 \\
+	| rotate -l \\
+	| iconv -c m8 > tuttlesky
+.EE
+.PP
+Next, use
+.BR tweak (1)
+to tile the 128x128 picture.
+Then, mount an
+.I IWAD
+containing the base color palette, convert to a doom picture,
+create a patch
+.IR WAD ,
+then launch doom using it.
+.IP
+.EX
+% games/wadfs /sys/games/lib/doom/doom2.wad
+createfile SW18_7: file already exists
+% games/wadfs -m /mnt/new
+% games/todpic tuttlesky > /mnt/new/rsky1
+% cp /mnt/new/WAD tuttle.wad
+% games/doom -file tuttle.wad
+.EE
+.PP
+Create a crude catclock weapon sprite.
+.IP
+.EX
+% games/wadfs /sys/games/lib/doom/doom2.wad
+createfile SW18_7: file already exists
+% mkdir /mnt/new/s
+adding end marker S_END
+% cp /mnt/wad/s/* /mnt/new/s/
+% crop -r 0 0 114 120 -t -120 -60 catclock.bit \\
+	| games/todpic -b 0xffffff > /mnt/new/s/punga0
+% games/doom -file /mnt/new/WAD
+.EE
+.SH SOURCE
+.B /sys/src/games/dpic.c
+.br
+.B /sys/src/games/todpic.c
+.SH "SEE ALSO"
+.IR games (1),
+.IR tweak (1),
+.IR wadfs (4)
+.SH HISTORY
+.I Dpic
+and
+.I todpic
+first appeared in 9front (July, 2018).
