@@ -1218,7 +1218,7 @@ init(int argc, char *argv[])
 	strptr = salloc(0);
 	divxyz = salloc(0);
 	stkbeg = stkptr = &stack[0];
-	stkend = &stack[STKSZ];
+	stkend = &stack[STKSZ-1];
 	stkerr = 0;
 	readptr = &readstk[0];
 	k=0;
