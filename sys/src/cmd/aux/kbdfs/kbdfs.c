@@ -454,7 +454,7 @@ Nextmsg:
 		k.b = 0;
 		k.down = (p[0] == 'r');
 		for(i=0; i<Nscan; i++){
-			if(kbtab[i] == k.r || kbtabshift[i] == k.r || kbtabctl[i] == k.r){
+			if(kbtab[i] == k.r || kbtabshift[i] == k.r || (i >= 16 && kbtabctl[i] == k.r)){
 				/* assign button from kbtab */
 				k.b = kbtab[i];
 				/* handle ^X forms */
