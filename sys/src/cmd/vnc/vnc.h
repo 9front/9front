@@ -31,9 +31,16 @@ struct Vnc {
 	Biobuf		in;
 	Biobuf		out;
 
-	Point		dim;
+	Rectangle	dim;
 	Pixfmt;
 	char		*name;	/* client only */
+
+	int		canresize;
+	struct {
+		ulong		id;
+		Rectangle	rect;
+		ulong		flags;
+	}		screen[1];
 };
 
 enum {
@@ -63,6 +70,7 @@ enum {
 	MKey,
 	MMouse,
 	MCCut,
+	MSetDesktopSize = 251,
 
 	/* image encoding methods */
 	EncRaw		= 0,
@@ -74,6 +82,9 @@ enum {
 	EncTight	= 7,
 	EncZHextile	= 8,
 	EncMouseWarp	= 9,
+
+	EncDesktopSize	= -223,
+	EncXDesktopSize	= -308,
 
 	/* paramaters for hextile encoding */
 	HextileDim	= 16,
@@ -131,4 +142,4 @@ extern	void		hexdump(void*, int);
 extern	void		vnchungup(Vnc*);
 
 extern	int		verbose;
-extern	char*	serveraddr;
+extern	char*		serveraddr;

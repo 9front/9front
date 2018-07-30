@@ -16,20 +16,20 @@ resize(Vnc *v, int first)
 	int fd;
 	Point d;
 
-	d = addpt(v->dim, Pt(2*Borderwidth, 2*Borderwidth));
 	lockdisplay(display);
-
 	if(getwindow(display, Refnone) < 0)
 		sysfatal("internal error: can't get the window image");
-
-	/*
-	 * limit the window to at most the vnc server's size
-	 */
-	if(first || d.x < Dx(screen->r) || d.y < Dy(screen->r)){
-		fd = open("/dev/wctl", OWRITE);
-		if(fd >= 0){
-			fprint(fd, "resize -dx %d -dy %d", d.x, d.y);
-			close(fd);
+	if(!v->canresize){
+		/*
+		 * limit the window to at most the vnc server's size
+		 */
+		d = addpt(v->dim.max, Pt(2*Borderwidth, 2*Borderwidth));
+		if(first || d.x < Dx(screen->r) || d.y < Dy(screen->r)){
+			fd = open("/dev/wctl", OWRITE);
+			if(fd >= 0){
+				fprint(fd, "resize -dx %d -dy %d", d.x, d.y);
+				close(fd);
+			}
 		}
 	}
 	unlockdisplay(display);
@@ -39,7 +39,6 @@ static void
 eresized(void)
 {
 	resize(vnc, 0);
-
 	requestupdate(vnc, 0);
 }
 
@@ -147,7 +146,7 @@ readmouse(Vnc *v)
 				m.xy.y = atoi(start+1+12);
 				m.buttons = atoi(start+1+2*12) & 0x1F;
 				m.xy = subpt(m.xy, screen->r.min);
-				if(ptinrect(m.xy, Rpt(ZP, v->dim))){
+				if(ptinrect(m.xy, v->dim)){
 					mouseevent(v, m);
 					/* send wheel button *release* */ 
 					if ((m.buttons & 0x7) != m.buttons) {

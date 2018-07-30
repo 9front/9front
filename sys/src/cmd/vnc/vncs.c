@@ -21,29 +21,6 @@ Dev	*devtab[] =
 	nil
 };
 
-static char *msgname[] = {
-	[MPixFmt] = "MPixFmt",
-	[MFixCmap] = "MFixCmap",
-	[MSetEnc] = "MSetEnc",
-	[MFrameReq] = "MFrameReq",
-	[MKey] = "MKey",
-	[MMouse] = "MMouse",
-	[MCCut] = "MCCut",
-};
-
-static char *encname[] = {
-	[EncRaw] = "raw",
-	[EncCopyRect] = "copy rect",
-	[EncRre] = "rre",
-	[EncCorre] = "corre",
-	[EncHextile] = "hextile",
-	[EncZlib]	= "zlib",
-	[EncTight]	= "zlibtight",
-	[EncZHextile]	= "zhextile",
-	[EncMouseWarp]	= "mousewarp",
-
-};
-
 /* 
  * list head. used to hold the list, the lock, dim, and pixelfmt
  */
@@ -594,10 +571,10 @@ vncaccept(Vncs *v)
 	if(!shared)
 		killclients(v);
 
-	v->dim = (Point){Dx(gscreen->r), Dy(gscreen->r)};
-	vncwrpoint(v, v->dim);
+	v->dim = rectsubpt(screen->r, screen->r.min);
+	vncwrpoint(v, v->dim.max);
 	if(verbose)
-		fprint(2, "%V: send screen size %P (rect %R)\n", v, v->dim, gscreen->r);
+		fprint(2, "%V: send screen size %R\n", v, v->dim);
 
 	v->bpp = gscreen->depth;
 	v->depth = gscreen->depth;
@@ -695,6 +672,9 @@ setencoding(Vncs *v)
 			continue;
 		case EncMouseWarp:
 			v->canwarp = 1;
+			continue;
+		case EncDesktopSize:
+		case EncXDesktopSize:
 			continue;
 		}
 		if(v->countrect != nil)
@@ -1118,7 +1098,7 @@ clientwriteproc(Vncs *v)
 		|| (v->image && v->image->chan != v->imagechan)){
 			if(v->image)
 				freememimage(v->image);
-			v->image = allocmemimage(Rpt(ZP, v->dim), v->imagechan);
+			v->image = allocmemimage(v->dim, v->imagechan);
 			if(v->image == nil){
 				fprint(2, "%V: allocmemimage: %r; hanging up\n", v);
 				vnchungup(v);

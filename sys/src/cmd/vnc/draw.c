@@ -11,6 +11,8 @@ static struct {
 	"raw",		EncRaw,
 	"rre",		EncRre,
 	"mousewarp",	EncMouseWarp,
+	"desktopsize",	EncDesktopSize,
+	"xdesktopsize",	EncXDesktopSize,
 };
 
 static	uchar	*pixbuf;
@@ -18,6 +20,16 @@ static	uchar	*linebuf;
 static	int	vpixb;
 static	int	pixb;
 static	void	(*pixcp)(uchar*, uchar*);
+
+static void
+vncsetdim(Vnc *v, Rectangle dim)
+{
+	v->dim = rectsubpt(dim, dim.min);
+	linebuf = realloc(linebuf, v->dim.max.x * vpixb);
+	pixbuf = realloc(pixbuf, v->dim.max.x * pixb * v->dim.max.y);
+	if(linebuf == nil || pixbuf == nil)
+		sysfatal("can't allocate pix decompression storage");
+}
 
 static void
 vncrdcolor(Vnc *v, uchar *color)
@@ -31,8 +43,8 @@ vncrdcolor(Vnc *v, uchar *color)
 void
 sendencodings(Vnc *v)
 {
-	char *f[10];
-	int enc[10], nenc, i, j, nf;
+	char *f[16];
+	int enc[16], nenc, i, j, nf;
 
 	nf = tokenize(encodings, f, nelem(f));
 	nenc = 0;
@@ -60,21 +72,27 @@ sendencodings(Vnc *v)
 void
 requestupdate(Vnc *v, int incremental)
 {
-	int x, y;
+	Rectangle r;
 
 	lockdisplay(display);
 	flushimage(display, 1);
-	x = Dx(screen->r);
-	y = Dy(screen->r);
+	r = rectsubpt(screen->r, screen->r.min);
 	unlockdisplay(display);
-	if(x > v->dim.x)
-		x = v->dim.x;
-	if(y > v->dim.y)
-		y = v->dim.y;
 	vnclock(v);
+	if(incremental == 0 && v->canresize && !eqrect(r, v->dim)){
+		vncwrchar(v, MSetDesktopSize);
+		vncwrchar(v, 0);
+		vncwrpoint(v, r.max);
+		vncwrchar(v, 1);
+		vncwrchar(v, 0);
+		vncwrlong(v, v->screen[0].id);
+		vncwrrect(v, r);
+		vncwrlong(v, v->screen[0].flags);
+	} else 
+		rectclip(&r, v->dim);
 	vncwrchar(v, MFrameReq);
 	vncwrchar(v, incremental);
-	vncwrrect(v, Rpt(ZP, Pt(x, y)));
+	vncwrrect(v, r);
 	vncflush(v);
 	vncunlock(v);
 }
@@ -237,16 +255,42 @@ dorectangle(Vnc *v)
 	Rectangle r, subr, maxr;
 
 	r = vncrdrect(v);
-	if(!rectinrect(r, Rpt(ZP, v->dim)))
-		sysfatal("bad rectangle from server: %R not in %R", r, Rpt(ZP, v->dim));
-	stride = Dx(r) * pixb;
 	type = vncrdlong(v);
+	switch(type){
+	case EncMouseWarp:
+		mousewarp(r.min);
+		return;
+
+	case EncXDesktopSize:
+		v->canresize = 1;
+		n = vncrdlong(v)>>24;
+		if(n <= 0)
+			break;
+		v->screen[0].id = vncrdlong(v);
+		v->screen[0].rect = vncrdrect(v);
+		v->screen[0].flags = vncrdlong(v);
+		while(--n > 0){
+			vncrdlong(v);
+			vncrdrect(v);
+			vncrdlong(v);
+		}
+		/* wet floor */
+	case EncDesktopSize:
+		vncsetdim(v, r);
+		return;
+	}
+
+	if(!rectinrect(r, v->dim))
+		sysfatal("bad rectangle from server: %R not in %R", r, v->dim);
+	maxr = rectsubpt(r, r.min);
+	stride = maxr.max.x * pixb;
+
 	switch(type){
 	default:
 		sysfatal("bad rectangle encoding from server");
 		break;
 	case EncRaw:
-		loadbuf(v, Rpt(ZP, Pt(Dx(r), Dy(r))), stride);
+		loadbuf(v, maxr, stride);
 		updatescreen(r);
 		break;
 
@@ -261,7 +305,6 @@ dorectangle(Vnc *v)
 
 	case EncRre:
 	case EncCorre:
-		maxr = Rpt(ZP, Pt(Dx(r), Dy(r)));
 		n = vncrdlong(v);
 		vncrdcolor(v, (uchar*)&color);
 		fillrect(maxr, stride, (uchar*)&color);
@@ -281,10 +324,6 @@ dorectangle(Vnc *v)
 	case EncHextile:
 		dohextile(v, r, stride);
 		updatescreen(r);
-		break;
-
-	case EncMouseWarp:
-		mousewarp(r.min);
 		break;
 	}
 }
@@ -348,10 +387,7 @@ readfromserver(Vnc *v)
 	default:
 		sysfatal("can't handle your screen: bad depth %d", pixb);
 	}
-	linebuf = malloc(v->dim.x * vpixb);
-	pixbuf = malloc(v->dim.x * pixb * v->dim.y);
-	if(linebuf == nil || pixbuf == nil)
-		sysfatal("can't allocate pix decompression storage");
+	vncsetdim(v, v->dim);
 	for(;;){
 		type = vncrdchar(v);
 		switch(type){

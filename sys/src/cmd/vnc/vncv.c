@@ -3,7 +3,7 @@
 #include <libsec.h>
 
 char*		charset = "utf-8";
-char*		encodings = "copyrect hextile corre rre raw mousewarp";
+char*		encodings = "copyrect hextile corre rre raw mousewarp desktopsize xdesktopsize";
 int		bpp12;
 int		shared;
 int		verbose;
@@ -77,7 +77,6 @@ main(int argc, char **argv)
 {
 	int p, dfd, cfd, shared;
 	char *keypattern, *label;
-	Point d;
 
 	keypattern = nil;
 	shared = 0;
@@ -140,10 +139,6 @@ main(int argc, char **argv)
 	display->locking = 1;
 	unlockdisplay(display);
 
-	d = addpt(vnc->dim, Pt(2*Borderwidth, 2*Borderwidth));
-	if(verbose)
-		fprint(2, "screen size %P, desktop size %P\n", display->image->r.max, d);
-
 	choosecolor(vnc);
 	sendencodings(vnc);
 	initmouse();
@@ -197,7 +192,7 @@ vncstart(Vnc *v, int shared)
 {
 	vncwrchar(v, shared);
 	vncflush(v);
-	v->dim = vncrdpoint(v);
+	v->dim = Rpt(ZP, vncrdpoint(v));
 	v->Pixfmt = vncrdpixfmt(v);
 	v->name = vncrdstring(v);
 	return 0;
