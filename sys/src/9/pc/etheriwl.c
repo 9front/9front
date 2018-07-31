@@ -2444,6 +2444,7 @@ iwlpci(void)
 		case 0x4229:	/* WiFi Link 4965 */
 		case 0x4230:	/* WiFi Link 4965 */
 		case 0x4232:	/* Wifi Link 5100 */
+		case 0x4235:	/* Intel Corporation Ultimate N WiFi Link 5300 */
 		case 0x4236:	/* WiFi Link 5300 AGN */
 		case 0x4237:	/* Wifi Link 5100 AGN */
 		case 0x4239:	/* Centrino Advanced-N 6200 */
