@@ -66,7 +66,7 @@ threadmain(int argc, char *argv[])
 	loadfile = nil;
 	ARGBEGIN{
 	case 'a':
-		globalautoindent = TRUE;
+		globalindent[AUTOINDENT] = TRUE;
 		break;
 	case 'b':
 		bartflag = TRUE;
@@ -89,6 +89,9 @@ threadmain(int argc, char *argv[])
 		if(fontnames[1] == nil)
 			goto Usage;
 		break;
+	case 'i':
+		globalindent[SPACESINDENT] = TRUE;
+		break;
 	case 'l':
 		loadfile = ARGF();
 		if(loadfile == nil)
@@ -96,7 +99,7 @@ threadmain(int argc, char *argv[])
 		break;
 	default:
 	Usage:
-		fprint(2, "usage: acme [-ab] [-c ncol] [-f font] [-F fixedfont] [-l loadfile | file...]\n");
+		fprint(2, "usage: acme [-aib] [-c ncol] [-f font] [-F fixedfont] [-l loadfile | file...]\n");
 		exits("usage");
 	}ARGEND
 

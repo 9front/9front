@@ -224,6 +224,13 @@ void		textsetselect(Text*, uint, uint);
 void		textshow(Text*, uint, uint, int);
 void		texttype(Text*, Rune);
 
+enum
+{
+	SPACESINDENT	= 0,
+	AUTOINDENT,
+	NINDENT,
+};
+
 struct Window
 {
 		QLock;
@@ -235,7 +242,7 @@ struct Window
 	uchar	isscratch;
 	uchar	filemenu;
 	uchar	dirty;
-	uchar	autoindent;
+	uchar	indent[NINDENT];
 	uchar	showdel;
 	uint		noredraw;
 	int		id;
@@ -538,7 +545,7 @@ int			plumbeditfd;
 char			wdir[];
 int			editing;
 int			messagesize;		/* negotiated in 9P version setup */
-int			globalautoindent;
+int			globalindent[NINDENT];
 
 Channel	*cplumb;		/* chan(Plumbmsg*) */
 Channel	*cwait;		/* chan(Waitmsg) */

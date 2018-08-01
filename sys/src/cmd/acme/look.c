@@ -663,9 +663,11 @@ openfile(Text *t, Expand *e)
 				runemove(rp, ow->incl[i], n);
 				winaddincl(w, rp, n);
 			}
-			w->autoindent = ow->autoindent;
+			for(i=0; i < NINDENT; i++)
+				w->indent[i] = ow->indent[i];
 		}else
-			w->autoindent = globalautoindent;
+			for(i=0; i < NINDENT; i++)
+				w->indent[i] = globalindent[i];
 	}
 	if(e->a1 == e->a0)
 		eval = FALSE;

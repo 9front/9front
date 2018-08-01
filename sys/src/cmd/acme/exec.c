@@ -73,7 +73,7 @@ Exectab exectab[] = {
 	{ L"Get",		get,		FALSE,	TRUE,	XXX		},
 	{ L"ID",		id,		FALSE,	XXX,		XXX		},
 	{ L"Incl",		incl,		FALSE,	XXX,		XXX		},
-	{ L"Indent",	indent,	FALSE,	XXX,		XXX		},
+	{ L"Indent",	indent,		FALSE,	AUTOINDENT,		XXX		},
 	{ L"Kill",		kill,		FALSE,	XXX,		XXX		},
 	{ L"Load",		dump,	FALSE,	FALSE,	XXX		},
 	{ L"Local",		local,	FALSE,	XXX,		XXX		},
@@ -87,6 +87,7 @@ Exectab exectab[] = {
 	{ L"Send",		sendx,	TRUE,	XXX,		XXX		},
 	{ L"Snarf",		cut,		FALSE,	TRUE,	FALSE	},
 	{ L"Sort",		sort,		FALSE,	XXX,		XXX		},
+	{ L"Spaces",	indent,		FALSE,	SPACESINDENT,	XXX		},
 	{ L"Tab",		tab,		FALSE,	XXX,		XXX		},
 	{ L"Undo",		undo,	FALSE,	TRUE,	XXX		},
 	{ L"Zerox",	zeroxx,	FALSE,	XXX,		XXX		},
@@ -1087,57 +1088,67 @@ incl(Text *et, Text*, Text *argt, int, int, Rune *arg, int narg)
 enum {
 	IGlobal = -2,
 	IError = -1,
-	Ion = 0,
-	Ioff = 1,
 };
 
 static int
-indentval(Rune *s, int n)
+indentval(Rune *s, int n, int type)
 {
+	static char *strs[] = {
+		[SPACESINDENT] "Spaces",
+		[AUTOINDENT] "Indent",
+	};
+
 	if(n < 2)
 		return IError;
 	if(runestrncmp(s, L"ON", n) == 0){
-		globalautoindent = TRUE;
-		warning(nil, "Indent ON\n");
+		globalindent[type] = TRUE;
+		warning(nil, "%s ON\n", strs[type]);
 		return IGlobal;
 	}
 	if(runestrncmp(s, L"OFF", n) == 0){
-		globalautoindent = FALSE;
-		warning(nil, "Indent OFF\n");
+		globalindent[type] = FALSE;
+		warning(nil, "%s OFF\n", strs[type]);
 		return IGlobal;
 	}
-	return runestrncmp(s, L"on", n) == 0;
+	if(runestrncmp(s, L"on", n) == 0)
+		return TRUE;
+	if(runestrncmp(s, L"off", n) == 0)
+		return FALSE;
+	return IError;
 }
 
 static void
-fixindent(Window *w, void*)
+fixindent(Window *w, void *v)
 {
-	w->autoindent = globalautoindent;
+	int t;
+
+	t = (int)v;
+	w->indent[t] = globalindent[t];
 }
 
 void
-indent(Text *et, Text*, Text *argt, int, int, Rune *arg, int narg)
+indent(Text *et, Text*, Text *argt, int type, int, Rune *arg, int narg)
 {
 	Rune *a, *r;
 	Window *w;
-	int na, len, autoindent;
+	int na, len, ival;
 
 	w = nil;
 	if(et!=nil && et->w!=nil)
 		w = et->w;
-	autoindent = IError;
+	ival = IError;
 	getarg(argt, FALSE, TRUE, &r, &len);
 	if(r!=nil && len>0)
-		autoindent = indentval(r, len);
+		ival = indentval(r, len, type);
 	else{
 		a = findbl(arg, narg, &na);
 		if(a != arg)
-			autoindent = indentval(arg, narg-na);
+			ival = indentval(arg, narg-na, type);
 	}
-	if(autoindent == IGlobal)
-		allwindows(fixindent, nil);
-	else if(w != nil && autoindent >= 0)
-		w->autoindent = autoindent;
+	if(ival == IGlobal)
+		allwindows(fixindent, (void*)type);
+	else if(w != nil && ival >= 0)
+		w->indent[type] = ival;
 }
 
 void

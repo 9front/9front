@@ -20,7 +20,7 @@ wininit(Window *w, Window *clone, Rectangle r)
 	File *f;
 	Reffont *rf;
 	Rune *rp;
-	int nc;
+	int nc, i;
 
 	w->tag.w = w;
 	w->taglines = 1;
@@ -78,13 +78,14 @@ wininit(Window *w, Window *clone, Rectangle r)
 	draw(screen, br, button, nil, button->r.min);
 	w->filemenu = TRUE;
 	w->maxlines = w->body.maxlines;
-	w->autoindent = globalautoindent;
+	for(i=0; i<NINDENT; i++)
+		w->indent[i] = globalindent[i];
 	if(clone){
 		w->dirty = clone->dirty;
-		w->autoindent = clone->autoindent;
+		for(i=0; i<NINDENT; i++)
+			w->indent[i] = clone->indent[i];
 		textsetselect(&w->body, clone->body.q0, clone->body.q1);
 		winsettag(w);
-		w->autoindent = clone->autoindent;
 	}
 }
 
