@@ -634,7 +634,7 @@ startcmd(char *argv[], int *notepg)
 	e->cpid = cpid;
 	sprint(buf, "/mnt/wsys/%d", win->id);
 	bind(buf, "/dev/acme", MREPL);
-	bind("/dev/acme/body", "/dev/text", MREPL)
+	bind("/dev/acme/body", "/dev/text", MREPL);
 	proccreate(execproc, e, EXECSTACK);
 	do
 		pid = recvul(cpid);
