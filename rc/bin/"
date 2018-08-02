@@ -2,9 +2,6 @@
 
 rfork en
 
-if(test -r /mnt/acme/acme/body)
-	bind /mnt/acme/acme/body /dev/text
-
 PROMPT='[^ 	]*(%|;)[ 	]+'
 
 fn cmds {
