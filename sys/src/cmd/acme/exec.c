@@ -1120,9 +1120,7 @@ indentval(Rune *s, int n, int type)
 static void
 fixindent(Window *w, void *v)
 {
-	int t;
-
-	t = (int)v;
+	int t = *(int*)v;
 	w->indent[t] = globalindent[t];
 }
 
@@ -1146,7 +1144,7 @@ indent(Text *et, Text*, Text *argt, int type, int, Rune *arg, int narg)
 			ival = indentval(arg, narg-na, type);
 	}
 	if(ival == IGlobal)
-		allwindows(fixindent, (void*)type);
+		allwindows(fixindent, &type);
 	else if(w != nil && ival >= 0)
 		w->indent[type] = ival;
 }
