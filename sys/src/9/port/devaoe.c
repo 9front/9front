@@ -949,7 +949,7 @@ aoegen(Chan *c, char *, Dirtab *, int, int s, Dir *dp)
 		return unitgen(c, TYPE(c->qid), dp);
 	case Qdevlinkdir:
 		i = UNIT(c->qid);
-		if(i >= Maxunits || i >= units.ref)
+		if(i > Maxunits || i > units.ref)
 			return -1;
 		d = unit2dev(i);
 		if(s == DEVDOTDOT){
