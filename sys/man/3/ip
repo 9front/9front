@@ -111,10 +111,11 @@ as an Ethernet medium carrying IP and ARP packets
 and associate it with this interface.
 The kernel will
 .IR dial (2)
-.IR path !0x800
+.IR path !0x800,
+.IR path !0x86DD
 and
 .IR path !0x806
-and use the two connections for IPv4 and
+and use the three connections for IPv4, IPv6 and
 ARP respectively.
 .TP
 .B "bind pkt
@@ -196,7 +197,7 @@ medium-specific headers.
 .TP
 .BI speed\  n
 Set the maximum transmit speed in bits per second.
-TP
+.TP
 .BI delay\  n
 Set the maximum burst delay in milliseconds. (Default is 40ms)
 When
