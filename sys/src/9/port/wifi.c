@@ -173,7 +173,7 @@ wifitx(Wifi *wifi, Wnode *wn, Block *b)
 		uchar *a, *p;
 
 		for(a = wn->maxrate, p = wifi->rates; *p; p++){
-			if(*p < *a && *p > *wn->actrate)
+			if(*p < *a && *p > *wn->actrate && (wn->validrates & (1UL << p-wifi->rates)) != 0)
 				a = p;
 		}
 		wn->actrate = a;
@@ -229,7 +229,7 @@ wifitxfail(Wifi *wifi, Block *b)
 		uchar *a, *p;
 
 		for(a = wn->minrate, p = wifi->rates; *p; p++){
-			if(*p > *a && *p < *wn->actrate)
+			if(*p > *a && *p < *wn->actrate && (wn->validrates & (1UL << p-wifi->rates)) != 0)
 				a = p;
 		}
 		wn->actrate = a;
@@ -237,25 +237,59 @@ wifitxfail(Wifi *wifi, Block *b)
 }
 
 static uchar*
-putrates(uchar *p, uchar *rates)
+putrates(uchar *p, uchar *rates, ulong valid, ulong basic)
 {
-	int n, m;
+	int n, i, j;
 
-	n = m = strlen((char*)rates);
-	if(n > 8)
-		n = 8;
-	/* supported rates */
-	*p++ = 1;
-	*p++ = n;
-	memmove(p, rates, n);
-	p += n;
-	if(m > 8){
+	valid |= basic;
+
+	for(i = n = 0; i < 32 && rates[i] != 0; i++)
+		if(valid & (1UL<<i))
+			n++;
+
+	valid &= ~basic;
+
+	if(n > 0){
+		/* supported rates */
+		*p++ = 1;
+		*p++ = n;
+		for(i = j = 0; j < n; i++){
+			if(basic & (1UL<<i)){
+				*p++ = rates[i] | 0x80;
+				j++;
+			}
+		}
+		for(i = 0; j < n; i++){
+			if(valid & (1UL<<i)){
+				*p++ = rates[i] & 0x7f;
+				j++;
+			}
+		}
+	}
+
+	if(n > 8){
+		/* truncate supported rates element */
+		p -= n;
+		p[-1] = 8;
+		p += 8;
+
 		/* extended supported rates */
 		*p++ = 50;
-		*p++ = m;
-		memmove(p, rates, m);
-		p += m;
+		*p++ = n;
+		for(i = j = 0; j < n; i++){
+			if(basic & (1UL<<i)){
+				*p++ = rates[i] | 0x80;
+				j++;
+			}
+		}
+		for(i = 0; j < n; i++){
+			if(valid & (1UL<<i)){
+				*p++ = rates[i] & 0x7f;
+				j++;
+			}
+		}
 	}
+
 	return p;
 }
 
@@ -289,7 +323,7 @@ wifiprobe(Wifi *wifi, Wnode *wn)
 	memmove(p, wifi->essid, n);
 	p += n;
 
-	p = putrates(p, wifi->rates);
+	p = putrates(p, wifi->rates, wn->validrates, wn->basicrates);
 
 	*p++ = 3;	/* ds parameter set */
 	*p++ = 1;
@@ -363,7 +397,7 @@ sendassoc(Wifi *wifi, Wnode *bss)
 	memmove(p, bss->ssid, n);
 	p += n;
 
-	p = putrates(p, wifi->rates);
+	p = putrates(p, wifi->rates, bss->validrates, bss->basicrates);
 
 	n = bss->rsnelen;
 	if(n > 0){
@@ -454,12 +488,15 @@ recvbeacon(Wifi *wifi, Wnode *wn, uchar *d, int len)
 			break;
 		case 1:		/* supported rates */
 		case 50:	/* extended rates */
-			if(wn->actrate != nil || wifi->rates == nil)
-				break;	/* already set */
+			if(wifi->rates == nil)
+				break;
 			while(d < x){
-				t = *d++ | 0x80;
+				t = *d | 0x80;
 				for(p = wifi->rates; *p != 0; p++){
 					if(*p == t){
+						wn->validrates |= 1UL << p-wifi->rates;
+						if(*d & 0x80)
+							wn->basicrates |= 1UL << p-wifi->rates;
 						if(wn->minrate == nil || t < *wn->minrate)
 							wn->minrate = p;
 						if(wn->maxrate == nil || t > *wn->maxrate)
@@ -467,8 +504,10 @@ recvbeacon(Wifi *wifi, Wnode *wn, uchar *d, int len)
 						break;
 					}
 				}
-				wn->actrate = wn->maxrate;
+				d++;
 			}
+			if(wn->actrate == nil)
+				wn->actrate = wn->maxrate;
 			break;
 		case 3:		/* DSPARAMS */
 			if(d != x)

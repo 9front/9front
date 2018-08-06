@@ -43,6 +43,9 @@ struct Wnode
 	uchar	*maxrate;
 	uchar	*actrate;
 
+	ulong	validrates;	/* bitmap on wifi->rates */
+	ulong	basicrates;
+
 	ulong	txcount;	/* statistics for rate adaption */
 	ulong	txerror;
 
