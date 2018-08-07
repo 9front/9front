@@ -439,7 +439,7 @@ fswrite(Req *r)
 			memcpy(x, p, n-8);
 			x[n-8] = 0;
 
-			conn[NUM(path)].type = atoi(p);
+			conn[NUM(path)].type = strtoul(x, nil, 0);
 		}
 		r->ofcall.count = n;
 		respond(r, nil);
