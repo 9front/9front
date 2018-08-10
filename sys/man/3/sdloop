@@ -1,0 +1,51 @@
+.TH SDLOOP 3
+.SH NAME
+sdloop \- loopback storage device interface
+.SH SYNOPSIS
+.nf
+.B bind -a #S /dev
+.BI "echo config switch on spec " l " type loop/\fIpath\fP[!\fIsectsize\fP] >/dev/sdctl"
+
+.BI /dev/sd l 0/ctl
+.BI /dev/sd l 0/raw
+.BI /dev/sd l 0/data
+\&...
+.fi
+.SH DESCRIPTION
+.I Sdloop
+allows a file to be used as a sd device.
+To configure
+.B /tmp/data
+as
+.BR sdl0 :
+with a 1024-byte sector size
+.IP
+.EX
+echo config switch on spec l type loop//tmp/data!1024 >/dev/sdctl
+.EE
+.PP
+To turn this device off,
+.IP
+.EX
+echo config switch off spec l >/dev/sdctl
+.EE
+.PP
+The configuration variable
+.B loopdev
+may be specified in
+.IR plan9.ini (8)
+to configure a loopback 
+.I sd
+device at boot.  For example
+.IP
+.EX
+loopdev=l!/tmp/data!1024
+.EE
+.SH SOURCE
+.B /sys/src/9/port/sdloop.c
+.SH SEE ALSO
+.IR sd (3),
+.IR sdaoe (3),
+.IR partfs (8)
+.SH BUGS
+Maybe.
