@@ -1139,6 +1139,8 @@ startra6(void)
 {
 	static char routeon[] = "iprouting 1";
 
+	mklladdr();
+
 	if(conf.recvra > 0)
 		recvra6();
 

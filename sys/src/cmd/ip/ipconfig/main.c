@@ -392,8 +392,8 @@ main(int argc, char **argv)
 		}
 		doadd();
 		break;
-	case Vaddpref6:
 	case Vra6:
+	case Vaddpref6:
 		doipv6(action);
 		break;
 	case Vremove:
@@ -413,7 +413,7 @@ isether(void)
 }
 
 /* create link local address */
-static void
+void
 mklladdr(void)
 {
 	if(isether() && myetheraddr(conf.hwa, conf.dev) == 0){

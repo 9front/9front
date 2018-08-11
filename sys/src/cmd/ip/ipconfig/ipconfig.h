@@ -121,6 +121,7 @@ void	ipunconfig(void);
 void	adddefroute(uchar*, uchar*, uchar*, uchar*);
 void	removedefroute(int, uchar*, uchar*);
 
+void	mklladdr(void);
 long	jitter(void);
 void	procsetname(char *fmt, ...);
 void	catch(void*, char*);
