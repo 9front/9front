@@ -717,14 +717,9 @@ static Block*
 multicastarp(Fs *f, Arpent *a, Medium *medium, uchar *mac)
 {
 	/* is it broadcast? */
-	switch(ipforme(f, a->ip)){
-	case Runi:
-		return nil;
-	case Rbcast:
-		memset(mac, 0xff, 6);
+	if(ipforme(f, a->ip) == Rbcast){
+		memset(mac, 0xff, medium->maclen);
 		return arpresolve(f->arp, a, medium, mac);
-	default:
-		break;
 	}
 
 	/* if multicast, fill in mac */
