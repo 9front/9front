@@ -278,6 +278,32 @@ findifc(char *net, char *dev)
 	return -1;
 }
 
+static int
+isether(void)
+{
+	return strcmp(conf.type, "ether") == 0 || strcmp(conf.type, "gbe") == 0;
+}
+
+/* create a client id */
+static void
+mkclientid(void)
+{
+	if(isether() && myetheraddr(conf.hwa, conf.dev) == 0){
+		conf.hwalen = 6;
+		conf.hwatype = 1;
+		conf.cid[0] = conf.hwatype;
+		memmove(&conf.cid[1], conf.hwa, conf.hwalen);
+		conf.cidlen = conf.hwalen+1;
+	} else {
+		conf.hwatype = -1;
+		snprint((char*)conf.cid, sizeof conf.cid,
+			"plan9_%ld.%d", lrand(), getpid());
+		conf.cidlen = strlen((char*)conf.cid);
+		genrandom(conf.hwa, sizeof(conf.hwa));
+	}
+	ea2lla(conf.lladdr, conf.hwa);
+}
+
 void
 main(int argc, char **argv)
 {
@@ -385,6 +411,7 @@ main(int argc, char **argv)
 
 	switch(action){
 	case Vadd:
+		mkclientid();
 		if(dondbconfig){
 			dodhcp = 0;
 			ndbconfig();
@@ -394,6 +421,7 @@ main(int argc, char **argv)
 		break;
 	case Vra6:
 	case Vaddpref6:
+		mkclientid();
 		doipv6(action);
 		break;
 	case Vremove:
@@ -406,50 +434,11 @@ main(int argc, char **argv)
 	exits(nil);
 }
 
-static int
-isether(void)
-{
-	return strcmp(conf.type, "ether") == 0 || strcmp(conf.type, "gbe") == 0;
-}
-
-/* create link local address */
-void
-mklladdr(void)
-{
-	if(isether() && myetheraddr(conf.hwa, conf.dev) == 0){
-		conf.hwalen = 6;
-		conf.hwatype = 1;
-	} else {
-		genrandom(conf.hwa, sizeof(conf.hwa));
-		conf.hwatype = -1;
-	}
-	ea2lla(conf.lladdr, conf.hwa);
-}
-
-/* create a client id */
-static void
-mkclientid(void)
-{
-	if(isether() && myetheraddr(conf.hwa, conf.dev) == 0){
-		conf.hwalen = 6;
-		conf.hwatype = 1;
-		conf.cid[0] = conf.hwatype;
-		memmove(&conf.cid[1], conf.hwa, conf.hwalen);
-		conf.cidlen = conf.hwalen+1;
-	} else {
-		conf.hwatype = -1;
-		snprint((char*)conf.cid, sizeof conf.cid,
-			"plan9_%ld.%d", lrand(), getpid());
-		conf.cidlen = strlen((char*)conf.cid);
-	}
-}
-
 static void
 doadd(void)
 {
 	if(!validip(conf.laddr)){
 		if(ipv6auto){
-			mklladdr();
 			ipmove(conf.laddr, conf.lladdr);
 			dodhcp = 0;
 		} else
@@ -459,8 +448,6 @@ doadd(void)
 	/* run dhcp if we need something */
 	if(dodhcp){
 		fprint(conf.rfd, "tag dhcp");
-
-		mkclientid();
 		dhcpquery(!noconfig, Sselecting);
 	}
 
@@ -1012,7 +999,7 @@ ndbconfig(void)
 
 	memset(ips, 0, sizeof(ips));
 
-	if(!isether() || myetheraddr(conf.hwa, conf.dev) != 0)
+	if(conf.hwatype != 1)
 		sysfatal("can't read hardware address");
 	snprint(etheraddr, sizeof(etheraddr), "%E", conf.hwa);
 
@@ -1033,7 +1020,7 @@ ndbconfig(void)
 		sysfatal("no ip addresses found in ndb");
 
 	/* add link local address first, if not already done */
-	if(!validip(conf.lladdr) && !findllip(conf.lladdr, ifc)){
+	if(!findllip(conf.lladdr, ifc)){
 		for(i = 0; i < n; i++){
 			ipmove(conf.laddr, ips+i*IPaddrlen);
 			if(ISIPV6LINKLOCAL(conf.laddr)){
@@ -1053,8 +1040,7 @@ ndbconfig(void)
 	/* add v4 addresses and v6 if link local address is available */
 	for(i = 0; i < n; i++){
 		ipmove(conf.laddr, ips+i*IPaddrlen);
-		if(isv4(conf.laddr)
-		|| validip(conf.lladdr) && ipcmp(conf.laddr, conf.lladdr) != 0){
+		if(isv4(conf.laddr) || ipcmp(conf.laddr, conf.lladdr) != 0){
 			ndb2conf(db, conf.laddr);
 			doadd();
 		}
