@@ -8,10 +8,10 @@ case go
 	echo 'Please choose a method for configuring your ethernet connection.'
 	echo
 	echo '	manual - specify IP address, network mask, gateway IP address'
-	echo '	dhcp - use DHCP to automatically configure'
+	echo '	automatic - use DHCP and SLAAC to automatically configure'
 	echo
 	
-	prompt -d dhcp 'Configuration method' manual dhcp
+	prompt -d automatic 'Configuration method' manual automatic
 	ethermethod=$rd
 	gwaddr=xxx
 	ipaddr=xxx
@@ -26,11 +26,11 @@ case go
 			export DNSSERVER
 		}
 	}
-	export ethermethod gwaddr ipaddr ipmask dhcphost
+	export ethermethod gwaddr ipaddr ipmask
 	exec ./startether go
 
 case checkdone
-	if(! ~ $ethermethod manual dhcp) {
+	if(! ~ $ethermethod manual automatic) {
 		configether=notdone
 		export configether
 	}

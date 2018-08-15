@@ -7,7 +7,7 @@ etheraddr=`{cat $netdev/addr >[2]/dev/null}
 
 switch($1){
 case checkready checkdone
-	if(~ $#etheraddr 1 && ~ $netisfrom ether && ~ $ethermethod dhcp manual && \
+	if(~ $#etheraddr 1 && ~ $netisfrom ether && ~ $ethermethod automatic manual && \
 	   ! grep -s $etheraddr /n/newfs/lib/ndb/local)
 		ndbsetup=ready
 	if not
@@ -33,7 +33,7 @@ case go
 
 		echo
 		switch($ethermethod){
-		case dhcp
+		case automatic
 			echo $se
 		case manual
 			echo $se 'ip='^$ipaddr 'ipmask='^$ipmask 'ipgw='^$gwaddr

@@ -62,9 +62,13 @@ if(test -r /net/ipselftab){
 				addr=`{cat $ether/addr}
 				switch($addr){
 				case $addrs
-					# try /lib/ndb first, then do dhcp
-					ip/ipconfig -N ether $ether >[2]/dev/null \
-					|| ip/ipconfig -h $sysname ether $ether
+					# try /lib/ndb first, then do dhcp/slaac
+					ip/ipconfig -6 ether $ether
+					ip/ipconfig -N ether $ether >[2]/dev/null || @{
+						ip/ipconfig ether $ether ra6 recvra 1 &
+						ip/ipconfig -h $sysname ether $ether &
+						wait
+					}
 				}
 			}
 		}

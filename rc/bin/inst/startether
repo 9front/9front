@@ -15,11 +15,16 @@ case go
 		exit
 
 	log starting ethernet $ethermethod config
+	ip/ipconfig -6
 	switch($ethermethod) {
 	case manual
 		ip/ipconfig -g $gwaddr ether $netdev $ipaddr $ipmask >>[2]/srv/log
-	case dhcp
-		ip/ipconfig >>[2]/srv/log
+	case automatic
+		>>[2]/srv/log @{
+			ip/ipconfig ra6 recva 1 &
+			ip/ipconfig &
+			wait
+		}
 	}
 
 case checkdone
