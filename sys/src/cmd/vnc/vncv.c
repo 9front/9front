@@ -51,7 +51,9 @@ netmkvncaddr(char *server)
 	port = 5900;
 	if(tls)
 		port = 35729;
-	if(p = strchr(server, ':')) {
+	if((p = strchr(server, ']')) == nil)
+		p = server;
+	if((p = strchr(p, ':')) != nil) {
 		*p++ = '\0';
 		port += atoi(p);
 	}
@@ -110,7 +112,7 @@ main(int argc, char **argv)
 		usage();
 
 	serveraddr = strdup(argv[0]);
-	dfd = dial(netmkvncaddr(argv[0]), nil, nil, &cfd);
+	dfd = dial(netmkvncaddr(serveraddr), nil, nil, &cfd);
 	if(dfd < 0)
 		sysfatal("cannot dial %s: %r", serveraddr);
 	if(tls){
@@ -132,7 +134,7 @@ main(int argc, char **argv)
 	if(vncstart(vnc, shared) < 0)
 		sysfatal("init failure: %r");
 
-	label = smprint("vnc %s", serveraddr);
+	label = smprint("vnc %s", argv[0]);
 	if(initdraw(0, 0, label) < 0)
 		sysfatal("initdraw: %r");
 	free(label);

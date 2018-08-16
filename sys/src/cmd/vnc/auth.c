@@ -53,7 +53,6 @@ vncauth(Vnc *v, char *keypattern)
 	char *reason;
 	uchar chal[VncChalLen];
 	ulong auth;
-	char *p, *server;
 
 	if(keypattern == nil)
 		keypattern = "";
@@ -79,16 +78,10 @@ vncauth(Vnc *v, char *keypattern)
 
 	case AVncAuth:
 		vncrdbytes(v, chal, VncChalLen);
-		server = strdup(serveraddr);
-		p = strrchr(server, ':');
-		if(p)
-			*p = 0;
 		if(auth_respond(chal, VncChalLen, nil, 0, chal, VncChalLen, auth_getkey,
-			"proto=vnc role=client server=%s %s", server, keypattern) != VncChalLen){
-			free(server);
+			"proto=vnc role=client server=%s %s", serveraddr, keypattern) != VncChalLen){
 			return -1;
 		}
-		free(server);
 		vncwrbytes(v, chal, VncChalLen);
 		vncflush(v);
 
