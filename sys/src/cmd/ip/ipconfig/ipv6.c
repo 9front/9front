@@ -158,22 +158,6 @@ uchar v6defmask[IPaddrlen] = {
 	0, 0, 0, 0
 };
 
-#pragma varargck argpos ralog 1
-
-#define RALOG "v6routeradv"
-
-static void
-ralog(char *fmt, ...)
-{
-	char msg[512];
-	va_list arg;
-
-	va_start(arg, fmt);
-	vseprint(msg, msg+sizeof msg, fmt, arg);
-	va_end(arg);
-	syslog(debug, RALOG, msg);
-}
-
 void
 v6paraminit(Conf *cf)
 {
@@ -462,9 +446,9 @@ sendrs(int fd, uchar *dst)
 	}
 
 	if(write(fd, rs, pktlen) != pktlen)
-		ralog("sendrs: write failed, pkt size %d", pktlen);
+		DEBUG("sendrs: write failed, pkt size %d", pktlen);
 	else
-		ralog("sendrs: sent solicitation to %I from %I on %s",
+		DEBUG("sendrs: sent solicitation to %I from %I on %s",
 			rs->dst, rs->src, conf.dev);
 }
 
@@ -492,7 +476,7 @@ ewrite(int fd, char *str)
 
 	n = strlen(str);
 	if(write(fd, str, n) != n)
-		ralog("write(%s) failed: %r", str);
+		warning("write(%s) failed: %r", str);
 }
 
 static void
@@ -765,7 +749,7 @@ recvrahost(uchar buf[], int pktlen)
 		|| ISIPV6MCAST(conf.v6pref)
 		|| ISIPV6LINKLOCAL(conf.v6pref)){
 			if(!seen(&conf))
-				ralog("igoring bogus prefix from %I on %s; pfx %I %M",
+				warning("igoring bogus prefix from %I on %s; pfx %I %M",
 					ra->src, conf.dev, conf.v6pref, conf.mask);
 			continue;
 		}
@@ -777,7 +761,7 @@ recvrahost(uchar buf[], int pktlen)
 		if(seen(&conf))
 			continue;
 
-		ralog("got RA from %I on %s; pfx %I %M",
+		DEBUG("got RA from %I on %s; pfx %I %M",
 			ra->src, conf.dev, conf.v6pref, conf.mask);
 
 		if(validip(conf.gaddr))
@@ -815,7 +799,7 @@ recvra6(void)
 		sysfatal("can't fork: %r");
 	default:
 		close(fd);
-		ralog("recvra6 on %s", conf.dev);
+		DEBUG("recvra6 on %s", conf.dev);
 
 		/* wait for initial RA */
 		return (int)(uintptr)rendezvous(recvra6, (void*)0);
@@ -845,7 +829,7 @@ recvra6(void)
 
 		ifc = readipifc(conf.mpoint, ifc, myifc);
 		if(ifc == nil) {
-			ralog("recvra6: can't read router params on %s, quitting on %s",
+			warning("recvra6: can't read router params on %s, quitting on %s",
 				conf.mpoint, conf.dev);
 			if(sendrscnt >= 0)
 				rendezvous(recvra6, (void*)-1);
@@ -860,7 +844,7 @@ recvra6(void)
 			}
 			if(sendrscnt == 0) {
 				sendrscnt--;
-				ralog("recvra6: no router advs after %d sols on %s",
+				warning("recvra6: no router advs after %d sols on %s",
 					Maxv6rss, conf.dev);
 				rendezvous(recvra6, (void*)0);
 				sleepfor = 0;
@@ -876,7 +860,7 @@ recvra6(void)
 			recvrahost(buf, n);
 			break;
 		case IsHostNoRecv:
-			ralog("recvra6: recvra off, quitting on %s", conf.dev);
+			warning("recvra6: recvra off, quitting on %s", conf.dev);
 			if(sendrscnt >= 0)
 				rendezvous(recvra6, (void*)-1);
 			exits(nil);
@@ -1088,7 +1072,7 @@ sendra6(void)
 		sysfatal("can't fork: %r");
 	default:
 		close(fd);
-		ralog("sendra6 on %s", conf.dev);
+		DEBUG("sendra6 on %s", conf.dev);
 		return;
 	case 0:
 		break;
@@ -1114,7 +1098,7 @@ sendra6(void)
 
 		ifc = readipifc(conf.mpoint, ifc, myifc);
 		if(ifc == nil) {
-			ralog("sendra6: can't read router params on %s, quitting on %s",
+			warning("sendra6: can't read router params on %s, quitting on %s",
 				conf.mpoint, conf.dev);
 			exits(nil);
 		}
@@ -1124,7 +1108,7 @@ sendra6(void)
 				sendra(fd, v6allnodesL, 0, ifc, nil);
 				continue;
 			}
-			ralog("sendra6: sendra off on %s, quitting on %s",
+			warning("sendra6: sendra off on %s, quitting on %s",
 				conf.mpoint, conf.dev);
 			exits(nil);
 		}
@@ -1142,6 +1126,7 @@ startra6(void)
 	if(conf.recvra > 0)
 		recvra6();
 
+	dolog = 1;
 	if(conf.sendra > 0) {
 		if(write(conf.cfd, routeon, sizeof routeon - 1) < 0) {
 			warning("write (%s) failed: %r", routeon);
@@ -1168,7 +1153,6 @@ doipv6(int what)
 	case Vra6:
 		issuebasera6(&conf);
 		issuerara6(&conf);
-		dolog = 1;
 		startra6();
 		break;
 	}

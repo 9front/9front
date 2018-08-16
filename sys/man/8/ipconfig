@@ -366,7 +366,7 @@ ip/ipconfig -6
 ip/ipconfig ra6 recvra 1
 .EE
 .SH FILES
-.B /sys/log/v6routeradv
+.B /sys/log/ipconfig
 .SH SOURCE
 .B /sys/src/cmd/ip/ipconfig
 .br
