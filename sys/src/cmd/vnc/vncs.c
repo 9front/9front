@@ -571,7 +571,7 @@ vncaccept(Vncs *v)
 	if(!shared)
 		killclients(v);
 
-	v->dim = rectsubpt(screen->r, screen->r.min);
+	v->dim = rectsubpt(gscreen->r, gscreen->r.min);
 	vncwrpoint(v, v->dim.max);
 	if(verbose)
 		fprint(2, "%V: send screen size %R\n", v, v->dim);
