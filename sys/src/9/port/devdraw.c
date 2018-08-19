@@ -524,6 +524,7 @@ allocdimage(Memimage *i)
 	d->name = 0;
 	d->vers = 0;
 	d->image = i;
+	d->dscreen = 0;
 	d->nfchar = 0;
 	d->fchar = 0;
 	d->fromname = 0;
