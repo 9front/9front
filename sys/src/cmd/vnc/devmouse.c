@@ -27,6 +27,7 @@ struct Mouseinfo
 	ulong	lastcounter;	/* value when /dev/mouse read */
 	Rendez	r;
 	Ref;
+	int	resize;
 	int	open;
 	Mousestate	queue[16];	/* circular buffer of click events */
 	ulong	ri;		/* read index into queue */
@@ -195,6 +196,10 @@ mouseread(Chan *c, void *va, long n, vlong off)
 			m.xy.x, m.xy.y, m.buttons, m.msec);
 
 		mouse.lastcounter = m.counter;
+		if(mouse.resize){
+			mouse.resize = 0;
+			buf[0] = 'r';
+		}
 
 		if(n > 1+4*12)
 			n = 1+4*12;
@@ -321,11 +326,21 @@ absmousetrack(int x, int y, int b, ulong msec)
 int
 mousechanged(void*)
 {
-	return mouse.lastcounter != mouse.counter;
+	return mouse.lastcounter != mouse.counter || mouse.resize != 0;
 }
 
 Point
 mousexy(void)
 {
 	return mouse.xy;
+}
+
+/*
+ * notify reader that screen has been resized
+ */
+void
+mouseresize(void)
+{
+	mouse.resize = 1;
+	rendwakeup(&mouse.r);
 }

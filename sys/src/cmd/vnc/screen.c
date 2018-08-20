@@ -42,10 +42,7 @@ static Cursor		screencursor;
 void
 screeninit(int x, int y, char *chanstr)
 {
-	Point p, q;
-	char *greet;
 	char buf[128];
-	Memimage *grey;
 	Rectangle r;
 	int chan;
 
@@ -78,31 +75,33 @@ screeninit(int x, int y, char *chanstr)
 		error(buf);
 	}
 
-	drawlock();
-
-	/*
-	 * set up goo for screenputs
-	 */
-	memdefont = getmemdefont();
-
-	back = memwhite;
-	conscol = memblack;
-
 	/* a lot of work to get a grey color */
 	curscol = allocmemimage(Rect(0,0,1,1), RGBA32);
 	curscol->flags |= Frepl;
 	curscol->clipr = gscreen->r;
 	memfillcolor(curscol, 0xff0000ff);
 
-	memfillcolor(gscreen, 0x444488FF);
+	screenwin();
 
-	w = memdefont->info[' '].width;
+	setcursor(&arrow);
+}
+
+void
+screenwin(void)
+{
+	Point p;
+	char *greet;
+	Memimage *grey;
+
+	qlock(&drawlock);
+	back = memwhite;
+	conscol = memblack;
+	memfillcolor(gscreen, 0x888844FF);
+	
+	memdefont = getmemdefont();
 	h = memdefont->height;
 
-	window.min = addpt(gscreen->r.min, Pt(20,20));
-	window.max.x = window.min.x + Dx(gscreen->r)*3/4-40;
-	window.max.y = window.min.y + Dy(gscreen->r)*3/4-100;
-
+	window = insetrect(gscreen->clipr, 20);
 	memimagedraw(gscreen, window, memblack, ZP, memopaque, ZP, S);
 	window = insetrect(window, 4);
 	memimagedraw(gscreen, window, memwhite, ZP, memopaque, ZP, S);
@@ -119,22 +118,18 @@ screeninit(int x, int y, char *chanstr)
 
 	greet = " Plan 9 Console ";
 	p = addpt(window.min, Pt(10, 0));
-	q = memsubfontwidth(memdefont, greet);
 	memimagestring(gscreen, p, conscol, ZP, memdefont, greet);
 	window.min.y += h+6;
 	curpos = window.min;
 	window.max.y = window.min.y+((window.max.y-window.min.y)/h)*h;
 	flushmemscreen(gscreen->r);
-
-	drawunlock();
-
-	setcursor(&arrow);
+	qunlock(&drawlock);
 }
 
 uchar*
 attachscreen(Rectangle* r, ulong* chan, int* d, int* width, int *softscreen)
 {
-	*r = gscreen->r;
+	*r = gscreen->clipr;
 	*d = gscreen->depth;
 	*chan = gscreen->chan;
 	*width = gscreen->width;
@@ -263,7 +258,7 @@ scroll(void)
 	memimagedraw(gscreen, r, gscreen, p, nil, p, S);
 	r = Rpt(Pt(window.min.x, window.max.y-o), window.max);
 	memimagedraw(gscreen, r, back, ZP, nil, ZP, S);
-	flushmemscreen(gscreen->r);
+	flushmemscreen(gscreen->clipr);
 
 	curpos.y -= o;
 }
@@ -336,7 +331,7 @@ screenputs(char *s, int n)
 	static int nrb;
 	char *e;
 
-	drawlock();
+	qlock(&drawlock);
 	e = s + n;
 	while(s < e){
 		rb[nrb++] = *s++;
@@ -347,5 +342,5 @@ screenputs(char *s, int n)
 		}
 	}
 	screenflush();
-	drawunlock();
+	qunlock(&drawlock);
 }
