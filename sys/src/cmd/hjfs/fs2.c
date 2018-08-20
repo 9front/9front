@@ -108,6 +108,7 @@ chancreat(Chan *ch, char *name, int perm, int mode)
 	int isdir;
 	Loc *l;
 	FLoc f;
+	short pgid;
 
 	b = nil;
 	l = nil;
@@ -150,6 +151,7 @@ chancreat(Chan *ch, char *name, int perm, int mode)
 	l = getloc(ch->fs, f, ch->loc);
 	modified(ch, d);
 	b->op |= BDELWRI;
+	pgid = d->gid;
 	putbuf(b);
 	b = nil;
 	if(willmodify(ch->fs, l, ch->flags & CHFNOLOCK) < 0)
@@ -164,7 +166,8 @@ chancreat(Chan *ch, char *name, int perm, int mode)
 	strcpy(d->name, name);
 	d->mtime = time(0);
 	d->atime = d->mtime;
-	d->gid = d->uid = d->muid = ch->uid;
+	d->gid = pgid;
+	d->uid = d->muid = ch->uid;
 	d->mode = DALLOC | perm & 0777;
 	if((d->type & QTEXCL) != 0){
 		qlock(&ch->loc->ex);
