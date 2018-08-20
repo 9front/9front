@@ -112,8 +112,8 @@ err:
 	return -1;
 }
 
-int
-willmodify(Fs *fs, Loc *l, int nolock)
+static int
+willmodify1(Fs *fs, Loc *l)
 {
 	Buf *p;
 	Loc *m;
@@ -121,29 +121,20 @@ willmodify(Fs *fs, Loc *l, int nolock)
 	Dentry *d;
 	int rc;
 
-	if((l->flags & LDUMPED) != 0)
-		return 1;
-	if(!nolock){
-again:
-		runlock(fs);
-		wlock(fs);
-	}
-	if(l->next != nil && willmodify(fs, l->next, 1) < 0)
-		goto err;
 	rc = chref(fs, l->blk, 0);
 	if(rc < 0)
-		goto err;
+		return -1;
 	if(rc == 0){
 		dprint("willmodify: block %lld has refcount 0\n", l->blk);
 		werrstr("phase error -- willmodify");
-		goto err;
+		return -1;
 	}
 	if(rc == 1)
 		goto done;
 
 	p = getbuf(fs->d, l->next->blk, TDENTRY, 0);
 	if(p == nil)
-		goto err;
+		return -1;
 	d = getdent(l->next, p);
 	if(d != nil) for(i = 0; i < d->size; i++){
 		rc = getblk(fs, l->next, p, i, &r, GBREAD);
@@ -155,12 +146,12 @@ again:
 phase:
 	werrstr("willmodify -- phase error");
 	putbuf(p);
-	goto err;
+	return -1;
 found:
 	rc = getblk(fs, l->next, p, i, &r, GBWRITE);
 	if(rc < 0){
 		putbuf(p);
-		goto err;
+		return -1;
 	}
 	if(rc == 0)
 		goto phase;
@@ -180,17 +171,50 @@ found:
 	}
 done:
 	l->flags |= LDUMPED;
+	return 0;
+}
+
+int
+willmodify(Fs *fs, Loc *l, int nolock)
+{
+	Loc **st;
+	int sti, rc;
+	
+	if((l->flags & LDUMPED) != 0)
+		return 1;
+	if(!nolock){
+again:
+		runlock(fs);
+		wlock(fs);
+	}
+	st = emalloc(sizeof(Loc *));
+	*st = l;
+	sti = 0;
+	for(;;){
+		if((st[sti]->flags & LDUMPED) != 0 || st[sti]->next == nil)
+			break;
+		st = erealloc(st, (sti + 2) * sizeof(Loc *));
+		st[sti + 1] = st[sti]->next;
+		sti++;
+	}
+	rc = 0;
+	for(; sti >= 0; sti--){
+		rc = willmodify1(fs, st[sti]);
+		if(rc < 0){
+			free(st);
+			if(!nolock){
+				wunlock(fs);
+				rlock(fs);
+			}
+			return -1;
+		}
+	}
 	if(!nolock){
 		wunlock(fs);
 		rlock(fs);
 		if(chref(fs, l->blk, 0) != 1)
 			goto again;
 	}
-	return 0;
-err:
-	if(!nolock){
-		wunlock(fs);
-		rlock(fs);
-	}
-	return -1;
+	free(st);
+	return rc;
 }
