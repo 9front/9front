@@ -13,7 +13,6 @@ enum{
 	Qcons,
 	Qconsctl,
 	Qsnarf,
-	Qwinname,
 };
 
 static Dirtab consdir[]={
@@ -21,7 +20,6 @@ static Dirtab consdir[]={
 	"cons",		{Qcons},	0,		0660,
 	"consctl",	{Qconsctl},	0,		0220,
 	"snarf",	{Qsnarf},	0,		0600,
-	"winname",	{Qwinname},	0,		0000,
 };
 
 static Chan*

@@ -22,10 +22,11 @@ struct Vncs
 	int		(*sendrect)(Vncs*, Rectangle);
 	int		copyrect;
 	int		canwarp;
-	int		needwarp;
+	int		dowarp;
 	Point		warppt;
 
-	int		updaterequest;
+	ulong		updatereq;
+
 	Rlist		rlist;
 	int		ndead;
 	int		nproc;

@@ -571,7 +571,7 @@ vncaccept(Vncs *v)
 	if(!shared)
 		killclients(v);
 
-	v->dim = rectsubpt(gscreen->r, gscreen->r.min);
+	v->dim = rectsubpt(gscreen->clipr, gscreen->clipr.min);
 	vncwrpoint(v, v->dim.max);
 	if(verbose)
 		fprint(2, "%V: send screen size %R\n", v, v->dim);
@@ -591,6 +591,8 @@ vncaccept(Vncs *v)
 
 	if(verbose)
 		fprint(2, "%V: handshaking done\n", v);
+
+	v->updatereq = 0;
 
 	switch(rfork(RFPROC|RFMEM)){
 	case -1:
@@ -674,7 +676,10 @@ setencoding(Vncs *v)
 			v->canwarp = 1;
 			continue;
 		case EncDesktopSize:
+			v->canresize |= 1;
+			continue;
 		case EncXDesktopSize:
+			v->canresize |= 2;
 			continue;
 		}
 		if(v->countrect != nil)
@@ -710,9 +715,10 @@ setencoding(Vncs *v)
 	}
 
 	if(verbose)
-		fprint(2, "Encoding with %s%s%s\n", v->encname,
+		fprint(2, "Encoding with %s%s%s%s\n", v->encname,
 			v->copyrect ? ", copyrect" : "",
-			v->canwarp ? ", canwarp" : "");
+			v->canwarp ? ", canwarp" : "",
+			v->canresize ? ", resize" : "");
 }
 
 /*
@@ -755,18 +761,40 @@ clientreadproc(Vncs *v)
 		case MFrameReq:
 			incremental = vncrdchar(v);
 			r = vncrdrect(v);
-			if(incremental){
-				vnclock(v);
-				v->updaterequest = 1;
-				vncunlock(v);
-			}else{
-				drawlock();	/* protects rlist */
-				vnclock(v);	/* protects updaterequest */
-				v->updaterequest = 1;
+			if(!incremental){
+				qlock(&drawlock);	/* protects rlist */
 				addtorlist(&v->rlist, r);
-				vncunlock(v);
-				drawunlock();
+				qunlock(&drawlock);
 			}
+			v->updatereq++;
+			break;
+
+		case MSetDesktopSize:
+			vncrdchar(v);
+			vncrdpoint(v);	// desktop size
+			n = vncrdchar(v);
+			vncrdchar(v);
+			if(n == 0)
+				break;
+			vncrdlong(v);	// id
+			r = vncrdrect(v);
+			vncrdlong(v);	// flags
+			while(--n > 0){
+				vncrdlong(v);
+				vncrdrect(v);
+				vncrdlong(v);
+			}
+			qlock(&drawlock);
+			if(!rectclip(&r, gscreen->r)){
+				qunlock(&drawlock);
+				break;
+			}
+			gscreen->clipr = r;
+			qunlock(&drawlock);
+
+			screenwin();
+			deletescreenimage();
+			resetscreenimage();
 			break;
 
 		/* send keystroke */
@@ -905,7 +933,7 @@ flushmemscreen(Rectangle r)
 {
 	Vncs *v;
 
-	if(!rectclip(&r, gscreen->r))
+	if(!rectclip(&r, gscreen->clipr))
 		return;
 	qlock(&clients);
 	for(v=clients.head; v; v=v->next)
@@ -925,7 +953,7 @@ mousewarpnote(Point p)
 	for(v=clients.head; v; v=v->next){
 		if(v->canwarp){
 			vnclock(v);
-			v->needwarp = 1;
+			v->dowarp = 1;
 			v->warppt = p;
 			vncunlock(v);
 		}
@@ -940,7 +968,7 @@ mousewarpnote(Point p)
 static int
 updateimage(Vncs *v)
 {
-	int i, ncount, nsend, docursor, needwarp;
+	int i, j, ncount, nsend, docursor, dowarp, doresize;
 	vlong ooffset;
 	Point warppt;
 	Rectangle cr;
@@ -949,19 +977,36 @@ updateimage(Vncs *v)
 	int (*count)(Vncs*, Rectangle);
 	int (*send)(Vncs*, Rectangle);
 
-	if(v->image == nil)
-		return 0;
-
-	/* warping info and unlock v so that updates can proceed */
-	needwarp = v->canwarp && v->needwarp;
+	vnclock(v);
+	dowarp = v->canwarp && v->dowarp;
 	warppt = v->warppt;
-	v->needwarp = 0;
+	v->dowarp = 0;
 	vncunlock(v);
 
 	/* copy the screen bits and then unlock the screen so updates can proceed */
-	drawlock();
+	qlock(&drawlock);
 	rlist = v->rlist;
 	memset(&v->rlist, 0, sizeof v->rlist);
+
+	if(v->canresize && !eqrect(v->screen[0].rect, gscreen->clipr)){
+		v->screen[0].rect = gscreen->clipr;
+		v->dim = rectsubpt(gscreen->clipr, gscreen->clipr.min);
+		doresize = 1;
+	} else
+		doresize = 0;
+
+	if(doresize
+	|| (v->image == nil && v->imagechan != 0)
+	|| (v->image != nil && v->image->chan != v->imagechan)){
+		if(v->image)
+			freememimage(v->image);
+		v->image = allocmemimage(v->dim, v->imagechan);
+		if(v->image == nil){
+			fprint(2, "%V: allocmemimage: %r; hanging up\n", v);
+			qlock(&drawlock);
+			vnchungup(v);
+		}
+	}
 
 	/* if the cursor has moved or changed shape, we need to redraw its square */
 	lock(&cursor);
@@ -978,7 +1023,7 @@ updateimage(Vncs *v)
 
 	if(docursor){
 		addtorlist(&rlist, v->cursorr);
-		if(!rectclip(&cr, gscreen->r))
+		if(!rectclip(&cr, gscreen->clipr))
 			cr.max = cr.min;
 		addtorlist(&rlist, cr);
 	}
@@ -996,15 +1041,7 @@ updateimage(Vncs *v)
 		v->cursorr = cr;
 	}
 
-	drawunlock();
-
-	ooffset = Boffset(&v->out);
-	/* no more locks are held; talk to the client */
-
-	if(rlist.nrect == 0 && needwarp == 0){
-		vnclock(v);
-		return 0;
-	}
+	qunlock(&drawlock);
 
 	count = v->countrect;
 	send = v->sendrect;
@@ -1014,16 +1051,45 @@ updateimage(Vncs *v)
 	}
 
 	ncount = 0;
-	for(i=0; i<rlist.nrect; i++)
-		ncount += (*count)(v, rlist.rect[i]);
+	for(i=j=0; i<rlist.nrect; i++){
+		if(j < i)
+			rlist.rect[j] = rlist.rect[i];
+		if(rectclip(&rlist.rect[j], v->dim))
+			ncount += (*count)(v, rlist.rect[j++]);
+	}
+	rlist.nrect = j;
 
-	if(verbose > 1)
-		fprint(2, "sendupdate: rlist.nrect=%d, ncount=%d", rlist.nrect, ncount);
+	if(doresize == 0 && ncount == 0 && dowarp == 0)
+		return 0;
 
-	t1 = nsec();
+	if(verbose > 1){
+		fprint(2, "sendupdate: rlist.nrect=%d, ncount=%d\n", rlist.nrect, ncount);
+		t1 = nsec();
+		ooffset = Boffset(&v->out);
+	}
+
+	if(doresize && v->canresize == 1){
+		doresize = 0;
+
+		vncwrchar(v, MFrameUpdate);
+		vncwrchar(v, 0);
+		vncwrshort(v, 1);
+		vncwrrect(v, v->dim);
+		vncwrlong(v, EncDesktopSize);
+	}
+
 	vncwrchar(v, MFrameUpdate);
 	vncwrchar(v, 0);
-	vncwrshort(v, ncount+needwarp);
+	vncwrshort(v, doresize+ncount+dowarp);
+
+	if(doresize){
+		vncwrrect(v, gscreen->r);
+		vncwrlong(v, EncXDesktopSize);
+		vncwrlong(v, 1<<24);
+		vncwrlong(v, v->screen[0].id);
+		vncwrrect(v, v->screen[0].rect);
+		vncwrlong(v, v->screen[0].flags);
+	}
 
 	nsend = 0;
 	for(i=0; i<rlist.nrect; i++)
@@ -1034,17 +1100,17 @@ updateimage(Vncs *v)
 		vnchungup(v);
 	}
 
-	if(needwarp){
+	if(dowarp){
 		vncwrrect(v, Rect(warppt.x, warppt.y, warppt.x+1, warppt.y+1));
 		vncwrlong(v, EncMouseWarp);
 	}
 
-	t1 = nsec() - t1;
-	if(verbose > 1)
+	if(verbose > 1){
+		t1 = nsec() - t1;
 		fprint(2, " in %lldms, %lld bytes\n", t1/1000000, Boffset(&v->out) - ooffset);
+	}
 
 	freerlist(&rlist);
-	vnclock(v);
 	return 1;
 }
 
@@ -1059,13 +1125,11 @@ updatesnarf(Vncs *v)
 
 	if(v->snarfvers == snarf.vers)
 		return;
-	vncunlock(v);
 	qlock(&snarf);
 	len = snarf.n;
 	buf = malloc(len);
 	if(buf == nil){
 		qunlock(&snarf);
-		vnclock(v);
 		return;
 	}
 	memmove(buf, snarf.buf, len);
@@ -1077,7 +1141,6 @@ updatesnarf(Vncs *v)
 	vncwrlong(v, len);
 	vncwrbytes(v, buf, len);
 	free(buf);
-	vnclock(v);
 }
 
 /*
@@ -1086,41 +1149,16 @@ updatesnarf(Vncs *v)
 static void
 clientwriteproc(Vncs *v)
 {
-	char buf[32], buf2[32];
-	int sent;
+	ulong last = 0;
 
 	vncname("write %V", v);
-	for(;;){
-		vnclock(v);
-		if(v->ndead)
-			break;
-		if((v->image == nil && v->imagechan!=0)
-		|| (v->image && v->image->chan != v->imagechan)){
-			if(v->image)
-				freememimage(v->image);
-			v->image = allocmemimage(v->dim, v->imagechan);
-			if(v->image == nil){
-				fprint(2, "%V: allocmemimage: %r; hanging up\n", v);
-				vnchungup(v);
-			}
-			if(verbose)
-				fprint(2, "%V: translating image from chan=%s to chan=%s\n",
-					v, chantostr(buf, gscreen->chan), chantostr(buf2, v->imagechan));
-		}
-		sent = 0;
-		if(v->updaterequest){
-			v->updaterequest = 0;
-			updatesnarf(v);
-			sent = updateimage(v);
-			if(!sent)
-				v->updaterequest = 1;
-		}
-		vncunlock(v);
+	while(!v->ndead){
+		sleep(sleeptime);
+		updatesnarf(v);
+		if(v->updatereq != last && updateimage(v))
+			last++;
 		vncflush(v);
-		if(!sent)
-			sleep(sleeptime);
 	}
-	vncunlock(v);
 	vnchungup(v);
 }
 

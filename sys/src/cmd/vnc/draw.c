@@ -260,9 +260,12 @@ dorectangle(Vnc *v)
 	case EncMouseWarp:
 		mousewarp(r.min);
 		return;
-
+	case EncDesktopSize:
+		v->canresize |= 1;
+		vncsetdim(v, r);
+		return;
 	case EncXDesktopSize:
-		v->canresize = 1;
+		v->canresize |= 2;
 		n = vncrdlong(v)>>24;
 		if(n <= 0)
 			break;
@@ -274,9 +277,7 @@ dorectangle(Vnc *v)
 			vncrdrect(v);
 			vncrdlong(v);
 		}
-		/* wet floor */
-	case EncDesktopSize:
-		vncsetdim(v, r);
+		vncsetdim(v, v->screen[0].rect);
 		return;
 	}
 
