@@ -29,6 +29,9 @@ vncsetdim(Vnc *v, Rectangle dim)
 	pixbuf = realloc(pixbuf, v->dim.max.x * pixb * v->dim.max.y);
 	if(linebuf == nil || pixbuf == nil)
 		sysfatal("can't allocate pix decompression storage");
+	lockdisplay(display);
+	adjustwin(v, 0);
+	unlockdisplay(display);
 }
 
 static void
@@ -79,7 +82,7 @@ requestupdate(Vnc *v, int incremental)
 	r = rectsubpt(screen->r, screen->r.min);
 	unlockdisplay(display);
 	vnclock(v);
-	if(incremental == 0 && v->canresize && !eqrect(r, v->dim)){
+	if(incremental == 0 && (v->canresize&2)!=0 && !eqrect(r, v->dim)){
 		vncwrchar(v, MSetDesktopSize);
 		vncwrchar(v, 0);
 		vncwrpoint(v, r.max);
