@@ -969,14 +969,12 @@ static int
 updateimage(Vncs *v)
 {
 	int i, j, ncount, nsend, docursor, dowarp, doresize;
-	vlong ooffset, t1;
+	vlong ooffset = 0, t1 = 0;
 	Point warppt;
 	Rectangle cr;
 	Rlist rlist;
 	int (*count)(Vncs*, Rectangle);
 	int (*send)(Vncs*, Rectangle);
-
-	ooffset = t1 = 0;
 
 	vnclock(v);
 	dowarp = v->canwarp && v->dowarp;
