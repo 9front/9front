@@ -10,35 +10,46 @@ struct Mouse {
 	Point xy;
 };
 
-static void
-resize(Vnc *v, int first)
+void
+adjustwin(Vnc *v, int force)
 {
 	int fd;
 	Point d;
 
-	lockdisplay(display);
-	if(getwindow(display, Refnone) < 0)
-		sysfatal("internal error: can't get the window image");
-	if(!v->canresize){
+	if(force)
+		d = v->dim.max;
+	else {
 		/*
 		 * limit the window to at most the vnc server's size
 		 */
-		d = addpt(v->dim.max, Pt(2*Borderwidth, 2*Borderwidth));
-		if(first || d.x < Dx(screen->r) || d.y < Dy(screen->r)){
-			fd = open("/dev/wctl", OWRITE);
-			if(fd >= 0){
-				fprint(fd, "resize -dx %d -dy %d", d.x, d.y);
-				close(fd);
-			}
+		d = subpt(screen->r.max, screen->r.min);
+		if(d.x > v->dim.max.x){
+			d.x = v->dim.max.x;
+			force = 1;
+		}
+		if(d.y > v->dim.max.y){
+			d.y = v->dim.max.y;
+			force = 1;
 		}
 	}
-	unlockdisplay(display);
+	if(force) {
+		fd = open("/dev/wctl", OWRITE);
+		if(fd >= 0){
+			fprint(fd, "resize -dx %d -dy %d", d.x+2*Borderwidth, d.y+2*Borderwidth);
+			close(fd);
+		}
+	}
 }
 
 static void
-eresized(void)
+resized(int first)
 {
-	resize(vnc, 0);
+	lockdisplay(display);
+	if(getwindow(display, Refnone) < 0)
+		sysfatal("internal error: can't get the window image");
+	if((vnc->canresize&2) == 0)
+		adjustwin(vnc, first);
+	unlockdisplay(display);
 	requestupdate(vnc, 0);
 }
 
@@ -130,8 +141,7 @@ readmouse(Vnc *v)
 	memmove(curs+2*4, cs->clr, 2*2*16);
 	write(cursorfd, curs, sizeof curs);
 
-	resize(v, 1);
-	requestupdate(vnc, 0);
+	resized(1);
 	start = end = buf;
 	len = 0;
 	for(;;){
@@ -155,8 +165,7 @@ readmouse(Vnc *v)
 					}
 				}
 			} else
-				eresized();
-
+				resized(0);
 			start += EventSize;
 			len -= EventSize;
 		}

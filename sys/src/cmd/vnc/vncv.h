@@ -18,6 +18,7 @@ extern	Vnc*		vnc;
 extern	int		mousefd;
 
 /* wsys.c */
+extern	void		adjustwin(Vnc*, int);
 extern	void		readkbd(Vnc*);
 extern	void		initmouse(void);
 extern	void		mousewarp(Point);
