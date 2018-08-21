@@ -58,6 +58,7 @@ commands table below.
 .TP
 .B -k
 Kill images. Don't fetch/display images.
+.TP
 .B -m
 Specify the
 .IR webfs (4)
