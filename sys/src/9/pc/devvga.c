@@ -86,6 +86,16 @@ vgareset(void)
 	conf.monitor = 1;
 }
 
+static void
+vgashutdown(void)
+{
+	VGAscr *scr;
+
+	scr = &vgascreen[0];
+	if(scr->cur && scr->cur->disable)
+		scr->cur->disable(scr);
+}
+
 static Chan*
 vgaattach(char* spec)
 {
@@ -484,7 +494,7 @@ Dev vgadevtab = {
 
 	vgareset,
 	devinit,
-	devshutdown,
+	vgashutdown,
 	vgaattach,
 	vgawalk,
 	vgastat,
