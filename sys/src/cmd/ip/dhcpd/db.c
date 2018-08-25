@@ -209,6 +209,19 @@ samenet(uchar *ip, Info *iip)
 {
 	uchar x[IPaddrlen];
 
+	/* directly connected, check local networks */
+	if(iip->ifc != nil){
+		Iplifc *lifc;
+
+		for(lifc = iip->ifc->lifc; lifc != nil; lifc = lifc->next){
+			maskip(lifc->mask, ip, x);
+			if(ipcmp(x, lifc->net) == 0)
+				return 1;
+		}
+		return 0;
+	}
+
+	/* relay agent, check upstream network */
 	maskip(iip->ipmask, ip, x);
 	return ipcmp(x, iip->ipnet) == 0;
 }

@@ -28,14 +28,18 @@ typedef struct Info	Info;
 struct Info
 {
 	int	indb;			/* true if found in database */
+
+	Ipifc	*ifc;			/* ifc when directly connected */
+
+	uchar	ipaddr[NDB_IPlen];	/* ip address of system */
+	uchar	ipmask[NDB_IPlen];	/* ip network mask */
+	uchar	ipnet[NDB_IPlen];	/* ip network address (ipaddr & ipmask) */
+
 	char	domain[Maxstr];	/* system domain name */
 	char	bootf[Maxstr];		/* boot file */
 	char	bootf2[Maxstr];	/* alternative boot file */
 	uchar	tftp[NDB_IPlen];	/* ip addr of tftp server */
 	uchar	tftp2[NDB_IPlen];	/* ip addr of alternate server */
-	uchar	ipaddr[NDB_IPlen];	/* ip address of system */
-	uchar	ipmask[NDB_IPlen];	/* ip network mask */
-	uchar	ipnet[NDB_IPlen];	/* ip network address (ipaddr & ipmask) */
 	uchar	etheraddr[6];		/* ethernet address */
 	uchar	gwip[NDB_IPlen];	/* gateway ip address */
 	uchar	fsip[NDB_IPlen];	/* file system ip address */
@@ -68,8 +72,9 @@ extern int	syncbinding(Binding*, int);
 extern int	lookup(Bootp*, Info*, Info*);
 extern int	lookupip(uchar*, Info*, int);
 extern void	lookupname(char*, int, Ndbtuple*);
-extern Iplifc*	findlifc(uchar*);
-extern int	forme(uchar*);
+extern Ipifc*	findifc(uchar*);
+extern Iplifc*	findlifc(uchar*, Ipifc*);
+extern void	localip(uchar*, uchar*, Ipifc*);
 extern int	lookupserver(char*, uchar**, int, Ndbtuple *t);
 extern Ndbtuple* lookupinfo(uchar *ipaddr, char **attr, int n);
 
@@ -82,4 +87,4 @@ extern char	*blog;
 extern Ipifc	*ipifcs;
 extern long	now;
 extern char	*ndbfile;
-
+extern uchar	zeros[];

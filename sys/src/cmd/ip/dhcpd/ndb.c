@@ -33,27 +33,8 @@ opendb(void)
 	return db;
 }
 
-Iplifc*
-findlifc(uchar *ip)
-{
-	uchar x[IPaddrlen];
-	Ipifc *ifc;
-	Iplifc *lifc;
-
-	for(ifc = ipifcs; ifc != nil; ifc = ifc->next){
-		for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
-			if(lifc->net[0] == 0)
-				continue;
-			maskip(ip, lifc->mask, x);
-			if(ipcmp(x, lifc->net) == 0)
-				return lifc;
-		}
-	}
-	return nil;
-}
-
-int
-forme(uchar *ip)
+Ipifc*
+findifc(uchar *ip)
 {
 	Ipifc *ifc;
 	Iplifc *lifc;
@@ -61,10 +42,39 @@ forme(uchar *ip)
 	for(ifc = ipifcs; ifc != nil; ifc = ifc->next){
 		for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next)
 			if(ipcmp(ip, lifc->ip) == 0)
-				return 1;
+				return ifc;
 	}
-	return 0;
+	return nil;
 }
+
+Iplifc*
+findlifc(uchar *ip, Ipifc *ifc)
+{
+	uchar x[IPaddrlen];
+	Iplifc *lifc;
+
+	if(ifc == nil)
+		return nil;
+
+	for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
+		maskip(ip, lifc->mask, x);
+		if(ipcmp(x, lifc->net) == 0)
+			return lifc;
+	}
+	return nil;
+}
+
+void
+localip(uchar *laddr, uchar *raddr, Ipifc *ifc)
+{
+	Iplifc *lifc;
+
+	if((lifc = findlifc(raddr, ifc)) != nil)
+		ipmove(laddr, lifc->ip);
+	else if(ipcmp(laddr, IPv4bcast) == 0)
+		ipmove(laddr, IPnoaddr);
+}
+
 
 uchar noetheraddr[6];
 
@@ -190,8 +200,6 @@ lookupip(uchar *ipaddr, Info *iip, int gate)
 	return 0;
 }
 
-static uchar zeroes[6];
-
 /*
  *  lookup info about a client in the database.  Find an address on the
  *  same net as riip.
@@ -215,21 +223,21 @@ lookup(Bootp *bp, Info *iip, Info *riip)
 	/* client knows its address? */
 	v4tov6(ciaddr, bp->ciaddr);
 	if(validip(ciaddr)){
+		if(!samenet(ciaddr, riip)){
+			warning(0, "%I not on %I", ciaddr, riip->ipnet);
+			return -1;
+		}
 		if(lookupip(ciaddr, iip, 0) < 0) {
 			if (debug)
 				warning(0, "don't know %I", ciaddr);
 			return -1;	/* don't know anything about it */
-		}
-		if(!samenet(riip->ipaddr, iip)){
-			warning(0, "%I not on %I", ciaddr, riip->ipnet);
-			return -1;
 		}
 
 		/*
 		 *  see if this is a masquerade, i.e., if the ether
 		 *  address doesn't match what we expected it to be.
 		 */
-		if(memcmp(iip->etheraddr, zeroes, 6) != 0)
+		if(memcmp(iip->etheraddr, zeros, 6) != 0)
 		if(memcmp(bp->chaddr, iip->etheraddr, 6) != 0)
 			warning(0, "ciaddr %I rcvd from %E instead of %E",
 				ciaddr, bp->chaddr, iip->etheraddr);
@@ -262,14 +270,12 @@ lookup(Bootp *bp, Info *iip, Info *riip)
 				continue;
 			if(parseip(ciaddr, nt->val) == -1)
 				continue;
-			if(!validip(ciaddr))
+			if(!validip(ciaddr) || !samenet(ciaddr, riip))
 				continue;
 			if(lookupip(ciaddr, iip, 0) < 0)
 				continue;
-			if(samenet(riip->ipaddr, iip)){
-				ndbfree(t);
-				return 0;
-			}
+			ndbfree(t);
+			return 0;
 		}
 		ndbfree(t);
 		t = ndbsnext(&s, hwattr, hwval);

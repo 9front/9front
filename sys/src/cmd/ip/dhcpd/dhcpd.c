@@ -19,6 +19,7 @@ struct Req
 	int	fd;			/* for reply */
 	Bootp	*bp;
 	Udphdr	*up;
+	Ipifc	*ifc;
 	uchar	*e;			/* end of received message */
 	uchar	*p;			/* options pointer */
 	uchar	*max;			/* max end of reply */
@@ -164,7 +165,7 @@ char *optname[256] =
 
 void	addropt(Req*, int, uchar*);
 void	addrsopt(Req*, int, uchar**, int);
-void	arpenter(uchar*, uchar*);
+void	arpenter(uchar*, uchar*, uchar*);
 void	bootp(Req*);
 void	byteopt(Req*, int, uchar);
 void	dhcp(Req*);
@@ -188,7 +189,7 @@ int	readlast(int, uchar*, int);
 char*	readsysname(void);
 void	remrequested(Req*, int);
 void	sendack(Req*, uchar*, int, int);
-void	sendnak(Req*, char*);
+void	sendnak(Req*, uchar*, char*);
 void	sendoffer(Req*, uchar*, int);
 void	stringopt(Req*, int, char*);
 void	termopt(Req*);
@@ -324,7 +325,6 @@ main(int argc, char **argv)
 void
 proto(Req *rp, int n)
 {
-	uchar relip[IPaddrlen];
 	char buf[64];
 
 	now = time(0);
@@ -332,8 +332,6 @@ proto(Req *rp, int n)
 	rp->e = rp->buf + n;
 	rp->bp = (Bootp*)rp->buf;
 	rp->up = (Udphdr*)rp->buf;
-	if (ipcmp(rp->up->laddr, IPv4bcast) == 0)
-		ipmove(rp->up->laddr, rp->up->ifcaddr);
 	rp->max = rp->buf + Udphdrsize + MINSUPPORTED - IPUDPHDRSIZE;
 	rp->p = rp->bp->optdata;
 	v4tov6(rp->giaddr, rp->bp->giaddr);
@@ -342,22 +340,15 @@ proto(Req *rp, int n)
 	if(pptponly && rp->bp->htype != 0)
 		return;
 
-	ipifcs = readipifc(net, ipifcs, -1);
-	if(validip(rp->giaddr))
-		ipmove(relip, rp->giaddr);
-	else if(validip(rp->up->raddr))
-		ipmove(relip, rp->up->raddr);
-	else
-		ipmove(relip, rp->up->laddr);
-	if(rp->e < (uchar*)rp->bp->sname){
-		warning(0, "packet too short");
-		return;
-	}
 	if(rp->bp->op != Bootrequest){
 		warning(0, "not bootrequest");
 		return;
 	}
 
+	if(rp->e < (uchar*)rp->bp->sname){
+		warning(0, "packet too short");
+		return;
+	}
 	if(rp->e >= rp->bp->optdata){
 		if(memcmp(rp->bp->optmagic, plan9opt, sizeof(rp->bp->optmagic)) == 0)
 			rp->p9request = 1;
@@ -385,10 +376,24 @@ proto(Req *rp, int n)
 		rp->id = tohex(buf, rp->bp->chaddr, rp->bp->hlen);
 	}
 
-	/* info about gateway */
-	if(lookupip(relip, &rp->gii, 1) < 0){
-		warning(0, "lookupip failed");
+	ipifcs = readipifc(net, ipifcs, -1);
+	rp->ifc = findifc(rp->up->ifcaddr);
+	if(rp->ifc == nil){
+		warning(0, "no interface");
 		return;
+	}
+
+	if(validip(rp->giaddr)){
+		/* info about gateway */
+		if(lookupip(rp->giaddr, &rp->gii, 1) < 0){
+			warning(0, "lookupip failed");
+			return;
+		}
+		rp->gii.ifc = nil;
+	} else {
+		/* no gateway, directly connected */
+		memset(&rp->gii, 0, sizeof(rp->gii));
+		rp->gii.ifc = rp->ifc;
 	}
 
 	/* info about target system */
@@ -498,13 +503,13 @@ rcvrequest(Req *rp)
 
 		/* check for hard assignment */
 		if(rp->staticbinding){
-			if(forme(rp->server))
+			if(findifc(rp->server) != rp->ifc) {
+				warning(0, "!Request(%s via %I): for server %I not me",
+					rp->id, rp->gii.ipaddr, rp->server);
+			} else
 				sendack(rp, rp->ii.ipaddr,
 					(staticlease > minlease? staticlease:
 					minlease), 1);
-			else
-				warning(0, "!Request(%s via %I): for server %I not me",
-					rp->id, rp->gii.ipaddr, rp->server);
 			return;
 		}
 
@@ -514,13 +519,13 @@ rcvrequest(Req *rp)
 		if(b == nil){
 			warning(0, "!Request(%s via %I): no offer",
 				rp->id, rp->gii.ipaddr);
-			if(forme(rp->server))
-				sendnak(rp, "no offer for you");
+			if(findifc(rp->server) == rp->ifc)
+				sendnak(rp, rp->server, "no offer for you");
 			return;
 		}
 
 		/* if not for me, retract offer */
-		if(!forme(rp->server)){
+		if(findifc(rp->server) != rp->ifc){
 			b->expoffer = 0;
 			warning(0, "!Request(%s via %I): for server %I not me",
 				rp->id, rp->gii.ipaddr, rp->server);
@@ -534,13 +539,13 @@ rcvrequest(Req *rp)
 		if(validip(rp->ip) && ipcmp(rp->ip, b->ip) != 0){
 			warning(0, "!Request(%s via %I): requests %I, not %I",
 				rp->id, rp->gii.ipaddr, rp->ip, b->ip);
-			sendnak(rp, "bad ip address option");
+			sendnak(rp, rp->ip, "bad ip address option");
 			return;
 		}
 		if(commitbinding(b) < 0){
 			warning(0, "!Request(%s via %I): can't commit %I",
 				rp->id, rp->gii.ipaddr, b->ip);
-			sendnak(rp, "can't commit binding");
+			sendnak(rp, b->ip, "can't commit binding");
 			return;
 		}
 		sendack(rp, b->ip, b->offer, 1);
@@ -556,10 +561,10 @@ rcvrequest(Req *rp)
 			if(ipcmp(rp->ip, rp->ii.ipaddr) != 0){
 				warning(0, "!Request(%s via %I): %I not valid for %E",
 					rp->id, rp->gii.ipaddr, rp->ip, rp->bp->chaddr);
-				sendnak(rp, "not valid");
-			}
-			sendack(rp, rp->ii.ipaddr, (staticlease > minlease?
-				staticlease: minlease), 1);
+				sendnak(rp, rp->ip, "not valid");
+			} else
+				sendack(rp, rp->ip, (staticlease > minlease?
+					staticlease: minlease), 1);
 			return;
 		}
 
@@ -567,7 +572,6 @@ rcvrequest(Req *rp)
 		if(!samenet(rp->ip, &rp->gii)){
 			warning(0, "!Request(%s via %I): bad forward of %I",
 				rp->id, rp->gii.ipaddr, rp->ip);
-			sendnak(rp, "wrong network");
 			return;
 		}
 		b = iptobinding(rp->ip, 0);
@@ -579,7 +583,7 @@ rcvrequest(Req *rp)
 		if(ipcmp(rp->ip, b->ip) != 0 || now > b->lease){
 			warning(0, "!Request(%s via %I): %I not valid",
 				rp->id, rp->gii.ipaddr, rp->ip);
-			sendnak(rp, "not valid");
+			sendnak(rp, rp->ip, "not valid");
 			return;
 		}
 		b->offer = b->lease - now;
@@ -599,10 +603,10 @@ rcvrequest(Req *rp)
 			if(ipcmp(rp->ciaddr, rp->ii.ipaddr) != 0){
 				warning(0, "!Request(%s via %I): %I not valid",
 					rp->id, rp->gii.ipaddr, rp->ciaddr);
-				sendnak(rp, "not valid");
-			}
-			sendack(rp, rp->ii.ipaddr, (staticlease > minlease?
-				staticlease: minlease), 1);
+				sendnak(rp, rp->ciaddr, "not valid");
+			} else
+				sendack(rp, rp->ciaddr, (staticlease > minlease?
+					staticlease: minlease), 1);
 			return;
 		}
 
@@ -610,26 +614,25 @@ rcvrequest(Req *rp)
 		if(!samenet(rp->ciaddr, &rp->gii)){
 			warning(0, "!Request(%s via %I): bad forward of %I",
 				rp->id, rp->gii.ipaddr, rp->ip);
-			sendnak(rp, "wrong network");
 			return;
 		}
 		b = iptobinding(rp->ciaddr, 0);
 		if(b == nil){
 			warning(0, "!Request(%s via %I): no binding for %I",
-				rp->id, rp->gii.ipaddr, rp->ciaddr);
+				rp->id, rp->ciaddr, rp->ciaddr);
 			return;
 		}
 		if(ipcmp(rp->ciaddr, b->ip) != 0){
-			warning(0, "!Request(%I via %s): %I not valid",
+			warning(0, "!Request(%s via %I): %I not valid",
 				rp->id, rp->gii.ipaddr, rp->ciaddr);
-			sendnak(rp, "invalid ip address");
+			sendnak(rp, rp->ciaddr, "invalid ip address");
 			return;
 		}
 		mkoffer(b, rp->id, rp->leasetime);
 		if(commitbinding(b) < 0){
 			warning(0, "!Request(%s via %I): can't commit %I",
 				rp->id, rp->gii.ipaddr, b->ip);
-			sendnak(rp, "can't commit binding");
+			sendnak(rp, b->ip, "can't commit binding");
 			return;
 		}
 		sendack(rp, b->ip, b->offer, 1);
@@ -730,9 +733,8 @@ sendoffer(Req *rp, uchar *ip, int offer)
 	bp = rp->bp;
 	up = rp->up;
 
-	/*
-	 *  set destination
-	 */
+	localip(up->laddr, ip, rp->ifc);
+
 	flags = nhgets(bp->flags);
 	if(validip(rp->giaddr)){
 		ipmove(up->raddr, rp->giaddr);
@@ -743,7 +745,7 @@ sendoffer(Req *rp, uchar *ip, int offer)
 	} else {
 		ipmove(up->raddr, ip);
 		if(bp->htype == 1)
-			arpenter(up->raddr, bp->chaddr);
+			arpenter(up->raddr, bp->chaddr, up->ifcaddr);
 		hnputs(up->rport, 68);
 	}
 
@@ -790,9 +792,8 @@ sendack(Req *rp, uchar *ip, int offer, int sendlease)
 	bp = rp->bp;
 	up = rp->up;
 
-	/*
-	 *  set destination
-	 */
+	localip(up->laddr, ip, rp->ifc);
+
 	flags = nhgets(bp->flags);
 	if(validip(rp->giaddr)){
 		ipmove(up->raddr, rp->giaddr);
@@ -803,7 +804,7 @@ sendack(Req *rp, uchar *ip, int offer, int sendlease)
 	} else {
 		ipmove(up->raddr, ip);
 		if(bp->htype == 1)
-			arpenter(up->raddr, bp->chaddr);
+			arpenter(up->raddr, bp->chaddr, up->ifcaddr);
 		hnputs(up->rport, 68);
 	}
 
@@ -841,7 +842,7 @@ sendack(Req *rp, uchar *ip, int offer, int sendlease)
 }
 
 void
-sendnak(Req *rp, char *msg)
+sendnak(Req *rp, uchar *ip, char *msg)
 {
 	int n;
 	Bootp *bp;
@@ -849,6 +850,8 @@ sendnak(Req *rp, char *msg)
 
 	bp = rp->bp;
 	up = rp->up;
+
+	localip(up->laddr, ip, rp->ifc);
 
 	/*
 	 *  set destination (always broadcast)
@@ -900,7 +903,6 @@ bootp(Req *rp)
 	Bootp *bp;
 	Udphdr *up;
 	ushort flags;
-	Iplifc *lifc;
 	Info *iip;
 
 	warning(0, "bootp %s %I->%I from %s via %I, file %s",
@@ -960,10 +962,8 @@ bootp(Req *rp)
 	if(rp->p9request){
 		warning(0, "p9bootp: %I", iip->ipaddr);
 		memmove(bp->optmagic, plan9opt, 4);
-		if(iip->gwip == 0)
-			v4tov6(iip->gwip, bp->giaddr);
-		rp->p += sprint((char*)rp->p, "%V %I %I %I", iip->ipmask+IPv4off, iip->fsip,
-				iip->auip, iip->gwip);
+		rp->p += sprint((char*)rp->p, "%V %I %I %I",
+			iip->ipmask+IPv4off, iip->fsip, iip->auip, iip->gwip);
 		sprint(optbuf, "%s", (char*)(bp->optmagic));
 	} else if(rp->genrequest){
 		warning(0, "genericbootp: %I", iip->ipaddr);
@@ -979,9 +979,8 @@ bootp(Req *rp)
 		rp->p += 128-4;
 	}
 
-	/*
-	 *  set destination
-	 */
+	localip(up->laddr, iip->ipaddr, iip->ifc);
+
 	flags = nhgets(bp->flags);
 	if(validip(rp->giaddr)){
 		ipmove(up->raddr, rp->giaddr);
@@ -992,16 +991,9 @@ bootp(Req *rp)
 	} else {
 		v4tov6(up->raddr, bp->yiaddr);
 		if(bp->htype == 1)
-			arpenter(up->raddr, bp->chaddr);
+			arpenter(up->raddr, bp->chaddr, up->ifcaddr);
 		hnputs(up->rport, 68);
 	}
-
-	/*
-	 *  select best local address if destination is directly connected
-	 */
-	lifc = findlifc(up->raddr);
-	if(lifc)
-		ipmove(up->laddr, lifc->ip);
 
 	/*
 	 *  our identity
@@ -1136,13 +1128,23 @@ miscoptions(Req *rp, uchar *ip)
 	char *p;
 	char *attr[100], **a;
 	Ndbtuple *t;
+	Iplifc *lifc;
 
 	for(i=0; i<nelem(addrs); i++)
 		addrs[i] = &x[i*IPaddrlen];
 
 	/* always supply these */
-	maskopt(rp, OBmask, rp->gii.ipmask);
-	if(validip(rp->gii.gwip)){
+	if(validip(rp->ii.ipmask))
+		maskopt(rp, OBmask, rp->ii.ipmask);
+	else if(validip(rp->gii.ipmask))
+		maskopt(rp, OBmask, rp->gii.ipmask);
+	else if((lifc = findlifc(ip, rp->ifc)) != nil)
+		maskopt(rp, OBmask, lifc->mask);
+
+	if(validip(rp->ii.gwip)){
+		remrequested(rp, OBrouter);
+		addropt(rp, OBrouter, rp->ii.gwip);
+	} else if(validip(rp->gii.gwip)){
 		remrequested(rp, OBrouter);
 		addropt(rp, OBrouter, rp->gii.gwip);
 	} else if(validip(rp->giaddr)){
@@ -1581,7 +1583,7 @@ hexopt(Req *rp, int t, char *str)
 }
 
 void
-arpenter(uchar *ip, uchar *ether)
+arpenter(uchar *ip, uchar *ether, uchar *ifcaddr)
 {
 	int f;
 	char buf[256];
@@ -1592,7 +1594,7 @@ arpenter(uchar *ip, uchar *ether)
 		syslog(debug, blog, "open %s: %r", buf);
 		return;
 	}
-	fprint(f, "add ether %I %E", ip, ether);
+	fprint(f, "add ether %I %E %I", ip, ether, ifcaddr);
 	close(f);
 }
 
@@ -1650,7 +1652,7 @@ logdhcp(Req *rp)
 void
 logdhcpout(Req *rp, char *type)
 {
-	syslog(0, blog, "%s(%I-%I)id(%s)ci(%V)gi(%V)yi(%V)si(%V) %s",
+	syslog(0, blog, "%s(%I->%I)id(%s)ci(%V)gi(%V)yi(%V)si(%V) %s",
 		type, rp->up->laddr, rp->up->raddr, rp->id,
 		rp->bp->ciaddr, rp->bp->giaddr, rp->bp->yiaddr, rp->bp->siaddr, optbuf);
 }
