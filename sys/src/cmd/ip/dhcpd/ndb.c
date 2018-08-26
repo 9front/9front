@@ -48,7 +48,7 @@ findifc(uchar *ip)
 }
 
 Iplifc*
-findlifc(uchar *ip, Ipifc *ifc)
+localonifc(uchar *ip, Ipifc *ifc)
 {
 	uchar x[IPaddrlen];
 	Iplifc *lifc;
@@ -69,14 +69,12 @@ localip(uchar *laddr, uchar *raddr, Ipifc *ifc)
 {
 	Iplifc *lifc;
 
-	if((lifc = findlifc(raddr, ifc)) != nil)
+	if((lifc = localonifc(raddr, ifc)) != nil)
 		ipmove(laddr, lifc->ip);
 	else if(ipcmp(laddr, IPv4bcast) == 0)
 		ipmove(laddr, IPnoaddr);
 }
 
-
-uchar noetheraddr[6];
 
 static void
 setipaddr(uchar *addr, char *ip)
@@ -96,7 +94,7 @@ setipmask(uchar *mask, char *ip)
  *  do an ipinfo with defaults
  */
 int
-lookupip(uchar *ipaddr, Info *iip, int gate)
+lookupip(uchar *ipaddr, char *hwattr, char *hwval, Info *iip, int gate)
 {
 	char ip[32];
 	Ndbtuple *t, *nt;
@@ -119,11 +117,12 @@ lookupip(uchar *ipaddr, Info *iip, int gate)
 		*p++ = "rootpath";
 		*p++ = "dhcp";
 		*p++ = "vendorclass";
-		*p++ = "ether";
 		*p++ = "dom";
 		*p++ = "@fs";
 		*p++ = "@auth";
 	}
+	if(hwattr != nil)
+		*p++ = hwattr;
 	*p = 0;
 
 	memset(iip, 0, sizeof(*iip));
@@ -154,17 +153,6 @@ lookupip(uchar *ipaddr, Info *iip, int gate)
 		if(strcmp(nt->attr, "ipgw") == 0)
 			setipaddr(iip->gwip, nt->val);
 		else
-		if(strcmp(nt->attr, "ether") == 0){
-			/*
-			 * this is probably wrong for machines with multiple
-			 * ethers.  bootp or dhcp requests could come from any
-			 * of the ethers listed in the ndb entry.
-			 */
-			if(memcmp(iip->etheraddr, noetheraddr, 6) == 0)
-				parseether(iip->etheraddr, nt->val);
-			iip->indb = 1;
-		}
-		else
 		if(strcmp(nt->attr, "dhcp") == 0){
 			if(iip->dhcpgroup[0] == 0)
 				strncpy(iip->dhcpgroup, nt->val, sizeof(iip->dhcpgroup)-1);
@@ -194,6 +182,9 @@ lookupip(uchar *ipaddr, Info *iip, int gate)
 			if(iip->rootpath[0] == 0)
 				strncpy(iip->rootpath, nt->val, sizeof(iip->rootpath)-1);
 		}
+		if(hwattr != nil && strcmp(nt->attr, hwattr) == 0)
+			if(strcmp(hwval, nt->val) == 0)
+				iip->indb = 1;
 	}
 	ndbfree(t);
 	maskip(iip->ipaddr, iip->ipmask, iip->ipnet);
@@ -207,57 +198,47 @@ lookupip(uchar *ipaddr, Info *iip, int gate)
 int
 lookup(Bootp *bp, Info *iip, Info *riip)
 {
+	char *hwattr, hwval[Maxhwlen*2+1];
+	uchar ciaddr[IPaddrlen];
 	Ndbtuple *t, *nt;
 	Ndbs s;
-	char *hwattr;
-	char *hwval, hwbuf[33];
-	uchar ciaddr[IPaddrlen];
+
+	memset(iip, 0, sizeof(*iip));
 
 	if(opendb() == nil){
 		warning(1, "can't open db");
 		return -1;
 	}
 
-	memset(iip, 0, sizeof(*iip));
+	switch(bp->htype){
+	case 1:
+		hwattr = "ether";
+		snprint(hwval, sizeof(hwval), "%E", bp->chaddr);
+		break;
+	default:
+		hwattr = nil;
+	}
 
 	/* client knows its address? */
 	v4tov6(ciaddr, bp->ciaddr);
 	if(validip(ciaddr)){
 		if(!samenet(ciaddr, riip)){
-			warning(0, "%I not on %I", ciaddr, riip->ipnet);
+			if(riip->ifc != nil)
+				warning(0, "%I not on %s", ciaddr, riip->ifc->dev);
+			else
+				warning(0, "%I not on %I", ciaddr, riip->ipnet);
 			return -1;
 		}
-		if(lookupip(ciaddr, iip, 0) < 0) {
+		if(lookupip(ciaddr, hwattr, hwval, iip, 0) < 0) {
 			if (debug)
 				warning(0, "don't know %I", ciaddr);
 			return -1;	/* don't know anything about it */
 		}
-
-		/*
-		 *  see if this is a masquerade, i.e., if the ether
-		 *  address doesn't match what we expected it to be.
-		 */
-		if(memcmp(iip->etheraddr, zeros, 6) != 0)
-		if(memcmp(bp->chaddr, iip->etheraddr, 6) != 0)
-			warning(0, "ciaddr %I rcvd from %E instead of %E",
-				ciaddr, bp->chaddr, iip->etheraddr);
-
 		return 0;
 	}
 
-	if(bp->hlen > Maxhwlen)
+	if(hwattr == nil)
 		return -1;
-	switch(bp->htype){
-	case 1:
-		hwattr = "ether";
-		hwval = hwbuf;
-		snprint(hwbuf, sizeof(hwbuf), "%E", bp->chaddr);
-		break;
-	default:
-		syslog(0, blog, "not ethernet %E, htype %d, hlen %d",
-			bp->chaddr, bp->htype, bp->hlen);
-		return -1;
-	}
 
 	/*
 	 *  use hardware address to find an ip address on
@@ -272,7 +253,7 @@ lookup(Bootp *bp, Info *iip, Info *riip)
 				continue;
 			if(!validip(ciaddr) || !samenet(ciaddr, riip))
 				continue;
-			if(lookupip(ciaddr, iip, 0) < 0)
+			if(lookupip(ciaddr, hwattr, hwval, iip, 0) < 0)
 				continue;
 			ndbfree(t);
 			return 0;

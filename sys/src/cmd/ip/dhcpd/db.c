@@ -18,52 +18,22 @@ uchar bfirst[IPaddrlen];
 char *binddir = "/lib/ndb/dhcp";
 
 /*
- *  convert a byte array to hex
- */
-static char
-hex(int x)
-{
-	if(x < 10)
-		return x + '0';
-	return x - 10 + 'a';
-}
-extern char*
-tohex(char *hdr, uchar *p, int len)
-{
-	char *s, *sp;
-	int hlen;
-
-	hlen = strlen(hdr);
-	s = malloc(hlen + 2*len + 1);
-	sp = s;
-	strcpy(sp, hdr);
-	sp += hlen;
-	for(; len > 0; len--){
-		*sp++ = hex(*p>>4);
-		*sp++ = hex(*p & 0xf);
-		p++;
-	}
-	*sp = 0;
-	return s;
-}
-
-/*
  *  convert a client id to a string.  If it's already
  *  ascii, leave it be.  Otherwise, convert it to hex.
  */
 extern char*
 toid(uchar *p, int n)
 {
+	static char id[Maxstr];
 	int i;
-	char *s;
 
-	for(i = 0; i < n; i++)
-		if(!isprint(p[i]))
-			return tohex("id", p, n);
-	s = malloc(n + 1);
-	memmove(s, p, n);
-	s[n] = 0;
-	return s;
+	for(i = 0; i < n && isprint(p[i]); i++)
+		;
+	if(i == n)
+		snprint(id, sizeof(id), "%.*s", n, (char*)p);
+	else
+		snprint(id, sizeof(id), "id%.*lH", n, p);
+	return id;
 }
 
 /*

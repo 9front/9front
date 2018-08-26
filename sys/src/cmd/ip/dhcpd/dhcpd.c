@@ -227,6 +227,8 @@ main(int argc, char **argv)
 	fmtinstall('I', eipfmt);
 	fmtinstall('V', eipfmt);
 	fmtinstall('M', eipfmt);
+	fmtinstall('H', encodefmt);
+
 	ARGBEGIN {
 	case '6':
 		v6opts = 1;
@@ -317,16 +319,12 @@ main(int argc, char **argv)
 		op = optbuf;
 		*op = 0;
 		proto(&r, n);
-		if(r.id != nil)
-			free(r.id);
 	}
 }
 
 void
 proto(Req *rp, int n)
 {
-	char buf[64];
-
 	now = time(0);
 
 	rp->e = rp->buf + n;
@@ -343,6 +341,32 @@ proto(Req *rp, int n)
 	if(rp->bp->op != Bootrequest){
 		warning(0, "not bootrequest");
 		return;
+	}
+
+	if(!isv4(rp->up->laddr))
+		return;
+
+	ipifcs = readipifc(net, ipifcs, -1);
+	if((rp->ifc = findifc(rp->up->ifcaddr)) == nil){
+		warning(0, "no interface");
+		return;
+	}
+	if(validip(rp->giaddr)){
+		/* info about gateway */
+		if(lookupip(rp->giaddr, nil, nil, &rp->gii, 1) < 0){
+			warning(0, "unknown gateway %I", rp->giaddr);
+			return;
+		}
+		rp->gii.ifc = nil;
+	} else {
+		/* no gateway, directly connected */
+		if(ipcmp(rp->up->laddr, IPv4bcast) != 0 && localonifc(rp->up->laddr, rp->ifc) == nil){
+			warning(0, "wrong network %I->%I on %s",
+				rp->up->raddr, rp->up->laddr, rp->ifc->dev);
+			return;
+		}
+		memset(&rp->gii, 0, sizeof(rp->gii));
+		rp->gii.ifc = rp->ifc;
 	}
 
 	if(rp->e < (uchar*)rp->bp->sname){
@@ -364,36 +388,14 @@ proto(Req *rp, int n)
 	 *  which could be a mistake.
 	 */
 	if(rp->id == nil){
-		if(rp->bp->hlen > Maxhwlen){
-			warning(0, "hlen %d", rp->bp->hlen);
-			return;
-		}
-		if(memcmp(zeros, rp->bp->chaddr, rp->bp->hlen) == 0){
+		static char hwaid[Maxstr];
+
+		if(rp->bp->hlen > Maxhwlen || memcmp(zeros, rp->bp->chaddr, rp->bp->hlen) == 0){
 			warning(0, "no chaddr");
 			return;
 		}
-		sprint(buf, "hwa%2.2ux_", rp->bp->htype);
-		rp->id = tohex(buf, rp->bp->chaddr, rp->bp->hlen);
-	}
-
-	ipifcs = readipifc(net, ipifcs, -1);
-	rp->ifc = findifc(rp->up->ifcaddr);
-	if(rp->ifc == nil){
-		warning(0, "no interface");
-		return;
-	}
-
-	if(validip(rp->giaddr)){
-		/* info about gateway */
-		if(lookupip(rp->giaddr, &rp->gii, 1) < 0){
-			warning(0, "lookupip failed");
-			return;
-		}
-		rp->gii.ifc = nil;
-	} else {
-		/* no gateway, directly connected */
-		memset(&rp->gii, 0, sizeof(rp->gii));
-		rp->gii.ifc = rp->ifc;
+		snprint(hwaid, sizeof(hwaid), "hwa%2.2ux_%.*lH", rp->bp->htype, rp->bp->hlen, rp->bp->chaddr);
+		rp->id = hwaid;
 	}
 
 	/* info about target system */
@@ -485,8 +487,8 @@ rcvdiscover(Req *rp)
 		}
 	}
 	if(b == nil){
-		warning(0, "!Discover(%s via %I): no binding %I",
-			rp->id, rp->gii.ipaddr, rp->ip);
+		warning(0, "!Discover(%s via %I on %s): no binding %I",
+			rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->ip);
 		return;
 	}
 	mkoffer(b, rp->id, rp->leasetime);
@@ -504,8 +506,8 @@ rcvrequest(Req *rp)
 		/* check for hard assignment */
 		if(rp->staticbinding){
 			if(findifc(rp->server) != rp->ifc) {
-				warning(0, "!Request(%s via %I): for server %I not me",
-					rp->id, rp->gii.ipaddr, rp->server);
+				warning(0, "!Request(%s via %I on %s): for server %I not me",
+					rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->server);
 			} else
 				sendack(rp, rp->ii.ipaddr,
 					(staticlease > minlease? staticlease:
@@ -517,8 +519,8 @@ rcvrequest(Req *rp)
 
 		/* if we don't have an offer, nak */
 		if(b == nil){
-			warning(0, "!Request(%s via %I): no offer",
-				rp->id, rp->gii.ipaddr);
+			warning(0, "!Request(%s via %I on %s): no offer",
+				rp->id, rp->gii.ipaddr, rp->ifc->dev);
 			if(findifc(rp->server) == rp->ifc)
 				sendnak(rp, rp->server, "no offer for you");
 			return;
@@ -527,8 +529,8 @@ rcvrequest(Req *rp)
 		/* if not for me, retract offer */
 		if(findifc(rp->server) != rp->ifc){
 			b->expoffer = 0;
-			warning(0, "!Request(%s via %I): for server %I not me",
-				rp->id, rp->gii.ipaddr, rp->server);
+			warning(0, "!Request(%s via %I on %s): for server %I not me",
+				rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->server);
 			return;
 		}
 
@@ -537,14 +539,14 @@ rcvrequest(Req *rp)
 		 *  client really shouldn't be specifying this when selecting
 		 */
 		if(validip(rp->ip) && ipcmp(rp->ip, b->ip) != 0){
-			warning(0, "!Request(%s via %I): requests %I, not %I",
-				rp->id, rp->gii.ipaddr, rp->ip, b->ip);
+			warning(0, "!Request(%s via %I on %s): requests %I, not %I",
+				rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->ip, b->ip);
 			sendnak(rp, rp->ip, "bad ip address option");
 			return;
 		}
 		if(commitbinding(b) < 0){
-			warning(0, "!Request(%s via %I): can't commit %I",
-				rp->id, rp->gii.ipaddr, b->ip);
+			warning(0, "!Request(%s via %I on %s): can't commit %I",
+				rp->id, rp->gii.ipaddr, rp->ifc->dev, b->ip);
 			sendnak(rp, b->ip, "can't commit binding");
 			return;
 		}
@@ -559,8 +561,8 @@ rcvrequest(Req *rp)
 		/* check for hard assignment */
 		if(rp->staticbinding){
 			if(ipcmp(rp->ip, rp->ii.ipaddr) != 0){
-				warning(0, "!Request(%s via %I): %I not valid for %E",
-					rp->id, rp->gii.ipaddr, rp->ip, rp->bp->chaddr);
+				warning(0, "!Request(%s via %I on %s): %I not valid for %E",
+					rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->ip, rp->bp->chaddr);
 				sendnak(rp, rp->ip, "not valid");
 			} else
 				sendack(rp, rp->ip, (staticlease > minlease?
@@ -570,19 +572,19 @@ rcvrequest(Req *rp)
 
 		/* make sure the network makes sense */
 		if(!samenet(rp->ip, &rp->gii)){
-			warning(0, "!Request(%s via %I): bad forward of %I",
-				rp->id, rp->gii.ipaddr, rp->ip);
+			warning(0, "!Request(%s via %I on %s): bad forward of %I",
+				rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->ip);
 			return;
 		}
 		b = iptobinding(rp->ip, 0);
 		if(b == nil){
-			warning(0, "!Request(%s via %I): no binding for %I",
-				rp->id, rp->gii.ipaddr, rp->ip);
+			warning(0, "!Request(%s via %I on %s): no binding for %I",
+				rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->ip);
 			return;
 		}
 		if(ipcmp(rp->ip, b->ip) != 0 || now > b->lease){
-			warning(0, "!Request(%s via %I): %I not valid",
-				rp->id, rp->gii.ipaddr, rp->ip);
+			warning(0, "!Request(%s via %I on %s): %I not valid",
+				rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->ip);
 			sendnak(rp, rp->ip, "not valid");
 			return;
 		}
@@ -601,8 +603,8 @@ rcvrequest(Req *rp)
 		/* check for hard assignment */
 		if(rp->staticbinding){
 			if(ipcmp(rp->ciaddr, rp->ii.ipaddr) != 0){
-				warning(0, "!Request(%s via %I): %I not valid",
-					rp->id, rp->gii.ipaddr, rp->ciaddr);
+				warning(0, "!Request(%s via %I on %s): %I not valid",
+					rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->ciaddr);
 				sendnak(rp, rp->ciaddr, "not valid");
 			} else
 				sendack(rp, rp->ciaddr, (staticlease > minlease?
@@ -612,26 +614,26 @@ rcvrequest(Req *rp)
 
 		/* make sure the network makes sense */
 		if(!samenet(rp->ciaddr, &rp->gii)){
-			warning(0, "!Request(%s via %I): bad forward of %I",
-				rp->id, rp->gii.ipaddr, rp->ip);
+			warning(0, "!Request(%s via %I on %s): bad forward of %I",
+				rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->ciaddr);
 			return;
 		}
 		b = iptobinding(rp->ciaddr, 0);
 		if(b == nil){
-			warning(0, "!Request(%s via %I): no binding for %I",
-				rp->id, rp->ciaddr, rp->ciaddr);
+			warning(0, "!Request(%s via %I on %s): no binding for %I",
+				rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->ciaddr);
 			return;
 		}
 		if(ipcmp(rp->ciaddr, b->ip) != 0){
-			warning(0, "!Request(%s via %I): %I not valid",
-				rp->id, rp->gii.ipaddr, rp->ciaddr);
+			warning(0, "!Request(%s via %I on %s): %I not valid",
+				rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->ciaddr);
 			sendnak(rp, rp->ciaddr, "invalid ip address");
 			return;
 		}
 		mkoffer(b, rp->id, rp->leasetime);
 		if(commitbinding(b) < 0){
-			warning(0, "!Request(%s via %I): can't commit %I",
-				rp->id, rp->gii.ipaddr, b->ip);
+			warning(0, "!Request(%s via %I on %s): can't commit %I",
+				rp->id, rp->gii.ipaddr, rp->ifc->dev, b->ip);
 			sendnak(rp, b->ip, "can't commit binding");
 			return;
 		}
@@ -650,8 +652,8 @@ rcvdecline(Req *rp)
 
 	b = idtooffer(rp->id, &rp->gii);
 	if(b == nil){
-		warning(0, "!Decline(%s via %I): no binding",
-			rp->id, rp->gii.ipaddr);
+		warning(0, "!Decline(%s via %I on %s): no binding",
+			rp->id, rp->gii.ipaddr, rp->ifc->dev);
 		return;
 	}
 
@@ -671,16 +673,17 @@ rcvrelease(Req *rp)
 
 	b = idtobinding(rp->id, &rp->gii, 0);
 	if(b == nil){
-		warning(0, "!Release(%s via %I): no binding",
-			rp->id, rp->gii.ipaddr);
+		warning(0, "!Release(%s via %I on %s): no binding",
+			rp->id, rp->gii.ipaddr, rp->ifc->dev);
 		return;
 	}
 	if(strcmp(rp->id, b->boundto) != 0){
-		warning(0, "!Release(%s via %I): invalid release of %I",
-			rp->id, rp->gii.ipaddr, rp->ip);
+		warning(0, "!Release(%s via %I on %s): invalid release of %I",
+			rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->ip);
 		return;
 	}
-	warning(0, "Release(%s via %I): releasing %I", b->boundto, rp->gii.ipaddr, b->ip);
+	warning(0, "Release(%s via %I on %s): releasing %I",
+		b->boundto, rp->gii.ipaddr, rp->ifc->dev, b->ip);
 	if(releasebinding(b, rp->id) < 0)
 		warning(0, "release: couldn't release");
 }
@@ -697,8 +700,8 @@ rcvinform(Req *rp)
 
 	b = iptobinding(rp->ciaddr, 0);
 	if(b == nil){
-		warning(0, "!Inform(%s via %I): no binding for %I",
-			rp->id, rp->gii.ipaddr, rp->ip);
+		warning(0, "!Inform(%s via %I on %s): no binding for %I",
+			rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->ip);
 		return;
 	}
 	sendack(rp, b->ip, 0, 0);
@@ -905,10 +908,10 @@ bootp(Req *rp)
 	ushort flags;
 	Info *iip;
 
-	warning(0, "bootp %s %I->%I from %s via %I, file %s",
+	warning(0, "bootp %s %I->%I from %s via %I on %s, file %s",
 		rp->genrequest? "generic": (rp->p9request? "p9": ""),
 		rp->up->raddr, rp->up->laddr,
-		rp->id, rp->gii.ipaddr,
+		rp->id, rp->gii.ipaddr, rp->ifc->dev,
 		rp->bp->file);
 
 	if(nobootp)
@@ -919,7 +922,8 @@ bootp(Req *rp)
 	iip = &rp->ii;
 
 	if(rp->staticbinding == 0){
-		warning(0, "bootp from unknown %s via %I", rp->id, rp->gii.ipaddr);
+		warning(0, "bootp from unknown %s via %I on %s",
+			rp->id, rp->gii.ipaddr, rp->ifc->dev);
 		return;
 	}
 
@@ -1087,7 +1091,7 @@ parseoptions(Req *rp)
 		case ODclientid:
 			if(n <= 1)
 				break;
-			rp->id = toid( o, n);
+			rp->id = toid(o, n);
 			break;
 		case ODparams:
 			if(n > sizeof(rp->requested))
@@ -1138,7 +1142,7 @@ miscoptions(Req *rp, uchar *ip)
 		maskopt(rp, OBmask, rp->ii.ipmask);
 	else if(validip(rp->gii.ipmask))
 		maskopt(rp, OBmask, rp->gii.ipmask);
-	else if((lifc = findlifc(ip, rp->ifc)) != nil)
+	else if((lifc = localonifc(ip, rp->ifc)) != nil)
 		maskopt(rp, OBmask, lifc->mask);
 
 	if(validip(rp->ii.gwip)){

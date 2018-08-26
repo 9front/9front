@@ -27,26 +27,24 @@ struct Binding
 typedef struct Info	Info;
 struct Info
 {
-	int	indb;			/* true if found in database */
-
+	int	indb;			/* true when found in ndb */
 	Ipifc	*ifc;			/* ifc when directly connected */
 
 	uchar	ipaddr[NDB_IPlen];	/* ip address of system */
 	uchar	ipmask[NDB_IPlen];	/* ip network mask */
 	uchar	ipnet[NDB_IPlen];	/* ip network address (ipaddr & ipmask) */
 
-	char	domain[Maxstr];	/* system domain name */
+	char	domain[Maxstr];		/* system domain name */
 	char	bootf[Maxstr];		/* boot file */
-	char	bootf2[Maxstr];	/* alternative boot file */
+	char	bootf2[Maxstr];		/* alternative boot file */
 	uchar	tftp[NDB_IPlen];	/* ip addr of tftp server */
 	uchar	tftp2[NDB_IPlen];	/* ip addr of alternate server */
-	uchar	etheraddr[6];		/* ethernet address */
 	uchar	gwip[NDB_IPlen];	/* gateway ip address */
 	uchar	fsip[NDB_IPlen];	/* file system ip address */
 	uchar	auip[NDB_IPlen];	/* authentication server ip address */
 	char	rootpath[Maxstr];	/* rootfs for diskless nfs clients */
 	char	dhcpgroup[Maxstr];
-	char	vendor[Maxstr];	/* vendor info */
+	char	vendor[Maxstr];		/* vendor info */
 };
 
 
@@ -56,7 +54,6 @@ extern void	warning(int, char*, ...);
 extern int	minlease;
 
 /* from db.c */
-extern char*	tohex(char*, uchar*, int);
 extern char*	toid(uchar*, int);
 extern void	initbinding(uchar*, int);
 extern Binding*	iptobinding(uchar*, int);
@@ -70,10 +67,10 @@ extern int	syncbinding(Binding*, int);
 
 /* from ndb.c */
 extern int	lookup(Bootp*, Info*, Info*);
-extern int	lookupip(uchar*, Info*, int);
+extern int	lookupip(uchar*, char*, char*, Info*, int);
 extern void	lookupname(char*, int, Ndbtuple*);
 extern Ipifc*	findifc(uchar*);
-extern Iplifc*	findlifc(uchar*, Ipifc*);
+extern Iplifc*	localonifc(uchar*, Ipifc*);
 extern void	localip(uchar*, uchar*, Ipifc*);
 extern int	lookupserver(char*, uchar**, int, Ndbtuple *t);
 extern Ndbtuple* lookupinfo(uchar *ipaddr, char **attr, int n);
