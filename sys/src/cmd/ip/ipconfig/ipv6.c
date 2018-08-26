@@ -824,13 +824,22 @@ recvra6(void)
 		sleepfor = alarm(0);
 
 		/* wait for alarm to expire */
-		if(sendrscnt < 0 && sleepfor > 100)
+		if(recvracnt == 0 && sleepfor > 100)
 			continue;
+
+		sleepfor = Maxv6radelay;
 
 		ifc = readipifc(conf.mpoint, ifc, myifc);
 		if(ifc == nil) {
 			warning("recvra6: can't read router params on %s, quitting on %s",
 				conf.mpoint, conf.dev);
+			if(sendrscnt >= 0)
+				rendezvous(recvra6, (void*)-1);
+			exits(nil);
+		}
+
+		if(recvra6on(ifc) == IsHostNoRecv){
+			warning("recvra6: recvra off, quitting on %s", conf.dev);
 			if(sendrscnt >= 0)
 				rendezvous(recvra6, (void*)-1);
 			exits(nil);
@@ -847,7 +856,6 @@ recvra6(void)
 				warning("recvra6: no router advs after %d sols on %s",
 					Maxv6rss, conf.dev);
 				rendezvous(recvra6, (void*)0);
-				sleepfor = 0;
 			}
 			continue;
 		}
@@ -859,25 +867,17 @@ recvra6(void)
 		case IsHostRecv:
 			recvrahost(buf, n);
 			break;
-		case IsHostNoRecv:
-			warning("recvra6: recvra off, quitting on %s", conf.dev);
-			if(sendrscnt >= 0)
-				rendezvous(recvra6, (void*)-1);
-			exits(nil);
 		}
 
 		/* got at least initial ra; no whining */
 		if(sendrscnt >= 0)
 			rendezvous(recvra6, (void*)1);
 		sendrscnt = -1;
-		sleepfor = 0;
 
 		if(recvracnt > 0)
 			recvracnt--;
-		else {
+		else
 			recvracnt = Maxv6initras;
-			sleepfor = Maxv6radelay;
-		}
 	}
 }
 
