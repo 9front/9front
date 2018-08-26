@@ -445,11 +445,12 @@ sendrs(int fd, uchar *dst)
 		pktlen += 8 * llao->len;
 	}
 
-	if(write(fd, rs, pktlen) != pktlen)
+	if(write(fd, rs, pktlen) != pktlen){
 		DEBUG("sendrs: write failed, pkt size %d", pktlen);
-	else
+	} else {
 		DEBUG("sendrs: sent solicitation to %I from %I on %s",
 			rs->dst, rs->src, conf.dev);
+	}
 }
 
 /*
