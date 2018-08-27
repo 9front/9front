@@ -617,7 +617,7 @@ valid(Proto *icmp, Ipifc *ifc, Block *bp, Icmppriv6 *ipriv)
 				goto err;
 			}
 			sz = IPICMPSZ + 8;
-			while (sz+1 < pktsz) {
+			while (sz+8 <= pktsz) {
 				osz = packet[sz+1];
 				if(osz <= 0) {
 					ipriv->stats[OptlenErrs6]++;
@@ -634,7 +634,7 @@ valid(Proto *icmp, Ipifc *ifc, Block *bp, Icmppriv6 *ipriv)
 			}
 			unsp = (ipcmp(p->src, v6Unspecified) == 0);
 			sz = IPICMPSZ + 8;
-			while (sz+1 < pktsz) {
+			while (sz+8 <= pktsz) {
 				osz = packet[sz+1];
 				if(osz <= 0 ||
 				    (unsp && packet[sz] == SRC_LLADDR)) {
