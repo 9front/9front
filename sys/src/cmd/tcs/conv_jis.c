@@ -133,6 +133,10 @@ again:
 				return;
 			}
 		}
+		if(!set8 && c >= 161 && c <= 223){
+			emit(0xFEC0 + c);
+			return;
+		}
 		lastc = c; state = state4; return;
 
 	case state1:	/* seen an escape */
