@@ -165,7 +165,7 @@ char *optname[256] =
 
 void	addropt(Req*, int, uchar*);
 void	addrsopt(Req*, int, uchar**, int);
-void	arpenter(uchar*, uchar*, uchar*);
+void	arpenter(uchar*, uchar*);
 void	bootp(Req*);
 void	byteopt(Req*, int, uchar);
 void	dhcp(Req*);
@@ -748,7 +748,7 @@ sendoffer(Req *rp, uchar *ip, int offer)
 	} else {
 		ipmove(up->raddr, ip);
 		if(bp->htype == 1)
-			arpenter(up->raddr, bp->chaddr, up->ifcaddr);
+			arpenter(up->raddr, bp->chaddr);
 		hnputs(up->rport, 68);
 	}
 
@@ -807,7 +807,7 @@ sendack(Req *rp, uchar *ip, int offer, int sendlease)
 	} else {
 		ipmove(up->raddr, ip);
 		if(bp->htype == 1)
-			arpenter(up->raddr, bp->chaddr, up->ifcaddr);
+			arpenter(up->raddr, bp->chaddr);
 		hnputs(up->rport, 68);
 	}
 
@@ -995,7 +995,7 @@ bootp(Req *rp)
 	} else {
 		v4tov6(up->raddr, bp->yiaddr);
 		if(bp->htype == 1)
-			arpenter(up->raddr, bp->chaddr, up->ifcaddr);
+			arpenter(up->raddr, bp->chaddr);
 		hnputs(up->rport, 68);
 	}
 
@@ -1587,7 +1587,7 @@ hexopt(Req *rp, int t, char *str)
 }
 
 void
-arpenter(uchar *ip, uchar *ether, uchar *ifcaddr)
+arpenter(uchar *ip, uchar *ether)
 {
 	int f;
 	char buf[256];
@@ -1598,7 +1598,7 @@ arpenter(uchar *ip, uchar *ether, uchar *ifcaddr)
 		syslog(debug, blog, "open %s: %r", buf);
 		return;
 	}
-	fprint(f, "add ether %I %E %I", ip, ether, ifcaddr);
+	fprint(f, "add ether %I %E", ip, ether);
 	close(f);
 }
 
