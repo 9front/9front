@@ -401,7 +401,7 @@ arpwrite(Fs *fs, char *s, int len)
 		if((ifc = findipifc(fs, ia, ia, Runi)) == nil)
 			error("no interface");
 		rlock(ifc);
-		if(arpenter(fs, V6, ip, mac, n, ia, ifc, 0) < 0){
+		if(!ipv6local(ifc, ia, ip) || arpenter(fs, V6, ip, mac, n, ia, ifc, 0) < 0){
 			runlock(ifc);
 			error("destination unreachable");
 		}
