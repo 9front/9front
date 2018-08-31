@@ -4,7 +4,7 @@ dmid \- MIDI to OPL3 converter using GENMIDI-type instrument banks
 .SH SYNOPSIS
 .B dmid
 [
-.B -2
+.B -2s
 ] [
 .B -i
 .I bank
@@ -33,6 +33,13 @@ This may be overridden with the
 .B -i
 command line option.
 .PP
+The
+.B -s
+flag enables streaming mode,
+in which the input file is a stream of MIDI events.
+The file needn't provide any timing information such as MIDI tics.
+This is suitable for MIDI instruments.
+.PP
 In
 .SM GENMIDI
 lumps, two voices are defined per instrument.
@@ -55,6 +62,14 @@ file:
 createfile SW18_7: file already exists
 % games/mus /mnt/wad/d_doom | games/dmid | games/opl3 >/dev/audio
 .EE
+.PP
+Play a MIDI stream from a USB device (see
+.BR usb (3)):
+.IP
+.EX
+% games/wadfs /sys/games/lib/doom/doom2.wad >[2]/dev/null
+% games/dmid -s /dev/usb/ep10.1/data | games/opl3 >/dev/audio
+.EE
 .SH SOURCE
 .B /sys/src/games/dmid.c
 .SH "SEE ALSO"
@@ -62,6 +77,7 @@ createfile SW18_7: file already exists
 .IR mus (1) ,
 .IR opl3 (1) ,
 .IR audio (3) ,
+.IR usb (3) ,
 .IR wadfs (4)
 .SH HISTORY
 .I Dmid

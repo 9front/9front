@@ -1,6 +1,7 @@
 #include <u.h>
 #include <libc.h>
 #include <bio.h>
+#include <thread.h>
 
 typedef struct Inst Inst;
 typedef struct Opl Opl;
@@ -82,8 +83,9 @@ struct Trk{
 Trk *tr;
 
 double freq[128];
-int mfmt, ntrk, div, tempo, opl2;
+int mfmt, ntrk, div = 1, tempo, opl2, stream;
 uvlong T;
+Channel *echan;
 Biobuf *ib, *ob;
 
 void *
@@ -436,6 +438,29 @@ ev(Trk *x)
 }
 
 void
+tproc(void *)
+{
+	vlong t, Δt;
+	uchar u[4];
+	Trk x;
+
+	x.e = u + sizeof u;
+	t = nsec();
+	for(;;){
+		if(nbrecv(echan, u) > 0){
+			u[0] = 0;
+			x.p = u;
+			ev(&x);
+		}
+		putcmd(0, 0, 1);
+		t += 10000000 / (Rate / 100);
+		Δt = (t - nsec()) / 1000000;
+		if(Δt > 0)
+			sleep(Δt);
+	}
+}
+
+void
 readinst(char *file)
 {
 	int n;
@@ -475,6 +500,8 @@ readmid(char *file)
 	Trk *x;
 
 	ib = file != nil ? bopen(file, OREAD) : bfdopen(0, OREAD);
+	if(stream)
+		return;
 	if(get32(nil) != 0x4d546864 || get32(nil) != 6)
 		sysfatal("invalid header");
 	mfmt = get16(nil);
@@ -501,16 +528,17 @@ readmid(char *file)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-2] [-i inst] [mid]\n", argv0);
+	fprint(2, "usage: %s [-2s] [-i inst] [mid]\n", argv0);
 	exits("usage");
 }
 
 void
-main(int argc, char **argv)
+threadmain(int argc, char **argv)
 {
 	int n, t, mint;
 	char *i;
 	double f;
+	uchar u[4];
 	Chan *c;
 	Opl *o;
 	Trk *x, *minx;
@@ -519,6 +547,7 @@ main(int argc, char **argv)
 	ARGBEGIN{
 	case '2': opl2 = 1; ople = opl + 9; break;
 	case 'i': i = EARGF(usage()); break;
+	case 's': stream = 1; break;
 	default: usage();
 	}ARGEND
 	readinst(i);
@@ -538,6 +567,18 @@ main(int argc, char **argv)
 	tempo = 500000;
 	putcmd(Rwse, Mwse, 0);
 	putcmd(Rop3, 1, 0);
+	if(stream){
+		if(proccreate(tproc, nil, mainstacksize) < 0)
+			sysfatal("proccreate: %r");
+		if((echan = chancreate(sizeof u, 0)) == nil)
+			sysfatal("chancreate: %r");
+		for(;;){
+			if((n = Bread(ib, u, sizeof u)) != sizeof u)
+				break;
+			send(echan, u);
+		}
+		threadexitsall(n < 0 ? "read: %r" : nil);
+	}
 	for(;;){
 		minx = nil;
 		mint = 0;
