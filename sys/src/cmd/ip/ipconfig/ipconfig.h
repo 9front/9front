@@ -135,6 +135,7 @@ ulong	randint(ulong low, ulong hi);
 int	validip(uchar*);
 void	warning(char *fmt, ...);
 #define DEBUG if(debug)warning
+#pragma	varargck argpos	warning 1
 
 /*
  * DHCP
