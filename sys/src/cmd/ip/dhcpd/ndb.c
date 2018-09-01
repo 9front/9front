@@ -101,7 +101,7 @@ lookupip(uchar *ipaddr, char *hwattr, char *hwval, Info *iip, int gate)
 	char *attrs[32], **p;
 
 	if(opendb() == nil){
-		warning(1, "can't open db");
+		warning("can't open db: %r");
 		return -1;
 	}
 
@@ -206,7 +206,7 @@ lookup(Bootp *bp, Info *iip, Info *riip)
 	memset(iip, 0, sizeof(*iip));
 
 	if(opendb() == nil){
-		warning(1, "can't open db");
+		warning("can't open db: %r");
 		return -1;
 	}
 
@@ -224,14 +224,14 @@ lookup(Bootp *bp, Info *iip, Info *riip)
 	if(validip(ciaddr)){
 		if(!samenet(ciaddr, riip)){
 			if(riip->ifc != nil)
-				warning(0, "%I not on %s", ciaddr, riip->ifc->dev);
+				warning("%I not on %s", ciaddr, riip->ifc->dev);
 			else
-				warning(0, "%I not on %I", ciaddr, riip->ipnet);
+				warning("%I not on %I", ciaddr, riip->ipnet);
 			return -1;
 		}
 		if(lookupip(ciaddr, hwattr, hwval, iip, 0) < 0) {
 			if (debug)
-				warning(0, "don't know %I", ciaddr);
+				warning("don't know %I", ciaddr);
 			return -1;	/* don't know anything about it */
 		}
 		return 0;

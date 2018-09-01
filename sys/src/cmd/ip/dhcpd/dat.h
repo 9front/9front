@@ -50,7 +50,10 @@ struct Info
 
 /* from dhcp.c */
 extern int	validip(uchar*);
-extern void	warning(int, char*, ...);
+extern void	fatal(char*, ...);
+extern void	warning(char*, ...);
+#pragma	varargck argpos	fatal 1
+#pragma	varargck argpos	warning 1
 extern int	minlease;
 
 /* from db.c */

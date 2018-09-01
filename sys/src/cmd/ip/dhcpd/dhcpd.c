@@ -169,7 +169,6 @@ void	arpenter(uchar*, uchar*);
 void	bootp(Req*);
 void	byteopt(Req*, int, uchar);
 void	dhcp(Req*);
-void	fatal(int, char*, ...);
 void	hexopt(Req*, int, char*);
 void	logdhcp(Req*);
 void	logdhcpout(Req *, char *);
@@ -195,7 +194,6 @@ void	stringopt(Req*, int, char*);
 void	termopt(Req*);
 int	validip(uchar*);
 void	vectoropt(Req*, int, uchar*, int);
-void	warning(int, char*, ...);
 
 void
 timestamp(char *tag)
@@ -298,7 +296,7 @@ main(int argc, char **argv)
 	if(!debug)
 	switch(rfork(RFNOTEG|RFPROC|RFFDG)) {
 	case -1:
-		fatal(1, "fork");
+		fatal("fork: %r");
 	case 0:
 		break;
 	default:
@@ -306,7 +304,7 @@ main(int argc, char **argv)
 	}
 
 	if (chdir(TFTP) < 0)
-		warning(1, "can't change directory to %s", TFTP);
+		warning("can't change directory to %s: %r", TFTP);
 	fd = openlisten(net);
 
 	for(;;){
@@ -314,7 +312,7 @@ main(int argc, char **argv)
 		r.fd = fd;
 		n = readlast(r.fd, r.buf, sizeof(r.buf));
 		if(n < Udphdrsize)
-			fatal(1, "error reading requests");
+			fatal("error reading requests: %r");
 		start = nsec()/1000;
 		op = optbuf;
 		*op = 0;
@@ -339,7 +337,7 @@ proto(Req *rp, int n)
 		return;
 
 	if(rp->bp->op != Bootrequest){
-		warning(0, "not bootrequest");
+		warning("not bootrequest");
 		return;
 	}
 
@@ -348,20 +346,20 @@ proto(Req *rp, int n)
 
 	ipifcs = readipifc(net, ipifcs, -1);
 	if((rp->ifc = findifc(rp->up->ifcaddr)) == nil){
-		warning(0, "no interface");
+		warning("no interface");
 		return;
 	}
 	if(validip(rp->giaddr)){
 		/* info about gateway */
 		if(lookupip(rp->giaddr, nil, nil, &rp->gii, 1) < 0){
-			warning(0, "unknown gateway %I", rp->giaddr);
+			warning("unknown gateway %I", rp->giaddr);
 			return;
 		}
 		rp->gii.ifc = nil;
 	} else {
 		/* no gateway, directly connected */
 		if(ipcmp(rp->up->laddr, IPv4bcast) != 0 && localonifc(rp->up->laddr, rp->ifc) == nil){
-			warning(0, "wrong network %I->%I on %s",
+			warning("wrong network %I->%I on %s",
 				rp->up->raddr, rp->up->laddr, rp->ifc->dev);
 			return;
 		}
@@ -370,7 +368,7 @@ proto(Req *rp, int n)
 	}
 
 	if(rp->e < (uchar*)rp->bp->sname){
-		warning(0, "packet too short");
+		warning("packet too short");
 		return;
 	}
 	if(rp->e >= rp->bp->optdata){
@@ -391,7 +389,7 @@ proto(Req *rp, int n)
 		static char hwaid[Maxstr];
 
 		if(rp->bp->hlen > Maxhwlen || memcmp(zeros, rp->bp->chaddr, rp->bp->hlen) == 0){
-			warning(0, "no chaddr");
+			warning("no chaddr");
 			return;
 		}
 		snprint(hwaid, sizeof(hwaid), "hwa%2.2ux_%.*lH", rp->bp->htype, rp->bp->hlen, rp->bp->chaddr);
@@ -487,7 +485,7 @@ rcvdiscover(Req *rp)
 		}
 	}
 	if(b == nil){
-		warning(0, "!Discover(%s via %I on %s): no binding %I",
+		warning("!Discover(%s via %I on %s): no binding %I",
 			rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->ip);
 		return;
 	}
@@ -506,7 +504,7 @@ rcvrequest(Req *rp)
 		/* check for hard assignment */
 		if(rp->staticbinding){
 			if(findifc(rp->server) != rp->ifc) {
-				warning(0, "!Request(%s via %I on %s): for server %I not me",
+				warning("!Request(%s via %I on %s): for server %I not me",
 					rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->server);
 			} else
 				sendack(rp, rp->ii.ipaddr,
@@ -519,7 +517,7 @@ rcvrequest(Req *rp)
 
 		/* if we don't have an offer, nak */
 		if(b == nil){
-			warning(0, "!Request(%s via %I on %s): no offer",
+			warning("!Request(%s via %I on %s): no offer",
 				rp->id, rp->gii.ipaddr, rp->ifc->dev);
 			if(findifc(rp->server) == rp->ifc)
 				sendnak(rp, rp->server, "no offer for you");
@@ -529,7 +527,7 @@ rcvrequest(Req *rp)
 		/* if not for me, retract offer */
 		if(findifc(rp->server) != rp->ifc){
 			b->expoffer = 0;
-			warning(0, "!Request(%s via %I on %s): for server %I not me",
+			warning("!Request(%s via %I on %s): for server %I not me",
 				rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->server);
 			return;
 		}
@@ -539,13 +537,13 @@ rcvrequest(Req *rp)
 		 *  client really shouldn't be specifying this when selecting
 		 */
 		if(validip(rp->ip) && ipcmp(rp->ip, b->ip) != 0){
-			warning(0, "!Request(%s via %I on %s): requests %I, not %I",
+			warning("!Request(%s via %I on %s): requests %I, not %I",
 				rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->ip, b->ip);
 			sendnak(rp, rp->ip, "bad ip address option");
 			return;
 		}
 		if(commitbinding(b) < 0){
-			warning(0, "!Request(%s via %I on %s): can't commit %I",
+			warning("!Request(%s via %I on %s): can't commit %I",
 				rp->id, rp->gii.ipaddr, rp->ifc->dev, b->ip);
 			sendnak(rp, b->ip, "can't commit binding");
 			return;
@@ -561,7 +559,7 @@ rcvrequest(Req *rp)
 		/* check for hard assignment */
 		if(rp->staticbinding){
 			if(ipcmp(rp->ip, rp->ii.ipaddr) != 0){
-				warning(0, "!Request(%s via %I on %s): %I not valid for %E",
+				warning("!Request(%s via %I on %s): %I not valid for %E",
 					rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->ip, rp->bp->chaddr);
 				sendnak(rp, rp->ip, "not valid");
 			} else
@@ -572,18 +570,18 @@ rcvrequest(Req *rp)
 
 		/* make sure the network makes sense */
 		if(!samenet(rp->ip, &rp->gii)){
-			warning(0, "!Request(%s via %I on %s): bad forward of %I",
+			warning("!Request(%s via %I on %s): bad forward of %I",
 				rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->ip);
 			return;
 		}
 		b = iptobinding(rp->ip, 0);
 		if(b == nil){
-			warning(0, "!Request(%s via %I on %s): no binding for %I",
+			warning("!Request(%s via %I on %s): no binding for %I",
 				rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->ip);
 			return;
 		}
 		if(ipcmp(rp->ip, b->ip) != 0 || now > b->lease){
-			warning(0, "!Request(%s via %I on %s): %I not valid",
+			warning("!Request(%s via %I on %s): %I not valid",
 				rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->ip);
 			sendnak(rp, rp->ip, "not valid");
 			return;
@@ -603,7 +601,7 @@ rcvrequest(Req *rp)
 		/* check for hard assignment */
 		if(rp->staticbinding){
 			if(ipcmp(rp->ciaddr, rp->ii.ipaddr) != 0){
-				warning(0, "!Request(%s via %I on %s): %I not valid",
+				warning("!Request(%s via %I on %s): %I not valid",
 					rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->ciaddr);
 				sendnak(rp, rp->ciaddr, "not valid");
 			} else
@@ -614,25 +612,25 @@ rcvrequest(Req *rp)
 
 		/* make sure the network makes sense */
 		if(!samenet(rp->ciaddr, &rp->gii)){
-			warning(0, "!Request(%s via %I on %s): bad forward of %I",
+			warning("!Request(%s via %I on %s): bad forward of %I",
 				rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->ciaddr);
 			return;
 		}
 		b = iptobinding(rp->ciaddr, 0);
 		if(b == nil){
-			warning(0, "!Request(%s via %I on %s): no binding for %I",
+			warning("!Request(%s via %I on %s): no binding for %I",
 				rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->ciaddr);
 			return;
 		}
 		if(ipcmp(rp->ciaddr, b->ip) != 0){
-			warning(0, "!Request(%s via %I on %s): %I not valid",
+			warning("!Request(%s via %I on %s): %I not valid",
 				rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->ciaddr);
 			sendnak(rp, rp->ciaddr, "invalid ip address");
 			return;
 		}
 		mkoffer(b, rp->id, rp->leasetime);
 		if(commitbinding(b) < 0){
-			warning(0, "!Request(%s via %I on %s): can't commit %I",
+			warning("!Request(%s via %I on %s): can't commit %I",
 				rp->id, rp->gii.ipaddr, rp->ifc->dev, b->ip);
 			sendnak(rp, b->ip, "can't commit binding");
 			return;
@@ -652,7 +650,7 @@ rcvdecline(Req *rp)
 
 	b = idtooffer(rp->id, &rp->gii);
 	if(b == nil){
-		warning(0, "!Decline(%s via %I on %s): no binding",
+		warning("!Decline(%s via %I on %s): no binding",
 			rp->id, rp->gii.ipaddr, rp->ifc->dev);
 		return;
 	}
@@ -673,19 +671,19 @@ rcvrelease(Req *rp)
 
 	b = idtobinding(rp->id, &rp->gii, 0);
 	if(b == nil){
-		warning(0, "!Release(%s via %I on %s): no binding",
+		warning("!Release(%s via %I on %s): no binding",
 			rp->id, rp->gii.ipaddr, rp->ifc->dev);
 		return;
 	}
 	if(strcmp(rp->id, b->boundto) != 0){
-		warning(0, "!Release(%s via %I on %s): invalid release of %I",
+		warning("!Release(%s via %I on %s): invalid release of %I",
 			rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->ip);
 		return;
 	}
-	warning(0, "Release(%s via %I on %s): releasing %I",
+	warning("Release(%s via %I on %s): releasing %I",
 		b->boundto, rp->gii.ipaddr, rp->ifc->dev, b->ip);
 	if(releasebinding(b, rp->id) < 0)
-		warning(0, "release: couldn't release");
+		warning("release: couldn't release");
 }
 
 void
@@ -700,7 +698,7 @@ rcvinform(Req *rp)
 
 	b = iptobinding(rp->ciaddr, 0);
 	if(b == nil){
-		warning(0, "!Inform(%s via %I on %s): no binding for %I",
+		warning("!Inform(%s via %I on %s): no binding for %I",
 			rp->id, rp->gii.ipaddr, rp->ifc->dev, rp->ip);
 		return;
 	}
@@ -781,7 +779,7 @@ sendoffer(Req *rp, uchar *ip, int offer)
 	 */
 	n = rp->p - rp->buf;
 	if(!ismuted(rp) && write(rp->fd, rp->buf, n) != n)
-		warning(0, "offer: write failed: %r");
+		warning("offer: write failed: %r");
 }
 
 void
@@ -841,7 +839,7 @@ sendack(Req *rp, uchar *ip, int offer, int sendlease)
 	 */
 	n = rp->p - rp->buf;
 	if(!ismuted(rp) && write(rp->fd, rp->buf, n) != n)
-		warning(0, "ack: write failed: %r");
+		warning("ack: write failed: %r");
 }
 
 void
@@ -896,7 +894,7 @@ sendnak(Req *rp, uchar *ip, char *msg)
 	 */
 	n = rp->p - rp->buf;
 	if(!ismuted(rp) && write(rp->fd, rp->buf, n) != n)
-		warning(0, "nak: write failed: %r");
+		warning("nak: write failed: %r");
 }
 
 void
@@ -908,7 +906,7 @@ bootp(Req *rp)
 	ushort flags;
 	Info *iip;
 
-	warning(0, "bootp %s %I->%I from %s via %I on %s, file %s",
+	warning("bootp %s %I->%I from %s via %I on %s, file %s",
 		rp->genrequest? "generic": (rp->p9request? "p9": ""),
 		rp->up->raddr, rp->up->laddr,
 		rp->id, rp->gii.ipaddr, rp->ifc->dev,
@@ -922,7 +920,7 @@ bootp(Req *rp)
 	iip = &rp->ii;
 
 	if(rp->staticbinding == 0){
-		warning(0, "bootp from unknown %s via %I on %s",
+		warning("bootp from unknown %s via %I on %s",
 			rp->id, rp->gii.ipaddr, rp->ifc->dev);
 		return;
 	}
@@ -931,7 +929,7 @@ bootp(Req *rp)
 	if(*bp->sname){
 		if(strcmp(bp->sname, mysysname) != 0){
 			bp->sname[20] = 0;
-			warning(0, "bootp for server %s", bp->sname);
+			warning("bootp for server %s", bp->sname);
 			return;
 		}
 	} else
@@ -950,32 +948,32 @@ bootp(Req *rp)
 		else if(*bp->sname) /* if we were asked, respond no matter what */
 			bp->file[0] = '\0';
 		else {
-			warning(0, "no bootfile for %I", iip->ipaddr);
+			warning("no bootfile for %I", iip->ipaddr);
 			return;
 		}
 	}
 
 	/* ignore if the file is unreadable */
 	if((!rp->genrequest) && bp->file[0] && access(bp->file, 4) < 0){
-		warning(0, "inaccessible bootfile1 %s", bp->file);
+		warning("inaccessible bootfile1 %s", bp->file);
 		return;
 	}
 
 	bp->op = Bootreply;
 	v6tov4(bp->yiaddr, iip->ipaddr);
 	if(rp->p9request){
-		warning(0, "p9bootp: %I", iip->ipaddr);
+		warning("p9bootp: %I", iip->ipaddr);
 		memmove(bp->optmagic, plan9opt, 4);
 		rp->p += sprint((char*)rp->p, "%V %I %I %I",
 			iip->ipmask+IPv4off, iip->fsip, iip->auip, iip->gwip);
 		sprint(optbuf, "%s", (char*)(bp->optmagic));
 	} else if(rp->genrequest){
-		warning(0, "genericbootp: %I", iip->ipaddr);
+		warning("genericbootp: %I", iip->ipaddr);
 		memmove(bp->optmagic, genericopt, 4);
 		miscoptions(rp, iip->ipaddr);
 		termopt(rp);
 	} else if(iip->vendor[0] != 0) {
-		warning(0, "bootp vendor field: %s", iip->vendor);
+		warning("bootp vendor field: %s", iip->vendor);
 		memset(rp->p, 0, 128-4);
 		rp->p += sprint((char*)bp->optmagic, "%s", iip->vendor);
 	} else {
@@ -1026,9 +1024,9 @@ bootp(Req *rp)
 	 */
 	n = rp->p - rp->buf;
 	if(!ismuted(rp) && write(rp->fd, rp->buf, n) != n)
-		warning(0, "bootp: write failed: %r");
+		warning("bootp: write failed: %r");
 
-	warning(0, "bootp via %I: file %s xid(%ux)flag(%ux)ci(%V)gi(%V)yi(%V)si(%V) %s",
+	warning("bootp via %I: file %s xid(%ux)flag(%ux)ci(%V)gi(%V)yi(%V)si(%V) %s",
 			up->raddr, bp->file, nhgetl(bp->xid), nhgets(bp->flags),
 			bp->ciaddr, bp->giaddr, bp->yiaddr, bp->siaddr,
 			optbuf);
@@ -1302,19 +1300,19 @@ openlisten(char *net)
 	sprint(data, "%s/udp!*!bootp", net);
 	cfd = announce(data, devdir);
 	if(cfd < 0)
-		fatal(1, "can't announce");
+		fatal("can't announce: %r");
 	if(fprint(cfd, "headers") < 0)
-		fatal(1, "can't set header mode");
+		fatal("can't set header mode: %r");
 
 	sprint(data, "%s/data", devdir);
 	fd = open(data, ORDWR);
 	if(fd < 0)
-		fatal(1, "open udp data");
+		fatal("open udp data: %r");
 	return fd;
 }
 
 void
-fatal(int syserr, char *fmt, ...)
+fatal(char *fmt, ...)
 {
 	char buf[Maxloglen];
 	va_list arg;
@@ -1322,15 +1320,12 @@ fatal(int syserr, char *fmt, ...)
 	va_start(arg, fmt);
 	vseprint(buf, buf+sizeof(buf), fmt, arg);
 	va_end(arg);
-	if(syserr)
-		syslog(1, blog, "%s: %r", buf);
-	else
-		syslog(1, blog, "%s", buf);
+	syslog(1, blog, "%s", buf);
 	exits(buf);
 }
 
 void
-warning(int syserr, char *fmt, ...)
+warning(char *fmt, ...)
 {
 	char buf[Maxloglen];
 	va_list arg;
@@ -1338,15 +1333,9 @@ warning(int syserr, char *fmt, ...)
 	va_start(arg, fmt);
 	vseprint(buf, buf+sizeof(buf), fmt, arg);
 	va_end(arg);
-	if(syserr){
-		syslog(0, blog, "%s: %r", buf);
-		if(debug)
-			fprint(2, "%s: %r\n", buf);
-	} else {
-		syslog(0, blog, "%s", buf);
-		if(debug)
-			fprint(2, "%s\n", buf);
-	}
+	syslog(0, blog, "%s", buf);
+	if(debug)
+		fprint(2, "%s\n", buf);
 }
 
 char*
@@ -1401,7 +1390,7 @@ addropt(Req *rp, int t, uchar *ip)
 		return;
 	if (!isv4(ip)) {
 		if (debug)
-			warning(0, "not a v4 %s server: %I", optname[t], ip);
+			warning("not a v4 %s server: %I", optname[t], ip);
 		return;
 	}
 	*rp->p++ = t;
@@ -1440,7 +1429,7 @@ addrsopt(Req *rp, int t, uchar **ip, int i)
 			v4s++;
 	if (v4s <= 0) {
 		if (debug)
-			warning(0, "no v4 %s servers", optname[t]);
+			warning("no v4 %s servers", optname[t]);
 		return;
 	}
 	*rp->p++ = t;
