@@ -165,7 +165,7 @@ char *optname[256] =
 
 void	addropt(Req*, int, uchar*);
 void	addrsopt(Req*, int, uchar**, int);
-void	arpenter(uchar*, uchar*);
+void	arpenter(uchar*, uchar*, uchar*);
 void	bootp(Req*);
 void	byteopt(Req*, int, uchar);
 void	dhcp(Req*);
@@ -746,7 +746,7 @@ sendoffer(Req *rp, uchar *ip, int offer)
 	} else {
 		ipmove(up->raddr, ip);
 		if(bp->htype == 1)
-			arpenter(up->raddr, bp->chaddr);
+			arpenter(up->raddr, bp->chaddr, up->laddr);
 		hnputs(up->rport, 68);
 	}
 
@@ -805,7 +805,7 @@ sendack(Req *rp, uchar *ip, int offer, int sendlease)
 	} else {
 		ipmove(up->raddr, ip);
 		if(bp->htype == 1)
-			arpenter(up->raddr, bp->chaddr);
+			arpenter(up->raddr, bp->chaddr, up->laddr);
 		hnputs(up->rport, 68);
 	}
 
@@ -993,7 +993,7 @@ bootp(Req *rp)
 	} else {
 		v4tov6(up->raddr, bp->yiaddr);
 		if(bp->htype == 1)
-			arpenter(up->raddr, bp->chaddr);
+			arpenter(up->raddr, bp->chaddr, up->laddr);
 		hnputs(up->rport, 68);
 	}
 
@@ -1576,19 +1576,20 @@ hexopt(Req *rp, int t, char *str)
 }
 
 void
-arpenter(uchar *ip, uchar *ether)
+arpenter(uchar *ip, uchar *mac, uchar *src)
 {
-	int f;
 	char buf[256];
+	int fd, n;
 
-	sprint(buf, "%s/arp", net);
-	f = open(buf, OWRITE);
-	if(f < 0){
-		syslog(debug, blog, "open %s: %r", buf);
+	snprint(buf, sizeof buf, "%s/arp", net);
+	if((fd = open(buf, OWRITE)) < 0){
+		warning("couldn't open %s: %r", buf);
 		return;
 	}
-	fprint(f, "add ether %I %E", ip, ether);
-	close(f);
+	n = snprint(buf, sizeof buf, "add ether %I %E %I\n", ip, mac, src);
+	if(write(fd, buf, n) != n)
+		warning("arpenter: %s: %r", buf);
+	close(fd);
 }
 
 char *dhcpmsgname[] =
