@@ -177,7 +177,7 @@ value
 .I Ndb/inform
 sends an RFC2136 DNS
 .I inform
-packet to a nameserver to associate the host's IPv4 address with its DNS name.
+packet to a nameserver to associate the host's IP address with its DNS name.
 This is required if the domain's nameserver is
 a Microsoft Windows Active Directory controller.
 The host's domain name will be sent to the AD controller unless 
