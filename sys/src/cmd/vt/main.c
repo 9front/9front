@@ -17,7 +17,6 @@ enum menuact2{
 	Mbackup,
 	Mforward,
 	Mreset,
-	Mclear,
 	Mpaste,
 	Msnarf,
 	Mplumb,
@@ -37,7 +36,6 @@ char	*menutext2[] = {
 	[Mbackup]	"backup",
 	[Mforward]	"forward",
 	[Mreset]	"reset",
-	[Mclear]	"clear",
 	[Mpaste]	"paste",
 	[Msnarf]	"snarf",
 	[Mplumb]	"plumb",
@@ -166,7 +164,7 @@ void	bigscroll(void);
 void	readmenu(void);
 void	selection(void);
 int	selected(int, int);
-void	resize(void);
+void	resized(void);
 void	drawcursor(void);
 void	send_interrupt(void);
 int	alnum(int);
@@ -225,7 +223,7 @@ sendnchars(int n, char *p)
 		drawcursor();
 		waitio();
 		if(resize_flag)
-			resize();
+			resized();
 	}
 }
 
@@ -328,8 +326,8 @@ threadmain(int argc, char **argv)
 	bgcolor = (blkbg? display->black: display->white);
 	fgcolor = (blkbg? display->white: display->black);
 	bgselected = allocimage(display, Rect(0,0,1,1), CMAP8, 1, blkbg ? 0x333333FF : 0xCCCCCCFF);
-	fgselected = allocimage(display, Rect(0,0,1,1), CMAP8, 1, blkbg ? 0xCCCCCCFF : 0x333333FF);;
-	resize();
+	fgselected = allocimage(display, Rect(0,0,1,1), CMAP8, 1, blkbg ? 0xCCCCCCFF : 0x333333FF);
+	resized();
 
 	pidchan = chancreate(sizeof(int), 0);
 	proccreate(runcmd, argv, 16*1024);
@@ -648,7 +646,7 @@ waitchar(void)
 
 	for(;;) {
 		if(resize_flag)
-			resize();
+			resized();
 		if(backp)
 			return(0);
 		if(snarffp) {
@@ -873,6 +871,7 @@ setdim(int ht, int wid)
 	free(screenchangebuf);
 	screenchangebuf = emalloc9p(ymax+1);
 	scrolloff = 0;
+	selrect = ZR;
 
 	free(onscreenrbuf);
 	onscreenrbuf = emalloc9p((ymax+1)*(xmax+2)*sizeof(Rune));
@@ -899,7 +898,7 @@ setdim(int ht, int wid)
 }
 
 void
-resize(void)
+resized(void)
 {
 	if(resize_flag > 1 && getwindow(display, Refnone) < 0){
 		fprint(2, "can't reattach to window: %r\n");
@@ -1075,6 +1074,7 @@ readmenu(void)
 		switch(menuhit(3, mc, &menu3, nil)) {
 		case M24x80:		/* 24x80 */
 			setdim(24, 80);
+			backup(backc);
 			return;
 		case Mcrnl:		/* newline after cr? */
 			ttystate[cs->raw].crnl = !ttystate[cs->raw].crnl;
@@ -1116,10 +1116,6 @@ readmenu(void)
 	case Mreset:		/* reset */
 		backc = 0;
 		backup(0);
-		return;
-
-	case Mclear:		/* clear screen */
-		resize_flag = 1;
 		return;
 
 	case Mpaste:		/* paste the snarf buffer */

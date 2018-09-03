@@ -106,10 +106,6 @@ Display the last screenful; the same as going
 .B forward
 to the end.
 .TP
-.B clear
-Clear the screen.  Previous contents can be recovered using
-.BR backup .
-.TP
 .B paste
 Pastes the contents of the
 .B rio
@@ -118,6 +114,14 @@ snarf buffer, just as
 in the
 .B rio
 menu.
+.TP
+.B snarf
+Copy selection to the
+.B rio
+snarf buffer.
+.TP
+.B plumb
+Send selection to the plumber.
 .TP
 .B scroll
 Make new lines visible as they appear at the bottom.
