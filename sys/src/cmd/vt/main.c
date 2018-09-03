@@ -915,16 +915,25 @@ resized(void)
 Rune *
 selrange(Rune *r, int x0, int y0, int x1, int y1)
 {
-	Rune *p, *sr, *er;
+	Rune *s, *e;
+	int z, p;
 
-	p = r;
-	sr = onscreenr(x0, y0);
-	er = onscreenr(x1, y1);
-	for(; sr != er; sr++)
-		if(*sr)
-			*p++ = *sr;
-	*p = 0;
-	return p;
+	s = onscreenr(x0, y0);
+	e = onscreenr(x1, y1);
+	for(z = p = 0; s < e; s++){
+		if(*s){
+			if(*s == '\n')
+				z = p = 0;
+			else if(p++ == 0){
+				while(z-- > 0) *r++ = ' ';
+			}
+			*r++ = *s;
+		} else {
+			z++;
+		}
+	}
+	*r = 0;
+	return r;
 }
 
 Rune*
