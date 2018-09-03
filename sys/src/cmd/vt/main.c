@@ -11,25 +11,48 @@
 #include <bio.h>
 #include <mouse.h>
 #include <keyboard.h>
+#include <plumb.h>
+
+enum menuact2{
+	Mbackup,
+	Mforward,
+	Mreset,
+	Mclear,
+	Mpaste,
+	Msnarf,
+	Mplumb,
+	Mpage,
+};
+
+enum menuact3{
+	M24x80,
+	Mcrnl,
+	Mnl,
+	Mraw,
+	Mblocksel,
+	Mexit,
+};
 
 char	*menutext2[] = {
-	"backup",
-	"forward",
-	"reset",
-	"clear",
-	"paste",
-	"page",
-	0
+	[Mbackup]	"backup",
+	[Mforward]	"forward",
+	[Mreset]	"reset",
+	[Mclear]	"clear",
+	[Mpaste]	"paste",
+	[Msnarf]	"snarf",
+	[Mplumb]	"plumb",
+	[Mpage]		"page",
+	nil
 };
 
 char	*menutext3[] = {
-	"24x80",
-	"crnl",
-	"nl",
-	"raw",
-	"blocksel",
-	"exit",
-	0
+	[M24x80]	"24x80",
+	[Mcrnl]		"crnl",
+	[Mnl]		"nl",
+	[Mraw]		"raw",
+	[Mblocksel]	"blocksel",
+	[Mexit]		"exit",
+	nil
 };
 
 /* variables associated with the screen */
@@ -68,6 +91,8 @@ uint	scrolloff;
 int	yscrmin, yscrmax;
 int	attr, defattr;
 
+Rectangle selrect;
+
 Image	*cursorsave;
 Image	*bordercol;
 Image	*colors[8];
@@ -76,6 +101,8 @@ Image	*red;
 Image	*green;
 Image	*fgcolor;
 Image	*bgcolor;
+Image	*fgselected;
+Image	*bgselected;
 Image	*highlight;
 
 uint rgbacolors[8] = {
@@ -138,11 +165,15 @@ int	rcvchar(void);
 void	bigscroll(void);
 void	readmenu(void);
 void	selection(void);
+int	selected(int, int);
 void	resize(void);
 void	drawcursor(void);
 void	send_interrupt(void);
 int	alnum(int);
 void	escapedump(int,uchar *,int);
+void	paste(void);
+void	snarfsel(void);
+void	plumbsel(void);
 
 static Channel *pidchan;
 
@@ -296,6 +327,8 @@ threadmain(int argc, char **argv)
 	}
 	bgcolor = (blkbg? display->black: display->white);
 	fgcolor = (blkbg? display->white: display->black);
+	bgselected = allocimage(display, Rect(0,0,1,1), CMAP8, 1, blkbg ? 0x333333FF : 0xCCCCCCFF);
+	fgselected = allocimage(display, Rect(0,0,1,1), CMAP8, 1, blkbg ? 0xCCCCCCFF : 0x333333FF);;
 	resize();
 
 	pidchan = chancreate(sizeof(int), 0);
@@ -306,8 +339,10 @@ threadmain(int argc, char **argv)
 }
 
 Image*
-bgcol(int a, int c)
+bgcol(int a, int c, int sel)
 {
+	if(sel)
+		return bgselected;
 	if(nocolor || (c & (1<<0)) == 0){
 		if(a & TReverse)
 			return fgcolor;
@@ -319,8 +354,10 @@ bgcol(int a, int c)
 }
 
 Image*
-fgcol(int a, int c)
+fgcol(int a, int c, int sel)
 {
+	if(sel)
+		return fgselected;
 	if(nocolor || (c & (1<<4)) == 0){
 		if(a & TReverse)
 			return bgcolor;
@@ -366,8 +403,8 @@ drawscreen(void)
 		for(x = 0; x <= xmax; x += n){
 			cp = onscreenc(x, y);
 			ap = onscreena(x, y);
-			c = bgcol(*ap, *cp);
-			for(n = 1; x+n <= xmax && bgcol(ap[n], cp[n]) == c; n++)
+			c = bgcol(*ap, *cp, selected(x, y));
+			for(n = 1; x+n <= xmax && bgcol(ap[n], cp[n], selected(x + n, y)) == c; n++)
 				;
 			draw(screen, Rpt(pt(x, y), pt(x+n, y+1)), c, nil, ZP);
 		}
@@ -381,8 +418,8 @@ drawscreen(void)
 			}
 			ap = onscreena(x, y);
 			cp = onscreenc(x, y);
-			c = fgcol(*ap, *cp);
-			for(n = 1; x+n <= xmax && rp[n] != 0 && fgcol(ap[n], cp[n]) == c
+			c = fgcol(*ap, *cp, selected(x, y));
+			for(n = 1; x+n <= xmax && rp[n] != 0 && fgcol(ap[n], cp[n], selected(x + n, y)) == c
 			&& ((ap[n] ^ *ap) & TUnderline) == 0; n++)
 				;
 			p = pt(x, y);
@@ -451,7 +488,7 @@ newline(void)
 	nbacklines--;
 	if(y >= yscrmax) {
 		y = yscrmax;
-		if(pagemode && olines >= yscrmax) {
+		if(pagemode && olines >= yscrmax){
 			blocked = 1;
 			return;
 		}
@@ -472,7 +509,7 @@ get_next_char(void)
 	while(c <= 0) {
 		if(backp) {
 			c = *backp;
-			if(c && nbacklines >= 0) {
+			if(c && nbacklines >= 0){
 				backp++;
 				if(backp >= &hist[HISTSIZ])
 					backp = hist;
@@ -876,108 +913,150 @@ resize(void)
 	werrstr("");		/* clear spurious error messages */
 }
 
+Rune *
+selrange(Rune *r, int x0, int y0, int x1, int y1)
+{
+	Rune *p, *sr, *er;
+
+	p = r;
+	sr = onscreenr(x0, y0);
+	er = onscreenr(x1, y1);
+	for(; sr != er; sr++)
+		if(*sr)
+			*p++ = *sr;
+	*p = 0;
+	return p;
+}
+
+Rune*
+selrunes(void)
+{
+	Rune *r, *p;
+	int sz;
+	int y;
+
+	/* generous, but we can spare a few bytes for a few microseconds */
+	sz = xmax*(selrect.max.y - selrect.min.y + 2) + 1;
+	r = p = malloc(sizeof(Rune)*sz + 1);
+	if(!r)
+		return nil;
+	if(blocksel){
+		for(y = selrect.min.y; y <= selrect.max.y; y++){
+			p = selrange(p, selrect.min.x, y, selrect.max.x, y);
+			*p++ = '\n';
+		}
+		*p = 0;
+	}
+	else
+		selrange(r, selrect.min.x, selrect.min.y, selrect.max.x, selrect.max.y);
+	return r;
+}
+
 void
-sendsnarf(void)
+snarfsel(void)
+{
+	Biobuf *b;
+	Rune *r;
+
+	b = Bopen("/dev/snarf", OWRITE|OTRUNC);
+	if(b == nil)
+		return;
+	r = selrunes();
+	if(!r)
+		return;
+	Bprint(b, "%S", r);
+	Bterm(b);
+	free(r);
+
+}
+
+void
+plumbsel(void)
+{
+	char buf[1024], wdir[512];
+	Rune *r;
+	int plumb;
+
+	print("plumb\n");
+	if(getwd(wdir, sizeof wdir) == 0)
+		return;
+	if((r = selrunes()) == nil)
+		return;
+	print("wdir: %s, runes: %S\n", wdir, r);
+	if((plumb = plumbopen("send", OWRITE)) != -1){
+		snprint(buf, sizeof buf, "%S", r);
+		print("buf: '%s'\n", buf);
+		plumbsendtext(plumb, "vt", nil, wdir, buf);
+	}
+	close(plumb);
+	free(r);
+}
+
+void
+paste(void)
 {
 	if(snarffp == nil)
 		snarffp = Bopen("/dev/snarf",OREAD);
 }
 
 void
-seputrunes(Biobuf *b, Rune *s, Rune *e)
+unselect(void)
 {
-	int z, p;
+	int y;
 
-	if(s >= e)
-		return;
-	for(z = p = 0; s < e; s++){
-		if(*s){
-			if(*s == '\n')
-				z = p = 0;
-			else if(p++ == 0){
-				while(z-- > 0) Bputc(b, ' ');
-			}
-			Bputrune(b, *s);
-		} else {
-			z++;
-		}
-	}
-}
-
-int
-snarfrect(Rectangle r)
-{
-	Biobuf *b;
-
-	b = Bopen("/dev/snarf", OWRITE|OTRUNC);
-	if(b == nil)
-		return 0;
-	if(blocksel){
-		while(r.min.y <= r.max.y){
-			seputrunes(b, onscreenr(r.min.x, r.min.y), onscreenr(r.max.x, r.min.y));
-			Bputrune(b, L'\n');
-			r.min.y++;
-		}
-	} else {
-		seputrunes(b, onscreenr(r.min.x, r.min.y), onscreenr(r.max.x, r.max.y));
-	}
-	Bterm(b);
-	return 1;
-}
-
-Rectangle
-drawselection(Rectangle r, Rectangle d, Image *color)
-{
-	if(!blocksel){
-		while(r.min.y < r.max.y){
-			d = drawselection(Rect(r.min.x, r.min.y, xmax+1, r.min.y), d, color);
-			r.min.x = 0;
-			r.min.y++;
-		}
-	}
-	if(r.min.x >= r.max.x)
-		return d;
-	r = Rpt(pt(r.min.x, r.min.y), pt(r.max.x, r.max.y+1));
-	draw(screen, r, color, highlight, r.min);
-	combinerect(&d, r);
-	return d;
+	for(y = selrect.min.y; y <= selrect.max.y; y++)
+		screenchange(y) = 1;
+	selrect = ZR;
 }
 
 void
 selection(void)
 {
 	Point p, q;
-	Rectangle r, d;
-	Image *backup;
+	int y;
 
-	backup = allocimage(display, screen->r, screen->chan, 0, DNofill);
-	draw(backup, backup->r, screen, nil, backup->r.min);
+
 	p = pos(mc->xy);
-	do {
+	do{
+		/* Clear the old selection rectangle. */
+		unselect();
 		q = pos(mc->xy);
 		if(onscreenr(p.x, p.y) > onscreenr(q.x, q.y)){
-			r.min = q;
-			r.max = p;
+			selrect.min = q;
+			selrect.max = p;
 		} else {
-			r.min = p;
-			r.max = q;
+			selrect.min = p;
+			selrect.max = q;
 		}
-		if(r.max.y > ymax)
-			r.max.x = 0;
-		d = drawselection(r, ZR, red);
-		flushimage(display, 1);
+		/* And mark the new one as changed. */
+		for(y = selrect.min.y; y <= selrect.max.y; y++)
+			screenchange(y) = 1;
 		readmouse(mc);
-		draw(screen, d, backup, nil, d.min);
+		drawscreen();
 	} while(button1());
-	if((mc->buttons & 07) == 5)
-		sendsnarf();
-	else if(snarfrect(r)){
-		d = drawselection(r, ZR, green);
-		flushimage(display, 1);
-		sleep(200);
-		draw(screen, d, backup, nil, d.min);
+	switch(mc->buttons & 0x7){
+	case 3:	snarfsel();	break;
+	case 5:	paste();	break;
 	}
-	freeimage(backup);
+}
+
+int
+selected(int x, int y)
+{
+	int s;
+
+	s = y >= selrect.min.y && y <= selrect.max.y;
+	if (blocksel)
+		s = s && x >= selrect.min.x && x < selrect.max.x;
+	else{
+		if(y == selrect.min.y)
+			s = s && x >= selrect.min.x;
+		if(y == selrect.max.y)
+			s = s && x < selrect.max.x;
+		if(y > selrect.min.y && y < selrect.max.y)
+			s = 1;
+	}
+	return s;
 }
 
 void
@@ -990,39 +1069,39 @@ readmenu(void)
 		menu3.item[4] = blocksel ? "linesel" : "blocksel";
 
 		switch(menuhit(3, mc, &menu3, nil)) {
-		case 0:		/* 24x80 */
+		case M24x80:		/* 24x80 */
 			setdim(24, 80);
 			return;
-		case 1:		/* newline after cr? */
+		case Mcrnl:		/* newline after cr? */
 			ttystate[cs->raw].crnl = !ttystate[cs->raw].crnl;
 			return;
-		case 2:		/* cr after newline? */
+		case Mnl:		/* cr after newline? */
 			ttystate[cs->raw].nlcr = !ttystate[cs->raw].nlcr;
 			return;
-		case 3:		/* switch raw mode */
+		case Mraw:		/* switch raw mode */
 			cs->raw = !cs->raw;
 			return;
-		case 4:
+		case Mblocksel:
+			unselect();
 			blocksel = !blocksel;
 			return;
-		case 5:
+		case Mexit:
 			exits(0);
 		}
 		return;
 	}
 
-	menu2.item[5] = pagemode? "scroll": "page";
+	menu2.item[Mpage] = pagemode? "scroll": "page";
 
 	switch(menuhit(2, mc, &menu2, nil)) {
-
-	case 0:		/* back up */
-		if(atend == 0) {
+	case Mbackup:		/* back up */
+		if(atend == 0){
 			backc++;
 			backup(backc);
 		}
 		return;
 
-	case 1:		/* move forward */
+	case Mforward:		/* move forward */
 		backc--;
 		if(backc >= 0)
 			backup(backc);
@@ -1030,20 +1109,28 @@ readmenu(void)
 			backc = 0;
 		return;
 
-	case 2:		/* reset */
+	case Mreset:		/* reset */
 		backc = 0;
 		backup(0);
 		return;
 
-	case 3:		/* clear screen */
+	case Mclear:		/* clear screen */
 		resize_flag = 1;
 		return;
 
-	case 4:		/* send the snarf buffer */
-		sendsnarf();
+	case Mpaste:		/* paste the snarf buffer */
+		paste();
 		return;
 
-	case 5:		/* pause and clear at end of screen */
+	case Msnarf:		/* send the snarf buffer */
+		snarfsel();
+		return;
+
+	case Mplumb:
+		plumbsel();
+		return;
+
+	case Mpage:		/* pause and clear at end of screen */
 		pagemode = 1-pagemode;
 		if(blocked && !pagemode) {
 			resize_flag = 1;
@@ -1058,6 +1145,8 @@ backup(int count)
 {
 	Rune *cp;
 	int n;
+
+	unselect();
 
 	resize_flag = 1;
 	if(count == 0 && !pagemode) {
@@ -1154,6 +1243,22 @@ scroll(int sy, int ly, int dy, int cy)	/* source, limit, dest, which line to cle
 		memmove(onscreenc(0, dy), onscreenc(0, sy), n*(xmax+2));
 	}
 
+	/* move selection */
+	selrect.min.y -= d;
+	selrect.max.y -= d;
+	if(selrect.max.y < 0 || selrect.min.y > ymax)
+		selrect = ZR;
+	else {
+		if(selrect.min.y < 0){
+			selrect.min.y = 0;
+			if(!blocksel) selrect.min.x = 0;
+		}
+		if(selrect.max.y > ymax){
+			selrect.max.y = ymax;
+			if(!blocksel) selrect.max.x = xmax+1;
+		}
+	}
+	
 	clear(0, cy, xmax+1, cy+1);
 }
 
