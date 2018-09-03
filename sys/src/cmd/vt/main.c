@@ -958,38 +958,42 @@ snarfsel(void)
 	Biobuf *b;
 	Rune *r;
 
-	b = Bopen("/dev/snarf", OWRITE|OTRUNC);
-	if(b == nil)
+	if((r = selrunes()) == nil)
 		return;
-	r = selrunes();
-	if(!r)
+	if((b = Bopen("/dev/snarf", OWRITE|OTRUNC)) == nil){
+		free(r);
 		return;
+	}
 	Bprint(b, "%S", r);
 	Bterm(b);
 	free(r);
-
 }
 
 void
 plumbsel(void)
 {
-	char buf[1024], wdir[512];
+	char *s, wdir[1024];
 	Rune *r;
 	int plumb;
 
-	print("plumb\n");
-	if(getwd(wdir, sizeof wdir) == 0)
-		return;
 	if((r = selrunes()) == nil)
 		return;
-	print("wdir: %s, runes: %S\n", wdir, r);
-	if((plumb = plumbopen("send", OWRITE)) != -1){
-		snprint(buf, sizeof buf, "%S", r);
-		print("buf: '%s'\n", buf);
-		plumbsendtext(plumb, "vt", nil, wdir, buf);
+	if((s = smprint("%S", r)) == nil){
+		free(r);
+		return;
 	}
-	close(plumb);
 	free(r);
+	if(getwd(wdir, sizeof wdir) == nil){
+		free(s);
+		return;
+	}
+	if((plumb = plumbopen("send", OWRITE)) < 0){
+		free(s);
+		return;
+	}
+	plumbsendtext(plumb, "vt", nil, wdir, s);
+	close(plumb);
+	free(s);
 }
 
 void
