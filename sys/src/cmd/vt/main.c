@@ -162,7 +162,7 @@ void	waitio(void);
 int	rcvchar(void);
 void	bigscroll(void);
 void	readmenu(void);
-void	selection(void);
+void	selecting(void);
 int	selected(int, int);
 void	resized(void);
 void	drawcursor(void);
@@ -810,7 +810,7 @@ Next:
 	switch(alt(a)){
 	case AMOUSE:
 		if(button1())
-			selection();
+			selecting();
 		else if(button2() || button3())
 			readmenu();
 		else if(resize_flag == 0)
@@ -912,8 +912,8 @@ resized(void)
 	werrstr("");		/* clear spurious error messages */
 }
 
-Rune *
-selrange(Rune *r, int x0, int y0, int x1, int y1)
+char*
+selrange(char *d, int x0, int y0, int x1, int y1)
 {
 	Rune *s, *e;
 	int z, p;
@@ -925,72 +925,63 @@ selrange(Rune *r, int x0, int y0, int x1, int y1)
 			if(*s == '\n')
 				z = p = 0;
 			else if(p++ == 0){
-				while(z-- > 0) *r++ = ' ';
+				while(z-- > 0) *d++ = ' ';
 			}
-			*r++ = *s;
+			d += runetochar(d, s);
 		} else {
 			z++;
 		}
 	}
-	*r = 0;
-	return r;
+	return d;
 }
 
-Rune*
-selrunes(void)
+char*
+selection(void)
 {
-	Rune *r, *p;
-	int sz;
+	char *s, *p;
 	int y;
 
 	/* generous, but we can spare a few bytes for a few microseconds */
-	sz = xmax*(selrect.max.y - selrect.min.y + 2) + 1;
-	r = p = malloc(sizeof(Rune)*sz + 1);
-	if(!r)
+	s = p = malloc(UTFmax*(xmax+1)*(Dy(selrect)+1)+1);
+	if(s == nil)
 		return nil;
 	if(blocksel){
 		for(y = selrect.min.y; y <= selrect.max.y; y++){
 			p = selrange(p, selrect.min.x, y, selrect.max.x, y);
 			*p++ = '\n';
 		}
-		*p = 0;
+	} else {
+		p = selrange(p, selrect.min.x, selrect.min.y, selrect.max.x, selrect.max.y);
 	}
-	else
-		selrange(r, selrect.min.x, selrect.min.y, selrect.max.x, selrect.max.y);
-	return r;
+	*p = 0;
+	return s;
 }
 
 void
 snarfsel(void)
 {
 	Biobuf *b;
-	Rune *r;
+	char *s;
 
-	if((r = selrunes()) == nil)
+	if((s = selection()) == nil)
 		return;
 	if((b = Bopen("/dev/snarf", OWRITE|OTRUNC)) == nil){
-		free(r);
+		free(s);
 		return;
 	}
-	Bprint(b, "%S", r);
+	Bprint(b, "%s", s);
 	Bterm(b);
-	free(r);
+	free(s);
 }
 
 void
 plumbsel(void)
 {
 	char *s, wdir[1024];
-	Rune *r;
 	int plumb;
 
-	if((r = selrunes()) == nil)
+	if((s = selection()) == nil)
 		return;
-	if((s = smprint("%S", r)) == nil){
-		free(r);
-		return;
-	}
-	free(r);
 	if(getwd(wdir, sizeof wdir) == nil){
 		free(s);
 		return;
@@ -1022,29 +1013,42 @@ unselect(void)
 }
 
 void
-selection(void)
+select(Point p, Point q)
 {
-	Point p, q;
-	int y;
+	if(onscreenr(p.x, p.y) > onscreenr(q.x, q.y)){
+		select(q, p);
+		return;
+	}
+	unselect();
+	if(p.y < 0 || p.y > ymax)
+		return;
+	if(p.y < 0){
+		p.y = 0;
+		if(!blocksel) p.x = 0;
+	}
+	if(q.y > ymax){
+		q.y = ymax;
+		if(!blocksel) q.x = xmax+1;
+	}
+	if(p.x < 0)
+		p.x = 0;
+	if(q.x > xmax+1)
+		q.x = xmax+1;
+	selrect = Rpt(p, q);
+	for(; p.y <= q.y; p.y++)
+		screenchange(p.y) = 1;
+}
 
+void
+selecting(void)
+{
+	Point p;
 
 	p = pos(mc->xy);
 	do{
-		/* Clear the old selection rectangle. */
-		unselect();
-		q = pos(mc->xy);
-		if(onscreenr(p.x, p.y) > onscreenr(q.x, q.y)){
-			selrect.min = q;
-			selrect.max = p;
-		} else {
-			selrect.min = p;
-			selrect.max = q;
-		}
-		/* And mark the new one as changed. */
-		for(y = selrect.min.y; y <= selrect.max.y; y++)
-			screenchange(y) = 1;
-		readmouse(mc);
 		drawscreen();
+		readmouse(mc);
+		select(p, pos(mc->xy));
 	} while(button1());
 	switch(mc->buttons & 0x7){
 	case 3:	snarfsel();	break;
@@ -1255,18 +1259,7 @@ scroll(int sy, int ly, int dy, int cy)	/* source, limit, dest, which line to cle
 	/* move selection */
 	selrect.min.y -= d;
 	selrect.max.y -= d;
-	if(selrect.max.y < 0 || selrect.min.y > ymax)
-		selrect = ZR;
-	else {
-		if(selrect.min.y < 0){
-			selrect.min.y = 0;
-			if(!blocksel) selrect.min.x = 0;
-		}
-		if(selrect.max.y > ymax){
-			selrect.max.y = ymax;
-			if(!blocksel) selrect.max.x = xmax+1;
-		}
-	}
+	select(selrect.min, selrect.max);
 	
 	clear(0, cy, xmax+1, cy+1);
 }
