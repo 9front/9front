@@ -309,8 +309,11 @@ iounused(int start, int end)
 }
 
 static void
-checkport(int start, int end)
+checkport(uint start, uint end)
 {
+	if(end < start || end > 0x10000)
+		error(Ebadarg);
+
 	/* standard vga regs are OK */
 	if(start >= 0x2b0 && end <= 0x2df+1)
 		return;
@@ -356,12 +359,12 @@ archread(Chan *c, void *a, long n, vlong offset)
 {
 	char buf[32], *p;
 	uint port, end;
-	int i;
 	ushort *sp;
 	ulong *lp;
 	vlong *vp;
 	IOMap *m;
 	Rdwrfn *fn;
+	int i;
 
 	port = offset;
 	end = port+n;
@@ -393,6 +396,8 @@ archread(Chan *c, void *a, long n, vlong offset)
 
 	case Qmsr:
 		if(n & 7)
+			error(Ebadarg);
+		if((uint)n/8 > -port)
 			error(Ebadarg);
 		end = port+(n/8);
 		for(vp = a; port < end; port++)
@@ -464,6 +469,8 @@ archwrite(Chan *c, void *a, long n, vlong offset)
 
 	case Qmsr:
 		if(n & 7)
+			error(Ebadarg);
+		if((uint)n/8 > -port)
 			error(Ebadarg);
 		end = port+(n/8);
 		for(vp = a; port < end; port++)
