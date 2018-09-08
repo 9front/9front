@@ -108,11 +108,8 @@ attachproc(int pid, int kflag, int corefd, Fhdr *fp)
 	if (mach->fpregsize) {
 		sprint(buf, "/proc/%d/fpregs", pid);
 		fd = open(buf, mode);
-		if(fd < 0) {
-			close(map->seg[0].fd);
-			free(map);
-			return 0;
-		}
+		if(fd < 0)
+			fd = open("/dev/zero", OREAD);
 		setmap(map, fd, mach->regsize, mach->regsize+mach->fpregsize, 0, "fpregs");
 	}
 	setmap(map, corefd, fp->txtaddr, fp->txtaddr+fp->txtsz, fp->txtaddr, "text");
