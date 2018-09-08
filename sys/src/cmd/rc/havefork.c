@@ -185,7 +185,8 @@ Xpipefd(void)
 	default:
 		addwaitpid(pid);
 		close(sidefd);
-		pushredir(ROPEN, mainfd, mainfd);	/* isn't this a noop? */
+		pushredir(ROPEN, mainfd, mainfd);
+		shuffleredir();	/* shuffle redir to bottom of stack for turfredir() */
 		strcpy(name, Fdprefix);
 		inttoascii(name+strlen(name), mainfd);
 		pushword(name);
