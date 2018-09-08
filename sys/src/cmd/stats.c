@@ -876,43 +876,35 @@ inintrval(Machine *m, uvlong *v, uvlong *vmax, int)
 }
 
 void
-etherval(Machine *m, uvlong *v, uvlong *vmax, int init)
+etherval(Machine *m, uvlong *v, uvlong *vmax, int)
 {
 	*v = m->netetherstats[In]-m->prevetherstats[In] + m->netetherstats[Out]-m->prevetherstats[Out];
-	*vmax = sleeptime*m->nproc;
-	if(init)
-		*vmax = sleeptime;
+	*vmax = sleeptime;
 }
 
 void
-etherinval(Machine *m, uvlong *v, uvlong *vmax, int init)
+etherinval(Machine *m, uvlong *v, uvlong *vmax, int)
 {
 	*v = m->netetherstats[In]-m->prevetherstats[In];
-	*vmax = sleeptime*m->nproc;
-	if(init)
-		*vmax = sleeptime;
+	*vmax = sleeptime;
 }
 
 void
-etheroutval(Machine *m, uvlong *v, uvlong *vmax, int init)
+etheroutval(Machine *m, uvlong *v, uvlong *vmax, int)
 {
 	*v = m->netetherstats[Out]-m->prevetherstats[Out];
-	*vmax = sleeptime*m->nproc;
-	if(init)
-		*vmax = sleeptime;
+	*vmax = sleeptime;
 }
 
 void
-ethererrval(Machine *m, uvlong *v, uvlong *vmax, int init)
+ethererrval(Machine *m, uvlong *v, uvlong *vmax, int)
 {
 	int i;
 
 	*v = 0;
 	for(i=Err0; i<nelem(m->netetherstats); i++)
-		*v += m->netetherstats[i];
-	*vmax = (sleeptime/1000)*10*m->nproc;
-	if(init)
-		*vmax = (sleeptime/1000)*10;
+		*v += m->netetherstats[i]-m->prevetherstats[i];
+	*vmax = (sleeptime/1000)*10;
 }
 
 void
@@ -1184,6 +1176,8 @@ resize(void)
 			if(r.max.x <= g->r.max.x)
 				g->overtmp = allocimage(display, r, screen->chan, 0, -1);
 			g->newvalue(g->mach, &v, &vmax, 0);
+			if(vmax == 0)
+				vmax = 1;
 			redraw(g, vmax);
 		}
 	}
@@ -1412,6 +1406,8 @@ main(int argc, char *argv[])
 		parity = 1-parity;
 		for(i=0; i<nmach*ngraph; i++){
 			graph[i].newvalue(graph[i].mach, &v, &vmax, 0);
+			if(vmax == 0)
+				vmax = 1;
 			graph[i].update(&graph[i], v, vmax);
 		}
 		flushimage(display, 1);
