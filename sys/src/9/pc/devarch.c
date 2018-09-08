@@ -355,47 +355,47 @@ static long
 archread(Chan *c, void *a, long n, vlong offset)
 {
 	char buf[32], *p;
-	int port, i;
+	uint port, end;
+	int i;
 	ushort *sp;
 	ulong *lp;
 	vlong *vp;
 	IOMap *m;
 	Rdwrfn *fn;
 
+	port = offset;
+	end = port+n;
 	switch((ulong)c->qid.path){
 	case Qdir:
 		return devdirread(c, a, n, archdir, narchdir, devgen);
 
 	case Qiob:
-		port = offset;
-		checkport(offset, offset+n);
-		for(p = a; port < offset+n; port++)
+		checkport(port, end);
+		for(p = a; port < end; port++)
 			*p++ = inb(port);
 		return n;
 
 	case Qiow:
 		if(n & 1)
 			error(Ebadarg);
-		checkport(offset, offset+n);
-		sp = a;
-		for(port = offset; port < offset+n; port += 2)
+		checkport(port, end);
+		for(sp = a; port < end; port += 2)
 			*sp++ = ins(port);
 		return n;
 
 	case Qiol:
 		if(n & 3)
 			error(Ebadarg);
-		checkport(offset, offset+n);
-		lp = a;
-		for(port = offset; port < offset+n; port += 4)
+		checkport(port, end);
+		for(lp = a; port < end; port += 4)
 			*lp++ = inl(port);
 		return n;
 
 	case Qmsr:
 		if(n & 7)
 			error(Ebadarg);
-		vp = a;
-		for(port = offset; port < offset+n; port += 8)
+		end = port+(n/8);
+		for(vp = a; port < end; port++)
 			if(rdmsr(port, vp++) < 0)
 				error(Ebadarg);
 		return n;
@@ -404,7 +404,8 @@ archread(Chan *c, void *a, long n, vlong offset)
 		lock(&iomap);
 		i = 0;
 		for(m = iomap.m; m != nil; m = m->next){
-			i = snprint(buf, sizeof(buf), "%8lux %8lux %-12.12s\n", m->start, m->end-1, m->tag);
+			i = snprint(buf, sizeof(buf), "%8lux %8lux %-12.12s\n",
+				m->start, m->end-1, m->tag);
 			offset -= i;
 			if(offset < 0)
 				break;
@@ -429,44 +430,43 @@ archread(Chan *c, void *a, long n, vlong offset)
 static long
 archwrite(Chan *c, void *a, long n, vlong offset)
 {
+	uint port, end;
 	char *p;
-	int port;
 	ushort *sp;
 	ulong *lp;
 	vlong *vp;
 	Rdwrfn *fn;
 
+	port = offset;
+	end = port+n;
 	switch((ulong)c->qid.path){
 	case Qiob:
-		p = a;
-		checkport(offset, offset+n);
-		for(port = offset; port < offset+n; port++)
+		checkport(port, end);
+		for(p = a; port < end; port++)
 			outb(port, *p++);
 		return n;
 
 	case Qiow:
 		if(n & 1)
 			error(Ebadarg);
-		checkport(offset, offset+n);
-		sp = a;
-		for(port = offset; port < offset+n; port += 2)
+		checkport(port, end);
+		for(sp = a; port < end; port += 2)
 			outs(port, *sp++);
 		return n;
 
 	case Qiol:
 		if(n & 3)
 			error(Ebadarg);
-		checkport(offset, offset+n);
-		lp = a;
-		for(port = offset; port < offset+n; port += 4)
+		checkport(port, end);
+		for(lp = a; port < end; port += 4)
 			outl(port, *lp++);
 		return n;
 
 	case Qmsr:
 		if(n & 7)
 			error(Ebadarg);
-		vp = a;
-		for(port = offset; port < offset+n; port += 8)
+		end = port+(n/8);
+		for(vp = a; port < end; port++)
 			if(wrmsr(port, *vp++) < 0)
 				error(Ebadarg);
 		return n;
