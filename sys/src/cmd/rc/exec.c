@@ -123,6 +123,21 @@ pushredir(int type, int from, int to)
 	runq->redir = rp;
 }
 
+void
+shuffleredir(void)
+{
+	redir **rr, *rp;
+
+	rp = runq->redir;
+	if(rp==0)
+		return;
+	runq->redir = rp->next;
+	rp->next = runq->startredir;
+	for(rr = &runq->redir; *rr != rp->next; rr = &((*rr)->next))
+		;
+	*rr = rp;
+}
+
 var*
 newvar(char *name, var *next)
 {

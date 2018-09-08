@@ -55,6 +55,7 @@ void	readhere(void);
 word*	searchpath(char*);
 void	setstatus(char*);
 void	setvar(char*, word*);
+void	shuffleredir(void);
 void	skipnl(void);
 void	start(code*, int, var*);
 int	truestatus(void);
