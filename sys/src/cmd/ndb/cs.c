@@ -179,6 +179,7 @@ Network network[] = {
 QLock ipifclock;
 Ipifc *ipifcs;
 int confipvers;
+int dnsipvers;
 int lookipvers = V4|V6;
 
 char *mysysname;
@@ -984,26 +985,59 @@ error(char *s)
 	_exits(0);
 }
 
+static uchar loopbacknet[IPaddrlen] = {
+	0, 0, 0, 0,
+	0, 0, 0, 0,
+	0, 0, 0xff, 0xff,
+	127, 0, 0, 0
+};
+static uchar loopbackmask[IPaddrlen] = {
+	0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff,
+	0xff, 0, 0, 0
+};
+static uchar loopback6[IPaddrlen] = {
+	0, 0, 0, 0,
+	0, 0, 0, 0,
+	0, 0, 0, 0,
+	0, 0, 0, 1
+};
+
 void
 readipinterfaces(void)
 {
+	uchar mynet[IPaddrlen];
 	Ipifc *ifc;
 	Iplifc *lifc;
-	int v;
+	int conf, dns;
 
-	v = 0;
+	conf = dns = 0;
 	qlock(&ipifclock);
 	ipifcs = readipifc(mntpt, ipifcs, -1);
 	for(ifc = ipifcs; ifc != nil; ifc = ifc->next){
 		for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
-			if(isv4(lifc->ip))
-				v |= V4;
-			else
-				v |= V6;
+			if(ipcmp(lifc->ip, IPnoaddr) == 0)
+				continue;
+			if(isv4(lifc->ip)){
+				conf |= V4;
+				maskip(lifc->ip, loopbackmask, mynet);
+				if(ipcmp(mynet, loopbacknet) == 0)
+					continue;
+				dns |= V4;
+			} else {
+				conf |= V6;
+				if(ISIPV6LINKLOCAL(lifc->ip))
+					continue;
+				if(ipcmp(lifc->ip, loopback6) == 0)
+					continue;
+				dns |= V6;
+			}
 		}
 	}
 	qunlock(&ipifclock);
-	confipvers = v;
+	confipvers = conf;
+	dnsipvers = dns;
 }
 
 /*
@@ -1703,7 +1737,7 @@ dnsiplookup(char *host, Ndbs *s, int ipvers)
 	char buf[Maxreply];
 	Ndbtuple *t;
 
-	ipvers &= confipvers & lookipvers;
+	ipvers &= dnsipvers & lookipvers;
 	if(ipvers == 0){
 		werrstr("no ip address");
 		return nil;
