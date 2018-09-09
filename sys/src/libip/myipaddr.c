@@ -46,6 +46,10 @@ myipaddr(uchar *ip, char *net)
 			maskip(lifc->ip, loopbackmask, mynet);
 			if(ipcmp(mynet, loopbacknet) == 0)
 				continue;
+	
+			/* ipv6 linklocal */
+			if(ISIPV6LINKLOCAL(lifc->ip))
+				continue;
 
 			ipmove(ip, lifc->ip);
 			return 0;
