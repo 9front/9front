@@ -72,6 +72,7 @@ may be specified by number.
 .TP
 .BI open " dev
 Open the named device.
+.TP
 .B probe
 Print a list of available device paths, size, sector size
 and WWNs.  The first column is a suitable argument
