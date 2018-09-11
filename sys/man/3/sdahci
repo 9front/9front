@@ -45,16 +45,16 @@ The top level control file,
 .BR /dev/sdctl ,
 supports the following control messages for
 .IR sdahci :
-.TF "\fLiahci idprint"
+.TF "\fLahci idprint"
 .TP
-.B iahci debug
+.B ahci debug
 Toggle debug messages.  Default is off.
 .TP
-.B iahci idprint
+.B ahci idprint
 Toggle printing of drive identification messages.  Default is on.
 Prints short messages when a drive is identified or removed.
 .TP
-.B iahci aprint
+.B ahci aprint
 Print verbose ATAPI debugging messages.  Default is off.
 .PD
 .PP
