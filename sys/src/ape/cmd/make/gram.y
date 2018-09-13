@@ -321,17 +321,17 @@ else	{
 				break;
 
 			case '\n':
-				++yylineno;
-				if(p==yytext || p[-1]!='\\')
-					{
-					*p = '\0';
-					goto endloop;
-					}
-				p[-1] = ' ';
-				while( (kc=getc(fin))=='\t' || kc==' ' || kc=='\n')
-					if(kc == '\n')
-						++yylineno;
-	
+				do {
+					++yylineno;
+					if(p==yytext || p[-1]!='\\')
+						{
+						*p = '\0';
+						goto endloop;
+						}
+					p[-1] = ' ';
+					while( (kc=getc(fin))=='\t' || kc==' ')
+						;
+				} while(kc == '\n');
 				if(kc != EOF)
 					break;
 			case EOF:
