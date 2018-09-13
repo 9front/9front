@@ -6,7 +6,6 @@
 #include <auth.h>
 #include <bio.h>
 #include <ip.h>
-#include <ndb.h>
 
 enum
 {
@@ -85,7 +84,6 @@ void	nak(int, int, char*);
 void	ack(int, ushort);
 void	clrcon(void);
 void	setuser(void);
-char*	sunkernel(char*);
 void	remoteaddr(char*, char*, int);
 void	doserve(int);
 
@@ -563,14 +561,8 @@ sendfile(int fd, char *name, char *mode, int opts)
 	uchar buf[Maxsegsize+Hdrsize];
 	char errbuf[ERRMAX];
 
-	file = -1;
 	syslog(dbg, flog, "tftpd %d send file '%s' %s to %s",
 		pid, name, mode, raddr);
-	name = sunkernel(name);
-	if(name == 0){
-		nak(fd, 0, "not in our database");
-		goto error;
-	}
 
 	notify(catcher);
 
@@ -753,59 +745,6 @@ setuser(void)
 	close(fd);
 	if(newns("none", nil) < 0)
 		sysfatal("can't build namespace: %r");
-}
-
-char*
-lookup(char *sattr, char *sval, char *tattr, char *tval, int len)
-{
-	static Ndb *db;
-	char *attrs[1];
-	Ndbtuple *t;
-
-	if(db == nil)
-		db = ndbopen(0);
-	if(db == nil)
-		return nil;
-
-	if(sattr == nil)
-		sattr = ipattr(sval);
-
-	attrs[0] = tattr;
-	t = ndbipinfo(db, sattr, sval, attrs, 1);
-	if(t == nil)
-		return nil;
-	strncpy(tval, t->val, len);
-	tval[len-1] = 0;
-	ndbfree(t);
-	return tval;
-}
-
-/*
- *  for sun kernel boots, replace the requested file name with
- *  a one from our database.  If the database doesn't specify a file,
- *  don't answer.
- */
-char*
-sunkernel(char *name)
-{
-	ulong addr;
-	uchar v4[IPv4addrlen];
-	uchar v6[IPaddrlen];
-	char buf[256];
-	char ipbuf[128];
-	char *suffix;
-
-	addr = strtoul(name, &suffix, 16);
-	if(suffix-name != 8 || (strcmp(suffix, "") != 0 && strcmp(suffix, ".SUN") != 0))
-		return name;
-
-	v4[0] = addr>>24;
-	v4[1] = addr>>16;
-	v4[2] = addr>>8;
-	v4[3] = addr;
-	v4tov6(v6, v4);
-	sprint(ipbuf, "%I", v6);
-	return lookup("ip", ipbuf, "bootf", buf, sizeof buf);
 }
 
 void

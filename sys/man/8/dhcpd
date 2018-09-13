@@ -279,21 +279,7 @@ Change directory to
 The default is
 .BR /lib/tftpd .
 All requests for files with non-rooted file names are served starting at this
-directory with the exception of files of the form
-.BR xxxxxxxx.SUNyy .
-These are Sparc kernel boot files where
-.B xxxxxxxx
-is the hex IP address of the machine requesting the kernel and
-.B yy
-is an architecture identifier.
-.I Tftpd
-looks up the file in the network database using
-.I ipinfo
-(see
-.IR ndb (2))
-and responds with the boot file specified for that particular
-machine.
-If no boot file is specified, the transfer fails.
+directory.
 .I Tftpd
 supports only octet mode.
 .TP
