@@ -6,39 +6,47 @@ fn checkhost {
 		exit 'fail'
 	}
 	echo 'checking this host''s tuple:'
-	ip=`{ndb/query sys $sysname ip}
+	ip=`{ndb/ipquery sys $sysname ip | sed 's/ip=//g'}
 	if(~ $ip '')
 		echo '	no ip= entry'
 	if not
 		echo '	ip='$ip 'looks ok'
-	dom=`{ndb/query sys $sysname dom}
+	dom=`{ndb/ipquery sys $sysname dom | sed 's/dom=//g'}
 	if(~ $dom '')
 		echo '	no dom= entry'
-	if not if(! ~ $dom *.*)
-		echo '	dom='$dom 'does not have a dot'
-	if not if(! ~ $dom $sysname^.*)
-		echo '	dom='$dom 'does not start with' $sysname^'; it''s supposed to be the FQDN, not the domain name!'
-	if not
-		echo '	dom='$dom 'looks ok'
-	ether=`{ndb/query sys $sysname ether}
+	if not {
+		for(i in $dom){
+			if(! ~ $i *.*)
+				echo '	dom='$i 'does not have a dot'
+			if not if(! ~ $i $sysname^.*)
+				echo '	dom='$i 'does not start with' $sysname^'; it''s supposed to be the FQDN, not the domain name!'
+			if not
+				echo '	dom='$i 'looks ok'
+		}
+	}
+	ether=`{ndb/ipquery sys $sysname ether | sed 's/ether=//g'}
 	if(~ $ether '')
 		echo '	no ether entry'
-	if not if(! ~ $ether [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f])
-		echo '	ether='$ether 'has wrong format'
-	if not if(! grep -s $ether /net/ether*/addr)
-		echo '	ether='$ether 'does not belong to any network interface'
-	if not
-		echo '	ether='$ether 'looks ok'
+	if not {
+		for(i in $ether){
+			if(! ~ $i [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f])
+				echo '	ether='$i 'has wrong format'
+			if not if(! grep -s $i /net/ether*/addr)
+				echo '	ether='$i 'does not belong to any network interface'
+			if not
+				echo '	ether='$i 'looks ok'
+		}
+	}
 }
 fn checknet {
 	echo 'checking the network tuple:'
-	ipnet=`{ndb/ipquery sys $sysname ipnet | sed 's/^ipnet=//'}
+	ipnet=`{ndb/ipquery sys $sysname ipnet | sed 's/ipnet=//g'}
 	if(~ $ipnet ''){
 		echo '	we are not in an ipnet, so looking for entries in host tuple only'
 	}
 	if not
 		echo '	we are in ipnet='^$ipnet
-	ipgw=`{ndb/ipquery sys $sysname ipgw | sed 's/^ipgw=//'}
+	ipgw=`{ndb/ipquery sys $sysname ipgw | sed 's/ipgw=//g'}
 	if(~ $ipgw '' '::'){
 		echo '	we do not have an internet gateway, no ipgw= entry'
 	}
@@ -48,29 +56,41 @@ fn checknet {
 		if not
 			echo '	ipgw='$ipgw 'looks ok'
 	}
-	dns=`{ndb/ipquery sys $sysname dns | sed 's/^dns=//'}
+	dns=`{ndb/ipquery sys $sysname dns | sed 's/dns=//g'}
 	if(~ $dns '')
 		echo '	no dns= entry'
-	if not if(! ip/ping -n 1 $dns >/dev/null >[2=1])
-		echo '	dns='$dns 'does not reply to ping'
-	if not
-		echo '	dns='$dns 'looks ok'
-	auth=`{ndb/ipquery sys $sysname auth | sed 's/^auth=//'}
+	if not {
+		for(i in $dns){
+			if(! ip/ping -n 1 $i >/dev/null >[2=1])
+				echo '	dns='$i 'does not reply to ping'
+			if not
+				echo '	dns='$i 'looks ok'
+		}
+	}
+	auth=`{ndb/ipquery sys $sysname auth | sed 's/auth=//g'}
 	if(~ $auth '')
 		echo '	no auth= entry'
-	if not if(! ip/ping -n 1 $auth >/dev/null >[2=1])
-		echo '	auth='$auth 'does not reply to ping'
 	if not {
-		authok=1
-		echo '	auth='$auth 'looks ok'
+		for(i in $auth){
+			if(! ip/ping -n 1 $i >/dev/null >[2=1])
+				echo '	auth='$i 'does not reply to ping'
+			if not {
+				authok=1
+				echo '	auth='$i 'looks ok'
+			}
+		}
 	}
-	fs=`{ndb/ipquery sys $sysname fs | sed 's/^fs=//'}
+	fs=`{ndb/ipquery sys $sysname fs | sed 's/fs=//g'}
 	if(~ $fs '')
 		echo '	no fs= entry (needed for tls boot)'
-	if not if(! ip/ping -n 1 $fs >/dev/null >[2=1])
-		echo '	fs='$fs 'does not reply to ping (needed for tls boot)'
-	if not
-		echo '	fs='$fs 'looks ok'
+	if not {
+		for(i in $fs){
+			if(! ip/ping -n 1 $i >/dev/null >[2=1])
+				echo '	fs='$i 'does not reply to ping (needed for tls boot)'
+			if not
+				echo '	fs='$i 'looks ok'
+		}
+	}
 }
 fn checkauth {
 	echo 'checking auth server configuration:'
@@ -78,15 +98,15 @@ fn checkauth {
 		echo '	no auth server'
 		exit fail
 	}
-	if not if(~ $auth $sysname){
+	if not if(~ $sysname $auth){
 		echo '	we are the auth server'
 		authisus=1
 	}
-	if not if(~ $auth $dom){
+	if not if(~ $dom $auth){
 		echo '	we are the auth server'
 		authisus=1
 	}
-	if not if(~ $auth $ip){
+	if not if(~ $ip $auth){
 		echo '	we are the auth server'
 		authisus=1
 	}
