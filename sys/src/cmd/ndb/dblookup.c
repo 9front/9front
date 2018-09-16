@@ -794,7 +794,7 @@ lookupinfo(char *attr)
 	qunlock(&ipifclock);
 	qunlock(&dblock);
 
-	return t;
+	return ndbdedup(t);
 }
 
 /*

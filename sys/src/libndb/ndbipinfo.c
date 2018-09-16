@@ -149,67 +149,29 @@ subnet(Ndb *db, uchar *net, Ndbtuple *f, int prefix)
 	return t;
 }
 
-/*
- *  fill in all the requested attributes for a system.
- *  if the system's entry doesn't have all required,
- *  walk through successively more inclusive networks
- *  for inherited attributes.
- */
-Ndbtuple*
-ndbipinfo(Ndb *db, char *attr, char *val, char **alist, int n)
+static Ndbtuple*
+netinfo(Ndb *db, Ndbtuple *t, char **alist, int n)
 {
-	Ndbtuple *t, *nt, *f;
-	Ndbs s;
-	char *ipstr;
-	uchar net[IPaddrlen], ip[IPaddrlen];
+	uchar ip[IPaddrlen], net[IPaddrlen];
 	int prefix, smallestprefix, force;
-	vlong r;
+	Ndbtuple *f, *nt;
 
-	/* just in case */
-	fmtinstall('I', eipfmt);
-	fmtinstall('M', eipfmt);
+	nt = ndbfindattr(t, t, "ip");
+	if(nt == nil || parseip(ip, nt->val) == -1){
+		ndbfree(t);
+		return nil;
+	}
 
 	/* get needed attributes */
 	f = mkfilter(n, alist);
 
-	/*
-	 *  first look for a matching entry with an ip address
-	 */
-	t = nil;
-	ipstr = ndbgetvalue(db, &s, attr, val, "ip", &nt);
-	if(ipstr == nil){
-		/* none found, make one up */
-		if(strcmp(attr, "ip") != 0) {
-			ndbfree(f);
-			return nil;	
-		}
-		t = ndbnew("ip", val);
-		t->line = t;
-		t->entry = nil;
-		r = parseip(net, val);
-		if(r == -1)
-			ndbfree(t);
-	} else {
-		/* found one */
-		while(nt != nil){
-			nt = ndbreorder(nt, s.t);
-			t = ndbconcatenate(t, nt);
-			nt = ndbsnext(&s, attr, val);
-		}
-		r = parseip(net, ipstr);
-		free(ipstr);
-	}
-	if(r < 0){
-		ndbfree(f);
-		return nil;
-	}
-	ipmove(ip, net);
 	t = filter(db, t, f);
 
 	/*
 	 *  now go through subnets to fill in any missing attributes
 	 */
-	if(isv4(net)){
+	ipmove(net, ip);
+	if(isv4(ip)){
 		prefix = 127;
 		smallestprefix = 100;
 		force = 0;
@@ -241,14 +203,58 @@ ndbipinfo(Ndb *db, char *attr, char *val, char **alist, int n)
 	 *  if there's an unfulfilled ipmask, make one up
 	 */
 	nt = ndbfindattr(f, f, "ipmask");
-	if(nt && !(nt->ptr & Fignore)){
+	if(nt != nil && !(nt->ptr & Fignore)){
 		char x[64];
 
 		snprint(x, sizeof(x), "%M", defmask(ip));
-		t = ndbconcatenate(t, ndbnew("ipmask", x));
+		nt = ndbnew("ipmask", x);
+		nt->line = nt;
+		nt->entry = nil;
+		t = ndbconcatenate(t, nt);
 	}
 
 	ndbfree(f);
 	ndbsetmalloctag(t, getcallerpc(&db));
 	return t;
+}
+
+/*
+ *  fill in all the requested attributes for a system.
+ *  if the system's entry doesn't have all required,
+ *  walk through successively more inclusive networks
+ *  for inherited attributes.
+ */
+Ndbtuple*
+ndbipinfo(Ndb *db, char *attr, char *val, char **alist, int n)
+{
+	Ndbtuple *t, *nt;
+	char *ipstr;
+	Ndbs s;
+
+	/* just in case */
+	fmtinstall('I', eipfmt);
+	fmtinstall('M', eipfmt);	
+
+	/*
+	 *  first look for a matching entry with an ip address
+	 */
+	ipstr = ndbgetvalue(db, &s, attr, val, "ip", &nt);
+	if(ipstr == nil){
+		/* none found, make one up */
+		if(strcmp(attr, "ip") != 0)
+			return nil;	
+		nt = ndbnew("ip", val);
+		nt->line = nt;
+		nt->entry = nil;
+		t = netinfo(db, nt, alist, n);
+	} else {
+		/* found one */
+		free(ipstr);
+		t = nil;
+		do {
+			nt = ndbreorder(nt, s.t);
+			t = ndbconcatenate(t, netinfo(db, nt, alist, n));
+		} while((nt = ndbsnext(&s, attr, val)) != nil);
+	}
+	return ndbdedup(t);
 }

@@ -16,6 +16,7 @@ ndbgetipaddr(Ndb *db, char *val)
 	attr = ipattr(val);
 	if(strcmp(attr, "ip") == 0){
 		it = ndbnew("ip", val);
+		it->line = it;
 		ndbsetmalloctag(it, getcallerpc(&db));
 		return it;
 	}
@@ -25,24 +26,29 @@ ndbgetipaddr(Ndb *db, char *val)
 	if(p == nil)
 		return nil;
 	free(p);
-
-	/* remove the non-ip entries */
 	first = last = nil;
-	for(; it; it = next){
-		next = it->entry;
-		if(strcmp(it->attr, "ip") == 0){
-			if(first == nil)
-				first = it;
-			else
-				last->entry = it;
-			it->entry = nil;
-			it->line = first;
-			last = it;
-		} else {
-			it->entry = nil;
-			ndbfree(it);
+	do {
+		/* remove the non-ip entries */
+		for(; it != nil; it = next){
+			next = it->entry;
+			if(strcmp(it->attr, "ip") == 0){
+				if(first == nil)
+					first = it;
+				else {
+					last->entry = it;
+					last->line = it;
+				}
+				it->entry = nil;
+				it->line = first;
+				last = it;
+			} else {
+				it->entry = nil;
+				ndbfree(it);
+			}
 		}
-	}
+	} while((it = ndbsnext(&s, attr, val)) != nil);
+
+	first = ndbdedup(first);
 
 	ndbsetmalloctag(first, getcallerpc(&db));
 	return first;

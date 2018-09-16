@@ -1392,7 +1392,7 @@ myipinfo(Ndb *db, char **list, int n)
 	}
 	qunlock(&ipifclock);
 
-	return t;
+	return ndbdedup(t);
 }
 
 /*
@@ -1919,29 +1919,6 @@ ipresolve(char *attr, char *host)
 	return t;
 }
 
-/*
- *  remove duplicates
- */
-static Ndbtuple*
-ndbdedup(Ndbtuple *t)
-{
-	Ndbtuple *tt, *nt, **l;
-
-	for(nt = t; nt != nil; nt = nt->entry){
-		for(l = &nt->entry; (tt = *l) != nil;){
-			if(strcmp(nt->attr, tt->attr) != 0
-			|| strcmp(nt->val, tt->val) != 0){
-				l = &tt->entry;
-				continue;
-			}
-			*l = tt->entry;
-			tt->entry = nil;
-			ndbfree(tt);
-		}
-	}
-	return t;
-}
-
 char*
 ipinfoquery(Mfile *mf, char **list, int n)
 {
@@ -1992,7 +1969,6 @@ ipinfoquery(Mfile *mf, char **list, int n)
 		return "no match";
 
 	if(nresolve != 0){
-		t = ndbdedup(t);
 		for(l = &t; *l != nil;){
 			nt = *l;
 
@@ -2020,8 +1996,9 @@ ipinfoquery(Mfile *mf, char **list, int n)
 			nt->entry = nil;
 			ndbfree(nt);
 		}
+
+		t = ndbdedup(t);
 	}
-	t = ndbdedup(t);
 
 	/* make it all one line */
 	t = ndbline(t);

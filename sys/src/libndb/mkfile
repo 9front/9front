@@ -21,6 +21,7 @@ OFILES=\
 	ndbparse.$O\
 	ndbreorder.$O\
 	ndbsubstitute.$O\
+	ndbdedup.$O\
 
 HFILES=\
 	/sys/include/ndb.h\

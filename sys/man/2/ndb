@@ -1,6 +1,6 @@
 .TH NDB 2
 .SH NAME
-ndbopen, ndbcat, ndbchanged, ndbclose, ndbreopen, ndbsearch, ndbsnext, ndbgetvalue, ndbfree, ipattr, ndbgetipaddr, ndbipinfo, csipinfo, ndbhash, ndbparse, csgetvalue, ndbfindattr, dnsquery, ndbdiscard, ndbconcatenate, ndbreorder, ndbsubstitute \- network database
+ndbopen, ndbcat, ndbchanged, ndbclose, ndbreopen, ndbsearch, ndbsnext, ndbgetvalue, ndbfree, ipattr, ndbgetipaddr, ndbipinfo, csipinfo, ndbhash, ndbparse, csgetvalue, ndbfindattr, dnsquery, ndbdiscard, ndbconcatenate, ndbreorder, ndbsubstitute, ndbdedup \- network database
 .SH SYNOPSIS
 .B #include <u.h>
 .br
@@ -85,6 +85,9 @@ Ndbtuple*	ndbreorder(Ndbtuple *t, Ndbtuple *a)
 .PP
 .B
 Ndbtuple*	ndbsubstitute(Ndbtuple *t, Ndbtuple *from, Ndbtuple *to)
+.PP
+.B
+Ndbtuple*	ndbdedup(Ndbtuple *t)
 .PP
 .B
 void	ndbsetmalloctag(Ndbtuple *t, uintptr tag)
@@ -236,13 +239,13 @@ system name
 .I Ndbgetipaddr
 looks in
 .I db
-for an entry matching
+for entries matching
 .I sys
 as the value of a
 .B sys=
 or
 .B dom=
-attribute/value pair and returns all IP addresses in the entry.
+attribute/value pair and returns all IP addresses.
 If
 .I sys
 is already an IP address, a tuple containing just
@@ -464,7 +467,7 @@ first in the entry and making
 first in its line.
 .PP
 .I Ndbsubstitute
-replaces a single att/val pair
+replaces a single attr/val pair
 .I from
 in
 .I t
@@ -475,6 +478,10 @@ All attr/val pairs in
 end up on the same line.
 .I from
 is freed.
+.PP
+.I Ndbdedup
+removes duplicate attr/val pairs from tuple list
+.IR t .
 .PP
 .I Ndbsetmalloctag
 sets the malloc tag
