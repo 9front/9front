@@ -1,0 +1,56 @@
+#!/bin/rc
+
+fn configreboot {
+	if(~ $"* *!*){
+		*=`{echo $* | sed 's,!, ,'}
+		shift
+		*=`{echo $* | sed 's,!, ,'}
+		x=m$1
+		x=$$x
+		shift
+
+		# config method
+		$x(1) $*
+	}
+}
+
+fn connectreboot {
+	if(~ $"* *!*){
+		*=`{echo $* | sed 's,!, ,'}
+		bootfile=$1
+		shift
+		bootargs=$*
+		*=`{echo $* | sed 's,!, ,'}
+		x=m$1
+		x=$$x
+		shift
+
+		# connect method
+		$x(2) $*
+
+		rfork ne
+
+		# set new kernel parameters
+		echo -n $bootargs > '#ec/bootargs'
+
+		# remove part of our temporary root
+		/mnt/broot/$cputype/bin/unmount /$cputype/bin /bin
+		/mnt/broot/$cputype/bin/unmount /rc/bin /bin
+		/mnt/broot/$cputype/bin/unmount /
+
+		# create the name space, mount the root fs
+		/mnt/broot/$cputype/bin/bind / /
+		/mnt/broot/$cputype/bin/mount -ac '#s/boot' /
+	}
+	if not {
+		bootfile=$1
+	}
+
+	# load the new kernel
+	/mnt/broot/$cputype/bin/echo reboot $bootfile > /dev/reboot
+	exit 'reboot failed'
+}
+
+mreboot=(configreboot connectreboot)
+
+mt=(mreboot $mt)

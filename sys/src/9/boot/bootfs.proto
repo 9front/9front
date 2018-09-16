@@ -48,6 +48,7 @@ $objtype
 rc
 	lib
 		rcmain
+		reboot.rc 555 sys sys ../boot/reboot.rc
 		local.rc 555 sys sys ../boot/local.rc
 		net.rc 555 sys sys ../boot/net.rc
 	bin
