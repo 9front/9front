@@ -133,13 +133,15 @@ readline(void *f, char buf[64])
 			if(f == nil){
 				while((*p = getc()) == 0)
 					;
+				if(p == buf && (*p == '\b' || strchr(white, *p) != nil))
+					continue;
 				putc(*p);
 				if(*p == '\r')
 					putc('\n');
-				else if(*p == '\b' && p > buf){
+				else if(*p == '\b'){
+					p--;
 					putc(' ');
 					putc('\b');
-					p--;
 					continue;
 				}
 			}else if(read(f, p, 1) <= 0)
