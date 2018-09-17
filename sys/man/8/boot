@@ -211,13 +211,21 @@ variables
 and
 .BR auth
 override the file server and authentication servers
-obtained (if any) from DHCP during
+obtained (if any) from DHCP and IPv6 router advertisements
+during
 .IR ipconfig (8).
 .TP 8
 .BR il
 the same as
 .B tcp
 but uses the IL protocol to connect to the fileserver.
+.TP 8
+.BR tls
+makes an authenticated and encrypted connection to the
+fileserver via srvtls using t9fs service (see
+.IR srv (4)).
+the arguments are the same as
+.BR tcp .
 .TP 8
 .BR local
 connect to the local file system.
@@ -231,6 +239,24 @@ to determine the file system type and starts the
 appropriate server with
 .IR args .
 .RE
+.TP 8
+.BR reboot
+starts another kernel. The
+.I device
+is of the form
+.I bootfile
+[
+.B !
+.I method
+]
+where
+.I bootfile
+is the path to the kernel and
+.I method
+is any of the above boot methods that connects to the
+fileserver on where the
+.I bootfile
+is located.
 .SH EXAMPLES
 On PCs, the default arguments to boot are constructed using
 the 
