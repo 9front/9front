@@ -407,33 +407,6 @@ fsopen(Req *r)
 			if(!lookkey(cl->hdr, "Accept"))
 				cl->hdr = addkey(cl->hdr, "Accept", "*/*");
 
-			if(!lookkey(cl->hdr, "Referer")){
-				char *r;
-				Url *u;
-
-				/*
-				 * Referer header is often required on broken
-				 * websites even if the spec makes them optional,
-				 * so we make one up.
-				 */
-				if(u = url("/", cl->url)){
-					if(r = u->host){
-						u->host = smprint("%N", r);
-						free(r);
-					}
-
-					/* do not send credentials */
-					free(u->user); u->user = nil;
-					free(u->pass); u->pass = nil;
-
-					if(r = smprint("%U", u)){
-						cl->hdr = addkey(cl->hdr, "Referer", r);
-						free(r);
-					}
-					freeurl(u);
-				}
-			}
-
 			if(!lookkey(cl->hdr, "Connection"))
 				cl->hdr = addkey(cl->hdr, "Connection", "keep-alive");
 
