@@ -4,6 +4,8 @@
 
 #pragma	varargck	type	"M"	uchar*
 
+static char exitstr[ERRMAX];
+
 static int
 digestfmt(Fmt *fmt)
 {
@@ -28,7 +30,8 @@ sum(int fd, char *name)
 	while((n = read(fd, buf, sizeof buf)) > 0)
 		md5(buf, n, nil, s);
 	if(n < 0){
-		fprint(2, "reading %s: %r\n", name ? name : "stdin");
+		snprint(exitstr, sizeof(exitstr), "reading %s: %r\n", name ? name : "stdin");
+		fprint(2, "%s", exitstr);
 		return;
 	}
 	md5(nil, 0, digest, s);
@@ -56,11 +59,12 @@ main(int argc, char *argv[])
 	else for(i = 0; i < argc; i++){
 		fd = open(argv[i], OREAD);
 		if(fd < 0){
-			fprint(2, "md5sum: can't open %s: %r\n", argv[i]);
+			snprint(exitstr, sizeof(exitstr), "can't open %s: %r", argv[i]);
+			fprint(2, "%s: %s\n", argv0, exitstr);
 			continue;
 		}
 		sum(fd, argv[i]);
 		close(fd);
 	}
-	exits(nil);
+	exits(exitstr);
 }

@@ -3,7 +3,9 @@
 
 typedef ulong	Sumfn(ulong, void*, uvlong);
 extern Sumfn	sumr, sum5, sum32;
-char		*sumfile(char*, Sumfn*);
+void		sumfile(char*, Sumfn*);
+
+static char exitstr[ERRMAX];
 
 void
 usage(void)
@@ -16,7 +18,6 @@ void
 main(int argc, char **argv)
 {
 	Sumfn *fn = sum32;
-	char *exitstr=0, *s;
 
 	ARGBEGIN{
 	case 'r':
@@ -31,14 +32,13 @@ main(int argc, char **argv)
 	}ARGEND
 	if(*argv){
 		while(*argv)
-			if(s = sumfile(*argv++, fn))	/* assign = */
-				exitstr = s;
+			sumfile(*argv++, fn);
 	}else
-		exitstr = sumfile(0, fn);
+		sumfile(0, fn);
 	exits(exitstr);
 }
 
-char*
+void
 sumfile(char *file, Sumfn *fn)
 {
 	int fd;
@@ -49,9 +49,9 @@ sumfile(char *file, Sumfn *fn)
 
 	if(file){
 		if((fd = open(file, OREAD)) < 0){
-			errstr(buf, sizeof buf);
-			fprint(2, "%s: %s: %s\n", argv0, file, buf);
-			return "can't open";
+			snprint(exitstr, sizeof(exitstr), "can't open %s: %r", file);
+			fprint(2, "%s: %s\n", argv0, exitstr);
+			return;
 		}
 	}else
 		fd = 0;
@@ -62,11 +62,12 @@ sumfile(char *file, Sumfn *fn)
 		sum = (*fn)(sum, buf, n);
 	}
 	if(n < 0){
-		errstr(buf, sizeof buf);
-		fprint(2, "%s: %s: read error: %s\n", argv0, file? file:"<stdin>", buf);
+		snprint(exitstr, sizeof(exitstr), "reading %s: %r", file? file:"<stdin>");
+		fprint(2, "%s: %s\n", argv0, exitstr);
+
 		if(file)
 			close(fd);
-		return "read error";
+		return;
 	}
 	if(file)
 		close(fd);
@@ -74,7 +75,6 @@ sumfile(char *file, Sumfn *fn)
 	if(file)
 		print(" %s", file);
 	print("\n");
-	return 0;
 }
 
 #define	VBSIZE		512		/* system v */
