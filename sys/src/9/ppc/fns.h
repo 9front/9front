@@ -1,7 +1,5 @@
 #include "../port/portfns.h"
 
-int	cistrcmp(char*, char*);
-int	cistrncmp(char*, char*, int);
 void	clockinit(void);
 void	clockintr(Ureg*);
 void	cpuidprint(void);
