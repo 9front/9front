@@ -96,9 +96,11 @@ main(int argc, char *argv[])
 		error(0, "no text symbols");
 
 	tbase = mach->kbase;
-	if(tbase != s.value & ~0xFFF)
+	if(tbase != (s.value & ~0xFFF)){
 		print("warning: kbase %.8llux != tbase %.8llux\n",
 			tbase, s.value&~0xFFF);
+		tbase = s.value;
+	}
 	print("KTZERO %.8llux PGSIZE %dKb\n", tbase, mach->pgsize/1024);
 	/*
 	 * Accumulate counts for each function
