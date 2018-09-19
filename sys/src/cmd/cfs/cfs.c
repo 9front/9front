@@ -257,6 +257,7 @@ mountinit(char *server, char *mountpoint)
 		error("pipe failed");
 	switch(fork()){
 	case 0:
+		close(p[1]);
 		break;
 	default:
 		if (noauth)
