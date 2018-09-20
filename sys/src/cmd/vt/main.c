@@ -1057,6 +1057,7 @@ selecting(void)
 	case 3:	snarfsel();	break;
 	case 5:	paste();	break;
 	}
+	while(mc->buttons&7) readmouse(mc);
 	t = -mc->msec;
 }
 
