@@ -1013,10 +1013,10 @@ unselect(void)
 }
 
 void
-select(Point p, Point q)
+select(Point p, Point q, int line)
 {
 	if(onscreenr(p.x, p.y) > onscreenr(q.x, q.y)){
-		select(q, p);
+		select(q, p, line);
 		return;
 	}
 	unselect();
@@ -1030,9 +1030,9 @@ select(Point p, Point q)
 		q.y = ymax;
 		if(!blocksel) q.x = xmax+1;
 	}
-	if(p.x < 0)
+	if(p.x < 0 || line)
 		p.x = 0;
-	if(q.x > xmax+1)
+	if(q.x > xmax+1 || line)
 		q.x = xmax+1;
 	selrect = Rpt(p, q);
 	for(; p.y <= q.y; p.y++)
@@ -1042,18 +1042,22 @@ select(Point p, Point q)
 void
 selecting(void)
 {
-	Point p;
+	Point p, q;
+	static ulong t;
 
 	p = pos(mc->xy);
+	t += mc->msec;
 	do{
+		q = pos(mc->xy);
+		select(p, q, t < 200);
 		drawscreen();
 		readmouse(mc);
-		select(p, pos(mc->xy));
 	} while(button1());
 	switch(mc->buttons & 0x7){
 	case 3:	snarfsel();	break;
 	case 5:	paste();	break;
 	}
+	t = -mc->msec;
 }
 
 int
@@ -1259,7 +1263,7 @@ scroll(int sy, int ly, int dy, int cy)	/* source, limit, dest, which line to cle
 	/* move selection */
 	selrect.min.y -= d;
 	selrect.max.y -= d;
-	select(selrect.min, selrect.max);
+	select(selrect.min, selrect.max, 0);
 	
 	clear(0, cy, xmax+1, cy+1);
 }
