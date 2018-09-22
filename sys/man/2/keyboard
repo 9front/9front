@@ -39,7 +39,7 @@ structure:
 .IP
 .EX
 .ta 6n +\w'Channel 'u +\w'consfd;   'u
-typedef struct Keyboardct Keyboardctl;
+typedef struct Keyboardctl Keyboardctl;
 struct Keyboardctl
 {
 	Channel	*c;	/* chan(Rune[20]) */
@@ -66,7 +66,7 @@ is assumed.
 .PP
 Once the
 .B Keyboardctl
-is set up a
+is set up, a
 message containing a
 .BR Rune
 will be sent on the
