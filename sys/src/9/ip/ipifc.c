@@ -753,37 +753,42 @@ ipifcconnect(Conv* c, char **argv, int argc)
 char*
 ipifcra6(Ipifc *ifc, char **argv, int argc)
 {
-	int i, argsleft, vmax = ifc->rp.maxraint, vmin = ifc->rp.minraint;
+	int i, argsleft;
+	uchar sendra, recvra;
+	Routerparams rp;
 
-	argsleft = argc - 1;
 	i = 1;
-
-	if(argsleft % 2 != 0)
+	argsleft = argc - 1;
+	if((argsleft % 2) != 0)
 		return Ebadarg;
+
+	sendra = ifc->sendra6;
+	recvra = ifc->recvra6;
+	rp = ifc->rp;
 
 	while (argsleft > 1) {
 		if(strcmp(argv[i], "recvra") == 0)
-			ifc->recvra6 = (atoi(argv[i+1]) != 0);
+			recvra = (atoi(argv[i+1]) != 0);
 		else if(strcmp(argv[i], "sendra") == 0)
-			ifc->sendra6 = (atoi(argv[i+1]) != 0);
+			sendra = (atoi(argv[i+1]) != 0);
 		else if(strcmp(argv[i], "mflag") == 0)
-			ifc->rp.mflag = (atoi(argv[i+1]) != 0);
+			rp.mflag = (atoi(argv[i+1]) != 0);
 		else if(strcmp(argv[i], "oflag") == 0)
-			ifc->rp.oflag = (atoi(argv[i+1]) != 0);
+			rp.oflag = (atoi(argv[i+1]) != 0);
 		else if(strcmp(argv[i], "maxraint") == 0)
-			ifc->rp.maxraint = atoi(argv[i+1]);
+			rp.maxraint = atoi(argv[i+1]);
 		else if(strcmp(argv[i], "minraint") == 0)
-			ifc->rp.minraint = atoi(argv[i+1]);
+			rp.minraint = atoi(argv[i+1]);
 		else if(strcmp(argv[i], "linkmtu") == 0)
-			ifc->rp.linkmtu = atoi(argv[i+1]);
+			rp.linkmtu = atoi(argv[i+1]);
 		else if(strcmp(argv[i], "reachtime") == 0)
-			ifc->rp.reachtime = atoi(argv[i+1]);
+			rp.reachtime = atoi(argv[i+1]);
 		else if(strcmp(argv[i], "rxmitra") == 0)
-			ifc->rp.rxmitra = atoi(argv[i+1]);
+			rp.rxmitra = atoi(argv[i+1]);
 		else if(strcmp(argv[i], "ttl") == 0)
-			ifc->rp.ttl = atoi(argv[i+1]);
+			rp.ttl = atoi(argv[i+1]);
 		else if(strcmp(argv[i], "routerlt") == 0)
-			ifc->rp.routerlt = atoi(argv[i+1]);
+			rp.routerlt = atoi(argv[i+1]);
 		else
 			return Ebadarg;
 
@@ -792,11 +797,13 @@ ipifcra6(Ipifc *ifc, char **argv, int argc)
 	}
 
 	/* consistency check */
-	if(ifc->rp.maxraint < ifc->rp.minraint) {
-		ifc->rp.maxraint = vmax;
-		ifc->rp.minraint = vmin;
+	if(rp.maxraint < rp.minraint)
 		return Ebadarg;
-	}
+
+	ifc->rp = rp;
+	ifc->sendra6 = sendra;
+	ifc->recvra6 = recvra;
+
 	return nil;
 }
 
