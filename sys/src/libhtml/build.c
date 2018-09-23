@@ -7,7 +7,7 @@
 
 // A stack for holding integer values
 enum {
-	Nestmax = 40	// max nesting level of lists, font styles, etc.
+	Nestmax = 256	// max nesting level of lists, font styles, etc.
 };
 
 struct Stack {
