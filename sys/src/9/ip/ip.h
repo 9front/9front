@@ -262,9 +262,9 @@ struct Iplifc
 	uchar	tentative;	/* =1 => v6 dup disc on, =0 => confirmed unique */
 	uchar	onlink;		/* =1 => onlink, =0 offlink. */
 	uchar	autoflag;	/* v6 autonomous flag */
-	long 	validlt;	/* v6 valid lifetime */
-	long 	preflt;		/* v6 preferred lifetime */
-	long	origint;	/* time when addr was added */
+	ulong 	validlt;	/* v6 valid lifetime */
+	ulong 	preflt;		/* v6 preferred lifetime */
+	ulong	origint;	/* time when addr was added */
 	Iplink	*link;		/* addresses linked to this lifc */
 	Iplifc	*next;
 };
@@ -675,6 +675,7 @@ extern char*	ipifcrem(Ipifc *ifc, char **argv, int argc);
 extern char*	ipifcadd(Ipifc *ifc, char **argv, int argc, int tentative, Iplifc *lifcp);
 extern long	ipselftabread(Fs*, char *a, ulong offset, int n);
 extern char*	ipifcadd6(Ipifc *ifc, char**argv, int argc);
+extern char*	ipifcremove6(Ipifc *ifc, char**argv, int argc);
 /*
  *  ip.c
  */

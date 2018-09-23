@@ -286,6 +286,10 @@ preferred life-time in seconds
 .RE
 .PD
 .TP
+.B remove6
+Remove local IPv6 addresses that have expired ther
+valid life-time.
+.TP
 .BI "ra6 " "keyword value ..."
 Set IPv6 router advertisement (RA) parameter
 .IR keyword 's

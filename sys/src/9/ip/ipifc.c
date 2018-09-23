@@ -84,7 +84,7 @@ v6addrtype(uchar *addr)
 		return globalv6;
 }
 
-#define v6addrcurr(lifc) ((lifc)->preflt == ~0L || \
+#define v6addrcurr(lifc) ((lifc)->preflt == ~0UL || \
 			(lifc)->origint + (lifc)->preflt >= NOW/1000)
 
 static int
@@ -177,15 +177,9 @@ ipifcbind(Conv *c, char **argv, int argc)
 	ifc->maxtu = ifc->m->maxtu;
 	if(ifc->m->unbindonclose == 0)
 		ifc->conv->inuse++;
-	ifc->rp.mflag = 0;		/* default not managed */
-	ifc->rp.oflag = 0;
-	ifc->rp.maxraint = 600000;	/* millisecs */
-	ifc->rp.minraint = 200000;
-	ifc->rp.linkmtu = 0;		/* no mtu sent */
-	ifc->rp.reachtime = 0;
-	ifc->rp.rxmitra = 0;
-	ifc->rp.ttl = MAXTTL;
-	ifc->rp.routerlt = 3 * ifc->rp.maxraint;
+
+	/* default router paramters */
+	ifc->rp = c->p->f->v6p->rp;
 
 	/* any ancillary structures (like routes) no longer pertain */
 	ifc->ifcid++;
@@ -248,9 +242,9 @@ ipifcunbind(Ipifc *ifc)
 	return nil;
 }
 
-char sfixedformat[] = "device %s maxtu %d sendra %d recvra %d mflag %d oflag"
-" %d maxraint %d minraint %d linkmtu %d reachtime %d rxmitra %d ttl %d routerlt"
-" %d pktin %lud pktout %lud errin %lud errout %lud speed %d delay %d\n";
+char sfixedformat[] = "device %s maxtu %d sendra %d recvra %d mflag %d oflag %d"
+" maxraint %d minraint %d linkmtu %d reachtime %d rxmitra %d ttl %d routerlt %d"
+" pktin %lud pktout %lud errin %lud errout %lud speed %d delay %d\n";
 
 char slineformat[] = "	%-40I %-10M %-40I %-12lud %-12lud\n";
 
@@ -545,7 +539,7 @@ ipifcadd(Ipifc *ifc, char **argv, int argc, int tentative, Iplifc *lifcp)
 		lifc->origint = lifcp->origint;
 	} else {		/* default values */
 		lifc->onlink = lifc->autoflag = 1;
-		lifc->validlt = lifc->preflt = ~0L;
+		lifc->validlt = lifc->preflt = ~0UL;
 		lifc->origint = NOW / 1000;
 	}
 	lifc->next = nil;
@@ -768,13 +762,13 @@ ipifcra6(Ipifc *ifc, char **argv, int argc)
 
 	while (argsleft > 1) {
 		if(strcmp(argv[i], "recvra") == 0)
-			recvra = (atoi(argv[i+1]) != 0);
+			recvra = atoi(argv[i+1]) != 0;
 		else if(strcmp(argv[i], "sendra") == 0)
-			sendra = (atoi(argv[i+1]) != 0);
+			sendra = atoi(argv[i+1]) != 0;
 		else if(strcmp(argv[i], "mflag") == 0)
-			rp.mflag = (atoi(argv[i+1]) != 0);
+			rp.mflag = atoi(argv[i+1]) != 0;
 		else if(strcmp(argv[i], "oflag") == 0)
-			rp.oflag = (atoi(argv[i+1]) != 0);
+			rp.oflag = atoi(argv[i+1]) != 0;
 		else if(strcmp(argv[i], "maxraint") == 0)
 			rp.maxraint = atoi(argv[i+1]);
 		else if(strcmp(argv[i], "minraint") == 0)
@@ -849,6 +843,8 @@ ipifcctl(Conv* c, char **argv, int argc)
 	}
 	else if(strcmp(argv[0], "add6") == 0)
 		return ipifcadd6(ifc, argv, argc);
+	else if(strcmp(argv[0], "remove6") == 0)
+		return ipifcremove6(ifc, argv, argc);
 	else if(strcmp(argv[0], "ra6") == 0)
 		return ipifcra6(ifc, argv, argc);
 	return "unsupported ctl";
@@ -1605,16 +1601,15 @@ ipifcadd6(Ipifc *ifc, char**argv, int argc)
 
 	lifc.onlink = 1;
 	lifc.autoflag = 1;
-	lifc.validlt = ~0L;
-	lifc.preflt = ~0L;
+	lifc.validlt = lifc.preflt = ~0UL;
 	lifc.origint = NOW / 1000;
 
 	switch(argc) {
 	case 7:
-		lifc.preflt = atoi(argv[6]);
+		lifc.preflt = strtoul(argv[6], 0, 10);
 		/* fall through */
 	case 6:
-		lifc.validlt = atoi(argv[5]);
+		lifc.validlt = strtoul(argv[5], 0, 10);
 		/* fall through */
 	case 5:
 		lifc.autoflag = atoi(argv[4]) != 0;
@@ -1647,4 +1642,26 @@ ipifcadd6(Ipifc *ifc, char**argv, int argc)
 	params[2] = preflen;
 
 	return ipifcadd(ifc, params, 3, 0, &lifc);
+}
+
+char*
+ipifcremove6(Ipifc *ifc, char**, int argc)
+{
+	Iplifc *lifc, **l;
+
+	if(argc != 1)
+		return Ebadarg;
+
+	wlock(ifc);
+	for(l = &ifc->lifc; (lifc = *l) != nil;) {
+		if((lifc->type & Rv4) == 0)
+		if(lifc->validlt != ~0UL && lifc->origint + lifc->validlt < NOW/1000){
+			if(ipifcremlifc(ifc, l) == nil)
+				continue;
+		}
+		l = &lifc->next;
+	}
+	wunlock(ifc);
+
+	return nil;
 }
