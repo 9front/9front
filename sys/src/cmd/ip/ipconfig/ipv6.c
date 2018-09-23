@@ -791,8 +791,6 @@ recvrahost(uchar buf[], int pktlen)
 		r->time = now;
 		r->routerlt = conf.routerlt;
 		r->prefixlt = conf.validlt;
-		if(r->prefixlt != ~0UL)
-			r->prefixlt /= 1000;
 
 		r->next = routelist;
 		routelist = r;
