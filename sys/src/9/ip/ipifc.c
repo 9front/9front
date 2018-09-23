@@ -84,9 +84,6 @@ v6addrtype(uchar *addr)
 		return globalv6;
 }
 
-#define v6addrcurr(lifc) ((lifc)->preflt == ~0UL || \
-			(lifc)->origint + (lifc)->preflt >= NOW/1000)
-
 static int
 comprefixlen(uchar *a, uchar *b, int n)
 {
@@ -1214,6 +1211,7 @@ findipifcstr(Fs *f, char *s)
 static void
 findprimaryipv6(Fs *f, uchar *local)
 {
+	ulong now = NOW/1000;
 	int atype, atypel;
 	Iplifc *lifc;
 	Ipifc *ifc;
@@ -1227,7 +1225,8 @@ findprimaryipv6(Fs *f, uchar *local)
 		rlock(ifc);
 		for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
 			atypel = v6addrtype(lifc->local);
-			if(atypel > atype && v6addrcurr(lifc)) {
+			if(atypel > atype)
+			if(lifc->preflt == ~0UL || lifc->preflt >= now-lifc->origint) {
 				ipmove(local, lifc->local);
 				atype = atypel;
 				if(atype == globalv6){
@@ -1300,6 +1299,7 @@ ipv6local(Ipifc *ifc, uchar *local, uchar *remote)
 		int	comprefixlen;
 	} a, b;
 	int atype;
+	ulong now;
 	Iplifc *lifc;
 
 	if(isv4(remote)){
@@ -1313,12 +1313,13 @@ ipv6local(Ipifc *ifc, uchar *local, uchar *remote)
 	b.deprecated = 1;
 	b.comprefixlen = 0;
 
+	now = NOW/1000;
 	for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
 		if(lifc->tentative)
 			continue;
 
 		a.atype = v6addrtype(lifc->local);
-		a.deprecated = !v6addrcurr(lifc);
+		a.deprecated = lifc->preflt != ~0UL && lifc->preflt < now-lifc->origint;
 		a.comprefixlen = comprefixlen(lifc->local, remote, IPaddrlen);
 
 		/* prefer appropriate scope */
@@ -1648,17 +1649,18 @@ char*
 ipifcremove6(Ipifc *ifc, char**, int argc)
 {
 	Iplifc *lifc, **l;
+	ulong now;
 
 	if(argc != 1)
 		return Ebadarg;
 
 	wlock(ifc);
+	now = NOW/1000;
 	for(l = &ifc->lifc; (lifc = *l) != nil;) {
 		if((lifc->type & Rv4) == 0)
-		if(lifc->validlt != ~0UL && lifc->origint + lifc->validlt < NOW/1000){
+		if(lifc->validlt != ~0UL && lifc->validlt < now-lifc->origint)
 			if(ipifcremlifc(ifc, l) == nil)
 				continue;
-		}
 		l = &lifc->next;
 	}
 	wunlock(ifc);

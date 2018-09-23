@@ -719,8 +719,8 @@ recvrahost(uchar buf[], int pktlen)
 	now = time(nil);
 	for(rr = &routelist; (r = *rr) != nil;){
 		if(m > 100
-		|| r->prefixlt != ~0UL && now > r->time+r->prefixlt
-		|| r->routerlt != ~0UL && now > r->time+r->routerlt
+		|| r->prefixlt != ~0UL && r->prefixlt < now-r->time
+		|| r->routerlt != ~0UL && r->routerlt < now-r->time
 		|| ipcmp(r->src, ra->src) == 0 && r->routerlt != 0 && conf.routerlt == 0){
 			if(validip(r->gaddr))
 				removedefroute(r->gaddr, conf.lladdr, r->laddr, r->mask);
