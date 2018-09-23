@@ -545,23 +545,6 @@ genipmkask(uchar *mask, int len)
 }
 
 static int
-seen(Conf *cf)
-{
-	static uchar tab[SHA1dlen*100], *w;
-	uchar hash[SHA1dlen], *r;
-
-	sha1((uchar*)cf, sizeof(*cf), hash, nil);
-	if(w == nil || w == &tab[sizeof(tab)])
-		w = tab;
-	for(r = tab; r < w; r += SHA1dlen)
-		if(memcmp(r, hash, SHA1dlen) == 0)
-			return 1;
-	memmove(w, hash, SHA1dlen);
-	w += SHA1dlen;
-	return 0;
-}
-
-static int
 pnames(uchar *d, int nd, char *s)
 {
 	uchar *de = d + nd;
@@ -621,6 +604,25 @@ gnames(char *d, int nd, uchar *s, int ns)
 	return d - (de - nd);
 }
 
+typedef struct Route Route;
+struct Route
+{
+	Route	*next;
+	ulong	time;
+
+	ulong	prefixlt;
+	ulong	routerlt;
+
+	uchar	src[IPaddrlen];
+	uchar	gaddr[IPaddrlen];
+	uchar	laddr[IPaddrlen];
+	uchar	mask[IPaddrlen];
+
+	uchar	hash[SHA1dlen];
+};
+
+static Route	*routelist;
+
 /*
  * host receiving a router advertisement calls this
  */
@@ -628,12 +630,15 @@ static void
 recvrahost(uchar buf[], int pktlen)
 {
 	char dnsdomain[sizeof(conf.dnsdomain)];
-	int m, n, optype;
+	int m, n, optype, seen;
 	Lladdropt *llao;
 	Mtuopt *mtuo;
 	Prefixopt *prfo;
 	Ipaddrsopt *addrso;
 	Routeradv *ra;
+	uchar hash[SHA1dlen];
+	Route *r, **rr;
+	ulong now;
 
 	m = sizeof *ra;
 	ra = (Routeradv*)buf;
@@ -709,6 +714,26 @@ recvrahost(uchar buf[], int pktlen)
 	}
 	issuebasera6(&conf);
 
+	/* remove expired default routes */
+	m = 0;
+	now = time(nil);
+	for(rr = &routelist; (r = *rr) != nil;){
+		if(m > 100
+		|| r->prefixlt != ~0UL && now > r->time+r->prefixlt
+		|| r->routerlt != ~0UL && now > r->time+r->routerlt
+		|| ipcmp(r->src, ra->src) == 0 && r->routerlt != 0 && conf.routerlt == 0){
+			if(validip(r->gaddr))
+				removedefroute(r->gaddr, conf.lladdr, r->laddr, r->mask);
+			*rr = r->next;
+			r->next = nil;
+			free(r);
+			continue;
+		}
+
+		rr = &r->next;
+		m++;
+	}
+
 	/* process prefixes */
 	m = sizeof *ra;
 	while(pktlen - m >= 8) {
@@ -741,6 +766,36 @@ recvrahost(uchar buf[], int pktlen)
 			ipmove(conf.gaddr, prfo->pref);
 		else
 			ipmove(conf.gaddr, ra->src);
+
+		seen = 0;
+		sha1((uchar*)&conf, sizeof(conf), hash, nil);
+		for(rr = &routelist; (r = *rr) != nil; rr = &r->next){
+			if(ipcmp(r->src, ra->src) == 0
+			&& ipcmp(r->laddr, conf.laddr) == 0){
+				seen = memcmp(r->hash, hash, SHA1dlen) == 0;
+				*rr = r->next;
+				r->next = nil;
+				break;
+			}
+		}
+		if(r == nil)
+			r = malloc(sizeof(*r));
+
+		memmove(r->hash, hash, SHA1dlen);
+
+		ipmove(r->src, ra->src);
+		ipmove(r->gaddr, conf.gaddr);
+		ipmove(r->laddr, conf.laddr);
+		ipmove(r->mask, conf.mask);
+
+		r->time = now;
+		r->routerlt = conf.routerlt;
+		r->prefixlt = conf.validlt;
+		if(r->prefixlt != ~0UL)
+			r->prefixlt /= 1000;
+
+		r->next = routelist;
+		routelist = r;
 	
 		if(conf.prefixlen < 1
 		|| conf.prefixlen > 64
@@ -749,7 +804,7 @@ recvrahost(uchar buf[], int pktlen)
 		|| ipcmp(conf.v6pref, v6loopback) == 0
 		|| ISIPV6MCAST(conf.v6pref)
 		|| ISIPV6LINKLOCAL(conf.v6pref)){
-			if(!seen(&conf))
+			if(!seen)
 				warning("igoring bogus prefix from %I on %s; pfx %I %M",
 					ra->src, conf.dev, conf.v6pref, conf.mask);
 			continue;
@@ -759,7 +814,7 @@ recvrahost(uchar buf[], int pktlen)
 		issueadd6(&conf);
 
 		/* report this prefix configuration only once */
-		if(seen(&conf))
+		if(seen)
 			continue;
 
 		DEBUG("got RA from %I on %s; pfx %I %M",

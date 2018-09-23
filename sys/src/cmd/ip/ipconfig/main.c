@@ -704,32 +704,20 @@ issrcspec(uchar *src, uchar *smask)
 	return isv4(src)? memcmp(smask+IPv4off, IPnoaddr+IPv4off, 4): ipcmp(smask, IPnoaddr);
 }
 
-void
-addroute(uchar *dst, uchar *mask, uchar *gate, uchar *ia, uchar *src, uchar *smask)
+static void
+routectl(char *cmd, uchar *dst, uchar *mask, uchar *gate, uchar *ia, uchar *src, uchar *smask)
 {
-	char *cmd;
+	char *ctl;
 
 	if(issrcspec(src, smask))
-		cmd = "add %I %M %I %I %I %M";
+		ctl = "%s %I %M %I %I %I %M";
 	else
-		cmd = "add %I %M %I %I";
-	fprint(conf.rfd, cmd, dst, mask, gate, ia, src, smask);
+		ctl = "%s %I %M %I %I";
+	fprint(conf.rfd, ctl, cmd, dst, mask, gate, ia, src, smask);
 }
 
-void
-removeroute(uchar *dst, uchar *mask, uchar *src, uchar *smask)
-{
-	char *cmd;
-
-	if(issrcspec(src, smask))
-		cmd = "remove %I %M %I %M";
-	else
-		cmd = "remove %I %M";
-	fprint(conf.rfd, cmd, dst, mask, src, smask);
-}
-
-void
-adddefroute(uchar *gaddr, uchar *ia, uchar *src, uchar *smask)
+static void
+defroutectl(char *cmd, uchar *gaddr, uchar *ia, uchar *src, uchar *smask)
 {
 	uchar dst[IPaddrlen], mask[IPaddrlen];
 
@@ -748,11 +736,23 @@ adddefroute(uchar *gaddr, uchar *ia, uchar *src, uchar *smask)
 		if(smask == nil)
 			smask = IPnoaddr;
 	}
-	addroute(dst, mask, gaddr, ia, src, smask);
+	routectl(cmd, dst, mask, gaddr, ia, src, smask);
 
 	/* also add a source specific route */
 	if(ipcmp(src, IPnoaddr) != 0 && ipcmp(src, v4prefix) != 0)
-		addroute(dst, mask, gaddr, ia, src, IPallbits);
+		routectl(cmd, dst, mask, gaddr, ia, src, IPallbits);
+}
+
+void
+adddefroute(uchar *gaddr, uchar *ia, uchar *src, uchar *smask)
+{
+	defroutectl("add", gaddr, ia, src, smask);
+}
+
+void
+removedefroute(uchar *gaddr, uchar *ia, uchar *src, uchar *smask)
+{
+	defroutectl("remove", gaddr, ia, src, smask);
 }
 
 void

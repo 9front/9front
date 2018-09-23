@@ -119,7 +119,7 @@ int	ip4cfg(void);
 void	ipunconfig(void);
 
 void	adddefroute(uchar*, uchar*, uchar*, uchar*);
-void	removedefroute(int, uchar*, uchar*);
+void	removedefroute(uchar*, uchar*, uchar*, uchar*);
 
 long	jitter(void);
 void	procsetname(char *fmt, ...);
