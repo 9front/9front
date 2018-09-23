@@ -59,7 +59,7 @@ ip_init_6(Fs *f)
 	v6p->rp.reachtime	= 0;
 	v6p->rp.rxmitra		= 0;
 	v6p->rp.ttl		= MAXTTL;
-	v6p->rp.routerlt	= 3 * v6p->rp.maxraint;
+	v6p->rp.routerlt	= (3 * v6p->rp.maxraint) / 1000;
 
 	v6p->hp.rxmithost	= 1000;		/* v6 RETRANS_TIMER */
 
