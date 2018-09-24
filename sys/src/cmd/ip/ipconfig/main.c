@@ -404,7 +404,7 @@ main(int argc, char **argv)
 		}
 		if(myifc < 0)
 			sysfatal("interface not found for: %s", conf.dev);
-	} else {
+	} else if(!noconfig) {
 		/* open old interface */
 		binddevice();
 	}
@@ -484,6 +484,11 @@ doremove(void)
 {
 	if(!validip(conf.laddr))
 		sysfatal("remove requires an address");
+
+	DEBUG("removing address %I %M on %s", conf.laddr, conf.mask, conf.dev);
+	if(conf.cfd < 0)
+		return;
+
 	if(fprint(conf.cfd, "remove %I %M", conf.laddr, conf.mask) < 0)
 		warning("can't remove %I %M: %r", conf.laddr, conf.mask);
 }
@@ -491,6 +496,9 @@ doremove(void)
 static void
 dounbind(void)
 {
+	if(conf.cfd < 0)
+		return;
+
 	if(fprint(conf.cfd, "unbind") < 0)
 		warning("can't unbind %s: %r", conf.dev);
 }
@@ -589,10 +597,11 @@ ipunconfig(void)
 	if(!validip(conf.laddr))
 		return;
 
-	DEBUG("couldn't renew IP lease, releasing %I", conf.laddr);
-
 	if(!validip(conf.mask))
 		ipmove(conf.mask, defmask(conf.laddr));
+
+	if(validip(conf.gaddr))
+		removedefroute(conf.gaddr, conf.laddr, conf.laddr, conf.mask);
 
 	doremove();
 
@@ -713,6 +722,9 @@ routectl(char *cmd, uchar *dst, uchar *mask, uchar *gate, uchar *ia, uchar *src,
 		ctl = "%s %I %M %I %I %I %M";
 	else
 		ctl = "%s %I %M %I %I";
+	DEBUG(ctl, cmd, dst, mask, gate, ia, src, smask);
+	if(conf.rfd < 0)
+		return;
 	fprint(conf.rfd, ctl, cmd, dst, mask, gate, ia, src, smask);
 }
 

@@ -243,6 +243,7 @@ dhcpwatch(int needconfig)
 				t = secs;
 			if(t >= conf.lease){
 				conf.lease = 0;
+				DEBUG("couldn't renew IP lease");
 				if(!noconfig){
 					ipunconfig();
 					needconfig = 1;

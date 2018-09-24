@@ -415,7 +415,7 @@ recvra6on(Ipifc *ifc)
 		return 0;
 	else if(ifc->sendra6 > 0)
 		return IsRouter;
-	else if(ifc->recvra6 > 0)
+	else if(ifc->recvra6 > 0 || noconfig)
 		return IsHostRecv;
 	else
 		return IsHostNoRecv;
@@ -712,6 +712,7 @@ recvrahost(uchar buf[], int pktlen)
 			break;
 		}
 	}
+
 	issuebasera6(&conf);
 
 	/* remove expired default routes */
@@ -722,10 +723,11 @@ recvrahost(uchar buf[], int pktlen)
 		|| r->prefixlt != ~0UL && r->prefixlt < now-r->time
 		|| r->routerlt != ~0UL && r->routerlt < now-r->time
 		|| ipcmp(r->src, ra->src) == 0 && r->routerlt != 0 && conf.routerlt == 0){
+			DEBUG("purging RA from %I on %s; pfx %I %M",
+				r->src, conf.dev, r->laddr, r->mask);
 			if(validip(r->gaddr))
 				removedefroute(r->gaddr, conf.lladdr, r->laddr, r->mask);
 			*rr = r->next;
-			r->next = nil;
 			free(r);
 			continue;
 		}
@@ -774,7 +776,6 @@ recvrahost(uchar buf[], int pktlen)
 			&& ipcmp(r->laddr, conf.laddr) == 0){
 				seen = memcmp(r->hash, hash, SHA1dlen) == 0;
 				*rr = r->next;
-				r->next = nil;
 				break;
 			}
 		}
@@ -805,6 +806,9 @@ recvrahost(uchar buf[], int pktlen)
 			if(!seen)
 				warning("igoring bogus prefix from %I on %s; pfx %I %M",
 					ra->src, conf.dev, conf.v6pref, conf.mask);
+
+			/* keep it arround so we wont comlain again */
+			r->prefixlt = r->routerlt = ~0UL;
 			continue;
 		}
 
@@ -820,6 +824,9 @@ recvrahost(uchar buf[], int pktlen)
 
 		if(validip(conf.gaddr))
 			adddefroute(conf.gaddr, conf.lladdr, conf.laddr, conf.mask);
+
+		if(noconfig)
+			continue;
 
 		if(beprimary)
 			putndb();
@@ -892,7 +899,7 @@ recvra6(void)
 			exits(nil);
 		}
 
-		if(recvra6on(ifc) == IsHostNoRecv){
+		if(recvra6on(ifc) == IsHostNoRecv || noconfig && sendrscnt < 0){
 			warning("recvra6: recvra off, quitting on %s", conf.dev);
 			if(sendrscnt >= 0)
 				rendezvous(recvra6, (void*)-1);
