@@ -17,6 +17,7 @@ enum
 	Tbyte,
 	Tulong,
 	Tvec,
+	Tnames,
 };
 
 typedef struct Option Option;
@@ -107,10 +108,11 @@ static Option option[256] =
 [ODclientid]		{ "clientid",		Tvec },
 [ODtftpserver]		{ "tftp",		Taddr },
 [ODbootfile]		{ "bootfile",		Tstr },
+[ODdnsdomain]		{ "dnsdomain",		Tnames },
 };
 
 static uchar defrequested[] = {
-	OBmask, OBrouter, OBdnserver, OBhostname, OBdomainname, OBntpserver,
+	OBmask, OBrouter, OBdnserver, OBhostname, OBdomainname, ODdnsdomain, OBntpserver,
 };
 
 static uchar	requested[256];
@@ -139,6 +141,7 @@ static uchar*	optget(uchar*, int, int*);
 static ulong	optgetulong(uchar*, int);
 static int	optgetvec(uchar*, int, uchar*, int);
 static char*	optgetx(uchar*, uchar);
+static int	optgetnames(uchar*, int, char*, int);
 
 static void	getoptions(uchar*);
 static int	parseoptions(uchar *p, int n);
@@ -513,10 +516,15 @@ dhcprecv(void)
 			DEBUG("ntp=%I ", conf.ntp + i*IPaddrlen);
 
 		/* get names */
-		optgetstr(bp->optdata, OBhostname,
-			conf.hostname, sizeof conf.hostname);
-		optgetstr(bp->optdata, OBdomainname,
-			conf.domainname, sizeof conf.domainname);
+		if(optgetstr(bp->optdata, OBhostname,
+			conf.hostname, sizeof conf.hostname))
+			DEBUG("hostname=%s ", conf.hostname);
+		if(optgetstr(bp->optdata, OBdomainname,
+			conf.domainname, sizeof conf.domainname))
+			DEBUG("domainname=%s ", conf.domainname);
+		if(optgetnames(bp->optdata, ODdnsdomain,
+			conf.dnsdomain, sizeof conf.dnsdomain))
+			DEBUG("dnsdomain=%s ", conf.dnsdomain);
 
 		/* get anything else we asked for */
 		getoptions(bp->optdata);
@@ -679,9 +687,8 @@ optget(uchar *p, int op, int *np)
 			continue;
 		}
 		if(np != nil){
-			if(*np > len) {
+			if(*np > len)
 				return 0;
-			}
 			*np = len;
 		}
 		return p;
@@ -799,6 +806,28 @@ optgetstr(uchar *p, int op, char *s, int n)
 	return len;
 }
 
+static int
+optgetnames(uchar *p, int op, char *s, int n)
+{
+	uchar buf[256];
+	int nbuf, len;
+
+	for(nbuf=0;;p+=len,nbuf+=len){
+		len = 1;
+		p = optget(p, op, &len);
+		if(p == nil)
+			break;
+		if(nbuf+len > sizeof(buf))
+			return 0;
+		memmove(buf+nbuf, p, len);
+	}
+	if((len = gnames(s, n, buf, nbuf)) < 0){
+		memset(s, 0, n);
+		return 0;
+	}
+	return len;
+}
+
 int
 addoption(char *opt)
 {
@@ -865,7 +894,6 @@ optgetx(uchar *p, uchar opt)
 	case Tvec:
 		n = optgetvec(p, opt, vec, sizeof vec);
 		if(n > 0)
-			/* what's %H?  it's not installed */
 			s = smprint("%s=%.*H", o->name, n, vec);
 		break;
 	}

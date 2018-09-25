@@ -544,66 +544,6 @@ genipmkask(uchar *mask, int len)
 		*mask = ~((1<<(8-len))-1);
 }
 
-static int
-pnames(uchar *d, int nd, char *s)
-{
-	uchar *de = d + nd;
-	int l;
-
-	if(nd < 1)
-		return -1;
-	for(; *s != 0; s++){
-		for(l = 0; *s != 0 && *s != '.' && *s != ' '; l++)
-			s++;
-
-		d += l+1;
-		if(d >= de || l > 077)
-			return -1;
-
-		d[-l-1] = l;
-		memmove(d-l, s-l, l);
-
-		if(*s != '.')
-			*d++ = 0;
-	}
-	return d - (de - nd);
-}
-
-static int
-gnames(char *d, int nd, uchar *s, int ns)
-{
-	uchar *se = s + ns;
-	char  *de = d + nd;
-	int l;
-
-	if(nd < 1 || ns < 1)
-		return -1;
-	l = *s++ & 077;
-	while(l > 0){
-		if(d + l >= de || s + l >= se)
-			return -1;
-
-		memmove(d, s, l);
-		d += l;
-		s += l;
-
-		l = *s++ & 077;
-		if(l > 0)
-			*d++ = '.';
-		else {
-			if(s >= se)
-				break;
-
-			l = *s++ & 077;
-			if(l == 0)
-				break;
-			*d++ = ' ';
-		}
-	}
-	*d = 0;
-	return d - (de - nd);
-}
-
 typedef struct Route Route;
 struct Route
 {

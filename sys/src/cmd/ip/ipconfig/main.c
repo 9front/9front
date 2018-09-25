@@ -61,6 +61,7 @@ static void
 init(void)
 {
 	srand(truerand());
+	fmtinstall('H', encodefmt);
 	fmtinstall('E', eipfmt);
 	fmtinstall('I', eipfmt);
 	fmtinstall('M', eipfmt);
@@ -893,6 +894,77 @@ next:
 		if(*s == 0)
 			break;
 	}
+}
+
+int
+pnames(uchar *d, int nd, char *s)
+{
+	uchar *de = d + nd;
+	int l;
+
+	if(nd < 1)
+		return -1;
+	for(; *s != 0; s++){
+		for(l = 0; *s != 0 && *s != '.' && *s != ' '; l++)
+			s++;
+
+		d += l+1;
+		if(d >= de || l > 077)
+			return -1;
+
+		d[-l-1] = l;
+		memmove(d-l, s-l, l);
+
+		if(*s != '.')
+			*d++ = 0;
+	}
+	return d - (de - nd);
+}
+
+int
+gnames(char *d, int nd, uchar *s, int ns)
+{
+	char  *de = d + nd;
+	uchar *se = s + ns;
+	uchar *c = nil;
+	int l, p = 0;
+
+	if(ns < 1 || nd < 1)
+		return -1;
+	while(s < se){
+		l = *s++;
+		if((l & 0300) == 0300){
+			if(++p > 100 || s >= se)
+				break;
+			l = (l & 077)<<8 | *s++;
+			if(c == nil)
+				c = s;
+			s = (se - ns) + l;
+			continue;
+		}
+		l &= 077;
+		if(l == 0){
+			if(d <= de - nd)
+				break;
+			d[-1] = ' ';
+			if(c != nil){
+				s = c;
+				c = nil;
+				p = 0;
+			}
+			continue;
+		}
+		if(s+l >= se || d+l >= de)
+			break;
+		memmove(d, s, l);
+		s += l;
+		d += l;
+		*d++ = '.';
+	}
+	if(p != 0 || s != se || d <= de - nd || d[-1] != ' ')
+		return -1;
+	*(--d) = 0;
+	return d - (de - nd);
 }
 
 static Ndbtuple*
