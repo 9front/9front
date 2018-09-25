@@ -25,10 +25,6 @@ Url*	saneurl(Url *u);
 int	matchurl(Url *u, Url *s);
 void	freeurl(Url *u);
 
-/* idn */
-char*	idn2utf(char *name, char *buf, int nbuf);
-char*	utf2idn(char *name, char *buf, int nbuf);
-
 /* buq */
 int	buread(Buq *q, void *v, int l);
 int	buwrite(Buq *q, void *v, int l);

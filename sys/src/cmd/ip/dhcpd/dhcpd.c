@@ -1584,15 +1584,17 @@ hexopt(Req *rp, int t, char *str)
 void
 dnsnamesopt(Req *rp, int t, char *attr, Ndbtuple *nt)
 {
-	char *s;
+	char val[Maxstr], *s;
 	uchar *d;
 	int n, l;
 
 	for(; nt != nil; nt = nt->entry){
 		if(strcmp(nt->attr, attr) != 0)
 			continue;
+		if(utf2idn(nt->val, val, sizeof(val)) == nil)
+			continue;
 		d = &rp->p[2];
-		for(s = nt->val; *s != 0; s++){
+		for(s = val; *s != 0; s++){
 			for(l = 0; *s != 0 && *s != '.'; l++)
 				s++;
 			if(l > 077)
@@ -1602,6 +1604,8 @@ dnsnamesopt(Req *rp, int t, char *attr, Ndbtuple *nt)
 				return;
 			d[-l-1] = l;
 			memmove(d-l, s-l, l);
+			if(*s != '.')
+				break;
 		}
 		*d++ = 0;
 		n = d - &rp->p[2];
@@ -1610,7 +1614,7 @@ dnsnamesopt(Req *rp, int t, char *attr, Ndbtuple *nt)
 		rp->p[0] = t;
 		rp->p[1] = n;
 		rp->p = d;
-		op = seprint(op, oe, "%s(%s)", optname[t], nt->val);
+		op = seprint(op, oe, "%s(%s)", optname[t], val);
 	Skip:;
 	}
 }

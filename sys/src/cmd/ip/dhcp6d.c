@@ -562,6 +562,7 @@ oservers(uchar *w, int n, Otab *o, Req *r)
 static int
 odomainlist(uchar *w, int n, Otab *o, Req *q)
 {
+	char val[256];
 	Ndbtuple *t;
 	int l, r;
 	char *s;
@@ -570,7 +571,9 @@ odomainlist(uchar *w, int n, Otab *o, Req *q)
 	for(t = q->t; t != nil; t = t->entry){
 		if(strcmp(t->attr, o->q[0]) != 0)
 			continue;
-		for(s = t->val; *s != 0; s++){
+		if(utf2idn(t->val, val, sizeof(val)) == nil)
+			continue;
+		for(s = val; *s != 0; s++){
 			for(l = 0; *s != 0 && *s != '.'; l++)
 				s++;
 			if(r+1+l > n)
@@ -578,6 +581,8 @@ odomainlist(uchar *w, int n, Otab *o, Req *q)
 			w[r++] = l;
 			memmove(w+r, s-l, l);
 			r += l;
+			if(*s != '.')
+				break;
 		}
 		if(r >= n)
 			return -1;

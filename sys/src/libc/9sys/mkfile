@@ -25,6 +25,7 @@ OFILES=\
 	getpid.$O\
 	getppid.$O\
 	getwd.$O\
+	idn.$O\
 	iounit.$O\
 	nsec.$O\
 	nulldir.$O\

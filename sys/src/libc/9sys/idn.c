@@ -1,7 +1,5 @@
 #include <u.h>
 #include <libc.h>
-#include <ip.h>
-#include "dns.h"
 
 enum {
 	base = 36,
@@ -11,6 +9,8 @@ enum {
 	damp = 700,
 	initial_bias = 72,
 	initial_n = 0x80,
+
+	Domlen = 256,
 };
 
 static uint maxint = ~0;
