@@ -127,6 +127,8 @@ void	catch(void*, char*);
 int	countaddrs(uchar *a, int len);
 void	addaddrs(uchar *to, int nto, uchar *from, int nfrom);
 void	addnames(char *d, char *s, int len);
+int	pnames(uchar*, int, char*);
+int	gnames(char*, int, uchar*, int);
 Ndb*	opendatabase(void);
 void	ndb2conf(Ndb *db, uchar *ip);
 void	putndb(void);

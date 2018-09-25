@@ -161,6 +161,7 @@ char *optname[256] =
 [ODclientid]		"cid",
 [ODtftpserver]		"tftpserver",
 [ODbootfile]		"bf",
+[ODdnsdomain]		"dnsdomain",
 };
 
 void	addropt(Req*, int, uchar*);
@@ -177,6 +178,7 @@ void	maskopt(Req*, int, uchar*);
 void	miscoptions(Req*, uchar*);
 int	openlisten(char *net);
 void	p9addrsopt(Req *rp, int t, uchar **ip, int i);
+void	dnsnamesopt(Req *rp, int t, char *attr, Ndbtuple *nt);
 void	parseoptions(Req*);
 void	proto(Req*, int);
 void	rcvdecline(Req*);
@@ -1170,6 +1172,7 @@ miscoptions(Req *rp, uchar *ip)
 	a = attr;
 	if(*rp->ii.domain == 0)
 		a[na++] = "dom";
+	a[na++] = "dnsdomain";
 	for(i = 0; i < sizeof(rp->requested); i++)
 		switch(rp->requested[i]){
 		case OBrouter:
@@ -1227,6 +1230,9 @@ miscoptions(Req *rp, uchar *ip)
 			p = strchr(rp->ii.domain, '.');
 			if(p != nil)
 				stringopt(rp, OBdomainname, p+1);
+			break;
+		case ODdnsdomain:
+			dnsnamesopt(rp, ODdnsdomain, "dnsdomain", t);
 			break;
 		case OBnetbiosns:
 			j = lookupserver("wins", addrs, nelem(addrs), t);
@@ -1573,6 +1579,40 @@ hexopt(Req *rp, int t, char *str)
 	}
 
 	op = seprint(op, oe, "%s(%s)", optname[t], str);
+}
+
+void
+dnsnamesopt(Req *rp, int t, char *attr, Ndbtuple *nt)
+{
+	char *s;
+	uchar *d;
+	int n, l;
+
+	for(; nt != nil; nt = nt->entry){
+		if(strcmp(nt->attr, attr) != 0)
+			continue;
+		d = &rp->p[2];
+		for(s = nt->val; *s != 0; s++){
+			for(l = 0; *s != 0 && *s != '.'; l++)
+				s++;
+			if(l > 077)
+				goto Skip;
+			d += l+1;
+			if(d >= rp->max)
+				return;
+			d[-l-1] = l;
+			memmove(d-l, s-l, l);
+		}
+		*d++ = 0;
+		n = d - &rp->p[2];
+		if(n > 255)
+			continue;
+		rp->p[0] = t;
+		rp->p[1] = n;
+		rp->p = d;
+		op = seprint(op, oe, "%s(%s)", optname[t], nt->val);
+	Skip:;
+	}
 }
 
 void
