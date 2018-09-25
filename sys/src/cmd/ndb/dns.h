@@ -531,8 +531,4 @@ int	convDNS2M(DNSmsg*, uchar*, int);
 /* convM2DNS.c */
 char*	convM2DNS(uchar*, int, DNSmsg*, int*);
 
-/* idn.c */
-char*	utf2idn(char *, char *, int);
-char*	idn2utf(char *, char *, int);
-
 #pragma varargck argpos dnslog 1
