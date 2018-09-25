@@ -540,8 +540,8 @@ loop:
 /*
  * what are legal characters in a name?
  * only disallow control characters.
- * a) utf avoids control characters.
- * b) '/' may not be the separator
+ * utf avoids control characters, so we
+ * only need to inspect the ascii range.
  */
 int
 checkname(char *n)
@@ -556,7 +556,7 @@ checkname(char *n)
 		c = n[i] & 0xff;
 		if(c == 0)
 			return 0;
-		if(c < 040)
+		if(c < 040 || c == '/')
 			return Ename;
 	}
 	return Etoolong;
