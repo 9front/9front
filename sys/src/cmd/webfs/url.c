@@ -73,15 +73,12 @@ Efmt(Fmt *f)
 int
 Nfmt(Fmt *f)
 {
-	char *d, *s;
+	char d[Domlen], *s;
 
 	s = va_arg(f->args, char*);
-	d = emalloc(Domlen);
-	if(utf2idn(s, d, Domlen) == nil)
-		d = s;
-	fmtprint(f, "%s", d);
-	if(d != s)
-		free(d);
+	if(utf2idn(s, d, sizeof(d)) != nil)
+		s = d;
+	fmtprint(f, "%s", s);
 	return 0;
 }
 
