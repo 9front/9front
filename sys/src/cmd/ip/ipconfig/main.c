@@ -47,6 +47,9 @@ static void	doremove(void);
 static void	dounbind(void);
 static void	ndbconfig(void);
 
+static int	Ufmt(Fmt*);
+#pragma varargck type "U" char*
+
 void
 usage(void)
 {
@@ -61,12 +64,14 @@ static void
 init(void)
 {
 	srand(truerand());
+
 	fmtinstall('H', encodefmt);
 	fmtinstall('E', eipfmt);
 	fmtinstall('I', eipfmt);
 	fmtinstall('M', eipfmt);
 	fmtinstall('V', eipfmt);
- 	nsec();			/* make sure time file is open before forking */
+	fmtinstall('U', Ufmt);
+	nsec();			/* make sure time file is open before forking */
 
 	conf.cfd = -1;
 	conf.rfd = -1;
@@ -193,7 +198,7 @@ parseargs(int argc, char **argv)
 		if(p == nil || *p == 0)
 			p = sysname();
 		if(p != nil)
-			strncpy(conf.hostname, p, sizeof conf.hostname-1);
+			utf2idn(p, conf.hostname, sizeof(conf.hostname));
 	}
 
 	/* defaults */
@@ -636,11 +641,12 @@ putnames(char *p, char *e, char *attr, char *s)
 	char *x;
 
 	for(; *s != 0; s = x+1){
-		if((x = strchr(s, ' ')) == nil)
-			x = strchr(s, 0);
-		p = seprint(p, e, "%s=%.*s\n", attr, (int)(x - s), s);
-		if(*x == 0)
+		if((x = strchr(s, ' ')) != nil)
+			*x = 0;
+		p = seprint(p, e, "%s=%U\n", attr, s);
+		if(x == nil)
 			break;
+		*x = ' ';
 	}
 	return p;
 }
@@ -665,9 +671,9 @@ putndb(void)
 		*np = 0;
 	}
 	if(*conf.hostname)
-		p = seprint(p, e, "\tsys=%s\n", conf.hostname);
+		p = seprint(p, e, "\tsys=%U\n", conf.hostname);
 	if(*conf.domainname)
-		p = seprint(p, e, "\tdom=%s.%s\n",
+		p = seprint(p, e, "\tdom=%U.%U\n",
 			conf.hostname, conf.domainname);
 	if(*conf.dnsdomain)
 		p = putnames(p, e, "\tdnsdomain", conf.dnsdomain);
@@ -967,6 +973,18 @@ gnames(char *d, int nd, uchar *s, int ns)
 	return d - (de - nd);
 }
 
+static int
+Ufmt(Fmt *f)
+{
+	char d[256], *s;
+
+	s = va_arg(f->args, char*);
+	if(idn2utf(s, d, sizeof(d)) != nil)
+		s = d;
+	fmtprint(f, "%s", s);
+	return 0;
+}
+
 static Ndbtuple*
 uniquent(Ndbtuple *t)
 {
@@ -990,7 +1008,7 @@ void
 ndb2conf(Ndb *db, uchar *myip)
 {
 	int nattr;
-	char *attrs[10], val[64];
+	char *attrs[10], val[256];
 	uchar ip[IPaddrlen];
 	Ndbtuple *t, *nt;
 
@@ -1021,7 +1039,9 @@ ndb2conf(Ndb *db, uchar *myip)
 	t = ndbipinfo(db, "ip", val, attrs, nattr);
 	for(nt = t; nt != nil; nt = nt->entry) {
 		if(strcmp(nt->attr, "dnsdomain") == 0) {
-			addnames(conf.dnsdomain, nt->val, sizeof(conf.dnsdomain));
+			if(utf2idn(nt->val, val, sizeof(val)) == nil)
+				continue;
+			addnames(conf.dnsdomain, val, sizeof(conf.dnsdomain));
 			continue;
 		}
 		if(strcmp(nt->attr, "ipmask") == 0) {
