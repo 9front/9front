@@ -54,8 +54,9 @@ struct Conf
 	ulong	xid;
 	ulong	starttime;
 	char	sname[64];
-	char	hostname[32];
-	char	domainname[64];
+	char	hostname[256];
+	char	domainname[256];
+	char	dnsdomain[256];
 	uchar	server[IPaddrlen];	/* server IP address */
 	ulong	offered;		/* offered lease time */
 	ulong	lease;			/* lease time */
@@ -87,8 +88,6 @@ struct Conf
 	uchar	autoflag;	/* flag: autonomous */
 	ulong	validlt;	/* valid lifetime (seconds) */
 	ulong	preflt;		/* preferred lifetime (seconds) */
-
-	char	dnsdomain[256];
 };
 
 struct Ctl

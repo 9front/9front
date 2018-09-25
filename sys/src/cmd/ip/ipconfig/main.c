@@ -350,7 +350,8 @@ main(int argc, char **argv)
 		plan9 = 0;
 		break;
 	case 'h':
-		snprint(conf.hostname, sizeof conf.hostname, "%s", EARGF(usage()));
+		if(utf2idn(EARGF(usage()), conf.hostname, sizeof(conf.hostname)) == nil)
+			sysfatal("bad hostname");
 		sendhostname = 1;
 		break;
 	case 'm':
