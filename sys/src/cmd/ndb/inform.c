@@ -111,7 +111,7 @@ void
 main(int argc, char *argv[])
 {
 	static char *query[] = { "dom", "dnsdomain", "ns", "inform" };
-	char *sysname, *dnsdomain, *dom, *inform, *ns, net[32];
+	char *sysname, *dnsdomain, *dom, *inform, *ns, net[32], dn[256], ds[256];
 	int debug, len, fd;
 	uint err;
 	uchar *p, buf[4096], mynet[IPaddrlen];
@@ -173,6 +173,13 @@ main(int argc, char *argv[])
 	if(!dnsdomain)
 		sysfatal("no relevant dnsdomain=");
 
+
+	if(utf2idn(dom, dn, sizeof(dn)) == nil)
+		sysfatal("cannot convert dom");
+
+	if(utf2idn(dnsdomain, ds, sizeof(ds)) == nil)
+		sysfatal("cannot convert dnsdomain");
+
 	if(debug){
 		print("ns=%s\n", ns);
 		print("dnsdomain=%s\n", dnsdomain);
@@ -192,18 +199,18 @@ main(int argc, char *argv[])
 	p16(&p, 2);		/* # updates */
 	p16(&p, 0);		/* # additionals */
 
-        pname(&p, dnsdomain);	/* zone */
+        pname(&p, ds);		/* zone */
 	p16(&p, Tsoa);		/* zone type */
 	p16(&p, Cin);		/* zone class */
 
 	/* delete old name */
-   	pname(&p, dom);		/* name */
+   	pname(&p, dn);		/* name */
 	p16(&p, Ta);		/* type: v4 addr */
 	p16(&p, Call);		/* class */
 	p32(&p, 0);		/* TTL */
 	p16(&p, 0);		/* data len */
 
-   	pname(&p, dom);		/* name */
+   	pname(&p, dn);		/* name */
 	p16(&p, Taaaa);		/* type: v6 addr */
 	p16(&p, Call);		/* class */
 	p32(&p, 0);		/* TTL */
@@ -228,7 +235,7 @@ main(int argc, char *argv[])
 				print("ip=%I\n", lifc->ip);
 
 			/* add new A record */
-			pname(&p, dom);		/* name */
+			pname(&p, dn);		/* name */
 			p16(&p, isv4(lifc->ip)?Ta:Taaaa);
 			p16(&p, Cin);		/* class */
 			p32(&p, 60*60*25);	/* TTL (25 hours) */
