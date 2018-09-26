@@ -571,7 +571,7 @@ odomainlist(uchar *w, int n, Otab *o, Req *q)
 	for(t = q->t; t != nil; t = t->entry){
 		if(strcmp(t->attr, o->q[0]) != 0)
 			continue;
-		if(utf2idn(t->val, val, sizeof(val)) == nil)
+		if(utf2idn(t->val, val, sizeof(val)) <= 0)
 			continue;
 		for(s = val; *s != 0; s++){
 			for(l = 0; *s != 0 && *s != '.'; l++)

@@ -350,7 +350,7 @@ main(int argc, char **argv)
 		plan9 = 0;
 		break;
 	case 'h':
-		if(utf2idn(EARGF(usage()), conf.hostname, sizeof(conf.hostname)) == nil)
+		if(utf2idn(EARGF(usage()), conf.hostname, sizeof(conf.hostname)) <= 0)
 			sysfatal("bad hostname");
 		sendhostname = 1;
 		break;
@@ -980,7 +980,7 @@ Ufmt(Fmt *f)
 	char d[256], *s;
 
 	s = va_arg(f->args, char*);
-	if(idn2utf(s, d, sizeof(d)) != nil)
+	if(idn2utf(s, d, sizeof(d)) >= 0)
 		s = d;
 	fmtprint(f, "%s", s);
 	return 0;
@@ -1040,7 +1040,7 @@ ndb2conf(Ndb *db, uchar *myip)
 	t = ndbipinfo(db, "ip", val, attrs, nattr);
 	for(nt = t; nt != nil; nt = nt->entry) {
 		if(strcmp(nt->attr, "dnsdomain") == 0) {
-			if(utf2idn(nt->val, val, sizeof(val)) == nil)
+			if(utf2idn(nt->val, val, sizeof(val)) <= 0)
 				continue;
 			addnames(conf.dnsdomain, val, sizeof(conf.dnsdomain));
 			continue;

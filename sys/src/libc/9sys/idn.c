@@ -184,7 +184,7 @@ punydecode(uint input_length, char input[], uint max_out, Rune output[])
  * convert punycode encoded internationalized
  * domain name to unicode string
  */
-char*
+int
 idn2utf(char *name, char *buf, int nbuf)
 {
 	char *dp, *de, *cp;
@@ -205,24 +205,24 @@ idn2utf(char *name, char *buf, int nbuf)
 		}
 		if(cistrncmp(cp, "xn--", 4) == 0)
 			if((nr = punydecode(nc-4, cp+4, nelem(rb), rb)) < 0)
-				return nil;
+				return -1;
 		dp = seprint(dp, de, "%.*S", nr, rb);
 		if(dp >= de)
-			return nil;
+			return -1;
 		if(cp[nc] == 0)
 			break;
 		*dp++ = '.';
 		cp += nc+1;
 	}
 	*dp = 0;
-	return buf;
+	return dp - buf;
 }
 
 /*
  * convert unicode string to punycode
  * encoded internationalized domain name
  */
-char*
+int
 utf2idn(char *name, char *buf, int nbuf)
 {
 	char *dp, *de, *cp;
@@ -246,17 +246,17 @@ utf2idn(char *name, char *buf, int nbuf)
 		else {
 			dp = seprint(dp, de, "xn--");
 			if((n = punyencode(nr, rb, de - dp, dp)) < 0)
-				return nil;
+				return -1;
 			dp += n;
 		}
 		if(dp >= de)
-			return nil;
+			return -1;
 		if(cp[nc] == 0)
 			break;
 		*dp++ = '.';
 		cp += nc+1;
 	}
 	*dp = 0;
-	return buf;
+	return dp - buf;
 }
 

@@ -305,7 +305,7 @@ lookupname(char *val, int len, Ndbtuple *t)
 
 	for(nt = t; nt != nil; nt = nt->entry)
 		if(strcmp(nt->attr, "dom") == 0){
-			if(utf2idn(nt->val, val, len) == nil)
+			if(utf2idn(nt->val, val, len) < 0)
 				strncpy(val, nt->val, len-1);
 			val[len-1] = 0;
 			break;

@@ -228,7 +228,7 @@ idnlookup(char *name, int class, int enter)
 {
 	char dom[Domlen];
 
-	if(utf2idn(name, dom, sizeof dom) != nil)
+	if(utf2idn(name, dom, sizeof dom) >= 0)
 		name = dom;
 	return dnlookup(name, class, enter);
 }
@@ -1172,7 +1172,7 @@ idnname(DN *dn, char *buf, int nbuf)
 	char *name;
 
 	name = dnname(dn);
-	if(idn2utf(name, buf, nbuf) != nil)
+	if(idn2utf(name, buf, nbuf) >= 0)
 		return buf;
 	return name;
 }

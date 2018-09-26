@@ -76,7 +76,7 @@ Nfmt(Fmt *f)
 	char d[Domlen], *s;
 
 	s = va_arg(f->args, char*);
-	if(utf2idn(s, d, sizeof(d)) != nil)
+	if(utf2idn(s, d, sizeof(d)) >= 0)
 		s = d;
 	fmtprint(f, "%s", s);
 	return 0;
@@ -320,7 +320,7 @@ Out:
 
 	if(s = u->host){
 		t = emalloc(Domlen);
-		if(idn2utf(s, t, Domlen)){
+		if(idn2utf(s, t, Domlen) >= 0){
 			u->host = estrdup(t);
 			free(s);
 		}

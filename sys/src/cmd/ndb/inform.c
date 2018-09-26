@@ -174,10 +174,10 @@ main(int argc, char *argv[])
 		sysfatal("no relevant dnsdomain=");
 
 
-	if(utf2idn(dom, dn, sizeof(dn)) == nil)
+	if(utf2idn(dom, dn, sizeof(dn)) <= 0)
 		sysfatal("cannot convert dom");
 
-	if(utf2idn(dnsdomain, ds, sizeof(ds)) == nil)
+	if(utf2idn(dnsdomain, ds, sizeof(ds)) <= 0)
 		sysfatal("cannot convert dnsdomain");
 
 	if(debug){

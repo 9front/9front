@@ -1591,7 +1591,7 @@ dnsnamesopt(Req *rp, int t, char *attr, Ndbtuple *nt)
 	for(; nt != nil; nt = nt->entry){
 		if(strcmp(nt->attr, attr) != 0)
 			continue;
-		if(utf2idn(nt->val, val, sizeof(val)) == nil)
+		if(utf2idn(nt->val, val, sizeof(val)) <= 0)
 			continue;
 		d = &rp->p[2];
 		for(s = val; *s != 0; s++){

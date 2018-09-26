@@ -262,7 +262,7 @@ dblookup1(char *name, int type, int auth, int ttl)
 	for(x=0; x<4; x++){
 		switch(x){
 		case 1:	/* try unicode */
-			if(idn2utf(name, dname, sizeof dname) == nil){
+			if(idn2utf(name, dname, sizeof dname) < 0){
 				nstrcpy(dname, name, sizeof dname);
 				continue;
 			}
@@ -270,7 +270,7 @@ dblookup1(char *name, int type, int auth, int ttl)
 				continue;
 			break;
 		case 3:	/* try ascii (lower case) */
-			if(utf2idn(name, dname, sizeof dname) == nil)
+			if(utf2idn(name, dname, sizeof dname) < 0)
 				continue;
 		case 2:
 			mklowcase(dname);
