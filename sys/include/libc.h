@@ -489,6 +489,9 @@ extern	int	rwakeup(Rendez*);
 extern	int	rwakeupall(Rendez*);
 extern	void**	privalloc(void);
 
+extern void	procsetname(char*, ...);
+#pragma varargck argpos procsetname 1
+
 /*
  *  network dialing
  */

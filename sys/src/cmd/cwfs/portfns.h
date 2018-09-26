@@ -142,7 +142,6 @@ int	partwrite(Device*, Off, void*);
 void	prdate(void);
 void	preread(Device*, Off);
 int	prime(vlong);
-void	procsetname(char *fmt, ...);
 void	putbuf(Iobuf*);
 Off	qidpathgen(Device*);
 void*	querychanger(Device *);

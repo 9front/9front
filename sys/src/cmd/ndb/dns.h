@@ -508,7 +508,6 @@ char*	walkup(char*);
 RR*	getdnsservers(int);
 void	logreply(int, uchar*, DNSmsg*);
 void	logsend(int, int, uchar*, char*, char*, int);
-void	procsetname(char *fmt, ...);
 
 /* dnresolve.c */
 RR*	dnresolve(char*, int, int, Request*, RR**, int, int, int, int*);

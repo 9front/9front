@@ -121,7 +121,6 @@ void	adddefroute(uchar*, uchar*, uchar*, uchar*);
 void	removedefroute(uchar*, uchar*, uchar*, uchar*);
 
 long	jitter(void);
-void	procsetname(char *fmt, ...);
 void	catch(void*, char*);
 int	countaddrs(uchar *a, int len);
 void	addaddrs(uchar *to, int nto, uchar *from, int nfrom);

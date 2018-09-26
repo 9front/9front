@@ -175,14 +175,11 @@ void	deledge(Edge*);
 void	delsubnet(Snet*);
 void	netrecalc(void);
 
-void	procsetname(char *fmt, ...);
 int	consend(Conn *c, char *fmt, ...);
+#pragma varargck argpos consend 2
 void	routepkt(Host *s, uchar *p, int n);
 void	needkey(Host *from);
 void	clearkey(Host *from);
-
-#pragma varargck argpos procsetname 1
-#pragma varargck argpos consend 2
 
 void*
 emalloc(ulong len)
@@ -209,23 +206,6 @@ estrdup(char *s)
 		sysfatal("strdup: %r");
 	setmalloctag(s, getcallerpc(&s));
 	return s;
-}
-
-void
-procsetname(char *fmt, ...)
-{
-	int fd, n;
-	char buf[128];
-	va_list arg;
-
-	snprint(buf, sizeof buf, "#p/%d/args", getpid());
-	if((fd = open(buf, OWRITE)) < 0)
-		return;
-	va_start(arg, fmt);
-	n = vsnprint(buf, sizeof buf, fmt, arg);
-	va_end(arg);
-	write(fd, buf, n+1);
-	close(fd);
 }
 
 char*
