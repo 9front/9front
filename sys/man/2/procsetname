@@ -1,0 +1,21 @@
+.TH PROCSETNAME 2
+.SH NAME
+procsetname \- set process arguments
+.SH SYNOPSIS
+.B #include <u.h>
+.br
+.B #include <libc.h>
+.PP
+.B
+void procsetname(char *fmt, ...)
+.SH DESCRIPTION
+.I Procsetname
+overrides the current process arguments by writing to its
+.BI /proc/ pid /args
+file.
+The process arguments are informational only.
+.SH SOURCE
+.B /sys/src/libc/9sys/procsetname.c
+.SH SEE ALSO
+.IR thread (2),
+.IR proc (3)
