@@ -1,0 +1,51 @@
+.TH IDN 2
+.SH NAME
+utf2idn, idn2utf \- convert internationalized domain names to and from unicode
+.SH SYNOPSIS
+.B #include <u.h>
+.br
+.B #include <libc.h>
+.PP
+.B
+int	utf2idn(char *name, char *buf, int nbuf);
+.PP
+.B
+int	idn2utf(char *name, char *buf, int nbuf);
+.SH DESCRIPTION
+These routines handle encoding and decoding of domain
+names as specified by RFC5890.
+.PP
+.I Utf2idn
+encodes the
+.SM UTF
+string
+.I name
+to
+.SM ASCII
+internatlionalized domain name in
+.IR buf .
+.I Idn2utf
+does the reverse, decoding the
+.SM ASCII
+string
+.I name
+back to
+.SM UTF
+in
+.IR buf .
+The maximum size of
+.I buf
+is gived by
+.IR nbuf .
+.SH DIAGNOSTICS
+The return value is the number of bytes (excluding the terminating NULL) in
+.I buf
+or
+.B -1
+on failure.
+.SH SOURCE
+.B /sys/src/libc/9sys/idn.c
+.SH "SEE ALSO"
+.B /lib/rfc/rfc5890
+.br
+.IR utf (6)
