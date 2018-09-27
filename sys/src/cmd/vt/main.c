@@ -1002,6 +1002,23 @@ paste(void)
 		snarffp = Bopen("/dev/snarf",OREAD);
 }
 
+int
+isalnum(Rune c)
+{
+	/*
+	 * Hard to get absolutely right.  Use what we know about ASCII
+	 * and assume anything above the Latin control characters is
+	 * potentially an alphanumeric.
+	 */
+	if(c <= ' ')
+		return 0;
+	if(0x7F<=c && c<=0xA0)
+		return 0;
+	if(utfrune("!\"#$%&'()*+,-./:;<=>?@[\\]^`{|}~", c))
+		return 0;
+	return 1;
+}
+
 void
 unselect(void)
 {
@@ -1029,6 +1046,14 @@ select(Point p, Point q, int line)
 	if(q.y > ymax){
 		q.y = ymax;
 		if(!blocksel) q.x = xmax+1;
+	}
+	if(line && eqpt(p, q)){
+		while(p.x > 0 && isalnum(*onscreenr(p.x-1, p.y)))
+			p.x--;
+		while(q.x <= xmax && isalnum(*onscreenr(q.x, q.y)))
+			q.x++;
+		if(p.x != q.x)
+			line = 0;
 	}
 	if(p.x < 0 || line)
 		p.x = 0;
