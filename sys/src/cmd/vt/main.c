@@ -58,7 +58,6 @@ char	*menutext3[] = {
 int	x, y;	/* character positions */
 Rune	*backp;
 int	backc;
-int	atend;
 int	nbacklines;
 int	xmax, ymax;
 int	blocked;
@@ -1142,18 +1141,13 @@ readmenu(void)
 
 	switch(menuhit(2, mc, &menu2, nil)) {
 	case Mbackup:		/* back up */
-		if(atend == 0){
+		if(backup(backc+1))
 			backc++;
-			backup(backc);
-		}
 		return;
 
 	case Mforward:		/* move forward */
-		backc--;
-		if(backc >= 0)
-			backup(backc);
-		else
-			backc = 0;
+		if(backc > 0)
+			backup(--backc);
 		return;
 
 	case Mreset:		/* reset */
@@ -1183,11 +1177,11 @@ readmenu(void)
 	}
 }
 
-void
+int
 backup(int count)
 {
 	Rune *cp;
-	int n;
+	int left, n;
 
 	unselect();
 
@@ -1200,13 +1194,13 @@ backup(int count)
 		nbacklines = ymax-1;
 	}
 	cp = histp;
-	atend = 0;
+	left = 1;
 	while (n >= 0) {
 		cp--;
 		if(cp < hist)
 			cp = &hist[HISTSIZ-1];
 		if(*cp == '\0') {
-			atend = 1;
+			left = 0;
 			break;
 		}
 		if(*cp == '\n')
@@ -1216,6 +1210,7 @@ backup(int count)
 	if(cp >= &hist[HISTSIZ])
 		cp = hist;
 	backp = cp;
+	return left;
 }
 
 Point

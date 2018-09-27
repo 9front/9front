@@ -54,7 +54,7 @@ extern void	ringbell(void);
 extern int	number(Rune *, int *);
 extern void	shift(int,int,int,int);
 extern void	scroll(int,int,int,int);
-extern void	backup(int);
+extern int	backup(int);
 extern void	sendnchars(int, char *);
 extern Point	pt(int, int);
 extern Point	pos(Point);
