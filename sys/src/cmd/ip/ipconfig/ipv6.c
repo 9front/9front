@@ -691,13 +691,16 @@ recvrahost(uchar buf[], int pktlen)
 		if(prfo->len != 4)
 			continue;
 
+		if((prfo->lar & AFMASK) == 0)
+			continue;
+
 		conf.prefixlen = prfo->plen & 127;
 		genipmkask(conf.mask, conf.prefixlen);
 		maskip(prfo->pref, conf.mask, conf.v6pref);
 		memmove(conf.laddr, conf.v6pref, 8);
 		memmove(conf.laddr+8, conf.lladdr+8, 8);
-		conf.onlink = ((prfo->lar & OLMASK) != 0);
-		conf.autoflag = ((prfo->lar & AFMASK) != 0);
+		conf.onlink = (prfo->lar & OLMASK) != 0;
+		conf.autoflag = (prfo->lar & AFMASK) != 0;
 		conf.validlt = nhgetl(prfo->validlt);
 		conf.preflt = nhgetl(prfo->preflt);
 
