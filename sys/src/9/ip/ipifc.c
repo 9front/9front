@@ -505,7 +505,14 @@ ipifcadd(Ipifc *ifc, char **argv, int argc, int tentative, Iplifc *lifcp)
 	/* ignore if this is already a local address for this ifc */
 	if((lifc = iplocalonifc(ifc, ip)) != nil){
 		if(lifcp != nil) {
-			lifc->onlink = lifcp->onlink;
+			if(!lifc->onlink && lifcp->onlink){
+				lifc->onlink = 1;
+				addroute(f, lifc->remote, lifc->mask, ip, IPallbits,
+					lifc->remote, lifc->type, ifc, tifc);
+				if(v6addrtype(ip) != linklocalv6)
+					addroute(f, lifc->remote, lifc->mask, ip, IPnoaddr,
+						lifc->remote, lifc->type, ifc, tifc);
+			}
 			lifc->autoflag = lifcp->autoflag;
 			lifc->validlt = lifcp->validlt;
 			lifc->preflt = lifcp->preflt;
@@ -546,9 +553,11 @@ ipifcadd(Ipifc *ifc, char **argv, int argc, int tentative, Iplifc *lifcp)
 	*l = lifc;
 
 	/* add route for this logical interface */
-	addroute(f, rem, mask, ip, IPallbits, rem, type, ifc, tifc);
-	if(v6addrtype(ip) != linklocalv6)
-		addroute(f, rem, mask, ip, IPnoaddr, rem, type, ifc, tifc);
+	if(lifc->onlink){
+		addroute(f, rem, mask, ip, IPallbits, rem, type, ifc, tifc);
+		if(v6addrtype(ip) != linklocalv6)
+			addroute(f, rem, mask, ip, IPnoaddr, rem, type, ifc, tifc);
+	}
 
 	addselfcache(f, ifc, lifc, ip, Runi);
 
@@ -635,13 +644,15 @@ ipifcremlifc(Ipifc *ifc, Iplifc **l)
 		remselfcache(f, ifc, lifc, lifc->link->self->a);
 
 	/* remove the route for this logical interface */
-	remroute(f, lifc->remote, lifc->mask,
-		lifc->local, IPallbits,
-		lifc->remote, lifc->type, ifc, tifc);
-	if(v6addrtype(lifc->local) != linklocalv6)
+	if(lifc->onlink){
 		remroute(f, lifc->remote, lifc->mask,
-			lifc->local, IPnoaddr,
+			lifc->local, IPallbits,
 			lifc->remote, lifc->type, ifc, tifc);
+		if(v6addrtype(lifc->local) != linklocalv6)
+			remroute(f, lifc->remote, lifc->mask,
+				lifc->local, IPnoaddr,
+				lifc->remote, lifc->type, ifc, tifc);
+	}
 
 	/* unregister proxy */
 	if(lifc->type & Rptpt){
