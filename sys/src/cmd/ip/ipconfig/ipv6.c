@@ -174,8 +174,7 @@ v6paraminit(Conf *cf)
 	cf->routerlt = 0;
 
 	cf->prefixlen = 64;
-	cf->onlink = 0;
-	cf->autoflag = 0;
+	cf->onlink = cf->autoflag = 1;
 	cf->validlt = cf->preflt = ~0L;
 }
 
