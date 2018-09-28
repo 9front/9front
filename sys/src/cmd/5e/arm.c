@@ -124,7 +124,7 @@ single(u32int instr)
 		addr += offset;
 	if((instr & fB) == 0)
 		addr = evenaddr(addr, 3);
-	targ = vaddr(addr, 4, &seg);
+	targ = vaddr(addr, (instr & fB) == 0 ? 4 : 1, &seg);
 	switch(instr & (fB | fL)) {
 	case 0:
 		*(u32int*) targ = *Rd;

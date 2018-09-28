@@ -254,6 +254,7 @@ sysbrk(void)
 	v = arg(0);
 	if(systrace)
 		fprint(2, "brk(%#lux)\n", v);
+	v = v + 7 & -8;
 	if(v >= P->S[SEGSTACK]->start)
 		sysfatal("bss > stack, wtf?");
 	if(v < P->S[SEGBSS]->start)
