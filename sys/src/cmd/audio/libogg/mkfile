@@ -1,7 +1,7 @@
 </$objtype/mkfile
 
 CC=pcc
-CFLAGS=-I.  -c
+CFLAGS=-I. -c
 LIB=libogg.a$O
 
 OFILES=\
@@ -12,14 +12,9 @@ HFILES=\
 	ogg/ogg.h\
 	ogg/os_types.h\
 
-UPDATE=\
-	mkfile\
-	$HFILES\
-	${OFILES:%.$O=%.c}\
-	${LIB:/$objtype/%=/386/%}\
-
 </sys/src/cmd/mklib
 
 nuke:V:
 	mk clean
 	rm -f libogg.a[$OS]
+
