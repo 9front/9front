@@ -585,7 +585,7 @@ cmd(void)
 		Bflush(bioout);
 		p = buf;
 		n = 0;
-		for(;;) {
+		while(n < sizeof(buf)) {
 			i = Bgetc(bin);
 			if(i < 0)
 				exits(0);
