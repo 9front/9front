@@ -100,7 +100,6 @@ void udpkick(void *x, Block *bp);
 typedef struct Udpcb Udpcb;
 struct Udpcb
 {
-	QLock;
 	uchar	headers;
 };
 

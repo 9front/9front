@@ -119,7 +119,6 @@ typedef struct Icmppriv6
 
 typedef struct Icmpcb6
 {
-	QLock;
 	uchar	headers;
 } Icmpcb6;
 
