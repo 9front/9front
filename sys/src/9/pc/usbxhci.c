@@ -393,11 +393,13 @@ handoff(Ctlr *ctlr)
 
 	if((r = xecp(ctlr, 1, nil)) == nil)
 		return;
-	r[0] |= 1<<24;		/* request ownership */
-	for(i = 0; (r[0] & (1<<16)) != 0 && i<100; i++)
-		tsleep(&up->sleep, return0, nil, 10);
+	if(getconf("*noxhcihandoff") == nil){
+		r[0] |= 1<<24;		/* request ownership */
+		for(i = 0; (r[0] & (1<<16)) != 0 && i<100; i++)
+			tsleep(&up->sleep, return0, nil, 10);
+		r[0] &= ~(1<<16);	/* in case of timeout */
+	}
 	r[1] = 0;		/* disable SMI interrupts */
-	r[0] &= ~(1<<16);	/* in case of timeout */
 }
 
 static void
