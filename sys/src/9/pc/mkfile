@@ -8,7 +8,7 @@ objtype=386
 p=9
 
 # must match mem.h
-APBOOTSTRAP=0xF0003000
+APBOOTSTRAP=0xF0007000
 KTZERO=0xF0100020
 
 DEVS=`{rc ../port/mkdevlist $CONF}

@@ -41,7 +41,7 @@ getehci(Ctlr* ctlr)
 	off = ehciecap(ctlr, Clegacy);
 	if(off == -1)
 		return;
-	if(pcicfgr8(ctlr->pcidev, off+CLbiossem) != 0){
+	if(getconf("*noehcihandoff") == nil && pcicfgr8(ctlr->pcidev, off+CLbiossem) != 0){
 		dprint("ehci %#p: bios active, taking over...\n", ctlr->capio);
 		pcicfgw8(ctlr->pcidev, off+CLossem, 1);
 		for(i = 0; i < 100; i++){
