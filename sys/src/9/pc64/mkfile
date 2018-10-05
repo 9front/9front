@@ -6,7 +6,7 @@ objtype=amd64
 p=9
 
 KTZERO=0xffffffff80110000
-APBOOTSTRAP=0xffffffff80003000
+APBOOTSTRAP=0xffffffff80007000
 REBOOTADDR=0x11000
 
 DEVS=`{rc ../port/mkdevlist $CONF}

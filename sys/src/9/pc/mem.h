@@ -57,8 +57,8 @@
  * Fundamental addresses - bottom 64kB saved for return to real mode
  */
 #define	CONFADDR	(KZERO+0x1200)		/* info passed from boot loader */
-#define	TMPADDR		(KZERO+0x2000)		/* used for temporary mappings */
-#define	APBOOTSTRAP	(KZERO+0x3000)		/* AP bootstrap code */
+#define	APBOOTSTRAP	(KZERO+0x7000)		/* AP bootstrap code (overlaps CONFADDR) */
+#define	TMPADDR		(KZERO+0x8000)		/* used for temporary mappings */
 #define	IDTADDR		(KZERO+0x10800)		/* idt */
 #define	REBOOTADDR	(0x11000)		/* reboot code - physical address */
 #define	CPU0PDB		(KZERO+0x12000)		/* bootstrap processor PDB */
@@ -79,14 +79,12 @@
 
 /*
  * Where configuration info is left for the loaded programme.
- * This will turn into a structure as more is done by the boot loader
- * (e.g. why parse the .ini file twice?).
- * There are 3584 bytes available at CONFADDR.
+ * There are 24064 bytes available at CONFADDR.
  */
 #define BOOTLINE	((char*)CONFADDR)
 #define BOOTLINELEN	64
 #define BOOTARGS	((char*)(CONFADDR+BOOTLINELEN))
-#define BOOTARGSLEN	(4096-0x200-BOOTLINELEN)
+#define BOOTARGSLEN	(0x6000-0x200-BOOTLINELEN)
 
 /*
  *  known x86 segments (in GDT) and their selectors
