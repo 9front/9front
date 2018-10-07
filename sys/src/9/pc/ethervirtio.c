@@ -470,6 +470,7 @@ shutdown(Ether* edev)
 {
 	Ctlr *ctlr = edev->ctlr;
 	outb(ctlr->port+Qstatus, 0);
+	pciclrbme(ctlr->pcidev);
 }
 
 static void
@@ -577,6 +578,7 @@ pciprobe(int typ)
 
 		c->typ = typ;
 		c->pcidev = p;
+		pcienable(p);
 		c->id = (p->did<<16)|p->vid;
 
 		/* §3.1.2 Legacy Device Initialization */
@@ -603,6 +605,7 @@ pciprobe(int typ)
 		}
 		if(i < 2){
 			print("ethervirtio: no queues\n");
+			pcidisable(p);
 			free(c);
 			continue;
 		}
@@ -626,9 +629,8 @@ reset(Ether* edev)
 	Ctlr *ctlr;
 	int i;
 
-	if(ctlrhead == nil) {
+	if(ctlrhead == nil)
 		ctlrhead = pciprobe(1);
-	}
 
 	for(ctlr = ctlrhead; ctlr != nil; ctlr = ctlr->next){
 		if(ctlr->active)
@@ -668,6 +670,7 @@ reset(Ether* edev)
 		edev->promiscuous = promiscuous;
 	}
 
+	pcisetbme(ctlr->pcidev);
 	intrenable(edev->irq, interrupt, edev, edev->tbdf, edev->name);
 
 	return 0;

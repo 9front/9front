@@ -2129,14 +2129,13 @@ setup(Ctlr *c)
 	Pcidev *p;
 
 	p = c->p;
-	pcienable(p);
-
 	c->io = p->mem[0].bar&~0xf;
 	mem = vmap(c->io, p->mem[0].size);
 	if(mem == nil){
 		print("yuk: cant map %#p\n", c->io);
 		return -1;
 	}
+	pcienable(p);
 	c->p = p;
 	c->reg = (uint*)mem;
 	c->reg8 = (uchar*)mem;
@@ -2159,15 +2158,15 @@ setup(Ctlr *c)
 	c->rx.r = slice(&v, 16*4096, sizeof c->rx.r[0] * c->rx.cnt);
 
 	c->nports = 1;				/* BOTCH */
-	pcisetbme(p);
 	if(reset(c)){
 		print("yuk: cant reset\n");
-		pciclrbme(p);
 		free(c->alloc);
 		vunmap(mem, p->mem[0].size);
+		pcidisable(p);
 		return -1;
 	}
 	macinit(c);
+	pcisetbme(p);
 	return 0;
 }
 

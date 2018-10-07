@@ -217,6 +217,7 @@ viopnpdevs(int typ)
 		}
 		vd->typ = typ;
 		vd->pci = p;
+		pcienable(p);
 
 		/* reset */
 		outb(vd->port+Status, 0);
@@ -576,6 +577,7 @@ vioenable(SDev *sd)
 	Vdev *vd;
 
 	vd = sd->ctlr;
+	pcisetbme(vd->pci);
 	snprint(name, sizeof(name), "%s (%s)", sd->name, sd->ifc->name);
 	intrenable(vd->pci->intl, viointerrupt, vd, vd->pci->tbdf, name);
 	outb(vd->port+Status, inb(vd->port+Status) | DriverOk);
@@ -591,6 +593,7 @@ viodisable(SDev *sd)
 	vd = sd->ctlr;
 	snprint(name, sizeof(name), "%s (%s)", sd->name, sd->ifc->name);
 	intrdisable(vd->pci->intl, viointerrupt, vd, vd->pci->tbdf, name);
+	pciclrbme(vd->pci);
 	return 1;
 }
 

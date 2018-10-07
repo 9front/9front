@@ -2438,6 +2438,7 @@ msdisable(SDev *s)
 //	disable(c->hba);
 	snprint(buf, sizeof buf, "%s (%s)", s->name, s->ifc->name);
 	intrdisable(c->pci->intl, msinterrupt, c, c->pci->tbdf, buf);
+	pciclrbme(c->pci);
 	c->enabled = 0;
 	iunlock(c);
 	return 1;
@@ -2655,6 +2656,7 @@ mspnp(void)
 			print("sdodin: bar %#p in use\n", c->reg);
 			continue;
 		}
+		pcienable(p);
 		nunit = p->did>>4 & 0xf;
 		s->ifc = &sdodinifc;
 		s->idno = 'a' + nmsctlr;
