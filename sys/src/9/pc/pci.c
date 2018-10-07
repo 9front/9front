@@ -1560,3 +1560,68 @@ pcinextcap(Pcidev *pci, int offset)
 	}
 	return pcicfgr8(pci, offset+1) & ~3;
 }
+
+void
+pcienable(Pcidev *p)
+{
+	uint pcr;
+	int i;
+
+	if(p == nil)
+		return;
+
+	pcienable(p->parent);
+
+	switch(pcisetpms(p, 0)){
+	case 1:
+		print("pcienable %T: wakeup from D1\n", p->tbdf);
+		break;
+	case 2:
+		print("pcienable %T: wakeup from D2\n", p->tbdf);
+		if(p->bridge != nil)
+			delay(100);	/* B2: minimum delay 50ms */
+		else
+			delay(1);	/* D2: minimum delay 200µs */
+		break;
+	case 3:
+		print("pcienable %T: wakeup from D3\n", p->tbdf);
+		delay(100);		/* D3: minimum delay 50ms */
+
+		/* restore registers */
+		for(i = 0; i < 6; i++)
+			pcicfgw32(p, PciBAR0+i*4, p->mem[i].bar);
+		pcicfgw8(p, PciINTL, p->intl);
+		pcicfgw8(p, PciLTR, p->ltr);
+		pcicfgw8(p, PciCLS, p->cls);
+		pcicfgw16(p, PciPCR, p->pcr);
+		break;
+	}
+
+	if(p->bridge != nil)
+		pcr = IOen|MEMen|MASen;
+	else {
+		pcr = 0;
+		for(i = 0; i < 6; i++){
+			if(p->mem[i].size == 0)
+				continue;
+			if(p->mem[i].bar & 1)
+				pcr |= IOen;
+			else
+				pcr |= MEMen;
+		}
+	}
+
+	if((p->pcr & pcr) != pcr){
+		print("pcienable %T: pcr %ux->%ux\n", p->tbdf, p->pcr, p->pcr|pcr);
+		p->pcr |= pcr;
+		pcicfgrw32(p->tbdf, PciPCR, 0xFFFF0000|p->pcr, 0);
+	}
+}
+
+void
+pcidisable(Pcidev *p)
+{
+	if(p == nil)
+		return;
+	pciclrbme(p);
+}

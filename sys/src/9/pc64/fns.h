@@ -146,6 +146,8 @@ void	pcisetbme(Pcidev*);
 void	pcisetioe(Pcidev*);
 void	pcisetmwi(Pcidev*);
 int	pcisetpms(Pcidev*, int);
+void	pcienable(Pcidev*);
+void	pcidisable(Pcidev*);
 void	pcmcisread(PCMslot*);
 int	pcmcistuple(int, int, int, void*, int);
 PCMmap*	pcmmap(int, ulong, int, int);
