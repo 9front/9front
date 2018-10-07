@@ -1178,6 +1178,8 @@ ga620pci(void)
 		}
 		ctlr->port = p->mem[0].bar & ~0x0F;
 		ctlr->pcidev = p;
+		pcienable(p);
+
 		ctlr->id = p->did<<16 | p->vid;
 
 		ctlr->nic = mem;
@@ -1185,6 +1187,7 @@ ga620pci(void)
 			free(ctlr);
 			continue;
 		}
+		pcisetbme(p);
 
 		if(ctlrhead != nil)
 			ctlrtail->next = ctlr;

@@ -544,9 +544,10 @@ reset(Ether* ether)
 	ether->port = ctlr->port;
 	ether->irq = ctlr->pcidev->intl;
 	ether->tbdf = ctlr->pcidev->tbdf;
-	pcisetbme(ctlr->pcidev);
 	ilock(ctlr);
 	ctlr->init = 1;
+	pcienable(ctlr->pcidev);
+	pcisetbme(ctlr->pcidev);
 
 	io32r(ctlr, Sreset);
 	io16r(ctlr, Sreset);

@@ -412,7 +412,7 @@ shutdown(Hci *hp)
 	for(i=0; (ctlr->opr[USBSTS] & HCH) == 0 && i < 10; i++)
 		delay(10);
 	intrdisable(ctlr->pcidev->intl, hp->interrupt, hp, ctlr->pcidev->tbdf, hp->type);
-	pciclrbme(ctlr->pcidev);
+	pcidisable(ctlr->pcidev);
 }
 
 static void
@@ -445,8 +445,11 @@ init(Hci *hp)
 	int i, j;
 
 	ctlr = hp->aux;
-	if(ctlr->mmio[CAPLENGTH] == -1)
+	pcienable(ctlr->pcidev);
+	if(ctlr->mmio[CAPLENGTH] == -1){
+		pcidisable(ctlr->pcidev);
 		error("controller vanished");
+	}
 
 	ctlr->opr = &ctlr->mmio[(ctlr->mmio[CAPLENGTH]&0xFF)/4];
 	ctlr->dba = &ctlr->mmio[ctlr->mmio[DBOFF]/4];
@@ -463,7 +466,6 @@ init(Hci *hp)
 		tsleep(&up->sleep, return0, nil, 10);
 
 	pcisetbme(ctlr->pcidev);
-	pcisetpms(ctlr->pcidev, 0);
 	intrenable(ctlr->pcidev->intl, hp->interrupt, hp, ctlr->pcidev->tbdf, hp->type);
 
 	if(waserror()){

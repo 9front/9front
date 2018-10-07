@@ -1098,13 +1098,6 @@ scanpci83815(void)
 			free(ctlr);
 			continue;
 		}
-
-		if(softreset(ctlr, 0) == -1){
-			free(ctlr);
-			continue;
-		}
-		srom(ctlr);
-
 		if(ctlrhead != nil)
 			ctlrtail->next = ctlr;
 		else
@@ -1147,6 +1140,10 @@ reset(Ether* ether)
 	}
 	if(ctlr == nil)
 		return -1;
+
+	pcienable(ctlr->pcidev);
+	softreset(ctlr, 0);
+	srom(ctlr);
 
 	ether->ctlr = ctlr;
 	ether->port = ctlr->port;

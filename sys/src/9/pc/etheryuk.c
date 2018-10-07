@@ -2129,6 +2129,8 @@ setup(Ctlr *c)
 	Pcidev *p;
 
 	p = c->p;
+	pcienable(p);
+
 	c->io = p->mem[0].bar&~0xf;
 	mem = vmap(c->io, p->mem[0].size);
 	if(mem == nil){

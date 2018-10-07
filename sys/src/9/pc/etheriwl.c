@@ -821,6 +821,23 @@ iwlinit(Ether *edev)
 	uint u, caloff, regoff;
 
 	ctlr = edev->ctlr;
+
+	/* Clear device-specific "PCI retry timeout" register (41h). */
+	if(pcicfgr8(ctlr->pdev, 0x41) != 0)
+		pcicfgw8(ctlr->pdev, 0x41, 0);
+
+	/* Clear interrupt disable bit. Hardware bug workaround. */
+	if(ctlr->pdev->pcr & 0x400){
+		ctlr->pdev->pcr &= ~0x400;
+		pcicfgw16(ctlr->pdev, PciPCR, ctlr->pdev->pcr);
+	}
+
+	ctlr->type = (csr32r(ctlr, Rev) >> 4) & 0x1F;
+	if(fwname[ctlr->type] == nil){
+		print("iwl: unsupported controller type %d\n", ctlr->type);
+		return -1;
+	}
+
 	if((err = handover(ctlr)) != nil)
 		goto Err;
 	if((err = poweron(ctlr)) != nil)
@@ -2465,19 +2482,6 @@ iwlpci(void)
 			break;
 		}
 
-		/* Clear device-specific "PCI retry timeout" register (41h). */
-		if(pcicfgr8(pdev, 0x41) != 0)
-			pcicfgw8(pdev, 0x41, 0);
-
-		/* Clear interrupt disable bit. Hardware bug workaround. */
-		if(pdev->pcr & 0x400){
-			pdev->pcr &= ~0x400;
-			pcicfgw16(pdev, PciPCR, pdev->pcr);
-		}
-
-		pcisetbme(pdev);
-		pcisetpms(pdev, 0);
-
 		ctlr = malloc(sizeof(Ctlr));
 		if(ctlr == nil) {
 			print("iwl: unable to alloc Ctlr\n");
@@ -2492,14 +2496,6 @@ iwlpci(void)
 		}
 		ctlr->nic = mem;
 		ctlr->pdev = pdev;
-		ctlr->type = (csr32r(ctlr, Rev) >> 4) & 0x1F;
-
-		if(fwname[ctlr->type] == nil){
-			print("iwl: unsupported controller type %d\n", ctlr->type);
-			vunmap(mem, pdev->mem[0].size);
-			free(ctlr);
-			continue;
-		}
 
 		if(iwlhead != nil)
 			iwltail->link = ctlr;
@@ -2542,11 +2538,14 @@ again:
 	edev->multicast = iwlmulticast;
 	edev->mbps = 54;
 
+	pcienable(ctlr->pdev);
 	if(iwlinit(edev) < 0){
+		pcidisable(ctlr->pdev);
 		edev->ctlr = nil;
 		goto again;
 	}
 
+	pcisetbme(ctlr->pdev);
 	intrenable(edev->irq, iwlinterrupt, edev, edev->tbdf, edev->name);
 	
 	return 0;

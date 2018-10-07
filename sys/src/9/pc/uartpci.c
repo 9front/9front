@@ -35,6 +35,7 @@ uartpci(int ctlrno, Pcidev* p, int barno, int n, int freq, char* name,
 		return nil;
 	}
 
+	pcienable(p);
 	uart = head;
 	for(i = 0; i < n; i++){
 		ctlr = i8250alloc(io + i*iosize, p->intl, p->tbdf);

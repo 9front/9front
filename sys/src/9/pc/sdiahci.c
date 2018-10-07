@@ -2175,12 +2175,14 @@ iapnp(void)
 		s->ctlr = c;
 		c->sdev = s;
 
+		pcienable(p);
 		ahcihandoff((Ahba*)c->mmio);
 		if(p->vid == 0x8086)
 			iasetupahci(c);
 		nunit = ahciconf(c);
 		if(nunit < 1){
 			vunmap(c->mmio, p->mem[Abar].size);
+			pcidisable(p);
 			continue;
 		}
 		c->ndrive = s->nunit = nunit;

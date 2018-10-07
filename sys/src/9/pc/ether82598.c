@@ -897,6 +897,7 @@ scan(void)
 			free(c);
 			continue;
 		}
+		pcienable(p);
 		c->p = p;
 		c->io = io;
 		c->reg = (u32int*)mem;

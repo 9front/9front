@@ -1966,6 +1966,7 @@ igbepci(void)
 		}
 		ctlr->port = p->mem[0].bar & ~0x0F;
 		ctlr->pcidev = p;
+		pcienable(p);
 		ctlr->id = (p->did<<16)|p->vid;
 		ctlr->cls = cls*4;
 		ctlr->nic = mem;

@@ -186,12 +186,16 @@ scanpci(void)
 			print("usbehci: no memory\n");
 			continue;
 		}
+
+		if((capio = vmap(io, p->mem[0].size)) == nil){
+			print("usbehci: cannot map mmio\n");
+			free(ctlr);
+			continue;
+		}
+
 		ctlr->pcidev = p;
 		ctlr->base = io;
-		capio = ctlr->capio = vmap(io, p->mem[0].size);
-		ctlr->opio = (Eopio*)((uintptr)capio + (capio->cap & 0xff));
-		pcisetbme(p);
-		pcisetpms(p, 0);
+		ctlr->capio = capio;
 		for(i = 0; i < Nhcis; i++)
 			if(ctlrs[i] == nil){
 				ctlrs[i] = ctlr;
@@ -248,6 +252,8 @@ reset(Hci *hp)
 		return -1;
 
 	p = ctlr->pcidev;
+	pcienable(p);
+
 	hp->aux = ctlr;
 	hp->port = ctlr->base;
 	hp->irq = p->intl;
@@ -263,8 +269,11 @@ reset(Hci *hp)
 		capio->parms & 0x40 ? "explicit" : "automatic",
 		capio->parms & 0x10 ? "" : "no ", hp->nports);
 
+	ctlr->opio = (Eopio*)((uintptr)capio + (capio->cap & 0xff));
 	ehcireset(ctlr);
 	ehcimeminit(ctlr);
+	
+	pcisetbme(p);
 
 	/*
 	 * Linkage to the generic HCI driver.

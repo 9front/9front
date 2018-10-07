@@ -3489,9 +3489,6 @@ rt2860pci(void)
 			break;
 		}
 
-		pcisetbme(pdev);
-		pcisetpms(pdev, 0);
-
 		ctlr = malloc(sizeof(Ctlr));
 		if(ctlr == nil){
 			print("rt2860: unable to alloc Ctlr\n");
@@ -3534,6 +3531,9 @@ again:
 
 	if(ctlr == nil)
 		return -1;
+
+	pcienable(ctlr->pdev);
+	pcisetbme(ctlr->pdev);
 
 	edev->ctlr = ctlr;
 	edev->port = ctlr->port;

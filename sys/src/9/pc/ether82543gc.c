@@ -1290,11 +1290,6 @@ gc82543pci(void)
 		ctlr->id = (p->did<<16)|p->vid;
 		ctlr->nic = mem;
 
-		if(gc82543reset(ctlr)){
-			free(ctlr);
-			continue;
-		}
-
 		if(gc82543ctlrhead != nil)
 			gc82543ctlrtail->next = ctlr;
 		else
@@ -1327,6 +1322,9 @@ gc82543pnp(Ether* edev)
 	}
 	if(ctlr == nil)
 		return -1;
+	
+	pcienable(ctlr->pcidev);
+	gc82543reset(ctlr);
 
 	edev->ctlr = ctlr;
 	edev->port = ctlr->port;
@@ -1347,6 +1345,7 @@ gc82543pnp(Ether* edev)
 		}
 	}
 	gc82543init(edev);
+	pcisetbme(ctlr->pcidev);
 
 	/*
 	 * Linkage to the generic ethernet driver.

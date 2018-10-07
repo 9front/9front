@@ -1793,9 +1793,6 @@ wpipci(void)
 		if(pcicfgr8(pdev, 0x41) != 0)
 			pcicfgw8(pdev, 0x41, 0);
 
-		pcisetbme(pdev);
-		pcisetpms(pdev, 0);
-
 		ctlr = malloc(sizeof(Ctlr));
 		if(ctlr == nil) {
 			print("wpi: unable to alloc Ctlr\n");
@@ -1853,11 +1850,13 @@ again:
 	edev->multicast = wpimulticast;
 	edev->mbps = 54;
 
+	pcienable(ctlr->pdev);
 	if(wpiinit(edev) < 0){
+		pcidisable(ctlr->pdev);
 		edev->ctlr = nil;
 		goto again;
 	}
-
+	pcisetbme(ctlr->pdev);
 	intrenable(edev->irq, wpiinterrupt, edev, edev->tbdf, edev->name);
 
 	return 0;

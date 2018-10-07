@@ -1140,6 +1140,7 @@ vt6105Mpci(void)
 		}
 		ctlr->port = port;
 		ctlr->pcidev = p;
+		pcienable(p);
 		ctlr->id = (p->did<<16)|p->vid;
 		if((cls = pcicfgr8(p, PciCLS)) == 0 || cls == 0xFF)
 			cls = 0x10;

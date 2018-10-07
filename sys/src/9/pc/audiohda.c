@@ -1852,6 +1852,7 @@ hdareset(Audio *adev)
 	return -1;
 
 Found:
+	pcienable(p);
 	adev->ctlr = ctlr;
 	ctlr->adev = adev;
 
@@ -1890,9 +1891,6 @@ Found:
 		pcicfgw8(p, 0x44, pcicfgr8(p, 0x44) & 0xf8);
 	}
 
-	pcisetbme(p);
-	pcisetpms(p, 0);
-
 	ctlr->no = adev->ctlrno;
 	ctlr->size = p->mem[0].size;
 	ctlr->q = qopen(256, 0, 0, 0);
@@ -1924,6 +1922,7 @@ Found:
 				print("#A%d: input streamalloc failed\n", ctlr->no);
 		}
 	}
+	pcisetbme(p);
 
 	if(enumdev(ctlr) < 0){
 		print("#A%d: no audio codecs found\n", ctlr->no);

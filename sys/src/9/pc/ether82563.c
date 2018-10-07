@@ -2053,11 +2053,13 @@ setup(Ctlr *ctlr)
 		print("%s: can't map 0x%lux\n", cname(ctlr), ctlr->port);
 		return -1;
 	}
+	pcienable(p);
 	if(i82563reset(ctlr)){
+		pcidisable(p);
 		vunmap(ctlr->nic, p->mem[0].size);
 		return -1;
 	}
-	pcisetbme(ctlr->pcidev);
+	pcisetbme(p);
 	return 0;
 }
 

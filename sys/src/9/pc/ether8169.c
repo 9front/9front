@@ -1118,25 +1118,17 @@ rtl8169pci(void)
 		ctlr->pciv = i;
 		ctlr->pcie = pcie;
 
+		pcienable(p);
 		if(vetmacv(ctlr, &macv) == -1){
+			pcidisable(p);
 			iofree(port);
 			free(ctlr);
 			print("rtl8169: unknown mac %.4ux %.8ux\n", p->did, macv);
 			continue;
 		}
 
-		if(pcigetpms(p) > 0){
-			pcisetpms(p, 0);
-
-			for(i = 0; i < 6; i++)
-				pcicfgw32(p, PciBAR0+i*4, p->mem[i].bar);
-			pcicfgw8(p, PciINTL, p->intl);
-			pcicfgw8(p, PciLTR, p->ltr);
-			pcicfgw8(p, PciCLS, p->cls);
-			pcicfgw16(p, PciPCR, p->pcr);
-		}
-
 		if(rtl8169reset(ctlr)){
+			pcidisable(p);
 			iofree(port);
 			free(ctlr);
 			print("rtl8169: reset failed\n");

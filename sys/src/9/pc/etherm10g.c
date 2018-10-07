@@ -1571,6 +1571,7 @@ m10gpci(void)
 			continue;
 		}
 		c->pcidev = p;
+		pcienable(p);
 		c->id = p->did<<16 | p->vid;
 		c->boot = pcicap(p, PciCapVND);
 //		kickthebaby(p, c);

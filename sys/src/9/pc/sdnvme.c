@@ -566,6 +566,7 @@ nvmepnpctlrs(void)
 			print("nvme: no memory for Ctlr\n");
 			break;
 		}
+		pcienable(p);
 		ctlr->pci = p;
 		ctlr->reg = vmap(p->mem[0].bar & ~0xF, p->mem[0].size);
 		if(ctlr->reg == nil){
@@ -573,6 +574,7 @@ nvmepnpctlrs(void)
 		Bad:
 			if(ctlr->reg != nil)
 				vunmap(ctlr->reg, p->mem[0].size);
+			pcidisable(p);
 			free(ctlr);
 			continue;
 		}

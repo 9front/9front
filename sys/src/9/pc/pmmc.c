@@ -234,6 +234,13 @@ pmmcinit(void)
 	if(p == nil || p->mem[0].size < 256)
 		return -1;
 
+	pmmc->mmio = vmap(p->mem[0].bar & ~0x0F, p->mem[0].size);
+	if(pmmc->mmio == nil)
+		return -1;
+
+	pmmc->pdev = p;
+	pcienable(p);
+
 	if(p->did == 0x1180 && p->vid == 0xe823){	/* Ricoh */
 		/* Enable SD2.0 mode. */
 		pcicfgw8(p, 0xf9, 0xfc);
@@ -249,10 +256,6 @@ pmmcinit(void)
 		pcicfgw8(p, 0xfc, 0x00);
 	}
 
-	pmmc->mmio = vmap(p->mem[0].bar & ~0x0F, p->mem[0].size);
-	if(pmmc->mmio == nil)
-		return -1;
-	pmmc->pdev = p;
 	return 0;
 }
 

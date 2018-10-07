@@ -1170,6 +1170,7 @@ dp83820pci(void)
 		}
 		ctlr->port = p->mem[1].bar & ~0x0F;
 		ctlr->pcidev = p;
+		pcienable(p);
 		ctlr->id = (p->did<<16)|p->vid;
 
 		ctlr->nic = mem;

@@ -2319,6 +2319,8 @@ reset(Hci *hp)
 		return -1;
 
 	p = ctlr->pcidev;
+	pcienable(p);
+
 	hp->aux = ctlr;
 	hp->port = ctlr->port;
 	hp->irq = p->intl;
@@ -2327,6 +2329,8 @@ reset(Hci *hp)
 
 	uhcireset(ctlr);
 	uhcimeminit(ctlr);
+
+	pcisetbme(p);
 
 	/*
 	 * Linkage to the generic HCI driver.

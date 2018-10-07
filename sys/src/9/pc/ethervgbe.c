@@ -930,9 +930,6 @@ vgbepci(void)
 			continue;
 		}
 
-		pcisetbme(pdev);
-		pcisetpms(pdev, 0);
-
 		port = pdev->mem[0].bar;
 		size = pdev->mem[0].size;
 
@@ -1126,6 +1123,9 @@ vgbepnp(Ether* edev)
 
 	if(ctlr == nil)
 		return -1;
+	
+	pcienable(ctlr->pdev);
+	pcisetbme(ctlr->pdev);
 
 	vgbereset(ctlr);
 

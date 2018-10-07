@@ -2405,12 +2405,14 @@ scanpci(void)
 			print("ohci: no memory\n");
 			continue;
 		}
+		if((ctlr->ohci = vmap(io, p->mem[0].size)) == nil){
+			print("ohci: can't map ohci\n");
+			free(ctlr);
+			continue;
+		}
 		ctlr->pcidev = p;
 		ctlr->base = io;
-		ctlr->ohci = vmap(io, p->mem[0].size);
 		dprint("scanpci: ctlr %#p, ohci %#p\n", ctlr, ctlr->ohci);
-		pcisetbme(p);
-		pcisetpms(p, 0);
 		for(i = 0; i < Nhcis; i++)
 			if(ctlrs[i] == nil){
 				ctlrs[i] = ctlr;
@@ -2577,11 +2579,15 @@ reset(Hci *hp)
 	iunlock(&resetlck);
 	if(ctlrs[i] == nil || i == Nhcis)
 		return -1;
-	if(ctlr->ohci->control == ~0)
-		return -1;
-
 
 	p = ctlr->pcidev;
+	pcienable(p);
+
+	if(ctlr->ohci->control == ~0){
+		pcidisable(p);
+		return -1;
+	}
+
 	hp->aux = ctlr;
 	hp->port = ctlr->base;
 	hp->irq = p->intl;
@@ -2590,6 +2596,8 @@ reset(Hci *hp)
 
 	ohcireset(ctlr);
 	ohcimeminit(ctlr);
+
+	pcisetbme(p);
 
 	/*
 	 * Linkage to the generic HCI driver.

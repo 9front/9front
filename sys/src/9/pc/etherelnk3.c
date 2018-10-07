@@ -1481,6 +1481,7 @@ tcm59Xpci(void)
 			print("tcm59Xpci: port 0x%uX in use\n", port);
 			continue;
 		}
+		pcienable(p);
 		irq = p->intl;
 
 		txrxreset(port);

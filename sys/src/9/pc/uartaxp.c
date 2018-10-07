@@ -795,6 +795,8 @@ axpalloc(int ctlrno, Pcidev* pcidev)
 	ctlr->gcb = (Gcb*)(ctlr->mem+0x10000);
 	print("mem 0x%ux size %d: ", bar, pcidev->mem[2].size);
 
+	pcienable(pcidev);
+
 	/*
 	 * Toggle the software reset and wait for
 	 * the adapter local init status to indicate done.

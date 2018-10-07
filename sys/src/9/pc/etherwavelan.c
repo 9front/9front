@@ -134,7 +134,6 @@ wavelanpciscan(void)
 		else
 			ctlrhead = ctlr;
 		ctlrtail = ctlr;
-		pcisetbme(p);
 	}
 }
 
@@ -158,7 +157,9 @@ wavelanpcireset(Ether *ether)
 		return -1;
 
 	ctlr->active = 1;
+
 	ilock(ctlr);
+	pcienable(ctlr->pcidev);
 	ether->irq = ctlr->pcidev->intl;
 	ether->tbdf = ctlr->pcidev->tbdf;
 
@@ -189,6 +190,7 @@ wavelanpcireset(Ether *ether)
 			*p = ' ';
 		w_option(ctlr, ether->opt[i], strlen(ether->opt[i]));
 	}
+	pcisetbme(ctlr->pcidev);
 	iunlock(ctlr);
 	return 0;
 }
