@@ -35,7 +35,6 @@ lib	d775
 		grabrfc
 	sky	d775
 		*
-	tftpd	d775
 rc	d775
 	skip=\.local$
 	+
