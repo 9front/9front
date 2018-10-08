@@ -399,7 +399,7 @@ handoff(Ctlr *ctlr)
 			tsleep(&up->sleep, return0, nil, 10);
 	}
 	/* disable SMI interrupts */
-	r[1] = (r[1] & (7<<1 | 255<<5 | 7<<17)) | 7<<29;
+	r[1] &= 7<<1 | 255<<5 | 7<<17 | 7<<29;
 
 	/* clear BIOS ownership in case of timeout */
 	r[0] &= ~(1<<16);
