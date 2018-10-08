@@ -397,9 +397,12 @@ handoff(Ctlr *ctlr)
 		r[0] |= 1<<24;		/* request ownership */
 		for(i = 0; (r[0] & (1<<16)) != 0 && i<100; i++)
 			tsleep(&up->sleep, return0, nil, 10);
-		r[0] &= ~(1<<16);	/* in case of timeout */
 	}
-	r[1] = 0;		/* disable SMI interrupts */
+	/* disable SMI interrupts */
+	r[1] = (r[1] & (7<<1 | 255<<5 | 7<<17)) | 7<<29;
+
+	/* clear BIOS ownership in case of timeout */
+	r[0] &= ~(1<<16);
 }
 
 static void
@@ -462,6 +465,7 @@ init(Hci *hp)
 		tsleep(&up->sleep, return0, nil, 10);
 
 	ctlr->opr[USBCMD] = HCRST;
+	delay(1);
 	for(i=0; (ctlr->opr[USBSTS] & (CNR|HCH)) != HCH && i<100; i++)
 		tsleep(&up->sleep, return0, nil, 10);
 
