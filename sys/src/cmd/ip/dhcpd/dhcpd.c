@@ -49,9 +49,8 @@ struct Req
 	uchar buf[2*1024];		/* message buffer */
 };
 
-#define TFTP "/lib/tftpd"
-
 char	*blog = "ipboot";
+char	*homedir = "/";
 char	*mysysname;
 Ipifc	*ipifcs;
 int	debug;
@@ -209,7 +208,7 @@ timestamp(char *tag)
 void
 usage(void)
 {
-	fprint(2, "usage: dhcp [-dmnprsSZ] [-f directory] [-M minlease] "
+	fprint(2, "usage: dhcp [-dmnprsSZ] [-h homedir] [-f ndbfile] [-M minlease] "
 		"[-x netmtpt] [-Z staticlease] addr n [addr n] ...\n");
 	exits("usage");
 }
@@ -238,6 +237,9 @@ main(int argc, char **argv)
 		break;
 	case 'f':
 		ndbfile = EARGF(usage());
+		break;
+	case 'h':
+		homedir = EARGF(usage());
 		break;
 	case 'm':
 		mute = 1;
@@ -305,8 +307,8 @@ main(int argc, char **argv)
 		exits(0);
 	}
 
-	if (chdir(TFTP) < 0)
-		warning("can't change directory to %s: %r", TFTP);
+	if (chdir(homedir) < 0)
+		warning("can't change to directory %s: %r", homedir);
 	fd = openlisten(net);
 
 	for(;;){
@@ -956,7 +958,7 @@ bootp(Req *rp)
 	}
 
 	/* ignore if the file is unreadable */
-	if((!rp->genrequest) && bp->file[0] && access(bp->file, 4) < 0){
+	if(!rp->genrequest && bp->file[0] && access(bp->file, 4) < 0){
 		warning("inaccessible bootfile1 %s", bp->file);
 		return;
 	}

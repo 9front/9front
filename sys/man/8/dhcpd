@@ -5,8 +5,10 @@ dhcpd, dhcp6d, dhcpleases, rarpd, tftpd \- Internet booting
 .PP
 .B ip/dhcpd
 .RB [ -dmnprsSZ ]
+.RB [ -h
+.IR homedir ]
 .RB [ -f
-.IR ndb-file ]
+.IR ndbfile ]
 .RB [ -M
 .IR secs ]
 .RB [ -x
@@ -23,7 +25,7 @@ dhcpd, dhcp6d, dhcpleases, rarpd, tftpd \- Internet booting
 .B ip/dhcp6d
 .RB [ -d ]
 .RB [ -f
-.IR ndb-file ]
+.IR ndbfile ]
 .RB [ -x
 .IR netmtpt ]
 .PP
@@ -177,6 +179,18 @@ The options are:
 .B d
 Print debugging to standard output.
 .TP
+.B h
+Change directory to
+.IR homedir .
+The default is
+.BR / .
+This should match the
+.I homedir
+setting of
+.I tftpd
+so that the existence check of non-rooted file names
+is consistent.
+.TP
 .B f
 Specify a file other than
 .B /lib/ndb/local
@@ -277,9 +291,12 @@ The default is
 Change directory to
 .IR homedir .
 The default is
-.BR /lib/tftpd .
+.BR / .
 All requests for files with non-rooted file names are served starting at this
-directory.
+directory. This needs to be consistent with the
+.I homedir
+setting of
+.IR dhcpd .
 .I Tftpd
 supports only octet mode.
 .TP

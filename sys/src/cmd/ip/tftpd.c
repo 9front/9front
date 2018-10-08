@@ -90,9 +90,9 @@ void	doserve(int);
 char	bigbuf[32768];
 char	raddr[64];
 
-char	*dir = "/lib/tftpd";
 char	*dirsl;
 int	dirsllen;
+char	*homedir = "/";
 char	flog[] = "ipboot";
 char	net[Maxpath];
 
@@ -127,7 +127,7 @@ main(int argc, char **argv)
 		dbg++;
 		break;
 	case 'h':
-		dir = EARGF(usage());
+		homedir = EARGF(usage());
 		break;
 	case 'r':
 		restricted = 1;
@@ -142,9 +142,10 @@ main(int argc, char **argv)
 		usage();
 	}ARGEND
 
-	snprint(buf, sizeof buf, "%s/", dir);
-	dirsl = strdup(buf);
-	dirsllen = strlen(dirsl);
+	dirsllen = strlen(homedir);
+	while(dirsllen > 0 && homedir[dirsllen-1] == '/')
+		dirsllen--;
+	dirsl = smprint("%.*s/", dirsllen, homedir);
 
 	fmtinstall('E', eipfmt);
 	fmtinstall('I', eipfmt);
@@ -154,8 +155,8 @@ main(int argc, char **argv)
 	 * "cd /usr/$user", so call setuser before chdir.
 	 */
 	setuser();
-	if(chdir(dir) < 0)
-		sysfatal("can't get to directory %s: %r", dir);
+	if(chdir(homedir) < 0)
+		sysfatal("can't get to directory %s: %r", homedir);
 
 	if(!dbg)
 		switch(rfork(RFNOTEG|RFPROC|RFFDG)) {
