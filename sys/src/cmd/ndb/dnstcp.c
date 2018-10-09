@@ -3,6 +3,8 @@
  */
 #include <u.h>
 #include <libc.h>
+#include <bio.h>
+#include <ndb.h>
 #include <ip.h>
 #include "dns.h"
 
@@ -10,6 +12,7 @@ Cfg cfg;
 
 char	*caller = "";
 char	*dbfile;
+int	anyone;
 int	debug;
 char	*logfile = "dns";
 int	maxage = 60*60;
@@ -17,20 +20,19 @@ char	mntpt[Maxpath];
 int	needrefresh;
 ulong	now;
 vlong	nowns;
-int	testing;
 int	traceactivity;
 char	*zonerefreshprogram;
 
 static int	readmsg(int, uchar*, int);
 static void	reply(int, DNSmsg*, Request*);
-static void	dnzone(DNSmsg*, DNSmsg*, Request*);
+static void	dnzone(DNSmsg*, DNSmsg*, Request*, uchar*);
 static void	getcaller(char*);
 static void	refreshmain(char*);
 
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-rR] [-f ndb-file] [-x netmtpt] [conndir]\n", argv0);
+	fprint(2, "usage: %s [-adrR] [-f ndbfile] [-x netmtpt] [conndir]\n", argv0);
 	exits("usage");
 }
 
@@ -44,9 +46,11 @@ main(int argc, char *argv[])
 	volatile DNSmsg reqmsg, repmsg;
 	volatile Request req;
 
-	alarm(2*60*1000);
 	cfg.cachedb = 1;
 	ARGBEGIN{
+	case 'a':
+		anyone++;
+		break;
 	case 'd':
 		debug++;
 		break;
@@ -82,12 +86,15 @@ main(int argc, char *argv[])
 	memset(callip, 0, sizeof callip);
 	parseip(callip, caller);
 
+	srand(truerand());
 	db2cache(1);
 
 	memset(&req, 0, sizeof req);
 	setjmp(req.mret);
 	req.isslave = 0;
 	procsetname("main loop");
+
+	alarm(10*1000);
 
 	/* loop on requests */
 	for(;; putactivity(0)){
@@ -135,7 +142,7 @@ main(int argc, char *argv[])
 		/* loop through each question */
 		while(reqmsg.qd)
 			if(reqmsg.qd->type == Taxfr)
-				dnzone(&reqmsg, &repmsg, &req);
+				dnzone(&reqmsg, &repmsg, &req, callip);
 			else {
 				dnserver(&reqmsg, &repmsg, &req, callip, rcode);
 				reply(1, &repmsg, &req);
@@ -244,8 +251,37 @@ inzone(DN *dp, char *name, int namelen, int depth)
 	return 1;
 }
 
+static Server*
+findserver(uchar *srcip, Server *servers, Request *req)
+{
+	uchar ip[IPaddrlen];
+	RR *list, *rp;
+
+	for(; servers != nil; servers = servers->next){
+		if(strcmp(ipattr(servers->name), "ip") == 0){
+			if(parseip(ip, servers->name) == -1)
+				continue;
+			if(ipcmp(srcip, ip) == 0)
+				return servers;
+			continue;
+		}
+		list = dnresolve(servers->name, Cin, Ta, req, nil, 0, 1, 1, nil);
+		rrcat(&list, dnresolve(servers->name, Cin, Taaaa, req, nil, 0, 1, 1, nil));
+		for(rp = list; rp != nil; rp = rp->next){
+			if(parseip(ip, rp->ip->name) == -1)
+				continue;
+			if(ipcmp(srcip, ip) == 0)
+				break;
+		}
+		rrfreelist(list);
+		if(rp != nil)
+			return servers;
+	}
+	return nil;
+}
+
 static void
-dnzone(DNSmsg *reqp, DNSmsg *repp, Request *req)
+dnzone(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip)
 {
 	DN *dp, *ndp;
 	RR r, *rp;
@@ -264,8 +300,14 @@ dnzone(DNSmsg *reqp, DNSmsg *repp, Request *req)
 	/* send the soa */
 	repp->an = rrlookup(dp, Tsoa, NOneg);
 	reply(1, repp, req);
-	if(repp->an == 0)
+	if(repp->an == nil)
 		goto out;
+	if(!anyone && !myip(srcip) && findserver(srcip, repp->an->soa->slaves, req) == nil){
+		dnslog("dnstcp: %I axfr %s - not a dnsslave", srcip, dp->name);
+		rrfreelist(repp->an);
+		repp->an = nil;
+		goto out;
+	}
 	rrfreelist(repp->an);
 	repp->an = nil;
 
