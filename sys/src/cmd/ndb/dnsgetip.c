@@ -14,7 +14,6 @@ char mntpt[Maxpath];
 int	needrefresh	= 0;
 ulong	now		= 0;
 vlong	nowns		= 0;
-int	testing		= 0;
 int	traceactivity	= 0;
 char	*zonerefreshprogram;
 

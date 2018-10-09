@@ -171,7 +171,7 @@ restart:
 
 	/* loop on requests */
 	for(;; putactivity(0)){
-		procsetname("served %d udp; %d alarms",
+		procsetname("served %lud udp; %lud alarms",
 			stats.qrecvdudp, stats.alarms);
 		memset(&repmsg, 0, sizeof repmsg);
 		memset(&reqmsg, 0, sizeof reqmsg);

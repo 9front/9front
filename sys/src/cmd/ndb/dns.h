@@ -423,7 +423,6 @@ extern vlong	nowns;
 extern Area	*owned;
 extern int	sendnotifies;
 extern ulong	target;
-extern int	testing;	/* test cache whenever removing a DN */
 extern char	*trace;
 extern int	traceactivity;
 extern char	*zonerefreshprogram;

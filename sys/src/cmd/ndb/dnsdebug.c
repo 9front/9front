@@ -23,7 +23,6 @@ char	mntpt[Maxpath];
 int	needrefresh;
 ulong	now;
 vlong	nowns;
-int	testing;
 char	*trace;
 int	traceactivity;
 char	*zonerefreshprogram;
