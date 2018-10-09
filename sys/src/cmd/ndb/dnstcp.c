@@ -299,15 +299,15 @@ dnzone(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip)
 
 	/* send the soa */
 	repp->an = rrlookup(dp, Tsoa, NOneg);
-	reply(1, repp, req);
-	if(repp->an == nil)
-		goto out;
-	if(!anyone && !myip(srcip) && findserver(srcip, repp->an->soa->slaves, req) == nil){
+	if(repp->an != nil && !anyone && !myip(srcip)
+	&& findserver(srcip, repp->an->soa->slaves, req) == nil){
 		dnslog("dnstcp: %I axfr %s - not a dnsslave", srcip, dp->name);
 		rrfreelist(repp->an);
 		repp->an = nil;
-		goto out;
 	}
+	reply(1, repp, req);
+	if(repp->an == nil)
+		goto out;
 	rrfreelist(repp->an);
 	repp->an = nil;
 
