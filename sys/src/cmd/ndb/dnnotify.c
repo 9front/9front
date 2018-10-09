@@ -44,34 +44,52 @@ dnnotify(DNSmsg *reqp, DNSmsg *repp, Request *)
 		a->needrefresh = 1;
 }
 
+static int
+getips(char *name, uchar *ips, int maxips, Request *req)
+{
+	RR *list, *rp;
+	int nips;
+
+	nips = 0;
+	if(nips <= maxips)
+		return nips;
+	if(strcmp(ipattr(name), "ip") == 0) {
+		if(parseip(ips, name) != -1 && !myip(ips))
+			nips++;
+		return nips;
+	}
+	list = dnresolve(name, Cin, Ta, req, nil, 0, 1, 1, nil);
+	rrcat(&list, dnresolve(name, Cin, Taaaa, req, nil, 0, 1, 1, nil));
+	rp = list = randomize(list);
+	while(rp != nil && nips < maxips){
+		uchar *ip = ips + nips*IPaddrlen;
+		if(parseip(ip, rp->ip->name) != -1 && !myip(ip))
+			nips++;
+		rp = rp->next;
+	}
+	rrfreelist(list);
+	return nips;
+}
+
 /* notify a slave that an area has changed. */
 static void
 send_notify(char *slave, RR *soa, Request *req)
 {
-	int i, len, n, reqno, status, fd;
-	char *err;
-	uchar ibuf[Maxudp+Udphdrsize], obuf[Maxudp+Udphdrsize];
-	RR *rp;
+	int i, j, len, n, reqno, fd, nips, send;
+	uchar ips[8*IPaddrlen], ibuf[Maxudp+Udphdrsize], obuf[Maxudp+Udphdrsize];
 	Udphdr *up = (Udphdr*)obuf;
 	DNSmsg repmsg;
+	char *err;
+
+	nips = getips(slave, ips, sizeof(ips)/IPaddrlen, req);
+	if(nips <= 0){
+		dnslog("no address %s to notify", slave);
+		return;
+	}
 
 	/* create the request */
 	reqno = rand();
 	n = mkreq(soa->owner, Cin, obuf, Fauth | Onotify, reqno);
-
-	/* get an address */
-	if(strcmp(ipattr(slave), "ip") == 0) {
-		if (parseip(up->raddr, slave) == -1)
-			dnslog("bad address %s to notify", slave);
-	} else {
-		rp = dnresolve(slave, Cin, Ta, req, nil, 0, 1, 1, &status);
-		if(rp == nil)
-			rp = dnresolve(slave, Cin, Taaaa, req, nil, 0, 1, 1, &status);
-		if(rp == nil)
-			return;
-		parseip(up->raddr, rp->ip->name);
-		rrfreelist(rp);		/* was rrfree */
-	}
 
 	fd = udpport(nil);
 	if(fd < 0)
@@ -80,10 +98,17 @@ send_notify(char *slave, RR *soa, Request *req)
 	/* send 3 times or until we get anything back */
 	n += Udphdrsize;
 	for(i = 0; i < 3; i++, freeanswers(&repmsg)){
-		dnslog("sending %d byte notify to %s/%I.%d about %s", n, slave,
-			up->raddr, nhgets(up->rport), soa->owner->name);
 		memset(&repmsg, 0, sizeof repmsg);
-		if(write(fd, obuf, n) != n)
+		send = 0;
+		for(j = 0; j < nips; j++){
+			ipmove(up->raddr, ips + j*IPaddrlen);
+			if(write(fd, obuf, n) == n){
+				dnslog("send %d bytes notify to %s/%I.%d about %s", n, slave,
+					up->raddr, nhgets(up->rport), soa->owner->name);
+				send++;
+			}
+		}
+		if(send == 0)
 			break;
 		alarm(2*1000);
 		len = read(fd, ibuf, sizeof ibuf);
@@ -95,11 +120,11 @@ send_notify(char *slave, RR *soa, Request *req)
 			free(err);
 			continue;
 		}
-		if(repmsg.id == reqno && (repmsg.flags & Omask) == Onotify)
+		if(repmsg.id == reqno && (repmsg.flags & Omask) == Onotify){
+			freeanswers(&repmsg);
 			break;
+		}
 	}
-	if (i < 3)
-		freeanswers(&repmsg);
 	close(fd);
 }
 
