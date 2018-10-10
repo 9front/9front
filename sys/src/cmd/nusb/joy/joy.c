@@ -359,6 +359,21 @@ joywork(void *a)
 	}
 }
 
+/* apply quirks for special devices */
+static void
+quirks(Dev *d)
+{
+	int ret;
+	uchar buf[17];
+
+	/* sony dualshock 3 (ps3) controller requires special enable command */
+	if(d->usb->vid == 0x054c && d->usb->did == 0x0268){
+		ret = usbcmd(d, Rd2h|Rclass|Riface, Getreport, (0x3<<8) | 0xF2, 0, buf, sizeof(buf));
+		if(ret < 0)
+			sysfatal("failed to enable ps3 controller: %r");
+	}
+}
+
 static void
 kbstart(Dev *d, Ep *ep, void (*f)(void*))
 {
@@ -380,6 +395,7 @@ kbstart(Dev *d, Ep *ep, void (*f)(void*))
 		fprint(2, "%s: %s: opendevdata: %r\n", argv0, kd->ep->dir);
 		goto Err;
 	}
+	quirks(kd->dev);
 	f(kd);
 	return;
 Err:
