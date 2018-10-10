@@ -404,6 +404,7 @@ enum {
 	Type6050	= 8,
 	Type6005	= 11,	/* also Centrino Advanced-N 6030, 6235 */
 	Type2030	= 12,
+	Type2000	= 16,
 };
 
 static char *fwname[32] = {
@@ -417,6 +418,7 @@ static char *fwname[32] = {
 	[Type6050] "iwn-6050",
 	[Type6005] "iwn-6005", /* see in iwlattach() below */
 	[Type2030] "iwn-2030",
+	[Type2000] "iwn-2000",
 };
 
 static char *qcmd(Ctlr *ctlr, uint qid, uint code, uchar *data, int size, Block *block);
@@ -883,7 +885,7 @@ iwlinit(Ether *edev)
 
 	ctlr->eeprom.temp = 0;
 	ctlr->eeprom.rawtemp = 0;
-	if(ctlr->type == Type2030){
+	if(ctlr->type == Type2030 || ctlr->type == Type2000){
 		if((err = eepromread(ctlr, b, 2, caloff + 0x12a)) != nil)
 			goto Err2;
 		ctlr->eeprom.temp = get16(b);
@@ -1203,7 +1205,7 @@ reset(Ctlr *ctlr)
 		csr32w(ctlr, GpDrv, csr32r(ctlr, GpDrv) | GpDrvCalV6);
 	if(ctlr->type == Type6005)
 		csr32w(ctlr, GpDrv, csr32r(ctlr, GpDrv) | GpDrv1X2);
-	if(ctlr->type == Type2030)
+	if(ctlr->type == Type2030 || ctlr->type == Type2000)
 		csr32w(ctlr, GpDrv, csr32r(ctlr, GpDrv) | GpDrvRadioIqInvert);
 	nicunlock(ctlr);
 
@@ -1455,10 +1457,11 @@ postboot(Ctlr *ctlr)
 				Block *b;
 
 				i = cmds[q];
-				if(i == 8 && ctlr->type != Type5150 && ctlr->type != Type2030)
+				if(i == 8 && ctlr->type != Type5150 && ctlr->type != Type2030 &&
+					ctlr->type != Type2000)
 					continue;
 				if(i == 17 && (ctlr->type >= Type6000 || ctlr->type == Type5150) &&
-					ctlr->type != Type2030)
+					ctlr->type != Type2030 && ctlr->type != Type2000)
 					continue;
 
 				if((b = ctlr->calib.cmd[i]) == nil)
@@ -1486,6 +1489,7 @@ postboot(Ctlr *ctlr)
 				break;
 
 			case Type2030:
+			case Type2000:
 				memset(c, 0, sizeof(c));
 				c[0] = 18;
 				c[1] = 0;
@@ -2473,6 +2477,7 @@ iwlpci(void)
 		case 0x4238:	/* Centrino Ultimate-N 6300 variant 2 */
 		case 0x08ae:	/* Centrino Wireless-N 100 */
 		case 0x0083:	/* Centrino Wireless-N 1000 */
+		case 0x0891:	/* Centrino Wireless-N 2200 */
 		case 0x0887:	/* Centrino Wireless-N 2230 */
 		case 0x0888:	/* Centrino Wireless-N 2230 */
 		case 0x0090:	/* Centrino Advanced-N 6030 */
