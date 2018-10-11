@@ -771,11 +771,11 @@ send:
 
 /*
  * dnsdebug calls
- *	rr = dnresolve(buf, Cin, type, &req, 0, 0, Recurse, rooted, 0);
+ *	rr = dnresolve(buf, Cin, type, &req, nil, 0, Recurse, rooted, nil);
  * which generates a UDP query, which eventually calls
  *	dnserver(&reqmsg, &repmsg, &req, buf, rcode);
  * which calls
- *	rp = dnresolve(name, Cin, type, req, &mp->an, 0, recurse, 1, 0);
+ *	rp = dnresolve(name, Cin, type, req, &mp->an, 0, recurse, 1, nil);
  *
  * but here we just call dnresolve directly.
  */
@@ -787,7 +787,7 @@ lookupquery(Job *job, Mfile *mf, Request *req, char *errbuf, char *p,
 	RR *rp, *neg;
 
 	status = Rok;
-	rp = dnresolve(p, Cin, mf->type, req, 0, 0, Recurse, rooted, &status);
+	rp = dnresolve(p, Cin, mf->type, req, nil, 0, Recurse, rooted, &status);
 
 	neg = rrremneg(&rp);
 	if(neg){

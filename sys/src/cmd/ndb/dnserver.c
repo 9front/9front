@@ -171,7 +171,7 @@ doextquery(DNSmsg *mp, Request *req, int recurse)
 
 	name = mp->qd->owner->name;
 	type = mp->qd->type;
-	rp = dnresolve(name, Cin, type, req, &mp->an, 0, recurse, 1, 0);
+	rp = dnresolve(name, Cin, type, req, &mp->an, 0, recurse, 1, nil);
 
 	/* don't return soa hints as answers, it's wrong */
 	if(rp && rp->db && !rp->auth && rp->type == Tsoa) {
