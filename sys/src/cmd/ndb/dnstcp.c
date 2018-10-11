@@ -265,8 +265,8 @@ findserver(uchar *srcip, Server *servers, Request *req)
 				return servers;
 			continue;
 		}
-		list = dnresolve(servers->name, Cin, Ta, req, nil, 0, Recurse, 0, nil);
-		rrcat(&list, dnresolve(servers->name, Cin, Taaaa, req, nil, 0, Recurse, 0, nil));
+		list = dnresolve(servers->name, Cin, isv4(srcip)? Ta: Taaaa,
+			req, nil, 0, Recurse, 0, nil);
 		for(rp = list; rp != nil; rp = rp->next){
 			if(parseip(ip, rp->ip->name) == -1)
 				continue;
