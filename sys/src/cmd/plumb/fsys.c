@@ -739,7 +739,10 @@ fsysopen(Fcall *t, uchar *buf, Fid *f)
 	}
 	if(clearrules){
 		writerules(nil, 0);
-		rules[0] = nil;
+		for(m=0; rules[m]; m++){
+			freeruleset(rules[m]);
+			rules[m] = nil;
+		}
 	}
 	t->qid = f->qid;
 	t->iounit = 0;

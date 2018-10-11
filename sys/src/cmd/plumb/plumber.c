@@ -68,7 +68,6 @@ threadmain(int argc, char *argv[])
 		error("parse error");
 
 	rules = readrules(plumbfile, fd);
-	close(fd);
 
 	/*
 	 * Start all processes and threads from other proc

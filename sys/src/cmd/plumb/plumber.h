@@ -81,6 +81,7 @@ void		addport(char*);
 char*	writerules(char*, int);
 char*	expand(Exec*, char*, char**);
 void		makeports(Ruleset*[]);
+void		freeruleset(Ruleset*);
 void		printinputstack(void);
 int		popinput(void);
 

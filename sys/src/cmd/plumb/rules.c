@@ -103,8 +103,7 @@ pushinput(char *name, int fd, uchar *str)
 	if(str)
 		in->s = str;
 	else{
-		in->fd = emalloc(sizeof(Biobuf));
-		if(Binit(in->fd, fd, OREAD) < 0)
+		if((in->fd = Bfdopen(fd, OREAD)) == nil)
 			parseerror("can't initialize Bio for rules file: %r");
 	}
 
@@ -119,10 +118,8 @@ popinput(void)
 	if(in == nil)
 		return 0;
 	input = in->next;
-	if(in->fd){
+	if(in->fd)
 		Bterm(in->fd);
-		free(in->fd);
-	}
 	free(in->file);
 	free(in);
 	return 1;
@@ -429,12 +426,22 @@ include(char *s)
 	return 0;
 }
 
+void
+freerule(Rule *r)
+{
+	free(r->arg);
+	free(r->qarg);
+	free(r->regex);
+	free(r);
+}
+
 Rule*
 readrule(int *eof)
 {
 	Rule *rp;
 	char *line, *p;
 	char *word;
+	jmp_buf ojmp;
 
 Top:
 	line = getline();
@@ -463,6 +470,12 @@ Top:
 		return nil;
 
 	rp = emalloc(sizeof(Rule));
+	
+	memmove(ojmp, parsejmp, sizeof(jmp_buf));
+	if(setjmp(parsejmp)){
+		freerule(rp);
+		longjmp(ojmp, 1);
+	}
 
 	/* object */
 	for(word=p; *p!=' ' && *p!='\t'; p++)
@@ -497,15 +510,9 @@ Top:
 
 	parserule(rp);
 
-	return rp;
-}
+	memmove(parsejmp, ojmp, sizeof(jmp_buf));
 
-void
-freerule(Rule *r)
-{
-	free(r->arg);
-	free(r->qarg);
-	free(r->regex);
+	return rp;
 }
 
 void
@@ -735,8 +742,10 @@ morerules(uchar *text, int done)
 		for(s=text; *s!='\0'; s++)
 			if(*s=='\n' && *++s=='\n')
 				endofrule = s+1;
-		if(endofrule == nil)
+		if(endofrule == nil){
+			popinput();
 			return text;
+		}
 		input->end = endofrule;
 	}
 	for(n=0; rules[n]; n++)
@@ -746,7 +755,7 @@ morerules(uchar *text, int done)
 		rules[n++] = rs;
 		rules[n] = nil;
 	}
-	otext =text;
+	otext = text;
 	if(input == nil)
 		text = (uchar*)estrdup("");
 	else
