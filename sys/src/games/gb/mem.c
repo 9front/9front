@@ -107,8 +107,11 @@ regwrite(u8int a, u8int v)
 		break;
 	case LCDC:
 		ppusync();
-		if((~v & reg[a] & LCDEN) != 0)
+		if((~v & reg[a] & LCDEN) != 0){
+			ppuy = 0;
+			ppustate = 0;
 			delevent(&evhblank);
+		}
 		if((v & ~reg[a] & LCDEN) != 0)
 			addevent(&evhblank, 456*2);
 		break;
