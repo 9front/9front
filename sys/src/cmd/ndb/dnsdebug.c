@@ -349,10 +349,10 @@ squirrelserveraddrs(void)
 		memset(&req, 0, sizeof req);
 		req.isslave = 1;
 		req.aborttime = NS2MS(nowns) + Maxreqtm;
-		*l = dnresolve(rp->host->name, Cin, Ta, &req, 0, 0, Recurse, 0, 0);
+		*l = dnresolve(rp->host->name, Cin, Ta, &req, nil, 0, Recurse, 0, nil);
 		if(*l == nil)
 			*l = dnresolve(rp->host->name, Cin, Taaaa, &req,
-				0, 0, Recurse, 0, 0);
+				nil, 0, Recurse, 0, nil);
 		while(*l != nil)
 			l = &(*l)->next;
 	}
@@ -436,7 +436,7 @@ doquery(char *name, char *tstr)
 	getactivity(&req, 0);
 	req.isslave = 1;
 	req.aborttime = NS2MS(nowns) + Maxreqtm;
-	rr = dnresolve(buf, Cin, type, &req, 0, 0, Recurse, rooted, 0);
+	rr = dnresolve(buf, Cin, type, &req, nil, 0, Recurse, rooted, nil);
 	if(rr){
 		print("----------------------------\n");
 		for(rp = rr; rp; rp = rp->next)

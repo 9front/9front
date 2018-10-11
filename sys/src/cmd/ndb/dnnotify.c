@@ -58,8 +58,8 @@ getips(char *name, uchar *ips, int maxips, Request *req)
 			nips++;
 		return nips;
 	}
-	list = dnresolve(name, Cin, Ta, req, nil, 0, 1, 1, nil);
-	rrcat(&list, dnresolve(name, Cin, Taaaa, req, nil, 0, 1, 1, nil));
+	list = dnresolve(name, Cin, Ta, req, nil, 0, Recurse, 0, nil);
+	rrcat(&list, dnresolve(name, Cin, Taaaa, req, nil, 0, Recurse, 0, nil));
 	rp = list = randomize(list);
 	while(rp != nil && nips < maxips){
 		uchar *ip = ips + nips*IPaddrlen;

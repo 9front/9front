@@ -38,7 +38,7 @@ resolve(char *name, int type)
 	req.isslave = 1;
 	req.aborttime = NS2MS(nowns) + Maxreqtm;
 
-	rr = dnresolve(name, Cin, type, &req, 0, 0, Recurse, 0, &status);
+	rr = dnresolve(name, Cin, type, &req, nil, 0, Recurse, 0, &status);
 	neg = rrremneg(&rr);
 	if(rr == nil || neg != nil){
 		if(neg != nil)
