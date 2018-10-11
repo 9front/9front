@@ -145,7 +145,7 @@ dnresolve(char *name, int class, int type, Request *req, RR **cn, int depth,
 		}
 		if(drp != nil)
 			rrfreelist(drp);
-		procsetname(procname);
+		procsetname("%s", procname);
 		free(procname);
 		return rp;
 	}
@@ -188,7 +188,7 @@ dnresolve(char *name, int class, int type, Request *req, RR **cn, int depth,
 		if(rp == nil && status != nil && dp->respcode != Rok)
 			*status = dp->respcode;
 	}
-	procsetname(procname);
+	procsetname("%s", procname);
 	free(procname);
 	return randomize(rp);
 }
