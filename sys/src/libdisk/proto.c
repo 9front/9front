@@ -486,9 +486,9 @@ skipdir(Mkaux *mkaux)
 	level = mkaux->indent;
 	for(;;){
 		mkaux->indent = 0;
-		mkaux->lineno++;
 		p = Brdline(mkaux->b, '\n');
-		if(p == nil || p[Blinelen(mkaux->b)-1] != '\n'){
+		mkaux->lineno++;
+		if(!p){
 			mkaux->indent = -1;
 			return;
 		}
@@ -517,37 +517,38 @@ getfile(Mkaux *mkaux, File *old)
 	int c;
 
 	if(mkaux->indent < 0)
-		return nil;
+		return 0;
 loop:
 	mkaux->indent = 0;
-	mkaux->lineno++;
 	p = Brdline(mkaux->b, '\n');
-	s = &p[Blinelen(mkaux->b)-1];
-	if(p == nil || *s != '\n'){
+	mkaux->lineno++;
+	if(!p){
 		mkaux->indent = -1;
-		return nil;
+		return 0;
 	}
-	*s = 0;
-	while((c = *p++) != 0)
+	while((c = *p++) != '\n')
 		if(c == ' ')
 			mkaux->indent++;
 		else if(c == '\t')
 			mkaux->indent += 8;
 		else
 			break;
-	if(c == 0 || c == '#')
+	if(c == '\n' || c == '#')
 		goto loop;
 	p--;
 	popopt(mkaux);
+	*strchr(p, '\n') = 0;
 	if(s = strchr(p, '=')){
 		*s++ = 0;
 		setopt(mkaux, p, s);
 		goto loop;
-	}
+	}else
+		p[strlen(p)] = '\n';
 	f = emalloc(mkaux, sizeof *f);
 	p = getname(mkaux, p, &elem);
 	if(p == nil)
 		return nil;
+
 	f->new = mkpath(mkaux, old->new, elem);
 	free(elem);
 	f->elem = utfrrune(f->new, L'/') + 1;
@@ -567,7 +568,7 @@ loop:
 	f->old = getpath(mkaux, p);
 	if(f->old && strcmp(f->old, "-") == 0){
 		free(f->old);
-		f->old = nil;
+		f->old = 0;
 	}
 	setname(mkaux, &mkaux->oldfile, f);
 
@@ -583,10 +584,10 @@ getpath(Mkaux *mkaux, char *p)
 	while((c = *p) == ' ' || c == '\t')
 		p++;
 	q = p;
-	while((c = *q) != 0 && c != ' ' && c != '\t')
+	while((c = *q) != '\n' && c != ' ' && c != '\t')
 		q++;
 	if(q == p)
-		return nil;
+		return 0;
 	n = q - p;
 	new = emalloc(mkaux, n + 1);
 	memcpy(new, p, n);
@@ -604,7 +605,7 @@ getname(Mkaux *mkaux, char *p, char **buf)
 		p++;
 
 	start = p;
-	while((c = *p) != 0 && c != ' ' && c != '\t')
+	while((c = *p) != '\n' && c != ' ' && c != '\t')
 		p++;
 
 	*buf = malloc(p+2-start);	/* +2: need at least 2 bytes; might strcpy "-" into buf */
@@ -616,7 +617,7 @@ getname(Mkaux *mkaux, char *p, char **buf)
 
 	if(**buf == '$'){
 		s = getenv(*buf+1);
-		if(s == nil){
+		if(s == 0){
 			warn(mkaux, "can't read environment variable %s", *buf+1);
 			skipdir(mkaux);
 			free(*buf);
