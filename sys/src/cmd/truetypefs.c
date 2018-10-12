@@ -9,6 +9,8 @@
 static char Egreg[] = "my memory of truetype is fading";
 static char Enoent[] = "not found";
 
+static char *fontpath = "/lib/font/ttf";
+
 enum { MAXSUB = 0x100 };
 
 typedef struct TFont TFont;
@@ -219,7 +221,11 @@ tryfont(char *name)
 		goto inval;
 	buf = estrdup9p(name);
 	buf[d - name] = 0;
-	ttf = ttfopen(buf, sz, 0);
+	p = smprint("%s/%s", fontpath, buf);
+	if(p == nil)
+		sysfatal("smprint: %r");
+	ttf = ttfopen(p, sz, 0);
+	free(p);
 	if(ttf == nil){
 		free(buf);
 		return nil;
@@ -420,12 +426,22 @@ Srv fssrv = {
 	.destroyfid = fsdestroyfid,
 };
 
+static void
+usage(void)
+{
+	fprint(2, "usage: %s [-F fontpath]\n", argv0);
+	exits("usage");
+}
+
 void
 main(int argc, char **argv)
 {
 	ARGBEGIN {
+	case 'F':
+		fontpath = EARGF(usage());
+		break;
 	default:
-		sysfatal("usage");
+		usage();
 	} ARGEND;
 	
 	unmount(nil, "/n/ttf");
