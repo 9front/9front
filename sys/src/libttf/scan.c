@@ -314,7 +314,7 @@ vscan(Scan *s)
 			}
 			if(seen == 3 && j > 0 && iswhite(s, i, j-1) && iswhite(s, i, j)){
 				if((s->flags & STUBDET) == 0){
-					pixel(s, j-1, i);
+					pixel(s, i, j-1);
 					continue;
 				}
 				if(i <= 0 || i > s->width - 1 || j <= 0 || j > s->height - 1)
