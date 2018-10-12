@@ -1,0 +1,50 @@
+.TH TRUETYPEFS 4
+.SH NAME
+truetypefs \- TrueType font file system
+.SH SYNOPSIS
+.B truetypefs
+[
+.B -F
+.I fontpath
+]
+.SH DESCRIPTION
+.I Truetypefs
+serves a read-only filesystem at
+.B /n/ttf
+that generates fonts and subfonts from TrueType fonts which can be
+used in the Plan 9 graphics system.
+
+By default, fonts are loaded from
+.BR /lib/font/ttf/ .
+The
+.B -F
+flag may be used to set the path TrueType fonts are loaded from.
+
+.I Truetypefs
+generates subfonts when they are accessed.
+Fonts are specified via a TrueType font file name followed by a font
+size.
+For example,
+.B /n/ttf/unifont.ttf.16/font
+is a
+.IR font (6)
+file generated for GNU Unifont at a size of 16.
+
+.SH EXAMPLES
+Use size 16 GNU Unifont for
+.IR acme (1):
+.IP
+.EX
+truetypefs
+font=/n/font/unifont.ttf.16/font
+acme -c 1 /lib/glass
+.EE
+.SH SOURCE
+.B /sys/src/cmd/truetypefs.c
+.SH SEE ALSO
+.IR ttf (2),
+.IR font(6),
+.IR subfont(2)
+.SH HISTORY
+.I Truetypefs
+first appeared in 9front (October, 2018).
