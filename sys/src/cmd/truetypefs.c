@@ -99,15 +99,15 @@ mksubfonts(TFont *f)
 	for(c = u->cmap; c < u->cmap + u->ncmap; c++){
 		for(k = c->start; k < c->end; k += MAXSUB){
 			s = emalloc(sizeof(TSubfont));
-			s->start = c->start;
-			if(c->start == 0) got0 = 1;
+			s->start = k;
+			if(k == 0) got0 = 1;
 			s->end = k + MAXSUB - 1;
 			if(s->end > c->end)
 				s->end = c->end;
 			s->font = f;
 			s->qid = (Qid){qidgen(), 0, 0};
-			s->next = f->sub[c->start >> 8 & 0xff];
-			f->sub[c->start >> 8 & 0xff] = s;
+			s->next = f->sub[k >> 8 & 0xff];
+			f->sub[k >> 8 & 0xff] = s;
 			fmtprint(&fmt, "%#.4ux\t%#.4ux\ts.%.4ux-%.4ux\n", s->start, s->end, s->start, s->end);
 		}
 	}
