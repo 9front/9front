@@ -184,8 +184,8 @@ to establish the default name space; see
 .B /lib/font/bit
 Bitmap font files.
 .TP
-.B /lib/font/hershey
-Vector font files.
+.B /lib/font/ttf
+TrueType font files.
 .TP
 .B /lib/rfc
 Directory of Internet `Requests For Comments',
