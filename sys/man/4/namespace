@@ -316,7 +316,8 @@ and
 Mounted here is a union directory composed of
 .BR /$objtype/bin ,
 .BR /rc/bin ,
-.BR $home/$objtype/bin ,
+.BR $home/bin/$objtype ,
+.BR $home/bin/rc ,
 etc., so
 .B /bin
 is always the directory containing the appropriate executables
