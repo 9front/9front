@@ -186,7 +186,10 @@ compilesub(TFont *f, TSubfont *s)
 		*p++ = 0;
 		*p++ = h;
 		*p++ = gs[i]->xminpx;
-		*p++ = gs[i]->advanceWidthpx;
+		if(gs[i]->advanceWidthpx != 0)
+			*p++ = gs[i]->advanceWidthpx;
+		else
+			*p++ = gs[i]->width;
 		x += gs[i]->width;
 	}
 	*p++ = x;
