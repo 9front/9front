@@ -110,8 +110,6 @@ wasintr(void)
 	char err[ERRMAX];
 	int r;
 
-	if(intr)
-		return 1;
 	memset(err, 0, sizeof(err));
 	errstr(err, sizeof(err));
 	r = strcmp(err, "interrupted") == 0;
@@ -1331,25 +1329,25 @@ Next1:	switch(recvpkt()){
 		qlock(&sl);
 		if(send.eof)
 			break;
-		if(n < 0 && wasintr()){
+		if(n < 0 && wasintr())
+			intr = 1;
+		if(intr){
 			if(!raw) break;
-			if(intr){
-				getdim();
-				sendpkt("busbuuuu", MSG_CHANNEL_REQUEST,
-					send.chan,
-					"window-change", 13,
-					0,
-					tty.cols,
-					tty.lines,
-					tty.xpixels,
-					tty.ypixels);
-				sendpkt("busbs", MSG_CHANNEL_REQUEST,
-					send.chan,
-					"signal", 6,
-					0,
-					"INT", 3);
-				intr = 0;
-			}
+			getdim();
+			sendpkt("busbuuuu", MSG_CHANNEL_REQUEST,
+				send.chan,
+				"window-change", 13,
+				0,
+				tty.cols,
+				tty.lines,
+				tty.xpixels,
+				tty.ypixels);
+			sendpkt("busbs", MSG_CHANNEL_REQUEST,
+				send.chan,
+				"signal", 6,
+				0,
+				"INT", 3);
+			intr = 0;
 			continue;
 		}
 		if(n <= 0)
