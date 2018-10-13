@@ -1469,7 +1469,7 @@ static void (*itable[256])(Hint *) = {
 	[0x21] h_pop,
 	[0x22] h_clear,
 	[0x23] h_swap,
-	[0x24] h_clear,
+	[0x24] h_depth,
 	[0x25] h_cindex,
 	[0x26] h_mindex,
 	[0x2a] h_loopcall,
