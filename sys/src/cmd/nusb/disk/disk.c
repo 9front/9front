@@ -929,7 +929,7 @@ findendpoints(Ums *ums)
 			continue;
 		csp = ep->iface->csp;
 		sc = Subclass(csp);
-		if(!(Class(csp) == Clstorage && (Proto(csp) == Protobulk)))
+		if(!(Class(csp) == Clstorage && (Proto(csp) == Protobulk || Proto(csp) == Protouas)))
 			continue;
 		if(sc != Subatapi && sc != Sub8070 && sc != Subscsi)
 			fprint(2, "disk: subclass %#ulx not supported. trying anyway\n", sc);

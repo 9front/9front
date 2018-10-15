@@ -14,6 +14,7 @@ enum
 	Protocbi =	0,	/* control/bulk/interrupt; mainly floppies */
 	Protocb =	1,	/*   "  with no interrupt; mainly floppies */
 	Protobulk =	0x50,	/* bulk only */
+	Protouas =	0x62,	/* USB-attached SCSI */
 
 	Subrbc =	1,	/* reduced blk cmds */
 	Subatapi =	2,	/* cd/dvd using sff-8020i or mmc-2 cmd blks */
