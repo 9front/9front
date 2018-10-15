@@ -1,13 +1,10 @@
 /*
- * USB Human Interaction Device: keyboard and mouse.
+ * USB Human Interaction Device: game controller.
  *
- * If there's no usb keyboard, it tries to setup the mouse, if any.
- * It should be started at boot time.
- *
- * Mouse events are converted to the format of mouse(3)
- * on mousein file.
- * Keyboard keycodes are translated to scan codes and sent to kbdfs(8)
- * on kbin file.bv
+ * Game controller events are written to stdout.
+ * May be used in conjunction with a script to
+ * translate to keyboard events and pipe to emulator
+ * (example /sys/src/games/nes/joynes).
  *
  */
 
