@@ -36,7 +36,7 @@ Use size 16 GNU Unifont for
 .IP
 .EX
 truetypefs
-font=/n/font/unifont.ttf.16/font
+font=/n/ttf/unifont.ttf.16/font
 acme -c 1 /lib/glass
 .EE
 .SH SOURCE
