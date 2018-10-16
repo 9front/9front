@@ -1542,7 +1542,7 @@ static void (*itable[256])(Hint *) = {
 	[0x30] h_iup, h_iup,
 	[0x32] h_shp, h_shp,
 	[0x34] h_shc, h_shc,
-	[0x37] h_shz,
+	[0x36] h_shz, h_shz,
 	[0x38] h_shpix,
 	[0x39] h_ip,
 	[0x3a] h_msirp, h_msirp,
