@@ -1443,7 +1443,6 @@ h_shc(Hint *h)
 		n = forceproject(h, p, dp + d);
 		setpoint(h, ZP2, i, n);
 	}
-	h->f->loop = 1;
 }
 
 static void (*itable[256])(Hint *) = {
