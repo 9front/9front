@@ -120,7 +120,7 @@ getpoint(Hint *h, int n, int pi)
 		if(h->g == nil)
 			herror(h, "access to glyph zone from FPGM/CVT");
 		if((uint)pi >= h->g->npt)
-			herror(h, "glyph zone point index %d out of range", n);
+			herror(h, "glyph zone point index %d out of range", pi);
 		dprint("G%s%d: %+π\n", n&ORIG?"O":"", pi, (n & ORIG) != 0 ? h->g->ptorg[pi] : h->g->pt[pi]);
 		return (n & ORIG) != 0 ? h->g->ptorg[pi] : h->g->pt[pi];
 	}else{
@@ -143,16 +143,52 @@ setpoint(Hint *h, int n, int pi, TTPoint p)
 		if(h->g == nil)
 			herror(h, "access to glyph zone from FPGM/CVT");
 		if((uint)pi >= h->g->npt)
-			herror(h, "glyph zone point index %d out of range", n);
+			herror(h, "glyph zone point index %d out of range", pi);
 		dprint("G%d: %+π -> %+π\n", pi, h->g->pt[pi], p);
 		h->g->pt[pi] = p;
 	}else{
 		if((uint)pi >= h->f->u->maxTwilightPoints)
-			herror(h, "twilight zone point index %d out of range", n);
+			herror(h, "twilight zone point index %d out of range", pi);
 		dprint("T%d: %+π -> %+π\n", pi, h->f->twilight[pi], p);
 		h->f->twilight[pi] = p;
 	}
 }
+
+static TTPoint
+getpointz(Hint *h, int z, int pi)
+{
+	if((z & 1) != 0){
+		if(h->g == nil)
+			herror(h, "access to glyph zone from FPGM/CVT");
+		if((uint)pi >= h->g->npt)
+			herror(h, "glyph zone point index %d out of range", pi);
+		dprint("G%s%d: %+π\n", z&ORIG?"O":"", pi, (z & ORIG) != 0 ? h->g->ptorg[pi] : h->g->pt[pi]);
+		return (z & ORIG) != 0 ? h->g->ptorg[pi] : h->g->pt[pi];
+	}else{
+		if((uint)pi >= h->f->u->maxTwilightPoints)
+			herror(h, "twilight zone point index %d out of range", pi);
+		return (z & ORIG) != 0 ? h->f->twiorg[pi] : h->f->twilight[pi];
+	}
+}
+
+static void
+setpointz(Hint *h, int z, int pi, TTPoint p)
+{
+	if((z & 1) != 0){
+		if(h->g == nil)
+			herror(h, "access to glyph zone from FPGM/CVT");
+		if((uint)pi >= h->g->npt)
+			herror(h, "glyph zone point index %d out of range", pi);
+		dprint("G%d: %+π -> %+π\n", pi, h->g->pt[pi], p);
+		h->g->pt[pi] = p;
+	}else{
+		if((uint)pi >= h->f->u->maxTwilightPoints)
+			herror(h, "twilight zone point index %d out of range", pi);
+		dprint("T%d: %+π -> %+π\n", pi, h->f->twilight[pi], p);
+		h->f->twilight[pi] = p;
+	}
+}
+
 
 static void
 debugprint(Hint *h, int skip)
@@ -1445,6 +1481,34 @@ h_shc(Hint *h)
 	}
 }
 
+static void
+h_shz(Hint *h)
+{
+	int i, e, np;
+	TTPoint rp, orp;
+	TTPoint p, n;
+	int d, dp;
+
+	if((h->ip[-1] & 1) != 0){
+		rp = getpoint(h, RP1|ZP0, 0);
+		orp = getpoint(h, RP1|ZP0|ORIG, 0);
+	}else{
+		rp = getpoint(h, RP2|ZP1, 0);
+		orp = getpoint(h, RP2|ZP1|ORIG, 0);
+	}
+	e = pop(h);
+	if((uint)e > 1)
+		herror(h, "SHZ[] with invalid zone %d", e);
+	d = project(h, &rp, &orp);
+	np = e ? h->g->npt : h->f->u->maxTwilightPoints;
+	for(i = 0; i < np; i++){
+		p = getpointz(h, e, i);
+		dp = project(h, &p, nil);
+		n = forceproject(h, p, dp + d);
+		setpointz(h, e, i, n);
+	}
+}
+
 static void (*itable[256])(Hint *) = {
 	[0x00] h_svtca, h_svtca, h_svtca, h_svtca, h_svtca, h_svtca,
 	[0x06] h_sxvtl, h_sxvtl, h_sxvtl, h_sxvtl,
@@ -1478,6 +1542,7 @@ static void (*itable[256])(Hint *) = {
 	[0x30] h_iup, h_iup,
 	[0x32] h_shp, h_shp,
 	[0x34] h_shc, h_shc,
+	[0x37] h_shz,
 	[0x38] h_shpix,
 	[0x39] h_ip,
 	[0x3a] h_msirp, h_msirp,
