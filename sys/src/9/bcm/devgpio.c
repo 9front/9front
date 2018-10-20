@@ -232,109 +232,6 @@ getpintable(void)
 	}
 }
 
-// stolen from uartmini.c
-#define GPIOREGS	(VIRTIO+0x200000)
-/* GPIO regs */
-enum {
-	Fsel0	= 0x00>>2,
-		FuncMask= 0x7,
-	Set0	= 0x1c>>2,
-	Clr0	= 0x28>>2,
-	Lev0	= 0x34>>2,
-	Evds0	= 0x40>>2,
-	Redge0	= 0x4C>>2,
-	Fedge0	= 0x58>>2,
-	Hpin0	= 0x64>>2,
-	Lpin0	= 0x70>>2,
-	ARedge0	= 0x7C>>2,
-	AFedge0	= 0x88>2,
-	PUD	= 0x94>>2,
-	PUDclk0	= 0x98>>2,
-	PUDclk1	= 0x9c>>2,
-};
-
-static void
-gpiofuncset(uint pin, int func)
-{	
-	u32int *gp, *fsel;
-	int off;
-
-	gp = (u32int*)GPIOREGS;
-	fsel = &gp[Fsel0 + pin/10];
-	off = (pin % 10) * 3;
-	*fsel = (*fsel & ~(FuncMask<<off)) | func<<off;
-}
-
-static int
-gpiofuncget(uint pin)
-{	
-	u32int *gp, *fsel;
-	int off;
-
-	gp = (u32int*)GPIOREGS;
-	fsel = &gp[Fsel0 + pin/10];
-	off = (pin % 10) * 3;
-	return ((*fsel >> off) & FuncMask);
-}
-
-static void
-gpiopullset(uint pin, int state)
-{
-	u32int *gp, *reg;
-	u32int mask;
-
-	gp = (u32int*)GPIOREGS;
-	reg = &gp[PUDclk0 + pin/32];
-	mask = 1 << (pin % 32);
-	gp[PUD] = state;
-	microdelay(1);
-	*reg = mask;
-	microdelay(1);
-	*reg = 0;
-}
-
-static void
-gpioout(uint pin, int set)
-{
-	u32int *gp;
-	int v;
-
-	gp = (u32int*)GPIOREGS;
-	v = set? Set0 : Clr0;
-	gp[v + pin/32] = 1 << (pin % 32);
-}
-
-static int
-gpioin(uint pin)
-{
-	u32int *gp;
-
-	gp = (u32int*)GPIOREGS;
-	return (gp[Lev0 + pin/32] & (1 << (pin % 32))) != 0;
-}
-
-static void
-gpioevent(uint pin, int event, int enable)
-{
-	u32int *gp, *field;
-	int reg = 0;
-	
-	switch(event)
-	{
-		case Erising:
-			reg = Redge0;
-			break;
-		case Efalling:
-			reg = Fedge0;
-			break;
-		default:
-			panic("gpio: unknown event type");
-	}
-	gp = (u32int*)GPIOREGS;
-	field = &gp[reg + pin/32];
-	SET_BIT(field, pin, enable);
-}
-
 static void
 mkdeventry(Chan *c, Qid qid, Dirtab *tab, Dir *db)
 {
@@ -417,27 +314,16 @@ static void
 interrupt(Ureg*, void *)
 {
 	
-	u32int *gp, *field;
-	char pin;
+	uint pin;
 	
-	gp = (u32int*)GPIOREGS;
-
-	int set;
-
 	coherence();
 	
 	eventvalue = 0;
 	
 	for(pin = 0; pin < PIN_TABLE_SIZE; pin++)
 	{
-		set = (gp[Evds0 + pin/32] & (1 << (pin % 32))) != 0;
-
-		if(set)
-		{
-			field = &gp[Evds0 + pin/32];
-			SET_BIT(field, pin, 1);
+		if(gpiogetevent(pin))
 			SET_BIT(&eventvalue, pin, 1);
-		}
 	}
 	coherence();
 
@@ -447,7 +333,8 @@ interrupt(Ureg*, void *)
 static void
 gpioinit(void)
 {
-	boardrev = getrevision() & 0xff;
+	gpiomeminit();
+	boardrev = getboardrev() & 0xff;
 	pinscheme = Qboard;
 	intrenable(49, interrupt, nil, 0, "gpio1");
 }
@@ -676,7 +563,7 @@ gpiowrite(Chan *c, void *va, long n, vlong)
 			{
 				if(strncmp(funcname[i], arg, strlen(funcname[i])) == 0)
 				{
-					gpiofuncset(pin, i);
+					gpiosel(pin, i);
 					break;
 				}
 			}
@@ -691,7 +578,7 @@ gpiowrite(Chan *c, void *va, long n, vlong)
 			{
 				if(strncmp(pudname[i], arg, strlen(pudname[i])) == 0)
 				{
-					gpiopullset(pin, i);
+					gpiopull(pin, i);
 					break;
 				}
 			}
@@ -707,7 +594,7 @@ gpiowrite(Chan *c, void *va, long n, vlong)
 			{
 				if(strncmp(evtypename[i], arg, strlen(evtypename[i])) == 0)
 				{
-					gpioevent(pin, i, (cb->f[2][0] == 'e'));
+					gpioselevent(pin, i, (cb->f[2][0] == 'e'));
 					break;
 				}
 			}

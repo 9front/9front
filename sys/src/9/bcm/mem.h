@@ -5,25 +5,29 @@
 #define MiB		1048576u		/* Mebi 0x0000000000100000 */
 #define GiB		1073741824u		/* Gibi 000000000040000000 */
 
-#define HOWMANY(x, y)	(((x)+((y)-1))/(y))
-#define ROUNDUP(x, y)	(HOWMANY((x), (y))*(y))	/* ceiling */
-#define ROUNDDN(x, y)	(((x)/(y))*(y))		/* floor */
-#define MIN(a, b)	((a) < (b)? (a): (b))
-#define MAX(a, b)	((a) > (b)? (a): (b))
-
 /*
  * Sizes
  */
 #define	BY2PG		(4*KiB)			/* bytes per page */
 #define	PGSHIFT		12			/* log(BY2PG) */
+#define	HOWMANY(x,y)	(((x)+((y)-1))/(y))
+#define	ROUNDUP(x,y)	(HOWMANY((x),(y))*(y))
 #define	PGROUND(s)	ROUNDUP(s, BY2PG)
 #define	ROUND(s, sz)	(((s)+(sz-1))&~(sz-1))
 
-#define	MAXMACH		1			/* max # cpus system can run */
+#define	MAXMACH		4			/* max # cpus system can run */
 #define	MACHSIZE	BY2PG
+#define L1SIZE		(4 * BY2PG)
 
 #define KSTKSIZE	(8*KiB)
 #define STACKALIGN(sp)	((sp) & ~3)		/* bug: assure with alloc */
+
+/*
+ * Magic registers
+ */
+
+#define	USER		9		/* R9 is up-> */
+#define	MACH		10		/* R10 is m-> */
 
 /*
  * Address spaces.
@@ -36,8 +40,8 @@
  */
 
 #define	KSEG0		0x80000000		/* kernel segment */
-/* mask to check segment; good for 512MB dram */
-#define	KSEGM		0xE0000000
+/* mask to check segment; good for 1GB dram */
+#define	KSEGM		0xC0000000
 #define	KZERO		KSEG0			/* kernel address space */
 #define CONFADDR	(KZERO+0x100)		/* unparsed plan9.ini */
 #define	MACHADDR	(KZERO+0x2000)		/* Mach structure */
@@ -47,20 +51,24 @@
 #define	L1		(KZERO+0x4000)		/* tt ptes: 16KiB aligned */
 #define	KTZERO		(KZERO+0x8000)		/* kernel text start */
 #define VIRTIO		0x7E000000		/* i/o registers */
-#define	FRAMEBUFFER	0xA0000000		/* video framebuffer */
+#define	ARMLOCAL	(VIRTIO+IOSIZE)		/* armv7 only */
+#define	VGPIO		(ARMLOCAL+MiB)		/* virtual gpio for pi3 ACT LED */
+#define	FRAMEBUFFER	0xC0000000		/* video framebuffer */
 
 #define	UZERO		0			/* user segment */
 #define	UTZERO		(UZERO+BY2PG)		/* user text start */
-#define	USTKTOP		0x20000000		/* user segment end +1 */
+#define	USTKTOP		0x40000000		/* user segment end +1 */
 #define	USTKSIZE	(8*1024*1024)		/* user stack size */
+#define	TSTKTOP		(USTKTOP-USTKSIZE)	/* sysexec temporary stack */
+#define	TSTKSIZ	 	256
 
 /* address at which to copy and execute rebootcode */
-#define	REBOOTADDR	(KZERO+0x3400)
+#define	REBOOTADDR	(KZERO+0x1800)
 
 /*
  * Legacy...
  */
-#define BLOCKALIGN	32			/* only used in allocb.c */
+#define BLOCKALIGN	64			/* only used in allocb.c */
 #define KSTACK		KSTKSIZE
 
 /*
@@ -71,7 +79,6 @@
 #define BY2WD		4
 #define BY2V		8			/* only used in xalloc.c */
 
-#define CACHELINESZ	32
 #define	PTEMAPMEM	(1024*1024)
 #define	PTEPERTAB	(PTEMAPMEM/BY2PG)
 #define	SEGMAPSIZE	1984
@@ -93,8 +100,7 @@
  *	BUS  addresses as seen from the videocore gpu.
  */
 #define	PHYSDRAM	0
-#define BUSDRAM		0x40000000
-#define	DRAMSIZE	(512*MiB)
-#define	PHYSIO		0x20000000
-#define	BUSIO		0x7E000000
 #define	IOSIZE		(16*MiB)
+
+#define MIN(a, b)	((a) < (b)? (a): (b))
+#define MAX(a, b)	((a) > (b)? (a): (b))

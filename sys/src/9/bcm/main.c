@@ -4,6 +4,7 @@
 #include "mem.h"
 #include "dat.h"
 #include "fns.h"
+#include "io.h"
 
 #include "init.h"
 #include <pool.h>
@@ -191,18 +192,57 @@ ataginit(Atag *a)
 void
 machinit(void)
 {
+	Mach *m0;
+
+	m->ticks = 1;
+	m->perf.period = 1;
+	m0 = MACHP(0);
+	if (m->machno != 0) {
+		/* synchronise with cpu 0 */
+		m->ticks = m0->ticks;
+	}
+}
+
+void
+mach0init(void)
+{
+	m->mmul1 = (PTE*)L1;
 	m->machno = 0;
 	machaddr[m->machno] = m;
 
 	m->ticks = 1;
 	m->perf.period = 1;
 
-	conf.nmach = 1;
-
 	active.machs[0] = 1;
 	active.exiting = 0;
 
 	up = nil;
+}
+
+static void
+launchinit(void)
+{
+	int mach;
+	Mach *mm;
+	PTE *l1;
+
+	for(mach = 1; mach < conf.nmach; mach++){
+		machaddr[mach] = mm = mallocalign(MACHSIZE, MACHSIZE, 0, 0);
+		l1 = mallocalign(L1SIZE, L1SIZE, 0, 0);
+		if(mm == nil || l1 == nil)
+			panic("launchinit");
+		memset(mm, 0, MACHSIZE);
+		mm->machno = mach;
+
+		memmove(l1, m->mmul1, L1SIZE);  /* clone cpu0's l1 table */
+		cachedwbse(l1, L1SIZE);
+		mm->mmul1 = l1;
+		cachedwbse(mm, MACHSIZE);
+
+	}
+	cachedwbse(machaddr, sizeof machaddr);
+	if((mach = startcpus(conf.nmach)) < conf.nmach)
+			print("only %d cpu%s started\n", mach, mach == 1? "" : "s");
 }
 
 static void
@@ -216,29 +256,14 @@ optionsinit(char* s)
 }
 
 void
-gpiomeminit(void)
-{
-	Physseg seg;
-	memset(&seg, 0, sizeof seg);
-	seg.attr = SG_PHYSICAL;
-	seg.name = "gpio";
-	seg.pa = (VIRTIO+0x200000);
-	seg.size = BY2PG;
-	addphysseg(&seg);
-}
-
-
-void
 main(void)
 {
 	extern char edata[], end[];
-	uint rev;
+	uint fw, board;
 
-	okay(1);
 	m = (Mach*)MACHADDR;
 	memset(edata, 0, end - edata);	/* clear bss */
-	machinit();
-	mmuinit1();
+	mach0init();
 
 	optionsinit("/boot/boot boot");
 	quotefmtinstall();
@@ -250,20 +275,24 @@ main(void)
 	screeninit();
 
 	print("\nPlan 9 from Bell Labs\n");
-	rev = getfirmware();
-	print("firmware: rev %d\n", rev);
-	if(rev < Minfirmrev){
-		print("Sorry, firmware (start.elf) must be at least rev %d (%s)\n",
-			Minfirmrev, Minfirmdate);
+	board = getboardrev();
+	fw = getfirmware();
+	print("board rev: %#ux firmware rev: %d\n", board, fw);
+	if(fw < Minfirmrev){
+		print("Sorry, firmware (start*.elf) must be at least rev %d"
+		      " or newer than %s\n", Minfirmrev, Minfirmdate);
 		for(;;)
 			;
 	}
+	/* set clock rate to arm_freq from config.txt (default pi1:700Mhz pi2:900MHz) */
+	setclkrate(ClkArm, 0);
 	trapinit();
 	clockinit();
 	printinit();
 	timersinit();
 	cpuidprint();
 	archreset();
+	vgpinit();
 
 	procinit0();
 	initseg();
@@ -271,7 +300,8 @@ main(void)
 	chandevreset();			/* most devices are discovered here */
 	pageinit();
 	userinit();
-	gpiomeminit();
+	launchinit();
+	mmuinit1();
 	schedinit();
 	assert(0);			/* shouldn't have returned */
 }
@@ -484,8 +514,7 @@ confinit(void)
 	conf.upages = conf.npage - kpages;
 	conf.ialloc = (kpages/2)*BY2PG;
 
-	/* only one processor */
-	conf.nmach = 1;
+	conf.nmach = getncpus();
 
 	/* set up other configuration parameters */
 	conf.nproc = 100 + ((conf.npage*BY2PG)/MB)*5;
@@ -497,7 +526,7 @@ confinit(void)
 	conf.nswppo = 4096;
 	conf.nimage = 200;
 
-	conf.copymode = 0;		/* copy on write */
+	conf.copymode = conf.nmach > 1;
 
 	/*
 	 * Guess how much is taken by the large permanent
@@ -529,6 +558,14 @@ exit(int)
 {
 	cpushutdown();
 	splfhi();
+	if(m->machno != 0){
+		void (*f)(ulong, ulong, ulong) = (void*)REBOOTADDR;
+		intrsoff();
+		intrcpushutdown();
+		cacheuwbinv();
+		(*f)(0, 0, 0);
+		for(;;);
+	}
 	archreboot();
 }
 
@@ -536,11 +573,9 @@ exit(int)
  * stub for ../omap/devether.c
  */
 int
-isaconfig(char *class, int ctlrno, ISAConf *isa)
+isaconfig(char *, int, ISAConf *)
 {
-	USED(ctlrno);
-	USED(isa);
-	return strcmp(class, "ether") == 0;
+	return 0;
 }
 
 /*
@@ -553,35 +588,37 @@ reboot(void *entry, void *code, ulong size)
 	void (*f)(ulong, ulong, ulong);
 
 	writeconf();
+	if (m->machno != 0) {
+		procwired(up, 0);
+		sched();
+	}
+
+	/* setup reboot trampoline function */
+	f = (void*)REBOOTADDR;
+	memmove(f, rebootcode, sizeof(rebootcode));
+	cachedwbse(f, sizeof(rebootcode));
+
 	cpushutdown();
+	delay(500);
+
+	splfhi();
 
 	/* turn off buffered serial console */
 	serialoq = nil;
-	kprintoq = nil;
-	screenputs = nil;
 
 	/* shutdown devices */
 	chandevshutdown();
 
 	/* stop the clock (and watchdog if any) */
 	clockshutdown();
-
-	splfhi();
 	intrsoff();
+	intrcpushutdown();
 
-	/* setup reboot trampoline function */
-	f = (void*)REBOOTADDR;
-	memmove(f, rebootcode, sizeof(rebootcode));
 	cacheuwbinv();
+	l2cacheuwbinv();
 
 	/* off we go - never to return */
 	(*f)(PADDR(entry), PADDR(code), size);
-}
-
-int
-cmpswap(long *addr, long old, long new)
-{
-	return cas32(addr, old, new);
 }
 
 void

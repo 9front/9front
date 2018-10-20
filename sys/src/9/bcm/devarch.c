@@ -150,17 +150,19 @@ Dev archdevtab = {
 static long
 cputyperead(Chan*, void *a, long n, vlong offset)
 {
-	char str[128];
+	char name[64], str[128];
 
-	snprint(str, sizeof str, "ARM11 %d\n", m->cpumhz);
+	cputype2name(name, sizeof name);
+	snprint(str, sizeof str, "ARM %s %d\n", name, m->cpumhz);
 	return readstr(offset, a, n, str);
 }
 
 static long
 cputempread(Chan*, void *a, long n, vlong offset)
 {
- 	char str[128];
- 	snprint(str, sizeof str, "%d±%d\n", gettemp(0) / 1000, 1);
+	char str[16];
+
+	snprint(str, sizeof str, "%ud\n", (getcputemp()+500)/1000);
 	return readstr(offset, a, n, str);
 }
 

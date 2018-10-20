@@ -27,6 +27,7 @@ typedef struct PhysUart	PhysUart;
 typedef struct PMMU	PMMU;
 typedef struct Proc	Proc;
 typedef u32int		PTE;
+typedef struct Soc	Soc;
 typedef struct Uart	Uart;
 typedef struct Ureg	Ureg;
 typedef uvlong		Tval;
@@ -214,7 +215,7 @@ struct Mach
 typedef void		KMap;
 #define	VA(k)		((uintptr)(k))
 #define	kmap(p)		(KMap*)((p)->pa|kseg0)
-#define	kunmap(k)
+extern void kunmap(KMap*);
 
 struct
 {
@@ -279,3 +280,29 @@ struct DevConf
 	Devport	*ports;			/* The ports themselves */
 };
 
+struct Soc {			/* SoC dependent configuration */
+	ulong	dramsize;
+	uintptr	physio;
+	uintptr	busdram;
+	uintptr	busio;
+	uintptr	armlocal;
+	u32int	l1ptedramattrs;
+	u32int	l2ptedramattrs;
+};
+extern Soc soc;
+
+#define BUSUNKNOWN -1
+
+/*
+ * GPIO
+ */
+enum {
+	Input	= 0x0,
+	Output	= 0x1,
+	Alt0	= 0x4,
+	Alt1	= 0x5,
+	Alt2	= 0x6,
+	Alt3	= 0x7,
+	Alt4	= 0x3,
+	Alt5	= 0x2,
+};

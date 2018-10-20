@@ -1,7 +1,7 @@
-CONF=pif
-CONFLIST=pif picpuf
+CONF=pi2
+CONFLIST=pi pi2
+CRAPLIST=pif picpuf
 EXTRACOPIES=
-#EXTRACOPIES=''piestand lookout boundary # bovril
 
 loadaddr=0x80008000
 
@@ -104,12 +104,13 @@ install:V: /$objtype/$p$CONF
 arch.$O clock.$O fpiarm.$O main.$O mmu.$O screen.$O syscall.$O trap.$O: \
 	/$objtype/include/ureg.h
 
-archbcm.$O: ../port/flashif.h
 fpi.$O fpiarm.$O fpimem.$O: fpi.h
-l.$O lexception.$O lproc.$O mmu.$O: arm.s mem.h
+l.$O lexception.$O lproc.$O mmu.$O: mem.h
+l.$O lexception.$O lproc.$O armv6.$O armv7.$O: arm.s
+armv7.$O: cache.v7.s
 main.$O: errstr.h init.h reboot.h
 devmouse.$O mouse.$O screen.$O: screen.h
-devusb.$O: ../port/usb.h
+usbdwc.$O: dwcotg.h ../port/usb.h
 
 init.h:D:	../port/initcode.c init9.s
 	$CC ../port/initcode.c
@@ -123,11 +124,12 @@ init.h:D:	../port/initcode.c init9.s
 reboot.h:D:	rebootcode.s arm.s arm.h mem.h
 	$AS rebootcode.s
 	# -lc is only for memmove.  -T arg is PADDR(REBOOTADDR)
-	$LD -l -s -T0x3400 -R4 -o reboot.out rebootcode.$O -lc
+	$LD -l -s -T0x1800 -R4 -o reboot.out rebootcode.$O -lc
 	{echo 'uchar rebootcode[]={'
 	 xd -1x reboot.out |
 		sed -e '1,2d' -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
 	 echo '};'} > reboot.h
+
 errstr.h:D:	../port/mkerrstr ../port/error.h
 	rc ../port/mkerrstr > errstr.h
 

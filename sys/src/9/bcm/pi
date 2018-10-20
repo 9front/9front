@@ -8,6 +8,7 @@ dev
 	mnt
 	srv
 	shr
+	swap
 	dup
 	arch
 	ssl
@@ -17,15 +18,14 @@ dev
 	ip		arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium ptclbsum inferno
 	draw	screen swcursor
 	mouse	mouse
-	uart
-	gpio
+	uart	gpio
+	gpio	gpio
 	sd
 	usb
 
 link
-	ethermedium
 	loopbackmedium
-	netdevmedium
+	ethermedium
 	archbcm
 	usbdwc
 
@@ -36,11 +36,11 @@ ip
 	icmp
 	icmp6
 	ipmux
-	il
 
 misc
+	armv6
 	uartmini
-	sdmmc	emmc
+#	sdmmc	emmc
 	dma
 	vcore
 	vfp3	coproc
@@ -53,4 +53,3 @@ bootdir
 	/$objtype/bin/auth/factotum
 	bootfs.paq
 	boot
-
