@@ -14,10 +14,9 @@ enum {
 	Resettime	= 1000,
 	E2pbusytime	= 1000,
 	Afcdefault	= 0xF830A1,
-//	Hsburst		= 37,	/* from original linux driver */
-	Hsburst		= 8,
+	Hsburst		= 24,
 	Fsburst		= 129,
-	Defbulkdly	= 0x2000,
+	Defbulkdly	= 1000,
 
 	Ethp8021q	= 0x8100,
 	MACoffset 	= 1,
@@ -211,11 +210,9 @@ smscreceive(Dev *ep)
 	uint hd;
 	int n;
 
-	if(Doburst)
-		b = allocb(Hsburst*512);
-	else
-		b = allocb(Maxpkt+4);
-	if((n = read(ep->dfd, b->wp, b->lim - b->base)) < 0){
+	n = Doburst? Hsburst*512 : Maxpkt+4;
+	b = allocb(n);
+	if((n = read(ep->dfd, b->wp, n)) < 0){
 		freeb(b);
 		return -1;
 	}
