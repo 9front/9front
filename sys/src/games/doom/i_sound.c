@@ -422,6 +422,19 @@ void I_UpdateSoundParams(int handle, int vol, int sep, int pitch)
 
 void I_InitMusic(void)
 {
+	int fd, n, sz;
+	char name[64];
+	uchar *gm;
+
+	n = W_GetNumForName("GENMIDI");
+	sz = W_LumpLength(n);
+	gm = (uchar *)W_CacheLumpNum(n, PU_STATIC);
+	snprint(name, sizeof(name), "/tmp/genmidi.%d", getpid());
+	if((fd = create(name, ORDWR|ORCLOSE, 0666)) < 0)
+		sysfatal("create: %r");
+	if(write(fd, gm, sz) != sz)
+			sysfatal("write: %r");
+	Z_Free(gm);
 }
 
 void I_ShutdownMusic(void)
@@ -462,7 +475,15 @@ void I_PlaySong(musicinfo_t *m, int loop)
 	case 0:
 		dup(mpfd[1], 1);
 		for(n=3; n<20; n++) close(n);
-		snprint(name, sizeof(name), "/mnt/wad/d_%s", m->name);
+		close(0);
+		snprint(name, sizeof(name), "/tmp/doom.%d", getpid());
+		if(create(name, ORDWR|ORCLOSE, 0666) != 0)
+			sysfatal("create: %r");
+		n = W_LumpLength(m->lumpnum);
+		if(write(0, m->data, n) != n)
+			sysfatal("write: %r");
+		if(seek(0, 0, 0) != 0)
+			sysfatal("seek: %r");
 		if(bind("/fd/1", "/dev/audio", MREPL) < 0)
 			sysfatal("bind: %r");
 		while(loop && fork() > 0){

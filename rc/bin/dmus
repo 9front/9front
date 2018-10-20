@@ -1,6 +1,6 @@
 #!/bin/rc
-if(test -f /mnt/wad/genmidi)
-	c=(games/dmid '|' games/opl3)
+if(test -f /tmp/genmidi.*)
+	c=(games/dmid -i /tmp/genmidi.* '|' games/opl3)
 if not
 	c=(games/midi -c)
 if(~ `{file -m $1} audio/mus)

@@ -635,11 +635,6 @@ void IdentifyVersion (void)
 		gamemode = indetermined;
 		return;
 	}
-	if(gamemode != indetermined && rfork(RFPROC|RFFDG) == 0){
-		close(2);
-		execl("/bin/games/wadfs", "wadfs", wadfile, nil);
-		sysfatal("execl: %r");
-	}
 	strncpy(basedefault, wadfile, sizeof(basedefault)-5);
 	basedefault[sizeof(basedefault)-5] = '\0';
 	slash = strrchr(basedefault, '/');
