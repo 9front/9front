@@ -299,12 +299,19 @@ repparse(uchar *d, uchar *e,
 static int
 setproto(Hiddev *f, int eid)
 {
-	int id, proto;
+	int proto;
 	Iface *iface;
 
 	iface = f->dev->usb->ep[eid]->iface;
-	id = iface->id;
-	f->nrep = usbcmd(f->dev, Rd2h|Rstd|Riface, Rgetdesc, Dreport<<8, id, 
+
+	/*
+	 * DWC OTG controller misses some split transaction inputs.
+	 * Set nonzero idle time to return more frequent reports
+	 * of keyboard state, to avoid losing key up/down events.
+	 */
+	usbcmd(f->dev, Rh2d|Rclass|Riface, Setidle, 8<<8, iface->id, nil, 0);
+
+	f->nrep = usbcmd(f->dev, Rd2h|Rstd|Riface, Rgetdesc, Dreport<<8, iface->id,
 		f->rep, sizeof(f->rep));
 	if(f->nrep > 0){
 		if(debug){
@@ -335,7 +342,7 @@ setproto(Hiddev *f, int eid)
 		}
 		proto = Bootproto;
 	}
-	return usbcmd(f->dev, Rh2d|Rclass|Riface, Setproto, proto, id, nil, 0);
+	return usbcmd(f->dev, Rh2d|Rclass|Riface, Setproto, proto, iface->id, nil, 0);
 }
 
 static int

@@ -15,6 +15,7 @@ enum {
 	Getreport = 0x01,
 	Setreport = 0x09,
 	Getproto	= 0x03,
+	Setidle		= 0x0a,
 	Setproto	= 0x0b,
 
 	/* protocols for SET_PROTO request */
