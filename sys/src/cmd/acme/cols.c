@@ -84,6 +84,7 @@ coladd(Column *c, Window *w, Window *clone, int y)
 	}
 	if(w == nil){
 		w = emalloc(sizeof(Window));
+		w->rdselfd = -1;
 		w->col = c;
 		draw(screen, r, textcols[BACK], nil, ZP);
 		wininit(w, clone, r);

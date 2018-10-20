@@ -236,7 +236,7 @@ xfidclose(Xfid *x)
 			break;
 		case QWrdsel:
 			close(w->rdselfd);
-			w->rdselfd = 0;
+			w->rdselfd = -1;
 			break;
 		case QWwrsel:
 			w->nomark = FALSE;
