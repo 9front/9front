@@ -886,6 +886,7 @@ extern int aueinit(Dev *);
 extern int a88178init(Dev *);
 extern int a88772init(Dev *);
 extern int smscinit(Dev *);
+extern int lan78xxinit(Dev *);
 extern int cdcinit(Dev *);
 extern int urlinit(Dev *);
 extern int rndisinit(Dev *);
@@ -896,6 +897,7 @@ static struct {
 } ethertype[] = {
 	"cdc",		cdcinit,
 	"smsc",		smscinit,
+	"lan78xx",	lan78xxinit,
 	"a88178",	a88178init,
 	"a88772",	a88772init,
 	"aue",		aueinit,
@@ -921,7 +923,8 @@ threadmain(int argc, char **argv)
 		break;
 	case 'a':
 		setmac = 1;
-		parseether(macaddr, EARGF(usage()));
+		if(parseether(macaddr, EARGF(usage())) != 0)
+			usage();
 		break;
 	case 't':
 		t = EARGF(usage());
