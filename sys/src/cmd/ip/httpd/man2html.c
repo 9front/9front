@@ -55,7 +55,7 @@ lookup(char *object, int section, Hit **list)
 
 	snprint(file, sizeof(file), "/sys/man/%d/INDEX", section);
 	fd = open(file, OREAD);
-	if(fd > 0){
+	if(fd >= 0){
 		Binit(&b, fd, OREAD);
 		for(;;){
 			p = Brdline(&b, '\n');

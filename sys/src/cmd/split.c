@@ -151,7 +151,7 @@ openf(void)
 
 	Bflush(output);
 	Bterm(output);
-	if(fd > 0)
+	if(fd >= 0)
 		close(fd);
 	fd = create(name,OWRITE,0666);
 	if(fd < 0) {

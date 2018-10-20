@@ -77,7 +77,7 @@ filefree(Node *node)
 	if(fp == 0)
 		return;
 
-	if(fp->fd > 0){
+	if(fp->fd >= 0){
 		ntmp--;
 		close(fp->fd);
 		remove(fp->template);

@@ -2758,7 +2758,7 @@ main(int argc, char **argv)
 			snprint(buf, sizeof buf, "%sctl", dev);
 			cfd = open(buf, ORDWR);
 		}
-		if(cfd > 0){
+		if(cfd >= 0){
 			if(baud)
 				fprint(cfd, "b%d", baud);
 			fprint(cfd, "m1");	/* cts/rts flow control (and fifo's) on */

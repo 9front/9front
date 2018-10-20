@@ -129,7 +129,7 @@ xfidopen(Xfid *x)
 			 * though, we'd need to squirrel away the data in case it's
 			 * modified during the operation, e.g. by |sort
 			 */
-			if(w->rdselfd > 0){
+			if(w->rdselfd >= 0){
 				winunlock(w);
 				respond(x, &fc, Einuse);
 				return;

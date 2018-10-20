@@ -516,7 +516,7 @@ cd(String *str)
 	if(chdir(s))
 		syserror("chdir");
 	fd = open("/dev/wdir", OWRITE);
-	if(fd > 0)
+	if(fd >= 0)
 		write(fd, s, strlen(s));
 	dprint("!\n");
 	Strinit(&owd);

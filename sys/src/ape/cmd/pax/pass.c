@@ -153,7 +153,7 @@ char           *dir;
     if ((ofd = openout(to, asb, islink(to, asb), 1)) < 0) {
 	return (-1);
     }
-    if (ofd > 0) {
+    if (ofd >= 0) {
 	passdata(from, ifd, to, ofd);
     }
     tstamp[0] = asb->sb_atime;

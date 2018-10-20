@@ -670,7 +670,7 @@ hplumb(int nc)
 	s = alloc(nc);
 	for(i=0; i<nc; i++)
 		s[i] = getch();
-	if(plumbfd > 0){
+	if(plumbfd >= 0){
 		m = plumbunpack(s, nc);
 		if(m != 0)
 			plumbsend(plumbfd, m);

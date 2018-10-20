@@ -110,7 +110,7 @@ redistrib(uchar *buf, int len)
 
 	uh = (Udphdr *)buf;
 	for (tp = forwtarg; tp < forwtarg + forwtcount; tp++)
-		if (tp->fd > 0) {
+		if (tp->fd >= 0) {
 			memmove(uh->raddr, tp->addr, sizeof tp->addr);
 			hnputs(uh->rport, 53);		/* dns port */
 			if (write(tp->fd, buf, len) != len) {

@@ -127,7 +127,7 @@ main(int argc, char **argv)
 	origargs = procgetname();
 	/* see if we should use a larger message size */
 	fd = open("/dev/draw", OREAD);
-	if(fd > 0){
+	if(fd >= 0){
 		ms = iounit(fd);
 		if(msgsize < ms+IOHDRSZ)
 			msgsize = ms+IOHDRSZ;
