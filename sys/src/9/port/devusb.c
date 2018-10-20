@@ -1141,7 +1141,7 @@ usbread(Chan *c, void *a, long n, vlong offset)
 		error(Ebadusefd);
 	switch(ep->ttype){
 	case Tnone:
-		error("endpoint not configured");
+		error(Enotconf);
 	case Tctl:
 		nr = rhubread(ep, a, n);
 		if(nr >= 0){
@@ -1535,7 +1535,7 @@ usbwrite(Chan *c, void *a, long n, vlong off)
 
 	switch(ep->ttype){
 	case Tnone:
-		error("endpoint not configured");
+		error(Enotconf);
 	case Tctl:
 		nr = rhubwrite(ep, a, n);
 		if(nr >= 0){
