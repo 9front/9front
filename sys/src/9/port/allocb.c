@@ -19,7 +19,8 @@ _allocb(int size)
 	uintptr addr;
 
 	size += Tlrspc;
-	if((b = mallocz(sizeof(Block)+size+Hdrspc, 0)) == nil)
+	size = ROUND(size, BLOCKALIGN);
+	if((b = mallocz(sizeof(Block)+BLOCKALIGN+Hdrspc+size, 0)) == nil)
 		return nil;
 
 	b->next = nil;
@@ -38,11 +39,8 @@ _allocb(int size)
 	addr &= ~(BLOCKALIGN-1);
 	b->lim = (uchar*)addr;
 
-	/* leave sluff at beginning for added headers */
-	b->rp = b->lim - ROUND(size, BLOCKALIGN);
-	if(b->rp < b->base)
-		panic("_allocb");
-	b->wp = b->rp;
+	/* leave room at beginning for added headers */
+	b->wp = b->rp = b->lim - size;
 
 	return b;
 }
