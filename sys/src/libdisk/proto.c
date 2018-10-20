@@ -64,6 +64,8 @@ static void domkfs(Mkaux *mkaux, File *me, int level);
 
 static int	copyfile(Mkaux*, File*, Dir*, int);
 static void	freefile(File*);
+static void	freeoptptr(Opt*, void*);
+static char*	getline(Mkaux*);
 static File*	getfile(Mkaux*, File*);
 static char*	getmode(Mkaux*, char*, ulong*);
 static char*	getname(Mkaux*, char*, char**);
@@ -72,15 +74,10 @@ static int	mkfile(Mkaux*, File*);
 static char*	mkpath(Mkaux*, char*, char*);
 static void	mktree(Mkaux*, File*, int);
 static void	setname(Mkaux*, Name*, File*);
+static void	setopt(Mkaux*, char*, char*);
 static void	skipdir(Mkaux*);
 static void	warn(Mkaux*, char *, ...);
 static void	popopt(Mkaux *mkaux);
-
-//static void
-//mprint(char *new, char *old, Dir *d, void*)
-//{
-//	print("%s %s %D\n", new, old, d);
-//}
 
 int
 rdproto(char *proto, char *root, Mkfsenum *mkenum, Mkfserr *mkerr, void *a)
@@ -151,7 +148,7 @@ domkfs(Mkaux *mkaux, File *me, int level)
 	int rec;
 
 	child = getfile(mkaux, me);
-	if(!child)
+	if(child == nil)
 		return;
 	if((child->elem[0] == '+' || child->elem[0] == '*') && child->elem[1] == '\0'){
 		rec = child->elem[0] == '+';
@@ -162,13 +159,13 @@ domkfs(Mkaux *mkaux, File *me, int level)
 		freefile(child);
 		child = getfile(mkaux, me);
 	}
-	while(child && mkaux->indent > level){
+	while(child != nil && mkaux->indent > level){
 		if(mkfile(mkaux, child))
 			domkfs(mkaux, child, mkaux->indent);
 		freefile(child);
 		child = getfile(mkaux, me);
 	}
-	if(child){
+	if(child != nil){
 		freefile(child);
 		Bseek(mkaux->b, -Blinelen(mkaux->b), 1);
 		mkaux->lineno--;
@@ -198,15 +195,14 @@ mktree(Mkaux *mkaux, File *me, int rec)
 					continue;
 			}
 			child.new = mkpath(mkaux, me->new, d[i].name);
-			if(me->old)
+			if(me->old != nil)
 				child.old = mkpath(mkaux, me->old, d[i].name);
 			child.elem = d[i].name;
 			setname(mkaux, &mkaux->oldfile, &child);
 			if((!(d[i].mode&DMDIR) || rec) && copyfile(mkaux, &child, &d[i], 1) && rec)
 				mktree(mkaux, &child, rec);
 			free(child.new);
-			if(child.old)
-				free(child.old);
+			free(child.old);
 		}
 		free(d);
 	}
@@ -281,11 +277,11 @@ copyfile(Mkaux *mkaux, File *f, Dir *d, int permonly)
 	o = mkaux->opt;
 	if(strcmp(f->uid, "-") != 0)
 		d->uid = f->uid;
-	else if(o && o->uid)
+	else if(o != nil && o->uid != nil)
 		d->uid = o->uid;
 	if(strcmp(f->gid, "-") != 0)
 		d->gid = f->gid;
-	else if(o && o->gid)
+	else if(o != nil && o->gid != nil)
 		d->gid = o->gid;
 	if(f->mode != ~0){
 		if(permonly)
@@ -294,10 +290,10 @@ copyfile(Mkaux *mkaux, File *f, Dir *d, int permonly)
 			warn(mkaux, "inconsistent mode for %s", f->new);
 		else
 			d->mode = f->mode;
-	} else if(o && o->mask)
+	} else if(o != nil && o->mask)
 		d->mode = (d->mode & ~o->mask) | (o->mode & o->mask);
 
-	if(p = strrchr(f->new, '/'))
+	if((p = strrchr(f->new, '/')) != nil)
 		d->name = p+1;
 	else
 		d->name = f->new;
@@ -415,28 +411,22 @@ setopt(Mkaux *mkaux, char *key, char *val)
 	o = mkaux->opt;
 	if(o == nil || mkaux->indent > o->level){
 		o = emalloc(mkaux, sizeof(*o));
-		if(o == nil)
-			longjmp(mkaux->jmp, 1);
-		if(mkaux->opt){
+		if(mkaux->opt != nil)
 			*o = *mkaux->opt;
-			if(o->uid)
-				o->uid = estrdup(mkaux, o->uid);
-			if(o->gid)
-				o->gid = estrdup(mkaux, o->gid);
-		}else
-			memset(o, 0, sizeof(*o));
 		o->level = mkaux->indent;
 		o->prev = mkaux->opt;
 		mkaux->opt = o;
 	} else if(mkaux->indent < o->level)
 		return;
 	if(strcmp(key, "skip") == 0){
-		o->skip = regcomp(val);
+		freeoptptr(o, &o->skip);
+		if((o->skip = regcomp(val)) == nil)
+			warn(mkaux, "bad regular expression %s", val);
 	} else if(strcmp(key, "uid") == 0){
-		free(o->uid); 
+		freeoptptr(o, &o->uid);
 		o->uid = *val ? estrdup(mkaux, val) : nil;
 	} else if(strcmp(key, "gid") == 0){
-		free(o->gid); 
+		freeoptptr(o, &o->gid);
 		o->gid = *val ? estrdup(mkaux, val) : nil;
 	} else if(strcmp(key, "mode") == 0){
 		if(!parsemode(val, &o->mask, &o->mode))
@@ -451,23 +441,37 @@ popopt(Mkaux *mkaux)
 {
 	Opt *o;
 
-	while(o = mkaux->opt){
+	while((o = mkaux->opt) != nil){
 		if(o->level <= mkaux->indent)
 			break;
 		mkaux->opt = o->prev;
-		free(o->uid);
-		free(o->gid);
+		freeoptptr(o, &o->skip);
+		freeoptptr(o, &o->uid);
+		freeoptptr(o, &o->gid);
 		free(o);
 	}
 }
 
 static void
+freeoptptr(Opt *o, void *p)
+{
+	int x = (void**)p - (void**)o;
+	void *v = ((void**)o)[x];
+	if(v == nil)
+		return;
+	((void**)o)[x] = nil;
+	if((o = o->prev) != nil)
+		if(((void**)o)[x] == v)
+			return;
+	free(v);
+}
+
+
+static void
 freefile(File *f)
 {
-	if(f->old)
-		free(f->old);
-	if(f->new)
-		free(f->new);
+	free(f->old);
+	free(f->new);
 	free(f);
 }
 
@@ -478,27 +482,10 @@ freefile(File *f)
 static void
 skipdir(Mkaux *mkaux)
 {
-	char *p, c;
 	int level;
 
-	if(mkaux->indent < 0)
-		return;
 	level = mkaux->indent;
-	for(;;){
-		mkaux->indent = 0;
-		p = Brdline(mkaux->b, '\n');
-		mkaux->lineno++;
-		if(!p){
-			mkaux->indent = -1;
-			return;
-		}
-		while((c = *p++) != '\n')
-			if(c == ' ')
-				mkaux->indent++;
-			else if(c == '\t')
-				mkaux->indent += 8;
-			else
-				break;
+	while(getline(mkaux) != nil){
 		if(mkaux->indent <= level){
 			popopt(mkaux);
 			Bseek(mkaux->b, -Blinelen(mkaux->b), 1);
@@ -508,23 +495,26 @@ skipdir(Mkaux *mkaux)
 	}
 }
 
-static File*
-getfile(Mkaux *mkaux, File *old)
+static char*
+getline(Mkaux *mkaux)
 {
-	File *f;
-	char *elem;
-	char *p, *s;
+	char *p;
 	int c;
 
 	if(mkaux->indent < 0)
-		return 0;
+		return nil;
 loop:
 	mkaux->indent = 0;
 	p = Brdline(mkaux->b, '\n');
 	mkaux->lineno++;
-	if(!p){
+	if(p == nil){
 		mkaux->indent = -1;
-		return 0;
+		return nil;
+	}
+	if(memchr(p, 0, Blinelen(mkaux->b)) != nil){
+		warn(mkaux, "null bytes in proto");
+		longjmp(mkaux->jmp, 1);
+		return nil;
 	}
 	while((c = *p++) != '\n')
 		if(c == ' ')
@@ -535,41 +525,62 @@ loop:
 			break;
 	if(c == '\n' || c == '#')
 		goto loop;
-	p--;
+	return --p;
+}
+
+static File*
+getfile(Mkaux *mkaux, File *old)
+{
+	File *f;
+	char *elem;
+	char *p, *s;
+
+loop:
+	if((p = getline(mkaux)) == nil)
+		return nil;
 	popopt(mkaux);
+
 	*strchr(p, '\n') = 0;
-	if(s = strchr(p, '=')){
+	if((s = strchr(p, '=')) != nil){
 		*s++ = 0;
 		setopt(mkaux, p, s);
 		goto loop;
 	}else
 		p[strlen(p)] = '\n';
-	f = emalloc(mkaux, sizeof *f);
-	p = getname(mkaux, p, &elem);
-	if(p == nil)
+
+	if((p = getname(mkaux, p, &elem)) == nil)
 		return nil;
 
+	f = emalloc(mkaux, sizeof *f);
 	f->new = mkpath(mkaux, old->new, elem);
 	free(elem);
 	f->elem = utfrrune(f->new, L'/') + 1;
-	p = getmode(mkaux, p, &f->mode);
-	p = getname(mkaux, p, &f->uid);	/* LEAK */
-	if(p == nil)
-		return nil;
 
-	if(!*f->uid)
-		strcpy(f->uid, "-");
-	p = getname(mkaux, p, &f->gid);	/* LEAK */
-	if(p == nil)
+	if((p = getmode(mkaux, p, &f->mode)) == nil){
+		freefile(f);
 		return nil;
-
-	if(!*f->gid)
-		strcpy(f->gid, "-");
-	f->old = getpath(mkaux, p);
-	if(f->old && strcmp(f->old, "-") == 0){
-		free(f->old);
-		f->old = 0;
 	}
+
+	if((p = getname(mkaux, p, &f->uid)) == nil){
+		freefile(f);
+		return nil;
+	}
+	if(*f->uid == 0)
+		strcpy(f->uid, "-");
+
+	if((p = getname(mkaux, p, &f->gid)) == nil){
+		freefile(f);
+		return nil;
+	}
+	if(*f->gid == 0)
+		strcpy(f->gid, "-");
+
+	f->old = getpath(mkaux, p);
+	if(f->old != nil && strcmp(f->old, "-") == 0){
+		free(f->old);
+		f->old = nil;
+	}
+
 	setname(mkaux, &mkaux->oldfile, f);
 
 	return f;
@@ -587,7 +598,7 @@ getpath(Mkaux *mkaux, char *p)
 	while((c = *q) != '\n' && c != ' ' && c != '\t')
 		q++;
 	if(q == p)
-		return 0;
+		return nil;
 	n = q - p;
 	new = emalloc(mkaux, n + 1);
 	memcpy(new, p, n);
@@ -613,14 +624,14 @@ getname(Mkaux *mkaux, char *p, char **buf)
 		return nil;
 	memmove(*buf, start, p-start);
 
-	(*buf)[p-start] = '\0';
+	(*buf)[p-start] = 0;
 
 	if(**buf == '$'){
 		s = getenv(*buf+1);
-		if(s == 0){
+		if(s == nil){
 			warn(mkaux, "can't read environment variable %s", *buf+1);
-			skipdir(mkaux);
 			free(*buf);
+			skipdir(mkaux);
 			return nil;
 		}
 		free(*buf);
@@ -636,12 +647,11 @@ getmode(Mkaux *mkaux, char *p, ulong *xmode)
 	ulong m;
 
 	*xmode = ~0;
-	p = getname(mkaux, p, &buf);
-	if(p == nil)
+	if((p = getname(mkaux, p, &buf)) == nil)
 		return nil;
 
 	s = buf;
-	if(!*s || strcmp(s, "-") == 0)
+	if(*s == 0 || strcmp(s, "-") == 0)
 		return p;
 	m = 0;
 	if(*s == 'd'){
@@ -679,7 +689,7 @@ warn(Mkaux *mkaux, char *fmt, ...)
 	vseprint(buf, buf+sizeof(buf), fmt, va);
 	va_end(va);
 
-	if(mkaux->warn)
+	if(mkaux->warn != nil)
 		mkaux->warn(buf, mkaux->a);
 	else
 		fprint(2, "warning: %s\n", buf);
