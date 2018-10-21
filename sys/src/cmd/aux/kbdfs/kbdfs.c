@@ -625,23 +625,29 @@ consproc(void *)
 	p = buf;
 	e = buf + sizeof(buf);
 	while((n = read(consfd, p, e - p)) > 0){
-		x = buf + n;
-		while(p < x && fullrune(p, x - p)){
-			p += chartorune(&r, p);
-			if(r){
-				if(r == 021 || r == 023)	/* XON/XOFF */
-					continue;
-				if(r == '\n' && cr){
-					cr = 0;
-					continue;
-				}
-				if(cr = (r == '\r'))
-					r = '\n';
-				send(runechan, &r);
+		x = p + n;
+		p = buf;
+		while((n = x - p) > 0){
+			if(!fullrune(p, n)){
+				memmove(buf, p, n);
+				break;
 			}
+			p += chartorune(&r, p);
+			if(r == 021 || r == 023)	/* XON/XOFF */
+				continue;
+			if(r == 0 || r == Runeerror){
+				cr = 0;
+				continue;
+			}
+			if(r == '\n' && cr){
+				cr = 0;
+				continue;
+			}
+			if(cr = (r == '\r'))
+				r = '\n';
+			send(runechan, &r);
 		}
-		n = x - p;
-		memmove(buf, p, n);
+		if(n < 0) n = 0;
 		p = buf + n;
 	}
 
