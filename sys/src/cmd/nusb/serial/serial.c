@@ -712,6 +712,7 @@ static Srv serialfs = {
 extern int ftprobe(Serial *ser);
 extern int plprobe(Serial *ser);
 extern int slprobe(Serial *ser);
+extern int chprobe(Serial *ser);
 extern int uconsprobe(Serial *ser);
 
 void
@@ -748,7 +749,8 @@ threadmain(int argc, char* argv[])
 	if(uconsprobe(ser)
 	&& ftprobe(ser)
 	&& slprobe(ser)
-	&& plprobe(ser))
+	&& plprobe(ser)
+	&& chprobe(ser))
 		sysfatal("no serial devices found");
 
 	for(i = 0; i < ser->nifcs; i++){
@@ -769,7 +771,7 @@ threadmain(int argc, char* argv[])
 	for(i = 0; i < ser->nifcs; i++){
 		p = &ser->p[i];
 		if(serinit(p) < 0)
-			sysfatal("wserinit: %r");
+			sysfatal("serinit: %r");
 		if(ser->nifcs == 1)
 			snprint(p->name, sizeof p->name, "%s%s", p->isjtag ? "jtag" : "eiaU", dev->hname);
 		else
