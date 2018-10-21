@@ -1,0 +1,12 @@
+URL=https://github.com/raspberrypi/firmware/raw/master/boot
+FILES=bootcode.bin fixup_cd.dat start_cd.elf LICENCE.broadcom
+
+all:V:	$FILES
+
+clean:V:
+	rm -f $FILES
+
+$FILES:
+	for(i in $target){
+		hget -o $i $URL/$i
+	}
