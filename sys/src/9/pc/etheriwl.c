@@ -2477,6 +2477,7 @@ iwlpci(void)
 		case 0x4238:	/* Centrino Ultimate-N 6300 variant 2 */
 		case 0x08ae:	/* Centrino Wireless-N 100 */
 		case 0x0083:	/* Centrino Wireless-N 1000 */
+		case 0x008a:	/* Centrino Wireless-N 1030 */
 		case 0x0891:	/* Centrino Wireless-N 2200 */
 		case 0x0887:	/* Centrino Wireless-N 2230 */
 		case 0x0888:	/* Centrino Wireless-N 2230 */
