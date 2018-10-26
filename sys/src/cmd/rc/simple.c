@@ -159,7 +159,7 @@ execcd(void)
 		pfmt(err, "Usage: cd [directory]\n");
 		break;
 	case 2:
-		if(a->next->word[0]=='/' || cdpath==0)
+		if(a->next->word[0]=='/' || a->next->word[0]=='#' || cdpath==0)
 			cdpath = &nullpath;
 		for(; cdpath; cdpath = cdpath->next){
 			if(cdpath->word[0] != '\0')
