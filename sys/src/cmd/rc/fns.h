@@ -52,7 +52,7 @@ void	pushlist(void);
 void	pushredir(int, int, int);
 word*	pushword(char*);
 void	readhere(void);
-word*	searchpath(char*);
+word*	searchpath(char*, char*);
 void	setstatus(char*);
 void	setvar(char*, word*);
 void	shuffleredir(void);

@@ -70,7 +70,6 @@ Xsimple(void)
 		}
 	}
 }
-struct word nullpath = { "", 0};
 
 void
 doredir(redir *rp)
@@ -95,15 +94,17 @@ doredir(redir *rp)
 }
 
 word*
-searchpath(char *w)
+searchpath(char *w, char *v)
 {
 	word *path;
 	if(strncmp(w, "/", 1)==0
 	|| strncmp(w, "#", 1)==0
 	|| strncmp(w, "./", 2)==0
 	|| strncmp(w, "../", 3)==0
-	|| (path = vlook("path")->val)==0)
+	|| (path = vlook(v)->val)==0){
+		static struct word nullpath = { "", 0};
 		path=&nullpath;
+	}
 	return path;
 }
 
@@ -116,7 +117,7 @@ execexec(void)
 		return;
 	}
 	doredir(runq->redir);
-	Execute(runq->argv->words, searchpath(runq->argv->words->word));
+	Execute(runq->argv->words, searchpath(runq->argv->words->word, "path"));
 	poplist();
 	Xexit();
 }
@@ -153,15 +154,12 @@ execcd(void)
 	char *dir;
 
 	setstatus("can't cd");
-	cdpath = vlook("cdpath")->val;
 	switch(count(a)){
 	default:
 		pfmt(err, "Usage: cd [directory]\n");
 		break;
 	case 2:
-		if(a->next->word[0]=='/' || a->next->word[0]=='#' || cdpath==0)
-			cdpath = &nullpath;
-		for(; cdpath; cdpath = cdpath->next){
+		for(cdpath = searchpath(a->next->word, "cdpath"); cdpath; cdpath = cdpath->next){
 			if(cdpath->word[0] != '\0')
 				dir = smprint("%s/%s", cdpath->word,
 					a->next->word);
@@ -336,7 +334,7 @@ execdot(void)
 	zero = estrdup(p->argv->words->word);
 	popword();
 	fd = -1;
-	for(path = searchpath(zero); path; path = path->next){
+	for(path = searchpath(zero, "path"); path; path = path->next){
 		if(path->word[0] != '\0')
 			file = smprint("%s/%s", path->word, zero);
 		else
@@ -452,7 +450,7 @@ execwhatis(void){	/* mildly wrong -- should fork before writing */
 					break;
 				}
 			if(!bp->name){
-				for(path = searchpath(a->word); path;
+				for(path = searchpath(a->word, "path"); path;
 				    path = path->next){
 					if(path->word[0] != '\0')
 						file = smprint("%s/%s",
