@@ -96,16 +96,16 @@ doredir(redir *rp)
 word*
 searchpath(char *w, char *v)
 {
+	static struct word nullpath = { "", 0 };
 	word *path;
-	if(strncmp(w, "/", 1)==0
-	|| strncmp(w, "#", 1)==0
-	|| strncmp(w, "./", 2)==0
-	|| strncmp(w, "../", 3)==0
-	|| (path = vlook(v)->val)==0){
-		static struct word nullpath = { "", 0};
-		path=&nullpath;
+
+	if(w[0] && w[0] != '/' && w[0] != '#' &&
+	  (w[0] != '.' || (w[1] && w[1] != '/' && (w[1] != '.' || w[2] && w[2] != '/')))){
+		path = vlook(v)->val;
+		if(path)
+			return path;
 	}
-	return path;
+	return &nullpath;
 }
 
 void
@@ -159,16 +159,14 @@ execcd(void)
 		pfmt(err, "Usage: cd [directory]\n");
 		break;
 	case 2:
-		for(cdpath = searchpath(a->next->word, "cdpath"); cdpath; cdpath = cdpath->next){
+		a = a->next;
+		for(cdpath = searchpath(a->word, "cdpath"); cdpath; cdpath = cdpath->next){
 			if(cdpath->word[0] != '\0')
-				dir = smprint("%s/%s", cdpath->word,
-					a->next->word);
+				dir = smprint("%s/%s", cdpath->word, a->word);
 			else
-				dir = estrdup(a->next->word);
-
+				dir = estrdup(a->word);
 			if(dochdir(dir) >= 0){
-				if(cdpath->word[0] != '\0' &&
-				    strcmp(cdpath->word, ".") != 0)
+				if(cdpath->word[0] != '\0' && strcmp(cdpath->word, ".") != 0)
 					pfmt(err, "%s\n", dir);
 				free(dir);
 				setstatus("");
@@ -177,7 +175,7 @@ execcd(void)
 			free(dir);
 		}
 		if(cdpath==0)
-			pfmt(err, "Can't cd %s: %r\n", a->next->word);
+			pfmt(err, "Can't cd %s: %r\n", a->word);
 		break;
 	case 1:
 		a = vlook("home")->val;
