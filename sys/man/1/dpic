@@ -59,10 +59,10 @@ by default.
 Create a patch
 .I WAD
 (see
-.BR wadfs (4))
+.IR wadfs (4))
 replacing a sky texture.
 First, create a 256x128 image, mirror it, and convert it for use with
-.BR tweak (1).
+.IR tweak (1).
 .IP
 .EX
 % png -9t tuttleglenda.png \\
@@ -73,7 +73,7 @@ First, create a 256x128 image, mirror it, and convert it for use with
 .EE
 .PP
 Next, use
-.BR tweak (1)
+.IR tweak (1)
 to tile the 128x128 picture.
 Then, mount an
 .I IWAD

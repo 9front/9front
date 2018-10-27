@@ -121,7 +121,7 @@ Given an index
 it returns the corresponding contour (counting from zero), storing a pointer to a list of (\fIx\fR, \fIy\fR) pairs in
 .BR *fp .
 The array is allocated with
-.BR malloc (2).
+.IR malloc (2).
 The (always odd) number of points is stored in
 .BR *np .
 The contours correspond to closed quadratic Bézier curves and the points with odd indices are the control points.

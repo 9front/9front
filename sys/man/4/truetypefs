@@ -43,8 +43,8 @@ acme -c 1 /lib/glass
 .B /sys/src/cmd/truetypefs.c
 .SH SEE ALSO
 .IR ttf (2),
-.IR font(6),
-.IR subfont(2)
+.IR font (6),
+.IR subfont (2)
 .SH HISTORY
 .I Truetypefs
 first appeared in 9front (October, 2018).

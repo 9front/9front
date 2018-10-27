@@ -64,7 +64,7 @@ createfile SW18_7: file already exists
 .EE
 .PP
 Play a MIDI stream from a USB device (see
-.BR usb (3)):
+.IR usb (3)):
 .IP
 .EX
 % games/wadfs /sys/games/lib/doom/doom2.wad >[2]/dev/null

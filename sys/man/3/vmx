@@ -74,6 +74,7 @@ starting at \fIoffset\fR.
 The \fIaccess\fR field specifies the permitted types of access using the characters \fLr\fR (read), \fLw\fR (write), \fLx\fR (execute) and \fL-\fR (padding character).
 The \fIcache\fR field specifies the cacheability of the region, it must be one of \fLuc\fR, \fLwc\fR, \fLwt\fR, \fLwp\fR and \fLwb\fR (as defined in the Intel SDM).
 
+.PD
 .PP
 Writes to the
 .B map
@@ -133,6 +134,7 @@ The virtual CPU attempted to execute the instruction \fIinstr\fR.
 \fL*ack\fR
 Not an actual exit, but acknowledgement that an interrupt request (IRQ) was posted.
 
+.PD
 .PP
 The
 .B fpregs
