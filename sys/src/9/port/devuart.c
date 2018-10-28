@@ -318,9 +318,8 @@ uartdrained(void* arg)
 static void
 uartdrainoutput(Uart *p)
 {
-	if(!p->enabled)
+	if(!p->enabled || up == nil || !islo())
 		return;
-
 	p->drain = 1;
 	if(waserror()){
 		p->drain = 0;

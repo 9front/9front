@@ -46,17 +46,6 @@ TEXT armstart(SB), 1, $-4
 	BARRIERS
 
 	/*
-	 * clear mach and page tables
-	 */
-	MOVW	$PADDR(MACHADDR), R1
-	MOVW	$PADDR(KTZERO), R2
-_ramZ:
-	MOVW	R0, (R1)
-	ADD	$4, R1
-	CMP	R1, R2
-	BNE	_ramZ
-
-	/*
 	 * turn SMP on
 	 * invalidate tlb
 	 */
@@ -66,6 +55,17 @@ _ramZ:
 	BARRIERS
 	MCR	CpSC, 0, R0, C(CpTLB), C(CpTLBinvu), CpTLBinv
 	BARRIERS
+
+	/*
+	 * clear mach and page tables
+	 */
+	MOVW	$PADDR(MACHADDR), R1
+	MOVW	$PADDR(KTZERO), R2
+_ramZ:
+	MOVW	R0, (R1)
+	ADD	$4, R1
+	CMP	R1, R2
+	BNE	_ramZ
 
 	/*
 	 * start stack at top of mach (physical addr)
@@ -96,7 +96,6 @@ _ramZ:
 	/*
 	 * enable caches, mmu, and high vectors
 	 */
-
 	MRC	CpSC, 0, R0, C(CpCONTROL), C(0), CpMainctl
 	ORR	$(CpChv|CpCdcache|CpCicache|CpCmmu), R0
 	MCR	CpSC, 0, R0, C(CpCONTROL), C(0), CpMainctl

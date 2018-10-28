@@ -19,7 +19,7 @@
  * Where configuration info is left for the loaded programme.
  */
 #define BOOTARGS	((char*)CONFADDR)
-#define	BOOTARGSLEN	(MACHADDR-CONFADDR)
+#define	BOOTARGSLEN	(REBOOTADDR-PADDR(CONFADDR))
 #define	MAXCONF		64
 #define MAXCONFLINE	160
 
@@ -301,7 +301,7 @@ main(void)
 	pageinit();
 	userinit();
 	launchinit();
-	mmuinit1();
+	mmuinit1(0);
 	schedinit();
 	assert(0);			/* shouldn't have returned */
 }
@@ -550,6 +550,35 @@ confinit(void)
 
 }
 
+static void
+rebootjump(ulong entry, ulong code, ulong size)
+{
+	static void (*f)(ulong, ulong, ulong);
+	static Lock lk;
+
+	intrsoff();
+	intrcpushutdown();
+
+	/* redo identity map */
+	mmuinit1(1);
+
+	lock(&lk);
+	if(f == nil){
+		/* setup reboot trampoline function */
+		f = (void*)REBOOTADDR;
+		memmove(f, rebootcode, sizeof(rebootcode));
+		cachedwbse(f, sizeof(rebootcode));
+	}
+	unlock(&lk);
+
+	cacheuwbinv();
+	l2cacheuwbinv();
+
+	(*f)(entry, code, size);
+
+	for(;;);
+}
+
 /*
  *  exit kernel either on a panic or user request
  */
@@ -558,14 +587,8 @@ exit(int)
 {
 	cpushutdown();
 	splfhi();
-	if(m->machno != 0){
-		void (*f)(ulong, ulong, ulong) = (void*)REBOOTADDR;
-		intrsoff();
-		intrcpushutdown();
-		cacheuwbinv();
-		(*f)(0, 0, 0);
-		for(;;);
-	}
+	if(m->machno != 0)
+		rebootjump(0, 0, 0);
 	archreboot();
 }
 
@@ -585,21 +608,14 @@ isaconfig(char *, int, ISAConf *)
 void
 reboot(void *entry, void *code, ulong size)
 {
-	void (*f)(ulong, ulong, ulong);
-
 	writeconf();
 	if (m->machno != 0) {
 		procwired(up, 0);
 		sched();
 	}
 
-	/* setup reboot trampoline function */
-	f = (void*)REBOOTADDR;
-	memmove(f, rebootcode, sizeof(rebootcode));
-	cachedwbse(f, sizeof(rebootcode));
-
 	cpushutdown();
-	delay(500);
+	delay(1000);
 
 	splfhi();
 
@@ -611,14 +627,10 @@ reboot(void *entry, void *code, ulong size)
 
 	/* stop the clock (and watchdog if any) */
 	clockshutdown();
-	intrsoff();
-	intrcpushutdown();
-
-	cacheuwbinv();
-	l2cacheuwbinv();
+	wdogoff();
 
 	/* off we go - never to return */
-	(*f)(PADDR(entry), PADDR(code), size);
+	rebootjump(PADDR(entry), PADDR(code), size);
 }
 
 void

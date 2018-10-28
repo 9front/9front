@@ -132,17 +132,6 @@ TEXT l2cacheuinv(SB), $-4
 	MOVW.P	8(R13), R15
 
 /*
- * these shift values are for the Cortex-A8 L1 cache (A=2, L=6) and
- * the Cortex-A8 L2 cache (A=3, L=6).
- * A = log2(# of ways), L = log2(bytes per cache line).
- * see armv7 arch ref p. 1403.
- */
-#define L1WAYSH 30
-#define L1SETSH 6
-#define L2WAYSH 29
-#define L2SETSH 6
-
-/*
  * callers are assumed to be the above l1 and l2 ops.
  * R0 is the function to call in the innermost loop.
  * R8 is the cache level (one-origin: 1 or 2).
@@ -184,11 +173,12 @@ TEXT wholecache+0(SB), $-4
 	ADD	$1, R2		/* R2 (sets) = ((R0 >> 13) & MASK(15)) + 1 */
 
 	/* precompute set/way shifts for inner loop */
+	MOVW	$6, R4
 	CMP	$0, R8		/* cache == 1? */
-	MOVW.EQ	$L1WAYSH, R3 	/* yes */
-	MOVW.EQ	$L1SETSH, R4
-	MOVW.NE	$L2WAYSH, R3	/* no */
-	MOVW.NE	$L2SETSH, R4
+	MOVW.EQ	$30, R3 	/* l1 */
+	MOVW.NE	$29, R3		/* l2 */
+	CMP	$16, R5		/* armv8 has 16-way l2, adjust shift */
+	MOVW.EQ	$28, R3
 
 	/* iterate over ways */
 	MOVW	$0, R7		/* R7: way */
