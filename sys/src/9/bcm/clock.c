@@ -98,7 +98,7 @@ localclockintr(Ureg *ureg, void *)
 {
 	if(m->machno == 0)
 		panic("cpu0: Unexpected local generic timer interrupt");
-	cpwrsc(0, CpTIMER, CpTIMERphys, CpTIMERphysctl, Imask|Enable);
+	cpwrsc(0, CpTIMER, CpTIMERphys, CpTIMERphysctl, Imask);
 	timerintr(ureg, 0);
 }
 
@@ -109,10 +109,6 @@ clockshutdown(void)
 
 	tm = (Armtimer*)ARMTIMER;
 	tm->ctl = 0;
-	if(cpuserver)
-		wdogfeed();
-	else
-		wdogoff();
 }
 
 void
@@ -125,10 +121,11 @@ clockinit(void)
 	if(((cprdsc(0, CpID, CpIDfeat, 1) >> 16) & 0xF) != 0) {
 		/* generic timer supported */
 		if(m->machno == 0){
-			*(ulong*)(ARMLOCAL + Localctl) = 0;				/* input clock is 19.2Mhz crystal */
+			*(ulong*)(ARMLOCAL + Localctl) = 0;		/* input clock is 19.2Mhz crystal */
 			*(ulong*)(ARMLOCAL + Prescaler) = 0x06aaaaab;	/* divide by (2^31/Prescaler) for 1Mhz */
 		}
 		cpwrsc(0, CpTIMER, CpTIMERphys, CpTIMERphysctl, Imask);
+		intrenable(IRQcntpns, localclockintr, nil, 0, "clock");
 	}
 
 	tn = (Systimers*)SYSTIMERS;
@@ -150,8 +147,7 @@ clockinit(void)
 		tm->load = 0;
 		tm->ctl = TmrPrescale1|CntEnable|CntWidth32;
 		intrenable(IRQtimer3, clockintr, nil, 0, "clock");
-	}else
-		intrenable(IRQcntpns, localclockintr, nil, 0, "clock");
+	}
 }
 
 void
@@ -230,14 +226,10 @@ ulong
 void
 microdelay(int n)
 {
-	Systimers *tn;
-	u32int now, diff;
+	ulong now;
 
-	diff = n + 1;
-	tn = (Systimers*)SYSTIMERS;
-	now = tn->clo;
-	while(tn->clo - now < diff)
-		;
+	now = µs();
+	while(µs() - now < n);
 }
 
 void
