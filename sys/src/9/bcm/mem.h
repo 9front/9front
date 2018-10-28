@@ -44,6 +44,7 @@
 #define	KSEGM		0xC0000000
 #define	KZERO		KSEG0			/* kernel address space */
 #define CONFADDR	(KZERO+0x100)		/* unparsed plan9.ini */
+#define	REBOOTADDR	(0x1c00)		/* reboot code - physical address */
 #define	MACHADDR	(KZERO+0x2000)		/* Mach structure */
 #define	L2		(KZERO+0x3000)		/* L2 ptes for vectors etc */
 #define	VCBUFFER	(KZERO+0x3400)		/* videocore mailbox buffer */
@@ -61,9 +62,6 @@
 #define	USTKSIZE	(8*1024*1024)		/* user stack size */
 #define	TSTKTOP		(USTKTOP-USTKSIZE)	/* sysexec temporary stack */
 #define	TSTKSIZ	 	256
-
-/* address at which to copy and execute rebootcode */
-#define	REBOOTADDR	(KZERO+0x1800)
 
 /*
  * Legacy...

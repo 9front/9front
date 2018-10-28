@@ -40,8 +40,6 @@
 	MOVW	$0x10000,R3; \
 	MOVW	R3,(R2)
 
-#define PUTC(s)
-
 /*
  * get cpu id, or zero if armv6
  */

@@ -12,6 +12,7 @@
 #define L2AP(ap)	l2ap(ap)
 #define L1ptedramattrs	soc.l1ptedramattrs
 #define L2ptedramattrs	soc.l2ptedramattrs
+#define PTEDRAM		(PHYSDRAM|Dom0|L1AP(Krw)|Section|L1ptedramattrs)
 
 enum {
 	L1lo		= UZERO/MiB,		/* L1X(UZERO)? */
@@ -43,7 +44,7 @@ mmuinit(void *a)
 	/*
 	 * identity map first MB of ram so mmu can be enabled
 	 */
-	l1[L1X(PHYSDRAM)] = PHYSDRAM|Dom0|L1AP(Krw)|Section|L1ptedramattrs;
+	l1[L1X(PHYSDRAM)] = PTEDRAM;
 
 	/*
 	 * map i/o registers 
@@ -65,19 +66,19 @@ mmuinit(void *a)
 	l2[L2X(va)] = PHYSDRAM|L2AP(Krw)|Small|L2ptedramattrs;
 }
 
+/*
+ * enable/disable identity map of first MB of ram
+ */
 void
-mmuinit1()
+mmuinit1(int on)
 {
 	PTE *l1;
 
 	l1 = m->mmul1;
-
-	/*
-	 * undo identity map of first MB of ram
-	 */
-	l1[L1X(PHYSDRAM)] = 0;
+	l1[L1X(PHYSDRAM)] = on? PTEDRAM: Fault;
 	cachedwbtlb(&l1[L1X(PHYSDRAM)], sizeof(PTE));
 	mmuinvalidateaddr(PHYSDRAM);
+	mmuinvalidate();
 }
 
 static void

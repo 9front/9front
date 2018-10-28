@@ -123,8 +123,8 @@ init.h:D:	../port/initcode.c init9.s
 
 reboot.h:D:	rebootcode.s arm.s arm.h mem.h
 	$AS rebootcode.s
-	# -lc is only for memmove.  -T arg is PADDR(REBOOTADDR)
-	$LD -l -s -T0x1800 -R4 -o reboot.out rebootcode.$O -lc
+	# -lc is only for memmove.  -T arg is REBOOTADDR
+	$LD -l -s -T0x1c00 -R4 -o reboot.out rebootcode.$O -lc
 	{echo 'uchar rebootcode[]={'
 	 xd -1x reboot.out |
 		sed -e '1,2d' -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'

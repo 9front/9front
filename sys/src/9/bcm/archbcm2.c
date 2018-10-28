@@ -237,7 +237,7 @@ cpustart(int cpu)
 	mb->clr[cpu].doorbell = 1;
 	trapinit();
 	clockinit();
-	mmuinit1();
+	mmuinit1(0);
 	timersinit();
 	cpuidprint();
 	archreset();

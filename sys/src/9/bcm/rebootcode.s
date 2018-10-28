@@ -3,8 +3,6 @@
  */
 #include "arm.s"
 
-#define PTEDRAM		(Dom0|L1AP(Krw)|Section)
-
 #define WFI	WORD	$0xe320f003	/* wait for interrupt */
 #define WFE	WORD	$0xe320f002	/* wait for event */
 
@@ -26,8 +24,16 @@ TEXT	main(SB), 1, $-4
 	MOVW	$(PsrDirq|PsrDfiq|PsrMsvc), R1
 	MOVW	R1, CPSR
 
-	/* prepare to turn off mmu  */
-	BL	cachesoff(SB)
+	/* turn caches off */
+	MRC	CpSC, 0, R1, C(CpCONTROL), C(0), CpMainctl
+	BIC	$(CpCdcache|CpCicache|CpCpredict), R1
+	MCR	CpSC, 0, R1, C(CpCONTROL), C(0), CpMainctl
+	BARRIERS
+
+	/* invalidate icache */
+	MOVW	$0, R0
+	MCR	CpSC, 0, R0, C(CpCACHE), C(CpCACHEinvi), CpCACHEall
+	BARRIERS
 
 	/* turn off mmu */
 	MRC	CpSC, 0, R1, C(CpCONTROL), C(0), CpMainctl
@@ -49,7 +55,7 @@ dowfi:
 	MOVW	$0x40000060, R1
 	ADD		R2<<2, R1
 	MOVW	0(R1), R0
-	AND		$0x10, R0
+	AND	$0x10, R0
 	BEQ		dowfi
 	MOVW	$0x8000, R1
 	BL		(R1)
@@ -72,47 +78,3 @@ bootcpu:
 	ORR	R8,R8
 	B	(R8)
 	B	0(PC)
-
-/*
- * turn the caches off, double map PHYSDRAM & KZERO, invalidate TLBs, revert
- * to tiny addresses.  upon return, it will be safe to turn off the mmu.
- * clobbers R0-R2, and returns with SP invalid.
- */
-TEXT cachesoff(SB), 1, $-4
-	MOVM.DB.W [R14,R1-R10], (R13)		/* save regs on stack */
-
-	/* turn caches off, invalidate icache */
-	MRC	CpSC, 0, R1, C(CpCONTROL), C(0), CpMainctl
-	BIC	$(CpCdcache|CpCicache|CpCpredict), R1
-	MCR	CpSC, 0, R1, C(CpCONTROL), C(0), CpMainctl
-	MOVW	$0, R0
-	MCR	CpSC, 0, R0, C(CpCACHE), C(CpCACHEinvi), CpCACHEall
-
-	/* invalidate stale TLBs before changing them */
-	BARRIERS
-	MOVW	$0, R0
-	MCR	CpSC, 0, R0, C(CpTLB), C(CpTLBinvu), CpTLBinv
-	BARRIERS
-
-	/* redo double map of first MiB PHYSDRAM = KZERO */
-	MOVW	12(R(MACH)), R2		/* m->mmul1 (virtual addr) */
-	MOVW	$PTEDRAM, R1			/* PTE bits */
-	MOVW	R1, (R2)
-	DSB
-	MCR	CpSC, 0, R2, C(CpCACHE), C(CpCACHEwb), CpCACHEse
-
-	/* invalidate stale TLBs again */
-	BARRIERS
-	MOVW	$0, R0
-	MCR	CpSC, 0, R0, C(CpTLB), C(CpTLBinvu), CpTLBinv
-	BARRIERS
-
-	/* relocate SB and return address to PHYSDRAM addressing */
-	MOVW	$KSEGM, R1		/* clear segment bits */
-	BIC	R1, R12			/* adjust SB */
-	MOVM.IA.W (R13), [R14,R1-R10]		/* restore regs from stack */
-
-	MOVW	$KSEGM, R1		/* clear segment bits */
-	BIC	R1, R14			/* adjust return address */
-
-	RET
