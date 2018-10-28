@@ -160,9 +160,9 @@ cputyperead(Chan*, void *a, long n, vlong offset)
 static long
 cputempread(Chan*, void *a, long n, vlong offset)
 {
-	char str[16];
-
-	snprint(str, sizeof str, "%ud\n", (getcputemp()+500)/1000);
+	char str[32];
+	uint t = getcputemp();
+	snprint(str, sizeof str, "%ud.%ud\n", t/1000, t%1000);
 	return readstr(offset, a, n, str);
 }
 
