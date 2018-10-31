@@ -242,7 +242,7 @@ launchinit(void)
 	}
 	cachedwbse(machaddr, sizeof machaddr);
 	if((mach = startcpus(conf.nmach)) < conf.nmach)
-			print("only %d cpu%s started\n", mach, mach == 1? "" : "s");
+		print("only %d cpu%s started\n", mach, mach == 1? "" : "s");
 }
 
 static void
@@ -551,10 +551,9 @@ confinit(void)
 }
 
 static void
-rebootjump(ulong entry, ulong code, ulong size)
+rebootjump(void *entry, void *code, ulong size)
 {
-	static void (*f)(ulong, ulong, ulong);
-	static Lock lk;
+	void (*f)(void*, void*, ulong);
 
 	intrsoff();
 	intrcpushutdown();
@@ -562,17 +561,10 @@ rebootjump(ulong entry, ulong code, ulong size)
 	/* redo identity map */
 	mmuinit1(1);
 
-	lock(&lk);
-	if(f == nil){
-		/* setup reboot trampoline function */
-		f = (void*)REBOOTADDR;
-		memmove(f, rebootcode, sizeof(rebootcode));
-		cachedwbse(f, sizeof(rebootcode));
-	}
-	unlock(&lk);
-
+	/* setup reboot trampoline function */
+	f = (void*)REBOOTADDR;
+	memmove(f, rebootcode, sizeof(rebootcode));
 	cacheuwbinv();
-	l2cacheuwbinv();
 
 	(*f)(entry, code, size);
 
@@ -587,9 +579,9 @@ exit(int)
 {
 	cpushutdown();
 	splfhi();
-	if(m->machno != 0)
-		rebootjump(0, 0, 0);
-	archreboot();
+	if(m->machno == 0)
+		archreboot();
+	rebootjump(0, 0, 0);
 }
 
 /*
@@ -609,13 +601,13 @@ void
 reboot(void *entry, void *code, ulong size)
 {
 	writeconf();
-	if (m->machno != 0) {
+	while(m->machno != 0){
 		procwired(up, 0);
 		sched();
 	}
 
 	cpushutdown();
-	delay(1000);
+	delay(2000);
 
 	splfhi();
 
@@ -630,7 +622,7 @@ reboot(void *entry, void *code, ulong size)
 	wdogoff();
 
 	/* off we go - never to return */
-	rebootjump(PADDR(entry), PADDR(code), size);
+	rebootjump(entry, code, size);
 }
 
 void

@@ -46,14 +46,11 @@ TEXT armstart(SB), 1, $-4
 	BARRIERS
 
 	/*
-	 * turn SMP on
-	 * invalidate tlb
+	 * turn SMP off
 	 */
 	MRC	CpSC, 0, R1, C(CpCONTROL), C(0), CpAuxctl
-	ORR	$CpACsmp, R1		/* turn SMP on */
+	BIC	$CpACsmp, R1
 	MCR	CpSC, 0, R1, C(CpCONTROL), C(0), CpAuxctl
-	BARRIERS
-	MCR	CpSC, 0, R0, C(CpTLB), C(CpTLBinvu), CpTLBinv
 	BARRIERS
 
 	/*
@@ -61,19 +58,22 @@ TEXT armstart(SB), 1, $-4
 	 */
 	MOVW	$PADDR(MACHADDR), R1
 	MOVW	$PADDR(KTZERO), R2
+	MOVW	$0, R0
 _ramZ:
 	MOVW	R0, (R1)
 	ADD	$4, R1
 	CMP	R1, R2
-	BNE	_ramZ
+	BNE	_ramZ	
 
 	/*
 	 * start stack at top of mach (physical addr)
 	 * set up page tables for kernel
 	 */
 	MOVW	$PADDR(MACHADDR+MACHSIZE-4), R13
+
 	MOVW	$PADDR(L1), R0
 	BL	mmuinit(SB)
+	BL	mmuinvalidate(SB)
 
 	/*
 	 * set up domain access control and page table base
@@ -91,6 +91,14 @@ _ramZ:
 	BL	cachedinv(SB)
 	BL	cacheiinv(SB)
 	BL	l2cacheuinv(SB)
+	BARRIERS
+
+	/*
+	 * turn SMP on
+	 */
+	MRC	CpSC, 0, R1, C(CpCONTROL), C(0), CpAuxctl
+	ORR	$CpACsmp, R1
+	MCR	CpSC, 0, R1, C(CpCONTROL), C(0), CpAuxctl
 	BARRIERS
 
 	/*
@@ -133,12 +141,10 @@ TEXT cpureset(SB), 1, $-4
 reset:
 	/*
 	 * load physical base for SB addressing while mmu is off
-	 * keep a handy zero in R0 until first function call
 	 */
 	MOVW	$setR12(SB), R12
 	SUB	$KZERO, R12
 	ADD	$PHYSDRAM, R12
-	MOVW	$0, R0
 
 	/*
 	 * SVC mode, interrupts disabled
@@ -156,14 +162,11 @@ reset:
 	BARRIERS
 
 	/*
-	 * turn SMP on
-	 * invalidate tlb
+	 * turn SMP off
 	 */
 	MRC	CpSC, 0, R1, C(CpCONTROL), C(0), CpAuxctl
-	ORR	$CpACsmp, R1		/* turn SMP on */
+	BIC	$CpACsmp, R1
 	MCR	CpSC, 0, R1, C(CpCONTROL), C(0), CpAuxctl
-	BARRIERS
-	MCR	CpSC, 0, R0, C(CpTLB), C(CpTLBinvu), CpTLBinv
 	BARRIERS
 
 	/*
@@ -173,6 +176,8 @@ reset:
 	AND	$(MAXMACH-1), R2	/* mask out non-cpu-id bits */
 	SLL	$2, R2			/* convert to word index */
 	MOVW	$machaddr(SB), R0
+	BIC	$KSEGM, R0
+	ORR	$PHYSDRAM, R0
 	ADD	R2, R0			/* R0 = &machaddr[cpuid] */
 	MOVW	(R0), R0		/* R0 = machaddr[cpuid] */
 	CMP	$0, R0
@@ -183,6 +188,8 @@ reset:
 	 * start stack at top of local Mach
 	 */
 	ADD	$(MACHSIZE-4), R(MACH), R13
+
+	BL	mmuinvalidate(SB)
 
 	/*
 	 * set up domain access control and page table base
@@ -200,6 +207,14 @@ reset:
 	 */
 	BL	cachedinv(SB)
 	BL	cacheiinv(SB)
+	BARRIERS
+
+	/*
+	 * turn SMP on
+	 */
+	MRC	CpSC, 0, R1, C(CpCONTROL), C(0), CpAuxctl
+	ORR	$CpACsmp, R1
+	MCR	CpSC, 0, R1, C(CpCONTROL), C(0), CpAuxctl
 	BARRIERS
 
 	/*

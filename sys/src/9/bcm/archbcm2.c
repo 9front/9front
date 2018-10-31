@@ -145,7 +145,6 @@ getncpus(void)
 {
 	int n, max;
 	char *p;
-
 	n = 4;
 	if(n > MAXMACH)
 		n = MAXMACH;
