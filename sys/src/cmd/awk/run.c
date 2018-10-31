@@ -1710,7 +1710,7 @@ void stdinit(void)	/* in case stdin, etc., are not constants */
 Biobuf *openfile(int a, char *us)
 {
 	char *s = us;
-	int i, m;
+	int i, m, fd;
 	Biobuf *fp = nil;
 
 	if (*s == '\0')
@@ -1735,9 +1735,15 @@ Biobuf *openfile(int a, char *us)
 	if (a == GT) {
 		fp = Bopen(s, OWRITE);
 	} else if (a == APPEND) {
-		fp = Bopen(s, OWRITE);
-		Bseek(fp, 0LL, 2);
-		m = GT;	/* so can mix > and >> */
+		fd = open(s, OWRITE);
+		if (fd < 0)
+			fd = create(s, OWRITE, 0666);
+		if (fd >= 0) {
+			fp = Bfdopen(fd, OWRITE);
+			if (fp != nil)
+				Bseek(fp, 0LL, 2);
+			m = GT;	/* so can mix > and >> */
+		}
 	} else if (a == '|') {	/* output pipe */
 		fp = popen(s, OWRITE);
 	} else if (a == LE) {	/* input pipe */
