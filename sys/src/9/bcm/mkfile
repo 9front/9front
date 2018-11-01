@@ -70,6 +70,8 @@ LIB=\
 	/$objtype/lib/libmp.a\
 	/$objtype/lib/libc.a\
 
+9:V: $p$CONF s$p$CONF
+
 $p$CONF:DQ:	$CONF.c $OBJ $LIB mkfile
 	$CC $CFLAGS '-DKERNDATE='`{date -n} $CONF.c
 	echo '# linking raw kernel'	# H6: no headers, data segment aligned
