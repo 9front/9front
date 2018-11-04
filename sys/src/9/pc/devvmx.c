@@ -1687,7 +1687,6 @@ enum {
 };
 
 static Dirtab vmxdir[] = {
-	".",		{ Qdir, 0, QTDIR },	0,		0550,
 	"ctl",		{ Qctl, 0, 0 },		0,		0660,
 	"regs",		{ Qregs, 0, 0 },	0,		0660,
 	"status",	{ Qstatus, 0, 0 },	0,		0440,
