@@ -123,14 +123,17 @@ struct Frame {
 struct Interp {
 	uchar	*pc;
 	Frame	*fp;
+	Frame	*fb;
 };
 
 static Interp	interp;
 static Frame	stack[32];
 
-#define PC	interp.pc
+#define	PC	interp.pc
 #define	FP	interp.fp
-#define FB	stack
+#define	FB	interp.fb
+
+#define F0	stack
 #define FT	&stack[nelem(stack)]
 
 static Heap *hp;
@@ -234,7 +237,7 @@ gc(void)
 		if(h->mark & 2)
 			gcmark(H2D(h));
 
-	for(f = FP; f >= FB; f--){
+	for(f = FP; f >= F0; f--){
 		for(i=0; i<f->narg; i++)
 			gcmark(f->arg[i]);
 		gcmark(f->env);
@@ -485,8 +488,12 @@ putle(uchar *p, int len, uvlong v)
 static uvlong
 rwreg(void *reg, int off, int len, uvlong v, int write)
 {
+	Interp save;
 	uchar buf[8], *p;
 	Region *r;
+
+	save = interp;	/* save, in case we reenter the interpreter */
+	FB = FP+1;	/* allocate new base */
 
 	switch(TAG(reg)){
 	case 'b':
@@ -498,7 +505,7 @@ rwreg(void *reg, int off, int len, uvlong v, int write)
 			putle(p, len, v);
 		else
 			v = getle(p, len);
-		return v;
+		goto Out;
 
 	case 'r':
 		r = reg;
@@ -547,10 +554,13 @@ rwreg(void *reg, int off, int len, uvlong v, int write)
 					(Name*)r->name, spacename[r->space],
 					r->off, off, len, v);
 		}
-		return v;
+		goto Out;
 	}
 
-	return ~0;
+	v = -1;
+Out:
+	interp = save;	/* restore */
+	return v;
 }
 
 static uvlong
@@ -937,6 +947,8 @@ xec(uchar *pc, uchar *end, Name *dot, Env *env, void **pret)
 	void *r;
 
 	PC = pc;
+	if(FB < F0 || FB >= FT)
+		goto Out;
 	FP = FB;
 
 	FP->tag = 0;
@@ -946,7 +958,7 @@ xec(uchar *pc, uchar *end, Name *dot, Env *env, void **pret)
 	FP->start = PC;
 	FP->end = end;
 	FP->aux = end;
-	FB->ref = nil;
+	FP->ref = nil;
 	FP->dot = dot;
 	FP->env = env;
 	FP->op = nil;
@@ -2153,6 +2165,9 @@ amlinit(void)
 {
 	Name *n;
 
+	FB = F0;
+	FP = F0-1;
+
 	fmtinstall('V', Vfmt);
 	fmtinstall('N', Nfmt);
 
@@ -2190,7 +2205,8 @@ void
 amlexit(void)
 {
 	amlroot = nil;
-	FP = FB-1;
+	FB = F0;
+	FP = F0-1;
 	gc();
 }
 
@@ -2269,6 +2285,8 @@ amleval(void *dot, char *fmt, ...)
 			return -1;
 		if(m->eval == nil)
 			return xec(m->start, m->end, forkname(m->name), e, r);
+		if(FB < F0 || FB >= FT)
+			return -1;
 		FP = FB;
 		FP->op = nil;
 		FP->env = e;
