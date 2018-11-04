@@ -96,7 +96,7 @@ option initializes windows so that text scrolls;
 the default is not to scroll.
 The
 .B -b
-option reverses the normal color sheme for windows, painting white
+option reverses the normal color scheme for windows, painting white
 text on a black background.
 The
 .I font
