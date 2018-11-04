@@ -1,6 +1,6 @@
 .TH MP 2
 .SH NAME
-mpsetminbits, mpnew, mpfree, mpbits, mpnorm, mpcopy, mpassign, mprand, mpnrand, strtomp, mpfmt,mptoa, betomp, mptobe, mptober, letomp, mptole, mptolel, mptoui, uitomp, mptoi, itomp, uvtomp, mptouv, vtomp, mptov, mptod, dtomp, mpdigdiv, mpadd, mpsub, mpleft, mpright, mpmul, mpexp, mpmod, mpmodadd, mpmodsub, mpmodmul, mpdiv, mpcmp, mpsel, mpextendedgcd, mpinvert, mpsignif, mplowbits0, mpvecdigmuladd, mpvecdigmulsub, mpvecadd, mpvecsub, mpveccmp, mpvecmul, mpmagcmp, mpmagadd, mpmagsub, crtpre, crtin, crtout, crtprefree, crtresfree \- extended precision arithmetic
+mpsetminbits, mpnew, mpfree, mpbits, mpnorm, mpcopy, mpassign, mprand, mpnrand, strtomp, mpfmt, mptoa, betomp, mptobe, mptober, letomp, mptole, mptolel, mptoui, uitomp, mptoi, itomp, uvtomp, mptouv, vtomp, mptov, mptod, dtomp, mpdigdiv, mpadd, mpsub, mpleft, mpright, mpmul, mpexp, mpmod, mpmodadd, mpmodsub, mpmodmul, mpdiv, mpcmp, mpsel, mpfactorial, mpextendedgcd, mpinvert, mpsignif, mplowbits0, mpvecdigmuladd, mpvecdigmulsub, mpvecadd, mpvecsub, mpveccmp, mpvecmul, mpmagcmp, mpmagadd, mpmagsub, crtpre, crtin, crtout, crtprefree, crtresfree \- extended precision arithmetic
 .SH SYNOPSIS
 .B #include <u.h>
 .br
@@ -167,6 +167,9 @@ int	mpmagcmp(mpint *b1, mpint *b2)
 .PP
 .B
 void	mpsel(int s, mpint *b1, mpint *b2, mpint *res)
+.PP
+.B
+mpint*	mpfactorial(ulong n)
 .PP
 .B
 void	mpextendedgcd(mpint *a, mpint *b, mpint *d, mpint *x,
@@ -525,7 +528,7 @@ If the integer is too large in magnitude,
 returns infinity of the appropriate sign.
 .PP
 The mathematical functions are:
-.TF mpmagadd
+.TF mpfactorial
 .TP
 .I mpadd
 .BR "sum = b1 + b2" .
@@ -585,6 +588,9 @@ is not zero, otherwise
 .I b2
 is assigned to
 .IR res .
+.TP
+.I mpfactorial
+returns \fIn\fR!.
 .PD
 .PP
 Logical operations (treating negative numbers using two's complement):
