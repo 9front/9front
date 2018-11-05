@@ -96,7 +96,7 @@ SedCom pspace[MAXCMDS];			/* Command storage */
 SedCom *pend = pspace+MAXCMDS;		/* End of command storage */
 SedCom *rep = pspace;			/* Current fill point */
 
-int	dollars;			/* Number of dollar addresses */
+int	dollars;			/* Number of dollar (first) addresses */
 
 Reprog	*lastre;			/* Last regular expression */
 Resub	subexp[MAXSUB];			/* sub-patterns of pattern match*/
@@ -290,6 +290,8 @@ comploop:
 
 		address(&rep->ad1);
 		if (rep->ad1.type != A_NONE) {
+			if (rep->ad1.type == A_DOL)
+				dollars++;
 			if (rep->ad1.type == A_LAST) {
 				if (!lastre)
 					quit("First RE may not be null");
@@ -765,10 +767,9 @@ address(Addr *ap)
 	int c;
 	long lno;
 
-	if((c = *cp++) == '$'){
+	if((c = *cp++) == '$')
 		ap->type = A_DOL;
-		dollars++;
-	}else if(c == '/') {
+	else if(c == '/') {
 		seof = c;
 		if (ap->rp = compile())
 			ap->type = A_RE;
