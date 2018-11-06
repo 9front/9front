@@ -256,6 +256,7 @@ findserver(uchar *srcip, Server *servers, Request *req)
 {
 	uchar ip[IPaddrlen];
 	RR *list, *rp;
+	int tmp;
 
 	for(; servers != nil; servers = servers->next){
 		if(strcmp(ipattr(servers->name), "ip") == 0){
@@ -265,8 +266,13 @@ findserver(uchar *srcip, Server *servers, Request *req)
 				return servers;
 			continue;
 		}
+
+		tmp = cfg.resolver;
+		cfg.resolver = 1;
 		list = dnresolve(servers->name, Cin, isv4(srcip)? Ta: Taaaa,
 			req, nil, 0, Recurse, 0, nil);
+		cfg.resolver = tmp;
+
 		for(rp = list; rp != nil; rp = rp->next){
 			if(parseip(ip, rp->ip->name) == -1)
 				continue;
