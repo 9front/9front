@@ -465,7 +465,7 @@ procwrite(Req *req)
 	data = req->ifcall.data;
 	count = req->ifcall.count;
 	qlock(ser);
-	if(ser->wait4data != nil) {
+	if(ser->wait4write != nil) {
 		wcount = ser->wait4write(p, data, count);
 		qunlock(ser);
 	} else {
