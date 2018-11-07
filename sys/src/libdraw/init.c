@@ -127,12 +127,9 @@ gengetwindow(Display *d, char *winname, Image **winp, Screen **scrp, int ref)
 retry:
 	fd = open(winname, OREAD);
 	if(fd<0 || (n=read(fd, buf, sizeof buf-1))<=0){
-		if((image=d->image) == nil){
-			*winp = nil;
-			d->screenimage = nil;
-			return -1;
-		}
+		if(fd >= 0) close(fd);
 		strcpy(buf, "noborder");
+		image = d->image;
 	}else{
 		close(fd);
 		buf[n] = '\0';
@@ -148,37 +145,40 @@ retry:
 				goto retry;
 			}
 		}
-		if(*winp != nil){
-			_freeimage1(*winp);
-			freeimage((*scrp)->image);
-			freescreen(*scrp);
-			*scrp = nil;
-		}
-		if(image == nil){
-			*winp = nil;
-			d->screenimage = nil;
-			return -1;
-		}
 	}
-
+	if(*winp != nil){
+		_freeimage1(*winp);
+		if((*scrp)->image != nil
+		&& (*scrp)->image != image
+		&& (*scrp)->image != d->image)
+			freeimage((*scrp)->image);
+		freescreen(*scrp);
+		*scrp = nil;
+	}
+	if(image == nil){
+		*winp = nil;
+		d->screenimage = nil;
+		return -1;
+	}
 	d->screenimage = image;
 	*scrp = allocscreen(image, d->white, 0);
 	if(*scrp == nil){
 		*winp = nil;
 		d->screenimage = nil;
-		freeimage(image);
+		if(image != d->image)
+			freeimage(image);
 		return -1;
 	}
-
 	r = image->r;
 	if(strncmp(buf, "noborder", 8) != 0)
-		r = insetrect(image->r, Borderwidth);
+		r = insetrect(r, Borderwidth);
 	*winp = _allocwindow(*winp, *scrp, r, ref, DWhite);
 	if(*winp == nil){
 		freescreen(*scrp);
 		*scrp = nil;
 		d->screenimage = nil;
-		freeimage(image);
+		if(image != d->image)
+			freeimage(image);
 		return -1;
 	}
 	d->screenimage = *winp;
