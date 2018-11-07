@@ -338,8 +338,12 @@ fpuprocfork(Proc *p)
 void
 fpusysprocsetup(Proc *p)
 {
+	int s;
+
+	s = splhi();
 	p->fpstate = FPinit;
 	fpoff();
+	splx(s);
 }
 
 static void
