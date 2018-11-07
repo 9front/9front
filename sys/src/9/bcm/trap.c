@@ -13,7 +13,6 @@
 #include "arm.h"
 
 #define INTREGS		(VIRTIO+0xB200)
-#define	LOCALREGS	(VIRTIO+IOSIZE)
 
 typedef struct Intregs Intregs;
 typedef struct Vctl Vctl;
@@ -51,7 +50,6 @@ struct Intregs {
 struct Vctl {
 	Vctl	*next;
 	int	irq;
-	int	cpu;
 	u32int	*reg;
 	u32int	mask;
 	void	(*f)(Ureg*, void*);
@@ -59,7 +57,7 @@ struct Vctl {
 };
 
 static Lock vctllock;
-static Vctl *vctl, *vfiq;
+static Vctl *vctl[MAXMACH], *vfiq;
 
 static char *trapnames[PsrMask+1] = {
 	[ PsrMusr ] "user mode",
@@ -82,6 +80,7 @@ trapinit(void)
 {
 	Vpage0 *vpage0;
 
+	intrcpushutdown();
 	if (m->machno == 0) {
 		/* disable everything */
 		intrsoff();
@@ -110,10 +109,10 @@ intrcpushutdown(void)
 
 	if(soc.armlocal == 0)
 		return;
-	enable = (u32int*)(LOCALREGS + Localtimerint) + m->machno;
+	enable = (u32int*)(ARMLOCAL + Localtimerint) + m->machno;
 	*enable = 0;
 	if(m->machno){
-		enable = (u32int*)(LOCALREGS + Localmboxint) + m->machno;
+		enable = (u32int*)(ARMLOCAL + Localmboxint) + m->machno;
 		*enable = 1;
 	}
 }
@@ -143,8 +142,8 @@ irq(Ureg* ureg)
 	int clockintr;
 
 	clockintr = 0;
-	for(v = vctl; v; v = v->next)
-		if(v->cpu == m->machno && (*v->reg & v->mask) != 0){
+	for(v = vctl[m->machno]; v != nil; v = v->next)
+		if((*v->reg & v->mask) != 0){
 			coherence();
 			v->f(ureg, v->a);
 			coherence();
@@ -180,19 +179,16 @@ irqenable(int irq, void (*f)(Ureg*, void*), void* a)
 	u32int *enable;
 
 	ip = (Intregs*)INTREGS;
-	v = (Vctl*)malloc(sizeof(Vctl));
-	if(v == nil)
+	if((v = xalloc(sizeof(Vctl))) == nil)
 		panic("irqenable: no mem");
 	v->irq = irq;
-	v->cpu = 0;
 	if(irq >= IRQlocal){
-		v->reg = (u32int*)(LOCALREGS + Localintpending) + m->machno;
+		v->reg = (u32int*)(ARMLOCAL + Localintpending) + m->machno;
 		if(irq >= IRQmbox0)
-			enable = (u32int*)(LOCALREGS + Localmboxint) + m->machno;
+			enable = (u32int*)(ARMLOCAL + Localmboxint) + m->machno;
 		else
-			enable = (u32int*)(LOCALREGS + Localtimerint) + m->machno;
+			enable = (u32int*)(ARMLOCAL + Localtimerint) + m->machno;
 		v->mask = 1 << (irq - IRQlocal);
-		v->cpu = m->machno;
 	}else if(irq >= IRQbasic){
 		enable = &ip->ARMenable;
 		v->reg = &ip->ARMpending;
@@ -211,8 +207,8 @@ irqenable(int irq, void (*f)(Ureg*, void*), void* a)
 		vfiq = v;
 		ip->FIQctl = Fiqenable | irq;
 	}else{
-		v->next = vctl;
-		vctl = v;
+		v->next = vctl[m->machno];
+		vctl[m->machno] = v;
 		if(irq >= IRQmbox0){
 			if(irq <= IRQmbox3)
 				*enable |= 1 << (irq - IRQmbox0);
