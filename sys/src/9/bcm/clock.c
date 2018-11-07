@@ -28,7 +28,6 @@ enum {
 
 	Localctl	= 0x00,
 	Prescaler	= 0x08,
-	Localintpending	= 0x60,
 
 	SystimerFreq	= 1*Mhz,
 	MaxPeriod	= SystimerFreq / HZ,
@@ -98,7 +97,6 @@ localclockintr(Ureg *ureg, void *)
 {
 	if(m->machno == 0)
 		panic("cpu0: Unexpected local generic timer interrupt");
-	cpwrsc(0, CpTIMER, CpTIMERphys, CpTIMERphysctl, Imask);
 	timerintr(ureg, 0);
 }
 
@@ -116,16 +114,22 @@ clockinit(void)
 {
 	Systimers *tn;
 	Armtimer *tm;
-	u32int t0, t1, tstart, tend;
+	ulong t0, t1, tstart, tend;
 
 	if(((cprdsc(0, CpID, CpIDfeat, 1) >> 16) & 0xF) != 0) {
 		/* generic timer supported */
+		cpwrsc(0, CpTIMER, CpTIMERphys, CpTIMERphysval, ~0);
 		if(m->machno == 0){
-			*(ulong*)(ARMLOCAL + Localctl) = 0;		/* input clock is 19.2Mhz crystal */
-			*(ulong*)(ARMLOCAL + Prescaler) = 0x06aaaaab;	/* divide by (2^31/Prescaler) for 1Mhz */
+			cpwrsc(0, CpTIMER, CpTIMERphys, CpTIMERphysctl, Imask);
+
+			/* input clock is 19.2Mhz crystal */
+			*(ulong*)(ARMLOCAL + Localctl) = 0;
+			/* divide by (2^31/Prescaler) */
+			*(ulong*)(ARMLOCAL + Prescaler) = (((uvlong)SystimerFreq<<31)/19200000)&~1UL;
+		} else {
+			cpwrsc(0, CpTIMER, CpTIMERphys, CpTIMERphysctl, Enable);
+			intrenable(IRQcntpns, localclockintr, nil, 0, "clock");
 		}
-		cpwrsc(0, CpTIMER, CpTIMERphys, CpTIMERphysctl, Imask);
-		intrenable(IRQcntpns, localclockintr, nil, 0, "clock");
 	}
 
 	tn = (Systimers*)SYSTIMERS;
@@ -133,7 +137,7 @@ clockinit(void)
 	do{
 		t0 = lcycles();
 	}while(tn->clo == tstart);
-	tend = tstart + 10000;
+	tend = tstart + (SystimerFreq/100);
 	do{
 		t1 = lcycles();
 	}while(tn->clo != tend);
@@ -141,12 +145,14 @@ clockinit(void)
 	m->cpuhz = 100 * t1;
 	m->cpumhz = (m->cpuhz + Mhz/2 - 1) / Mhz;
 	m->cyclefreq = m->cpuhz;
+
 	if(m->machno == 0){
 		tn->c3 = tn->clo - 1;
+		intrenable(IRQtimer3, clockintr, nil, 0, "clock");
+
 		tm = (Armtimer*)ARMTIMER;
 		tm->load = 0;
 		tm->ctl = TmrPrescale1|CntEnable|CntWidth32;
-		intrenable(IRQtimer3, clockintr, nil, 0, "clock");
 	}
 }
 
@@ -163,10 +169,9 @@ timerset(uvlong next)
 		period = MinPeriod;
 	else if(period > MaxPeriod)
 		period = MaxPeriod;
-	if(m->machno > 0){
+	if(m->machno)
 		cpwrsc(0, CpTIMER, CpTIMERphys, CpTIMERphysval, period);
-		cpwrsc(0, CpTIMER, CpTIMERphys, CpTIMERphysctl, Enable);
-	}else{
+	else{
 		tn = (Systimers*)SYSTIMERS;
 		tn->c3 = tn->clo + period;
 	}
