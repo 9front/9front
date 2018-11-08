@@ -148,9 +148,7 @@ retry:
 	}
 	if(*winp != nil){
 		_freeimage1(*winp);
-		if((*scrp)->image != nil
-		&& (*scrp)->image != image
-		&& (*scrp)->image != d->image)
+		if((*scrp)->image != d->image)
 			freeimage((*scrp)->image);
 		freescreen(*scrp);
 		*scrp = nil;
