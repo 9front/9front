@@ -961,7 +961,13 @@ dispatch(void)
 
 	switch(recv.r[0]){
 	case MSG_IGNORE:
+		return;
 	case MSG_GLOBAL_REQUEST:
+		if(unpack(recv.r, recv.w-recv.r, "_sb", &s, &n, &b) < 0)
+			break;
+		if(debug)
+			fprint(2, "%s: ignoring global request %.*s\n", argv0, n, s);
+		if(b != 0) sendpkt("b", MSG_REQUEST_FAILURE);
 		return;
 	case MSG_DISCONNECT:
 		if(unpack(recv.r, recv.w-recv.r, "_us", &c, &s, &n) < 0)
