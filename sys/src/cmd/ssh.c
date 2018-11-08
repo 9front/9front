@@ -966,8 +966,9 @@ dispatch(void)
 		if(unpack(recv.r, recv.w-recv.r, "_sb", &s, &n, &b) < 0)
 			break;
 		if(debug)
-			fprint(2, "%s: ignoring global request %.*s\n", argv0, n, s);
-		if(b != 0) sendpkt("b", MSG_REQUEST_FAILURE);
+			fprint(2, "%s: global request: %.*s\n", argv0, n, s);
+		if(b != 0)
+			sendpkt("b", MSG_REQUEST_FAILURE);
 		return;
 	case MSG_DISCONNECT:
 		if(unpack(recv.r, recv.w-recv.r, "_us", &c, &s, &n) < 0)
@@ -1025,14 +1026,20 @@ dispatch(void)
 				break;
 			if(n != 0 && status == nil)
 				status = smprint("%.*s", n, s);
+			c = MSG_CHANNEL_SUCCESS;
 		} else if(n == 11 && memcmp(s, "exit-status", n) == 0){
 			if(unpack(p, recv.w-p, "u", &n) < 0)
 				break;
 			if(n != 0 && status == nil)
 				status = smprint("%d", n);
-		} else if(debug) {
-			fprint(2, "%s: channel request: %.*s\n", argv0, n, s);
+			c = MSG_CHANNEL_SUCCESS;
+		} else {
+			if(debug)
+				fprint(2, "%s: channel request: %.*s\n", argv0, n, s);
+			c = MSG_CHANNEL_FAILURE;
 		}
+		if(b != 0)
+			sendpkt("bu", c, recv.chan);
 		return;
 	case MSG_CHANNEL_EOF:
 		recv.eof = 1;
