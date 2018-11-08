@@ -159,6 +159,9 @@ an SMTP mail server
 the default boot file;
 see
 .IR ndb (6)
+.TP
+.B swap
+used by Unix machines for boot NFS server
 .PD
 .PP
 .I Dhcpd

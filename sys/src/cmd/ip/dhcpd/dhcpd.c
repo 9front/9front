@@ -1186,6 +1186,9 @@ miscoptions(Req *rp, uchar *ip)
 		case OBnetbiosns:
 			a[na++] = "@wins";
 			break;
+		case OBswapserver:
+			a[na++] = "@swap";
+			break;
 		case OBsmtpserver:
 			a[na++] = "@smtp";
 			break;
@@ -1255,6 +1258,10 @@ miscoptions(Req *rp, uchar *ip)
 		case OBwwwserver:
 			j = lookupserver("www", addrs, nelem(addrs), t);
 			addrsopt(rp, OBwwwserver, addrs, j);
+			break;
+		case OBswapserver:
+			j = lookupserver("swap", addrs, nelem(addrs), t);
+			addrsopt(rp, OBswapserver, addrs, j);
 			break;
 		case OBntpserver:
 			j = lookupserver("ntp", addrs, nelem(addrs), t);
