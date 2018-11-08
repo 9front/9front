@@ -177,17 +177,20 @@ irqenable(int irq, void (*f)(Ureg*, void*), void* a)
 	Vctl *v;
 	Intregs *ip;
 	u32int *enable;
+	int cpu;
 
 	ip = (Intregs*)INTREGS;
 	if((v = xalloc(sizeof(Vctl))) == nil)
 		panic("irqenable: no mem");
+	cpu = 0;
 	v->irq = irq;
 	if(irq >= IRQlocal){
-		v->reg = (u32int*)(ARMLOCAL + Localintpending) + m->machno;
+		cpu = m->machno;
+		v->reg = (u32int*)(ARMLOCAL + Localintpending) + cpu;
 		if(irq >= IRQmbox0)
-			enable = (u32int*)(ARMLOCAL + Localmboxint) + m->machno;
+			enable = (u32int*)(ARMLOCAL + Localmboxint) + cpu;
 		else
-			enable = (u32int*)(ARMLOCAL + Localtimerint) + m->machno;
+			enable = (u32int*)(ARMLOCAL + Localtimerint) + cpu;
 		v->mask = 1 << (irq - IRQlocal);
 	}else if(irq >= IRQbasic){
 		enable = &ip->ARMenable;
@@ -207,8 +210,8 @@ irqenable(int irq, void (*f)(Ureg*, void*), void* a)
 		vfiq = v;
 		ip->FIQctl = Fiqenable | irq;
 	}else{
-		v->next = vctl[m->machno];
-		vctl[m->machno] = v;
+		v->next = vctl[cpu];
+		vctl[cpu] = v;
 		if(irq >= IRQmbox0){
 			if(irq <= IRQmbox3)
 				*enable |= 1 << (irq - IRQmbox0);
