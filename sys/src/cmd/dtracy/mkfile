@@ -1,0 +1,22 @@
+</$objtype/mkfile
+
+BIN=/$objtype/bin
+TARG=dtracy
+OFILES=\
+	dtracy.$O\
+	lex.$O\
+	y.tab.$O\
+	cgen.$O\
+	act.$O\
+	type.$O\
+
+YFILES=parse.y
+
+HFILES=\
+	dat.h\
+	fns.h\
+
+</sys/src/cmd/mkone
+
+YFLAGS=-v -d -D1
+lex.$O: y.tab.h

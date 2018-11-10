@@ -1,0 +1,530 @@
+#include	"u.h"
+#include	"../port/lib.h"
+#include	"mem.h"
+#include	"dat.h"
+#include	"fns.h"
+#include	"../port/error.h"
+
+#include	<dtracy.h>
+
+Lock *machlocks;
+
+typedef struct DTKChan DTKChan;
+typedef struct DTKAux DTKAux;
+QLock dtracylock;
+
+struct DTKChan {
+	DTChan *ch;
+	int ref;
+	int idx;
+};
+struct DTKAux {
+	char *str;
+};
+
+static void
+prog(DTKChan *p, char *s)
+{
+	DTClause *c;
+	int rc;
+
+	dtcrun(p->ch, DTCSTOP);
+	dtcreset(p->ch);
+	while(*s != 0){
+		s = dtclunpack(s, &c);
+		if(s == nil)
+			error("invalid program");
+		rc = dtcaddcl(p->ch, c);
+		dtclfree(c);
+		if(rc < 0){
+			dtcreset(p->ch);
+			error("failed to add clause");
+		}
+	}
+}
+
+enum {
+	/* Qdir */
+	Qclone = 1,
+};
+
+enum {
+	Qdir,
+	Qctl,
+	Qprog,
+	Qbuf,
+	Qepid,
+};
+
+static Dirtab dtracydir[] = {
+	"ctl",	{ Qctl, 0, 0 }, 0,	0660,
+	"prog", { Qprog, 0, 0 }, 0,	0660,
+	"buf",	{ Qbuf, 0, 0, }, 0,	0440,
+	"epid",	{ Qepid, 0, 0 }, 0,	0440,
+};
+
+enum {
+	CMstop,
+	CMgo,
+};
+
+static Cmdtab dtracyctlmsg[] = {
+	CMstop,		"stop",		1,
+	CMgo,		"go",		1,
+};
+
+DTKChan **dtktab;
+int ndtktab;
+
+static DTKChan *
+dtklook(vlong n)
+{
+	if((uvlong)n >= ndtktab) return nil;
+	return dtktab[n];
+}
+#define QIDPATH(q,e) ((q) + 1 << 8 | (e))
+#define SLOT(q) ((vlong)((q).path >> 8) - 1)
+#define FILE(q) ((int)(q).path & 0xff)
+
+static DTKChan *
+dtknew(void)
+{
+	DTKChan *p;
+	DTKChan **newtab;
+	int i;
+	
+	p = malloc(sizeof(DTKChan));
+	if(p == nil) error(Enomem);
+	for(i = 0; i < ndtktab; i++)
+		if(dtktab[i] == nil){
+			dtktab[i] = p;
+			p->idx = i;
+			break;
+		}
+	if(i == ndtktab){
+		newtab = realloc(dtktab, (ndtktab + 1) * sizeof(DTKChan *));
+		if(newtab == nil) error(Enomem);
+		dtktab = newtab;
+		dtktab[ndtktab] = p;
+		p->idx = ndtktab++;
+	}
+	p->ch = dtcnew();
+	return p;
+}
+
+static void
+dtkfree(DTKChan *p)
+{
+	int idx;
+	
+	idx = p->idx;
+	dtcfree(p->ch);
+	free(p);
+	dtktab[idx] = nil;
+}
+
+static void
+dtracyinit(void)
+{
+	machlocks = smalloc(sizeof(Lock) * conf.nmach);
+	dtinit(conf.nmach);
+}
+
+static Chan*
+dtracyattach(char *spec)
+{
+	return devattach(L'Δ', spec);
+}
+
+static int
+dtracygen(Chan *c, char *, Dirtab *, int, int s, Dir *dp)
+{
+	Dirtab *tab;
+	uvlong path;
+
+	if(s == DEVDOTDOT){
+		devdir(c, (Qid){Qdir, 0, QTDIR}, "#Δ", 0, eve, 0555, dp);
+		return 1;
+	}
+	if(c->qid.path == Qdir){
+		if(s-- == 0) goto clone;
+		if(s >= ndtktab) return -1;
+		if(dtklook(s) == nil) return 0;
+		sprint(up->genbuf, "%d", s);
+		devdir(c, (Qid){QIDPATH(s, Qdir), 0, QTDIR}, up->genbuf, 0, eve, DMDIR|0555, dp);
+		return 1;
+	}
+	if(c->qid.path == Qclone){
+	clone:
+		strcpy(up->genbuf, "clone");
+		devdir(c, (Qid){Qclone, 0, QTFILE}, up->genbuf, 0, eve, 0444, dp);
+		return 1;
+	}
+	if(s >= nelem(dtracydir))
+		return -1;
+	tab = &dtracydir[s];
+	path = QIDPATH(SLOT(c->qid), 0);
+	devdir(c, (Qid){tab->qid.path|path, tab->qid.vers, tab->qid.type}, tab->name, tab->length, eve, tab->perm, dp);
+	return 1;
+}
+
+static Walkqid*
+dtracywalk(Chan *c, Chan *nc, char **name, int nname)
+{
+	Walkqid *rc;
+
+	eqlock(&dtracylock);
+	if(waserror()){
+		qunlock(&dtracylock);
+		nexterror();
+	}
+	rc = devwalk(c, nc, name, nname, nil, 0, dtracygen);
+	qunlock(&dtracylock);
+	poperror();
+	return rc;
+}
+
+static int
+dtracystat(Chan *c, uchar *dp, int n)
+{
+	int rc;
+
+	eqlock(&dtracylock);
+	if(waserror()){
+		qunlock(&dtracylock);
+		nexterror();
+	}
+	rc = devstat(c, dp, n, nil, 0, dtracygen);
+	qunlock(&dtracylock);
+	poperror();
+	return rc;	
+}
+
+static Chan*
+dtracyopen(Chan *c, int omode)
+{
+	DTKChan *p;
+	Chan *ch;
+
+	eqlock(&dtracylock);
+	if(waserror()){
+		qunlock(&dtracylock);
+		nexterror();
+	}
+	if(c->qid.path == Qclone){
+		if(!iseve()) error(Eperm);
+		p = dtknew();
+		c->qid.path = QIDPATH(p->idx, Qctl);
+	}
+	p = dtklook(SLOT(c->qid));
+	if(SLOT(c->qid) >= 0 && p == nil) error(Enonexist);
+	if(FILE(c->qid) != Qdir && !iseve()) error(Eperm);
+	ch = devopen(c, omode, nil, 0, dtracygen);
+	if(p != nil) p->ref++;
+	qunlock(&dtracylock);
+	poperror();
+	ch->aux = smalloc(sizeof(DTKAux));
+	return ch;
+}
+
+static void
+dtracyclose(Chan *ch)
+{
+	DTKAux *aux;
+	DTKChan *p;
+
+	if(ch->aux != nil){
+		eqlock(&dtracylock);
+		p = dtklook(SLOT(ch->qid));
+		if(p != nil && --p->ref == 0)
+			dtkfree(p);
+		qunlock(&dtracylock);
+		aux = ch->aux;
+		free(aux->str);
+		free(ch->aux);
+		ch->aux = nil;
+	}
+}
+
+static int
+epidread(DTKAux *aux, DTChan *c, char *a, long n, vlong off)
+{
+	Fmt f;
+	DTEnab *e;
+
+	if(off == 0){
+		free(aux->str);
+		aux->str = nil;
+	}
+	if(aux->str == nil){
+		fmtstrinit(&f);
+		for(e = c->enab; e != nil; e = e->channext){
+			fmtprint(&f, "%d %d %d %s:%s:%s\n", e->epid, e->gr->id, e->gr->reclen,
+				e->prob->provider == nil ? "" : e->prob->provider,
+				e->prob->function == nil ? "" : e->prob->function,
+				e->prob->name == nil ? "" : e->prob->name);
+		}
+		aux->str = fmtstrflush(&f);
+	}
+	return readstr(off, a, n, aux->str);
+}
+
+static long
+dtracyread(Chan *c, void *a, long n, vlong off)
+{
+	int rc;
+	DTKChan *p;
+
+	eqlock(&dtracylock);
+	if(waserror()){
+		qunlock(&dtracylock);
+		nexterror();
+	}
+	if(SLOT(c->qid) == -1)
+		switch((int)c->qid.path){
+		case Qdir:
+			rc = devdirread(c, a, n, nil, 0, dtracygen);
+			goto out;
+		default:
+			error(Egreg);
+		}
+	p = dtklook(SLOT(c->qid));
+	if(p == nil) error(Enonexist);
+	switch(FILE(c->qid)){
+	case Qdir:
+		rc = devdirread(c, a, n, nil, 0, dtracygen);
+		break;
+	case Qctl:
+		sprint(up->genbuf, "%d", p->idx);
+		rc = readstr(off, a, n, up->genbuf);
+		break;
+	case Qbuf:
+		while(rc = dtcread(p->ch, a, n), rc == 0)
+			tsleep(&up->sleep, return0, 0, 250);
+		break;
+	case Qepid:
+		rc = epidread(c->aux, p->ch, a, n, off);
+		break;
+	default:
+		error(Egreg);
+		return 0;
+	}
+out:
+	qunlock(&dtracylock);
+	poperror();
+	return rc;
+}
+
+static long
+dtracywrite(Chan *c, void *a, long n, vlong)
+{
+	int rc;
+	DTKChan *p;
+	Cmdbuf *cb;
+	Cmdtab *ct;
+
+	eqlock(&dtracylock);
+	if(waserror()){
+		qunlock(&dtracylock);
+		nexterror();
+	}
+	if(SLOT(c->qid) == -1)
+		switch((int)c->qid.path){
+		case Qdir:
+			error(Eperm);
+		default:
+			error(Egreg);
+		}
+	p = dtklook(SLOT(c->qid));
+	if(p == nil) error(Enonexist);
+	switch(FILE(c->qid)){
+	case Qdir:
+		error(Eperm);
+		return 0;
+	case Qctl:
+		cb = parsecmd(a, n);
+		if(waserror()){
+			free(cb);
+			nexterror();
+		}
+		ct = lookupcmd(cb, dtracyctlmsg, nelem(dtracyctlmsg));
+		switch(ct->index){
+		case CMstop: dtcrun(p->ch, DTCSTOP); break;
+		case CMgo: dtcrun(p->ch, DTCGO); break;
+		default:
+			error(Egreg);
+		}
+		poperror();
+		free(cb);
+		rc = n;
+		break;
+	case Qprog:
+		{
+			char *buf;
+			
+			buf = smalloc(n+1);
+			if(waserror()){
+				free(buf);
+				nexterror();
+			}
+			memmove(buf, a, n);
+			prog(p, buf);
+			free(buf);
+			poperror();
+			rc = n;
+			break;
+		}
+	default:
+		error(Egreg);
+		return 0;
+	}
+	qunlock(&dtracylock);
+	poperror();
+	return rc;
+}
+
+
+Dev dtracydevtab = {
+	L'Δ',
+	"dtracy",
+	
+	devreset,
+	dtracyinit,
+	devshutdown,
+	dtracyattach,
+	dtracywalk,
+	dtracystat,
+	dtracyopen,
+	devcreate,
+	dtracyclose,
+	dtracyread,
+	devbread,
+	dtracywrite,
+	devbwrite,
+	devremove,
+	devwstat,
+};
+
+void *
+dtmalloc(ulong n)
+{
+	void *v;
+
+	v = smalloc(n);
+	setmalloctag(v, getcallerpc(&n));
+	return v;
+}
+
+void
+dtfree(void *v)
+{
+	free(v);
+}
+
+void *
+dtrealloc(void *v, ulong n)
+{
+	v = realloc(v, n);
+	if(v != nil)
+		setrealloctag(v, getcallerpc(&v));
+	return v;
+}
+
+void
+dtmachlock(int i)
+{
+	ilock(&machlocks[i]);
+}
+
+void
+dtmachunlock(int i)
+{
+	iunlock(&machlocks[i]);
+}
+
+void
+dtcoherence(void)
+{
+	coherence();
+}
+
+uvlong
+dttime(void)
+{
+	return fastticks(nil);
+}
+
+uvlong
+dtgetvar(int v)
+{
+	switch(v){
+	case DTV_PID:
+		return up != nil ? up->pid : 0;
+	case DTV_MACHNO:
+		return m->machno;
+	default:
+		return 0;
+	}
+}
+
+int
+dtpeek(uvlong addr, void *buf, int len)
+{
+	if((uintptr)addr != addr || up == nil || !okaddr((uintptr) addr, len, 0)) return -1;
+	memmove(buf, (void *) addr, len);
+	return 0;
+}
+
+static DTProbe *timerprobe;
+
+static void
+dtracytimer(void *)
+{
+	for(;;){
+		tsleep(&up->sleep, return0, nil, 1000);
+		dtptrigger(timerprobe, m->machno, 0, 0, 0, 0);
+	}
+}
+
+static void
+timerprovide(DTProvider *prov, DTName)
+{
+	static int provided;
+	
+	if(provided) return;
+	provided = 1;
+	timerprobe = dtpnew((DTName){"timer", "", "1s"}, prov, nil);
+}
+
+static int
+timerenable(DTProbe *)
+{
+	static int gotkproc;
+	
+	if(!gotkproc){
+		kproc("dtracytimer", dtracytimer, nil);
+		gotkproc=1;
+	}
+	return 0;
+}
+
+static void
+timerdisable(DTProbe *)
+{
+}
+
+DTProvider dtracyprov_timer = {
+	.name = "timer",
+	.provide = timerprovide,
+	.enable = timerenable,
+	.disable = timerdisable,
+};
+
+extern DTProvider dtracyprov_sys;
+
+DTProvider *dtproviders[] = {
+	&dtracyprov_timer,
+	&dtracyprov_sys,
+	nil,
+};
+

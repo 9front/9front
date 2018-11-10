@@ -1,0 +1,20 @@
+</$objtype/mkfile
+
+LIB=/$objtype/lib/libdtracy.a
+
+OFILES=\
+	prov.$O\
+	prog.$O\
+	dtefmt.$O\
+	pack.$O\
+	chan.$O\
+
+HFILES=\
+	/sys/include/dtracy.h\
+
+UPDATE=\
+	mkfile\
+	$HFILES\
+	${OFILES:%.$O=%.c}\
+
+</sys/src/cmd/mksyslib

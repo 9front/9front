@@ -1,0 +1,20 @@
+#!/bin/rc
+# check for full switch statements
+
+nl='
+'
+nodetypes=`''{sed -n '/OINVAL/,/}/ s/,//p' dat.h | sed 's/[ 	]*//g; /^$/d' | sort | grep -v '^OINVAL$'}
+switches=`$nl{grep -n '/\*nodetype\*/' *.[ch]}
+for(l in $switches){
+	f=`:{echo $l}
+	a=`$nl{sed -n $f(2)^'s/[^ 	].*//p' $f(1)}
+	comm -23 <{echo $nodetypes} <{sed -n $f(2)^',/^'^$a^'}/ s/^'^$a^'case ([^:]*):.*/\1/p' $f(1) | sort} | sed -n 's/.+/'^$f(1)^':'^$f(2)^' missing &/p'
+}
+
+oper=`''{sed -n '/OPINVAL/,/}/ s/,//p' dat.h | sed 's/[ 	]*//g; /^$/d' | sort | grep -v '^OPINVAL$'}
+switches=`$nl{grep -n '/\*oper\*/' *.[ch]}
+for(l in $switches){
+	f=`:{echo $l}
+	a=`$nl{sed -n $f(2)^'s/[^ 	].*//p' $f(1)}
+	comm -23 <{echo $oper} <{sed -n $f(2)^',/^'^$a^'}/ s/^'^$a^'case ([^:]*):.*/\1/p' $f(1) | sort} | sed -n 's/.+/'^$f(1)^':'^$f(2)^' missing &/p'
+}
