@@ -64,6 +64,7 @@ dteverify(DTExpr *p)
 		case DTE_SXT:
 			if(a >= nregs || b == 0 || b > 64 || c >= nregs)
 				goto invalid;
+			break;
 		default: goto invalid;
 		}
 	}
