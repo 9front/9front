@@ -38,6 +38,7 @@ LIBS=\
 	libthread\
 	libttf\
 	libventi\
+	libdtracy\
 
 
 CMDS=cmd\
