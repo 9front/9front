@@ -209,7 +209,7 @@ goinggoinggone:
 			m->size = ~0UL;
 			m->lines = ~0UL;
 			m->flags = Frecent;
-			if(!msginfo(m))
+			if(!msginfo(m) || m->info[Idigest] == 0)
 				freemsg(0, m);
 			else{
 				fstreeadd(box, m);
