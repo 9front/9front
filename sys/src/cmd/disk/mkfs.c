@@ -30,7 +30,6 @@ uchar	boutbuf[2*LEN];
 char	newfile[LEN];
 char	oldfile[LEN];
 char	*proto;
-char	*cputype;
 char	*oldroot;
 char	*newroot;
 char	*prog = "mkfs";
@@ -114,10 +113,6 @@ main(int argc, char **argv)
 	buf = malloc(buflen);
 	zbuf = malloc(buflen);
 	memset(zbuf, 0, buflen);
-
-	cputype = getenv("cputype");
-	if(cputype == 0)
-		cputype = "386";
 
 	errs = 0;
 	for(i = 0; i < argc; i++){
