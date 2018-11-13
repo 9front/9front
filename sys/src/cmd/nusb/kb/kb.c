@@ -46,16 +46,8 @@ struct Hiddev
 };
 
 typedef struct Hidreport Hidreport;
-typedef struct Hidslot Hidslot;
-struct Hidslot
+struct Hidreport
 {
-	int	valid;
-	int	usage;
-	int	oor;
-	int	id;
-
-	int	abs;	/* for xyz */
-
 	int	x;
 	int	y;
 	int	z;
@@ -63,14 +55,8 @@ struct Hidslot
 	int	b;
 	int	m;
 
-	int	w;
-	int	h;
-};
-
-struct Hidreport
-{
-	int	ns;
-	Hidslot	s[16];
+	int	absz;
+	u8int	abs;
 
 	int	nk;
 	uchar	k[64];
@@ -236,14 +222,7 @@ repparse1(uchar *d, uchar *e, int g[], int l[], int c,
 			switch(t){
 			case Collection:
 				memset(l, 0, Nl*sizeof(l[0]));
-				i = l[Nu] | g[UsagPg]<<16;
-				l[Usage] = i;
-				(*f)(t, v, g, l, c, a);
-
 				d = repparse1(d, e, g, l, v, f, a);
-
-				l[Usage] = i;
-				(*f)(CollectionEnd, v, g, l, c, a);
 				continue;
 			case CollectionEnd:
 				return d;
@@ -516,42 +495,17 @@ static void
 hidparse(int t, int f, int g[], int l[], int, void *a)
 {
 	Hidreport *p = a;
-	Hidslot *s = &p->s[p->ns];
 	int v, m;
 
-	switch(t){
-	case Input:
-		if(g[RepId] != 0){
-			if(p->p[0] != g[RepId]){
-				p->o = 0;
-				return;
-			}
-			if(p->o < 8)
-				p->o = 8;	/* skip report id byte */
+	if(t != Input)
+		return;
+	if(g[RepId] != 0){
+		if(p->p[0] != g[RepId]){
+			p->o = 0;
+			return;
 		}
-		break;
-	case Collection:
-		if(g[RepId] != 0 && p->p[0] != g[RepId])
-			return;
-		memset(s, 0, sizeof(*s));
-		s->usage = l[Usage];
-		s->id = p->ns+1;
-		return;
-	case CollectionEnd:
-		if(g[RepId] != 0 && p->p[0] != g[RepId])
-			return;
-		if(l[Usage] != s->usage || !s->valid)
-			return;
-
-		/* if out of range or touchscreen finger not touching, ignore the slot */
-		if(s->oor || s->usage == 0x0D0022 && s->b == 0)
-			return;
-
-		if(p->ns < nelem(p->s))
-			p->ns++;
-		return;
-	default:
-		return;
+		if(p->o < 8)
+			p->o = 8;	/* skip report id byte */
 	}
 	v = getbits(p->p, p->e, g[RepSize], p->o);
 	p->o += g[RepSize];
@@ -586,9 +540,6 @@ hidparse(int t, int f, int g[], int l[], int, void *a)
 			v -= (g[PhysMax] * (g[LogiMax] - g[LogiMin])) / (g[PhysMax] - g[PhysMin]);
 
 		switch(l[Usage]){
-		default:
-			return;
-
 		case 0x090001:
 		case 0x090002:
 		case 0x090003:
@@ -598,59 +549,35 @@ hidparse(int t, int f, int g[], int l[], int, void *a)
 		case 0x090007:
 		case 0x090008:
 			m = 1<<(l[Usage] - 0x090001);
-		Button:
-			s->m |= m;
-			s->b &= ~m;
+			p->m |= m;
+			p->b &= ~m;
 			if(v != 0)
-				s->b |= m;
+				p->b |= m;
 			break;
-
-		case 0x0D0032:	/* In Range */
-			s->oor = !v;
-			break;
-
-		case 0x0D0042:	/* Tip Switch */
-			m = 1;
-			goto Button;
-		case 0x0D0044:	/* Barrel Switch */
-			m = 2;
-			goto Button;
-		case 0x0D0045:	/* Eraser */
-			m = 4;
-			goto Button;
-
-		case 0x0D0048:	/* Contact width */
-			s->w = v;
-			break;
-		case 0x0D0049:	/* Contact height */
-			s->h = v;
-			break;
-
-		case 0x0D0051:	/* Conteact identifier */
-			s->id = v;
-			break;
-
 		case 0x010030:
 			if((f & (Fabs|Frel)) == Fabs){
 				v = ((vlong)(v - g[LogiMin]) << 31) / (g[LogiMax] - g[LogiMin]);
-				s->abs |= 1;
+				p->abs = 1;
 			}
-			s->x = v;
+			p->x = v;
 			break;
 		case 0x010031:
 			if((f & (Fabs|Frel)) == Fabs){
 				v = ((vlong)(v - g[LogiMin]) << 31) / (g[LogiMax] - g[LogiMin]);
-				s->abs |= 2;
+				p->abs = 1;
 			}
-			s->y = v;
+			p->y = v;
 			break;
 		case 0x010038:
-			if((f & (Fabs|Frel)) == Fabs)
-				s->abs |= 4;
-			s->z = v;
+			if((f & (Fabs|Frel)) == Fabs){
+				p->z = v - p->absz;
+				p->absz = v;
+			} else {
+				p->z = v;
+				p->absz += v;
+			}
 			break;
 		}
-		s->valid = 1;
 	}
 }
 
@@ -673,10 +600,8 @@ readerproc(void* a)
 {
 	char	err[ERRMAX], mbuf[80];
 	uchar	lastk[64], uk, dk;
-	int	i, c, nerrs, lastb, nlastk;
-	int	abs, x, y, z, b;
+	int	i, c, b, nerrs, lastb, nlastk;
 	Hidreport p;
-	Hidslot lasts[nelem(p.s)], *s, *l;
 	Hiddev*	f = a;
 
 	threadsetname("readerproc %s", f->ep->dir);
@@ -709,10 +634,9 @@ readerproc(void* a)
 
 		p.o = 0;
 		p.e = p.p + c;
-		p.ns = 0;
+		p.abs = 0;
 		repparse(f->rep, f->rep+f->nrep, hidparse, &p);
 
-		/* handle keyboard report */
 		if(p.nk != 0 || nlastk != 0){
 			if(debug){
 				fprint(2, "kbd: ");
@@ -754,79 +678,32 @@ readerproc(void* a)
 			p.nk = 0;
 		}
 
-		/* handle mouse/touchpad */
-		if(p.ns == 0)
-			continue;
+		/* map mouse buttons */
+		b = p.b & 1;
+		if(p.b & (4|8))
+			b |= 2;
+		if(p.b & 2)
+			b |= 4;
+		if(p.z != 0)
+			b |= (p.z > 0) ? 8 : 16;
 
-		/* combine all the slots */
-		abs = x = y = b = 0;
-		for(i=0; i<p.ns; i++){
-			s = &p.s[i];
-
-			/* find the previous slot corresponding to same id */
-			for(l = lasts; l < &lasts[nelem(p.s)]; l++){
-				if(l->valid && l->usage == s->usage && l->id == s->id){
-					l->valid = 0;	/* no duplicates */
-					break;
-				}
-			}
-			if(l == &lasts[nelem(p.s)])
-				l = s;
-
-			/* convet absolute z to relative */
-			z = s->z;
-			if(s->abs & 4)
-				z -= l->z;
-
-			if(debug) {
-				if((s->abs & 3) == 3)
-					fprint(2, "ptr[%d]: id=%d b=%x m=%x x=%f y=%f z=%d\n",
-						i, s->id, s->b, s->m,
-						(uint)s->x / 2147483648.0, (uint)s->y / 2147483648.0, z);
+		if(p.abs || p.x != 0 || p.y != 0 || p.z != 0 || b != lastb){
+			if(debug)
+				if(p.abs)
+					fprint(2, "ptr: b=%x m=%x x=%f y=%f z=%d\n", p.b, p.m, (uint)p.x / 2147483648.0, (uint)p.y / 2147483648.0, p.z);
 				else
-					fprint(2, "ptr[%d]: id=%d b=%x m=%x x=%d y=%d z=%d\n",
-						i, s->id, s->b, s->m,
-						s->x, s->y, z);
-			}
-
-			/* map to mouse buttons */
-			b |= s->b & 1;
-			if(s->b & (4|8))
-				b |= 2;
-			if(s->b & 2)
-				b |= 4;
-			if(z != 0)
-				b |= z > 0 ? 8 : 16;
-
-			/* X/Y are absolute? */
-			if((s->abs & 3) == 3){
-				/* ignore absolute position when nothing changed */
-				if(s->abs == l->abs && s->x == l->x && s->y == l->y && s->b == l->b)
-					continue;
-				abs = 1;
-			} else {
-				/* both X/Y have to be relative then */
-				if((s->abs & 3) != 0)
-					continue;
-				/* ignore relative position when we have absolute one */
-				if(abs)
-					continue;
-			}
-			x = s->x;
-			y = s->y;
-		}
-		memmove(lasts, p.s, sizeof(p.s));
-
-		if(abs || x != 0 || y != 0 || b != lastb){
-			lastb = b;
+					fprint(2, "ptr: b=%x m=%x x=%d y=%d z=%d\n", p.b, p.m, p.x, p.y, p.z);
 
 			if(f->minfd < 0){
 				f->minfd = open("/dev/mousein", OWRITE);
 				if(f->minfd < 0)
 					hdfatal(f, "open /dev/mousein");
 			}
-			seprint(mbuf, mbuf+sizeof(mbuf), "%c%11d %11d %11d", "ma"[abs], x, y, b);
+
+			seprint(mbuf, mbuf+sizeof(mbuf), "%c%11d %11d %11d", "ma"[p.abs], p.x, p.y, b);
 			write(f->minfd, mbuf, strlen(mbuf));
+
+			lastb = b;
 		}
 	}
 }
