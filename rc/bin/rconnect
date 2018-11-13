@@ -10,7 +10,8 @@ fn usage {
 
 fn pvar {
 	while(! ~ $#* 0){
-		~ $#$1 0 || path=/dev/null builtin whatis $1
+		~ $#$1 0 && echo $1'=()' ||
+			path=/dev/null builtin whatis $1
 		shift
 	}
 }
