@@ -479,7 +479,7 @@ static Ctlrtype cttab[Nctlrtype] = {
 [i82567m]	"i82567m",	1514,	Fload,
 [i82571]	"i82571",	9234,	Fpba,
 [i82572]	"i82572",	9234,	Fpba,
-[i82573]	"i82573",	8192,	Fert,		/* terrible perf above 8k */
+[i82573]	"i82573",	8192,	Fert|Fbadcsum,		/* terrible perf above 8k */
 [i82574]	"i82574",	9018,	0,
 [i82575]	"i82575",	9728,	F75|Fflashea,
 [i82576]	"i82576",	9728,	F75,
