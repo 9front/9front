@@ -96,8 +96,10 @@ outcode(tree *t, int eflag)
 		break;
 	case '"':
 		emitf(Xmark);
+		emitf(Xmark);
 		outcode(c0, eflag);
-		emitf(Xqdol);
+		emitf(Xdol);
+		emitf(Xqw);
 		break;
 	case SUB:
 		emitf(Xmark);

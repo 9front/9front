@@ -233,7 +233,7 @@ main(int argc, char *argv[])
  * Xdelfn(name)				delete function definition
  * Xdeltraps(names)			delete named traps
  * Xdol(name)				get variable value
- * Xqdol(name)				concatenate variable components
+ * Xqw(list)				quote list, push result
  * Xdup[i j]				dup file descriptor
  * Xexit				rc exits with status
  * Xfalse{...}				execute {} if false
@@ -697,18 +697,22 @@ Xdol(void)
 }
 
 void
-Xqdol(void)
+Xqw(void)
 {
 	char *s;
 	word *a;
-	if(count(runq->argv->words)!=1){
-		Xerror1("variable name not singleton!");
+
+	a = runq->argv->words;
+	if(a && a->next == 0){
+		runq->argv->words = 0;
+		poplist();
+		a->next = runq->argv->words;
+		runq->argv->words = a;
 		return;
 	}
-	s = Str(runq->argv->words);
-	a = vlook(s)->val;
+	s = list2str(a);
 	poplist();
-	Pushword(list2str(a));
+	Pushword(s);
 }
 
 word*

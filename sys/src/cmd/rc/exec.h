@@ -2,7 +2,7 @@
  * Definitions used in the interpreter
  */
 extern void Xappend(void), Xasync(void), Xbackq(void), Xbang(void), Xclose(void);
-extern void Xconc(void), Xcount(void), Xdelfn(void), Xdol(void), Xqdol(void), Xdup(void);
+extern void Xconc(void), Xcount(void), Xdelfn(void), Xdol(void), Xqw(void), Xdup(void);
 extern void Xexit(void), Xfalse(void), Xfn(void), Xfor(void), Xglob(void);
 extern void Xjump(void), Xmark(void), Xmatch(void), Xpipe(void), Xread(void);
 extern void Xrdwr(void);
