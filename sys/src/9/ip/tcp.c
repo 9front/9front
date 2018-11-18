@@ -497,7 +497,7 @@ tcpstate(Conv *c, char *state, int n)
 		c->wq ? qlen(c->wq) : 0,
 		s->nreseq, s->reseqlen,
 		s->srtt, s->mdev, s->ssthresh,
-		s->cwind, s->snd.wnd, s->rcv.scale, s->rcv.wnd, s->snd.scale,
+		s->cwind, s->snd.wnd, s->snd.scale, s->rcv.wnd, s->rcv.scale,
 		s->qscale,
 		s->timer.start, s->timer.count, s->rerecv,
 		s->katimer.start, s->katimer.count);
