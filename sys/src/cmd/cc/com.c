@@ -1373,14 +1373,21 @@ compar(Node *n, int reverse)
 	/*
 	 * Skip over left casts to find out the original expression range.
 	 */
-	while(l->op == OCAST)
+	while(l->op == OCAST){
+		lt = l->type;
+		rt = l->left->type;
+		if(lt == T || rt == T)
+			return 0;
+		if(lt->width < rt->width)
+			break;
+		if(lt->width == rt->width && ((lt->etype ^ rt->etype) & 1) != 0)
+			break;
 		l = l->left;
+	}
 	if(l->op == OCONST)
 		return 0;
 	lt = l->type;
-	if(lt == T)
-		return 0;
-	if(lt->etype == TXXX || lt->etype > TUVLONG)
+	if(lt == T || lt->etype == TXXX || lt->etype > TUVLONG)
 		return 0;
 	
 	/*
@@ -1399,16 +1406,17 @@ compar(Node *n, int reverse)
 	if((rt->etype&1) && r->vconst < 0)	/* signed negative */
 		x.a = ~0ULL;
 
-	if((lt->etype&1)==0){
+	if(lt->etype & 1){
+		/* signed */
+		lo = big(~0ULL, -(1LL<<(lt->width*8-1)));
+		hi = big(0, (1LL<<(lt->width*8-1))-1);
+	} else {
 		/* unsigned */
 		lo = big(0, 0);
 		if(lt->width == 8)
 			hi = big(0, ~0ULL);
 		else
-			hi = big(0, (1LL<<(l->type->width*8))-1);
-	}else{
-		lo = big(~0ULL, -(1LL<<(l->type->width*8-1)));
-		hi = big(0, (1LL<<(l->type->width*8-1))-1);
+			hi = big(0, (1LL<<(lt->width*8))-1);
 	}
 
 	switch(op){
@@ -1462,4 +1470,3 @@ if(debug['y']) prtree(n, "strange");
 	warn(n, "useless or misleading comparison: %s", cmpbuf);
 	return 0;
 }
-
