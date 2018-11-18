@@ -20,11 +20,6 @@ replaces a
 window with a fresh instance of the shell,
 .IR rc (1),
 running within an emulation of a DEC VT-100 terminal.
-To exit
-.IR vt ,
-exit the
-.B rc
-it starts.
 .SS Options
 .TF m
 .TP
