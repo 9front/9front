@@ -965,7 +965,7 @@ etherread(void *a)
 		if(bp == nil)
 			break;
 		n = BLEN(bp);
-		if(port->closed || n < ETHERMINTU){
+		if(port->closed || n < ETHERHDRSIZE){
 			freeb(bp);
 			continue;
 		}
@@ -1056,6 +1056,9 @@ etherwrite(Port *port, Block *bp)
 	epkt = (Etherpkt*)bp->rp;
 	if(port->type != Ttun || !fragment(epkt, n)) {
 		if(!waserror()){
+			/* don't generate small packets */
+			if(n < ETHERMINTU)
+				bp = adjustblock(bp, ETHERMINTU);
 			devtab[port->data[1]->type]->bwrite(port->data[1], bp, 0);
 			poperror();
 		}
