@@ -66,7 +66,7 @@ _ioproc(void *arg)
 		switch(buf[0]){
 		case 'r':
 			one = 1;
-			if(send(mc->resizec, &one) < 0)
+			if(nbsend(mc->resizec, &one) < 0)
 				continue;
 			/* fall through */
 		case 'm':
@@ -122,7 +122,7 @@ initmouse(char *file, Image *i)
 	free(t);
 	mc->image = i;
 	mc->c = chancreate(sizeof(Mouse), 0);
-	mc->resizec = chancreate(sizeof(int), 2);
+	mc->resizec = chancreate(sizeof(int), 1);
 	mc->pid = proccreate(_ioproc, mc, 4096);
 	return mc;
 }
