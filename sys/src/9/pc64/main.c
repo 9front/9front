@@ -336,40 +336,12 @@ main()
 	schedinit();
 }
 
-void
-exit(int)
-{
-	cpushutdown();
-	arch->reset();
-}
-
-void
-reboot(void *entry, void *code, ulong size)
+static void
+rebootjump(uintptr entry, uintptr code, ulong size)
 {
 	void (*f)(uintptr, uintptr, ulong);
 
-	writeconf();
-	vmxshutdown();
-
-	/*
-	 * the boot processor is cpu0.  execute this function on it
-	 * so that the new kernel has the same cpu0.  this only matters
-	 * because the hardware has a notion of which processor was the
-	 * boot processor and we look at it at start up.
-	 */
-	if (m->machno != 0) {
-		procwired(up, 0);
-		sched();
-	}
-	cpushutdown();
-
 	splhi();
-
-	/* turn off buffered serial console */
-	serialoq = nil;
-
-	/* shutdown devices */
-	chandevshutdown();
 	arch->introff();
 
 	/*
@@ -385,7 +357,48 @@ reboot(void *entry, void *code, ulong size)
 
 	/* off we go - never to return */
 	coherence();
-	(*f)((uintptr)entry & ~0xF0000000UL, (uintptr)PADDR(code), size);
+	(*f)(entry, code, size);
+
+	for(;;);
+}
+
+
+void
+exit(int)
+{
+	cpushutdown();
+	if(m->machno)
+		rebootjump(0, 0, 0);
+	arch->reset();
+}
+
+void
+reboot(void *entry, void *code, ulong size)
+{
+	writeconf();
+	vmxshutdown();
+
+	/*
+	 * the boot processor is cpu0.  execute this function on it
+	 * so that the new kernel has the same cpu0.  this only matters
+	 * because the hardware has a notion of which processor was the
+	 * boot processor and we look at it at start up.
+	 */
+	if (m->machno != 0) {
+		procwired(up, 0);
+		sched();
+	}
+	cpushutdown();
+	delay(1000);
+	splhi();
+
+	/* turn off buffered serial console */
+	serialoq = nil;
+
+	/* shutdown devices */
+	chandevshutdown();
+
+	rebootjump((uintptr)entry & ~0xF0000000UL, PADDR(code), size);
 }
 
 /*

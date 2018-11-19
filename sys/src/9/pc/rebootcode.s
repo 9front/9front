@@ -20,6 +20,13 @@ TEXT	main(SB),$0
 	MOVL	$0, DX
 	MOVL	DX, CR3
 
+	/* stack below entry point */
+	MOVL	AX, SP
+
+	/* park cpu for zero entry point */
+	ORL	AX, AX
+	JZ	_idle
+
 /*
  * the source and destination may overlap.
  * determine whether to copy forward or backwards
@@ -52,3 +59,7 @@ _back:
 _startkernel:
 	ORL	AX, AX		/* NOP: avoid link bug */
 	JMP*	AX
+
+_idle:
+	HLT
+	JMP	_idle

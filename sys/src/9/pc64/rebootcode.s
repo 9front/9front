@@ -20,9 +20,6 @@ TEXT	main(SB), 1, $-4
 	MOVL	$_gdtptr64p<>(SB), AX
 	MOVL	(AX), GDTR
 
-	/* move stack below destination */
-	MOVL	DI, SP
-
 	/* load CS with 32bit code segment */
 	PUSHQ	$SELECTOR(3, SELGDT, 0)
 	PUSHQ	$_warp32<>(SB)
@@ -61,6 +58,12 @@ TEXT	_warp32<>(SB), 1, $-4
 
 	MOVL	BX, CX			/* byte count */
 	MOVL	DI, AX			/* save entry point */
+	MOVL	AX, SP			/* move stack below entry */
+
+	/* park cpu for zero entry point */
+	ORL	AX, AX
+	JZ	_idle
+
 
 /*
  * the source and destination may overlap.
@@ -89,6 +92,10 @@ _back:
 	STD
 	REP;	MOVSB
 	JMP	_startkernel
+
+_idle:
+	HLT
+	JMP	_idle
 
 TEXT _gdt<>(SB), 1, $-4
 	/* null descriptor */
