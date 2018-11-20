@@ -3,7 +3,7 @@
 BIN=/$objtype/bin/games
 TARG=md
 OFILES=\
-	../blit/cpu.$O\
+	cpu.$O\
 	mem.$O\
 	md.$O\
 	vdp.$O\
@@ -16,3 +16,6 @@ HFILES=dat.h fns.h
 </sys/src/cmd/mkone
 eui.$O: ../eui.c
 	$CC $CFLAGS ../eui.c
+
+cpu.$O: ../blit/cpu.c
+	$CC $CFLAGS ../blit/cpu.c
