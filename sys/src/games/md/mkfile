@@ -3,7 +3,7 @@
 BIN=/$objtype/bin/games
 TARG=md
 OFILES=\
-	cpu.$O\
+	../blit/cpu.$O\
 	mem.$O\
 	md.$O\
 	vdp.$O\
