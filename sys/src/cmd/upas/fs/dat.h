@@ -74,7 +74,7 @@ struct Idx {
 
 typedef struct Message Message;
 struct Message {
-	int	id;
+	ulong	id;
 	int	refs;
 	int	subname;
 	char	name[12];
@@ -152,7 +152,7 @@ typedef struct Mailbox Mailbox;
 struct Mailbox {
 	int	refs;
 	Mailbox	*next;
-	int	id;
+	ulong	id;
 	int	flags;
 	char	rmflags;
 	char	dolock;		/* lock when syncing? */
@@ -209,7 +209,6 @@ int		insurecache(Mailbox*, Message*);
 void		putcache(Mailbox*, Message*);		/* asymmetricial */
 void		cachefree(Mailbox*, Message*, int);
 
-Message*	gettopmsg(Mailbox*, Message*);
 char*		syncmbox(Mailbox*, int);
 void*		emalloc(ulong);
 void*		erealloc(void*, ulong);
@@ -223,13 +222,12 @@ int		wraptls(int, char*);
 
 void		eprint(char*, ...);
 void		iprint(char *, ...);
-int		newid(void);
 char*		newmbox(char*, char*, int, Mailbox**);
 void		freembox(char*);
 char*		removembox(char*, int);
 void		syncallmboxes(void);
 void		logmsg(Message*, char*, ...);
-void		msgincref(Message*);
+void		msgincref(Mailbox*, Message*);
 void		msgdecref(Mailbox*, Message*);
 void		mboxincref(Mailbox*);
 void		mboxdecref(Mailbox*);
@@ -306,7 +304,7 @@ enum {
 	Qmboxctl,
 };
 
-#define PATH(id, f)	((((id) & 0xfffff)<<10) | (f))
+#define PATH(id, f)	(((uvlong)(id)<<10) | (f))
 #define FILE(p)		((p) & 0x3ff)
 
 /* hash table to aid in name lookup, all files have an entry */
@@ -314,16 +312,16 @@ typedef struct Hash Hash;
 struct Hash {
 	Hash	*next;
 	char	*name;
-	ulong	ppath;
+	uvlong	ppath;
 	Qid	qid;
 	Mailbox	*mb;
 	Message	*m;
 };
 
-uint	hash(char*);
-Hash	*hlook(ulong, char*);
-void	henter(ulong, char*, Qid, Message*, Mailbox*);
-void	hfree(ulong, char*);
+ulong	hash(char*);
+Hash	*hlook(uvlong, char*);
+void	henter(uvlong, char*, Qid, Message*, Mailbox*);
+void	hfree(uvlong, char*);
 
 char	*intern(char*);
 void	idxfree(Idx*);

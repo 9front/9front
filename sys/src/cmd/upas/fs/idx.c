@@ -366,18 +366,20 @@ dead:
 			/*
 			 * read in mutable information.
 			 * currently this is only flags
+			 * and nparts.
 			 */
 			redux++;
 			if(level == 0)
 				m->deleted &= ~Dmark;
-			if(m->nparts)
+			n = m->nparts;
+			m->nparts = strtoul(f[21], 0, 0);
 			if(rdidx(b, mb, m, m->nparts, level + 1) == -1)
 				goto dead;
 			ll = &m->next;
-			idprint("%d seen before %d... %.2ux", level, m->id, m->cstate);
+			idprint("%d seen before %lud... %.2ux", level, m->id, m->cstate);
 			flags = m->flags;
 			m->flags |= strtoul(f[1], 0, 16);
-			if(flags != m->flags)
+			if(flags != m->flags || n != m->nparts)
 				m->cstate |= Cidxstale;
 			m->cstate |= Cidx;
 			idprint("→%.2ux\n", m->cstate);
@@ -385,7 +387,7 @@ dead:
 			continue;
 		}
 		m = newmessage(parent);
-		idprint("%d new %d %#A\n", level, m->id, digest);
+		idprint("%d new %lud %#A\n", level, m->id, digest);
 		m->digest = digest;
 		m->flags = strtoul(f[1], 0, 16);
 		m->fileid = rdfileid(f[2], level);

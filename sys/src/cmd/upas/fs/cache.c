@@ -31,17 +31,29 @@ notecache(Mailbox *mb, Message *m, long sz)
 	addlru(mb, m);
 }
 
-static void
-cachefree0(Mailbox *mb, Message *m, int force)
+void
+cachefree(Mailbox *mb, Message *m, int force)
 {
-	long sz, i;
-	Message *s;
+	long i;
+	Message *s, **ll;
 
 	if(!force && mb->fetch == nil)
 		return;
+	if(Topmsg(mb, m)){
+		for(ll = &mb->lru; *ll != nil; ll = &((*ll)->lru)){
+			if(*ll == m){
+				mb->nlru--;
+				*ll = m->lru;
+				m->lru = nil;
+				break;
+			}
+		}
+		if(mb->decache)
+			mb->decache(mb, m);
+		mb->cached -= m->csize;
+	}
 	for(s = m->part; s; s = s->next)
 		cachefree(mb, s, force);
-	dprint("cachefree: %D	%p,	%p\n", m->fileid, m, m->start);
 	if(m->mallocd){
 		free(m->start);
 		m->mallocd = 0;
@@ -58,7 +70,6 @@ cachefree0(Mailbox *mb, Message *m, int force)
 		free(m->references[i]);
 		m->references[i] = 0;
 	}
-	sz = m->csize;
 	m->csize = 0;
 	m->start = 0;
 	m->end = 0;
@@ -69,30 +80,10 @@ cachefree0(Mailbox *mb, Message *m, int force)
 	m->bend = 0;
 	m->mheader = 0;
 	m->mhend = 0;
-	if(mb->decache)
-		mb->decache(mb, m);
 	m->decoded = 0;
 	m->converted = 0;
 	m->badchars = 0;
 	m->cstate &= ~(Cheader|Cbody);
-	if(Topmsg(mb, m))
-		mb->cached -= sz;
-}
-
-void
-cachefree(Mailbox *mb, Message *m, int force)
-{
-	Message **ll;
-
-	for(ll = &mb->lru; *ll != nil; ll = &((*ll)->lru)){
-		if(*ll == m){
-			mb->nlru--;
-			*ll = m->lru;
-			m->lru = nil;
-			break;
-		}
-	}
-	cachefree0(mb, m, force);
 }
 
 void
@@ -277,7 +268,8 @@ middlecache(Mailbox *mb, Message *m)
 	}
 	if(y == 0)
 		return 0;
-	dprint("middlecache %d [%D] %lud %lud\n", m->id, m->fileid, (ulong)(m->end - m->start), m->size);
+	dprint("middlecache %lud [%D] %lud %lud\n",
+		m->id, m->fileid, (ulong)(m->end - m->start), m->size);
 	return cachebody(mb, m);
 }
 
@@ -292,7 +284,7 @@ cacheheaders(Mailbox *mb, Message *m)
 		return 0;
 	if(!Topmsg(mb, m))
 		return middlecache(mb, m);
-	dprint("cacheheaders %d %D\n", m->id, m->fileid);
+	dprint("cacheheaders %lud %D\n", m->id, m->fileid);
 	if(m->size < 10000)
 		r = fetch(mb, m, 0, m->size);
 	else for(r = 0; (o = m->end - m->start) < m->size; ){
@@ -327,7 +319,7 @@ digestmessage(Mailbox *mb, Message *m)
 		m->deleted = Dup;	/* no dups allowed */
 	}else
 		mtreeadd(mb, m);
-	dprint("%d %#A\n", m->id, m->digest);
+	dprint("%lud %#A\n", m->id, m->digest);
 }
 
 int
@@ -337,10 +329,10 @@ cachebody(Mailbox *mb, Message *m)
 
 	while(!Topmsg(mb, m))
 		m = m->whole;
-	if(!mb->fetch || m->cstate&Cbody)
+	if(mb->fetch == nil || m->cstate&Cbody)
 		return 0;
 	o = m->end - m->start;
-	dprint("cachebody %d [%D] %lud %lud %s", m->id, m->fileid, o, m->size, cstate(m));
+	dprint("cachebody %lud [%D] %lud %lud %s", m->id, m->fileid, o, m->size, cstate(m));
 	if(o < m->size)
 	if(fetch(mb, m, o, m->size - o) < 0)
 		return -1;
@@ -389,7 +381,7 @@ insurecache(Mailbox *mb, Message *m)
 {
 	if(m->deleted || !m->inmbox)
 		return -1;
-	msgincref(m);
+	msgincref(mb, m);
 	cacheidx(mb, m);
 	if((m->cstate & Cidx) == 0){
 		logmsg(m, "%s: can't cache: %s: %r", mb->path, m->name);

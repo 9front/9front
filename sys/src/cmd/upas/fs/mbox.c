@@ -191,6 +191,20 @@ initheaders(void)
 		head[i].len = strlen(head[i].type);
 }
 
+static ulong
+newid(void)
+{
+	ulong rv;
+	static ulong id;
+	static Lock idlock;
+
+	lock(&idlock);
+	rv = ++id;
+	unlock(&idlock);
+
+	return rv;
+}
+
 char*
 newmbox(char *path, char *name, int flags, Mailbox **r)
 {
@@ -271,50 +285,42 @@ freembox(char *name)
 {
 	Mailbox **l, *mb;
 
-	for(l=&mbl; *l != nil; l=&(*l)->next)
-		if(strcmp(name, (*l)->name) == 0){
-			mb = *l;
+	for(l = &mbl; (mb = *l) != nil; l = &mb->next)
+		if(strcmp(name, mb->name) == 0){
 			*l = mb->next;
+			mb->next = nil;
+			hfree(PATH(0, Qtop), mb->name);
+			if(mb->ctl)
+				hfree(PATH(mb->id, Qmbox), "ctl");
 			mboxdecref(mb);
 			break;
 		}
-	hfree(PATH(0, Qtop), name);
+}
+
+char*
+removembox(char *name, int flags)
+{
+	Mailbox *mb;
+
+	for(mb = mbl; mb != nil; mb = mb->next)
+		if(strcmp(name, mb->path) == 0){
+			mb->flags |= ORCLOSE;
+			mb->rmflags = flags;
+			freembox(mb->name);
+			return 0;
+		}
+	return "maibox not found";
 }
 
 void
 syncallmboxes(void)
 {
+	Mailbox *mb;
 	char *err;
-	Mailbox *m;
 
-	for(m = mbl; m != nil; m = m->next)
-		if(err = syncmbox(m, 0))
+	for(mb = mbl; mb != nil; mb = mb->next)
+		if(err = syncmbox(mb, 0))
 			eprint("syncmbox: %s\n", err);
-}
-
-
-char*
-removembox(char *name, int flags)
-{
-	int found;
-	Mailbox **l, *mb;
-
-	found = 0;
-	for(l=&mbl; *l != nil; l=&(*l)->next)
-		if(strcmp(name, (*l)->path) == 0){
-			mb = *l;
-			*l = mb->next;
-			mb->flags |= ORCLOSE;
-			mb->rmflags = flags;
-			mboxdecref(mb);
-			found = 1;
-			break;
-		}
-	hfree(PATH(0, Qtop), name);
-
-	if(found == 0)
-		return "maibox not found";
-	return 0;
 }
 
 /*
@@ -347,7 +353,7 @@ rxtotm(Message *m, Tm *tm)
 	return r;
 }
 
-Message*
+static Message*
 gettopmsg(Mailbox *mb, Message *m)
 {
 	while(!Topmsg(mb, m))
@@ -355,7 +361,7 @@ gettopmsg(Mailbox *mb, Message *m)
 	return m;
 }
 
-void
+static void
 datesec(Mailbox *mb, Message *m)
 {
 	vlong v;
@@ -1011,31 +1017,32 @@ delmessage(Mailbox *mb, Message *m)
 {
 	Message **l;
 
+	assert(m->refs == 0);
+	while(m->part)
+		delmessage(mb, m->part);
+
 	mb->vers++;
 	msgfreed++;
 
-	if(m->whole != m){
+	if(m != m->whole){
 		/* unchain from parent */
 		for(l = &m->whole->part; *l && *l != m; l = &(*l)->next)
 			;
 		if(*l != nil)
 			*l = m->next;
-
+		m->next = nil;
 		/* clear out of name lookup hash table */
 		if(m->whole->whole == m->whole)
 			hfree(PATH(mb->id, Qmbox), m->name);
 		else
 			hfree(PATH(m->whole->id, Qdir), m->name);
 		hfree(PATH(m->id, Qdir), "xxx");		/* sleezy speedup */
-	}
-	if(Topmsg(mb, m)){
-		if(m != mb->root)
+
+		if(Topmsg(mb, m))
 			mtreedelete(mb, m);
 		cachefree(mb, m, 1);
+		idxfree(m);
 	}
-	idxfree(m);
-	while(m->part)
-		delmessage(mb, m->part);
 	free(m->unixfrom);
 	free(m->unixheader);
 	free(m->date822);
@@ -1093,7 +1100,7 @@ flagmessages(int argc, char **argv)
 
 	if(argc%2)
 		return "bad flags";
-	for(mb = mbl; mb; mb = mb->next)
+	for(mb = mbl; mb != nil; mb = mb->next)
 		if(strcmp(*argv, mb->name) == 0)
 			break;
 	if(mb == nil)
@@ -1114,21 +1121,33 @@ flagmessages(int argc, char **argv)
 }
 
 void
-msgincref(Message *m)
+msgincref(Mailbox *mb, Message *m)
 {
-	m->refs++;
+	assert(mb->refs > 0);
+	for(;; m = m->whole){
+		assert(m->refs >= 0);
+		m->refs++;
+		if(Topmsg(mb, m))
+			break;
+	}
 }
 
 void
 msgdecref(Mailbox *mb, Message *m)
 {
-	assert(m->refs > 0);
-	m->refs--;
-	if(m->refs == 0){
-		if(m->deleted)
-			syncmbox(mb, 1);
-		else
-			putcache(mb, m);
+	assert(mb->refs >= 0);
+	for(;; m = m->whole){
+		assert(m->refs > 0);
+		m->refs--;
+		if(Topmsg(mb, m)){
+			if(m->refs == 0){
+				if(m->deleted)
+					syncmbox(mb, 1);
+				else
+					putcache(mb, m);
+			}
+			break;
+		}
 	}
 }
 
@@ -1156,21 +1175,18 @@ void
 mboxdecref(Mailbox *mb)
 {
 	assert(mb->refs > 0);
-	mb->refs--;
-	if(mb->refs == 0){
-		syncmbox(mb, 1);
-		delmessage(mb, mb->root);
-		if(mb->ctl)
-			hfree(PATH(mb->id, Qmbox), "ctl");
-		if(mb->close)
-			mb->close(mb);
-		if(mb->flags & ORCLOSE && mb->remove)
-		if(mb->remove(mb, mb->rmflags))
-			rmidx(mb->path, mb->rmflags);
-		free(mb->mtree);
-		free(mb->d);
-		free(mb);
-	}
+	if(--mb->refs)
+		return;
+	syncmbox(mb, 1);
+	delmessage(mb, mb->root);
+	if(mb->close)
+		mb->close(mb);
+	if(mb->flags & ORCLOSE && mb->remove)
+	if(mb->remove(mb, mb->rmflags))
+		rmidx(mb->path, mb->rmflags);
+	free(mb->mtree);
+	free(mb->d);
+	free(mb);
 }
 
 
