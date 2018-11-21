@@ -372,7 +372,7 @@ and
 .B mpint
 representations using the base indicated.
 Only the bases 2, 4, 8, 10, 16, 32, and 64 are
-supported.  Base 0 defaults to 16.
+supported.
 .IR Strtomp
 skips any leading spaces or tabs.
 .IR Strtomp 's
@@ -397,18 +397,25 @@ If the parse terminates before any digits are found,
 return
 .BR nil .
 .I Mptoa
-returns a pointer to the filled buffer.
+returns a pointer to the
+.SM ASCII
+filled buffer.
 If the parameter
 .I buf
 is
 .BR nil ,
 the buffer is allocated.
+Setting
+.I base
+to zero uses hexadecimal default.
 .I Mpfmt
 can be used with
 .IR fmtinstall (2)
 and
 .IR print (2)
-to print hexadecimal representations of
+to print
+.SM ASCII
+representations of
 .BR mpint s.
 The conventional verb is
 .LR B ,
@@ -416,6 +423,8 @@ for which
 .I mp.h
 provides a
 .LR pragma .
+The precisition in the format string changes the base,
+defaulting to hexadecimal when omited.
 .PP
 .I Mptobe
 and
