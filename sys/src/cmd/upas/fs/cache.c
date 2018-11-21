@@ -216,6 +216,9 @@ top:
 void
 cachehash(Mailbox *mb, Message *m)
 {
+	assert(mb->refs >= 0);
+	if(mb->refs == 0)
+		return;
 	if(m->whole == m->whole->whole)
 		henter(PATH(mb->id, Qmbox), m->name,
 			(Qid){PATH(m->id, Qdir), 0, QTDIR}, m, mb);

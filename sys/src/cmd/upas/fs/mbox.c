@@ -115,14 +115,15 @@ syncmbox(Mailbox *mb, int doplumb)
 	a = mb->root->subname - a;
 	assert(a >= 0);
 	if(n + d + y + a){
+		Hash *h;
+
 		iprint("deleted: %d; new %d; stale %d\n", d, n, y);
 		logmsg(nil, "deleted: %d; new %d; stale %d", d, n, y);
 		wridxfile(mb);
-	}
-	if(n + d + y + a){
+
 		mb->vers++;
-		henter(PATH(0, Qtop), mb->name,
-			(Qid){PATH(mb->id, Qmbox), mb->vers, QTDIR}, nil, mb);
+		if(mb->refs > 0 && (h = hlook(PATH(0, Qtop), mb->name)) != nil && h->mb == mb)
+			h->qid.vers = mb->vers;
 	}
 
 	mb->syncing = 0;
@@ -166,8 +167,8 @@ mboxrename(char *a, char *b, int flags)
 	strcat(f1, ".imp");
 	rename(f0, f1, 0);
 
-	snprint(mb->path, sizeof mb->path, "%s", b);
 	hfree(PATH(0, Qtop), mb->name);
+	snprint(mb->path, sizeof mb->path, "%s", b);
 	p0 = strrchr(mb->path, '/') + 1;
 	if(p0 == (char*)1)
 		p0 = mb->path;
