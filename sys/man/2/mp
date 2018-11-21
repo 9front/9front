@@ -423,7 +423,7 @@ for which
 .I mp.h
 provides a
 .LR pragma .
-The precisition in the format string changes the base,
+The precision in the format string changes the base,
 defaulting to hexadecimal when omited.
 .PP
 .I Mptobe
