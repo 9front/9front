@@ -1329,6 +1329,7 @@ rwstat(Fid*)
 static Fid*
 checkfid(Fid *f)
 {
+	if(f->busy)
 	switch(FILE(f->qid.path)){
 	case Qtop:
 	case Qctl:
