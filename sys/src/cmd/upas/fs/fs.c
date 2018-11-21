@@ -791,8 +791,8 @@ char*
 dowalk(Fid *f, char *name)
 {
 	char *rv, *p;
-	int t, t1;
 	Hash *h;
+	int t;
 
 	if(f->qid.type != QTDIR)
 		return Enotdir;
@@ -801,13 +801,12 @@ dowalk(Fid *f, char *name)
 
 	/* this must catch everything except . and .. */
 retry:
-	t1 = FILE(f->qid.path);
-	if((t1 == Qmbox || t1 == Qdir) && *name >= 'a' && *name <= 'z'){
+	if(t == Qdir && *name >= 'a' && *name <= 'z'){
 		h = hlook(f->qid.path, "xxx");		/* sleezy speedup */
-		t1 = dindex(name);
-		if(t1 == -1)
+		t = dindex(name);
+		if(t == -1)
 			h = nil;
-	}else
+	} else
 		h = hlook(f->qid.path, name);
 	if(h != nil){
 		if(h->mb)
@@ -821,8 +820,8 @@ retry:
 		f->m = h->m;
 		f->mb = h->mb;
 		f->qid = h->qid;
-		if(t1 < Qmax)
-			f->qid.path = PATH(f->m->id, t1);	/* sleezy speedup */
+		if(t < Qmax)
+			f->qid.path = PATH(f->m->id, t);	/* sleezy speedup */
 		rv = nil;
 	}else if((p = strchr(name, '.')) != nil && *name != '.'){
 		*p = 0;
@@ -1101,8 +1100,6 @@ rread(Fid *f)
 			n = readtopdir(f, mbuf, off, cnt, messagesize - IOHDRSZ);
 		else if(t == Qmbox)
 			n = readmboxdir(f, mbuf, off, cnt, messagesize - IOHDRSZ);
-		else if(t == Qmboxctl)
-			n = 0;
 		else
 			n = readmsgdir(f, mbuf, off, cnt, messagesize - IOHDRSZ);
 		rhdr.count = n;
