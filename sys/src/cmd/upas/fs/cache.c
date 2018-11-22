@@ -382,7 +382,7 @@ countparts(Message *m)
 int
 insurecache(Mailbox *mb, Message *m)
 {
-	if(m->deleted || !m->inmbox)
+	if((m->deleted & ~Deleted) != 0 || !m->inmbox)
 		return -1;
 	msgincref(mb, m);
 	cacheidx(mb, m);
