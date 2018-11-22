@@ -3,14 +3,6 @@
 #include <bio.h>
 #include "snap.h"
 
-void
-panic(char *s)
-{
-	fprint(2, "%s\n", s);
-	abort();
-	exits(s);
-}
-
 static Proc*
 findpid(Proc *plist, long pid)
 {
@@ -30,11 +22,11 @@ findpage(Proc *plist, long pid, int type, uvlong off)
 
 	plist = findpid(plist, pid);
 	if(plist == nil)
-		panic("can't find referenced pid");
+		sysfatal("can't find referenced pid");
 
 	if(type == 't') {
 		if(off%Pagesize)
-			panic("bad text offset alignment");
+			sysfatal("bad text offset alignment");
 		s = plist->text;
 		if(off >= s->len)
 			return nil;
@@ -53,7 +45,7 @@ findpage(Proc *plist, long pid, int type, uvlong off)
 
 	off -= s->offset;
 	if(off%Pagesize)
-		panic("bad mem offset alignment");
+		sysfatal("bad mem offset alignment");
 
 	return s->pg[off/Pagesize];
 }
@@ -116,15 +108,17 @@ readdata(Biobuf *b)
 {
 	Data *d;
 	char str[32];
-	long len;
+	ulong len;
 
 	if(Bread(b, str, 12) != 12)
-		panic("can't read data hdr\n");
-
-	len = atoi(str);
+		sysfatal("can't read data hdr: %r");
+	str[12] = 0;
+	len = strtoul(str, 0, 0);
+	if(len + sizeof(*d) < sizeof(*d))
+		sysfatal("data len too large");
 	d = emalloc(sizeof(*d) + len);
-	if(Bread(b, d->data, len) != len)
-		panic("can't read data body\n");
+	if(len && Bread(b, d->data, len) != len)
+		sysfatal("can't read data body");
 	d->len = len;
 	return d;
 }
@@ -140,12 +134,12 @@ readseg(Seg **ps, Biobuf *b, Proc *plist)
 	ulong pid;
 	uvlong off;
 	char buf[Pagesize];
-	static char zero[Pagesize];
+	extern char zeros[];
 
 	s = emalloc(sizeof *s);
 	if(Breaduvlong(b, &s->offset) < 0
 	|| Breaduvlong(b, &s->len) < 0)
-		panic("error reading segment");
+		sysfatal("error reading segment: %r");
 
 	npg = (s->len + Pagesize-1)/Pagesize;
 	s->npg = npg;
@@ -164,7 +158,7 @@ readseg(Seg **ps, Biobuf *b, Proc *plist)
 
 		switch(t = Bgetc(b)) {
 		case 'z':
-			pp[i] = datapage(zero, len);
+			pp[i] = datapage(zeros, len);
 			if(debug)
 				fprint(2, "0x%.8llux all zeros\n", s->offset+(uvlong)i*Pagesize);
 			break;
@@ -172,10 +166,10 @@ readseg(Seg **ps, Biobuf *b, Proc *plist)
 		case 't':
 			if(Breadulong(b, &pid) < 0 
 			|| Breaduvlong(b, &off) < 0)
-				panic("error reading segment x");
+				sysfatal("error reading segment x: %r");
 			pp[i] = findpage(plist, pid, t, off);
 			if(pp[i] == nil)
-				panic("bad page reference in snapshot");
+				sysfatal("bad page reference in snapshot");
 			if(debug)
 				fprint(2, "0x%.8llux same as %s pid %lud 0x%.8llux\n",
 					s->offset+(uvlong)i*Pagesize, t=='m'?"mem":"text", pid, off);
@@ -189,7 +183,7 @@ readseg(Seg **ps, Biobuf *b, Proc *plist)
 			break;
 		default:
 			fprint(2, "bad type char %#.2ux\n", t);
-			panic("error reading segment");
+			sysfatal("error reading segment");
 		}
 	}
 	return s;
@@ -205,9 +199,9 @@ readsnap(Biobuf *b)
 	int i, n;
 
 	if((q = Brdline(b, '\n')) == nil)
-		panic("error reading snapshot file");
+		sysfatal("error reading snapshot file");
 	if(strncmp(q, "process snapshot", strlen("process snapshot")) != 0)
-		panic("bad snapshot file format");
+		sysfatal("bad snapshot file format");
 
 	plist = nil;
 	while(q = Brdline(b, '\n')) {
@@ -232,8 +226,11 @@ readsnap(Biobuf *b)
 			continue;
 		if(strcmp(q, "mem") == 0) {
 			if(Bread(b, buf, 12) != 12) 
-				panic("can't read memory section");
+				sysfatal("can't read memory section: %r");
+			buf[12] = 0;
 			n = atoi(buf);
+			if(n <= 0 || n > 16)
+				sysfatal("bad segment count: %d", n);
 			p->nseg = n;
 			p->seg = emalloc(n*sizeof(*p->seg));
 			for(i=0; i<n; i++)
@@ -241,7 +238,7 @@ readsnap(Biobuf *b)
 		} else if(strcmp(q, "text") == 0)
 			readseg(&p->text, b, plist);
 		else
-			panic("unknown section");
+			sysfatal("unknown section");
 	}
 	return plist;
 }

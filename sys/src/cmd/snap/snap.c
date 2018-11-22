@@ -33,15 +33,11 @@ main(int argc, char **argv)
 		usage();
 
 	/* get kernel compilation time */
-	if((d = dirstat("#/")) == nil) {
-		fprint(2, "cannot stat #/ ???\n");
-		exits("stat");
-	}
+	if((d = dirstat("#/")) == nil)
+		sysfatal("cannot stat #/: %r");
 
-	if((b = Bopen(ofile, OWRITE)) == nil) {
-		fprint(2, "cannot write to \"%s\"\n", ofile);
-		exits("Bopen");
-	}
+	if((b = Bopen(ofile, OWRITE)) == nil)
+		sysfatal("cannot write to \"%s\": %r", ofile);
 
 	if((user = getuser()) == nil)
 		user = "gre";

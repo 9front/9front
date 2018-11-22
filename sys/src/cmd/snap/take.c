@@ -20,6 +20,7 @@ sumr(ulong sum, void *buf, int n)
 	return sum;
 }
 
+char zeros[Pagesize];
 static ulong npage;
 static Page *pgtab[1<<10];
 
@@ -27,43 +28,27 @@ Page*
 datapage(char *p, long len)
 {
 	Page *pg;
-	char *q, *ep;
-	long	sum;
-	int iszero;
+	ulong sum;
 
-	if(len > Pagesize) {
-		fprint(2, "datapage cannot handle pages > %d\n", Pagesize);
-		exits("datapage");
-	}
+	if(len > Pagesize)
+		sysfatal("datapage cannot handle pages > %d", Pagesize);
 
 	sum = sumr(0, p, len) & (nelem(pgtab)-1);
-	if(sum == 0) {
-		iszero = 1;
-		for(q=p, ep=p+len; q<ep; q++)
-			if(*q != 0) {
-				iszero = 0;
-				break;
-			}
-	} else
-		iszero = 0;
-
-	for(pg = pgtab[sum]; pg; pg=pg->link)
+	for(pg = pgtab[sum]; pg != nil; pg=pg->link)
 		if(pg->len == len && memcmp(pg->data, p, len) == 0)
-			break;
-	if(pg)
-		return pg;
+			return pg;
 
 	pg = emalloc(sizeof(*pg)+len);
 	pg->data = (char*)&pg[1];
 	pg->type = 0;
 	pg->len = len;
 	memmove(pg->data, p, len);
-	pg->link = pgtab[sum];
-	pgtab[sum] = pg;
-	if(iszero) {
+	if(sum == 0 && memcmp(zeros, p, len) == 0) {
 		pg->type = 'z';
 		pg->written = 1;
 	}
+	pg->link = pgtab[sum];
+	pgtab[sum] = pg;
 
 	++npage;
 	return pg;
@@ -148,7 +133,7 @@ stackptr(Proc *proc, int fd)
 	char *q;
 	Fhdr f;
 	Reglist *r;
-	long textoff;
+	vlong textoff;
 	int i;
 	Data *dreg;
 
@@ -160,7 +145,9 @@ stackptr(Proc *proc, int fd)
 	if(textoff == -1)
 		return 0;
 
-	seek(fd, textoff, 0);
+	if(seek(fd, textoff, 0) < 0)
+		return 0;
+
 	if(crackhdr(fd, &f) == 0)
 		return 0;
 

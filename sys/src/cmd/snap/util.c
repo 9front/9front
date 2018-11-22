@@ -8,10 +8,8 @@ emalloc(ulong n)
 {
 	void *v;
 	v = malloc(n);
-	if(v == nil){
-		fprint(2, "out of memory\n");
-		exits("memory");
-	}
+	if(v == nil)
+		sysfatal("out of memory");
 	memset(v, 0, n);
 	return v;
 }
@@ -20,10 +18,8 @@ void*
 erealloc(void *v, ulong n)
 {
 	v = realloc(v, n);
-	if(v == nil) {
-		fprint(2, "out of memory\n");
-		exits("memory");
-	}
+	if(v == nil && n != 0)
+		sysfatal("out of memory");
 	return v;
 }
 
@@ -31,9 +27,7 @@ char*
 estrdup(char *s)
 {
 	s = strdup(s);
-	if(s == nil) {
-		fprint(2, "out of memory\n");
-		exits("memory");
-	}
+	if(s == nil)
+		sysfatal("out of memory");
 	return s;
 }

@@ -154,16 +154,11 @@ main(int argc, char **argv)
 	if(argc != 1)
 		usage();
 
-	b = Bopen(argv[0], OREAD);
-	if(b == nil) {
-		fprint(2, "cannot open \"%s\": %r\n", argv[0]);
-		exits("Bopen");
-	}
+	if((b = Bopen(argv[0], OREAD)) == nil)
+		sysfatal("cannot open \"%s\": %r", argv[0]);
 
-	if((plist = readsnap(b)) == nil) {
-		fprint(2, "readsnap fails\n");
-		exits("readsnap");
-	}
+	if((plist = readsnap(b)) == nil)
+		sysfatal("readsnap fails");
 
 	tree = alloctree(nil, nil, DMDIR|0555, nil);
 	fs.tree = tree;
