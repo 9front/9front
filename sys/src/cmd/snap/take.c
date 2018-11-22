@@ -166,18 +166,17 @@ stackptr(Proc *proc, int fd)
 	if((dreg = proc->d[Pregs]) == nil)
 		return 0;
 
-	if(r->roffs+mach->szreg > dreg->len) {
+	if(r->roffs+mach->szaddr > dreg->len) {
 		fprint(2, "SP register too far into registers?\n");
 		return 0;
 	}
 
 	q = dreg->data+r->roffs;
-	switch(mach->szreg) {
-	case 2:	return machdata->swab(*(ushort*)q);
+	switch(mach->szaddr) {
 	case 4:	return machdata->swal(*(ulong*)q);
 	case 8:	return machdata->swav(*(uvlong*)q);
 	default:
-		fprint(2, "register size is %d bytes?\n", mach->szreg);
+		fprint(2, "address size is %d bytes?\n", mach->szaddr);
 		return 0;
 	}
 }
