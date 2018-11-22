@@ -6,7 +6,7 @@
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-o snapfile] pid...\n", argv0);
+	fprint(2, "usage: %s [-d] [-o snapfile] pid...\n", argv0);
 	exits("usage");
 }
 
@@ -22,6 +22,9 @@ main(int argc, char **argv)
 
 	ofile = "/fd/1";
 	ARGBEGIN{
+	case 'd':
+		debug++;
+		break;
 	case 'o':
 		ofile = ARGF();
 		break;

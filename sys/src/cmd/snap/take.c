@@ -89,6 +89,9 @@ readseg(int fd, uvlong off, uvlong len, char *name)
 	Seg *s;
 	int n;
 
+	if(debug)
+		fprint(2, "readseg %.8llux - %.8llux %s\n", off, off+len, name);
+
 	s = emalloc(sizeof(*s));
 	s->name = estrdup(name);
 	if(seek(fd, off, 0) < 0) {
@@ -263,6 +266,9 @@ snap(long pid, int usetext)
 	/* stack hack: figure sp so don't need to page in the whole segment */
 	if(stacklen) {
 		sp = stackptr(proc, fd);
+		if(debug)
+			fprint(2, "stackseg %.8llux - %.8llux sp %.8llux\n",
+				stackoff, stackoff+stacklen, sp);
 		if(stackoff <= sp && sp < stackoff+stacklen) {
 			off = sp - 8*1024;
 		} else {	/* stack pointer not in segment.  thread library? */

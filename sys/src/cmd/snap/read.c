@@ -124,7 +124,7 @@ readdata(Biobuf *b)
 }
 
 static Seg*
-readseg(Seg **ps, Biobuf *b, Proc *plist)
+readseg(Seg **ps, Biobuf *b, Proc *plist, char *name)
 {
 	Seg *s;
 	Page **pp;
@@ -140,6 +140,9 @@ readseg(Seg **ps, Biobuf *b, Proc *plist)
 	if(Breaduvlong(b, &s->offset) < 0
 	|| Breaduvlong(b, &s->len) < 0)
 		sysfatal("error reading segment: %r");
+
+	if(debug)
+		fprint(2, "readseg %.8llux - %.8llux %s\n", s->offset, s->offset + s->len, name);
 
 	npg = (s->len + Pagesize-1)/Pagesize;
 	s->npg = npg;
@@ -159,7 +162,7 @@ readseg(Seg **ps, Biobuf *b, Proc *plist)
 		switch(t = Bgetc(b)) {
 		case 'z':
 			pp[i] = datapage(zeros, len);
-			if(debug)
+			if(debug > 1)
 				fprint(2, "0x%.8llux all zeros\n", s->offset+(uvlong)i*Pagesize);
 			break;
 		case 'm':
@@ -170,7 +173,7 @@ readseg(Seg **ps, Biobuf *b, Proc *plist)
 			pp[i] = findpage(plist, pid, t, off);
 			if(pp[i] == nil)
 				sysfatal("bad page reference in snapshot");
-			if(debug)
+			if(debug > 1)
 				fprint(2, "0x%.8llux same as %s pid %lud 0x%.8llux\n",
 					s->offset+(uvlong)i*Pagesize, t=='m'?"mem":"text", pid, off);
 			break;
@@ -178,7 +181,7 @@ readseg(Seg **ps, Biobuf *b, Proc *plist)
 			if((n=Bread(b, buf, len)) != len)
 				sysfatal("short read of segment %d/%d at %llx: %r", n, len, Boffset(b));
 			pp[i] = datapage(buf, len);
-			if(debug)
+			if(debug > 1)
 				fprint(2, "0x%.8llux is raw data\n", s->offset+(uvlong)i*Pagesize);
 			break;
 		default:
@@ -233,11 +236,13 @@ readsnap(Biobuf *b)
 				sysfatal("bad segment count: %d", n);
 			p->nseg = n;
 			p->seg = emalloc(n*sizeof(*p->seg));
-			for(i=0; i<n; i++)
-				readseg(&p->seg[i], b, plist);
-		} else if(strcmp(q, "text") == 0)
-			readseg(&p->text, b, plist);
-		else
+			for(i=0; i<n; i++){
+				snprint(buf, sizeof(buf), "[%d]", i);
+				readseg(&p->seg[i], b, plist, buf);
+			}
+		} else if(strcmp(q, "text") == 0) {
+			readseg(&p->text, b, plist, q);
+		} else
 			sysfatal("unknown section");
 	}
 	return plist;

@@ -139,7 +139,7 @@ main(int argc, char **argv)
 		chatty9p++;
 		break;
 	case 'd':
-		debug = 1;
+		debug++;
 		break;
 	case 'a':
 		mflag = MAFTER;
