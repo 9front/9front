@@ -1124,7 +1124,7 @@ flagmessages(int argc, char **argv)
 void
 msgincref(Mailbox *mb, Message *m)
 {
-	assert(mb->refs > 0);
+	assert(mb->refs >= 0);
 	for(;; m = m->whole){
 		assert(m->refs >= 0);
 		m->refs++;
