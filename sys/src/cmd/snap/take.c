@@ -20,7 +20,7 @@ sumr(ulong sum, void *buf, int n)
 	return sum;
 }
 
-static int npage;
+static ulong npage;
 static Page *pgtab[1<<10];
 
 Page*
@@ -32,7 +32,7 @@ datapage(char *p, long len)
 	int iszero;
 
 	if(len > Pagesize) {
-		fprint(2, "datapage cannot handle pages > 1024\n");
+		fprint(2, "datapage cannot handle pages > %d\n", Pagesize);
 		exits("datapage");
 	}
 
@@ -277,14 +277,14 @@ snap(long pid, int usetext)
 	if(stacklen) {
 		sp = stackptr(proc, fd);
 		if(stackoff <= sp && sp < stackoff+stacklen) {
-			off = (sp - Pagesize) & ~(Pagesize - 1);
-			if(off < stackoff)
-				off = stackoff;
-			len = stacklen - (off - stackoff);
+			off = sp - 8*1024;
 		} else {	/* stack pointer not in segment.  thread library? */
 			off = stackoff + stacklen - 16*1024;
-			len = 16*1024;
 		}
+		off &= ~((uvlong)Pagesize-1);
+		if(off < stackoff)
+			off = stackoff;
+		len = stacklen - (off - stackoff);
 		s[stacki] = readseg(fd, off, len, "Stack");
 	}
 
