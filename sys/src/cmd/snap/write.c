@@ -18,7 +18,7 @@ char *pfile[Npfile] = {
 static void
 writeseg(Biobuf *b, Proc *proc, Seg *s)
 {
-	int i, npg;
+	ulong i, npg;
 	Page **pp, *p;
 	int type;
 
@@ -50,7 +50,7 @@ writeseg(Biobuf *b, Proc *proc, Seg *s)
 				abort();
 			p->written = 1;
 			p->type = type;
-			p->offset = s->offset + i*Pagesize;
+			p->offset = s->offset + (uvlong)i*Pagesize;
 			p->pid = proc->pid;
 		}
 	}
