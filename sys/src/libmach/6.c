@@ -111,7 +111,7 @@ Mach mamd64=
 	0x00007ffffffff000ull,	/* user stack top */
 	1,			/* quantization of pc */
 	8,			/* szaddr */
-	4,			/* szreg */
+	8,			/* szreg */
 	4,			/* szfloat */
 	8,			/* szdouble */
 };
