@@ -305,7 +305,7 @@ enum {
 };
 
 #define PATH(id, f)	(((uvlong)(id)<<10) | (f))
-#define FILE(p)		((p) & 0x3ff)
+#define FILE(p)		((int) (p) & 0x3ff)
 
 /* hash table to aid in name lookup, all files have an entry */
 typedef struct Hash Hash;
