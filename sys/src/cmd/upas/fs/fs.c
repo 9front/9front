@@ -790,45 +790,16 @@ dindex(char *name)
 char*
 dowalk(Fid *f, char *name)
 {
-	char *rv, *p;
+	char *p;
 	Hash *h;
 	int t;
 
 	if(f->qid.type != QTDIR)
 		return Enotdir;
 	t = FILE(f->qid.path);
-	rv = Enotexist;
-
-	/* this must catch everything except . and .. */
-retry:
-	if(t == Qdir && *name >= 'a' && *name <= 'z'){
-		h = hlook(f->qid.path, "xxx");		/* sleezy speedup */
-		t = dindex(name);
-		if(t == -1)
-			h = nil;
-	} else
-		h = hlook(f->qid.path, name);
-	if(h != nil){
-		if(h->mb)
-			mboxincref(h->mb);
-		if(h->m)
-			msgincref(h->mb, h->m);
-		if(f->m)
-			msgdecref(f->mb, f->m);
-		if(f->mb)
-			mboxdecref(f->mb);
-		f->m = h->m;
-		f->mb = h->mb;
-		f->qid = h->qid;
-		if(t < Qmax)
-			f->qid.path = PATH(f->m->id, t);	/* sleezy speedup */
-		rv = nil;
-	}else if((p = strchr(name, '.')) != nil && *name != '.'){
-		*p = 0;
-		goto retry;
-	} else if(strcmp(name, ".") == 0){
-		rv = nil;
-	} else if(strcmp(name, "..") == 0){
+	if(strcmp(name, ".") == 0)
+		return nil; 
+	if(strcmp(name, "..") == 0){
 		switch(t){
 		case Qtop:
 			f->qid.path = PATH(0, Qtop);
@@ -858,9 +829,44 @@ retry:
 			}
 			break;
 		}
-		rv = nil;
+		return nil;
 	}
-	return rv;
+
+	/* this must catch everything except . and .. */
+	if(t == Qdir && *name >= 'a' && *name <= 'z'){
+		for(;;){
+			t = dindex(name);
+			if(t == -1){
+				if((p = strchr(name, '.')) != nil && *name != '.'){
+					*p = 0;
+					continue;
+				}
+				return nil;
+			}
+			break;
+		}
+		h = hlook(f->qid.path, "xxx");		/* sleezy speedup */
+	} else {
+		h = hlook(f->qid.path, name);
+	}
+
+	if(h == nil)
+		return Enotexist;
+
+	if(h->mb)
+		mboxincref(h->mb);
+	if(h->m)
+		msgincref(h->mb, h->m);
+	if(f->m)
+		msgdecref(f->mb, f->m);
+	if(f->mb)
+		mboxdecref(f->mb);
+	f->m = h->m;
+	f->mb = h->mb;
+	f->qid = h->qid;
+	if(t < Qmax)
+		f->qid.path = PATH(f->m->id, t);	/* sleezy speedup */
+	return nil;
 }
 
 char*
