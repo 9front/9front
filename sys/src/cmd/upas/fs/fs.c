@@ -841,7 +841,7 @@ dowalk(Fid *f, char *name)
 					*p = 0;
 					continue;
 				}
-				return nil;
+				return Enotexist;
 			}
 			break;
 		}
