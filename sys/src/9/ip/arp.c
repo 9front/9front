@@ -460,16 +460,17 @@ arpread(Arp *arp, char *s, ulong offset, int len)
 		qunlock(arp);
 		runlock(ifc);
 
-		n = snprint(p, len, "%-6.6s %-4.4s %-40.40I %-16.16s %I\n",
+		n = snprint(up->genbuf, sizeof up->genbuf,
+			"%-6.6s %-4.4s %-40.40I %-16.16s %I\n",
 			mname, state, ip, mac, ia);
-		if(o < 0) {
-			if(n > -o)
-				memmove(p, p-o, n+o);
-			o += n;
-		} else {
-			len -= n;
-			p += n;
-		}
+		o += n;
+		if(o <= 0)
+			continue;
+		if(n > len)
+			break;
+		memmove(p, up->genbuf, n);
+		len -= n;
+		p += n;
 	}
 
 	return p - s;
