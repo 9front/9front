@@ -59,7 +59,7 @@ class Webconn:
 		finally:	
 			ctl.close()
 
-	def read(self, amt=4096):
+	def read(self, amt=-1):
 		return self.body.read(amt);
 
 	def close(self):
