@@ -118,6 +118,7 @@ int icolors[] = {
 Image *colors[nelem(icolors)];
 int cflag, aflag;
 char *imagedata;
+char *pixels;
 int picx = 640, picy = 480;
 
 typedef struct FRectangle FRectangle;
@@ -378,8 +379,11 @@ pixel(int x, int y, int c)
 		p[0] = icolors[c] >> 24;
 		p[1] = icolors[c] >> 16;
 		p[2] = icolors[c] >> 8;
-	} else
+	}else{
 		draw(screen, Rect(x, y, x + 1, y + 1), colors[c], nil, ZP);
+		if(ptinrect(Pt(x, y), screen->r))
+			pixels[picx * (y - screen->r.min.y) + (x - screen->r.min.x)] = 1;
+	}
 }
 
 void
@@ -577,6 +581,7 @@ drawgraphs(void)
 
 	gymin = Inf(1);
 	gymax = Inf(-1);
+	memset(pixels, 0, picx * picy);
 	for(i = 0; i < nfns; i++)
 		drawgraph(&fns[i], &screen->r, i % nelem(icolors));
 	if(!aflag)
@@ -688,6 +693,40 @@ alloccolors(void)
 }
 
 void
+readout(Point p)
+{
+	int i, j;
+	double x, y;
+	vlong d, best;
+	Point bestp;
+	double ny, besty;
+	char buf[64];
+
+	/*TODO: do something more intelligent*/
+	best = (uvlong)(-1)>>1;
+	for(j = screen->r.min.y; j < screen->r.max.y; j++)
+		for(i = screen->r.min.x; i < screen->r.max.x; i++){
+			if(!pixels[(j - screen->r.min.y) * picx + (i - screen->r.min.x)]) continue;
+			d = (i - p.x) * (i - p.x) + (j - p.y) * (j - p.y);
+			if(d < best){
+				best = d;
+				bestp = Pt(i, j);
+			}
+		}
+	ellipse(screen, bestp, 3, 3, 0, display->black, ZP);
+	x = convx(&screen->r, bestp.x);
+	y = convy(&screen->r, bestp.y);
+	besty = calc(&fns[0], x);
+	for(i = 1; i < nfns; i++){
+		ny = calc(&fns[i], x);
+		if(abs(ny - y) < abs(besty - y))
+			besty = ny;
+	}
+	snprint(buf, sizeof(buf), "%#.4g %#.4g", x, besty);
+	string(screen, addpt(Pt(10, 10), screen->r.min), display->black, ZP, display->defaultfont, buf);
+}
+
+void
 main(int argc, char **argv)
 {
 	Event e;
@@ -721,6 +760,9 @@ main(int argc, char **argv)
 		if(initdraw(nil, nil, "fplot") < 0)
 			sysfatal("initdraw: %r");
 		einit(Emouse | Ekeyboard);
+		picx = Dx(screen->r);
+		picy = Dy(screen->r);
+		pixels = emalloc(picx * picy);
 		alloccolors();
 		drawgraphs();
 		for(;;) {
@@ -728,6 +770,12 @@ main(int argc, char **argv)
 			case Emouse:
 				if((e.mouse.buttons & 1) != 0)
 					zoom();
+				if(((lbut|e.mouse.buttons) & 2) != 0){
+					draw(screen, screen->r, display->white, nil, ZP);
+					drawgraphs();
+				}
+				if((e.mouse.buttons & 2) != 0)
+					readout(e.mouse.xy);
 				if((~e.mouse.buttons & lbut & 4) != 0)
 					unzoom();
 				lbut = e.mouse.buttons;
@@ -758,6 +806,10 @@ eresized(int new)
 	if(new) {
 		if(getwindow(display, Refnone) < 0)
 			sysfatal("getwindow: %r");
+		picx = Dx(screen->r);
+		picy = Dy(screen->r);
+		pixels = realloc(pixels, picx * picy);
+		if(pixels == nil) sysfatal("realloc: %r");
 		alloccolors();
 		drawgraphs();
 	}
