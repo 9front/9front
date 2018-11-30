@@ -410,8 +410,6 @@ drawgraph(Code *co, Rectangle *r)
 {
 	int x;
 	
-	gymin = Inf(1);
-	gymax = Inf(-1);
 	for(x = r->min.x; x < r->max.x; x++)
 		drawinter(co, r, convx(r, x), convx(r, x + 1), 0);
 }
@@ -567,6 +565,8 @@ drawgraphs(void)
 	int i;
 	
 	color = display->black;
+	gymin = Inf(1);
+	gymax = Inf(-1);
 	for(i = 0; i < nfns; i++)
 		drawgraph(&fns[i], &screen->r);
 	if(!aflag)
