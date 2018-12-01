@@ -138,7 +138,7 @@ dteexec(DTExpr *p, ExecInfo *info, s64int *retv)
 		case DTE_XOR: R[c] = R[a] ^ R[b]; break;
 		case DTE_XNOR: R[c] = ~(R[a] ^ R[b]); break;
 		case DTE_LDI: R[c] = (s64int)ins << 40 >> 54 << (ins >> 8 & 63); break;
-		case DTE_XORI: R[c] |= (s64int)ins << 40 >> 54 << (ins >> 8 & 63); break;
+		case DTE_XORI: R[c] ^= (s64int)ins << 40 >> 54 << (ins >> 8 & 63); break;
 		case DTE_LSL:
 			if((u64int)R[b] >= 64)
 				R[c] = 0;
