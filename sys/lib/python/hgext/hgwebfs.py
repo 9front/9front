@@ -39,10 +39,12 @@ class Webconn:
 			ctl.seek(0)
 			ctl.write('url '+self.url)
 			m = 'User-Agent: mercurial/proto-1.0\r\n';
-			for h in req.headers:
-				m += h+': '+req.headers[h]+'\r\n'
 			ctl.seek(0)
 			ctl.write('headers '+m)
+			for h in req.headers:
+				ctl.seek(0)
+				ctl.write('headers '+h+': '+req.headers[h]+'\r\n')
+
 			if req.has_data():
 				data = req.get_data()
 				post = open(self.dir+'/postbody', 'w', 0);
