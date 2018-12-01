@@ -404,6 +404,21 @@ will turn into in-line bit operations,
 as is done for shorter
 .I unsigned
 expressions).
+.PP
+Other differences with ANSI C include
+.TF \|
+.PD
+.TP
+\-
+The compilers use the original "unsigned preserving", rather than ANSI C "value preserving" rules, which means that, e.g.,
+.B "unsigned char"
+gets promoted to
+.B "unsigned int"
+rather than
+.BR "int" .
+.TP
+\-
+Parameters in macros are substituted inside of strings.
 .SH EXAMPLE
 For the 68020, produce a program
 .B prog
