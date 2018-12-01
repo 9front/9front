@@ -683,7 +683,13 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 			/* only send proxy headers when establishing tunnel */
 			if(h->tunnel && cistrncmp(k->key, "Proxy-", 6) != 0)
 				continue;
-			n += snprint(buf+n, sizeof(buf)-2 - n, "%s: %s\r\n", k->key, k->val);
+			if(n > 0){
+				if(debug)
+					fprint(2, "-> %.*s", n, buf);
+				if(hwrite(h, buf, n) != n)
+					goto Badflush;
+			}
+			n = snprint(buf, sizeof(buf)-2, "%s: %s\r\n", k->key, k->val);
 		}
 		n += snprint(buf+n, sizeof(buf)-n, "\r\n");
 		if(debug)
