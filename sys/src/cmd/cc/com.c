@@ -607,11 +607,14 @@ tcomo(Node *n, int f)
 		if(o | tcoma(l, r, l->type->down, 1))
 			goto bad;
 		n->type = l->type->link;
-		if(!debug['B'])
-			if(l->type->down == T || l->type->down->etype == TOLD) {
+		if(!debug['B']){
+			if(l->type->down == T)
+				diag(n, "function not declared: %F", l);
+			else if(l->type->down->etype == TOLD) {
 				nerrors--;
 				diag(n, "function args not checked: %F", l);
 			}
+		}
 		dpcheck(n);
 		break;
 
