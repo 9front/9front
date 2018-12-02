@@ -46,6 +46,8 @@ extern char	*mktemp(char *);
 extern char	*sys_errlist[];
 extern int		sys_nerr;
 
+extern int	gethostname(char*, int);
+
 #ifdef __cplusplus
 }
 #endif
