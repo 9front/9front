@@ -131,7 +131,7 @@ rsaread(Fsstate *fss, void *va, uint *n)
 	State *s;
 	mpint *m;
 	Keyinfo ki;
-	int len, r;
+	int len;
 
 	s = fss->ps;
 	switch(fss->phase){
@@ -160,13 +160,9 @@ rsaread(Fsstate *fss, void *va, uint *n)
 		len = (mpsignif(priv->pub.n)+7)/8;
 		if(len > *n)
 			return failure(fss, "signature buffer too short");
-		m = rsadecrypt(priv, s->digest, nil);
-		r = mptobe(m, (uchar*)va, len, nil);
-		if(r < len){
-			memmove((uchar*)va+len-r, va, r);
-			memset(va, 0, len-r);
-		}
 		*n = len;
+		m = rsadecrypt(priv, s->digest, nil);
+		mptober(m, (uchar*)va, len);
 		mpfree(m);
 		fss->phase = Established;
 		return RpcOk;
