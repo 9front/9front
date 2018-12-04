@@ -87,11 +87,8 @@ fn main{
 	# authentication agent
 	if(! test -f /srv/factotum){
 		x=(/boot/factotum -n -sfactotum)
-		if(~ $service cpu){
+		if(~ $service cpu)
 			x=($x -S)
-			if(~ -k $ff)
-				x=($x -k)
-		}
 		if not
 			x=($x -u)
 		if(! ~ $#debugfactotum 0)
@@ -121,10 +118,7 @@ fn main{
 		if(~ $#bootdisk 1 && ~ $#cfs 0)
 			cfs=$bootdisk/cache
 		if(~ $#cfs 1 && ! ~ $cfs off && test -f $cfs){
-			x=(/bin/cfs -s -f $cfs)
-			if(~ -f $ff)
-				x=($x -r)
-			{$x </srv/boot &} | echo 0 >/srv/cfs
+			{/bin/cfs -s -f $cfs </srv/boot &} | echo 0 >/srv/cfs
 			rm /srv/boot
 			mv /srv/cfs /srv/boot
 		}
@@ -145,8 +139,6 @@ fn main{
 			init=($init -c)
 		if not
 			init=($init -t)
-		if(~ -m $ff)
-			init=($init -m)
 	}
 
 	# remove enviroment variables
