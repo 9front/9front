@@ -87,7 +87,7 @@ screen.$O:	screen.h /sys/include/draw.h /sys/include/memdraw.h /sys/include/curs
 thwack.$O:	../port/thwack.h
 unthwack.$O:	../port/thwack.h
 devsdp.$O:	../port/thwack.h
-devproc.$O sysproc.$O:	/sys/include/tos.h
+portclock.$O sysproc.$O:	/sys/include/tos.h
 devproc.$O edf.$O proc.$O:	/sys/include/trace.h
 auth.$O devcons.$O:	/sys/include/authsrv.h
 devcap.$O:	/sys/include/libsec.h

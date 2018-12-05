@@ -5,6 +5,7 @@
 #include "fns.h"
 #include "io.h"
 #include "ureg.h"
+#include "tos.h"
 
 struct Timers
 {
@@ -167,8 +168,16 @@ hzclock(Ureg *ur)
 	if(m->machno == 0)
 		checkalarms();
 
-	if(up && up->state == Running)
+	if(up && up->state == Running){
+		if(userureg(ur)){
+			/* user profiling clock */
+			Tos *tos = (Tos*)(USTKTOP-sizeof(Tos));
+			tos->clock += TK2MS(1);
+			segclock(ur->pc);
+		}
+
 		hzsched();	/* in proc.c */
+	}
 }
 
 void

@@ -1,6 +1,5 @@
 #include	"u.h"
 #include	<trace.h>
-#include	"tos.h"
 #include	"../port/lib.h"
 #include	"mem.h"
 #include	"dat.h"
@@ -167,22 +166,6 @@ static int topens;
 static int tproduced, tconsumed;
 void (*proctrace)(Proc*, int, vlong);
 
-static void
-profclock(Ureg *ur, Timer *)
-{
-	Tos *tos;
-
-	if(up == nil || up->state != Running)
-		return;
-
-	/* user profiling clock */
-	if(userureg(ur)){
-		tos = (Tos*)(USTKTOP-sizeof(Tos));
-		tos->clock += TK2MS(1);
-		segclock(ur->pc);
-	}
-}
-
 static int lenwatchpt(Proc *);
 
 static int
@@ -304,7 +287,6 @@ procinit(void)
 {
 	if(conf.nproc >= (1<<(16-QSHIFT))-1)
 		print("warning: too many procs for devproc\n");
-	addclock0link((void (*)(void))profclock, 113);	/* Relative prime to HZ */
 }
 
 static Chan*
@@ -1454,7 +1436,8 @@ void
 procctlreq(Proc *p, char *va, int n)
 {
 	Segment *s;
-	int npc, pri;
+	uintptr npc;
+	int pri;
 	Cmdbuf *cb;
 	Cmdtab *ct;
 	vlong time;
@@ -1520,14 +1503,20 @@ procctlreq(Proc *p, char *va, int n)
 		break;
 	case CMprofile:
 		s = p->seg[TSEG];
-		if(s == nil || (s->type&SG_TYPE) != SG_TEXT)
-			error(Ebadctl);
-		if(s->profile != nil)
-			free(s->profile);
+		if(s == nil || (s->type&SG_TYPE) != SG_TEXT)	/* won't expand */
+			error(Egreg);
+		eqlock(s);
 		npc = (s->top-s->base)>>LRESPROF;
-		s->profile = malloc(npc*sizeof(*s->profile));
-		if(s->profile == nil)
-			error(Enomem);
+		if(s->profile == nil){
+			s->profile = malloc(npc*sizeof(*s->profile));
+			if(s->profile == nil){
+				qunlock(s);
+				error(Enomem);
+			}
+		} else {
+			memset(s->profile, 0, npc*sizeof(*s->profile));
+		}
+		qunlock(s);
 		break;
 	case CMstart:
 		if(p->state != Stopped)
