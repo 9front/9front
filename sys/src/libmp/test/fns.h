@@ -6,3 +6,4 @@ mpint* ldtomp(ldint *, mpint *);
 void mptarget(mpint *);
 void tests(void);
 void mpdiv_(mpint *, mpint *, mpint *, mpint *);
+void convtests(void);

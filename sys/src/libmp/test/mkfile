@@ -5,6 +5,7 @@ OFILES=\
 	main.$O\
 	ld.$O\
 	gen.tab.$O\
+	convtest.$O\
 
 HFILES=dat.h fns.h
 

@@ -48,5 +48,6 @@ main()
 	fmtinstall(L'β', mpdetfmt);
 	fmtinstall('L', ldfmt);
 	
+	convtests();
 	tests();
 }
