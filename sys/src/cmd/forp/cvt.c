@@ -251,9 +251,9 @@ opidx(Node *rn, Node *n1, Node *n2, Node *n3)
 {
 	int i, j, k, s;
 	
-	j = mptoi(n2->num);
-	if(n3 == nil) k = j;
-	else k = mptoi(n3->num);
+	k = mptoi(n2->num);
+	if(n3 == nil) j = k;
+	else j = mptoi(n3->num);
 	if(j > k){
 		nodevars(rn, 1);
 		return;
@@ -492,7 +492,7 @@ convert(Node *n, uint sz)
 	case ASTIDX:
 		if(n->n2->type != ASTNUM || n->n3 != nil && n->n3->type != ASTNUM)
 			error(n, "non-constant in indexing expression");
-		convert(n->n1, (n->n3 != nil ? mptoi(n->n3->num) : mptoi(n->n2->num)) + 1);
+		convert(n->n1, n->n3 != nil ? mptoi(n->n3->num) - mptoi(n->n2->num) + 1 : 1);
 		opidx(n, n->n1, n->n2, n->n3);
 		break;
 	case ASTTERN:

@@ -89,8 +89,9 @@ Expressions can be formed just as in C, however when used in an expression, all 
 The valid operators are listed below, in decreasing precedence. Note that logical operations treat all non-zero values as 1, whereas bitwise operators operate on all bits independently.
 .TP "\w'\fL<\fR, \fL<=\fR, \fL>\fR, \fL>=\fR  'u"
 \fL[]\fR
-Array indexing. The syntax is \fIvar\fL[\fIidx\fL:\fIn\fR] to address \fIn\fR bits with the least-significant bit at \fIidx\fR.
-Omiting \fL:\fIn\fR addresses a single bit.
+Array indexing. The syntax is \fIvar\fL[\fIa\fL:\fIb\fR], with \fIa\fR denoting the MSB and \fIb\fR denoting the LSB.
+Omiting \fL:\fIb\fR addresses a single bit.
+The result is always treated as unsigned.
 .TP
 \fL!\fR, \fL~\fR, \fL+\fR, \fL-\fR
 (Unary operators) Logical and bitwise "not", unary plus (no-op), arithmetic negation. Because of promotion, \fL~\fR and \fL-\fR operate beyond the width of variables.
