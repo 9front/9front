@@ -33,11 +33,11 @@ mptouv(mpint *b)
 	uvlong v;
 	int s;
 
-	if(b->top == 0)
+	if(b->top == 0 || b->sign < 0)
 		return 0LL;
 
 	if(b->top > VLDIGITS)
-		return MAXVLONG;
+		return -1LL;
 
 	v = 0ULL;
 	for(s = 0; s < b->top; s++)
