@@ -1,6 +1,8 @@
 .TH PTRAP 4
 .SH NAME
-ptrap \- \fIplumber\fR(4) filter
+ptrap \-
+.IR plumber (4)
+filter
 .SH SYNOPSIS
 .B ptrap
 .I port
