@@ -39,7 +39,6 @@ int		threadrforkflag = 0;	/* should be RFENVG but that hides rio from plumber */
 void	mousethread(void*);
 void	keyboardthread(void*);
 void	winclosethread(void*);
-void	deletethread(void*);
 void	initcmd(void*);
 Channel* initkbd(void);
 
@@ -190,7 +189,6 @@ threadmain(int argc, char *argv[])
 
 	exitchan = chancreate(sizeof(int), 0);
 	winclosechan = chancreate(sizeof(Window*), 0);
-	deletechan = chancreate(sizeof(char*), 0);
 
 	view = screen;
 	viewr = view->r;
@@ -211,7 +209,6 @@ threadmain(int argc, char *argv[])
 	threadcreate(keyboardthread, nil, STACK);
 	threadcreate(mousethread, nil, STACK);
 	threadcreate(winclosethread, nil, STACK);
-	threadcreate(deletethread, nil, STACK);
 	filsys = filsysinit(xfidinit());
 
 	if(filsys == nil)
@@ -427,37 +424,6 @@ winclosethread(void*)
 		w = recvp(winclosechan);
 		wclose(w);
 	}
-}
-
-/* thread to make Deleted windows that the client still holds disappear offscreen after an interval */
-void
-deletethread(void*)
-{
-	char *s;
-	Image *i;
-
-	threadsetname("deletethread");
-	for(;;){
-		s = recvp(deletechan);
-		i = namedimage(display, s);
-		if(i != nil){
-			/* move it off-screen to hide it, since client is slow in letting it go */
-			originwindow(i, i->r.min, view->r.max);
-			freeimage(i);
-			flushimage(display, 1);
-		}
-		free(s);
-	}
-}
-
-void
-deletetimeoutproc(void *v)
-{
-	char *s;
-
-	s = v;
-	sleep(750);	/* remove window from screen after 3/4 of a second */
-	sendp(deletechan, s);
 }
 
 /*

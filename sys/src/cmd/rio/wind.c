@@ -12,8 +12,6 @@
 #include "dat.h"
 #include "fns.h"
 
-#define MOVEIT if(0)
-
 enum
 {
 	HiWater	= 640000,	/* max size of history */
@@ -91,7 +89,7 @@ wresize(Window *w, Image *i)
 {
 	Rectangle r;
 
-	freeimage(w->i);
+	wclosewin(w);
 	w->i = i;
 	w->mc.image = i;
 	r = insetrect(i->r, Selborder+1);
@@ -1099,7 +1097,6 @@ wsendctlmesg(Window *w, int type, Rectangle r, void *p)
 int
 wctlmesg(Window *w, int m, Rectangle r, void *p)
 {
-	char *oldname;
 	Image *i = p;
 
 	switch(m){
@@ -1115,10 +1112,8 @@ wctlmesg(Window *w, int m, Rectangle r, void *p)
 			freeimage(i);
 			break;
 		}
-		oldname = estrdup(w->name);
 		w->screenr = r;
 		wresize(w, i);
-		proccreate(deletetimeoutproc, oldname, 4096);
 		if(Dx(r)<=0){	/* window got hidden, if we had the input, drop it */
 			if(w==input)
 				input = nil;
@@ -1205,14 +1200,13 @@ wctlmesg(Window *w, int m, Rectangle r, void *p)
 		wclunk(w);
 		if(w->notefd >= 0)
 			write(w->notefd, "hangup", 6);
-		if(w->i!=nil){
-			proccreate(deletetimeoutproc, estrdup(w->name), 4096);
-			wclosewin(w);
-		}
+		wclosewin(w);
+		flushimage(display, 1);
 		break;
 	case Exited:
 		wclosewin(w);
 		frclear(w, TRUE);
+		flushimage(display, 1);
 		if(w->notefd >= 0)
 			close(w->notefd);
 		chanfree(w->mc.c);
@@ -1397,18 +1391,13 @@ wclunk(Window *w)
 void
 wclosewin(Window *w)
 {
-	Image *i;
-
-	assert(w->deleted==TRUE);
-
-	i = w->i;
-	if(i){
-		w->i = nil;
-		/* move it off-screen to hide it, in case client is slow in letting it go */
-		MOVEIT originwindow(i, i->r.min, view->r.max);
-		freeimage(i);
-		flushimage(display, 1);
-	}
+	Image *i = w->i;
+	if(i == nil)
+		return;
+	w->i = nil;
+	/* move it off-screen to hide it, in case client is slow in letting it go */
+	originwindow(i, i->r.min, view->r.max);
+	freeimage(i);
 }
 
 void
