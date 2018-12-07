@@ -1,0 +1,11 @@
+#!/bin/rc
+if(~ $#* 3){
+	netdir=$3
+	remote=$2!`{cat $3/remote}
+}
+fn server {
+	~ $#remote 0 || echo -n $netdir $remote >/proc/$pid/args
+	rm -f /env/'fn#server'
+	. <{n=`{read} && ! ~ $#n 0 && read -c $n} >[2=1]
+}
+exec tlssrv -a /bin/rc -c server

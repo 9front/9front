@@ -325,6 +325,7 @@ il=ncpu port=17010
 il=ncpunote port=17011
 il=tcpu port=17012
 il=cpu port=17013
+il=rcpu port=17019
 il=fsauth port=17020
 il=rexauth port=17021
 il=changekey port=17022
