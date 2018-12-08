@@ -7,7 +7,7 @@
 #include "fns.h"
 #include "y.tab.h"
 
-char *str, *strp;
+char *str, *strp, *stre;
 int lineno = 1;
 int errors;
 
@@ -60,6 +60,7 @@ void
 lexstring(char *s)
 {
 	str = strp = s;
+	stre = str + strlen(str);
 }
 
 void
@@ -88,7 +89,10 @@ yyerror(char *msg)
 static int
 getch(void)
 {
-	if(*strp == 0) return -1;
+	if(strp >= stre){
+		strp++;
+		return -1;
+	}
 	return *strp++;
 }
 
@@ -96,8 +100,7 @@ static void
 ungetch(void)
 {
 	assert(strp > str);
-	if(*strp != 0)
-		strp--;
+	strp--;
 }
 
 int
