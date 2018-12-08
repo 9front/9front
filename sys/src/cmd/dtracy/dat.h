@@ -5,6 +5,7 @@ typedef struct Clause Clause;
 typedef struct Enab Enab;
 typedef struct Stat Stat;
 typedef struct Type Type;
+typedef struct Agg Agg;
 
 enum {
 	SYMHASH = 256,
@@ -89,10 +90,19 @@ struct Stat {
 		STATEXPR,
 		STATPRINT,
 		STATPRINTF,
+		STATAGG,
 	} type;
+	/* STATEXPR */
 	Node *n;
+	/* STATPRINT, STATPRINTF */
 	int narg;
 	Node **arg;
+	/* STATAGG */
+	struct {
+		Symbol *name;
+		int type;
+		Node *key, *value;
+	} agg;
 };
 
 struct Clause {
@@ -112,6 +122,11 @@ struct Enab {
 	Enab *next;
 };
 
+struct Agg {
+	DTAgg;
+	char *name;
+};
+
 extern int errors;
 
 #pragma	varargck	type	"α"	int
@@ -121,3 +136,6 @@ extern int errors;
 #pragma varargck	argpos error 1
 
 extern int dflag;
+extern DTAgg noagg;
+extern int aggid;
+extern Agg *aggs;

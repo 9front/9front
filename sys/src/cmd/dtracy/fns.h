@@ -33,3 +33,7 @@ Type *type(int, ...);
 int min(int, int);
 int max(int, int);
 Node *addtype(Type *, Node *);
+int aggparsebuf(uchar *, int);
+int aggnote(void *, char *);
+void aggdump(void);
+void agginit(void);

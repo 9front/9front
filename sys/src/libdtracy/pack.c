@@ -27,6 +27,12 @@ dtgpack(Fmt *f, DTActGr *g)
 		fmtprint(f, "t%d\n", g->acts[i].type);
 		fmtprint(f, "s%d\n", g->acts[i].size);
 		dtepack(f, g->acts[i].p);
+		switch(g->acts[i].type){
+		case ACTAGGKEY:
+		case ACTAGGVAL:
+			fmtprint(f, "A%#.8ux\n", g->acts[i].agg.id);
+			break;
+		}
 	}
 	fmtprint(f, "G");
 }
@@ -132,6 +138,18 @@ dtgunpack(char *s, DTActGr **rp)
 				case ACTTRACESTR:
 					g->reclen += g->acts[i].size;
 					break;
+				case ACTAGGKEY:
+					if(*s++ != 'A') goto fail;
+					s = u32unpack(s, (u32int *) &g->acts[i].agg.id);
+					if(s == nil) goto fail;
+					break;
+				case ACTAGGVAL:
+					if(*s++ != 'A') goto fail;
+					s = u32unpack(s, (u32int *) &g->acts[i].agg.id);
+					if(s == nil) goto fail;
+					break;
+				case ACTCANCEL:
+					break;
 				default:
 					goto fail;
 				}
@@ -182,7 +200,7 @@ dtclfree(DTClause *c)
 	int i;
 
 	if(c == nil) return;
-	if(--c->gr->ref == 0)
+	if(c->gr != nil && --c->gr->ref == 0)
 		dtgfree(c->gr);
 	for(i = 0; i < c->nprob; i++)
 		free(c->probs[i]);

@@ -16,7 +16,8 @@
 	Type *t;
 }
 
-%type <n> expr
+%type <n> expr optexpr
+%type <sym> optsym
 %type <t> type
 
 %token <sym> TSYM
@@ -63,7 +64,9 @@ stats0: stat | stats0 ';' stat
 stat: expr { addstat(STATEXPR, exprcheck($1, 0)); }
 | TPRINT { addstat(STATPRINT); } pelist
 | TPRINTF { addstat(STATPRINTF); } pelist
-
+| '@' optsym '[' expr ']' '=' TSYM '(' optexpr ')' { addstat(STATAGG, $2, $4, $7, $9); }
+optsym: TSYM | { $$ = nil; }
+optexpr: expr | { $$ = nil; }
 
 pelist:
 	'(' ')'

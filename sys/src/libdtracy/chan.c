@@ -44,6 +44,14 @@ dtcnew(void)
 		c->rdbufs[i] = dtmalloc(sizeof(DTBuf));
 		c->wrbufs[i] = dtmalloc(sizeof(DTBuf));
 	}
+	c->aggrdbufs = dtmalloc(sizeof(DTBuf *) * dtnmach);
+	c->aggwrbufs = dtmalloc(sizeof(DTBuf *) * dtnmach);
+	for(i = 0; i < dtnmach; i++){
+		c->aggrdbufs[i] = dtmalloc(sizeof(DTBuf));
+		c->aggwrbufs[i] = dtmalloc(sizeof(DTBuf));
+		memset(c->aggrdbufs[i]->data, -1, DTBUFSZ);
+		memset(c->aggwrbufs[i]->data, -1, DTBUFSZ);
+	}
 	return c;
 }
 
@@ -63,6 +71,12 @@ dtcfree(DTChan *ch)
 	}
 	free(ch->rdbufs);
 	free(ch->wrbufs);
+	for(i = 0; i < dtnmach; i++){
+		free(ch->aggrdbufs[i]);
+		free(ch->aggwrbufs[i]);
+	}
+	free(ch->aggrdbufs);
+	free(ch->aggwrbufs);
 	free(ch);
 }
 
@@ -73,7 +87,7 @@ dtcaddgr(DTChan *c, DTName name, DTActGr *gr)
 	DTEnab *ep;
 	int i, nl, n;
 	
-	if(dtgverify(gr) < 0)
+	if(dtgverify(c, gr) < 0)
 		return -1;
 	gr->chan = c;
 	
@@ -194,13 +208,54 @@ dtcread(DTChan *c, void *buf, int n)
 	return 0;
 }
 
+static void
+dtcaggbufswap(DTChan *c, int n)
+{
+	DTBuf *z;
+
+	dtmachlock(n);
+	z = c->aggrdbufs[n];
+	c->aggrdbufs[n] = c->aggwrbufs[n];
+	c->aggwrbufs[n] = z;
+	dtmachunlock(n);
+}
+
+int
+dtcaggread(DTChan *c, void *buf, int n)
+{
+	int i, swapped;
+	
+	if(c->state == DTCFAULT){
+		werrstr("%s", c->errstr);
+		return -1;
+	}
+	for(i = 0; i < dtnmach; i++){
+		if(swapped = c->aggrdbufs[i]->wr == 0)
+			dtcaggbufswap(c, i);
+		if(c->aggrdbufs[i]->wr != 0){
+			if(c->aggrdbufs[i]->wr > n){
+				werrstr("short read");
+				return -1;
+			}
+			n = c->aggrdbufs[i]->wr;
+			memmove(buf, c->aggrdbufs[i]->data, n);
+			c->aggrdbufs[i]->wr = 0;
+			memset(c->aggrdbufs[i]->data + DTABUCKETS, -1, 4 * DTANUMBUCKETS);
+			if(!swapped)
+				dtcaggbufswap(c, i);
+			return n;
+		}
+	}
+	return 0;
+}
+
 void
 dtcreset(DTChan *c)
 {
 	DTEnab *ep, *eq;
 	
 	for(ep = c->enab; ep != nil; ep = ep->channext){
-		/* careful! has to look atomic for etptrigger */
+		/* careful! has to look atomic for dtptrigger */
 		ep->probprev->probnext = ep->probnext;
 		ep->probnext->probprev = ep->probprev;
 	}

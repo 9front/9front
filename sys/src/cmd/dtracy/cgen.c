@@ -296,10 +296,10 @@ tracegen(Node *n, DTActGr *g, int *recoff)
 	case ORECORD:
 		switch(n->typ->type){
 		case TYPINT:
-			actgradd(g, (DTAct){ACTTRACE, codegen(n->n1), n->typ->size});
+			actgradd(g, (DTAct){ACTTRACE, codegen(n->n1), n->typ->size, noagg});
 			break;
 		case TYPSTRING:
-			actgradd(g, (DTAct){ACTTRACESTR, codegen(n->n1), n->typ->size});
+			actgradd(g, (DTAct){ACTTRACESTR, codegen(n->n1), n->typ->size, noagg});
 			break;
 		default:
 			sysfatal("tracegen: don't know how to record %τ", n->typ);

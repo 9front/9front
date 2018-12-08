@@ -9,6 +9,7 @@ OFILES=\
 	cgen.$O\
 	act.$O\
 	type.$O\
+	agg.$O\
 
 YFILES=parse.y
 

@@ -9,7 +9,14 @@
 enum {
 	DTSTRMAX = 256,
 	DTRECMAX = 1024,
+	
+	DTMAXAGGBUF = 16,
+	
+	DTBUFSZ = 65536,
+	DTANUMBUCKETS = 1024,
+	DTABUCKETS = DTBUFSZ - 4 * DTANUMBUCKETS,
 };
+#define DTANIL ((u32int)-1)
 
 typedef struct DTName DTName;
 typedef struct DTProbe DTProbe;
@@ -21,6 +28,7 @@ typedef struct DTEnab DTEnab;
 typedef struct DTChan DTChan;
 typedef struct DTExpr DTExpr;
 typedef struct DTProvider DTProvider;
+typedef struct DTAgg DTAgg;
 typedef struct DTBuf DTBuf;
 
 struct DTName {
@@ -30,7 +38,7 @@ struct DTName {
 };
 
 /*
-	we assign all pairs (probe,action-group) (called an enabling or DTEnab) a unique ID.
+	we assign all pairs (probe,action-group) (called an enabling or DTEnab) a unique ID called EPID.
 	we could also use probe IDs and action group IDs but using a single 32-bit ID for both is more flexible/efficient.
 */
 struct DTEnab {
@@ -123,14 +131,52 @@ struct DTExpr {
 	u32int *b;
 };
 
+/*
+	aggregation buffers are hashtables and use a different record format.
+	there are DTANUMBUCKETS 4-byte buckets at the end of the buffer.
+	each entry is (link,id,key,val) with a 4-byte link field for the hash chains and a 4-byte aggregation id.
+	
+	the aggregation id actually contains all the data in the DTAgg struct:
+	4-bit type
+	12-bit keysize in qwords
+	16-bit unique id
+	
+	the struct is just for kernel convenience
+*/
+
+enum {
+	AGGCNT,
+	AGGSUM,
+	AGGAVG,
+	AGGSTD,
+	AGGMIN,
+	AGGMAX,
+};
+	
+struct DTAgg {
+	int id;
+	u16int keysize; /* in bytes */
+	u16int recsize;
+	uchar type;
+};
+
 /* an action is an expression, plus info about what to do with the result */
 struct DTAct {
 	enum {
 		ACTTRACE, /* record the result. size is the number of bytes used. 0 <= size <= 8 */
 		ACTTRACESTR, /* take the result to be a pointer to a null-terminated string. store it as zero-padded char[size]. */
+		/*
+			ACTAGGKEY and ACTAGGVAL together record a value in an aggregation.
+			they must occur as a pair and targ must point to an already allocated aggregation buffer.
+			currently 0 <= size <= 8.
+		*/
+		ACTAGGKEY,
+		ACTAGGVAL,
+		ACTCANCEL, /* (must be last action) don't write anything into the main buffer. used to avoid pointless records when using aggregations. */
 	} type;
 	DTExpr *p;
 	int size;
+	DTAgg agg;
 };
 
 /* an action group is an optional predicate and a set of actions. */
@@ -144,14 +190,13 @@ struct DTActGr {
 	int reclen; /* record size, including 12-byte header */
 };
 
-/* a clause list probe wildcard expressions and an action group. only used during set-up. */
+/* a clause lists probe wildcard expressions and an action group. only used during set-up. */
 struct DTClause {
 	int nprob;
 	char **probs;
 	DTActGr *gr;
 };
 
-enum { DTBUFSZ = 65536 };
 struct DTBuf {
 	int wr;
 	uchar data[DTBUFSZ];
@@ -170,6 +215,9 @@ struct DTChan {
 	/* we have 2 buffers per cpu, one for writing and one for reading. dtcread() swaps them if empty. */
 	DTBuf **wrbufs;
 	DTBuf **rdbufs;
+	/* aggregations use separate buffers */
+	DTBuf **aggwrbufs;
+	DTBuf **aggrdbufs;
 	
 	/* list of enablings. */
 	DTEnab *enab;
@@ -191,7 +239,7 @@ int dtefmt(Fmt *);
 /* action group functions */
 void dtgpack(Fmt *, DTActGr *);
 char *dtgunpack(char *, DTActGr **);
-int dtgverify(DTActGr *);
+int dtgverify(DTChan *, DTActGr *);
 void dtgfree(DTActGr *);
 
 /* clause functions */
@@ -205,8 +253,13 @@ void dtcfree(DTChan *);
 int dtcaddgr(DTChan *, DTName, DTActGr *);
 int dtcaddcl(DTChan *, DTClause *);
 int dtcread(DTChan *, void *, int);
+int dtcaggread(DTChan *, void *, int);
 void dtcreset(DTChan *);
 void dtcrun(DTChan *, int);
+
+/* aggbuf functions */
+int dtaunpackid(DTAgg *);
+void dtarecord(DTChan *, int, DTAgg *, uchar *, int, s64int);
 
 extern DTProvider *dtproviders[];
 extern int dtnmach;

@@ -5,6 +5,8 @@
 #include "dat.h"
 #include "fns.h"
 
+DTAgg noagg;
+
 char *dtracyroot = "#Δ";
 int dtracyno;
 int ctlfd, buffd;
@@ -160,23 +162,56 @@ err:
 	
 }
 
-void
+int
 bufread(Biobuf *bp)
 {
 	static uchar buf[65536];
 	int n;
 	
 	n = read(buffd, buf, sizeof(buf));
-	if(n < 0) sysfatal("bufread: %r");
+	if(n < 0)
+		sysfatal("bufread: %r");
 	if(parsebuf(buf, n, bp) < 0)
 		sysfatal("parsebuf: %r");
 	Bflush(bp);
+	return 0;
+}
+
+void
+aggproc(void)
+{
+	char buf[65536];
+	int buffd, n;
+	extern int interrupted;
+
+	switch(rfork(RFPROC|RFMEM)){
+	case -1: sysfatal("rfork: %r");
+	case 0: return;
+	default: break;
+	}
+	snprint(buf, sizeof(buf), "%s/%d/aggbuf", dtracyroot, dtracyno);
+	buffd = open(buf, OREAD);
+	if(buffd < 0) sysfatal("open: %r");
+	agginit();
+	atnotify(aggnote, 1);
+	while(!interrupted){
+		n = read(buffd, buf, sizeof(buf));
+		if(n < 0){
+			if(interrupted)
+				break;
+			sysfatal("aggbufread: %r");
+		}
+		if(aggparsebuf((uchar *) buf, n) < 0)
+			exits("error");
+	}
+	aggdump();
+	exits(nil);
 }
 
 static void
 usage(void)
 {
-	fprint(2, "usage: %s [ -cd ] script\n", argv0);
+	fprint(2, "usage: %s [ -d ] script\n", argv0);
 	exits("usage");
 }
 
@@ -217,6 +252,8 @@ main(int argc, char **argv)
 		fprint(ctlfd, "go");
 		out = Bfdopen(1, OWRITE);
 		if(out == nil) sysfatal("Bfdopen: %r");
+		if(aggid > 0)
+			aggproc();
 		for(;;)
 			bufread(out);
 	}

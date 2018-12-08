@@ -38,7 +38,7 @@ prog(DTKChan *p, char *s)
 		dtclfree(c);
 		if(rc < 0){
 			dtcreset(p->ch);
-			error("failed to add clause");
+			error(up->syserrstr);
 		}
 	}
 }
@@ -54,6 +54,7 @@ enum {
 	Qprog,
 	Qbuf,
 	Qepid,
+	Qaggbuf,
 };
 
 static Dirtab dtracydir[] = {
@@ -61,6 +62,7 @@ static Dirtab dtracydir[] = {
 	"prog", { Qprog, 0, 0 }, 0,	0660,
 	"buf",	{ Qbuf, 0, 0, }, 0,	0440,
 	"epid",	{ Qepid, 0, 0 }, 0,	0440,
+	"aggbuf",	{ Qaggbuf, 0, 0 }, 0,	0440,
 };
 
 enum {
@@ -270,10 +272,49 @@ epidread(DTKAux *aux, DTChan *c, char *a, long n, vlong off)
 }
 
 static long
+lockedread(DTChan *c, void *a, long n, int(*readf)(DTChan *, void *, int))
+{
+	long rc;
+
+	if(waserror()){
+		qunlock(&dtracylock);
+		nexterror();
+	}
+	eqlock(&dtracylock);
+	rc = readf(c, a, n);
+	qunlock(&dtracylock);
+	poperror();
+	return rc;
+}
+
+static long
+handleread(DTChan *c, void *a, long n, int(*readf)(DTChan *, void *, int))
+{
+	long rc, m;
+	int i;
+
+	for(;;){
+		rc = lockedread(c, a, n, readf);
+		if(rc < 0) return -1;
+		if(rc > 0) break;
+		tsleep(&up->sleep, return0, 0, 250);
+	}
+	m = rc;
+	for(i = 0; i < 3 && m < n/2; i++){
+		tsleep(&up->sleep, return0, 0, 50);
+		rc = lockedread(c, (uchar *)a + m, n - m, readf);
+		if(rc < 0) break;
+		m += rc;
+	}
+	return m;
+}
+
+static long
 dtracyread(Chan *c, void *a, long n, vlong off)
 {
 	int rc;
 	DTKChan *p;
+	DTChan *ch;
 
 	eqlock(&dtracylock);
 	if(waserror()){
@@ -299,9 +340,15 @@ dtracyread(Chan *c, void *a, long n, vlong off)
 		rc = readstr(off, a, n, up->genbuf);
 		break;
 	case Qbuf:
-		while(rc = dtcread(p->ch, a, n), rc == 0)
-			tsleep(&up->sleep, return0, 0, 250);
-		break;
+		ch = p->ch;
+		qunlock(&dtracylock);
+		poperror();
+		return handleread(ch, a, n, dtcread);
+	case Qaggbuf:
+		ch = p->ch;
+		qunlock(&dtracylock);
+		poperror();
+		return handleread(ch, a, n, dtcaggread);
 	case Qepid:
 		rc = epidread(c->aux, p->ch, a, n, off);
 		break;
@@ -460,8 +507,6 @@ dtgetvar(int v)
 	switch(v){
 	case DTV_PID:
 		return up != nil ? up->pid : 0;
-	case DTV_MACHNO:
-		return m->machno;
 	default:
 		return 0;
 	}

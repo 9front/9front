@@ -80,7 +80,7 @@ invalid:
 }
 
 int
-dtgverify(DTActGr *g)
+dtgverify(DTChan *, DTActGr *g)
 {
 	int i;
 
@@ -94,6 +94,26 @@ dtgverify(DTActGr *g)
 			break;
 		case ACTTRACESTR:
 			if(g->acts[i].p == nil || dteverify(g->acts[i].p) < 0 || (uint)g->acts[i].size > DTRECMAX)
+				return -1;
+			break;
+		case ACTAGGKEY:
+			if(g->acts[i].p == nil || dteverify(g->acts[i].p) < 0 || (uint)g->acts[i].size > 8)
+				return -1;
+			if(i == g->nact - 1 || g->acts[i+1].type != ACTAGGVAL || g->acts[i+1].agg.id != g->acts[i].agg.id)
+				return -1;
+			break;
+		case ACTAGGVAL:
+			if(g->acts[i].p == nil || dteverify(g->acts[i].p) < 0 || (uint)g->acts[i].size > 8)
+				return -1;
+			if(i == 0 || g->acts[i-1].type != ACTAGGKEY)
+				return -1;
+			if(dtaunpackid(&g->acts[i].agg) < 0)
+				return -1;
+			break;
+		case ACTCANCEL:
+			if(g->acts[i].p == nil || dteverify(g->acts[i].p) < 0)
+				return -1;
+			if(i != g->nact - 1)
 				return -1;
 			break;
 		default:
@@ -225,6 +245,7 @@ dtgexec(DTActGr *g, ExecInfo *info)
 	DTBuf *b;
 	u8int *bp;
 	s64int v;
+	uchar aggkey[8];
 	int i, j;
 	
 	b = g->chan->wrbufs[info->machno];
@@ -240,6 +261,8 @@ dtgexec(DTActGr *g, ExecInfo *info)
 	PUT4(info->epid);
 	PUT8(info->ts);
 	for(i = 0; i < g->nact; i++){
+		if(g->acts[i].type == ACTCANCEL)
+			return 0;
 		if(dteexec(g->acts[i].p, info, &v) < 0)
 			return -1;
 		switch(g->acts[i].type){
@@ -255,6 +278,15 @@ dtgexec(DTActGr *g, ExecInfo *info)
 				return -1;
 			}
 			bp += g->acts[i].size;
+			break;
+		case ACTAGGKEY:
+			for(j = 0; j < g->acts[i].size; j++){
+				aggkey[j] = v;
+				v >>= 8;
+			}
+			break;
+		case ACTAGGVAL:
+			dtarecord(g->chan, info->machno, &g->acts[i].agg, aggkey, g->acts[i-1].size, v);
 			break;
 		}
 	}
