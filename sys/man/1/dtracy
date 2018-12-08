@@ -10,7 +10,7 @@ dtracy \- dynamic tracing language
 .SH DESCRIPTION
 .I Dtracy
 is a language for dynamic tracing of the kernel.
-Essentially, they allow the user to define small programs in kernel space that are triggered by certain events (known as probes) upon which they are executed.
+Essentially, it allows the user to define small programs in kernel space that are triggered by certain events (known as probes) upon which they are executed.
 .PP
 .I Dtracy
 uses an
@@ -28,7 +28,7 @@ program is a series of statements of one of the following forms
 Each probe consists of three parts separated by \fL:\fR.
 If a part is omitted (e.g. \fLqsys::entry\fR), it matches all probes that match the remaining parts.
 .PP
-\fIPredicate\fR, if specified, is an expression that must evaluate to a non-zero values for the actions to be executed.
+\fIPredicate\fR, if specified, is an expression that must evaluate to a non-zero value for the actions to be executed.
 .PP
 \fIActions\fR is a semicolon-separated list of statements of one of the following forms:
 .IP
@@ -83,7 +83,7 @@ prints its arguments using a format string with
 syntax.
 However, there is no need to specify the argument size, e.g. \fL%d\fR works for all integer types.
 .PP
-Statements of the form \fL@\fIname\fL[\fIindex\fL] = \fIaggregation-expr\fR collect statistics using a data structures referred to as an aggregation.
+Statements of the form \fL@\fIname\fL[\fIindex\fL] = \fIaggregation-expr\fR collect statistics using a data structure referred to as an aggregation.
 Each time the statement is evaluated adds another datapoint to the aggregation, which will be printed in tabular form when
 .I dtracy
 finishes.
