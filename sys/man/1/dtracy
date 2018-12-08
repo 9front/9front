@@ -1,0 +1,151 @@
+.TH DTRACY 1
+.SH NAME
+dtracy \- dynamic tracing language
+.SH SYNOPSIS
+.B dtracy
+[
+.B -d
+]
+.I prog
+.SH DESCRIPTION
+.I Dtracy
+is a language for dynamic tracing of the kernel.
+Essentially, they allow the user to define small programs in kernel space that are triggered by certain events (known as probes) upon which they are executed.
+.PP
+.I Dtracy
+uses an
+.IR awk (1)
+inspired syntax.
+A
+.I dtracy
+program is a series of statements of one of the following forms
+.IP
+\fIprobes\fR \fL{\fR \fIactions\fL } \fR
+.br
+\fIprobes\fR \fLif\fR \fIpredicate \fL{\fR \fIactions\fL } \fR
+.PP
+\fIProbes\fR is a comma-separated list of probes, such as \fLsys:pwrite:entry\fR.
+Each probe consists of three parts separated by \fL:\fR.
+If a part is omitted (e.g. \fLqsys::entry\fR), it matches all probes that match the remaining parts.
+.PP
+\fIPredicate\fR, if specified, is an expression that must evaluate to a non-zero values for the actions to be executed.
+.PP
+\fIActions\fR is a semicolon-separated list of statements of one of the following forms:
+.IP
+\fIexpr\fR
+.br
+\fLprint \fIa\fL, \fIb\fL, \fI...\fR
+.br
+\fLprintf "\fIfmt\fR", \fIa\fL, \fIb\fL, \fI...\fR
+.br
+\fL@\fIname\fL[\fIindex\fL] = \fIaggregation-expr\fR
+.PP
+Expressions follow C syntax and semantics and all C operators (including casts) are supported.
+Available integer types are
+.BR u8 ,
+.BR u16 ,
+.BR u32 ,
+.BR u64 ,
+.BR s8 ,
+.BR s16 ,
+.B s32
+and
+.BR s64 ;
+they correspond to the C types
+.BR u8int ,
+etc.
+Additionally, a string type \fIstring\fR is available.
+.PP
+Expressions can use the following variables
+.TF "\fLarg0\fR, \fLarg1\fR, ...  "
+.TP
+\fLprobe\fR
+name of the probe that was triggered
+.TP
+\fLpid\fR
+PID of the process triggering the probe
+.TP
+\fLarg0\fR, \fLarg1\fR, ...
+for a syscall probe, the syscall arguments (cast to \fBs64\fR)
+.TP
+\fLtime\fR
+timestamp when the probe was triggered
+.TP
+\fLmachno\fR
+CPU number on which the probe was triggered
+.PD
+.PP
+.I Print
+prints all its arguments, separated by spaces and followed by a newline.
+.I Printf
+prints its arguments using a format string with
+.IR print (1)
+syntax.
+However, there is no need to specify the argument size, e.g. \fL%d\fR works for all integer types.
+.PP
+Statements of the form \fL@\fIname\fL[\fIindex\fL] = \fIaggregation-expr\fR collect statistics using a data structures referred to as an aggregation.
+Each time the statement is evaluated adds another datapoint to the aggregation, which will be printed in tabular form when
+.I dtracy
+finishes.
+\fIIndex\fR is effectively a label for the datapoint; statistics are evaluated over all datapoints of the same index.
+.PP
+\fIAggregation-expr\fR specifies the type of statistic to be collected.
+Available options are
+.TF "\fLavg(\fIexpr\fL)\fR  "
+.TP
+\fLcount()\fR
+number of datapoints
+.TP
+\fLavg(\fIexpr\fL)\fR
+average
+.TP
+\fLsum(\fIexpr\fL)\fR
+sum
+.TP
+\fLmin(\fIexpr\fL)\fR
+minimum
+.TP
+\fLmax(\fIexpr\fL)\fR
+maximum
+.TP
+\fLstd(\fIexpr\fL)\fR
+average and standard deviation
+.PD
+.PP
+.SH EXAMPLES
+.IP
+.EX
+sys:: { print probe, pid, arg0, arg1 }
+.EE
+.PP
+The world's worst syscall tracer.
+.IP
+.EX
+sys:pread:entry if pid == 42 { printf "time %d, fd %d\\n", time, arg0 }
+.EE
+.PP
+Every time the process with PID 42 executes
+.IR pread (2),
+write down the timestamp and the file descriptor used.
+.IP
+.EX
+sys:open:entry { print (string)arg0 }
+.EE
+.PP
+Print the names of files as they are being opened.
+.IP
+.EX
+sys:pread:entry { @size[pid] = avg(arg2) }
+.EE
+.PP
+Determine the average
+.I pread
+buffer size for each process.
+.SH SOURCE
+.B /sys/src/cmd/dtracy
+.SH BUGS
+Yes.
+.SH HISTORY
+.I Dtracy
+appeared in 9front in November, 2018.
+
