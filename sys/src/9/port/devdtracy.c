@@ -525,9 +525,12 @@ static DTProbe *timerprobe;
 static void
 dtracytimer(void *)
 {
+	DTTrigInfo info;
+
+	memset(&info, 0, sizeof(info));
 	for(;;){
 		tsleep(&up->sleep, return0, nil, 1000);
-		dtptrigger(timerprobe, m->machno, 0, 0, 0, 0);
+		dtptrigger(timerprobe, m->machno, &info);
 	}
 }
 

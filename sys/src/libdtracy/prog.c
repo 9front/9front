@@ -122,17 +122,8 @@ dtgverify(DTChan *, DTActGr *g)
 	return 0;
 }
 
-typedef struct ExecInfo ExecInfo;
-struct ExecInfo {
-	int machno;
-	int epid;
-	u64int ts;
-	u64int arg[10];
-	DTChan *ch;
-};
-
 int
-dteexec(DTExpr *p, ExecInfo *info, s64int *retv)
+dteexec(DTExpr *p, DTTrigInfo *info, s64int *retv)
 {
 	s64int R[16];
 	u32int ins;
@@ -240,7 +231,7 @@ dtpeekstr(uvlong addr, u8int *v, int len)
 #define PUT8(c) PUT4(c); PUT4(c>>32);
 
 static int
-dtgexec(DTActGr *g, ExecInfo *info)
+dtgexec(DTActGr *g, DTTrigInfo *info)
 {
 	DTBuf *b;
 	u8int *bp;
@@ -296,23 +287,18 @@ dtgexec(DTActGr *g, ExecInfo *info)
 }
 
 void
-dtptrigger(DTProbe *p, int machno, uvlong arg0, uvlong arg1, uvlong arg2, uvlong arg3)
+dtptrigger(DTProbe *p, int machno, DTTrigInfo *info)
 {
 	DTEnab *e;
-	ExecInfo info;
 	
-	info.ts = dttime();
+	info->ts = dttime();
 	dtmachlock(machno);
-	info.machno = machno;
-	info.arg[0] = arg0;
-	info.arg[1] = arg1;
-	info.arg[2] = arg2;
-	info.arg[3] = arg3;
+	info->machno = machno;
 	for(e = p->enablist.probnext; e != &p->enablist; e = e->probnext)
 		if(e->gr->chan->state == DTCGO){
-			info.ch = e->gr->chan;
-			info.epid = e->epid;
-			if(dtgexec(e->gr, &info) < 0)
+			info->ch = e->gr->chan;
+			info->epid = e->epid;
+			if(dtgexec(e->gr, info) < 0)
 				e->gr->chan->state = DTCFAULT;
 		}
 	dtmachunlock(machno);

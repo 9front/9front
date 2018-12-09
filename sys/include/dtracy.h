@@ -30,6 +30,7 @@ typedef struct DTExpr DTExpr;
 typedef struct DTProvider DTProvider;
 typedef struct DTAgg DTAgg;
 typedef struct DTBuf DTBuf;
+typedef struct DTTrigInfo DTTrigInfo;
 
 struct DTName {
 	char *provider;
@@ -223,13 +224,25 @@ struct DTChan {
 	DTEnab *enab;
 };
 
+/* this struct collects the state during the execution of a probe */
+struct DTTrigInfo {
+	/* filled in by caller of dtptrigger */
+	u64int arg[10];
+	/* filled in by dtptrigger */
+	int machno;
+	int epid;
+	u64int ts;
+	DTChan *ch;
+};
+
+
 void dtinit(int);
 void dtsync(void);
 
 /* probe functions */
 DTProbe *dtpnew(DTName, DTProvider *, void *aux);
 int dtpmatch(DTName, DTProbe ***);
-void dtptrigger(DTProbe *, int, uvlong, uvlong, uvlong, uvlong);
+void dtptrigger(DTProbe *, int, DTTrigInfo *);
 
 /* expression functions */
 int dteverify(DTExpr *);

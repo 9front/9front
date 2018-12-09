@@ -18,55 +18,70 @@ extern Syscall *systab[];
 #define WRAP0(x,y,z)\
 	Syscall z; uintptr x(va_list va){\
 	uintptr rc;\
-	dtptrigger(dtpsysentry[y], m->machno, 0, 0, 0, 0);\
+	DTTrigInfo info;\
+	memset(&info, 0, sizeof(info));\
+	dtptrigger(dtpsysentry[y], m->machno, &info);\
 	rc = z(va);\
-	dtptrigger(dtpsysreturn[y], m->machno, 0, 0, 0, 0);\
+	info.arg[9] = (uvlong) rc;\
+	dtptrigger(dtpsysreturn[y], m->machno, &info);\
 	return rc;\
 }
 #define WRAP1(x,y,z,type0)\
 	Syscall z; uintptr x(va_list va){\
 	uintptr rc;\
 	va_list vb = va;\
-	type0 arg0 = va_arg(vb, type0);\
-	dtptrigger(dtpsysentry[y], m->machno, (uvlong)arg0, 0, 0, 0);\
+	DTTrigInfo info;\
+	memset(&info, 0, sizeof(info));\
+	info.arg[0] = (uvlong) va_arg(vb, type0);\
+	dtptrigger(dtpsysentry[y], m->machno, &info);\
 	rc = z(va);\
-	dtptrigger(dtpsysreturn[y], m->machno, (uvlong)arg0, 0, 0, 0);\
+	info.arg[9] = (uvlong) rc;\
+	dtptrigger(dtpsysreturn[y], m->machno, &info);\
 	return rc;\
 }
 #define WRAP2(x,y,z,type0,type1)\
 	Syscall z; uintptr x(va_list va){\
 	uintptr rc;\
 	va_list vb = va;\
-	type0 arg0 = va_arg(vb, type0);\
-	type1 arg1 = va_arg(vb, type1);\
-	dtptrigger(dtpsysentry[y], m->machno, (uvlong)arg0, (uvlong)arg1, 0, 0);\
+	DTTrigInfo info;\
+	memset(&info, 0, sizeof(info));\
+	info.arg[0] = (uvlong) va_arg(vb, type0);\
+	info.arg[1] = (uvlong) va_arg(vb, type1);\
+	dtptrigger(dtpsysentry[y], m->machno, &info);\
 	rc = z(va);\
-	dtptrigger(dtpsysreturn[y], m->machno, (uvlong)arg0, (uvlong)arg1, 0, 0);\
+	info.arg[9] = (uvlong) rc;\
+	dtptrigger(dtpsysreturn[y], m->machno, &info);\
 	return rc;\
 }
 #define WRAP3(x,y,z,type0,type1,type2)\
 	Syscall z; uintptr x(va_list va){\
 	uintptr rc;\
 	va_list vb = va;\
-	type0 arg0 = va_arg(vb, type0);\
-	type1 arg1 = va_arg(vb, type1);\
-	type2 arg2 = va_arg(vb, type2);\
-	dtptrigger(dtpsysentry[y], m->machno, (uvlong)arg0, (uvlong)arg1, (uvlong)arg2, 0);\
+	DTTrigInfo info;\
+	memset(&info, 0, sizeof(info));\
+	info.arg[0] = (uvlong) va_arg(vb, type0);\
+	info.arg[1] = (uvlong) va_arg(vb, type1);\
+	info.arg[2] = (uvlong) va_arg(vb, type2);\
+	dtptrigger(dtpsysentry[y], m->machno, &info);\
 	rc = z(va);\
-	dtptrigger(dtpsysreturn[y], m->machno, (uvlong)arg0, (uvlong)arg1, (uvlong)arg2, 0);\
+	info.arg[9] = (uvlong) rc;\
+	dtptrigger(dtpsysreturn[y], m->machno, &info);\
 	return rc;\
 }
 #define WRAP4(x,y,z,type0,type1,type2,type3)\
 	Syscall z; uintptr x(va_list va){\
 	uintptr rc;\
 	va_list vb = va;\
-	type0 arg0 = va_arg(vb, type0);\
-	type1 arg1 = va_arg(vb, type1);\
-	type2 arg2 = va_arg(vb, type2);\
-	type3 arg3 = va_arg(vb, type3);\
-	dtptrigger(dtpsysentry[y], m->machno, (uvlong)arg0, (uvlong)arg1, (uvlong)arg2, (uvlong)arg3);\
+	DTTrigInfo info;\
+	memset(&info, 0, sizeof(info));\
+	info.arg[0] = (uvlong) va_arg(vb, type0);\
+	info.arg[1] = (uvlong) va_arg(vb, type1);\
+	info.arg[2] = (uvlong) va_arg(vb, type2);\
+	info.arg[3] = (uvlong) va_arg(vb, type3);\
+	dtptrigger(dtpsysentry[y], m->machno, &info);\
 	rc = z(va);\
-	dtptrigger(dtpsysreturn[y], m->machno, (uvlong)arg0, (uvlong)arg1, (uvlong)arg2, (uvlong)arg3);\
+	info.arg[9] = (uvlong) rc;\
+	dtptrigger(dtpsysreturn[y], m->machno, &info);\
 	return rc;\
 }
 /*TODO*/
@@ -74,13 +89,17 @@ extern Syscall *systab[];
 	Syscall z; uintptr x(va_list va){\
 	uintptr rc;\
 	va_list vb = va;\
-	type0 arg0 = va_arg(vb, type0);\
-	type1 arg1 = va_arg(vb, type1);\
-	type2 arg2 = va_arg(vb, type2);\
-	type3 arg3 = va_arg(vb, type3);\
-	dtptrigger(dtpsysentry[y], m->machno, (uvlong)arg0, (uvlong)arg1, (uvlong)arg2, (uvlong)arg3);\
+	DTTrigInfo info;\
+	memset(&info, 0, sizeof(info));\
+	info.arg[0] = (uvlong) va_arg(vb, type0);\
+	info.arg[1] = (uvlong) va_arg(vb, type1);\
+	info.arg[2] = (uvlong) va_arg(vb, type2);\
+	info.arg[3] = (uvlong) va_arg(vb, type3);\
+	info.arg[4] = (uvlong) va_arg(vb, type4);\
+	dtptrigger(dtpsysentry[y], m->machno, &info);\
 	rc = z(va);\
-	dtptrigger(dtpsysreturn[y], m->machno, (uvlong)arg0, (uvlong)arg1, (uvlong)arg2, (uvlong)arg3);\
+	info.arg[9] = (uvlong) rc;\
+	dtptrigger(dtpsysreturn[y], m->machno, &info);\
 	return rc;\
 }
 
