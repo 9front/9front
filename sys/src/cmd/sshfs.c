@@ -1414,4 +1414,6 @@ threadmain(int argc, char **argv)
 	passwdparse(gidtab, readfile(gidfile));
 	
 	threadpostmountsrv(&sshfssrv, svc, mtpt, MCREATE | mflag);
+
+	exits(nil);
 }
