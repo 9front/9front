@@ -462,6 +462,34 @@ parseclause(Clause *cl, uchar *p, uchar *e, Enab *en, Biobuf *bp)
 	return 0;
 }
 
+uchar *
+parsefault(uchar *p0, uchar *e)
+{
+	uchar *p;
+	u32int epid;
+	u8int type, dummy;
+	u16int n;
+	Enab *en;
+
+	p = unpack(p0, e, "csci", &type, &n, &dummy, &epid);
+	if(p == nil) return nil;
+	en = epidlookup(epid);
+	switch(type){
+	case DTFILL: {
+		u32int pid;
+		u64int addr;
+		
+		p = unpack(p, e, "iv", &pid, &addr);
+		if(p == nil) return nil;
+		fprint(2, "dtracy: illegal access: probe=%s, pid=%d, addr=%#llx\n", en != nil ? en->probe : nil, pid, addr);
+		break;
+	}
+	default:
+		fprint(2, "dtracy: unknown fault type %#.2ux\n", type);
+	}
+	return p0 + n - 12;
+}
+
 int
 parsebuf(uchar *p, int n, Biobuf *bp)
 {
@@ -474,6 +502,11 @@ parsebuf(uchar *p, int n, Biobuf *bp)
 	while(p < e){
 		p = unpack(p, e, "iv", &epid, &ts);
 		if(p == nil) goto err;
+		if(epid == (u32int)-1){
+			p = parsefault(p, e);
+			if(p == nil) goto err;
+			continue;
+		}
 		en = epidlookup(epid);
 		if(en == nil) goto err;
 		if(parseclause(en->cl, p - 12, p + en->reclen - 12, en, bp) < 0) return -1;

@@ -230,6 +230,55 @@ dtpeekstr(uvlong addr, u8int *v, int len)
 #define PUT4(c) *bp++ = c; *bp++ = c >> 8; *bp++ = c >> 16; *bp++ = c >> 24;
 #define PUT8(c) PUT4(c); PUT4(c>>32);
 
+int
+dtcfault(DTTrigInfo *info, int type, char *fmt, ...)
+{
+	DTBuf *b;
+	va_list va;
+	int n;
+	char *s;
+	u8int *bp;
+	u32int l;
+	uvlong q;
+	
+	b = info->ch->wrbufs[info->machno];
+	n = 20;
+	va_start(va, fmt);
+	for(s = fmt; *s != 0; s++)
+		switch(*s){
+		case 'i': n += 4; break;
+		case 'p': n += 8; break;
+		default:
+			assert(0);
+		}
+	va_end(va);
+	if(b->wr + n > DTBUFSZ)
+		return -1;
+	bp = &b->data[b->wr];
+	PUT4(-1);
+	PUT8(info->ts);
+	PUT1(type);
+	PUT2(n);
+	PUT1(0);
+	PUT4(info->epid);
+	va_start(va, fmt);
+	for(s = fmt; *s != 0; s++)
+		switch(*s){
+		case 'i':
+			l = va_arg(va, int);
+			PUT4(l);
+			break;
+		case 'p':
+			q = (uintptr) va_arg(va, void *);
+			PUT8(q);
+			break;
+		}
+	va_end(va);
+	assert(bp - b->data - b->wr == n);
+	b->wr = bp - b->data;
+	return 0;
+}
+
 static int
 dtgexec(DTActGr *g, DTTrigInfo *info)
 {
@@ -265,8 +314,8 @@ dtgexec(DTActGr *g, DTTrigInfo *info)
 			break;
 		case ACTTRACESTR:
 			if(dtpeekstr(v, bp, g->acts[i].size) < 0){
-				snprint(info->ch->errstr, sizeof(info->ch->errstr), "fault @ %#llux", v);
-				return -1;
+				dtcfault(info, DTFILL, "ip", dtgetvar(DTV_PID), v);
+				return 0;
 			}
 			bp += g->acts[i].size;
 			break;
