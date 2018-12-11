@@ -449,6 +449,18 @@ TEXT _wrmsrinst(SB), $0
 	MOVQ	BP, AX				/* BP set to -1 if traped */
 	RET
 
+/* fault-proof memcpy */
+TEXT peek(SB), 1, $-4
+	MOVQ	$0, AX
+	MOVQ	RARG, SI
+	MOVQ	dst+8(FP), DI
+	MOVL	cnt+16(FP), CX
+	CLD
+TEXT _peekinst(SB), $0
+	REP; MOVSB
+	RET
+	
+
 TEXT invlpg(SB), 1, $-4
 	INVLPG	(RARG)
 	RET

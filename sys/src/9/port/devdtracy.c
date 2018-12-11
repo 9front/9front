@@ -518,10 +518,16 @@ dtgetvar(int v)
 	}
 }
 
+int peek(char *, char *, int);
+
 int
 dtpeek(uvlong addr, void *buf, int len)
 {
-	if((uintptr)addr != addr || up == nil || !okaddr((uintptr) addr, len, 0)) return -1;
-	memmove(buf, (void *) addr, len);
-	return 0;
+	uintptr a;
+	
+	a = addr;
+	if(len == 0) return 0;
+	if(a != addr || a > -(uintptr)len || len < 0) return -1;
+	if(up == nil || up->privatemem || a >= KZERO) return -1;
+	return peek((void *)a, buf, len);
 }
