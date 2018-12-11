@@ -260,7 +260,7 @@ sysdisable(DTProbe *p)
 		z = systab[i], systab[i] = wraptab[i], wraptab[i] = z;
 }
 
-DTProvider dtracyprov_sys = {
+DTProvider dtracysysprov = {
 	.name = "sys",
 	.provide = sysprovide,
 	.enable = sysenable,
