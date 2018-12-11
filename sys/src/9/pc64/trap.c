@@ -451,7 +451,6 @@ trap(Ureg *ureg)
 				}
 			} else if(pc == _peekinst){
 				if(vno == VectorGPF){
-					ureg->ax = -1;
 					ureg->pc += 2;
 					return;
 				}
@@ -683,7 +682,6 @@ faultamd64(Ureg* ureg, void*)
 			extern void _peekinst(void);
 			
 			if((void(*)(void))ureg->pc == _peekinst){
-				ureg->ax = -1;
 				ureg->pc += 2;
 				return;
 			}

@@ -451,13 +451,13 @@ TEXT _wrmsrinst(SB), $0
 
 /* fault-proof memcpy */
 TEXT peek(SB), 1, $-4
-	MOVQ	$0, AX
 	MOVQ	RARG, SI
 	MOVQ	dst+8(FP), DI
 	MOVL	cnt+16(FP), CX
 	CLD
 TEXT _peekinst(SB), $0
 	REP; MOVSB
+	MOVL	CX, AX
 	RET
 	
 

@@ -513,13 +513,13 @@ TEXT _wrmsrinst(SB), $0
 
 /* fault-proof memcpy */
 TEXT peek(SB), $0
-	MOVL	$0, AX				/* AX set to -1 if traped */
 	MOVL	src+0(FP), SI
 	MOVL	dst+4(FP), DI
 	MOVL	cnt+8(FP), CX
 	CLD
 TEXT _peekinst(SB), $0
 	REP; MOVSB
+	MOVL	CX, AX
 	RET
 
 /*

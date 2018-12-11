@@ -529,5 +529,5 @@ dtpeek(uvlong addr, void *buf, int len)
 	if(len == 0) return 0;
 	if(a != addr || a > -(uintptr)len || len < 0) return -1;
 	if(up == nil || up->privatemem || a >= KZERO) return -1;
-	return peek((void *)a, buf, len);
+	return peek((void *)a, buf, len) > 0 ? -1 : 0;
 }
