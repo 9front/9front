@@ -100,7 +100,7 @@ putcache(Mailbox *mb, Message *m)
 				return;
 			addlru(mb, mb->lru);
 		}
-		cachefree(mb, mb->lru, 0);
+		cachefree(mb, mb->lru, 1);
 	}
 }
 
