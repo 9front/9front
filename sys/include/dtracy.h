@@ -41,6 +41,8 @@ struct DTName {
 /*
 	we assign all pairs (probe,action-group) (called an enabling or DTEnab) a unique ID called EPID.
 	we could also use probe IDs and action group IDs but using a single 32-bit ID for both is more flexible/efficient.
+	
+	epid == -1 indicates a fault record (see below)
 */
 struct DTEnab {
 	u32int epid;
@@ -235,6 +237,10 @@ struct DTTrigInfo {
 	DTChan *ch;
 };
 
+/* fault records are used to note when a probe had to be aborted (e.g. because of a page fault) */
+enum {
+	DTFILL = 1, /* illegal address */
+};
 
 void dtinit(int);
 void dtsync(void);
@@ -269,6 +275,7 @@ int dtcread(DTChan *, void *, int);
 int dtcaggread(DTChan *, void *, int);
 void dtcreset(DTChan *);
 void dtcrun(DTChan *, int);
+int dtcfault(DTTrigInfo *, int, char *, ...);
 
 /* aggbuf functions */
 int dtaunpackid(DTAgg *);

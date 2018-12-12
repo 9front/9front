@@ -450,6 +450,7 @@ trap(Ureg* ureg)
 			extern void _forkretiret(void);
 			extern void _rdmsrinst(void);
 			extern void _wrmsrinst(void);
+			extern void _peekinst(void);
 
 			extern void load_fs(ulong);
 			extern void load_gs(ulong);
@@ -475,6 +476,11 @@ trap(Ureg* ureg)
 			} else if(pc == _rdmsrinst || pc == _wrmsrinst){
 				if(vno == VectorGPF){
 					ureg->bp = -1;
+					ureg->pc += 2;
+					return;
+				}
+			} else if(pc == _peekinst){
+				if(vno == VectorGPF){
 					ureg->pc += 2;
 					return;
 				}
@@ -712,6 +718,13 @@ fault386(Ureg* ureg, void*)
 	if(!user){
 		if(vmapsync(addr))
 			return;
+		{
+			extern void _peekinst(void);
+			if((void(*)(void))ureg->pc == _peekinst){
+				ureg->pc += 2;
+				return;
+			}
+		}
 		if(addr >= USTKTOP)
 			panic("kernel fault: bad address pc=0x%.8lux addr=0x%.8lux", ureg->pc, addr);
 		if(up == nil)

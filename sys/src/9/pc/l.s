@@ -511,6 +511,17 @@ TEXT _wrmsrinst(SB), $0
 	MOVL	BP, AX				/* BP set to -1 if traped */
 	RET
 
+/* fault-proof memcpy */
+TEXT peek(SB), $0
+	MOVL	src+0(FP), SI
+	MOVL	dst+4(FP), DI
+	MOVL	cnt+8(FP), CX
+	CLD
+TEXT _peekinst(SB), $0
+	REP; MOVSB
+	MOVL	CX, AX
+	RET
+
 /*
  * Try to determine the CPU type which requires fiddling with EFLAGS.
  * If the Id bit can be toggled then the CPUID instruction can be used

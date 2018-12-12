@@ -65,6 +65,7 @@ LIB=\
 	/$objtype/lib/libc.a\
 	/$objtype/lib/libfis.a\
 	/$objtype/lib/libaml.a\
+	/$objtype/lib/libdtracy.a\
 
 ETHER=`{cd ../pc; echo devether.c ether*.c | sed 's/\.c/.'$O'/g'}
 AUDIO=`{cd ../pc; echo devaudio.c audio*.c | sed 's/\.c/.'$O'/g'}

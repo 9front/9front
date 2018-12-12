@@ -440,11 +440,17 @@ trap(Ureg *ureg)
 
 			extern void _rdmsrinst(void);
 			extern void _wrmsrinst(void);
+			extern void _peekinst(void);
 
 			pc = (void*)ureg->pc;
 			if(pc == _rdmsrinst || pc == _wrmsrinst){
 				if(vno == VectorGPF){
 					ureg->bp = -1;
+					ureg->pc += 2;
+					return;
+				}
+			} else if(pc == _peekinst){
+				if(vno == VectorGPF){
 					ureg->pc += 2;
 					return;
 				}
@@ -672,6 +678,14 @@ faultamd64(Ureg* ureg, void*)
 	read = !(ureg->error & 2);
 	user = userureg(ureg);
 	if(!user){
+		{
+			extern void _peekinst(void);
+			
+			if((void(*)(void))ureg->pc == _peekinst){
+				ureg->pc += 2;
+				return;
+			}
+		}
 		if(addr >= USTKTOP)
 			panic("kernel fault: bad address pc=%#p addr=%#p", ureg->pc, addr);
 		if(up == nil)
