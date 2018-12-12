@@ -7,6 +7,9 @@ addlru(Mcache *c, Message *m)
 {
 	Message *l, **ll;
 
+	if((m->cstate & (Cheader|Cbody)) == 0)
+		return;
+
 	c->nlru++;
 	ll = &c->lru;
 	while((l = *ll) != nil){
@@ -360,7 +363,7 @@ cacheidx(Mailbox *mb, Message *m)
 {
 	if(m->cstate & Cidx)
 		return 0;
-	if(cachebody(mb, m) == -1)
+	if(cachebody(mb, m) < 0)
 		return -1;
 	m->cstate |= Cidxstale|Cidx;
 	return 0;

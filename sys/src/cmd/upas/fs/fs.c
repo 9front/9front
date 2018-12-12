@@ -394,13 +394,15 @@ fileinfo(Mailbox *mb, Message *m, int t, char **pp)
 	int len, i;
 	static char buf[64 + 512];
 
-	cacheidx(mb, m);
+	if(cacheidx(mb, m) < 0)
+		return -1;
 	sanembmsg(mb, m);
 	p = nil;
 	len = -1;
 	switch(t){
 	case Qbody:
-		cachebody(mb, m);
+		if(cachebody(mb, m) < 0)
+			return -1;
 		p = m->body;
 		len = m->bend - p;
 		break;
@@ -453,7 +455,8 @@ fileinfo(Mailbox *mb, Message *m, int t, char **pp)
 		p = buf;
 		break;
 	case Qraw:
-		cachebody(mb, m);
+		if(cachebody(mb, m) < 0)
+			return -1;
 		p = m->start;
 		if(p != nil)
 		if(strncmp(p, "From ", 5) == 0)
@@ -462,27 +465,32 @@ fileinfo(Mailbox *mb, Message *m, int t, char **pp)
 		len = m->rbend - p;
 		break;
 	case Qrawunix:
-		cachebody(mb, m);
+		if(cachebody(mb, m) < 0)
+			return -1;
 		p = m->start;
 		len = m->end - p;
 		break;
 	case Qrawbody:
-		cachebody(mb, m);
+		if(cachebody(mb, m) < 0)
+			return -1;
 		p = m->rbody;
 		len = m->rbend - p;
 		break;
 	case Qrawheader:
-		cacheheaders(mb, m);
+		if(cacheheaders(mb, m) < 0)
+			return -1;
 		p = m->header;
 		len = m->hend - p;
 		break;
 	case Qmimeheader:
-		cacheheaders(mb, m);
+		if(cacheheaders(mb, m) < 0)
+			return -1;
 		p = m->mheader;
 		len = m->mhend - p;
 		break;
 	case Qreferences:
-		cacheheaders(mb, m);
+		if(cacheheaders(mb, m) < 0)
+			return -1;
 		e = buf + sizeof buf;
 		s = buf;
 		for(i = 0; i < nelem(m->references); i++){
@@ -529,7 +537,8 @@ fileinfo(Mailbox *mb, Message *m, int t, char **pp)
 		len = snprint(buf, sizeof buf, "%D", m->fileid);
 		break;
 	case Qunixheader:
-		cacheheaders(mb, m);
+		if(cacheheaders(mb, m) < 0)
+			return -1;
 		p = m->unixheader;
 		break;
 	case Qdigest:
@@ -586,7 +595,8 @@ readinfo(Mailbox *mb, Message *m, char *buf, long off, int count)
 			m->infolen = s - buf + off0;
 			break;
 		}
-		n = fileinfo(mb, m, infofields[i], &p);
+		if((n = fileinfo(mb, m, infofields[i], &p)) < 0)
+			return -1;
 		if(off > n){
 			off -= n + 1;
 			continue;
@@ -606,10 +616,11 @@ readinfo(Mailbox *mb, Message *m, char *buf, long off, int count)
 	return s - buf;
 }
 
-static void
+static int
 mkstat(Dir *d, Mailbox *mb, Message *m, int t)
 {
 	char *p, *e;
+	int n;
 
 	d->uid = user;
 	d->gid = user;
@@ -659,8 +670,9 @@ mkstat(Dir *d, Mailbox *mb, Message *m, int t)
 		d->qid.path = PATH(0, Qctl);
 		break;
 	case Qheader:
+		if(cacheheaders(mb, m) < 0)
+			return -1;
 		d->name = dirtab[t];
-		cacheheaders(mb, m);
 		d->length = readheader(m, hbuf, 0, sizeof hbuf);
 		putcache(mb, m);
 		break;
@@ -672,18 +684,22 @@ mkstat(Dir *d, Mailbox *mb, Message *m, int t)
 		d->qid.path = PATH(mb->id, Qmboxctl);
 		break;
 	case Qinfo:
+		if((n = readinfo(mb, m, hbuf, 0, sizeof hbuf)) < 0)
+			return -1;
 		d->name = dirtab[t];
-		d->length = readinfo(mb, m, hbuf, 0, sizeof hbuf);
+		d->length = n;
 		d->qid.path = PATH(m->id, t);
 		break;
 	case Qraw:
-		cacheheaders(mb, m);
-		p = m->start;
-		if(strncmp(m->start, "From ", 5) == 0)
-		if(e = strchr(p, '\n'))
-			p = e + 1;
+		if(cacheheaders(mb, m) < 0)
+			return -1;
 		d->name = dirtab[t];
-		d->length = m->size - (p - m->start);
+		d->length = m->size;
+		p = m->start;
+		if(p != nil)
+		if(strncmp(p, "From ", 5) == 0)
+		if(e = strchr(p, '\n'))
+			d->length -= ++e - p;
 		putcache(mb, m);
 		break;
 	case Qrawbody:
@@ -694,7 +710,8 @@ mkstat(Dir *d, Mailbox *mb, Message *m, int t)
 		d->name = dirtab[t];
 		d->length = m->size;
 		if(mb->addfrom && Topmsg(mb, m)){
-			cacheheaders(mb, m);
+			if(cacheheaders(mb, m) < 0)
+				return -1;
 			d->length += strlen(m->unixheader);
 			putcache(mb, m);
 		}
@@ -702,11 +719,14 @@ mkstat(Dir *d, Mailbox *mb, Message *m, int t)
 	case Qflags:
 		d->mode = 0666;
 	default:
+		if((n = fileinfo(mb, m, t, &p)) < 0)
+			return -1;
 		d->name = dirtab[t];
-		d->length = fileinfo(mb, m, t, &p);
+		d->length = n;
 		d->qid.path = PATH(m->id, t);
 		break;
 	}
+	return 0;
 }
 
 char*
@@ -927,7 +947,7 @@ ropen(Fid *f)
 
 	/* make sure we've decoded */
 	if(file == Qbody){
-		if(cachebody(f->mb, f->m) == -1)
+		if(cachebody(f->mb, f->m) < 0)
 			return Eio;
 		decode(f->m);
 		convert(f->m);
@@ -1023,8 +1043,8 @@ readmboxdir(Fid *f, uchar *buf, long off, int cnt, int blen)
 		/* act like deleted files aren't there */
 		if(msg->deleted)
 			continue;
-
-		mkstat(&d, f->mb, msg, Qdir);
+		if(mkstat(&d, f->mb, msg, Qdir) < 0)
+			continue;
 		m = convD2M(&d, &buf[n], blen - n);
 		if(off <= pos){
 			if(m <= BIT16SZ || m > cnt)
@@ -1053,7 +1073,8 @@ readmsgdir(Fid *f, uchar *buf, long off, int cnt, int blen)
 	n = 0;
 	pos = 0;
 	for(i = 0; i < Qmax; i++){
-		mkstat(&d, f->mb, f->m, i);
+		if(mkstat(&d, f->mb, f->m, i) < 0)
+			continue;
 		m = convD2M(&d, &buf[n], blen - n);
 		if(off <= pos){
 			if(m <= BIT16SZ || m > cnt)
@@ -1064,7 +1085,8 @@ readmsgdir(Fid *f, uchar *buf, long off, int cnt, int blen)
 		pos += m;
 	}
 	for(msg = f->m->part; msg != nil; msg = msg->next){
-		mkstat(&d, f->mb, msg, Qdir);
+		if(mkstat(&d, f->mb, msg, Qdir) < 0)
+			continue;
 		m = convD2M(&d, &buf[n], blen - n);
 		if(off <= pos){
 			if(m <= BIT16SZ || m > cnt)
@@ -1114,24 +1136,27 @@ rread(Fid *f)
 
 	switch(t){
 	case Qctl:
-		rhdr.count = 0;
 		break;
 	case Qmboxctl:
 		i = mboxctlread(f->mb, &p);
 		goto output;
 	case Qheader:
-		cacheheaders(f->mb, f->m);
+		if(cacheheaders(f->mb, f->m) < 0)
+			return Eio;
 		rhdr.count = readheader(f->m, (char*)mbuf, off, cnt);
 		putcache(f->mb, f->m);
 		break;
 	case Qinfo:
 		if(cnt > sizeof mbuf)
 			cnt = sizeof mbuf;
-		rhdr.count = readinfo(f->mb, f->m, (char*)mbuf, off, cnt);
+		if((i = readinfo(f->mb, f->m, (char*)mbuf, off, cnt)) < 0)
+			return Eio;
+		rhdr.count = i;
 		break;
 	case Qrawunix:
 		if(f->mb->addfrom && Topmsg(f->mb, f->m)){
-			cacheheaders(f->mb, f->m);
+			if(cacheheaders(f->mb, f->m) < 0)
+				return Eio;
 			p = f->m->unixheader;
 			if(off < strlen(p)){
 				rhdr.count = strlen(p + off);
@@ -1139,11 +1164,12 @@ rread(Fid *f)
 				break;
 			}
 			off -= strlen(p);
-			putcache(f->mb, f->m);
 		}
 	default:
 		i = fileinfo(f->mb, f->m, t, &p);
 	output:
+		if(i < 0)
+			return Eio;
 		if(off < i){
 			if(off + cnt > i)
 				cnt = i - off;
@@ -1320,7 +1346,8 @@ rstat(Fid *f)
 
 	if(FILE(f->qid.path) == Qmbox)
 		syncmbox(f->mb, 1);
-	mkstat(&d, f->mb, f->m, FILE(f->qid.path));
+	if(mkstat(&d, f->mb, f->m, FILE(f->qid.path)) < 0)
+		return Eio;
 	rhdr.nstat = convD2M(&d, mbuf, messagesize - IOHDRSZ);
 	rhdr.stat = mbuf;
 	return 0;
