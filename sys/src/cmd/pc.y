@@ -825,6 +825,7 @@ fntrunc(int, Num **a)
 		numdecref(a[1]);
 		return nil;
 	}
+	a[0] = nummod(a[0]);
 	mptrunc(a[0], i, a[0]);
 	return a[0];
 }
@@ -835,6 +836,7 @@ fnxtend(int, Num **a)
 	int i;
 	
 	if(toint(a[1], &i, 1)) return nil;
+	a[0] = nummod(a[0]);
 	mpxtend(a[0], i, a[0]);
 	return a[0];
 }
