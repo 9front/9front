@@ -46,6 +46,7 @@ prog(DTKChan *p, char *s)
 enum {
 	/* Qdir */
 	Qclone = 1,
+	Qprobes = 2,
 };
 
 enum {
@@ -156,6 +157,7 @@ dtracygen(Chan *c, char *, Dirtab *, int, int s, Dir *dp)
 	}
 	if(c->qid.path == Qdir){
 		if(s-- == 0) goto clone;
+		if(s-- == 0) goto probes;
 		if(s >= ndtktab) return -1;
 		if(dtklook(s) == nil) return 0;
 		sprint(up->genbuf, "%d", s);
@@ -167,6 +169,12 @@ dtracygen(Chan *c, char *, Dirtab *, int, int s, Dir *dp)
 		strcpy(up->genbuf, "clone");
 		devdir(c, (Qid){Qclone, 0, QTFILE}, up->genbuf, 0, eve, 0444, dp);
 		return 1;
+	}
+	if(c->qid.path == Qprobes){
+	probes:
+		strcpy(up->genbuf, "probes");
+		devdir(c, (Qid){Qprobes, 0, QTFILE}, up->genbuf, 0, eve, 0444, dp);
+		return 1;		
 	}
 	if(s >= nelem(dtracydir))
 		return -1;
@@ -224,9 +232,13 @@ dtracyopen(Chan *c, int omode)
 		p = dtknew();
 		c->qid.path = QIDPATH(p->idx, Qctl);
 	}
-	p = dtklook(SLOT(c->qid));
-	if(SLOT(c->qid) >= 0 && p == nil) error(Enonexist);
-	if(FILE(c->qid) != Qdir && !iseve()) error(Eperm);
+	if(c->qid.path == Qprobes){
+		p = nil;
+	}else{
+		p = dtklook(SLOT(c->qid));
+		if(SLOT(c->qid) >= 0 && p == nil) error(Enonexist);
+		if(FILE(c->qid) != Qdir && !iseve()) error(Eperm);
+	}
 	ch = devopen(c, omode, nil, 0, dtracygen);
 	if(p != nil) p->ref++;
 	qunlock(&dtracylock);
@@ -266,12 +278,8 @@ epidread(DTKAux *aux, DTChan *c, char *a, long n, vlong off)
 	}
 	if(aux->str == nil){
 		fmtstrinit(&f);
-		for(e = c->enab; e != nil; e = e->channext){
-			fmtprint(&f, "%d %d %d %s:%s:%s\n", e->epid, e->gr->id, e->gr->reclen,
-				e->prob->provider == nil ? "" : e->prob->provider,
-				e->prob->function == nil ? "" : e->prob->function,
-				e->prob->name == nil ? "" : e->prob->name);
-		}
+		for(e = c->enab; e != nil; e = e->channext)
+			fmtprint(&f, "%d %d %d %s\n", e->epid, e->gr->id, e->gr->reclen, e->prob->name);
 		aux->str = fmtstrflush(&f);
 	}
 	return readstr(off, a, n, aux->str);
@@ -316,6 +324,24 @@ handleread(DTChan *c, void *a, long n, int(*readf)(DTChan *, void *, int))
 }
 
 static long
+probesread(DTKAux *aux, char *a, long n, vlong off)
+{
+	Fmt f;
+	DTProbe **l;
+	int i, nl;
+	
+	if(aux->str == nil){
+		fmtstrinit(&f);
+		nl = dtplist(&l);
+		for(i = 0; i < nl; i++)
+			fmtprint(&f, "%s\n", l[i]->name);
+		dtfree(l);
+		aux->str = fmtstrflush(&f);
+	}
+	return readstr(off, a, n, aux->str);
+}
+
+static long
 dtracyread(Chan *c, void *a, long n, vlong off)
 {
 	int rc;
@@ -331,6 +357,9 @@ dtracyread(Chan *c, void *a, long n, vlong off)
 		switch((int)c->qid.path){
 		case Qdir:
 			rc = devdirread(c, a, n, nil, 0, dtracygen);
+			goto out;
+		case Qprobes:
+			rc = probesread(c->aux, a, n, off);
 			goto out;
 		default:
 			error(Egreg);

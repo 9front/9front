@@ -215,14 +215,11 @@ static Syscall *wraptab[]={
 };
 
 static void
-sysprovide(DTProvider *prov, DTName)
+sysprovide(DTProvider *prov)
 {
-	static int provided;
-	char buf[32];
+	char buf[32], pname[32];
 	int i;
 	
-	if(provided) return;
-	provided = 1;
 	dtpsysentry = smalloc(sizeof(Syscall *) * nsyscall);
 	dtpsysreturn = smalloc(sizeof(Syscall *) * nsyscall);
 	for(i = 0; i < nsyscall; i++){
@@ -230,8 +227,10 @@ sysprovide(DTProvider *prov, DTName)
 		strecpy(buf, buf + sizeof(buf), sysctab[i]);
 		if(isupper(buf[0])) buf[0] += 'a' - 'A';
 		if(i == SYSR1) strcpy(buf, "r1");
-		dtpsysentry[i] = dtpnew((DTName){"sys", buf, "entry"}, prov, (void *) i);
-		dtpsysreturn[i] = dtpnew((DTName){"sys", buf, "return"}, prov, (void *) i);
+		snprint(pname, sizeof(pname), "sys:%s:entry", buf);
+		dtpsysentry[i] = dtpnew(pname, prov, (void *) i);
+		snprint(pname, sizeof(pname), "sys:%s:return", buf);
+		dtpsysreturn[i] = dtpnew(pname, prov, (void *) i);
 	}
 }
 

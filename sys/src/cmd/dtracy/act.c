@@ -41,6 +41,28 @@ mkval(int type, ...)
 	return r;
 }
 
+static char *
+insertstars(char *n)
+{
+	Fmt f;
+	int partlen;
+	
+	fmtstrinit(&f);
+	partlen = 0;
+	for(; *n != 0; n++){
+		if(*n == ':'){
+			if(partlen == 0)
+				fmtrune(&f, '*');
+			partlen = 0;
+		}else
+			partlen++;
+		fmtrune(&f, *n);
+	}
+	if(partlen == 0)
+		fmtrune(&f, '*');
+	return fmtstrflush(&f);
+}
+
 void
 clausebegin(void)
 {
@@ -52,7 +74,7 @@ void
 addprobe(char *s)
 {
 	clause->probs = erealloc(clause->probs, sizeof(char *) * (clause->nprob + 1));
-	clause->probs[clause->nprob++] = strdup(s);
+	clause->probs[clause->nprob++] = insertstars(s);
 }
 
 static char *aggtypes[] = {

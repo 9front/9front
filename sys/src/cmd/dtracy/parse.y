@@ -19,6 +19,7 @@
 %type <n> expr optexpr
 %type <sym> optsym
 %type <t> type
+%type <str> probe
 
 %token <sym> TSYM
 %token <num> TNUM
@@ -119,8 +120,11 @@ type:
 	| TSTRING { $$ = type(TYPSTRING); }
 
 probes:
-	TSYM { addprobe($1->name); }
-	| probes ',' TSYM { addprobe($3->name); }
+	probe { addprobe($1); }
+	| probes ',' probe { addprobe($3); }
 
+probe:
+	TSYM { $$ = $1->name; }
+	| TSTR { $$ = $1; }
 
 %%

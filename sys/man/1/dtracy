@@ -25,8 +25,9 @@ program is a series of statements of one of the following forms
 \fIprobes\fR \fLif\fR \fIpredicate \fL{\fR \fIactions\fL } \fR
 .PP
 \fIProbes\fR is a comma-separated list of probes, such as \fLsys:pwrite:entry\fR.
-Each probe consists of three parts separated by \fL:\fR.
+Each probe name consists of any number of parts separated by \fL:\fR.
 If a part is omitted (e.g. \fLqsys::entry\fR), it matches all probes that match the remaining parts.
+If the probe name is enclosed in quotation marks, the wildcards \fL*\fR and \fL?\fR are available, e.g. \fL"sys:*stat:entry"\fR.
 .PP
 \fIPredicate\fR, if specified, is an expression that must evaluate to a non-zero value for the actions to be executed.
 .PP

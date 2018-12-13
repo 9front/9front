@@ -18,7 +18,6 @@ enum {
 };
 #define DTANIL ((u32int)-1)
 
-typedef struct DTName DTName;
 typedef struct DTProbe DTProbe;
 typedef struct DTExprState DTExprState;
 typedef struct DTAct DTAct;
@@ -31,12 +30,6 @@ typedef struct DTProvider DTProvider;
 typedef struct DTAgg DTAgg;
 typedef struct DTBuf DTBuf;
 typedef struct DTTrigInfo DTTrigInfo;
-
-struct DTName {
-	char *provider;
-	char *function;
-	char *name;
-};
 
 /*
 	we assign all pairs (probe,action-group) (called an enabling or DTEnab) a unique ID called EPID.
@@ -55,7 +48,7 @@ struct DTEnab {
 /* probes are never freed */
 struct DTProbe {
 	int nenable;
-	DTName;
+	char *name;
 	DTEnab enablist;
 	DTProvider *prov;
 	void *aux; /* for the provider */
@@ -65,17 +58,16 @@ struct DTProbe {
 struct DTProvider {
 	char *name;
 	/*
-		provide() is called when the user asks for a probe that doesn't exist.
+		provide() is called when the user first uses a provider.
 		provide() should call dtpnew() to create probes.
-		it can use the DTName as a hint or just create all probes that it knows about.
-		the provider has to ensure not to create the same probe multiple times.
 	*/
-	void (*provide)(DTProvider *, DTName);
+	void (*provide)(DTProvider *);
 	int (*enable)(DTProbe *); /* enable the probe. return >= 0 for success and < 0 for failure */
 	void (*disable)(DTProbe *); /* disable the probe */
 	
 	/* for the library, not the provider */
 	DTProbe *probes;
+	int provided;
 };
 
 /*
@@ -246,8 +238,9 @@ void dtinit(int);
 void dtsync(void);
 
 /* probe functions */
-DTProbe *dtpnew(DTName, DTProvider *, void *aux);
-int dtpmatch(DTName, DTProbe ***);
+DTProbe *dtpnew(char *, DTProvider *, void *aux);
+int dtpmatch(char *, DTProbe ***);
+int dtplist(DTProbe ***);
 void dtptrigger(DTProbe *, int, DTTrigInfo *);
 
 /* expression functions */
@@ -269,7 +262,7 @@ void dtclfree(DTClause *);
 /* chan functions */
 DTChan *dtcnew(void);
 void dtcfree(DTChan *);
-int dtcaddgr(DTChan *, DTName, DTActGr *);
+int dtcaddgr(DTChan *, char *, DTActGr *);
 int dtcaddcl(DTChan *, DTClause *);
 int dtcread(DTChan *, void *, int);
 int dtcaggread(DTChan *, void *, int);

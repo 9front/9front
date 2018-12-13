@@ -22,13 +22,9 @@ dtracytimer(void *)
 }
 
 static void
-timerprovide(DTProvider *prov, DTName)
+timerprovide(DTProvider *prov)
 {
-	static int provided;
-	
-	if(provided) return;
-	provided = 1;
-	timerprobe = dtpnew((DTName){"timer", "", "1s"}, prov, nil);
+	timerprobe = dtpnew("timer::1s", prov, nil);
 }
 
 static int

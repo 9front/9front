@@ -81,7 +81,7 @@ dtcfree(DTChan *ch)
 }
 
 int
-dtcaddgr(DTChan *c, DTName name, DTActGr *gr)
+dtcaddgr(DTChan *c, char *name, DTActGr *gr)
 {
 	DTProbe **l, *p;
 	DTEnab *ep;
@@ -92,6 +92,11 @@ dtcaddgr(DTChan *c, DTName name, DTActGr *gr)
 	gr->chan = c;
 	
 	nl = dtpmatch(name, &l);
+	if(nl == 0){
+		dtfree(l);
+		werrstr("no match for %s", name);
+		return -1;
+	}
 	n = 0;
 	for(i = 0; i < nl; i++){
 		p = l[i];
@@ -118,53 +123,14 @@ dtcaddgr(DTChan *c, DTName name, DTActGr *gr)
 	return n;
 }
 
-static int
-dtnamesplit(char *s, DTName *rp)
-{
-	char *p;
-	
-	p = strchr(s, ':');
-	if(p == nil) return -1;
-	rp->provider = dtmalloc(p - s + 1);
-	memcpy(rp->provider, s, p - s);
-	s = p + 1;
-	p = strchr(s, ':');
-	if(p == nil){
-		free(rp->provider);
-		rp->provider = nil;
-		return -1;
-	}
-	rp->function = dtmalloc(p - s + 1);
-	memcpy(rp->function, s, p - s);
-	s = p + 1;
-	if(strchr(s, ':') != nil){
-		free(rp->provider);
-		rp->provider = nil;
-		free(rp->function);
-		rp->function = nil;
-		return -1;
-	}
-	rp->name = dtstrdup(s);
-	return 0;
-}
-
 int
 dtcaddcl(DTChan *c, DTClause *cl)
 {
-	DTName n;
 	int i, rc;
 
 	rc = 0;
-	for(i = 0; i < cl->nprob; i++){
-		if(dtnamesplit(cl->probs[i], &n) < 0){
-			werrstr("invalid probe name '%s'", cl->probs[i]);
-			return -1;
-		}
-		rc += dtcaddgr(c, n, cl->gr);
-		dtfree(n.provider);
-		dtfree(n.function);
-		dtfree(n.name);
-	}
+	for(i = 0; i < cl->nprob; i++)
+		rc += dtcaddgr(c, cl->probs[i], cl->gr);
 	return rc;
 }
 
