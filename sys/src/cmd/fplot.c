@@ -45,6 +45,8 @@ struct Token {
 };
 
 double *stack, *sp;
+void omax(void) { sp--; if(sp[1]>*sp) *sp = sp[1]; }
+void omin(void) { sp--; if(sp[1]<*sp) *sp = sp[1]; }
 void add(void) { sp--; *sp += *(sp+1); }
 void sub(void) { sp--; *sp -= *(sp+1); }
 void mul(void) { sp--; *sp *= *(sp+1); }
@@ -69,22 +71,24 @@ struct Operator {
 	short prec;
 	void (*f)(void);
 } ops[] = {
-	"+",	OBINARY,	0,	0,	add,
-	"-",	OBINARY,	0,	0,	sub,
-	"*",	OBINARY,	0,	100,	mul,
-	"/",	OBINARY,	0,	100,	div,
-	"%",	OBINARY,	0,	100,	mod,
-	"^",	OBINARY,	1,	200,	pot,
-	"sin",	OUNARY,		0,	300,	osin,
-	"cos",	OUNARY,		0,	300,	ocos,
-	"tan",	OUNARY,		0,	300,	otan,
-	"asin",	OUNARY,		0,	300,	oasin,
-	"acos",	OUNARY,		0,	300,	oacos,
-	"atan",	OUNARY,		0,	300,	oatan,
-	"sqrt",	OUNARY,		0,	300,	osqrt,
-	"exp",	OUNARY,		0,	300,	oexp,
-	"log",	OUNARY,		0,	300,	olog,
-	"ln",	OUNARY,		0,	300,	oln,
+	"max",	OBINARY,	0,	0,	omax,
+	"min",	OBINARY,	0,	0,	omax,
+	"+",	OBINARY,	0,	100,	add,
+	"-",	OBINARY,	0,	100,	sub,
+	"*",	OBINARY,	0,	200,	mul,
+	"/",	OBINARY,	0,	200,	div,
+	"%",	OBINARY,	0,	200,	mod,
+	"^",	OBINARY,	1,	300,	pot,
+	"sin",	OUNARY,		0,	400,	osin,
+	"cos",	OUNARY,		0,	400,	ocos,
+	"tan",	OUNARY,		0,	400,	otan,
+	"asin",	OUNARY,		0,	400,	oasin,
+	"acos",	OUNARY,		0,	400,	oacos,
+	"atan",	OUNARY,		0,	400,	oatan,
+	"sqrt",	OUNARY,		0,	400,	osqrt,
+	"exp",	OUNARY,		0,	400,	oexp,
+	"log",	OUNARY,		0,	400,	olog,
+	"ln",	OUNARY,		0,	400,	oln,
 };
 
 struct Constant {
