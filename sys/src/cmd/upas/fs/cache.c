@@ -32,13 +32,11 @@ notecache(Mailbox *mb, Message *m, long sz)
 }
 
 void
-cachefree(Mailbox *mb, Message *m, int force)
+cachefree(Mailbox *mb, Message *m)
 {
 	long i;
 	Message *s, **ll;
 
-	if(!force && mb->fetch == nil)
-		return;
 	if(Topmsg(mb, m)){
 		for(ll = &mb->lru; *ll != nil; ll = &((*ll)->lru)){
 			if(*ll == m){
@@ -53,7 +51,7 @@ cachefree(Mailbox *mb, Message *m, int force)
 		mb->cached -= m->csize;
 	}
 	for(s = m->part; s; s = s->next)
-		cachefree(mb, s, force);
+		cachefree(mb, s);
 	if(m->mallocd){
 		free(m->start);
 		m->mallocd = 0;
@@ -100,7 +98,7 @@ putcache(Mailbox *mb, Message *m)
 				return;
 			addlru(mb, mb->lru);
 		}
-		cachefree(mb, mb->lru, 1);
+		cachefree(mb, mb->lru);
 	}
 }
 
