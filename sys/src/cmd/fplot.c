@@ -264,7 +264,7 @@ parse(Code *c, char *s)
 			if(t->op->type == OBINARY)
 				while(opstackbot != nil && opstackbot->type == TOP &&
 					(opstackbot->op->prec > t->op->prec ||
-					t->op->rassoc && opstackbot->op->prec == t->op->prec))
+					!t->op->rassoc && opstackbot->op->prec == t->op->prec))
 					pop(c);
 			push(t);
 			break;
