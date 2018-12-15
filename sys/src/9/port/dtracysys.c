@@ -240,7 +240,7 @@ sysenable(DTProbe *p)
 	int i;
 	Syscall *z;
 	
-	i = (int) p->aux;
+	i = (int)(uintptr)p->aux;
 	assert(i >= 0 && i < nsyscall);
 	if(dtpsysentry[i]->nenable + dtpsysreturn[i]->nenable == 0)
 		z = systab[i], systab[i] = wraptab[i], wraptab[i] = z;
@@ -253,7 +253,7 @@ sysdisable(DTProbe *p)
 	int i;
 	Syscall *z;
 	
-	i = (int) p->aux;
+	i = (int)(uintptr)p->aux;
 	assert(i >= 0 && i < nsyscall);
 	if(dtpsysentry[i]->nenable + dtpsysreturn[i]->nenable == 0)
 		z = systab[i], systab[i] = wraptab[i], wraptab[i] = z;
