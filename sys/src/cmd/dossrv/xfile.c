@@ -17,7 +17,7 @@ getxfs(char *user, char *name)
 	Dir *dir;
 	Qid dqid;
 	char *p, *q;
-	long offset;
+	vlong offset;
 	int fd, omode;
 
 	USED(user);
@@ -38,8 +38,8 @@ getxfs(char *user, char *name)
 	offset = 0;
 	if(p = strrchr(name, ':')){
 		*p++ = 0;
-		offset = strtol(p, &q, 0);
-		chat("name %s, offset %ld\n", p, offset);
+		offset = strtoll(p, &q, 0);
+		chat("name %s, offset %lld\n", p, offset);
 		if(offset < 0 || p == q){
 			errno = Enofilsys;
 			return 0;
@@ -225,7 +225,7 @@ clean(Xfile *f)
  * relocate the dos entries of all fids in the same file
  */
 void
-dosptrreloc(Xfile *f, Dosptr *dp, ulong addr, ulong offset)
+dosptrreloc(Xfile *f, Dosptr *dp, vlong addr, ulong offset)
 {
 	int i;
 	Xfile *p;

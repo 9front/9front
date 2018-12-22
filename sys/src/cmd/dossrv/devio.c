@@ -21,20 +21,20 @@ deverror(char *name, Xfs *xf, long addr, long n, long nret)
 }
 
 int
-devread(Xfs *xf, long addr, void *buf, long n)
+devread(Xfs *xf, vlong addr, void *buf, long n)
 {
 	long nread;
 
 	if(xf->dev < 0)
 		return -1;
-	nread = pread(xf->dev, buf, n, xf->offset+(vlong)addr*Sectorsize);
+	nread = pread(xf->dev, buf, n, xf->offset+addr*Sectorsize);
 	if (nread == n)
 		return 0;
 	return deverror("read", xf, addr, n, nread);
 }
 
 int
-devwrite(Xfs *xf, long addr, void *buf, long n)
+devwrite(Xfs *xf, vlong addr, void *buf, long n)
 {
 	long nwrite;
 
@@ -43,7 +43,7 @@ devwrite(Xfs *xf, long addr, void *buf, long n)
 
 	if(xf->dev < 0)
 		return -1;
-	nwrite = pwrite(xf->dev, buf, n, xf->offset+(vlong)addr*Sectorsize);
+	nwrite = pwrite(xf->dev, buf, n, xf->offset+addr*Sectorsize);
 	if (nwrite == n)
 		return 0;
 	return deverror("write", xf, addr, n, nwrite);

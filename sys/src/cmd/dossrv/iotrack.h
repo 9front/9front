@@ -22,7 +22,7 @@ struct Iotrack
 {
 	short	flags;
 	Xfs *	xf;
-	long	addr;
+	vlong	addr;
 	Iotrack	*next;		/* in lru list */
 	Iotrack	*prev;
 	Iotrack	*hnext;		/* in hash list */
@@ -48,15 +48,15 @@ struct Track
 #define	BIMM		(1<<1)
 #define	BSTALE		(1<<2)
 
-Iosect*	getiosect(Xfs*, long, int);
-Iosect*	getosect(Xfs*, long);
-Iosect*	getsect(Xfs*, long);
+Iosect*	getiosect(Xfs*, vlong, int);
+Iosect*	getosect(Xfs*, vlong);
+Iosect*	getsect(Xfs*, vlong);
 Iosect*	newsect(void);
-Iotrack*	getiotrack(Xfs*, long);
+Iotrack*	getiotrack(Xfs*, vlong);
 int	canmlock(MLock*);
 int	devcheck(Xfs*);
-int	devread(Xfs*, long, void*, long);
-int	devwrite(Xfs*, long, void*, long);
+int	devread(Xfs*, vlong, void*, long);
+int	devwrite(Xfs*, vlong, void*, long);
 int	tread(Iotrack*);
 int	twrite(Iotrack*);
 void	freesect(Iosect*);

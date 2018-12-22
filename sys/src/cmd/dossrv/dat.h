@@ -123,18 +123,18 @@ struct Dosbpb{
 	int	nresrv;			/* sectors */
 	int	nfats;			/* usually 2; modified to 1 if fat mirroring disabled */
 	int	rootsize;		/* number of entries, for fat12 and fat16 */
-	long	volsize;		/* in sectors */
+	vlong	volsize;		/* in sectors */
 	int	mediadesc;
-	long	fatsize;		/* in sectors */
-	int	fatclusters;
+	vlong	fatsize;		/* in sectors */
+	long	fatclusters;
 	int	fatbits;		/* 12, 16, or 32 */
-	long	fataddr;		/* sector number of first valid fat entry */
-	long	rootaddr;		/* for fat16 or fat12, sector of root dir */
+	vlong	fataddr;		/* sector number of first valid fat entry */
+	vlong	rootaddr;		/* for fat16 or fat12, sector of root dir */
+	vlong	dataaddr;		/* initial sector of data clusters */
 	long	rootstart;		/* for fat32, cluster of root dir */
-	long	dataaddr;		/* initial sector of data clusters */
 	long	freeptr;		/* next free cluster candidate */
 	long	freeclusters;		/* count of free clusters, for fat32 */
-	int	fatinfo;		/* fat info sector location; 0 => none */
+	vlong	fatinfo;		/* fat info sector location; 0 => none */
 };
 
 enum
@@ -178,14 +178,14 @@ enum
 #define PLONG(p,v)	((p)[0]=(v),(p)[1]=(v)>>8,(p)[2]=(v)>>16,(p)[3]=(v)>>24)
 
 struct Dosptr{
-	ulong	addr;		/* sector & entry within of file's directory entry */
+	vlong	addr;		/* sector & entry within of file's directory entry */
+	vlong	paddr;		/* of parent's directory entry */
 	ulong	offset;
-	ulong	paddr;		/* of parent's directory entry */
 	ulong	poffset;
 	ulong	iclust;		/* ordinal within file */
 	ulong	clust;
-	ulong	naddr;		/* next block in directory (for writing multi entry elements) */
-	ulong	prevaddr;
+	vlong	naddr;		/* next block in directory (for writing multi entry elements) */
+	vlong	prevaddr;
 	Iosect *p;
 	Dosdir *d;
 };
@@ -203,7 +203,7 @@ struct Xfs{
 	uchar	isfat32;	/* is a fat 32 file system? */
 	short	dev;
 	short	fmt;
-	long	offset;
+	vlong	offset;
 	void	*ptr;
 };
 

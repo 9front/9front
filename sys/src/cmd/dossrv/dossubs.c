@@ -168,11 +168,11 @@ dosfs(Xfs *xf)
 	else
 		bp->fatbits = 16;
 
-	chat("fatbits=%d (%d clusters)...", bp->fatbits, bp->fatclusters);
+	chat("fatbits=%d (%ld clusters)...", bp->fatbits, bp->fatclusters);
 	for(i=0; i<b->nfats; i++)
-		chat("fat %d: %ld...", i, bp->fataddr+i*bp->fatsize);
-	chat("root: %ld...", bp->rootaddr);
-	chat("data: %ld...", bp->dataaddr);
+		chat("fat %d: %lld...", i, bp->fataddr+i*bp->fatsize);
+	chat("root: %lld...", bp->rootaddr);
+	chat("data: %lld...", bp->dataaddr);
 	putsect(p);
 	return 0;
 }
@@ -193,7 +193,7 @@ rootfile(Xfile *f)
 }
 
 int
-isroot(ulong addr)
+isroot(vlong addr)
 {
 	return addr == 0;
 }
@@ -217,7 +217,7 @@ getfile(Xfile *f)
 	dp->d = nil;
 	if(!isroot(dp->addr)){
 		if(f->qid.path != QIDPATH(dp)){
-			chat("qid mismatch f=%#llux d=%#lux...", f->qid.path, QIDPATH(dp));
+			chat("qid mismatch f=%#llux d=%#llux...", f->qid.path, QIDPATH(dp));
 			putsect(p);
 			errno = Enonexist;
 			return -1;
@@ -351,7 +351,7 @@ fileclust(Xfile *f, long iclust, int cflag)
 /*
  * return the disk sector for the isect disk sector in f 
  */
-long
+vlong
 fileaddr(Xfile *f, long isect, int cflag)
 {
 	Dosbpb *bp;
@@ -516,7 +516,8 @@ searchdir(Xfile *f, char *name, Dosptr *dp, int cflag, int longtype)
 	Dosbpb *bp;
 	Dosdir *d;
 	char buf[261], *bname;
-	int isect, addr, o, addr1, addr2, prevaddr, prevaddr1, o1, islong, have, need, sum;
+	int isect, o, o1, islong, have, need, sum;
+	vlong addr, addr1, addr2, prevaddr, prevaddr1;
 
 	xf = f->xf;
 	bp = xf->ptr;
@@ -642,7 +643,8 @@ emptydir(Xfile *f)
 {
 	Xfs *xf = f->xf;
 	Dosbpb *bp = xf->ptr;
-	int isect, addr, o;
+	int isect, o;
+	vlong addr;
 	Iosect *p;
 	Dosdir *d;
 
@@ -679,7 +681,8 @@ readdir(Xfile *f, void *vbuf, vlong offset, long count)
 	Xfs *xf;
 	Dosbpb *bp;
 	Dir dir;
-	int isect, addr, o, islong, sum;
+	int isect, o, islong, sum;
+	vlong addr;
 	Iosect *p;
 	Dosdir *d;
 	long rcnt, n;
@@ -765,7 +768,8 @@ walkup(Xfile *f, Dosptr *ndp)
 	Dosptr *dp;
 	Dosdir *xd;
 	Iosect *p;
-	long k, o, so, start, pstart, ppstart, st, ppclust;
+	long o, so, start, pstart, ppstart, st, ppclust;
+	vlong k;
 
 	bp = f->xf->ptr;
 	dp = f->ptr;
@@ -775,7 +779,7 @@ walkup(Xfile *f, Dosptr *ndp)
 	ndp->addr = dp->paddr;
 	ndp->offset = dp->poffset;
 
-	chat("walkup: paddr=%#lx...", dp->paddr);
+	chat("walkup: paddr=%#llx...", dp->paddr);
 
 	/*
 	 * root's paddr is always itself
@@ -861,7 +865,7 @@ walkup(Xfile *f, Dosptr *ndp)
 	k = ppclust ? clust2sect(bp, ppclust) : bp->rootaddr;
 	p = getsect(f->xf, k);
 	if(p == nil){
-		chat("getsect %ld failed\n", k);
+		chat("getsect %lld failed\n", k);
 		goto error;
 	}
 	xd = (Dosdir *)p->iobuf;
@@ -904,7 +908,7 @@ walkup(Xfile *f, Dosptr *ndp)
 		putsect(p);
 		p = getsect(f->xf, k);
 		if(p == 0){
-			chat("getsect %ld failed\n", k);
+			chat("getsect %lld failed\n", k);
 			goto error;
 		}
 	}
@@ -927,7 +931,8 @@ readfile(Xfile *f, void *vbuf, vlong offset, long count)
 	Dosbpb *bp = xf->ptr;
 	Dosptr *dp = f->ptr;
 	Dosdir *d = dp->d;
-	int isect, addr, o, c;
+	int isect, o, c;
+	vlong addr;
 	Iosect *p;
 	uchar *buf;
 	ulong length, rcnt;
@@ -972,7 +977,8 @@ writefile(Xfile *f, void *vbuf, vlong offset, long count)
 	Dosbpb *bp = xf->ptr;
 	Dosptr *dp = f->ptr;
 	Dosdir *d = dp->d;
-	int isect, addr, o, c;
+	int isect, o, c;
+	vlong addr;
 	Iosect *p;
 	uchar *buf;
 	ulong length, rcnt, dlen;
@@ -1018,7 +1024,7 @@ writefile(Xfile *f, void *vbuf, vlong offset, long count)
 	else if(dp->addr && dp->clust){
 		c = bp->clustsize*bp->sectsize;
 		if(dp->iclust > (dlen+c-1)/c)
-			length = c*dp->iclust;
+			length = (ulong)c*dp->iclust;
 	}
 	if(length > dlen)
 		PLONG(d->length, length);
@@ -1085,7 +1091,7 @@ putdir(Dosdir *d, Dir *dp)
  * creation and access dates
  */
 void
-getdir(Xfs *xfs, Dir *dp, Dosdir *d, int addr, int offset)
+getdir(Xfs *xfs, Dir *dp, Dosdir *d, vlong addr, int offset)
 {
 	if(d == nil || addr == 0)
 		panic("getdir on root");
@@ -1352,12 +1358,13 @@ putlongname(Xfs *xf, Dosptr *ndp, char *name, char sname[13])
 }
 
 long
-getfat(Xfs *xf, int n)
+getfat(Xfs *xf, long n)
 {
 	Dosbpb *bp = xf->ptr;
 	Iosect *p;
-	ulong k, sect;
-	int o, fb;
+	ulong k, o;
+	vlong sect;
+	int fb;
 
 	if(n < FATRESRV || n >= bp->fatclusters)
 		return -1;
@@ -1393,7 +1400,7 @@ getfat(Xfs *xf, int n)
 			k &= 0xfff;
 	}
 	if(chatty > 1)
-		chat("fat(%#x)=%#lx...", n, k);
+		chat("fat(%#lx)=%#lux...", n, k);
 
 	/*
 	 * This is a very strange check for out of range.
@@ -1401,7 +1408,7 @@ getfat(Xfs *xf, int n)
 	 * FFF8 through FFFF all signify ``end of cluster chain.''
 	 * This generalizes to other-sized FATs.
 	 */
-	if(k >= (1 << fb) - 8)
+	if(k >= (1UL << fb) - 8)
 		return -1;
 
 	return k;
@@ -1413,7 +1420,8 @@ putfat(Xfs *xf, int n, ulong val)
 	Fatinfo *fi;
 	Dosbpb *bp;
 	Iosect *p;
-	ulong k, sect, esect;
+	ulong k;
+	vlong sect, esect;
 	int o;
 
 	bp = xf->ptr;
@@ -1543,7 +1551,8 @@ makecontig(Xfile *f, int nextra)
 	Xfs *xf;
 	Iosect *wp, *rp;
 	long clust, next, last, start, rclust, wclust, eclust, ostart;
-	int isok, i, n, nclust, nrun, rs, ws;
+	int isok, i, n, nclust, nrun;
+	vlong rs, ws;
 
 	xf = f->xf;
 	bp = xf->ptr;
@@ -1707,20 +1716,16 @@ ffree(Xfs *xf, long start)
 	putfat(xf, start, 0);
 }
 
-long
+vlong
 clust2sect(Dosbpb *bp, long clust)
 {
-	return bp->dataaddr + (clust - FATRESRV) * bp->clustsize;
+	return bp->dataaddr + ((vlong)(clust - FATRESRV) * bp->clustsize);
 }
 
 long
-sect2clust(Dosbpb *bp, long sect)
+sect2clust(Dosbpb *bp, vlong sect)
 {
-	long c;
-
-	c = (sect - bp->dataaddr) / bp->clustsize + FATRESRV;
-	assert(sect == clust2sect(bp, c));
-	return c;
+	return ((sect - bp->dataaddr) / bp->clustsize) + FATRESRV;
 }
 
 void

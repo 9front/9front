@@ -705,7 +705,8 @@ rwstat(void)
 	Iosect *parp;
 	Dosdir *pard, *d, od;
 	char sname[13];
-	ulong oaddr, ooffset, length;
+	ulong ooffset, length;
+	vlong oaddr;
 	long start;
 	int i, longtype, changes, attr;
 
