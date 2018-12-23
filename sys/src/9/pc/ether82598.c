@@ -298,7 +298,7 @@ typedef struct {
 	Block	**tb;
 
 	uchar	ra[Eaddrlen];
-	uchar	mta[128];
+	u32int	mta[128];
 	ulong	stats[nelem(stattab)];
 	uint	speeds[3];
 } Ctlr;
