@@ -73,7 +73,7 @@ dosfs(Xfs *xf)
 	}
 
 	p = getsect(xf, 0);
-	if(p == 0)
+	if(p == nil)
 		return -1;
 
 	b = (Dosboot*)p->iobuf;
@@ -547,7 +547,7 @@ searchdir(Xfile *f, char *name, Dosptr *dp, int cflag, int longtype)
 		if(addr < 0)
 			break;
 		p = getsect(xf, addr);
-		if(p == 0)
+		if(p == nil)
 			break;
 		for(o=0; o<bp->sectsize; o+=DOSDIRSIZE){
 			d = (Dosdir *)&p->iobuf[o];
@@ -653,7 +653,7 @@ emptydir(Xfile *f)
 		if(addr < 0)
 			break;
 		p = getsect(xf, addr);
-		if(p == 0)
+		if(p == nil)
 			return -1;
 		for(o=0; o<bp->sectsize; o+=DOSDIRSIZE){
 			d = (Dosdir *)&p->iobuf[o];
@@ -703,7 +703,7 @@ readdir(Xfile *f, void *vbuf, vlong offset, long count)
 		if(addr < 0)
 			break;
 		p = getsect(xf, addr);
-		if(p == 0)
+		if(p == nil)
 			return -1;
 		for(o=0; o<bp->sectsize; o+=DOSDIRSIZE){
 			d = (Dosdir *)&p->iobuf[o];
@@ -833,7 +833,7 @@ walkup(Xfile *f, Dosptr *ndp)
 	 * verify that parent's . points to itself
 	 */
 	p = getsect(f->xf, clust2sect(bp, pstart));
-	if(p == 0){
+	if(p == nil){
 		chat("getsect %ld failed\n", pstart);
 		goto error;
 	}
@@ -907,7 +907,7 @@ walkup(Xfile *f, Dosptr *ndp)
 		}
 		putsect(p);
 		p = getsect(f->xf, k);
-		if(p == 0){
+		if(p == nil){
 			chat("getsect %lld failed\n", k);
 			goto error;
 		}
@@ -959,7 +959,7 @@ readfile(Xfile *f, void *vbuf, vlong offset, long count)
 		if(c > count)
 			c = count;
 		p = getsect(xf, addr);
-		if(p == 0)
+		if(p == nil)
 			return -1;
 		memmove(&buf[rcnt], &p->iobuf[o], c);
 		putsect(p);
@@ -1115,7 +1115,7 @@ getdir(Xfs *xfs, Dir *dp, Dosdir *d, vlong addr, int offset)
 		dp->mode |= DMDIR|0111;
 		dp->length = 0;
 	}else
-		dp->length = (ulong)GLONG(d->length);
+		dp->length = GLONG(d->length);
 	if(d->attr & DSYSTEM){
 		dp->mode |= DMEXCL;
 		if(iscontig(xfs, d))
@@ -1788,8 +1788,8 @@ bootdump(int fd, Dosboot *b)
 	Bprint(&bp, "fatsize: %d\n", GSHORT(b->fatsize));
 	Bprint(&bp, "trksize: %d\n", GSHORT(b->trksize));
 	Bprint(&bp, "nheads: %d\n", GSHORT(b->nheads));
-	Bprint(&bp, "nhidden: %ld\n", GLONG(b->nhidden));
-	Bprint(&bp, "bigvolsize: %ld\n", GLONG(b->bigvolsize));
+	Bprint(&bp, "nhidden: %lud\n", GLONG(b->nhidden));
+	Bprint(&bp, "bigvolsize: %lud\n", GLONG(b->bigvolsize));
 	Bprint(&bp, "driveno: %d\n", b->driveno);
 	Bprint(&bp, "reserved0: 0x%2.2x\n", b->reserved0);
 	Bprint(&bp, "bootsig: 0x%2.2x\n", b->bootsig);
@@ -1817,12 +1817,12 @@ bootdump32(int fd, Dosboot32 *b)
 	Bprint(&bp, "fatsize: %d\n", GSHORT(b->fatsize));
 	Bprint(&bp, "trksize: %d\n", GSHORT(b->trksize));
 	Bprint(&bp, "nheads: %d\n", GSHORT(b->nheads));
-	Bprint(&bp, "nhidden: %ld\n", GLONG(b->nhidden));
-	Bprint(&bp, "bigvolsize: %ld\n", GLONG(b->bigvolsize));
-	Bprint(&bp, "fatsize32: %ld\n", GLONG(b->fatsize32));
+	Bprint(&bp, "nhidden: %lud\n", GLONG(b->nhidden));
+	Bprint(&bp, "bigvolsize: %lud\n", GLONG(b->bigvolsize));
+	Bprint(&bp, "fatsize32: %lud\n", GLONG(b->fatsize32));
 	Bprint(&bp, "extflags: %d\n", GSHORT(b->extflags));
 	Bprint(&bp, "version: %d\n", GSHORT(b->version1));
-	Bprint(&bp, "rootstart: %ld\n", GLONG(b->rootstart));
+	Bprint(&bp, "rootstart: %lud\n", GLONG(b->rootstart));
 	Bprint(&bp, "infospec: %d\n", GSHORT(b->infospec));
 	Bprint(&bp, "backupboot: %d\n", GSHORT(b->backupboot));
 	Bprint(&bp, "reserved: %d %d %d %d %d %d %d %d %d %d %d %d\n",
@@ -1919,7 +1919,7 @@ dirdump(void *vdbuf)
 		i = GSHORT(d->adate);
 		s = seprint(s, ebuf, " %2.2d.%2.2d.%2.2d", 80+(i>>9), (i>>5)&15, i&31);
 
-		seprint(s, ebuf, " %d %lud", GSHORT(d->start), (ulong)GLONG(d->length));
+		seprint(s, ebuf, " %d %lud", GSHORT(d->start), GLONG(d->length));
 	}
 	chat("%s\n", buf);
 }

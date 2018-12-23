@@ -631,7 +631,7 @@ out:
 	sync();
 }
 
-static void
+static int
 dostat(Xfile *f, Dir *d)
 {
 	Dosptr *dp;
@@ -663,6 +663,8 @@ dostat(Xfile *f, Dir *d)
 		}
 		if(prevdo < 0 && dp->prevaddr != -1){
 			p = getsect(f->xf, dp->prevaddr);
+			if(p == nil)
+				return -1;
 			for(prevdo = ((Dosbpb*)f->xf->ptr)->sectsize-DOSDIRSIZE; prevdo >= 0; prevdo -= DOSDIRSIZE){
 				if(p->iobuf[prevdo+11] != 0xf)
 					break;
@@ -674,6 +676,7 @@ dostat(Xfile *f, Dir *d)
 		if(islong && sum == -1 && nameok(namebuf))
 			strcpy(d->name, namebuf);
 	}
+	return 0;
 }
 
 void
@@ -687,12 +690,13 @@ rstat(void)
 		errno = Eio;
 		return;
 	}
-
 	dir.name = repdata;
-	dostat(f, &dir);
-
-	rep->nstat = convD2M(&dir, statbuf, sizeof statbuf);
-	rep->stat = statbuf;
+	if(dostat(f, &dir) < 0)
+		errno = Eio;
+	else {
+		rep->nstat = convD2M(&dir, statbuf, sizeof statbuf);
+		rep->stat = statbuf;
+	}
 	putfile(f);
 }
 
@@ -724,7 +728,11 @@ rwstat(void)
 
 	changes = 0;
 	dir.name = repdata;
-	dostat(f, &dir);
+	if(dostat(f, &dir) < 0){
+		errno = Eio;
+		goto out;
+	}
+
 	if(convM2D(req->stat, req->nstat, &wdir, (char*)statbuf) != req->nstat){
 		errno = Ebadstat;
 		goto out;

@@ -172,8 +172,8 @@ enum
 	DARCH		= 0x20,
 };
 
-#define	GSHORT(p)	(((p)[0])|(p)[1]<<8)
-#define	GLONG(p)	(((long)(p)[0])|(p)[1]<<8|(p)[2]<<16|(p)[3]<<24)
+#define	GSHORT(p)	(((ushort)(p)[0])|(ushort)(p)[1]<<8)
+#define	GLONG(p)	(((ulong)(p)[0])|(ulong)(p)[1]<<8|(ulong)(p)[2]<<16|(ulong)(p)[3]<<24)
 #define PSHORT(p,v)	((p)[0]=(v),(p)[1]=(v)>>8)
 #define PLONG(p,v)	((p)[0]=(v),(p)[1]=(v)>>8,(p)[2]=(v)>>16,(p)[3]=(v)>>24)
 
