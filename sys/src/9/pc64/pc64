@@ -59,6 +59,7 @@ link
 #	ether82557	pci
 	ether82563	pci
 	ether82598	pci
+	etherx550	pci
 #	ether83815	pci
 	etherbcm        pci
 #	etherdp83820	pci ethermii
