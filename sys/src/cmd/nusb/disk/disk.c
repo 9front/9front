@@ -361,15 +361,6 @@ umsinit(void)
 	return 0;
 }
 
-static int
-needunstall(void)
-{
-	char buf[ERRMAX];
-
-	rerrstr(buf, sizeof(buf));
-	return strstr(buf, "medium not present") == nil;
-}
-
 
 /*
  * called by SR*() commands provided by scuzz's scsireq
@@ -377,10 +368,14 @@ needunstall(void)
 long
 umsrequest(Umsc *umsc, ScsiPtr *cmd, ScsiPtr *data, int *status)
 {
+	char buf[ERRMAX];
 	Cbw cbw;
 	Csw csw;
-	int n, nio;
+	int n, nio, present;
 	Ums *ums;
+
+	rerrstr(buf, sizeof(buf));
+	present = strstr(buf, "medium not present") == nil;
 
 	ums = umsc->ums;
 
@@ -427,7 +422,7 @@ umsrequest(Umsc *umsc, ScsiPtr *cmd, ScsiPtr *data, int *status)
 			else
 				fprint(2, "disk: data: %d bytes (nio: %d)\n", n, nio);
 		nio = n;
-		if(n < 0 && needunstall() || (n <= 9 || data->write == 0))
+		if((n == 0 && present) || (n < 0 && data->write == 0))
 			unstall(dev, ums->epin, Ein);
 	}
 
