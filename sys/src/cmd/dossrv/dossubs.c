@@ -144,7 +144,8 @@ dosfs(Xfs *xf)
 					bp->fatinfo = fisec;
 					bp->freeptr = GLONG(fi->nextfree);
 					bp->freeclusters = GLONG(fi->freeclust);
-					chat("fat info: %ld free clusters, next free %ld\n", bp->freeclusters, bp->freeptr);
+					chat("fat info: %ld free clusters, next free %ld\n",
+						bp->freeclusters, bp->freeptr);
 				}
 				putsect(p1);
 			}
@@ -154,12 +155,10 @@ dosfs(Xfs *xf)
 			bootdump(2, b);
 		bp->rootaddr = bp->fataddr + bp->nfats*bp->fatsize;
 		bp->rootstart = 0;
-		i = bp->rootsize*DOSDIRSIZE + bp->sectsize-1;
-		i /= bp->sectsize;
-		bp->dataaddr = bp->rootaddr + i;
+		bp->dataaddr = bp->rootaddr + (bp->rootsize*DOSDIRSIZE + bp->sectsize-1)/bp->sectsize;
 		bp->freeptr = FATRESRV;
 	}
-	bp->fatclusters = FATRESRV+(bp->volsize - bp->dataaddr)/bp->clustsize;
+	bp->fatclusters = FATRESRV + (bp->volsize - bp->dataaddr)/bp->clustsize;
 
 	if(xf->isfat32)
 		bp->fatbits = 32;
@@ -205,7 +204,7 @@ getfile(Xfile *f)
 	Iosect *p;
 
 	dp = f->ptr;
-	if(dp->p)
+	if(dp->p != nil)
 		panic("getfile");
 	p = getsect(f->xf, dp->addr);
 	if(p == nil)
@@ -234,7 +233,7 @@ putfile(Xfile *f)
 	Dosptr *dp;
 
 	dp = f->ptr;
-	if(!dp->p)
+	if(dp->p == nil)
 		panic("putfile");
 	putsect(dp->p);
 	dp->p = nil;
@@ -898,8 +897,7 @@ walkup(Xfile *f, Dosptr *ndp)
 					goto error;
 				}
 			}
-			k = clust2sect(bp, ppclust) + 
-				so%bp->clustsize;
+			k = clust2sect(bp, ppclust) + so%bp->clustsize;
 		}else{
 			if(so*bp->sectsize >= bp->rootsize*DOSDIRSIZE)
 				goto error;
@@ -919,7 +917,7 @@ out:
 	return 0;
 
 error:
-	if(p)
+	if(p != nil)
 		putsect(p);
 	return -1;
 }

@@ -39,13 +39,15 @@ getiosect(Xfs *xf, vlong addr, int rflag)
 	int toff;
 	Iosect *p;
 
+	if(addr < 0)
+		return nil;
 	toff = addr % Sect2trk;
 	taddr = addr - toff;
 	t = getiotrack(xf, taddr);
 	if(rflag && (t->flags&BSTALE)){
 		if(tread(t) < 0){
 			unmlock(&t->lock);
-			return 0;
+			return nil;
 		}
 		t->flags &= ~BSTALE;
 	}
