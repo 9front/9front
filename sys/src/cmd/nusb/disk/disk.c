@@ -427,7 +427,7 @@ umsrequest(Umsc *umsc, ScsiPtr *cmd, ScsiPtr *data, int *status)
 			else
 				fprint(2, "disk: data: %d bytes (nio: %d)\n", n, nio);
 		nio = n;
-		if((n < 0 && needunstall() || (n <= 9 || data->write == 0))
+		if(n < 0 && needunstall() || (n <= 9 || data->write == 0))
 			unstall(dev, ums->epin, Ein);
 	}
 
