@@ -272,6 +272,40 @@ log2(int n)
 }
 
 static int
+umsready(Umsc *lun)
+{
+	int i;
+
+	for(i=0; i<3; i++){
+		if(SRready(lun) != -1)
+			break;
+
+		if(lun->status != Status_SD)
+			continue;
+
+		/*
+		 * logical unit is in process of becoming ready
+		 * or initializing command required
+		 */
+		if(lun->sense[12] == 0x04)
+		if(lun->sense[13] == 0x02 || lun->sense[13] == 0x01)
+			break;
+
+		/* medium not present */
+		if(lun->sense[12] == 0x3A)
+			return -1;
+	}
+
+	/* start unit */
+	if((lun->inquiry[0] & 0x1F) == 0){
+		SRstart(lun, 1);
+		sleep(250);
+	}
+
+	return 0;
+}
+
+static int
 umscapacity(Umsc *lun)
 {
 	uchar data[32];
@@ -280,8 +314,13 @@ umscapacity(Umsc *lun)
 	lun->capacity = 0;
 	lun->lbsize = 0;
 	memset(data, 0, sizeof data);
-	if(SRrcapacity(lun, data) < 0 && SRrcapacity(lun, data)  < 0)
+
+	if(umsready(lun) < 0)
 		return -1;
+
+	if(SRrcapacity(lun, data) < 0)
+		return -1;
+
 	lun->blocks = GETBELONG(data);
 	lun->lbsize = GETBELONG(data+4);
 	if(lun->blocks == 0xFFFFFFFF){
@@ -337,14 +376,6 @@ umsinit(void)
 			continue;
 		}
 
-		if(SRready(lun) < 0 && SRready(lun) < 0 && SRready(lun) < 0)
-			dprint(2, "disk: lun %d not ready\n", i);
-
-		if((lun->inquiry[0] & 0x1F) == 0){
-			SRstart(lun, 1);
-			sleep(250);
-		}
-
 		/*
 		 * we ignore the device type reported by inquiry.
 		 * Some devices return a wrong value but would still work.
@@ -368,14 +399,10 @@ umsinit(void)
 long
 umsrequest(Umsc *umsc, ScsiPtr *cmd, ScsiPtr *data, int *status)
 {
-	char buf[ERRMAX];
 	Cbw cbw;
 	Csw csw;
-	int n, nio, present;
+	int n, nio;
 	Ums *ums;
-
-	rerrstr(buf, sizeof(buf));
-	present = strstr(buf, "medium not present") == nil;
 
 	ums = umsc->ums;
 
@@ -422,8 +449,11 @@ umsrequest(Umsc *umsc, ScsiPtr *cmd, ScsiPtr *data, int *status)
 			else
 				fprint(2, "disk: data: %d bytes (nio: %d)\n", n, nio);
 		nio = n;
-		if((n == 0 && present) || (n < 0 && data->write == 0))
-			unstall(dev, ums->epin, Ein);
+		if(n <= 0){
+			nio = 0;
+			if(data->write == 0)
+				unstall(dev, ums->epin, Ein);
+		}
 	}
 
 	/* read the transfer's status */
