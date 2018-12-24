@@ -96,6 +96,9 @@ enum {					/* SCSI command codes */
 	ScmdStart	= 0x1B,		/* start/stop unit */
 	ScmdRcapacity	= 0x25,		/* read capacity */
 	ScmdRcapacity16	= 0x9e,		/* long read capacity */
+	ScmdRead16	= 0x88,		/* long read */
+	ScmdWrite16	= 0x8A,		/* long write */
+	ScmdSeek16	= 0x9E,		/* long seek */
 	ScmdExtread	= 0x28,		/* extended read */
 	ScmdExtwrite	= 0x2A,		/* extended write */
 	ScmdExtseek	= 0x2B,		/* extended seek */
@@ -187,7 +190,7 @@ long	SRformat(ScsiReq*);
 long	SRrblimits(ScsiReq*, uchar*);
 long	SRread(ScsiReq*, void*, long);
 long	SRwrite(ScsiReq*, void*, long);
-long	SRseek(ScsiReq*, long, int);
+long	SRseek(ScsiReq*, vlong, int);
 long	SRfilemark(ScsiReq*, ulong);
 long	SRspace(ScsiReq*, uchar, long);
 long	SRinquiry(ScsiReq*);

@@ -178,6 +178,25 @@ dirdevrw(ScsiReq *rp, uchar *cmd, long nbytes)
 		cmd[5] = 0;
 		return 6;
 	}
+	if(rp->offset > 0xFFFFFFFFUL){
+		cmd[0] |= ScmdRead16;
+		cmd[1] = 0;
+		cmd[2] = rp->offset>>56;
+		cmd[3] = rp->offset>>48;
+		cmd[4] = rp->offset>>40;
+		cmd[5] = rp->offset>>32;
+		cmd[6] = rp->offset>>24;
+		cmd[7] = rp->offset>>16;
+		cmd[8] = rp->offset>>8;
+		cmd[9] = rp->offset;
+		cmd[10] = n>>24;
+		cmd[11] = n>>16;
+		cmd[12] = n>>8;
+		cmd[13] = n;
+		cmd[14] = 0;
+		cmd[15] = 0;
+		return 16;
+	}
 	cmd[0] |= ScmdExtread;
 	cmd[1] = 0;
 	PUTBELONG(cmd+2, rp->offset);
@@ -206,7 +225,7 @@ extern int diskdebug;
 long
 SRread(ScsiReq *rp, void *buf, long nbytes)
 {
-	uchar cmd[10];
+	uchar cmd[16];
 	long n;
 
 	if(rp->lbsize == 0 || (nbytes % rp->lbsize) || nbytes > Maxiosize){
@@ -270,7 +289,7 @@ SRread(ScsiReq *rp, void *buf, long nbytes)
 long
 SRwrite(ScsiReq *rp, void *buf, long nbytes)
 {
-	uchar cmd[10];
+	uchar cmd[16];
 	long n;
 
 	if(rp->lbsize == 0 || (nbytes % rp->lbsize) || nbytes > Maxiosize){
@@ -318,9 +337,9 @@ SRwrite(ScsiReq *rp, void *buf, long nbytes)
 }
 
 long
-SRseek(ScsiReq *rp, long offset, int type)
+SRseek(ScsiReq *rp, vlong offset, int type)
 {
-	uchar cmd[10];
+	uchar cmd[16];
 
 	switch(type){
 
@@ -344,10 +363,21 @@ SRseek(ScsiReq *rp, long offset, int type)
 		cmd[0] = ScmdSeek;
 		PUTBE24(cmd+1, offset & Max24off);
 		rp->cmd.count = 6;
-	}else{
+	}else if(offset <= 0xFFFFFFFFUL) {
 		cmd[0] = ScmdExtseek;
 		PUTBELONG(cmd+2, offset);
 		rp->cmd.count = 10;
+	}else {
+		cmd[0] = ScmdSeek16;
+		cmd[2] = offset>>56;
+		cmd[3] = offset>>48;
+		cmd[4] = offset>>40;
+		cmd[5] = offset>>32;
+		cmd[6] = offset>>24;
+		cmd[7] = offset>>16;
+		cmd[8] = offset>>8;
+		cmd[9] = offset;
+		rp->cmd.count = 16;
 	}
 	rp->cmd.p = cmd;
 	rp->data.p = cmd;
