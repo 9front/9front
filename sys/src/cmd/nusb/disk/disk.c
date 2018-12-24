@@ -361,6 +361,15 @@ umsinit(void)
 	return 0;
 }
 
+static int
+needunstall(void)
+{
+	char buf[ERRMAX];
+
+	rerrstr(buf, sizeof(buf));
+	return strstr(buf, "medium not present") == nil;
+}
+
 
 /*
  * called by SR*() commands provided by scuzz's scsireq
@@ -412,15 +421,14 @@ umsrequest(Umsc *umsc, ScsiPtr *cmd, ScsiPtr *data, int *status)
 			if (n >= 0 && n < nio)	/* didn't fill data->p? */
 				memset(data->p + n, 0, nio - n);
 		}
-		nio = n;
 		if(diskdebug)
 			if(n < 0)
 				fprint(2, "disk: data: %r\n");
 			else
-				fprint(2, "disk: data: %d bytes\n", n);
-		if(n <= 0)
-			if(data->write == 0)
-				unstall(dev, ums->epin, Ein);
+				fprint(2, "disk: data: %d bytes (nio: %d)\n", n, nio);
+		nio = n;
+		if((n < 0 && needunstall() || (n <= 9 || data->write == 0))
+			unstall(dev, ums->epin, Ein);
 	}
 
 	/* read the transfer's status */
