@@ -199,7 +199,8 @@ execsh(char *args, char *cmd, Bufblock *buf, Envy *e)
 			perror(shell);
 			_exits("exec");
 		}
-		close(out[1]);
+		if(buf)
+			close(out[1]);
 		close(in[0]);
 		p = cmd+strlen(cmd);
 		while(cmd < p){
