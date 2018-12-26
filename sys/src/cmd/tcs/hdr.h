@@ -37,10 +37,4 @@ extern char obuf[UTFmax*N];	/* maximum bloat from N runes */
 #define		BYTEBADMAP	('?')		/* badmap but has to fit in a byte */
 #define		ESC		033
 
-#ifdef	PLAN9
-#define	EPR		fprint(2,
-#define	EXIT(n,s)	exits(s)
-#else
-#define	EPR		fprintf(stderr,
-#define	EXIT(n,s)	exit(n)
-#endif
+void warn(char*, ...);

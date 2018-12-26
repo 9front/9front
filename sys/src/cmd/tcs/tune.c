@@ -160,7 +160,7 @@ tune_in(int fd, long *, struct convert *out)
 			default: 
 				if(c >= 0xe200 && c <= 0xe3ff){
 					if(squawk)
-						EPR "%s: rune 0x%x not in output cs\n", argv0, c);
+						warn("rune 0x%x not in output cs", c);
 					nerrors++;
 					if(clean)
 						break;
@@ -221,7 +221,7 @@ tune_out(Rune *r, int n, long *)
 				}
 			}else if(lastr && lastr != Runeerror && (*r == 0x00b2/*²*/ || *r == 0x00b3/*³*/ || *r == 0x2074/*⁴*/)){
 				if(squawk)
-					EPR "%s: character <U+%.4X, U+%.4X> not in output cs\n", argv0, lastr, *r);
+					warn("character <U+%.4X, U+%.4X> not in output cs", lastr, *r);
 				lastr = clean ? 0 : Runeerror;
 				nerrors++;
 			}else{
@@ -302,5 +302,6 @@ tune_out(Rune *r, int n, long *)
 		state = 0;
 	}
 	noutput += p-obuf;
-	write(1, obuf, p-obuf);
+	if(p > obuf)
+		write(1, obuf, p-obuf);
 }

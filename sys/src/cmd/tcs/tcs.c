@@ -1,17 +1,6 @@
-#ifndef PLAN9
-#include	<sys/types.h>
-#include	<stdio.h>
-#include	<unistd.h>
-#include	<stdlib.h>
-#include	<fcntl.h>
-#include	<string.h>
-#include	<errno.h>
-#include	"plan9.h"
-#else /* PLAN9 */
 #include	<u.h>
 #include	<libc.h>
 #include	<bio.h>
-#endif /* PLAN9 */
 #include	"cyrillic.h"
 #include	"misc.h"
 #include	"ms.h"
@@ -32,15 +21,12 @@ char *argv0;
 Rune runes[N];
 char obuf[UTFmax*N];	/* maximum bloat from N runes */
 long tab[NRUNE];
-#ifndef	PLAN9
-extern char version[];
-#endif
 
 void intable(int, long *, struct convert *);
 void unicode_in(int, long *, struct convert *);
 void unicode_out(Rune *, int, long *);
 
-int
+void
 main(int argc, char **argv)
 {
 	char *from = "utf";
@@ -77,7 +63,7 @@ main(int argc, char **argv)
 		squawk = 1;
 	if(listem){
 		list();
-		EXIT(0, 0);
+		exits(nil);
 	}
 	if(!from || !to)
 		usage();
@@ -90,14 +76,8 @@ main(int argc, char **argv)
 	if(*argv){
 		while(*argv){
 			file = *argv;
-#ifndef PLAN9
-			if((fd = open(*argv, 0)) < 0){
-				EPR "%s: %s: %s\n", argv0, *argv, strerror(errno));
-#else /* PLAN9 */
 			if((fd = open(*argv, OREAD)) < 0){
-				EPR "%s: %s: %r\n", argv0, *argv);
-#endif /* PLAN9 */
-				EXIT(1, "open failure");
+				sysfatal("%s: %r", *argv);
 			}
 			PROC
 			close(fd);
@@ -108,19 +88,18 @@ main(int argc, char **argv)
 		PROC
 	}
 	if(verbose)
-		EPR "%s: %ld input bytes, %ld runes, %ld output bytes (%ld errors)\n", argv0,
+		warn("%ld input bytes, %ld runes, %ld output bytes (%ld errors)",
 			ninput, nrunes, noutput, nerrors);
-	EXIT(((nerrors && squawk)? 1:0), ((nerrors && squawk)? "conversion error":0));
-	return(0);	/* shut up compiler */
+	exits((nerrors && squawk)? "conversion error":nil);
 }
 
 void
 usage(void)
 {
-	EPR "Usage: %s [-slv] [-f cs] [-t cs] [file ...]\n", argv0);
+	fprint(2, "Usage: %s [-slv] [-f cs] [-t cs] [file ...]\n", argv0);
 	verbose = 1;
 	list();
-	EXIT(1, "usage");
+	exits("usage");
 }
 
 void
@@ -129,28 +108,41 @@ list(void)
 	struct convert *c;
 	char ch = verbose?'\t':' ';
 
-#ifndef	PLAN9
-	EPR "%s version = '%s'\n", argv0, version);
-#endif
 	if(verbose)
-		EPR "character sets:\n");
+		fprint(2, "character sets:\n");
 	else
-		EPR "cs:");
+		fprint(2, "cs:");
 	for(c = convert; c->name; c++){
 		if((c->flags&From) && c[1].name && (strcmp(c[1].name, c->name) == 0)){
-			EPR "%c%s", ch, c->name);
+			fprint(2, "%c%s", ch, c->name);
 			c++;
 		} else if(c->flags&Table)
-			EPR "%c%s", ch, c->name);
+			fprint(2, "%c%s", ch, c->name);
 		else if(c->flags&From)
-			EPR "%c%s(from)", ch, c->name);
+			fprint(2, "%c%s(from)", ch, c->name);
 		else
-			EPR "%c%s(to)", ch, c->name);
+			fprint(2, "%c%s(to)", ch, c->name);
 		if(verbose)
-			EPR "\t%s\n", c->chatter);
+			fprint(2, "\t%s\n", c->chatter);
 	}
 	if(!verbose)
-		EPR "\n");
+		fprint(2, "\n");
+}
+
+void
+warn(char *fmt, ...)
+{
+	va_list arg;
+	char buf[1024];	/* arbitrary */
+	int n;
+
+	if((n = snprint(buf, sizeof(buf), "%s: ", argv0)) < 0)
+		sysfatal("snprint: %r");
+	va_start(arg, fmt);
+	vseprint(buf+n, buf+sizeof(buf), fmt, arg);
+	va_end(arg);
+
+	fprint(2, "%s\n", buf);
 }
 
 char*
@@ -188,8 +180,7 @@ conv(char *name, int from)
 		if(((c->flags&From) == 0) == (from == 0))
 			return(c);
 	}
-	EPR "%s: charset `%s' unknown\n", argv0, name);
-	EXIT(1, "unknown character set");
+	sysfatal("charset `%s' unknown", name);
 	return(0);	/* just shut the compiler up */
 }
 
@@ -320,7 +311,8 @@ unicode_out_be(Rune *base, int n, long *)
 	nrunes += n;
 	n = p - (uchar*)base;
 	noutput += n;
-	write(1, (char *)base, n);
+	if(n > 0)
+		write(1, base, n);
 }
 
 void
@@ -347,7 +339,8 @@ unicode_out_le(Rune *base, int n, long *)
 	nrunes += n;
 	n = p - (uchar*)base;
 	noutput += n;
-	write(1, (char *)base, n);
+	if(n > 0)
+		write(1, (char *)base, n);
 }
 
 void
@@ -378,7 +371,7 @@ intable(int fd, long *table, struct convert *out)
 			c = table[*p];
 			if(c < 0){
 				if(squawk)
-					EPR "%s: bad char 0x%x near byte %zd in %s\n", argv0, *p, ninput+(p-e), file);
+					warn("bad char 0x%x near byte %zd in %s", *p, ninput+(p-e), file);
 				nerrors++;
 				if(clean)
 					continue;
@@ -389,14 +382,8 @@ intable(int fd, long *table, struct convert *out)
 		OUT(out, runes, r-runes);
 	}
 	OUT(out, runes, 0);
-	if(n < 0){
-#ifdef	PLAN9
-		EPR "%s: input read: %r\n", argv0);
-#else
-		EPR "%s: input read: %s\n", argv0, strerror(errno));
-#endif
-		EXIT(1, "input read error");
-	}
+	if(n < 0)
+		sysfatal("input read: %r");
 }
 
 void
@@ -420,7 +407,7 @@ outtable(Rune *base, int n, long *map)
 			c = -1;
 		if(c < 0){
 			if(squawk)
-				EPR "%s: rune 0x%x not in output cs\n", argv0, base[i]);
+				warn("rune 0x%x not in output cs", base[i]);
 			nerrors++;
 			if(clean)
 				continue;
@@ -429,7 +416,8 @@ outtable(Rune *base, int n, long *map)
 		*p++ = c;
 	}
 	noutput += p-obuf;
-	write(1, obuf, p-obuf);
+	if(p > obuf)
+		write(1, obuf, p-obuf);
 }
 
 int

@@ -1,16 +1,6 @@
-#ifdef PLAN9
 #include	<u.h>
 #include	<libc.h>
 #include	<bio.h>
-#else
-#include	<sys/types.h>
-#include	<stdio.h>
-#include	<stdlib.h>
-#include	<string.h>
-#include	<unistd.h>
-#include	<errno.h>
-#include	"plan9.h"
-#endif
 #include	"hdr.h"
 
 /*
@@ -40,7 +30,7 @@ utf_in(int fd, long *, struct convert *out)
 			c = our_mbtowc(&l, buf+i, tot-i);
 			if(c == -1){
 				if(squawk)
-					EPR "%s: bad UTF sequence near byte %ld in input\n", argv0, ninput+i);
+					warn("bad UTF sequence near byte %ld in input", ninput+i);
 				if(clean){
 					i++;
 					continue;
@@ -74,7 +64,8 @@ utf_out(Rune *base, int n, long *)
 		p += our_wctomb(p, *r);
 	}
 	noutput += p-obuf;
-	write(1, obuf, p-obuf);
+	if(p > obuf)
+		write(1, obuf, p-obuf);
 }
 
 void
@@ -92,7 +83,7 @@ isoutf_in(int fd, long *, struct convert *out)
 			c = isochartorune(&runes[j], buf+i);
 			if(runes[j] == Runeerror){
 				if(squawk)
-					EPR "%s: bad UTF sequence near byte %ld in input\n", argv0, ninput+i);
+					warn("bad UTF sequence near byte %ld in input", ninput+i);
 				if(clean){
 					i++;
 					continue;
@@ -123,7 +114,8 @@ isoutf_out(Rune *base, int n, long *)
 	for(r = base, p = obuf; n-- > 0; r++)
 		p += runetoisoutf(p, r);
 	noutput += p-obuf;
-	write(1, obuf, p-obuf);
+	if(p > obuf)
+		write(1, obuf, p-obuf);
 }
 
 
@@ -291,10 +283,6 @@ fullisorune(char *str, int n)
 	return 0;
 }
 
-#ifdef PLAN9
-int	errno;
-#endif
-
 enum
 {
 	T1	= 0x00,
@@ -326,10 +314,6 @@ enum
 	Wchar3	= (1UL<<(Bit3+2*Bitx))-1,
 	Wchar4	= (1UL<<(Bit4+3*Bitx))-1,
 	Wchar5	= (1UL<<(Bit5+4*Bitx))-1,
-
-#ifndef	EILSEQ
-	EILSEQ	= 123,
-#endif /* EILSEQ */
 };
 
 int
@@ -478,6 +462,5 @@ our_mbtowc(unsigned long *p, char *s, unsigned n)
 	return 1;
 
 bad:
-	errno = EILSEQ;
 	return -1;
 }

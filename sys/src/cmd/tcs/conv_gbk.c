@@ -1,12 +1,6 @@
-#ifdef	PLAN9
 #include	<u.h>
 #include	<libc.h>
 #include	<bio.h>
-#else
-#include	<stdio.h>
-#include	<unistd.h>
-#include	"plan9.h"
-#endif
 #include	"hdr.h"
 #include	"conv.h"
 #include	"gbk.h"
@@ -39,7 +33,7 @@ gbkproc(int c, Rune **r, long input_loc)
 		if(ch < 0){
 			nerrors++;
 			if(squawk)
-				EPR "%s: bad gbk glyph %d (from 0x%x,0x%lx) near byte %ld in %s\n", argv0, (c & 0xFF), lastc, cold, input_loc, file);
+				warn("bad gbk glyph %d (from 0x%x,0x%lx) near byte %ld in %s", (c & 0xFF), lastc, cold, input_loc, file);
 			if(!clean)
 				emit(BADMAP);
 			state = state0;
@@ -111,7 +105,7 @@ gbk_out(Rune *base, int n, long *)
 				continue;
 			}
 			if(squawk)
-				EPR "%s: rune 0x%x not in output cs\n", argv0, r);
+				warn("rune 0x%x not in output cs", r);
 			nerrors++;
 			if(clean)
 				continue;

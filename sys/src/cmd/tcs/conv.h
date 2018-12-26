@@ -15,6 +15,7 @@ void uksc_in(int fd, long *notused, struct convert *out);
 void uksc_out(Rune *base, int n, long *notused);
 void html_in(int fd, long *notused, struct convert *out);
 void html_out(Rune *base, int n, long *notused);
+void unhtml_in(int fd, long *notused, struct convert *out);
 void tune_in(int fd, long *notused, struct convert *out);
 void tune_out(Rune *base, int n, long *notused);
 
