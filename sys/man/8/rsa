@@ -274,6 +274,14 @@ Generate a certificate signing request (CSR) in PEM format:
 auth/rsa2csr 'CN=example.com' key |
 	auth/pemencode 'CERTIFICATE REQUEST'
 .EE
+.PP
+Generate a tinc host key:
+.IP
+.EX
+auth/rsagen -t 'service=tinc role=client host=myhost' > myhost.key
+auth/rsa2pub < myhost.key |
+	auth/rsa2asn1 | auth/pemencode 'RSA PUBLIC KEY' > hosts/myhost
+.EE
 .SH SOURCE
 .B /sys/src/cmd/auth
 .SH "SEE ALSO
