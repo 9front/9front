@@ -85,10 +85,10 @@ condgen(Node *n, int invert, int truelab)
 
 	if(n->type != OBIN) goto other;
 	switch(n->op){
-	case OPEQ: op = DTE_SEQ; goto cmp;
-	case OPNE: op = DTE_SNE; goto cmp;
-	case OPLT: op = DTE_SLT; goto cmp;
-	case OPLE: op = DTE_SLE;
+	case OPEQ: op = DTE_BEQ; goto cmp;
+	case OPNE: op = DTE_BNE; goto cmp;
+	case OPLT: op = DTE_BLT; goto cmp;
+	case OPLE: op = DTE_BLE;
 	cmp:
 		r1 = egen(n->n1);
 		r2 = egen(n->n2);
