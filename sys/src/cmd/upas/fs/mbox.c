@@ -1041,7 +1041,7 @@ delmessage(Mailbox *mb, Message *m)
 
 		if(Topmsg(mb, m))
 			mtreedelete(mb, m);
-		cachefree(mb, m);
+		cachefree(mb, m, 1);
 		idxfree(m);
 	}
 	free(m->unixfrom);

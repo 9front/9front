@@ -207,7 +207,7 @@ int		insurecache(Mailbox*, Message*);
 
 /**/
 void		putcache(Mailbox*, Message*);		/* asymmetricial */
-void		cachefree(Mailbox*, Message*);
+void		cachefree(Mailbox*, Message*, int);
 
 char*		syncmbox(Mailbox*, int);
 void*		emalloc(ulong);
