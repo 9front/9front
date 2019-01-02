@@ -3,12 +3,14 @@
 #include "dat.h"
 
 static void
-addlru(Mcache *c, Message *m)
+addlru(Mailbox *c, Message *m)
 {
 	Message *l, **ll;
 
 	if((m->cstate & (Cheader|Cbody)) == 0)
 		return;
+
+	assert(c->fetch != nil);
 
 	c->nlru++;
 	ll = &c->lru;
@@ -35,12 +37,12 @@ notecache(Mailbox *mb, Message *m, long sz)
 }
 
 void
-cachefree(Mailbox *mb, Message *m, int force)
+cachefree(Mailbox *mb, Message *m)
 {
 	long i;
 	Message *s, **ll;
 
-	if(Topmsg(mb, m)){
+	if(Topmsg(mb, m) && mb->fetch != nil){
 		for(ll = &mb->lru; *ll != nil; ll = &((*ll)->lru)){
 			if(*ll == m){
 				mb->nlru--;
@@ -49,14 +51,12 @@ cachefree(Mailbox *mb, Message *m, int force)
 				break;
 			}
 		}
-		if(mb->decache)
+		if(mb->decache != nil)
 			mb->decache(mb, m);
 		mb->cached -= m->csize;
 	}
 	for(s = m->part; s; s = s->next)
-		cachefree(mb, s, force);
-	if(!force && mb->fetch == nil)
-		return;
+		cachefree(mb, s);
 	if(m->mallocd){
 		free(m->start);
 		m->mallocd = 0;
@@ -94,6 +94,8 @@ putcache(Mailbox *mb, Message *m)
 {
 	int n;
 
+	if(mb->fetch == nil)
+		return;
 	while(!Topmsg(mb, m)) m = m->whole;
 	addlru(mb, m);
 	while(mb->lru != nil && (mb->cached > cachetarg || mb->nlru > 10)){
@@ -103,7 +105,7 @@ putcache(Mailbox *mb, Message *m)
 				return;
 			addlru(mb, mb->lru);
 		}
-		cachefree(mb, mb->lru, 0);
+		cachefree(mb, mb->lru);
 	}
 }
 
