@@ -1,5 +1,4 @@
 </$objtype/mkfile
-<../mkupas
 
 TARG=fs
 
@@ -32,6 +31,8 @@ UPDATE=\
 
 </sys/src/cmd/mkone
 CFLAGS=$CFLAGS  -I../common
+
+<../mkupas
 
 acid:V:
 	$CC -a $CFLAGS fs.c>a$O
