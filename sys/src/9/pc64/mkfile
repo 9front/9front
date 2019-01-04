@@ -5,6 +5,7 @@ objtype=amd64
 </$objtype/mkfile
 p=9
 
+# must match mem.h
 KTZERO=0xffffffff80110000
 APBOOTSTRAP=0xffffffff80007000
 REBOOTADDR=0x11000
@@ -99,7 +100,7 @@ REPCC=`{../port/mkfilelist ../pc}
 <../port/portmkfile
 <|../port/mkbootrules $CONF
 
-l.$O apbootstrap.$O:		mem.h
+l.$O:				mem.h
 
 $ETHER: 			../port/etherif.h ../port/netif.h
 $AUDIO:				../port/audioif.h
@@ -144,7 +145,7 @@ init.h:D:		../port/initcode.c ../pc/init9.c
 		sed -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
 	 echo '};'} > init.h
 
-reboot.h:	rebootcode.s
+reboot.h:D:	rebootcode.s mem.h
 	$AS rebootcode.s
 	$LD -l -R1 -s -o reboot.out -T$REBOOTADDR rebootcode.$O
 	{echo 'uchar rebootcode[]={'
@@ -153,7 +154,7 @@ reboot.h:	rebootcode.s
 	 sed -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
 	 echo '};'} > $target
 
-apbootstrap.h:	apbootstrap.s
+apbootstrap.h:D:	apbootstrap.s mem.h
 	$AS apbootstrap.s
 	$LD -l -R1 -s -o apbootstrap.out -T$APBOOTSTRAP apbootstrap.$O
 	{echo 'uchar apbootstrap[]={'

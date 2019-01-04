@@ -8,8 +8,9 @@ objtype=386
 p=9
 
 # must match mem.h
-APBOOTSTRAP=0xF0007000
 KTZERO=0xF0100020
+APBOOTSTRAP=0xF0007000
+REBOOTADDR=0x11000
 
 DEVS=`{rc ../port/mkdevlist $CONF}
 
@@ -143,15 +144,15 @@ init.h:D:		../port/initcode.c init9.c
 		sed -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
 	 echo '};'} > init.h
 
-reboot.h:D:	rebootcode.s
+reboot.h:D:	rebootcode.s mem.h
 	$AS rebootcode.s
-	$LD -l -s -T0x11000 -R4 -o reboot.out rebootcode.$O
+	$LD -l -s -T$REBOOTADDR -R4 -o reboot.out rebootcode.$O
 	{echo 'uchar rebootcode[]={'
 	 xd -1x reboot.out |
 		sed -e '1,2d' -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
 	 echo '};'} > reboot.h
 
-apbootstrap.h:	apbootstrap.s mem.h
+apbootstrap.h:D:	apbootstrap.s mem.h
 	$AS $prereq
 	$LD -o apbootstrap.out -T$APBOOTSTRAP -R4 -l -s apbootstrap.$O
 	{echo 'uchar apbootstrap[]={'
