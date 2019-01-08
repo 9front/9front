@@ -811,7 +811,8 @@ Error:
 			}
 		}
 	}
-	havepiece(off / blocksize, w->str);
+	if(off < f->off + f->len)
+		havepiece(off / blocksize, w->str);
 	havepiece(f->off / blocksize, w->str);
 	close(fd);
 	exits(0);
