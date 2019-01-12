@@ -512,7 +512,7 @@ struct Ctlr {
 	void	*alloc;			/* receive/transmit descriptors */
 	int	nrd;
 	int	ntd;
-	uint	rbsz;
+	int	rbsz;
 
 	u32int	*nic;
 	Lock	imlock;
@@ -942,8 +942,6 @@ i82563rxinit(Ctlr *ctlr)
 		csr32w(ctlr, Rctl, Dpf|Bsize2048|Bam|RdtmsHALF);
 	else{
 		i = ctlr->rbsz / 1024;
-		if(ctlr->rbsz % 1024)
-			i++;
 		if(cttab[ctlr->type].flag & F75){
 			csr32w(ctlr, Rctl, Lpe|Dpf|Bsize2048|Bam|RdtmsHALF|Secrc);
 			if(ctlr->type != i82575)
@@ -1098,7 +1096,7 @@ phyread(Ctlr *c, int phyno, int reg)
 		microdelay(1);
 	}
 	if((phy & (MDIe|MDIready)) != MDIready){
-		print("%s: phy %d wedged %.8ux\n", cttab[c->type].name, phyno, phy);
+		print("%s: phy %d wedged %.8ux\n", cname(c), phyno, phy);
 		return ~0;
 	}
 	return phy & 0xffff;
@@ -2032,7 +2030,7 @@ i82563pci(void)
 		}
 		ctlr->type = type;
 		ctlr->pcidev = p;
-		ctlr->rbsz = cttab[type].mtu;
+		ctlr->rbsz = ROUND(cttab[type].mtu, 1024);
 		ctlr->port = p->mem[0].bar & ~0x0F;
 		if(i82563ctlrhead != nil)
 			i82563ctlrtail->next = ctlr;
@@ -2098,7 +2096,7 @@ pnp(Ether *edev, int type)
 	edev->irq = ctlr->pcidev->intl;
 	edev->tbdf = ctlr->pcidev->tbdf;
 	edev->mbps = 1000;
-	edev->maxmtu = ctlr->rbsz;
+	edev->maxmtu = cttab[ctlr->type].mtu;
 	memmove(edev->ea, ctlr->ra, Eaddrlen);
 
 	/*
