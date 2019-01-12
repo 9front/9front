@@ -267,7 +267,7 @@ typedef struct {
 
 /* tweakable paramaters */
 enum {
-	Rbsz	= 12*1024,
+	Mtu	= 12*1024,
 	Nrd	= 256,
 	Ntd	= 256,
 	Nrb	= 256,
@@ -467,7 +467,7 @@ rxinit(Ctlr *c)
 
 	c->reg[Fctrl] |= Bam;
 	c->reg[Rxcsum] |= Ippcse;
-	c->reg[Srrctl] = (c->rbsz + 1023)/1024;
+	c->reg[Srrctl] = c->rbsz / 1024;
 	c->reg[Maxfrs] = c->rbsz << 16;
 	c->reg[Hlreg0] |= Jumboen;
 
@@ -852,7 +852,7 @@ scan(void)
 		c->io = io;
 		c->reg = (u32int*)mem;
 		c->regmsi = (u32int*)memmsi;
-		c->rbsz = Rbsz;
+		c->rbsz = ROUND(Mtu, 1024);
 		if(reset(c)){
 			print("iX550: can't reset\n");
 			free(c);
@@ -898,7 +898,7 @@ pnp(Ether *e)
 	e->irq = c->p->intl;
 	e->tbdf = c->p->tbdf;
 	e->mbps = 10000;
-	e->maxmtu = c->rbsz;
+	e->maxmtu = Mtu;
 
 	e->arg = e;
 	e->attach = attach;
