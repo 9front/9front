@@ -463,6 +463,7 @@ enum {
 	F79phy	= 1<<5,
 	Fnofct	= 1<<6,
 	Fbadcsum= 1<<7,
+	Fnofca	= 1<<8,
 };
 
 typedef struct Ctlrtype Ctlrtype;
@@ -491,9 +492,9 @@ static Ctlrtype cttab[Nctlrtype] = {
 [i82580]	"i82580",	9728,	F75|F79phy,
 [i82583]	"i82583",	1514,	0,
 [i210]		"i210",		9728,	F75|Fnofct|Fert,
-[i217]		"i217",		2048,	Fload|Fert|Fnofct|Fbadcsum,	/* 9018, but unstable above 2k */
-[i218]		"i218",		9018,	Fload|Fert|F79phy|Fnofct|Fbadcsum,
-[i219]		"i219",		9018,	Fload|Fert|F79phy|Fnofct|Fbadcsum,
+[i217]		"i217",		2048,	Fload|Fert|F79phy|Fnofct|Fnofca|Fbadcsum,/* 9018, but unstable above 2k */
+[i218]		"i218",		9018,	Fload|Fert|F79phy|Fnofct|Fnofca|Fbadcsum,
+[i219]		"i219",		9018,	Fload|Fert|F79phy|Fnofct|Fnofca|Fbadcsum,
 [i350]		"i350",		9728,	F75|F79phy|Fnofct,
 };
 
@@ -1192,7 +1193,7 @@ lsleep(Ctlr *c, uint m)
 static void
 phyl79proc(void *v)
 {
-	uint a, i, r, phy, phyno;
+	uint i, r, phy, phyno;
 	Ctlr *c;
 	Ether *e;
 
@@ -1205,19 +1206,21 @@ phyl79proc(void *v)
 		lsleep(c, Lsc);
 
 	for(;;){
-		phy = phyread(c, phyno, Phystat);
-		if(phy == ~0){
-			phy = 0;
-			i = 3;
-			goto next;
+		phy = 0;
+		for(i=0; i<4; i++){
+			tsleep(&up->sleep, return0, 0, 150);
+			phy = phyread(c, phyno, Phystat);
+			if(phy == ~0)
+				continue;
+			if(phy & Ans){
+				r = phyread(c, phyno, Phyctl);
+				if(r == ~0)
+					continue;
+				phywrite(c, phyno, Phyctl, r | Ran | Ean);
+			}
+			break;
 		}
 		i = (phy>>8) & 3;
-		a = phy & Ans;
-		if(a){
-			r = phyread(c, phyno, Phyctl);
-			phywrite(c, phyno, Phyctl, r | Ran | Ean);
-		}
-next:
 		e->link = i != 3 && (phy & Link) != 0;
 		if(e->link == 0)
 			i = 3;
@@ -1785,8 +1788,10 @@ i82563reset(Ctlr *ctlr)
 	memset(ctlr->mta, 0, sizeof(ctlr->mta));
 	for(i = 0; i < 128; i++)
 		csr32w(ctlr, Mta + i*4, 0);
-	csr32w(ctlr, Fcal, 0x00C28001);
-	csr32w(ctlr, Fcah, 0x0100);
+	if((flag & Fnofca) == 0){
+		csr32w(ctlr, Fcal, 0x00C28001);
+		csr32w(ctlr, Fcah, 0x0100);
+	}
 	if((flag & Fnofct) == 0)
 		csr32w(ctlr, Fct, 0x8808);
 	csr32w(ctlr, Fcttv, 0x0100);
