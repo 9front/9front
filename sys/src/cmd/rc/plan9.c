@@ -93,9 +93,14 @@ execnewpgrp(void)
 	if(rfork(arg)==-1){
 		pfmt(err, "rc: %s failed\n", runq->argv->words->word);
 		setstatus("rfork failed");
-	}
-	else
+	} else {
+		if(arg & RFCFDG){
+			struct redir *rp;
+			for(rp = runq->redir; rp; rp = rp->next)
+				rp->type = 0;
+		}
 		setstatus("");
+	}
 	poplist();
 }
 
