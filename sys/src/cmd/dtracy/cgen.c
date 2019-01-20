@@ -152,7 +152,7 @@ condvgen(Node *n, int invert)
 		}else{
 			l1 = nlab++;
 			l2 = nlab++;
-			condgen(n->n1, invert, l1);
+			condgen(n->n1, !invert, l1);
 			r = condvgen(n->n2, invert);
 			emit(DTE(DTE_BEQ, 0, 0, l2));
 			labtab[l1] = ncbuf;
