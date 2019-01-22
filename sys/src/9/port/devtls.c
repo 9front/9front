@@ -1793,12 +1793,8 @@ tlsinit(void)
 	struct Hashalg *h;
 	int n;
 	char *cp;
-	static int already;
 
-	if(!already){
-		fmtinstall('H', encodefmt);
-		already = 1;
-	}
+	fmtinstall('H', encodefmt);
 
 	tlsdevs = smalloc(sizeof(TlsRec*) * maxtlsdevs);
 	trnames = smalloc((sizeof *trnames) * maxtlsdevs);
