@@ -698,6 +698,10 @@ faultamd64(Ureg* ureg, void*)
 	up->insyscall = 1;
 	f = fpusave();
 	if(!user && waserror()){
+		if(up->nerrlab == 0){
+			pprint("suicide: sys: %s\n", up->errstr);
+			pexit(up->errstr, 1);
+		}
 		int s = splhi();
 		fpurestore(f);
 		up->insyscall = insyscall;
