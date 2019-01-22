@@ -23,23 +23,35 @@ static uchar	*swapbuf;
 static AESstate *swapkey;
 
 static Page	**iolist;
-static int	ioptr;
+static ulong	ioptr;
 
 static ushort	ageclock;
 
 static void
 swapinit(void)
 {
-	swapalloc.swmap = xalloc(conf.nswap);
+	while(conf.nswap && conf.nswppo){
+		swapalloc.swmap = xalloc(conf.nswap);
+		if(swapalloc.swmap == nil)
+			break;
+		iolist = xalloc(conf.nswppo*sizeof(Page*));
+		if(iolist == nil){
+			xfree(swapalloc.swmap);
+			swapalloc.swmap = nil;
+		}
+		break;
+	}
+
+	if(swapalloc.swmap == nil || iolist == nil)
+		conf.nswap = conf.nswppo = 0;
+
 	swapalloc.top = &swapalloc.swmap[conf.nswap];
 	swapalloc.alloc = swapalloc.swmap;
 	swapalloc.last = swapalloc.swmap;
 	swapalloc.free = conf.nswap;
 	swapalloc.xref = 0;
 
-	iolist = xalloc(conf.nswppo*sizeof(Page*));
-	if(swapalloc.swmap == nil || iolist == nil)
-		panic("swapinit: not enough memory");
+	kproc("pager", pager, 0);
 }
 
 static uintptr
@@ -116,12 +128,7 @@ swapcount(uintptr daddr)
 void
 kickpager(void)
 {
-	static Ref started;
-
-	if(started.ref || incref(&started) != 1)
-		wakeup(&swapalloc.r);
-	else
-		kproc("pager", pager, 0);
+	wakeup(&swapalloc.r);
 }
 
 static int
@@ -204,7 +211,7 @@ pager(void*)
 		}
 		qunlock(&p->seglock);
 
-		if(ioptr > 0) {
+		if(ioptr) {
 			up->psstate = "I/O";
 			executeio();
 		}
@@ -331,28 +338,13 @@ pagepte(int type, Page **pg)
 	}
 }
 
-void
-pagersummary(void)
-{
-	print("%lud/%lud memory %lud/%lud swap %d iolist\n",
-		palloc.user-palloc.freecount,
-		palloc.user, conf.nswap-swapalloc.free, conf.nswap,
-		ioptr);
-}
-
 static void
 executeio(void)
 {
 	Page *outp;
-	int i, n;
-	Chan *c;
-	char *kaddr;
-	KMap *k;
+	ulong i, j;
 
-	c = swapimage.c;
-	for(i = 0; i < ioptr; i++) {
-		if(ioptr > conf.nswppo)
-			panic("executeio: ioptr %d > %d", ioptr, conf.nswppo);
+	for(i = j = 0; i < ioptr; i++) {
 		outp = iolist[i];
 
 		assert(outp->ref > 0);
@@ -361,16 +353,15 @@ executeio(void)
 
 		/* only write when swap address still in use */
 		if(swapcount(outp->daddr) > 1){
-			k = kmap(outp);
-			kaddr = (char*)VA(k);
-
-			if(waserror())
-				panic("executeio: page outp I/O error");
-
-			n = devtab[c->type]->write(c, kaddr, BY2PG, outp->daddr);
-			if(n != BY2PG)
-				nexterror();
-
+			Chan *c = swapimage.c;
+			KMap *k = kmap(outp);
+			if(waserror()){
+				kunmap(k);
+				iolist[j++] = outp;
+				continue;
+			}
+			if(devtab[c->type]->write(c, (char*)VA(k), BY2PG, outp->daddr) != BY2PG)
+				error(Eshort);
 			kunmap(k);
 			poperror();
 		}
@@ -381,7 +372,8 @@ executeio(void)
 		/* Free up the page after I/O */
 		putpage(outp);
 	}
-	ioptr = 0;
+	ioptr = j;
+	if(j) print("executeio (%lud/%lud): %s\n", j, i, up->errstr);
 }
 
 int
@@ -416,9 +408,9 @@ setswapchan(Chan *c)
 		n = devtab[c->type]->stat(c, buf, sizeof buf);
 		if(n <= 0 || convM2D(buf, n, &d, nil) == 0)
 			error("stat failed in setswapchan");
-		if(d.length < conf.nswppo*BY2PG)
+		if(d.length < (vlong)conf.nswppo*BY2PG)
 			error("swap device too small");
-		if(d.length < conf.nswap*BY2PG){
+		if(d.length < (vlong)conf.nswap*BY2PG){
 			conf.nswap = d.length/BY2PG;
 			swapalloc.top = &swapalloc.swmap[conf.nswap];
 			swapalloc.free = conf.nswap;

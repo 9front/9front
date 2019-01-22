@@ -208,7 +208,6 @@ void		pagechainhead(Page*);
 void		pageinit(void);
 ulong		pagenumber(Page*);
 ulong		pagereclaim(Image*, ulong);
-void		pagersummary(void);
 void		panic(char*, ...);
 Cmdbuf*		parsecmd(char *a, int n);
 void		pathclose(Path*);
