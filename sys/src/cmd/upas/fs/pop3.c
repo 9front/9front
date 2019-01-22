@@ -108,17 +108,6 @@ pop3resp(Pop *pop)
 	return s;
 }
 
-static int
-pop3log(char *fmt, ...)
-{
-	va_list ap;
-
-	va_start(ap,fmt);
-	syslog(0, "/sys/log/pop3", fmt, ap);
-	va_end(ap);
-	return 0;
-}
-
 /*
  *  get capability list, possibly start tls
  */
