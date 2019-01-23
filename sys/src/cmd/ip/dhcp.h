@@ -49,7 +49,7 @@ enum
 	OBbflen=		13,
 	OBdumpfile=		14,
 	OBdomainname=		15,
-	OBswapserver=		16,	/* 0x10 */
+	OBrootserver=		16,	/* 0x10 */
 	OBrootpath=		17,
 	OBextpath=		18,
 	OBipforward=		19,

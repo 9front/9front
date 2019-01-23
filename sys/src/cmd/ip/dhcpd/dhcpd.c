@@ -99,7 +99,7 @@ char *optname[256] =
 [OBbflen]		"bflen",
 [OBdumpfile]		"dumpfile",
 [OBdomainname]		"dom",
-[OBswapserver]		"swap",
+[OBrootserver]		"rootserver",
 [OBrootpath]		"rootpath",
 [OBextpath]		"extpath",
 [OBipforward]		"ipforward",
@@ -1186,8 +1186,8 @@ miscoptions(Req *rp, uchar *ip)
 		case OBnetbiosns:
 			a[na++] = "@wins";
 			break;
-		case OBswapserver:
-			a[na++] = "@swap";
+		case OBrootserver:
+			a[na++] = "@rootserver";
 			break;
 		case OBsmtpserver:
 			a[na++] = "@smtp";
@@ -1259,9 +1259,9 @@ miscoptions(Req *rp, uchar *ip)
 			j = lookupserver("www", addrs, nelem(addrs), t);
 			addrsopt(rp, OBwwwserver, addrs, j);
 			break;
-		case OBswapserver:
-			j = lookupserver("swap", addrs, nelem(addrs), t);
-			addrsopt(rp, OBswapserver, addrs, j);
+		case OBrootserver:
+			j = lookupserver("rootserver", addrs, nelem(addrs), t);
+			addrsopt(rp, OBrootserver, addrs, j);
 			break;
 		case OBntpserver:
 			j = lookupserver("ntp", addrs, nelem(addrs), t);

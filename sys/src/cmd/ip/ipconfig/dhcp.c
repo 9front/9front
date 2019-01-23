@@ -49,7 +49,7 @@ static Option option[256] =
 [OBbflen]		{ "bflen",		Tulong },
 [OBdumpfile]		{ "dumpfile",		Tstr },
 [OBdomainname]		{ "dom",		Tstr },
-[OBswapserver]		{ "swap",		Taddrs },
+[OBrootserver]		{ "rootserver",		Taddrs },
 [OBrootpath]		{ "rootpath",		Tstr },
 [OBextpath]		{ "extpath",		Tstr },
 [OBipforward]		{ "ipforward",		Taddrs },
