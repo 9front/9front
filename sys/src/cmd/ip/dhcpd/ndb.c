@@ -116,10 +116,11 @@ lookupip(uchar *ipaddr, char *hwattr, char *hwval, Info *iip, int gate)
 		*p++ = "@tftp2";
 		*p++ = "rootpath";
 		*p++ = "dhcp";
-		*p++ = "vendorclass";
+		*p++ = "vendor";
 		*p++ = "dom";
 		*p++ = "@fs";
 		*p++ = "@auth";
+		*p++ = "@rootserver";
 	}
 	if(hwattr != nil)
 		*p++ = hwattr;
@@ -152,6 +153,9 @@ lookupip(uchar *ipaddr, char *hwattr, char *hwval, Info *iip, int gate)
 		else
 		if(strcmp(nt->attr, "ipgw") == 0)
 			setipaddr(iip->gwip, nt->val);
+		else
+		if(strcmp(nt->attr, "rootserver") == 0)
+			setipaddr(iip->rootserverip, nt->val);
 		else
 		if(strcmp(nt->attr, "dhcp") == 0){
 			if(iip->dhcpgroup[0] == 0)
