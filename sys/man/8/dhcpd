@@ -112,7 +112,7 @@ Attributes come from either the NDB entry for the system, the entry for its
 subnet, or the entry for its network.  The system entry has precedence,
 then the subnet, then the network.
 The NDB attributes used are:
-.TF ipmask
+.TF rootserver
 .TP
 .B ip
 the IP address
@@ -160,8 +160,17 @@ the default boot file;
 see
 .IR ndb (6)
 .TP
+.B tftp
+the TFTP server to fetch
+.I bootf
+from
+.TP
+.B rootpath
+the NFS root for unix machines
+.TP
 .B rootserver
-used by Unix machines for boot NFS server
+the NFS server used with
+.I rootpath
 .TP
 .B vendor
 Specific vendor attribute for dhcp and bootp
