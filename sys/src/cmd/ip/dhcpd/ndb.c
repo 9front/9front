@@ -110,17 +110,16 @@ lookupip(uchar *ipaddr, char *hwattr, char *hwval, Info *iip, int gate)
 	*p++ = "ipmask";
 	*p++ = "@ipgw";
 	if(!gate){
+		*p++ = "dom";
 		*p++ = "bootf";
 		*p++ = "bootf2";
 		*p++ = "@tftp";
 		*p++ = "@tftp2";
-		*p++ = "rootpath";
-		*p++ = "dhcp";
-		*p++ = "vendor";
-		*p++ = "dom";
 		*p++ = "@fs";
 		*p++ = "@auth";
+		*p++ = "rootpath";
 		*p++ = "@rootserver";
+		*p++ = "vendor";
 	}
 	if(hwattr != nil)
 		*p++ = hwattr;
@@ -139,27 +138,12 @@ lookupip(uchar *ipaddr, char *hwattr, char *hwval, Info *iip, int gate)
 		if(strcmp(nt->attr, "ipmask") == 0)
 			setipmask(iip->ipmask, nt->val);
 		else
-		if(strcmp(nt->attr, "fs") == 0)
-			setipaddr(iip->fsip, nt->val);
-		else
-		if(strcmp(nt->attr, "auth") == 0)
-			setipaddr(iip->auip, nt->val);
-		else
-		if(strcmp(nt->attr, "tftp") == 0)
-			setipaddr(iip->tftp, nt->val);
-		else
-		if(strcmp(nt->attr, "tftp2") == 0)
-			setipaddr(iip->tftp2, nt->val);
-		else
 		if(strcmp(nt->attr, "ipgw") == 0)
 			setipaddr(iip->gwip, nt->val);
 		else
-		if(strcmp(nt->attr, "rootserver") == 0)
-			setipaddr(iip->rootserverip, nt->val);
-		else
-		if(strcmp(nt->attr, "dhcp") == 0){
-			if(iip->dhcpgroup[0] == 0)
-				strncpy(iip->dhcpgroup, nt->val, sizeof(iip->dhcpgroup)-1);
+		if(strcmp(nt->attr, "dom") == 0){
+			if(iip->domain[0] == 0)
+				strncpy(iip->domain, nt->val, sizeof(iip->domain)-1);
 		}
 		else
 		if(strcmp(nt->attr, "bootf") == 0){
@@ -172,20 +156,31 @@ lookupip(uchar *ipaddr, char *hwattr, char *hwval, Info *iip, int gate)
 				strncpy(iip->bootf2, nt->val, sizeof(iip->bootf2)-1);
 		}
 		else
-		if(strcmp(nt->attr, "vendor") == 0){
-			if(iip->vendor[0] == 0)
-				strncpy(iip->vendor, nt->val, sizeof(iip->vendor)-1);
-		}
+		if(strcmp(nt->attr, "tftp") == 0)
+			setipaddr(iip->tftp, nt->val);
 		else
-		if(strcmp(nt->attr, "dom") == 0){
-			if(iip->domain[0] == 0)
-				strncpy(iip->domain, nt->val, sizeof(iip->domain)-1);
-		}
+		if(strcmp(nt->attr, "tftp2") == 0)
+			setipaddr(iip->tftp2, nt->val);
+		else
+		if(strcmp(nt->attr, "fs") == 0)
+			setipaddr(iip->fsip, nt->val);
+		else
+		if(strcmp(nt->attr, "auth") == 0)
+			setipaddr(iip->auip, nt->val);
 		else
 		if(strcmp(nt->attr, "rootpath") == 0){
 			if(iip->rootpath[0] == 0)
 				strncpy(iip->rootpath, nt->val, sizeof(iip->rootpath)-1);
 		}
+		else
+		if(strcmp(nt->attr, "rootserver") == 0)
+			setipaddr(iip->rootserverip, nt->val);
+		else
+		if(strcmp(nt->attr, "vendor") == 0){
+			if(iip->vendor[0] == 0)
+				strncpy(iip->vendor, nt->val, sizeof(iip->vendor)-1);
+		}
+
 		if(hwattr != nil && strcmp(nt->attr, hwattr) == 0)
 			if(strcmp(hwval, nt->val) == 0)
 				iip->indb = 1;

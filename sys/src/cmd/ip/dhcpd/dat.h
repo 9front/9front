@@ -44,7 +44,6 @@ struct Info
 	uchar	auip[NDB_IPlen];	/* authentication server ip address */
 	uchar   rootserverip[NDB_IPlen];  /* ip addr of root nfs server  */
 	char	rootpath[Maxstr];	/* rootfs for diskless nfs clients */
-	char	dhcpgroup[Maxstr];
 	char	vendor[Maxstr];		/* vendor info */
 };
 

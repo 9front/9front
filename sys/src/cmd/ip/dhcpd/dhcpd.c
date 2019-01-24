@@ -402,7 +402,7 @@ proto(Req *rp, int n)
 
 	/* info about target system */
 	if(lookup(rp->bp, &rp->ii, &rp->gii) == 0)
-		if(rp->ii.indb && rp->ii.dhcpgroup[0] == 0)
+		if(rp->ii.indb)
 			rp->staticbinding = 1;
 
 	if(rp->dhcptype)
