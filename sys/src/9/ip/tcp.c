@@ -2399,7 +2399,8 @@ reset:
 				goto raise;
 			}
 		case Time_wait:
-			tcb->flags |= FORCE;
+			if(seg.flags & FIN)
+				tcb->flags |= FORCE;
 			if(tcb->timer.state != TcptimerON)
 				tcpgo(tpriv, &tcb->timer);
 		}
