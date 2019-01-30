@@ -8,7 +8,6 @@ dev
 	mnt
 	srv
 	shr
-	swap
 	dup
 	arch
 	ssl
