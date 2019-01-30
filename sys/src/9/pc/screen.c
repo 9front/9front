@@ -124,7 +124,7 @@ screenaperture(int size, int align)
 	return 0;
 }
 
-uchar*
+Memdata*
 attachscreen(Rectangle* r, ulong* chan, int* d, int* width, int *softscreen)
 {
 	VGAscr *scr;
@@ -137,18 +137,10 @@ attachscreen(Rectangle* r, ulong* chan, int* d, int* width, int *softscreen)
 	*chan = scr->gscreen->chan;
 	*d = scr->gscreen->depth;
 	*width = scr->gscreen->width;
-	if(scr->gscreendata->allocd){
-		/*
-		 * we use a memimage as softscreen. devdraw will create its own
-		 * screen image on the backing store of that image. when our gscreen
-		 * and devdraws screenimage gets freed, the imagedata will
-		 * be released.
-		 */
-		*softscreen = 0xa110c;
-		scr->gscreendata->ref++;
-	} else
-		*softscreen = scr->useflush ? 1 : 0;
-	return scr->gscreendata->bdata;
+	*softscreen = (scr->gscreendata->allocd || scr->useflush) ? 1 : 0;
+
+	scr->gscreendata->ref++;
+	return scr->gscreendata;
 }
 
 void

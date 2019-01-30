@@ -171,16 +171,20 @@ flushmemscreen(Rectangle)
 {
 }
 
-uchar*
+Memdata*
 attachscreen(Rectangle *r, ulong *chan, int* d, int *width, int *softscreen)
 {
+	if(gscreen == nil)
+		return nil;
+
 	*r = gscreen->r;
 	*d = gscreen->depth;
 	*chan = gscreen->chan;
 	*width = gscreen->width;
 	*softscreen = 0;
 
-	return gscreen->data->bdata;
+	gscreen->data->ref++;
+	return gscreen->data;
 }
 
 void

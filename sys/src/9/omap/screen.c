@@ -436,15 +436,20 @@ flushmemscreen(Rectangle r)
 /*
  * export screen to devdraw
  */
-uchar*
-attachscreen(Rectangle *r, ulong *chan, int *d, int *width, int *softscreen)
+Memdata*
+attachscreen(Rectangle *r, ulong *chan, int* d, int *width, int *softscreen)
 {
+	if(gscreen == nil)
+		return nil;
+
 	*r = gscreen->r;
 	*d = gscreen->depth;
 	*chan = gscreen->chan;
 	*width = gscreen->width;
 	*softscreen = (landscape == 0);
-	return (uchar *)gscreen->data->bdata;
+
+	gscreen->data->ref++;
+	return gscreen->data;
 }
 
 void

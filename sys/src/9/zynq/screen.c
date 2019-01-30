@@ -65,7 +65,7 @@ screeninit(void)
 	conf.monitor = 1;
 }
 
-uchar*
+Memdata*
 attachscreen(Rectangle *r, ulong *chan, int* d, int *width, int *softscreen)
 {
 	if(gscreen == nil)
@@ -75,12 +75,10 @@ attachscreen(Rectangle *r, ulong *chan, int* d, int *width, int *softscreen)
 	*d = gscreen->depth;
 	*chan = gscreen->chan;
 	*width = gscreen->width;
+	*softscreen = 1;
 
-	/* make devdraw use gscreen->data */
-	*softscreen = 0xa110c;
 	gscreen->data->ref++;
-
-	return gscreen->data->bdata;
+	return gscreen->data;
 }
 
 void

@@ -26,7 +26,7 @@ extern void mouseredraw(void);
 /* screen.c */
 extern void	blankscreen(int);
 extern void	flushmemscreen(Rectangle);
-extern uchar*	attachscreen(Rectangle*, ulong*, int*, int*, int*);
+extern Memdata*	attachscreen(Rectangle*, ulong*, int*, int*, int*);
 extern void	cursoron(void);
 extern void	cursoroff(void);
 extern void	setcursor(Cursor*);

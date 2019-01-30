@@ -29,7 +29,7 @@ extern void	blankscreen(int);
 void		screeninit(int x, int y, char *chanstr);
 void		screenwin(void);
 void		absmousetrack(int x, int y, int b, ulong msec);
-uchar		*attachscreen(Rectangle*, ulong*, int*, int*, int*);
+Memdata*	attachscreen(Rectangle*, ulong*, int*, int*, int*);
 void		deletescreenimage(void);
 void		resetscreenimage(void);
 

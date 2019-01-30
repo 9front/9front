@@ -600,19 +600,20 @@ screeninit(void)
 	mouseaccelerate(3);
 }
 
-uchar*
+Memdata*
 attachscreen(Rectangle *r, ulong *chan, int* d, int *width, int *softscreen)
 {
+	if(gscreen == nil)
+		return nil;
+
 	*r = gscreen->r;
 	*d = gscreen->depth;
 	*chan = gscreen->chan;
 	*width = gscreen->width;
+	*softscreen = 1;
 
-	/* make devdraw use gscreen->data */
-	*softscreen = 0xa110c;
 	gscreen->data->ref++;
-
-	return gscreen->data->bdata;
+	return gscreen->data;
 }
 
 void

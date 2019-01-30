@@ -138,7 +138,7 @@ extern int		hwaccel;	/* use hw acceleration */
 extern int		hwblank;	/* use hw blanking */
 extern int		panning;	/* use virtual screen panning */
 extern void addvgaseg(char*, ulong, ulong);
-extern uchar* attachscreen(Rectangle*, ulong*, int*, int*, int*);
+extern Memdata* attachscreen(Rectangle*, ulong*, int*, int*, int*);
 extern void	flushmemscreen(Rectangle);
 extern void	cursoron(void);
 extern void	cursoroff(void);

@@ -918,33 +918,14 @@ makescreenimage(void)
 	Memdata *md;
 	Memimage *i;
 	Rectangle r;
-	uchar *data;
 
-	if((data = attachscreen(&r, &chan, &depth, &width, &sdraw.softscreen)) == nil)
+	if((md = attachscreen(&r, &chan, &depth, &width, &sdraw.softscreen)) == nil)
 		return nil;
-	if(sdraw.softscreen == 0xa110c){
-		/* hack: softscreen is memimage. */
-		md = *((Memdata**)(data - sizeof(ulong) - sizeof(Memdata*)));
-
-		assert(md->bdata == data);
-		assert(md->ref > 1);
-		assert(md->allocd);
-
-		if((i = allocmemimaged(r, chan, md)) == nil){
-			md->ref--;
-			return nil;
-		}
-	}else{
-		if((md = malloc(sizeof *md)) == nil)
-			return nil;
-		md->allocd = 1;
-		md->base = nil;
-		md->bdata = data;
-		md->ref = 1;
-		if((i = allocmemimaged(r, chan, md)) == nil){
+	assert(md->ref > 0);
+	if((i = allocmemimaged(r, chan, md)) == nil){
+		if(--md->ref == 0 && md->allocd)
 			free(md);
-			return nil;
-		}
+		return nil;
 	}
 	i->width = width;
 	i->clipr = r;
