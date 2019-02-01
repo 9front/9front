@@ -39,7 +39,7 @@ ip
 misc
 	armv6
 	uartmini
-#	sdmmc	emmc
+	sdmmc	emmc
 	dma
 	vcore
 	vfp3	coproc
