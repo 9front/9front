@@ -32,6 +32,8 @@ ppath(Pkt *p, char *str)
 			p8(p, 0);
 		while(*str){
 			str += chartorune(&r, str);
+			if(r > Bits16)
+				sysfatal("ppath: %C/%x utf too wide for windows\n", r, r);
 			if(r == L'/')
 				r = L'\\';
 			pl16(p, r);
@@ -62,6 +64,8 @@ pstr(Pkt *p, char *str)
 			p8(p, 0);		/* pad to even offset */
 		while(*str){
 			str += chartorune(&r, str);
+			if(r > Bits16)
+				sysfatal("pstr: %C/%x utf too wide for windows\n", r, r);
 			pl16(p, r);
 		}
 		pl16(p, 0);
@@ -229,8 +233,8 @@ gmem(Pkt *p, void *v, int n)
  * in runes or bytes, in ASCII mode this is also the size
  * of the output buffer but this is not so in Unicode mode!
  */
-void
-gstr(Pkt *p, char *str, int n)
+static void
+_gstr(Pkt *p, char *str, int n, int align)
 {
 	int i;
 	Rune r;
@@ -239,9 +243,10 @@ gstr(Pkt *p, char *str, int n)
 		return;
 
 	if(p->flags2 & FL2_UNICODE){
-		if(((p->pos - p->buf) % 2) != 0)
-			g8(p);		/* strip padding to even offset */
-
+		if(((p->pos - p->buf) % 2) != 0){
+			if(align)
+				abort();
+		}
 		i = 0;
 		while(*p->pos && n && p->pos < p->eop){
 			r = gl16(p);
@@ -249,7 +254,6 @@ gstr(Pkt *p, char *str, int n)
 			n -= 2;
 		}
 		*(str + i) = 0;
-
 		while(*p->pos && p->pos < p->eop)
 			gl16(p);
 		/*
@@ -267,6 +271,40 @@ gstr(Pkt *p, char *str, int n)
 		while(*p->pos++ && p->pos < p->eop)
 			continue;
 	}
+}
+
+void
+gstr(Pkt *p, char *str, int n)
+{
+	_gstr(p, str, n, 1);
+}
+
+void
+gstr_noalign(Pkt *p, char *str, int n)
+{
+	_gstr(p, str, n, 0);
+}
+
+/*
+ * Because DFS uses a string heap rather than strings embedded in the
+ * data packet, experience (rather than any spec) tells, us we must
+ * turn off the 16bit alignment for unicode strings.
+ */
+void
+goff(Pkt *p, uchar *base, char *str, int n)
+{
+	int off;
+	uchar *pos;
+
+	off = gl16(p);
+	if(off == 0 || base + off > p->eop){
+		memset(str, 0, n);
+		return;
+	}
+	pos = p->pos;
+	p->pos = base + off;
+	gstr_noalign(p, str, n);
+	p->pos = pos;
 }
 
 void
@@ -401,17 +439,17 @@ gdatetime(Pkt *p)
 		d = gl16(p);
 	}
 
-	memset(&tm, 0, sizeof(tm));
 	tm.year = 80 + (d >> 9);
 	tm.mon = ((d >> 5) & 017) - 1;
 	tm.mday = d & 037;
+	tm.zone[0] = 0;
+	tm.tzoff = p->s->tz;
 
 	tm.hour = t >> 11;
 	tm.min = (t >> 5) & 63;
 	tm.sec = (t & 31) << 1;
-	strcpy(tm.zone, "GMT");
 
-	return tm2sec(&tm) + p->s->tz;
+	return tm2sec(&tm);
 }
 
 long
@@ -448,19 +486,3 @@ gconv(Pkt *p, int conv, char *str, int n)
 	p->pos = pos;
 }
 
-void
-goff(Pkt *p, uchar *base, char *str, int n)
-{
-	int off;
-	uchar *pos;
-
-	off = gl16(p);
-	if(off == 0 || base + off > p->eop){
-		memset(str, 0, n);
-		return;
-	}
-	pos = p->pos;
-	p->pos = base + off;
-	gstr(p, str, n);
-	p->pos = pos;
-}

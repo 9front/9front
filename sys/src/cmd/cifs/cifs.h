@@ -18,6 +18,7 @@ enum {
 	MAX_SHARES	= 4096,		/* static table of shares attached */
 	RAP_ERR_MOREINFO= 234,		/* non-error code, more info to be fetched */
 	MAX_DFS_PATH	= 512,		/* MS says never more than 250 chars... */
+	Bits16 = 0xFFFF,			/* max Unicode value Windows supports */
 };
 
 enum {
@@ -451,7 +452,6 @@ typedef struct {
 	int	type;	/* o=unknown, 1=CIFS, 2=netware 3=domain */
 	int	flags;	/* 1 == strip off consumed chars before resubmitting */
 	int	ttl;	/* time to live of this info in secs */
-	int	prox;	/* lower value is preferred */
 	char	*path;	/* new path */
 	char	*addr;	/* new server */
 } Refer;
@@ -584,6 +584,7 @@ extern void *pvtime(Pkt *p, uvlong n);
 extern void *pdatetime(Pkt *p, long utc);
 extern void gmem(Pkt *p, void *v, int n);
 extern void gstr(Pkt *p, char *str, int n);
+extern void gstr_noalign(Pkt *p, char *str, int n);
 extern void gascii(Pkt *p, char *str, int n);
 extern uvlong gl64(Pkt *p);
 extern uvlong gb48(Pkt *p);
@@ -629,6 +630,7 @@ extern int T2setfilelength(Session *s, Share *sp, int fh, FInfo *fip);
 extern int T2fsvolumeinfo(Session *s, Share *sp, long *created, long *serialno, char *label, int labellen);
 extern int T2fssizeinfo(Session *s, Share *sp, uvlong *total, uvlong *unused);
 extern int T2getdfsreferral(Session *s, Share *sp, char *path, int *gflags, int *used, Refer *re, int nent);
+extern int T2fsdeviceinfo(Session *s, Share *sp, int *type, int *flags);
 
 /* transnt.c */
 extern int TNTquerysecurity(Session *s, Share *sp, int fh, char **usid, char **gsid);

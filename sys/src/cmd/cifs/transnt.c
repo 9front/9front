@@ -96,6 +96,12 @@ tntrpc(Pkt *p)
 }
 
 static void
+gtntparam(Pkt *p)
+{
+	p->pos = p->tparam;
+}
+
+static void
 gtntdata(Pkt *p)
 {
 	p->pos = p->tdata;

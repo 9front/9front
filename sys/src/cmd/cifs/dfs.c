@@ -18,9 +18,8 @@
  * this is not a problem for me and I think it hides a load
  * of problems of its own wrt plan9's private namespaces.
  *
- * The proximity of my test server (AD enabled) is always 0 but some
- * systems may report more meaningful values.  The expiry time is
- * similarly zero, so I guess at 5 mins.
+ * The expiry of my test server (AD enabled) is always 0 but some
+ * systems may report more meaningful values.
  *
  * If the redirection points to a "hidden" share (i.e., its name
  * ends in a $) then the type of the redirection is 0 (unknown) even
@@ -70,7 +69,6 @@ struct Dfscache {
 	char	*path;
 	long	expiry;		/* expiry time in sec */
 	long	rtt;		/* round trip time, nsec */
-	int	prox;		/* proximity, lower = closer */
 };
 
 Dfscache *Cache;
@@ -85,8 +83,8 @@ dfscacheinfo(Fmt *f)
 		ex = cp->expiry - time(nil);
 		if(ex < 0)
 			ex = -1;
-		fmtprint(f, "%-42s %6ld %8.1f %4d %-16s %-24s %s\n",
-			cp->src, ex, (double)cp->rtt/1000.0L, cp->prox,
+		fmtprint(f, "%-42s %6ld %8.1f %-16s %-24s %s\n",
+			cp->src, ex, (double)cp->rtt/1000.0L, 
 			cp->host, cp->share, cp->path);
 	}
 	return 0;
@@ -239,11 +237,6 @@ remap(Dfscache *cp, Refer *re)
 		if(*p == '\\')
 			*p = '/';
 
-	if(cp->prox < re->prox){
-		if(Debug && strstr(Debug, "dfs") != nil)
-			print("	remap %d < %d\n", cp->prox, re->prox);
-		return -1;
-	}
 	if((n = getfields(re->addr, a, sizeof(a), 0, "/")) < 3){
 		if(Debug && strstr(Debug, "dfs") != nil)
 			print("	remap nfields=%d\n", n);
@@ -270,14 +263,13 @@ remap(Dfscache *cp, Refer *re)
 	free(cp->share);
 	free(cp->path);
 	cp->rtt = rtt;
-	cp->prox = re->prox;
 	cp->expiry = time(nil)+re->ttl;
 	cp->host = estrdup9p(a[Hostname]);
 	cp->share = estrdup9p(trimshare(a[Sharename]));
 	cp->path = estrdup9p(a[Pathname]);
 	if(Debug && strstr(Debug, "dfs") != nil)
-		print("	remap ping OK prox=%d host=%s share=%s path=%s\n",
-			cp->prox, cp->host, cp->share, cp->path);
+		print("	remap ping OK host=%s share=%s path=%s\n",
+			cp->host, cp->share, cp->path);
 	return 0;
 }
 
@@ -286,8 +278,7 @@ redir1(Session *s, char *path, Dfscache *cp, int level)
 {
 	Refer retab[16], *re;
 	int n, gflags, used, found;
-
-	if(level > 8)
+	if(level > 16)
 		return -1;
 
 	if((n = T2getdfsreferral(s, &Ipc, path, &gflags, &used, retab,
@@ -295,14 +286,20 @@ redir1(Session *s, char *path, Dfscache *cp, int level)
 		return -1;
 
 	if(! (gflags & DFS_HEADER_ROOT))
-		used = SINT_MAX;
+		used = 9999;
 
 	found = 0;
 	for(re = retab; re < retab+n; re++){
 		if(Debug && strstr(Debug, "dfs") != nil)
-			print("referal level=%d prox=%d path=%q addr=%q\n",
-				level, re->prox, re->path, re->addr);
+			print("referal level=%d path=%q addr=%q\n",
+				level, re->path, re->addr);
 
+		if(*re->path == 0 || *re->addr == 0){
+			free(re->addr);
+			free(re->path);
+			continue;
+		}
+			
 		if(gflags & DFS_HEADER_STORAGE){
 			if(remap(cp, re) == 0)
 				found = 1;
@@ -350,7 +347,6 @@ redirect(Session *s, Share *sp, char *path)
 
 		} else{				/* cache hit, but entry stale */
 			cp->rtt = SINT_MAX;
-			cp->prox = SINT_MAX;
 
 			unc = smprint("//%s/%s/%s%s%s", s->auth->windom,
 				cp->share, cp->path, *cp->path? "/": "",
@@ -385,7 +381,6 @@ redirect(Session *s, Share *sp, char *path)
 	cp = emalloc9p(sizeof(Dfscache));
 	memset(cp, 0, sizeof(Dfscache));
 	cp->rtt = SINT_MAX;
-	cp->prox = SINT_MAX;
 
 	if(redir1(s, unc, cp, 1) == -1){
 		if(Debug && strstr(Debug, "dfs") != nil)

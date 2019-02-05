@@ -8,44 +8,40 @@
 
 static char *period(long sec);
 
+static char *devtypes[] = {
+	"beep", "cd", "cdfs", "datalink", "dfs", "disk", "diskfs", "fs", "inport",
+	"kbd", "mailslot", "midi-in", "midi-out", "mouse", "unc", "named-pipe", "net", "net",
+	"browser", "netfs", "null", "lpt", "nic", "lpr", "scanner", "eia-mouse",
+	"eia", "screen", "sound", "streams", "tape", "tapefs", "transport", "unknown",
+	"video", "virt-disk", "wav-in", "wav-out", "8042", "battery", "bus-exp", "modem", "vdm"
+};
+	
+
+static double
+togb(uvlong n)
+{
+	return (double)n / (1024.0 * 1024.0 * 1024.0);
+}
+
 int
 shareinfo(Fmt *f)
 {
-	int i, j, n;
-	char *type;
+	int type;
+	Share *sp;
 	Shareinfo2 si2;
-	Share *sp, *sip;
+	uvlong total, unused;
 
-	if((n = RAPshareenum(Sess, &Ipc, &sip)) < 1){
-		fmtprint(f, "can't enumerate shares: %r\n");
-		return 0;
-	}
+	for(sp = Shares; sp < &Shares[Nshares]; sp++){
+		fmtprint(f, "%-24q ", sp->name);
 
-	for(i = 0; i < n; i++){
-		fmtprint(f, "%-13q ", sip[i].name);
+		if(T2fsdeviceinfo(Sess, sp, &type, nil) != -1)
+			fmtprint(f, "%-16s ", devtypes[type]);
 
-		sp = &sip[i];
-		for(j = 0; j < Nshares; j++)
-			if(strcmp(Shares[j].name, sip[i].name) == 0){
-				sp = &Shares[j];
-				break;
-			}
-		if(j >= Nshares)
-			sp->tid = Ipc.tid;
+		if(T2fssizeinfo(Sess, sp, &total, &unused) != -1)
+			fmtprint(f, "%6.1f/%-6.1f ", togb(total-unused), togb(total));
 
 		if(RAPshareinfo(Sess, sp, sp->name, &si2) != -1){
-			switch(si2.type){
-			case STYPE_DISKTREE:	type = "disk"; break;
-			case STYPE_PRINTQ:	type = "printq"; break;
-			case STYPE_DEVICE:	type = "device"; break;
-			case STYPE_IPC:		type = "ipc"; break;
-			case STYPE_SPECIAL:	type = "special"; break;
-			case STYPE_TEMP:	type = "temp"; break;
-			default:		type = "unknown"; break;
-			}
-
-			fmtprint(f, "%-8s %5d/%-5d %s", type,
-				si2.activeusrs, si2.maxusrs, si2.comment);
+			fmtprint(f, "%5d/%-5d %s", si2.activeusrs, si2.maxusrs, si2.comment);
 			free(si2.name);
 			free(si2.comment);
 			free(si2.path);
@@ -54,7 +50,6 @@ shareinfo(Fmt *f)
 		fmtprint(f, "\n");
 
 	}
-	free(sip);
 	return 0;
 }
 
@@ -359,7 +354,7 @@ period(long sec)
 	min  = sec / 60L;
 	sec -= min * 60L;
 	if(days)
-		snprint(when, sizeof(when), "%d %d:%d:%ld ", days, hrs, min, sec);
+		snprint(when, sizeof(when), "%d,%d:%d:%ld ", days, hrs, min, sec);
 	else
 		snprint(when, sizeof(when), "%d:%d:%ld ", hrs, min, sec);
 	return when;

@@ -18,6 +18,7 @@ struct Aux {
 	long	expire;		/* expiration time of cache */
 	long	off;		/* file pos of start of cache */
 	long	end;		/* file pos of end of cache */
+	long	mtime;		/* last modification time - windows updates it only on close */
 	char	*cache;
 	int	fh;		/* file handle */
 	int	sh;		/* search handle */
@@ -38,7 +39,7 @@ int Active = IDLE_TIME;		/* secs until next keepalive is sent */
 static int Keeppid;		/* process ID of keepalive thread */
 Share Shares[MAX_SHARES]; 	/* table of connected shares */
 int Nshares = 0;		/* number of Shares connected */
-Aux *Auxroot = nil;		/* linked list of Aux structs */
+Aux *Openfiles = nil;		/* linked list of Aux structs */
 char *Host = nil;		/* host we are connected to */
 
 static char *Ipcname = "IPC$";
@@ -73,7 +74,7 @@ filetableinfo(Fmt *f)
 	Aux *ap;
 	char *type;
 
-	if((ap = Auxroot) != nil)
+	if((ap = Openfiles) != nil)
 		do{
 			type = "walked";
 			if(ap->sh != -1)
@@ -82,7 +83,7 @@ filetableinfo(Fmt *f)
 				type = "openfile";
 			fmtprint(f, "%-9s %s\n", type, ap->path);
 			ap = ap->next;
-		}while(ap != Auxroot);
+		}while(ap != Openfiles);
 	return 0;
 }
 
@@ -129,7 +130,7 @@ V2D(Dir *d, Qid qid, char *name)
 }
 
 static void
-I2D(Dir *d, Share *sp, char *path, FInfo *fi)
+I2D(Dir *d, Share *sp, char *path, long mtime, FInfo *fi)
 {
 	char *name;
 
@@ -144,7 +145,10 @@ I2D(Dir *d, Share *sp, char *path, FInfo *fi)
 	d->gid = estrdup9p("trog");
 	d->muid = estrdup9p("boyd");
 	d->atime = fi->accessed;
-	d->mtime = fi->written;
+	if(mtime > fi->written)
+		d->mtime = mtime;
+	else
+		d->mtime = fi->written;
 
 	if(fi->attribs & ATTR_READONLY)
 		d->mode = 0444;
@@ -187,6 +191,27 @@ newpath(char *path, char *name)
 	if(strcmp(path, "/") == 0)
 		return smprint("/%s", name);
 	return smprint("%s/%s", path, name);
+}
+
+/*
+ * get the last write time if the file is open -
+ * windows only updates mtime when the file is closed
+ * which is not good enough for acme.
+ */
+static long
+realmtime(char *path)
+{
+	Aux *a;
+
+	if((a = Openfiles) == nil)
+		return 0;
+
+	do{
+		if(a->fh != -1 && cistrcmp(path, a->path) == 0)
+			return a->mtime;
+		a = a->next;
+	}while(a != Openfiles);
+	return 0;
 }
 
 /* remove "." and ".." from the cache */
@@ -282,7 +307,7 @@ from_cache:
 
 	fi = (FInfo *)(a->cache + (off - a->off));
 	npath = smprint("%s/%s", mapfile(a->path), fi->name);
-	I2D(d, a->sp, npath, fi);
+	I2D(d, a->sp, npath, realmtime(npath), fi);
 	if(Billtrog == 0)
 		upd_names(Sess, a->sp, npath, d);
 	free(npath);
@@ -314,13 +339,13 @@ fsattach(Req *r)
 	a->fh = -1;
 	a->sh = -1;
 
-	if(Auxroot){
-		a->prev = Auxroot;
-		a->next = Auxroot->next;
-		Auxroot->next->prev = a;
-		Auxroot->next = a;
+	if(Openfiles){
+		a->prev = Openfiles;
+		a->next = Openfiles->next;
+		Openfiles->next->prev = a;
+		Openfiles->next = a;
 	} else {
-		Auxroot = a;
+		Openfiles = a;
 		a->next = a;
 		a->prev = a;
 	}
@@ -341,13 +366,13 @@ fsclone(Fid *ofid, Fid *fid)
 	a->sp = oa->sp;
 	a->path = estrdup9p(oa->path);
 
-	if(Auxroot){
-		a->prev = Auxroot;
-		a->next = Auxroot->next;
-		Auxroot->next->prev = a;
-		Auxroot->next = a;
+	if(Openfiles){
+		a->prev = Openfiles;
+		a->next = Openfiles->next;
+		Openfiles->next->prev = a;
+		Openfiles->next = a;
 	} else {
-		Auxroot = a;
+		Openfiles = a;
 		a->next = a;
 		a->prev = a;
 	}
@@ -483,6 +508,8 @@ again:
 	}
 	*qid = mkqid(npath, fi.attribs & ATTR_DIRECTORY, fi.changed, 0, 0);
 
+	a->mtime = realmtime(npath);
+
 	free(a->path);
 	a->path = npath;
 	fid->qid = *qid;
@@ -512,7 +539,7 @@ fsstat(Req *r)
 			responderrstr(r);
 			return;
 		}
-		I2D(&r->d, a->sp, a->path, &fi);
+		I2D(&r->d, a->sp, a->path, a->mtime, &fi);
 		if(Billtrog == 0)
 			upd_names(Sess, a->sp, mapfile(a->path), &r->d);
 	}
@@ -767,6 +794,8 @@ fswrite(Req *r)
 	} while(got < len && m >= n);
 
 	r->ofcall.count = got;
+	a->mtime = time(nil);
+
 	if(m == -1)
 		responderrstr(r);
 	else
@@ -834,12 +863,12 @@ fsdestroyfid(Fid *f)
 	if(a->cache)
 		free(a->cache);
 
-	if(a == Auxroot)
-		Auxroot = a->next;
+	if(a == Openfiles)
+		Openfiles = a->next;
 	a->prev->next = a->next;
 	a->next->prev = a->prev;
 	if(a->next == a->prev)
-		Auxroot = nil;
+		Openfiles = nil;
 	if(a)
 		free(a);
 }
@@ -881,7 +910,7 @@ fsremove(Req *r)
 	}
 
 	/* close all instences of this file/dir */
-	if((ap = Auxroot) != nil)
+	if((ap = Openfiles) != nil)
 		do{
 			if(strcmp(ap->path, a->path) == 0){
 				if(ap->sh != -1)
@@ -892,7 +921,7 @@ fsremove(Req *r)
 				ap->fh = -1;
 			}
 			ap = ap->next;
-		}while(ap != Auxroot);
+		}while(ap != Openfiles);
 	try = 0;
 again:
 	if(r->fid->qid.type & QTDIR)
@@ -1158,11 +1187,13 @@ dmpkey(char *s, void *v, int n)
 void
 main(int argc, char **argv)
 {
-	int i, n;
+	int i, n, local;
 	long svrtime;
 	char windom[64], cname[64];
-	char *method, *sysname, *keyp, *mtpt, *svs;
+	char *p, *method, *sysname, *keyp, *mtpt, *svs;
+	static char *sh[1024];
 
+	local = 0;
 	*cname = 0;
 	keyp = "";
 	method = nil;
@@ -1190,6 +1221,9 @@ main(int argc, char **argv)
 	case 'k':
 		keyp = EARGF(usage());
 		break;
+	case 'l':
+		local++;
+		break;
 	case 'm':
 		mtpt = EARGF(usage());
 		break;
@@ -1213,8 +1247,12 @@ main(int argc, char **argv)
 
 	Host = argv[0];
 
-	if(mtpt == nil && svs == nil)
-		mtpt = smprint("/n/%s", Host);
+	if(mtpt == nil && svs == nil){
+		if((p = strchr(Host, '!')) != nil)
+			mtpt = smprint("/n/%s", p+1);
+		else
+			mtpt = smprint("/n/%s", Host);
+	}
 
 	if((sysname = getenv("sysname")) == nil)
 		sysname = "unknown";
@@ -1227,7 +1265,10 @@ main(int argc, char **argv)
 		goto connected;
 
 	strcpy(cname, Host);
-	if((Sess = cifsdial(Host, Host, sysname)) != nil ||
+	if((p = strchr(cname, '!')) != nil)
+		strcpy(cname, p+1);
+
+	if((Sess = cifsdial(Host, cname, sysname)) != nil ||
 	   (Sess = cifsdial(Host, "*SMBSERVER", sysname)) != nil)
 		goto connected;
 
@@ -1239,6 +1280,9 @@ connected:
 #ifndef DEBUG_MAC
 	Sess->secmode &= ~SECMODE_SIGN_ENABLED;
 #endif
+
+	if(local)
+		strcpy(windom, ".");
 
 	Sess->auth = getauth(method, windom, keyp, Sess->secmode, Sess->chal,
 		Sess->challen);

@@ -39,7 +39,7 @@ cifsdial(char *host, char *called, char *sysname)
 	s->seq = 0;
 	s->seqrun = 0;
 	s->secmode = SECMODE_SIGN_ENABLED;	/* hope for the best */
-	s->flags2 = FL2_KNOWS_LONG_NAMES | FL2_HAS_LONG_NAMES | FL2_PAGEING_IO;
+	s->flags2 = FL2_KNOWS_LONG_NAMES | FL2_HAS_LONG_NAMES | FL2_PAGEING_IO | FL2_UNICODE;
 
 	s->macidx = -1;
 
@@ -123,6 +123,20 @@ pbytes(Pkt *p)
 	*p->wordbase = n / 2;
 
 	p->bytebase = pl16(p, 0);	/* filled in by cifsrpc() */
+}
+
+static void
+dmp(int seq, uchar *buf)
+{
+	int i;
+
+	if(seq == 99)
+		print("\n   ");
+	else
+		print("%+2d ", seq);
+	for(i = 0; i < 8; i++)
+		print("%02x ", buf[i] & 0xff);
+	print("\n");
 }
 
 int
@@ -233,32 +247,10 @@ CIFSnegotiate(Session *s, long *svrtime, char *domain, int domlen, char *cname,
 {
 	int d, i;
 	char *ispeak = "NT LM 0.12";
-	static char *dialects[] = {
-//		{ "PC NETWORK PROGRAM 1.0"},
-//		{ "MICROSOFT NETWORKS 1.03"},
-//		{ "MICROSOFT NETWORKS 3.0"},
-//		{ "LANMAN1.0"},
-//		{ "LM1.2X002"},
-//		{ "NT LANMAN 1.0"},
-		{ "NT LM 0.12" },
-	};
+	static char *dialects[] = { { "NT LM 0.12" } };
 	Pkt *p;
 
-	/*
-	 * This should not be necessary, however the XP seems to use
-	 * Unicode strings in its Negoiate response, but not set the
-	 * Flags2 UNICODE flag.
-	 *
-	 * It does however echo back the FL_UNICODE flag we set in the
-	 * flags2 negoiate request.
-	 *
-	 * The bodge is to force FL_UNICODE for this single request, 
-	 * clearing it after. Later we set FL2_UNICODE if the server 
-	 * agrees to CAP_UNICODE as it "should" be done.
-	 */
-	s->flags2 |= FL2_UNICODE;
 	p = cifshdr(s, nil, SMB_COM_NEGOTIATE);
-	s->flags2 &= ~FL2_UNICODE;
 
 	pbytes(p);
 	for(i = 0; i < nelem(dialects); i++){
@@ -284,25 +276,28 @@ CIFSnegotiate(Session *s, long *svrtime, char *domain, int domlen, char *cname,
 		return -1;
 	}
 
-	s->secmode = g8(p);			/* Security mode */
+	s->secmode = g8(p);				/* Security mode */
 
-	gl16(p);				/* Max outstanding requests */
-	gl16(p);				/* Max VCs */
-	s->mtu = gl32(p);			/* Max buffer size */
-	gl32(p);				/* Max raw buffer size (depricated) */
-	gl32(p);				/* Session key */
-	s->caps = gl32(p);			/* Server capabilities */
+	gl16(p);						/* Max outstanding requests */
+	gl16(p);						/* Max VCs */
+	s->mtu = gl32(p);				/* Max buffer size */
+	gl32(p);						/* Max raw buffer size (depricated) */
+	gl32(p);						/* Session key */
+	s->caps = gl32(p);				/* Server capabilities */
 	*svrtime = gvtime(p);			/* fileserver time */
-	s->tz = (short)gl16(p) * 60; 		/* TZ in mins, is signed (SNIA doc is wrong) */
-	s->challen = g8(p);			/* Encryption key length */
+	s->tz = (short)gl16(p) * 60; 	/* TZ in mins, is signed (SNIA doc is wrong) */
+	s->challen = g8(p);				/* Encryption key length */
 	gl16(p);
-	gmem(p, s->chal, s->challen);		/* Get the challenge */
-	gstr(p, domain, domlen);		/* source domain */
+	gmem(p, s->chal, s->challen);	/* Get the challenge */
 
-	{		/* NetApp Filer seem not to report its called name */
+	/*
+	 * for some weird reason the following two string always seem to be in unicode,
+	 * however they are NOT byte aligned, every other packet is correctly aligned
+	 */
+	gstr_noalign(p, domain, domlen);		/* source domain */
+	{	/* NetApp Filer seem not to report its called name */
 		char *cn = emalloc9p(cnamlen);
-
-		gstr(p, cn, cnamlen);		/* their name */
+		gstr_noalign(p, cn, cnamlen);		/* their name */
 		if(strlen(cn) > 0)
 			memcpy(cname, cn, cnamlen);
 		free(cn);
@@ -310,6 +305,8 @@ CIFSnegotiate(Session *s, long *svrtime, char *domain, int domlen, char *cname,
 
 	if(s->caps & CAP_UNICODE)
 		s->flags2 |= FL2_UNICODE;
+	else
+		s->flags2 &= ~FL2_UNICODE;
 
 	free(p);
 	return 0;
@@ -329,37 +326,49 @@ CIFSsession(Session *s)
 	s->seqrun = 1;	/* activate the sequence number generation/checking */
 
 	p = cifshdr(s, nil, SMB_COM_SESSION_SETUP_ANDX);
-	p8(p, 0xFF);			/* No secondary command */
-	p8(p, 0);			/* Reserved (must be zero) */
-	pl16(p, 0);			/* Offset to next command */
-	pl16(p, MTU);			/* my max buffer size */
-	pl16(p, 1);			/* my max multiplexed pending requests */
-	pl16(p, 0);			/* Virtual connection # */
-	pl32(p, 0);			/* Session key (if vc != 0) */
+	p8(p, 0xFF);				/* No secondary command */
+	p8(p, 0);					/* Reserved (must be zero) */
+	pl16(p, 0);					/* Offset to next command */
+	pl16(p, MTU);				/* my max buffer size */
+	pl16(p, 1);					/* my max multiplexed pending requests */
+	pl16(p, 0);					/* Virtual connection # */
+	pl32(p, 0);					/* Session key (if vc != 0) */
 
+	if(Debug && strstr(Debug, "auth") != nil)
+		fprint(2, "mycaps=%x\n", mycaps);
 
 	if((s->secmode & SECMODE_PW_ENCRYPT) == 0) {
+		if(Debug && strstr(Debug, "auth") != nil)
+			fprint(2, "user=%d %q\npass=%d %q\n", Sess->auth->len[0], Sess->auth->resp[0], Sess->auth->len[1], Sess->auth->resp[1]);
+
 		pl16(p, utflen(Sess->auth->resp[0])*2 + 2); /* passwd size */
 		pl16(p, utflen(Sess->auth->resp[0])*2 + 2); /* passwd size (UPPER CASE) */
-		pl32(p, 0);			/* Reserved */
+		pl32(p, 0);				/* Reserved */
 		pl32(p, mycaps);
 		pbytes(p);
 
 		for(q = Sess->auth->resp[0]; *q; ){
 			q += chartorune(&r, q);
+			if(r > Bits16)
+				sysfatal("CIFSsession: '%C' utf too wide for windows\n", r);
 			pl16(p, toupperrune(r));
 		}
 		pl16(p, 0);
 
 		for(q = Sess->auth->resp[0]; *q; ){
 			q += chartorune(&r, q);
+			if(r > Bits16)
+				sysfatal("CIFSsession: '%C' utf too wide for windows\n", r);
 			pl16(p, r);
 		}
 		pl16(p, 0);
 	}else{
+		if(Debug && strstr(Debug, "auth") != nil)
+			fprint(2, "encrypted len=%d,%d\n", Sess->auth->len[0], Sess->auth->len[1]);
+
 		pl16(p, Sess->auth->len[0]);	/* LM passwd size */
 		pl16(p, Sess->auth->len[1]);	/* NTLM passwd size */
-		pl32(p, 0);			/* Reserved  */
+		pl32(p, 0);						/* Reserved  */
 		pl32(p, mycaps);
 		pbytes(p);
 
@@ -367,18 +376,21 @@ CIFSsession(Session *s)
 		pmem(p, Sess->auth->resp[1], Sess->auth->len[1]);
 	}
 
-	pstr(p, Sess->auth->user);	/* Account name */
+	if(Debug && strstr(Debug, "auth") != nil)
+		fprint(2, "user=%q\nwindom=%q\nos=%s\nmanager=%s\n", Sess->auth->user, Sess->auth->windom, "plan9", argv0);
+
+	pstr(p, Sess->auth->user);		/* Account name */
 	pstr(p, Sess->auth->windom);	/* Primary domain */
-	pstr(p, "plan9");		/* Client OS */
-	pstr(p, argv0);			/* Client LAN Manager type */
+	pstr(p, "plan9");				/* Client OS */
+	pstr(p, argv0);					/* Client LAN Manager type */
 
 	if(cifsrpc(p) == -1){
 		free(p);
 		return -1;
 	}
 
-	g8(p);				/* Reserved (0) */
-	gl16(p);			/* Offset to next command wordcount */
+	g8(p);							/* Reserved (0) */
+	gl16(p);						/* Offset to next command wordcount */
 	Sess->isguest = gl16(p) & 1;	/* logged in as guest */
 
 	gl16(p);

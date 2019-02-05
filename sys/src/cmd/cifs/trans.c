@@ -103,6 +103,13 @@ gtparam(Pkt *p)
 	p->pos = p->tparam;
 }
 
+static void
+gtdata(Pkt *p)
+{
+	p->pos = p->tdata;
+}
+
+
 int
 RAPshareenum(Session *s, Share *sp, Share **ent)
 {
@@ -281,8 +288,8 @@ RAPsessionenum(Session *s, Share *sp, Sessinfo **sip)
 		ngot++;
 		q++;
 	}
-	if(ngot < navail)
-		fprint(2, "warning: %d/%d - session list incomplete\n", ngot, navail);
+//	if(ngot < navail)
+//		fprint(2, "warning: %d/%d - session list incomplete\n", ngot, navail);
 	free(p);
 	return ngot;
 }

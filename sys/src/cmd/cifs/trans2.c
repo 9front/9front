@@ -402,8 +402,8 @@ T2fsvolumeinfo(Session *s, Share *sp, long *created, long *serialno,
 	ct = gvtime(p);			/* creation time */
 	sn = gl32(p);			/* serial number */
 	n = gl32(p);			/* label name length */
-	g8(p);				/* reserved */
-	g8(p);				/* reserved */
+	g8(p);					/* reserved */
+	g8(p);					/* reserved */
 
 	memset(label, 0, labellen);
 	if(n < labellen && n > 0)
@@ -413,6 +413,35 @@ T2fsvolumeinfo(Session *s, Share *sp, long *created, long *serialno,
 	if(serialno)
 		*serialno = sn;
 
+	free(p);
+	return 0;
+}
+
+int
+T2fsdeviceinfo(Session *s, Share *sp, int *type, int *flags)
+{
+	Pkt *p;
+	long t, f;
+
+	p = t2hdr(s, sp, TRANS2_QUERY_FS_INFORMATION);
+	pt2param(p);
+	pl16(p, SMB_QUERY_FS_DEVICE_INFO);	/* Information level */
+
+	pt2data(p);
+
+	if(t2rpc(p) == -1){
+		free(p);
+		return -1;
+	}
+
+	gt2data(p);
+	t = gl32(p);			/* device type */
+	f = gl32(p);			/* device characteristics */
+
+	if(type)
+		*type = t;
+	if(flags)
+		*flags = f;
 	free(p);
 	return 0;
 }
@@ -485,15 +514,15 @@ T2getdfsreferral(Session *s, Share *sp, char *path, int *gflags, int *used,
 		re[i].flags = gl16(p);	/* referal flags */
 		switch(vers){
 		case 1:
-			re[i].prox = 0;	/* nearby */
-			re[i].ttl = 5*60;	/* 5 mins */
+			re[i].ttl = 300;		/* 30 mins */
 			gstr(p, tmp, sizeof tmp);
 			re[i].addr = estrdup9p(tmp);
 			re[i].path = estrdup9p(tmp);
 			break;
 		case 2:
-			re[i].prox = gl32(p);	/* not implemented in v2 */
 			re[i].ttl = gl32(p);
+			if(re[i].ttl == 0)
+				re[i].ttl = 1800;
 			goff(p, base, re[i].path, sizeof tmp);
 			re[i].path = estrdup9p(tmp);
 			goff(p, base, re[i].path, sizeof tmp);/* spurious 8.3 path */
@@ -501,24 +530,26 @@ T2getdfsreferral(Session *s, Share *sp, char *path, int *gflags, int *used,
 			re[i].addr = estrdup9p(tmp);
 			break;
 		case 3:
-			if(re[i].flags & DFS_REFERAL_LIST){
-				re[i].prox = 0;
+			if(re[i].flags & DFS_REFERAL_LIST){	/* normal referal */
 				re[i].ttl = gl32(p);
+				if(re[i].ttl == 0)
+					re[i].ttl = 1800;
 				goff(p, base, tmp, sizeof tmp);
 				re[i].path = estrdup9p(tmp);
 				gl16(p);
 				goff(p, base, tmp, sizeof tmp);
 				re[i].addr = estrdup9p(tmp);
 			}
-			else{
-				re[i].prox = 0;
+			else{					/* domain root */
 				re[i].ttl = gl32(p);
+				if(re[i].ttl == 0)
+					re[i].ttl = 300;
 				goff(p, base, tmp, sizeof tmp);
 				re[i].path = estrdup9p(tmp);
 				gl16(p);	/* spurious 8.3 path */
 				goff(p, base, tmp, sizeof tmp);
 				re[i].addr = estrdup9p(tmp);
-				gl16(p);	/* GUID (historic) */
+				/* GUID (historic) here, skipped below as we know the record length */
 			}
 			break;
 		default:
