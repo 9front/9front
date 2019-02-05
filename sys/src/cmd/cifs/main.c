@@ -189,6 +189,27 @@ newpath(char *path, char *name)
 	return smprint("%s/%s", path, name);
 }
 
+/* remove "." and ".." from the cache */
+static int
+rmdots(Aux *a, int got)
+{
+	int i, num;
+	FInfo *fi;
+
+	num = 0;
+	fi = (FInfo *)a->cache;
+	for(i = 0; i < got; i++){
+		if(strcmp(fi->name, ".") == 0 || strcmp(fi->name, "..") == 0){
+			memmove(fi, fi+1, got * sizeof(FInfo));
+			continue;
+		}
+		fi++;
+		num++;
+	}
+
+	return num;
+}
+
 static int
 dirgen(int slot, Dir *d, void *aux)
 {
@@ -200,7 +221,7 @@ dirgen(int slot, Dir *d, void *aux)
 	int numinf = numinfo();
 	int slots;
 
-	slots = 128;		/* number of dir entries to fetch at one time */
+	slots = 32;		/* number of dir entries to fetch at one time */
 
 	if(strcmp(a->path, "/") == 0){
 		if(slot < numinf){
@@ -221,7 +242,6 @@ dirgen(int slot, Dir *d, void *aux)
 		goto from_cache;
 
 	if(off == 0){
-		fi = (FInfo *)a->cache;
 		npath = smprint("%s/*", mapfile(a->path));
 		a->sh = T2findfirst(Sess, a->sp, slots, npath, &got, &a->srch,
 			(FInfo *)a->cache);
@@ -229,15 +249,10 @@ dirgen(int slot, Dir *d, void *aux)
 		if(a->sh == -1)
 			return -1;
 
+		got = rmdots(a, got);
 		a->off = 0;
 		a->end = got * sizeof(FInfo);
-
-		if(got >= 2 && strcmp(fi[0].name, ".") == 0 &&
-		    strcmp(fi[1].name, "..") == 0){
-			a->end = (got - 2) * sizeof(FInfo);
-			memmove(a->cache, a->cache + sizeof(FInfo)*2,
-				a->end - a->off);
-		}
+		goto from_cache;
 	}
 
 	while(off >= a->end && a->sh != -1){
@@ -249,6 +264,7 @@ dirgen(int slot, Dir *d, void *aux)
 		free(npath);
 		if(rc == -1 || got == 0)
 			break;
+		got = rmdots(a, got);
 		a->end = a->off + got * sizeof(FInfo);
 	}
 	a->expire = time(nil) + CACHETIME;
@@ -259,10 +275,11 @@ dirgen(int slot, Dir *d, void *aux)
 		a->sh = -1;
 	}
 
+
+from_cache:
 	if(off >= a->end)
 		return -1;
 
-from_cache:
 	fi = (FInfo *)(a->cache + (off - a->off));
 	npath = smprint("%s/%s", mapfile(a->path), fi->name);
 	I2D(d, a->sp, npath, fi);
