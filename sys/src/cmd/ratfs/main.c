@@ -39,9 +39,6 @@ int	trustedqid = Qtrustedfile;
 char	*ctlfile =	CTLFILE;
 char	*conffile =	CONFFILE;
 
-#pragma	varargck	type	"I"	Cidraddr*
-
-static	int	ipconv(Fmt*);
 static	void	post(int, char*);
 static	void	setroot(void);
 
@@ -75,7 +72,9 @@ main(int argc, char *argv[])
 	if(argc != 0)
 		usage();
 
-	fmtinstall('I', ipconv);
+	fmtinstall('I', eipfmt);
+	fmtinstall('M', eipfmt);
+
 	setroot();
 	getconf();
 	reload();
@@ -263,10 +262,10 @@ printnode(Node *np)
 		fprint(debugfd, "\tTrusted Child: %p", np->children);
 		break;
 	case Trustedperm:
-		fprint(debugfd, "\tPerm Trustedfile: %I", &np->ip);
+		fprint(debugfd, "\tPerm Trustedfile: %I %M", np->ip.ipaddr, np->ip.mask);
 		break;
 	case Trustedtemp:
-		fprint(debugfd, "\tTemp Trustedfile: %I", &np->ip);
+		fprint(debugfd, "\tTemp Trustedfile: %I %M", np->ip.ipaddr, np->ip.mask);
 		break;
 	case Ctlfile:
 		fprint(debugfd, "\tCtlfile");
@@ -300,19 +299,4 @@ printtree(Node *np)
 			return;
 	for (np = np->children; np; np = np->sibs)
 		printtree(np);
-}
-
-static int
-ipconv(Fmt *f)
-{
-	Cidraddr *ip;
-	int i, j;
-	char *p;
-
-	ip = va_arg(f->args, Cidraddr*);
-	p = (char*)&ip->ipaddr;
-	i = 0;
-	for (j = ip->mask; j; j <<= 1)
-		i++;
-	return fmtprint(f, "%d.%d.%d.%d/%d", p[3]&0xff, p[2]&0xff, p[1]&0xff, p[0]&0xff, i);
 }

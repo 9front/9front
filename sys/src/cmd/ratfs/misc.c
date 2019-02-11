@@ -1,5 +1,4 @@
 #include "ratfs.h"
-#include <ip.h>
 
 enum {
 	Maxdoms	=	10,		/* max domains in a path */
@@ -9,7 +8,7 @@ enum {
 static	int	accountmatch(char*, char**, int, char*);
 static	Node*	acctwalk(char*,  Node*);
 static	int	dommatch(char*, char*);
-static	Address* ipsearch(ulong, Address*, int);
+static	Address* ipsearch(uchar*, Address*, int);
 static	Node*	ipwalk(char*,  Node*);
 static	Node*	trwalk(char*, Node*);
 static	int	usermatch(char*, char*);
@@ -78,16 +77,17 @@ dirwalk(char *name, Node *np)
 static Node*
 trwalk(char *name, Node *np)
 {
+	uchar addr[IPaddrlen], net[IPaddrlen];
 	Node *p;
-	ulong peerip;
-	uchar addr[IPv4addrlen];
 
-	v4parseip(addr, name);
-	peerip = nhgetl(addr);
+	parseip(addr, name);
 
-	for(p = np->children; p; p = p->sibs)
-		if((peerip&p->ip.mask) == p->ip.ipaddr)
+	for(p = np->children; p; p = p->sibs){
+		maskip(addr, p->ip.mask, net);
+		if(ipcmp(net, p->ip.ipaddr) == 0)
 			break;
+	}
+
 	return p;
 }
 
@@ -97,17 +97,15 @@ trwalk(char *name, Node *np)
 static Node*
 ipwalk(char *name,  Node *np)
 {
+	uchar addr[IPaddrlen];
 	Address *ap;
-	ulong peerip;
-	uchar addr[IPv4addrlen];
 
-	v4parseip(addr, name);
-	peerip = nhgetl(addr);
+	parseip(addr, name);
 
 	if(debugfd >= 0)
-		fprint(debugfd, "%d.%d.%d.%d - ", addr[0]&0xff, addr[1]&0xff,
-				addr[2]&0xff, addr[3]&0xff);
-	ap = ipsearch(peerip, np->addrs, np->count);
+		fprint(debugfd, "%I - ", addr);
+
+	ap = ipsearch(addr, np->addrs, np->count);
 	if(ap == 0)
 		return 0;
 
@@ -156,8 +154,9 @@ acctwalk(char *name, Node *np)
  */
 
 static Address*
-ipsearch(ulong addr, Address *base, int n)
+ipsearch(uchar *addr, Address *base, int n)
 {
+	uchar net[IPaddrlen];
 	ulong top, bot, mid;
 	Address *ap;
 
@@ -165,11 +164,12 @@ ipsearch(ulong addr, Address *base, int n)
 	top = n;
 	for (mid = (bot+top)/2; mid < top; mid = (bot+top)/2) {
 		ap = &base[mid];
-		if((addr&ap->ip.mask) == ap->ip.ipaddr)
+		maskip(addr, ap->ip.mask, net);
+		if(ipcmp(net, ap->ip.ipaddr) == 0)
 			return ap;
-		if(addr < ap->ip.ipaddr)
+		if(ipcmp(addr, ap->ip.ipaddr) < 0)
 			top = mid;
-		else if(mid != n-1 && addr >= base[mid+1].ip.ipaddr)
+		else if(mid != n-1 && ipcmp(addr, base[mid+1].ip.ipaddr) >= 0)
 			bot = mid;
 		else
 			break;

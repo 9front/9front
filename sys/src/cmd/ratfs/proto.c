@@ -302,6 +302,7 @@ rcreate(Fcall *f)
 {
 	Fid *fidp;
 	Node *np;
+	Cidraddr ip;
 
 	fidp = newfid(f->fid);
 	np = fidp->node;
@@ -315,12 +316,16 @@ rcreate(Fcall *f)
 		return;
 	}
 
-	/* Ignore the supplied mode and force it to be non-writable */
+	if(cidrparse(&ip, f->name) == -1){
+		reply(f, "bad cidr in filename");
+		return;
+	}
 
+	/* Ignore the supplied mode and force it to be non-writable */
 	np = newnode(np, f->name, Trustedtemp, 0444, trustedqid++);
+	np->ip = ip;
 	if(trustedqid >= Qaddrfile)			/* wrap QIDs */
 		trustedqid = Qtrustedfile;
-	cidrparse(&np->ip, f->name);
 	f->qid = np->d.qid;
 	np->d.uid = fidp->uid;
 	np->d.gid = np->d.uid;

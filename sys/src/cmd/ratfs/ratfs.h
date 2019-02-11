@@ -3,6 +3,7 @@
 #include <auth.h>
 #include <fcall.h>
 #include <bio.h>
+#include <ip.h>
 
 enum {
 	MAXRPC = 8192,
@@ -54,8 +55,8 @@ struct Fid
 
 struct	Cidraddr
 {
-	ulong	ipaddr;		/* CIDR base addr */
-	ulong	mask;		/* CIDR mask */
+	uchar	ipaddr[IPaddrlen];		/* CIDR base addr */
+	uchar	mask[IPaddrlen];		/* CIDR mask */
 };
 
 	/* an address is either an account name (domain!user) or Ip address */
@@ -98,7 +99,7 @@ long	lastctltime;
 int	trustedqid;
 
 char*	atom(char*);
-void	cidrparse(Cidraddr*, char*);
+int	cidrparse(Cidraddr*, char*);
 void	cleantrusted(void);
 Node*	dirwalk(char*, Node*);
 int	dread(Fid*, int);

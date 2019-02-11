@@ -1,5 +1,4 @@
 #include "ratfs.h"
-#include <ip.h>
 
 enum {
 	ACCEPT = 0,		/* verbs in control file */
@@ -40,6 +39,7 @@ getconf(void)
 	Biobuf *bp;
 	char *cp;
 	Node *np, *dir, **l;
+	Cidraddr ip;
 
 	if(debugfd >= 0)
 		fprint(debugfd, "loading %s\n", conffile);
@@ -76,8 +76,10 @@ getconf(void)
 			break;
 		if (strcmp(cp, "ournets") == 0){
 			for(cp += strlen(cp)+1; cp && *cp; cp += strlen(cp)+1){
+				if(cidrparse(&ip, cp) == -1)
+					continue;
 				np = newnode(dir, cp, Trustedperm, 0111, trustedqid++);
-				cidrparse(&np->ip, cp);
+				np->ip = ip;
 				subslash(cp);
 				np->d.name = atom(cp);
 			}
@@ -218,16 +220,12 @@ findkey(char *val, Keyword *p)
 /*
  *	parse a cidr specification in either IP/mask or IP#mask format
  */
-void
+int
 cidrparse(Cidraddr *cidr, char *cp)
 {
-
-	char *p, *slash;
+	uchar ip[IPaddrlen];
+	char buf[64], *p, *slash;
 	int c;
-	ulong a, m;
-	uchar addr[IPv4addrlen];
-	uchar mask[IPv4addrlen];
-	char buf[64];
 
 	/*
 	 * find '/' or '#' character in the cidr specification
@@ -250,25 +248,11 @@ cidrparse(Cidraddr *cidr, char *cp)
 	}
 	*p = 0;
 
-	v4parsecidr(addr, mask, buf);
-	a = nhgetl(addr);
-	m = nhgetl(mask);
-	/*
-	 * if a mask isn't specified, we build a minimal mask
-	 * instead of using the default mask for that net.  in this
-	 * case we never allow a class A mask (0xff000000).
-	 */
-	if(slash == 0){
-		m = 0xff000000;
-		p = buf;
-		for(p = strchr(p, '.'); p && p[1]; p = strchr(p+1, '.'))
-				m = (m>>8)|0xff000000;
+	if(parseipandmask(ip, cidr->mask, buf, slash) == -1)
+		return -1;
+	maskip(ip, cidr->mask, cidr->ipaddr);
 
-		/* force at least a class B */
-		m |= 0xffff0000;
-	}
-	cidr->ipaddr = a;
-	cidr->mask = m;
+	return 0;
 }
 
 /*
@@ -335,7 +319,9 @@ ipinsert(Node *np, char *cp)
 	char *tmp;
 	int i;
 	Address *ap;
-	if(cp == 0 || *cp == 0)
+	Cidraddr ip;
+
+	if(cp == 0 || *cp == 0 || cidrparse(&ip, cp) == -1)
 		return;
 
 	np = dirwalk("ip", np);
@@ -351,27 +337,19 @@ ipinsert(Node *np, char *cp)
 	}
 
 	ap = &np->addrs[i];				/* new entry on end */
+	ap->ip = ip;
 	tmp = strdup(cp);
 	if(tmp == nil)
 		fatal("out of memory");
 	subslash(tmp);
 	ap->name = atom(tmp);
 	free(tmp);
-	cidrparse(&ap->ip, cp);
 }
 
-int
-ipcomp(void *a, void *b)
+static int
+ipaddrcomp(void *a, void *b)
 {
-	ulong aip, bip;
-
-	aip = ((Address*)a)->ip.ipaddr;
-	bip = ((Address*)b)->ip.ipaddr;
-	if(aip > bip)
-		return 1;
-	if(aip < bip)
-		return -1;
-	return 0;
+	return ipcmp(((Address*)a)->ip.ipaddr, ((Address*)b)->ip.ipaddr);
 }
 
 /*
@@ -389,7 +367,7 @@ ipsort(void)
 			continue;
 		for(np = dir->children; np; np = np->sibs){
 			if(np->d.type == IPaddr && np->count && np->addrs)
-				qsort(np->addrs, np->count, sizeof(Address), ipcomp);
+				qsort(np->addrs, np->count, sizeof(Address), ipaddrcomp);
 			np->baseqid = base;
 			base += np->count;
 		}
