@@ -118,12 +118,11 @@ parsenorm(int argc, char **argv)
 			usage();
 		/* fall through */
 	case 2:
-		/*
-		 * can't test for parseipmask()==-1 cuz 255.255.255.255
-		 * looks like that.
-		 */
-		if (strcmp(argv[1], "0") != 0)
-			parseipmask(conf.mask, argv[1]);
+		if (strcmp(argv[1], "0") != 0){
+			if (parseipandmask(conf.laddr, conf.mask, argv[0], argv[1]) == -1)
+				usage();
+			break;
+		}
 		/* fall through */
 	case 1:
 		 if (parseip(conf.laddr, argv[0]) == -1)
@@ -742,15 +741,13 @@ defroutectl(char *cmd, uchar *gaddr, uchar *ia, uchar *src, uchar *smask)
 	uchar dst[IPaddrlen], mask[IPaddrlen];
 
 	if(isv4(gaddr)){
-		parseip(dst, "0.0.0.0");
-		parseipmask(mask, "0.0.0.0");
+		parseipandmask(dst, mask, "0.0.0.0", "0.0.0.0");
 		if(src == nil)
 			src = dst;
 		if(smask == nil)
 			smask = mask;
 	} else {
-		parseip(dst, "2000::");
-		parseipmask(mask, "/3");
+		parseipandmask(dst, mask, "2000::", "/3");
 		if(src == nil)
 			src = IPnoaddr;
 		if(smask == nil)
@@ -1022,7 +1019,7 @@ ndb2conf(Ndb *db, uchar *myip)
 		}
 		if(strcmp(nt->attr, "ipmask") == 0) {
 			nt = uniquent(nt);
-			parseipmask(conf.mask, nt->val);  /* could be -1 */
+			parseipmask(conf.mask, nt->val, isv4(myip));
 			continue;
 		}
 		if(parseip(ip, nt->val) == -1) {
