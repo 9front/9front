@@ -120,20 +120,20 @@ static Ndbtuple*
 subnet(Ndb *db, uchar *net, Ndbtuple *f, int prefix)
 {
 	Ndbs s;
-	Ndbtuple *t, *nt, *xt;
-	char netstr[128];
+	char netstr[64];
 	uchar mask[IPaddrlen];
+	Ndbtuple *t, *nt, *xt;
 	int masklen;
 
 	t = nil;
-	sprint(netstr, "%I", net);
+	snprint(netstr, sizeof(netstr), "%I", net);
 	nt = ndbsearch(db, &s, "ip", netstr);
 	while(nt != nil){
 		xt = ndbfindattr(nt, nt, "ipnet");
-		if(xt){
+		if(xt != nil){
 			xt = ndbfindattr(nt, nt, "ipmask");
-			if(xt)
-				parseipmask(mask, xt->val);
+			if(xt != nil)
+				parseipmask(mask, xt->val, isv4(net));
 			else
 				ipmove(mask, defmask(net));
 			masklen = prefixlen(mask);
