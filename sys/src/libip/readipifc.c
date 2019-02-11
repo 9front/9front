@@ -31,9 +31,7 @@ _readoldipifc(char *buf, Ipifc **l, int index)
 		/* allocate new local address */
 		*ll = lifc = mallocz(sizeof(Iplifc), 1);
 		ll = &lifc->next;
-
-		parseip(lifc->ip, f[i]);
-		parseipmask(lifc->mask, f[i+1]);
+		parseipandmask(lifc->ip, lifc->mask, f[i], f[i+1]);
 		parseip(lifc->net, f[i+2]);
 		ifc->pktin = strtoul(f[i+3], nil, 10);
 		ifc->pktout = strtoul(f[i+4], nil, 10);
@@ -129,8 +127,7 @@ lose:
 		*ll = lifc = mallocz(sizeof(Iplifc), 1);
 		ll = &lifc->next;
 
-		parseip(lifc->ip, f[0]);
-		parseipmask(lifc->mask, f[1]);
+		parseipandmask(lifc->ip, lifc->mask, f[0], f[1]);
 		parseip(lifc->net, f[2]);
 
 		lifc->validlt = strtoul(f[3], nil, 10);

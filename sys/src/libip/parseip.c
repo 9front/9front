@@ -122,7 +122,7 @@ parseip(uchar *to, char *from)
  *  style
  */
 vlong
-parseipmask(uchar *to, char *from)
+parseipmask(uchar *to, char *from, int v4)
 {
 	int i, w;
 	vlong x;
@@ -133,6 +133,8 @@ parseipmask(uchar *to, char *from)
 		i = atoi(from+1);
 		if(i < 0)
 			i = 0;
+		if(i <= 32 && v4)
+			i += 96;
 		if(i > 128)
 			i = 128;
 		w = i;
@@ -141,7 +143,6 @@ parseipmask(uchar *to, char *from)
 			*p++ = 0xff;
 		if(i > 0)
 			*p = ~((1<<(8-i))-1);
-		x = nhgetl(to+IPv4off);
 		/*
 		 * identify as ipv6 if the mask is inexpressible as a v4 mask
 		 * (because it has too few mask bits).  Arguably, we could
@@ -149,6 +150,7 @@ parseipmask(uchar *to, char *from)
 		 */
 		if (w < 8*(IPaddrlen-IPv4addrlen))
 			return 6;
+		x = nhgetl(to+IPv4off);
 	} else {
 		/* as a straight v4 bit mask */
 		x = parseip(to, from);
@@ -160,29 +162,15 @@ parseipmask(uchar *to, char *from)
 	return x;
 }
 
-/*
- *  parse a v4 ip address/mask in cidr format
- */
-char*
-v4parsecidr(uchar *addr, uchar *mask, char *from)
+vlong
+parseipandmask(uchar *ip, uchar *mask, char *ipstr, char *maskstr)
 {
-	int i;
-	char *p;
-	uchar *a;
+	vlong x;
 
-	p = v4parseip(addr, from);
-
-	if(*p == '/'){
-		/* as a number of prefix bits */
-		i = strtoul(p+1, &p, 0);
-		if(i > 32)
-			i = 32;
-		memset(mask, 0, IPv4addrlen);
-		for(a = mask; i >= 8; i -= 8)
-			*a++ = 0xff;
-		if(i > 0)
-			*a = ~((1<<(8-i))-1);
-	} else 
-		memcpy(mask, defmask(addr), IPv4addrlen);
-	return p;
+	x = parseip(ip, ipstr);
+	if(x == -1)
+		return -1;
+	if(maskstr == nil || parseipmask(mask, maskstr, memcmp(ip, v4prefix, IPv4off) == 0) == -1)
+		memset(mask, 0xff, IPaddrlen);
+	return x;
 }
