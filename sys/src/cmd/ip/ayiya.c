@@ -294,34 +294,20 @@ usage(void)
 static void
 procargs(int argc, char **argv)
 {
-	char *p, *loc6;
+	char *ipstr, *maskstr;
 
 	if (argc < 3)
 		usage();
-
-	loc6 = *argv++;
-	argc--;
-
-	/* local v6 address (mask defaults to /128) */
-	memcpy(localmask, IPallbits, sizeof localmask);
-	p = strchr(loc6, '/');
-	if (p != nil) {
-		parseipmask(localmask, p);
-		*p = 0;
-	}
-	if (parseip(local6, loc6) == -1)
-		sysfatal("bad local v6 address %s", loc6);
-	if (isv4(local6))
-		usage();
-	if (argc >= 1 && argv[0][0] == '/') {
-		parseipmask(localmask, *argv++);
-		argc--;
-	}
+	ipstr = *argv++, argc--;
+	maskstr = strchr(ipstr, '/');
+	if (maskstr == nil && **argv == '/')
+		maskstr = *argv++, argc--;
+	if (parseipandmask(local6, localmask, ipstr, maskstr) == -1 || isv4(local6))
+		sysfatal("bad local v6 address/mask: %s", ipstr);
 	if (debug)
 		fprint(2, "local6 %I %M\n", local6, localmask);
-
-	outside = netmkaddr(*argv++, "udp", "5072");
 	argc--;
+	outside = netmkaddr(*argv++, "udp", "5072");
 	if(outside == nil)
 		usage();
 	outside = strdup(outside);
@@ -532,7 +518,7 @@ ip2tunnel(int in, int out)
 				ip->src, ip->dst);
 			continue;
 		}
-		if ((!equivip6(ip->dst, remote6) && badipv6(ip->dst))) {
+		if ((ipcmp(ip->dst, remote6) != 0 && badipv6(ip->dst))) {
 			syslog(0, "ayiya", "egress filtered %I -> %I; "
 				"bad dst not remote", ip->src, ip->dst);
 			continue;
@@ -638,7 +624,7 @@ tunnel2ip(int in, int out)
 			 * (this blocks link-local and multicast addresses as well)
 			 */
 			maskip(op->dst, localmask, a);
-			if (!equivip6(a, localnet)) {
+			if (ipcmp(a, localnet) != 0) {
 				syslog(0, "ayiya", "ingress filtered %I -> %I; "
 					"dst not on local net", op->src, op->dst);
 				break;
