@@ -91,44 +91,28 @@ defv6addr(void)
 static void
 procargs(int argc, char **argv)
 {
-	char *p, *loc6;
+	char *ipstr, *maskstr;
 
 	if (argc < 1)
-		loc6 = defv6addr();
+		ipstr = defv6addr();
 	else if (strcmp(argv[0], "-") == 0) {
-		loc6 = defv6addr();
-		argv++;
-		argc--;
-	} else {
-		loc6 = *argv++;
-		argc--;
-	}
-
-	/* local v6 address (mask defaults to /128) */
-	memcpy(localmask, IPallbits, sizeof localmask);
-	p = strchr(loc6, '/');
-	if (p != nil) {
-		parseipmask(localmask, p);
-		*p = 0;
-	}
-	if (parseip(local6, loc6) == -1)
-		sysfatal("bad local v6 address %s", loc6);
-	if (isv4(local6))
-		usage();
-	if (argc >= 1 && argv[0][0] == '/') {
-		parseipmask(localmask, *argv++);
-		argc--;
-	}
+		argv++, argc--;
+		ipstr = defv6addr();
+	} else
+		ipstr = *argv++, argc--;
+	maskstr = strchr(ipstr, '/');
+	if (maskstr == nil && argc >= 1 && **argv == '/')
+		maskstr = *argv++, argc--;
+	if (parseipandmask(local6, localmask, ipstr, maskstr) == -1 || isv4(local6))
+		sysfatal("bad local v6 address/mask: %s", ipstr);
 	if (debug)
 		fprint(2, "local6 %I %M\n", local6, localmask);
 
 	/* remote v4 address (defaults to anycast 6to4) */
 	if (argc >= 1) {
-		if (parseip(remote4, *argv++) == -1)
-			sysfatal("bad remote v4 address %s", argv[-1]);
 		argc--;
-		if (!isv4(remote4))
-			usage();
+		if (parseip(remote4, *argv++) == -1 || !isv4(remote4))
+			sysfatal("bad remote v4 address %s", argv[-1]);
 	} else {
 		v4tov6(remote4, anycast6to4);
 		anysender++;
@@ -138,9 +122,9 @@ procargs(int argc, char **argv)
 
 	/* remote v6 address (defaults to link-local w/ v4 as interface part) */
 	if (argc >= 1) {
-		if (parseip(remote6, *argv++) == -1)
-			sysfatal("bad remote v6 address %s", argv[-1]);
 		argc--;
+		if (parseip(remote6, *argv++) == -1 || isv4(remote6))
+			sysfatal("bad remote v6 address %s", argv[-1]);
 	} else {
 		remote6[0] = 0xFE;		/* link local */
 		remote6[1] = 0x80;
@@ -328,7 +312,7 @@ ip2tunnel(int in, int out)
 				ip->src, ip->dst);
 			continue;
 		}
-		if ((!equivip6(ip->dst, remote6) && badipv6(ip->dst))) {
+		if ((ipcmp(ip->dst, remote6) != 0 && badipv6(ip->dst))) {
 			syslog(0, "6in4", "egress filtered %I -> %I; "
 				"bad dst not remote", ip->src, ip->dst);
 			continue;
