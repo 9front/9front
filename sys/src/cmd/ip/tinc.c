@@ -65,7 +65,6 @@ struct Snet
 	Snet	*next;	/* next subnet on owner */
 	uchar	mask[IPaddrlen];
 	uchar	ip[IPaddrlen];
-	int	prefixlen;
 	int	weight;
 	char	reported;
 	char	deleted;
@@ -299,9 +298,9 @@ subnetcmp(Snet *a, Snet *b)
 
 	if((c = a->deleted - b->deleted) != 0)
 		return c;
-	if((c = memcmp(b->mask, a->mask, IPaddrlen)) != 0)
+	if((c = ipcmp(b->mask, a->mask)) != 0)
 		return c;
-	if((c = memcmp(a->ip, b->ip, IPaddrlen)) != 0)
+	if((c = ipcmp(a->ip, b->ip)) != 0)
 		return c;
 	return a->weight - b->weight;
 }
@@ -321,7 +320,7 @@ lookupnet(uchar ip[IPaddrlen])
 	for(i=0; i<nsnet; i++){
 		t = snet[i];
 		maskip(ip, t->mask, x);
-		if(memcmp(x, t->ip, IPaddrlen) == 0)
+		if(ipcmp(x, t->ip) == 0)
 			return t;
 	}
 	return nil;
@@ -346,11 +345,11 @@ reportsubnet(Conn *c, Snet *t)
 	if(t->owner == c->host)
 		return;
 	if(t->deleted)
-		consend(c, "%d %x %s %I/%d#%d", DEL_SUBNET, rand(),
-			t->owner->name, t->ip, t->prefixlen, t->weight);
+		consend(c, "%d %x %s %I %M #%d", DEL_SUBNET, rand(),
+			t->owner->name, t->ip, t->mask, t->weight);
 	else
-		consend(c, "%d %x %s %I/%d#%d", ADD_SUBNET, rand(), t->owner->name,
-			t->ip, t->prefixlen, t->weight);
+		consend(c, "%d %x %s %I %M #%d", ADD_SUBNET, rand(), t->owner->name,
+			t->ip, t->mask, t->weight);
 }
 void
 reportedge(Conn *c, Edge *e)
@@ -460,32 +459,20 @@ Snet*
 getsubnet(Host *h, char *s, int new)
 {
 	uchar ip[IPaddrlen], mask[IPaddrlen];
+	int weight;
 	Snet *t;
-	char *p, *e;
-	int i, prefixlen, weight;
 
-	if(parseip(ip, s) == -1)
+	if(parseipandmask(ip, mask, s, strchr(s, '/')) == -1)
 		return nil;
 
-	weight = 10;
-	prefixlen = 128;
-	if((p = strchr(s, '/')) != nil){
-		if((e = strchr(p+1, '#')) != nil)
-			*e = 0;
-		prefixlen = atoi(p+1) + (isv4(ip)!=0)*(128-32);
-		if(e != nil){
-			*e = '#';
-			weight = atoi(e+1);
-		}
-	}
-	memset(mask, 0, IPaddrlen);
-	for(i=0; i<prefixlen; i++)
-		mask[i/8] |= 0x80>>(i%8);
 	maskip(ip, mask, ip);
 
+	weight = 10;
+	if((s = strchr(s, '#')) != nil)
+		weight = atoi(s+1);
+
 	for(t = h->snet; t != nil; t = t->next)
-		if(memcmp(t->ip, ip, IPaddrlen) == 0
-		&& memcmp(t->mask, mask, IPaddrlen) == 0){
+		if(ipcmp(t->ip, ip) == 0 && ipcmp(t->mask, mask) == 0){
 			if(new)
 				t->weight = weight;
 			return t;
@@ -494,10 +481,11 @@ getsubnet(Host *h, char *s, int new)
 	if(!new)
 		return nil;
 
+if(debug) fprint(2, "%s adding subnet: %I %M #%d\n", h->name, ip, mask, weight);
+
 	t = emalloc(sizeof(Snet));
-	memmove(t->ip, ip, IPaddrlen);
-	memmove(t->mask, mask, IPaddrlen);
-	t->prefixlen = prefixlen - (isv4(ip)!=0)*(128-32);
+	ipmove(t->ip, ip);
+	ipmove(t->mask, mask);
 	t->weight = weight;
 	t->owner = h;
 	t->next = h->snet;
@@ -679,8 +667,7 @@ findhost(uchar ip[IPaddrlen], int port)
 
 	qlock(&hostslk);
 	for(h = hosts; h != nil; h = h->next){
-		if(memcmp(ip, h->ip, IPaddrlen) == 0
-		&& (port == -1 || port == h->port))
+		if(ipcmp(ip, h->ip) == 0 && (port == -1 || port == h->port))
 			break;
 	}
 	qunlock(&hostslk);
@@ -1586,10 +1573,8 @@ main(int argc, char *argv[])
 
 	if(argc < 2)
 		usage();
-	if(parseip(localip, argv[0]) == -1)
-		sysfatal("bad local ip: %s", argv[0]);
-	if(parseipmask(localmask, argv[1]) == -1)
-		sysfatal("bad local mask: %s", argv[1]);
+	if(parseipandmask(localip, localmask, argv[0], argv[1]) == -1)
+		sysfatal("bad local ip/mask: %s/%s", argv[0], argv[1]);
 	argv += 2, argc -= 2;
 
 	srand(fastrand());
@@ -1613,8 +1598,8 @@ main(int argc, char *argv[])
 	if((t = lookupnet(localip)) == nil)
 		sysfatal("no subnet found for local ip %I", localip);
 	if(t->owner != myhost)
-		sysfatal("local ip %I belongs to host %s subnet %I/%d",
-			localip, t->owner->name, t->ip, t->prefixlen);
+		sysfatal("local ip %I belongs to host %s subnet %I %M",
+			localip, t->owner->name, t->ip, t->mask);
 
 	ipifcsetup();
 	notify(catch);
