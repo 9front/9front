@@ -44,10 +44,8 @@ static Keyword actions[] = {
 static	int	hisaction;
 static	List	ourdoms;
 static	List 	badguys;
-static	ulong	v4peerip;
 
 static	char*	getline(Biobuf*);
-static	int	cidrcheck(char*);
 
 static int
 findkey(char *val, Keyword *p)
@@ -110,10 +108,6 @@ getconf(void)
 	char *cp, *p;
 	String *s;
 	char buf[512];
-	uchar addr[4];
-
-	v4parseip(addr, nci->rsys);
-	v4peerip = nhgetl(addr);
 
 	trusted = istrusted(nci->rsys);
 	hisaction = getaction(nci->rsys, "ip");
@@ -149,8 +143,10 @@ getconf(void)
 				dom = strdup(p);
 			break;
 		case OURNETS:
-			if (trusted == 0)
-				trusted = cidrcheck(p);
+			while(trusted == 0 && *p){
+				trusted = ipcheck(p);
+				p += strlen(p) + 1;
+			}
 			break;
 		case OURDOMS:
 			while(*p){
@@ -398,44 +394,6 @@ masquerade(String *path, char *him)
 	return rv;
 }
 
-/* this is a v4 only check */
-static int
-cidrcheck(char *cp)
-{
-	char *p;
-	ulong a, m;
-	uchar addr[IPv4addrlen];
-	uchar mask[IPv4addrlen];
-
-	if(v4peerip == 0)
-		return 0;
-
-	/* parse a list of CIDR addresses comparing each to the peer IP addr */
-	while(cp && *cp){
-		v4parsecidr(addr, mask, cp);
-		a = nhgetl(addr);
-		m = nhgetl(mask);
-		/*
-		 * if a mask isn't specified, we build a minimal mask
-		 * instead of using the default mask for that net.  in this
-		 * case we never allow a class A mask (0xff000000).
-		 */
-		if(strchr(cp, '/') == 0){
-			m = 0xff000000;
-			p = cp;
-			for(p = strchr(p, '.'); p && p[1]; p = strchr(p + 1, '.'))
-				m = (m>>8)|0xff000000;
-
-			/* force at least a class B */
-			m |= 0xffff0000;
-		}
-		if((v4peerip & m) == a)
-			return 1;
-		cp += strlen(cp) + 1;
-	}		
-	return 0;
-}
-
 int
 isbadguy(void)
 {
@@ -443,7 +401,7 @@ isbadguy(void)
 
 	/* check if this IP address is banned */
 	for(l = badguys.first; l; l = l->next)
-		if(cidrcheck(s_to_c(l->p)))
+		if(ipcheck(s_to_c(l->p)))
 			return 1;
 
 	return 0;

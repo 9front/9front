@@ -1,5 +1,4 @@
 </$objtype/mkfile
-<../mkupas
 
 TARG = smtpd\
 	smtp\
@@ -55,3 +54,5 @@ clean:V:
 
 ../common/libcommon.a$O:
 	cd ../common && mk
+
+<../mkupas

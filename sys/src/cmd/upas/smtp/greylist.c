@@ -42,54 +42,20 @@ static char whitelist[] = "/mail/grey/whitelist";
 static int
 onwhitelist(void)
 {
-	int lnlen;
-	char *line, *parse, *p;
-	char input[128];
-	uchar *mask;
-	uchar mask4[IPaddrlen], addr4[IPaddrlen];
-	uchar rmask[IPaddrlen], addr[IPaddrlen];
-	uchar ipmasked[IPaddrlen], addrmasked[IPaddrlen];
+	char *line, *p;
 	Biobuf *wl;
 
 	wl = Bopen(whitelist, OREAD);
 	if (wl == nil)
 		return 0;
 	while ((line = Brdline(wl, '\n')) != nil) {
-		lnlen = Blinelen(wl);
-		line[lnlen-1] = '\0';		/* clobber newline */
-
+		line[Blinelen(wl)-1] = '\0';		/* clobber newline */
 		p = strpbrk(line, " \t");
 		if (p)
 			*p = 0;
 		if (line[0] == '#' || line[0] == 0)
 			continue;
-
-		/* default mask is /24 (v4) or /128 (v6) for bare IP */
-		parse = line;
-		if (strchr(line, '/') == nil) {
-			strecpy(input, input + sizeof input - 5, line);
-			if (strchr(line, ':') != nil)	/* v6? */
-				strcat(input, "/128");
-			else if (strchr(line, '.') != nil)
-				strcat(input, "/24");	/* was /32 */
-			parse = input;
-		}
-		mask = rmask;
-		if (strchr(line, ':') != nil) {		/* v6? */
-			parseip(addr, parse);
-			p = strchr(parse, '/');
-			if (p != nil)
-				parseipmask(mask, p);
-			else
-				mask = IPallbits;
-		} else {
-			v4parsecidr(addr4, mask4, parse);
-			v4tov6(addr, addr4);
-			v4tov6(mask, mask4);
-		}
-		maskip(addr, mask, addrmasked);
-		maskip(rsysip, mask, ipmasked);
-		if (equivip6(ipmasked, addrmasked))
+		if(ipcheck(line))
 			break;
 	}
 	Bterm(wl);

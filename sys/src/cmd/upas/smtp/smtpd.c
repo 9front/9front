@@ -238,6 +238,19 @@ reply(char *fmt, ...)
 	return n;
 }
 
+int
+ipcheck(char *s)
+{
+	uchar ip[IPaddrlen], mask[IPaddrlen];
+	uchar net[IPaddrlen], rnet[IPaddrlen];
+
+	if(parseipandmask(ip, mask, s, strchr(s, '/')) == -1)
+		return 0;
+	maskip(ip, mask, net);
+	maskip(rsysip, mask, rnet);
+	return ipcmp(net, rnet) == 0;
+}
+
 void
 reset(void)
 {
@@ -611,8 +624,7 @@ senderok(char *rcpt)
 		 * if not, perhaps a later entry's domain will.
 		 */
 		mentioned = 1;
-		if (parseip(dnsip, snd->domain) != -1 &&
-		    memcmp(rsysip, dnsip, IPaddrlen) == 0)
+		if (parseip(dnsip, snd->domain) != -1 && ipcmp(rsysip, dnsip) == 0)
 			return 1;
 		/*
 		 * NB: nt->line links form a circular list(!).
@@ -622,9 +634,8 @@ senderok(char *rcpt)
 		if (first == nil)
 			continue;
 		do {
-			if (strcmp(nt->attr, "ip") == 0 &&
-			    parseip(dnsip, nt->val) != -1 &&
-			    memcmp(rsysip, dnsip, IPaddrlen) == 0)
+			if (strcmp(nt->attr, "ip") == 0
+			&&  parseip(dnsip, nt->val) != -1 && ipcmp(rsysip, dnsip) == 0)
 				matched = 1;
 			next = nt->line;
 			free(nt);

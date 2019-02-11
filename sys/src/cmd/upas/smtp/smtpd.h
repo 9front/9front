@@ -38,6 +38,8 @@ extern	List	senders;
 extern	List	rcvers;
 extern	uchar	rsysip[];
 
+int	ipcheck(char*);
+
 void	addbadguy(char*);
 void	auth(String *, String *);
 int	blocked(String*);
