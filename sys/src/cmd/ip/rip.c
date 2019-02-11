@@ -143,17 +143,6 @@ fatal(int syserr, char *fmt, ...)
 	exits(buf);
 }
 
-ulong
-v4parseipmask(uchar *ip, char *p)
-{
-	ulong x;
-	uchar v6ip[IPaddrlen];
-
-	x = parseipmask(v6ip, p);
-	memmove(ip, v6ip+IPv4off, 4);
-	return x;
-}
-
 uchar*
 v4defmask(uchar *ip)
 {
@@ -178,6 +167,18 @@ v6tov4mask(uchar *v4, uchar *v6)
 {
 	memmove(v4, v6+IPv4off, 4);
 }
+
+int
+v4parseipandmask(uchar *ip, uchar *mask, char *p, char *m)
+{
+	uchar v6ip[IPaddrlen], v6mask[IPaddrlen];
+
+	if(parseipandmask(v6ip, v6mask, p, m) == -1)
+		return -1;
+	v6tov4mask(mask, v6mask);
+	return v6tov4(ip, v6ip);
+}
+
 
 #define equivip(a, b) (memcmp((a), (b), Pasize) == 0)
 
@@ -355,8 +356,7 @@ readifcs(void)
 	i = 0;
 	for(ifc = ifcs; ifc != nil; ifc = ifc->next){
 		for(lifc = ifc->lifc; lifc != nil && i < Nifc; lifc = lifc->next){
-			// ignore any interfaces that aren't v4
-			if(memcmp(lifc->ip, v4prefix, IPaddrlen-IPv4addrlen) != 0)
+			if(!isv4(lifc->ip))
 				continue;
 			ip = &ialloc.ifc[i++];
 			v6tov4(ip->addr, lifc->ip);
@@ -403,12 +403,11 @@ readroutes(void)
 		n = getfields(p, f, 6, 1, " \t");
 		if(n < 5)
 			continue;
-		v4parseip(route.dest, f[0]);
-		v4parseipmask(route.mask, f[1]);
+		if(v4parseipandmask(route.dest, route.mask, f[0], f[1]) == -1)
+			continue;
 		v4parseip(route.gate, f[2]);
 		route.metric = Infinity;
-		if(equivip(route.dest, ralloc.def.dest)
-		&& equivip(route.mask, ralloc.def.mask))
+		if(equivip(route.dest, ralloc.def.dest) && equivip(route.mask, ralloc.def.mask))
 			memmove(ralloc.def.gate, route.gate, Pasize);
 		else if(!equivip(route.dest, route.gate) && strchr(f[3], 'i') == 0)
 			considerroute(&route);
