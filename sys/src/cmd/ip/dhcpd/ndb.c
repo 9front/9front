@@ -87,7 +87,7 @@ static void
 setipmask(uchar *mask, char *ip)
 {
 	if(ipcmp(mask, IPnoaddr) == 0)
-		parseipmask(mask, ip);
+		parseipmask(mask, ip, 1);
 }
 
 /*
