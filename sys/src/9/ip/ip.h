@@ -623,6 +623,7 @@ extern void	ndpsendsol(Fs*, Ipifc*, Arpent*);
 extern int	parseether(uchar*, char*);
 extern vlong	parseip(uchar*, char*);
 extern vlong	parseipmask(uchar*, char*);
+extern vlong	parseipandmask(uchar*, uchar*, char*, char*);
 extern char*	v4parseip(uchar*, char*);
 extern void	maskip(uchar *from, uchar *mask, uchar *to);
 extern int	parsemac(uchar *to, char *from, int len);

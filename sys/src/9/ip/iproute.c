@@ -917,9 +917,8 @@ parseroute(Fs *f, char **argv, int argc)
 
 	if(argc < 3)
 		error(Ebadctl);
-	if(parseip(addr, argv[1]) == -1)
+	if(parseipandmask(addr, mask, argv[1], argv[2]) == -1)
 		error(Ebadip);
-	parseipmask(mask, argv[2]);
 
 	if(strcmp(argv[0], "add") == 0 || (argc > 3 && argc != 5)){
 		if(argc < 4)
@@ -928,9 +927,8 @@ parseroute(Fs *f, char **argv, int argc)
 			error(Ebadip);
 	}
 	if(argc > 4 && (strcmp(argv[0], "add") != 0 || argc != 5)){
-		if(parseip(src, argv[argc-2]) == -1)
+		if(parseipandmask(src, smask, argv[argc-2], argv[argc-1]) == -1)
 			error(Ebadip);
-		parseipmask(smask, argv[argc-1]);
 	}
 	if(argc == 5 && strcmp(argv[0], "add") == 0)
 		ifc = findipifcstr(f, argv[4]);
