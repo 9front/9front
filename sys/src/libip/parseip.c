@@ -112,7 +112,7 @@ parseip(uchar *to, char *from)
 	}
 	if(v4){
 		to[10] = to[11] = 0xff;
-		return nhgetl(to + IPv4off);
+		return (ulong)nhgetl(to + IPv4off);
 	} else
 		return 6;
 }
@@ -124,8 +124,8 @@ parseip(uchar *to, char *from)
 vlong
 parseipmask(uchar *to, char *from, int v4)
 {
-	int i, w;
 	vlong x;
+	int i, w;
 	uchar *p;
 
 	if(*from == '/'){
@@ -148,16 +148,16 @@ parseipmask(uchar *to, char *from, int v4)
 		 * (because it has too few mask bits).  Arguably, we could
 		 * always return 6 here.
 		 */
-		if (w < 8*(IPaddrlen-IPv4addrlen))
-			return 6;
-		x = nhgetl(to+IPv4off);
+		if (w < 96)
+			return v4 ? -1 : 6;
+		x = (ulong)nhgetl(to+IPv4off);
 	} else {
 		/* as a straight v4 bit mask */
 		x = parseip(to, from);
-		if (x != -1)
-			x = (ulong)nhgetl(to + IPv4off);
 		if(memcmp(to, v4prefix, IPv4off) == 0)
 			memset(to, 0xff, IPv4off);
+		else if(v4)
+			x = -1;
 	}
 	return x;
 }
@@ -168,9 +168,9 @@ parseipandmask(uchar *ip, uchar *mask, char *ipstr, char *maskstr)
 	vlong x;
 
 	x = parseip(ip, ipstr);
-	if(x == -1)
-		return -1;
-	if(maskstr == nil || parseipmask(mask, maskstr, memcmp(ip, v4prefix, IPv4off) == 0) == -1)
+	if(maskstr == nil)
 		memset(mask, 0xff, IPaddrlen);
+	else if(parseipmask(mask, maskstr, memcmp(ip, v4prefix, IPv4off) == 0) == -1)
+		x = -1;
 	return x;
 }
