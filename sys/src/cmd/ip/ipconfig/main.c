@@ -1019,12 +1019,13 @@ ndb2conf(Ndb *db, uchar *myip)
 		}
 		if(strcmp(nt->attr, "ipmask") == 0) {
 			nt = uniquent(nt);
-			parseipmask(conf.mask, nt->val, isv4(myip));
+			if(parseipmask(conf.mask, nt->val, isv4(myip)) == -1)
+				goto Badip;
 			continue;
 		}
 		if(parseip(ip, nt->val) == -1) {
-			fprint(2, "%s: bad %s address in ndb: %s\n", argv0,
-				nt->attr, nt->val);
+		Badip:
+			fprint(2, "%s: bad %s address in ndb: %s\n", argv0, nt->attr, nt->val);
 			continue;
 		}
 		if(strcmp(nt->attr, "ipgw") == 0) {

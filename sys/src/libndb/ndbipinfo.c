@@ -123,7 +123,6 @@ subnet(Ndb *db, uchar *net, Ndbtuple *f, int prefix)
 	char netstr[64];
 	uchar mask[IPaddrlen];
 	Ndbtuple *t, *nt, *xt;
-	int masklen;
 
 	t = nil;
 	snprint(netstr, sizeof(netstr), "%I", net);
@@ -132,12 +131,9 @@ subnet(Ndb *db, uchar *net, Ndbtuple *f, int prefix)
 		xt = ndbfindattr(nt, nt, "ipnet");
 		if(xt != nil){
 			xt = ndbfindattr(nt, nt, "ipmask");
-			if(xt != nil)
-				parseipmask(mask, xt->val, isv4(net));
-			else
+			if(xt == nil || parseipmask(mask, xt->val, isv4(net)) == -1)
 				ipmove(mask, defmask(net));
-			masklen = prefixlen(mask);
-			if(masklen <= prefix){
+			if(prefixlen(mask) <= prefix){
 				t = ndbconcatenate(t, filter(db, nt, f));
 				nt = nil;
 			}

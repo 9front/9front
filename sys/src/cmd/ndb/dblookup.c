@@ -1062,11 +1062,10 @@ createv4ptrs(void)
 			if(t == nil)	/* could be a reverse with no forward */
 				continue;
 			nt = look(t, t, "ipmask");
-			if(nt == nil){		/* we're confused */
+			if(nt == nil || parseipmask(mask, nt->val, 1) == -1){
 				ndbfree(t);
 				continue;
 			}
-			parseipmask(mask, nt->val, 1);
 			ndbfree(t);
 			n = 5;
 			break;
