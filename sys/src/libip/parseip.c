@@ -156,7 +156,7 @@ parseipmask(uchar *to, char *from, int v4)
 		x = parseip(to, from);
 		if(memcmp(to, v4prefix, IPv4off) == 0)
 			memset(to, 0xff, IPv4off);
-		else if(v4)
+		else if(v4 && memcmp(to, IPallbits, IPv4off) != 0)
 			x = -1;
 	}
 	return x;
