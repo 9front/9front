@@ -577,7 +577,7 @@ ip4cfg(void)
 
 	if(!validip(conf.mask))
 		ipmove(conf.mask, defmask(conf.laddr));
-	n += snprint(buf+n, sizeof buf-n, " %I", conf.mask);
+	n += snprint(buf+n, sizeof buf-n, " %M", conf.mask);
 
 	if(validip(conf.raddr)){
 		n += snprint(buf+n, sizeof buf-n, " %I", conf.raddr);
