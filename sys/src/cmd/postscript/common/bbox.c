@@ -209,7 +209,7 @@ rotate(angle)
  *
  */
 
-    angle *= 3.1416 / 180;
+    angle *= PI / 180;
 
     matrix1[0] = matrix1[3] = cos(angle);
     matrix1[1] = sin(angle);
