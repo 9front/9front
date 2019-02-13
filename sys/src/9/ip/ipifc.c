@@ -77,7 +77,7 @@ v6addrtype(uchar *addr)
 {
 	if(isv4(addr) || ipcmp(addr, IPnoaddr) == 0)
 		return unknownv6;
-	else if(islinklocal(addr) ||
+	else if(islinklocal(addr) || ipcmp(addr, v6loopback) == 0 ||
 	    isv6mcast(addr) && (addr[1] & 0xF) <= Link_local_scop)
 		return linklocalv6;
 	else

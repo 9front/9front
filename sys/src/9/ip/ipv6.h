@@ -166,7 +166,6 @@ extern uchar v6solicitednode[IPaddrlen];
 extern uchar v6solicitednodemask[IPaddrlen];
 extern uchar v6Unspecified[IPaddrlen];
 extern uchar v6loopback[IPaddrlen];
-extern uchar v6loopbackmask[IPaddrlen];
 extern uchar v6linklocal[IPaddrlen];
 extern uchar v6linklocalmask[IPaddrlen];
 extern uchar v6multicast[IPaddrlen];
