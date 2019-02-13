@@ -159,7 +159,7 @@ void
 dhcpquery(int needconfig, int startstate)
 {
 	if(needconfig)
-		fprint(conf.cfd, "add %I %I", IPnoaddr, IPnoaddr);
+		fprint(conf.cfd, "add %I %M", IPnoaddr, IPnoaddr);
 
 	conf.fd = openlisten();
 	if(conf.fd < 0){
@@ -192,7 +192,7 @@ dhcpquery(int needconfig, int startstate)
 	close(conf.fd);
 
 	if(needconfig)
-		fprint(conf.cfd, "remove %I %I", IPnoaddr, IPnoaddr);
+		fprint(conf.cfd, "remove %I %M", IPnoaddr, IPnoaddr);
 
 }
 
