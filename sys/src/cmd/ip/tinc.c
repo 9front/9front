@@ -63,8 +63,9 @@ struct Snet
 	Host	*owner;
 
 	Snet	*next;	/* next subnet on owner */
-	uchar	mask[IPaddrlen];
 	uchar	ip[IPaddrlen];
+	uchar	mask[IPaddrlen];
+	int	prefixlen;
 	int	weight;
 	char	reported;
 	char	deleted;
@@ -345,11 +346,11 @@ reportsubnet(Conn *c, Snet *t)
 	if(t->owner == c->host)
 		return;
 	if(t->deleted)
-		consend(c, "%d %x %s %I %M #%d", DEL_SUBNET, rand(),
-			t->owner->name, t->ip, t->mask, t->weight);
+		consend(c, "%d %x %s %I/%d#%d", DEL_SUBNET, rand(),
+			t->owner->name, t->ip, t->prefixlen, t->weight);
 	else
-		consend(c, "%d %x %s %I %M #%d", ADD_SUBNET, rand(), t->owner->name,
-			t->ip, t->mask, t->weight);
+		consend(c, "%d %x %s %I/%d#%d", ADD_SUBNET, rand(), t->owner->name,
+			t->ip, t->prefixlen, t->weight);
 }
 void
 reportedge(Conn *c, Edge *e)
@@ -459,11 +460,17 @@ Snet*
 getsubnet(Host *h, char *s, int new)
 {
 	uchar ip[IPaddrlen], mask[IPaddrlen];
-	int weight;
+	int weight, prefixlen;
 	Snet *t;
 
 	if(parseipandmask(ip, mask, s, strchr(s, '/')) == -1)
 		return nil;
+
+	for(prefixlen = 0; prefixlen < 128; prefixlen++)
+		if((mask[prefixlen/8] & (0x80 >> (prefixlen%8))) == 0)
+			break;
+	if(isv4(ip))
+		prefixlen -= 96;
 
 	maskip(ip, mask, ip);
 
@@ -486,6 +493,7 @@ if(debug) fprint(2, "%s adding subnet: %I %M #%d\n", h->name, ip, mask, weight);
 	t = emalloc(sizeof(Snet));
 	ipmove(t->ip, ip);
 	ipmove(t->mask, mask);
+	t->prefixlen = prefixlen;
 	t->weight = weight;
 	t->owner = h;
 	t->next = h->snet;
