@@ -921,7 +921,7 @@ wificfg(Wifi *wifi, char *opt)
 		return;
 	if(waserror())
 		return;
-	n = snprint(buf, sizeof(buf), "%.*s %q", (int)(p - opt), opt, p+1);
+	n = snprint(buf, sizeof(buf), "%.*s %q", utfnlen(opt, p - opt), opt, p+1);
 	wifictl(wifi, buf, n);
 	poperror();
 }
@@ -972,7 +972,7 @@ wifictl(Wifi *wifi, void *buf, long n)
 		nexterror();
 	}
 	if(wifi->debug)
-		print("#l%d: wifictl: %.*s\n", wifi->ether->ctlrno, (int)n, buf);
+		print("#l%d: wifictl: %.*s\n", wifi->ether->ctlrno, utfnlen(buf, n), buf);
 	memmove(addr, wifi->ether->bcast, Eaddrlen);
 	wn = wifi->bss;
 	cb = parsecmd(buf, n);
