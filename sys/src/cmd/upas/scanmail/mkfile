@@ -1,5 +1,4 @@
 </$objtype/mkfile
-<../mkupas
 
 TARG=scanmail\
 	testscan
@@ -19,6 +18,8 @@ UPDATE=\
 
 </sys/src/cmd/mkmany
 CFLAGS=$CFLAGS -I../common
+
+<../mkupas
 
 scanmail.$O:	scanmail.c
 	$CC $CFLAGS scanmail.c

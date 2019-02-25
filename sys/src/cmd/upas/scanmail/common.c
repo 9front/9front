@@ -624,7 +624,10 @@ xprint(int fd, char *type, Resub *m)
 	while(*q && *q != ' ')
 		q++;
 
-	fprint(fd, "%s %.*s~%.*s~%.*s\n", type, (int)(m->sp-p), p, (int)(m->ep-m->sp), m->sp, (int)(q-m->ep), m->ep);
+	fprint(fd, "%s %.*s~%.*s~%.*s\n", type, 
+		utfnlen(p, m->sp-p), p,
+		utfnlen(m->sp, m->ep-m->sp), m->sp,
+		utfnlen(m->ep, q-m->ep), m->ep);
 }
 
 enum {
