@@ -122,7 +122,8 @@ fswrite(Req *r)
 	char msg[256], *f[4];
 	int nf, speed;
 
-	snprint(msg, sizeof(msg), "%.*s", r->ifcall.count, r->ifcall.data);
+	snprint(msg, sizeof(msg), "%.*s",
+		utfnlen((char*)r->ifcall.data, r->ifcall.count), (char*)r->ifcall.data);
 	nf = tokenize(msg, f, nelem(f));
 	if(nf < 2){
 		respond(r, "invalid ctl message");
