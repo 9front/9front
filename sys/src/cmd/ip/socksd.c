@@ -78,6 +78,7 @@ addr2str(char *proto, uchar *a){
 		case 0x03:
 			n = *a++;
 			port = nhgets(a+n);
+			n = utfnlen((char*)a, n);
 			snprint(s, sizeof(s), "%s!%.*s!%d", proto, n, (char*)a, port);
 			return s;
 		}
