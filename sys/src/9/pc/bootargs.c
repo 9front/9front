@@ -20,8 +20,9 @@ multibootargs(void)
 {
 	extern ulong multibootptr;
 	ulong *multiboot;
-	char *cp, *ep;
+	char *cp, *ep, *s;
 	ulong *m, l;
+	int i, n;
 
 	if(multibootptr == 0)
 		return;
@@ -77,12 +78,17 @@ multibootargs(void)
 	/* plan9.ini passed as the first module */
 	if((multiboot[0] & (1<<3)) != 0 && multiboot[5] > 0 && multiboot[6] != 0){
 		m = KADDR(multiboot[6]);
-		cp = seprint(cp, ep, "%.*s\n", (int)(m[1] - m[0]), (char*)KADDR(m[0]));
+		s = (char*)KADDR(m[0]);
+		if(m[1] > m[0]){
+			n = utfnlen(s, m[1] - m[0]);
+			if(n > 0)
+				cp = seprint(cp, ep, "%.*s\n", n, s);
+		}
 	}
 
 	/* command line */
 	if((multiboot[0] & (1<<2)) != 0 && multiboot[4] != 0){
-		int i, n = tokenize(KADDR(multiboot[4]), confval, MAXCONF);
+		n = tokenize(KADDR(multiboot[4]), confval, MAXCONF);
 		for(i=0; i<n; i++)
 			cp = seprint(cp, ep, "%s\n", confval[i]);
 	}
