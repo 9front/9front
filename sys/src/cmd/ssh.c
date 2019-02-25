@@ -544,7 +544,7 @@ kex(int gotkexinit)
 		for(t=tab; *t != nil; t++){
 			if(unpack(p, recv.w-p, "s.", &s, &n, &p) < 0)
 				break;
-			fprint(2, "%s: %.*s\n", *t, n, s);
+			fprint(2, "%s: %.*s\n", *t, utfnlen(s, n), s);
 		}
 	}
 
@@ -661,7 +661,7 @@ authfailure(char *meth)
 	if(unpack(recv.r, recv.w-recv.r, "_sb", &s, &n, &partial) < 0)
 		sysfatal("bad auth failure response");
 	free(authnext);
-	authnext = smprint("%.*s", n, s);
+	authnext = smprint("%.*s", utfnlen(s, n), s);
 if(debug)
 	fprint(2, "userauth %s failed: partial=%d, next=%s\n", meth, partial, authnext);
 	return partial != 0 || !authok(meth);
@@ -903,9 +903,9 @@ Retry:
 		m--;
 
 	if(n > 0)
-		fprint(fd, "%.*s\n", n, name);
+		fprint(fd, "%.*s\n", utfnlen(name, n), name);
 	if(m > 0)
-		fprint(fd, "%.*s\n", m, inst);
+		fprint(fd, "%.*s\n", utfnlen(inst, m), inst);
 
 	/* lang, nprompt */
 	if(unpack(recv.r, recv.w-recv.r, "su.", &s, &n, &nquest, &recv.r) < 0)
@@ -966,19 +966,21 @@ dispatch(void)
 		if(unpack(recv.r, recv.w-recv.r, "_sb", &s, &n, &b) < 0)
 			break;
 		if(debug)
-			fprint(2, "%s: global request: %.*s\n", argv0, n, s);
+			fprint(2, "%s: global request: %.*s\n",
+				argv0, utfnlen(s, n), s);
 		if(b != 0)
 			sendpkt("b", MSG_REQUEST_FAILURE);
 		return;
 	case MSG_DISCONNECT:
 		if(unpack(recv.r, recv.w-recv.r, "_us", &c, &s, &n) < 0)
 			break;
-		sysfatal("disconnect: (%d) %.*s", c, n, s);
+		sysfatal("disconnect: (%d) %.*s", c, utfnlen(s, n), s);
 		return;
 	case MSG_DEBUG:
 		if(unpack(recv.r, recv.w-recv.r, "__sb", &s, &n, &c) < 0)
 			break;
-		if(c != 0 || debug) fprint(2, "%s: %.*s\n", argv0, n, s);
+		if(c != 0 || debug)
+			fprint(2, "%s: %.*s\n", argv0, utfnlen(s, n), s);
 		return;
 	case MSG_USERAUTH_BANNER:
 		if(unpack(recv.r, recv.w-recv.r, "_s", &s, &n) < 0)
@@ -1025,7 +1027,7 @@ dispatch(void)
 			if(unpack(p, recv.w-p, "s", &s, &n) < 0)
 				break;
 			if(n != 0 && status == nil)
-				status = smprint("%.*s", n, s);
+				status = smprint("%.*s", utfnlen(s, n), s);
 			c = MSG_CHANNEL_SUCCESS;
 		} else if(n == 11 && memcmp(s, "exit-status", n) == 0){
 			if(unpack(p, recv.w-p, "u", &n) < 0)
@@ -1035,7 +1037,8 @@ dispatch(void)
 			c = MSG_CHANNEL_SUCCESS;
 		} else {
 			if(debug)
-				fprint(2, "%s: channel request: %.*s\n", argv0, n, s);
+				fprint(2, "%s: channel request: %.*s\n",
+					argv0, utfnlen(s, n), s);
 			c = MSG_CHANNEL_FAILURE;
 		}
 		if(b != 0)
@@ -1270,7 +1273,7 @@ Next1:	switch(recvpkt()){
 	case MSG_CHANNEL_OPEN_FAILURE:
 		if(unpack(recv.r, recv.w-recv.r, "_uus", &c, &b, &s, &n) < 0)
 			n = strlen(s = "???");
-		sysfatal("channel open failure: (%d) %.*s", b, n, s);
+		sysfatal("channel open failure: (%d) %.*s", b, utfnlen(s, n), s);
 	case MSG_CHANNEL_OPEN_CONFIRMATION:
 		break;
 	}
