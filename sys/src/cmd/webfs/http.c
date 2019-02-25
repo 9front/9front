@@ -663,7 +663,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 			for(;;){
 				if(n >= sizeof(buf)-2){
 					if(debug)
-						fprint(2, "-> %.*s", n, buf);
+						fprint(2, "-> %.*s", utfnlen(buf, n), buf);
 					if(hwrite(h, buf, n) != n)
 						goto Badflush;
 					n = 0;
@@ -685,7 +685,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 				continue;
 			if(n > 0){
 				if(debug)
-					fprint(2, "-> %.*s", n, buf);
+					fprint(2, "-> %.*s", utfnlen(buf, n), buf);
 				if(hwrite(h, buf, n) != n)
 					goto Badflush;
 			}
@@ -693,7 +693,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 		}
 		n += snprint(buf+n, sizeof(buf)-n, "\r\n");
 		if(debug)
-			fprint(2, "-> %.*s", n, buf);
+			fprint(2, "-> %.*s", utfnlen(buf, n), buf);
 		if(hwrite(h, buf, n) != n){
 		Badflush:
 			alarm(0);

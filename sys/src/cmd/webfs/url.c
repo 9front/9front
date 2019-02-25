@@ -169,7 +169,7 @@ abspath(char *s, char *b)
 			return estrdup(b);
 		if(*s != '/' && (x = strrchr(b, '/'))){
 			a = emalloc((x - b) + strlen(s) + 4);
-			sprint(a, "%.*s/%s", (int)(x - b), b, s);
+			sprint(a, "%.*s/%s", utfnlen(b, x - b), b, s);
 			return remdot(a);
 		}
 	}
