@@ -145,7 +145,7 @@ main(int argc, char **argv)
 	dirsllen = strlen(homedir);
 	while(dirsllen > 0 && homedir[dirsllen-1] == '/')
 		dirsllen--;
-	dirsl = smprint("%.*s/", dirsllen, homedir);
+	dirsl = smprint("%.*s/", utfnlen(homedir, dirsllen), homedir);
 
 	fmtinstall('E', eipfmt);
 	fmtinstall('I', eipfmt);
