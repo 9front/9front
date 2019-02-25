@@ -937,7 +937,7 @@ caseout:
 	return LDCONST;
 
 toolong:
-	yyerror("token too long: %.*s...", (int)(cp-symb), symb);
+	yyerror("token too long: %.*s...", utfnlen(symb, cp-symb), symb);
 	errorexit();
 	return -1;
 }
