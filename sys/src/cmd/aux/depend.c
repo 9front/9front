@@ -1379,7 +1379,9 @@ getfile(Dfile *df, File *f)
 	f->use++;
 	if(f->fd < 0){
 		name = strrchr(df->path, '/') + 1;
-		n = snprint(path, sizeof path, "%.*s/%s", (int)(name-df->path), df->path, f->name);
+		n = snprint(path, sizeof path, "%.*s/%s", 
+			utfnlen(df->path, name-df->path), df->path,
+			f->name);
 		if(n >= sizeof path - UTFmax){
 			syslog(0, dependlog, "path name too long: %.20s.../%.20s...", df->path, f->name);
 			return -1;
