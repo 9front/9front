@@ -213,6 +213,8 @@ send_interrupt(void)
 void
 sendnchars(int n, char *p)
 {
+	if((n = utfnlen(p, n)) < 1)
+		return;
 	hostin = smprint("%.*s", n, p);
 	while(hostin != nil){
 		if(nbsendp(hc[0], hostin)){
