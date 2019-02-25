@@ -907,7 +907,7 @@ udpaddr(char addr[64], int naddr, char *url)
 		if((x = strchr(url, '/')) == nil)
 			x = strchr(url, 0);
 	}
-	snprint(addr, naddr, "udp!%.*s!%d", (int)(x-url), url, port);
+	snprint(addr, naddr, "udp!%.*s!%d", utfnlen(url, x-url), url, port);
 	return 0;
 }
 
