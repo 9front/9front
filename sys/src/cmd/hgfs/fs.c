@@ -499,13 +499,13 @@ fswalk1(Fid *fid, char *name, Qid *qid)
 			if(nd == nil){
 				if(sname == name){
 					sname = strrchr(name, '.');
-					if((i = sname - name) > 0){
+					if(sname && (i = utfnlen(name, sname - name)) > 0){
+						snprint(buf, sizeof(buf), "%.*s", i, name);
 						sname++;
 						if(strncmp(sname, "rev", 3) == 0){
 							level = Qtreerev;
 							sname += 3;
 						}
-						snprint(buf, sizeof(buf), "%.*s", i, name);
 						if(*sname == 0)
 							i = 0;
 						else {
