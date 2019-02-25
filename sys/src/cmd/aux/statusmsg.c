@@ -90,7 +90,7 @@ msg(Biobuf *b)
 		_exits(0);
 	}
 	while(!die && (p = Brdline(b, '\n'))){
-		snprint(message, Bsize, "%.*s", Blinelen(b)-1, p);
+		snprint(message, Bsize, "%.*s", utfnlen(p, Blinelen(b)-1), p);
 		drawmsg();
 	}
 	if(textmode){
