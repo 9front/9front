@@ -529,11 +529,11 @@ cmd_printconf(int, char *[])
 		if(*p++ != '\n')
 			continue;
 		if (strncmp(s, "ip", 2) != 0)	/* don't print obsolete cmds */
-			print("%.*s", (int)(p-s), s);
+			print("%.*s", utfnlen(s, p-s), s);
 		s = p;
 	}
 	if(p != s)
-		print("%.*s", (int)(p-s), s);
+		print("%.*s", utfnlen(s, p-s), s);
 	print("end\n");
 
 	putbuf(iob);
