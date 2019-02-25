@@ -2269,7 +2269,7 @@ getpap(PPP *ppp, Block *b)
 		&& ppp->chap->proto == APpasswd
 		&& m->id <= ppp-> chap->id){
 			netlog("ppp: pap failed (%d:%.*s)\n",
-				m->data[0], m->data[0], (char*)m->data+1);
+				m->data[0], utfnlen((char*)m->data+1, m->data[0]), (char*)m->data+1);
 			terminate(ppp, 0);
 		}
 		break;
