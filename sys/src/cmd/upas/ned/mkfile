@@ -1,5 +1,4 @@
 </$objtype/mkfile
-<../mkupas
 
 TARG=nedmail
 
@@ -17,3 +16,4 @@ UPDATE=\
 </sys/src/cmd/mkone
 CFLAGS=$CFLAGS -I../common
 
+<../mkupas

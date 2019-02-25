@@ -1074,7 +1074,7 @@ parsesearch(char **pp, char *buf, int bufl)
 	np = qstrchr(p, c);
 	if(c == '#' && np)
 	if(e = qstrchr(np + 1, c)){
-		snprint(buf, bufl, "%.*s", (int)(np - p), p);
+		snprint(buf, bufl, "%.*s", utfnlen(p, np - p), p);
 		p = np + 1;
 		np = e;
 	}
