@@ -205,7 +205,7 @@ xdirflush(char *path, int (*namecmp)(char *, char *))
 	n = strlen(path);
 	if(s = strrchr(path, '/'))
 		n = s - path;
-	d = smprint("%.*s", n, path);
+	d = smprint("%.*s", utfnlen(path, n), path);
 	s = malloc(++n);
 	for(pp = &xdirlist; x = *pp; pp = xx){
 		xx = &x->next;
