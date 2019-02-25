@@ -474,7 +474,7 @@ smtpcram(DS *ds)
 		return "cannot find user name";
 	for(i = 0; i < n; i++)
 		rbuf[i] = tolower(rbuf[i]);
-	l = snprint(ubuf, sizeof ubuf, "%s %.*s", usr, n, rbuf);
+	l = snprint(ubuf, sizeof ubuf, "%s %.*s", usr, utfnlen(rbuf, n), rbuf);
 	snprint(ebuf, sizeof ebuf, "%.*[", l, ubuf);
 
 	dBprint("%s\r\n", ebuf);
