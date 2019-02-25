@@ -915,7 +915,8 @@ eapreq(Eapconn *conn, int code, int id, uchar *data, int datalen)
 		eapresp(conn, 2, id, data, datalen);
 		return;
 	case 2:
-		fprint(2, "%s: eap error: %.*s\n", argv0, datalen-1, (char*)data+1);
+		fprint(2, "%s: eap error: %.*s\n",
+			argv0, utfnlen((char*)data+1, datalen-1), (char*)data+1);
 		return;
 	case 33:	/* EAP Extensions (AVP) */
 		if(debug)
@@ -971,7 +972,7 @@ eapreq(Eapconn *conn, int code, int id, uchar *data, int datalen)
 			if(debug || data[0] == 4)
 				fprint(2, "%s: eap mschapv2 %s: %.*s\n", argv0,
 					data[0] == 3 ? "Success" : "Failure",
-					datalen < 4 ? 0 : datalen-4, (char*)data+4);
+					datalen < 4 ? 0 : utfnlen((char*)data+4, datalen-4), (char*)data+4);
 			*(--data) = tp;
 			eapresp(conn, 2, id, data, 2);
 			return;
