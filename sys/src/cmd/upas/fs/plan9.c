@@ -46,7 +46,7 @@ chkunix(char *s, int n)
 
 	r = chkunix0(s, n);
 	if(r == -1)
-		eprint("plan9: warning naked from [%.*s]\n", n, s);
+		eprint("plan9: warning naked from [%.*s]\n", utfnlen(s, n), s);
 	return r;
 }
 
@@ -54,11 +54,9 @@ static char*
 parseunix(Message *m)
 {
 	char *s, *p, *q;
-	int l;
 	Tm tm;
 
-	l = m->header - m->start;
-	m->unixheader = smprint("%.*s", l, m->start);
+	m->unixheader = smprint("%.*s", utfnlen(m->start, m->header - m->start), m->start);
 	s = m->start + 5;
 	if((p = strchr(s, ' ')) == nil)
 		return s;

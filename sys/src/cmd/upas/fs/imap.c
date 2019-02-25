@@ -591,9 +591,8 @@ imap4cram(Imap *imap)
 	if(n == -1)
 		return "cannot find IMAP password";
 	for(i = 0; i < n; i++)
-		if(rbuf[i] >= 'A' && rbuf[i] <= 'Z')
-			rbuf[i] += 'a' - 'A';
-	l = snprint(ubuf, sizeof ubuf, "%s %.*s", usr, n, rbuf);
+		rbuf[i] = tolower(rbuf[i]);
+	l = snprint(ubuf, sizeof ubuf, "%s %.*s", usr, utfnlen(rbuf, n), rbuf);
 	idprint(imap, "raw cram [%s]\n", ubuf);
 	snprint(ebuf, sizeof ebuf, "%.*[", l, ubuf);
 

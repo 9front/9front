@@ -26,10 +26,8 @@ static void
 parseunix(Message *m)
 {
 	char *s, *p;
-	int l;
 
-	l = m->header - m->start;
-	m->unixheader = smprint("%.*s", l, m->start);
+	m->unixheader = smprint("%.*s", utfnlen(m->start, m->header - m->start), m->start);
 	s = m->start + 5;
 	if((p = strchr(s, ' ')) == nil)
 		return;

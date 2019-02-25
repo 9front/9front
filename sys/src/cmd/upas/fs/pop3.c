@@ -182,7 +182,7 @@ pop3login(Pop *pop)
 		if(s = pop3capa(pop))
 			return s;
 
-		pop3cmd(pop, "APOP %s %.*s", user, n, buf);
+		pop3cmd(pop, "APOP %s %.*s", user, utfnlen(buf, n), buf);
 		if(!isokay(s = pop3resp(pop)))
 			return s;
 

@@ -85,7 +85,7 @@ strtotm(char *p, Tm *t)
 				tm.year = j - 1900;
 			continue;
 		}
-		//eprint("strtotm: garbage %.*s\n", q - p, p);
+		//eprint("strtotm: garbage %.*s\n", utfnlen(p, q - p), p);
 	}
 	if(tm.mon < 0 || tm.year < 0
 	|| tm.hour < 0 || tm.min < 0
