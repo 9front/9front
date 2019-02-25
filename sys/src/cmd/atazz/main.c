@@ -1463,7 +1463,7 @@ special(char *s, Dev *d, Req *r)
 	for(t = s; *t == '<' || *t == '>'; t++)
 		;
 	if(t != s)
-		snprint(sbuf, sizeof buf, "%.*s %s", (int)(t - s), s, t);
+		snprint(sbuf, sizeof buf, "%.*s %s", utfnlen(s, t - s), s, t);
 	else
 		snprint(sbuf, sizeof sbuf, "%s", s);
 	nf = tokenize(sbuf, f, nelem(f));
