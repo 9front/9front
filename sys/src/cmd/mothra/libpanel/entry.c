@@ -22,8 +22,8 @@ char *pl_snarfentry(Panel *p){
 	if(p->flags&USERFL)	/* no snarfing from password entry */
 		return nil;
 	ep=p->data;
-	n=ep->entp-ep->entry;
-	if(n<=0) return nil;
+	n=utfnlen(ep->entry, ep->entp-ep->entry);
+	if(n<1) return nil;
 	return smprint("%.*s", n, ep->entry);
 }
 void pl_pasteentry(Panel *p, char *s){
