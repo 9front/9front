@@ -614,10 +614,10 @@ dumptags(uchar *tagdat, int ntagdat)
 			fprint(2, "end of tag list\n");
 			break;
 		case TagSrvName:
-			fprint(2, "service '%.*s'\n", len, (char*)v);
+			fprint(2, "service '%.*s'\n", utfnlen((char*)v, len), (char*)v);
 			break;
 		case TagAcName:
-			fprint(2, "ac '%.*s'\n", len, (char*)v);
+			fprint(2, "ac '%.*s'\n", utfnlen((char*)v, len), (char*)v);
 			break;
 		case TagHostUniq:
 			fprint(2, "nonce ");
@@ -636,10 +636,10 @@ dumptags(uchar *tagdat, int ntagdat)
 			fprint(2, "relay ");
 			goto Hex;
 		case TagSrvNameErr:
-			fprint(2, "srverr '%.*s'\n", len, (char*)v);
+			fprint(2, "srverr '%.*s'\n", utfnlen((char*)v, len), (char*)v);
 			break;
 		case TagAcSysErr:
-			fprint(2, "syserr '%.*s'\n", len, (char*)v);
+			fprint(2, "syserr '%.*s'\n", utfnlen((char*)v, len), (char*)v);
 			break;
 		}
 		sz += 2+2+len;
