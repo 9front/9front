@@ -747,7 +747,7 @@ findctype(char *b, int l, char *keyword, char *s)
 		for(e = p; *e < 127 && *e > ' ' ; e++)
 			;
 	}
-	i = e-p;
+	i = utfnlen(p, e - p);
 	if(i < 1)
 		return -1;
 	snprint(b, l, "%.*s", i, p);
