@@ -20,7 +20,7 @@ dev
 
 	xenstore
 	ether		netif
-	ip		arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium ptclbsum386 inferno
+	ip		arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium inferno
 
 	sd
 

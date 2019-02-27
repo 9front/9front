@@ -24,3 +24,6 @@ UPDATE=\
 	${LIB:/$objtype/%=/386/%}\
 
 </sys/src/cmd/mksyslib
+
+ptclbsum.8:	ptclbsum386.s
+	$AS -o $target ptclbsum386.s

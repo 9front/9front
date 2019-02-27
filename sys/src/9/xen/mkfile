@@ -128,9 +128,6 @@ REPCC=`{../port/mkfilelist ../pc}
 <../port/portmkfile
 <|../port/mkbootrules $CONF
 
-ptclbsum386.$O:	../pc/ptclbsum386.s
-	$AS $AFLAGS ../pc/ptclbsum386.s
-
 # we inherited these.. revisit.
 $ETHER: 	../port/etherif.h ../port/netif.h
 $SDEV:	../port/sd.h
