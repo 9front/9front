@@ -17,7 +17,7 @@ dev
 	rtc
 
 	ether		netif
-	ip		arp chandial ip ipv6 ipaux iproute netif netlog nullmedium pktmedium ptclbsum inferno
+	ip		arp chandial ip ipv6 ipaux iproute netif netlog nullmedium pktmedium inferno
 
 link
 	ether2114x	pci

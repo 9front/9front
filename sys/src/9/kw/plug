@@ -25,7 +25,7 @@ dev
 #	pnp		pci
 
 	ether		netif
-	ip		arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium ptclbsum inferno
+	ip		arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium inferno
 
 ##	draw		screen vga vgax
 ##	mouse		mouse

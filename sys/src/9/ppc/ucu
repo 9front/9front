@@ -13,7 +13,7 @@ dev
 	uart
 
 	ether		netif
-	ip		arp chandial ip ipv6 ipaux iproute netif netlog nullmedium pktmedium ptclbsum inferno
+	ip		arp chandial ip ipv6 ipaux iproute netif netlog nullmedium pktmedium inferno
 	ce
 
 link
