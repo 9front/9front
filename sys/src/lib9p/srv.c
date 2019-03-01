@@ -172,6 +172,7 @@ sversion(Srv *srv, Req *r)
 	}
 	if(strncmp(r->ifcall.version, "9P", 2) != 0){
 		r->ofcall.version = "unknown";
+		r->ofcall.msize = 256;
 		respond(r, nil);
 		return;
 	}
