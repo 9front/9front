@@ -151,7 +151,7 @@ ptclcsum(Block *bp, int offset, int len)
 	if(bp->next == nil) {
 		if(blocklen < len)
 			len = blocklen;
-		return ~ptclbsum(addr, len) & 0xffff;
+		return ptclbsum(addr, len) ^ 0xffff;
 	}
 
 	losum = 0;
@@ -183,7 +183,7 @@ ptclcsum(Block *bp, int offset, int len)
 	while((csum = losum>>16) != 0)
 		losum = csum + (losum & 0xffff);
 
-	return ~losum & 0xffff;
+	return losum ^ 0xffff;
 }
 
 enum
