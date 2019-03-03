@@ -44,11 +44,6 @@ enum {			/* Packet Types */
 	Maxtype		= 18,
 };
 
-enum
-{
-	MinAdvise	= 24,	/* minimum needed for us to advise another protocol */ 
-};
-
 char *icmpnames[Maxtype+1] =
 {
 [EchoReply]		"EchoReply",
@@ -70,6 +65,8 @@ enum {
 	IP_ICMPPROTO	= 1,
 	ICMP_IPSIZE	= 20,
 	ICMP_HDRSIZE	= 8,
+
+	MinAdvise	= ICMP_IPSIZE+4,	/* minimum needed for us to advise another protocol */ 
 };
 
 enum
@@ -169,8 +166,7 @@ icmpkick(void *x, Block *bp)
 
 	if(bp == nil)
 		return;
-
-	if(blocklen(bp) < ICMP_IPSIZE + ICMP_HDRSIZE){
+	if(BLEN(bp) < ICMP_IPSIZE + ICMP_HDRSIZE){
 		freeblist(bp);
 		return;
 	}
@@ -350,7 +346,7 @@ static char *unreachcode[] =
 static void
 icmpiput(Proto *icmp, Ipifc*, Block *bp)
 {
-	int	n, iplen;
+	int	n;
 	Icmp	*p;
 	Block	*r;
 	Proto	*pr;
@@ -359,42 +355,31 @@ icmpiput(Proto *icmp, Ipifc*, Block *bp)
 	Icmppriv *ipriv;
 
 	ipriv = icmp->priv;
-	
 	ipriv->stats[InMsgs]++;
 
-	p = (Icmp *)bp->rp;
-	netlog(icmp->f, Logicmp, "icmpiput %s (%d) %d\n",
-		(p->type < nelem(icmpnames)? icmpnames[p->type]: ""),
-		p->type, p->code);
-	n = blocklen(bp);
+	bp = concatblock(bp);
+	n = BLEN(bp);
 	if(n < ICMP_IPSIZE+ICMP_HDRSIZE){
 		ipriv->stats[InErrors]++;
 		ipriv->stats[HlenErrs]++;
 		netlog(icmp->f, Logicmp, "icmp hlen %d\n", n);
 		goto raise;
 	}
-	iplen = nhgets(p->length);
-	if(iplen > n){
-		ipriv->stats[LenErrs]++;
-		ipriv->stats[InErrors]++;
-		netlog(icmp->f, Logicmp, "icmp length %d\n", iplen);
-		goto raise;
-	}
-	if(ptclcsum(bp, ICMP_IPSIZE, iplen - ICMP_IPSIZE)){
+	if(ptclcsum(bp, ICMP_IPSIZE, n - ICMP_IPSIZE)){
 		ipriv->stats[InErrors]++;
 		ipriv->stats[CsumErrs]++;
 		netlog(icmp->f, Logicmp, "icmp checksum error\n");
 		goto raise;
 	}
+	p = (Icmp *)bp->rp;
+	netlog(icmp->f, Logicmp, "icmpiput %s (%d) %d\n",
+		(p->type < nelem(icmpnames)? icmpnames[p->type]: ""),
+		p->type, p->code);
 	if(p->type <= Maxtype)
 		ipriv->in[p->type]++;
 
 	switch(p->type) {
 	case EchoRequest:
-		if(iplen < n)
-			bp = trimblock(bp, 0, iplen);
-		if(bp->next != nil)
-			bp = concatblock(bp);
 		r = mkechoreply(bp, icmp->f);
 		if(r == nil)
 			goto raise;
@@ -410,7 +395,7 @@ icmpiput(Proto *icmp, Ipifc*, Block *bp)
 			msg = unreachcode[p->code];
 
 		bp->rp += ICMP_IPSIZE+ICMP_HDRSIZE;
-		if(blocklen(bp) < MinAdvise){
+		if(BLEN(bp) < MinAdvise){
 			ipriv->stats[LenErrs]++;
 			goto raise;
 		}
@@ -420,7 +405,6 @@ icmpiput(Proto *icmp, Ipifc*, Block *bp)
 			(*pr->advise)(pr, bp, msg);
 			return;
 		}
-
 		bp->rp -= ICMP_IPSIZE+ICMP_HDRSIZE;
 		goticmpkt(icmp, bp);
 		break;
@@ -429,7 +413,7 @@ icmpiput(Proto *icmp, Ipifc*, Block *bp)
 			snprint(m2, sizeof m2, "ttl exceeded at %V", p->src);
 
 			bp->rp += ICMP_IPSIZE+ICMP_HDRSIZE;
-			if(blocklen(bp) < MinAdvise){
+			if(BLEN(bp) < MinAdvise){
 				ipriv->stats[LenErrs]++;
 				goto raise;
 			}
@@ -441,7 +425,6 @@ icmpiput(Proto *icmp, Ipifc*, Block *bp)
 			}
 			bp->rp -= ICMP_IPSIZE+ICMP_HDRSIZE;
 		}
-
 		goticmpkt(icmp, bp);
 		break;
 	default:

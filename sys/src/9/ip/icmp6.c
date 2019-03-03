@@ -67,6 +67,10 @@ enum {
 	Maxtype6	= 137,
 };
 
+enum {
+	MinAdvise	= IP6HDR+4,	/* minimum needed for us to advise another protocol */ 
+};
+
 /* on-the-wire packet formats */
 typedef struct IPICMP IPICMP;
 typedef struct Ndpkt Ndpkt;
@@ -189,13 +193,14 @@ static void
 set_cksum(Block *bp)
 {
 	IPICMP *p = (IPICMP *)(bp->rp);
+	int n = blocklen(bp);
 
 	hnputl(p->vcf, 0);  	/* borrow IP header as pseudoheader */
-	hnputs(p->ploadlen, blocklen(bp) - IP6HDR);
+	hnputs(p->ploadlen, n - IP6HDR);
 	p->proto = 0;
 	p->ttl = ICMPv6;	/* ttl gets set later */
 	hnputs(p->cksum, 0);
-	hnputs(p->cksum, ptclcsum(bp, 0, blocklen(bp)));
+	hnputs(p->cksum, ptclcsum(bp, 0, n));
 	p->proto = ICMPv6;
 }
 
@@ -259,7 +264,7 @@ icmpkick6(void *x, Block *bp)
 		bp = padblock(bp, IP6HDR);
 	}
 
-	if(blocklen(bp) < IPICMPSZ){
+	if(BLEN(bp) < IPICMPSZ){
 		freeblist(bp);
 		return;
 	}
@@ -524,26 +529,17 @@ icmppkttoobig6(Fs *f, Ipifc *ifc, Block *bp)
  * RFC 2461, pages 39-40, pages 57-58.
  */
 static int
-valid(Proto *icmp, Ipifc *ifc, Block *bp, Icmppriv6 *ipriv)
+valid(Proto *icmp, Ipifc *, Block *bp, Icmppriv6 *ipriv)
 {
-	int sz, osz, unsp, n, ttl, iplen;
+	int sz, osz, unsp, ttl;
 	int pktsz = BLEN(bp);
 	uchar *packet = bp->rp;
 	IPICMP *p = (IPICMP *) packet;
 	Ndpkt *np;
 
-	USED(ifc);
-	n = blocklen(bp);
-	if(n < IPICMPSZ) {
+	if(pktsz < IPICMPSZ) {
 		ipriv->stats[HlenErrs6]++;
-		netlog(icmp->f, Logicmp, "icmp hlen %d\n", n);
-		goto err;
-	}
-
-	iplen = nhgets(p->ploadlen);
-	if(iplen > n - IP6HDR) {
-		ipriv->stats[LenErrs6]++;
-		netlog(icmp->f, Logicmp, "icmp length %d\n", iplen);
+		netlog(icmp->f, Logicmp, "icmp hlen %d\n", pktsz);
 		goto err;
 	}
 
@@ -557,7 +553,7 @@ valid(Proto *icmp, Ipifc *ifc, Block *bp, Icmppriv6 *ipriv)
 	ttl = p->ttl;
 	p->ttl = p->proto;
 	p->proto = 0;
-	if(ptclcsum(bp, 0, iplen + IP6HDR)) {
+	if(ptclcsum(bp, 0, pktsz)) {
 		ipriv->stats[CsumErrs6]++;
 		netlog(icmp->f, Logicmp, "icmp checksum error\n");
 		goto err;
@@ -678,14 +674,16 @@ icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 {
 	char *msg, m2[128];
 	uchar pktflags;
-	uchar *packet = bp->rp;
 	uchar ia[IPaddrlen];
 	Block *r;
-	IPICMP *p = (IPICMP *)packet;
+	IPICMP *p;
 	Icmppriv6 *ipriv = icmp->priv;
 	Iplifc *lifc;
 	Ndpkt* np;
 	Proto *pr;
+
+	bp = concatblock(bp);
+	p = (IPICMP*)bp->rp;
 
 	if(!valid(icmp, ifc, bp, ipriv) || p->type > Maxtype6)
 		goto raise;
@@ -694,8 +692,6 @@ icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 
 	switch(p->type) {
 	case EchoRequestV6:
-		if(bp->next != nil)
-			bp = concatblock(bp);
 		r = mkechoreply6(bp, ifc);
 		if(r == nil)
 			goto raise;
@@ -710,7 +706,7 @@ icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 			msg = unreachcode[p->code];
 
 		bp->rp += IPICMPSZ;
-		if(blocklen(bp) < 8){
+		if(BLEN(bp) < MinAdvise){
 			ipriv->stats[LenErrs6]++;
 			goto raise;
 		}
@@ -720,7 +716,6 @@ icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 			(*pr->advise)(pr, bp, msg);
 			return;
 		}
-
 		bp->rp -= IPICMPSZ;
 		goticmpkt6(icmp, bp, 0);
 		break;
@@ -730,7 +725,7 @@ icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 			sprint(m2, "ttl exceeded at %I", p->src);
 
 			bp->rp += IPICMPSZ;
-			if(blocklen(bp) < 8){
+			if(BLEN(bp) < MinAdvise){
 				ipriv->stats[LenErrs6]++;
 				goto raise;
 			}
