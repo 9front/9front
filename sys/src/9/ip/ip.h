@@ -123,7 +123,6 @@ struct Fragment6
 
 struct Ipfrag
 {
-	ushort	hlen;
 	ushort	foff;
 	ushort	flen;
 	uchar	payload[];

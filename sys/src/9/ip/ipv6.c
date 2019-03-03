@@ -434,9 +434,9 @@ procopts(Block *bp)
 static Block*
 ip6reassemble(IP* ip, int uflen, Block* bp)
 {
-	int fend, offset, ovlap, len, fragsize, pktposn;
-	uint id;
+	int offset, ovlap, fragsize, len;
 	uchar src[IPaddrlen], dst[IPaddrlen];
+	uint id;
 	Block *bl, **l, *prev;
 	Fraghdr6 *fraghdr;
 	Fragment6 *f, *fnext;
@@ -444,17 +444,15 @@ ip6reassemble(IP* ip, int uflen, Block* bp)
 	Ip6hdr* ih;
 
 	/*
-	 *  block lists are too hard, pullupblock into a single block
+	 *  block lists are too hard, concatblock into a single block
 	 */
-	if(bp->next != nil)
-		bp = pullupblock(bp, blocklen(bp));
+	bp = concatblock(bp);
 
 	ih = (Ip6hdr*)bp->rp;
 	fraghdr = (Fraghdr6*)(bp->rp + uflen);
 	id = nhgetl(fraghdr->id);
 	offset = nhgets(fraghdr->offsetRM);
-	len = nhgets(ih->ploadlen);
-	fragsize = (len + IP6HDR) - (uflen + IP6FHDR);
+	fragsize = BLEN(bp) - uflen - IP6FHDR;
 
 	memmove(src, ih->src, IPaddrlen);
 	memmove(dst, ih->dst, IPaddrlen);
@@ -489,7 +487,8 @@ ip6reassemble(IP* ip, int uflen, Block* bp)
 		/* get rid of frag header */
 		memmove(bp->rp + IP6FHDR, bp->rp, uflen);
 		bp->rp += IP6FHDR;
-		hnputs(ih->ploadlen, len-IP6FHDR);
+		ih = (Ip6hdr*)bp->rp;
+		hnputs(ih->ploadlen, BLEN(bp)-IP6HDR);
 
 		return bp;
 	}
@@ -500,7 +499,6 @@ ip6reassemble(IP* ip, int uflen, Block* bp)
 	}
 
 	fp = (Ipfrag*)bp->base;
-	fp->hlen = uflen;
 	fp->foff = offset & ~7;
 	fp->flen = fragsize;
 
@@ -552,20 +550,20 @@ ip6reassemble(IP* ip, int uflen, Block* bp)
 	/* Check to see if succeeding segments overlap */
 	if(bp->next != nil) {
 		l = &bp->next;
-		fend = fp->foff + fp->flen;
+		offset = fp->foff + fp->flen;
 
 		/* Take completely covered segments out */
 		while((bl = *l) != nil) {
 			fq = (Ipfrag*)bl->base;
-			ovlap = fend - fq->foff;
+			ovlap = offset - fq->foff;
 			if(ovlap <= 0)
 				break;
 			if(ovlap < fq->flen) {
+				/* move up ip and frag header */
+				memmove(bl->rp + ovlap, bl->rp, BLEN(bl) - fq->flen);
+				bl->rp += ovlap;
 				fq->flen -= ovlap;
 				fq->foff += ovlap;
-				/* move up ip and frag header */
-				memmove(bl->rp + ovlap, bl->rp, fq->hlen + IP6FHDR);
-				bl->rp += ovlap;
 				break;
 			}
 			*l = bl->next;
@@ -578,13 +576,13 @@ ip6reassemble(IP* ip, int uflen, Block* bp)
 	 *  look for a complete packet.  if we get to a fragment
 	 *  with the trailing bit of fraghdr->offsetRM[1] set, we're done.
 	 */
-	pktposn = 0;
-	for(bl = f->blist; bl != nil; bl = bl->next, pktposn += fp->flen) {
+	offset = 0;
+	for(bl = f->blist; bl != nil; bl = bl->next, offset += fp->flen) {
 		fp = (Ipfrag*)bl->base;
-		if(fp->foff != pktposn)
+		if(fp->foff != offset)
 			break;
 
-		fraghdr = (Fraghdr6*)(bl->rp + fp->hlen);
+		fraghdr = (Fraghdr6*)(bl->wp - fp->flen - IP6FHDR);
 		if(fraghdr->offsetRM[1] & 1)
 			continue;
 
@@ -592,10 +590,9 @@ ip6reassemble(IP* ip, int uflen, Block* bp)
 		fq = (Ipfrag*)bl->base;
 
 		/* get rid of frag header in first fragment */
-		memmove(bl->rp + IP6FHDR, bl->rp, fq->hlen);
+		memmove(bl->rp + IP6FHDR, bl->rp, BLEN(bl) - fq->flen - IP6FHDR);
 		bl->rp += IP6FHDR;
-		len = fq->hlen + fq->flen;
-		bl->wp = bl->rp + len;
+		len = BLEN(bl);
 
 		/*
 		 * Pullup all the fragment headers and
@@ -604,9 +601,8 @@ ip6reassemble(IP* ip, int uflen, Block* bp)
 		for(bl = bl->next; bl != nil && len < IP_MAX; bl = bl->next) {
 			fq = (Ipfrag*)bl->base;
 			fragsize = fq->flen;
+			bl->rp = bl->wp - fragsize;
 			len += fragsize;
-			bl->rp += fq->hlen + IP6FHDR;
-			bl->wp = bl->rp + fragsize;
 		}
 
 		if(len >= IP_MAX){

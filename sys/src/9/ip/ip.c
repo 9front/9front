@@ -408,27 +408,24 @@ ipstats(Fs *f, char *buf, int len)
 static Block*
 ip4reassemble(IP *ip, int offset, Block *bp)
 {
-	int fend;
-	ushort id;
-	Fragment4 *f, *fnext;
-	Ip4hdr *ih;
+	int ovlap, fragsize, len;
 	ulong src, dst;
-	Ipfrag *fp, *fq;
+	ushort id;
 	Block *bl, **l, *prev;
-	int ovlap, len, fragsize, pktposn;
+	Fragment4 *f, *fnext;
+	Ipfrag *fp, *fq;
+	Ip4hdr *ih;
 
 	/*
-	 *  block lists are too hard, pullupblock into a single block
+	 *  block lists are too hard, concatblock into a single block
 	 */
-	if(bp->next != nil)
-		bp = pullupblock(bp, blocklen(bp));
+	bp = concatblock(bp);
 
 	ih = (Ip4hdr*)bp->rp;
 	src = nhgetl(ih->src);
 	dst = nhgetl(ih->dst);
 	id = nhgets(ih->id);
-	len = nhgets(ih->length);
-	fragsize = len - ((ih->vihl&0xF)<<2);
+	fragsize = BLEN(bp) - ((ih->vihl&0xF)<<2);
 
 	qlock(&ip->fraglock4);
 
@@ -467,7 +464,6 @@ ip4reassemble(IP *ip, int offset, Block *bp)
 	fp = (Ipfrag*)bp->base;
 	fp->foff = (offset & 0x1fff)<<3;
 	fp->flen = fragsize;
-	fp->hlen = len - fragsize;
 
 	/* First fragment allocates a reassembly queue */
 	if(f == nil) {
@@ -517,19 +513,19 @@ ip4reassemble(IP *ip, int offset, Block *bp)
 	/* Check to see if succeeding segments overlap */
 	if(bp->next != nil) {
 		l = &bp->next;
-		fend = fp->foff + fp->flen;
+		offset = fp->foff + fp->flen;
 		/* Take completely covered segments out */
 		while((bl = *l) != nil) {
 			fq = (Ipfrag*)bl->base;
-			ovlap = fend - fq->foff;
+			ovlap = offset - fq->foff;
 			if(ovlap <= 0)
 				break;
 			if(ovlap < fq->flen) {
+				/* move up ip header */
+				memmove(bl->rp + ovlap, bl->rp, BLEN(bl) - fq->flen);
+				bl->rp += ovlap;
 				fq->flen -= ovlap;
 				fq->foff += ovlap;
-				/* move up ip header */
-				memmove(bl->rp + ovlap, bl->rp, fq->hlen);
-				bl->rp += ovlap;
 				break;
 			}
 			*l = bl->next;
@@ -542,10 +538,10 @@ ip4reassemble(IP *ip, int offset, Block *bp)
 	 *  look for a complete packet.  if we get to a fragment
 	 *  without IP_MF set, we're done.
 	 */
-	pktposn = 0;
-	for(bl = f->blist; bl != nil; bl = bl->next, pktposn += fp->flen) {
+	offset = 0;
+	for(bl = f->blist; bl != nil; bl = bl->next, offset += fp->flen) {
 		fp = (Ipfrag*)bl->base;
-		if(fp->foff != pktposn)
+		if(fp->foff != offset)
 			break;
 
 		ih = (Ip4hdr*)bl->rp;
@@ -553,9 +549,7 @@ ip4reassemble(IP *ip, int offset, Block *bp)
 			continue;
 
 		bl = f->blist;
-		fq = (Ipfrag*)bl->base;
-		len = fq->hlen + fq->flen;
-		bl->wp = bl->rp + len;
+		len = BLEN(bl);
 
 		/*
 		 * Pullup all the fragment headers and
@@ -564,9 +558,8 @@ ip4reassemble(IP *ip, int offset, Block *bp)
 		for(bl = bl->next; bl != nil && len < IP_MAX; bl = bl->next) {
 			fq = (Ipfrag*)bl->base;
 			fragsize = fq->flen;
+			bl->rp = bl->wp - fragsize;
 			len += fragsize;
-			bl->rp += fq->hlen;
-			bl->wp = bl->rp + fragsize;
 		}
 
 		if(len >= IP_MAX){
