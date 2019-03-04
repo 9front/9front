@@ -379,6 +379,7 @@ devtype(Igfx *igfx)
 	case 0x29a2:	/* 82P965/G965 HECI desktop */
 	case 0x2a02:	/* GM965/GL960/X3100 - ThinkPad X61 Tablet */
 	case 0x2a42:	/* 4 Series Mobile - ThinkPad X200 */
+	case 0x2592:	/* 915GM */
 		return TypeG45;
 	}
 	return -1;
@@ -889,7 +890,7 @@ initdpll(Igfx *igfx, int x, int freq, int port)
 	dpll->ctrl.v |=  0x010000<<(p1-1);
 
 	/* FP1 P1 Post divisor */
-	if(igfx->pci->did != 0x27a2){
+	if(igfx->pci->did != 0x27a2 && igfx->pci->did != 0x2592){
 		dpll->ctrl.v &= ~0xFF;
 		dpll->ctrl.v |=  0x01<<(p1-1);
 		dpll->fp1.v = dpll->fp0.v;
