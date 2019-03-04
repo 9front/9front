@@ -394,6 +394,7 @@ icmpiput(Proto *icmp, Ipifc*, Block *bp)
 		} else
 			msg = unreachcode[p->code];
 
+	Advise:
 		bp->rp += ICMP_IPSIZE+ICMP_HDRSIZE;
 		if(BLEN(bp) < MinAdvise){
 			ipriv->stats[LenErrs]++;
@@ -410,20 +411,8 @@ icmpiput(Proto *icmp, Ipifc*, Block *bp)
 		break;
 	case TimeExceed:
 		if(p->code == 0){
-			snprint(m2, sizeof m2, "ttl exceeded at %V", p->src);
-
-			bp->rp += ICMP_IPSIZE+ICMP_HDRSIZE;
-			if(BLEN(bp) < MinAdvise){
-				ipriv->stats[LenErrs]++;
-				goto raise;
-			}
-			p = (Icmp *)bp->rp;
-			pr = Fsrcvpcolx(icmp->f, p->proto);
-			if(pr != nil && pr->advise != nil) {
-				(*pr->advise)(pr, bp, m2);
-				return;
-			}
-			bp->rp -= ICMP_IPSIZE+ICMP_HDRSIZE;
+			snprint(msg = m2, sizeof m2, "ttl exceeded at %V", p->src);
+			goto Advise;
 		}
 		goticmpkt(icmp, bp);
 		break;
