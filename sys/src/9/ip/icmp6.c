@@ -704,13 +704,28 @@ icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 			msg = unreachcode[Icmp6_unknown];
 		else
 			msg = unreachcode[p->code];
-
+	Advise:
 		bp->rp += IPICMPSZ;
 		if(BLEN(bp) < MinAdvise){
 			ipriv->stats[LenErrs6]++;
 			goto raise;
 		}
 		p = (IPICMP *)bp->rp;
+
+		/* get rid of fragment header if this is the first fragment */
+		if(p->proto == FH && BLEN(bp) >= MinAdvise+IP6FHDR && MinAdvise > IP6HDR){
+			Fraghdr6 *fh = (Fraghdr6*)(bp->rp + IP6HDR);
+			if((nhgets(fh->offsetRM) & ~7) == 0){	/* first fragment */
+				p->proto = fh->nexthdr;
+				/* copy down payload over fragment header */
+				bp->rp += IP6HDR;
+				bp->wp -= IP6FHDR;
+				memmove(bp->rp, bp->rp+IP6FHDR, BLEN(bp));
+				hnputs(p->ploadlen, BLEN(bp));
+				bp->rp -= IP6HDR;
+			}
+		}
+
 		pr = Fsrcvpcolx(icmp->f, p->proto);
 		if(pr != nil && pr->advise != nil) {
 			(*pr->advise)(pr, bp, msg);
@@ -722,23 +737,20 @@ icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 
 	case TimeExceedV6:
 		if(p->code == 0){
-			sprint(m2, "ttl exceeded at %I", p->src);
-
-			bp->rp += IPICMPSZ;
-			if(BLEN(bp) < MinAdvise){
-				ipriv->stats[LenErrs6]++;
-				goto raise;
-			}
-			p = (IPICMP *)bp->rp;
-			pr = Fsrcvpcolx(icmp->f, p->proto);
-			if(pr != nil && pr->advise != nil) {
-				(*pr->advise)(pr, bp, m2);
-				return;
-			}
-			bp->rp -= IPICMPSZ;
+			snprint(msg = m2, sizeof m2, "ttl exceeded at %I", p->src);
+			goto Advise;
+		}
+		if(p->code == 1){
+			snprint(msg = m2, sizeof m2, "frag time exceeded at %I", p->src);
+			goto Advise;
 		}
 		goticmpkt6(icmp, bp, 0);
 		break;
+
+	case PacketTooBigV6:
+		snprint(msg = m2, sizeof(m2), "packet too big for %lud mtu at %I",
+			(ulong)nhgetl(p->icmpid), p->src);
+		goto Advise;
 
 	case RouterAdvert:
 	case RouterSolicit:
@@ -793,7 +805,6 @@ icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 		freeblist(bp);
 		break;
 
-	case PacketTooBigV6:
 	default:
 		goticmpkt6(icmp, bp, 0);
 		break;
