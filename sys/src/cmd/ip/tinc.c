@@ -155,7 +155,6 @@ int	nsnet;
 int	debug;
 int	maxprocs = 100;
 
-char	*confdir = ".";
 char	*myname = nil;
 Host	*myhost = nil;
 
@@ -165,11 +164,12 @@ RWLock	netlk;
 
 char	*outside = "/net";
 char	*inside = "/net";
-int	ipifn = 0;
+char	device[128];
 int	ipcfd = -1;
 int	ipdfd = -1;
 uchar	localip[IPaddrlen];
 uchar	localmask[IPaddrlen];
+int	rcfd = -1;
 
 void	deledge(Edge*);
 void	delsubnet(Snet*);
@@ -384,6 +384,7 @@ reportedge(Conn *c, Edge *e)
 void
 netrecalc(void)
 {
+	static int hostup = 0;
 	Host *h;
 	Edge *e;
 	Snet *t;
@@ -417,6 +418,13 @@ Loop:
 			for(t = h->snet; t != nil; t = t->next)
 				t->reported = 0;
 			e->reported = 0;
+
+			fprint(rcfd, "NAME=%s NODE=%s DEVICE=%s INTERFACE=%I"
+				" REMOTENET=%s REMOTEADDRESS=%I REMOTEPORT=%d"
+				" ./hosts/%s-up\n",
+				myname, h->name, device, localip,
+				outside, h->ip, h->port,
+				h->name);
 		}
 		goto Loop;
 	}
@@ -425,6 +433,14 @@ Loop:
 		if(h->from == nil && h->connected){
 			h->connected = 0;
 			clearkey(h);
+
+			fprint(rcfd, "NAME=%s NODE=%s DEVICE=%s INTERFACE=%I"
+				" REMOTENET=%s REMOTEADDRESS=%I REMOTEPORT=%d"
+				" ./hosts/%s-down\n",
+				myname, h->name, device, localip,
+				outside, h->ip, h->port,
+				h->name);
+
 			while(h->link != nil) {
 				deledge(h->link->rev);
 				deledge(h->link);
@@ -433,14 +449,39 @@ Loop:
 		}
 	}
 
+	i = myhost->link != nil;
+	if(i != hostup){
+		hostup = i;
+
+		fprint(rcfd, "NAME=%s NODE=%s DEVICE=%s INTERFACE=%I"
+			" REMOTENET=%s REMOTEADDRESS=%I REMOTEPORT=%d"
+			" ./host-%s\n",
+			myname, myhost->name, device, localip,
+			outside, myhost->ip, myhost->port,
+			hostup ? "up" : "down");
+	}
+
+
 	qsort(snet, nsnet, sizeof(snet[0]), subnetpcmp);
 	for(i = nsnet-1; i >= 0; i--){
-		reportsubnet(bcast, snet[i]);
-		if(snet[i]->deleted){
+		t = snet[i];
+
+		if(t->owner != myhost && (t->deleted || t->reported == 0))
+			fprint(rcfd, "NAME=%s NODE=%s DEVICE=%s INTERFACE=%I"
+				" REMOTENET=%s REMOTEADDRESS=%I REMOTEPORT=%d"
+				" SUBNET=(%I %M) WEIGHT=%d"
+				" ./subnet-%s\n",
+				myname, t->owner->name, device, localip,
+				outside, t->owner->ip, t->owner->port,
+				t->ip, t->mask, t->weight,
+				t->deleted ? "down" : "up");
+
+		reportsubnet(bcast, t);
+		if(t->deleted){
 			assert(i == nsnet-1);
-			nsnet = i;
-			free(snet[i]);
 			snet[i] = nil;
+			nsnet = i;
+			free(t);
 		}
 	}
 
@@ -487,8 +528,6 @@ getsubnet(Host *h, char *s, int new)
 
 	if(!new)
 		return nil;
-
-if(debug) fprint(2, "%s adding subnet: %I %M #%d\n", h->name, ip, mask, weight);
 
 	t = emalloc(sizeof(Snet));
 	ipmove(t->ip, ip);
@@ -585,7 +624,7 @@ gethost(char *name, int new)
 	for(h = hosts; h != nil; h = h->next)
 		if(strcmp(h->name, name) == 0)
 			goto out;
-	snprint(buf, sizeof(buf), "%s/hosts/%s", confdir, name);
+	snprint(buf, sizeof(buf), "hosts/%s", name);
 	if((fd = open(buf, OREAD)) < 0){
 		if(!new)
 			goto out;
@@ -801,14 +840,14 @@ if(debug) fprint(2, "->%s %s", c->host != nil ? c->host->name : "???", buf);
 }
 
 int
-recvudp(Host *h)
+recvudp(Host *h, int fd)
 {
 	uchar buf[4+MaxPacket+AESbsize+MAClen], mac[SHA2_256dlen];
 	AESstate cs[1];
 	uint seq;
 	int n, o;
 
-	if((n = read(h->udpfd, buf, sizeof(buf))) <= 0)
+	if((n = read(fd, buf, sizeof(buf))) <= 0)
 		return -1;
 	lock(h->cin);
 	if(h->cin->crypt == nil || (n -= MAClen) < AESbsize){
@@ -822,6 +861,10 @@ recvudp(Host *h)
 	}
 	memmove(cs, h->cin->cs, sizeof(cs));
 	(*h->cin->crypt)(buf, n, cs);
+	if((n -= buf[n-1]) < 4+EtherHdr){
+		unlock(h->cin);
+		return -1;
+	}
 
 	seq  = buf[0]<<24;
 	seq |= buf[1]<<16;
@@ -839,9 +882,9 @@ recvudp(Host *h)
 		}
 		h->ooo |= 1ULL<<o;
 	}
+	h->udpfd = fd;
 	unlock(h->cin);
-	if((n -= buf[n-1]) < 4+EtherHdr)
-		return -1;
+
 	routepkt(h, buf+4, n-4);
 	return 0;
 }
@@ -1347,7 +1390,7 @@ metapeer(Conn *c)
 }
 
 void
-tcpclient(int fd)
+tcpclient(int fd, int incoming)
 {
 	Conn *c;
 	char dir[128];
@@ -1357,8 +1400,8 @@ tcpclient(int fd)
 	c->fd = fd;
 	c->rp = c->wp = c->buf;
 	c->port = dir2ipport(fd2dir(fd, dir, sizeof(dir)), c->ip);
-	procsetname("tcpclient %s %s %I!%d", myhost->name,
-		dir, c->ip, c->port);
+	procsetname("tcpclient %s %s %s %I!%d", myhost->name,
+		incoming ? "in" : "out", dir, c->ip, c->port);
 	if(metaauth(c) == 0){
 		procsetname("tcpclient %s %s %I!%d %s", myhost->name,
 			dir, c->ip, c->port, c->host->name);
@@ -1380,7 +1423,7 @@ tcpclient(int fd)
 }
 
 void
-udpclient(int fd)
+udpclient(int fd, int incoming)
 {
 	uchar ip[IPaddrlen];
 	char dir[128];
@@ -1388,14 +1431,24 @@ udpclient(int fd)
 
 	if((h = findhost(ip, dir2ipport(fd2dir(fd, dir, sizeof(dir)), ip))) != nil
 	&& h != myhost){
-		procsetname("udpclient %s %s %I!%d %s", myhost->name,
-			dir, h->ip, h->port, h->name);
-		h->udpfd = fd;
+		procsetname("udpclient %s %s %s %I!%d %s", myhost->name,
+			incoming ? "in": "out", dir, h->ip, h->port, h->name);
+
+		if(!incoming){
+			lock(h->cin);
+			if(h->udpfd == -1)
+				h->udpfd = fd;
+			unlock(h->cin);
+		}
+
 		do {
 			alarm(15*1000);
-		} while(recvudp(h) == 0);
+		} while(recvudp(h, fd) == 0);
+
+		lock(h->cin);
 		if(h->udpfd == fd)
 			h->udpfd = -1;
+		unlock(h->cin);
 	}
 	close(fd);
 }
@@ -1481,22 +1534,21 @@ pingpong(void)
 void
 ipifcsetup(void)
 {
-	char buf[128];
 	int n;
 
-	snprint(buf, sizeof buf, "%s/ipifc/clone", inside);
-	if((ipcfd = open(buf, ORDWR)) < 0)
+	snprint(device, sizeof device, "%s/ipifc/clone", inside);
+	if((ipcfd = open(device, ORDWR)) < 0)
 		sysfatal("can't open ip interface: %r");
-	if((n = read(ipcfd, buf, sizeof buf - 1)) <= 0)
+	if((n = read(ipcfd, device, sizeof device - 1)) <= 0)
 		sysfatal("can't read interface number: %r");
-	buf[n] = 0;
-	ipifn = atoi(buf);
-	snprint(buf, sizeof buf, "%s/ipifc/%d/data", inside, ipifn);
-	if((ipdfd = open(buf, ORDWR)) < 0)
+	device[n] = 0;
+	snprint(device, sizeof device, "%s/ipifc/%d/data", inside, atoi(device));
+	if((ipdfd = open(device, ORDWR)) < 0)
 		sysfatal("can't open ip data: %r");
 	fprint(ipcfd, "bind pkt");
 	fprint(ipcfd, "mtu %d", myhost->pmtu-EtherHdr);
 	fprint(ipcfd, "add %I %M", localip, localmask);
+	*strrchr(device, '/') = 0;
 }
 
 void
@@ -1548,7 +1600,7 @@ main(int argc, char *argv[])
 	Host *h;
 	Snet *t;
 	AuthRpc *rpc;
-	int i;
+	int i, pfd[2];
 
 	quotefmtinstall();
 	fmtinstall('I', eipfmt);
@@ -1564,7 +1616,8 @@ main(int argc, char *argv[])
 			sysfatal("bad number of procs");
 		break;
 	case 'c':
-		confdir = EARGF(usage());
+		if(chdir(EARGF(usage())) < 0)
+			sysfatal("can't change directory: %r");
 		break;
 	case 'n':
 		myname = EARGF(usage());
@@ -1609,6 +1662,26 @@ main(int argc, char *argv[])
 		sysfatal("local ip %I belongs to host %s subnet %I %M",
 			localip, t->owner->name, t->ip, t->mask);
 
+	if(pipe(pfd) < 0)
+		sysfatal("can't create pipe: %r");
+	switch(rfork(RFPROC|RFFDG|RFREND|RFNOTEG)){
+	case -1:
+		sysfatal("can't fork: %r");
+	case 0:
+		dup(pfd[1], 0);
+		close(pfd[0]);
+		close(pfd[1]);
+		if(!debug){
+			close(2);
+			while(open("/dev/null", OWRITE) == 1)
+				;
+		}
+		execl("/bin/rc", "rc", debug? "-v": nil, nil);
+		sysfatal("can't exec: %r");
+	}
+	rcfd = pfd[0];
+	close(pfd[1]);
+
 	ipifcsetup();
 	notify(catch);
 	switch(rfork(RFPROC|RFFDG|RFREND|RFNOTEG)){
@@ -1624,23 +1697,29 @@ main(int argc, char *argv[])
 		exits(nil);
 	}
 	atexit(shutdown);
+
+	fprint(rcfd, "NAME=%s NODE=%s DEVICE=%s INTERFACE=%I ./tinc-up\n",
+		myname, myhost->name, device, localip);
+
 	if(rfork(RFPROC|RFMEM) == 0){
-		tcpclient(listener("tcp", myhost->port, maxprocs));
+		tcpclient(listener("tcp", myhost->port, maxprocs), 1);
 		exits(nil);
 	}
+	if((myhost->options & OptTcpOnly) == 0)
 	if(rfork(RFPROC|RFMEM) == 0){
-		udpclient(listener("udp", myhost->port, maxprocs));
+		udpclient(listener("udp", myhost->port, maxprocs), 1);
 		exits(nil);
 	}
 	for(i = 0; i < argc; i++){
 		if((h = gethost(argv[i], 0)) == nil)
 			continue;
 		if(rfork(RFPROC|RFMEM) == 0){
-			tcpclient(dialer("tcp", h->addr, h->port, myhost->port));
+			tcpclient(dialer("tcp", h->addr, h->port, myhost->port), 0);
 			exits(nil);
 		}
+		if((h->options & OptTcpOnly) == 0)
 		if(rfork(RFPROC|RFMEM) == 0){
-			udpclient(dialer("udp", h->addr, h->port, myhost->port));
+			udpclient(dialer("udp", h->addr, h->port, myhost->port), 0);
 			exits(nil);
 		}
 	}
@@ -1649,4 +1728,7 @@ main(int argc, char *argv[])
 		exits(nil);
 	}
 	ip2tunnel();
+
+	fprint(rcfd, "NAME=%s NODE=%s DEVICE=%s INTERFACE=%I ./tinc-down\n",
+		myname, myhost->name, device, localip);
 }
