@@ -250,7 +250,7 @@ free:
 void
 ipiput4(Fs *f, Ipifc *ifc, Block *bp)
 {
-	int hl, len, hop, tos, proto;
+	int hl, len, hop, tos;
 	uchar v6dst[IPaddrlen];
 	ushort frag;
 	Ip4hdr *h;
@@ -334,9 +334,6 @@ ipiput4(Fs *f, Ipifc *ifc, Block *bp)
 		if(nifc->reassemble){
 			frag = nhgets(h->frag);
 			if(frag & ~IP_DF) {
-				h->tos = 0;
-				if(frag & IP_MF)
-					h->tos = 1;
 				bp = ip4reassemble(ip, frag, bp);
 				if(bp == nil)
 					return;
@@ -364,21 +361,13 @@ ipiput4(Fs *f, Ipifc *ifc, Block *bp)
 
 	frag = nhgets(h->frag);
 	if(frag & ~IP_DF) {
-		h->tos = 0;
-		if(frag & IP_MF)
-			h->tos = 1;
 		bp = ip4reassemble(ip, frag, bp);
 		if(bp == nil)
 			return;
 		h = (Ip4hdr*)bp->rp;
 	}
 
-	/* don't let any frag info go up the stack */
-	h->frag[0] = 0;
-	h->frag[1] = 0;
-
-	proto = h->proto;
-	p = Fsrcvpcol(f, proto);
+	p = Fsrcvpcol(f, h->proto);
 	if(p != nil && p->rcv != nil) {
 		ip->stats[InDelivers]++;
 		(*p->rcv)(p, ifc, bp);
@@ -434,7 +423,7 @@ ip4reassemble(IP *ip, int offset, Block *bp)
 	 */
 	for(f = ip->flisthead4; f != nil; f = fnext){
 		fnext = f->next;	/* because ipfragfree4 changes the list */
-		if(f->src == src && f->dst == dst && f->id == id)
+		if(f->id == id && f->src == src && f->dst == dst)
 			break;
 		if(f->age < NOW){
 			ip->stats[ReasmTimeout]++;
@@ -447,7 +436,7 @@ ip4reassemble(IP *ip, int offset, Block *bp)
 	 *  and get rid of any fragments that might go
 	 *  with it.
 	 */
-	if(ih->tos == 0 && (offset & ~(IP_MF|IP_DF)) == 0) {
+	if((offset & ~IP_DF) == 0) {
 		if(f != nil) {
 			ip->stats[ReasmFails]++;
 			ipfragfree4(ip, f);
@@ -574,6 +563,8 @@ ip4reassemble(IP *ip, int offset, Block *bp)
 		ipfragfree4(ip, f);
 
 		ih = (Ip4hdr*)bl->rp;
+		ih->frag[0] = 0;
+		ih->frag[1] = 0;
 		hnputs(ih->length, len);
 
 		ip->stats[ReasmOKs]++;
@@ -595,10 +586,10 @@ ipfragfree4(IP *ip, Fragment4 *frag)
 
 	if(frag->blist != nil)
 		freeblist(frag->blist);
-
-	frag->src = 0;
-	frag->id = 0;
 	frag->blist = nil;
+	frag->id = 0;
+	frag->src = 0;
+	frag->dst = 0;
 
 	l = &ip->flisthead4;
 	for(fl = *l; fl != nil; fl = fl->next) {
