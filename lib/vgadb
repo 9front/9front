@@ -442,6 +442,7 @@ ctlr
 	ctlr=igfx linear=1
 
 ctlr
+	vid=0x8086 did=0x2592	# Intel 915GM
 	vid=0x8086 did=0x27a2	# Intel GM945/82940GML (hardware cursor broken)
 	vid=0x8086 did=0x2a02	# Intel GM965/GL960/X3100 (hardware cursor broken)
 	link=vga
@@ -1843,3 +1844,13 @@ cfr7=1024x768
 	shs=1072
 	vrs=771 vre=777 vt=806
 	hsync=- vsync=-
+
+#
+# IBM Thinkpad T43p
+#
+t43p=1600x1200
+	lcd=1
+	defaultclock=162
+	shb=1664 ehb=1856 ht=2160
+	vrs=1201 vre=1204 vt=1250
+	hsync=+ vsync=+
