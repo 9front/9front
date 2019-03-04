@@ -481,7 +481,7 @@ ip6reassemble(IP* ip, int uflen, Block* bp)
 	 *  and get rid of any fragments that might go
 	 *  with it.
 	 */
-	if(offset == 0) {		/* 1st frag is also last */
+	if((offset & ~6) == 0) {	/* 1st frag is also last */
 		if(f != nil) {
 			ip->stats[ReasmFails]++;
 			ipfragfree6(ip, f);
