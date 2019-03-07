@@ -725,11 +725,12 @@ icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 				bp->rp -= IP6HDR;
 			}
 		}
-
-		pr = Fsrcvpcolx(icmp->f, p->proto);
-		if(pr != nil && pr->advise != nil) {
-			(*pr->advise)(pr, bp, msg);
-			return;
+		if(p->proto != FH){
+			pr = Fsrcvpcolx(icmp->f, p->proto);
+			if(pr != nil && pr->advise != nil) {
+				(*pr->advise)(pr, bp, msg);
+				return;
+			}
 		}
 		bp->rp -= IPICMPSZ;
 		goticmpkt6(icmp, bp, 0);
