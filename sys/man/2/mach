@@ -77,19 +77,19 @@ int puta(Map *map, uvlong addr, uvlong val)
 ushort beswab(ushort val)
 .PP
 .B
-long beswal(ulong val)
+ulong beswal(ulong val)
 .PP
 .B
-long beswav(uvlong val)
+uvlong beswav(uvlong val)
 .PP
 .B
 ushort leswab(ushort val)
 .PP
 .B
-long leswal(ulong val)
+ulong leswal(ulong val)
 .PP
 .B
-long leswav(uvlong val)
+uvlong leswav(uvlong val)
 .PP
 .B
 extern Mach mach;
