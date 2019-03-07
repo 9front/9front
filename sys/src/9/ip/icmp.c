@@ -401,7 +401,7 @@ icmpiput(Proto *icmp, Ipifc*, Block *bp)
 			goto raise;
 		}
 		p = (Icmp *)bp->rp;
-		if((nhgets(p->frag) & ~(IP_DF|IP_MF)) == 0){
+		if((nhgets(p->frag) & IP_FO) == 0){
 			pr = Fsrcvpcolx(icmp->f, p->proto);
 			if(pr != nil && pr->advise != nil) {
 				(*pr->advise)(pr, bp, msg);

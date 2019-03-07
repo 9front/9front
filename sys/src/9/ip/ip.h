@@ -57,6 +57,7 @@ enum
 	IP_HLEN4=	5,		/* v4: Header length in words */
 	IP_DF=		0x4000,		/* v4: Don't fragment */
 	IP_MF=		0x2000,		/* v4: More fragments */
+	IP_FO=		0x1fff,		/* v4: Fragment offset */
 	IP4HDR=		IP_HLEN4<<2,	/* sizeof(Ip4hdr) */
 	IP_MAX=		64*1024,	/* Max. Internet packet size, v4 & v6 */
 
