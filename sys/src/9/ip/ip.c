@@ -333,7 +333,7 @@ ipiput4(Fs *f, Ipifc *ifc, Block *bp)
 		/* reassemble if the interface expects it */
 		if(nifc->reassemble){
 			frag = nhgets(h->frag);
-			if(frag & ~IP_DF) {
+			if(frag & (IP_MF|IP_FO)) {
 				bp = ip4reassemble(ip, frag, bp);
 				if(bp == nil)
 					return;
@@ -360,7 +360,7 @@ ipiput4(Fs *f, Ipifc *ifc, Block *bp)
 	}
 
 	frag = nhgets(h->frag);
-	if(frag & ~IP_DF) {
+	if(frag & (IP_MF|IP_FO)) {
 		bp = ip4reassemble(ip, frag, bp);
 		if(bp == nil)
 			return;
@@ -436,7 +436,7 @@ ip4reassemble(IP *ip, int offset, Block *bp)
 	 *  and get rid of any fragments that might go
 	 *  with it.
 	 */
-	if((offset & ~IP_DF) == 0) {
+	if((offset & (IP_MF|IP_FO)) == 0) {
 		if(f != nil) {
 			ip->stats[ReasmFails]++;
 			ipfragfree4(ip, f);
@@ -451,7 +451,7 @@ ip4reassemble(IP *ip, int offset, Block *bp)
 	}
 
 	fp = (Ipfrag*)bp->base;
-	fp->foff = (offset & 0x1fff)<<3;
+	fp->foff = (offset & IP_FO)<<3;
 	fp->flen = fragsize;
 
 	/* First fragment allocates a reassembly queue */
