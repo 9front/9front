@@ -756,8 +756,8 @@ vgainit(void)
 			sysfatal("got nil ptr for framebuffer");
 	}
 	snprint(buf, sizeof(buf), "-dx %d -dy %d", maxw+50, maxh+50);
-	newwindow(buf);
-	initdraw(nil, nil, "vmx");
+	if(newwindow(buf) < 0 || initdraw(nil, nil, "vmx") < 0)
+		sysfatal("failed to initialize graphics: %r");
 	screeninit(1);
 	flushimage(display, 1);
 	kbdlayout("/sys/lib/kbmap/us");
