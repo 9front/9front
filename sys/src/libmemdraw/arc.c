@@ -40,13 +40,13 @@ memarc(Memimage *dst, Point c, int a, int b, int t, Memimage *src, Point sp, int
 	Point p,	bnd[8];
 	Memimage *wedge, *figure, *mask;
 
-	if(a < 0)
-		a = -a;
-	if(b < 0)
-		b = -b;
-	w = t;
-	if(w < 0)
-		w = 0;
+	if(phi == 0)
+		return;
+	if(phi <= -360 || phi >= 360){
+		memellipse(dst, c, a, b, t, src, sp, op);
+		return;
+	}
+	alpha %= 360;
 	alpha = -alpha;		/* compensate for upside-down coords */
 	phi = -phi;
 	beta = alpha + phi;
@@ -55,10 +55,6 @@ memarc(Memimage *dst, Point c, int a, int b, int t, Memimage *src, Point sp, int
 		alpha = beta;
 		beta = tmp;
 		phi = -phi;
-	}
-	if(phi >= 360){
-		memellipse(dst, c, a, b, t, src, sp, op);
-		return;
 	}
 	while(alpha < 0)
 		alpha += 360;
@@ -70,6 +66,15 @@ memarc(Memimage *dst, Point c, int a, int b, int t, Memimage *src, Point sp, int
 		 * icossin returns point at radius ICOSSCALE.
 		 * multiplying by m1 moves it outside the ellipse
 		*/
+
+	if(a < 0)
+		a = -a;
+	if(b < 0)
+		b = -b;
+	w = t;
+	if(w < 0)
+		w = 0;
+
 	rect = Rect(-a-w, -b-w, a+w+1, b+w+1);
 	m = rect.max.x;	/* inradius of bounding square */
 	if(m < rect.max.y)
