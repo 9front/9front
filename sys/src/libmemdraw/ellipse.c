@@ -164,8 +164,6 @@ memellipse(Memimage *dst, Point c, int a, int b, int t, Memimage *src, Point sp,
 	}
 }
 
-static Point p00 = {0, 0};
-
 /*
  * a brushed ellipse
  */
@@ -180,7 +178,7 @@ bellipse(int y, State *s, Param *p)
 	if(p->disc == nil)
 		return;
 	memfillcolor(p->disc, DTransparent);
-	memellipse(p->disc, p00, t, t, -1, memopaque, p00, p->op);
+	memellipse(p->disc, ZP, t, t, -1, memopaque, ZP, p->op);
 	oy = y;
 	ox = 0;
 	nx = x = step(s);
@@ -211,7 +209,7 @@ erect(int x0, int y0, int x1, int y1, Param *p)
 
 /*	print("R %d,%d %d,%d\n", x0, y0, x1, y1); /**/
 	r = Rect(p->c.x+x0, p->c.y+y0, p->c.x+x1+1, p->c.y+y1+1);
-	memdraw(p->dst, r, p->src, addpt(p->sp, r.min), memopaque, p00, p->op);
+	memdraw(p->dst, r, p->src, addpt(p->sp, r.min), memopaque, ZP, p->op);
 }
 
 /*
