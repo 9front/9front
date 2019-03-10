@@ -177,6 +177,7 @@ void	netrecalc(void);
 
 int	consend(Conn *c, char *fmt, ...);
 #pragma varargck argpos consend 2
+int	sendudp(Host *h, int fd, uchar *p, int n);
 void	routepkt(Host *s, uchar *p, int n);
 void	needkey(Host *from);
 void	clearkey(Host *from);
@@ -624,47 +625,50 @@ gethost(char *name, int new)
 	for(h = hosts; h != nil; h = h->next)
 		if(strcmp(h->name, name) == 0)
 			goto out;
+
+	n = -1;
 	snprint(buf, sizeof(buf), "hosts/%s", name);
-	if((fd = open(buf, OREAD)) < 0){
-		if(!new)
-			goto out;
-		buf[0] = 0;
-	} else {
+	if((fd = open(buf, OREAD)) >= 0){
 		n = read(fd, buf, sizeof(buf)-1);
 		close(fd);
-		if(n <= 0)
-			goto out;
-		buf[n] = 0;
 	}
+	if(n < 0){
+		if(!new)
+			goto out;
+		n = 0;
+	}
+	buf[n] = 0;
+
 	h = emalloc(sizeof(Host));
 	h->name = estrdup(name);
 	h->addr = estrdup(name);
 	h->port = 655;
 	h->pmtu = DefPMTU;
-	h->options = OptClampMss;
+	h->options = OptClampMss|OptPmtuDiscov;
 	h->udpfd = -1;
 	h->connected = 0;
+	h->rsapub = nil;
 	h->next = hosts;
 	hosts = h;
-	if((s = (char*)decodePEM(buf, "RSA PUBLIC KEY", &n, nil)) == nil)
-		goto out;
-	h->rsapub = asn1toRSApub((uchar*)s, n);
-	free(s);
-	if(h->rsapub == nil)
-		goto out;
+	if((s = (char*)decodePEM(buf, "RSA PUBLIC KEY", &n, nil)) != nil){
+		h->rsapub = asn1toRSApub((uchar*)s, n);
+		free(s);
+	}
 	for(s = buf; s != nil; s = e){
 		char *f[2];
 
 		if((e = strchr(s, '\n')) != nil)
 			*e++ = 0;
-		if((x = strchr(s, '=')) == nil)
+		if(*s == '#' || (x = strchr(s, '=')) == nil)
 			continue;
 		*x = ' ';
-		if((n = tokenize(s, f, nelem(f))) != 2)
+		if((n = tokenize(s, f, 2)) != 2)
 			continue;
 		if(cistrcmp(f[0], "Address") == 0){
+			if(tokenize(f[1], f, 2) > 1)
+				h->port = atoi(f[1]);
 			free(h->addr);
-			h->addr = estrdup(f[1]);
+			h->addr = estrdup(f[0]);
 			continue;
 		}
 		if(cistrcmp(f[0], "IndirectData") == 0){
@@ -677,6 +681,10 @@ gethost(char *name, int new)
 		}
 		if(cistrcmp(f[0], "ClampMSS") == 0){
 			h->options &= ~(OptClampMss*(cistrcmp(f[1], "no") == 0));
+			continue;
+		}
+		if(cistrcmp(f[0], "PMTUDiscovery") == 0){
+			h->options &= ~(OptPmtuDiscov*(cistrcmp(f[1], "no") == 0));
 			continue;
 		}
 		if(cistrcmp(f[0], "PMTU") == 0){
@@ -696,10 +704,6 @@ gethost(char *name, int new)
 				getsubnet(h, f[1], 1);
 			continue;
 		}
-	}
-	if(myhost == nil && h->snet == nil){
-		snprint(buf, sizeof(buf), "%I/%d", localip, isv4(localip) ? 32 : 128);
-		getsubnet(h, buf, 1);
 	}
 	parseip(h->ip, h->addr);
 out:
@@ -861,7 +865,7 @@ recvudp(Host *h, int fd)
 	}
 	memmove(cs, h->cin->cs, sizeof(cs));
 	(*h->cin->crypt)(buf, n, cs);
-	if((n -= buf[n-1]) < 4+EtherHdr){
+	if((n -= buf[n-1]) < 4){
 		unlock(h->cin);
 		return -1;
 	}
@@ -885,18 +889,27 @@ recvudp(Host *h, int fd)
 	h->udpfd = fd;
 	unlock(h->cin);
 
+	/* pmtu probe */
+	if(n >= 4+14 && buf[4+12] == 0 && buf[4+13] == 0){
+		if(buf[4+0] == 0){
+			buf[4+0] = 1;
+			sendudp(h, fd, buf+4, n-4);
+		}
+		return 0;
+	}
+
 	routepkt(h, buf+4, n-4);
 	return 0;
 }
 int
-sendudp(Host *h, uchar *p, int n)
+sendudp(Host *h, int fd, uchar *p, int n)
 {
 	uchar buf[4+MaxPacket+AESbsize+SHA2_256dlen];
 	AESstate cs[1];
 	uint seq;
 	int pad;
 
-	if(h->udpfd < 0 || n > MaxPacket || n > h->pmtu)
+	if(fd < 0 || n > MaxPacket)
 		return -1;
 	lock(h->cout);
 	if(h->cout->crypt == nil){
@@ -919,7 +932,7 @@ sendudp(Host *h, uchar *p, int n)
 	hmac_sha2_256(buf, n, h->cout->key, sizeof(h->cout->key), buf+n, nil);
 	unlock(h->cout);
 	n += MAClen;
-	if(write(h->udpfd, buf, n) != n)
+	if(write(fd, buf, n) != n)
 		return -1;
 	if((seq & 0xFFFFF) == 0) needkey(h);
 	return 0;
@@ -951,7 +964,7 @@ forward(Host *s, Host *d, uchar *p, int n)
 	if(d->from == nil)
 		return;
 	while(d != s && d != myhost){
-		if(sendudp(d, p, n) == 0)
+		if(n <= d->pmtu && sendudp(d, d->udpfd, p, n) == 0)
 			return;
 		if(sendtcp(d, p, n) == 0)
 			return;
@@ -1085,7 +1098,7 @@ int
 metaauth(Conn *c)
 {
 	mpint *m, *h;
-	uchar b[256];
+	uchar b[512];
 	AuthRpc *rpc;
 	char *f[8];
 	int n, n1, n2, ms;
@@ -1403,8 +1416,8 @@ tcpclient(int fd, int incoming)
 	procsetname("tcpclient %s %s %s %I!%d", myhost->name,
 		incoming ? "in" : "out", dir, c->ip, c->port);
 	if(metaauth(c) == 0){
-		procsetname("tcpclient %s %s %I!%d %s", myhost->name,
-			dir, c->ip, c->port, c->host->name);
+		procsetname("tcpclient %s %s %s %I!%d %s", myhost->name,
+			incoming ? "in" : "out", dir, c->ip, c->port, c->host->name);
 		metapeer(c);
 	}
 	netlock(c);
@@ -1429,8 +1442,8 @@ udpclient(int fd, int incoming)
 	char dir[128];
 	Host *h;
 
-	if((h = findhost(ip, dir2ipport(fd2dir(fd, dir, sizeof(dir)), ip))) != nil
-	&& h != myhost){
+	h = findhost(ip, dir2ipport(fd2dir(fd, dir, sizeof(dir)), ip));
+	if(h != nil && h != myhost){
 		procsetname("udpclient %s %s %s %I!%d %s", myhost->name,
 			incoming ? "in": "out", dir, h->ip, h->port, h->name);
 
@@ -1449,6 +1462,9 @@ udpclient(int fd, int incoming)
 		if(h->udpfd == fd)
 			h->udpfd = -1;
 		unlock(h->cin);
+
+		wlock(&netlk);
+		wunlock(&netlk);
 	}
 	close(fd);
 }
@@ -1656,6 +1672,11 @@ main(int argc, char *argv[])
 			sysfatal("no RSA public key for: %s", h->name);
 	}
 
+	if(myhost->snet == nil){
+		char snet[64];
+		snprint(snet, sizeof(snet), "%I/128", localip);
+		getsubnet(myhost, snet, 1);
+	}
 	if((t = lookupnet(localip)) == nil)
 		sysfatal("no subnet found for local ip %I", localip);
 	if(t->owner != myhost)
