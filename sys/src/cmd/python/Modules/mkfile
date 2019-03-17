@@ -1,7 +1,7 @@
 APE=/sys/src/ape
 <$APE/config
 
-LIB=/$objtype/lib/ape/libpython.a
+LIB=../libpython.a$O
 
 OFILES=\
 	_bisectmodule.$O\
@@ -117,20 +117,14 @@ OFILES=\
 
 CFLAGS=-c -I. -I.. -I../Include -DT$objtype -DNDEBUG
 
-%.$O: expat/%.c
+%.$O:D: expat/%.c
 	$CC $CFLAGS  -DHAVE_EXPAT_CONFIG_H'=1' -DUSE_PYEXPAT_CAPI expat/$stem.c
 
-%.$O: cjkcodecs/%.c
+%.$O:D: cjkcodecs/%.c
 	$CC $CFLAGS  cjkcodecs/$stem.c
 
-_elementtree.$O: _elementtree.c
+_elementtree.$O:D: _elementtree.c
 	$CC $CFLAGS -Iexpat _elementtree.c
 
-pyexpat.$O: pyexpat.c
+pyexpat.$O:D: pyexpat.c
 	$CC $CFLAGS -Iexpat pyexpat.c
-
-_hashopenssl.$O: _hashopenssl.c
-	$CC $CFLAGS -DPLAN9  _hashopenssl.c
-
-_ssl.$O: _ssl.c
-	$CC $CFLAGS -DPLAN9 _ssl.c

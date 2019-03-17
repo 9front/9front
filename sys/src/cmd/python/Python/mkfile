@@ -1,9 +1,8 @@
 </$cputype/mkfile
-cpuO=$O
 APE=/sys/src/ape
 <$APE/config
 
-LIB=/$objtype/lib/ape/libpython.a
+LIB=../libpython.a$O
 
 OFILES=\
 	Python-ast.$O\
@@ -45,20 +44,19 @@ OFILES=\
 	traceback.$O\
 	graminit.$O\
 
+CLEANFILES=graminit.c graminit.h
+
 </sys/src/cmd/mksyslib
 
 CFLAGS=-c -I.. -I../Include -DT$objtype -DPy_BUILD_CORE -DNDEBUG
 
-graminit.c ../Include/graminit.h:V: ../Parser/$cpuO.pgen
-	../Parser/$cpuO.pgen ../Grammar/Grammar graminit.h graminit.c
-	mv graminit.h ../Include
+ast.$O future.$O:	../Include/graminit.h
 
+../Include/graminit.h:	graminit.h
+	cp graminit.h ../Include/graminit.h
 
-# when cputype!=objtype, $PGENO causes unnecessary object files to be created.
-# but when cputype==objtype, it keeps this mkfile from fighting with mkfile.pgen
-# over creating some of these.
-../Parser/$cpuO.pgen:V: $PGENO
-	@{
-		cd ../Parser
-		objtype=$cputype mk $cpuO.pgen
-	}
+graminit.c graminit.h:D: ../Grammar/Grammar ../Parser/pgen.$cputype
+	../Parser/pgen.$cputype ../Grammar/Grammar graminit.h graminit.c
+
+../Parser/pgen.$cputype:D:
+	@{cd ../Parser && objtype=$cputype mk pgen.$cputype}

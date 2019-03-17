@@ -1,7 +1,7 @@
 APE=/sys/src/ape
 <$APE/config
 
-LIB=/$objtype/lib/ape/libpython.a
+LIB=../libpython.a$O
 
 OFILES=\
 	acceler.$O\
@@ -16,7 +16,7 @@ OFILES=\
 	parsetok.$O\
 	tokenizer.$O\
 
-CLEANFILES=$O.pgen
+CLEANFILES=pgen.$objtype
 
 </sys/src/cmd/mksyslib
 
@@ -27,6 +27,8 @@ obmalloc.$O:	../Objects/obmalloc.c
 
 mysnprintf.$O:	../Python/mysnprintf.c
 	$CC $CFLAGS $prereq
+
+parsetok.$O:	../Include/graminit.h
 
 PGENOFILES=\
 	acceler.$O\
@@ -46,6 +48,6 @@ PGENOFILES=\
 	obmalloc.$O\
 	mysnprintf.$O\
 
-$O.pgen:	$PGENOFILES
+pgen.$objtype:	$PGENOFILES
 	$LD -o $target $prereq
 

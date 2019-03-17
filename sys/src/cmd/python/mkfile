@@ -10,44 +10,26 @@ TARG=\
 OFILES=\
 	config.$O\
 	plan9.$O\
+	libpython.a$O\
 	libextra.a$O\
 
-LIB= \
-	/$objtype/lib/ape/libpython.a\
-
-LIBDIRS=Modules Objects Parser Python
+LIBDIRS=Python Parser Modules Objects Extra
 
 </sys/src/cmd/mkone
 
 CFLAGS=-c -I. -IInclude -DT$objtype -DPy_BUILD_CORE -DNDEBUG
 
-/$objtype/lib/ape/libpython.a:
-	for (i in $LIBDIRS) @{
-		cd $i
-		mk 
-	}
+libpython.a$O libextra.a$O:D:
+	for (i in $LIBDIRS) @{cd $i && mk}
 
-libextra.a$O:
-	@{
-		cd Extra
-		mk
-	}
+config.c:D: Modules/config Extra/config mkconfig
+	./mkconfig Modules/config Extra/config > $target
 
-Extra/config:
-	for(i in `{du -a Extra | grep '.c$'  | awk '{print $2}' | sed 's/..$//'})
-		echo `{basename $i} >> Extra/config
+Extra/config:D:
+	du -a Extra | awk '/\.c$/{print $2}' | sed 's!.*/!!g; s!\.c$!!g' > $target
 
-config.c: Modules/config Extra/config mkconfig
-	./mkconfig Modules/config Extra/config >config.c
-
-clean:V:
-	for(i in $LIBDIRS Extra)@{
-		cd $i
-		mk $target
-	}
+clean nuke:V:
+	for(i in $LIBDIRS) @{cd $i && mk $target}
 	rm -f *.[$OS] [$OS].out y.tab.? y.debug y.output $OFILES
-	rm -f Extra/config config.c
-
-nuke:V:
-	mk clean
-	rm -f /$objtype/lib/ape/libpython.a
+	rm -f libpython.a[$OS] libextra.a[$OS] /$objtype/lib/ape/libpython.a
+	rm -f config.c Extra/config

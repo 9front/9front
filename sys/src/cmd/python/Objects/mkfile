@@ -1,7 +1,7 @@
 APE=/sys/src/ape
 <$APE/config
 
-LIB=/$objtype/lib/ape/libpython.a
+LIB=../libpython.a$O
 
 OFILES=\
 	abstract.$O\
