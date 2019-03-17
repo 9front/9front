@@ -201,8 +201,10 @@ mkdir -p sparc64/bin/replica
 mkdir -p sparc64/bin/upas
 mkdir -p sparc64/bin/venti
 mkdir -p sparc64/lib/ape
-mkdir -p sys/lib/dist/usr/glenda/bin/amd64
 mkdir -p sys/lib/dist/usr/glenda/bin/386
+mkdir -p sys/lib/dist/usr/glenda/bin/amd64
+mkdir -p sys/lib/dist/usr/glenda/bin/arm
+mkdir -p sys/lib/dist/usr/glenda/bin/mips
 mkdir -p sys/lib/dist/usr/glenda/tmp
 mkdir -p sys/lib/dist/cfg/pxe
 mkdir -p sys/lib/lp/log
