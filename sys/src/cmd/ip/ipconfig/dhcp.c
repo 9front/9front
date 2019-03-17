@@ -264,8 +264,7 @@ dhcpwatch(int needconfig)
 			 * leave everything we've learned somewhere that
 			 * other procs can find it.
 			 */
-			if(beprimary)
-				putndb();
+			putndb();
 			refresh();
 		}
 	}

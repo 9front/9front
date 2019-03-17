@@ -98,7 +98,6 @@ struct Ctl
 
 extern Conf	conf;
 extern int	myifc;
-extern int	beprimary;
 extern int	noconfig;
 
 extern int	debug;
@@ -120,6 +119,7 @@ void	ipunconfig(void);
 void	adddefroute(uchar*, uchar*, uchar*, uchar*);
 void	removedefroute(uchar*, uchar*, uchar*, uchar*);
 
+int	isether(void);
 long	jitter(void);
 void	catch(void*, char*);
 int	countaddrs(uchar *a, int len);

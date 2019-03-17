@@ -211,11 +211,11 @@ parseargs(int argc, char **argv)
 		switch(verb){
 		case Vether:
 		case Vgbe:
-		case Vppp:
 		case Vloopback:
+		case Vpkt:
+		case Vppp:
 		case Vtorus:
 		case Vtree:
-		case Vpkt:
 			conf.type = *argv++;
 			argc--;
 			if(argc > 0){
@@ -283,10 +283,15 @@ findifc(char *net, char *dev)
 	return -1;
 }
 
-static int
+int
 isether(void)
 {
-	return strcmp(conf.type, "ether") == 0 || strcmp(conf.type, "gbe") == 0;
+	switch(parseverb(conf.type)){
+	case Vether:
+	case Vgbe:
+		return 1;
+	}
+	return 0;
 }
 
 /* create a client id */
@@ -394,6 +399,9 @@ main(int argc, char **argv)
 
 	action = parseargs(argc, argv);
 
+	if(beprimary == -1 && (ipv6auto || parseverb(conf.type) == Vloopback))
+		beprimary = 0;
+
 	myifc = findifc(conf.mpoint, conf.dev);
 	if(myifc < 0) {
 		switch(action){
@@ -420,6 +428,7 @@ main(int argc, char **argv)
 		mkclientid();
 		if(dondbconfig){
 			dodhcp = 0;
+			beprimary = 0;
 			ndbconfig();
 			break;
 		}
@@ -457,14 +466,14 @@ doadd(void)
 		dhcpquery(!noconfig, Sselecting);
 	}
 
-	if(!validip(conf.laddr))
+	if(!validip(conf.laddr)){
 		if(rflag && dodhcp && !noconfig){
 			warning("couldn't determine ip address, retrying");
 			dhcpwatch(1);
 			return;
 		} else
 			sysfatal("no success with DHCP");
-
+	}
 	DEBUG("adding address %I %M on %s", conf.laddr, conf.mask, conf.dev);
 	if(noconfig)
 		return;
@@ -480,8 +489,7 @@ doadd(void)
 	}
 
 	/* leave everything we've learned somewhere other procs can find it */
-	if(beprimary && !dondbconfig && !ipv6auto)
-		putndb();
+	putndb();
 	refresh();
 }
 
@@ -660,6 +668,9 @@ putndb(void)
 	Ndbtuple *t, *nt;
 	Ndb *db;
 	int fd;
+
+	if(beprimary == 0)
+		return;
 
 	p = buf;
 	e = buf + sizeof buf;

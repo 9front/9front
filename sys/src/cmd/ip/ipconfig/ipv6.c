@@ -151,12 +151,6 @@ uchar v6solpfx[IPaddrlen] = {
 	0xff, 0, 0, 0,
 };
 
-uchar v6defmask[IPaddrlen] = {
-	0xff, 0xff, 0xff, 0xff,
-	0xff, 0xff, 0xff, 0xff,
-	0, 0, 0, 0,
-	0, 0, 0, 0
-};
 
 void
 v6paraminit(Conf *cf)
@@ -366,7 +360,7 @@ ip6cfg(void)
 	if(!validip(conf.laddr) || isv4(conf.laddr))
 		return -1;
 
-	tentative = dupl_disc;
+	tentative = dupl_disc && isether();
 
 Again:
 	if(tentative)
@@ -376,7 +370,7 @@ Again:
 
 	n += snprint(buf+n, sizeof buf-n, " %I", conf.laddr);
 	if(!validip(conf.mask))
-		ipmove(conf.mask, v6defmask);
+		ipmove(conf.mask, defmask(conf.laddr));
 	n += snprint(buf+n, sizeof buf-n, " %M", conf.mask);
 	if(validip(conf.raddr)){
 		n += snprint(buf+n, sizeof buf-n, " %I", conf.raddr);
@@ -770,8 +764,7 @@ recvrahost(uchar buf[], int pktlen)
 		if(noconfig)
 			continue;
 
-		if(beprimary)
-			putndb();
+		putndb();
 		refresh();
 	}
 }
