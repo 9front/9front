@@ -1124,17 +1124,12 @@ sendra6(void)
 static void
 startra6(void)
 {
-	static char routeon[] = "iprouting 1";
-
 	if(conf.recvra > 0)
 		recvra6();
 
 	dolog = 1;
 	if(conf.sendra > 0) {
-		if(write(conf.cfd, routeon, sizeof routeon - 1) < 0) {
-			warning("write (%s) failed: %r", routeon);
-			return;
-		}
+		ewrite(conf.cfd, "iprouting 1");
 		sendra6();
 		if(conf.recvra <= 0)
 			recvra6();
