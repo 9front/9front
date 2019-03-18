@@ -80,7 +80,7 @@ CPU number on which the probe was triggered
 prints all its arguments, separated by spaces and followed by a newline.
 .I Printf
 prints its arguments using a format string with
-.IR print (1)
+.IR print (2)
 syntax.
 However, there is no need to specify the argument size, e.g. \fL%d\fR works for all integer types.
 .PP
