@@ -16,7 +16,7 @@ OFILES=\
 	parsetok.$O\
 	tokenizer.$O\
 
-CLEANFILES=pgen.$objtype
+CLEANFILES=`{echo pgen.^($CPUS)}
 
 </sys/src/cmd/mksyslib
 

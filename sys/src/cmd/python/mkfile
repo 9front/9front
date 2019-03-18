@@ -31,5 +31,5 @@ Extra/config:D:
 clean nuke:V:
 	for(i in $LIBDIRS) @{cd $i && mk $target}
 	rm -f *.[$OS] [$OS].out y.tab.? y.debug y.output $OFILES
-	rm -f libpython.a[$OS] libextra.a[$OS] /$objtype/lib/ape/libpython.a
+	rm -f libpython.a[$OS] libextra.a[$OS] /^($CPUS)^/lib/ape/libpython.a
 	rm -f config.c Extra/config
