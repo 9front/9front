@@ -25,6 +25,8 @@ if(! nusb/usbd)
 			nusb/ether -t url $etherargs $id
 		case 18d14ee3 0bb40003 10046344
 			nusb/ether -t rndis $etherargs $id
+		case 12092301 # keyboardio model 01 (IAD)
+			nusb/kb $id
 		# prevent attachment to nusb/kb for:
 		case 054c0268 # sony dualshock 3 (ps3) controller
 		case *
