@@ -761,7 +761,7 @@ readerproc(void* a)
 			continue;
 
 		/* combine all the slots */
-		abs = x = y = b = 0;
+		abs = x = y = z = b = 0;
 		for(i=0; i<p.ns; *l = *s, i++){
 			s = &p.s[i];
 
@@ -773,7 +773,7 @@ readerproc(void* a)
 				*l = *s;
 
 			/* convet absolute z to relative */
-			z = s->z;
+			z += s->z;
 			if(s->abs & 4)
 				z -= l->z;
 
@@ -783,10 +783,10 @@ readerproc(void* a)
 						i, s->id, s->b, s->m,
 						(uint)s->x / 2147483648.0,
 						(uint)s->y / 2147483648.0,
-						z);
+						s->z);
 				else
 					fprint(2, "ptr[%d]: id=%x b=%x m=%x x=%d y=%d z=%d\n",
-						i, s->id, s->b, s->m, s->x, s->y, z);
+						i, s->id, s->b, s->m, s->x, s->y, s->z);
 			}
 
 			/* map to mouse buttons */
@@ -795,8 +795,6 @@ readerproc(void* a)
 				b |= 2;
 			if(s->b & 2)
 				b |= 4;
-			if(z != 0)
-				b |= z > 0 ? 8 : 16;
 
 			/* X/Y are absolute? */
 			if((s->abs & 3) == 3){
@@ -814,8 +812,11 @@ readerproc(void* a)
 				y += s->y;
 			}
 		}
+	
+		if(z != 0)
+			b |= z > 0 ? 8 : 16;
 
-		if(abs || x != 0 || y != 0 || b != lastb){
+		if(abs || x != 0 || y != 0 || z != 0 || b != lastb){
 			lastb = b;
 
 			if(f->minfd < 0){
