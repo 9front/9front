@@ -83,6 +83,14 @@ Nfmt(Fmt *f)
 }
 
 int
+Mfmt(Fmt *f)
+{
+	char *s = va_arg(f->args, char*);
+	fmtprint(f, (*s != '[' && strchr(s, ':') != nil)? "[%s]" : "%s", s);
+	return 0;
+}
+
+int
 Ufmt(Fmt *f)
 {
 	char *s;
@@ -101,7 +109,7 @@ Ufmt(Fmt *f)
 		fmtprint(f, "@");
 	}
 	if(u->host){
-		fmtprint(f, strchr(u->host, ':') ? "[%s]" : "%s", u->host);
+		fmtprint(f, "%]", u->host);
 		if(u->port)
 			fmtprint(f, ":%s", u->port);
 	}

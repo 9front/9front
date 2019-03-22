@@ -766,6 +766,7 @@ main(int argc, char *argv[])
 	quotefmtinstall();
 	fmtinstall('U', Ufmt);
 	fmtinstall('N', Nfmt);
+	fmtinstall(']', Mfmt);
 	fmtinstall('E', Efmt);
 	fmtinstall('[', encodefmt);
 	fmtinstall('H', encodefmt);
