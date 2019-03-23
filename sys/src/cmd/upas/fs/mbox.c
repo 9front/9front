@@ -76,8 +76,10 @@ syncmbox(Mailbox *mb, int doplumb)
 	a = mb->root->subname;
 	if(rdidxfile(mb) == -2)
 		wridxfile(mb);
-	if(s = mb->sync(mb))
+	if(s = mb->sync(mb)){
+		mb->syncing = 0;
 		return s;
+	}
 	n = 0;
 	d = 0;
 	y = 0;
