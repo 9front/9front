@@ -1,0 +1,122 @@
+.TH WALK 1
+.SH NAME
+walk \- walk a path
+.SH SYNOPSIS
+.B walk
+[
+.B -dftxu
+] [
+.B -n
+.I mind,maxd
+] [
+.B -e
+.I ststr
+] [
+.I name ...
+]
+.SH DESCRIPTION
+.I Walk
+recursively descends any directory arguments,
+printing the name of each file on a separate line.
+When no arguments are given, the current directory
+is assumed.
+Non-directory arguments are checked for existence,
+then printed, if so.
+.PP
+Options are:
+.TP
+.B -d
+Print only directories.
+.TP
+.B -f
+Print only non-directories.
+.TP
+.B -t
+Print a file only if it has the temporary flag set.
+.TP
+.B -x
+Print a file only if it has any executable bits set.
+.TP
+.B -u
+Unbuffered output.
+.TP
+.B -n min,max
+Set the inclusive range of depths for filtering in results.
+Both
+.I min
+and
+.I max
+are optional.
+.TP
+.B -e statfmt
+Setting the statfmt string allows specifying the data
+.B walk
+should print.
+It takes a string of characters, each corresponding
+to some piece of information about the file being
+traversed, and prints them separated by spaces.
+.PP
+The statfmt characters are as follows:
+.TF .
+.TP
+.B U
+owner name (uid)
+.TP
+.B G
+group name (gid)
+.TP
+.B M
+name of last user to modify (muid)
+.TP
+.B a
+last access time (atime)
+.TP
+.B m
+last modification time (mtime)
+.TP
+.B n
+final path element (name)
+.TP
+.B p
+path
+.TP
+.B q
+qid path.version.type (see
+.IR stat (2))
+.TP
+.B s
+size in bytes
+.TP
+.B x
+permissions
+.PD
+.PP
+The default statfmt is simply,
+.IR p .
+.SH EXAMPLES
+List files in a directory, sorted by modification time.
+.IP
+.EX
+walk -femp catpics | sort -n | sed 's/^[^ ]+ //'
+.EE
+.PP
+Print the size and path of files (excluding dirs)
+in the working directory.
+.IP
+.EX
+walk -fn1 -esp
+.EE
+.PD
+.SH SOURCE
+.B /sys/src/cmd/walk.c
+.SH SEE ALSO
+.IR ls (1),
+.IR du (1)
+.SH BUGS
+Statfmt character `x' displays permissions as an integer.
+.PP
+Manipulating ifs is a nuisance.
+.PP
+File names are assumed to not contain newlines.
+.PP
+Correct invocation requires too much thought.
