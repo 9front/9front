@@ -21,7 +21,7 @@ case go
 		ip/ipconfig -g $gwaddr ether $netdev $ipaddr $ipmask >>[2]/srv/log
 	case automatic
 		>>[2]/srv/log @{
-			ip/ipconfig ra6 recvra 1 &
+			test -e /env/nora6 || ip/ipconfig ra6 recvra 1 &
 			ip/ipconfig &
 			wait
 		}
