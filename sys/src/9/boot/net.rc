@@ -15,7 +15,7 @@ fn confignet{
 		}
 	}
 
-	if(~ $1 ether || ~ $1 gbe && ~ $#* 2) @{
+	if(~ $1 ether gbe && ~ $#* 2) @{
 		ip/ipconfig -6 $*
 		test -e /env/nora6 || ip/ipconfig $* ra6 recvra 1 &
 		ip/ipconfig -p $* &
