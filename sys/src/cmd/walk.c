@@ -40,11 +40,9 @@ warn(char *fmt, ...)
 }
 
 void
-dofile(char *path, Dir *f, int pathonly, long depth)
+dofile(char *path, Dir *f, int pathonly)
 {
 	char *p;
-
-	USED(depth);
 
 	if(
 		(f == dotdir)
@@ -115,12 +113,12 @@ walk(char *path, Dir *cf, long depth)
 				continue;
 			if(! (f->qid.type & QTDIR)){
 				if(fflag && depth >= mindepth)
-					dofile(path, f, 0, depth);
+					dofile(path, f, 0);
 			} else if(strcmp(f->name, ".") == 0 || strcmp(f->name, "..") == 0){
 				warn(". or .. named file: %s/%s", path, f->name);
 			} else{
 				if(depth+1 > maxdepth){
-					dofile(path, f, 0, depth);
+					dofile(path, f, 0);
 					continue;
 				} else if(path == dotpath){
 					if((file = s_new()) == nil)
@@ -146,7 +144,7 @@ walk(char *path, Dir *cf, long depth)
 nodescend:
 	depth--;
 	if(dflag && depth >= mindepth)
-		dofile(path, cf, 0, depth);
+		dofile(path, cf, 0);
 }
 
 char*
@@ -272,7 +270,7 @@ main(int argc, char **argv)
 		}
 		if((d = dirstat(argv[i])) != nil && ! (d->qid.type & QTDIR)){
 			if(fflag && !seen(d) && mindepth < 1)
-				dofile(argv[i], d, 1, 0);
+				dofile(argv[i], d, 1);
 		} else
 			walk(argv[i], d, 1);
 		free(d);
