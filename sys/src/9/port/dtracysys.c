@@ -20,10 +20,10 @@ extern Syscall *systab[];
 	uintptr rc;\
 	DTTrigInfo info;\
 	memset(&info, 0, sizeof(info));\
-	dtptrigger(dtpsysentry[y], m->machno, &info);\
+	dtptrigger(dtpsysentry[y], &info);\
 	rc = z(va);\
 	info.arg[9] = (uvlong) rc;\
-	dtptrigger(dtpsysreturn[y], m->machno, &info);\
+	dtptrigger(dtpsysreturn[y], &info);\
 	return rc;\
 }
 #define WRAP1(x,y,z,type0)\
@@ -33,10 +33,10 @@ extern Syscall *systab[];
 	DTTrigInfo info;\
 	memset(&info, 0, sizeof(info));\
 	info.arg[0] = (uvlong) va_arg(vb, type0);\
-	dtptrigger(dtpsysentry[y], m->machno, &info);\
+	dtptrigger(dtpsysentry[y], &info);\
 	rc = z(va);\
 	info.arg[9] = (uvlong) rc;\
-	dtptrigger(dtpsysreturn[y], m->machno, &info);\
+	dtptrigger(dtpsysreturn[y], &info);\
 	return rc;\
 }
 #define WRAP2(x,y,z,type0,type1)\
@@ -47,10 +47,10 @@ extern Syscall *systab[];
 	memset(&info, 0, sizeof(info));\
 	info.arg[0] = (uvlong) va_arg(vb, type0);\
 	info.arg[1] = (uvlong) va_arg(vb, type1);\
-	dtptrigger(dtpsysentry[y], m->machno, &info);\
+	dtptrigger(dtpsysentry[y], &info);\
 	rc = z(va);\
 	info.arg[9] = (uvlong) rc;\
-	dtptrigger(dtpsysreturn[y], m->machno, &info);\
+	dtptrigger(dtpsysreturn[y], &info);\
 	return rc;\
 }
 #define WRAP3(x,y,z,type0,type1,type2)\
@@ -62,10 +62,10 @@ extern Syscall *systab[];
 	info.arg[0] = (uvlong) va_arg(vb, type0);\
 	info.arg[1] = (uvlong) va_arg(vb, type1);\
 	info.arg[2] = (uvlong) va_arg(vb, type2);\
-	dtptrigger(dtpsysentry[y], m->machno, &info);\
+	dtptrigger(dtpsysentry[y], &info);\
 	rc = z(va);\
 	info.arg[9] = (uvlong) rc;\
-	dtptrigger(dtpsysreturn[y], m->machno, &info);\
+	dtptrigger(dtpsysreturn[y], &info);\
 	return rc;\
 }
 #define WRAP4(x,y,z,type0,type1,type2,type3)\
@@ -78,10 +78,10 @@ extern Syscall *systab[];
 	info.arg[1] = (uvlong) va_arg(vb, type1);\
 	info.arg[2] = (uvlong) va_arg(vb, type2);\
 	info.arg[3] = (uvlong) va_arg(vb, type3);\
-	dtptrigger(dtpsysentry[y], m->machno, &info);\
+	dtptrigger(dtpsysentry[y], &info);\
 	rc = z(va);\
 	info.arg[9] = (uvlong) rc;\
-	dtptrigger(dtpsysreturn[y], m->machno, &info);\
+	dtptrigger(dtpsysreturn[y], &info);\
 	return rc;\
 }
 /*TODO*/
@@ -96,10 +96,10 @@ extern Syscall *systab[];
 	info.arg[2] = (uvlong) va_arg(vb, type2);\
 	info.arg[3] = (uvlong) va_arg(vb, type3);\
 	info.arg[4] = (uvlong) va_arg(vb, type4);\
-	dtptrigger(dtpsysentry[y], m->machno, &info);\
+	dtptrigger(dtpsysentry[y], &info);\
 	rc = z(va);\
 	info.arg[9] = (uvlong) rc;\
-	dtptrigger(dtpsysreturn[y], m->machno, &info);\
+	dtptrigger(dtpsysreturn[y], &info);\
 	return rc;\
 }
 

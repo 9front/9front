@@ -80,6 +80,7 @@ devpipe.$O:	../port/netif.h
 netif.$O:	../port/netif.h
 devuart.$O:	../port/netif.h
 devbridge.$O:	../port/netif.h ../ip/ip.h ../ip/ipv6.h
+devdtracy.$O dtracysys.$O dtracytimer.$O:	/sys/include/dtracy.h
 devdraw.$O:	screen.h /sys/include/draw.h /sys/include/memdraw.h /sys/include/memlayer.h /sys/include/cursor.h
 devmouse.$O:	screen.h /sys/include/draw.h /sys/include/memdraw.h /sys/include/cursor.h
 swcursor.$O:	screen.h /sys/include/draw.h /sys/include/memdraw.h /sys/include/cursor.h

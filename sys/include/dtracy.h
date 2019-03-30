@@ -241,7 +241,7 @@ void dtsync(void);
 DTProbe *dtpnew(char *, DTProvider *, void *aux);
 int dtpmatch(char *, DTProbe ***);
 int dtplist(DTProbe ***);
-void dtptrigger(DTProbe *, int, DTTrigInfo *);
+void dtptrigger(DTProbe *, DTTrigInfo *);
 
 /* expression functions */
 int dteverify(DTExpr *);
@@ -285,7 +285,7 @@ uvlong dttime(void); /* return current timestamp */
 void *dtrealloc(void *, ulong);
 void dtfree(void *);
 void *dtmalloc(ulong);
-void dtmachlock(int); /* lock the per-cpu lock */
+int dtmachlock(int); /* lock the per-cpu lock */
 void dtmachunlock(int); /* unlock the per-cpu lock */
 void dtcoherence(void); /* memory barrier */
 uvlong dtgetvar(int); /* return the value of a variable */

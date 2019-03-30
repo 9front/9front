@@ -336,13 +336,12 @@ dtgexec(DTActGr *g, DTTrigInfo *info)
 }
 
 void
-dtptrigger(DTProbe *p, int machno, DTTrigInfo *info)
+dtptrigger(DTProbe *p, DTTrigInfo *info)
 {
 	DTEnab *e;
 	
 	info->ts = dttime();
-	dtmachlock(machno);
-	info->machno = machno;
+	info->machno = dtmachlock(-1);
 	for(e = p->enablist.probnext; e != &p->enablist; e = e->probnext)
 		if(e->gr->chan->state == DTCGO){
 			info->ch = e->gr->chan;
@@ -350,5 +349,5 @@ dtptrigger(DTProbe *p, int machno, DTTrigInfo *info)
 			if(dtgexec(e->gr, info) < 0)
 				e->gr->chan->state = DTCFAULT;
 		}
-	dtmachunlock(machno);
+	dtmachunlock(info->machno);
 }

@@ -17,7 +17,7 @@ dtracytimer(void *)
 	memset(&info, 0, sizeof(info));
 	for(;;){
 		tsleep(&up->sleep, return0, nil, 1000);
-		dtptrigger(timerprobe, m->machno, &info);
+		dtptrigger(timerprobe, &info);
 	}
 }
 

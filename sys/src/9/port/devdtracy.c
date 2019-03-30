@@ -512,10 +512,18 @@ dtrealloc(void *v, ulong n)
 	return v;
 }
 
-void
+int
 dtmachlock(int i)
 {
+	while(i < 0) {
+		i = dtmachlock(m->machno);
+		if(i == m->machno)
+			return i;
+		dtmachunlock(i);
+		i = -1;
+	}
 	ilock(&machlocks[i]);
+	return i;
 }
 
 void
