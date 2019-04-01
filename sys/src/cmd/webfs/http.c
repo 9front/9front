@@ -637,7 +637,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 			ru.path = Upath(u);
 			ru.query = u->query;
 		}
-		n = snprint(buf, sizeof(buf), "%s %U HTTP/1.1\r\nHost: %s%s%s\r\n",
+		n = snprint(buf, sizeof(buf), "%s %U HTTP/1.1\r\nHost: %]%s%s\r\n",
 			method, &ru, host, u->port ? ":" : "", u->port ? u->port : "");
 		if(n >= sizeof(buf)-64){
 			werrstr("request too large");
@@ -649,7 +649,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 				break;
 		}
 		if(h->tunnel){
-			n = snprint(buf, sizeof(buf), "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\n",
+			n = snprint(buf, sizeof(buf), "CONNECT %]:%s HTTP/1.1\r\nHost: %]:%s\r\n",
 				host, u->port ? u->port : "443",
 				host, u->port ? u->port : "443");
 		}

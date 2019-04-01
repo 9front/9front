@@ -337,7 +337,7 @@ subprop(Reg *r0)
 			break;
 
 		case AMOVM:
-			t = 1<<v2->reg;
+			t = (1<<v1->reg) | (1<<v2->reg);
 			if((p->from.type == D_CONST && (p->from.offset&t)) ||
 			   (p->to.type == D_CONST && (p->to.offset&t)))
 				return 0;

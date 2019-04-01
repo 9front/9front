@@ -146,4 +146,5 @@ binds:V:
 	bind mail/lib /n/src9/mail/lib
 	bind ndb /n/src9/lib/ndb
 	bind -a adm/timezone /n/src9/adm/timezone
+	aux/stub -d /n/src9/usr
 	bind usr /n/src9/usr
