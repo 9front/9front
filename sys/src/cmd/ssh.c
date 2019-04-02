@@ -1157,7 +1157,7 @@ kfmt(Fmt *f)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-dRX] [-t thumbfile] [-T tries] [-u user] [-h] [user@]host [-W remote!port] [cmd args...]\n", argv0);
+	fprint(2, "usage: %s [-dR] [-t thumbfile] [-T tries] [-u user] [-h] [user@]host [-W remote!port] [cmd args...]\n", argv0);
 	exits("usage");
 }
 
@@ -1217,6 +1217,8 @@ main(int argc, char *argv[])
 		mux = 1;
 		raw = 0;
 		break;
+	default:
+		usage();
 	} ARGEND;
 
 	if(host == nil){
@@ -1287,47 +1289,84 @@ Next0:	switch(recvpkt()){
 	recv.win = send.win =  WinPackets*recv.pkt;
 	recv.chan = send.win = 0;
 
-	if(!mux){
-		/* open hailing frequencies */
-		if(remote != nil){
-			NetConnInfo *nci = getnetconninfo(nil, fd);
-			if(nci == nil)
-				sysfatal("can't get netconninfo: %r");
-			sendpkt("bsuuususu", MSG_CHANNEL_OPEN,
-				"direct-tcpip", 12,
-				recv.chan,
-				recv.win,
-				recv.pkt,
-				remote, strlen(remote),
-				port,
-				nci->laddr, strlen(nci->laddr),
-				atoi(nci->lserv));
-			free(nci);
-		} else {
-			sendpkt("bsuuu", MSG_CHANNEL_OPEN,
-				"session", 7,
-				recv.chan,
-				recv.win,
-				recv.pkt);
-		}
-Next1:		switch(recvpkt()){
-		default:
-			dispatch();
-			goto Next1;
-		case MSG_CHANNEL_OPEN_FAILURE:
-			if(unpack(recv.r, recv.w-recv.r, "_uus", &c, &b, &s, &n) < 0)
-				n = strlen(s = "???");
-			sysfatal("channel open failure: (%d) %.*s", b, utfnlen(s, n), s);
-		case MSG_CHANNEL_OPEN_CONFIRMATION:
-			break;
-		}
+	if(mux)
+		goto Mux;
 
-		if(unpack(recv.r, recv.w-recv.r, "_uuuu", &recv.chan, &send.chan, &send.win, &send.pkt) < 0)
-			sysfatal("bad channel open confirmation");
-		if(send.pkt <= 0 || send.pkt > MaxPacket)
-			send.pkt = MaxPacket;
+	/* open hailing frequencies */
+	if(remote != nil){
+		NetConnInfo *nci = getnetconninfo(nil, fd);
+		if(nci == nil)
+			sysfatal("can't get netconninfo: %r");
+		sendpkt("bsuuususu", MSG_CHANNEL_OPEN,
+			"direct-tcpip", 12,
+			recv.chan,
+			recv.win,
+			recv.pkt,
+			remote, strlen(remote),
+			port,
+			nci->laddr, strlen(nci->laddr),
+			atoi(nci->lserv));
+		free(nci);
+	} else {
+		sendpkt("bsuuu", MSG_CHANNEL_OPEN,
+			"session", 7,
+			recv.chan,
+			recv.win,
+			recv.pkt);
+	}
+Next1:	switch(recvpkt()){
+	default:
+		dispatch();
+		goto Next1;
+	case MSG_CHANNEL_OPEN_FAILURE:
+		if(unpack(recv.r, recv.w-recv.r, "_uus", &c, &b, &s, &n) < 0)
+			n = strlen(s = "???");
+		sysfatal("channel open failure: (%d) %.*s", b, utfnlen(s, n), s);
+	case MSG_CHANNEL_OPEN_CONFIRMATION:
+		break;
 	}
 
+	if(unpack(recv.r, recv.w-recv.r, "_uuuu", &recv.chan, &send.chan, &send.win, &send.pkt) < 0)
+		sysfatal("bad channel open confirmation");
+	if(send.pkt <= 0 || send.pkt > MaxPacket)
+		send.pkt = MaxPacket;
+
+	if(remote != nil)
+		goto Mux;
+
+	if(raw) {
+		rawon();
+		sendpkt("busbsuuuus", MSG_CHANNEL_REQUEST,
+			send.chan,
+			"pty-req", 7,
+			0,
+			tty.term, strlen(tty.term),
+			tty.cols,
+			tty.lines,
+			tty.xpixels,
+			tty.ypixels,
+			"", 0);
+	}
+	if(cmd == nil){
+		sendpkt("busb", MSG_CHANNEL_REQUEST,
+			send.chan,
+			"shell", 5,
+			0);
+	} else if(*cmd == '#') {
+		sendpkt("busbs", MSG_CHANNEL_REQUEST,
+			send.chan,
+			"subsystem", 9,
+			0,
+			cmd+1, strlen(cmd)-1);
+	} else {
+		sendpkt("busbs", MSG_CHANNEL_REQUEST,
+			send.chan,
+			"exec", 4,
+			0,
+			cmd, strlen(cmd));
+	}
+
+Mux:
 	notify(catch);
 	atexit(shutdown);
 
@@ -1352,39 +1391,6 @@ Next1:		switch(recvpkt()){
 
 	/* child reads input and sends packets */
 	qlock(&sl);
-	if(remote == nil && !mux){
-		if(raw) {
-			rawon();
-			sendpkt("busbsuuuus", MSG_CHANNEL_REQUEST,
-				send.chan,
-				"pty-req", 7,
-				0,
-				tty.term, strlen(tty.term),
-				tty.cols,
-				tty.lines,
-				tty.xpixels,
-				tty.ypixels,
-				"", 0);
-		}
-		if(cmd == nil){
-			sendpkt("busb", MSG_CHANNEL_REQUEST,
-				send.chan,
-				"shell", 5,
-				0);
-		} else if(*cmd == '#') {
-			sendpkt("busbs", MSG_CHANNEL_REQUEST,
-				send.chan,
-				"subsystem", 9,
-				0,
-				cmd+1, strlen(cmd)-1);
-		} else {
-			sendpkt("busbs", MSG_CHANNEL_REQUEST,
-				send.chan,
-				"exec", 4,
-				0,
-				cmd, strlen(cmd));
-		}
-	}
 	for(;;){
 		static uchar buf[MaxPacket];
 		qunlock(&sl);
