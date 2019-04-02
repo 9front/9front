@@ -782,13 +782,13 @@ ctlwrite(Req *r, Client *c)
 	int nf;
 
 	s = emalloc9p(r->ifcall.count+1);
+	r->ofcall.count = r->ifcall.count;
 	memmove(s, r->ifcall.data, r->ifcall.count);
 	s[r->ifcall.count] = '\0';
 
 	nf = tokenize(s, f, 3);
 	if(nf == 0){
 		free(s);
-		r->ofcall.count = r->ifcall.count;
 		respond(r, nil);
 		return;
 	}
@@ -799,7 +799,6 @@ ctlwrite(Req *r, Client *c)
 		if(nf != 1)
 			goto Badarg;
 		teardownclient(c);
-		r->ofcall.count = r->ifcall.count;
 		respond(r, nil);
 	}else if(strcmp(f[0], "connect") == 0){
 		if(c->state != Closed)
