@@ -1250,7 +1250,7 @@ ssh(int argc, char *argv[])
 
 	pipe(pfd);
 	sshfd = pfd[0];
-	procrfork(startssh, nil, mainstacksize, RFFDG|RFNOTEG|RFNAMEG);
+	procrfork(startssh, nil, 8*1024, RFFDG|RFNOTEG|RFNAMEG);
 	close(pfd[1]);
 
 	sendmsg(pack(nil, "bsuuu", MSG_CHANNEL_OPEN,
@@ -1317,8 +1317,8 @@ threadmain(int argc, char **argv)
 	fsreqwaitchan = chancreate(sizeof(void*), 0);
 	fsclunkchan = chancreate(sizeof(Fid*), 0);
 	fsclunkwaitchan = chancreate(sizeof(void*), 0);
-	procrfork(fsnetproc, nil, mainstacksize, RFNAMEG|RFNOTEG);
-	procrfork(sshreadproc, nil, mainstacksize, RFNAMEG|RFNOTEG);
+	procrfork(fsnetproc, nil, 8*1024, RFNAMEG|RFNOTEG);
+	procrfork(sshreadproc, nil, 8*1024, RFNAMEG|RFNOTEG);
 
 	ssh(argc, argv);
 
