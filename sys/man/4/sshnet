@@ -1,0 +1,48 @@
+.TH SSHNET 4
+.SH NAME
+sshnet - secure file transfer protocol client
+.SH SYNOPSIS
+.B sshnet
+[
+.B -m
+.I mtpt
+]
+[
+.B -s
+.I service
+]
+.IB user @ host
+.br
+.B sshnet
+[
+.B -m
+.I mtpt
+]
+[
+.B -s
+.I service
+]
+.B --
+.I ssh-options
+.IB user @ host
+.SH DESCRIPTION
+The SSH protocol allows clients to make outgoing TCP calls via the server.
+.I Sshnet
+establishes an SSH connection and, rather than execute a remote command,
+presents the remote server's TCP stack as a network stack
+(see the discussion of TCP in
+.IR ip (3))
+mounted at
+.I mtpt
+(default
+.BR /net ),
+optionally posting a 9P service
+descriptor for the new file system as
+.IB /srv/ service \fR.
+All other arguments are passed to
+.IR ssh (1)
+as is.
+.SH SOURCE
+.B /sys/src/cmd/sshnet.c
+.SH "SEE ALSO"
+.IR ssh (1)
