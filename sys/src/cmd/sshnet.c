@@ -32,6 +32,7 @@ enum
 #define TYPE(path)		((int)(path) & 0xFF)
 #define NUM(path)		((uint)(path)>>8)
 
+Channel *ssherrchan;		/* chan(char*) */
 Channel *sshmsgchan;		/* chan(Msg*) */
 Channel *fsreqchan;		/* chan(Req*) */
 Channel *fsreqwaitchan;		/* chan(nil) */
@@ -92,6 +93,8 @@ enum {
 
 	MaxPacket = 1<<15,
 	WinPackets = 8,
+
+	SESSIONCHAN = 1<<24,
 };
 
 struct Msg
@@ -1028,7 +1031,7 @@ fsflush(Req *r)
 static void
 handlemsg(Msg *m)
 {
-	int chan, win, pkt, n;
+	int chan, win, pkt, n, l;
 	Client *c;
 	char *s;
 
@@ -1075,6 +1078,10 @@ handlemsg(Msg *m)
 	case MSG_CHANNEL_OPEN_CONFIRMATION:
 		if(unpack(m, "_uuuu", &chan, &n, &win, &pkt) < 0)
 			break;
+		if(chan == SESSIONCHAN){
+			sendp(ssherrchan, nil);
+			break;
+		}
 		c = getclient(chan);
 		if(c == nil || c->state != Dialing)
 			break;
@@ -1087,8 +1094,12 @@ handlemsg(Msg *m)
 		dialedclient(c);
 		break;
 	case MSG_CHANNEL_OPEN_FAILURE:
-		if(unpack(m, "_uu", &chan, &n) < 0)
+		if(unpack(m, "_uus", &chan, &n, &s, &l) < 0)
 			break;
+		if(chan == SESSIONCHAN){
+			sendp(ssherrchan, smprint("%.*s", utfnlen(s, l), s));
+			break;
+		}
 		c = getclient(chan);
 		if(c == nil || c->state != Dialing)
 			break;
@@ -1228,6 +1239,48 @@ startssh(void *)
 }
 
 void
+ssh(int argc, char *argv[])
+{
+	Alt a[3];
+	Waitmsg *w;
+	char *e;
+
+	sshargc = argc + 2;
+	sshargv = emalloc9p(sizeof(char *) * (sshargc + 1));
+	sshargv[0] = "ssh";
+	sshargv[1] = "-X";
+	memcpy(sshargv + 2, argv, argc * sizeof(char *));
+
+	pipe(pfd);
+	sshfd = pfd[0];
+	procrfork(startssh, nil, mainstacksize, RFFDG|RFNOTEG|RFNAMEG);
+	close(pfd[1]);
+
+	sendmsg(pack(nil, "bsuuu", MSG_CHANNEL_OPEN,
+		"session", 7,
+		SESSIONCHAN,
+		MaxPacket,
+		MaxPacket));
+
+	a[0].op = CHANRCV;
+	a[0].c = threadwaitchan();
+	a[0].v = &w;
+	a[1].op = CHANRCV;
+	a[1].c = ssherrchan;
+	a[1].v = &e;
+	a[2].op = CHANEND;
+
+	switch(alt(a)){
+	case 0:
+		sysfatal("ssh failed: %s", w->msg);
+	case 1:
+		if(e != nil)
+			sysfatal("ssh failed: %s", e);
+	}
+	chanclose(ssherrchan);
+}
+
+void
 usage(void)
 {
 	fprint(2, "usage: sshnet [-m mtpt] [ssh options]\n");
@@ -1259,27 +1312,18 @@ threadmain(int argc, char **argv)
 
 	if(argc == 0)
 		usage();
-	
-	sshargc = argc + 2;
-	sshargv = emalloc9p(sizeof(char *) * (sshargc + 1));
-	sshargv[0] = "ssh";
-	sshargv[1] = "-X";
-	memcpy(sshargv + 2, argv, argc * sizeof(char *));
-
-	pipe(pfd);
-	sshfd = pfd[0];
-	procrfork(startssh, nil, mainstacksize, RFFDG|RFNOTEG|RFNAMEG);
-	close(pfd[1]);
 
 	time0 = time(0);
+	ssherrchan = chancreate(sizeof(char*), 0);
 	sshmsgchan = chancreate(sizeof(Msg*), 16);
 	fsreqchan = chancreate(sizeof(Req*), 0);
 	fsreqwaitchan = chancreate(sizeof(void*), 0);
 	fsclunkchan = chancreate(sizeof(Fid*), 0);
 	fsclunkwaitchan = chancreate(sizeof(void*), 0);
-
-	procrfork(sshreadproc, nil, mainstacksize, RFNAMEG|RFNOTEG);
 	procrfork(fsnetproc, nil, mainstacksize, RFNAMEG|RFNOTEG);
+	procrfork(sshreadproc, nil, mainstacksize, RFNAMEG|RFNOTEG);
+
+	ssh(argc, argv);
 
 	threadpostmountsrv(&fs, service, mtpt, MREPL);
 	exits(0);
