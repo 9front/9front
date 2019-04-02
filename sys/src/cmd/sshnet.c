@@ -744,7 +744,7 @@ cswrite(Req *r)
 		return;
 	}
 	port = ndbfindport(f[2]);
-	if(port <= 0){
+	if(port < 0){
 		free(s);
 		respond(r, "no translation found");
 		return;
