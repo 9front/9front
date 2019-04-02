@@ -805,13 +805,11 @@ ctlwrite(Req *r, Client *c)
 			goto Badarg;
 		if(nf != 2)
 			goto Badarg;
+		free(c->connect);
 		c->connect = estrdup9p(f[1]);
 		nf = getfields(f[1], f, nelem(f), 0, "!");
-		if(nf != 2){
-			free(c->connect);
-			c->connect = nil;
+		if(nf != 2)
 			goto Badarg;
-		}
 		c->sendwin = MaxPacket;
 		c->recvwin = WinPackets * MaxPacket;
 		c->recvacc = 0;
