@@ -10,8 +10,8 @@ sshnet - secure file transfer protocol client
 [
 .B -s
 .I service
-]
-.IB user @ host
+] [
+.IB user @] host
 .br
 .B sshnet
 [
@@ -24,7 +24,8 @@ sshnet - secure file transfer protocol client
 ]
 .B --
 .I ssh-options
-.IB user @ host
+[
+.IB user @] host
 .SH DESCRIPTION
 The SSH protocol allows clients to make outgoing TCP calls via the server.
 .I Sshnet
@@ -44,5 +45,8 @@ All other arguments are passed to
 as is.
 .SH SOURCE
 .B /sys/src/cmd/sshnet.c
+.SH BUGS
+Incoming connections are not supported.
 .SH "SEE ALSO"
-.IR ssh (1)
+.IR ssh (1),
+.IR ip (3)
