@@ -235,6 +235,12 @@ shutdown(void)
 	threadexitsall(nil);
 }
 
+static void
+catch(void*, char*)
+{
+	shutdown();
+}
+
 void
 usage(void)
 {
@@ -291,6 +297,7 @@ threadmain(int argc, char **argv)
 	}ARGEND;
 
 	quotefmtinstall();
+	notify(catch);
 	atexit(shutdown);
 
 	if(initdraw(0, fontname, term) < 0)
