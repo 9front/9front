@@ -92,6 +92,9 @@ option, instead of executing a command remotely, makes
 the server dial a tcp connection to
 .I remote!port
 which the client relays on standard input and output.
+For handling multiple connections transparently to
+programs, see
+.IR sshnet (4).
 .PP
 The
 .B -d
@@ -117,4 +120,5 @@ Setting it to zero disables keyboard-interactive authentication.
 .IR rsa (8),
 .IR thumbprint (6),
 .IR factotum (4),
-.IR sshfs (4)
+.IR sshfs (4),
+.IR sshnet (4)
