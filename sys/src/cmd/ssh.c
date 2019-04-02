@@ -80,8 +80,8 @@ int nsid;
 uchar sid[256];
 char thumb[2*SHA2_256dlen+1], *thumbfile;
 
-int fd, intr, raw, debug;
-char *user, *service, *status, *host, *cmd;
+int fd, intr, raw, port, debug;
+char *user, *service, *status, *host, *remote, *cmd;
 
 Oneway recv, send;
 void dispatch(void);
@@ -1147,7 +1147,7 @@ kfmt(Fmt *f)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-dR] [-t thumbfile] [-T tries] [-u user] [-h] [user@]host [cmd args...]\n", argv0);
+	fprint(2, "usage: %s [-dR] [-t thumbfile] [-T tries] [-u user] [-h] [user@]host [-W remote!port] [cmd args...]\n", argv0);
 	exits("usage");
 }
 
@@ -1172,6 +1172,17 @@ main(int argc, char *argv[])
 	ARGBEGIN {
 	case 'd':
 		debug++;
+		break;
+	case 'W':
+		remote = EARGF(usage());
+		s = strrchr(remote, '!');
+		if(s == nil)
+			s = strrchr(remote, ':');
+		if(s == nil)
+			usage();
+		*s++ = 0;
+		port = atoi(s);
+		raw = 0;
 		break;
 	case 'R':
 		raw = 0;
@@ -1221,6 +1232,9 @@ main(int argc, char *argv[])
 		}
 	}
 
+	if(remote != nil && cmd != nil)
+		usage();
+
 	if((fd = dial(netmkaddr(host, nil, "ssh"), nil, nil, nil)) < 0)
 		sysfatal("dial: %r");
 
@@ -1260,11 +1274,27 @@ Next0:	switch(recvpkt()){
 	recv.chan = 0;
 
 	/* open hailing frequencies */
-	sendpkt("bsuuu", MSG_CHANNEL_OPEN,
-		"session", 7,
-		recv.chan,
-		recv.win,
-		recv.pkt);
+	if(remote != nil){
+		NetConnInfo *nci = getnetconninfo(nil, fd);
+		if(nci == nil)
+			sysfatal("can't get netconninfo: %r");
+		sendpkt("bsuuususu", MSG_CHANNEL_OPEN,
+			"direct-tcpip", 12,
+			recv.chan,
+			recv.win,
+			recv.pkt,
+			remote, strlen(remote),
+			port,
+			nci->laddr, strlen(nci->laddr),
+			atoi(nci->lserv));
+		free(nci);
+	} else {
+		sendpkt("bsuuu", MSG_CHANNEL_OPEN,
+			"session", 7,
+			recv.chan,
+			recv.win,
+			recv.pkt);
+	}
 
 Next1:	switch(recvpkt()){
 	default:
@@ -1307,36 +1337,38 @@ Next1:	switch(recvpkt()){
 
 	/* child reads input and sends packets */
 	qlock(&sl);
-	if(raw) {
-		rawon();
-		sendpkt("busbsuuuus", MSG_CHANNEL_REQUEST,
-			send.chan,
-			"pty-req", 7,
-			0,
-			tty.term, strlen(tty.term),
-			tty.cols,
-			tty.lines,
-			tty.xpixels,
-			tty.ypixels,
-			"", 0);
-	}
-	if(cmd == nil){
-		sendpkt("busb", MSG_CHANNEL_REQUEST,
-			send.chan,
-			"shell", 5,
-			0);
-	} else if(*cmd == '#') {
-		sendpkt("busbs", MSG_CHANNEL_REQUEST,
-			send.chan,
-			"subsystem", 9,
-			0,
-			cmd+1, strlen(cmd)-1);
-	} else {
-		sendpkt("busbs", MSG_CHANNEL_REQUEST,
-			send.chan,
-			"exec", 4,
-			0,
-			cmd, strlen(cmd));
+	if(remote == nil){
+		if(raw) {
+			rawon();
+			sendpkt("busbsuuuus", MSG_CHANNEL_REQUEST,
+				send.chan,
+				"pty-req", 7,
+				0,
+				tty.term, strlen(tty.term),
+				tty.cols,
+				tty.lines,
+				tty.xpixels,
+				tty.ypixels,
+				"", 0);
+		}
+		if(cmd == nil){
+			sendpkt("busb", MSG_CHANNEL_REQUEST,
+				send.chan,
+				"shell", 5,
+				0);
+		} else if(*cmd == '#') {
+			sendpkt("busbs", MSG_CHANNEL_REQUEST,
+				send.chan,
+				"subsystem", 9,
+				0,
+				cmd+1, strlen(cmd)-1);
+		} else {
+			sendpkt("busbs", MSG_CHANNEL_REQUEST,
+				send.chan,
+				"exec", 4,
+				0,
+				cmd, strlen(cmd));
+		}
 	}
 	for(;;){
 		static uchar buf[MaxPacket];

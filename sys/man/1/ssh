@@ -23,6 +23,9 @@ ssh - secure shell remote login client
 ] [
 .IR user @] host
 [
+.B -W
+.I remote!port
+] [
 .I cmd
 .I args
 .I ...
@@ -82,6 +85,13 @@ A pseudo-terminal can be requested in all cases
 with the
 .B -r
 option.
+.PP
+With the
+.B -W
+option, instead of executing a command remotely, makes
+the server dial a tcp connection to
+.I remote!port
+which the client relays on standard input and output.
 .PP
 The
 .B -d
