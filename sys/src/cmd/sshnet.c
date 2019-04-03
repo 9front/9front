@@ -46,6 +46,7 @@ enum
 	Dialing,
 	Established,
 	Teardown,
+	Finished,
 };
 
 char *statestr[] = {
@@ -53,6 +54,7 @@ char *statestr[] = {
 	"Dialing",
 	"Established",
 	"Teardown",
+	"Finished",
 };
 
 struct Client
@@ -61,7 +63,6 @@ struct Client
 	int state;
 	int num;
 	int servernum;
-	int sentclose;
 	char *connect;
 
 	int sendpkt;
@@ -120,7 +121,6 @@ char *mtpt;
 int sshfd;
 int localport;
 char localip[] = "::";
-char Ehangup[] = "hangup on network connection";
 
 int
 vpack(uchar *p, int n, char *fmt, va_list a)
@@ -434,23 +434,7 @@ findreq(Client *c, Req *r)
 }
 
 void
-dialedclient(Client *c)
-{
-	Req *r;
-
-	if(r=c->wq){
-		if(r->aux != nil)
-			sysfatal("more than one outstanding dial request (BUG)");
-		if(c->state == Established)
-			respond(r, nil);
-		else
-			respond(r, "connect failed");
-	}
-	c->wq = nil;
-}
-
-void
-hangupclient(Client *c)
+hangupclient(Client *c, char *err)
 {
 	Req *r;
 
@@ -460,22 +444,17 @@ hangupclient(Client *c)
 	while((r = c->wq) != nil){
 		c->wq = r->aux;
 		r->aux = nil;
-		respond(r, Ehangup);
+		respond(r, err);
 	}
-	if(c->state == Established){
-		c->state = Teardown;
-		matchrmsgs(c);
-		return;
-	}
-	c->state = Closed;
+	matchrmsgs(c);
 }
 
 void
 teardownclient(Client *c)
 {
-	hangupclient(c);
-	if(c->sentclose++ == 0)
-		sendmsg(pack(nil, "bu", MSG_CHANNEL_CLOSE, c->servernum));
+	c->state = Teardown;
+	hangupclient(c, "i/o on hungup channel");
+	sendmsg(pack(nil, "bu", MSG_CHANNEL_CLOSE, c->servernum));
 }
 
 void
@@ -485,14 +464,21 @@ closeclient(Client *c)
 
 	if(--c->ref)
 		return;
-	if(c->state >= Established)
+	switch(c->state){
+	case Established:
 		teardownclient(c);
+		break;
+	case Finished:
+		c->state = Closed;
+		sendmsg(pack(nil, "bu", MSG_CHANNEL_CLOSE, c->servernum));
+		break;
+	}
 	while((m = c->mq) != nil){
 		c->mq = m->link;
 		free(m);
 	}
 }
-	
+
 void
 sshreadproc(void*)
 {
@@ -813,9 +799,7 @@ ctlwrite(Req *r, Client *c)
 		nf = getfields(f[1], f, nelem(f), 0, "!");
 		if(nf != 2)
 			goto Badarg;
-		c->eof = 0;
-		c->sendwin = MaxPacket;
-		c->recvwin = WinPackets * MaxPacket;
+		c->recvwin = WinPackets*MaxPacket;
 		c->recvacc = 0;
 		c->state = Dialing;
 		queuewreq(c, r);
@@ -1074,8 +1058,17 @@ handlemsg(Msg *m)
 		if(unpack(m, "_u", &chan) < 0)
 			break;
 		c = getclient(chan);
-		if(c != nil && c->state >= Established)
-			hangupclient(c);
+		if(c == nil)
+			break;
+		switch(c->state){
+		case Established:
+			c->state = Finished;
+			hangupclient(c, "connection closed");
+			break;
+		case Teardown:
+			c->state = Closed;
+			break;
+		}
 		break;
 	case MSG_CHANNEL_OPEN_CONFIRMATION:
 		if(unpack(m, "_uuuu", &chan, &n, &win, &pkt) < 0)
@@ -1089,25 +1082,31 @@ handlemsg(Msg *m)
 			break;
 		if(pkt <= 0 || pkt > MaxPacket)
 			pkt = MaxPacket;
+		c->eof = 0;
 		c->sendpkt = pkt;
 		c->sendwin = win;
 		c->servernum = n;
-		c->sentclose = 0;
 		c->state = Established;
-		dialedclient(c);
+		if(c->wq != nil){
+			respond(c->wq, nil);
+			c->wq = nil;
+		}
 		break;
 	case MSG_CHANNEL_OPEN_FAILURE:
 		if(unpack(m, "_u____s", &chan, &s, &n) < 0)
 			break;
+		s = smprint("%.*s", utfnlen(s, n), s);
 		if(chan == SESSIONCHAN){
-			sendp(ssherrchan, smprint("%.*s", utfnlen(s, n), s));
+			sendp(ssherrchan, s);
 			break;
 		}
 		c = getclient(chan);
-		if(c == nil || c->state != Dialing)
+		if(c == nil || c->state != Dialing){
+			free(s);
 			break;
+		}
 		c->state = Closed;
-		dialedclient(c);
+		hangupclient(c, s);
 		break;
 	}
 	free(m);
