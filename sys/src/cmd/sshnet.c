@@ -1086,11 +1086,13 @@ handlemsg(Msg *m)
 		c->sendpkt = pkt;
 		c->sendwin = win;
 		c->servernum = n;
-		c->state = Established;
-		if(c->wq != nil){
-			respond(c->wq, nil);
-			c->wq = nil;
+		if(c->wq == nil){
+			teardownclient(c);
+			break;
 		}
+		respond(c->wq, nil);
+		c->wq = nil;
+		c->state = Established;
 		break;
 	case MSG_CHANNEL_OPEN_FAILURE:
 		if(unpack(m, "_u____s", &chan, &s, &n) < 0)
