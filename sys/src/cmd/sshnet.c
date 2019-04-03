@@ -61,12 +61,15 @@ struct Client
 	int state;
 	int num;
 	int servernum;
+	int sentclose;
 	char *connect;
 
 	int sendpkt;
 	int sendwin;
 	int recvwin;
 	int recvacc;
+
+	int eof;
 
 	Req *wq;
 	Req **ewq;
@@ -91,7 +94,8 @@ enum {
 	MSG_CHANNEL_SUCCESS,
 	MSG_CHANNEL_FAILURE,
 
-	MaxPacket = 1<<15,
+	Overhead = 256,
+	MaxPacket = (1<<15)-256,	/* 32K is maxatomic for pipe */
 	WinPackets = 8,
 
 	SESSIONCHAN = 1<<24,
@@ -104,7 +108,7 @@ struct Msg
 	uchar	*rp;
 	uchar	*wp;
 	uchar	*ep;
-	uchar	buf[MaxPacket];
+	uchar	buf[MaxPacket + Overhead];
 };
 
 #define PUT4(p, u) (p)[0] = (u)>>24, (p)[1] = (u)>>16, (p)[2] = (u)>>8, (p)[3] = (u)
@@ -116,6 +120,7 @@ char *mtpt;
 int sshfd;
 int localport;
 char localip[] = "::";
+char Ehangup[] = "hangup on network connection";
 
 int
 vpack(uchar *p, int n, char *fmt, va_list a)
@@ -341,12 +346,10 @@ matchrmsgs(Client *c)
 	Msg *m;
 	int n, rm;
 
-	while(c->rq != nil && c->mq != nil){
-		r = c->rq;
+	while((r = c->rq) != nil && (m = c->mq) != nil){
 		c->rq = r->aux;
-
+		r->aux = nil;
 		rm = 0;
-		m = c->mq;
 		n = r->ifcall.count;
 		if(n >= m->wp - m->rp){
 			n = m->wp - m->rp;
@@ -361,6 +364,15 @@ matchrmsgs(Client *c)
 		r->ofcall.count = n;
 		respond(r, nil);
 		adjustwin(c, n);
+	}
+
+	if(c->eof){
+		while((r = c->rq) != nil){
+			c->rq = r->aux;
+			r->aux = nil;
+			r->ofcall.count = 0;
+			respond(r, nil);
+		}
 	}
 }
 
@@ -438,57 +450,48 @@ dialedclient(Client *c)
 }
 
 void
-teardownclient(Client *c)
+hangupclient(Client *c)
 {
-	c->state = Teardown;
-	sendmsg(pack(nil, "bu", MSG_CHANNEL_EOF, c->servernum));
+	Req *r;
+
+	c->eof = 1;
+	c->recvwin = 0;
+	c->sendwin = 0;
+	while((r = c->wq) != nil){
+		c->wq = r->aux;
+		r->aux = nil;
+		respond(r, Ehangup);
+	}
+	if(c->state == Established){
+		c->state = Teardown;
+		matchrmsgs(c);
+		return;
+	}
+	c->state = Closed;
 }
 
 void
-hangupclient(Client *c)
+teardownclient(Client *c)
 {
-	Req *r, *next;
-	Msg *m, *mnext;
-
-	c->state = Closed;
-	for(m=c->mq; m; m=mnext){
-		mnext = m->link;
-		free(m);
-	}
-	c->mq = nil;
-	for(r=c->rq; r; r=next){
-		next = r->aux;
-		respond(r, "hangup on network connection");
-	}
-	c->rq = nil;
-	for(r=c->wq; r; r=next){
-		next = r->aux;
-		respond(r, "hangup on network connection");
-	}
-	c->wq = nil;
+	hangupclient(c);
+	if(c->sentclose++ == 0)
+		sendmsg(pack(nil, "bu", MSG_CHANNEL_CLOSE, c->servernum));
 }
 
 void
 closeclient(Client *c)
 {
-	Msg *m, *next;
+	Msg *m;
 
 	if(--c->ref)
 		return;
-
-	if(c->rq != nil || c->wq != nil)
-		sysfatal("ref count reached zero with requests pending (BUG)");
-
-	for(m=c->mq; m; m=next){
-		next = m->link;
+	if(c->state >= Established)
+		teardownclient(c);
+	while((m = c->mq) != nil){
+		c->mq = m->link;
 		free(m);
 	}
-	c->mq = nil;
-
-	if(c->state != Closed)
-		teardownclient(c);
 }
-
 	
 void
 sshreadproc(void*)
@@ -810,6 +813,7 @@ ctlwrite(Req *r, Client *c)
 		nf = getfields(f[1], f, nelem(f), 0, "!");
 		if(nf != 2)
 			goto Badarg;
+		c->eof = 0;
 		c->sendwin = MaxPacket;
 		c->recvwin = WinPackets * MaxPacket;
 		c->recvacc = 0;
@@ -831,7 +835,7 @@ ctlwrite(Req *r, Client *c)
 static void
 dataread(Req *r, Client *c)
 {
-	if(c->state != Established){
+	if(c->state < Established){
 		respond(r, "not connected");
 		return;
 	}
@@ -1028,7 +1032,7 @@ fsflush(Req *r)
 static void
 handlemsg(Msg *m)
 {
-	int chan, win, pkt, n, l;
+	int chan, win, pkt, n;
 	Client *c;
 	char *s;
 
@@ -1037,7 +1041,7 @@ handlemsg(Msg *m)
 		if(unpack(m, "_uu", &chan, &n) < 0)
 			break;
 		c = getclient(chan);
-		if(c != nil && c->state==Established){
+		if(c != nil && c->state == Established){
 			c->sendwin += n;
 			procwreqs(c);
 		}
@@ -1046,7 +1050,9 @@ handlemsg(Msg *m)
 		if(unpack(m, "_us", &chan, &s, &n) < 0)
 			break;
 		c = getclient(chan);
-		if(c != nil && c->state==Established){
+		if(c != nil && c->state == Established){
+			if(c->recvwin <= 0)
+				break;
 			c->recvwin -= n;
 			m->rp = (uchar*)s;
 			queuermsg(c, m);
@@ -1058,18 +1064,17 @@ handlemsg(Msg *m)
 		if(unpack(m, "_u", &chan) < 0)
 			break;
 		c = getclient(chan);
-		if(c != nil){
-			hangupclient(c);
-			m->rp = m->wp = m->buf;
-			sendmsg(pack(m, "bu", MSG_CHANNEL_CLOSE, c->servernum));
-			return;
+		if(c != nil && c->state == Established){
+			c->eof = 1;
+			c->recvwin = 0;
+			matchrmsgs(c);
 		}
 		break;
 	case MSG_CHANNEL_CLOSE:
 		if(unpack(m, "_u", &chan) < 0)
 			break;
 		c = getclient(chan);
-		if(c != nil)
+		if(c != nil && c->state >= Established)
 			hangupclient(c);
 		break;
 	case MSG_CHANNEL_OPEN_CONFIRMATION:
@@ -1087,20 +1092,20 @@ handlemsg(Msg *m)
 		c->sendpkt = pkt;
 		c->sendwin = win;
 		c->servernum = n;
+		c->sentclose = 0;
 		c->state = Established;
 		dialedclient(c);
 		break;
 	case MSG_CHANNEL_OPEN_FAILURE:
-		if(unpack(m, "_uus", &chan, &n, &s, &l) < 0)
+		if(unpack(m, "_u____s", &chan, &s, &n) < 0)
 			break;
 		if(chan == SESSIONCHAN){
-			sendp(ssherrchan, smprint("%.*s", utfnlen(s, l), s));
+			sendp(ssherrchan, smprint("%.*s", utfnlen(s, n), s));
 			break;
 		}
 		c = getclient(chan);
 		if(c == nil || c->state != Dialing)
 			break;
-		c->servernum = n;
 		c->state = Closed;
 		dialedclient(c);
 		break;
