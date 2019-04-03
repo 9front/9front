@@ -45,7 +45,6 @@ enum
 {
 	Closed,
 	Dialing,
-	Announced,
 	Listen,
 	Established,
 	Teardown,
@@ -55,7 +54,6 @@ enum
 char *statestr[] = {
 	"Closed",
 	"Dialing",
-	"Announced",
 	"Listen",
 	"Established",
 	"Teardown",
@@ -310,14 +308,26 @@ getclient(int num)
 }
 
 Client*
-getlistener(char *host, int port)
+acceptclient(char *lhost, int lport, char *rhost, int rport)
 {
+	Client *c, *nc;
 	int i;
 
-	USED(host);
 	for(i = 0; i < nclient; i++){
-		if(client[i]->state == Listen && client[i]->lport == port)
-			return client[i];
+		c = client[i];
+		if(c->state == Listen && c->lport == lport && c->wq != nil){
+			nc = client[newclient()];
+			nc->wq = c->wq;
+			c->wq = nc->wq->aux;
+			nc->wq->aux = nil;
+			free(nc->lhost);
+			nc->lhost = lhost;
+			nc->lport = lport;
+			free(nc->rhost);
+			nc->rhost = rhost;
+			nc->rport = rport;
+			return nc;
+		}
 	}
 	return nil;
 }
@@ -493,15 +503,13 @@ closeclient(Client *c)
 		c->state = Closed;
 		sendmsg(pack(nil, "bu", MSG_CHANNEL_CLOSE, c->servernum));
 		break;
-	case Announced:
+	case Listen:
+		c->state = Closed;
 		sendmsg(pack(nil, "bsbsu", MSG_GLOBAL_REQUEST,
 			"cancel-tcpip-forward", 20,
 			0,
 			c->lhost, strlen(c->lhost),
 			c->lport));
-		/* wet floor */
-	case Listen:
-		c->state = Closed;
 		break;
 	}
 	while((m = c->mq) != nil){
@@ -859,7 +867,7 @@ ctlwrite(Req *r, Client *c)
 		free(c->rhost);
 		c->rhost = estrdup9p("::");
 		c->rport = 0;
-		c->state = Announced;
+		c->state = Listen;
 		sendmsg(pack(nil, "bsbsu", MSG_GLOBAL_REQUEST,
 			"tcpip-forward", 13, 0,
 			c->lhost, strlen(c->lhost), c->lport));
@@ -1045,20 +1053,11 @@ fsopen(Req *r)
 		respond(r, nil);
 		break;
 	case Qlisten:
-		if(client[NUM(path)]->state != Announced){
-			respond(r, "not announced");
+		if(client[NUM(path)]->state != Listen){
+			respond(r, "no address set");
 			break;
 		}
-		n = newclient();
-		free(client[n]->lhost);
-		client[n]->lhost = estrdup9p(client[NUM(path)]->lhost);
-		client[n]->lport = client[NUM(path)]->lport;
-		r->fid->qid.path = PATH(Qctl, n);
-		r->ofcall.qid.path = r->fid->qid.path;
-		r->aux = nil;
-		client[n]->wq = r;
-		client[n]->ref++;
-		client[n]->state = Listen;
+		queuewreq(client[NUM(path)], r);
 		break;
 	case Qclone:
 		n = newclient();
@@ -1199,19 +1198,13 @@ handlemsg(Msg *m)
 		}
 		lhost = smprint("%.*s", utfnlen(lhost, ln), lhost);
 		rhost = smprint("%.*s", utfnlen(rhost, rn), rhost);
-		c = getlistener(lhost, lport);
+		c = acceptclient(lhost, lport, rhost, rport);
 		if(c == nil){
 			free(lhost);
 			free(rhost);
 			n = 2, s = "connection refused";
 			goto Reject;
 		}
-		free(c->lhost);
-		c->lhost = lhost;
-		c->lport = lport;
-		free(c->rhost);
-		c->rhost = rhost;
-		c->rport = rport;
 		c->servernum = chan;
 		c->recvwin = WinPackets*MaxPacket;
 		c->recvacc = 0;
@@ -1219,12 +1212,13 @@ handlemsg(Msg *m)
 		c->sendpkt = pkt;
 		c->sendwin = win;
 		c->state = Established;
+
 		sendmsg(pack(nil, "buuuu", MSG_CHANNEL_OPEN_CONFIRMATION,
 			c->servernum, c->num, c->recvwin, MaxPacket));
-		if(c->wq == nil){
-			teardownclient(c);
-			break;
-		}
+
+		c->ref++;
+		c->wq->fid->qid.path = PATH(Qctl, c->num);
+		c->wq->ofcall.qid.path = c->wq->fid->qid.path;
 		respond(c->wq, nil);
 		c->wq = nil;
 		break;
