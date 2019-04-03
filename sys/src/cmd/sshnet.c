@@ -26,6 +26,7 @@ enum
 	Qlocal,
 	Qremote,
 	Qstatus,
+	Qlisten,
 };
 
 #define PATH(type, n)		((type)|((n)<<8))
@@ -44,6 +45,8 @@ enum
 {
 	Closed,
 	Dialing,
+	Announced,
+	Listen,
 	Established,
 	Teardown,
 	Finished,
@@ -52,6 +55,8 @@ enum
 char *statestr[] = {
 	"Closed",
 	"Dialing",
+	"Announced",
+	"Listen",
 	"Established",
 	"Teardown",
 	"Finished",
@@ -63,7 +68,10 @@ struct Client
 	int state;
 	int num;
 	int servernum;
-	char *connect;
+
+	int rport, lport;
+	char *rhost;
+	char *lhost;
 
 	int sendpkt;
 	int sendwin;
@@ -83,6 +91,8 @@ struct Client
 };
 
 enum {
+	MSG_GLOBAL_REQUEST = 80,
+
 	MSG_CHANNEL_OPEN = 90,
 	MSG_CHANNEL_OPEN_CONFIRMATION,
 	MSG_CHANNEL_OPEN_FAILURE,
@@ -119,8 +129,6 @@ int nclient;
 Client **client;
 char *mtpt;
 int sshfd;
-int localport;
-char localip[] = "::";
 
 int
 vpack(uchar *p, int n, char *fmt, va_list a)
@@ -301,6 +309,19 @@ getclient(int num)
 	return client[num];
 }
 
+Client*
+getlistener(char *host, int port)
+{
+	int i;
+
+	USED(host);
+	for(i = 0; i < nclient; i++){
+		if(client[i]->state == Listen && client[i]->lport == port)
+			return client[i];
+	}
+	return nil;
+}
+
 void
 adjustwin(Client *c, int len)
 {
@@ -472,6 +493,16 @@ closeclient(Client *c)
 		c->state = Closed;
 		sendmsg(pack(nil, "bu", MSG_CHANNEL_CLOSE, c->servernum));
 		break;
+	case Announced:
+		sendmsg(pack(nil, "bsbsu", MSG_GLOBAL_REQUEST,
+			"cancel-tcpip-forward", 20,
+			0,
+			c->lhost, strlen(c->lhost),
+			c->lport));
+		/* wet floor */
+	case Listen:
+		c->state = Closed;
+		break;
 	}
 	while((m = c->mq) != nil){
 		c->mq = m->link;
@@ -514,6 +545,7 @@ Tab tab[] =
 	"local",	0444,
 	"remote",	0444,
 	"status",	0444,
+	"listen",	0666,
 };
 
 static void
@@ -768,7 +800,7 @@ static void
 ctlwrite(Req *r, Client *c)
 {
 	char *f[3], *s;
-	int nf;
+	int nf, port;
 
 	s = emalloc9p(r->ifcall.count+1);
 	r->ofcall.count = r->ifcall.count;
@@ -790,15 +822,18 @@ ctlwrite(Req *r, Client *c)
 		teardownclient(c);
 		respond(r, nil);
 	}else if(strcmp(f[0], "connect") == 0){
-		if(c->state != Closed)
+		if(nf != 2 || c->state != Closed)
 			goto Badarg;
-		if(nf != 2)
+		if(getfields(f[1], f, nelem(f), 0, "!") != 2)
 			goto Badarg;
-		free(c->connect);
-		c->connect = estrdup9p(f[1]);
-		nf = getfields(f[1], f, nelem(f), 0, "!");
-		if(nf != 2)
+		if((port = ndbfindport(f[1])) < 0)
 			goto Badarg;
+		free(c->lhost);
+		c->lhost = estrdup9p("::");
+		c->lport = 0;
+		free(c->rhost);
+		c->rhost = estrdup9p(f[0]);
+		c->rport = port;
 		c->recvwin = WinPackets*MaxPacket;
 		c->recvacc = 0;
 		c->state = Dialing;
@@ -807,8 +842,28 @@ ctlwrite(Req *r, Client *c)
 		sendmsg(pack(nil, "bsuuususu", MSG_CHANNEL_OPEN,
 			"direct-tcpip", 12,
 			c->num, c->recvwin, MaxPacket,
-			f[0], strlen(f[0]), ndbfindport(f[1]),
-			localip, strlen(localip), localport));
+			c->rhost, strlen(c->rhost), c->rport,
+			c->lhost, strlen(c->lhost), c->lport));
+	}else if(strcmp(f[0], "announce") == 0){
+		if(nf != 2 || c->state != Closed)
+			goto Badarg;
+		if(getfields(f[1], f, nelem(f), 0, "!") != 2)
+			goto Badarg;
+		if((port = ndbfindport(f[1])) < 0)
+			goto Badarg;
+		if(strcmp(f[0], "*") == 0)
+			f[0] = "";
+		free(c->lhost);
+		c->lhost = estrdup9p(f[0]);
+		c->lport = port;
+		free(c->rhost);
+		c->rhost = estrdup9p("::");
+		c->rport = 0;
+		c->state = Announced;
+		sendmsg(pack(nil, "bsbsu", MSG_GLOBAL_REQUEST,
+			"tcpip-forward", 13, 0,
+			c->lhost, strlen(c->lhost), c->lport));
+		respond(r, nil);
 	}else{
 	Badarg:
 		respond(r, "bad or inappropriate tcp control message");
@@ -844,11 +899,16 @@ datawrite(Req *r, Client *c)
 }
 
 static void
-localread(Req *r)
+localread(Req *r, Client *c)
 {
-	char buf[128];
+	char buf[128], *s;
 
-	snprint(buf, sizeof buf, "%s!%d\n", localip, localport);
+	s = c->lhost;
+	if(s == nil)
+		s = "::";
+	else if(*s == 0)
+		s = "*";
+	snprint(buf, sizeof buf, "%s!%d\n", s, c->lport);
 	readstr(r, buf);
 	respond(r, nil);
 }
@@ -856,13 +916,12 @@ localread(Req *r)
 static void
 remoteread(Req *r, Client *c)
 {
-	char *s;
-	char buf[128];
+	char buf[128], *s;
 
-	s = c->connect;
+	s = c->rhost;
 	if(s == nil)
-		s = "::!0";
-	snprint(buf, sizeof buf, "%s\n", s);
+		s = "::";
+	snprint(buf, sizeof buf, "%s!%d\n", s, c->rport);
 	readstr(r, buf);
 	respond(r, nil);
 }
@@ -918,7 +977,7 @@ fsread(Req *r)
 		break;
 
 	case Qlocal:
-		localread(r);
+		localread(r, client[NUM(path)]);
 		break;
 
 	case Qremote:
@@ -985,6 +1044,22 @@ fsopen(Req *r)
 		r->fid->aux = cs;
 		respond(r, nil);
 		break;
+	case Qlisten:
+		if(client[NUM(path)]->state != Announced){
+			respond(r, "not announced");
+			break;
+		}
+		n = newclient();
+		free(client[n]->lhost);
+		client[n]->lhost = estrdup9p(client[NUM(path)]->lhost);
+		client[n]->lport = client[NUM(path)]->lport;
+		r->fid->qid.path = PATH(Qctl, n);
+		r->ofcall.qid.path = r->fid->qid.path;
+		r->aux = nil;
+		client[n]->wq = r;
+		client[n]->ref++;
+		client[n]->state = Listen;
+		break;
 	case Qclone:
 		n = newclient();
 		path = PATH(Qctl, n);
@@ -1016,9 +1091,9 @@ fsflush(Req *r)
 static void
 handlemsg(Msg *m)
 {
-	int chan, win, pkt, n;
+	int chan, win, pkt, lport, rport, n, ln, rn;
+	char *s, *lhost, *rhost;
 	Client *c;
-	char *s;
 
 	switch(m->rp[0]){
 	case MSG_CHANNEL_WINDOW_ADJUST:
@@ -1108,6 +1183,50 @@ handlemsg(Msg *m)
 			hangupclient(c, s);
 		}
 		free(s);
+		break;
+	case MSG_CHANNEL_OPEN:
+		if(unpack(m, "_suuususu", &s, &n, &chan,
+			&win, &pkt,
+			&lhost, &ln, &lport,
+			&rhost, &rn, &rport) < 0)
+			break;
+		if(n != 15 || strncmp(s, "forwarded-tcpip", 15) != 0){
+			n = 3, s = "unknown open type";
+		Reject:
+			sendmsg(pack(nil, "buus", MSG_CHANNEL_OPEN_FAILURE,
+				chan, n, s, strlen(s)));
+			break;
+		}
+		lhost = smprint("%.*s", utfnlen(lhost, ln), lhost);
+		rhost = smprint("%.*s", utfnlen(rhost, rn), rhost);
+		c = getlistener(lhost, lport);
+		if(c == nil){
+			free(lhost);
+			free(rhost);
+			n = 2, s = "connection refused";
+			goto Reject;
+		}
+		free(c->lhost);
+		c->lhost = lhost;
+		c->lport = lport;
+		free(c->rhost);
+		c->rhost = rhost;
+		c->rport = rport;
+		c->servernum = chan;
+		c->recvwin = WinPackets*MaxPacket;
+		c->recvacc = 0;
+		c->eof = 0;
+		c->sendpkt = pkt;
+		c->sendwin = win;
+		c->state = Established;
+		sendmsg(pack(nil, "buuuu", MSG_CHANNEL_OPEN_CONFIRMATION,
+			c->servernum, c->num, c->recvwin, MaxPacket));
+		if(c->wq == nil){
+			teardownclient(c);
+			break;
+		}
+		respond(c->wq, nil);
+		c->wq = nil;
 		break;
 	}
 	free(m);

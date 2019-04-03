@@ -45,8 +45,6 @@ All other arguments are passed to
 as is.
 .SH SOURCE
 .B /sys/src/cmd/sshnet.c
-.SH BUGS
-Incoming connections are not supported.
 .SH "SEE ALSO"
 .IR ssh (1),
 .IR ip (3)
