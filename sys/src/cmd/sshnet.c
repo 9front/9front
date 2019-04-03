@@ -1103,12 +1103,11 @@ handlemsg(Msg *m)
 			break;
 		}
 		c = getclient(chan);
-		if(c == nil || c->state != Dialing){
-			free(s);
-			break;
+		if(c != nil && c->state == Dialing){
+			c->state = Closed;
+			hangupclient(c, s);
 		}
-		c->state = Closed;
-		hangupclient(c, s);
+		free(s);
 		break;
 	}
 	free(m);
