@@ -221,12 +221,12 @@ mmucreate(uintptr *table, uintptr va, int level, int index)
 	flags = PTEWRITE|PTEVALID;
 	if(va < VMAP){
 		assert(up != nil);
-		assert((va < TSTKTOP) || (va >= KMAP && va < KMAP+KMAPSIZE));
+		assert((va < USTKTOP) || (va >= KMAP && va < KMAP+KMAPSIZE));
 
 		p = mmualloc();
 		p->index = index;
 		p->level = level;
-		if(va < TSTKTOP){
+		if(va < USTKTOP){
 			flags |= PTEUSER;
 			if(level == PML4E){
 				if((p->next = up->mmuhead) == nil)
@@ -341,9 +341,9 @@ mmuzap(void)
 
 	/* common case */
 	pte[PTLX(UTZERO, 3)] = 0;
-	pte[PTLX(TSTKTOP, 3)] = 0;
+	pte[PTLX(USTKTOP-1, 3)] = 0;
 	m->mmumap[PTLX(UTZERO, 3)/MAPBITS] &= ~(1ull<<(PTLX(UTZERO, 3)%MAPBITS));
-	m->mmumap[PTLX(TSTKTOP, 3)/MAPBITS] &= ~(1ull<<(PTLX(TSTKTOP, 3)%MAPBITS));
+	m->mmumap[PTLX(USTKTOP-1, 3)/MAPBITS] &= ~(1ull<<(PTLX(USTKTOP-1, 3)%MAPBITS));
 
 	for(i = 0; i < nelem(m->mmumap); pte += MAPBITS, i++){
 		if((w = m->mmumap[i]) == 0)
