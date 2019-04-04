@@ -60,8 +60,6 @@
 #define	UTZERO		(UZERO+BY2PG)		/* user text start */
 #define	USTKTOP		0x40000000		/* user segment end +1 */
 #define	USTKSIZE	(8*1024*1024)		/* user stack size */
-#define	TSTKTOP		(USTKTOP-USTKSIZE)	/* sysexec temporary stack */
-#define	TSTKSIZ	 	256
 
 /*
  * Legacy...
