@@ -199,7 +199,7 @@
 #define	KUSEG	0x00000000	/* user process */
 #define KSEG0	0x80000000	/* kernel (direct mapped, cached) */
 #define KSEG1	0xA0000000	/* kernel (direct mapped, uncached: i/o) */
-#define	KSEG2	0xC0000000	/* kernel, used for TSTKTOP */
+#define	KSEG2	0xC0000000	/* kernel, was used for TSTKTOP */
 #define	KSEG3	0xE0000000	/* kernel, used by kmap */
 #define	KSEGM	0xE0000000	/* mask to check which seg */
 
@@ -271,7 +271,5 @@
 #define	UTZERO	(UZERO+MAXBY2PG)	/* 1st user text address; see mkfile */
 #define	USTKTOP	(KZERO-BY2PG)		/* byte just beyond user stack */
 #define	USTKSIZE (8*1024*1024)		/* size of user stack */
-#define TSTKTOP (KSEG2+USTKSIZE-BY2PG)	/* top of temporary stack */
-#define TSTKSIZ (1024*1024/BY2PG)	/* can be at most UTSKSIZE/BY2PG */
 #define	KZERO	KSEG0			/* base of kernel address space */
 #define	KTZERO	(KZERO+0x08020000)	/* first address in kernel text */
