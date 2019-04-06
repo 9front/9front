@@ -28,6 +28,8 @@ authdial(char *netroot, char *dom)
 	 */
 	if(p == nil) {
 		p = smprint("p9auth.%s", dom);
+		if(p == nil)
+			return -1;
 		t = ndbnew("auth", p);
 	}
 	free(p);
