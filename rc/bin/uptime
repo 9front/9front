@@ -1,8 +1,13 @@
-#!/bin/rc
-clock=`{cat /dev/time}
-xx=`{{echo $clock(3) / $clock(4); echo '_/86400'}|hoc|sed 's/^\./0./g;s/\..*//g'}
-sec=$xx(1)
-days=$xx(2)
-cat /dev/sysname
-echo -n ' up '$days' days, '
-timezone='MDT -21600' date $sec |awk '{print $4}'
+#!/bin/awk -f
+
+BEGIN{
+	getline sysname < "/dev/sysname";
+
+	getline < "/dev/time";
+	sec = sprintf("%d", $3/$4);
+
+	ct = sprintf("%02d:%02d:%02d", sec%86400/3600, sec%86400%3600/60, sec%60);
+	printf("%s up %d days, %s\n", sysname, sec/86400, ct);
+
+	exit
+}
