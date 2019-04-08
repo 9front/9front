@@ -911,15 +911,6 @@ outcode(int a, Gen *g1, int reg, Gen *g2)
 		pc++;
 	if(pass == 1)
 		return;
-	if(g1->xreg != NREG) {
-		if(reg != NREG || g2->xreg != NREG)
-			yyerror("bad addressing modes");
-		reg = g1->xreg;
-	} else if(g2->xreg != NREG) {
-		if(reg != NREG)
-			yyerror("bad addressing modes");
-		reg = g2->xreg;
-	}
 	do{
 		sf = outsim(g1);
 		st = outsim(g2);
