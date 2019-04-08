@@ -1315,7 +1315,7 @@ isaddcon(vlong v)
 }
 
 int
-sval(long v)
+sval(vlong v)
 {
 	return isaddcon(v) || isaddcon(-v);
 }

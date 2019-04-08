@@ -551,7 +551,7 @@ mkvar(Adr *a, int docon)
 {
 	Var *v;
 	int i, t, n, et, z;
-	long o;
+	vlong o;
 	Bits bit;
 	Sym *s;
 
@@ -566,7 +566,7 @@ mkvar(Adr *a, int docon)
 	if(s == S) {
 		if(t != D_CONST || !docon || a->reg != NREG)
 			goto none;
-		et = TLONG;
+		// et = TLONG;
 	}
 	if(t == D_CONST) {
 		if(s == S && sval(o))

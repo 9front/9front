@@ -264,7 +264,7 @@ int	samaddr(Node*, Node*);
 void	gbranch(int);
 void	patch(Prog*, long);
 int	sconst(Node*);
-int	sval(long);
+int	sval(vlong);
 void	gpseudo(int, Sym*, Node*);
 int	usableoffset(Node*, vlong, Node*);
 
