@@ -542,8 +542,10 @@ ioreg:
 	}
 |	'(' sreg ')' con '!'
 	{
+		$$ = nullgen;
 		$$.type = D_XPOST;
-		$$.offset = $2;
+		$$.reg = $2;
+		$$.offset = $4;
 	}
 |	'(' sreg ')' '(' indexreg ')'
 	{
