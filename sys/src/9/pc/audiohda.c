@@ -1754,6 +1754,7 @@ hdamatch(Pcidev *p)
 		case (0x8086 << 16) | 0x9d70:   /* Intel Sunrise Point-LP */
 		case (0x8086 << 16) | 0x9d71:   /* Intel Sunrise Point-LP */
 		case (0x8086 << 16) | 0x3a6e:	/* Intel ICH10 */
+		case (0x8086 << 16) | 0x3198:   /* Intel Gemini-Lake */
 
 		case (0x10de << 16) | 0x026c:	/* NVidia MCP51 (untested) */
 		case (0x10de << 16) | 0x0371:	/* NVidia MCP55 (untested) */
