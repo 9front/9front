@@ -207,7 +207,7 @@ addpool(Prog *p, Adr *a)
 	t = zprg;
 	t.as = AWORD;
 	sz = 4;
-	if(p->as == AMOV) {
+	if(p->as == AMOV || (cmp(C_VCON, c) && (ulong)(a->offset & 0xFFFFFFFF) != a->offset)) {
 		t.as = ADWORD;
 		sz = 8;
 	}
