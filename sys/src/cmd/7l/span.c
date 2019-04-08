@@ -7,7 +7,7 @@ static struct {
 	ulong	size;
 } pool;
 
-static void		checkpool(Prog*, int);
+static void	checkpool(Prog*, int);
 static void 	flushpool(Prog*, int);
 static int	ispcdisp(long);
 
@@ -330,10 +330,30 @@ isaddcon(vlong v)
 }
 
 static int
+isbitcon64(uvlong v)
+{
+	return findmask(v) != nil;
+}
+
+static int
+isbitcon32(uvlong v)
+{
+	return (v >> 32) == 0 && findmask(v | v<<32) != nil;
+}
+
+static int
 isbitcon(uvlong v)
 {
-	/*  fancy bimm32 or bimm64? */
-	return findmask(v) != nil || (v>>32) == 0 && findmask(v | (v<<32)) != nil;
+	Mask *m;
+
+	if((v >> 32) != 0)
+		return 0;
+	m = findmask(v);
+	if(m == nil)
+		return 0;
+	if(m->s >= 32)
+		return 0;
+	return 1;
 }
 
 static int
@@ -618,6 +638,10 @@ aclass(Adr *a)
 			}
 			if(isbitcon(v))
 				return C_BITCON;
+			if(isbitcon64(v))
+				return C_BITCON64;
+			if(isbitcon32(v))
+				return C_BITCON32;
 			return C_LCON;
 
 		case D_EXTERN:
@@ -716,6 +740,8 @@ oplook(Prog *p)
 		if(o->a2 == a2 || c2[o->a2])
 		if(c1[o->a1])
 		if(c3[o->a3]) {
+			if(0)
+				print("%P\t-> %d (%d %d %d)\n", p, o->type, o->a1, o->a2, o->a3);
 			p->optab = (o-optab)+1;
 			return o;
 		}
@@ -755,6 +781,11 @@ cmp(int a, int b)
 			return 1;
 		break;
 
+	case C_BITCON32:
+	case C_BITCON64:
+		if(b == C_BITCON)
+			return 1;
+		/* wet floor */
 	case C_BITCON:
 		if(b == C_ABCON || b == C_MBCON)
 			return 1;
@@ -766,7 +797,7 @@ cmp(int a, int b)
 		break;
 
 	case C_LCON:
-		if(b == C_ZCON || b == C_BITCON || b == C_ADDCON || b == C_ADDCON0 || b == C_ABCON || b == C_MBCON || b == C_MOVCON)
+		if(b == C_ZCON || b == C_BITCON || b == C_BITCON32 || b == C_BITCON64 || b == C_ADDCON || b == C_ADDCON0 || b == C_ABCON || b == C_MBCON || b == C_MOVCON)
 			return 1;
 		break;
 
@@ -934,20 +965,24 @@ buildop(void)
 			break;
 		case AAND:	/* logical immediate, logical shifted register */
 			oprange[AANDS] = t;
+			oprange[AEOR] = t;
+			oprange[AORR] = t;
+			break;
+		case AANDW:
 			oprange[AANDSW] = t;
 			oprange[AANDW] = t;
-			oprange[AEOR] = t;
 			oprange[AEORW] = t;
-			oprange[AORR] = t;
 			oprange[AORRW] = t;
 			break;
 		case ABIC:	/* only logical shifted register */
 			oprange[ABICS] = t;
+			oprange[AEON] = t;
+			oprange[AORN] = t;
+			break;
+		case ABICW:
 			oprange[ABICSW] = t;
 			oprange[ABICW] = t;
-			oprange[AEON] = t;
 			oprange[AEONW] = t;
-			oprange[AORN] = t;
 			oprange[AORNW] = t;
 			break;
 		case ANEG:

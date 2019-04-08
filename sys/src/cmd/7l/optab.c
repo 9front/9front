@@ -42,25 +42,42 @@ Optab	optab[] =
 
 	/* logical operations */
 	{ AAND,		C_REG,	C_REG,	C_REG,		 1, 4, 0 },
+	{ AANDW,	C_REG,	C_REG,	C_REG,		 1, 4, 0 },
 	{ AAND,		C_REG,	C_NONE,	C_REG,		 1, 4, 0 },
+	{ AANDW,	C_REG,	C_NONE,	C_REG,		 1, 4, 0 },
 	{ ABIC,		C_REG,	C_REG,	C_REG,		 1, 4, 0 },
+	{ ABICW,	C_REG,	C_REG,	C_REG,		 1, 4, 0 },
 	{ ABIC,		C_REG,	C_NONE,	C_REG,		 1, 4, 0 },
+	{ ABICW,	C_REG,	C_NONE,	C_REG,		 1, 4, 0 },
 
-	{ AAND,		C_BITCON,	C_REG,	C_REG,		53, 4, 0 },
-	{ AAND,		C_BITCON,	C_NONE,	C_REG,		53, 4, 0 },
-	{ ABIC,		C_BITCON,	C_REG,	C_REG,		53, 4, 0 },
-	{ ABIC,		C_BITCON,	C_NONE,	C_REG,		53, 4, 0 },
+	{ AAND,		C_BITCON64,C_REG,C_REG,		53, 4, 0 },
+	{ AANDW,	C_BITCON32,C_REG,C_REG,		53, 4, 0 },
+	{ AAND,		C_BITCON64,C_NONE,C_REG,	53, 4, 0 },
+	{ AANDW,	C_BITCON32,C_NONE,C_REG,	53, 4, 0 },
+	{ ABIC,		C_BITCON64,C_REG,C_REG,		53, 4, 0 },
+	{ ABICW,	C_BITCON32,C_REG,C_REG,		53, 4, 0 },
+	{ ABIC,		C_BITCON64,C_NONE,C_REG,	53, 4, 0 },
+	{ ABICW,	C_BITCON32,C_NONE,C_REG,	53, 4, 0 },
 
 	{ AAND,		C_LCON,	C_REG,	C_REG,		28, 8, 0,	LFROM },
+	{ AANDW,	C_LCON,	C_REG,	C_REG,		28, 8, 0,	LFROM },
 	{ AAND,		C_LCON,	C_NONE,	C_REG,		28, 8, 0,	LFROM },
+	{ AANDW,	C_LCON,	C_NONE,	C_REG,		28, 8, 0,	LFROM },
 	{ ABIC,		C_LCON,	C_REG,	C_REG,		28, 8, 0,	LFROM },
+	{ ABICW,	C_LCON,	C_REG,	C_REG,		28, 8, 0,	LFROM },
 	{ ABIC,		C_LCON,	C_NONE,	C_REG,		28, 8, 0,	LFROM },
+	{ ABICW,	C_LCON,	C_NONE,	C_REG,		28, 8, 0,	LFROM },
 
 	{ AAND,		C_SHIFT,C_REG,	C_REG,		 3, 4, 0 },
+	{ AANDW,	C_SHIFT,C_REG,	C_REG,		 3, 4, 0 },
 	{ AAND,		C_SHIFT,C_NONE,	C_REG,		 3, 4, 0 },
+	{ AANDW,	C_SHIFT,C_NONE,	C_REG,		 3, 4, 0 },
 	{ ABIC,		C_SHIFT,C_REG,	C_REG,		 3, 4, 0 },
+	{ ABICW,	C_SHIFT,C_REG,	C_REG,		 3, 4, 0 },
 	{ ABIC,		C_SHIFT,C_NONE,	C_REG,		 3, 4, 0 },
+	{ ABICW,	C_SHIFT,C_NONE,	C_REG,		 3, 4, 0 },
 
+	/* moves */
 	{ AMOV,		C_RSP,	C_NONE,	C_RSP,		24, 4, 0 },
 	{ AMVN,		C_REG,	C_NONE,	C_REG,		24, 4, 0 },
 	{ AMOVB,		C_REG,	C_NONE,	C_REG,		45, 4, 0 },
@@ -70,12 +87,13 @@ Optab	optab[] =
 	/* TO DO: MVN C_SHIFT */
 
 	/* MOVs that become MOVK/MOVN/MOVZ/ADD/SUB/OR */
-	{ AMOVW,		C_MOVCON,	C_NONE,	C_REG,		32, 4, 0 },
+	{ AMOVW,	C_MOVCON,	C_NONE,	C_REG,		32, 4, 0 },
 	{ AMOV,		C_MOVCON,	C_NONE,	C_REG,		32, 4, 0 },
-//	{ AMOVW,		C_ADDCON,	C_NONE,	C_REG,		2, 4, 0 },
+//	{ AMOVW,	C_ADDCON,	C_NONE,	C_REG,		2, 4, 0 },
 //	{ AMOV,		C_ADDCON,	C_NONE,	C_REG,		2, 4, 0 },
-//	{ AMOVW,		C_BITCON,	C_NONE,	C_REG,		53, 4, 0 },
-//	{ AMOV,		C_BITCON,	C_NONE,	C_REG,		53, 4, 0 },
+
+	{ AMOV,		C_BITCON64,	C_NONE,	C_REG,		53, 4, 0 },
+	{ AMOVW,	C_BITCON32,	C_NONE,	C_REG,		53, 4, 0 },
 
 	{ AMOVK,		C_LCON,	C_NONE,	C_REG,			33, 4, 0 },
 

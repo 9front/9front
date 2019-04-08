@@ -722,27 +722,24 @@ asmout(Prog *p, Optab *o)
 		if(as == AMOV){
 			as = AORR;
 			r = REGZERO;
-		}else if(as == AMOVW){
+		}else if(as == AMOVW || as == AMOVWU){
 			as = AORRW;
 			r = REGZERO;
 		}
 		o1 = opirr(as);
-		s = o1 & S64? 64: 32;
 		mask = findmask(p->from.offset);
 		if(mask == nil)
-			mask = findmask(p->from.offset | (p->from.offset<<32));
-		if(mask != nil){
-			o1 |= ((mask->r&(s-1))<<16) | (((mask->s-1)&(s-1))<<10);
-			if(s == 64){
-				if(mask->e == 64 && ((uvlong)p->from.offset>>32) != 0)
-					o1 |= 1<<22;
-			}else{
-				u = (uvlong)p->from.offset >> 32;
-				if(u != 0 && u != 0xFFFFFFFF)
-					diag("mask needs 64 bits %#llux\n%P", p->from.offset, p);
-			}
-		}else
-			diag("invalid mask %#llux\n%P", p->from.offset, p);	/* probably shouldn't happen */
+			mask = findmask(p->from.offset | p->from.offset<<32);
+		if(mask == nil)
+			diag("invalid mask %#llux\n%P", p->from.offset, p);
+		switch(mask->e){
+		case  2: o1 |= 0xF000; break;
+		case  4: o1 |= 0xE000; break;
+		case  8: o1 |= 0xC000; break;
+		case 16: o1 |= 0x8000; break;
+		case 64: o1 |= ((o1&S64)!=0)<<22; break;
+		}
+		o1 |= (mask->r<<16) | ((mask->s-1)<<10);
 		o1 |= (r<<5) | rt;
 		break;
 
@@ -1591,7 +1588,7 @@ oaddi(long o1, long v, int r, int rt)
 }
 
 /*
- * load a a literal value into dr
+ * load a literal value into dr
  */
 static long
 omovlit(int as, Prog *p, Adr *a, int dr)
