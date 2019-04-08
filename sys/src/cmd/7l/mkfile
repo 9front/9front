@@ -1,0 +1,37 @@
+</$objtype/mkfile
+
+TARG=7l
+OFILES=\
+	asm.$O\
+	asmout.$O\
+	enam.$O\
+	bits.$O\
+	cnam.$O\
+	compat.$O\
+	dyn.$O\
+	list.$O\
+	noop.$O\
+	obj.$O\
+	optab.$O\
+	span.$O\
+	pass.$O\
+	mod.$O\
+
+HFILES=\
+	l.h\
+	../7c/7.out.h\
+
+BIN=/$objtype/bin
+</sys/src/cmd/mkone
+
+../7c/enam.c: ../7c/7.out.h
+	@ { cd ../7c; mk enam.c }
+
+cnam.c:	l.h mkcname
+	rc mkcname
+
+enam.$O:	../7c/enam.c
+	$CC $CFLAGS ../7c/enam.c
+
+x:V:	$O.out
+	$O.out -la -o/dev/null x.7
