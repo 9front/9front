@@ -55,7 +55,7 @@ void  frdrawsel(Frame *f, Point pt0, ulong p0, ulong p1,
 		int highlighted)
 .PP
 .B
-void  frdrawsel0(Frame *f, Point pt0, ulong p0, ulong p1,
+Point  frdrawsel0(Frame *f, Point pt0, ulong p0, ulong p1,
 .B
 		Image *back, Image *text)
 .PP

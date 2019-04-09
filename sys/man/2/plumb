@@ -47,7 +47,7 @@ char*	plumblookup(Plumbattr *a, char *name)
 Plumbattr*	plumbaddattr(Plumbattr *a, Plumbattr *new)
 .PP
 .B
-Plumbattr*	plumbdelattr(Plumbattra *a, char *name)
+Plumbattr*	plumbdelattr(Plumbattr *a, char *name)
 .PP
 .B
 int	eplumb(int key, char *port)

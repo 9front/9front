@@ -33,7 +33,7 @@ int	ioclose(Ioproc *io, int fd);
 long	ioread(Ioproc *io, int fd, void *a, long n);
 long	ioreadn(Ioproc *io, int fd, void *a, long n);
 long	iowrite(Ioproc *io, int fd, void *a, long n);
-int	iodial(Ioproc *io, char *addr, char *local, char *dir, char *cdfp);
+int	iodial(Ioproc *io, char *addr, char *local, char *dir, int *cdfp);
 int	iosleep(Ioproc *io, long n);
 .XX
 int	ioflush(Ioproc *io);

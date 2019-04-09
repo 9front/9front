@@ -46,7 +46,7 @@ int	ttfgetcontour(TTGlyph *g, int idx, float **fp, int *nfp);
 TTBitmap*	ttfrender(TTFont *f, char *s, char *e, int w, int h,
 			int flags, char **pp);
 TTBitmap*	ttfrunerender(TTFont *f, Rune *s, Rune *e, int w, int h,
-			int flags, char **pp);
+			int flags, Rune **pp);
 .PB
 TTBitmap*	ttfnewbitmap(int w, int h);
 void	ttfblit(TTBitmap *dst, int dstx, int dsty, TTBitmap *src,

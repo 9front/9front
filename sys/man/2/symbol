@@ -29,7 +29,7 @@ int  fileelem(Sym **fp, uchar *encname, char *buf, int n)
 int  filesym(int index, char *buf, int n)
 .PP
 .B
-long pc2sp(uvlong pc)
+uvlong pc2sp(uvlong pc)
 .PP
 .B
 long pc2line(uvlong pc)
@@ -38,7 +38,7 @@ long pc2line(uvlong pc)
 void textseg(uvlong base, Fhdr *fp)
 .PP
 .B
-uvlong line2addr(ulong line, uvlong basepc, uvlong endpc)
+uvlong line2addr(long line, uvlong basepc, uvlong endpc)
 .PP
 .B
 int  lookup(char *fn, char *var, Symbol *s)
@@ -62,10 +62,10 @@ int  globalsym(Symbol *s, int index)
 int  textsym(Symbol *s, int index)
 .PP
 .B
-uvlong file2pc(char *file, ulong line)
+uvlong file2pc(char *file, long line)
 .PP
 .B
-int  fileline(char *str, int n, uvlong addr)
+long  fileline(char *str, int n, uvlong addr)
 .PP
 .B
 int  fnbound(uvlong addr, uvlong *bounds)

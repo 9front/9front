@@ -31,7 +31,7 @@ int fcallfmt(Fmt*)
 int dirmodefmt(Fmt*)
 .PP
 .B
-int read9pmsg(int fd, uchar *buf, uint nbuf)
+int read9pmsg(int fd, void *buf, uint nbuf)
 .PP
 .B
 int statcheck(uchar *buf, uint nbuf)

@@ -147,9 +147,9 @@ void	fillarc(Image *dst, Point c, int a, int b, Image *src,
 void	fillarcop(Image *dst, Point c, int a, int b, Image *src,
 		Point sp, int alpha, int phi, Drawop op)
 .PB
-int	icossin(int deg, int *cosp, int *sinp)
+void	icossin(int deg, int *cosp, int *sinp)
 .PB
-int	icossin2(int x, int y, int *cosp, int *sinp)
+void	icossin2(int x, int y, int *cosp, int *sinp)
 .PB
 void	border(Image *dst, Rectangle r, int i, Image *color, Point sp)
 .PB

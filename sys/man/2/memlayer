@@ -51,16 +51,16 @@ Memimage*	memlalloc(Memscreen *s, Rectangle r, Refreshfn fn, void *arg, ulong co
 int	memlsetrefresh(Memimage *i, Refreshfn fn, void *arg)
 .PP
 .B
-int	memldelete(Memimage *i)
+void	memldelete(Memimage *i)
 .PP
 .B
-int	memlfree(Memimage *i)
+void	memlfree(Memimage *i)
 .PP
 .B
-int	memlexpose(Memimage *i, Rectangle r)
+void	memlexpose(Memimage *i, Rectangle r)
 .PP
 .B
-int	memlhide(Memimage *i, Rectangle r)
+void	memlhide(Memimage *i, Rectangle r)
 .PP
 .B 
 void	memltofront(Memimage *i)

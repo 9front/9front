@@ -66,7 +66,7 @@ typedef struct Srv {
 .nf
 .ft L
 .ta \w'\fLvoid* 'u
-int	srv(Srv *s)
+void	srv(Srv *s)
 void	postmountsrv(Srv *s, char *name, char *mtpt, int flag)
 void	postsharesrv(Srv *s, char *name, char *mtpt, char *desc)
 void	threadpostmountsrv(Srv *s, char *name, char *mtpt, int flag)

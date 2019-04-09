@@ -47,7 +47,7 @@ uint		auth_rpc(AuthRpc *rpc, char *verb, void *a, int n);
 int		auth_getkey(char *params);
 .PP
 .B
-int		(*amount_getkey)(char*, char*);
+int		(*amount_getkey)(char*);
 .PP
 .B
 void		auth_freeAI(AuthInfo *ai);

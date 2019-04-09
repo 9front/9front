@@ -33,7 +33,7 @@ Screen*	publicscreen(Display *d, int id, ulong chan)
 int	freescreen(Screen *s)
 .PP
 .B
-Image*	allocwindow(Screen *s, Rectangle r, int ref, int col)
+Image*	allocwindow(Screen *s, Rectangle r, int ref, ulong col)
 .PP
 .B
 void	bottomwindow(Image *w)

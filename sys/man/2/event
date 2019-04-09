@@ -70,7 +70,7 @@ void	edrawgetrect(Rectangle r, int up)
 int	emenuhit(int but, Mouse *m, Menu *menu)
 .PP
 .B
-int	emoveto(Point p)
+void	emoveto(Point p)
 .PP
 .B
 void	esetcursor(Cursor *c)

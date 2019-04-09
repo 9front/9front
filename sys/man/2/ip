@@ -51,7 +51,7 @@ int	isv4(uchar *ipaddr)
 void	v4tov6(uchar *ipv6, uchar *ipv4)
 .PP
 .B
-void	v6tov4(uchar *ipv4, uchar *ipv6)
+int	v6tov4(uchar *ipv4, uchar *ipv6)
 .PP
 .B
 ushort	nhgets(void *p)

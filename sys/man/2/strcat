@@ -23,7 +23,7 @@ int	strncmp(char *s1, char *s2, long n)
 int	cistrcmp(char *s1, char *s2)
 .PP
 .B
-int	cistrncmp(char *s1, char *s2, long n)
+int	cistrncmp(char *s1, char *s2, int n)
 .PP
 .B
 char*	strcpy(char *s1, char *s2)

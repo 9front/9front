@@ -31,7 +31,7 @@ int	poolisoverlap(Pool* pool, void* ptr, ulong len)
 void*	poolrealloc(Pool* pool, void* ptr, ulong size)
 .PP
 .B
-void	poolcompact(Pool* pool)
+int	poolcompact(Pool* pool)
 .PP
 .B
 void	poolcheck(Pool *pool)

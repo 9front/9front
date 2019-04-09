@@ -56,7 +56,7 @@ int	runevsnprint(Rune *s, int len, char *format, va_list v)
 Rune*	runevseprint(Rune *s, Rune *e, char *format, va_list v)
 .PP
 .B
-Rune*	runevsmprint(Rune *format, va_list v)
+Rune*	runevsmprint(char *format, va_list v)
 .PP
 .B
 .SH DESCRIPTION
