@@ -172,3 +172,31 @@ archinit(void)
 	addarchfile("cputype", 0444, cputyperead, nil);
 	addarchfile("cputemp", 0444, cputempread, nil);
 }
+
+void
+okay(int on)
+{
+	static int first;
+	static int okled, polarity;
+	char *p;
+
+	if(!first++){
+		p = getconf("bcm2709.disk_led_gpio");
+		if(p == nil)
+			p = getconf("bcm2708.disk_led_gpio");
+		if(p != nil)
+			okled = strtol(p, 0, 0);
+		else
+			okled = 'v';
+		p = getconf("bcm2709.disk_led_active_low");
+		if(p == nil)
+			p = getconf("bcm2708.disk_led_active_low");
+		polarity = (p == nil || *p == '1');
+		if(okled != 'v')
+			gpiosel(okled, Output);
+	}
+	if(okled == 'v')
+		vgpset(0, on);
+	else if(okled != 0)
+		gpioout(okled, on^polarity);
+}
