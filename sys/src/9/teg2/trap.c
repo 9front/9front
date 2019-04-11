@@ -937,7 +937,7 @@ callwithureg(void (*fn)(Ureg*))
 
 	memset(&ureg, 0, sizeof ureg);
 	ureg.pc = getcallerpc(&fn);
-	ureg.sp = PTR2UINT(&fn);
+	ureg.sp = (uintptr)&fn;
 	fn(&ureg);
 }
 

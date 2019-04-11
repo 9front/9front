@@ -405,7 +405,7 @@ callwithureg(void (*fn)(Ureg*))
 	Ureg ureg;
 
 	ureg.pc = getcallerpc(&fn);
-	ureg.sp = PTR2UINT(&fn);
+	ureg.sp = (uintptr)&fn;
 	fn(&ureg);
 }
 

@@ -149,7 +149,7 @@ vcreq(int tag, void *buf, int vallen, int rsplen)
 		memmove(prop->data, buf, vallen);
 	cachedwbinvse(prop, prop->len);
 	for(;;){
-		aprop = busaddr? dmaaddr(prop) : PTR2UINT(prop);
+		aprop = busaddr? dmaaddr(prop) : (uintptr)prop;
 		vcwrite(ChanProps, aprop);
 		r = vcread(ChanProps);
 		if(r == aprop)
