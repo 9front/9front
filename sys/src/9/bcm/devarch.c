@@ -174,6 +174,34 @@ archinit(void)
 }
 
 void
+uartconsinit(void)
+{
+	extern PhysUart *physuart[];
+	char *p, *cmd;
+	Uart *uart;
+	int i, n;
+
+	if((p = getconf("console")) == nil)
+		return;
+	i = strtoul(p, &cmd, 0);
+	if(p == cmd)
+		return;
+	/* we only have two possible uarts, the pl011 and aux */
+	for(n = 0; physuart[n] != nil; n++)
+		;
+	if(i < 0 || i >= n)
+		return;
+	uart = physuart[i]->pnp();
+	if(!uart->enabled)
+		(*uart->phys->enable)(uart, 0);
+	uartctl(uart, "l8 pn s1");
+	if(*cmd != '\0')
+		uartctl(uart, cmd);
+	consuart = uart;
+	uart->console = 1;
+}
+
+void
 okay(int on)
 {
 	static int first;
