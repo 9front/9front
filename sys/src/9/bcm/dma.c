@@ -100,13 +100,13 @@ static u32int *dmaregs = (u32int*)DMAREGS;
 uintptr
 dmaaddr(void *va)
 {
-	return soc.busdram | (PTR2UINT(va) & ~KSEGM);
+	return soc.busdram | (PADDR(va) - PHYSDRAM);
 }
 
 static uintptr
 dmaioaddr(void *va)
 {
-	return soc.busio | (PTR2UINT(va) & ~VIRTIO);
+	return soc.busio | ((uintptr)va - VIRTIO);
 }
 
 static void

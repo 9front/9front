@@ -460,7 +460,7 @@ bootargs(uintptr base)
 	 * of the argument list checked in syscall.
 	 */
 	i = oargblen+1;
-	p = UINT2PTR(STACKALIGN(base + BY2PG - sizeof(up->s.args) - i));
+	p = (void*)(STACKALIGN(base + BY2PG - sizeof(up->s.args) - i));
 	memmove(p, oargb, i);
 
 	/*
@@ -473,7 +473,7 @@ bootargs(uintptr base)
 	 * unused so it doesn't matter (at the moment...).
 	 */
 	av = (char**)(p - (oargc+2)*sizeof(char*));
-	ssize = base + BY2PG - PTR2UINT(av);
+	ssize = base + BY2PG - (uintptr)av;
 	*av++ = (char*)oargc;
 	for(i = 0; i < oargc; i++)
 		*av++ = (oargv[i] - oargb) + (p - base) + (USTKTOP - BY2PG);
@@ -515,8 +515,8 @@ userinit(void)
 	/*
 	 * Kernel Stack
 	 */
-	p->sched.pc = PTR2UINT(init0);
-	p->sched.sp = PTR2UINT(p->kstack+KSTACK-sizeof(up->s.args)-sizeof(uintptr));
+	p->sched.pc = (uintptr)init0;
+	p->sched.sp = (uintptr)p->kstack+KSTACK-sizeof(up->s.args)-sizeof(uintptr);
 	p->sched.sp = STACKALIGN(p->sched.sp);
 
 	/*
@@ -545,7 +545,7 @@ userinit(void)
 	pg->txtflush = ~0;
 	segpage(s, pg);
 	k = kmap(s->map[0]->pages[0]);
-	memmove(UINT2PTR(VA(k)), initcode, sizeof initcode);
+	memmove((void*)VA(k), initcode, sizeof initcode);
 	kunmap(k);
 
 	ready(p);
@@ -578,7 +578,7 @@ confinit(void)
 	memmove(conf.mem, sheevamem, sizeof(sheevamem));
 
 	conf.npage = 0;
-	pa = PADDR(PGROUND(PTR2UINT(end)));
+	pa = PADDR(PGROUND((uintptr)end));
 
 	/*
 	 *  we assume that the kernel is at the beginning of one of the

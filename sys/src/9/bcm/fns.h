@@ -131,14 +131,9 @@ extern void kexit(Ureg*);
 #define	kmapinval()
 #define countpagerefs(a, b)
 
-#define PTR2UINT(p)	((uintptr)(p))
-#define UINT2PTR(i)	((void*)(i))
-
 #define	waserror()	(up->nerrlab++, setlabel(&up->errlab[up->nerrlab-1]))
 
-#define KADDR(pa)	UINT2PTR(KZERO    | ((uintptr)(pa) & ~KSEGM))
-#define PADDR(va)	PTR2UINT(PHYSDRAM | ((uintptr)(va) & ~KSEGM))
-#define DMAADDR(va)	PTR2UINT(BUSDRAM  | ((uintptr)(va) & ~KSEGM))
-#define DMAIO(va)	PTR2UINT(BUSIO    | ((uintptr)(va) & ~VIRTIO))
+#define KADDR(pa)	((void*)(KZERO | ((uintptr)(pa) & ~KSEGM)))
+#define PADDR(va)	(PHYSDRAM | ((uintptr)(va) & ~KSEGM))
 
 #define MASK(v)	((1UL << (v)) - 1)	/* mask `v' bits wide */

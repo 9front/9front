@@ -172,3 +172,59 @@ archinit(void)
 	addarchfile("cputype", 0444, cputyperead, nil);
 	addarchfile("cputemp", 0444, cputempread, nil);
 }
+
+void
+uartconsinit(void)
+{
+	extern PhysUart *physuart[];
+	char *p, *cmd;
+	Uart *uart;
+	int i, n;
+
+	if((p = getconf("console")) == nil)
+		return;
+	i = strtoul(p, &cmd, 0);
+	if(p == cmd)
+		return;
+	/* we only have two possible uarts, the pl011 and aux */
+	for(n = 0; physuart[n] != nil; n++)
+		;
+	if(i < 0 || i >= n)
+		return;
+	uart = physuart[i]->pnp();
+	if(!uart->enabled)
+		(*uart->phys->enable)(uart, 0);
+	uartctl(uart, "l8 pn s1");
+	if(*cmd != '\0')
+		uartctl(uart, cmd);
+	consuart = uart;
+	uart->console = 1;
+}
+
+void
+okay(int on)
+{
+	static int first;
+	static int okled, polarity;
+	char *p;
+
+	if(!first++){
+		p = getconf("bcm2709.disk_led_gpio");
+		if(p == nil)
+			p = getconf("bcm2708.disk_led_gpio");
+		if(p != nil)
+			okled = strtol(p, 0, 0);
+		else
+			okled = 'v';
+		p = getconf("bcm2709.disk_led_active_low");
+		if(p == nil)
+			p = getconf("bcm2708.disk_led_active_low");
+		polarity = (p == nil || *p == '1');
+		if(okled != 'v')
+			gpiosel(okled, Output);
+	}
+	if(okled == 'v')
+		vgpset(0, on);
+	else if(okled != 0)
+		gpioout(okled, on^polarity);
+}

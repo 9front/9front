@@ -47,7 +47,7 @@ extern PhysUart miniphysuart;
 
 static Uart miniuart = {
 	.regs	= (u32int*)AUXREGS,
-	.name	= "uart0",
+	.name	= "uart1",
 	.freq	= 250000000,
 	.baud	= 115200,
 	.phys	= &miniphysuart,
@@ -100,7 +100,7 @@ enable(Uart *uart, int ie)
 	ap[MuCntl] = TxEn|RxEn;
 	baud(uart, uart->baud);
 	if(ie){
-		intrenable(IRQaux, interrupt, uart, 0, "uart");
+		intrenable(IRQaux, interrupt, uart, 0, uart->name);
 		ap[MuIer] = RxIen|TxIen;
 	}else
 		ap[MuIer] = 0;
@@ -259,7 +259,7 @@ donothing(Uart*, int)
 {
 }
 
-void
+static void
 putc(Uart*, int c)
 {
 	u32int *ap;
@@ -272,7 +272,7 @@ putc(Uart*, int c)
 		;
 }
 
-int
+static int
 getc(Uart*)
 {
 	u32int *ap;
@@ -283,38 +283,8 @@ getc(Uart*)
 	return ap[MuIo] & 0xFF;
 }
 
-void
-uartconsinit(void)
-{
-	Uart *uart;
-	int n;
-	char *p, *cmd;
-
-	if((p = getconf("console")) == nil)
-		return;
-	n = strtoul(p, &cmd, 0);
-	if(p == cmd)
-		return;
-	switch(n){
-	default:
-		return;
-	case 0:
-		uart = &miniuart;
-		break;
-	}
-
-	if(!uart->enabled)
-		(*uart->phys->enable)(uart, 0);
-	uartctl(uart, "l8 pn s1");
-	if(*cmd != '\0')
-		uartctl(uart, cmd);
-
-	consuart = uart;
-	uart->console = 1;
-}
-
 PhysUart miniphysuart = {
-	.name		= "miniuart",
+	.name		= "mini",
 	.pnp		= pnp,
 	.enable		= enable,
 	.disable	= disable,
@@ -332,31 +302,3 @@ PhysUart miniphysuart = {
 	.getc		= getc,
 	.putc		= putc,
 };
-
-void
-okay(int on)
-{
-	static int first;
-	static int okled, polarity;
-	char *p;
-
-	if(!first++){
-		p = getconf("bcm2709.disk_led_gpio");
-		if(p == nil)
-			p = getconf("bcm2708.disk_led_gpio");
-		if(p != nil)
-			okled = strtol(p, 0, 0);
-		else
-			okled = 'v';
-		p = getconf("bcm2709.disk_led_active_low");
-		if(p == nil)
-			p = getconf("bcm2708.disk_led_active_low");
-		polarity = (p == nil || *p == '1');
-		if(okled != 'v')
-			gpiosel(okled, Output);
-	}
-	if(okled == 'v')
-		vgpset(0, on);
-	else if(okled != 0)
-		gpioout(okled, on^polarity);
-}

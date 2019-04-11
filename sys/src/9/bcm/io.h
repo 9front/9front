@@ -11,6 +11,7 @@ enum {
 	IRQi2c		= 53,
 	IRQspi		= 54,
 	IRQsdhost	= 56,
+	IRQuart		= 57,
 	IRQmmc		= 62,
 
 	IRQbasic	= 64,

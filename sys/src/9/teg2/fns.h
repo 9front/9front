@@ -217,12 +217,9 @@ extern void kexit(Ureg*);
 #define	getpgcolor(a)	0
 #define	kmapinval()
 
-#define PTR2UINT(p)	((uintptr)(p))
-#define UINT2PTR(i)	((void*)(i))
-
 #define	waserror()	(up->nerrlab++, setlabel(&up->errlab[up->nerrlab-1]))
 
-#define KADDR(pa)	UINT2PTR(KZERO    | ((uintptr)(pa) & ~KSEGM))
-#define PADDR(va)	PTR2UINT(PHYSDRAM | ((uintptr)(va) & ~KSEGM))
+#define KADDR(pa)	((void*)(KZERO | ((uintptr)(pa) & ~KSEGM)))
+#define PADDR(va)	(PHYSDRAM | ((uintptr)(va) & ~KSEGM))
 
 #define MASK(v)	((1UL << (v)) - 1)	/* mask `v' bits wide */

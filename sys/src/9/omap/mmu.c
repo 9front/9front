@@ -138,7 +138,7 @@ mmul2empty(Proc* proc, int clear)
 	l2 = &proc->mmul2;
 	for(page = *l2; page != nil; page = page->next){
 		if(clear)
-			memset(UINT2PTR(page->va), 0, BY2PG);
+			memset((void*)page->va, 0, BY2PG);
 		l1[page->daddr] = Fault;
 		l2 = &page->next;
 	}
@@ -282,7 +282,7 @@ putmmu(uintptr va, uintptr pa, Page* page)
 		else{
 			pg = up->mmul2cache;
 			up->mmul2cache = pg->next;
-			memset(UINT2PTR(pg->va), 0, BY2PG);
+			memset((void*)pg->va, 0, BY2PG);
 		}
 		pg->daddr = x;
 		pg->next = up->mmul2;
@@ -302,7 +302,7 @@ putmmu(uintptr va, uintptr pa, Page* page)
 				m->mmul1hi = x;
 		}
 	}
-	pte = UINT2PTR(KADDR(PPN(*l1)));
+	pte = KADDR(PPN(*l1));
 	//print("pte %#p index %ld was %#ux\n", pte, L2X(va), *(pte+L2X(va)));
 
 	/* protection bits are
@@ -349,7 +349,7 @@ mmuuncache(void* v, usize size)
 	 * Uncache a Section, must already be
 	 * valid in the MMU.
 	 */
-	va = PTR2UINT(v);
+	va = (uintptr)v;
 	assert(!(va & (1*MiB-1)) && size == 1*MiB);
 
 	x = L1X(va);
@@ -433,7 +433,7 @@ vmap(uintptr pa, usize size)
 	 * will fail.
 	 */
 	if(pa+size < 4*MiB)
-		return UINT2PTR(kseg0|pa);
+		return (void*)(kseg0|pa);
 
 	osize = size;
 	o = pa & (BY2PG-1);
@@ -447,7 +447,7 @@ vmap(uintptr pa, usize size)
 		panic("vmap(%#p, %ld) called from %#p: mmukmap fails %#p",
 			pa+o, osize, getcallerpc(&pa), pae);
 
-	return UINT2PTR(va+o);
+	return (void*)(va+o);
 }
 
 /* from 386 */

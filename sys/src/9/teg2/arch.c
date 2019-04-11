@@ -24,7 +24,7 @@ setkernur(Ureg* ureg, Proc* p)
 {
 	ureg->pc = p->sched.pc;
 	ureg->sp = p->sched.sp+4;
-	ureg->r14 = PTR2UINT(sched);
+	ureg->r14 = (uintptr)sched;
 }
 
 /*
@@ -95,8 +95,8 @@ linkproc(void)
 void
 kprocchild(Proc *p, void (*func)(void*), void *arg)
 {
-	p->sched.pc = PTR2UINT(linkproc);
-	p->sched.sp = PTR2UINT(p->kstack+KSTACK);
+	p->sched.pc = (uintptr)linkproc;
+	p->sched.sp = (uintptr)p->kstack+KSTACK;
 
 	p->kpfun = func;
 	p->kparg = arg;

@@ -91,7 +91,7 @@ mmul2empty(Proc* proc, int clear)
 	l2 = &proc->mmul2;
 	for(page = *l2; page != nil; page = page->next){
 		if(clear)
-			memset(UINT2PTR(page->va), 0, L2size);
+			memset((void*)page->va, 0, L2size);
 		l1[page->daddr] = Fault;
 		l2 = &page->next;
 	}
@@ -241,7 +241,7 @@ putmmu(uintptr va, uintptr pa, Page* page)
 				m->mmul1hi = L1hi - x;
 		}
 	}
-	pte = UINT2PTR(KADDR(PPN(*l1)));
+	pte = KADDR(PPN(*l1));
 
 	/* protection bits are
 	 *	PTERONLY|PTEVALID;
@@ -283,7 +283,7 @@ mmuuncache(void* v, usize size)
 	 * Uncache a Section, must already be
 	 * valid in the MMU.
 	 */
-	va = PTR2UINT(v);
+	va = (uintptr)v;
 	assert(!(va & (1*MiB-1)) && size == 1*MiB);
 
 	x = L1X(va);

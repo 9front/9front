@@ -47,7 +47,7 @@ noted(Ureg* cur, uintptr arg0)
 	nf = up->ureg;
 
 	/* sanity clause */
-	if(!okaddr(PTR2UINT(nf), sizeof(NFrame), 0)){
+	if(!okaddr((uintptr)nf, sizeof(NFrame), 0)){
 		qunlock(&up->debug);
 		pprint("bad ureg in noted %#p\n", nf);
 		pexit("Suicide", 0);
@@ -83,8 +83,8 @@ noted(Ureg* cur, uintptr arg0)
 		nf->arg1 = nf->msg;
 		nf->arg0 = &nf->ureg;
 		nf->ip = 0;
-		cur->sp = PTR2UINT(nf);
-		cur->r0 = PTR2UINT(nf->arg0);
+		cur->sp = (uintptr)nf;
+		cur->r0 = (uintptr)nf->arg0;
 		break;
 	default:
 		up->lastnote.flag = NDebug;
@@ -146,7 +146,7 @@ notify(Ureg* ureg)
 		qunlock(&up->debug);
 		pexit(n->msg, n->flag != NDebug);
 	}
-	if(!okaddr(PTR2UINT(up->notify), 1, 0)){
+	if(!okaddr((uintptr)up->notify, 1, 0)){
 		qunlock(&up->debug);
 		pprint("suicide: notify function address %#p\n", up->notify);
 		pexit("Suicide", 0);
@@ -159,7 +159,7 @@ notify(Ureg* ureg)
 		pexit("Suicide", 0);
 	}
 
-	nf = UINT2PTR(sp);
+	nf = (void*)sp;
 	memmove(&nf->ureg, ureg, sizeof(Ureg));
 	nf->old = up->ureg;
 	up->ureg = nf;
@@ -169,8 +169,8 @@ notify(Ureg* ureg)
 	nf->ip = 0;
 
 	ureg->sp = sp;
-	ureg->pc = PTR2UINT(up->notify);
-	ureg->r0 = PTR2UINT(nf->arg0);
+	ureg->pc = (uintptr)up->notify;
+	ureg->r0 = (uintptr)nf->arg0;
 
 	up->notified = 1;
 	up->nnote--;
