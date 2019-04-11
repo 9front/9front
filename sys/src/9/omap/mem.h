@@ -39,7 +39,7 @@
 #define	MAXMACH		1			/* max # cpus system can run */
 #define	MACHSIZE	BY2PG
 
-#define KSTKSIZE	(16*KiB)			/* was 8K */
+#define KSTACK		(16*KiB)			/* was 8K */
 #define STACKALIGN(sp)	((sp) & ~3)		/* bug: assure with alloc */
 
 /*
@@ -80,7 +80,6 @@
  * Legacy...
  */
 #define BLOCKALIGN	32			/* only used in allocb.c */
-#define KSTACK		KSTKSIZE
 
 /*
  * Sizes

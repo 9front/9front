@@ -41,7 +41,7 @@
 #define	MACHSIZE	BY2PG
 #define L1SIZE		(4 * BY2PG)
 
-#define KSTKSIZE	(16*KiB)		/* was 8K */
+#define KSTACK		(16*KiB)		/* was 8K */
 #define STACKALIGN(sp)	((sp) & ~7)		/* bug: assure with alloc */
 
 /*
@@ -97,7 +97,6 @@
  * Legacy...
  */
 #define BLOCKALIGN	CACHELINESZ		/* only used in allocb.c */
-#define KSTACK		KSTKSIZE
 
 /*
  * Sizes
