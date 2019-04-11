@@ -45,6 +45,7 @@ OBJ=\
 	lexception.$O\
 	lproc.$O\
 	arch.$O\
+	bootargs.$O\
 	clock.$O\
 	fpi.$O\
 	fpiarm.$O\
