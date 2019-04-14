@@ -460,6 +460,7 @@ main(int argc, char **argv)
 
 	busyfd = create("/env/usbbusy", ORCLOSE, 0600);
 	quotefmtinstall();
+	fmtinstall('U', Ufmt);
 	initevent();
 	rfork(RFNOTEG);
 	switch(rfork(RFPROC|RFMEM|RFNOWAIT)){

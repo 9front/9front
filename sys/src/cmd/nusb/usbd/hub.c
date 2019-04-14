@@ -670,7 +670,7 @@ dump(void)
 	mustdump = 0;
 	for(h = hubs; h != nil; h = h->next)
 		for(i = 1; i <= h->nport; i++)
-			fprint(2, "%s: hub %#p %s port %d: %U",
+			fprint(2, "%s: hub %#p %s port %d: %U\n",
 				argv0, h, h->dev->dir, i, h->port[i].dev);
 
 }
