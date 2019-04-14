@@ -701,6 +701,7 @@ static Bridge southbridges[] = {
 	{ 0x1039, 0x0496, pIIxget, pIIxset },	/* SI 496 */
 	{ 0x1078, 0x0100, cyrixget, cyrixset },	/* Cyrix 5530 Legacy */
 
+	{ 0x1022, 0x790e, nil, nil },		/* AMD FCH LPC bridge */
 	{ 0x1022, 0x746b, nil, nil },		/* AMD 8111 */
 	{ 0x10de, 0x00d1, nil, nil },		/* NVIDIA nForce 3 */
 	{ 0x10de, 0x00e0, nil, nil },		/* NVIDIA nForce 3 250 Series */
