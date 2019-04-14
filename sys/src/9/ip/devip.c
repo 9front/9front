@@ -857,7 +857,11 @@ setladdrport(Conv* c, char* str, int announcing)
 		return setluniqueport(c, 0);
 	}
 
-	lport = atoi(p);
+	str = p;
+	lport = strtol(str, &p, 10);
+	if(p <= str || strchr("!", *p) == nil)
+		return "bad numeric port";
+
 	if(lport <= 0)
 		rv = setlport(c);
 	else
@@ -874,14 +878,17 @@ setraddrport(Conv* c, char* str)
 	if(p == nil)
 		return "malformed address";
 	*p++ = 0;
-	if (parseip(c->raddr, str) == -1)
+	if(parseip(c->raddr, str) == -1)
 		return Ebadip;
-	c->rport = atoi(p);
-	p = strchr(p, '!');
-	if(p){
-		if(strstr(p, "!r") != nil)
-			c->restricted = 1;
-	}
+
+	str = p;
+	c->rport = strtol(str, &p, 10);
+	if(p <= str || strchr("!", *p) == nil)
+		return "bad numeric port";
+
+	if(strstr(p, "!r") != nil)
+		c->restricted = 1;
+
 	return nil;
 }
 
