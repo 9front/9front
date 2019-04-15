@@ -154,6 +154,8 @@ sddelpart(SDunit* unit, char* name)
 	 */
 	pp = unit->part;
 	for(i = 0; i < unit->npart; i++){
+		if(!pp->valid)
+			continue;
 		if(strcmp(name, pp->name) == 0)
 			break;
 		pp++;
