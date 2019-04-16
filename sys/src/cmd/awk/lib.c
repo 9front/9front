@@ -155,10 +155,7 @@ int getrec(char **pbuf, int *pbufsize, int isrecord)	/* get next input record */
 			return 1;
 		}
 		/* Beof arrived on this file; set up next */
-		if (infile != &stdin)
-			Bterm(infile);
-		infile = nil;
-		argno++;
+		nextfile();
 	}
 	*pbuf = buf;
 	*pbufsize = bufsize;
@@ -167,7 +164,7 @@ int getrec(char **pbuf, int *pbufsize, int isrecord)	/* get next input record */
 
 void nextfile(void)
 {
-	if (infile != &stdin)
+	if (infile != nil && infile != &stdin)
 		Bterm(infile);
 	infile = nil;
 	argno++;
