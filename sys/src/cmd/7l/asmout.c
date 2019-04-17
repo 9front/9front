@@ -74,7 +74,6 @@ void
 asmout(Prog *p, Optab *o)
 {
 	long o1, o2, o3, o4, o5, v, hi;
-	ulong u;
 	vlong d;
 	int r, s, rf, rt, ra, nzcv, cond, i, as;
 	Mask *mask;
@@ -223,8 +222,6 @@ asmout(Prog *p, Optab *o)
 
 	case 13:	/* addop $lcon, [R], R (64 bit literal); cmp $lcon,R -> addop $lcon,R, ZR */
 		o1 = omovlit(AMOV, p, &p->from, REGTMP);
-		if(!o1)
-			break;
 		rt = p->to.reg;
 		if(p->to.type == D_NONE)
 			rt = REGZERO;
@@ -427,8 +424,6 @@ asmout(Prog *p, Optab *o)
 
 	case 28:	/* logop $lcon, [R], R (64 bit literal) */
 		o1 = omovlit(AMOV, p, &p->from, REGTMP);
-		if(!o1)
-			break;
 		r = p->reg;
 		if(r == NREG)
 			r = p->to.reg;
@@ -448,10 +443,10 @@ asmout(Prog *p, Optab *o)
 		if(s < 0)
 			diag("unexpected long move, op %A tab %A\n%P", p->as, o->as, p);
 		v = regoff(&p->to);
-		if(v < 0)
-			diag("negative large offset\n%P", p);
 		if((v & ((1<<s)-1)) != 0)
 			diag("misaligned offset\n%P", p);
+		if(v < 0 || (v>>s) >= (1<<24))
+			goto Hugestxr;
 		hi = v - (v & (0xFFF<<s));
 		if((hi & 0xFFF) != 0)
 			diag("internal: miscalculated offset %ld [%d]\n%P", v, s, p);
@@ -468,10 +463,10 @@ asmout(Prog *p, Optab *o)
 		if(s < 0)
 			diag("unexpected long move, op %A tab %A\n%P", p->as, o->as, p);
 		v = regoff(&p->from);
-		if(v < 0)
-			diag("negative large offset\n%P", p);
 		if((v & ((1<<s)-1)) != 0)
 			diag("misaligned offset\n%P", p);
+		if(v < 0 || (v>>s) >= (1<<24))
+			goto Hugeldxr;
 		hi = v - (v & (0xFFF<<s));
 		if((hi & 0xFFF) != 0)
 			diag("internal: miscalculated offset %ld [%d]\n%P", v, s, p);
@@ -670,23 +665,23 @@ asmout(Prog *p, Optab *o)
 		break;
 
 	case 47:	/* movT R,V(R) -> strT (huge offset) */
-		o1 = omovlit(AMOVW, p, &p->to, REGTMP);
-		if(!o1)
-			break;
+	Hugestxr:
+		o1 = omovlit(AMOV, p, &p->to, REGTMP);
 		r = p->to.reg;
 		if(r == NREG)
 			r = o->param;
-		o2 = olsxrr(p->as, REGTMP,r, p->from.reg);
+		o2 = LD2STR(olsxrr(p->as, REGTMP, r, p->from.reg));
+		o2 |= 7<<13;	// REGTMP.SX
 		break;
 
 	case 48:	/* movT V(R), R -> ldrT (huge offset) */
-		o1 = omovlit(AMOVW, p, &p->from, REGTMP);
-		if(!o1)
-			break;
+	Hugeldxr:
+		o1 = omovlit(AMOV, p, &p->from, REGTMP);
 		r = p->from.reg;
 		if(r == NREG)
 			r = o->param;
-		o2 = olsxrr(p->as, REGTMP,r, p->to.reg);
+		o2 = olsxrr(p->as, REGTMP, r, p->to.reg);
+		o2 |= 7<<13;	// REGTMP.SX
 		break;
 
 	case 50:	/* sys/sysl */
@@ -845,15 +840,11 @@ asmout(Prog *p, Optab *o)
 	/* reloc ops */
 	case 64:	/* movT R,addr */
 		o1 = omovlit(AMOV, p, &p->to, REGTMP);
-		if(!o1)
-			break;
 		o2 = olsr12u(opstr12(p->as), 0, REGTMP, p->from.reg);
 		break;
 
 	case 65:	/* movT addr,R */
 		o1 = omovlit(AMOV, p, &p->from, REGTMP);
-		if(!o1)
-			break;
 		o2 = olsr12u(opldr12(p->as), 0, REGTMP, p->to.reg);
 		break;
 	}
@@ -1572,8 +1563,7 @@ opldrpp(int a)
 static long
 olsxrr(int a, int b, int c, int d)
 {
-	diag("need load/store extended register\n%P", curp);
-	return -1;
+	return opldrpp(a) | 1<<21 | b<<16 | 2<<10 | c<<5 | d;
 }
 
 static long
@@ -1598,7 +1588,6 @@ omovlit(int as, Prog *p, Adr *a, int dr)
 
 	if(p->cond == nil){	/* not in literal pool */
 		aclass(a);
-fprint(2, "omovlit add %lld (%#llux)\n", instoffset, instoffset);
 		/* TO DO: could be clever, and use general constant builder */
 		o1 = opirr(AADD);
 		v = instoffset;
@@ -1606,6 +1595,8 @@ fprint(2, "omovlit add %lld (%#llux)\n", instoffset, instoffset);
 			v >>= 12;
 			o1 |= 1<<22;	/* shift, by 12 */
 		}
+		if(v < 0 || v > 0xFFF)
+			diag("literal out of range\n%P", p);
 		o1 |= ((v& 0xFFF) << 10) | (REGZERO<<5) | dr;
 	}else{
 		fp = 0;

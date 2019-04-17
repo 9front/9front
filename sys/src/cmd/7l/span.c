@@ -200,23 +200,21 @@ void
 addpool(Prog *p, Adr *a)
 {
 	Prog *q, t;
-	int c, sz;
+	int sz;
 
-	c = aclass(a);
 
 	t = zprg;
 	t.as = AWORD;
 	sz = 4;
-	if(p->as == AMOV || (cmp(C_VCON, c) && (ulong)(a->offset & 0xFFFFFFFF) != a->offset)) {
-		t.as = ADWORD;
-		sz = 8;
-	}
-
-	switch(c) {
+	switch(aclass(a)) {
 	default:
+		if(p->as == AMOV && (a->name == D_EXTERN || a->name == D_STATIC)
+		|| (a->offset >> 32) != 0 && (a->offset >> 31) != -1){
+			t.as = ADWORD;
+			sz = 8;
+		}
 		t.to = *a;
 		break;
-
 	case C_PSAUTO:
 	case C_PPAUTO:
 	case C_UAUTO4K:
@@ -237,9 +235,11 @@ addpool(Prog *p, Adr *a)
 	case C_NSOREG:
 	case C_NPOREG:
 	case C_LOREG:
+	case C_LACON:
+		if((instoffset >> 32) != 0 && (instoffset >> 31) != -1)
+			diag("offset too large\n%P", p);
 		t.to.type = D_CONST;
 		t.to.offset = instoffset;
-		sz = 4;
 		break;
 	}
 
@@ -741,7 +741,8 @@ oplook(Prog *p)
 		if(c1[o->a1])
 		if(c3[o->a3]) {
 			if(0)
-				print("%P\t-> %d (%d %d %d)\n", p, o->type, o->a1, o->a2, o->a3);
+				print("%P\t-> %d (%d %d %d)\n", p, o->type,
+					o->a1, o->a2, o->a3);
 			p->optab = (o-optab)+1;
 			return o;
 		}

@@ -141,7 +141,7 @@ Optab	optab[] =
 	{ AWORD,	C_NONE,	C_NONE,	C_ADDR,		14, 4, 0 },
 
 	{ AMOVW,	C_LCON,	C_NONE,	C_REG,		12, 4, 0,	LFROM },
-	{ AMOV,	C_LCON,	C_NONE,	C_REG,		12, 4, 0,	LFROM },
+	{ AMOV,		C_LCON,	C_NONE,	C_REG,		12, 4, 0,	LFROM },
 
 	{ AMOVW,	C_REG,	C_NONE,	C_ADDR,		64, 8, 0,	LTO },
 	{ AMOVB,	C_REG,	C_NONE,	C_ADDR,		64, 8, 0,	LTO },
@@ -236,54 +236,62 @@ Optab	optab[] =
 	{ AMOV,	C_UOREG32K,C_NONE,	C_REG,		21, 4, REGSP },
 	{ AMOV,	C_NSOREG,C_NONE,	C_REG,	21, 4, REGSP },
 
-	/* long displacement store */
-	{ AMOVB,	C_REG,	C_NONE,	C_LEXT,		30, 8, REGSB },  // 
-	{ AMOVB,	C_REG,	C_NONE,	C_LAUTO,	30, 8, REGSP },  // 
-	{ AMOVB,	C_REG,	C_NONE,	C_LOREG,	30, 8, 0 },  // 
-	{ AMOVH,	C_REG,	C_NONE,	C_LEXT,		30, 8, REGSB },  // 
-	{ AMOVH,	C_REG,	C_NONE,	C_LAUTO,	30, 8, REGSP },  // 
-	{ AMOVH,	C_REG,	C_NONE,	C_LOREG,	30, 8, 0 },  // 
-	{ AMOVW,	C_REG,	C_NONE,	C_LEXT,		30, 8, REGSB },  // 
-	{ AMOVW,	C_REG,	C_NONE,	C_LAUTO,	30, 8, REGSP },  // 
-	{ AMOVW,	C_REG,	C_NONE,	C_LOREG,	30, 8, 0 },  // 
-	{ AMOV,	C_REG,	C_NONE,	C_LEXT,		30, 8, REGSB },  // 
-	{ AMOV,	C_REG,	C_NONE,	C_LAUTO,	30, 8, REGSP },  // 
-	{ AMOV,	C_REG,	C_NONE,	C_LOREG,	30, 8, 0 },  // 
+	/* large displacement store */
+	{ AMOVB,	C_REG,	C_NONE,	C_LEXT,		30, 8, REGSB,	LTO },
+	{ AMOVB,	C_REG,	C_NONE,	C_LAUTO,	30, 8, REGSP,	LTO },
+	{ AMOVB,	C_REG,	C_NONE,	C_LOREG,	30, 8, 0,	LTO },
+	{ AMOVBU,	C_REG,	C_NONE,	C_LEXT,		30, 8, REGSB,	LTO },
+	{ AMOVBU,	C_REG,	C_NONE,	C_LAUTO,	30, 8, REGSP,	LTO },
+	{ AMOVBU,	C_REG,	C_NONE,	C_LOREG,	30, 8, 0,	LTO },
 
-	/* long displacement load */
-	{ AMOVB,		C_LEXT,	C_NONE,	C_REG,		31, 8, REGSB },  // 
-	{ AMOVB,		C_LAUTO,C_NONE,	C_REG,		31, 8, REGSP },  // 
-	{ AMOVB,		C_LOREG,C_NONE,	C_REG,		31, 8, 0 },  // 
-	{ AMOVB,		C_LOREG,C_NONE,	C_REG,		31, 8, 0 },	//
-	{ AMOVH,		C_LEXT,	C_NONE,	C_REG,		31, 8, REGSB },  // 
-	{ AMOVH,		C_LAUTO,C_NONE,	C_REG,		31, 8, REGSP },  // 
-	{ AMOVH,		C_LOREG,C_NONE,	C_REG,		31, 8, 0 },  // 
-	{ AMOVH,		C_LOREG,C_NONE,	C_REG,		31, 8, 0 },	//
-	{ AMOVW,		C_LEXT,	C_NONE,	C_REG,		31, 8, REGSB },  // 
-	{ AMOVW,		C_LAUTO,C_NONE,	C_REG,		31, 8, REGSP },  // 
-	{ AMOVW,		C_LOREG,C_NONE,	C_REG,		31, 8, 0 },  // 
-	{ AMOVW,		C_LOREG,C_NONE,	C_REG,		31, 8, 0 },	//
-	{ AMOV,		C_LEXT,	C_NONE,	C_REG,		31, 8, REGSB },  // 
-	{ AMOV,		C_LAUTO,C_NONE,	C_REG,		31, 8, REGSP },  // 
-	{ AMOV,		C_LOREG,C_NONE,	C_REG,		31, 8, 0 },  // 
-	{ AMOV,		C_LOREG,C_NONE,	C_REG,		31, 8, 0 },	//
+	{ AMOVH,	C_REG,	C_NONE,	C_LEXT,		30, 8, REGSB,	LTO },
+	{ AMOVH,	C_REG,	C_NONE,	C_LAUTO,	30, 8, REGSP,	LTO },
+	{ AMOVH,	C_REG,	C_NONE,	C_LOREG,	30, 8, 0,	LTO },
 
-	/* load long effective stack address (load long offset and add) */
-	{ AMOV,		C_LACON,C_NONE,	C_REG,		34, 8, REGSP,	LFROM },  //
+	{ AMOVW,	C_REG,	C_NONE,	C_LEXT,		30, 8, REGSB,	LTO },
+	{ AMOVW,	C_REG,	C_NONE,	C_LAUTO,	30, 8, REGSP,	LTO },
+	{ AMOVW,	C_REG,	C_NONE,	C_LOREG,	30, 8, 0,	LTO },
+
+	{ AMOV,		C_REG,	C_NONE,	C_LEXT,		30, 8, REGSB,	LTO },
+	{ AMOV,		C_REG,	C_NONE,	C_LAUTO,	30, 8, REGSP,	LTO },
+	{ AMOV,		C_REG,	C_NONE,	C_LOREG,	30, 8, 0,	LTO },
+
+	/* large displacement load */
+	{ AMOVB,	C_LEXT,	C_NONE,	C_REG,		31, 8, REGSB,	LFROM  },
+	{ AMOVB,	C_LAUTO,C_NONE,	C_REG,		31, 8, REGSP,	LFROM  },
+	{ AMOVB,	C_LOREG,C_NONE,	C_REG,		31, 8, 0,	LFROM  },
+	{ AMOVBU,	C_LEXT,	C_NONE,	C_REG,		31, 8, REGSB,	LFROM  },
+	{ AMOVBU,	C_LAUTO,C_NONE,	C_REG,		31, 8, REGSP,	LFROM  },
+	{ AMOVBU,	C_LOREG,C_NONE,	C_REG,		31, 8, 0,	LFROM  },
+
+	{ AMOVH,	C_LEXT,	C_NONE,	C_REG,		31, 8, REGSB,	LFROM  },
+	{ AMOVH,	C_LAUTO,C_NONE,	C_REG,		31, 8, REGSP,	LFROM  },
+	{ AMOVH,	C_LOREG,C_NONE,	C_REG,		31, 8, 0,	LFROM  },
+
+	{ AMOVW,	C_LEXT,	C_NONE,	C_REG,		31, 8, REGSB,	LFROM  },
+	{ AMOVW,	C_LAUTO,C_NONE,	C_REG,		31, 8, REGSP,	LFROM  },
+	{ AMOVW,	C_LOREG,C_NONE,	C_REG,		31, 8, 0,	LFROM  },
+
+	{ AMOV,		C_LEXT,	C_NONE,	C_REG,		31, 8, REGSB,	LFROM  },
+	{ AMOV,		C_LAUTO,C_NONE,	C_REG,		31, 8, REGSP,	LFROM  },
+	{ AMOV,		C_LOREG,C_NONE,	C_REG,		31, 8, 0,	LFROM  },
+
+	/* load large effective stack address (load large offset and add) */
+	{ AMOV,		C_LACON,C_NONE,	C_REG,		34, 8, REGSP,	LFROM },
 
 	/* pre/post-indexed load (unscaled, signed 9-bit offset) */
 	{ AMOV,		C_XPOST,	C_NONE,	C_REG,		22, 4, 0 },
 	{ AMOVW, 	C_XPOST,	C_NONE,	C_REG,		22, 4, 0 },
-	{ AMOVH,		C_XPOST,	C_NONE,	C_REG,		22, 4, 0 },
-	{ AMOVB, 		C_XPOST,	C_NONE,	C_REG,		22, 4, 0 },
+	{ AMOVH,	C_XPOST,	C_NONE,	C_REG,		22, 4, 0 },
+	{ AMOVB, 	C_XPOST,	C_NONE,	C_REG,		22, 4, 0 },
 	{ AMOVBU, 	C_XPOST,	C_NONE, C_REG,		22, 4, 0 },
 	{ AFMOVS, 	C_XPOST,	C_NONE,	C_FREG,	22, 4, 0 },
 	{ AFMOVD, 	C_XPOST,	C_NONE,	C_FREG,	22, 4, 0 },
 
 	{ AMOV,		C_XPRE,	C_NONE,	C_REG,		22, 4, 0 },
 	{ AMOVW, 	C_XPRE,	C_NONE,	C_REG,		22, 4, 0 },
-	{ AMOVH,		C_XPRE,	C_NONE,	C_REG,		22, 4, 0 },
-	{ AMOVB, 		C_XPRE,	C_NONE,	C_REG,		22, 4, 0 },
+	{ AMOVH,	C_XPRE,	C_NONE,	C_REG,		22, 4, 0 },
+	{ AMOVB, 	C_XPRE,	C_NONE,	C_REG,		22, 4, 0 },
 	{ AMOVBU, 	C_XPRE,	C_NONE, C_REG,		22, 4, 0 },
 	{ AFMOVS, 	C_XPRE,	C_NONE,	C_FREG,	22, 4, 0 },
 	{ AFMOVD, 	C_XPRE,	C_NONE,	C_FREG,	22, 4, 0 },
