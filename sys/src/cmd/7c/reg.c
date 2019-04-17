@@ -150,6 +150,7 @@ regopt(Prog *p)
 		case AMOVHU:
 		case AMOVW:
 		case AMOVWU:
+		case ASXTW:
 		case AFMOVS:
 		case AFCVTSD:
 		case AFMOVD:

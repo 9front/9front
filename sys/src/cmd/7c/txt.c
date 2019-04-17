@@ -761,7 +761,10 @@ gmove(Node *f, Node *t)
 		case TVLONG:
 		case TUVLONG:
 		case TIND:
-			a = AMOV;
+			if(typeu[ft])
+				a = AMOVWU;
+			else
+				a = ASXTW;
 			break;
 		}
 		break;
@@ -785,14 +788,16 @@ gmove(Node *f, Node *t)
 		case TUINT:
 		case TLONG:
 		case TULONG:
-		case TVLONG:
-		case TUVLONG:
-		case TIND:
 		case TSHORT:
 		case TUSHORT:
 		case TCHAR:
 		case TUCHAR:
-			a = AMOV;	/* TO DO: conversion done? */
+			a = AMOVWU;
+			break;
+		case TVLONG:
+		case TUVLONG:
+		case TIND:
+			a = AMOV;
 			break;
 		}
 		break;
@@ -1323,16 +1328,19 @@ sval(vlong v)
 int
 usableoffset(Node *n, vlong o, Node *v)
 {
-	int s, et;
+	int s;
 
-	et = v->type->etype;
-	if(v->op != OCONST || typefd[et])
-		return 0;
+	if(v != nil){
+		if(v->op != OCONST || typefd[v->type->etype])
+			return 0;
+		o += v->vconst;
+	}
 	s = n->type->width;
 	if(s > 16)
 		s = 16;
-	o += v->vconst;
-	return o >= -256 || o < 4095*s;
+	if((o % s) != 0)
+		return 0;
+	return o >= -256 && o < 4096*s;
 }
 
 long

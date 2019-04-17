@@ -2,6 +2,9 @@
 
 int xtramodes(Reg*, Adr*);
 
+Reg* findpre(Reg *r, Adr *v);
+Reg* findinc(Reg *r, Reg *r2, Adr *v);
+
 void
 peep(void)
 {
@@ -53,6 +56,21 @@ loop1:
 			if(0 && shiftprop(r)) {
 				excise(r);
 				t++;
+			}
+		}
+		if(p->as == ASXTW){
+			r1 = findpre(r, &p->from);
+			if(r1 != R){
+				p1 = r1->prog;
+				switch(p1->as){
+				case AMOVB:
+				case AMOVBU:
+				case AMOVH:
+				case AMOVHU:
+				case AMOVW:
+					p->as = AMOVW;
+					break;
+				}
 			}
 		}
 		if(p->as == AMOV || p->as == AMOVW || p->as == AFMOVS || p->as == AFMOVD)
@@ -425,6 +443,7 @@ subprop(Reg *r0)
 		case AFMOVD:
 		case AMOVW:
 		case AMOV:
+		case ASXTW:
 			if(p->to.type == v1->type)
 			if(p->to.reg == v1->reg)
 				goto gotit;
@@ -954,8 +973,8 @@ copyu(Prog *p, Adr *v, Adr *s)
 	case AMOVBU:
 	case AMOVW:
 	case AMOVWU:
+	case ASXTW:
 	case AMOV:
-
 	case AMVN:
 	case AMVNW:
 	case ANEG:
