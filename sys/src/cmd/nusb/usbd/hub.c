@@ -362,7 +362,7 @@ portattach(Hub *h, int p, u32int sts)
 	pp->state = Pattached;
 	dprint(2, "%s: %s: port %d attach sts %#ux\n", argv0, d->dir, p, sts);
 	if(h->dev->isusb3){
-		sleep(Connectdelay);
+		sleep(Enabledelay);
 		sts = portstatus(h, p);
 		if(sts == -1)
 			goto Fail;
@@ -372,9 +372,6 @@ portattach(Hub *h, int p, u32int sts)
 		}
 		sp = "super";
 	} else {
-		sleep(Connectdelay);
-		if(hubfeature(h, p, Fportenable, 1) < 0)
-			dprint(2, "%s: %s: port %d: enable: %r\n", argv0, d->dir, p);
 		sleep(Enabledelay);
 		if(hubfeature(h, p, Fportreset, 1) < 0){
 			dprint(2, "%s: %s: port %d: reset: %r\n", argv0, d->dir, p);
@@ -558,12 +555,7 @@ portreset(Hub *h, int p)
 		goto Fail;
 	if((sts & PSenable) == 0){
 		dprint(2, "%s: %s: port %d: not enabled?\n", argv0, d->dir, p);
-		if(h->dev->isusb3)
-			goto Fail;
-		hubfeature(h, p, Fportenable, 1);
-		sts = portstatus(h, p);
-		if((sts & PSenable) == 0)
-			goto Fail;
+		goto Fail;
 	}
 	nd = pp->dev;
 	opendevdata(nd, ORDWR);
@@ -635,11 +627,11 @@ enumhub(Hub *h, int p)
 	onhubs = nhubs;
 	if(!h->dev->isusb3){
 		if((sts & PSsuspend) != 0){
-			if(hubfeature(h, p, Fportenable, 1) < 0)
-				dprint(2, "%s: %s: port %d: enable: %r\n", argv0, d->dir, p);
+			if(hubfeature(h, p, Fportsuspend, 0) < 0)
+				dprint(2, "%s: %s: port %d: unsuspend: %r\n", argv0, d->dir, p);
 			sleep(Enabledelay);
 			sts = portstatus(h, p);
-			fprint(2, "%s: %s: port %d: resumed (sts %#ux)\n", argv0, d->dir, p, sts);
+			fprint(2, "%s: %s: port %d: unsuspended (sts %#ux)\n", argv0, d->dir, p, sts);
 		}
 	}
 	if((pp->sts & PSpresent) == 0 && (sts & PSpresent) != 0){
