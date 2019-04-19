@@ -753,14 +753,23 @@ waittd(Ctlr *ctlr, Wait *w, int tmout)
 	*r->doorbell = r->id;
 
 	while(waserror()){
-		if(!r->stopped) {
-			if(r == ctlr->cr)
-				ctlr->opr[CRCR] |= CA;
-			else
-				ctlrcmd(ctlr, CR_STOPEP | (r->id<<16) | (r->slot->id<<24), 0, 0, nil);
-			r->stopped = 1;
+		if(r->stopped) {
+			ctlr->er->stopped = 1;
+			wakeup(&ctlr->recover);
+
+			/* wait for rescue */
+			tmout = 0;
+			continue;
 		}
-		tmout = 0;
+
+		if(r == ctlr->cr)
+			ctlr->opr[CRCR] |= CA;
+		else
+			ctlrcmd(ctlr, CR_STOPEP | (r->id<<16) | (r->slot->id<<24), 0, 0, nil);
+		r->stopped = 1;
+
+		/* time to abort the transaction */
+		tmout = 5000;
 	}
 	if(tmout > 0){
 		tsleep(&up->sleep, waitdone, w, tmout);
