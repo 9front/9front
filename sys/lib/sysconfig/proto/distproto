@@ -31,6 +31,7 @@ lib	d775
 		README
 	ndb	d775
 		*
+		dhcp	d775
 	rfc	d775
 		grabrfc
 	sky	d775
