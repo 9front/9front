@@ -708,7 +708,7 @@ asmout(Prog *p, Optab *o)
 		o1 |= (p->from.offset&0x7F)<<5;
 		break;
 
-	case 53:	/* and/or/eor/bic/... $bimmN, Rn, Rd -> op (N,r,s), Rn, Rd */
+	case 53:	/* and/or/eor... $bimmN, Rn, Rd -> op (N,r,s), Rn, Rd */
 		as = p->as;
 		rt = p->to.reg;
 		r = p->reg;
@@ -1169,7 +1169,7 @@ opirr(int a)
 	case ASUBSW:	return S32 | 1<<30 | 1<<29 | 0x11<<24;
 
 	/* op $imm(SB), Rd; op label, Rd */
-	case AADR:		return 0<<31 | 0x10<<24;
+	case AADR:	return 0<<31 | 0x10<<24;
 	case AADRP:	return 1<<31 | 0x10<<24;
 
 	/* op $bimm, Rn, Rd */
@@ -1235,7 +1235,7 @@ opirr(int a)
 
 	case ADSB:	return SYSOP(0,0,3,3,0,4,0x1F);
 	case ADMB:	return SYSOP(0,0,3,3,0,5,0x1F);
-	case AISB:		return SYSOP(0,0,3,3,0,6,0x1F);
+	case AISB:	return SYSOP(0,0,3,3,0,6,0x1F);
 	case AHINT:	return SYSOP(0,0,3,2,0,0,0x1F);
 
 	}
