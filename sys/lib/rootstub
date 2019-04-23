@@ -111,6 +111,7 @@ mkdir -p dist/plan9front
 mkdir -p lib/audio/icon
 mkdir -p lib/firmware
 mkdir -p lib/ndb/dhcp
+mkdir -p lib/news
 mkdir -p mail/box/glenda/mbox
 mkdir -p mail/faxoutqueue
 mkdir -p mail/faxqueue
