@@ -764,7 +764,7 @@ gmove(Node *f, Node *t)
 			if(typeu[ft])
 				a = AMOVWU;
 			else
-				a = ASXTW;
+				a = (f->op == OREGISTER) ? ASXTW : AMOVW;
 			break;
 		}
 		break;
