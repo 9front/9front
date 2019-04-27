@@ -726,6 +726,7 @@ rtl8169init(Ether* edev)
 	csr32w(ctlr, Tcr, Ifg1|Ifg0|Mtxdmaunlimited);
 	ctlr->tcr = csr32r(ctlr, Tcr);
 	switch(ctlr->macv){
+	case Macv42:
 	case Macv45:
 		ctlr->rcr = Rxfth256|Mrxdmaunlimited|Ab|Am|Apm;
 		break;
