@@ -1669,7 +1669,7 @@ copy:
 		nn->type = types[TLONG];
 		regialloc(&nod1, nn, Z);
 		lcgen(nn, &nod1);
-		regsalloc(&nod2, nn);
+		regsalloc(&nod2, &nod1);
 		nn->type = t;
 
 		gins(AMOVL, &nod1, &nod2);

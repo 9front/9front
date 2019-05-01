@@ -1077,7 +1077,7 @@ copy:
 		nn->type = types[TLONG];
 		regialloc(&nod1, nn, Z);
 		lcgen(nn, &nod1);
-		regsalloc(&nod2, nn);
+		regsalloc(&nod2, &nod1);
 		nn->type = t;
 
 		gopcode(OAS, &nod1, Z, &nod2);
