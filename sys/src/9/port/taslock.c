@@ -36,7 +36,11 @@ dumplockmem(char *tag, Lock *l)
 void
 lockloop(Lock *l, uintptr pc)
 {
+	extern int panicking;
 	Proc *p;
+
+	if(panicking)
+		return;
 
 	p = l->p;
 	print("lock %#p loop key %#lux pc %#p held by pc %#p proc %lud\n",
@@ -186,11 +190,17 @@ unlock(Lock *l)
 	}
 #endif
 	if(l->key == 0)
-		print("unlock: not locked: pc %#p\n", getcallerpc(&l));
+		print("unlock(%#p): not locked: pc %#p\n",
+			l, getcallerpc(&l));
 	if(l->isilock)
-		print("unlock of ilock: pc %#p, held by %#p\n", getcallerpc(&l), l->pc);
-	if(l->p != up)
-		print("unlock: up changed: pc %#p, acquired at pc %#p, lock p %#p, unlock up %#p\n", getcallerpc(&l), l->pc, l->p, up);
+		print("unlock(%#p) of ilock: pc %#p, held by %#p\n",
+			l, getcallerpc(&l), l->pc);
+	if(l->p != up){
+		print("unlock(%#p): up changed: pc %#p, acquired at pc %#p, lock p %#p, unlock up %#p\n",
+			l, getcallerpc(&l), l->pc, l->p, up);
+		dumpaproc(l->p);
+		dumpaproc(up);
+	}
 	l->m = nil;
 	coherence();
 	l->key = 0;
@@ -223,11 +233,11 @@ iunlock(Lock *l)
 		ilockpcs[n++ & 0xff]  = l->pc;
 #endif
 	if(l->key == 0)
-		print("iunlock: not locked: pc %#p\n", getcallerpc(&l));
+		print("iunlock(%#p): not locked: pc %#p\n", l, getcallerpc(&l));
 	if(!l->isilock)
-		print("iunlock of lock: pc %#p, held by %#p\n", getcallerpc(&l), l->pc);
+		print("iunlock(%#p) of lock: pc %#p, held by %#p\n", l, getcallerpc(&l), l->pc);
 	if(islo())
-		print("iunlock while lo: pc %#p, held by %#p\n", getcallerpc(&l), l->pc);
+		print("iunlock(%#p) while lo: pc %#p, held by %#p\n", l, getcallerpc(&l), l->pc);
 
 	sr = l->sr;
 	l->m = nil;
