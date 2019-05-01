@@ -255,11 +255,6 @@ checkmmu(uintptr, uintptr)
 {
 }
 
-void
-countpagerefs(ulong*, int)
-{
-}
-
 /*
  * Return the number of bytes that can be accessed via KADDR(pa).
  * If pa is not a valid argument to KADDR, return 0.

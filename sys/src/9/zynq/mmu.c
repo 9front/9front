@@ -242,12 +242,6 @@ mmurelease(Proc *proc)
 	proc->mmufree = nil;
 }
 
-void
-countpagerefs(ulong *, int)
-{
-	print("countpagerefs\n");
-}
-
 uintptr
 paddr(void *v)
 {

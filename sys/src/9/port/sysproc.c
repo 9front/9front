@@ -9,15 +9,11 @@
 
 #include	<a.out.h>
 
-extern void checkpages(void);
-extern void checkpagerefs(void);
-
 uintptr
 sysr1(va_list)
 {
 	if(!iseve())
 		error(Eperm);
-	checkpagerefs();
 	return 0;
 }
 

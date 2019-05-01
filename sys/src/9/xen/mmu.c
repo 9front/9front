@@ -509,16 +509,6 @@ mmukmapsync(ulong va)
 }
 
 /*
- * More debugging.
- */
-void
-countpagerefs(ulong *ref, int print)
-{
-	USED(ref);
-	USED(print);
-}
-
-/*
  * Return the number of bytes that can be accessed via KADDR(pa).
  * If pa is not a valid argument to KADDR, return 0.
  */

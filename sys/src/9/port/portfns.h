@@ -207,7 +207,6 @@ Block*		padblock(Block*, int);
 void		pagechaindone(void);
 void		pagechainhead(Page*);
 void		pageinit(void);
-ulong		pagenumber(Page*);
 ulong		pagereclaim(Image*, ulong);
 void		panic(char*, ...);
 Cmdbuf*		parsecmd(char *a, int n);

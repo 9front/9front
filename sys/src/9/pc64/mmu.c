@@ -468,12 +468,6 @@ cankaddr(uintptr pa)
 	return -KZERO - pa;
 }
 
-void
-countpagerefs(ulong *ref, int print)
-{
-	USED(ref, print);
-}
-
 KMap*
 kmap(Page *page)
 {
