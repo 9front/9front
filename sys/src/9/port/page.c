@@ -82,15 +82,14 @@ pagechaindone(void)
 		wakeup(&palloc.pwait[1]);
 }
 
-static void
+void
 freepages(Page *head, Page *tail, ulong np)
 {
-	lock(&palloc);
+	assert(palloc.Lock.p == up);
 	tail->next = palloc.head;
 	palloc.head = head;
 	palloc.freecount += np;
 	pagechaindone();
-	unlock(&palloc);
 }
 
 ulong
@@ -142,8 +141,11 @@ pagereclaim(Image *i, ulong pages)
 	unlock(i);
 	putimage(i);
 
-	if(np > 0)
+	if(np > 0){
+		lock(&palloc);
 		freepages(fh, ft, np);
+		unlock(&palloc);
+	}
 
 	return np;
 }
@@ -238,8 +240,11 @@ putpage(Page *p)
 		decref(p);
 		return;
 	}
-	if(decref(p) == 0)
+	if(decref(p) == 0){
+		lock(&palloc);
 		freepages(p, p, 1);
+		unlock(&palloc);
+	}
 }
 
 void

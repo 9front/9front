@@ -117,6 +117,7 @@ void		free(void*);
 void		freeb(Block*);
 void		freeblist(Block*);
 int		freebroken(void);
+void		freepages(Page*, Page*, ulong);
 void		freepte(Segment*, Pte*);
 void		getcolor(ulong, ulong*, ulong*, ulong*);
 uintptr		getmalloctag(void*);
