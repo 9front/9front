@@ -70,6 +70,9 @@ schedinit(void)		/* never returns */
 			edfrecord(up);
 		m->proc = nil;
 		switch(up->state) {
+		default:
+			updatecpu(up);
+			break;
 		case Running:
 			ready(up);
 			break;
@@ -88,8 +91,8 @@ schedinit(void)		/* never returns */
 			mmurelease(up);
 			unlock(&palloc);
 
-			up->mach = nil;
 			updatecpu(up);
+			up->mach = nil;
 
 			up->qnext = procalloc.free;
 			procalloc.free = up;
@@ -99,8 +102,8 @@ schedinit(void)		/* never returns */
 			unlock(&procalloc);
 			sched();
 		}
+		coherence();
 		up->mach = nil;
-		updatecpu(up);
 		up = nil;
 	}
 	sched();
