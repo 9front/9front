@@ -188,7 +188,6 @@ trap(Ureg *ureg)
 		break;
 	case PsrMirq:
 		clockintr = irq(ureg);
-		m->intr++;
 		break;
 	case PsrMabt:			/* prefetch fault */
 		x = ifsrget();

@@ -187,6 +187,7 @@ TEXT _vfiq(SB), 1, $-4			/* FIQ */
 	MOVW	$PsrMfiq, R8		/* trap type */
 	MOVW	SPSR, R9		/* interrupted psr */
 	MOVW	R14, R10		/* interrupted pc */
+	SUB	$4, R10			/* ureg->pc -= 4 */
 	MOVM.DB.W [R8-R10], (R13)	/* save in ureg */
 	MOVM.DB.S [R0-R14], (R13)	/* save interrupted regs */
 	SUB	$(15*4), R13

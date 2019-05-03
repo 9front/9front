@@ -83,6 +83,7 @@ irq(Ureg* ureg)
 	Vctl *v;
 	int clockintr;
 
+	m->intr++;
 	clockintr = 0;
 	for(v = vctl[m->machno]; v != nil; v = v->next)
 		if((*v->reg & v->mask) != 0){
@@ -103,11 +104,10 @@ fiq(Ureg *ureg)
 {
 	Vctl *v;
 
+	m->intr++;
 	v = vfiq;
 	if(v == nil)
 		panic("cpu%d: unexpected item in bagging area", m->machno);
-	m->intr++;
-	ureg->pc -= 4;
 	coherence();
 	v->f(ureg, v->a);
 	coherence();
