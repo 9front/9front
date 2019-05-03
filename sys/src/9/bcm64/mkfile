@@ -1,0 +1,146 @@
+CONF=pi3
+CONFLIST=pi3
+EXTRACOPIES=
+
+loadaddr=0xffffffff80080000
+
+objtype=arm64
+</$objtype/mkfile
+p=9
+
+OS=7
+
+DEVS=`{rc ../port/mkdevlist $CONF}
+
+PORT=\
+	alarm.$O\
+	alloc.$O\
+	allocb.$O\
+	auth.$O\
+	cache.$O\
+	chan.$O\
+	dev.$O\
+	edf.$O\
+	fault.$O\
+	mul64fract.$O\
+	page.$O\
+	parse.$O\
+	pgrp.$O\
+	portclock.$O\
+	print.$O\
+	proc.$O\
+	qio.$O\
+	qlock.$O\
+	rdb.$O\
+	rebootcmd.$O\
+	segment.$O\
+	syscallfmt.$O\
+	sysfile.$O\
+	sysproc.$O\
+	taslock.$O\
+	tod.$O\
+	xalloc.$O\
+
+OBJ=\
+	l.$O\
+	cache.v8.$O\
+	bootargs.$O\
+	clock.$O\
+	fpu.$O\
+	irq.$O\
+	main.$O\
+	mmu.$O\
+	sysreg.$O\
+	random.$O\
+	trap.$O\
+	$CONF.root.$O\
+	$CONF.rootc.$O\
+	$DEVS\
+	$PORT\
+
+# HFILES=
+
+LIB=\
+	/$objtype/lib/libmemlayer.a\
+	/$objtype/lib/libmemdraw.a\
+	/$objtype/lib/libdraw.a\
+	/$objtype/lib/libip.a\
+	/$objtype/lib/libsec.a\
+	/$objtype/lib/libmp.a\
+	/$objtype/lib/libc.a\
+
+9:V: $p$CONF s$p$CONF
+
+$p$CONF:DQ:	$CONF.c $OBJ $LIB mkfile
+	$CC $CFLAGS '-DKERNDATE='`{date -n} $CONF.c
+	echo '# linking raw kernel'	# H6: no headers, data segment aligned
+	$LD -l -o $target -H6 -R4096 -T$loadaddr $OBJ $CONF.$O $LIB
+
+s$p$CONF:DQ:	$CONF.$O $OBJ $LIB
+	echo '# linking kernel with symbols'
+	$LD -l -o $target -R4096 -T$loadaddr $OBJ $CONF.$O $LIB
+	size $target
+
+$p$CONF.gz:D:	$p$CONF
+	gzip -9 <$p$CONF >$target
+
+$OBJ: $HFILES
+
+install:V: /$objtype/$p$CONF
+
+/$objtype/$p$CONF:D: $p$CONF s$p$CONF
+	cp -x $p$CONF s$p$CONF /$objtype/ &
+	for(i in $EXTRACOPIES)
+		{ 9fs $i && cp $p$CONF s$p$CONF /n/$i/$objtype && echo -n $i... & }
+	wait
+	echo
+	touch $target
+
+
+REPCC=`{../port/mkfilelist ../bcm}
+^($REPCC)\.$O:R:	'../bcm/\1.c'
+	$CC $CFLAGS -I. -. ../bcm/$stem1.c
+
+<../boot/bootmkfile
+<../port/portmkfile
+<|../port/mkbootrules $CONF
+
+arch.$O clock.$O fpiarm.$O main.$O mmu.$O screen.$O syscall.$O trap.$O: \
+	/$objtype/include/ureg.h
+
+l.$O cache.v8.$O lexception.$O lproc.$O mmu.$O: mem.h
+l.$O cache.v8.$O archbcm3.$O clock.$O fpu.$O trap.$O mmu.$O: sysreg.h
+
+devmouse.$O mouse.$O screen.$O: screen.h
+usbdwc.$O: dwcotg.h ../port/usb.h
+
+io.h:D:	../bcm/io.h
+	echo '#include "../bcm/io.h"' > io.h
+screen.h:D: ../bcm/screen.h
+	echo '#include "../bcm/screen.h"' > screen.h
+dwcotg.h:D: ../bcm/dwcotg.h
+	echo '#include "../bcm/dwcotg.h"' > dwcotg.h
+
+init.h:D:	../port/initcode.c init9.s
+	$CC ../port/initcode.c
+	$AS init9.s
+	$LD -l -R1 -s -o init.out init9.$O initcode.$O /$objtype/lib/libc.a
+	{echo 'uchar initcode[]={'
+	 xd -1x <init.out |
+		sed -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
+	 echo '};'} > init.h
+
+#reboot.h:D:	rebootcode.s arm.s arm.h mem.h
+#	$AS rebootcode.s
+#	# -T arg is REBOOTADDR
+#	$LD -l -s -T0x1c00 -R4 -o reboot.out rebootcode.$O
+#	{echo 'uchar rebootcode[]={'
+#	 xd -1x reboot.out |
+#		sed -e '1,2d' -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
+#	 echo '};'} > reboot.h
+
+errstr.h:D:	../port/mkerrstr ../port/error.h
+	rc ../port/mkerrstr > errstr.h
+
+$CONF.clean:
+	rm -rf $p$CONF s$p$CONF errstr.h reboot.h io.h screen.h dwcotg.h $CONF.c boot$CONF.c
