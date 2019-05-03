@@ -1,0 +1,31 @@
+objtype=arm64
+</$objtype/mkfile
+OS=7
+
+LIB=/$objtype/lib/libc.a
+SFILES=\
+	argv0.s\
+	atom.s\
+	cycles.s\
+	getcallerpc.s\
+	getfcr.s\
+	main9.s\
+	main9p.s\
+	setjmp.s\
+	tas.s\
+
+CFILES=\
+	lock.c\
+	notejmp.c\
+	_seek.c\
+
+HFILES=/sys/include/libc.h
+
+OFILES=${CFILES:%.c=%.$O} ${SFILES:%.s=%.$O}
+
+UPDATE=mkfile\
+	$HFILES\
+	$CFILES\
+	$SFILES\
+
+</sys/src/cmd/mksyslib
