@@ -328,6 +328,9 @@ sysexec(va_list list)
 			case V_MAGIC:	/* 16K segment alignment for mips */
 				align = 0x4000;
 				break;
+			case R_MAGIC:	/* 64K segment alignment for arm64 */
+				align = 0x10000;
+				break;
 			}
 			if(text >= (USTKTOP-USTKSIZE)-(UTZERO+sizeof(Exec))
 			|| entry < UTZERO+sizeof(Exec)
