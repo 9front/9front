@@ -82,26 +82,12 @@ interrupt(Ureg*, void *arg)
 	u32int *reg = (u32int*)uart->regs;
 
 	coherence();
-	if((reg[FR] & TXFE) == 0)
-		uartkick(uart);
 	while((reg[FR] & RXFE) == 0)
 		uartrecv(uart, reg[DR] & 0xFF);
+	if((reg[FR] & TXFF) == 0)
+		uartkick(uart);
+	reg[ICR] = 1<<5 | 1<<6 | 1<<7 | 1<<8 | 1<<9 | 1<<10;
 	coherence();
-
-}
-
-static void
-enable(Uart *uart, int ie)
-{
-	u32int *reg = (u32int*)uart->regs;
-
-	reg[CR] = UARTEN | RXE | TXE;
-	if(ie){
-		intrenable(IRQuart, interrupt, uart, 0, uart->name);
-		reg[IMSC] = TXIM|RXIM;
-	} else {
-		reg[IMSC] = 0;
-	}
 }
 
 static void
@@ -109,8 +95,77 @@ disable(Uart *uart)
 {
 	u32int *reg = (u32int*)uart->regs;
 
+	/* disable interrupt */
 	reg[IMSC] = 0;
+	coherence();
+
+	/* clear interrupt */
+	reg[ICR] = 1<<5 | 1<<6 | 1<<7 | 1<<8 | 1<<9 | 1<<10;
+	coherence();
+
+	/* wait for last transmission to complete */
+	while((reg[FR] & BUSY) != 0)
+		delay(1);
+
+	/* disable uart */
 	reg[CR] = 0;
+	coherence();
+
+	/* flush rx fifo */
+	reg[LCRH] &= ~FEN;
+	coherence();
+}
+
+static void
+uartoff(Uart *uart)
+{
+	u32int *reg = (u32int*)uart->regs;
+	u32int im;
+
+	im = reg[IMSC];
+	disable(uart);
+	reg[IMSC] = im;
+}
+
+static void
+uarton(Uart *uart)
+{
+	u32int *reg = (u32int*)uart->regs;
+
+	/* enable fifo */
+	reg[LCRH] |= FEN;
+	coherence();
+
+	/* enable uart */
+	reg[CR] = UARTEN | RXE | TXE;
+	coherence();
+}
+
+static void
+enable(Uart *uart, int ie)
+{
+	u32int *reg = (u32int*)uart->regs;
+
+	disable(uart);
+	if(ie){
+		intrenable(IRQuart, interrupt, uart, 0, uart->name);
+		reg[IMSC] = TXIM|RXIM;
+	}
+	uarton(uart);
+}
+
+static void
+linectl(Uart *uart, u32int set, u32int clr)
+{
+	u32int *reg = (u32int*)uart->regs;
+
+	if(uart->enabled)
+		uartoff(uart);
+
+	reg[LCRH] = set | (reg[LCRH] & ~clr);
+
+	if(uart->enabled)
+		uarton(uart);
 }
 
 static void
@@ -132,11 +187,9 @@ kick(Uart *uart)
 static void
 dobreak(Uart *uart, int ms)
 {
-	u32int *reg = (u32int*)uart->regs;
-
-	reg[LCRH] |= BRK;
+	linectl(uart, BRK, 0);
 	delay(ms);
-	reg[LCRH] &= ~BRK;
+	linectl(uart, 0, BRK);
 }
 
 static int
@@ -147,8 +200,15 @@ baud(Uart *uart, int n)
 	if(uart->freq <= 0 || n <= 0)
 		return -1;
 
+	if(uart->enabled)
+		uartoff(uart);
+
 	reg[IBRD] = (uart->freq >> 4) / n;
 	reg[FBRD] = (uart->freq >> 4) % n;
+
+	if(uart->enabled)
+		uarton(uart);
+
 	uart->baud = n;
 	return 0;
 }
@@ -156,20 +216,18 @@ baud(Uart *uart, int n)
 static int
 bits(Uart *uart, int n)
 {
-	u32int *reg = (u32int*)uart->regs;
-
 	switch(n){
 	case 8:
-		reg[LCRH] = (reg[LCRH] & ~WLENM) | WLEN8;
+		linectl(uart, WLEN8, WLENM);
 		break;
 	case 7:
-		reg[LCRH] = (reg[LCRH] & ~WLENM) | WLEN7;
+		linectl(uart, WLEN7, WLENM);
 		break;
 	case 6:
-		reg[LCRH] = (reg[LCRH] & ~WLENM) | WLEN6;
+		linectl(uart, WLEN6, WLENM);
 		break;
 	case 5:
-		reg[LCRH] = (reg[LCRH] & ~WLENM) | WLEN5;
+		linectl(uart, WLEN5, WLENM);
 		break;
 	default:
 		return -1;
@@ -181,14 +239,12 @@ bits(Uart *uart, int n)
 static int
 stop(Uart *uart, int n)
 {
-	u32int *reg = (u32int*)uart->regs;
-
 	switch(n){
 	case 1:
-		reg[LCRH] &= ~STP2;
+		linectl(uart, 0, STP2);
 		break;
 	case 2:
-		reg[LCRH] |= STP2;
+		linectl(uart, STP2, 0);
 		break;
 	default:
 		return -1;
@@ -200,17 +256,15 @@ stop(Uart *uart, int n)
 static int
 parity(Uart *uart, int n)
 {
-	u32int *reg = (u32int*)uart->regs;
-
 	switch(n){
 	case 'n':
-		reg[LCRH] &= ~PEN;
+		linectl(uart, 0, PEN);
 		break;
 	case 'e':
-		reg[LCRH] |= EPS | PEN;
+		linectl(uart, EPS|PEN, 0);
 		break;
 	case 'o':
-		reg[LCRH] = (reg[LCRH] & ~EPS) | PEN;
+		linectl(uart, PEN, EPS);
 		break;
 	default:
 		return -1;
