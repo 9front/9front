@@ -225,6 +225,7 @@ mkdir -p sys/lib/dist/usr/glenda/bin/arm
 mkdir -p sys/lib/dist/usr/glenda/bin/arm64
 mkdir -p sys/lib/dist/usr/glenda/bin/mips
 mkdir -p sys/lib/dist/usr/glenda/tmp
+mkdir -p sys/lib/dist/ndb/dhcp
 mkdir -p sys/lib/dist/cfg/pxe
 mkdir -p sys/lib/lp/log
 mkdir -p sys/lib/lp/tmp
