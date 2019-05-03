@@ -100,6 +100,8 @@ static u32int *dmaregs = (u32int*)DMAREGS;
 uintptr
 dmaaddr(void *va)
 {
+	if(va == nil)
+		return soc.busdram;
 	return soc.busdram | (PADDR(va) - PHYSDRAM);
 }
 
