@@ -2,7 +2,7 @@
 # common mkfile parameters shared by all architectures
 #
 
-OS=0568qv
+OS=05678qv
 CPUS=spim arm amd64 386 power mips
 CFLAGS=-FTVw
 LEX=lex
