@@ -1,0 +1,7 @@
+objtype=arm64
+</$objtype/mkfile
+
+install clean all update:V:
+	
+
+
