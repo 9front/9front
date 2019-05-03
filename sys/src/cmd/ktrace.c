@@ -109,6 +109,7 @@ main(int argc, char *argv[])
 	case V_MAGIC:	/* mips 3000 */
 	case M_MAGIC:	/* mips 4000 */
 	case E_MAGIC:	/* arm 7-something */
+	case R_MAGIC:	/* arm64 */
 	case Q_MAGIC:	/* powerpc */
 	case N_MAGIC:	/* mips 4000 LE */
 	case L_MAGIC:	/* dec alpha */
@@ -383,6 +384,7 @@ getval(uvlong a)
 		r = 0;
 		switch(fhdr.magic){
 		case S_MAGIC:
+		case R_MAGIC:
 			m = 0xffffffff00000000ULL;
 			break;
 		default:
@@ -394,6 +396,7 @@ getval(uvlong a)
 	}
 	switch(fhdr.magic){
 	case S_MAGIC:
+	case R_MAGIC:
 		r = (long)r;	// sign extend
 		break;
 	}
