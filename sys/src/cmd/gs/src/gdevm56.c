@@ -62,9 +62,9 @@ mem_full_alpha_device("image56", 56, 0, mem_open,
 
 /* Unpack a color into its bytes. */
 #define declare_unpack_color(a, b, c, d, e, f, g, color)\
-	byte a = (byte)(color >> 48);\
-	byte b = (byte)(color >> 40);\
-	byte c = (byte)(color >> 32);\
+	byte a = (byte)((uint64_t)color >> 48);\
+	byte b = (byte)((uint64_t)color >> 40);\
+	byte c = (byte)((uint64_t)color >> 32);\
 	byte d = (byte)((uint)color >> 24);\
 	byte e = (byte)((uint)color >> 16);\
 	byte f = (byte)((uint)color >> 8);\

@@ -233,7 +233,7 @@ gx_dc_ht_colored_write(
         if (num_comps > 8 * sizeof(uint)) {
             tmp_mask = (uint)plane_mask;
             req_size += enc_u_sizew(tmp_mask);
-            tmp_mask = (uint)(plane_mask >> (8 * sizeof(uint)));
+            tmp_mask = (uint)((uint64_t)plane_mask >> (8 * sizeof(uint)));
             req_size += enc_u_sizew(tmp_mask);
         } else {
             tmp_mask = (uint)plane_mask;
@@ -298,7 +298,7 @@ gx_dc_ht_colored_write(
         if (num_comps > 8 * sizeof(uint)) {
             tmp_mask = (uint)plane_mask;
             enc_u_putw(tmp_mask, pdata);
-            tmp_mask = (uint)(plane_mask >> (8 * sizeof(uint)));
+            tmp_mask = (uint)((uint64_t)plane_mask >> (8 * sizeof(uint)));
             enc_u_putw(tmp_mask, pdata);
         } else {
             tmp_mask = (uint)plane_mask;
@@ -418,17 +418,16 @@ gx_dc_ht_colored_read(
 
         if (size < 1)
             return_error(gs_error_rangecheck);
-
         if (num_comps > 8 * sizeof(uint)) {
             enc_u_getw(tmp_mask, pdata);
             plane_mask = (gx_color_index)tmp_mask;
             enc_u_getw(tmp_mask, pdata);
-            plane_mask = (gx_color_index)tmp_mask << (8 * sizeof(uint));
+            plane_mask = (gx_color_index)((uint64_t)tmp_mask << (8 * sizeof(uint)));
         } else {
             enc_u_getw(tmp_mask, pdata);
             plane_mask = (gx_color_index)tmp_mask;
         }
-        devc.colors.colored.plane_mask = plane_mask;
+       devc.colors.colored.plane_mask = plane_mask;
         for (i = 0; i < num_comps; i++, plane_mask >>= 1) {
             if ((plane_mask & 0x1) != 0) {
                 if (size - (pdata - pdata_start) < 1)
@@ -437,7 +436,7 @@ gx_dc_ht_colored_read(
             } else
                 devc.colors.colored.c_level[i] = 0;
         }
-        size -= pdata - pdata_start;
+       size -= pdata - pdata_start;
     }
 
     if ((flag_bits & dc_ht_colored_alpha_is_max) != 0)
