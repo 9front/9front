@@ -93,7 +93,7 @@ modf(double d, double *ip)
 	e = (x.hi >> SHIFT) & MASK;
 	if(e == MASK){
 		*ip = d;
-		if(x.lo != 0 || (x.hi & 0xfffffL != 0))	/* NaN */
+		if(x.lo != 0 || (x.hi & 0xfffffL) != 0)	/* NaN */
 			return d;
 		/* ±Inf */
 		x.hi &= 0x80000000L;
