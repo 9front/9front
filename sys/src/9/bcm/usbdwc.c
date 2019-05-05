@@ -41,10 +41,9 @@ enum
 	 * when the controller is reading a sequence of bulk input
 	 * packets in DMA mode.  Setting Slowbulkin=1 will avoid the
 	 * lockup by reading packets individually with an interrupt
-	 * after each.  More recent chips don't seem to exhibit the
-	 * problem, so it's probably safe to leave this off now.
+	 * after each.
 	 */
-	Slowbulkin	= 0,
+	Slowbulkin	= 1,
 };
 
 typedef struct Ctlr Ctlr;
@@ -54,13 +53,13 @@ struct Ctlr {
 	Lock;
 	Dwcregs	*regs;		/* controller registers */
 	int	nchan;		/* number of host channels */
-	ulong	chanbusy;	/* bitmap of in-use channels */
+	uint	chanbusy;	/* bitmap of in-use channels */
 	Lock	chanlock;	/* serialise access to chanbusy */
 	QLock	split;		/* serialise split transactions */
 	int	splitretry;	/* count retries of Nyet */
-	int	sofchan;	/* bitmap of channels waiting for sof */
-	int	wakechan;	/* bitmap of channels to wakeup after fiq */
-	int	debugchan;	/* bitmap of channels for interrupt debug */
+	uint	sofchan;	/* bitmap of channels waiting for sof */
+	uint	wakechan;	/* bitmap of channels to wakeup after fiq */
+	uint	debugchan;	/* bitmap of channels for interrupt debug */
 	Rendez	*chanintr;	/* sleep till interrupt on channel N */
 };
 
@@ -75,12 +74,16 @@ struct Epio {
 };
 
 static Ctlr dwc;
-static int debug;
+static int debug = 0;
 
 static char Ebadlen[] = "bad usb request length";
 
 static void clog(Ep *ep, Hostchan *hc);
 static void logdump(Ep *ep);
+
+static void dumpctlr(Ctlr *ctlr);
+static void dumphchan(Ctlr *ctlr, Hostchan *hc);
+static void dump(Hci *hp);
 
 static void
 filock(Lock *l)
@@ -102,7 +105,8 @@ static Hostchan*
 chanalloc(Ep *ep)
 {
 	Ctlr *ctlr;
-	int bitmap, i;
+	int i;
+	uint bitmap;
 	static int first;
 
 	ctlr = ep->hp->aux;
@@ -123,13 +127,13 @@ retry:
 }
 
 static void
-chanrelease(Ep *ep, Hostchan *chan)
+chanrelease(Ep *ep, Hostchan *hc)
 {
 	Ctlr *ctlr;
 	int i;
 
 	ctlr = ep->hp->aux;
-	i = chan - ctlr->regs->hchan;
+	i = hc - ctlr->regs->hchan;
 	lock(&ctlr->chanlock);
 	ctlr->chanbusy &= ~(1<<i);
 	unlock(&ctlr->chanlock);
@@ -188,74 +192,68 @@ chansetup(Hostchan *hc, Ep *ep)
 	hc->hcint = ~0;
 }
 
+static void
+chanhalt(Ep *ep, Hostchan *hc)
+{
+	ulong start;
+
+	hc->hcintmsk = 0;
+	hc->hcchar |= Chdis;
+	start = m->ticks;
+	while(hc->hcchar & Chen){
+		if(m->ticks - start >= 100){
+			print("ep%d.%d channel won't halt hcchar %8.8ux\n",
+				ep->dev->nb, ep->nb, hc->hcchar);
+			dump(ep->hp);
+			break;
+		}
+	}
+}
+
 static int
 sofdone(void *a)
 {
-	Dwcregs *r;
-
-	r = a;
-	return (r->gintmsk & Sofintr) == 0;
-}
-
-static void
-sofwait(Ctlr *ctlr, int n)
-{
-	Dwcregs *r;
-
-	r = ctlr->regs;
-	do{
-		filock(ctlr);
-		r->gintsts = Sofintr;
-		ctlr->sofchan |= 1<<n;
-		r->gintmsk |= Sofintr;
-		fiunlock(ctlr);
-		sleep(&ctlr->chanintr[n], sofdone, r);
-	}while((r->hfnum & 7) == 6);
+	Ctlr *ctlr = a;
+	return ctlr->sofchan == 0;
 }
 
 static int
 chandone(void *a)
 {
 	Hostchan *hc;
+	int i;
 
 	hc = a;
-	if(hc->hcint == (Chhltd|Ack))
+	i = hc->hcint;
+	if(i == (Chhltd|Ack))
 		return 0;
-	return (hc->hcint & hc->hcintmsk) != 0;
+	return (i & hc->hcintmsk) != 0;
 }
 
 static int
 chanwait(Ep *ep, Ctlr *ctlr, Hostchan *hc, int mask)
 {
-	int intr, n, ointr;
+	int intr, ointr, chan;
 	ulong start, now;
-	Dwcregs *r;
 
-	r = ctlr->regs;
-	n = hc - r->hchan;
+	chan = hc - ctlr->regs->hchan;
 	for(;;){
 restart:
-		filock(ctlr);
-		r->haintmsk |= 1<<n;
-		hc->hcintmsk = mask;
-		fiunlock(ctlr);
-		tsleep(&ctlr->chanintr[n], chandone, hc, 1000);
+		tsleep(&ctlr->chanintr[chan], chandone, hc, 1000);
 		if((intr = hc->hcint) == 0)
 			goto restart;
-		hc->hcintmsk = 0;
 		if(intr & Chhltd)
 			return intr;
-		start = fastticks(0);
 		ointr = intr;
-		now = start;
+		now = start = fastticks(0);
 		do{
 			intr = hc->hcint;
 			if(intr & Chhltd){
 				if((ointr != Ack && ointr != (Ack|Xfercomp)) ||
 				   intr != (Ack|Chhltd|Xfercomp) ||
 				   (now - start) > 60)
-					dprint("await %x after %ldµs %x -> %x\n",
-						mask, now - start, ointr, intr);
+					dprint("ep%d.%d await %x after %ldµs %x -> %x\n",
+						ep->dev->nb, ep->nb, mask, now - start, ointr, intr);
 				return intr;
 			}
 			if((intr & mask) == 0){
@@ -266,21 +264,15 @@ restart:
 			}
 			now = fastticks(0);
 		}while(now - start < 100);
-		dprint("ep%d.%d halting channel %8.8ux hcchar %8.8ux "
-			"grxstsr %8.8ux gnptxsts %8.8ux hptxsts %8.8ux\n",
-			ep->dev->nb, ep->nb, intr, hc->hcchar, r->grxstsr,
-			r->gnptxsts, r->hptxsts);
-		mask = Chhltd;
-		hc->hcchar |= Chdis;
-		start = m->ticks;
-		while(hc->hcchar & Chen){
-			if(m->ticks - start >= 100){
-				print("ep%d.%d channel won't halt hcchar %8.8ux\n",
-					ep->dev->nb, ep->nb, hc->hcchar);
-				break;
-			}
+		if(debug){
+			print("ep%d.%d halting chan %d intr %x\n",
+				ep->dev->nb, ep->nb, chan, intr);
+			dumphchan(ctlr, hc);
+			dumpctlr(ctlr);
 		}
+		chanhalt(ep, hc);
 		logdump(ep);
+		hc->hcintmsk = mask = Chhltd;
 	}
 }
 
@@ -371,7 +363,7 @@ static int
 chanio(Ep *ep, Hostchan *hc, int dir, int pid, void *a, int len)
 {
 	Ctlr *ctlr;
-	int nleft, n, nt, i, maxpkt, npkt;
+	int nleft, n, nt, i, imask, maxpkt, npkt, chan, split;
 	uint hcdma, hctsiz;
 
 	ctlr = ep->hp->aux;
@@ -388,9 +380,17 @@ chanio(Ep *ep, Hostchan *hc, int dir, int pid, void *a, int len)
 	hc->hctsiz = n | npkt<<OPktcnt | pid;
 	hc->hcdma  = dmaaddr(a);
 
+	split = hc->hcsplt & Spltena;
+	if(ep->ttype == Tbulk && dir == Epin || ep->ttype == Tintr && split)
+		imask = Chhltd;
+	else
+		imask = Chhltd|Nak;
+
 	nleft = len;
 	logstart(ep);
 	for(;;){
+		Dwcregs *r;
+
 		hcdma = hc->hcdma;
 		hctsiz = hc->hctsiz;
 		hc->hctsiz = hctsiz & ~Dopng;
@@ -407,34 +407,46 @@ chanio(Ep *ep, Hostchan *hc, int dir, int pid, void *a, int len)
 				ep->dev->nb, ep->nb, i);
 			hc->hcint = i;
 		}
-		if(hc->hcsplt & Spltena){
+
+		r = ctlr->regs;
+		chan = hc - r->hchan;
+		if(split){
 			qlock(&ctlr->split);
-			sofwait(ctlr, hc - ctlr->regs->hchan);
-			if((dwc.regs->hfnum & 1) == 0)
+			if(waserror()){
+				qunlock(&ctlr->split);
+				nexterror();
+			}
+			filock(ctlr);
+			do {
+				ctlr->sofchan = 1<<chan;
+				r->gintmsk |= Sofintr;
+				fiunlock(ctlr);
+				sleep(&ctlr->chanintr[chan], sofdone, ctlr);
+				filock(ctlr);
+				i = r->hfnum;
+			} while((i & 7) == 6);
+			if((i & 1) == 0)
 				hc->hcchar &= ~Oddfrm;
 			else
 				hc->hcchar |= Oddfrm;
+		} else {
+			filock(ctlr);
 		}
+		hc->hcintmsk = imask;
 		hc->hcchar = (hc->hcchar &~ Chdis) | Chen;
 		clog(ep, hc);
-wait:
-		if(ep->ttype == Tbulk && dir == Epin)
-			i = chanwait(ep, ctlr, hc, Chhltd);
-		else if(ep->ttype == Tintr && (hc->hcsplt & Spltena))
-			i = chanwait(ep, ctlr, hc, Chhltd);
-		else
-			i = chanwait(ep, ctlr, hc, Chhltd|Nak);
+		r->haintmsk |= 1<<chan;
+		fiunlock(ctlr);
+
+		i = chanwait(ep, ctlr, hc, imask);
 		clog(ep, hc);
-		if(hc->hcint != i){
-			dprint("chanwait intr %ux->%ux\n", i, hc->hcint);
-			if((i = hc->hcint) == 0)
-				goto wait;
-		}
+		hc->hcintmsk = 0;
 		hc->hcint = i;
 
-		if(hc->hcsplt & Spltena){
+		if(split){
 			hc->hcsplt &= ~Compsplt;
 			qunlock(&ctlr->split);
+			poperror();
 		}
 
 		if((i & Xfercomp) == 0 && i != (Chhltd|Ack) && i != Chhltd){
@@ -530,6 +542,7 @@ eptrans(Ep *ep, int rw, void *a, long n)
 	hc = chanalloc(ep);
 	if(waserror()){
 		ep->toggle[rw] = hc->hctsiz & Pid;
+		chanhalt(ep, hc);
 		chanrelease(ep, hc);
 		if(strcmp(up->errstr, Estalled) == 0)
 			return 0;
@@ -581,6 +594,7 @@ ctltrans(Ep *ep, uchar *req, long n)
 	}
 	hc = chanalloc(ep);
 	if(waserror()){
+		chanhalt(ep, hc);
 		chanrelease(ep, hc);
 		if(strcmp(up->errstr, Estalled) == 0)
 			return 0;
@@ -683,8 +697,34 @@ init(Hci *hp)
 }
 
 static void
-dump(Hci*)
+dumphchan(Ctlr *ctlr, Hostchan *hc)
 {
+	int chan = hc - ctlr->regs->hchan;
+
+	print("hchan[%d] hcchar %ux hcsplt %ux hcint %ux hcintmsk %ux hctsiz %ux hcdma %ux\n",
+		chan, hc->hcchar, hc->hcsplt, hc->hcint, hc->hcintmsk, hc->hctsiz, hc->hcdma);
+}
+
+static void
+dumpctlr(Ctlr *ctlr)
+{
+	Dwcregs *r = ctlr->regs;
+
+	print("grxstsr %ux gnptxsts %ux hptxsts %ux\n",
+		r->grxstsr, r->gnptxsts, r->hptxsts);
+	print("gintsts %ux gintmsk %ux, haint %ux haintmsk %ux\n",
+		r->gintsts, r->gintmsk, r->haint, r->haintmsk);
+}
+
+static void
+dump(Hci *hp)
+{
+	Ctlr *ctlr = hp->aux;
+	int i;
+
+	dumpctlr(ctlr);
+	for(i = 0; i < ctlr->nchan; i++)
+		dumphchan(ctlr, &ctlr->regs->hchan[i]);
 }
 
 static void
@@ -703,6 +743,7 @@ fiqintr(Ureg*, void *a)
 	filock(ctlr);
 	intr = r->gintsts;
 	if(intr & Hcintr){
+		r->haintmsk &= ctlr->chanbusy;
 		haint = r->haint & r->haintmsk;
 		for(i = 0; haint; i++){
 			if(haint & 1){
@@ -722,6 +763,7 @@ fiqintr(Ureg*, void *a)
 			ctlr->sofchan = 0;
 		}
 	}
+	wakechan &= ctlr->chanbusy;
 	if(wakechan){
 		ctlr->wakechan |= wakechan;
 		armtimerset(1);
@@ -742,6 +784,7 @@ irqintr(Ureg*, void *a)
 	wakechan = ctlr->wakechan;
 	ctlr->wakechan = 0;
 	fiunlock(ctlr);
+	wakechan &= ctlr->chanbusy;
 	for(i = 0; wakechan; i++){
 		if(wakechan & 1)
 			wakeup(&ctlr->chanintr[i]);
@@ -831,8 +874,8 @@ epread(Ep *ep, void *a, long n)
 		assert(((uintptr)p & (BLOCKALIGN-1)) == 0);
 		cachedinvse(p, n);
 		nr = eptrans(ep, Read, p, n);
-		cachedinvse(p, nr);
 		epio->lastpoll = TK2MS(m->ticks);
+		cachedinvse(p, nr);
 		memmove(a, p, nr);
 		qunlock(q);
 		freeb(b);
