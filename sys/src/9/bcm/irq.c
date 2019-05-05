@@ -106,7 +106,7 @@ fiq(Ureg *ureg)
 
 	m->intr++;
 	v = vfiq;
-	if(v == nil)
+	if(v == nil || m->machno)
 		panic("cpu%d: unexpected item in bagging area", m->machno);
 	coherence();
 	v->f(ureg, v->a);
@@ -149,6 +149,7 @@ irqenable(int irq, void (*f)(Ureg*, void*), void* a)
 	if(irq == IRQfiq){
 		assert((ip->FIQctl & Fiqenable) == 0);
 		assert((*enable & v->mask) == 0);
+		assert(cpu == 0);
 		vfiq = v;
 		ip->FIQctl = Fiqenable | irq;
 	}else{
