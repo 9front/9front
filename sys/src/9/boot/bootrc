@@ -130,7 +130,7 @@ fn main{
 	# mount root filesystem
 	if(~ $#rootdir 0)
 		rootdir=/root
-	must mount -c /srv/boot $rootdir
+	must mount -c '#s/boot' /root $rootspec
 
 	# compile init command
 	if(~ $#init 0){
@@ -151,7 +151,7 @@ fn main{
 
 	# create the name space, mount the root fs
 	/mnt/broot/$cputype/bin/bind / /
-	/mnt/broot/$cputype/bin/mount -ac '#s/boot' /
+	/mnt/broot/$cputype/bin/bind -ac $rootdir /
 
 	# remove the remaining temporary root
 	/mnt/broot/$cputype/bin/unmount /mnt/broot
