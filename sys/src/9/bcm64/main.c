@@ -277,7 +277,6 @@ main(void)
 		timersinit();
 		flushtlb();
 		mmu1init();
-		delay(4000);	/* usb initilization is busted multicore, let cpu0 do it */
 		m->ticks = MACHP(0)->ticks;
 		schedinit();
 		return;
