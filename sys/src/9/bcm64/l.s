@@ -291,6 +291,14 @@ TEXT splx(SB), 1, $-4
 	MSR	R0, DAIF
 	RETURN
 
+TEXT idlehands(SB), 1, $-4
+	DMB	$ISH
+	MOVW	nrdy(SB), R0
+	CBNZ	R0, _ready
+	WFI
+_ready:
+	RETURN
+
 TEXT cycles(SB), 1, $-4
 TEXT lcycles(SB), 1, $-4
 	MRS	PMCCNTR_EL0, R0

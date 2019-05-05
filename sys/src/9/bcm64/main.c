@@ -260,11 +260,6 @@ mpinit(void)
 }
 
 void
-idlehands(void)
-{
-}
-
-void
 main(void)
 {
 	machinit();
