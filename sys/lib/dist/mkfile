@@ -39,11 +39,36 @@ cd:V:	/tmp/9front.386.iso.gz
 		echo '[all]'
 		echo 'gpu_mem=16'
 		echo 'enable_uart=1'
+		echo 'boot_delay=1'
 	}
 	> /env/cmdline.txt {
 		echo 'console=0'
 	}
 	fatfiles=(/env/config.txt /env/cmdline.txt $bootcode $kernels)
+	mb=1919	# storage vendors idea of 2GB
+	mk $target.$pid.disk
+	mv $target.$pid.disk $target
+	}
+
+%.pi3.img:
+	@{
+	objtype=arm64
+	bootcode=/sys/src/boot/bcm/^(bootcode.bin fixup_cd.dat start_cd.elf LICENCE.broadcom)
+	kernel=/n/src9/$objtype/9pi3
+	> /env/config.txt {
+		echo '[pi3]'
+		echo 'kernel=9pi3'
+		echo 'arm_64bit=1'
+		echo 'core_freq=250'
+		echo '[all]'
+		echo 'gpu_mem=16'
+		echo 'enable_uart=1'
+		echo 'boot_delay=1'
+	}
+	> /env/cmdline.txt {
+		echo 'console=0'
+	}
+	fatfiles=(/env/config.txt /env/cmdline.txt $bootcode $kernel)
 	mb=1919	# storage vendors idea of 2GB
 	mk $target.$pid.disk
 	mv $target.$pid.disk $target
@@ -100,7 +125,7 @@ cd:V:	/tmp/9front.386.iso.gz
 	disk/partfs -m /n/$s $target
 	d=/n/$s/sdXX
 	disk/mbr $d/data
-	if(~ $target *.pi.img.*){
+	if(~ $target *.pi.img.* *.pi3.img.*){
 		{
 			echo 'a p1 . .+100M'
 			echo 't p1 FAT32'
