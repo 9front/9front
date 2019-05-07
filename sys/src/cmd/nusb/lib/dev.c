@@ -136,8 +136,10 @@ enum
 	/*
 	 * Max device conf is also limited by max control request size as
 	 * limited by Maxctllen in the kernel usb.h (both limits are arbitrary).
+	 * Some devices ignore the high byte of control transfer reads so keep
+	 * the low byte all ones. asking for 16K kills Newsham's disk.
 	 */
-	Maxdevconf = 4 * 1024,	/* asking for 16K kills Newsham's disk */
+	Maxdevconf = 4*1024 - 1,
 };
 
 int
@@ -201,7 +203,7 @@ mkstr(uchar *b, int n)
 char*
 loaddevstr(Dev *d, int sid)
 {
-	uchar buf[256];
+	uchar buf[256-2];	/* keep size < 256 */
 	int langid;
 	int type;
 	int nr;

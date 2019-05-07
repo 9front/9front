@@ -42,7 +42,12 @@ struct Hiddev
 
 	/* report descriptor */
 	int	nrep;
-	uchar	rep[512];
+
+	/*
+	 * use odd size as some devices ignore the high byte of
+	 * wLength in control transfer reads.
+	 */
+	uchar	rep[512-1];
 };
 
 typedef struct Hidreport Hidreport;
