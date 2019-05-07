@@ -127,15 +127,23 @@ password:
 .PP
 Once connected,
 .I boot
-mounts
-the root file system before
-.B /
+mounts the root file system at
+.B /root
+(with the optional mount spec argument from
+.BR $rootspec )
 and makes the connection available as
 .B #s/boot
 for subsequent processes to
 .B mount
 (see
 .IR bind (2)).
+It then binds
+.B /root
+(or the value specified by
+.BR $rootdir )
+after the
+.BR /
+directory.
 .I Boot
 completes by 
 .IR exec (2)'ing
