@@ -459,7 +459,8 @@ makewad(void)
 	p = l->buf;
 	lp = fsig->aux;
 	memcpy(p, lp->buf, 4), p += 4;
-	PBIT32(p, nlmp), p += 8;
+	PBIT32(p, nlmp);
+	p += 8;
 	for(lp=lumps->l; lp!=lumps; p+=n, lp=lp->l){
 		n = lp->f->length;
 		if(lp->buf != nil)
@@ -471,8 +472,10 @@ makewad(void)
 	ofs = Nhdr;
 	for(lp=lumps->l; lp!=lumps; ofs+=n, lp=lp->l){
 		n = lp->f->length;
-		PBIT32(p, ofs), p += 4;
-		PBIT32(p, n), p += 4;
+		PBIT32(p, ofs);
+		p += 4;
+		PBIT32(p, n);
+		p += 4;
 		memcpy(p, lp->name, 8), p += 8;
 	}
 	dirty = 0;
