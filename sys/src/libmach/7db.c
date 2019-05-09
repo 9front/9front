@@ -91,6 +91,7 @@ static Opcode opcodes[] =
 	"11111000000ooooooooo1111111ddddd",	"MOV",		"R%d,%o(SP)!",
 	"WW111000000ooooooooo1111111ddddd",	"MOV%WU",	"R%d,%o(SP)!",
 	"WW111000000ooooooooo11nnnnnddddd",	"MOV%WU",	"R%d,%o(R%n)!",
+
 	"11111000010ooooooooo0111111ddddd",	"MOV",		"(SP)%o!,R%d",
 	"11111000010ooooooooo01nnnnnddddd",	"MOV",		"(R%n)%o!,R%d",
 	"WW111000010ooooooooo0111111ddddd",	"MOV%WU",	"(SP)%o!,R%d",
@@ -114,6 +115,24 @@ static Opcode opcodes[] =
 	"W11100101ssKKKKKKKKKKKKKKKKddddd",	"MOVK%W",	"$%K,R%d",
 	"W0010001--00000000000011111ddddd",	"MOV%W",	"SP,R%d",
 	"W0010001--000000000000nnnnn11111",	"MOV%W",	"R%n,SP",
+	"0110100011ooooooommmmm11111ddddd",	"MOVPSW",	"(SP)%o!,R%d,R%m",
+	"0110100011ooooooommmmmnnnnnddddd",	"MOVPSW",	"(R%n)%o!,R%d,R%m",
+	"0110100101ooooooommmmm11111ddddd",	"MOVPSW",	"%o(SP),R%d,R%m",
+	"0110100101ooooooommmmmnnnnnddddd",	"MOVPSW",	"%o(R%n),R%d,R%m",
+	"0110100111ooooooommmmm11111ddddd",	"MOVPSW",	"%o(SP)!,R%d,R%m",
+	"0110100111ooooooommmmmnnnnnddddd",	"MOVPSW",	"%o(R%n)!,R%d,R%m",
+	"W010100010ooooooommmmm11111ddddd",	"MOVP%W",	"R%d,R%m,(SP)%o!",
+	"W010100010ooooooommmmmnnnnnddddd",	"MOVP%W",	"R%d,R%m,(R%n)%o!",
+	"W010100100ooooooommmmm11111ddddd",	"MOVP%W",	"R%d,R%m,%o(SP)",
+	"W010100100ooooooommmmmnnnnnddddd",	"MOVP%W",	"R%d,R%m,%o(R%n)",
+	"W010100110ooooooommmmm11111ddddd",	"MOVP%W",	"R%d,R%m,%o(SP)!",
+	"W010100110ooooooommmmmnnnnnddddd",	"MOVP%W",	"R%d,R%m,%o(R%n)!",
+	"W010100011ooooooommmmm11111ddddd",	"MOVP%W",	"(SP)%o!,R%d,R%m",
+	"W010100011ooooooommmmmnnnnnddddd",	"MOVP%W",	"(R%n)%o!,R%d,R%m",
+	"W010100101ooooooommmmm11111ddddd",	"MOVP%W",	"%o(SP),R%d,R%m",
+	"W010100101ooooooommmmmnnnnnddddd",	"MOVP%W",	"%o(R%n),R%d,R%m",
+	"W010100111ooooooommmmm11111ddddd",	"MOVP%W",	"%o(SP)!,R%d,R%m",
+	"W010100111ooooooommmmmnnnnnddddd",	"MOVP%W",	"%o(R%n)!,R%d,R%m",
 	"W0010001ssIIIIIIIIIIII1111111111",	"ADD%W",	"$%I,SP,SP",
 	"W0010001ssIIIIIIIIIIII11111ddddd",	"ADD%W",	"$%I,SP,R%d",
 	"W0010001ssIIIIIIIIIIIInnnnn11111",	"ADD%W",	"$%I,R%n,SP",
@@ -491,7 +510,8 @@ format(char *mnemonic, Instr *i, char *f)
 			break;
 
 		case 'o':	// Signed byte offset
-			bprint(i, "%ld", sext(u, nbits(m)));
+			w = nbits(m);
+			bprint(i, "%ld", sext(u, w) << (w == 7 ? 2 + (i->w>>31) : 0));
 			break;
 		case 'u':	// Unsigned offset
 			u <<= (i->w >> 30)&3;
