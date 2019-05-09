@@ -17,7 +17,6 @@ extern void noteret(void);
 extern void returnto(void*);
 extern void fpsaveregs(void*);
 extern void fploadregs(void*);
-extern void magic(void);
 
 extern void setttbr(uintptr pa);
 extern uintptr getfar(void);
