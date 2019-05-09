@@ -91,7 +91,6 @@ static Opcode opcodes[] =
 	"11111000000ooooooooo1111111ddddd",	"MOV",		"R%d,%o(SP)!",
 	"WW111000000ooooooooo1111111ddddd",	"MOV%WU",	"R%d,%o(SP)!",
 	"WW111000000ooooooooo11nnnnnddddd",	"MOV%WU",	"R%d,%o(R%n)!",
-
 	"11111000010ooooooooo0111111ddddd",	"MOV",		"(SP)%o!,R%d",
 	"11111000010ooooooooo01nnnnnddddd",	"MOV",		"(R%n)%o!,R%d",
 	"WW111000010ooooooooo0111111ddddd",	"MOV%WU",	"(SP)%o!,R%d",
