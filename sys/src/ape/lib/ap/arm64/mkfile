@@ -6,6 +6,8 @@ OFILES=\
 	getfcr.$O\
 	lock.$O\
 	main9.$O\
+	memmove.$O\
+	memset.$O\
 	notetramp.$O\
 	setjmp.$O\
 	tas.$O\

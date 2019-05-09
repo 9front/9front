@@ -11,6 +11,8 @@ SFILES=\
 	getfcr.s\
 	main9.s\
 	main9p.s\
+	memmove.s\
+	memset.s\
 	setjmp.s\
 	tas.s\
 
