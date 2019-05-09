@@ -8,6 +8,7 @@ TEXT memmove(SB), $-4
 	BLT	_backward
 
 _forward:
+	MOV	R0, R7
 	ADD	R0, R2, R3
 	BIC	$15, R2, R4
 	CBZ	R4, _floop1
@@ -15,15 +16,15 @@ _forward:
 
 _floop16:
 	MOVP	(R1)16!, R5, R6
-	MOVP	R5, R6, (R0)16!
-	CMP	R4, R0
+	MOVP	R5, R6, (R7)16!
+	CMP	R4, R7
 	BNE	_floop16
 
 _floop1:
-	CMP	R3, R0
+	CMP	R3, R7
 	BEQ	_done
 	MOVBU	(R1)1!, R5
-	MOVBU	R5, (R0)1!
+	MOVBU	R5, (R7)1!
 	B	_floop1
 
 _done:
