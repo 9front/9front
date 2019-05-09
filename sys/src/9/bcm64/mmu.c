@@ -124,18 +124,19 @@ kunmap(KMap*)
 uintptr
 mmukmap(uintptr va, uintptr pa, usize size)
 {
-	uintptr a, pe, off;
+	uintptr a, pe, off, attr;
 
 	if(va == 0)
 		return 0;
 
-	assert((va % PGLSZ(1)) == 0);
+	attr = va & PTEMA(7);
+	va &= -PGLSZ(1);
 	off = pa % PGLSZ(1);
 	a = va + off;
 	pe = (pa + size + (PGLSZ(1)-1)) & -PGLSZ(1);
 	while(pa < pe){
 		((uintptr*)L1)[PTL1X(va, 1)] = pa | PTEVALID | PTEBLOCK | PTEWRITE | PTEAF
-			| PTEKERNEL | PTESH(SHARE_OUTER) | PTEDEVICE;
+			| PTEKERNEL | PTESH(SHARE_OUTER) | attr;
 		pa += PGLSZ(1);
 		va += PGLSZ(1);
 	}

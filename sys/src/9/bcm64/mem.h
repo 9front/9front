@@ -63,7 +63,7 @@
 #define MACHADDR(n)	(KTZERO-((n)+1)*MACHSIZE)
 
 #define	KTZERO		(KZERO+0x80000)		/* kernel text start */
-#define FRAMEBUFFER	0xFFFFFFFFC0000000ULL
+#define FRAMEBUFFER	(0xFFFFFFFFC0000000ULL | PTEWT)
 #define VIRTIO		0xFFFFFFFFE0000000ULL	/* i/o registers */
 #define	ARMLOCAL	(VIRTIO+IOSIZE)
 #define	VGPIO		0			/* virtual gpio for pi3 ACT LED */
@@ -125,7 +125,7 @@
 
 #define PTEWT		PTEMA(MA_MEM_WT)
 #define	PTEUNCACHED	PTEMA(MA_MEM_UC)
-#define	PTEDEVICE	PTEMA(MA_DEV_nGnRnE)
+#define	PTEDEVICE	PTEMA(MA_DEV_nGnRE)
 
 /*
  * Physical machine information from here on.
