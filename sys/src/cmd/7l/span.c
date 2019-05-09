@@ -1347,6 +1347,11 @@ buildop(void)
 			oprange[ASHA256H2] = t;
 			oprange[ASHA256SU1] = t;
 			break;
+
+		case AMOVP:
+			oprange[AMOVPW] = t;
+			oprange[AMOVPSW] = t;
+			break;
 		}
 	}
 }

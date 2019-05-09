@@ -847,6 +847,34 @@ asmout(Prog *p, Optab *o)
 		o1 = omovlit(AMOV, p, &p->from, REGTMP);
 		o2 = olsr12u(opldr12(p->as), 0, REGTMP, p->to.reg);
 		break;
+
+	case 66:	/* movpT (R)O!,R; movpT O(R)!, R -> ldrT */
+		o1 = opldrpp(p->as);
+		v = p->from.offset >> 2 + ((o1 & S64) != 0);
+		if(v < -128 || v > 127)
+			diag("offset out of range\n%P", p);
+		if(p->from.type == D_XPOST)
+			o1 |= 1<<23;
+		else if(p->from.type == D_XPRE)
+			o1 |= 3<<23;
+		else
+			o1 |= 2<<23;
+		o1 |= ((v&0x7F)<<15) | (p->from.reg<<5) | p->reg | (p->to.reg<<10);
+		break;
+
+	case 67:	/* movpT R,(R)O!; movpT O(R)!, R -> strT */
+		o1 = LD2STR(opldrpp(p->as));
+		v = p->to.offset >> 2 + ((o1 & S64) != 0);
+		if(v < -128 || v > 127)
+			diag("offset out of range\n%P", p);
+		if(p->to.type == D_XPOST)
+			o1 |= 1<<23;
+		else if(p->to.type == D_XPRE)
+			o1 |= 3<<23;
+		else
+			o1 |= 2<<23;
+		o1 |= ((v&0x7F)<<15) | (p->to.reg<<5) | p->from.reg | (p->reg<<10);
+		break;
 	}
 
 	if(debug['a'] > 1)
@@ -1552,6 +1580,9 @@ opldrpp(int a)
 	case AMOVHU:	return 1<<30 | 7<<27 | 0<<26 | 0<<24 | 1<<22;
 	case AMOVB:	return 0<<30 | 7<<27 | 0<<26 | 0<<24 | 2<<22;
 	case AMOVBU:	return 0<<30 | 7<<27 | 0<<26 | 0<<24 | 1<<22;
+	case AMOVPW:	return 0<<30 | 5<<27 | 0<<26 | 0<<23 | 1<<22;
+	case AMOVPSW:	return 1<<30 | 5<<27 | 0<<26 | 0<<23 | 1<<22;
+	case AMOVP:	return 2<<30 | 5<<27 | 0<<26 | 0<<23 | 1<<22;
 	}
 	diag("bad opldr %A\n%P", a, curp);
 	return 0;
