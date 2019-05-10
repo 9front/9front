@@ -1,9 +1,8 @@
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include <lock.h>
-
-typedef unsigned int	uint;
 
 enum
 {
@@ -38,7 +37,7 @@ extern	void	*sbrk(unsigned long);
 void*
 malloc(size_t size)
 {
-	uint next;
+	uintptr_t next;
 	int pow, n;
 	Bucket *bp, *nbp;
 
@@ -70,16 +69,16 @@ good:
 	if(pow < CUTOFF) {
 		n = (CUTOFF-pow)+2;
 		bp = sbrk(size*n);
-		if((int)bp < 0){
+		if(bp == (void*)-1){
 			unlock(&arena);
 			return nil;
 		}
 
-		next = (uint)bp+size;
+		next = (uintptr_t)bp+size;
 		nbp = (Bucket*)next;
 		arena.btab[pow] = nbp;
 		for(n -= 2; n; n--) {
-			next = (uint)nbp+size;
+			next = (uintptr_t)nbp+size;
 			nbp->next = (Bucket*)next;
 			nbp->size = pow;
 			nbp = nbp->next;
@@ -88,7 +87,7 @@ good:
 	}
 	else {
 		bp = sbrk(size);
-		if((int)bp < 0){
+		if(bp == (void*)-1){
 			unlock(&arena);
 			return nil;
 		}
@@ -110,7 +109,7 @@ free(void *ptr)
 		return;
 
 	/* Find the start of the structure */
-	bp = (Bucket*)((uint)ptr - datoff);
+	bp = (Bucket*)((uintptr_t)ptr - datoff);
 
 	if(bp->magic != MAGIC)
 		abort();
@@ -127,14 +126,14 @@ void*
 realloc(void *ptr, size_t n)
 {
 	void *new;
-	uint osize;
+	size_t osize;
 	Bucket *bp;
 
 	if(ptr == nil)
 		return malloc(n);
 
 	/* Find the start of the structure */
-	bp = (Bucket*)((uint)ptr - datoff);
+	bp = (Bucket*)((uintptr_t)ptr - datoff);
 
 	if(bp->magic != MAGIC)
 		abort();
