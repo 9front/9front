@@ -293,10 +293,13 @@ TEXT splx(SB), 1, $-4
 
 TEXT idlehands(SB), 1, $-4
 	DMB	$ISH
-	MOVW	nrdy(SB), R0
-	CBNZ	R0, _ready
-	WFI
-_ready:
+	MOV	$nrdy(SB), R1
+	LDXRW	(R1), R0
+	CBZ	R0, _goodnight
+	CLREX
+	SEVL
+_goodnight:
+	WFE
 	RETURN
 
 TEXT cycles(SB), 1, $-4
