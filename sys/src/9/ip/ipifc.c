@@ -65,6 +65,9 @@ static void	ipifcregisteraddr(Fs*, Ipifc*, Iplifc*, uchar*);
 static void	ipifcregisterproxy(Fs*, Ipifc*, uchar*, int);
 static char*	ipifcremlifc(Ipifc*, Iplifc**);
 
+static char Ebound[] = "interface already bound";
+static char Eunbound[] = "interface not bound";
+
 enum {
 	unknownv6,		/* UGH */
 	unspecifiedv6,
@@ -151,7 +154,7 @@ ipifcbind(Conv *c, char **argv, int argc)
 	wlock(ifc);
 	if(ifc->m != nil){
 		wunlock(ifc);
-		return "interface already bound";
+		return Ebound;
 	}
 	if(waserror()){
 		wunlock(ifc);
@@ -172,6 +175,8 @@ ipifcbind(Conv *c, char **argv, int argc)
 	ifc->m = m;
 	ifc->mintu = ifc->m->mintu;
 	ifc->maxtu = ifc->m->maxtu;
+	ifc->delay = 40;
+	ifc->speed = 0;
 	if(ifc->m->unbindonclose == 0)
 		ifc->conv->inuse++;
 
@@ -201,7 +206,7 @@ ipifcunbind(Ipifc *ifc)
 	wlock(ifc);
 	if(ifc->m == nil){
 		wunlock(ifc);
-		return "interface not bound";
+		return Eunbound;
 	}
 
 	/* disassociate logical interfaces (before zeroing ifc->arg) */
@@ -300,6 +305,17 @@ ipifcinuse(Conv *c)
 }
 
 static void
+ipifcadjustburst(Ipifc *ifc)
+{
+	int burst;
+
+	burst = ((vlong)ifc->delay * ifc->speed) / 8000;
+	if(burst < ifc->maxtu)
+		burst = ifc->maxtu;
+	ifc->burst = burst;
+}
+
+static void
 ipifcsetdelay(Ipifc *ifc, int delay)
 {
 	if(delay < 0)
@@ -307,9 +323,7 @@ ipifcsetdelay(Ipifc *ifc, int delay)
 	else if(delay > 1000)
 		delay = 1000;
 	ifc->delay = delay;
-	ifc->burst = ((vlong)delay * ifc->speed) / 8000;
-	if(ifc->burst < ifc->maxtu)
-		ifc->burst = ifc->maxtu;
+	ipifcadjustburst(ifc);
 }
 
 static void
@@ -319,7 +333,7 @@ ipifcsetspeed(Ipifc *ifc, int speed)
 		speed = 0;
 	ifc->speed = speed;
 	ifc->load = 0;
-	ipifcsetdelay(ifc, ifc->delay);
+	ipifcadjustburst(ifc);
 }
 
 void
@@ -392,8 +406,6 @@ ipifccreate(Conv *c)
 	ifc->m = nil;
 	ifc->reflect = 0;
 	ifc->reassemble = 0;
-	ipifcsetspeed(ifc, 0);
-	ipifcsetdelay(ifc, 40);
 }
 
 /*
@@ -402,11 +414,9 @@ ipifccreate(Conv *c)
 static void
 ipifcclose(Conv *c)
 {
-	Ipifc *ifc;
-	Medium *m;
+	Ipifc *ifc = (Ipifc*)c->ptcl;
+	Medium *m = ifc->m;
 
-	ifc = (Ipifc*)c->ptcl;
-	m = ifc->m;
 	if(m != nil && m->unbindonclose)
 		ipifcunbind(ifc);
 }
@@ -414,17 +424,17 @@ ipifcclose(Conv *c)
 /*
  *  change an interface's mtu
  */
-char*
-ipifcsetmtu(Ipifc *ifc, char **argv, int argc)
+static char*
+ipifcsetmtu(Ipifc *ifc, int mtu)
 {
-	int mtu;
+	Medium *m = ifc->m;
 
-	if(argc < 2 || ifc->m == nil)
-		return Ebadarg;
-	mtu = strtoul(argv[1], 0, 0);
-	if(mtu < ifc->m->mintu || mtu > ifc->m->maxtu)
+	if(m == nil)
+		return Eunbound;
+	if(mtu < m->mintu || mtu > m->maxtu)
 		return Ebadarg;
 	ifc->maxtu = mtu;
+	ipifcadjustburst(ifc);
 	return nil;
 }
 
@@ -488,7 +498,7 @@ ipifcadd(Ipifc *ifc, char **argv, int argc, int tentative, Iplifc *lifcp)
 	wlock(ifc);
 	if(ifc->m == nil){
 		wunlock(ifc);
-		return "interface not yet bound to device";
+		return Eunbound;
 	}
 	f = ifc->conv->p->f;
 	if(waserror()){
@@ -496,8 +506,8 @@ ipifcadd(Ipifc *ifc, char **argv, int argc, int tentative, Iplifc *lifcp)
 		return up->errstr;
 	}
 
-	if(mtu > 0 && mtu >= ifc->m->mintu && mtu <= ifc->m->maxtu)
-		ifc->maxtu = mtu;
+	if(mtu > 0)
+		ipifcsetmtu(ifc, mtu);
 
 	/* ignore if this is already a local address for this ifc */
 	if((lifc = iplocalonifc(ifc, ip)) != nil){
@@ -680,9 +690,9 @@ done:
 char*
 ipifcrem(Ipifc *ifc, char **argv, int argc)
 {
-	char *rv;
 	uchar ip[IPaddrlen], mask[IPaddrlen], rem[IPaddrlen];
 	Iplifc *lifc, **l;
+	char *err;
 
 	if(argc < 3)
 		return Ebadarg;
@@ -707,9 +717,9 @@ ipifcrem(Ipifc *ifc, char **argv, int argc)
 			break;
 		l = &lifc->next;
 	}
-	rv = ipifcremlifc(ifc, l);
+	err = ipifcremlifc(ifc, l);
 	wunlock(ifc);
-	return rv;
+	return err;
 }
 
 /*
@@ -720,10 +730,9 @@ ipifcrem(Ipifc *ifc, char **argv, int argc)
 static char*
 ipifcconnect(Conv* c, char **argv, int argc)
 {
+	Ipifc *ifc = (Ipifc*)c->ptcl;
 	char *err;
-	Ipifc *ifc;
 
-	ifc = (Ipifc*)c->ptcl;
 	wlock(ifc);
 	while(ifc->lifc != nil)
 		ipifcremlifc(ifc, &ifc->lifc);
@@ -800,9 +809,8 @@ ipifcra6(Ipifc *ifc, char **argv, int argc)
 static char*
 ipifcctl(Conv* c, char **argv, int argc)
 {
-	Ipifc *ifc;
+	Ipifc *ifc = (Ipifc*)c->ptcl;
 
-	ifc = (Ipifc*)c->ptcl;
 	if(strcmp(argv[0], "add") == 0)
 		return ipifcadd(ifc, argv, argc, 0, nil);
 	else if(strcmp(argv[0], "try") == 0)
@@ -812,7 +820,7 @@ ipifcctl(Conv* c, char **argv, int argc)
 	else if(strcmp(argv[0], "unbind") == 0)
 		return ipifcunbind(ifc);
 	else if(strcmp(argv[0], "mtu") == 0)
-		return ipifcsetmtu(ifc, argv, argc);
+		return ipifcsetmtu(ifc, argc>1? strtoul(argv[1], 0, 0): 0);
 	else if(strcmp(argv[0], "speed") == 0){
 		ipifcsetspeed(ifc, argc>1? atoi(argv[1]): 0);
 		return nil;
@@ -1619,7 +1627,7 @@ ipifcadd6(Ipifc *ifc, char **argv, int argc)
 	/* issue "add" ctl msg for v6 link-local addr and prefix len */
 	m = ifc->m;
 	if(m == nil || m->pref2addr == nil)
-		return Ebadarg;
+		return Eunbound;
 	(*m->pref2addr)(prefix, ifc->mac);	/* mac → v6 link-local addr */
 
 	sprint(addr, "%I", prefix);
