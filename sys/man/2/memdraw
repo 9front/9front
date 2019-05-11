@@ -34,7 +34,6 @@ freememsubfont,
 memsubfontwidth,
 getmemdefont,
 memimagestring,
-iprint,
 hwdraw \- drawing routines for memory-resident images
 .SH SYNOPSIS
 .nf
@@ -160,7 +159,6 @@ Point	memimagestring(Memimage *dst, Point p, Memimage *color,
 .PP
 .ft L
 .nf
-int	iprint(char *fmt, ...)
 int	hwdraw(Memdrawparam *param)
 .ft R
 .SH DESCRIPTION
@@ -423,9 +421,7 @@ an end of a given style.
 .PP
 The
 .I hwdraw
-and 
-.I iprint
-functions are no-op stubs that may be overridden by clients
+function is a no-op stub that may be overridden by clients
 of the library.
 .I Hwdraw
 is called at each call to
@@ -436,15 +432,6 @@ and return 1.
 If it cannot satisfy the request, it should return 0.
 This allows (for instance) the kernel to take advantage
 of hardware acceleration.
-.I Iprint
-should format and print its arguments;
-it is given much debugging output when
-the global integer variable
-.B drawdebug
-is non-zero.
-In the kernel,
-.I iprint
-prints to a serial line rather than the screen, for obvious reasons.
 .SH SOURCE
 .B /sys/src/libmemdraw
 .SH SEE ALSO
