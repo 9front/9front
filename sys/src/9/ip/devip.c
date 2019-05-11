@@ -1037,7 +1037,7 @@ bindctlmsg(Proto *x, Conv *c, Cmdbuf *cb)
 	if(x->bind == nil)
 		p = Fsstdbind(c, cb->f, cb->nf);
 	else
-		p = x->bind(c, cb->f, cb->nf);
+		p = (*x->bind)(c, cb->f, cb->nf);
 	if(p != nil)
 		error(p);
 }
@@ -1148,7 +1148,7 @@ ipwrite(Chan* ch, void *v, long n, vlong off)
 				error(Ebadip);
 			ipifcremmulti(c, c->raddr, ia);
 		} else if(x->ctl != nil) {
-			p = x->ctl(c, cb->f, cb->nf);
+			p = (*x->ctl)(c, cb->f, cb->nf);
 			if(p != nil)
 				error(p);
 		} else

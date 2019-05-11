@@ -210,7 +210,6 @@ struct Conv
 	Queue*	sq;			/* snooping queue */
 	Ref	snoopers;		/* number of processes with snoop open */
 
-	QLock	car;
 	Rendez	cr;
 	char	cerr[ERRMAX];
 
