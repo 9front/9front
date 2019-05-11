@@ -49,6 +49,7 @@ netdevbind(Ipifc *ifc, int argc, char **argv)
 	mchan = namec(argv[2], Aopen, ORDWR, 0);
 
 	er = smalloc(sizeof(*er));
+	er->readp = (void*)-1;
 	er->mchan = mchan;
 	er->f = ifc->conv->p->f;
 
@@ -65,10 +66,14 @@ netdevunbind(Ipifc *ifc)
 {
 	Netdevrock *er = ifc->arg;
 
+	/* wait for reader to start */
+	while(er->readp == (void*)-1)
+		tsleep(&up->sleep, return0, 0, 300);
+
 	if(er->readp != nil)
 		postnote(er->readp, 1, "unbind", 0);
 
-	/* wait for readers to die */
+	/* wait for reader to die */
 	while(er->readp != nil)
 		tsleep(&up->sleep, return0, 0, 300);
 

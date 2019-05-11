@@ -122,32 +122,49 @@ static char *nbmsg = "nonblocking";
 static void
 etherbind(Ipifc *ifc, int argc, char **argv)
 {
-	Chan *mchan4, *cchan4, *achan, *mchan6, *cchan6, *schan;
-	char addr[Maxpath];	//char addr[2*KNAMELEN];
-	char dir[Maxpath];	//char dir[2*KNAMELEN];
-	char *buf;
-	int n;
-	char *ptr;
+	char addr[Maxpath], dir[Maxpath];
 	Etherrock *er;
+	Chan *c;
+	int n;
 
 	if(argc < 2)
 		error(Ebadarg);
 
-	mchan4 = cchan4 = achan = mchan6 = cchan6 = nil;
-	buf = nil;
+	/*
+	 *  get mac address
+	 */
+	snprint(addr, sizeof(addr), "%s/addr", argv[2]);
+	c = namec(addr, Aopen, OREAD, 0);
 	if(waserror()){
-		if(mchan4 != nil)
-			cclose(mchan4);
-		if(cchan4 != nil)
-			cclose(cchan4);
-		if(achan != nil)
-			cclose(achan);
-		if(mchan6 != nil)
-			cclose(mchan6);
-		if(cchan6 != nil)
-			cclose(cchan6);
-		if(buf != nil)
-			free(buf);
+		cclose(c);
+		nexterror();
+	}
+	n = devtab[c->type]->read(c, addr, sizeof(addr)-1, 0);
+	if(n < 0)
+		error(Eio);
+	addr[n] = 0;
+	if(parsemac(ifc->mac, addr, sizeof(ifc->mac)) != 6)
+		error("could not find mac address");
+	cclose(c);
+	poperror();
+
+	er = smalloc(sizeof(*er));
+	er->read4p = er->read6p = er->arpp = (void*)-1;
+	er->mchan4 = er->cchan4 = er->mchan6 = er->cchan6 = er->achan = nil;
+	er->f = ifc->conv->p->f;
+
+	if(waserror()){
+		if(er->mchan4 != nil)
+			cclose(er->mchan4);
+		if(er->cchan4 != nil)
+			cclose(er->cchan4);
+		if(er->mchan6 != nil)
+			cclose(er->mchan6);
+		if(er->cchan6 != nil)
+			cclose(er->cchan6);
+		if(er->achan != nil)
+			cclose(er->achan);
+		free(er);
 		nexterror();
 	}
 
@@ -158,39 +175,12 @@ etherbind(Ipifc *ifc, int argc, char **argv)
 	 *  this device.
 	 */
 	snprint(addr, sizeof(addr), "%s!0x800", argv[2]);	/* ETIP4 */
-	mchan4 = chandial(addr, nil, dir, &cchan4);
+	er->mchan4 = chandial(addr, nil, dir, &er->cchan4);
 
 	/*
 	 *  make it non-blocking
 	 */
-	devtab[cchan4->type]->write(cchan4, nbmsg, strlen(nbmsg), 0);
-
-	/*
-	 *  get mac address and speed
-	 */
-	snprint(addr, sizeof(addr), "%s/stats", argv[2]);
-	buf = smalloc(512);
-	schan = namec(addr, Aopen, OREAD, 0);
-	if(waserror()){
-		cclose(schan);
-		nexterror();
-	}
-	n = devtab[schan->type]->read(schan, buf, 511, 0);
-	cclose(schan);
-	poperror();
-	buf[n] = 0;
-
-	ptr = strstr(buf, "addr: ");
-	if(!ptr)
-		error(Eio);
-	ptr += 6;
-	parsemac(ifc->mac, ptr, 6);
-
-	/*
- 	 *  open arp conversation
-	 */
-	snprint(addr, sizeof(addr), "%s!0x806", argv[2]);	/* ETARP */
-	achan = chandial(addr, nil, nil, nil);
+	devtab[er->cchan4->type]->write(er->cchan4, nbmsg, strlen(nbmsg), 0);
 
 	/*
 	 *  open ipv6 conversation
@@ -199,24 +189,21 @@ etherbind(Ipifc *ifc, int argc, char **argv)
 	 *  this device.
 	 */
 	snprint(addr, sizeof(addr), "%s!0x86DD", argv[2]);	/* ETIP6 */
-	mchan6 = chandial(addr, nil, dir, &cchan6);
+	er->mchan6 = chandial(addr, nil, dir, &er->cchan6);
 
 	/*
 	 *  make it non-blocking
 	 */
-	devtab[cchan6->type]->write(cchan6, nbmsg, strlen(nbmsg), 0);
+	devtab[er->cchan6->type]->write(er->cchan6, nbmsg, strlen(nbmsg), 0);
 
-	er = smalloc(sizeof(*er));
-	er->mchan4 = mchan4;
-	er->cchan4 = cchan4;
-	er->achan = achan;
-	er->mchan6 = mchan6;
-	er->cchan6 = cchan6;
-	er->f = ifc->conv->p->f;
-	ifc->arg = er;
-
-	free(buf);
+	/*
+ 	 *  open arp conversation
+	 */
+	snprint(addr, sizeof(addr), "%s!0x806", argv[2]);	/* ETARP */
+	er->achan = chandial(addr, nil, nil, nil);
 	poperror();
+
+	ifc->arg = er;
 
 	kproc("etherread4", etherread4, ifc);
 	kproc("etherread6", etherread6, ifc);
@@ -230,6 +217,10 @@ static void
 etherunbind(Ipifc *ifc)
 {
 	Etherrock *er = ifc->arg;
+
+	/* wait for readers to start */
+	while(er->arpp == (void*)-1 || er->read4p == (void*)-1 || er->read6p == (void*)-1)
+		tsleep(&up->sleep, return0, 0, 300);
 
 	if(er->read4p != nil)
 		postnote(er->read4p, 1, "unbind", 0);

@@ -28,6 +28,7 @@ loopbackbind(Ipifc *ifc, int, char**)
 	LB *lb;
 
 	lb = smalloc(sizeof(*lb));
+	lb->readp = (void*)-1;
 	lb->f = ifc->conv->p->f;
 	lb->q = qopen(1024*1024, Qmsg, nil, nil);
 	ifc->arg = lb;
@@ -41,11 +42,15 @@ loopbackunbind(Ipifc *ifc)
 {
 	LB *lb = ifc->arg;
 
-	if(lb->readp)
+	/* wat for reader to start */
+	while(lb->readp == (void*)-1)
+		tsleep(&up->sleep, return0, 0, 300);
+		
+	if(lb->readp != nil)
 		postnote(lb->readp, 1, "unbind", 0);
 
 	/* wait for reader to die */
-	while(lb->readp != 0)
+	while(lb->readp != nil)
 		tsleep(&up->sleep, return0, 0, 300);
 
 	/* clean up */
