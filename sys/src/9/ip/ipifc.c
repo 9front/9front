@@ -26,12 +26,10 @@ Medium *media[Maxmedia] = { 0 };
 struct Ipself
 {
 	uchar	a[IPaddrlen];
-	Ipself	*hnext;		/* next address in the hash table */
+	Ipself	*next;		/* next address in the hash table */
 	Iplink	*link;		/* binding twixt Ipself and Ipifc */
 	ulong	expire;
 	uchar	type;		/* type of address */
-	int	ref;
-	Ipself	*next;		/* free list */
 };
 
 struct Ipselftab
@@ -1100,7 +1098,6 @@ ipselftabread(Fs *f, char *cp, ulong offset, int n)
 
 	m = 0;
 	off = offset;
-	qlock(f->self);
 	for(i = 0; i < NHASH && m < n; i++){
 		for(p = f->self->hash[i]; p != nil && m < n; p = p->next){
 			nifc = 0;
@@ -1115,7 +1112,6 @@ ipselftabread(Fs *f, char *cp, ulong offset, int n)
 			}
 		}
 	}
-	qunlock(f->self);
 	return m;
 }
 

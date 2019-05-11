@@ -274,9 +274,9 @@ struct Iplink
 	Ipself	*self;
 	Iplifc	*lifc;
 	Iplink	*selflink;	/* next link for this local address */
-	Iplink	*lifclink;	/* next link for this ifc */
-	ulong	expire;
+	Iplink	*lifclink;	/* next link for this lifc */
 	Iplink	*next;		/* free list */
+	ulong	expire;
 	int	ref;
 };
 
