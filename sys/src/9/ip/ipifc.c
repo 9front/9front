@@ -1576,13 +1576,14 @@ ipifcregisterproxy(Fs *f, Ipifc *ifc, uchar *ip, int add)
 }
 
 char*
-ipifcadd6(Ipifc *ifc, char**argv, int argc)
+ipifcadd6(Ipifc *ifc, char **argv, int argc)
 {
 	int plen = 64;
 	char addr[40], preflen[6];
 	char *params[3];
 	uchar prefix[IPaddrlen];
 	Iplifc lifc;
+	Medium *m;
 
 	lifc.onlink = 1;
 	lifc.autoflag = 1;
@@ -1616,9 +1617,10 @@ ipifcadd6(Ipifc *ifc, char**argv, int argc)
 		return Ebadarg;
 
 	/* issue "add" ctl msg for v6 link-local addr and prefix len */
-	if(ifc->m->pref2addr == nil)
+	m = ifc->m;
+	if(m == nil || m->pref2addr == nil)
 		return Ebadarg;
-	(*ifc->m->pref2addr)(prefix, ifc->mac);	/* mac → v6 link-local addr */
+	(*m->pref2addr)(prefix, ifc->mac);	/* mac → v6 link-local addr */
 
 	sprint(addr, "%I", prefix);
 	sprint(preflen, "/%d", plen);
