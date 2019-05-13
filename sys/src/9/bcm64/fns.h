@@ -33,6 +33,9 @@ extern void tlbiaside1is(uintptr asid);
 extern void flushtlb(void);
 extern void tlbivmalle1(void);
 
+extern void flushlocaltlb(void);
+extern void tlbivmalle1(void);
+
 /* cache */
 extern ulong cachesize(int level);
 
@@ -68,6 +71,7 @@ extern uintptr mmukmap(uintptr, uintptr, usize);
 
 extern void mmu0init(uintptr*);
 extern void mmu0clear(uintptr*);
+extern void mmuidmap(uintptr*);
 extern void mmu1init(void);
 
 extern void putasid(Proc*);
@@ -76,6 +80,7 @@ extern void putasid(Proc*);
 extern void clockinit(void);
 extern void synccycles(void);
 extern void armtimerset(int);
+extern void clockshutdown(void);
 
 /* fpu */
 extern void fpuinit(void);
@@ -127,6 +132,7 @@ extern int gpiogetevent(uint);
 extern void gpiomeminit(void);
 
 /* arch */
+extern void archreboot(void);
 extern char *cputype2name(char*, int);
 extern void cpuidprint(void);
 extern void uartconsinit(void);
@@ -134,6 +140,7 @@ extern void links(void);
 extern int getncpus(void);
 extern int startcpu(uint);
 extern void okay(int);
+extern void wdogoff(void);
 
 /* dma */
 extern uintptr dmaaddr(void*);

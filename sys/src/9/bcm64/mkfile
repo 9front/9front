@@ -1,14 +1,11 @@
 CONF=pi3
 CONFLIST=pi3
-EXTRACOPIES=
 
 loadaddr=0xffffffff80080000
 
 objtype=arm64
 </$objtype/mkfile
 p=9
-
-OS=7
 
 DEVS=`{rc ../port/mkdevlist $CONF}
 
@@ -89,12 +86,7 @@ $OBJ: $HFILES
 install:V: /$objtype/$p$CONF
 
 /$objtype/$p$CONF:D: $p$CONF s$p$CONF
-	cp -x $p$CONF s$p$CONF /$objtype/ &
-	for(i in $EXTRACOPIES)
-		{ 9fs $i && cp $p$CONF s$p$CONF /n/$i/$objtype && echo -n $i... & }
-	wait
-	echo
-	touch $target
+	cp -x $p$CONF s$p$CONF /$objtype/
 
 
 REPCC=`{../port/mkfilelist ../bcm}
@@ -108,8 +100,9 @@ REPCC=`{../port/mkfilelist ../bcm}
 arch.$O clock.$O fpiarm.$O main.$O mmu.$O screen.$O syscall.$O trap.$O: \
 	/$objtype/include/ureg.h
 
-l.$O cache.v8.$O lexception.$O lproc.$O mmu.$O: mem.h
+l.$O cache.v8.$O mmu.$O: mem.h
 l.$O cache.v8.$O archbcm3.$O clock.$O fpu.$O trap.$O mmu.$O: sysreg.h
+main.$O: reboot.h
 
 devmouse.$O mouse.$O screen.$O: screen.h
 usbdwc.$O: dwcotg.h ../port/usb.h
@@ -130,14 +123,14 @@ init.h:D:	../port/initcode.c init9.s
 		sed -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
 	 echo '};'} > init.h
 
-#reboot.h:D:	rebootcode.s arm.s arm.h mem.h
-#	$AS rebootcode.s
-#	# -T arg is REBOOTADDR
-#	$LD -l -s -T0x1c00 -R4 -o reboot.out rebootcode.$O
-#	{echo 'uchar rebootcode[]={'
-#	 xd -1x reboot.out |
-#		sed -e '1,2d' -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
-#	 echo '};'} > reboot.h
+reboot.h:D:	rebootcode.s cache.v8.$O mem.h sysreg.h
+	$AS rebootcode.s
+	# -T arg is REBOOTADDR
+	$LD -l -o reboot.out -H6 -R1 -T0x1c00 rebootcode.$O cache.v8.$O
+	{echo 'uchar rebootcode[]={'
+	 xd -1x reboot.out |
+		sed -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
+	 echo '};'} > reboot.h
 
 errstr.h:D:	../port/mkerrstr ../port/error.h
 	rc ../port/mkerrstr > errstr.h

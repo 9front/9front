@@ -50,8 +50,6 @@ _zerobss:
 	MOV	$(L1-KZERO), R0
 	BL	mmu0init(SB)
 
-	BL	cachedwbinv(SB)
-	BL	l2cacheuwbinv(SB)
 	SEVL
 _startup:
 	WFE
@@ -162,7 +160,6 @@ TEXT mmuenable<>(SB), 1, $-4
 	ORR	$KZERO, LR
 	MOV	LR, -16(RSP)!
 
-	BL	cachedwbinv(SB)
 	BL	flushlocaltlb(SB)
 
 	/* memory attributes */

@@ -54,19 +54,47 @@ mmu0clear(uintptr *l1)
 	pe = PHYSDRAM + soc.dramsize;
 
 	if(PTLEVELS > 3)
-	for(pa = PHYSDRAM, va = KZERO; pa < pe; pa += PGLSZ(3), va += PGLSZ(3)){
-		if(PTL1X(pa, 3) != PTL1X(va, 3))
-			l1[PTL1X(pa, 3)] = 0;
+	for(pa = PHYSDRAM, va = KZERO; pa < pe; pa += PGLSZ(1), va += PGLSZ(1)){
+		if(PTL1X(pa, 1) != PTL1X(va, 1))
+			l1[PTL1X(pa, 1)] = 0;
 	}
 	if(PTLEVELS > 2)
 	for(pa = PHYSDRAM, va = KZERO; pa < pe; pa += PGLSZ(2), va += PGLSZ(2)){
 		if(PTL1X(pa, 2) != PTL1X(va, 2))
 			l1[PTL1X(pa, 2)] = 0;
 	}
+	for(pa = PHYSDRAM, va = KZERO; pa < pe; pa += PGLSZ(3), va += PGLSZ(3)){
+		if(PTL1X(pa, 3) != PTL1X(va, 3))
+			l1[PTL1X(pa, 3)] = 0;
+	}
+}
+
+void
+mmuidmap(uintptr *l1)
+{
+	uintptr va, pa, pe;
+
+	mmuswitch(nil);
+	flushtlb();
+
+	pe = PHYSDRAM + soc.dramsize;
+
 	for(pa = PHYSDRAM, va = KZERO; pa < pe; pa += PGLSZ(1), va += PGLSZ(1)){
 		if(PTL1X(pa, 1) != PTL1X(va, 1))
-			l1[PTL1X(pa, 1)] = 0;
+			l1[PTL1X(pa, 1)] = pa | PTEVALID | PTEBLOCK | PTEWRITE | PTEAF
+				 | PTEKERNEL | PTESH(SHARE_INNER);
 	}
+	if(PTLEVELS > 2)
+	for(pa = PHYSDRAM, va = KZERO; pa < pe; pa += PGLSZ(2), va += PGLSZ(2)){
+		if(PTL1X(pa, 2) != PTL1X(va, 2))
+			l1[PTL1X(pa, 2)] = PADDR(&l1[L1TABLEX(pa, 1)]) | PTEVALID | PTETABLE;
+	}
+	if(PTLEVELS > 3)
+	for(pa = PHYSDRAM, va = KZERO; pa < pe; pa += PGLSZ(3), va += PGLSZ(3)){
+		if(PTL1X(pa, 3) != PTL1X(va, 3))
+			l1[PTL1X(pa, 3)] = PADDR(&l1[L1TABLEX(pa, 2)]) | PTEVALID | PTETABLE;
+	}
+	setttbr(PADDR(&l1[L1TABLEX(0, PTLEVELS-1)]));
 }
 
 void
@@ -264,7 +292,6 @@ putmmu(uintptr va, uintptr pa, Page *pg)
 	uintptr *pte, old;
 	int s;
 
-// iprint("cpu%d: putmmu va %#p asid %d proc %lud %s\n", m->machno, va, up->asid, up->pid, up->text);
 	s = splhi();
 	while((pte = mmuwalk(va, 0)) == nil){
 		spllo();
@@ -345,7 +372,6 @@ mmuswitch(Proc *p)
 	if(allocasid(p))
 		flushasid((uvlong)p->asid<<48);
 
-// iprint("cpu%d: mmuswitch asid %d proc %lud %s\n", m->machno, p->asid, p->pid, p->text);
 	setttbr((uvlong)p->asid<<48 | PADDR(&m->mmul1[L1TABLEX(0, PTLEVELS-1)]));
 }
 

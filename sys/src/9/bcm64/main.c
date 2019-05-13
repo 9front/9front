@@ -8,12 +8,12 @@
 #include "io.h"
 #include "init.h"
 #include "sysreg.h"
+#include "reboot.h"
 
 #include <pool.h>
 #include <libsec.h>
 
 Conf conf;
-ulong memsize = GiB;
 
 /*
  *  starting place for first process
@@ -122,7 +122,7 @@ userinit(void)
 	pg = newpage(1, 0, UTZERO);
 	pg->txtflush = ~0;
 	segpage(s, pg);
-	k = kmap(s->map[0]->pages[0]);
+	k = kmap(pg);
 	memmove((void*)VA(k), initcode, sizeof initcode);
 	kunmap(k);
 
@@ -133,7 +133,7 @@ void
 confinit(void)
 {
 	int i, userpcnt;
-	ulong kpages;
+	ulong kpages, memsize = 0;
 	uintptr pa;
 	char *p;
 
@@ -149,12 +149,10 @@ confinit(void)
 	else
 		userpcnt = 0;
 
-	if((p = getconf("*maxmem")) != nil){
+	if(p = getconf("*maxmem"))
 		memsize = strtoul(p, 0, 0) - PHYSDRAM;
-		if (memsize < 16*MB)		/* sanity */
-			memsize = 16*MB;
-	}
-
+	if (memsize < 16*MB)		/* sanity */
+		memsize = 16*MB;
 	getramsize(&conf.mem[0]);
 	if(conf.mem[0].limit == 0){
 		conf.mem[0].base = PHYSDRAM;
@@ -247,7 +245,7 @@ mpinit(void)
 	for(i = 1; i < conf.nmach; i++)
 		MACHP(i)->machno = i;
 
-	cachedwbinv();
+	coherence();
 
 	for(i = 1; i < conf.nmach; i++)
 		((uintptr*)SPINTABLE)[i] = PADDR(_start);
@@ -257,6 +255,9 @@ mpinit(void)
 	delay(100);
 	sev();
 	synccycles();
+
+	for(i = 0; i < MAXMACH; i++)
+		((uintptr*)SPINTABLE)[i] = 0;
 }
 
 void
@@ -276,12 +277,11 @@ main(void)
 		schedinit();
 		return;
 	}
+	quotefmtinstall();
 	bootargsinit();
 	confinit();
 	xinit();
 	printinit();
-	fmtinstall('H', encodefmt);
-	quotefmtinstall();
 	uartconsinit();
 	screeninit();
 	print("\nPlan 9\n");
@@ -308,17 +308,64 @@ main(void)
 	schedinit();
 }
 
-void
-exit(int)
+static void
+rebootjump(void *entry, void *code, ulong size)
 {
-	cpushutdown();
+	void (*f)(void*, void*, ulong);
+
+	intrsoff();
+	intrcpushutdown();
+
+	/* redo identity map */
+	mmuidmap((uintptr*)L1);
+
+	/* setup reboot trampoline function */
+	f = (void*)REBOOTADDR;
+	memmove(f, rebootcode, sizeof(rebootcode));
+	cachedwbinvse(f, sizeof(rebootcode));
+	cacheiinvse(f, sizeof(rebootcode));
+
+	(*f)(entry, code, size);
+
 	for(;;);
 }
 
 void
-reboot(void*, void*, ulong)
+exit(int)
 {
-	error(Egreg);
+	cpushutdown();
+	splfhi();
+	if(m->machno == 0)
+		archreboot();
+	rebootjump(0, 0, 0);
+}
+
+void
+reboot(void *entry, void *code, ulong size)
+{
+	writeconf();
+	while(m->machno != 0){
+		procwired(up, 0);
+		sched();
+	}
+
+	cpushutdown();
+	delay(2000);
+
+	splfhi();
+
+	/* turn off buffered serial console */
+	serialoq = nil;
+
+	/* shutdown devices */
+	chandevshutdown();
+
+	/* stop the clock (and watchdog if any) */
+	clockshutdown();
+	wdogoff();
+
+	/* off we go - never to return */
+	rebootjump(entry, code, size);
 }
 
 /*
