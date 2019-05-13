@@ -304,8 +304,8 @@ mmuuncache(void* v, usize size)
 uintptr
 cankaddr(uintptr pa)
 {
-	if(pa < PHYSDRAM + memsize)		/* assumes PHYSDRAM is 0 */
-		return PHYSDRAM + memsize - pa;
+	if(pa < PHYSDRAM+soc.dramsize)
+		return PHYSDRAM+soc.dramsize - pa;
 	return 0;
 }
 

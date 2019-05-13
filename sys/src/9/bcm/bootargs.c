@@ -88,34 +88,37 @@ plan9iniinit(char *s, int cmdline)
 void
 bootargsinit(void)
 {
+	static char maxmem[11];
+	char x, *e;
 	Atag *a;
-	int n;
 
-	a = (Atag*)BOOTARGS;
+	e = BOOTARGS;
+	a = (Atag*)e;
 	if(a->tag != AtagCore){
-		plan9iniinit((char*)a, 0);
+		plan9iniinit(e, 0);
 		return;
 	}
-	while(a->tag != AtagNone && a->size != 0){
+	while(a->tag != AtagNone){
+		e += a->size * sizeof(u32int);
+		if(a->size < 2 || e < (char*)a || e > &BOOTARGS[BOOTARGSLEN])
+			break;
 		switch(a->tag){
 		case AtagMem:
-			/* use only first bank */
-			if(conf.mem[0].limit == 0 && a->mem.size != 0){
-				memsize = a->mem.size;
-				conf.mem[0].base = a->mem.base;
-				conf.mem[0].limit = a->mem.base + memsize;
+			if(findconf("*maxmem") < 0){
+				snprint(maxmem, sizeof(maxmem), "%ud", a->mem.base+a->mem.size);
+				addconf("*maxmem", maxmem);
 			}
 			break;
 		case AtagCmdline:
-			n = (a->size * sizeof(u32int)) - offsetof(Atag, cmdline[0]);
-			if(a->cmdline + n < BOOTARGS + BOOTARGSLEN)
-				a->cmdline[n] = 0;
-			else
-				BOOTARGS[BOOTARGSLEN-1] = 0;
+			x = *e;
+			*e = 0;
 			plan9iniinit(a->cmdline, 1);
+			*e = x;
 			break;
 		}
-		a = (Atag*)((u32int*)a + a->size);
+		if(e > &BOOTARGS[BOOTARGSLEN-8])
+			break;
+		a = (Atag*)e;
 	}
 }
 
@@ -164,6 +167,7 @@ writeconf(void)
 	if(n >= BOOTARGSLEN)
 		error("kernel configuration too large");
 	memmove(BOOTARGS, p, n);
+	memset(BOOTARGS+n, 0, BOOTARGSLEN-n);
 	poperror();
 	free(p);
 }

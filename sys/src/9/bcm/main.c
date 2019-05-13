@@ -18,7 +18,6 @@
 uintptr kseg0 = KZERO;
 Mach*	machaddr[MAXMACH];
 Conf	conf;
-ulong	memsize = 128*1024*1024;
 
 void
 machinit(void)
@@ -241,7 +240,7 @@ void
 confinit(void)
 {
 	int i, userpcnt;
-	ulong kpages;
+	ulong kpages, memsize = 0;
 	uintptr pa;
 	char *p;
 
@@ -257,12 +256,10 @@ confinit(void)
 	else
 		userpcnt = 0;
 
-	if((p = getconf("*maxmem")) != nil){
+	if(p = getconf("*maxmem"))
 		memsize = strtoul(p, 0, 0) - PHYSDRAM;
-		if (memsize < 16*MB)		/* sanity */
-			memsize = 16*MB;
-	}
-
+	if (memsize < 16*MB)		/* sanity */
+		memsize = 16*MB;
 	getramsize(&conf.mem[0]);
 	if(conf.mem[0].limit == 0){
 		conf.mem[0].base = PHYSDRAM;
