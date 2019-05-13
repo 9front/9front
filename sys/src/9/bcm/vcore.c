@@ -147,7 +147,7 @@ vcreq(int tag, void *buf, int vallen, int rsplen)
 	prop->taglen = vallen;
 	if(vallen > 0)
 		memmove(prop->data, buf, vallen);
-	cachedwbinvse(prop, prop->len);
+	cachedwbinvse(prop, n);
 	for(;;){
 		aprop = busaddr? dmaaddr(prop) : (uintptr)prop;
 		vcwrite(ChanProps, aprop);
@@ -158,6 +158,7 @@ vcreq(int tag, void *buf, int vallen, int rsplen)
 			return -1;
 		busaddr = 0;
 	}
+	cachedinvse(prop, n);
 	if(prop->req == RspOk &&
 	   prop->tag == tag &&
 	   (prop->taglen&TagResp)) {
