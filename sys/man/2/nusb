@@ -217,6 +217,14 @@ as an aid for the driver
 (which should know how to parse them and what to do with the information).
 .SS Configuration
 .PP
+.I Getdev
+is the primary entry point for device setup. It takes a
+numeric device address or device path which usually gets
+passed to drivers as a program argument and sets up the device,
+retuning a configured
+.B Dev
+representing the setup endpoint of the device.
+.PP
 .I Opendev
 creates a
 .B Dev
@@ -225,7 +233,7 @@ for the endpoint with directory
 Usually, the endpoint is a setup endpoint representing a device. The endpoint
 control file is open, but the data file is not. The USB description is void.
 In most cases drivers call
-.I startdevs
+.I getdev
 and
 .I openep
 and do not call this function directly.
@@ -236,6 +244,9 @@ loads and parses its configuration information.
 After calling it, the device is ready for I/O and the USB description in
 .B Dev.usb
 is valid.
+In most cases drivers call
+.I getdev
+and do not call this function directly.
 .PP
 Control requests for an endpoint may be written by calling
 .I devctl
