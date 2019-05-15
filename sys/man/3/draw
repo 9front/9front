@@ -504,7 +504,7 @@ by the string
 .IR r.min [2*4]
 .IR scr [2*4]
 .br
-Position the window 
+Position the window (layer)
 .I id
 so that its upper left corner is at the
 point
@@ -512,8 +512,8 @@ point
 on its screen.
 Simultaneously change its internal (logical) coordinate system
 so that the point
-.I log
-corresponds to the upper left corner of the window.
+.I r.min
+corresponds to the upper left corner of the window, see memlorigin(2).
 .HP
 .B O
 .IR op [1]
