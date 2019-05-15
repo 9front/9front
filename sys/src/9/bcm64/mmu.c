@@ -53,7 +53,6 @@ mmu0clear(uintptr *l1)
 
 	pe = PHYSDRAM + soc.dramsize;
 
-	if(PTLEVELS > 3)
 	for(pa = PHYSDRAM, va = KZERO; pa < pe; pa += PGLSZ(1), va += PGLSZ(1)){
 		if(PTL1X(pa, 1) != PTL1X(va, 1))
 			l1[PTL1X(pa, 1)] = 0;
@@ -63,6 +62,7 @@ mmu0clear(uintptr *l1)
 		if(PTL1X(pa, 2) != PTL1X(va, 2))
 			l1[PTL1X(pa, 2)] = 0;
 	}
+	if(PTLEVELS > 3)
 	for(pa = PHYSDRAM, va = KZERO; pa < pe; pa += PGLSZ(3), va += PGLSZ(3)){
 		if(PTL1X(pa, 3) != PTL1X(va, 3))
 			l1[PTL1X(pa, 3)] = 0;
