@@ -12,6 +12,9 @@ mmu0init(uintptr *l1)
 
 	/* 0 identity map */
 	pe = PHYSDRAM + soc.dramsize;
+	if(pe > (uintptr)-KZERO)
+		pe = (uintptr)-KZERO;
+
 	for(pa = PHYSDRAM; pa < pe; pa += PGLSZ(1))
 		l1[PTL1X(pa, 1)] = pa | PTEVALID | PTEBLOCK | PTEWRITE | PTEAF
 			 | PTEKERNEL | PTESH(SHARE_INNER);
@@ -52,6 +55,8 @@ mmu0clear(uintptr *l1)
 	uintptr va, pa, pe;
 
 	pe = PHYSDRAM + soc.dramsize;
+	if(pe > (uintptr)-KZERO)
+		pe = (uintptr)-KZERO;
 
 	for(pa = PHYSDRAM, va = KZERO; pa < pe; pa += PGLSZ(1), va += PGLSZ(1)){
 		if(PTL1X(pa, 1) != PTL1X(va, 1))
@@ -78,6 +83,8 @@ mmuidmap(uintptr *l1)
 	flushtlb();
 
 	pe = PHYSDRAM + soc.dramsize;
+	if(pe > (uintptr)-KZERO)
+		pe = (uintptr)-KZERO;
 
 	for(pa = PHYSDRAM, va = KZERO; pa < pe; pa += PGLSZ(1), va += PGLSZ(1)){
 		if(PTL1X(pa, 1) != PTL1X(va, 1))
@@ -189,33 +196,18 @@ mmuwalk(uintptr va, int level)
 			pte &= ~(0xFFFFULL<<48 | BY2PG-1);
 			table = KADDR(pte);
 		} else {
-			if(i < 2){
-				pg = up->mmufree;
-				if(pg == nil)
-					return nil;
-				up->mmufree = pg->next;
-				switch(i){
-				case 0:
-					pg->va = va & -PGLSZ(1);
-					if((pg->next = up->mmul1) == nil)
-						up->mmul1tail = pg;
-					up->mmul1 = pg;
-					break;
-				case 1:
-					pg->va = va & -PGLSZ(2);
-					if((pg->next = up->mmul2) == nil)
-						up->mmul2tail = pg;
-					up->mmul2 = pg;
-					break;
-				}
-				memset(KADDR(pg->pa), 0, BY2PG);
-				coherence();
-				table[x] = pg->pa | PTEVALID | PTETABLE;
-				table = KADDR(pg->pa);
-			} else {
-				table[x] = PADDR(&m->mmul1[L1TABLEX(va, 2)]) | PTEVALID | PTETABLE;
-				table = &m->mmul1[L1TABLEX(va, 2)];
-			}
+			pg = up->mmufree;
+			if(pg == nil)
+				return nil;
+			up->mmufree = pg->next;
+			pg->va = va & -PGLSZ(i+1);
+			if((pg->next = up->mmuhead[i+1]) == nil)
+				up->mmutail[i+1] = pg;
+			up->mmuhead[i+1] = pg;
+			memset(KADDR(pg->pa), 0, BY2PG);
+			coherence();
+			table[x] = pg->pa | PTEVALID | PTETABLE;
+			table = KADDR(pg->pa);
 		}
 		x = PTLX(va, (uintptr)i);
 	}
@@ -318,20 +310,16 @@ putmmu(uintptr va, uintptr pa, Page *pg)
 static void
 mmufree(Proc *p)
 {
+	int i;
+
 	freeasid(p);
 
-	if(p->mmul1 == nil){
-		assert(p->mmul2 == nil);
-		return;
-	}
-	p->mmul1tail->next = p->mmufree;
-	p->mmufree = p->mmul1;
-	p->mmul1 = p->mmul1tail = nil;
-
-	if(PTLEVELS > 2){
-		p->mmul2tail->next = p->mmufree;
-		p->mmufree = p->mmul2;
-		p->mmul2 = p->mmul2tail = nil;
+	for(i=1; i<PTLEVELS; i++){
+		if(p->mmuhead[i] == nil)
+			break;
+		p->mmutail[i]->next = p->mmufree;
+		p->mmufree = p->mmuhead[i];
+		p->mmuhead[i] = p->mmutail[i] = nil;
 	}
 }
 
@@ -354,19 +342,9 @@ mmuswitch(Proc *p)
 		p->newtlb = 0;
 	}
 
-	if(PTLEVELS == 2){
-		for(t = p->mmul1; t != nil; t = t->next){
-			va = t->va;
-			m->mmul1[PTL1X(va, 1)] = t->pa | PTEVALID | PTETABLE;
-		}
-	} else {
-		for(t = p->mmul2; t != nil; t = t->next){
-			va = t->va;
-			m->mmul1[PTL1X(va, 2)] = t->pa | PTEVALID | PTETABLE;
-			if(PTLEVELS > 3)
-				m->mmul1[PTL1X(va, 3)] = PADDR(&m->mmul1[L1TABLEX(va, 2)]) |
-					PTEVALID | PTETABLE;
-		}
+	for(t = p->mmuhead[PTLEVELS-1]; t != nil; t = t->next){
+		va = t->va;
+		m->mmul1[PTL1X(va, PTLEVELS-1)] = t->pa | PTEVALID | PTETABLE;
 	}
 
 	if(allocasid(p))

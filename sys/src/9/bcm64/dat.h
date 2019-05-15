@@ -125,16 +125,12 @@ struct MMMU
 
 struct PMMU
 {
-	Page*	mmul1;
-	Page*	mmul1tail;
-
-	Page*	mmul2;
-	Page*	mmul2tail;
-
-	Page*	mmufree;
-
+	union {
+	Page	*mmufree;	/* mmuhead[0] is freelist head */
+	Page	*mmuhead[PTLEVELS];
+	};
+	Page	*mmutail[PTLEVELS];
 	int	asid;
-
 	uintptr	tpidr;
 };
 
