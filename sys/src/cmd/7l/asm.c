@@ -100,7 +100,7 @@ asmb(void)
 		seek(cout, OFFSET, 0);
 		break;
 	case 6:	/* no header, padded segments */
-		OFFSET = rnd(HEADR+textsize, 4096);
+		OFFSET = rnd(HEADR+textsize, INITRND);
 		seek(cout, OFFSET, 0);
 		break;
 	}
@@ -132,7 +132,7 @@ asmb(void)
 			seek(cout, OFFSET, 0);
 			break;
 		case 6:	/* no header, padded segments */
-			OFFSET += rnd(datsize, 4096);
+			OFFSET += rnd(datsize, INITRND);
 			seek(cout, OFFSET, 0);
 			break;
 		case 7:
