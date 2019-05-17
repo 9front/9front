@@ -71,11 +71,11 @@ LIB=\
 $p$CONF:DQ:	$CONF.c $OBJ $LIB mkfile
 	$CC $CFLAGS '-DKERNDATE='`{date -n} $CONF.c
 	echo '# linking raw kernel'	# H6: no headers, data segment aligned
-	$LD -l -o $target -H6 -R4096 -T$loadaddr $OBJ $CONF.$O $LIB
+	$LD -l -o $target -H6 -R0x10000 -T$loadaddr $OBJ $CONF.$O $LIB
 
 s$p$CONF:DQ:	$CONF.$O $OBJ $LIB
 	echo '# linking kernel with symbols'
-	$LD -l -o $target -R4096 -T$loadaddr $OBJ $CONF.$O $LIB
+	$LD -l -o $target -R0x10000 -T$loadaddr $OBJ $CONF.$O $LIB
 	size $target
 
 $p$CONF.gz:D:	$p$CONF
