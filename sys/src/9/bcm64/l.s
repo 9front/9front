@@ -331,8 +331,7 @@ TEXT setttbr(SB), 1, $-4
 	MSR	R0, TTBR0_EL1
 	DSB	$ISH
 	ISB	$SY
-
-	B	cacheiinv(SB)
+	RETURN
 
 /*
  * TLB maintenance operations.
