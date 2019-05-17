@@ -95,9 +95,6 @@ mmuidmap(uintptr *l1)
 {
 	uintptr va, pa, pe;
 
-	mmuswitch(nil);
-	flushtlb();
-
 	pe = PHYSDRAM + soc.dramsize;
 	if(pe > (uintptr)-KZERO)
 		pe = (uintptr)-KZERO;
