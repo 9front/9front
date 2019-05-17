@@ -115,7 +115,7 @@ struct Conf
  */
 struct MMMU
 {
-	PTE*	mmul1;		/* l1 for this processor */
+	PTE*	mmutop;		/* first level user page table */
 };
 
 /*
@@ -245,8 +245,6 @@ struct Soc {			/* SoC dependent configuration */
 	uintptr	busdram;
 	uintptr	busio;
 	uintptr	armlocal;
-	u32int	l1ptedramattrs;
-	u32int	l2ptedramattrs;
 };
 extern Soc soc;
 

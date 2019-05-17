@@ -17,11 +17,11 @@
  *	16K	32M	64G	128T
  *	64K	512M	4T	-
  */
-#define	PGSHIFT		12		/* log(BY2PG) */
+#define	PGSHIFT		16		/* log(BY2PG) */
 #define	BY2PG		(1ULL<<PGSHIFT)	/* bytes per page */
 
 /* effective virtual address space */
-#define EVASHIFT	36
+#define EVASHIFT	33
 #define EVAMASK		((1ULL<<EVASHIFT)-1)
 
 #define PTSHIFT		(PGSHIFT-3)
@@ -31,8 +31,8 @@
 
 #define PTL1X(v, l)	(L1TABLEX(v, l) | PTLX(v, l))
 #define L1TABLEX(v, l)	(L1TABLE(v, l) << PTSHIFT)
-#define L1TABLES	HOWMANY(-KZERO, PGLSZ(2))
-#define L1TABLE(v, l)	(L1TABLES-1 - ((PTLX(v, 2) % L1TABLES) >> (((l)-1)*PTSHIFT)) + (l)-1)
+#define L1TABLES	HOWMANY(-KSEG0, PGLSZ(2))
+#define L1TABLE(v, l)	(L1TABLES - ((PTLX(v, 2) % L1TABLES) >> (((l)-1)*PTSHIFT)) + (l)-1)
 #define L1TOPSIZE	(1ULL << (EVASHIFT - PTLEVELS*PTSHIFT))
 
 #define	MAXMACH		4			/* max # cpus system can run */
@@ -42,14 +42,12 @@
 #define STACKALIGN(sp)	((sp) & ~7)		/* bug: assure with alloc */
 #define TRAPFRAMESIZE	(38*8)
 
-/*
- * Address spaces.
- * KTZERO is used by kprof and dumpstack (if any).
- *
- * KZERO is mapped to physical 0 (start of ram).
- */
-
-#define	KZERO		0xFFFFFFFF80000000ULL	/* kernel address space */
+#define KSEG0		(0xFFFFFFFF00000000ULL)
+#define VIRTIO		(0xFFFFFFFF3F000000ULL)	/* i/o registers */
+#define	ARMLOCAL	(0xFFFFFFFF40000000ULL)
+#define	KZERO		(0xFFFFFFFF80000000ULL)	/* kernel address space */
+#define FRAMEBUFFER	(0xFFFFFFFFC0000000ULL|PTEWT)
+#define	VGPIO		0			/* virtual gpio for pi3 ACT LED */
 
 #define SPINTABLE	(KZERO+0xd8)
 #define CONFADDR	(KZERO+0x100)
@@ -57,16 +55,12 @@
 #define	VCBUFFER	(KZERO+0x3400)		/* videocore mailbox buffer */
 
 #define L1		(L1TOP-L1SIZE)
-#define L1SIZE		((L1TABLES+PTLEVELS-3)*BY2PG)
+#define L1SIZE		((L1TABLES+PTLEVELS-2)*BY2PG)
 #define L1TOP		((MACHADDR(MAXMACH-1)-L1TOPSIZE)&-BY2PG)
 
 #define MACHADDR(n)	(KTZERO-((n)+1)*MACHSIZE)
 
 #define	KTZERO		(KZERO+0x80000)		/* kernel text start */
-#define FRAMEBUFFER	(0xFFFFFFFFC0000000ULL | PTEWT)
-#define VIRTIO		0xFFFFFFFFE0000000ULL	/* i/o registers */
-#define	ARMLOCAL	(VIRTIO+IOSIZE)
-#define	VGPIO		0			/* virtual gpio for pi3 ACT LED */
 
 #define	UZERO		0ULL			/* user segment */
 #define	UTZERO		(UZERO+0x10000)		/* user text start */

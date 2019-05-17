@@ -195,8 +195,8 @@ TEXT mmuenable<>(SB), 1, $-4
 	/* T0SZ */	| (64-EVASHIFT)<<0 )
 	MOV	$TCRINIT, R1
 	MRS	ID_AA64MMFR0_EL1, R2
-	ANDW	$0xF, R2	// IPS
-	ADD	R2<<32, R1
+	ANDW	$0x7, R2	// PARange
+	ADD	R2<<32, R1	// IPS
 	MSR	R1, TCR_EL1
 	ISB	$SY
 
@@ -331,8 +331,7 @@ TEXT setttbr(SB), 1, $-4
 	MSR	R0, TTBR0_EL1
 	DSB	$ISH
 	ISB	$SY
-
-	B	cacheiinv(SB)
+	RETURN
 
 /*
  * TLB maintenance operations.

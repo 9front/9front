@@ -37,7 +37,7 @@ rebootcmd(int argc, char *argv[])
 {
 	Chan *c;
 	Exec exec;
-	ulong magic, text, rtext, entry, data, size;
+	ulong magic, text, rtext, entry, data, size, align;
 	uchar *p;
 
 	if(argc == 0)
@@ -68,8 +68,17 @@ rebootcmd(int argc, char *argv[])
 	if(magic & HDR_MAGIC)
 		readn(c, &exec, 8);
 
+	switch(magic){
+	case R_MAGIC:
+		align = 0x10000;	/* 64k segment alignment for arm64 */
+		break;
+	default:
+		align = BY2PG;
+		break;
+	}
+
 	/* round text out to page boundary */
-	rtext = PGROUND(entry+text)-entry;
+	rtext = ROUND(entry+text, align)-entry;
 	size = rtext + data;
 	p = malloc(size);
 	if(p == nil)

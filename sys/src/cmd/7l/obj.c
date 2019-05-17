@@ -35,8 +35,8 @@ isobjfile(char *f)
 
 /*
  *	-H0				no header
- *	-H2 -T0x100028 -R0x100000		is plan9 format
- *	-H6 -R4096		no header with segments padded to pages
+ *	-H2 -T0x100028 -R0x100000	is plan9 format
+ *	-H6 -R0x10000			no header with segments padded to pages
  *	-H7				is elf
  */
 
