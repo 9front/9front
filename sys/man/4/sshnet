@@ -27,7 +27,8 @@ sshnet - secure file transfer protocol client
 [
 .IB user @] host
 .SH DESCRIPTION
-The SSH protocol allows clients to make outgoing TCP calls via the server.
+The SSH protocol allows clients to make outgoing and incoming TCP calls
+via the server.
 .I Sshnet
 establishes an SSH connection and, rather than execute a remote command,
 presents the remote server's TCP stack as a network stack
