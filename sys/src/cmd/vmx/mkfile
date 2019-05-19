@@ -1,4 +1,3 @@
-objtype=`{~ $objtype (386 amd64) && echo $objtype || echo 386}
 </$objtype/mkfile
 
 BIN=/$objtype/bin
