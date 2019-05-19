@@ -170,7 +170,7 @@ dmastart(int chan, int dev, int dir, void *src, void *dst, int len)
 	ti = 0;
 	switch(dir){
 	case DmaD2M:
-		cachedinvse(dst, len);
+		cachedwbinvse(dst, len);
 		ti = Srcdreq | Destinc;
 		cb->sourcead = dmaioaddr(src);
 		cb->destad = dmaaddr(dst);
@@ -183,7 +183,7 @@ dmastart(int chan, int dev, int dir, void *src, void *dst, int len)
 		break;
 	case DmaM2M:
 		cachedwbse(src, len);
-		cachedinvse(dst, len);
+		cachedwbinvse(dst, len);
 		ti = Srcinc | Destinc;
 		cb->sourcead = dmaaddr(src);
 		cb->destad = dmaaddr(dst);

@@ -398,6 +398,8 @@ emmcio(int write, uchar *buf, int len)
 	}
 	if(i)
 		WR(Interrupt, i);
+	if(!write)
+		cachedinvse(buf, len);
 	poperror();
 	okay(0);
 }
