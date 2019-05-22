@@ -3031,6 +3031,12 @@ procsyn(Conv *s, Tcp *seg)
 		tpriv->stats[Mss] = tcb->mss;
 	}
 
+	/* if the server does not support ws option, disable window scaling */
+	if(seg->ws == 0){
+		tcb->scale = 0;
+		tcb->snd.scale = 0;
+	}
+
 	tcb->snd.wnd = seg->wnd;
 	initialwindow(tcb);
 }
