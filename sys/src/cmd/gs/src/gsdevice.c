@@ -480,21 +480,30 @@ gx_device_retain(gx_device *dev, bool retained)
 int
 gs_nulldevice(gs_state * pgs)
 {
-    if (pgs->device == 0 || !gx_device_is_null(pgs->device)) {
-	gx_device *ndev;
-	int code = gs_copydevice(&ndev, (const gx_device *)&gs_null_device,
-				 pgs->memory);
+    int code = 0;
+    int saveLockSafety = false;
 
+    if (pgs->device == 0 || !gx_device_is_null(pgs->device)) {
+        gx_device *ndev;
+        code = gs_copydevice(&ndev, (const gx_device *)&gs_null_device, pgs->memory);
 	if (code < 0)
 	    return code;
+        if (gs_currentdevice_inline(pgs) != NULL)
+            saveLockSafety = gs_currentdevice_inline(pgs)->LockSafetyParams;
+
 	/*
 	 * Internal devices have a reference count of 0, not 1,
 	 * aside from references from graphics states.
 	 */
 	rc_init(ndev, pgs->memory, 0);
-	return gs_setdevice_no_erase(pgs, ndev);
+        code = gs_setdevice_no_erase(pgs, ndev);
+        if (code < 0) {
+            gs_free_object(pgs->memory, ndev, "gs_copydevice(device)");
+            return code;
+        }
+        gs_currentdevice_inline(pgs)->LockSafetyParams = saveLockSafety;
     }
-    return 0;
+    return code;
 }
 
 /* Close a device.  The client is responsible for ensuring that */

@@ -1992,6 +1992,17 @@ readonly def
 % If we are running in SAFER mode, lock things down
 SAFER { .setsafe } if
 
+/UndefinePostScriptOperators {
+  [
+  /condition /currentcontext /detach /.fork /join /.localfork /lock /monitor /notify
+  /wait /yield /.currentscreenphase /.setscreenphase /.image2 /eoviewclip /initviewclip
+  /viewclip /viewclippath /defineusername
+  /currentalpha /setalpha /.alphaimage /composite /compositerect /dissolve /sizeimagebox /.sizeimageparams
+  ]
+  {systemdict exch .forceundef} forall
+  //systemdict /UndefinePostScriptOperators .forceundef
+} bind def
+
 % If we delayed binding, make it possible to do it later.
 /.bindnow {
   currentuserparams /IdiomRecognition .knownget {
@@ -2005,6 +2016,7 @@ SAFER { .setsafe } if
   //systemdict /.delaybind {} .forceput	% reclaim the space
   //systemdict /.bindnow .forceundef	% ditto
   put
+  //systemdict /UndefinePostScriptOperators get exec
   //systemdict /.forcedef .forceundef		% remove temptation
   //systemdict /.forceput .forceundef		% ditto
   //systemdict /.forceundef .forceundef		% ditto
