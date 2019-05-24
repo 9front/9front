@@ -8,8 +8,8 @@ LDFLAGS=
 YFLAGS=-d
 
 NOTSYS=sml|dup|.+\..+
-PCONLY=vmx
-NOMK=$NOTSYS|`{~ $objtype (386 amd64) || echo $PCONLY}
+PCONLY=|vmx
+NOMK=$NOTSYS`{~ $objtype (386 amd64) || echo $PCONLY}
 
 cpuobjtype=`{sed -n 's/^O=//p' /$cputype/mkfile}
 DIRS=`{echo */mkfile | sed 's,/mkfile *,\n,g' | grep -v '^('$NOMK')$'}
