@@ -88,7 +88,7 @@ void initgetrec(void)
 
 	for (i = 1; i < *AARGC; i++) {
 		if (!isclvar(p = getargv(i))) {	/* find 1st real filename */
-			setsval(lookup("FILENAME", symtab), getargv(i));
+			setsval(lookup("FILENAME", symtab), p);
 			return;
 		}
 		setclvar(p);	/* a commandline assignment before filename */
