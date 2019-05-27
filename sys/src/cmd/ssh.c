@@ -489,7 +489,7 @@ kex(int gotkexinit)
 	static char kexalgs[] = "curve25519-sha256,curve25519-sha256@libssh.org";
 	static char cipheralgs[] = "chacha20-poly1305@openssh.com";
 	static char zipalgs[] = "none";
-	static char macalgs[] = "";
+	static char macalgs[] = "hmac-sha1";	/* work around for github.com */
 	static char langs[] = "";
 
 	uchar cookie[16], x[32], yc[32], z[32], k[32+1], h[SHA2_256dlen], *ys, *ks, *sig;
