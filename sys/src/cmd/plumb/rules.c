@@ -728,7 +728,7 @@ morerules(uchar *text, int done)
 {
 	int n;
 	Ruleset *rs;
-	uchar *otext, *s, *endofrule;
+	uchar *otext, *p;
 
 	pushinput("<rules input>", -1, text);
 	if(done)
@@ -738,15 +738,11 @@ morerules(uchar *text, int done)
 		 * Help user by sending any full rules to parser so any parse errors will
 		 * occur on write rather than close. A heuristic will do: blank line ends rule.
 		 */
-		endofrule = nil;
-		for(s=text; *s!='\0'; s++)
-			if(*s=='\n' && *++s=='\n')
-				endofrule = s+1;
-		if(endofrule == nil){
+		if((p = (uchar*)strstr((char*)text, "\n\n")) == nil){
 			popinput();
 			return text;
 		}
-		input->end = endofrule;
+		input->end = p+2;
 	}
 	for(n=0; rules[n]; n++)
 		;
