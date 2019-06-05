@@ -26,4 +26,4 @@ case *
 	shift 
 	files=($*) 
 } 
-grep -n $flags -- $pattern $files /dev/null 
+grep -n $flags -- $pattern $files /dev/null
