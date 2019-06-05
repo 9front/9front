@@ -113,11 +113,16 @@ with
 .B -n
 (plus aditional flags, if provided)
 and forces tagging of output lines by file name. If no files
-are listed, it searches all files matching
+are listed, it recursively searches the current directory for
+all files matching
 .B *.b *.c *.C *.h *.l *.m *.s *.y
 .B *.asm *.cc *.cs *.lx *.cgi *.pl
 .B *.py *.tex *.ms *.java *.xy *.go
 .B *.goc *.cpp
+.PP
+The recursive search can be suppressed by passing g the
+.B -n
+flag.
 .SH SOURCE
 .B /sys/src/cmd/grep
 .br

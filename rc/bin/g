@@ -1,23 +1,29 @@
 #!/bin/rc 
 rfork e
-flags=() 
-while(! ~ $#* 1 && ~ $1 -* && ! ~ $1 --){ 
-         flags=($flags $1); 
-         shift 
+nl='
+'
+flags=()
+recurse=()
+while(! ~ $#* 1 && ~ $1 -* && ! ~ $1 --){
+	if(~ $1 '-n')
+		recurse=-n1
+	if not
+		flags=($flags $1);
+	shift 
 } 
 if(~ $1 --) 
-         shift 
+	shift 
 
 switch($#*){ 
 case 0 
-         echo 'usage: g [flags] pattern [files]' >[1=2] 
-         exit usage 
+	echo 'usage: g [flags] pattern [files]' >[1=2] 
+	exit usage 
 case 1 
-         pattern=$1 
-         files=(`{ls *.[bcChlmsy] *.asm *.awk *.cc *.cgi *.cpp *.cs *.go *.goc *.java *.lx *.ms *.pl *.py *.rc *.tex *.xy >[2]/dev/null}) 
+	pattern=$1
+	files=`$nl{walk -f $recurse | grep '\.([bcChlmsy]|asm|awk|cc|cgi|cpp|cs|go|goc|java|lx|ms|pl|py|rc|tex|xy)$' >[2]/dev/null}
 case * 
-         pattern=$1 
-         shift 
-         files=($*) 
+	pattern=$1 
+	shift 
+	files=($*) 
 } 
 grep -n $flags -- $pattern $files /dev/null 
