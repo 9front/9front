@@ -10,7 +10,6 @@ if(! test -r $full_path -x $full_path){
 	error 503
 	exit
 }
-do_log 200
 builtin cd $full_path
 if(~ $"NOINDEXFILE ^ $"NOINDEX ''){
 	ifile=index.htm*
@@ -30,6 +29,7 @@ case size
 case date
 	lso=-t
 }
+do_log 200
 echo 'HTTP/1.1 200 OK'^$cr
 emit_extra_headers
 echo 'Content-type: text/html'^$cr
