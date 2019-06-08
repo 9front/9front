@@ -167,6 +167,7 @@ int	longoff(void);
 int	istar(void);
 int	isface(void);
 int	isexec(void);
+int	isudiff(void);
 int	p9bitnum(char*, int*);
 int	p9subfont(uchar*);
 void	print_utf(void);
@@ -183,6 +184,7 @@ int	(*call[])(void) =
 	iff,		/* interchange file format (strings) */
 	longoff,	/* recognizable by 4 bytes at some offset */
 	isoffstr,	/* recognizable by string at some offset */
+	isudiff,	/* unified diff output */
 	isrfc822,	/* email file */
 	ismbox,		/* mail box */
 	istar,		/* recognizable by tar checksum */
@@ -981,6 +983,25 @@ char*	html_string[] = {
 	"a", "b", "i", "p", "q", "u",
 	0,
 };
+
+int
+isudiff(void)
+{
+	char *p;
+
+	p = (char*)buf;
+	if((p = strstr(p, "diff")) != nil)
+	if((p = strchr(p, '\n')) != nil)
+	if(strncmp(++p, "--- ", 4) == 0)
+	if((p = strchr(p, '\n')) != nil)
+	if(strncmp(++p, "+++ ", 4) == 0)
+	if((p = strchr(p, '\n')) != nil)
+	if(strncmp(++p, "@@ ", 3) == 0){
+		print("%s\n", mime ? "text/plain" : "unified diff output");
+		return 1;
+	}
+	return 0;
+}
 
 int
 ishtml(void)
