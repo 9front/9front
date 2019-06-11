@@ -65,9 +65,14 @@ puint(char *p, char *e, char *tag, uchar *o, int n)
 static char*
 pserver(char *p, char *e, char *tag, uchar *o, int n)
 {
+	int i;
+
 	p = seprint(p, e, "%s=(", tag);
+	i = 0;
 	while(n >= 4){
-		p = seprint(p, e, " %V", o);
+		if(i++ > 0)
+			p = seprint(p, e, " ");
+		p = seprint(p, e, "%V", o);
 		n -= 4;
 		o += 4;
 	}
@@ -345,7 +350,7 @@ p_seprint(Msg *m)
 		case OBend:
 			goto out;
 		default:
-			snprint(msg, sizeof msg, " T%ud", code);
+			snprint(msg, sizeof msg, "T%ud", code);
 			p = phex(p, e, msg, o, n);
 			break;
 		}
