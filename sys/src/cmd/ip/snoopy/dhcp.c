@@ -80,6 +80,52 @@ pserver(char *p, char *e, char *tag, uchar *o, int n)
 	return p;
 }
 
+static char*
+pcfroutes(char *p, char *e, char *tag, uchar *o, int n)
+{
+	int i;
+
+	p = seprint(p, e, "%s=(", tag);
+	i = 0;
+	while(n >= 8){
+		if(i++ > 0)
+			p = seprint(p, e, " ");
+		p = seprint(p, e, "%V→%V", o, o+4);
+		o += 8;
+		n -= 8;
+	}
+	p = seprint(p, e, ")");
+	return p;
+}
+
+static char*
+pclroutes(char *p, char *e, char *tag, uchar *o, int n)
+{
+	uchar addr[4];
+	int i, nbits, nocts;
+
+	p = seprint(p, e, "%s=(", tag);
+	i = 0;
+	while(n >= 5){
+		nbits = *o++;
+		n--;
+		nocts = nbits <= 32 ? (nbits+7)/8 : 4;
+		if(n < nocts+4)
+			break;
+		memset(addr, 0, 4);
+		memmove(addr, o, nocts);
+		o += nocts;
+		n -= nocts;
+		if(i++ > 0)
+			p = seprint(p, e, " ");
+		p = seprint(p, e, "%V/%d→%V", addr, nbits, o);
+		o += 4;
+		n -= 4;
+	}
+	p = seprint(p, e, ")");
+	return p;
+}
+
 static char *dhcptype[256] =
 {
 [Discover]	"Discover",
@@ -264,7 +310,10 @@ p_seprint(Msg *m)
 			p = pserver(p, e, "rsrouter", o, n);
 			break;
 		case OBstaticroutes:
-			p = phex(p, e, "staticroutes", o, n);
+			p = pcfroutes(p, e, "cf-routes", o, n);
+			break;
+		case ODclasslessroutes:
+			p = pclroutes(p, e, "cl-routes", o, n);
 			break;
 		case OBtrailerencap:
 			p = phex(p, e, "trailerencap", o, n);

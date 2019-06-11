@@ -112,6 +112,7 @@ enum
 	ODbootfile=		67,
 
 	ODdnsdomain=		119,
+	ODclasslessroutes=	121,
 
 	/* plan9 vendor info options, v4 addresses only (deprecated) */
 	OP9fsv4=		128,	/* plan9 file servers */
