@@ -135,7 +135,7 @@ The first boot module is passed as the \fIinitrd\fR; any further boot modules ar
 .I Vmx
 can and will crash your kernel.
 .PP
-Currently only one core and only one VM at a time is supported.
+Currently only one core is supported.
 .PP
 The Linux \fLvga=\fR option is not supported, as well as many of the OpenBSD boot variables.
 .SH HISTORY
