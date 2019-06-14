@@ -7,7 +7,7 @@
 
 #include	<dtracy.h>
 
-Lock *machlocks;
+static Lock *machlocks;
 
 typedef struct DTKChan DTKChan;
 typedef struct DTKAux DTKAux;
@@ -76,8 +76,8 @@ static Cmdtab dtracyctlmsg[] = {
 	CMgo,		"go",		1,
 };
 
-DTKChan **dtktab;
-int ndtktab;
+static DTKChan **dtktab;
+static int ndtktab;
 
 static DTKChan *
 dtklook(vlong n)
@@ -555,7 +555,7 @@ dtgetvar(int v)
 	}
 }
 
-int peek(char *, char *, int);
+extern int peek(char *, char *, int);
 
 int
 dtpeek(uvlong addr, void *buf, int len)
