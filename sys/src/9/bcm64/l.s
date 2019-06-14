@@ -658,3 +658,16 @@ TEXT vserr(SB), 1, $-4
 	ORR	$(3<<32), R0	// type
 _vserrpatch:
 	B	_vserrpatch	// branch to vtrapX() patched in
+
+/* fault-proof memcpy */
+TEXT peek(SB), 1, $-4
+	MOV	R0, R1
+	MOV	dst+8(FP), R2
+	MOVWU	len+16(FP), R0
+TEXT _peekinst(SB), 1, $-4
+_peekloop:
+	MOVBU	(R1)1!, R3
+	MOVBU	R3, (R2)1!
+	SUBS	$1, R0
+	BNE	_peekloop
+	RETURN

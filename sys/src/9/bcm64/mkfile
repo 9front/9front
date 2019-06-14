@@ -65,6 +65,7 @@ LIB=\
 	/$objtype/lib/libsec.a\
 	/$objtype/lib/libmp.a\
 	/$objtype/lib/libc.a\
+	/$objtype/lib/libdtracy.a\
 
 9:V: $p$CONF s$p$CONF
 
