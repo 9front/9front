@@ -21,6 +21,7 @@ dev
 #	gpio	gpio
 	sd
 	usb
+	dtracy
 
 link
 	loopbackmedium
@@ -42,6 +43,9 @@ misc
 	sdmmc	emmc
 	dma
 	vcore
+
+	dtracysys
+	dtracytimer
 
 port
 	int cpuserver = 0;

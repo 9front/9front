@@ -442,13 +442,22 @@ faultarm64(Ureg *ureg)
 	insyscall = up->insyscall;
 	up->insyscall = 1;
 
-	if(!userureg(ureg) && waserror()){
-		if(up->nerrlab == 0){
-			pprint("suicide: sys: %s\n", up->errstr);
-			pexit(up->errstr, 1);
+	if(!userureg(ureg)){
+		extern void _peekinst(void);
+
+		if(ureg->pc == (uintptr)_peekinst){
+			ureg->pc = ureg->link;
+			goto out;
 		}
-		up->insyscall = insyscall;
-		nexterror();
+
+		if(waserror()){
+			if(up->nerrlab == 0){
+				pprint("suicide: sys: %s\n", up->errstr);
+				pexit(up->errstr, 1);
+			}
+			up->insyscall = insyscall;
+			nexterror();
+		}
 	}
 
 	addr = getfar();
@@ -486,6 +495,7 @@ faultarm64(Ureg *ureg)
 	if(!userureg(ureg))
 		poperror();
 
+out:
 	up->insyscall = insyscall;
 }
 
