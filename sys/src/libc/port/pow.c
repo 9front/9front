@@ -1,6 +1,16 @@
 #include <u.h>
 #include <libc.h>
 
+static int
+isodd(double v)
+{
+	double iv;
+
+	if(modf(v, &iv) != 0)
+		return 0;
+	return (vlong)iv & 1;
+}
+
 double
 pow(double x, double y) /* return x ^ y (exponentiation) */
 {
@@ -8,8 +18,44 @@ pow(double x, double y) /* return x ^ y (exponentiation) */
 	long i;
 	int ex, ey, flip;
 
-	if(y == 0.0)
+	/*
+	 * Special cases.
+	 * Checking early here prevents an infinite loop.
+	 * We need to test if !isNaN() here because otherwise
+	 * we trap.
+	 */
+	if(!isNaN(x) && x == 1.0)
 		return 1.0;
+	if(!isNaN(y) && y == 0.0)
+		return 1.0;
+	if(isNaN(x) || isNaN(y))
+		return NaN();
+	if(isInf(x, 1)){
+		if(y < 0)
+			return 0.0;
+		else
+			return Inf(1);
+	}else if(isInf(x, -1)){
+		if(y < 0)
+			return isodd(y) ? -0.0 : 0.0;
+		else if(y > 0)
+			return isodd(y) ? Inf(-1) : Inf(1);
+	}
+	if(isInf(y, 1)){
+		if(x == -1.0)
+			return 1.0;
+		else if(fabs(x) < 1.0)
+			return 0.0;
+		else if(fabs(x) > 1.0)
+			return Inf(1);
+	}else if(isInf(y, -1)){
+		if(x == -1.0)
+			return 1.0;
+		else if(fabs(x) < 1.0)
+			return Inf(1);
+		else if(fabs(x) > 1.0)
+			return 0.0;
+	}
 
 	flip = 0;
 	if(y < 0.){
