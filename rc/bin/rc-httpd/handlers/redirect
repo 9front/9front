@@ -19,7 +19,7 @@ case *
 }
 echo 'Location: ' ^ $2 ^ $cr
 emit_extra_headers
-echo 'Content-type: text/html'^$cr
+echo 'Content-type: text/html; charset=utf-8'^$cr
 echo $cr
 echo '<html><body>'
 if(~ $#3 0)

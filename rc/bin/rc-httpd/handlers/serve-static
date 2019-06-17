@@ -23,7 +23,7 @@ case *.html *.htm
 case *.css
         type=text/css
 case *.txt
-        type='text/plain; charset=utf-8'
+        type=text/plain
 case *.jpg *.jpeg
         type=image/jpeg
 case *.gif
@@ -33,6 +33,8 @@ case *.png
 case *
         type=`{file -m $full_path}
 }
+if(~ $type text/*)
+	type=$type^'; charset=utf-8'
 max_age=3600	# 1 hour
 echo 'HTTP/1.1 200 OK'^$cr
 emit_extra_headers
