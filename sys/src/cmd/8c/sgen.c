@@ -169,6 +169,8 @@ xcom(Node *n)
 			l->scale = idx.scale;
 			l->addable = 9;
 			l->complex = l->right->complex;
+			if(l->complex == 0)
+				l->complex++;
 			l->type = l->left->type;
 			n->op = OADDR;
 			n->left = l;
