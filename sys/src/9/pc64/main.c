@@ -398,7 +398,7 @@ reboot(void *entry, void *code, ulong size)
 	/* shutdown devices */
 	chandevshutdown();
 
-	rebootjump((uintptr)entry & ~0xF0000000UL, PADDR(code), size);
+	rebootjump((uintptr)entry & -0x10000000, PADDR(code), size);
 }
 
 /*
