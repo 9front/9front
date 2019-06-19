@@ -659,7 +659,7 @@ arith(Node *n, int f)
 	Type *t1, *t2;
 	int i, j, k;
 	Node *n1;
-	long w;
+	long w, x;
 
 	t1 = n->left->type;
 	if(n->right == Z)
@@ -689,7 +689,19 @@ arith(Node *n, int f)
 	if(n->op == OSUB)
 	if(i == TIND && j == TIND) {
 		w = n->right->type->link->width;
-		if(w < 1 || n->left->type->link == T || n->left->type->link->width < 1)
+		if(w < 1) {
+			snap(n->right->type->link);
+			w = n->right->type->link->width;
+		}
+		x = 0;
+		if(n->left->type->link != T) {
+			x = n->left->type->link->width;
+			if(x < 1) {
+				snap(n->left->type->link);
+				x = n->left->type->link->width;
+			}
+		}
+		if(w < 1 || x < 1)
 			goto bad;
 		n->type = types[ewidth[TIND] <= ewidth[TLONG]? TLONG: TVLONG];
 		if(w > 1) {
@@ -991,6 +1003,8 @@ loop:
 	case OOROR:
 	case OCOMMA:
 	case ODOT:
+	case OFAS:
+	case OINDEX:
 		if(side(n->left))
 			break;
 		n = n->right;
@@ -2073,4 +2087,22 @@ int
 mixedasop(Type *l, Type *r)
 {
 	return !typefd[l->etype] && typefd[r->etype];
+}
+
+
+/*
+ * (uvlong)~ul creates a ul mask with top bits zero, which is usually wrong
+ * an explicit cast to ulong after ~ suppresses the diagnostic
+ */
+int
+castucom(Node *r)
+{
+	Node *rl;
+
+	if(r->op == OCAST &&
+	   (rl = r->left)->op == OCOM &&
+	   (r->type->etype == TVLONG || r->type->etype == TUVLONG) &&
+	   typeu[rl->type->etype] && typechl[rl->type->etype])
+		return 1;
+	return 0;
 }
