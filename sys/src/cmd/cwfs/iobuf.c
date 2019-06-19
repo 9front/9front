@@ -201,19 +201,18 @@ int
 checktag(Iobuf *p, int tag, Off qpath)
 {
 	Tag *t;
-	ulong pc;
+	uintptr pc;
 
-	qpath &= ~QPDIR;
 	t = (Tag*)(p->iobuf+BUFSIZE);
-	if((tag != t->tag) || ((qpath != QPNONE) && (qpath != t->path))){
+	if(tag != t->tag || qpath != QPNONE && qpath != t->path){
 		pc = getcallerpc(&p);
 
 		if(qpath == QPNONE){
-			fprint(2, "checktag pc=%lux %Z(%llux) tag/path=%G/%llud; expected %G\n",
+			fprint(2, "checktag pc=%p %Z(%llux) tag/path=%G/%llud; expected %G\n",
 				pc, p->dev, (Wideoff)p->addr, t->tag, (Wideoff)t->path, tag);
 		} else {
-			fprint(2, "checktag pc=%lux %Z(%llux) tag/path=%G/%llud; expected %G/%llud\n",
-				pc, p->dev, (Wideoff)p->addr, t->tag, (Wideoff)t->path, tag, qpath);
+			fprint(2, "checktag pc=%p %Z(%llux) tag/path=%G/%llud; expected %G/%llud\n",
+				pc, p->dev, (Wideoff)p->addr, t->tag, (Wideoff)t->path, tag, (Wideoff)qpath);
 		}
 		return 1;
 	}	
@@ -221,14 +220,14 @@ checktag(Iobuf *p, int tag, Off qpath)
 }
 
 void
-settag(Iobuf *p, int tag, long qpath)
+settag(Iobuf *p, int tag, Off qpath)
 {
 	Tag *t;
 
 	t = (Tag*)(p->iobuf+BUFSIZE);
 	t->tag = tag;
 	if(qpath != QPNONE)
-		t->path = qpath & ~QPDIR;
+		t->path = qpath;
 	p->flags |= Bmod;
 }
 

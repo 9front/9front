@@ -380,8 +380,9 @@ qidpathgen(Device *dev)
 	if(!p || checktag(p, Tsuper, QPSUPER))
 		panic("newqid: super block");
 	sb = (Superb*)p->iobuf;
-	sb->qidgen++;
-	path = sb->qidgen;
+	do {
+		path = ++sb->qidgen;
+	} while(path == QPDIR);
 	putbuf(p);
 	return path;
 }

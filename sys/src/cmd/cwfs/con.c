@@ -513,8 +513,10 @@ doclean(Iobuf *p, Dentry *d, int n, Off a)
 	mod = 0;
 	qpath = d->qid.path;
 	typ = Tfile;
-	if(d->mode & DDIR)
+	if(d->mode & DDIR){
+		qpath ^= QPDIR;
 		typ = Tdir;
+	}
 	for(i=0; i<NDBLOCK; i++) {
 		print("dblock[%d] = %lld\n", i, (Wideoff)d->dblock[i]);
 		ckblock(p->dev, d->dblock[i], typ, qpath);

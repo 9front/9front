@@ -160,7 +160,7 @@ void	sec2rtc(Timet, Rtc *);
 void	fs_send(Queue*, void*);
 void	serve(void *);
 int	serve9p2(Msgbuf*);
-void	settag(Iobuf*, int, long);
+void	settag(Iobuf*, int, Off);
 int	strtouid(char*);
 Off	superaddr(Device*);
 void	superream(Device*, Off);

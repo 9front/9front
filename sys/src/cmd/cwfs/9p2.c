@@ -27,11 +27,9 @@ mkmode9p1(ulong mode9p2)
 void
 mkqid9p1(Qid9p1* qid9p1, Qid* qid)
 {
-	if(qid->path & 0xFFFFFFFF00000000LL)
-		panic("mkqid9p1: path %lluX", (Wideoff)qid->path);
-	qid9p1->path = qid->path & 0xFFFFFFFF;
+	qid9p1->path = qid->path;
 	if(qid->type & QTDIR)
-		qid9p1->path |= QPDIR;
+		qid9p1->path ^= QPDIR;
 	qid9p1->version = qid->vers;
 }
 
@@ -74,7 +72,9 @@ mkmode9p2(int mode9p1)
 void
 mkqid9p2(Qid* qid, Qid9p1* qid9p1, int mode9p1)
 {
-	qid->path = (ulong)(qid9p1->path & ~QPDIR);
+	qid->path = qid9p1->path;
+	if(mode9p1 & DDIR)
+		qid->path ^= QPDIR;
 	qid->vers = qid9p1->version;
 	qid->type = mktype9p2(mode9p1);
 }
@@ -399,7 +399,7 @@ walkname(File* file, char* wname, Qid* wqid)
 	Iobuf *p, *p1;
 	Dentry *d, *d1;
 	int error, slot, mask;
-	Off addr, qpath;
+	Off addr;
 
 	p = p1 = nil;
 
@@ -482,10 +482,9 @@ setdot:
 				goto out;
 			}
 		}
-		qpath = d->qid.path;
 		p1 = dnodebuf1(p, d, addr, 0, file->uid);
 		p = nil;
-		if(p1 == nil || checktag(p1, Tdir, qpath)){
+		if(p1 == nil || checktag(p1, Tdir, d->qid.path ^ QPDIR)){
 			error = Eentry;
 			goto out;
 		}
@@ -854,7 +853,7 @@ fs_create(Chan* chan, Fcall* f, Fcall* r)
 			error = Efull;
 			goto out;
 		}
-		if(checktag(p1, Tdir, d->qid.path)){
+		if(checktag(p1, Tdir, d->qid.path ^ QPDIR)){
 			putbuf(p1);
 			goto phase;
 		}
@@ -904,7 +903,7 @@ fs_create(Chan* chan, Fcall* f, Fcall* r)
 	if((p1 = getbuf(file->fs->dev, addr1, Brd|Bimm|Bmod)) == nil)
 		goto phase;
 	d1 = getdir(p1, slot1);
-	if(d1 == nil || checktag(p1, Tdir, d->qid.path)) {
+	if(d1 == nil || checktag(p1, Tdir, d->qid.path ^ QPDIR)) {
 		putbuf(p1);
 		goto phase;
 	}
@@ -929,7 +928,7 @@ fs_create(Chan* chan, Fcall* f, Fcall* r)
 	d1->mode = DALLOC | (f->perm & 0777);
 	if(f->perm & DMDIR) {
 		d1->mode |= DDIR;
-		d1->qid.path |= QPDIR;
+		d1->qid.path ^= QPDIR;
 	}
 	if(f->perm & DMAPPEND)
 		d1->mode |= DAPND;
@@ -1359,7 +1358,7 @@ doremove(File *f)
 		p1 = dnodebuf(p, d, addr, 0, f->uid);
 		if(!p1)
 			break;
-		if(checktag(p1, Tdir, d->qid.path)) {
+		if(checktag(p1, Tdir, d->qid.path ^ QPDIR)) {
 			err = Ephase;
 			goto out;
 		}
@@ -1688,7 +1687,7 @@ fs_wstat(Chan* chan, Fcall* f, Fcall*, char* strs)
 		for(addr = 0; ; addr++){
 			if((p = dnodebuf(p1, d1, addr, 0, file->uid)) == nil)
 				break;
-			if(checktag(p, Tdir, d1->qid.path)){
+			if(checktag(p, Tdir, d1->qid.path ^ QPDIR)){
 				putbuf(p);
 				continue;
 			}

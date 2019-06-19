@@ -1311,11 +1311,11 @@ isdirty(Cw *cw, Iobuf *p, Off addr, int tag)
 }
 
 Off
-cwrecur(Cw *cw, Off addr, int tag, int tag1, long qp)
+cwrecur(Cw *cw, Off addr, int tag, int tag1, Off qp)
 {
 	Iobuf *p;
 	Dentry *d;
-	long qp1;
+	Off qp1;
 	int i, j, shouldstop;
 	Off na;
 	char *np;
@@ -1373,14 +1373,16 @@ cwrecur(Cw *cw, Off addr, int tag, int tag1, long qp)
 			d = getdir(p, i);
 			if((d->mode & (DALLOC|DTMP)) != DALLOC)
 				continue;
-			qp1 = d->qid.path & ~QPDIR;
 			if(np)
 				strncpy(np, d->name, NAMELEN);
 			else if(i > 0)
 				fprint(2, "cwrecur: root with >1 directory\n");
+			qp1 = d->qid.path;
 			tag1 = Tfile;
-			if(d->mode & DDIR)
+			if(d->mode & DDIR){
+				qp1 ^= QPDIR;
 				tag1 = Tdir;
+			}
 			for(j=0; j<NDBLOCK; j++) {
 				na = d->dblock[j];
 				if(na) {

@@ -65,6 +65,8 @@ rel2abs(Iobuf *p, Dentry *d, Off a, int tag, int putb, int uid)
 	}
 	dev = p->dev;
 	qpath = d->qid.path;
+	if(d->mode & DDIR)
+		qpath ^= QPDIR;
 
 	/* is `a' a direct block? */
 	if(a < NDBLOCK) {

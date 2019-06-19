@@ -430,7 +430,9 @@ fsck(Dentry *d)
 	}
 
 	/* check qid */
-	edent.qpath = d->qid.path & ~QPDIR;
+	edent.qpath = d->qid.path;
+	if(d->mode & DDIR)
+		edent.qpath ^= QPDIR;
 	qmark(edent.qpath);
 	if(edent.qpath > maxq)
 		maxq = edent.qpath;
