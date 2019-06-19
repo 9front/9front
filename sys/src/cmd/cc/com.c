@@ -1073,6 +1073,11 @@ loop:
 		break;
 
 	case OCAST:
+		if(n->type == types[TVOID] && !side(l)){
+			n->left = Z;
+			n->type = T;
+			break;
+		}
 		if(castucom(n))
 			warn(n, "32-bit unsigned complement zero-extended to 64 bits");
 		ccom(l);

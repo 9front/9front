@@ -442,7 +442,7 @@ cgenrel(Node *n, Node *nn, int inrel)
 
 	case OCAST:
 		if(nn == Z) {
-			nullwarn(l, Z);
+			cgen(l, Z);
 			break;
 		}
 		/*

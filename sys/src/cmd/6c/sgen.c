@@ -326,7 +326,7 @@ brk:
 		break;
 
 	case OCAST:
-		if(l->type->etype == TUVLONG && typefd[n->type->etype])
+		if(l != Z && l->type->etype == TUVLONG && typefd[n->type->etype])
 			n->complex += 2;
 		break;
 

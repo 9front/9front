@@ -994,10 +994,7 @@ cgen(Node *n, Node *nn)
 
 	case OCAST:
 		if(nn == Z) {
-			if(n->type != types[TVOID])
-				nullwarn(l, Z);
-			else
-				cgen(l, Z);
+			cgen(l, Z);
 			break;
 		}
 		/*

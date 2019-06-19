@@ -399,10 +399,7 @@ cgenrel(Node *n, Node *nn, int inrel)
 
 	case OCAST:
 		if(nn == Z) {
-			if(n->type != types[TVOID])
-				nullwarn(l, Z);
-			else
-				cgen(l, Z);
+			cgen(l, Z);
 			break;
 		}
 		/*
@@ -927,7 +924,7 @@ cgen64(Node *n, Node *nn)
 
 	case OCAST:
 		if(nn == Z){
-			nullwarn(l, Z);
+			cgen(l, Z);
 			goto Out;
 		}
 		if(typeilp[n->type->etype] && typev[l->type->etype]){
