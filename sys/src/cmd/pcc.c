@@ -65,7 +65,7 @@ main(int argc, char *argv[])
 	while(argc > 0) {
 		ARGBEGIN {
 		case '+':
-			/* No-op for compatibility */
+			append(&cpp, smprint("-%c", ARGC()));
 			break;
 		case 'c':
 			cflag = 1;
