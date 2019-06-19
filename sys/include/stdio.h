@@ -92,7 +92,7 @@ int getchar(void);
 #define	getchar()	getc(stdin)
 char *gets(char *);
 int putc(int, FILE *);
-#define	putc(c, f) ((f)->wp>=(f)->rp?_IO_putc(c, f):(*(f)->wp++=c)&_IO_CHMASK)
+#define	putc(c, f) ((f)->wp>=(f)->rp?_IO_putc(c, f):(*(f)->wp++=(c)&_IO_CHMASK))
 int _IO_putc(int, FILE *);
 int putchar(int);
 #define	putchar(c)	putc(c, stdout)
