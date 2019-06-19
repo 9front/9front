@@ -28,7 +28,6 @@ main(int argc, char **argv)
 	maketokenrow(3, &tr);
 	expandlex();
 	setup(argc, argv);
-	fixlex();
 	iniths();
 	genline();
 	process(&tr);

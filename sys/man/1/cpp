@@ -67,9 +67,6 @@ Do not insert
 .RB `` #line ''
 directives into the output.
 .TP
-.B -+
-Understand C++ comments.
-.TP
 .B -.
 Inhibit include search in the source's directory.
 .TP

@@ -8,7 +8,6 @@ extern	char	*optarg;
 extern	int	optind;
 int	verbose;
 int	Mflag;
-int	Cplusplus;
 int	nolineinfo;
 Nlist	*kwdefined;
 char	wd[128];
@@ -142,7 +141,7 @@ setup(int argc, char **argv)
 			verbose++;
 			break;
 		case '+':
-			Cplusplus++;
+			/* Ignored for compatibility */
 			break;
 		case 'i':
 			debuginclude++;

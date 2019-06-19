@@ -285,14 +285,6 @@ expandlex(void)
 	}
 }
 
-void
-fixlex(void)
-{
-	/* do C++ comments? */
-	if (Cplusplus==0)
-		bigfsm['/'][COM1] = bigfsm['x'][COM1];
-}
-
 /*
  * fill in a row of tokens from input, terminated by NL or END
  * First token is put at trp->lp.
