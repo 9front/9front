@@ -37,6 +37,7 @@ int	shellchars(char*);
 String	*escapespecial(String*);
 String	*unescapespecial(String*);
 int	returnable(char*);
+int	temperror(void);
 
 /* folder.c */
 Biobuf	*openfolder(char*, long);

@@ -1685,9 +1685,7 @@ auth(String *mech, String *resp)
 		memset(s_to_c(s_resp1_64), 'X', s_len(s_resp1_64));
 		user = s_to_c(s_resp1) + strlen(s_to_c(s_resp1)) + 1;
 		pass = user + strlen(user) + 1;
-//		ai = auth_userpasswd(user, pass);
-//		authenticated = ai != nil;
-authenticated = passauth(user, pass) != -1;
+		authenticated = passauth(user, pass) != -1;
 		memset(pass, 'X', strlen(pass));
 		goto windup;
 	}
@@ -1727,8 +1725,13 @@ windup:
 			reply("235 2.0.0 Authentication successful\r\n");
 		} else {
 			rejectcount++;
-			reply("535 5.7.1 Authentication failed\r\n");
-			syslog(0, "smtpd", "authentication failed: %r");
+			if(temperror()){
+				syslog(0, "smtpd", "temporary authentication failure: %r");
+				reply("454 4.7.0 Temporary authentication failure\r\n");
+			} else {
+				syslog(0, "smtpd", "authentication failed: %r");
+				reply("535 5.7.1 Authentication failed\r\n");
+			}
 		}
 		goto bomb_out;
 	}
@@ -1738,7 +1741,10 @@ windup:
 		chs = auth_challenge("proto=cram role=server");
 		if (chs == nil) {
 			rejectcount++;
-			reply("501 5.7.5 Couldn't get CRAM-MD5 challenge\r\n");
+			if(temperror())
+				reply("454 4.7.0 Temporary authentication failure\r\n");
+			else
+				reply("501 5.7.5 Couldn't get CRAM-MD5 challenge\r\n");
 			goto bomb_out;
 		}
 		reply("334 %.*[\r\n", chs->nchal, chs->chal);

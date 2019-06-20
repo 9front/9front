@@ -108,3 +108,12 @@ returnable(char *path)
 {
 	return strcmp(path, "/dev/null") != 0;
 }
+
+int
+temperror(void)
+{
+	char err[ERRMAX];
+
+	rerrstr(err, sizeof(err));
+	return strstr(err, "too much activity") != nil || strstr(err, "temporary problem") != nil;
+}

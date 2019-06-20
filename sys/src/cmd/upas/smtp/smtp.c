@@ -30,8 +30,8 @@ void	quit(char*);
 char*	rcptto(char*);
 char	*rewritezone(char *);
 
-#define Retry	"Retry, Temporary Failure"
-#define Giveup	"Permanent Failure"
+char	Retry[] = "Retry, Temporary Failure";
+char	Giveup[] = "Permanent Failure";
 
 String	*reply;		/* last reply */
 String	*toline;
@@ -468,8 +468,12 @@ smtpcram(DS *ds)
 	n = auth_respond(ch, l, usr, sizeof usr, rbuf, sizeof rbuf, auth_getkey,
 		"proto=cram role=client server=%q user=%q",
 		ds->host, user);
-	if(n == -1)
-		return "cannot find SMTP password";
+	if(n == -1){
+		if(temperror())
+			return Retry;
+		syslog(0, "smtp.fail", "failed to get challenge response: %r");
+		return Giveup;
+	}
 	if(usr[0] == 0)
 		return "cannot find user name";
 	for(i = 0; i < n; i++)
@@ -498,6 +502,8 @@ doauth(char *methods)
 		"proto=pass service=smtp server=%q user=%q",
 		ds.host, user);
 	if (p == nil) {
+		if(temperror())
+			return Retry;
 		syslog(0, "smtp.fail", "failed to get userpasswd: %r");
 		return Giveup;
 	}
