@@ -1471,7 +1471,7 @@ fs_stat(Chan* chan, Fcall* f, Fcall* r, uchar* data)
 		if(error = mkqidcmp(&file->qid, d))
 			goto out;
 
-		if(d->qid.path == QPROOT)	/* stat of root gives time */
+		if(d->qid.path == (QPROOT|QPDIR))	/* stat of root gives time */
 			d->atime = time(nil);
 	}
 	len = mkdir9p2(&dir, d, data);
