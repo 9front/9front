@@ -74,7 +74,9 @@ userpc(void)
 void
 setregisters(Ureg* ureg, char* pureg, char* uva, int n)
 {
-	USED(ureg, pureg, uva, n);
+	ulong v = ureg->psr;
+	memmove(pureg, uva, n);
+	ureg->psr = ureg->psr & ~(PsrMask|PsrDfiq|PsrDirq) | v & (PsrMask|PsrDfiq|PsrDirq);
 }
 
 /*
