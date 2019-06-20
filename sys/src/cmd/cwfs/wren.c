@@ -48,7 +48,6 @@ wreninit(Device *d)
 		d->wren.sddata = smprint("%s/data", d->wren.sddir);
 	}
 
-	assert(d->wren.fd <= 0);
 	d->wren.fd = open(d->wren.sddata, ORDWR);
 	if (d->wren.fd < 0)
 		panic("wreninit: can't open %s for %Z: %r", d->wren.sddata, d);

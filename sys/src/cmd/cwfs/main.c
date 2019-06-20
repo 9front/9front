@@ -453,7 +453,6 @@ serve(void *)
 		qlock(&reflock);
 		/* read 9P request from a network input process */
 		mb = fs_recv(serveq, 0);
-		assert(mb->magic == Mbmagic);
 		/* fs kernel sets chan in /sys/src/fs/ip/il.c:/^getchan */
 		cp = mb->chan;
 		if (cp == nil)

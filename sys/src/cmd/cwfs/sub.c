@@ -845,8 +845,7 @@ mbfree(Msgbuf *mb)
 {
 	if(mb == nil)
 		return;
-	assert(mb->magic == Mbmagic);
-	if (mb->magic != Mbmagic)
+	if(mb->magic != Mbmagic)
 		panic("mbfree: bad magic 0x%lux", mb->magic);
 	if(mb->flags & BTRACE)
 		fprint(2, "mbfree: BTRACE cat=%d flags=%ux, caller %#p\n",
