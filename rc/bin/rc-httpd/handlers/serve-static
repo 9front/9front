@@ -22,7 +22,7 @@ case *.html *.htm
         type=text/html
 case *.css
         type=text/css
-case *.txt
+case *.txt *.md
         type=text/plain
 case *.jpg *.jpeg
         type=image/jpeg
