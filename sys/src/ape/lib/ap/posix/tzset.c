@@ -20,6 +20,7 @@ tzset(void)
 {
 	char *env, *p, *q;
 	
+	env = NULL;
 	if((p = getenv("timezone")) == 0)
 		goto error;
 	if((env = malloc(strlen(p) + 1)) == 0)

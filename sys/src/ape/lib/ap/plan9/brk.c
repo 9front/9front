@@ -1,5 +1,6 @@
 #include "lib.h"
 #include <errno.h>
+#include <stdint.h>
 #include "sys9.h"
 
 char	end[];
@@ -11,7 +12,7 @@ brk(char *p)
 {
 	unsigned long n;
 
-	n = (unsigned long)p;
+	n = (uintptr_t)p;
 	n += 3;
 	n &= ~3;
 	if(_BRK_((void*)n) < 0){

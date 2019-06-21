@@ -509,7 +509,7 @@ _d2b(double darg, int *e, int *bits)
 			}
 		else
 			x[0] = y;
-		i = b->wds = (x[1] = z) ? 2 : 1;
+		b->wds = (x[1] = z) ? 2 : 1;
 		}
 	else {
 #ifdef DEBUG
@@ -518,7 +518,7 @@ _d2b(double darg, int *e, int *bits)
 #endif
 		k = lo0bits(&z);
 		x[0] = z;
-		i = b->wds = 1;
+		b->wds = 1;
 		k += 32;
 		}
 #else

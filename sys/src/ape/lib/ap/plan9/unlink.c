@@ -26,6 +26,7 @@ unlink(const char *path)
 		_syserrno();
 		return -1;
 	}
+	n = -1;
 	fd = -1;
 	for(i=0, f = _fdinfo;i < OPEN_MAX; i++, f++) {
 		if((f->flags&FD_ISOPEN) && (db2=_dirfstat(i)) != nil) {

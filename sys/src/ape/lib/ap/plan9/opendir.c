@@ -26,7 +26,7 @@ opendir(const char *filename)
 		s[n++] = '/';
 		s[n] = 0;
 	} else
-		s = filename;
+		s = (char*)filename;
 	f = open(s, O_RDONLY);
 	if(s != filename)
 		free(s);

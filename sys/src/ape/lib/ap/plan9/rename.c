@@ -10,7 +10,7 @@
 int
 rename(const char *from, const char *to)
 {
-	int n, i;
+	int n, ffd, tfd;
 	char *f, *t;
 	Dir *d, nd;
 
@@ -31,45 +31,45 @@ rename(const char *from, const char *to)
 	}
 	f = strrchr(from, '/');
 	t = strrchr(to, '/');
-	f = f? f+1 : from;
-	t = t? t+1 : to;
-	n = 0;
+	f = f? f+1 : (char*)from;
+	t = t? t+1 : (char*)to;
 	if(f-from==t-to && strncmp(from, to, f-from)==0){
 		/* from and to are in same directory (we miss some cases) */
-		i = strlen(t);
 		_nulldir(&nd);
 		nd.name = t;
 		if(_dirwstat(from, &nd) < 0){
 			_syserrno();
-			n = -1;
+			return -1;
 		}
 	}else{
 		/* different directories: have to copy */
-		int ffd, tfd;
 		char buf[8192];
 
-		if((ffd = _OPEN(from, OREAD)) < 0 ||
-		   (tfd = _CREATE(to, OWRITE, d->mode)) < 0){
-			_CLOSE(ffd);
-			_syserrno();
-			n = -1;
+
+		if((ffd = _OPEN(from, OREAD)) == -1)
+			goto err1;
+		if((tfd = _CREATE(to, OWRITE, d->mode)) == -1)
+			goto err2;
+		n = 0;
+		while(n>=0){
+			if((n = _READ(ffd, buf, sizeof(buf))) == -1)
+				goto err2;
+			if(_WRITE(tfd, buf, n) != n)
+				goto err2;
 		}
-		while(n>=0 && (n = _READ(ffd, buf, sizeof(buf))) > 0)
-			if(_WRITE(tfd, buf, n) != n){
-				_syserrno();
-				n = -1;
-			}
 		_CLOSE(ffd);
 		_CLOSE(tfd);
-		if(n>0)
-			n = 0;
-		if(n == 0) {
-			if(_REMOVE(from) < 0){
-				_syserrno();
-				return -1;
-			}
-		}
+		if(_REMOVE(from) < 0)
+			goto err2;
 	}
 	free(d);
-	return n;
+	return 0;
+
+err2:
+	_CLOSE(tfd);
+err1:
+	_CLOSE(ffd);
+	_syserrno();
+	free(d);
+	return -1;
 }

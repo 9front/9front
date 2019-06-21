@@ -2,6 +2,7 @@
 #define _LOCK_EXTENSION
 #include "lib.h"
 #include <stdlib.h>
+#include <stdint.h>
 #include <errno.h>
 #include <unistd.h>
 #include <signal.h>
@@ -57,7 +58,7 @@ _startbuf(int fd)
 	if(mux == 0){
 		_RFORK(RFREND);
 		mux = (Muxseg*)_SEGATTACH(0, "shared", 0, sizeof(Muxseg));
-		if((long)mux == -1){
+		if(mux == (void*)-1){
 			_syserrno();
 			return -1;
 		}
@@ -124,7 +125,7 @@ Found:
 
 	while((v = _RENDEZVOUS(&b->copypid, 0)) == (void*)~0)
 		;
-	_muxsid = (int)v;
+	_muxsid = (uintptr_t)v;
 
 	/* leave fd open in parent so system doesn't reuse it */
 	return 0;
@@ -182,6 +183,7 @@ _copyproc(int fd, Muxbuf *b)
 		 * happened, or it might mean eof; try several times to
 		 * disambiguate (posix read() discards 0-length messages)
 		 */
+		n = 0;
 		nzeros = 0;
 		do {
 			if(b->fd != fd)
@@ -395,7 +397,7 @@ select(int nfds, fd_set *rfds, fd_set *wfds, fd_set *efds, struct timeval *timeo
 	}
 	mux->selwait = 1;
 	unlock(&mux->lock);
-	fd = (int)_RENDEZVOUS(&mux->selwait, 0);
+	fd = (int)(uintptr_t)_RENDEZVOUS(&mux->selwait, 0);
 	if(fd >= 0 && fd < nfds) {
 		b = _fdinfo[fd].buf;
 		if(b == 0 || b->fd != fd) {
@@ -504,7 +506,7 @@ _detachbuf(void)
 }
 
 static int
-copynotehandler(void *u, char *msg)
+copynotehandler(void *, char *)
 {
 	if(_finishing)
 		_finish(0, 0);

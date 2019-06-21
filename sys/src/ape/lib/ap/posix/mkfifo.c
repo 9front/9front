@@ -3,7 +3,7 @@
 #include	<errno.h>
 
 int
-mkfifo(char *path, mode_t mode)
+mkfifo(char *, mode_t)
 {
 #pragma ref path
 #pragma ref mode

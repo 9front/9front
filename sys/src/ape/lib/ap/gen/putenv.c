@@ -9,16 +9,16 @@ putenv(const char *str)
 	int n;
 
 	for(n = 0; s2 = environ[n]; n++)
-		for(s1 = str; *s1 == *s2; s1++, s2++)
+		for(s1 = (char *)str; *s1 == *s2; s1++, s2++)
 			if(*s1 == '\0' || *s1 == '='){
-				environ[n] = str;
+				environ[n] = (char*)str;
 				return 0;
 			}
 	e = realloc(environ, (n+1) * sizeof(char*));
 	if(e == 0)
 		return -1;
 	environ = e;
-	e[n++] = str;
+	e[n++] = (char*)str;
 	e[n] = 0;
 	return 0;
 }

@@ -107,7 +107,7 @@ _notehandler(Ureg *u, char *msg)
 				/* notetramp is machine-dependent; doesn't return to here */
 			}
 			_NOTED(0); /* NCONT */
-			return;
+			return 0;
 		}
 	}
 	_doatexits();

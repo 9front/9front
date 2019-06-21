@@ -85,7 +85,7 @@ execve(const char *name, const char *argv[], const char *envp[])
 		_CLOSE(f);
 	}
 	if(envp){
-		for(e = envp; (ss = *e); e++) {
+		for(e = (char**)envp; (ss = *e); e++) {
 			se = strchr(ss, '=');
 			if(!se || ss==se)
 				continue;	/* what is name? value? */

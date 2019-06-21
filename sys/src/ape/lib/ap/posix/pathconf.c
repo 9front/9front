@@ -4,7 +4,7 @@
 #include	<sys/limits.h>
 
 long
-pathconf(const char *path, int name)
+pathconf(const char *, int name)
 {
 #pragma ref path
 
@@ -46,10 +46,8 @@ pathconf(const char *path, int name)
 }
 
 long
-fpathconf(int fd, int name)
+fpathconf(int, int name)
 {
-#pragma ref fd
-
 	return pathconf(0, name);
 }
 

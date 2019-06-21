@@ -59,6 +59,7 @@ _getpw(int *pnum, char **pname, char **plist)
 			return 0;
 		au[n] = 0;
 	}
+	mem = nil;
 	matchnum = (*pname == NULL);
 	matched = 0;
 	/* try using memo */
@@ -68,9 +69,8 @@ _getpw(int *pnum, char **pname, char **plist)
 			matched = (mem->num == *pnum);
 		else
 			matched = (strcmp(mem->name, *pname) == 0);
-		if(matched) {
+		if(matched)
 			break;
-		}
 	}
 	if(!matched)
 		for(f1 = au, eline = au; !matched && *eline; f1 = eline+1){

@@ -40,6 +40,8 @@ _envsetup(void)
 	char **pp;
 	Dir *d9, *d9a;
 
+	ps = 0;
+	psize = 0;
 	nohandle = 0;
 	fdinited = 0;
 	cnt = 0;
