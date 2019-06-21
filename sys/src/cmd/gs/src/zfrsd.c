@@ -47,13 +47,19 @@ zrsdparams(i_ctx_t *i_ctx_p)
     ref *pFilter;
     ref *pDecodeParms;
     int Intent;
-    bool AsyncRead;
+    bool AsyncRead = false;
     ref empty_array, filter1_array, parms1_array;
     uint i;
-    int code;
+    int code = 0;
+
+    if (ref_stack_count(&o_stack) < 1)
+        return_error(e_stackunderflow);
+    if (!r_has_type(op, t_dictionary) && !r_has_type(op, t_null))
+         return_error(e_typecheck);
 
     make_empty_array(&empty_array, a_readonly);
-    if (dict_find_string(op, "Filter", &pFilter) > 0) {
+    if (r_has_type(op, t_dictionary)
+        && dict_find_string(op, "Filter", &pFilter) > 0) {
 	if (!r_is_array(pFilter)) {
 	    if (!r_has_type(pFilter, t_name))
 		return_error(e_typecheck);
@@ -92,10 +98,12 @@ zrsdparams(i_ctx_t *i_ctx_p)
 		return_error(e_typecheck);
 	}
     }
-    if ((code = dict_int_param(op, "Intent", 0, 3, 0, &Intent)) < 0 ||
-	(code = dict_bool_param(op, "AsyncRead", false, &AsyncRead)) < 0
-	)
-	return code;
+    if (r_has_type(op, t_dictionary))
+        code = dict_int_param(op, "Intent", 0, 3, 0, &Intent);
+
+    if (r_has_type(op, t_dictionary))
+        if ((code = dict_bool_param(op, "AsyncRead", false, &AsyncRead)) < 0)
+            return code;
     push(1);
     op[-1] = *pFilter;
     if (pDecodeParms)
