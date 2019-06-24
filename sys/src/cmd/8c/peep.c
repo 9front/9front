@@ -99,6 +99,25 @@ loop1:
 				}
 			}
 			break;
+
+		case ALEAL:
+			if(regtyp(&p->to)) {
+				r1 = uniqs(r);
+				if(r1 != R){
+					p1 = r1->prog;
+					if(p1->as == AMOVL
+					&& p1->to.type == p->to.type
+					&& p1->from.type-D_INDIR == p->to.type
+					&& p1->from.index == D_NONE
+					&& p1->from.offset == 0){
+						p->as = p1->as;
+						excise(r1);
+						t++;
+					}
+				}
+			}
+			break;
+
 		case AADDL:
 		case AADDW:
 			if(p->from.type != D_CONST || needc(p->link))
