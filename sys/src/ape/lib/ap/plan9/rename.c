@@ -10,66 +10,92 @@
 int
 rename(const char *from, const char *to)
 {
-	int n, i;
-	char *f, *t;
-	Dir *d, nd;
+	char buf[8192], *f, *t;
+	Dir *s, *d, nd;
+	int n, ffd, tfd;
 
-	if(access(to, 0) >= 0){
-		if(_REMOVE(to) < 0){
-			_syserrno();
-			return -1;
-		}
-	}
-	if((d = _dirstat(to)) != nil){
-		free(d);
-		errno = EEXIST;
+	f = strrchr(from, '/');
+	t = strrchr(to, '/');
+	f = f != nil ? f+1 : (char*)from;
+	t = t != nil ? t+1 : (char*)to;
+
+	if(*f == '\0' || strcmp(f, ".") == 0 || strcmp(f, "..") == 0
+	|| *t == '\0' || strcmp(t, ".") == 0 || strcmp(t, "..") == 0){
+		errno = EINVAL;
 		return -1;
 	}
-	if((d = _dirstat(from)) == nil){
+
+	if((s = _dirstat(from)) == nil){
 		_syserrno();
 		return -1;
 	}
-	f = strrchr(from, '/');
-	t = strrchr(to, '/');
-	f = f? f+1 : from;
-	t = t? t+1 : to;
-	n = 0;
+	if((d = _dirstat(to)) != nil){
+		if(d->qid.type == s->qid.type
+		&& d->qid.path == s->qid.path
+		&& d->qid.vers == s->qid.vers
+		&& d->type == s->type
+		&& d->dev == s->dev)
+			goto out;	/* same file */
+
+		if((d->mode ^ s->mode) & DMDIR){
+			errno = (d->mode & DMDIR) ? EISDIR : ENOTDIR;
+			goto err;
+		}
+	}
+
+	/* from and to are in same directory (we miss some cases) */
 	if(f-from==t-to && strncmp(from, to, f-from)==0){
-		/* from and to are in same directory (we miss some cases) */
-		i = strlen(t);
+		if(d != nil && _REMOVE(to) < 0){
+			_syserrno();
+			goto err;
+		}
 		_nulldir(&nd);
 		nd.name = t;
 		if(_dirwstat(from, &nd) < 0){
 			_syserrno();
-			n = -1;
+			goto err;
 		}
-	}else{
-		/* different directories: have to copy */
-		int ffd, tfd;
-		char buf[8192];
-
-		if((ffd = _OPEN(from, OREAD)) < 0 ||
-		   (tfd = _CREATE(to, OWRITE, d->mode)) < 0){
-			_CLOSE(ffd);
-			_syserrno();
-			n = -1;
-		}
-		while(n>=0 && (n = _READ(ffd, buf, sizeof(buf))) > 0)
-			if(_WRITE(tfd, buf, n) != n){
-				_syserrno();
-				n = -1;
-			}
-		_CLOSE(ffd);
-		_CLOSE(tfd);
-		if(n>0)
-			n = 0;
-		if(n == 0) {
-			if(_REMOVE(from) < 0){
-				_syserrno();
-				return -1;
-			}
-		}
+		goto out;
 	}
+
+	/* different directories: have to copy */
+	if((ffd = _OPEN(from, OREAD)) < 0){
+		_syserrno();
+		goto err;
+	}
+	if((s->mode & DMDIR) != 0 && _READ(ffd, buf, sizeof(buf)) > 0){
+		/* cannot copy non-empty directories */
+		errno = EXDEV;
+		_CLOSE(ffd);
+		goto err;
+	}
+	if(d != nil && _REMOVE(to) < 0){
+		_syserrno();
+		_CLOSE(ffd);
+		goto err;
+	}
+	if((tfd = _CREATE(to, OWRITE, s->mode)) < 0){
+		_syserrno();
+		_CLOSE(ffd);
+		goto err;
+	}
+	while((n = _READ(ffd, buf, sizeof(buf))) > 0){
+		if(_WRITE(tfd, buf, n) != n)
+			break;
+	}
+	_CLOSE(ffd);
+	_CLOSE(tfd);
+	if(n != 0 || _REMOVE(from) < 0){
+		_syserrno();
+		_REMOVE(to);	/* cleanup */
+		goto err;
+	}
+out:
+	free(s);
 	free(d);
-	return n;
+	return 0;
+err:
+	free(s);
+	free(d);
+	return -1;
 }
