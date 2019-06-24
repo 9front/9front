@@ -928,8 +928,18 @@ gmove(Node *f, Node *t)
 	gins(a, f, t);
 }
 
+static int
+regused(Node *n, int r)
+{
+	if(n == nil)
+		return 0;
+	if(isreg(n, r))
+		return 1;
+	return regused(n->left, r) || regused(n->right, r);
+}
+
 void
-doindex(Node *n)
+doindex(Node *n, Node *o)
 {
 	Node nod, nod1;
 	long v;
@@ -940,7 +950,11 @@ prtree(n, "index");
 if(n->left->complex >= FNX)
 print("botch in doindex\n");
 
-	regalloc(&nod, &regnode, Z);
+	if(n->right->op == OREGISTER)
+		o = n->right;
+	else if(o == Z || o->op != OREGISTER || regused(n, o->reg))
+		o = Z;
+	regalloc(&nod, &regnode, o);
 	v = constnode.vconst;
 	cgen(n->right, &nod);
 	idx.ptr = D_NONE;
@@ -965,11 +979,12 @@ print("botch in doindex\n");
 void
 gins(int a, Node *f, Node *t)
 {
-
 	if(f != Z && f->op == OINDEX)
-		doindex(f);
+		doindex(f, a == AMOVL || a == ALEAL
+			|| a == AMOVBLSX || a == AMOVBLZX
+			|| a == AMOVWLSX || a == AMOVWLZX ? t : Z);
 	if(t != Z && t->op == OINDEX)
-		doindex(t);
+		doindex(t, Z);
 	nextpc();
 	p->as = a;
 	if(f != Z)

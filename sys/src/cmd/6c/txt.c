@@ -1117,8 +1117,18 @@ gmove(Node *f, Node *t)
 	gins(a, f, t);
 }
 
+static int
+regused(Node *n, int r)
+{
+	if(n == nil)
+		return 0;
+	if(isreg(n, r))
+		return 1;
+	return regused(n->left, r) || regused(n->right, r);
+}
+
 void
-doindex(Node *n)
+doindex(Node *n, Node *o)
 {
 	Node nod, nod1;
 	long v;
@@ -1129,7 +1139,11 @@ prtree(n, "index");
 if(n->left->complex >= FNX)
 print("botch in doindex\n");
 
-	regalloc(&nod, &qregnode, Z);
+	if(n->right->op == OREGISTER)
+		o = n->right;
+	else if(o == Z || o->op != OREGISTER || regused(n, o->reg))
+		o = Z;
+	regalloc(&nod, &qregnode, o);
 	v = constnode.vconst;
 	cgen(n->right, &nod);
 	idx.ptr = D_NONE;
@@ -1139,11 +1153,13 @@ print("botch in doindex\n");
 		idx.ptr = n->left->reg;
 	else if(n->left->op != OADDR) {
 		reg[D_BP]++;	// cant be used as a base
+		reg[D_R13]++;
 		regalloc(&nod1, &qregnode, Z);
 		cgen(n->left, &nod1);
 		idx.ptr = nod1.reg;
 		regfree(&nod1);
 		reg[D_BP]--;
+		reg[D_R13]--;
 	}
 	idx.reg = nod.reg;
 	regfree(&nod);
@@ -1155,9 +1171,14 @@ gins(int a, Node *f, Node *t)
 {
 
 	if(f != Z && f->op == OINDEX)
-		doindex(f);
+		doindex(f, a == AMOVL || a == ALEAL
+			|| a == AMOVQ || a == ALEAQ
+			|| a == AMOVBLSX || a == AMOVBLZX
+			|| a == AMOVBQSX || a == AMOVBQZX
+			|| a == AMOVWLSX || a == AMOVWLZX
+			|| a == AMOVWQSX || a == AMOVWQZX ? t : Z);
 	if(t != Z && t->op == OINDEX)
-		doindex(t);
+		doindex(t, Z);
 	nextpc();
 	p->as = a;
 	if(f != Z)
