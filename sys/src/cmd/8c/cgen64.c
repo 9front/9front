@@ -2526,7 +2526,7 @@ twoop:
 	case OCAST:
 		l = n->left;
 		if(typev[l->type->etype]) {
-			if(!vaddr(l, 1)) {
+			if(!vaddr(l, 1) && l->op != OINDEX) {	// theres no 64 bit indexing
 				if(l->complex + 1 > nn->complex) {
 					d = regpair(Z, l);
 					sugen(l, d, 8);
