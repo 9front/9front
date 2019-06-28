@@ -271,7 +271,11 @@ mmuwalk(uintptr* table, uintptr va, int level, int create)
 		if(pte & PTEVALID){
 			if(pte & PTESIZE)
 				return 0;
-			table = KADDR(PPN(pte));
+			pte = PPN(pte);
+			if(pte >= (uintptr)-KZERO)
+				table = (void*)(pte + VMAP);
+			else
+				table = (void*)(pte + KZERO);
 		} else {
 			if(!create)
 				return 0;
@@ -568,5 +572,64 @@ patwc(void *a, int n)
 		mask = l == 0 ? 3<<3 | 1<<7 : 3<<3 | 1<<12;
 		attr = (((PATWC&3)<<3) | ((PATWC&4)<<5) | ((PATWC&4)<<10));
 		*pte = (*pte & ~mask) | (attr & mask);
+	}
+}
+
+/*
+ * The palloc.pages array and mmupool can be a large chunk
+ * out of the 2GB window above KZERO, so we allocate from
+ * upages and map in the VMAP window before pageinit()
+ */
+void
+preallocpages(void)
+{
+	Pallocmem *pm;
+	uintptr va, base, top;
+	vlong tsize, psize;
+	ulong np, nt;
+	int i;
+
+	np = 0;
+	for(i=0; i<nelem(palloc.mem); i++){
+		pm = &palloc.mem[i];
+		np += pm->npage;
+	}
+	nt = np / 50;	/* 2% for mmupool */
+	np -= nt;
+
+	nt = (uvlong)nt*BY2PG / (sizeof(MMU)+PTSZ);
+	tsize = (uvlong)nt * (sizeof(MMU)+PTSZ);
+
+	psize = (uvlong)np * BY2PG;
+	psize += sizeof(Page) + BY2PG;
+	psize = (psize / (sizeof(Page)+BY2PG)) * sizeof(Page);
+
+	psize += tsize;
+	psize = ROUND(psize, PGLSZ(1));
+
+	for(i=0; i<nelem(palloc.mem); i++){
+		pm = &palloc.mem[i];
+		base = ROUND(pm->base, PGLSZ(1));
+		top = pm->base + (uvlong)pm->npage * BY2PG;
+		if((base + psize) <= VMAPSIZE && (vlong)(top - base) >= psize){
+			pm->base = base + psize;
+			pm->npage = (top - pm->base)/BY2PG;
+
+			va = base + VMAP;
+			pmap(m->pml4, base | PTEGLOBAL|PTEWRITE|PTEVALID, va, psize);
+
+			palloc.pages = (void*)(va + tsize);
+
+			mmupool.nfree = mmupool.nalloc = nt;
+			mmupool.free = (void*)(va + (uvlong)nt*PTSZ);
+			for(i=0; i<nt; i++){
+				mmupool.free[i].page = (uintptr*)va;
+				mmupool.free[i].next = &mmupool.free[i+1];
+				va += PTSZ;
+			}
+			mmupool.free[i-1].next = nil;
+
+			break;
+		}
 	}
 }

@@ -157,6 +157,7 @@ void	pcmspecialclose(int);
 void	(*_pcmspecialclose)(int);
 void	pcmunmap(int, PCMmap*);
 void	pmap(uintptr *, uintptr, uintptr, vlong);
+void	preallocpages(void);
 void	procrestore(Proc*);
 void	procsave(Proc*);
 void	procsetup(Proc*);

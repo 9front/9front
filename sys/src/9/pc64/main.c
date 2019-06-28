@@ -103,45 +103,6 @@ confinit(void)
 	}
 }
 
-/*
- * The palloc.pages array can be a large chunk out of the 2GB
- * window above KZERO, so we allocate the array from
- * upages and map in the VMAP window before pageinit()
- */
-static void
-preallocpages(void)
-{
-	Pallocmem *pm;
-	uintptr va, base, top;
-	vlong size;
-	ulong np;
-	int i;
-
-	np = 0;
-	for(i=0; i<nelem(palloc.mem); i++){
-		pm = &palloc.mem[i];
-		np += pm->npage;
-	}
-	size = (uvlong)np * BY2PG;
-	size += sizeof(Page) + BY2PG;	/* round up */
-	size = (size / (sizeof(Page) + BY2PG)) * sizeof(Page);
-	size = ROUND(size, PGLSZ(1));
-
-	for(i=0; i<nelem(palloc.mem); i++){
-		pm = &palloc.mem[i];
-		base = ROUND(pm->base, PGLSZ(1));
-		top = pm->base + (uvlong)pm->npage * BY2PG;
-		if((base + size) <= VMAPSIZE && (vlong)(top - base) >= size){
-			va = base + VMAP;
-			pmap(m->pml4, base | PTEGLOBAL|PTEWRITE|PTEVALID, va, size);
-			palloc.pages = (Page*)va;
-			pm->base = base + size;
-			pm->npage = (top - pm->base)/BY2PG;
-			break;
-		}
-	}
-}
-
 void
 machinit(void)
 {
