@@ -120,3 +120,6 @@ Manipulating ifs is a nuisance.
 File names are assumed to not contain newlines.
 .PP
 Correct invocation requires too much thought.
+.SH HISTORY
+.I Walk
+first appeared in 9front (March, 2019).
