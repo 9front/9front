@@ -118,3 +118,6 @@ Sets our hostname to
 .I https://www.tinc-vpn.org/documentation/
 .SH SOURCE
 .B /sys/src/cmd/ip/tinc.c
+.SH HISTORY
+.I Tinc
+first appeared in 9front (October, 2017).
