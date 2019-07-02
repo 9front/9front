@@ -483,9 +483,9 @@ init(Hci *hp)
 		ctlr->setrptr = setrptr64;
 	else
 		ctlr->setrptr = setrptr32;
-	ctlr->pagesize = ctlr->opr[PAGESIZE]<<12;
+	ctlr->pagesize = (ctlr->opr[PAGESIZE] & 0xFFFF) << 12;
 
-	ctlr->nscratch = (ctlr->mmio[HCSPARAMS2] >> 27) & 0x1F;
+	ctlr->nscratch = (ctlr->mmio[HCSPARAMS2] >> 27) & 0x1F | (ctlr->mmio[HCSPARAMS2] >> 16) & 0x3E0;
 	ctlr->nintrs = (ctlr->mmio[HCSPARAMS1] >> 8) & 0x7FF;
 	ctlr->nslots = (ctlr->mmio[HCSPARAMS1] >> 0) & 0xFF;
 
@@ -533,7 +533,7 @@ init(Hci *hp)
 	}
 	for(i=1; i<=ctlr->nslots; i++)
 		ctlr->dcba[i] = 0;
-	ctlr->opr[CONFIG] = ctlr->nslots;	/* MaxSlotsEn */
+	ctlr->opr[CONFIG] = (ctlr->opr[CONFIG] & 0xFFFFFC00) | ctlr->nslots;	/* MaxSlotsEn */
 	ctlr->setrptr(&ctlr->opr[DCBAAP], PADDR(ctlr->dcba));
 
 	initring(ctlr->cr, 8);		/* 256 entries */
@@ -970,9 +970,6 @@ allocslot(Ctlr *ctlr, Udev *dev)
 	ctlr->slot[slot->id] = slot;
 	qunlock(&ctlr->slotlock);
 
-	dev->aux = slot;
-	dev->free = freeslot;
-
 	return slot;
 }
 
@@ -1198,6 +1195,10 @@ epopen(Ep *ep)
 		error(Egreg);
 
 	slot = allocslot(ctlr, dev);
+	if(waserror()){
+		freeslot(slot);
+		nexterror();
+	}
 
 	/* allocate control ep 0 ring */
 	ring = initring(io[OWRITE].ring = &slot->epr[0], 4);
@@ -1253,7 +1254,13 @@ epopen(Ep *ep)
 
 	/* (output) slot context */
 	w = slot->obase;
-	ep->dev->addr = w[3] & 0xFF;
+
+	dev->addr = w[3] & 0xFF;
+
+	dev->aux = slot;
+	dev->free = freeslot;
+
+	poperror();
 	poperror();
 }
 
