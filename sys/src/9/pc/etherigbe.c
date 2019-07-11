@@ -25,8 +25,7 @@
 #include "../port/error.h"
 #include "../port/netif.h"
 #include "../port/etherif.h"
-
-#include "ethermii.h"
+#include "../port/ethermii.h"
 
 enum {
 	i82542		= (0x1000<<16)|0x8086,

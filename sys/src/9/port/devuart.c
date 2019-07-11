@@ -644,7 +644,7 @@ uartkick(void *v)
 {
 	Uart *p = v;
 
-	if(p->blocked)
+	if(!p->enabled || p->blocked)
 		return;
 
 	ilock(&p->tlock);
