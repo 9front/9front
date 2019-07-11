@@ -16,8 +16,7 @@
 #include "../port/error.h"
 #include "../port/netif.h"
 #include "../port/etherif.h"
-
-#include "ethermii.h"
+#include "../port/ethermii.h"
 
 enum {					/* registers */
 	Idr0		= 0x00,		/* MAC address */

@@ -18,8 +18,7 @@
 #include "../port/error.h"
 #include "../port/netif.h"
 #include "../port/etherif.h"
-
-#include "ethermii.h"
+#include "../port/ethermii.h"
 
 enum {
 	Par0		= 0x00,		/* Ethernet Address */
