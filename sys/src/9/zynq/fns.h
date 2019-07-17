@@ -68,6 +68,7 @@ void clinvdse(void *, void *);
 void invaldln(void *);
 void cleandln(void *);
 void clinvdln(void *);
+void dmaflush(int, void*, ulong);
 void* ucalloc(ulong);
 void clean2pa(uintptr, uintptr);
 void inval2pa(uintptr, uintptr);

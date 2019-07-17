@@ -53,7 +53,7 @@ ehcireset(Ctlr *ctlr)
 	}
 
 	/* requesting more interrupts per µframe may miss interrupts */
-	opio->cmd |= Citc8;		/* 1 intr. per ms */
+	opio->cmd |= 0x10000;		/* 1 intr. per ms */
 	coherence();
 	switch(opio->cmd & Cflsmask){
 	case Cfls1024:
@@ -180,7 +180,7 @@ reset(Hci *hp)
 
 	ctlr->tdalloc = ucallocalign;
 	ctlr->dmaalloc = ucalloc;
-	cltr->dmafree = ucfree;
+	ctlr->dmafree = ucfree;
 
 	ehcireset(ctlr);
 	ehcimeminit(ctlr);

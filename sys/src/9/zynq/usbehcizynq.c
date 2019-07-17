@@ -61,10 +61,6 @@ ehcireset(Ctlr *ctlr)
 	iunlock(ctlr);
 }
 
-enum {
-	Cls = 64,
-};
-
 /* descriptors need to be allocated in uncached memory */
 static void*
 tdalloc(ulong size, int, ulong)
@@ -75,31 +71,12 @@ tdalloc(ulong size, int, ulong)
 static void*
 dmaalloc(ulong len)
 {
-	return mallocalign(ROUND(len, Cls), Cls, 0, 0);
+	return mallocalign(ROUND(len, BLOCKALIGN), BLOCKALIGN, 0, 0);
 }
 static void
 dmafree(void *data)
 {
 	free(data);
-}
-
-static void
-dmaflush(int clean, void *data, ulong len)
-{
-	uintptr va, pa;
-
-	va = (uintptr)data & ~(Cls-1);
-	pa = PADDR(va);
-	len = ROUND(len, Cls);
-	if(clean){
-		/* flush cache before write */
-		cleandse((uchar*)va, (uchar*)va+len);
-		clean2pa(pa, pa+len);
-	} else {
-		/* invalidate cache before read */
-		invaldse((uchar*)va, (uchar*)va+len);
-		inval2pa(pa, pa+len);
-	}
 }
 
 static int (*ehciportstatus)(Hci*,int);
@@ -152,7 +129,6 @@ reset(Hci *hp)
 	ctlr->tdalloc = tdalloc;
 	ctlr->dmaalloc = dmaalloc;
 	ctlr->dmafree = dmafree;
-	ctlr->dmaflush = dmaflush;
 
 	ehcireset(ctlr);
 	ctlr->r[USBMODE] |= USBHOST;

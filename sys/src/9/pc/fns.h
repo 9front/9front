@@ -21,6 +21,7 @@ void	cpuidprint(void);
 void	(*cycles)(uvlong*);
 void	delay(int);
 void*	dmabva(int);
+#define	dmaflush(clean, addr, len)
 int	dmacount(int);
 int	dmadone(int);
 void	dmaend(int);

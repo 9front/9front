@@ -1256,8 +1256,7 @@ itdinit(Ctlr *ctlr, Isoio *iso, Itd *td)
 	 */
 	size = td->ndata = td->mdata;
 	td->posi = td->posp = 0;
-	if(ctlr->dmaflush != nil)
-		(*ctlr->dmaflush)(1, td->data, size);
+	dmaflush(1, td->data, size);
 	pa = PADDR(td->data);
 	pg = pa & ~0xFFF;
 	for(p = 0; p < nelem(td->buffer); p++)
@@ -1290,8 +1289,7 @@ itdinit(Ctlr *ctlr, Isoio *iso, Itd *td)
 static void
 sitdinit(Ctlr *ctlr, Isoio *iso, Sitd *td)
 {
-	if(ctlr->dmaflush != nil)
-		(*ctlr->dmaflush)(1, td->data, td->mdata);
+	dmaflush(1, td->data, td->mdata);
 	td->ndata = td->mdata & Stdlenmask;
 	td->buffer[0] = PADDR(td->data);
 	td->buffer[1] = (td->buffer[0] & ~0xFFF) + 0x1000;
@@ -1905,8 +1903,7 @@ loop:
 			dp = tdu->data + tdu->posi * iso->maxsize + tdu->posp;
 			if(nr > 0){
 				iunlock(ctlr);
-				if(ctlr->dmaflush != nil)
-					(*ctlr->dmaflush)(0, dp, nr);
+				dmaflush(0, dp, nr);
 				memmove(b+tot, dp, nr);
 				ilock(ctlr);
 				if(iso->tdu != tdu || dp != tdu->data + tdu->posi * iso->maxsize + tdu->posp)
@@ -1947,8 +1944,7 @@ isofscpy(Ctlr *ctlr, Isoio* iso, uchar *b, long count)
 			nr = count - tot;
 		if(nr > 0) {
 			iunlock(ctlr);		/* We could page fault here */
-			if(ctlr->dmaflush != nil)
-				(*ctlr->dmaflush)(0, stdu->data, stdu->mdata);
+			dmaflush(0, stdu->data, stdu->mdata);
 			memmove(b+tot, stdu->data, nr);
 			ilock(ctlr);
 			if(iso->stdu != stdu)
@@ -2192,8 +2188,9 @@ epgettd(Ctlr *ctlr, Qio *io, int flags, void *a, int count, int maxpkt)
 	}
 	if(a != nil && count > 0)
 		memmove(td->data, a, count);
-	if(ctlr->dmaflush != nil && td->buff != nil)
-		(*ctlr->dmaflush)(1, td->data, count);
+	if(td->buff != nil){
+		dmaflush(1, td->data, count);
+	}
 	pa = PADDR(td->data);
 	for(i = 0; i < nelem(td->buffer); i++){
 		td->buffer[i] = pa;
@@ -2479,8 +2476,9 @@ epio(Ep *ep, Qio *io, void *a, long count, int mustlock)
 				if((tot + n) > count)
 					n = count - tot;
 				if(c != nil && (td->csw & Tdtok) == Tdtokin){
-					if(ctlr->dmaflush != nil && td->buff != nil)
-						(*ctlr->dmaflush)(0, td->data, n);
+					if(td->buff != nil){
+						dmaflush(0, td->data, n);
+					}
 					memmove(c, td->data, n);
 					c += n;
 				}

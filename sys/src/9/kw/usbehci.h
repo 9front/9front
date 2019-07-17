@@ -175,7 +175,6 @@ struct Ctlr
 	void*	(*tdalloc)(ulong,int,ulong);
 	void*	(*dmaalloc)(ulong);
 	void	(*dmafree)(void*);
-	void	(*dmaflush)(int,void*,ulong len);
 
 	int	nframes;	/* 1024, 512, or 256 frames in the list */
 	ulong*	frames;		/* periodic frame list (hw) */
@@ -245,3 +244,5 @@ extern int ehcidebug;
 void	ehcilinkage(Hci *hp);
 void	ehcimeminit(Ctlr *ctlr);
 void	ehcirun(Ctlr *ctlr, int on);
+
+#define	dmaflush(clean, addr, len)

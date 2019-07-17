@@ -133,6 +133,25 @@ inval2pa(uintptr start, uintptr end)
 		l2[0x770/4] = pa;
 }
 
+void
+dmaflush(int clean, void *data, ulong len)
+{
+	uintptr va, pa;
+
+	va = (uintptr)data & ~31;
+	pa = PADDR(va);
+	len = ROUND(len, 32);
+	if(clean){
+		/* flush cache before write */
+		cleandse((uchar*)va, (uchar*)va+len);
+		clean2pa(pa, pa+len);
+	} else {
+		/* invalidate cache before read */
+		invaldse((uchar*)va, (uchar*)va+len);
+		inval2pa(pa, pa+len);
+	}
+}
+
 static void
 options(void)
 {

@@ -14,9 +14,6 @@
 #include "../port/netif.h"
 #include "../port/etherif.h"
 #include "../port/flashif.h"
-#include "../port/usb.h"
-#include "../port/portusbehci.h"
-#include "usbehci.h"
 
 enum {
 	/* hardware limits imposed by register contents or layouts */
