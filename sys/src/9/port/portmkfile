@@ -101,7 +101,7 @@ random.$O:	/sys/include/libsec.h
 devaoe.$O sdaoe.$O:	/sys/include/fis.h
 sysproc.$O:	/sys/include/a.out.h
 syscallfmt.$O:	/sys/src/libc/9syscall/sys.h
-devusb.$O:	../port/usb.h
+devusb.$O usbxhci.$O:	../port/usb.h
 devether.$O ethersink.$O:	../port/etherif.h ../port/netif.h
 wifi.$O:	../port/etherif.h ../port/netif.h ../port/wifi.h /sys/include/libsec.h
 wifi.$O:	../ip/ip.h ../ip/ipv6.h

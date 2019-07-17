@@ -5,7 +5,6 @@
 #include	"fns.h"
 #include	"io.h"
 #include	"../port/error.h"
-
 #include	"../port/usb.h"
 
 enum {
@@ -28,6 +27,8 @@ enum {
 
 	DBOFF		= 0x14/4,
 	RTSOFF		= 0x18/4,
+
+	HCCPARAMS2	= 0x1C/4,
 
 	/* Operational Registers */
 	USBCMD		= 0x00/4,	/* USB Command Register */
@@ -67,7 +68,7 @@ enum {
 	CONFIG		= 0x38/4,	/* Configure Register (MaxSlotEn[7:0]) */
 
 	/* Port Register Set */
-	PORTSC		= 0x00/4,	/* Port tatus and Control Register */
+	PORTSC		= 0x00/4,	/* Port status and Control Register */
 		CCS	= 1<<0,		/* Current Connect Status - ROS */
 		PED	= 1<<1,		/* Port Enable/Disabled - RW1CS */
 		OCA	= 1<<3,		/* Over-current Active - RO */
@@ -194,6 +195,10 @@ struct Slot
 {
 	int	id;
 
+	int	confval; // bConfigurationValue of SET_CONFIGURATION
+	int	iface;	// bInterfaceNumber of SET_INTERFACE
+	int	altc;	// bAlternateSetting of SET_INTERFACE
+
 	Ctlr	*ctlr;
 	Udev	*dev;
 
@@ -247,8 +252,6 @@ struct Ctlr
 	int	nintrs;
 	int	nslots;
 
-	void	(*setrptr)(u32int*, u64int);
-
 	Rendez	recover;	
 	void	*active;
 	uintptr	base;
@@ -274,19 +277,15 @@ static char Ebadlen[] = "bad usb request length";
 static char Enotconfig[] = "usb endpoint not configured";
 static char Erecover[] = "xhci controller needs reset";
 
+static char*
+ctlrcmd(Ctlr *ctlr, u32int c, u32int s, u64int p, u32int *er);
+
 static void
-setrptr32(u32int *reg, u64int pa)
+setrptr(u32int *reg, u64int pa)
 {
 	coherence();
 	reg[0] = pa;
 	reg[1] = pa>>32;
-}
-
-static void
-setrptr64(u32int *reg, u64int pa)
-{
-	coherence();
-	*((u64int*)reg) = pa;
 }
 
 static u32int
@@ -305,7 +304,10 @@ freering(Ring *r)
 {
 	if(r == nil)
 		return;
-	free(r->base);
+	if(r->base != nil){
+		dmaflush(0, r->base, 4*4<<r->shift);
+		free(r->base);
+	}
 	memset(r, 0, sizeof(*r));
 }
 
@@ -326,6 +328,7 @@ initring(Ring *r, int shift)
 		freering(r);
 		error(Enomem);
 	}
+	dmaflush(1, r->base, 4*4<<shift);
 	return r;
 }
 
@@ -353,7 +356,7 @@ resetring(Ring *r)
 	ilock(r);
 	flushring(r);
 	r->rp = r->wp;
-	pa = PADDR(&r->base[4*(r->wp & r->mask)]) | ((~r->wp>>r->shift) & 1);
+	pa = PCIWADDR(&r->base[4*(r->wp & r->mask)]) | ((~r->wp>>r->shift) & 1);
 	iunlock(r);
 
 	return pa;
@@ -433,7 +436,11 @@ release(Ctlr *ctlr)
 	free(ctlr->slot), ctlr->slot = nil;
 	free(ctlr->dcba), ctlr->dcba = nil;
 	free(ctlr->sba), ctlr->sba = nil;
-	free(ctlr->sbp), ctlr->sbp = nil;
+	if(ctlr->sbp != nil){
+		dmaflush(0, ctlr->sbp, ctlr->nscratch*ctlr->pagesize);
+		free(ctlr->sbp);
+		ctlr->sbp = nil;
+	}
 }
 
 static void recover(void *arg);
@@ -479,10 +486,6 @@ init(Hci *hp)
 	}
 
 	ctlr->csz = (ctlr->hccparams & CSZ) != 0;
-	if(ctlr->hccparams & AC64)
-		ctlr->setrptr = setrptr64;
-	else
-		ctlr->setrptr = setrptr32;
 	ctlr->pagesize = (ctlr->opr[PAGESIZE] & 0xFFFF) << 12;
 
 	ctlr->nscratch = (ctlr->mmio[HCSPARAMS2] >> 27) & 0x1F | (ctlr->mmio[HCSPARAMS2] >> 16) & 0x3E0;
@@ -515,7 +518,7 @@ init(Hci *hp)
 	}
 
 	ctlr->slot = malloc((1+ctlr->nslots)*sizeof(ctlr->slot[0]));
-	ctlr->dcba = mallocalign((1+ctlr->nslots)*8, 64, 0, ctlr->pagesize);
+	ctlr->dcba = mallocalign((1+ctlr->nslots)*sizeof(ctlr->dcba[0]), 64, 0, ctlr->pagesize);
 	if(ctlr->slot == nil || ctlr->dcba == nil)
 		error(Enomem);
 	if(ctlr->nscratch != 0){
@@ -525,49 +528,61 @@ init(Hci *hp)
 			error(Enomem);
 		for(i=0, p = ctlr->sbp; i<ctlr->nscratch; i++, p += ctlr->pagesize){
 			memset(p, 0, ctlr->pagesize);
-			ctlr->sba[i] = PADDR(p);
+			ctlr->sba[i] = PCIWADDR(p);
 		}
-		ctlr->dcba[0] = PADDR(ctlr->sba);
+		dmaflush(1, ctlr->sbp, ctlr->nscratch*ctlr->pagesize);
+		dmaflush(1, ctlr->sba, ctlr->nscratch*8);
+		ctlr->dcba[0] = PCIWADDR(ctlr->sba);
 	} else {
 		ctlr->dcba[0] = 0;
 	}
 	for(i=1; i<=ctlr->nslots; i++)
 		ctlr->dcba[i] = 0;
+
 	ctlr->opr[CONFIG] = (ctlr->opr[CONFIG] & 0xFFFFFC00) | ctlr->nslots;	/* MaxSlotsEn */
-	ctlr->setrptr(&ctlr->opr[DCBAAP], PADDR(ctlr->dcba));
+
+	dmaflush(1, ctlr->dcba, (1+ctlr->nslots)*sizeof(ctlr->dcba[0]));
+	setrptr(&ctlr->opr[DCBAAP], PCIWADDR(ctlr->dcba));
 
 	initring(ctlr->cr, 8);		/* 256 entries */
 	ctlr->cr->id = 0;
 	ctlr->cr->doorbell = &ctlr->dba[0];
-	ctlr->setrptr(&ctlr->opr[CRCR], resetring(ctlr->cr));
+	setrptr(&ctlr->opr[CRCR], resetring(ctlr->cr));
 
 	for(i=0; i<ctlr->nintrs; i++){
 		u32int *irs = &ctlr->rts[IR0 + i*8];
 
 		if(i >= nelem(ctlr->er)){
 			irs[ERSTSZ] = 0;	/* disable ring */
+			irs[IMAN] = 1;
+			irs[IMOD] = 0;
+			setrptr(&irs[ERSTBA], 0);
+			setrptr(&irs[ERDP], 0);
 			continue;
 		}
 
 		/* allocate and link into event ring segment table */
 		initring(&ctlr->er[i], 8);	/* 256 entries */
-		ctlr->erst[i] = mallocalign(16, 64, 0, 0);
+		ctlr->erst[i] = mallocalign(4*4, 64, 0, 0);
 		if(ctlr->erst[i] == nil)
 			error(Enomem);
-		*((u64int*)ctlr->erst[i]) = PADDR(ctlr->er[i].base);
+		*((u64int*)ctlr->erst[i]) = PCIWADDR(ctlr->er[i].base);
 		ctlr->erst[i][2] = ctlr->er[i].mask+1;
 		ctlr->erst[i][3] = 0;
+		dmaflush(1, ctlr->erst[i], 4*4);
 
 		irs[ERSTSZ] = 1;	/* just one segment */
-		ctlr->setrptr(&irs[ERDP], PADDR(ctlr->er[i].base));
-		ctlr->setrptr(&irs[ERSTBA], PADDR(ctlr->erst[i]));
-
 		irs[IMAN] = 3;
 		irs[IMOD] = 0;
+		setrptr(&irs[ERSTBA], PCIWADDR(ctlr->erst[i]));
+		setrptr(&irs[ERDP], PCIWADDR(ctlr->er[i].base) | (1<<3));
 	}
 	poperror();
 
 	ctlr->µframe = 0;
+	ctlr->opr[USBSTS] = ctlr->opr[USBSTS] & (HSE|EINT|PCD|SRE);
+	coherence();
+
 	ctlr->opr[USBCMD] = RUNSTOP|INTE|HSEE|EWE;
 	for(i=0; (ctlr->opr[USBSTS] & (CNR|HCH)) != 0 && i<100; i++)
 		tsleep(&up->sleep, return0, nil, 10);
@@ -592,8 +607,7 @@ recover(void *arg)
 	while(waserror())
 		;
 	while(!needrecover(ctlr))
-		tsleep(&ctlr->recover, needrecover, ctlr, 1000);
-
+		tsleep(&ctlr->recover, needrecover, ctlr, 10);
 	shutdown(hp);
 
 	/*
@@ -662,9 +676,10 @@ queuetd(Ring *r, u32int c, u32int s, u64int p, Wait *w)
 	x = r->wp++;
 	if((x & r->mask) == r->mask){
 		td = r->base + 4*(x & r->mask);
-		*(u64int*)td = PADDR(r->base);
+		*(u64int*)td = PCIWADDR(r->base);
 		td[2] = 0;
 		td[3] = ((~x>>r->shift)&1) | (1<<1) | TR_LINK;
+		dmaflush(1, td, 4*4);
 		x = r->wp++;
 	}
 	td = r->base + 4*(x & r->mask);
@@ -683,6 +698,7 @@ queuetd(Ring *r, u32int c, u32int s, u64int p, Wait *w)
 	*(u64int*)td = p;
 	td[2] = s;
 	td[3] = ((~x>>r->shift)&1) | c;
+	dmaflush(1, td, 4*4);
 }
 
 static char *ccerrtab[] = {
@@ -742,9 +758,6 @@ waitdone(void *a)
 }
 
 static char*
-ctlrcmd(Ctlr *ctlr, u32int c, u32int s, u64int p, u32int *er);
-
-static char*
 waittd(Ctlr *ctlr, Wait *w, int tmout)
 {
 	Ring *r = w->ring;
@@ -780,7 +793,6 @@ waittd(Ctlr *ctlr, Wait *w, int tmout)
 			sleep(&up->sleep, waitdone, w);
 	}
 	poperror();
-
 	return ccerrstr(w->er[2]>>24);
 }
 
@@ -798,7 +810,6 @@ ctlrcmd(Ctlr *ctlr, u32int c, u32int s, u64int p, u32int *er)
 	ctlr->cr->stopped = 0;
 	queuetd(ctlr->cr, c, s, p, w);
 	err = waittd(ctlr, w, 5000);
-
 	qunlock(&ctlr->cmdlock);
 
 	if(er != nil)
@@ -819,7 +830,7 @@ completering(Ring *r, u32int *er)
 
 	for(x = r->rp; (int)(r->wp - x) > 0;){
 		td = &r->base[4*(x++ & r->mask)];
-		if((u64int)PADDR(td) == pa){
+		if((u64int)PCIWADDR(td) == pa){
 			r->rp = x;
 			break;
 		}
@@ -827,7 +838,7 @@ completering(Ring *r, u32int *er)
 
 	wp = &r->pending;
 	while(w = *wp){
-		if((u64int)PADDR(w->td) == pa){
+		if((u64int)PCIWADDR(w->td) == pa){
 			Rendez *z = w->z;
 
 			memmove(w->er, er, 4*4);
@@ -865,6 +876,8 @@ interrupt(Ureg*, void *arg)
 
 	for(x = ring->rp;; x=++ring->rp){
 		td = ring->base + 4*(x & ring->mask);
+		dmaflush(0, td, 4*4);
+
 		if((((x>>ring->shift)^td[3])&1) == 0)
 			break;
 
@@ -902,7 +915,7 @@ interrupt(Ureg*, void *arg)
 		}
 	}
 
-	ctlr->setrptr(&irs[ERDP], PADDR(td) | (1<<3));
+	setrptr(&irs[ERDP], PCIWADDR(td) | (1<<3));
 }
 
 static void
@@ -918,7 +931,9 @@ freeslot(void *arg)
 		qlock(&ctlr->slotlock);
 		if(ctlr->slot != nil && ctlr->slot[slot->id] == slot){
 			ctlrcmd(ctlr, CR_DISABLESLOT | (slot->id<<24), 0, 0, nil);
+			dmaflush(0, slot->obase, 32*32 << ctlr->csz);
 			ctlr->dcba[slot->id] = 0;
+			dmaflush(1, &ctlr->dcba[slot->id], sizeof(ctlr->dcba[0]));
 			ctlr->slot[slot->id] = nil;
 		}
 		qunlock(&ctlr->slotlock);
@@ -945,6 +960,10 @@ allocslot(Ctlr *ctlr, Udev *dev)
 	slot->nep = 0;
 	slot->id = 0;
 
+	slot->confval = 0;
+	slot->iface = 0;
+	slot->altc = 0;
+
 	qlock(&ctlr->slotlock);
 	if(waserror()){
 		qunlock(&ctlr->slotlock);
@@ -957,6 +976,7 @@ allocslot(Ctlr *ctlr, Udev *dev)
 	slot->obase = mallocalign(32*32 << ctlr->csz, 64, 0, ctlr->pagesize);
 	if(slot->ibase == nil || slot->obase == nil)
 		error(Enomem);
+
 	if((err = ctlrcmd(ctlr, CR_ENABLESLOT, 0, 0, r)) != nil)
 		error(err);
 	slot->id = r[3]>>24;
@@ -966,8 +986,12 @@ allocslot(Ctlr *ctlr, Udev *dev)
 	}
 	poperror();
 
-	ctlr->dcba[slot->id] = PADDR(slot->obase);
+	dmaflush(1, slot->obase, 32*32 << ctlr->csz);
+	ctlr->dcba[slot->id] = PCIWADDR(slot->obase);
+	dmaflush(1, &ctlr->dcba[slot->id], sizeof(ctlr->dcba[0]));
+
 	ctlr->slot[slot->id] = slot;
+
 	qunlock(&ctlr->slotlock);
 
 	return slot;
@@ -1025,7 +1049,9 @@ epclose(Ep *ep)
 		w += ep->nb*2*8<<ctlr->csz;
 		memset(w, 0, 2*32<<ctlr->csz);
 
-		ctlrcmd(ctlr, CR_CONFIGEP | (slot->id<<24), 0, PADDR(slot->ibase), nil);
+		dmaflush(1, slot->ibase, 32*33 << ctlr->csz);
+		ctlrcmd(ctlr, CR_CONFIGEP | (slot->id<<24), 0, PCIWADDR(slot->ibase), nil);
+		dmaflush(0, slot->obase, 32*32 << ctlr->csz);
 
 		freering(io[OREAD].ring);
 		freering(io[OWRITE].ring);
@@ -1048,12 +1074,11 @@ initepctx(u32int *w, Ring *r, Ep *ep)
 			;
 	}
 	w[0] = ival<<16;
-	w[1] = ((ep->ttype-Tctl)|(r->id&1)<<2)<<3 | (ep->ntds-1)<<8 | ep->maxpkt<<16;
+	w[1] = ((ep->ttype-Tctl) | (r->id&1)<<2)<<3 | (ep->ntds-1)<<8 | ep->maxpkt<<16;
 	if(ep->ttype != Tiso)
 		w[1] |= 3<<1;
-	*((u64int*)&w[2]) = PADDR(r->base) | 1;
-
-	w[4] = ep->maxpkt;
+	*((u64int*)&w[2]) = PCIWADDR(r->base) | 1;
+	w[4] = 2*ep->maxpkt;
 	if(ep->ttype == Tintr || ep->ttype == Tiso)
 		w[4] |= (ep->maxpkt*ep->ntds)<<16;
 }
@@ -1094,6 +1119,7 @@ initep(Ep *ep)
 	w = slot->ibase;
 	memset(w, 0, 32<<ctlr->csz);
 	w[1] = 1;
+	w[31] = slot->altc<<16 | slot->iface<<8 | slot->confval;
 
 	if(waserror()){
 		freering(io[OWRITE].ring), io[OWRITE].ring = nil;
@@ -1124,21 +1150,28 @@ initep(Ep *ep)
 	/* (input) slot context */
 	w += 8<<ctlr->csz;
 	w[0] = (w[0] & ~(0x1F<<27)) | slot->nep<<27;
+	if(!ep->dev->ishub)
+		w[0] &= ~(1<<25);	// MTT
 
 	/* (input) ep context */
 	w += ep->nb*2*8<<ctlr->csz;
-	memset(w, 0, 2*32<<ctlr->csz);
-	if(io[OWRITE].ring != nil)
+	if(io[OWRITE].ring != nil){
+		memset(w, 0, 5*4);
 		initepctx(w, io[OWRITE].ring, ep);
+	}
 
 	w += 8<<ctlr->csz;
-	if(io[OREAD].ring != nil)
+	if(io[OREAD].ring != nil){
+		memset(w, 0, 5*4);
 		initepctx(w, io[OREAD].ring, ep);
-
-	if((err = ctlrcmd(ctlr, CR_CONFIGEP | (slot->id<<24), 0,
-		PADDR(slot->ibase), nil)) != nil){
-		error(err);
 	}
+
+	dmaflush(1, slot->ibase, 32*33 << ctlr->csz);
+	err = ctlrcmd(ctlr, CR_CONFIGEP | (slot->id<<24), 0, PCIWADDR(slot->ibase), nil);
+	dmaflush(0, slot->obase, 32*32 << ctlr->csz);
+	if(err != nil)
+		error(err);
+
 	if(ep->ttype == Tiso){
 		initisoio(io+OWRITE, ep);
 		initisoio(io+OREAD, ep);
@@ -1217,8 +1250,7 @@ epopen(Ep *ep)
 	w += 8<<ctlr->csz;
 	w[2] = w[3] = 0;
 	w[0] = dev->routestr | speedid(dev->speed)<<20 |
-		(dev->speed == Highspeed && dev->ishub != 0
-		||dev->speed < Highspeed && dev->ishub == 0)<<25 |
+		(dev->speed == Highspeed && dev->ishub != 0)<<25 |	// MTT
 		(dev->ishub != 0)<<26 | slot->nep<<27;
 	w[1] = dev->rootport<<16;
 
@@ -1237,8 +1269,10 @@ epopen(Ep *ep)
 		if(hub->dev->rootport != dev->rootport)
 			continue;
 
-		if(dev->speed < Highspeed && hub->dev->speed == Highspeed)
+		if(dev->speed < Highspeed && hub->dev->speed == Highspeed){
+			w[0] |= 1<<25;	// MTT
 			w[2] = hub->id | dev->port<<8;
+		}
 		break;
 	}
 	qunlock(&ctlr->slotlock);
@@ -1247,10 +1281,11 @@ epopen(Ep *ep)
 	w += 8<<ctlr->csz;
 	initepctx(w, io[OWRITE].ring, ep);
 
-	if((err = ctlrcmd(ctlr, CR_ADDRESSDEV | (slot->id<<24), 0,
-		PADDR(slot->ibase), nil)) != nil){
+	dmaflush(1, slot->ibase, 32*33 << ctlr->csz);
+	err = ctlrcmd(ctlr, CR_ADDRESSDEV | (slot->id<<24), 0, PCIWADDR(slot->ibase), nil);
+	dmaflush(0, slot->obase, 32*32 << ctlr->csz);
+	if(err != nil)
 		error(err);
-	}
 
 	/* (output) slot context */
 	w = slot->obase;
@@ -1314,7 +1349,8 @@ isowrite(Ep *ep, uchar *p, long n)
 		p += m, n -= m;
 		m += io->nleft, d -= io->nleft;
 		io->nleft = 0;
-		queuetd(io->ring, TR_ISOCH | (i*µ/8 & 0x7ff)<<20 | TR_IOC, m, PADDR(d), nil);
+		dmaflush(1, d, m);
+		queuetd(io->ring, TR_ISOCH | (i*µ/8 & 0x7ff)<<20 | TR_IOC, m, PCIWADDR(d), nil);
 	}
 	io->frame = i;
 	while(io->ring->rp != io->ring->wp){
@@ -1359,6 +1395,7 @@ static long
 epread(Ep *ep, void *va, long n)
 {
 	Epio *io;
+	Ctlr *ctlr;
 	uchar *p;
 	char *err;
 	Wait w[1];
@@ -1398,9 +1435,11 @@ epread(Ep *ep, void *va, long n)
 		return n;
 	}
 
+	ctlr = (Ctlr*)ep->hp->aux;
 	io = (Epio*)ep->aux + OREAD;
 	qlock(io);
 	if(waserror()){
+		dmaflush(0, io->ring->ctx, 8*4 << ctlr->csz);
 		qunlock(io);
 		nexterror();
 	}
@@ -1408,8 +1447,11 @@ epread(Ep *ep, void *va, long n)
 	if((err = unstall(io->ring)) != nil)
 		error(err);
 
-	queuetd(io->ring, TR_NORMAL | TR_IOC, n, PADDR(p), w);
-	if((err = waittd((Ctlr*)ep->hp->aux, w, ep->tmout)) != nil)
+	dmaflush(1, p, n);
+	queuetd(io->ring, TR_NORMAL | TR_IOC, n, PCIWADDR(p), w);
+	err = waittd(ctlr, w, ep->tmout);
+	dmaflush(0, p, n);
+	if(err != nil)
 		error(err);
 
 	qunlock(io);
@@ -1426,6 +1468,7 @@ static long
 epwrite(Ep *ep, void *va, long n)
 {
 	Wait w[3];
+	Ctlr *ctlr;
 	Epio *io;
 	uchar *p;
 	char *err;
@@ -1437,6 +1480,7 @@ epwrite(Ep *ep, void *va, long n)
 	if(ep->ttype == Tctl){
 		int dir, len;
 		Ring *ring;
+		Slot *slot;
 
 		if(n < 8)
 			error(Eshort);
@@ -1444,13 +1488,16 @@ epwrite(Ep *ep, void *va, long n)
 		if(p[0] == 0x00 && p[1] == 0x05)
 			return n;
 
+		ctlr = (Ctlr*)ep->hp->aux;
 		io = (Epio*)ep->aux + OREAD;
 		ring = io[OWRITE-OREAD].ring;
+		slot = ring->slot;
 		qlock(io);
 		if(waserror()){
 			ilock(ring);
 			ring->pending = nil;
 			iunlock(ring);
+			dmaflush(0, ring->ctx, 8*4 << ctlr->csz);
 			qunlock(io);
 			nexterror();
 		}
@@ -1474,38 +1521,49 @@ epwrite(Ep *ep, void *va, long n)
 			error(err);
 
 		if((ring->ctx[1]>>16) != ep->maxpkt){
-			Slot *slot = ring->slot;
-			Ctlr *ctlr = slot->ctlr;
 			u32int *w = slot->ibase;
 			w[0] = 0;
 			w[1] = 1<<ring->id;
 			w += (ring->id+1)*8<<ctlr->csz;
 			initepctx(w, ring, ep);
-			if((err = ctlrcmd(ctlr, CR_EVALCTX | (slot->id<<24), 0, PADDR(slot->ibase), nil)) != nil)
+			dmaflush(1, slot->ibase, 32*33 << ctlr->csz);
+			err = ctlrcmd(ctlr, CR_EVALCTX | (slot->id<<24), 0, PCIWADDR(slot->ibase), nil);
+			dmaflush(0, slot->obase, 32*32 << ctlr->csz);
+			if(err != nil)
 				error(err);
 		}
 
 		queuetd(ring, TR_SETUPSTAGE | (len > 0 ? 2+dir : 0)<<16 | TR_IDT | TR_IOC, 8,
 			p[0] | p[1]<<8 | GET2(&p[2])<<16 |
 			(u64int)(GET2(&p[4]) | len<<16)<<32, &w[0]);
-		if(len > 0)
+		if(len > 0){
+			dmaflush(1, io->b->rp, len);
 			queuetd(ring, TR_DATASTAGE | dir<<16 | TR_IOC, len,
-				PADDR(io->b->rp), &w[1]);
+				PCIWADDR(io->b->rp), &w[1]);
+		}
 		queuetd(ring, TR_STATUSSTAGE | (len == 0 || !dir)<<16 | TR_IOC, 0, 0, &w[2]);
 
-		if((err = waittd((Ctlr*)ep->hp->aux, &w[0], ep->tmout)) != nil)
+		if((err = waittd(ctlr, &w[0], ep->tmout)) != nil)
 			error(err);
 		if(len > 0){
-			if((err = waittd((Ctlr*)ep->hp->aux, &w[1], ep->tmout)) != nil)
+			if((err = waittd(ctlr, &w[1], ep->tmout)) != nil)
 				error(err);
 			if(dir != 0){
+				dmaflush(0, io->b->rp, len);
 				io->b->wp -= (w[1].er[2] & 0xFFFFFF);
 				if(io->b->wp < io->b->rp)
 					io->b->wp = io->b->rp;
 			}
 		}
-		if((err = waittd((Ctlr*)ep->hp->aux, &w[2], ep->tmout)) != nil)
+		if((err = waittd(ctlr, &w[2], ep->tmout)) != nil)
 			error(err);
+
+		if(p[0] == 0x00 && p[1] == 0x09){
+			slot->confval = GET2(&p[2]);
+		} else if(p[0] == 0x01 && p[1] == 0x0d){
+			slot->altc = GET2(&p[2]);
+			slot->iface = GET2(&p[4]);
+		}
 
 		qunlock(io);
 		poperror();
@@ -1529,9 +1587,11 @@ epwrite(Ep *ep, void *va, long n)
 		return n;
 	}
 
+	ctlr = (Ctlr*)ep->hp->aux;
 	io = (Epio*)ep->aux + OWRITE;
 	qlock(io);
 	if(waserror()){
+		dmaflush(0, io->ring->ctx, 8*4 << ctlr->csz);
 		qunlock(io);
 		nexterror();
 	}
@@ -1539,8 +1599,9 @@ epwrite(Ep *ep, void *va, long n)
 	if((err = unstall(io->ring)) != nil)
 		error(err);
 
-	queuetd(io->ring, TR_NORMAL | TR_IOC, n, PADDR(p), w);
-	if((err = waittd((Ctlr*)ep->hp->aux, w, ep->tmout)) != nil)
+	dmaflush(1, p, n);
+	queuetd(io->ring, TR_NORMAL | TR_IOC, n, PCIWADDR(p), w);
+	if((err = waittd(ctlr, w, ep->tmout)) != nil)
 		error(err);
 
 	qunlock(io);
