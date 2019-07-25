@@ -1,6 +1,15 @@
 #define MIDR_EL1			SYSREG(3,0,0,0,0)
 #define MPIDR_EL1			SYSREG(3,0,0,0,5)
+#define ID_AA64AFR0_EL1			SYSREG(3,0,0,5,4)
+#define ID_AA64AFR1_EL1			SYSREG(3,0,0,5,5)
+#define ID_AA64DFR0_EL1			SYSREG(3,0,0,5,0)
+#define ID_AA64DFR1_EL1			SYSREG(3,0,0,5,1)
+#define ID_AA64ISAR0_EL1		SYSREG(3,0,0,6,0)
+#define ID_AA64ISAR1_EL1		SYSREG(3,0,0,6,1)
 #define ID_AA64MMFR0_EL1		SYSREG(3,0,0,7,0)
+#define ID_AA64MMFR1_EL1		SYSREG(3,0,0,7,1)
+#define ID_AA64PFR0_EL1			SYSREG(3,0,0,4,0)
+#define ID_AA64PFR1_EL1			SYSREG(3,0,0,4,1)
 #define SCTLR_EL1			SYSREG(3,0,1,0,0)
 #define CPACR_EL1			SYSREG(3,0,1,0,2)
 #define MAIR_EL1			SYSREG(3,0,10,2,0)
@@ -35,6 +44,7 @@
 #define ACTLR_EL2			SYSREG(3,4,1,0,1)
 #define CPUACTLR_EL1			SYSREG(3,1,15,2,0)
 #define CPUECTLR_EL1			SYSREG(3,1,15,2,1)
+#define CBAR_EL1			SYSREG(3,1,15,3,0)
 
 /* l.s redefines this for the assembler */
 #define SYSREG(op0,op1,Cn,Cm,op2)	((op0)<<19|(op1)<<16|(Cn)<<12|(Cm)<<8|(op2)<<5)
