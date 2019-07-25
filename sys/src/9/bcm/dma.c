@@ -174,6 +174,7 @@ dmastart(int chan, int dev, int dir, void *src, void *dst, int len)
 	switch(dir){
 	case DmaD2M:
 		ctlr->flush = dst;
+		dmaflush(1, dst, len);
 		ti = Srcdreq | Destinc;
 		cb->sourcead = dmaioaddr(src);
 		cb->destad = dmaaddr(dst);
@@ -187,6 +188,7 @@ dmastart(int chan, int dev, int dir, void *src, void *dst, int len)
 		break;
 	case DmaM2M:
 		ctlr->flush = dst;
+		dmaflush(1, dst, len);
 		dmaflush(1, src, len);
 		ti = Srcinc | Destinc;
 		cb->sourcead = dmaaddr(src);
