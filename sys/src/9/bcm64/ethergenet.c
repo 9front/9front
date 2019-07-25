@@ -982,7 +982,7 @@ attach(Ether *edev)
 	/* don't advertise EEE */
 	miimmdw(ctlr->mii, 7, 60, 0);
 
-	miiane(ctlr->mii, ~0, ~0, ~0);
+	miiane(ctlr->mii, ~0, AnaAP|AnaP, ~0);
 
 #ifdef XXXDEBUG
 	xxx = ctlr;
