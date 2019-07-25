@@ -144,6 +144,7 @@ extern void wdogoff(void);
 
 /* dma */
 extern uintptr dmaaddr(void*);
+extern void dmaflush(int, void*, ulong);
 extern void dmastart(int, int, int, void*, void*, int);
 extern int dmawait(int);
 

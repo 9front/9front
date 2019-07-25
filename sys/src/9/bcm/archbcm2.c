@@ -20,8 +20,10 @@ typedef struct Mboxes Mboxes;
 
 Soc soc = {
 	.dramsize	= 0x3F000000, 	/* was 1024*MiB, but overlaps with physio */
-	.physio		= 0x3F000000,
 	.busdram	= 0xC0000000,
+	.iosize		= 16*MiB,
+	.virtio		= VIRTIO,
+	.physio		= 0x3F000000,
 	.busio		= 0x7E000000,
 	.armlocal	= 0x40000000,
 	.l1ptedramattrs = Cached | Buffered | L1wralloc | L1sharable,

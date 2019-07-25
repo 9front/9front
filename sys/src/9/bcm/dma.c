@@ -82,6 +82,8 @@ struct Ctlr {
 	Cb	*cb;
 	Rendez	r;
 	int	dmadone;
+	void	*flush;
+	int	len;
 };
 
 struct Cb {
@@ -108,7 +110,7 @@ dmaaddr(void *va)
 static uintptr
 dmaioaddr(void *va)
 {
-	return soc.busio | ((uintptr)va - VIRTIO);
+	return soc.busio | ((uintptr)va - soc.virtio);
 }
 
 static void
@@ -164,26 +166,28 @@ dmastart(int chan, int dev, int dir, void *src, void *dst, int len)
 		ctlr->regs[Cs] = Reset;
 		while(ctlr->regs[Cs] & Reset)
 			;
-		intrenable(IRQDMA(chan), dmainterrupt, ctlr, 0, "dma");
+		intrenable(IRQDMA(chan), dmainterrupt, ctlr, BUSUNKNOWN, "dma");
 	}
+	ctlr->len = len;
 	cb = ctlr->cb;
 	ti = 0;
 	switch(dir){
 	case DmaD2M:
-		cachedwbinvse(dst, len);
+		ctlr->flush = dst;
 		ti = Srcdreq | Destinc;
 		cb->sourcead = dmaioaddr(src);
 		cb->destad = dmaaddr(dst);
 		break;
 	case DmaM2D:
-		cachedwbse(src, len);
+		ctlr->flush = nil;
+		dmaflush(1, src, len);
 		ti = Destdreq | Srcinc;
 		cb->sourcead = dmaaddr(src);
 		cb->destad = dmaioaddr(dst);
 		break;
 	case DmaM2M:
-		cachedwbse(src, len);
-		cachedwbinvse(dst, len);
+		ctlr->flush = dst;
+		dmaflush(1, src, len);
 		ti = Srcinc | Destinc;
 		cb->sourcead = dmaaddr(src);
 		cb->destad = dmaaddr(dst);
@@ -193,7 +197,7 @@ dmastart(int chan, int dev, int dir, void *src, void *dst, int len)
 	cb->txfrlen = len;
 	cb->stride = 0;
 	cb->nextconbk = 0;
-	cachedwbse(cb, sizeof(Cb));
+	dmaflush(1, cb, sizeof(Cb));
 	ctlr->regs[Cs] = 0;
 	microdelay(1);
 	ctlr->regs[Conblkad] = dmaaddr(cb);
@@ -220,6 +224,10 @@ dmawait(int chan)
 	ctlr = &dma[chan];
 	tsleep(&ctlr->r, dmadone, ctlr, 3000);
 	ctlr->dmadone = 0;
+	if(ctlr->flush != nil){
+		dmaflush(0, ctlr->flush, ctlr->len);
+		ctlr->flush = nil;
+	}
 	r = ctlr->regs;
 	DBG dumpdregs("after sleep", r);
 	s = r[Cs];
@@ -232,4 +240,32 @@ dmawait(int chan)
 	}
 	r[Cs] = Int|End;
 	return 0;
+}
+
+void
+dmaflush(int clean, void *p, ulong len)
+{
+	uintptr s = (uintptr)p;
+	uintptr e = (uintptr)p + len;
+
+	if(clean){
+		s &= ~(BLOCKALIGN-1);
+		e += BLOCKALIGN-1;
+		e &= ~(BLOCKALIGN-1);
+		cachedwbse((void*)s, e - s);
+		return;
+	}
+	if(s & BLOCKALIGN-1){
+		s &= ~(BLOCKALIGN-1);
+		cachedwbinvse((void*)s, BLOCKALIGN);
+		s += BLOCKALIGN;
+	}
+	if(e & BLOCKALIGN-1){
+		e &= ~(BLOCKALIGN-1);
+		if(e < s)
+			return;
+		cachedwbinvse((void*)e, BLOCKALIGN);
+	}
+	if(s < e)
+		cachedinvse((void*)s, e - s);
 }

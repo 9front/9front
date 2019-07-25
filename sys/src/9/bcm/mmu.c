@@ -49,8 +49,8 @@ mmuinit(void *a)
 	/*
 	 * map i/o registers 
 	 */
-	va = VIRTIO;
-	for(pa = soc.physio; pa < soc.physio+IOSIZE; pa += MiB){
+	va = soc.virtio;
+	for(pa = soc.physio; pa < soc.physio+soc.iosize; pa += MiB){
 		l1[L1X(va)] = pa|Dom0|L1AP(Krw)|Section;
 		va += MiB;
 	}
@@ -305,7 +305,7 @@ uintptr
 cankaddr(uintptr pa)
 {
 	if(pa < PHYSDRAM+soc.dramsize)
-		return PHYSDRAM+soc.dramsize - pa;
+		return ((uintptr)PHYSDRAM+soc.dramsize) - pa;
 	return 0;
 }
 

@@ -15,8 +15,10 @@
 
 Soc soc = {
 	.dramsize	= 512*MiB,
-	.physio		= 0x20000000,
 	.busdram	= 0x40000000,
+	.iosize		= 16*MiB,
+	.virtio		= VIRTIO,
+	.physio		= 0x20000000,
 	.busio		= 0x7E000000,
 	.armlocal	= 0,
 	.l1ptedramattrs = Cached | Buffered,

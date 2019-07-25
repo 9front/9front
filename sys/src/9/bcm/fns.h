@@ -28,6 +28,7 @@ extern u32int cpidget(void);
 extern void cpwr(int cp, int op1, int crn, int crm, int op2, ulong val);
 extern void cpwrsc(int op1, int crn, int crm, int op2, ulong val);
 #define cycles(ip) *(ip) = lcycles()
+extern void dmaflush(int, void*, ulong);
 extern void dmastart(int, int, int, void*, void*, int);
 extern int dmawait(int);
 extern uintptr dmaaddr(void *va);

@@ -17,10 +17,12 @@ typedef struct Mboxes Mboxes;
 #define	POWERREGS	(VIRTIO+0x100000)
 
 Soc soc = {
-	.dramsize	= 0x3F000000,
-	.physio		= 0x3F000000,
+	.dramsize	= 0x3E000000,
 	.busdram	= 0xC0000000,
+	.iosize		= 0x01000000,
 	.busio		= 0x7E000000,
+	.physio		= 0x3F000000,
+	.virtio		= VIRTIO,
 	.armlocal	= 0x40000000,
 };
 
@@ -164,5 +166,5 @@ wakecpu(uint cpu)
 void
 archbcm3link(void)
 {
-	addclock0link(wdogfeed, HZ);
+	// addclock0link(wdogfeed, HZ);
 }

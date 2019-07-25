@@ -63,3 +63,5 @@ enum {
 	ClkPixel,
 	ClkPwm,
 };
+
+#define BUSUNKNOWN (-1)

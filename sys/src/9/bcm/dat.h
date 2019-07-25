@@ -281,16 +281,16 @@ struct DevConf
 
 struct Soc {			/* SoC dependent configuration */
 	ulong	dramsize;
-	uintptr	physio;
+	ulong	iosize;
 	uintptr	busdram;
 	uintptr	busio;
+	uintptr	physio;
+	uintptr	virtio;
 	uintptr	armlocal;
 	u32int	l1ptedramattrs;
 	u32int	l2ptedramattrs;
 };
 extern Soc soc;
-
-#define BUSUNKNOWN -1
 
 /*
  * GPIO
