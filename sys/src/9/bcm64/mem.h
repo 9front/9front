@@ -5,11 +5,6 @@
 #define MiB		1048576u		/* Mebi 0x0000000000100000 */
 #define GiB		1073741824u		/* Gibi 000000000040000000 */
 
-#define	HOWMANY(x,y)	(((x)+((y)-1))/(y))
-#define	ROUNDUP(x,y)	(HOWMANY((x),(y))*(y))
-#define	PGROUND(s)	ROUNDUP(s, BY2PG)
-#define	ROUND(s, sz)	(((s)+(sz-1))&~(sz-1))
-
 /*
  * Sizes:
  * 	L0	L1	L2	L3
@@ -19,19 +14,21 @@
  */
 #define	PGSHIFT		16		/* log(BY2PG) */
 #define	BY2PG		(1ULL<<PGSHIFT)	/* bytes per page */
+#define	ROUND(s, sz)	(((s)+(sz-1))&~(sz-1))
+#define	PGROUND(s)	ROUND(s, BY2PG)
 
 /* effective virtual address space */
-#define EVASHIFT	33
+#define EVASHIFT	34
 #define EVAMASK		((1ULL<<EVASHIFT)-1)
 
 #define PTSHIFT		(PGSHIFT-3)
-#define PTLEVELS	HOWMANY(EVASHIFT-PGSHIFT, PTSHIFT)
+#define PTLEVELS	(((EVASHIFT-PGSHIFT)+PTSHIFT-1)/PTSHIFT)	
 #define PTLX(v, l)	((((v) & EVAMASK) >> (PGSHIFT + (l)*PTSHIFT)) & ((1 << PTSHIFT)-1))
 #define PGLSZ(l)	(1ULL << (PGSHIFT + (l)*PTSHIFT))
 
 #define PTL1X(v, l)	(L1TABLEX(v, l) | PTLX(v, l))
 #define L1TABLEX(v, l)	(L1TABLE(v, l) << PTSHIFT)
-#define L1TABLES	HOWMANY(-KSEG0, PGLSZ(2))
+#define L1TABLES	((-KSEG0+PGLSZ(2)-1)/PGLSZ(2))
 #define L1TABLE(v, l)	(L1TABLES - ((PTLX(v, 2) % L1TABLES) >> (((l)-1)*PTSHIFT)) + (l)-1)
 #define L1TOPSIZE	(1ULL << (EVASHIFT - PTLEVELS*PTSHIFT))
 
@@ -43,11 +40,17 @@
 #define TRAPFRAMESIZE	(38*8)
 
 #define KSEG0		(0xFFFFFFFF00000000ULL)
-#define VIRTIO		(0xFFFFFFFF3F000000ULL)	/* i/o registers */
-#define	ARMLOCAL	(0xFFFFFFFF40000000ULL)
-#define	KZERO		(0xFFFFFFFF80000000ULL)	/* kernel address space */
-#define FRAMEBUFFER	(0xFFFFFFFFC0000000ULL|PTEWT)
+#define FRAMEBUFFER	(0xFFFFFFFF00000000ULL|PTEWT)
 #define	VGPIO		0			/* virtual gpio for pi3 ACT LED */
+
+#define VIRTPCI		(0xFFFFFFFF80000000ULL) /* virtual pcie mmio */
+
+#define VIRTIO2		(0xFFFFFFFFBC000000ULL)	/* 0x7C000000	-		0xFC000000 */
+#define VIRTIO1		(0xFFFFFFFFBD000000ULL)	/* 0x7D000000	-		0xFD000000 */
+#define VIRTIO		(0xFFFFFFFFBE000000ULL) /* 0x7E000000	0x3F000000	0xFE000000 */
+#define	ARMLOCAL	(0xFFFFFFFFBF800000ULL)	/* -		0x40000000	0xFF800000 */
+
+#define	KZERO		(0xFFFFFFFFC0000000ULL)	/* kernel address space */
 
 #define SPINTABLE	(KZERO+0xd8)
 #define CONFADDR	(KZERO+0x100)
@@ -127,7 +130,6 @@
  *	BUS  addresses as seen from the videocore gpu.
  */
 #define	PHYSDRAM	0
-#define	IOSIZE		(16*MiB)
 
 #define MIN(a, b)	((a) < (b)? (a): (b))
 #define MAX(a, b)	((a) > (b)? (a): (b))
