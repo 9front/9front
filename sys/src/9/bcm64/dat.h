@@ -24,6 +24,7 @@ typedef struct MMMU	MMMU;
 typedef struct Mach	Mach;
 typedef struct Page	Page;
 typedef struct PhysUart	PhysUart;
+typedef struct Pcidev	Pcidev;
 typedef struct PMMU	PMMU;
 typedef struct Proc	Proc;
 typedef u64int		PTE;
@@ -33,6 +34,7 @@ typedef struct Ureg	Ureg;
 typedef uvlong		Tval;
 typedef void		KMap;
 
+#pragma incomplete Pcidev
 #pragma incomplete Ureg
 
 #define MAXSYSARG	5	/* for mount(fd, mpt, flag, arg, srv) */

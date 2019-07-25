@@ -26,46 +26,56 @@ mmu0init(uintptr *l1)
 		l1[PTL1X(va, 1)] = pa | PTEVALID | PTEBLOCK | attr;
 		l1[PTL1X(pa, 1)] = pa | PTEVALID | PTEBLOCK | attr;
 	}
-	pe = (uintptr)-KZERO;	/* populate top levels for mmukmap() */
 	if(PTLEVELS > 2)
-	for(pa = PHYSDRAM, va = KZERO; pa < pe; pa += PGLSZ(2), va += PGLSZ(2)){
-		l1[PTL1X(va, 2)] = (uintptr)&l1[L1TABLEX(va, 1)] | PTEVALID | PTETABLE;
+	for(pa = PHYSDRAM, va = KZERO; pa < pe; pa += PGLSZ(2), va += PGLSZ(2))
 		l1[PTL1X(pa, 2)] = (uintptr)&l1[L1TABLEX(pa, 1)] | PTEVALID | PTETABLE;
-	}
 	if(PTLEVELS > 3)
-	for(pa = PHYSDRAM, va = KZERO; pa < pe; pa += PGLSZ(3), va += PGLSZ(3)){
-		l1[PTL1X(va, 3)] = (uintptr)&l1[L1TABLEX(va, 2)] | PTEVALID | PTETABLE;
+	for(pa = PHYSDRAM, va = KZERO; pa < pe; pa += PGLSZ(3), va += PGLSZ(3))
 		l1[PTL1X(pa, 3)] = (uintptr)&l1[L1TABLEX(pa, 2)] | PTEVALID | PTETABLE;
-	}
 
 	/* VIRTIO */
 	attr = PTEWRITE | PTEAF | PTEKERNEL | PTESH(SHARE_OUTER) | PTEDEVICE;
-	pe = soc.physio + IOSIZE;
-	for(pa = soc.physio, va = VIRTIO; pa < pe; pa += PGLSZ(1), va += PGLSZ(1)){
-		if(pe - pa < PGLSZ(1)){
+	pe = soc.physio + soc.iosize;
+	for(pa = soc.physio, va = soc.virtio; pa < pe; pa += PGLSZ(1), va += PGLSZ(1)){
+		if(((pa|va) & PGLSZ(1)-1) != 0){
 			l1[PTL1X(va, 1)] = (uintptr)l1 | PTEVALID | PTETABLE;
-			for(; pa < pe; pa += PGLSZ(0), va += PGLSZ(0))
+			for(; pa < pe && ((va|pa) & PGLSZ(1)-1) != 0; pa += PGLSZ(0), va += PGLSZ(0)){
+				assert(l1[PTLX(va, 0)] == 0);
 				l1[PTLX(va, 0)] = pa | PTEVALID | PTEPAGE | attr;
+			}
 			break;
 		}
 		l1[PTL1X(va, 1)] = pa | PTEVALID | PTEBLOCK | attr;
 	}
-	if(PTLEVELS > 2)
-	for(pa = soc.physio, va = VIRTIO; pa < pe; pa += PGLSZ(2), va += PGLSZ(2))
-		l1[PTL1X(va, 2)] = (uintptr)&l1[L1TABLEX(va, 1)] | PTEVALID | PTETABLE;
-	if(PTLEVELS > 3)
-	for(pa = soc.physio, va = VIRTIO; pa < pe; pa += PGLSZ(3), va += PGLSZ(3))
-		l1[PTL1X(va, 3)] = (uintptr)&l1[L1TABLEX(va, 2)] | PTEVALID | PTETABLE;
 
 	/* ARMLOCAL */
+	attr = PTEWRITE | PTEAF | PTEKERNEL | PTESH(SHARE_OUTER) | PTEDEVICE;
 	pe = soc.armlocal + MB;
-	for(pa = soc.armlocal, va = ARMLOCAL; pa < pe; pa += PGLSZ(1), va += PGLSZ(1))
+	for(pa = soc.armlocal, va = ARMLOCAL; pa < pe; pa += PGLSZ(1), va += PGLSZ(1)){
+		if(((pa|va) & PGLSZ(1)-1) != 0){
+			l1[PTL1X(va, 1)] = (uintptr)l1 | PTEVALID | PTETABLE;
+			for(; pa < pe && ((va|pa) & PGLSZ(1)-1) != 0; pa += PGLSZ(0), va += PGLSZ(0)){
+				assert(l1[PTLX(va, 0)] == 0);
+				l1[PTLX(va, 0)] = pa | PTEVALID | PTEPAGE | attr;
+			}
+			break;
+		}
 		l1[PTL1X(va, 1)] = pa | PTEVALID | PTEBLOCK | attr;
+	}
+
+	/* VIRTPCI */
+	if(soc.pciwin){
+		attr = PTEWRITE | PTEAF | PTEKERNEL | PTESH(SHARE_OUTER) | PTEDEVICE;
+		pe = soc.pciwin + 512*MB;
+		for(pa = soc.pciwin, va = VIRTPCI; pa < pe; pa += PGLSZ(1), va += PGLSZ(1))
+			l1[PTL1X(va, 1)] = pa | PTEVALID | PTEBLOCK | attr;
+	}
+
 	if(PTLEVELS > 2)
-	for(pa = soc.armlocal, va = ARMLOCAL; pa < pe; pa += PGLSZ(2), va += PGLSZ(2))
+	for(va = KSEG0; va != 0; va += PGLSZ(2))
 		l1[PTL1X(va, 2)] = (uintptr)&l1[L1TABLEX(va, 1)] | PTEVALID | PTETABLE;
 	if(PTLEVELS > 3)
-	for(pa = soc.armlocal, va = ARMLOCAL; pa < pe; pa += PGLSZ(3), va += PGLSZ(3))
+	for(va = KSEG0; va != 0; va += PGLSZ(3))
 		l1[PTL1X(va, 3)] = (uintptr)&l1[L1TABLEX(va, 2)] | PTEVALID | PTETABLE;
 }
 
@@ -107,6 +117,7 @@ mmuidmap(uintptr *l1)
 	for(pa = PHYSDRAM, va = KZERO; pa < pe; pa += PGLSZ(3), va += PGLSZ(3))
 		l1[PTL1X(pa, 3)] = l1[PTL1X(va, 3)];
 	setttbr(PADDR(&l1[L1TABLEX(0, PTLEVELS-1)]));
+	flushtlb();
 }
 
 void
@@ -182,6 +193,23 @@ mmukmap(uintptr va, uintptr pa, usize size)
 	}
 	flushtlb();
 	return a;
+}
+
+void*
+vmap(uintptr pa, int)
+{
+	if(soc.pciwin && pa >= soc.pciwin)
+		return (void*)(VIRTPCI + (pa - soc.pciwin));
+	if(soc.armlocal && pa >= soc.armlocal)
+		return (void*)(ARMLOCAL + (pa - soc.armlocal));
+	if(soc.physio && pa >= soc.physio)
+		return (void*)(soc.virtio + (pa - soc.physio));
+	return nil;
+}
+
+void
+vunmap(void *, int)
+{
 }
 
 static uintptr*
