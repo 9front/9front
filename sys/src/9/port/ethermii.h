@@ -13,6 +13,8 @@ enum {					/* registers */
 	Annprr		= 0x08,		/* AN Next Page RX */
 	Mscr		= 0x09,		/* MASTER-SLAVE Control */
 	Mssr		= 0x0A,		/* MASTER-SLAVE Status */
+	Mmdctrl		= 0x0D,		/* MMD Access Control */
+	Mmddata		= 0x0E,		/* MMD Access Data Register */
 	Esr		= 0x0F,		/* Extended Status */
 
 	NMiiPhyr	= 32,
@@ -94,6 +96,7 @@ typedef struct Mii {
 
 typedef struct MiiPhy {
 	Mii*	mii;
+	u32int	id;
 	int	oui;
 	int	phyno;
 
@@ -114,3 +117,6 @@ extern int miimir(Mii*, int);
 extern int miimiw(Mii*, int, int);
 extern int miireset(Mii*);
 extern int miistatus(Mii*);
+
+extern int miimmdr(Mii*, int, int);
+extern int miimmdw(Mii*, int, int, int);

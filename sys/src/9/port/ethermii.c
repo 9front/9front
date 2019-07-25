@@ -14,7 +14,8 @@ int
 mii(Mii* mii, int mask)
 {
 	MiiPhy *miiphy;
-	int bit, oui, phyno, r, rmask;
+	int bit, oui, phyno, rmask;
+	u32int id;
 
 	/*
 	 * Probe through mii for PHYs in mask;
@@ -33,10 +34,9 @@ mii(Mii* mii, int mask)
 		}
 		if(mii->mir(mii, phyno, Bmsr) == -1)
 			continue;
-		r = mii->mir(mii, phyno, Phyidr1);
-		oui = (r & 0x3FFF)<<6;
-		r = mii->mir(mii, phyno, Phyidr2);
-		oui |= r>>10;
+		id = mii->mir(mii, phyno, Phyidr1) << 16;
+		id |= mii->mir(mii, phyno, Phyidr2);
+		oui = (id & 0x3FFFFC00)>>10;
 		if(oui == 0xFFFFF || oui == 0)
 			continue;
 
@@ -44,6 +44,7 @@ mii(Mii* mii, int mask)
 			continue;
 
 		miiphy->mii = mii;
+		miiphy->id = id;
 		miiphy->oui = oui;
 		miiphy->phyno = phyno;
 
@@ -232,4 +233,30 @@ miistatus(Mii* mii)
 	phy->link = 1;
 
 	return 0;
+}
+
+int
+miimmdr(Mii* mii, int a, int r)
+{
+	a &= 0x1F;
+	if(miimiw(mii, Mmdctrl, a) == -1)
+		return -1;
+	if(miimiw(mii, Mmddata, r) == -1)
+		return -1;
+	if(miimiw(mii, Mmdctrl, a | 0x4000) == -1)
+		return -1;
+	return miimir(mii, Mmddata);
+}
+
+int
+miimmdw(Mii* mii, int a, int r, int data)
+{
+	a &= 0x1F;
+	if(miimiw(mii, Mmdctrl, a) == -1)
+		return -1;
+	if(miimiw(mii, Mmddata, r) == -1)
+		return -1;
+	if(miimiw(mii, Mmdctrl, a | 0x4000) == -1)
+		return -1;
+	return miimiw(mii, Mmddata, data);
 }
