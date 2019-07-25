@@ -10,6 +10,8 @@
 #include "ureg.h"
 #include "sysreg.h"
 
+int	(*buserror)(Ureg*);
+
 /* SPSR bits user can modify */
 #define USPSRMASK	(0xFULL<<28)
 
@@ -141,6 +143,8 @@ trap(Ureg *ureg)
 		}
 		if(intr == 3){
 	case 0x2F:	// SError interrupt
+			if(buserror != nil && (*buserror)(ureg))
+				break;
 			dumpregs(ureg);
 			panic("SError interrupt");
 			break;
