@@ -1,0 +1,63 @@
+dev
+	root
+	cons
+	swap
+	env
+	pipe
+	proc
+	mnt
+	srv
+	shr
+	dup
+	arch
+	ssl
+	tls
+	cap
+	fs
+	ether	netif
+	ip		arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium inferno
+	draw	screen swcursor
+	mouse	mouse
+	uart	gpio
+#	gpio	gpio
+	sd
+	usb
+	dtracy
+
+link
+	gisb
+	pci
+	archbcm4
+	ethergenet	ethermii
+	ethermedium
+	loopbackmedium
+	usbxhci		pci
+
+ip
+	tcp
+	udp
+	il
+	ipifc
+	icmp
+	icmp6
+	ipmux
+
+misc
+	uartmini
+	uartpl011
+#	sdmmc	emmc
+	dma
+	gic
+	vcore
+
+	dtracysys
+	dtracytimer
+
+port
+	int cpuserver = 0;
+
+bootdir
+	/$objtype/bin/paqfs
+	/$objtype/bin/auth/factotum
+	bootfs.paq
+	boot

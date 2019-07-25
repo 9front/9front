@@ -1,5 +1,5 @@
 CONF=pi3
-CONFLIST=pi3
+CONFLIST=pi3 pi4
 
 loadaddr=0xffffffffc0080000
 
