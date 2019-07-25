@@ -85,7 +85,7 @@ main(void)
 	memset(edata, 0, end - edata);	/* clear bss */
 	mach0init();
 	quotefmtinstall();
-	bootargsinit();
+	bootargsinit(0);
 	confinit();		/* figures out amount of memory */
 	xinit();
 	uartconsinit();

@@ -151,14 +151,16 @@ confinit(void)
 
 	if(p = getconf("*maxmem"))
 		memsize = strtoul(p, 0, 0) - PHYSDRAM;
-	if (memsize < 16*MB)		/* sanity */
-		memsize = 16*MB;
+	if (memsize < 512*MB)		/* sanity */
+		memsize = 512*MB;
 	getramsize(&conf.mem[0]);
 	if(conf.mem[0].limit == 0){
 		conf.mem[0].base = PHYSDRAM;
 		conf.mem[0].limit = PHYSDRAM + memsize;
 	}else if(p != nil)
 		conf.mem[0].limit = conf.mem[0].base + memsize;
+	if (conf.mem[0].limit > PHYSDRAM + soc.dramsize)
+		conf.mem[0].limit = PHYSDRAM + soc.dramsize;
 
 	conf.npage = 0;
 	pa = PADDR(PGROUND((uintptr)end));
@@ -239,21 +241,18 @@ mpinit(void)
 	extern void _start(void);
 	int i;
 
-	for(i = 0; i < MAXMACH; i++)
-		((uintptr*)SPINTABLE)[i] = 0;
-
-	for(i = 1; i < conf.nmach; i++)
+	for(i = 1; i < conf.nmach; i++){
 		MACHP(i)->machno = i;
-
-	coherence();
-
-	for(i = 1; i < conf.nmach; i++)
-		((uintptr*)SPINTABLE)[i] = PADDR(_start);
-
+		cachedwbinvse(MACHP(i), MACHSIZE);
+	}
+	for(i = 0; i < MAXMACH; i++)
+		((uintptr*)SPINTABLE)[i] = i < conf.nmach ? PADDR(_start) : 0;
 	cachedwbinvse((void*)SPINTABLE, MAXMACH*8);
+
 	sev();
 	delay(100);
 	sev();
+
 	synccycles();
 
 	for(i = 0; i < MAXMACH; i++)
@@ -261,7 +260,7 @@ mpinit(void)
 }
 
 void
-main(void)
+main(uintptr arg0)
 {
 	machinit();
 	if(m->machno){
@@ -278,7 +277,7 @@ main(void)
 		return;
 	}
 	quotefmtinstall();
-	bootargsinit();
+	bootargsinit(arg0);
 	confinit();
 	xinit();
 	printinit();
@@ -313,7 +312,6 @@ rebootjump(void *entry, void *code, ulong size)
 {
 	void (*f)(void*, void*, ulong);
 
-	intrsoff();
 	intrcpushutdown();
 
 	/* redo identity map */
@@ -322,6 +320,7 @@ rebootjump(void *entry, void *code, ulong size)
 	/* setup reboot trampoline function */
 	f = (void*)REBOOTADDR;
 	memmove(f, rebootcode, sizeof(rebootcode));
+
 	cachedwbinvse(f, sizeof(rebootcode));
 	cacheiinvse(f, sizeof(rebootcode));
 
@@ -363,6 +362,7 @@ reboot(void *entry, void *code, ulong size)
 	/* stop the clock (and watchdog if any) */
 	clockshutdown();
 	wdogoff();
+	intrsoff();
 
 	/* off we go - never to return */
 	rebootjump(entry, code, size);

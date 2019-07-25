@@ -163,7 +163,7 @@ extern void vgpinit(void);
 extern void vgpset(uint port, int on);
 
 /* bootargs */
-extern void bootargsinit(void);
+extern void bootargsinit(uintptr);
 extern char *getconf(char *name);
 extern void setconfenv(void);
 extern void writeconf(void);

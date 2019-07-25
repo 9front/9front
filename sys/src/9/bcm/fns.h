@@ -5,7 +5,7 @@ Dirtab*	addarchfile(char*, int, long(*)(Chan*, void*, long, vlong),
 extern void archreboot(void);
 extern void archreset(void);
 extern void armtimerset(int);
-extern void bootargsinit(void);
+extern void bootargsinit(uintptr);
 extern void cachedwbinv(void);
 extern void cachedwbse(void*, int);
 extern void cachedwbinvse(void*, int);

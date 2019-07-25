@@ -11,29 +11,7 @@
 static char *confname[MAXCONF];
 static char *confval[MAXCONF];
 static int nconf;
-
-typedef struct Atag Atag;
-struct Atag {
-	u32int	size;	/* size of atag in words, including this header */
-	u32int	tag;	/* atag type */
-	union {
-		u32int	data[1];	/* actually [size-2] */
-		/* AtagMem */
-		struct {
-			u32int	size;
-			u32int	base;
-		} mem;
-		/* AtagCmdLine */
-		char	cmdline[1];	/* actually [4*(size-2)] */
-	};
-};
-
-enum {
-	AtagNone	= 0x00000000,
-	AtagCore	= 0x54410001,
-	AtagMem		= 0x54410002,
-	AtagCmdline	= 0x54410009,
-};
+static char maxmem[11];
 
 static int
 findconf(char *k)
@@ -85,22 +63,150 @@ plan9iniinit(char *s, int cmdline)
 	}
 }
 
-void
-bootargsinit(void)
+typedef struct Devtree Devtree;
+struct Devtree
 {
-	static char maxmem[11];
-	char x, *e;
-	Atag *a;
+	uchar	*base;
+	uchar	*end;
+	char	*stab;
+	char	path[1024];
+};
 
-	e = BOOTARGS;
-	a = (Atag*)e;
-	if(a->tag != AtagCore){
-		plan9iniinit(e, 0);
+enum {
+	DtHeader	= 0xd00dfeed,
+	DtBeginNode	= 1,
+	DtEndNode	= 2,
+	DtProp		= 3,
+	DtEnd		= 9,
+};
+
+static u32int
+beget4(uchar *p)
+{
+	return (u32int)p[0]<<24 | (u32int)p[1]<<16 | (u32int)p[2]<<8 | (u32int)p[3];
+}
+
+static void
+devtreeprop(char *path, char *key, void *val, int len)
+{
+	if(strcmp(path, "/memory") == 0 && strcmp(key, "reg") == 0 && len == 3*4){
+		if(findconf("*maxmem") < 0){
+			uvlong top;
+
+			top = (uvlong)beget4((uchar*)val)<<32 | beget4((uchar*)val+4);
+			top += beget4((uchar*)val+8);
+			snprint(maxmem, sizeof(maxmem), "%#llux", top);
+			addconf("*maxmem", maxmem);
+		}
 		return;
 	}
+	if(strcmp(path, "/chosen") == 0 && strcmp(key, "bootargs") == 0){
+		if(len > BOOTARGSLEN)
+			len = BOOTARGSLEN;
+		memmove(BOOTARGS, val, len);
+		plan9iniinit(BOOTARGS, 1);
+		return;
+	}
+}
+
+static uchar*
+devtreenode(Devtree *t, uchar *p, char *cp)
+{
+	uchar *e = (uchar*)t->stab;
+	char *s;
+	int n;
+
+	if(p+4 > e || beget4(p) != DtBeginNode)
+		return nil;
+	p += 4;
+	if((s = memchr((char*)p, 0, e - p)) == nil)
+		return nil;
+	n = s - (char*)p;
+	cp += n;
+	if(cp >= &t->path[sizeof(t->path)])
+		return nil;
+	memmove(cp - n, (char*)p, n);
+	*cp = 0;
+	p += (n + 4) & ~3;
+	while(p+12 <= e && beget4(p) == DtProp){
+		n = beget4(p+4);
+		if(p + 12 + n > e)
+			return nil;
+		s = t->stab + beget4(p+8);
+		if(s < t->stab || s >= (char*)t->end
+		|| memchr(s, 0, (char*)t->end - s) == nil)
+			return nil;
+		devtreeprop(t->path, s, p+12, n);
+		p += 12 + ((n + 3) & ~3);
+	}
+	while(p+4 <= e && beget4(p) == DtBeginNode){
+		*cp = '/';
+		p = devtreenode(t, p, cp+1);
+		if(p == nil)
+			return nil;
+	}
+	if(p+4 > e || beget4(p) != DtEndNode)
+		return nil;
+	return p+4;
+}
+
+static int
+parsedevtree(uchar *base, uintptr len)
+{
+	Devtree t[1];
+	u32int total;
+
+	if(len < 28 || beget4(base) != DtHeader)
+		return -1;
+	total = beget4(base+4);
+	if(total < 28 || total > len)
+		return -1;
+	t->base = base;
+	t->end = t->base + total;
+	t->stab = (char*)base + beget4(base+12);
+	if(t->stab >= (char*)t->end)
+		return -1;
+	devtreenode(t, base + beget4(base+8), t->path);
+	return  0;
+}
+
+typedef struct Atag Atag;
+struct Atag {
+	u32int	size;	/* size of atag in words, including this header */
+	u32int	tag;	/* atag type */
+	union {
+		u32int	data[1];	/* actually [size-2] */
+		/* AtagMem */
+		struct {
+			u32int	size;
+			u32int	base;
+		} mem;
+		/* AtagCmdLine */
+		char	cmdline[1];	/* actually [4*(size-2)] */
+	};
+};
+
+enum {
+	AtagNone	= 0x00000000,
+	AtagCore	= 0x54410001,
+	AtagMem		= 0x54410002,
+	AtagCmdline	= 0x54410009,
+};
+
+static int
+parseatags(char *base, uintptr len)
+{
+	char x, *e = base;
+	Atag *a;
+
+	if(e+8 > base+len)
+		return -1;
+	a = (Atag*)e;
+	if(a->tag != AtagCore)
+		return -1;
 	while(a->tag != AtagNone){
 		e += a->size * sizeof(u32int);
-		if(a->size < 2 || e < (char*)a || e > &BOOTARGS[BOOTARGSLEN])
+		if(a->size < 2 || e < (char*)a || e > base+len)
 			break;
 		switch(a->tag){
 		case AtagMem:
@@ -116,10 +222,32 @@ bootargsinit(void)
 			*e = x;
 			break;
 		}
-		if(e > &BOOTARGS[BOOTARGSLEN-8])
+		if(e+8 > base+len)
 			break;
 		a = (Atag*)e;
 	}
+	return 0;
+}
+
+void
+bootargsinit(uintptr pa)
+{
+	uintptr len;
+
+	/*
+	 * kernel gets DTB/ATAGS pointer in R0 on entry
+	 */
+	if(pa != 0 && (len = cankaddr(pa)) != 0){
+		void *va = KADDR(pa);
+		if(parseatags(va, len) == 0 || parsedevtree(va, len) == 0)
+			return;
+	}
+
+	/*
+	 * /dev/reboot case, check CONFADDR
+	 */
+	if(parseatags(BOOTARGS, BOOTARGSLEN) != 0)
+		plan9iniinit(BOOTARGS, 0);
 }
 
 char*

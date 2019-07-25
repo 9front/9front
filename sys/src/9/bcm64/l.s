@@ -5,6 +5,8 @@
 #define	SYSREG(op0,op1,Cn,Cm,op2)	SPR(((op0)<<19|(op1)<<16|(Cn)<<12|(Cm)<<8|(op2)<<5))
 
 TEXT _start(SB), 1, $-4
+	MOV	R0, R26		/* save */
+
 	MOV	$setSB-KZERO(SB), R28
 	BL	svcmode<>(SB)
 
@@ -55,6 +57,7 @@ _startup:
 	WFE
 	BL	mmuenable<>(SB)
 
+	MOV	R26, R0
 	MOV	$0, R26
 	ORR	$KZERO, R27
 	MSR	R27, TPIDR_EL1
@@ -70,11 +73,6 @@ _stop:
 TEXT sev(SB), 1, $-4
 	SEV
 	WFE
-	RETURN
-
-TEXT PUTC(SB), 1, $-4
-	MOVWU $(0x3F000000+0x215040), R14
-	MOVB R0, (R14)
 	RETURN
 
 TEXT svcmode<>(SB), 1, $-4

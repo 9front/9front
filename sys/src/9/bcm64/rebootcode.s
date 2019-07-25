@@ -44,6 +44,11 @@ _mmuoff:
 
 	BL	cachedwbinv(SB)
 	BL	cacheiinv(SB)
+
+	MOVWU	$0, R0
+	MOVWU	$0, R1
+	MOVWU	$0, R2
+	MOVWU	$0, R3
 _wait:
 	WFE
 	MOV	(R27), LR
