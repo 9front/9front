@@ -43,6 +43,7 @@ misc
 	dma
 	vcore
 	vfp3	coproc
+	irq
 
 port
 	int cpuserver = 0;

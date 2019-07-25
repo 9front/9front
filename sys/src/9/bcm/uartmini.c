@@ -100,7 +100,7 @@ enable(Uart *uart, int ie)
 	ap[MuCntl] = TxEn|RxEn;
 	baud(uart, uart->baud);
 	if(ie){
-		intrenable(IRQaux, interrupt, uart, 0, uart->name);
+		intrenable(IRQaux, interrupt, uart, BUSUNKNOWN, uart->name);
 		ap[MuIer] = RxIen|TxIen;
 	}else
 		ap[MuIer] = 0;

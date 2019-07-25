@@ -61,8 +61,8 @@ extern int gpiogetevent(uint);
 extern void gpiomeminit(void);
 extern u32int ifsrget(void);
 extern void intrcpushutdown(void);
-extern void irqenable(int, void (*)(Ureg*, void*), void*);
-#define intrenable(i, f, a, b, n) irqenable((i), (f), (a))
+extern void intrenable(int, void (*)(Ureg*, void*), void*, int, char*);
+extern void intrdisable(int, void (*)(Ureg*, void*), void*, int, char*);
 extern void intrsoff(void);
 extern int isaconfig(char*, int, ISAConf*);
 extern void l2cacheuwbinv(void);

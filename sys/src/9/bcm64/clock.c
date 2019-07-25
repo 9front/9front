@@ -131,7 +131,7 @@ clockinit(void)
 		*(u32int*)(ARMLOCAL + Prescaler) = (((uvlong)SystimerFreq<<31)/19200000)&~1UL;
 	} else {
 		syswr(CNTP_CTL_EL0, Enable);
-		intrenable(IRQcntpns, localclockintr, nil, 0, "clock");
+		intrenable(IRQcntpns, localclockintr, nil, BUSUNKNOWN, "clock");
 	}
 
 	tn = (Systimers*)SYSTIMERS;
@@ -151,7 +151,7 @@ clockinit(void)
 	if(m->machno == 0){
 		tn->cs = 1<<3;
 		tn->c3 = tn->clo - 1;
-		intrenable(IRQtimer3, clockintr, nil, 0, "clock");
+		intrenable(IRQtimer3, clockintr, nil, BUSUNKNOWN, "clock");
 
 		tm = (Armtimer*)ARMTIMER;
 		tm->load = 0;

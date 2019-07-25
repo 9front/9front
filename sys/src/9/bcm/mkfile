@@ -50,7 +50,6 @@ OBJ=\
 	fpi.$O\
 	fpiarm.$O\
 	fpimem.$O\
-	irq.$O\
 	main.$O\
 	mmu.$O\
 	random.$O\

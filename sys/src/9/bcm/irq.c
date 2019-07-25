@@ -114,7 +114,7 @@ fiq(Ureg *ureg)
 }
 
 void
-irqenable(int irq, void (*f)(Ureg*, void*), void* a)
+intrenable(int irq, void (*f)(Ureg*, void*), void* a, int, char*)
 {
 	Vctl *v;
 	Intregs *ip;
@@ -164,4 +164,9 @@ irqenable(int irq, void (*f)(Ureg*, void*), void* a)
 			*enable = v->mask;
 	}
 	unlock(&vctllock);
+}
+
+void
+intrdisable(int, void (*)(Ureg*, void*), void*, int, char*)
+{
 }

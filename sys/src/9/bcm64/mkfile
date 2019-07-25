@@ -44,7 +44,6 @@ OBJ=\
 	bootargs.$O\
 	clock.$O\
 	fpu.$O\
-	irq.$O\
 	main.$O\
 	mmu.$O\
 	sysreg.$O\

@@ -85,6 +85,8 @@ static void dumpctlr(Ctlr *ctlr);
 static void dumphchan(Ctlr *ctlr, Hostchan *hc);
 static void dump(Hci *hp);
 
+#define	HOWMANY(x, y)	(((x)+((y)-1))/(y))
+
 static void
 filock(Lock *l)
 {
@@ -1051,7 +1053,7 @@ reset(Hci *hp)
 		return -1;
 	dprint("usbdwc: rev %d.%3.3x\n", (id>>12)&0xF, id&0xFFF);
 
-	intrenable(IRQtimerArm, irqintr, ctlr, 0, "dwc");
+	intrenable(IRQtimerArm, irqintr, ctlr, BUSUNKNOWN, "dwc");
 
 	hp->aux = ctlr;
 	hp->port = 0;
@@ -1075,7 +1077,7 @@ reset(Hci *hp)
 	hp->debug = setdebug;
 	hp->type = "dwcotg";
 
-	intrenable(hp->irq, hp->interrupt, hp, UNKNOWN, "usbdwcotg");
+	intrenable(hp->irq, hp->interrupt, hp, BUSUNKNOWN, "usbdwcotg");
 
 	return 0;
 }

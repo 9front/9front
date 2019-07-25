@@ -43,6 +43,7 @@ misc
 	sdmmc	emmc
 	dma
 	vcore
+	irq
 
 	dtracysys
 	dtracytimer

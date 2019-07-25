@@ -148,7 +148,7 @@ enable(Uart *uart, int ie)
 
 	disable(uart);
 	if(ie){
-		intrenable(IRQuart, interrupt, uart, 0, uart->name);
+		intrenable(IRQuart, interrupt, uart, BUSUNKNOWN, uart->name);
 		reg[IMSC] = TXIM|RXIM;
 	}
 	uarton(uart);

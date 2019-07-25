@@ -236,7 +236,7 @@ emmcenable(void)
 	if(i == 1000)
 		print("SD clock won't initialise!\n");
 	WR(Irptmask, ~(Dtoerr|Cardintr));
-	intrenable(IRQmmc, mmcinterrupt, nil, 0, "mmc");
+	intrenable(IRQmmc, mmcinterrupt, nil, BUSUNKNOWN, "mmc");
 }
 
 static int
@@ -398,8 +398,6 @@ emmcio(int write, uchar *buf, int len)
 	}
 	if(i)
 		WR(Interrupt, i);
-	if(!write)
-		cachedinvse(buf, len);
 	poperror();
 	okay(0);
 }

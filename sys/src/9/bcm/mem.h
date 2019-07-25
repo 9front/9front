@@ -10,9 +10,7 @@
  */
 #define	BY2PG		(4*KiB)			/* bytes per page */
 #define	PGSHIFT		12			/* log(BY2PG) */
-#define	HOWMANY(x,y)	(((x)+((y)-1))/(y))
-#define	ROUNDUP(x,y)	(HOWMANY((x),(y))*(y))
-#define	PGROUND(s)	ROUNDUP(s, BY2PG)
+#define	PGROUND(s)	ROUND(s, BY2PG)
 #define	ROUND(s, sz)	(((s)+(sz-1))&~(sz-1))
 
 #define	MAXMACH		4			/* max # cpus system can run */
@@ -51,8 +49,8 @@
 #define	FIQSTKTOP	(KZERO+0x4000)		/* FIQ stack */
 #define	L1		(KZERO+0x4000)		/* tt ptes: 16KiB aligned */
 #define	KTZERO		(KZERO+0x8000)		/* kernel text start */
-#define VIRTIO		0x7E000000		/* i/o registers */
-#define	ARMLOCAL	(VIRTIO+IOSIZE)		/* armv7 only */
+#define VIRTIO		(0x7E000000)		/* i/o registers */
+#define	ARMLOCAL	(0x7F000000)		/* armv7 only */
 #define	VGPIO		(ARMLOCAL+MiB)		/* virtual gpio for pi3 ACT LED */
 #define	FRAMEBUFFER	0xC0000000		/* video framebuffer */
 
@@ -95,7 +93,6 @@
  *	BUS  addresses as seen from the videocore gpu.
  */
 #define	PHYSDRAM	0
-#define	IOSIZE		(16*MiB)
 
 #define MIN(a, b)	((a) < (b)? (a): (b))
 #define MAX(a, b)	((a) > (b)? (a): (b))

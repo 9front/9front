@@ -110,8 +110,8 @@ extern void dumpregs(Ureg*);
 /* irq */
 extern void intrcpushutdown(void);
 extern void intrsoff(void);
-#define intrenable(i, f, a, b, n)	irqenable((i), (f), (a))
-extern void irqenable(int, void (*)(Ureg*, void*), void*);
+extern void intrenable(int, void (*)(Ureg*, void*), void*, int, char*);
+extern void intrdisable(int, void (*)(Ureg*, void*), void*, int, char*);
 extern int irq(Ureg*);
 extern void fiq(Ureg*);
 

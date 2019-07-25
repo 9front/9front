@@ -336,7 +336,7 @@ gpioinit(void)
 	gpiomeminit();
 	boardrev = getboardrev() & 0xff;
 	pinscheme = Qboard;
-	intrenable(49, interrupt, nil, 0, "gpio1");
+	intrenable(49, interrupt, nil, BUSUNKNOWN, "gpio1");
 }
 
 static void

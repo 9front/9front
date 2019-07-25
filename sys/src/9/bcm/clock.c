@@ -128,7 +128,7 @@ clockinit(void)
 			*(ulong*)(ARMLOCAL + Prescaler) = (((uvlong)SystimerFreq<<31)/19200000)&~1UL;
 		} else {
 			cpwrsc(0, CpTIMER, CpTIMERphys, CpTIMERphysctl, Enable);
-			intrenable(IRQcntpns, localclockintr, nil, 0, "clock");
+			intrenable(IRQcntpns, localclockintr, nil, BUSUNKNOWN, "clock");
 		}
 	}
 
@@ -148,7 +148,7 @@ clockinit(void)
 
 	if(m->machno == 0){
 		tn->c3 = tn->clo - 1;
-		intrenable(IRQtimer3, clockintr, nil, 0, "clock");
+		intrenable(IRQtimer3, clockintr, nil, BUSUNKNOWN, "clock");
 
 		tm = (Armtimer*)ARMTIMER;
 		tm->load = 0;
