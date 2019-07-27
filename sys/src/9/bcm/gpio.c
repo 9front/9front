@@ -30,36 +30,50 @@ enum {
 		Off	= 0x0,
 		Pulldown= 0x1,
 		Pullup	= 0x2,
+		PudMask	= 0x3,
+
 	PUDclk0	= 0x98>>2,
 	PUDclk1	= 0x9c>>2,
+
+	/* BCM2711 only */
+	PUPPDN0	= 0xe4>>2,
+	PUPPDN1	= 0xe8>>2,
+	PUPPDN2	= 0xec>>2,
+	PUPPDN3	= 0xf0>>2,
 };
+
+static u32int *regs = (u32int*)GPIOREGS;
 
 void
 gpiosel(uint pin, int func)
 {	
-	u32int *gp, *fsel;
-	int off;
-
-	gp = (u32int*)GPIOREGS;
-	fsel = &gp[Fsel0 + pin/10];
-	off = (pin % 10) * 3;
-	*fsel = (*fsel & ~(FuncMask<<off)) | func<<off;
+	int shift = (pin % 10) * 3;
+	u32int *reg = &regs[Fsel0 + pin/10];
+	func &= FuncMask;
+	*reg = (*reg & ~(FuncMask<<shift)) | (func<<shift);
 }
 
 void
 gpiopull(uint pin, int func)
 {
-	u32int *gp, *reg;
-	u32int mask;
-
-	gp = (u32int*)GPIOREGS;
-	reg = &gp[PUDclk0 + pin/32];
-	mask = 1 << (pin % 32);
-	gp[PUD] = func;
-	microdelay(1);
-	*reg = mask;
-	microdelay(1);
-	*reg = 0;
+	u32int *reg;
+	func &= PudMask;
+	if(regs[PUPPDN3] == 0x6770696f){
+		/* BCM2835, BCM2836, BCM2837 */
+		u32int mask = 1 << (pin % 32);
+		reg = &regs[PUDclk0 + pin/32];
+		regs[PUD] = func;
+		microdelay(1);
+		*reg = mask;
+		microdelay(1);
+		*reg = 0;
+	} else {
+		/* BCM2711 */
+		int shift = 2*(pin % 16);
+		static u32int map[PudMask+1] = {0x00,0x02,0x01};
+		reg = &regs[PUPPDN0 + pin/16];
+		*reg = (*reg & ~(3<<shift)) | (map[func] << shift);
+	}
 }
 
 void
@@ -83,46 +97,28 @@ gpiopulldown(uint pin)
 void
 gpioout(uint pin, int set)
 {
-	u32int *gp;
-	int v;
-
-	gp = (u32int*)GPIOREGS;
-	v = set? Set0 : Clr0;
-	gp[v + pin/32] = 1 << (pin % 32);
+	regs[(set? Set0: Clr0) + pin/32] = 1 << (pin % 32);
 }
 
 int
 gpioin(uint pin)
 {
-	u32int *gp;
-
-	gp = (u32int*)GPIOREGS;
-	return (gp[Lev0 + pin/32] & (1 << (pin % 32))) != 0;
+	return (regs[Lev0 + pin/32] & (1 << (pin % 32))) != 0;
 }
 
 void
 gpioselevent(uint pin, int falling, int enable)
 {
-	u32int *gp, *field;
-	int reg;
-
-	enable = enable != 0;
-	if(falling)
-		reg = Fedge0;
-	else
-		reg = Redge0;
-	gp = (u32int*)GPIOREGS;
-	field = &gp[reg + pin/32];
-	*field = (*field & ~(enable<<pin)) | (enable<<pin);
+	u32int *reg = &regs[(falling? Fedge0: Redge0) + pin/32];
+	*reg = (*reg & ~(1<<pin)) | ((enable != 0)<<pin);
 }
 
 int
 gpiogetevent(uint pin)
 {
-	u32int *gp, *reg, val;
+	u32int *reg, val;
 
-	gp = (u32int*)GPIOREGS;
-	reg = &gp[Evds0 + pin/32];
+	reg = &regs[Evds0 + pin/32];
 	val = *reg & (1 << (pin % 32));
 	*reg |= val;
 	return val != 0;
@@ -136,7 +132,7 @@ gpiomeminit(void)
 	memset(&seg, 0, sizeof seg);
 	seg.attr = SG_PHYSICAL;
 	seg.name = "gpio";
-	seg.pa = GPIOREGS;
+	seg.pa = (GPIOREGS - soc.virtio) + soc.physio;
 	seg.size = BY2PG;
 	addphysseg(&seg);
 }
