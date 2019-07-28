@@ -40,9 +40,18 @@ enum {
 	TagGetpower	= 0x00020001,
 	TagSetpower	= 0x00028001,
 		Powerwait	= 1<<1,
-	TagGetclkspd= 0x00030002,
-	TagGetclkmax= 0x00030004,
-	TagSetclkspd= 0x00038002,
+	TagGetclkstate	= 0x00030001,
+	TagGetclkspd	= 0x00030002,
+	TagGetclkmax	= 0x00030004,
+	TagSetclkstate	= 0x00038001,
+	TagSetclkspd	= 0x00038002,
+
+	TagGetEgpioState= 0x00030041,
+	TagSetEgpioState= 0x00038041,
+	TagSetSdhostClk	= 0x00038042,
+	TagGetEgpioConf	= 0x00030043,
+	TagSetEgpioConf	= 0x00038043,
+
 	TagGettemp	= 0x00030006,
 	TagFballoc	= 0x00040001,
 	TagFbfree	= 0x00048001,
@@ -387,4 +396,19 @@ vgpset(uint port, int on)
 		vgpio.decs++;
 	vgpio.counts[port] = (vgpio.incs << 16) | vgpio.decs;
 	vgpio.ison = on;
+}
+
+/*
+ * Raspberry Pi GPIO expander (Pi 3 and 4)
+ */
+void
+egpset(uint port, int on)
+{
+	u32int buf[2];
+
+	if(port >= 8)
+		return;
+	buf[0] = 128 + port;
+	buf[1] = on;
+	vcreq(TagSetEgpioState, buf, sizeof(buf), sizeof(buf));
 }

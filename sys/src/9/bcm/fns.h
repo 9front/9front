@@ -32,6 +32,7 @@ extern void dmaflush(int, void*, ulong);
 extern void dmastart(int, int, int, void*, void*, int);
 extern int dmawait(int);
 extern uintptr dmaaddr(void *va);
+extern void egpset(uint, int);
 extern int fbblank(int);
 extern void* fbinit(int, int*, int*, int*);
 extern u32int farget(void);

@@ -164,6 +164,7 @@ extern void setclkrate(int clkid, ulong hz);
 extern uint getcputemp(void);
 extern void vgpinit(void);
 extern void vgpset(uint port, int on);
+extern void egpset(uint port, int on);
 
 /* bootargs */
 extern void bootargsinit(uintptr);
