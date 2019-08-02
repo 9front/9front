@@ -90,7 +90,7 @@ auth_rpc(AuthRpc *rpc, char *verb, void *a, int na)
 		werrstr("unknown rpc type %d (bug in auth_rpc.c)", type);
 		break;
 	case ARok:
-		break;
+	case ARdone:
 	case ARrpcfailure:
 		break;
 	case ARerror:
