@@ -1145,7 +1145,7 @@ loop:
 		 */
 		i = 2;
 		if(longflg)
-			i = 8;
+			i = 6;
 		l = c - '0';
 		for(; i>0; i--) {
 			c = getc();
