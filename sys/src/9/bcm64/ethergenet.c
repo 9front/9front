@@ -261,75 +261,7 @@ struct Ctlr
 
 static Block *scratch;
 
-/*
-this driver causes the ethernet controller to stall the gisb bus
-which causes other devices to fail.
-*/
-#ifdef XXXDEBUG
-
-static u32int *lastgenetregaddr;
-static uintptr lastgenetregpc;
-static ulong lastgenetregtime;
-static Ctlr *xxx;
-
-#define REG(x)	*(logreg(&(x)))
-
-static u32int*
-logreg(u32int *x)
-{
-	coherence();
-	lastgenetregtime = MACHP(0)->ticks;
-	lastgenetregpc = getcallerpc(&x);
-	lastgenetregaddr = x;
-	return x;
-}
-
-static void
-dumparb(void)
-{
-	static int once;
-	static u32int *regs = (u32int*)(VIRTIO + 0x9800);
-
-	if(!once){
-		once = 1;
-		regs[0x00/4] |= 1;
-		regs[0x40/4] = (regs[0x40/4] & ~0x1F) | 9 | 0x40000000;
-	}
-	iprint("arb %.8ux %.8ux %.8ux %.8ux; "
-		"%.8ux %.8ux %.8ux %.8ux; "
-		"%.8ux %.8ux %.8ux\n",
-		regs[0x40/4], regs[0x44/4], regs[0x48/4], regs[0x4C/4],
-		regs[0x50/4], regs[0x54/4], regs[0x58/4], regs[0x5C/4],
-		regs[0x60/4], regs[0x64/4], regs[0x68/4]);
-}
-
-void
-genetclock(void)
-{
-	static int ctr;
-
-	if(xxx == nil)
-		return;
-
-	if((++ctr & 0xFF) != 0)
-		return;
-	iprint("%d %#p @ %#p; "
-		"rx=(%.2ux %.2ux [%.2ux]); "
-		"tx=(%.2ux %.2ux %.2ux [%.2ux]); "
-		"(%lud)\n",
-		m->machno,
-		lastgenetregaddr, lastgenetregpc,
-		xxx->rx->rp, xxx->rx->wp, xxx->rx->wp - xxx->rx->rp,
-		xxx->tx->cp, xxx->tx->rp, xxx->tx->wp, xxx->tx->wp - xxx->tx->rp,
-		tk2ms(MACHP(0)->ticks-lastgenetregtime));
-	dumparb();
-}
-
-#else
-
 #define	REG(x)	(x)
-
-#endif
 
 static void
 interrupt0(Ureg*, void *arg)
@@ -411,11 +343,6 @@ recvproc(void *arg)
 	Block *b;
 	u32int s;
 
-#ifdef XXXDEBUG
-	procwired(up, 1);
-	sched();
-#endif
-
 	while(waserror())
 		;
 
@@ -456,11 +383,6 @@ sendproc(void *arg)
 	Ctlr *ctlr = edev->ctlr;
 	Desc *d;
 	Block *b;
-
-#ifdef XXXDEBUG
-	procwired(up, 1);
-	sched();
-#endif
 
 	while(waserror())
 		;
@@ -504,11 +426,6 @@ freeproc(void *arg)
 	Ether *edev = arg;
 	Ctlr *ctlr = edev->ctlr;
 	Desc *d;
-
-#ifdef XXXDEBUG
-	procwired(up, 1);
-	sched();
-#endif
 
 	while(waserror())
 		;
@@ -824,11 +741,6 @@ linkproc(void *arg)
 	MiiPhy *phy;
 	int link = -1;
 
-#ifdef XXXDEBUG
-	procwired(up, 1);
-	sched();
-#endif
-
 	while(waserror())
 		;
 
@@ -984,10 +896,6 @@ attach(Ether *edev)
 
 	miiane(ctlr->mii, ~0, AnaAP|AnaP, ~0);
 
-#ifdef XXXDEBUG
-	xxx = ctlr;
-#endif
-
 	ctlr->attached = 1;
 
 	kproc("genet-recv", recvproc, edev);
@@ -1013,25 +921,6 @@ multi(void *arg, uchar*, int)
 	rxmode(edev, edev->prom > 0);
 }
 
-static long
-ctl(Ether *edev, void *data, long len)
-{
-	Ctlr *ctlr = edev->ctlr;
-	char *s = data;
-
-	if(len >= 4 && strncmp(s, "tron", 4) == 0){
-		umaccmd(ctlr, CmdTxEn, 0);
-	} else if(len >= 5 && strncmp(s, "troff", 5) == 0){
-		umaccmd(ctlr, 0, CmdTxEn);
-	} else if(len >= 3 && strncmp(s, "ron", 3) == 0){
-		umaccmd(ctlr, CmdRxEn, 0);
-	} else if(len >= 4 && strncmp(s, "roff", 4) == 0){
-		umaccmd(ctlr, 0, CmdRxEn);
-	}
-
-	return len;
-}
-
 static int
 pnp(Ether *edev)
 {
@@ -1051,7 +940,6 @@ pnp(Ether *edev)
 	edev->shutdown = shutdown;
 	edev->promiscuous = prom;
 	edev->multicast = multi;
-	edev->ctl = ctl;
 	edev->arg = edev;
 	edev->mbps = 1000;
 	edev->maxmtu = Maxtu;
