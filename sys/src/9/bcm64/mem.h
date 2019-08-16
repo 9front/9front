@@ -54,6 +54,7 @@
 
 #define SPINTABLE	(KZERO+0xd8)
 #define CONFADDR	(KZERO+0x100)
+#define VECTORSEL2	(0x1000)
 #define	REBOOTADDR	(0x1c00)		/* reboot code - physical address */
 #define	VCBUFFER	(KZERO+0x3400)		/* videocore mailbox buffer */
 
@@ -114,6 +115,8 @@
 
 #define PTEAF		(1<<10)
 #define PTENG		(1<<11)
+#define PTEPXN		(1ULL<<53)
+#define PTEUXN		(1ULL<<54)
 
 #define PTEKERNEL	PTEAP(0)
 #define PTEUSER		PTEAP(1)

@@ -11,7 +11,7 @@ mmu0init(uintptr *l1)
 	uintptr va, pa, pe, attr;
 
 	/* KZERO */
-	attr = PTEWRITE | PTEAF | PTEKERNEL | PTESH(SHARE_INNER);
+	attr = PTEWRITE | PTEAF | PTEKERNEL | PTEUXN | PTESH(SHARE_INNER);
 	pe = PHYSDRAM + soc.dramsize;
 	if(pe > (uintptr)-KZERO)
 		pe = (uintptr)-KZERO;
@@ -34,7 +34,7 @@ mmu0init(uintptr *l1)
 		l1[PTL1X(pa, 3)] = (uintptr)&l1[L1TABLEX(pa, 2)] | PTEVALID | PTETABLE;
 
 	/* VIRTIO */
-	attr = PTEWRITE | PTEAF | PTEKERNEL | PTESH(SHARE_OUTER) | PTEDEVICE;
+	attr = PTEWRITE | PTEAF | PTEKERNEL | PTEUXN | PTEPXN | PTESH(SHARE_OUTER) | PTEDEVICE;
 	pe = soc.physio + soc.iosize;
 	for(pa = soc.physio, va = soc.virtio; pa < pe; pa += PGLSZ(1), va += PGLSZ(1)){
 		if(((pa|va) & PGLSZ(1)-1) != 0){
@@ -49,7 +49,7 @@ mmu0init(uintptr *l1)
 	}
 
 	/* ARMLOCAL */
-	attr = PTEWRITE | PTEAF | PTEKERNEL | PTESH(SHARE_OUTER) | PTEDEVICE;
+	attr = PTEWRITE | PTEAF | PTEKERNEL | PTEUXN | PTEPXN | PTESH(SHARE_OUTER) | PTEDEVICE;
 	pe = soc.armlocal + MB;
 	for(pa = soc.armlocal, va = ARMLOCAL; pa < pe; pa += PGLSZ(1), va += PGLSZ(1)){
 		if(((pa|va) & PGLSZ(1)-1) != 0){
@@ -65,7 +65,7 @@ mmu0init(uintptr *l1)
 
 	/* VIRTPCI */
 	if(soc.pciwin){
-		attr = PTEWRITE | PTEAF | PTEKERNEL | PTESH(SHARE_OUTER) | PTEDEVICE;
+		attr = PTEWRITE | PTEAF | PTEKERNEL | PTEUXN | PTEPXN | PTESH(SHARE_OUTER) | PTEDEVICE;
 		pe = soc.pciwin + 512*MB;
 		for(pa = soc.pciwin, va = VIRTPCI; pa < pe; pa += PGLSZ(1), va += PGLSZ(1))
 			l1[PTL1X(va, 1)] = pa | PTEVALID | PTEBLOCK | attr;
@@ -185,9 +185,10 @@ mmukmap(uintptr va, uintptr pa, usize size)
 	off = pa % PGLSZ(1);
 	a = va + off;
 	pe = (pa + size + (PGLSZ(1)-1)) & -PGLSZ(1);
+	pa &= -PGLSZ(1);
 	while(pa < pe){
 		((uintptr*)L1)[PTL1X(va, 1)] = pa | PTEVALID | PTEBLOCK | PTEWRITE | PTEAF
-			| PTEKERNEL | PTESH(SHARE_OUTER) | attr;
+			| PTEKERNEL | PTEUXN | PTEPXN | PTESH(SHARE_OUTER) | attr;
 		pa += PGLSZ(1);
 		va += PGLSZ(1);
 	}
@@ -329,7 +330,7 @@ putmmu(uintptr va, uintptr pa, Page *pg)
 		flushasidvall((uvlong)up->asid<<48 | va>>12);
 	else
 		flushasidva((uvlong)up->asid<<48 | va>>12);
-	*pte = pa | PTEPAGE | PTEUSER | PTENG | PTEAF | PTESH(SHARE_INNER);
+	*pte = pa | PTEPAGE | PTEUSER | PTEPXN | PTENG | PTEAF | PTESH(SHARE_INNER);
 	if(pg->txtflush & (1UL<<m->machno)){
 		/* pio() sets PG_TXTFLUSH whenever a text pg has been written */
 		cachedwbinvse((void*)KADDR(pg->pa), BY2PG);
