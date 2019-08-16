@@ -25,7 +25,7 @@ enum {
 	Hpin0	= 0x64>>2,
 	Lpin0	= 0x70>>2,
 	ARedge0	= 0x7C>>2,
-	AFedge0	= 0x88>2,
+	AFedge0	= 0x88>>2,
 	PUD	= 0x94>>2,
 		Off	= 0x0,
 		Pulldown= 0x1,
