@@ -62,6 +62,9 @@ enum {
 	ClkSdram,
 	ClkPixel,
 	ClkPwm,
+
+	/* bcm2711 */
+	ClkEmmc2	= 12,
 };
 
 #define BUSUNKNOWN (-1)

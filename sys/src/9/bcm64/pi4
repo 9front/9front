@@ -45,7 +45,7 @@ ip
 misc
 	uartmini
 	uartpl011
-#	sdmmc	emmc
+	sdmmc	emmc2
 	dma
 	gic
 	vcore
