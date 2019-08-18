@@ -39,7 +39,8 @@
 #define STACKALIGN(sp)	((sp) & ~7)		/* bug: assure with alloc */
 #define TRAPFRAMESIZE	(38*8)
 
-#define KSEG0		(0xFFFFFFFF00000000ULL)
+#define KSEG0		(0xFFFFFFFE00000000ULL)
+#define KMAP		(0xFFFFFFFE00000000ULL)
 #define FRAMEBUFFER	(0xFFFFFFFF00000000ULL|PTEWT)
 #define	VGPIO		0			/* virtual gpio for pi3 ACT LED */
 
@@ -54,7 +55,6 @@
 
 #define SPINTABLE	(KZERO+0xd8)
 #define CONFADDR	(KZERO+0x100)
-#define VECTORSEL2	(0x1000)
 #define	REBOOTADDR	(0x1c00)		/* reboot code - physical address */
 #define	VCBUFFER	(KZERO+0x3400)		/* videocore mailbox buffer */
 

@@ -28,10 +28,29 @@ mmu0init(uintptr *l1)
 	}
 	if(PTLEVELS > 2)
 	for(pa = PHYSDRAM, va = KZERO; pa < pe; pa += PGLSZ(2), va += PGLSZ(2))
-		l1[PTL1X(pa, 2)] = (uintptr)&l1[L1TABLEX(pa, 1)] | PTEVALID | PTETABLE;
+		l1[PTL1X(va, 2)] = (uintptr)&l1[L1TABLEX(va, 1)] | PTEVALID | PTETABLE;
 	if(PTLEVELS > 3)
 	for(pa = PHYSDRAM, va = KZERO; pa < pe; pa += PGLSZ(3), va += PGLSZ(3))
-		l1[PTL1X(pa, 3)] = (uintptr)&l1[L1TABLEX(pa, 2)] | PTEVALID | PTETABLE;
+		l1[PTL1X(va, 3)] = (uintptr)&l1[L1TABLEX(va, 2)] | PTEVALID | PTETABLE;
+
+	/* KMAP */
+	attr = PTEWRITE | PTEAF | PTEKERNEL | PTEUXN | PTEPXN | PTESH(SHARE_INNER);
+	pe = PHYSDRAM + soc.dramsize;
+	for(pa = PHYSDRAM, va = KMAP; pa < pe; pa += PGLSZ(1), va += PGLSZ(1)){
+		if(pe - pa < PGLSZ(1)){
+			l1[PTL1X(va, 1)] = (uintptr)l1 | PTEVALID | PTETABLE;
+			for(; pa < pe; pa += PGLSZ(0), va += PGLSZ(0))
+				l1[PTLX(va, 0)] = pa | PTEVALID | PTEPAGE | attr;
+			break;
+		}
+		l1[PTL1X(va, 1)] = pa | PTEVALID | PTEBLOCK | attr;
+	}
+	if(PTLEVELS > 2)
+	for(pa = PHYSDRAM, va = KMAP; pa < pe; pa += PGLSZ(2), va += PGLSZ(2))
+		l1[PTL1X(va, 2)] = (uintptr)&l1[L1TABLEX(va, 1)] | PTEVALID | PTETABLE;
+	if(PTLEVELS > 3)
+	for(pa = PHYSDRAM, va = KMAP; pa < pe; pa += PGLSZ(3), va += PGLSZ(3))
+		l1[PTL1X(va, 3)] = (uintptr)&l1[L1TABLEX(va, 2)] | PTEVALID | PTETABLE;
 
 	/* VIRTIO */
 	attr = PTEWRITE | PTEAF | PTEKERNEL | PTEUXN | PTEPXN | PTESH(SHARE_OUTER) | PTEDEVICE;
@@ -130,6 +149,7 @@ mmu1init(void)
 	mmuswitch(nil);
 }
 
+/* KZERO maps the first 1GB of ram */
 uintptr
 paddr(void *va)
 {
@@ -156,19 +176,28 @@ kaddr(uintptr pa)
 	return nil;
 }
 
-void
-kmapinval(void)
+/* KMAP maps all of ram (up to 4GB) */
+static void*
+kmapaddr(uintptr pa)
 {
+	if(pa < (uintptr)-KZERO)
+		return (void*)(pa + KZERO);
+	return (void*)(pa + KMAP);
 }
 
 KMap*
 kmap(Page *p)
 {
-	return kaddr(p->pa);
+	return kmapaddr(p->pa);
 }
 
 void
 kunmap(KMap*)
+{
+}
+
+void
+kmapinval(void)
 {
 }
 
@@ -228,7 +257,6 @@ mmuwalk(uintptr va, int level)
 			if(pte & (0xFFFFULL<<48))
 				iprint("strange pte %#p va %#p\n", pte, va);
 			pte &= ~(0xFFFFULL<<48 | BY2PG-1);
-			table = KADDR(pte);
 		} else {
 			pg = up->mmufree;
 			if(pg == nil)
@@ -238,11 +266,12 @@ mmuwalk(uintptr va, int level)
 			if((pg->next = up->mmuhead[i+1]) == nil)
 				up->mmutail[i+1] = pg;
 			up->mmuhead[i+1] = pg;
-			memset(KADDR(pg->pa), 0, BY2PG);
+			pte = pg->pa;
+			memset(kmapaddr(pte), 0, BY2PG);
 			coherence();
-			table[x] = pg->pa | PTEVALID | PTETABLE;
-			table = KADDR(pg->pa);
+			table[x] = pte | PTEVALID | PTETABLE;
 		}
+		table = kmapaddr(pte);
 		x = PTLX(va, (uintptr)i);
 	}
 	return &table[x];
@@ -333,7 +362,7 @@ putmmu(uintptr va, uintptr pa, Page *pg)
 	*pte = pa | PTEPAGE | PTEUSER | PTEPXN | PTENG | PTEAF | PTESH(SHARE_INNER);
 	if(pg->txtflush & (1UL<<m->machno)){
 		/* pio() sets PG_TXTFLUSH whenever a text pg has been written */
-		cachedwbinvse((void*)KADDR(pg->pa), BY2PG);
+		cachedwbinvse(kmap(pg), BY2PG);
 		cacheiinvse((void*)va, BY2PG);
 		pg->txtflush &= ~(1UL<<m->machno);
 	}
