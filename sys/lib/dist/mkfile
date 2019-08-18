@@ -53,15 +53,18 @@ cd:V:	/tmp/9front.386.iso.gz
 %.pi3.img:
 	@{
 	objtype=arm64
-	bootcode=/sys/src/boot/bcm/^(bootcode.bin fixup_cd.dat start_cd.elf LICENCE.broadcom)
-	kernel=/n/src9/$objtype/9pi3
+	bootcode=/sys/src/boot/bcm/^(bootcode.bin fixup_cd.dat start_cd.elf fixup4cd.dat start4cd.elf LICENCE.broadcom)
+	kernel=/n/src9/$objtype/^(9pi3 9pi4)
 	> /env/config.txt {
+		echo '[pi4]'
+		echo 'kernel=9pi4'
+		echo 'arm_64bit=1'
 		echo '[pi3]'
 		echo 'kernel=9pi3'
 		echo 'arm_64bit=1'
-		echo 'core_freq=250'
 		echo '[all]'
 		echo 'gpu_mem=16'
+		echo 'core_freq=250'
 		echo 'enable_uart=1'
 		echo 'boot_delay=1'
 	}
