@@ -108,6 +108,12 @@ struct Dosdir
 	uchar	length[4];
 };
 
+enum {
+	DOSDIRSIZE	= 32,
+	DOSRUNE		= 13,	/* runes per dosdir in a long file name */
+	DOSNAMELEN	= 261,
+};
+
 #define	DRONLY	0x01
 #define	DHIDDEN	0x02
 #define	DSYSTEM	0x04
@@ -177,7 +183,7 @@ enum
 
 void	dosfs(int, int, Disk*, char*, int, char*[], int);
 ulong	clustalloc(int);
-void	addrname(uchar*, Dir*, char*, ulong);
+uchar*	addrname(uchar*, Dir*, char*, ulong);
 void	sanitycheck(Disk*);
 
 void
@@ -568,18 +574,18 @@ Tryagain:
 		for(i=0;; i++){
 			fatsecs = (fatbits*clusters + 8*secsize - 1)/(8*secsize);
 			rootsecs = volsecs/200;
-			rootfiles = rootsecs * (secsize/sizeof(Dosdir));
+			rootfiles = rootsecs * (secsize/DOSDIRSIZE);
 			if(rootfiles > 512){
 				rootfiles = 512;
-				rootsecs = rootfiles/(secsize/sizeof(Dosdir));
+				rootsecs = rootfiles/(secsize/DOSDIRSIZE);
 			}
 			if(fatbits == 32){
 				rootsecs -= (rootsecs % clustersize);
 				if(rootsecs <= 0)
 					rootsecs = clustersize;
-				rootfiles = rootsecs * (secsize/sizeof(Dosdir));
+				rootfiles = rootsecs * (secsize/DOSDIRSIZE);
 			}
-			data = nresrv + 2*fatsecs + (rootfiles*sizeof(Dosdir) + secsize-1)/secsize;
+			data = nresrv + 2*fatsecs + (rootfiles*DOSDIRSIZE + secsize-1)/secsize;
 			newclusters = 2 + (volsecs - data)/clustersize;
 			if(newclusters == clusters)
 				break;
@@ -717,7 +723,7 @@ if(chatty) print("files @%lluX\n", seek(disk->wfd, 0LL, 1));
 	 * If we have any arguments, process 
 	 * them and write out.
 	 */
-	for(p = root; argc > 0; argc--, argv++, p += sizeof(Dosdir)){
+	for(p = root; argc > 0; argc--, argv++, p += DOSDIRSIZE){
 		if(p >= (root+(rootsecs*secsize)))
 			fatal("too many files in root");
 		/*
@@ -776,7 +782,7 @@ if(chatty) print("%s @%lluX\n", d->name, seek(disk->wfd, 0LL, 1));
 		 * Add the filename to the root.
 		 */
 fprint(2, "add %s at clust %lux\n", d->name, x);
-		addrname(p, d, *argv, x);
+		p = addrname(p, d, *argv, x);
 		free(d);
 	}
 
@@ -865,6 +871,20 @@ clustalloc(int flag)
 }
 
 void
+puttime(Dosdir *d)
+{
+	Tm *t = localtime(time(0));
+	ushort x;
+
+	x = (t->hour<<11) | (t->min<<5) | (t->sec>>1);
+	d->time[0] = x;
+	d->time[1] = x>>8;
+	x = ((t->year-80)<<9) | ((t->mon+1)<<5) | t->mday;
+	d->date[0] = x;
+	d->date[1] = x>>8;
+}
+
+void
 putname(char *p, Dosdir *d)
 {
 	int i;
@@ -885,21 +905,132 @@ putname(char *p, Dosdir *d)
 	}
 }
 
-void
-puttime(Dosdir *d)
+int
+islongname(char *buf)
 {
-	Tm *t = localtime(time(0));
-	ushort x;
+	char *p, *dot;
+	int c, isextended, is8dot3, ndot;
 
-	x = (t->hour<<11) | (t->min<<5) | (t->sec>>1);
-	d->time[0] = x;
-	d->time[1] = x>>8;
-	x = ((t->year-80)<<9) | ((t->mon+1)<<5) | t->mday;
-	d->date[0] = x;
-	d->date[1] = x>>8;
+	p = buf;
+	isextended = 0;
+	dot = nil;
+	ndot = 0;
+	while(c = (uchar)*p){
+		if(c&0x80)	/* UTF8 */
+			isextended = 1;
+		else if(c == '.'){
+			dot = p;
+			ndot++;
+		}else if(strchr("+,:;=[] ", c))
+			isextended = 1;
+		p++;
+	}
+	is8dot3 = (ndot==0 && p-buf <= 8) || (ndot==1 && dot-buf <= 8 && p-(dot+1) <= 3);
+	return isextended || !is8dot3;
 }
 
 void
+putnamesect(uchar *slot, Rune *longname, int curslot, int first, int sum)
+{
+	Rune r;
+	Dosdir ds;
+	int i, j;
+
+	memset(&ds, 0xff, sizeof ds);
+	ds.attr = 0xf;
+	ds.reserved[0] = 0;
+	ds.reserved[1] = sum;
+	ds.start[0] = 0;
+	ds.start[1] = 0;
+	if(first)
+		ds.name[0] = 0x40 | curslot;
+	else 
+		ds.name[0] = curslot;
+	memmove(slot, &ds, DOSDIRSIZE);
+
+	j = (curslot-1) * DOSRUNE;
+
+	for(i = 1; i < 11; i += 2){
+		r = longname[j++];
+		slot[i] = r;
+		slot[i+1] = r >> 8;
+		if(r == 0)
+			return;
+	}
+	for(i = 14; i < 26; i += 2){
+		r = longname[j++];
+		slot[i] = r;
+		slot[i+1] = r >> 8;
+		if(r == 0)
+			return;
+	}
+	for(i = 28; i < 32; i += 2){
+		r = longname[j++];
+		slot[i] = r;
+		slot[i+1] = r >> 8;
+		if(r == 0)
+			return;
+	}
+}
+
+int
+isdoschar(int c)
+{
+	if(c <= 0)
+		return 0;
+	if(c >= 'a' && c <= 'z')
+		return 1;
+	if(c >= 'A' && c <= 'Z')
+		return 1;
+	if(c >= '0' && c <= '9')
+		return 1;
+	return strchr("$%'-_@~`!(){}^#&", c) != nil;
+}
+
+/*
+ * make an alias for a valid long file name
+ */
+void
+mkalias(char *name, char *sname, int id)
+{
+	Rune r;
+	char *s, *e, sid[10];
+	int i, esuf, v;
+
+	e = strrchr(name, '.');
+	if(e == nil)
+		e = strchr(name, '\0');
+
+	s = name;
+	i = 0;
+	while(s < e && i < 6){
+		if(isdoschar(*s))
+			sname[i++] = *s++;
+		else
+			s += chartorune(&r, s);
+	}
+
+	v = snprint(sid, 10, "%d", id);
+	if(i + 1 + v > 8)
+		i = 8 - 1 - v;
+	sname[i++] = '~';
+	strcpy(&sname[i], sid);
+	i += v;
+
+	sname[i++] = '.';
+	esuf = i + 3;
+	while(*e && i < esuf){
+		if(isdoschar(*e))
+			sname[i++] = *e++;
+		else
+			e += chartorune(&r, e);
+	}
+	if(sname[i-1] == '.')
+		i--;
+	sname[i] = '\0';
+}
+
+uchar*
 addrname(uchar *entry, Dir *dir, char *name, ulong start)
 {
 	char *s;
@@ -912,6 +1043,34 @@ addrname(uchar *entry, Dir *dir, char *name, ulong start)
 		s = name;
 
 	d = (Dosdir*)entry;
+	if(islongname(s)){
+		Rune longname[DOSNAMELEN] = {0};
+		char shortname[13] = {0};
+		static int aliasid;
+		int i, len, sum;
+		uchar *slot;
+
+		mkalias(s, shortname, aliasid++);
+		putname(shortname, d);
+
+		sum = 0;
+		for(i = 0; i < 11; i++)
+			sum = (((sum&1)<<7) | ((sum&0xfe)>>1)) + d->name[i];
+		sum &= 0xFF;
+
+		len = 0;
+		while(*s && len < DOSNAMELEN)
+			s += chartorune(&longname[len++], s);
+
+		slot = (uchar*)d;
+		len = (len + DOSRUNE-1) / DOSRUNE;
+		for(i = 0; i < len; i++){
+			putnamesect(slot, longname, len - i, i == 0, sum);
+			slot += DOSDIRSIZE;
+		}
+		d = (Dosdir*)slot;
+		s = shortname;
+	}
 	putname(s, d);
 	if(cistrcmp(s, "9load") == 0 || cistrncmp(s, "9boot", 5) == 0)
 		d->attr = DSYSTEM;
@@ -924,4 +1083,5 @@ addrname(uchar *entry, Dir *dir, char *name, ulong start)
 	d->length[1] = dir->length>>8;
 	d->length[2] = dir->length>>16;
 	d->length[3] = dir->length>>24;
+	return (uchar*)d;
 }
