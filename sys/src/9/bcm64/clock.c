@@ -121,23 +121,15 @@ clockinit(void)
 
 	syswr(CNTP_TVAL_EL0, ~0UL);
 	if(m->machno == 0){
-		int oscfreq;
-
 		syswr(CNTP_CTL_EL0, Imask);
 
 		*(u32int*)(ARMLOCAL + GPUirqroute) = 0;
-
-		/* bit 1 from OTP bootmode register determines OSC frequency */
-		if(*((u32int*)(VIRTIO+0x20f000)) & (1<<1))
-			oscfreq = 19200000;
-		else
-			oscfreq = 54000000;
 
 		/* input clock to OSC */
 		*(u32int*)(ARMLOCAL + Localctl) = 0;
 
 		/* divide by (2^31/Prescaler) */
-		*(u32int*)(ARMLOCAL + Prescaler) = (((uvlong)SystimerFreq<<31)/oscfreq)&~1UL;
+		*(u32int*)(ARMLOCAL + Prescaler) = (((uvlong)SystimerFreq<<31)/soc.oscfreq)&~1UL;
 	} else {
 		syswr(CNTP_CTL_EL0, Enable);
 		intrenable(IRQcntpns, localclockintr, nil, BUSUNKNOWN, "clock");

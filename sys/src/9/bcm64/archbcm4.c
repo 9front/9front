@@ -25,6 +25,7 @@ Soc soc = {
 	.virtio		= VIRTIO2,
 	.armlocal	= 0xFF800000,
 	.pciwin		= 0x0600000000ULL,
+	.oscfreq	= 54000000,
 };
 
 enum {

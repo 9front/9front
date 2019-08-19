@@ -250,6 +250,7 @@ struct Soc {			/* SoC dependent configuration */
 	uintptr	virtio;
 	uintptr	armlocal;
 	uintptr	pciwin;
+	int	oscfreq;
 };
 extern Soc soc;
 

@@ -24,6 +24,7 @@ Soc soc = {
 	.physio		= 0x3F000000,
 	.virtio		= VIRTIO,
 	.armlocal	= 0x40000000,
+	.oscfreq	= 19200000,
 };
 
 enum {
