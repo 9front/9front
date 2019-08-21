@@ -248,10 +248,14 @@ defn procenv(p) {
 		print("\n");
 	}
 }
-
+BY2PG=4096;
 KSTACK=4096;
 if objtype=="amd64" then {
 	KSTACK=16*1024;
+}
+if objtype=="arm64" then {
+	BY2PG=65536;
+	KSTACK=8*1024;
 }
 
 defn procstksize(p) {
@@ -267,14 +271,12 @@ defn procstksize(p) {
 
 defn procstk(p) {
 	complex Proc p;
-	local l;
 
 	if p.state != 0 then {	// 0 is Dead
-		l = p.sched;
 		if objtype=="386" || objtype=="amd64" then
-			_stk(gotolabel, *l, linkreg(0), 0);
+			_stk(gotolabel, p.sched.sp, linkreg(0), 0);
 		else
-			_stk(*(l+4), *l, linkreg(0), 0);
+			_stk(p.sched.pc, p.sched.sp, linkreg(0), 0);
 	}
 }
 
@@ -383,7 +385,6 @@ defn kzero() {
 }
 
 PTEMAPMEM = (1024*1024);
-BY2PG = 4096;
 PTEPERTAB = (PTEMAPMEM/BY2PG);
 defn up() {
 	if objtype == "386" then {
@@ -398,6 +399,13 @@ defn up() {
 		local proc;
 
 		proc = *R14;
+		complex Proc proc;
+		return proc;
+	}
+	if objtype == "arm64" then {
+		local proc;
+
+		proc = *R26;
 		complex Proc proc;
 		return proc;
 	}
@@ -442,6 +450,12 @@ if (map()[2]) != {} then {	// map has more than two elements -> active proc
 	}
 	if (objtype == "mips" || objtype == "mips2") then {
 		kdir = "ch";
+	}
+	if objtype == "arm" then {
+		kdir = "bcm";
+	}
+	if objtype == "arm64" then {
+		kdir = "bcm64";
 	}
 	needacid("proc");
 	needacid("chan");
