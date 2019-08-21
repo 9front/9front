@@ -51,12 +51,12 @@ mmuinit(void *a)
 	 */
 	va = soc.virtio;
 	for(pa = soc.physio; pa < soc.physio+soc.iosize; pa += MiB){
-		l1[L1X(va)] = pa|Dom0|L1AP(Krw)|Section;
+		l1[L1X(va)] = pa|Dom0|L1AP(Krw)|Section|L1noexec;
 		va += MiB;
 	}
 	pa = soc.armlocal;
 	if(pa)
-		l1[L1X(va)] = pa|Dom0|L1AP(Krw)|Section;
+		l1[L1X(va)] = pa|Dom0|L1AP(Krw)|Section|L1noexec;
 	
 	/*
 	 * double map exception vectors near top of virtual memory
@@ -326,7 +326,7 @@ mmukmap(uintptr va, uintptr pa, usize size)
 			return 0;
 	pte = pte0;
 	for(n = 0; n < size; n += MiB){
-		*pte++ = (pa+n)|Dom0|L1AP(Krw)|Section;
+		*pte++ = (pa+n)|Dom0|L1AP(Krw)|Section|L1noexec;
 		mmuinvalidateaddr(va+n);
 	}
 	cachedwbtlb(pte0, (uintptr)pte - (uintptr)pte0);

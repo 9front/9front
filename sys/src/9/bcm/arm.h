@@ -290,6 +290,7 @@
 
 #define L1wralloc	(1<<12)			/* L1 TEX */
 #define L1sharable	(1<<16)
+#define L1noexec	(1<<4)
 #define L2wralloc	(1<<6)			/* L2 TEX (small pages) */
 #define L2sharable	(1<<10)
 
