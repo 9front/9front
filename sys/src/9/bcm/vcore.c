@@ -220,7 +220,8 @@ fbinit(int set, int *width, int *height, int *depth)
 	cachedwbinvse(fi, sizeof(*fi));
 	vcwrite(ChanFb, dmaaddr(fi));
 	if(vcread(ChanFb) != 0)
-		return 0;
+		return nil;
+	cachedinvse(fi, sizeof(*fi));
 	va = mmukmap(FRAMEBUFFER, (fi->base&~0xC0000000)|PHYSDRAM, fi->screensize);
 	if(va)
 		memset((char*)va, 0x7F, fi->screensize);
