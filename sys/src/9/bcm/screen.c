@@ -162,6 +162,7 @@ screeninit(void)
 	memimageinit();
 	memdefont = getmemdefont();
 	screenwin();
+	myscreenputs(kmesg.buf, kmesg.n);
 	screenputs = myscreenputs;
 	swcursorinit();
 }

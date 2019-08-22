@@ -197,8 +197,9 @@ uartconsinit(void)
 	uartctl(uart, "l8 pn s1");
 	if(*cmd != '\0')
 		uartctl(uart, cmd);
-	consuart = uart;
 	uart->console = 1;
+	consuart = uart;
+	uartputs(kmesg.buf, kmesg.n);
 }
 
 void
