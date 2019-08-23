@@ -75,6 +75,7 @@ extern void mmu0init(uintptr*);
 extern void mmu0clear(uintptr*);
 extern void mmuidmap(uintptr*);
 extern void mmu1init(void);
+extern void meminit(void);
 
 extern void putasid(Proc*);
 

@@ -11,7 +11,7 @@
 static char *confname[MAXCONF];
 static char *confval[MAXCONF];
 static int nconf;
-static char maxmem[11];
+static char maxmem[256];
 
 static int
 findconf(char *k)
@@ -89,13 +89,25 @@ beget4(uchar *p)
 static void
 devtreeprop(char *path, char *key, void *val, int len)
 {
-	if(strcmp(path, "/memory") == 0 && strcmp(key, "reg") == 0 && len == 3*4){
-		if(findconf("*maxmem") < 0){
+	if(strcmp(path, "/memory") == 0 && strcmp(key, "reg") == 0){
+		if(findconf("*maxmem") < 0 && len > 0 && (len % (3*4)) == 0){
 			uvlong top;
+			uchar *p = val;
+			char *s;
 
-			top = (uvlong)beget4((uchar*)val)<<32 | beget4((uchar*)val+4);
-			top += beget4((uchar*)val+8);
-			snprint(maxmem, sizeof(maxmem), "%#llux", top);
+			top = (uvlong)beget4(p)<<32 | beget4(p+4);
+			top += beget4(p+8);
+			s = seprint(maxmem, &maxmem[sizeof(maxmem)], "%#llux", top);
+			p += 3*4;
+			len -= 3*4;
+			while(len > 0){
+				top = (uvlong)beget4(p)<<32 | beget4(p+4);
+				s = seprint(s, &maxmem[sizeof(maxmem)], " %#llux", top);
+				top += beget4(p+8);
+				s = seprint(s, &maxmem[sizeof(maxmem)], " %#llux", top);
+				p += 3*4;
+				len -= 3*4;
+			}
 			addconf("*maxmem", maxmem);
 		}
 		return;

@@ -12,45 +12,11 @@ mmu0init(uintptr *l1)
 
 	/* KZERO */
 	attr = PTEWRITE | PTEAF | PTEKERNEL | PTEUXN | PTESH(SHARE_INNER);
-	pe = PHYSDRAM + soc.dramsize;
-	if(pe > (uintptr)-KZERO)
-		pe = (uintptr)-KZERO;
+	pe = -KZERO;
 	for(pa = PHYSDRAM, va = KZERO; pa < pe; pa += PGLSZ(1), va += PGLSZ(1)){
-		if(pe - pa < PGLSZ(1)){
-			l1[PTL1X(va, 1)] = (uintptr)l1 | PTEVALID | PTETABLE;
-			l1[PTL1X(pa, 1)] = (uintptr)l1 | PTEVALID | PTETABLE;
-			for(; pa < pe; pa += PGLSZ(0), va += PGLSZ(0))
-				l1[PTLX(va, 0)] = pa | PTEVALID | PTEPAGE | attr;
-			break;
-		}
 		l1[PTL1X(va, 1)] = pa | PTEVALID | PTEBLOCK | attr;
 		l1[PTL1X(pa, 1)] = pa | PTEVALID | PTEBLOCK | attr;
 	}
-	if(PTLEVELS > 2)
-	for(pa = PHYSDRAM, va = KZERO; pa < pe; pa += PGLSZ(2), va += PGLSZ(2))
-		l1[PTL1X(va, 2)] = (uintptr)&l1[L1TABLEX(va, 1)] | PTEVALID | PTETABLE;
-	if(PTLEVELS > 3)
-	for(pa = PHYSDRAM, va = KZERO; pa < pe; pa += PGLSZ(3), va += PGLSZ(3))
-		l1[PTL1X(va, 3)] = (uintptr)&l1[L1TABLEX(va, 2)] | PTEVALID | PTETABLE;
-
-	/* KMAP */
-	attr = PTEWRITE | PTEAF | PTEKERNEL | PTEUXN | PTEPXN | PTESH(SHARE_INNER);
-	pe = PHYSDRAM + soc.dramsize;
-	for(pa = PHYSDRAM, va = KMAP; pa < pe; pa += PGLSZ(1), va += PGLSZ(1)){
-		if(pe - pa < PGLSZ(1)){
-			l1[PTL1X(va, 1)] = (uintptr)l1 | PTEVALID | PTETABLE;
-			for(; pa < pe; pa += PGLSZ(0), va += PGLSZ(0))
-				l1[PTLX(va, 0)] = pa | PTEVALID | PTEPAGE | attr;
-			break;
-		}
-		l1[PTL1X(va, 1)] = pa | PTEVALID | PTEBLOCK | attr;
-	}
-	if(PTLEVELS > 2)
-	for(pa = PHYSDRAM, va = KMAP; pa < pe; pa += PGLSZ(2), va += PGLSZ(2))
-		l1[PTL1X(va, 2)] = (uintptr)&l1[L1TABLEX(va, 1)] | PTEVALID | PTETABLE;
-	if(PTLEVELS > 3)
-	for(pa = PHYSDRAM, va = KMAP; pa < pe; pa += PGLSZ(3), va += PGLSZ(3))
-		l1[PTL1X(va, 3)] = (uintptr)&l1[L1TABLEX(va, 2)] | PTEVALID | PTETABLE;
 
 	/* VIRTIO */
 	attr = PTEWRITE | PTEAF | PTEKERNEL | PTEUXN | PTEPXN | PTESH(SHARE_OUTER) | PTEDEVICE;
@@ -82,14 +48,6 @@ mmu0init(uintptr *l1)
 		l1[PTL1X(va, 1)] = pa | PTEVALID | PTEBLOCK | attr;
 	}
 
-	/* VIRTPCI */
-	if(soc.pciwin){
-		attr = PTEWRITE | PTEAF | PTEKERNEL | PTEUXN | PTEPXN | PTESH(SHARE_OUTER) | PTEDEVICE;
-		pe = soc.pciwin + 512*MB;
-		for(pa = soc.pciwin, va = VIRTPCI; pa < pe; pa += PGLSZ(1), va += PGLSZ(1))
-			l1[PTL1X(va, 1)] = pa | PTEVALID | PTEBLOCK | attr;
-	}
-
 	if(PTLEVELS > 2)
 	for(va = KSEG0; va != 0; va += PGLSZ(2))
 		l1[PTL1X(va, 2)] = (uintptr)&l1[L1TABLEX(va, 1)] | PTEVALID | PTETABLE;
@@ -103,9 +61,7 @@ mmu0clear(uintptr *l1)
 {
 	uintptr va, pa, pe;
 
-	pe = PHYSDRAM + soc.dramsize;
-	if(pe > (uintptr)-KZERO)
-		pe = (uintptr)-KZERO;
+	pe = -KZERO;
 	for(pa = PHYSDRAM, va = KZERO; pa < pe; pa += PGLSZ(1), va += PGLSZ(1))
 		if(PTL1X(pa, 1) != PTL1X(va, 1))
 			l1[PTL1X(pa, 1)] = 0;
@@ -201,40 +157,178 @@ kmapinval(void)
 {
 }
 
+#define INITMAP	(ROUND((uintptr)end + BY2PG, PGLSZ(1))-KZERO)
+
+static void*
+rampage(void)
+{
+	uintptr pa;
+
+	if(conf.npage)
+		return mallocalign(BY2PG, BY2PG, 0, 0);
+
+	pa = conf.mem[0].base;
+	assert((pa % BY2PG) == 0);
+	assert(pa < INITMAP);
+	conf.mem[0].base += BY2PG;
+	return KADDR(pa);
+}
+
+static void
+l1map(uintptr va, uintptr pa, uintptr pe, uintptr attr)
+{
+	uintptr *l1, *l0;
+
+	assert(pa < pe);
+
+	va &= -BY2PG;
+	pa &= -BY2PG;
+	pe = PGROUND(pe);
+
+	attr |= PTEKERNEL | PTEAF;
+
+	l1 = (uintptr*)L1;
+
+	while(pa < pe){
+		if(l1[PTL1X(va, 1)] == 0 && (pe-pa) >= PGLSZ(1) && ((va|pa) & PGLSZ(1)-1) == 0){
+			l1[PTL1X(va, 1)] = PTEVALID | PTEBLOCK | pa | attr;
+			va += PGLSZ(1);
+			pa += PGLSZ(1);
+			continue;
+		}
+		if(l1[PTL1X(va, 1)] & PTEVALID) {
+			assert((l1[PTL1X(va, 1)] & PTETABLE) == PTETABLE);
+			l0 = KADDR(l1[PTL1X(va, 1)] & -PGLSZ(0));
+		} else {
+			l0 = rampage();
+			memset(l0, 0, BY2PG);
+			l1[PTL1X(va, 1)] = PTEVALID | PTETABLE | PADDR(l0);
+		}
+		assert(l0[PTLX(va, 0)] == 0);
+		l0[PTLX(va, 0)] = PTEVALID | PTEPAGE | pa | attr;
+		va += BY2PG;
+		pa += BY2PG;
+	}
+}
+
+static void
+kmapram(uintptr base, uintptr limit)
+{
+	if(base < (uintptr)-KZERO && limit > (uintptr)-KZERO){
+		kmapram(base, (uintptr)-KZERO);
+		kmapram((uintptr)-KZERO, limit);
+		return;
+	}
+	if(base < INITMAP)
+		base = INITMAP;
+	if(base >= limit || limit <= INITMAP)
+		return;
+
+	l1map((uintptr)kmapaddr(base), base, limit,
+		PTEWRITE | PTEPXN | PTEUXN | PTESH(SHARE_INNER));
+}
+
+void
+meminit(void)
+{
+	uvlong memsize = 0;
+	uintptr pa, va;
+	char *p, *e;
+	int i;
+
+	if(p = getconf("*maxmem")){
+		memsize = strtoull(p, &e, 0) - PHYSDRAM;
+		for(i = 1; i < nelem(conf.mem); i++){
+			if(e <= p || *e != ' ')
+				break;
+			p = ++e;
+			conf.mem[i].base = strtoull(p, &e, 0);
+			if(e <= p || *e != ' ')
+				break;
+			p = ++e;
+			conf.mem[i].limit = strtoull(p, &e, 0);
+		}
+	}
+
+	if (memsize < INITMAP)		/* sanity */
+		memsize = INITMAP;
+
+	getramsize(&conf.mem[0]);
+	if(conf.mem[0].limit == 0){
+		conf.mem[0].base = PHYSDRAM;
+		conf.mem[0].limit = PHYSDRAM + memsize;
+	}else if(p != nil)
+		conf.mem[0].limit = conf.mem[0].base + memsize;
+
+	/*
+	 * now we know the real memory regions, unmap
+	 * everything above INITMAP and map again with
+	 * the proper sizes.
+	 */
+	coherence();
+	for(va = INITMAP+KZERO; va != 0; va += PGLSZ(1)){
+		pa = va-KZERO;
+		((uintptr*)L1)[PTL1X(pa, 1)] = 0;
+		((uintptr*)L1)[PTL1X(va, 1)] = 0;
+	}
+	flushtlb();
+
+	pa = PGROUND((uintptr)end)-KZERO;
+	for(i=0; i<nelem(conf.mem); i++){
+		if(conf.mem[i].limit <= conf.mem[i].base
+		|| conf.mem[i].base >= PHYSDRAM + soc.dramsize){
+			conf.mem[i].base = conf.mem[i].limit = 0;
+			continue;
+		}
+		if(conf.mem[i].limit > PHYSDRAM + soc.dramsize)
+			conf.mem[i].limit = PHYSDRAM + soc.dramsize;
+
+		/* take kernel out of allocatable space */
+		if(pa > conf.mem[i].base && pa < conf.mem[i].limit)
+			conf.mem[i].base = pa;
+
+		kmapram(conf.mem[i].base, conf.mem[i].limit);
+	}
+	flushtlb();
+
+	/* rampage() is now done, count up the pages for each bank */
+	for(i=0; i<nelem(conf.mem); i++)
+		conf.mem[i].npage = (conf.mem[i].limit - conf.mem[i].base)/BY2PG;
+}
+
 uintptr
 mmukmap(uintptr va, uintptr pa, usize size)
 {
-	uintptr a, pe, off, attr;
+	uintptr attr, off;
 
 	if(va == 0)
 		return 0;
 
+	off = pa & BY2PG-1;
+
 	attr = va & PTEMA(7);
-	va &= -PGLSZ(1);
-	off = pa % PGLSZ(1);
-	a = va + off;
-	pe = (pa + size + (PGLSZ(1)-1)) & -PGLSZ(1);
-	pa &= -PGLSZ(1);
-	while(pa < pe){
-		((uintptr*)L1)[PTL1X(va, 1)] = pa | PTEVALID | PTEBLOCK | PTEWRITE | PTEAF
-			| PTEKERNEL | PTEUXN | PTEPXN | PTESH(SHARE_OUTER) | attr;
-		pa += PGLSZ(1);
-		va += PGLSZ(1);
-	}
+	attr |= PTEWRITE | PTEUXN | PTEPXN | PTESH(SHARE_OUTER);
+
+	va &= -BY2PG;
+	pa &= -BY2PG;
+
+	l1map(va, pa, pa + off + size, attr);
 	flushtlb();
-	return a;
+
+	return va + off;
 }
 
 void*
-vmap(uintptr pa, int)
+vmap(uintptr pa, int size)
 {
-	if(soc.pciwin && pa >= soc.pciwin)
-		return (void*)(VIRTPCI + (pa - soc.pciwin));
-	if(soc.armlocal && pa >= soc.armlocal)
-		return (void*)(ARMLOCAL + (pa - soc.armlocal));
-	if(soc.physio && pa >= soc.physio)
-		return (void*)(soc.virtio + (pa - soc.physio));
-	return nil;
+	static uintptr base = VMAP;
+	uintptr pe = pa + size;
+	uintptr va;
+
+	va = base;
+	base += PGROUND(pe) - (pa & -BY2PG);
+	
+	return (void*)mmukmap(va | PTEDEVICE, pa, size);
 }
 
 void

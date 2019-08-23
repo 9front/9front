@@ -132,10 +132,10 @@ userinit(void)
 void
 confinit(void)
 {
-	int i, userpcnt;
-	ulong kpages, memsize = 0;
-	uintptr pa;
+	int userpcnt;
+	ulong kpages;
 	char *p;
+	int i;
 
 	if(p = getconf("service")){
 		if(strcmp(p, "cpu") == 0)
@@ -149,37 +149,13 @@ confinit(void)
 	else
 		userpcnt = 0;
 
-	if(p = getconf("*maxmem"))
-		memsize = strtoul(p, 0, 0) - PHYSDRAM;
-	if (memsize < 512*MB)		/* sanity */
-		memsize = 512*MB;
-	getramsize(&conf.mem[0]);
-	if(conf.mem[0].limit == 0){
-		conf.mem[0].base = PHYSDRAM;
-		conf.mem[0].limit = PHYSDRAM + memsize;
-	}else if(p != nil)
-		conf.mem[0].limit = conf.mem[0].base + memsize;
-	if (conf.mem[0].limit > PHYSDRAM + soc.dramsize)
-		conf.mem[0].limit = PHYSDRAM + soc.dramsize;
-
-	conf.npage = 0;
-	pa = PADDR(PGROUND((uintptr)end));
-
-	/*
-	 *  we assume that the kernel is at the beginning of one of the
-	 *  contiguous chunks of memory and fits therein.
-	 */
-	for(i=0; i<nelem(conf.mem); i++){
-		/* take kernel out of allocatable space */
-		if(pa > conf.mem[i].base && pa < conf.mem[i].limit)
-			conf.mem[i].base = pa;
-
-		conf.mem[i].npage = (conf.mem[i].limit - conf.mem[i].base)/BY2PG;
-		conf.npage += conf.mem[i].npage;
-	}
-
 	if(userpcnt < 10)
 		userpcnt = 60 + cpuserver*10;
+
+	conf.npage = 0;
+	for(i = 0; i < nelem(conf.mem); i++)
+		conf.npage += conf.mem[i].npage;
+
 	kpages = conf.npage - (conf.npage*userpcnt)/100;
 
 	/*
@@ -278,19 +254,20 @@ main(uintptr arg0)
 	}
 	quotefmtinstall();
 	bootargsinit(arg0);
+	meminit();
 	confinit();
 	xinit();
 	printinit();
 	uartconsinit();
 	screeninit();
 	print("\nPlan 9\n");
-	xsummary();
 
 	/* set clock rate to arm_freq from config.txt */
 	setclkrate(ClkArm, 0);
 
 	trapinit();
 	fpuinit();
+	vgpinit();
 	clockinit();
 	cpuidprint();
 	timersinit();

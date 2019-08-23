@@ -98,7 +98,7 @@ struct Conf
 {
 	ulong	nmach;		/* processors */
 	ulong	nproc;		/* processes */
-	Confmem	mem[1];		/* physical memory */
+	Confmem	mem[4];		/* physical memory */
 	ulong	npage;		/* total physical pages of memory */
 	usize	upages;		/* user page pool */
 	ulong	copymode;	/* 0 is copy on write, 1 is copy on reference */
