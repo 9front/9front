@@ -45,7 +45,7 @@ cd:V:	/tmp/9front.386.iso.gz
 		echo 'console=0'
 	}
 	fatfiles=(/env/config.txt /env/cmdline.txt $bootcode $kernels)
-	mb=1919	# storage vendors idea of 2GB
+	mb=1885	# storage vendors idea of 2GB
 	mk $target.$pid.disk
 	mv $target.$pid.disk $target
 	}
