@@ -161,6 +161,7 @@ struct SDio {
 	int	(*cmd)(u32int, u32int, u32int*);
 	void	(*iosetup)(int, void*, int, int);
 	void	(*io)(int, uchar*, int);
+	char	highspeed;
 };
 
 extern SDio sdio;

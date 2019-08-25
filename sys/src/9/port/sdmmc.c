@@ -249,7 +249,7 @@ mmconline(SDunit *unit)
 	io->cmd(SET_BLOCKLEN, unit->secsize, r);
 	io->cmd(APP_CMD, ctl->rca<<Rcashift, r);
 	io->cmd(SET_BUS_WIDTH, Width4, r);
-	if(strcmp(io->name, "sdhc") == 0){
+	if(io->highspeed){
 		if(!waserror()){
 			mmcswitchfunc(io, Hispeed|Setfunc);
 			poperror();

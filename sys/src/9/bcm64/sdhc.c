@@ -562,4 +562,5 @@ SDio sdio = {
 	emmccmd,
 	emmciosetup,
 	emmcio,
+	.highspeed = 1,
 };
