@@ -28,6 +28,7 @@ enum {
 	GO_IDLE_STATE	= 0,
 	ALL_SEND_CID	= 2,
 	SEND_RELATIVE_ADDR= 3,
+	SWITCH_FUNC	= 6,
 	SELECT_CARD	= 7,
 	SD_SEND_IF_COND	= 8,
 	SEND_CSD	= 9,
@@ -58,6 +59,13 @@ enum {
 	/* SET_BUS_WIDTH */
 	Width1	= 0<<0,
 	Width4	= 2<<0,
+
+	/* SWITCH_FUNC */
+	Dfltspeed	= 0<<0,
+	Hispeed		= 1<<0,
+	Checkfunc	= 0x00FFFFF0,
+	Setfunc		= 0x80FFFFF0,
+	Funcbytes	= 64,
 
 	/* OCR (operating conditions register) */
 	Powerup	= 1<<31,
@@ -167,6 +175,27 @@ mmcenable(SDev* dev)
 	return 1;
 }
 
+static void
+mmcswitchfunc(SDio *io, int arg)
+{
+	uchar *buf;
+	int n;
+	u32int r[4];
+
+	n = Funcbytes;
+	buf = sdmalloc(n);
+	if(waserror()){
+		print("mmcswitchfunc error\n");
+		sdfree(buf);
+		nexterror();
+	}
+	io->iosetup(0, buf, n, 1);
+	io->cmd(SWITCH_FUNC, arg, r);
+	io->io(0, buf, n);
+	sdfree(buf);
+	poperror();
+}
+
 static int
 mmconline(SDunit *unit)
 {
@@ -220,6 +249,12 @@ mmconline(SDunit *unit)
 	io->cmd(SET_BLOCKLEN, unit->secsize, r);
 	io->cmd(APP_CMD, ctl->rca<<Rcashift, r);
 	io->cmd(SET_BUS_WIDTH, Width4, r);
+	if(strcmp(io->name, "sdhc") == 0){
+		if(!waserror()){
+			mmcswitchfunc(io, Hispeed|Setfunc);
+			poperror();
+		}
+	}
 	poperror();
 	return 1;
 }
