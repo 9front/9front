@@ -281,6 +281,7 @@ getsnarf(int *sz)
 			*sz += c;
 			if (n == 0){
 				snarf = realloc(snarf, *sz + 8192);
+				p = snarf + *sz;
 				n = 8192;
 			}
 		}
