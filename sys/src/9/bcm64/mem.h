@@ -124,10 +124,12 @@
 #define PTEUSER		PTEAP(1)
 #define PTEWRITE	PTEAP(0)
 #define PTERONLY	PTEAP(2)
+#define PTENOEXEC	(PTEPXN|PTEUXN)
 
+#define PTECACHED	PTEMA(MA_MEM_WB)
 #define PTEWT		PTEMA(MA_MEM_WT)
-#define	PTEUNCACHED	PTEMA(MA_MEM_UC)
-#define	PTEDEVICE	PTEMA(MA_DEV_nGnRE)
+#define PTEUNCACHED	PTEMA(MA_MEM_UC)
+#define PTEDEVICE	PTEMA(MA_DEV_nGnRE)
 
 /*
  * Physical machine information from here on.

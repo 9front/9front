@@ -257,7 +257,7 @@ addvgaseg(char *name, ulong pa, ulong size)
 	Physseg seg;
 
 	memset(&seg, 0, sizeof seg);
-	seg.attr = SG_PHYSICAL;
+	seg.attr = SG_PHYSICAL | SG_DEVICE | SG_NOEXEC;
 	seg.name = name;
 	seg.pa = pa;
 	seg.size = size;

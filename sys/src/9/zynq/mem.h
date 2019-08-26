@@ -62,6 +62,8 @@
 #define PTEVALID L2VALID
 #define PTERONLY L2RONLY
 #define PTEWRITE L2WRITE
+#define PTENOEXEC L2NOEXEC
+#define PTECACHED L2CACHED
 #define PTEUNCACHED L2DEVICE
 #define PPN(x) ((x)&~(BY2PG-1))
 
@@ -114,7 +116,8 @@
 
 #define L2VALID (2|1<<4)
 #define L2CACHED (1<<10|1<<8|1<<6|1<<2)
-#define L2DEVICE (1<<0)
+#define L2DEVICE 0
+#define L2NOEXEC (1<<0)
 #define L2KERRW L2KERNEL
 #define L2KERNEL 0
 #define L2USER (1<<5)

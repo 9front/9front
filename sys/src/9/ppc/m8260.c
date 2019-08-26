@@ -441,7 +441,7 @@ addseg(char *name, ulong start, ulong length)
 	Physseg segbuf;
 
 	memset(&segbuf, 0, sizeof(segbuf));
-	segbuf.attr = SG_PHYSICAL;
+	segbuf.attr = SG_PHYSICAL | SG_DEVICE | SG_NOEXEC;
 	kstrdup(&segbuf.name, name);
 	segbuf.pa = start;
 	segbuf.size = length;

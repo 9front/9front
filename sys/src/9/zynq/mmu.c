@@ -147,8 +147,6 @@ putmmu(uintptr va, uintptr pa, Page *pg)
 
 	if(up->l1 == nil)
 		upallocl1();
-	if((pa & PTEUNCACHED) == 0)
-		pa |= L2CACHED;
 	e = &up->l1->va[L1RX(va)];
 	if((*e & 3) == 0){
 		p = up->mmufree;
@@ -400,7 +398,7 @@ vmap(uintptr pa, ulong sz)
 	while(np-- != 0){
 		if(vp == ve)
 			panic("vmap: out of vmap space (pa=%#.8lux)", pa);
-		*vp++ = pa | L2VALID | L2DEVICE | L2KERRW;
+		*vp++ = pa | L2VALID | L2DEVICE | L2NOEXEC | L2KERRW;
 		pa += BY2PG;
 	}
 	coherence();

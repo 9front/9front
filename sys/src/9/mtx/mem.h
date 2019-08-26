@@ -163,6 +163,7 @@
 #define	PTEWRITE		PTE1_RW
 #define	PTERONLY	PTE1_RO
 #define	PTEUNCACHED	PTE1_I
+#define	PTECACHED	0
 
 /*
  * Address spaces

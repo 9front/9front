@@ -181,7 +181,7 @@ plinit(void)
 	Physseg seg;
 
 	memset(&seg, 0, sizeof seg);
-	seg.attr = SG_PHYSICAL | SG_FAULT;
+	seg.attr = SG_PHYSICAL | SG_DEVICE | SG_NOEXEC | SG_FAULT;
 	seg.name = "axi";
 	seg.pa = 0x40000000;
 	seg.size = 0x8000000;

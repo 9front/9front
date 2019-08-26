@@ -293,6 +293,7 @@
 #define L1noexec	(1<<4)
 #define L2wralloc	(1<<6)			/* L2 TEX (small pages) */
 #define L2sharable	(1<<10)
+#define L2noexec	(1<<0)			/* L2 XN (small pages) */
 
 /* attributes for memory containing locks -- differs between armv6 and armv7 */
 //#define L1ptedramattrs	(Cached | Buffered | L1wralloc | L1sharable)

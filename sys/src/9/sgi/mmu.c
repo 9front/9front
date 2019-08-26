@@ -180,14 +180,14 @@ retry:
 	virt |= KMAPADDR | ((k-kpte)<<KMAPSHIFT);
 
 	k->virt = virt;
-	pte = PPN(pg->pa)|PTECACHABILITY|PTEGLOBL|PTEWRITE|PTEVALID;
+	pte = PPN(pg->pa)|PTECACHED|PTEGLOBL|PTEWRITE|PTEVALID;
 	if(virt & BY2PG) {
-		k->phys0 = PTEGLOBL | PTECACHABILITY;
+		k->phys0 = PTEGLOBL | PTECACHED;
 		k->phys1 = pte;
 	}
 	else {
 		k->phys0 = pte;
-		k->phys1 = PTEGLOBL | PTECACHABILITY;
+		k->phys1 = PTEGLOBL | PTECACHED;
 	}
 
 	putktlb(k);
@@ -385,11 +385,6 @@ putmmu(ulong tlbvirt, ulong tlbphys, Page *pg)
 		tp = newtlbpid(up);
 
 	tlbvirt |= PTEPID(tp);
-	if((tlbphys & PTEALGMASK) != PTEUNCACHED) {
-		tlbphys &= ~PTEALGMASK;
-		tlbphys |= PTECACHABILITY;
-	}
-
 	entry = putstlb(tlbvirt, tlbphys);
 	x = gettlbp(tlbvirt, tlbent);
 	if(x < 0) x = getrandom();

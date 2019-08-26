@@ -151,6 +151,7 @@
 #define	PTEVALID	(1ull<<0)
 #define	PTEWT		(1ull<<3)
 #define	PTEUNCACHED	(1ull<<4)
+#define	PTECACHED	(0ull<<4)
 #define	PTEWRITE	(1ull<<1)
 #define	PTERONLY	(0ull<<1)
 #define	PTEKERNEL	(0ull<<2)

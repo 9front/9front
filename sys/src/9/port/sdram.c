@@ -104,7 +104,7 @@ ramdiskinit0(Ramdisk *rd, uvlong base, uvlong size, ulong ss)
 
 	rd->pa = base;
 	rd->size = size;
-	rd->attr = SG_CACHED;
+	rd->attr = SG_PHYSICAL | SG_CACHED | SG_NOEXEC;
 }
 
 static vlong
@@ -204,7 +204,7 @@ ramonline(SDunit *unit)
 	if(unit->sectors != 0)
 		return 1;
 
-	rd->seg = newseg(SG_PHYSICAL, UTZERO, rd->size/BY2PG);
+	rd->seg = newseg(rd->attr, UTZERO, rd->size/BY2PG);
 	if(rd->seg == nil)
 		return 0;
 	rd->seg->pseg = rd;

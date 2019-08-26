@@ -241,8 +241,8 @@
 #define PTECOHERUPDW	(6<<3)
 
 /* how much faster is it? mflops goes from about .206 (WT) to .37 (WB) */
-// #define PTECACHABILITY PTENONCOHERWT	/* 24k erratum 48 disallows WB */
-#define PTECACHABILITY	PTENONCOHERWB
+// #define PTECACHED PTENONCOHERWT	/* 24k erratum 48 disallows WB */
+#define PTECACHED	PTENONCOHERWB
 
 #define	PTEPID(n)	(n)
 #define PTEMAPMEM	(1024*1024)

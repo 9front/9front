@@ -255,6 +255,8 @@ putmmu(uintptr va, uintptr pa, Page* page)
 		x |= L2AP(Urw);
 	else
 		x |= L2AP(Uro);
+	if(pa & PTENOEXEC)
+		x |= L2noexec;
 	pte[L2X(va)] = PPN(pa)|x;
 	cachedwbtlb(&pte[L2X(va)], sizeof(PTE));
 

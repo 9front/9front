@@ -169,7 +169,7 @@ fixfault(Segment *s, uintptr addr, int read)
 		if(pagedout(*pg))
 			pio(s, addr, soff, pg);
 
-		mmuphys = PPN((*pg)->pa) | PTERONLY|PTEVALID;
+		mmuphys = PPN((*pg)->pa) | PTERONLY | PTECACHED | PTEVALID;
 		(*pg)->modref = PG_REF;
 		break;
 
@@ -192,7 +192,7 @@ fixfault(Segment *s, uintptr addr, int read)
 		 *  we're the only user of the segment.
 		 */
 		if(read && conf.copymode == 0 && s->ref == 1) {
-			mmuphys = PPN((*pg)->pa)|PTERONLY|PTEVALID;
+			mmuphys = PPN((*pg)->pa) | PTERONLY | PTECACHED | PTEVALID;
 			(*pg)->modref |= PG_REF;
 			break;
 		}
@@ -212,7 +212,7 @@ fixfault(Segment *s, uintptr addr, int read)
 		}
 		/* wet floor */
 	case SG_STICKY:			/* Never paged out */
-		mmuphys = PPN((*pg)->pa) | PTEWRITE | PTEVALID;
+		mmuphys = PPN((*pg)->pa) | PTEWRITE | PTECACHED | PTEVALID;
 		(*pg)->modref = PG_MOD|PG_REF;
 		break;
 
@@ -242,8 +242,24 @@ mapphys(Segment *s, uintptr addr, int attr)
 	mmuphys = PPN(pg.pa) | PTEVALID;
 	if((attr & SG_RONLY) == 0)
 		mmuphys |= PTEWRITE;
+	else
+		mmuphys |= PTERONLY;
+
+#ifdef PTENOEXEC
+	if((attr & SG_NOEXEC) == SG_NOEXEC)
+		mmuphys |= PTENOEXEC;
+#endif
+
+#ifdef PTEDEVICE
+	if((attr & SG_DEVICE) == SG_DEVICE)
+		mmuphys |= PTEDEVICE;
+	else
+#endif
 	if((attr & SG_CACHED) == 0)
 		mmuphys |= PTEUNCACHED;
+	else
+		mmuphys |= PTECACHED;
+
 	qunlock(s);
 
 	putmmu(addr, mmuphys, &pg);

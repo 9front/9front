@@ -185,7 +185,7 @@ lmlreset(void)
 		}
 
 		memset(&segbuf, 0, sizeof(segbuf));
-		segbuf.attr = SG_PHYSICAL;
+		segbuf.attr = SG_PHYSICAL | SG_DEVICE | SG_NOEXEC;
 		sprint(name, "lml%d.regs", nlml);
 		kstrdup(&segbuf.name, name);
 		segbuf.pa = (ulong)regpa;

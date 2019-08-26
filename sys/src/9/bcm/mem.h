@@ -79,13 +79,15 @@
 #define	PPN(x)		((x)&~(BY2PG-1))
 
 /*
+ * These bits are completely artificial.
  * With a little work these move to port.
  */
 #define	PTEVALID	(1<<0)
 #define	PTERONLY	0
 #define	PTEWRITE	(1<<1)
+#define	PTECACHED	0
 #define	PTEUNCACHED	(1<<2)
-#define PTEKERNEL	(1<<3)
+#define	PTENOEXEC	(1<<4)
 
 /*
  * Physical machine information from here on.

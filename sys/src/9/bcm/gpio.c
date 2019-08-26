@@ -130,7 +130,7 @@ gpiomeminit(void)
 	Physseg seg;
 
 	memset(&seg, 0, sizeof seg);
-	seg.attr = SG_PHYSICAL;
+	seg.attr = SG_PHYSICAL | SG_DEVICE | SG_NOEXEC;
 	seg.name = "gpio";
 	seg.pa = (GPIOREGS - soc.virtio) + soc.physio;
 	seg.size = BY2PG;

@@ -453,7 +453,8 @@ putmmu(uintptr va, uintptr pa, Page *pg)
 		flushasidvall((uvlong)up->asid<<48 | va>>12);
 	else
 		flushasidva((uvlong)up->asid<<48 | va>>12);
-	*pte = pa | PTEPAGE | PTEUSER | PTEPXN | PTENG | PTEAF | PTESH(SHARE_INNER);
+	*pte = pa | PTEPAGE | PTEUSER | PTEPXN | PTENG | PTEAF |
+		(((pa & PTEMA(7)) == PTECACHED)? PTESH(SHARE_INNER): PTESH(SHARE_OUTER));
 	if(pg->txtflush & (1UL<<m->machno)){
 		/* pio() sets PG_TXTFLUSH whenever a text pg has been written */
 		cachedwbinvse(kmap(pg), BY2PG);
