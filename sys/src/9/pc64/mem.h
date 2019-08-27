@@ -143,7 +143,7 @@
 #define	PTEPERTAB	(PTEMAPMEM/BY2PG)
 #define	SEGMAPSIZE	65536
 #define	SSEGMAPSIZE	16
-#define	PPN(x)		((x)&~(BY2PG-1))
+#define	PPN(x)		((x)&~(1ull<<63 | BY2PG-1))
 
 /*
  *  physical MMU
@@ -158,6 +158,7 @@
 #define	PTEUSER		(1ull<<2)
 #define	PTESIZE		(1ull<<7)
 #define	PTEGLOBAL	(1ull<<8)
+#define	PTENOEXEC	((uvlong)m->havenx<<63)
 
 /*
  * Hierarchical Page Tables.

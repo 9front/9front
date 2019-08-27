@@ -244,6 +244,7 @@ struct Mach
 	int	havetsc;
 	int	havepge;
 	int	havewatchpt8;
+	int	havenx;
 	uvlong	tscticks;
 	int	pdballoc;
 	int	pdbfree;

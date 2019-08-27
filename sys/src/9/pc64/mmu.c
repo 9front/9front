@@ -116,23 +116,18 @@ mmuinit(void)
 	taskswitch((uintptr)m + MACHSIZE);
 	ltr(TSSSEL);
 
-	wrmsr(0xc0000100, 0ull);	/* 64 bit fsbase */
-	wrmsr(0xc0000101, (uvlong)&machp[m->machno]);	/* 64 bit gsbase */
-	wrmsr(0xc0000102, 0ull);	/* kernel gs base */
+	wrmsr(FSbase, 0ull);
+	wrmsr(GSbase, (uvlong)&machp[m->machno]);
+	wrmsr(KernelGSbase, 0ull);
 
 	/* enable syscall extension */
-	rdmsr(0xc0000080, &v);
+	rdmsr(Efer, &v);
 	v |= 1ull;
-	wrmsr(0xc0000080, v);
+	wrmsr(Efer, v);
 
-	/* IA32_STAR */
-	wrmsr(0xc0000081, ((uvlong)UE32SEL << 48) | ((uvlong)KESEL << 32));
-
-	/* IA32_LSTAR */
-	wrmsr(0xc0000082, (uvlong)syscallentry);
-
-	/* SYSCALL flags mask */
-	wrmsr(0xc0000084, 0x200);
+	wrmsr(Star, ((uvlong)UE32SEL << 48) | ((uvlong)KESEL << 32));
+	wrmsr(Lstar, (uvlong)syscallentry);
+	wrmsr(Sfmask, 0x200);
 
 	/* IA32_PAT write combining */
 	if((MACHP(0)->cpuiddx & Pat) != 0
@@ -443,7 +438,7 @@ putmmu(uintptr va, uintptr pa, Page *)
 	if(pte == 0)
 		panic("putmmu: bug: va=%#p pa=%#p", va, pa);
 	old = *pte;
-	*pte = pa | PTEVALID|PTEUSER;
+	*pte = pa | PTEUSER;
 	splx(x);
 	if(old & PTEVALID)
 		invlpg(va);
@@ -487,7 +482,7 @@ kmap(Page *page)
 	pte = mmuwalk(m->pml4, va, 0, 1);
 	if(pte == 0 || (*pte & PTEVALID) != 0)
 		panic("kmap: pa=%#p va=%#p", pa, va);
-	*pte = pa | PTEWRITE|PTEVALID;
+	*pte = pa | PTEWRITE|PTENOEXEC|PTEVALID;
 	splx(x);
 	invlpg(va);
 	return (KMap*)va;
@@ -533,7 +528,7 @@ vmap(uintptr pa, int size)
 	pa -= o;
 	va -= o;
 	size += o;
-	pmap(m->pml4, pa | PTEUNCACHED|PTEWRITE|PTEVALID, va, size);
+	pmap(m->pml4, pa | PTEUNCACHED|PTEWRITE|PTENOEXEC|PTEVALID, va, size);
 	return (void*)(va+o);
 }
 
@@ -616,7 +611,7 @@ preallocpages(void)
 			pm->npage = (top - pm->base)/BY2PG;
 
 			va = base + VMAP;
-			pmap(m->pml4, base | PTEGLOBAL|PTEWRITE|PTEVALID, va, psize);
+			pmap(m->pml4, base | PTEGLOBAL|PTEWRITE|PTENOEXEC|PTEVALID, va, psize);
 
 			palloc.pages = (void*)(va + tsize);
 

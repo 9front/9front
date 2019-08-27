@@ -899,10 +899,26 @@ cpuidentify(void)
 	else
 		hwrandbuf = nil;
 	
-	/* 8-byte watchpoints are supported in Long Mode */
-	if(sizeof(uintptr) == 8)
+	if(sizeof(uintptr) == 8) {
+		/* 8-byte watchpoints are supported in Long Mode */
 		m->havewatchpt8 = 1;
-	else if(strcmp(m->cpuidid, "GenuineIntel") == 0){
+
+		/* check and enable NX bit */
+		cpuid(Highextfunc, regs);
+		if(regs[0] >= Procextfeat){
+			cpuid(Procextfeat, regs);
+			if((regs[3] & (1<<20)) != 0){
+				vlong efer;
+
+				/* enable no-execute feature */
+				if(rdmsr(Efer, &efer) != -1){
+					efer |= 1ull<<11;
+					if(wrmsr(Efer, efer) != -1)
+						m->havenx = 1;
+				}
+			}
+		}
+	} else if(strcmp(m->cpuidid, "GenuineIntel") == 0){
 		/* some random CPUs that support 8-byte watchpoints */
 		if(family == 15 && (model == 3 || model == 4 || model == 6)
 		|| family == 6 && (model == 15 || model == 23 || model == 28))
