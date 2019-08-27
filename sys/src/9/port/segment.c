@@ -177,8 +177,8 @@ dupseg(Segment **seg, int segno, int share)
 	case SG_DATA:		/* Copy on write plus demand load info */
 		if(segno == TSEG){
 			n = data2txt(s);
-			poperror();
 			qunlock(s);
+			poperror();
 			return n;
 		}
 
@@ -200,14 +200,14 @@ dupseg(Segment **seg, int segno, int share)
 	n->flushme = s->flushme;
 	if(s->ref > 1)
 		procflushseg(s);
-	poperror();
 	qunlock(s);
+	poperror();
 	return n;
 
 sameseg:
 	incref(s);
-	poperror();
 	qunlock(s);
+	poperror();
 	return s;
 }
 
@@ -680,8 +680,11 @@ segattach(int attr, char *name, uintptr va, uintptr len)
 	if(len > ps->size)
 		error(Enovmem);
 
-	attr &= ~SG_TYPE;		/* Turn off what is not allowed */
-	attr |= ps->attr;		/* Copy in defaults */
+	/* Turn off what is not allowed */
+	attr &= ~(SG_TYPE | SG_CACHED | SG_DEVICE);
+
+	/* Copy in defaults */
+	attr |= ps->attr;
 
 	s = newseg(attr, va, len/BY2PG);
 	s->pseg = ps;
@@ -788,7 +791,7 @@ data2txt(Segment *s)
 {
 	Segment *ps;
 
-	ps = newseg(SG_TEXT, s->base, s->size);
+	ps = newseg(SG_TEXT | SG_RONLY, s->base, s->size);
 	ps->image = s->image;
 	incref(ps->image);
 	ps->fstart = s->fstart;

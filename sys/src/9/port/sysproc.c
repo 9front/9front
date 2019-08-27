@@ -512,7 +512,7 @@ sysexec(va_list list)
 
 	/* Text.  Shared. Attaches to cache image if possible */
 	/* attachimage returns a locked cache image */
-	img = attachimage(SG_TEXT|SG_RONLY, tc, UTZERO, (t-UTZERO)>>PGSHIFT);
+	img = attachimage(SG_TEXT | SG_RONLY, tc, UTZERO, (t-UTZERO)>>PGSHIFT);
 	ts = img->s;
 	up->seg[TSEG] = ts;
 	ts->flushme = 1;
