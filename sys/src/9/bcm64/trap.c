@@ -472,7 +472,7 @@ faultarm64(Ureg *ureg)
 	case  8: case  9: case 10: case 11:	// Access flag fault.
 	case 12: case 13: case 14: case 15:	// Permission fault.
 	case 48:				// tlb conflict fault.
-		if(fault(addr, read) == 0)
+		if(fault(addr, ureg->pc, read) == 0)
 			break;
 
 		/* wet floor */

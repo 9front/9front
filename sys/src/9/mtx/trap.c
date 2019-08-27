@@ -321,7 +321,7 @@ faultpower(Ureg *ureg, ulong addr, int read)
 	user = (ureg->srr1 & MSR_PR) != 0;
 	insyscall = up->insyscall;
 	up->insyscall = 1;
-	n = fault(addr, read);
+	n = fault(addr, ureg->pc, read);
 	if(n < 0){
 		if(!user){
 			dumpregs(ureg);

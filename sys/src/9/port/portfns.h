@@ -105,7 +105,7 @@ void		exit(int);
 uvlong		fastticks(uvlong*);
 uvlong		fastticks2ns(uvlong);
 uvlong		fastticks2us(uvlong);
-int		fault(uintptr, int);
+int		fault(uintptr, uintptr, int);
 void		fdclose(int, int);
 Chan*		fdtochan(int, int, int, int);
 int		findmount(Chan**, Mhead**, int, int, Qid);

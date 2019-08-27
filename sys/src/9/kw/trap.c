@@ -319,8 +319,6 @@ faultarm(Ureg *ureg, uintptr va, int user, int read)
 {
 	int n, insyscall;
 	char buf[ERRMAX];
-	static int cnt, lastpid;
-	static ulong lastva;
 
 	if(up == nil) {
 		dumpregs(ureg);
@@ -328,21 +326,7 @@ faultarm(Ureg *ureg, uintptr va, int user, int read)
 	}
 	insyscall = up->insyscall;
 	up->insyscall = 1;
-
-	/* this is quite helpful during mmu and cache debugging */
-	if(va == lastva && up->pid == lastpid) {
-		++cnt;
-		if (cnt >= 2)
-			/* fault() isn't fixing the underlying cause */
-			panic("fault: %d consecutive faults for va %#lux",
-				cnt+1, va);
-	} else {
-		cnt = 0;
-		lastva = va;
-		lastpid = up->pid;
-	}
-
-	n = fault(va, read);
+	n = fault(va, ureg->pc, read);
 	if(n < 0){
 		if(!user){
 			dumpregs(ureg);

@@ -142,7 +142,6 @@ done:
 static int
 fixfault(Segment *s, uintptr addr, int read)
 {
-	int type;
 	Pte **pte, *etp;
 	uintptr soff, mmuphys;
 	Page **pg, *old, *new;
@@ -159,8 +158,7 @@ fixfault(Segment *s, uintptr addr, int read)
 	if(pg > etp->last)
 		etp->last = pg;
 
-	type = s->type & SG_TYPE;
-	switch(type) {
+	switch(s->type & SG_TYPE) {
 	default:
 		panic("fault");
 		return -1;
@@ -221,6 +219,12 @@ fixfault(Segment *s, uintptr addr, int read)
 		(*pg)->modref = PG_MOD|PG_REF;
 		break;
 	}
+
+#ifdef PTENOEXEC
+	if((s->type & SG_NOEXEC) != 0)
+		mmuphys |= PTENOEXEC;
+#endif
+
 	qunlock(s);
 
 	putmmu(addr, mmuphys, *pg);
@@ -246,12 +250,12 @@ mapphys(Segment *s, uintptr addr, int attr)
 		mmuphys |= PTERONLY;
 
 #ifdef PTENOEXEC
-	if((attr & SG_NOEXEC) == SG_NOEXEC)
+	if((attr & SG_NOEXEC) != 0)
 		mmuphys |= PTENOEXEC;
 #endif
 
 #ifdef PTEDEVICE
-	if((attr & SG_DEVICE) == SG_DEVICE)
+	if((attr & SG_DEVICE) != 0)
 		mmuphys |= PTEDEVICE;
 	else
 #endif
@@ -266,7 +270,7 @@ mapphys(Segment *s, uintptr addr, int attr)
 }
 
 int
-fault(uintptr addr, int read)
+fault(uintptr addr, uintptr pc, int read)
 {
 	Segment *s;
 	char *sps;
@@ -298,7 +302,9 @@ fault(uintptr addr, int read)
 		if((attr & SG_TYPE) == SG_PHYSICAL)
 			attr |= s->pseg->attr;
 
-		if((attr & SG_FAULT) != 0 || !read && (attr & SG_RONLY) != 0) {
+		if((attr & SG_FAULT) != 0
+		|| read? (attr & SG_NOEXEC) != 0 && (addr & -BY2PG) == (pc & -BY2PG):
+			 (attr & SG_RONLY) != 0) {
 			qunlock(s);
 			up->psstate = sps;
 			if(up->kp && up->nerrlab)	/* for segio */

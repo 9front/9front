@@ -735,7 +735,7 @@ fault386(Ureg* ureg, void*)
 
 	insyscall = up->insyscall;
 	up->insyscall = 1;
-	n = fault(addr, read);
+	n = fault(addr, ureg->pc, read);
 	if(n < 0){
 		if(!user){
 			dumpregs(ureg);

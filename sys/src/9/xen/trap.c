@@ -598,7 +598,7 @@ unexpected(Ureg* ureg, void*)
 }
 
 static void
-fault386(Ureg* ureg, void* )
+fault386(Ureg* ureg, void*)
 {
 	ulong addr;
 	int read, user, n, insyscall;
@@ -621,7 +621,7 @@ fault386(Ureg* ureg, void* )
 		panic("fault but up is zero; pc 0x%8.8lux addr 0x%8.8lux\n", ureg->pc, addr);
 	insyscall = up->insyscall;
 	up->insyscall = 1;
-	n = fault(addr, read);
+	n = fault(addr, ureg->pc, read);
 	if(n < 0){
 		if(!user){
 			dumpregs(ureg);

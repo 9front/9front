@@ -333,7 +333,7 @@ faultarm(Ureg *ureg, uintptr va, int user, int read)
 	}
 	insyscall = up->insyscall;
 	up->insyscall = 1;
-	n = fault(va, read);
+	n = fault(va, ureg->pc, read);
 	if(n < 0){
 		if(!user){
 			dumpregs(ureg);

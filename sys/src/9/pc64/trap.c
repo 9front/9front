@@ -708,7 +708,7 @@ faultamd64(Ureg* ureg, void*)
 		splx(s);
 		nexterror();
 	}
-	n = fault(addr, read);
+	n = fault(addr, ureg->pc, read);
 	if(n < 0){
 		if(!user){
 			dumpregs(ureg);

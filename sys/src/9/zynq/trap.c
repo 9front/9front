@@ -98,7 +98,7 @@ faultarm(Ureg *ureg, ulong fsr, uintptr addr)
 	case 0x0B:	/* domain fault L2 */
 	case 0x0D:	/* permission fault L1 */
 	case 0x0F:	/* permission fault L2 */
-		if(fault(addr, read) == 0)
+		if(fault(addr, ureg->pc, read) == 0)
 			break;
 		/* wet floor */
 	default:
