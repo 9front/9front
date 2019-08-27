@@ -429,7 +429,7 @@ sysexec(va_list list)
 		if(tstk <= USTKSIZE)
 			error(Enovmem);
 	} while((s = isoverlap(tstk-USTKSIZE, USTKSIZE)) != nil);
-	up->seg[ESEG] = newseg(SG_STACK, tstk-USTKSIZE, USTKSIZE/BY2PG);
+	up->seg[ESEG] = newseg(SG_STACK | SG_NOEXEC, tstk-USTKSIZE, USTKSIZE/BY2PG);
 
 	/*
 	 * Args: pass 2: assemble; the pages will be faulted in
