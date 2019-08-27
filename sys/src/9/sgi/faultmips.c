@@ -196,7 +196,7 @@ faultmips(Ureg *ur, int user, int code)
 /*	print("fault: %s code %d va %#p pc %#p r31 %#lux tlbvirt %#lux\n",
 		up->text, code, ur->badvaddr, ur->pc, ur->r31, tlbvirt());/**/
 
-	if (Debug && ckfaultstuck(ur, read, code) || fault(addr, read) == 0)
+	if (Debug && ckfaultstuck(ur, read, code) || fault(addr, ur->pc, read) == 0)
 		return;
 
 	if(user) {
