@@ -217,7 +217,7 @@ loop:
 	if(a != ACALL) {
 		q = brchain(p->link);
 		if(q != P && q->mark)
-		if(a != ALOOP) {
+		if(a != ALOOP && a != ATEXT) {
 			p->as = relinv(a);
 			p->link = p->pcond;
 			p->pcond = q;
