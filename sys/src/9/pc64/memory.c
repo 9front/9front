@@ -221,6 +221,8 @@ rampage(void)
 {
 	uintptr m;
 	
+	if(conf.mem[0].npage != 0)
+		return xspanalloc(BY2PG, BY2PG, 0);
 	m = mapalloc(&rmapram, 0, BY2PG, BY2PG);
 	if(m == 0)
 		return nil;
@@ -543,11 +545,11 @@ map(uintptr base, uintptr len, int type)
 	switch(type){
 	case MemRAM:
 		mapfree(&rmapram, base, len);
-		flags = PTEWRITE|PTEVALID;
+		flags = PTEWRITE|PTENOEXEC|PTEVALID;
 		break;
 	case MemUMB:
 		mapfree(&rmapumb, base, len);
-		flags = PTEWRITE|PTEUNCACHED|PTEVALID;
+		flags = PTEWRITE|PTEUNCACHED|PTENOEXEC|PTEVALID;
 		break;
 	case MemUPA:
 		mapfree(&rmapupa, base, len);

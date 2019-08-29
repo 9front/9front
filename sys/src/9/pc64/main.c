@@ -301,6 +301,7 @@ static void
 rebootjump(uintptr entry, uintptr code, ulong size)
 {
 	void (*f)(uintptr, uintptr, ulong);
+	uintptr *pte;
 
 	splhi();
 	arch->introff();
@@ -310,6 +311,12 @@ rebootjump(uintptr entry, uintptr code, ulong size)
 	 */
 	*mmuwalk(m->pml4, 0, 3, 0) = *mmuwalk(m->pml4, KZERO, 3, 0);
 	*mmuwalk(m->pml4, 0, 2, 0) = *mmuwalk(m->pml4, KZERO, 2, 0);
+
+	if((pte = mmuwalk(m->pml4, REBOOTADDR, 1, 0)) != nil)
+		*pte &= ~PTENOEXEC;
+	if((pte = mmuwalk(m->pml4, REBOOTADDR, 0, 0)) != nil)
+		*pte &= ~PTENOEXEC;
+
 	mmuflushtlb();
 
 	/* setup reboot trampoline function */

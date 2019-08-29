@@ -42,6 +42,9 @@ TEXT _apapic(SB), 1, $-4 			/* address APBOOTSTRAP+0x18 */
 	QUAD $0
 TEXT _apmach(SB), 1, $-4 			/* address APBOOTSTRAP+0x20 */
 	QUAD $0
+TEXT _apefer(SB), 1, $-4
+	QUAD $0x100				/* Long Mode Enable */
+
 TEXT _apbootstrap(SB), 1, $-4 
 	MOVW	CS, AX
 	MOVW	AX, DS				/* initialise DS */
@@ -85,7 +88,7 @@ TEXT _ap32(SB), 1, $-4
 
 	MOVL	$0xc0000080, CX			/* Extended Feature Enable */
 	RDMSR
-	ORL	$0x00000100, AX			/* Long Mode Enable */
+	ORL	_apefer-KZERO(SB), AX
 	WRMSR
 
 	MOVL	CR0, DX

@@ -79,6 +79,7 @@ mpstartap(Apic* apic)
 	apbootp[1] = (uintptr)PADDR(pml4);
 	apbootp[2] = (uintptr)apic;
 	apbootp[3] = (uintptr)mach;
+	apbootp[4] |= (uintptr)m->havenx<<11;	/* EFER */
 
 	/*
 	 * Universal Startup Algorithm.

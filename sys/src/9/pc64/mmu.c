@@ -73,6 +73,8 @@ taskswitch(uintptr stack)
 	mmuflushtlb();
 }
 
+static void kernelro(void);
+
 void
 mmuinit(void)
 {
@@ -83,6 +85,9 @@ mmuinit(void)
 	/* zap double map done by l.s */ 
 	m->pml4[512] = 0;
 	m->pml4[0] = 0;
+
+	if(m->machno == 0)
+		kernelro();
 
 	m->tss = mallocz(sizeof(Tss), 1);
 	if(m->tss == nil)
@@ -244,8 +249,6 @@ mmucreate(uintptr *table, uintptr va, int level, int index)
 			up->kmapcount++;
 		}
 		page = p->page;
-	} else if(conf.mem[0].npage != 0) {
-		page = mallocalign(PTSZ, BY2PG, 0, 0);
 	} else {
 		page = rampage();
 	}
@@ -285,6 +288,59 @@ static int
 ptecount(uintptr va, int level)
 {
 	return (1<<PTSHIFT) - (va & PGLSZ(level+1)-1) / PGLSZ(level);
+}
+
+static void
+ptesplit(uintptr* table, uintptr va)
+{
+	uintptr *pte, pa, off;
+
+	pte = mmuwalk(table, va, 1, 0);
+	if(pte == nil || (*pte & PTESIZE) == 0 || (va & PGLSZ(1)-1) == 0)
+		return;
+	table = rampage();
+	if(table == nil)
+		panic("ptesplit: out of memory\n");
+	va &= -PGLSZ(1);
+	pa = *pte & ~PTESIZE;
+	for(off = 0; off < PGLSZ(1); off += PGLSZ(0))
+		table[PTLX(va + off, 0)] = pa + off;
+	*pte = PADDR(table) | PTEVALID|PTEWRITE;
+	invlpg(va);
+}
+
+/*
+ * map kernel text segment readonly
+ * and everything else no-execute.
+ */
+static void
+kernelro(void)
+{
+	uintptr *pte, psz, va;
+
+	ptesplit(m->pml4, APBOOTSTRAP);
+	ptesplit(m->pml4, KTZERO);
+	ptesplit(m->pml4, (uintptr)etext-1);
+
+	for(va = KZERO; va != 0; va += psz){
+		psz = PGLSZ(0);
+		pte = mmuwalk(m->pml4, va, 0, 0);
+		if(pte == nil){
+			if(va & PGLSZ(1)-1)
+				continue;
+			pte = mmuwalk(m->pml4, va, 1, 0);
+			if(pte == nil)
+				continue;
+			psz = PGLSZ(1);
+		}
+		if((*pte & PTEVALID) == 0)
+			continue;
+		if(va >= KTZERO && va < (uintptr)etext)
+			*pte &= ~PTEWRITE;
+		else if(va != (APBOOTSTRAP & -BY2PG))
+			*pte |= PTENOEXEC;
+		invlpg(va);
+	}
 }
 
 void
