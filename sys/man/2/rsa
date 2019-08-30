@@ -2,6 +2,8 @@
 .SH NAME
 asn1dump,
 asn1toRSApriv,
+asn1encodeRSApriv,
+asn1encodeRSApub,
 decodePEM,
 rsadecrypt,
 rsaencrypt,
@@ -62,7 +64,13 @@ RSApub*	X509toRSApub(uchar *cert, int ncert, char *name, int nname)
 RSApriv*	asn1toRSApriv(uchar *priv, int npriv)
 .PP
 .B
-void		asn1dump(uchar *der, int len)
+int	asn1encodeRSApriv(RSApriv *k, uchar *buf, int len)
+.PP
+.B
+int	asn1encodeRSApub(RSApub *pk, uchar *buf, int len)
+.PP
+.B
+void	asn1dump(uchar *der, int len)
 .PP
 .B
 uchar*	decodePEM(char *s, char *type, int *len, char **new_s)
@@ -206,6 +214,21 @@ in
 converts an ASN1 formatted RSA private key into the corresponding
 .B RSApriv
 structure.
+.PP
+.I Asn1encodeRSApriv
+and
+.I asn1encodeRSApub
+export a
+.B RSApriv
+or
+.B RSApub
+structure to ASN1 format.
+On success,
+.I buf
+is filled and the encoded byte length is returned.
+Otherwise
+.B -1
+is returned and error string is set.
 .PP
 .I Asn1dump
 prints an ASN1 object to standard output.
