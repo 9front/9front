@@ -28,6 +28,9 @@ rsagen, rsafill, asn12rsa, rsa2asn1, rsa2pub, rsa2ssh, rsa2x509, rsa2csr \- gene
 .PP
 .B rsa2asn1
 [
+-a
+]
+[
 .I file
 ]
 .PP
@@ -182,6 +185,9 @@ Comment attributes are preserved.
 is like
 .I rsa2pub
 but outputs the public key in ASN.1/DER format.
+With the
+.I -a
+flag a private key is read and encoded in ANS.1/DER format.
 .PP
 .I Rsa2ssh
 reads a Plan 9 RSA public or private key and prints the public portion 

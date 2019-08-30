@@ -2689,10 +2689,48 @@ encode_rsapubkey(RSApub *pk)
 	return b;
 }
 
+static Bytes*
+encode_rsaprivkey(RSApriv *k)
+{
+	Bytes *b = nil;
+	RSApub *pk = &k->pub;
+	Elem e = mkseq(
+		mkel(mkint(0),
+		mkel(mkbigint(pk->n),
+		mkel(mpsignif(pk->ek)<32 ? mkint(mptoi(pk->ek)) : mkbigint(pk->ek),
+		mkel(mkbigint(k->dk),
+		mkel(mkbigint(k->p),
+		mkel(mkbigint(k->q),
+		mkel(mkbigint(k->kp),
+		mkel(mkbigint(k->kq),
+		mkel(mkbigint(k->c2),
+		nil))))))))));
+	encode(e, &b);
+	freevalfields(&e.val);
+	return b;
+}
+
 int
 asn1encodeRSApub(RSApub *pk, uchar *buf, int len)
 {
 	Bytes *b = encode_rsapubkey(pk);
+	if(b == nil)
+		return -1;
+	if(b->len > len){
+		freebytes(b);
+		werrstr("buffer too small");
+		return -1;
+	}
+	memmove(buf, b->data, len = b->len);
+	freebytes(b);
+	return len;
+}
+
+int
+asn1encodeRSApriv(RSApriv *k, uchar *buf, int len)
+{
+	Bytes *b;
+	b = encode_rsaprivkey(k);
 	if(b == nil)
 		return -1;
 	if(b->len > len){
