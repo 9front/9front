@@ -58,7 +58,7 @@ query(int fd)
 	Biobuf in;
 
 	Binit(&in, 0, OREAD);
-	for(print("> "); lp = Brdline(&in, '\n'); print("> ")){
+	for(fprint(2, "> "); lp = Brdline(&in, '\n'); fprint(2, "> ")){
 		n = Blinelen(&in) -1;
 		while(isspace(lp[n]))
 			lp[n--] = 0;

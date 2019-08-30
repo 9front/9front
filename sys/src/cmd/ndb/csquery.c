@@ -68,7 +68,7 @@ main(int argc, char **argv)
 
 	Binit(&in, 0, OREAD);
 	for(;;){
-		print("> ");
+		fprint(2, "> ");
 		p = Brdline(&in, '\n');
 		if(p == 0)
 			break;
