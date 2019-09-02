@@ -19,7 +19,7 @@ dev
 	draw	screen swcursor
 	mouse	mouse
 	uart	gpio
-#	gpio	gpio
+	gpio	gpio
 	sd
 	usb
 	dtracy
