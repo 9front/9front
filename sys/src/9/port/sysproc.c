@@ -572,6 +572,9 @@ sysexec(va_list list)
 	procsetup(up);
 	qunlock(&up->debug);
 
+	up->errbuf0[0] = '\0';
+	up->errbuf1[0] = '\0';
+
 	/*
 	 *  At this point, the mmu contains info about the old address
 	 *  space and needs to be flushed
@@ -698,20 +701,21 @@ werrstr(char *fmt, ...)
 static int
 generrstr(char *buf, uint nbuf)
 {
-	char tmp[ERRMAX];
+	char *err;
 
 	if(nbuf == 0)
 		error(Ebadarg);
+	if(nbuf > ERRMAX)
+		nbuf = ERRMAX;
 	validaddr((uintptr)buf, nbuf, 1);
-	if(nbuf > sizeof tmp)
-		nbuf = sizeof tmp;
-	memmove(tmp, buf, nbuf);
 
-	/* make sure it's NUL-terminated */
-	tmp[nbuf-1] = '\0';
-	memmove(buf, up->syserrstr, nbuf);
-	buf[nbuf-1] = '\0';
-	memmove(up->syserrstr, tmp, nbuf);
+	err = up->errstr;
+	utfecpy(err, err+nbuf, buf);
+	utfecpy(buf, buf+nbuf, up->syserrstr);
+
+	up->errstr = up->syserrstr;
+	up->syserrstr = err;
+	
 	return 0;
 }
 

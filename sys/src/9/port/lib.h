@@ -47,6 +47,7 @@ enum
  */
 extern	int	runetochar(char*, Rune*);
 extern	int	chartorune(Rune*, char*);
+extern	char*	utfecpy(char *s1, char *es1, char *s2);
 extern	char*	utfrune(char*, long);
 extern	int	utflen(char*);
 extern	int	utfnlen(char*, long);
