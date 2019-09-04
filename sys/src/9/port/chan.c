@@ -1283,7 +1283,7 @@ namec(char *aname, int amode, int omode, ulong perm)
 	Elemlist e;
 	Rune r;
 	Mhead *m;
-	char *createerr, tmperrbuf[ERRMAX];
+	char *err;
 	char *name;
 
 	if(aname[0] == '\0')
@@ -1360,13 +1360,15 @@ namec(char *aname, int amode, int omode, ulong perm)
 		 */
 		if(e.nerror == 0)
 			nexterror();
-		strcpy(tmperrbuf, up->errstr);
 		if(e.off[e.nerror]==0)
 			print("nerror=%d but off=%d\n",
 				e.nerror, e.off[e.nerror]);
 		len = e.prefix+e.off[e.nerror];
 		free(e.off);
-		namelenerror(aname, len, tmperrbuf);
+		err = up->errstr;
+		up->errstr = up->syserrstr;
+		up->syserrstr = err;
+		namelenerror(aname, len, err);
 	}
 
 	/*
@@ -1584,14 +1586,16 @@ namec(char *aname, int amode, int omode, ulong perm)
 		if(omode & OEXCL)
 			nexterror();
 		/* save error */
-		createerr = up->errstr;
-		up->errstr = tmperrbuf;
+		err = up->errstr;
+		up->errstr = up->syserrstr;
+		up->syserrstr = err;
 		/* note: we depend that walk does not error */
-		if(walk(&c, e.elems+e.nelems-1, 1, nomount, nil) < 0){
-			up->errstr = createerr;
-			error(createerr);	/* report true error */
-		}
-		up->errstr = createerr;
+		if(walk(&c, e.elems+e.nelems-1, 1, nomount, nil) < 0)
+			error(err);	/* report true error */
+		/* restore error */
+		err = up->syserrstr;
+		up->syserrstr = up->errstr;
+		up->errstr = err;
 		omode |= OTRUNC;
 		goto Open;
 
