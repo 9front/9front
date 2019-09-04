@@ -187,7 +187,17 @@ returns
 .SH SOURCE
 .B /sys/src/libc/port/rune.c
 .br
+.B /sys/src/libc/port/utfecpy.c
+.br
 .B /sys/src/libc/port/utfrune.c
+.br
+.B /sys/src/libc/port/utfrrune.c
+.br
+.B /sys/src/libc/port/utflen.c
+.br
+.B /sys/src/libc/port/utfnlen.c
+.br
+.B /sys/src/libc/port/utfutf.c
 .SH SEE ALSO
 .IR utf (6),
 .IR tcs (1)
