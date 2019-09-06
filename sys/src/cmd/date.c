@@ -1,7 +1,16 @@
 #include <u.h>
 #include <libc.h>
 
-int uflg, nflg, iflg, tflg;
+static char *day[] = {
+	"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat",
+};
+
+static char *mon[] = {
+	"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul",
+	"Aug", "Sep", "Oct", "Nov", "Dec"
+};
+
+int uflg, nflg, iflg, tflg, mflg;
 
 char*
 isodate(Tm *t)
@@ -38,6 +47,23 @@ isotime(Tm *t)
 	return d;
 }
 
+char *
+mailtime(Tm *t)
+{
+	static char c[64];
+	char *sgn;
+	int off;
+
+	sgn = "+";
+	if(t->tzoff < 0)
+		sgn = "";
+	off = (t->tzoff/3600)*100 + (t->tzoff/60)%60;
+	snprint(c, sizeof(c), "%s, %.2d %s %.4d %.2d:%.2d:%.2d %s%.4d",
+		day[t->wday], t->mday, mon[t->mon], t->year + 1900,
+		t->hour, t->min, t->sec, sgn, off);
+	return c;
+}
+
 void
 main(int argc, char *argv[])
 {
@@ -48,7 +74,8 @@ main(int argc, char *argv[])
 	case 'u':	uflg = 1; break;
 	case 't':	tflg = 1; /* implies -i */
 	case 'i':	iflg = 1; break;
-	default:	fprint(2, "usage: date [-itun] [seconds]\n"); exits("usage");
+	case 'm':	mflg = 1; break;
+	default:	fprint(2, "usage: date [-itunm] [seconds]\n"); exits("usage");
 	}ARGEND
 
 	if(argc == 1)
@@ -65,7 +92,9 @@ main(int argc, char *argv[])
 				print("%s\n", isotime(tm));
 			else
 				print("%s\n", isodate(tm));
-		} else
+		} else if(mflg)
+			print("%s\n", mailtime(tm));
+		else
 			print("%s", asctime(tm));
 	}
 	exits(0);
