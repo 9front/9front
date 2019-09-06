@@ -20,6 +20,11 @@ typedef _uintptr_t uintptr_t;
 #define INT32_MIN	0x80000000
 #define INT64_MIN	0x8000000000000000LL
 
+#define UINT8_MIN	0
+#define UINT16_MIN	0 
+#define UINT32_MIN	0 
+#define UINT64_MIN	0
+
 #define INT8_MAX	0x7f
 #define INT16_MAX	0x7fff
 #define INT32_MAX	0x7fffffff
