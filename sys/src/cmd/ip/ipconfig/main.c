@@ -806,7 +806,7 @@ catch(void*, char *msg)
 {
 	if(strstr(msg, "alarm"))
 		noted(NCONT);
-	noted(NDFLT);
+	exits(msg);
 }
 
 /* return pseudo-random integer in range low...(hi-1) */
