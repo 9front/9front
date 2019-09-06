@@ -155,11 +155,25 @@ dhcpinit(void)
 	memcpy(requested, defrequested, nrequested);
 }
 
+static void
+removenulladdr(void)
+{
+	fprint(conf.cfd, "remove %I %M", IPnoaddr, IPnoaddr);
+	atexitdont(removenulladdr);
+}
+
+static void
+addnulladdr(void)
+{
+	atexit(removenulladdr);
+	fprint(conf.cfd, "add %I %M", IPnoaddr, IPnoaddr);
+}
+
 void
 dhcpquery(int needconfig, int startstate)
 {
 	if(needconfig)
-		fprint(conf.cfd, "add %I %M", IPnoaddr, IPnoaddr);
+		addnulladdr();
 
 	conf.fd = openlisten();
 	if(conf.fd < 0){
@@ -192,8 +206,7 @@ dhcpquery(int needconfig, int startstate)
 	close(conf.fd);
 
 	if(needconfig)
-		fprint(conf.cfd, "remove %I %M", IPnoaddr, IPnoaddr);
-
+		removenulladdr();
 }
 
 enum {
