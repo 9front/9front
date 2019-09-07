@@ -75,11 +75,12 @@
 /*#define SEM_NSEMS_MAX _POSIX_SEM_NSEMS_MAX */
 /*#define SEM_VALUE_MAX _POSIX_SEM_VALUE_MAX */
 /*#define SIGQUEUE_MAX _POSIX_SIGQUEUE_MAX */
+#define SSIZE_MIN LONG_MIN
 #define SSIZE_MAX LONG_MAX
-#define SIZE_MAX ULONG_MAX
 /*#define STREAM_MAX _POSIX_STREAM_MAX */
 /*#define TIMER_MAX _POSIX_TIMER_MAX */
 #define TZNAME_MAX _POSIX_TZNAME_MAX
+
 
 #ifdef _LIMITS_EXTENSION
 /* some things are just too big for pedagogy (X!) */
