@@ -877,8 +877,10 @@ notify(Ureg* ureg)
 
 	if(n->flag!=NUser && (up->notified || up->notify==0)){
 		qunlock(&up->debug);
-		if(n->flag == NDebug)
+		if(n->flag == NDebug){
+			up->fpstate &= ~FPillegal;
 			pprint("suicide: %s\n", n->msg);
+		}
 		pexit(n->msg, n->flag!=NDebug);
 	}
 
@@ -901,6 +903,7 @@ if(0) print("%s %lud: notify %#p %#p %#p %s\n",
 	if(!okaddr((uintptr)up->notify, 1, 0)
 	|| !okaddr(sp-ERRMAX-4*BY2WD, sizeof(Ureg)+ERRMAX+4*BY2WD, 1)){
 		qunlock(&up->debug);
+		up->fpstate &= ~FPillegal;
 		pprint("suicide: bad address in notify\n");
 		pexit("Suicide", 0);
 	}

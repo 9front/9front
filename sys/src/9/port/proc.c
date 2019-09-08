@@ -1094,6 +1094,7 @@ pexit(char *exitstr, int freemem)
 	Chan *dot;
 	void (*pt)(Proc*, int, vlong);
 
+	up->fpstate &= ~FPillegal;
 	up->alarm = 0;
 	timerdel(up);
 	pt = proctrace;
@@ -1466,6 +1467,7 @@ procctl(void)
 	switch(up->procctl) {
 	case Proc_exitbig:
 		spllo();
+		up->fpstate &= ~FPillegal;
 		pprint("Killed: Insufficient physical memory\n");
 		pexit("Killed: Insufficient physical memory", 1);
 
