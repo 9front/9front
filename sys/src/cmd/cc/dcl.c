@@ -373,35 +373,35 @@ init1(Sym *s, Type *t, long o, int exflag)
 			goto gext;
 		}
 		if(t->etype == TIND) {
-			while(a->op == OCAST) {
+			if(a->op == OCAST)
 				warn(a, "CAST in initialization ignored");
-				a = a->left;
-			}
-			if(!sametype(t, a->type)) {
+			if(!sametype(t, a->type))
 				diag(a, "initialization of incompatible pointers: %s\n%T and %T",
 					s->name, t, a->type);
-			}
-			switch(a->op) {
-			case OADDR:
-				a = a->left;
-				break;
-			case ONAME:
-			case OIND:
-				diag(a, "initializer is not a constant: %s", s->name);
-				return Z;
-			}
-			goto gext;
 		}
 
 		while(a->op == OCAST)
 			a = a->left;
-		if(a->op == OADDR) {
-			warn(a, "initialize pointer to an integer: %s", s->name);
+
+		switch(a->op) {
+		case OADDR:
+			if(t->etype != TIND)
+				warn(a, "initialize pointer to an integer: %s", s->name);
 			a = a->left;
-			goto gext;
+			break;
+		case OADD:
+			/*
+			 * Constants will be folded before this point, which just leaves offsets
+			 * from names.
+			 */
+			l = a->left;
+			r = a->right;
+			if(l->op == OADDR && r->op == OCONST || r->op == OADDR && l->op == OCONST)
+				break;
+		default:
+			diag(a, "initializer is not a constant: %s", s->name);
+			return Z;
 		}
-		diag(a, "initializer is not a constant: %s", s->name);
-		return Z;
 
 	gext:
 		gextern(s, a, o, t->width);
