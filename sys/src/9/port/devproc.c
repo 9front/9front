@@ -1339,6 +1339,7 @@ proctext(Chan *c, Proc *p)
 void
 procstopwait(Proc *p, int ctl)
 {
+	char *state;
 	int pid;
 
 	if(p->pdbg != nil)
@@ -1354,14 +1355,17 @@ procstopwait(Proc *p, int ctl)
 		return;
 	p->pdbg = up;
 	qunlock(&p->debug);
+	state = up->psstate;
 	up->psstate = "Stopwait";
 	if(waserror()) {
+		up->psstate = state;
 		qlock(&p->debug);
 		p->pdbg = nil;
 		nexterror();
 	}
 	sleep(&up->sleep, procstopped, p);
 	poperror();
+	up->psstate = state;
 	qlock(&p->debug);
 	if(p->pid != pid)
 		error(Eprocdied);
