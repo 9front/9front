@@ -29,6 +29,7 @@ ALLOFILES=\
 	memmove.$O\
 	memset.$O\
 	mktime.$O\
+	mkstemp.$O\
 	qsort.$O\
 	raise.$O\
 	rand.$O\
