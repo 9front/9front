@@ -1244,7 +1244,7 @@ isocanwrite(void *a)
 }
 
 static void
-itdinit(Ctlr *ctlr, Isoio *iso, Itd *td)
+itdinit(Ctlr*, Isoio *iso, Itd *td)
 {
 	int p, t;
 	ulong pg, pa, tsize, size;
@@ -1287,7 +1287,7 @@ itdinit(Ctlr *ctlr, Isoio *iso, Itd *td)
 }
 
 static void
-sitdinit(Ctlr *ctlr, Isoio *iso, Sitd *td)
+sitdinit(Ctlr*, Isoio *iso, Sitd *td)
 {
 	dmaflush(1, td->data, td->mdata);
 	td->ndata = td->mdata & Stdlenmask;
