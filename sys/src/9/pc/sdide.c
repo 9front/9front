@@ -417,8 +417,12 @@ atadebug(int cmdport, int ctlport, char* fmt, ...)
 	int i;
 	va_list arg;
 
-	if(!(DEBUG & DbgPROBE))
+	if(!(DEBUG & DbgPROBE)){
+		USED(cmdport);
+		USED(ctlport);
+		USED(fmt);
 		return;
+	}
 
 	p = buf;
 	e = buf + sizeof buf;
