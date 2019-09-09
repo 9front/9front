@@ -49,6 +49,10 @@ extern int wctomb(char *, wchar_t);
 extern size_t mbstowcs(wchar_t *, const char *, size_t);
 extern size_t wcstombs(char *, const wchar_t *, size_t);
 
+#ifdef _POSIX_C_SOURCE
+extern int mkstemp(char *template);
+#endif
+
 #ifdef __cplusplus
 }
 #endif
