@@ -85,10 +85,12 @@ receive(uchar *h, uchar *e)
 	if((n = unpack(h, h, e, "lb____bww{.________}__wwww", &magic,
 		&r.cmd, &r.flags, &r.flags2, &hpid, &sig, &r.tid, &r.pid, &r.uid, &r.mid)) == 0){
 		logit("bad smb header");
+		exits("botch");
 		return;
 	}
 	if(magic != MAGIC){
 		logit("bad smb magic");
+		exits("botch");
 		return;
 	}
 	r.pid |= hpid<<16;
