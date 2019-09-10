@@ -63,7 +63,7 @@ err:
 	de = dom + smbstrpack16(d, d, d + sizeof(dom), domain);
 	if(!pack(r->rh, r->rp, r->re, "#0b{*2wbwwllllvw#2b}#1w{[][]}.",
 		x, mode, 50, 1, BUFFERSIZE, 0x10000, sessionkey,
-		CAP_UNICODE | CAP_LARGEFILES | 
+		CAP_UNIX | CAP_UNICODE | CAP_LARGEFILES | 
 		CAP_NT_FIND | CAP_NT_SMBS | CAP_NT_STATUS,
 		tofiletime(time(0)), -tzoff/60, c, ce, d, de, &r->rp))
 		goto err;
@@ -1013,6 +1013,22 @@ smbqueryinformationdisk(Req *r, uchar *h, uchar *p, uchar *e)
 }
 
 static int
+unixuid(char *)
+{
+	return 99999;
+}
+static int
+unixgid(char *)
+{
+	return 99999;
+}
+static int
+unixtype(Dir *d)
+{
+	return (d->qid.type & QTDIR) != 0;
+}
+
+static int
 fpackdir(Req *r, Dir *d, Tree *t, int i, int level, uchar *b, uchar *p, uchar *e, uchar **prevoff, uchar **nameoff)
 {
 	vlong atime, mtime, alen, dlen;
@@ -1051,6 +1067,19 @@ fpackdir(Req *r, Dir *d, Tree *t, int i, int level, uchar *b, uchar *p, uchar *e
 			0, i, mtime, atime, mtime, mtime, dlen, alen, extfileattr(d),
 			0, shortname, shortname+sizeof(shortname),
 			&namep, r->o->untermnamepack, d->name);
+		break;
+
+	case 0x0202:	/* SMB_FIND_FILE_UNIX */
+		n = pack(b, p, e, "llvvvvvvvlvvvvv.f",
+			0, i,
+			dlen, alen,
+			mtime, atime, mtime,
+			unixuid(d->uid), unixgid(d->gid), unixtype(d),
+			0, 0, /* MAJ/MIN */
+			d->qid.path,
+			d->mode & 0777,
+			1,	/* NLINKS */
+			&namep, r->o->namepack, d->name);
 		break;
 
 	default:
@@ -1107,6 +1136,15 @@ qpackdir(Req *, Dir *d, Tree *t, File *f, int level, uchar *b, uchar *p, uchar *
 			return 0;
 		return pack(b, p, e, "l#0lvv{f}", 0, dlen, alen, smbuntermstrpack16, "::$DATA");
 
+	case 0x0200:	/* SMB_QUERY_FILE_UNIX_BASIC */
+		return pack(b, p, e, "vvvvvvvlvvvvv",
+			dlen, alen,
+			mtime, atime, mtime,
+			unixuid(d->uid), unixgid(d->gid), unixtype(d),
+			0, 0, /* MAJ/MIN */
+			d->qid.path,
+			d->mode & 0777,
+			link);	/* NLINKS */
 	default:
 		logit("[%.4x] unknown QUERY infolevel", level);
 		return -1;
@@ -1379,6 +1417,10 @@ trans2queryfsinformation(Trans *t)
 			FILE_CASE_PRESERVED_NAMES |
 			FILE_UNICODE_ON_DISK,
 			share->namelen, smbuntermstrpack16, share->fsname);
+		break;
+
+	case 0x0200:	/* SMB_QUERY_CIFS_UNIX_INFO */
+		n = pack(t->out.data.b, t->out.data.p, t->out.data.e, "wwv", 1, 0, 0x800000);
 		break;
 
 	default:

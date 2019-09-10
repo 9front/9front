@@ -168,6 +168,7 @@ enum
 	CAP_NT_SMBS = 0x10,
 	CAP_NT_STATUS = 0x40,
 	CAP_NT_FIND = 0x200,
+	CAP_UNIX = 0x800000,
 
 	/* extended file attributes */
 	ATTR_READONLY = 0x1,
