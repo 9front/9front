@@ -1074,11 +1074,11 @@ fpackdir(Req *r, Dir *d, Tree *t, int i, int level, uchar *b, uchar *p, uchar *e
 			0, i,
 			dlen, alen,
 			mtime, atime, mtime,
-			unixuid(d->uid), unixgid(d->gid), unixtype(d),
-			0, 0, /* MAJ/MIN */
-			d->qid.path,
-			d->mode & 0777,
-			1,	/* NLINKS */
+			(vlong)unixuid(d->uid), (vlong)unixgid(d->gid), unixtype(d),
+			0LL, 0LL, /* MAJ/MIN */
+			(vlong)d->qid.path,
+			(vlong)d->mode & 0777,
+			1LL,	/* NLINKS */
 			&namep, r->o->namepack, d->name);
 		break;
 
@@ -1140,11 +1140,11 @@ qpackdir(Req *, Dir *d, Tree *t, File *f, int level, uchar *b, uchar *p, uchar *
 		return pack(b, p, e, "vvvvvvvlvvvvv",
 			dlen, alen,
 			mtime, atime, mtime,
-			unixuid(d->uid), unixgid(d->gid), unixtype(d),
-			0, 0, /* MAJ/MIN */
-			d->qid.path,
-			d->mode & 0777,
-			link);	/* NLINKS */
+			(vlong)unixuid(d->uid), (vlong)unixgid(d->gid), unixtype(d),
+			0LL, 0LL, /* MAJ/MIN */
+			(vlong)d->qid.path,
+			(vlong)d->mode & 0777,
+			(vlong)link);	/* NLINKS */
 	default:
 		logit("[%.4x] unknown QUERY infolevel", level);
 		return -1;
