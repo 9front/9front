@@ -271,12 +271,23 @@ defn procstksize(p) {
 
 defn procstk(p) {
 	complex Proc p;
+	local l, n;
 
 	if p.state != 0 then {	// 0 is Dead
+		if p.mach == 0 then {
+			l = p.sched;
+		} else {
+			n = p.nerrlab;
+			if n == 0 then {
+				return 0;
+			}
+			l = p.errlab + (n-1)*sizeofLabel;
+		}
+		complex Label l;
 		if objtype=="386" || objtype=="amd64" then
-			_stk(gotolabel, p.sched.sp, linkreg(0), 0);
+			_stk(gotolabel, l.sp, linkreg(0), 0);
 		else
-			_stk(p.sched.pc, p.sched.sp, linkreg(0), 0);
+			_stk(l.pc, l.sp, linkreg(0), 0);
 	}
 }
 
