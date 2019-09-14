@@ -499,15 +499,15 @@ mmuswitch(Proc *p)
 		p->newtlb = 0;
 	}
 
-	for(t = p->mmuhead[PTLEVELS-1]; t != nil; t = t->next){
-		va = t->va;
-		m->mmutop[PTLX(va, PTLEVELS-1)] = t->pa | PTEVALID | PTETABLE;
-	}
-
 	if(allocasid(p))
 		flushasid((uvlong)p->asid<<48);
 
 	setttbr((uvlong)p->asid<<48 | PADDR(m->mmutop));
+
+	for(t = p->mmuhead[PTLEVELS-1]; t != nil; t = t->next){
+		va = t->va;
+		m->mmutop[PTLX(va, PTLEVELS-1)] = t->pa | PTEVALID | PTETABLE;
+	}
 }
 
 void
