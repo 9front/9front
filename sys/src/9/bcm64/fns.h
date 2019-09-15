@@ -145,6 +145,10 @@ extern int startcpu(uint);
 extern void okay(int);
 extern void wdogoff(void);
 
+/* devarch */
+Dirtab*	addarchfile(char*, int, long(*)(Chan*, void*, long, vlong), 
+	long(*)(Chan*, void*, long, vlong));
+
 /* dma */
 extern uintptr dmaaddr(void*);
 extern void dmaflush(int, void*, ulong);
