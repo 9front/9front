@@ -1,6 +1,6 @@
 </$objtype/mkfile
 
-DIRS=9 ap auth bio bsd bz2 draw fmt l mp net sec utf v z
+DIRS=`{echo */}
 
 none:V:
 	echo mk all, install, installall, clean, or nuke
