@@ -1158,8 +1158,6 @@ procwrite(Chan *c, void *va, long n, vlong off)
 	if(c->qid.type & QTDIR)
 		error(Eisdir);
 
-	p = proctab(SLOT(c->qid));
-
 	/* Use the remembered noteid in the channel rather
 	 * than the process pgrpid
 	 */
@@ -1171,6 +1169,8 @@ procwrite(Chan *c, void *va, long n, vlong off)
 		pgrpnote(NOTEID(c->pgrpid), buf, NUser);
 		return n;
 	}
+
+	p = proctab(SLOT(c->qid));
 
 	eqlock(&p->debug);
 	if(waserror()){
