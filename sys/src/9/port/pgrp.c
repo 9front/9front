@@ -13,16 +13,10 @@ static Ref pgrpid;
 static Ref mountid;
 
 void
-pgrpnote(ulong noteid, char *a, long n, int flag)
+pgrpnote(ulong noteid, char *n, int flag)
 {
 	Proc *p, *ep;
-	char buf[ERRMAX];
 
-	if(n >= ERRMAX-1)
-		error(Etoobig);
-
-	memmove(buf, a, n);
-	buf[n] = 0;
 	p = proctab(0);
 	for(ep = p+conf.nproc; p < ep; p++) {
 		if(p->state == Dead)
@@ -30,7 +24,7 @@ pgrpnote(ulong noteid, char *a, long n, int flag)
 		if(up != p && p->noteid == noteid && p->kp == 0) {
 			qlock(&p->debug);
 			if(p->noteid == noteid)
-				postnote(p, 0, buf, flag);
+				postnote(p, 0, n, flag);
 			qunlock(&p->debug);
 		}
 	}

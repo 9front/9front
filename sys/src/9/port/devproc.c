@@ -1164,7 +1164,11 @@ procwrite(Chan *c, void *va, long n, vlong off)
 	 * than the process pgrpid
 	 */
 	if(QID(c->qid) == Qnotepg) {
-		pgrpnote(NOTEID(c->pgrpid), va, n, NUser);
+		if(n >= ERRMAX-1)
+			error(Etoobig);
+		memmove(buf, va, n);
+		buf[n] = 0;
+		pgrpnote(NOTEID(c->pgrpid), buf, NUser);
 		return n;
 	}
 
