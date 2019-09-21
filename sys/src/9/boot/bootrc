@@ -94,6 +94,10 @@ fn main{
 		if(! ~ $#debugfactotum 0)
 			x=($x -p)
 		must $x
+
+		# remount ip inteface after hostowner is set
+		unmount '#I' /net >[2]/dev/null
+		bind -qa '#I' /net
 	}
 
 	# config method
