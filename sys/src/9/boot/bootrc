@@ -86,6 +86,9 @@ fn main{
 
 	# authentication agent
 	if(! test -f /srv/factotum){
+		# we remount ip inteface after hostowner is set
+		unmount '#I' /net >[2]/dev/null
+
 		x=(/boot/factotum -n -sfactotum)
 		if(~ $service cpu)
 			x=($x -S)
@@ -95,8 +98,6 @@ fn main{
 			x=($x -p)
 		must $x
 
-		# remount ip inteface after hostowner is set
-		unmount '#I' /net >[2]/dev/null
 		bind -qa '#I' /net
 	}
 
