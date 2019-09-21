@@ -187,6 +187,13 @@ main(int argc, char **argv)
 			fatal("exportfs by none disallowed");
 		if(auth_chuid(ai, nsfile) < 0)
 			fatal("auth_chuid: %r");
+		else {	/* chown network connection */
+			Dir nd;
+			nulldir(&nd);
+			nd.mode = 0660;
+			nd.uid = ai->cuid;
+			dirfwstat(0, &nd);
+		}
 		putenv("service", "exportfs");
 	}
 

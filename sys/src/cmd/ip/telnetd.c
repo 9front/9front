@@ -245,6 +245,7 @@ challuser(char *user)
 	char response[64];
 	Chalstate *ch;
 	AuthInfo *ai;
+	Dir nd;
 
 	if(strcmp(user, "none") == 0){
 		if(nonone)
@@ -260,13 +261,20 @@ challuser(char *user)
 	ch->nresp = strlen(response);
 	ai = auth_response(ch);
 	auth_freechal(ch);
-	if(ai == nil){
+	if(ai == nil || auth_chuid(ai, nil) < 0){
 		rerrstr(response, sizeof response);
 		print("!%s\n", response);
+
+		auth_freeAI(ai);
 		return -1;
 	}
-	if(auth_chuid(ai, nil) < 0)
-		return -1;
+	/* chown network connection */
+	nulldir(&nd);
+	nd.mode = 0660;
+	nd.uid = ai->cuid;
+	dirfwstat(0, &nd);
+
+	auth_freeAI(ai);
 	return 0;
 }
 /*

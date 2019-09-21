@@ -63,9 +63,15 @@ setupuser(AuthInfo *ai)
 
 	if(ai){
 		strecpy(username, username + sizeof username, ai->cuid);
-
-		if(auth_chuid(ai, nil) == -1)
+		if(auth_chuid(ai, nil) < 0)
 			bye("user auth failed: %r");
+		else {	/* chown network connection */
+			Dir nd;
+			nulldir(&nd);
+			nd.mode = 0660;
+			nd.uid = ai->cuid;
+			dirfwstat(Bfildes(&bin), &nd);
+		}
 		auth_freeAI(ai);
 	}else
 		strecpy(username, username + sizeof username, getuser());

@@ -84,9 +84,18 @@ main(int argc, char *argv[])
 		if(ai == nil)
 			sysfatal("auth_proxy: %r");
 
-		if(auth == 1)
-		if(auth_chuid(ai, nil) < 0)
-			sysfatal("auth_chuid: %r");
+		if(auth == 1){
+			Dir nd;
+
+			if(auth_chuid(ai, nil) < 0)
+				sysfatal("auth_chuid: %r");
+
+			/* chown network connection */
+			nulldir(&nd);
+			nd.mode = 0660;
+			nd.uid = ai->cuid;
+			dirfwstat(0, &nd);
+		}
 
 		conn->pskID = "p9secret";
 		conn->psk = ai->secret;

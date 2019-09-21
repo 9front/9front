@@ -606,6 +606,7 @@ passcmd(char *response)
 {
 	char namefile[128];
 	AuthInfo *ai;
+	Dir nd;
 
 	if(response == nil)
 		response = "";
@@ -632,9 +633,17 @@ passcmd(char *response)
 		ch->nresp = strlen(response);
 		ai = auth_response(ch);
 		if(ai == nil || auth_chuid(ai, nil) < 0) {
+			auth_freeAI(ai);
 			slowdown();
 			return reply("530 Not logged in: %r");
 		}
+		/* chown network connection */
+		nulldir(&nd);
+		nd.mode = 0660;
+		nd.uid = ai->cuid;
+		dirfwstat(0, &nd);
+
+		auth_freeAI(ai);
 		auth_freechal(ch);
 		ch = nil;
 

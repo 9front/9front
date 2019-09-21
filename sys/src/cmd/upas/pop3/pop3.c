@@ -768,6 +768,12 @@ dologin(char *response)
 	if(auth_chuid(ai, nil) < 0){
 		senderr("chuid failed: %r; server exiting");
 		exits(nil);
+	} else {	/* chown network connection */
+		Dir nd;
+		nulldir(&nd);
+		nd.mode = 0660;
+		nd.uid = ai->cuid;
+		dirfwstat(Bfildes(&in), &nd);
 	}
 	auth_freeAI(ai);
 	auth_freechal(chs);

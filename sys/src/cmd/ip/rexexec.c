@@ -12,6 +12,7 @@ main(int argc, char **argv)
 	char buf[8192];
 	int n, nn;
 	AuthInfo *ai;
+	Dir nd;
 
 	ARGBEGIN{
 	}ARGEND;
@@ -23,6 +24,14 @@ main(int argc, char **argv)
 		sysfatal("rexexec by none disallowed");
 	if(auth_chuid(ai, nil) < 0)
 		sysfatal("auth_chuid: %r");
+
+	/* chown network connection */
+	nulldir(&nd);
+	nd.mode = 0660;
+	nd.uid = ai->cuid;
+	dirfwstat(0, &nd);
+
+	auth_freeAI(ai);
 
 	n = 0;
 	do {

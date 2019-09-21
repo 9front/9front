@@ -458,6 +458,19 @@ readln(char *buf, int n)
 }
 
 /*
+ *  chown network connection
+ */
+static void
+setnetuser(int fd, char *user)
+{
+	Dir nd;
+	nulldir(&nd);
+	nd.mode = 0660;
+	nd.uid = user;
+	dirfwstat(fd, &nd);
+}
+
+/*
  *  user level challenge/response
  */
 static int
@@ -517,6 +530,7 @@ netkeysrvauth(int fd, char *user)
 	writestr(fd, "", "challenge", 1);
 	if(auth_chuid(ai, 0) < 0)
 		fatal("newns: %r");
+	setnetuser(fd, ai->cuid);
 	auth_freeAI(ai);
 	return fd;
 }
@@ -628,6 +642,7 @@ srvp9auth(int fd, char *user)
 		return -1;
 	if(auth_chuid(ai, nil) < 0)
 		fatal("newns: %r");
+	setnetuser(fd, ai->cuid);
 	snprint(user, MaxStr, "%s", ai->cuid);
 	fd = sslsetup(fd, ai->secret, ai->nsecret, 0);
 	auth_freeAI(ai);
