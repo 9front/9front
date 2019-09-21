@@ -154,11 +154,10 @@ static char *sname[]={ "Text", "Data", "Bss", "Stack", "Shared", "Phys", "Fixed"
 #define	PID(q)		((q).vers)
 #define	NOTEID(q)	((q).vers)
 
-void	procctlreq(Proc*, char*, int);
-long	procctlmemio(Chan*, Proc*, uintptr, void*, long, int);
-Chan*	proctext(Chan*, Proc*);
-int	procstopped(void*);
-ulong	procpagecount(Proc *);
+static void	procctlreq(Proc*, char*, int);
+static long	procctlmemio(Chan*, Proc*, uintptr, void*, long, int);
+static Chan*	proctext(Chan*, Proc*);
+static int	procstopped(void*);
 
 static Traceevent *tevents;
 static Lock tlock;
@@ -382,10 +381,10 @@ procopen(Chan *c, int omode0)
 	case Qtext:
 		if(omode != OREAD)
 			error(Eperm);
-		tc = proctext(c, p);
-		tc->offset = 0;
 		qunlock(&p->debug);
 		poperror();
+		tc = proctext(c, p);
+		tc->offset = 0;
 		cclose(c);
 		return tc;
 
@@ -1297,50 +1296,39 @@ Dev procdevtab = {
 	procwstat,
 };
 
-Chan*
+static Chan*
 proctext(Chan *c, Proc *p)
 {
 	Chan *tc;
 	Image *i;
 	Segment *s;
 
-	s = p->seg[TSEG];
-	if(s == nil)
-		error(Enonexist);
-	if(p->state==Dead)
-		error(Eprocdied);
-
-	i = s->image;
-	if(i == nil)
-		error(Eprocdied);
-
-	lock(i);
-	if(waserror()) {
-		unlock(i);
+	eqlock(&p->seglock);
+	if(waserror()){
+		qunlock(&p->seglock);
 		nexterror();
 	}
-		
+	if(p->state == Dead || p->pid != PID(c->qid))
+		error(Eprocdied);
+	if((s = p->seg[TSEG]) == nil)
+		error(Enonexist);
+	if((i = s->image) == nil)
+		error(Enonexist);
+	lock(i);
 	tc = i->c;
-	if(tc == nil)
-		error(Eprocdied);
-
-	if(incref(tc) == 1 || (tc->flag&COPEN) == 0 || tc->mode != OREAD) {
-		cclose(tc);
-		error(Eprocdied);
+	if(i->notext || tc == nil || (tc->flag&COPEN) == 0 || tc->mode != OREAD){
+		unlock(i);
+		error(Enonexist);
 	}
-
-	if(p->pid != PID(c->qid)) {
-		cclose(tc);
-		error(Eprocdied);
-	}
-
+	incref(tc);
 	unlock(i);
+	qunlock(&p->seglock);
 	poperror();
 
 	return tc;
 }
 
-void
+static void
 procstopwait(Proc *p, int ctl)
 {
 	char *state;
@@ -1375,7 +1363,7 @@ procstopwait(Proc *p, int ctl)
 		error(Eprocdied);
 }
 
-void
+static void
 procctlclosefiles(Proc *p, int all, int fd)
 {
 	Fgrp *f;
@@ -1440,7 +1428,7 @@ parsetime(vlong *rt, char *s)
 	return nil;
 }
 
-void
+static void
 procctlreq(Proc *p, char *va, int n)
 {
 	Segment *s;
@@ -1636,13 +1624,13 @@ procctlreq(Proc *p, char *va, int n)
 	free(cb);
 }
 
-int
+static int
 procstopped(void *a)
 {
 	return ((Proc*)a)->state == Stopped;
 }
 
-long
+static long
 procctlmemio(Chan *c, Proc *p, uintptr offset, void *a, long n, int read)
 {
 	Segio *sio;
@@ -1657,17 +1645,16 @@ procctlmemio(Chan *c, Proc *p, uintptr offset, void *a, long n, int read)
 		qunlock(&p->seglock);
 		nexterror();
 	}
-	sio = c->aux;
-	if(sio == nil){
-		sio = smalloc(sizeof(Segio));
-		c->aux = sio;
-	}
+	if(p->state == Dead || p->pid != PID(c->qid))
+		error(Eprocdied);
+
 	for(i = 0; i < NSEG; i++) {
 		if(p->seg[i] == s)
 			break;
 	}
 	if(i == NSEG)
 		error(Egreg);	/* segment gone */
+
 	eqlock(s);
 	if(waserror()){
 		qunlock(s);
@@ -1681,6 +1668,13 @@ procctlmemio(Chan *c, Proc *p, uintptr offset, void *a, long n, int read)
 	incref(s);		/* for us while we copy */
 	qunlock(s);
 	poperror();
+
+	sio = c->aux;
+	if(sio == nil){
+		sio = smalloc(sizeof(Segio));
+		c->aux = sio;
+	}
+
 	qunlock(&p->seglock);
 	poperror();
 
