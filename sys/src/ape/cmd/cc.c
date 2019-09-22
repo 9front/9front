@@ -25,12 +25,13 @@ typedef struct Objtype {
 Objtype objtype[] = {
 	{"68020",	"2c", "2l", "2"},
 	{"arm",		"5c", "5l", "5"},
+	{"arm64",	"7c", "7l", "7"},
 	{"amd64",	"6c", "6l", "6"},
-	{"alpha",	"7c", "7l", "7"},
 	{"386",		"8c", "8l", "8"},
 	{"sparc",	"kc", "kl", "k"},
 	{"power",	"qc", "ql", "q"},
 	{"mips",	"vc", "vl", "v"},
+	{"spim",	"0c", "0l", "0"},
 };
 
 enum {
