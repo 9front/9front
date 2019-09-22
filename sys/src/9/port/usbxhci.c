@@ -1368,20 +1368,26 @@ isowrite(Ep *ep, uchar *p, long n)
 }
 
 static char*
-unstall(Ring *r)
+unstall(Ep *ep, Ring *r)
 {
 	char *err;
 
 	switch(r->ctx[0]&7){
 	case 2:	/* halted */
 	case 4:	/* error */
-		r->stopped = 1;
+		ep->clrhalt = 1;
+	}
+	if(ep->clrhalt){
+		ep->clrhalt = 0;
 		err = ctlrcmd(r->slot->ctlr, CR_RESETEP | (r->id<<16) | (r->slot->id<<24), 0, 0, nil);
+		dmaflush(0, r->ctx, 8*4 << r->slot->ctlr->csz);
 		if(err != nil)
 			return err;
+		r->stopped = 1;
 	}
 	if(r->stopped){
 		err = ctlrcmd(r->slot->ctlr, CR_SETTRDQP | (r->id<<16) | (r->slot->id<<24), 0, resetring(r), nil);
+		dmaflush(0, r->ctx, 8*4 << r->slot->ctlr->csz);
 		if(err != nil)
 			return err;
 		r->stopped = 0;
@@ -1444,7 +1450,7 @@ epread(Ep *ep, void *va, long n)
 		nexterror();
 	}
 
-	if((err = unstall(io->ring)) != nil)
+	if((err = unstall(ep, io->ring)) != nil)
 		error(err);
 
 	dmaflush(1, p, n);
@@ -1517,7 +1523,7 @@ epwrite(Ep *ep, void *va, long n)
 				io->b->wp += len;
 			}
 		}
-		if((err = unstall(ring)) != nil)
+		if((err = unstall(ep, ring)) != nil)
 			error(err);
 
 		if((ring->ctx[1]>>16) != ep->maxpkt){
@@ -1596,7 +1602,7 @@ epwrite(Ep *ep, void *va, long n)
 		nexterror();
 	}
 
-	if((err = unstall(io->ring)) != nil)
+	if((err = unstall(ep, io->ring)) != nil)
 		error(err);
 
 	dmaflush(1, p, n);
