@@ -56,7 +56,7 @@ i81xenable(VGAscr* scr)
 	Pcidev *p;
 	int size;
 	Mach *mach0;
-	ulong *pgtbl, *rp, cursor, *pte, fbuf, fbend;
+	ulong *pgtbl, *rp, fbuf, fbend;
 	
 	if(scr->mmio)
 		return;
@@ -90,18 +90,7 @@ i81xenable(VGAscr* scr)
 		fbuf += BY2PG;
 	}
 
-	/*
-	 * allocate space for the cursor data in system memory.
-	 * must be uncached.
-	 */
-	cursor = (ulong)xspanalloc(BY2PG, BY2PG, 0);
-	mach0 = MACHP(0);
-	pte = mmuwalk(mach0->pdb, cursor, 2, 0);
-	if(pte == nil)
-		panic("i81x cursor mmuwalk");
-	*pte |= PTEUNCACHED;
-	scr->storage = cursor;
-
+	scr->storage = 0;
 	scr->blank = i81xblank;
 }
 
@@ -123,7 +112,7 @@ i81xcurload(VGAscr* scr, Cursor* curs)
 	uchar *p;
 	CursorI81x *hwcurs;
 
-	if(scr->mmio == 0)
+	if(scr->mmio == 0 || scr->storage == 0)
 		return;
 	hwcurs = (void*)((uchar*)scr->mmio+hwCur);
 
@@ -192,23 +181,33 @@ i81xcurenable(VGAscr* scr)
 {
 	int i;
 	uchar *p;
-	CursorI81x *hwcurs;
 
 	i81xenable(scr);
 	if(scr->mmio == 0)
 		return;
-	hwcurs = (void*)((uchar*)scr->mmio+hwCur);
+
+	if(scr->storage == 0){
+		CursorI81x *hwcurs;
+		Page *pg = newpage(0, nil, 0);
+		scr->storage = (uintptr)vmap(pg->pa, BY2PG);
+		if(scr->storage == 0){
+			putpage(pg);
+			return;
+		}
+		hwcurs = (void*)((uchar*)scr->mmio+hwCur);
+		hwcurs->base = pg->pa;
+	}
 
 	/*
 	 * Initialise the 32x32 cursor to be transparent in 2bpp mode.
 	 */
-	hwcurs->base = PADDR(scr->storage);
 	p = (uchar*)scr->storage;
 	for(i = 0; i < 32/2; i++) {
 		memset(p, 0xff, 8);
 		memset(p+8, 0, 8);
 		p += 16;
 	}
+
 	/*
 	 * Load, locate and enable the 32x32 cursor in 2bpp mode.
 	 */
