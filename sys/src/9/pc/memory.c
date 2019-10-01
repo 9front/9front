@@ -224,6 +224,8 @@ rampage(void)
 {
 	ulong m;
 	
+	if(conf.mem[0].npage != 0)
+		return xspanalloc(BY2PG, BY2PG, 0);
 	m = mapalloc(&rmapram, 0, BY2PG, BY2PG);
 	if(m == 0)
 		return nil;

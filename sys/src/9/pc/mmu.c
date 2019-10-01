@@ -523,17 +523,9 @@ mmuwalk(ulong* pdb, ulong va, int level, int create)
 		if(*table & PTESIZE)
 			panic("mmuwalk2: va %luX entry %luX", va, *table);
 		if(!(*table & PTEVALID)){
-			/*
-			 * Have to call low-level allocator from
-			 * memory.c if we haven't set up the xalloc
-			 * tables yet.
-			 */
-			if(conf.mem[0].npage != 0)
-				map = xspanalloc(BY2PG, BY2PG, 0);
-			else
-				map = rampage();
+			map = rampage();
 			if(map == nil)
-				panic("mmuwalk xspanalloc failed");
+				panic("mmuwalk: page alloc failed");
 			*table = PADDR(map)|PTEWRITE|PTEVALID;
 		}
 		table = KADDR(PPN(*table));
