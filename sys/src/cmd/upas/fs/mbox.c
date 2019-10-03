@@ -267,7 +267,7 @@ newmbox(char *path, char *name, int flags, Mailbox **r)
 	mb->next = nil;
 	mb->id = newid();
 	mb->root = newmessage(nil);
-	mb->mtree = avlcreate(mtreecmp);
+	mtreeinit(mb);
 
 	*l = mb;
 
@@ -1187,7 +1187,7 @@ mboxdecref(Mailbox *mb)
 	if(mb->flags & ORCLOSE && mb->remove)
 	if(mb->remove(mb, mb->rmflags))
 		rmidx(mb->path, mb->rmflags);
-	free(mb->mtree);
+	mtreefree(mb);
 	free(mb->d);
 	free(mb);
 }

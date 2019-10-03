@@ -319,14 +319,17 @@ found:
 void
 digestmessage(Mailbox *mb, Message *m)
 {
+	Message *old;
+
 	assert(m->digest == nil);
 	m->digest = emalloc(SHA1dlen);
 	sha1((uchar*)m->start, m->end - m->start, m->digest, nil);
-	if(mtreeisdup(mb, m)){
+	old = mtreeadd(mb, m);
+	if(old != nil && old != m){
+		m = mtreeadd(mb, old);
 		logmsg(m, "dup detected");
 		m->deleted = Dup;	/* no dups allowed */
-	}else
-		mtreeadd(mb, m);
+	}
 	dprint("%lud %#A\n", m->id, m->digest);
 }
 

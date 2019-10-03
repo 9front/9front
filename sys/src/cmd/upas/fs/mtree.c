@@ -2,79 +2,62 @@
 #include <libsec.h>
 #include "dat.h"
 
-int
+#define messageof(p)	((Message*)(((uchar*)&(p)->digest) - offsetof(Message, digest)))
+
+static int
 mtreecmp(Avl *va, Avl *vb)
 {
-	Mtree *a, *b;
-
-	a = (Mtree*)va;
-	b = (Mtree*)vb;
-	return memcmp(a->m->digest, b->m->digest, SHA1dlen);
+	return memcmp(((Mtree*)va)->digest, ((Mtree*)vb)->digest, SHA1dlen);
 }
 
-int
-mtreeisdup(Mailbox *mb, Message *m)
+void
+mtreeinit(Mailbox *mb)
 {
-	Mtree t;
+	mb->mtree = avlcreate(mtreecmp);
+}
 
-	assert(Topmsg(mb, m) && m->digest);
-	if(m->digest == nil)
-		return 0;
-	memset(&t, 0, sizeof t);
-	t.m = m;
-	if(avllookup(mb->mtree, &t, 0))
-		return 1;
-	return 0;
+void
+mtreefree(Mailbox *mb)
+{
+	free(mb->mtree);
+	mb->mtree = nil;
 }
 
 Message*
 mtreefind(Mailbox *mb, uchar *digest)
 {
-	Message m0;
 	Mtree t, *p;
 
-	m0.digest = digest;
-	memset(&t, 0, sizeof t);
-	t.m = &m0;
-	if(p = (Mtree*)avllookup(mb->mtree, &t, 0))
-		return p->m;
-	return nil;
+	t.digest = digest;
+	if((p = (Mtree*)avllookup(mb->mtree, &t, 0)) == nil)
+		return nil;
+	return messageof(p);
 }
 
-void
+Message*
 mtreeadd(Mailbox *mb, Message *m)
 {
-	Avl *old;
-	Mtree *p;
+	Mtree *old;
 
-	assert(Topmsg(mb, m) && m->digest);
-	p = emalloc(sizeof *p);
-	p->m = m;
-	old = avlinsert(mb->mtree, p);
-	assert(old == 0);
+	assert(Topmsg(mb, m) && m->digest != nil);
+	if((old = (Mtree*)avlinsert(mb->mtree, m)) == nil)
+		return nil;
+	return messageof(old);
 }
 
 void
 mtreedelete(Mailbox *mb, Message *m)
 {
-	Mtree t, *p;
+	Mtree *old;
 
 	assert(Topmsg(mb, m));
-	memset(&t, 0, sizeof t);
-	t.m = m;
-	if(m->deleted & ~Deleted){
-		if(m->digest == nil)
-			return;
-		p = (Mtree*)avllookup(mb->mtree, &t, 0);
-		if(p == nil || p->m != m)
-			return;
-		p = (Mtree*)avldelete(mb->mtree, &t);
-		free(p);
+	if(m->digest == nil)
 		return;
+	if(m->deleted & ~Deleted){
+		old = (Mtree*)avllookup(mb->mtree, m, 0);
+		if(old == nil || messageof(old) != m)
+			return;
 	}
-	assert(m->digest);
-	p = (Mtree*)avldelete(mb->mtree, &t);
-	if(p == nil)
-		_assert("mtree delete fails");
-	free(p);
+	old = (Mtree*)avldelete(mb->mtree, m);
+	assert(messageof(old) == m);
 }

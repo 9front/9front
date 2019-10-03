@@ -42,10 +42,16 @@ enum {
 	Nref		= 10,
 };
 
+typedef struct {
+	Avl;
+	uchar	*digest;
+} Mtree;
+
 typedef struct Idx Idx;
 struct Idx {
+	Mtree;
+
 	char	*str;			/* as read from idx file */
-	uchar	*digest;
 	uchar	flags;
 	uvlong	fileid;
 	ulong	lines;
@@ -135,11 +141,6 @@ struct Message {
 		void	*aux;
 	};
 };
-
-typedef struct {
-	Avl;
-	Message *m;
-} Mtree;
 
 typedef struct Mcache Mcache;
 struct Mcache {
@@ -256,10 +257,10 @@ void		rmidx(char*, int);
 int		vremove(char*);
 int		rename(char *, char*, int);
 
-int		mtreecmp(Avl*, Avl*);
-int		mtreeisdup(Mailbox *, Message *);
+void		mtreeinit(Mailbox *);
+void		mtreefree(Mailbox *);
 Message*	mtreefind(Mailbox*, uchar*);
-void		mtreeadd(Mailbox*, Message*);
+Message*	mtreeadd(Mailbox*, Message*);
 void		mtreedelete(Mailbox*, Message*);
 
 enum {

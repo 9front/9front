@@ -122,7 +122,7 @@ static	char	hbuf[32*1024];
 static	uchar	mbuf[16*1024 + IOHDRSZ];
 static	uchar	mdata[16*1024 + IOHDRSZ];
 static	ulong	path;		/* incremented for each new file */
-static	Hash	*htab[1024];
+static	Hash	*htab[2053];
 static	Fcall	rhdr;
 static	Fcall	thdr;
 static	Fid	*fids;
