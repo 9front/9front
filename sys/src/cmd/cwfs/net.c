@@ -49,26 +49,28 @@ char *annstrs[Maxnets];
 static void
 neti(void *v)
 {
-	int lisfd, accfd;
 	NetConnInfo *nci;
 	Network *net;
+	char *addr;
+	int nctl, data;
 
 	net = v;
 	for(;;) {
-		if((lisfd = listen(net->anndir, net->lisdir)) < 0){
+		if((nctl = listen(net->anndir, net->lisdir)) < 0){
 			fprint(2, "%s: listen %s failed: %r\n", argv0, net->anndir);
 			break;
 		}
-		/* got new call on lisfd */
-		if((accfd = accept(lisfd, net->lisdir)) < 0){
-			fprint(2, "%s: accept %d (from %s) failed: %r\n", argv0, lisfd, net->lisdir);
-			close(lisfd);
+		if((data = accept(nctl, net->lisdir)) < 0){
+			fprint(2, "%s: accept %s failed: %r\n", argv0, net->lisdir);
+			close(nctl);
 			continue;
 		}
-		nci = getnetconninfo(net->lisdir, accfd);
-		if(srvchan(accfd, nci->raddr) == nil){
-			fprint(2, "%s: srvchan failed for: %s\n", argv0, nci->raddr);
-			close(accfd);
+		close(nctl);
+		nci = getnetconninfo(net->lisdir, data);
+		addr = nci == nil ? "unknown" : nci->raddr;
+		if(srvchan(data, addr) == nil){
+			fprint(2, "%s: srvchan failed for: %s\n", argv0, addr);
+			close(data);
 		}
 		freenetconninfo(nci);
 	}
