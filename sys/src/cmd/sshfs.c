@@ -1343,7 +1343,7 @@ usage(void)
 	fprint(2, "usage: %s %s [-- ssh-options] [user@]host\n", argv0, common);
 	fprint(2, "       %s %s -c cmdline\n", argv0, common);
 	fprint(2, "       %s %s -p\n", argv0, common);
-	exits("usage");
+	threadexits("usage");
 }
 
 void
@@ -1415,5 +1415,5 @@ threadmain(int argc, char **argv)
 	
 	threadpostmountsrv(&sshfssrv, svc, mtpt, MCREATE | mflag);
 
-	exits(nil);
+	threadexits(nil);
 }
