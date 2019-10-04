@@ -44,11 +44,13 @@ listenproc(void *v)
 			break;
 		}
 		
-		data = accept(ctl, ndir);
+		data = accept(nctl, ndir);
 		if(data < 0){
 			fprint(2, "%s: accept %s: %r\n", argv0, ndir);
+			close(nctl);
 			continue;
 		}
+		close(nctl);
 
 		s = emalloc9p(sizeof *s);
 		*s = *os;
