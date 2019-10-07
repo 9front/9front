@@ -103,7 +103,6 @@ struct SFid {
 struct SReq {
 	Req *req;
 	SFid *closefid;
-	int reqid;
 	SReq *next;
 };
 
@@ -194,9 +193,29 @@ namelookup(IDEnt **tab, char *name)
 }
 
 int
+allocsreqid(SReq *r)
+{
+	int i;
+
+	qlock(&sreqidlock);
+	for(;;){
+		for(i = 0; i < MAXREQID; i++)
+			if(sreqrd[i] == nil){
+				sreqrd[i] = r;
+				goto out;
+			}
+		rsleep(&sreqidrend);
+	}
+out:
+	qunlock(&sreqidlock);
+	return i;
+}
+
+int
 vpack(uchar *p, int n, char *fmt, va_list a)
 {
 	uchar *p0 = p, *e = p+n;
+	SReq *sr = nil;
 	u32int u;
 	u64int v;
 	void *s;
@@ -205,6 +224,10 @@ vpack(uchar *p, int n, char *fmt, va_list a)
 	for(;;){
 		switch(c = *fmt++){
 		case '\0':
+			if(sr != nil){
+				u = allocsreqid(sr);
+				PUT4(p0+1, u);
+			}
 			return p - p0;
 		case '_':
 			if(++p > e) goto err;
@@ -227,6 +250,11 @@ vpack(uchar *p, int n, char *fmt, va_list a)
 			if(u > e-p) goto err;
 			memmove(p, s, u);
 			p += u;
+			break;
+		case 'q':
+			p += 4;
+			if(p != p0+5 || p > e) goto err;
+			sr = va_arg(a, SReq*);
 			break;
 		case 'u':
 			u = va_arg(a, int);
@@ -389,11 +417,14 @@ freedir(SFid *s)
 	s->dirpos = 0;
 }
 
-
 void
 putsfid(SFid *s)
 {
 	if(s == nil) return;
+
+	wlock(s);
+	wunlock(s);
+
 	free(s->fn);
 	free(s->hand);
 	freedir(s);
@@ -403,14 +434,6 @@ putsfid(SFid *s)
 void
 putsreq(SReq *s)
 {
-	if(s == nil) return;
-	if(s->reqid != -1){
-		qlock(&sreqidlock);
-		sreqrd[s->reqid] = nil;
-		rwakeup(&sreqidrend);
-		qunlock(&sreqidlock);
-	}
-	putsfid(s->closefid);
 	free(s);
 }
 
@@ -424,14 +447,12 @@ submitsreq(SReq *s)
 	qunlock(&sreqwrlock);
 }
 
-
 void
 submitreq(Req *r)
 {
 	SReq *s;
 	
 	s = emalloc9p(sizeof(SReq));
-	s->reqid = -1;
 	s->req = r;
 	submitsreq(s);
 }
@@ -697,20 +718,18 @@ readprocess(Req *r)
 void
 sshfsread(Req *r)
 {
-	SFid *sf;
-
 	if((r->fid->qid.type & QTDIR) == 0){
 		submitreq(r);
 		return;
 	}
-	sf = r->fid->aux;	
 	if(r->ifcall.offset == 0){
+		SFid *sf = r->fid->aux;
 		wlock(sf);
 		freedir(sf);
 		if(sf->dirreads > 0){
+			wunlock(sf);
 			r->aux = (void*)-1;
 			submitreq(r);
-			wunlock(sf);
 			return;
 		}
 		wunlock(sf);
@@ -764,7 +783,6 @@ sendproc(void *)
 {
 	SReq *r;
 	SFid *sf;
-	int i;
 	int x, y;
 	char *s, *t;
 
@@ -778,41 +796,33 @@ sendproc(void *)
 		sreqwr = r->next;
 		if(sreqwr == nil) sreqlast = &sreqwr;
 		qunlock(&sreqwrlock);
-		
-		qlock(&sreqidlock);
-	idagain:
-		for(i = 0; i < MAXREQID; i++)
-			if(sreqrd[i] == nil){
-				sreqrd[i] = r;
-				r->reqid = i;
-				break;
-			}
-		if(i == MAXREQID){
-			rsleep(&sreqidrend);
-			goto idagain;
-		}
-		qunlock(&sreqidlock);
 
-		if(r->closefid != nil){
-			sendpkt("bus", SSH_FXP_CLOSE, r->reqid, r->closefid->hand, r->closefid->handn);
+		sf = r->closefid;
+		if(sf != nil){
+			rlock(sf);
+			sendpkt("bqs", SSH_FXP_CLOSE, r, sf->hand, sf->handn);
+			runlock(sf);
 			continue;
 		}
 		if(r->req == nil)
 			sysfatal("nil request in queue");
 
-		sf = r->req->fid != nil ? r->req->fid->aux : nil;
+		sf = r->req->fid->aux;
 		switch(r->req->ifcall.type){
 		case Tattach:
-			sendpkt("bus", SSH_FXP_STAT, r->reqid, sf->fn, strlen(sf->fn));
+			rlock(sf);
+			sendpkt("bqs", SSH_FXP_STAT, r, sf->fn, strlen(sf->fn));
+			runlock(sf);
 			break;
 		case Twalk:
-			sendpkt("bus", SSH_FXP_STAT, r->reqid, r->req->aux, strlen(r->req->aux));
+			sendpkt("bqs", SSH_FXP_STAT, r, r->req->aux, strlen(r->req->aux));
 			break;
 		case Topen:
-			rlock(sf);
-			if((r->req->ofcall.qid.type & QTDIR) != 0)
-				sendpkt("bus", SSH_FXP_OPENDIR, r->reqid, sf->fn, strlen(sf->fn));
-			else{
+			if((r->req->ofcall.qid.type & QTDIR) != 0){
+				rlock(sf);
+				sendpkt("bqs", SSH_FXP_OPENDIR, r, sf->fn, strlen(sf->fn));
+				runlock(sf);
+			}else{
 				x = r->req->ifcall.mode;
 				y = 0;
 				switch(x & 3){
@@ -822,15 +832,15 @@ sendproc(void *)
 				}
 				if(readonly && (y & SSH_FXF_WRITE) != 0){
 					respond(r->req, "mounted read-only");
-					runlock(sf);
 					putsreq(r);
 					break;
 				}
 				if((x & OTRUNC) != 0)
 					y |= SSH_FXF_TRUNC;
-				sendpkt("busuu", SSH_FXP_OPEN, r->reqid, sf->fn, strlen(sf->fn), y, 0);
+				rlock(sf);
+				sendpkt("bqsuu", SSH_FXP_OPEN, r, sf->fn, strlen(sf->fn), y, 0);
+				runlock(sf);
 			}
-			runlock(sf);
 			break;
 		case Tcreate:
 			rlock(sf);
@@ -838,12 +848,12 @@ sendproc(void *)
 			runlock(sf);
 			if((r->req->ifcall.perm & DMDIR) != 0){
 				if(r->req->aux == nil){
-					sendpkt("busuu", SSH_FXP_MKDIR, r->reqid, s, strlen(s),
-						SSH_FILEXFER_ATTR_PERMISSIONS, r->req->ifcall.perm & 0777);
 					r->req->aux = (void*)-1;
+					sendpkt("bqsuu", SSH_FXP_MKDIR, r, s, strlen(s),
+						SSH_FILEXFER_ATTR_PERMISSIONS, r->req->ifcall.perm & 0777);
 				}else{
-					sendpkt("bus", SSH_FXP_OPENDIR, r->reqid, s, strlen(s));
 					r->req->aux = (void*)-2;
+					sendpkt("bqs", SSH_FXP_OPENDIR, r, s, strlen(s));
 				}
 				free(s);
 				break;
@@ -855,7 +865,7 @@ sendproc(void *)
 			case OWRITE: y |= SSH_FXF_WRITE; break;
 			case ORDWR: y |= SSH_FXF_READ | SSH_FXF_WRITE; break;
 			}
-			sendpkt("busuuu", SSH_FXP_OPEN, r->reqid, s, strlen(s), y,
+			sendpkt("bqsuuu", SSH_FXP_OPEN, r, s, strlen(s), y,
 				SSH_FILEXFER_ATTR_PERMISSIONS, r->req->ifcall.perm & 0777);
 			free(s);
 			break;
@@ -863,22 +873,22 @@ sendproc(void *)
 			if((r->req->fid->qid.type & QTDIR) != 0){
 				wlock(sf);
 				if(r->req->aux == (void*)-1){
-					sendpkt("bus", SSH_FXP_CLOSE, r->reqid, sf->hand, sf->handn);
+					sendpkt("bqs", SSH_FXP_CLOSE, r, sf->hand, sf->handn);
 					free(sf->hand);
 					sf->hand = nil;
 					sf->handn = 0;
 					sf->direof = 0;
 					sf->dirreads = 0;
 				}else if(r->req->aux == (void*)-2){
-					sendpkt("bus", SSH_FXP_OPENDIR, r->reqid, sf->fn, strlen(sf->fn));
+					sendpkt("bqs", SSH_FXP_OPENDIR, r, sf->fn, strlen(sf->fn));
 				}else{
 					sf->dirreads++;
-					sendpkt("bus", SSH_FXP_READDIR, r->reqid, sf->hand, sf->handn);
+					sendpkt("bqs", SSH_FXP_READDIR, r, sf->hand, sf->handn);
 				}
 				wunlock(sf);
 			}else{
 				rlock(sf);
-				sendpkt("busvuu", SSH_FXP_READ, r->reqid, sf->hand, sf->handn,
+				sendpkt("bqsvuu", SSH_FXP_READ, r, sf->hand, sf->handn,
 					r->req->ifcall.offset, r->req->ifcall.count);
 				runlock(sf);
 			}
@@ -886,33 +896,33 @@ sendproc(void *)
 		case Twrite:
 			x = r->req->ifcall.count - r->req->ofcall.count;
 			if(x >= MAXWRITE) x = MAXWRITE;
+			r->req->ofcall.offset = x;
 			rlock(sf);
-			sendpkt("busvs", SSH_FXP_WRITE, r->reqid, sf->hand, sf->handn,
+			sendpkt("bqsvs", SSH_FXP_WRITE, r, sf->hand, sf->handn,
 				r->req->ifcall.offset + r->req->ofcall.count,
 				r->req->ifcall.data + r->req->ofcall.count,
 				x);
 			runlock(sf);
-			r->req->ofcall.offset = x;
 			break;
 		case Tstat:
 			rlock(sf);
 			r->req->d.name = finalelem(sf->fn);
 			r->req->d.qid = sf->qid;
 			if(sf->handn > 0 && (sf->qid.type & QTDIR) == 0)
-				sendpkt("bus", SSH_FXP_FSTAT, r->reqid, sf->hand, sf->handn);
+				sendpkt("bqs", SSH_FXP_FSTAT, r, sf->hand, sf->handn);
 			else
-				sendpkt("bus", SSH_FXP_STAT, r->reqid, sf->fn, strlen(sf->fn));
+				sendpkt("bqs", SSH_FXP_STAT, r, sf->fn, strlen(sf->fn));
 			runlock(sf);
 			break;
 		case Twstat:
-			if(r->req->aux == (void *) -1){
+			if(r->req->aux == (void*)-1){
 				rlock(sf);
 				s = parentdir(sf->fn);
 				t = pathcat(s, r->req->d.name);
-				free(s);
 				r->req->aux = t;
-				sendpkt("buss", SSH_FXP_RENAME, r->reqid, sf->fn, strlen(sf->fn), t, strlen(t));
+				sendpkt("bqss", SSH_FXP_RENAME, r, sf->fn, strlen(sf->fn), t, strlen(t));
 				runlock(sf);
+				free(s);
 				break;
 			}
 			x = dir2attrib(&r->req->d, (uchar **) &s);
@@ -923,18 +933,18 @@ sendproc(void *)
 			}
 			rlock(sf);
 			if(sf->handn > 0)
-				sendpkt("bus[", SSH_FXP_FSETSTAT, r->reqid, sf->hand, sf->handn, s, x);
+				sendpkt("bqs[", SSH_FXP_FSETSTAT, r, sf->hand, sf->handn, s, x);
 			else
-				sendpkt("bus[", SSH_FXP_SETSTAT, r->reqid, sf->fn, strlen(sf->fn), s, x);
+				sendpkt("bqs[", SSH_FXP_SETSTAT, r, sf->fn, strlen(sf->fn), s, x);
 			runlock(sf);
 			free(s);
 			break;
 		case Tremove:
 			rlock(sf);
 			if((sf->qid.type & QTDIR) != 0)
-				sendpkt("bus", SSH_FXP_RMDIR, r->reqid, sf->fn, strlen(sf->fn));
+				sendpkt("bqs", SSH_FXP_RMDIR, r, sf->fn, strlen(sf->fn));
 			else
-				sendpkt("bus", SSH_FXP_REMOVE, r->reqid, sf->fn, strlen(sf->fn));
+				sendpkt("bqs", SSH_FXP_REMOVE, r, sf->fn, strlen(sf->fn));
 			runlock(sf);
 			break;
 		default:
@@ -983,7 +993,6 @@ recvproc(void *)
 		r = sreqrd[id];
 		if(r != nil){
 			sreqrd[id] = nil;
-			r->reqid = -1;
 			rwakeup(&sreqidrend);
 		}
 		qunlock(&sreqidlock);
@@ -992,13 +1001,14 @@ recvproc(void *)
 			continue;
 		}
 		if(r->closefid != nil){
+			putsfid(r->closefid);
 			putsreq(r);
 			continue;
 		}
 		if(r->req == nil)
 			sysfatal("recvproc: r->req == nil");
 
-		sf = r->req->fid != nil ? r->req->fid->aux : nil;
+		sf = r->req->fid->aux;
 		okresp = rxlen >= 9 && t == SSH_FXP_STATUS && GET4(rxpkt+5) == SSH_FX_OK;
 		switch(r->req->ifcall.type){
 		case Tattach:
@@ -1094,7 +1104,7 @@ recvproc(void *)
 				break;
 			}
 			if(r->req->aux == nil){
-				r->req->aux = (void *) -1;
+				r->req->aux = (void*)-1;
 				submitreq(r->req);
 			}else{
 				wlock(sf);
@@ -1199,7 +1209,6 @@ sshfsdestroyfid(Fid *f)
 		return;
 	if(sf->hand != nil){
 		sr = emalloc9p(sizeof(SReq));
-		sr->reqid = -1;
 		sr->closefid = sf;
 		submitsreq(sr);
 	}else
