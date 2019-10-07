@@ -569,7 +569,7 @@ dir2attrib(Dir *d, uchar **rp)
 	int uid, gid;
 
 	werrstr("phase error");
-	r = emalloc9p(MAXATTRIB);
+	*rp = r = emalloc9p(MAXATTRIB);
 	e = r + MAXATTRIB;
 	fl = 0;
 	p = r + 4;
@@ -604,7 +604,6 @@ dir2attrib(Dir *d, uchar **rp)
 		rc = pack(p, e - p, "uu", d->atime, d->mtime); if(rc < 0) return -1; p += rc;
 	}
 	PUT4(r, fl);
-	*rp = r;
 	return p - r;
 }
 
@@ -929,6 +928,7 @@ sendproc(void *)
 			if(x < 0){
 				responderror(r->req);
 				putsreq(r);
+				free(s);
 				break;
 			}
 			rlock(sf);
