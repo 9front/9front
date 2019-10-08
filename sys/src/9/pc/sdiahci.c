@@ -2102,8 +2102,10 @@ didtype(Pcidev *p)
 		break;
 	case 0x1022:
 		/* Hudson SATA Controller [AHCI mode] */
-		if(p->did == 0x7801)
+		if((p->did & 0xfffe) == 0x7800){
+			sbsetupahci(p);
 			return Tahci;
+		}
 		break;
 	case 0x10de:
 	case 0x1039:
