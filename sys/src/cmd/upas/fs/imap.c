@@ -221,7 +221,7 @@ static struct{
 	char	*flag;
 	int	e;
 } ftab[] = {
-	"Answered",	Fanswered,
+	"\\Answered",	Fanswered,
 	"\\Deleted",	Fdeleted,
 	"\\Draft",		Fdraft,
 	"\\Flagged",	Fflagged,
@@ -850,8 +850,8 @@ imap4fetch(Mailbox *mb, Message *m, uvlong o, ulong l)
 	imap = mb->aux;
 	if(imap->flags & Fgmail)
 		l = gmaildiscount(m, o, l);
-	idprint(imap, "uid fetch %lud (body.peek[]<%llud.%lud>)\n", (ulong)m->imapuid, o, l);
-	imap4cmd(imap, "uid fetch %lud (body.peek[]<%llud.%lud>)", (ulong)m->imapuid, o, l);
+	idprint(imap, "uid fetch %lud (flags body.peek[]<%llud.%lud>)\n", (ulong)m->imapuid, o, l);
+	imap4cmd(imap, "uid fetch %lud (flags body.peek[]<%llud.%lud>)", (ulong)m->imapuid, o, l);
 	if(!isokay(imap4resp0(imap, mb, m))){
 		eprint("imap: imap fetch failed\n");
 		return -1;
