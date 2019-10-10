@@ -249,7 +249,7 @@ void fldbld(void)	/* create fields from current record */
 	/* the fields are all stored in this one array with \0's */
 	char *r, *fr, sep;
 	Cell *p;
-	int i, j, n;
+	int i, j, n, w;
 
 	if (donefld)
 		return;
@@ -287,15 +287,18 @@ void fldbld(void)	/* create fields from current record */
 		}
 		*fr = 0;
 	} else if ((sep = *inputFS) == 0) {		/* new: FS="" => 1 char/field */
-		for (i = 0; *r != 0; r++) {
-			char buf[2];
+		for (i = 0; *r != 0; r += w) {
+			char buf[UTFmax + 1];
+			Rune chr;
+
 			i++;
 			if (i > nfields)
 				growfldtab(i);
 			if (freeable(fldtab[i]))
 				xfree(fldtab[i]->sval);
-			buf[0] = *r;
-			buf[1] = 0;
+			w = chartorune(&chr, r);
+			n = runetochar(buf, &chr);
+			buf[n] = 0;
 			fldtab[i]->sval = tostring(buf);
 			fldtab[i]->tval = FLD | STR;
 		}
