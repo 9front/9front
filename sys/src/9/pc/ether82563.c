@@ -766,7 +766,6 @@ i82563multicast(void *arg, uchar *addr, int on)
 	case i82577:
 	case i82577m:
 	case i82579:
-	case i210:
 	case i217:
 	case i218:
 	case i219:
