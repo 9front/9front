@@ -937,11 +937,9 @@ dnsservers(int class)
 		return nsrp;
 
 	p = getenv("DNSSERVER");		/* list of ip addresses */
-	if(p != nil){
-		n = tokenize(p, args, nelem(args));
+	if(p != nil && (n = tokenize(p, args, nelem(args))) > 0){
 		for(i = 0; i < n; i++)
 			addlocaldnsserver(dp, class, args[i], i);
-		free(p);
 	} else {
 		t = lookupinfo("@dns");		/* @dns=ip1 @dns=ip2 ... */
 		if(t == nil)
@@ -953,6 +951,7 @@ dnsservers(int class)
 		}
 		ndbfree(t);
 	}
+	free(p);
 
 	return rrlookup(dp, Tns, NOneg);
 }
