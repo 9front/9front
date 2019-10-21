@@ -485,6 +485,7 @@ nontypingkey(int c)
 	case Ksoh:
 	case Kenq:
 	case Kstx:
+	case Kbel:
 		return 1;
 	}
 	return 0;
@@ -658,6 +659,22 @@ type(Flayer *l, int res)	/* what a bloody mess this is */
 		a = t->rasp.nrunes;
 		flsetselect(l, a, a);
 		center(l, a);
+ 	}else if(c == Kbel){
+ 		int i;
+ 		if(work == nil)
+ 			return;
+ 		if(which != work){
+ 			current(work);
+ 			return;
+ 		}
+ 		t = (Text*)work->user1;
+ 		l = &t->l[t->front];
+ 		for(i=t->front; t->nwin>1 && (i = (i+1)%NL) != t->front; )
+ 			if(t->l[i].textfn != 0){
+ 				l = &t->l[i];
+ 				break;
+ 			}
+ 		current(l);
 	}else{
 		if(c==Kesc && typeesc>=0){
 			l->p0 = typeesc;

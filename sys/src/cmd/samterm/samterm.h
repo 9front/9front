@@ -7,7 +7,9 @@
 
 enum{
 	Up,
-	Down
+	Down,
+
+	Kbel=0x7,
 };
 
 typedef struct Text	Text;
