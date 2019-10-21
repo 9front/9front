@@ -99,7 +99,7 @@ type	is	text
 data	matches	'[a-zA-Z¡-￿0-9_\-./]+'
 data	matches	'/mail/fs/[a-zA-Z¡-￿0-9/]+/[0-9]+'
 plumb	to	showmail
-plumb	start	window -r 4 120 750 600 upas/nedmail -s $0
+plumb	start	window -noscroll -r 4 120 750 600 upas/nedmail -s $0
 
 # man index entries are synthesized
 type is text
