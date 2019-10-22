@@ -1078,17 +1078,22 @@ parseoptions(Req *rp)
 				v4tov6(rp->server, o);
 			break;
 		case ODmessage:
-			if(n > sizeof rp->msg-1)
-				n = sizeof rp->msg-1;
+			if(n > sizeof(rp->msg)-1)
+				n = sizeof(rp->msg)-1;
 			memmove(rp->msg, o, n);
 			rp->msg[n] = 0;
 			break;
 		case ODmaxmsg:
+			if(n < 2)
+				break;
 			c = nhgets(o);
-			c -= 28;
+			c -= IPUDPHDRSIZE;
+			if(c <= 0)
+				break;
 			c += Udphdrsize;
-			if(c > 0)
-				rp->max = rp->buf + c;
+			if(c > sizeof(rp->buf))
+				c = sizeof(rp->buf);
+			rp->max = rp->buf + c;
 			break;
 		case ODclientid:
 			if(n <= 1)
