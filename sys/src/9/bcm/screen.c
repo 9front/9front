@@ -88,18 +88,18 @@ hwdraw(Memdrawparam *par)
 {
 	Memimage *dst, *src, *mask;
 
-	if((dst=par->dst) == nil || dst->data == nil)
+	if((dst = par->dst) == nil || dst->data == nil)
 		return 0;
-	if((src=par->src) == nil || src->data == nil)
-		return 0;
-	if((mask=par->mask) == nil || mask->data == nil)
-		return 0;
+	if((src = par->src) && src->data == nil)
+		src = nil;
+	if((mask = par->mask) && mask->data == nil)
+		mask = nil;
 
 	if(dst->data->bdata == xgdata.bdata)
 		swcursoravoid(par->r);
-	if(src->data->bdata == xgdata.bdata)
+	if(src && src->data->bdata == xgdata.bdata)
 		swcursoravoid(par->sr);
-	if(mask->data->bdata == xgdata.bdata)
+	if(mask && mask->data->bdata == xgdata.bdata)
 		swcursoravoid(par->mr);
 
 	return 0;
