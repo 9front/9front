@@ -355,9 +355,10 @@ redux:
 				m->imapuid = v;
 			if(imap->nuid < imap->muid)
 				imap->f[imap->nuid].uid = v;
-		}else if(strcmp(f[i], "flags") == 0)
-			parseflags(m, f[i + 1]);
-		else if(strncmp(f[i], "body[]", 6) == 0){
+		}else if(strcmp(f[i], "flags") == 0){
+			if(m)
+				parseflags(m, f[i + 1]);
+		}else if(strncmp(f[i], "body[]", 6) == 0){
 			s = f[i]+6;
 			o = 0;
 			if(*s == '<')
@@ -562,7 +563,7 @@ imap4modflags(Mailbox *mb, Message *m, int flags)
 	if(p > buf){
 		p[-1] = 0;
 		imap4cmd(imap, "uid store %lud flags (%s)", (ulong)m->imapuid, buf);
-		imap4resp(imap);
+		imap4resp0(imap, mb, m);
 	}
 }
 
