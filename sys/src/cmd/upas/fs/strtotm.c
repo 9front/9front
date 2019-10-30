@@ -38,6 +38,7 @@ strtotm(char *p, Tm *t)
 	tm.min = -1;
 	tm.year = -1;
 	tm.mday = -1;
+	memcpy(tm.zone, "GMT", 3);
 	for(p = skipwhite(p); *p; p = skipwhite(q)){
 		q = skiptext(p);
 
