@@ -152,6 +152,7 @@ int	ismbox(void);
 int	islimbo(void);
 int	istga(void);
 int	ismp3(void);
+int	ismp4(void);
 int	ismung(void);
 int	isp9bit(void);
 int	isp9font(void);
@@ -201,6 +202,7 @@ int	(*call[])(void) =
 	isface,		/* ascii face file */
 	istga,
 	ismp3,
+	ismp4,
 
 	/* last resorts */
 	ismung,		/* entropy compressed/encrypted */
@@ -1238,6 +1240,24 @@ ismp3(void)
 			return 1;
 		}
 		p++;
+	}
+	return 0;
+}
+
+int
+ismp4(void)
+{
+	if(nbuf <= 12)
+		return 0;
+	if(memcmp(&buf[4], "ftyp", 4) != 0)
+		return 0;
+	if(memcmp(&buf[8], "isom", 4) == 0){
+		print("%s\n", mime ? "video/mp4" : "mp4 video");
+		return 1;
+	}
+	if(memcmp(&buf[8], "M4A ", 4) == 0){
+		print("%s\n", mime ? "audio/m4a" : "m4a audio");
+		return 1;
 	}
 	return 0;
 }
