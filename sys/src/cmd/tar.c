@@ -1138,7 +1138,7 @@ wrmeta(int fd, Hdr *hp, long mtime, int mode)		/* update metadata */
 
 /*
  * copy a file from the archive into the filesystem.
- * fname is result of name(), so has two extra bytes at beginning.
+ * fname is result of getname(), so has two extra bytes at beginning.
  */
 static void
 extract1(int ar, Hdr *hp, char *fname)
@@ -1214,7 +1214,7 @@ skip(int ar, Hdr *hp, char *fname)
 static char*
 getname(int ar, Hdr *hp)
 {
-	static char namebuf[Maxlongname+1], *nextname = nil;
+	static char buf[2+Maxlongname+1], *namebuf = buf+2, *nextname = nil;
 	ulong blksleft, blksread;
 	char *fname, *p;
 	int n;
@@ -1243,10 +1243,6 @@ getname(int ar, Hdr *hp)
 		*p = '\0';
 		fname = nil;
 		nextname = namebuf;
-	} else {
-		namebuf[Maxlongname] = '\0';
-		strncpy(namebuf, fname, Maxlongname);
-		fname = namebuf;
 	}
 	return fname;
 }
