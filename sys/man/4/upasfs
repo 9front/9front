@@ -453,6 +453,7 @@ mail directories
 .TP
 .B /mail/box/*/mbox
 mailbox files
+.TP
 .B /mail/box/*/\fImbox\fP.idx
 mailbox indicies
 .TP
