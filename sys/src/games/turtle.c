@@ -169,6 +169,8 @@ main()
 		if(s == nil) break;
 		runline(s);
 	}
+	if(lines == nil)
+		exits(nil);
 
 	if(initdraw(nil, nil, nil) < 0)
 		sysfatal("initdraw: %r");
