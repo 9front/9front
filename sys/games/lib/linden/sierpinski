@@ -1,0 +1,7 @@
+A
+A: B-A-B
+B: A+B+A
+A = 'draw 1'
+B = 'draw 1'
++ = 'turn -60'
+- = 'turn 60'
