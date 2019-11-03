@@ -8,6 +8,7 @@ TARG=4s\
 	geigerstats\
 	juggle\
 	life\
+	linden\
 	memo\
 	mole\
 	mus\
@@ -19,6 +20,7 @@ TARG=4s\
 	dmid\
 	dpic\
 	todpic\
+	turtle\
 
 OFILES=
 HFILES=
