@@ -516,11 +516,11 @@ name(Hdr *hp)
 }
 
 static int
-isdir(Hdr *hp)
+isdir(Hdr *hp, char *name)
 {
 	/* the mode test is ugly but sometimes necessary */
 	return hp->linkflag == LF_DIR ||
-		strrchr(name(hp), '\0')[-1] == '/' ||
+		strrchr(name, '\0')[-1] == '/' ||
 		(strtoul(hp->mode, nil, 8)&0170000) == 040000;
 }
 
@@ -605,9 +605,9 @@ hdrsize(Hdr *hp)
  * return the number of bytes recorded in the archive.
  */
 static Off
-arsize(Hdr *hp)
+arsize(Hdr *hp, char *fname)
 {
-	if(isdir(hp) || islink(hp->linkflag))
+	if(isdir(hp, fname) || islink(hp->linkflag))
 		return 0;
 	return hdrsize(hp);
 }
@@ -651,7 +651,7 @@ readhdr(int ar)
 		} while (hdrcksum == -1 || chksum(hp) != hdrcksum);
 		fprint(2, "found %s\n", name(hp));
 	}
-	nexthdr += Tblock*(1 + BYTES2TBLKS(arsize(hp)));
+	nexthdr += Tblock*(1 + BYTES2TBLKS(hdrsize(hp)));
 	return hp;
 }
 
@@ -670,7 +670,7 @@ putfullname(Hdr *hp, char *name)
 	char *sl, *osl;
 	String *slname = nil;
 
-	if (isdir(hp)) {
+	if (isdir(hp, name)) {
 		slname = s_new();
 		s_append(slname, name);
 		s_append(slname, "/");		/* posix requires this */
@@ -898,7 +898,7 @@ replace(char **argv)
 	if (usefile && !docreate) {
 		/* skip quickly to the end */
 		while ((hp = readhdr(ar)) != nil) {
-			bytes = arsize(hp);
+			bytes = hdrsize(hp);
 			for (blksleft = BYTES2TBLKS(bytes);
 			     blksleft > 0 && getblkrd(ar, Justnxthdr) != nil;
 			     blksleft -= blksread) {
@@ -1147,10 +1147,10 @@ extract1(int ar, Hdr *hp, char *fname)
 	long mtime = strtol(hp->mtime, nil, 8);
 	ulong mode = strtoul(hp->mode, nil, 8) & 0777;
 	Off bytes = hdrsize(hp);		/* for printing */
-	ulong blksleft = BYTES2TBLKS(arsize(hp));
+	ulong blksleft = BYTES2TBLKS(arsize(hp, fname));
 
 	/* fiddle name, figure out mode and blocks */
-	if (isdir(hp)) {
+	if (isdir(hp, fname)) {
 		mode |= DMDIR|0700;
 		dir = 1;
 	}
@@ -1200,7 +1200,7 @@ skip(int ar, Hdr *hp, char *fname)
 	ulong blksleft, blksread;
 	Hdr *hbp;
 
-	for (blksleft = BYTES2TBLKS(arsize(hp)); blksleft > 0;
+	for (blksleft = BYTES2TBLKS(arsize(hp, fname)); blksleft > 0;
 	     blksleft -= blksread) {
 		hbp = getblkrd(ar, Justnxthdr);
 		if (hbp == nil)
@@ -1226,7 +1226,7 @@ getname(int ar, Hdr *hp)
 	fname = name(hp);
 	if(hp->linkflag == LF_LONGNAME){
 		p = namebuf;
-		for (blksleft = BYTES2TBLKS(arsize(hp)); blksleft > 0;
+		for (blksleft = BYTES2TBLKS(hdrsize(hp)); blksleft > 0;
 		     blksleft -= blksread) {
 			hp = getblkrd(ar, Alldata);
 			if (hp == nil)
