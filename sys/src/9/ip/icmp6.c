@@ -332,7 +332,7 @@ mkechoreply6(Block *bp, Ipifc *ifc)
 	ipmove(addr, p->src);
 	if(!isv6mcast(p->dst))
 		ipmove(p->src, p->dst);
-	else if (!ipv6local(ifc, p->src, addr))
+	else if (!ipv6local(ifc, p->src, 0, addr))
 		return nil;
 	ipmove(p->dst, addr);
 	p->type = EchoReplyV6;
@@ -434,7 +434,7 @@ icmphostunr6(Fs *f, Ipifc *ifc, Block *bp, int code, int tome)
 	uchar ia[IPaddrlen];
 
 	p = (Ip6hdr *)bp->rp;
-	if(isv6mcast(p->dst) || isv6mcast(p->src) || !ipv6local(ifc, ia, p->src))
+	if(isv6mcast(p->dst) || isv6mcast(p->src) || !ipv6local(ifc, ia, 0, p->src))
 		return;
 
 	netlog(f, Logicmp, "send icmphostunr %I -> src %I dst %I\n",
@@ -471,7 +471,7 @@ icmpttlexceeded6(Fs *f, Ipifc *ifc, Block *bp)
 	uchar ia[IPaddrlen];
 
 	p = (Ip6hdr *)bp->rp;
-	if(isv6mcast(p->dst) || isv6mcast(p->src) || !ipv6local(ifc, ia, p->src))
+	if(isv6mcast(p->dst) || isv6mcast(p->src) || !ipv6local(ifc, ia, 0, p->src))
 		return;
 
 	netlog(f, Logicmp, "send icmpttlexceeded6 %I -> src %I dst %I\n",
@@ -504,7 +504,7 @@ icmppkttoobig6(Fs *f, Ipifc *ifc, Block *bp)
 	uchar ia[IPaddrlen];
 
 	p = (Ip6hdr *)bp->rp;
-	if(isv6mcast(p->dst) || isv6mcast(p->src) || !ipv6local(ifc, ia, p->src))
+	if(isv6mcast(p->dst) || isv6mcast(p->src) || !ipv6local(ifc, ia, 0, p->src))
 		return;
 
 	netlog(f, Logicmp, "send icmppkttoobig6 %I -> src %I dst %I\n",
@@ -769,7 +769,7 @@ icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 			/* fall through */
 
 		case Tuniproxy:
-			if(ipv6local(ifc, ia, np->src)) {
+			if(ipv6local(ifc, ia, 0, np->src)) {
 				if(arpenter(icmp->f, V6, np->src, np->lnaddr, 8*np->olen-2, ia, ifc, 0) < 0)
 					break;
 				pktflags |= Sflag;
@@ -801,7 +801,7 @@ icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 		lifc = iplocalonifc(ifc, np->target);
 		if(lifc != nil && lifc->tentative)
 			arpenter(icmp->f, V6, np->target, np->lnaddr, 8*np->olen-2, np->target, ifc, 0);
-		else if(ipv6local(ifc, ia, np->target))
+		else if(ipv6local(ifc, ia, 0, np->target))
 			arpenter(icmp->f, V6, np->target, np->lnaddr, 8*np->olen-2, ia, ifc, 1);
 		freeblist(bp);
 		break;

@@ -423,7 +423,7 @@ udpiput(Proto *udp, Ipifc *ifc, Block *bp)
 		if(ucb->headers == 0){
 			/* create a new conversation */
 			if(ipforme(f, laddr) != Runi)
-				ipv6local(ifc, laddr, raddr);
+				ipv6local(ifc, laddr, 0, raddr);
 			c = Fsnewcall(c, raddr, rport, laddr, lport, version);
 			if(c == nil){
 				qunlock(udp);

@@ -401,7 +401,7 @@ arpwrite(Fs *fs, char *s, int len)
 		if((ifc = findipifc(fs, ia, ia, Runi)) == nil)
 			error("no interface");
 		rlock(ifc);
-		if(!ipv6local(ifc, ia, ip) || arpenter(fs, V6, ip, mac, n, ia, ifc, 0) < 0){
+		if(!ipv6local(ifc, ia, 0, ip) || arpenter(fs, V6, ip, mac, n, ia, ifc, 0) < 0){
 			runlock(ifc);
 			error("destination unreachable");
 		}
@@ -450,7 +450,7 @@ arpread(Arp *arp, char *s, ulong offset, int len)
 		qlock(arp);
 		state = arpstate[a->state];
 		ipmove(ip, a->ip);
-		if(ifc->m == nil || a->ifcid != ifc->ifcid || !ipv6local(ifc, ia, ip)){
+		if(ifc->m == nil || a->ifcid != ifc->ifcid || !ipv6local(ifc, ia, 0, ip)){
 			qunlock(arp);
 			runlock(ifc);
 			continue;
@@ -507,7 +507,7 @@ ndpsendsol(Fs *f, Ipifc *ifc, Arpent *a)
 	} else {
 		arprelease(f->arp, a);
 	}
-	if(!ipv6local(ifc, src, targ))
+	if(!ipv6local(ifc, src, 0, targ))
 		return;
 send:
 	if(!waserror()){

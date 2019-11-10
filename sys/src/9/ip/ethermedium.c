@@ -462,7 +462,7 @@ sendarp(Ipifc *ifc, Arpent *a)
 	memmove(targ, a->ip+IPv4off, IPv4addrlen);
 	arprelease(er->f->arp, a);
 
-	if(!ipv4local(ifc, src, targ))
+	if(!ipv4local(ifc, src, 0, targ))
 		return;
 
 	n = sizeof(Etherarp);

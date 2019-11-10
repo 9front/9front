@@ -535,10 +535,64 @@ remroute(Fs *f, uchar *a, uchar *mask, uchar *s, uchar *smask, uchar *gate, int 
 	wunlock(&routelock);
 }
 
+/* get the outgoing interface for route r */
+static Ipifc*
+routefindipifc(Route *r, Fs *f)
+{
+	uchar local[IPaddrlen], gate[IPaddrlen];
+	Ipifc *ifc;
+	int i;
+
+	ifc = r->ifc;
+	if(ifc != nil && ifc->ifcid == r->ifcid)
+		return ifc;
+
+	if(r->type & Rsrc) {
+		if(r->type & Rv4) {
+			hnputl(local+IPv4off, r->v4.source);
+			memmove(local, v4prefix, IPv4off);
+		} else {
+			for(i = 0; i < IPllen; i++)
+				hnputl(local+4*i, r->v6.source[i]);
+		}
+	} else {
+		ipmove(local, IPnoaddr);
+	}
+
+	if(r->type & Rifc) {
+		if(r->type & Rv4) {
+			hnputl(gate+IPv4off, r->v4.address);
+			memmove(gate, v4prefix, IPv4off);
+		} else {
+			for(i = 0; i < IPllen; i++)
+				hnputl(gate+4*i, r->v6.address[i]);
+		}
+	} else {
+		if(r->type & Rv4)
+			v4tov6(gate, r->v4.gate);
+		else
+			ipmove(gate, r->v6.gate);
+	}
+
+	if((ifc = findipifc(f, local, gate, r->type)) == nil)
+		return nil;
+
+	r->ifc = ifc;
+	r->ifcid = ifc->ifcid;
+	return ifc;
+}
+
+/*
+ * v4lookup, v6lookup:
+ *  lookup a route to destination address a from source address s
+ *  and return the route. returns nil if no route was found.
+ *  an optional Routehint can be passed in rh to cache the lookup.
+ *
+ *  for v4lookup, addresses are in 4 byte format.
+ */
 Route*
 v4lookup(Fs *f, uchar *a, uchar *s, Routehint *rh)
 {
-	uchar local[IPaddrlen], gate[IPaddrlen];
 	ulong la, ls;
 	Route *p, *q;
 	Ipifc *ifc;
@@ -577,22 +631,8 @@ v4lookup(Fs *f, uchar *a, uchar *s, Routehint *rh)
 		p = p->mid;
 	}
 
-	if(q == nil || q->ref == 0)
+	if(q == nil || q->ref == 0 || routefindipifc(q, f) == nil)
 		return nil;
-
-	if(q->ifc == nil || q->ifcid != q->ifc->ifcid){
-		if(q->type & Rifc) {
-			hnputl(gate+IPv4off, q->v4.address);
-			memmove(gate, v4prefix, IPv4off);
-		} else
-			v4tov6(gate, q->v4.gate);
-		v4tov6(local, s);
-		ifc = findipifc(f, local, gate, q->type);
-		if(ifc == nil)
-			return nil;
-		q->ifc = ifc;
-		q->ifcid = ifc->ifcid;
-	}
 
 	if(rh != nil){
 		rh->r = q;
@@ -605,7 +645,6 @@ v4lookup(Fs *f, uchar *a, uchar *s, Routehint *rh)
 Route*
 v6lookup(Fs *f, uchar *a, uchar *s, Routehint *rh)
 {
-	uchar gate[IPaddrlen];
 	ulong la[IPllen], ls[IPllen];
 	ulong x, y;
 	Route *p, *q;
@@ -684,27 +723,127 @@ v6lookup(Fs *f, uchar *a, uchar *s, Routehint *rh)
 next:		;
 	}
 
-	if(q == nil || q->ref == 0)
+	if(q == nil || q->ref == 0 || routefindipifc(q, f) == nil)
 		return nil;
-
-	if(q->ifc == nil || q->ifcid != q->ifc->ifcid){
-		if(q->type & Rifc) {
-			for(h = 0; h < IPllen; h++)
-				hnputl(gate+4*h, q->v6.address[h]);
-			ifc = findipifc(f, s, gate, q->type);
-		} else
-			ifc = findipifc(f, s, q->v6.gate, q->type);
-		if(ifc == nil)
-			return nil;
-		q->ifc = ifc;
-		q->ifcid = ifc->ifcid;
-	}
 
 	if(rh != nil){
 		rh->r = q;
 		rh->rgen = v6routegeneration;
 	}
 	
+	return q;
+}
+
+/*
+ * v4source, v6source:
+ *  lookup a route to destination address a and also find
+ *  a suitable source address s on the outgoing interface.
+ *  return the route on success or nil when no route
+ *  was found.
+ *
+ *  for v4source, addresses are in 4 byte format.
+ */
+Route*
+v4source(Fs *f, uchar *a, uchar *s)
+{
+	uchar src[IPv4addrlen];
+	int splen;
+	ulong x, la;
+	Route *p, *q;
+	Ipifc *ifc;
+
+	q = nil;
+	la = nhgetl(a);
+	rlock(&routelock);
+	for(p = f->v4root[V4H(la)]; p != nil;){
+		if(la < p->v4.address){
+			p = p->left;
+			continue;
+		}
+		if(la > p->v4.endaddress){
+			p = p->right;
+			continue;
+		}
+		splen = 0;
+		if(p->type & Rsrc){
+			/* calculate local prefix length for source specific routes */
+			for(x = ~(p->v4.endsource ^ p->v4.source); x & 0x80000000UL; x <<= 1)
+				splen++;
+			hnputl(src, p->v4.source);
+		}
+		if((ifc = routefindipifc(p, f)) == nil
+		|| !ipv4local(ifc, src, splen, (p->type & (Rifc|Rbcast|Rmulti|Rv4))==Rv4? p->v4.gate: a)){
+			p = p->mid;
+			continue;
+		}
+		memmove(s, src, IPv4addrlen);
+		q = p;
+		p = p->mid;
+	}
+	runlock(&routelock);
+	return q;
+}
+
+Route*
+v6source(Fs *f, uchar *a, uchar *s)
+{
+	uchar src[IPaddrlen];
+	int splen, h;
+	ulong x, y, la[IPllen];
+	Route *p, *q;
+	Ipifc *ifc;
+
+	q = nil;
+	for(h = 0; h < IPllen; h++)
+		la[h] = nhgetl(a+4*h);
+	rlock(&routelock);
+	for(p = f->v6root[V6H(la)]; p != nil;){
+		for(h = 0; h < IPllen; h++){
+			x = la[h];
+			y = p->v6.address[h];
+			if(x == y)
+				continue;
+			if(x < y){
+				p = p->left;
+				goto next;
+			}
+			break;
+		}
+		for(h = 0; h < IPllen; h++){
+			x = la[h];
+			y = p->v6.endaddress[h];
+			if(x == y)
+				continue;
+			if(x > y){
+				p = p->right;
+				goto next;
+			}
+			break;
+		}
+		splen = 0;
+		if(p->type & Rsrc){
+			/* calculate local prefix length for source specific routes */
+			for(h = 0; h < IPllen; h++){
+				hnputl(src+4*h, p->v6.source[h]);
+				if((x = ~(p->v6.endsource[h] ^ p->v6.source[h])) != ~0UL){
+					for(; x & 0x80000000UL; x <<= 1)
+						splen++;
+					break;
+				}
+				splen += 32;
+			}
+		}
+		if((ifc = routefindipifc(p, f)) == nil
+		|| !ipv6local(ifc, src, splen, a)){
+			p = p->mid;
+			continue;
+		}
+		ipmove(s, src);
+		q = p;
+		p = p->mid;
+next:		;
+	}
+	runlock(&routelock);
 	return q;
 }
 

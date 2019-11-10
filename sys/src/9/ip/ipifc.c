@@ -1263,10 +1263,17 @@ findprimaryipv4(Fs *f, uchar *local)
 }
 
 /*
- *  return v4 address associated with an interface close to remote
+ * ipv4local, ipv6local:
+ *  return a local address associated with an interface close to remote.
+ *  prefixlen is the number of leading bits in the local address that
+ *  have to match an interface address to be considered. this is used
+ *  by source specific routes to filter on the source address.
+ *  return non-zero on success or zero when no address was found.
+ *
+ *  for ipv4local, all addresses are 4 byte format.
  */
 int
-ipv4local(Ipifc *ifc, uchar *local, uchar *remote)
+ipv4local(Ipifc *ifc, uchar *local, int prefixlen, uchar *remote)
 {
 	Iplifc *lifc;
 	int a, b;
@@ -1275,6 +1282,10 @@ ipv4local(Ipifc *ifc, uchar *local, uchar *remote)
 	for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
 		if((lifc->type & Rv4) == 0 || ipcmp(lifc->local, IPnoaddr) == 0)
 			continue;
+
+		if(prefixlen && comprefixlen(lifc->local+IPv4off, local, IPv4addrlen) < prefixlen)
+			continue;
+		
 		a = comprefixlen(lifc->local+IPv4off, remote, IPv4addrlen);
 		if(a > b){
 			b = a;
@@ -1284,11 +1295,8 @@ ipv4local(Ipifc *ifc, uchar *local, uchar *remote)
 	return b >= 0;
 }
 
-/*
- *  return v6 address associated with an interface close to remote
- */
 int
-ipv6local(Ipifc *ifc, uchar *local, uchar *remote)
+ipv6local(Ipifc *ifc, uchar *local, int prefixlen, uchar *remote)
 {
 	struct {
 		int	atype;
@@ -1300,12 +1308,13 @@ ipv6local(Ipifc *ifc, uchar *local, uchar *remote)
 	Iplifc *lifc;
 
 	if(isv4(remote)){
-		ipmove(local, v4prefix);
-		return ipv4local(ifc, local+IPv4off, remote+IPv4off);
+		memmove(local, v4prefix, IPv4off);
+		if((prefixlen -= IPv4off*8) < 0)
+			prefixlen = 0;
+		return ipv4local(ifc, local+IPv4off, prefixlen, remote+IPv4off);
 	}
 
 	atype = v6addrtype(remote);
-	ipmove(local, v6Unspecified);
 	b.atype = unknownv6;
 	b.deprecated = 1;
 	b.comprefixlen = 0;
@@ -1313,6 +1322,9 @@ ipv6local(Ipifc *ifc, uchar *local, uchar *remote)
 	now = NOW/1000;
 	for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
 		if(lifc->tentative)
+			continue;
+
+		if(prefixlen && comprefixlen(lifc->local, local, IPaddrlen) < prefixlen)
 			continue;
 
 		a.atype = v6addrtype(lifc->local);
@@ -1347,53 +1359,21 @@ ipv6local(Ipifc *ifc, uchar *local, uchar *remote)
 	return b.atype >= atype;
 }
 
+/*
+ *  find the local address for a remote destination
+ */
 void
 findlocalip(Fs *f, uchar *local, uchar *remote)
 {
-	Route *r;
-	Iplifc *lifc;
-	Ipifc *ifc, *nifc;
-	Conv **cp;
-
-	for(cp = f->ipifc->conv; *cp != nil; cp++){
-		ifc = (Ipifc*)(*cp)->ptcl;
-		rlock(ifc);
-		for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
-			if(lifc->tentative)
-				continue;
-
-			r = v6lookup(f, remote, lifc->local, nil);
-			if(r == nil || (nifc = r->ifc) == nil)
-				continue;
-			if(r->type & Runi){
-				ipmove(local, remote);
-				runlock(ifc);
-				return;
-			}
-			if(nifc != ifc) rlock(nifc);
-			if((r->type & (Rifc|Rbcast|Rmulti|Rv4)) == Rv4){
-				ipmove(local, v4prefix);
-				if(ipv4local(nifc, local+IPv4off, r->v4.gate)){
-					if(nifc != ifc) runlock(nifc);
-					runlock(ifc);
-					return;
-				}
-			}
-			if(ipv6local(nifc, local, remote)){
-				if(nifc != ifc) runlock(nifc);
-				runlock(ifc);
-				return;
-			}
-			if(nifc != ifc) runlock(nifc);
-		}
-		runlock(ifc);
+	if(isv4(remote)) {
+		memmove(local, v4prefix, IPv4off);
+		if(v4source(f, remote+IPv4off, local+IPv4off) == nil)
+			findprimaryipv4(f, local);
+	} else {
+		if(v6source(f, remote, local) == nil)
+			findprimaryipv6(f, local);
 	}
-	if(isv4(remote))
-		findprimaryipv4(f, local);
-	else
-		findprimaryipv6(f, local);
 }
-
 
 /*
  *  see if this address is bound to the interface

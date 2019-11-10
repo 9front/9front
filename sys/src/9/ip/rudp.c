@@ -559,15 +559,12 @@ rudpiput(Proto *rudp, Ipifc *ifc, Block *bp)
 	default:
 		/* connection oriented rudp */
 		if(ipcmp(c->raddr, IPnoaddr) == 0){
-			/* save the src address in the conversation */
-		 	ipmove(c->raddr, raddr);
-			c->rport = rport;
-
 			/* reply with the same ip address (if not broadcast) */
 			if(ipforme(f, laddr) != Runi)
-				ipv6local(ifc, c->laddr, c->raddr);
-			else
-				ipmove(c->laddr, laddr);
+				ipv6local(ifc, laddr, 0, raddr);
+			ipmove(c->laddr, laddr);
+		 	ipmove(c->raddr, raddr);
+			c->rport = rport;
 		}
 		break;
 	}

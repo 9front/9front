@@ -218,7 +218,7 @@ icmpttlexceeded(Fs *f, Ipifc *ifc, Block *bp)
 	uchar	ia[IPv4addrlen];
 
 	p = (Icmp *)bp->rp;
-	if(!ip4reply(f, p->src) || !ipv4local(ifc, ia, p->src))
+	if(!ip4reply(f, p->src) || !ipv4local(ifc, ia, 0, p->src))
 		return;
 
 	netlog(f, Logicmp, "sending icmpttlexceeded %V -> src %V dst %V\n",
