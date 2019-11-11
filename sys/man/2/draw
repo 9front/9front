@@ -464,7 +464,7 @@ and vertically by the height.
 Because the image data is stored on the server, local modifications to the
 .B Image
 data structure itself will have no effect.
-.I Repclipr
+.I Replclipr
 modifies the local
 .B Image
 data structure's
