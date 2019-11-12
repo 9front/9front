@@ -500,7 +500,7 @@ structure.
 Otherwise,
 .I alt
 blocks until one of the operations can proceed,
-eventually returning the index of the structure executes.
+eventually returning the index of the structure it executes.
 .I Alt
 returns \-1 when interrupted.
 The
@@ -563,7 +563,7 @@ if errors occur, the entire program is aborted.
 .PP
 .I Chanclosing
 returns \-1 if no one called
-.I closed
+.I chanclose
 on the channel, and otherwise
 the number of elements still in the channel.
 .PP
