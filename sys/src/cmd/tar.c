@@ -855,12 +855,12 @@ again:
 		return nil;
 	if (parsepax(ar, bp, hdr, LF_PAXHDR))
 		goto again;
+	if (parsepax(ar, bp, &globlhdr, LF_PAXGLOBL))
+		goto again;
 	if (getname(ar, bp, hdr))
 		goto again;
 	if (parsehdr(hdr, bp) == -1)
 		sysfatal("could not parse header: %r");
-	if (parsepax(ar, bp, &globlhdr, LF_PAXGLOBL))
-		goto again;
 
 	return bp;
 }
