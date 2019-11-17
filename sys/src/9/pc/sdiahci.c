@@ -1215,14 +1215,19 @@ static int
 ahciencreset(Ctlr *c)
 {
 	Ahba *h;
+	int i;
 
 	if(c->enctype == Eesb)
 		return 0;
 	h = c->hba;
 	h->emctl |= Emrst;
-	while(h->emctl & Emrst)
-		delay(1);
-	return 0;
+	for(i = 0; i < 1000; i++){
+		if((h->emctl & Emrst) == 0)
+			return 0;
+		esleep(1);
+	}
+	print("%s: ahciencreset: hung ctlr\n", Tname(c));
+	return -1;
 }
 
 /*
@@ -1301,9 +1306,11 @@ blink(Drive *d, ulong t)
 		return 0;
 	c = d->ctlr;
 	h = c->hba;
+
 	/* ensure last message has been transmitted */
-	while(h->emctl & Tmsg)
-		microdelay(1);
+	if(h->emctl & Tmsg)
+		return -1;
+
 	switch(c->enctype){
 	default:
 		panic("%s: bad led type %d", dnam(d), c->enctype);
@@ -1403,30 +1410,34 @@ ledkproc(void*)
 	memset(map, 0, sizeof map);
 	for(i = 0; i < niactlr; i++)
 		if(iactlr[i].enctype != 0){
-			ahciencreset(iactlr + i);
+			if(ahciencreset(iactlr + i) == -1)
+				continue;
 			map[i] = 1;
 			j++;
 		}
 	if(j == 0)
 		pexit("no work", 1);
 	for(i = 0; i < niadrive; i++){
-		iadrive[i]->nled = 3;		/* hardcoded */
-		if(iadrive[i]->ctlr->enctype == Eesb)
-			iadrive[i]->nled = 3;
-		iadrive[i]->ledbits = -1;
+		d = iadrive[i];
+		d->nled = 3;		/* hardcoded */
+		if(d->ctlr->enctype == Eesb)
+			d->nled = 3;
+		d->ledbits = -1;
 	}
 	for(i = 0; ; i++){
 		t0 = Ticks;
 		for(j = 0; j < niadrive; ){
-			c = iadrive[j]->ctlr;
-			if(map[j] == 0)
-				j += c->enctype;
-			else if(c->enctype == Eesb){
+			d = iadrive[j];
+			c = d->ctlr;
+			if(map[c - iactlr] == 0)
+				j++;
+			else
+			if(c->enctype == Eesb){
 				blinkesb(c, i);
 				j += c->ndrive;
 			}else{
-				d = iadrive[j++];
 				blink(d, i);
+				j++;
 			}
 		}
 		t1 = Ticks;
