@@ -195,6 +195,10 @@ The
 key (append)
 cannot be used on compressed archives.
 .PP
+The
+.B T
+key (write metadata) won't work for non-empty directories.
+.PP
 .IR Tar ,
 thus
 .IR dircp ,
