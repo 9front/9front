@@ -311,6 +311,9 @@ The use of
 .B bootargs
 in general is odd.
 .PP
+Filenames passed to 
+.I 9bootfat
+must be specified in DOS 8.3 format.
 .I 9bootfat
 does not support long file names.
 .SH HISTORY
