@@ -310,6 +310,9 @@ line is split only for presentation; it is one line in the file.)
 The use of
 .B bootargs
 in general is odd.
+.PP
+.I 9bootfat
+does not support long file names.
 .SH HISTORY
 .I Boot
 first appeared in Plan 9 from Bell Labs. It was rewritten
