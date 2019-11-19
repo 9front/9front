@@ -406,7 +406,7 @@ winctl(void *arg)
 			t = "notcurrent";
 			if(w == input)
 				t = "current";
-			pair.ns = snprint(pair.s, pair.ns, "%11d %11d %11d %11d %s %s ",
+			pair.ns = snprint(pair.s, pair.ns, "%11d %11d %11d %11d %11s %11s ",
 				w->i->r.min.x, w->i->r.min.y, w->i->r.max.x, w->i->r.max.y, t, s);
 			send(crm.c2, &pair);
 			continue;
