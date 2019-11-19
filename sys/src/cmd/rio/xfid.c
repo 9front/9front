@@ -670,9 +670,9 @@ xfidread(Xfid *x)
 		}
 		c1 = crm.c1;
 		c2 = crm.c2;
-		pair.ns = cnt+UTFmax+1;	/* room for partial rune and null byte */
-		t = emalloc(pair.ns);
+		t = emalloc(cnt+UTFmax+1);	/* room to unpack partial rune plus */
 		pair.s = t;
+		pair.ns = cnt;
 		send(c1, &pair);
 		recv(c2, &pair);
 		fc.data = pair.s;
