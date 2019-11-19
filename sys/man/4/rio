@@ -201,8 +201,10 @@ clears the windows contents.
 .TP
 .B wctl
 may be read or written.
-When read, it returns the location of the window as four decimal integers formatted
-in the usual 12-character style: upper left
+When read, it returns the location of the window as four decimal
+integers, padded to 12 characters as described in
+.IR image(6):
+upper left
 .I x
 and
 .IR y ,
@@ -210,7 +212,8 @@ lower right
 .I x
 and
 .IR y .
-Following these numbers are strings describing the window's state:
+Following these numbers are strings, also padded to 12 characters,
+describing the window's state:
 .B hidden
 or
 .BR visible ;
