@@ -6,6 +6,9 @@ vac, unvac \- create, extract a vac archive on Venti
 [
 .B -mqsv
 ] [
+.B -a
+.I vacfile
+] [
 .B -b
 .I blocksize
 ] [
@@ -23,12 +26,15 @@ vac, unvac \- create, extract a vac archive on Venti
 ] [
 .B -h
 .I host
+] [
+.B -x
+.I excludefile
 ]
 .I file ...
 .PP
 .B unvac
 [
-.B -Tctv
+.B -Tcdtv
 ] [
 .B -h
 .I host
@@ -70,6 +76,26 @@ are:
 .TF "-d\fI oldvacfile"
 .PD
 .TP
+.BI -a " vacfile
+Specifies that vac should create or update a backup archive, inserting
+the files under an extra two levels of directory hierarchy named
+.I yyyy/mmdd
+(year, month, day)
+in the style of the dump file system
+(see Plan 9's \fIfs\fR(4)).
+If
+.I vacfile
+already exists, an additional backup day is added to the
+existing hierarchy, behaving as though the
+.B -d
+flag was specified giving the most recent backup tree in the archive.
+Typically, this option
+is used as part of a nightly backup script.
+This option cannot be used with
+.B -d
+or
+.BR -f .
+.TP
 .BI -b " blocksize
 Specifies the block size that data will be broken into.
 The units for the size can be specified by appending
@@ -90,6 +116,12 @@ file tree whose score is stored in
 Do not include the file or directory specified by
 .IR exclude .
 This option may be repeated multiple times.
+.I Exclude
+can be a shell pattern as accepted by
+.IR rc (1),
+with one extension: 
+.B \&...
+matches any sequence of characters including slashes.
 .TP
 .BI -f " vacfile
 The results of 
@@ -137,6 +169,27 @@ Print out various statistics on standard error.
 .B -v
 Produce more verbose output on standard error, including the name of the files added to the archive
 and the vac archives that are expanded and merged.
+.TP
+.BI -x " excfile
+Read exclude patterns from the file 
+.IR excfile .
+Blank lines and lines beginning with 
+.B #
+are ignored.
+All other lines should be of the form
+.B include
+.I pattern
+or
+.B exclude
+.I pattern .
+When considering whether to include a directory or file
+in the vac archive,
+the earliest matching pattern in the file
+applies.
+The patterns are the same syntax accepted by the
+.B -e
+option.
+This option may be repeated multiple times.
 .PP
 .I Unvac
 lists or extracts files stored in the vac archive
@@ -156,9 +209,12 @@ to the time listed in the archive.
 .B -c
 Write extracted files to standard output instead of creating a file.
 .TP
-.B -h
-as per
-.IR vac .
+.B -d
+Reduce the number of blocks read from Venti by
+comparing the files to be stored with their counterparts
+in the file system.
+This option cannot be used with
+.BR -c .
 .TP
 .B -t
 Print a list of the files to standard output rather than extracting them.
@@ -167,6 +223,10 @@ Print a list of the files to standard output rather than extracting them.
 If extracting files, print the name of each file and directory
 to standard error.
 If listing files, print metadata in addition to the names.
+.TP
+.B -h
+as per
+.IR vac .
 .SH SOURCE
 .B /sys/src/cmd/vac
 .SH "SEE ALSO"
