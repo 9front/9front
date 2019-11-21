@@ -15,18 +15,22 @@ Timer*	addclock0link(void(*clockf)(void), int ms)
 .I Delay
 busy waits for
 .I ms
-milliseconds, forced to be at least one millisecond on some architectures.
+milliseconds. The minimum value of
+.I ms
+is one on most architectures.
 .PP
 .I Microdelay
 works exactly the same as
 .I delay
 but using microseconds instead.
 .PP
-For delays on the order of clock ticks,
-.I tsleep
-(see
-.IR sleep (9))
-provides a better alternative to the busy waiting of these routines.
+These routines are intended for use in interrupt contexts,
+device reset and shutdown functions, and other places where
+the scheduler is unavailable.
+When you have a process context, and can sleep, consider
+.IR tsleep (9).
+.I Tsleep
+does not busy wait.
 .PP
 .I Addclock0link
 adds a new periodic timer to the current processor's timer list, with
