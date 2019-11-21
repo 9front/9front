@@ -13,9 +13,8 @@ formathtml(char *body, int *np)
 	int i, j, p[2], q[2];
 	Exec *e;
 	char buf[1024];
-	Channel *sync;
 
-	e = emalloc(sizeof(struct Exec));
+	e = emalloc(sizeof(Exec));
 	if(pipe(p) < 0 || pipe(q) < 0)
 		error("can't create pipe: %r");
 
@@ -23,15 +22,15 @@ formathtml(char *body, int *np)
 	e->p[1] = p[1];
 	e->q[0] = q[0];
 	e->q[1] = q[1];
-	e->argv = emalloc(3*sizeof(char*));
+	e->argv = emalloc(4*sizeof(char*));
 	e->argv[0] = estrdup("htmlfmt");
-	e->argv[1] = estrdup("-cutf-8");
-	e->argv[2] = nil;
+	e->argv[1] = estrdup("-a");
+	e->argv[2] = estrdup("-cutf-8");
+	e->argv[3] = nil;
 	e->prog = "/bin/htmlfmt";
-	sync = chancreate(sizeof(int), 0);
-	e->sync = sync;
+	e->sync = chancreate(sizeof(int), 0);
 	proccreate(execproc, e, EXECSTACK);
-	recvul(sync);
+	recvul(e->sync);
 	close(p[0]);
 	close(q[1]);
 
