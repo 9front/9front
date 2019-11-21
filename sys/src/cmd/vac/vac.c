@@ -8,7 +8,7 @@
 void
 usage(void)
 {
-	fprint(2, "vac [-imqsv] [-a archive.vac] [-b bsize] [-d old.vac] [-f new.vac] [-e exclude]... [-h host] file...\n");
+	fprint(2, "vac [-imqsv] [-a archive.vac] [-b bsize] [-d old.vac] [-e exclude] [-f new.vac] [-i name] [-h host] [-x excludefile] file...\n");
 	threadexitsall("usage");
 }
 
