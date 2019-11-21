@@ -11,10 +11,14 @@ mal(int n)
 	if(m < n) {
 		if(n > Nhunk) {
 			v = sbrk(n);
+			if(v == (void*)-1)
+				error("sbrk");
 			memset(v, 0, n);
 			return v;
 		}
 		s = sbrk(Nhunk);
+		if(s == (void*)-1)
+			error("sbrk");
 		m = Nhunk;
 	}
 	v = s;
