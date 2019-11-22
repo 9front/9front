@@ -120,7 +120,7 @@ struct Message {
 	char	*unixheader;
 	char	*unixfrom;
 	char	*date822;
-	char	*references[Nref];
+	char	*references[Nref]; /* nil terminated unless full */
 
 	/* mime info */
 	char	*charset;		

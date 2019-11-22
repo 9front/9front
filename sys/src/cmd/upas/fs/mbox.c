@@ -880,7 +880,7 @@ static char*
 ref822(Message *m, Header *h, char*, char *p)
 {
 	char **a, *s, *f[Nref + 1];
-	int i, j, k, n;
+	int i, j, n;
 
 	s = strdup(skipwhite(p + h->len));
 	n = getfields(s, f, nelem(f), 1, "<> \n\t\r,");
@@ -889,26 +889,24 @@ ref822(Message *m, Header *h, char*, char *p)
 	n = uniqarray(f, n, 0);
 	a = m->references;
 	for(i = 0; i < Nref; i++)
-		if(a[i] == 0)
+		if(a[i] == nil)
 			break;
 	/*
 	 * if there are too many references, drop from the beginning
 	 * of the list.
 	 */
-	j = i + n - Nref;
-	if(j > 0){
-		if(j > Nref)
-			j = Nref;
-		for(k = 0; k < j; k++)
-			free(a[k]);
-		memmove(a, a + j, sizeof a[0]*(Nref - j));
-		memset(a + j, 0, Nref - j);
-		i -= j;
+	if(i + n > Nref){
+		for(i = 0; i < n; i++)
+			free(a[i]);
+		for(i = n; i < Nref; i++)
+			a[i - n] = a[i];
 	}
 	for(j = 0; j < n;)
 		a[i++] = strdup(f[j++]);
+	n = uniqarray(a, i, 1);
+	if(n < Nref)
+		a[n] = nil;
 	free(s);
-	uniqarray(a, i, 1);
 	return (char*)~0;
 }
 
