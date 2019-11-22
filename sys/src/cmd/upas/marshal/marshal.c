@@ -868,7 +868,7 @@ printinreplyto(Biobuf *out, char *dir)
 	if(n <= 0)
 		return 0;
 	buf[n] = 0;
-	return Bprint(out, "In-Reply-To: %s\n", buf);
+	return Bprint(out, "In-Reply-To: <%s>\n", buf);
 }
 
 Attach*
