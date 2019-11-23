@@ -857,25 +857,6 @@ copy822(Message*, Header *h, char*, char *p)
 	return rtrim(strdup(skipwhite(p + h->len)));
 }
 
-/*
- * firefox, e.g. doesn't keep references unique
- */
-static int
-uniqarray(char **a, int n, int allocd)
-{
-	int i, j;
-
-	for(i = 0; i < n; i++)
-		for(j = i + 1; j < n; j++)
-			if(strcmp(a[i], a[j]) == 0){
-				if(allocd)
-					free(a[j]);
-				memmove(a + j, a + j + 1, sizeof *a*(n - (j + 1)));
-				a[--n] = 0;
-			}
-	return n;
-}
-
 static char*
 ref822(Message *m, Header *h, char*, char *p)
 {
@@ -886,26 +867,26 @@ ref822(Message *m, Header *h, char*, char *p)
 	n = getfields(s, f, nelem(f), 1, "<> \n\t\r,");
 	if(n > Nref)
 		n = Nref;
-	n = uniqarray(f, n, 0);
 	a = m->references;
 	for(i = 0; i < Nref; i++)
 		if(a[i] == nil)
 			break;
 	/*
 	 * if there are too many references, drop from the beginning
-	 * of the list.
+	 * of the list. If someone else has a duplicate, we keep the
+	 * old duplicate.
 	 */
-	if(i + n > Nref){
-		for(i = 0; i < n; i++)
-			free(a[i]);
-		for(i = n; i < Nref; i++)
-			a[i - n] = a[i];
+	for(i = 0; i < n; i++){
+		for(j = 0; j < Nref; j++)
+			if(a[j] == nil || strcmp(a[j], f[i]) == 0)
+				break;
+		if(j == Nref){
+			free(a[0]);
+			memmove(&a[0], &a[1], (Nref - 1) * sizeof(a[0]));
+			j--;
+		}
+		a[j] = strdup(f[i]);
 	}
-	for(j = 0; j < n;)
-		a[i++] = strdup(f[j++]);
-	n = uniqarray(a, i, 1);
-	if(n < Nref)
-		a[n] = nil;
 	free(s);
 	return (char*)~0;
 }
