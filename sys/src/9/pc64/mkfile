@@ -113,6 +113,10 @@ mp.$O:				mp.h apbootstrap.h
 apic.$O squidboy.$O:		mp.h
 archmp.$O archacpi.$O:		mp.h
 
+sd53c8xx.$O:			../pc/sd53c8xx.i
+../pc/sd53c8xx.i:		../pc/sd53c8xx.n
+	cd ../pc && mk sd53c8xx.i
+
 $SDEV:				../port/sd.h
 sdiahci.$O:			ahci.h
 devaoe.$O sdaoe.$O:		../port/aoe.h

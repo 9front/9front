@@ -31,10 +31,6 @@ extern SDifc sd53c8xxifc;
 /* Portable configuration macros  */
 /**********************************/
 
-//#define BOOTDEBUG
-//#define ASYNC_ONLY
-//#define	INTERNAL_SCLK
-//#define ALWAYS_DO_WDTR
 #define WMR_DEBUG
 
 /**********************************/
@@ -43,36 +39,23 @@ extern SDifc sd53c8xxifc;
 
 #define PRINTPREFIX "sd53c8xx: "
 
-#ifdef BOOTDEBUG
-
-#define KPRINT oprint
-#define IPRINT intrprint
-#define DEBUG(n) 1
-#define IFLUSH() iflush()
-
-#else
-
-static int idebug = 1;
+static int idebug = 0;
 #define KPRINT	if(0) iprint
 #define IPRINT	if(idebug) iprint
-#define DEBUG(n)	(0)
+#define DEBUG(n) (0)
 #define IFLUSH()
-
-#endif /* BOOTDEBUG */
 
 /*******************************/
 /* General                     */
 /*******************************/
 
-#ifndef DMASEG
 #define DMASEG(x) PCIWADDR(x)
 #define legetl(x) (*(ulong*)(x))
 #define lesetl(x,v) (*(ulong*)(x) = (v))
 #define swabl(a,b,c)
-#else
-#endif /*DMASEG */
-#define DMASEG_TO_KADDR(x) KADDR((x)-PCIWINDOW)
-#define KPTR(x) ((x) == 0 ? 0 : DMASEG_TO_KADDR(x))
+#define DMASEG_TO_PADDR(x) ((uintptr)(x)-PCIWINDOW)
+#define DMASEG_TO_KADDR(x) KADDR(DMASEG_TO_PADDR(x))
+#define KPTR(x) (((x) == 0) ? nil : DMASEG_TO_KADDR(x))
 
 #define MEGA 1000000L
 #ifdef INTERNAL_SCLK
@@ -209,10 +192,7 @@ struct Dsa {
 	uchar dmablks;
 	uchar flag;	/* setbyte(state,3,...) */
 
-	union {
-		ulong dmancr;		/* For block transfer: NCR order (little-endian) */
-		uchar dmaaddr[4];
-	};
+	uchar dmaaddr[4];	/* For block transfer: NCR order (little-endian) */
 
 	uchar target;			/* Target */
 	uchar pad0[3];
@@ -220,18 +200,21 @@ struct Dsa {
 	uchar lun;			/* Logical Unit Number */
 	uchar pad1[3];
 
-	uchar scntl3;
+	uchar scntl3;			/* Sync */
 	uchar sxfer;
 	uchar pad2[2];
 
 	uchar next[4];			/* chaining for SCRIPT (NCR byte order) */
+
 	Dsa	*freechain;		/* chaining for freelist */
 	Rendez;
+
 	uchar scsi_id_buf[4];
 	Movedata msg_out_buf;
 	Movedata cmd_buf;
 	Movedata data_buf;
 	Movedata status_buf;
+
 	uchar msg_out[10];		/* enough to include SDTR */
 	uchar status;
 	int p9status;
@@ -382,7 +365,7 @@ oprint(char *format, ...)
 }
 #endif
 
-#include "sd53c8xx.i"
+#include "../pc/sd53c8xx.i"
 
 /*
  * We used to use a linked list of Dsas with nil as the terminator,
@@ -398,38 +381,31 @@ oprint(char *format, ...)
  */
 static Dsa *dsaend;
 
-static Dsa*
-dsaallocnew(Controller *c)
-{
-	Dsa *d;
-	
-	/* c->dsalist must be ilocked */
-	d = xalloc(sizeof *d);
-	if (d == nil)
-		panic("sd53c8xx dsaallocnew: no memory");
-	lesetl(d->next, legetl(c->dsalist.head));
-	lesetl(&d->stateb, A_STATE_FREE);
-	coherence();
-	lesetl(c->dsalist.head, DMASEG(d));
-	coherence();
-	return d;
-}
-
 static Dsa *
 dsaalloc(Controller *c, int target, int lun)
 {
 	Dsa *d;
 
 	ilock(&c->dsalist);
-	if ((d = c->dsalist.freechain) != 0) {
+	if ((d = c->dsalist.freechain) != nil) {
+		c->dsalist.freechain = d->freechain;
+		d->freechain = nil;
 		if (DEBUG(1))
-			IPRINT(PRINTPREFIX "%d/%d: reused dsa %lux\n", target, lun, (ulong)d);
-	} else {	
-		d = dsaallocnew(c);
+			IPRINT(PRINTPREFIX "%d/%d: reused dsa %#p\n", target, lun, d);
+	} else {
+		/* c->dsalist must be ilocked */
+		d = xalloc(sizeof *d);
+		if (d == nil)
+			panic("sd53c8xx dsaallocnew: no memory");
+		d->freechain = nil;
+		lesetl(d->next, legetl(c->dsalist.head));
+		lesetl(&d->stateb, A_STATE_FREE);
+		coherence();
+		lesetl(c->dsalist.head, DMASEG(d));
+		coherence();
 		if (DEBUG(1))
-			IPRINT(PRINTPREFIX "%d/%d: allocated dsa %lux\n", target, lun, (ulong)d);
+			IPRINT(PRINTPREFIX "%d/%d: allocated dsa %#p\n", target, lun, d);
 	}
-	c->dsalist.freechain = d->freechain;
 	lesetl(&d->stateb, A_STATE_ALLOCATED);
 	iunlock(&c->dsalist);
 	d->target = target;
@@ -454,11 +430,7 @@ dsadump(Controller *c)
 	u32int *a;
 	
 	iprint("dsa controller list: c=%p head=%.8lux\n", c, legetl(c->dsalist.head));
-	for(d=KPTR(legetl(c->dsalist.head)); d != dsaend; d=KPTR(legetl(d->next))){
-		if(d == (void*)-1){
-			iprint("\t dsa %p\n", d);
-			break;
-		}
+	for(d=KPTR(legetl(c->dsalist.head)); d != nil && d != dsaend; d=KPTR(legetl(d->next))){
 		a = (u32int*)d;
 		iprint("\tdsa %p %.8ux %.8ux %.8ux %.8ux %.8ux %.8ux\n", a, a[0], a[1], a[2], a[3], a[4], a[5]);
 	}
@@ -490,7 +462,8 @@ static Dsa *
 dsafind(Controller *c, uchar target, uchar lun, uchar state)
 {
 	Dsa *d;
-	for (d = KPTR(legetl(c->dsalist.head)); d != dsaend; d = KPTR(legetl(d->next))) {
+
+	for (d = KPTR(legetl(c->dsalist.head)); d != nil && d != dsaend; d = KPTR(legetl(d->next))) {
 		if (d->target != 0xff && d->target != target)
 			continue;
 		if (lun != 0xff && d->lun != lun)
@@ -1206,11 +1179,11 @@ sd53c8xxinterrupt(Ureg *ur, void *a)
 		}
 		n->istat = Intf;
 		/* search for structures in A_STATE_DONE */
-		for (d = KPTR(legetl(c->dsalist.head)); d != dsaend; d = KPTR(legetl(d->next))) {
+		for (d = KPTR(legetl(c->dsalist.head)); d != nil && d != dsaend; d = KPTR(legetl(d->next))) {
 			if (d->stateb == A_STATE_DONE) {
 				d->p9status = d->status;
 				if (DEBUG(1)) {
-					IPRINT(PRINTPREFIX "waking up dsa %lux\n", (ulong)d);
+					IPRINT(PRINTPREFIX "waking up dsa %#p\n", d);
 				}
 				wakeup(d);
 				wokesomething = 1;
@@ -1236,7 +1209,7 @@ sd53c8xxinterrupt(Ureg *ur, void *a)
 	/*
 	 * Can't compute dsa until we know that dsapa is valid.
 	 */
-	if(dsapa < -KZERO)
+	if(DMASEG_TO_PADDR(dsapa) < -KZERO)
 		dsa = (Dsa*)DMASEG_TO_KADDR(dsapa);
 	else{
 		dsa = nil;
@@ -1307,7 +1280,7 @@ sd53c8xxinterrupt(Ureg *ur, void *a)
 				    dsa->dmablks, legetl(dsa->dmaaddr),
 				    legetl(dsa->data_buf.pa), legetl(dsa->data_buf.dbc));
 				n->scratcha[2] = dsa->dmablks;
-				lesetl(n->scratchb, dsa->dmancr);
+				lesetl(n->scratchb, *((ulong*)dsa->dmaaddr));
 				cont = E_data_block_mismatch_recover;
 			}
 			else if (sa == E_data_out_mismatch) {
@@ -1337,7 +1310,7 @@ sd53c8xxinterrupt(Ureg *ur, void *a)
 				    dmablks * A_BSIZE - tbc + legetl(dsa->data_buf.dbc));
 				/* copy changes into scratch registers */
 				n->scratcha[2] = dsa->dmablks;
-				lesetl(n->scratchb, dsa->dmancr);
+				lesetl(n->scratchb, *((ulong*)dsa->dmaaddr));
 				cont = E_data_block_mismatch_recover;
 			}
 			else if (sa == E_id_out_mismatch) {
@@ -1458,7 +1431,7 @@ sd53c8xxinterrupt(Ureg *ur, void *a)
 				break;
 			case A_SIR_NOTIFY_LOAD_STATE:
 				IPRINT(PRINTPREFIX ": load_state dsa=%p\n", dsa);
-				if (dsa == (void*)KZERO || dsa == (void*)-1) {
+				if (dsa == nil) {
 					dsadump(c);
 					dumpncrregs(c, 1);
 					panic("bad dsa in load_state");
@@ -1537,9 +1510,9 @@ sd53c8xxinterrupt(Ureg *ur, void *a)
 				cont = -2;
 				break;
 			case A_SIR_NOTIFY_DUMP_NEXT_CODE: {
-				ulong *dsp = c->script + (legetl(n->dsp)-c->scriptpa)/4;
+				ulong *dsp = &c->script[(legetl(n->dsp)-c->scriptpa)/4];
 				int x;
-				IPRINT(PRINTPREFIX "code at %lux", dsp - c->script);
+				IPRINT(PRINTPREFIX "code at %lux", (ulong)(dsp - c->script));
 				for (x = 0; x < 6; x++) {
 					IPRINT(" %.8lux", dsp[x]);
 				}
@@ -1567,7 +1540,7 @@ sd53c8xxinterrupt(Ureg *ur, void *a)
 			case A_error_reselected:		/* dsa isn't valid here */
 				iprint(PRINTPREFIX "reselection error\n");
 				dumpncrregs(c, 1);
-				for (dsa = KPTR(legetl(c->dsalist.head)); dsa != dsaend; dsa = KPTR(legetl(dsa->next))) {
+				for (dsa = KPTR(legetl(c->dsalist.head)); dsa != nil && dsa != dsaend; dsa = KPTR(legetl(dsa->next))) {
 					IPRINT(PRINTPREFIX "dsa target %d lun %d state %d\n", dsa->target, dsa->lun, dsa->stateb);
 				}
 				break;
@@ -1597,10 +1570,10 @@ sd53c8xxinterrupt(Ureg *ur, void *a)
 			IPRINT(PRINTPREFIX "%d/%d: Iid pa=%.8lux sa=%.8lux dbc=%lux\n",
 			    target, lun,
 			    addr, addr - c->scriptpa, dbc);
-			addr = (ulong)c->script + addr - c->scriptpa;
+			addr -= c->scriptpa;
 			addr -= 64;
 			addr &= ~63;
-			v = (ulong*)addr;
+			v = &c->script[addr/4];
 			for(i=0; i<8; i++){
 				IPRINT("%.8lux: %.8lux %.8lux %.8lux %.8lux\n", 
 					addr, v[0], v[1], v[2], v[3]);
@@ -2172,16 +2145,18 @@ buggery:
 			continue;
 		}
 
+		lock(&ctlr->dsalist);
+		ctlr->dsalist.freechain = nil;
 		if(dsaend == nil)
 			dsaend = xalloc(sizeof *dsaend);
 		if(dsaend == nil)
 			panic("sd53c8xxpnp: no memory");
 		lesetl(&dsaend->stateb, A_STATE_END);
-	//	lesetl(dsaend->next, DMASEG(dsaend));
+		lesetl(dsaend->next, DMASEG(dsaend));
 		coherence();
 		lesetl(ctlr->dsalist.head, DMASEG(dsaend));
 		coherence();
-		ctlr->dsalist.freechain = 0;
+		unlock(&ctlr->dsalist);
 
 		ctlr->n = regva;
 		ctlr->v = v;
