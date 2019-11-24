@@ -867,15 +867,12 @@ ref822(Message *m, Header *h, char*, char *p)
 	n = getfields(s, f, nelem(f), 1, "<> \n\t\r,");
 	if(n > Nref)
 		n = Nref;
-	a = m->references;
-	for(i = 0; i < Nref; i++)
-		if(a[i] == nil)
-			break;
 	/*
 	 * if there are too many references, drop from the beginning
 	 * of the list. If someone else has a duplicate, we keep the
 	 * old duplicate.
 	 */
+	a = m->references;
 	for(i = 0; i < n; i++){
 		for(j = 0; j < Nref; j++)
 			if(a[j] == nil || strcmp(a[j], f[i]) == 0)
