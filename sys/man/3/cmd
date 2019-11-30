@@ -1,0 +1,223 @@
+.TH CMD 3
+.SH NAME
+cmd \- interface to host operating system commands
+.SH SYNOPSIS
+.B bind -a '#C' /
+.PP
+.B /cmd/clone
+.br
+.BI /cmd/ n /ctl
+.br
+.BI /cmd/ n /data
+.br
+.BI /cmd/ n /stderr
+.br
+.BI /cmd/ n /status
+.br
+.BI /cmd/ n /wait
+.SH DESCRIPTION
+.I Cmd
+provides a way to run commands in the underlying operating system's
+command interpreter of drawterm or when Inferno is running hosted.
+It serves a three-level directory that is conventionally bound
+behind the root directory.
+The top of the hierarchy is a directory
+.BR cmd ,
+that contains a
+.B clone
+file and zero or more numbered directories.
+Each directory represents a distinct connection to the host's command interpreter.
+The directory contains five files:
+.BR ctl ,
+.BR data ,
+.BR stderr ,
+.B status
+and
+.BR wait ,
+used as described below.
+Opening the
+.B clone
+file reserves a connection: it is equivalent to opening the
+.B ctl
+file of an unused connection directory, creating a new one if necessary.
+.PP
+The file
+.B ctl
+controls a connection.
+When read, it returns the decimal number
+.I n
+of its connection directory.
+Thus, opening and reading
+.B clone
+allocates a connection directory and reveals the number of the allocated directory,
+allowing the other files to be named (eg,
+.BI /cmd/ n /data\fR).
+.PP
+.B Ctl
+accepts the following textual commands, allowing quoting as interpreted by
+.IR parsecmd (2):
+.TP
+.BI "dir " wdir
+Run the host command in directory
+.IR wdir ,
+which is a directory
+.I "on the host system" .
+Issue this request before starting the command.
+By default, commands are run in the Inferno root directory on the host system.
+.TP
+.BI "exec " "command args ..."
+Spawn a host process to run the
+.I command
+with arguments as given.
+The write returns with an error, setting the error string, if anything prevents
+starting the command.
+If write returns successfully, the command has started, and its standard input and
+output may be accessed through
+.BR data ,
+and its error output accessed through
+.B stderr
+(see below).
+If arguments containing white space are quoted (following the conventions of
+.IR rc (1)
+or
+.IR parsecmd (2)),
+they are requoted by
+.I cmd
+using the host command interpreter's conventions so that
+.I command
+sees exactly the same arguments as were written to
+.BR ctl .
+.TP
+.B kill
+Kill the host command immediately.
+.TP
+.B killonclose
+Set the device to kill the host command when the
+.B ctl
+file is closed (normally all files must be closed, see below).
+.TP
+.BI nice " \fR[\fPn\fR]\fP"
+Run the host command at less than normal scheduling priority.
+Issue this request before starting the command.
+The optional value
+.IR n ,
+in the range 1 to 3,
+indicates the degree of `niceness' (default: 1).
+.PP
+The
+.B data
+file provides a connection to the input and output of a previously-started
+host command.
+It must be opened separately for reading and for writing.
+When opened for reading, it returns data that the command writes to its standard output; when closed, further writes by the command will receive the host
+equivalent of `write to closed pipe'.
+When opened for writing, data written to the file
+can be read by the command on its standard input; when closed, further reads by
+the command will see the host equivalent of `end of file'.
+(Unfortunately there is no way to know when the command needs input.)
+.PP
+The
+.B stderr
+file provides a similar read-only connection to the error output from the command.
+If the
+.B stderr
+file is not opened, the error output will be discarded.
+.PP
+Once started, a host command runs until it terminates or until it is killed,
+by using the
+.B kill
+or
+.B killonclose
+requests above, or by closing all
+.BR ctl ,
+.B data
+and
+.B wait
+files for a connection.
+.PP
+The read-only
+.B status
+file provides a single line giving the status of the connection (not the command), of the form:
+.IP
+.BI cmd/ "n opens state wdir arg0"
+.PP
+where the fields are separated by white space. The meaning of each field is:
+.TP
+.I n
+The
+.B cmd
+directory number.
+.TP
+.I opens
+The decimal number of open file descriptors for
+.BR ctl ,
+.B data
+and
+.BR wait .
+.TP
+.I state
+The status of the interface in directory
+.IR n :
+.RS
+.TF Execute
+.TP
+.B Open
+Allocated for use but not yet running a command.
+.TP
+.B Execute
+Running a command.
+.TP
+.B Done
+Command terminated: status available in the
+.B status
+file (or via
+.BR wait ).
+.TP
+.B Close
+Command completed. Available for reallocation via
+.BR clone .
+.RE
+.PD
+.TP
+.I wdir
+The command's initial working directory on the host.
+.TP
+.I arg0
+The host command name (without arguments).
+.PP
+The read-only
+.B wait
+file must be opened before starting a command via
+.BR ctl .
+When read, it blocks until the command terminates.
+The read then returns with a single status line, to be
+parsed using
+.B tokenize
+(see
+.IR getfields (2)).
+There are five fields:
+host process ID (or 0 if unknown);
+time the command spent in user code in milliseconds (or 0);
+time spent in system code in milliseconds (or 0);
+real time in milliseconds (or 0);
+and a string giving the exit status of the command.
+The exit status is host-dependent, except that an empty string
+means success, and a non-empty string contains a diagnostic.
+.PP
+.SS "Command execution"
+In all cases, the command runs in the host operating system's
+own file name space.
+All file names will be interpreted in that space, not Plan9's.
+For example, on Unix
+.B /
+refers to the host's file system root, not Plan9's;
+the effects of mounts and binds will not be visible.
+.SH "SEE ALSO"
+.IR os (1)
+.SH DIAGNOSTICS
+A
+.B write
+to
+.B ctl
+returns with an error and sets the error string if
+a command cannot be started or killed successfully.
