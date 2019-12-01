@@ -621,34 +621,6 @@ ramscan(ulong maxmem)
 	*k0 = kzero;
 }
 
-typedef struct Emap Emap;
-struct Emap
-{
-	int type;
-	uvlong base;
-	uvlong top;
-};
-static Emap emap[128];
-int nemap;
-
-static int
-emapcmp(const void *va, const void *vb)
-{
-	Emap *a, *b;
-	
-	a = (Emap*)va;
-	b = (Emap*)vb;
-	if(a->top < b->top)
-		return -1;
-	if(a->top > b->top)
-		return 1;
-	if(a->base < b->base)
-		return -1;
-	if(a->base > b->base)
-		return 1;
-	return 0;
-}
-
 static void
 map(ulong base, ulong len, int type)
 {
@@ -760,6 +732,59 @@ map(ulong base, ulong len, int type)
 	}
 }
 
+typedef struct Emap Emap;
+struct Emap
+{
+	int type;
+	uvlong base;
+	uvlong top;
+};
+static Emap emap[128];
+static int nemap;
+
+static int
+emapcmp(const void *va, const void *vb)
+{
+	Emap *a, *b;
+	
+	a = (Emap*)va;
+	b = (Emap*)vb;
+	if(a->top < b->top)
+		return -1;
+	if(a->top > b->top)
+		return 1;
+	if(a->base < b->base)
+		return -1;
+	if(a->base > b->base)
+		return 1;
+	return 0;
+}
+
+static void
+e820clean(void)
+{
+	Emap *e;
+	int i, j;
+
+	qsort(emap, nemap, sizeof emap[0], emapcmp);
+	for(i=j=0; i<nemap; i++){	
+		e = &emap[i];
+
+		/* ignore entries above 4GB */
+		if(e->base >= (1ULL<<32))
+			break;
+
+		/* merge adjacent entries of the same type */
+		if(i+1 < nemap && e[0].top == e[1].base && e[0].type == e[1].type){
+			e[1].base = e[0].base;
+			continue;
+		}
+
+		memmove(&emap[j++], e, sizeof *e);
+	}
+	nemap = j;
+}
+
 static int
 e820scan(void)
 {
@@ -790,20 +815,17 @@ e820scan(void)
 		e->top  = strtoull(s, &s, 16);
 		if(*s != ' ' && *s != 0)
 			break;
-		if(e->base < e->top)
-			nemap++;
+		if(e->base >= e->top)
+			continue;
+		if(++nemap == nelem(emap))
+			e820clean();
 	}
+	e820clean();
 	if(nemap == 0)
 		return -1;
-	qsort(emap, nemap, sizeof emap[0], emapcmp);
 	last = 0;
 	for(i=0; i<nemap; i++){	
 		e = &emap[i];
-		/*
-		 * pull out the info but only about the low 32 bits...
-		 */
-		if(e->base >= (1ULL<<32))
-			break;
 		if(e->top <= last)
 			continue;
 		if(e->base < last)
