@@ -181,9 +181,9 @@ sysrfork(va_list list)
 	 */
 	forkchild(p, up->dbgreg);
 
-	p->parent = up;
+	p->parentpid = up->pid;
 	if((flag&RFNOWAIT) == 0){
-		p->parentpid = up->pid;
+		p->parent = up;
 		lock(&up->exl);
 		up->nchild++;
 		unlock(&up->exl);
