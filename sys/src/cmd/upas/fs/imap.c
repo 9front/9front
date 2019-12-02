@@ -35,6 +35,7 @@ typedef struct {
 	uvlong	uid;
 	ulong	sizes;
 	ulong	dates;
+	ulong	flags;
 } Fetchi;
 
 typedef struct Imap Imap;
@@ -51,9 +52,23 @@ struct Imap {
 
 	ulong	tag;
 	ulong	validity;
+	ulong	newvalidity;
 	int	nmsg;
 	int	size;
 
+	/*
+	 * These variables are how we keep track
+	 * of what's been added or deleted. They
+	 * keep a count of the number of uids we
+	 * have processed this sync (nuid), and
+	 * the number we processed last sync
+	 * (muid).
+	 *
+	 * We keep the latest imap state in fetchi,
+	 * and imap4read syncs the information in
+	 * it with the messages. That's how we know
+	 * something changed on the server.
+	 */
 	Fetchi	*f;
 	int	nuid;
 	int	muid;
@@ -163,20 +178,22 @@ enum {
 	Fetch,
 	Cap,
 	Auth,
+	Expunge,
 
 	Unknown,
 };
 
 static char *verblist[] = {
-[Ok]	"ok",
-[No]	"no",
-[Bad]	"bad",
-[Bye]	"bye",
-[Exists]	"exists",
-[Status]	"status",
-[Fetch]	"fetch",
-[Cap]	"capability",
-[Auth]	"authenticate",
+	[Ok]		"ok",
+	[No]		"no",
+	[Bad]		"bad",
+	[Bye]		"bye",
+	[Exists]	"exists",
+	[Status]	"status",
+	[Fetch]		"fetch",
+	[Cap]		"capability",
+	[Auth]		"authenticate",
+	[Expunge]	"expunge",
 };
 
 static int
@@ -187,7 +204,7 @@ verbcode(char *verb)
 
 	if(q = strchr(verb, ' '))
 		*q = '\0';
-	for(i = 0; i < nelem(verblist) - 1; i++)
+	for(i = 0; i < nelem(verblist); i++)
 		if(strcmp(verblist[i], verb) == 0)
 			break;
 	if(q)
@@ -200,6 +217,7 @@ mkuid(Imap *i, char *id)
 {
 	vlong v;
 
+	idprint(i, "mkuid: validity: %lud, idstr: '%s', val: %lud\n", i->validity, id, strtoul(id, 0, 10));
 	v = (vlong)i->validity<<32;
 	return v | strtoul(id, 0, 10);
 }
@@ -230,26 +248,29 @@ static struct{
 	"\\Stored",	Fstored,
 };
 
-static void
-parseflags(Message *m, char *s)
+static int
+parseflags(char *s)
 {
 	char *f[10];
-	int i, j, j0, n;
+	int i, j, j0, n, flg;
 
 	n = tokenize(s, f, nelem(f));
 	qsort(f, n, sizeof *f, (int (*)(void*,void*))strcmp);
 	j = 0;
-	for(i = 0; i < n; i++)
+	flg = 0;
+	for(i = 0; i < n; i++){
 		for(j0 = j;; j++){
 			if(j == nelem(ftab)){
 				j = j0;		/* restart search */
 				break;
 			}
-			if(strcmp(f[i], ftab[j].flag) == 0){
-				m->flags |= ftab[j].e;
+			if(cistrcmp(f[i], ftab[j].flag) == 0){
+				flg |= ftab[j].e;
 				break;
 			}
 		}
+	}
+	return flg;
 }
 
 /* "17-Jul-1996 02:44:25 -0700" */
@@ -274,7 +295,7 @@ qtoken(char *s, char *sep)
 
 	quoting = 0;
 	t = s;	/* s is output string, t is input string */
-	while(*t!='\0' && (quoting || utfrune(sep, *t)==nil)){
+	while(*t != '\0' && (quoting || utfrune(sep, *t) == nil)){
 		if(*t != '"' && *t  != '(' && *t != ')'){
 			*s++ = *t++;
 			continue;
@@ -311,7 +332,7 @@ imaptokenize(char *s, char **args, int maxargs)
 	int nargs;
 
 	for(nargs=0; nargs < maxargs; nargs++){
-		while(*s!='\0' && utfrune(qsep, *s)!=nil)
+		while(*s != '\0' && utfrune(qsep, *s) != nil)
 			s++;
 		if(*s == '\0')
 			break;
@@ -323,7 +344,7 @@ imaptokenize(char *s, char **args, int maxargs)
 }
 
 static char*
-fetchrsp(Imap *imap, char *p, Mailbox *, Message *m)
+fetchrsp(Imap *imap, char *p, Mailbox *, Message *m, int idx)
 {
 	char *f[15], *s, *q;
 	int i, n, a;
@@ -331,6 +352,11 @@ fetchrsp(Imap *imap, char *p, Mailbox *, Message *m)
 	uvlong v;
 	static char error[256];
 	extern void msgrealloc(Message*, ulong);
+
+	if(idx < 0 || idx >= imap->muid){
+		snprint(error, sizeof error, "fetchrsp: bad idx %d", idx);
+		return error;
+	}
 
 redux:
 	n = imaptokenize(p, f, nelem(f));
@@ -341,23 +367,26 @@ redux:
 			l = internaltounix(f[i + 1]);
 			if(l < 418319360)
 				abort();
-			if(imap->nuid < imap->muid)
-				imap->f[imap->nuid].dates = l;
+			if(idx < imap->muid)
+				imap->f[idx].dates = l;
 		}else if(strcmp(f[i], "rfc822.size") == 0){
 			l = strtoul(f[i + 1], 0, 0);
 			if(m)
 				m->size = l;
-			else if(imap->nuid < imap->muid)
-				imap->f[imap->nuid].sizes = l;
+			else if(idx < imap->muid)
+				imap->f[idx].sizes = l;
 		}else if(strcmp(f[i], "uid") == 0){
-			v = mkuid(imap, f[1]);
+			v = mkuid(imap, f[i + 1]);
 			if(m)
 				m->imapuid = v;
-			if(imap->nuid < imap->muid)
-				imap->f[imap->nuid].uid = v;
+			if(idx < imap->muid)
+				imap->f[idx].uid = v;
 		}else if(strcmp(f[i], "flags") == 0){
+			l = parseflags(f[i + 1]);
 			if(m)
-				parseflags(m, f[i + 1]);
+				m->flags = l;
+			if(idx < imap->muid)
+				imap->f[idx].flags = l;
 		}else if(strncmp(f[i], "body[]", 6) == 0){
 			s = f[i]+6;
 			o = 0;
@@ -396,7 +425,7 @@ redux:
 		}else
 			return confused;
 	}
-	return 0;
+	return nil;
 }
 
 void
@@ -428,7 +457,7 @@ static char*
 imap4resp0(Imap *imap, Mailbox *mb, Message *m)
 {
 	char *e, *line, *p, *ep, *op, *q, *verb;
-	int n, unexp;
+	int n, idx, unexp;
 	static char error[256];
 
 	unexp = 0;
@@ -484,7 +513,7 @@ imap4resp0(Imap *imap, Mailbox *mb, Message *m)
 				if(q = strstr(p, "messages"))
 					imap->nmsg = strtoul(q + 8, 0, 10);
 				if(q = strstr(p, "uidvalidity"))
-					imap->validity = strtoul(q + 11, 0, 10);
+					imap->newvalidity = strtoul(q + 11, 0, 10);
 				break;
 			case Fetch:
 				if(*p == '('){
@@ -492,9 +521,20 @@ imap4resp0(Imap *imap, Mailbox *mb, Message *m)
 					if(ep[-1] == ')')
 						*--ep = 0;
 				}
-				if(e = fetchrsp(imap, p, mb, m))
+				if(e = fetchrsp(imap, p, mb, m, n - 1))
 					eprint("imap: fetchrsp: %s\n", e);
-				imap->nuid++;
+				if(n > 0 && n <= imap->muid && n > imap->nuid)
+					imap->nuid = n;
+				break;
+			case Expunge:
+				if(n < 1 || n > imap->muid){
+					snprint(error, sizeof(error), "bad expunge %d (nmsg %d)", n, imap->nuid);
+					return error;
+				}
+				idx = n - 1;
+				memmove(&imap->f[idx], &imap->f[idx + 1], (imap->nmsg - idx - 1)*sizeof(imap->f[0]));
+				imap->nmsg--;
+				imap->nuid--;
 				break;
 			case Auth:
 				break;
@@ -903,15 +943,30 @@ imap4read(Imap *imap, Mailbox *mb)
 	Fetchi *f;
 	Message *m, **ll;
 
+again:
 	imap4cmd(imap, "status %Z (messages uidvalidity)", imap->mbox);
 	if(!isokay(s = imap4resp(imap)))
 		return s;
+	/* the world shifted: start over */
+	if(imap->validity != imap->newvalidity){
+		imap->validity = imap->newvalidity;
+		imap->nuid = 0;
+		imap->muid = 0;
+		imap->nmsg = 0;
+		goto again;
+	}
 
-	imap->nuid = 0;
-	imap->muid = imap->nmsg;
 	imap->f = erealloc(imap->f, imap->nmsg*sizeof imap->f[0]);
+	if(imap->nmsg > imap->muid)
+		memset(&imap->f[imap->muid], 0, (imap->nmsg - imap->muid)*sizeof(imap->f[0]));
+	imap->muid = imap->nmsg;
 	if(imap->nmsg > 0){
-		imap4cmd(imap, "uid fetch 1:* (uid rfc822.size internaldate)");
+		n = imap->nuid;
+		if(n == 0)
+			n = 1;
+		if(n > imap->nmsg)
+			n = imap->nmsg;
+		imap4cmd(imap, "fetch %d:%d (uid flags rfc822.size internaldate)", n, imap->nmsg);
 		if(!isokay(s = imap4resp(imap)))
 			return s;
 	}
@@ -949,6 +1004,7 @@ imap4read(Imap *imap, Mailbox *mb)
 			m->imapuid = f[i].uid;
 			m->fileid = datesec(imap, i);
 			m->size = f[i].sizes;
+			m->flags = f[i].flags;
 			m->next = *ll;
 			*ll = m;
 			ll = &m->next;
@@ -960,6 +1016,8 @@ imap4read(Imap *imap, Mailbox *mb)
 			m->deleted = Disappear;
 			ll = &m->next;
 		}else{
+			/* TODO: flag this as changed, plumb. */
+			m->flags = f[i].flags;
 			ll = &m->next;
 			i++;
 		}
