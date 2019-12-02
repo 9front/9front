@@ -589,7 +589,6 @@ procsetup(Proc *p)
 	p->pcycles = -p->kentry;
 
 	memset(p->gdt, 0, sizeof(p->gdt));
-	p->ldt = nil;
 	p->nldt = 0;
 	
 	memset(p->dr, 0, sizeof(p->dr));
