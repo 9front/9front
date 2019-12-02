@@ -241,10 +241,10 @@ static struct{
 } ftab[] = {
 	"\\Answered",	Fanswered,
 	"\\Deleted",	Fdeleted,
-	"\\Draft",		Fdraft,
+	"\\Draft",	Fdraft,
 	"\\Flagged",	Fflagged,
 	"\\Recent",	Frecent,
-	"\\Seen",		Fseen,
+	"\\Seen",	Fseen,
 	"\\Stored",	Fstored,
 };
 
@@ -252,25 +252,15 @@ static int
 parseflags(char *s)
 {
 	char *f[10];
-	int i, j, j0, n, flg;
+	int i, j, n, r;
 
+	r = 0;
 	n = tokenize(s, f, nelem(f));
-	qsort(f, n, sizeof *f, (int (*)(void*,void*))strcmp);
-	j = 0;
-	flg = 0;
-	for(i = 0; i < n; i++){
-		for(j0 = j;; j++){
-			if(j == nelem(ftab)){
-				j = j0;		/* restart search */
-				break;
-			}
-			if(cistrcmp(f[i], ftab[j].flag) == 0){
-				flg |= ftab[j].e;
-				break;
-			}
-		}
-	}
-	return flg;
+	for(i = 0; i < n; i++)
+		for(j = 0; j < nelem(ftab); j++)
+			if(cistrcmp(f[i], ftab[j].flag) == 0)
+				r |= ftab[j].e;
+	return r;
 }
 
 /* "17-Jul-1996 02:44:25 -0700" */
@@ -1016,8 +1006,10 @@ again:
 			m->deleted = Disappear;
 			ll = &m->next;
 		}else{
-			/* TODO: flag this as changed, plumb. */
-			m->flags = f[i].flags;
+			if(m->flags != (f[i].flags & ~Frecent)){
+				print("%U(/mail/fs/mbox/%s): %ux->%ulx | %s\n", f[i].uid, m->name, m->flags, f[i].flags, m->subject);
+				m->flags = f[i].flags;
+			}
 			ll = &m->next;
 			i++;
 		}
