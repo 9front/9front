@@ -49,6 +49,7 @@ struct Message
 	int		ctlfd;
 	char		*name;
 	char		*replyname;
+	char		*replydigest;
 	uchar	opened;
 	uchar	dirty;
 	uchar	isreply;
@@ -70,11 +71,12 @@ struct Message
 	char		*disposition;
 	char		*filename;
 	char		*digest;
+	char		*flags;
 
 	Message	*next;	/* next in this mailbox */
 	Message	*prev;	/* prev in this mailbox */
 	Message	*head;	/* first subpart */
-	Message	*tail;		/* last subpart */
+	Message	*tail;	/* last subpart */
 };
 
 enum
@@ -123,6 +125,7 @@ extern	int		write2(int, int, char*, int, int);
 extern	int		mesgadd(Message*, char*, Dir*, char*);
 extern	void		mesgmenu(Window*, Message*);
 extern	void		mesgmenunew(Window*, Message*);
+extern	void		mesgmenureflag(Window*, Message*);
 extern	int		mesgopen(Message*, char*, char*, Message*, int, char*);
 extern	void		mesgctl(void*);
 extern	void		mesgsend(Message*);
@@ -146,6 +149,7 @@ extern	char*	eappend(char*, char*, char*);
 extern	void		error(char*, ...);
 extern	int		tokenizec(char*, char**, int, char*);
 extern	void		execproc(void*);
+extern	void		setflags(Message*, char *);
 
 #pragma	varargck	argpos	error	1
 #pragma	varargck	argpos	ctlprint	2

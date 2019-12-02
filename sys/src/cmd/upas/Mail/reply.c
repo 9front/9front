@@ -77,8 +77,10 @@ mkreply(Message *m, char *label, char *to, Plumbattr *attr, char *quotetext)
 	quotereply = (label[0] == 'Q');
 	r = emalloc(sizeof(Message));
 	r->isreply = 1;
-	if(m != nil)
+	if(m != nil){
 		r->replyname = estrdup(m->name);
+		r->replydigest = estrdup(m->digest);
+	}
 	r->next = replies.head;
 	r->prev = nil;
 	if(replies.head != nil)
@@ -184,7 +186,7 @@ buildargv(char **inargv, char *argv[NARGS+1], char args[NARGCHAR])
 void
 execproc(void *v)
 {
-	struct Exec *e;
+	Exec *e;
 	int p[2], q[2];
 	char *prog;
 	char *argv[NARGS+1], args[NARGCHAR];
@@ -382,8 +384,9 @@ mesgsend(Message *m)
 {
 	char *s, *body, *to;
 	int i, j, h, n, natt, p[2];
-	struct Exec *e;
+	Exec *e;
 	Channel *sync;
+	Message *r;
 	int first, nfld, delit, ofd;
 	char *copy, *fld[100], *now;
 
@@ -479,7 +482,7 @@ mesgsend(Message *m)
 		fprint(ofd, "Content-Transfer-Encoding: 8bit\n");
 	}
 
-	e = emalloc(sizeof(struct Exec));
+	e = emalloc(sizeof(Exec));
 	if(pipe(p) < 0)
 		error("can't create pipe: %r");
 	e->p[0] = p[0];
@@ -553,8 +556,13 @@ mesgsend(Message *m)
 	close(p[1]);
 	free(body);
 
-	if(m->replyname != nil)
-		mesgmenumark(mbox.w, m->replyname, "\t[replied]");
+	print("replyname: %s, replydigest=%s\n", m->replyname, m->replydigest);
+	if(m->replyname){
+		if((r = mesglookup(&mbox, m->replyname, m->replydigest)) != nil){
+			setflags(r, "a");
+			mesgmenureflag(mbox.w, r);
+		}
+	}
 	if(m->name[0] == '/')
 		s = estrdup(m->name);
 	else

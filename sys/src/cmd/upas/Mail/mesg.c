@@ -132,7 +132,7 @@ loadinfo(Message *m, char *dir)
 	/* m->messageid = */ free(line(p, &p));
 	/* m->lines = */ free(line(p, &p));
 	/* m->size = */ free(line(p, &p));
-	/* m->flags = */ free(line(p, &p));
+	m->flags = line(p, &p);
 	/* m->fileid = */ free(line(p, &p));
 	m->fromcolon = fc(m, line(p, &p));
 
@@ -308,14 +308,36 @@ writefile(char *dir, char *name, char *s)
 	return s == e? 0: -1;
 }
 
+
 void
 setflags(Message *m, char *f)
 {
-	char *t;
+	char *flgchar = "aDdfrsS";
+	char *t, *p;
+	int rm;
 
 	t = smprint("%s/%s", mbox.name, m->name);
 	writefile(t, "flags", f);
 	free(t);
+	for(; *f; f++){
+		rm = 0;
+		if(*f == '-'){
+			rm = 1;
+			f++;
+		}
+		if((p = strchr(flgchar, *f)) != nil)
+			m->flags[p - flgchar] = rm ? '-' : *f;
+	}		
+}
+
+void
+fmtflags(char *b, char *flg)
+{
+	*b++ = '[';
+	*b++ = (strchr(flg, 's') == nil) ? '*' : ' ';	/* unread */
+	*b++ = (strchr(flg, 'a') == nil) ? ' ' : 'R';	/* answered */
+	*b++ = ']';
+	*b = '\0';
 }
 
 char*
@@ -324,13 +346,14 @@ info(Message *m, int ind, int ogf)
 	char *i;
 	int j, len, lens;
 	char *p;
-	char fmt[80], s[80];
+	char fmt[80], s[80], flg[16];
 
 	if (ogf)
 		p=m->to;
 	else
 		p=m->fromcolon;
 
+	fmtflags(flg, m->flags);
 	if(ind==0 && altmenu){
 		len = 12;
 		lens = 20;
@@ -369,6 +392,7 @@ info(Message *m, int ind, int ogf)
 	} 
 
 	i = estrdup("");
+	i = eappend(i, " ", flg);
 	i = eappend(i, "\t", p);
 	i = egrow(i, "\t", stripdate(m->date));
 	if(ind == 0){
@@ -538,6 +562,24 @@ mesgmenudel(Window *w, Message *mbox, Message *m)
 }
 
 void
+mesgmenureflag(Window *w, Message *m)
+{
+	char *buf, flg[16];
+
+	fmtflags(flg, m->flags);
+	buf = name2regexp(deletedrx01, m->name);
+	strcat(buf, "+/\\[[^\\]]*\\]/");
+	if(w->data < 0)
+		w->data = winopenfile(w, "data");
+	if(winselect(w, buf, 1))
+		write(w->data, flg, strlen(flg));
+	free(buf);
+
+	close(w->data);
+	w->data = -1;
+}
+
+void
 mesgmenumark(Window *w, char *which, char *mark)
 {
 	char *buf;
@@ -570,6 +612,7 @@ mesgfreeparts(Message *m)
 	free(m->type);
 	free(m->disposition);
 	free(m->filename);
+	free(m->flags);
 	free(m->digest);
 }
 
@@ -1312,6 +1355,7 @@ mesgopen(Message *mbox, char *dir, char *s, Message *mesg, int plumbed, char *di
 		winclean(m->w);
 		m->opened = 1;
 		setflags(m, "s");
+		mesgmenureflag(mbox->w, m);
 		if(ndirelem == 1){
 			free(u);
 			return 1;
