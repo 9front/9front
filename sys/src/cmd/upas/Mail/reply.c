@@ -556,7 +556,6 @@ mesgsend(Message *m)
 	close(p[1]);
 	free(body);
 
-	print("replyname: %s, replydigest=%s\n", m->replyname, m->replydigest);
 	if(m->replyname){
 		if((r = mesglookup(&mbox, m->replyname, m->replydigest)) != nil){
 			setflags(r, "a");
