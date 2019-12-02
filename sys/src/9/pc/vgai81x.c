@@ -55,7 +55,6 @@ i81xenable(VGAscr* scr)
 {
 	Pcidev *p;
 	int size;
-	Mach *mach0;
 	ulong *pgtbl, *rp, fbuf, fbend;
 	
 	if(scr->mmio)
