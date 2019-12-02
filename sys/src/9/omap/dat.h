@@ -96,6 +96,8 @@ enum
 	FPinit,
 	FPactive,
 	FPinactive,
+
+	FPillegal= 0x100,
 };
 
 struct Confmem
