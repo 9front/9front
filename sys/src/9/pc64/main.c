@@ -581,6 +581,14 @@ procsetup(Proc *p)
 {
 	p->fpstate = FPinit;
 	_stts();
+
+	/* clear debug registers */
+	memset(p->dr, 0, sizeof(p->dr));
+	if(m->dr7 != 0){
+		m->dr7 = 0;
+		putdr7(0);
+	}
+
 	cycles(&p->kentry);
 	p->pcycles = -p->kentry;
 }
@@ -639,14 +647,16 @@ procsave(Proc *p)
 {
 	uvlong t;
 	
+	cycles(&t);
+	p->kentry -= t;
+	p->pcycles += t;
+
 	if(m->dr7 != 0){
 		m->dr7 = 0;
 		putdr7(0);
 	}
-
-	cycles(&t);
-	p->kentry -= t;
-	p->pcycles += t;
+	if(p->state == Moribund)
+		p->dr[7] = 0;
 
 	switch(p->fpstate & ~(FPnouser|FPkernel|FPindexm)){
 	case FPactive	| FPpush:

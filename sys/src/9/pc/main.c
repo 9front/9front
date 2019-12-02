@@ -585,13 +585,18 @@ procsetup(Proc *p)
 	p->fpstate = FPinit;
 	fpoff();
 
-	cycles(&p->kentry);
-	p->pcycles = -p->kentry;
-
 	memset(p->gdt, 0, sizeof(p->gdt));
 	p->nldt = 0;
 	
+	/* clear debug registers */
 	memset(p->dr, 0, sizeof(p->dr));
+	if(m->dr7 != 0){
+		m->dr7 = 0;
+		putdr7(0);
+	}
+
+	cycles(&p->kentry);
+	p->pcycles = -p->kentry;
 }
 
 void
@@ -624,9 +629,6 @@ procfork(Proc *p)
 		memmove(p->fpsave, up->fpsave, sizeof(FPsave));
 		p->fpstate = FPinactive;
 	}
-	
-	/* clear debug registers */
-	memset(p->dr, 0, sizeof(p->dr));
 	splx(s);
 }
 
@@ -659,15 +661,17 @@ procsave(Proc *p)
 {
 	uvlong t;
 	
+	cycles(&t);
+	p->kentry -= t;
+	p->pcycles += t;
+
 	/* we could just always putdr7(0) but accessing DR7 might be slow in a VM */
 	if(m->dr7 != 0){
 		m->dr7 = 0;
 		putdr7(0);
 	}
-
-	cycles(&t);
-	p->kentry -= t;
-	p->pcycles += t;
+	if(p->state == Moribund)
+		p->dr[7] = 0;
 
 	if(p->fpstate == FPactive){
 		if(p->state == Moribund)
