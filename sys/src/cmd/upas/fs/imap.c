@@ -1006,10 +1006,7 @@ again:
 			m->deleted = Disappear;
 			ll = &m->next;
 		}else{
-			if(m->flags != (f[i].flags & ~Frecent)){
-				print("%U(/mail/fs/mbox/%s): %ux->%ulx | %s\n", f[i].uid, m->name, m->flags, f[i].flags, m->subject);
-				m->flags = f[i].flags;
-			}
+			m->flags = f[i].flags;
 			ll = &m->next;
 			i++;
 		}
