@@ -93,7 +93,7 @@ syncmbox(Mailbox *mb, int doplumb)
 			} else if(!doplumb)
 				m->cstate &= ~Cnew;
 			if(m->cstate & Cnew){
-				if(insurecache(mb, m) == 0){
+				if(ensurecache(mb, m) == 0){
 					if(doplumb)
 						mailplumb(mb, m);
 					msgdecref(mb, m);

@@ -204,7 +204,7 @@ void		cachehash(Mailbox*, Message*);
 int		cacheheaders(Mailbox*, Message*);		/* "getcache" */
 int		cachebody(Mailbox*, Message*);
 int		cacheidx(Mailbox*, Message*);
-int		insurecache(Mailbox*, Message*);
+int		ensurecache(Mailbox*, Message*);
 
 /**/
 void		putcache(Mailbox*, Message*);		/* asymmetricial */

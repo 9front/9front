@@ -88,7 +88,7 @@ pridx0(Biobuf *b, Mailbox *mb, Message *m, int l)
 {
 	for(; m; m = m->next){
 		if(l == 0)
-		if(insurecache(mb, m) == -1)
+		if(ensurecache(mb, m) == -1)
 			continue;
 		if(pridxmsg(b, m))
 			return -1;
@@ -228,7 +228,7 @@ lose:
 }
 
 /*
- * n.b.: we don't insure this is the index version we last read.
+ * n.b.: we don't ensure this is the index version we last read.
  *
  * we may overwrite changes.  dualing deletes should sync eventually.
  * mboxsync should complain about missing messages but

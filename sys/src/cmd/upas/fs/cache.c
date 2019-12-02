@@ -388,7 +388,7 @@ countparts(Message *m)
 }
 
 int
-insurecache(Mailbox *mb, Message *m)
+ensurecache(Mailbox *mb, Message *m)
 {
 	if((m->deleted & ~Deleted) != 0 || !m->inmbox)
 		return -1;
