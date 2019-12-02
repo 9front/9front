@@ -32,7 +32,7 @@ option is given,
 .I os
 uses the device at
 .IR mountpoint ,
-otherwise it is asssumed to be at
+otherwise it is assumed to be at
 .BR /mnt/term/cmd .
 .PP
 The
