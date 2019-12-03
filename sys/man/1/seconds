@@ -38,6 +38,8 @@ modified since the start of 23 May 2011.
 .EX
 du -ta | awk '$1 >= '^`{seconds '23 may 2011'}^' {print $2}'
 .EE
+.SH SOURCE
+.B /sys/src/cmd/seconds.c
 .SH SEE ALSO
 .IR date (1),
 .IR du (1),
