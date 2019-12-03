@@ -764,6 +764,7 @@ msdos2time(int time, int date)
 {
 	Tm tm;
 
+	memset(&tm, 0, sizeof(tm));
 	tm.hour = time >> 11;
 	tm.min = (time >> 5) & 63;
 	tm.sec = (time & 31) << 1;

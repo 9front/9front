@@ -1750,6 +1750,8 @@ gtime(Dosdir *dp)
 	int i;
 
 	i = GSHORT(dp->time);
+
+	memset(&tm, 0, sizeof(tm));
 	tm.hour = i >> 11;
 	tm.min = (i >> 5) & 63;
 	tm.sec = (i & 31) << 1;

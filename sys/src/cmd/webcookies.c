@@ -636,6 +636,8 @@ strtotime(char *s)
 		"Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 	};
 
+	memset(&tm, 0, sizeof(tm));
+
 	os = s;
 	/* Sunday, */
 	for(i=0; i<nelem(wday); i++){

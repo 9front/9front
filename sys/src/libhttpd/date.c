@@ -113,6 +113,8 @@ hdate2sec(char *date)
 	Tm tm;
 	char buf[32];
 
+	memset(&tm, 0, sizeof(tm));
+
 	/*
 	 * Weekday|Wday
 	 */

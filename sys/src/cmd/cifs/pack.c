@@ -439,6 +439,7 @@ gdatetime(Pkt *p)
 		d = gl16(p);
 	}
 
+	memset(&tm, 0, sizeof(tm));
 	tm.year = 80 + (d >> 9);
 	tm.mon = ((d >> 5) & 017) - 1;
 	tm.mday = d & 037;

@@ -101,6 +101,7 @@ fromdatetime(int date, int time)
 {
 	Tm tm;
 
+	memset(&tm, 0, sizeof(tm));
 	strcpy(tm.zone, "GMT");
 	tm.mday = date & 0x1f;
 	tm.mon = ((date >> 5) & 0xf) - 1;
