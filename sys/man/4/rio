@@ -203,7 +203,7 @@ clears the windows contents.
 may be read or written.
 When read, it returns the location of the window as four decimal
 integers, padded to 12 characters as described in
-.IR image(6):
+.IR image (6):
 upper left
 .I x
 and
