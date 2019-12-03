@@ -173,7 +173,7 @@ Command terminated: status available in the
 file (or via
 .BR wait ).
 .TP
-.B Close
+.B Closed
 Command completed. Available for reallocation via
 .BR clone .
 .RE
