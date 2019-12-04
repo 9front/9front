@@ -82,6 +82,9 @@ disknewblock(Disk *d, uint n)
 		b = blist;
 		blist = b->next;
 		b->addr = d->addr;
+		if(d->addr+size < d->addr){
+			error("temp file overflow");
+		}
 		d->addr += size;
 	}
 	b->n = n;

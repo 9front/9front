@@ -117,7 +117,7 @@ struct Block
 struct Disk
 {
 	int		fd;
-	uint		addr;	/* length of temp file */
+	vlong		addr;	/* length of temp file */
 	Block		*free[Maxblock/Blockincr+1];
 };
 
