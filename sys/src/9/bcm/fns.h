@@ -99,7 +99,6 @@ extern void wdogoff(void);
 extern void wdogfeed(void);
 extern void writeconf(void);
 extern void vtable(void);
-extern int l2ap(int);
 extern uint getcputemp(void);
 extern char *cputype2name(char *buf, int size);
 extern uint getboardrev(void);

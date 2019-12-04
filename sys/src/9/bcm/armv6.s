@@ -57,7 +57,7 @@ _ramZ:
 	 * enable caches, mmu, and high vectors
 	 */
 	MRC	CpSC, 0, R0, C(CpCONTROL), C(0), CpMainctl
-	ORR	$(CpChv|CpCdcache|CpCicache|CpCpredict|CpCmmu), R0
+	ORR	$(CpCxp|CpChv|CpCdcache|CpCicache|CpCpredict|CpCmmu), R0
 	MCR	CpSC, 0, R0, C(CpCONTROL), C(0), CpMainctl
 	ISB
 

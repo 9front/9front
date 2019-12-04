@@ -116,12 +116,6 @@ archbcmlink(void)
 }
 
 int
-l2ap(int ap)
-{
-	return (AP(3, (ap))|AP(2, (ap))|AP(1, (ap))|AP(0, (ap)));
-}
-
-int
 cmpswap(long *addr, long old, long new)
 {
 	return cas32(addr, old, new);

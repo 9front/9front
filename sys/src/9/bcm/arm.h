@@ -123,6 +123,7 @@
 #define CpCha		(1<<17)		/* HA: hw access flag enable */
 #define CpCdz		(1<<19)		/* DZ: divide by zero fault enable */
 #define CpCfi		(1<<21)		/* FI: fast intrs */
+#define CpCxp		(1<<23)		/* XP: subpage AP bits disabled */
 #define CpCve		(1<<24)		/* VE: intr vectors enable */
 #define CpCee		(1<<25)		/* EE: exception endianness */
 #define CpCnmfi		(1<<27)		/* NMFI: non-maskable fast intrs. */
@@ -309,8 +310,8 @@
 
 #define F(v, o, w)	(((v) & ((1<<(w))-1))<<(o))
 #define AP(n, v)	F((v), ((n)*2)+4, 2)
-#define L1AP(ap)	(AP(3, (ap)))
-/* L2AP differs between armv6 and armv7 -- see l2ap in arch*.c */
+#define L1AP(ap)	AP(3, (ap))
+#define L2AP(ap)	AP(0, (ap))
 #define DAC(n, v)	F((v), (n)*2, 2)
 
 #define HVECTORS	0xffff0000
