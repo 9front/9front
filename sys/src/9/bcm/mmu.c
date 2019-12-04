@@ -9,7 +9,6 @@
 #define FEXT(d, o, w)	(((d)>>(o)) & ((1<<(w))-1))
 #define L1X(va)		FEXT((va), 20, 12)
 #define L2X(va)		FEXT((va), 12, 8)
-#define L2AP(ap)	l2ap(ap)
 #define L1ptedramattrs	soc.l1ptedramattrs
 #define L2ptedramattrs	soc.l2ptedramattrs
 #define PTEDRAM		(PHYSDRAM|Dom0|L1AP(Krw)|Section|L1ptedramattrs)

@@ -221,12 +221,6 @@ archbcm2link(void)
 	addclock0link(wdogfeed, HZ);
 }
 
-int
-l2ap(int ap)
-{
-	return (AP(0, (ap)));
-}
-
 void
 cpustart(int cpu)
 {

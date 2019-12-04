@@ -112,6 +112,7 @@ armv7.$O: cache.v7.s
 main.$O: errstr.h init.h reboot.h
 devmouse.$O mouse.$O screen.$O: screen.h
 usbdwc.$O: dwcotg.h ../port/usb.h
+arch.$O archbcm.$O archbcm2.$O clock.$O coproc.$O fpiarn.$O mmu.$O trap.$O vfp3.$O: arm.h mem.h
 
 init.h:D:	../port/initcode.c init9.s
 	$CC ../port/initcode.c
