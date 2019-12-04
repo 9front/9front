@@ -10,7 +10,7 @@ fn confignet{
 
 	# setup wifi encryption if any
 	if(~ $1 ether && test -x /bin/aux/wpa){
-		essid=`{grep '^essid: ' $2/ifstats | sed 's/^essid: //; q'}
+		essid=`{grep '^essid: ' $2/ifstats >[2]/dev/null | sed 's/^essid: //; q'}
 		if(! ~ $#essid 0){
 			if(! ~ $#wpapsk 0 || grep -s '^status: need authentication' $2/ifstats >[2]/dev/null){
 				x=(aux/wpa -s $"essid)
