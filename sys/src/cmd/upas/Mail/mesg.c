@@ -735,7 +735,6 @@ mesgcommand(Message *m, char *cmd)
 			mkreply(m, "Replyall", nil, nil, nil);
 		else
 			mkreply(m, "Reply", nil, nil, nil);
-//		setflags(m, "a");
 		goto Return;
 	}
 	if(strcmp(args[0], "Q") == 0){
@@ -744,7 +743,6 @@ mesgcommand(Message *m, char *cmd)
 			mkreply(m, "QReplyall", nil, nil, s);
 		else
 			mkreply(m, "QReply", nil, nil, s);
-//		setflags(m, "a");
 		goto Return;
 	}
 	if(strcmp(args[0], "Del") == 0){
