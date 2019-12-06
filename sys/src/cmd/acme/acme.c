@@ -307,15 +307,18 @@ static int errorfd;
 void
 acmeerrorproc(void *)
 {
-	char *buf;
+	char *buf, *s;
 	int n;
 
 	threadsetname("acmeerrorproc");
 	buf = emalloc(8192+1);
 	while((n=read(errorfd, buf, 8192)) >= 0){
 		buf[n] = '\0';
-		sendp(cerr, estrdup(buf));
+		s = estrdup(buf);
+		sendp(cerr, s);
+		free(s);
 	}
+	free(buf);
 }
 
 void
