@@ -1412,6 +1412,17 @@ procflushpseg(Physseg *ps)
 	procflushmmu(matchpseg, ps);
 }
 
+static int
+matchother(Proc *p, void *a)
+{
+	return p != a;
+}
+void
+procflushothers(void)
+{
+	procflushmmu(matchother, up);
+}
+
 void
 scheddump(void)
 {

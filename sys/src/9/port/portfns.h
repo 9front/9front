@@ -229,6 +229,7 @@ void		procdump(void);
 int		procfdprint(Chan*, int, char*, int);
 void		procflushseg(Segment*);
 void		procflushpseg(Physseg*);
+void		procflushothers(void);
 int		procindex(ulong);
 void		procinit0(void);
 ulong		procpagecount(Proc*);
