@@ -1331,36 +1331,49 @@ procdump(void)
 static void
 procflushmmu(int (*match)(Proc*, void*), void *a)
 {
+	Proc *await[MAXMACH];
 	int i, nm, nwait;
 	Proc *p;
 
 	/*
 	 *  tell all matching processes to flush their mmu's
 	 */
+	memset(await, 0, conf.nmach*sizeof(await[0]));
 	nwait = 0;
-	for(i=0; i<conf.nproc; i++) {
+	for(i = 0; i < conf.nproc; i++){
 		p = &procalloc.arena[i];
 		if(p->state != Dead && (*match)(p, a)){
 			p->newtlb = 1;
 			for(nm = 0; nm < conf.nmach; nm++){
 				if(MACHP(nm)->proc == p){
+					coherence();
 					MACHP(nm)->flushmmu = 1;
-					nwait++;
+					if(await[nm] == nil)
+						nwait++;
+					await[nm] = p;
 				}
 			}
 		}
 	}
 
-	if(nwait == 0)
-		return;
-
 	/*
 	 *  wait for all other processors to take a clock interrupt
 	 *  and flush their mmu's
 	 */
-	for(nm = 0; nm < conf.nmach; nm++)
-		while(m->machno != nm && MACHP(nm)->flushmmu)
-			sched();
+	for(;;){
+		if(nwait == 0 || nwait == 1 && await[m->machno] != nil)
+			break;
+
+		sched();
+
+		for(nm = 0; nm < conf.nmach; nm++){
+			p = await[nm];
+			if(p != nil && (MACHP(nm)->proc != p || MACHP(nm)->flushmmu == 0)){
+				await[nm] = nil;
+				nwait--;
+			}
+		}
+	}
 }
 
 static int
