@@ -871,11 +871,21 @@ printinreplyto(Biobuf *out, char *dir)
 	return Bprint(out, "In-Reply-To: <%s>\n", buf);
 }
 
+int
+hassuffix(char *a, char *b)
+{
+	int na, nb;
+
+	na = strlen(a), nb = strlen(b);
+	if(na <= nb + 1 || a[na - nb - 1] != '.')
+		return 0;
+	return strcmp(a + (na - nb), b) == 0;
+}
+
 Attach*
 mkattach(char *file, char *type, int ainline)
 {
 	int n, pfd[2];
-	char *p;
 	char ftype[64];
 	Attach *a;
 	Ctype *c;
@@ -902,31 +912,22 @@ mkattach(char *file, char *type, int ainline)
 	}
 
 	/* pick a type depending on extension */
-	p = strchr(file, '.');
-	if(p != nil)
-		p++;
-
-	/* check the builtin extensions */
-	if(p != nil){
-		for(c = ctype; c->ext != nil; c++)
-			if(strcmp(p, c->ext) == 0){
-				a->type = c->type;
-				a->ctype = c;
-				return a;
-			}
-	}
+	for(c = ctype; c->ext != nil; c++)
+		if(hassuffix(file, c->ext)){
+			a->type = c->type;
+			a->ctype = c;
+			return a;
+		}
 
 	/* try the mime types file */
-	if(p != nil){
-		if(mimetypes == nil)
-			readmimetypes();
-		for(c = mimetypes; c != nil && c->ext != nil; c++)
-			if(strcmp(p, c->ext) == 0){
-				a->type = c->type;
-				a->ctype = c;
-				return a;
-			}
-	}
+	if(mimetypes == nil)
+		readmimetypes();
+	for(c = mimetypes; c != nil && c->ext != nil; c++)
+		if(hassuffix(file, c->ext)){
+			a->type = c->type;
+			a->ctype = c;
+			return a;
+		}
 
 	/* run file to figure out the type */
 	a->type = "application/octet-stream";	/* safest default */
