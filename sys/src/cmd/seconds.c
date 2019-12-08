@@ -102,8 +102,6 @@ tryabsdate(char **fields, int nf, Tm *now, Tm *tm)
 {
 	int i, mer = HR24, bigval = -1;
 	long flg = 0, ty;
-	char *p;
-	char upzone[32];
 	Datetok *tp;
 
 	now = localtime(time(0));	/* default to local time (zone) */
@@ -143,13 +141,9 @@ tryabsdate(char **fields, int nf, Tm *now, Tm *tm)
 			break;
 		case Dtz:
 		case Tz:
+			/* tm2sec mangles timezones, so we do our own handling */
 			tm->tzoff = FROMVAL(tp);
-			/* tm2sec needs the name in upper case */
-			strcpy(upzone, fields[i]);
-			for (p = upzone; *p; p++)
-				if (isascii(*p) && islower(*p))
-					*p = toupper(*p);
-			strncpy(tm->zone, upzone, sizeof tm->zone);
+			snprint(tm->zone, sizeof(tm->zone), "GMT");
 			break;
 		case Ignore:
 			break;
@@ -216,7 +210,7 @@ seconds(char *timestr)
 	memset(&date, 0, sizeof date);
 	if (prsabsdate(timestr, localtime(time(0)), &date) < 0)
 		return -1;
-	return validtm(&date)? tm2sec(&date): -1;
+	return validtm(&date)? tm2sec(&date) - 60*date.tzoff: -1;
 }
 
 int
