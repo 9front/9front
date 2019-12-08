@@ -148,7 +148,7 @@ hzclock(Ureg *ur)
 		m->proc->pc = ur->pc;
 
 	if(m->flushmmu){
-		if(up)
+		if(up && up->newtlb)
 			flushmmu();
 		m->flushmmu = 0;
 	}

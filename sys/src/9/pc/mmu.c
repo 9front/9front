@@ -643,10 +643,7 @@ vmapalloc(ulong size)
 void
 vunmap(void *v, int size)
 {
-	int i;
 	ulong va, o;
-	Mach *nm;
-	Proc *p;
 	
 	/*
 	 * might not be aligned
@@ -675,25 +672,8 @@ vunmap(void *v, int size)
 		putcr3(PADDR(MACHP(0)->pdb));
 		return;
 	}
-	for(i=0; i<conf.nproc; i++){
-		p = proctab(i);
-		if(p->state == Dead)
-			continue;
-		if(p != up)
-			p->newtlb = 1;
-	}
-	for(i=0; i<conf.nmach; i++){
-		nm = MACHP(i);
-		if(nm != m)
-			nm->flushmmu = 1;
-	}
+	procflushothers();
 	flushmmu();
-	for(i=0; i<conf.nmach; i++){
-		nm = MACHP(i);
-		if(nm != m)
-			while(active.machs[nm->machno] && nm->flushmmu)
-				;
-	}
 }
 
 /*
