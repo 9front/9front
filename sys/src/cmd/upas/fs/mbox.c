@@ -58,9 +58,6 @@ static Mailboxinit *boxinit[] = {
 static void delmessage(Mailbox*, Message*);
 static void mailplumb(Mailbox*, Message*);
 
-/*
- * do we want to plumb flag changes?
- */
 char*
 syncmbox(Mailbox *mb, int doplumb)
 {
@@ -90,16 +87,13 @@ syncmbox(Mailbox *mb, int doplumb)
 				cachehash(mb, m);
 				m->cstate |= Cnew;
 				n++;
-			} else if(!doplumb)
-				m->cstate &= ~Cnew;
-			if(m->cstate & Cnew){
-				if(ensurecache(mb, m) == 0){
-					if(doplumb)
-						mailplumb(mb, m);
-					msgdecref(mb, m);
-				}
-				m->cstate &= ~Cnew;
 			}
+			if((m->cstate & (Cnew|Cmod)) && ensurecache(mb, m) == 0){
+				if(doplumb)
+					mailplumb(mb, m);
+				msgdecref(mb, m);
+			}
+			m->cstate &= ~(Cnew|Cmod);
 		}
 		if(m->cstate & Cidxstale)
 			y++;
@@ -1555,7 +1549,12 @@ mailplumb(Mailbox *mb, Message *m)
 	a[ai-1].next = &a[ai];
 
 	a[++ai].name = "mailtype";
-	a[ai].value = !m->inmbox ? "delete": "new";
+	if(m->cstate & Cmod)
+		a[ai].value = "modify";
+	else if (!m->inmbox)
+		a[ai].value = "delete";
+	else
+		a[ai].value = "new";
 	a[ai-1].next = &a[ai];
 
 	snprint(date, sizeof date, "%Δ", m->fileid);

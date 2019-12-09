@@ -35,7 +35,7 @@ typedef struct {
 	uvlong	uid;
 	ulong	sizes;
 	ulong	dates;
-	ulong	flags;
+	uint	flags;
 } Fetchi;
 
 typedef struct Imap Imap;
@@ -1006,6 +1006,8 @@ again:
 			m->deleted = Disappear;
 			ll = &m->next;
 		}else{
+			if((m->flags & ~Frecent) != (f[i].flags & ~Frecent))
+				m->cstate |= Cmod;
 			m->flags = f[i].flags;
 			ll = &m->next;
 			i++;

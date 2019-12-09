@@ -189,7 +189,7 @@ threadmain(int argc, char *argv[])
 
 	wbox = newwindow();
 	winname(wbox, mbox.name);
-	wintagwrite(wbox, "Put Mail Delmesg Save ", 3+1+4+1+7+1+4+1);
+	wintagwrite(wbox, "Put Mail Delmesg Save Next ", 3+1+4+1+7+1+4+1+4+1);
 	threadcreate(mainctl, wbox, STACK);
 
 	fmtstrinit(&fmt);
@@ -317,6 +317,22 @@ delmesg(char *name, char *digest, int dodel)
 	}
 }
 
+void
+modmesg(char *name, char *digest)
+{
+	Message *m;
+	char *flags;
+
+	if((m = mesglookupfile(&mbox, name, digest)) == nil)
+		return;
+	if((flags = readfile(name, "/flags", nil)) == nil)
+		return;
+	free(m->flags);
+	m->flags = flags;
+	mesgmenureflag(mbox.w, m);
+}
+	
+
 extern int mesgsave(Message*, char*);
 void
 savemesg(char *box, char *name, char *digest)
@@ -361,6 +377,8 @@ plumbthread(void)
 			newmesg(m->data, digest);
 		else if(strcmp(type, "delete") == 0)
 			delmesg(m->data, digest, 0);
+		else if(strcmp(type, "modify") == 0)
+			modmesg(m->data, digest);
 		else
 			fprint(2, "Mail: unknown plumb attribute %s\n", type);
 		plumbfree(m);
@@ -512,6 +530,11 @@ mboxcommand(Window *w, char *s)
 		free(s);
 		free(targs);
 		return 1;
+	}
+	if(strcmp(args[0], "Next") == 0){
+		ctlprint(w->ctl, "addr=dot\n");
+		winselect(w, "/^[0-9]*\\/ \\[\\*.*(\\n(\t.*)*)/", 1);
+		ctlprint(w->ctl, "show\n");
 	}
 	return 0;
 }

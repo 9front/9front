@@ -7,6 +7,7 @@ enum {
 	Cheader 	= 1<<2,
 	Cbody		= 1<<3,
 	Cnew		= 1<<4,
+	Cmod		= 1<<5,
 
 	/* encodings */
 	Enone=	0,

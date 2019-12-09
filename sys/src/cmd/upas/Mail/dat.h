@@ -124,6 +124,7 @@ extern	int		write2(int, int, char*, int, int);
 
 extern	int		mesgadd(Message*, char*, Dir*, char*);
 extern	void		mesgmenu(Window*, Message*);
+extern	void		mesgmenuselect(Window*, Message*);
 extern	void		mesgmenunew(Window*, Message*);
 extern	void		mesgmenureflag(Window*, Message*);
 extern	int		mesgopen(Message*, char*, char*, Message*, int, char*);

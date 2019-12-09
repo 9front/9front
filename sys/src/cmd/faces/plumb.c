@@ -273,13 +273,18 @@ nextface(void)
 			if(m == nil)
 				killall("error on seemail plumb port");
 			t = value(m->attr, "mailtype", "");
-			if(strcmp(t, "delete") == 0)
+			if(strcmp(t, "modify") == 0)
+				goto Ignore;
+			else if(strcmp(t, "delete") == 0)
 				delete(m->data, value(m->attr, "digest", nil));
-			else if(strcmp(t, "new") != 0)
+			else if(strcmp(t, "new") == 0)
+				for(i=0; i<nmaildirs; i++){
+					if(strncmp(m->data, maildirs[i], strlen(maildirs[i])) == 0)
+						goto Found;
+				}
+			else
 				fprint(2, "faces: unknown plumb message type %s\n", t);
-			else for(i=0; i<nmaildirs; i++)
-				if(strncmp(m->data, maildirs[i], strlen(maildirs[i])) == 0)
-					goto Found;
+		Ignore:
 			plumbfree(m);
 			continue;
 
