@@ -1,16 +1,18 @@
 #include <u.h>
 #include <libc.h>
 #include <thread.h>
+#include <bio.h>
 #include "dat.h"
 #include "fns.h"
 
 Revinfo*
 loadrevinfo(Revlog *changelog, int rev)
 {
-	char buf[BUFSZ], *p, *e;
-	int fd, line, eof, inmsg, n;
+	int c, fd;
+	char *line;
 	Revinfo *ri;
 	vlong off;
+	Biobuf *buf;
 
 	if((fd = revlogopentemp(changelog, rev)) < 0)
 		return nil;
@@ -21,59 +23,56 @@ loadrevinfo(Revlog *changelog, int rev)
 	ri = malloc(sizeof(*ri));
 	memset(ri, 0, sizeof(*ri));
 
+	ri->logoff = off;
 	memmove(ri->chash, changelog->map[rev].hash, HASHSZ);
 
-	eof = 0;
-	line = 0;
-	inmsg = 0;
-	p = buf;
-	e = buf + BUFSZ;
-	while(eof == 0){
-		if((n = read(fd, p, e - p)) < 0)
-			break;
-		if(n == 0){
-			eof = 1;
-			*p = '\n';
-			n++;
-		}
-		p += n;
-		while((p > buf) && (e = memchr(buf, '\n', p - buf))){
-			*e++ = 0;
+	buf = Bfdopen(fd, OREAD);
+	line = Brdstr(buf, '\n', 1);
+	if(line == nil)
+		goto Error;
+	hex2hash(line, ri->mhash);
+	free(line);
 
-			switch(line++){
-			case 0:
-				hex2hash(buf, ri->mhash);
+	line = Brdstr(buf, '\n', 1);
+	if(line == nil)
+		goto Error;
+	ri->who = line;
+
+	line = Brdstr(buf, '\n', 1);
+	if(line == nil)
+		goto Error;
+	ri->when = strtol(line, nil, 10);
+	free(line);
+
+	ri->logoff = Boffset(buf);
+
+	for(;;){
+		if((c = Bgetc(buf)) < 0)
+			goto Error;
+		if(c == '\n'){
+			if((c = Bgetc(buf)) < 0)
+				goto Error;
+			if(c == '\n')
 				break;
-			case 1:
-				ri->who = strdup(buf);
-				break;
-			case 2:
-				ri->when = strtol(buf, nil, 10);
-				break;
-			case 3:
-				ri->logoff = off;
-			default:
-				if(!inmsg){
-					if(*buf == 0){
-						ri->loglen = off - ri->logoff;
-						inmsg = 1;
-					}
-				} else {
-					n = ri->why ? strlen(ri->why) : 0;
-					ri->why = realloc(ri->why, n + strlen(buf)+2);
-					if(n > 0) ri->why[n++] = '\n';
-					strcpy(ri->why + n, buf);
-				}
-			}
-			n = e - buf;
-			p -= n;
-			if(p > buf)
-				memmove(buf, e, p - buf);
-			off += n;
 		}
-		e = buf + BUFSZ;
 	}
+
+	ri->loglen = Boffset(buf) - ri->logoff - 1;
+
+	line = Brdstr(buf, '\0', 1);
+	if(line == nil)
+		goto Error;
+	ri->why = line;
+
+	Bterm(buf);
 	close(fd);
 
 	return ri;
+Error:
+	Bterm(buf);
+	close(fd);
+	free(ri->who);
+	free(ri->why);
+	free(ri);
+	return nil;
 }
