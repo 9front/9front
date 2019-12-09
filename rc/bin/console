@@ -1,0 +1,16 @@
+#!/bin/rc
+
+if(~ $#* 0)
+	*=(rc -i)
+
+a=$console(1)
+if(! ~ $#a 0){
+	if(! ~ $a /* '#'*)
+		a=/dev/eia^$a
+	if(test -e /dev/kbd){
+		@{rfork ns; aux/kbdfs; exec $* </dev/cons >/dev/cons >[2=1]} | tee $a
+		exit
+	}
+}
+aux/kbdfs $a
+exec $* </dev/cons >/dev/cons >[2=1]

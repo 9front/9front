@@ -1,6 +1,6 @@
 .TH KBDFS 8
 .SH NAME
-kbdfs \- keyboard and console filesystem
+kbdfs, console \- keyboard and console filesystem
 .SH SYNOPSIS
 .B aux/kbdfs
 [
@@ -12,7 +12,7 @@ kbdfs \- keyboard and console filesystem
 .B -m
 .I mntpnt
 ] [
-.I filename
+.I consfile
 ]
 .nf
 
@@ -24,6 +24,12 @@ kbdfs \- keyboard and console filesystem
 .B /dev/kbin
 .B /dev/kbmap
 .fi
+.PP
+.B console
+[
+.I cmd
+.I args...
+]
 .SH DESCRIPTION
 .PP
 Started on 
@@ -81,6 +87,17 @@ mounts itself on
 otherwise on
 .B /dev
 (the default).
+.PP
+The
+.B console
+command executes
+.I cmd
+(defaults to the system shell)
+under its own
+.I kbdfs
+instance providing a serial console if
+.B $console
+environment variable is set.
 .SS Console
 .PP
 Reading the
@@ -151,14 +168,17 @@ to
 causes the characters to be printed on the console screen.
 .PP
 When a
-.I filename
+.I consfile
 is passed to
 .IR kbdfs (8)
 as its last argument, it reads and processes the
 characters from that file and forwards them to the
 .BR cons
 file with the same text processing applied as on keyboard input.
-This is used on serial consoles.
+This is used to provide a serial console when
+.B $console
+environment variable is set. (see
+.IR plan9.ini (8)).
 .SS Keyboard
 A read on the
 .BR kbd
@@ -254,11 +274,14 @@ to represent a control character.
 .IR cons (3),
 .IR keyboard (6),
 .IR utf (6),
-.IR kbd (3)
+.IR kbd (3),
+.IR plan9.ini (8)
 .SH FILES
 .B /sys/lib/kbmap/*
 .SH SOURCE
 .B /sys/src/cmd/aux/kbdfs
+.br
+.B /rc/bin/console
 .SH HISTORY
 .I Kbdfs
 first appeared in 9front (May, 2011).
