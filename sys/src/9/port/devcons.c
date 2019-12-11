@@ -913,7 +913,8 @@ writebintime(char *buf, int n)
 	vlong delta;
 	long period;
 
-	n--;
+	if(--n <= 0)
+		error(Ebadtimectl);
 	p = (uchar*)buf + 1;
 	switch(*buf){
 	case 'n':
@@ -938,7 +939,7 @@ writebintime(char *buf, int n)
 		todsetfreq(fasthz);
 		break;
 	}
-	return n;
+	return n+1;
 }
 
 void
