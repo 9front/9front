@@ -1140,31 +1140,6 @@ imap4rename(Mailbox *mb, char *p2, int)
 	return 0;
 }
 
-/*
- * incomplete; when we say remove we want to get subfolders, too.
- * so we need to to a list, and recursivly nuke folders.
- */
-static char*
-imap4remove(Mailbox *mb, int flags)
-{
-	char *r;
-	Imap *imap;
-
-	imap = mb->aux;
-	idprint(imap, "remove %s\n", imap->mbox);
-	imap4cmd(imap, "delete %s", imap->mbox);
-	r = imap4resp(imap);
-	if(!isokay(r))
-		return r;
-	if(flags & Rtrunc){
-		imap4cmd(imap, "create %s", imap->mbox);
-		r = imap4resp(imap);
-		if(!isokay(r))
-			return r;
-	}
-	return 0;
-}
-
 char*
 imap4mbox(Mailbox *mb, char *path)
 {
@@ -1216,7 +1191,6 @@ imap4mbox(Mailbox *mb, char *path)
 	mb->fetch = imap4fetch;
 	mb->delete = imap4delete;
 	mb->rename = imap4rename;
-//	mb->remove = imap4remove;
 	mb->modflags = imap4modflags;
 	mb->addfrom = 1;
 	return nil;
