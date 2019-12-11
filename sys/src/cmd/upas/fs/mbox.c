@@ -88,9 +88,8 @@ syncmbox(Mailbox *mb, int doplumb)
 				m->cstate |= Cnew;
 				n++;
 			}
-			if((m->cstate & (Cnew|Cmod)) && ensurecache(mb, m) == 0){
-				if(doplumb)
-					mailplumb(mb, m);
+			if((doplumb && m->cstate & (Cnew|Cmod)) && ensurecache(mb, m) == 0){
+				mailplumb(mb, m);
 				msgdecref(mb, m);
 			}
 			m->cstate &= ~(Cnew|Cmod);
