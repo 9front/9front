@@ -125,7 +125,10 @@ enum
 
 	/* command to clobber tempfiles after use */
 
-#define	ZAPFILE(x)	if(x) remove(x)
+#define	ZAPFILE(bfd, x)	{\
+		if(bfd) Bterm(bfd); \
+		if(x) remove(x); \
+	}
 
 	/* I/O descriptors */
 
@@ -140,6 +143,7 @@ Biobuf*	foutput;	/* y.output file */
 	/* communication variables between various I/O routines */
 
 char*	infile;			/* input file name */
+char*	inpath;			/* input full path */
 int	numbval;		/* value of an input number */
 char	tokname[NAMESIZE+UTFmax+1];	/* input token name, slop for runes and 0 */
 
@@ -486,8 +490,7 @@ others(void)
 				Blethal(faction, nil);
 				while((c=Bgetrune(faction)) != Beof)
 					Bputrune(ftable, c);
-				Bterm(faction);
-				ZAPFILE(actname);
+				ZAPFILE(faction, actname);
 				c = Bgetrune(finput);
 			}
 		}
@@ -617,11 +620,14 @@ summary(void)
 void
 error(char *s, ...)
 {
+	va_list ap;
 
 	nerrors++;
-	fprint(2, "\n fatal error:");
-	fprint(2, s, (&s)[1]);
-	fprint(2, ", %s:%d\n", infile, lineno);
+	va_start(ap, s);
+	fprint(2, "%s:%d: fatal error: ", infile, lineno);
+	vfprint(2, s, ap);
+	fprint(2, "\n");
+	va_end(ap);
 	if(!fatfl)
 		return;
 	summary();
@@ -1155,8 +1161,8 @@ flset(Lkset *p)
 void
 cleantmp(void)
 {
-	ZAPFILE(actname);
-	ZAPFILE(tempname);
+	ZAPFILE(faction, actname);
+	ZAPFILE(ftemp, tempname);
 }
 
 void
@@ -1231,10 +1237,10 @@ setup(int argc, char *argv[])
 		if(s != nil){
 			snprint(s, i, "%s/%s", dirbuf, infile);
 			cleanname(s);
-			infile = s;
+			inpath = s;
 		}
 	}
-	finput = Bopen(infile, OREAD);
+	finput = Bopen(inpath, OREAD);
 	if(finput == 0)
 		error("cannot open '%s'", argv[0]);
 	Blethal(finput, nil);
@@ -1509,7 +1515,7 @@ setup(int argc, char *argv[])
 
 	finact();
 	if(t == MARK) {
-		Bprint(ftable, "\n#line\t%d\t\"%s\"\n", lineno, infile);
+		Bprint(ftable, "\n#line\t%d\t\"%s\"\n", lineno, inpath);
 		while((c=Bgetrune(finput)) != Beof)
 			Bputrune(ftable, c);
 	}
@@ -1845,7 +1851,7 @@ cpyunion(void)
 	long c;
 	int level;
 
-	Bprint(ftable, "\n#line\t%d\t\"%s\"\n", lineno, infile);
+	Bprint(ftable, "\n#line\t%d\t\"%s\"\n", lineno, inpath);
 	Bprint(ftable, "typedef union ");
 	if(fdefine != 0)
 		Bprint(fdefine, "\ntypedef union ");
@@ -1892,7 +1898,7 @@ cpycode(void)
 		c = Bgetrune(finput);
 		lineno++;
 	}
-	Bprint(ftable, "\n#line\t%d\t\"%s\"\n", lineno, infile);
+	Bprint(ftable, "\n#line\t%d\t\"%s\"\n", lineno, inpath);
 	while(c != Beof) {
 		if(c == '\\') {
 			if((c=Bgetrune(finput)) == '}')
@@ -1953,7 +1959,7 @@ cpyact(int offset)
 	long c;
 	int brac, match, j, s, fnd, tok;
 
-	Bprint(faction, "\n#line\t%d\t\"%s\"\n", lineno, infile);
+	Bprint(faction, "\n#line\t%d\t\"%s\"\n", lineno, inpath);
 	brac = 0;
 
 loop:
@@ -2735,7 +2741,7 @@ callopt(void)
 	/* write out the output appropriate to the language */
 	aoutput();
 	osummary();
-	ZAPFILE(tempname);
+	ZAPFILE(ftemp, tempname);
 }
 
 void
