@@ -15,7 +15,7 @@ int uflg, nflg, iflg, tflg, mflg;
 char*
 isodate(Tm *t)
 {
-	static char c[25]; /* leave room to append isotime */
+	static char c[26]; /* leave room to append isotime */
 	snprint(c, 11, "%04d-%02d-%02d", 
 		t->year + 1900, t->mon + 1, t->mday);
 	return c;
@@ -39,7 +39,7 @@ isotime(Tm *t)
 			c[9] = '-';
 			tz = -tz;
 		}
-		snprint(c+10, 5, "%02d%02d", tz / 60, tz % 60);
+		snprint(c+10, 6, "%02d:%02d", tz / 60, tz % 60);
 	} else {
 		c[9] = 'Z';
 		c[10] = 0;
