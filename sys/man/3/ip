@@ -185,6 +185,22 @@ ARP requests for the remote address.
 .IR Ppp (8)
 does this to make remote machines appear
 to be connected to the local Ethernet.
+Adding the special null-address
+.B "0.0.0.0"
+or
+.B "::"
+in
+.I local
+to a interface makes the ip stack accept all incoming
+connections regardless of the destination IP address.
+This is used temporarily by
+.IR ipconfig (8)
+to accept DHCP answers when no IP address
+has been assigned yet. This can also be used
+to implement a NAT gateway by accepting all
+incoming connections and proxying them with
+.IR trampoline (8)
+to a different ip stack. 
 .TP
 .BI remove\  "local mask"
 Remove a local IP address from an interface.
