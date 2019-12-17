@@ -125,7 +125,7 @@ Input is retrieved one byte at a time by calling
 .I get
 with the argument
 .IR getr .
-End of input of signaled by returning a negative value.
+End of input is signaled by returning a negative value.
 The uncompressed output is written to
 .IR w ,
 which has the same interface as for
@@ -198,7 +198,7 @@ by ones complementation.
 .I Adler32
 updates the Adler 32-bit checksum of the
 .I n
-butes of data in
+bytes of data in
 .IR buf.
 The initial value of
 .I adler
