@@ -332,7 +332,8 @@ and
 on success,
 they replace the calling thread (which must be the only thread in its proc)
 and invoke the external program, never returning.
-On error, they return \-1.
+On error, they return and set
+.IR errstr .
 If
 .I cpid
 is not null, the pid of the invoked program
