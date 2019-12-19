@@ -148,7 +148,7 @@ amd10temprd(Chan*, void *a, long n, vlong offset)
 		t = i/8;
 		r = ".0";
 		if(i % 8 >= 4)
-			r = "0.5";
+			r = ".5";
 		/*
 		 * only one value per nb; repeat per core
 		 */
