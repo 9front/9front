@@ -56,8 +56,6 @@ Use the following to terminate a kernel process normally:
 pexit("", 1);
 .EE
 .PP
-to terminate a kernel process normally.
-.PP
 .I Postnote
 sends a software interrupt to process
 .IR p ,
