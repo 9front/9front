@@ -664,7 +664,7 @@ itself may be nil.
 .I Wstat
 The
 .I wstat
-consults 
+function consults 
 .IB r -> d
 in changing the metadata for
 .IB r -> fid
