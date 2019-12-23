@@ -1575,13 +1575,13 @@ threadmain(int argc, char** argv)
 	consreqchan = chancreate(sizeof(Req*), 0);
 	kbdreqchan = chancreate(sizeof(Req*), 0);
 
-	keychan = chancreate(sizeof(Key), 8);
-	mctlchan = chancreate(sizeof(Key), 8);
+	keychan = chancreate(sizeof(Key), 64);
+	mctlchan = chancreate(sizeof(Key), 64);
 	ctlchan = chancreate(sizeof(int), 0);
 	rawchan = chancreate(sizeof(Rune), 0);
-	runechan = chancreate(sizeof(Rune), 32);
-	conschan = chancreate(sizeof(char*), 16);
-	kbdchan = chancreate(sizeof(char*), 16);
+	runechan = chancreate(sizeof(Rune), 256);
+	conschan = chancreate(sizeof(char*), 128);
+	kbdchan = chancreate(sizeof(char*), 128);
 	intchan = chancreate(sizeof(int), 0);
 
 	threadpostmountsrv(&fs, sname, mntpt, MBEFORE);

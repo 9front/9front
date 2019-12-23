@@ -1157,7 +1157,7 @@ new(Image *i, int hideit, int scrollit, int pid, char *dir, char *cmd, char **ar
 		hidden[nhidden++] = w;
 		w->screenr = ZR;
 	}
-	threadcreate(winctl, w, 8192);
+	threadcreate(winctl, w, STACK);
 	if(!hideit)
 		wcurrent(w);
 	if(pid == 0){
@@ -1170,7 +1170,7 @@ new(Image *i, int hideit, int scrollit, int pid, char *dir, char *cmd, char **ar
 		else
 			arg[3] = argv;
 		arg[4] = dir;
-		proccreate(winshell, arg, 8192);
+		proccreate(winshell, arg, STACK);
 		pid = recvul(cpid);
 		free(arg);
 	}
@@ -1194,7 +1194,7 @@ static void
 kbdproc(void *arg)
 {
 	Channel *c = arg;
-	char buf[128], *p, *e;
+	char buf[1024], *p, *e;
 	int fd, cfd, kfd, n;
 
 	threadsetname("kbdproc");
