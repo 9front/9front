@@ -805,13 +805,13 @@ recvra6(void)
 	procsetname("recvra6 on %s %I", conf.dev, conf.lladdr);
 	notify(catch);
 
+	recvracnt = 0;
 	sendrscnt = 0;
 	if(recvra6on(ifc) == IsHostRecv){
 		sendrs(fd, v6allroutersL);
 		sendrscnt = Maxv6rss;
 	}
 
-	recvracnt = Maxv6initras;
 	sleepfor = Minv6interradelay;
 
 	for (;;) {
@@ -820,7 +820,7 @@ recvra6(void)
 		sleepfor = alarm(0);
 
 		/* wait for alarm to expire */
-		if(recvracnt == 0 && sleepfor > 100)
+		if(recvracnt >= Maxv6initras && sleepfor > 100)
 			continue;
 
 		sleepfor = Maxv6radelay;
@@ -829,14 +829,14 @@ recvra6(void)
 		if(ifc == nil) {
 			warning("recvra6: can't read router params on %s, quitting on %s",
 				conf.mpoint, conf.dev);
-			if(sendrscnt >= 0)
+			if(recvracnt == 0)
 				rendezvous(recvra6, (void*)-1);
 			exits(nil);
 		}
 
 		if(recvra6on(ifc) == IsHostNoRecv || noconfig && sendrscnt < 0){
 			warning("recvra6: recvra off, quitting on %s", conf.dev);
-			if(sendrscnt >= 0)
+			if(recvracnt == 0)
 				rendezvous(recvra6, (void*)-1);
 			exits(nil);
 		}
@@ -846,12 +846,11 @@ recvra6(void)
 				sendrscnt--;
 				sendrs(fd, v6allroutersL);
 				sleepfor = V6rsintvl + nrand(100);
-			}
-			if(sendrscnt == 0) {
-				sendrscnt--;
+			} else if(recvracnt == 0) {
 				warning("recvra6: no router advs after %d sols on %s",
 					Maxv6rss, conf.dev);
 				rendezvous(recvra6, (void*)0);
+				recvracnt = 1;
 			}
 			continue;
 		}
@@ -866,14 +865,13 @@ recvra6(void)
 		}
 
 		/* got at least initial ra; no whining */
-		if(sendrscnt >= 0)
+		if(recvracnt == 0)
 			rendezvous(recvra6, (void*)1);
-		sendrscnt = -1;
 
-		if(recvracnt > 0)
-			recvracnt--;
+		if(recvracnt < Maxv6initras)
+			recvracnt++;
 		else
-			recvracnt = Maxv6initras;
+			recvracnt = 1;
 	}
 }
 
