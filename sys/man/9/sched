@@ -1,0 +1,89 @@
+.TH SCHED 9
+.SH NAME
+anyhigher, anyready, hzsched, procpriority, procrestore, procsave, scheddump, schedinit, sched, yield
+\– scheduler interactions
+.SH SYNOPSIS
+.ta \w'\fLchar* 'u +10n +8n +8n
+.EX
+int	anyhigher(void)
+int	anyready(void)
+void	hzsched(void)
+void	procpriority(Proc *p, int priority, int fixed)
+void	procrestore(Proc *p)
+void	procsave(Proc *p)
+void	procwired(Proc *p, int machno)
+void	scheddump(void)
+void	schedinit(void)
+void	sched(void)
+void	yield(void)
+
+enum {
+...
+	Npriq		= 20,	/* scheduler priority levels */
+	PriNormal	= 10,	/* base for normal processes */
+	PriKproc	= 13,	/* base for kernel processes */
+	PriRoot	= 13,	/* base for root processes */
+};
+.EE
+.SH DESCRIPTION
+.PP
+These functions define the priority process scheduler's interface.
+Processes are scheduled strictly by priority, and processor affinity.
+When possible, processes with no affinity will be rescheduled on the
+same processor.  Within a priority, scheduling is round–robin.
+Long–running processes of the same priority are preempted and
+rescheduled.  But cpu use (or lack thereof) may adjust the priority up
+or down, unless it has been explicitly fixed.  Kernel processes are
+started with
+.B PriKproc
+while user processes start with
+.BR PriNormal .
+.PP
+.I Anyhigher
+returns true if any higher priority processes are runnable, while
+.I anyready
+returns true if any processes are runnable at all.
+.I Yield
+gives up the processor and pretends to consume ½ clock tick, while
+.I sched
+invokes the scheduler, potentially recursively.
+.I Sched
+may be called outside process context.  Either may return immediately.
+.I Schedinit
+initializes scheduling on the running processor.
+.PP
+.I Procpriority
+sets a process' priority directly.  Fixed–priority processes are not
+reprioritized based on cpu use.
+.I Procwired
+makes a process runnable only on a single processor.
+.PP
+.I Hzsched
+is called by the clock routine on every tick to collect statistics.
+Periodically (typically once a second)
+.I hzsched
+reprioritizes based on cpu use.
+.PP
+.I Procsave
+and
+.I procrestore
+are architecture–dependent routines used by the scheduler to save and
+restore processes.
+.I Scheddump
+prints scheduler statistics.
+.SH SOURCE
+.B /sys/src/9/port/proc.c
+.sp 0.3
+.I Procsave
+and
+.I procrestore
+can be found at
+.br
+.B /sys/src/9/*/main.c
+.br
+.B /sys/src/9/*/arch.c
+.br
+.B /sys/src/9/*/trap.c
+.SH SEE ALSO
+.IR edf (9),
+.IR sleep (9)
