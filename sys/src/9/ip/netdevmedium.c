@@ -66,6 +66,9 @@ netdevunbind(Ipifc *ifc)
 {
 	Netdevrock *er = ifc->arg;
 
+	while(waserror())
+		;
+
 	/* wait for reader to start */
 	while(er->readp == (void*)-1)
 		tsleep(&up->sleep, return0, 0, 300);
@@ -73,9 +76,18 @@ netdevunbind(Ipifc *ifc)
 	if(er->readp != nil)
 		postnote(er->readp, 1, "unbind", 0);
 
+	poperror();
+
+	wunlock(ifc);
+	while(waserror())
+		;
+
 	/* wait for reader to die */
 	while(er->readp != nil)
 		tsleep(&up->sleep, return0, 0, 300);
+
+	poperror();
+	wlock(ifc);
 
 	if(er->mchan != nil)
 		cclose(er->mchan);
@@ -107,33 +119,22 @@ netdevread(void *a)
 	Ipifc *ifc;
 	Block *bp;
 	Netdevrock *er;
-	char *argv[1];
 
 	ifc = a;
 	er = ifc->arg;
 	er->readp = up;	/* hide identity under a rock for unbind */
-	if(waserror()){
-		er->readp = nil;
-		pexit("hangup", 1);
-	}
+	if(!waserror())
 	for(;;){
 		bp = devtab[er->mchan->type]->bread(er->mchan, ifc->maxtu, 0);
 		if(bp == nil){
-			/*
-			 * get here if mchan is a pipe and other side hangs up
-			 * clean up this interface & get out
-			 */
 			poperror();
-			er->readp = nil;
-			argv[0] = "unbind";
-			if(!waserror())
+			if(!waserror()){
+				static char *argv[]  = { "unbind" };
 				ifc->conv->p->ctl(ifc->conv, argv, 1);
-			pexit("hangup", 1);
+			}
+			break;
 		}
-		if(!canrlock(ifc)){
-			freeb(bp);
-			continue;
-		}
+		rlock(ifc);
 		if(waserror()){
 			runlock(ifc);
 			nexterror();
@@ -146,6 +147,8 @@ netdevread(void *a)
 		runlock(ifc);
 		poperror();
 	}
+	er->readp = nil;
+	pexit("hangup", 1);
 }
 
 void

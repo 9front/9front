@@ -218,6 +218,9 @@ etherunbind(Ipifc *ifc)
 {
 	Etherrock *er = ifc->arg;
 
+	while(waserror())
+		;
+
 	/* wait for readers to start */
 	while(er->arpp == (void*)-1 || er->read4p == (void*)-1 || er->read6p == (void*)-1)
 		tsleep(&up->sleep, return0, 0, 300);
@@ -229,9 +232,18 @@ etherunbind(Ipifc *ifc)
 	if(er->arpp != nil)
 		postnote(er->arpp, 1, "unbind", 0);
 
+	poperror();
+
+	wunlock(ifc);
+	while(waserror())
+		;
+
 	/* wait for readers to die */
 	while(er->arpp != nil || er->read4p != nil || er->read6p != nil)
 		tsleep(&up->sleep, return0, 0, 300);
+
+	poperror();
+	wlock(ifc);
 
 	if(er->mchan4 != nil)
 		cclose(er->mchan4);
@@ -319,16 +331,12 @@ etherread4(void *a)
 	ifc = a;
 	er = ifc->arg;
 	er->read4p = up;	/* hide identity under a rock for unbind */
-	if(waserror()){
-		er->read4p = nil;
-		pexit("hangup", 1);
-	}
+	if(!waserror())
 	for(;;){
 		bp = devtab[er->mchan4->type]->bread(er->mchan4, ifc->maxtu, 0);
-		if(!canrlock(ifc)){
-			freeb(bp);
-			continue;
-		}
+		if(bp == nil)
+			break;
+		rlock(ifc);
 		if(waserror()){
 			runlock(ifc);
 			nexterror();
@@ -343,6 +351,8 @@ etherread4(void *a)
 		runlock(ifc);
 		poperror();
 	}
+	er->read4p = nil;
+	pexit("hangup", 1);
 }
 
 
@@ -359,16 +369,12 @@ etherread6(void *a)
 	ifc = a;
 	er = ifc->arg;
 	er->read6p = up;	/* hide identity under a rock for unbind */
-	if(waserror()){
-		er->read6p = nil;
-		pexit("hangup", 1);
-	}
+	if(!waserror())
 	for(;;){
 		bp = devtab[er->mchan6->type]->bread(er->mchan6, ifc->maxtu, 0);
-		if(!canrlock(ifc)){
-			freeb(bp);
-			continue;
-		}
+		if(bp == nil)
+			break;
+		rlock(ifc);
 		if(waserror()){
 			runlock(ifc);
 			nexterror();
@@ -383,6 +389,8 @@ etherread6(void *a)
 		runlock(ifc);
 		poperror();
 	}
+	er->read6p = nil;
+	pexit("hangup", 1);
 }
 
 static void
@@ -559,10 +567,7 @@ recvarp(Ipifc *ifc)
 	if(ebp == nil)
 		return;
 
-	if(!canrlock(ifc)){
-		freeb(ebp);
-		return;
-	}
+	rlock(ifc);
 
 	e = (Etherarp*)ebp->rp;
 	switch(nhgets(e->op)) {

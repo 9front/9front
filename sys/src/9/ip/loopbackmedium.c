@@ -42,6 +42,9 @@ loopbackunbind(Ipifc *ifc)
 {
 	LB *lb = ifc->arg;
 
+	while(waserror())
+		;
+
 	/* wat for reader to start */
 	while(lb->readp == (void*)-1)
 		tsleep(&up->sleep, return0, 0, 300);
@@ -49,9 +52,18 @@ loopbackunbind(Ipifc *ifc)
 	if(lb->readp != nil)
 		postnote(lb->readp, 1, "unbind", 0);
 
+	poperror();
+
+	wunlock(ifc);
+	while(waserror())
+		;
+
 	/* wait for reader to die */
 	while(lb->readp != nil)
 		tsleep(&up->sleep, return0, 0, 300);
+
+	poperror();
+	wlock(ifc);
 
 	/* clean up */
 	qfree(lb->q);
@@ -79,18 +91,9 @@ loopbackread(void *a)
 	ifc = a;
 	lb = ifc->arg;
 	lb->readp = up;	/* hide identity under a rock for unbind */
-	if(waserror()){
-		lb->readp = nil;
-		pexit("hangup", 1);
-	}
-	for(;;){
-		bp = qbread(lb->q, Maxtu);
-		if(bp == nil)
-			continue;
-		if(!canrlock(ifc)){
-			freeb(bp);
-			continue;
-		}
+	if(!waserror())
+	while((bp = qbread(lb->q, Maxtu)) != nil){
+		rlock(ifc);
 		if(waserror()){
 			runlock(ifc);
 			nexterror();
@@ -103,6 +106,8 @@ loopbackread(void *a)
 		runlock(ifc);
 		poperror();
 	}
+	lb->readp = nil;
+	pexit("hangup", 1);
 }
 
 Medium loopbackmedium =

@@ -123,8 +123,7 @@ ipoput4(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
 	else
 		gate = r->v4.gate;
 
-	if(!canrlock(ifc))
-		goto free;
+	rlock(ifc);
 	if(waserror()){
 		runlock(ifc);
 		nexterror();

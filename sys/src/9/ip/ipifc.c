@@ -201,8 +201,11 @@ ipifcbind(Conv *c, char **argv, int argc)
 static char*
 ipifcunbind(Ipifc *ifc)
 {
+	Medium *m;
+
 	wlock(ifc);
-	if(ifc->m == nil){
+	m = ifc->m;
+	if(m == nil){
 		wunlock(ifc);
 		return Eunbound;
 	}
@@ -212,9 +215,18 @@ ipifcunbind(Ipifc *ifc)
 		ipifcremlifc(ifc, &ifc->lifc);
 
 	/* disassociate device */
-	if(ifc->m->unbind != nil){
+	if(m->unbind != nil){
+		extern Medium nullmedium;
+
+		/*
+		 * unbind() might unlock the ifc, so change the medium
+		 * to the nullmedium to prevent packets from getting
+		 * sent while the medium is shutting down.
+		 */
+		ifc->m = &nullmedium;
+
 		if(!waserror()){
-			(*ifc->m->unbind)(ifc);
+			(*m->unbind)(ifc);
 			poperror();
 		}
 	}
@@ -232,7 +244,7 @@ ipifcunbind(Ipifc *ifc)
 
 	/* dissociate routes */
 	ifc->ifcid++;
-	if(ifc->m->unbindonclose == 0)
+	if(m->unbindonclose == 0)
 		ifc->conv->inuse--;
 	ifc->m = nil;
 	wunlock(ifc);
@@ -370,10 +382,7 @@ ipifckick(void *x)
 		return;
 
 	ifc = (Ipifc*)c->ptcl;
-	if(!canrlock(ifc)){
-		freeb(bp);
-		return;
-	}
+	rlock(ifc);
 	if(waserror()){
 		runlock(ifc);
 		nexterror();
@@ -622,9 +631,12 @@ ipifcadd(Ipifc *ifc, char **argv, int argc, int tentative, Iplifc *lifcp)
 	}
 
 done:
-	ipifcregisteraddr(f, ifc, lifc, ip);
 	wunlock(ifc);
 	poperror();
+
+	rlock(ifc);
+	ipifcregisteraddr(f, ifc, lifc, ip);
+	runlock(ifc);
 
 	return nil;
 }
