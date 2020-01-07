@@ -39,7 +39,7 @@ max_age=3600	# 1 hour
 echo 'HTTP/1.1 200 OK'^$cr
 emit_extra_headers
 echo 'Content-type: '^$type^$cr
-echo 'Content-length: '^`{ls -l $full_path | awk '{print $6}'}
+echo 'Content-length: '^`{ls -l $full_path | awk '{print $6}'}^$cr
 echo 'Cache-control: max-age='^$max_age^$cr
 echo $cr
 exec cat $full_path
