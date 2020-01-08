@@ -121,7 +121,7 @@ main(int argc, char **argv)
 	if(iname != nil)
 		iname++;
 	else
-		iname = argv[1];
+		iname = argv[0];
 	if(ofile == nil) ofile = smprint("%s.u", iname);
 	outfd = create(ofile, OWRITE|OTRUNC, 0666);
 	if(outfd < 0) sysfatal("create: %r");
