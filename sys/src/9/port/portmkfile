@@ -35,7 +35,7 @@ clean:V:
 		mk $i.clean
 
 %.clean:V:
-	rm -f $stem.c [9bz]$stem [9bz]$stem.gz s[9bz]$stem boot$stem.*
+	rm -f $stem.c [9bz]$stem [9bz]$stem.gz [9bz]$stem.u s[9bz]$stem boot$stem.*
 
 nuke:V:	clean
 	rm -f ../boot/libboot.a$O *.elf *.rr *.acid

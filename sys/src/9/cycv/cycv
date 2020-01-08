@@ -1,0 +1,55 @@
+dev
+	root
+	cons
+	swap
+#	arch
+	uart
+	mnt
+	srv
+	shr
+	proc
+	env
+	pipe
+	dup
+	ether netif
+	ip		arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium inferno
+	ssl
+	tls
+#	cap
+#	kprof
+	sd
+#	draw screen
+#	mouse
+#	usb
+	segment
+	
+link
+	ethermedium
+	loopbackmedium
+	netdevmedium
+#	usbehci usbehcizynq
+
+misc
+	uartcycv
+#	sdmmc		emmc
+	sdram
+
+ip
+	tcp
+	udp
+	rudp
+	ipifc
+	icmp
+	icmp6
+	gre
+	ipmux
+	esp
+
+port
+	int cpuserver = 0;
+
+bootdir
+	/$objtype/bin/paqfs
+	/$objtype/bin/auth/factotum
+	boot
+	bootfs.paq

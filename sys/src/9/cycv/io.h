@@ -1,0 +1,13 @@
+#define UART_BASE 0xFFC02000
+#define MPCORE_BASE 0xFFFEC000
+#define L2_BASE 0xFFFEF000
+#define CLOCKMGR_BASE 0xFFD04000
+
+#define HPS_CLK 25
+
+#define TIMERIRQ 29
+#define UART0IRQ 194
+
+#define LEVEL 0
+#define EDGE 1
+
