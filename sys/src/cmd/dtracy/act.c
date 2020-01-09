@@ -192,7 +192,8 @@ prepprintf(Node **arg, int narg, DTActGr *g, int *recoff)
 			goto again;
 		case 'x': case 'X': case 'o': case 'b': case 'd':
 			if(n >= narg) sysfatal("printf() too few arguments");
-			if(arg[n]->typ->type != TYPINT) sysfatal("print() %%%c with non-integer", *fmt);
+			if(arg[n]->typ->type != TYPINT)
+				sysfatal("%d: print() %%%c with non-integer", arg[n]->line, *fmt);
 			arg[n] = tracegen(arg[n], g, recoff);
 			n++;
 			fmtrune(&f, 'l');
@@ -201,7 +202,8 @@ prepprintf(Node **arg, int narg, DTActGr *g, int *recoff)
 			break;
 		case 's':
 			if(n >= narg) sysfatal("printf() too few arguments");
-			if(arg[n]->typ->type != TYPSTRING) sysfatal("print() %%s with non-string");
+			if(arg[n]->typ->type != TYPSTRING)
+				sysfatal("%d: print() %%s with non-string", arg[n]->line);
 			arg[n] = tracegen(arg[n], g, recoff);
 			n++;
 			fmtrune(&f, *fmt);
