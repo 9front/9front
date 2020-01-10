@@ -374,3 +374,26 @@ tmpunmap(void *v)
 	coherence();
 	flushpg(v);
 }
+
+void *
+ucalloc(ulong len)
+{
+	static Lock l;
+	static uchar *free = nil;
+	uchar *va;
+	
+	if(len == 0)
+		panic("ucalloc: len == 0");
+	ilock(&l);
+	if(free == nil)
+		free = (uchar*)-BY2PG;
+	len = PGROUND(len);
+	free -= len;
+	if(free < (uchar*)OCRAM)
+		panic("ucalloc: out of uncached memory");
+	va = free;
+	iunlock(&l);
+	
+	invaldse(va, va + len);
+	return (void *) va;
+}

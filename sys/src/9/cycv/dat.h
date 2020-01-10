@@ -200,3 +200,5 @@ struct DevConf
 };
 
 #define mpcore ((ulong*)MPCORE_BASE)
+#define resetmgr ((ulong*)RESETMGR_BASE)
+#define sysmgr ((ulong*)SYSMGR_BASE)

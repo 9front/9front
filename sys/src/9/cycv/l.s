@@ -7,6 +7,12 @@ TEXT _start(SB), $-4
 	MOVW $(KTZERO-KZERO), R13
 	MOVW $(UART_BASE), R8
 	
+	/* disable watchdog */
+	MOVW $(RESETMGR_BASE + 4*PERMODRST), R1
+	MOVW (R1), R0
+	ORR $(3<<6), R0
+	MOVW R0, (R1)
+	
 	/* disable L2 cache */
 	MOVW $0, R0
 	MOVW $(L2_BASE+0x100), R1
@@ -24,10 +30,10 @@ TEXT _start0(SB), $-4
 	ISB
 	PUTC('l')
 	
-	/* clean up to KTZERO */
+	/* clean up to CONFADDR */
 	MOVW $0, R0
 	MOVW R0, R1
-	MOVW $(KTZERO-KZERO), R2
+	MOVW $(CONFADDR-KZERO), R2
 _clrstart:
 	MOVW.P R0, 4(R1)
 	CMP.S R1, R2

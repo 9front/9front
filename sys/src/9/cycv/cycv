@@ -24,6 +24,7 @@ dev
 	segment
 	
 link
+	ethercycv
 	ethermedium
 	loopbackmedium
 	netdevmedium
