@@ -239,6 +239,7 @@ node(int type, ...)
 	
 	n = emalloc(sizeof(Node));
 	n->type = type;
+	n->line = lineno;
 	va_start(va, type);
 	switch(type){
 	case OBIN:

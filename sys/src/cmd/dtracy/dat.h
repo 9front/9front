@@ -75,6 +75,7 @@ struct Node {
 	Symbol *sym;
 	char *str;
 	s64int num;
+	int line;
 	
 	/* used by elidecasts() */
 	char databits;
