@@ -87,18 +87,22 @@ struct Ctlr {
 static void
 mdwrite(Ctlr *c, int r, u16int v)
 {
-	while((c->r[GMII_ADDRESS] & 1<<0) != 0);
+	while((c->r[GMII_ADDRESS] & 1<<0) != 0)
+		tsleep(&up->sleep, return0, nil, 1);
 	c->r[GMII_DATA] = v;
 	c->r[GMII_ADDRESS] = 1<<11 | (r&31)<<6 | 1<<1 | 1<<0;
-	while((c->r[GMII_ADDRESS] & 1<<0) != 0);
+	while((c->r[GMII_ADDRESS] & 1<<0) != 0)
+		tsleep(&up->sleep, return0, nil, 1);
 }
 
 static u16int
 mdread(Ctlr *c, int r)
 {
-	while((c->r[GMII_ADDRESS] & 1<<0) != 0);
+	while((c->r[GMII_ADDRESS] & 1<<0) != 0)
+		tsleep(&up->sleep, return0, nil, 1);
 	c->r[GMII_ADDRESS] = 1<<11 | (r&31)<<6 | 1<<0;
-	while((c->r[GMII_ADDRESS] & 1<<0) != 0);
+	while((c->r[GMII_ADDRESS] & 1<<0) != 0)
+		tsleep(&up->sleep, return0, nil, 1);
 	return c->r[GMII_DATA];
 }
 
