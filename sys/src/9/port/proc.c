@@ -525,8 +525,7 @@ runproc(void)
 loop:
 	/*
 	 *  find a process that last ran on this processor (affinity),
-	 *  or one that hasn't moved in a while (load balancing).  Every
-	 *  time around the loop affinity goes down.
+	 *  or one that can be moved to this processor.
 	 */
 	spllo();
 	for(i = 0;; i++){
