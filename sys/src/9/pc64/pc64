@@ -129,7 +129,7 @@ misc
 #	vgamga4xx	+cur
 #	vganeomagic	+cur
 #	vganvidia	+cur
-#	vgaradeon	+cur
+	vgaradeon	+cur
 #	vgargb524	=cur
 #	vgas3		+cur vgasavage
 #	vgat2r4		+cur

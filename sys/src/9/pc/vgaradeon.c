@@ -28,45 +28,45 @@ enum {
 /* mmio access */
 
 static void
-OUTREG8(ulong mmio, ulong offset, uchar val)
+OUTREG8(ulong *mmio, ulong offset, uchar val)
 {
-	((uchar*)KADDR((mmio + offset)))[0] = val;
+	((uchar*)KADDR((((uintptr)mmio) + offset)))[0] = val;
 }
 
 static void
-OUTREG(ulong mmio, ulong offset, ulong val)
+OUTREG(ulong *mmio, ulong offset, ulong val)
 {
-	((ulong*)KADDR((mmio + offset)))[0] = val;
+	((ulong*)KADDR((((uintptr)mmio) + offset)))[0] = val;
 }
 
 static ulong
-INREG(ulong mmio, ulong offset)
+INREG(ulong *mmio, ulong offset)
 {
-	return ((ulong*)KADDR((mmio + offset)))[0];
+	return ((ulong*)KADDR((((uintptr)mmio) + offset)))[0];
 }
 
 static void
-OUTREGP(ulong mmio, ulong offset, ulong val, ulong mask)
+OUTREGP(ulong *mmio, ulong offset, ulong val, ulong mask)
 {
 	OUTREG(mmio, offset, (INREG(mmio, offset) & mask) | val);
 }
 
 static void
-OUTPLL(ulong mmio, ulong offset, ulong val)
+OUTPLL(ulong *mmio, ulong offset, ulong val)
 {
 	OUTREG8(mmio, CLOCK_CNTL_INDEX, (offset & 0x3f) | PLL_WR_EN);
 	OUTREG(mmio, CLOCK_CNTL_DATA, val);
 }
 
 static ulong
-INPLL(ulong mmio, ulong offset)
+INPLL(ulong *mmio, ulong offset)
 {
 	OUTREG8(mmio, CLOCK_CNTL_INDEX, offset & 0x3f);
 	return INREG(mmio, CLOCK_CNTL_DATA);
 }
 
 static void
-OUTPLLP(ulong mmio, ulong offset, ulong val, ulong mask)
+OUTPLLP(ulong *mmio, ulong offset, ulong val, ulong mask)
 {
 	OUTPLL(mmio, offset, (INPLL(mmio, offset) & mask) | val);
 }
@@ -174,10 +174,10 @@ radeoncurmove(VGAscr *scr, Point p)
 		y = 0;
 	}
 
-	OUTREG((ulong)scr->mmio, CUR_OFFSET, storage + oy * 256);
-	OUTREG((ulong)scr->mmio, CUR_HORZ_VERT_OFF,
+	OUTREG(scr->mmio, CUR_OFFSET, storage + oy * 256);
+	OUTREG(scr->mmio, CUR_HORZ_VERT_OFF,
 		(ox & 0x7fff) << 16 | (oy & 0x7fff));
-	OUTREG((ulong)scr->mmio, CUR_HORZ_VERT_POSN,
+	OUTREG(scr->mmio, CUR_HORZ_VERT_POSN,
 		(x & 0x7fff) << 16 | (y & 0x7fff));
 	return 0;
 }
@@ -187,7 +187,7 @@ radeoncurdisable(VGAscr *scr)
 {
 	if(scr->mmio == nil)
 		return;
-	OUTREGP((ulong)scr->mmio, CRTC_GEN_CNTL, 0, ~CRTC_CUR_EN);
+	OUTREGP(scr->mmio, CRTC_GEN_CNTL, 0, ~CRTC_CUR_EN);
 }
 
 static void
@@ -200,11 +200,11 @@ radeoncurenable(VGAscr *scr)
 
 	radeoncurdisable(scr);
 	storage = scr->apsize - 1*Meg;
-	scr->storage = (ulong)KADDR(scr->paddr + storage);
+	scr->storage = (uintptr)KADDR(scr->paddr + storage);
 	radeoncurload(scr, &arrow);
 	radeoncurmove(scr, ZP);
 
-	OUTREGP((ulong)scr->mmio, CRTC_GEN_CNTL, CRTC_CUR_EN | 2<<20,
+	OUTREGP(scr->mmio, CRTC_GEN_CNTL, CRTC_CUR_EN | 2<<20,
 		~(CRTC_CUR_EN | 3<<20));
 }
 
@@ -223,24 +223,24 @@ radeonblank(VGAscr* scr, int blank)
 
 	mask = CRTC_DISPLAY_DIS | CRTC_HSYNC_DIS | CRTC_VSYNC_DIS;
 	if (blank == 0) {
-		OUTREGP((ulong)scr->mmio, CRTC_EXT_CNTL, 0, ~mask);
+		OUTREGP(scr->mmio, CRTC_EXT_CNTL, 0, ~mask);
 		return;
 	}
 
 	cp = getconf("*dpms");
 	if (cp) {
 		if (strcmp(cp, "standby") == 0)
-			OUTREGP((ulong)scr->mmio, CRTC_EXT_CNTL,
+			OUTREGP(scr->mmio, CRTC_EXT_CNTL,
 				CRTC_DISPLAY_DIS | CRTC_HSYNC_DIS, ~mask);
 		else if (strcmp(cp, "suspend") == 0)
-			OUTREGP((ulong)scr->mmio, CRTC_EXT_CNTL,
+			OUTREGP(scr->mmio, CRTC_EXT_CNTL,
 				CRTC_DISPLAY_DIS | CRTC_VSYNC_DIS, ~mask);
 		else if (strcmp(cp, "off") == 0)
-			OUTREGP((ulong)scr->mmio, CRTC_EXT_CNTL, mask, ~mask);
+			OUTREGP(scr->mmio, CRTC_EXT_CNTL, mask, ~mask);
 		return;
 	}
 
-	OUTREGP((ulong)scr->mmio, CRTC_EXT_CNTL, mask, ~mask);
+	OUTREGP(scr->mmio, CRTC_EXT_CNTL, mask, ~mask);
 }
 
 /* hw acceleration */
@@ -251,7 +251,7 @@ radeonwaitfifo(VGAscr *scr, int entries)
 	int i;
 
 	for (i = 0; i < 2000000; i++)
-		if (INREG((ulong)scr->mmio, RBBM_STATUS) & RBBM_FIFOCNT_MASK >=
+		if (INREG(scr->mmio, RBBM_STATUS) & RBBM_FIFOCNT_MASK >=
 		    entries)
 			return;
 	iprint("radeon: fifo timeout\n");
@@ -266,12 +266,12 @@ radeonwaitidle(VGAscr *scr)
 		int i;
 
 		for (i = 0; i < 2000000; i++)
-			if (!(INREG((ulong)scr->mmio, RBBM_STATUS) & RBBM_ACTIVE))
+			if (!(INREG(scr->mmio, RBBM_STATUS) & RBBM_ACTIVE))
 				return;
 
 		iprint("radeon: idle timed out: %uld entries, stat=0x%.8ulx\n",
-			INREG((ulong)scr->mmio, RBBM_STATUS) & RBBM_FIFOCNT_MASK,
-			INREG((ulong)scr->mmio, RBBM_STATUS));
+			INREG(scr->mmio, RBBM_STATUS) & RBBM_FIFOCNT_MASK,
+			INREG(scr->mmio, RBBM_STATUS));
 	}
 }
 
@@ -284,15 +284,15 @@ radeonfill(VGAscr *scr, Rectangle r, ulong color)
 		return 0;
 
 	radeonwaitfifo(scr, 6);
-	OUTREG((ulong)scr->mmio, DP_GUI_MASTER_CNTL,
+	OUTREG(scr->mmio, DP_GUI_MASTER_CNTL,
 		dp_gui_master_cntl | GMC_BRUSH_SOLID_COLOR |
 		GMC_SRC_DATATYPE_COLOR | ROP3_P);
-	OUTREG((ulong)scr->mmio, DP_BRUSH_FRGD_CLR, color);
-	OUTREG((ulong)scr->mmio, DP_WRITE_MASK, ~0ul);
-	OUTREG((ulong)scr->mmio, DP_CNTL,
+	OUTREG(scr->mmio, DP_BRUSH_FRGD_CLR, color);
+	OUTREG(scr->mmio, DP_WRITE_MASK, ~0ul);
+	OUTREG(scr->mmio, DP_CNTL,
 		DST_X_LEFT_TO_RIGHT | DST_Y_TOP_TO_BOTTOM);
-	OUTREG((ulong)scr->mmio, DST_Y_X, r.min.y << 16 | r.min.x);
-	OUTREG((ulong)scr->mmio, DST_WIDTH_HEIGHT, Dx(r) << 16 | Dy(r));
+	OUTREG(scr->mmio, DST_Y_X, r.min.y << 16 | r.min.x);
+	OUTREG(scr->mmio, DST_WIDTH_HEIGHT, Dx(r) << 16 | Dy(r));
 
 	radeonwaitidle(scr);
 	return 1;
@@ -329,14 +329,14 @@ radeonscroll(VGAscr*scr, Rectangle dst, Rectangle src)
 		dp_cntl |= DST_X_LEFT_TO_RIGHT;
 
 	radeonwaitfifo(scr, 6);
-	OUTREG((ulong)scr->mmio, DP_GUI_MASTER_CNTL, dp_gui_master_cntl |
+	OUTREG(scr->mmio, DP_GUI_MASTER_CNTL, dp_gui_master_cntl |
 		GMC_BRUSH_NONE | GMC_SRC_DATATYPE_COLOR | DP_SRC_SOURCE_MEMORY |
 		ROP3_S);
-	OUTREG((ulong)scr->mmio, DP_WRITE_MASK, ~0ul);
-	OUTREG((ulong)scr->mmio, DP_CNTL, dp_cntl);
-	OUTREG((ulong)scr->mmio, SRC_Y_X, ys << 16 | xs);
-	OUTREG((ulong)scr->mmio, DST_Y_X, yd << 16 | xd);
-	OUTREG((ulong)scr->mmio, DST_WIDTH_HEIGHT, w << 16 | h);
+	OUTREG(scr->mmio, DP_WRITE_MASK, ~0ul);
+	OUTREG(scr->mmio, DP_CNTL, dp_cntl);
+	OUTREG(scr->mmio, SRC_Y_X, ys << 16 | xs);
+	OUTREG(scr->mmio, DST_Y_X, yd << 16 | xd);
+	OUTREG(scr->mmio, DST_WIDTH_HEIGHT, w << 16 | h);
 
 	radeonwaitidle(scr);
 
@@ -376,75 +376,75 @@ radeondrawinit(VGAscr*scr)
 	}
 
 	/* disable 3D */
-	OUTREG((ulong)scr->mmio, RB3D_CNTL, 0);
+	OUTREG(scr->mmio, RB3D_CNTL, 0);
 
 	/* flush engine */
-	OUTREGP((ulong)scr->mmio, RB2D_DSTCACHE_CTLSTAT,
+	OUTREGP(scr->mmio, RB2D_DSTCACHE_CTLSTAT,
 		RB2D_DC_FLUSH_ALL, ~RB2D_DC_FLUSH_ALL);
 	for (i = 0; i < 2000000; i++)
-		if (!(INREG((ulong)scr->mmio, RB2D_DSTCACHE_CTLSTAT) &
+		if (!(INREG(scr->mmio, RB2D_DSTCACHE_CTLSTAT) &
 		    RB2D_DC_BUSY))
 			break;
 
 	/* reset 2D engine */
-	clock_cntl_index = INREG((ulong)scr->mmio, CLOCK_CNTL_INDEX);
+	clock_cntl_index = INREG(scr->mmio, CLOCK_CNTL_INDEX);
 
-	mclk_cntl = INPLL((ulong)scr->mmio, MCLK_CNTL);
-	OUTPLL((ulong)scr->mmio, MCLK_CNTL, mclk_cntl | FORCEON_MCLKA |
+	mclk_cntl = INPLL(scr->mmio, MCLK_CNTL);
+	OUTPLL(scr->mmio, MCLK_CNTL, mclk_cntl | FORCEON_MCLKA |
 		FORCEON_MCLKB | FORCEON_YCLKA | FORCEON_YCLKB | FORCEON_MC |
 		FORCEON_AIC);
-	rbbm_soft_reset = INREG((ulong)scr->mmio, RBBM_SOFT_RESET);
+	rbbm_soft_reset = INREG(scr->mmio, RBBM_SOFT_RESET);
 
-	OUTREG((ulong)scr->mmio, RBBM_SOFT_RESET, rbbm_soft_reset |
+	OUTREG(scr->mmio, RBBM_SOFT_RESET, rbbm_soft_reset |
 		SOFT_RESET_CP | SOFT_RESET_HI | SOFT_RESET_SE | SOFT_RESET_RE |
 		SOFT_RESET_PP | SOFT_RESET_E2 | SOFT_RESET_RB);
-	INREG((ulong)scr->mmio, RBBM_SOFT_RESET);
-	OUTREG((ulong)scr->mmio, RBBM_SOFT_RESET, rbbm_soft_reset &
+	INREG(scr->mmio, RBBM_SOFT_RESET);
+	OUTREG(scr->mmio, RBBM_SOFT_RESET, rbbm_soft_reset &
 		~(SOFT_RESET_CP | SOFT_RESET_HI | SOFT_RESET_SE | SOFT_RESET_RE |
 		SOFT_RESET_PP | SOFT_RESET_E2 | SOFT_RESET_RB));
-	INREG((ulong)scr->mmio, RBBM_SOFT_RESET);
+	INREG(scr->mmio, RBBM_SOFT_RESET);
 
-	OUTPLL((ulong)scr->mmio, MCLK_CNTL, mclk_cntl);
-	OUTREG((ulong)scr->mmio, CLOCK_CNTL_INDEX, clock_cntl_index);
+	OUTPLL(scr->mmio, MCLK_CNTL, mclk_cntl);
+	OUTREG(scr->mmio, CLOCK_CNTL_INDEX, clock_cntl_index);
 
 	/* init 2D engine */
 	radeonwaitfifo(scr, 1);
-	OUTREG((ulong)scr->mmio, RB2D_DSTCACHE_MODE, 0);
+	OUTREG(scr->mmio, RB2D_DSTCACHE_MODE, 0);
 
 	pitch = Dx(scr->gscreen->r) * bpp;
 	radeonwaitfifo(scr, 4);
-	OUTREG((ulong)scr->mmio, DEFAULT_PITCH, pitch);
-	OUTREG((ulong)scr->mmio, DST_PITCH, pitch);
-	OUTREG((ulong)scr->mmio, SRC_PITCH, pitch);
-	OUTREG((ulong)scr->mmio, DST_PITCH_OFFSET_C, 0);
+	OUTREG(scr->mmio, DEFAULT_PITCH, pitch);
+	OUTREG(scr->mmio, DST_PITCH, pitch);
+	OUTREG(scr->mmio, SRC_PITCH, pitch);
+	OUTREG(scr->mmio, DST_PITCH_OFFSET_C, 0);
 
 	radeonwaitfifo(scr, 3);
-	OUTREG((ulong)scr->mmio, DEFAULT_OFFSET, 0);
-	OUTREG((ulong)scr->mmio, DST_OFFSET, 0);
-	OUTREG((ulong)scr->mmio, SRC_OFFSET, 0);
+	OUTREG(scr->mmio, DEFAULT_OFFSET, 0);
+	OUTREG(scr->mmio, DST_OFFSET, 0);
+	OUTREG(scr->mmio, SRC_OFFSET, 0);
 
 	radeonwaitfifo(scr, 1);
-	OUTREGP((ulong)scr->mmio, DP_DATATYPE, 0, ~HOST_BIG_ENDIAN_EN);
+	OUTREGP(scr->mmio, DP_DATATYPE, 0, ~HOST_BIG_ENDIAN_EN);
 
 	radeonwaitfifo(scr, 1);
-	OUTREG((ulong)scr->mmio, DEFAULT_SC_BOTTOM_RIGHT,
+	OUTREG(scr->mmio, DEFAULT_SC_BOTTOM_RIGHT,
 		DEFAULT_SC_RIGHT_MAX | DEFAULT_SC_BOTTOM_MAX);
 
 	dp_gui_master_cntl = dtype << GMC_DST_DATATYPE_SHIFT |
 		GMC_SRC_PITCH_OFFSET_CNTL | GMC_DST_PITCH_OFFSET_CNTL |
 		GMC_CLR_CMP_CNTL_DIS;
 	radeonwaitfifo(scr, 1);
-	OUTREG((ulong)scr->mmio, DP_GUI_MASTER_CNTL,
+	OUTREG(scr->mmio, DP_GUI_MASTER_CNTL,
 	    dp_gui_master_cntl | GMC_BRUSH_SOLID_COLOR | GMC_SRC_DATATYPE_COLOR);
 
 	radeonwaitfifo(scr, 7);
-	OUTREG((ulong)scr->mmio, DST_LINE_START,    0);
-	OUTREG((ulong)scr->mmio, DST_LINE_END,      0);
-	OUTREG((ulong)scr->mmio, DP_BRUSH_FRGD_CLR, ~0ul);
-	OUTREG((ulong)scr->mmio, DP_BRUSH_BKGD_CLR, 0);
-	OUTREG((ulong)scr->mmio, DP_SRC_FRGD_CLR,   ~0ul);
-	OUTREG((ulong)scr->mmio, DP_SRC_BKGD_CLR,   0);
-	OUTREG((ulong)scr->mmio, DP_WRITE_MASK,     ~0ul);
+	OUTREG(scr->mmio, DST_LINE_START,    0);
+	OUTREG(scr->mmio, DST_LINE_END,      0);
+	OUTREG(scr->mmio, DP_BRUSH_FRGD_CLR, ~0ul);
+	OUTREG(scr->mmio, DP_BRUSH_BKGD_CLR, 0);
+	OUTREG(scr->mmio, DP_SRC_FRGD_CLR,   ~0ul);
+	OUTREG(scr->mmio, DP_SRC_BKGD_CLR,   0);
+	OUTREG(scr->mmio, DP_WRITE_MASK,     ~0ul);
 
 	radeonwaitidle(scr);
 
