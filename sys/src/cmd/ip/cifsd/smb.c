@@ -1232,7 +1232,7 @@ static int
 setfilepathinformation(Req *r, Dir *d, File *f, char *path, int level, uchar *b, uchar *p, uchar *e)
 {
 	int attr, adt, atm, mdt, mtm, delete;
-	vlong len, atime, mtime;
+	vlong len, ctime, atime, mtime, mode;
 	Dir nd;
 
 	nulldir(&nd);
@@ -1280,6 +1280,22 @@ setfilepathinformation(Req *r, Dir *d, File *f, char *path, int level, uchar *b,
 			return STATUS_OS2_INVALID_ACCESS;
 		if(len != -1LL)
 			nd.length = len;
+		break;
+
+	case 0x0200:	/* SMB_SET_FILE_UNIX_BASIC */
+		if(!unpack(b, p, e, "v________vvv____________________________________________v________",
+			&len, &ctime, &atime, &mtime, &mode))
+			goto unsup;
+		if(len != -1LL)
+			nd.length = len;
+		if(atime && atime != -1LL)
+			nd.atime = fromfiletime(atime);
+		if(mtime && mtime != -1LL)
+			nd.mtime = fromfiletime(mtime);
+		else if(ctime && ctime != -1LL)
+			nd.mtime = fromfiletime(ctime);
+		if(mode != -1LL)
+			nd.mode = (d->mode & ~0777) | (mode & 0777);
 		break;
 
 	default:
