@@ -2022,13 +2022,13 @@ drawmesg(Client *client, void *av, int n)
 				free(lp);
 				nexterror();
 			}
-			for(j=0; j<nw; j++)
+			for(j=0; j<nw; j++){
 				lp[j] = drawimage(client, a+1+1+2+j*4);
-			if(lp[0]->layer == 0)
-				error("images are not windows");
-			for(j=1; j<nw; j++)
+				if(lp[j]->layer == 0)
+					error("images are not windows");
 				if(lp[j]->layer->screen != lp[0]->layer->screen)
 					error("images not on same screen");
+			}
 			if(a[1])
 				memltofrontn(lp, nw);
 			else
