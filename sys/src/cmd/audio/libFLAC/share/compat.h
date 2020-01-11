@@ -1,5 +1,5 @@
 /* libFLAC - Free Lossless Audio Codec library
- * Copyright (C) 2012-2014  Xiph.org Foundation
+ * Copyright (C) 2012-2016  Xiph.org Foundation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,7 +29,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* This is the prefered location of all CPP hackery to make $random_compiler
+/* This is the preferred location of all CPP hackery to make $random_compiler
  * work like something approaching a C99 (or maybe more accurately GNU99)
  * compiler.
  *
@@ -72,7 +72,7 @@
 #define strtoull _strtoui64
 #endif
 
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) && !defined(__cplusplus)
 #define inline __inline
 #endif
 
@@ -87,7 +87,10 @@
 
 #define FLAC__U64L(x) x##ULL
 
-#if defined _MSC_VER || defined __BORLANDC__ || defined __MINGW32__
+#if defined _MSC_VER || defined __MINGW32__
+#define FLAC__STRCASECMP _stricmp
+#define FLAC__STRNCASECMP _strnicmp
+#elif defined __BORLANDC__
 #define FLAC__STRCASECMP stricmp
 #define FLAC__STRNCASECMP strnicmp
 #else
@@ -95,7 +98,7 @@
 #define FLAC__STRNCASECMP strncasecmp
 #endif
 
-#if defined _MSC_VER || defined __MINGW32__ || defined __CYGWIN__ || defined __EMX__
+#if defined _MSC_VER || defined __MINGW32__ || defined __EMX__
 #include <io.h> /* for _setmode(), chmod() */
 #include <fcntl.h> /* for _O_BINARY */
 #else
@@ -114,7 +117,9 @@
 #endif
 
 #if defined _MSC_VER
-#  if _MSC_VER >= 1600
+#  if _MSC_VER >= 1800
+#    include <inttypes.h>
+#  elif _MSC_VER >= 1600
 /* Visual Studio 2010 has decent C99 support */
 #    include <stdint.h>
 #    define PRIu64 "llu"
@@ -125,14 +130,6 @@
 #    ifndef UINT32_MAX
 #      define UINT32_MAX _UI32_MAX
 #    endif
-     typedef unsigned __int64 uint64_t;
-     typedef unsigned __int32 uint32_t;
-     typedef unsigned __int16 uint16_t;
-     typedef unsigned __int8 uint8_t;
-     typedef __int64 int64_t;
-     typedef __int32 int32_t;
-     typedef __int16 int16_t;
-     typedef __int8  int8_t;
 #    define PRIu64 "I64u"
 #    define PRId64 "I64d"
 #    define PRIx64 "I64x"
@@ -141,23 +138,26 @@
 
 #ifdef _WIN32
 /* All char* strings are in UTF-8 format. Added to support Unicode files on Windows */
-#include "share/win_utf8_io.h"
 
+#include "share/win_utf8_io.h"
 #define flac_printf printf_utf8
 #define flac_fprintf fprintf_utf8
 #define flac_vfprintf vfprintf_utf8
-#define flac_fopen fopen_utf8
-#define flac_chmod chmod_utf8
-#define flac_utime utime_utf8
-#define flac_unlink unlink_utf8
-#define flac_rename rename_utf8
-#define flac_stat _stat64_utf8
+
+#include "share/windows_unicode_filenames.h"
+#define flac_fopen flac_internal_fopen_utf8
+#define flac_chmod flac_internal_chmod_utf8
+#define flac_utime flac_internal_utime_utf8
+#define flac_unlink flac_internal_unlink_utf8
+#define flac_rename flac_internal_rename_utf8
+#define flac_stat flac_internal_stat64_utf8
 
 #else
 
 #define flac_printf printf
 #define flac_fprintf fprintf
 #define flac_vfprintf vfprintf
+
 #define flac_fopen fopen
 #define flac_chmod chmod
 #define flac_utime utime
@@ -175,6 +175,10 @@
 #define flac_fstat fstat
 #endif
 
+#ifdef ANDROID
+#include <limits.h>
+#endif
+
 #ifndef M_LN2
 #define M_LN2 0.69314718055994530942
 #endif
@@ -186,7 +190,7 @@
  * snprintf as well as Microsoft Visual Studio which has an non-standards
  * conformant snprint_s function.
  *
- * This function wraps the MS version to behave more like the the ISO version.
+ * This function wraps the MS version to behave more like the ISO version.
  */
 #include <stdarg.h>
 #ifdef __cplusplus

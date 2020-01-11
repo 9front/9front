@@ -1,6 +1,6 @@
 /* libFLAC - Free Lossless Audio Codec
  * Copyright (C) 2004-2009  Josh Coalson
- * Copyright (C) 2011-2014  Xiph.Org Foundation
+ * Copyright (C) 2011-2016  Xiph.Org Foundation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,13 +36,13 @@
 
 #include "private/ogg_mapping.h"
 
-const unsigned FLAC__OGG_MAPPING_PACKET_TYPE_LEN = 8; /* bits */
+const uint32_t FLAC__OGG_MAPPING_PACKET_TYPE_LEN = 8; /* bits */
 
 const FLAC__byte FLAC__OGG_MAPPING_FIRST_HEADER_PACKET_TYPE = 0x7f;
 
 const FLAC__byte * const FLAC__OGG_MAPPING_MAGIC = (const FLAC__byte * const)"FLAC";
 
-const unsigned FLAC__OGG_MAPPING_VERSION_MAJOR_LEN = 8; /* bits */
-const unsigned FLAC__OGG_MAPPING_VERSION_MINOR_LEN = 8; /* bits */
+const uint32_t FLAC__OGG_MAPPING_VERSION_MAJOR_LEN = 8; /* bits */
+const uint32_t FLAC__OGG_MAPPING_VERSION_MINOR_LEN = 8; /* bits */
 
-const unsigned FLAC__OGG_MAPPING_NUM_HEADERS_LEN = 16; /* bits */
+const uint32_t FLAC__OGG_MAPPING_NUM_HEADERS_LEN = 16; /* bits */
