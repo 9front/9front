@@ -37,7 +37,7 @@ TEXT _start0(SB), $-4
 _clrstart:
 	MOVW.P R0, 4(R1)
 	CMP.S R1, R2
-	BGE _clrstart
+	BGT _clrstart
 
 	/* clean BSS */
 	MOVW $edata-KZERO(SB), R1
@@ -45,7 +45,7 @@ _clrstart:
 _clrbss:
 	MOVW.P R0, 4(R1)
 	CMP.S R1, R2
-	BGE _clrbss
+	BGT _clrbss
 	
 	PUTC('a')
 	

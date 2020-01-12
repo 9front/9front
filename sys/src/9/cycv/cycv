@@ -2,7 +2,7 @@ dev
 	root
 	cons
 	swap
-#	arch
+	arch
 	uart
 	mnt
 	srv
@@ -24,6 +24,7 @@ dev
 	segment
 	
 link
+	dma
 	ethercycv
 	ethermedium
 	loopbackmedium

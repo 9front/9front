@@ -199,8 +199,6 @@ ethrx(Ether *edev)
 		r = &c->rxr[4 * c->rxconsi];
 		if((r[0] >> 31) != 0)
 			break;
-		if((r[0] & 1<<15) != 0)
-			iprint("eth: error frame\n");
 		if((r[0] & (3<<8)) != (3<<8))
 			iprint("eth: lilu dallas multidescriptor\n");
 		bp = c->rxs[c->rxconsi];
@@ -404,6 +402,38 @@ ethmcast(void *arg, uchar *ea, int on)
 	}
 }
 
+static long
+ethifstat(Ether *edev, void *a, long n, ulong offset)
+{
+	static char *names[] = {
+		"txoctetcount_gb", "txframecount_gb", "txbroadcastframes_g", "txmulticastframes_g",
+		"tx64octets_gb", "tx65to127octets_gb", "tx128to255octets_gb", "tx256to511octets_gb",
+		"tx512to1023octets_gb", "tx1024tomaxoctets_gb", "txunicastframes_gb", "txmulticastframes_gb",
+		"txbroadcastframes_gb", "txunderflowerror", "txsinglecol_g", "txmulticol_g",
+		"txdeferred", "txlatecol", "txexesscol", "txcarriererr",
+		"txoctetcnt", "txframecount_g", "txexcessdef", "txpauseframes",
+		"txvlanframes_g", "txoversize_g", "rxframecount_gb", "rxoctetcount_gb",
+		"rxoctetcount_g", "rxbroadcastframes_g", "rxmulticastframes_g", "rxcrcerror",
+		"rxalignmenterror", "rxrunterror", "rxjabbererror", "rxundersize_g",
+		"rxoversize_g", "rx64octets_gb", "rx65to127octets_gb", "rx128to255octets_gb",
+		"rx256to511octets_gb", "rx512to1023octets_gb", "rx1024tomaxoctets_gb", "rxunicastframes_g",
+		"rxlengtherror", "rxoutofrangetype", "rxpauseframes", "rxfifooverflow",
+		"rxvlanframes_gb", "rxwatchdogerror", "rxrcverror", "rxctrlframes_g",
+	};
+	int i;
+	char *buf, *p, *e;
+	Ctlr *c;
+	
+	p = buf = smalloc(READSTR);
+	e = p + READSTR;
+	c = edev->ctlr;
+	for(i = 0; i < nelem(names); i++)
+		p = seprint(p, e, "%s: %lud\n", names[i], c->r[0x114/4 + i]);
+	n = readstr(offset, a, n, buf);
+	free(buf);
+	return n;
+}
+
 static int
 etherpnp(Ether *edev)
 {
@@ -425,6 +455,7 @@ etherpnp(Ether *edev)
 	edev->mbps = 1000;
 	edev->promiscuous = ethprom;
 	edev->multicast = ethmcast;
+	edev->ifstat = ethifstat;
 
 	if(ethinit(edev) < 0){
 		edev->ctlr = nil;

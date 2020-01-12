@@ -7,11 +7,44 @@
 #include "ureg.h"
 #include "../port/error.h"
 
+#define fpga ((ulong*) FPGAMGR_BASE)
+
+enum { Timeout = 3000 };
+
+enum {
+	FPGASTAT,
+	FPGACTRL,
+	FPGAINTEN = 0x830/4,
+	FPGAINTTYPE = 0x838/4,
+	FPGAINTPOL = 0x83C/4,
+	FPGAINTSTATUS = 0x840/4,
+	FPGAEOI = 0x84C/4,
+	FPGAPINS = 0x850/4,
+};
+
+enum {
+	/*FPGACTRL*/
+	HPSCONFIG = 1<<0,
+	NCONFIGPULL = 1<<2,
+	AXICFGEN = 1<<8,
+	/*FPGAPINS*/
+	NSTATUS = 1<<0,
+	CONF_DONE = 1<<1,
+	INIT_DONE = 1<<2,
+	CRC_ERROR = 1<<3,
+	CVP_CONF_DONE = 1<<4,
+	PR_READY = 1<<5,
+	PR_ERROR = 1<<6,
+	PR_DONE = 1<<7,
+	NCONFIG_PIN = 1<<8,
+	NSTATUS_PIN = 1<<9,
+	CONF_DONE_PIN = 1<<10,
+	FPGA_POWER_ON = 1<<11
+};
+
 enum {
 	Qdir = 0,
-	Qtemp,
-	Qpl,
-	Qfbctl,
+	Qfpga,
 	Qbase,
 
 	Qmax = 16,
@@ -19,288 +52,149 @@ enum {
 
 static Dirtab archdir[Qmax] = {
 	".",		{ Qdir, 0, QTDIR },	0,	0555,
-	"temp",		{ Qtemp, 0},		0,	0440,
-	"pl",		{ Qpl, 0 }, 		0,	0660,
-	"fbctl",	{ Qfbctl, 0 }, 		0,	0660,
+	"fpga",		{ Qfpga, 0 }, 		0,	0660,
 };
 static int narchdir = Qbase;
 
-static int temp = -128;
-static ulong *devc;
-static int dmadone;
-enum { PLBUFSIZ = 8192 };
-static uchar *plbuf;
-static Rendez plinitr, pldoner, pldmar;
-static QLock plrlock, plwlock;
-static Ref plwopen;
-static Physseg *axi;
+static Ref fpgawopen;
+enum { FPGABUFSIZ = 65536 };
+static uchar *fpgabuf;
+static int fpgabufp;
+static int fpgaok;
 
-enum {
-	DEVCTRL = 0,
-	DEVISTS = 0xc/4,
-	DEVMASK,
-	DEVSTS,
-	DMASRC = 0x18/4,
-	DMADST,
-	DMASRCL,
-	DMADSTL,
-	XADCCFG = 0x100/4,
-	XADCSTS,
-	XADCMASK,
-	XADCMSTS,
-	XADCCMD,
-	XADCREAD,
-	XADCMCTL,
-	
-	FPGA0_CLK_CTRL = 0x170/4,
-};
-
-enum {
-	PROG = 1<<30,
-	DONE = 1<<2,
-	INITPE = 1<<1,
-	INIT = 1<<4,
-	DMADONE = 1<<13,
-};
-
-static void
-scram(void)
-{
-	splhi();
-	slcr[0x100/4] |= 1<<4;
-	slcr[0x104/4] |= 1<<4;
-	slcr[0x108/4] |= 1<<4;
-	slcr[DEVCTRL] &= ~PROG;
-	slcr[0x244/4] = 1<<4|1<<5;
-}
-
-static void
-xadcirq(Ureg *, void *)
-{
-	int v;
-	static int al, notfirst;
-	
-	while((devc[XADCMSTS] & 1<<8) == 0){
-		v = ((u16int)devc[XADCREAD]) >> 4;
-		if(v == 0){
-			if(notfirst)
-				print("temperature sensor reads 0, shouldn't happen\n");
-			break;
-		}
-		notfirst = 1;
-		temp = v * 5040 / 4096 - 2732;
-		if(temp >= 800){
-			if(al == 0)
-				print("temperature exceeds 80 deg C\n");
-			al = 1;
-		}
-		if(temp <= 750)
-			al = 0;
-		if(temp >= 900){
-			print("chip temperature exceeds 90 deg C, shutting down");
-			scram();
-		}
-	}
-	devc[XADCSTS] = -1;
-}
-
-static void
-xadctimer(void)
-{
-	devc[XADCCMD] = 1<<26 | 0<<16;
-}
-
-static void
-xadcinit(void)
-{
-	int i;
-	int x;
-
-	devc = vmap(DEVC_BASE, 0x11C);
-	devc[XADCMCTL] |= 1<<4;
-	devc[XADCMCTL] &= ~(1<<4);
-	devc[XADCCMD] = 0x08030000;
-	for(i = 0; i < 15; i++)
-		devc[XADCCMD] = 0;
-	while((devc[XADCMSTS] & 1<<10) == 0)
-		;
-	while((devc[XADCMSTS] & 1<<8) == 0){
-		x = devc[XADCREAD];
-		USED(x);
-	}
-	devc[XADCCFG] = 0x80001114;
-	devc[XADCMASK] = ~(1<<8);
-	devc[XADCSTS] = -1;
-	intrenable(XADCIRQ, xadcirq, nil, LEVEL, "xadc");
-	addclock0link(xadctimer, XADCINTERVAL);
-}
-
+static Rendez fpgarend;
+static u32int fpgawaitset, fpgawaitclr;
 static int
-isplinit(void *)
+donewaiting(void *)
 {
-	return devc[DEVSTS] & INIT;
+	u32int s;
+	
+	s = fpga[FPGAPINS];
+	return (s & fpgawaitset | ~s & fpgawaitclr) != 0;
+	
 }
-
+static void
+fpgairq(Ureg *, void *)
+{
+	fpga[FPGAEOI] = -1;
+	if(donewaiting(nil))
+		wakeup(&fpgarend);
+}
 static int
-ispldone(void *)
+fpgawait(u32int set, u32int clr, int timeout)
 {
-	return devc[DEVISTS] & DONE;
-}
+	int s;
 
-static int
-isdmadone(void *)
-{
-	return dmadone;
+	fpgawaitset = set;
+	fpgawaitclr = clr;
+	if(donewaiting(nil)) return 0;
+	s = spllo();
+	fpga[FPGAINTEN] = 0;
+	fpga[FPGAEOI] = -1;
+	fpga[FPGAINTPOL] = set;
+	fpga[FPGAINTEN] = set | clr;
+	tsleep(&fpgarend, donewaiting, nil, timeout);
+	fpga[FPGAINTEN] = 0;
+	fpga[FPGAEOI] = -1;
+	splx(s);
+	return donewaiting(nil) ? 0 : -1;
 }
 
 static void
-plirq(Ureg *, void *)
+fpgaconf(void)
 {
-	ulong fl;
+	int msel;
+	enum { PORFAST = 1, AES = 2, AESMAYBE = 4, COMP = 8, FPP32 = 16 };
+	static uchar mseltab[16][3] = {
+		[0] {0, 1, PORFAST},
+		[4] {0, 1, 0},
+		[1] {0, 2, PORFAST|AES},
+		[5] {0, 2, AES},
+		[2] {0, 3, COMP|AESMAYBE|PORFAST},
+		[6] {0, 3, COMP|AESMAYBE},
+		[8] {1, 1, PORFAST|FPP32},
+		[12] {1, 1, FPP32},
+		[9] {1, 2, AES|FPP32|PORFAST},
+		[13] {1, 2, AES|FPP32},
+		[10] {1, 4, COMP|AESMAYBE|PORFAST|FPP32},
+		[14] {1, 4, COMP|AESMAYBE|FPP32}
+	};
 	
-	fl = devc[DEVISTS];
-	if((fl & INITPE) != 0)
-		wakeup(&plinitr);
-	if((fl & DONE) != 0){
-		slcr[0x900/4] = 0xf;
-		slcr[0x240/4] = 0;
-		devc[DEVMASK] |= DONE;
-		axi->attr &= ~SG_FAULT;
-		wakeup(&pldoner);
+	if((fpga[FPGAPINS] & FPGA_POWER_ON) == 0)
+		error("FPGA powered off");
+	msel = fpga[FPGASTAT] >> 3 & 0x1f;
+	if(msel >= 16 || mseltab[msel][1] == 0){
+		print("MSEL set to invalid setting %#.2x\n", msel);
+		error("MSEL set to invalid setting");
 	}
-	if((fl & DMADONE) != 0){
-		dmadone++;
-		wakeup(&pldmar);
-	}
-	devc[DEVISTS] = fl;
+	fpga[FPGACTRL] = fpga[FPGACTRL] & ~0x3ff
+		| mseltab[msel][0] << 9 /* cfgwdth */
+		| mseltab[msel][1]-1 << 6 /* cdratio */
+		| NCONFIGPULL | HPSCONFIG;
+	if(fpgawait(0, NSTATUS, Timeout) < 0 || fpgawait(0, CONF_DONE, Timeout) < 0)
+		error("FPGA won't enter reset phase");
+	fpga[FPGACTRL] &= ~NCONFIGPULL;
+	if(fpgawait(NSTATUS, 0, Timeout) < 0)
+		error("FPGA won't enter configuration phase");
+	fpga[FPGACTRL] |= AXICFGEN;
 }
 
 static void
-plinit(void)
+fpgawrite(uchar *a, int n)
 {
-	Physseg seg;
+	int m;
 
-	memset(&seg, 0, sizeof seg);
-	seg.attr = SG_PHYSICAL | SG_DEVICE | SG_NOEXEC | SG_FAULT;
-	seg.name = "axi";
-	seg.pa = 0x40000000;
-	seg.size = 0x8000000;
-	axi = addphysseg(&seg);
-
-	devc[DEVCTRL] &= ~(PROG|1<<25);
-	devc[DEVCTRL] |= 3<<26|PROG;
-	devc[DEVISTS] = -1;
-	devc[DEVMASK] = ~(DONE|INITPE|DMADONE);
-	intrenable(DEVCIRQ, plirq, nil, LEVEL, "pl");
-	
-	slcr[FPGA0_CLK_CTRL] = 1<<20 | 10<<8;
-}
-
-static void
-plconf(void)
-{
-	axi->attr |= SG_FAULT;
-	procflushpseg(axi);
-	flushmmu();
-
-	slcr[0x240/4] = 0xf;
-	slcr[0x900/4] = 0xa;
-	devc[DEVISTS] = DONE|INITPE|DMADONE;
-	devc[DEVCTRL] |= PROG;
-	devc[DEVCTRL] &= ~PROG;
-	devc[DEVMASK] &= ~DONE;
-	devc[DEVCTRL] |= PROG;
-
-	while(waserror())
-		;
-	sleep(&plinitr, isplinit, nil);
-	poperror();
-}
-
-static long
-plwrite(uintptr pa, long n)
-{
-	dmadone = 0;
-	coherence();
-	devc[DMASRC] = pa;
-	devc[DMADST] = -1;
-	devc[DMASRCL] = n>>2;
-	devc[DMADSTL] = 0;
-
-	while(waserror())
-		;
-	sleep(&pldmar, isdmadone, nil);
-	poperror();
-
-	return n;
-}
-
-static long
-plcopy(uchar *d, long n)
-{
-	long ret;
-	ulong nn;
-	uintptr pa;
-	
-	if((n & 3) != 0 || n <= 0)
-		error(Eshort);
-
-	eqlock(&plwlock);
 	if(waserror()){
-		qunlock(&plwlock);
+		fpgaok = 0;
 		nexterror();
 	}
-
-	ret = n;
-	pa = PADDR(plbuf);
-	while(n > 0){
-		if(n > PLBUFSIZ)
-			nn = PLBUFSIZ;
-		else
-			nn = n;
-		memmove(plbuf, d, nn);
-		cleandse(plbuf, plbuf + nn);
-		clean2pa(pa, pa + nn);
-		n -= plwrite(pa, nn);
+	if((fpga[FPGAPINS] & NSTATUS) == 0)
+		error("FPGA reports configuration error");
+	fpgaok = 1;
+	while(fpgabufp + n >= FPGABUFSIZ){
+		m = FPGABUFSIZ - fpgabufp;
+		memmove(&fpgabuf[fpgabufp], a, m);
+		cleandse(fpgabuf, fpgabuf + FPGABUFSIZ);
+		dmacopy((void *) FPGAMGRDATA, fpgabuf, FPGABUFSIZ, SRC_INC);
+		a += m;
+		n -= m;
+		fpgabufp = 0;
 	}
-
-	qunlock(&plwlock);
+	memmove(&fpgabuf[fpgabufp], a, n);
+	fpgabufp += n;
 	poperror();
-
-	return ret;
 }
 
-void
-archinit(void)
+static void
+fpgafinish(void)
 {
-	slcr[2] = 0xDF0D;
-	xadcinit();
-	plinit();
+	if(!fpgaok) return;
+	while((fpgabufp & 3) != 0)
+		fpgabuf[fpgabufp++] = 0;
+	cleandse(fpgabuf, fpgabuf + fpgabufp);
+	dmacopy((void *) FPGAMGRDATA, fpgabuf, fpgabufp, SRC_INC);
+	fpga[FPGACTRL] &= ~AXICFGEN;
+	if(fpgawait(CONF_DONE, NSTATUS, Timeout) < 0){
+		print("FPGA stuck in configuration phase -- truncated file?\n");
+		return;
+	}
+	if((fpga[FPGAPINS] & NSTATUS) == 0){
+		print("FPGA reports configuration error\n");
+		return;
+	}
+	if(fpgawait(INIT_DONE, 0, Timeout) < 0){
+		print("FPGA stuck in initialization phase\n");
+		return;
+	}
+	fpga[FPGACTRL] &= ~HPSCONFIG;
 }
 
 static long
-archread(Chan *c, void *a, long n, vlong offset)
+archread(Chan *c, void *a, long n, vlong)
 {
-	char buf[64];
-
 	switch((ulong)c->qid.path){
 	case Qdir:
 		return devdirread(c, a, n, archdir, narchdir, devgen);
-	case Qtemp:
-		snprint(buf, sizeof(buf), "%d.%d\n", temp/10, temp%10);
-		return readstr(offset, a, n, buf);
-	case Qpl:
-		eqlock(&plrlock);
-		if(waserror()){
-			qunlock(&plrlock);
-			nexterror();
-		}
-		sleep(&pldoner, ispldone, nil);
-		qunlock(&plrlock);
-		poperror();
-		return 0;
-	case Qfbctl:
-		return fbctlread(c, a, n, offset);
 	default:
 		error(Egreg);
 		return -1;
@@ -308,13 +202,12 @@ archread(Chan *c, void *a, long n, vlong offset)
 }
 
 static long
-archwrite(Chan *c, void *a, long n, vlong offset)
+archwrite(Chan *c, void *a, long n, vlong)
 {
 	switch((ulong)c->qid.path){
-	case Qpl:
-		return plcopy(a, n);
-	case Qfbctl:
-		return fbctlwrite(c, a, n, offset);
+	case Qfpga:
+		fpgawrite(a, n);
+		return n;
 	default:
 		error(Egreg);
 		return -1;
@@ -337,14 +230,16 @@ static Chan*
 archopen(Chan* c, int omode)
 {
 	devopen(c, omode, archdir, narchdir, devgen);
-	if((ulong)c->qid.path == Qpl && (c->mode == OWRITE || c->mode == ORDWR)){
-		if(incref(&plwopen) != 1){
+	if((ulong)c->qid.path == Qfpga && (c->mode == OWRITE || c->mode == ORDWR)){
+		if(incref(&fpgawopen) != 1){
 			c->flag &= ~COPEN;
-			decref(&plwopen);
+			decref(&fpgawopen);
 			error(Einuse);
 		}
-		plbuf = smalloc(PLBUFSIZ);
-		plconf();
+		fpgaok = 0;
+		fpgaconf();
+		fpgabuf = xspanalloc(FPGABUFSIZ, 64, 0);
+		fpgabufp = 0;
 	}
 	return c;
 }
@@ -353,11 +248,21 @@ static void
 archclose(Chan* c)
 {
 	if((c->flag & COPEN) != 0)
-	if((ulong)c->qid.path == Qpl && (c->mode == OWRITE || c->mode == ORDWR)){
-		free(plbuf);
-		plbuf = nil;
-		decref(&plwopen);
+	if((ulong)c->qid.path == Qfpga && (c->mode == OWRITE || c->mode == ORDWR)){
+		fpgafinish();
+		//xfree(fpgabuf);
+		fpgabuf = nil;
+		decref(&fpgawopen);
 	}
+}
+
+static void
+archreset(void)
+{
+	fpga[FPGAINTEN] = 0;
+	fpga[FPGAEOI] = -1;
+	fpga[FPGAINTTYPE] = -1;
+	intrenable(FPGAMGRIRQ, fpgairq, nil, LEVEL, "fpgamgr");
 }
 
 static Chan*
@@ -370,7 +275,7 @@ Dev archdevtab = {
 	'P',
 	"arch",
 	
-	devreset,
+	archreset,
 	devinit,
 	devshutdown,
 	archattach,

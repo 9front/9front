@@ -13,6 +13,7 @@ typedef struct Proc	Proc;
 typedef struct PMMU	PMMU;
 typedef struct Ureg	Ureg;
 typedef struct ISAConf	ISAConf;
+typedef struct DMAC	DMAC;
 typedef uvlong		Tval;
 
 #pragma incomplete Ureg
@@ -202,3 +203,7 @@ struct DevConf
 #define mpcore ((ulong*)MPCORE_BASE)
 #define resetmgr ((ulong*)RESETMGR_BASE)
 #define sysmgr ((ulong*)SYSMGR_BASE)
+
+/*dmacopy*/
+#define SRC_INC (1<<0)
+#define DST_INC (1<<14)

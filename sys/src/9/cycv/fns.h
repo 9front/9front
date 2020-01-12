@@ -76,3 +76,4 @@ uintptr palookur(void *);
 void screeninit(void);
 int isaconfig(char*, int, ISAConf*);
 void cputhex(u32int);
+void dmacopy(void *, void *, ulong, int);
