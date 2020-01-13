@@ -203,6 +203,7 @@ struct DevConf
 #define mpcore ((ulong*)MPCORE_BASE)
 #define resetmgr ((ulong*)RESETMGR_BASE)
 #define sysmgr ((ulong*)SYSMGR_BASE)
+#define l3 ((ulong*)L3_BASE)
 
 /*dmacopy*/
 #define SRC_INC (1<<0)

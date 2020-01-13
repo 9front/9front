@@ -9,6 +9,8 @@
 
 #define fpga ((ulong*) FPGAMGR_BASE)
 
+enum { REMAP = 0x0 / 4 };
+
 enum { Timeout = 3000 };
 
 enum {
@@ -55,6 +57,8 @@ static Dirtab archdir[Qmax] = {
 	"fpga",		{ Qfpga, 0 }, 		0,	0660,
 };
 static int narchdir = Qbase;
+
+static Physseg *axi;
 
 static Ref fpgawopen;
 enum { FPGABUFSIZ = 65536 };
@@ -119,7 +123,11 @@ fpgaconf(void)
 		[10] {1, 4, COMP|AESMAYBE|PORFAST|FPP32},
 		[14] {1, 4, COMP|AESMAYBE|FPP32}
 	};
-	
+
+	axi->attr |= SG_FAULT;
+	procflushpseg(axi);
+	flushmmu();
+
 	if((fpga[FPGAPINS] & FPGA_POWER_ON) == 0)
 		error("FPGA powered off");
 	msel = fpga[FPGASTAT] >> 3 & 0x1f;
@@ -187,6 +195,10 @@ fpgafinish(void)
 		return;
 	}
 	fpga[FPGACTRL] &= ~HPSCONFIG;
+	
+	axi->attr &= ~SG_FAULT;
+	procflushpseg(axi);
+	flushmmu();
 }
 
 static long
@@ -256,13 +268,26 @@ archclose(Chan* c)
 	}
 }
 
-static void
-archreset(void)
+void
+archinit(void)
 {
+	Physseg seg;
+
 	fpga[FPGAINTEN] = 0;
 	fpga[FPGAEOI] = -1;
 	fpga[FPGAINTTYPE] = -1;
 	intrenable(FPGAMGRIRQ, fpgairq, nil, LEVEL, "fpgamgr");
+	
+	resetmgr[BRGMODRST] &= ~7;
+	l3[REMAP] = 0x18;
+
+	memset(&seg, 0, sizeof seg);
+	seg.attr = SG_PHYSICAL | SG_DEVICE | SG_NOEXEC | SG_FAULT;
+	seg.name = "axi";
+	seg.pa = 0xFF200000;
+	seg.size = 0x200000;
+	axi = addphysseg(&seg);
+
 }
 
 static Chan*
@@ -275,7 +300,7 @@ Dev archdevtab = {
 	'P',
 	"arch",
 	
-	archreset,
+	devreset,
 	devinit,
 	devshutdown,
 	archattach,

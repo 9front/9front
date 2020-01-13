@@ -302,6 +302,7 @@ main(void)
 		bootlinks();
 	else
 		links();
+	archinit();
 	chandevreset();
 	pageinit();
 	userinit();
