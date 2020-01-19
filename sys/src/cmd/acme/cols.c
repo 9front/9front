@@ -131,8 +131,8 @@ colclose(Column *c, Window *w, int dofree)
 		windelete(w);
 		winclose(w);
 	}
-	memmove(c->w+i, c->w+i+1, (c->nw-i)*sizeof(Window*));
 	c->nw--;
+	memmove(c->w+i, c->w+i+1, (c->nw-i)*sizeof(Window*));
 	c->w = realloc(c->w, c->nw*sizeof(Window*));
 	if(c->nw == 0){
 		draw(screen, r, display->white, nil, ZP);
