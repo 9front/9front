@@ -267,8 +267,8 @@ growlist(List *l)
 void
 dellist(List *l, int i)
 {
-	memmove(&l->ptr[i], &l->ptr[i+1], (l->nused-(i+1))*sizeof(void*));
 	l->nused--;
+	memmove(&l->ptr[i], &l->ptr[i+1], (l->nused-i)*sizeof(void*));
 }
 
 /*
