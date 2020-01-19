@@ -147,6 +147,8 @@ execute(Text *t, uint aq0, uint aq1, int external, Text *argt)
 	}
 	r = runemalloc(q1-q0);
 	bufread(t->file, q0, r, q1-q0);
+	free(delcmd);
+	delcmd = runesmprint("%.*S", q1-q0, r);
 	e = lookup(r, q1-q0);
 	if(!external && t->w!=nil && t->w->nopen[QWevent]>0){
 		f = 0;

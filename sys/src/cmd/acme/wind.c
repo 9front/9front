@@ -90,20 +90,23 @@ wininit(Window *w, Window *clone, Rectangle r)
 }
 
 int
-delrunepos(Window *w)
+tagrunepos(Window *w, Rune *s)
 {
 	int n;
-	Rune rune;
-	
-	for(n=0; n<w->tag.file->nc; n++) {
-		bufread(w->tag.file, n, &rune, 1);
-		if(rune == ' ')
-			break;
-	}
-	n += 2;
-	if(n >= w->tag.file->nc)
+	Rune *r, *rr;
+
+	if(s == nil)
 		return -1;
-	return n;
+
+	n = w->tag.file->nc;
+	r = runemalloc(n+1);
+	bufread(w->tag.file, 0, r, n);
+	r[n] = L'\0';
+
+	rr = runestrstr(r, s);
+	if(rr == nil || rr == r)
+		return -1;
+	return rr - r;
 }
 
 void
@@ -111,7 +114,9 @@ movetodel(Window *w)
 {
 	int n;
 	
-	n = delrunepos(w);
+	n = tagrunepos(w, delcmd);
+	free(delcmd);
+	delcmd = nil;
 	if(n < 0)
 		return;
 	moveto(mousectl, addpt(frptofchar(&w->tag, n), Pt(4, w->tag.font->height-4)));
@@ -138,7 +143,7 @@ wintaglines(Window *w, Rectangle r)
 	
 	if(!w->tagexpand) {
 		/* use just as many lines as needed to show the Del */
-		n = delrunepos(w);
+		n = tagrunepos(w, delcmd);
 		if(n < 0)
 			return 1;
 		p = subpt(frptofchar(&w->tag, n), w->tag.r.min);

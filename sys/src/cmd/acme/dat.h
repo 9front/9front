@@ -546,6 +546,7 @@ char			wdir[];
 int			editing;
 int			messagesize;		/* negotiated in 9P version setup */
 int			globalindent[NINDENT];
+Rune		*delcmd;			/* what command deleted the window. eg, Del, Delete, Delmesg */
 
 Channel	*cplumb;		/* chan(Plumbmsg*) */
 Channel	*cwait;		/* chan(Waitmsg) */
