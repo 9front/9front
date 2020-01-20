@@ -179,7 +179,7 @@ page /usr/inferno/icons/*.bit
 Browse the Inferno bitmap library.
 .TP
 .L
-page -j /sys/doc/troff.pdf!7 /sys/doc/troff.pdf
+page -j /sys/doc/troff.ps!7 /sys/doc/troff.ps
 Jump to page 7 in the troff manual.
 .TP
 .L
