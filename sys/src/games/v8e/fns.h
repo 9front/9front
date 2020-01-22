@@ -1,0 +1,16 @@
+void step(void);
+u8int memread8(u32int);
+u16int memread16(u32int);
+u32int memread32(u32int);
+void memwrite(u32int, u32int, u32int);
+void syscall(u16int);
+void writem(vlong, u32int, int);
+void *emalloc(ulong);
+void sysinit(void);
+u32int readm(vlong, int);
+u64int readm64(vlong, int);
+u32int addrof(vlong);
+void writem(vlong, u32int, int);
+void writem64(vlong, u64int, int);
+vlong amode(int);
+int load(char *, char **, char **);

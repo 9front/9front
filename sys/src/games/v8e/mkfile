@@ -1,0 +1,14 @@
+</$objtype/mkfile
+
+BIN=/$objtype/bin
+TARG=v8e
+HFILES=dat.h fns.h
+OFILES=\
+	v8e.$O \
+	cpu.$O \
+	cpubcd.$O \
+	cpufp.$O \
+	mem.$O \
+	sys.$O \
+
+</sys/src/cmd/mkone
