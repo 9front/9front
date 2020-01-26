@@ -1,13 +1,12 @@
 #include "u.h"
+#include "tos.h"
 #include "../port/lib.h"
 #include "mem.h"
 #include "dat.h"
 #include "fns.h"
-#include "init.h"
 #include "pool.h"
 #include "io.h"
 #include "../port/error.h"
-#include "tos.h"
 
 Conf conf;
 int normalprint, delaylink;
@@ -143,22 +142,14 @@ confinit(void)
 	imagmem->maxsize = kmem - (kmem/10);
 }
 
-static void
+void
 init0(void)
 {
 	char buf[ERRMAX], **sp;
 	int i;
 
-	up->nerrlab = 0;
-	spllo();
-	
-	up->slash = namec("#/", Atodir, 0, 0);
-	pathclose(up->slash->path);
-	up->slash->path = newpath("/");
-	up->dot = cclone(up->slash);
-	
 	chandevinit();
-	
+
 	if(!waserror()){
 		ksetenv("cputype", "arm", 0);
 		if(cpuserver)
@@ -181,55 +172,7 @@ init0(void)
 	sp[3] = sp[2] = nil;
 	strcpy(sp[1] = (char*)&sp[4], "boot");
 	sp[0] = nil;
-	touser(sp);
-}
-
-void
-userinit(void)
-{
-	Proc *p;
-	Segment *s;
-	void *v;
-	Page *pg;
-	
-	p = newproc();
-	p->pgrp = newpgrp();
-	p->egrp = smalloc(sizeof(Egrp));
-	p->egrp->ref = 1;
-	p->fgrp = dupfgrp(nil);
-	p->rgrp = newrgrp();
-	p->procmode = 0640;
-	
-	kstrdup(&eve, "");
-	kstrdup(&p->text, "*init*");
-	kstrdup(&p->user, eve);
-	
-	procsetup(p);
-	
-	p->sched.pc = (ulong)init0;
-	p->sched.sp = (ulong)p->kstack + KSTACK - (sizeof(Sargs) + BY2WD);
-	
-	s = newseg(SG_STACK, USTKTOP - USTKSIZE, USTKSIZE / BY2PG);
-	p->seg[SSEG] = s;
-	pg = newpage(0, 0, USTKTOP - BY2PG);
-	segpage(s, pg);
-	v = tmpmap(pg->pa);
-	memset(v, 0, BY2PG);
-	tmpunmap(v);
-	
-	s = newseg(SG_TEXT, UTZERO, 1);
-	s->flushme++;
-	p->seg[TSEG] = s;
-	pg = newpage(0, 0, UTZERO);
-	pg->txtflush = ~0;
-
-	segpage(s, pg);
-	v = tmpmap(pg->pa);
-	memset(v, 0, BY2PG);
-	memmove(v, initcode, sizeof(initcode));
-	tmpunmap(v);
-	
-	ready(p);
+ 	touser(sp);
 }
 
 void

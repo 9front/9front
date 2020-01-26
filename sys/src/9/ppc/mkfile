@@ -53,7 +53,6 @@ HFILES=\
 	dat.h\
 	errstr.h\
 	fns.h\
-	init.h\
 	io.h\
 	mem.h\
 
@@ -90,16 +89,11 @@ install:V: $p$CONF
 <|../port/mkbootrules $CONF
 
 clock.$O devether.$O main.$O trap.$O:	/$objtype/include/ureg.h
+trap.$O main.$O: /sys/include/tos.h
 
 %.$O:	$HFILES
 
 $ETHER: 			../port/etherif.h ../port/netif.h
 
-init.h:	../port/initcode.c init9.s
-	$CC ../port/initcode.c
-	$AS init9.s
-	$LD -l -s -R4 -o init.out init9.$O initcode.$O /power/lib/libc.a
-	{echo 'uchar initcode[]={'
-	<init.out xd -1x |
-		sed -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
-	 echo '};'} > init.h
+initcode.out:		init9.$O initcode.$O /$objtype/lib/libc.a
+	$LD -l -R4 -s -o $target $prereq

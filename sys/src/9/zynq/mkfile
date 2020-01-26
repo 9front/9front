@@ -39,6 +39,7 @@ PORT=\
 	random.$O\
 	rdb.$O\
 	syscallfmt.$O\
+	userinit.$O\
 
 OBJ=\
 	ltrap.$O\
@@ -71,19 +72,14 @@ $p$CONF:D: $CONF.c $OBJ $LIB mkfile
 <../port/portmkfile
 <|../port/mkbootrules $CONF
 
-init.h:D: ../port/initcode.c init9.s
-	$CC ../port/initcode.c
-	$AS init9.s
-	$LD -l -R1 -s -o init.out init9.$O initcode.$O /arm/lib/libc.a
-	{echo 'uchar initcode[]={'
-	 xd -1x <init.out |
-		sed -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
-	 echo '};'} > init.h
+initcode.out:		init9.$O initcode.$O /$objtype/lib/libc.a
+	$LD -l -R1 -s -o $target $prereq
 
 install:V:	$p$CONF
 	cp $p$CONF /$objtype/
 	for(i in $EXTRACOPIES)
 		import $i / /n/$i && cp $p$CONF $p$CONF.gz /n/$i/$objtype/
 
+main.$O trap.$O: /sys/include/tos.h
 devusb.$O usbehci.$O usbehcizynq.$O: ../port/usb.h
 usbehci.$O usbehcizynq.$O: usbehci.h

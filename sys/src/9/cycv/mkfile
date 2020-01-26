@@ -39,6 +39,7 @@ PORT=\
 	random.$O\
 	rdb.$O\
 	syscallfmt.$O\
+	userinit.$O\
 
 OBJ=\
 	ltrap.$O\
@@ -74,14 +75,10 @@ $p$CONF:D: $CONF.c $OBJ $LIB mkfile
 <../port/portmkfile
 <|../port/mkbootrules $CONF
 
-init.h:D: ../port/initcode.c init9.s
-	$CC ../port/initcode.c
-	$AS init9.s
-	$LD -l -R1 -s -o init.out init9.$O initcode.$O /arm/lib/libc.a
-	{echo 'uchar initcode[]={'
-	 xd -1x <init.out |
-		sed -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
-	 echo '};'} > init.h
+trap.$O main.$O: /sys/include/tos.h
+
+initcode.out: init9.$O initcode.$O /$objtype/lib/libc.a
+	$LD -l -R1 -s -o $target $prereq
 
 install:V:	$p$CONF $p$CONF.u
 	cp $p$CONF $p$CONF.u /$objtype/

@@ -569,9 +569,6 @@ forkchild(Proc *p, Ureg *ureg)
 	cureg = (Ureg*) p->sched.sp;
 	memmove(cureg, ureg, sizeof(Ureg));
 	cureg->r0 = 0;
-
-	p->psstate = 0;
-	p->insyscall = 0;
 }
 
 uintptr

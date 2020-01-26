@@ -608,7 +608,7 @@ newproc(void)
 	procalloc.free = p->qnext;
 	unlock(&procalloc);
 
-	p->state = Scheding;
+	assert(p->state == Dead);
 	p->psstate = "New";
 	p->mach = nil;
 	p->eql = nil;
@@ -628,8 +628,10 @@ newproc(void)
 	p->syscalltrace = nil;	
 	p->notepending = 0;
 	p->ureg = nil;
+	p->dbgreg = nil;
 	p->privatemem = 0;
 	p->noswap = 0;
+	p->nerrlab = 0;
 	p->errstr = p->errbuf0;
 	p->syserrstr = p->errbuf1;
 	p->errbuf0[0] = '\0';
@@ -637,14 +639,11 @@ newproc(void)
 	p->nlocks = 0;
 	p->delaysched = 0;
 	p->trace = 0;
-	kstrdup(&p->user, "*nouser");
-	kstrdup(&p->text, "*notext");
-	kstrdup(&p->args, "");
 	p->nargs = 0;
 	p->setargs = 0;
 	memset(p->seg, 0, sizeof p->seg);
 	p->parentpid = 0;
-	p->noteid = pidalloc(p);
+	p->noteid = 0;
 	if(p->kstack == nil)
 		p->kstack = smalloc(KSTACK);
 
@@ -924,7 +923,7 @@ postnote(Proc *p, int dolock, char *n, int flag)
 		return 0;
 	}
 
-	if(n != nil && flag != NUser && (p->notify == 0 || p->notified))
+	if(n != nil && flag != NUser && (p->notify == nil || p->notified))
 		p->nnote = 0;
 
 	ret = 0;
@@ -1443,44 +1442,49 @@ scheddump(void)
 void
 kproc(char *name, void (*func)(void *), void *arg)
 {
-	Proc *p;
 	static Pgrp *kpgrp;
+	Proc *p;
 
 	p = newproc();
-	p->psstate = nil;
-	p->procmode = 0640;
-	p->kp = 1;
-	p->noswap = 1;
 
-	p->scallnr = up->scallnr;
-	p->s = up->s;
-	p->nerrlab = 0;
-	p->slash = up->slash;
-	p->dot = up->slash;	/* unlike fork, do not inherit the dot for kprocs */
-	if(p->dot != nil)
-		incref(p->dot);
+	if(up != nil){
+		p->slash = up->slash;
+		p->dot = up->slash;	/* unlike fork, do not inherit the dot for kprocs */
+		if(p->dot != nil)
+			incref(p->dot);
+	} else {
+		p->slash = nil;
+		p->dot = nil;
+	}
 
-	memmove(p->note, up->note, sizeof(p->note));
-	p->nnote = up->nnote;
+	p->nnote = 0;
+	p->notify = nil;
 	p->notified = 0;
-	p->lastnote = up->lastnote;
-	p->notify = up->notify;
-	p->ureg = nil;
-	p->dbgreg = nil;
 
-	procpriority(p, PriKproc, 0);
+	p->procmode = 0640;
+	p->noswap = 1;
+	p->kp = 1;
 
 	kprocchild(p, func, arg);
 
-	kstrdup(&p->user, eve);
 	kstrdup(&p->text, name);
+	kstrdup(&p->user, eve);
+	kstrdup(&p->args, "");
+
 	if(kpgrp == nil)
 		kpgrp = newpgrp();
 	p->pgrp = kpgrp;
 	incref(kpgrp);
 
+	p->insyscall = 1;
 	memset(p->time, 0, sizeof(p->time));
 	p->time[TReal] = MACHP(0)->ticks;
+
+	pidalloc(p);
+
+	procpriority(p, PriKproc, 0);
+
+	p->psstate = nil;
 	ready(p);
 }
 

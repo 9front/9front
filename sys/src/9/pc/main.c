@@ -1,14 +1,13 @@
 #include	"u.h"
+#include	"tos.h"
 #include	"../port/lib.h"
 #include	"mem.h"
 #include	"dat.h"
 #include	"fns.h"
 #include	"io.h"
-#include	"tos.h"
 #include	"ureg.h"
-#include	"init.h"
 #include	"pool.h"
-#include	"reboot.h"
+#include	"rebootcode.i"
 
 Mach *m;
 Conf conf;
@@ -110,19 +109,6 @@ init0(void)
 {
 	char buf[2*KNAMELEN], **sp;
 
-	up->nerrlab = 0;
-
-	spllo();
-
-	/*
-	 * These are o.k. because rootinit is null.
-	 * Then early kproc's will have a root and dot.
-	 */
-	up->slash = namec("#/", Atodir, 0, 0);
-	pathclose(up->slash->path);
-	up->slash->path = newpath("/");
-	up->dot = cclone(up->slash);
-
 	chandevinit();
 
 	if(!waserror()){
@@ -143,69 +129,6 @@ init0(void)
 	strcpy(sp[1] = (char*)&sp[4], "boot");
 	sp[0] = nil;
 	touser(sp);
-}
-
-void
-userinit(void)
-{
-	void *v;
-	Proc *p;
-	Segment *s;
-	Page *pg;
-
-	p = newproc();
-	p->pgrp = newpgrp();
-	p->egrp = smalloc(sizeof(Egrp));
-	p->egrp->ref = 1;
-	p->fgrp = dupfgrp(nil);
-	p->rgrp = newrgrp();
-	p->procmode = 0640;
-
-	kstrdup(&eve, "");
-	kstrdup(&p->text, "*init*");
-	kstrdup(&p->user, eve);
-
-	procsetup(p);
-
-	/*
-	 * Kernel Stack
-	 *
-	 * N.B. make sure there's enough space for syscall to check
-	 *	for valid args and 
-	 *	4 bytes for gotolabel's return PC
-	 */
-	p->sched.pc = (ulong)init0;
-	p->sched.sp = (ulong)p->kstack+KSTACK-(sizeof(Sargs)+BY2WD);
-
-	/*
-	 * User Stack
-	 *
-	 * N.B. cannot call newpage() with clear=1, because pc kmap
-	 * requires up != nil.  use tmpmap instead.
-	 */
-	s = newseg(SG_STACK, USTKTOP-USTKSIZE, USTKSIZE/BY2PG);
-	p->seg[SSEG] = s;
-	pg = newpage(0, 0, USTKTOP-BY2PG);
-	segpage(s, pg);
-	v = tmpmap(pg);
-	memset(v, 0, BY2PG);
-	tmpunmap(v);
-
-	/*
-	 * Text
-	 */
-	s = newseg(SG_TEXT, UTZERO, 1);
-	s->flushme++;
-	p->seg[TSEG] = s;
-	pg = newpage(0, 0, UTZERO);
-	pg->txtflush = ~0;
-	segpage(s, pg);
-	v = tmpmap(pg);
-	memset(v, 0, BY2PG);
-	memmove(v, initcode, sizeof initcode);
-	tmpunmap(v);
-
-	ready(p);
 }
 
 void

@@ -42,6 +42,7 @@ PORT=\
 	taslock.$O\
 	tod.$O\
 	xalloc.$O\
+	userinit.$O\
 
 OBJ=\
 	l.$O\
@@ -109,19 +110,19 @@ etheryuk.$O:			yukdump.h
 $VGA mouse.$O:			screen.h /sys/include/memdraw.h
 vgavesa.$O:			/386/include/ureg.h
 devfloppy.$O: 			floppy.h
-archmp.$O mp.$O:		apbootstrap.h
+mp.$O:				apbootstrap.i
 apic.$O archmp.$O mp.$O:	mp.h
 squidboy.$O:			mp.h
 $SDEV:				../port/sd.h
 sd53c8xx.$O:			sd53c8xx.i
 sdiahci.$O:			ahci.h
 devaoe.$O sdaoe.$O:		../port/aoe.h
-main.$O:			init.h reboot.h
+main.$O:			rebootcode.i
 wavelan.$O:			wavelan.c ../pc/wavelan.c ../pc/wavelan.h
 etherwavelan.$O:		etherwavelan.c ../pc/wavelan.h
 devusb.$O usbuhci.$O usbohci.$O usbehci.$O usbehcipc.$O usbxhci.$O: ../port/usb.h
 usbehci.$O usbehcipc.$O:	usbehci.h
-trap.$O:			/sys/include/tos.h
+trap.$O main.$O:		/sys/include/tos.h
 uartaxp.$O:			uartaxp.i
 ether8169.$O:			../port/ethermii.h
 etherdp83820.$O:		../port/ethermii.h
@@ -133,31 +134,16 @@ etherm10g.$O:			etherm10g2k.i etherm10g4k.i
 etheriwl.$O:			../port/wifi.h
 etherwpi.$O:			../port/wifi.h
 etherrt2860.$O: 		../port/wifi.h
+l.$O rebootcode.$O apbootstrap.$O:	mem.h
 
-init.h:D:		../port/initcode.c init9.c
-	$CC ../port/initcode.c
-	$CC init9.c
-	$LD -l -R1 -s -o init.out init9.$O initcode.$O /386/lib/libc.a
-	{echo 'uchar initcode[]={'
-	 xd -1x <init.out |
-		sed -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
-	 echo '};'} > init.h
+initcode.out:		init9.$O initcode.$O /$objtype/lib/libc.a
+	$LD -l -R1 -s -o $target $prereq
 
-reboot.h:D:	rebootcode.s mem.h
-	$AS rebootcode.s
-	$LD -l -s -T$REBOOTADDR -R4 -o reboot.out rebootcode.$O
-	{echo 'uchar rebootcode[]={'
-	 xd -1x reboot.out |
-		sed -e '1,2d' -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
-	 echo '};'} > reboot.h
+rebootcode.out:		rebootcode.$O
+	$LD -l -R4 -s -o $target -T$REBOOTADDR $prereq
 
-apbootstrap.h:D:	apbootstrap.s mem.h
-	$AS $prereq
-	$LD -o apbootstrap.out -T$APBOOTSTRAP -R4 -l -s apbootstrap.$O
-	{echo 'uchar apbootstrap[]={'
-	 xd -1x apbootstrap.out |
-		sed -e '1,2d' -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
-	 echo '};'} > $target
+apbootstrap.out:	apbootstrap.$O
+	$LD -l -R4 -s -o $target -T$APBOOTSTRAP $prereq
 
 sd53c8xx.i:	sd53c8xx.n
 	aux/na $prereq > $target
@@ -199,6 +185,3 @@ checkdist:VQ:
 	for(i in pcdisk pcflop)
 	for(j in checkvga checkether)
 		mk $i.$j
-
-%.clean:V:
-	rm -f $stem.c [9bz]$stem [9bz]$stem.gz boot$stem.* reboot.h apbootstrap.h init.h

@@ -1,21 +1,14 @@
 #include	"u.h"
+#include	"tos.h"
 #include	"../port/lib.h"
 #include	"mem.h"
 #include	"dat.h"
 #include	"fns.h"
 #include	"io.h"
-#include	"init.h"
 #include	"pool.h"
 #include	"../ip/ip.h"
-#include	<tos.h>
 #include	<../port/error.h>
 
-enum {
-	/* space for syscall args, return PC, top-of-stack struct */
-	Stkheadroom	= sizeof(Sargs) + sizeof(uintptr) + sizeof(Tos),
-};
-
-static uchar *sp;		/* XXX - must go - user stack of init proc */
 static FPsave initfp;
 
 /*
@@ -233,20 +226,7 @@ machinit(void)
 void
 init0(void)
 {
-	char buf[128];
-
-	up->nerrlab = 0;
-
-	spllo();
-
-	/*
-	 * These are o.k. because rootinit is null.
-	 * Then early kproc's will have a root and dot.
-	 */
-	up->slash = namec("#/", Atodir, 0, 0);
-	pathclose(up->slash->path);
-	up->slash->path = newpath("/");
-	up->dot = cclone(up->slash);
+	char buf[128], **sp;
 
 	chandevinit();
 
@@ -274,99 +254,11 @@ init0(void)
 		kproc("arcs", arcsproc, 0);
 
 	kproc("alarm", alarmkproc, 0);
+
+	sp = (char**)(USTKTOP-sizeof(Tos) - 8 - sizeof(sp[0])*4);
+	sp[3] = sp[2] = sp[1] = nil;
+	strcpy(sp[0] = (char*)&sp[4], "boot");
 	touser(sp);
-}
-
-static uchar *
-pusharg(char *p)
-{
-	int n;
-	
-	n = strlen(p) + 1;
-	sp -= n;
-	memmove(sp, p, n);
-	return sp;
-}
-
-static void
-bootargs(uintptr base)
-{	int i, ac;
-	uchar *av[32];
-	uchar **lsp;
-	
-	sp = (uchar *) base + BY2PG - sizeof(Tos);
-	
-	ac = 0;
-	av[ac++] = pusharg("boot");
-	sp = (uchar *) ((ulong) sp & ~7);
-	sp -= ROUND((ac + 1) * sizeof(sp), 8) + 4;
-	lsp = (uchar **) sp;
-	for(i = 0; i < ac; i++)
-		lsp[i] = av[i] + ((USTKTOP - BY2PG) - (ulong) base);
-	lsp[i] = 0;
-	sp += (USTKTOP - BY2PG) - (ulong) base;
-}
-
-void
-userinit(void)
-{
-	Proc *p;
-	KMap *k;
-	Page *pg;
-	Segment *s;
-
-	p = newproc();
-	p->pgrp = newpgrp();
-	p->egrp = smalloc(sizeof(Egrp));
-	p->egrp->ref = 1;
-	p->fgrp = dupfgrp(nil);
-	p->rgrp = newrgrp();
-	p->procmode = 0640;
-
-	kstrdup(&eve, "");
-	kstrdup(&p->text, "*init*");
-	kstrdup(&p->user, eve);
-
-	procsetup(p);
-
-	/*
-	 * Kernel Stack
-	 */
-	p->sched.pc = (ulong)init0;
-	p->sched.sp = (ulong)p->kstack+KSTACK-Stkheadroom;
-	p->sched.sp = STACKALIGN(p->sched.sp);
-
-	/*
-	 * User Stack
-	 *
-	 * Technically, newpage can't be called here because it
-	 * should only be called when in a user context as it may
-	 * try to sleep if there are no pages available, but that
-	 * shouldn't be the case here.
-	 */
-	s = newseg(SG_STACK, USTKTOP-USTKSIZE, USTKSIZE/BY2PG);
-	p->seg[SSEG] = s;
-	pg = newpage(1, 0, USTKTOP-BY2PG);
-	segpage(s, pg);
-	k = kmap(pg);
-	bootargs(VA(k));
-	kunmap(k);
-
-	/*
-	 * Text
-	 */
-	s = newseg(SG_TEXT, UTZERO, 1);
-	s->flushme++;
-	p->seg[TSEG] = s;
-	pg = newpage(1, 0, UTZERO);
-	pg->txtflush = ~0;
-	segpage(s, pg);
-	k = kmap(s->map[0]->pages[0]);
-	memset((void *)VA(k), 0, BY2PG);
-	memmove((ulong*)VA(k), initcode, sizeof initcode);
-	kunmap(k);
-
-	ready(p);
 }
 
 void

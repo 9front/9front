@@ -7,7 +7,7 @@
 #include "ureg.h"
 
 #include "mp.h"
-#include "apbootstrap.h"
+#include "apbootstrap.i"
 
 /* filled in by pcmpinit or acpiinit */
 Bus* mpbus;

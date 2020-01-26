@@ -80,7 +80,7 @@ sysrfork(va_list list)
 			closeegrp(oeg);
 		}
 		if(flag & RFNOTEG)
-			up->noteid = pidalloc(0);
+			up->noteid = pidalloc(nil);
 		return 0;
 	}
 
@@ -88,20 +88,38 @@ sysrfork(va_list list)
 
 	p->scallnr = up->scallnr;
 	p->s = up->s;
-	p->nerrlab = 0;
 	p->slash = up->slash;
 	p->dot = up->dot;
 	incref(p->dot);
 
 	memmove(p->note, up->note, sizeof(p->note));
-	p->privatemem = up->privatemem;
-	p->noswap = up->noswap;
 	p->nnote = up->nnote;
+	p->notify = up->notify;
 	p->notified = 0;
 	p->lastnote = up->lastnote;
-	p->notify = up->notify;
-	p->ureg = up->ureg;
-	p->dbgreg = 0;
+
+	p->parentpid = up->pid;
+	p->procmode = up->procmode;
+	p->privatemem = up->privatemem;
+	p->noswap = up->noswap;
+	p->hang = up->hang;
+	if(up->procctl == Proc_tracesyscall)
+		p->procctl = Proc_tracesyscall;
+
+	/* Craft a return frame which will cause the child to pop out of
+	 * the scheduler in user mode with the return register zero
+	 */
+	forkchild(p, up->dbgreg);
+
+	kstrdup(&p->text, up->text);
+	kstrdup(&p->user, up->user);
+	kstrdup(&p->args, "");
+
+	p->insyscall = 0;
+	memset(p->time, 0, sizeof(p->time));
+	p->time[TReal] = MACHP(0)->ticks;
+
+	pid = pidalloc(p);
 
 	/* Abort the child process on error */
 	if(waserror()){
@@ -169,36 +187,20 @@ sysrfork(va_list list)
 		p->egrp = up->egrp;
 		incref(p->egrp);
 	}
-	p->hang = up->hang;
-	p->procmode = up->procmode;
-	if(up->procctl == Proc_tracesyscall)
-		p->procctl = Proc_tracesyscall;
+
+	if(flag & RFNOTEG)
+		p->noteid = pid;
+
+	procfork(p);
 
 	poperror();	/* abortion */
 
-	/* Craft a return frame which will cause the child to pop out of
-	 * the scheduler in user mode with the return register zero
-	 */
-	forkchild(p, up->dbgreg);
-
-	p->parentpid = up->pid;
 	if((flag&RFNOWAIT) == 0){
 		p->parent = up;
 		lock(&up->exl);
 		up->nchild++;
 		unlock(&up->exl);
 	}
-	if((flag&RFNOTEG) == 0)
-		p->noteid = up->noteid;
-
-	pid = p->pid;
-	memset(p->time, 0, sizeof(p->time));
-	p->time[TReal] = MACHP(0)->ticks;
-
-	kstrdup(&p->text, up->text);
-	kstrdup(&p->user, up->user);
-
-	procfork(p);
 
 	/*
 	 *  since the bss/data segments are now shareable,
@@ -211,8 +213,9 @@ sysrfork(va_list list)
 	p->fixedpri = up->fixedpri;
 	p->mp = up->mp;
 	wm = up->wired;
-	if(wm)
+	if(wm != nil)
 		procwired(p, wm->machno);
+	p->psstate = nil;
 	ready(p);
 	sched();
 	return pid;
@@ -565,7 +568,7 @@ sysexec(va_list list)
 	up->setargs = 0;
 
 	up->nnote = 0;
-	up->notify = 0;
+	up->notify = nil;
 	up->notified = 0;
 	up->privatemem = 0;
 	up->noswap = 0;

@@ -136,6 +136,7 @@ void		iunlock(Lock*);
 ulong		imagecached(void);
 ulong		imagereclaim(ulong);
 long		incref(Ref*);
+void		init0(void);
 void		initseg(void);
 int		iprint(char*, ...);
 void		isdir(Chan*);

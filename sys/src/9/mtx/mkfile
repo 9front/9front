@@ -36,6 +36,7 @@ PORT=\
 	tod.$O\
 	xalloc.$O\
 	random.$O\
+	userinit.$O\
 
 OBJ=\
 	l.$O\
@@ -79,15 +80,12 @@ install:V: $p$CONF
 
 clock.$O:	/$objtype/include/ureg.h
 devether.$O:	/$objtype/include/ureg.h
-main.$O:	/$objtype/include/ureg.h errstr.h init.h
-trap.$O:	/$objtype/include/ureg.h
+main.$O:	/$objtype/include/ureg.h errstr.h
+trap.$O:	/$objtype/include/ureg.h /sys/include/tos.h
 
 $ETHER: 	../port/etherif.h ../port/netif.h
 
-init.h:	initcode /sys/src/libc/9syscall/sys.h
+initcode.$O:	initcode /sys/src/libc/9syscall/sys.h
 	$AS initcode
-	$LD -l -s -R4 -o init.out initcode.$O -lc
-	{echo 'uchar initcode[]={'
-	 xd -r -1x init.out |
-		sed -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
-	 echo '};'} > init.h
+initcode.out:		initcode.$O
+	$LD -l -R4 -s -o $target $prereq

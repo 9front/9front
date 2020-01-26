@@ -37,6 +37,7 @@ PORT=\
 	taslock.$O\
 	tod.$O\
 	xalloc.$O\
+	userinit.$O\
 
 OBJ=\
 	l.$O\
@@ -99,10 +100,10 @@ REPCC=`{../port/mkfilelist ../bcm}
 
 arch.$O clock.$O fpiarm.$O main.$O mmu.$O screen.$O syscall.$O trap.$O: \
 	/$objtype/include/ureg.h
-
-l.$O cache.v8.$O mmu.$O: mem.h
-l.$O cache.v8.$O archbcm3.$O clock.$O fpu.$O trap.$O mmu.$O: sysreg.h
-main.$O: reboot.h
+trap.$O main.$O: /sys/include/tos.h
+l.$O cache.v8.$O mmu.$O rebootcode.$O: mem.h
+l.$O cache.v8.$O archbcm3.$O clock.$O fpu.$O trap.$O mmu.$O rebootcode.$O: sysreg.h
+main.$O: rebootcode.i
 
 devmouse.$O mouse.$O screen.$O: screen.h
 usbdwc.$O: dwcotg.h ../port/usb.h
@@ -114,26 +115,11 @@ screen.h:D: ../bcm/screen.h
 dwcotg.h:D: ../bcm/dwcotg.h
 	echo '#include "../bcm/dwcotg.h"' > dwcotg.h
 
-init.h:D:	../port/initcode.c init9.s
-	$CC ../port/initcode.c
-	$AS init9.s
-	$LD -l -R1 -s -o init.out init9.$O initcode.$O /$objtype/lib/libc.a
-	{echo 'uchar initcode[]={'
-	 xd -1x <init.out |
-		sed -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
-	 echo '};'} > init.h
+initcode.out:		init9.$O initcode.$O /$objtype/lib/libc.a
+	$LD -l -R1 -s -o $target $prereq
 
-reboot.h:D:	rebootcode.s cache.v8.$O mem.h sysreg.h
-	$AS rebootcode.s
-	# -T arg is REBOOTADDR
-	$LD -l -o reboot.out -H6 -R1 -T0x1c00 rebootcode.$O cache.v8.$O
-	{echo 'uchar rebootcode[]={'
-	 xd -1x reboot.out |
-		sed -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
-	 echo '};'} > reboot.h
-
-errstr.h:D:	../port/mkerrstr ../port/error.h
-	rc ../port/mkerrstr > errstr.h
+rebootcode.out:		rebootcode.$O cache.v8.$O
+	$LD -l -H6 -R1 -T0x1c00 -s -o $target $prereq
 
 $CONF.clean:
-	rm -rf $p$CONF s$p$CONF errstr.h reboot.h screen.h dwcotg.h $CONF.c boot$CONF.c
+	rm -rf $p$CONF s$p$CONF errstr.h screen.h dwcotg.h $CONF.c boot$CONF.c

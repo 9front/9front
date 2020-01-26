@@ -30,7 +30,7 @@ all:V:
 		mk 'CONF='$i
 
 clean:V:
-	rm -f *.[$OS] *.i *.root.s *.rootc.c cfs.h fs.h init.h conf.h *.out *.m errstr.h boot bootfs.paq
+	rm -f *.[$OS] *.i *.root.s *.rootc.c cfs.h fs.h conf.h *.out *.m errstr.h init.h reboot.h boot bootfs.paq
 	for(i in $CONFLIST $CRAPLIST)
 		mk $i.clean
 
@@ -56,8 +56,14 @@ $CONF.c:	../port/mkdevc $CONF
 	 echo 0,
 	 echo '};'} >> $CONF.c
 
-errstr.h:	../port/mkerrstr ../port/error.h
+errstr.h:D:	../port/mkerrstr ../port/error.h
 	rc ../port/mkerrstr > errstr.h
+
+%.i:	%.out
+	{echo 'uchar '^$stem^'[]={'
+	 xd -1x <$stem.out |
+		sed -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
+	 echo '};'} > $target
 
 %.db:		main.$O
 	$CC -s$stem main.c | dbfmt > $stem.db
@@ -74,7 +80,7 @@ sdscsi.$O:	../port/sd.h /$objtype/include/ureg.h
 sdaoe.$O:	../port/sd.h /$objtype/include/ureg.h
 trap.$O:	/$objtype/include/ureg.h
 devproc.$O:	/$objtype/include/ureg.h
-main.$O:	init.h
+userinit.$O:	initcode.i
 trap.$O:	../port/systab.h
 devpipe.$O:	../port/netif.h
 netif.$O:	../port/netif.h

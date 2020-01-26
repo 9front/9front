@@ -1015,10 +1015,6 @@ forkchild(Proc *p, Ureg *ureg)
 	memmove(cureg, ureg, sizeof(Ureg));
 	/* return value of syscall in child */
 	cureg->ax = 0;
-
-	/* Things from bottom of syscall which were never executed */
-	p->psstate = 0;
-	p->insyscall = 0;
 }
 
 /* Give enough context in the ureg to produce a kernel stack for

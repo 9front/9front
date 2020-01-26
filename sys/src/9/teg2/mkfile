@@ -40,6 +40,7 @@ PORT=\
 	taslock.$O\
 	tod.$O\
 	xalloc.$O\
+	userinit.$O\
 
 OBJ=\
 	l.$O\
@@ -121,32 +122,17 @@ archtegra.$O devether.$0 ether9221.$O: ../port/etherif.h ../port/netif.h
 archtegra.$O devflash.$O flashtegra.$O flashigep.$O: ../port/flashif.h
 ecc.$O flashtegra.$O flashigep.$O: ../port/nandecc.h io.h
 fpi.$O fpiarm.$O fpimem.$O: fpi.h
-l.$O lexception.$O lproc.$O mmu.$O: arm.s mem.h
+l.$O lexception.$O lproc.$O mmu.$O rebootcode.$O: arm.s mem.h
 l.$O rebootcode.$O: cache.v7.s
-main.$O: errstr.h init.h reboot.h
+main.$O: errstr.h rebootcode.i /sys/include/tos.h
 devusb.$O: ../port/usb.h
 usbehci.$O usbohci.$O usbuhci.$O: ../port/usb.h usbehci.h uncached.h
 
-init.h:D:	../port/initcode.c init9.s
-	$CC ../port/initcode.c
-	$AS init9.s
-	$LD -l -R1 -s -o init.out init9.$O initcode.$O /$objtype/lib/libc.a
-	{echo 'uchar initcode[]={'
-	 xd -1x <init.out |
-		sed -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
-	 echo '};'} > init.h
+init9.$O:	../omap/init9.s
+	$AS ../omap/init9.s
 
-reboot.h:D:	rebootcode.s cache.v7.s arm.s arm.h mem.h
-	$AS rebootcode.s
-	# -lc is only for memmove.  -T arg is PADDR(REBOOTADDR)
-#	$LD -l -a -s -T0x100 -R4 -o reboot.out rebootcode.$O -lc >reboot.list
-	$LD -l -s -T0x100 -R4 -o reboot.out rebootcode.$O -lc
-	{echo 'uchar rebootcode[]={'
-	 xd -1x reboot.out |
-		sed -e '1,2d' -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
-	 echo '};'} > reboot.h
-errstr.h:D:	../port/mkerrstr ../port/error.h
-	rc ../port/mkerrstr > errstr.h
+initcode.out:		init9.$O initcode.$O /$objtype/lib/libc.a
+	$LD -l -R1 -s -o $target $prereq
 
-$CONF.clean:
-	rm -rf $p$CONF s$p$CONF errstr.h reboot.h $CONF.c boot$CONF.c
+rebootcode.out:		rebootcode.$O
+	$LD -l -R4 -T0x100 -s -o $target $prereq -lc

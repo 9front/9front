@@ -6,10 +6,9 @@
 #include "fns.h"
 #include "io.h"
 
-#include "init.h"
 #include <pool.h>
 
-#include "reboot.h"
+#include "rebootcode.i"
 
 /* Firmware compatibility */
 #define	Minfirmrev	326770
@@ -131,19 +130,6 @@ init0(void)
 {
 	char buf[2*KNAMELEN], **sp;
 
-	up->nerrlab = 0;
-	coherence();
-	spllo();
-
-	/*
-	 * These are o.k. because rootinit is null.
-	 * Then early kproc's will have a root and dot.
-	 */
-	up->slash = namec("#/", Atodir, 0, 0);
-	pathclose(up->slash->path);
-	up->slash->path = newpath("/");
-	up->dot = cclone(up->slash);
-
 	chandevinit();
 
 	if(!waserror()){
@@ -166,74 +152,7 @@ init0(void)
 	sp = (char**)(USTKTOP - sizeof(Tos) - 8 - sizeof(sp[0])*4);
 	sp[3] = sp[2] = sp[1] = nil;
 	strcpy(sp[0] = (char*)&sp[4], "boot");
-
 	touser((uintptr)sp);
-	assert(0);			/* shouldn't have returned */
-}
-
-/*
- *  create the first process
- */
-void
-userinit(void)
-{
-	Proc *p;
-	Segment *s;
-	KMap *k;
-	Page *pg;
-
-	/* no processes yet */
-	up = nil;
-
-	p = newproc();
-	p->pgrp = newpgrp();
-	p->egrp = smalloc(sizeof(Egrp));
-	p->egrp->ref = 1;
-	p->fgrp = dupfgrp(nil);
-	p->rgrp = newrgrp();
-	p->procmode = 0640;
-
-	kstrdup(&eve, "");
-	kstrdup(&p->text, "*init*");
-	kstrdup(&p->user, eve);
-
-	/*
-	 * Kernel Stack
-	 */
-	p->sched.pc = (uintptr)init0;
-	p->sched.sp = (uintptr)p->kstack+KSTACK-sizeof(up->s.args)-sizeof(uintptr);
-	p->sched.sp = STACKALIGN(p->sched.sp);
-
-	/*
-	 * User Stack
-	 *
-	 * Technically, newpage can't be called here because it
-	 * should only be called when in a user context as it may
-	 * try to sleep if there are no pages available, but that
-	 * shouldn't be the case here.
-	 */
-	s = newseg(SG_STACK, USTKTOP-USTKSIZE, USTKSIZE/BY2PG);
-	s->flushme++;
-	p->seg[SSEG] = s;
-	pg = newpage(1, 0, USTKTOP-BY2PG);
-	segpage(s, pg);
-	k = kmap(pg);
-	memset((void*)VA(k), 0, BY2PG);
-	kunmap(k);
-
-	/*
-	 * Text
-	 */
-	s = newseg(SG_TEXT, UTZERO, 1);
-	p->seg[TSEG] = s;
-	pg = newpage(1, 0, UTZERO);
-	pg->txtflush = ~0;
-	segpage(s, pg);
-	k = kmap(s->map[0]->pages[0]);
-	memmove((void*)VA(k), initcode, sizeof initcode);
-	kunmap(k);
-
-	ready(p);
 }
 
 void

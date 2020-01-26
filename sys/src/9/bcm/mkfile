@@ -39,6 +39,7 @@ PORT=\
 	taslock.$O\
 	tod.$O\
 	xalloc.$O\
+	userinit.$O\
 
 OBJ=\
 	l.$O\
@@ -104,36 +105,22 @@ install:V: /$objtype/$p$CONF
 
 arch.$O clock.$O fpiarm.$O main.$O mmu.$O screen.$O syscall.$O trap.$O: \
 	/$objtype/include/ureg.h
-
+arch.$O trap.$O main.$O: /sys/include/tos.h
 fpi.$O fpiarm.$O fpimem.$O: fpi.h
 l.$O lexception.$O lproc.$O mmu.$O: mem.h
 l.$O lexception.$O lproc.$O armv6.$O armv7.$O: arm.s
 armv7.$O: cache.v7.s
-main.$O: errstr.h init.h reboot.h
+main.$O: errstr.h rebootcode.i
 devmouse.$O mouse.$O screen.$O: screen.h
 usbdwc.$O: dwcotg.h ../port/usb.h
-arch.$O archbcm.$O archbcm2.$O clock.$O coproc.$O fpiarn.$O mmu.$O trap.$O vfp3.$O: arm.h mem.h
+arch.$O archbcm.$O archbcm2.$O clock.$O coproc.$O fpiarn.$O mmu.$O trap.$O vfp3.$O rebootcode.$O: arm.h mem.h
+rebootcode.$O: arm.s cache.v7.s
 
-init.h:D:	../port/initcode.c init9.s
-	$CC ../port/initcode.c
-	$AS init9.s
-	$LD -l -R1 -s -o init.out init9.$O initcode.$O /$objtype/lib/libc.a
-	{echo 'uchar initcode[]={'
-	 xd -1x <init.out |
-		sed -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
-	 echo '};'} > init.h
+init9.$O:	../omap/init9.s
+	$AS	../omap/init9.s
 
-reboot.h:D:	rebootcode.s arm.s arm.h mem.h
-	$AS rebootcode.s
-	# -T arg is REBOOTADDR
-	$LD -l -s -T0x1c00 -R4 -o reboot.out rebootcode.$O
-	{echo 'uchar rebootcode[]={'
-	 xd -1x reboot.out |
-		sed -e '1,2d' -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
-	 echo '};'} > reboot.h
+initcode.out:		init9.$O initcode.$O /$objtype/lib/libc.a
+	$LD -l -R1 -s -o $target $prereq
 
-errstr.h:D:	../port/mkerrstr ../port/error.h
-	rc ../port/mkerrstr > errstr.h
-
-$CONF.clean:
-	rm -rf $p$CONF s$p$CONF errstr.h reboot.h $CONF.c boot$CONF.c
+rebootcode.out:		rebootcode.$O
+	$LD -l -R4 -T0x1c00 -s -o $target $prereq

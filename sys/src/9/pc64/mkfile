@@ -40,6 +40,7 @@ PORT=\
 	taslock.$O\
 	tod.$O\
 	xalloc.$O\
+	userinit.$O\
 
 OBJ=\
 	l.$O\
@@ -100,7 +101,7 @@ REPCC=`{../port/mkfilelist ../pc}
 <../port/portmkfile
 <|../port/mkbootrules $CONF
 
-l.$O:				mem.h
+l.$O rebootcode.$O apbootstrap.$O:	mem.h
 
 $ETHER: 			../port/etherif.h ../port/netif.h
 $AUDIO:				../port/audioif.h
@@ -109,7 +110,7 @@ etheryuk.$O:			yukdump.h
 $VGA mouse.$O:			screen.h /sys/include/memdraw.h
 vgavesa.$O:			/386/include/ureg.h
 
-mp.$O:				mp.h apbootstrap.h 
+mp.$O:				mp.h apbootstrap.i
 apic.$O squidboy.$O:		mp.h
 archmp.$O archacpi.$O:		mp.h
 
@@ -120,13 +121,12 @@ sd53c8xx.$O:			../pc/sd53c8xx.i
 $SDEV:				../port/sd.h
 sdiahci.$O:			ahci.h
 devaoe.$O sdaoe.$O:		../port/aoe.h
-
-main.$O:			init.h reboot.h
+main.$O:			rebootcode.i
 
 devusb.$O usbuhci.$O usbohci.$O usbehci.$O usbehcipc.$O usbxhci.$O: ../port/usb.h
 usbehci.$O usbehcipc.$O:	usbehci.h
 
-trap.$O:			/sys/include/tos.h
+trap.$O main.$O:		/sys/include/tos.h
 
 ether8169.$O:			../port/ethermii.h
 etherdp83820.$O:		../port/ethermii.h
@@ -139,32 +139,18 @@ etheriwl.$O:			../port/wifi.h
 etherwpi.$O:			../port/wifi.h
 etherrt2860.$O: 		../port/wifi.h
 
-init.h:D:		../port/initcode.c ../pc/init9.c
-	$CC ../port/initcode.c
-	$CC ../pc/init9.c
-	$LD -l -R1 -s -o init.out init9.$O initcode.$O /$objtype/lib/libc.a
-	{echo 'uchar initcode[]={'
-	 xd -1x <init.out |
-		sed -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
-	 echo '};'} > init.h
+initcode.out:		init9.$O initcode.$O /$objtype/lib/libc.a
+	$LD -l -R1 -s -o $target $prereq
 
-reboot.h:D:	rebootcode.s mem.h
-	$AS rebootcode.s
-	$LD -l -R1 -s -o reboot.out -T$REBOOTADDR rebootcode.$O
-	{echo 'uchar rebootcode[]={'
-	 dd -if reboot.out -bs 1 -iseek 40 | 
-	 xd -1x |
-	 sed -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
-	 echo '};'} > $target
+$O.rebootcode:		rebootcode.$O
+	$LD -l -R1 -s -o $target -T$REBOOTADDR $prereq
+rebootcode.out:		$O.rebootcode
+	dd -if $prereq(1) -of $target -bs 1 -iseek 40
 
-apbootstrap.h:D:	apbootstrap.s mem.h
-	$AS apbootstrap.s
-	$LD -l -R1 -s -o apbootstrap.out -T$APBOOTSTRAP apbootstrap.$O
-	{echo 'uchar apbootstrap[]={'
-	 dd -if apbootstrap.out -bs 1 -iseek 40 | 
-	 xd -1x |
-	 sed -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
-	 echo '};'} > $target
+$O.apbootstrap:		apbootstrap.$O
+	$LD -l -R1 -s -o $target -T$APBOOTSTRAP $prereq
+apbootstrap.out:	$O.apbootstrap
+	dd -if $prereq(1) -of $target -bs 1 -iseek 40
 
 sd53c8xx.i:	sd53c8xx.n
 	aux/na $prereq > $target
@@ -173,4 +159,4 @@ acid:V:
 	$CC -a -w main.c>acid
 
 %.clean:V:
-	rm -f $stem.c [9bz]$stem [9bz]$stem.gz boot$stem.* apbootstrap.h reboot.h init.h $PCHEADERS
+	rm -f $stem.c [9bz]$stem [9bz]$stem.gz boot$stem.* $O.rebootcode $O.apbootstrap $PCHEADERS

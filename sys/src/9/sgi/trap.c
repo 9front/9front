@@ -2,13 +2,13 @@
  * traps, exceptions, faults and interrupts on ar7161
  */
 #include	"u.h"
+#include	"tos.h"
 #include	"../port/lib.h"
 #include	"mem.h"
 #include	"dat.h"
 #include	"fns.h"
 #include	"ureg.h"
 #include	"io.h"
-#include	<tos.h>
 #include	"../port/error.h"
 
 typedef struct Handler Handler;
@@ -792,10 +792,6 @@ forkchild(Proc *p, Ureg *ur)
 
 	cur->r1 = 0;
 	cur->pc += 4;
-
-	/* Things from bottom of syscall we never got to execute */
-	p->psstate = 0;
-	p->insyscall = 0;
 }
 
 static

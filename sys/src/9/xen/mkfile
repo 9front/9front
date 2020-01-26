@@ -37,6 +37,7 @@ PORT=\
 	taslock.$O\
 	tod.$O\
 	xalloc.$O\
+	userinit.$O\
 
 XEN=\
 	xengrant.$O\
@@ -131,8 +132,8 @@ REPCC=`{../port/mkfilelist ../pc}
 # we inherited these.. revisit.
 $ETHER: 	../port/etherif.h ../port/netif.h
 $SDEV:	../port/sd.h
-main.$O:	init.h reboot.h
-trap.$O:	/sys/include/tos.h
+main.$O:		rebootcode.i
+main.$O trap.$O:	/sys/include/tos.h
 
 %.$O:	/$objtype/include/u.h ../port/lib.h mem.h dat.h fns.h io.h ../port/error.h ../port/portdat.h ../port/portfns.h xendat.h xendefs.h
 
@@ -146,22 +147,14 @@ xendat.h:
 	  cat xen-public/^($XENHEADERS) } | \
 	./cppx > $target
 
-init.h:	../port/initcode.c ../pc/init9.c
-	$CC ../port/initcode.c
-	$CC ../pc/init9.c
-	$LD -l -R1 -o init.out init9.$O initcode.$O /386/lib/libc.a
-	{echo 'uchar initcode[]={'
-	 strip -o /fd/1 init.out | xd -1x |
-		sed -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
-	 echo '};'} > init.h
+initcode.out:		init9.$O initcode.$O /$objtype/lib/libc.a
+	$LD -l -R1 -s -o $target $prereq
 
-reboot.h:	../pc/rebootcode.s
+rebootcode.$O:	../pc/rebootcode.s mem.h
 	$AS ../pc/rebootcode.s
-	$LD -l -s -T0x1000 -R4 -o reboot.out rebootcode.$O
-	{echo 'uchar rebootcode[]={'
-	 xd -1x reboot.out |
-		sed -e '1,2d' -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
-	 echo '};'} > reboot.h
+
+rebootcode.out:		rebootcode.$O
+	$LD -l -R4 -s -o $target -T0x1000 $prereq
 
 acid:V:
 	$CC -a -w main.c>acid
@@ -176,6 +169,6 @@ xenbin.$cputype xenelf.$cputype:	utilmkfile
 	mk -f utilmkfile $target
 
 %.clean:V:
-	rm -f $stem.c [9bz]$stem [9bz]$stem.gz 9$stem.elf boot$stem.* reboot.h init.h xendat.h xendefs.h $PCHEADERS dpart xenbin.$cputype xenelf.$cputype xenstore
+	rm -f $stem.c [9bz]$stem [9bz]$stem.gz 9$stem.elf boot$stem.* xendat.h xendefs.h $PCHEADERS dpart xenbin.$cputype xenelf.$cputype xenstore
 
 

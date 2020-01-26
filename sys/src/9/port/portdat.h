@@ -661,6 +661,7 @@ struct Proc
 	QLock	seglock;	/* locked whenever seg[] changes */
 	ulong	pid;
 	ulong	noteid;		/* Equivalent of note group */
+	ulong	parentpid;
 	Proc	*pidhash;	/* next proc in pid hash */
 
 	Lock	exl;		/* Lock count and waitq */
@@ -677,8 +678,6 @@ struct Proc
 	Rgrp	*rgrp;		/* Rendez group */
 
 	Fgrp	*closingfgrp;	/* used during teardown */
-
-	ulong	parentpid;
 
 	int	insyscall;
 	ulong	time[6];	/* User, Sys, Real; child U, S, R */
@@ -698,6 +697,7 @@ struct Proc
 	Proc	*pdbg;		/* the debugging process */
 	ulong	procmode;	/* proc device default file mode */
 	int	privatemem;	/* proc does not let anyone read mem */
+	int	noswap;		/* process is not swappable */
 	int	hang;		/* hang at next exec for debug */
 	int	procctl;	/* Control for /proc debugging */
 	uintptr	pc;		/* DEBUG only */
@@ -710,7 +710,6 @@ struct Proc
 	Proc	*palarm;	/* Next alarm time */
 	ulong	alarm;		/* Time of call */
 	int	newtlb;		/* Pager has changed my pte's, I must flush */
-	int	noswap;		/* process is not swappable */
 
 	uintptr	rendtag;	/* Tag for rendezvous */
 	uintptr	rendval;	/* Value for rendezvous */
@@ -722,8 +721,8 @@ struct Proc
 	void	(*kpfun)(void*);
 	void	*kparg;
 
-	int	scallnr;	/* sys call number */
 	Sargs	s;		/* syscall arguments */
+	int	scallnr;	/* sys call number */
 	int	nerrlab;
 	Label	errlab[NERR];
 	char	*syserrstr;	/* last error from a system call, errbuf0 or 1 */

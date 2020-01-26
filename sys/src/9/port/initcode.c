@@ -18,7 +18,7 @@ char srv[] = "/srv";
 char env[] = "/env";
 
 void
-startboot(char *argv0, char **argv)
+startboot(char*, char **argv)
 {
 	char buf[200];	/* keep this fairly large to capture error details */
 

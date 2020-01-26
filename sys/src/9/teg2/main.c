@@ -1,15 +1,15 @@
 #include "u.h"
+#include "tos.h"
 #include "../port/lib.h"
 #include "mem.h"
 #include "dat.h"
 #include "fns.h"
 #include "io.h"
 
-#include "init.h"
 #include <pool.h>
 
 #include "arm.h"
-#include "reboot.h"
+#include "rebootcode.i"
 
 /*
  * Where configuration info is left for the loaded programme.
@@ -39,21 +39,6 @@ Memcache cachel[8];		/* arm arch v7 supports 1-7 */
  * these are used by the cache.v7.s routines.
  */
 Lowmemcache *cacheconf;
-
-/*
- * Option arguments from the command line.
- * oargv[0] is the boot file.
- * Optionsinit() is called from multiboot()
- * or some other machine-dependent place
- * to set it all up.
- */
-static int oargc;
-static char* oargv[20];
-static char oargb[128];
-static int oargblen;
-static char oenv[4096];
-
-static uintptr sp;		/* XXX - must go - user stack of init proc */
 
 int vflag;
 int normalprint;
@@ -163,45 +148,6 @@ plan9iniinit(void)
 
 		addconf(k, v);
 	}
-}
-
-static void
-optionsinit(char* s)
-{
-	char *o;
-
-	strcpy(oenv, "");
-	o = strecpy(oargb, oargb+sizeof(oargb), s)+1;
-	if(getenv("bootargs", o, o - oargb) != nil)
-		*(o-1) = ' ';
-
-	oargblen = strlen(oargb);
-	oargc = tokenize(oargb, oargv, nelem(oargv)-1);
-	oargv[oargc] = nil;
-}
-
-char*
-getenv(char* name, char* buf, int n)
-{
-	char *e, *p, *q;
-
-	p = oenv;
-	while(*p != 0){
-		if((e = strchr(p, '=')) == nil)
-			break;
-		for(q = name; p < e; p++){
-			if(*p != *q)
-				break;
-			q++;
-		}
-		if(p == e && *q == 0){
-			strecpy(buf, buf+n, e+1);
-			return buf;
-		}
-		p += strlen(p)+1;
-	}
-
-	return nil;
 }
 
 /* enable scheduling of this cpu */
@@ -386,7 +332,6 @@ main(void)
 	l2pageinit();
 	mmuinit();
 
-	optionsinit("/boot/boot boot");
 	quotefmtinstall();
 
 	/* want plan9.ini to be able to affect memory sizing in confinit */
@@ -586,21 +531,8 @@ reboot(void *entry, void *code, ulong size)
 void
 init0(void)
 {
+	char buf[2*KNAMELEN], **sp;
 	int i;
-	char buf[2*KNAMELEN];
-
-	up->nerrlab = 0;
-	coherence();
-	spllo();
-
-	/*
-	 * These are o.k. because rootinit is null.
-	 * Then early kproc's will have a root and dot.
-	 */
-	up->slash = namec("#/", Atodir, 0, 0);
-	pathclose(up->slash->path);
-	up->slash->path = newpath("/");
-	up->dot = cclone(up->slash);
 
 	chandevinit();
 	i8250console();		/* might be redundant, but harmless */
@@ -626,112 +558,10 @@ init0(void)
 	}
 	kproc("alarm", alarmkproc, 0);
 
-	touser(sp);
-}
-
-static void
-bootargs(uintptr base)
-{
-	int i;
-	ulong ssize;
-	char **av, *p;
-
-	/*
-	 * Push the boot args onto the stack.
-	 * The initial value of the user stack must be such
-	 * that the total used is larger than the maximum size
-	 * of the argument list checked in syscall.
-	 */
-	i = oargblen+1;
-	p = (void*)(STACKALIGN(base + BY2PG - sizeof(up->s.args) - i));
-	memmove(p, oargb, i);
-
-	/*
-	 * Now push argc and the argv pointers.
-	 * This isn't strictly correct as the code jumped to by
-	 * touser in init9.s calls startboot (port/initcode.c) which
-	 * expects arguments
-	 * 	startboot(char *argv0, char **argv)
-	 * not the usual (int argc, char* argv[]), but argv0 is
-	 * unused so it doesn't matter (at the moment...).
-	 */
-	av = (char**)(p - (oargc+2)*sizeof(char*));
-	ssize = base + BY2PG - (uintptr)av;
-	*av++ = (char*)oargc;
-	for(i = 0; i < oargc; i++)
-		*av++ = (oargv[i] - oargb) + (p - base) + (USTKTOP - BY2PG);
-	*av = nil;
-
-	/*
-	 * Leave space for the return PC of the
-	 * caller of initcode.
-	 */
-	sp = USTKTOP - ssize - sizeof(void*);
-}
-
-/*
- *  create the first process
- */
-void
-userinit(void)
-{
-	Proc *p;
-	Segment *s;
-	KMap *k;
-	Page *pg;
-
-	/* no processes yet */
-	up = nil;
-
-	p = newproc();
-	p->pgrp = newpgrp();
-	p->egrp = smalloc(sizeof(Egrp));
-	p->egrp->ref = 1;
-	p->fgrp = dupfgrp(nil);
-	p->rgrp = newrgrp();
-	p->procmode = 0640;
-
-	kstrdup(&eve, "");
-	kstrdup(&p->text, "*init*");
-	kstrdup(&p->user, eve);
-
-	/*
-	 * Kernel Stack
-	 */
-	p->sched.pc = (uintptr)init0;
-	p->sched.sp = (uintptr)p->kstack+KSTACK-sizeof(up->s.args)-sizeof(uintptr);
-	p->sched.sp = STACKALIGN(p->sched.sp);
-
-	/*
-	 * User Stack
-	 *
-	 * Technically, newpage can't be called here because it
-	 * should only be called when in a user context as it may
-	 * try to sleep if there are no pages available, but that
-	 * shouldn't be the case here.
-	 */
-	s = newseg(SG_STACK, USTKTOP-USTKSIZE, USTKSIZE/BY2PG);
-	s->flushme++;
-	p->seg[SSEG] = s;
-	pg = newpage(1, 0, USTKTOP-BY2PG);
-	segpage(s, pg);
-	k = kmap(pg);
-	bootargs(VA(k));
-	kunmap(k);
-
-	/*
-	 * Text
-	 */
-	s = newseg(SG_TEXT, UTZERO, 1);
-	p->seg[TSEG] = s;
-	pg = newpage(1, 0, UTZERO);
-	pg->txtflush = ~0;
-	segpage(s, pg);
-	k = kmap(s->map[0]->pages[0]);
-	memmove((void*)VA(k), initcode, sizeof initcode);
-	kunmap(k);
-
-	ready(p);
+	sp = (char**)(USTKTOP - sizeof(Tos) - 8 - sizeof(sp[0])*4);
+	sp[3] = sp[2] = sp[1] = nil;
+	strcpy(sp[0] = (char*)&sp[4], "boot");
+	touser((uintptr)sp);
 }
 
 Conf conf;			/* XXX - must go - gag */

@@ -553,10 +553,6 @@ forkchild(Proc *p, Ureg *ur)
 	cur = (Ureg*)(p->sched.sp+2*BY2WD);
 	memmove(cur, ur, sizeof(Ureg));
 	cur->r3 = 0;
-	
-	/* Things from bottom of syscall we never got to execute */
-	p->psstate = 0;
-	p->insyscall = 0;
 }
 
 uintptr

@@ -1,14 +1,13 @@
 #include	"u.h"
+#include	"tos.h"
 #include	"../port/lib.h"
 #include	"mem.h"
 #include	"dat.h"
 #include	"fns.h"
 #include	"io.h"
 #include	"ureg.h"
-#include	"init.h"
 #include	"pool.h"
-#include	"reboot.h"
-#include	<tos.h>
+#include	"rebootcode.i"
 
 Mach *m;
 
@@ -16,16 +15,10 @@ Mach *m;
 #define	BOOTARGSLEN	(sizeof xenstart->cmd_line)
 #define	MAXCONF		64
 
-enum {
-	/* space for syscall args, return PC, top-of-stack struct */
-	Ustkheadroom	= sizeof(Sargs) + sizeof(uintptr) + sizeof(Tos),
-};
-
 Conf conf;
 char *confname[MAXCONF];
 char *confval[MAXCONF];
 int nconf;
-uchar *sp;	/* user stack of init proc */
 int idle_spin;
 
 static void
@@ -152,21 +145,8 @@ machinit(void)
 void
 init0(void)
 {
+	char buf[2*KNAMELEN], **sp;
 	int i;
-	char buf[2*KNAMELEN];
-
-	up->nerrlab = 0;
-
-	spllo();
-
-	/*
-	 * These are o.k. because rootinit is null.
-	 * Then early kproc's will have a root and dot.
-	 */
-	up->slash = namec("#/", Atodir, 0, 0);
-	pathclose(up->slash->path);
-	up->slash->path = newpath("/");
-	up->dot = cclone(up->slash);
 
 	chandevinit();
 
@@ -186,104 +166,13 @@ init0(void)
 		}
 		poperror();
 	}
-
 	kproc("alarm", alarmkproc, 0);
+
+	sp = (char**)(USTKTOP - sizeof(Tos) - 8 - sizeof(sp[0])*4);
+	sp[3] = sp[2] = nil;
+	strcpy(sp[1] = (char*)&sp[4], "boot");
+	sp[0] = nil;
 	touser(sp);
-}
-
-void
-userinit(void)
-{
-	Proc *p;
-	Segment *s;
-	KMap *k;
-	Page *pg;
-
-	p = newproc();
-	p->pgrp = newpgrp();
-	p->egrp = smalloc(sizeof(Egrp));
-	p->egrp->ref = 1;
-	p->fgrp = dupfgrp(nil);
-	p->rgrp = newrgrp();
-	p->procmode = 0640;
-
-	kstrdup(&eve, "");
-	kstrdup(&p->text, "*init*");
-	kstrdup(&p->user, eve);
-
-	p->fpstate = FPinit;
-	fpoff();
-
-	/*
-	 * Kernel Stack
-	 *
-	 * N.B. make sure there's enough space for syscall to check
-	 *	for valid args and 
-	 *	4 bytes for gotolabel's return PC
-	 */
-	p->sched.pc = (ulong)init0;
-	p->sched.sp = (ulong)p->kstack+KSTACK-(sizeof(Sargs)+BY2WD);
-
-	/*
-	 * User Stack
-	 */
-	s = newseg(SG_STACK, USTKTOP-USTKSIZE, USTKSIZE/BY2PG);
-	p->seg[SSEG] = s;
-	pg = newpage(1, 0, USTKTOP-BY2PG);
-	segpage(s, pg);
-	k = kmap(pg);
-	bootargs(VA(k));
-	kunmap(k);
-
-	/*
-	 * Text
-	 */
-	s = newseg(SG_TEXT, UTZERO, 1);
-	s->flushme++;
-	p->seg[TSEG] = s;
-	pg = newpage(1, 0, UTZERO);
-	pg->txtflush = ~0;
-	segpage(s, pg);
-	k = kmap(s->map[0]->pages[0]);
-	memmove((ulong*)VA(k), initcode, sizeof initcode);
-	kunmap(k);
-	ready(p);
-}
-
-uchar *
-pusharg(char *p)
-{
-	int n;
-
-	n = strlen(p)+1;
-	sp -= n;
-	memmove(sp, p, n);
-	return sp;
-}
-
-void
-bootargs(ulong base)
-{
- 	int i, ac;
-	uchar *av[32];
-	uchar **lsp;
-
-	sp = (uchar*)base + BY2PG - Ustkheadroom;
-
-	ac = 0;
-	av[ac++] = pusharg("boot");
-	av[ac++] = pusharg("-D");
-
-	/* 4 byte word align stack */
-	sp = (uchar*)((ulong)sp & ~3);
-
-	/* build argc, argv on stack */
-	sp -= (ac+1)*sizeof(sp);
-	lsp = (uchar**)sp;
-	for(i = 0; i < ac; i++)
-		*lsp++ = av[i] + ((USTKTOP - BY2PG) - base);
-	*lsp = 0;
-	sp += (USTKTOP - BY2PG) - base - sizeof(ulong);
 }
 
 char*

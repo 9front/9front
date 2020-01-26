@@ -177,7 +177,6 @@ extern int fpuemu(Ureg*);
  * Miscellaneous machine dependent stuff.
  */
 extern int cas(int *, int, int);
-extern char* getenv(char*, char*, int);
 char*	getconf(char*);
 uintptr mmukmap(uintptr, uintptr, usize);
 uintptr mmukunmap(uintptr, uintptr, usize);

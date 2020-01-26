@@ -120,7 +120,6 @@ extern int fpuemu(Ureg*);
 /*
  * Miscellaneous machine dependent stuff.
  */
-extern char* getenv(char*, char*, int);
 char*	getconf(char*);
 uintptr mmukmap(uintptr, uintptr, usize);
 uintptr mmukunmap(uintptr, uintptr, usize);

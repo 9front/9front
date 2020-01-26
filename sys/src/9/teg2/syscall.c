@@ -353,8 +353,4 @@ forkchild(Proc *p, Ureg *ureg)
 
 	/* syscall returns 0 for child */
 	cureg->r0 = 0;
-
-	/* Things from bottom of syscall which were never executed */
-	p->psstate = 0;
-	p->insyscall = 0;
 }
