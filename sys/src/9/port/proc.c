@@ -1480,7 +1480,7 @@ kproc(char *name, void (*func)(void *), void *arg)
 	memset(p->time, 0, sizeof(p->time));
 	p->time[TReal] = MACHP(0)->ticks;
 
-	pidalloc(p);
+	p->noteid = pidalloc(p);
 
 	procpriority(p, PriKproc, 0);
 
