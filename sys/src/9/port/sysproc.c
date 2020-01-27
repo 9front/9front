@@ -98,6 +98,7 @@ sysrfork(va_list list)
 	p->notified = 0;
 	p->lastnote = up->lastnote;
 
+	p->noteid = up->noteid;
 	p->parentpid = up->pid;
 	p->procmode = up->procmode;
 	p->privatemem = up->privatemem;
