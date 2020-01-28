@@ -10,7 +10,7 @@ walk \- walk a path
 .I mind,maxd
 ] [
 .B -e
-.I ststr
+.I statfmt
 ] [
 .I name ...
 ]
@@ -18,7 +18,7 @@ walk \- walk a path
 .I Walk
 recursively descends any directory arguments,
 printing the name of each file on a separate line.
-When no arguments are given, the current directory
+When no arguments are given, the working directory
 is assumed.
 Non-directory arguments are checked for existence,
 then printed, if so.
@@ -50,7 +50,7 @@ are optional.
 .TP
 .B -e statfmt
 Setting the statfmt string allows specifying the data
-.B walk
+.I walk
 should print.
 It takes a string of characters, each corresponding
 to some piece of information about the file being
