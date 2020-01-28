@@ -89,6 +89,12 @@ size in bytes
 .TP
 .B x
 permissions
+.TP
+.B D
+server device
+.TP
+.B T
+server type (kernel device rune)
 .PD
 .PP
 The default statfmt is simply,
