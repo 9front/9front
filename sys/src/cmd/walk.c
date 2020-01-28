@@ -240,7 +240,7 @@ main(int argc, char **argv)
 		s_append(stfmt, EARGF(usage()));
 		i = strspn(s_to_c(stfmt), "UGMamnpqsx");
 		if(i != s_len(stfmt))
-			sysfatal("bad stfmt: %s\n", s_to_c(stfmt));
+			sysfatal("bad stfmt: %s", s_to_c(stfmt));
 		break;
 	default:
 		usage();
