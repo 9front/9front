@@ -4,7 +4,7 @@ gb, gba, nes, snes \- emulators
 .SH SYNOPSIS
 .B games/gb
 [
-.B -acdT
+.B -acd
 ]
 [
 .B -C
@@ -17,7 +17,7 @@ gb, gba, nes, snes \- emulators
 .br
 .B games/gba
 [
-.B -aT
+.B -a
 ] [
 .B -b
 .I biosfile
@@ -41,7 +41,7 @@ gb, gba, nes, snes \- emulators
 .br
 .B games/snes
 [
-.B -ahmsT
+.B -ahms
 ] [
 .B -x
 .I scale
@@ -55,14 +55,28 @@ and
 .I snes
 are emulators for the Nintendo Game Boy and Game Boy Color (GB and GBC), Nintendo Game Boy Advance (GBA), Nintendo Entertainment System (NES), and Super Nintendo Entertainment System (SNES).
 They execute the romfile given as an argument.
-The \fBz\fR, \fBx\fR, \fBa\fR, \fBs\fR, \fBq\fR, \fBw\fRreturn and shift keys correspond to B, A, Y, X, L1, L2, Start and Select, respectively.
+The \fBz\fR, \fBx\fR, \fBa\fR, \fBs\fR, \fBq\fR, \fBw, \fRreturn and shift keys correspond to B, A, Y, X, L1, L2, Start and Select, respectively.
 Other keys:
+.TP
+F1
+Pause the emulator. If already paused it will step one video frame.
 .TP
 F5
 Save the current state in \fBgb.save\fR / \fBgba.save\fR / \fBnes.save\fR / \fBsnes.save\fR.
 .TP
 F6
 Load the current state from \fBgb.save\fR / \fBgba.save\fR / \fBnes.save\fR / \fBsnes.save\fR.
+.TP
+F12
+Toggle the emulator's speedometer.  It shows in the upper left,
+off-viewport corner, the ratio between the expected and observed time it
+took to draw 60 frames.
+.TP
+t
+Toggle tracing of the emulator.
+.TP
+`
+It uncaps the 60fps frame rate and lets emulation go as fast as possible.
 .TP
 Esc
 Pause the emulator.
