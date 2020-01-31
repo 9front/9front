@@ -316,7 +316,6 @@ acmeerrorproc(void *)
 		buf[n] = '\0';
 		s = estrdup(buf);
 		sendp(cerr, s);
-		free(s);
 	}
 	free(buf);
 }
