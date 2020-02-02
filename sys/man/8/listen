@@ -18,7 +18,7 @@ listen, listen1, tcp7, tcp9, tcp19, tcp21, tcp23, tcp25, tcp53, tcp110, tcp113, 
 .PP
 .B aux/listen1
 [
-.B -tv
+.B -1tv
 ]
 .RB [ -p
 .IR maxprocs ]
@@ -237,7 +237,7 @@ modeled from Inferno's
 .\" write out this way so automatic programs
 .\" don't try to make it into a real man page reference.
 \fIlisten\fR(1).
-announces on
+It announces on
 .IR address ,
 running
 .I cmd
@@ -254,6 +254,10 @@ to run as the invoking user; the default
 is to become
 .B none
 before listening.
+Option
+.B -1
+arms a one-shot listener; it terminates listen1
+upon receiving a single call.
 Option
 .B -v
 causes verbose logging on standard output.
