@@ -16,8 +16,22 @@ is an emulator for the Atari 2600.
 It exectues the romfile given as an argument,
 and controls as if using a regular 4-direction 1-button joystick,
 using \fBspace\fR button and directional keys.
-The \fBq\fR, \fBw\fR, \fBe\fR, \fBr\fR keys correspond respectively to the reset, select, player 1 difficulty and color mode switches.
+The \fBq\fR, \fBw\fR, \fBe\fR and \fBr\fR keys correspond respectively to the reset, select, player 1 difficulty and color mode switches.
 Other keys:
+.TP
+F1
+Pause the emulator. If already paused it will step one video frame.
+.TP
+F12
+Toggle the emulator's speedometer.  It shows in the upper left,
+off-viewport corner, the ratio between the expected and observed time it
+took to draw 60 frames.
+.TP
+t
+Toggle tracing of the emulator.
+.TP
+`
+It uncaps the 60fps frame rate and lets emulation go as fast as possible.
 .TP
 Esc
 Pause the emulator.

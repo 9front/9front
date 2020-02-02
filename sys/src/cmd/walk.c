@@ -71,6 +71,10 @@ dofile(char *path, Dir *f, int pathonly)
 		case 'q': Bprint(bout, "%ullx.%uld.%.2uhhx", f->qid.path, f->qid.vers, f->qid.type); break;
 		case 's': Bprint(bout, "%lld", f->length); break;
 		case 'x': Bprint(bout, "%ulo", f->mode); break;
+
+		/* These two  are slightly different, as they tell us about the fileserver instead of the file */
+		case 'D': Bprint(bout, "%ud", f->dev); break;
+		case 'T': Bprint(bout, "%C", f->type); break;
 		default:
 			abort();
 		}
@@ -238,9 +242,9 @@ main(int argc, char **argv)
 		if((stfmt = s_reset(stfmt)) == nil)
 			sysfatal("s_reset: %r");
 		s_append(stfmt, EARGF(usage()));
-		i = strspn(s_to_c(stfmt), "UGMamnpqsx");
+		i = strspn(s_to_c(stfmt), "UGMamnpqsxDT");
 		if(i != s_len(stfmt))
-			sysfatal("bad stfmt: %s\n", s_to_c(stfmt));
+			sysfatal("bad stfmt: %s", s_to_c(stfmt));
 		break;
 	default:
 		usage();
