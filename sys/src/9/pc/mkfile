@@ -76,9 +76,8 @@ AUDIO=`{echo devaudio.c audio*.c | sed 's/\.c/.'$O'/g'}
 VGA=`{echo devvga.c screen.c vga*.c | sed 's/\.c/.'$O'/g'}
 SDEV=`{echo devsd.c sd*.c | sed 's/\.c/.'$O'/g'}
 
-$p$CONF:	$CONF.c $OBJ $LIB
-	$CC $CFLAGS '-DKERNDATE='`{date -n} $CONF.c
-	$LD -o $target -T$KTZERO -l $OBJ $CONF.$O $LIB
+$p$CONF:	$OBJ $CONF.$O $LIB
+	$LD -o $target -T$KTZERO -l $prereq
 	size $target
 
 # don't strip the gzipped kernels -- too frustrating when that's all you have!

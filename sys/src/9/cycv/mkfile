@@ -64,12 +64,11 @@ LIB=\
 	/$objtype/lib/libmp.a\
 	/$objtype/lib/libc.a\
 
-$p$CONF.u:D: $p$CONF
+$p$CONF.u:D:	$p$CONF
 	aux/aout2uimage $p$CONF
 
-$p$CONF:D: $CONF.c $OBJ $LIB mkfile
-	$CC $CFLAGS '-DKERNDATE='`{date -n} $CONF.c
-	$LD -o $target -T$KTZERO -l $OBJ $CONF.$O $LIB
+$p$CONF:D:	$OBJ $CONF.$O $LIB
+	$LD -o $target -T$KTZERO -l $prereq
 
 <../boot/bootmkfile
 <../port/portmkfile

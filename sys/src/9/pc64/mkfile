@@ -74,9 +74,8 @@ AUDIO=`{cd ../pc; echo devaudio.c audio*.c | sed 's/\.c/.'$O'/g'}
 VGA=`{cd ../pc; echo devvga.c screen.c vga*.c | sed 's/\.c/.'$O'/g'}
 SDEV=`{cd ../pc; echo devsd.c sd*.c | sed 's/\.c/.'$O'/g'}
 
-$p$CONF:	$CONF.c $OBJ $LIB
-	$CC $CFLAGS '-DKERNDATE='`{date -n} $CONF.c
-	$LD -o $target -T$KTZERO -R4096 -l $OBJ $CONF.$O $LIB
+$p$CONF:	$OBJ $CONF.$O $LIB
+	$LD -o $target -T$KTZERO -R4096 -l $prereq
 	size $target
 
 install:V:	$p$CONF

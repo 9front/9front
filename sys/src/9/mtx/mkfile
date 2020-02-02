@@ -66,9 +66,8 @@ SDEV=`{echo devsd.c sd*.c | sed 's/\.c/.'$O'/g'}
 
 loadaddr = 0x80004020
 
-$p$CONF:	$CONF.c $OBJ $LIB
-	$CC $CFLAGS '-DKERNDATE='`{date -n} $CONF.c
-	$LD -R4 -o $target -T$loadaddr -l $OBJ $CONF.$O $LIB
+$p$CONF:	$OBJ $CONF.$O $LIB
+	$LD -R4 -o $target -T$loadaddr -l $prereq
 	ls -l $target
 
 install:V: $p$CONF

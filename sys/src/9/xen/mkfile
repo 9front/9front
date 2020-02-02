@@ -93,18 +93,12 @@ SDEV=`{echo devsd.c sd*.c | sed 's/\.c/.'$O'/g'}
 PAE=`{echo $PAE | sed 's/yes/yes[extended-cr3]/'}
 XENELF='LOADER=generic,XEN_VER=xen-3.0,ELF_PADDR_OFFSET=0,VIRT_BASE='$KZERO',VIRT_ENTRY='$KTZERO',PAE='$PAE
 
-#$p$CONF:	$CONF.c $OBJ $LIB xenbin.$cputype
-#	$CC $CFLAGS '-DKERNDATE='`{date -n} $CONF.c
-#	$LD -o $target.tmp -T$KTZERO -l $OBJ $CONF.$O $LIB
-#	./xenbin.$cputype <$target.tmp >$target
-#	rm $target.tmp
-#	size $target
-
-$p$CONF:	$CONF.c $OBJ $LIB xenelf.$cputype
-	$CC $CFLAGS '-DKERNDATE='`{date -n} $CONF.c
-	$LD -o $target.elf -H5 -T$KTZERO -P$KPZERO -l $OBJ $CONF.$O $LIB
-	./xenelf.$cputype $target.elf $target __xen_guest ''$XENELF''
+$p$CONF:D:	$p$CONF.elf xenelf.$cputype
+	./xenelf.$cputype $prereq(1) $target __xen_guest ''$XENELF''
 	size $target
+
+$p$CONF.elf:D:	$OBJ $CONF.$O $LIB
+	$LD -o $target -H5 -T$KTZERO -P$KPZERO -l $prereq
 
 $p$CONF.gz: $p$CONF
 	#strip -o /fd/1 $p$CONF | gzip -9 > $p$CONF.gz

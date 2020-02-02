@@ -68,9 +68,8 @@ LIB=\
 	/$objtype/lib/libip.a\
 	/$objtype/lib/libc.a\
 
-$p$CONF:	$OBJ $CONF.c $LIB
-	$CC $CFLAGS '-DKERNDATE='`{date -n} $CONF.c
-	$LD -o $target -l -R8 -H3 -T$KTZERO $OBJ $CONF.$O $LIB
+$p$CONF:	$OBJ $CONF.$O $LIB
+	$LD -o $target -l -R8 -H3 -T$KTZERO $prereq
 	size $target
 
 install:V:	$p$CONF
