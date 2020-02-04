@@ -65,7 +65,7 @@ Rows contain integral number of bytes, so there may be some unused
 pixels at either end of a row.
 If
 .I d
-is greater than 8, the definition of images requires that it will a multiple of 8, so
+is greater than 8, the definition of images requires that it be a multiple of 8, so
 pixel values take up an integral number of bytes.
 .PP
 The
