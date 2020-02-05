@@ -1193,10 +1193,11 @@ modflags(Mailbox *mb, Message *m, char *p)
 	if(err = txflags(p, &f))
 		return err;
 	if(f != m->flags){
-		if(mb->modflags != nil)
-			mb->modflags(mb, m, f);
 		m->flags = f;
 		m->cstate |= Cidxstale;
+		m->cstate |= Cmod;
+		if(mb->modflags != nil)
+			mb->modflags(mb, m, f);
 	}
 	return nil;
 }
