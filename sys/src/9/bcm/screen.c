@@ -149,7 +149,7 @@ screeninit(void)
 		chan = BGR24;
 		break;
 	case 32:
-		chan = ARGB32;
+		chan = XRGB32;
 		break;
 	}
 	memsetchan(&xgscreen, chan);
