@@ -907,6 +907,7 @@ textframescroll(Text *t, int dl)
 			textsetselect(t, selectq, t->org+t->p1);
 	}
 	textsetorigin(t, q0, TRUE);
+	flushimage(display, 1);
 }
 
 
