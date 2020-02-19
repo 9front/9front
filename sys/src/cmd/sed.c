@@ -308,10 +308,10 @@ comploop:
 			} else
 				rep->ad2.type = A_NONE;
 		}
+swit:
 		while(*cp == L' ' || *cp == L'\t')
 			cp++;
 
-swit:
 		switch(*cp++) {
 		default:
 			quit("Unrecognized command: %S", linebuf);
