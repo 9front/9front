@@ -61,6 +61,7 @@ proc0(void*)
 	 */
 	up->kp = 0;
 	up->noswap = 0;
+	up->privatemem = 0;
 	procpriority(up, PriNormal, 0);
 	procsetup(up);
 

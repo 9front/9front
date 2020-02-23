@@ -117,8 +117,7 @@ userwrite(char *a, int n)
 {
 	if(n!=4 || strncmp(a, "none", 4)!=0)
 		error(Eperm);
-	kstrdup(&up->user, "none");
-	up->basepri = PriNormal;
+	procsetuser(up, "none");
 	return n;
 }
 
@@ -130,12 +129,14 @@ userwrite(char *a, int n)
 long
 hostownerwrite(char *a, int n)
 {
-	char buf[128];
+	char buf[KNAMELEN];
 
 	if(!iseve())
 		error(Eperm);
-	if(n <= 0 || n >= sizeof buf)
+	if(n <= 0)
 		error(Ebadarg);
+	if(n >= sizeof buf)
+		error(Etoolong);
 	memmove(buf, a, n);
 	buf[n] = 0;
 
@@ -143,8 +144,7 @@ hostownerwrite(char *a, int n)
 	srvrenameuser(eve, buf);
 	shrrenameuser(eve, buf);
 	kstrdup(&eve, buf);
-	kstrdup(&up->user, buf);
-	up->basepri = PriNormal;
+	procsetuser(up, buf);
 	return n;
 }
 

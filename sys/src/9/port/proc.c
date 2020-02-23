@@ -21,7 +21,6 @@ ulong	load;
 static struct Procalloc
 {
 	Lock;
-	Proc*	ht[128];
 	Proc*	arena;
 	Proc*	free;
 } procalloc;
@@ -53,8 +52,9 @@ char *statename[] =
 	"Waitrelease",
 };
 
-static void pidfree(Proc*);
 static void rebalance(void);
+static void pidinit(void);
+static void pidfree(Proc*);
 
 /*
  * Always splhi()'ed.
@@ -606,31 +606,14 @@ newproc(void)
 		lock(&procalloc);
 	}
 	procalloc.free = p->qnext;
+	p->qnext = nil;
 	unlock(&procalloc);
 
-	assert(p->state == Dead);
 	p->psstate = "New";
-	p->mach = nil;
-	p->eql = nil;
-	p->qnext = nil;
-	p->nchild = 0;
-	p->nwait = 0;
-	p->waitq = nil;
-	p->parent = nil;
-	p->pgrp = nil;
-	p->egrp = nil;
-	p->fgrp = nil;
-	p->rgrp = nil;
-	p->pdbg = nil;
 	p->fpstate = FPinit;
-	p->kp = 0;
 	p->procctl = 0;
-	p->syscalltrace = nil;	
-	p->notepending = 0;
 	p->ureg = nil;
 	p->dbgreg = nil;
-	p->privatemem = 0;
-	p->noswap = 0;
 	p->nerrlab = 0;
 	p->errstr = p->errbuf0;
 	p->syserrstr = p->errbuf1;
@@ -639,11 +622,6 @@ newproc(void)
 	p->nlocks = 0;
 	p->delaysched = 0;
 	p->trace = 0;
-	p->nargs = 0;
-	p->setargs = 0;
-	memset(p->seg, 0, sizeof p->seg);
-	p->parentpid = 0;
-	p->noteid = 0;
 	if(p->kstack == nil)
 		p->kstack = smalloc(KSTACK);
 
@@ -673,8 +651,8 @@ procwired(Proc *p, int bm)
 		/* pick a machine to wire to */
 		memset(nwired, 0, sizeof(nwired));
 		p->wired = nil;
-		pp = proctab(0);
-		for(i=0; i<conf.nproc; i++, pp++){
+		for(i=0; i<conf.nproc; i++){
+			pp = proctab(i);
 			wm = pp->wired;
 			if(wm != nil && pp->pid)
 				nwired[wm->machno]++;
@@ -724,6 +702,8 @@ procinit0(void)		/* bad planning - clashes with devproc.c */
 	for(i=0; i<conf.nproc-1; i++, p++)
 		p->qnext = p+1;
 	p->qnext = nil;
+
+	pidinit();
 }
 
 /*
@@ -1082,7 +1062,7 @@ void
 pexit(char *exitstr, int freemem)
 {
 	Proc *p;
-	Segment **s, **es;
+	Segment **s;
 	ulong utime, stime;
 	Waitq *wq;
 	Fgrp *fgrp;
@@ -1124,18 +1104,14 @@ pexit(char *exitstr, int freemem)
 	if(pgrp != nil)
 		closepgrp(pgrp);
 
-	/*
-	 * if not a kernel process and have a parent,
-	 * do some housekeeping.
-	 */
-	if(up->kp)
-		goto Nowait;
+	if(up->parentpid == 0){
+		if(exitstr == nil)
+			exitstr = "unknown";
+		panic("boot process died: %s", exitstr);
+	}
 
 	p = up->parent;
-	if(p != nil){
-		if(p->pid != up->parentpid || p->state == Broken)
-			goto Nowait;
-
+	if(p != nil && p->pid == up->parentpid && p->state != Broken){
 		wq = smalloc(sizeof(Waitq));
 		wq->w.pid = up->pid;
 		utime = up->time[TUser] + up->time[TCUser];
@@ -1175,29 +1151,16 @@ pexit(char *exitstr, int freemem)
 		if(wq != nil)
 			free(wq);
 	}
-	else if(up->parentpid == 0){
-		if(exitstr == nil)
-			exitstr = "unknown";
-		panic("boot process died: %s", exitstr);
-	}
 
-Nowait:
 	if(!freemem)
 		addbroken(up);
 
-	qlock(&up->seglock);
-	es = &up->seg[NSEG];
-	for(s = up->seg; s < es; s++) {
-		if(*s != nil) {
-			putseg(*s);
-			*s = nil;
-		}
-	}
-	qunlock(&up->seglock);
+	qlock(&up->debug);
 
 	lock(&up->exl);		/* Prevent my children from leaving waits */
 	pidfree(up);
-	up->pid = 0;
+	up->parent = nil;
+	up->nchild = up->nwait = 0;
 	wakeup(&up->waitr);
 	unlock(&up->exl);
 
@@ -1207,7 +1170,6 @@ Nowait:
 	}
 
 	/* release debuggers */
-	qlock(&up->debug);
 	if(up->pdbg != nil) {
 		wakeup(&up->pdbg->sleep);
 		up->pdbg = nil;
@@ -1222,6 +1184,15 @@ Nowait:
 	}
 	up->nwatchpt = 0;
 	qunlock(&up->debug);
+
+	qlock(&up->seglock);
+	for(s = up->seg; s < &up->seg[NSEG]; s++) {
+		if(*s != nil) {
+			putseg(*s);
+			*s = nil;
+		}
+	}
+	qunlock(&up->seglock);
 
 	/* Sched must not loop for these locks */
 	lock(&procalloc);
@@ -1281,7 +1252,8 @@ pwait(Waitmsg *w)
 Proc*
 proctab(int i)
 {
-	return &procalloc.arena[i];
+#define proctab(x) (&procalloc.arena[(x)])
+	return proctab(i);
 }
 
 void
@@ -1306,23 +1278,6 @@ dumpaproc(Proc *p)
 		p->lastlock ? p->lastlock->pc : 0, p->priority);
 }
 
-void
-procdump(void)
-{
-	int i;
-	Proc *p;
-
-	if(up != nil)
-		print("up %lud\n", up->pid);
-	else
-		print("no current process\n");
-	for(i=0; i<conf.nproc; i++) {
-		p = &procalloc.arena[i];
-		if(p->state != Dead)
-			dumpaproc(p);
-	}
-}
-
 /*
  *  wait till all matching processes have flushed their mmu
  */
@@ -1339,7 +1294,7 @@ procflushmmu(int (*match)(Proc*, void*), void *a)
 	memset(await, 0, conf.nmach*sizeof(await[0]));
 	nwait = 0;
 	for(i = 0; i < conf.nproc; i++){
-		p = &procalloc.arena[i];
+		p = proctab(i);
 		if(p->state != Dead && (*match)(p, a)){
 			p->newtlb = 1;
 			for(nm = 0; nm < conf.nmach; nm++){
@@ -1422,24 +1377,6 @@ procflushothers(void)
 }
 
 void
-scheddump(void)
-{
-	Proc *p;
-	Schedq *rq;
-
-	for(rq = &runq[Nrq-1]; rq >= runq; rq--){
-		if(rq->head == nil)
-			continue;
-		print("rq%zd:", rq-runq);
-		for(p = rq->head; p != nil; p = p->rnext)
-			print(" %lud(%lud)", p->pid, m->ticks - p->readytime);
-		print("\n");
-		delay(150);
-	}
-	print("nrdy %d\n", nrdy);
-}
-
-void
 kproc(char *name, void (*func)(void *), void *arg)
 {
 	static Pgrp *kpgrp;
@@ -1447,6 +1384,7 @@ kproc(char *name, void (*func)(void *), void *arg)
 
 	p = newproc();
 
+	qlock(&p->debug);
 	if(up != nil){
 		p->slash = up->slash;
 		p->dot = up->slash;	/* unlike fork, do not inherit the dot for kprocs */
@@ -1460,9 +1398,12 @@ kproc(char *name, void (*func)(void *), void *arg)
 	p->nnote = 0;
 	p->notify = nil;
 	p->notified = 0;
+	p->notepending = 0;
 
 	p->procmode = 0640;
+	p->privatemem = 1;
 	p->noswap = 1;
+	p->hang = 0;
 	p->kp = 1;
 
 	kprocchild(p, func, arg);
@@ -1470,6 +1411,8 @@ kproc(char *name, void (*func)(void *), void *arg)
 	kstrdup(&p->text, name);
 	kstrdup(&p->user, eve);
 	kstrdup(&p->args, "");
+	p->nargs = 0;
+	p->setargs = 0;
 
 	if(kpgrp == nil)
 		kpgrp = newpgrp();
@@ -1480,7 +1423,9 @@ kproc(char *name, void (*func)(void *), void *arg)
 	memset(p->time, 0, sizeof(p->time));
 	p->time[TReal] = MACHP(0)->ticks;
 
-	p->noteid = pidalloc(p);
+	pidalloc(p);
+
+	qunlock(&p->debug);
 
 	procpriority(p, PriKproc, 0);
 
@@ -1597,12 +1542,12 @@ killbig(char *why)
 	int i;
 	Segment *s;
 	ulong l, max;
-	Proc *p, *ep, *kp;
+	Proc *p, *kp;
 
 	max = 0;
 	kp = nil;
-	ep = procalloc.arena+conf.nproc;
-	for(p = procalloc.arena; p < ep; p++) {
+	for(i = 0; i < conf.nproc; i++) {
+		p = proctab(i);
 		if(p->state == Dead || p->kp)
 			continue;
 		if((p->noswap || (p->procmode & 0222) == 0) && strcmp(eve, p->user) == 0)
@@ -1617,7 +1562,8 @@ killbig(char *why)
 		return;
 	print("%lud: %s killed: %s\n", kp->pid, kp->text, why);
 	qlock(&kp->seglock);
-	for(p = procalloc.arena; p < ep; p++) {
+	for(i = 0; i < conf.nproc; i++) {
+		p = proctab(i);
 		if(p->state == Dead || p->kp)
 			continue;
 		if(p != kp && p->seg[BSEG] != nil && p->seg[BSEG] == kp->seg[BSEG])
@@ -1649,12 +1595,25 @@ killbig(char *why)
 void
 renameuser(char *old, char *new)
 {
-	Proc *p, *ep;
+	Proc *p;
+	int i;
 
-	ep = procalloc.arena+conf.nproc;
-	for(p = procalloc.arena; p < ep; p++)
+	for(i = 0; i < conf.nproc; i++){
+		p = proctab(i);
+		qlock(&p->debug);
 		if(p->user != nil && strcmp(old, p->user) == 0)
 			kstrdup(&p->user, new);
+		qunlock(&p->debug);
+	}
+}
+
+void
+procsetuser(Proc *p, char *new)
+{
+	qlock(&p->debug);
+	kstrdup(&p->user, new);
+	p->basepri = PriNormal;
+	qunlock(&p->debug);
 }
 
 /*
@@ -1707,65 +1666,204 @@ accounttime(void)
 	m->load = load/100;
 }
 
-int
-pidalloc(Proc *p)
+/*
+ *  A Pid structure is a reference counted hashtable entry
+ *  with "pid" being the key and "procindex" being the value.
+ *  A entry is allocated atomically by changing the key from
+ *  negative or zero to the positive process id number.
+ *  Pid's outlive ther Proc's as long as other processes hold
+ *  a reference to them such as noteid or parentpid.
+ *  This prevents pid reuse when the pid generator wraps.
+ */
+typedef struct Pid Pid;
+struct Pid
 {
-	static int gen, wrapped;
-	int pid, h;
-	Proc *x;
+	Ref;
+	long	pid;
+	int	procindex;
+};
 
-	lock(&procalloc);
-Retry:
-	pid = ++gen & 0x7FFFFFFF;
-	if(pid == 0){
-		wrapped = 1;
-		goto Retry;
-	}
-	h = pid % nelem(procalloc.ht);
-	if(wrapped)
-		for(x = procalloc.ht[h]; x != nil; x = x->pidhash)
-			if(x->pid == pid)
-				goto Retry;
-	if(p != nil){
-		p->pid = pid;
-		p->pidhash = procalloc.ht[h];
-		procalloc.ht[h] = p;
-	}
-	unlock(&procalloc);
-	return pid;
-}
+enum {
+	PIDMASK = 0x7FFFFFFF,
+	PIDSHIFT = 4,	/* log2 bucket size of the hash table */
+};
+
+static Pid *pidhashtab;
+static ulong pidhashmask;
 
 static void
-pidfree(Proc *p)
+pidinit(void)
 {
-	int h;
-	Proc **l;
+	/*
+	 * allocate 3 times conf.nproc Pid structures for the hash table
+	 * and round up to a power of two as each process can reference
+	 * up to 3 unique Pid structures:
+	 *	- pid
+	 *	- noteid
+	 *	- parentpid
+	 */
+	pidhashmask = 1<<PIDSHIFT;
+	while(pidhashmask < conf.nproc*3)
+		pidhashmask <<= 1;
 
-	h = p->pid % nelem(procalloc.ht);
-	lock(&procalloc);
-	for(l = &procalloc.ht[h]; *l != nil; l = &(*l)->pidhash)
-		if(*l == p){
-			*l = p->pidhash;
+	pidhashtab = xalloc(pidhashmask * sizeof(pidhashtab[0]));
+	if(pidhashtab == nil){
+		xsummary();
+		panic("cannot allocate pid hashtable of size %lud", pidhashmask);
+	}
+
+	/* make it a mask */
+	pidhashmask--;
+}
+
+static Pid*
+pidlookup(long pid)
+{
+	Pid *i, *e;
+	long o;
+
+	i = &pidhashtab[(pid<<PIDSHIFT) & pidhashmask];
+	for(e = &i[1<<PIDSHIFT]; i < e; i++){
+		o = i->pid;
+		if(o == pid)
+			return i;
+		if(o == 0)
 			break;
+	}
+	return nil;
+}
+
+/*
+ *  increment the reference count of a pid (pid>0)
+ *  or allocate a new one (pid<=0)
+ */
+static Pid*
+pidadd(long pid)
+{
+	Pid *i, *e;
+	long o;
+
+	if(pid > 0){
+		i = pidlookup(pid);
+		if(i != nil)
+			incref(i);
+		return i;
+	}
+Again:
+	do {
+		static Ref gen;
+		pid = incref(&gen) & PIDMASK;
+	} while(pid == 0 || pidlookup(pid) != nil);
+
+	i = &pidhashtab[(pid<<PIDSHIFT) & pidhashmask];
+	for(e = &i[1<<PIDSHIFT]; i < e; i++){
+		while((o = i->pid) <= 0){
+			if(cmpswap(&i->pid, o, pid)){
+				incref(i);
+				return i;
+			}
 		}
-	unlock(&procalloc);
+	}
+	/* bucket full, try a different pid */
+	goto Again;
+}
+
+/*
+ *  decrement reference count of a pid and free it
+ *  when no references are remaining
+ */
+static void
+piddel(Pid *i)
+{
+	if(decref(i))
+		return;
+	i->pid = -1;	/* freed */
 }
 
 int
 procindex(ulong pid)
 {
-	Proc *p;
-	int h;
-	int s;
+	Pid *i;
 
-	s = -1;
-	h = pid % nelem(procalloc.ht);
-	lock(&procalloc);
-	for(p = procalloc.ht[h]; p != nil; p = p->pidhash)
-		if(p->pid == pid){
-			s = p - procalloc.arena;
-			break;
-		}
-	unlock(&procalloc);
-	return s;
+	i = pidlookup(pid);
+	if(i != nil){
+		int x = i->procindex;
+		if(proctab(x)->pid == pid)
+			return x;
+	}
+	return -1;
+}
+
+ulong
+setnoteid(Proc *p, ulong noteid)
+{
+	Pid *i, *o;
+
+	/*
+	 * avoid allocating a new pid when we are the only
+	 * user of the noteid
+	 */
+	o = pidlookup(p->noteid);
+	if(noteid == 0 && o->ref == 1)
+		return o->pid;
+
+	i = pidadd(noteid);
+	if(i == nil)
+		error(Ebadarg);
+	piddel(o);
+	return p->noteid = i->pid;
+}
+
+static ulong
+setparentpid(Proc *p, Proc *pp)
+{
+	Pid *i;
+
+	i = pidadd(pp->pid);
+	return p->parentpid = i->pid;
+}
+
+/*
+ *  allocate pid, noteid and parentpid to a process
+ */
+ulong
+pidalloc(Proc *p)
+{
+	Pid *i;
+
+	/* skip for the boot process */
+	if(up != nil)
+		setparentpid(p, up);
+
+	i = pidadd(0);
+	i->procindex = (int)(p - procalloc.arena);
+
+	if(p->noteid == 0){
+		incref(i);
+		p->noteid = i->pid;
+	} else
+		pidadd(p->noteid);
+
+	return p->pid = i->pid;
+}
+
+/*
+ *  release pid, noteid and parentpid from a process
+ */
+static void
+pidfree(Proc *p)
+{
+	Pid *i;
+
+	i = pidlookup(p->pid);
+	piddel(i);
+
+	if(p->noteid != p->pid)
+		i = pidlookup(p->noteid);
+	piddel(i);
+
+	if(p->parentpid != 0)
+		piddel(pidlookup(p->parentpid));
+
+	p->pid = p->noteid = p->parentpid = 0;
 }

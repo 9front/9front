@@ -80,11 +80,13 @@ sysrfork(va_list list)
 			closeegrp(oeg);
 		}
 		if(flag & RFNOTEG)
-			up->noteid = pidalloc(nil);
+			setnoteid(up, 0);
 		return 0;
 	}
 
 	p = newproc();
+
+	qlock(&p->debug);
 
 	p->scallnr = up->scallnr;
 	p->s = up->s;
@@ -96,16 +98,18 @@ sysrfork(va_list list)
 	p->nnote = up->nnote;
 	p->notify = up->notify;
 	p->notified = 0;
+	p->notepending = 0;
 	p->lastnote = up->lastnote;
+	if((flag & RFNOTEG) == 0)
+		p->noteid = up->noteid;
 
-	p->noteid = up->noteid;
-	p->parentpid = up->pid;
 	p->procmode = up->procmode;
 	p->privatemem = up->privatemem;
 	p->noswap = up->noswap;
 	p->hang = up->hang;
 	if(up->procctl == Proc_tracesyscall)
 		p->procctl = Proc_tracesyscall;
+	p->kp = 0;
 
 	/* Craft a return frame which will cause the child to pop out of
 	 * the scheduler in user mode with the return register zero
@@ -115,12 +119,16 @@ sysrfork(va_list list)
 	kstrdup(&p->text, up->text);
 	kstrdup(&p->user, up->user);
 	kstrdup(&p->args, "");
+	p->nargs = 0;
+	p->setargs = 0;
 
 	p->insyscall = 0;
 	memset(p->time, 0, sizeof(p->time));
 	p->time[TReal] = MACHP(0)->ticks;
 
 	pid = pidalloc(p);
+
+	qunlock(&p->debug);
 
 	/* Abort the child process on error */
 	if(waserror()){
@@ -188,9 +196,6 @@ sysrfork(va_list list)
 		p->egrp = up->egrp;
 		incref(p->egrp);
 	}
-
-	if(flag & RFNOTEG)
-		p->noteid = pid;
 
 	procfork(p);
 

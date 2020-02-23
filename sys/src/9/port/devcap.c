@@ -246,9 +246,7 @@ capwrite(Chan *c, void *va, long n, vlong)
 		}
 		secfree(p);
 
-		/* set user id */
-		kstrdup(&up->user, to);
-		up->basepri = PriNormal;
+		procsetuser(up, to);
 
 		secfree(cp);
 		poperror();

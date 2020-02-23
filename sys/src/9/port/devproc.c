@@ -74,7 +74,7 @@ enum{
 	Emask = Nevents - 1,
 };
 
-#define	STATSIZE	(2*KNAMELEN+12+9*12)
+#define	STATSIZE	(2*28+12+9*12)
 /*
  * Status, fd, and ns are left fully readable (0444) because of their use in debugging,
  * particularly on shared servers.
@@ -145,7 +145,6 @@ static char *sname[]={ "Text", "Data", "Bss", "Stack", "Shared", "Phys", "Fixed"
  *	23 bits of process slot number + 1
  *	     in vers,
  *	32 bits of pid, for consistency checking
- * If notepg, c->pgrpid.path is pgrp slot, .vers is noteid.
  */
 #define	QSHIFT	5	/* location in qid of proc slot # */
 
@@ -186,7 +185,7 @@ procgen(Chan *c, char *name, Dirtab *tab, int, int s, Dir *dp)
 		if(s == 0){
 			strcpy(up->genbuf, "trace");
 			mkqid(&qid, Qtrace, -1, QTFILE);
-			devdir(c, qid, up->genbuf, 0, eve, 0444, dp);
+			devdir(c, qid, up->genbuf, 0, eve, 0400, dp);
 			return 1;
 		}
 
@@ -206,10 +205,10 @@ procgen(Chan *c, char *name, Dirtab *tab, int, int s, Dir *dp)
 		pid = p->pid;
 		if(pid == 0)
 			return 0;
-		sprint(up->genbuf, "%lud", pid);
 		/*
 		 * String comparison is done in devwalk so name must match its formatted pid
 		*/
+		snprint(up->genbuf, sizeof(up->genbuf), "%lud", pid);
 		if(name != nil && strcmp(name, up->genbuf) != 0)
 			return -1;
 		mkqid(&qid, (s+1)<<QSHIFT, pid, QTDIR);
@@ -219,7 +218,7 @@ procgen(Chan *c, char *name, Dirtab *tab, int, int s, Dir *dp)
 	if(c->qid.path == Qtrace){
 		strcpy(up->genbuf, "trace");
 		mkqid(&qid, Qtrace, -1, QTFILE);
-		devdir(c, qid, up->genbuf, 0, eve, 0444, dp);
+		devdir(c, qid, up->genbuf, 0, eve, 0400, dp);
 		return 1;
 	}
 	if(s >= nelem(procdir))
@@ -250,8 +249,6 @@ procgen(Chan *c, char *name, Dirtab *tab, int, int s, Dir *dp)
 			len *= sizeof(*q->profile);
 		}
 		break;
-	}
-	switch(QID(tab->qid)){
 	case Qwatchpt:
 		len = lenwatchpt(p);
 		break;
@@ -324,13 +321,58 @@ nonone(Proc *p)
 	error(Eperm);
 }
 
+static void
+changenoteid(Proc *p, ulong noteid)
+{
+	Proc *pp;
+	int i;
+
+	if(noteid <= 0)
+		error(Ebadarg);
+	if(noteid == p->noteid)
+		return;
+	if(noteid == p->pid){
+		setnoteid(p, noteid);
+		return;
+	}
+	for(i = 0; i < conf.nproc; i++){
+		pp = proctab(i);
+		if(pp->noteid != noteid || pp->kp)
+			continue;
+		if(strcmp(pp->user, p->user) == 0){
+			nonone(pp);
+			setnoteid(p, noteid);
+			return;
+		}
+	}
+	error(Eperm);
+}
+
+static void
+postnotepg(ulong noteid, char *n, int flag)
+{
+	Proc *p;
+	int i;
+
+	for(i = 0; i < conf.nproc; i++){
+		p = proctab(i);
+		if(p == up)
+			continue;
+		if(p->noteid != noteid || p->kp)
+			continue;
+		qlock(&p->debug);
+		if(p->noteid == noteid)
+			postnote(p, 0, n, flag);
+		qunlock(&p->debug);
+	}
+}
+
 static void clearwatchpt(Proc *p);
 
 static Chan*
 procopen(Chan *c, int omode0)
 {
 	Proc *p;
-	Pgrp *pg;
 	Chan *tc;
 	int pid;
 	int omode;
@@ -339,7 +381,7 @@ procopen(Chan *c, int omode0)
 		return devopen(c, omode0, 0, 0, procgen);
 
 	if(QID(c->qid) == Qtrace){
-		if (omode0 != OREAD) 
+		if (omode0 != OREAD || !iseve()) 
 			error(Eperm);
 		lock(&tlock);
 		if (waserror()){
@@ -381,6 +423,7 @@ procopen(Chan *c, int omode0)
 	case Qtext:
 		if(omode != OREAD)
 			error(Eperm);
+		nonone(p);
 		qunlock(&p->debug);
 		poperror();
 		tc = proctext(c, p);
@@ -388,64 +431,54 @@ procopen(Chan *c, int omode0)
 		cclose(c);
 		return tc;
 
+	case Qstatus:
+	case Qppid:
 	case Qproc:
 	case Qkregs:
 	case Qsegment:
-	case Qprofile:
 	case Qns:
 	case Qfd:
 		if(omode != OREAD)
 			error(Eperm);
 		break;
 
-	case Qnote:
-		if(p->privatemem)
-			error(Eperm);
-		break;
-
-	case Qmem:
-	case Qctl:
-		if(p->privatemem)
-			error(Eperm);
-		nonone(p);
-		break;
-
 	case Qargs:
-	case Qnoteid:
-	case Qstatus:
 	case Qwait:
-	case Qregs:
-	case Qfpregs:
-	case Qsyscall:	
-	case Qppid:
-	case Qwatchpt:
-		nonone(p);
+	case Qnoteid:
+		if(omode == OREAD)
+			break;
+	case Qctl:
+	case Qnote:
+		if(p->kp)
+			error(Eperm);
 		break;
 
 	case Qnotepg:
-		nonone(p);
-		pg = p->pgrp;
-		if(pg == nil)
-			error(Eprocdied);
-		if(omode!=OWRITE)
+		if(p->kp || omode != OWRITE)
 			error(Eperm);
-		c->pgrpid.path = pg->pgrpid+1;
-		c->pgrpid.vers = p->noteid;
+		pid = p->noteid;
+		break;
+
+	case Qmem:
+	case Qregs:
+	case Qfpregs:
+	case Qprofile:
+	case Qsyscall:	
+	case Qwatchpt:
+		if(p->kp || p->privatemem)
+			error(Eperm);
 		break;
 
 	default:
 		print("procopen %#lux\n", QID(c->qid));
 		error(Egreg);
 	}
+	nonone(p);
 
 	/* Affix pid to qid */
-	if(p->state != Dead)
-		c->qid.vers = p->pid;
-
-	/* make sure the process slot didn't get reallocated while we were playing */
-	coherence();
-	if(p->pid != pid)
+	if(pid == 0)
 		error(Eprocdied);
+	c->qid.vers = pid;
 
 	tc = devopen(c, omode, 0, 0, procgen);
 	if(waserror()){
@@ -470,36 +503,41 @@ procopen(Chan *c, int omode0)
 static int
 procwstat(Chan *c, uchar *db, int n)
 {
-	Proc *p;
 	Dir *d;
+	Proc *p;
 
 	if(c->qid.type&QTDIR)
 		error(Eperm);
 
-	if(QID(c->qid) == Qtrace)
+	switch(QID(c->qid)){
+	case Qnotepg:
+	case Qtrace:
 		return devwstat(c, db, n);
+	}
 		
-	p = proctab(SLOT(c->qid));
-	nonone(p);
-	d = nil;
+	d = smalloc(sizeof(Dir)+n);
+	if(waserror()){
+		free(d);
+		nexterror();
+	}
+	n = convM2D(db, n, &d[0], (char*)&d[1]);
+	if(n == 0)
+		error(Eshortstat);
 
+	p = proctab(SLOT(c->qid));
 	eqlock(&p->debug);
 	if(waserror()){
 		qunlock(&p->debug);
-		free(d);
 		nexterror();
 	}
 
 	if(p->pid != PID(c->qid))
 		error(Eprocdied);
 
+	nonone(p);
 	if(strcmp(up->user, p->user) != 0 && !iseve())
 		error(Eperm);
 
-	d = smalloc(sizeof(Dir)+n);
-	n = convM2D(db, n, &d[0], (char*)&d[1]);
-	if(n == 0)
-		error(Eshortstat);
 	if(!emptystr(d->uid) && strcmp(d->uid, p->user) != 0){
 		if(!iseve())
 			error(Eperm);
@@ -510,6 +548,7 @@ procwstat(Chan *c, uchar *db, int n)
 		p->procmode = d->mode&0777;
 
 	qunlock(&p->debug);
+	poperror();
 	poperror();
 	free(d);
 	return n;
@@ -551,10 +590,8 @@ procargs(Proc *p, char *buf, int nbuf)
 	int n;
 
 	a = p->args;
-	if(p->setargs){
-		snprint(buf, nbuf, "%s [%s]", p->text, p->args);
-		return strlen(buf);
-	}
+	if(p->setargs)
+		return snprint(buf, nbuf, "%s [%s]", p->text, p->args);
 	n = p->nargs;
 	for(j = 0; j < nbuf - 1; j += m){
 		if(n <= 0)
@@ -836,24 +873,23 @@ off2addr(vlong off)
 static long
 procread(Chan *c, void *va, long n, vlong off)
 {
-	char *a, *sps, statbuf[1024];
-	int i, j, navail, ne, rsize;
-	ulong l;
+	char statbuf[1024], *sps;
+	ulong offset;
+	int i, j, rsize;
 	uchar *rptr;
 	uintptr addr;
-	ulong offset;
-	Confmem *cm;
-	Proc *p;
-	Segment *sg, *s;
+	Segment *s;
 	Ureg kur;
 	Waitq *wq;
+	Proc *p;
 	
-	a = va;
 	offset = off;
 	if(c->qid.type & QTDIR)
-		return devdirread(c, a, n, 0, 0, procgen);
+		return devdirread(c, va, n, 0, 0, procgen);
 
 	if(QID(c->qid) == Qtrace){
+		int navail, ne;
+
 		if(!eventsavailable(nil))
 			return 0;
 
@@ -879,33 +915,6 @@ procread(Chan *c, void *va, long n, vlong off)
 		error(Eprocdied);
 
 	switch(QID(c->qid)){
-	case Qargs:
-		eqlock(&p->debug);
-		j = procargs(p, statbuf, sizeof(statbuf));
-		qunlock(&p->debug);
-		if(offset >= j)
-			return 0;
-		if(offset+n > j)
-			n = j-offset;
-	statbufread:
-		memmove(a, statbuf+offset, n);
-		return n;
-
-	case Qsyscall:
-		eqlock(&p->debug);
-		if(waserror()){
-			qunlock(&p->debug);
-			nexterror();
-		}
-		if(p->pid != PID(c->qid))
-			error(Eprocdied);
-		j = 0;
-		if(p->syscalltrace != nil)
-			j = readstr(offset, a, n, p->syscalltrace);
-		qunlock(&p->debug);
-		poperror();
-		return j;
-
 	case Qmem:
 		addr = off2addr(off);
 		if(addr < KZERO)
@@ -918,20 +927,26 @@ procread(Chan *c, void *va, long n, vlong off)
 		if(addr < (uintptr)end) {
 			if(addr+n > (uintptr)end)
 				n = (uintptr)end - addr;
-			memmove(a, (char*)addr, n);
+			memmove(va, (char*)addr, n);
 			return n;
 		}
 		for(i=0; i<nelem(conf.mem); i++){
-			cm = &conf.mem[i];
+			Confmem *cm = &conf.mem[i];
 			/* klimit-1 because klimit might be zero! */
 			if(cm->kbase <= addr && addr <= cm->klimit-1){
 				if(addr+n >= cm->klimit-1)
 					n = cm->klimit - addr;
-				memmove(a, (char*)addr, n);
+				memmove(va, (char*)addr, n);
 				return n;
 			}
 		}
 		error(Ebadarg);
+
+	case Qnoteid:
+		return readnum(offset, va, n, p->noteid, NUMSIZE);
+
+	case Qppid:
+		return readnum(offset, va, n, p->parentpid, NUMSIZE);
 
 	case Qprofile:
 		s = p->seg[TSEG];
@@ -943,42 +958,13 @@ procread(Chan *c, void *va, long n, vlong off)
 			return 0;
 		if(offset+n > i)
 			n = i - offset;
-		memmove(a, ((char*)s->profile)+offset, n);
-		return n;
-
-	case Qnote:
-		eqlock(&p->debug);
-		if(waserror()){
-			qunlock(&p->debug);
-			nexterror();
-		}
-		if(p->pid != PID(c->qid))
-			error(Eprocdied);
-		if(n < 1)	/* must accept at least the '\0' */
-			error(Etoosmall);
-		if(p->nnote == 0)
-			n = 0;
-		else {
-			i = strlen(p->note[0].msg) + 1;
-			if(i < n)
-				n = i;
-			memmove(a, p->note[0].msg, n-1);
-			a[n-1] = '\0';
-			if(--p->nnote == 0)
-				p->notepending = 0;
-			memmove(p->note, p->note+1, p->nnote*sizeof(Note));
-		}
-		poperror();
-		qunlock(&p->debug);
+		memmove(va, ((char*)s->profile)+offset, n);
 		return n;
 
 	case Qproc:
-		if(offset >= sizeof(Proc))
-			return 0;
-		if(offset+n > sizeof(Proc))
-			n = sizeof(Proc) - offset;
-		memmove(a, ((char*)p)+offset, n);
-		return n;
+		rptr = (uchar*)p;
+		rsize = sizeof(Proc);
+		goto regread;
 
 	case Qregs:
 		rptr = (uchar*)p->dbgreg;
@@ -1004,53 +990,48 @@ procread(Chan *c, void *va, long n, vlong off)
 			return 0;
 		if(offset+n > rsize)
 			n = rsize - offset;
-		memmove(a, rptr+offset, n);
+		memmove(va, rptr+offset, n);
 		return n;
 
 	case Qstatus:
-		if(offset >= STATSIZE)
-			return 0;
-		if(offset+n > STATSIZE)
-			n = STATSIZE - offset;
-
 		sps = p->psstate;
 		if(sps == nil)
 			sps = statename[p->state];
-
-		memset(statbuf, ' ', sizeof statbuf);
-		readstr(0, statbuf+0*KNAMELEN, KNAMELEN-1, p->text);
-		readstr(0, statbuf+1*KNAMELEN, KNAMELEN-1, p->user);
-		readstr(0, statbuf+2*KNAMELEN, 11, sps);
-
-		j = 2*KNAMELEN + 12;
-		for(i = 0; i < 6; i++) {
-			l = p->time[i];
-			if(i == TReal)
-				l = MACHP(0)->ticks - l;
-			readnum(0, statbuf+j+NUMSIZE*i, NUMSIZE, tk2ms(l), NUMSIZE);
-		}
-
-		readnum(0, statbuf+j+NUMSIZE*6, NUMSIZE, procpagecount(p)*BY2PG/1024, NUMSIZE);
-		readnum(0, statbuf+j+NUMSIZE*7, NUMSIZE, p->basepri, NUMSIZE);
-		readnum(0, statbuf+j+NUMSIZE*8, NUMSIZE, p->priority, NUMSIZE);
-		goto statbufread;
+		j = snprint(statbuf, sizeof(statbuf),
+			"%-27s %-27s %-11s "
+			"%11lud %11lud %11lud "
+			"%11lud %11lud %11lud "
+			"%11lud %11lud %11lud\n",
+			p->text, p->user, sps,
+			tk2ms(p->time[TUser]),
+			tk2ms(p->time[TSys]),
+			tk2ms(MACHP(0)->ticks - p->time[TReal]),
+			tk2ms(p->time[TCUser]),
+			tk2ms(p->time[TCSys]),
+			tk2ms(p->time[TCReal]),
+			(ulong)(procpagecount(p)*BY2PG/1024),
+			p->basepri, p->priority);
+	statbufread:
+		if(offset >= j)
+			return 0;
+		if(offset+n > j)
+			n = j - offset;
+		memmove(va, statbuf+offset, n);
+		return n;
 
 	case Qsegment:
 		j = 0;
 		for(i = 0; i < NSEG; i++) {
-			sg = p->seg[i];
-			if(sg == nil)
+			s = p->seg[i];
+			if(s == nil)
 				continue;
-			j += sprint(statbuf+j, "%-6s %c%c %8p %8p %4ld\n",
-				sname[sg->type&SG_TYPE],
-				sg->type&SG_FAULT ? 'F' : (sg->type&SG_RONLY ? 'R' : ' '),
-				sg->profile ? 'P' : ' ',
-				sg->base, sg->top, sg->ref);
+			j += snprint(statbuf+j, sizeof(statbuf)-j,
+				"%-6s %c%c %8p %8p %4ld\n",
+				sname[s->type&SG_TYPE],
+				s->type&SG_FAULT ? 'F' : (s->type&SG_RONLY ? 'R' : ' '),
+				s->profile ? 'P' : ' ',
+				s->base, s->top, s->ref);
 		}
-		if(offset >= j)
-			return 0;
-		if(offset+n > j)
-			n = j-offset;
 		goto statbufread;
 
 	case Qwait:
@@ -1089,18 +1070,21 @@ procread(Chan *c, void *va, long n, vlong off)
 			wq->w.time[TUser], wq->w.time[TSys], wq->w.time[TReal],
 			wq->w.msg);
 		free(wq);
-		if(j < n)
-			n = j;
 		offset = 0;
 		goto statbufread;
+	}
 
+	eqlock(&p->debug);
+	if(waserror()){
+		qunlock(&p->debug);
+		nexterror();
+	}
+	if(p->pid != PID(c->qid))
+		error(Eprocdied);
+
+	switch(QID(c->qid)){
 	case Qns:
 	case Qfd:
-		eqlock(&p->debug);
-		if(waserror()){
-			qunlock(&p->debug);
-			nexterror();
-		}
 		if(offset == 0 || offset != c->mrock)
 			c->nrock = c->mrock = 0;
 		do {
@@ -1115,62 +1099,81 @@ procread(Chan *c, void *va, long n, vlong off)
 		i = c->mrock - offset;
 		qunlock(&p->debug);
 		poperror();
-
 		if(i <= 0 || i > j)
 			return 0;
 		if(i < n)
 			n = i;
 		offset = j - i;
 		goto statbufread;
-
-	case Qnoteid:
-		return readnum(offset, va, n, p->noteid, NUMSIZE);
-
-	case Qppid:
-		return readnum(offset, va, n, p->parentpid, NUMSIZE);
 	
-	case Qwatchpt:
-		eqlock(&p->debug);
-		j = readwatchpt(p, statbuf, sizeof(statbuf));
+	case Qargs:
+		j = procargs(p, statbuf, sizeof(statbuf));
 		qunlock(&p->debug);
-		if(offset >= j)
-			return 0;
-		if(offset+n > j)
-			n = j - offset;
+		poperror();
 		goto statbufread;
 
+	case Qwatchpt:
+		j = readwatchpt(p, statbuf, sizeof(statbuf));
+		qunlock(&p->debug);
+		poperror();
+		goto statbufread;
+
+	case Qsyscall:
+		n = 0;
+		if(p->syscalltrace != nil)
+			n = readstr(offset, va, n, p->syscalltrace);
+		break;
+
+	case Qnote:
+		if(n < 1)	/* must accept at least the '\0' */
+			error(Etoosmall);
+		if(p->nnote == 0)
+			n = 0;
+		else {
+			i = strlen(p->note[0].msg) + 1;
+			if(i < n)
+				n = i;
+			memmove(va, p->note[0].msg, n-1);
+			((char*)va)[n-1] = '\0';
+			if(--p->nnote == 0)
+				p->notepending = 0;
+			memmove(p->note, p->note+1, p->nnote*sizeof(Note));
+		}
+		break;
+
+	default:
+		print("unknown qid in procwread\n");
+		error(Egreg);
 	}
-	error(Egreg);
-	return 0;		/* not reached */
+
+	qunlock(&p->debug);
+	poperror();
+	return n;
 }
 
 static long
 procwrite(Chan *c, void *va, long n, vlong off)
 {
-	int id, m;
-	Proc *p, *t, *et;
-	char *a, *arg, buf[ERRMAX];
+	char buf[ERRMAX], *arg;
 	ulong offset;
+	Proc *p;
+	int m;
 
-	a = va;
 	offset = off;
 	if(c->qid.type & QTDIR)
 		error(Eisdir);
 
-	/* Use the remembered noteid in the channel rather
-	 * than the process pgrpid
-	 */
+	/* use the remembered noteid in the channel qid */
 	if(QID(c->qid) == Qnotepg) {
 		if(n >= ERRMAX-1)
 			error(Etoobig);
 		memmove(buf, va, n);
 		buf[n] = 0;
-		pgrpnote(NOTEID(c->pgrpid), buf, NUser);
+		postnotepg(NOTEID(c->qid), buf, NUser);
 		return n;
 	}
 
 	p = proctab(SLOT(c->qid));
-
 	eqlock(&p->debug);
 	if(waserror()){
 		qunlock(&p->debug);
@@ -1193,8 +1196,8 @@ procwrite(Chan *c, void *va, long n, vlong off)
 		if(arg[m-1] != 0)
 			arg[m++] = 0;
 		free(p->args);
-		p->nargs = m;
 		p->args = arg;
+		p->nargs = m;
 		p->setargs = 1;
 		break;
 
@@ -1229,43 +1232,26 @@ procwrite(Chan *c, void *va, long n, vlong off)
 		break;
 
 	case Qnote:
-		if(p->kp)
-			error(Eperm);
-		if(n >= ERRMAX-1)
+		if(n >= sizeof(buf))
 			error(Etoobig);
 		memmove(buf, va, n);
 		buf[n] = 0;
 		if(!postnote(p, 0, buf, NUser))
 			error("note not posted");
 		break;
+
 	case Qnoteid:
-		if(p->kp)
-			error(Eperm);
-		id = atoi(a);
-		if(id <= 0)
-			error(Ebadarg);
-		if(id == p->pid) {
-			p->noteid = id;
-			break;
-		}
-		t = proctab(0);
-		for(et = t+conf.nproc; t < et; t++) {
-			if(t->state == Dead || t->kp)
-				continue;
-			if(id == t->noteid) {
-				nonone(t);
-				if(strcmp(p->user, t->user) != 0)
-					error(Eperm);
-				p->noteid = id;
-				break;
-			}
-		}
-		if(p->noteid != id)
-			error(Ebadarg);
+		if(n >= sizeof(buf))
+			error(Etoobig);
+		memmove(buf, va, n);
+		buf[n] = 0;
+		changenoteid(p, atoi(buf));
 		break;
+
 	case Qwatchpt:
 		writewatchpt(p, va, n, off);
 		break;
+
 	default:
 		print("unknown qid in procwrite\n");
 		error(Egreg);
@@ -1352,7 +1338,8 @@ procstopwait(Proc *p, int ctl)
 	if(waserror()) {
 		up->psstate = state;
 		qlock(&p->debug);
-		p->pdbg = nil;
+		if(p->pdbg == up)
+			p->pdbg = nil;
 		nexterror();
 	}
 	sleep(&up->sleep, procstopped, p);
@@ -1439,9 +1426,6 @@ procctlreq(Proc *p, char *va, int n)
 	vlong time;
 	char *e;
 	void (*pt)(Proc*, int, vlong);
-
-	if(p->kp)	/* no ctl requests to kprocs */
-		error(Eperm);
 
 	cb = parsecmd(va, n);
 	if(waserror()){

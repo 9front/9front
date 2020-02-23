@@ -187,7 +187,6 @@ struct Chan
 	Mnt*	mux;			/* Mnt for clients using me for messages */
 	union {
 		void*	aux;
-		Qid	pgrpid;		/* for #p/notepg */
 		ulong	mid;		/* for ns in devproc */
 	};
 	Chan*	mchan;			/* channel to mounted server */
@@ -649,28 +648,31 @@ struct Proc
 	Mach	*mach;		/* machine running this proc */
 	char	*text;
 	char	*user;
+
 	char	*args;
 	int	nargs;		/* number of bytes of args */
 	int	setargs;	/* process changed its args */
+
 	Proc	*rnext;		/* next process in run queue */
 	Proc	*qnext;		/* next process on queue for a QLock */
-	QLock	*qlock;		/* addr of qlock being queued for DEBUG */
-	int	state;
+
 	char	*psstate;	/* What /proc/#/status reports */
-	Segment	*seg[NSEG];
-	QLock	seglock;	/* locked whenever seg[] changes */
+	int	state;
+
 	ulong	pid;
 	ulong	noteid;		/* Equivalent of note group */
 	ulong	parentpid;
-	Proc	*pidhash;	/* next proc in pid hash */
 
+	Proc	*parent;	/* Process to send wait record on exit */
 	Lock	exl;		/* Lock count and waitq */
 	Waitq	*waitq;		/* Exited processes wait children */
 	int	nchild;		/* Number of living children */
 	int	nwait;		/* Number of uncollected wait records */
 	QLock	qwaitr;
 	Rendez	waitr;		/* Place to hang out in wait */
-	Proc	*parent;
+
+	QLock	seglock;	/* locked whenever seg[] changes */
+	Segment	*seg[NSEG];
 
 	Pgrp	*pgrp;		/* Process group for namespace */
 	Egrp 	*egrp;		/* Environment group */

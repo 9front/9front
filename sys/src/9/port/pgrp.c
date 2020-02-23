@@ -12,24 +12,6 @@ enum {
 static Ref pgrpid;
 static Ref mountid;
 
-void
-pgrpnote(ulong noteid, char *n, int flag)
-{
-	Proc *p, *ep;
-
-	p = proctab(0);
-	for(ep = p+conf.nproc; p < ep; p++) {
-		if(p->state == Dead)
-			continue;
-		if(up != p && p->noteid == noteid && p->kp == 0) {
-			qlock(&p->debug);
-			if(p->noteid == noteid)
-				postnote(p, 0, n, flag);
-			qunlock(&p->debug);
-		}
-	}
-}
-
 Pgrp*
 newpgrp(void)
 {
