@@ -155,6 +155,7 @@ main(int argc, char *argv[])
 		if(!Aflag) {
 			append(&cc, "-J");		/* old/new decl mixture hack */
 			append(&cc, "-B");		/* turn off non-prototype warnings */
+			Aflag = 1;
 		}
 		if(argc > 0) {
 			s = argv[0];
