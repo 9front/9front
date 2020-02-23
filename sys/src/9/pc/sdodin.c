@@ -2414,16 +2414,20 @@ msenable(SDev *s)
 
 	c = s->ctlr;
 	ilock(c);
-	if(!c->enabled){
-		if(once++ == 0)
-			kproc("odin", mskproc, 0);
-		pcisetbme(c->pci);
-		snprint(buf, sizeof buf, "%s (%s)", s->name, s->ifc->name);
-		intrenable(c->pci->intl, msinterrupt, c, c->pci->tbdf, buf);
-//		c->reg[Cis] |= Swirq1;		/* force initial interrupt. */
-		c->enabled = 1;
+	if(c->enabled){
+		iunlock(c);
+		return 1;
 	}
+	pcisetbme(c->pci);
+	snprint(buf, sizeof buf, "%s (%s)", s->name, s->ifc->name);
+	intrenable(c->pci->intl, msinterrupt, c, c->pci->tbdf, buf);
+//	c->reg[Cis] |= Swirq1;		/* force initial interrupt. */
+	c->enabled = 1;
 	iunlock(c);
+
+	if(once++ == 0)
+		kproc("odin", mskproc, 0);
+
 	return 1;
 }
 
@@ -2517,9 +2521,6 @@ msverify(SDunit *u)
 	if(d->unit == nil){
 		d->unit = u;
 		sdaddfile(u, "led", 0644, eve, odinledr, odinledw);
-		once++;
-		if(once == nmsctlr)
-			kproc("mvled", ledkproc, 0);
 		chk = 1;
 	}
 	iunlock(d);
@@ -2530,6 +2531,8 @@ msverify(SDunit *u)
 	 * we need to give detected drives a chance.
 	 */
 	if(chk){
+		if(++once == nmsctlr)
+			kproc("mvled", ledkproc, 0);
 		reset(d);
 		verifychk(d);
 	}

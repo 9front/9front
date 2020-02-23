@@ -1546,21 +1546,25 @@ iaenable(SDev *s)
 
 	c = s->ctlr;
 	ilock(c);
-	if(!c->enabled){
-		if(once == 0)
-			kproc("iasata", satakproc, 0);
-		if(c->ndrive == 0)
-			panic("iaenable: zero s->ctlr->ndrive");
-		pcisetbme(c->pci);
-		snprint(name, sizeof name, "%s (%s)", s->name, s->ifc->name);
-		intrenable(c->pci->intl, iainterrupt, c, c->pci->tbdf, name);
-		/* supposed to squelch leftover interrupts here. */
-		ahcienable(c->hba);
-		c->enabled = 1;
-		if(++once == niactlr)
-			kproc("ialed", ledkproc, 0);
+	if(c->enabled){
+		iunlock(c);
+		return 1;
 	}
+	if(c->ndrive == 0)
+		panic("iaenable: zero s->ctlr->ndrive");
+	pcisetbme(c->pci);
+	snprint(name, sizeof name, "%s (%s)", s->name, s->ifc->name);
+	intrenable(c->pci->intl, iainterrupt, c, c->pci->tbdf, name);
+	/* supposed to squelch leftover interrupts here. */
+	ahcienable(c->hba);
+	c->enabled = 1;
 	iunlock(c);
+
+	if(once == 0)
+		kproc("iasata", satakproc, 0);
+	if(++once == niactlr)
+		kproc("ialed", ledkproc, 0);
+
 	return 1;
 }
 
