@@ -1548,7 +1548,7 @@ killbig(char *why)
 	kp = nil;
 	for(i = 0; i < conf.nproc; i++) {
 		p = proctab(i);
-		if(p->state == Dead || p->kp)
+		if(p->state == Dead || p->kp || p->parentpid == 0)
 			continue;
 		if((p->noswap || (p->procmode & 0222) == 0) && strcmp(eve, p->user) == 0)
 			continue;
