@@ -24,6 +24,6 @@ case 1
 case *
 	pattern=$1
 	shift
-	files=($*)
+	files=`$nl{walk -f $recurse -- $*}
 }
 grep -n $flags -- $pattern $files /dev/null
