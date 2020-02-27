@@ -691,6 +691,7 @@ Type*	copytyp(Type*);
 void	typeext(Type*, Node*);
 void	typeext1(Type*, Node*);
 int	side(Node*);
+int	zpconst(Node*);
 int	vconst(Node*);
 int	log2(uvlong);
 int	vlog(Node*);

@@ -1026,6 +1026,21 @@ loop:
 }
 
 int
+zpconst(Node *n)
+{
+	while(n->op == OCAST){
+		if(n->type == T)
+			break;
+		if(n->type->etype != TIND)
+			break;
+		if(n->type->link->etype != TVOID)
+			break;
+		n = n->left;
+	}
+	return vconst(n) == 0;
+}
+
+int
 vconst(Node *n)
 {
 	int i;

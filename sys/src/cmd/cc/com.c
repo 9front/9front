@@ -341,11 +341,13 @@ tcomo(Node *n, int f)
 		o |= tcom(r->left);
 		if(o | tcom(r->right))
 			goto bad;
-		if(r->right->type->etype == TIND && vconst(r->left) == 0) {
+		if(r->right->type->etype == TIND && zpconst(r->left)) {
+			r->type = r->right->type;
 			r->left->type = r->right->type;
 			r->left->vconst = 0;
 		}
-		if(r->left->type->etype == TIND && vconst(r->right) == 0) {
+		if(r->left->type->etype == TIND && zpconst(r->right)) {
+			r->type = r->left->type;
 			r->right->type = r->left->type;
 			r->right->vconst = 0;
 		}
