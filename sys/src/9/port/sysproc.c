@@ -466,8 +466,10 @@ sysexec(va_list list)
 		if(indir)
 			e = strchr(a, 0);
 		else {
+			if(charp >= (char*)tos)
+				error(Ebadarg);
 			validaddr((uintptr)a, 1, 0);
-			e = vmemchr(a, 0, (char*)tstk - charp);
+			e = vmemchr(a, 0, (char*)tos - charp);
 			if(e == nil)
 				error(Ebadarg);
 		}
