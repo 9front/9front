@@ -1154,10 +1154,9 @@ procread(Chan *c, void *va, long n, vlong off)
 static long
 procwrite(Chan *c, void *va, long n, vlong off)
 {
-	char buf[ERRMAX], *arg;
+	char buf[ERRMAX];
 	ulong offset;
 	Proc *p;
-	int m;
 
 	offset = off;
 	if(c->qid.type & QTDIR)
@@ -1165,7 +1164,7 @@ procwrite(Chan *c, void *va, long n, vlong off)
 
 	/* use the remembered noteid in the channel qid */
 	if(QID(c->qid) == Qnotepg) {
-		if(n >= ERRMAX-1)
+		if(n >= sizeof(buf))
 			error(Etoobig);
 		memmove(buf, va, n);
 		buf[n] = 0;
@@ -1184,20 +1183,12 @@ procwrite(Chan *c, void *va, long n, vlong off)
 
 	switch(QID(c->qid)){
 	case Qargs:
-		if(n == 0)
-			error(Eshort);
-		if(n >= ERRMAX)
+		if(offset != 0 || n >= sizeof(buf))
 			error(Etoobig);
-		arg = malloc(n+1);
-		if(arg == nil)
-			error(Enomem);
-		memmove(arg, va, n);
-		m = n;
-		if(arg[m-1] != 0)
-			arg[m++] = 0;
-		free(p->args);
-		p->args = arg;
-		p->nargs = m;
+		memmove(buf, va, n);
+		buf[n] = 0;
+		kstrdup(&p->args, buf);
+		p->nargs = 0;
 		p->setargs = 1;
 		break;
 
@@ -1241,7 +1232,7 @@ procwrite(Chan *c, void *va, long n, vlong off)
 		break;
 
 	case Qnoteid:
-		if(n >= sizeof(buf))
+		if(offset != 0 || n >= sizeof(buf))
 			error(Etoobig);
 		memmove(buf, va, n);
 		buf[n] = 0;
