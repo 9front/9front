@@ -812,7 +812,7 @@ writewatchpt(Proc *pr, char *buf, int nbuf, uvlong offset)
 	}
 	if(nwp0 > 0)
 		memmove(wp, pr->watchpt, sizeof(Watchpt) * nwp0);
-	for(wq = wp + nwp0;;){
+	for(wq = wp + nwp0; wq < wp + nwp0+nwp;){
 		q = memchr(p, '\n', e - p);
 		if(q == nil)
 			break;
