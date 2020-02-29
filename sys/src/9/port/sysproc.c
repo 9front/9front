@@ -271,20 +271,20 @@ l2be(long l)
 uintptr
 sysexec(va_list list)
 {
-	Segment *s, *ts;
-	int i;
-	Chan *tc;
-	char **argv, **argp, **argp0;
-	char *a, *e, *charp, *args, *file, *file0;
-	char *progarg[sizeof(Exec)/2+1], *elem, progelem[64];
-	ulong magic, ssize, nargs, nbytes, n;
-	uintptr t, d, b, entry, bssend, text, data, bss, tstk, align;
-	int indir;
 	Exec exec;
 	char line[sizeof(Exec)];
-	Fgrp *f;
+	char *progarg[sizeof(line)/2+1];
+	volatile char *args, *elem, *file0;
+	char **argv, **argp, **argp0;
+	char *a, *e, *charp, *file;
+	int i, n, indir;
+	ulong magic, ssize, nargs, nbytes;
+	uintptr t, d, b, entry, bssend, text, data, bss, tstk, align;
+	Segment *s, *ts;
 	Image *img;
 	Tos *tos;
+	Chan *tc;
+	Fgrp *f;
 
 	args = elem = nil;
 	file0 = va_arg(list, char*);
@@ -352,12 +352,11 @@ sysexec(va_list list)
 		 * Process #! /bin/sh args ...
 		 */
 		memmove(line, &exec, n);
-		if(indir || line[0]!='#' || line[1]!='!')
+		if(line[0]!='#' || line[1]!='!' || indir++)
 			error(Ebadexec);
 		n = shargs(line, n, progarg);
 		if(n < 1)
 			error(Ebadexec);
-		indir = 1;
 		/*
 		 * First arg becomes complete file name
 		 */
@@ -365,10 +364,7 @@ sysexec(va_list list)
 		progarg[n] = nil;
 		argp0++;
 		file = progarg[0];
-		if(strlen(elem) >= sizeof progelem)
-			error(Ebadexec);
-		strcpy(progelem, elem);
-		progarg[0] = progelem;
+		progarg[0] = elem;
 		poperror();
 		cclose(tc);
 	}
@@ -513,14 +509,6 @@ sysexec(va_list list)
 		}
 	}
 
-	/*
-	 * Close on exec
-	 */
-	if((f = up->fgrp) != nil) {
-		for(i=0; i<=f->maxfd; i++)
-			fdclose(i, CCEXEC);
-	}
-
 	/* Text.  Shared. Attaches to cache image if possible */
 	/* attachimage returns a locked cache image */
 	img = attachimage(SG_TEXT | SG_RONLY, tc, UTZERO, (t-UTZERO)>>PGSHIFT);
@@ -557,11 +545,20 @@ sysexec(va_list list)
 	poperror();	/* seglock */
 
 	/*
+	 * Close on exec
+	 */
+	if((f = up->fgrp) != nil) {
+		for(i=0; i<=f->maxfd; i++)
+			fdclose(i, CCEXEC);
+	}
+
+	/*
 	 *  '/' processes are higher priority (hack to make /ip more responsive).
 	 */
 	if(devtab[tc->type]->dc == L'/')
 		up->basepri = PriRoot;
 	up->priority = up->basepri;
+
 	poperror();	/* tc */
 	cclose(tc);
 	poperror();	/* file0 */
