@@ -45,18 +45,16 @@ loadrevinfo(Revlog *changelog, int rev)
 	free(line);
 
 	ri->logoff = Boffset(buf);
-
 	for(;;){
 		if((c = Bgetc(buf)) < 0)
 			goto Error;
-		if(c == '\n'){
+		if(c == '\n')
+			break;
+		do {
 			if((c = Bgetc(buf)) < 0)
 				goto Error;
-			if(c == '\n')
-				break;
-		}
+		} while(c != '\n');
 	}
-
 	ri->loglen = Boffset(buf) - ri->logoff - 1;
 
 	line = Brdstr(buf, '\0', 1);
