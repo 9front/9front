@@ -1,12 +1,9 @@
 .TH SECHASH 2
 .SH NAME
-md4, md5,
+md4, md5, ripemd160,
 sha1, sha2_224, sha2_256, sha2_384, sha2_512,
-ripemd160, poly1305,
-hmac_x, hmac_md5,
-hmac_sha1, hmac_sha2_224, hmac_sha2_256, hmac_sha2_384, hmac_sha2_512,
-md5pickle, md5unpickle,
-sha1pickle, sha1unpickle \- cryptographically secure hashes
+hmac_x, hmac_md5, hmac_sha1, hmac_sha2_224, hmac_sha2_256, hmac_sha2_384, hmac_sha2_512,
+poly1305 \- cryptographically secure hashes
 .SH SYNOPSIS
 .nr Wd \w'\fLDS* \fP'u
 .nr In \w'\fLDS*   \fP'u
@@ -33,20 +30,10 @@ sha1pickle, sha1unpickle \- cryptographically secure hashes
 DS*	md4(uchar *data, ulong dlen, uchar *digest, DS *state)
 .Ti
 DS*	md5(uchar *data, ulong dlen, uchar *digest, DS *state)
-.PP
-.B
-char*	md5pickle(MD5state *state)
-.PP
-.B
-MD5state*	md5unpickle(char *p);
+.Ti
+DS*	ripemd160(uchar *data, ulong dlen, uchar *digest, DS *state)
 .Ti
 DS*	sha1(uchar *data, ulong dlen, uchar *digest, DS *state)
-.PP
-.B
-char*	sha1pickle(SHA1state *state)
-.PP
-.B
-SHA1state*	sha1unpickle(char *p);
 .Ti
 DS*	sha2_224(uchar *data, ulong dlen, uchar *digest, DS *state)
 .Ti
@@ -55,10 +42,6 @@ DS*	sha2_256(uchar *data, ulong dlen, uchar *digest, DS *state)
 DS*	sha2_384(uchar *data, ulong dlen, uchar *digest, DS *state)
 .Ti
 DS*	sha2_512(uchar *data, ulong dlen, uchar *digest, DS *state)
-.Ti
-DS*	ripemd160(uchar *data, ulong dlen, uchar *digest, DS *state)
-.Ti
-DS*	poly1305(uchar *p, ulong len, uchar *key, ulong klen, uchar *digest, DS *state)
 .Ti
 DS*	hmac_x(uchar *p, ulong len, uchar *key, ulong klen, uchar *digest, DS *s, DS*(*x)(uchar*, ulong, uchar*, DS*), int xlen)
 .Ti
@@ -73,35 +56,28 @@ DS*	hmac_sha2_256(uchar *data, ulong dlen, uchar *key, ulong klen, uchar *digest
 DS*	hmac_sha2_384(uchar *data, ulong dlen, uchar *key, ulong klen, uchar *digest, DS *state)
 .Ti
 DS*	hmac_sha2_512(uchar *data, ulong dlen, uchar *key, ulong klen, uchar *digest, DS *state)
+.Ti
+DS*	poly1305(uchar *p, ulong len, uchar *key, ulong klen, uchar *digest, DS *state)
 .SH DESCRIPTION
 .DT
-We support several secure hash functions.  The output of a
-hash is called a
+The output of a hash is called a
 .IR digest .
 A hash is secure if, given the hashed data and the digest,
 it is difficult to predict the change to the digest resulting
 from some change to the data without rehashing
 the whole data.  Therefore, if a secret is part of the hashed
-data, the digest can be used as an integrity check of the data by anyone
-possessing the secret.
+data, the digest can be used as an integrity check of the data
+by anyone possessing the secret.
 .PP
 The routines
 .IR md4 ,
 .IR md5 ,
+.IR ripemd160 ,
 .IR sha1 ,
 .IR sha2_224 ,
 .IR sha2_256 ,
 .IR sha2_384 ,
 .IR sha2_512 ,
-.IR ripemd160 ,
-.IR poly1305 ,
-.IR hmac_md5 ,
-.IR hmac_sha1 ,
-.IR hmac_sha2_224 ,
-.IR hmac_sha2_256 ,
-.IR hmac_sha2_384 ,
-and
-.IR hmac_sha2_512
 differ only in the length of the resulting digest
 and in the security of the hash.
 .I Sha2_*
@@ -126,13 +102,14 @@ This last call will free the state and copy the result into
 The constants
 .IR MD4dlen ,
 .IR MD5dlen ,
+.IR RIPEMD160dlen ,
 .IR SHA1dlen ,
 .IR SHA2_224dlen ,
 .IR SHA2_256dlen ,
-.IR SHA2_384dlen,
-.IR SHA2_512dlen ,
+.IR SHA2_384dlen ,
+.I SHA2_512dlen
 and
-.I AESdlen
+.I Poly1305dlen
 define the lengths of the digests.
 .PP
 .IR Hmac_md5 ,
@@ -140,34 +117,25 @@ define the lengths of the digests.
 .IR hmac_sha2_224 ,
 .IR hmac_sha2_256 ,
 .IR hmac_sha2_384 ,
+.I hmac_sha2_512
 and
-.IR hmac_sha2_512
+.I poly1305
 are used slightly differently.  These hash algorithms are keyed and require
 a key to be specified on every call.
 The digest lengths for these hashes are the obvious ones from
 the above list of length constants.
-These routines all call
+The
+.I hmac_*
+routines all call
 .I hmac_x
 internally, but
 .I hmac_x
 is not intended for general use.
 .PP
-.IR Poly1305
-is a one-time authenticator designed by D. J. Bernstein. It takes a 32-byte
-one-time key and a message and produces a 16-byte tag.
-.PP
-The functions
-.I md5pickle
-and
-.I sha1pickle
-marshal the state of a digest for transmission.
-.I Md5unpickle
-and
-.I sha1unpickle
-unmarshal a pickled digest.
-All four routines return a pointer to a newly
-.IR malloc (2)'d
-object.
+.I Poly1305
+is a one-time authenticator designed by D. J. Bernstein is documented in
+.IR RFC8439 .
+It takes a 32-byte one-time key and a message and produces a 16-byte tag.
 .SH EXAMPLES
 To hash a single buffer using
 .IR md5 :
