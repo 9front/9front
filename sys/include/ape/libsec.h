@@ -51,6 +51,9 @@ void	aesCFBencrypt(uchar *p, int len, AESstate *s);
 void	aesCFBdecrypt(uchar *p, int len, AESstate *s);
 void	aesOFBencrypt(uchar *p, int len, AESstate *s);
 
+void	aes_xts_encrypt(AESstate *tweak, AESstate *ecb, uvlong sectorNumber, uchar *input, uchar *output, ulong len);
+void	aes_xts_decrypt(AESstate *tweak, AESstate *ecb, uvlong sectorNumber, uchar *input, uchar *output, ulong len);
+
 typedef struct AESGCMstate AESGCMstate;
 struct AESGCMstate
 {
@@ -504,10 +507,6 @@ int	okCertificate(uchar *cert, int len, Thumbprint *ok);
 /* readcert.c */
 uchar	*readcert(char *filename, int *pcertlen);
 PEMChain*readcertchain(char *filename);
-
-/* aes_xts.c */
-void aes_xts_encrypt(AESstate *tweak, AESstate *ecb, uvlong sectorNumber, uchar *input, uchar *output, ulong len);
-void aes_xts_decrypt(AESstate *tweak, AESstate *ecb, uvlong sectorNumber, uchar *input, uchar *output, ulong len);
 
 typedef struct ECpoint{
 	int inf;
