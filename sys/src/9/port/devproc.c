@@ -1119,9 +1119,10 @@ procread(Chan *c, void *va, long n, vlong off)
 		goto statbufread;
 
 	case Qsyscall:
-		n = 0;
 		if(p->syscalltrace != nil)
 			n = readstr(offset, va, n, p->syscalltrace);
+		else
+			n = 0;
 		break;
 
 	case Qnote:
