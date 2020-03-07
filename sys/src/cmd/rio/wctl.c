@@ -93,7 +93,7 @@ goodrect(Rectangle r)
 	/* reasonable sizes only please */
 	if(Dx(r) > BIG*Dx(screen->r))
 		return 0;
-	if(Dy(r) > BIG*Dx(screen->r))
+	if(Dy(r) > BIG*Dy(screen->r))
 		return 0;
 	if(Dx(r) < 100 || Dy(r) < 3*font->height)
 		return 0;
