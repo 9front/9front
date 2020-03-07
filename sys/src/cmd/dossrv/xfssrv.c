@@ -18,7 +18,6 @@ char	repdata[Maxfdata];
 uchar	statbuf[STATMAX];
 int	errno;
 char	errbuf[ERRMAX];
-void	rmservice(void);
 char	srvfile[64];
 char	*deffile;
 int	doabort;
@@ -87,14 +86,9 @@ main(int argc, char **argv)
 	else
 		usage();
 
-	if(stdio){
-		pipefd[0] = 0;
-		pipefd[1] = 1;
-	}else{
-		close(0);
-		close(1);
-		open("/dev/null", OREAD);
-		open("/dev/null", OWRITE);
+	iotrack_init();
+
+	if(!stdio){
 		if(pipe(pipefd) < 0)
 			panic("pipe");
 		srvfd = create(srvfile, OWRITE|ORCLOSE, 0600);
@@ -102,40 +96,39 @@ main(int argc, char **argv)
 			panic(srvfile);
 		fprint(srvfd, "%d", pipefd[0]);
 		close(pipefd[0]);
-		atexit(rmservice);
 		fprint(2, "%s: serving %s\n", argv0, srvfile);
+
+		dup(pipefd[1], 0);
+		dup(pipefd[1], 1);
 	}
-	srvfd = pipefd[1];
 
 	switch(rfork(RFNOWAIT|RFNOTEG|RFFDG|RFPROC|RFNAMEG)){
 	case -1:
 		panic("fork");
 	default:
-		_exits(0);
+		_exits(nil);
 	case 0:
 		break;
 	}
-
-	iotrack_init();
 
 	if(!chatty){
 		close(2);
 		open("#c/cons", OWRITE);
 	}
 
-	io(srvfd);
-	exits(0);
+	io();
+	exits(nil);
 }
 
 void
-io(int srvfd)
+io(void)
 {
 	int n, pid;
 
 	pid = getpid();
 
 	fmtinstall('F', fcallfmt);
-	while((n = read9pmsg(srvfd, mdata, sizeof mdata)) != 0){
+	while((n = read9pmsg(0, mdata, sizeof mdata)) != 0){
 		if(n < 0)
 			panic("mount read");
 		if(convM2S(mdata, n, req) != n)
@@ -162,16 +155,10 @@ io(int srvfd)
 		n = convS2M(rep, mdata, sizeof mdata);
 		if(n == 0)
 			panic("convS2M error on write");
-		if(write(srvfd, mdata, n) != n)
+		if(write(1, mdata, n) != n)
 			panic("mount write");
 	}
 	chat("server shut down\n");
-}
-
-void
-rmservice(void)
-{
-	remove(srvfile);
 }
 
 char *

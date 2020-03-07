@@ -26,7 +26,7 @@ char	*getnamesect(char*, char*, uchar*, int*, int*, int);
 long	getstart(Xfs *xf, Dosdir *d);
 Xfs	*getxfs(char*, char*);
 long	gtime(Dosdir *d);
-void	io(int srvfd);
+void	io(void);
 int	iscontig(Xfs *xf, Dosdir *d);
 int	isroot(vlong addr);
 int	makecontig(Xfile*, int);

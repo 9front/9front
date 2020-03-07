@@ -11,7 +11,7 @@ enum
 	Maxiosize	= IOHDRSZ+Maxfdata,
 };
 
-void io(int);
+void io(void);
 void rversion(void);
 void	rattach(void);
 void	rauth(void);
@@ -119,14 +119,7 @@ main(int argc, char **argv)
 	for(xs=xsublist; *xs; xs++)
 		(*(*xs)->reset)();
 
-	if(stdio) {
-		pipefd[0] = 0;
-		pipefd[1] = 1;
-	} else {
-		close(0);
-		close(1);
-		open("/dev/null", OREAD);
-		open("/dev/null", OWRITE);
+	if(!stdio){
 		if(pipe(pipefd) < 0)
 			panic(1, "pipe");
 		sprint(srvfile, "/srv/%s", srvname);
@@ -136,24 +129,25 @@ main(int argc, char **argv)
 		fprint(srvfd, "%d", pipefd[0]);
 		close(pipefd[0]);
 		fprint(2, "%s %d: serving %s\n", argv0, getpid(), srvfile);
+		dup(pipefd[1], 0);
+		dup(pipefd[1], 1);
 	}
-	srvfd = pipefd[1];
 
 	switch(rfork(RFNOWAIT|RFNOTEG|RFFDG|RFPROC|RFNAMEG)){
 	case -1:
 		panic(1, "fork");
 	default:
-		_exits(0);
+		_exits(nil);
 	case 0:
 		break;
 	}
 
-	io(srvfd);
-	exits(0);
+	io();
+	exits(nil);
 }
 
 void
-io(int srvfd)
+io(void)
 {
 	int n, pid;
 	Fcall xreq, xrep;
@@ -163,7 +157,7 @@ io(int srvfd)
 	pid = getpid();
 	fmtinstall('F', fcallfmt);
 
-	while((n = read9pmsg(srvfd, mdata, sizeof mdata)) != 0){
+	while((n = read9pmsg(0, mdata, sizeof mdata)) != 0){
 		if(n < 0)
 			panic(1, "mount read");
 		if(convM2S(mdata, n, req) != n)
@@ -195,7 +189,7 @@ io(int srvfd)
 		n = convS2M(rep, mdata, sizeof mdata);
 		if(n == 0)
 			panic(1, "convS2M error on write");
-		if(write(srvfd, mdata, n) != n)
+		if(write(1, mdata, n) != n)
 			panic(1, "mount write");
 		if(nerr_lab != 0)
 			panic(0, "err stack %d: %lux %lux %lux %lux %lux %lux", nerr_lab,

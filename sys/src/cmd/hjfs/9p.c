@@ -142,7 +142,7 @@ start9p(char *service, char **nets, int stdio)
 		threadlistensrv(&mysrv, *nets++);
 	}
 	if(stdio){
-		mysrv.infd = 1;
+		mysrv.infd = 0;
 		mysrv.outfd = 1;
 		srv(&mysrv);
 	}else

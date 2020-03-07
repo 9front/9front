@@ -59,7 +59,7 @@ Ream the file system, erasing all of the old data.
 Ignore permissions.
 .TP
 .B -s
-Read and write protocol messages on file descriptor zero.
+Read and write protocol messages on standard file descriptors zero and one.
 .PD
 .SH SOURCE
 .B /sys/src/cmd/hjfs
