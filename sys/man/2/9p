@@ -59,7 +59,6 @@ typedef struct Srv {
 	int		infd;
 	int		outfd;
 	int		srvfd;
-	int		nopipe;
 } Srv;
 .fi
 .PP
@@ -175,10 +174,7 @@ are wrappers that create a separate process in which to run
 .IR srv .
 They do the following:
 .IP
-If
-.IB s -> nopipe
-is zero (the common case),
-initialize
+Initialize
 .IB s -> infd
 and
 .IB s -> outfd

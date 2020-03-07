@@ -215,9 +215,7 @@ struct Srv {
 
 	int		infd;
 	int		outfd;
-	int		nopipe;
 	int		srvfd;
-	int		leavefdsopen;	/* magic for acme win */
 	char*	keyspec;
 
 /* below is implementation-specific; don't use */

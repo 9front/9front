@@ -158,7 +158,7 @@ main(int argc, char **argv)
 		usage();
 
 	if(chatty9p)
-		fprint(2, "ramsrv.nopipe %d srvname %s mtpt %s\n", fs.nopipe, srvname, mtpt);
+		fprint(2, "srvname %s mtpt %s\n", srvname, mtpt);
 	if(addr == nil && srvname == nil && mtpt == nil)
 		sysfatal("must specify -a, -s, or -m option");
 	if(addr)
