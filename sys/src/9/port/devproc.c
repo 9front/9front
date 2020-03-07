@@ -447,7 +447,6 @@ procopen(Chan *c, int omode0)
 	case Qnoteid:
 		if(omode == OREAD)
 			break;
-	case Qctl:
 	case Qnote:
 		if(p->kp)
 			error(Eperm);
@@ -457,6 +456,11 @@ procopen(Chan *c, int omode0)
 		if(p->kp || omode != OWRITE)
 			error(Eperm);
 		pid = p->noteid;
+		break;
+
+	case Qctl:
+		if(p->kp || omode != OWRITE)
+			error(Eperm);
 		break;
 
 	case Qmem:
