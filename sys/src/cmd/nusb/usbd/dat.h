@@ -122,3 +122,5 @@ struct DSSHub
 	uchar	wHubDelay[2];
 	uchar	DeviceRemovable[1];	/* variable length */
 };
+
+extern Hub *hubs;

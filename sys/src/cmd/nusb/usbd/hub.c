@@ -670,21 +670,8 @@ dump(void)
 void
 work(void)
 {
-	char *fn;
 	Hub *h;
 	int i;
-
-	hubs = nil;
-	while((fn = rendezvous(work, nil)) != nil){
-		dprint(2, "%s: %s starting\n", argv0, fn);
-		h = newhub(fn, nil);
-		if(h == nil)
-			fprint(2, "%s: %s: newhub failed: %r\n", argv0, fn);
-		free(fn);
-	}
-
-	if(hubs == nil)
-		return;
 
 	/*
 	 * Enumerate (and acknowledge after first enumeration).

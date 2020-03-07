@@ -329,7 +329,17 @@ usbdflush(Req *req)
 	respond(req, nil);
 }
 
+static void
+usbdstart(Srv*)
+{
+	switch(rfork(RFPROC|RFMEM|RFNOWAIT)){
+	case -1: sysfatal("rfork: %r");
+	case 0: work(); exits(nil);
+	}
+}
+
 Srv usbdsrv = {
+	.start = usbdstart,
 	.attach = usbdattach,
 	.walk1 = usbdwalk,
 	.read = usbdread,
@@ -447,6 +457,7 @@ void
 main(int argc, char **argv)
 {
 	int fd, i, nd;
+	char *fn;
 	Dir *d;
 
 	ARGBEGIN {
@@ -458,34 +469,33 @@ main(int argc, char **argv)
 		break;
 	} ARGEND;
 
-	busyfd = create("/env/usbbusy", ORCLOSE, 0600);
 	quotefmtinstall();
 	fmtinstall('U', Ufmt);
 	initevent();
-	rfork(RFNOTEG);
-	switch(rfork(RFPROC|RFMEM|RFNOWAIT)){
-	case -1: sysfatal("rfork: %r");
-	case 0: work(); exits(nil);
-	}
+
+	hubs = nil;
 	if(argc == 0){
-		if((fd = open("/dev/usb", OREAD)) < 0){
-			rendezvous(work, nil);
+		if((fd = open("/dev/usb", OREAD)) < 0)
 			sysfatal("/dev/usb: %r");
-		}
 		nd = dirreadall(fd, &d);
 		close(fd);
-		if(nd < 2){
-			rendezvous(work, nil);
-			sysfatal("/dev/usb: no hubs");
+		for(i = 0; i < nd; i++){
+			if(strcmp(d[i].name, "ctl") != 0){
+				fn = smprint("/dev/usb/%s", d[i].name);
+				newhub(fn, nil);
+				free(fn);
+			}
 		}
-		for(i = 0; i < nd; i++)
-			if(strcmp(d[i].name, "ctl") != 0)
-				rendezvous(work, smprint("/dev/usb/%s", d[i].name));
 		free(d);
-	}else
+	}else {
 		for(i = 0; i < argc; i++)
-			rendezvous(work, estrdup9p(argv[i]));
-	rendezvous(work, nil);
+			newhub(argv[i], nil);
+	}
+
+	if(hubs == nil)
+		sysfatal("no hubs");
+
+	busyfd = create("/env/usbbusy", ORCLOSE, 0600);
 	postsharesrv(&usbdsrv, nil, "usb", "usbd");
 	exits(nil);
 }
