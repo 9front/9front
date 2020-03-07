@@ -810,8 +810,8 @@ srv(Srv *srv)
 	fmtinstall('F', fcallfmt);
 
 	srv->spid = getpid();
-	srv->sref.ref = 0;
-	srv->rref.ref = 0;
+	memset(&s->sref, 0, sizeof(s->sref));
+	memset(&s->rref, 0, sizeof(s->rref));
 
 	if(srv->fpool == nil)
 		srv->fpool = allocfidpool(srv->destroyfid);

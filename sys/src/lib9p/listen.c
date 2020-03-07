@@ -15,11 +15,26 @@ _listensrv(Srv *os, char *addr)
 {
 	Srv *s;
 
-	if(_forker == nil)
-		sysfatal("no forker");
 	s = emalloc9p(sizeof *s);
 	*s = *os;
+
 	s->addr = estrdup9p(addr);
+	s->infd = s->outfd = s->srvfd = -1;
+	s->fpool = nil;
+	s->rpool = nil;
+	s->msize = 0;
+	s->rbuf = nil;
+	s->wbuf = nil;
+	memset(&s->rlock, 0, sizeof(s->rlock));
+	memset(&s->wlock, 0, sizeof(s->wlock));
+	memset(&s->slock, 0, sizeof(s->slock));
+	memset(&s->sref, 0, sizeof(s->sref));
+	memset(&s->rref, 0, sizeof(s->rref));
+	s->spid = 0;
+	s->free = nil;
+
+	if(_forker == nil)
+		sysfatal("no forker");
 	_forker(listenproc, s, 0);
 }
 
@@ -56,10 +71,6 @@ listenproc(void *v)
 		*s = *os;
 		s->addr = getremotesys(ndir);
 		s->infd = s->outfd = data;
-		s->fpool = nil;
-		s->rpool = nil;
-		s->rbuf = nil;
-		s->wbuf = nil;
 		s->free = srvfree;
 		_forker(srvproc, s, 0);
 	}
