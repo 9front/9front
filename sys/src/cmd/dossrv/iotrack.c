@@ -132,7 +132,7 @@ loop:
 		}
 	unmlock(&mp->lock);
 	if(p == mp){
-		print("iotrack all ref'd\n");
+		fprint(2, "iotrack all ref'd\n");
 		goto loop;
 	}
 	if(p->flags & BMOD){
