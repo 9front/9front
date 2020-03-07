@@ -1081,7 +1081,7 @@ Srv fs = {
 void
 usage(void)
 {
-	fprint(2, "usage: aux/apm [-ADPi] [-d /dev/apm] [-m /mnt/apm] [-s service]\n");
+	fprint(2, "usage: aux/apm [-ADP] [-d /dev/apm] [-m /mnt/apm] [-s service]\n");
 	exits("usage");
 }
 
@@ -1105,12 +1105,6 @@ threadmain(int argc, char **argv)
 		break;
 	case 'd':
 		dev = EARGF(usage());
-		break;
-	case 'i':
-		fs.nopipe++;
-		fs.infd = 0;
-		fs.outfd = 1;
-		mtpt = nil;
 		break;
 	case 'm':
 		mtpt = EARGF(usage());
@@ -1147,6 +1141,5 @@ threadmain(int argc, char **argv)
 	apminstallationcheck(&apm);
 	apmcpuidle(&apm);
 
-	rfork(RFNOTEG);
 	threadpostmountsrv(&fs, srv, mtpt, MREPL);
 }

@@ -417,7 +417,7 @@ fsattach(Req *r)
 static void
 usage(void)
 {
-	fprint(2, "usage: aux/acpi [-Di] [-d /dev] [-m /mnt/acpi] [-s service]\n");
+	fprint(2, "usage: aux/acpi [-D] [-d /dev] [-m /mnt/acpi] [-s service]\n");
 	exits("usage");
 }
 
@@ -447,12 +447,6 @@ threadmain(int argc, char **argv)
 	ARGBEGIN{
 	case 'D':
 		chatty9p = 1;
-		break;
-	case 'i':
-		fs.nopipe++;
-		fs.infd = 0;
-		fs.outfd = 1;
-		mtpt = nil;
 		break;
 	case 'm':
 		mtpt = EARGF(usage());
@@ -505,7 +499,6 @@ threadmain(int argc, char **argv)
 	amlenum(amlroot, "_BIF", enumbat, nil);
 	amlenum(amlroot, "_PSL", enumtmp, nil);
 
-	rfork(RFNOTEG);
 	threadpostmountsrv(&fs, srv, mtpt, MREPL);
 	return;
 
