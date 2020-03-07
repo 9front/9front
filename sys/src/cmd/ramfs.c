@@ -454,11 +454,11 @@ main(int argc, char **argv)
 {
 	char *srvname = nil;
 	char *mtpt = "/tmp";
-	int mountflags;
+	int mountflags, stdio;
 
 	fs.tree = alloctree(nil, nil, DMDIR|0777, fsdestroyfile);
 
-	mountflags = 0;
+	mountflags = stdio = 0;
 	ARGBEGIN{
 	case 'D':
 		chatty9p++;
@@ -475,9 +475,7 @@ main(int argc, char **argv)
 		mtpt = EARGF(usage());
 		break;
 	case 'i':
-		fs.nopipe = 1;
-		srvname = nil;
-		mtpt = nil;
+		stdio = 1;
 		break;
 	case 'p':
 		private = 1;
@@ -500,7 +498,7 @@ main(int argc, char **argv)
 	if(argc > 0)
 		usage();
 
-	if(fs.nopipe){
+	if(stdio){
 		fs.infd = 0;
 		fs.outfd = 1;
 		srv(&fs);
