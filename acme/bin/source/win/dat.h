@@ -65,7 +65,6 @@ extern	void		winclean(Window*);
 extern	int		winselect(Window*, char*, int);
 extern	int		winsetaddr(Window*, char*, int);
 extern	void		windormant(Window*);
-extern	void		winsetdump(Window*, char*, char*);
 extern	void		winsetdir(Window*, char*, char*);
 
 extern	void		ctlprint(int, char*, ...);
@@ -80,7 +79,7 @@ extern	void		startpipe(void);
 extern	void		sendit(char*);
 extern	void		execevent(Window *w, Event *e, int (*)(Window*, char*));
 
-extern	void		mountcons(void);
+extern	void		mountcons(void*);
 extern	void		fsloop(void*);
 
 extern	int		newpipewin(int, char*);

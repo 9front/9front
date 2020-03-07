@@ -17,7 +17,7 @@ void	pipectl(void*);
 
 int	pipefd;
 Wpid	*wpid;
-int	snarffd;
+int	snarffd = -1;
 Channel *newpipechan;
 
 int
@@ -70,7 +70,7 @@ pipecommand(Window *w, char *s)
 			if(q0 == q1){
 				t = nil;
 				k = 0;
-				if(snarffd > 0){
+				if(snarffd >= 0){
 					seek(0, snarffd, 0);
 					for(;;){
 						t = realloc(t, k+8192+2);

@@ -163,17 +163,24 @@ fsdestroyfid(Fid *fid)
 		free(fid->aux);
 }
 
+void
+fsstart(Srv *srv)
+{
+	proccreate(fsloop, srv->aux, STACK);
+}
+
 Srv fs = {
 .read=	fsread,
 .write=	fswrite,
 .flush=	fsflush,
 .destroyfid=	fsdestroyfid,
-.leavefdsopen=	1,
+.start = fsstart,
 };
 
 void
-mountcons(void)
+mountcons(void *arg)
 {
+	fs.aux = arg;
 	fschan = chancreate(sizeof(Fsevent), 0);
 	writechan = chancreate(sizeof(void*), 0);
 	fs.tree = alloctree("win", "win", DMDIR|0555, nil);

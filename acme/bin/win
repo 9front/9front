@@ -1,0 +1,12 @@
+#!/bin/rc
+if(~ $#* 0){
+	*=(rc -i)
+}
+/acme/bin/$cputype/winfs $1 >/dev/null >[2=1] || {
+	# compat
+	exec /acme/bin/$cputype/win $*
+	exit
+}
+echo dump $* > /dev/acme/ctl
+</dev/cons >/dev/cons >[2=1] $*
+exit ''

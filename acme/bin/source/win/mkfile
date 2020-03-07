@@ -1,6 +1,6 @@
 </$objtype/mkfile
 
-TARG=win
+TARG=winfs
 OFILES=\
 	fs.$O\
 	main.$O\

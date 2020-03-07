@@ -8,33 +8,29 @@
 #include "dat.h"
 
 void	mainctl(void*);
-void	startcmd(char *[], int*);
-void	stdout2body(void*);
 
 int	debug;
-int	notepg;
 int	eraseinput;
+int	notepg = -1;
 int	dirty = 0;
 
-char *wname;
 char *wdir;
+char *wname;
 Window *win;		/* the main window */
 
 void
 usage(void)
 {
-	fprint(2, "usage: win [command]\n");
+	fprint(2, "usage: %s [-Dde] [windowname]\n", argv0);
 	threadexitsall("usage");
 }
 
 void
 threadmain(int argc, char *argv[])
 {
-	int i, j;
-	char buf[1024], **av;
+	char buf[1024], *s;
 
 	quotefmtinstall();
-	rfork(RFNAMEG);
 	ARGBEGIN{
 	case 'd':
 		debug = 1;
@@ -49,44 +45,39 @@ threadmain(int argc, char *argv[])
 }
 	}ARGEND
 
-	if(argc == 0){
-		av = emalloc(3*sizeof(char*));
-		av[0] = "rc";
-		av[1] = "-i";
-	}else{
-		av = argv;
-	}
-	wname = utfrrune(av[0], '/');
-	if(wname)
-		wname++;
+	if(argc == 0)
+		wname = argv0;
 	else
-		wname = av[0];
+		wname = argv[0];
+	s = utfrrune(wname, '/');
+	if(s != nil)
+		wname = s+1;
+
 	if(getwd(buf, sizeof buf) == 0)
 		wdir = "/";
 	else
 		wdir = buf;
 	wdir = estrdup(wdir);
+
 	win = newwindow();
-	snprint(buf, sizeof buf, "%d", win->id);
-	putenv("winid", buf);
 	winsetdir(win, wdir, wname);
 	wintagwrite(win, "Send Noscroll", 5+8);
-	threadcreate(mainctl, win, STACK);
-	mountcons();
-	threadcreate(fsloop, nil, STACK);
-	startpipe();
-	startcmd(av, &notepg);
-
-	strcpy(buf, "win");
-	j = 3;
-	for(i=0; i<argc && j+1+strlen(argv[i])+1<sizeof buf; i++){
-		strcpy(buf+j, " ");
-		strcpy(buf+j+1, argv[i]);
-		j += 1+strlen(argv[i]);
-	}
 
 	ctlprint(win->ctl, "scroll");
-	winsetdump(win, wdir, buf);
+
+	snprint(buf, sizeof(buf), "/proc/%d/notepg", getpid());
+	notepg = open(buf, OWRITE);
+
+	mountcons(win);
+
+	snprint(buf, sizeof buf, "%d", win->id);
+	putenv("winid", buf);
+
+	snprint(buf, sizeof(buf), "/mnt/wsys/%d", win->id);
+	bind(buf, "/dev/acme", MREPL);
+	bind("/dev/acme/body", "/dev/text", MREPL);
+
+	threadexits(nil);
 }
 
 int
@@ -231,7 +222,7 @@ _sendinput(Window *w, ulong q0, ulong *q1)
 	if(!n || !eraseinput)
 		return n;
 	/* erase q0 to q0+n */
-	sprint(buf, "#%lud,#%lud", q0, q0+n);
+	snprint(buf, sizeof(buf), "#%lud,#%lud", q0, q0+n);
 	winsetaddr(w, buf, 0);
 	write(w->data, buf, 0);
 	*q1 -= n;
@@ -254,10 +245,14 @@ sendinput(Window *w, ulong q0, ulong *q1)
 
 Event esendinput;
 void
-fsloop(void*)
+fsloop(void *arg)
 {
 	Fsevent e;
 	Req **l, *r;
+	Window *w = arg;		/* the main window */
+
+	threadcreate(mainctl, w, STACK);
+	startpipe();
 
 	eq = &q;
 	memset(&esendinput, 0, sizeof esendinput);
@@ -567,78 +562,4 @@ mainctl(void *v)
 			}
 		}
 	}
-}
-
-enum
-{
-	NARGS		= 100,
-	NARGCHAR	= 8*1024,
-	EXECSTACK 	= STACK+(NARGS+1)*sizeof(char*)+NARGCHAR
-};
-
-struct Exec
-{
-	char		**argv;
-	Channel	*cpid;
-};
-
-int
-lookinbin(char *s)
-{
-	if(s[0] == '/')
-		return 0;
-	if(s[0]=='.' && s[1]=='/')
-		return 0;
-	if(s[0]=='.' && s[1]=='.' && s[2]=='/')
-		return 0;
-	return 1;
-}
-
-/* adapted from mail.  not entirely free of details from that environment */
-void
-execproc(void *v)
-{
-	struct Exec *e;
-	char *cmd, **av;
-	Channel *cpid;
-
-	e = v;
-	rfork(RFCFDG|RFNOTEG);
-	av = e->argv;
-	close(0);
-	open("/dev/cons", OREAD);
-	close(1);
-	open("/dev/cons", OWRITE);
-	dup(1, 2);
-	cpid = e->cpid;
-	free(e);
-	procexec(cpid, av[0], av);
-	if(lookinbin(av[0])){
-		cmd = estrstrdup("/bin/", av[0]);
-		procexec(cpid, cmd, av);
-	}
-	error("can't exec %s: %r", av[0]);
-}
-
-void
-startcmd(char *argv[], int *notepg)
-{
-	struct Exec *e;
-	Channel *cpid;
-	char buf[64];
-	int pid;
-
-	e = emalloc(sizeof(struct Exec));
-	e->argv = argv;
-	cpid = chancreate(sizeof(ulong), 0);
-	e->cpid = cpid;
-	sprint(buf, "/mnt/wsys/%d", win->id);
-	bind(buf, "/dev/acme", MREPL);
-	bind("/dev/acme/body", "/dev/text", MREPL);
-	proccreate(execproc, e, EXECSTACK);
-	do
-		pid = recvul(cpid);
-	while(pid == -1);
-	sprint(buf, "/proc/%d/notepg", pid);
-	*notepg = open(buf, OWRITE);
 }
