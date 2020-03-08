@@ -799,4 +799,6 @@ threadmain(int argc, char *argv[])
 	reqchan = chancreate(sizeof(Req*), 8);
 	flushchan = chancreate(sizeof(Req*), 8);
 	threadpostmountsrv(&fs, srv, mnt, MBEFORE);
+
+	threadexits(nil);
 }
