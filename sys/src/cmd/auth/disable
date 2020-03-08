@@ -1,4 +1,10 @@
 #!/bin/rc
+
+if(! ~ $#* 1){
+	echo 'usage: auth/disable user' >[1=2]
+	exit usage
+}
+
 if(test -e /mnt/keys/$1)
 	echo -n disabled > /mnt/keys/$1/status
 if(test -e /mnt/netkeys/$1)
