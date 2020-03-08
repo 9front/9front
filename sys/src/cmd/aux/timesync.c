@@ -817,7 +817,7 @@ setpriority(void)
 	char buf[32];
 
 	sprint(buf, "/proc/%d/ctl", getpid());
-	fd = open(buf, ORDWR);
+	fd = open(buf, OWRITE);
 	if(fd < 0){
 		fprint(2, "can't set priority\n");
 		return;
