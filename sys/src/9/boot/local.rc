@@ -45,7 +45,7 @@ fn configlocal{
 }
 
 fn bootfs{
-	{$1 -s -f $*(2-) &} <[0=1] | echo 0 >/srv/boot
+	{$1 -s -f $*(2-) <[0=1] &} | echo 0 >/srv/boot
 }
 
 fn connectlocal{
