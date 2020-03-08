@@ -23,7 +23,10 @@ _postmountsrv(Srv *s, char *name, char *mtpt, int flag)
 
 	if(_forker == nil)
 		sysfatal("no forker");
-	_forker(postproc, s, RFNAMEG|RFFDG|RFNOTEG);
+	_forker(postproc, s, RFNAMEG|RFNOTEG);
+
+	rfork(RFFDG);
+	rendezvous(0, 0);
 
 	close(s->infd);
 	if(s->infd != s->outfd)
@@ -52,7 +55,10 @@ _postsharesrv(Srv *s, char *name, char *mtpt, char *desc)
 
 	if(_forker == nil)
 		sysfatal("no forker");
-	_forker(postproc, s, RFNAMEG|RFFDG|RFNOTEG);
+	_forker(postproc, s, RFNAMEG|RFNOTEG);
+
+	rfork(RFFDG);
+	rendezvous(0, 0);
 
 	close(s->infd);
 	if(s->infd != s->outfd)
@@ -72,6 +78,7 @@ postproc(void *v)
 	Srv *s;
 
 	s = v;
+	rendezvous(0, 0);
 	close(s->srvfd);
 	srv(s);
 }
