@@ -33,7 +33,7 @@ enum
 #define TYPE(path)		((int)(path) & 0xFF)
 #define NUM(path)		((uint)(path)>>8)
 
-Channel *ssherrchan;		/* chan(char*) */
+int sessionopen = 0;
 Channel *sshmsgchan;		/* chan(Msg*) */
 Channel *fsreqchan;		/* chan(Req*) */
 Channel *fsreqwaitchan;		/* chan(nil) */
@@ -125,7 +125,7 @@ struct Msg
 
 int nclient;
 Client **client;
-char *mtpt;
+char *mtpt, *service;
 int sshfd;
 
 int
@@ -1148,7 +1148,7 @@ handlemsg(Msg *m)
 		if(unpack(m, "_uuuu", &chan, &n, &win, &pkt) < 0)
 			break;
 		if(chan == SESSIONCHAN){
-			sendp(ssherrchan, nil);
+			sessionopen++;
 			break;
 		}
 		c = getclient(chan);
@@ -1173,7 +1173,7 @@ handlemsg(Msg *m)
 			break;
 		s = smprint("%.*s", utfnlen(s, n), s);
 		if(chan == SESSIONCHAN){
-			sendp(ssherrchan, s);
+			sysfatal("ssh failed: %s", s);
 			break;
 		}
 		c = getclient(chan);
@@ -1313,6 +1313,12 @@ fsdestroyfid(Fid *fid)
 	recvp(fsclunkwaitchan);
 }
 
+static void
+startup(Srv*)
+{
+	proccreate(fsnetproc, nil, 8*1024);
+}
+
 void
 takedown(Srv*)
 {
@@ -1321,7 +1327,7 @@ takedown(Srv*)
 
 Srv fs = 
 {
-.attach=		fssend,
+.attach=	fssend,
 .destroyfid=	fsdestroyfid,
 .walk1=		fswalk1,
 .open=		fssend,
@@ -1329,6 +1335,7 @@ Srv fs =
 .write=		fssend,
 .stat=		fssend,
 .flush=		fssend,
+.start=		startup,
 .end=		takedown,
 };
 
@@ -1356,9 +1363,9 @@ startssh(void *)
 void
 ssh(int argc, char *argv[])
 {
-	Alt a[3];
+	Alt a[4];
 	Waitmsg *w;
-	char *e;
+	Msg *m;
 
 	sshargc = argc + 2;
 	sshargv = emalloc9p(sizeof(char *) * (sshargc + 1));
@@ -1366,10 +1373,13 @@ ssh(int argc, char *argv[])
 	sshargv[1] = "-X";
 	memcpy(sshargv + 2, argv, argc * sizeof(char *));
 
-	pipe(pfd);
+	if(pipe(pfd) < 0)
+		sysfatal("pipe: %r");
 	sshfd = pfd[0];
-	procrfork(startssh, nil, 8*1024, RFFDG|RFNOTEG|RFNAMEG);
+	procrfork(startssh, nil, 8*1024, RFFDG|RFNOTEG);
 	close(pfd[1]);
+
+	procrfork(sshreadproc, nil, 8*1024, RFFDG|RFNOTEG);
 
 	sendmsg(pack(nil, "bsuuu", MSG_CHANNEL_OPEN,
 		"session", 7,
@@ -1381,18 +1391,18 @@ ssh(int argc, char *argv[])
 	a[0].c = threadwaitchan();
 	a[0].v = &w;
 	a[1].op = CHANRCV;
-	a[1].c = ssherrchan;
-	a[1].v = &e;
+	a[1].c = sshmsgchan;
+	a[1].v = &m;
 	a[2].op = CHANEND;
 
-	switch(alt(a)){
-	case 0:
-		sysfatal("ssh failed: %s", w->msg);
-	case 1:
-		if(e != nil)
-			sysfatal("ssh failed: %s", e);
+	while(!sessionopen){
+		switch(alt(a)){
+		case 0:
+			sysfatal("ssh failed: %s", w->msg);
+		case 1:
+			handlemsg(m);
+		}
 	}
-	chanclose(ssherrchan);
 }
 
 void
@@ -1405,8 +1415,6 @@ usage(void)
 void
 threadmain(int argc, char **argv)
 {
-	char *service;
-
 	fmtinstall('H', encodefmt);
 
 	mtpt = "/net";
@@ -1429,17 +1437,15 @@ threadmain(int argc, char **argv)
 		usage();
 
 	time0 = time(0);
-	ssherrchan = chancreate(sizeof(char*), 0);
 	sshmsgchan = chancreate(sizeof(Msg*), 16);
 	fsreqchan = chancreate(sizeof(Req*), 0);
 	fsreqwaitchan = chancreate(sizeof(void*), 0);
 	fsclunkchan = chancreate(sizeof(Fid*), 0);
 	fsclunkwaitchan = chancreate(sizeof(void*), 0);
-	procrfork(fsnetproc, nil, 8*1024, RFNAMEG|RFNOTEG);
-	procrfork(sshreadproc, nil, 8*1024, RFNAMEG|RFNOTEG);
 
 	ssh(argc, argv);
 
 	threadpostmountsrv(&fs, service, mtpt, MREPL);
-	exits(0);
+
+	threadexits(nil);
 }
