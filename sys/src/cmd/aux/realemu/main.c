@@ -737,12 +737,19 @@ fsread(Req *r)
 }
 
 static void
+fsstart(Srv*)
+{
+	proccreate(cpuproc, nil, 16*1024);
+}
+
+static void
 fsend(Srv*)
 {
 	threadexitsall(nil);
 }
 
 static Srv fs = {
+	.start=			fsstart,
 	.attach=		fsattach,
 	.walk1=			fswalk1,
 	.open=			fsopen,
@@ -791,6 +798,5 @@ threadmain(int argc, char *argv[])
 
 	reqchan = chancreate(sizeof(Req*), 8);
 	flushchan = chancreate(sizeof(Req*), 8);
-	procrfork(cpuproc, nil, 16*1024, RFNAMEG|RFNOTEG);
 	threadpostmountsrv(&fs, srv, mnt, MBEFORE);
 }
