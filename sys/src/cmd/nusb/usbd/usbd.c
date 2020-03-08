@@ -338,8 +338,15 @@ usbdstart(Srv*)
 	}
 }
 
+static void
+usbdend(Srv*)
+{
+	postnote(PNGROUP, getpid(), "shutdown");
+}
+
 Srv usbdsrv = {
 	.start = usbdstart,
+	.end = usbdend,
 	.attach = usbdattach,
 	.walk1 = usbdwalk,
 	.read = usbdread,
