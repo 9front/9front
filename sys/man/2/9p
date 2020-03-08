@@ -1,12 +1,12 @@
 .TH 9P 2
 .SH NAME
 Srv,
+chatty9p,
 dirread9p,
 emalloc9p,
 erealloc9p,
 estrdup9p,
 listensrv,
-postfd,
 postmountsrv,
 postsharesrv,
 readbuf,
@@ -72,7 +72,6 @@ void	threadpostmountsrv(Srv *s, char *name, char *mtpt, int flag)
 void	threadpostsharesrv(Srv *s, char *name, char *mtpt, char *desc)
 void	listensrv(Srv *s, char *addr)
 void	threadlistensrv(Srv *s, char *addr)
-int	postfd(char *srvname, int fd)
 void	respond(Req *r, char *error)
 void	responderror(Req*)
 void	readstr(Req *r, char *src)
@@ -185,12 +184,9 @@ initialized as the other end.
 .IP
 If
 .B name
-is non-nil, call
-.BI postfd( s -> srvfd ,
-.IB name )
-to post
+is non-nil, post the file descriptor
 .IB s -> srvfd
-as
+under the name
 .BI /srv/ name .
 .IP
 Fork a child process via
