@@ -202,10 +202,15 @@ or
 (see
 .IR thread (2)),
 using the
+.BR RFPROC ,
+.BR RFNOWAIT ,
+.BR RFNAMEG ,
 .B RFNOTEG
 and
-.B RFNAMEG
-flags.
+.B RFMEM
+flags. This isolates the service loop from the callers
+namespace and from notes posted to the callers note group
+but shares data and bss segments.
 .IP
 The child process then waits for the parent to copy its
 file descripor table via
