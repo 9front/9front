@@ -554,6 +554,7 @@ shrremove(Chan *c)
 	Sch *sch;
 	Mpt *mpt;
 	Mhead *h;
+	Chan *bc;
 
 	sch = tosch(c);
 	if(waserror()){
@@ -593,6 +594,7 @@ shrremove(Chan *c)
 		qunlock(&shrslk);
 		break;
 	case Qcmpt:
+		bc = nil;
 		mpt = sch->mpt;
 		m = &mpt->m;
 		h = &shr->umh;
@@ -601,10 +603,14 @@ shrremove(Chan *c)
 			if(*ml == m){
 				*ml = m->next;
 				m->next = nil;
+				bc = m->to;
+				m->to = nil;
 				putmpt(mpt);
 				break;
 			}
 		wunlock(&h->lock);
+		if(bc != nil)
+			cclose(bc);
 		break;
 	}
 	poperror();
