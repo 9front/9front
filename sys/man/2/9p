@@ -202,14 +202,21 @@ or
 (see
 .IR thread (2)),
 using the
-.BR RFFDG ,
-.BR RFNOTEG ,
-.BR RFNAMEG ,
+.B RFNOTEG
 and
-.BR RFMEM
+.B RFNAMEG
 flags.
-The child process
-calls
+.IP
+The child process then waits for the parent to copy its
+file descripor table via
+.I rfork
+using
+.B RFFDG
+flag. This way, the service loop will share the original
+file descriptor table with previously created child
+processes of the caller.
+.IP
+The child process then calls
 .IB close( s -> srvfd )
 and then
 .IB srv( s ) \fR;
