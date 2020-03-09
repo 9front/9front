@@ -22,9 +22,13 @@ hexnum(char *p, int n)
 tree*
 heredoc(tree *tag)
 {
-	struct here *h = new(struct here);
-	if(tag->type!=WORD)
+	struct here *h;
+
+	if(tag->type!=WORD){
 		yyerror("Bad here tag");
+		return nil;
+	}
+	h = new(struct here);
 	h->next = 0;
 	if(here)
 		*ehere = h;
