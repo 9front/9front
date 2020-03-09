@@ -11,13 +11,22 @@ enum
 	CUTOFF		= 12,
 };
 
+#define NPAD(t, align) \
+	((sizeof(t) + align - 1) & ~(align - 1))
 typedef struct Bucket Bucket;
-struct Bucket
-{
+typedef struct Header Header;
+struct Header {
 	int	size;
 	int	magic;
 	Bucket	*next;
-	int	pad;
+};
+
+struct Bucket
+{
+	union {
+		Header;
+		char _pad[NPAD(Header, 16)];
+	};
 	char	data[1];
 };
 
