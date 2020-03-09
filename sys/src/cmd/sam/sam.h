@@ -400,3 +400,5 @@ void	outTsl(Hmesg, int, long);
 void	outTsv(Hmesg, int, vlong);
 void	outflush(void);
 int needoutflush(void);
+
+Posn	nlcount(File *f, Posn p0, Posn p1);
