@@ -554,6 +554,12 @@ and
 for all) is placed in
 .B /tmp/sam.err
 and the first few lines are printed.
+.PP
+Sam sets two environmental variables depending on the current file.
+.I $%
+is set to the file name.
+.I $%dot
+is set to a list consisting of three values that define the dot.
 .SS Loops and Conditionals
 .PD 0
 .TP
