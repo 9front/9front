@@ -124,7 +124,7 @@ char*profdev = "/proc/trace";
 static void
 usage(void)
 {
-	fprint(2, "Usage: %s [-d profdev] [-w] [-v] [-t triggerproc] [processes]\n", argv0);
+	fprint(2, "usage: %s [-d profdev] [-w] [-v] [-t triggerproc] [pid ...]\n", argv0);
 	exits(nil);
 }
 

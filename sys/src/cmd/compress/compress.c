@@ -112,9 +112,9 @@ code_int getcode();
 Usage()
 {
 #ifdef DEBUG
-	fprintf(stderr,"Usage: compress [-cdfDV] [-b maxbits] [file ...]\n");
+	fprintf(stderr,"usage: compress [-cdfDV] [-b maxbits] [file ...]\n");
 #else
-	fprintf(stderr,"Usage: compress [-cdfvV] [-b maxbits] [file ...]\n");
+	fprintf(stderr,"usage: compress [-cdfvV] [-b maxbits] [file ...]\n");
 #endif /* DEBUG */
 }
 

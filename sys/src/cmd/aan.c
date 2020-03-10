@@ -65,7 +65,7 @@ static void		timerproc(void *);
 static void
 usage(void)
 {
-	fprint(2, "Usage: %s [-cd] [-m maxto] dialstring|netdir\n", argv0);
+	fprint(2, "usage: %s [-cd] [-m maxto] dialstring|netdir\n", argv0);
 	exits("usage");
 }
 

@@ -160,7 +160,7 @@ usage(void)
 	int i;
 	char *a, *b;
 
-	Bprint(bout, "Usage: %s [-d dict] [-k] [-c cmd] [word]\n", argv0);
+	Bprint(bout, "usage: %s [-k] [-d dict] [-c cmd] [pattern]\n", argv0);
 	Bprint(bout, "dictionaries (brackets mark dictionaries not present on this system):\n");
 	for(i = 0; dicts[i].name; i++){
 		a = b = "";

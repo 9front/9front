@@ -59,8 +59,8 @@ fn page {
 search=yes
 while(~ $d 0) {
 	if(~ $#* 0) {
-		echo 'Usage: man [-bntpPSw] [0-9] [0-9] ... name1 name2 ...' >[1=2]
-		exit
+		echo 'usage: man [-bntpPSw] [0-9] [0-9] ... name1 name2 ...' >[1=2]
+		exit usage
 	}
 	if(test -d $S/$1){
 		sec=($sec $1)

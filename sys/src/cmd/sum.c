@@ -10,7 +10,7 @@ static char exitstr[ERRMAX];
 void
 usage(void)
 {
-	fprint(2, "Usage: %s [-r5] [files]\n", argv0);
+	fprint(2, "usage: %s [-5r] [file ...]\n", argv0);
 	exits("usage");
 }
 

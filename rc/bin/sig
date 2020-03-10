@@ -5,8 +5,8 @@
 
 *=`{echo $*|tr A-Z a-z|tr -dc 'a-z0-9_ \012'}	# fold case, delete funny chars
 if(~ $#* 0){
-	echo Usage: sig function ... >/fd/2
-	exit 1
+	echo usage: sig function ... >/fd/2
+	exit usage
 }
 
 for (i) {

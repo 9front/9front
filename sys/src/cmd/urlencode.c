@@ -26,7 +26,7 @@ hexdigit(int c)
 void
 usage(void)
 {
-	fprint(2, "Usage: %s [ -d ] [ file ]\n", argv0);
+	fprint(2, "usage: %s [ -d ] [ file ]\n", argv0);
 	exits("usage");
 }
 

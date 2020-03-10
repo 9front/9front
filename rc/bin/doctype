@@ -1,6 +1,11 @@
 #!/bin/rc
 # doctype:  synthesize proper command line for troff
 
+if(~ $#* 0){
+	echo 'usage: doctype [ -n ] [ -T dev ] [ file ] ...' >[1=2]
+	exit usage
+}
+
 troff=troff
 eqn=eqn
 prefer=prefer

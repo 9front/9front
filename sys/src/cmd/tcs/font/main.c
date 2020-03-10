@@ -82,6 +82,6 @@ main(int argc, char **argv)
 static void
 usage(void)
 {
-	fprint(2, "Usage: %s [-s] from to\n", argv0);
+	fprint(2, "usage: %s [-s] from to\n", argv0);
 	exits("usage");
 }

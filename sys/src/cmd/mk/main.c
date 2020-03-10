@@ -236,7 +236,7 @@ void
 badusage(void)
 {
 
-	fprint(2, "Usage: mk [-f file] [-n] [-a] [-e] [-t] [-k] [-i] [-d[egp]] [targets ...]\n");
+	fprint(2, "usage: mk [-f file] [-n] [-a] [-e] [-t] [-k] [-i] [-d[egp]] [targets ...]\n");
 	Exit();
 }
 

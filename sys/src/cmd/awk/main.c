@@ -62,7 +62,7 @@ void main(int argc, char *argv[])
 
 	cmdname = argv[0];
 	if (argc == 1) {
-		Bprint(&stderr, "Usage: %s [-F fieldsep] [-mf n] [-mr n] [-v var=value] [-f programfile | 'program'] [file ...]\n", cmdname);
+		Bprint(&stderr, "usage: %s [-F fieldsep] [-d] [-mf n] [-mr n] [-safe] [-v var=value] [-f programfile | 'program'] [file ...]\n", cmdname);
 		exits("usage");
 	}
 

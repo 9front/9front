@@ -2,7 +2,7 @@
 rfork e
 
 if(~ $#* 0){
-	echo 'Usage: ' $0 '[ pid ... ]' >[1=2]
+	echo 'usage:' $0 '[ pid ... ]' >[1=2]
 	exit usage
 }
 

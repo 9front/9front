@@ -26,7 +26,7 @@ while(! ~ $#* 0) {
 		sname=$2
 		shift
 	case -*
-		echo Usage: classical [-d level] [-t] [-h srvhost]
+		echo usage: juke [-d level] [-tw] [-s srv] [-h srvhost] >[1=2]
 		exit usage
 	}
 	shift

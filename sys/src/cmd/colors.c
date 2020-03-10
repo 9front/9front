@@ -102,7 +102,7 @@ main(int argc, char *argv[])
 
 	if(argc){
 	Usage:
-		fprint(2, "Usage: %s [-rx]\n", argv0);
+		fprint(2, "usage: %s [-rx]\n", argv0);
 		exits("usage");
 	}
 

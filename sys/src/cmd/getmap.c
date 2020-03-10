@@ -131,7 +131,7 @@ main(int argc, char *argv[])
 	int fd, id;
 
 	if(argc>2){
-		fprint(2, "Usage: %s colormap\n", argv[0]);
+		fprint(2, "usage: %s colormap\n", argv[0]);
 		exits("usage");
 	}
 	map = "rgbv";

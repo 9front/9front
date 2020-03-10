@@ -96,7 +96,7 @@ main(int argc, char **argv)
 void
 usage(void)
 {
-	fprint(2, "Usage: %s [-slv] [-f cs] [-t cs] [file ...]\n", argv0);
+	fprint(2, "usage: %s [-slcv] [-f ics] [-t ocs] [file ...]\n", argv0);
 	verbose = 1;
 	list();
 	exits("usage");

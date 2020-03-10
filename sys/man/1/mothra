@@ -4,7 +4,7 @@ mothra \- retrieve and display World-Wide Web files
 .SH SYNOPSIS
 .B mothra
 [
-.B -va
+.B -dvak
 ]
 [
 .B -m
@@ -71,6 +71,9 @@ The default is
 .B -v
 Verbose mode. Causes HTML errors to be printed
 on file-descriptor 2.
+.TP
+.B -d
+Enables debug mode.
 .PP
 The display contains the last message from
 .I mothra,

@@ -65,7 +65,7 @@ bitblt(&screen, screen.r.min, b, b->r, S); bflush();sleep(5000);
 static void
 usage(void)
 {
-	fprint(2, "Usage: %s file ...\n", argv0);
+	fprint(2, "usage: %s file ...\n", argv0);
 	exits("usage");
 }
 

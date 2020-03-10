@@ -93,7 +93,7 @@ main(int argc, char **argv)
 		sprint(b2, "/proc/%s/mem", argv[0]);
 		corfil = b2;
 	} else if (argc > 0) {
-		fprint(2, "Usage: db [-kw] [-m machine] [-I dir] [symfile] [pid]\n");
+		fprint(2, "usage: db [-kw] [-m machine] [-I dir] [symfile] [pid]\n");
 		exits("usage");
 	}
 	if (!symfil)

@@ -12,7 +12,7 @@ main(int argc, char **argv)
 	} ARGEND;
 
 	if(argc != 1){
-		fprint(2, "Usage: swap file\n");
+		fprint(2, "usage: swap file\n");
 		exits("usage");
 	}
 

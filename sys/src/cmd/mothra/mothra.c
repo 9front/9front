@@ -331,7 +331,7 @@ void main(int argc, char *argv[]){
 	switch(argc){
 	default:
 	Usage:
-		fprint(2, "Usage: %s [-dvak] [-m mtpt] [url]\n", argv0);
+		fprint(2, "usage: %s [-dvak] [-m mtpt] [url]\n", argv0);
 		exits("usage");
 	case 0:
 		url=getenv("url");

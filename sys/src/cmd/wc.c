@@ -28,7 +28,7 @@ main(int argc, char *argv[])
 	case 'b': pbadr++; break;
 	case 'c': pchar++; break;
 	default:
-		fprint(2, "Usage: %s [-lwrbc] [file ...]\n", argv0);
+		fprint(2, "usage: %s [-lwrbc] [file ...]\n", argv0);
 		exits("usage");
 	} ARGEND
 	if(pline+pword+prune+pbadr+pchar == 0) {

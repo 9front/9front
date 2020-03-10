@@ -3,7 +3,7 @@
 rfork en
 
 if(! ~ $#* 0 1) {
-	echo 'Usage: doc2txt [file.doc]' >[1=2]
+	echo 'usage: doc2txt [file.doc]' >[1=2]
 	exit usage
 }
 

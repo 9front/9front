@@ -1,6 +1,6 @@
 #!/bin/rc
 if(! ~ $#* 3){
-	echo usage: approx ratio min max
+	echo usage: approx ratio min max >[1=2]
 	exit usage
 }
 echo $1 $2 $3 | awk '

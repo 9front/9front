@@ -15,6 +15,6 @@ case 0
 case 1
 	ps $flags | sed -n '/^'$1' /p'
 case *
-	echo Usage: psu '[ps-flags] [ user ]' >[1=2]
+	echo usage: psu '[ps-flags] [ user ]' >[1=2]
 	exit usage
 }

@@ -1,8 +1,8 @@
 # turn output of mkindex into form needed by dict
 BEGIN {
 	if(ARGC != 2) {
-		print "Usage: awk -F'	' -f canonind.awk rawindex > index"
-		exit 1
+		print "usage: awk -F'	' -f canonind.awk rawindex > index"
+		exit usage
 	}
 	file = ARGV[1]
 	ARGV[1] = ""

@@ -156,7 +156,7 @@ writer(int lastpid)
 void
 usage(void)
 {
-	fprint(2, "Usage: ratrace [-c cmd [arg...]] | [pid]\n");
+	fprint(2, "usage: ratrace [-c cmd [arg...]] | [pid]\n");
 	threadexits("usage");
 }
 

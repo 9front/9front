@@ -5,7 +5,7 @@
 void
 usage(void)
 {
-	fprint(2, "Usage:\n\t%s user pass\n\t%s authorization\n", argv0, argv0);
+	fprint(2, "usage:\n\t%s user pass\n\t%s authorization\n", argv0, argv0);
 	exits("usage");
 }
 
