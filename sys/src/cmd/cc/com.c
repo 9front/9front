@@ -1018,6 +1018,8 @@ if(debug['y']) prtree(n, "final");
  *	remove some zero operands
  *	remove no op casts
  *	evaluate constants
+ * Note: ccom may be called on the same node
+ * multiple times.
  */
 void
 ccom(Node *n)
@@ -1078,8 +1080,9 @@ loop:
 		if(n->type == types[TVOID] && !side(l)){
 			n->left = Z;
 			n->type = T;
-			break;
 		}
+		if(n->left == Z)
+			break;
 		if(castucom(n))
 			warn(n, "32-bit unsigned complement zero-extended to 64 bits");
 		ccom(l);
