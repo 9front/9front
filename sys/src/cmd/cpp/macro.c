@@ -138,7 +138,7 @@ syntax:
  * Flag is NULL if more input can be gathered.
  */
 void
-expandrow(Tokenrow *trp, char *flag, int inmacro)
+expandrow(Tokenrow *trp, char *flag)
 {
 	Token *tp;
 	Nlist *np;
@@ -170,7 +170,7 @@ expandrow(Tokenrow *trp, char *flag, int inmacro)
 		if (np->flag&ISMAC)
 			builtin(trp, np->val);
 		else {
-			expand(trp, np, inmacro);
+			expand(trp, np);
 		}
 		tp = trp->tp;
 	}
@@ -184,7 +184,7 @@ expandrow(Tokenrow *trp, char *flag, int inmacro)
  * (ordinarily the beginning of the expansion)
  */
 void
-expand(Tokenrow *trp, Nlist *np, int inmacro)
+expand(Tokenrow *trp, Nlist *np)
 {
 	Tokenrow ntr;
 	int ntokc, narg, i;
@@ -193,12 +193,14 @@ expand(Tokenrow *trp, Nlist *np, int inmacro)
 	int hs;
 
 	copytokenrow(&ntr, np->vp);		/* copy macro value */
-	if (np->ap==NULL)			/* parameterless */
+	if (np->ap==NULL) {			/* parameterless */
 		ntokc = 1;
-	else {
+		/* substargs for handling # and ## */
+		atr[0] = nil;
+		substargs(np, &ntr, atr);
+	} else {
 		ntokc = gatherargs(trp, atr, (np->flag&ISVARMAC) ? rowlen(np->ap) : 0, &narg);
 		if (narg<0) {			/* not actually a call (no '(') */
-/* error(WARNING, "%d %r\n", narg, trp); */
 			/* gatherargs has already pushed trp->tr to the next token */
 			return;
 		}
@@ -214,8 +216,6 @@ expand(Tokenrow *trp, Nlist *np, int inmacro)
 			dofree(atr[i]);
 		}
 	}
-	if(!inmacro)
-		doconcat(&ntr);				/* execute ## operators */
 	hs = newhideset(trp->tp->hideset, np);
 	for (tp=ntr.bp; tp<ntr.lp; tp++) {	/* distribute hidesets */
 		if (tp->type==NAME) {
@@ -228,8 +228,7 @@ expand(Tokenrow *trp, Nlist *np, int inmacro)
 	ntr.tp = ntr.bp;
 	insertrow(trp, ntokc, &ntr);
 	trp->tp -= rowlen(&ntr);
-	dofree(ntr.bp);
-	return;
+	free(ntr.bp);
 }	
 
 /*
@@ -255,7 +254,6 @@ gatherargs(Tokenrow *trp, Tokenrow **atr, int dots, int *narg)
 		if (trp->tp >= trp->lp) {
 			gettokens(trp, 0);
 			if ((trp->lp-1)->type==END) {
-/* error(WARNING, "reach END\n"); */
 				trp->lp -= 1;
 				if (*narg>=0)
 					trp->tp -= ntok;
@@ -326,7 +324,25 @@ gatherargs(Tokenrow *trp, Tokenrow **atr, int dots, int *narg)
 	}
 	return ntok;
 }
-
+	
+int
+ispaste(Tokenrow *rtr, Token **ap, Token **an, int *ntok)
+{
+	*ap = nil;
+	*an = nil;
+	/* EMPTY ## tok */
+	if (rtr->tp->type == DSHARP && rtr->tp != rtr->bp)
+		rtr->tp--;
+	/* tok ## tok */
+	if(rtr->tp + 1 != rtr->lp && rtr->tp[1].type == DSHARP) {
+		*ap = rtr->tp;
+		if(rtr->tp + 2 != rtr->lp)
+			*an = rtr->tp + 2;
+		*ntok = 1 + (*ap != nil) + (*an != nil);
+		return 1;
+	}
+	return 0;
+}
 /*
  * substitute the argument list into the replacement string
  *  This would be simple except for ## and #
@@ -334,12 +350,14 @@ gatherargs(Tokenrow *trp, Tokenrow **atr, int dots, int *narg)
 void
 substargs(Nlist *np, Tokenrow *rtr, Tokenrow **atr)
 {
-	Tokenrow tatr;
-	Token *tp;
-	int ntok, argno;
+	Tokenrow ttr;
+	Token *tp, *ap, *an, *pp, *pn;
+	int ntok, argno, hs;
 
 	for (rtr->tp=rtr->bp; rtr->tp<rtr->lp; ) {
-		if (rtr->tp->type==SHARP) {	/* string operator */
+		if(rtr->tp->hideset && checkhideset(rtr->tp->hideset, np)) {
+			rtr->tp++;
+		} else if (rtr->tp->type==SHARP) {	/* string operator */
 			tp = rtr->tp;
 			rtr->tp += 1;
 			if ((argno = lookuparg(np, rtr->tp))<0) {
@@ -349,24 +367,52 @@ substargs(Nlist *np, Tokenrow *rtr, Tokenrow **atr)
 			ntok = 1 + (rtr->tp - tp);
 			rtr->tp = tp;
 			insertrow(rtr, ntok, stringify(atr[argno]));
-			continue;
-		}
-		if (rtr->tp->type==NAME
-		 && (argno = lookuparg(np, rtr->tp)) >= 0) {
-			if (rtr->tp < rtr->bp)
-				error(ERROR, "access out of bounds");
-			if ((rtr->tp+1)->type==DSHARP
-			 || rtr->tp!=rtr->bp && (rtr->tp-1)->type==DSHARP)
-				insertrow(rtr, 1, atr[argno]);
-			else {
-				copytokenrow(&tatr, atr[argno]);
-				expandrow(&tatr, "<macro>", Inmacro);
-				insertrow(rtr, 1, &tatr);
-				dofree(tatr.bp);
+		} else if (ispaste(rtr, &ap, &an, &ntok)) { /* first token, just do the next one */
+			pp = ap;
+			pn = an;
+			if (ap && (argno = lookuparg(np, ap)) >= 0){
+				pp = nil;
+				if(atr[argno]->tp != atr[argno]->lp)
+					pp = atr[argno]->lp - 1;
 			}
-			continue;
+			if (an && (argno = lookuparg(np, an)) >= 0) {
+				pn = nil;
+				if(atr[argno]->tp != atr[argno]->lp)
+					pn = atr[argno]->lp - 1;
+			}
+			glue(&ttr, pp, pn);
+			insertrow(rtr, ntok, &ttr);
+			free(ttr.bp);
+		} else if (rtr->tp->type==NAME) {
+			if((argno = lookuparg(np, rtr->tp)) >= 0) {
+				if (rtr->tp < rtr->bp) {
+					error(ERROR, "access out of bounds");
+					continue;
+				}
+				copytokenrow(&ttr, atr[argno]);
+				expandrow(&ttr, "<macro>");
+				insertrow(rtr, 1, &ttr);
+				free(ttr.bp);
+			} else {
+				maketokenrow(1, &ttr);
+				ttr.lp = ttr.tp + 1;
+				*ttr.tp = *rtr->tp;
+
+				hs = newhideset(rtr->tp->hideset, np);
+				if(ttr.tp->hideset == 0)
+					ttr.tp->hideset = hs;
+				else
+					ttr.tp->hideset = unionhideset(ttr.tp->hideset, hs);
+				expandrow(&ttr, (char*)np->name);
+				for(tp = ttr.bp; tp != ttr.lp; tp++)
+					if(tp->type == COMMA)
+						tp->type = XCOMMA;
+				insertrow(rtr, 1, &ttr);
+				dofree(ttr.bp);
+			}
+		} else {
+			rtr->tp++;
 		}
-		rtr->tp++;
 	}
 }
 
@@ -374,41 +420,35 @@ substargs(Nlist *np, Tokenrow *rtr, Tokenrow **atr)
  * Evaluate the ## operators in a tokenrow
  */
 void
-doconcat(Tokenrow *trp)
+glue(Tokenrow *ntr, Token *tp, Token *tn)
 {
-	Token *ltp, *ntp;
-	Tokenrow ntr;
-	int len;
+	int np, nn;
+	char *tt, *p, *n;
 
-	for (trp->tp=trp->bp; trp->tp<trp->lp; trp->tp++) {
-		if (trp->tp->type==DSHARP1)
-			trp->tp->type = DSHARP;
-		else if (trp->tp->type==DSHARP) {
-			char tt[128];
-			ltp = trp->tp-1;
-			ntp = trp->tp+1;
-			if (ltp<trp->bp || ntp>=trp->lp) {
-				error(ERROR, "## occurs at border of replacement");
-				continue;
-			}
-			len = ltp->len + ntp->len;
-			strncpy((char*)tt, (char*)ltp->t, ltp->len);
-			strncpy((char*)tt+ltp->len, (char*)ntp->t, ntp->len);
-			tt[len] = '\0';
-			setsource("<##>", -1, tt);
-			maketokenrow(3, &ntr);
-			gettokens(&ntr, 1);
-			unsetsource();
-			if (ntr.lp-ntr.bp!=2 || ntr.bp->type==UNCLASS)
-				error(WARNING, "Bad token %r produced by ##", &ntr);
-			ntr.lp = ntr.bp+1;
-			trp->tp = ltp;
-			makespace(&ntr);
-			insertrow(trp, (ntp-ltp)+1, &ntr);
-			dofree(ntr.bp);
-			trp->tp--;
+	np = tp ? tp->len : 0;
+	nn = tn ? tn->len : 0;
+	tt = domalloc(np + nn + 1);
+	if(tp)
+		memcpy(tt, tp->t, tp->len);
+	if(tn)
+		memcpy(tt+np, tn->t, tn->len);
+	tt[np+nn] = '\0';
+	setsource("<##>", -1, tt);
+	maketokenrow(3, ntr);
+	gettokens(ntr, 1);
+	unsetsource();
+	dofree(tt);
+	if (np + nn == 0) {
+		ntr->lp = ntr->bp;
+	} else {
+		if (ntr->lp - ntr->bp!=2 || ntr->bp->type==UNCLASS) {
+			p = tp ? (char*)tp->t : "<empty>";
+			n = tn ? (char*)tn->t : "<empty>";
+			error(WARNING, "Bad token %r produced by %s ## %s", &ntr, p, n);
 		}
+		ntr->lp = ntr->bp+1;
 	}
+	makespace(ntr);
 }
 
 /*

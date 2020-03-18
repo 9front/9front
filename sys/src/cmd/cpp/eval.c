@@ -28,66 +28,67 @@ const struct pri {
 	char	arity;
 	char	ctype;
 } priority[] = {
-	{ 0, 0, 0 },		/* END */
-	{ 0, 0, 0 },		/* UNCLASS */
-	{ 0, 0, 0 },		/* NAME */
-	{ 0, 0, 0 },		/* NUMBER */
-	{ 0, 0, 0 },		/* STRING */
-	{ 0, 0, 0 },		/* CCON */
-	{ 0, 0, 0 },		/* NL */
-	{ 0, 0, 0 },		/* WS */
-	{ 0, 0, 0 },		/* DSHARP */
-	{ 11, 2, RELAT },	/* EQ */
-	{ 11, 2, RELAT },	/* NEQ */
-	{ 12, 2, RELAT },	/* LEQ */
-	{ 12, 2, RELAT },	/* GEQ */
-	{ 13, 2, SHIFT },	/* LSH */
-	{ 13, 2, SHIFT },	/* RSH */
-	{ 7, 2, LOGIC },	/* LAND */
-	{ 6, 2, LOGIC },	/* LOR */
-	{ 0, 0, 0 },		/* PPLUS */
-	{ 0, 0, 0 },		/* MMINUS */
-	{ 0, 0, 0 },		/* ARROW */
-	{ 0, 0, 0 },		/* SBRA */
-	{ 0, 0, 0 },		/* SKET */
-	{ 3, 0, 0 },		/* LP */
-	{ 3, 0, 0 },		/* RP */
-	{ 0, 0, 0 },		/* DOT */
-	{ 10, 2, ARITH },	/* AND */
-	{ 15, 2, ARITH },	/* STAR */
-	{ 14, 2, ARITH },	/* PLUS */
-	{ 14, 2, ARITH },	/* MINUS */
-	{ 16, 1, UNARY },	/* TILDE */
-	{ 16, 1, UNARY },	/* NOT */
-	{ 15, 2, ARITH },	/* SLASH */
-	{ 15, 2, ARITH },	/* PCT */
-	{ 12, 2, RELAT },	/* LT */
-	{ 12, 2, RELAT },	/* GT */
-	{ 9, 2, ARITH },	/* CIRC */
-	{ 8, 2, ARITH },	/* OR */
-	{ 5, 2, SPCL },		/* QUEST */
-	{ 5, 2, SPCL },		/* COLON */
-	{ 0, 0, 0 },		/* ASGN */
-	{ 4, 2, 0 },		/* COMMA */
-	{ 0, 0, 0 },		/* SHARP */
-	{ 0, 0, 0 },		/* SEMIC */
-	{ 0, 0, 0 },		/* CBRA */
-	{ 0, 0, 0 },		/* CKET */
-	{ 0, 0, 0 },		/* ASPLUS */
- 	{ 0, 0, 0 },		/* ASMINUS */
- 	{ 0, 0, 0 },		/* ASSTAR */
- 	{ 0, 0, 0 },		/* ASSLASH */
- 	{ 0, 0, 0 },		/* ASPCT */
- 	{ 0, 0, 0 },		/* ASCIRC */
- 	{ 0, 0, 0 },		/* ASLSH */
-	{ 0, 0, 0 },		/* ASRSH */
- 	{ 0, 0, 0 },		/* ASOR */
- 	{ 0, 0, 0 },		/* ASAND */
-	{ 0, 0, 0 },		/* ELLIPS */
-	{ 0, 0, 0 },		/* DSHARP1 */
-	{ 0, 0, 0 },		/* NAME1 */
-	{ 16, 1, UNARY },	/* DEFINED */
-	{ 16, 0, UNARY },	/* UMINUS */
+	[END]		{ 0, 0, 0 },
+	[UNCLASS]	{ 0, 0, 0 },
+	[NAME]		{ 0, 0, 0 },
+	[NUMBER]	{ 0, 0, 0 },
+	[STRING]	{ 0, 0, 0 },
+	[CCON]		{ 0, 0, 0 },
+	[NL]		{ 0, 0, 0 },
+	[WS]		{ 0, 0, 0 },
+	[DSHARP]	{ 0, 0, 0 },
+	[EQ]		{ 11, 2, RELAT },
+	[NEQ]		{ 11, 2, RELAT },
+	[LEQ]		{ 12, 2, RELAT },
+	[GEQ]		{ 12, 2, RELAT },
+	[LSH]		{ 13, 2, SHIFT },
+	[RSH]		{ 13, 2, SHIFT },
+	[LAND]		{ 7, 2, LOGIC },
+	[LOR]		{ 6, 2, LOGIC },
+	[PPLUS]		{ 0, 0, 0 },
+	[MMINUS]	{ 0, 0, 0 },
+	[ARROW]		{ 0, 0, 0 },
+	[SBRA]		{ 0, 0, 0 },
+	[SKET]		{ 0, 0, 0 },
+	[LP]		{ 3, 0, 0 },
+	[RP]		{ 3, 0, 0 },
+	[DOT]		{ 0, 0, 0 },
+	[AND]		{ 10, 2, ARITH },
+	[STAR]		{ 15, 2, ARITH },
+	[PLUS]		{ 14, 2, ARITH },
+	[MINUS]		{ 14, 2, ARITH },
+	[TILDE]		{ 16, 1, UNARY },
+	[NOT]		{ 16, 1, UNARY },
+	[SLASH]		{ 15, 2, ARITH },
+	[PCT]		{ 15, 2, ARITH },
+	[LT]		{ 12, 2, RELAT },
+	[GT]		{ 12, 2, RELAT },
+	[CIRC]		{ 9, 2, ARITH },
+	[OR]		{ 8, 2, ARITH },
+	[QUEST]		{ 5, 2, SPCL },
+	[COLON]		{ 5, 2, SPCL },
+	[ASGN]		{ 0, 0, 0 },
+	[COMMA]		{ 4, 2, 0 },
+	[XCOMMA]	{ 4, 2, 0 },
+	[SHARP]		{ 0, 0, 0 },
+	[SEMIC]		{ 0, 0, 0 },
+	[CBRA]		{ 0, 0, 0 },
+	[CKET]		{ 0, 0, 0 },
+	[ASPLUS]	{ 0, 0, 0 },
+ 	[ASMINUS]	{ 0, 0, 0 },
+ 	[ASSTAR]	{ 0, 0, 0 },
+ 	[ASSLASH]	{ 0, 0, 0 },
+ 	[ASPCT]		{ 0, 0, 0 },
+ 	[ASCIRC]	{ 0, 0, 0 },
+ 	[ASLSH]		{ 0, 0, 0 },
+	[ASRSH]		{ 0, 0, 0 },
+ 	[ASOR]		{ 0, 0, 0 },
+ 	[ASAND]		{ 0, 0, 0 },
+	[ELLIPS]	{ 0, 0, 0 },
+	[DSHARP1]	{ 0, 0, 0 },
+	[NAME1]		{ 0, 0, 0 },
+	[DEFINED]	{ 16, 1, UNARY },
+	[UMINUS]	{ 16, 0, UNARY },
 };
 
 int	evalop(struct pri);
@@ -116,7 +117,7 @@ eval(Tokenrow *trp, int kw)
 	}
 	ntok = trp->tp - trp->bp;
 	kwdefined->val = KDEFINED;	/* activate special meaning of defined */
-	expandrow(trp, "<if>", Notinmacro);
+	expandrow(trp, "<if>");
 	kwdefined->val = NAME;
 	vp = vals;
 	op = ops;
@@ -165,7 +166,7 @@ eval(Tokenrow *trp, int kw)
 		case EQ: case NEQ: case LEQ: case GEQ: case LSH: case RSH:
 		case LAND: case LOR: case SLASH: case PCT:
 		case LT: case GT: case CIRC: case OR: case QUEST:
-		case COLON: case COMMA:
+		case COLON: case COMMA: case XCOMMA:
 			if (rand==0)
 				goto syntax;
 			if (evalop(priority[tp->type])!=0)

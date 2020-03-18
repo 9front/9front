@@ -1,0 +1,49 @@
+#line 1 "/usr/ori/src/cpp/test.c"
+
+
+
+x fooEOF y
+x EOFfoo y
+x(-1) y
+y foo x
+x foo y
+X y
+
+
+ foobar
+
+
+foo ## bar
+
+
+ ablahb
+
+
+
+ 33
+
+
+#line 32 "/usr/ori/src/cpp/test.c"
+
+
+
+
+ a,b
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ f(2 * (y+1)) + f(2 * (f(2 * (z[0])))) % f(2 * (0)) + t(1);
+ f(2 * (2+(3,4)- 0,1)) | f(2 * (~ 5)) & f(2 * (0,1))^ m(0,1);
+#line 55 "/usr/ori/src/cpp/test.c"

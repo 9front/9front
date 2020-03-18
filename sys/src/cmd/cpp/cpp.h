@@ -14,7 +14,7 @@ enum toktype { END, UNCLASS, NAME, NUMBER, STRING, CCON, NL, WS, DSHARP,
 		EQ, NEQ, LEQ, GEQ, LSH, RSH, LAND, LOR, PPLUS, MMINUS,
 		ARROW, SBRA, SKET, LP, RP, DOT, AND, STAR, PLUS, MINUS,
 		TILDE, NOT, SLASH, PCT, LT, GT, CIRC, OR, QUEST,
-		COLON, ASGN, COMMA, SHARP, SEMIC, CBRA, CKET,
+		COLON, ASGN, COMMA, XCOMMA, SHARP, SEMIC, CBRA, CKET,
 		ASPLUS, ASMINUS, ASSTAR, ASSLASH, ASPCT, ASCIRC, ASLSH,
 		ASRSH, ASOR, ASAND, ELLIPS,
 		DSHARP1, NAME1, DEFINED, UMINUS };
@@ -107,11 +107,11 @@ void	dodefine(Tokenrow *);
 void	doadefine(Tokenrow *, int);
 void	doinclude(Tokenrow *);
 void	doif(Tokenrow *, enum kwtype);
-void	expand(Tokenrow *, Nlist *, int);
+void	expand(Tokenrow *, Nlist *);
 void	builtin(Tokenrow *, int);
 int	gatherargs(Tokenrow *, Tokenrow **, int, int *);
 void	substargs(Nlist *, Tokenrow *, Tokenrow **);
-void	expandrow(Tokenrow *, char *, int);
+void	expandrow(Tokenrow *, char *);
 void	maketokenrow(int, Tokenrow *);
 Tokenrow *copytokenrow(Tokenrow *, Tokenrow *);
 Token	*growtokenrow(Tokenrow *);
@@ -120,7 +120,7 @@ void	adjustrow(Tokenrow *, int);
 void	movetokenrow(Tokenrow *, Tokenrow *);
 void	insertrow(Tokenrow *, int, Tokenrow *);
 void	peektokens(Tokenrow *, char *);
-void	doconcat(Tokenrow *);
+void	glue(Tokenrow *, Token *, Token *);
 Tokenrow *stringify(Tokenrow *);
 int	lookuparg(Nlist *, Token *);
 long	eval(Tokenrow *, int);
