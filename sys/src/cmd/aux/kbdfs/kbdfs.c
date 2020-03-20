@@ -1091,21 +1091,22 @@ void
 kbmapread(Req *req)
 {
 	char tmp[3*12+1];
-	int t, sc, off, n;
+	int t, sc, soff, off, n;
 	Rune *rp;
 
 	off = req->ifcall.offset/(sizeof(tmp)-1);
+	soff = req->ifcall.offset%(sizeof(tmp)-1);
 	t = off/Nscan;
 	sc = off%Nscan;
-	if(rp = kbmapent(t, sc))
+	if(rp = kbmapent(t, sc)){
 		sprint(tmp, "%11d %11d %11d\n", t, sc, *rp);
-	else
-		*tmp = 0;
-	n = strlen(tmp);
-	if(req->ifcall.count < n)
-		n = req->ifcall.count;
-	req->ofcall.count = n;
-	memmove(req->ofcall.data, tmp, n);
+		n = strlen(&tmp[soff]);
+		if(req->ifcall.count < n)
+			n = req->ifcall.count;
+		req->ofcall.count = n;
+		memmove(req->ofcall.data, &tmp[soff], n);
+	}else
+		req->ofcall.count = 0;
 	respond(req, nil);
 }
 
