@@ -123,7 +123,7 @@ void	peektokens(Tokenrow *, char *);
 void	glue(Tokenrow *, Token *, Token *);
 Tokenrow *stringify(Tokenrow *);
 int	lookuparg(Nlist *, Token *);
-long	eval(Tokenrow *, int);
+vlong	eval(Tokenrow *, int);
 void	genline(void);
 void	setempty(Tokenrow *);
 void	makespace(Tokenrow *);

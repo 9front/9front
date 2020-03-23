@@ -10,7 +10,7 @@
 #define	UNSMARK	0x1000
 
 struct value {
-	long	val;
+	vlong	val;
 	int	type;
 };
 
@@ -99,7 +99,7 @@ enum toktype ops[NSTAK], *op;
 /*
  * Evaluate an #if #elif #ifdef #ifndef line.  trp->tp points to the keyword.
  */
-long
+vlong
 eval(Tokenrow *trp, int kw)
 {
 	Token *tp;
@@ -217,7 +217,7 @@ int
 evalop(struct pri pri)
 {
 	struct value v1, v2;
-	long rv1, rv2;
+	vlong rv1, rv2;
 	int rtype, oper;
 
 	rv2=0;
@@ -277,21 +277,21 @@ evalop(struct pri pri)
 		case GT:
 			rv1 = rv1>rv2; break;
 		case LEQ|UNSMARK:
-			rv1 = (unsigned long)rv1<=rv2; break;
+			rv1 = (uvlong)rv1<=rv2; break;
 		case GEQ|UNSMARK:
-			rv1 = (unsigned long)rv1>=rv2; break;
+			rv1 = (uvlong)rv1>=rv2; break;
 		case LT|UNSMARK:
-			rv1 = (unsigned long)rv1<rv2; break;
+			rv1 = (uvlong)rv1<rv2; break;
 		case GT|UNSMARK:
-			rv1 = (unsigned long)rv1>rv2; break;
+			rv1 = (uvlong)rv1>rv2; break;
 		case LSH:
 			rv1 <<= rv2; break;
 		case LSH|UNSMARK:
-			rv1 = (unsigned long)rv1<<rv2; break;
+			rv1 = (uvlong)rv1<<rv2; break;
 		case RSH:
 			rv1 >>= rv2; break;
 		case RSH|UNSMARK:
-			rv1 = (unsigned long)rv1>>rv2; break;
+			rv1 = (uvlong)rv1>>rv2; break;
 		case LAND:
 			rtype = UND;
 			if (v1.type==UND)
@@ -342,7 +342,7 @@ evalop(struct pri pri)
 				break;
 			}
 			if (rtype==UNS)
-				rv1 /= (unsigned long)rv2;
+				rv1 /= (uvlong)rv2;
 			else
 				rv1 /= rv2;
 			break;
@@ -352,7 +352,7 @@ evalop(struct pri pri)
 				break;
 			}
 			if (rtype==UNS)
-				rv1 %= (unsigned long)rv2;
+				rv1 %= (uvlong)rv2;
 			else
 				rv1 %= rv2;
 			break;
@@ -386,7 +386,7 @@ tokval(Token *tp)
 	struct value v;
 	Nlist *np;
 	int i, base, c, longcc;
-	unsigned long n;
+	uvlong n;
 	Rune r;
 	uchar *p;
 
@@ -426,7 +426,7 @@ tokval(Token *tp)
 			n *= base;
 			n += i;
 		}
-		if (n>=0x80000000 && base!=10)
+		if (n>=(1ULL<<63) && base!=10)
 			v.type = UNS;
 		for (; *p; p++) {
 			if (*p=='u' || *p=='U')
