@@ -7,5 +7,5 @@ typedef char *va_list;
 (char *)(&(start)+1))
 #define va_end(list)
 #define va_arg(list, mode) ((mode*)(list += sizeof(mode)))[-1]
-
+#define va_copy(dst, src) ((dst) = (src))
 #endif /* __STDARG */
