@@ -1,6 +1,10 @@
 #ifndef __STDDEF_H
 #define __STDDEF_H
 
+#ifndef __STDDEF_ARCH_H
+typedef long _ptrdiff_t;
+#endif
+
 #ifndef NULL
 #ifdef __cplusplus
 #define NULL 0
@@ -10,7 +14,7 @@
 #endif
 #define offsetof(ty,mem) ((size_t) &(((ty *)0)->mem))
 
-typedef long ptrdiff_t;
+typedef _ptrdiff_t ptrdiff_t;
 #ifndef _SIZE_T
 #define _SIZE_T
 typedef unsigned long size_t;
