@@ -139,10 +139,10 @@ initcode.out:		init9.$O initcode.$O /$objtype/lib/libc.a
 	$LD -l -R1 -s -o $target $prereq
 
 rebootcode.out:		rebootcode.$O
-	$LD -l -R4 -s -o $target -T$REBOOTADDR $prereq
+	$LD -l -R4 -s -o $target -T$REBOOTADDR -H3 $prereq
 
 apbootstrap.out:	apbootstrap.$O
-	$LD -l -R4 -s -o $target -T$APBOOTSTRAP $prereq
+	$LD -l -R4 -s -o $target -T$APBOOTSTRAP -H3 $prereq
 
 sd53c8xx.i:	sd53c8xx.n
 	aux/na $prereq > $target
