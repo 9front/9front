@@ -91,7 +91,7 @@ search(char *file, int flag)
 	}
 
 	if(flags['b'])
-		flag ^= Bflag;		/* dont buffer output */
+		flag |= Bflag;		/* dont buffer output */
 	if(flags['c'])
 		flag |= Cflag;		/* count */
 	if(flags['h'])
