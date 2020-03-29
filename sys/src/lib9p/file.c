@@ -337,8 +337,9 @@ alloctree(char *uid, char *gid, ulong mode, void (*destroy)(File*))
 
 	incref(f);
 	t->root = f;
-	t->qidgen = 0;
-	t->dirqidgen = 1;
+
+	/* t->qidgen starts at 1 because root Qid.path is 0 */
+	t->qidgen = 1;
 	if(destroy == nil)
 		destroy = nop;
 	t->destroy = destroy;

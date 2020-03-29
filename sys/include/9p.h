@@ -152,7 +152,6 @@ struct Tree {
 /* below is implementation-specific; don't use */
 	Lock genlock;
 	ulong qidgen;
-	ulong dirqidgen;
 };
 
 Tree*	alloctree(char*, char*, ulong, void(*destroy)(File*));
