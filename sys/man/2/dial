@@ -256,7 +256,7 @@ use for communications:
 .EX
 int callkremvax(void)
 {
-	return dial("kremvax", 0, 0, 0);
+	return dial("kremvax", nil, nil, nil);
 }
 .EE
 .PP
@@ -265,7 +265,7 @@ Call the local authentication server:
 .EX
 int dialauth(char *service)
 {
-	return dial(netmkaddr("$auth", 0, service), 0, 0, 0);
+	return dial(netmkaddr("$auth", nil, service), nil, nil, nil);
 }
 .EE
 .PP
@@ -307,7 +307,7 @@ bekremvax(void)
 			/* echo until EOF */
 			while((n = read(dfd, buf, sizeof(buf))) > 0)
 				write(dfd, buf, n);
-			exits(0);
+			exits(nil);
 		default:
 			close(lcfd);
 			break;
