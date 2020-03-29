@@ -148,7 +148,7 @@ rebootcode.$O:	../pc/rebootcode.s mem.h
 	$AS ../pc/rebootcode.s
 
 rebootcode.out:		rebootcode.$O
-	$LD -l -R4 -s -o $target -T0x1000 $prereq
+	$LD -l -R4 -s -o $target -T0x1000 -H3 $prereq
 
 acid:V:
 	$CC -a -w main.c>acid
