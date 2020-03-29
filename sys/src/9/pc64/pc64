@@ -110,7 +110,7 @@ misc
 
 	uarti8250
 	uartisa
-#	uartpci		pci
+	uartpci		pci
 
 #	vga3dfx		+cur
 #	vgaark2000pv	+cur
