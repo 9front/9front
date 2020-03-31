@@ -40,8 +40,8 @@ The
 file sets typematic rate and delay.  The value of the number is a
 bitmask where first 5 bits set the repeat rate (ranging from 0b00000
 for 30Hz to 0b11111 for 2Hz).  Bits 6 and 7 set the delay before the
-first repeat is activated (ranging from 0b00 for 250Hz to 0b11 for
-1000Hz).
+first repeat is activated (ranging from 0b00 for 250ms to 0b11 for
+1000ms).
 .SH EXAMPLE 
 Set the Scroll and Caps leds:
 .EX
