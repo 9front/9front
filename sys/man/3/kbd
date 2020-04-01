@@ -7,17 +7,15 @@ kbd \- pc keyboard driver
 
 .B /dev/scancode
 .B /dev/leds
-.B /dev/repeat
 .fi
 .SH DESCRIPTION
 .PP
 The
 .I kbd
 device serves a one-level directory containing the files
-.BR scancode ,
-.BR leds
+.BR scancode
 and
-.BR repeat .
+.BR leds .
 .PP
 Reading the
 .BR scancode
@@ -31,26 +29,13 @@ file can be only opened once by the hostowner.
 .PP
 Writing a number to the write-only 
 .BR leds
-file changes the status leds on the keyboard. The value of the
+file changes the status leds on the keyboard. the value of the
 number is the addition of 1, 2 and 4 representing activated
 Scroll, Num and Caps leds.
-.PP
-The
-.BR repeat
-file sets typematic rate and delay.  The value of the number is a
-bitmask where first 5 bits set the repeat rate (ranging from 0b00000
-for 30Hz to 0b11111 for 2Hz).  Bits 6 and 7 set the delay before the
-first repeat is activated (ranging from 0b00 for 250ms to 0b11 for
-1000ms).
 .SH EXAMPLE 
 Set the Scroll and Caps leds:
 .EX
 echo 5 >/dev/leds
-.EE
-.PP
-Enable fast repeat rate and the least delay:
-.EX
-echo 0 >/dev/repeat
 .EE
 .SH "SEE ALSO"
 .IR kbdfs (8)
