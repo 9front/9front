@@ -40,14 +40,12 @@ enum {
 	Qdir,
 	Qscancode,
 	Qleds,
-	Qrepeat,
 };
 
 static Dirtab kbdtab[] = {
 	".",		{Qdir, 0, QTDIR},	0,	0555,
 	"scancode",	{Qscancode, 0},		0,	0440,
 	"leds",		{Qleds, 0},		0,	0220,
-	"repeat",	{Qrepeat, 0},		0,	0220,
 };
 
 static Lock i8042lock;
@@ -190,28 +188,6 @@ setleds(int leds)
 		if(outready() < 0)
 			break;
 		old = leds;
-		break;
-	}
-	iunlock(&i8042lock);
-}
-
-static void
-setrepeat(int repeat)
-{
-	if(nokbd)
-		return;
-
-	repeat &= 0x7f;
-	ilock(&i8042lock);
-	for(;;){
-		if(outready() < 0)
-			break;
-		outb(Data, 0xf3);		/* `set typematic rate and delay' */
-		if(outready() < 0)
-			break;
-		outb(Data, repeat);
-		if(outready() < 0)
-			break;
 		break;
 	}
 	iunlock(&i8042lock);
@@ -381,18 +357,16 @@ kbdwrite(Chan *c, void *a, long n, vlong)
 {
 	char tmp[8+1], *p;
 
+	if(c->qid.path != Qleds)
+		error(Egreg);
+
 	p = tmp + n;
 	if(n >= sizeof(tmp))
 		p = tmp + sizeof(tmp)-1;
 	memmove(tmp, a, p - tmp);
 	*p = 0;
 
-	if(c->qid.path == Qleds)
-		setleds(atoi(tmp));
-	else if(c->qid.path == Qrepeat)
-		setrepeat(atoi(tmp));
-	else
-		error(Egreg);
+	setleds(atoi(tmp));
 
 	return n;
 }
