@@ -1548,10 +1548,10 @@ mailplumb(Mailbox *mb, Message *m)
 	a[ai-1].next = &a[ai];
 
 	a[++ai].name = "mailtype";
-	if(m->cstate & Cmod)
-		a[ai].value = "modify";
-	else if (!m->inmbox)
+	if(!m->inmbox)
 		a[ai].value = "delete";
+	else if(m->cstate & Cmod)
+		a[ai].value = "modify";
 	else
 		a[ai].value = "new";
 	a[ai-1].next = &a[ai];
