@@ -31,7 +31,8 @@ struct Req
 	Udphdr		*udp;
 	Ipifc		*ifc;
 
-	uchar		mac[Eaddrlen];
+	int		ncid;
+	uchar		cid[256];
 	uchar		ips[IPaddrlen*8];
 	int		nips;
 
@@ -236,6 +237,31 @@ lookupips(uchar *ip, int n, Ndb *db, uchar mac[Eaddrlen])
 	return r;
 }
 
+static uchar*
+clientea(Req *r)
+{
+	static uchar ea[Eaddrlen];
+	u32int type;
+ 	uchar *ip;
+
+	if(r->ncid >= 4+Eaddrlen){
+		type = r->cid[0]<<24 | r->cid[1]<<16 | r->cid[2]<<8 | r->cid[3];
+		switch(type){
+		case 0x00010001:
+		case 0x00030001:
+			return r->cid + r->ncid - Eaddrlen;
+		}
+	}
+	ip = r->udp->raddr;
+	ea[0] = ip[8] ^ 2;
+	ea[1] = ip[9];
+	ea[2] = ip[10];
+	ea[3] = ip[13];
+	ea[4] = ip[14];
+	ea[5] = ip[15];
+	return ea;
+}
+
 static void
 clearotab(void)
 {
@@ -387,7 +413,7 @@ main(int argc, char *argv[])
 
 		if((r->db = opendb()) == nil)
 			continue;
-		r->nips = lookupips(r->ips, sizeof(r->ips), r->db, r->mac)/IPaddrlen;
+		r->nips = lookupips(r->ips, sizeof(r->ips), r->db, clientea(r))/IPaddrlen;
 		if(debug){
 			for(i=0; i<r->nips; i++)
 				fprint(2, "ip=%I\n", r->ips+i*IPaddrlen);
@@ -411,10 +437,11 @@ oclientid(uchar *w, int n, Otab*, Req *r)
 
 	if((p = gettlv(1, &len, r->req.p, r->req.e)) == nil)
 		return -1;
-	if(len < 4+4+Eaddrlen || n < len)
+	if(len > sizeof(r->cid) || n < len)
 		return -1;
-	memmove(r->mac, p+len-Eaddrlen, Eaddrlen);
 	memmove(w, p, len);
+	memmove(r->cid, p, len);
+	r->ncid = len;
 
 	return len;
 }
