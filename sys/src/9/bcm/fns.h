@@ -120,7 +120,7 @@ extern int fpuemu(Ureg*);
 /*
  * Things called from port.
  */
-extern void delay(int);				/* only scheddump() */
+extern void delay(int);
 extern int islo(void);
 extern void microdelay(int);			/* only edf.c */
 extern void evenaddr(uintptr);
