@@ -5,13 +5,19 @@
 #include <9p.h>
 #include "usb.h"
 
-typedef struct Audio Audio;
-struct Audio
+typedef struct Range Range;
+struct Range
 {
-	Audio	*next;
+	Range	*next;
+	int	min;
+	int	max;
+};
 
-	int	minfreq;
-	int	maxfreq;
+typedef struct Aconf Aconf;
+struct Aconf
+{
+	Range	*freq;
+	int	caps;
 };
 
 int audiodelay = 1764;	/* 40 ms */
@@ -29,52 +35,72 @@ Ep *audioepout = nil;
 void
 parsedescr(Desc *dd)
 {
-	Audio *a, **ap;
+	Aconf *c;
+	Range *f;
 	uchar *b;
 	int i;
 
 	if(dd == nil || dd->iface == nil || dd->altc == nil)
 		return;
-	b = (uchar*)&dd->data;
-	if(Subclass(dd->iface->csp) != 2 || b[1] != 0x24 || b[2] != 0x02)
-		return;
-	if(b[4] != audiochan)
-		return;
-	if(b[6] != audiores)
+	if(Subclass(dd->iface->csp) != 2)
 		return;
 
-	ap = (Audio**)&dd->altc->aux;
-	if(b[7] == 0){
-		a = mallocz(sizeof(*a), 1);
-		a->minfreq = b[8] | b[9]<<8 | b[10]<<16;
-		a->maxfreq = b[11] | b[12]<<8 | b[13]<<16;
-		a->next = *ap;
-		*ap = a;
-	} else {
-		for(i=0; i<b[7]; i++){
-			a = mallocz(sizeof(*a), 1);
-			a->minfreq = b[8+3*i] | b[9+3*i]<<8 | b[10+3*i]<<16;
-			a->maxfreq = a->minfreq;
-			a->next = *ap;
-			*ap = a;
+	c = dd->altc->aux;
+	if(c == nil){
+		c = mallocz(sizeof(*c), 1);
+		dd->altc->aux = c;
+	}
+
+	b = (uchar*)&dd->data;
+	switch(b[1]<<8 | b[2]){
+	case 0x2501:	/* CS_ENDPOINT, EP_GENERAL */
+		c->caps |= b[3];
+		break;
+
+	case 0x2402:	/* CS_INTERFACE, FORMAT_TYPE */
+		if(b[4] != audiochan)
+			break;
+		if(b[6] != audiores)
+			break;
+
+		if(b[7] == 0){
+			f = mallocz(sizeof(*f), 1);
+			f->min = b[8] | b[9]<<8 | b[10]<<16;
+			f->max = b[11] | b[12]<<8 | b[13]<<16;
+
+			f->next = c->freq;
+			c->freq = f;
+		} else {
+			for(i=0; i<b[7]; i++){
+				f = mallocz(sizeof(*f), 1);
+				f->min = b[8+3*i] | b[9+3*i]<<8 | b[10+3*i]<<16;
+				f->max = f->min;
+
+				f->next = c->freq;
+				c->freq = f;
+			}
 		}
+		break;
 	}
 }
 
 Dev*
 setupep(Dev *d, Ep *e, int speed)
 {
-	uchar b[4];
-	Audio *x;
-	Altc *a;
+	Altc *x;
+	Aconf *c;
+	Range *f;
 	int i;
 
-	for(i = 0; i < nelem(e->iface->altc); i++)
-		if(a = e->iface->altc[i])
-			for(x = a->aux; x; x = x->next)
-				if(speed >= x->minfreq && speed <= x->maxfreq)
-					goto Foundaltc;
-
+	for(i = 0; i < nelem(e->iface->altc); i++){
+		if((x = e->iface->altc[i]) == nil)
+			continue;
+		if((c = x->aux) == nil)
+			continue;
+		for(f = c->freq; f != nil; f = f->next)
+			if(speed >= f->min && speed <= f->max)
+				goto Foundaltc;
+	}
 	werrstr("no altc found");
 	return nil;
 
@@ -84,17 +110,21 @@ Foundaltc:
 		return nil;
 	}
 
-	b[0] = speed;
-	b[1] = speed >> 8;
-	b[2] = speed >> 16;
-	if(usbcmd(d, Rh2d|Rclass|Rep, Rsetcur, 0x100, e->addr, b, 3) < 0)
-		fprint(2, "warning: set freq: %r\n");
+	if(c->caps & 1){
+		uchar b[4];
+
+		b[0] = speed;
+		b[1] = speed >> 8;
+		b[2] = speed >> 16;
+		if(usbcmd(d, Rh2d|Rclass|Rep, Rsetcur, 0x100, e->addr, b, 3) < 0)
+			fprint(2, "warning: set freq: %r\n");
+	}
 
 	if((d = openep(d, e->id)) == nil){
 		werrstr("openep: %r");
 		return nil;
 	}
-	devctl(d, "pollival %d", a->interval);
+	devctl(d, "pollival %d", x->interval);
 	devctl(d, "samplesz %d", audiochan*audiores/8);
 	devctl(d, "sampledelay %d", audiodelay);
 	devctl(d, "hz %d", speed);
