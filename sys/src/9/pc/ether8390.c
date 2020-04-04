@@ -461,7 +461,6 @@ txstart(Ether* ether)
 	int len;
 	Dp8390 *ctlr;
 	Block *bp;
-	uchar minpkt[ETHERMINTU], *rp;
 
 	ctlr = ether->ctlr;
 
@@ -480,11 +479,10 @@ txstart(Ether* ether)
 	 * start the transmission.
 	 */
 	len = BLEN(bp);
-	rp = bp->rp;
 	if(ctlr->ram)
-		memmove((uchar*)KADDR(ether->mem) + ctlr->tstart*Dp8390BufSz, rp, len);
+		memmove((uchar*)KADDR(ether->mem) + ctlr->tstart*Dp8390BufSz, bp->rp, len);
 	else
-		dp8390write(ctlr, ctlr->tstart*Dp8390BufSz, rp, len);
+		dp8390write(ctlr, ctlr->tstart*Dp8390BufSz, bp->rp, len);
 	freeb(bp);
 
 	regw(ctlr, Tbcr0, len & 0xFF);
