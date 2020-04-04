@@ -268,7 +268,6 @@ pcmmap(int slotno, ulong offset, int len, int attr)
 		if((we & bit))
 		if(m->attr == attr)
 		if(offset >= m->ca && e <= m->cea){
-
 			m->ref++;
 			unlock(&pp->mlock);
 			return m;
@@ -285,12 +284,13 @@ pcmmap(int slotno, ulong offset, int len, int attr)
 
 	/* if isa space isn't big enough, free it and get more */
 	if(m->len < len){
-		if(m->isa){
+		if(m->len){
 			umbfree(m->isa, m->len);
 			m->len = 0;
 		}
-		m->isa = PADDR(umbmalloc(0, len, Mgran));
-		if(m->isa == 0){
+		m->isa = umballoc(-1, len, Mgran);
+		if(m->isa == -1){
+			m->isa = 0;
 			print("pcmmap: out of isa space\n");
 			unlock(&pp->mlock);
 			return 0;

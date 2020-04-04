@@ -521,7 +521,6 @@ devpccardlink(void)
 	int i;
 	uchar intl;
 	char *p;
-	void *baddrva;
 
 	if (initialized)
 		return;
@@ -543,7 +542,6 @@ devpccardlink(void)
 	while ((pci = pcimatch(pci, 0, 0)) != nil) {
 		ulong baddr;
 		Cardbus *cb;
-		int slot;
 		uchar pin;
 
 		if(pci->ccrb != 6 || pci->ccru != 7)
@@ -555,8 +553,7 @@ devpccardlink(void)
 			continue;
 
 		/* initialize this slot */
-		slot = nslots++;
-		cb = &cbslots[slot];
+		cb = &cbslots[nslots];
 
 		cb->pci = pci;
 		cb->variant = &variant[i];
@@ -635,27 +632,30 @@ devpccardlink(void)
 			pcicfgw8(cb->pci, 0xD4, 0xCA);
 		}
 
-		if (intl != 0xff && intl != pci->intl)
-			intrenable(pci->intl, cbinterrupt, cb, pci->tbdf, "cardbus");
-		intl = pci->intl;
-
 		if ((baddr = pcicfgr32(cb->pci, PciBAR0)) == 0) {
 			int size = (pci->did == Ricoh_478_did)? 0x10000: 0x1000;
-
-			baddr = upaalloc(size, size);
-			baddrva = vmap(baddr, size);
+			baddr = upaalloc(-1, size, size);
+			if(baddr == -1)
+				continue;
 			pcicfgw32(cb->pci, PciBAR0, baddr);
-			cb->regs = (ulong *)baddrva;
+			cb->regs = (ulong *)vmap(baddr, size);
 		}
 		else
 			cb->regs = (ulong *)vmap(baddr, 4096);
+		if(cb->regs == nil)
+			continue;
 		cb->state = SlotEmpty;
+
+		if (intl != 0xff && intl != pci->intl)
+			intrenable(pci->intl, cbinterrupt, cb, pci->tbdf, "cardbus");
 
 		/* Don't really know what to do with this... */
 		i82365probe(cb, LegacyAddr, LegacyAddr + 1);
 
 		print("#Y%ld: %s, %.8ulX intl %d\n", cb - cbslots,
 			 variant[i].name, baddr, pci->intl);
+
+		nslots++;
 	}
 
 	if (nslots == 0){
@@ -815,16 +815,22 @@ configure(Cardbus *cb)
 	if(iolen < 512)
 		iolen = 512;
 	iobase = ioreserve(~0, iolen, 0, "cardbus");
-	pcicfgw32(cb->pci, PciCBIBR0, iobase);
-	pcicfgw32(cb->pci, PciCBILR0, iobase + iolen-1);
-	pcicfgw32(cb->pci, PciCBIBR1, 0);
-	pcicfgw32(cb->pci, PciCBILR1, 0);
+	if(iobase == -1)
+		return;
 
 	rombase = memlen;
 	memlen += romlen;
 	if(memlen < 1*1024*1024)
 		memlen = 1*1024*1024;
-	membase = upaalloc(memlen, 4*1024*1024);	/* TO DO: better alignment */
+	membase = upaalloc(-1, memlen, 4*1024*1024);	/* TO DO: better alignment */
+	if(membase == -1)
+		return;
+
+	pcicfgw32(cb->pci, PciCBIBR0, iobase);
+	pcicfgw32(cb->pci, PciCBILR0, iobase + iolen-1);
+	pcicfgw32(cb->pci, PciCBIBR1, 0);
+	pcicfgw32(cb->pci, PciCBILR1, 0);
+
 	pcicfgw32(cb->pci, PciCBMBR0, membase);
 	pcicfgw32(cb->pci, PciCBMLR0, membase + memlen-1);
 	pcicfgw32(cb->pci, PciCBMBR1, 0);
@@ -1451,7 +1457,6 @@ isamap(Cardbus *cb, ulong offset, int len, int attr)
 		if((we & bit))
 		if(m->attr == attr)
 		if(offset >= m->ca && e <= m->cea){
-
 			m->ref++;
 			return m;
 		}
@@ -1465,12 +1470,13 @@ isamap(Cardbus *cb, ulong offset, int len, int attr)
 
 	/* if isa space isn't big enough, free it and get more */
 	if(m->len < len){
-		if(m->isa){
+		if(m->len){
 			umbfree(m->isa, m->len);
 			m->len = 0;
 		}
-		m->isa = PADDR(umbmalloc(0, len, Mgran));
-		if(m->isa == 0){
+		m->isa = umballoc(-1, len, Mgran);
+		if(m->isa == -1){
+			m->isa = 0;
 			print("isamap: out of isa space\n");
 			return 0;
 		}

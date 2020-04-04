@@ -24,7 +24,7 @@ multibootargs(void)
 	ulong *m, l;
 	int i, n;
 
-	if(multibootptr == 0)
+	if(multibootptr == 0 || multibootptr >= MemMin)
 		return;
 
 	multiboot = (ulong*)KADDR(multibootptr);

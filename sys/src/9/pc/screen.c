@@ -94,6 +94,7 @@ int
 screenaperture(int size, int align)
 {
 	VGAscr *scr;
+	ulong pa;
 
 	scr = &vgascreen[0];
 
@@ -113,10 +114,11 @@ screenaperture(int size, int align)
 	 * The driver will tell the card to use it.
 	 */
 	size = PGROUND(size);
-	scr->paddr = upaalloc(size, align);
-	if(scr->paddr == 0)
+	pa = upaalloc(-1, size, align);
+	if(pa == -1)
 		return -1;
-	scr->vaddr = vmap(scr->paddr, size);
+	scr->paddr = pa;
+	scr->vaddr = vmap(pa, size);
 	if(scr->vaddr == nil)
 		return -1;
 	scr->apsize = size;
@@ -482,8 +484,8 @@ vgalinearaddr0(VGAscr *scr, ulong paddr, int size)
 	if(nsize > 64*MB)
 		nsize = 64*MB;
 	scr->vaddr = vmap(npaddr, nsize);
-	if(scr->vaddr == 0)
-		return "cannot allocate vga frame buffer";
+	if(scr->vaddr == nil)
+		return "cannot map vga frame buffer";
 
 	patwc(scr->vaddr, nsize);
 
@@ -576,6 +578,7 @@ bootmapfb(VGAscr *scr, ulong pa, ulong sz)
 			}
 		}
 	}
+	upaalloc(pa, sz, 0);
 	return vgalinearaddr0(scr, pa, sz);
 }
 

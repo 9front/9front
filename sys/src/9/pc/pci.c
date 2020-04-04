@@ -1084,7 +1084,7 @@ pcireservemem(void)
 	for(p=pciroot; p; p=p->list)
 		for(i=0; i<nelem(p->mem); i++)
 			if((p->mem[i].bar&~4) != 0 && (p->mem[i].bar&1) == 0)
-				upareserve(p->mem[i].bar&~0x0F, p->mem[i].size);
+				upaalloc(p->mem[i].bar&~0x0F, p->mem[i].size, 0);
 }
 
 static int

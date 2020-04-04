@@ -262,7 +262,7 @@ reset(Ether* ether)
 	}
 	dp8390setea(ether);
 
-	if(umbrwmalloc(ether->mem, ether->size, 0) == 0)
+	if(umballoc(ether->mem, ether->size, 0) == -1)
 		print("ether8003: warning - 0x%luX unavailable\n", ether->mem);
 
 	return 0;

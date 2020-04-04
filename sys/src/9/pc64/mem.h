@@ -60,7 +60,7 @@
 #define KMAPSIZE	(2*MiB)
 
 /*
- * Fundamental addresses - bottom 64kB saved for return to real mode
+ * Fundamental addresses
  */
 #define	CONFADDR	(KZERO+0x1200ull)		/* info passed from boot loader */
 #define	APBOOTSTRAP	(KZERO+0x7000ull)		/* AP bootstrap code */

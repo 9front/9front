@@ -54,7 +54,7 @@
 #define	USTKSIZE	(16*1024*1024)		/* size of user stack */
 
 /*
- * Fundamental addresses - bottom 64kB saved for return to real mode
+ * Fundamental addresses
  */
 #define	CONFADDR	(KZERO+0x1200)		/* info passed from boot loader */
 #define	APBOOTSTRAP	(KZERO+0x7000)		/* AP bootstrap code (overlaps CONFADDR) */

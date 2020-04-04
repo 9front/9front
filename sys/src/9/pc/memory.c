@@ -1,10 +1,3 @@
-/*
- * Size memory and create the kernel page-tables on the fly while doing so.
- * Called from main(), this code should only be run by the bootstrap processor.
- *
- * MemMin is what the bootstrap code in l.s has already mapped;
- * MemMax is the limit of physical memory to scan.
- */
 #include "u.h"
 #include "../port/lib.h"
 #include "mem.h"
@@ -13,316 +6,150 @@
 #include "io.h"
 #include "ureg.h"
 
-#define MEMDEBUG	0
-
-u32int MemMin = 8*MB;	/* set in l.s */
-
 enum {
-	MemUPA		= 0,		/* unbacked physical address */
-	MemRAM		= 1,		/* physical memory */
-	MemUMB		= 2,		/* upper memory block (<16MB) */
-	MemACPI		= 3,		/* ACPI tables */
-	MemReserved	= 4,
-	NMemType	= 5,
+	MemUPA		= 0,	/* unbacked physical address */
+	MemUMB		= 1,	/* upper memory block (<16MB) */
+	MemRAM		= 2,	/* physical memory */
+	MemACPI		= 3,	/* ACPI tables */
+	MemReserved	= 4,	/* don't allocate */
 
-	KB		= 1024,
-
-	MemMax		= (3*1024+768)*MB,
+	KB = 1024,
 };
 
-typedef struct Map Map;
-struct Map {
-	ulong	size;
-	ulong	addr;
-};
+u32int	MemMin;		/* set by l.s */
 
-typedef struct RMap RMap;
-struct RMap {
-	char*	name;
-	Map*	map;
-	Map*	mapend;
-
-	Lock;
-};
-
-/* 
- * Memory allocation tracking.
- */
-static Map mapupa[16];
-static RMap rmapupa = {
-	"unallocated unbacked physical memory",
-	mapupa,
-	&mapupa[nelem(mapupa)-1],
-};
-
-static Map mapram[16];
-static RMap rmapram = {
-	"physical memory",
-	mapram,
-	&mapram[nelem(mapram)-1],
-};
-
-static Map mapumb[64];
-static RMap rmapumb = {
-	"upper memory block",
-	mapumb,
-	&mapumb[nelem(mapumb)-1],
-};
-
-static Map mapumbrw[16];
-static RMap rmapumbrw = {
-	"UMB device memory",
-	mapumbrw,
-	&mapumbrw[nelem(mapumbrw)-1],
-};
-
-static Map mapacpi[16];
-static RMap rmapacpi = {
-	"ACPI tables",
-	mapacpi,
-	&mapacpi[nelem(mapacpi)-1],
-};
-
-void
-mapprint(RMap *rmap)
-{
-	Map *mp;
-
-	print("%s\n", rmap->name);	
-	for(mp = rmap->map; mp->size; mp++)
-		print("\t%8.8luX %8.8luX (%lud)\n", mp->addr, mp->addr+mp->size, mp->size);
-}
-
-
-void
-memdebug(void)
-{
-	ulong maxpa, maxpa1, maxpa2;
-
-	maxpa = (nvramread(0x18)<<8)|nvramread(0x17);
-	maxpa1 = (nvramread(0x31)<<8)|nvramread(0x30);
-	maxpa2 = (nvramread(0x16)<<8)|nvramread(0x15);
-	print("maxpa = %luX -> %luX, maxpa1 = %luX maxpa2 = %luX\n",
-		maxpa, MB+maxpa*KB, maxpa1, maxpa2);
-
-	mapprint(&rmapram);
-	mapprint(&rmapumb);
-	mapprint(&rmapumbrw);
-	mapprint(&rmapupa);
-	mapprint(&rmapacpi);
-}
-
-static void
-mapfree(RMap* rmap, ulong addr, ulong size)
-{
-	Map *mp;
-	ulong t;
-
-	if(size <= 0)
-		return;
-
-	lock(rmap);
-	for(mp = rmap->map; mp->addr <= addr && mp->size; mp++)
-		;
-
-	if(mp > rmap->map && (mp-1)->addr+(mp-1)->size == addr){
-		(mp-1)->size += size;
-		if(addr+size == mp->addr){
-			(mp-1)->size += mp->size;
-			while(mp->size){
-				mp++;
-				(mp-1)->addr = mp->addr;
-				(mp-1)->size = mp->size;
-			}
-		}
-	}
-	else{
-		if(addr+size == mp->addr && mp->size){
-			mp->addr -= size;
-			mp->size += size;
-		}
-		else do{
-			if(mp >= rmap->mapend){
-				print("mapfree: %s: losing 0x%luX, %ld\n",
-					rmap->name, addr, size);
-				break;
-			}
-			t = mp->addr;
-			mp->addr = addr;
-			addr = t;
-			t = mp->size;
-			mp->size = size;
-			mp++;
-		}while(size = t);
-	}
-	unlock(rmap);
-}
-
-static ulong
-mapalloc(RMap* rmap, ulong addr, int size, int align)
-{
-	Map *mp;
-	ulong maddr, oaddr;
-
-	lock(rmap);
-	for(mp = rmap->map; mp->size; mp++){
-		maddr = mp->addr;
-
-		if(addr){
-			/*
-			 * A specific address range has been given:
-			 *   if the current map entry is greater then
-			 *   the address is not in the map;
-			 *   if the current map entry does not overlap
-			 *   the beginning of the requested range then
-			 *   continue on to the next map entry;
-			 *   if the current map entry does not entirely
-			 *   contain the requested range then the range
-			 *   is not in the map.
-			 */
-			if(maddr > addr)
-				break;
-			if(mp->size < addr - maddr)	/* maddr+mp->size < addr, but no overflow */
-				continue;
-			if(addr - maddr > mp->size - size)	/* addr+size > maddr+mp->size, but no overflow */
-				break;
-			maddr = addr;
-		}
-
-		if(align > 0)
-			maddr = ((maddr+align-1)/align)*align;
-		if(mp->addr+mp->size-maddr < size)
-			continue;
-
-		oaddr = mp->addr;
-		mp->addr = maddr+size;
-		mp->size -= maddr-oaddr+size;
-		if(mp->size == 0){
-			do{
-				mp++;
-				(mp-1)->addr = mp->addr;
-			}while((mp-1)->size = mp->size);
-		}
-
-		unlock(rmap);
-		if(oaddr != maddr)
-			mapfree(rmap, oaddr, maddr-oaddr);
-
-		return maddr;
-	}
-	unlock(rmap);
-
-	return 0;
-}
-
-/*
- * Allocate from the ram map directly to make page tables.
- * Called by mmuwalk during e820scan.
- */
 void*
 rampage(void)
 {
-	ulong m;
+	uintptr pa;
 	
 	if(conf.mem[0].npage != 0)
 		return xspanalloc(BY2PG, BY2PG, 0);
-	m = mapalloc(&rmapram, 0, BY2PG, BY2PG);
-	if(m == 0)
-		return nil;
-	return KADDR(m);
+
+	/*
+	 * Allocate from the map directly to make page tables.
+	 */
+	pa = memmapalloc(-1, BY2PG, BY2PG, MemRAM);
+	if(pa == -1 || cankaddr(pa) == 0)
+		panic("rampage: out of memory\n");
+	return KADDR(pa);
 }
 
 static void
-umbexclude(void)
+mapkzero(uintptr base, uintptr len, int type)
 {
-	int size;
-	ulong addr;
-	char *op, *p, *rptr;
+	uintptr flags, n;
 
-	if((p = getconf("umbexclude")) == nil)
-		return;
-
-	while(p && *p != '\0' && *p != '\n'){
-		op = p;
-		addr = strtoul(p, &rptr, 0);
-		if(rptr == nil || rptr == p || *rptr != '-'){
-			print("umbexclude: invalid argument <%s>\n", op);
-			break;
-		}
-		p = rptr+1;
-
-		size = strtoul(p, &rptr, 0) - addr + 1;
-		if(size <= 0){
-			print("umbexclude: bad range <%s>\n", op);
-			break;
-		}
-		if(rptr != nil && *rptr == ',')
-			*rptr++ = '\0';
-		p = rptr;
-
-		mapalloc(&rmapumb, addr, size, 0);
+	if(base < MemMin && base+len > MemMin){
+		mapkzero(base, MemMin-base, type);
+		len = base+len-MemMin;
+		base = MemMin;
 	}
+
+	n = cankaddr(base);
+	if(n == 0)
+		return;
+	if(len > n)
+		len = n;
+
+	switch(type){
+	default:
+		return;
+	case MemRAM:
+		if(base < MemMin)
+			return;
+		flags = PTEWRITE|PTEVALID;
+		break;
+	case MemUMB:
+		if(base < MemMin)
+			punmap(base+KZERO, len);
+		flags = PTEWRITE|PTEUNCACHED|PTEVALID;
+		break;
+	}
+#ifdef PTENOEXEC
+	flags |= PTENOEXEC;
+#endif
+	pmap(base|flags, base+KZERO, len);
+}
+
+static uintptr
+ebdaseg(void)
+{
+	uchar *bda;
+
+	if(memcmp(KADDR(0xfffd9), "EISA", 4) != 0)
+		return 0;
+	bda = KADDR(0x400);
+	return ((bda[0x0f]<<8)|bda[0x0e]) << 4;
+}
+
+static uintptr
+convmemsize(void)
+{
+	uintptr top;
+	uchar *bda;
+
+	bda = KADDR(0x400);
+	top = ((bda[0x14]<<8) | bda[0x13])*KB;
+
+	if(top < 64*KB || top > 640*KB)
+		top = 640*KB;	/* sanity */
+
+	/* Reserved for BIOS tables */
+	top -= 1*KB;
+
+	return top;
 }
 
 static void
-umbscan(void)
+lowraminit(void)
 {
+	uintptr base, pa, len;
 	uchar *p;
 
 	/*
-	 * Scan the Upper Memory Blocks (0xA0000->0xF0000) for pieces
-	 * which aren't used; they can be used later for devices which
-	 * want to allocate some virtual address space.
-	 * Check for two things:
-	 * 1) device BIOS ROM. This should start with a two-byte header
-	 *    of 0x55 0xAA, followed by a byte giving the size of the ROM
-	 *    in 512-byte chunks. These ROM's must start on a 2KB boundary.
-	 * 2) device memory. This is read-write.
-	 * There are some assumptions: there's VGA memory at 0xA0000 and
-	 * the VGA BIOS ROM is at 0xC0000. Also, if there's no ROM signature
-	 * at 0xE0000 then the whole 64KB up to 0xF0000 is theoretically up
-	 * for grabs; check anyway.
+	 * Discover the memory bank information for conventional memory
+	 * (i.e. less than 640KB). The base is the first location after the
+	 * bootstrap processor MMU information and the limit is obtained from
+	 * the BIOS data area.
 	 */
-	p = KADDR(0xD0000);
-	while(p < (uchar*)KADDR(0xE0000)){
-		/*
-		 * Test for 0x55 0xAA before poking obtrusively,
-		 * some machines (e.g. Thinkpad X20) seem to map
-		 * something dynamic here (cardbus?) causing weird
-		 * problems if it is changed.
-		 */
+	base = PADDR(CPU0END);
+	pa = convmemsize();
+	if(base < pa)
+		memmapadd(base, pa-base, MemRAM);
+
+	/* Reserve BIOS tables */
+	memmapadd(pa, 1*KB, MemReserved);
+
+	/* Reserve EBDA */
+	if((pa = ebdaseg()) != 0)
+		memmapadd(pa, 1*KB, MemReserved);
+	memmapadd(0xA0000-1*KB, 1*KB, MemReserved);
+
+	/* Reserve the VGA frame buffer */
+	umballoc(0xA0000, 128*KB, 0);
+
+	/* Reserve VGA ROM */
+	memmapadd(0xC0000, 64*KB, MemReserved);
+
+	/*
+	 * Scan the Upper Memory Blocks (0xD0000->0xF0000) for device BIOS ROMs.
+	 * This should start with a two-byte header of 0x55 0xAA, followed by a
+	 * byte giving the size of the ROM in 512-byte chunks.
+	 * These ROM's must start on a 2KB boundary.
+	 */
+	for(p = (uchar*)KADDR(0xD0000); p < (uchar*)KADDR(0xF0000); p += len){
+		len = 2*KB;
 		if(p[0] == 0x55 && p[1] == 0xAA){
-			p += p[2]*512;
-			continue;
+			if(p[2] != 0)
+				len = p[2]*512;
+			memmapadd(PADDR(p), len, MemReserved);
+			len = ROUND(len, 2*KB);
 		}
-
-		p[0] = 0xCC;
-		p[2*KB-1] = 0xCC;
-		if(p[0] != 0xCC || p[2*KB-1] != 0xCC){
-			p[0] = 0x55;
-			p[1] = 0xAA;
-			p[2] = 4;
-			if(p[0] == 0x55 && p[1] == 0xAA){
-				p += p[2]*512;
-				continue;
-			}
-			if(p[0] == 0xFF && p[1] == 0xFF)
-				mapfree(&rmapumb, PADDR(p), 2*KB);
-		}
-		else
-			mapfree(&rmapumbrw, PADDR(p), 2*KB);
-		p += 2*KB;
 	}
 
-	p = KADDR(0xE0000);
-	if(p[0] != 0x55 || p[1] != 0xAA){
-		p[0] = 0xCC;
-		p[64*KB-1] = 0xCC;
-		if(p[0] != 0xCC && p[64*KB-1] != 0xCC)
-			mapfree(&rmapumb, PADDR(p), 64*KB);
-	}
-
-	umbexclude();
+	/* Reserve BIOS ROM */
+	memmapadd(0xF0000, 64*KB, MemReserved);
 }
 
 int
@@ -355,29 +182,10 @@ sigscan(uchar *addr, int len, char *sig, int size, int step)
 	return nil;
 }
 
-static uintptr
-convmemsize(void)
-{
-	uintptr top;
-	uchar *bda;
-
-	bda = KADDR(0x400);
-	top = ((bda[0x14]<<8) | bda[0x13])*KB;
-
-	if(top < 64*KB || top > 640*KB)
-		top = 640*KB;	/* sanity */
-
-	/* reserved for bios tables (EBDA) */
-	top -= 1*KB;
-
-	return top;
-}
-
 void*
 sigsearch(char* signature, int size)
 {
 	uintptr p;
-	uchar *bda;
 	void *r;
 
 	/*
@@ -388,585 +196,46 @@ sigsearch(char* signature, int size)
 	 * 3) within the BIOS ROM address space between 0xf0000 and 0xfffff
 	 *    (but will actually check 0xe0000 to 0xfffff).
 	 */
-	bda = KADDR(0x400);
-	if(memcmp(KADDR(0xfffd9), "EISA", 4) == 0){
-		if((p = (bda[0x0f]<<8)|bda[0x0e]) != 0){
-			if((r = sigscan(KADDR(p<<4), 1024, signature, size, 16)) != nil)
-				return r;
-		}
+	if((p = ebdaseg()) != 0){
+		if((r = sigscan(KADDR(p), 1*KB, signature, size, 16)) != nil)
+			return r;
 	}
-	if((r = sigscan(KADDR(convmemsize()), 1024, signature, size, 16)) != nil)
+	if((r = sigscan(KADDR(convmemsize()), 1*KB, signature, size, 16)) != nil)
 		return r;
 
 	/* hack for virtualbox: look in KiB below 0xa0000 */
-	if((r = sigscan(KADDR(0xa0000-1024), 1024, signature, size, 16)) != nil)
+	if((r = sigscan(KADDR(0xA0000-1*KB), 1*KB, signature, size, 16)) != nil)
 		return r;
 
-	return sigscan(KADDR(0xe0000), 0x20000, signature, size, 16);
+	return sigscan(KADDR(0xE0000), 128*KB, signature, size, 16);
 }
 
 void*
 rsdsearch(void)
 {
 	static char signature[] = "RSD PTR ";
+	uintptr base, size;
 	uchar *v, *p;
-	Map *m;
 
 	if((p = sigsearch(signature, 36)) != nil)
 		return p;
 	if((p = sigsearch(signature, 20)) != nil)
 		return p;
-	for(m = rmapacpi.map; m < rmapacpi.mapend && m->size; m++){
-		if(m->size > 0x7FFFFFFF)
+
+	for(base = memmapnext(-1, MemACPI); base != -1; base = memmapnext(base, MemACPI)){
+		size = memmapsize(base, 0);
+		if(size == 0 || size > 0x7fffffff)
 			continue;
-		if((v = vmap(m->addr, m->size)) != nil){
-			p = sigscan(v, m->size, signature, 36, 4);
+		if((v = vmap(base, size)) != nil){
+			p = sigscan(v, size, signature, 36, 4);
 			if(p == nil)
-				p = sigscan(v, m->size, signature, 20, 4);
-			vunmap(v, m->size);
+				p = sigscan(v, size, signature, 20, 4);
+			vunmap(v, size);
 			if(p != nil)
-				return vmap(m->addr + (p - v), 64);
+				return vmap(base + (p - v), 64);
 		}
 	}
 	return nil;
-}
-
-static void
-lowraminit(void)
-{
-	uintptr pa, x;
-
-	/*
-	 * Initialise the memory bank information for conventional memory
-	 * (i.e. less than 640KB). The base is the first location after the
-	 * bootstrap processor MMU information and the limit is obtained from
-	 * the BIOS data area.
-	 */
-	x = PADDR(CPU0END);
-	pa = convmemsize();
-	if(x < pa){
-		mapfree(&rmapram, x, pa-x);
-		memset(KADDR(x), 0, pa-x);		/* keep us honest */
-	}
-
-	x = PADDR(PGROUND((uintptr)end));
-	pa = MemMin;
-	if(x > pa)
-		panic("kernel too big");
-	mapfree(&rmapram, x, pa-x);
-	memset(KADDR(x), 0, pa-x);		/* keep us honest */
-}
-
-static void
-ramscan(ulong maxmem)
-{
-	ulong *k0, kzero, map, maxkpa, maxpa, pa, *pte, *table, *va, vbase, x;
-	int nvalid[NMemType];
-
-	/*
-	 * The bootstrap code has has created a prototype page
-	 * table which maps the first MemMin of physical memory to KZERO.
-	 * The page directory is at m->pdb and the first page of
-	 * free memory is after the per-processor MMU information.
-	 */
-	pa = MemMin;
-
-	/*
-	 * Check if the extended memory size can be obtained from the CMOS.
-	 * If it's 0 then it's either not known or >= 64MB. Always check
-	 * at least 24MB in case there's a memory gap (up to 8MB) below 16MB;
-	 * in this case the memory from the gap is remapped to the top of
-	 * memory.
-	 * The value in CMOS is supposed to be the number of KB above 1MB.
-	 */
-	if(maxmem == 0){
-		x = (nvramread(0x18)<<8)|nvramread(0x17);
-		if(x == 0 || x >= (63*KB))
-			maxpa = MemMax;
-		else
-			maxpa = MB+x*KB;
-		if(maxpa < 24*MB)
-			maxpa = 24*MB;
-	}else
-		maxpa = maxmem;
-	maxkpa = (u32int)-KZERO;	/* 2^32 - KZERO */
-
-	/*
-	 * March up memory from MemMin to maxpa 1MB at a time,
-	 * mapping the first page and checking the page can
-	 * be written and read correctly. The page tables are created here
-	 * on the fly, allocating from low memory as necessary.
-	 */
-	k0 = (ulong*)KADDR(0);
-	kzero = *k0;
-	map = 0;
-	x = 0x12345678;
-	memset(nvalid, 0, sizeof(nvalid));
-	
-	/*
-	 * Can't map memory to KADDR(pa) when we're walking because
-	 * can only use KADDR for relatively low addresses.
-	 * Instead, map each 4MB we scan to the virtual address range
-	 * MemMin->MemMin+4MB while we are scanning.
-	 */
-	vbase = MemMin;
-	while(pa < maxpa){
-		/*
-		 * Map the page. Use mapalloc(&rmapram, ...) to make
-		 * the page table if necessary, it will be returned to the
-		 * pool later if it isn't needed.  Map in a fixed range (the second 4M)
-		 * because high physical addresses cannot be passed to KADDR.
-		 */
-		va = (void*)(vbase + pa%(4*MB));
-		table = &m->pdb[PDX(va)];
-		if(pa%(4*MB) == 0){
-			if(map == 0 && (map = mapalloc(&rmapram, 0, BY2PG, BY2PG)) == 0)
-				break;
-			memset(KADDR(map), 0, BY2PG);
-			*table = map|PTEWRITE|PTEVALID;
-			memset(nvalid, 0, sizeof(nvalid));
-		}
-		table = KADDR(PPN(*table));
-		pte = &table[PTX(va)];
-
-		*pte = pa|PTEWRITE|PTEUNCACHED|PTEVALID;
-		mmuflushtlb(PADDR(m->pdb));
-		/*
-		 * Write a pattern to the page and write a different
-		 * pattern to a possible mirror at KZERO. If the data
-		 * reads back correctly the chunk is some type of RAM (possibly
-		 * a linearly-mapped VGA framebuffer, for instance...) and
-		 * can be cleared and added to the memory pool. If not, the
-		 * chunk is marked uncached and added to the UMB pool if <16MB
-		 * or is marked invalid and added to the UPA pool.
-		 */
-		*va = x;
-		*k0 = ~x;
-		if(*va == x){
-			nvalid[MemRAM] += MB/BY2PG;
-			mapfree(&rmapram, pa, MB);
-
-			do{
-				*pte++ = pa|PTEWRITE|PTEVALID;
-				pa += BY2PG;
-			}while(pa % MB);
-			mmuflushtlb(PADDR(m->pdb));
-			/* memset(va, 0, MB); so damn slow to memset all of memory */
-		}
-		else if(pa < 16*MB){
-			nvalid[MemUMB] += MB/BY2PG;
-			mapfree(&rmapumb, pa, MB);
-
-			do{
-				*pte++ = pa|PTEWRITE|PTEUNCACHED|PTEVALID;
-				pa += BY2PG;
-			}while(pa % MB);
-		}
-		else{
-			nvalid[MemUPA] += MB/BY2PG;
-			mapfree(&rmapupa, pa, MB);
-
-			*pte = 0;
-			pa += MB;
-		}
-		/*
-		 * Done with this 4MB chunk, review the options:
-		 * 1) not physical memory and >=16MB - invalidate the PDB entry;
-		 * 2) physical memory - use the 4MB page extension if possible;
-		 * 3) not physical memory and <16MB - use the 4MB page extension
-		 *    if possible;
-		 * 4) mixed or no 4MB page extension - commit the already
-		 *    initialised space for the page table.
-		 */
-		if(pa%(4*MB) == 0 && pa >= 32*MB && nvalid[MemUPA] == (4*MB)/BY2PG){
-			/*
-			 * If we encounter a 4MB chunk of missing memory
-			 * at a sufficiently high offset, call it the end of
-			 * memory.  Otherwise we run the risk of thinking
-			 * that video memory is real RAM.
-			 */
-			break;
-		}
-		if(pa <= maxkpa && pa%(4*MB) == 0){
-			table = &m->pdb[PDX(KADDR(pa - 4*MB))];
-			if(nvalid[MemUPA] == (4*MB)/BY2PG)
-				*table = 0;
-			else if(nvalid[MemRAM] == (4*MB)/BY2PG && (m->cpuiddx & Pse))
-				*table = (pa - 4*MB)|PTESIZE|PTEWRITE|PTEVALID;
-			else if(nvalid[MemUMB] == (4*MB)/BY2PG && (m->cpuiddx & Pse))
-				*table = (pa - 4*MB)|PTESIZE|PTEWRITE|PTEUNCACHED|PTEVALID;
-			else{
-				*table = map|PTEWRITE|PTEVALID;
-				map = 0;
-			}
-		}
-		mmuflushtlb(PADDR(m->pdb));
-		x += 0x3141526;
-	}
-	/*
-	 * If we didn't reach the end of the 4MB chunk, that part won't
-	 * be mapped.  Commit the already initialised space for the page table.
-	 */
-	if(pa % (4*MB) && pa <= maxkpa){
-		m->pdb[PDX(KADDR(pa))] = map|PTEWRITE|PTEVALID;
-		map = 0;
-	}
-	if(map)
-		mapfree(&rmapram, map, BY2PG);
-
-	m->pdb[PDX(vbase)] = 0;
-	mmuflushtlb(PADDR(m->pdb));
-
-	mapfree(&rmapupa, pa, (u32int)-pa);
-	*k0 = kzero;
-}
-
-static void
-map(ulong base, ulong len, int type)
-{
-	ulong e, n;
-	ulong *table, flags, maxkpa;
-
-	/*
-	 * Split any call crossing MemMin to make below simpler.
-	 */
-	if(base < MemMin && len > MemMin-base){
-		n = MemMin - base;
-		map(base, n, type);
-		map(MemMin, len-n, type);
-	}
-	
-	/*
-	 * Let lowraminit and umbscan hash out the low MemMin.
-	 */
-	if(base < MemMin)
-		return;
-
-	/*
-	 * Any non-memory below 16*MB is used as upper mem blocks.
-	 */
-	if(type == MemUPA && base < 16*MB && len > 16*MB-base){
-		map(base, 16*MB-base, MemUMB);
-		map(16*MB, len-(16*MB-base), MemUPA);
-		return;
-	}
-	
-	/*
-	 * Memory below CPU0END is reserved for the kernel
-	 * and already mapped.
-	 */
-	if(base < PADDR(CPU0END)){
-		n = PADDR(CPU0END) - base;
-		if(len <= n)
-			return;
-		map(PADDR(CPU0END), len-n, type);
-		return;
-	}
-	
-	/*
-	 * Memory between KTZERO and end is the kernel itself
-	 * and is already mapped.
-	 */
-	if(base < PADDR(KTZERO) && len > PADDR(KTZERO)-base){
-		map(base, PADDR(KTZERO)-base, type);
-		return;
-	}
-	if(PADDR(KTZERO) < base && base < PADDR(PGROUND((ulong)end))){
-		n = PADDR(PGROUND((ulong)end));
-		if(len <= n)
-			return;
-		map(PADDR(PGROUND((ulong)end)), len-n, type);
-		return;
-	}
-	
-	/*
-	 * Now we have a simple case.
-	 */
-	// print("map %.8lux %.8lux %d\n", base, base+len, type);
-	switch(type){
-	case MemRAM:
-		mapfree(&rmapram, base, len);
-		flags = PTEWRITE|PTEVALID;
-		break;
-	case MemUMB:
-		mapfree(&rmapumb, base, len);
-		flags = PTEWRITE|PTEUNCACHED|PTEVALID;
-		break;
-	case MemUPA:
-		mapfree(&rmapupa, base, len);
-		flags = 0;
-		break;
-	case MemACPI:
-		mapfree(&rmapacpi, base, len);
-		flags = 0;
-		break;
-	default:
-	case MemReserved:
-		flags = 0;
-		break;
-	}
-	
-	/*
-	 * bottom MemMin is already mapped - just twiddle flags.
-	 * (not currently used - see above)
-	 */
-	if(base < MemMin){
-		table = KADDR(PPN(m->pdb[PDX(base)]));
-		e = base+len;
-		base = PPN(base);
-		for(; base<e; base+=BY2PG)
-			table[PTX(base)] |= flags;
-		return;
-	}
-	
-	/*
-	 * Only map from KZERO to 2^32.
-	 */
-	if(flags){
-		maxkpa = -KZERO;
-		if(base >= maxkpa)
-			return;
-		if(len > maxkpa-base)
-			len = maxkpa - base;
-		pdbmap(m->pdb, base|flags, base+KZERO, len);
-	}
-}
-
-typedef struct Emap Emap;
-struct Emap
-{
-	int type;
-	uvlong base;
-	uvlong top;
-};
-static Emap emap[128];
-static int nemap;
-
-static int
-emapcmp(const void *va, const void *vb)
-{
-	Emap *a, *b;
-	
-	a = (Emap*)va;
-	b = (Emap*)vb;
-	if(a->top < b->top)
-		return -1;
-	if(a->top > b->top)
-		return 1;
-	if(a->base < b->base)
-		return -1;
-	if(a->base > b->base)
-		return 1;
-	return 0;
-}
-
-static void
-e820clean(void)
-{
-	Emap *e;
-	int i, j;
-
-	qsort(emap, nemap, sizeof emap[0], emapcmp);
-	for(i=j=0; i<nemap; i++){	
-		e = &emap[i];
-
-		/* ignore entries above 4GB */
-		if(e->base >= (1ULL<<32))
-			break;
-
-		/* merge adjacent entries of the same type */
-		if(i+1 < nemap && e[0].top == e[1].base && e[0].type == e[1].type){
-			e[1].base = e[0].base;
-			continue;
-		}
-
-		memmove(&emap[j++], e, sizeof *e);
-	}
-	nemap = j;
-}
-
-static int
-e820scan(void)
-{
-	ulong base, len, last;
-	Emap *e;
-	char *s;
-	int i;
-
-	/* passed by bootloader */
-	if((s = getconf("*e820")) == nil)
-		if((s = getconf("e820")) == nil)
-			return -1;
-	nemap = 0;
-	while(nemap < nelem(emap)){
-		while(*s == ' ')
-			s++;
-		if(*s == 0)
-			break;
-		e = emap + nemap;
-		e->type = 1;
-		if(s[1] == ' '){	/* new format */
-			e->type = s[0] - '0';
-			s += 2;
-		}
-		e->base = strtoull(s, &s, 16);
-		if(*s != ' ')
-			break;
-		e->top  = strtoull(s, &s, 16);
-		if(*s != ' ' && *s != 0)
-			break;
-		if(e->base >= e->top)
-			continue;
-		if(++nemap == nelem(emap))
-			e820clean();
-	}
-	e820clean();
-	if(nemap == 0)
-		return -1;
-	last = 0;
-	for(i=0; i<nemap; i++){	
-		e = &emap[i];
-		if(e->top <= last)
-			continue;
-		if(e->base < last)
-			base = last;
-		else
-			base = e->base;
-		if(e->top > (1ULL<<32))
-			len = -base;
-		else
-			len = e->top - base;
-		/*
-		 * If the map skips addresses, mark them available.
-		 */
-		if(last < base)
-			map(last, base-last, MemUPA);
-
-		switch(e->type){
-		case 1:
-			map(base, len, MemRAM);
-			break;
-		case 3:
-			map(base, len, MemACPI);
-			break;
-		default:
-			map(base, len, MemReserved);
-		}
-
-		last = base + len;
-		if(last == 0)
-			break;
-	}
-	if(last != 0)
-		map(last, -last, MemUPA);
-	return 0;
-}
-
-void
-meminit(void)
-{
-	int i;
-	Map *mp;
-	Confmem *cm;
-	ulong pa, *pte;
-	ulong maxmem, lost;
-	char *p;
-
-	if(p = getconf("*maxmem"))
-		maxmem = strtoul(p, 0, 0);
-	else
-		maxmem = 0;
-
-	/*
-	 * Set special attributes for memory between 640KB and 1MB:
-	 *   VGA memory is writethrough;
-	 *   BIOS ROM's/UMB's are uncached;
-	 * then scan for useful memory.
-	 */
-	for(pa = 0xA0000; pa < 0xC0000; pa += BY2PG){
-		pte = mmuwalk(m->pdb, (ulong)KADDR(pa), 2, 0);
-		*pte |= PTEWT;
-	}
-	for(pa = 0xC0000; pa < 0x100000; pa += BY2PG){
-		pte = mmuwalk(m->pdb, (ulong)KADDR(pa), 2, 0);
-		*pte |= PTEUNCACHED;
-	}
-	mmuflushtlb(PADDR(m->pdb));
-
-	umbscan();
-	lowraminit();
-	if(e820scan() < 0)
-		ramscan(maxmem);
-
-	/*
-	 * Set the conf entries describing banks of allocatable memory.
-	 */
-	for(i=0; i<nelem(mapram) && i<nelem(conf.mem); i++){
-		mp = &rmapram.map[i];
-		cm = &conf.mem[i];
-		cm->base = mp->addr;
-		cm->npage = mp->size/BY2PG;
-	}
-	
-	lost = 0;
-	for(; i<nelem(mapram); i++)
-		lost += rmapram.map[i].size;
-	if(lost)
-		print("meminit - lost %lud bytes\n", lost);
-
-	if(MEMDEBUG)
-		memdebug();
-}
-
-/*
- * Allocate memory from the upper memory blocks.
- */
-ulong
-umbmalloc(ulong addr, int size, int align)
-{
-	ulong a;
-
-	if(a = mapalloc(&rmapumb, addr, size, align))
-		return (ulong)KADDR(a);
-
-	return 0;
-}
-
-void
-umbfree(ulong addr, int size)
-{
-	mapfree(&rmapumb, PADDR(addr), size);
-}
-
-ulong
-umbrwmalloc(ulong addr, int size, int align)
-{
-	ulong a;
-	uchar *p;
-
-	if(a = mapalloc(&rmapumbrw, addr, size, align))
-		return(ulong)KADDR(a);
-
-	/*
-	 * Perhaps the memory wasn't visible before
-	 * the interface is initialised, so try again.
-	 */
-	if((a = umbmalloc(addr, size, align)) == 0)
-		return 0;
-	p = (uchar*)a;
-	p[0] = 0xCC;
-	p[size-1] = 0xCC;
-	if(p[0] == 0xCC && p[size-1] == 0xCC)
-		return a;
-	umbfree(a, size);
-
-	return 0;
-}
-
-void
-umbrwfree(ulong addr, int size)
-{
-	mapfree(&rmapumbrw, PADDR(addr), size);
 }
 
 /*
@@ -976,45 +245,283 @@ umbrwfree(ulong addr, int size)
  * Call vmap to do that.
  */
 ulong
-upaalloc(int size, int align)
+upaalloc(ulong pa, ulong size, ulong align)
 {
-	ulong a;
+	return (ulong)memmapalloc(pa == -1UL ? -1ULL : (uvlong)pa, size, align, MemUPA);
+}
 
-	a = mapalloc(&rmapupa, 0, size, align);
-	if(a == 0){
-		print("out of physical address space allocating %d\n", size);
-		mapprint(&rmapupa);
+void
+upafree(ulong pa, ulong size)
+{
+	memmapfree(pa, size, MemUPA);
+}
+
+/*
+ * Allocate memory from the upper memory blocks.
+ */
+ulong
+umballoc(ulong pa, ulong size, ulong align)
+{
+	return (ulong)memmapalloc(pa == -1UL ? -1ULL : (uvlong)pa, size, align, MemUMB);
+}
+
+void
+umbfree(ulong pa, ulong size)
+{
+	memmapfree(pa, size, MemUMB);
+}
+
+static void
+umbexclude(void)
+{
+	ulong pa, size;
+	char *op, *p, *rptr;
+
+	if((p = getconf("umbexclude")) == nil)
+		return;
+
+	while(p && *p != '\0' && *p != '\n'){
+		op = p;
+		pa = strtoul(p, &rptr, 0);
+		if(rptr == nil || rptr == p || *rptr != '-'){
+			print("umbexclude: invalid argument <%s>\n", op);
+			break;
+		}
+		p = rptr+1;
+
+		size = strtoul(p, &rptr, 0) - pa + 1;
+		if(size <= 0){
+			print("umbexclude: bad range <%s>\n", op);
+			break;
+		}
+		if(rptr != nil && *rptr == ',')
+			*rptr++ = '\0';
+		p = rptr;
+
+		memmapalloc(pa, size, 0, MemUMB);
 	}
-	return a;
 }
 
-void
-upafree(ulong pa, int size)
+static int
+e820scan(void)
 {
-	mapfree(&rmapupa, pa, size);
+	uvlong base, top, size;
+	int type;
+	char *s;
+
+	/* passed by bootloader */
+	if((s = getconf("*e820")) == nil)
+		if((s = getconf("e820")) == nil)
+			return -1;
+
+	for(;;){
+		while(*s == ' ')
+			s++;
+		if(*s == 0)
+			break;
+		type = 1;
+		if(s[1] == ' '){	/* new format */
+			type = s[0] - '0';
+			s += 2;
+		}
+		base = strtoull(s, &s, 16);
+		if(*s != ' ')
+			break;
+		top  = strtoull(s, &s, 16);
+		if(*s != ' ' && *s != 0)
+			break;
+		if(base >= top)
+			continue;
+		switch(type){
+		case 1:
+			memmapadd(base, top - base, MemRAM);
+			break;
+		case 3:
+			memmapadd(base, top - base, MemACPI);
+			break;
+		default:
+			memmapadd(base, top - base, MemReserved);
+		}
+	}
+
+	for(base = memmapnext(-1, MemRAM); base != -1; base = memmapnext(base, MemRAM)){
+		size = memmapsize(base, BY2PG) & ~(BY2PG-1);
+		if(size != 0)
+			mapkzero(PGROUND(base), size, MemRAM);
+	}
+
+	return 0;
 }
 
-void
-upareserve(ulong pa, int size)
+static void
+ramscan(uintptr pa, uintptr top, uintptr chunk)
 {
-	ulong a;
-	
-	a = mapalloc(&rmapupa, pa, size, 0);
-	if(a != pa){
+	ulong save, pat, seed, *v, *k0;
+	int i, n, w;
+
+	pa += chunk-1;
+	pa &= ~(chunk-1);
+	top &= ~(chunk-1);
+
+	n = chunk/sizeof(*v);
+	w = BY2PG/sizeof(*v);
+
+	k0 = KADDR(0);
+	save = *k0;
+
+	pat = 0x12345678UL;
+	for(; pa < top; pa += chunk){
+		/* write pattern */
+		seed = pat;
+		if((v = vmap(pa, chunk)) == nil)
+			continue;
+		for(i = 0; i < n; i += w){
+			pat += 0x3141526UL;
+			v[i] = pat;
+			*k0 = ~pat;
+			if(v[i] != pat)
+				goto Bad;
+		}
+		vunmap(v, chunk);
+
+		/* verify pattern */
+		pat = seed;
+		if((v = vmap(pa, chunk)) == nil)
+			continue;
+		for(i = 0; i < n; i += w){
+			pat += 0x3141526UL;
+			if(v[i] != pat)
+				goto Bad;
+		}
+		vunmap(v, chunk);
+
+		memmapadd(pa, chunk, MemRAM);
+		mapkzero(pa, chunk, MemRAM);
+		continue;
+
+	Bad:
+		vunmap(v, chunk);
+
+		if(pa+chunk <= 16*MB)
+			memmapadd(pa, chunk, MemUMB);
+
 		/*
-		 * This can happen when we're using the E820
-		 * map, which might have already reserved some
-		 * of the regions claimed by the pci devices.
+		 * If we encounter a chunk of missing memory
+		 * at a sufficiently high offset, call it the end of
+		 * memory.  Otherwise we run the risk of thinking
+		 * that video memory is real RAM.
 		 */
-	//	print("upareserve: cannot reserve pa=%#.8lux size=%d\n", pa, size);
-		if(a != 0)
-			mapfree(&rmapupa, a, size);
+		if(pa >= 32*MB)
+			break;
 	}
+
+	*k0 = save;
 }
 
+/*
+ * Sort out initial memory map and discover RAM.
+ */
 void
-memorysummary(void)
+meminit0(void)
 {
-	memdebug();
+	/*
+	 * Add the already mapped memory after the kernel.
+	 */
+	if(MemMin < PADDR(PGROUND((uintptr)end)))
+		panic("kernel too big");
+	memmapadd(PADDR(PGROUND((uintptr)end)), MemMin-PADDR(PGROUND((uintptr)end)), MemRAM);
+
+	/*
+	 * Memory between KTZERO and end is the kernel itself.
+	 */
+	memreserve(PADDR(KTZERO), PADDR(PGROUND((uintptr)end))-PADDR(KTZERO));
+
+	/*
+	 * Memory below CPU0END is reserved for the kernel.
+	 */
+	memreserve(0, PADDR(CPU0END));
+
+	/*
+	 * Addresses below 16MB default to be upper
+	 * memory blocks usable for ISA devices.
+	 */
+	memmapadd(0, 16*MB, MemUMB);
+
+	/*
+	 * Everything between 16MB and 4GB defaults
+	 * to unbacked physical addresses usable for
+	 * device mappings.
+	 */
+	memmapadd(16*MB, (u32int)-16*MB, MemUPA);
+
+	/*
+	 * On 386, reserve >= 4G as we have no PAE support.
+	 */
+	if(sizeof(void*) == 4)
+		memmapadd((u32int)-BY2PG, -((uvlong)((u32int)-BY2PG)), MemReserved);
+
+	/*
+	 * Discover conventional RAM, ROMs and UMBs.
+	 */
+	lowraminit();
+
+	/*
+	 * Discover more RAM and map to KZERO.
+	 */
+	if(e820scan() < 0)
+		ramscan(MemMin, -((uintptr)MemMin), 4*MB);
 }
 
+/*
+ * Until the memory map is finalized by meminit(),
+ * archinit() should reserve memory of discovered BIOS
+ * and ACPI tables by calling memreserve() to prevent
+ * them from getting allocated and trashed.
+ * This is due to the UEFI and BIOS memory map being
+ * unreliable and sometimes marking these ranges as RAM.
+ */
+void
+memreserve(uintptr pa, uintptr size)
+{
+	assert(conf.mem[0].npage == 0);
+
+	size += (pa & BY2PG-1);
+	size &= ~(BY2PG-1);
+	pa &= ~(BY2PG-1);
+	memmapadd(pa, size, MemReserved);
+}
+
+/*
+ * Finalize the memory map:
+ *  (re-)map the upper memory blocks
+ *  allocate all usable ram to the conf.mem[] banks
+ */
+void
+meminit(void)
+{
+	uintptr base, size;
+	Confmem *cm;
+
+	umbexclude();
+	for(base = memmapnext(-1, MemUMB); base != -1; base = memmapnext(base, MemUMB)){
+		size = memmapsize(base, BY2PG) & ~(BY2PG-1);
+		if(size != 0)
+			mapkzero(PGROUND(base), size, MemUMB);
+	}
+
+	cm = &conf.mem[0];
+	for(base = memmapnext(-1, MemRAM); base != -1; base = memmapnext(base, MemRAM)){
+		size = memmapsize(base, BY2PG) & ~(BY2PG-1);
+		if(size == 0)
+			continue;
+		cm->base = memmapalloc(base, size, BY2PG, MemRAM);
+		if(cm->base == -1)
+			continue;
+		base = cm->base;
+		cm->npage = size/BY2PG;
+		if(++cm >= &conf.mem[nelem(conf.mem)])
+			break;
+	}
+
+	if(0) memmapdump();
+}
