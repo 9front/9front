@@ -544,6 +544,7 @@ static Lock vmaplock;
 
 static int findhole(ulong *a, int n, int count);
 static ulong vmapalloc(ulong size);
+static int pdbmap(ulong *, ulong, ulong, int);
 static void pdbunmap(ulong*, ulong, int);
 
 /*
@@ -679,7 +680,7 @@ vunmap(void *v, int size)
 /*
  * Add kernel mappings for pa -> va for a section of size bytes.
  */
-int
+static int
 pdbmap(ulong *pdb, ulong pa, ulong va, int size)
 {
 	int pse;
@@ -747,6 +748,19 @@ pdbunmap(ulong *pdb, ulong va, int size)
 		table[PTX(va)] = 0;
 		va += BY2PG;
 	}
+}
+
+void
+pmap(ulong pa, ulong va, int size)
+{
+	pdbmap(MACHP(0)->pdb, pa, va, size);
+}
+
+void
+punmap(ulong va, int size)
+{
+	pdbunmap(MACHP(0)->pdb, va, size);
+	mmuflushtlb(PADDR(m->pdb));
 }
 
 /*

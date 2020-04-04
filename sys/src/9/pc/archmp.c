@@ -383,7 +383,7 @@ identify(void)
 {
 	char *cp;
 	_MP_ *_mp_;
-	ulong len;
+	ulong pa, len;
 
 	if((cp = getconf("*nomp")) != nil && strcmp(cp, "0") != 0)
 		return 1;
@@ -399,26 +399,28 @@ identify(void)
 		return 1;
 
 	len = PCMPsz;
-	if(_mp_->physaddr < MemMin)
-		pcmp = KADDR(_mp_->physaddr);
-	else if((pcmp = vmap(_mp_->physaddr, len)) == nil)
+	pa = _mp_->physaddr;
+	if(pa + len-1 < pa)
 		return 1;
-	if(pcmp->length < len
+
+	memreserve(pa, len);
+	if((pcmp = vmap(pa, len)) == nil)
+		return 1;
+	if(pcmp->length < PCMPsz
+	|| pa + pcmp->length-1 < pa
 	|| memcmp(pcmp, "PCMP", 4) != 0
 	|| (pcmp->version != 1 && pcmp->version != 4)){
 Bad:
-		if((uintptr)pcmp < KZERO)
-			vunmap(pcmp, len);
+		vunmap(pcmp, len);
 		pcmp = nil;
 		return 1;
 	}
 	len = pcmp->length;
-	if((uintptr)pcmp < KZERO)
-		vunmap(pcmp, PCMPsz);
-	if(_mp_->physaddr < MemMin)
-		pcmp = KADDR(_mp_->physaddr);
-	else if((pcmp = vmap(_mp_->physaddr, len)) == nil)
+	memreserve(pa, len);
+	vunmap(pcmp, PCMPsz);
+	if((pcmp = vmap(pa, len)) == nil)
 		return 1;
+
 	if(checksum(pcmp, len) != 0)
 		goto Bad;
 

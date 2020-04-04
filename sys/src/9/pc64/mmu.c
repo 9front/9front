@@ -344,7 +344,7 @@ kernelro(void)
 }
 
 void
-pmap(uintptr *pml4, uintptr pa, uintptr va, vlong size)
+pmap(uintptr pa, uintptr va, vlong size)
 {
 	uintptr *pte, *ptee, flags;
 	int z, l;
@@ -361,9 +361,9 @@ pmap(uintptr *pml4, uintptr pa, uintptr va, vlong size)
 			flags |= PTESIZE;
 		l = (flags & PTESIZE) != 0;
 		z = PGLSZ(l);
-		pte = mmuwalk(pml4, va, l, 1);
-		if(pte == 0){
-			pte = mmuwalk(pml4, va, ++l, 0);
+		pte = mmuwalk(m->pml4, va, l, 1);
+		if(pte == nil){
+			pte = mmuwalk(m->pml4, va, ++l, 0);
 			if(pte && (*pte & PTESIZE)){
 				flags |= PTESIZE;
 				z = va & (PGLSZ(l)-1);
@@ -381,6 +381,29 @@ pmap(uintptr *pml4, uintptr pa, uintptr va, vlong size)
 			va += z;
 			size -= z;
 		}
+	}
+}
+
+void
+punmap(uintptr va, vlong size)
+{
+	uintptr *pte;
+	int l;
+
+	va = PPN(va);
+	while(size > 0){
+		if((va % PGLSZ(1)) != 0 || size < PGLSZ(1))
+			ptesplit(m->pml4, va);
+		l = 0;
+		pte = mmuwalk(m->pml4, va, l, 0);
+		if(pte == nil && (va % PGLSZ(1)) == 0 && size >= PGLSZ(1))
+			pte = mmuwalk(m->pml4, va, ++l, 0);
+		if(pte){
+			*pte = 0;
+			invlpg(va);
+		}
+		va += PGLSZ(l);
+		size -= PGLSZ(l);
 	}
 }
 
@@ -584,7 +607,7 @@ vmap(uintptr pa, int size)
 	pa -= o;
 	va -= o;
 	size += o;
-	pmap(m->pml4, pa | PTEUNCACHED|PTEWRITE|PTENOEXEC|PTEVALID, va, size);
+	pmap(pa | PTEUNCACHED|PTEWRITE|PTENOEXEC|PTEVALID, va, size);
 	return (void*)(va+o);
 }
 
@@ -667,7 +690,7 @@ preallocpages(void)
 			pm->npage = (top - pm->base)/BY2PG;
 
 			va = base + VMAP;
-			pmap(m->pml4, base | PTEGLOBAL|PTEWRITE|PTENOEXEC|PTEVALID, va, psize);
+			pmap(base | PTEGLOBAL|PTEWRITE|PTENOEXEC|PTEVALID, va, psize);
 
 			palloc.pages = (void*)(va + tsize);
 

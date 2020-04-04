@@ -113,8 +113,9 @@ maptable(uvlong xpa)
 	int i;
 
 	pa = xpa;
-	if((uvlong)pa != xpa || pa == 0)
+	if((uvlong)pa != xpa || pa == 0 || pa+7 < pa)
 		return;
+		
 	if(ntblpa >= nelem(tblpa) || ntblmap >= nelem(tblmap))
 		return;
 
@@ -124,21 +125,18 @@ maptable(uvlong xpa)
 	}
 	tblpa[ntblpa++] = pa;
 
+	memreserve(pa, 8);
 	if((t = vmap(pa, 8)) == nil)
 		return;
 	l = get32(t->len);
-	if(l < Tblsz){
+	if(l < Tblsz
+	|| l >= 0x10000000
+	|| pa+l-1 < pa){
 		vunmap(t, 8);
 		return;
 	}
-	if(memcheck(pa, l) != l){
-		print("maptable: ignoring %.4s at [%#p-%#p); overlaps usable memory\n",
-			(char*)t->sig, pa, pa+l);
-		vunmap(t, 8);
-		return;
-	}
+	memreserve(pa, l);
 	vunmap(t, 8);
-
 	if((t = vmap(pa, l)) == nil)
 		return;
 	if(checksum(t, l)){
@@ -177,9 +175,10 @@ maptables(void)
 		return;
 	if(!checksum(rsd, 20))
 		maptable(get32(rsd->raddr));
-	if(rsd->rev >= 2)
+	if(rsd->rev >= 2){
 		if(!checksum(rsd, 36))
 			maptable(get64(rsd->xaddr));
+	}
 }
 
 static Apic*
@@ -567,8 +566,6 @@ acpiinit(void)
 	ulong lapicbase;
 	int machno, i, c;
 
-	maptables();
-
 	amlinit();
 
 	/* load DSDT */
@@ -789,14 +786,15 @@ identify(void)
 	pa = (uintptr)strtoull(cp, nil, 16);
 	if(pa <= 1)
 		rsd = rsdsearch();
-	else if(pa < MemMin)
-		rsd = KADDR(pa);
-	else
+	else {
+		memreserve(pa, sizeof(Rsd));
 		rsd = vmap(pa, sizeof(Rsd));
+	}
 	if(rsd == nil)
 		return 1;
 	if(checksum(rsd, 20) && checksum(rsd, 36))
 		return 1;
+	maptables();
 	addarchfile("acpitbls", 0444, readtbls, nil);
 	addarchfile("acpimem", 0600, readmem, writemem);
 	if(strcmp(cp, "0") == 0)

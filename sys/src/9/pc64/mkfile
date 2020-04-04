@@ -22,6 +22,7 @@ PORT=\
 	dev.$O\
 	edf.$O\
 	fault.$O\
+	memmap.$O\
 	page.$O\
 	parse.$O\
 	pgrp.$O\

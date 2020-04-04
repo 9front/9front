@@ -34,11 +34,12 @@ main(void)
 	trapinit0();
 	i8253init();
 	cpuidentify();
+	meminit0();
+	archinit();
 	meminit();
 	ramdiskinit();
 	confinit();
 	xinit();
-	archinit();
 	bootscreeninit();
 	if(i8237alloc != nil)
 		i8237alloc();

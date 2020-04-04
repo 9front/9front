@@ -85,10 +85,11 @@ mmusweep(void*)
 
 		sweepcolor = m->sweepcolor;
 		x = splhi();
-		p = proctab(0);
-		for(i = 0; i < conf.nproc; i++, p++)
+		for(i = 0; i < conf.nproc; i++) {
+			p = proctab(i);
 			if(PIDCOLOR(p->mmupid) == sweepcolor)
 				p->mmupid = 0;
+		}
 		splx(x);
 
 		ptab = (ulong*)m->ptabbase;

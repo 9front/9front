@@ -35,6 +35,7 @@ PORT=\
 	random.$O\
 	rdb.$O\
 	rebootcmd.$O\
+	memmap.$O\
 	segment.$O\
 	syscallfmt.$O\
 	sysfile.$O\
