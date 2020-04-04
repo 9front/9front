@@ -377,7 +377,7 @@ receive(Ether* ether)
 	for(curr = getcurr(ctlr); ctlr->nxtpkt != curr; curr = getcurr(ctlr)){
 		data = ctlr->nxtpkt*Dp8390BufSz;
 		if(ctlr->ram)
-			memmove(&hdr, (void*)(ether->mem+data), sizeof(Hdr));
+			memmove(&hdr, (uchar*)KADDR(ether->mem) + data, sizeof(Hdr));
 		else
 			_dp8390read(ctlr, &hdr, data, sizeof(Hdr));
 
@@ -422,7 +422,7 @@ receive(Ether* ether)
 			if((data+len) >= ctlr->pstop*Dp8390BufSz){
 				count = ctlr->pstop*Dp8390BufSz - data;
 				if(ctlr->ram)
-					memmove(p, (void*)(ether->mem+data), count);
+					memmove(p, (uchar*)KADDR(ether->mem) + data, count);
 				else
 					_dp8390read(ctlr, p, data, count);
 				p += count;
@@ -431,7 +431,7 @@ receive(Ether* ether)
 			}
 			if(len){
 				if(ctlr->ram)
-					memmove(p, (void*)(ether->mem+data), len);
+					memmove(p, (uchar*)KADDR(ether->mem) + data, len);
 				else
 					_dp8390read(ctlr, p, data, len);
 			}
@@ -476,21 +476,13 @@ txstart(Ether* ether)
 		return;
 
 	/*
-	 * Make sure the packet is of minimum length;
 	 * copy it to the card's memory by the appropriate means;
 	 * start the transmission.
 	 */
 	len = BLEN(bp);
 	rp = bp->rp;
-	if(len < ETHERMINTU){
-		rp = minpkt;
-		memmove(rp, bp->rp, len);
-		memset(rp+len, 0, ETHERMINTU-len);
-		len = ETHERMINTU;
-	}
-
 	if(ctlr->ram)
-		memmove((void*)(ether->mem+ctlr->tstart*Dp8390BufSz), rp, len);
+		memmove((uchar*)KADDR(ether->mem) + ctlr->tstart*Dp8390BufSz, rp, len);
 	else
 		dp8390write(ctlr, ctlr->tstart*Dp8390BufSz, rp, len);
 	freeb(bp);
