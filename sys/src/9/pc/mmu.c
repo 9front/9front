@@ -524,8 +524,7 @@ mmuwalk(ulong* pdb, ulong va, int level, int create)
 			panic("mmuwalk2: va %luX entry %luX", va, *table);
 		if(!(*table & PTEVALID)){
 			map = rampage();
-			if(map == nil)
-				panic("mmuwalk: page alloc failed");
+			memset(map, 0, BY2PG);
 			*table = PADDR(map)|PTEWRITE|PTEVALID;
 		}
 		table = KADDR(PPN(*table));
