@@ -543,7 +543,6 @@ portreset(Hub *h, int p)
 
 	d = h->dev;
 	pp = &h->port[p];
-	nd = pp->dev;
 	dprint(2, "%s: %s: port %d: resetting\n", argv0, d->dir, p);
 	if(hubfeature(h, p, Fportreset, 1) < 0){
 		dprint(2, "%s: %s: port %d: reset: %r\n", argv0, d->dir, p);
@@ -557,7 +556,8 @@ portreset(Hub *h, int p)
 		dprint(2, "%s: %s: port %d: not enabled?\n", argv0, d->dir, p);
 		goto Fail;
 	}
-	nd = pp->dev;
+	if((nd = pp->dev) == nil)
+		return;
 	opendevdata(nd, ORDWR);
 	if(usbcmd(nd, Rh2d|Rstd|Rdev, Rsetaddress, nd->id, 0, nil, 0) < 0){
 		dprint(2, "%s: %s: port %d: setaddress: %r\n", argv0, d->dir, p);
@@ -579,15 +579,10 @@ portreset(Hub *h, int p)
 	}
 	return;
 Fail:
-	pp->state = Pdisabled;
 	pp->sts = 0;
-	if(pp->hub != nil)
-		pp->hub = nil;	/* hub closed by enumhub */
-	if(!h->dev->isusb3)
+	portdetach(h, p);
+	if(!d->isusb3)
 		hubfeature(h, p, Fportenable, 0);
-	if(nd != nil)
-		devctl(nd, "detach");
-	closedev(nd);
 }
 
 static int
