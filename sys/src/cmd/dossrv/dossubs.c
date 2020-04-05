@@ -1683,7 +1683,8 @@ falloc(Xfs *xf)
 {
 	Dosbpb *bp = xf->ptr;
 	Iosect *p;
-	int n, i, k;
+	int n, i;
+	vlong k;
 
 	n = bp->freeptr;
 	for(;;){
