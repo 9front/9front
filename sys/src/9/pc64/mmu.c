@@ -299,8 +299,6 @@ ptesplit(uintptr* table, uintptr va)
 	if(pte == nil || (*pte & PTESIZE) == 0 || (va & PGLSZ(1)-1) == 0)
 		return;
 	table = rampage();
-	if(table == nil)
-		panic("ptesplit: out of memory\n");
 	va &= -PGLSZ(1);
 	pa = *pte & ~PTESIZE;
 	for(off = 0; off < PGLSZ(1); off += PGLSZ(0))
