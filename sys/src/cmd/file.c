@@ -201,8 +201,8 @@ int	(*call[])(void) =
 	isicocur,		/* windows icon or cursor file */
 	isface,		/* ascii face file */
 	istga,
-	ismp3,
 	ismp4,
+	ismp3,
 
 	/* last resorts */
 	ismung,		/* entropy compressed/encrypted */
