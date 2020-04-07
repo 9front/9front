@@ -172,7 +172,7 @@ structure.  Typically, the program counter will be overridden by the
 first note handler to be the address of a separate function;
 .B NSAVE
 is then a `trampoline' to that handler.
-That handler may executed
+That handler may execute
 .B noted(NRSTR)
 to return to the original program, usually after restoring the original program
 counter.
