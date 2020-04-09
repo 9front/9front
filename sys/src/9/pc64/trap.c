@@ -41,11 +41,8 @@ intrenable(int irq, void (*f)(Ureg*, void*), void* a, int tbdf, char *name)
 		return;
 	}
 
-	if(tbdf != BUSUNKNOWN && (irq == 0xff || irq == 0)){
-		print("intrenable: got unassigned irq %d, tbdf 0x%uX for %s\n",
-			irq, tbdf, name);
+	if(tbdf != BUSUNKNOWN && (irq == 0xff || irq == 0))
 		irq = -1;
-	}
 
 
 	/*
