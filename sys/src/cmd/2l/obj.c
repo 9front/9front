@@ -252,7 +252,7 @@ main(int argc, char *argv[])
 		Bprint(&bso, "%ld+%ld = %ld data statements\n",
 			ndata, ncase, ndata+ncase);
 		Bprint(&bso, "%ld symbols\n", nsymbol);
-		Bprint(&bso, "%ld memory used\n", thunk);
+		Bprint(&bso, "%zud memory used\n", thunk);
 		Bprint(&bso, "%d sizeof adr\n", sizeof(Adr));
 		Bprint(&bso, "%d sizeof prog\n", sizeof(Prog));
 	}

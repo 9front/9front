@@ -471,7 +471,7 @@ EXTERN	Type*	tufield;
 EXTERN	int	thechar;
 EXTERN	char*	thestring;
 EXTERN	Type*	thisfn;
-EXTERN	long	thunk;
+EXTERN	uintptr	thunk;
 EXTERN	Type*	types[NTYPE];
 EXTERN	Type*	fntypes[NTYPE];
 EXTERN	Node*	initlist;

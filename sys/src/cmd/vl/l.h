@@ -233,7 +233,7 @@ EXTERN	uchar	repop[ALAST];
 EXTERN	long	symsize;
 EXTERN	Prog*	textp;
 EXTERN	long	textsize;
-EXTERN	long	thunk;
+EXTERN	uintptr	thunk;
 EXTERN	int	version;
 EXTERN	char	xcmp[32][32];
 EXTERN	Prog	zprg;

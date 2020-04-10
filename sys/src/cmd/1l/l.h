@@ -200,7 +200,7 @@ EXTERN	Sym*	symlist;
 EXTERN	long	symsize;
 EXTERN	Prog*	textp;
 EXTERN	long	textsize;
-EXTERN	long	thunk;
+EXTERN	uintptr	thunk;
 EXTERN	int	version;
 EXTERN	Prog	zprg;
 

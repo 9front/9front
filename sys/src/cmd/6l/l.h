@@ -303,7 +303,7 @@ EXTERN	Sym*	symlist;
 EXTERN	long	symsize;
 EXTERN	Prog*	textp;
 EXTERN	vlong	textsize;
-EXTERN	long	thunk;
+EXTERN	uintptr	thunk;
 EXTERN	int	version;
 EXTERN	Prog	zprg;
 EXTERN	int	dtype;

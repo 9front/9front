@@ -310,7 +310,7 @@ EXTERN	uchar	repop[ALAST];
 EXTERN	long	symsize;
 EXTERN	Prog*	textp;
 EXTERN	vlong	textsize;
-EXTERN	long	thunk;
+EXTERN	uintptr	thunk;
 EXTERN	int	version;
 EXTERN	char	xcmp[C_NCLASS][C_NCLASS];
 EXTERN	int	xrefresolv;

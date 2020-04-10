@@ -115,7 +115,7 @@ EXTERN	int	sym;
 EXTERN	char	symb[NSYMB];
 EXTERN	int	thechar;
 EXTERN	char*	thestring;
-EXTERN	long	thunk;
+EXTERN	uintptr	thunk;
 EXTERN	Biobuf	obuf;
 
 void*	alloc(long);
