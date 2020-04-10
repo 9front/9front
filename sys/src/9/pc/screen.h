@@ -1,11 +1,6 @@
-typedef struct Cursor Cursor;
-typedef struct Cursorinfo Cursorinfo;
-struct Cursorinfo {
-	Cursor;
-	Lock;
-};
-
 /* devmouse.c */
+typedef struct Cursor Cursor;
+extern Cursor cursor;
 extern void mousetrack(int, int, int, ulong);
 extern void absmousetrack(int, int, int, ulong);
 extern Point mousexy(void);
@@ -14,9 +9,6 @@ extern void mouseaccelerate(int);
 extern int m3mouseputc(Queue*, int);
 extern int m5mouseputc(Queue*, int);
 extern int mouseputc(Queue*, int);
-
-extern Cursorinfo cursor;
-extern Cursor arrow;
 
 /*
  * Generic VGA registers.
@@ -134,11 +126,11 @@ extern void	mouseresize(void);
 extern void	mouseredraw(void);
 
 /* screen.c */
-extern int		hwaccel;	/* use hw acceleration */
-extern int		hwblank;	/* use hw blanking */
-extern int		panning;	/* use virtual screen panning */
-extern void addvgaseg(char*, ulong, ulong);
-extern Memdata* attachscreen(Rectangle*, ulong*, int*, int*, int*);
+extern int	hwaccel;	/* use hw acceleration */
+extern int	hwblank;	/* use hw blanking */
+extern int	panning;	/* use virtual screen panning */
+extern void	addvgaseg(char*, ulong, ulong);
+extern Memdata*	attachscreen(Rectangle*, ulong*, int*, int*, int*);
 extern void	flushmemscreen(Rectangle);
 extern void	cursoron(void);
 extern void	cursoroff(void);
@@ -148,20 +140,12 @@ extern int	screenaperture(int, int);
 extern Rectangle physgscreenr;	/* actual monitor size */
 extern void	blankscreen(int);
 extern char*	rgbmask2chan(char *buf, int depth, u32int rm, u32int gm, u32int bm);
-
 extern void	bootscreeninit(void);
 extern void	bootscreenconf(VGAscr*);
-
-extern VGAcur swcursor;
-extern void swcursorinit(void);
-extern void swcursorhide(void);
-extern void swcursoravoid(Rectangle);
-extern void swcursorunhide(void);
 
 /* devdraw.c */
 extern void	deletescreenimage(void);
 extern void	resetscreenimage(void);
-extern int		drawhasclients(void);
 extern void	setscreenimageclipr(Rectangle);
 extern void	drawflush(void);
 extern QLock	drawlock;
@@ -171,15 +155,13 @@ extern void	vgascreenwin(VGAscr*);
 extern void	vgaimageinit(ulong);
 extern void	vgalinearpci(VGAscr*);
 extern void	vgalinearaddr(VGAscr*, ulong, int);
-
 extern void	vgablank(VGAscr*, int);
-
 extern Lock	vgascreenlock;
 
 #define ishwimage(i)	(vgascreen[0].gscreendata && (i)->data->bdata == vgascreen[0].gscreendata->bdata)
 
 /* swcursor.c */
-void		swcursorhide(void);
+void		swcursorhide(int);
 void		swcursoravoid(Rectangle);
 void		swcursordraw(Point);
 void		swcursorload(Cursor *);

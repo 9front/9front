@@ -13,6 +13,8 @@
 #include <cursor.h>
 #include "screen.h"
 
+extern VGAcur vgasoftcur;
+
 Rectangle physgscreenr;
 
 Memimage *gscreen;
@@ -82,7 +84,6 @@ screensize(int x, int y, int, ulong chan)
 	poperror();
 
 	drawcmap();
-	swcursorinit();
 
 	qunlock(&drawlock);
 	poperror();
@@ -240,11 +241,9 @@ getcolor(ulong p, ulong* pr, ulong* pg, ulong* pb)
 	}
 	p &= x;
 
-	lock(&cursor);
 	*pr = scr->colormap[p][0];
 	*pg = scr->colormap[p][1];
 	*pb = scr->colormap[p][2];
-	unlock(&cursor);
 }
 
 int
@@ -256,7 +255,6 @@ setpalette(ulong p, ulong r, ulong g, ulong b)
 	scr = &vgascreen[0];
 	d = scr->palettedepth;
 
-	lock(&cursor);
 	scr->colormap[p][0] = r;
 	scr->colormap[p][1] = g;
 	scr->colormap[p][2] = b;
@@ -264,7 +262,6 @@ setpalette(ulong p, ulong r, ulong g, ulong b)
 	vgao(Pdata, r>>(32-d));
 	vgao(Pdata, g>>(32-d));
 	vgao(Pdata, b>>(32-d));
-	unlock(&cursor);
 
 	return ~0;
 }
@@ -302,41 +299,6 @@ setcolor(ulong p, ulong r, ulong g, ulong b)
 }
 
 void
-swenable(VGAscr*)
-{
-	swcursorload(&arrow);
-}
-
-void
-swdisable(VGAscr*)
-{
-}
-
-void
-swload(VGAscr*, Cursor *curs)
-{
-	swcursorload(curs);
-}
-
-int
-swmove(VGAscr*, Point p)
-{
-	swcursorhide();
-	swcursordraw(p);
-	return 0;
-}
-
-VGAcur swcursor =
-{
-	"soft",
-	swenable,
-	swdisable,
-	swload,
-	swmove,
-};
-
-
-void
 cursoron(void)
 {
 	VGAscr *scr;
@@ -344,16 +306,8 @@ cursoron(void)
 
 	scr = &vgascreen[0];
 	cur = scr->cur;
-	if(cur == nil || cur->move == nil)
-		return;
-
-	if(cur == &swcursor)
-		qlock(&drawlock);
-	lock(&cursor);
-	cur->move(scr, mousexy());
-	unlock(&cursor);
-	if(cur == &swcursor)
-		qunlock(&drawlock);
+	if(cur && cur->move)
+		cur->move(scr, mousexy());
 }
 
 void
@@ -365,12 +319,12 @@ void
 setcursor(Cursor* curs)
 {
 	VGAscr *scr;
+	VGAcur *cur;
 
 	scr = &vgascreen[0];
-	if(scr->cur == nil || scr->cur->load == nil)
-		return;
-
-	scr->cur->load(scr, curs);
+	cur = scr->cur;
+	if(cur && cur->load)
+		cur->load(scr, curs);
 }
 
 int hwaccel = 0;
@@ -395,7 +349,7 @@ hwdraw(Memdrawparam *par)
 		src = nil;
 	if((mask = par->mask) && mask->data == nil)
 		mask = nil;
-	if(scr->cur == &swcursor){
+	if(scr->cur == &vgasoftcur){
 		if(dst->data->bdata == scrd->bdata)
 			swcursoravoid(par->r);
 		if(src && src->data->bdata == scrd->bdata)
@@ -687,11 +641,8 @@ bootscreeninit(void)
 	vgaimageinit(chan);
 	vgascreenwin(scr);
 
-	/* turn mouse cursor on */
-	swcursorinit();
-	scr->cur = &swcursor;
+	scr->cur = &vgasoftcur;
 	scr->cur->enable(scr);
-	cursoron();
 
 	conf.monitor = 1;
 }

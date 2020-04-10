@@ -34,21 +34,25 @@ static int		swvisible;	/* is the cursor visible? */
  * that should be okay: worst case we get cursor droppings.
  */
 void
-swcursorhide(void)
+swcursorhide(int doflush)
 {
 	if(swvisible == 0)
 		return;
+	swvisible = 0;
 	if(swback == nil || gscreen == nil)
 		return;
-	swvisible = 0;
 	memimagedraw(gscreen, swrect, swback, ZP, memopaque, ZP, S);
+	if(doflush){
+		flushmemscreen(swrect);
+		swrect = ZR;
+	}
 }
 
 void
 swcursoravoid(Rectangle r)
 {
 	if(swvisible && rectXrect(r, swrect)){
-		swcursorhide();
+		swcursorhide(0);
 		mouseredraw();	/* schedule cursor redraw after we release drawlock */
 	}
 }
@@ -62,10 +66,9 @@ swcursordraw(Point p)
 		return;
 	if(swback == nil || swimg1 == nil || swmask1 == nil || gscreen == nil)
 		return;
-	assert(!canqlock(&drawlock));
 	swvispt = addpt(swoffset, p);
 	flushr = swrect; 
-	swrect = rectaddpt(Rect(0,0,16,16), swvispt);
+	swrect = rectaddpt(swimg1->r, swvispt);
 	combinerect(&flushr, swrect);
 	memimagedraw(swback, swback->r, gscreen, swvispt, memopaque, ZP, S);
 	memimagedraw(gscreen, swrect, swimg1, ZP, swmask1, ZP, SoverD);
@@ -102,13 +105,12 @@ swcursorload(Cursor *curs)
 	swoffset = curs->offset;
 	memimagedraw(swimg1, swimg1->r, swimg, ZP, memopaque, ZP, S);
 	memimagedraw(swmask1, swmask1->r, swmask, ZP, memopaque, ZP, S);
-
-	mouseredraw();
 }
 
 void
 swcursorinit(void)
 {
+	swvisible = 0;
 	if(gscreen == nil)
 		return;
 
@@ -119,7 +121,7 @@ swcursorinit(void)
 		freememimage(swimg);
 		freememimage(swimg1); 
 	}
-	swback = allocmemimage(Rect(0,0,32,32), gscreen->chan);
+	swback = allocmemimage(Rect(0,0,16,16), gscreen->chan);
 	swmask = allocmemimage(Rect(0,0,16,16), GREY8);
 	swmask1 = allocmemimage(Rect(0,0,16,16), GREY1);
 	swimg = allocmemimage(Rect(0,0,16,16), GREY8);

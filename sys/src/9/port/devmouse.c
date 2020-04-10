@@ -71,10 +71,7 @@ static Cmdtab mousectlmsg[] =
 };
 
 Mouseinfo	mouse;
-Cursorinfo	cursor;
-Cursor		curs;
 
-void	Cursortocursor(Cursor*);
 void	mouseblankscreen(int);
 int	mousechanged(void*);
 void	mouseredraw(void);
@@ -105,7 +102,7 @@ static ulong blanktime = 30;	/* in minutes; a half hour */
 
 extern Memimage* gscreen;
 
-Cursor	arrow = {
+Cursor arrow = {
 	{ -1, -1 },
 	{ 0xFF, 0xFF, 0x80, 0x01, 0x80, 0x02, 0x80, 0x0C,
 	  0x80, 0x10, 0x80, 0x10, 0x80, 0x08, 0x80, 0x04,
@@ -118,16 +115,9 @@ Cursor	arrow = {
 	  0x61, 0xF0, 0x60, 0xE0, 0x40, 0x40, 0x00, 0x00,
 	},
 };
+Cursor cursor;
 
-static void
-mousereset(void)
-{
-	if(!conf.monitor)
-		return;
-
-	curs = arrow;
-	Cursortocursor(&arrow);
-}
+static void Cursortocursor(Cursor*);
 
 static int
 mousedevgen(Chan *c, char *name, Dirtab *tab, int ntab, int i, Dir *dp)
@@ -147,12 +137,8 @@ mouseinit(void)
 {
 	if(!conf.monitor)
 		return;
-
-	curs = arrow;
-	Cursortocursor(&arrow);
-	cursoron();
 	mousetime = seconds();
-
+	Cursortocursor(&arrow);
 	kproc("mouse", mouseproc, 0);
 }
 
@@ -232,10 +218,7 @@ mouseclose(Chan *c)
 	case Qcursor:
 		if(decref(&mouse) != 0)
 			return;
-		cursoroff();
-		curs = arrow;
 		Cursortocursor(&arrow);
-		cursoron();
 	}
 }
 
@@ -246,6 +229,7 @@ mouseread(Chan *c, void *va, long n, vlong off)
 	char buf[1+4*12+1];
 	uchar *p;
 	ulong offset = off;
+	Cursor curs;
 	Mousestate m;
 	int b;
 
@@ -259,6 +243,11 @@ mouseread(Chan *c, void *va, long n, vlong off)
 			return 0;
 		if(n < 2*4+2*2*16)
 			error(Eshort);
+
+		qlock(&drawlock);
+		memmove(&curs, &cursor, sizeof(Cursor));
+		qunlock(&drawlock);
+
 		n = 2*4+2*2*16;
 		BPLONG(p+0, curs.offset.x);
 		BPLONG(p+4, curs.offset.y);
@@ -360,6 +349,7 @@ mousewrite(Chan *c, void *va, long n, vlong)
 	Point pt;
 	Cmdbuf *cb;
 	Cmdtab *ct;
+	Cursor curs;
 	char buf[64];
 	int b, z, msec;
 	Mousestate *m;
@@ -370,19 +360,16 @@ mousewrite(Chan *c, void *va, long n, vlong)
 		error(Eisdir);
 
 	case Qcursor:
-		cursoroff();
 		if(n < 2*4+2*2*16){
-			curs = arrow;
 			Cursortocursor(&arrow);
-		}else{
-			n = 2*4+2*2*16;
-			curs.offset.x = BGLONG(p+0);
-			curs.offset.y = BGLONG(p+4);
-			memmove(curs.clr, p+8, 2*16);
-			memmove(curs.set, p+40, 2*16);
-			Cursortocursor(&curs);
+			return n;
 		}
-		cursoron();
+		n = 2*4+2*2*16;
+		curs.offset.x = BGLONG(p+0);
+		curs.offset.y = BGLONG(p+4);
+		memmove(curs.clr, p+8, 2*16);
+		memmove(curs.set, p+40, 2*16);
+		Cursortocursor(&curs);
 		return n;
 
 	case Qmousectl:
@@ -498,7 +485,7 @@ Dev mousedevtab = {
 	'm',
 	"mouse",
 
-	mousereset,
+	devreset,
 	mouseinit,
 	devshutdown,
 	mouseattach,
@@ -515,14 +502,14 @@ Dev mousedevtab = {
 	devwstat,
 };
 
-void
+static void
 Cursortocursor(Cursor *c)
 {
 	qlock(&drawlock);
-	lock(&cursor);
-	memmove(&cursor.Cursor, c, sizeof(Cursor));
+	cursoroff();
+	memmove(&cursor, c, sizeof(Cursor));
 	setcursor(c);
-	unlock(&cursor);
+	cursoron();
 	qunlock(&drawlock);
 }
 
@@ -558,8 +545,11 @@ mouseproc(void*)
 	for(;;){
 		sleep(&mouse.redrawr, shouldredraw, nil);
 		mouse.redraw = 0;
+
+		qlock(&drawlock);
 		cursoroff();
 		cursoron();
+		qunlock(&drawlock);
 	}
 }
 

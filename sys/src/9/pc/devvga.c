@@ -233,36 +233,28 @@ vgactl(Cmdbuf *cb)
 		if(scr->gscreen == nil)
 			error(Enoscreen);
 		if(strcmp(cb->f[1], "off") == 0){
-			lock(&cursor);
+			qlock(&drawlock);
+			cursoroff();
 			if(scr->cur){
 				if(scr->cur->disable)
 					scr->cur->disable(scr);
 				scr->cur = nil;
 			}
-			unlock(&cursor);
-			return;
-		}
-		if(strcmp(cb->f[1], "soft") == 0){
-			lock(&cursor);
-			swcursorinit();
-			if(scr->cur && scr->cur->disable)
-				scr->cur->disable(scr);
-			scr->cur = &swcursor;
-			if(scr->cur->enable)
-				scr->cur->enable(scr);
-			unlock(&cursor);
+			qunlock(&drawlock);
 			return;
 		}
 		for(i = 0; vgacur[i]; i++){
 			if(strcmp(cb->f[1], vgacur[i]->name))
 				continue;
-			lock(&cursor);
+			qlock(&drawlock);
+			cursoroff();
 			if(scr->cur && scr->cur->disable)
 				scr->cur->disable(scr);
 			scr->cur = vgacur[i];
 			if(scr->cur->enable)
 				scr->cur->enable(scr);
-			unlock(&cursor);
+			cursoron();
+			qunlock(&drawlock);
 			return;
 		}
 		break;
@@ -319,7 +311,6 @@ vgactl(Cmdbuf *cb)
 			error("bad channel");
 		if(chantodepth(chan) != z)
 			error("depth, channel do not match");
-		cursoroff();
 		deletescreenimage();
 		if(screensize(x, y, z, chan))
 			error(Egreg);
@@ -338,7 +329,6 @@ vgactl(Cmdbuf *cb)
 			error(Ebadarg);
 		if(!rectinrect(r, scr->gscreen->r))
 			error("physical screen bigger than virtual");
-		cursoroff();
 		deletescreenimage();
 		physgscreenr = r;
 		goto Resized;
@@ -364,7 +354,6 @@ vgactl(Cmdbuf *cb)
 		y = scr->gscreen->r.max.y;
 		z = scr->gscreen->depth;
 		chan = scr->gscreen->chan;
-		cursoroff();
 		deletescreenimage();
 		if(screensize(x, y, z, chan))
 			error(Egreg);
@@ -381,7 +370,6 @@ vgactl(Cmdbuf *cb)
 		scr->gscreen->clipr = panning ? scr->gscreen->r : physgscreenr;
 		vgascreenwin(scr);
 		resetscreenimage();
-		cursoron();
 		return;
 
 	case CMlinear:
@@ -410,7 +398,6 @@ vgactl(Cmdbuf *cb)
 			break;
 		if(scr->gscreen == nil)
 			return;
-		cursoroff();
 		deletescreenimage();
 		goto Resized;
 

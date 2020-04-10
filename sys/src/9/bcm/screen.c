@@ -55,28 +55,21 @@ static void myscreenputs(char *s, int n);
 static void screenputc(char *buf);
 static void screenwin(void);
 
+/* called from devmouse */
+
 void
 cursoron(void)
 {
-	qlock(&drawlock);
-	lock(&cursor);
-	swcursorhide();
+	swcursorhide(0);
 	swcursordraw(mousexy());
-	unlock(&cursor);
-	qunlock(&drawlock);
 }
 
 void
 cursoroff(void)
 {
-	qlock(&drawlock);
-	lock(&cursor);
-	swcursorhide();
-	unlock(&cursor);
-	qunlock(&drawlock);
+	swcursorhide(0);
 }
 
-/* called from devmouse */
 void
 setcursor(Cursor* curs)
 {

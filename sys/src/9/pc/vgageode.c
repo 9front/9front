@@ -91,7 +91,7 @@ geodecurenable(VGAscr* scr)
 {
 	geodeenable(scr);
 	if(!scr->mmio) return;
-	geodecurload(scr, &arrow);
+	geodecurload(scr, &cursor);
 	geodecurmove(scr, ZP);
 	((ulong*)scr->mmio)[DC_UNLOCK] = DC_UNLOCKVALUE;
 	((ulong*)scr->mmio)[DC_CURS_ST_OFFSET] = scr->storage;

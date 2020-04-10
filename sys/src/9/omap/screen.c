@@ -189,24 +189,6 @@ static	ulong	rep(ulong, int);
 static	void	screenputc(char *buf);
 static	void	screenwin(void);
 
-/*
- * Software cursor. 
- */
-int	swvisible;	/* is the cursor visible? */
-int	swenabled;	/* is the cursor supposed to be on the screen? */
-Memimage*	swback;	/* screen under cursor */
-Memimage*	swimg;	/* cursor image */
-Memimage*	swmask;	/* cursor mask */
-Memimage*	swimg1;
-Memimage*	swmask1;
-
-Point	swoffset;
-Rectangle	swrect;	/* screen rectangle in swback */
-Point	swpt;	/* desired cursor location */
-Point	swvispt;	/* actual cursor location */
-int	swvers;	/* incremented each time cursor image changes */
-int	swvisvers;	/* the version on the screen */
-
 static void
 lcdoff(void)
 {
@@ -330,28 +312,21 @@ screenpower(int on)
 	blankscreen(on == 0);
 }
 
+/* called from devmouse */
+
 void
 cursoron(void)
 {
-	qlock(&drawlock);
-	lock(&cursor);
-	swcursorhide();
+	swcursorhide(0);
 	swcursordraw(mousexy());
-	unlock(&cursor);
-	qunlock(&drawlock);
 }
 
 void
 cursoroff(void)
 {
-	qlock(&drawlock);
-	lock(&cursor);
-	swcursorhide();
-	unlock(&cursor);
-	qunlock(&drawlock);
+	swcursorhide(0);
 }
 
-/* called from devmouse */
 void
 setcursor(Cursor* curs)
 {
@@ -404,10 +379,7 @@ screeninit(void)
 		iprint("screen: frame buffer at %#p for %dx%d\n",
 			framebuf, oscreen.settings->wid, oscreen.settings->ht);
 
-		swenabled = 1;
 		swcursorinit();		/* needs gscreen set */
-		setcursor(&arrow);
-
 		first = 0;
 	}
 }

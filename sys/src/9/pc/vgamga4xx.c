@@ -302,7 +302,7 @@ dac4xxenable(VGAscr *scr)
 	 * Load, locate and enable the
 	 * 64x64 cursor in X11 mode.
 	 */
-	dac4xxload(scr, &arrow);
+	dac4xxload(scr, &cursor);
 	dac4xxmove(scr, ZP);
 }
 
