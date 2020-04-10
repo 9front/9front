@@ -854,16 +854,9 @@ gethunk(void)
 	char *h;
 	long nh;
 
-	if(thunk >= 100L*NHUNK)
-		nh = 100L*NHUNK;
-	else if(thunk >= 50L*NHUNK)
-		nh = 50L*NHUNK;
-	else if(thunk >= 25L*NHUNK)
-		nh = 25L*NHUNK;
-	else if(thunk >= 10L*NHUNK)
+	nh = NHUNK;
+	if(thunk >= 10L*NHUNK)
 		nh = 10L*NHUNK;
-	else
-		nh = NHUNK;
 	h = (char*)mysbrk(nh);
 	if(h == (char*)-1) {
 		yyerror("out of memory");
