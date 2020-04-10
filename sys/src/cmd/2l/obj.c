@@ -1121,8 +1121,11 @@ gethunk(void)
 		diag("out of memory");
 		errorexit();
 	}
-	hunk = h;
-	nhunk = nh;
+	if(nhunk == 0)
+		hunk = h;
+	else
+		nh += (h - hunk) - nhunk;
+	nhunk += nh;
 	thunk += nh;
 }
 

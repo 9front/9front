@@ -194,7 +194,7 @@ main(int argc, char *argv[])
 out:
 	if(debug['v']) {
 		Bprint(&bso, "%5.2f cpu time\n", cputime());
-		Bprint(&bso, "%zud memory used\n", tothunk);
+		Bprint(&bso, "%zud memory used\n", thunk);
 		Bprint(&bso, "%d sizeof adr\n", sizeof(Adr));
 		Bprint(&bso, "%d sizeof prog\n", sizeof(Prog));
 	}
@@ -983,9 +983,9 @@ gethunk(void)
 	long nh;
 
 	nh = NHUNK;
-	if(tothunk >= 5L*NHUNK) {
+	if(thunk >= 5L*NHUNK) {
 		nh = 5L*NHUNK;
-		if(tothunk >= 25L*NHUNK)
+		if(thunk >= 25L*NHUNK)
 			nh = 25L*NHUNK;
 	}
 	h = mysbrk(nh);
@@ -993,10 +993,12 @@ gethunk(void)
 		diag("out of memory");
 		errorexit();
 	}
-
-	hunk = h;
-	nhunk = nh;
-	tothunk += nh;
+	if(nhunk == 0)
+		hunk = h;
+	else
+		nh += (h - hunk) - nhunk;
+	nhunk += nh;
+	thunk += nh;
 }
 
 void

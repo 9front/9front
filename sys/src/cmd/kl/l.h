@@ -241,7 +241,7 @@ EXTERN	long	symsize;
 EXTERN	long	staticgen;
 EXTERN	Prog*	textp;
 EXTERN	long	textsize;
-EXTERN	uintptr	tothunk;
+EXTERN	uintptr	thunk;
 EXTERN	char	xcmp[C_NCLASS][C_NCLASS];
 EXTERN	int	version;
 EXTERN	Prog	zprg;
