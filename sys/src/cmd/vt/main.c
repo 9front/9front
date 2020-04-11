@@ -170,7 +170,7 @@ int	alnum(int);
 void	escapedump(int,uchar *,int);
 void	paste(void);
 void	snarfsel(void);
-void	plumbsel(Point);
+void	plumbsel(void);
 
 static Channel *pidchan;
 
@@ -982,47 +982,14 @@ snarfsel(void)
 	free(s);
 }
 
-/*
- * Grabs the non-whitespace text around a character
- * cell, matching the behavior in rio for plumbing.
- * Does not modify the selection.
- */
-char*
-surrounding(Point p)
-{
-	int c, x0, x1;
-	char *s, *e;
-
-	for(x0 = p.x; x0 > 0; x0--){
-		c = *onscreenr(x0 - 1, p.y);
-		if(c == 0 || c == ' ' || c == '\t' || c == '\n')
-			break;
-	}
-	for(x1 = p.x; x1 <= xmax; x1++){
-		c = *onscreenr(x1, p.y);
-		if(c == 0 || c == ' ' || c == '\t' || c == '\n')
-			break;
-	}
-	if(x0 == x1)
-		return nil;
-	s = malloc((x1 - x0 + 1)*UTFmax);
-	if(s == nil)
-		return nil;
-	e = selrange(s, x0, p.y, x1, p.y);
-	*e = 0;
-	return s;
-}
-
 void
-plumbsel(Point p)
+plumbsel(void)
 {
 	char *s, wdir[1024];
 	int plumb;
 
 	s = selection();
 	if(s == nil || *s == 0)
-		s = surrounding(p);
-	if(s == nil)
 		return;
 	if(getwd(wdir, sizeof wdir) == nil){
 		free(s);
@@ -1061,6 +1028,13 @@ isalnum(Rune c)
 	return 1;
 }
 
+int
+isspace(Rune c)
+{
+	return c == 0 || c == ' ' || c == '\t' ||
+		c == '\n' || c == '\r' || c == '\v';
+}
+
 void
 unselect(void)
 {
@@ -1071,11 +1045,23 @@ unselect(void)
 	selrect = ZR;
 }
 
+int
+inmode(Rune r, int mode)
+{
+	return (mode == 1) ? isalnum(r) : r && !isspace(r);
+}
+
+/*
+ * Selects different things based on mode.
+ * 0: selects swept-over text.
+ * 1: selects alphanumeric segment
+ * 2: selects non-whitespace segment.
+ */
 void
-select(Point p, Point q, int line)
+select(Point p, Point q, int mode)
 {
 	if(onscreenr(p.x, p.y) > onscreenr(q.x, q.y)){
-		select(q, p, line);
+		select(q, p, mode);
 		return;
 	}
 	unselect();
@@ -1089,17 +1075,17 @@ select(Point p, Point q, int line)
 		q.y = ymax;
 		if(!blocksel) q.x = xmax+1;
 	}
-	if(line && eqpt(p, q)){
-		while(p.x > 0 && isalnum(*onscreenr(p.x-1, p.y)))
+	if(mode != 0 && eqpt(p, q)){
+		while(p.x > 0 && inmode(*onscreenr(p.x-1, p.y), mode))
 			p.x--;
-		while(q.x <= xmax && isalnum(*onscreenr(q.x, q.y)))
+		while(q.x <= xmax && inmode(*onscreenr(q.x, q.y), mode))
 			q.x++;
 		if(p.x != q.x)
-			line = 0;
+			mode = 0;
 	}
-	if(p.x < 0 || line)
+	if(p.x < 0 || mode)
 		p.x = 0;
-	if(q.x > xmax+1 || line)
+	if(q.x > xmax+1 || mode)
 		q.x = xmax+1;
 	selrect = Rpt(p, q);
 	for(; p.y <= q.y; p.y++)
@@ -1110,13 +1096,18 @@ void
 selecting(void)
 {
 	Point p, q;
-	static ulong t;
+	static ulong t, mode;
 
 	p = pos(mc->xy);
 	t += mc->msec;
+	mode++;
 	do{
 		q = pos(mc->xy);
-		select(p, q, t < 200);
+		if(t > 200)
+			mode = 0;
+		if(mode > 2)
+			mode = 2;
+		select(p, q, mode);
 		drawscreen();
 		readmouse(mc);
 	} while(button1());
@@ -1210,7 +1201,7 @@ readmenu(void)
 		return;
 
 	case Mplumb:
-		plumbsel(p);
+		plumbsel();
 		return;
 
 	case Mpage:		/* pause and clear at end of screen */
