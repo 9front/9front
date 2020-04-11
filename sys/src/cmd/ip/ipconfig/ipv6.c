@@ -384,7 +384,9 @@ Again:
 	}
 
 	if(!tentative){
-		if(validip(conf.gaddr) && !isv4(conf.gaddr))
+		if(validip(conf.gaddr) && !isv4(conf.gaddr)
+		&& ipcmp(conf.gaddr, conf.laddr) != 0
+		&& ipcmp(conf.gaddr, conf.lladdr) != 0)
 			adddefroute(conf.gaddr, conf.laddr, conf.laddr, conf.mask);
 		return 0;
 	}
@@ -758,7 +760,9 @@ recvrahost(uchar buf[], int pktlen)
 		DEBUG("got RA from %I on %s; pfx %I %M",
 			ra->src, conf.dev, conf.v6pref, conf.mask);
 
-		if(validip(conf.gaddr))
+		if(validip(conf.gaddr)
+		&& ipcmp(conf.gaddr, conf.laddr) != 0
+		&& ipcmp(conf.gaddr, conf.lladdr) != 0)
 			adddefroute(conf.gaddr, conf.lladdr, conf.laddr, conf.mask);
 
 		if(noconfig)
