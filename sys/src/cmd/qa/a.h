@@ -23,25 +23,6 @@ typedef	struct	Hist	Hist;
 #define	STRINGSZ	200
 #define	NMACRO		10
 
-#define	ALLOC(lhs, type)\
-	while(nhunk < sizeof(type))\
-		gethunk();\
-	lhs = (type*)hunk;\
-	nhunk -= sizeof(type);\
-	hunk += sizeof(type);
-
-#define	ALLOCN(lhs, len, n)\
-	if(lhs+len != hunk || nhunk < n) {\
-		while(nhunk <= len)\
-			gethunk();\
-		memmove(hunk, lhs, len);\
-		lhs = hunk;\
-		hunk += len;\
-		nhunk -= len;\
-	}\
-	hunk += n;\
-	nhunk -= n;
-
 struct	Sym
 {
 	Sym*	link;

@@ -675,9 +675,9 @@ cinit(void)
 		s->type = itab[i].type;
 		s->value = itab[i].value;
 	}
-	ALLOCN(pathname, 0, 100);
+	pathname = allocn(pathname, 0, 100);
 	if(mygetwd(pathname, 99) == 0) {
-		ALLOCN(pathname, 100, 900);
+		pathname = allocn(pathname, 100, 900);
 		if(mygetwd(pathname, 999) == 0)
 			strcpy(pathname, "/???");
 	}
