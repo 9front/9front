@@ -4,12 +4,6 @@ myaccess(char *f)
 	return access(f, AEXIST);
 }
 
-void*
-mysbrk(ulong size)
-{
-	return sbrk(size);
-}
-
 int
 mycreat(char *n, int p)
 {
@@ -77,27 +71,35 @@ myfork(void)
 	return fork();
 }
 
+
 /*
  * real allocs
  */
+
+extern char end[];
+
+char*	hunk = end;
+long	nhunk;
+uintptr	thunk;
+
 void
 gethunk(void)
 {
-	char *h;
-	ulong nh;
+	long nh;
 
-	nh = NHUNK;
-	if(thunk >= 10L*NHUNK)
-		nh = 10L*NHUNK;
-	h = (char*)mysbrk(nh);
-	if(h == (char*)-1)
-		sysfatal("out of memory");
-	if(nhunk == 0)
-		hunk = h;
+	if(thunk < NHUNK)
+		nh = NHUNK;
+	else if(thunk < 1000*NHUNK)
+		nh = thunk;
 	else
-		nh += (h - hunk) - nhunk;
+		nh = 1000*NHUNK;
+
+	if(nhunk < 0)
+		nhunk = 0;
 	nhunk += nh;
 	thunk += nh;
+	if(brk(hunk+nhunk) < 0)
+		sysfatal("out of memory");
 }
 
 void*

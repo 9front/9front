@@ -23,12 +23,11 @@ EXTERN	int	myexec(char*, char*[]);
 EXTERN	int	mydup(int, int);
 EXTERN	int	myfork(void);
 EXTERN	int	mypipe(int*);
-EXTERN	void*	mysbrk(ulong);
 
 EXTERN	void	gethunk(void);
 
 EXTERN	char*	hunk;
-EXTERN	uintptr	nhunk;
+EXTERN	long	nhunk;
 EXTERN	uintptr	thunk;
 
 EXTERN	void*	alloc(long n);
