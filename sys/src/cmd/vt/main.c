@@ -170,7 +170,7 @@ int	alnum(int);
 void	escapedump(int,uchar *,int);
 void	paste(void);
 void	snarfsel(void);
-void	plumbsel(void);
+void	plumbsel(Point);
 
 static Channel *pidchan;
 
@@ -982,13 +982,47 @@ snarfsel(void)
 	free(s);
 }
 
+/*
+ * Grabs the non-whitespace text around a character
+ * cell, matching the behavior in rio for plumbing.
+ * Does not modify the selection.
+ */
+char*
+surrounding(Point p)
+{
+	int c, x0, x1;
+	char *s, *e;
+
+	for(x0 = p.x; x0 > 0; x0--){
+		c = *onscreenr(x0 - 1, p.y);
+		if(c == 0 || c == ' ' || c == '\t' || c == '\n')
+			break;
+	}
+	for(x1 = p.x; x1 <= xmax; x1++){
+		c = *onscreenr(x1, p.y);
+		if(c == 0 || c == ' ' || c == '\t' || c == '\n')
+			break;
+	}
+	if(x0 == x1)
+		return nil;
+	s = malloc((x1 - x0 + 1)*UTFmax);
+	if(s == nil)
+		return nil;
+	e = selrange(s, x0, p.y, x1, p.y);
+	*e = 0;
+	return s;
+}
+
 void
-plumbsel(void)
+plumbsel(Point p)
 {
 	char *s, wdir[1024];
 	int plumb;
 
-	if((s = selection()) == nil)
+	s = selection();
+	if(s == nil || *s == 0)
+		s = surrounding(p);
+	if(s == nil)
 		return;
 	if(getwd(wdir, sizeof wdir) == nil){
 		free(s);
@@ -1116,6 +1150,9 @@ selected(int x, int y)
 void
 readmenu(void)
 {
+	Point p;
+
+	p = pos(mc->xy);
 	if(button3()) {
 		menu3.item[1] = ttystate[cs->raw].crnl ? "cr" : "crnl";
 		menu3.item[2] = ttystate[cs->raw].nlcr ? "nl" : "nlcr";
@@ -1173,7 +1210,7 @@ readmenu(void)
 		return;
 
 	case Mplumb:
-		plumbsel();
+		plumbsel(p);
 		return;
 
 	case Mpage:		/* pause and clear at end of screen */
