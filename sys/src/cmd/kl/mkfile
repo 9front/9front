@@ -16,9 +16,13 @@ OFILES=\
 HFILES=\
 	l.h\
 	../kc/k.out.h\
+	../cc/compat.h\
 
 BIN=/$objtype/bin
 </sys/src/cmd/mkone
 
 enam.$O:	../kc/enam.c
 	$CC $CFLAGS ../kc/enam.c
+
+compat.$O:	../cc/compat
+

@@ -2,10 +2,7 @@
 #include <libc.h>
 #include <bio.h>
 #include "../5c/5.out.h"
-
-#ifndef	EXTERN
-#define	EXTERN	extern
-#endif
+#include "../cc/compat.h"
 
 typedef	struct	Sym	Sym;
 typedef	struct	Gen	Gen;
@@ -96,14 +93,12 @@ EXTERN	int	nDlist;
 EXTERN	Hist*	ehist;
 EXTERN	int	newflag;
 EXTERN	Hist*	hist;
-EXTERN	char*	hunk;
 EXTERN	char*	include[NINCLUDE];
 EXTERN	Io*	iofree;
 EXTERN	Io*	ionext;
 EXTERN	Io*	iostack;
 EXTERN	long	lineno;
 EXTERN	int	nerrors;
-EXTERN	long	nhunk;
 EXTERN	int	ninclude;
 EXTERN	Gen	nullgen;
 EXTERN	char*	outfile;
@@ -115,11 +110,8 @@ EXTERN	int	sym;
 EXTERN	char	symb[NSYMB];
 EXTERN	int	thechar;
 EXTERN	char*	thestring;
-EXTERN	uintptr	thunk;
 EXTERN	Biobuf	obuf;
 
-void*	alloc(long);
-void*	allocn(void*, long, long);
 void	errorexit(void);
 void	pushio(void);
 void	newio(void);
@@ -160,20 +152,3 @@ void	yyerror(char*, ...);
 int	yyparse(void);
 void	setinclude(char*);
 int	assemble(char*);
-
-/*
- *	system-dependent stuff from ../cc/compat.c
- */
-
-enum				/* keep in synch with ../cc/cc.h */
-{
-	Plan9	= 1<<0,
-	Unix	= 1<<1,
-	Windows	= 1<<2,
-};
-int	mywait(int*);
-int	mycreat(char*, int);
-int	systemtype(int);
-int	pathchar(void);
-int	myfork(void);
-void*	mysbrk(ulong);

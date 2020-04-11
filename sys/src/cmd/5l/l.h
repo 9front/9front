@@ -2,10 +2,7 @@
 #include	<libc.h>
 #include	<bio.h>
 #include	"../5c/5.out.h"
-
-#ifndef	EXTERN
-#define	EXTERN	extern
-#endif
+#include	"../cc/compat.h"
 
 #define	LIBNAMELEN	300
 
@@ -252,7 +249,6 @@ EXTERN	char*	library[50];
 EXTERN	char*	libraryobj[50];
 EXTERN	int	libraryp;
 EXTERN	int	xrefresolv;
-EXTERN	char*	hunk;
 EXTERN	char	inuxi1[1];
 EXTERN	char	inuxi2[2];
 EXTERN	char	inuxi4[4];
@@ -260,7 +256,6 @@ EXTERN	Prog*	lastp;
 EXTERN	long	lcsize;
 EXTERN	char	literal[32];
 EXTERN	int	nerrors;
-EXTERN	long	nhunk;
 EXTERN	long	instoffset;
 EXTERN	Opcross	opcross[8];
 EXTERN	Oprang	oprange[ALAST];
@@ -270,7 +265,6 @@ EXTERN	uchar	repop[ALAST];
 EXTERN	long	symsize;
 EXTERN	Prog*	textp;
 EXTERN	long	textsize;
-EXTERN	uintptr	thunk;
 EXTERN	int	version;
 EXTERN	char	xcmp[C_GOK+1][C_GOK+1];
 EXTERN	Prog	zprg;
@@ -349,7 +343,6 @@ int	fileexists(char*);
 int	find1(long, int);
 char*	findlib(char*);
 void	follow(void);
-void	gethunk(void);
 void	histtoauto(void);
 double	ieeedtod(Ieee*);
 long	ieeedtof(Ieee*);
@@ -363,7 +356,6 @@ void	cput(int);
 void	lput(long);
 void	lputl(long);
 void	mkfwd(void);
-void*	mysbrk(ulong);
 void	names(void);
 void	nocache(Prog*);
 void	nuxiinit(void);

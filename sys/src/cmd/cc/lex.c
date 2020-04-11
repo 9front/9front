@@ -1524,45 +1524,6 @@ VBconv(Fmt *fp)
 	return fmtstrcpy(fp, str);
 }
 
-/*
- * real allocs
- */
-void*
-alloc(long n)
-{
-	void *p;
-
-	while((uintptr)hunk & MAXALIGN) {
-		hunk++;
-		nhunk--;
-	}
-	while(nhunk < n)
-		gethunk();
-	p = hunk;
-	nhunk -= n;
-	hunk += n;
-	return p;
-}
-
-void*
-allocn(void *p, long on, long n)
-{
-	void *q;
-
-	q = (uchar*)p + on;
-	if(q != hunk || nhunk < n) {
-		while(nhunk < on+n)
-			gethunk();
-		memmove(hunk, p, on);
-		p = hunk;
-		hunk += on;
-		nhunk -= on;
-	}
-	hunk += n;
-	nhunk -= n;
-	return p;
-}
-
 void
 setinclude(char *p)
 {

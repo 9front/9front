@@ -2,10 +2,7 @@
 #include	<libc.h>
 #include	<bio.h>
 #include	"../7c/7.out.h"
-
-#ifndef	EXTERN
-#define	EXTERN	extern
-#endif
+#include	"../cc/compat.h"
 
 #define	LIBNAMELEN	300
 
@@ -291,7 +288,6 @@ EXTERN	Sym*	hash[NHASH];
 EXTERN	Sym*	histfrog[MAXHIST];
 EXTERN	int	histfrogp;
 EXTERN	int	histgen;
-EXTERN	char*	hunk;
 
 EXTERN	char*	library[50];
 EXTERN	char*	libraryobj[50];
@@ -300,7 +296,6 @@ EXTERN	Prog*	lastp;
 EXTERN	long	lcsize;
 EXTERN	char	literal[32];
 EXTERN	int	nerrors;
-EXTERN	long	nhunk;
 EXTERN	char*	noname;
 EXTERN	vlong	instoffset;
 EXTERN	Opcross	opcross[8];
@@ -310,7 +305,6 @@ EXTERN	uchar	repop[ALAST];
 EXTERN	long	symsize;
 EXTERN	Prog*	textp;
 EXTERN	vlong	textsize;
-EXTERN	uintptr	thunk;
 EXTERN	int	version;
 EXTERN	char	xcmp[C_NCLASS][C_NCLASS];
 EXTERN	int	xrefresolv;
@@ -378,7 +372,6 @@ vlong	entryvalue(void);
 void	errorexit(void);
 void	export(void);
 void	follow(void);
-void	gethunk(void);
 void	histtoauto(void);
 void*	halloc(usize);
 int	isnop(Prog*);
@@ -395,7 +388,6 @@ void	lput(long);
 void	lputl(long);
 void	mkfwd(void);
 int	movcon(vlong);
-void*	mysbrk(ulong);
 void	names(void);
 void	nocache(Prog*);
 void	nuxiinit(void);

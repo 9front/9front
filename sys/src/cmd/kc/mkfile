@@ -17,6 +17,7 @@ OFILES=\
 HFILES=\
 	gc.h\
 	k.out.h\
+	../cc/compat.h\
 	../cc/cc.h\
 
 LIB=../cc/cc.a$O

@@ -2,10 +2,7 @@
 #include	<libc.h>
 #include	<bio.h>
 #include	"../kc/k.out.h"
-
-#ifndef	EXTERN
-#define	EXTERN	extern
-#endif
+#include	"../cc/compat.h"
 
 typedef	struct	Adr	Adr;
 typedef	struct	Sym	Sym;
@@ -224,7 +221,6 @@ EXTERN	char*	library[50];
 EXTERN	char*	libraryobj[50];
 EXTERN	int	libraryp;
 EXTERN	int	xrefresolv;
-EXTERN	char*	hunk;
 EXTERN	char	inuxi1[1];
 EXTERN	char	inuxi2[2];
 EXTERN	char	inuxi4[4];
@@ -232,7 +228,6 @@ EXTERN	Prog*	lastp;
 EXTERN	long	lcsize;
 EXTERN	char	literal[32];
 EXTERN	int	nerrors;
-EXTERN	long	nhunk;
 EXTERN	char*	noname;
 EXTERN	long	instoffset;
 EXTERN	char*	outfile;
@@ -241,7 +236,6 @@ EXTERN	long	symsize;
 EXTERN	long	staticgen;
 EXTERN	Prog*	textp;
 EXTERN	long	textsize;
-EXTERN	uintptr	tothunk;
 EXTERN	char	xcmp[C_NCLASS][C_NCLASS];
 EXTERN	int	version;
 EXTERN	Prog	zprg;
@@ -290,7 +284,6 @@ void	errorexit(void);
 void	exchange(Prog*);
 int	find1(long, int);
 void	follow(void);
-void	gethunk(void);
 double	ieeedtod(Ieee*);
 long	ieeedtof(Ieee*);
 int	isnop(Prog*);
@@ -301,7 +294,6 @@ void	initmuldiv(void);
 Sym*	lookup(char*, int);
 void	lput(long);
 void	mkfwd(void);
-void*	mysbrk(ulong);
 void	names(void);
 void	nocache(Prog*);
 void	noops(void);

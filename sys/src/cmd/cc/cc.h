@@ -5,9 +5,7 @@
 
 #pragma	lib	"../cc/cc.a$O"
 
-#ifndef	EXTERN
-#define EXTERN	extern
-#endif
+#include "../cc/compat.h"
 
 typedef	struct	Node	Node;
 typedef	struct	Sym	Sym;
@@ -182,13 +180,6 @@ enum
 	Aarg2,
 	Aaut3,
 	NALIGN,
-};
-
-enum				/* also in ../{8a,0a}.h */
-{
-	Plan9	= 1<<0,
-	Unix	= 1<<1,
-	Windows	= 1<<2,
 };
 
 enum
@@ -437,7 +428,6 @@ EXTERN	Decl*	firstdcl;
 EXTERN	int	fperror;
 EXTERN	Sym*	hash[NHASH];
 EXTERN	int	hasdoubled;
-EXTERN	char*	hunk;
 EXTERN	char*	include[20];
 EXTERN	Io*	iofree;
 EXTERN	Io*	ionext;
@@ -451,7 +441,6 @@ EXTERN	long	lineno;
 EXTERN	long	nearln;
 EXTERN	int	nerrors;
 EXTERN	int	newflag;
-EXTERN	long	nhunk;
 EXTERN	int	ninclude;
 EXTERN	Node*	nodproto;
 EXTERN	Node*	nodcast;
@@ -471,7 +460,6 @@ EXTERN	Type*	tufield;
 EXTERN	int	thechar;
 EXTERN	char*	thestring;
 EXTERN	Type*	thisfn;
-EXTERN	uintptr	thunk;
 EXTERN	Type*	types[NTYPE];
 EXTERN	Type*	fntypes[NTYPE];
 EXTERN	Node*	initlist;
@@ -522,21 +510,6 @@ extern	ulong	thash3;
 extern	ulong	thash[];
 
 /*
- *	compat.c/unix.c/windows.c
- */
-int	mywait(int*);
-int	mycreat(char*, int);
-int	systemtype(int);
-int	pathchar(void);
-int	myaccess(char*);
-char*	mygetwd(char*, int);
-int	myexec(char*, char*[]);
-int	mydup(int, int);
-int	myfork(void);
-int	mypipe(int*);
-void*	mysbrk(ulong);
-
-/*
  *	parser
  */
 int	yyparse(void);
@@ -545,8 +518,6 @@ int	mpatov(char*, vlong*);
 /*
  *	lex.c
  */
-void*	allocn(void*, long, long);
-void*	alloc(long);
 void	cinit(void);
 int	compile(char*, char**, int);
 void	errorexit(void);
@@ -666,7 +637,6 @@ int	castucom(Node*);
 int	deadheads(Node*);
 Type*	dotsearch(Sym*, Type*, Node*, long*);
 long	dotoffset(Type*, Type*, Node*);
-void	gethunk(void);
 Node*	invert(Node*);
 int	bitno(long);
 void	makedot(Node*, Type*, long);

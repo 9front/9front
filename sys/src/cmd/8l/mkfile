@@ -13,6 +13,7 @@ OFILES=\
 
 HFILES=\
 	l.h\
+	../cc/compat.h\
 	../8c/8.out.h\
 
 BIN=/$objtype/bin
@@ -29,3 +30,4 @@ UPDATE=\
 enam.$O:	../8c/enam.c
 	$CC $CFLAGS ../8c/enam.c
 
+compat.$O:	../cc/compat

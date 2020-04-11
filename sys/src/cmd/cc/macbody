@@ -847,22 +847,3 @@ linehist(char *f, int offset)
 	ehist->link = h;
 	ehist = h;
 }
-
-void
-gethunk(void)
-{
-	char *h;
-	long nh;
-
-	nh = NHUNK;
-	if(thunk >= 10L*NHUNK)
-		nh = 10L*NHUNK;
-	h = (char*)mysbrk(nh);
-	if(h == (char*)-1) {
-		yyerror("out of memory");
-		errorexit();
-	}
-	hunk = h;
-	nhunk = nh;
-	thunk += nh;
-}

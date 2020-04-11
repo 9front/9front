@@ -20,6 +20,7 @@ OFILES=\
 HFILES=\
 	l.h\
 	../7c/7.out.h\
+	../cc/compat.h\
 
 BIN=/$objtype/bin
 </sys/src/cmd/mkone
@@ -32,6 +33,8 @@ cnam.c:	l.h mkcname
 
 enam.$O:	../7c/enam.c
 	$CC $CFLAGS ../7c/enam.c
+
+compat.$O:	../cc/compat
 
 x:V:	$O.out
 	$O.out -la -o/dev/null x.7

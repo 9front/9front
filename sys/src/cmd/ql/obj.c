@@ -273,7 +273,7 @@ main(int argc, char *argv[])
 out:
 	if(debug['v']) {
 		Bprint(&bso, "%5.2f cpu time\n", cputime());
-		Bprint(&bso, "%zud memory used\n", tothunk);
+		Bprint(&bso, "%zud memory used\n", thunk);
 		Bprint(&bso, "%d sizeof adr\n", sizeof(Adr));
 		Bprint(&bso, "%d sizeof prog\n", sizeof(Prog));
 	}
@@ -1108,29 +1108,6 @@ prg(void)
 
 	*p = zprg;
 	return p;
-}
-
-void
-gethunk(void)
-{
-	char *h;
-	long nh;
-
-	nh = NHUNK;
-	if(tothunk >= 5L*NHUNK) {
-		nh = 5L*NHUNK;
-		if(tothunk >= 25L*NHUNK)
-			nh = 25L*NHUNK;
-	}
-	h = mysbrk(nh);
-	if(h == (char *)-1) {
-		diag("out of memory");
-		errorexit();
-	}
-
-	hunk = h;
-	nhunk = nh;
-	tothunk += nh;
 }
 
 void

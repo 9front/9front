@@ -2,10 +2,7 @@
 #include <libc.h>
 #include <bio.h>
 #include "../kc/k.out.h"
-
-#ifndef	EXTERN
-#define	EXTERN	extern
-#endif
+#include "../cc/compat.h"
 
 typedef	struct	Sym	Sym;
 typedef	struct	Gen	Gen;
@@ -95,14 +92,12 @@ EXTERN	int	nDlist;
 EXTERN	Hist*	ehist;
 EXTERN	int	newflag;
 EXTERN	Hist*	hist;
-EXTERN	char*	hunk;
 EXTERN	char*	include[NINCLUDE];
 EXTERN	Io*	iofree;
 EXTERN	Io*	ionext;
 EXTERN	Io*	iostack;
 EXTERN	long	lineno;
 EXTERN	int	nerrors;
-EXTERN	long	nhunk;
 EXTERN	int	ninclude;
 EXTERN	int	nosched;
 EXTERN	Gen	nullgen;
@@ -115,11 +110,8 @@ EXTERN	int	sym;
 EXTERN	char	symb[NSYMB];
 EXTERN	int	thechar;
 EXTERN	char*	thestring;
-EXTERN	uintptr	thunk;
 EXTERN	Biobuf	obuf;
 
-void*	alloc(long);
-void*	allocn(void*, long, long);
 void	errorexit(void);
 void	pushio(void);
 void	newio(void);
@@ -154,29 +146,7 @@ void	dodefine(char*);
 void	prfile(long);
 void	outhist(void);
 void	linehist(char*, int);
-void	gethunk(void);
 void	yyerror(char*, ...);
 int	yyparse(void);
 void	setinclude(char*);
 int	assemble(char*);
-
-/*
- *	system-dependent stuff from ../cc/compat.c
- */
-
-enum				/* keep in synch with ../cc/cc.h */
-{
-	Plan9	= 1<<0,
-	Unix	= 1<<1,
-	Windows	= 1<<2
-};
-int	mywait(int*);
-int	mycreat(char*, int);
-int	systemtype(int);
-int	pathchar(void);
-char*	mygetwd(char*, int);
-int	myexec(char*, char*[]);
-int	mydup(int, int);
-int	myfork(void);
-int	mypipe(int*);
-void*	mysbrk(ulong);

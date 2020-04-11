@@ -2,10 +2,7 @@
 #include	<libc.h>
 #include	<bio.h>
 #include	"../2c/2.out.h"
-
-#ifndef	EXTERN
-#define	EXTERN	extern
-#endif
+#include	"../cc/compat.h"
 
 #define	P		((Prog*)0)
 #define	S		((Sym*)0)
@@ -178,7 +175,6 @@ EXTERN	char*	library[50];
 EXTERN	char*	libraryobj[50];
 EXTERN	int	libraryp;
 EXTERN	int	xrefresolv;
-EXTERN	char*	hunk;
 EXTERN	char	inuxi1[1];
 EXTERN	char	inuxi2[2];
 EXTERN	char	inuxi4[4];
@@ -187,7 +183,6 @@ EXTERN	long	lcsize;
 EXTERN	long	relocsize;
 EXTERN	long	ndata;
 EXTERN	int	nerrors;
-EXTERN	long	nhunk;
 EXTERN	long	nsymbol;
 EXTERN	char*	noname;
 EXTERN	short*	op;
@@ -200,7 +195,6 @@ EXTERN	Sym*	symlist;
 EXTERN	long	symsize;
 EXTERN	Prog*	textp;
 EXTERN	long	textsize;
-EXTERN	uintptr	thunk;
 EXTERN	int	version;
 EXTERN	Prog	zprg;
 
@@ -240,7 +234,6 @@ void	errorexit(void);
 int	find1(long, int);
 int	find2(long, int);
 void	follow(void);
-void	gethunk(void);
 int	gnuxi(Ieee*, int, int);
 void	histtoauto(void);
 double	ieeedtod(Ieee*);
@@ -254,7 +247,6 @@ Sym*	lookup(char*, int);
 void	lput(long);
 void	main(int, char*[]);
 void	mkfwd(void);
-void*	mysbrk(ulong);
 void	nuxiinit(void);
 void	objfile(char*);
 void	patch(void);

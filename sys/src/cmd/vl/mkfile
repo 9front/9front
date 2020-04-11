@@ -16,12 +16,15 @@ OFILES=\
 HFILES=\
 	l.h\
 	../vc/v.out.h\
+	../cc/compat.h\
 
 BIN=/$objtype/bin
 </sys/src/cmd/mkone
 
 enam.$O:	../vc/enam.c
 	$CC $CFLAGS ../vc/enam.c
+
+compat.$O:	../cc/compat
 
 x:V:	$O.out
 	$O.out -la -o/dev/null x.v

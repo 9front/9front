@@ -7,6 +7,7 @@ OFILES=\
 
 HFILES=\
 	../2c/2.out.h\
+	../cc/compat.h\
 	y.tab.h\
 	a.h\
 

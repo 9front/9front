@@ -19,6 +19,7 @@ OFILES=\
 	omachcap.$O\
 
 HFILES=cc.h\
+	compat.h\
 	y.tab.h\
 
 YFILES=cc.y\
@@ -34,7 +35,9 @@ install:V:	$LIB
 $LIB:	$LIBOBJ
 	ar vu $LIB $OFILES
 
-mac.$O:	macbody
+mac.$O: macbody
+
+compat.$O: compat
 
 everything:V:
 	# mk the current compilers
