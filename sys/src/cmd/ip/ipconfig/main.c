@@ -1010,7 +1010,7 @@ ndb2conf(Ndb *db, uchar *myip)
 
 	nattr = 0;
 	attrs[nattr++] = "ipmask";
-	attrs[nattr++] = "ipgw";
+	attrs[nattr++] = "@ipgw";
 
 	attrs[nattr++] = "@dns";
 	attrs[nattr++] = "@ntp";
