@@ -598,7 +598,8 @@ ip4cfg(void)
 		return -1;
 	}
 
-	if(validip(conf.gaddr) && isv4(conf.gaddr))
+	if(validip(conf.gaddr) && isv4(conf.gaddr)
+	&& ipcmp(conf.gaddr, conf.laddr) != 0)
 		adddefroute(conf.gaddr, conf.laddr, conf.laddr, conf.mask);
 
 	return 0;
@@ -987,6 +988,23 @@ uniquent(Ndbtuple *t)
 	return t;
 }
 
+/* my ips from ndb, read by ndbconfig() below */
+static uchar dbips[128*IPaddrlen];
+
+static int
+ipindb(uchar *ip)
+{
+	uchar *a;
+
+	for(a = dbips; a < &dbips[sizeof(dbips)]; a += IPaddrlen){
+		if(!validip(a))
+			break;
+		if(ipcmp(ip, a) == 0)
+			return 1;
+	}
+	return 0;
+}
+
 /* read configuration (except laddr) for myip from ndb */
 void
 ndb2conf(Ndb *db, uchar *myip)
@@ -1040,8 +1058,11 @@ ndb2conf(Ndb *db, uchar *myip)
 			continue;
 		}
 		if(strcmp(nt->attr, "ipgw") == 0) {
-			nt = uniquent(nt);
+			/* ignore in case we are the gateway */
+			if(ipindb(ip))
+				continue;
 			ipmove(conf.gaddr, ip);
+			nt = uniquent(nt);
 		} else if(strcmp(nt->attr, "dns") == 0) {
 			addaddrs(conf.dns, sizeof(conf.dns), ip, IPaddrlen);
 		} else if(strcmp(nt->attr, "ntp") == 0) {
@@ -1070,7 +1091,6 @@ opendatabase(void)
 static void
 ndbconfig(void)
 {
-	uchar ips[128*IPaddrlen];
 	char etheraddr[32], *attr;
 	Ndbtuple *t, *nt;
 	Ndb *db;
@@ -1086,7 +1106,7 @@ ndbconfig(void)
 		return;
 	}
 
-	memset(ips, 0, sizeof(ips));
+	memset(dbips, 0, sizeof(dbips));
 
 	if(conf.hwatype != 1)
 		sysfatal("can't read hardware address");
@@ -1100,18 +1120,18 @@ ndbconfig(void)
 				nt->attr, nt->val);
 			continue;
 		}
-		addaddrs(ips, sizeof(ips), conf.laddr, IPaddrlen);
+		addaddrs(dbips, sizeof(dbips), conf.laddr, IPaddrlen);
 	}
 	ndbfree(t);
 
-	n = countaddrs(ips, sizeof(ips));
+	n = countaddrs(dbips, sizeof(dbips));
 	if(n == 0)
 		sysfatal("no ip addresses found in ndb");
 
 	/* add link local address first, if not already done */
 	if(!findllip(conf.lladdr, ifc)){
 		for(i = 0; i < n; i++){
-			ipmove(conf.laddr, ips+i*IPaddrlen);
+			ipmove(conf.laddr, dbips+i*IPaddrlen);
 			if(ISIPV6LINKLOCAL(conf.laddr)){
 				ipv6auto = 0;
 				ipmove(conf.lladdr, conf.laddr);
@@ -1128,7 +1148,7 @@ ndbconfig(void)
 
 	/* add v4 addresses and v6 if link local address is available */
 	for(i = 0; i < n; i++){
-		ipmove(conf.laddr, ips+i*IPaddrlen);
+		ipmove(conf.laddr, dbips+i*IPaddrlen);
 		if(isv4(conf.laddr) || ipcmp(conf.laddr, conf.lladdr) != 0){
 			ndb2conf(db, conf.laddr);
 			doadd();
