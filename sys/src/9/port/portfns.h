@@ -167,7 +167,6 @@ void*		mallocz(ulong, int);
 void*		malloc(ulong);
 void*		mallocalign(ulong, ulong, long, ulong);
 void		mallocsummary(void);
-Block*		mem2bl(uchar*, int);
 void		memmapdump(void);
 uvlong		memmapnext(uvlong, ulong);
 uvlong		memmapsize(uvlong, uvlong);
