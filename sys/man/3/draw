@@ -608,7 +608,7 @@ in image
 .IR dstid [4]
 .IR srcid [4]
 .IR fontid [4]
-.IR p [2*4]
+.IR dp [2*4]
 .IR clipr [4*4]
 .IR sp [2*4]
 .IR n [2]
