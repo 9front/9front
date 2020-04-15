@@ -48,7 +48,7 @@ The
 .I ip
 device provides the interface to Internet Protocol stacks.
 .I Spec
-is an integer from 0 to 15 identifying a stack.
+is an integer starting from 0 identifying a stack.
 Each stack implements IPv4 and IPv6.
 Each stack is independent of all others:
 the only information transfer between them is via programs that
