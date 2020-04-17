@@ -1,8 +1,13 @@
 #!/bin/rc
+flags=()
+while(~ $1 -*){
+	flags=($flags $1)
+	shift
+}
 if(~ $#* 0){
 	*=(rc -i)
 }
-/acme/bin/$cputype/winfs $1 >/dev/null >[2=1] || {
+/acme/bin/$cputype/winfs $flags $1 >/dev/null >[2=1] || {
 	# compat
 	exec /acme/bin/$cputype/win $*
 	exit
