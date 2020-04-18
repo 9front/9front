@@ -25,6 +25,6 @@ BIN=/$objtype/bin
 
 enam.$O:	../qc/enam.c
 	$CC $CFLAGS ../qc/enam.c
-cnam.c:	l.h
-	rc mkcname
+cnam.c:	l.h mkcname
+	rc ./mkcname
 compat.$O:	../cc/compat

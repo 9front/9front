@@ -29,7 +29,7 @@ BIN=/$objtype/bin
 	@ { cd ../7c; mk enam.c }
 
 cnam.c:	l.h mkcname
-	rc mkcname
+	rc ./mkcname
 
 enam.$O:	../7c/enam.c
 	$CC $CFLAGS ../7c/enam.c
