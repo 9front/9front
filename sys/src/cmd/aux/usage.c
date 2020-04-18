@@ -31,6 +31,9 @@ main(void)
 		single = 0;
 		for(p=flags; *p; ){
 			p += chartorune(&r, p);
+			if(*p == ':')
+				while(*p != '\0' && *p != ',' && *p != ' ')
+					p++;
 			if(*p == ',' || *p == 0){
 				if(!single){
 					fmtprint(&fmt, " [-");

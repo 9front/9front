@@ -7,62 +7,98 @@ getflags, usage \- command-line parsing for shell scripts
 .B aux/usage
 .SH DESCRIPTION
 .I Getflags
-parses the options in its command-line arguments
+parses the flags in its command-line arguments
 according to the environment variable
 .BR $flagfmt .
-This variable should be a list of comma-separated options.
-Each option can be a single letter, indicating that it does
-not take arguments, or a letter followed by the space-separated
-names of its arguments.
+This variable should be a comma-separated list of flag specifiers.
+Each flag is a single letter, optionally followed by a
+colon and a name. It may be followed by a space-separated
+list of argument names.
+
+.PP
 .I Getflags 
 prints an 
 .IR rc (1)
-script on standard output which initializes the
-environment variable
-.BI $flag x
-for every option mentioned in 
-.BR $flagfmt .
-If the option is not present on the command-line, the script
-sets that option's flag variable to an empty list.
-Otherwise, the script sets that option's flag variable with
-a list containing the option's arguments or, 
-if the option takes no arguments,
-with the string
-.BR 1 .
-The script also sets the variable
+script to be evaluated by the calling program.
+For every flag specified in
+.BR $flagfmt ,
+the generated script sets a corresponding environment variable.
+If the flag specifier contains
+.BR :name ,
+the corresponding variable  is named
+.BR $name .
+Otherwise, it is named
+.BI $flag x.
+
+.PP
+After evaluating the script, the environment variables will
+be set as follows:
+If a flag is not present in the argument list, the environment
+variable will default to the empty list.
+If the flag is present and takes no arguments, the environment
+variable will be initialized with the string
+.BR '1' .
+If the flag takes arguments, the flag's variable will be initialized
+with a list of those argument values.
+The script then sets the variable
 .B $*
-to the list of arguments following the options.
-The final line in the script sets the
+to the list of remaining non-flag arguments.
+.PP
+The
 .B $status
-variable, to the empty string on success
-and to the string
-.B usage
+is variable to the empty string on success, or
+.B 'usage'
 when there is an error parsing the command line.
 .PP
 .I Usage
 prints a usage message to standard error.
-It creates the message using
-.BR $flagfmt ,
-as described above,
-.BR $args ,
-which should contain the string to be printed explaining
-non-option arguments,
-and
+The message is constructed using
 .BR $0 ,
-the program name
-(see
-.IR rc (1)).
+.BR $flagfmt ,
+and
+.BR $args .
+The program name is taken from
+.BR $0 ,
+as set by
+.IR rc (1)
+The list of flags is extracted from
+.BR $flagfmt .
+The description of positional argument list is taken from
+.BR  $args .
+
 .SH EXAMPLE
+.PP
+An example of the script generated:
+.IP
+.EX
+% flagfmt='e:example,x,a:arg with args'
+% aux/getflags -exa arg list positional stuff
+example=()
+flagx=()
+arg=()
+example=1
+flagx=1
+arg=(arg list)
+*=(positional stuff)
+status=''
+.EE
+.PP
 Parse the arguments for
 .IR leak (1):
 .IP
 .EX
-flagfmt='b,s,f binary,r res,x width'
+flagfmt='b:showbmp,s:acidfmt,f binary,r res,x width'
 args='name | pid list'
 if(! ifs=() eval `{aux/getflags $*} || ~ $#* 0){
 	aux/usage
 	exit usage
 }
+if(~ $#showbmp 0)
+	echo '-b flag not set'
+echo $showbmp	# named
+echo $acidfmt	# also named
+echo $flagf	# default name
+echo $flagr	# default name
 .EE
 .SH SOURCE
 .B /sys/src/cmd/aux/getflags.c
