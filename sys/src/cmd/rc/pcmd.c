@@ -106,6 +106,7 @@ pcmd(io *f, tree *t)
 		break;
 	case PIPEFD:
 	case REDIR:
+		pchr(f, ' ');
 		switch(t->rtype){
 		case HERE:
 			pchr(f, '<');
