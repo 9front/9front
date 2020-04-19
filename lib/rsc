@@ -245,3 +245,4 @@ It's been two hours since that fix landed.
 I needed that last week.
 I have a new blog post you might be interested in.
 Ever since I wrote “go get,” we on the core Go team hoped the community would take care of dependency management.
+This past winter, as a side project, I spent some time getting up to speed on suffix array construction algorithms and rewrote index/suffixarray's New implementation (that is, the index builder) to run 3-10X faster in half the memory of the old one.
