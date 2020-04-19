@@ -60,7 +60,7 @@
 void
 main(int argc, char *argv[])
 {
-	char *defs[50], *p;
+	char **defs, *p;
 	int nproc, nout, status, i, c, ndef;
 
 	memset(debug, 0, sizeof(debug));
@@ -71,6 +71,7 @@ main(int argc, char *argv[])
 
 	profileflg = 1;	/* #pragma can turn it off */
 	tufield = simplet((1L<<tfield->etype) | BUNSIGNED);
+	defs = 0;
 	ndef = 0;
 	outfile = 0;
 	include[ninclude++] = ".";
@@ -97,6 +98,8 @@ main(int argc, char *argv[])
 	case 'D':
 		p = ARGF();
 		if(p) {
+			if((ndef & 15) == 0)
+				defs = allocn(defs, ndef*sizeof(defs[0]), 16*sizeof(defs[0]));
 			defs[ndef++] = p;
 			dodefine(p);
 		}
@@ -109,7 +112,7 @@ main(int argc, char *argv[])
 		break;
 	} ARGEND
 	if(argc < 1 && outfile == 0) {
-		print("usage: %cc [-options] files\n", thechar);
+		print("usage: %Cc [-options] files\n", thechar);
 		errorexit();
 	}
 	if(argc > 1 && systemtype(Windows)){
@@ -176,12 +179,11 @@ main(int argc, char *argv[])
 int
 compile(char *file, char **defs, int ndef)
 {
-	char ofile[400], incfile[20];
-	char *p, *av[100], opt[256];
+	char *ofile, *p, **av;
 	int i, c, fd[2];
 	static int first = 1;
 
-	strcpy(ofile, file);
+	ofile = strdup(file);
 	p = utfrrune(ofile, pathchar());
 	if(p) {
 		*p++ = 0;
@@ -191,21 +193,17 @@ compile(char *file, char **defs, int ndef)
 		p = ofile;
 
 	if(outfile == 0) {
-		outfile = p;
-		if(outfile) {
+		if(p) {
+			outfile = p;
 			if(p = utfrrune(outfile, '.'))
 				if(p[1] == 'c' && p[2] == 0)
 					p[0] = 0;
-			p = utfrune(outfile, 0);
 			if(debug['a'] && debug['n'])
-				strcat(p, ".acid");
+				outfile = smprint("%s.acid", outfile);
 			else if(debug['Z'] && debug['n'])
-				strcat(p, "_pickle.c");
-			else {
-				p[0] = '.';
-				p[1] = thechar;
-				p[2] = 0;
-			}
+				outfile = smprint("%s_pickle.c", outfile);
+			else
+				outfile = smprint("%s.%C", outfile, thechar);
 		} else
 			outfile = "/dev/null";
 	}
@@ -214,8 +212,7 @@ compile(char *file, char **defs, int ndef)
 		setinclude(p);
 	} else {
 		if(systemtype(Plan9)) {
-			sprint(incfile, "/%s/include", thestring);
-			setinclude(strdup(incfile));
+			setinclude(smprint("/%s/include", thestring));
 			setinclude("/sys/include");
 		}
 	}
@@ -265,22 +262,19 @@ compile(char *file, char **defs, int ndef)
 			close(fd[0]);
 			mydup(fd[1], 1);
 			close(fd[1]);
-			av[0] = CPP;
-			i = 1;
-			sprint(opt, "-+");
-			av[i++] = strdup(opt);
-			if(debug['.']){
-				sprint(opt, "-.");
-				av[i++] = strdup(opt);
-			}
-			for(c = 0; c < ndef; c++) {
-				sprint(opt, "-D%s", defs[c]);
-				av[i++] = strdup(opt);
-			}
-			for(c = 0; c < ninclude; c++) {
-				sprint(opt, "-I%s", include[c]);
-				av[i++] = strdup(opt);
-			}
+
+			i = 8+ndef+ninclude;
+			av = alloc(i*sizeof(av[0]));
+
+			i = 0;
+			av[i++] = CPP;
+			av[i++] = "-+";
+			if(debug['.'])
+				av[i++] = "-.";
+			for(c = 0; c < ndef; c++)
+				av[i++] = smprint("-D%s", defs[c]);
+			for(c = 0; c < ninclude; c++)
+				av[i++] = smprint("-I%s", include[c]);
 			if(strcmp(file, "stdin") != 0)
 				av[i++] = file;
 			av[i] = 0;
@@ -367,7 +361,7 @@ newfile(char *s, int f)
 	if(f < 0)
 		i->f = open(s, 0);
 	if(i->f < 0) {
-		yyerror("%cc: %r: %s", thechar, s);
+		yyerror("%Cc: %r: %s", thechar, s);
 		errorexit();
 	}
 	fi.c = 0;
@@ -377,8 +371,11 @@ newfile(char *s, int f)
 Sym*
 slookup(char *s)
 {
-
-	strcpy(symb, s);
+	strncpy(symb, s, NSYMB);
+	if(symb[NSYMB-1] != '\0'){
+		yyerror("symbol too long: %s", s);
+		errorexit();
+	}
 	return lookup();
 }
 
@@ -410,7 +407,6 @@ lookup(void)
 	s->name = alloc(n);
 	memmove(s->name, symb, n);
 
-	strcpy(s->name, symb);
 	s->link = hash[h];
 	hash[h] = s;
 	syminit(s);
@@ -1341,7 +1337,6 @@ Oconv(Fmt *fp)
 int
 Lconv(Fmt *fp)
 {
-	char str[STRINGSZ], s[STRINGSZ];
 	Hist *h;
 	struct
 	{
@@ -1383,87 +1378,62 @@ Lconv(Fmt *fp)
 	}
 	if(n > HISTSZ)
 		n = HISTSZ;
-	str[0] = 0;
+	if(n == 0)
+		return fmtprint(fp, "<eof>");
 	for(i=n-1; i>=0; i--) {
 		if(i != n-1) {
 			if(fp->flags & ~(FmtWidth|FmtPrec))	/* BUG ROB - was f3 */
 				break;
-			strcat(str, " ");
+			fmtrune(fp, ' ');
 		}
 		if(a[i].line)
-			snprint(s, STRINGSZ, "%s:%ld[%s:%ld]",
+			fmtprint(fp, "%s:%ld[%s:%ld]",
 				a[i].line->name, l-a[i].ldel+1,
 				a[i].incl->name, l-a[i].idel+1);
 		else
-			snprint(s, STRINGSZ, "%s:%ld",
+			fmtprint(fp, "%s:%ld",
 				a[i].incl->name, l-a[i].idel+1);
-		if(strlen(s)+strlen(str) >= STRINGSZ-10)
-			break;
-		strcat(str, s);
 		l = a[i].incl->line - 1;	/* now print out start of this file */
 	}
-	if(n == 0)
-		strcat(str, "<eof>");
-	return fmtstrcpy(fp, str);
+	return 0;
 }
 
 int
 Tconv(Fmt *fp)
 {
-	char str[STRINGSZ+20], s[STRINGSZ+20];
 	Type *t, *t1;
 	int et;
 	long n;
 
-	str[0] = 0;
-	for(t = va_arg(fp->args, Type*); t != T; t = t->link) {
+	t = va_arg(fp->args, Type*);
+	while(t != T) {
+		if(t->garb&~GINCOMPLETE)
+			fmtprint(fp, "%s ", gnames[t->garb&~GINCOMPLETE]);
 		et = t->etype;
-		if(str[0])
-			strcat(str, " ");
-		if(t->garb&~GINCOMPLETE) {
-			sprint(s, "%s ", gnames[t->garb&~GINCOMPLETE]);
-			if(strlen(str) + strlen(s) < STRINGSZ)
-				strcat(str, s);
-		}
-		sprint(s, "%s", tnames[et]);
-		if(strlen(str) + strlen(s) < STRINGSZ)
-			strcat(str, s);
-		if(et == TFUNC && (t1 = t->down)) {
-			sprint(s, "(%T", t1);
-			if(strlen(str) + strlen(s) < STRINGSZ)
-				strcat(str, s);
-			while(t1 = t1->down) {
-				sprint(s, ", %T", t1);
-				if(strlen(str) + strlen(s) < STRINGSZ)
-					strcat(str, s);
-			}
-			if(strlen(str) + strlen(s) < STRINGSZ)
-				strcat(str, ")");
+		fmtprint(fp, "%s", tnames[et]);
+		if(et == TFUNC && (t1 = t->down) != T) {
+			fmtprint(fp, "(%T", t1);
+			while((t1 = t1->down) != T)
+				fmtprint(fp, ", %T", t1);
+			fmtprint(fp, ")");
 		}
 		if(et == TARRAY) {
 			n = t->width;
-			if(t->link && t->link->width)
+			if(t->link != T && t->link->width)
 				n /= t->link->width;
-			sprint(s, "[%ld]", n);
-			if(strlen(str) + strlen(s) < STRINGSZ)
-				strcat(str, s);
+			fmtprint(fp, "[%ld]", n);
 		}
-		if(t->nbits) {
-			sprint(s, " %d:%d", t->shift, t->nbits);
-			if(strlen(str) + strlen(s) < STRINGSZ)
-				strcat(str, s);
-		}
+		if(t->nbits)
+			fmtprint(fp, " %d:%d", t->shift, t->nbits);
 		if(typesu[et]) {
-			if(t->tag) {
-				strcat(str, " ");
-				if(strlen(str) + strlen(t->tag->name) < STRINGSZ)
-					strcat(str, t->tag->name);
-			} else
-				strcat(str, " {}");
+			fmtprint(fp, " %s", t->tag? t->tag->name: "{}");
 			break;
 		}
+		if((t = t->link) == T)
+			break;
+		fmtrune(fp, ' ');
 	}
-	return fmtstrcpy(fp, str);
+	return 0;
 }
 
 int
@@ -1482,46 +1452,36 @@ FNconv(Fmt *fp)
 int
 Qconv(Fmt *fp)
 {
-	char str[STRINGSZ+20], *s;
 	long b;
 	int i;
 
-	str[0] = 0;
-	for(b = va_arg(fp->args, long); b;) {
+	b = va_arg(fp->args, long);
+	while(b) {
 		i = bitno(b);
-		if(str[0])
-			strcat(str, " ");
-		s = qnames[i];
-		if(strlen(str) + strlen(s) >= STRINGSZ)
-			break;
-		strcat(str, s);
 		b &= ~(1L << i);
+		fmtprint(fp, "%s%s", qnames[i], b? " ": "");
 	}
-	return fmtstrcpy(fp, str);
+	return 0;
 }
 
 int
 VBconv(Fmt *fp)
 {
-	char str[STRINGSZ];
-	int i, n, t, pc;
+	int n, t, pc;
 
 	n = va_arg(fp->args, int);
 	pc = 0;	/* BUG: was printcol */
-	i = 0;
 	while(pc < n) {
 		t = (pc+4) & ~3;
 		if(t <= n) {
-			str[i++] = '\t';
+			fmtrune(fp, '\t');
 			pc = t;
-			continue;
+		} else {
+			fmtrune(fp, ' ');
+			pc++;
 		}
-		str[i++] = ' ';
-		pc++;
 	}
-	str[i] = 0;
-
-	return fmtstrcpy(fp, str);
+	return 0;
 }
 
 void
