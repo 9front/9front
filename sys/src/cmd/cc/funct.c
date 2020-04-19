@@ -217,7 +217,6 @@ dclfunct(Type *t, Sym *s)
 	Node *n;
 	Type *f1, *f2, *f3, *f4;
 	int o, i, c;
-	char str[100];
 
 	if(t->funct)
 		return;
@@ -262,9 +261,9 @@ dclfunct(Type *t, Sym *s)
 		o = ftabinit[i].op;
 		if(o == OXXX)
 			break;
-		sprint(str, "%s_%s_", t->tag->name, ftabinit[i].name);
+		snprint(symb, NSYMB, "%s_%s_", t->tag->name, ftabinit[i].name);
 		n = new(ONAME, Z, Z);
-		n->sym = slookup(str);
+		n->sym = lookup();
 		f->sym[o] = n->sym;
 		switch(ftabinit[i].typ) {
 		default:
@@ -296,18 +295,18 @@ dclfunct(Type *t, Sym *s)
 		/*
 		 * OCAST types T1 _T2_T1_(T2)
 		 */
-		sprint(str, "_%s%s_", gtabinit[i].name, t->tag->name);
+		snprint(symb, NSYMB, "_%s%s_", gtabinit[i].name, t->tag->name);
 		n = new(ONAME, Z, Z);
-		n->sym = slookup(str);
+		n->sym = lookup();
 		f->castto[o] = n->sym;
 
 		f1 = typ(TFUNC, t);
 		f1->down = types[o];
 		dodecl(xdecl, CEXTERN, f1, n);
 
-		sprint(str, "%s_%s_", t->tag->name, gtabinit[i].name);
+		snprint(symb, NSYMB, "%s_%s_", t->tag->name, gtabinit[i].name);
 		n = new(ONAME, Z, Z);
-		n->sym = slookup(str);
+		n->sym = lookup();
 		f->castfr[o] = n->sym;
 
 		f1 = typ(TFUNC, types[o]);
