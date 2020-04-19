@@ -389,7 +389,7 @@ macexpand(Sym *s, char *b, int blen)
 	if(*s->macro == 0) {
 		strncpy(b, s->macro+1, blen);
 		if(debug['m'])
-			print("#expand %s %s\n", s->name, ob);
+			print("#expand %s %s\n", s->name, b);
 		return;
 	}
 	
