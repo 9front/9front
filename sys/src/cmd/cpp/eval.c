@@ -2,7 +2,7 @@
 #include <libc.h>
 #include "cpp.h"
 
-#define	NSTAK	32
+#define	NSTAK	128
 #define	SGN	0
 #define	UNS	1
 #define	UND	2
@@ -136,6 +136,8 @@ eval(Tokenrow *trp, int kw)
 		case STRING:
 			if (rand)
 				goto syntax;
+			if(vp == vals + NSTAK)
+				goto fullstakdeveloper;
 			*vp++ = tokval(tp);
 			rand = 1;
 			continue;
@@ -146,12 +148,16 @@ eval(Tokenrow *trp, int kw)
 		case NOT:
 			if (rand)
 				goto syntax;
+			if(op == ops + NSTAK)
+				goto fullstakdeveloper;
 			*op++ = tp->type;
 			continue;
 
 		/* unary-binary */
 		case PLUS: case MINUS: case STAR: case AND:
 			if (rand==0) {
+				if(op == ops + NSTAK)
+					goto fullstakdeveloper;
 				if (tp->type==MINUS)
 					*op++ = UMINUS;
 				if (tp->type==STAR || tp->type==AND) {
@@ -171,6 +177,8 @@ eval(Tokenrow *trp, int kw)
 				goto syntax;
 			if (evalop(priority[tp->type])!=0)
 				return 0;
+			if(op == ops + NSTAK)
+				goto fullstakdeveloper;
 			*op++ = tp->type;
 			rand = 0;
 			continue;
@@ -178,6 +186,8 @@ eval(Tokenrow *trp, int kw)
 		case LP:
 			if (rand)
 				goto syntax;
+			if(op == ops + NSTAK)
+				goto fullstakdeveloper;
 			*op++ = LP;
 			continue;
 
@@ -210,6 +220,9 @@ eval(Tokenrow *trp, int kw)
 	return vals[0].val;
 syntax:
 	error(ERROR, "Syntax error in #if/#elif");
+	return 0;
+fullstakdeveloper:
+	error(ERROR, "Out of stack space evaluating #if");
 	return 0;
 }
 
@@ -375,6 +388,10 @@ evalop(struct pri pri)
 		}
 		v1.val = rv1;
 		v1.type = rtype;
+		if(op == ops + NSTAK){
+			error(ERROR, "Out of stack space evaluating #if");
+			return 0;
+		}
 		*vp++ = v1;
 	}
 	return 0;
