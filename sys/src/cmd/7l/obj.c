@@ -1019,7 +1019,7 @@ loop:
 
 		if(p->from.type == D_FCONST && chipfloat(p->from.ieee) < 0) {
 			/* size sb 9 max */
-			sprint(literal, "$%lux", ieeedtof(p->from.ieee));
+			snprint(literal, sizeof(literal), "$%lux", ieeedtof(p->from.ieee));
 			s = lookup(literal, 0);
 			if(s->type == 0) {
 				s->type = SBSS;
@@ -1048,7 +1048,7 @@ loop:
 
 		if(p->from.type == D_FCONST && chipfloat(p->from.ieee) < 0) {
 			/* size sb 18 max */
-			sprint(literal, "$%lux.%lux",
+			snprint(literal, sizeof(literal), "$%lux.%lux",
 				p->from.ieee->l, p->from.ieee->h);
 			s = lookup(literal, 0);
 			if(s->type == 0) {

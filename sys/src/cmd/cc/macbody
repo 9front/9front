@@ -128,7 +128,11 @@ dodefine(char *cp)
 	char *p;
 	long l;
 
-	strcpy(symb, cp);
+	strncpy(symb, cp, NSYMB);
+	if(symb[NSYMB-1] != '\0'){
+		yyerror("macro too long: %s", cp);
+		symb[NSYMB-1] = 0;
+	}
 	p = strchr(symb, '=');
 	if(p) {
 		*p++ = 0;
@@ -376,17 +380,16 @@ bad:
 }
 
 void
-macexpand(Sym *s, char *b)
+macexpand(Sym *s, char *b, int blen)
 {
 	char buf[2000];
 	int n, l, c, nargs;
-	char *arg[NARG], *cp, *ob, *ecp, dots;
+	char *arg[NARG], *cp, *ob, *eb, *ecp, dots;
 
-	ob = b;
 	if(*s->macro == 0) {
-		strcpy(b, s->macro+1);
+		strncpy(b, s->macro+1, blen);
 		if(debug['m'])
-			print("#expand %s %s\n", s->name, ob);
+			print("#expand %s %s\n", s->name, b);
 		return;
 	}
 	
@@ -493,8 +496,12 @@ macexpand(Sym *s, char *b)
 		*b = 0;
 		return;
 	}
+	ob = b;
+	eb = b + blen-1;
 	cp = s->macro+1;
 	for(;;) {
+		if(b >= eb)
+			goto toobig;
 		c = *cp++;
 		if(c == '\n')
 			c = ' ';
@@ -514,8 +521,11 @@ macexpand(Sym *s, char *b)
 		c -= 'a';
 		if(c < 0 || c >= n)
 			continue;
-		strcpy(b, arg[c]);
-		b += strlen(arg[c]);
+		l = strlen(arg[c]);
+		if(b+l > eb)
+			goto toobig;
+		memmove(b, arg[c], l);
+		b += l;
 	}
 	*b = 0;
 	if(debug['m'])
@@ -551,6 +561,10 @@ macinc(void)
 			break;
 		if(c == '\n')
 			goto bad;
+		if(hp >= &str[STRINGSZ-1]){
+			yyerror("name too long for #include");
+			break;
+		}
 		*hp++ = c;
 	}
 	*hp = 0;
@@ -558,29 +572,28 @@ macinc(void)
 	c = getcom();
 	if(c != '\n')
 		goto bad;
-
 	f = -1;
+	c = 0;
 	for(i=0; i<ninclude; i++) {
 		if(i == 0 && c0 == '>')
 			continue;
-		strcpy(symb, include[i]);
-		strcat(symb, "/");
-		if(strcmp(symb, "./") == 0)
-			symb[0] = 0;
-		strcat(symb, str);
+		c = snprint(symb, NSYMB, "%s/%s", include[i], str)+1;
+		if(strncmp(symb, "./", 2) == 0){
+			c -= 2;
+			memmove(symb, symb+2, c);
+		}
 		f = open(symb, 0);
 		if(f >= 0)
 			break;
 	}
 	if(f < 0)
-		strcpy(symb, str);
-	c = strlen(symb) + 1;
+		c = snprint(symb, NSYMB, "%s", str)+1;
 	while(c & 3)
 		c++;
 	while(nhunk < c)
 		gethunk();
 	hp = hunk;
-	memcpy(hunk, symb, c);
+	memmove(hunk, symb, c);
 	nhunk -= c;
 	hunk += c;
 	newio();

@@ -42,7 +42,7 @@ main(int argc, char *argv[])
 		break;
 	} ARGEND
 	if(*argv == 0) {
-		print("usage: %ca [-options] file.s\n", thechar);
+		print("usage: %Ca [-options] file.s\n", thechar);
 		errorexit();
 	}
 	if(argc > 1 && systemtype(Windows)){
@@ -96,10 +96,10 @@ main(int argc, char *argv[])
 int
 assemble(char *file)
 {
-	char ofile[100], incfile[20], *p;
+	char *ofile, *p;
 	int i, of;
 
-	strcpy(ofile, file);
+	ofile = strdup(file);
 	p = utfrrune(ofile, pathchar());
 	if(p) {
 		include[0] = ofile;
@@ -107,16 +107,13 @@ assemble(char *file)
 	} else
 		p = ofile;
 	if(outfile == 0) {
-		outfile = p;
-		if(outfile){
+		if(p){
+			outfile = p;
 			p = utfrrune(outfile, '.');
 			if(p)
 				if(p[1] == 's' && p[2] == 0)
 					p[0] = 0;
-			p = utfrune(outfile, 0);
-			p[0] = '.';
-			p[1] = thechar;
-			p[2] = 0;
+			outfile = smprint("%s.%C", outfile, thechar);
 		} else
 			outfile = "/dev/null";
 	}
@@ -124,15 +121,13 @@ assemble(char *file)
 	if(p) {
 		setinclude(p);
 	} else {
-		if(systemtype(Plan9)) {
-			sprint(incfile,"/%s/include", thestring);
-			setinclude(strdup(incfile));
-		}
+		if(systemtype(Plan9))
+			setinclude(smprint("/%s/include", thestring));
 	}
 
 	of = mycreat(outfile, 0664);
 	if(of < 0) {
-		yyerror("%ca: cannot create %s", thechar, outfile);
+		yyerror("%Ca: cannot create %s", thechar, outfile);
 		errorexit();
 	}
 	Binit(&obuf, of, OWRITE);

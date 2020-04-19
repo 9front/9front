@@ -15,7 +15,6 @@ listinit(void)
 int
 Pconv(Fmt *fp)
 {
-	char str[STRINGSZ], *s;
 	Prog *p;
 	int a;
 
@@ -23,32 +22,28 @@ Pconv(Fmt *fp)
 	curp = p;
 	a = p->as;
 	switch(a) {
-	default:
-		s = str;
-		s += sprint(s, "(%ld)", p->line);
-		if(p->reg == NREG && p->from3.type == D_NONE)
-			sprint(s, "	%A	%D,%D",
-				a, &p->from, &p->to);
-		else if(p->from.type != D_FREG){
-			s += sprint(s, "	%A	%D", a, &p->from);
-			if(p->from3.type != D_NONE)
-				s += sprint(s, ",%D", &p->from3);
-			if(p->reg != NREG)
-				s += sprint(s, ",R%d", p->reg);
-			sprint(s, ",%D", &p->to);
-		}else
-			sprint(s, "	%A	%D,F%d,%D",
-				a, &p->from, p->reg, &p->to);
-		break;
-
 	case ADATA:
 	case AINIT:
 	case ADYNT:
-		sprint(str, "(%ld)	%A	%D/%d,%D",
+		return fmtprint(fp, "(%ld)	%A	%D/%d,%D",
 			p->line, a, &p->from, p->reg, &p->to);
-		break;
+
+	default:
+		if(p->reg == NREG && p->from3.type == D_NONE)
+			return fmtprint(fp, "(%ld)	%A	%D,%D",
+				p->line, a, &p->from, &p->to);
+		else if(p->from.type == D_FREG)
+			return fmtprint(fp, "(%ld)	%A	%D,F%d,%D",
+				p->line, a, &p->from, p->reg, &p->to);
+
+		fmtprint(fp, "(%ld)	%A	%D", p->line, a, &p->from);
+		if(p->from3.type != D_NONE)
+			fmtprint(fp, ",%D", &p->from3);
+		if(p->reg != NREG)
+			fmtprint(fp, ",R%d", p->reg);
+		fmtprint(fp, ",%D", &p->to);
+		return 0;
 	}
-	return fmtstrcpy(fp, str);
 }
 
 int
@@ -87,7 +82,6 @@ char*	strcond[16] =
 int
 Dconv(Fmt *fp)
 {
-	char str[STRINGSZ];
 	char *op;
 	Adr *a;
 	long v;
@@ -97,144 +91,127 @@ Dconv(Fmt *fp)
 	switch(a->type) {
 
 	default:
-		sprint(str, "GOK-type(%d)", a->type);
-		break;
+		return fmtprint(fp, "GOK-type(%d)", a->type);
 
 	case D_NONE:
-		str[0] = 0;
 		if(a->name != D_NONE || a->reg != NREG || a->sym != S)
-			sprint(str, "%N(R%d)(NONE)", a, a->reg);
-		break;
+			return fmtprint(fp, "%N(R%d)(NONE)", a, a->reg);
+		return 0;
 
 	case D_CONST:
 		if(a->reg == NREG || a->reg == REGZERO)
-			sprint(str, "$%N", a);
+			return fmtprint(fp, "$%N", a);
 		else
-			sprint(str, "$%N(R%d)", a, a->reg);
-		break;
+			return fmtprint(fp, "$%N(R%d)", a, a->reg);
 
 	case D_SHIFT:
 		v = a->offset;
 		op = "<<>>->@>" + (((v>>22) & 3) << 1);
-		sprint(str, "R%ld%c%c%ld", (v>>16)&0x1F, op[0], op[1], (v>>10)&0x3F);
-		if(a->reg != NREG)
-			sprint(str+strlen(str), "(R%d)", a->reg);
-		break;
+		if(a->reg == NREG)
+			return fmtprint(fp, "R%ld%c%c%ld",
+				(v>>16)&0x1F, op[0], op[1], (v>>10)&0x3F);
+		else
+			return fmtprint(fp, "R%ld%c%c%ld(R%d)",
+				(v>>16)&0x1F, op[0], op[1], (v>>10)&0x3F, a->reg);
 
 	case D_OCONST:
-		sprint(str, "$*$%N", a);
 		if(a->reg != NREG)
-			sprint(str, "%N(R%d)(CONST)", a, a->reg);
-		break;
+			return fmtprint(fp, "$*$%N(R%d)(CONST)", a, a->reg);
+		else
+			return fmtprint(fp, "$*$%N", a);
 
 	case D_OREG:
 		if(a->reg != NREG)
-			sprint(str, "%N(R%d)", a, a->reg);
+			return fmtprint(fp, "%N(R%d)", a, a->reg);
 		else
-			sprint(str, "%N", a);
-		break;
+			return fmtprint(fp, "%N", a);
 
 	case D_XPRE:
 		if(a->reg != NREG)
-			sprint(str, "%N(R%d)!", a, a->reg);
+			return fmtprint(fp, "%N(R%d)!", a, a->reg);
 		else
-			sprint(str, "%N!", a);
-		break;
+			return fmtprint(fp, "%N!", a);
 
 	case D_XPOST:
 		if(a->reg != NREG)
-			sprint(str, "(R%d)%N!", a->reg, a);
+			return fmtprint(fp, "(R%d)%N!", a->reg, a);
 		else
-			sprint(str, "%N!", a);
-		break;
+			return fmtprint(fp, "%N!", a);
 
 	case D_EXTREG:
 		v = a->offset;
 		if(v & (7<<10))
-			snprint(str, sizeof(str), "R%ld%s<<%ld", (v>>16)&31, extop[(v>>13)&7], (v>>10)&7);
+			return fmtprint(fp, "R%ld%s<<%ld", (v>>16)&31, extop[(v>>13)&7], (v>>10)&7);
 		else
-			snprint(str, sizeof(str), "R%ld%s", (v>>16)&31, extop[(v>>13)&7]);
-		break;
+			return fmtprint(fp, "R%ld%s", (v>>16)&31, extop[(v>>13)&7]);
 
 	case D_ROFF:
 		v = a->offset;
 		if(v & (1<<16))
-			snprint(str, sizeof(str), "(R%d)[R%ld%s]", a->reg, v&31, extop[(v>>8)&7]);
+			return fmtprint(fp, "(R%d)[R%ld%s]", a->reg, v&31, extop[(v>>8)&7]);
 		else
-			snprint(str, sizeof(str), "(R%d)(R%ld%s)", a->reg, v&31, extop[(v>>8)&7]);
-		break;
+			return fmtprint(fp, "(R%d)(R%ld%s)", a->reg, v&31, extop[(v>>8)&7]);
 
 	case D_REG:
-		sprint(str, "R%d", a->reg);
 		if(a->name != D_NONE || a->sym != S)
-			sprint(str, "%N(R%d)(REG)", a, a->reg);
-		break;
+			return fmtprint(fp, "%N(R%d)(REG)", a, a->reg);
+		else
+			return fmtprint(fp, "R%d", a->reg);
 
 	case D_SP:
 		if(a->name != D_NONE || a->sym != S)
-			sprint(str, "%N(R%d)(REG)", a, a->reg);
+			return fmtprint(fp, "%N(R%d)(REG)", a, a->reg);
 		else
-			strcpy(str, "SP");
-		break;
+			return fmtprint(fp, "SP");
 
 	case D_COND:
-		strcpy(str, strcond[a->reg & 0xF]);
-		break;
+		return fmtprint(fp, "%s", strcond[a->reg & 0xF]);
 
 	case D_FREG:
-		sprint(str, "F%d", a->reg);
 		if(a->name != D_NONE || a->sym != S)
-			sprint(str, "%N(R%d)(REG)", a, a->reg);
-		break;
+			return fmtprint(fp, "%N(R%d)(REG)", a, a->reg);
+		else
+			return fmtprint(fp, "F%d", a->reg);
 
 	case D_SPR:
+		if(a->name != D_NONE || a->sym != S)
+			return fmtprint(fp, "%N(SPR%lld)(REG)", a, a->offset);
 		switch((ulong)a->offset){
 		case D_FPSR:
-			sprint(str, "FPSR");
-			break;
+			return fmtprint(fp, "FPSR");
 		case D_FPCR:
-			sprint(str, "FPCR");
-			break;
+			return fmtprint(fp, "FPCR");
 		case D_NZCV:
-			sprint(str, "NZCV");
-			break;
+			return fmtprint(fp, "NZCV");
 		default:
-			sprint(str, "SPR(%#llux)", a->offset);
-			break;
+			return fmtprint(fp, "SPR(%#llux)", a->offset);
 		}
-		if(a->name != D_NONE || a->sym != S)
-			sprint(str, "%N(SPR%lld)(REG)", a, a->offset);
-		break;
 
 	case D_BRANCH:	/* botch */
 		if(curp->cond != P) {
 			v = curp->cond->pc;
 			if(a->sym != S)
-				sprint(str, "%s+%#.5lux(BRANCH)", a->sym->name, v);
+				return fmtprint(fp, "%s+%#.5lux(BRANCH)", a->sym->name, v);
 			else
-				sprint(str, "%.5lux(BRANCH)", v);
-		} else
+				return fmtprint(fp, "%.5lux(BRANCH)", v);
+		} else {
 			if(a->sym != S)
-				sprint(str, "%s+%lld(APC)", a->sym->name, a->offset);
+				return fmtprint(fp, "%s+%lld(APC)", a->sym->name, a->offset);
 			else
-				sprint(str, "%lld(APC)", a->offset);
-		break;
+				return fmtprint(fp, "%lld(APC)", a->offset);
+		}
 
 	case D_FCONST:
-		sprint(str, "$%e", ieeedtod(a->ieee));
-		break;
+		return fmtprint(fp, "$%e", ieeedtod(a->ieee));
 
 	case D_SCONST:
-		sprint(str, "$\"%S\"", a->sval);
-		break;
+		return fmtprint(fp, "$\"%S\"", a->sval);
 	}
-	return fmtstrcpy(fp, str);
 }
 
 int
 Nconv(Fmt *fp)
 {
-	char str[STRINGSZ];
 	Adr *a;
 	Sym *s;
 
@@ -242,42 +219,35 @@ Nconv(Fmt *fp)
 	s = a->sym;
 	switch(a->name) {
 	default:
-		sprint(str, "GOK-name(%d)", a->name);
-		break;
+		return fmtprint(fp, "GOK-name(%d)", a->name);
 
 	case D_NONE:
-		sprint(str, "%lld", a->offset);
-		break;
+		return fmtprint(fp, "%lld", a->offset);
 
 	case D_EXTERN:
 		if(s == S)
-			sprint(str, "%lld(SB)", a->offset);
+			return fmtprint(fp, "%lld(SB)", a->offset);
 		else
-			sprint(str, "%s+%lld(SB)", s->name, a->offset);
-		break;
+			return fmtprint(fp, "%s+%lld(SB)", s->name, a->offset);
 
 	case D_STATIC:
 		if(s == S)
-			sprint(str, "<>+%lld(SB)", a->offset);
+			return fmtprint(fp, "<>+%lld(SB)", a->offset);
 		else
-			sprint(str, "%s<>+%lld(SB)", s->name, a->offset);
-		break;
+			return fmtprint(fp, "%s<>+%lld(SB)", s->name, a->offset);
 
 	case D_AUTO:
 		if(s == S)
-			sprint(str, "%lld(SP)", a->offset);
+			return fmtprint(fp, "%lld(SP)", a->offset);
 		else
-			sprint(str, "%s-%lld(SP)", s->name, -a->offset);
-		break;
+			return fmtprint(fp, "%s-%lld(SP)", s->name, -a->offset);
 
 	case D_PARAM:
 		if(s == S)
-			sprint(str, "%lld(FP)", a->offset);
+			return fmtprint(fp, "%lld(FP)", a->offset);
 		else
-			sprint(str, "%s+%lld(FP)", s->name, a->offset);
-		break;
+			return fmtprint(fp, "%s+%lld(FP)", s->name, a->offset);
 	}
-	return fmtstrcpy(fp, str);
 }
 
 int
