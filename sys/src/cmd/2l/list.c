@@ -52,7 +52,7 @@ Xconv(Fmt *fp)
 int
 Dconv(Fmt *fp)
 {
-	char str[40], s[20];
+	char str[40];
 	Adr *a;
 	int i, j;
 	long d;
@@ -89,14 +89,11 @@ Dconv(Fmt *fp)
 
 		if(i != D_NONE) {
 			j = a->scale & 7;
-			snprint(s, sizeof s, "(%R.%c*%c)", i, "WWWWLLLL"[j], "12481248"[j]);
-			strncat(str, s, sizeof str - 1);
-			str[sizeof str - 1] = 0;
+			seprint(strchr(str, 0), &str[sizeof str], "(%R.%c*%c)",
+				i, "WWWWLLLL"[j], "12481248"[j]);
 		}
-		if((i & I_MASK) == I_INDEX3){
-			strncat(str, ")", sizeof str - 1);
-			str[sizeof str - 1] = 0;
-		}
+		if((i & I_MASK) == I_INDEX3)
+			seprint(strchr(str, 0), &str[sizeof str], ")");
 		a->displace = d;
 		a->index = i;
 		goto out;
