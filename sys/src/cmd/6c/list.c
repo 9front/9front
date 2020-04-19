@@ -16,44 +16,36 @@ listinit(void)
 int
 Bconv(Fmt *fp)
 {
-	char str[STRINGSZ], ss[STRINGSZ], *s;
 	Bits bits;
 	int i;
 
-	memset(str, 0, sizeof str);
 	bits = va_arg(fp->args, Bits);
 	while(bany(&bits)) {
 		i = bnum(bits);
-		if(str[0])
-			strncat(str, " ", sizeof str - 1);
-		if(var[i].sym == S) {
-			snprint(ss, sizeof ss, "$%lld", var[i].offset);
-			s = ss;
-		} else
-			s = var[i].sym->name;
-		strncat(str, s, sizeof str - 1);
 		bits.b[i/32] &= ~(1L << (i%32));
+		if(var[i].sym == S)
+			fmtprint(fp, "$%lld ", var[i].offset);
+		else
+			fmtprint(fp, "%s ", var[i].sym->name);
 	}
-	return fmtstrcpy(fp, str);
+	return 0;
 }
 
 int
 Pconv(Fmt *fp)
 {
-	char str[STRINGSZ];
 	Prog *p;
 
 	p = va_arg(fp->args, Prog*);
 	if(p->as == ADATA)
-		snprint(str, sizeof str, "	%A	%D/%d,%D",
+		return fmtprint(fp, "	%A	%D/%d,%D",
 			p->as, &p->from, p->from.scale, &p->to);
 	else if(p->as == ATEXT)
-		snprint(str, sizeof str, "	%A	%D,%d,%D",
+		return fmtprint(fp, "	%A	%D,%d,%D",
 			p->as, &p->from, p->from.scale, &p->to);
 	else
-		snprint(str, sizeof str, "	%A	%D,%D",
+		return fmtprint(fp, "	%A	%D,%D",
 			p->as, &p->from, &p->to);
-	return fmtstrcpy(fp, str);
 }
 
 int
@@ -274,16 +266,13 @@ char*	regstr[] =
 int
 Rconv(Fmt *fp)
 {
-	char str[20];
 	int r;
 
 	r = va_arg(fp->args, int);
 	if(r >= D_AL && r <= D_NONE)
-		snprint(str, sizeof str, "%s", regstr[r-D_AL]);
+		return fmtprint(fp, "%s", regstr[r-D_AL]);
 	else
-		snprint(str, sizeof str, "gok(%d)", r);
-
-	return fmtstrcpy(fp, str);
+		return fmtprint(fp, "gok(%d)", r);
 }
 
 int

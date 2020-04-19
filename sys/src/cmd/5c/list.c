@@ -17,25 +17,19 @@ listinit(void)
 int
 Bconv(Fmt *fp)
 {
-	char str[STRINGSZ], ss[STRINGSZ], *s;
 	Bits bits;
 	int i;
 
-	memset(str, 0, sizeof str);
 	bits = va_arg(fp->args, Bits);
 	while(bany(&bits)) {
 		i = bnum(bits);
-		if(str[0])
-			strncat(str, " ", sizeof str - 1);
-		if(var[i].sym == S) {
-			snprint(ss, sizeof ss, "$%ld", var[i].offset);
-			s = ss;
-		} else
-			s = var[i].sym->name;
-		strncat(str, s, sizeof str - 1);
 		bits.b[i/32] &= ~(1L << (i%32));
+		if(var[i].sym == S)
+			fmtprint(fp, "$%ld ", var[i].offset);
+		else
+			fmtprint(fp, "%s ", var[i].sym->name);
 	}
-	return fmtstrcpy(fp, str);
+	return 0;
 }
 
 char *extra [] = {
@@ -195,12 +189,10 @@ Dconv(Fmt *fp)
 int
 Rconv(Fmt *fp)
 {
-	char str[STRINGSZ];
 	Adr *a;
 	int i, v;
 
 	a = va_arg(fp->args, Adr*);
-	snprint(str, sizeof str, "GOK-reglist");
 	switch(a->type) {
 	case D_CONST:
 		if(a->reg != NREG)
@@ -208,19 +200,14 @@ Rconv(Fmt *fp)
 		if(a->sym != S)
 			break;
 		v = a->offset;
-		memset(str, 0, sizeof str);
+		fmtprint(fp, "[");
 		for(i=0; i<NREG; i++) {
-			if(v & (1<<i)) {
-				if(str[0] == 0)
-					strncat(str, "[R", sizeof str - 1);
-				else
-					strncat(str, ",R", sizeof str - 1);
-				snprint(str+strlen(str), sizeof(str)-strlen(str), "%d", i);
-			}
+			if(v & (1<<i))
+				fmtprint(fp, "R%d,", i);
 		}
-		strncat(str, "]", sizeof str - 1);
+		fmtprint(fp, "]");
 	}
-	return fmtstrcpy(fp, str);
+	return 0;
 }
 
 int

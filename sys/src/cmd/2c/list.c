@@ -27,25 +27,19 @@ indexv(int i, int j)
 int
 Bconv(Fmt *fp)
 {
-	char str[STRINGSZ], ss[STRINGSZ], *s;
 	Bits bits;
 	int i;
 
-	memset(str, 0, sizeof str);
 	bits = va_arg(fp->args, Bits);
 	while(bany(&bits)) {
 		i = bnum(bits);
-		if(str[0])
-			strncat(str, " ", sizeof str - 1);
-		if(var[i].sym == S) {
-			snprint(ss, sizeof ss, "$%ld", var[i].offset);
-			s = ss;
-		} else
-			s = var[i].sym->name;
-		strncat(str, s, sizeof str - 1);
 		bits.b[i/32] &= ~(1L << (i%32));
+		if(var[i].sym == S)
+			fmtprint(fp, "$%ld ", var[i].offset);
+		else
+			fmtprint(fp, "%s ", var[i].sym->name);
 	}
-	return fmtstrcpy(fp, str);
+	return 0;
 }
 
 int
