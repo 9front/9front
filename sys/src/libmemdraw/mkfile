@@ -29,14 +29,8 @@ UPDATE=\
 
 </sys/src/cmd/mksyslib
 
-$O.drawtime: drawtime.$O $LIB
-	$LD -o $target $prereq
-
 $O.drawtest: drawtest.$O $LIB
 	$LD -o $target $prereq
  
 $O.arctest: arctest.$O draw.$O arc.$O $LIB
-	$LD -o $target $prereq
-
-$O.test: test.$O $LIB
 	$LD -o $target $prereq

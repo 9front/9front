@@ -824,9 +824,9 @@ cgen(Node *n, Node *nn)
 				gopcode(o, n->type, r, &nod);
 		} else {
 			/* TO DO: could do better with r->addable >= INDEXED */
-			regalloc(&nod1, r, Z);
+			regalloc(&nod1, r, nn);
 			cgen(r, &nod1);
-			regalloc(&nod, l, nn);
+			regalloc(&nod, l, Z);
 			cgen(l, &nod);
 			gopcode(o, n->type, &nod1, &nod);
 			regfree(&nod1);
