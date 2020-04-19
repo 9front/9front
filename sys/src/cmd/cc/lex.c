@@ -760,7 +760,7 @@ talph:
 	if(s->macro) {
 		newio();
 		cp = ionext->b;
-		macexpand(s, cp);
+		macexpand(s, cp, sizeof(ionext->b));
 		pushio();
 		ionext->link = iostack;
 		iostack = ionext;

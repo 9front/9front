@@ -136,7 +136,7 @@ Sym*	getsym(void);
 void	domacro(void);
 void	macund(void);
 void	macdef(void);
-void	macexpand(Sym*, char*);
+void	macexpand(Sym*, char*, int);
 void	macinc(void);
 void	macprag(void);
 void	maclin(void);
