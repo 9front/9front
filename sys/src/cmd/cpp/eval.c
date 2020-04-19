@@ -31,7 +31,7 @@ const struct pri {
 	char	assoc;
 	char	arity;
 	char	ctype;
-} priority[] = {
+} priority[MAXTOK] = {
 	[END]		{ 0, 0, 0, 0 },
 	[EQ]		{ 11, 0, 2, RELAT },
 	[NEQ]		{ 11, 0, 2, RELAT },
