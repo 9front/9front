@@ -13,25 +13,26 @@ struct Fontdata{
 	Font *font;
 	int space;
 }fontlist[4][4]={
-	"dejavusans/unicode.12", 0, 0,
-	"dejavusans/unicode.12", 0, 0,
-	"dejavusans/unicode.14", 0, 0,
-	"dejavusans/unicode.16", 0, 0,
+/* original */
+	"lucidasans/unicode.7", 0, 0,
+	"lucidasans/unicode.8", 0, 0,
+	"lucidasans/unicode.10", 0, 0,
+	"lucidasans/unicode.13", 0, 0,
 
-	"dejavusansit/unicode.12", 0, 0,
-	"dejavusansit/unicode.12", 0, 0,
-	"dejavusansit/unicode.14", 0, 0,
-	"dejavusansit/unicode.16", 0, 0,
+	"lucidasans/italicunicode.7", 0, 0,
+	"lucidasans/italicunicode.8", 0, 0,
+	"lucidasans/italicunicode.10", 0, 0,
+	"lucidasans/italicunicode.13", 0, 0,
 
-	"dejavusansbd/unicode.12", 0, 0,
-	"dejavusansbd/unicode.12", 0, 0,
-	"dejavusansbd/unicode.14", 0, 0,
-	"dejavusansbd/unicode.16", 0, 0,
+	"lucidasans/boldunicode.7", 0, 0,
+	"lucidasans/boldunicode.8", 0, 0,
+	"lucidasans/boldunicode.10", 0, 0,
+	"lucidasans/boldunicode.13", 0, 0,
 
-	"terminus/unicode.12", 0, 0,
-	"terminus/unicode.14", 0, 0,
-	"terminus/unicode.16", 0, 0,
-	"terminus/unicode.18", 0, 0,
+	"lucidasans/typeunicode.7", 0, 0,
+	"pelm/unicode.8", 0, 0,
+	"lucidasans/typeunicode.12", 0, 0,
+	"lucidasans/typeunicode.16", 0, 0,
 };
 
 Font *pl_whichfont(int f, int s, int *space){
