@@ -89,7 +89,8 @@ beget4(uchar *p)
 static void
 devtreeprop(char *path, char *key, void *val, int len)
 {
-	if(strcmp(path, "/memory") == 0 && strcmp(key, "reg") == 0){
+	if((strcmp(path, "/memory") == 0 || strcmp(path, "/memory@0") == 0)
+	&& strcmp(key, "reg") == 0){
 		if(findconf("*maxmem") < 0 && len > 0 && (len % (3*4)) == 0){
 			uvlong top;
 			uchar *p = val;
