@@ -110,6 +110,9 @@ If nothing is selected, the current URL is copied.
 .B paste
 Paste the snarf buffer to the current text entry.
 .TP
+.B plumb
+Plumb the current URL.
+.TP
 .B search
 Search for a regular expression in the current page.
 .TP
