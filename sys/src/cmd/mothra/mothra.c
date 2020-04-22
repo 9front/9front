@@ -95,6 +95,7 @@ char *buttons[]={
 	"moth mode",
 	"snarf",
 	"paste",
+	"plumb",
 	"search",
 	"save hit",
 	"hit list",
@@ -936,6 +937,7 @@ urlstr(Url *url){
 		return url->fullname;
 	return url->reltext;
 }
+
 Url *copyurl(Url *u){
 	Url *v;
 	v=emalloc(sizeof(Url));
@@ -944,11 +946,13 @@ Url *copyurl(Url *u){
 	v->basename = strdup(u->basename);
 	return v;
 }
+
 void freeurl(Url *u){
 	free(u->reltext);
 	free(u->basename);
 	free(u);
 }
+
 void seturl(Url *url, char *urlname, char *base){
 	url->reltext = strdup(urlname);
 	url->basename = strdup(base);
@@ -956,6 +960,7 @@ void seturl(Url *url, char *urlname, char *base){
 	url->tag[0] = 0;
 	url->map = 0;
 }
+
 Url* selurl(char *urlname){
 	Url *last;
 
@@ -1167,7 +1172,9 @@ void paste(Panel *p){
 	plpaste(p);
 }
 void hit3(int button, int item){
+	char buf[1024];
 	char name[NNAME];
+	char *s;
 	Panel *swap;
 	int fd;
 	USED(button);
@@ -1199,9 +1206,27 @@ void hit3(int button, int item){
 		paste(plkbfocus);
 		break;
 	case 4:
-		search();
+		if(plkbfocus==nil || plkbfocus==cmd){
+			if(text==nil || text->snarf==nil || selection==nil)
+				return;
+			if((s=text->snarf(text))==nil)
+				s=smprint("%s", urlstr(selection));
+		}else
+			if((s=plkbfocus->snarf(plkbfocus))==nil)
+				return;
+		if((fd=plumbopen("send", OWRITE))<0){
+			message("can't plumb");
+			free(s);
+			return;
+		}
+		plumbsendtext(fd, "mothra", nil, getwd(buf, sizeof buf), s);
+		close(fd);
+		free(s);
 		break;
 	case 5:
+		search();
+		break;
+	case 6:
 		if(!selection){
 			message("no url selected");
 			break;
@@ -1221,11 +1246,11 @@ void hit3(int button, int item){
 		fprint(fd, "<p><a href=\"%s\">%s</a>\n", urlstr(selection), urlstr(selection));
 		close(fd);
 		break;
-	case 6:
+	case 7:
 		snprint(name, sizeof(name), "file:%s/hit.html", mkhome());
 		geturl(name, -1, 1, 0);
 		break;
-	case 7:
+	case 8:
 		if(confirm(3))
 			exits(0);
 		break;
