@@ -573,7 +573,6 @@ Next:
 void
 bootscreeninit(void)
 {
-	static Memdata md;
 	VGAscr *scr;
 	int x, y, z;
 	ulong chan, pa, sz;
@@ -622,9 +621,7 @@ bootscreeninit(void)
 	if(memimageinit() < 0)
 		return;
 
-	md.ref = 1;
-	md.bdata = scr->vaddr;
-	gscreen = allocmemimaged(Rect(0,0,x,y), chan, &md);
+	gscreen = allocmemimage(Rect(0,0,x,y), chan);
 	if(gscreen == nil)
 		return;
 
@@ -632,14 +629,16 @@ bootscreeninit(void)
 	scr->memdefont = getmemdefont();
 	scr->gscreen = gscreen;
 	scr->gscreendata = gscreen->data;
-	scr->softscreen = 0;
-	scr->useflush = 0;
+	scr->softscreen = 1;
+	scr->useflush = 1;
 	scr->dev = nil;
 
 	physgscreenr = gscreen->r;
 
 	vgaimageinit(chan);
 	vgascreenwin(scr);
+
+	drawcmap();
 
 	scr->cur = &vgasoftcur;
 	scr->cur->enable(scr);
