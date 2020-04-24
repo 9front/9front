@@ -85,7 +85,7 @@ wingetec(Window *w)
 		w->nbuf = read(w->event, w->buf, sizeof w->buf);
 		if(w->nbuf <= 0){
 			/* probably because window has exited, and only called by wineventproc, so just shut down */
-			threadexits(nil);
+			threadexitsall(nil);
 		}
 		w->bufp = w->buf;
 	}
