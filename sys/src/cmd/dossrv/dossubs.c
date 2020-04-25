@@ -1000,8 +1000,6 @@ writefile(Xfile *f, void *vbuf, vlong offset, long count)
 			c = count;
 		if(c == bp->sectsize){
 			p = getosect(xf, addr);
-			if(p == nil)
-				return -1;
 			p->flags = 0;
 		}else{
 			p = getsect(xf, addr);
@@ -1634,8 +1632,7 @@ makecontig(Xfile *f, int nextra)
 			if(rp == nil)
 				return -1;
 			wp = getosect(xf, ws);
-			if(wp == nil)
-				return -1;
+			assert(wp != nil);
 			memmove(wp->iobuf, rp->iobuf, bp->sectsize);
 			wp->flags = BMOD;
 			putsect(rp);
@@ -1705,8 +1702,6 @@ falloc(Xfs *xf)
 	k = clust2sect(bp, n);
 	for(i=0; i<bp->clustsize; i++){
 		p = getosect(xf, k+i);
-		if(p == nil)
-			return -1;
 		memset(p->iobuf, 0, bp->sectsize);
 		p->flags = BMOD;
 		putsect(p);

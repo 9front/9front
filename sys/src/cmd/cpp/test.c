@@ -21,9 +21,6 @@ CAT3(blah)
 #define FOO	CAT(BAR, 3)
 FOO
 
-/* Expected: a bc d */
-CAT(a b, c d)
-
 /*
  * CURRENTLY BROKEN:
  *     __VA_ARGS__ requires at least one item.

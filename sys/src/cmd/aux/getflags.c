@@ -26,21 +26,15 @@ findarg(char *flags, Rune r)
 char*
 argname(char *p)
 {
-	char *s;
 	Rune r;
 	int n;
 
-	s = p;
-	if(*p == ' ')
-		p++;
 	while(1){
 		n = chartorune(&r, p);
 		if(!isalpharune(r) && !isdigitrune(r))
 			break;
 		p += n;
 	}
-	if(*s == ' ')
-		return s;
 	return p;
 }
 

@@ -39,11 +39,8 @@ getiosect(Xfs *xf, vlong addr, int rflag)
 	int toff;
 	Iosect *p;
 
-	if(addr < 0){
-		chat("invalid address\n");
-		errno = Eio;
+	if(addr < 0)
 		return nil;
-	}
 	toff = addr % Sect2trk;
 	taddr = addr - toff;
 	t = getiotrack(xf, taddr);
@@ -56,10 +53,8 @@ getiosect(Xfs *xf, vlong addr, int rflag)
 	}
 	t->ref++;
 	p = t->tp->p[toff];
-	if(p == nil){
+	if(p == 0){
 		p = newsect();
-		if(p == nil)
-			return nil;
 		t->tp->p[toff] = p;
 		p->flags = t->flags&BSTALE;
 		p->lock.key = 0;
@@ -201,10 +196,10 @@ twrite(Iotrack *t)
 			t->flags &= ~BSTALE;
 	}
 	if(devwrite(t->xf, t->addr, t->tp->buf, Trksize) < 0){
-		chat("error]\n");
+		chat("error]");
 		return -1;
 	}
-	chat(" done]\n");
+	chat(" done]");
 	return 0;
 }
 
@@ -309,8 +304,6 @@ newsect(void)
 	else
 		p = malloc(sizeof(Iosect));
 	unmlock(&freelock);
-	if(p == nil)
-		return nil;
 	p->next = 0;
 	return p;
 }
