@@ -250,7 +250,7 @@ fldelete(Flayer *l, long p0, long p1)
 }
 
 int
-flselect(Flayer *l)
+flselect(Flayer *l, ulong *p)
 {
 	static int clickcount;
 	static Point clickpt = {-10, -10};
@@ -261,6 +261,7 @@ flselect(Flayer *l)
 	dt = mousep->msec - l->click;
 	dx = abs(mousep->xy.x - clickpt.x);
 	dy = abs(mousep->xy.y - clickpt.y);
+	*p = frcharofpt(&l->f, mousep->xy) + l->origin;
 
 	l->click = mousep->msec;
 	clickpt = mousep->xy;
@@ -270,7 +271,8 @@ flselect(Flayer *l)
 	clickcount = 0;
 
 	frselect(&l->f, mousectl);
-	l->p0 = l->f.p0+l->origin, l->p1 = l->f.p1+l->origin;
+	l->p0 = l->f.p0+l->origin;
+	l->p1 = l->f.p1+l->origin;
 	return 0;
 }
 

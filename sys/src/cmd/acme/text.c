@@ -932,7 +932,7 @@ textselect(Text *t)
 	if(mouse->msec-clickmsec >= 500 || selecttext != t || clickcount > 3)
 		clickcount = 0;
 	if(clickcount >= 1 && selecttext==t && mouse->msec-clickmsec < 500){
-		textstretchsel(t, &q0, &q1, clickcount);
+		textstretchsel(t, selectq, &q0, &q1, clickcount);
 		textsetselect(t, q0, q1);
 		flushimage(display, 1);
 		x = mouse->xy.x;
@@ -951,7 +951,7 @@ textselect(Text *t)
 		mouse->xy.y = y;
 		q0 = t->q0;	/* may have changed */
 		q1 = t->q1;
-		selectq = q0;
+		selectq = t->org+frcharofpt(t, mouse->xy);;
 	}
 	if(mouse->buttons == b && clickcount == 0){
 		t->Frame.scroll = framescroll;
@@ -971,7 +971,7 @@ textselect(Text *t)
 	}
 	if(q0 == q1){
 		if(q0==t->q0 && mouse->msec-clickmsec<500)
-			textstretchsel(t, &q0, &q1, clickcount);
+			textstretchsel(t, selectq, &q0, &q1, clickcount);
 		else
 			clicktext = t;
 		clickmsec = mouse->msec;
@@ -1304,12 +1304,14 @@ inmode(Rune r, int mode)
 }
 
 void
-textstretchsel(Text *t, uint *q0, uint *q1, int mode)
+textstretchsel(Text *t, uint mp, uint *q0, uint *q1, int mode)
 {
 	int c, i;
 	Rune *r, *l, *p;
 	uint q;
 
+	*q0 = mp;
+	*q1 = mp;
 	for(i=0; left[i]!=nil; i++){
 		q = *q0;
 		l = left[i];

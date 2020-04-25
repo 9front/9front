@@ -1024,7 +1024,7 @@ wselect(Window *w)
 		clickcount = 0;
 	if(clickwin == w && clickcount >= 1 && w->mc.msec-clickmsec < 500){
 		mode = (clickcount > 2) ? 2 : clickcount;
-		wstretchsel(w, &q0, &q1, mode);
+		wstretchsel(w, selectq, &q0, &q1, mode);
 		wsetselect(w, q0, q1);
 		x = w->mc.xy.x;
 		y = w->mc.xy.y;
@@ -1042,7 +1042,7 @@ wselect(Window *w)
 		w->mc.xy.y = y;
 		q0 = w->q0;	/* may have changed */
 		q1 = w->q1;
-		selectq = q0;
+		selectq = w->org+frcharofpt(w, w->mc.xy);
 	}
 	if(w->mc.buttons == b && clickcount == 0){
 		w->scroll = framescroll;
@@ -1063,7 +1063,7 @@ wselect(Window *w)
 	if(q0 == q1){
 		mode = (clickcount > 2) ? 2 : clickcount;
 		if(q0==w->q0 && clickwin==w && w->mc.msec-clickmsec<500)
-			wstretchsel(w, &q0, &q1, mode);
+			wstretchsel(w, selectq, &q0, &q1, mode);
 		else
 			clickwin = w;
 		clickmsec = w->mc.msec;
@@ -1499,12 +1499,14 @@ inmode(Rune r, int mode)
 }
 
 void
-wstretchsel(Window *w, uint *q0, uint *q1, int mode)
+wstretchsel(Window *w, uint pt, uint *q0, uint *q1, int mode)
 {
 	int c, i;
 	Rune *r, *l, *p;
 	uint q;
 
+	*q0 = pt;
+	*q1 = pt;
 	for(i=0; left[i]!=nil; i++){
 		q = *q0;
 		l = left[i];

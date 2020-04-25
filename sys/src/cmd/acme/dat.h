@@ -203,7 +203,7 @@ void		textcolumnate(Text*, Dirlist**, int);
 void		textcommit(Text*, int);
 void		textconstrain(Text*, uint, uint, uint*, uint*);
 void		textdelete(Text*, uint, uint, int);
-void		textstretchsel(Text*, uint*, uint*, int);
+void		textstretchsel(Text*, uint, uint*, uint*, int);
 void		textfill(Text*);
 void		textframescroll(Text*, int);
 void		textinit(Text*, File*, Rectangle, Reffont*, Image**);
