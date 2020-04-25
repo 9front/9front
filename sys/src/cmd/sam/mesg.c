@@ -54,7 +54,7 @@ char *hname[] = {
 	[Hsnarflen]	"Hsnarflen",
 	[Hack]		"Hack",
 	[Hexit]		"Hexit",
-	[Hplumb]		"Hplumb",
+	[Hplumb]	"Hplumb",
 };
 
 char *tname[] = {
@@ -76,11 +76,12 @@ char *tname[] = {
 	[Tsearch]	"Tsearch",
 	[Tsend]		"Tsend",
 	[Tdclick]	"Tdclick",
+	[Ttclick]	"Ttclick",
 	[Tstartsnarf]	"Tstartsnarf",
 	[Tsetsnarf]	"Tsetsnarf",
 	[Tack]		"Tack",
 	[Texit]		"Texit",
-	[Tplumb]		"Tplumb",
+	[Tplumb]	"Tplumb",
 };
 
 void
@@ -458,9 +459,10 @@ inmesg(Tmesg type)
 		break;
 
 	case Tdclick:
+	case Ttclick:
 		f = whichfile(inshort());
 		p1 = inlong();
-		doubleclick(f, p1);
+		stretchsel(f, p1, type == Ttclick);
 		f->tdot.p1 = f->tdot.p2 = p1;
 		telldot(f);
 		outTs(Hunlockfile, f->tag);

@@ -5,7 +5,7 @@ typedef enum Vis{
 }Vis;
 
 enum{
-	Clicktime=1000,		/* one second */
+	Clicktime=500,		/* milliseconds */
 };
 
 typedef struct Flayer Flayer;

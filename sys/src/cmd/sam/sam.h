@@ -241,7 +241,7 @@ File	*current(File*);
 void	delete(File*);
 void	delfile(File*);
 void	dellist(List*, int);
-void	doubleclick(File*, Posn);
+void	stretchsel(File*, Posn, int);
 void	dprint(char*, ...);
 void	edit(File*, int);
 void	*emalloc(ulong);

@@ -31,7 +31,7 @@ int	spacesindent;
 void
 threadmain(int argc, char *argv[])
 {
-	int i, got, scr, chord;
+	int i, got, nclick, scr, chord;
 	Text *t;
 	Rectangle r;
 	Flayer *nwhich;
@@ -105,8 +105,12 @@ threadmain(int argc, char *argv[])
 					current(nwhich);
 				else{
 					t=(Text *)which->user1;
-					if(flselect(which)){
-						outTsl(Tdclick, t->tag, which->p0);
+					nclick = flselect(which);
+					if(nclick > 0){
+						if(nclick > 1)
+							outTsl(Ttclick, t->tag, which->p0);
+						else
+							outTsl(Tdclick, t->tag, which->p0);
 						t->lock++;
 					}else if(t!=&cmd)
 						outcmd();
