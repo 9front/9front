@@ -350,7 +350,7 @@ ispaste(Tokenrow *rtr, Token **ap, Token **an, int *ntok)
 void
 substargs(Nlist *np, Tokenrow *rtr, Tokenrow **atr)
 {
-	Tokenrow ttr;
+	Tokenrow ttr, rp, rn;
 	Token *tp, *ap, *an, *pp, *pn;
 	int ntok, argno, hs;
 
@@ -369,19 +369,25 @@ substargs(Nlist *np, Tokenrow *rtr, Tokenrow **atr)
 			insertrow(rtr, ntok, stringify(atr[argno]));
 		} else if (ispaste(rtr, &ap, &an, &ntok)) { /* first token, just do the next one */
 			pp = ap;
+			rp.tp = nil;
 			pn = an;
+			rn.tp = nil;
 			if (ap && (argno = lookuparg(np, ap)) >= 0){
 				pp = nil;
-				if(atr[argno]->tp != atr[argno]->lp)
-					pp = atr[argno]->lp - 1;
+				rp = *atr[argno];
+				if(rp.tp != rp.lp)
+					pp = --rp.lp;
 			}
 			if (an && (argno = lookuparg(np, an)) >= 0) {
 				pn = nil;
-				if(atr[argno]->tp != atr[argno]->lp)
-					pn = atr[argno]->lp - 1;
+				rn = *atr[argno];
+				if(rn.tp != rn.lp)
+					pn = rn.bp++;
 			}
 			glue(&ttr, pp, pn);
+			insertrow(rtr, 0, &rp);
 			insertrow(rtr, ntok, &ttr);
+			insertrow(rtr, 0, &rn);
 			free(ttr.bp);
 		} else if (rtr->tp->type==NAME) {
 			if((argno = lookuparg(np, rtr->tp)) >= 0) {

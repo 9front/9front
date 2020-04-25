@@ -550,7 +550,7 @@ rclunk(void)
 /*
  * wipe out a dos directory entry
  */
-static void
+static int
 doremove(Xfs *xf, Dosptr *dp)
 {
 	Iosect *p;
@@ -565,6 +565,8 @@ doremove(Xfs *xf, Dosptr *dp)
 	}
 	if(prevdo < 0 && dp->prevaddr != -1){
 		p = getsect(xf, dp->prevaddr);
+		if(p == nil)
+			return -1;
 		for(prevdo = ((Dosbpb*)xf->ptr)->sectsize-DOSDIRSIZE; prevdo >= 0; prevdo -= DOSDIRSIZE){
 			if(p->iobuf[prevdo+11] != 0xf)
 				break;
@@ -572,7 +574,8 @@ doremove(Xfs *xf, Dosptr *dp)
 			p->flags |= BMOD;
 		}
 		putsect(p);
-	}		
+	}
+	return 0;		
 }
 
 void
@@ -601,8 +604,7 @@ rremove(void)
 	 * or it's a read only file in the root directory
 	 */
 	parp = getsect(f->xf, dp->paddr);
-	if(parp == nil
-	|| getfile(f) < 0){
+	if(parp == nil || getfile(f) < 0){
 		errno = Eio;
 		goto out;
 	}
@@ -617,7 +619,10 @@ rremove(void)
 		errno = Eio;
 		goto out;
 	}
-	doremove(f->xf, f->ptr);
+	if(doremove(f->xf, f->ptr) == -1){
+		errno = Eio;
+		goto out;
+	}
 	if(!isroot(dp->paddr)){
 		puttime(pard, 0);
 		parp->flags |= BMOD;

@@ -363,6 +363,7 @@ regalloc(Node *n, Node *tn, Node *o)
 			if(reg[i] == 0 && !resvreg[i])
 				goto out;
 		diag(tn, "out of float registers");
+		abort();
 		goto out;
 	}
 	diag(tn, "unknown type in regalloc: %T", tn->type);
