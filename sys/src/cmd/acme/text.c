@@ -868,6 +868,7 @@ textcommit(Text *t, int tofile)
 
 static	Text	*clicktext;
 static	uint	clickmsec;
+static int clickcount;
 static	Text	*selecttext;
 static	uint	selectq;
 
@@ -915,7 +916,7 @@ void
 textselect(Text *t)
 {
 	uint q0, q1;
-	int b, x, y;
+	int b, x, y, dx, dy;
 	int state;
 
 	selecttext = t;
@@ -927,24 +928,32 @@ textselect(Text *t)
 	q0 = t->q0;
 	q1 = t->q1;
 	selectq = t->org+frcharofpt(t, mouse->xy);
-	if(clicktext==t && mouse->msec-clickmsec<500)
-	if(q0==q1 && selectq==q0){
-		textdoubleclick(t, &q0, &q1);
+	clickcount++;
+	if(mouse->msec-clickmsec >= 500 || selecttext != t || clickcount > 3)
+		clickcount = 0;
+	if(clickcount >= 1 && selecttext==t && mouse->msec-clickmsec < 500){
+		textstretchsel(t, &q0, &q1, clickcount);
 		textsetselect(t, q0, q1);
 		flushimage(display, 1);
 		x = mouse->xy.x;
 		y = mouse->xy.y;
 		/* stay here until something interesting happens */
-		do
+		while(1){
 			readmouse(mousectl);
-		while(mouse->buttons==b && abs(mouse->xy.x-x)<3 && abs(mouse->xy.y-y)<3);
+			dx = abs(mouse->xy.x - x);
+			dy = abs(mouse->xy.y - y);
+			if(mouse->buttons != b || dx >= 3 || dy >= 3)
+				break;
+			clickcount++;
+			clickmsec = mouse->msec;
+		}
 		mouse->xy.x = x;	/* in case we're calling frselect */
 		mouse->xy.y = y;
 		q0 = t->q0;	/* may have changed */
 		q1 = t->q1;
 		selectq = q0;
 	}
-	if(mouse->buttons == b){
+	if(mouse->buttons == b && clickcount == 0){
 		t->Frame.scroll = framescroll;
 		frselect(t, mousectl);
 		/* horrible botch: while asleep, may have lost selection altogether */
@@ -961,13 +970,11 @@ textselect(Text *t)
 			q1 = t->org+t->p1;
 	}
 	if(q0 == q1){
-		if(q0==t->q0 && clicktext==t && mouse->msec-clickmsec<500){
-			textdoubleclick(t, &q0, &q1);
-			clicktext = nil;
-		}else{
+		if(q0==t->q0 && mouse->msec-clickmsec<500)
+			textstretchsel(t, &q0, &q1, clickcount);
+		else
 			clicktext = t;
-			clickmsec = mouse->msec;
-		}
+		clickmsec = mouse->msec;
 	}else
 		clicktext = nil;
 	textsetselect(t, q0, q1);
@@ -1006,7 +1013,8 @@ textselect(Text *t)
 		flushimage(display, 1);
 		while(mouse->buttons == b)
 			readmouse(mousectl);
-		clicktext = nil;
+		if(mouse->msec-clickmsec >= 500)
+			clicktext = nil;
 	}
 }
 
@@ -1289,8 +1297,14 @@ Rune *right[] = {
 	nil
 };
 
+int
+inmode(Rune r, int mode)
+{
+	return (mode == 1) ? isalnum(r) : r && !isspace(r);
+}
+
 void
-textdoubleclick(Text *t, uint *q0, uint *q1)
+textstretchsel(Text *t, uint *q0, uint *q1, int mode)
 {
 	int c, i;
 	Rune *r, *l, *p;
@@ -1328,10 +1342,10 @@ textdoubleclick(Text *t, uint *q0, uint *q1)
 		}
 	}
 	/* try filling out word to right */
-	while(*q1<t->file->nc && isalnum(textreadc(t, *q1)))
+	while(*q1<t->file->nc && inmode(textreadc(t, *q1), mode))
 		(*q1)++;
 	/* try filling out word to left */
-	while(*q0>0 && isalnum(textreadc(t, *q0-1)))
+	while(*q0>0 && inmode(textreadc(t, *q0-1), mode))
 		(*q0)--;
 }
 

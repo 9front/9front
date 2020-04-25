@@ -302,6 +302,13 @@ bytetorune(char *s, int *ip)
 }
 
 int
+isspace(Rune c)
+{
+	return c == 0 || c == ' ' || c == '\t' ||
+		c == '\n' || c == '\r' || c == '\v';
+}
+
+int
 isalnum(Rune c)
 {
 	/*
