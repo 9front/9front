@@ -143,6 +143,8 @@ EXTERN struct
 	int	c;
 } fi;
 
+#define	GETC()	((--fi.c < 0)? filbuf(): (*fi.p++ & 0xff))
+
 struct	Io
 {
 	Io*	link;

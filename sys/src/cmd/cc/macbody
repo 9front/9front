@@ -350,7 +350,7 @@ macdef(void)
 		}
 		base = allocn(base, len, 1);
 		base[len++] = c;
-		c = ((--fi.c < 0)? filbuf(): (*fi.p++ & 0xff));
+		c = GETC();
 		if(c == '\n')
 			lineno++;
 		if(c == -1) {
@@ -387,7 +387,10 @@ macexpand(Sym *s, char *b, int blen)
 	char *arg[NARG], *cp, *ob, *eb, *ecp, dots;
 
 	if(*s->macro == 0) {
+		b[blen-1] = 0;
 		strncpy(b, s->macro+1, blen);
+		if(b[blen-1] != '\0')
+			goto toobig;
 		if(debug['m'])
 			print("#expand %s %s\n", s->name, b);
 		return;
@@ -573,32 +576,23 @@ macinc(void)
 	if(c != '\n')
 		goto bad;
 	f = -1;
-	c = 0;
 	for(i=0; i<ninclude; i++) {
 		if(i == 0 && c0 == '>')
 			continue;
-		c = snprint(symb, NSYMB, "%s/%s", include[i], str)+1;
-		if(strncmp(symb, "./", 2) == 0){
+		c = snprint(symb, NSYMB, "%s/%s", include[i], str);;
+		while(strncmp(symb, "./", 2) == 0){
 			c -= 2;
-			memmove(symb, symb+2, c);
+			memmove(symb, symb+2, c+1);
 		}
 		f = open(symb, 0);
 		if(f >= 0)
 			break;
 	}
 	if(f < 0)
-		c = snprint(symb, NSYMB, "%s", str)+1;
-	while(c & 3)
-		c++;
-	while(nhunk < c)
-		gethunk();
-	hp = hunk;
-	memmove(hunk, symb, c);
-	nhunk -= c;
-	hunk += c;
+		snprint(symb, NSYMB, "%s", str);
 	newio();
 	pushio();
-	newfile(hp, f);
+	newfile(strdup(symb), f);
 	return;
 
 bad:

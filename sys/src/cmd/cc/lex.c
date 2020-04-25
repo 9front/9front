@@ -430,7 +430,6 @@ syminit(Sym *s)
 #define	EOF	(-1)
 #define	IGN	(-2)
 #define	ESC	(1<<20)
-#define	GETC()	((--fi.c < 0)? filbuf(): (*fi.p++ & 0xff))
 
 enum
 {
@@ -756,7 +755,7 @@ talph:
 	if(s->macro) {
 		newio();
 		cp = ionext->b;
-		macexpand(s, cp, sizeof(ionext->b));
+		macexpand(s, cp, sizeof(ionext->b)-1);
 		pushio();
 		ionext->link = iostack;
 		iostack = ionext;

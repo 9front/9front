@@ -238,7 +238,7 @@ l1:
 		if(s->macro) {
 			newio();
 			cp = ionext->b;
-			macexpand(s, cp, sizeof(ionext->b));
+			macexpand(s, cp, sizeof(ionext->b)-1);
 			pushio();
 			ionext->link = iostack;
 			iostack = ionext;
