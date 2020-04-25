@@ -962,6 +962,7 @@ wdelete(Window *w, uint q0, uint q1)
 
 static Window	*clickwin;
 static uint	clickmsec;
+static uint	clickcount;
 static Window	*selectwin;
 static uint	selectq;
 
@@ -1007,7 +1008,7 @@ void
 wselect(Window *w)
 {
 	uint q0, q1;
-	int b, x, y, first;
+	int b, x, y, dx, dy, mode, first;
 
 	first = 1;
 	selectwin = w;
@@ -1018,23 +1019,32 @@ wselect(Window *w)
 	q0 = w->q0;
 	q1 = w->q1;
 	selectq = w->org+frcharofpt(w, w->mc.xy);
-	if(clickwin==w && w->mc.msec-clickmsec<500)
-	if(q0==q1 && selectq==w->q0){
-		wdoubleclick(w, &q0, &q1);
+	clickcount++;
+	if(w->mc.msec-clickmsec >= 500 || clickwin != w || clickcount > 3)
+		clickcount = 0;
+	if(clickwin == w && clickcount >= 1 && w->mc.msec-clickmsec < 500){
+		mode = (clickcount > 2) ? 2 : clickcount;
+		wstretchsel(w, &q0, &q1, mode);
 		wsetselect(w, q0, q1);
 		x = w->mc.xy.x;
 		y = w->mc.xy.y;
 		/* stay here until something interesting happens */
-		do
+		while(1){
 			readmouse(&w->mc);
-		while(w->mc.buttons==b && abs(w->mc.xy.x-x)<3 && abs(w->mc.xy.y-y)<3);
+			dx = abs(w->mc.xy.x-x);
+			dy = abs(w->mc.xy.y-y);
+			if(w->mc.buttons != b || dx >= 3 && dy >= 3)
+				break;
+			clickcount++;
+			clickmsec = w->mc.msec;
+		}
 		w->mc.xy.x = x;	/* in case we're calling frselect */
 		w->mc.xy.y = y;
 		q0 = w->q0;	/* may have changed */
 		q1 = w->q1;
 		selectq = q0;
 	}
-	if(w->mc.buttons == b){
+	if(w->mc.buttons == b && clickcount == 0){
 		w->scroll = framescroll;
 		frselect(w, &w->mc);
 		/* horrible botch: while asleep, may have lost selection altogether */
@@ -1051,15 +1061,13 @@ wselect(Window *w)
 			q1 = w->org+w->p1;
 	}
 	if(q0 == q1){
-		if(q0==w->q0 && clickwin==w && w->mc.msec-clickmsec<500){
-			wdoubleclick(w, &q0, &q1);
-			clickwin = nil;
-		}else{
+		mode = (clickcount > 2) ? 2 : clickcount;
+		if(q0==w->q0 && clickwin==w && w->mc.msec-clickmsec<500)
+			wstretchsel(w, &q0, &q1, mode);
+		else
 			clickwin = w;
-			clickmsec = w->mc.msec;
-		}
-	}else
-		clickwin = nil;
+		clickmsec = w->mc.msec;
+	}
 	wsetselect(w, q0, q1);
 	while(w->mc.buttons){
 		w->mc.msec = 0;
@@ -1079,7 +1087,8 @@ wselect(Window *w)
 		wscrdraw(w);
 		while(w->mc.buttons == b)
 			readmouse(&w->mc);
-		clickwin = nil;
+		if(w->mc.msec-clickmsec >= 500)
+			clickwin = nil;
 	}
 }
 
@@ -1483,8 +1492,14 @@ Rune *right[] = {
 	nil
 };
 
+int
+inmode(Rune r, int mode)
+{
+	return (mode == 1) ? isalnum(r) : r && !isspace(r);
+}
+
 void
-wdoubleclick(Window *w, uint *q0, uint *q1)
+wstretchsel(Window *w, uint *q0, uint *q1, int mode)
 {
 	int c, i;
 	Rune *r, *l, *p;
@@ -1522,10 +1537,10 @@ wdoubleclick(Window *w, uint *q0, uint *q1)
 		}
 	}
 	/* try filling out word to right */
-	while(*q1<w->nr && isalnum(w->r[*q1]))
+	while(*q1<w->nr && inmode(w->r[*q1], mode))
 		(*q1)++;
 	/* try filling out word to left */
-	while(*q0>0 && isalnum(w->r[*q0-1]))
+	while(*q0>0 && inmode(w->r[*q0-1], mode))
 		(*q0)--;
 }
 

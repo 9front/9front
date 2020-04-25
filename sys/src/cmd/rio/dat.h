@@ -195,7 +195,7 @@ void		wclosewin(Window*);
 void		wcurrent(Window*);
 void		wcut(Window*);
 void		wdelete(Window*, uint, uint);
-void		wdoubleclick(Window*, uint*, uint*);
+void		wstretchsel(Window*, uint*, uint*, int);
 void		wfill(Window*);
 void		wframescroll(Window*, int);
 void		wkeyctl(Window*, Rune);

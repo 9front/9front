@@ -105,6 +105,13 @@ isalnum(Rune c)
 	return TRUE;
 }
 
+int
+isspace(Rune c)
+{
+	return c == 0 || c == ' ' || c == '\t' ||
+		c == '\n' || c == '\r' || c == '\v';
+}
+
 Rune*
 strrune(Rune *s, Rune c)
 {

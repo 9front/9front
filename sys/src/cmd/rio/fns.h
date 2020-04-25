@@ -9,6 +9,7 @@ int	min(int, int);
 int	max(int, int);
 Rune*	strrune(Rune*, Rune);
 int	isalnum(Rune);
+int	isspace(Rune);
 void	timerstop(Timer*);
 void	timercancel(Timer*);
 Timer*	timerstart(int);
