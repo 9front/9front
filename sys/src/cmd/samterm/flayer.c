@@ -258,7 +258,7 @@ flselect(Flayer *l)
 
 	if(l->visible!=All)
 		flupfront(l);
-	dt = l->click = mousep->msec;
+	dt = mousep->msec - l->click;
 	dx = abs(mousep->xy.x - clickpt.x);
 	dy = abs(mousep->xy.y - clickpt.y);
 
@@ -279,7 +279,6 @@ flsetselect(Flayer *l, long p0, long p1)
 {
 	ulong fp0, fp1;
 
-	l->click = 0;
 	if(l->visible==None || !flprepare(l)){
 		l->p0 = p0, l->p1 = p1;
 		return;
