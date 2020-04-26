@@ -42,6 +42,7 @@ struct Scan {
 	int	ctl;
 	int	alt;
 	int	altgr;
+	int	mod4;
 	int	leds;
 };
 
@@ -285,6 +286,46 @@ Rune kbtabshiftaltgr[Nscan] =
 [0x78]	0,	0,	0,	0,	0,	0,	0,	0,
 };
 
+Rune kbtabmod4[Nscan] =
+{
+[0x00]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x08]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x10]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x18]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x20]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x28]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x30]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x38]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x40]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x48]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x50]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x58]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x60]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x68]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x70]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x78]	0,	0,	0,	0,	0,	0,	0,	0,
+};
+
+Rune kbtabaltgrmod4[Nscan] =
+{
+[0x00]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x08]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x10]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x18]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x20]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x28]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x30]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x38]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x40]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x48]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x50]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x58]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x60]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x68]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x70]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x78]	0,	0,	0,	0,	0,	0,	0,	0,
+};
+
 char*
 dev(char *file)
 {
@@ -368,6 +409,10 @@ kbdputsc(Scan *scan, int c)
 		key.r = kbtabshiftesc1[c];
 	else if(scan->esc1)
 		key.r = kbtabesc1[c];
+	else if(scan->altgr && scan->mod4 && kbtabaltgrmod4[c] != 0)
+		key.r = kbtabaltgrmod4[c];
+	else if(scan->mod4 && kbtabmod4[c] != 0)
+		key.r = kbtabmod4[c];
 	else if(scan->shift && scan->altgr && kbtabshiftaltgr[c] != 0)
 		key.r = kbtabshiftaltgr[c];
 	else if(scan->shift)
@@ -402,6 +447,9 @@ kbdputsc(Scan *scan, int c)
 		break;
 	case Kaltgr:
 		scan->altgr = key.down;
+		break;
+	case Kmod4:
+		scan->mod4 = key.down;
 		break;
 	case Kalt:
 		scan->alt = key.down;
@@ -470,6 +518,8 @@ Nextmsg:
 			a->shift = k.down;
 		else if(k.r == Kaltgr)
 			a->altgr = k.down;
+		else if(k.r == Kmod4)
+			a->mod4 = k.down;
 		else if(k.r == Kctl)
 			a->ctl = k.down;
 		send(keychan, &k);
@@ -664,6 +714,7 @@ nextrune(Channel *ch, Rune *r)
 		case Knum:
 		case Kshift:
 		case Kaltgr:
+		case Kmod4:
 			/* ignore modifiers */
 			continue;
 
@@ -1081,6 +1132,8 @@ kbmapent(int t, int sc)
 	/* 5 */	kbtabctrlesc1,
 	/* 6 */	kbtabshiftesc1,
 	/* 7 */	kbtabshiftaltgr,
+	/* 8 */ kbtabmod4,
+	/* 9 */ kbtabaltgrmod4,
 	};
 	if(t >= 0 && t < nelem(tabs) && sc >= 0 && sc < Nscan)
 		return &tabs[t][sc];
@@ -1116,6 +1169,7 @@ kbcompat(Rune r)
 	static Rune o = Spec|0x60, tab[] = {
 		Kshift, Kbreak, Kctl, Kalt,
 		Kcaps, Knum, Kmiddle, Kaltgr,
+		Kmod4,
 	};
 	if(r >= o && r < o+nelem(tab))
 		return tab[r - o];
