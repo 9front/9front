@@ -16,7 +16,7 @@ struct Scrollbar{
 void pl_drawscrollbar(Panel *p){
 	Scrollbar *sp;
 	sp=p->data;
-	sp->interior=pl_outline(p->b, p->r, p->state);
+	sp->interior=pl_outline(p->b, p->r, SUP); /* SUP was p->state */
 	pl_sliderupd(p->b, sp->interior, sp->dir, sp->lo, sp->hi);
 }
 int pl_hitscrollbar(Panel *g, Mouse *m){

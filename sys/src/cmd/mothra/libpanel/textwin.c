@@ -136,7 +136,7 @@ void tw_draw(Textwin *t, int first, int last){
 	er=t->text+last;
 	for(r=t->text+first,lp=t->loc+(first-t->top);r!=er;r++,lp++){
 		if(lp->y+t->hgt>t->r.max.y){
-			fprint(2, "chr %C, index %ld of %d, loc %d %d, off bottom\n",
+			fprint(2, "chr %C, index %lld of %d, loc %d %d, off bottom\n",
 				*r, lp-t->loc, t->bot-t->top, lp->x, lp->y);
 			return;
 		}

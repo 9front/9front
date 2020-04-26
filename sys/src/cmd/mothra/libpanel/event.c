@@ -9,8 +9,10 @@ void plgrabkb(Panel *g){
 	plkbfocus=g;
 }
 void plkeyboard(Rune c){
-	if(plkbfocus)
+	if(plkbfocus){
 		plkbfocus->type(plkbfocus, c);
+		flushimage(display, 1);
+	}
 }
 
 /*
@@ -45,4 +47,5 @@ void plmouse(Panel *g, Mouse *m){
 			g->flags&=~REMOUSE;
 		g->lastmouse=hit;
 	}
+	flushimage(display, 1);
 }

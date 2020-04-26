@@ -17,7 +17,9 @@ Rtext *pl_rthit(Rtext *, Point, Point, Point);
  * States, also styles
  */
 enum{
-	UP,
+	SUP,	// scrollbar
+	TUP,	// textview
+	UP,	// deprecated
 	DOWN1,
 	DOWN2,
 	DOWN3,

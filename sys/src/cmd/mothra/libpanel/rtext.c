@@ -175,7 +175,9 @@ void pl_rtdraw(Image *b, Rectangle r, Rtext *t, Point offs){
 	Point lp, sp;
 	Rectangle dr;
 	Image *bb;
+	Image *pl_blue;
 
+	pl_blue=allocimage(display, Rect(0,0,1,1), RGB24, 1, 0x0000FFFF);
 	bb = b;
 	if(backup==0 || backup->chan!=b->chan || rectinrect(r, backup->r)==0){
 		freeimage(backup);
@@ -195,7 +197,6 @@ void pl_rtdraw(Image *b, Rectangle r, Rtext *t, Point offs){
 		&& dr.min.x<r.max.x){
 			if(t->b){
 				draw(b, insetrect(dr, BORD), t->b, 0, t->b->r.min);
-				if(t->flags&PL_HOT) border(b, dr, 1, display->black, ZP);
 				if(t->flags&PL_STR) {
 					line(b, Pt(dr.min.x, dr.min.y), Pt(dr.max.x, dr.max.y),
 						Endsquare, Endsquare, 0,
@@ -214,7 +215,10 @@ void pl_rtdraw(Image *b, Rectangle r, Rtext *t, Point offs){
 					pl_stuffbitmap(t->p, bb);
 			}
 			else{
-				string(b, dr.min, display->black, ZP, t->font, t->text);
+				if(t->flags&PL_HOT)
+					string(b, dr.min, pl_blue, ZP, t->font, t->text);
+				else
+					string(b, dr.min,display->black, ZP, t->font, t->text);
 				if(t->flags&PL_SEL)
 					pl_highlight(b, dr);
 				if(t->flags&PL_STR){
@@ -227,15 +231,6 @@ void pl_rtdraw(Image *b, Rectangle r, Rtext *t, Point offs){
 					sp = Pt(dr.max.x, y);
 				} else
 					sp = ZP;
-				if(t->flags&PL_HOT){
-					int y = dr.max.y - 1;
-					if(lp.y != y)
-						lp = Pt(dr.min.x, y);
-					line(b, lp, Pt(dr.max.x, y),
-						Endsquare, Endsquare, 0,
-						display->black, ZP);
-					lp = Pt(dr.max.x, y);
-				} else
 					lp = ZP;
 				continue;
 			}

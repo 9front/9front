@@ -65,6 +65,7 @@ int pl_hitpopup(Panel *g, Mouse *m){
 			if(g->state!=DOWN){
 				if(pp->save!=0){
 					draw(g->b, p->r, pp->save, 0, p->r.min);
+					flushimage(display, 1);
 					freeimage(pp->save);
 					pp->save=0;
 				}

@@ -47,7 +47,7 @@ void pl_drawtextview(Panel *p){
 	Point size;
 
 	tp=p->data;
-	r=pl_outline(p->b, p->r, UP);
+	r=pl_outline(p->b, p->r, TUP);
 	twid=r.max.x-r.min.x;
 	if(twid!=tp->twid){
 		tp->twid=twid;
@@ -80,7 +80,7 @@ int pl_hittextview(Panel *p, Mouse *m){
 	if(oldhitword==oldhitfirst)
 		pl_passon(oldhitword, m);
 	if(m->buttons&OUT)
-		p->state=UP;
+		p->state=PASSIVE;
 	else if(m->buttons&7){
 		p->state=DOWN;
 		tp->buttons=m->buttons;
@@ -100,7 +100,7 @@ int pl_hittextview(Panel *p, Mouse *m){
 	}
 	else{
 		if(p->state==DOWN) hitme=1;
-		p->state=UP;
+		p->state=PASSIVE;
 	}
 	if(tp->hitfirst!=oldhitfirst || tp->hitword!=oldhitword){
 		plrtseltext(tp->text, tp->hitword, tp->hitfirst);
@@ -214,7 +214,7 @@ void plinittextview(Panel *v, int flags, Point minsize, Rtext *t, void (*hit)(Pa
 	Textview *tp;
 	tp=v->data;
 	v->flags=flags|LEAF;
-	v->state=UP;
+	v->state=PASSIVE;
 	v->draw=pl_drawtextview;
 	v->hit=pl_hittextview;
 	v->type=pl_typetextview;

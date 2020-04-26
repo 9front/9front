@@ -19,7 +19,7 @@ int pl_drawinit(int ldepth){
 	plldepth=ldepth;
 	pl_white=allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xFFFFFFFF);
 	pl_light=allocimagemix(display, DPalebluegreen, DWhite);
-	pl_dark =allocimage(display, Rect(0,0,1,1), screen->chan, 1, DPurpleblue);
+	pl_dark=allocimage(display, Rect(0,0,1,1), screen->chan, 1, DPurpleblue);
 	pl_black=allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x000000FF);
 	pl_hilit=allocimage(display, Rect(0,0,1,1), CHAN1(CAlpha,8), 1, 0x80);
 	if(pl_white==0 || pl_light==0 || pl_black==0 || pl_dark==0) return 0;
@@ -38,6 +38,13 @@ void pl_relief(Image *b, Image *ul, Image *lr, Rectangle r, int wid){
 }
 Rectangle pl_boxoutline(Image *b, Rectangle r, int style, int fill){
 	if(plldepth==0) switch(style){
+	case SUP:
+	case TUP:
+		pl_relief(b, pl_white, pl_white, r, BWID);
+		r=insetrect(r, BWID);
+		if(fill) draw(b, r, pl_white, 0, ZP);
+		else border(b, r, SPACE, pl_white, ZP);
+		break;
 	case UP:
 		pl_relief(b, pl_black, pl_black, r, BWID);
 		r=insetrect(r, BWID);
@@ -68,6 +75,13 @@ Rectangle pl_boxoutline(Image *b, Rectangle r, int style, int fill){
 		break;
 	}
 	else switch(style){
+	case SUP:
+	case TUP:
+		pl_relief(b, pl_white, pl_white, r, BWID);
+		r=insetrect(r, BWID);
+		if(fill) draw(b, r, pl_light, 0, ZP);
+		else border(b, r, SPACE, pl_white, ZP);
+		break;
 	case UP:
 		pl_relief(b, pl_white, pl_black, r, BWID);
 		r=insetrect(r, BWID);
@@ -97,7 +111,10 @@ Rectangle pl_boxoutline(Image *b, Rectangle r, int style, int fill){
 		else border(b, r, SPACE, pl_white, ZP);
 		break;
 	}
-	return insetrect(r, SPACE);
+	switch(style){
+	case SUP: return insetrect(r, SPACE-SPACE);
+	default: return insetrect(r, SPACE);
+	}
 }
 Rectangle pl_outline(Image *b, Rectangle r, int style){
 	return pl_boxoutline(b, r, style, 0);
