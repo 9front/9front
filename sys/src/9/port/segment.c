@@ -102,7 +102,6 @@ putseg(Segment *s)
 		}
 		if(i->s == s)
 			i->s = nil;
-		unlock(i);
 		putimage(i);
 	} else if(decref(s) != 0)
 		return;
@@ -260,7 +259,7 @@ attachimage(int type, Chan *c, uintptr base, ulong len)
 	/* dump pages of inactive images to free image structures */
 	while((i = imagealloc.free) == nil) {
 		unlock(&imagealloc);
-		if(imagereclaim(1000) == 0 && imagealloc.free == nil){
+		if(imagereclaim(0) == 0 && imagealloc.free == nil){
 			freebroken();		/* can use the memory */
 			resrcwait("no image after reclaim");
 		}
@@ -288,7 +287,6 @@ found:
 	if(i->s == nil) {
 		incref(i);
 		if(waserror()) {
-			unlock(i);
 			putimage(i);
 			nexterror();
 		}
@@ -316,14 +314,11 @@ imagecached(void)
 }
 
 ulong
-imagereclaim(ulong pages)
+imagereclaim(int active)
 {
 	static Image *i, *ie;
-	ulong np;
 	int j;
-
-	if(pages == 0)
-		return 0;
+	ulong np;
 
 	eqlock(&imagealloc.ireclaim);
 	if(i == nil){
@@ -334,23 +329,19 @@ imagereclaim(ulong pages)
 	for(j = 0; j < conf.nimage; j++, i++){
 		if(i >= ie)
 			i = imagealloc.list;
-		if(i->ref == 0)
+		if(i->ref == 0 || (i->ref != i->pgref) == !active)
 			continue;
-		/*
-		 * if there are no free image structures, only
-		 * reclaim pages from inactive images.
-		 */
-		if(imagealloc.free != nil || i->ref == i->pgref){
-			np += pagereclaim(i, pages - np);
-			if(np >= pages)
-				break;
-		}
+		np += pagereclaim(i);
+		if(np >= 1000)
+			goto Done;
 	}
+Done:
 	qunlock(&imagealloc.ireclaim);
 
 	return np;
 }
 
+/* putimage(): called with image locked and unlocks */
 void
 putimage(Image *i)
 {
@@ -358,14 +349,13 @@ putimage(Image *i)
 	Chan *c;
 	long r;
 
+	r = decref(i);
 	if(i->notext){
-		decref(i);
+		unlock(i);
 		return;
 	}
 
 	c = nil;
-	lock(i);
-	r = decref(i);
 	if(r == i->pgref){
 		/*
 		 * all remaining references to this image are from the

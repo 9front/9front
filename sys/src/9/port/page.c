@@ -93,14 +93,11 @@ freepages(Page *head, Page *tail, ulong np)
 }
 
 ulong
-pagereclaim(Image *i, ulong pages)
+pagereclaim(Image *i)
 {
 	Page **h, **l, **x, *p;
 	Page *fh, *ft;
 	ulong np;
-
-	if(pages == 0)
-		return 0;
 
 	lock(i);
 	if(i->pgref == 0){
@@ -127,18 +124,18 @@ pagereclaim(Image *i, ulong pages)
 		p->next = nil;
 		p->image = nil;
 		p->daddr = ~0;
-		i->pgref--;
-		decref(i);
 
 		if(fh == nil)
 			fh = p;
 		else
 			ft->next = p;
 		ft = p;
-		if(++np >= pages)
+		np++;
+
+		decref(i);
+		if(--i->pgref == 0)
 			break;
 	}
-	unlock(i);
 	putimage(i);
 
 	if(np > 0){
@@ -297,7 +294,6 @@ uncachepage(Page *p)
 			p->image = nil;
 			p->daddr = ~0;
 			i->pgref--;
-			unlock(i);
 			putimage(i);
 			return;
 		}
