@@ -137,12 +137,12 @@ reclaim(void)
 	ulong np;
 
 	for(;;){
-		if((np = pagereclaim(&fscache, 1000)) > 0) {
-			if(0) print("reclaim: %lud fscache\n", np);
-		} else if((np = pagereclaim(&swapimage, 1000)) > 0) {
+		if((np = pagereclaim(&fscache) + imagereclaim(0)) > 0){
+			if(0) print("reclaim: %lud fscache + inactive image\n", np);
+		} else if((np = pagereclaim(&swapimage)) > 0) {
 			if(0) print("reclaim: %lud swap\n", np);
-		} else if((np = imagereclaim(1000)) > 0) {
-			if(0) print("reclaim: %lud image\n", np);
+		} else if((np = imagereclaim(1)) > 0) {
+			if(0) print("reclaim: %lud active image\n", np);
 		}
 		if(!needpages(nil))
 			return 1;	/* have pages, done */
