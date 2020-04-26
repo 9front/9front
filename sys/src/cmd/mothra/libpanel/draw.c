@@ -15,6 +15,7 @@
 #define	CKBORDER 2	/* space around X inside frame */
 static int plldepth;
 static Image *pl_white, *pl_light, *pl_dark, *pl_black, *pl_hilit;
+Image *pl_blue;
 int pl_drawinit(int ldepth){
 	plldepth=ldepth;
 	/* mono */
@@ -23,7 +24,8 @@ int pl_drawinit(int ldepth){
 	pl_dark=allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x555555FF);
 	pl_black=allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x000000FF);
 	pl_hilit=allocimage(display, Rect(0,0,1,1), CHAN1(CAlpha,8), 1, 0x80);
-	if(pl_white==0 || pl_light==0 || pl_black==0 || pl_dark==0) return 0;
+	pl_blue=allocimage(display, Rect(0,0,1,1), RGB24, 1, 0x0000FFFF);
+	if(pl_white==0 || pl_light==0 || pl_black==0 || pl_dark==0 || pl_blue==0) sysfatal("allocimage: %r");
 	return 1;
 }
 void pl_relief(Image *b, Image *ul, Image *lr, Rectangle r, int wid){

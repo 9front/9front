@@ -175,9 +175,7 @@ void pl_rtdraw(Image *b, Rectangle r, Rtext *t, Point offs){
 	Point lp, sp;
 	Rectangle dr;
 	Image *bb;
-	Image *pl_blue;
 
-	pl_blue=allocimage(display, Rect(0,0,1,1), RGB24, 1, 0x0000FFFF);
 	bb = b;
 	if(backup==0 || backup->chan!=b->chan || rectinrect(r, backup->r)==0){
 		freeimage(backup);
