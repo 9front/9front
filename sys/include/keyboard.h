@@ -61,5 +61,6 @@ enum {
 	Knum=	Spec|0x65,
 	Kmiddle=	Spec|0x66,
 	Kaltgr=	Spec|0x67,
+	Kmod4=	Spec|0x68,
 	Kmouse=	Spec|0x100,
 };
