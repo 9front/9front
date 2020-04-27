@@ -214,8 +214,14 @@ sauth(Srv *srv, Req *r)
 static void
 rauth(Req *r, char *error)
 {
-	if(error && r->afid)
+	if(r->afid == nil)
+		return;
+	if(error){
 		closefid(removefid(r->srv->fpool, r->afid->fid));
+		return;
+	}
+	if(r->afid->omode == -1)
+		r->afid->omode = ORDWR;
 }
 
 static void
@@ -402,7 +408,8 @@ sopen(Srv *srv, Req *r)
 	r->ofcall.qid = r->fid->qid;
 	switch(r->ifcall.mode&3){
 	default:
-		assert(0);
+		respond(r, Ebotch);
+		return;
 	case OREAD:
 		p = AREAD;	
 		break;
@@ -443,21 +450,6 @@ sopen(Srv *srv, Req *r)
 	else
 		respond(r, nil);
 }
-static void
-ropen(Req *r, char *error)
-{
-	char errbuf[ERRMAX];
-	if(error)
-		return;
-	if(chatty9p){
-		snprint(errbuf, sizeof errbuf, "fid mode is 0x%ux\n", r->ifcall.mode);
-		write(2, errbuf, strlen(errbuf));
-	}
-	r->fid->omode = r->ifcall.mode;
-	r->fid->qid = r->ofcall.qid;
-	if(r->ofcall.qid.type&QTDIR)
-		r->fid->diroffset = 0;
-}
 
 static void
 screate(Srv *srv, Req *r)
@@ -475,13 +467,18 @@ screate(Srv *srv, Req *r)
 	else
 		respond(r, Enocreate);
 }
+
 static void
-rcreate(Req *r, char *error)
+ropen(Req *r, char *error)
 {
 	if(error)
 		return;
-	r->fid->omode = r->ifcall.mode;
+	if(chatty9p)
+		fprint(2, "fid mode is %x\n", (int)r->ifcall.mode);
+	if(r->ofcall.qid.type&QTDIR)
+		r->fid->diroffset = 0;
 	r->fid->qid = r->ofcall.qid;
+	r->fid->omode = r->ifcall.mode;
 }
 
 static void
@@ -493,6 +490,20 @@ sread(Srv *srv, Req *r)
 		respond(r, Eunknownfid);
 		return;
 	}
+	o = r->fid->omode;
+	if(o == -1){
+		respond(r, Ebotch);
+		return;
+	}
+	switch(o & 3){
+	default:
+		respond(r, Ebotch);
+		return;
+	case OREAD:
+	case ORDWR:
+	case OEXEC:
+		break;
+	}
 	if((int)r->ifcall.count < 0){
 		respond(r, Ebotch);
 		return;
@@ -502,16 +513,10 @@ sread(Srv *srv, Req *r)
 		respond(r, Ebadoffset);
 		return;
 	}
-
 	if(r->ifcall.count > srv->msize - IOHDRSZ)
 		r->ifcall.count = srv->msize - IOHDRSZ;
 	r->rbuf = emalloc9p(r->ifcall.count);
 	r->ofcall.data = r->rbuf;
-	o = r->fid->omode & 3;
-	if(o != OREAD && o != ORDWR && o != OEXEC){
-		respond(r, Ebotch);
-		return;
-	}
 	if((r->fid->qid.type&QTDIR) && r->fid->file){
 		r->ofcall.count = readdirfile(r->fid->rdir, r->rbuf, r->ifcall.count, r->ifcall.offset);
 		respond(r, nil);
@@ -533,10 +538,26 @@ static void
 swrite(Srv *srv, Req *r)
 {
 	int o;
-	char e[ERRMAX];
 
 	if((r->fid = lookupfid(srv->fpool, r->ifcall.fid)) == nil){
 		respond(r, Eunknownfid);
+		return;
+	}
+	o = r->fid->omode;
+	if(o == -1){
+		respond(r, Ebotch);
+		return;
+	}
+	switch(o & 3){
+	default:
+		respond(r, Ebotch);
+		return;
+	case OWRITE:
+	case ORDWR:
+		break;
+	}
+	if(r->fid->qid.type&QTDIR){
+		respond(r, Ebotch);
 		return;
 	}
 	if((int)r->ifcall.count < 0){
@@ -549,12 +570,6 @@ swrite(Srv *srv, Req *r)
 	}
 	if(r->ifcall.count > srv->msize - IOHDRSZ)
 		r->ifcall.count = srv->msize - IOHDRSZ;
-	o = r->fid->omode & 3;
-	if(o != OWRITE && o != ORDWR){
-		snprint(e, sizeof e, "write on fid with open mode 0x%ux", r->fid->omode);
-		respond(r, e);
-		return;
-	}
 	if(srv->write)
 		srv->write(r);
 	else
@@ -860,7 +875,7 @@ respond(Req *r, char *error)
 	case Tattach:	rattach(r, error);	break;
 	case Twalk:	rwalk(r, error);	break;
 	case Topen:	ropen(r, error);	break;
-	case Tcreate:	rcreate(r, error);	break;
+	case Tcreate:	ropen(r, error);	break;
 	case Tread:	rread(r, error);	break;
 	case Twrite:	rwrite(r, error);	break;
 	case Tclunk:	rclunk(r, error);	break;
