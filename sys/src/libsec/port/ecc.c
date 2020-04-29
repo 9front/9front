@@ -498,7 +498,7 @@ base58enc(uchar *src, char *dst, int len)
 	}
 	for(; *src == 0; src++)
 		*dst++ = code[0];
-	dst--;
+	*dst-- = 0;
 	while(dst > sdst){
 		t = *sdst;
 		*sdst++ = *dst;
