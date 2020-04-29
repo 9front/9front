@@ -21,16 +21,24 @@ struct Button{
 #define	BUTTON	1
 #define	CHECK	2
 #define	RADIO	3
+#define MENU	4
 void pl_drawbutton(Panel *p){
 	Rectangle r;
 	Button *bp;
 	bp=p->data;
-	r=pl_box(p->b, p->r, p->state);
 	switch(bp->btype){
+	case MENU:
+		r=pl_box(p->b, p->r, p->state);
+		break;
+	case BUTTON:
+		r=pl_box(p->b, p->r, p->state|BORDER);
+		break;
 	case CHECK:
+		r=pl_box(p->b, p->r, p->state|BORDER);
 		r=pl_check(p->b, r, bp->check);
 		break;
 	case RADIO:
+		r=pl_box(p->b, p->r, p->state|BORDER);
 		r=pl_radio(p->b, r, bp->check);
 		break;
 	}
@@ -93,7 +101,7 @@ Point pl_getsizebutton(Panel *p, Point children){
 	USED(children);		/* shouldn't have any children */
 	bp=p->data;
 	s=pl_iconsize(p->flags, bp->icon);
-	if(bp->btype!=BUTTON){
+	if(bp->btype!=BUTTON && bp->btype!=MENU){
 		ckw=pl_ckwid();
 		if(s.y<ckw){
 			s.x+=ckw;
@@ -121,6 +129,7 @@ void pl_initbtype(Panel *v, int flags, Icon *icon, void (*hit)(Panel *, int, int
 	bp->hit=hit;
 	bp->icon=icon;
 	switch(btype){
+	case MENU:   v->kind="button"; break;
 	case BUTTON: v->kind="button"; break;
 	case CHECK:  v->kind="checkbutton"; break;
 	case RADIO:  v->kind="radiobutton"; break;
@@ -139,6 +148,13 @@ void plinitcheckbutton(Panel *p, int flags, Icon *icon, void (*hit)(Panel *, int
 }
 void plinitradiobutton(Panel *p, int flags, Icon *icon, void (*hit)(Panel *, int, int)){
 	pl_initbtype(p, flags, icon, hit, RADIO);
+}
+Panel *pl_menubutton(Panel *parent, int flags, Icon *icon, void (*hit)(Panel *, int)){
+	Panel *p;
+	p=pl_newpanel(parent, sizeof(Button));
+	((Button *)p->data)->pl_buttonhit=hit;
+	pl_initbtype(p, flags, icon, pl_buttonhit, MENU);
+	return p;
 }
 Panel *plbutton(Panel *parent, int flags, Icon *icon, void (*hit)(Panel *, int)){
 	Panel *p;
@@ -173,7 +189,7 @@ void plinitmenu(Panel *v, int flags, Icon **item, int cflags, void (*hit)(int, i
 		v->child=0;
 	}
 	for(i=0;item[i];i++){
-		b=plbutton(v, cflags, item[i], pl_hitmenu);
+		b=pl_menubutton(v, cflags, item[i], pl_hitmenu);
 		((Button *)b->data)->menuhit=hit;
 		((Button *)b->data)->index=i;
 	}

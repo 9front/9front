@@ -7,7 +7,7 @@
 /*
  * Just a wrapper for all the initialization routines
  */
-int plinit(int ldepth){
-	if(!pl_drawinit(ldepth)) return 0;
+int plinit(void){
+	if(!pl_drawinit()) return 0;
 	return 1;
 }

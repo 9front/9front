@@ -216,7 +216,7 @@ void pl_rtdraw(Image *b, Rectangle r, Rtext *t, Point offs){
 				if(t->flags&PL_HOT)
 					string(b, dr.min, pl_blue, ZP, t->font, t->text);
 				else
-					string(b, dr.min,display->black, ZP, t->font, t->text);
+					string(b, dr.min, display->black, ZP, t->font, t->text);
 				if(t->flags&PL_SEL)
 					pl_highlight(b, dr);
 				if(t->flags&PL_STR){

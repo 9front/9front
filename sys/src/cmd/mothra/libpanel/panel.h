@@ -109,9 +109,7 @@ struct Panel{
 
 Panel *plkbfocus;			/* the panel in keyboard focus */
 
-extern Image *pl_blue;
-
-int plinit(int);			/* initialization */
+int plinit(void);			/* initialization */
 void plpack(Panel *, Rectangle);	/* figure out where to put the Panel & children */
 void plmove(Panel *, Point);		/* move an already-packed panel to a new location */
 void pldraw(Panel *, Image *);		/* display the panel on the bitmap */

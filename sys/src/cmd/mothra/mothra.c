@@ -349,7 +349,7 @@ void main(int argc, char *argv[]){
 	if(pipe(kickpipe) < 0)
 		sysfatal("pipe: %r");
 	estart(Ekick, kickpipe[0], 256);
-	plinit(screen->depth);
+	plinit();
 	if(debug) notify(dienow);
 	getfonts();
 	hrule=allocimage(display, Rect(0, 0, 1, 5), screen->chan, 1, DWhite);

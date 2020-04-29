@@ -6,109 +6,60 @@
 #include "pldefs.h"
 #define	PWID	1	/* width of label border */
 #define	BWID	1	/* width of button relief */
-#define	FWID	2	/* width of frame relief */
-#define	SPACE	1	/* space inside relief of button or frame */
+#define	FWID	1	/* width of frame relief */
+#define	SPACE	2	/* space inside relief of button or frame */
 #define	CKSIZE	3	/* size of check mark */
 #define	CKSPACE	2	/* space around check mark */
 #define	CKWID	1	/* width of frame around check mark */
 #define	CKINSET	1	/* space around check mark frame */
 #define	CKBORDER 2	/* space around X inside frame */
-static int plldepth;
 static Image *pl_white, *pl_light, *pl_dark, *pl_black, *pl_hilit;
 Image *pl_blue;
-int pl_drawinit(int ldepth){
-	plldepth=ldepth;
-	/* mono */
+int pl_drawinit(void){
 	pl_white=allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xFFFFFFFF);
 	pl_light=allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xFFFFFFFF);
-	pl_dark=allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x555555FF);
+	pl_dark=allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x777777FF);
 	pl_black=allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x000000FF);
 	pl_hilit=allocimage(display, Rect(0,0,1,1), CHAN1(CAlpha,8), 1, 0x80);
 	pl_blue=allocimage(display, Rect(0,0,1,1), RGB24, 1, 0x0000FFFF);
 	if(pl_white==0 || pl_light==0 || pl_black==0 || pl_dark==0 || pl_blue==0) sysfatal("allocimage: %r");
 	return 1;
 }
-void pl_relief(Image *b, Image *ul, Image *lr, Rectangle r, int wid){
-	int x, y;
-	draw(b, Rect(r.min.x, r.max.y-wid, r.max.x, r.max.y), lr, 0, ZP); /* bottom */
-	draw(b, Rect(r.max.x-wid, r.min.y, r.max.x, r.max.y), lr, 0, ZP); /* right */
-	draw(b, Rect(r.min.x, r.min.y, r.min.x+wid, r.max.y), ul, 0, ZP); /* left */
-	draw(b, Rect(r.min.x, r.min.y, r.max.x, r.min.y+wid), ul, 0, ZP); /* top */
-	for(x=0;x!=wid;x++) for(y=wid-1-x;y!=wid;y++){
-		draw(b, rectaddpt(Rect(0,0,1,1), Pt(x+r.max.x-wid, y+r.min.y)), lr, 0, ZP);
-		draw(b, rectaddpt(Rect(0,0,1,1), Pt(x+r.min.x, y+r.max.y-wid)), lr, 0, ZP);
-	}
-}
 Rectangle pl_boxoutline(Image *b, Rectangle r, int style, int fill){
-	if(plldepth==0) switch(style){
+	int doborder;
+	
+	doborder = (style & BORDER) != 0;
+	switch(style & ~BORDER){
 	case SUP:
 	case TUP:
-		pl_relief(b, pl_white, pl_white, r, BWID);
+		if(fill) draw(b, r, pl_light, 0, ZP);
+		else border(b, r, BWID+SPACE, pl_white, ZP);
+		if(doborder) border(b, r, BWID, pl_black, ZP);
 		r=insetrect(r, BWID);
-		if(fill) draw(b, r, pl_white, 0, ZP);
-		else border(b, r, SPACE, pl_white, ZP);
 		break;
 	case UP:
-		pl_relief(b, pl_black, pl_black, r, BWID);
+		if(fill) draw(b, r, pl_light, 0, ZP);
+		else border(b, r, BWID+SPACE, pl_white, ZP);
+		if(doborder) border(b, r, BWID, pl_black, ZP);
 		r=insetrect(r, BWID);
-		if(fill) draw(b, r, pl_white, 0, ZP);
-		else border(b, r, SPACE, pl_white, ZP);
 		break;
 	case DOWN:
 	case DOWN1:
 	case DOWN2:
 	case DOWN3:
-		pl_relief(b, pl_black, pl_black, r, BWID);
-		r=insetrect(r, BWID);
-		if(fill) draw(b, r, pl_black, 0, ZP);
-		border(b, r, SPACE, pl_black, ZP);
-		break;
-	case PASSIVE:
-		if(fill) draw(b, r, pl_white, 0, ZP);
-		r=insetrect(r, PWID);
-		if(!fill) border(b, r, SPACE, pl_white, ZP);
-		break;
-	case FRAME:
-		pl_relief(b, pl_white, pl_black, r, FWID);
-		r=insetrect(r, FWID);
-		pl_relief(b, pl_black, pl_white, r, FWID);
-		r=insetrect(r, FWID);
-		if(fill) draw(b, r, pl_white, 0, ZP);
-		else border(b, r, SPACE, pl_white, ZP);
-		break;
-	}
-	else switch(style){
-	case SUP:
-	case TUP:
-		pl_relief(b, pl_white, pl_white, r, BWID);
-		r=insetrect(r, BWID);
-		if(fill) draw(b, r, pl_light, 0, ZP);
-		else border(b, r, SPACE, pl_white, ZP);
-		break;
-	case UP:
-		pl_relief(b, pl_white, pl_black, r, BWID);
-		r=insetrect(r, BWID);
-		if(fill) draw(b, r, pl_light, 0, ZP);
-		else border(b, r, SPACE, pl_white, ZP);
-		break;
-	case DOWN:
-	case DOWN1:
-	case DOWN2:
-	case DOWN3:
-		pl_relief(b, pl_black, pl_white, r, BWID);
-		r=insetrect(r, BWID);
 		if(fill) draw(b, r, pl_dark, 0, ZP);
-		else border(b, r, SPACE, pl_black, ZP);
+		else border(b, r, BWID+SPACE, pl_dark, ZP);
+		if(doborder) border(b, r, BWID, pl_black, ZP);
+		r=insetrect(r, BWID);
 		break;
 	case PASSIVE:
 		if(fill) draw(b, r, pl_light, 0, ZP);
+		else border(b, r, PWID+SPACE, pl_white, ZP);
+		if(doborder) border(b, r, BWID, pl_black, ZP);
 		r=insetrect(r, PWID);
-		if(!fill) border(b, r, SPACE, pl_white, ZP);
 		break;
 	case FRAME:
-		pl_relief(b, pl_white, pl_black, r, FWID);
-		r=insetrect(r, FWID);
-		pl_relief(b, pl_black, pl_white, r, FWID);
+		border(b, r, FWID, pl_black, ZP);
 		r=insetrect(r, FWID);
 		if(fill) draw(b, r, pl_light, 0, ZP);
 		else border(b, r, SPACE, pl_white, ZP);
@@ -136,7 +87,7 @@ Point pl_boxsize(Point interior, int state){
 	case PASSIVE:
 		return addpt(interior, Pt(2*(PWID+SPACE), 2*(PWID+SPACE)));
 	case FRAME:
-		return addpt(interior, Pt(4*FWID+2*SPACE, 4*FWID+2*SPACE));
+		return addpt(interior, Pt(2*FWID+2*SPACE, 2*FWID+2*SPACE));
 	}
 	return Pt(0, 0);
 }
@@ -155,8 +106,8 @@ void pl_interior(int state, Point *ul, Point *size){
 		*size=subpt(*size, Pt(2*(PWID+SPACE), 2*(PWID+SPACE)));
 		break;
 	case FRAME:
-		*ul=addpt(*ul, Pt(2*FWID+SPACE, 2*FWID+SPACE));
-		*size=subpt(*size, Pt(4*FWID+2*SPACE, 4*FWID+2*SPACE));
+		*ul=addpt(*ul, Pt(FWID+SPACE, FWID+SPACE));
+		*size=subpt(*size, Pt(2*FWID+2*SPACE, 2*FWID+2*SPACE));
 	}
 }
 
@@ -194,15 +145,9 @@ Rectangle pl_radio(Image *b, Rectangle r, int val){
 	r.max.x=r.min.x+r.max.y-r.min.y;
 	remainder.min.x=r.max.x;
 	r=insetrect(r, CKINSET);
-	if(plldepth==0)
-		pl_relief(b, pl_black, pl_black, r, CKWID);
-	else
-		pl_relief(b, pl_black, pl_white, r, CKWID);
+	border(b, r, CKWID, pl_white, ZP);
 	r=insetrect(r, CKWID);
-	if(plldepth==0)
-		draw(b, r, pl_white, 0, ZP);
-	else
-		draw(b, r, pl_light, 0, ZP);
+	draw(b, r, pl_light, 0, ZP);
 	if(val) draw(b, insetrect(r, CKSPACE), pl_black, 0, ZP);
 	return remainder;
 }
@@ -212,15 +157,9 @@ Rectangle pl_check(Image *b, Rectangle r, int val){
 	r.max.x=r.min.x+r.max.y-r.min.y;
 	remainder.min.x=r.max.x;
 	r=insetrect(r, CKINSET);
-	if(plldepth==0)
-		pl_relief(b, pl_black, pl_black, r, CKWID);
-	else
-		pl_relief(b, pl_black, pl_white, r, CKWID);
+	border(b, r, CKWID, pl_white, ZP);
 	r=insetrect(r, CKWID);
-	if(plldepth==0)
-		draw(b, r, pl_white, 0, ZP);
-	else
-		draw(b, r, pl_light, 0, ZP);
+	draw(b, r, pl_light, 0, ZP);
 	r=insetrect(r, CKBORDER);
 	if(val){
 		line(b, Pt(r.min.x,   r.min.y+1), Pt(r.max.x-1, r.max.y  ), Endsquare, Endsquare, 0, pl_black, ZP);
@@ -292,7 +231,7 @@ void pl_clr(Image *b, Rectangle r){
 	draw(b, r, display->white, 0, ZP);
 }
 void pl_fill(Image *b, Rectangle r){
-	draw(b, r, plldepth==0? pl_white : pl_light, 0, ZP);
+	draw(b, r, pl_light, 0, ZP);
 }
 void pl_cpy(Image *b, Point dst, Rectangle src){
 	draw(b, Rpt(dst, addpt(dst, subpt(src.max, src.min))), b, 0, src.min);

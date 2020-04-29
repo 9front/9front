@@ -49,7 +49,7 @@ void pl_drawentry(Panel *p){
 	char *s;
 
 	ep=p->data;
-	r=pl_box(p->b, p->r, p->state);
+	r=pl_box(p->b, p->r, p->state|BORDER);
 	s=ep->entry;
 	if(p->flags & USERFL){
 		char *p;

@@ -5,7 +5,7 @@
 #include <panel.h>
 #include "pldefs.h"
 void pl_drawgroup(Panel *p){
-	USED(p);
+	pl_outline(p->b, p->r, FRAME);
 }
 int pl_hitgroup(Panel *p, Mouse *m){
 	USED(p, m);
@@ -14,12 +14,11 @@ int pl_hitgroup(Panel *p, Mouse *m){
 void pl_typegroup(Panel *p, Rune c){
 	USED(p, c);
 }
-Point pl_getsizegroup(Panel *p, Point children){
-	USED(p);
-	return children;
+Point pl_getsizegroup(Panel *, Point children){
+	return pl_boxsize(children, FRAME);
 }
-void pl_childspacegroup(Panel *p, Point *ul, Point *size){
-	USED(p, ul, size);
+void pl_childspacegroup(Panel *, Point *ul, Point *size){
+	pl_interior(FRAME, ul, size);
 }
 void plinitgroup(Panel *v, int flags){
 	v->flags=flags;
