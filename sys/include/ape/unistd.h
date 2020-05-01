@@ -1,7 +1,7 @@
 #ifndef	__UNISTD_H
 #define	__UNISTD_H
 #ifndef _POSIX_SOURCE
-   This header file is not defined in pure ANSI
+#error  This header file is not defined in pure ANSI
 #endif
 #pragma lib "/$M/lib/ape/libap.a"
 
