@@ -413,12 +413,10 @@ gc82543attach(Ether* edev)
 	 */
 	ctlr = edev->ctlr;
 	lock(&ctlr->slock);
-	if(ctlr->started == 0){
-		ctlr->started = 1;
-		snprint(name, KNAMELEN, "#l%d82543", edev->ctlrno);
-		kproc(name, gc82543watchdog, edev);
+	if(ctlr->started){
+		unlock(&ctlr->slock);
+		return;
 	}
-	unlock(&ctlr->slock);
 
 	ctl = csr32r(ctlr, Rctl)|Ren;
 	csr32w(ctlr, Rctl, ctl);
@@ -426,6 +424,12 @@ gc82543attach(Ether* edev)
 	csr32w(ctlr, Tctl, ctl);
 
 	csr32w(ctlr, Ims, ctlr->im);
+
+	ctlr->started = 1;
+	unlock(&ctlr->slock);
+
+	snprint(name, KNAMELEN, "#l%d82543", edev->ctlrno);
+	kproc(name, gc82543watchdog, edev);
 }
 
 static char* statistics[Nstatistics] = {
