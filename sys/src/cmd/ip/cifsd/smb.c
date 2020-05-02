@@ -1020,16 +1020,6 @@ smbqueryinformationdisk(Req *r, uchar *h, uchar *p, uchar *e)
 }
 
 static int
-unixuid(char *)
-{
-	return 99999;
-}
-static int
-unixgid(char *)
-{
-	return 99999;
-}
-static int
 unixtype(Dir *d)
 {
 	return (d->qid.type & QTDIR) != 0;
@@ -1081,7 +1071,7 @@ fpackdir(Req *r, Dir *d, Tree *t, int i, int level, uchar *b, uchar *p, uchar *e
 			0, i,
 			dlen, alen,
 			mtime, atime, mtime,
-			(vlong)unixuid(d->uid), (vlong)unixgid(d->gid), unixtype(d),
+			(vlong)unixuid(share, d->uid), (vlong)unixgid(share, d->gid), unixtype(d),
 			0LL, 0LL, /* MAJ/MIN */
 			(vlong)d->qid.path,
 			(vlong)d->mode & 0777,
@@ -1147,7 +1137,7 @@ qpackdir(Req *, Dir *d, Tree *t, File *f, int level, uchar *b, uchar *p, uchar *
 		return pack(b, p, e, "vvvvvvvlvvvvv",
 			dlen, alen,
 			mtime, atime, mtime,
-			(vlong)unixuid(d->uid), (vlong)unixgid(d->gid), unixtype(d),
+			(vlong)unixuid(share, d->uid), (vlong)unixgid(share, d->gid), unixtype(d),
 			0LL, 0LL, /* MAJ/MIN */
 			(vlong)d->qid.path,
 			(vlong)d->mode & 0777,
@@ -1229,10 +1219,10 @@ out:
 }
 
 static int
-setfilepathinformation(Req *r, Dir *d, File *f, char *path, int level, uchar *b, uchar *p, uchar *e)
+setfilepathinformation(Req *r, Dir *d, Tree *t, File *f, char *path, int level, uchar *b, uchar *p, uchar *e)
 {
 	int attr, adt, atm, mdt, mtm, delete;
-	vlong len, ctime, atime, mtime, mode;
+	vlong len, ctime, atime, mtime, mode, uid, gid;
 	Dir nd;
 
 	nulldir(&nd);
@@ -1283,8 +1273,8 @@ setfilepathinformation(Req *r, Dir *d, File *f, char *path, int level, uchar *b,
 		break;
 
 	case 0x0200:	/* SMB_SET_FILE_UNIX_BASIC */
-		if(!unpack(b, p, e, "v________vvv____________________________________________v________",
-			&len, &ctime, &atime, &mtime, &mode))
+		if(!unpack(b, p, e, "v________vvvvv____________________________v________",
+			&len, &ctime, &atime, &mtime, &uid, &gid, &mode))
 			goto unsup;
 		if(len != -1LL)
 			nd.length = len;
@@ -1294,6 +1284,14 @@ setfilepathinformation(Req *r, Dir *d, File *f, char *path, int level, uchar *b,
 			nd.mtime = fromfiletime(mtime);
 		else if(ctime && ctime != -1LL)
 			nd.mtime = fromfiletime(ctime);
+		if(uid != -1LL){
+			if((nd.uid = unixname(t->share, (int)uid, 0)) == nil)
+				return STATUS_SMB_BAD_UID;
+		}
+		if(gid != -1LL){
+			if((nd.gid = unixname(t->share, (int)gid, 1)) == nil)
+				return STATUS_SMB_BAD_UID;
+		}
 		if(mode != -1LL)
 			nd.mode = (d->mode & ~0777) | (mode & 0777);
 		break;
@@ -1305,8 +1303,8 @@ setfilepathinformation(Req *r, Dir *d, File *f, char *path, int level, uchar *b,
 		return STATUS_NOT_SUPPORTED;
 	}
 	if(debug)
-		fprint(2, "wstat\nmode %lo\natime %ld\nmtime %ld\nlength %llux\n",
-			nd.mode, nd.atime, nd.mtime, nd.length);
+		fprint(2, "wstat\nmode %lo\natime %ld\nmtime %ld\nlength %llux\nuid %s\ngid %s\n",
+			nd.mode, nd.atime, nd.mtime, nd.length, nd.uid, nd.gid);
 	if(((f && f->fd >= 0) ? dirfwstat(f->fd, &nd) : dirwstat(path, &nd)) < 0)
 		return smbmkerror();
 	xdirflush(path, r->namecmp);
@@ -1334,7 +1332,7 @@ trans2setpathinformation(Trans *t)
 		t->respond(t, smbmkerror());
 		goto out;
 	}
-	if(err = setfilepathinformation(t->r, d, nil, path, level, t->in.data.b, t->in.data.p, t->in.data.e)){
+	if(err = setfilepathinformation(t->r, d, tree, nil, path, level, t->in.data.b, t->in.data.p, t->in.data.e)){
 errout:
 		t->respond(t, err);
 		goto out;
@@ -1367,7 +1365,7 @@ trans2setfileinformation(Trans *t)
 		t->respond(t, smbmkerror());
 		goto out;
 	}
-	if(err = setfilepathinformation(t->r, d, f, f->path, level, t->in.data.b, t->in.data.p, t->in.data.e)){
+	if(err = setfilepathinformation(t->r, d, tree, f, f->path, level, t->in.data.b, t->in.data.p, t->in.data.e)){
 errout:
 		t->respond(t, err);
 		goto out;

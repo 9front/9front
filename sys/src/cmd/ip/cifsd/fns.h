@@ -83,3 +83,9 @@ void putfind(Find *f);
 int xdirread(char **path, int (*namecmp)(char *, char *), Dir **d);
 Dir *xdirstat(char **path, int (*namecmp)(char *, char *));
 void xdirflush(char *path, int (*namecmp)(char *, char *));
+
+/* idmap */
+void unixidmap(Share *share);
+char* unixname(Share *share, int id, int group);
+int unixuid(Share *share, char *name);
+int unixgid(Share *share, char *name);

@@ -6,6 +6,7 @@ TARG=cifsd
 HFILES=dat.h fns.h
 
 OFILES=\
+	idmap.$O \
 	pack.$O \
 	util.$O \
 	error.$O \

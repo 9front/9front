@@ -6,6 +6,9 @@ typedef struct Share Share;
 typedef struct File File;
 typedef struct Find Find;
 typedef struct Tree Tree;
+typedef struct Idmap Idmap;
+
+#pragma incomplete Idmap
 
 struct Rop
 {
@@ -96,6 +99,9 @@ struct Share
 	vlong freesize;
 	int sectorsize;
 	int blocksize;
+
+	Idmap *users;
+	Idmap *groups;
 };
 
 struct Tree

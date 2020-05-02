@@ -114,6 +114,8 @@ mapshare(char *path)
 	s->allocsize = 0;
 	s->freesize = s->blocksize;
 
+	unixidmap(s);
+
 	s->next = shares;
 	shares = s;
 
