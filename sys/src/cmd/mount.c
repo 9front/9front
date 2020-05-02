@@ -97,7 +97,7 @@ main(int argc, char *argv[])
 		rv = mount(fd, -1, argv[1], flag, spec);
 	else
 		rv = amount0(fd, argv[1], flag, spec, keyspec);
-	if(rv < 0){
+	if(rv == -1){
 		if(qflag)
 			exits(0);
 		fprint(2, "%s: mount %s: %r\n", argv0, argv[1]);

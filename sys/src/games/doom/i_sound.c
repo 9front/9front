@@ -484,7 +484,7 @@ void I_PlaySong(musicinfo_t *m, int loop)
 			sysfatal("write: %r");
 		if(seek(0, 0, 0) != 0)
 			sysfatal("seek: %r");
-		if(bind("/fd/1", "/dev/audio", MREPL) < 0)
+		if(bind("/fd/1", "/dev/audio", MREPL) == -1)
 			sysfatal("bind: %r");
 		while(loop && fork() > 0){
 			if(waitpid() < 0 || write(1, "", 0) < 0)

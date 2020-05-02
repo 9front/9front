@@ -23,9 +23,9 @@ dump(void)
 static void
 adjustns(void)
 {
-	if(bind("/arm/bin", "/bin", MREPL) < 0)
+	if(bind("/arm/bin", "/bin", MREPL) == -1)
 		sysfatal("bind: %r");
-	if(bind("/rc/bin", "/bin", MAFTER) < 0)
+	if(bind("/rc/bin", "/bin", MAFTER) == -1)
 		sysfatal("bind: %r");
 	putenv("cputype", "arm");
 	putenv("objtype", "arm");

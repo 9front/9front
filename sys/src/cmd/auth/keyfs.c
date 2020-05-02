@@ -212,7 +212,7 @@ main(int argc, char *argv[])
 		error("fork");
 	default:
 		close(p[1]);
-		if(mount(p[0], -1, mntpt, MREPL|MCREATE, "") < 0)
+		if(mount(p[0], -1, mntpt, MREPL|MCREATE, "") == -1)
 			error("can't mount: %r");
 		exits(0);
 	}

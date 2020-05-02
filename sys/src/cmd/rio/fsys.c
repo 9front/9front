@@ -105,7 +105,7 @@ int
 cexecpipe(int *p0, int *p1)
 {
 	/* pipe the hard way to get close on exec */
-	if(bind("#|", "/mnt/temp", MREPL) < 0)
+	if(bind("#|", "/mnt/temp", MREPL) == -1)
 		return -1;
 	*p0 = open("/mnt/temp/data", ORDWR);
 	*p1 = open("/mnt/temp/data1", ORDWR|OCEXEC);
@@ -235,11 +235,11 @@ filsysmount(Filsys *fs, int id)
 
 	close(fs->sfd);	/* close server end so mount won't hang if exiting */
 	sprint(buf, "%d", id);
-	if(mount(fs->cfd, -1, "/mnt/wsys", MREPL, buf) < 0){
+	if(mount(fs->cfd, -1, "/mnt/wsys", MREPL, buf) == -1){
 		fprint(2, "mount failed: %r\n");
 		return -1;
 	}
-	if(bind("/mnt/wsys", "/dev", MBEFORE) < 0){
+	if(bind("/mnt/wsys", "/dev", MBEFORE) == -1){
 		fprint(2, "bind failed: %r\n");
 		return -1;
 	}

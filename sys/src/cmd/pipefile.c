@@ -78,9 +78,9 @@ main(int argc, char *argv[])
 			sysfatal("open %s: %r", file);
 	}
 
-	if(bind("#|", TEMP, MREPL) < 0)
+	if(bind("#|", TEMP, MREPL) == -1)
 		sysfatal("bind pipe %s: %r", TEMP);
-	if(bind(TEMP "/data", file, MREPL) < 0)
+	if(bind(TEMP "/data", file, MREPL) == -1)
 		sysfatal("bind %s %s: %r", TEMP "/data", file);
 
 	fd0 = open(TEMP "/data1", OREAD);

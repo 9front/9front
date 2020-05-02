@@ -14,7 +14,7 @@ bindnetcs(void)
 
 	if(access("/net/cs", AEXIST) < 0){
 		if((srvfd = open("#s/cs", ORDWR)) >= 0){
-			if(mount(srvfd, -1, "/net", MBEFORE, "") >= 0)
+			if(mount(srvfd, -1, "/net", MBEFORE, "") != -1)
 				return 0;
 			close(srvfd);
 		}

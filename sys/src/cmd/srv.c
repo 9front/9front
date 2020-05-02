@@ -210,8 +210,8 @@ Mount:
 		try = 0;
 	}
 
-	if((!doauth && mount(fd, -1, mtpt, mountflag, "") < 0)
-	|| (doauth && amount(fd, mtpt, mountflag, "") < 0)){
+	if((!doauth && mount(fd, -1, mtpt, mountflag, "") == -1)
+	|| (doauth && amount(fd, mtpt, mountflag, "") == -1)){
 		err[0] = 0;
 		errstr(err, sizeof err);
 		if(strstr(err, "Hangup") || strstr(err, "hungup") || strstr(err, "timed out")){

@@ -119,7 +119,7 @@ Xattach(Fsrpc *t)
 			goto Nomount;
 		sprint(buf, "/mnt/exportfs/%d", i);
 		nfd = dup(srvfd, -1);
-		if(amount(nfd, buf, MREPL|MCREATE, t->work.aname) < 0){
+		if(amount(nfd, buf, MREPL|MCREATE, t->work.aname) == -1){
 			errstr(buf, sizeof buf);
 			reply(&t->work, &rhdr, buf);
 			freefid(t->work.fid);

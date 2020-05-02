@@ -208,7 +208,7 @@ ramfsmain(int argc, char *argv[])
 		break;
 	default:
 		close(mfd[0]);	/* don't deadlock if child fails */
-		if(defmnt && mount(srvfd, -1, defmnt, MREPL|MCREATE, "") < 0)
+		if(defmnt && mount(srvfd, -1, defmnt, MREPL|MCREATE, "") == -1)
 			error("mount failed: %r");
 	}
 }

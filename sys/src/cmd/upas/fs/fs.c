@@ -359,7 +359,7 @@ main(int argc, char *argv[])
 			snprint(srvfile, sizeof srvfile, "/srv/upasfs.%s", user);
 			post(srvfile, "upasfs", p[1]);
 		}else
-			if(mount(p[1], -1, mntpt, MREPL, "") < 0)
+			if(mount(p[1], -1, mntpt, MREPL, "") == -1)
 				error("mount failed");
 	}
 	exits("");

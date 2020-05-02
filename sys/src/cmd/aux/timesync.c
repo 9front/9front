@@ -303,7 +303,7 @@ main(int argc, char **argv)
 		fd = open(timeserver, ORDWR);
 		if(fd < 0)
 			sysfatal("opening %s: %r", timeserver);
-		if(amount(fd, "/n/boot", MREPL, "") < 0)
+		if(amount(fd, "/n/boot", MREPL, "") == -1)
 			sysfatal("mounting %s: %r", timeserver);
 		close(fd);
 		break;

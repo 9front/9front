@@ -140,7 +140,7 @@ main(int argc, char *argv[])
 		break;
 	default:
 		close(p[0]);	/* don't deadlock if child fails */
-		if(mount(p[1], -1, defmnt, MREPL|MCREATE, "") < 0)
+		if(mount(p[1], -1, defmnt, MREPL|MCREATE, "") == -1)
 			error("mount failed");
 	}
 	exits(0);

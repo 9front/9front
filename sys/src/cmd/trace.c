@@ -584,11 +584,11 @@ drawtrace(void)
 		line[sizeof(line) - 1] = '\0';
 		rfork(RFNAMEG);
 	
-		if(mount(wfd, -1, "/mnt/wsys", MREPL, line) < 0) 
+		if(mount(wfd, -1, "/mnt/wsys", MREPL, line) == -1) 
 			sysfatal("%s: Cannot mount %s under /mnt/wsys: %r",
 						argv0, line);
 	
-		if(bind("/mnt/wsys", "/dev", MBEFORE) < 0) 
+		if(bind("/mnt/wsys", "/dev", MBEFORE) == -1) 
 			sysfatal("%s: Cannot bind /mnt/wsys in /dev: %r",
 						argv0);
 	

@@ -310,7 +310,7 @@ mountinit(char *service, char *mntpt)
 		 *  put ourselves into the file system
 		 */
 		close(p[0]);
-		if(mount(p[1], -1, mntpt, MAFTER, "") < 0)
+		if(mount(p[1], -1, mntpt, MAFTER, "") == -1)
 			error("mount failed");
 		_exits(0);
 	}
@@ -1675,7 +1675,7 @@ err:
 		qunlock(&mountlock);
 		return -1;	
 	}
-	if(mount(fd, -1, mntpt, MAFTER, "") < 0){
+	if(mount(fd, -1, mntpt, MAFTER, "") == -1){
 		close(fd);
 		goto err;
 	}

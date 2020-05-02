@@ -184,7 +184,7 @@ nsop(char *fn, int argc, char *argv[], AuthRpc *rpc)
 	}else if(strcmp(argv0, "clear") == 0 && argc == 0){
 		rfork(RFCNAMEG);
 	}else if(strcmp(argv0, "bind") == 0 && argc == 2){
-		if(bind(argv[0], argv[1], flags) < 0 && newnsdebug)
+		if(bind(argv[0], argv[1], flags) == -1 && newnsdebug)
 			fprint(2, "%s: bind: %s %s: %r\n", fn, argv[0], argv[1]);
 	}else if(strcmp(argv0, "unmount") == 0){
 		if(argc == 1)
@@ -199,10 +199,10 @@ nsop(char *fn, int argc, char *argv[], AuthRpc *rpc)
 			return 0;
 		}
 		if(argc == 2){
-			if(famount(fd, rpc, argv[1], flags, "") < 0 && newnsdebug)
+			if(famount(fd, rpc, argv[1], flags, "") == -1 && newnsdebug)
 				fprint(2, "%s: mount: %s %s: %r\n", fn, argv[0], argv[1]);
 		}else if(argc == 3){
-			if(famount(fd, rpc, argv[1], flags, argv[2]) < 0 && newnsdebug)
+			if(famount(fd, rpc, argv[1], flags, argv[2]) == -1 && newnsdebug)
 				fprint(2, "%s: mount: %s %s %s: %r\n", fn, argv[0], argv[1], argv[2]);
 		}
 		close(fd);

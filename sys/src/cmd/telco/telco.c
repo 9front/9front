@@ -381,7 +381,7 @@ main(int argc, char *argv[])
 		if(write(fd, buf, strlen(buf)) < 0)
 			error("writing /srv/telco");
 		close(fd);
-		if(mount(p[1], -1, "/net", MBEFORE, "") < 0)
+		if(mount(p[1], -1, "/net", MBEFORE, "") == -1)
 			error("mount failed");
 		exits(0);
 	}
@@ -1400,11 +1400,10 @@ receiver(Dev *d)
 			syslog(0, LOGFILE, "can't open telco: %r");
 			exits(0);
 		}
-		if(mount(fd, -1, "/net", MAFTER, "") < 0){
+		if(mount(fd, -1, "/net", MAFTER, "") == -1){
 			syslog(0, LOGFILE, "can't mount: %r");
 			exits(0);
 		}
-		close(fd);
 
 		/* open connection through the file system interface */
 		sprint(file, "/net/telco/%zd/data", d - dev);

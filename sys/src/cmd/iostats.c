@@ -313,7 +313,7 @@ main(int argc, char **argv)
 
 		rfork(RFENVG|RFNAMEG);
 
-		if(mount(pfd[0], -1, "/", mflag, "") < 0)
+		if(mount(pfd[0], -1, "/", mflag, "") == -1)
 			sysfatal("mount /: %r");
 
 		/* replace std fds with the exported ones */

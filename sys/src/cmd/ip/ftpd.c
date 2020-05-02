@@ -412,10 +412,10 @@ transfer(char *cmd, char *a1, char *a2, char *a3, int image)
 		if(isnone){
 			fd = open("#s/boot", ORDWR);
 			if(fd < 0
-			|| bind("#/", "/", MAFTER) < 0
-			|| amount(fd, "/bin", MREPL, "") < 0
-			|| bind("#c", "/dev", MAFTER) < 0
-			|| bind(bindir, "/bin", MREPL) < 0)
+			|| bind("#/", "/", MAFTER) == -1
+			|| amount(fd, "/bin", MREPL, "") == -1
+			|| bind("#c", "/dev", MAFTER) == -1
+			|| bind(bindir, "/bin", MREPL) == -1)
 				exits("building name space");
 			close(fd);
 		}
@@ -810,12 +810,12 @@ mountnet(void)
 
 	rv = 0;
 
-	if(bind("#/", "/", MAFTER) < 0){
+	if(bind("#/", "/", MAFTER) == -1){
 		logit("can't bind #/ to /: %r");
 		return reply("500 can't bind #/ to /: %r");
 	}
 
-	if(bind(nci->spec, "/net", MBEFORE) < 0){
+	if(bind(nci->spec, "/net", MBEFORE) == -1){
 		logit("can't bind %s to /net: %r", nci->spec);
 		rv = reply("500 can't bind %s to /net: %r", nci->spec);
 		unmount("#/", "/");

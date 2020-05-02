@@ -264,7 +264,7 @@ mountinit(char *server, char *mountpoint)
 			err = mount(p[1], -1, mountpoint, MREPL|MCREATE, "");
 		else
 			err = amount(p[1], mountpoint, MREPL|MCREATE, "");
-		if (err < 0)
+		if (err == -1)
 			error("mount failed: %r");
 		exits(0);
 	case -1:

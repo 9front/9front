@@ -252,7 +252,7 @@ main(int argc, char *argv[])
 		break;
 	default:
 		close(pfd[1]);	/* don't deadlock if child fails */
-		if(mnt && mount(pfd[0], -1, mntpoint, MREPL|MCREATE, "") < 0)
+		if(mnt && mount(pfd[0], -1, mntpoint, MREPL|MCREATE, "") == -1)
 			sysfatal("mount %s: %r", mntpoint);
 	}
 	exits(0);

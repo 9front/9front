@@ -300,7 +300,7 @@ realmain(void *a)
 	close(pfd[1]);
 
 	time(nil);	/* open fd for time before losing / */
-	if(bind(argv[1], "/", MREPL) == 0)
+	if(bind(argv[1], "/", MREPL) == -1)
 		fatal("can't bind %s to /", argv[1]);
 
 	fs = emalloc(sizeof(Fs));

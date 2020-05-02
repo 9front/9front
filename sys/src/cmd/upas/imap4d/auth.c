@@ -29,11 +29,10 @@ enableforwarding(void)
 	fd = open("/srv/ratify", ORDWR);
 	if(fd < 0)
 		return;
-	if(!mount(fd, -1, "/mail/ratify", MBEFORE, "")){
+	if(mount(fd, -1, "/mail/ratify", MBEFORE, "") == -1){
 		close(fd);
 		return;
 	}
-	close(fd);
 
 	strncpy(peer, remote, sizeof peer);
 	peer[sizeof peer - 1] = 0;

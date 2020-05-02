@@ -266,7 +266,7 @@ mountinit(char *service, char *mntpt)
 		/*
 		 *  put ourselves into the file system
 		 */
-		if(mount(p[1], -1, mntpt, MAFTER, "") < 0)
+		if(mount(p[1], -1, mntpt, MAFTER, "") == -1)
 			fprint(2, "dns mount failed: %r\n");
 		_exits(0);
 	}
