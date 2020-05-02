@@ -380,24 +380,26 @@ attach(Ether* ether)
 
 	ctlr = ether->ctlr;
 	lock(&ctlr->slock);
-	if(ctlr->state == 0){
-		ilock(&ctlr->rlock);
-		csr8w(ctlr, Interrupt, 0);
-		iunlock(&ctlr->rlock);
-		command(ctlr, RUstart, PADDR(ctlr->rfdhead->rp));
-		ctlr->state = 1;
-
-		/*
-		 * Start the watchdog timer for the receive lockup errata
-		 * unless the EEPROM compatibility word indicates it may be
-		 * omitted.
-		 */
-		if((ctlr->eeprom[0x03] & 0x0003) != 0x0003){
-			snprint(name, KNAMELEN, "#l%dwatchdog", ether->ctlrno);
-			kproc(name, watchdog, ether);
-		}
+	if(ctlr->state){
+		unlock(&ctlr->slock);
+		return;
 	}
+	ilock(&ctlr->rlock);
+	csr8w(ctlr, Interrupt, 0);
+	iunlock(&ctlr->rlock);
+	command(ctlr, RUstart, PADDR(ctlr->rfdhead->rp));
+	ctlr->state = 1;
 	unlock(&ctlr->slock);
+
+	/*
+	 * Start the watchdog timer for the receive lockup errata
+	 * unless the EEPROM compatibility word indicates it may be
+	 * omitted.
+	 */
+	if((ctlr->eeprom[0x03] & 0x0003) != 0x0003){
+		snprint(name, KNAMELEN, "#l%dwatchdog", ether->ctlrno);
+		kproc(name, watchdog, ether);
+	}
 }
 
 static long

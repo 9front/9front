@@ -419,19 +419,21 @@ attach(Ether* edev)
 
 	ctlr = edev->ctlr;
 	lock(ctlr);
-	if(!ctlr->attached){
-		ctlr->attached = 1;
-
-		/* ready to go */
-		outb(ctlr->port+Qstatus, inb(ctlr->port+Qstatus) | Sdriverok);
-
-		/* start kprocs */
-		snprint(name, sizeof name, "#l%drx", edev->ctlrno);
-		kproc(name, rxproc, edev);
-		snprint(name, sizeof name, "#l%dtx", edev->ctlrno);
-		kproc(name, txproc, edev);
+	if(ctlr->attached){
+		unlock(ctlr);
+		return;
 	}
+	ctlr->attached = 1;
 	unlock(ctlr);
+
+	/* ready to go */
+	outb(ctlr->port+Qstatus, inb(ctlr->port+Qstatus) | Sdriverok);
+
+	/* start kprocs */
+	snprint(name, sizeof name, "#l%drx", edev->ctlrno);
+	kproc(name, rxproc, edev);
+	snprint(name, sizeof name, "#l%dtx", edev->ctlrno);
+	kproc(name, txproc, edev);
 }
 
 static long
