@@ -25,8 +25,15 @@ newwindow(char *str)
 		snprint(buf, sizeof buf, "new %s", str);
 	else
 		strcpy(buf, "new");
-	if(mount(fd, -1, "/mnt/wsys", MREPL, buf) < 0)
-		return mount(fd, -1, "/dev", MBEFORE, buf);
-	return bind("/mnt/wsys", "/dev", MBEFORE);
+	if(mount(fd, -1, "/mnt/wsys", MREPL, buf) == -1){
+		if(mount(fd, -1, "/dev", MBEFORE, buf) == -1){
+			close(fd);
+			return -1;
+		}
+	} else {
+		if(bind("/mnt/wsys", "/dev", MBEFORE) == -1)
+			return -1;
+	}
+	return 0;
 }
 
