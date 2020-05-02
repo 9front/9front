@@ -239,6 +239,8 @@ main(int argc, char **argv)
 	case 'u':
 		uflag++;
 		continue;
+	case 'E': case 'r':	/* unix compat */
+		continue;
 	default:
 		quit("Unknown flag: %c", ARGC());
 	} ARGEND
