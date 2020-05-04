@@ -1,0 +1,43 @@
+.\" Wrapper around -me
+.\" This package provides auto indexing for sections and a .TC macro.
+.\" Additional feature: In stock -me you can only use 3 fonts with the -me macros. Now you can for example do ".nr sf 4".
+.\" created by sirjofri
+.\" public domain
+.so /sys/lib/tmac/tmac.e
+.ds tn Table of Contents
+.am $0
+.(x t
+.if \\n(.$>2 \
+.	nr $i \\$3*\\\\n(si
+.in \\\\n($iu
+\\*($n\0\0\\*(|x
+.)x
+..
+.de TC
+.bp
+.$p "\\\\*(tn"
+.sp 1m
+.xp t
+..
+.de @F
+.nr ~ \\$1
+.if \\n~>0 \
+\{\
+.	ul 0
+.	ie \\n~>4 \
+\{\
+.		if n .ul 10000
+.		if t .ft \\n~
+.	\}
+.	el \
+.		ft \\n~
+.\}
+.rr ~
+..
+.de FS
+.(f
+\\**
+..
+.de FE
+.)f
+..
