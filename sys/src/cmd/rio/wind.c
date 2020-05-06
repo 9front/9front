@@ -962,6 +962,7 @@ wdelete(Window *w, uint q0, uint q1)
 
 static Window	*clickwin;
 static uint	clickmsec;
+static Point	clickpt;
 static uint	clickcount;
 static Window	*selectwin;
 static uint	selectq;
@@ -1018,9 +1019,12 @@ wselect(Window *w)
 	b = w->mc.buttons;
 	q0 = w->q0;
 	q1 = w->q1;
+	dx = abs(clickpt.x - w->mc.xy.x);
+	dy = abs(clickpt.y - w->mc.xy.y);
+	clickpt = w->mc.xy;
 	selectq = w->org+frcharofpt(w, w->mc.xy);
 	clickcount++;
-	if(w->mc.msec-clickmsec >= 500 || clickwin != w || clickcount > 3)
+	if(w->mc.msec-clickmsec >= 500 || clickwin != w || clickcount > 3 || dx > 3 || dy > 3)
 		clickcount = 0;
 	if(clickwin == w && clickcount >= 1 && w->mc.msec-clickmsec < 500){
 		mode = (clickcount > 2) ? 2 : clickcount;
