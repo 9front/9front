@@ -71,7 +71,7 @@ The description of positional argument list is taken from
 An example of the script generated:
 .IP
 .EX
-% flagfmt='e:example,x,a:arg with args'
+% flagfmt='e:example, x, a:arg with args'
 % aux/getflags -exa arg list positional stuff
 example=()
 flagx=()
@@ -87,7 +87,7 @@ Parse the arguments for
 .IR leak (1):
 .IP
 .EX
-flagfmt='b:showbmp,s:acidfmt,f binary,r res,x width'
+flagfmt='b:showbmp, s:acidfmt, f binary, r res, x width'
 args='name | pid list'
 if(! ifs=() eval `{aux/getflags $*} || ~ $#* 0){
 	aux/usage
