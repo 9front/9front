@@ -928,9 +928,9 @@ textselect(Text *t)
 	b = mouse->buttons;
 	q0 = t->q0;
 	q1 = t->q1;
-	dx = abs(clickpt.x - w->mc.xy.x);
-	dy = abs(clickpt.y - w->mc.xy.y);
-	clickpt = w->mc.xy;
+	dx = abs(clickpt.x - mouse->xy.x);
+	dy = abs(clickpt.y - mouse->xy.y);
+	clickpt = mouse->xy;
 	selectq = t->org+frcharofpt(t, mouse->xy);
 	clickcount++;
 	if(mouse->msec-clickmsec >= 500 || selecttext != t || clickcount > 3 || dx > 3 || dy > 3)
