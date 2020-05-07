@@ -229,8 +229,8 @@ TEXT touser(SB), 1, $-4
 
 TEXT cas(SB), 1, $-4
 TEXT cmpswap(SB), 1, $-4
-	MOVW	ov+8(FP), R1
-	MOVW	nv+16(FP), R2
+	MOVWU	ov+8(FP), R1
+	MOVWU	nv+16(FP), R2
 _cas1:
 	LDXRW	(R0), R3
 	CMP	R3, R1
