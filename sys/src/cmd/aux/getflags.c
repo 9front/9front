@@ -65,7 +65,6 @@ countargs(char *p)
 	int n;
 
 	n = 1;
-	print("%s\n", p);
 	for(p=skipspace(p); *p && *p != ','; p++)
 		if(isspace(*p) && !isspace(*(p-1)))
 			n++;
