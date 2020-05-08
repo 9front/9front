@@ -836,6 +836,33 @@ readerproc(void* a)
 }
 
 static void
+quirks(Hiddev *f)
+{
+	Dev *d;
+	
+	d = f->dev;
+	
+	/* Elecom trackball report descriptor lies by
+	 * omission, failing to mention all its buttons.
+	 * We patch the descriptor with a correct count
+	 * which lets us parse full reports. Tested with:
+	 *   Elecom HUGE (M-HT1DRBK, M-HT1URBK) */
+	if(d->usb->vid == 0x056e && d->usb->did == 0x010c){
+		if(f->nrep < 32
+		|| f->rep[12] != 0x95
+		|| f->rep[14] != 0x75
+		|| f->rep[15] != 0x01
+		|| f->rep[20] != 0x29
+		|| f->rep[30] != 0x75)
+		return;
+
+		f->rep[13] = 8;
+		f->rep[21] = 8;
+		f->rep[31] = 0;
+	}
+}
+
+static void
 hdsetup(Dev *d, Ep *ep)
 {
 	Hiddev *f;
@@ -858,6 +885,7 @@ hdsetup(Dev *d, Ep *ep)
 		fprint(2, "%s: %s: opendevdata: %r\n", argv0, f->ep->dir);
 		goto Err;
 	}
+	quirks(f);
 	procrfork(readerproc, f, Stack, RFNOTEG);
 	return;
 Err:
