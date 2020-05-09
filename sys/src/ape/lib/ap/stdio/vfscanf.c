@@ -72,7 +72,6 @@ int vfscanf(FILE *f, const char *s, va_list args)
 			do
 				c=ngetc(f);
 			while(isspace(c));
-			if(c==EOF) return ncvt?ncvt:EOF;
 			nungetc(c, f);
 			break;
 		}
@@ -396,13 +395,14 @@ icvt_sq(FILE *f, va_list *args, int store, int width, int)
 			if(nn==0) return 0;
 			else goto Done;
 		}
-		if(!match(c, pat))
-			break;
+		if(!match(c, pat)){
+			nungetc(c, f);
+			return 0;
+		}
 		if(store)
 			*s++=c;
 		nn++;
 	}
-	nungetc(c, f);
 Done:
 	if(store) *s='\0';
 	return 1;
