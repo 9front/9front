@@ -438,14 +438,16 @@ checkpages(void)
 		if((s = *sp) == nil)
 			continue;
 		qlock(s);
-		for(addr=s->base; addr<s->top; addr+=BY2PG){
-			off = addr - s->base;
-			if((p = s->map[off/PTEMAPMEM]) == nil)
-				continue;
-			pg = p->pages[(off&(PTEMAPMEM-1))/BY2PG];
-			if(pagedout(pg))
-				continue;
-			checkmmu(addr, pg->pa);
+		if(s->mapsize > 0){
+			for(addr=s->base; addr<s->top; addr+=BY2PG){
+				off = addr - s->base;
+				if((p = s->map[off/PTEMAPMEM]) == nil)
+					continue;
+				pg = p->pages[(off&(PTEMAPMEM-1))/BY2PG];
+				if(pagedout(pg))
+					continue;
+				checkmmu(addr, pg->pa);
+			}
 		}
 		qunlock(s);
 	}

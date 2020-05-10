@@ -54,7 +54,7 @@ proc0(void*)
 	kunmap(k);
 	p->txtflush = ~0;
 	segpage(up->seg[TSEG], p);
-	up->seg[TSEG]->flushme++;
+	up->seg[TSEG]->flushme = 1;
 
 	/*
 	 * Become a user process.

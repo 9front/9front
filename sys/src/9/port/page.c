@@ -377,21 +377,10 @@ freepte(Segment *s, Pte *p)
 
 	pg = p->first;
 	pe = p->last;
-
-	switch(s->type&SG_TYPE) {
-	case SG_PHYSICAL:
-		while(pg <= pe){
-			if(*pg != nil && decref(*pg) == 0)
-				free(*pg);
-			pg++;
-		}
-		break;
-	default:
-		while(pg <= pe){
-			if(*pg != nil)
-				putpage(*pg);
-			pg++;
-		}
+	while(pg <= pe){
+		if(*pg != nil)
+			putpage(*pg);
+		pg++;
 	}
 	free(p);
 }

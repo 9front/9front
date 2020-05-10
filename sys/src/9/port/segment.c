@@ -64,8 +64,11 @@ newseg(int type, uintptr base, ulong size)
 	s->sema.prev = &s->sema;
 	s->sema.next = &s->sema;
 
-	if((type & SG_TYPE) == SG_PHYSICAL)
+	if((type & SG_TYPE) == SG_PHYSICAL){
+		s->map = nil;
+		s->mapsize = 0;
 		return s;
+	}
 
 	mapsize = ROUND(size, PTEPERTAB)/PTEPERTAB;
 	if(mapsize > nelem(s->ssegmap)){
@@ -477,9 +480,6 @@ mcountseg(Segment *s)
 	Page **pg, **pe;
 	ulong pages;
 
-	if((s->type&SG_TYPE) == SG_PHYSICAL)
-		return 0;
-
 	pages = 0;
 	emap = &s->map[s->mapsize];
 	for(pte = s->map; pte < emap; pte++){
@@ -706,26 +706,25 @@ segflush(void *va, uintptr len)
 		s->flushme = 1;
 	more:
 		len = (s->top < to ? s->top : to) - from;
-		off = from-s->base;
-		pte = s->map[off/PTEMAPMEM];
-		off &= PTEMAPMEM-1;
-		if(off+len > PTEMAPMEM)
-			len = PTEMAPMEM-off;
-
-		if(pte != nil) {
-			pg = &pte->pages[off/BY2PG];
-			pe = pg + len/BY2PG;
-			while(pg < pe) {
-				if(!pagedout(*pg))
-					(*pg)->txtflush = ~0;
-				pg++;
+		if(s->mapsize > 0){
+			off = from-s->base;
+			pte = s->map[off/PTEMAPMEM];
+			off &= PTEMAPMEM-1;
+			if(off+len > PTEMAPMEM)
+				len = PTEMAPMEM-off;
+			if(pte != nil) {
+				pg = &pte->pages[off/BY2PG];
+				pe = pg + len/BY2PG;
+				while(pg < pe) {
+					if(!pagedout(*pg))
+						(*pg)->txtflush = ~0;
+					pg++;
+				}
 			}
 		}
-
 		from += len;
 		if(from < to && from < s->top)
 			goto more;
-
 		qunlock(s);
 	}
 }
