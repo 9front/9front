@@ -1239,7 +1239,7 @@ epopen(Ep *ep)
 	slot->nep = 1;
 	ring->slot = slot;
 	ring->doorbell = &ctlr->dba[slot->id];
-	ring->ctx = &slot->obase[8];
+	ring->ctx = &slot->obase[8<<ctlr->csz];
 
 	/* (input) control context */
 	w = slot->ibase;
