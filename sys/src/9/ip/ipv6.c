@@ -76,7 +76,10 @@ ipoput6(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
 	else
 		gate = r->v6.gate;
 
-	rlock(ifc);
+	if(!canrlock(ifc)){
+		ip->stats[OutDiscards]++;
+		goto free;
+	}
 	if(waserror()){
 		runlock(ifc);
 		nexterror();

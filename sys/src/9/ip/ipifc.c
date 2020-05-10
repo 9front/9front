@@ -1167,7 +1167,8 @@ findipifc(Fs *f, uchar *local, uchar *remote, int type)
 	xspec = 0;
 	for(cp = f->ipifc->conv; *cp != nil; cp++){
 		ifc = (Ipifc*)(*cp)->ptcl;
-		rlock(ifc);
+		if(!canrlock(ifc))
+			continue;
 		for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
 			if(type & Runi){
 				if(ipcmp(remote, lifc->local) == 0){
