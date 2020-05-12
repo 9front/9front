@@ -138,15 +138,8 @@ dodefine(char *cp)
 		*p++ = 0;
 		s = lookup();
 		l = strlen(p) + 2;	/* +1 null, +1 nargs */
-		while(l & 3)
-			l++;
-		while(nhunk < l)
-			gethunk();
-		*hunk = 0;
-		strcpy(hunk+1, p);
-		s->macro = hunk;
-		hunk += l;
-		nhunk -= l;
+		s->macro = alloc(l);
+		memcpy(s->macro, p-1, l);
 	} else {
 		s = lookup();
 		s->macro = "\0001";	/* \000 is nargs */
@@ -640,14 +633,8 @@ maclin(void)
 
 nn:
 	c = strlen(symb) + 1;
-	while(c & 3)
-		c++;
-	while(nhunk < c)
-		gethunk();
-	cp = hunk;
-	memcpy(hunk, symb, c);
-	nhunk -= c;
-	hunk += c;
+	cp = alloc(c);
+	memcpy(cp, symb, c);
 	linehist(cp, n);
 	return;
 
@@ -774,17 +761,9 @@ praglib:
 	 * put pragma-line in as a funny history 
 	 */
 	c = strlen(symb) + 1;
-	while(c & 3)
-		c++;
-	while(nhunk < c)
-		gethunk();
-	hp = hunk;
-	memcpy(hunk, symb, c);
-	nhunk -= c;
-	hunk += c;
-
 	h = alloc(sizeof(Hist));
-	h->name = hp;
+	h->name = alloc(c);
+	memcpy(h->name, symb, c);
 	h->line = lineno;
 	h->offset = -1;
 	h->link = H;
