@@ -460,13 +460,13 @@ zaddr(uchar *p, Adr *a, Sym *h[])
 		break;
 
 	case D_SCONST:
-		a->sval = halloc(NSNAME);
+		a->sval = malloc(NSNAME);
 		memmove(a->sval, p+4, NSNAME);
 		c += NSNAME;
 		break;
 
 	case D_FCONST:
-		a->ieee = halloc(sizeof(Ieee));
+		a->ieee = malloc(sizeof(Ieee));
 		a->ieee->l = p[4] | (p[5]<<8) |
 			(p[6]<<16) | (p[7]<<24);
 		a->ieee->h = p[8] | (p[9]<<8) |
@@ -490,7 +490,7 @@ zaddr(uchar *p, Adr *a, Sym *h[])
 			return c;
 		}
 
-	u = halloc(sizeof(Auto));
+	u = malloc(sizeof(Auto));
 	u->link = curauto;
 	curauto = u;
 	u->asym = s;
@@ -785,7 +785,7 @@ loop:
 		goto loop;
 	}
 
-	p = halloc(sizeof(Prog));
+	p = malloc(sizeof(Prog));
 	p->as = o;
 	p->reg = bloc[2] & 0x3F;
 	if(bloc[2] & 0x80)
@@ -1113,12 +1113,7 @@ lookup(char *symb, int v)
 		if(memcmp(s->name, symb, l) == 0)
 			return s;
 
-	while(nhunk < sizeof(Sym))
-		gethunk();
-	s = (Sym*)hunk;
-	nhunk -= sizeof(Sym);
-	hunk += sizeof(Sym);
-
+	s = malloc(sizeof(Sym));
 	s->name = malloc(l);
 	memmove(s->name, symb, l);
 
@@ -1135,29 +1130,8 @@ lookup(char *symb, int v)
 Prog*
 prg(void)
 {
-	Prog *p;
-
-	while(nhunk < sizeof(Prog))
-		gethunk();
-	p = (Prog*)hunk;
-	nhunk -= sizeof(Prog);
-	hunk += sizeof(Prog);
-
+	Prog *p = malloc(sizeof(Sym));
 	*p = zprg;
-	return p;
-}
-
-void*
-halloc(usize n)
-{
-	void *p;
-
-	n = (n+7)&~7;
-	while(nhunk < n)
-		gethunk();
-	p = hunk;
-	nhunk -= n;
-	hunk += n;
 	return p;
 }
 

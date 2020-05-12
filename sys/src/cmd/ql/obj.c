@@ -791,12 +791,7 @@ loop:
 		goto loop;
 	}
 
-	if(nhunk < sizeof(Prog))
-		gethunk();
-	p = (Prog*)hunk;
-	nhunk -= sizeof(Prog);
-	hunk += sizeof(Prog);
-
+	p = malloc(sizeof(Prog));
 	p->as = o;
 	p->reg = bloc[2] & 0x3f;
 	if(bloc[2] & 0x80)
@@ -1073,12 +1068,7 @@ lookup(char *symb, int v)
 		if(memcmp(s->name, symb, l) == 0)
 			return s;
 
-	while(nhunk < sizeof(Sym))
-		gethunk();
-	s = (Sym*)hunk;
-	nhunk -= sizeof(Sym);
-	hunk += sizeof(Sym);
-
+	s = malloc(sizeof(Sym));
 	s->name = malloc(l + 1);
 	memmove(s->name, symb, l);
 
@@ -1095,17 +1085,7 @@ lookup(char *symb, int v)
 Prog*
 prg(void)
 {
-	Prog *p;
-	int n;
-
-	n = (sizeof(Prog) + 3) & ~3;
-	while(nhunk < n)
-		gethunk();
-
-	p = (Prog*)hunk;
-	nhunk -= n;
-	hunk += n;
-
+	Prog *p = malloc(sizeof(Prog));
 	*p = zprg;
 	return p;
 }
