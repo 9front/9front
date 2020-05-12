@@ -246,7 +246,7 @@ macdef(void)
 	if(isspace(c))
 		if(c != '\n')
 			c = getnsc();
-	base = hunk;
+	base = alloc(1);
 	len = 1;
 	ischr = 0;
 	for(;;) {

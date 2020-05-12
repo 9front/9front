@@ -24,11 +24,5 @@ EXTERN	int	mydup(int, int);
 EXTERN	int	myfork(void);
 EXTERN	int	mypipe(int*);
 
-EXTERN	void	gethunk(void);
-
-EXTERN	char*	hunk;
-EXTERN	long	nhunk;
-EXTERN	uintptr	thunk;
-
 EXTERN	void*	alloc(long n);
 EXTERN	void*	allocn(void *p, long on, long n);

@@ -147,7 +147,6 @@ void	outhist(void);
 void	dodefine(char*);
 void	prfile(long);
 void	linehist(char*, int);
-void	gethunk(void);
 void	yyerror(char*, ...);
 int	yyparse(void);
 void	setinclude(char*);

@@ -78,11 +78,11 @@ myfork(void)
 
 extern char end[];
 
-char*	hunk = end;
-long	nhunk;
-uintptr	thunk;
+static char*	hunk = end;
+static long	nhunk;
+static uintptr	thunk;
 
-void
+static void
 gethunk(void)
 {
 	long nh;

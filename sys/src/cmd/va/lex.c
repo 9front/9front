@@ -444,7 +444,6 @@ cinit(void)
 	iostack = I;
 	iofree = I;
 	peekc = IGN;
-	nhunk = 0;
 	for(i=0; i<NHASH; i++)
 		hash[i] = S;
 	for(i=0; itab[i].name; i++) {

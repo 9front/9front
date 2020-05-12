@@ -273,7 +273,6 @@ main(int argc, char *argv[])
 out:
 	if(debug['v']) {
 		Bprint(&bso, "%5.2f cpu time\n", cputime());
-		Bprint(&bso, "%zud memory used\n", thunk);
 		Bprint(&bso, "%d sizeof adr\n", sizeof(Adr));
 		Bprint(&bso, "%d sizeof prog\n", sizeof(Prog));
 	}

@@ -1228,7 +1228,6 @@ cinit(void)
 	iostack = I;
 	iofree = I;
 	peekc = IGN;
-	nhunk = 0;
 
 	types[TXXX] = T;
 	types[TCHAR] = typ(TCHAR, T);
