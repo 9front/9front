@@ -150,6 +150,7 @@ extern	vlong	_NSEC(void);
 #define mallocz _MALLOCZ
 #define nsec	_NSEC
 #define iounit	_IOUNIT
+#define sleep	_SLEEP
 
 #define getwd(buf,len)	getcwd(buf,len)
 #define postnote(who,pid,note)	kill(pid,SIGTERM)
