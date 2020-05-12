@@ -96,7 +96,16 @@ int vfscanf(FILE *f, const char *s, va_list args)
 		}
 		else
 			width=-1;
-		type=*fmtp=='h' || *fmtp=='l' || *fmtp=='L'?*fmtp++:'n';
+		type = 'n';
+		if(*fmtp=='h' || *fmtp=='l' || *fmtp=='L' || *fmtp=='j' || *fmtp=='z' || *fmtp=='t')
+			type = *fmtp++;
+		if(type == 'l' && *fmtp == 'l'){
+			type = 'V';
+			fmtp++;
+		}else if(type == 'h' && *fmtp == 'h'){
+			type = 'H';
+			fmtp++;
+		}
 		if(!icvt[*fmtp]) goto NonSpecial;
 		if(!(*icvt[*fmtp])(f, &args, store, width, type))
 			return ncvt?ncvt:EOF;
@@ -137,7 +146,7 @@ icvt_n(FILE *, va_list *args, int store, int, int type)
 static int
 icvt_fixed(FILE *f, va_list *args,
 				int store, int width, int type, int unsgned, int base){
-	unsigned long int num=0;
+	unsigned long long num=0;
 	int sign=1, ndig=0, dig;
 	int c;
 	do
@@ -194,18 +203,28 @@ Done:
 		switch(unsgned){
 		case SIGNED:
 			switch(type){
-			case 'h': *va_arg(*args,  short *)=num*sign; break;
-			case 'n': *va_arg(*args,  int *)=num*sign; break;
+			case 'H': *va_arg(*args, char *)=num*sign; break;
+			case 'h': *va_arg(*args, short *)=num*sign; break;
+			case 'n': *va_arg(*args, int *)=num*sign; break;
 			case 'l':
-			case 'L': *va_arg(*args,  long *)=num*sign; break;
+			case 'L': *va_arg(*args, long *)=num*sign; break;
+			case 'j':
+			case 'V': *va_arg(*args, long long*)=num*sign; break;
+			case 'z': *va_arg(*args, ssize_t*)=num*sign; break;
+			case 't': *va_arg(*args, ptrdiff_t*)=num*sign; break;
 			}
 			break;
 		case UNSIGNED:
 			switch(type){
+			case 'H': *va_arg(*args, unsigned char *)=num*sign; break;
 			case 'h': *va_arg(*args, unsigned short *)=num*sign; break;
 			case 'n': *va_arg(*args, unsigned int *)=num*sign; break;
 			case 'l':
 			case 'L': *va_arg(*args, unsigned long *)=num*sign; break;
+			case 'j':
+			case 'V': *va_arg(*args, unsigned long long *)=num*sign; break;
+			case 'z': *va_arg(*args, size_t*)=num*sign; break;
+			case 't': *va_arg(*args, ptrdiff_t*)=num*sign; break;
 			}
 			break;
 		case POINTER:

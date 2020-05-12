@@ -27,4 +27,6 @@
 #define PRIu32 "u"
 #define PRIu64 "llu"
 
+extern intmax_t strtoimax(const char *, char **, int);
+
 #endif

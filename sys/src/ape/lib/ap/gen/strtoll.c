@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdint.h>
 #include <limits.h>
 #include <errno.h>
 
@@ -100,4 +101,10 @@ Return:
 	if(neg)
 		return -n;
 	return n;
+}
+
+intmax_t
+strtoimax(char *nptr, char **endptr, int base)
+{
+	return strtoll(nptr, endptr, base);
 }
