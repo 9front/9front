@@ -1185,7 +1185,7 @@ setup(int argc, char *argv[])
 	long c, t;
 	int i, j, lev, ty, ytab, *p;
 	int vflag, dflag, stem;
-	char actnm[8], *stemc, *s, dirbuf[128];
+	char actnm[8], *stemc, dirbuf[512];
 
 	ytab = 0;
 	vflag = 0;
@@ -1230,16 +1230,14 @@ setup(int argc, char *argv[])
 	Blethal(faction, nil);
 	if(argc < 1)
 		error("no input file");
+
+	dirbuf[0] = '\0';
 	infile = argv[0];
-	if(infile[0] != '/' && getwd(dirbuf, sizeof dirbuf)!=nil){
-		i = strlen(infile)+1+strlen(dirbuf)+1+10;
-		s = malloc(i);
-		if(s != nil){
-			snprint(s, i, "%s/%s", dirbuf, infile);
-			cleanname(s);
-			inpath = s;
-		}
-	}
+	if(infile[0] != '/' && getwd(dirbuf, sizeof dirbuf)==nil)
+		error("cannot get cwd");
+	inpath = smprint("%s/%s", dirbuf, infile);
+	cleanname(inpath);
+
 	finput = Bopen(inpath, OREAD);
 	if(finput == 0)
 		error("cannot open '%s'", argv[0]);
