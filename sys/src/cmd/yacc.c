@@ -143,7 +143,7 @@ Biobuf*	foutput;	/* y.output file */
 	/* communication variables between various I/O routines */
 
 char*	infile;			/* input file name */
-char*	inpath;			/* input full path */
+char	inpath[1024];		/* input full path */
 int	numbval;		/* value of an input number */
 char	tokname[NAMESIZE+UTFmax+1];	/* input token name, slop for runes and 0 */
 
@@ -1185,7 +1185,7 @@ setup(int argc, char *argv[])
 	long c, t;
 	int i, j, lev, ty, ytab, *p;
 	int vflag, dflag, stem;
-	char actnm[8], *stemc, dirbuf[512];
+	char actnm[8], *stemc;
 
 	ytab = 0;
 	vflag = 0;
@@ -1231,16 +1231,12 @@ setup(int argc, char *argv[])
 	if(argc < 1)
 		error("no input file");
 
-	dirbuf[0] = '\0';
 	infile = argv[0];
-	if(infile[0] != '/' && getwd(dirbuf, sizeof dirbuf)==nil)
-		error("cannot get cwd");
-	inpath = smprint("%s/%s", dirbuf, infile);
-	cleanname(inpath);
-
-	finput = Bopen(inpath, OREAD);
+	finput = Bopen(infile, OREAD);
 	if(finput == 0)
 		error("cannot open '%s'", argv[0]);
+	if(fd2path(Bfildes(finput), inpath, sizeof(inpath)) == -1)
+		error("cannot get path for %s", infile);
 	Blethal(finput, nil);
 	cnamp = cnames;
 
