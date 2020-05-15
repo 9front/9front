@@ -339,6 +339,7 @@ static int icvt_sq(FILE *f, va_list *args, int store, int width, int type){
 	int c, nn;
 	register char *s;
 	register const char *pat;
+
 	pat=++fmtp;
 	if(*fmtp=='^') fmtp++;
 	if(*fmtp!='\0') fmtp++;
@@ -354,12 +355,12 @@ static int icvt_sq(FILE *f, va_list *args, int store, int width, int type){
 		}
 		if(!match(c, pat)){
 			nungetc(c, f);
-			return 0;
+			goto Done;
 		}
 		if(store) *s++=c;
 		nn++;
 	}
 Done:
 	if(store) *s='\0';
-	return 1;
+	return nn > 0;
 }

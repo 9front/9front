@@ -416,7 +416,7 @@ icvt_sq(FILE *f, va_list *args, int store, int width, int)
 		}
 		if(!match(c, pat)){
 			nungetc(c, f);
-			return 0;
+			goto Done;
 		}
 		if(store)
 			*s++=c;
@@ -424,5 +424,5 @@ icvt_sq(FILE *f, va_list *args, int store, int width, int)
 	}
 Done:
 	if(store) *s='\0';
-	return 1;
+	return nn > 0;
 }
