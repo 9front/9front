@@ -1130,7 +1130,7 @@ lookup(char *symb, int v)
 Prog*
 prg(void)
 {
-	Prog *p = malloc(sizeof(Sym));
+	Prog *p = malloc(sizeof(Prog));
 	*p = zprg;
 	return p;
 }
