@@ -3,6 +3,12 @@
  * int cas(uint *p, int ov, int nv);
  * int casl(ulong *p, ulong ov, ulong nv);
  */
+TEXT cas0(SB), 1, $-4
+_cas0:
+	CLREX
+	MOVW	$0, R0
+	RETURN
+
 TEXT cas32(SB), 1, $-4
 TEXT cas(SB), 1, $-4
 TEXT casl(SB), 1, $-4
@@ -16,10 +22,6 @@ _cas1:
 	CBNZ	R4, _cas1
 	MOVW	$1, R0
 	B	_barrier(SB)
-_cas0:
-	CLREX
-	MOVW	$0, R0
-	RETURN
 
 TEXT casp(SB), 1, $-4
 	MOV	ov+8(FP), R1
