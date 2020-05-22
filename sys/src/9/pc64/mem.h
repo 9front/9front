@@ -176,5 +176,8 @@
 
 #define	getpgcolor(a)	0
 
+/* PAT entry used for write combining */
+#define PATWC	7
+
 #define RMACH		R15			/* m-> */
 #define RUSER		R14			/* up-> */

@@ -66,11 +66,6 @@ static void memglobal(void);
 #define	VPTX(va)		(((ulong)(va))>>12)
 #define	vpd (vpt+VPTX(VPT))
 
-enum {
-	/* PAT entry used for write combining */
-	PATWC	= 7,
-};
-
 void
 mmuinit(void)
 {
@@ -125,14 +120,6 @@ mmuinit(void)
 
 	taskswitch(PADDR(m->pdb),  (ulong)m + BY2PG);
 	ltr(TSSSEL);
-
-	/* IA32_PAT write combining */
-	if((MACHP(0)->cpuiddx & Pat) != 0
-	&& rdmsr(0x277, &v) != -1){
-		v &= ~(255LL<<(PATWC*8));
-		v |= 1LL<<(PATWC*8);	/* WC */
-		wrmsr(0x277, v);
-	}
 }
 
 /* 

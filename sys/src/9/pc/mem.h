@@ -173,3 +173,5 @@
 
 #define	getpgcolor(a)	0
 
+/* PAT entry used for write combining */
+#define PATWC	7

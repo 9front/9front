@@ -749,7 +749,7 @@ cpuidentify(void)
 	X86type *t, *tab;
 	uintptr cr4;
 	ulong regs[4];
-	vlong mca, mct;
+	vlong mca, mct, pat;
 
 	cpuid(Highstdfunc, regs);
 	memmove(m->cpuidid,   &regs[1], BY2WD);	/* bx */
@@ -880,6 +880,13 @@ cpuidentify(void)
 
 		if((m->cpuiddx & (Mca|Mce)) == Mce)
 			rdmsr(0x01, &mct);
+	}
+
+	/* IA32_PAT write combining */
+	if((m->cpuiddx & Pat) != 0 && rdmsr(0x277, &pat) != -1){
+		pat &= ~(255LL<<(PATWC*8));
+		pat |= 1LL<<(PATWC*8);	/* WC */
+		wrmsr(0x277, pat);
 	}
 
 	if(m->cpuiddx & Mtrr)
