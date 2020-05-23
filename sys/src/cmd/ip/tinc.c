@@ -1440,12 +1440,16 @@ udpclient(int fd, int incoming)
 {
 	uchar ip[IPaddrlen];
 	char dir[128];
+	int port;
 	Host *h;
 
-	h = findhost(ip, dir2ipport(fd2dir(fd, dir, sizeof(dir)), ip));
+	port = dir2ipport(fd2dir(fd, dir, sizeof(dir)), ip);
+	h = findhost(ip, port);
+	if(h == nil && incoming)
+		h = findhost(ip, -1);	/* might be behind NAT */
 	if(h != nil && h != myhost){
 		procsetname("udpclient %s %s %s %I!%d %s", myhost->name,
-			incoming ? "in": "out", dir, h->ip, h->port, h->name);
+			incoming ? "in": "out", dir, ip, port, h->name);
 
 		if(!incoming){
 			lock(h->cin);
