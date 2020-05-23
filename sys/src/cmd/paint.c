@@ -515,6 +515,10 @@ drawpal(void)
 int
 hitpal(Mouse m)
 {
+	int i;
+	u32int c;
+	char buf[16], *e;
+
 	if(ptinrect(m.xy, penr)){
 		if(m.buttons & 7){
 			brush = ((m.xy.x - penr.min.x) * NBRUSH) / Dx(penr);
@@ -525,7 +529,8 @@ hitpal(Mouse m)
 	if(ptinrect(m.xy, palr)){
 		Image *col;
 
-		col = pal[(m.xy.x - palr.min.x) * nelem(pal) / Dx(palr)];
+		i = (m.xy.x - palr.min.x) * nelem(pal) / Dx(palr);
+		col = pal[i];
 		switch(m.buttons & 7){
 		case 1:
 			ink = col;
@@ -535,6 +540,18 @@ hitpal(Mouse m)
 			back = col;
 			drawpal();
 			update(nil);
+			break;
+		case 4:
+			snprint(buf, sizeof(buf), "%06x", c64[i]);
+			if(eenter("Hex", buf, sizeof(buf), &m) == 6){
+				c = strtoll(buf, &e, 16);
+				if(*e == 0){
+					c64[i] = c;
+					freeimage(pal[i]);
+					pal[i] = allocimage(display, Rect(0, 0, 1, 1), RGB24, 1, c<<8|0xff);
+					drawpal();
+				}
+			}
 			break;
 		}
 		return 1;

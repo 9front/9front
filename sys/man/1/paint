@@ -13,6 +13,8 @@ displays a canvas upon which can be drawn lines using the mouse holding
 down buttons 1 or 2 for foreground or background color.  The canvas
 may be moved with button 3.  Colors and brush sizes may be selected by
 clicking on the palette at the bottom of the screen with buttons 1 or 2.
+Clicking button 3 on the palette allows changing a color by entering its
+hex value.
 .PP
 If the optional
 .I file
