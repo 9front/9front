@@ -152,7 +152,7 @@ enum {
 	Oif, Oelse, Owhile, Obreak, Oret, Ocall, 
 	Ostore, Oderef, Osize, Oref, Ocref, Ocat,
 	Oacq, Orel, Ostall, Osleep, Oload, Ounload,
-	Otoint,
+	Otodec, Otohex, Otoint,
 };
 
 static Op optab[];
@@ -682,13 +682,62 @@ deref(void *p)
 	return p;
 }
 
+static char*
+todecstr(uchar *buf, int len, int sep)
+{
+	char *r, *d;
+	int i, v;
+
+	r = d = mk('s', len*4 + 1);
+	if(len == 0){
+		*d = 0;
+		return r;
+	}
+	if(sep == 0)
+		sep = ' ';
+	for(i=0; i<len; i++){
+		v = buf[i];
+		if((*d = '0' + ((v/100) % 10)) != '0')
+			d++;
+		if((*d = '0' + ((v/10) % 10)) != '0')
+			d++;
+		*d++ = '0' + (v % 10);
+		*d++ = sep;
+	}
+	d[-1] = 0;
+	return r;
+}
+
+static char hex[] = "0123456789ABCDEF";
+
+static char*
+tohexstr(uchar *buf, int len, int sep)
+{
+	char *r, *d;
+	int i;
+
+	r = d = mk('s', len*3 + 1);
+	if(len == 0){
+		*d = 0;
+		return r;
+	}
+	if(sep == 0)
+		sep = ' ';
+	for(i=0; i<len; i++){
+		*d++ = hex[buf[i] >> 4];
+		*d++ = hex[buf[i] & 0xF];
+		*d++ = sep;
+	}
+	d[-1] = 0;
+	return r;
+}
+
 static void*
 copy(int tag, void *s)
 {
-	static char hex[] = "0123456789ABCDEF";
 	uvlong v;
 	void *d;
-	int i, n;
+	int n;
 
 	if(tag == 0){
 		if(s == nil)
@@ -723,16 +772,8 @@ copy(int tag, void *s)
 		n = SIZE(s);
 		switch(tag){
 		case 's':
-			if(TAG(s) == 'b'){
-				d = mk(tag, n*3 + 1);
-				for(i=0; i<n; i++){
-					((char*)d)[i*3 + 0] = hex[((uchar*)s)[i] >> 4];
-					((char*)d)[i*3 + 1] = hex[((uchar*)s)[i] & 0xF];
-					((char*)d)[i*3 + 2] = ' ';
-				}
-				((char*)d)[n*3] = 0;
-				return d;
-			}
+			if(TAG(s) == 'b')
+				return tohexstr(s, n, ' ');
 			/* no break */
 		case 'b':
 			if(TAG(s) == 's'){
@@ -1903,15 +1944,40 @@ evalsleep(void)
 static void*
 evalconv(void)
 {
-	void *r;
+	void *r, *a;
 
 	r = nil;
+	a = FP->arg[0];
 	switch(FP->op - optab){
+	case Otodec:
+		if(a == nil)
+			break;
+		if(TAG(a) == 's'){
+			r = a;
+			break;
+		}
+		if(TAG(a) == 'b'){
+			r = todecstr(a, SIZE(a), ',');
+			break;
+		}
+		break;
+	case Otohex:
+		if(a == nil)
+			break;
+		if(TAG(a) == 's'){
+			r = a;
+			break;
+		}
+		if(TAG(a) == 'b'){
+			r = tohexstr(a, SIZE(a), ',');
+			break;
+		}
+		break;
 	case Otoint:
-		if(FP->arg[0] != nil && TAG(FP->arg[0]) == 's')
-			r = mki(strtoull((char*)FP->arg[0], 0, 0));
+		if(a != nil && TAG(a) == 's')
+			r = mki(strtoull((char*)a, 0, 0));
 		else
-			r = mki(ival(FP->arg[0]));
+			r = mki(ival(a));
 		break;
 	}
 	store(r, FP->arg[1]);
@@ -2012,6 +2078,8 @@ static Op optab[] = {
 	[Oload] 	"Load", 		"*@}", 		evalload,
 	[Ounload]	"Unload",		"@",		evalnop,
 
+	[Otodec]	"ToDecimalString",	"*@",		evalconv,
+	[Otohex]	"ToHexString",		"*@",		evalconv,
 	[Otoint]	"ToInteger",		"*@",		evalconv,
 };
 
@@ -2034,8 +2102,8 @@ static uchar octab1[] = {
 /* 78 */	Odiv,	Oshl,	Oshr,	Oand,	Onand,	Oor,	Onor,	Oxor,
 /* 80 */	Onot,	Olbit,	Orbit,	Oderef,	Obad,	Omod,	Obad,	Osize,
 /* 88 */	Oindex,	Omatch,	Ocfld4,	Ocfld2,	Ocfld1,	Ocfld0,	Obad,	Ocfld8,
-/* 90 */	Oland,	Olor,	Olnot,	Oleq,	Olgt,	Ollt,	Obad,	Obad,
-/* 98 */	Obad,	Otoint,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
+/* 90 */	Oland,	Olor,	Olnot,	Oleq,	Olgt,	Ollt,	Obad,	Otodec,
+/* 98 */	Otohex,	Otoint,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
 /* A0 */	Oif,	Oelse,	Owhile,	Onop,	Oret,	Obreak,	Obad,	Obad,
 /* A8 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
 /* B0 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
