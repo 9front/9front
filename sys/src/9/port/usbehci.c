@@ -2278,12 +2278,15 @@ pollcheck(Hci *hp)
 
 	if(poll->must != 0 && poll->does == 0){
 		lock(poll);
-		if(poll->must != 0 && poll->does == 0){
-			poll->does++;
-			print("ehci %#p: polling\n", ctlr->capio);
-			kproc("ehcipoll", ehcipoll, hp);
+		if(poll->must == 0 || poll->does != 0) {
+			unlock(poll);
+			return;
 		}
+		poll->does++;
 		unlock(poll);
+
+		print("ehci %#p: polling\n", ctlr->capio);
+		kproc("ehcipoll", ehcipoll, hp);
 	}
 }
 
