@@ -45,5 +45,6 @@ proctab.c:	$cputype.maketab
 $cputype.maketab:	y.tab.h maketab.c
 	objtype=$cputype mk maketab.$cputype
 
-maketab.$objtype:V:	y.tab.h maketab.$O
-	$LD -o $objtype.maketab maketab.$O
+maketab.$objtype:V:
+	$CC $CFLAGS maketab.c
+	$LD $LDFLAGS -o $objtype.maketab maketab.$O
