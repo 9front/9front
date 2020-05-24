@@ -113,6 +113,8 @@ physmask(void)
 	if(regs[0] >= Extaddrsz) {			/* ax */
 		cpuid(Extaddrsz, regs);
 		mask = (1LL << (regs[0] & 0xFF)) - 1;	/* ax */
+	} else {
+		mask &= (1LL << 36) - 1;
 	}
 	return mask;
 }
