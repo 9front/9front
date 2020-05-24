@@ -2327,9 +2327,11 @@ epiowait(Hci *hp, Qio *io, int tmout, ulong load)
 	if(qh->state == Qrun){
 		ctlrinterrupt(ctlr);
 		if(qh->state == Qdone){
+			iunlock(ctlr);
 			dqprint("ehci %#p: polling required\n", ctlr->capio);
 			ctlr->poll.must = 1;
 			pollcheck(hp);
+			ilock(ctlr);
 		}
 	}
 
