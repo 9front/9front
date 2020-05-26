@@ -1066,6 +1066,13 @@ fpackdir(Req *r, Dir *d, Tree *t, int i, int level, uchar *b, uchar *p, uchar *e
 			&namep, r->o->untermnamepack, d->name);
 		break;
 
+	case 0x0105:	/* SMB_FIND_FILE_FULL_DIRECTORY_INFO */
+		n = pack(b, p, e, "llvvvvvvl#0lvv{.f}%4",
+			0, i, mtime, atime, mtime, mtime, dlen, alen, extfileattr(d),
+			(vlong)0, (vlong)i,
+			&namep, r->o->untermnamepack, d->name);
+		break;
+
 	case 0x0202:	/* SMB_FIND_FILE_UNIX */
 		n = pack(b, p, e, "llvvvvvvvlvvvvv.f",
 			0, i,
