@@ -1376,10 +1376,10 @@ ssh(int argc, char *argv[])
 	if(pipe(pfd) < 0)
 		sysfatal("pipe: %r");
 	sshfd = pfd[0];
-	procrfork(startssh, nil, 8*1024, RFFDG|RFNOTEG);
+	procrfork(startssh, nil, 8*1024, RFFDG|RFNOTEG|RFNAMEG);
 	close(pfd[1]);
 
-	procrfork(sshreadproc, nil, 8*1024, RFFDG|RFNOTEG);
+	procrfork(sshreadproc, nil, 8*1024, RFFDG|RFNOTEG|RFNAMEG);
 
 	sendmsg(pack(nil, "bsuuu", MSG_CHANNEL_OPEN,
 		"session", 7,
