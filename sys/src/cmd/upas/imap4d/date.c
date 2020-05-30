@@ -235,6 +235,8 @@ date2tm(Tm *tm, char *date)
 	}else{
 		tm->mday = strtoul(flds[1], nil, 10);
 		tm->mon = dateindex(flds[2], monname, 12);
+		if(tm->mon < 0)
+			return nil;
 		tm->year = strtoul(flds[3], nil, 10);
 		if(strlen(flds[3]) > 2)
 			tm->year -= 1900;
