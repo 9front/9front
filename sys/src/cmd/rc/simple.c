@@ -12,7 +12,7 @@
 int
 exitnext(void){
 	union code *c=&runq->code[runq->pc];
-	while(c->f==Xpopredir) c++;
+	while(c->f==Xpopredir || c->f==Xunlocal) c++;
 	return c->f==Xexit;
 }
 
