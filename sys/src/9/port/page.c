@@ -371,7 +371,7 @@ ptealloc(void)
 }
 
 void
-freepte(Segment *s, Pte *p)
+freepte(Segment*, Pte *p)
 {
 	Page **pg, **pe;
 
