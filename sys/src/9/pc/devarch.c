@@ -882,12 +882,14 @@ cpuidentify(void)
 			rdmsr(0x01, &mct);
 	}
 
+#ifdef PATWC
 	/* IA32_PAT write combining */
 	if((m->cpuiddx & Pat) != 0 && rdmsr(0x277, &pat) != -1){
 		pat &= ~(255LL<<(PATWC*8));
 		pat |= 1LL<<(PATWC*8);	/* WC */
 		wrmsr(0x277, pat);
 	}
+#endif
 
 	if(m->cpuiddx & Mtrr)
 		mtrrsync();
