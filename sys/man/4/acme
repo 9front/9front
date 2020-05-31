@@ -280,6 +280,9 @@ Equivalent to the
 .B Put
 interactive command with no arguments; accepts no arguments.
 .TP
+.B scratch
+Turn off tracking the `dirty' status, the window stays clean.
+.TP
 .B scroll
 Cancel a
 .B noscroll

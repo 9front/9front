@@ -64,6 +64,7 @@ threadmain(int argc, char *argv[])
 	wintagwrite(win, "Send Noscroll", 5+8);
 
 	ctlprint(win->ctl, "scroll");
+	ctlprint(win->ctl, "scratch");
 
 	snprint(buf, sizeof(buf), "/proc/%d/notepg", getpid());
 	notepg = open(buf, OWRITE);
