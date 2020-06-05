@@ -159,6 +159,7 @@ extern	vlong	_NSEC(void);
 #define ERRMAX 128
 
 int errstr(char*, unsigned int);
+void rerrstr(char*, unsigned int);
 extern void sysfatal(char*, ...);
 
 extern	void		setmalloctag(void*, uintptr_t);
