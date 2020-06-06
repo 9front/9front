@@ -560,7 +560,7 @@ nvmepnpctlrs(void)
 	for(p = nil; p = pcimatch(p, 0, 0);){
 		if(p->ccrb != 1 || p->ccru != 8 || p->ccrp != 2)
 			continue;
-		if(p->mem[0].size == 0)
+		if(p->mem[0].size == 0 || (p->mem[0].bar & 1) != 0)
 			continue;
 		if((ctlr = malloc(sizeof(*ctlr))) == nil){
 			print("nvme: no memory for Ctlr\n");
