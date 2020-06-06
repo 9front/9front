@@ -37,8 +37,9 @@ tdfxenable(VGAscr* scr)
 	if(scr->mmio)
 		return;
 	p = scr->pci;
-	if(p == nil || p->vid != 0x121A)
+	if(p == nil || p->vid != 0x121A || (p->mem[0].bar & 1) != 0)
 		return;
+
 	scr->mmio = vmap(p->mem[0].bar&~0x0F, p->mem[0].size);
 	if(scr->mmio == nil)
 		return;

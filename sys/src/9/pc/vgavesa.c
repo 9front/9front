@@ -161,9 +161,9 @@ vesalinear(VGAscr *scr, int, int)
 		if(pci->ccrb != Pcibcdisp)
 			continue;
 		for(i=0; i<nelem(pci->mem); i++){
-			ulong a, e;
+			uvlong a, e;
 
-			if(pci->mem[i].bar&1)	/* not memory */
+			if(pci->mem[i].size == 0 || (pci->mem[i].bar & 1) != 0)
 				continue;
 			a = pci->mem[i].bar & ~0xF;
 			e = a + pci->mem[i].size;

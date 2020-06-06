@@ -95,7 +95,7 @@ enum {
 
 typedef struct Vmware	Vmware;
 struct Vmware {
-	ulong	fb;
+	uvlong	fb;
 
 	ulong	ra;
 	ulong	rd;
@@ -142,6 +142,8 @@ vmwarelinear(VGAscr* scr, int, int)
 	p = scr->pci;
 	if(p == nil || p->vid != PCIVMWARE)
 		return;
+	if(p->mem[1].bar & 1)
+		return;
 	switch(p->did){
 	default:
 		return;
@@ -151,6 +153,8 @@ vmwarelinear(VGAscr* scr, int, int)
 		vm->rd = 0x4560 + 4;
 		break;
 	case VMWARE2:
+		if((p->mem[0].bar & 1) == 0)
+			return;
 		vm->ver = 2;
 		vm->ra = p->mem[0].bar & ~3;
 		vm->rd = vm->ra + 1;
@@ -164,8 +168,11 @@ vmwarelinear(VGAscr* scr, int, int)
 		addvgaseg("vmwarescreen", scr->paddr, scr->apsize);
 
 	if(scr->mmio==nil){
-		ulong mmiobase, mmiosize;
+		uvlong mmiobase;
+		ulong mmiosize;
 
+		if(p->mem[2].bar & 1)
+			return;
 		// mmiobase = vmrd(vm, Rmemstart);
 		mmiobase = p->mem[2].bar & ~0xF;
 		if(mmiobase == 0)
