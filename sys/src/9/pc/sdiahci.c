@@ -2141,7 +2141,7 @@ static SDev*
 iapnp(void)
 {
 	int i, n, nunit, type;
-	uintptr io;
+	uvlong io;
 	Ctlr *c;
 	Drive *d;
 	Pcidev *p;
@@ -2178,9 +2178,8 @@ iapnp(void)
 		memset(c, 0, sizeof *c);
 		memset(s, 0, sizeof *s);
 		c->mmio = vmap(io, p->mem[Abar].size);
-		if(c->mmio == 0){
-			print("%s: address %#p in use did %.4ux\n",
-				Tname(c), io, p->did);
+		if(c->mmio == nil){
+			print("%s: can't map %llux\n", Tname(c), io);
 			continue;
 		}
 		c->lmmio = (ulong*)c->mmio;
