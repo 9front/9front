@@ -61,8 +61,9 @@ typedef struct Pcisiz Pcisiz;
 struct Pcisiz
 {
 	Pcidev*	dev;
-	int	siz;
 	int	bar;
+	int	siz;
+	int	typ;
 };
 
 enum
@@ -294,11 +295,12 @@ pcimask(ulong v)
 }
 
 static void
-pcibusmap(Pcidev *root, uintptr *pmema, uintptr *pioa, int wrreg)
+pcibusmap(Pcidev *root, uvlong *pmema, ulong *pioa, int wrreg)
 {
 	Pcidev *p;
 	int ntb, i, size, rno, hole;
-	uintptr v, mema, ioa, sioa, smema, base, limit;
+	uvlong v, mema, smema, base, limit;
+	ulong ioa, sioa;
 	Pcisiz *table, *tptr, *mtb, *itb;
 
 	ioa = *pioa;
@@ -341,16 +343,18 @@ pcibusmap(Pcidev *root, uintptr *pmema, uintptr *pioa, int wrreg)
 			itb->dev = p;
 			itb->bar = -1;
 			itb->siz = p->ioa.size;
+			itb->typ = 0;
 			itb++;
 
 			mtb->dev = p;
 			mtb->bar = -1;
 			mtb->siz = p->mema.size;
+			mtb->typ = 0;
 			mtb++;
 			continue;
 		}
 
-		for(i = 0; i <= 5; i++) {
+		for(i = 0; i < nelem(p->mem); i++) {
 			rno = PciBAR0 + i*4;
 			v = pcicfgrw32(p->tbdf, rno, 0, 1);
 			size = pcibarsize(p, rno);
@@ -362,16 +366,17 @@ pcibusmap(Pcidev *root, uintptr *pmema, uintptr *pioa, int wrreg)
 				itb->dev = p;
 				itb->bar = i;
 				itb->siz = size;
+				itb->typ = 1;
 				itb++;
 			}
 			else {
 				mtb->dev = p;
 				mtb->bar = i;
 				mtb->siz = size;
-				mtb++;
-
-				if((v & 7) == 4)
+				mtb->typ = v & 7;
+				if(mtb->typ & 4)
 					i++;
+				mtb++;
 			}
 		}
 	}
@@ -412,21 +417,21 @@ pcibusmap(Pcidev *root, uintptr *pmema, uintptr *pioa, int wrreg)
 		hole = tptr->siz;
 		if(tptr->bar == -1)
 			hole = 1<<20;
-		mema = (mema+hole-1) & ~(hole-1);
+		mema = (mema+hole-1) & ~((uvlong)hole-1);
 
 		p = tptr->dev;
 		if(tptr->bar == -1)
 			p->mema.bar = mema;
 		else {
 			p->pcr |= MEMen;
-			p->mem[tptr->bar].bar = mema;
+			p->mem[tptr->bar].bar = mema|tptr->typ;
 			if(wrreg){
 				rno = PciBAR0+(tptr->bar*4);
-				if((mema >> 32) != 0){
-					pcicfgrw32(p->tbdf, rno, mema|4, 0);
-					pcicfgrw32(p->tbdf, rno+4, mema >> 32, 0);
-				} else {
-					pcicfgrw32(p->tbdf, rno, mema, 0);
+				pcicfgrw32(p->tbdf, rno, mema|tptr->typ, 0);
+				if(tptr->bar < nelem(p->mem)-1 && (tptr->typ & 4) != 0){
+					p->mem[tptr->bar+1].bar = 0;
+					p->mem[tptr->bar+1].size = 0;
+					pcicfgrw32(p->tbdf, rno+4, mema>>32, 0);
 				}
 			}
 		}
@@ -576,13 +581,14 @@ pcilscan(int bno, Pcidev** list, Pcidev *parent)
 				if((hdt & 0x7F) != 0)
 					break;
 				rno = PciBAR0;
-				for(i = 0; i <= 5; i++) {
-					p->mem[i].bar = pcicfgr32(p, rno);
+				for(i = 0; i < nelem(p->mem); i++) {
+					p->mem[i].bar = (ulong)pcicfgr32(p, rno);
 					p->mem[i].size = pcibarsize(p, rno);
-					if((p->mem[i].bar & 7) == 4 && i < 5){
+					if((p->mem[i].bar & 7) == 4 && i < nelem(p->mem)-1){
 						rno += 4;
-						p->mem[i].bar |= (uintptr)pcicfgr32(p, rno) << 32;
-						i++;
+						p->mem[i++].bar |= (uvlong)pcicfgr32(p, rno) << 32;
+						p->mem[i].bar = 0;
+						p->mem[i].size = 0;
 					}
 					rno += 4;
 				}
@@ -654,7 +660,8 @@ pcilscan(int bno, Pcidev** list, Pcidev *parent)
 static void
 pcicfginit(void)
 {
-	uintptr mema, ioa;
+	uvlong mema;
+	ulong ioa;
 
 	fmtinstall('T', tbdffmt);
 
@@ -928,8 +935,13 @@ pcienable(Pcidev *p)
 		delay(100);		/* D3: minimum delay 50ms */
 
 		/* restore registers */
-		for(i = 0; i < 6; i++)
+		for(i = 0; i < nelem(p->mem); i++){
 			pcicfgw32(p, PciBAR0+i*4, p->mem[i].bar);
+			if((p->mem[i].bar&7) == 4 && i < nelem(p->mem)-1){
+				pcicfgw32(p, PciBAR0+i*4+4, p->mem[i].bar>>32);
+				i++;
+			}
+		}
 		pcicfgw8(p, PciINTL, p->intl);
 		pcicfgw8(p, PciLTR, p->ltr);
 		pcicfgw8(p, PciCLS, p->cls);
@@ -941,7 +953,7 @@ pcienable(Pcidev *p)
 		pcr = IOen|MEMen|MASen;
 	else {
 		pcr = 0;
-		for(i = 0; i < 6; i++){
+		for(i = 0; i < nelem(p->mem); i++){
 			if(p->mem[i].size == 0)
 				continue;
 			if(p->mem[i].bar & 1)
