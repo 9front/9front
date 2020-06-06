@@ -544,7 +544,7 @@ pnpread(Chan *c, void *va, long n, vlong offset)
 		for(i=0; i<nelem(p->mem); i++){
 			if(p->mem[i].size == 0)
 				continue;
-			w = seprint(w, ebuf, " %d:%.8llux %d", i, p->mem[i].bar, p->mem[i].size);
+			w = seprint(w, ebuf, " %d:%.8llux %d", i, (uvlong)p->mem[i].bar, p->mem[i].size);
 		}
 		*w++ = '\n';
 		*w = '\0';

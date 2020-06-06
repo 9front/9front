@@ -416,7 +416,7 @@ Nope:
 	ether->type = cards[cardno].type;
 
 	print("#l%d: %s: %dMbps port 0x%lluX irq %d ea %E\n",
-		ctlrno, ether->type, ether->mbps, ether->port, ether->irq, ether->ea);
+		ctlrno, ether->type, ether->mbps, (uvlong)ether->port, ether->irq, ether->ea);
 
 	/* compute log10(ether->mbps) into lg */
 	for(lg = 0, mb = ether->mbps; mb >= 10; lg++)

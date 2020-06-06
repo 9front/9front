@@ -717,7 +717,7 @@ hciprobe(int cardno, int ctlrno)
 	 * the console.
 	 */
 	dprint("#u/usb/ep%d.0: %s: port 0x%lluX irq %d\n",
-		epnb, hcitypes[cardno].type, hp->port, hp->irq);
+		epnb, hcitypes[cardno].type, (uvlong)hp->port, hp->irq);
 	epnb++;
 	return hp;
 }
