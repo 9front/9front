@@ -319,7 +319,7 @@ enum {						/* MSRs */
 
 struct ISAConf {
 	char	*type;
-	ulong	port;
+	uvlong	port;
 	int	irq;
 	ulong	dma;
 	ulong	mem;
