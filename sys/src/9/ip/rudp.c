@@ -552,7 +552,9 @@ rudpiput(Proto *rudp, Ipifc *ifc, Block *bp)
 		p = bp->rp;
 		ipmove(p, raddr); p += IPaddrlen;
 		ipmove(p, laddr); p += IPaddrlen;
-		ipmove(p, ifc->lifc->local); p += IPaddrlen;
+		if(!ipv6local(ifc, p, 0, raddr))
+			ipmove(p, ifc->lifc != nil ? ifc->lifc->local : IPnoaddr);
+		p += IPaddrlen;
 		hnputs(p, rport); p += 2;
 		hnputs(p, lport);
 		break;
