@@ -451,7 +451,7 @@ enum {
 
 typedef struct Ctlr Ctlr;
 typedef struct Ctlr {
-	int	port;
+	uvlong	port;
 	Pcidev*	pcidev;
 	Ctlr*	next;
 	Ether*	edev;
@@ -1919,6 +1919,8 @@ igbepci(void)
 	while(p = pcimatch(p, 0, 0)){
 		if(p->ccrb != 0x02 || p->ccru != 0)
 			continue;
+		if(p->mem[0].bar & 1)
+			continue;
 
 		switch((p->did<<16)|p->vid){
 		default:
@@ -1942,9 +1944,9 @@ igbepci(void)
 			break;
 		}
 
-		mem = vmap(p->mem[0].bar & ~0x0F, p->mem[0].size);
+		mem = vmap(p->mem[0].bar & ~0xF, p->mem[0].size);
 		if(mem == nil){
-			print("igbe: can't map %8.8luX\n", p->mem[0].bar);
+			print("igbe: can't map %llux\n", p->mem[0].bar & ~0xF);
 			continue;
 		}
 		cls = pcicfgr8(p, PciCLS);

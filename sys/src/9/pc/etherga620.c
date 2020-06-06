@@ -251,7 +251,7 @@ enum {
 
 typedef struct Ctlr Ctlr;
 struct Ctlr {
-	int	port;
+	uvlong	port;
 	Pcidev*	pcidev;
 	Ctlr*	next;
 	int	active;
@@ -575,7 +575,7 @@ ga620event(Ether *edev, int eci, int epi)
 			 * 3rd arg of 1 selects gigabit only; 2 10/100 only.
 			 */
 			ga620command(ctlr, 0x0B, 0x00, 0x00);
-			print("#l%d: ga620: port %8.8uX: firmware is up\n",
+			print("#l%d: ga620: port %8.8lluX: firmware is up\n",
 				edev->ctlrno, ctlr->port);
 			break;
 		case 0x04:		/* statistics updated */
@@ -1152,6 +1152,8 @@ ga620pci(void)
 	while(p = pcimatch(p, 0, 0)){
 		if(p->ccrb != 0x02 || p->ccru != 0)
 			continue;
+		if(p->mem[0].bar & 1)
+			continue;
 
 		switch(p->did<<16 | p->vid){
 		default:
@@ -1165,9 +1167,9 @@ ga620pci(void)
 			break;
 		}
 
-		mem = vmap(p->mem[0].bar & ~0x0F, p->mem[0].size);
-		if(mem == 0){
-			print("ga620: can't map %8.8luX\n", p->mem[0].bar);
+		mem = vmap(p->mem[0].bar & ~0xF, p->mem[0].size);
+		if(mem == nil){
+			print("ga620: can't map %llux\n", p->mem[0].bar & ~0xF);
 			continue;
 		}
 
@@ -1176,7 +1178,7 @@ ga620pci(void)
 			print("ga620: can't allocate memory\n");
 			continue;
 		}
-		ctlr->port = p->mem[0].bar & ~0x0F;
+		ctlr->port = p->mem[0].bar & ~0xF;
 		ctlr->pcidev = p;
 		pcienable(p);
 

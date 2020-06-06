@@ -267,7 +267,7 @@ enum {
 typedef struct {
 	Pcidev	*p;
 	Ether	*edev;
-	uintptr	io;
+	uvlong	io;
 	u32int	*reg;
 	u32int	*regmsi;
 	uchar	flag;
@@ -848,7 +848,7 @@ interrupt(Ureg*, void *v)
 static void
 scan(void)
 {
-	uintptr io, iomsi;
+	uvlong io, iomsi;
 	void *mem, *memmsi;
 	int pciregs, pcimsix;
 	Ctlr *c;
@@ -856,6 +856,7 @@ scan(void)
 
 	p = 0;
 	while(p = pcimatch(p, 0x8086, 0)){
+		pciregs = 0;
 		switch(p->did){
 		case 0x10c6:		/* 82598 af dual port */
 		case 0x10c7:		/* 82598 af single port */
@@ -868,11 +869,12 @@ scan(void)
 		case 0x1528:		/* T540-T1 */
 			pcimsix = 4;
 			break;
-
 		default:
 			continue;
 		}
-		pciregs = 0;
+		if((p->mem[pciregs].bar & 1) != 0
+		|| (p->mem[pcimsix].bar & 1) != 0)
+			continue;
 		if(nctlr == nelem(ctlrtab)){
 			print("i82598: too many controllers\n");
 			return;
@@ -885,14 +887,14 @@ scan(void)
 		io = p->mem[pciregs].bar & ~0xf;
 		mem = vmap(io, p->mem[pciregs].size);
 		if(mem == nil){
-			print("i82598: can't map regs %#p\n", io);
+			print("i82598: can't map regs %llux\n", io);
 			free(c);
 			continue;
 		}
 		iomsi = p->mem[pcimsix].bar & ~0xf;
 		memmsi = vmap(iomsi, p->mem[pcimsix].size);
 		if(memmsi == nil){
-			print("i82598: can't map msi-x regs %#p\n", iomsi);
+			print("i82598: can't map msi-x regs %llux\n", iomsi);
 			vunmap(mem, p->mem[pciregs].size);
 			free(c);
 			continue;
