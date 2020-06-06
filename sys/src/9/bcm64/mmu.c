@@ -319,10 +319,10 @@ mmukmap(uintptr va, uintptr pa, usize size)
 }
 
 void*
-vmap(uintptr pa, int size)
+vmap(uvlong pa, int size)
 {
 	static uintptr base = VMAP;
-	uintptr pe = pa + size;
+	uvlong pe = pa + size;
 	uintptr va;
 
 	va = base;
