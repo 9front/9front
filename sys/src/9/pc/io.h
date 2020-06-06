@@ -232,14 +232,6 @@ enum {
 	PciCapHSW       = 0x0c,         /* hot swap */
 };
 
-typedef struct Pcisiz Pcisiz;
-struct Pcisiz
-{
-	Pcidev*	dev;
-	int	siz;
-	int	bar;
-};
-
 typedef struct Pcidev Pcidev;
 struct Pcidev
 {
@@ -257,12 +249,12 @@ struct Pcidev
 	uchar	ltr;
 
 	struct {
-		ulong	bar;		/* base address */
+		uvlong	bar;		/* base address */
 		int	size;
 	} mem[6];
 
 	struct {
-		ulong	bar;	
+		uvlong	bar;	
 		int	size;
 	} rom;
 	uchar	intl;			/* interrupt line */
@@ -273,7 +265,7 @@ struct Pcidev
 	Pcidev*	parent;			/* up a bus */
 	Pcidev*	bridge;			/* down a bus */
 	struct {
-		ulong	bar;
+		uvlong	bar;
 		int	size;
 	} ioa, mema;
 
