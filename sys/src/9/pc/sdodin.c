@@ -2542,10 +2542,9 @@ msverify(SDunit *u)
 static uint*
 map(Pcidev *p, int bar)
 {
-	uintptr io;
-
-	io = p->mem[bar].bar & ~0xf;
-	return (uint*)vmap(io, p->mem[bar].size);
+	if(p->mem[bar].size == 0 || (p->mem[bar].bar & 1) != 0)
+		return nil;
+	return (uint*)vmap(p->mem[bar].bar & ~0xf, p->mem[bar].size);
 }
 
 /* §5.1.3 */
@@ -2655,8 +2654,8 @@ mspnp(void)
 		s = sdevs + nmsctlr;
 		memset(c, 0, sizeof *c);
 		memset(s, 0, sizeof *s);
-		if((c->reg = map(p, Mebar)) == 0){
-			print("sdodin: bar %#p in use\n", c->reg);
+		if((c->reg = map(p, Mebar)) == nil){
+			print("sdodin: can't map registers\n");
 			continue;
 		}
 		pcienable(p);
