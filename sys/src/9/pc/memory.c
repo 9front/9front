@@ -244,14 +244,14 @@ rsdsearch(void)
  * does not map the physical address into virtual memory.
  * Call vmap to do that.
  */
-ulong
-upaalloc(ulong pa, ulong size, ulong align)
+uvlong
+upaalloc(uvlong pa, ulong size, ulong align)
 {
-	return (ulong)memmapalloc(pa == -1UL ? -1ULL : (uvlong)pa, size, align, MemUPA);
+	return memmapalloc(pa, size, align, MemUPA);
 }
 
 void
-upafree(ulong pa, ulong size)
+upafree(uvlong pa, ulong size)
 {
 	memmapfree(pa, size, MemUPA);
 }

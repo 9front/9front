@@ -579,14 +579,17 @@ kunmap(KMap *k)
  * synchronization is being done.
  */
 void*
-vmap(uintptr pa, int size)
+vmap(uvlong pa, int size)
 {
 	uintptr va;
 	int o;
 
-	if(pa+size > VMAPSIZE)
-		return 0;
+	if(pa < BY2PG || size <= 0 || -pa < size || pa+size > VMAPSIZE){
+		print("vmap pa=%llux size=%d pc=%#p\n", pa, size, getcallerpc(&pa));
+		return nil;
+	}
 	va = pa+VMAP;
+
 	/*
 	 * might be asking for less than a page.
 	 */
