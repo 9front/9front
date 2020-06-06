@@ -299,12 +299,14 @@ struct Bld {
 
 struct Ctlr {
 	Ctlr *next;
-	uint no;
+	int no;
 
 	Lock;			/* interrupt lock */
 	QLock;			/* command lock */
 
 	Audio *adev;
+
+	uvlong port;
 	Pcidev *pcidev;
 	
 	uchar *mem;
@@ -1539,6 +1541,8 @@ hdainterrupt(Ureg *, void *arg)
 
 	adev = arg;
 	ctlr = adev->ctlr;
+	if(ctlr == nil || ctlr->adev != adev)
+		return;
 	ilock(ctlr);
 	sts = csr32(ctlr, Intsts);
 	if(sts & ctlr->sout.sdintr){
@@ -1823,42 +1827,12 @@ hdacmdwrite(Chan *, void *a, long n, vlong)
 }
 
 static int
-hdareset(Audio *adev)
+hdareset1(Audio *adev, Ctlr *ctlr)
 {
-	static Ctlr *cards = nil;
-	int irq, tbdf, best, cad;
-	Ctlr *ctlr;
+	int best, cad, irq, tbdf;
 	Pcidev *p;
 
-	/* make a list of all cards if not already done */
-	if(cards == nil){
-		p = nil;
-		while(p = hdamatch(p)){
-			ctlr = mallocz(sizeof(Ctlr), 1);
-			if(ctlr == nil){
-				print("hda: can't allocate memory\n");
-				return -1;
-			}
-			ctlr->pcidev = p;
-			ctlr->next = cards;
-			cards = ctlr;
-		}
-	}
-
-	/* pick a card from the list */
-	for(ctlr = cards; ctlr != nil; ctlr = ctlr->next){
-		if(p = ctlr->pcidev){
-			ctlr->pcidev = nil;
-			goto Found;
-		}
-	}
-	return -1;
-
-Found:
-	pcienable(p);
-	adev->ctlr = ctlr;
-	ctlr->adev = adev;
-
+	p = ctlr->pcidev;
 	irq = p->intl;
 	tbdf = p->tbdf;
 
@@ -1894,15 +1868,19 @@ Found:
 		pcicfgw8(p, 0x44, pcicfgr8(p, 0x44) & 0xf8);
 	}
 
-	ctlr->no = adev->ctlrno;
-	ctlr->size = p->mem[0].size;
-	ctlr->q = qopen(256, 0, 0, 0);
-	ctlr->mem = vmap(p->mem[0].bar & ~0x0F, ctlr->size);
-	if(ctlr->mem == nil){
-		print("#A%d: can't map %.8lux\n", ctlr->no, p->mem[0].bar);
+	if(p->mem[0].bar & 1){
+		print("hda: bar0 %llux: not memory\n", p->mem[0].bar);
 		return -1;
 	}
-	print("#A%d: hda mem %p irq %d\n", ctlr->no, ctlr->mem, irq);
+	ctlr->size = p->mem[0].size;
+	ctlr->port = p->mem[0].bar & ~0xF;
+	ctlr->mem = vmap(ctlr->port, ctlr->size);
+	if(ctlr->mem == nil){
+		print("hda: can't map %llux\n", ctlr->port);
+		return -1;
+	}
+	ctlr->no = adev->ctlrno;
+	print("#A%d: hda mem %llux irq %d\n", ctlr->no, ctlr->port, irq);
 
 	if(hdastart(ctlr) < 0){
 		print("#A%d: unable to start hda\n", ctlr->no);
@@ -1945,6 +1923,7 @@ Found:
 	else if(connectpin(ctlr, &ctlr->sin, Wain, best, cad, nil) < 0)
 		print("#A%d: error connecting input pin\n", ctlr->no);
 
+	adev->ctlr = ctlr;
 	adev->read = hdaread;
 	adev->write = hdawrite;
 	adev->close = hdaclose;
@@ -1955,10 +1934,50 @@ Found:
 	adev->ctl = hdactl;
 	
 	intrenable(irq, hdainterrupt, adev, tbdf, "hda");
+
+	ctlr->q = qopen(256, 0, 0, 0);
+
 	lastcard = ctlr;
 	addarchfile("hdacmd", 0664, hdacmdread, hdacmdwrite);
-	
+
 	return 0;
+}
+
+static int
+hdareset(Audio *adev)
+{
+	static Ctlr *cards = nil;
+	Ctlr *ctlr;
+	Pcidev *p;
+
+	/* make a list of all cards if not already done */
+	if(cards == nil){
+		p = nil;
+		while((p = hdamatch(p)) != nil){
+			ctlr = mallocz(sizeof(Ctlr), 1);
+			if(ctlr == nil){
+				print("hda: can't allocate memory\n");
+				break;
+			}
+			ctlr->pcidev = p;
+			ctlr->next = cards;
+			cards = ctlr;
+		}
+	}
+
+	/* pick a card from the list */
+	for(ctlr = cards; ctlr != nil; ctlr = ctlr->next){
+		if(ctlr->adev == nil && ctlr->pcidev != nil){
+			ctlr->adev = adev;
+			pcienable(ctlr->pcidev);
+			if(hdareset1(adev, ctlr) == 0)
+				return 0;
+			pcidisable(ctlr->pcidev);
+			ctlr->pcidev = nil;
+			ctlr->adev = nil;
+		}
+	}
+	return -1;
 }
 
 void
