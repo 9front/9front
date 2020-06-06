@@ -197,7 +197,7 @@ typedef struct Vga {
 	ulong	r[2];
 
 	ulong	vma;			/* video memory linear-address alignment */
-	ulong	vmb;			/* video memory linear-address base */
+	uvlong	vmb;			/* video memory linear-address base */
 	ulong	apz;			/* aperture size */
 	ulong	vmz;			/* video memory size */
 

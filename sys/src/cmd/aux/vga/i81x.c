@@ -403,10 +403,10 @@ dump(Vga* vga, Ctlr* ctlr)
 
 	p = i81x->pci;
 	printitem(name, "mem[0]");
-	Bprint(&stdout, "base %lux size %d\n", p->mem[0].bar & ~0x0F, p->mem[0].size);
+	Bprint(&stdout, "base %llux size %d\n", p->mem[0].bar & ~0x0F, p->mem[0].size);
 
 	printitem(name, "mem[1]");
-	Bprint(&stdout, "base %lux size %d\n", p->mem[1].bar & ~0x0F, p->mem[1].size);
+	Bprint(&stdout, "base %llux size %d\n", p->mem[1].bar & ~0x0F, p->mem[1].size);
 
 }
 
