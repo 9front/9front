@@ -288,6 +288,9 @@ ac97interrupt(Ureg *, void *arg)
 
 	adev = arg;
 	ctlr = adev->ctlr;
+	if(ctlr == nil || ctlr->adev != adev)
+		return;
+
 	stat = csr32r(ctlr, Sta);
 	stat &= S2ri | Sri | Pri | Mint | Point | Piint | Moint | Miint | Gsci;
 	if(stat & (Point|Piint|Mint)){
@@ -480,59 +483,34 @@ sethwp(Ctlr *ctlr, long off, void *ptr)
 }
 
 static int
-ac97reset(Audio *adev)
+ac97reset1(Audio *adev, Ctlr *ctlr)
 {
-	static Ctlr *cards = nil;
-	Pcidev *p;
 	int i, irq, tbdf;
-	Ctlr *ctlr;
 	ulong ctl, stat = 0;
+	Pcidev *p;
 
-	/* make a list of all ac97 cards if not already done */
-	if(cards == nil){
-		p = nil;
-		while(p = ac97match(p)){
-			ctlr = xspanalloc(sizeof(Ctlr), 8, 0);
-			memset(ctlr, 0, sizeof(Ctlr));
-			ctlr->pcidev = p;
-			ctlr->next = cards;
-			cards = ctlr;
-		}
-	}
-
-	/* pick a card from the list */
-	for(ctlr = cards; ctlr; ctlr = ctlr->next){
-		if(p = ctlr->pcidev){
-			ctlr->pcidev = nil;
-			goto Found;
-		}
-	}
-	return -1;
-
-Found:
-	adev->ctlr = ctlr;
-	ctlr->adev = adev;
+	p = ctlr->pcidev;
 
 	/* ICH4 through ICH7 may use memory-type base address registers */
 	if(p->vid == 0x8086 &&
 	  (p->did == 0x24c5 || p->did == 0x24d5 || p->did == 0x266e || p->did == 0x27de) &&
 	  (p->mem[2].bar != 0 && p->mem[3].bar != 0) &&
 	  ((p->mem[2].bar & 1) == 0 && (p->mem[3].bar & 1) == 0)){
-		ctlr->mmmix = vmap(p->mem[2].bar & ~0xf, p->mem[2].size);
+		ctlr->mmmix = vmap(p->mem[2].bar & ~0xF, p->mem[2].size);
 		if(ctlr->mmmix == nil){
-			print("ac97: vmap failed for mmmix 0x%08lux\n", p->mem[2].bar);
+			print("ac97: vmap failed for mmmix %llux\n", p->mem[2].bar & ~0xF);
 			return -1;
 		}
-		ctlr->mmreg = vmap(p->mem[3].bar & ~0xf, p->mem[3].size);
+		ctlr->mmreg = vmap(p->mem[3].bar & ~0xF, p->mem[3].size);
 		if(ctlr->mmreg == nil){
-			print("ac97: vmap failed for mmreg 0x%08lux\n", p->mem[3].bar);
+			print("ac97: vmap failed for mmreg %llux\n", p->mem[3].bar & ~0xF);
 			vunmap(ctlr->mmmix, p->mem[2].size);
 			return -1;
 		}
 		ctlr->ismmio = 1;
 	}else{
 		if((p->mem[0].bar & 1) == 0 || (p->mem[1].bar & 1) == 0){
-			print("ac97: not i/o regions 0x%04lux 0x%04lux\n", p->mem[0].bar, p->mem[1].bar);
+			print("ac97: not i/o regions 0x%04llux 0x%04llux\n", p->mem[0].bar, p->mem[1].bar);
 			return -1;
 		}
 
@@ -555,6 +533,8 @@ Found:
 
 	irq = p->intl;
 	tbdf = p->tbdf;
+
+	adev->ctlr = ctlr;
 
 	print("#A%d: ac97 port 0x%04lux mixport 0x%04lux irq %d\n",
 		adev->ctlrno, ctlr->port, ctlr->mixport, irq);
@@ -649,6 +629,43 @@ Found:
 	intrenable(irq, ac97interrupt, adev, tbdf, adev->name);
 
 	return 0;
+}
+
+static int
+ac97reset(Audio *adev)
+{
+	static Ctlr *cards = nil;
+	Ctlr *ctlr;
+	Pcidev *p;
+
+	/* make a list of all ac97 cards if not already done */
+	if(cards == nil){
+		p = nil;
+		while((p = ac97match(p)) != nil){
+			ctlr = mallocz(sizeof(Ctlr), 1);
+			if(ctlr == nil){
+				print("ac97: can't allocate memory\n");
+				break;
+			}
+			ctlr->pcidev = p;
+			ctlr->next = cards;
+			cards = ctlr;
+		}
+	}
+
+	/* pick a card from the list */
+	for(ctlr = cards; ctlr; ctlr = ctlr->next){
+		if(ctlr->adev == nil && ctlr->pcidev != nil){
+			ctlr->adev = adev;
+			pcienable(ctlr->pcidev);
+			if(ac97reset1(adev, ctlr) == 0)
+				return 0;
+			pcidisable(ctlr->pcidev);
+			ctlr->pcidev = nil;
+			ctlr->adev = nil;
+		}
+	}
+	return -1;
 }
 
 void
