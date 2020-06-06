@@ -474,6 +474,8 @@ audiointr(Ureg *, void *arg)
 
 	adev = arg;
 	ctlr = adev->ctlr;
+	if(ctlr == nil || ctlr->adev != adev)
+		return;
 	if(!ctlr->active){
 		iprint("#A%d: unexpected %s interrupt\n",
 			ctlr->adev->ctlrno, ctlr->adev->name);
@@ -672,46 +674,14 @@ ess1688(ISAConf* sbconf, Blaster *blaster, int ctlrno)
 	return 0;
 }
 
-static int
-audioprobe(Audio *adev)
-{
-	static int irq[] = {9,5,7,10};
-	static Ctlr *cards = nil;
+static int irqmap[] = {9,5,7,10};
 
-	Ctlr *ctlr;
+static int
+reset1(Audio *adev, Ctlr *ctlr)
+{
 	Blaster *blaster;
 	int i, x;
 
-	/* make a list of audio isa cards if not already done */
-	if(cards == nil){
-		for(i=0; i<nelem(irq); i++){
-			ctlr = mallocz(sizeof(Ctlr), 1);
-			if(ctlr == nil){
-				print("sb16: can't allocate memory\n");
-				break;
-			}
-			ctlr->conf.port = 0x220 + i*0x10;
-			ctlr->conf.irq = irq[i];
-			ctlr->conf.dma = 0;
-			if(isaconfig("audio", i, &ctlr->conf) == 0){
-				free(ctlr);
-				break;
-			}
-			ctlr->next = cards;
-			cards = ctlr;
-		}
-	}
-
-	/* pick a card */
-	for(ctlr = cards; ctlr; ctlr = ctlr->next){
-		if(ctlr->conf.type && strcmp(adev->name, ctlr->conf.type) == 0){
-			ctlr->conf.type = nil;
-			goto Found;
-		}
-	}
-	return -1;
-
-Found:
 	switch(ctlr->conf.port){
 	case 0x220:
 	case 0x240:
@@ -719,24 +689,21 @@ Found:
 	case 0x280:
 		break;
 	default:
-		print("#A%d: bad port %#lux\n", adev->ctlrno, ctlr->conf.port);
+		print("#A%d: bad port %lux\n", adev->ctlrno, (ulong)ctlr->conf.port);
 		return -1;
 	}
 
 	if(ioalloc(ctlr->conf.port, 0x10, 0, "audio") < 0){
 		print("#A%d: cannot ioalloc range %lux+0x10\n",
-			adev->ctlrno, ctlr->conf.port);
+			adev->ctlrno, (ulong)ctlr->conf.port);
 		return -1;
 	}
 	if(ioalloc(ctlr->conf.port+0x100, 1, 0, "audio.mpu401") < 0){
 		iofree(ctlr->conf.port);
 		print("#A%d: cannot ioalloc range %lux+0x01\n",
-			adev->ctlrno, ctlr->conf.port+0x100);
+			adev->ctlrno, (ulong)ctlr->conf.port+0x100);
 		return -1;
 	}
-
-	ctlr->adev = adev;
-	adev->ctlr = ctlr;
 
 	blaster = &ctlr->blaster;
 	blaster->reset = ctlr->conf.port + 0x6;
@@ -795,16 +762,16 @@ Errout:
 	}
 
 	/* set irq */
-	for(i=0; i<nelem(irq); i++){
-		if(ctlr->conf.irq == irq[i]){
+	for(i=0; i<nelem(irqmap); i++){
+		if(ctlr->conf.irq == irqmap[i]){
 			mxcmd(blaster, 0x80, 1<<i);
 			break;
 		}
 	}
 	x = mxread(blaster, 0x80);
-	for(i=0; i<nelem(irq); i++){
+	for(i=0; i<nelem(irqmap); i++){
 		if(x & (1<<i)){
-			ctlr->conf.irq = irq[i];
+			ctlr->conf.irq = irqmap[i];
 			break;
 		}
 	}
@@ -828,7 +795,7 @@ Errout:
 	}
 
 	print("#A%d: %s port 0x%04lux irq %d dma %lud\n", adev->ctlrno, adev->name,
-		ctlr->conf.port, ctlr->conf.irq, ctlr->conf.dma);
+		(ulong)ctlr->conf.port, ctlr->conf.irq, ctlr->conf.dma);
 
 	ctlr->ring.nbuf = Blocks*Blocksize;
 	if(dmainit(ctlr->conf.dma, ctlr->ring.nbuf))
@@ -839,6 +806,7 @@ Errout:
 
 	setempty(ctlr);
 
+	adev->ctlr = ctlr;
 	adev->write = audiowrite;
 	adev->close = audioclose;
 	adev->volread = audiovolread;
@@ -849,6 +817,45 @@ Errout:
 	intrenable(ctlr->conf.irq, audiointr, adev, BUSUNKNOWN, adev->name);
 
 	return 0;
+}
+
+static int
+audioprobe(Audio *adev)
+{
+	static Ctlr *cards = nil;
+	Ctlr *ctlr;
+	int i;
+
+	/* make a list of audio isa cards if not already done */
+	if(cards == nil){
+		for(i=0; i<nelem(irqmap); i++){
+			ctlr = mallocz(sizeof(Ctlr), 1);
+			if(ctlr == nil){
+				print("sb16: can't allocate memory\n");
+				break;
+			}
+			ctlr->conf.port = 0x220 + i*0x10;
+			ctlr->conf.irq = irqmap[i];
+			ctlr->conf.dma = 0;
+			if(!isaconfig("audio", i, &ctlr->conf)){
+				free(ctlr);
+				break;
+			}
+			ctlr->next = cards;
+			cards = ctlr;
+		}
+	}
+
+	/* pick a card */
+	for(ctlr = cards; ctlr; ctlr = ctlr->next){
+		if(ctlr->adev == nil && strcmp(adev->name, ctlr->conf.type) == 0){
+			ctlr->adev = adev;
+			if(reset1(adev, ctlr) == 0)
+				return 0;
+			ctlr->adev = (void*)-1;
+		}
+	}
+	return -1;
 }
 
 void
