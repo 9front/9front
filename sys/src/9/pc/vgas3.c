@@ -91,8 +91,9 @@ s3page(VGAscr* scr, int page)
 static void
 s3linear(VGAscr* scr, int, int)
 {
+	uvlong mmiobase;
+	ulong mmiosize;
 	int id, j;
-	ulong mmiobase, mmiosize;
 	Pcidev *p;
 	
 	p = scr->pci;

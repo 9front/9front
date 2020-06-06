@@ -92,7 +92,7 @@ struct VGAscr {
 
 	int	useflush;
 
-	uintptr	paddr;		/* frame buffer */
+	uvlong	paddr;		/* frame buffer */
 	void*	vaddr;
 	int	apsize;
 
@@ -129,7 +129,7 @@ extern void	mouseredraw(void);
 extern int	hwaccel;	/* use hw acceleration */
 extern int	hwblank;	/* use hw blanking */
 extern int	panning;	/* use virtual screen panning */
-extern void	addvgaseg(char*, ulong, ulong);
+extern void	addvgaseg(char*, uvlong, ulong);
 extern Memdata*	attachscreen(Rectangle*, ulong*, int*, int*, int*);
 extern void	flushmemscreen(Rectangle);
 extern void	cursoron(void);
@@ -154,7 +154,7 @@ extern QLock	drawlock;
 extern void	vgascreenwin(VGAscr*);
 extern void	vgaimageinit(ulong);
 extern void	vgalinearpci(VGAscr*);
-extern void	vgalinearaddr(VGAscr*, ulong, int);
+extern void	vgalinearaddr(VGAscr*, uvlong, int);
 extern void	vgablank(VGAscr*, int);
 extern Lock	vgascreenlock;
 

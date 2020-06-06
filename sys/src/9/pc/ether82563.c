@@ -502,7 +502,7 @@ typedef void (*Freefn)(Block*);
 
 typedef struct Ctlr Ctlr;
 struct Ctlr {
-	ulong	port;
+	uvlong	port;
 	Pcidev	*pcidev;
 	Ctlr	*next;
 	int	active;
@@ -1667,7 +1667,10 @@ fload(Ctlr *c)
 	if(c->pcidev->mem[1].bar == 0)
 		return fload32(c);	/* i219 */
 
-	va = vmap(c->pcidev->mem[1].bar & ~0x0f, c->pcidev->mem[1].size);
+	if(c->pcidev->mem[1].bar & 1)
+		return -1;
+
+	va = vmap(c->pcidev->mem[1].bar & ~0xF, c->pcidev->mem[1].size);
 	if(va == nil)
 		return -1;
 	f.reg = va;
@@ -2025,6 +2028,8 @@ i82563pci(void)
 
 	for(p = nil; p = pcimatch(p, 0x8086, 0);){
 		hbafixup(p);
+		if(p->mem[0].bar & 1)
+			continue;
 		if((type = didtype(p->did)) == -1)
 			continue;
 		ctlr = malloc(sizeof(Ctlr));
@@ -2035,7 +2040,7 @@ i82563pci(void)
 		ctlr->type = type;
 		ctlr->pcidev = p;
 		ctlr->rbsz = ROUND(cttab[type].mtu, 1024);
-		ctlr->port = p->mem[0].bar & ~0x0F;
+		ctlr->port = p->mem[0].bar & ~0xF;
 		if(i82563ctlrhead != nil)
 			i82563ctlrtail->next = ctlr;
 		else
@@ -2052,7 +2057,7 @@ setup(Ctlr *ctlr)
 	p = ctlr->pcidev;
 	ctlr->nic = vmap(ctlr->port, p->mem[0].size);
 	if(ctlr->nic == nil){
-		print("%s: can't map 0x%lux\n", cname(ctlr), ctlr->port);
+		print("%s: can't map %llux\n", cname(ctlr), ctlr->port);
 		return -1;
 	}
 	pcienable(p);

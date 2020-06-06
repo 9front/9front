@@ -131,12 +131,12 @@ linear(Vga* vga)
 		 * new: addr p 0x12345678 v 0x82345678 size 0x123
 		 */
 		if(buf[0]=='p' && buf[1]==' '){
-			vga->vmb = strtoul(buf+2, 0, 0);
+			vga->vmb = strtoull(buf+2, 0, 0);
 			p = strstr(buf, "size");
 			if(p)
 				vga->apz = strtoul(p+4, 0, 0);
 		}else
-			vga->vmb = strtoul(buf, 0, 0);
+			vga->vmb = strtoull(buf, 0, 0);
 	}
 	else
 		vgactlw("linear", "0");

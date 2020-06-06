@@ -23,11 +23,11 @@ typedef struct Ctlr Ctlr;
 struct Ctlr {
 	Lock txlock, imlock;
 	Ctlr *link;
+	uvlong port;
 	Pcidev *pdev;
 	ulong *nic, *status;
 	/* One Ring to find them, One Ring to bring them all and in the darkness bind them */
 	ulong *recvret, *recvprod, *sendr;
-	ulong port;
 	ulong recvreti, recvprodi, sendri, sendcleani;
 	Block **sends, **recvs;
 	int active, duplex;
@@ -704,6 +704,9 @@ bcmpci(void)
 			continue;
 		if(pdev->vid != 0x14e4)
 			continue;
+		if(pdev->mem[0].bar & 1)
+			continue;
+
 		switch(pdev->did){
 		default:
 			continue;
@@ -790,7 +793,6 @@ bcmpci(void)
 		case 0x1670: 	/* ??? */
 			break;
 		}
-
 		ctlr = malloc(sizeof(Ctlr));
 		if(ctlr == nil) {
 			print("bcm: unable to alloc Ctlr\n");
@@ -805,16 +807,17 @@ bcmpci(void)
 			free(ctlr);
 			continue;
 		}
-		mem = vmap(pdev->mem[0].bar & ~0x0F, pdev->mem[0].size);
+		ctlr->port = pdev->mem[0].bar & ~0xF;
+		mem = vmap(ctlr->port, pdev->mem[0].size);
 		if(mem == nil) {
-			print("bcm: can't map %8.8luX\n", pdev->mem[0].bar);
+			print("bcm: can't map %llux\n", ctlr->port);
 			free(ctlr->sends);
+			free(ctlr->recvs);
 			free(ctlr);
 			continue;
 		}
 		ctlr->pdev = pdev;
 		ctlr->nic = mem;
-		ctlr->port = pdev->mem[0].bar & ~0x0F;
 		ctlr->status = xspanalloc(20, 16, 0);
 		ctlr->recvprod = xspanalloc(32 * RecvProdRingLen, 16, 0);
 		ctlr->recvret = xspanalloc(32 * RecvRetRingLen, 16, 0);

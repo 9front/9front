@@ -804,12 +804,10 @@ interrupt(Ureg*, void *v)
 	iunlock(&c->imlock);
 }
 
-extern void addvgaseg(char*, ulong, ulong);
-
 static void
 scan(void)
 {
-	uintptr io, iomsi;
+	uvlong io, iomsi;
 	void *mem, *memmsi;
 	int pciregs, pcimsix;
 	Ctlr *c;
@@ -819,6 +817,9 @@ scan(void)
 	while(p = pcimatch(p, 0x8086, 0x15c8)){	/* X553/X550-AT 10GBASE-T */
 		pcimsix = 4;
 		pciregs = 0;
+		if((p->mem[pciregs].bar & 1) != 0
+		|| (p->mem[pcimsix].bar & 1) != 0)
+			continue;
 		if(nctlr == nelem(ctlrtab)){
 			print("iX550: too many controllers\n");
 			return;
@@ -828,21 +829,17 @@ scan(void)
 			print("iX550: can't allocate memory\n");
 			continue;
 		}
-		io = p->mem[pciregs].bar & ~0xf;
+		io = p->mem[pciregs].bar & ~0xF;
 		mem = vmap(io, p->mem[pciregs].size);
 		if(mem == nil){
-			print("iX550: can't map regs %#p\n", io);
+			print("iX550: can't map regs %llux\n", io);
 			free(c);
 			continue;
 		}
-		if (nctlr == 0)
-			addvgaseg("pci.ctlr0.bar0", p->mem[pciregs].bar & ~0xf, p->mem[pciregs].size);
-		else if (nctlr == 1)
-			addvgaseg("pci.ctlr1.bar0", p->mem[pciregs].bar & ~0xf, p->mem[pciregs].size);
-		iomsi = p->mem[pcimsix].bar & ~0xf;
+		iomsi = p->mem[pcimsix].bar & ~0xF;
 		memmsi = vmap(iomsi, p->mem[pcimsix].size);
 		if(memmsi == nil){
-			print("iX550: can't map msi-x regs %#p\n", iomsi);
+			print("iX550: can't map msi-x regs %llux\n", iomsi);
 			vunmap(mem, p->mem[pciregs].size);
 			free(c);
 			continue;
@@ -855,9 +852,9 @@ scan(void)
 		c->rbsz = ROUND(Mtu, 1024);
 		if(reset(c)){
 			print("iX550: can't reset\n");
-			free(c);
 			vunmap(mem, p->mem[pciregs].size);
 			vunmap(memmsi, p->mem[pcimsix].size);
+			free(c);
 			continue;
 		}
 		pcisetbme(p);

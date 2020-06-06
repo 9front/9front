@@ -231,7 +231,7 @@ pmmcinit(void)
 		}
 	}
 
-	if(p == nil || p->mem[0].size < 256)
+	if(p == nil || p->mem[0].size < 256 || (p->mem[0].bar & 1) != 0)
 		return -1;
 
 	pmmc->mmio = vmap(p->mem[0].bar & ~0x0F, p->mem[0].size);

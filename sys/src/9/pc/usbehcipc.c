@@ -153,7 +153,7 @@ scanpci(void)
 {
 	static int already = 0;
 	int i;
-	uintptr io;
+	uvlong io;
 	Ctlr *ctlr;
 	Pcidev *p;
 	Ecapio *capio;
@@ -170,6 +170,8 @@ scanpci(void)
 			continue;
 		switch(p->ccrp){
 		case 0x20:
+			if(p->mem[0].bar & 1)
+				continue;
 			io = p->mem[0].bar & ~0x0f;
 			break;
 		default:
@@ -178,7 +180,7 @@ scanpci(void)
 		if(io == 0)
 			continue;
 
-		print("usbehci: %#x %#x: port %#p size %#x irq %d\n",
+		print("usbehci: %#x %#x: port %llux size %d irq %d\n",
 			p->vid, p->did, io, p->mem[0].size, p->intl);
 
 		ctlr = malloc(sizeof(Ctlr));
@@ -187,7 +189,8 @@ scanpci(void)
 			continue;
 		}
 
-		if((capio = vmap(io, p->mem[0].size)) == nil){
+		capio = vmap(io, p->mem[0].size);
+		if(capio == nil){
 			print("usbehci: cannot map mmio\n");
 			free(ctlr);
 			continue;
@@ -210,7 +213,7 @@ scanpci(void)
 		 */
 		if (i >= maxehci) {
 			iprint("usbehci: ignoring controllers after first %d, "
-				"at %#p\n", maxehci, io);
+				"at %.8llux\n", maxehci, io);
 			ctlrs[i] = nil;
 		}
 	}

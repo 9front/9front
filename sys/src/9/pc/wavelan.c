@@ -1245,8 +1245,8 @@ wavelanreset(Ether* ether, Ctlr *ctlr)
 
 	intrenable(ether->irq, w_interrupt, ether, ether->tbdf, ether->name);
 
-	DEBUG("#l%d: irq %d port %lx type %s",
-		ether->ctlrno, ether->irq, ether->port,	ether->type);
+	DEBUG("#l%d: irq %d port %llux type %s",
+		ether->ctlrno, ether->irq, (uvlong)ether->port,	ether->type);
 	DEBUG(" %2.2ux%2.2ux%2.2ux%2.2ux%2.2ux%2.2ux\n",
 		ether->ea[0], ether->ea[1], ether->ea[2],
 		ether->ea[3], ether->ea[4], ether->ea[5]);

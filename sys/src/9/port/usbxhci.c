@@ -254,7 +254,7 @@ struct Ctlr
 
 	Rendez	recover;	
 	void	*active;
-	uintptr	base;
+	uvlong	base;
 };
 
 struct Epio
@@ -1697,7 +1697,7 @@ scanpci(void)
 {
 	static int already = 0;
 	int i;
-	uintptr io;
+	uvlong io;
 	Ctlr *ctlr;
 	Pcidev *p;
 	u32int *mmio; 
@@ -1712,10 +1712,12 @@ scanpci(void)
 		 */
 		if(p->ccrb != Pcibcserial || p->ccru != Pciscusb || p->ccrp != 0x30)
 			continue;
+		if(p->mem[0].bar & 1)
+			continue;
 		io = p->mem[0].bar & ~0x0f;
 		if(io == 0)
 			continue;
-		print("usbxhci: %#x %#x: port %#p size %#x irq %d\n",
+		print("usbxhci: %#x %#x: port %llux size %d irq %d\n",
 			p->vid, p->did, io, p->mem[0].size, p->intl);
 		mmio = vmap(io, p->mem[0].size);
 		if(mmio == nil){

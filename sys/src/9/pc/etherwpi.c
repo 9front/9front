@@ -235,10 +235,10 @@ struct Ctlr {
 	QLock;
 
 	Ctlr *link;
+	uvlong port;
 	Pcidev *pdev;
 	Wifi *wifi;
 
-	int port;
 	int power;
 	int active;
 	int broken;
@@ -1789,6 +1789,9 @@ wpipci(void)
 			break;
 		}
 
+		if(pdev->mem[0].bar & 1)
+			continue;
+
 		/* Clear device-specific "PCI retry timeout" register (41h). */
 		if(pcicfgr8(pdev, 0x41) != 0)
 			pcicfgw8(pdev, 0x41, 0);
@@ -1798,10 +1801,10 @@ wpipci(void)
 			print("wpi: unable to alloc Ctlr\n");
 			continue;
 		}
-		ctlr->port = pdev->mem[0].bar & ~0x0F;
-		mem = vmap(pdev->mem[0].bar & ~0x0F, pdev->mem[0].size);
+		ctlr->port = pdev->mem[0].bar & ~0xF;
+		mem = vmap(ctlr->port, pdev->mem[0].size);
 		if(mem == nil) {
-			print("wpi: can't map %8.8luX\n", pdev->mem[0].bar);
+			print("wpi: can't map %llux\n", ctlr->port);
 			free(ctlr);
 			continue;
 		}

@@ -81,7 +81,8 @@ snarf(Vga* vga, Ctlr* ctlr)
 		vga->n[1] = 256;
 		vga->p[1] = 4;
 
-		if((v = (tdfx->pci->mem[2].bar & ~0x3)) == 0)
+		v = tdfx->pci->mem[2].bar & ~0x3;
+		if(v == 0)
 			error("%s: I/O not mapped\n", ctlr->name);
 		tdfx->io = v;
 

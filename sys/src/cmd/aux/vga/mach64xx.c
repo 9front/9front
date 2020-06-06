@@ -379,7 +379,8 @@ snarf(Vga* vga, Ctlr* ctlr)
 		mp->iow32 = portiow32;
 		mp->pci = pcimatch(0, 0x1002, 0);
 		if (mp->pci) {
-			if(v = mp->pci->mem[1].bar & ~0x3) {
+			v = mp->pci->mem[1].bar & ~0x3;
+			if(v != 0) {
 				mp->io = v;
 				mp->ior32 = pciior32;
 				mp->iow32 = pciiow32;

@@ -87,9 +87,10 @@ radeonenable(VGAscr *scr)
 	if (p == nil)
 		return;
 	scr->id = p->did;
-
+	if(p->mem[2].bar & 1)
+		return;
 	scr->mmio = vmap(p->mem[2].bar & ~0x0f, p->mem[2].size);
-	if(scr->mmio == 0)
+	if(scr->mmio == nil)
 		return;
 	addvgaseg("radeonmmio", p->mem[2].bar & ~0x0f, p->mem[2].size);
 

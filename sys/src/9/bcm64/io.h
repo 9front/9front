@@ -211,7 +211,7 @@ struct Pcidev
 	uchar	ltr;
 
 	struct {
-		uintptr	bar;		/* base address */
+		uvlong	bar;		/* base address */
 		int	size;
 	} mem[6];
 
@@ -226,7 +226,7 @@ struct Pcidev
 	int	pmrb;			/* power management register block */
 
 	struct {
-		uintptr	bar;
+		uvlong	bar;
 		int	size;
 	} ioa, mema;
 };

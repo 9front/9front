@@ -350,7 +350,7 @@ enum {
 
 typedef struct Ctlr Ctlr;
 typedef struct Ctlr {
-	int	port;
+	uvlong	port;
 	Pcidev*	pcidev;
 	Ctlr*	next;
 	int	active;
@@ -1252,10 +1252,13 @@ gc82543pci(void)
 	void *mem;
 	Pcidev *p;
 	Ctlr *ctlr;
+	uvlong io;
 
 	p = nil;
 	while(p = pcimatch(p, 0, 0)){
 		if(p->ccrb != 0x02 || p->ccru != 0)
+			continue;
+		if(p->mem[0].bar & 1)
 			continue;
 
 		switch((p->did<<16)|p->vid){

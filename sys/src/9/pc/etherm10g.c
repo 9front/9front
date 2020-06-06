@@ -192,11 +192,11 @@ typedef struct {
 typedef struct Ctlr Ctlr;
 typedef struct Ctlr {
 	QLock;
-	int	state;
-	int	kprocs;
 	uvlong	port;
 	Pcidev*	pcidev;
 	Ctlr*	next;
+	int	state;
+	int	kprocs;
 	int	active;
 	int	id;		/* do we need this? */
 
@@ -808,23 +808,24 @@ ctlrfree(Ctlr *c)
 static int
 setmem(Pcidev *p, Ctlr *c)
 {
-	ulong i;
 	uvlong raddr;
-	Done *d;
 	void *mem;
+	Done *d;
+	ulong i;
 
 	c->tx.segsz = 2048;
 	c->ramsz = 2*MiB - (2*48*KiB + 32*KiB) - 0x100;
 	if(c->ramsz > p->mem[0].size)
 		return -1;
-
-	raddr = p->mem[0].bar & ~0x0F;
+	if(p->mem[0].bar & 1)
+		return -1;
+	raddr = p->mem[0].bar & ~0xF;
 	mem = vmap(raddr, p->mem[0].size);
 	if(mem == nil){
-		print("m10g: can't map %8.8lux\n", p->mem[0].bar);
+		print("m10g: can't map %llux\n", raddr);
 		return -1;
 	}
-	dprint("%llux <- vmap(mem[0].size = %ux)\n", raddr, p->mem[0].size);
+	dprint("%llux <- vmap(mem[0].size = %d)\n", raddr, p->mem[0].size);
 	c->port = raddr;
 	c->ram = mem;
 	c->cmd = malign(sizeof *c->cmd);

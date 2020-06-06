@@ -680,7 +680,7 @@ struct Ctlr {
 	uchar	rev;
 	uchar	nports;
 	uchar	portno;
-	uintptr	io;
+	uvlong	io;
 	uchar	*reg8;
 	ushort	*reg16;
 	uint	*reg;
@@ -2129,10 +2129,12 @@ setup(Ctlr *c)
 	Pcidev *p;
 
 	p = c->p;
+	if(p->mem[0].bar & 1)
+		return -1;
 	c->io = p->mem[0].bar&~0xf;
 	mem = vmap(c->io, p->mem[0].size);
 	if(mem == nil){
-		print("yuk: cant map %#p\n", c->io);
+		print("yuk: cant map %llux\n", c->io);
 		return -1;
 	}
 	pcienable(p);

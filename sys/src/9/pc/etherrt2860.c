@@ -925,6 +925,7 @@ struct Ctlr {
 	QLock;
 
 	Ctlr *link;
+	uvlong port;
 	Pcidev *pdev;
 	Wifi *wifi;
 
@@ -967,8 +968,6 @@ struct Ctlr {
 	u32int txpow40mhz_5ghz[5];
 
 	int flags;
-
-	int port;
 	int power;
 	int active;
 	int broken;
@@ -3480,6 +3479,8 @@ rt2860pci(void)
 			continue;
 		if(pdev->vid != 0x1814) /* Ralink */
 			continue;
+		if(pdev->mem[0].bar & 1)
+			continue;
 
 		switch(pdev->did){
 		default:
@@ -3494,10 +3495,10 @@ rt2860pci(void)
 			print("rt2860: unable to alloc Ctlr\n");
 			continue;
 		}
-		ctlr->port = pdev->mem[0].bar & ~0x0F;
-		mem = vmap(pdev->mem[0].bar & ~0x0F, pdev->mem[0].size);
+		ctlr->port = pdev->mem[0].bar & ~0xF;
+		mem = vmap(ctlr->port, pdev->mem[0].size);
 		if(mem == nil){
-			print("rt2860: can't map %8.8luX\n", pdev->mem[0].bar);
+			print("rt2860: can't map %llux\n", ctlr->port);
 			free(ctlr);
 			continue;
 		}

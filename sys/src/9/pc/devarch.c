@@ -1247,7 +1247,7 @@ isaconfig(char *class, int ctlrno, ISAConf *isa)
 		if(cistrncmp(p, "type=", 5) == 0)
 			isa->type = p + 5;
 		else if(cistrncmp(p, "port=", 5) == 0)
-			isa->port = strtoul(p+5, &p, 0);
+			isa->port = strtoull(p+5, &p, 0);
 		else if(cistrncmp(p, "irq=", 4) == 0)
 			isa->irq = strtoul(p+4, &p, 0);
 		else if(cistrncmp(p, "dma=", 4) == 0)

@@ -174,7 +174,6 @@ mach64xxenable(VGAscr* scr)
 		 * this will do for now.
 		 */
 		scr->io = p->mem[1].bar & ~0x03;
-
 		if(scr->io == 0)
 			scr->io = 0x2EC;
 	}
@@ -1068,7 +1067,7 @@ ovl_status(VGAscr *scr, Chan *, char **field)
 		   mach64type->m64_ovlclock,
 		   mach64revb? "yes": "no",
 		   mach64refclock);
-	pprint("%s: storage @%.8luX, aperture @%8.ulX, ovl buf @%.8ulX\n",
+	pprint("%s: storage @%.8luX, aperture @%8.ullX, ovl buf @%.8ulX\n",
 		   scr->dev->name, scr->storage, scr->paddr,
 		   mach64overlay);
 }

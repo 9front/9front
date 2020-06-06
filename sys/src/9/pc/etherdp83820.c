@@ -342,7 +342,7 @@ enum {
 
 typedef struct Ctlr Ctlr;
 typedef struct Ctlr {
-	int	port;
+	uvlong	port;
 	Pcidev*	pcidev;
 	Ctlr*	next;
 	int	active;
@@ -1148,6 +1148,8 @@ dp83820pci(void)
 	while(p = pcimatch(p, 0, 0)){
 		if(p->ccrb != Pcibcnet || p->ccru != Pciscether)
 			continue;
+		if(p->mem[1].bar & 1)
+			continue;
 
 		switch((p->did<<16)|p->vid){
 		default:
@@ -1156,9 +1158,9 @@ dp83820pci(void)
 			break;
 		}
 
-		mem = vmap(p->mem[1].bar & ~0x0F, p->mem[1].size);
-		if(mem == 0){
-			print("DP83820: can't map %8.8luX\n", p->mem[1].bar);
+		mem = vmap(p->mem[1].bar & ~0xF, p->mem[1].size);
+		if(mem == nil){
+			print("DP83820: can't map %llux\n", p->mem[1].bar & ~0xF);
 			continue;
 		}
 
@@ -1167,7 +1169,7 @@ dp83820pci(void)
 			print("DP83820: can't allocate memory\n");
 			continue;
 		}
-		ctlr->port = p->mem[1].bar & ~0x0F;
+		ctlr->port = p->mem[1].bar & ~0xF;
 		ctlr->pcidev = p;
 		pcienable(p);
 		ctlr->id = (p->did<<16)|p->vid;

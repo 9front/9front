@@ -425,7 +425,7 @@ typedef struct Ctlr {
 	int	ts;			/* threshold shift */
 	int	upenabled;
 	int	dnenabled;
-	ulong	cbfnpa;			/* CardBus functions */
+	uvlong	cbfnpa;			/* CardBus functions */
 	ulong*	cbfn;
 } Ctlr;
 
@@ -1496,12 +1496,12 @@ tcm59Xpci(void)
 		case 0x5157:
 			ctlr->eepromcmd = EepromRead8bRegister;
 			ctlr->cbfnpa = p->mem[2].bar&~0x0F;
-			ctlr->cbfn = vmap(p->mem[2].bar&~0x0F, p->mem[2].size);
+			ctlr->cbfn = vmap(ctlr->cbfnpa, p->mem[2].size);
 			break;
 		case 0x6056:
 			ctlr->eepromcmd = EepromReadOffRegister;
 			ctlr->cbfnpa = p->mem[2].bar&~0x0F;
-			ctlr->cbfn = vmap(p->mem[2].bar&~0x0F, p->mem[2].size);
+			ctlr->cbfn = vmap(ctlr->cbfnpa, p->mem[2].size);
 			break;
 		}
 		pcisetbme(p);

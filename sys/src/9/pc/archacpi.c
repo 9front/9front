@@ -46,7 +46,7 @@ static Rsd *rsd;
 
 /* physical addresses visited by maptable() */
 static int ntblpa;
-static uintptr tblpa[64];
+static uvlong tblpa[64];
 
 /* successfully mapped tables */
 static int ntblmap;
@@ -104,18 +104,16 @@ memcheck(uintptr pa, long len)
 }
 
 static void
-maptable(uvlong xpa)
+maptable(uvlong pa)
 {
 	uchar *p, *e;
-	uintptr pa;
 	u32int l;
 	Tbl *t;
 	int i;
 
-	pa = xpa;
-	if((uvlong)pa != xpa || pa == 0 || pa+7 < pa)
+	if(-pa < 8)
 		return;
-		
+
 	if(ntblpa >= nelem(tblpa) || ntblmap >= nelem(tblmap))
 		return;
 
@@ -131,7 +129,7 @@ maptable(uvlong xpa)
 	l = get32(t->len);
 	if(l < Tblsz
 	|| l >= 0x10000000
-	|| pa+l-1 < pa){
+	|| -pa < l){
 		vunmap(t, 8);
 		return;
 	}
@@ -519,7 +517,7 @@ enumec(void *dot, void *)
 static long
 readmem(Chan*, void *v, long n, vlong o)
 {
-	uintptr pa = (uintptr)o;
+	uvlong pa = (uvlong)o;
 	void *t;
 
 	if((n = memcheck(pa, n)) <= 0)
@@ -539,7 +537,7 @@ readmem(Chan*, void *v, long n, vlong o)
 static long
 writemem(Chan*, void *v, long n, vlong o)
 {
-	uintptr pa = (uintptr)o;
+	uvlong pa = (uvlong)o;
 	void *t;
 
 	if(memcheck(pa, n) != n)
@@ -778,7 +776,7 @@ readtbls(Chan*, void *v, long n, vlong o)
 static int
 identify(void)
 {
-	uintptr pa;
+	uvlong pa;
 	char *cp;
 
 	if((cp = getconf("*acpi")) == nil)

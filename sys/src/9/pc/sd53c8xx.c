@@ -2063,7 +2063,8 @@ sd53c8xxpnp(void)
 	void *scriptma;
 	Controller *ctlr;
 	SDev *sdev, *head, *tail;
-	ulong regpa, *script, scriptpa;
+	uvlong regpa, scriptpa;
+	ulong *script;
 	void *regva, *scriptva;
 
 	if(cp = getconf("*maxsd53c8xx"))
@@ -2092,12 +2093,14 @@ sd53c8xxpnp(void)
 				continue;
 			ba++;
 		}
+		regpa &= ~0xF;
 		if(regpa == 0)
 			print("regpa 0\n");
-		regpa &= ~0xF;
 		regva = vmap(regpa, p->mem[1].size);
-		if(regva == 0)
+		if(regva == nil){
+			print("sd53c8xx: can't map %llux\n", regpa);
 			continue;
+		}
 
 		script = nil;
 		scriptpa = 0;
@@ -2111,7 +2114,7 @@ sd53c8xxpnp(void)
 			}
 			scriptpa &= ~0x0F;
 			scriptva = vmap(scriptpa, p->mem[ba].size);
-			if(scriptva)
+			if(scriptva != nil)
 				script = scriptva;
 		}
 		if(scriptpa == 0){
