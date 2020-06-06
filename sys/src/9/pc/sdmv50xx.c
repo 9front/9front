@@ -1131,8 +1131,9 @@ static SDev*
 mv50pnp(void)
 {
 	int i, nunit;
+	ulong n, *mem;
 	uchar *base;
-	ulong io, n, *mem;
+	uvlong io;
 	Ctlr *ctlr;
 	Drive *d;
 	Pcidev *p;
@@ -1147,6 +1148,8 @@ mv50pnp(void)
 	tail = nil;
 	while((p = pcimatch(p, 0x11ab, 0)) != nil){
 		if(p->ccrb != Pcibcstore || p->ccru + p->ccrp || p->did&0x0f00)
+			continue;
+		if(p->mem[0].size == 0 || (p->mem[0].bar & 1) != 0)
 			continue;
 		switch(p->did){
 		case 0x5040:
@@ -1169,18 +1172,16 @@ mv50pnp(void)
 			'E' + ctlrno, (ushort)p->did, nunit,
 			((p->did&0xf000)==0x6000? "II": "I"),
 			(p->did&1? "": "out"));
+		io = p->mem[0].bar & ~0xF;
+		mem = (ulong*)vmap(io, p->mem[0].size);
+		if(mem == nil){
+			print("sdmv50xx: can't map %llux\n", io);
+			continue;
+		}
 		if((sdev = malloc(sizeof *sdev)) == nil)
 			continue;
 		if((ctlr = malloc(sizeof *ctlr)) == nil){
 			free(sdev);
-			continue;
-		}
-		io = p->mem[0].bar & ~0x0F;
-		mem = (ulong*)vmap(io, p->mem[0].size);
-		if(mem == 0){
-			print("sdmv50xx: address 0x%luX in use\n", io);
-			free(sdev);
-			free(ctlr);
 			continue;
 		}
 		ctlr->rid = p->rid;
