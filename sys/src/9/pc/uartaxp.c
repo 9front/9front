@@ -759,8 +759,9 @@ axpalloc(int ctlrno, Pcidev* pcidev)
 	Ctlr *ctlr;
 	void *addr;
 	char name[64];
-	u32int bar, r;
+	u32int r;
 	int i, n, timeo;
+	uvlong io;
 
 	ctlr = malloc(sizeof(Ctlr));
 	if(ctlr == nil){
@@ -775,25 +776,27 @@ axpalloc(int ctlrno, Pcidev* pcidev)
 	/*
 	 * Access to runtime registers.
 	 */
-	bar = pcidev->mem[0].bar;
-	if((addr = vmap(bar & ~0x0F, pcidev->mem[0].size)) == 0){
-		print("%s: can't map registers at %#ux\n", ctlr->name, bar);
+	io = pcidev->mem[0].bar & ~0xF;
+	addr = vmap(io, pcidev->mem[0].size);
+	if(addr == nil){
+		print("%s: can't map registers at %llux\n", ctlr->name, io);
 		return axpdealloc(ctlr);
 	}
 	ctlr->reg = addr;
-	print("%s: port 0x%ux irq %d ", ctlr->name, bar, pcidev->intl);
+	print("%s: port 0x%llux irq %d ", ctlr->name, io, pcidev->intl);
 
 	/*
 	 * Local address space 0.
 	 */
-	bar = pcidev->mem[2].bar;
-	if((addr = vmap(bar & ~0x0F, pcidev->mem[2].size)) == 0){
-		print("%s: can't map memory at %#ux\n", ctlr->name, bar);
+	io = pcidev->mem[2].bar & ~0xF;
+	addr = vmap(io, pcidev->mem[2].size);
+	if(addr == nil){
+		print("%s: can't map memory at %llux\n", ctlr->name, io);
 		return axpdealloc(ctlr);
 	}
 	ctlr->mem = addr;
 	ctlr->gcb = (Gcb*)(ctlr->mem+0x10000);
-	print("mem 0x%ux size %d: ", bar, pcidev->mem[2].size);
+	print("mem 0x%llux size %d: ", io, pcidev->mem[2].size);
 
 	pcienable(pcidev);
 
@@ -913,6 +916,8 @@ axppnp(void)
 	ctlrno = 0;
 	for(p = pcimatch(nil, 0, 0); p != nil; p = pcimatch(p, 0, 0)){
 		if(p->ccrb != 0x07)
+			continue;
+		if((p->mem[0].bar & 1) != 0 || (p->mem[2].bar & 1) != 0)
 			continue;
 
 		switch((p->did<<16)|p->vid){
