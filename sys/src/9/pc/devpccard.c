@@ -540,7 +540,7 @@ devpccardlink(void)
 	pci = nil;
 	intl = 0xff;
 	while ((pci = pcimatch(pci, 0, 0)) != nil) {
-		ulong baddr;
+		uvlong baddr;
 		Cardbus *cb;
 		uchar pin;
 
@@ -632,12 +632,13 @@ devpccardlink(void)
 			pcicfgw8(cb->pci, 0xD4, 0xCA);
 		}
 
-		if ((baddr = pcicfgr32(cb->pci, PciBAR0)) == 0) {
+		baddr = pcicfgr32(cb->pci, PciBAR0);
+		if (baddr == 0) {
 			int size = (pci->did == Ricoh_478_did)? 0x10000: 0x1000;
-			baddr = upaalloc(-1, size, size);
+			baddr = upaalloc(-1ULL, size, size);
 			if(baddr == -1)
 				continue;
-			pcicfgw32(cb->pci, PciBAR0, baddr);
+			pcicfgw32(cb->pci, PciBAR0, (ulong)baddr);
 			cb->regs = (ulong *)vmap(baddr, size);
 		}
 		else
@@ -652,7 +653,7 @@ devpccardlink(void)
 		/* Don't really know what to do with this... */
 		i82365probe(cb, LegacyAddr, LegacyAddr + 1);
 
-		print("#Y%ld: %s, %.8ulX intl %d\n", cb - cbslots,
+		print("#Y%ld: %s, %.8lluX intl %d\n", cb - cbslots,
 			 variant[i].name, baddr, pci->intl);
 
 		nslots++;
@@ -776,9 +777,9 @@ static void
 configure(Cardbus *cb)
 {
 	int i, r;
-	ulong size, bar;
 	Pcidev *pci;
-	ulong membase, iobase, memlen, iolen, rombase, romlen;
+	uvlong romlen, memlen, membase, rombase, bar;
+	ulong iobase, iolen, size;
 
 	if(DEBUG)
 		print("configuring slot %ld (%s)\n", cb - cbslots, states[cb->state]);
@@ -822,7 +823,7 @@ configure(Cardbus *cb)
 	memlen += romlen;
 	if(memlen < 1*1024*1024)
 		memlen = 1*1024*1024;
-	membase = upaalloc(-1, memlen, 4*1024*1024);	/* TO DO: better alignment */
+	membase = upaalloc(-1ULL, memlen, 4*1024*1024);	/* TO DO: better alignment */
 	if(membase == -1)
 		return;
 
@@ -831,8 +832,8 @@ configure(Cardbus *cb)
 	pcicfgw32(cb->pci, PciCBIBR1, 0);
 	pcicfgw32(cb->pci, PciCBILR1, 0);
 
-	pcicfgw32(cb->pci, PciCBMBR0, membase);
-	pcicfgw32(cb->pci, PciCBMLR0, membase + memlen-1);
+	pcicfgw32(cb->pci, PciCBMBR0, (ulong)membase);
+	pcicfgw32(cb->pci, PciCBMLR0, (ulong)membase + memlen-1);
 	pcicfgw32(cb->pci, PciCBMBR1, 0);
 	pcicfgw32(cb->pci, PciCBMLR1, 0);
 
@@ -861,7 +862,7 @@ configure(Cardbus *cb)
 			pci->mem[i].bar = bar;
 			pcicfgw32(pci, PciBAR0 + 4*i, bar);
 			if((bar & 1) == 0){
-				print("%T mem[%d] %8.8lux %d\n", pci->tbdf, i, bar, pci->mem[i].size);
+				print("%T mem[%d] %8.8llux %d\n", pci->tbdf, i, bar, pci->mem[i].size);
 				if(bar & 0x80){	/* TO DO: enable prefetch */
 					;
 				}
@@ -1172,7 +1173,7 @@ pccard_pcmspecial(char *idstr, ISAConf *isa)
 	pi->irq = isa->irq;
 	unlock(cb);
 
-	print("#Y%ld: %s irq %d, port %lX\n", cb - cbslots, pi->verstr, isa->irq, isa->port);
+	print("#Y%ld: %s irq %d, port %lluX\n", cb - cbslots, pi->verstr, isa->irq, isa->port);
 	return (int)(cb - cbslots);
 }
 
@@ -1325,11 +1326,11 @@ pccardread(Chan *c, void *a, long n, vlong offset)
 					for (i = 0; i != Nbars; i++)
 						if (pci->mem[i].size)
 							p = seprint(p, e,
-									  "\tmem[%d] %.8ulX (%.8uX)\n",
+									  "\tmem[%d] %.8ullX (%.8uX)\n",
 									  i, pci->mem[i].bar,
 									  pci->mem[i].size);
 					if (pci->rom.size)
-						p = seprint(p, e, "\tROM %.8ulX (%.8uX)\n",
+						p = seprint(p, e, "\tROM %.8ullX (%.8uX)\n",
 								  pci->rom.bar, pci->rom.size);
 					pci = pci->list;
 				}
