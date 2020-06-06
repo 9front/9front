@@ -44,7 +44,7 @@ typedef struct LML LML;
 struct LML {
 	/* Hardware */
 	Pcidev	*pcidev;
-	ulong	pciBaseAddr;
+	uintptr	pciBaseAddr;
 
 	/* Allocated memory */
 	CodeData *codedata;
@@ -132,7 +132,7 @@ prepbuf(LML *lml)
 static void
 lmlreset(void)
 {
-	ulong regpa;
+	uvlong regpa;
 	char name[32];
 	void *regva;
 	LML *lml;
@@ -170,8 +170,8 @@ lmlreset(void)
 			print("lml: failed to map registers\n");
 			return;
 		}
-		lml->pciBaseAddr = (ulong)regva;
-		print(", mapped at 0x%.8lux\n", lml->pciBaseAddr);
+		lml->pciBaseAddr = (uintptr)regva;
+		print(", mapped at %#p\n", lml->pciBaseAddr);
 
 		memset(&segbuf, 0, sizeof(segbuf));
 		segbuf.attr = SG_PHYSICAL;
@@ -188,7 +188,7 @@ lmlreset(void)
 		segbuf.attr = SG_PHYSICAL | SG_DEVICE | SG_NOEXEC;
 		sprint(name, "lml%d.regs", nlml);
 		kstrdup(&segbuf.name, name);
-		segbuf.pa = (ulong)regpa;
+		segbuf.pa = (uintptr)regpa;
 		segbuf.size = pcidev->mem[0].size;
 		if(addphysseg(&segbuf) == nil){
 			print("lml: physsegment: %s\n", name);
