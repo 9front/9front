@@ -95,7 +95,7 @@ int
 screenaperture(int size, int align)
 {
 	VGAscr *scr;
-	ulong pa;
+	uvlong pa;
 
 	scr = &vgascreen[0];
 
@@ -115,7 +115,7 @@ screenaperture(int size, int align)
 	 * The driver will tell the card to use it.
 	 */
 	size = PGROUND(size);
-	pa = upaalloc(-1, size, align);
+	pa = upaalloc(-1ULL, size, align);
 	if(pa == -1)
 		return -1;
 	scr->paddr = pa;
@@ -405,10 +405,10 @@ blankscreen(int blank)
 }
 
 static char*
-vgalinearaddr0(VGAscr *scr, ulong paddr, int size)
+vgalinearaddr0(VGAscr *scr, uvlong paddr, int size)
 {
 	int x, nsize;
-	ulong npaddr;
+	uvlong npaddr;
 
 	/*
 	 * new approach.  instead of trying to resize this
@@ -455,8 +455,8 @@ vgalinearaddr0(VGAscr *scr, ulong paddr, int size)
 static char*
 vgalinearpci0(VGAscr *scr)
 {
-	ulong paddr;
 	int i, size, best;
+	uvlong paddr;
 	Pcidev *p;
 	
 	p = scr->pci;
@@ -505,7 +505,7 @@ vgalinearpci(VGAscr *scr)
 }
 
 void
-vgalinearaddr(VGAscr *scr, ulong paddr, int size)
+vgalinearaddr(VGAscr *scr, uvlong paddr, int size)
 {
 	char *err;
 
@@ -514,15 +514,15 @@ vgalinearaddr(VGAscr *scr, ulong paddr, int size)
 }
 
 static char*
-bootmapfb(VGAscr *scr, ulong pa, ulong sz)
+bootmapfb(VGAscr *scr, uvlong pa, ulong sz)
 {
-	ulong start, end;
+	uvlong start, end;
 	Pcidev *p;
 	int i;
 
 	for(p = pcimatch(nil, 0, 0); p != nil; p = pcimatch(p, 0, 0)){
 		for(i=0; i<nelem(p->mem); i++){
-			if(p->mem[i].bar & 1)
+			if(p->mem[i].size == 0 || (p->mem[i].bar & 1) != 0)
 				continue;
 			start = p->mem[i].bar & ~0xF;
 			end = start + p->mem[i].size;
@@ -575,7 +575,8 @@ bootscreeninit(void)
 {
 	VGAscr *scr;
 	int x, y, z;
-	ulong chan, pa, sz;
+	uvlong pa;
+	ulong chan, sz;
 	char *s, *p, *err;
 
 	/* *bootscreen=WIDTHxHEIGHTxDEPTH CHAN PA [SZ] */
@@ -603,7 +604,7 @@ bootscreeninit(void)
 		return;
 
 	sz = 0;
-	pa = strtoul(p+1, &s, 0);
+	pa = strtoull(p+1, &s, 0);
 	if(pa == 0)
 		return;
 	if(*s++ == ' ')
@@ -658,7 +659,7 @@ bootscreenconf(VGAscr *scr)
 
 	conf[0] = '\0';
 	if(scr != nil && scr->paddr != 0 && scr->gscreen != nil)
-		snprint(conf, sizeof(conf), "%dx%dx%d %s %#p %d\n",
+		snprint(conf, sizeof(conf), "%dx%dx%d %s 0x%.8llux %d\n",
 			scr->gscreen->r.max.x, scr->gscreen->r.max.y,
 			scr->gscreen->depth, chantostr(chan, scr->gscreen->chan),
 			scr->paddr, scr->apsize);

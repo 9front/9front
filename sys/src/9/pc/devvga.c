@@ -188,7 +188,7 @@ vgaread(Chan* c, void* a, long n, vlong off)
 		p = seprint(p, e, "hwaccel %s\n", hwaccel ? "on" : "off");
 		p = seprint(p, e, "hwblank %s\n", hwblank ? "on" : "off");
 		p = seprint(p, e, "panning %s\n", panning ? "on" : "off");
-		p = seprint(p, e, "addr p %#p v %#p size %#ux\n",
+		p = seprint(p, e, "addr p 0x%.8llux v %#p size %#ux\n",
 			scr->paddr, scr->vaddr, scr->apsize);
 		p = seprint(p, e, "softscreen %s\n", scr->softscreen ? "on" : "off");
 		USED(p);

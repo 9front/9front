@@ -252,14 +252,19 @@ vgablank(VGAscr*, int blank)
 }
 
 void
-addvgaseg(char *name, ulong pa, ulong size)
+addvgaseg(char *name, uvlong pa, ulong size)
 {
 	Physseg seg;
 
+	if((uintptr)pa != pa || size == 0 || -(uintptr)pa < size){
+		print("addvgaseg %s: bad address %llux-%llux pc %#p\n",
+			name, pa, pa+size, getcallerpc(&name));
+		return;
+	}
 	memset(&seg, 0, sizeof seg);
 	seg.attr = SG_PHYSICAL | SG_DEVICE | SG_NOEXEC;
 	seg.name = name;
-	seg.pa = pa;
+	seg.pa = (uintptr)pa;
 	seg.size = size;
 	addphysseg(&seg);
 }
