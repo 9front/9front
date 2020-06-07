@@ -258,6 +258,7 @@ readfile(Column *c, char *s)
 	winsettag(w);
 	textscrdraw(&w->body);
 	textsetselect(&w->tag, w->tag.file->nc, w->tag.file->nc);
+	xfidlog(w, "new");
 }
 
 char *oknotes[] ={
@@ -487,6 +488,12 @@ mousethread(void *)
 			m = mousectl->Mouse;
 			qlock(&row);
 			t = rowwhich(&row, m.xy);
+
+			if((t!=mousetext && t!=nil && t->w!=nil) &&
+				(mousetext==nil || mousetext->w==nil || t->w->id!=mousetext->w->id)) {
+				xfidlog(t->w, "focus");
+			}
+
 			if(t!=mousetext && mousetext!=nil && mousetext->w!=nil){
 				winlock(mousetext->w, 'M');
 				mousetext->eq0 = ~0;
@@ -773,6 +780,7 @@ newwindowthread(void*)
 		recvp(cnewwindow);
 		w = makenewwindow(nil);
 		winsettag(w);
+		xfidlog(w, "new");
 		sendp(cnewwindow, w);
 	}
 }

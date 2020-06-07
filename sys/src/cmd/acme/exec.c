@@ -297,10 +297,14 @@ void
 newcol(Text *et, Text*, Text*, int, int, Rune*, int)
 {
 	Column *c;
+	Window *w;
 
 	c = rowadd(et->row, nil, -1);
-	if(c)
-		winsettag(coladd(c, nil, nil, -1));
+	if(c) {
+		w = coladd(c, nil, nil, -1);
+		winsettag(w);
+		xfidlog(w, "new");
+	}
 }
 
 void
@@ -496,6 +500,7 @@ zeroxx(Text *et, Text *t, Text*, int, int, Rune*, int)
 		nw = coladd(t->w->col, nil, t->w, -1);
 		/* ugly: fix locks so w->unlock works */
 		winlock1(nw, t->w->owner);
+		xfidlog(nw, "zerox");
 	}
 	if(locked)
 		winunlock(t->w);
@@ -559,6 +564,7 @@ get(Text *et, Text *t, Text *argt, int flag1, int, Rune *arg, int narg)
 		textsetselect(&u->w->tag, u->w->tag.file->nc, u->w->tag.file->nc);
 		textscrdraw(u);
 	}
+	xfidlog(w, "get");
 }
 
 void
@@ -695,6 +701,7 @@ put(Text *et, Text*, Text *argt, int, int, Rune *arg, int narg)
 	}
 	namer = bytetorune(name, &nname);
 	putfile(f, 0, f->nc, namer, nname);
+	xfidlog(w, "put");
 	free(name);
 }
 
