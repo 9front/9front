@@ -1126,6 +1126,10 @@ of a packet to match.  The possible relations are:
 .TF "\fLdata[\fIn\fL:\fIm\fL]=\fIexpr\fR "
 .PD
 .TP
+.BI ver= n
+the IP version must be
+.IR n .
+.TP
 .BI proto= n
 the IP protocol number must be
 .IR n .
@@ -1135,7 +1139,7 @@ bytes
 .I n
 through
 .I m
-following the IP packet must match
+following the IP header must match
 .IR expr .
 .TP
 .BI iph[ n : m ]= expr
