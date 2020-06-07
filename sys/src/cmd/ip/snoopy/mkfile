@@ -19,6 +19,7 @@ PROTOS=\
 	eapol\
 	eapol_key\
 	ether\
+	ipmux\
 	gre\
 	hdlc\
 	icmp6\
