@@ -149,7 +149,7 @@ setup(int *v6net, int *tunp)
 	/*
 	 * gain access to IPv6-in-IPv4 packets via ipmux
 	 */
-	p = seprint(buf, buf + sizeof buf, "%s/ipmux!proto=%2.2x|%2.2x;dst=%V",
+	p = seprint(buf, buf + sizeof buf, "%s/ipmux!ver=4;proto=%2.2x|%2.2x;dst=%V",
 		outside, IP_IPV6PROTO, IP_ICMPV6PROTO, myip + IPv4off);
 	if (!anysender)
 		seprint(p, buf + sizeof buf, ";src=%V", remote4 + IPv4off);
