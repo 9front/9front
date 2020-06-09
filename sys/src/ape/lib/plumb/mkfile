@@ -1,0 +1,25 @@
+APE=/sys/src/ape
+<$APE/config
+
+LIB=/$objtype/lib/ape/libplumb.a
+
+OFILES=\
+	event.$O\
+	mesg.$O\
+	plumbsendtext.$O
+
+HFILES=\
+	/sys/include/ape/plumb.h\
+
+UPDATE=\
+	mkfile\
+	$HFILES\
+	${OFILES:%.$O=%.c}\
+	${LIB:/$objtype/%=/386/%}\
+
+</sys/src/cmd/mksyslib
+
+CFLAGS=-c $CFLAGS -D_POSIX_SOURCE -D_PLAN9_SOURCE -I../9
+
+%.$O: /sys/src/libplumb/%.c
+	$CC $CFLAGS /sys/src/libplumb/$stem.c
