@@ -132,7 +132,7 @@ textscroll(Text *t, int but)
 			readmouse(mousectl);
 			continue;
 		}
-		if(but == 1)
+		if(but == 1 || but == 4)
 			p0 = textbacknl(t, t->org, (my-s.min.y)/t->font->height);
 		else
 			p0 = t->org+frcharofpt(t, Pt(s.max.x, my));
@@ -140,7 +140,7 @@ textscroll(Text *t, int but)
 			textsetorigin(t, p0, TRUE);
 		oldp0 = p0;
 		/* debounce */
-		if(first){
+		if(first && but < 4){
 			flushimage(display, 1);
 			sleep(200);
 			nbrecv(mousectl->c, &mousectl->Mouse);
