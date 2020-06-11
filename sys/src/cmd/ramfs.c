@@ -11,7 +11,7 @@ char Eexist[] = "file already exists";
 char Enomem[] = "no memory";
 char Eperm[] = "permission denied";
 char Enotowner[] = "not owner";
-char Elocked[] = "file locked";
+char Elocked[] = "file is locked";
 
 enum {
 	Tdat	= 0xbabababa,	
