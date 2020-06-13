@@ -10,7 +10,6 @@ OFILES=\
 	convM2S.$O\
 	convS2M.$O\
 	cputime.$O\
-	ctime.$O\
 	dial.$O\
 	dirfstat.$O\
 	dirfwstat.$O\
@@ -47,7 +46,6 @@ OFILES=\
 	sysname.$O\
 	time.$O\
 	times.$O\
-	tm2sec.$O\
 	truerand.$O\
 	wait.$O\
 	waitpid.$O\
