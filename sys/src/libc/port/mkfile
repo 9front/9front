@@ -20,7 +20,6 @@ CFILES=\
 	cleanname.c\
 	crypt.c\
 	ctype.c\
-	date.c\
 	encodefmt.c\
 	execl.c\
 	exits.c\

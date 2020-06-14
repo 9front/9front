@@ -314,44 +314,21 @@ extern	double	fmod(double, double);
 /*
  * Time-of-day
  */
-typedef struct Tzone Tzone;
-#pragma incomplete Tzone
-
 
 typedef
 struct Tm
 {
-	vlong	abs;		/* seconds since Jan 1 1970, GMT */
-	int	nsec;		/* nseconds (range 0...1e9) */
-	int	sec;		/* seconds (range 0..60) */
-	int	min;		/* minutes (0..59) */
-	int	hour;		/* hours (0..23) */
-	int	mday;		/* day of the month (1..31) */
-	int	mon;		/* month of the year (0..11) */
-	int	year;		/* year A.D. */
-	int	wday;		/* day of week (0..6, Sunday = 0) */
-	int	yday;		/* day of year (0..365) */
-	char	zone[16];	/* time zone name */
-	int	tzoff;		/* time zone delta from GMT */
-	Tzone	*tz;		/* time zone associated with this date */
+	int	sec;
+	int	min;
+	int	hour;
+	int	mday;
+	int	mon;
+	int	year;
+	int	wday;
+	int	yday;
+	char	zone[4];
+	int	tzoff;
 } Tm;
-
-typedef
-struct Tmfmt {
-	char	*fmt;
-	Tm	*tm;
-} Tmfmt;
-
-#pragma varargck	type	"τ"	Tmfmt
-
-extern	Tzone*	tmgetzone(char *name);
-extern	Tm*	tmnow(Tm*, Tzone*);
-extern	Tm*	tmtime(Tm*, vlong, Tzone*);
-extern	Tm*	tmtimens(Tm*, vlong, int, Tzone*);
-extern	Tm*	tmparse(Tm*, char*, char*, Tzone*);
-extern	Tm*	tmnorm(Tm*);
-extern	Tmfmt	tmfmt(Tm*, char*);
-extern	void	tmfmtinstall(void);
 
 extern	Tm*	gmtime(long);
 extern	Tm*	localtime(long);
