@@ -35,7 +35,7 @@ which passes
 .I conndir
 and filedescriptors 0 and 1 to the incoming connection.
 .PP
-Users are authenticated by ther Inferno/pop secret held by the auth server.
+Users are authenticated by their Inferno/pop secret held by the auth server.
 When successful,
 .I cifsd
 changes its user id and namespace to the authenticated user.
