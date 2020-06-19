@@ -295,7 +295,7 @@ unpack(uchar *s, int n, char *fmt, ...)
 			s += 4;
 			break;
 		case 'v':
-			if(s+4 > e) goto Err;
+			if(s+8 > e) goto Err;
 			*va_arg(arg, vlong*) = 
 				(vlong)s[0]<<56 | 
 				(vlong)s[1]<<48 | 
