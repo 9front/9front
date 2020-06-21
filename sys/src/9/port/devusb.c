@@ -525,8 +525,8 @@ newdevep(Ep *ep, int i, int tt, int mode)
 	case Tiso:
 		nep->tmout = Xfertmout;
 		nep->pollival = 10;
-		nep->samplesz = 4;
-		nep->hz = 44100;
+		nep->samplesz = 1;
+		nep->hz = 0;
 		nep->uframes = 0;
 		break;
 	}
@@ -859,6 +859,58 @@ usbload(int speed, int maxpkt)
 	return l / 1000UL;	/* in µs */
 }
 
+static void
+isotiming(Ep *ep)
+{
+	long spp, max;
+
+	switch(ep->dev->speed){
+	case Fullspeed:
+		max = 1024;
+		break;
+	case Highspeed:
+		max = 3*1024;
+		break;
+	case Superspeed:
+		max = 48*1024;
+		break;
+	default:
+		error(Egreg);
+		return;
+	}
+
+	if(ep->ntds <= 0)
+		error(Egreg);
+	max /= ep->ntds;
+	if(max < ep->samplesz)
+		error(Egreg);
+	if(ep->pollival <= 0)
+		error(Egreg);
+
+	if(ep->hz <= 0){
+		spp = ep->maxpkt / ep->samplesz;
+		spp *= ep->ntds;
+		if(ep->dev->speed == Fullspeed || ep->dev->speed == Lowspeed)
+			ep->hz = (1000 * spp) / ep->pollival;
+		else
+			ep->hz = (8000 * spp) / ep->pollival;
+		if(ep->hz <= 0)
+			error(Egreg);
+	}
+	if(ep->dev->speed == Fullspeed || ep->dev->speed == Lowspeed)
+		spp = (ep->hz * ep->pollival + 999) / 1000;
+	else
+		spp = (ep->hz * ep->pollival + 7999) / 8000;
+	spp /= ep->ntds;
+	ep->maxpkt = spp * ep->samplesz;
+	if(ep->maxpkt > max){
+		print("ep%d.%d: maxpkt %ld > %ld for %s, truncating\n",
+			ep->dev->nb, ep->nb,
+			ep->maxpkt, max, spname[ep->dev->speed]);
+		ep->maxpkt = max;
+	}
+}
+
 static Chan*
 usbopen(Chan *c, int omode)
 {
@@ -901,6 +953,9 @@ usbopen(Chan *c, int omode)
 		error(Enotconf);
 	ep->clrhalt = 0;
 	ep->rhrepl = -1;
+
+	if(ep->ttype == Tiso)
+		isotiming(ep);
 	if(ep->load == 0 && ep->dev->speed != Superspeed)
 		ep->load = usbload(ep->dev->speed, ep->maxpkt);
 	ep->hp->epopen(ep);
@@ -1159,40 +1214,6 @@ usbread(Chan *c, void *a, long n, vlong offset)
 	return n;
 }
 
-static void
-setmaxpkt(Ep *ep, char* s)
-{
-	long spp, max;	/* samples per packet */
-
-	if(ep->dev->speed == Fullspeed)
-		spp = (ep->hz * ep->pollival + 999) / 1000;
-	else
-		spp = (ep->hz * ep->pollival * ep->ntds + 7999) / 8000;
-	ep->maxpkt = spp * ep->samplesz;
-	deprint("usb: %s: setmaxpkt: hz %ld poll %ld"
-		" ntds %d %s speed -> spp %ld maxpkt %ld\n", s,
-		ep->hz, ep->pollival, ep->ntds, spname[ep->dev->speed],
-		spp, ep->maxpkt);
-	switch(ep->dev->speed){
-	case Fullspeed:
-		max = 1024;
-		break;
-	case Highspeed:
-		max = 3*1024;
-		break;
-	case Superspeed:
-		max = 48*1024;
-		break;
-	default:
-		return;
-	}
-	if(ep->maxpkt*ep->ntds > max){
-		print("usb: %s: maxpkt %ld > %ld for %s, truncating\n",
-			s, ep->maxpkt*ep->ntds, max, spname[ep->dev->speed]);
-		ep->maxpkt = max/ep->ntds;
-	}
-}
-
 /*
  * Many endpoint ctls. simply update the portable representation
  * of the endpoint. The actual controller driver will look
@@ -1287,6 +1308,7 @@ epctl(Ep *ep, Chan *c, void *a, long n)
 			error("maxpkt not in [1:1024]");
 		qlock(ep);
 		ep->maxpkt = l;
+		ep->hz = 0; /* recalculate */
 		qunlock(ep);
 		break;
 	case CMntds:
@@ -1296,6 +1318,7 @@ epctl(Ep *ep, Chan *c, void *a, long n)
 			error("ntds not in [1:3]");
 		qlock(ep);
 		ep->ntds = l;
+		ep->hz = 0; /* recalculate */
 		qunlock(ep);
 		break;
 	case CMpollival:
@@ -1313,8 +1336,7 @@ epctl(Ep *ep, Chan *c, void *a, long n)
 		}
 		qlock(ep);
 		ep->pollival = l;
-		if(ep->ttype == Tiso)
-			setmaxpkt(ep, "pollival");
+		ep->hz = 0; /* recalculate */
 		qunlock(ep);
 		break;
 	case CMsamplesz:
@@ -1326,7 +1348,6 @@ epctl(Ep *ep, Chan *c, void *a, long n)
 			error("samplesz not in [1:8]");
 		qlock(ep);
 		ep->samplesz = l;
-		setmaxpkt(ep, "samplesz");
 		qunlock(ep);
 		break;
 	case CMhz:
@@ -1334,11 +1355,10 @@ epctl(Ep *ep, Chan *c, void *a, long n)
 			error("not an iso endpoint");
 		l = strtoul(cb->f[1], nil, 0);
 		deprint("usb epctl %s %d\n", cb->f[0], l);
-		if(l <= 0 || l > 100000)
-			error("hz not in [1:100000]");
+		if(l <= 0 || l > 1000000000)
+			error("hz not in [1:1000000000]");
 		qlock(ep);
 		ep->hz = l;
-		setmaxpkt(ep, "hz");
 		qunlock(ep);
 		break;
 	case CMuframes:
