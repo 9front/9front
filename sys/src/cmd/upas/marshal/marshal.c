@@ -136,6 +136,7 @@ char *user;
 char *login;
 Alias *aliases;
 int rfc822syntaxerror;
+int attachfailed;
 char lastchar;
 char *replymsg;
 
@@ -308,6 +309,10 @@ main(int argc, char **argv)
 		holding = holdon();
 		headersrv = readheaders(&in, &flags, &hdrstring,
 			eightflag? &to: nil, eightflag? &cc: nil, eightflag? &bcc: nil, l, 1);
+		if(attachfailed){
+			Bdrain(&in);
+			fatal("attachment(s) failed, message not sent");
+		}
 		if(rfc822syntaxerror){
 			Bdrain(&in);
 			fatal("rfc822 syntax error, message not sent");
@@ -501,8 +506,11 @@ readheaders(Biobuf *in, int *fp, String **sp, Addr **top, Addr **ccp, Addr **bcc
 				if(att == nil)
 					break;
 				*att = mkattach(hdrval(s_to_c(sline)), nil, hdrtype == Hinclude);
-				if(*att != nil)
-					att = &(*att)->next;
+				if(*att == nil){
+					attachfailed = 1;
+					return Error;
+				}
+				att = &(*att)->next;
 				break;
 			}
 			s_free(sline);
