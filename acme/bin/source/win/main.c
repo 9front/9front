@@ -61,7 +61,7 @@ threadmain(int argc, char *argv[])
 
 	win = newwindow();
 	winsetdir(win, wdir, wname);
-	wintagwrite(win, "Send Noscroll", 5+8);
+	wintagwrite(win, "Send Noscroll ", 4+1+8+1);
 
 	ctlprint(win->ctl, "scroll");
 	ctlprint(win->ctl, "scratch");
