@@ -1689,7 +1689,7 @@ main(int argc, char *argv[])
 
 	if(pipe(pfd) < 0)
 		sysfatal("can't create pipe: %r");
-	switch(rfork(RFPROC|RFFDG|RFREND|RFNOTEG)){
+	switch(rfork(RFPROC|RFFDG|RFREND|RFNOTEG|RFENVG)){
 	case -1:
 		sysfatal("can't fork: %r");
 	case 0:
