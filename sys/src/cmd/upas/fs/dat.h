@@ -34,9 +34,6 @@ enum {
 	Disappear	= 1<<3,
 	Dmark		= 1<<4,	/* temporary mark for idx scan */
 
-	/* mime flags */
-	Mtrunc		= 1<<0,	/* message had no boundary */
-
 	Maxmsg		= 75*1024*1024,	/* maxmessage size; debugging */
 	Maxcache	= 512*1024,	/* target cache size; set low for debugging */
 	Nctab		= 15,		/* max # of cached messages >10 */
