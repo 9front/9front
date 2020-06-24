@@ -129,7 +129,6 @@ struct Message {
 	char	converted;
 	char	encoding;
 	char	decoded;
-	char	mimeflag;
 
 	Message	*next;
 	Message	*part;

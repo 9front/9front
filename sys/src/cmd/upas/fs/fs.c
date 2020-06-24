@@ -1517,12 +1517,12 @@ struct Ignorance
 	char	*str;
 	int	len;
 };
-Ignorance *ignorance;
+static Ignorance *ignorance;
 
 /*
  *  read the file of headers to ignore
  */
-void
+static void
 readignore(void)
 {
 	char *p;
@@ -1554,14 +1554,14 @@ readignore(void)
 	Bterm(b);
 }
 
-int
-ignore(char *p)
+static int
+ignore(char *p, int n)
 {
 	Ignorance *i;
 
 	readignore();
 	for(i = ignorance; i != nil; i = i->next)
-		if(cistrncmp(i->str, p, i->len) == 0)
+		if(i->len <= n && cistrncmp(i->str, p, i->len) == 0)
 			return 1;
 	return 0;
 }
@@ -1580,9 +1580,9 @@ readheader(Message *m, char *buf, int off, int cnt)
 
 	/* copy in good headers */
 	while(cnt > 0 && p < e){
-		n = hdrlen(p, e);
-		assert(n > 0);
-		if(ignore(p)){
+		if((n = hdrlen(p, e)) <= 0)
+			break;
+		if(ignore(p, n)){
 			p += n;
 			continue;
 		}

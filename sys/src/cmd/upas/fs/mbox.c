@@ -393,8 +393,6 @@ haschild(Message *m, int i)
 {
 	for(m = m->part; m && i; i--)
 		m = m->next;
-	if(m)
-		m->mimeflag = 0;
 	return m;
 }
 
@@ -426,11 +424,8 @@ parseattachments(Message *m, Mailbox *mb)
 			}
 			/* no boundary, we're done */
 			if(x == nil){
-				if(nm != nil){
+				if(nm != nil)
 					nm->rbend = nm->bend = nm->end = m->bend;
-					if(nm->end == nm->start)
-						nm->mimeflag |= Mtrunc;
-				}
 				break;
 			}
 			/* boundary must be at the start of a line */
@@ -475,8 +470,6 @@ parseattachments(Message *m, Mailbox *mb)
 		assert(nm->ballocd == 0);
 		nm->start = nm->header = nm->body = nm->rbody = m->body;
 		nm->end = nm->bend = nm->rbend = m->bend;
-		if(nm->end == nm->start)
-			nm->mimeflag |= Mtrunc;
 		nm->size = nm->end - nm->start;
 		parse(mb, nm, 0, 0);
 		cachehash(mb, nm);			/* botchy place for this */
@@ -497,7 +490,7 @@ parseheaders(Mailbox *mb, Message *m, int addfrom, int justmime)
 		i0 = Mhead;
 	s = emalloc(2048);
 	e = s + 2048 - 1;
-	while((n = hdrlen(p, m->end)) != 0){
+	while((n = hdrlen(p, m->end)) > 0){
 		if(n > e - s){
 			s = erealloc(s, n);
 			e = s + n - 1;
@@ -598,7 +591,6 @@ void
 parse(Mailbox *mb, Message *m, int addfrom, int justmime)
 {
 	sanemsg(m);
-	assert(m->end - m->start > 0 || (m->mimeflag&Mtrunc) != 0 && m->end - m->start == 0);
 	if((m->cstate & Cheader) == 0)
 		parseheaders(mb, m, addfrom, justmime);
 	parsebody(m, mb);

@@ -10,7 +10,7 @@ hdrlen(char *p, char *e)
 
 	ep = p;
 	do {
-		ep = strchr(ep, '\n');
+		ep = memchr(ep, '\n', e - ep);
 		if(ep == nil){
 			ep = e;
 			break;
