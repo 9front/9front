@@ -209,7 +209,7 @@ namespace and from notes posted to the callers note group
 but shares data and bss segments.
 .IP
 The child process then waits for the parent to copy its
-file descripor table via
+file descriptor table via
 .I rfork
 using
 .B RFFDG
