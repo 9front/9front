@@ -22,14 +22,16 @@ struct Endpoints
 void		xfer(int, int);
 void		xfer9p(int, int);
 Endpoints*	getendpoints(char*);
-void		freeendpoints(Endpoints*);
 char*		iptomac(char*, char*);
 int		macok(char*);
+
+int		timeout;
+int		activity;
 
 void
 usage(void)
 {
-	fprint(2, "usage: trampoline [-9] [-a addr] [-m netdir] addr\n");
+	fprint(2, "usage: trampoline [-9] [-a addr] [-m netdir] [-t timeout] addr\n");
 	exits("usage");
 }
 
@@ -54,6 +56,9 @@ main(int argc, char **argv)
 	case 'm':
 		checkmac = EARGF(usage());
 		break;
+	case 't':
+		timeout = atoi(EARGF(usage()));
+		break;
 	default:
 		usage();
 	}ARGEND;
@@ -71,6 +76,9 @@ main(int argc, char **argv)
 		}
 	}
 	
+	if(timeout > 0)
+		alarm(timeout);
+
 	fd0 = 0;
 	fd1 = 1;
 	if(altaddr){
@@ -84,10 +92,28 @@ main(int argc, char **argv)
 		sysfatal("dial %s: %r", argv[0]);
 
 	rfork(RFNOTEG);
-	switch(fork()){
+	if(timeout > 0){
+		alarm(0);
+		switch(rfork(RFPROC|RFMEM)){
+		case -1:
+			fprint(2, "%s: fork: %r\n", argv0);
+			exits("fork");
+		case 0:
+			break;
+		default:
+			do {
+				activity = 0;
+				sleep(timeout);
+			} while(activity);
+			postnote(PNGROUP, getpid(), "timeout");
+			exits("timeout");
+		}
+	}
+	switch(rfork(RFPROC|RFMEM)){
 	case -1:
 		fprint(2, "%s: fork: %r\n", argv0);
-		exits("dial");
+		if(timeout <= 0) exits("fork");
+		break;
 	case 0:
 		(*x)(fd0, fd);
 		break;
@@ -95,8 +121,8 @@ main(int argc, char **argv)
 		(*x)(fd, fd1);
 		break;
 	}
-	postnote(PNGROUP, getpid(), "die yankee pig dog");
-	exits(0);
+	postnote(PNGROUP, getpid(), "hangup");
+	exits(nil);
 }
 
 void
@@ -105,9 +131,12 @@ xfer(int from, int to)
 	char buf[12*1024];
 	int n;
 
-	while((n = read(from, buf, sizeof buf)) > 0)
+	while((n = read(from, buf, sizeof buf)) > 0){
 		if(write(to, buf, n) < 0)
 			break;
+		if(timeout > 0)
+			activity = 1;
+	}
 }
 
 void
@@ -134,10 +163,10 @@ xfer9p(int from, int to)
 		}
 		if(readn(from, buf+4, n-4) != n-4)
 			break;
-		if(write(to, buf, n) != n){
-			sysfatal("oops: %r");
+		if(write(to, buf, n) != n)
 			break;
-		}
+		if(timeout > 0)
+			activity = 1;
 	}
 }
 
@@ -192,16 +221,6 @@ getendpoints(char *dir)
 	return ep;
 }
 
-void
-freeendpoints(Endpoints *ep)
-{
-	free(ep->lsys);
-	free(ep->rsys);
-	free(ep->lserv);
-	free(ep->rserv);
-	free(ep);
-}
-
 char*
 iptomac(char *ip, char *net)
 {
@@ -237,5 +256,5 @@ macok(char *mac)
 	if(mac == nil)
 		return 0;
 	free(p = csgetvalue("/net", "ether", mac, "trampok", nil));
-	return !(p == nil);
+	return p != nil;
 }

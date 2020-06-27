@@ -13,6 +13,9 @@ trampoline \- forward incoming calls to another address
 [
 .B -m
 .I netdir
+] [
+.B -t
+.I timeout
 ]
 .I addr
 .SH DESCRIPTION
@@ -55,6 +58,11 @@ contains an entry with
 and the attribute
 .BR trampok .
 If no such entry is found, the call is rejected.
+.TP
+.BI -t " timeout
+Terminates the connection after
+.I timeout
+milliseconds of inactivity.
 .PD
 .SH FILES
 .TF /sys/log/trampoline
