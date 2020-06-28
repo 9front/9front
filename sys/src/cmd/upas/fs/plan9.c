@@ -50,29 +50,6 @@ chkunix(char *s, int n)
 	return r;
 }
 
-static char*
-parseunix(Message *m)
-{
-	char *s, *p, *q;
-	Tm tm;
-
-	m->unixheader = smprint("%.*s", utfnlen(m->start, m->header - m->start), m->start);
-	s = m->start + 5;
-	if((p = strchr(s, ' ')) == nil)
-		return s;
-	*p = 0;
-	m->unixfrom = strdup(s);
-	*p++ = ' ';
-	if(q = strchr(p, '\n'))
-		*q = 0;
-	if(strtotm(p, &tm) < 0)
-		return p;
-	if(q)
-		*q = '\n';
-	m->fileid = (uvlong)tm2sec(&tm) << 8;
-	return 0;
-}
-
 static void
 addtomessage(Message *m, char *p, int n)
 {
@@ -215,7 +192,7 @@ mergemsg(Message *m, Message *x)
 static char*
 readmbox(Mailbox *mb, Mlock *lk)
 {
-	char *p, *x, buf[Pathlen];
+	char buf[Pathlen];
 	Biobuf *in;
 	Dir *d;
 	Inbuf b;
@@ -306,12 +283,6 @@ retry:
 		}
 		if(m == nil)
 			continue;
-		m->header = m->end;
-		if(x = strchr(m->start, '\n'))
-			m->header = x + 1;
-		if(p = parseunix(m))
-			sysfatal("%s:%lld naked From in body? [%s]", mb->path, seek(Bfildes(in), 0, 1), p);
-		m->mheader = m->mhend = m->header;
 		parse(mb, m, 0, 0);
 		if(m != *l && m->deleted != Dup){
 			logmsg(m, "new");

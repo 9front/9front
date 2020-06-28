@@ -22,24 +22,10 @@ slurp(char *f, char *b, uvlong o, long l)
 	return r != l ? -1: 0;
 }
 
-static void
-parseunix(Message *m)
-{
-	char *s, *p;
-
-	m->unixheader = smprint("%.*s", utfnlen(m->start, m->header - m->start), m->start);
-	s = m->start + 5;
-	if((p = strchr(s, ' ')) == nil)
-		return;
-	*p = 0;
-	m->unixfrom = strdup(s);
-	*p = ' ';
-}
-
 static int
 mdirfetch(Mailbox *mb, Message *m, uvlong o, ulong l)
 {
-	char buf[Pathlen], *x;
+	char buf[Pathlen];
 	Mdir *mdir;
 
 	mdir = mb->aux;
@@ -51,17 +37,6 @@ mdirfetch(Mailbox *mb, Message *m, uvlong o, ulong l)
 		mdprint(mdir, "%r\n");
 		return -1;
 	}
-	if(m->header == nil)
-		m->header = m->start;
-	if(m->header == m->start)
-	if(o + l >= 36)
-	if(strncmp(m->start, "From ", 5) == 0)
-	if(x = strchr(m->start, '\n')){
-		m->header = x + 1;
-		if(m->unixfrom == nil)
-			parseunix(m);
-	}
-	m->mheader = m->mhend = m->header;
 	mdprint(mdir, "fetched [%llud, %llud]\n", o, o + l);
 	return 0;
 }
