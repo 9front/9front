@@ -704,6 +704,8 @@ segflush(void *va, uintptr len)
 			error(Ebadarg);
 
 		s->flushme = 1;
+		if(s->ref > 1)
+			procflushseg(s);
 	more:
 		len = (s->top < to ? s->top : to) - from;
 		if(s->mapsize > 0){
