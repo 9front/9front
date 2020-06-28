@@ -413,7 +413,7 @@ disconnects the display and frees the associated data structures.
 builds a
 .B Subfont
 structure from in-core data describing a default subfont.
-None of these routines is needed by most programs, since
+None of these routines are needed by most programs, since
 .I initdraw
 calls them as needed.
 .PP
