@@ -476,6 +476,20 @@ parseattachments(Message *m, Mailbox *mb)
 	}
 }
 
+static void
+parseunix(Message *m)
+{
+	char *s, *p;
+
+	m->unixheader = smprint("%.*s", utfnlen(m->start, m->header - m->start), m->start);
+	s = m->start + 5;
+	if((p = strchr(s, ' ')) == nil)
+		return;
+	*p = 0;
+	m->unixfrom = strdup(s);
+	*p = ' ';
+}
+
 void
 parseheaders(Mailbox *mb, Message *m, int addfrom, int justmime)
 {
@@ -483,8 +497,20 @@ parseheaders(Mailbox *mb, Message *m, int addfrom, int justmime)
 	int i, i0, n;
 	uintptr a;
 
+	if(m->header == nil)
+		m->header = m->start;
+
+	/* parse unix header */
+	if(!justmime && !addfrom && m->unixheader == nil){
+		if(strncmp(m->start, "From ", 5) == 0)
+		if((e = memchr(m->start, '\n', m->end - m->start)) != nil){
+			m->header = e + 1;
+			parseunix(m);
+		}
+	}
+
 	/* parse mime headers */
-	p = m->header;
+	p = m->mheader = m->mhend = m->header;
 	i0 = 0;
 	if(justmime)
 		i0 = Mhead;
@@ -520,11 +546,6 @@ parseheaders(Mailbox *mb, Message *m, int addfrom, int justmime)
 		m->hend = p;
 		m->mhend = m->header;
 	}
-	/*
-	 * not all attachments have mime headers themselves.
-	 */
-	if(!m->mheader)
-		m->mhend = 0;
 	if(*p == '\n')
 		p++;
 	m->rbody = m->body = p;
@@ -538,9 +559,10 @@ parseheaders(Mailbox *mb, Message *m, int addfrom, int justmime)
 	 *  adding the unix header all the time screws up mime-attached
 	 *  rfc822 messages.
 	 */
-	if(!addfrom && !m->unixfrom)
+	if(!addfrom && m->unixfrom == nil) {
+		free(m->unixheader);
 		m->unixheader = nil;
-	else if(m->unixheader == nil){
+	} else if(m->unixheader == nil){
 		if(m->unixfrom && strcmp(m->unixfrom, "???") != 0)
 			p = m->unixfrom;
 		else if(m->from)
