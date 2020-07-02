@@ -27,11 +27,11 @@ dev
 link
 	gisb
 	pci
-	archbcm4
+	archbcm4	pci
+	usbxhci		pci archbcm4
 	ethergenet	ethermii
 	ethermedium
 	loopbackmedium
-	usbxhci		pci
 
 ip
 	tcp

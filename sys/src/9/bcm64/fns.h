@@ -170,6 +170,7 @@ extern uint getcputemp(void);
 extern void vgpinit(void);
 extern void vgpset(uint port, int on);
 extern void egpset(uint port, int on);
+extern int xhcireset(int devaddr);
 
 /* bootargs */
 extern void bootargsinit(uintptr);

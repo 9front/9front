@@ -53,6 +53,7 @@ enum {
 	TagSetEgpioConf	= 0x00038043,
 
 	TagGettemp	= 0x00030006,
+	TagXhciReset	= 0x00030058,
 	TagFballoc	= 0x00040001,
 	TagFbfree	= 0x00048001,
 	TagFbblank	= 0x00040002,
@@ -412,4 +413,20 @@ egpset(uint port, int on)
 	buf[0] = 128 + port;
 	buf[1] = on;
 	vcreq(TagSetEgpioState, buf, sizeof(buf), sizeof(buf));
+}
+
+/*
+ * Notify gpu that xhci firmware might need loading. This is for some
+ * pi4 board versions which are missing the eeprom chip for the vl805,
+ * requiring its firmware to come from the boot eeprom instead.
+ */
+int
+xhcireset(int devaddr)
+{
+	u32int buf[1];
+
+	buf[0] = devaddr;
+	if(vcreq(TagXhciReset, buf, sizeof(buf), sizeof(buf[0])) == sizeof(buf[0]))
+		return buf[0];
+	return -1;
 }

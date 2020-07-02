@@ -172,5 +172,18 @@ wakecpu(uint cpu)
 void
 archbcm4link(void)
 {
+	Pcidev *p;
+
+	/*
+	 * The firmware resets PCI before starting the host OS because
+	 * without SDRAM the VL805 makes inbound requests to page-in firmware
+	 * from SDRAM. If the OS has a different PCI mapping that would all break.
+	 * There's no way to pause and move the mappings and it's not really desirable
+	 * for the firmware to dictate the PCI configuration. Consequently, the mailbox
+	 * is required so that the OS can reset the VLI after asserting PCI chip reset.
+	 */
+	if((p = pcimatch(nil, 0x1106, 0x3483)) != nil)
+		xhcireset(BUSBNO(p->tbdf)<<20 | BUSDNO(p->tbdf)<<15 | BUSFNO(p->tbdf)<<12);
+
 	// addclock0link(wdogfeed, HZ);
 }
