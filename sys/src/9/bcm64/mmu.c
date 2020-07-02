@@ -132,12 +132,13 @@ kaddr(uintptr pa)
 	return nil;
 }
 
-/* KMAP maps all of ram (up to 4GB) */
 static void*
 kmapaddr(uintptr pa)
 {
 	if(pa < (uintptr)-KZERO)
 		return (void*)(pa + KZERO);
+	if(pa >= KMAPEND-KMAP)
+		panic("kmapaddr: pa=%#p pc=%#p", pa, getcallerpc(&pa));
 	return (void*)(pa + KMAP);
 }
 
@@ -275,12 +276,16 @@ meminit(void)
 
 	pa = PGROUND((uintptr)end)-KZERO;
 	for(i=0; i<nelem(conf.mem); i++){
-		if(conf.mem[i].limit <= conf.mem[i].base
-		|| conf.mem[i].base >= PHYSDRAM + soc.dramsize){
-			conf.mem[i].base = conf.mem[i].limit = 0;
+		if(conf.mem[i].limit >= KMAPEND-KMAP)
+			conf.mem[i].limit = KMAPEND-KMAP;
+
+		if(conf.mem[i].limit <= conf.mem[i].base){
+			conf.mem[i].limit = conf.mem[i].base = 0;
 			continue;
 		}
-		if(conf.mem[i].limit > PHYSDRAM + soc.dramsize)
+
+		if(conf.mem[i].base < PHYSDRAM + soc.dramsize
+		&& conf.mem[i].limit > PHYSDRAM + soc.dramsize)
 			conf.mem[i].limit = PHYSDRAM + soc.dramsize;
 
 		/* take kernel out of allocatable space */
