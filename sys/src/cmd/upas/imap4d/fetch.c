@@ -183,8 +183,8 @@ void
 fetchbody(Msg *m, Fetch *f)
 {
 	char *s, *t, *e, buf[Bufsize + 2];
-	uint n, start, stop, pos;
-	int fd, nn;
+	uint start, stop, pos;
+	int fd, n, nn;
 	Pair p;
 
 	if(m == nil){
@@ -262,8 +262,7 @@ fetchbody(Msg *m, Fetch *f)
 		n = read(fd, &buf[1], n);
 //ilog("read %ld at %d stop %ld\n", n, pos, stop);
 		if(n <= 0){
-ilog("must fill %ld bytes\n", stop - pos);
-fprint(2, "must fill %d bytes\n", stop - pos);
+//ilog("must fill %ld bytes\n", stop - pos);
 			fetchbodyfill(stop - pos);
 			break;
 		}
