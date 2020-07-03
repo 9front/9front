@@ -173,12 +173,13 @@ readfile(char *fname)
 
 		r = strtol(line, nil, 16);
 		p = strchr(line, ' ');
-		if(r == 0 || p != line+4 || p[0] != ' ' || p[1] != ' ') {
+		if(r == 0 || p == 0) {
 			fprint(2, "%s:%d: cannot parse line\n", fname, lineno);
 			continue;
 		}
 
-		p = line+6;
+		while(*p == ' ')
+			p++;
 /*	00AE  Or rO       ®	registered trade mark sign	*/
 		for(inseq=1, seq=p; (uchar)*p < Runeself; p++) {
 			if(*p == '\0' || isspace(*p)) {
