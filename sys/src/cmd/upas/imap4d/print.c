@@ -124,6 +124,6 @@ Dfmt(Fmt *f)
 		tm->mday, mon[tm->mon], tm->year + 1900, tm->hour, tm->min, tm->sec,
 		sgn, off);
 	if(f->r == L'δ')
-		fmtprint(f, "%s", buf);
+		return fmtstrcpy(f, buf);
 	return fmtprint(f, "%Z", buf);
 }
