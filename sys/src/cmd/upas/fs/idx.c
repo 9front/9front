@@ -123,14 +123,15 @@ pridx(Biobuf *b, Mailbox *mb)
 static char *eopen[] = {
 	"not found",
 	"does not exist",
-	"file is locked",
-	"file locked",
-	"exclusive lock",
 	0,
 };
 
 static char *ecreate[] = {
 	"already exists",
+	0,
+};
+
+static char *elocked[] = {
 	"file is locked",
 	"file locked",
 	"exclusive lock",
@@ -179,12 +180,12 @@ exopen(char *s)
 	int i, fd;
 
 	for(i = 0; i < Idxto/Idxstep; i++){
-		if((fd = open(s, OWRITE|OTRUNC)) >= 0 || bad(eopen)){
+		if((fd = open(s, OWRITE|OTRUNC)) >= 0 || (bad(eopen) && bad(elocked))){
 			if(fd != -1 && forceexcl(fd) == -1)
 				continue;
 			return fd;
 		}
-		if((fd = create(s, OWRITE|OEXCL, DMTMP|DMEXCL|0600)) >= 0  || bad(ecreate))
+		if((fd = create(s, OWRITE|OEXCL, DMTMP|DMEXCL|0600)) >= 0  || (bad(ecreate) && bad(elocked)))
 			return fd;
 		sleep(Idxstep);
 	}
@@ -529,7 +530,8 @@ rdidxfile0(Mailbox *mb)
 	Biobuf *b;
 
 	snprint(buf, sizeof buf, "%s.idx", mb->path);
-	b = Bopen(buf, OREAD);
+	while((b = Bopen(buf, OREAD)) == nil && !bad(elocked))
+		sleep(1000);
 	if(b == nil)
 		return -2;
 	if(qidcmp(Bfildes(b), &mb->qid) == 0)
