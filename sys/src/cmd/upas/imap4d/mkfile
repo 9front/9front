@@ -1,5 +1,4 @@
 </$objtype/mkfile
-<../mkupas
 
 OFILES=\
 	auth.$O\
@@ -28,9 +27,12 @@ HFILES=imap4d.h\
 	fns.h\
 
 TARG=imap4d
+
 UPDATE=\
 	mkfile\
 	$HFILES\
 	${OFILES:%.$O=%.c}\
 
 </sys/src/cmd/mkone
+
+<../mkupas
