@@ -67,6 +67,7 @@ struct Idx {
 	char	*subject;
 	char	*sender;
 	char	*inreplyto;
+	char	*date822;
 	char	*idxaux;		/* mailbox specific */
 
 	char	*type;			/* mime info */
@@ -117,7 +118,6 @@ struct Message {
 	/* mail info */
 	char	*unixheader;
 	char	*unixfrom;
-	char	*date822;
 	char	*references[Nref]; /* nil terminated unless full */
 
 	/* mime info */

@@ -486,6 +486,7 @@ parseunix(Message *m)
 	if((p = strchr(s, ' ')) == nil)
 		return;
 	*p = 0;
+	free(m->unixfrom);
 	m->unixfrom = strdup(s);
 	*p = ' ';
 }
@@ -563,9 +564,9 @@ parseheaders(Mailbox *mb, Message *m, int addfrom, int justmime)
 		free(m->unixheader);
 		m->unixheader = nil;
 	} else if(m->unixheader == nil){
-		if(m->unixfrom && strcmp(m->unixfrom, "???") != 0)
+		if(m->unixfrom != nil && strcmp(m->unixfrom, "???") != 0)
 			p = m->unixfrom;
-		else if(m->from)
+		else if(m->from != nil)
 			p = m->from;
 		else
 			p = "???";
@@ -605,6 +606,24 @@ parsebody(Message *m, Mailbox *mb)
 		}
 	}else if(strncmp(m->type, "text/", 5) == 0)
 		sanemsg(m);
+
+	free(m->boundary);
+	m->boundary = nil;
+
+	if(m->replyto == nil){
+		if(m->from != nil)
+			m->replyto = strdup(m->from);
+		else if(m->sender != nil)
+			m->replyto = strdup(m->sender);
+		else if(m->unixfrom != nil)
+			m->replyto = strdup(m->unixfrom);
+	}
+	if(m->from == nil && m->unixfrom != nil)
+		m->from = strdup(m->unixfrom);
+
+	free(m->unixfrom);
+	m->unixfrom = nil;
+
 	m->rawbsize = m->rbend - m->rbody;
 	m->cstate |= Cbody;
 }
@@ -888,7 +907,7 @@ ref822(Message *m, Header *h, char*, char *p)
 			free(a[0]);
 			memmove(&a[0], &a[1], (Nref - 1) * sizeof(a[0]));
 			j--;
-		} if(a[j] != nil)
+		} else if(a[j] != nil)
 			continue;
 		a[j] = strdup(f[i]);
 	}
@@ -1030,11 +1049,6 @@ delmessage(Mailbox *mb, Message *m)
 		cachefree(mb, m);
 		idxfree(m);
 	}
-	free(m->unixfrom);
-	free(m->unixheader);
-	free(m->date822);
-	free(m->boundary);
-
 	free(m);
 }
 
@@ -1527,11 +1541,8 @@ mailplumb(Mailbox *mb, Message *m)
 	if(subject == nil)
 		subject = "";
 
-	if(m->from != nil)
-		from = m->from;
-	else if(m->unixfrom != nil)
-		from = m->unixfrom;
-	else
+	from = m->from;
+	if(from == nil)
 		from = "";
 
 	sprint(len, "%lud", m->size);

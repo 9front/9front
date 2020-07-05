@@ -57,6 +57,7 @@ cachefree(Mailbox *mb, Message *m)
 	}
 	for(s = m->part; s; s = s->next)
 		cachefree(mb, s);
+
 	if(m->mallocd){
 		free(m->start);
 		m->mallocd = 0;
@@ -69,20 +70,28 @@ cachefree(Mailbox *mb, Message *m)
 		free(m->header);
 		m->hallocd = 0;
 	}
+
 	for(i = 0; i < nelem(m->references); i++){
 		free(m->references[i]);
-		m->references[i] = 0;
+		m->references[i] = nil;
 	}
+	free(m->unixfrom);
+	m->unixfrom = nil;
+	free(m->unixheader);
+	m->unixheader = nil;
+	free(m->boundary);
+	m->boundary = nil;
+
 	m->csize = 0;
-	m->start = 0;
-	m->end = 0;
-	m->header = 0;
-	m->hend = 0;
+	m->start = nil;
+	m->end = nil;
+	m->header = nil;
+	m->hend = nil;
 	m->hlen = -1;
-	m->body = 0;
-	m->bend = 0;
-	m->mheader = 0;
-	m->mhend = 0;
+	m->body = nil;
+	m->bend = nil;
+	m->mheader = nil;
+	m->mhend = nil;
 	m->decoded = 0;
 	m->converted = 0;
 	m->badchars = 0;

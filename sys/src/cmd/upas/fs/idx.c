@@ -5,10 +5,10 @@
 #define idprint(...)	if(iflag > 1) fprint(2, __VA_ARGS__); else {}
 #define iprint(...)		if(iflag) fprint(2, __VA_ARGS__); else {}
 
-static char *magic	= "idx magic v8\n";
+static char *magic	= "idx magic v9\n";
 static char *mbmagic	= "genericv1";
 enum {
-	Idxfields		= 22,
+	Idxfields		= 23,
 
 	Idxto		= 30000,		/* index timeout in ms */
 	Idxstep		= 300,		/* sleep between tries */
@@ -58,8 +58,9 @@ idxfree(Idx *i)
 		free(i->subject);
 		free(i->sender);
 		free(i->inreplyto);
-		free(i->idxaux);
+		free(i->date822);
 		free(i->filename);
+		free(i->idxaux);
 	}
 	memset(i, 0, sizeof *i);
 }
@@ -77,7 +78,7 @@ pridxmsg(Biobuf *b, Idx *x)
 {
 	Bprint(b, "%#A %ux %D %lud ", x->digest, x->flags&~Frecent, x->fileid, x->lines);
 	Bprint(b, "%q %q %q %q %q ", ∂(x->ffrom), ∂(x->from), ∂(x->to), ∂(x->cc), ∂(x->bcc));
-	Bprint(b, "%q %q %q %q %q ", ∂(x->replyto), ∂(x->messageid), ∂(x->subject), ∂(x->sender), ∂(x->inreplyto));
+	Bprint(b, "%q %q %q %q %q %q ", ∂(x->replyto), ∂(x->messageid), ∂(x->subject), ∂(x->sender), ∂(x->inreplyto), ∂(x->date822));
 	Bprint(b, "%s %d %q %lud %lud ", x->type, x->disposition, ∂(x->filename), x->size, x->rawbsize);
 	Bprint(b, "%lud %q %d\n", x->ibadchars, ∂(x->idxaux), x->nparts);
 	return 0;
@@ -402,15 +403,15 @@ dead:
 		m->subject = ∫(f[11]);
 		m->sender = ∫(f[12]);
 		m->inreplyto = ∫(f[13]);
-		m->type = intern(f[14]);
-		m->disposition = atoi(f[15]);
-		m->filename = ∫(f[16]);
-		m->size = strtoul(f[17], 0, 0);
-		m->rawbsize = strtoul(f[18], 0, 0);
-		m->ibadchars = strtoul(f[19], 0, 0);
-		m->idxaux = ∫(f[20]);
-		m->nparts = strtoul(f[21], 0, 0);
-
+		m->date822 = ∫(f[14]);
+		m->type = intern(f[15]);
+		m->disposition = atoi(f[16]);
+		m->filename = ∫(f[17]);
+		m->size = strtoul(f[18], 0, 0);
+		m->rawbsize = strtoul(f[19], 0, 0);
+		m->ibadchars = strtoul(f[20], 0, 0);
+		m->idxaux = ∫(f[21]);
+		m->nparts = strtoul(f[22], 0, 0);
 		m->cstate &= ~Cidxstale;
 		m->cstate |= Cidx|Cnew;
 		m->str = s;
