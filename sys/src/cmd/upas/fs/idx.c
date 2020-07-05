@@ -373,7 +373,7 @@ dead:
 			if(level == 0)
 				m->deleted &= ~Dmark;
 			n = m->nparts;
-			m->nparts = strtoul(f[21], 0, 0);
+			m->nparts = strtoul(f[22], 0, 0);
 			if(rdidx(b, mb, m, m->nparts, level + 1) == -1)
 				goto dead;
 			ll = &m->next;
