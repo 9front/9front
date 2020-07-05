@@ -888,7 +888,8 @@ ref822(Message *m, Header *h, char*, char *p)
 			free(a[0]);
 			memmove(&a[0], &a[1], (Nref - 1) * sizeof(a[0]));
 			j--;
-		}
+		} if(a[j] != nil)
+			continue;
 		a[j] = strdup(f[i]);
 	}
 	free(s);
