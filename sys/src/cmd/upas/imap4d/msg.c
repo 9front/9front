@@ -136,12 +136,9 @@ freemsg(Box *box, Msg *m)
 		freemaddr(m->replyto);
 	if(m->sender != m->from)
 		freemaddr(m->sender);
-	if(m->from != m->unixfrom)
-		freemaddr(m->from);
-	freemaddr(m->unixfrom);
+	freemaddr(m->from);
 	freemaddr(m->cc);
 	freemaddr(m->bcc);
-	free(m->unixdate);
 	freeheader(&m->head);
 	freeheader(&m->mime);
 	for(k = m->kids; k != nil; ){
@@ -263,76 +260,6 @@ msgreadfile(Msg *m, char *file, char **ss)
 }
 
 /*
- * parse the address in the unix header
- * last line of defence, so must return something
- */
-static Maddr *
-unixfrom(char *s)
-{
-	char *e, *t;
-	Maddr *a;
-
-	if(s == nil)
-		return nil;
-	headstr = (uchar*)s;
-	t = emalloc(strlen(s) + 2);
-	e = headaddrspec(t, nil);
-	if(e == nil)
-		a = nil;
-	else{
-		if(*e != '\0')
-			*e++ = '\0';
-		else
-			e = site;
-		a = MKZ(Maddr);
-		a->box = estrdup(t);
-		a->host = estrdup(e);
-	}
-	free(t);
-	return a;
-}
-
-/*
- * retrieve information from the unixheader file
- */
-static int
-msgunix(Msg *m, int top)
-{
-	char *s, *ss;
-	Tm tm;
-
-	if(m->unixdate != nil)
-		return 1;
-	if(!top){
-bogus:
-		m->unixdate = estrdup("");
-		m->unixfrom = unixfrom(nil);
-		return 1;
-	}
-
-	if(msgreadfile(m, "unixheader", &ss) < 0)
-		goto bogus;
-	s = ss;
-	s = strchr(s, ' ');
-	if(s == nil){
-		free(ss);
-		goto bogus;
-	}
-	s++;
-	m->unixfrom = unixfrom(s);
-	s = (char*)headstr;
-	if(date2tm(&tm, s) == nil)
-		s = m->info[Iunixdate];
-	if(s == nil){
-		free(ss);
-		goto bogus;
-	}
-	m->unixdate = estrdup(s);
-	free(ss);
-	return 1;
-}
-
-/*
  * make sure the message has valid associated info
  * used for Isubject, Idigest, Iinreplyto, Imessageid.
  */
@@ -391,8 +318,7 @@ msgstruct(Msg *m, int top)
 			return 0;
 		}
 	}
-	if(!msgunix(m, top)
-	|| !msgbodysize(m)
+	if(!msgbodysize(m)
 	|| (top || msgis822(&m->mime) || msgismulti(&m->mime)) && !msgheader(m, &m->head, "rawheader")){
 		msgdead(m);
 		return 0;
@@ -668,21 +594,10 @@ msgheader(Msg *m, Header *h, char *file)
 	}
 
 	if(h == &m->head){
-		if(m->from == nil){
-			m->from = m->unixfrom;
-			if(m->from != nil){
-				s = maddrstr(m->from);
-				msgaddhead(m, "From", s);
-				free(s);
-			}
-		}
 		if(m->sender == nil)
 			m->sender = m->from;
 		if(m->replyto == nil)
 			m->replyto = m->from;
-
-		if(m->info[Idate] == 0)
-			m->info[Idate] = m->unixdate;
 		if(!dated && m->from != nil)
 			msgadddate(m);
 	}

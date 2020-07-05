@@ -146,9 +146,6 @@ struct Msg
 	char	*ibuf;
 	char	*info[Imax];	/* all info about message */
 
-	char	*unixdate;
-	Maddr	*unixfrom;
-
 	Maddr	*to;		/* parsed out address lines */
 	Maddr	*from;
 	Maddr	*replyto;

@@ -112,7 +112,7 @@ fetchmsg(Box *, Msg *m, int uids, void *vf)
 			fetchenvelope(m);
 			break;
 		case Finternaldate:
-			Bprint(&bout, "%sINTERNALDATE %#D", sep, date2tm(&tm, m->unixdate));
+			Bprint(&bout, "%sINTERNALDATE %#D", sep, date2tm(&tm, m->info[Iunixdate]));
 			break;
 		case Fbody:
 			Bprint(&bout, "%sBODY ", sep);
