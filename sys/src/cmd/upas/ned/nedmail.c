@@ -2593,9 +2593,7 @@ fqcmd(Cmd*, Message *m)
 void
 system(char *cmd, char **av, int in)
 {
-	int pid;
-
-	switch(pid=fork()){
+	switch(fork()){
 	case -1:
 		return;
 	case 0:
@@ -2615,7 +2613,7 @@ system(char *cmd, char **av, int in)
 		while(waitpid() < 0){
 			if(!interrupted)
 				break;
-			postnote(PNPROC, pid, "die");
+			interrupted = 0;
 			continue;
 		}
 		break;
