@@ -1656,6 +1656,7 @@ fs_wstat(Chan* chan, Fcall* f, Fcall*, char* strs)
 	 * If the name is really to be changed check it's unique
 	 * and there is write permission in the parent.
 	 */
+	d1 = nil;
 	if(dir.name != d->name){
 		/*
 		 * First get parent.
@@ -1786,6 +1787,9 @@ fs_wstat(Chan* chan, Fcall* f, Fcall*, char* strs)
 		d->gid = gid;
 		d->muid = muid;
 		p->flags |= Bmod;
+
+		if(p1 != nil)
+			accessdir(p1, d1, FWRITE, file->uid);
 	}
 	if(!tsync)
 		accessdir(p, d, FREAD, file->uid);
