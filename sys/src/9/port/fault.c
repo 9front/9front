@@ -221,7 +221,7 @@ fixfault(Segment *s, uintptr addr, int read)
 	}
 
 #ifdef PTENOEXEC
-	if((s->type & SG_NOEXEC) != 0)
+	if((s->type & SG_NOEXEC) != 0 || s->flushme == 0)
 		mmuphys |= PTENOEXEC;
 #endif
 
@@ -242,6 +242,8 @@ mapphys(Segment *s, uintptr addr, int attr)
 	pg.ref = 1;
 	pg.va = addr;
 	pg.pa = s->pseg->pa+(addr-s->base);
+	if(s->flushme)
+		pg.txtflush = ~0;
 
 	mmuphys = PPN(pg.pa) | PTEVALID;
 	if((attr & SG_RONLY) == 0)
@@ -250,7 +252,7 @@ mapphys(Segment *s, uintptr addr, int attr)
 		mmuphys |= PTERONLY;
 
 #ifdef PTENOEXEC
-	if((attr & SG_NOEXEC) != 0)
+	if((attr & SG_NOEXEC) != 0 || s->flushme == 0)
 		mmuphys |= PTENOEXEC;
 #endif
 
@@ -303,7 +305,7 @@ fault(uintptr addr, uintptr pc, int read)
 			attr |= s->pseg->attr;
 
 		if((attr & SG_FAULT) != 0
-		|| read? (attr & SG_NOEXEC) != 0 && (addr & -BY2PG) == (pc & -BY2PG):
+		|| read? ((attr & SG_NOEXEC) != 0 || s->flushme == 0) && (addr & -BY2PG) == (pc & -BY2PG):
 			 (attr & SG_RONLY) != 0) {
 			qunlock(s);
 			up->psstate = sps;
