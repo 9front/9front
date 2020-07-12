@@ -41,7 +41,7 @@ int	haveloc(Fs *, uvlong, int, Loc *);
 Loc *	cloneloc(Fs *, Loc *);
 void	putloc(Fs *, Loc *, int);
 int	findentry(Fs *, FLoc *, Buf *, char *, FLoc *, int);
-void	modified(Chan *, Dentry *);
+void	modified(Loc *, Dentry *, short);
 int	trunc(Fs *, FLoc *, Buf *, uvlong);
 int	dprint(char *fmt, ...);
 int	delete(Fs *, FLoc *, Buf *);

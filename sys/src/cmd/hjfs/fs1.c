@@ -849,12 +849,12 @@ findentry(Fs *fs, FLoc *l, Buf *b, char *name, FLoc *rl, int dump)
 }
 
 void
-modified(Chan *ch, Dentry *d)
+modified(Loc *loc, Dentry *d, short uid)
 {
 	d->mtime = time(0);
 	d->atime = d->mtime;
-	d->muid = ch->uid;
-	ch->loc->vers = ++d->vers;
+	d->muid = uid;
+	loc->vers = ++d->vers;
 }
 
 typedef struct Del Del;

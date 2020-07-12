@@ -149,7 +149,7 @@ chancreat(Chan *ch, char *name, int perm, int mode)
 	if(newqid(ch->fs, &f.path) < 0)
 		goto error;
 	l = getloc(ch->fs, f, ch->loc);
-	modified(ch, d);
+	modified(ch->loc, d, ch->uid);
 	b->op |= BDELWRI;
 	pgid = d->gid;
 	putbuf(b);
@@ -273,7 +273,7 @@ chanopen(Chan *ch, int mode)
 	}
 	if((mode & OTRUNC) != 0){
 		trunc(ch->fs, ch->loc, b, 0);
-		modified(ch, d);
+		modified(ch->loc, d, ch->uid);
 		b->op |= BDELWRI;
 	}
 	if((mode & ORCLOSE) != 0)
@@ -380,7 +380,7 @@ chanwrite(Chan *ch, void *buf, ulong n, uvlong off)
 		p += rn;
 	}
 done:
-	modified(ch, d);
+	modified(ch->loc, d, ch->uid);
 	e = off + (p - (uchar *) buf);
 	if(e > d->size)
 		d->size = e;
@@ -679,7 +679,7 @@ int
 chanwstat(Chan *ch, Dir *di)
 {
 	Buf *b, *pb;
-	Dentry *d;
+	Dentry *d, *pd;
 	int isdir, owner, rc;
 	short nuid, ngid;
 
@@ -689,23 +689,26 @@ chanwstat(Chan *ch, Dir *di)
 		goto inval;
 	if(willmodify(ch->fs, ch->loc, ch->flags & CHFNOLOCK) < 0)
 		goto error;
+	pd = nil;
 	if(*di->name){
 		FLoc f;
 
 		if(!namevalid(di->name) || ch->loc->next == nil)
 			goto inval;
+		if(willmodify(ch->fs, ch->loc->next, ch->flags & CHFNOLOCK) < 0)
+			goto error;
 		pb = getbuf(ch->fs->d, ch->loc->next->blk, TDENTRY, 0);
 		if(pb == nil)
 			goto error;
-		d = getdent(ch->loc->next, pb);
-		if(d == nil)
+		pd = getdent(ch->loc->next, pb);
+		if(pd == nil)
 			goto error;
 		rc = findentry(ch->fs, ch->loc->next, pb, di->name, &f, ch->flags & CHFDUMP);
 		if(rc < 0)
 			goto error;
 		else if(rc == 0){
 			if((ch->flags & CHFNOPERM) == 0)
-				if(!permcheck(ch->fs, d, ch->uid, OWRITE))
+				if(!permcheck(ch->fs, pd, ch->uid, OWRITE))
 					goto perm;
 		} else if(f.blk != ch->loc->blk || f.deind != ch->loc->deind){
 			werrstr(Eexists);
@@ -748,7 +751,7 @@ chanwstat(Chan *ch, Dir *di)
 	d->gid = ngid;
 	if(di->length != ~0 && di->length != d->size && !isdir){
 		trunc(ch->fs, ch->loc, b, di->length);
-		modified(ch, d);
+		modified(ch->loc, d, ch->uid);
 	}
 	if(di->mtime != ~0)
 		d->mtime = di->mtime;
@@ -761,8 +764,11 @@ chanwstat(Chan *ch, Dir *di)
 		strcpy(d->name, di->name);
 	}
 	b->op |= BDELWRI;
-	if(pb != nil)
+	if(pb != nil){
+		modified(ch->loc->next, pd, ch->uid);
+		pb->op |= BDELWRI;
 		putbuf(pb);
+	}
 	putbuf(b);
 	chend(ch);
 	return 1;
