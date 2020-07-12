@@ -244,6 +244,7 @@ main(int argc, char **argv)
 	case 0xeb010000:	/* 386 */
 		break;
 	}
+	segflush(_cpuid, sizeof(_cpuid));
 	Binit(&buf, 1, OWRITE);
 	out = &buf;
 	r = cpuid(0, 0);
