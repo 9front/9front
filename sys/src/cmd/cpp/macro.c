@@ -169,9 +169,8 @@ expandrow(Tokenrow *trp, char *flag)
 		}
 		if (np->flag&ISMAC)
 			builtin(trp, np->val);
-		else {
+		else
 			expand(trp, np);
-		}
 		tp = trp->tp;
 	}
 	if (flag)
@@ -186,18 +185,17 @@ expandrow(Tokenrow *trp, char *flag)
 void
 expand(Tokenrow *trp, Nlist *np)
 {
-	Tokenrow ntr;
-	int ntokc, narg, i;
-	Token *tp;
+	int ntokc, narg, i, hs;
 	Tokenrow *atr[NARG+1];
-	int hs;
+	Tokenrow ntr;
+	Token *tp;
 
 	copytokenrow(&ntr, np->vp);		/* copy macro value */
 	if (np->ap==NULL) {			/* parameterless */
 		ntokc = 1;
 		/* substargs for handling # and ## */
 		atr[0] = nil;
-		substargs(np, &ntr, atr);
+		substargs(np, &ntr, atr, trp->tp->hideset);
 	} else {
 		ntokc = gatherargs(trp, atr, (np->flag&ISVARMAC) ? rowlen(np->ap) : 0, &narg);
 		if (narg<0) {			/* not actually a call (no '(') */
@@ -210,12 +208,13 @@ expand(Tokenrow *trp, Nlist *np)
 			trp->tp += ntokc;
 			return;
 		}
-		substargs(np, &ntr, atr);	/* put args into replacement */
+		substargs(np, &ntr, atr, trp->tp->hideset);	/* put args into replacement */
 		for (i=0; i<narg; i++) {
 			dofree(atr[i]->bp);
 			dofree(atr[i]);
 		}
 	}
+
 	hs = newhideset(trp->tp->hideset, np);
 	for (tp=ntr.bp; tp<ntr.lp; tp++) {	/* distribute hidesets */
 		if (tp->type==NAME) {
@@ -343,19 +342,20 @@ ispaste(Tokenrow *rtr, Token **ap, Token **an, int *ntok)
 	}
 	return 0;
 }
+
 /*
  * substitute the argument list into the replacement string
  *  This would be simple except for ## and #
  */
 void
-substargs(Nlist *np, Tokenrow *rtr, Tokenrow **atr)
+substargs(Nlist *np, Tokenrow *rtr, Tokenrow **atr, int hideset)
 {
 	Tokenrow ttr, rp, rn;
 	Token *tp, *ap, *an, *pp, *pn;
 	int ntok, argno, hs;
 
 	for (rtr->tp=rtr->bp; rtr->tp<rtr->lp; ) {
-		if(rtr->tp->hideset && checkhideset(rtr->tp->hideset, np)) {
+		if(rtr->tp->hideset && checkhideset(hideset, np)) {
 			rtr->tp++;
 		} else if (rtr->tp->type==SHARP) {	/* string operator */
 			tp = rtr->tp;
@@ -405,10 +405,10 @@ substargs(Nlist *np, Tokenrow *rtr, Tokenrow **atr)
 				*ttr.tp = *rtr->tp;
 
 				hs = newhideset(rtr->tp->hideset, np);
-				if(ttr.tp->hideset == 0)
+				if(hideset == 0)
 					ttr.tp->hideset = hs;
 				else
-					ttr.tp->hideset = unionhideset(ttr.tp->hideset, hs);
+					ttr.tp->hideset = unionhideset(hideset, hs);
 				expandrow(&ttr, (char*)np->name);
 				for(tp = ttr.bp; tp != ttr.lp; tp++)
 					if(tp->type == COMMA)

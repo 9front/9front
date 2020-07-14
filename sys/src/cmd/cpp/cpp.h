@@ -110,7 +110,7 @@ void	doif(Tokenrow *, enum kwtype);
 void	expand(Tokenrow *, Nlist *);
 void	builtin(Tokenrow *, int);
 int	gatherargs(Tokenrow *, Tokenrow **, int, int *);
-void	substargs(Nlist *, Tokenrow *, Tokenrow **);
+void	substargs(Nlist *, Tokenrow *, Tokenrow **, int);
 void	expandrow(Tokenrow *, char *);
 void	maketokenrow(int, Tokenrow *);
 Tokenrow *copytokenrow(Tokenrow *, Tokenrow *);
