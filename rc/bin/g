@@ -20,7 +20,9 @@ case 0
 	exit usage
 case 1
 	pattern=$1
-	files=`$nl{walk -f $recurse | grep '\.([bcChlmsy]|asm|awk|cc|cgi|cpp|cs|go|goc|java|lx|ms|pl|py|rc|tex|xy)$' >[2]/dev/null}
+	fullnames='mkfile$'
+	suffixes='\.([bcChlmsy]|asm|awk|cc|cgi|cpp|cs|go|goc|hs|java|lx|ms|pl|py|rc|tex|xy)$'
+	files=`$nl{walk -f $recurse | grep -e $fullnames -e $suffixes >[2]/dev/null}
 case *
 	pattern=$1
 	shift
