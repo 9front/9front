@@ -4,6 +4,7 @@
 TARG=\
 	stty\
 	tar\
+	cc\
 
 BIN=/$objtype/bin/ape
 </sys/src/cmd/mkmany

@@ -2,11 +2,8 @@ APE=/sys/src/ape
 <$APE/config
 
 TARG=basename\
-	cc\
-	cp\
 	dirname\
 	kill\
-	mv\
 	uname
 
 DIRS=\
@@ -45,24 +42,6 @@ $DIRS:V:
 		echo '----'$i'----'
 		mk all
 	}
-
-cc.$O: cc.c
-	mk -f /sys/src/cmd/mkfile cc.$O
-
-$O.cc: cc.$O
-	mk -f /sys/src/cmd/mkfile $O.cc
-
-cp.$O: cp.c
-	mk -f /sys/src/cmd/mkfile cp.$O
-
-$O.cp: cp.$O
-	mk -f /sys/src/cmd/mkfile $O.cp
-
-mv.$O: mv.c
-	mk -f /sys/src/cmd/mkfile mv.$O
-
-$O.mv: mv.$O
-	mk -f /sys/src/cmd/mkfile $O.mv
 
 $BIN/%: %.rc
 	cp -x $stem.rc $BIN/$stem
