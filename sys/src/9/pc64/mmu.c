@@ -517,12 +517,17 @@ putmmu(uintptr va, uintptr pa, Page *)
 void
 checkmmu(uintptr va, uintptr pa)
 {
-	uintptr *pte;
+	uintptr *pte, old;
+	int x;
 
+	x = splhi();
 	pte = mmuwalk(m->pml4, va, 0, 0);
-	if(pte != 0 && (*pte & PTEVALID) != 0 && PPN(*pte) != pa)
-		print("%ld %s: va=%#p pa=%#p pte=%#p\n",
-			up->pid, up->text, va, pa, *pte);
+	if(pte == 0 || ((old = *pte) & PTEVALID) == 0 || PPN(old) == pa){
+		splx(x);
+		return;
+	}
+	splx(x);
+	print("%ld %s: va=%#p pa=%#p pte=%#p\n", up->pid, up->text, va, pa, old);
 }
 
 uintptr
