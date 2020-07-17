@@ -114,17 +114,18 @@ prefixlen(uchar *ip)
 }
 
 /*
- *  look through a containing subset
+ *  look through containing subsets
  */
 static Ndbtuple*
 subnet(Ndb *db, uchar *net, Ndbtuple *f, int prefix)
 {
 	Ndbs s;
+	int nprefix;
 	char netstr[64];
 	uchar mask[IPaddrlen];
-	Ndbtuple *t, *nt, *xt;
+	Ndbtuple *at[128+1], *nt, *xt, *t;
 
-	t = nil;
+	memset(at, 0, sizeof(at));
 	snprint(netstr, sizeof(netstr), "%I", net);
 	nt = ndbsearch(db, &s, "ip", netstr);
 	while(nt != nil){
@@ -133,13 +134,20 @@ subnet(Ndb *db, uchar *net, Ndbtuple *f, int prefix)
 			xt = ndbfindattr(nt, nt, "ipmask");
 			if(xt == nil || parseipmask(mask, xt->val, isv4(net)) == -1)
 				ipmove(mask, defmask(net));
-			if(prefixlen(mask) <= prefix){
-				t = ndbconcatenate(t, filter(db, nt, f));
+			nprefix = prefixlen(mask);
+			if(nprefix <= prefix && at[nprefix] == nil){
+				/* remember containing subnet, order by prefix length */
+				at[nprefix] = nt;
 				nt = nil;
 			}
 		}
 		ndbfree(nt);
 		nt = ndbsnext(&s, "ip", netstr);
+	}
+	/* filter subnets, longest prefix first */
+	for(t = nil; prefix >= 0; prefix--){
+		if(at[prefix] != nil)
+			t = ndbconcatenate(t, filter(db, at[prefix], f));
 	}
 	ndbsetmalloctag(t, getcallerpc(&db));
 	return t;
