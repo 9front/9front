@@ -12,7 +12,6 @@ TARG=\
 	applylog\
 	compactdb\
 	updatedb\
-	$SCRIPTS\
 
 OFILES=\
 	db.$O\
@@ -20,29 +19,16 @@ OFILES=\
 
 HFILES=all.h
 
-UPDATE=\
-	mkfile\
-	/sys/man/1/replica\
-	/sys/man/8/replica\
-	${OFILES:%.$O=%.c}\
-	revproto.c\
-	$HFILES\
-	applychanges.c\
-	updatedb.c\
-	${TARG:%=/386/bin/replica/%}\
-	${SCRIPTS:%=/rc/bin/replica/%}\
-	/rc/bin/replica/defs\
-
-
 BIN=/$objtype/bin/replica
 </sys/src/cmd/mkmany
 
 $O.applychanges: revproto.$O
 
 ${SCRIPTS:%=$BIN/%}:
-	{ echo '#!/bin/rc'; echo 'exec /rc/bin/replica/'^`{basename $target}^' $*' } >$target
+	for(i in $target){
+		echo '#!/bin/rc'
+		echo 'exec /rc/bin/replica/'^`{basename $i}^' $*'
+	} >$i
 	chmod +x $target
 
-${SCRIPTS:%=$O.%}:QV:
-	;
-
+install:V: ${TARG:%=$BIN/%} ${SCRIPTS:%=$BIN/%}
