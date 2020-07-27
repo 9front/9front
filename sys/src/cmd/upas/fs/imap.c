@@ -979,7 +979,6 @@ again:
 				m->imapuid = strtoull(m->idxaux, 0, 0);
 			c = vcmp(f[i].uid, m->imapuid);
 		}
-		idprint(imap, "consider %U and %U -> %d\n", i<n? f[i].uid: 0, m? m->imapuid: 1, c);
 		if(c < 0){
 			/* new message */
 			idprint(imap, "new: %U (%U)\n", f[i].uid, m? m->imapuid: 0);
@@ -1006,8 +1005,10 @@ again:
 			m->deleted = Disappear;
 			ll = &m->next;
 		}else{
-			if((m->flags & ~Frecent) != (f[i].flags & ~Frecent))
+			if((m->flags & ~Frecent) != (f[i].flags & ~Frecent)){
+				idprint(imap, "modified: %d != %d\n", m->flags, f[i].flags);
 				m->cstate |= Cmod;
+			}
 			m->flags = f[i].flags;
 			ll = &m->next;
 			i++;
