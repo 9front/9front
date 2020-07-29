@@ -1348,7 +1348,7 @@ startssh(void *)
 void
 usage(void)
 {
-	static char *common = "[-abdRUG] [-s service] [-m mtpt] [-u uidfile] [-g gidfile]";
+ 	static char *common = "[-abdRUGM] [-s service] [-m mtpt] [-r root] [-u uidfile] [-g gidfile]";
 	fprint(2, "usage: %s %s [-- ssh-options] [user@]host\n", argv0, common);
 	fprint(2, "       %s %s -c cmdline\n", argv0, common);
 	fprint(2, "       %s %s -p\n", argv0, common);
