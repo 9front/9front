@@ -454,6 +454,9 @@ threadmain(int argc, char **argv)
 	case 's':
 		srv = EARGF(usage());
 		break;
+	case 'p':
+		amldebug++;
+		break;
 	default:
 		usage();
 	}ARGEND
