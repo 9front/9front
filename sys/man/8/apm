@@ -110,3 +110,5 @@ and
 .B off
 should be supported but doing so requires
 nontrivial help from the kernel.
+.SH "SEE ALSO"
+.IR acpi (8)

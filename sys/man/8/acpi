@@ -1,0 +1,61 @@
+.TH ACPI 8
+.SH NAME
+acpi \- Advanced Configuration and Power Interface
+.SH SYNOPSIS
+.I (in plan9.ini)
+.B *acpi=
+.PP
+.B aux/acpi
+[
+.B -m
+.I mountpoint
+]
+[
+.B -s
+.I service
+]
+.SH DESCRIPTION
+.I Aux/acpi
+presents at
+.I mountpoint
+(default
+.BR /mnt/acpi )
+an interface to the ACPI. If a
+.I service
+is specified, the interface will be
+posted at
+.BI /srv/ service 
+as well.
+.PP
+The directory contains the following files.
+.TP
+.B battery
+Contains one line for each battery in the system.  Each line lists 12
+fields: the percent charge remaining, power unit used (mW or mA),
+remaining capacity, last full charge capacity, design capacity,
+warning and low capacity values,
+.BR "mV"
+separator, present voltage, design voltage, approximate time of charge
+left as
+.BR hh:mm:ss ,
+and the status (a string, one of
+.BR unknown ,
+.BR critical ,
+.BR discharging
+or
+.BR charging ).
+.TP
+.B cputemp
+Each line provides a current temperature reading of a specific CPU.
+.TP
+.B ctl
+The
+.B ctl
+file currently does not provide any functionality.
+.SH SOURCE
+.B /sys/src/cmd/aux/acpi.c
+.SH BUGS
+ACPI itself.
+.SH HISTORY
+.I Acpi
+first appeared in 9front (October, 2016).

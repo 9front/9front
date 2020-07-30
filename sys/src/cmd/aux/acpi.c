@@ -417,7 +417,7 @@ fsattach(Req *r)
 static void
 usage(void)
 {
-	fprint(2, "usage: aux/acpi [-D] [-d /dev] [-m /mnt/acpi] [-s service]\n");
+	fprint(2, "usage: aux/acpi [-Dp] [-m /mnt/acpi] [-s service]\n");
 	exits("usage");
 }
 
@@ -454,6 +454,8 @@ threadmain(int argc, char **argv)
 	case 's':
 		srv = EARGF(usage());
 		break;
+	default:
+		usage();
 	}ARGEND
 
 	if((ec = open("/dev/ec", ORDWR)) < 0)
@@ -500,7 +502,7 @@ threadmain(int argc, char **argv)
 	amlenum(amlroot, "_PSL", enumtmp, nil);
 
 	threadpostmountsrv(&fs, srv, mtpt, MREPL);
-	return;
+	threadexits(nil);
 
 fail:
 	fprint(2, "%r\n");
