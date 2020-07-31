@@ -52,3 +52,4 @@ uintptr vmemwrite(void *, uintptr, uintptr);
 int x86access(int, uintptr, int, uvlong*, int, int, TLB *);
 u32int io(int, u16int, u32int, int);
 int x86step(void);
+uvlong nanosec(void);

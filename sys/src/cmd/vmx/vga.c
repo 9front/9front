@@ -358,7 +358,7 @@ keyproc(void *)
 			n = read(fd, buf, sizeof(buf)-1);
 			if(n <= 0)
 				sysfatal("read /dev/kbd: %r");
-			kbwatchdog = nsec();
+			kbwatchdog = nanosec();
 			buf[n-1] = 0;
 			buf[n] = 0;
 		}
@@ -431,7 +431,7 @@ mousethread(void *)
 				clicked = m.buttons & 1;
 				break;
 			}
-			if(kbwatchdog != 0 && nsec() - kbwatchdog > 1000ULL*1000*1000)
+			if(kbwatchdog != 0 && nanosec() - kbwatchdog > 1000ULL*1000*1000)
 				mousegrab = 0;
 			gotm = 1;
 			if(!ptinrect(m.xy, grabout)){
@@ -503,7 +503,7 @@ drawtext(void)
 		p += 160;
 	}
 	cp = (vga.crtc[14] << 8 | vga.crtc[15]);
-	if(cp >= sa && cp < sa + 80*25 && (vga.crtc[10] & 0x20) == 0 && nsec() / 500000000 % 2 == 0){
+	if(cp >= sa && cp < sa + 80*25 && (vga.crtc[10] & 0x20) == 0 && nanosec() / 500000000 % 2 == 0){
 		buf[0] = cp437[tfb[cp*2]];
 		attr = tfb[cp*2+1];
 		r.min = Pt((cp - sa) % 80 * 8, (cp - sa) / 80 * 16);

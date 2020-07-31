@@ -15,6 +15,7 @@ OFILES=\
 	vesa.$O \
 	9p.$O \
 	x86.$O \
+	nanosec.$O \
 
 </sys/src/cmd/mkone
 

@@ -430,20 +430,20 @@ sleeperproc(void *)
 	vlong then, now;
 
 	timerid = threadid();
-	timerevent = nsec() + SleeperPoll;
+	timerevent = nanosec() + SleeperPoll;
 	unlock(&timerlock);
 	threadsetname("sleeper");
 	for(;;){
 		lock(&timerlock);
 		then = timerevent;
-		now = nsec();
+		now = nanosec();
 		if(then <= now) timerevent = now + SleeperPoll;
 		unlock(&timerlock);
 		if(then - now >= MinSleep){
 			sleep((then - now) / MSEC);
 			continue;
 		}
-		while(nsec() < then)
+		while(nanosec() < then)
 			;
 		sendul(sleepch, 0);
 	}

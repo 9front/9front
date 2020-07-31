@@ -518,7 +518,7 @@ vionetwproc(void *vp)
 		if((v->net.flags & VNETHEADER) != 0){
 			txbuf[0] = len  >> 8;
 			txbuf[1] = len;
-			ns = nsec();
+			ns = nanosec();
 			txbuf[2] = ns >> 56;
 			txbuf[3] = ns >> 48;
 			txbuf[4] = ns >> 40;

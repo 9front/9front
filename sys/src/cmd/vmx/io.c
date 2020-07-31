@@ -31,7 +31,7 @@ rtcadvance(void)
 	vlong t;
 	
 	if(rtcnext != -1){
-		t = nsec();
+		t = nanosec();
 		if(t >= rtcnext){
 			cmos[0xc] |= 0x40;
 			rtcnext = -1;
@@ -58,7 +58,7 @@ rtcset(void)
 	default: d = 4 + (cmos[0xa] & 0xf);
 	}
 	b = (1000000000ULL << d) / 1048576;
-	t = nsec();
+	t = nanosec();
 	rtcnext = t + b - t % b;
 	settimer(rtcnext);
 }
@@ -464,7 +464,7 @@ pitadvance(void)
 
 	for(i = 0; i < 3; i++){
 		p = &pit[i];
-		nt = nsec();
+		nt = nanosec();
 		t = nt - p->lastnsec;
 		p->lastnsec = nt;
 		switch(p->mode){
@@ -533,7 +533,7 @@ pitsetreload(int n, int hi, u8int v)
 		if(p->access != 3 || hi){
 			p->count = p->reload;
 			p->state = 1;
-			p->lastnsec = nsec();
+			p->lastnsec = nanosec();
 			settimer(p->lastnsec + p->count * PERIOD);
 		}else
 			p->state = 0;
@@ -543,7 +543,7 @@ pitsetreload(int n, int hi, u8int v)
 		if(p->state == 0 && (p->access != 3 || hi)){
 			p->count = p->reload;
 			p->state = 1;
-			p->lastnsec = nsec();
+			p->lastnsec = nanosec();
 			pitadvance();
 		}
 		break;
@@ -621,7 +621,7 @@ pitio(int isin, u16int port, u32int val, int sz, void *)
 			pit[n].reload = 0;
 			pit[n].readstate = pit[n].access == 1 ? READHI : READLO;
 			pit[n].writestate = pit[n].access == 1 ? READHI : READLO;
-			pit[n].lastnsec = nsec();
+			pit[n].lastnsec = nanosec();
 			switch(pit[n].mode){
 			case 0:
 				pitout(n, 0);
