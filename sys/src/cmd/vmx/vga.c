@@ -760,7 +760,7 @@ vgainit(void)
 		sysfatal("failed to initialize graphics: %r");
 	screeninit(1);
 	flushimage(display, 1);
-	kbdlayout("/sys/lib/kbmap/us");
+	kbdlayout("/dev/kbmap");
 	mc = initmouse(nil, screen);
 	kbdch = chancreate(sizeof(ulong), 128);
 	mousech = chancreate(sizeof(Mouse), 32);
