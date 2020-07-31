@@ -328,7 +328,7 @@ commnds(void)
 				neg++;
 				chsign(arg1);
 			}
-			if(length(arg1)>=3) {
+			if(length(arg1)>=5) {
 				error("exp too big\n");
 			}
 			savk = sunputc(arg2);
