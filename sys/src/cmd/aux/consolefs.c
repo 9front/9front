@@ -763,12 +763,10 @@ fsversion(Fs *fs, Request *r, Fid*)
 	if(messagesize > 8192+IOHDRSZ)
 		messagesize = 8192+IOHDRSZ;
 	r->f.msize = messagesize;
-	if(strncmp(r->f.version, "9P2000", 6) != 0){
-		fsreply(fs, r, "unrecognized 9P version");
-		return;
-	}
-	r->f.version = "9P2000";
-
+	if(strncmp(r->f.version, "9P", 2) != 0)
+		r->f.version = "unknown";
+	else
+		r->f.version = "9P2000";
 	fsreply(fs, r, nil);
 }
 

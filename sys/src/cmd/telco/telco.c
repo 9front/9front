@@ -519,9 +519,9 @@ rversion(Fid *)
 	if(messagesize > sizeof mdata)
 		messagesize = sizeof mdata;
 	rhdr.msize = messagesize;
-	if(strncmp(thdr.version, "9P2000", 6) != 0)
-		return "unrecognized 9P version";
 	rhdr.version = "9P2000";
+	if(strncmp(thdr.version, "9P", 2) != 0)
+		rhdr.version = "unknown";
 	return 0;
 }
 

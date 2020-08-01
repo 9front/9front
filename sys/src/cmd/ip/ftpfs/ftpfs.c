@@ -314,9 +314,9 @@ rversion(Fid*)
 		rhdr.msize = thdr.msize;
 	messagesize = rhdr.msize;
 
-	if(strncmp(thdr.version, "9P2000", 6) != 0)
-		return "unknown 9P version";
 	rhdr.version = "9P2000";
+	if(strncmp(thdr.version, "9P", 2) != 0)
+		rhdr.version = "unknown";
 	return nil;
 }
 

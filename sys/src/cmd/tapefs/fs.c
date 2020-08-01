@@ -160,9 +160,9 @@ rversion(Fid *unused)
 	else
 		messagesize = rhdr.msize;
 	thdr.msize = messagesize;
-	if(strncmp(rhdr.version, "9P2000", 6) != 0)
-		return "unrecognized 9P version";
 	thdr.version = "9P2000";
+	if(strncmp(rhdr.version, "9P", 2) != 0)
+		thdr.version = "unknown";
 
 	for(f = fids; f; f = f->next)
 		if(f->busy)

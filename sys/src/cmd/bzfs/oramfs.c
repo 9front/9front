@@ -116,7 +116,6 @@ char	Enotowner[] =	"not owner";
 char	Eisopen[] = 	"file already open for I/O";
 char	Excl[] = 	"exclusive use file already open";
 char	Ename[] = 	"illegal name";
-char	Eversion[] =	"unknown 9P version";
 
 int debug;
 
@@ -228,9 +227,9 @@ rversion(Fid*)
 	else
 		rhdr.msize = thdr.msize;
 	messagesize = rhdr.msize;
-	if(strncmp(thdr.version, "9P2000", 6) != 0)
-		return Eversion;
 	rhdr.version = "9P2000";
+	if(strncmp(thdr.version, "9P", 2) != 0)
+		rhdr.version = "unknown";
 	return 0;
 }
 

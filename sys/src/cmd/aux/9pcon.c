@@ -57,7 +57,7 @@ watch(int fd)
 	}
 	if(n == 0)
 		print("server eof\n");
-	else
+	else if(n == -1)
 		print("read9pmsg from server: %r\n");
 }
 

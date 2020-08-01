@@ -726,10 +726,10 @@ rversion(Fid*)
 	if(thdr.msize < messagesize)
 		messagesize = thdr.msize;
 	rhdr.msize = messagesize;
-	if(strncmp(thdr.version, "9P2000", 6) != 0)
-		return "unknown 9P version";
-	else
-		rhdr.version = "9P2000";
+	rhdr.version = "9P2000";
+	if(strncmp(thdr.version, "9P", 2) != 0)
+		rhdr.version = "unknown";
+		
 	for(f = fids; f; f = f->next)
 		if(f->busy)
 			rclunk(f);

@@ -325,9 +325,9 @@ fsysversion(Xfid *x, Fid*)
 		return respond(x, &t, "version: message size too small");
 	messagesize = x->msize;
 	t.msize = messagesize;
-	if(strncmp(x->version, "9P2000", 6) != 0)
-		return respond(x, &t, "unrecognized 9P version");
 	t.version = "9P2000";
+	if(strncmp(x->version, "9P", 2) != 0)
+		t.version = "unknown";
 	return respond(x, &t, nil);
 }
 

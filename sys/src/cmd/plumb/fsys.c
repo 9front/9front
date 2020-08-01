@@ -563,11 +563,10 @@ fsysversion(Fcall *t, uchar *buf, Fid*)
 	if(t->msize < messagesize)
 		messagesize = t->msize;
 	t->msize = messagesize;
-	if(strncmp(t->version, "9P2000", 6) != 0){
-		fsysrespond(t, buf, "unrecognized 9P version");
-		return t;
-	}
-	t->version = "9P2000";
+	if(strncmp(t->version, "9P", 2) != 0)
+		t->version = "unknown";
+	else
+		t->version = "9P2000";
 	fsysrespond(t, buf, nil);
 	return t;
 }

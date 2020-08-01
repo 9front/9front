@@ -687,9 +687,10 @@ fsversion(Fs *, Fcall *rpc)
 	if(rpc->msize > messagesize)
 		rpc->msize = messagesize;
 	messagesize = rpc->msize;
-	if(strncmp(rpc->version, "9P2000", 6) != 0)
-		return "unrecognized 9P version";
-	rpc->version = "9P2000";
+	if(strncmp(rpc->version, "9P", 2) != 0)
+		rpc->version = "unknown";
+	else
+		rpc->version = "9P2000";
 	return nil;
 }
 

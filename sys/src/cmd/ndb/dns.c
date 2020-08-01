@@ -485,12 +485,10 @@ rversion(Job *job)
 		job->reply.msize = IOHDRSZ + Maxfdata;
 	else
 		job->reply.msize = job->request.msize;
-	if(strncmp(job->request.version, "9P2000", 6) != 0)
-		sendmsg(job, "unknown 9P version");
-	else{
-		job->reply.version = "9P2000";
-		sendmsg(job, 0);
-	}
+	job->reply.version = "9P2000";
+	if(strncmp(job->request.version, "9P", 2) != 0)
+		job->reply.version = "unknown";
+	sendmsg(job, nil);
 }
 
 void

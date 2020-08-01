@@ -255,13 +255,13 @@ rversion(Fid *unused)
 	if(messagesize > sizeof mdata)
 		messagesize = sizeof mdata;
 	thdr.msize = messagesize;
-	if(strncmp(rhdr.version, "9P2000", 6) != 0)
-		return vtstrdup("unrecognized 9P version");
-	thdr.version = "9P2000";
+	if(strncmp(rhdr.version, "9P", 2) != 0)
+		thdr.version = "unknown";
 	if(strncmp(rhdr.version, "9P2000.u", 8) == 0){
 		dotu = 1;
 		thdr.version = "9P2000.u";
-	}
+	}else
+		thdr.version = "9P2000";
 	return nil;
 }
 

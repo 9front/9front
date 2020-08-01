@@ -472,7 +472,10 @@ fsversion(Fs *fs, Request *r, Fid*)
 	if(messagesize > r->f.msize)
 		messagesize = r->f.msize;
 	r->f.msize = messagesize;
-	r->f.version = "9P2000";
+	if(strncmp(r->f.version, "9P", 2) != 0)
+		r->f.version = "unknown";
+	else
+		r->f.version = "9P2000";
 	fsreply(fs, r, nil);
 }
 

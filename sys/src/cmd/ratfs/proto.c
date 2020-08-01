@@ -131,9 +131,16 @@ newfid(int fid)
 static void
 rversion(Fcall *f)
 {
-	f->version = "9P2000";
+	if(f->msize < 256){
+		reply(f, "version: message size too small");
+		return;
+	}
 	if(f->msize > MAXRPC)
 		f->msize = MAXRPC;
+	if(strncmp(f->version, "9P", 2) != 0)
+		f->version = "unknown";
+	else
+		f->version = "9P2000";
 	reply(f, 0);
 }
 

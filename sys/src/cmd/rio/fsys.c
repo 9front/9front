@@ -294,9 +294,9 @@ filsysversion(Filsys *fs, Xfid *x, Fid*)
 		return filsysrespond(x->fs, x, &t, "version: message size too small");
 	messagesize = x->msize;
 	t.msize = messagesize;
-	if(strncmp(x->version, "9P2000", 6) != 0)
-		return filsysrespond(x->fs, x, &t, "unrecognized 9P version");
 	t.version = "9P2000";
+	if(strncmp(x->version, "9P", 2) != 0)
+		t.version = "unknown";
 	return filsysrespond(fs, x, &t, nil);
 }
 

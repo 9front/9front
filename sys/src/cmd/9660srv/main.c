@@ -254,6 +254,8 @@ rversion(void)
 	else
 		rep->msize = req->msize;
 	rep->version = "9P2000";
+	if(strncmp(req->version, "9P", 2) != 0)
+		rep->version = "unknown";
 }
 
 void

@@ -135,7 +135,6 @@ char	Excl[] = 	"exclusive use file already open";
 char	Ename[] = 	"illegal name";
 char	Erdonly[] = 	"read only file system";
 char	Ebadblock[] = 	"bad block";
-char	Eversion[] = 	"bad version of P9";
 char	Edirtoobig[] = 	"directory entry too big";
 
 int debug;
@@ -270,9 +269,9 @@ rversion(Fid*)
 		thdr.msize = mesgsize;
 	else
 		thdr.msize = rhdr.msize;
-	if(strcmp(rhdr.version, "9P2000") != 0)
-		return Eversion;
 	thdr.version = "9P2000";
+	if(strncmp(rhdr.version, "9P", 2) != 0)
+		thdr.version = "unknown";
 	return 0;
 }
 
