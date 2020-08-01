@@ -78,8 +78,8 @@ from the file tree
 the current directory).
 The
 .I proto
-file is formatted as described in
-.IR mkfs (8).
+file format is described in
+.IR proto (2).
 .PP
 The created CD image will be in ISO-9660
 format, but by default the file names will
