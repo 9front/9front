@@ -6,7 +6,7 @@ if(! test -d $full_path){
 	error 404
 	exit
 }
-if(! test -r $full_path -x $full_path){
+if(! test -r $full_path){
 	error 503
 	exit
 }
