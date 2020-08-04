@@ -1214,7 +1214,8 @@ mountmux(Mnt *m, Mntrpc *r)
 		l = &q->list;
 	}
 	unlock(m);
-	print("unexpected reply tag %ud; type %d\n", r->reply.tag, r->reply.type);
+	print("mnt: unexpected reply from %s tag %ud; type %d\n",
+		chanpath(m->c), r->reply.tag, r->reply.type);
 }
 
 /*
