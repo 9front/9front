@@ -60,9 +60,15 @@ globdir(word *list, char *p, char *name, char *namep)
 {
 	char *t, *newp;
 	int f;
-	/* scan the pattern looking for a component with a metacharacter in it */
+
+	/* append slashes, Readdir() already filtered directories */
+	while(*p=='/'){
+		*namep++=*p++;
+		*namep='\0';
+	}
 	if(*p=='\0')
 		return newword(name, list);
+	/* scan the pattern looking for a component with a metacharacter in it */
 	t = namep;
 	newp = p;
 	while(*newp){

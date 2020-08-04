@@ -345,23 +345,15 @@ struct{
 int
 Opendir(char *name)
 {
-	Dir *db;
 	int f;
-	f = open(name, 0);
-	if(f==-1)
+
+	if((f = open(name, 0)) < 0)
 		return f;
-	db = dirfstat(f);
-	if(db!=nil && (db->mode&DMDIR)){
-		if(f<NFD){
-			dir[f].i = 0;
-			dir[f].n = 0;
-		}
-		free(db);
-		return f;
+	if(f<NFD){
+		dir[f].i = 0;
+		dir[f].n = 0;
 	}
-	free(db);
-	close(f);
-	return -1;
+	return f;
 }
 
 static int
@@ -375,13 +367,6 @@ trimdirs(Dir *d, int nd)
 	return w;
 }
 
-/*
- * onlydirs is advisory -- it means you only
- * need to return the directories.  it's okay to
- * return files too (e.g., on unix where you can't
- * tell during the readdir), but that just makes 
- * the globber work harder.
- */
 int
 Readdir(int f, void *p, int onlydirs)
 {
