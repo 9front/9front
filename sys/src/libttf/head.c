@@ -292,7 +292,7 @@ ttfopen(char *name, int ppem, int)
 		return nil;
 	u->bin = b;
 	u->nkern = -1;
-	directory(u);
+	if(directory(u) < 0) goto error;
 	if(ttfgototable(u, "head") < 0) goto error;
 	ttfunpack(u, "16 w W 16 wwww 6 w", &u->flags, &u->emsize, &u->xmin, &u->ymin, &u->xmax, &u->ymax, &u->longloca);
 	if(ttfgototable(u, "maxp") < 0) goto error;
