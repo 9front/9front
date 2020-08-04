@@ -25,7 +25,7 @@ bootfs.paq:	$BOOTFSPROTO `{disk/mkfs -aos / $BOOTFSPROTO >[2]/dev/null}
 	disk/mkfs -s / -d bootfs $BOOTFSPROTO
 	@{
 		cd bootfs/$objtype/bin
-		strip * */* */*/* >[2]/dev/null || status=''
+		#strip * */* */*/* >[2]/dev/null || status=''
 	}
 	mkpaqfs -o $target bootfs
 	rm -rf bootfs
