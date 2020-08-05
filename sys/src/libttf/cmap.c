@@ -90,9 +90,9 @@ static int
 ttfgotosub(TTFontU *f)
 {
 	int i;
-	u16int nsub, id, sid, off;
+	u16int nsub, id, sid;
 	int rank, maxrank;
-	u32int maxoff;
+	u32int maxoff, off;
 	#define SUBID(a,b) ((a)<<16|(b))
 
 	if(ttfgototable(f, "cmap") < 0)
@@ -106,13 +106,13 @@ ttfgotosub(TTFontU *f)
 		case SUBID(0, 4): /* Unicode 2.0 or later (BMP and non-BMP) */
 			rank = 100;
 			break;
+		case SUBID(3, 10): /* Windows, UCS-4 */
+			rank = 80;
+			break;
 		case SUBID(0, 0): /* Unicode default */
 		case SUBID(0, 1): /* Unicode 1.1 */
 		case SUBID(0, 2): /* ISO 10646 */
 		case SUBID(0, 3): /* Unicode 2.0 (BMP) */
-			rank = 80;
-			break;
-		case SUBID(3, 10): /* Windows, UCS-4 */
 			rank = 60;
 			break;
 		case SUBID(3, 1): /* Windows, UCS-2 */
