@@ -6,9 +6,6 @@
  * nsec() is wallclock and can be adjusted by timesync
  * so need to use cycles() instead, but fall back to
  * nsec() in case we can't
- *
- * "fasthz" is how many ticks there are in a second
- * can be read from /dev/time
  */
 uvlong
 nanosec(void)
@@ -20,12 +17,14 @@ nanosec(void)
 		return nsec() - xstart;
 
 	if(fasthz == 0){
-		xstart = nsec();
 		if((fasthz = _tos->cyclefreq) == 0){
 			fasthz = ~0ULL;
+			xstart = nsec();
 			fprint(2, "cyclefreq not available, falling back to nsec()\n");
 			fprint(2, "you might want to disable aux/timesync\n");
 			return 0;
+		}else{
+			cycles(&xstart);
 		}
 	}
 	cycles(&x);
