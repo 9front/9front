@@ -40,6 +40,7 @@ advanced ^
 converged ^
 leveraged ^
 extended ^
+decentralized ^
 basic ^
 core |
 hardware
@@ -130,6 +131,7 @@ WEB2.0 *
 SSL *
 HTTP *
 TOR *
+ActivityPub *
 layer $
 element |
 manager $
