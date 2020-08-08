@@ -238,6 +238,10 @@ dblookup1(char *name, int type, int auth, int ttl)
 		attr = "srv";
 		f = srvrr;
 		break;
+	case Ttxt:
+		attr = "txt";
+		f = txtrr;
+		break;
 	case Tmx:
 		attr = "mx";
 		f = mxrr;
@@ -365,6 +369,8 @@ dblookup1(char *name, int type, int auth, int ttl)
 			l = &rp->next;
 		}
 	ndbfree(t);
+
+	unique(list);
 
 //	dnslog("dblookup1(%s) -> %#p", name, list);
 	return list;
@@ -575,7 +581,7 @@ static RR*
 doaxfr(Ndb *db, char *name)
 {
 	USED(db, name);
-	return 0;
+	return nil;
 }
 
 /*
