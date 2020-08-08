@@ -444,7 +444,7 @@ long
 yylex(void)
 {
 	vlong vv;
-	long c, c1, t;
+	long c, c1, t, w;
 	char *cp;
 	Rune rune;
 	Sym *s;
@@ -844,7 +844,16 @@ ncu:
 		yyerror("overflow in constant");
 
 	vv = yylval.vval;
-	if(c1 & Numvlong) {
+	/*
+	 * c99 is silly: decimal constants stay signed,
+	 * hex and octal go unsigned before widening.
+	 */
+	w = 32;
+	if((c1 & (Numdec|Numuns)) == Numdec)
+		w = 31;
+	if(c1 & Numvlong || (c1 & Numlong) == 0 && (uvlong)vv >= 1ULL<<w){
+		if((c1&(Numdec|Numvlong)) == Numdec && vv < 1ULL<<32)
+			warn(Z, "int constant widened to vlong: %s", symb);
 		if((c1 & Numuns) || convvtox(vv, TVLONG) < 0) {
 			c = LUVLCONST;
 			t = TUVLONG;

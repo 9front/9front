@@ -865,7 +865,7 @@ gmove(Node *f, Node *t)
 		gmove(f, &fregnode0);
 		gins(AFADDD, nodfconst(-2147483648.), &fregnode0);
 		gins(AFMOVLP, f, &nod);
-		gins(ASUBL, nodconst(-2147483648), &nod);
+		gins(ASUBL, nodconst(-0x80000000), &nod);
 		gmove(&nod, t);
 		return;
 
