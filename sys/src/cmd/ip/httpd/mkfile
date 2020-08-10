@@ -44,6 +44,8 @@ UPDATE=\
 	${LIBSOFILES:%.$O=%.c}\
 	${XTARG:%=%.c}\
 
+CLEANFILES=$LIB
+
 </sys/src/cmd/mkmany
 
 trial: $O.netlib_history
