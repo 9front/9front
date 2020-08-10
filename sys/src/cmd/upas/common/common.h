@@ -52,9 +52,6 @@ char*	ffoldername(char*, char*, char*);
 void	mailfmtinstall(void);	/* 'U' = 2047fmt */
 #pragma varargck	type	"U"	char*
 
-/* totm.c */
-int	fromtotm(char*, Tm*);
-
 /* a pipe between parent and child*/
 typedef struct{
 	Biobuf	bb;

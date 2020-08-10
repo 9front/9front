@@ -10,7 +10,6 @@ OFILES=\
 	fmt.$O\
 	libsys.$O\
 	process.$O\
-	totm.$O\
 
 HFILES=common.h\
 	sys.h\

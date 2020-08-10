@@ -1,5 +1,7 @@
 #include "common.h"
 
+#define Ctimefmt "WW MMM _D hh:mm:ss ZZZ YYYY"
+
 enum{
 	Mbox	= 1,
 	Mdir,
@@ -185,7 +187,7 @@ int
 appendfolder(Biobuf *b, char *addr, int fd)
 {
 	char *s;
-	int r;
+	int r, n;
 	Biobuf bin;
 	Folder *f;
 	Tm tm;
@@ -194,9 +196,10 @@ appendfolder(Biobuf *b, char *addr, int fd)
 	Bseek(f->out, 0, 2);
 	Binit(&bin, fd, OREAD);
 	s = Brdstr(&bin, '\n', 0);
-	if(!s || strncmp(s, "From ", 5))
+	n = strlen(s);
+	if(!s || strncmp(s, "From ", 5) != 0)
 		Bprint(f->out, "From %s %.28s\n", addr, ctime(f->t));
-	else if(fromtotm(s, &tm) >= 0)
+	else if(n > 5 && tmparse(&tm, Ctimefmt, s + 5, nil, nil) != nil)
 		f->t = tm2sec(&tm);
 	if(s)
 		Bwrite(f->out, s, strlen(s));

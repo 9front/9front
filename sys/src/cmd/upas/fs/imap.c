@@ -268,13 +268,10 @@ long
 internaltounix(char *s)
 {
 	Tm tm;
-	if(strlen(s) < 20 || s[2] != '-' || s[6] != '-')
+
+	if(tmparse(&tm, "?DD-?MM-YYYY hh:mm:ss ?Z", s, nil, nil) == nil)
 		return -1;
-	s[2] = ' ';
-	s[6] = ' ';
-	if(strtotm(s, &tm) == -1)
-		return -1;
-	return tm2sec(&tm);
+	return tmnorm(&tm);
 }
 	
 static char*
@@ -981,7 +978,7 @@ again:
 		}
 		if(c < 0){
 			/* new message */
-			idprint(imap, "new: %U (%U)\n", f[i].uid, m? m->imapuid: 0);
+			idprint(imap, "new: %U (%U)\n", f[i].uid, m ? m->imapuid: 0);
 			if(f[i].sizes == 0 || f[i].sizes > Maxmsg){
 				idprint(imap, "skipping bad size: %lud\n", f[i].sizes);
 				i++;
