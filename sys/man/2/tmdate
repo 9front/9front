@@ -1,0 +1,275 @@
+.TH TMDATE 2
+.SH NAME
+tmnow, tzload, tmtime, tmparse, tmfmt, tmnorm - convert date and time
+.SH SYNOPSIS
+.B #include <u.h>
+.br
+.B #include <libc.h>
+.PP
+.ft L
+.nf
+.EX
+typedef struct Tmd Tmd;
+typedef struct Tmfmt Tmfmt;
+
+struct {
+	int	nsec;	/* nanoseconds (range 0..1e9) */
+	int	sec;	/* seconds (range 0..59) */
+	int	min;	/* minutes (0..59) */
+	int	hour;	/* hours (0..23) */
+	int	mday;	/* day of the month (1..31) */
+	int	mon;	/* month of the year (0..11) */
+	int	year;	/* C.E year - 1900 */
+	int	wday;	/* day of week (0..6, Sunday = 0) */
+	int	yday;	/* day of year (0..365) */
+	char	zone[];	/* time zone name */
+	int	tzoff;	/* time	zone delta from GMT, seconds */
+};
+
+Tzone *tzload(char *name);
+Tm    *tmnow(Tm *tm, char *tz);
+Tm    *tmtime(Tm *tm, vlong abs, Tzone *tz);
+Tm    *tmtimens(Tm *tm, vlong abs, int ns, Tzone *tz);
+Tm    *tmparse(Tm *dst, char *fmt, char *tm, Tzone *zone, char **ep);
+vlong  tmnorm(Tm *tm);
+Tmfmt  tmfmt(Tm *tm, char *fmt);
+void   tmfmtinstall(void);
+.EE
+.SH DESCRIPTION
+.PP
+This family of functions handles simple date and time manipulation.
+.PP
+Time zones are loaded by name.
+They can be specified as the abbreviated timezone name,
+the full timezone name, the path to a timezone file,
+or an absolute offset in the HHMM form.
+.PP
+When given as a timezone, any instant-dependent adjustments such as leap
+seconds and daylight savings time will be applied to the derived fields of
+struct Tm, but will not affect the absolute time.
+The time zone name local always refers to the time in /env/timezone.
+The nil timezone always refers to GMT.
+.PP
+Tzload loads a timezone by name. The returned timezone is
+cached for the lifetime of the program, and should not be freed.
+Loading a timezone repeatedly by name loads from the cache, and
+does not leak.
+.PP
+Tmnow gets the current time of day in the requested time zone.
+.PP
+Tmtime converts the millisecond-resolution timestamp 'abs'
+into a Tm struct in the requested timezone.
+Tmtimens does the same, but with a nanosecond accuracy.
+.PP
+Tmstime is identical to tmtime, but accepts the time in sec-
+onds.
+.PP
+Tmparse parses a time from a string according to the format argument.
+The point at which the parsing stopped is returned in
+.IR ep .
+If
+.I ep
+is nil, trailing garbage is ignored.
+The result is returned in the timezone requested.
+If there is a timezone in the date, and a timezone is provided
+when parsing, then the zone is shifted to the provided timezone.
+Parsing is case-insensitive
+.PP
+The format argument contains zero or more of the following components:
+.TP
+.B Y, YY, YYYY
+Represents the year.
+.I YY
+prints the year in 2 digit form.
+.TP
+.B M, MM, MMM, MMMM
+The month of the year, in unpadded numeric, padded numeric, short name, or long name,
+respectively.
+.TP
+.B D, DD
+The day of month in unpadded or padded numeric form, respectively.
+.TP
+.B W, WW, WWW
+The day of week in numeric, short or long name form, respectively.
+.TP
+.B h, hh
+The hour in unpadded or padded form, respectively
+.TP
+.B m, mm
+The minute in unpadded or padded form, respectively
+.TP
+.B s, ss
+The second in unpadded or padded form, respectively
+.TP
+.B t, tt
+The milliseconds in unpadded and padded form, respectively.
+.B u, uu, uuu, uuuu
+The microseconds in unpadded. padded form modulo milliseconds,
+or unpadded, padded forms of the complete value, respectively.
+.B n, nn, nnn, nnnn, nnnnn, nnnnnn
+The nanoseconds in unpadded and padded form modulo milliseconds,
+the unpadded and padded form modulo microseconds,
+and the unpadded and padded complete value, respectively.
+.TP
+.B Z, ZZ, ZZZ
+The timezone in [+-]HHMM and [+-]HH:MM, and named form, respectively.
+.TP
+.B a, A
+Lower and uppercase 'am' and 'pm' specifiers, respectively.
+.TP
+.B [...]
+Quoted text, copied directly to the output.
+.TP
+.B _
+When formatting, this inserts padding into the date format.
+The padded width of a field is the sum of format and specifier
+characters combined. When
+For example,
+.I __h
+will format to a width of 3. When parsing, this acts as whitespace.
+.TP
+.B ?
+When parsing, this makes the following argument match fuzzily.
+Fuzzy matching means that all formats are tried, from most to least specific.
+For example, 
+.I ?M
+will match 
+.IR January ,
+.IR Jan ,
+.IR 01 ,
+and 
+.IR 1 ,
+in that order of preference.
+.TP
+.B ~
+When parsing a date, this slackens range enforcement, accepting
+out of range values such as January
+.IR 32 ,
+which would get normalized to February 1st.
+.PP
+Any characters not specified above are copied directly to output,
+without modification.
+
+
+
+.PP
+If the format argument is nil, it makes an
+attempt to parse common human readable date formats.  These
+formats include ISO-8601, RFC3339 and RFC2822 dates.
+.
+.PP
+Tmfmt produces a format description structure suitable for passing
+to
+.IR fmtprint (2) .
+If fmt is nil, we default to the format used in
+.IR ctime (2).
+The format of the format string is identical to
+.IR tmparse.
+
+.PP
+When parsing, any amount of whitespace is treated as a single token.
+All string matches are case insensitive, and zero padding is optional.
+
+.PP
+Tmnorm takes a manually adjusted Tm structure, and normalizes it,
+returning the absolute timestamp that the date represents.
+Normalizing recomputes the
+.I year, mon, mday, hr, min, sec
+and
+.I tzoff
+fields.
+If
+.I tz
+is non-nil, then
+.I tzoff
+will be recomputed, taking into account daylight savings
+for the absolute time.
+The values not used in the computation are recomputed for
+the resulting absolute time.
+All out of range values are wrapped.
+For example, December 32 will roll over to Jan 1 of the
+following year.
+.PP
+Tmfmtinstall installs a time format specifier %τ. The time
+format behaves as in tmfmt
+
+.SH EXAMPLES
+.PP
+All examples assume tmfmtinstall has been called.
+.PP
+Get the current date in the local timezone, UTC, and
+US_Pacific time. Print it using the default format.
+
+.IP
+.EX
+Tm t;
+Tzone *zl, *zp;
+if((zl = tzload("local") == nil)
+	sysfatal("load zone: %r");
+if((zp = tzload("US_Pacific") == nil)
+	sysfatal("load zone: %r");
+print("local: %τ\\n", tmfmt(tmnow(&t, zl), nil));
+print("gmt: %τ\\n", tmfmt(tmnow(&t, nil), nil));
+print("eastern: %τ\\n", tmfmt(tmnow(&t, zp), nil));
+.EE
+.PP
+Compare if two times are the same, regardless of timezone.
+Done with full, strict error checking.
+
+.IP
+.EX
+Tm a, b;
+
+if(tmparse(&a, nil, "Tue Dec 10 12:36:00 PST 2019", &e) == nil)
+	sysfatal("failed to parse: %r");
+if(*e != '\0')
+	sysfatal("trailing junk %s", e);
+if(tmparse(&b, nil, "Tue Dec 10 15:36:00 EST 2019", &e) == nil)
+	sysfata("failed to parse: %r");
+if(*e != '\0')
+	sysfatal("trailing junk %s", e);
+if(tmnorm(a) == tmnorm(b) && a.nsec == b.nsec)
+	print("same\\n");
+else
+	print("different\\n");
+.EE
+
+.PP
+Convert from one timezone to another.
+
+.IP
+.EX
+Tm here, there;
+Tzone *zl, *zp;
+if((zl = tzload("local")) == nil)
+	sysfatal("load zone: %r");
+if((zp = tzload("US_Pacific")) == nil)
+	sysfatal("load zone: %r");
+if(tmnow(&here, zl) == nil)
+	sysfatal("get time: %r");
+if(tmtime(&there, tmnorm(&tm), zp) == nil)
+	sysfatal("shift time: %r");
+.EE
+
+.PP
+Add a day. Because cross daylight savings, only 23 hours are added.
+
+.EX
+Tm t;
+char *date = "Sun Nov 2 13:11:11 PST 2019";
+if(tmparse(&t, "W MMM D hh:mm:ss z YYYY, date, &e) == nil)
+	print("failed top parse");
+tm.day++;
+tmnorm(&t);
+print("%τ", &t); /*  Mon Nov 3 13:11:11 PST 2019 */
+.EE
+
+.SH BUGS
+.PP
+There is no way to format specifier for subsecond precision.
+.PP
+The timezone information that we ship is out of date.
+.PP
+The Plan 9 timezone format has no way to express leap seconds.
+.PP
+We provide no way to manipulate timezones.
