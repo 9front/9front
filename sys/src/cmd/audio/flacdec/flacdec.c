@@ -2,6 +2,9 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/wait.h>
+#define _PLAN9_SOURCE
+#include <utf.h>
+#include <lib9.h>
 #include "FLAC/stream_decoder.h"
 
 static int ifd = -1;
@@ -29,6 +32,41 @@ decinput(FLAC__StreamDecoder *dec, FLAC__byte buffer[], size_t *bytes, void *cli
 
 	*bytes = n;
 	return FLAC__STREAM_DECODER_READ_STATUS_CONTINUE;
+}
+
+static FLAC__StreamDecoderSeekStatus
+decseek(FLAC__StreamDecoder *dec, FLAC__uint64 absolute_byte_offset, void *client_data)
+{
+	if(fseeko(stdin, absolute_byte_offset, SEEK_SET) < 0)
+		return FLAC__STREAM_DECODER_SEEK_STATUS_UNSUPPORTED;
+
+	return FLAC__STREAM_DECODER_SEEK_STATUS_OK;
+}
+
+static FLAC__StreamDecoderTellStatus
+dectell(FLAC__StreamDecoder *dec, FLAC__uint64 *absolute_byte_offset, void *client_data)
+{
+	off_t off;
+
+	if((off = ftello(stdin)) < 0)
+		return FLAC__STREAM_DECODER_TELL_STATUS_UNSUPPORTED;
+
+	*absolute_byte_offset = off;
+	return FLAC__STREAM_DECODER_TELL_STATUS_OK;
+}
+
+static FLAC__StreamDecoderTellStatus
+declen(FLAC__StreamDecoder *dec, FLAC__uint64 *stream_length, void *client_data)
+{
+	off_t off;
+
+	if((off = ftello(stdin)) < 0 || fseeko(stdin, 0, SEEK_END) < 0)
+		return FLAC__STREAM_DECODER_LENGTH_STATUS_UNSUPPORTED;
+
+	*stream_length = ftello(stdin);
+	fseeko(stdin, off, SEEK_SET);
+
+	return FLAC__STREAM_DECODER_LENGTH_STATUS_OK;
 }
 
 static FLAC__StreamDecoderWriteStatus
@@ -125,13 +163,43 @@ checkeof(const FLAC__StreamDecoder*, void*)
 	return feof(stdin);
 }
 
+void
+usage(void)
+{
+	fprintf(stderr, "usage: %s [-s SECONDS]\n", argv0);
+	exit(1);
+}
+
 int main(int argc, char *argv[])
 {
 	FLAC__bool ok = true;
 	FLAC__StreamDecoder *dec = 0;
+	double seek;
+
+	seek = 0.0;
+	ARGBEGIN{
+	case 's':
+		seek = atof(EARGF(usage()));
+		if(seek >= 0.0)
+			break;
+	default:
+		usage();
+	}ARGEND
 
 	dec = FLAC__stream_decoder_new();
-	FLAC__stream_decoder_init_stream(dec, decinput, NULL, NULL, NULL, checkeof, decoutput, NULL, decerror, NULL);
+	FLAC__stream_decoder_init_stream(dec, decinput, decseek, dectell, declen, checkeof, decoutput, NULL, decerror, NULL);
+	if(seek > 0.0){
+		FLAC__uint64 srate;
+		do{
+			FLAC__stream_decoder_process_single(dec);
+			srate = FLAC__stream_decoder_get_sample_rate(dec);
+		}while(srate == 0);
+		if(!FLAC__stream_decoder_seek_absolute(dec, srate*seek)){
+			FLAC__stream_decoder_flush(dec);
+			seek = 0.0;
+		}
+		fprintf(stderr, "time: %g\n", seek);
+	}
 	FLAC__stream_decoder_process_until_end_of_stream(dec);
 	FLAC__stream_decoder_finish(dec);
 	return 0;
