@@ -8,8 +8,16 @@ mp3dec, mp3enc, oggdec, oggenc, flacdec, sundec, wavdec, pcmconv, mixfs \- decod
 ]
 .br
 .B audio/oggdec
+[
+.B -s
+.I seconds
+]
 .br
 .B audio/flacdec
+[
+.B -s
+.I seconds
+]
 .br
 .B audio/wavdec
 .br
@@ -82,6 +90,12 @@ and
 are like
 .I mp3dec
 but decode OGG Vorbis, FLAC lossless audio, Sun audio and RIFF wave.
+.SS Decoding options
+.TF "\fB-s seconds \fP"
+.TP
+.BI -s " seconds"
+seek to a specific position in seconds before decoding.
+.SS
 .PP
 The encoders read PCM on standard input and produce compressed audio
 on standard output.
@@ -106,7 +120,7 @@ accepts raw PCM in the same byte order as
 t
 .I mp3enc -r
 expects big-endian.
-.SS Options
+.SS Encoding options
 .TF "\fB-b \fP"
 .TP
 .B -b
