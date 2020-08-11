@@ -704,6 +704,7 @@ vgafbparse(char *fbstring)
 		q = vgamodeparse(p, &m);
 		if(p == q || m->w <= 0 || m->h <= 0)
 			no: sysfatal("invalid mode specifier");
+		m->w &= ~7;
 		m->hbytes = chantodepth(m->chan) * m->w + 7 >> 3;
 		m->sz = m->hbytes * m->h;
 		if(m->sz > fbsz) fbsz = m->sz;
