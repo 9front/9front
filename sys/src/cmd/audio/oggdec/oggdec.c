@@ -27,6 +27,9 @@
 #include <math.h>
 #include <vorbis/codec.h>
 #include <sys/wait.h>
+#define _PLAN9_SOURCE
+#include <utf.h>
+#include <lib9.h>
 
 static int ifd = -1;
 
@@ -95,7 +98,14 @@ output(float **pcm, int samples, vorbis_info *vi)
 		write(ifd, buf, n);
 }
 
-int main(){
+void
+usage(void)
+{
+	fprintf(stderr, "usage: %s [-s SECONDS]\n", argv0);
+	exit(1);
+}
+
+int main(int argc, char **argv){
   ogg_sync_state   oy; /* sync and verify incoming physical bitstream */
   ogg_stream_state os; /* take physical pages, weld into a logical
 			  stream of packets */
@@ -110,7 +120,24 @@ int main(){
   
   char *buffer;
   int  bytes;
-  int  status;
+  int  status, n;
+
+  long   seeking, seekoff = 4096;
+  double seek, left, right, time, lasttime;
+
+  seek = 0.0;
+  ARGBEGIN{
+  case 's':
+  	seek = atof(EARGF(usage()));
+  	seeking = 1;
+  	if(seek > 0.0)
+  	  break;
+  default:
+    usage();
+  }ARGEND;
+
+  lasttime = left = 0.0;
+  right = seek;
 
   /********** Decode setup ************/
 
@@ -134,7 +161,6 @@ int main(){
     if(ogg_sync_pageout(&oy,&og)!=1){
       /* have we simply run out of data?  If so, we're done. */
       if(bytes<4096)break;
-      
       /* error case.  Must not be Vorbis data */
       fprintf(stderr,"Input does not appear to be an Ogg bitstream.\n");
       exit(1);
@@ -241,14 +267,15 @@ BOS:/* Begin of stream */
 				       proceed in parallel.  We could init
 				       multiple vorbis_block structures
 				       for vd here */
-    
+
     /* The rest is just a straight decode loop until end of stream */
     while(!eos){
       while(!eos){
 	int result=ogg_sync_pageout(&oy,&og);
 	if(result==0)break; /* need more data */
 	if(result<0){ /* missing or corrupt data at this page position */
-	  fprintf(stderr,"Corrupt or missing data in bitstream; "
+	  if(!seeking)
+	    fprintf(stderr,"Corrupt or missing data in bitstream; "
 		  "continuing...\n");
 	}else{
 	  if(ogg_page_bos(&og)){ /* got new start of stream */
@@ -261,6 +288,7 @@ BOS:/* Begin of stream */
 	  }
 	  ogg_stream_pagein(&os,&og); /* can safely ignore errors at
 					 this point */
+
 	  while(1){
 	    result=ogg_stream_packetout(&os,&op);
 
@@ -268,6 +296,28 @@ BOS:/* Begin of stream */
 	    if(result<0){ /* missing or corrupt data at this page position */
 	      /* no reason to complain; already complained above */
 	    }else{
+	      if(seeking){
+	        time = vorbis_granule_time(&vd, ogg_page_granulepos(&og));
+	        if(time > left && time < right && time - lasttime > 0.1){
+	          if(time > seek)
+	            right = time;
+	          else
+	            left = time;
+    	      seekoff *= (seek - time)/(time - lasttime);
+	          if(fabs(right - left) > 1.0 && seekoff >= 4096){
+	            lasttime = time;
+                if((n = fseek(stdin, seekoff, SEEK_CUR)) < 0 && feof(stdin))
+                  n = fseek(stdin, -seekoff/2, SEEK_END);
+                if(n >= 0){
+	      	      ogg_sync_reset(&oy);
+	              ogg_stream_reset(&os);
+                  goto again;
+                }
+              }
+            }
+            seeking = 0;
+            fprintf(stderr, "time: %g\n", time);
+          }
 	      float **pcm;
 	      int samples;
 	      if(vorbis_synthesis(&vb,&op)==0) /* test for success! */
@@ -277,13 +327,14 @@ BOS:/* Begin of stream */
 		vorbis_synthesis_read(&vd,samples); /* tell libvorbis how
 						   many samples we
 						   actually consumed */
-	      }	    
+	      }
 	    }
 	  }
 	  if(ogg_page_eos(&og))eos=1;
 	}
       }
       if(!eos){
+again:
 	buffer=ogg_sync_buffer(&oy,4096);
 	bytes=fread(buffer,1,4096,stdin);
 	ogg_sync_wrote(&oy,bytes);
