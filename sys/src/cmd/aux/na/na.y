@@ -826,7 +826,7 @@ yyerror(char *s, ...)
 	va_start(ap, s);
 	fprintf(stderr, "%s: %d: ", yyfilename, yyline);
 	vfprintf(stderr, s, ap);
-	if (putc('\n', stderr) < 0)
+	if (putc('\n', stderr) == EOF)
 		exits("io");
 	errors++;
 	va_end(ap);
@@ -840,7 +840,7 @@ yywarn(char *s, ...)
 	va_start(ap, s);
 	fprintf(stderr, "%s: %d: warning: ", yyfilename, yyline);
 	vfprintf(stderr, s, ap);
-	if (putc('\n', stderr) < 0)
+	if (putc('\n', stderr) == EOF)
 		exits("io");
 	warnings++;
 	va_end(ap);
