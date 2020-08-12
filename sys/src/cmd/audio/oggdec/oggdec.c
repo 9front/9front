@@ -130,7 +130,7 @@ int main(int argc, char **argv){
   case 's':
   	seek = atof(EARGF(usage()));
   	seeking = 1;
-  	if(seek > 0.0)
+  	if(seek >= 0.0)
   	  break;
   default:
     usage();
