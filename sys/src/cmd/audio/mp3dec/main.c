@@ -7,6 +7,7 @@
 
 /* Current input file */
 vlong offset;
+double seekto = 0.0, curpos = 0.0;
 int debug = 0;
 int ifd = -1;
 
@@ -30,6 +31,22 @@ input(void *, struct mad_stream *stream)
 }
 
 static enum mad_flow
+header(void *, struct mad_header const* header)
+{
+	if(seekto > 0 && (header->duration.seconds > 0 || header->duration.fraction > 0)){
+		double dur = header->duration.seconds + (double)header->duration.fraction / MAD_TIMER_RESOLUTION;
+		seekto -= dur;
+		if(seekto > 0){
+			curpos += dur;
+			return MAD_FLOW_IGNORE;
+		}
+		fprint(2, "time: %g\n", curpos);
+		seekto = 0;
+	}
+	return MAD_FLOW_CONTINUE;
+}
+
+static enum mad_flow
 output(void *, struct mad_header const* header, struct mad_pcm *pcm)
 {
 	static int rate, chans;
@@ -38,6 +55,9 @@ output(void *, struct mad_header const* header, struct mad_pcm *pcm)
 	mad_fixed_t v, *s;
 	int i, j, n;
 	uchar *p;
+
+	if(seekto > 0)
+		return MAD_FLOW_CONTINUE;
 
 	/* start converter if format changed */
 	if(rate != pcm->samplerate || chans != pcm->channels){
@@ -145,11 +165,15 @@ main(int argc, char **argv)
 	case 'd':
 		debug++;
 		break;
+	case 's':
+		seekto = atof(EARGF(usage()));
+		if(seekto >= 0.0)
+			break;
 	default:
 		usage();
 	}ARGEND
 
-	mad_decoder_init(&decoder, nil, input, nil, nil, output, error, nil);
+	mad_decoder_init(&decoder, nil, input, header, nil, output, error, nil);
 	mad_decoder_run(&decoder, MAD_DECODER_MODE_SYNC);
 	mad_decoder_finish(&decoder);
 

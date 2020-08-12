@@ -4,6 +4,9 @@ mp3dec, mp3enc, oggdec, oggenc, flacdec, sundec, wavdec, pcmconv, mixfs \- decod
 .SH SYNOPSIS
 .B audio/mp3dec
 [
+.B -s
+.I seconds
+] [
 .B -d
 ]
 .br
