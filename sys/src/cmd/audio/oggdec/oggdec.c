@@ -298,7 +298,7 @@ BOS:/* Begin of stream */
 	    }else{
 	      if(seeking){
 	        time = vorbis_granule_time(&vd, ogg_page_granulepos(&og));
-	        if(time > left && time < right && time - lasttime > 0.1){
+	        if(time > left && time < right && (time - lasttime > 0.1 || lasttime < 0.1)){
 	          if(time > seek)
 	            right = time;
 	          else
