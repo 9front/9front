@@ -446,7 +446,7 @@ with all subsequent routes added via this file descriptor.
 Add the route to the table.  If one already exists with the
 same target and mask, replace it. The
 .I interface
-can be given as eigther the interface number or a local
+can be given as either the interface number or a local
 IP address on the desired interface.
 .TP
 .BI remove\  "target mask"
