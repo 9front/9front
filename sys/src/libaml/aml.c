@@ -1524,7 +1524,7 @@ cmp1(void *a, void *b)
 		tag = TAG(a);
 		if(b == nil || TAG(b) != tag)
 			b = copy(tag, b);
-		if(TAG(b) != tag)
+		if(b == nil || TAG(b) != tag)
 			return -1;	/* botch */
 		switch(tag){
 		default:
