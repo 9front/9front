@@ -144,7 +144,7 @@ hget http://r-36.net/9front/9front.iso.bz2.torrent | \\
 .LP
 Get list of public alive trackers to choose from
 .EX
-hget http://www.trackon.org/api/live
+hget https://newtrackon.com/api/live
 .EE
 .LP
 .SH SOURCE
