@@ -48,26 +48,26 @@ hexstr(void *a, int n)
 	return dbuff;
 }
 
-static char *
-seprintiface(char *s, char *e, Iface *i)
+static void
+fmtprintiface(Fmt *f, Iface *i)
 {
 	int	j;
 	Altc	*a;
 	Ep	*ep;
 	char	*eds, *ets;
 
-	s = seprint(s, e, "\t\tiface csp %s.%uld.%uld\n",
+	fmtprint(f, "\t\tiface csp %s.%uld.%uld\n",
 		classname(Class(i->csp)), Subclass(i->csp), Proto(i->csp));
 	for(j = 0; j < Naltc; j++){
 		a=i->altc[j];
 		if(a == nil)
 			break;
-		s = seprint(s, e, "\t\t  alt %d attr %d ival %d",
+		fmtprint(f, "\t\t  alt %d attr %d ival %d",
 			j, a->attrib, a->interval);
 		if(a->aux != nil)
-			s = seprint(s, e, " devspec %p\n", a->aux);
+			fmtprint(f, " devspec %p\n", a->aux);
 		else
-			s = seprint(s, e, "\n");
+			fmtprint(f, "\n");
 	}
 	for(j = 0; j < Nep; j++){
 		ep = i->ep[j];
@@ -78,41 +78,39 @@ seprintiface(char *s, char *e, Iface *i)
 			eds = edir[ep->dir];
 		if(ep->type <= nelem(etype))
 			ets = etype[ep->type];
-		s = seprint(s, e, "\t\t  ep id %d addr %d dir %s type %s"
+		fmtprint(f, "\t\t  ep id %d addr %d dir %s type %s"
 			" itype %d maxpkt %d ntds %d\n",
 			ep->id, ep->addr, eds, ets, ep->isotype,
 			ep->maxpkt, ep->ntds);
 	}
-	return s;
 }
 
-static char*
-seprintconf(char *s, char *e, Usbdev *d, int ci)
+static void
+fmtprintconf(Fmt *f, Usbdev *d, int ci)
 {
 	int i;
 	Conf *c;
 	char *hd;
 
 	c = d->conf[ci];
-	s = seprint(s, e, "\tconf: cval %d attrib %x %d mA\n",
+	fmtprint(f, "\tconf: cval %d attrib %x %d mA\n",
 		c->cval, c->attrib, c->milliamps);
 	for(i = 0; i < Niface; i++)
 		if(c->iface[i] == nil)
 			break;
 		else
-			s = seprintiface(s, e, c->iface[i]);
+			fmtprintiface(f, c->iface[i]);
 	for(i = 0; i < Nddesc; i++)
 		if(d->ddesc[i] == nil)
 			break;
 		else if(d->ddesc[i]->conf == c){
 			hd = hexstr((uchar*)&d->ddesc[i]->data,
 				d->ddesc[i]->data.bLength);
-			s = seprint(s, e, "\t\tdev desc %x[%d]: %s\n",
+			fmtprint(f, "\t\tdev desc %x[%d]: %s\n",
 				d->ddesc[i]->data.bDescriptorType,
 				d->ddesc[i]->data.bLength, hd);
 			free(hd);
 		}
-	return s;
 }
 
 int
@@ -121,30 +119,26 @@ Ufmt(Fmt *f)
 	int i;
 	Dev *d;
 	Usbdev *ud;
-	char buf[1024];
-	char *s, *e;
 
-	s = buf;
-	e = buf+sizeof(buf);
 	d = va_arg(f->args, Dev*);
 	if(d == nil)
 		return fmtprint(f, "<nildev>\n");
-	s = seprint(s, e, "%s", d->dir);
+	fmtprint(f, "%s", d->dir);
 	ud = d->usb;
 	if(ud == nil)
-		return fmtprint(f, "%s %ld refs\n", buf, d->ref);
-	s = seprint(s, e, " csp %s.%uld.%uld",
+		return fmtprint(f, " %ld refs\n", d->ref);
+	fmtprint(f, " csp %s.%uld.%uld",
 		classname(Class(ud->csp)), Subclass(ud->csp), Proto(ud->csp));
-	s = seprint(s, e, " vid %#ux did %#ux", ud->vid, ud->did);
-	s = seprint(s, e, " refs %ld\n", d->ref);
-	s = seprint(s, e, "\t%s %s %s\n", ud->vendor, ud->product, ud->serial);
+	fmtprint(f, " vid %#ux did %#ux", ud->vid, ud->did);
+	fmtprint(f, " refs %ld\n", d->ref);
+	fmtprint(f, "\t%s %s %s\n", ud->vendor, ud->product, ud->serial);
 	for(i = 0; i < Nconf; i++){
 		if(ud->conf[i] == nil)
 			break;
 		else
-			s = seprintconf(s, e, ud, i);
+			fmtprintconf(f, ud, i);
 	}
-	return fmtprint(f, "%s", buf);
+	return 0;
 }
 
 char*
