@@ -24,6 +24,7 @@ bytes in the buffer provided.
 .B /sys/src/libc/9sys/getwd.c
 .SH "SEE ALSO"
 .IR pwd (1),
+.IR getwd (2),
 .IR fd2path (2)
 .SH DIAGNOSTICS
 On error, zero is returned.
