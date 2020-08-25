@@ -26,7 +26,8 @@ for its working directory.
 .SH SOURCE
 .B /sys/src/libc/9syscall
 .SH SEE ALSO
-.IR intro (2)
+.IR intro (2),
+.IR getwd (2)
 .SH DIAGNOSTICS
 Sets
 .IR errstr .
