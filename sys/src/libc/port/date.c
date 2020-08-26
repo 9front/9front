@@ -634,8 +634,8 @@ tmparse(Tm *tm, char *fmt, char *str, Tzone *tz, char **ep)
 	}
 
 	/* Skip whitespace */
-	for(;; p++) {
-		switch(*p) {
+	for(;; s++) {
+		switch(*s) {
 		case ' ':
 		case '\t':
 		case '\n':
