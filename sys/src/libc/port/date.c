@@ -632,6 +632,20 @@ tmparse(Tm *tm, char *fmt, char *str, Tzone *tz, char **ep)
 		sloppy = 1;
 		p++;
 	}
+
+	/* Skip whitespace */
+	for(;; p++) {
+		switch(*p) {
+		case ' ':
+		case '\t':
+		case '\n':
+		case '\f':
+		case '\r':
+		case '\v':
+			continue;
+		}
+		break;
+	}
 	while(*p){
 		w = 1;
 		c0 = *p++;
@@ -868,7 +882,6 @@ Zoneparsed:
 		case '_':
 		case ',':
 		case ' ':
-
 			if(*s != ' ' && *s != '\t' && *s != ',' && *s != '\n' && *s != '\0')
 				goto baddate;
 			p += strspn(p, " ,_\t\n");
@@ -884,6 +897,7 @@ Zoneparsed:
 		if(!ok)
 			goto baddate;
 	}
+
 	if(*p != '\0')
 		goto baddate;
 	if(ep != nil)

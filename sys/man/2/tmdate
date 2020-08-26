@@ -65,6 +65,7 @@ Tmstime is identical to tmtime, but accepts the time in sec-
 onds.
 .PP
 Tmparse parses a time from a string according to the format argument.
+Leading whitespace is ignored.
 The point at which the parsing stopped is returned in
 .IR ep .
 If
