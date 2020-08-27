@@ -47,6 +47,10 @@ Both
 and
 .I max
 are optional.
+A number
+.I n
+with no comma is equivalne to
+.IR 0,n .
 .TP
 .B -e statfmt
 Setting the statfmt string allows specifying the data
