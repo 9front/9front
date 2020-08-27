@@ -140,69 +140,30 @@ getline(char *buf, int n)
 	return buf;
 }
 
-static char* months[] = {
-	"jan", "feb", "mar", "apr",
-	"may", "jun", "jul", "aug", 
-	"sep", "oct", "nov", "dec"
-};
-
-static int
-getmon(char *s)
-{
-	int i;
-
-	for(i=0; i<nelem(months); i++)
-		if(cistrcmp(months[i], s) == 0)
-			return i;
-	return -1;
-}
-
-/* Fri Jul 23 14:05:14 EDT 1999 */
-ulong
-parsedatev(char **a)
-{
-	char *p;
-	Tm tm;
-
-	memset(&tm, 0, sizeof tm);
-	if((tm.mon=getmon(a[1])) == -1)
-		goto Err;
-	tm.mday = strtol(a[2], &p, 10);
-	if(*p != '\0')
-		goto Err;
-	tm.hour = strtol(a[3], &p, 10);
-	if(*p != ':')
-		goto Err;
-	tm.min = strtol(p+1, &p, 10);
-	if(*p != ':')
-		goto Err;
-	tm.sec = strtol(p+1, &p, 10);
-	if(*p != '\0')
-		goto Err;
-	if(strlen(a[4]) != 3)
-		goto Err;
-	strcpy(tm.zone, a[4]);
-	if(strlen(a[5]) != 4)
-		goto Err;
-	tm.year = strtol(a[5], &p, 10);
-	if(*p != '\0')
-		goto Err;
-	tm.year -= 1900;
-	return tm2sec(&tm);
-Err:
-	return time(0);
-}
-
 ulong
 parsedate(char *s)
 {
-	char *f[10];
-	int nf;
+	char **f, *fmt[] = {
+		"WW MMM DD hh:mm:ss ?Z YYYY",
+		"?WW ?DD ?MMM ?YYYY hh:mm:ss ?Z",
+		"?WW ?DD ?MMM ?YYYY hh:mm:ss",
+		"?WW, DD-?MM-YY",
+		"?DD ?MMM ?YYYY hh:mm:ss ?Z",
+		"?DD ?MMM ?YYYY hh:mm:ss",
+		"?DD-?MM-YY hh:mm:ss ?Z",
+		"?DD-?MM-YY hh:mm:ss",
+		"?DD-?MM-YY",
+		"?MMM/?DD/?YYYY hh:mm:ss ?Z",
+		"?MMM/?DD/?YYYY hh:mm:ss",
+		"?MMM/?DD/?YYYY",
+		nil,
+	};
+	Tm tm;
 
-	nf = getfields(s, f, nelem(f), 1, " ");
-	if(nf < 6)
-		return time(0);
-	return parsedatev(f);
+	for(f = fmt; *f; f++)
+		if(tmparse(&tm, *f, s, nil, nil) != nil)
+			return tmnorm(&tm);
+	return time(0);
 }
 
 /* achille Jul 23 14:05:15 delivered jmk From ms.com!bub Fri Jul 23 14:05:14 EDT 1999 (plan9.bell-labs.com!jmk) 1352 */
@@ -210,11 +171,11 @@ parsedate(char *s)
 int
 parselog(char *s, char **sender, ulong *xtime)
 {
-	char *f[20];
+	char *f[8];
 	int nf;
 
 	nf = getfields(s, f, nelem(f), 1, " ");
-	if(nf < 14)
+	if(nf < 8)
 		return 0;
 	if(strcmp(f[4], "delivered") == 0 && strcmp(f[5], user) == 0)
 		goto Found;
@@ -224,7 +185,7 @@ parselog(char *s, char **sender, ulong *xtime)
 
 Found:
 	*sender = estrdup(f[7]);
-	*xtime = parsedatev(&f[8]);
+	*xtime = parsedate(f[8]);
 	return 1;
 }
 
