@@ -49,7 +49,7 @@ and
 are optional.
 A number
 .I n
-with no comma is equivalne to
+with no comma is equivalent to
 .IR 0,n .
 .TP
 .B -e statfmt
