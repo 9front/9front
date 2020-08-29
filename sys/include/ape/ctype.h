@@ -8,6 +8,7 @@ extern "C" {
 
 extern int isalnum(int);
 extern int isalpha(int);
+extern int isblank(int);
 extern int iscntrl(int);
 extern int isdigit(int);
 extern int isgraph(int);
@@ -38,6 +39,7 @@ enum
 extern unsigned char _ctype[];
 #define	isalnum(c)	(_ctype[(unsigned char)(c)]&(_ISupper|_ISlower|_ISdigit))
 #define	isalpha(c)	(_ctype[(unsigned char)(c)]&(_ISupper|_ISlower))
+#define	isblank(c)	(_ctype[(unsigned char)(c)]&_ISblank)
 #define	iscntrl(c)	(_ctype[(unsigned char)(c)]&_IScntrl)
 #define	isdigit(c)	(_ctype[(unsigned char)(c)]&_ISdigit)
 #define	isgraph(c)	(_ctype[(unsigned char)(c)]&(_ISpunct|_ISupper|_ISlower|_ISdigit))
