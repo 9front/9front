@@ -186,8 +186,8 @@ mboxesc(Biobuf *in, Biobuf *out, int type)
 int
 appendfolder(Biobuf *b, char *addr, int fd)
 {
-	char *s;
-	int r, n;
+	char *s, *t;
+	int r;
 	Biobuf bin;
 	Folder *f;
 	Tm tm;
@@ -196,10 +196,11 @@ appendfolder(Biobuf *b, char *addr, int fd)
 	Bseek(f->out, 0, 2);
 	Binit(&bin, fd, OREAD);
 	s = Brdstr(&bin, '\n', 0);
-	n = strlen(s);
-	if(!s || strncmp(s, "From ", 5) != 0)
+	if(s == nil || strncmp(s, "From ", 5) != 0)
 		Bprint(f->out, "From %s %.28s\n", addr, ctime(f->t));
-	else if(n > 5 && tmparse(&tm, Ctimefmt, s + 5, nil, nil) != nil)
+	else if(strncmp(s, "From ", 5) == 0 
+		&& (t = strchr(s + 5, ' ')) != nil
+		&& tmparse(&tm, Ctimefmt, t + 1, nil, nil) != nil)
 		f->t = tm2sec(&tm);
 	if(s)
 		Bwrite(f->out, s, strlen(s));
