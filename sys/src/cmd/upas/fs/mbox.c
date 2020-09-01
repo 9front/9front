@@ -365,7 +365,7 @@ datesec(Mailbox *mb, Message *m)
 
 	if(m->fileid > 1000000ull<<8)
 		return;
-	if(m->unixfrom && strtotm(m->unixfrom, &tm) >= 0)
+	if(m->unixdate && strtotm(m->unixdate, &tm) >= 0)
 		v = tm2sec(&tm);
 	else if(m->date822 && strtotm(m->date822, &tm) >= 0)
 		v = tm2sec(&tm);
@@ -482,13 +482,14 @@ parseunix(Message *m)
 	char *s, *p;
 
 	m->unixheader = smprint("%.*s", utfnlen(m->start, m->header - m->start), m->start);
-	s = m->start + 5;
+	s = m->unixheader + 5;
 	if((p = strchr(s, ' ')) == nil)
 		return;
 	*p = 0;
 	free(m->unixfrom);
 	m->unixfrom = strdup(s);
 	*p = ' ';
+	m->unixdate = ++p;
 }
 
 void
@@ -572,6 +573,8 @@ parseheaders(Mailbox *mb, Message *m, int addfrom, int justmime)
 			p = "???";
 		m->unixheader = smprint("From %s %Δ\n", p, m->fileid);
 	}
+	m->unixdate = nil;
+
 	m->cstate |= Cheader;
 sanembmsg(mb, m);
 }

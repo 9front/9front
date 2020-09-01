@@ -77,6 +77,7 @@ cachefree(Mailbox *mb, Message *m)
 	}
 	free(m->unixfrom);
 	m->unixfrom = nil;
+	m->unixdate = nil;
 	free(m->unixheader);
 	m->unixheader = nil;
 	free(m->boundary);

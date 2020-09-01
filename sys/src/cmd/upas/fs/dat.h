@@ -118,6 +118,7 @@ struct Message {
 	/* mail info */
 	char	*unixheader;
 	char	*unixfrom;
+	char	*unixdate;
 	char	*references[Nref]; /* nil terminated unless full */
 
 	/* mime info */
