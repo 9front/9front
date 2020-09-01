@@ -1,6 +1,6 @@
 #include "common.h"
 
-#define Ctimefmt "WW MMM _D hh:mm:ss ZZZ YYYY"
+#define Ctimefmt "WW MMM _D hh:mm:ss ?Z YYYY"
 
 enum{
 	Mbox	= 1,
