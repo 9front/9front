@@ -1676,28 +1676,3 @@ eprint(char *fmt, ...)
 	syslog(Sflag, logf, "%s", buf);
 	fprint(2, "%s", buf2);
 }
-
-/*
- *  convert an RFC822 date into a Unix style date
- *  for when the Unix From line isn't there (e.g. POP3).
- *  enough client programs depend on having a Unix date
- *  that it's easiest to write this conversion code once, right here.
- *
- *  people don't follow RFC822 particularly closely,
- *  so we use strtotm, which is a bunch of heuristics.
- */
-
-char*
-date822tounix(Message *, char *s)
-{
-	char *p, *q;
-	Tm tm;
-
-	if(strtotm(s, &tm) < 0)
-		return nil;
-
-	p = asctime(&tm);
-	if(q = strchr(p, '\n'))
-		*q = '\0';
-	return strdup(p);
-}

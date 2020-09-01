@@ -238,7 +238,6 @@ ulong		countlines(Message*);
 void		parse(Mailbox*, Message*, int, int);
 void		parseheaders(Mailbox*, Message*, int, int);
 void		parsebody(Message*, Mailbox*);
-char*		date822tounix(Message*, char*);
 int		strtotm(char*, Tm*);
 char*		lowercase(char*);
 
