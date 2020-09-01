@@ -132,7 +132,6 @@ show(int fd, char *name, int outc)
 	Rawimage **array, *r, *c;
 	Image *i, *i2;
 	int j, ch, outchan;
-	long len;
 	Biobuf b;
 	char buf[32];
 	static int inited;
@@ -207,24 +206,6 @@ show(int fd, char *name, int outc)
 	}
 	if(nineflag){
 		chantostr(buf, outchan);
-		len = (c->r.max.x - c->r.min.x) * (c->r.max.y - c->r.min.y);
-		switch(c->chandesc){
-		case CY:
-			// len *= 1;
-			break;
-		case CYA16:
-			len *= 2;
-			break;
-		case CRGB24:
-			len *= 3;
-			break;
-		case CRGBA32:
-			len *= 4;
-			break;
-		}
-		if(c->chanlen != len)
-			fprint(2, "%s: writing %d bytes for len %ld chan %s\n",
-				argv0, c->chanlen, len, buf);
 		print("%11s %11d %11d %11d %11d ", buf,
 			c->r.min.x, c->r.min.y, c->r.max.x, c->r.max.y);
 		if(write(1, c->chans[0], c->chanlen) != c->chanlen){
