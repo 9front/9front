@@ -615,7 +615,7 @@ tmparse(Tm *tm, char *fmt, char *str, Tzone *tz, char **ep)
 	int depth, n, w, c0, zs, z0, z1, md, ampm, zoned, sloppy, tzo, ok;
 	vlong abs;
 	char *s, *p, *q;
-	Tzone *zparsed;
+	Tzone *zparsed, *local;
 	Tzabbrev *a;
 	Tzoffpair *m;
 
@@ -774,6 +774,32 @@ tmparse(Tm *tm, char *fmt, char *str, Tzone *tz, char **ep)
 			switch(w){
 			case -1:
 			case 3:
+				/*
+				 * Ugly Hack:
+				 * Ctime is defined as printing a 3-character timezone
+				 * name. The timezone name is ambiguous. For example,
+				 * EST refers to both Australian and American eastern
+				 * time. On top of that, we don't want to make the
+				 * tzabbrev table exhaustive. So, we put in this hack:
+				 *
+				 * Before we consult the well known table of timezones,
+				 * we check if the local time matches the timezone name.
+				 *
+				 * If you want unambiguous timezone parsing, use numeric
+				 * timezone offsets (Z, ZZ formats).
+				 */
+				if((local = tzload("local")) != nil){
+					if(cistrncmp(s, local->stname, strlen(local->stname)) == 0){
+						s += strlen(local->stname);
+						zparsed = local;
+						goto Zoneparsed;
+					}
+					if(cistrncmp(s, local->dlname, strlen(local->dlname)) == 0){
+						s += strlen(local->dlname);
+						zparsed = local;
+						goto Zoneparsed;
+					}
+				}
 				for(a = tzabbrev; a->abbr; a++){
 					n = strlen(a->abbr);
 					if(cistrncmp(s, a->abbr, n) == 0 && !isalpha(s[n]))

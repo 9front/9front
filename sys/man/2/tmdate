@@ -114,6 +114,9 @@ and the unpadded and padded complete value, respectively.
 .TP
 .B Z, ZZ, ZZZ
 The timezone in [+-]HHMM and [+-]HH:MM, and named form, respectively.
+If the named timezone matches the name of the local zone, then the
+local timezone will be used.
+Otherwise, we will attempt to use the named zones listed in RFC5322.
 .TP
 .B a, A
 Lower and uppercase 'am' and 'pm' specifiers, respectively.
@@ -266,6 +269,10 @@ print("%τ", &t); /*  Mon Nov 3 13:11:11 PST 2019 */
 .EE
 
 .SH BUGS
+.PP
+Checking the timezone name against the local timezone is a
+dirty hack. The same date string may parse differently for
+people in different timezones.
 .PP
 There is no way to format specifier for subsecond precision.
 .PP
