@@ -1,5 +1,6 @@
 #include <u.h>
 #include <libc.h>
+#include <ctype.h>
 
 char *knownfmt[] = {
 	/* asctime */
@@ -57,6 +58,16 @@ char *zonefmt[] = {
 	nil,
 };
 
+static int
+nojunk(char *p)
+{
+	while(isspace(*p))
+		p++;
+	if(*p == '\0')
+		return 1;
+	werrstr("trailing junk");
+	return 0;
+}
 
 static void
 usage(void)
@@ -89,24 +100,21 @@ main(int argc, char **argv)
 		sysfatal("bad local time: %r");
 	for(i = 0; i < argc; i++){
 		if(fmt != nil){
-			if(tmparse(&tm, fmt, argv[i], tz, &ep) != nil && *ep == 0)
+			if(tmparse(&tm, fmt, argv[i], tz, &ep) && nojunk(ep))
 				goto Found;
 		}else{
 			for(f = knownfmt; *f != nil; f++)
-				if(tmparse(&tm, *f, argv[i], tz, &ep) != nil && *ep == 0)
+				if(tmparse(&tm, *f, argv[i], tz, &ep) != nil && nojunk(ep))
 					goto Found;
 			for(df = datefmt; *df; df++)
 			for(tf = timefmt; *tf; tf++)
 			for(zf = zonefmt; *zf; zf++){
 				snprint(buf, sizeof(buf), "%s%s%s", *df, *tf, *zf);
-				if(tmparse(&tm, buf, argv[i], tz, &ep) != nil && *ep == 0)
+				if(tmparse(&tm, buf, argv[i], tz, &ep) != nil && nojunk(ep))
 					goto Found;
 			}
 		}
-		if(*ep == 0)
-			sysfatal("tmparse: %r");
-		else
-			sysfatal("tmparse: trailing junk");
+		sysfatal("tmparse: %r");
 Found:
 		print("%lld\n", tmnorm(&tm));
 	}
