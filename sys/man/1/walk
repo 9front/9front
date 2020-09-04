@@ -47,18 +47,18 @@ Both
 and
 .I max
 are optional.
-A number
+An argument of
 .I n
 with no comma is equivalent to
 .IR 0,n .
 .TP
 .B -e statfmt
-Setting the statfmt string allows specifying the data
-.I walk
-should print.
-It takes a string of characters, each corresponding
-to some piece of information about the file being
-traversed, and prints them separated by spaces.
+Specify the output format.
+Each character in
+.I statfmt
+specifies a file attribute to display.
+The printed attributes are separated by spaces.
+.RS \n(INu
 .PP
 The statfmt characters are as follows:
 .TF .
