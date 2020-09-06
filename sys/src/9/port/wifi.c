@@ -85,6 +85,19 @@ wifihdrlen(Wifipkt *w)
 	return n;
 }
 
+static uvlong
+getts(uchar *d)
+{
+	return	(uvlong)d[0] |
+		(uvlong)d[1]<<8 |
+		(uvlong)d[2]<<16 |
+		(uvlong)d[3]<<24 |
+		(uvlong)d[4]<<32 |
+		(uvlong)d[5]<<40 |
+		(uvlong)d[6]<<48 |
+		(uvlong)d[7]<<56;
+}
+
 void
 wifiiq(Wifi *wifi, Block *b)
 {
@@ -93,6 +106,8 @@ wifiiq(Wifi *wifi, Block *b)
 	Etherpkt *e;
 	int hdrlen;
 
+	if(b->flag & Btimestamp)
+		assert(b->rp - b->base >= 8);
 	if(BLEN(b) < WIFIHDRSIZE)
 		goto drop;
 	w = (Wifipkt*)b->rp;
@@ -115,6 +130,7 @@ wifiiq(Wifi *wifi, Block *b)
 	case 0x04:	/* control */
 		break;
 	case 0x08:	/* data */
+		b->flag &= ~Btimestamp;
 		b->rp += hdrlen;
 		switch(w->fc[0] & 0xf0){
 		default:
@@ -136,9 +152,7 @@ wifiiq(Wifi *wifi, Block *b)
 		memmove(e->d, dstaddr(&h), Eaddrlen);
 		memmove(e->s, srcaddr(&h), Eaddrlen);
 		memmove(e->type, s.type, 2);
-
 		dmatproxy(b, 0, wifi->ether->ea, &wifi->dmat);
-
 		etheriq(wifi->ether, b);
 		return;
 	}
@@ -310,6 +324,7 @@ wifiprobe(Wifi *wifi, Wnode *wn)
 
 	b = allocb(WIFIHDRSIZE + 512);
 	w = (Wifipkt*)b->wp;
+
 	w->fc[0] = 0x40;	/* probe request */
 	w->fc[1] = 0x00;	/* STA->STA */
 	memmove(w->a1, wifi->ether->bcast, Eaddrlen);	/* ??? */
@@ -377,6 +392,7 @@ sendassoc(Wifi *wifi, Wnode *bss)
 	memmove(w->a1, bss->bssid, Eaddrlen);	/* ??? */
 	memmove(w->a2, wifi->ether->ea, Eaddrlen);
 	memmove(w->a3, bss->bssid, Eaddrlen);
+
 	b->wp += WIFIHDRSIZE;
 	p = b->wp;
 
@@ -461,11 +477,16 @@ recvbeacon(Wifi *wifi, Wnode *wn, uchar *d, int len)
 	if(len < 0)
 		return;
 
-	d += 8;	/* timestamp */
+	/* timestamp */
+	wn->ts = getts(d);
+	d += 8;
 	wn->ival = d[0] | d[1]<<8;
 	d += 2;
 	wn->cap = d[0] | d[1]<<8;
 	d += 2;
+
+	wn->dtimcount = 0;
+	wn->dtimperiod = 1;
 
 	rsnset = 0;
 	for(e = d + len; d+2 <= e; d = x){
@@ -512,6 +533,13 @@ recvbeacon(Wifi *wifi, Wnode *wn, uchar *d, int len)
 		case 3:		/* DSPARAMS */
 			if(d != x)
 				wn->channel = d[0];
+			break;
+		case 5:
+			if(x - d < 2)
+				break;
+			wn->dtimcount = d[0];
+			if(d[1] > 0)
+				wn->dtimperiod = d[1];
 			break;
 		case 221:	/* vendor specific */
 			len = x - d;
@@ -619,6 +647,7 @@ wifiproc(void *arg)
 				w = (Wifipkt*)b->rp;
 				if(w->fc[1] & 0x40)
 					continue;
+				b->flag &= ~Btimestamp;
 				wifiiq(wifi, b);
 				b = nil;
 			}
@@ -637,6 +666,8 @@ wifiproc(void *arg)
 			if((wn = nodelookup(wifi, w->a3, 1)) == nil)
 				continue;
 			wn->lastseen = MACHP(0)->ticks;
+			if(b->flag & Btimestamp)
+				wn->rs = getts(b->rp - 8);
 			b->rp += wifihdrlen(w);
 			recvbeacon(wifi, wn, b->rp, BLEN(b));
 
@@ -655,6 +686,8 @@ wifiproc(void *arg)
 		if((wn = nodelookup(wifi, w->a3, 0)) == nil)
 			continue;
 		wn->lastseen = MACHP(0)->ticks;
+		if(b->flag & Btimestamp)
+			wn->rs = getts(b->rp - 8);
 		switch(w->fc[0] & 0xf0){
 		case 0x10:	/* assoc response */
 		case 0x30:	/* reassoc response */
@@ -804,8 +837,9 @@ Scan:
 				wifideauth(wifi, wn);	/* stuck in auth, start over */
 			if(wn->status == Sconn || wn->status == Sunauth)
 				sendauth(wifi, wn);
-			if(wn->status == Sauth)
+			if(wn->status == Sauth){
 				sendassoc(wifi, wn);
+			}
 		}
 		tsleep(&up->sleep, return0, 0, 500);
 	}

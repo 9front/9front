@@ -50,6 +50,10 @@ struct Wnode
 	ulong	txerror;
 
 	/* stuff from beacon */
+	uvlong	rs;
+	uvlong	ts;
+	uchar	dtimcount;
+	uchar	dtimperiod;
 	int	ival;
 	int	cap;
 	int	channel;
@@ -107,6 +111,10 @@ struct Wifipkt
 	uchar	a3[Eaddrlen];
 	uchar	seq[2];
 	uchar	a4[Eaddrlen];
+};
+
+enum {
+	Btimestamp = 1<<15,
 };
 
 Wifi *wifiattach(Ether *ether, void (*transmit)(Wifi*, Wnode*, Block*));
