@@ -9,10 +9,10 @@ tmnow, tzload, tmtime, tmparse, tmfmt, tmnorm - convert date and time
 .ft L
 .nf
 .EX
-typedef struct Tmd Tmd;
+typedef struct Tm Tm;
 typedef struct Tmfmt Tmfmt;
 
-struct {
+struct Tm {
 	int	nsec;	/* nanoseconds (range 0..1e9) */
 	int	sec;	/* seconds (range 0..59) */
 	int	min;	/* minutes (0..59) */
