@@ -57,12 +57,11 @@ does not leak.
 .PP
 Tmnow gets the current time of day in the requested time zone.
 .PP
-Tmtime converts the millisecond-resolution timestamp 'abs'
+Tmtime converts the second resolution timestamp 'abs'
 into a Tm struct in the requested timezone.
 Tmtimens does the same, but with a nanosecond accuracy.
 .PP
-Tmstime is identical to tmtime, but accepts the time in sec-
-onds.
+Tmtimens is identical to tmtime, but accepts a nanosecond argument.
 .PP
 Tmparse parses a time from a string according to the format argument.
 Leading whitespace is ignored.
@@ -223,6 +222,7 @@ Done with full, strict error checking.
 .IP
 .EX
 Tm a, b;
+char *e;
 
 if(tmparse(&a, nil, "Tue Dec 10 12:36:00 PST 2019", &e) == nil)
 	sysfatal("failed to parse: %r");
@@ -251,19 +251,20 @@ if((zp = tzload("US_Pacific")) == nil)
 	sysfatal("load zone: %r");
 if(tmnow(&here, zl) == nil)
 	sysfatal("get time: %r");
-if(tmtime(&there, tmnorm(&tm), zp) == nil)
+if(tmtime(&there, tmnorm(&here), zp) == nil)
 	sysfatal("shift time: %r");
 .EE
 
 .PP
 Add a day. Because cross daylight savings, only 23 hours are added.
 
+.IP
 .EX
 Tm t;
 char *date = "Sun Nov 2 13:11:11 PST 2019";
-if(tmparse(&t, "W MMM D hh:mm:ss z YYYY, date, &e) == nil)
-	print("failed top parse");
-tm.day++;
+if(tmparse(&t, "W MMM D hh:mm:ss z YYYY, date, nil) == nil)
+	print("failed top arse");
+t.day++;
 tmnorm(&t);
 print("%τ", &t); /*  Mon Nov 3 13:11:11 PST 2019 */
 .EE
@@ -273,8 +274,6 @@ print("%τ", &t); /*  Mon Nov 3 13:11:11 PST 2019 */
 Checking the timezone name against the local timezone is a
 dirty hack. The same date string may parse differently for
 people in different timezones.
-.PP
-There is no way to format specifier for subsecond precision.
 .PP
 The timezone information that we ship is out of date.
 .PP
