@@ -128,3 +128,6 @@ Daylight Savings Time is ``normal'' in the Southern hemisphere.
 These routines are not equipped to handle non-\c
 .SM ASCII
 text, and are provincial anyway.
+.br
+These routines may garble the date when passed a date parsed with
+.IR tmparse (2).

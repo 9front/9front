@@ -275,6 +275,13 @@ Checking the timezone name against the local timezone is a
 dirty hack. The same date string may parse differently for
 people in different timezones.
 .PP
+Tmparse and ctime don't mix.
+Tmparse preserves timezone names, including names like '+0200'.
+Ctime expects timezone names to be exactly three characters.
+Use the
+.I %τ
+format character instead of ctime.
+.PP
 The timezone information that we ship is out of date.
 .PP
 The Plan 9 timezone format has no way to express leap seconds.
