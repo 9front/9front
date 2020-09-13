@@ -6,11 +6,9 @@
 #include <bio.h>
 #include "faces.h"
 
-static int		showfd = -1;
-static int		seefd = -1;
-static int		logfd = -1;
+static int	showfd = -1;
+static int	seefd = -1;
 static char	*user;
-static char	*logtag;
 
 char		**maildirs;
 int		nmaildirs;
@@ -18,20 +16,10 @@ int		nmaildirs;
 void
 initplumb(void)
 {
-	showfd = plumbopen("send", OWRITE);
-	seefd = plumbopen("seemail", OREAD);
-
-	if(seefd < 0){
-		logfd = open("/sys/log/mail", OREAD);
-		seek(logfd, 0LL, 2);
-		user = getenv("user");
-		if(user == nil){
-			fprint(2, "faces: can't find user name: %r\n");
-			exits("$user");
-		}
-		logtag = emalloc(32+strlen(user)+1);
-		sprint(logtag, " delivered %s From ", user);
-	}
+	if((showfd = plumbopen("send", OWRITE)) == -1)
+		sysfatal("plumbopen send: %r");
+	if((seefd = plumbopen("seemail", OREAD)) == -1)
+		sysfatal("plumbopen seemail: %r");
 }
 
 void
@@ -103,43 +91,6 @@ setname(Face *f, char *sender)
 	}
 }
 
-int
-getc(void)
-{
-	static uchar buf[512];
-	static int nbuf = 0;
-	static int i = 0;
-
-	while(i == nbuf){
-		i = 0;
-		nbuf = read(logfd, buf, sizeof buf);
-		if(nbuf == 0){
-			sleep(15000);
-			continue;
-		}
-		if(nbuf < 0)
-			return -1;
-	}
-	return buf[i++];
-}
-
-char*
-getline(char *buf, int n)
-{
-	int i, c;
-
-	for(i=0; i<n-1; i++){
-		c = getc();
-		if(c <= 0)
-			return nil;
-		if(c == '\n')
-			break;
-		buf[i] = c;
-	}
-	buf[i] = '\0';
-	return buf;
-}
-
 ulong
 parsedate(char *s)
 {
@@ -158,64 +109,15 @@ parsedate(char *s)
 		"?MMM/?DD/?YYYY",
 		nil,
 	};
+	Tzone *tz;
 	Tm tm;
 
+	if((tz = tzload("local")) == nil)
+		sysfatal("tzload: %r");
 	for(f = fmt; *f; f++)
-		if(tmparse(&tm, *f, s, nil, nil) != nil)
+		if(tmparse(&tm, *f, s, tz, nil) != nil)
 			return tmnorm(&tm);
 	return time(0);
-}
-
-/* achille Jul 23 14:05:15 delivered jmk From ms.com!bub Fri Jul 23 14:05:14 EDT 1999 (plan9.bell-labs.com!jmk) 1352 */
-/* achille Oct 26 13:45:42 remote local!rsc From rsc Sat Oct 26 13:45:41 EDT 2002 (rsc) 170 */
-int
-parselog(char *s, char **sender, ulong *xtime)
-{
-	char *f[8];
-	int nf;
-
-	nf = getfields(s, f, nelem(f), 1, " ");
-	if(nf < 8)
-		return 0;
-	if(strcmp(f[4], "delivered") == 0 && strcmp(f[5], user) == 0)
-		goto Found;
-	if(strcmp(f[4], "remote") == 0 && strncmp(f[5], "local!", 6) == 0 && strcmp(f[5]+6, user) == 0)
-		goto Found;
-	return 0;
-
-Found:
-	*sender = estrdup(f[7]);
-	*xtime = parsedate(f[8]);
-	return 1;
-}
-
-int
-logrecv(char **sender, ulong *xtime)
-{
-	char buf[4096];
-
-	for(;;){
-		if(getline(buf, sizeof buf) == nil)
-			return 0;
-		if(parselog(buf, sender, xtime))
-			return 1;
-	}
-}
-
-char*
-tweakdate(char *d)
-{
-	char e[8];
-
-	/* d, date = "Mon Aug  2 23:46:55 EDT 1999" */
-
-	if(strlen(d) < strlen("Mon Aug  2 23:46:55 EDT 1999"))
-		return estrdup("");
-	if(strncmp(date, d, 4+4+3) == 0)
-		snprint(e, sizeof e, "%.5s", d+4+4+3);	/* 23:46 */
-	else
-		snprint(e, sizeof e, "%.6s", d+4);	/* Aug  2 */
-	return estrdup(e);
 }
 
 Face*
@@ -229,45 +131,38 @@ nextface(void)
 
 	f = emalloc(sizeof(Face));
 	for(;;){
-		if(seefd >= 0){
-			m = plumbrecv(seefd);
-			if(m == nil)
-				killall("error on seemail plumb port");
-			t = value(m->attr, "mailtype", "");
-			if(strcmp(t, "modify") == 0)
-				goto Ignore;
-			else if(strcmp(t, "delete") == 0)
-				delete(m->data, value(m->attr, "digest", nil));
-			else if(strcmp(t, "new") == 0)
-				for(i=0; i<nmaildirs; i++){
-					if(strncmp(m->data, maildirs[i], strlen(maildirs[i])) == 0)
-						goto Found;
-				}
-			else
-				fprint(2, "faces: unknown plumb message type %s\n", t);
-		Ignore:
+		m = plumbrecv(seefd);
+		if(m == nil)
+			killall("error on seemail plumb port");
+		t = value(m->attr, "mailtype", "");
+		if(strcmp(t, "modify") == 0)
+			goto Ignore;
+		else if(strcmp(t, "delete") == 0)
+			delete(m->data, value(m->attr, "digest", nil));
+		else if(strcmp(t, "new") == 0)
+			for(i=0; i<nmaildirs; i++){
+				if(strncmp(m->data, maildirs[i], strlen(maildirs[i])) == 0)
+					goto Found;
+			}
+		else
+			fprint(2, "faces: unknown plumb message type %s\n", t);
+	Ignore:
+		plumbfree(m);
+		continue;
+
+	Found:
+		xtime = parsedate(value(m->attr, "date", date));
+		digestp = value(m->attr, "digest", nil);
+		if(alreadyseen(digestp)){
+			/* duplicate upas/fs can send duplicate messages */
 			plumbfree(m);
 			continue;
-
-		Found:
-			xtime = parsedate(value(m->attr, "date", date));
-			digestp = value(m->attr, "digest", nil);
-			if(alreadyseen(digestp)){
-				/* duplicate upas/fs can send duplicate messages */
-				plumbfree(m);
-				continue;
-			}
-			senderp = estrdup(value(m->attr, "sender", "???"));
-			showmailp = estrdup(m->data);
-			if(digestp)
-				digestp = estrdup(digestp);
-			plumbfree(m);
-		}else{
-			if(logrecv(&senderp, &xtime) <= 0)
-				killall("error reading log file");
-			showmailp = estrdup("");
-			digestp = nil;
 		}
+		senderp = estrdup(value(m->attr, "sender", "???"));
+		showmailp = estrdup(m->data);
+		if(digestp)
+			digestp = estrdup(digestp);
+		plumbfree(m);
 		setname(f, senderp);
 		f->time = xtime;
 		f->tm = *localtime(xtime);
