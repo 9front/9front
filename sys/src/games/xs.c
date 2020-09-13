@@ -873,11 +873,11 @@ threadmain(int argc, char *argv[])
 
 	threadsetname("4s-5s");
 	timerc= chancreate(sizeof(int), 0);
-	proccreate(timerproc, timerc, 1024);
+	proccreate(timerproc, timerc, 8192);
 	suspc= chancreate(sizeof(int), 0);
 	mousec= chancreate(sizeof(Mouse), 0);
 	kbdc= chancreate(sizeof(Rune), 0);
-	threadcreate(suspproc, nil, 1024);
+	threadcreate(suspproc, nil, 8192);
 	points = 0;
 	memset(board, 0, sizeof(board));
 	redraw(0);
