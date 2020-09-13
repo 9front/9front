@@ -16,6 +16,7 @@
 #include "dat.h"
 #include "fns.h"
 #include "io.h"
+#include "../port/pci.h"
 #include "../port/error.h"
 #include "../port/netif.h"
 #include "../port/etherif.h"
@@ -1282,8 +1283,7 @@ gc82543pci(void)
 			free(ctlr);
 			continue;
 		}
-		cls = pcicfgr8(p, PciCLS);
-		switch(cls){
+		switch(p->cls){
 		case 0x08:
 		case 0x10:
 			break;

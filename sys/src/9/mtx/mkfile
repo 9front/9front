@@ -1,5 +1,5 @@
 CONF=mtx
-CONFLIST=mtx mtxcpu
+CONFLIST=mtx
 
 objtype=power
 </$objtype/mkfile

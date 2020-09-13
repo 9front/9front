@@ -14,6 +14,7 @@
 #include	"dat.h"
 #include	"fns.h"
 #include	"io.h"
+#include	"../port/pci.h"
 #include	"../port/error.h"
 #include	"../port/usb.h"
 
@@ -2131,7 +2132,7 @@ scanpci(void)
 		case 0:
 			if((p->mem[4].bar & 1) == 0)
 				continue;
-			io = (int)p->mem[4].bar & ~0xF;
+			io = p->mem[4].bar & ~3;
 			break;
 		default:
 			continue;

@@ -20,11 +20,13 @@ dev
 	ip		arp chandial ip ipv6 ipaux iproute netif netlog nullmedium pktmedium inferno
 
 link
+	pcimtx
 	ether2114x	pci
 	ethermedium
 	netdevmedium
 
 misc
+	pci		pcimtx
 	uarti8250
 
 ip

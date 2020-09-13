@@ -103,6 +103,7 @@ trap.$O main.$O: /sys/include/tos.h
 l.$O cache.v8.$O mmu.$O rebootcode.$O: mem.h
 l.$O cache.v8.$O archbcm3.$O clock.$O fpu.$O trap.$O mmu.$O rebootcode.$O: sysreg.h
 main.$O: rebootcode.i
+pcibcm.$O: ../port/pci.h
 
 devmouse.$O mouse.$O screen.$O: screen.h
 usbdwc.$O: dwcotg.h ../port/usb.h

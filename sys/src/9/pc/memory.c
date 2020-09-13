@@ -250,6 +250,24 @@ upaalloc(uvlong pa, ulong size, ulong align)
 	return memmapalloc(pa, size, align, MemUPA);
 }
 
+uvlong
+upaallocwin(uvlong pa, ulong win, ulong size, ulong align)
+{
+	uvlong a, base, top = pa + win;
+
+	for(base = memmapnext(-1, MemUPA); base != -1 && base < top; base = memmapnext(base, MemUPA)){
+		if(base < pa){
+			if(pa >= base + memmapsize(base, 0))
+				continue;
+			base = pa;
+		}
+		a = upaalloc(base, size, align);
+		if(a != -1)
+			return a;
+	}
+	return -1ULL;
+}
+
 void
 upafree(uvlong pa, ulong size)
 {

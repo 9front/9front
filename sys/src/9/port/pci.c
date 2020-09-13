@@ -4,73 +4,22 @@
 #include "dat.h"
 #include "fns.h"
 #include "io.h"
-
-/* bcmstb PCIe controller registers */
-enum{
-	RC_CFG_VENDOR_VENDOR_SPECIFIC_REG1	= 0x0188/4,
-	RC_CFG_PRIV1_ID_VAL3			= 0x043c/4,
-	RC_DL_MDIO_ADDR				= 0x1100/4,
-	RC_DL_MDIO_WR_DATA			= 0x1104/4,
-	RC_DL_MDIO_RD_DATA			= 0x1108/4,
-	MISC_MISC_CTRL				= 0x4008/4,
-	MISC_CPU_2_PCIE_MEM_WIN0_LO		= 0x400c/4,
-	MISC_CPU_2_PCIE_MEM_WIN0_HI		= 0x4010/4,
-	MISC_RC_BAR1_CONFIG_LO			= 0x402c/4,
-	MISC_RC_BAR2_CONFIG_LO			= 0x4034/4,
-	MISC_RC_BAR2_CONFIG_HI			= 0x4038/4,
-	MISC_RC_BAR3_CONFIG_LO			= 0x403c/4,
-	MISC_MSI_BAR_CONFIG_LO			= 0x4044/4,
-	MISC_MSI_BAR_CONFIG_HI			= 0x4048/4,
-	MISC_MSI_DATA_CONFIG			= 0x404c/4,
-	MISC_EOI_CTRL				= 0x4060/4,
-	MISC_PCIE_CTRL				= 0x4064/4,
-	MISC_PCIE_STATUS			= 0x4068/4,
-	MISC_REVISION				= 0x406c/4,
-	MISC_CPU_2_PCIE_MEM_WIN0_BASE_LIMIT	= 0x4070/4,
-	MISC_CPU_2_PCIE_MEM_WIN0_BASE_HI	= 0x4080/4,
-	MISC_CPU_2_PCIE_MEM_WIN0_LIMIT_HI	= 0x4084/4,
-	MISC_HARD_PCIE_HARD_DEBUG		= 0x4204/4,
-
-	INTR2_CPU_BASE				= 0x4300/4,
-	MSI_INTR2_BASE				= 0x4500/4,
-		INTR_STATUS = 0,
-		INTR_SET,
-		INTR_CLR,
-		INTR_MASK_STATUS,
-		INTR_MASK_SET,
-		INTR_MASK_CLR,
-
-	EXT_CFG_INDEX				= 0x9000/4,
-	RGR1_SW_INIT_1				= 0x9210/4,
-	EXT_CFG_DATA				= 0x8000/4,
-
-};
-
-#define MSI_TARGET_ADDR		0xFFFFFFFFCULL
-
-static u32int *regs = (u32int*)(VIRTIO1 + 0x500000);
-
-static Lock pcicfglock;
-static int pcimaxbno = 0;
-static int pcimaxdno = 0;
-static Pcidev* pciroot;
-static Pcidev* pcilist;
-static Pcidev* pcitail;
+#include "../port/pci.h"
 
 typedef struct Pcisiz Pcisiz;
 struct Pcisiz
 {
 	Pcidev*	dev;
-	int	bar;
 	int	siz;
+	int	bar;
 	int	typ;
 };
 
-enum
-{
-	MaxFNO		= 7,
-	MaxUBN		= 255,
-};
+int pcimaxdno;
+
+static Lock pcicfglock;
+static Pcidev* pcilist;
+static Pcidev* pcitail;
 
 static char* bustypes[] = {
 	"CBUSI",
@@ -93,176 +42,133 @@ static char* bustypes[] = {
 	"XPRESS",
 };
 
-static int
+int
 tbdffmt(Fmt* fmt)
 {
-	char *p;
-	int l, r;
-	uint type, tbdf;
-
-	if((p = malloc(READSTR)) == nil)
-		return fmtstrcpy(fmt, "(tbdfconv)");
+	int type, tbdf;
 
 	switch(fmt->r){
+	default:
+		return fmtstrcpy(fmt, "(tbdffmt)");
+
 	case 'T':
 		tbdf = va_arg(fmt->args, int);
-		if(tbdf == BUSUNKNOWN)
-			snprint(p, READSTR, "unknown");
-		else{
+		if(tbdf == BUSUNKNOWN) {
+			return fmtstrcpy(fmt, "unknown");
+		} else {
 			type = BUSTYPE(tbdf);
-			if(type < nelem(bustypes))
-				l = snprint(p, READSTR, bustypes[type]);
-			else
-				l = snprint(p, READSTR, "%d", type);
-			snprint(p+l, READSTR-l, ".%d.%d.%d",
-				BUSBNO(tbdf), BUSDNO(tbdf), BUSFNO(tbdf));
+			if(type < nelem(bustypes)) {
+				return fmtprint(fmt, "%s.%d.%d.%d",
+					bustypes[type], BUSBNO(tbdf), BUSDNO(tbdf), BUSFNO(tbdf));
+			} else {
+				return fmtprint(fmt, "%d.%d.%d.%d",
+					type, BUSBNO(tbdf), BUSDNO(tbdf), BUSFNO(tbdf));
+			}
 		}
-		break;
-
-	default:
-		snprint(p, READSTR, "(tbdfconv)");
-		break;
 	}
-	r = fmtstrcpy(fmt, p);
-	free(p);
-
-	return r;
-}
-
-static void pcicfginit(void);
-
-static void*
-cfgaddr(int tbdf, int rno)
-{
-	if(BUSBNO(tbdf) == 0 && BUSDNO(tbdf) == 0)
-		return (uchar*)regs + rno;
-	regs[EXT_CFG_INDEX] = BUSBNO(tbdf) << 20 | BUSDNO(tbdf) << 15 | BUSFNO(tbdf) << 12;
-	coherence();
-	return ((uchar*)&regs[EXT_CFG_DATA]) + rno;
-}
-
-static int
-pcicfgrw32(int tbdf, int rno, int data, int read)
-{
-	int x = -1;
-	u32int *p;
-
-	ilock(&pcicfglock);
-	if((p = cfgaddr(tbdf, rno & ~3)) != nil){
-		if(read)
-			x = *p;
-		else
-			*p = data;
-	}
-	iunlock(&pcicfglock);
-	return x;
-}
-static int
-pcicfgrw16(int tbdf, int rno, int data, int read)
-{
-	int x = -1;
-	u16int *p;
-
-	ilock(&pcicfglock);
-	if((p = cfgaddr(tbdf, rno & ~1)) != nil){
-		if(read)
-			x = *p;
-		else
-			*p = data;
-	}
-	iunlock(&pcicfglock);
-	return x;
-}
-static int
-pcicfgrw8(int tbdf, int rno, int data, int read)
-{
-	int x = -1;
-	u8int *p;
-
-	ilock(&pcicfglock);
-	if((p = cfgaddr(tbdf, rno)) != nil){
-		if(read)
-			x = *p;
-		else
-			*p = data;
-	}
-	iunlock(&pcicfglock);
-	return x;
 }
 
 int
-pcicfgr32(Pcidev* pcidev, int rno)
+pcicfgr8(Pcidev* p, int rno)
 {
-	return pcicfgrw32(pcidev->tbdf, rno, 0, 1);
+	int data;
+
+	ilock(&pcicfglock);
+	data = pcicfgrw8(p->tbdf, rno, 0, 1);
+	iunlock(&pcicfglock);
+
+	return data;
 }
 void
-pcicfgw32(Pcidev* pcidev, int rno, int data)
+pcicfgw8(Pcidev* p, int rno, int data)
 {
-	pcicfgrw32(pcidev->tbdf, rno, data, 0);
+	ilock(&pcicfglock);
+	pcicfgrw8(p->tbdf, rno, data, 0);
+	iunlock(&pcicfglock);
 }
 int
-pcicfgr16(Pcidev* pcidev, int rno)
+pcicfgr16(Pcidev* p, int rno)
 {
-	return pcicfgrw16(pcidev->tbdf, rno, 0, 1);
+	int data;
+
+	ilock(&pcicfglock);
+	data = pcicfgrw16(p->tbdf, rno, 0, 1);
+	iunlock(&pcicfglock);
+
+	return data;
 }
 void
-pcicfgw16(Pcidev* pcidev, int rno, int data)
+pcicfgw16(Pcidev* p, int rno, int data)
 {
-	pcicfgrw16(pcidev->tbdf, rno, data, 0);
+	ilock(&pcicfglock);
+	pcicfgrw16(p->tbdf, rno, data, 0);
+	iunlock(&pcicfglock);
 }
 int
-pcicfgr8(Pcidev* pcidev, int rno)
+pcicfgr32(Pcidev* p, int rno)
 {
-	return pcicfgrw8(pcidev->tbdf, rno, 0, 1);
+	int data;
+
+	ilock(&pcicfglock);
+	data = pcicfgrw32(p->tbdf, rno, 0, 1);
+	iunlock(&pcicfglock);
+
+	return data;
 }
 void
-pcicfgw8(Pcidev* pcidev, int rno, int data)
+pcicfgw32(Pcidev* p, int rno, int data)
 {
-	pcicfgrw8(pcidev->tbdf, rno, data, 0);
+	ilock(&pcicfglock);
+	pcicfgrw32(p->tbdf, rno, data, 0);
+	iunlock(&pcicfglock);
 }
 
-Pcidev*
-pcimatch(Pcidev* prev, int vid, int did)
-{
-	if(prev == nil)
-		prev = pcilist;
-	else
-		prev = prev->list;
-
-	while(prev != nil){
-		if((vid == 0 || prev->vid == vid)
-		&& (did == 0 || prev->did == did))
-			break;
-		prev = prev->list;
-	}
-	return prev;
-}
-
-Pcidev*
-pcimatchtbdf(int tbdf)
-{
-	Pcidev *pcidev;
-
-	for(pcidev = pcilist; pcidev != nil; pcidev = pcidev->list) {
-		if(pcidev->tbdf == tbdf)
-			break;
-	}
-	return pcidev;
-}
-
-static u32int
+int
 pcibarsize(Pcidev *p, int rno)
 {
-	u32int v, size;
+	int v, size;
 
+	ilock(&pcicfglock);
 	v = pcicfgrw32(p->tbdf, rno, 0, 1);
-	pcicfgrw32(p->tbdf, rno, 0xFFFFFFF0, 0);
+	pcicfgrw32(p->tbdf, rno, -1, 0);
 	size = pcicfgrw32(p->tbdf, rno, 0, 1);
-	if(v & 1)
-		size |= 0xFFFF0000;
 	pcicfgrw32(p->tbdf, rno, v, 0);
+	iunlock(&pcicfglock);
 
-	return -(size & ~0x0F);
+	if(v & 1){
+		size = (short)size;
+		size &= ~3;
+	} else {
+		size &= ~0xF;
+	}
+	return -size;
+}
+
+void
+pcisetbar(Pcidev *p, int rno, uvlong bar)
+{
+	ilock(&pcicfglock);
+	pcicfgrw32(p->tbdf, rno, bar, 0);
+	if((bar&7) == 4 && rno >= PciBAR0 && rno < PciBAR0+4*(nelem(p->mem)-1))
+		pcicfgrw32(p->tbdf, rno+4, bar>>32, 0);
+	iunlock(&pcicfglock);
+}
+
+void
+pcisetwin(Pcidev *p, uvlong base, uvlong limit)
+{
+	ilock(&pcicfglock);
+	if(base & 1){
+		pcicfgrw16(p->tbdf, PciIBR, (limit & 0xF000)|((base & 0xF000)>>8), 0);
+		pcicfgrw32(p->tbdf, PciIUBR, (limit & 0xFFFF0000)|(base>>16), 0);
+	} else if(base & 8){
+		pcicfgrw32(p->tbdf, PciPMBR, (limit & 0xFFF00000)|((base & 0xFFF00000)>>16), 0);
+		pcicfgrw32(p->tbdf, PciPUBR, base >> 32, 0);
+		pcicfgrw32(p->tbdf, PciPULR, limit >> 32, 0);
+	} else {
+		pcicfgrw32(p->tbdf, PciMBR, (limit & 0xFFF00000)|((base & 0xFFF00000)>>16), 0);
+	}
+	iunlock(&pcicfglock);
 }
 
 static int
@@ -294,13 +200,13 @@ pcimask(ulong v)
 	return v+1;
 }
 
-static void
+void
 pcibusmap(Pcidev *root, uvlong *pmema, ulong *pioa, int wrreg)
 {
 	Pcidev *p;
 	int ntb, i, size, rno, hole;
-	uvlong v, mema, smema, base, limit;
-	ulong ioa, sioa;
+	uvlong mema, smema;
+	ulong ioa, sioa, v;
 	Pcisiz *table, *tptr, *mtb, *itb;
 
 	ioa = *pioa;
@@ -329,26 +235,21 @@ pcibusmap(Pcidev *root, uvlong *pmema, ulong *pioa, int wrreg)
 			smema = mema;
 			pcibusmap(p->bridge, &smema, &sioa, 0);
 
-			hole = pcimask(smema-mema);
-			if(hole < (1<<20))
-				hole = 1<<20;
-			p->mema.size = hole;
-
 			hole = pcimask(sioa-ioa);
 			if(hole < (1<<12))
 				hole = 1<<12;
-
-			p->ioa.size = hole;
-
 			itb->dev = p;
 			itb->bar = -1;
-			itb->siz = p->ioa.size;
+			itb->siz = hole;
 			itb->typ = 0;
 			itb++;
 
+			hole = pcimask(smema-mema);
+			if(hole < (1<<20))
+				hole = 1<<20;
 			mtb->dev = p;
 			mtb->bar = -1;
-			mtb->siz = p->mema.size;
+			mtb->siz = hole;
 			mtb->typ = 0;
 			mtb++;
 			continue;
@@ -356,20 +257,17 @@ pcibusmap(Pcidev *root, uvlong *pmema, ulong *pioa, int wrreg)
 
 		for(i = 0; i < nelem(p->mem); i++) {
 			rno = PciBAR0 + i*4;
-			v = pcicfgrw32(p->tbdf, rno, 0, 1);
+			v = pcicfgr32(p, rno);
 			size = pcibarsize(p, rno);
 			if(size == 0)
 				continue;
-
-			p->mem[i].size = size;
 			if(v & 1) {
 				itb->dev = p;
 				itb->bar = i;
 				itb->siz = size;
 				itb->typ = 1;
 				itb++;
-			}
-			else {
+			} else {
 				mtb->dev = p;
 				mtb->bar = i;
 				mtb->siz = size;
@@ -396,17 +294,17 @@ pcibusmap(Pcidev *root, uvlong *pmema, ulong *pioa, int wrreg)
 		if(tptr->bar == -1)
 			hole = 1<<12;
 		ioa = (ioa+hole-1) & ~(hole-1);
-
-		p = tptr->dev;
-		if(tptr->bar == -1)
-			p->ioa.bar = ioa;
-		else {
-			p->pcr |= IOen;
-			p->mem[tptr->bar].bar = ioa|1;
-			if(wrreg)
-				pcicfgrw32(p->tbdf, PciBAR0+(tptr->bar*4), ioa|1, 0);
+		if(wrreg){
+			p = tptr->dev;
+			if(tptr->bar == -1) {
+				p->ioa.bar = ioa;
+				p->ioa.size = tptr->siz;
+			} else {
+				p->mem[tptr->bar].size = tptr->siz;
+				p->mem[tptr->bar].bar = ioa|1;
+				pcisetbar(p, PciBAR0+tptr->bar*4, p->mem[tptr->bar].bar);
+			}
 		}
-
 		ioa += tptr->siz;
 	}
 
@@ -418,21 +316,15 @@ pcibusmap(Pcidev *root, uvlong *pmema, ulong *pioa, int wrreg)
 		if(tptr->bar == -1)
 			hole = 1<<20;
 		mema = (mema+hole-1) & ~((uvlong)hole-1);
-
-		p = tptr->dev;
-		if(tptr->bar == -1)
-			p->mema.bar = mema;
-		else {
-			p->pcr |= MEMen;
-			p->mem[tptr->bar].bar = mema|tptr->typ;
-			if(wrreg){
-				rno = PciBAR0+(tptr->bar*4);
-				pcicfgrw32(p->tbdf, rno, mema|tptr->typ, 0);
-				if(tptr->bar < nelem(p->mem)-1 && (tptr->typ & 4) != 0){
-					p->mem[tptr->bar+1].bar = 0;
-					p->mem[tptr->bar+1].size = 0;
-					pcicfgrw32(p->tbdf, rno+4, mema>>32, 0);
-				}
+		if(wrreg){
+			p = tptr->dev;
+			if(tptr->bar == -1) {
+				p->mema.bar = mema;
+				p->mema.size = tptr->siz;
+			} else {
+				p->mem[tptr->bar].size = tptr->siz;
+				p->mem[tptr->bar].bar = mema|tptr->typ;
+				pcisetbar(p, PciBAR0+tptr->bar*4, p->mem[tptr->bar].bar);
 			}
 		}
 		mema += tptr->siz;
@@ -450,55 +342,70 @@ pcibusmap(Pcidev *root, uvlong *pmema, ulong *pioa, int wrreg)
 	 */
 	for(p = root; p != nil; p = p->link) {
 		if(p->bridge == nil) {
-			if(p->cls == 0){
-				p->cls = 64;
-				pcicfgw8(p, PciCLS, p->cls);
-			}
-			pcicfgrw8(p->tbdf, PciLTR, 64, 0);
-			p->pcr |= MASen;
-			pcicfgrw16(p->tbdf, PciPCR, p->pcr, 0);
+			pcienable(p);
 			continue;
 		}
 
-		if(p == pciroot){
-			base = p->mema.bar;
-			limit = base+p->mema.size-1;
-			regs[MISC_CPU_2_PCIE_MEM_WIN0_LO] = base;
-			regs[MISC_CPU_2_PCIE_MEM_WIN0_HI] = base >> 32;
-			base >>= 20, limit >>= 20;
-			regs[MISC_CPU_2_PCIE_MEM_WIN0_BASE_LIMIT] = (base & 0xFFF) << 4 | (limit & 0xFFF) << 20;
-			regs[MISC_CPU_2_PCIE_MEM_WIN0_BASE_HI] = base >> 12;
-			regs[MISC_CPU_2_PCIE_MEM_WIN0_LIMIT_HI] = limit >> 12;
-		}
+		/* Set I/O and Mem windows */
+		pcisetwin(p, p->ioa.bar|1, p->ioa.bar+p->ioa.size-1);
+		pcisetwin(p, p->mema.bar|0, p->mema.bar+p->mema.size-1);
 
-		base = p->ioa.bar;
-		limit = base+p->ioa.size-1;
-		v = pcicfgrw32(p->tbdf, PciIBR, 0, 1);
-		v = (v&0xFFFF0000)|(limit & 0xF000)|((base & 0xF000)>>8);
-		pcicfgrw32(p->tbdf, PciIBR, v, 0);
-		v = (limit & 0xFFFF0000)|(base>>16);
-		pcicfgrw32(p->tbdf, PciIUBR, v, 0);
+		/* Disable prefetch */
+		pcisetwin(p, 0xFFF00000|8, 0);
 
-		base = p->mema.bar;
-		limit = base+p->mema.size-1;
-		v = (limit & 0xFFF00000)|((base & 0xFFF00000)>>16);
-		pcicfgrw32(p->tbdf, PciMBR, v, 0);
-
-		/*
-		 * Disable memory prefetch
-		 */
-		pcicfgrw32(p->tbdf, PciPMBR, 0x0000FFFF, 0);
-		pcicfgrw8(p->tbdf, PciLTR, 64, 0);
-
-		/*
-		 * Enable the bridge
-		 */
-		p->pcr |= IOen|MEMen|MASen;
-		pcicfgrw32(p->tbdf, PciPCR, 0xFFFF0000|p->pcr, 0);
+		/* Enable the bridge */
+		pcienable(p);
 
 		sioa = p->ioa.bar;
 		smema = p->mema.bar;
 		pcibusmap(p->bridge, &smema, &sioa, 1);
+	}
+}
+
+static int
+pcivalidwin(Pcidev *p, uvlong base, uvlong limit)
+{
+	Pcidev *bridge = p->parent;
+	char *typ;
+
+	if(base & 1){
+		typ = "io";
+		base &= ~3;
+		if(base > limit)
+			return 0;
+		if(bridge == nil)
+			return 1;
+		if(base >= bridge->ioa.bar && limit < (bridge->ioa.bar + bridge->ioa.size))
+			return 1;
+	} else {
+		typ = "mem";
+		base &= ~0xFULL;
+		if(base > limit)
+			return 0;
+		if(bridge == nil)
+			return 1;
+		if(base >= bridge->mema.bar && limit < (bridge->mema.bar + bridge->mema.size))
+			return 1;
+		if(base >= bridge->prefa.bar && limit < (bridge->prefa.bar + bridge->prefa.size))
+			return 1;
+	}
+	print("%T: %.2uX invalid %s-window: %.8llux-%.8llux\n", p->tbdf, p->ccrb, typ, base, limit);
+	return 0;
+}
+
+static int
+pcivalidbar(Pcidev *p, uvlong bar, int size)
+{
+	if(bar & 1){
+		bar &= ~3;
+		if(bar == 0 || size < 4 || (bar & (size-1)) != 0)
+			return 0;
+		return pcivalidwin(p, bar|1, bar+size-1);
+	} else {
+		bar &= ~0xFULL;
+		if(bar == 0 || size < 16 || (bar & (size-1)) != 0)
+			return 0;
+		return pcivalidwin(p, bar|0, bar+size-1);
 	}
 }
 
@@ -523,12 +430,16 @@ pcilscan(int bno, Pcidev** list, Pcidev *parent)
 			 * from the device's configuration space.
 			 */
 			tbdf = MKBUS(BusPCI, bno, dno, fno);
+
+			lock(&pcicfglock);
 			l = pcicfgrw32(tbdf, PciVID, 0, 1);
+			unlock(&pcicfglock);
+
 			if(l == 0xFFFFFFFF || l == 0)
 				continue;
 			p = malloc(sizeof(*p));
 			if(p == nil)
-				panic("pcilscan: no memory");
+				panic("pcilscan: can't allocate memory");
 			p->tbdf = tbdf;
 			p->vid = l;
 			p->did = l>>16;
@@ -546,7 +457,6 @@ pcilscan(int bno, Pcidev** list, Pcidev *parent)
 			p->ccrb = pcicfgr8(p, PciCCRb);
 			p->cls = pcicfgr8(p, PciCLS);
 			p->ltr = pcicfgr8(p, PciLTR);
-
 			p->intl = pcicfgr8(p, PciINTL);
 
 			/*
@@ -614,8 +524,24 @@ pcilscan(int bno, Pcidev** list, Pcidev *parent)
 		/*
 		 * Find PCI-PCI bridges and recursively descend the tree.
 		 */
-		if(p->ccrb != 0x06 || p->ccru != 0x04)
+		switch(p->ccrb) {
+		case 0x06:
+			if(p->ccru == 0x04)
+				break;
+		default:
+			for(i = 0; i < nelem(p->mem); i++) {
+				if(p->mem[i].size == 0)
+					continue;
+				if(!pcivalidbar(p, p->mem[i].bar, p->mem[i].size)){
+					if(p->mem[i].bar & 1)
+						p->mem[i].bar &= 3;
+					else
+						p->mem[i].bar &= 0xF;
+					pcisetbar(p, PciBAR0 + i*4, p->mem[i].bar);
+				}
+			}
 			continue;
+		}
 
 		/*
 		 * If the secondary or subordinate bus number is not
@@ -638,16 +564,75 @@ pcilscan(int bno, Pcidev** list, Pcidev *parent)
 			 *
 			 * Initialisation of the bridge should be done here.
 			 */
+			p->pcr = 0;
 			pcicfgw32(p, PciPCR, 0xFFFF0000);
 			l = (MaxUBN<<16)|(sbn<<8)|bno;
 			pcicfgw32(p, PciPBN, l);
 			pcicfgw16(p, PciSPSR, 0xFFFF);
+
+			p->ioa.bar = 0;
+			p->ioa.size = 0;
+			p->mema.bar = 0;
+			p->mema.size = 0;
+			p->prefa.bar = 0;
+			p->prefa.size = 0;
+
+			pcisetwin(p, 0xFFFFF000|1, 0);
+			pcisetwin(p, 0xFFF00000|0, 0);
+			pcisetwin(p, 0xFFF00000|8, 0);
+
 			maxubn = pcilscan(sbn, &p->bridge, p);
 			l = (maxubn<<16)|(sbn<<8)|bno;
 
 			pcicfgw32(p, PciPBN, l);
 		}
 		else {
+			uvlong base, limit;
+			ulong v;
+
+			v = pcicfgr16(p, PciIBR);
+			limit = (v & 0xF000) | 0x0FFF;
+			base  = (v & 0x00F0) << 8;
+			if((v & 0x0F) == 0x01){
+				v = pcicfgr32(p, PciIUBR);
+				limit |= (v & 0xFFFF0000);
+				base  |= (v & 0x0000FFFF) << 16;
+			}
+			if(pcivalidwin(p, base|1, limit)){
+				p->ioa.bar = base;
+				p->ioa.size = (limit - base)+1;
+			} else {
+				pcisetwin(p, 0xFFFFF000|1, 0);
+				p->ioa.bar = 0;
+				p->ioa.size = 0;
+			}
+
+			v = pcicfgr32(p, PciMBR);
+			limit = (v & 0xFFF00000) | 0x000FFFFF;
+			base  = (v & 0x0000FFF0) << 16;
+			if(pcivalidwin(p, base|0, limit)){
+				p->mema.bar = base;
+				p->mema.size = (limit - base)+1;
+			} else {
+				pcisetwin(p, 0xFFF00000|0, 0);
+				p->mema.bar = 0;
+				p->mema.size = 0;
+			}
+
+			v = pcicfgr32(p, PciPMBR);
+			limit = (v & 0xFFF00000) | 0x000FFFFF;
+			limit |= (uvlong)pcicfgr32(p, PciPULR) << 32;
+			base  = (v & 0x0000FFF0) << 16;
+			base  |= (uvlong)pcicfgr32(p, PciPUBR) << 32;
+			if(pcivalidwin(p, base|8, limit)){
+				p->prefa.bar = base;
+				p->prefa.size = (limit - base)+1;
+			} else {
+				pcisetwin(p, 0xFFF00000|8, 0);
+				p->prefa.bar = 0;
+				p->prefa.size = 0;
+			}
+
 			if(ubn > maxubn)
 				maxubn = ubn;
 			pcilscan(sbn, &p->bridge, p);
@@ -657,29 +642,67 @@ pcilscan(int bno, Pcidev** list, Pcidev *parent)
 	return maxubn;
 }
 
-static void
-pcicfginit(void)
+int
+pciscan(int bno, Pcidev **list)
 {
-	uvlong mema;
-	ulong ioa;
+	return pcilscan(bno, list, nil);
+}
 
-	fmtinstall('T', tbdffmt);
+void
+pcibussize(Pcidev *root, uvlong *msize, ulong *iosize)
+{
+	*msize = 0;
+	*iosize = 0;
+	pcibusmap(root, msize, iosize, 0);
+}
 
-	pcilscan(0, &pciroot, nil);
+Pcidev*
+pcimatch(Pcidev* prev, int vid, int did)
+{
+	if(prev == nil)
+		prev = pcilist;
+	else
+		prev = prev->list;
 
-	/*
-	 * Work out how big the top bus is
-	 */
-	ioa = 0;
-	mema = 0;
-	pcibusmap(pciroot, &mema, &ioa, 0);
+	while(prev != nil){
+		if((vid == 0 || prev->vid == vid)
+		&& (did == 0 || prev->did == did))
+			break;
+		prev = prev->list;
+	}
+	return prev;
+}
 
-	/*
-	 * Align the windows and map it
-	 */
-	ioa = 0;
-	mema = soc.pciwin;
-	pcibusmap(pciroot, &mema, &ioa, 1);
+Pcidev*
+pcimatchtbdf(int tbdf)
+{
+	Pcidev *pcidev;
+
+	for(pcidev = pcilist; pcidev != nil; pcidev = pcidev->list) {
+		if(pcidev->tbdf == tbdf)
+			break;
+	}
+	return pcidev;
+}
+
+uchar
+pciipin(Pcidev *pci, uchar pin)
+{
+	if (pci == nil)
+		pci = pcilist;
+
+	while (pci != nil) {
+		uchar intl;
+
+		if (pcicfgr8(pci, PciINTP) == pin && pci->intl != 0 && pci->intl != 0xff)
+			return pci->intl;
+
+		if (pci->bridge && (intl = pciipin(pci->bridge, pin)) != 0)
+			return intl;
+
+		pci = pci->list;
+	}
+	return 0;
 }
 
 static void
@@ -688,21 +711,21 @@ pcilhinv(Pcidev* p)
 	int i;
 	Pcidev *t;
 
-	if(p == nil) {
-		p = pciroot;
-		print("bus dev type vid  did intl memory\n");
-	}
 	for(t = p; t != nil; t = t->link) {
 		print("%d  %2d/%d %.2ux %.2ux %.2ux %.4ux %.4ux %3d  ",
 			BUSBNO(t->tbdf), BUSDNO(t->tbdf), BUSFNO(t->tbdf),
 			t->ccrb, t->ccru, t->ccrp, t->vid, t->did, t->intl);
-
 		for(i = 0; i < nelem(p->mem); i++) {
 			if(t->mem[i].size == 0)
 				continue;
-			print("%d:%llux %d ", i,
-				(uvlong)t->mem[i].bar, t->mem[i].size);
+			print("%d:%.8llux %d ", i, t->mem[i].bar, t->mem[i].size);
 		}
+		if(t->ioa.bar || t->ioa.size)
+			print("ioa:%.8llux-%.8llux %d ", t->ioa.bar, t->ioa.bar+t->ioa.size, t->ioa.size);
+		if(t->mema.bar || t->mema.size)
+			print("mema:%.8llux-%.8llux %d ", t->mema.bar, t->mema.bar+t->mema.size, t->mema.size);
+		if(t->prefa.bar || t->prefa.size)
+			print("prefa:%.8llux-%.8llux %llud ", t->prefa.bar, t->prefa.bar+t->prefa.size, t->prefa.size);
 		if(t->bridge)
 			print("->%d", BUSBNO(t->bridge->tbdf));
 		print("\n");
@@ -714,10 +737,24 @@ pcilhinv(Pcidev* p)
 	}
 }
 
-static void
+void
 pcihinv(Pcidev* p)
 {
+	print("bus dev type     vid  did  intl memory\n");
 	pcilhinv(p);
+}
+
+void
+pcireset(void)
+{
+	Pcidev *p;
+
+	for(p = pcilist; p != nil; p = p->list) {
+		/* don't mess with the bridges */
+		if(p->ccrb == 0x06)
+			continue;
+		pciclrbme(p);
+	}
 }
 
 void
@@ -827,17 +864,6 @@ pcicap(Pcidev *p, int cap)
 }
 
 int
-pcinextcap(Pcidev *pci, int offset)
-{
-	if(offset == 0) {
-		if((pcicfgr16(pci, PciPSR) & (1<<4)) == 0)
-			return 0; /* no capabilities */
-		offset = PciCAP-1;
-	}
-	return pcicfgr8(pci, offset+1) & ~3;
-}
-
-int
 pcihtcap(Pcidev *p, int cap)
 {
 	return enumcaps(p, matchhtcap, cap);
@@ -908,6 +934,17 @@ pcisetpms(Pcidev* p, int state)
 	return ostate;
 }
 
+int
+pcinextcap(Pcidev *pci, int offset)
+{
+	if(offset == 0) {
+		if((pcicfgr16(pci, PciPSR) & (1<<4)) == 0)
+			return 0; /* no capabilities */
+		offset = PciCAP-1;
+	}
+	return pcicfgr8(pci, offset+1) & ~3;
+}
+
 void
 pcienable(Pcidev *p)
 {
@@ -936,17 +973,25 @@ pcienable(Pcidev *p)
 
 		/* restore registers */
 		for(i = 0; i < nelem(p->mem); i++){
-			pcicfgw32(p, PciBAR0+i*4, p->mem[i].bar);
-			if((p->mem[i].bar&7) == 4 && i < nelem(p->mem)-1){
-				pcicfgw32(p, PciBAR0+i*4+4, p->mem[i].bar>>32);
-				i++;
-			}
+			if(p->mem[i].size == 0)
+				continue;
+			pcisetbar(p, PciBAR0+i*4, p->mem[i].bar);
 		}
+
 		pcicfgw8(p, PciINTL, p->intl);
 		pcicfgw8(p, PciLTR, p->ltr);
 		pcicfgw8(p, PciCLS, p->cls);
 		pcicfgw16(p, PciPCR, p->pcr);
 		break;
+	}
+
+	if(p->ltr == 0 || p->ltr == 0xFF){
+		p->ltr = 64;
+		pcicfgw8(p,PciLTR, p->ltr);
+	}
+	if(p->cls == 0 || p->cls == 0xFF){
+		p->cls = 64/4;
+		pcicfgw8(p, PciCLS, p->cls);
 	}
 
 	if(p->bridge != nil)
@@ -966,7 +1011,7 @@ pcienable(Pcidev *p)
 	if((p->pcr & pcr) != pcr){
 		print("pcienable %T: pcr %ux->%ux\n", p->tbdf, p->pcr, p->pcr|pcr);
 		p->pcr |= pcr;
-		pcicfgrw32(p->tbdf, PciPCR, 0xFFFF0000|p->pcr, 0);
+		pcicfgw32(p, PciPCR, 0xFFFF0000|p->pcr);
 	}
 }
 
@@ -976,166 +1021,4 @@ pcidisable(Pcidev *p)
 	if(p == nil)
 		return;
 	pciclrbme(p);
-}
-
-enum {
-	MSICtrl = 0x02, /* message control register (16 bit) */
-	MSIAddr = 0x04, /* message address register (64 bit) */
-	MSIData32 = 0x08, /* message data register for 32 bit MSI (16 bit) */
-	MSIData64 = 0x0C, /* message data register for 64 bit MSI (16 bit) */
-};
-
-typedef struct Pciisr Pciisr;
-struct Pciisr {
-	void	(*f)(Ureg*, void*);
-	void	*a;
-	Pcidev	*p;
-};
-
-static Pciisr pciisr[32];
-static Lock pciisrlk;
-
-void
-pciintrenable(int tbdf, void (*f)(Ureg*, void*), void *a)
-{
-	int cap, ok64;
-	u32int dat;
-	u64int adr;
-	Pcidev *p;
-	Pciisr *isr;
-
-	if((p = pcimatchtbdf(tbdf)) == nil){
-		print("pciintrenable: %T: unknown device\n", tbdf);
-		return;
-	}
-	if((cap = pcicap(p, PciCapMSI)) < 0){
-		print("pciintrenable: %T: no MSI cap\n", tbdf);
-		return;
-	}
-
-	lock(&pciisrlk);
-	for(isr = pciisr; isr < &pciisr[nelem(pciisr)]; isr++){
-		if(isr->p == p){
-			isr->p = nil;
-			regs[MSI_INTR2_BASE + INTR_MASK_SET] = 1 << (isr-pciisr);
-			break;
-		}
-	}
-	for(isr = pciisr; isr < &pciisr[nelem(pciisr)]; isr++){
-		if(isr->p == nil){
-			isr->p = p;
-			isr->a = a;
-			isr->f = f;
-			regs[MSI_INTR2_BASE + INTR_CLR] = 1 << (isr-pciisr);
-			regs[MSI_INTR2_BASE + INTR_MASK_CLR] = 1 << (isr-pciisr);
-			break;
-		}
-	}
-	unlock(&pciisrlk);
-
-	if(isr >= &pciisr[nelem(pciisr)]){
-		print("pciintrenable: %T: out of isr slots\n", tbdf);
-		return;
-	}
-
-	adr = MSI_TARGET_ADDR;
-	ok64 = (pcicfgr16(p, cap + MSICtrl) & (1<<7)) != 0;
-	pcicfgw32(p, cap + MSIAddr, adr);
-	if(ok64) pcicfgw32(p, cap + MSIAddr + 4, adr>>32);
-	dat = regs[MISC_MSI_DATA_CONFIG];
-	dat = ((dat >> 16) & (dat & 0xFFFF)) | (isr-pciisr);
-	pcicfgw16(p, cap + (ok64 ? MSIData64 : MSIData32), dat);
-	pcicfgw16(p, cap + MSICtrl, 1);
-}
-
-void
-pciintrdisable(int tbdf, void (*f)(Ureg*, void*), void *a)
-{
-	Pciisr *isr;
-
-	lock(&pciisrlk);
-	for(isr = pciisr; isr < &pciisr[nelem(pciisr)]; isr++){
-		if(isr->p != nil && isr->p->tbdf == tbdf && isr->f == f && isr->a == a){
-			regs[MSI_INTR2_BASE + INTR_MASK_SET] = 1 << (isr-pciisr);
-			isr->p = nil;
-			isr->f = nil;
-			isr->a = nil;
-			break;
-		}
-	}
-	unlock(&pciisrlk);
-}
-
-static void
-pciinterrupt(Ureg *ureg, void*)
-{
-	Pciisr *isr;
-	u32int sts;
-
-	sts = regs[MSI_INTR2_BASE + INTR_STATUS];
-	if(sts == 0)
-		return;
-	regs[MSI_INTR2_BASE + INTR_CLR] = sts;
-	for(isr = pciisr; sts != 0 && isr < &pciisr[nelem(pciisr)]; isr++, sts>>=1){
-		if((sts & 1) != 0 && isr->f != nil)
-			(*isr->f)(ureg, isr->a);
-	}
-	regs[MISC_EOI_CTRL] = 1;
-}
-
-void
-pcilink(void)
-{
-	int log2dmasize = 30;	// 1GB
-
-	regs[RGR1_SW_INIT_1] |= 3;
-	delay(200);
-	regs[RGR1_SW_INIT_1] &= ~2;
-	regs[MISC_PCIE_CTRL] &= ~5;
-	delay(200);
-
-	regs[MISC_HARD_PCIE_HARD_DEBUG] &= ~0x08000000;
-	delay(200);
-
-	regs[MSI_INTR2_BASE + INTR_CLR] = -1;
-	regs[MSI_INTR2_BASE + INTR_MASK_SET] = -1;
-
-	regs[MISC_CPU_2_PCIE_MEM_WIN0_LO] = 0;
-	regs[MISC_CPU_2_PCIE_MEM_WIN0_HI] = 0;
-	regs[MISC_CPU_2_PCIE_MEM_WIN0_BASE_LIMIT] = 0;
-	regs[MISC_CPU_2_PCIE_MEM_WIN0_BASE_HI] = 0;
-	regs[MISC_CPU_2_PCIE_MEM_WIN0_LIMIT_HI] = 0;
-
-	// SCB_ACCESS_EN, CFG_READ_UR_MODE, MAX_BURST_SIZE_128, SCB0SIZE
-	regs[MISC_MISC_CTRL] = 1<<12 | 1<<13 | 0<<20 | (log2dmasize-15)<<27;
-
-	regs[MISC_RC_BAR2_CONFIG_LO] = (log2dmasize-15);
-	regs[MISC_RC_BAR2_CONFIG_HI] = 0;
-
-	regs[MISC_RC_BAR1_CONFIG_LO] = 0;
-	regs[MISC_RC_BAR3_CONFIG_LO] = 0;
-
-	regs[MISC_MSI_BAR_CONFIG_LO] = MSI_TARGET_ADDR | 1;
-	regs[MISC_MSI_BAR_CONFIG_HI] = MSI_TARGET_ADDR>>32;
-	regs[MISC_MSI_DATA_CONFIG] = 0xFFF86540;
-	intrenable(IRQpci, pciinterrupt, nil, BUSUNKNOWN, "pci");
-
-	// force to GEN2
-	regs[(0xAC + 12)/4] = (regs[(0xAC + 12)/4] & ~15) | 2;	// linkcap
-	regs[(0xAC + 48)/4] = (regs[(0xAC + 48)/4] & ~15) | 2;	// linkctl2
-
-	regs[RGR1_SW_INIT_1] &= ~1;
-	delay(500);
-
-	if((regs[MISC_PCIE_STATUS] & 0x30) != 0x30){
-		print("pcireset: phy link is down\n");
-		return;
-	}
-
-	regs[RC_CFG_PRIV1_ID_VAL3] = 0x060400;
-	regs[RC_CFG_VENDOR_VENDOR_SPECIFIC_REG1] &= ~0xC;
-	regs[MISC_HARD_PCIE_HARD_DEBUG] |= 2;
-
-	pcicfginit();
-	pcihinv(nil);
 }

@@ -5,6 +5,7 @@
 #include "fns.h"
 #include "io.h"
 #include "ureg.h"
+#include "../port/pci.h"
 #include "../port/error.h"
 
 /* this driver doesn't implement the management interrupts.  we

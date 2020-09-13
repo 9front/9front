@@ -22,6 +22,7 @@
 #include "dat.h"
 #include "fns.h"
 #include "io.h"
+#include "../port/pci.h"
 #include "../port/error.h"
 #include "../port/netif.h"
 #include "../port/etherif.h"
@@ -1910,7 +1911,6 @@ igbereset(Ctlr* ctlr)
 static void
 igbepci(void)
 {
-	int cls;
 	Pcidev *p;
 	Ctlr *ctlr;
 	void *mem;
@@ -1949,8 +1949,7 @@ igbepci(void)
 			print("igbe: can't map %llux\n", p->mem[0].bar & ~0xF);
 			continue;
 		}
-		cls = pcicfgr8(p, PciCLS);
-		switch(cls){
+		switch(p->cls){
 		default:
 			print("igbe: p->cls %#ux, setting to 0x10\n", p->cls);
 			p->cls = 0x10;
@@ -1969,7 +1968,7 @@ igbepci(void)
 		ctlr->pcidev = p;
 		pcienable(p);
 		ctlr->id = (p->did<<16)|p->vid;
-		ctlr->cls = cls*4;
+		ctlr->cls = p->cls*4;
 		ctlr->nic = mem;
 
 		if(igbereset(ctlr)){

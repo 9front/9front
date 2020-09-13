@@ -4,6 +4,7 @@
 #include "dat.h"
 #include "fns.h"
 #include "io.h"
+#include "../port/pci.h"
 #include "../port/error.h"
 
 extern PhysUart i8250physuart;
@@ -21,21 +22,21 @@ uartpci(int ctlrno, Pcidev* p, int barno, int n, int freq, char* name,
 	char buf[64];
 	Uart *head, *uart;
 
-	head = malloc(sizeof(Uart)*n);
-	if(head == nil){
-		print("uartpci: no memory for Uarts\n");
+	if((p->mem[barno].bar & 1) == 0)
 		return nil;
-	}
-
-	io = p->mem[barno].bar & ~0x01;
+	io = p->mem[barno].bar & ~3;
 	snprint(buf, sizeof(buf), "%s%d", pciphysuart.name, ctlrno);
 	if(ioalloc(io, p->mem[barno].size, 0, buf) < 0){
 		print("uartpci: I/O 0x%uX in use\n", io);
-		free(head);
 		return nil;
 	}
-
 	pcienable(p);
+	head = malloc(sizeof(Uart)*n);
+	if(head == nil){
+		print("uartpci: no memory for Uarts\n");
+		iofree(io);
+		return nil;
+	}
 	uart = head;
 	for(i = 0; i < n; i++){
 		ctlr = i8250alloc(io + i*iosize, p->intl, p->tbdf);

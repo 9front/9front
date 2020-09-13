@@ -26,7 +26,7 @@ dev
 	draw		screen vga vgax vgasoft
 	mouse		mouse
 	kbd
-	vga
+	vga		pci
 
 	sd
 #	floppy		dma
@@ -44,9 +44,9 @@ dev
 	dtracy
 
 link
-#	devpccard
+#	devpccard	pci
 #	devi82365
-	cputemp
+	cputemp		pci
 #	ether2000	ether8390
 #	ether2114x	pci
 #	ether589	etherelnk3
@@ -82,16 +82,17 @@ link
 #	pcmciamodem
 	netdevmedium
 	loopbackmedium
-	usbuhci
-	usbohci
-	usbehci		usbehcipc
+	usbuhci		pci
+	usbohci		pci
+	usbehci		pci usbehcipc
 	usbxhci		pci
 
 #	audiosb16	dma
-#	audioac97	audioac97mix
-	audiohda
+#	audioac97	pci audioac97mix
+	audiohda	pci
 
 misc
+	pci		pcipc
 	archacpi	mp apic squidboy ec
 	archmp		mp apic squidboy
 	mtrr

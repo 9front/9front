@@ -23,6 +23,7 @@
 #include "dat.h"
 #include "fns.h"
 #include "io.h"
+#include "../port/pci.h"
 
 #include "../port/sd.h"
 extern SDifc sd53c8xxifc;

@@ -33,13 +33,14 @@ dev
 #	usb
 
 link
+	pciteg
 	archtegra
 	ethermedium
 #	flashtegra	ecc
 	loopbackmedium
 	netdevmedium
 
-	ether8169	ethermii
+	ether8169	pci ethermii
 #	usbohci
 #	usbehci		usbehcitegra
 
@@ -54,7 +55,7 @@ ip
 	esp
 
 misc
-	pci
+	pci		pciteg
 	rdb
 	coproc
 	v7-arch

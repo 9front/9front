@@ -4,6 +4,7 @@
 #include	"dat.h"
 #include	"fns.h"
 #include	"io.h"
+#include	"../port/pci.h"
 
 /*
  *	SMBus support for the PIIX4

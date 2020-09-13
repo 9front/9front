@@ -8,6 +8,7 @@
 #include	"fns.h"
 #include	"../port/error.h"
 #include	"io.h"
+#include	"../port/pci.h"
 
 #include	"devlml.h"
 

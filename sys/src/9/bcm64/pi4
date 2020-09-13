@@ -26,7 +26,7 @@ dev
 
 link
 	gisb
-	pci
+	pcibcm
 	archbcm4	pci
 	usbxhci		pci archbcm4
 	ethergenet	ethermii
@@ -49,7 +49,7 @@ misc
 	dma
 	gic
 	vcore
-
+	pci	pcibcm
 	dtracysys
 	dtracytimer
 

@@ -4,6 +4,7 @@
 #include "dat.h"
 #include "fns.h"
 #include "io.h"
+#include "../port/pci.h"
 #include "ureg.h"
 #include "../port/error.h"
 
@@ -203,13 +204,15 @@ viopnpdevs(int typ)
 			continue;
 		if(p->rid != 0)
 			continue;
+		if((p->mem[0].bar & 1) == 0)
+			continue;
 		if(pcicfgr16(p, 0x2E) != typ)
 			continue;
 		if((vd = malloc(sizeof(*vd))) == nil){
 			print("virtio: no memory for Vdev\n");
 			break;
 		}
-		vd->port = p->mem[0].bar & ~0x1;
+		vd->port = p->mem[0].bar & ~3;
 		if(ioalloc(vd->port, p->mem[0].size, 0, "virtio") < 0){
 			print("virtio: port %lux in use\n", vd->port);
 			free(vd);
