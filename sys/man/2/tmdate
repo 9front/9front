@@ -11,19 +11,21 @@ tmnow, tzload, tmtime, tmparse, tmfmt, tmnorm - convert date and time
 .EX
 typedef struct Tm Tm;
 typedef struct Tmfmt Tmfmt;
+typedef struct Tzone Tzone;
 
 struct Tm {
-	int	nsec;	/* nanoseconds (range 0..1e9) */
-	int	sec;	/* seconds (range 0..59) */
-	int	min;	/* minutes (0..59) */
-	int	hour;	/* hours (0..23) */
-	int	mday;	/* day of the month (1..31) */
-	int	mon;	/* month of the year (0..11) */
-	int	year;	/* C.E year - 1900 */
-	int	wday;	/* day of week (0..6, Sunday = 0) */
-	int	yday;	/* day of year (0..365) */
-	char	zone[];	/* time zone name */
-	int	tzoff;	/* time	zone delta from GMT, seconds */
+	int     nsec;    /* nanoseconds (range 0..1e9) */
+	int     sec;     /* seconds (range 0..59) */
+	int     min;     /* minutes (0..59) */
+	int     hour;    /* hours (0..23) */
+	int     mday;    /* day of the month (1..31) */
+	int     mon;     /* month of the year (0..11) */
+	int     year;    /* C.E year - 1900 */
+	int     wday;    /* day of week (0..6, Sunday = 0) */
+	int     yday;    /* day of year (0..365) */
+	char    zone[];  /* time zone name */
+	int     tzoff;   /* time zone delta from GMT, seconds */
+	Tzone  *tz;      /* the time zone (optional) */
 };
 
 Tzone *tzload(char *name);
@@ -152,8 +154,6 @@ which would get normalized to February 1st.
 .PP
 Any characters not specified above are copied directly to output,
 without modification.
-
-
 
 .PP
 If the format argument is nil, it makes an
