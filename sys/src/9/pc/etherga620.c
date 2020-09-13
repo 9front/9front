@@ -16,6 +16,7 @@
 #include "dat.h"
 #include "fns.h"
 #include "io.h"
+#include "../port/pci.h"
 #include "../port/error.h"
 #include "../port/netif.h"
 #include "../port/etherif.h"
@@ -1085,7 +1086,7 @@ print("ga620shutdown\n");
 static int
 ga620reset(Ctlr* ctlr)
 {
-	int cls, csr, i, r;
+	int csr, i, r;
 
 	if(ga620detach(ctlr) < 0)
 		return -1;
@@ -1108,9 +1109,10 @@ ga620reset(Ctlr* ctlr)
 	csr = csr32r(ctlr, Ps) & (PCI32|PCI66);
 	csr |= PCIwcmd|PCIrcmd|PCImrm;
 	if(ctlr->pcidev->pcr & 0x0010){
-		cls = pcicfgr8(ctlr->pcidev, PciCLS) * 4;
-		if(cls != 32)
-			pcicfgw8(ctlr->pcidev, PciCLS, 32/4);
+		if(ctlr->pcidev->cls != 32/4){
+			ctlr->pcidev->cls = 32/4;
+			pcicfgw8(ctlr->pcidev, PciCLS, ctlr->pcidev->cls);
+		}
 		csr |= PCIwm32;
 	}
 	csr32w(ctlr, Ps, csr);

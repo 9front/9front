@@ -4,6 +4,7 @@
 #include "dat.h"
 #include "fns.h"
 #include "io.h"
+#include "../port/pci.h"
 #include "../port/error.h"
 #include "../port/netif.h"
 #include "../port/etherif.h"
@@ -563,6 +564,9 @@ pciprobe(int typ)
 		/* non-transitional devices will have a revision > 0 */
 		if(p->rid != 0)
 			continue;
+		/* first membar needs to be I/O */
+		if((p->mem[0].bar & 1) == 0)
+			continue;
 		/* non-transitional device will have typ+0x40 */
 		if(pcicfgr16(p, 0x2E) != typ)
 			continue;
@@ -570,8 +574,7 @@ pciprobe(int typ)
 			print("ethervirtio: no memory for Ctlr\n");
 			break;
 		}
-
-		c->port = p->mem[0].bar & ~0x1;
+		c->port = p->mem[0].bar & ~3;
 		if(ioalloc(c->port, p->mem[0].size, 0, "ethervirtio") < 0){
 			print("ethervirtio: port %ux in use\n", c->port);
 			free(c);

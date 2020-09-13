@@ -10,6 +10,7 @@
 #include "dat.h"
 #include "fns.h"
 #include "io.h"
+#include "../port/pci.h"
 #include "../port/error.h"
 #include "../port/netif.h"
 #include "../port/etherif.h"
@@ -490,7 +491,7 @@ amd79c970pci(void)
 
 	p = nil;
 	while(p = pcimatch(p, 0x1022, 0x2000)){
-		port = p->mem[0].bar & ~0x01;
+		port = p->mem[0].bar & ~3;
 		if(ioalloc(port, p->mem[0].size, 0, "amd79c970") < 0){
 			print("amd79c970: port 0x%uX in use\n", port);
 			continue;
@@ -501,7 +502,7 @@ amd79c970pci(void)
 			iofree(port);
 			continue;
 		}
-		ctlr->port = p->mem[0].bar & ~0x01;
+		ctlr->port = port;
 		ctlr->pcidev = p;
 
 		if(ctlrhead != nil)

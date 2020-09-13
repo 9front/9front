@@ -15,6 +15,7 @@
 #include "dat.h"
 #include "fns.h"
 #include "io.h"
+#include "../port/pci.h"
 #include "ureg.h"
 #include "../port/error.h"
 
@@ -1054,7 +1055,7 @@ mylexpnp(void)
 	p = nil;
 	head = tail = nil;
 	while(p = pcimatch(p, 0x104B, 0)){
-		if((sdev = mylexprobe(p->mem[0].bar & ~0x01, p->intl)) == nil)
+		if((sdev = mylexprobe(p->mem[0].bar & ~3, p->intl)) == nil)
 			continue;
 
 		ctlr = sdev->ctlr;

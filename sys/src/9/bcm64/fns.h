@@ -183,28 +183,9 @@ extern void screeninit(void);
 
 extern int isaconfig(char*, int, ISAConf*);
 
-/* pci */
-typedef struct Pcidev Pcidev;
-extern int pcicfgr32(Pcidev* pcidev, int rno);
-extern void pcicfgw32(Pcidev* pcidev, int rno, int data);
-extern int pcicfgr16(Pcidev* pcidev, int rno);
-extern void pcicfgw16(Pcidev* pcidev, int rno, int data);
-extern int pcicfgr8(Pcidev* pcidev, int rno);
-extern void pcicfgw8(Pcidev* pcidev, int rno, int data);
-extern Pcidev* pcimatch(Pcidev* prev, int vid, int did);
-extern Pcidev* pcimatchtbdf(int tbdf);
-extern void pcisetioe(Pcidev* p);
-extern void pciclrioe(Pcidev* p);
-extern void pcisetbme(Pcidev* p);
-extern void pciclrbme(Pcidev* p);
-extern void pcisetmwi(Pcidev* p);
-extern void pciclrmwi(Pcidev* p);
-extern int pcicap(Pcidev *p, int cap);
-extern int pcinextcap(Pcidev *pci, int offset);
-extern int pcihtcap(Pcidev *p, int cap);
-extern int pcigetpms(Pcidev* p);
-extern int pcisetpms(Pcidev* p, int state);
-extern void pcienable(Pcidev *p);
-extern void pcidisable(Pcidev *p);
+/* pcibcm */
+extern int pcicfgrw8(int tbdf, int rno, int data, int read);
+extern int pcicfgrw16(int tbdf, int rno, int data, int read);
+extern int pcicfgrw32(int tbdf, int rno, int data, int read);
 extern void pciintrenable(int tbdf, void (*f)(Ureg*, void*), void *a);
 extern void pciintrdisable(int tbdf, void (*f)(Ureg*, void*), void *a);

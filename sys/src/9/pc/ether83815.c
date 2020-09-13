@@ -22,6 +22,7 @@
 #include "dat.h"
 #include "fns.h"
 #include "io.h"
+#include "../port/pci.h"
 #include "../port/error.h"
 #include "../port/netif.h"
 #include "../port/etherif.h"
@@ -1089,7 +1090,7 @@ scanpci83815(void)
 			print("ns83815: can't allocate memory\n");
 			continue;
 		}
-		ctlr->port = p->mem[0].bar & ~0x01;
+		ctlr->port = p->mem[0].bar & ~3;
 		ctlr->pcidev = p;
 		ctlr->id = id;
 

@@ -9,6 +9,7 @@
 #include "dat.h"
 #include "fns.h"
 #include "io.h"
+#include "../port/pci.h"
 #include "../port/error.h"
 #include "../port/netif.h"
 #include "../port/etherif.h"
@@ -693,7 +694,7 @@ rtl8139match(Ether* edev, int id)
 		p = ctlr->pcidev;
 		if(((p->did<<16)|p->vid) != id)
 			continue;
-		port = p->mem[0].bar & ~0x01;
+		port = p->mem[0].bar & ~3;
 		if(edev->port != 0 && edev->port != port)
 			continue;
 

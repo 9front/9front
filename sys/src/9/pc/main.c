@@ -40,6 +40,7 @@ main(void)
 	ramdiskinit();
 	confinit();
 	xinit();
+	pcicfginit();
 	bootscreeninit();
 	if(i8237alloc != nil)
 		i8237alloc();
@@ -57,7 +58,6 @@ main(void)
 	initseg();
 	if(delaylink){
 		bootlinks();
-		pcimatch(0, 0, 0);
 	}else
 		links();
 	chandevreset();

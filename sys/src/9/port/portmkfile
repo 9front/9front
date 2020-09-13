@@ -40,7 +40,7 @@ clean:V:
 nuke:V:	clean
 	rm -f ../boot/libboot.a$O *.elf *.rr *.acid
 
-%.$O:	/$objtype/include/u.h ../port/lib.h mem.h dat.h fns.h io.h ../port/error.h ../port/portdat.h ../port/portfns.h
+%.$O:	/$objtype/include/u.h ../port/lib.h mem.h dat.h fns.h io.h ../port/pci.h ../port/error.h ../port/portdat.h ../port/portfns.h
 
 ../port/systab.h:D:	/sys/src/libc/9syscall/sys.h ../port/mksystab
 	rc ../port/mksystab > ../port/systab.h
@@ -112,3 +112,4 @@ devether.$O ethersink.$O:	../port/etherif.h ../port/netif.h
 wifi.$O:	../port/etherif.h ../port/netif.h ../port/wifi.h /sys/include/libsec.h
 wifi.$O:	../ip/ip.h ../ip/ipv6.h
 ethermii.$O:	../port/ethermii.h
+pci.$O devpnp.$O usbxhci.$O:	../port/pci.h

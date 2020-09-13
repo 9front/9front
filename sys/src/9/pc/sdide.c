@@ -4,6 +4,7 @@
 #include "dat.h"
 #include "fns.h"
 #include "io.h"
+#include "../port/pci.h"
 #include "ureg.h"
 #include "../port/error.h"
 
@@ -352,7 +353,7 @@ pc87415ienable(Ctlr* ctlr)
 		return;
 
 	x = pcicfgr32(p, 0x40);
-	if(ctlr->cmdport == p->mem[0].bar)
+	if(ctlr->cmdport == (p->mem[0].bar & ~3))
 		x &= ~0x00000100;
 	else
 		x &= ~0x00000200;
@@ -2142,8 +2143,8 @@ atapnp(void)
 			if((map & 1<<channel) == 0)
 				continue;
 			if(pi & 1<<2*channel){
-				sdev = ataprobe(p->mem[0+2*channel].bar & ~0x01,
-						p->mem[1+2*channel].bar & ~0x01,
+				sdev = ataprobe(p->mem[0+2*channel].bar & ~3,
+						p->mem[1+2*channel].bar & ~3,
 						p->intl, 3);
 				tbdf = p->tbdf;
 			}
@@ -2169,7 +2170,7 @@ atapnp(void)
 			ctlr->span = span;
 			ctlr->irqack = irqack;
 			if((pi & 0x80) && (p->mem[4].bar & 0x01))
-				ctlr->bmiba = (p->mem[4].bar & ~0x01) + channel*8;
+				ctlr->bmiba = (p->mem[4].bar & ~3) + channel*8;
 			if(head != nil)
 				tail->next = sdev;
 			else

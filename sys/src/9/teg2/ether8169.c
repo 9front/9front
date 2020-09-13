@@ -13,6 +13,7 @@
 #include "dat.h"
 #include "fns.h"
 #include "io.h"
+#include "../port/pci.h"
 #include "../port/error.h"
 #include "../port/netif.h"
 #include "../port/etherif.h"
@@ -1566,16 +1567,7 @@ rtl8169pci(void)
 			continue;
 		}
 
-		if(pcigetpms(p) > 0){
-			pcisetpms(p, 0);
-
-			for(i = 0; i < 6; i++)
-				pcicfgw32(p, PciBAR0+i*4, p->mem[i].bar);
-			pcicfgw8(p, PciINTL, p->intl);
-			pcicfgw8(p, PciLTR, p->ltr);
-			pcicfgw8(p, PciCLS, p->cls);
-			pcicfgw16(p, PciPCR, p->pcr);
-		}
+		pcienable(p);
 
 		if(rtl8169reset(ctlr)){
 			free(ctlr);

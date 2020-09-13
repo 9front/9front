@@ -153,7 +153,6 @@ ioinit(void)
 			ioalloc(io_s, io_e - io_s + 1, 0, "pre-allocated");
 		}
 	}
-
 }
 
 /*

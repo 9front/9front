@@ -9,6 +9,7 @@
 #include "fns.h"
 #include "../port/error.h"
 #include "io.h"
+#include "../port/pci.h"
 #include "sysreg.h"
 
 typedef struct Mbox Mbox;
