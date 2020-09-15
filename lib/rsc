@@ -246,3 +246,4 @@ I needed that last week.
 I have a new blog post you might be interested in.
 Ever since I wrote “go get,” we on the core Go team hoped the community would take care of dependency management.
 This past winter, as a side project, I spent some time getting up to speed on suffix array construction algorithms and rewrote index/suffixarray's New implementation (that is, the index builder) to run 3-10X faster in half the memory of the old one.
+So it sounds like everyone is in favor of the entire generics proposal and all the semantics, and all we have left to hammer out is the bracket characters? Do I have that right?
