@@ -131,7 +131,7 @@ main(int argc, char *argv[])
 				fprint(2, "syscall: return %lld, no error\n", r);
 			}
 			if(oflag)
-				print("%s\n", buf);
+				print("%s", buf);
 			if(xflag){
 				for(j=0; j<r; j++){
 					if(j%16 == 0)
