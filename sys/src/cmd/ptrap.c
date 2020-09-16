@@ -372,4 +372,6 @@ threadmain(int argc, char **argv)
 		filters = f;
 	}
 	threadpostmountsrv(&ptrapsrv, nil, "/mnt/plumb", MREPL | MCREATE);
+
+	threadexits(nil);
 }
