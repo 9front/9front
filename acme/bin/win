@@ -12,6 +12,6 @@ if(~ $#* 0){
 	exec /acme/bin/$cputype/win $*
 	exit
 }
-echo dump $* > /dev/acme/ctl
+echo dump win $* > /dev/acme/ctl
 </dev/cons >/dev/cons >[2=1] $*
 exit ''
