@@ -86,6 +86,7 @@ if(~ $#mflag 1) {
 			exec $argv0 -x $cmd </dev/cons >/dev/cons >[2]/dev/cons
 		}
 	}&
+	exit ''
 }
 if not {
 	if(~ $wctl ''){
