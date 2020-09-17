@@ -733,6 +733,19 @@ rtrim(char *p)
 }
 
 static char*
+unfold(char *s)
+{
+	char *p, *q;
+
+	q = s;
+	for(p = q; *p != '\0'; p++)
+		if(*p != '\r' && *p != '\n')
+			*q++ = *p;
+	*q = '\0';
+	return s;
+}
+
+static char*
 addr822(char *p, char **ac)
 {
 	int n, c, space, incomment, addrdone, inanticomment, quoted;
@@ -760,7 +773,7 @@ addr822(char *p, char **ac)
 			for(p++; c = *p; p++){
 				if(ac && c == '"')
 					break;
-				if(!addrdone && !incomment)
+				if(!addrdone && !incomment && c != '\r' && c != '\n')
 					ps = sputc(ps, e, c);
 				if(!quoted && *p == '"')
 					break;
@@ -883,7 +896,7 @@ replace822(Message *, Header *h, char*, char *p)
 static char*
 copy822(Message*, Header *h, char*, char *p)
 {
-	return rtrim(strdup(skipwhite(p + h->len)));
+	return rtrim(unfold(strdup(skipwhite(p + h->len))));
 }
 
 static char*
