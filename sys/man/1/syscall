@@ -4,7 +4,7 @@ syscall \- test a system call
 .SH SYNOPSIS
 .B syscall
 [
-.B -osx
+.B -os
 ]
 .I entry
 [
@@ -15,39 +15,44 @@ syscall \- test a system call
 invokes the system call
 .I entry
 with the given arguments.
-(Some functions, such as
-.I write
-and
-.IR read (2),
-although not strictly system calls, are valid
-.IR entries .)
-It prints the return value and the error string, if there was an error.
-An argument is either an integer constant as in C (its value is passed),
-a string (its address is passed),
-or the literal
-.B buf
-(a pointer to a 1MB buffer is passed).
+The return value is printed.
+If an error occured, the error string is also printed.
 .PP
-If
-.B -o
-is given, the contents of the 1MB buffer are printed as a zero-terminated string
-after the system call is done.
-The
-.B -x
+For convenience,
+.IR write (2)
 and
+.IR read (2)
+are included in
+.IR entries ,
+even though they are not strictly syscalls.
+.PP
+.I Syscall
+arguments are integer constants, strings, or the literal
+.BR buf .
+The literal
+.B buf
+refers to a writable 1 megabyte buffer.
+Strings and 
+.B buf
+are passed as pointers.
+Integers are passed as values.
+.PP
+The
+.B -o
+option prints contents of the 1MB buffer.
+For
+.IR errstr (2)
+and
+.IR fd2path (2),
+the buffer is treated as a 0-terminated string.
+For other calls, the number of bytes printed is
+determined by the system call's return value.
+.PP
+The
 .B -s
-options are similar, but
-.B -x
-formats the data as hexadecimal bytes, while
-.B -s
-interprets the data as a
+option is similar, but interprets the data as a
 .IR stat (5)
-message and formats it similar to the style of
-.B ls
-.B -lqm
-(see
-.IR ls (1)),
-with extra detail about the modify and access times.
+message and formats it to standard output.
 .SH EXAMPLES
 Write a string to standard output:
 .IP

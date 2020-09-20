@@ -1,5 +1,4 @@
 </$objtype/mkfile
-CFLAGS=-I/sys/src/libc/9syscall $CFLAGS
 
 TARG=syscall
 OFILES=syscall.$O\
@@ -18,12 +17,24 @@ UPDATE=\
 SYSCALL=/sys/src/libc/9syscall/sys.h
 
 tab.h:	$SYSCALL
-	sed '/#define._X[0-9_]/d;
-		/#define.NSYSCALL/d;
-		s/#define.([A-Z0-9_][A-Z0-9_]*).*/	"\1",	(int(*)(...))\1,/' $SYSCALL |
-		tr A-Z a-z > tab.h
-	echo '	"read",	(int(*)(...))read,' >> tab.h
-	echo '	"write",	(int(*)(...))write,' >> tab.h
+	awk '
+	BEGIN{ print "enum{" }
+	{ printf "%s, ", $2 }
+	END{
+		print "READ, WRITE, NTAB"
+		print "};"
+	}' <$SYSCALL >$target 
+	awk '
+	BEGIN{ print "struct Call tab[] = {" }
+	{ printf "[%s] \"%s\", (int(*)(...))%s,\n",
+		$2, tolower($2), tolower($2)
+	}
+	END{
+		print "[READ] \"read\", (int(*)(...))read,"
+		print "[WRITE] \"write\", (int(*)(...))write,"
+		print "[NTAB] nil, 0"
+		print "};"
+	}' <$SYSCALL >>$target
 
 clean:V:
 	rm -f *.[$OS] [$OS].out $TARG $HFILES
