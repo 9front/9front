@@ -192,6 +192,7 @@ main(int argc, char *argv[])
 			case 'n':
 			case 'c':
 			case 'a':
+			case 'u':
 				mode = *p;
 				break;
 

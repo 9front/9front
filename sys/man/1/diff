@@ -4,7 +4,7 @@ diff \- differential file comparator
 .SH SYNOPSIS
 .B diff
 [
-.B -abcefmnrw
+.B -abcefmnruw
 ] 
 .I file1 ... file2
 .SH DESCRIPTION
@@ -142,6 +142,24 @@ because the former are easier to distinguish when mixed.
 The
 .B -a
 flag displays the entire file as context.
+.PP
+The
+.B -u
+option provides a unix-compatible unified diff.
+This format is similar to that provided by
+.BR -c .
+However, the
+.L +
+and
+.L -
+prefixes are not separated from the rest of the line by spaces,
+and the file header is in the following format:
+.IP
+.EX
+--- filename.old
++++ filename.new
+@@ -line,len +line,len @@
+.EE
 .PP
 Except in rare circumstances,
 .I diff

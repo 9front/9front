@@ -303,6 +303,7 @@ change(int a, int b, int c, int d)
 		break;
 	case 'c':
 	case 'a':
+	case 'u':
 		if(nchanges%1024 == 0)
 			changes = erealloc(changes, (nchanges+1024)*sizeof(changes[0]));
 		ch = &changes[nchanges++];
@@ -339,6 +340,15 @@ changeset(int i)
 }
 
 void
+fileheader(void)
+{
+	if(mode != 'u')
+		return;
+	Bprint(&stdout, "--- %s\n", file1);
+	Bprint(&stdout, "+++ %s\n", file2);
+}
+
+void
 flushchanges(void)
 {
 	int a, b, c, d, at;
@@ -368,20 +378,24 @@ flushchanges(void)
 			d = len[1];
 			j = nchanges;
 		}
-		Bprint(&stdout, "%s:", file1);
-		range(a, b, ",");
-		Bprint(&stdout, " - ");
-		Bprint(&stdout, "%s:", file2);
-		range(c, d, ",");
-		Bputc(&stdout, '\n');
+		if(mode == 'u'){
+			Bprint(&stdout, "@@ -%d,%d +%d,%d @@\n", a, b-a+1, c, d-c+1);
+		}else{
+			Bprint(&stdout, "%s:", file1);
+			range(a, b, ",");
+			Bprint(&stdout, " - ");
+			Bprint(&stdout, "%s:", file2);
+			range(c, d, ",");
+			Bputc(&stdout, '\n');
+		}
 		at = a;
 		for(; i<j; i++){
-			fetch(ixold, at, changes[i].a-1, input[0], "  ");
-			fetch(ixold, changes[i].a, changes[i].b, input[0], "- ");
-			fetch(ixnew, changes[i].c, changes[i].d, input[1], "+ ");
+			fetch(ixold, at, changes[i].a-1, input[0], mode == 'u' ? " " : "  ");
+			fetch(ixold, changes[i].a, changes[i].b, input[0], mode == 'u' ? "-" : "- ");
+			fetch(ixnew, changes[i].c, changes[i].d, input[1], mode == 'u' ? "+" : "- ");
 			at = changes[i].b+1;
 		}
-		fetch(ixold, at, b, input[0], "  ");
+		fetch(ixold, at, b, input[0], mode == 'u' ? " " : "  ");
 	}
 	nchanges = 0;
 }
