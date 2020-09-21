@@ -9,14 +9,14 @@
 #define USHRT_MAX	0xffff
 #define UINT_MAX	0xffffffffU
 #define ULONG_MAX	0xffffffffUL
-#define ULLONG_MAX	0xffffffffffffffffUL
+#define ULLONG_MAX	0xffffffffffffffffULL
 
 #define CHAR_MAX	SCHAR_MAX
 #define SCHAR_MAX	0x7f
 #define SHRT_MAX	0x7fff
 #define INT_MAX		0x7fffffff
 #define LONG_MAX	0x7fffffffL
-#define LLONG_MAX	0x7fffffffffffffffL
+#define LLONG_MAX	0x7fffffffffffffffLL
 
 #define CHAR_MIN	SCHAR_MIN
 #define SCHAR_MIN	(-SCHAR_MAX-1)
