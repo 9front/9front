@@ -27,7 +27,7 @@ int	append(File*, Cmd*, long);
 int	pdisplay(File*);
 void	pfilename(File*);
 void	looper(File*, Cmd*, int);
-void	filelooper(Cmd*, int);
+void	filelooper(Text*, Cmd*, int);
 void	linelooper(File*, Cmd*);
 Address	lineaddr(long, Address, int);
 int	filematch(File*, String*);
@@ -575,9 +575,9 @@ x_cmd(Text *t, Cmd *cp)
 }
 
 int
-X_cmd(Text*, Cmd *cp)
+X_cmd(Text *t, Cmd *cp)
 {
-	filelooper(cp, cp->cmdc=='X');
+	filelooper(t, cp, cp->cmdc=='X');
 	return TRUE;
 }
 
@@ -636,15 +636,16 @@ pipe_cmd(Text *t, Cmd *cp)
 }
 
 long
-nlcount(Text *t, long q0, long q1)
+nlcount(Text *t, long q0, long q1, long *pnr)
 {
-	long nl;
+	long nl, start;
 	Rune *buf;
 	int i, nbuf;
 
 	buf = fbufalloc();
 	nbuf = 0;
 	i = nl = 0;
+	start = q0;
 	while(q0 < q1){
 		if(i == nbuf){
 			nbuf = q1-q0;
@@ -653,24 +654,42 @@ nlcount(Text *t, long q0, long q1)
 			bufread(t->file, q0, buf, nbuf);
 			i = 0;
 		}
-		if(buf[i++] == '\n')
+		if(buf[i++] == '\n'){
+			start = q0+1;
 			nl++;
+		}
 		q0++;
 	}
 	fbuffree(buf);
+	if(pnr != nil)
+		*pnr = q0 - start;
 	return nl;
 }
 
+enum {
+	PosnLine = 0,
+	PosnChars = 1,
+	PosnLineChars = 2,
+};
+
 void
-printposn(Text *t, int charsonly)
+printposn(Text *t, int mode)
 {
-	long l1, l2;
+	long l1, l2, r1, r2;
 
 	if (t != nil && t->file != nil && t->file->name != nil)
 		warning(nil, "%.*S:", t->file->nname, t->file->name);
-	if(!charsonly){
-		l1 = 1+nlcount(t, 0, addr.r.q0);
-		l2 = l1+nlcount(t, addr.r.q0, addr.r.q1);
+	switch(mode) {
+	case PosnChars:
+		warning(nil, "#%d", addr.r.q0);
+		if(addr.r.q1 != addr.r.q0)
+			warning(nil, ",#%d", addr.r.q1);
+		warning(nil, "\n");
+		return;
+	default:
+	case PosnLine:
+		l1 = 1+nlcount(t, 0, addr.r.q0, nil);
+		l2 = l1+nlcount(t, addr.r.q0, addr.r.q1, nil);
 		/* check if addr ends with '\n' */
 		if(addr.r.q1>0 && addr.r.q1>addr.r.q0 && textreadc(t, addr.r.q1-1)=='\n')
 			--l2;
@@ -679,32 +698,42 @@ printposn(Text *t, int charsonly)
 			warning(nil, ",%lud", l2);
 		warning(nil, "\n");
 		return;
+	case PosnLineChars:
+		l1 = 1+nlcount(t, 0, addr.r.q0, &r1);
+		l2 = l1+nlcount(t, addr.r.q0, addr.r.q1, &r2);
+		if(l2 == l1)
+			r2 += r1;
+		warning(nil, "%lud+#%lud", l1, r1);
+		if(l2 != l1)
+			warning(nil, ",%lud+#%lud", l2, r2);
+		warning(nil, "\n");
+		return;
 	}
-	warning(nil, "#%d", addr.r.q0);
-	if(addr.r.q1 != addr.r.q0)
-		warning(nil, ",#%d", addr.r.q1);
-	warning(nil, "\n");
 }
 
 int
 eq_cmd(Text *t, Cmd *cp)
 {
-	int charsonly;
+	int mode;
 
 	switch(cp->text->n){
 	case 0:
-		charsonly = FALSE;
+		mode = PosnLine;
 		break;
 	case 1:
 		if(cp->text->r[0] == '#'){
-			charsonly = TRUE;
+			mode = PosnChars;
+			break;
+		}
+		if(cp->text->r[0] == '+'){
+			mode = PosnLineChars;
 			break;
 		}
 	default:
-		SET(charsonly);
+		SET(mode);
 		editerror("newline expected");
 	}
-	printposn(t, charsonly);
+	printposn(t, mode);
 	return TRUE;
 }
 
@@ -921,9 +950,10 @@ alllocker(Window *w, void *v)
 }
 
 void
-filelooper(Cmd *cp, int XY)
+filelooper(Text *t, Cmd *cp, int XY)
 {
 	int i;
+	Text *targ;
 
 	if(Glooping++)
 		editerror("can't nest %c command", "YX"[XY]);
@@ -944,8 +974,22 @@ filelooper(Cmd *cp, int XY)
 	 */
 	allwindows(alllocker, (void*)1);
 	globalincref = 1;
-	for(i=0; i<loopstruct.nw; i++)
-		cmdexec(&loopstruct.w[i]->body, cp->cmd);
+	/*
+	 * Unlock the window running the X command.
+	 * We'll need to lock and unlock each target window in turn.
+	 */
+	if(t && t->w)
+		winunlock(t->w);
+	for(i=0; i<loopstruct.nw; i++){
+		targ = &loopstruct.w[i]->body;
+		if(targ && targ->w)
+			winlock(targ->w, cp->cmdc);
+		cmdexec(targ, cp->cmd);
+		if(targ && targ->w)
+			winunlock(targ->w);
+	}
+	if(t && t->w)
+		winlock(t->w, cp->cmdc);
 	allwindows(alllocker, (void*)0);
 	globalincref = 0;
 	free(loopstruct.w);
