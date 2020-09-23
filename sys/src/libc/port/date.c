@@ -330,7 +330,7 @@ tmfill(Tm *tm, vlong abs, vlong nsec)
 	if(d < 0)
 		d += mdays[m - 1];
 
-	tm->yday = d;
+	tm->yday = d - 1;
 	for(i = 0; i < m - 1; i++)
 		tm->yday += mdays[i];
 	if(m > 1 && isleap(y))
