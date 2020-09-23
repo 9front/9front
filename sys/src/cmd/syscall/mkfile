@@ -16,25 +16,8 @@ UPDATE=\
 
 SYSCALL=/sys/src/libc/9syscall/sys.h
 
-tab.h:	$SYSCALL
-	awk '
-	BEGIN{ print "enum{" }
-	{ printf "%s, ", $2 }
-	END{
-		print "READ, WRITE, NTAB"
-		print "};"
-	}' <$SYSCALL >$target 
-	awk '
-	BEGIN{ print "struct Call tab[] = {" }
-	{ printf "[%s] \"%s\", (int(*)(...))%s,\n",
-		$2, tolower($2), tolower($2)
-	}
-	END{
-		print "[READ] \"read\", (int(*)(...))read,"
-		print "[WRITE] \"write\", (int(*)(...))write,"
-		print "[NTAB] nil, 0"
-		print "};"
-	}' <$SYSCALL >>$target
+tab.h:	$SYSCALL mktab.awk
+	mktab.awk $SYSCALL >$target
 
 clean:V:
 	rm -f *.[$OS] [$OS].out $TARG $HFILES
