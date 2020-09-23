@@ -85,6 +85,7 @@ struct Cmd
 Cmd cmdtab[] =
 {
 	{ "abor",	abortcmd,	0, },
+	{ "allo",	nopcmd,		1, },
 	{ "appe",	appendcmd,	1, },
 	{ "cdup",	cdupcmd,	1, },
 	{ "cwd",	cwdcmd,		1, },
