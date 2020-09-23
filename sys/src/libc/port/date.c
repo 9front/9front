@@ -428,6 +428,9 @@ static int
 		switch(c0){
 		case 0:
 			break;
+		/* Ignore '?' so we can share parse and format strings */
+		case '?':
+			continue;
 		case 'Y':
 			switch(w){
 			case 1:	n += fmtprint(f, "%*d", pad, tm->year + 1900);		break;
