@@ -29,7 +29,7 @@ struct Tm {
 };
 
 Tzone *tzload(char *name);
-Tm    *tmnow(Tm *tm, char *tz);
+Tm    *tmnow(Tm *tm, Tzone *tz);
 Tm    *tmtime(Tm *tm, vlong abs, Tzone *tz);
 Tm    *tmtimens(Tm *tm, vlong abs, int ns, Tzone *tz);
 Tm    *tmparse(Tm *dst, char *fmt, char *tm, Tzone *zone, char **ep);
@@ -221,14 +221,15 @@ Done with full, strict error checking.
 
 .IP
 .EX
+#define Fmt "?WWW, ?MM ?DD hh:mm:ss ?Z YYYY"
 Tm a, b;
 char *e;
 
-if(tmparse(&a, nil, "Tue Dec 10 12:36:00 PST 2019", &e) == nil)
+if(tmparse(&a, Fmt, "Tue Dec 10 12:36:00 PST 2019", &e) == nil)
 	sysfatal("failed to parse: %r");
 if(*e != '\0')
 	sysfatal("trailing junk %s", e);
-if(tmparse(&b, nil, "Tue Dec 10 15:36:00 EST 2019", &e) == nil)
+if(tmparse(&b, Fmt, "Tue Dec 10 15:36:00 EST 2019", &e) == nil)
 	sysfatal("failed to parse: %r");
 if(*e != '\0')
 	sysfatal("trailing junk %s", e);
