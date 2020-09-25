@@ -134,8 +134,7 @@ For example,
 will format to a width of 3. When parsing, this acts as whitespace.
 .TP
 .B ?
-When parsing, this makes the following argument match fuzzily.
-Fuzzy matching means that all formats are tried, from most to least specific.
+When parsing, all formats of the following argument are tried from most to least specific.
 For example, 
 .I ?M
 will match 
@@ -144,7 +143,9 @@ will match
 .IR 01 ,
 and 
 .IR 1 ,
-in that order of preference.
+in that order. When formatting,
+.B ?
+is ignored.
 .TP
 .B ~
 When parsing a date, this slackens range enforcement, accepting
