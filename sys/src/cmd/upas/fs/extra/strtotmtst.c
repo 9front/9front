@@ -8,9 +8,10 @@ main(int argc, char **argv)
 	ARGBEGIN{
 	}ARGEND
 
+	tmfmtinstall();
 	for(; *argv; argv++)
 		if(strtotm(*argv, &tm) >= 0)
-			print("%s", asctime(&tm));
+			print("%τ\n", tmfmt(&tm, nil));
 		else
 			print("bad\n");
 	exits("");

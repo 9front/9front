@@ -1,7 +1,5 @@
 #include "nlist.c"
 
-char	username[] = "quanstro";
-char	mboxdir[] = "/mail/box/quanstro/";
 Biobuf	bout;
 Bin	*parsebin;
 

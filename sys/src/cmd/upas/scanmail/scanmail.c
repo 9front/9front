@@ -400,18 +400,16 @@ Biobuf*
 opendump(char *sender)
 {
 	int i;
+	Tm tm;
 	ulong h;
 	char buf[512];
 	Biobuf *b;
-	char *cp;
+	char *cp, mon[8], day[4];
 
-	cp = ctime(time(0));
-	cp[7] = 0;
-	cp[10] = 0;
-	if(cp[8] == ' ')
-		snprint(buf, sizeof buf, "%s/queue.dump/%s%c", SPOOL, cp+4, cp[9]);
-	else
-		snprint(buf, sizeof buf, "%s/queue.dump/%s%c%c", SPOOL, cp+4, cp[8], cp[9]);
+	tmnow(&tm, nil);
+	snprint(mon, sizeof(mon), "%τ", tmfmt(&tm, "MMM"));
+	snprint(day, sizeof(day), "%τ", tmfmt(&tm, "D"));
+	snprint(buf, sizeof buf, "%s/queue.dump/%s%s", SPOOL, mon, day);
 	cp = buf+strlen(buf);
 	if(access(buf, 0) < 0 && sysmkdir(buf, 0777) < 0){
 		syslog(0, "smtpd", "couldn't dump mail from %s: %r", sender);

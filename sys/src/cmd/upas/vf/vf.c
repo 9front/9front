@@ -372,7 +372,7 @@ static int
 save(Part *p, char *file)
 {
 	int fd;
-	char *cp;
+	Tm tm;
 
 	Bterm(&out);
 	memset(&out, 0, sizeof(out));
@@ -382,9 +382,7 @@ save(Part *p, char *file)
 		return -1;
 	seek(fd, 0, 2);
 	Binit(&out, fd, OWRITE);
-	cp = ctime(time(0));
-	cp[28] = 0;
-	Bprint(&out, "From virusfilter %s\n", cp);
+	Bprint(&out, "From virusfilter %τ\n", thedate(&tm));
 	writeheader(p, 0);
 	bodyoff = Boffset(&out);
 	passbody(p, 1);

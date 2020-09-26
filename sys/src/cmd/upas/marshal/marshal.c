@@ -140,6 +140,7 @@ int attachfailed;
 char lastchar;
 char *replymsg;
 
+#define Rfc822fmt	"WW, DD MMM YYYY hh:mm:ss Z"
 enum
 {
 	Ok = 0,
@@ -208,6 +209,7 @@ main(int argc, char **argv)
 	hdrstring = nil;
 	ccargc = bccargc = 0;
 
+	tmfmtinstall();
 	quotefmtinstall();
 	fmtinstall('Z', doublequote);
 	fmtinstall('U', rfc2047fmt);
@@ -792,29 +794,13 @@ attachment(Attach *a, Biobuf *out)
 	Bterm(f);
 }
 
-char *ascwday[] =
-{
-	"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
-};
-
-char *ascmon[] =
-{
-	"Jan", "Feb", "Mar", "Apr", "May", "Jun",
-	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-};
-
 int
 printdate(Biobuf *b)
 {
-	int tz;
 	Tm *tm;
 
 	tm = localtime(time(0));
-	tz = (tm->tzoff/3600)*100 + (tm->tzoff/60)%60;
-
-	return Bprint(b, "Date: %s, %d %s %d %2.2d:%2.2d:%2.2d %s%.4d\n",
-		ascwday[tm->wday], tm->mday, ascmon[tm->mon], 1900 + tm->year,
-		tm->hour, tm->min, tm->sec, tz>=0?"+":"", tz);
+	return Bprint(b, "Date: %τ\n", tmfmt(tm, Rfc822fmt));
 }
 
 int
@@ -1003,16 +989,10 @@ tee(int in, int out1, int out2)
 int
 printunixfrom(int fd)
 {
-	int tz;
 	Tm *tm;
 
 	tm = localtime(time(0));
-	tz = (tm->tzoff/3600)*100 + (tm->tzoff/60)%60;
-
-	return fprint(fd, "From %s %s %s %d %2.2d:%2.2d:%2.2d %s%.4d %d\n",
-		user,
-		ascwday[tm->wday], ascmon[tm->mon], tm->mday,
-		tm->hour, tm->min, tm->sec, tz>=0?"+":"", tz, 1900 + tm->year);
+	return fprint(fd, "From %s %τ\n", user, tmfmt(tm, Rfc822fmt));
 }
 
 char *specialfile[] =

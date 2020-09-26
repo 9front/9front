@@ -82,6 +82,7 @@ threadmain(int argc, char *argv[])
 
 	doquote = needsrcquote;
 	quotefmtinstall();
+	tmfmtinstall();
 
 	/* open these early so we won't miss notification of new mail messages while we read mbox */
 	plumbsendfd = plumbopen("send", OWRITE|OCEXEC);

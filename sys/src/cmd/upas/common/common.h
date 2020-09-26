@@ -20,6 +20,7 @@ enum{
 	Fstored		= 1<<6, /* S */
 	Nflags		= 7,
 };
+#define Timefmt "WW MMM _D hh:mm:ss ?Z YYYY"
 
 /*
  * flag.c

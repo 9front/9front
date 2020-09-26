@@ -5,14 +5,15 @@
 /*
  *  return the date
  */
-char*
-thedate(void)
+Tmfmt
+thedate(Tm *tm)
 {
-	static char now[64];
+	Tzone *tz;
 
-	strcpy(now, ctime(time(0)));
-	now[28] = 0;
-	return now;
+	/* if the local time is screwed, just do gmt */
+	tz = tzload("local");
+	tmnow(tm, tz);
+	return tmfmt(tm, Timefmt);
 }
 
 /*

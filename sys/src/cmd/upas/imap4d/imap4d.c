@@ -215,6 +215,7 @@ main(int argc, char *argv[])
 	Binit(&bin, dup(0, -1), OREAD);
 	close(0);
 	Binit(&bout, 1, OWRITE);
+	tmfmtinstall();
 	quotefmtinstall();
 	fmtinstall('F', Ffmt);
 	fmtinstall('D', Dfmt);	/* rfc822; # imap date %Z */
@@ -501,6 +502,8 @@ appendcmd(char *tg, char *cmd)
 	char *mbox, head[128];
 	uint t, n, now;
 	int flags, ok;
+	Tzone *tz;
+	Tm tm;
 	Uidplus u;
 
 	mustbe(' ');
@@ -536,7 +539,9 @@ appendcmd(char *tg, char *cmd)
 		return;
 	}
 
-	snprint(head, sizeof head, "From %s %s", username, ctime(t));
+	tz = tzload("local");
+	tmtime(&tm, t, tz);
+	snprint(head, sizeof head, "From %s %τ", username, tmfmt(&tm, "WW MMM _D hh:mm:ss Z YYYY"));
 	ok = appendsave(mbox, flags, head, &bin, n, &u);
 	crnl();
 	check();

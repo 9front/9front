@@ -102,6 +102,8 @@ main(int argc, char **argv)
 	Binit(&in, 0, OREAD);
 	Binit(&out, 1, OWRITE);
 
+	tmfmtinstall();
+
 	ARGBEGIN{
 	case 'a':
 		loggedin = 1;

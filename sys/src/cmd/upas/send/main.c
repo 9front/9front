@@ -66,6 +66,7 @@ main(int argc, char *argv[])
 		usage();
 	}ARGEND
 
+	tmfmtinstall();
 	if(*argv == 0)
 		usage();
 	dp = 0;
@@ -404,20 +405,22 @@ static int
 replymsg(String *errstring, message *mp, dest *dp)
 {
 	message *refp = m_new();
-	dest *ndp;
-	char *rcvr;
-	int rv;
 	String *boundary;
+	dest *ndp;
+	char *rcvr, now[128];
+	int rv;
+	Tm tm;
 
 	boundary = mkboundary();
 
 	refp->bulk = 1;
 	refp->rfc822headers = 1;
+	snprint(now, sizeof(now), "%τ", thedate(&tm));
 	rcvr = dp->status==d_eloop ? "postmaster" : s_to_c(mp->replyaddr);
 	ndp = d_new(s_copy(rcvr));
 	s_append(refp->sender, "postmaster");
 	s_append(refp->replyaddr, "/dev/null");
-	s_append(refp->date, thedate());
+	s_append(refp->date, now);
 	refp->haveto = 1;
 	s_append(refp->body, "To: ");
 	s_append(refp->body, rcvr);

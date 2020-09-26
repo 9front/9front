@@ -7,15 +7,15 @@
 void
 append(int fd, char *mb, char *from, long t)
 {
-	char *folder, *s;
+	char *folder;
+	Tm tm;
 	int r;
 
-	s = ctime(t);
 	folder = foldername(from, getuser(), mb);
 	r = fappendfolder(0, t, folder, fd);
 	if(r == 0)
 		werrstr("");
-	syslog(0, "mail", "mbappend %s %.28s (%s) %r", mb, s, folder);
+	syslog(0, "mail", "mbappend %s %τ (%s) %r", mb, thedate(&tm), folder);
 	if(r)
 		exits("fail");
 }
@@ -36,6 +36,7 @@ main(int argc, char **argv)
 
 	from = nil;
 	t = time(0);
+	tmfmtinstall();
 	ARGBEGIN{
 	case 't':
 		t = strtoul(EARGF(usage()), 0, 0);

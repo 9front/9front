@@ -35,7 +35,7 @@ char	*alt_sysname_read(void);
 char	*domainname_read(void);
 char	**sysnames_read(void);
 char	*getlog(void);
-char	*thedate(void);
+Tmfmt	thedate(Tm*);
 Biobuf	*sysopen(char*, char*, ulong);
 int	sysopentty(void);
 int	sysclose(Biobuf*);

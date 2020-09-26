@@ -92,8 +92,10 @@ main(int argc, char **argv)
 {
 	char *netdir;
 	char buf[1024];
+	Tm tm;
 
 	netdir = nil;
+	tmfmtinstall();
 	quotefmtinstall();
 	fmtinstall('I', eipfmt);
 	fmtinstall('[', encodefmt);
@@ -163,7 +165,7 @@ main(int argc, char **argv)
 		snprint(buf, sizeof(buf), "%s/smtpd.db", UPASLOG);
 		if (open(buf, OWRITE) >= 0) {
 			seek(2, 0, 2);
-			fprint(2, "%d smtpd %s\n", getpid(), thedate());
+			fprint(2, "%d smtpd %τ\n", getpid(), thedate(&tm));
 		} else
 			debug = 0;
 	}
@@ -1169,6 +1171,7 @@ pipemsg(int *byteswritten)
 	char *cp;
 	int n, nbytes, sawdot, status;
 	String *hdr, *line;
+	Tm tm;
 
 	pipesig(&status);	/* set status to 1 on write to closed pipe */
 	sawdot = 0;
@@ -1180,12 +1183,12 @@ pipemsg(int *byteswritten)
 	 *  add a 'From ' line as envelope and Received: stamp
 	 */
 	nbytes = 0;
-	nbytes += Bprint(pp->std[0]->fp, "From %s %s remote from \n",
-		s_to_c(senders.first->p), thedate());
+	nbytes += Bprint(pp->std[0]->fp, "From %s %τ remote from \n",
+		s_to_c(senders.first->p), thedate(&tm));
 	nbytes += Bprint(pp->std[0]->fp, "Received: from %s ", him);
 	if(nci->rsys)
 		nbytes += Bprint(pp->std[0]->fp, "([%s]) ", nci->rsys);
-	nbytes += Bprint(pp->std[0]->fp, "by %s; %s\n", me, thedate());
+	nbytes += Bprint(pp->std[0]->fp, "by %s; %τ\n", me, thedate(&tm));
 
 	/*
 	 *  read first 16k obeying '.' escape.  we're assuming

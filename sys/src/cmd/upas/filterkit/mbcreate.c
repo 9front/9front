@@ -24,6 +24,7 @@ main(int argc, char **argv)
 	}ARGEND
 
 	r = 0;
+	tmfmtinstall();
 	for(; *argv; argv++)
 		r |= f(getuser(), *argv);
 	if(r)

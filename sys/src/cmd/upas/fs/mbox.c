@@ -366,11 +366,11 @@ datesec(Mailbox *mb, Message *m)
 	if(m->fileid > 1000000ull<<8)
 		return;
 	if(m->unixdate && strtotm(m->unixdate, &tm) >= 0)
-		v = tm2sec(&tm);
+		v = tmnorm(&tm);
 	else if(m->date822 && strtotm(m->date822, &tm) >= 0)
-		v = tm2sec(&tm);
+		v = tmnorm(&tm);
 	else if(rxtotm(m, &tm) >= 0)
-		v = tm2sec(&tm);
+		v = tmnorm(&tm);
 	else{
 		logmsg(gettopmsg(mb, m), "%s:%s: datasec %s %s\n", mb->path,
 			m->whole? m->whole->name: "?",

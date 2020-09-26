@@ -224,14 +224,13 @@ mesgadd(Message *mbox, char *dir, Dir *d, char *digest)
 int
 thisyear(char *year)
 {
-	static char now[10];
-	char *s;
+	Tzone *tz;
+	Tm tm;
 
-	if(now[0] == '\0'){
-		s = ctime(time(nil));
-		strcpy(now, s+24);
-	}
-	return strncmp(year, now, 4) == 0;
+	/* ignore errors: screwed means utc */
+	tz = tzload("local");
+	tmnow(&tm, tz);
+	return atoi(year) == (tm.year + 1900);
 }
 
 char*

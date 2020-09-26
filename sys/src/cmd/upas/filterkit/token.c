@@ -62,6 +62,7 @@ main(int argc, char **argv)
 	ARGBEGIN {
 	} ARGEND;
 
+	tmfmtinstall();
 	switch(argc){
 	case 2:
 		exits(check_token(argv[0], argv[1]));

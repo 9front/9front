@@ -417,17 +417,15 @@ char*
 dumpfile(char *sender)
 {
 	int i, fd;
+	Tm tm;
 	ulong h;
 	static char buf[512];
-	char *cp;
+	char *cp, mon[8], day[4];
 
 	if (sflag == 1){
-		cp = ctime(time(0));
-		cp[7] = 0;
-		if(cp[8] == ' ')
-			sprint(buf, "%s/queue.dump/%s%c", SPOOL, cp + 4, cp[9]);
-		else
-			sprint(buf, "%s/queue.dump/%s%c%c", SPOOL, cp + 4, cp[8], cp[9]);
+		snprint(mon, sizeof(mon), "%τ", tmfmt(&tm, "MMM"));
+		snprint(day, sizeof(day), "%τ", tmfmt(&tm, "D"));
+		snprint(buf, sizeof buf, "%s/queue.dump/%s%s", SPOOL, mon, day);
 		cp = buf + strlen(buf);
 		if(access(buf, 0) < 0 && sysmkdir(buf, 0777) < 0)
 			return "/dev/null";

@@ -90,40 +90,25 @@ Xfmt(Fmt *f)
 	return fmtstrcpy(f, encfs(buf, sizeof buf, s));
 }
 
-static char *day[] = {
-	"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat",
-};
-
-static char *mon[] = {
-	"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-};
-
 int
 Dfmt(Fmt *f)
 {
-	char buf[128], *p, *e, *sgn, *fmt;
-	int off;
-	Tm *tm;
+	char buf[128], *fmt;
+	Tm *tm, t;
+	Tzone *tz;
 
 	tm = va_arg(f->args, Tm*);
-	if(tm == nil)
-		tm = localtime(time(0));
-	sgn = "+";
-	if(tm->tzoff < 0)
-		sgn = "";
-	e = buf + sizeof buf;
-	p = buf;
-	off = (tm->tzoff/3600)*100 + (tm->tzoff/60)%60;
+	if(tm == nil){
+		tz = tzload("local");
+		tm = tmtime(&t, time(0), tz);
+	}
 	if((f->flags & FmtSharp) == 0){
 		/* rfc822 style */
-		fmt = "%.2d %s %.4d %.2d:%.2d:%.2d %s%.4d";
-		p = seprint(p, e, "%s, ", day[tm->wday]);
+		fmt = "WW, DD MMM YYYY hh:mm:ss Z";
 	}else
-		fmt = "%2d-%s-%.4d %2.2d:%2.2d:%2.2d %s%4.4d";
-	seprint(p, e, fmt,
-		tm->mday, mon[tm->mon], tm->year + 1900, tm->hour, tm->min, tm->sec,
-		sgn, off);
+		fmt = "DD-MMM-YYYY hh:mm:ss Z";
 	if(f->r == L'δ')
-		return fmtstrcpy(f, buf);
+		return fmtprint(f, "%τ", tmfmt(tm, fmt));
+	snprint(buf, sizeof(buf), "%τ", tmfmt(tm, fmt));
 	return fmtprint(f, "%Z", buf);
 }

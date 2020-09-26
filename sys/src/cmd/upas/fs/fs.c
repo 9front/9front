@@ -174,16 +174,15 @@ Afmt(Fmt *f)
 static int
 Δfmt(Fmt *f)
 {
-	char buf[32];
 	uvlong v;
+	Tm tm;
 
 	v = va_arg(f->args, uvlong);
 	if(f->flags & FmtSharp)
 		if((v>>8) == 0)
 			return fmtstrcpy(f, "");
-	strcpy(buf, ctime(v>>8));
-	buf[28] = 0;
-	return fmtstrcpy(f, buf);
+	tmtime(&tm, v>>8, tzload("local"));
+	return fmtprint(f, "%τ", tmfmt(&tm, "WW MMM _D hh:mm:ss Z YYYY"));
 }
 
 static int
@@ -320,6 +319,7 @@ main(int argc, char *argv[])
 	fmtinstall(L'Δ', Δfmt);
 	fmtinstall('F', fcallfmt);
 	fmtinstall('H', encodefmt);		/* forces tls stuff */
+	tmfmtinstall();
 	quotefmtinstall();
 	if(pipe(p) < 0)
 		error("pipe failed");

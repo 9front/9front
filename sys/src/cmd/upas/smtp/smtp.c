@@ -131,8 +131,10 @@ main(int argc, char **argv)
 	int i, ok, rcvrs, bustedmx;
 	String *from, *fromm, *sender;
 	Mx mx;
+	Tm tm;
 
 	alarmscale = 60*1000;	/* minutes */
+	tmfmtinstall();
 	quotefmtinstall();
 	mailfmtinstall();		/* 2047 encoding */
 	fmtinstall('D', Dfmt);
@@ -309,7 +311,7 @@ main(int argc, char **argv)
 	/*
 	 *  here when some but not all rcvrs failed
 	 */
-	fprint(2, "%s connect to %s: %D %s:\n", thedate(), addr, &mx, phase);
+	fprint(2, "%τ connect to %s: %D %s:\n", thedate(&tm), addr, &mx, phase);
 	for(i = 0; i < rcvrs; i++){
 		if(errs[i]){
 			syslog(0, "smtp.fail", "delivery to %s at %s %D %s, failed: %s",
@@ -335,7 +337,7 @@ error:
 	}
 	syslog(0, "smtp.fail", "%s %s at %s %D %s failed: %s",
 		deliverytype(), allrx, addr, &mx, phase, s_to_c(reply));
-	fprint(2, "%s connect to %s %D %s:\n%s\n", thedate(), addr, &mx, phase, s_to_c(reply));
+	fprint(2, "%τ connect to %s %D %s:\n%s\n", thedate(&tm), addr, &mx, phase, s_to_c(reply));
 	if(!filter)
 		quit(rv);
 	exits(rv);

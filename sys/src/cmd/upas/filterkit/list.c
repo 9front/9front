@@ -306,6 +306,7 @@ main(int argc, char **argv)
 	} ARGEND;
 
 	quotefmtinstall();
+	tmfmtinstall();
 
 	if(argc < 3)
 		usage();

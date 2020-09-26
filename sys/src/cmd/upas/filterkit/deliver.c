@@ -14,13 +14,15 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	char *to, *s;
+	char *to;
+	Tmfmt tf;
+	Tm tm;
 	int r;
-	long l;
 	Addr *a;
 
 	ARGBEGIN{
 	}ARGEND;
+	tmfmtinstall();
 	if(argc != 3)
 		usage();
 	if(to = strrchr(argv[0], '!'))
@@ -30,9 +32,9 @@ main(int argc, char **argv)
 	a = readaddrs(argv[1], nil);
 	if(a == nil)
 		sysfatal("missing from address");
-	s = ctime(l = time(0));
+	tf = thedate(&tm);
 	werrstr("");
-	r = fappendfolder(a->val, l, argv[2], 0);
-	syslog(0, "mail", "delivered %s From %s %.28s (%s) %d %r", to, a->val, s, argv[0], r);
+	r = fappendfolder(a->val, tmnorm(&tm), argv[2], 0);
+	syslog(0, "mail", "delivered %s From %s %τ (%s) %d %r", to, a->val, tf, argv[0], r);
 	exits("");
 }

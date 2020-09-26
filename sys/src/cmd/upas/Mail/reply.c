@@ -388,7 +388,9 @@ mesgsend(Message *m)
 	Channel *sync;
 	Message *r;
 	int first, nfld, delit, ofd;
-	char *copy, *fld[100], *now;
+	char *copy, *fld[100];
+	Tzone *tz;
+	Tm now;
 
 	body = winreadbody(m->w, &n);
 	/* assemble to: list from first line, to: line, and cc: line */
@@ -467,11 +469,12 @@ mesgsend(Message *m)
 
 	ofd = open(outgoing, OWRITE|OCEXEC);	/* no error check necessary */
 	if(ofd >= 0){
-		/* From dhog Fri Aug 24 22:13:00 EDT 2001 */
-		now = ctime(time(0));
-		fprint(ofd, "From %s %s", user, now);
+		/* From dhog Fri Aug 24 22:13:00 +0500 2001 */
+		tz = tzload("local");
+		tmnow(&now, tz);
+		fprint(ofd, "From %s %τ", user, tmfmt(&now, "WW MMM _D hh:mm:ss Z YYYY"));
 		fprint(ofd, "From: %s\n", user);
-		fprint(ofd, "Date: %s", now);
+		fprint(ofd, "Date: %τ", tmfmt(&now, "WW MMM _D hh:mm:ss Z YYYY"));
 		for(i=0; i<natt; i++)
 			if(included[i])
 				fprint(ofd, "Include: %s\n", attlist[i]);

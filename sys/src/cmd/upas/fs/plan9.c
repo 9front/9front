@@ -34,7 +34,7 @@ chkunix0(char *s, int n)
 		return -1;
 	if(memtotm(p, n - (p - s), &tm) < 0)
 		return -1;
-	if(tm2sec(&tm) < 1000000)
+	if(tmnorm(&tm) < 1000000)
 		return -1;
 	return 0;
 }
