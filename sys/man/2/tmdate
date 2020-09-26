@@ -224,15 +224,17 @@ Done with full, strict error checking.
 .EX
 #define Fmt "?WWW, ?MM ?DD hh:mm:ss ?Z YYYY"
 Tm a, b;
-char *e;
+char *e, *est, *pst;
 
-if(tmparse(&a, Fmt, "Tue Dec 10 12:36:00 PST 2019", &e) == nil)
+pst = "Tue Dec 10 12:36:00 PST 2019";
+est = "Tue Dec 10 15:36:00 EST 2019";
+f(tmparse(&a, Fmt, pst, nil, &e) == nil)
 	sysfatal("failed to parse: %r");
-if(*e != '\0')
+if(*e != '\\0')
 	sysfatal("trailing junk %s", e);
-if(tmparse(&b, Fmt, "Tue Dec 10 15:36:00 EST 2019", &e) == nil)
+if(tmparse(&b, Fmt, est, nil, &e) == nil)
 	sysfatal("failed to parse: %r");
-if(*e != '\0')
+if(*e != '\\0')
 	sysfatal("trailing junk %s", e);
 if(tmnorm(a) == tmnorm(b) && a.nsec == b.nsec)
 	print("same\\n");
