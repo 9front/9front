@@ -9,14 +9,16 @@ enum
 	VerLen	= 12
 };
 
-static char version[VerLen+1] = "RFB 003.003\n";
+static char version33[VerLen+1] = "RFB 003.003\n";
+static char version38[VerLen+1] = "RFB 003.008\n";
+static int srvversion;
 
 int
 vncsrvhandshake(Vnc *v)
 {
 	char msg[VerLen+1];
 
-	strecpy(msg, msg+sizeof msg, version);
+	strecpy(msg, msg+sizeof msg, version33);
 	if(verbose)
 		fprint(2, "server version: %s\n", msg);
 	vncwrbytes(v, msg, VerLen);
@@ -35,16 +37,50 @@ vnchandshake(Vnc *v)
 
 	msg[VerLen] = 0;
 	vncrdbytes(v, msg, VerLen);
-	if(strncmp(msg, "RFB ", 4) != 0){
+	if(strncmp(msg, "RFB 003.", 8) != 0 ||
+	   strncmp(msg, "RFB 003.007\n", VerLen) == 0){
 		werrstr("bad rfb version \"%s\"", msg);
 		return -1;
 	}
+	if(strncmp(msg, "RFB 003.008\n", VerLen) == 0)
+		srvversion = 38;
+	else
+		srvversion = 33;
+
 	if(verbose)
 		fprint(2, "server version: %s\n", msg);
-	strcpy(msg, version);
+	strcpy(msg, version38);
 	vncwrbytes(v, msg, VerLen);
 	vncflush(v);
 	return 0;
+}
+
+ulong
+sectype38(Vnc *v)
+{
+	ulong auth, type;
+	int i, ntypes;
+
+	ntypes = vncrdchar(v);
+	if(ntypes == 0){
+		werrstr("no security types from server");
+		return AFailed;
+	}
+
+	/* choose the "most secure" security type */
+	auth = AFailed;
+	for(i = 0; i < ntypes; i++){
+		type = vncrdchar(v);
+		if(verbose){
+			fprint(2, "auth type %s\n",
+				type == AFailed ? "Invalid" :
+				type == ANoAuth ? "None" :
+				type == AVncAuth ? "VNC" : "Unknown");
+		}
+		if(type > auth)
+			auth = type;
+	}
+	return auth;
 }
 
 int
@@ -56,7 +92,9 @@ vncauth(Vnc *v, char *keypattern)
 
 	if(keypattern == nil)
 		keypattern = "";
-	auth = vncrdlong(v);
+
+	auth = srvversion == 38 ? sectype38(v) : vncrdlong(v);
+
 	switch(auth){
 	default:
 		werrstr("unknown auth type 0x%lux", auth);
@@ -65,6 +103,7 @@ vncauth(Vnc *v, char *keypattern)
 		return -1;
 
 	case AFailed:
+	failed:
 		reason = vncrdstring(v);
 		werrstr("%s", reason);
 		if(verbose)
@@ -72,11 +111,20 @@ vncauth(Vnc *v, char *keypattern)
 		return -1;
 
 	case ANoAuth:
+		if(srvversion == 38){
+			vncwrchar(v, auth);
+			vncflush(v);
+		}
 		if(verbose)
 			fprint(2, "no auth needed\n");
 		break;
 
 	case AVncAuth:
+		if(srvversion == 38){
+			vncwrchar(v, auth);
+			vncflush(v);
+		}
+
 		vncrdbytes(v, chal, VncChalLen);
 		if(auth_respond(chal, VncChalLen, nil, 0, chal, VncChalLen, auth_getkey,
 			"proto=vnc role=client server=%s %s", serveraddr, keypattern) != VncChalLen){
@@ -84,13 +132,20 @@ vncauth(Vnc *v, char *keypattern)
 		}
 		vncwrbytes(v, chal, VncChalLen);
 		vncflush(v);
+		break;
+	}
 
-		auth = vncrdlong(v);
+	/* in version 3.8 the auth status is always sent, in 3.3 only in AVncAuth */
+	if(srvversion == 38 || auth == AVncAuth){
+		auth = vncrdlong(v); /* auth status */
 		switch(auth){
 		default:
 			werrstr("unknown server response 0x%lux", auth);
 			return -1;
 		case VncAuthFailed:
+			if (srvversion == 38)
+				goto failed;
+
 			werrstr("server says authentication failed");
 			return -1;
 		case VncAuthTooMany:
@@ -99,7 +154,6 @@ vncauth(Vnc *v, char *keypattern)
 		case VncAuthOK:
 			break;
 		}
-		break;
 	}
 	return 0;
 }
