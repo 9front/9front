@@ -442,6 +442,7 @@ ctlr
 	ctlr=igfx linear=1
 
 ctlr
+	vid=0x8086 did=0xa011   # PineView Graphics
 	vid=0x8086 did=0x2592	# Intel 915GM
 	vid=0x8086 did=0x27a2	# Intel GM945/82940GML (hardware cursor broken)
 	vid=0x8086 did=0x2a02	# Intel GM965/GL960/X3100 (hardware cursor broken)
@@ -484,6 +485,7 @@ ctlr
 # An attribute 'alias=val' means continue using another monitor type. It can
 # be used to chain classes together. (bad explanation, i know).
 #
+
 include=640x480					# 60Hz, 31.5KHz
 	clock=25.175
 	shb=664 ehb=760 ht=800
@@ -1854,3 +1856,10 @@ t43p=1600x1200
 	shb=1664 ehb=1856 ht=2160
 	vrs=1201 vre=1204 vt=1250
 	hsync=+ vsync=+
+
+eeepc=1024x600
+	clock=54.2
+	shb=1048 ehb=1184 ht=1344
+	vrs=603 vre=609 vt=670
+	hsync=- vsync=-
+	lcd=1

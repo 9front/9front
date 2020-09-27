@@ -375,6 +375,7 @@ devtype(Igfx *igfx)
 	case 0x0102:	/* Dell Optiplex 790 */
 	case 0x0126:	/* Thinkpad X220 */
 		return TypeSNB;
+	case 0xa011:    /* PineView Graphics */
 	case 0x27a2:	/* GM945/82940GML - ThinkPad X60 Tablet */
 	case 0x29a2:	/* 82P965/G965 HECI desktop */
 	case 0x2a02:	/* GM965/GL960/X3100 - ThinkPad X61 Tablet */
