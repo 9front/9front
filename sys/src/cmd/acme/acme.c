@@ -513,19 +513,26 @@ mousethread(void *)
 				but = 2;
 			else if(m.buttons == 4)
 				but = 3;
-			else if(m.buttons == 8)
-				but = 4;
-			else if(m.buttons == 16)
-				but = 5;
 			barttext = t;
-			if(t->what==Body && w != nil
-			&& (ptinrect(m.xy, t->scrollr) || (m.buttons & (8|16)))){
+			if(t->what==Body && ptinrect(m.xy, t->scrollr)){
 				if(but){
 					winlock(w, 'M');
 					t->eq0 = ~0;
 					textscroll(t, but);
 					winunlock(w);
 				}
+				goto Continue;
+			}
+			/* scroll buttons, wheels, etc. */
+			if(t->what==Body && w != nil && (m.buttons & (8|16))){
+				if(m.buttons & 8)
+					but = Kscrolloneup;
+				else
+					but = Kscrollonedown;
+				winlock(w, 'M');
+				t->eq0 = ~0;
+				texttype(t, but);
+				winunlock(w);
 				goto Continue;
 			}
 			if(ptinrect(m.xy, t->scrollr)){
