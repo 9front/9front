@@ -170,6 +170,13 @@ if(test -x /bin/aux/kbdfs){
 	if(! ~ $#a 0)
 		a=/dev/eia^$a
 	aux/kbdfs -q -s cons $a
+
+	if(! ~$#kbmap 0){
+		if(test -f /sys/lib/kbmap/$kbmap){
+			echo 'setting kbmap to' $kbmap
+			cat /sys/lib/kbmap/$kbmap >/dev/kbmap
+		}
+	}
 }
 
 # usb devices
