@@ -29,10 +29,10 @@ enum {
 	Nrx		= 1<<Nrxlog,
 
 	Rstatsize	= 16,
+
 	Rbufsize	= 4*1024,
 	Rdscsize	= 8,
 
-	Tbufsize	= 4*1024,
 	Tdscsize	= 128,
 	Tcmdsize	= 140,
 
@@ -185,6 +185,8 @@ enum {
 
 	FhRxStatus	= 0x1c44,
 
+	FhRxQ0Wptr	= 0x1c80,	// +q*4 (9000 mqrx)
+
 	FhTxConfig	= 0x1d00,	// +q*32
 		FhTxConfigDmaCreditEna	= 1<<3,
 		FhTxConfigDmaEna	= 1<<31,
@@ -237,6 +239,45 @@ enum {
 
 	LmpmChick	= 0xa01ff8,
 		ExtAddr = 1,
+
+	SbCpu1Status	= 0xa01e30,
+	SbCpu2Status	= 0xa01e34,
+	UregChick	= 0xa05c00,
+		UregChickMsiEnable	= 1<<24,
+
+	FhUcodeLoadStatus=0xa05c40,
+};
+
+/*
+ * RX ring for mqrx 9000
+*/
+enum {
+	RfhQ0FreeBase	= 0xa08000,	// +q*8
+	RfhQ0FreeWptr	= 0xa08080,	// +q*4
+	RfhQ0FreeRptr	= 0xa080c0,	// +q*4
+
+	RfhQ0UsedBase	= 0xa08100,	// +q*8
+	RfhQ0UsedWptr	= 0xa08180,	// +q*4
+
+	RfhQ0SttsBase	= 0xa08200,	// +q*8
+
+	RfhGenCfg	= 0xa09800,
+		RfhGenServiceDmaSnoop	= 1<<0,
+		RfhGenRfhDmaSnoop	= 1<<1,
+		RfhGenRbChunkSize64	= 0<<4,
+		RfhGenRbChunkSize128	= 1<<4,
+
+	RfhGenStatus	= 0xa09808,
+		RfhGenStatusDmaIdle	= 1<<31,
+
+	RfhRxqActive	= 0xa0980c,
+
+	RfhDmaCfg	= 0xa09820,
+		RfhDma1KSizeShift	= 16,
+		RfhDmaNrbdShift		= 20,
+		RfhDmaMinRbSizeShift	= 24,
+		RfhDmaDropTooLarge	= 1<<26,
+		RfhDmaEnable		= 1<<31,
 };
 
 /*
@@ -386,6 +427,11 @@ struct FWImage
 
 struct FWInfo
 {
+	int	valid;
+
+	u16int	status;
+	u16int	flags;
+
 	u32int	major;
 	u32int	minor;
 	uchar	type;
@@ -439,8 +485,9 @@ struct RXQ
 {
 	uint	i;
 	Block	**b;
-	u32int	*p;
 	uchar	*s;
+	uchar	*p;
+	uchar	*u;
 };
 
 struct Station
@@ -459,6 +506,7 @@ struct Ctlr {
 	Wifi *wifi;
 
 	char *fwname;
+	int mqrx;
 	int family;
 	int type;
 	uint step;
@@ -483,13 +531,18 @@ struct Ctlr {
 	int phyid;
 	int macid;
 	int bindid;
-	int timeid;
 
 	/* current receiver settings */
 	uchar bssid[Eaddrlen];
 	int channel;
 	int prom;
 	int aid;
+
+	struct {
+		Rendez;
+		int id;
+		int active;
+	} te;
 
 	uvlong systime;
 
@@ -687,6 +740,7 @@ nicunlock(Ctlr *ctlr)
 static u32int
 prphread(Ctlr *ctlr, uint off)
 {
+	off &= 0xfffff;
 	csr32w(ctlr, PrphRaddr, ((sizeof(u32int)-1)<<24) | off);
 	coherence();
 	return csr32r(ctlr, PrphRdata);
@@ -694,9 +748,17 @@ prphread(Ctlr *ctlr, uint off)
 static void
 prphwrite(Ctlr *ctlr, uint off, u32int data)
 {
+	off &= 0xfffff;
 	csr32w(ctlr, PrphWaddr, ((sizeof(u32int)-1)<<24) | off);
 	coherence();
 	csr32w(ctlr, PrphWdata, data);
+}
+
+static void
+prphwrite64(Ctlr *ctlr, uint off, u64int data)
+{
+	prphwrite(ctlr, off, data & 0xFFFFFFFF);
+	prphwrite(ctlr, off+4, data >> 32);
 }
 
 static u32int
@@ -720,10 +782,12 @@ setfwinfo(Ctlr *ctlr, uchar *d, int len)
 	FWInfo *i;
 
 	i = &ctlr->fwinfo;
-
 	switch(len){
-	case 1+1+2+1+1 + 1+1 + 1+1 + 2 + 4+4+4+4+4+4 + 4:
-	case 1+1+2+1+1 + 1+1 + 1+1 + 2 + 4+4+4+4+4+4 + 4 + 4+4 + 1+1 + 2 + 4+4:
+	case 2+2 + 1+1+2+1+1 + 1+1 + 1+1 + 2 + 4+4+4+4+4+4 + 4:
+	case 2+2 + 1+1+2+1+1 + 1+1 + 1+1 + 2 + 4+4+4+4+4+4 + 4 + 4+4 + 1+1 + 2 + 4+4:
+		i->status = get16(d); d += 2;
+		i->flags = get16(d); d += 2;
+
 		i->minor = *d++;
 		i->major = *d++;
 		d += 2;					// id
@@ -756,9 +820,14 @@ setfwinfo(Ctlr *ctlr, uchar *d, int len)
 		d += 2;
 		i->umac.errptr = get32(d); d += 4;
 		i->umac.logptr = get32(d); d += 4;
+
+		i->valid = (i->status == 0xcafe);
 		break;
 
-	case 4+4 + 1+1 + 1+1 + 4+4+4+4+4+4 + 4 + 4+4 + 4+4+4+4:
+	case 2+2 + 4+4 + 1+1 + 1+1 + 4+4+4+4+4+4 + 4 + 4+4 + 4+4+4+4:
+		i->status = get16(d); d += 2;
+		i->flags = get16(d); d += 2;
+
 		i->minor = get32(d);
 		d += 4;
 		i->major = get32(d);
@@ -785,6 +854,8 @@ setfwinfo(Ctlr *ctlr, uchar *d, int len)
 		i->umac.major = get32(d); d += 4;
 		i->umac.errptr = get32(d); d += 4;
 		i->umac.logptr = get32(d); d += 4;
+
+		i->valid = (i->status == 0xcafe);
 		break;
 	
 	default:
@@ -799,23 +870,31 @@ setfwinfo(Ctlr *ctlr, uchar *d, int len)
 		i->logptr = get32(d); d += 4;
 		i->errptr = get32(d); d += 4;
 		i->tstamp = get32(d); d += 4;
+		i->valid = 1;
 	}
 	USED(d);
+}
 
-	if(0){
-		iprint("fwinfo: ver %ud.%ud type %ud.%ud\n",
-			i->major, i->minor, i->type, i->subtype);
-		iprint("fwinfo: scdptr=%.8ux\n", i->scdptr);
-		iprint("fwinfo: regptr=%.8ux\n", i->regptr);
-		iprint("fwinfo: logptr=%.8ux\n", i->logptr);
-		iprint("fwinfo: errptr=%.8ux\n", i->errptr);
+static void
+printfwinfo(Ctlr *ctlr)
+{
+	FWInfo *i = &ctlr->fwinfo;
 
-		iprint("fwinfo: ts=%.8ux\n", i->tstamp);
+	print("fwinfo: status=%.4ux flags=%.4ux\n",
+		i->status, i->flags);
 
-		iprint("fwinfo: umac ver %ud.%ud\n", i->umac.major, i->umac.minor);
-		iprint("fwinfo: umac errptr %.8ux\n", i->umac.errptr);
-		iprint("fwinfo: umac logptr %.8ux\n", i->umac.logptr);
-	}
+	print("fwinfo: ver %ud.%ud type %ud.%ud\n",
+		i->major, i->minor, i->type, i->subtype);
+	print("fwinfo: scdptr=%.8ux\n", i->scdptr);
+	print("fwinfo: regptr=%.8ux\n", i->regptr);
+	print("fwinfo: logptr=%.8ux\n", i->logptr);
+	print("fwinfo: errptr=%.8ux\n", i->errptr);
+
+	print("fwinfo: ts=%.8ux\n", i->tstamp);
+
+	print("fwinfo: umac ver %ud.%ud\n", i->umac.major, i->umac.minor);
+	print("fwinfo: umac errptr %.8ux\n", i->umac.errptr);
+	print("fwinfo: umac logptr %.8ux\n", i->umac.logptr);
 }
 
 static void
@@ -826,7 +905,7 @@ dumpctlr(Ctlr *ctlr)
 
 	print("lastcmd: %ud (0x%ux)\n", ctlr->tx[4].lastcmd,  ctlr->tx[4].lastcmd);
 
-	if(ctlr->fwinfo.errptr == 0){
+	if(!ctlr->fwinfo.valid || ctlr->fwinfo.errptr == 0){
 		print("no error pointer\n");
 		return;
 	}
@@ -914,7 +993,6 @@ handover(Ctlr *ctlr)
 			goto Ready;
 		delay(10);
 	}
-
 	if(ctlr->family >= 7000){
 		csr32w(ctlr, Dbglinkpwrmgmt, csr32r(ctlr, Dbglinkpwrmgmt) | (1<<31));
 		delay(1);
@@ -928,6 +1006,7 @@ handover(Ctlr *ctlr)
 	}
 	if(i >= 15000)
 		return "handover: timeout";
+
 	csr32w(ctlr, Cfg, csr32r(ctlr, Cfg) | NicReady);
 	for(i=0; i<5; i++){
 		if(csr32r(ctlr, Cfg) & NicReady)
@@ -1001,6 +1080,14 @@ poweron(Ctlr *ctlr)
 	if((err = clockwait(ctlr)) != nil)
 		return err;
 
+	if(ctlr->mqrx){
+		/* Newer cards default to MSIX? */
+		if((err = niclock(ctlr)) != nil)
+			return err;
+		prphwrite(ctlr, UregChick, UregChickMsiEnable);
+		nicunlock(ctlr);
+	}
+
 	if(ctlr->family < 8000){
 		if((err = niclock(ctlr)) != nil)
 			return err;
@@ -1057,11 +1144,20 @@ poweroff(Ctlr *ctlr)
 
 	/* Stop RX ring */
 	if(niclock(ctlr) == nil){
-		csr32w(ctlr, FhRxConfig, 0);
-		for(j = 0; j < 200; j++){
-			if(csr32r(ctlr, FhRxStatus) & 0x1000000)
-				break;
-			delay(10);
+		if(ctlr->mqrx){
+			prphwrite(ctlr, RfhDmaCfg, 0);
+			for(j = 0; j < 200; j++){
+				if(prphread(ctlr, RfhGenStatus) & RfhGenStatusDmaIdle)
+					break;
+				delay(10);
+			}
+		} else {
+			csr32w(ctlr, FhRxConfig, 0);
+			for(j = 0; j < 200; j++){
+				if(csr32r(ctlr, FhRxStatus) & 0x1000000)
+					break;
+				delay(10);
+			}
 		}
 		nicunlock(ctlr);
 	}
@@ -1337,29 +1433,29 @@ Tooshort:
 				if(i->main.nsect < 1)
 					i->main.nsect = 1;
 				s->addr = 0x00000000;
-				break;
+				goto Sect;
 			case 2:
 				s = &i->main.data;
 				if(i->main.nsect < 2)
 					i->main.nsect = 2;
 				s->addr = 0x00800000;
-				break;
+				goto Sect;
 			case 3:
 				s = &i->init.text;
 				if(i->init.nsect < 1)
 					i->init.nsect = 1;
 				s->addr = 0x00000000;
-				break;
+				goto Sect;
 			case 4:
 				s = &i->init.data;
 				if(i->init.nsect < 2)
 					i->init.nsect = 2;
 				s->addr = 0x00800000;
-				break;
+				goto Sect;
 			case 5:
 				s = &i->boot.text;
 				s->addr = 0x00000000;
-				break;
+				goto Sect;
 			case 19:
 				if(i->main.nsect >= nelem(i->main.sect))
 					return "too many main sections";
@@ -1374,8 +1470,10 @@ Tooshort:
 					goto Tooshort;
 				s->addr = get32(p);
 				p += 4, l -= 4;
+			Sect:
+				s->size = l;
+				s->data = p;
 				break;
-
 			case 22:
 				if(l < 12)
 					goto Tooshort;
@@ -1389,14 +1487,12 @@ Tooshort:
 					i->init.defcalib.eventmask = get32(p+8);
 					break;
 				}
-				continue;
-
+				break;
 			case 23:
 				if(l < 4)
 					goto Tooshort;
 				i->physku = get32(p);
-				continue;
-
+				break;
 			case 29:
 				if(l < 8)
 					goto Tooshort;
@@ -1404,7 +1500,7 @@ Tooshort:
 				if(t >= nelem(i->api))
 					goto Tooshort;
 				i->api[t] = get32(p+4);
-				continue;
+				break;
 			case 30:
 				if(l < 8)
 					goto Tooshort;
@@ -1412,19 +1508,13 @@ Tooshort:
 				if(t >= nelem(i->capa))
 					goto Tooshort;
 				i->capa[t] = get32(p+4);
-				continue;
-
+				break;
 			case 32:
 				if(l < 4)
 					goto Tooshort;
 				i->pagedmemsize = get32(p) & -FWPagesize;
-				continue;
-
-			default:
-				continue;
+				break;
 			}
-			s->size = l;
-			s->data = p;
 		}
 	} else {
 		if(((i->rev>>8) & 0xFF) < 2)
@@ -1540,17 +1630,25 @@ irqwait(Ctlr *ctlr, u32int mask, int timeout)
 }
 
 static int
-rbplant(Ctlr *ctlr, int i)
+rbplant(Ctlr *ctlr, uint i)
 {
 	Block *b;
 
-	b = iallocb(Rbufsize + 256);
+	assert(i < Nrx);
+
+	b = iallocb(Rbufsize*2);
 	if(b == nil)
 		return -1;
-	b->rp = b->wp = (uchar*)ROUND((uintptr)b->base, 256);
+	b->rp = b->wp = (uchar*)ROUND((uintptr)b->base, Rbufsize);
 	memset(b->rp, 0, Rdscsize);
+
 	ctlr->rx.b[i] = b;
-	ctlr->rx.p[i] = PCIWADDR(b->rp) >> 8;
+
+	if(ctlr->mqrx)
+		put64(ctlr->rx.p + (i<<3), PCIWADDR(b->rp));
+	else
+		put32(ctlr->rx.p + (i<<2), PCIWADDR(b->rp) >> 8);
+
 	return 0;
 }
 
@@ -1585,17 +1683,31 @@ initmem(Ctlr *ctlr)
 	}
 
 	rx = &ctlr->rx;
+	if(ctlr->mqrx){
+		if(rx->u == nil)
+			rx->u = mallocalign(4 * Nrx, 4096, 0, 0);
+		if(rx->p == nil)
+			rx->p = mallocalign(8 * Nrx, 4096, 0, 0);
+		if(rx->u == nil || rx->p == nil)
+			return "no memory for rx rings";
+		memset(rx->u, 0, 4 * Nrx);
+		memset(rx->p, 0, 8 * Nrx);
+	} else {
+		rx->u = nil;
+		if(rx->p == nil)
+			rx->p = mallocalign(4 * Nrx, 256, 0, 0);
+		if(rx->p == nil)
+			return "no memory for rx rings";
+		memset(rx->p, 0, 4 * Nrx);
+	}
+	if(rx->s == nil)
+		rx->s = mallocalign(Rstatsize, 4096, 0, 0);
 	if(rx->b == nil)
 		rx->b = malloc(sizeof(Block*) * Nrx);
-	if(rx->p == nil)
-		rx->p = mallocalign(sizeof(u32int) * Nrx, 256, 0, 0);
-	if(rx->s == nil)
-		rx->s = mallocalign(Rstatsize, 16, 0, 0);
-	if(rx->b == nil || rx->p == nil || rx->s == nil)
+	if(rx->b == nil || rx->s == nil)
 		return "no memory for rx ring";
-	memset(ctlr->rx.s, 0, Rstatsize);
+	memset(rx->s, 0, Rstatsize);
 	for(i=0; i<Nrx; i++){
-		rx->p[i] = 0;
 		if(rx->b[i] != nil){
 			freeb(rx->b[i]);
 			rx->b[i] = nil;
@@ -1617,19 +1729,19 @@ initmem(Ctlr *ctlr)
 	}
 
 	if(ctlr->sched.s == nil)
-		ctlr->sched.s = mallocalign(512 * ctlr->ntxq * 2, 1024, 0, 0);
+		ctlr->sched.s = mallocalign((256+64)*2 * ctlr->ntxq, 4096, 0, 0);
 	if(ctlr->sched.s == nil)
 		return "no memory for sched buffer";
-	memset(ctlr->sched.s, 0, 512 * ctlr->ntxq);
+	memset(ctlr->sched.s, 0, (256+64)*2 * ctlr->ntxq);
 
 	for(q=0; q < nelem(ctlr->tx); q++){
 		tx = &ctlr->tx[q];
 		if(tx->b == nil)
 			tx->b = malloc(sizeof(Block*) * Ntx);
 		if(tx->d == nil)
-			tx->d = mallocalign(Tdscsize * Ntx, 256, 0, 0);
+			tx->d = mallocalign(Tdscsize * Ntx, 4096, 0, 0);
 		if(tx->c == nil)
-			tx->c = mallocalign(Tcmdsize * Ntx, 4, 0, 0);
+			tx->c = mallocalign(Tcmdsize * Ntx, 4096, 0, 0);
 		if(tx->b == nil || tx->d == nil || tx->c == nil)
 			return "no memory for tx ring";
 		memset(tx->d, 0, Tdscsize * Ntx);
@@ -1724,17 +1836,58 @@ reset(Ctlr *ctlr)
 
 	if((err = niclock(ctlr)) != nil)
 		return err;
-	csr32w(ctlr, FhRxConfig, 0);
-	csr32w(ctlr, FhRxWptr, 0);
-	csr32w(ctlr, FhRxBase, PCIWADDR(ctlr->rx.p) >> 8);
-	csr32w(ctlr, FhStatusWptr, PCIWADDR(ctlr->rx.s) >> 4);
-	csr32w(ctlr, FhRxConfig,
-		FhRxConfigEna | 
-		FhRxConfigIgnRxfEmpty |
-		FhRxConfigIrqDstHost | 
-		FhRxConfigSingleFrame |
-		(Nrxlog << FhRxConfigNrbdShift));
-	csr32w(ctlr, FhRxWptr, (Nrx-1) & ~7);
+
+	if(ctlr->mqrx){
+		/* Stop RX DMA. */
+		prphwrite(ctlr, RfhDmaCfg, 0);
+		/* Disable RX used and free queue operation. */
+		prphwrite(ctlr, RfhRxqActive, 0);
+
+		prphwrite64(ctlr, RfhQ0SttsBase, PCIWADDR(ctlr->rx.s));
+		prphwrite64(ctlr, RfhQ0FreeBase, PCIWADDR(ctlr->rx.p));
+		prphwrite64(ctlr, RfhQ0UsedBase, PCIWADDR(ctlr->rx.u));
+
+		prphwrite(ctlr, RfhQ0FreeWptr, 0);
+		prphwrite(ctlr, RfhQ0FreeRptr, 0);
+		prphwrite(ctlr, RfhQ0UsedWptr, 0);
+
+		/* Enable RX DMA */
+		prphwrite(ctlr, RfhDmaCfg,
+			RfhDmaEnable |
+			RfhDmaDropTooLarge |
+			((Rbufsize/1024) << RfhDma1KSizeShift) |
+			(3 << RfhDmaMinRbSizeShift) |
+			(Nrxlog << RfhDmaNrbdShift));
+
+		/* Enable RX DMA snooping. */
+		prphwrite(ctlr, RfhGenCfg,
+			RfhGenServiceDmaSnoop |
+			RfhGenRfhDmaSnoop |
+			RfhGenRbChunkSize128);
+
+		/* Enable Q0 */
+		prphwrite(ctlr, RfhRxqActive, (1 << 16) | 1);
+		delay(1);
+
+		csr32w(ctlr, FhRxQ0Wptr, (Nrx-1) & ~7);
+		delay(1);
+	} else {
+		csr32w(ctlr, FhRxConfig, 0);
+		csr32w(ctlr, FhRxWptr, 0);
+		csr32w(ctlr, FhRxBase, PCIWADDR(ctlr->rx.p) >> 8);
+		csr32w(ctlr, FhStatusWptr, PCIWADDR(ctlr->rx.s) >> 4);
+		csr32w(ctlr, FhRxConfig,
+			FhRxConfigEna | 
+			FhRxConfigIgnRxfEmpty |
+			FhRxConfigIrqDstHost | 
+			FhRxConfigSingleFrame |
+			(Nrxlog << FhRxConfigNrbdShift));
+
+		csr32w(ctlr, FhRxWptr, (Nrx-1) & ~7);
+	}
+
+	for(i = 0; i < ctlr->ndma; i++)
+		csr32w(ctlr, FhTxConfig + i*32, 0);
 
 	if(ctlr->family >= 7000 || ctlr->type != Type4965)
 		prphwrite(ctlr, SchedTxFact, 0);
@@ -1781,8 +1934,12 @@ reset(Ctlr *ctlr)
 	ctlr->phyid = -1;
 	ctlr->macid = -1;
 	ctlr->bindid = -1;
-	ctlr->timeid = -1;
+	ctlr->te.id = -1;
+	ctlr->te.active = 0;
 	ctlr->aid = 0;
+
+	if(ctlr->family >= 9000)
+		csr32w(ctlr, Gpc, csr32r(ctlr, Gpc) | 0x4000000);
 
 	ctlr->ie = Idefmask;
 	csr32w(ctlr, Imr, ctlr->ie);
@@ -1958,6 +2115,7 @@ enablepaging(Ctlr *ctlr)
 			break;
 		}
 	}
+
 	if(i+1 >= nsect)
 		return "firmware misses CSS+paging sections";
 
@@ -2120,72 +2278,6 @@ sendphyconfig(Ctlr *ctlr, u32int physku, u32int flowmask, u32int eventmask)
 }
 
 static char*
-setsmartfifo(Ctlr *ctlr, u32int state, int fullon)
-{
-	uchar c[4*(1 + 2 + 5*2 + 5*2)], *p;
-	int i;
-
-	memset(p = c, 0, sizeof(c));
-	put32(p, state);
-	p += 4;
-
-	/* watermark long delay on */
-	put32(p, 4096);
-	p += 4;
-
-	/* watermark full on */
-	put32(p, 4096);
-	p += 4;
-
-	/* long delay timeouts */
-	for(i = 0; i < 5*2; i++){
-		put32(p, 1000000);
-		p += 4;
-	}
-
-	/* full on timeouts */
-	if(fullon){
-		/* single unicast */
-		put32(p, 320);
-		p += 4;
-		put32(p, 2016);
-		p += 4;
-
-		/* agg unicast */
-		put32(p, 320);
-		p += 4;
-		put32(p, 2016);
-		p += 4;
-
-		/* mcast */
-		put32(p, 2016);
-		p += 4;
-		put32(p, 10016);
-		p += 4;
-
-		/* ba */
-		put32(p, 320);
-		p += 4;
-		put32(p, 2016);
-		p += 4;
-
-		/* tx re */
-		put32(p, 320);
-		p += 4;
-		put32(p, 2016);
-		p += 4;
-	} else {
-		for(i = 0; i < 5; i++){
-			put32(p, 160);
-			p += 4;
-			put32(p, 400);
-			p += 4;
-		}
-	}
-	return cmd(ctlr, 209, c, p - c);
-}
-
-static char*
 delstation(Ctlr *ctlr, Station *sta)
 {
 	uchar c[4], *p;
@@ -2292,9 +2384,7 @@ setstation(Ctlr *ctlr, int id, int type, uchar addr[6], Station *sta)
 
 	if((err = cmd(ctlr, 24, c, p - c)) != nil)
 		return err;
-
 	sta->id = id;
-
 	return nil;
 }
 
@@ -2518,12 +2608,37 @@ setbindingcontext(Ctlr *ctlr, int amr)
 	return nil;
 }
 
+static int
+timeeventdone(void *arg)
+{
+	Ctlr *ctlr = arg;
+	return ctlr->te.id == -1 || ctlr->te.active != 0;
+}
+
 static char*
 settimeevent(Ctlr *ctlr, int amr, int ival)
 {
-	int timeid, duration, delay;
+	int duration, delay, timeid;
 	uchar c[9*4], *p;
 	char *err;
+
+	switch(amr){
+	case CmdAdd:
+		timeid = ctlr->te.id;
+		if(timeid == -1)
+			timeid = 0;
+		else {
+			if(ctlr->te.active)
+				return nil;
+			amr = CmdModify;
+		}
+		break;
+	default:
+		timeid = ctlr->te.id;
+		if(timeid == -1)
+			return nil;
+		break;
+	}
 
 	if(ival){
 		duration = ival*2;
@@ -2532,19 +2647,6 @@ settimeevent(Ctlr *ctlr, int amr, int ival)
 		duration = 1024;
 		delay = 0;
 	}
-
-	timeid = ctlr->timeid;
-	if(timeid < 0){
-		if(amr == CmdRemove)
-			return nil;
-		amr = CmdAdd;
-		timeid = 0;
-	} else {
-		if(amr == CmdAdd)
-			amr = CmdModify;
-	}
-	if(ctlr->macid < 0)
-		return "no mac id set";
 
 	memset(p = c, 0, sizeof(c));
 	put32(p, ctlr->macid);
@@ -2569,13 +2671,17 @@ settimeevent(Ctlr *ctlr, int amr, int ival)
 	put16(p, 1<<0 | 1<<1 | 1<<11);	// policy
 	p += 2;
 
+	ctlr->te.active = 0;
 	if((err =  cmd(ctlr, 41, c, p - c)) != nil)
 		return err;
 
-	if(amr == CmdRemove)
-		ctlr->timeid = -1;
-
-	return nil;
+	if(amr == CmdRemove){
+		ctlr->te.active = 0;
+		ctlr->te.id = -1;
+		return nil;
+	}
+	tsleep(&ctlr->te, timeeventdone, ctlr, 100);
+	return ctlr->te.active? nil: "timeevent did not start";
 }
 
 
@@ -2712,9 +2818,6 @@ postboot7000(Ctlr *ctlr)
 
 	if(ctlr->calib.done == 0){
 		if((err = readnvmconfig(ctlr)) != nil)
-			return err;
-
-		if((err = setsmartfifo(ctlr, 3, 0)) != nil)
 			return err;
 	}
 
@@ -3047,13 +3150,16 @@ loadfirmware1(Ctlr *ctlr, u32int dst, uchar *data, int size)
 	memmove(dma, data, size);
 	coherence();
 	
-	if(ctlr->family >= 7000 && dst >= 0x40000 && dst < 0x57fff)
-		prphwrite(ctlr, LmpmChick, prphread(ctlr, LmpmChick) | ExtAddr);
-
 	if((err = niclock(ctlr)) != nil){
 		free(dma);
 		return err;
 	}
+
+	if(ctlr->family >= 7000 && dst >= 0x40000 && dst < 0x57fff)
+		prphwrite(ctlr, LmpmChick, prphread(ctlr, LmpmChick) | ExtAddr);
+	else
+		prphwrite(ctlr, LmpmChick, prphread(ctlr, LmpmChick) & ~ExtAddr);
+
 	csr32w(ctlr, FhTxConfig + 9*32, 0);
 	csr32w(ctlr, FhSramAddr + 9*4, dst);
 	csr32w(ctlr, FhTfbdCtrl0 + 9*8, PCIWADDR(dma));
@@ -3069,8 +3175,10 @@ loadfirmware1(Ctlr *ctlr, u32int dst, uchar *data, int size)
 	if(irqwait(ctlr, Ifhtx|Ierr, 5000) != Ifhtx)
 		err = "dma error / timeout";
 
-	if(ctlr->family >= 7000 && dst >= 0x40000 && dst < 0x57fff)
+	if(niclock(ctlr) == nil){
 		prphwrite(ctlr, LmpmChick, prphread(ctlr, LmpmChick) & ~ExtAddr);
+		nicunlock(ctlr);
+	}
 
 	free(dma);
 
@@ -3125,6 +3233,7 @@ loadsections(Ctlr *ctlr, FWSect *sect, int nsect)
 static char*
 ucodestart(Ctlr *ctlr)
 {
+	memset(&ctlr->fwinfo, 0, sizeof(ctlr->fwinfo));
 	if(ctlr->family >= 8000)
 		return setloadstatus(ctlr, -1);
 	csr32w(ctlr, Reset, 0);
@@ -3147,19 +3256,28 @@ boot(Ctlr *ctlr)
 				return err;
 			if((err = ucodestart(ctlr)) != nil)
 				return err;
-			if(irqwait(ctlr, Ierr|Ialive, 5000) != Ialive)
+
+			tsleep(&up->sleep, return0, 0, 100);
+
+			if(irqwait(ctlr, Ierr|Ialive, 5000) != Ialive|| !ctlr->fwinfo.valid){
 				return "init firmware boot failed";
+			}
 			if((err = postboot(ctlr)) != nil)
 				return err;
 			if((err = reset(ctlr)) != nil)
 				return err;
 		}
+
 		if((err = loadsections(ctlr, fw->main.sect, fw->main.nsect)) != nil)
 			return err;
 		if((err= ucodestart(ctlr)) != nil)
 			return err;
-		if(irqwait(ctlr, Ierr|Ialive, 5000) != Ialive)
+
+		tsleep(&up->sleep, return0, 0, 100);
+
+		if(irqwait(ctlr, Ierr|Ialive, 5000) != Ialive || !ctlr->fwinfo.valid)
 			return "main firmware boot failed";
+
 		return postboot(ctlr);
 	}
 
@@ -3270,7 +3388,7 @@ qcmd(Ctlr *ctlr, uint qid, uint code, uchar *data, int size, Block *block)
 
 	assert(qid < ctlr->ntxq);
 
-	if(code & 0xFF00)
+	if((code & 0xFF00) != 0)
 		hdrlen = 8;
 	else
 		hdrlen = 4;
@@ -3340,8 +3458,9 @@ qcmd(Ctlr *ctlr, uint qid, uint code, uchar *data, int size, Block *block)
 	if(block != nil){
 		size = BLEN(block);
 		put32(d, PCIWADDR(block->rp)); d += 4;
-		put16(d, size << 4);
+		put16(d, size << 4); d += 2;
 	}
+	USED(d);
 
 	coherence();
 
@@ -3390,9 +3509,14 @@ cmd(Ctlr *ctlr, uint code, uchar *data, int size)
 	char *err;
 
 	if(0) print("cmd %ud\n", code);
-	if((err = qcmd(ctlr, 4, code, data, size, nil)) != nil)
+
+	if((err = qcmd(ctlr, 4, code, data, size, nil)) != nil
+	|| (err = flushq(ctlr, 4)) != nil){
+		print("#l%d: cmd %ud: %s\n", ctlr->edev->ctlrno, code, err);
+		ctlr->broken = 1;
 		return err;
-	return flushq(ctlr, 4);
+	}
+	return nil;
 }
 
 static void
@@ -3404,12 +3528,11 @@ setled(Ctlr *ctlr, int which, int on, int off)
 		return;	// TODO
 
 	csr32w(ctlr, Led, csr32r(ctlr, Led) & ~LedBsmCtrl);
-
-	memset(c, 0, sizeof(c));
 	put32(c, 10000);
 	c[4] = which;
 	c[5] = on;
 	c[6] = off;
+	c[7] = 0;
 	cmd(ctlr, 72, c, sizeof(c));
 }
 
@@ -3418,14 +3541,6 @@ rxoff7000(Ether *edev, Ctlr *ctlr)
 {
 	char *err;
 
-	if((err = settimeevent(ctlr, CmdRemove, 0)) != nil){
-		print("can't remove timeevent: %s\n", err);
-		return err;
-	}
-	if((err = setsmartfifo(ctlr, 2, 0)) != nil){
-		print("setsmartfifo: %s\n", err);
-		return err;
-	}
 	if((err = setbindingquotas(ctlr, -1)) != nil){
 		print("can't disable quotas: %s\n", err);
 		return err;
@@ -3462,10 +3577,6 @@ rxon7000(Ether *edev, Ctlr *ctlr)
 		print("removing bindingcontext: %s\n", err);
 		return err;
 	}
-	if((err = setsmartfifo(ctlr, 1, ctlr->aid != 0)) != nil){
-		print("setsmartfifo: %s\n", err);
-		return err;
-	}
 	if((err = setmcastfilter(ctlr)) != nil){
 		print("can't set mcast filter: %s\n", err);
 		return err;
@@ -3474,7 +3585,7 @@ rxon7000(Ether *edev, Ctlr *ctlr)
 		print("can't set mac power: %s\n", err);
 		return err;
 	}
-	if((err = setbindingquotas(ctlr, ctlr->bindid)) != nil){
+	if((err = setbindingquotas(ctlr, ctlr->aid != 0 ? ctlr->bindid : -1)) != nil){
 		print("can't set binding quotas: %s\n", err);
 		return err;
 	}
@@ -3528,8 +3639,10 @@ rxon(Ether *edev, Wnode *bss)
 	char *err;
 
 	if(ctlr->family >= 7000){
+		flushq(ctlr, 0);
 		delstation(ctlr, &ctlr->bss);
 		delstation(ctlr, &ctlr->bcast);
+		settimeevent(ctlr, CmdRemove, 0);
 		if((err = rxoff7000(edev, ctlr)) != nil)
 			goto Out;
 	}
@@ -3600,10 +3713,6 @@ rxon(Ether *edev, Wnode *bss)
 		if(ctlr->family >= 7000)
 			if((err = setmaccontext(edev, ctlr, CmdModify, bss)) != nil)
 				goto Out;
-	} else {
-		if(ctlr->family >= 7000)
-			if((err = settimeevent(ctlr, CmdAdd, (bss != nil)? bss->ival: 0)) != nil)
-				goto Out;
 	}
 Out:
 	return err;
@@ -3637,12 +3746,20 @@ Broken:
 			goto Broken;
 	}
 
+	/*
+	 * unless authenticated, the firmware will hop
+	 * channels unless we force it onto a channel using
+	 * a timeevent.
+	 */
+	if(ctlr->aid == 0 && ctlr->family >= 7000)
+		if(settimeevent(ctlr, CmdAdd, wn->ival) != nil)
+			goto Broken;
+
 	if(b == nil){
 		/* association note has no data to transmit */
 		qunlock(ctlr);
 		return;
 	}
-
 	flags = 0;
 	sta = &ctlr->bcast;
 	p = wn->minrate;
@@ -3895,6 +4012,13 @@ iwlattach(Ether *edev)
 }
 
 static void
+updatesystime(Ctlr *ctlr, u32int ts)
+{
+	u32int dt = ts - (u32int)ctlr->systime;
+	ctlr->systime += dt;
+}
+
+static void
 receive(Ctlr *ctlr)
 {
 	Block *b, *bb;
@@ -3955,8 +4079,28 @@ receive(Ctlr *ctlr)
 				wifitxfail(ctlr->wifi, bb);
 			break;
 		case 41:
-			if(len >= 16 && get32(d) == 0 && ctlr->timeid == -1)
-				ctlr->timeid = get32(d+8);
+			if(len < 2*4)
+				break;
+			if(get32(d) != 0)
+				break;
+			if(ctlr->te.id == -1)
+				ctlr->te.id = get32(d+8);
+			break;
+		case 42:
+			if(len < 6*4)
+				break;
+			if(ctlr->te.id == -1 || get32(d+8) != ctlr->te.id)
+				break;
+			switch(get32(d+16)){
+			case 1:
+				ctlr->te.active = 1;
+				wakeup(&ctlr->te);
+				break;
+			case 2:
+				ctlr->te.active = 0;
+				ctlr->te.id = -1;
+				wakeup(&ctlr->te);
+			}
 			break;
 		case 102:	/* calibration result (Type5000 only) */
 			if(ctlr->family >= 7000)
@@ -3978,6 +4122,7 @@ receive(Ctlr *ctlr)
 		case 4:		/* init complete (>= 7000 family) */
 			if(ctlr->family < 7000)
 				break;
+			/* wet floor */
 		case 103:	/* calibration done (Type5000 only) */
 			ctlr->calib.done = 1;
 			break;
@@ -4041,24 +4186,33 @@ receive(Ctlr *ctlr)
 		case 177:	/* mduart load notification */
 			break;
 		case 192:	/* rx phy */
-			if(len >= 8){
-				u32int dt = get32(d+4) - (u32int)ctlr->systime;
-				ctlr->systime += dt;
-			}
+			if(len >= 8)
+				updatesystime(ctlr, get32(d+4));
 			break;
 		case 195:	/* rx done */
 			if(d + 2 > b->lim)
 				break;
 			d += d[1];
 			d += 56;
+			/* wet floor */
 		case 193:	/* mpdu rx done */
 			if(d + 4 > b->lim)
 				break;
-			len = get16(d); d += 4;
-			if(d + len + 4 > b->lim)
-				break;
-			if((d[len] & 3) != 3)
-				break;
+			len = get16(d);
+			if(ctlr->mqrx){
+				if(d + 48 + len > b->lim)
+					break;
+				updatesystime(ctlr, get32(d+36));
+				if((d[12] & 3) != 3)
+					break;
+				d += 48;
+			} else {
+				d += 4;
+				if(d + len + 4 > b->lim)
+					break;
+				if((d[len] & 3) != 3)
+					break;
+			}
 			if(ctlr->wifi == nil)
 				break;
 			if(rbplant(ctlr, rx->i) < 0)
@@ -4080,7 +4234,11 @@ receive(Ctlr *ctlr)
 			wakeup(tx);
 		}
 	}
-	csr32w(ctlr, FhRxWptr, ((hw+Nrx-1) % Nrx) & ~7);
+
+	if(ctlr->mqrx){
+		csr32w(ctlr, FhRxQ0Wptr, ((hw+Nrx-1) % Nrx) & ~7);
+	}else
+		csr32w(ctlr, FhRxWptr, ((hw+Nrx-1) % Nrx) & ~7);
 }
 
 static void
@@ -4104,7 +4262,8 @@ iwlinterrupt(Ureg*, void *arg)
 		goto done;
 	csr32w(ctlr, Isr, isr);
 	csr32w(ctlr, FhIsr, fhisr);
-	if((isr & (Iswrx | Ifhrx | Irxperiodic)) || (fhisr & Ifhrx))
+
+	if((isr & (Iswrx | Ifhrx | Irxperiodic | Ialive)) || (fhisr & Ifhrx))
 		receive(ctlr);
 	if(isr & Ierr){
 		ctlr->broken = 1;
@@ -4185,6 +4344,10 @@ iwlpci(void)
 			family = 8000;
 			fwname = "iwm-8265-34";
 			break;
+		case 0x2526:	/* Wireless AC 9260 */
+			family = 9000;
+			fwname = "iwm-9260-34";
+			break;
 		}
 
 		ctlr = malloc(sizeof(Ctlr));
@@ -4203,6 +4366,7 @@ iwlpci(void)
 		ctlr->pdev = pdev;
 		ctlr->fwname = fwname;
 		ctlr->family = family;
+		ctlr->mqrx = family >= 9000;
 
 		if(iwlhead != nil)
 			iwltail->link = ctlr;
