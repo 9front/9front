@@ -1798,3 +1798,23 @@ wcontents(Window *w, int *ip)
 {
 	return runetobyte(w->r, w->nr, ip);
 }
+
+void
+wsend(Window *w)
+{
+	getsnarf();
+	wsnarf(w);
+	if(nsnarf == 0)
+		return;
+	if(w->rawing){
+		waddraw(w, snarf, nsnarf);
+		if(snarf[nsnarf-1]!='\n' && snarf[nsnarf-1]!='\004')
+			waddraw(w, L"\n", 1);
+	}else{
+		winsert(w, snarf, nsnarf, w->nr);
+		if(snarf[nsnarf-1]!='\n' && snarf[nsnarf-1]!='\004')
+			winsert(w, L"\n", 1, w->nr);
+	}
+	wsetselect(w, w->nr, w->nr);
+	wshow(w, w->nr);
+}

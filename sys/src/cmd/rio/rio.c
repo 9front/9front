@@ -775,21 +775,7 @@ button2menu(Window *w)
 		break;
 
 	case Send:
-		getsnarf();
-		wsnarf(w);
-		if(nsnarf == 0)
-			break;
-		if(w->rawing){
-			waddraw(w, snarf, nsnarf);
-			if(snarf[nsnarf-1]!='\n' && snarf[nsnarf-1]!='\004')
-				waddraw(w, L"\n", 1);
-		}else{
-			winsert(w, snarf, nsnarf, w->nr);
-			if(snarf[nsnarf-1]!='\n' && snarf[nsnarf-1]!='\004')
-				winsert(w, L"\n", 1, w->nr);
-		}
-		wsetselect(w, w->nr, w->nr);
-		wshow(w, w->nr);
+		wsend(w);
 		break;
 
 	case Scroll:
