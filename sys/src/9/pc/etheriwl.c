@@ -4348,6 +4348,10 @@ iwlpci(void)
 			family = 0;
 			fwname = nil;
 			break;
+		case 0x24f3:	/* Wireless AC 8260 */
+			family = 8000;
+			fwname = "iwm-8000C-34";
+			break;
 		case 0x24fd:	/* Wireless AC 8265 */
 			family = 8000;
 			fwname = "iwm-8265-34";
