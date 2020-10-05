@@ -3540,9 +3540,22 @@ static char*
 rxoff7000(Ether *edev, Ctlr *ctlr)
 {
 	char *err;
+	int i;
+
+	for(i = 0; i < nelem(ctlr->tx); i++)
+		flushq(ctlr, i);
+	settimeevent(ctlr, CmdRemove, 0);
 
 	if((err = setbindingquotas(ctlr, -1)) != nil){
 		print("can't disable quotas: %s\n", err);
+		return err;
+	}
+	if((err = delstation(ctlr, &ctlr->bss)) != nil){
+		print("can't remove bss station: %s\n", err);
+		return err;
+	}
+	if((err = delstation(ctlr, &ctlr->bcast)) != nil){
+		print("can't remove bcast station: %s\n", err);
 		return err;
 	}
 	if((err = setbindingcontext(ctlr, CmdRemove)) != nil){
@@ -3638,14 +3651,9 @@ rxon(Ether *edev, Wnode *bss)
 	Ctlr *ctlr = edev->ctlr;
 	char *err;
 
-	if(ctlr->family >= 7000){
-		flushq(ctlr, 0);
-		delstation(ctlr, &ctlr->bss);
-		delstation(ctlr, &ctlr->bcast);
-		settimeevent(ctlr, CmdRemove, 0);
+	if(ctlr->family >= 7000)
 		if((err = rxoff7000(edev, ctlr)) != nil)
 			goto Out;
-	}
 
 	ctlr->rxfilter = FilterNoDecrypt | FilterMulticast | FilterBeacon;
 	if(ctlr->family >= 7000)
