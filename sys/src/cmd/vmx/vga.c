@@ -300,6 +300,8 @@ kbdlayout(char *fn)
 	defkey(Kpgdown, 0x151);
 	defkey(Kins, 0x152);
 	defkey(Kdel, 0x153);
+	defkey(Kmod4, 0x15b);
+	defkey(Kmod4, 0x15c);
 	defkey(Kup, 0x179);
 
 	bp = Bopen(fn, OREAD);
