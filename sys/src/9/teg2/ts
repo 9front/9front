@@ -66,7 +66,6 @@ misc
 #	sdaoe		sdscsi
 	uarti8250
 	ucalloc
-	ucallocb
 # include vfp3 to use hardware fp, otherwise include softfpu
 	vfp3
 #	softfpu

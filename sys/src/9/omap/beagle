@@ -64,7 +64,6 @@ misc
 	softfpu
 	uarti8250
 	ucalloc
-	ucallocb
 
 port
 	int cpuserver = 1;
