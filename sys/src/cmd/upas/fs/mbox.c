@@ -1547,7 +1547,7 @@ myplumbsend(int fd, Plumbmsg *m)
 static void
 mailplumb(Mailbox *mb, Message *m)
 {
-	char buf[256], dbuf[SHA1dlen*2 + 1], len[10], date[30], *from, *subject;
+	char buf[256], dbuf[SHA1dlen*2 + 1], len[10], date[32], *from, *subject;
 	int ai;
 	Plumbmsg p;
 	Plumbattr a[7];
