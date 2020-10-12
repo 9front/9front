@@ -605,7 +605,7 @@ server(void)
 
 	afd = -1;
 	nprocs = 0;
-	for(port=6881; port<6890; port++){
+	for(port=6881; port<9000; port++){
 		snprint(addr, sizeof(addr), "tcp!*!%d", port);
 		if((afd = announce(addr, adir)) >= 0)
 			break;
