@@ -7,36 +7,36 @@
 
 Area *owned, *delegated;
 
+static Area*
+nameinarea(char *name, Area *s)
+{
+	int len;
+	
+	for(len = strlen(name); s != nil; s = s->next){
+		if(s->len > len)
+			continue;
+		if(cistrcmp(s->soarr->owner->name, name + len - s->len) == 0)
+			if(len == s->len || name[len - s->len - 1] == '.')
+				return s;
+	}
+	return nil;
+}
+
 /*
  *  true if a name is in our area
  */
 Area*
 inmyarea(char *name)
 {
-	int len;
 	Area *s, *d;
 
-	len = strlen(name);
-	for(s = owned; s; s = s->next){
-		if(s->len > len)
-			continue;
-		if(cistrcmp(s->soarr->owner->name, name + len - s->len) == 0)
-			if(len == s->len || name[len - s->len - 1] == '.')
-				break;
-	}
+	s = nameinarea(name, owned);
 	if(s == nil)
 		return nil;
-
-	/* name is in area `s' */
-	for(d = delegated; d; d = d->next){
-		if(d->len > len)
-			continue;
-		if(cistrcmp(d->soarr->owner->name, name + len - d->len) == 0)
-			if(len == d->len || name[len - d->len - 1] == '.')
-				return nil; /* name is in a delegated subarea */
-	}
-
-	return s;	/* name is in area `s' and not in a delegated subarea */
+	d = nameinarea(name, delegated);
+	if(d && d->len > s->len)
+		return nil;
+	return s;	/* name is in owned area `s' and not in a delegated subarea */
 }
 
 /*
@@ -48,6 +48,9 @@ addarea(DN *dp, RR *rp, Ndbtuple *t)
 {
 	Area *s;
 	Area **l;
+	int len;
+
+	len = strlen(dp->name);
 
 	lock(&dnlock);
 	if(t->val[0])
@@ -55,11 +58,14 @@ addarea(DN *dp, RR *rp, Ndbtuple *t)
 	else
 		l = &owned;
 
-	for (s = *l; s != nil; s = s->next)
+	for (s = *l; s != nil; l = &s->next, s = s->next){
+		if(s->len < len)
+			break;
 		if(s->soarr->owner == dp) {
 			unlock(&dnlock);
 			return;		/* we've already got one */
 		}
+	}
 
 	/*
 	 *  The area contains a copy of the soa rr that created it.
@@ -67,7 +73,7 @@ addarea(DN *dp, RR *rp, Ndbtuple *t)
 	 *  as the area does.
 	 */
 	s = emalloc(sizeof(*s));
-	s->len = strlen(dp->name);
+	s->len = len;
 	rrcopy(rp, &s->soarr);
 	s->soarr->owner = dp;
 	s->soarr->db = 1;

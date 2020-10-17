@@ -641,7 +641,8 @@ dnauthdb(void)
 						if(rp->ttl < minttl)
 							rp->ttl = minttl;
 						rp->auth = 1;
-					}
+					} else if(rp->type == Tns && inmyarea(rp->host->name))
+						rp->auth = 1;
 				}
 				l = &rp->next;
 			}
