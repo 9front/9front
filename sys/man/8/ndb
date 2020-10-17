@@ -97,7 +97,7 @@ query, ipquery, mkhash, mkdb, mkhosts, cs, csquery, dns, dnstcp, dnsquery, dnsde
 .br
 .B ndb/dnsdebug
 [
-.B -rx
+.B -rxc
 ] [
 .B -f
 .I dbfile
@@ -758,6 +758,9 @@ to use the
 interface and
 .B /lib/ndb/external
 database file.
+The
+.B -c
+option enables caching which is handy for debugging the dns code.
 .PP
 .I Ndb/dnsgetip
 resolves and prints A and AAAA records without consulting

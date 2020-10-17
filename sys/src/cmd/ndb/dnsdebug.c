@@ -56,8 +56,15 @@ main(int argc, char *argv[])
 	case 'f':
 		dbfile = EARGF(usage());
 		break;
+	case 'c':
+		cfg.cachedb = 1;
+		break;
 	case 'r':
 		cfg.resolver = 1;
+		break;
+	case 'd':
+		debug = 1;
+		traceactivity = 1;
 		break;
 	case 'x':
 		dbfile = "/lib/ndb/external";
@@ -73,6 +80,7 @@ main(int argc, char *argv[])
 	fmtinstall('R', prettyrrfmt);
 	opendatabase();
 	srand(truerand());
+	db2cache(1);
 
 	if(cfg.resolver)
 		squirrelserveraddrs();
@@ -89,7 +97,6 @@ main(int argc, char *argv[])
 		p[Blinelen(&in)-1] = 0;
 		n = tokenize(p, f, 3);
 		if(n>=1) {
-			dnpurge();		/* flush the cache */
 			docmd(n, f);
 		}
 	}
@@ -457,6 +464,12 @@ docmd(int n, char **f)
 	name = type = nil;
 	tmpsrv = 0;
 
+	if(strcmp(f[0], "refresh") == 0){
+		db2cache(1);
+		dnageall(0);
+		return;
+	}
+
 	if(*f[0] == '@') {
 		if(setserver(f[0]+1) < 0)
 			return;
@@ -483,6 +496,7 @@ docmd(int n, char **f)
 	if(name == nil)
 		return;
 
+	if(!cfg.cachedb) dnpurge();		/* flush the cache */
 	doquery(name, type);
 
 	if(tmpsrv)
