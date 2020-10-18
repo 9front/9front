@@ -394,6 +394,7 @@ enum {
 	 * new high speed devices
 	 */
 	FT4232HDid	= 0x6011,		/* FTDI FT4232H based device */
+	FT230XDid	= 0x6015,		/* FTDI FT230X Basic UART */
 
 	/*
 	 * Amontec JTAGkey (http://www.amontec.com/)
@@ -834,6 +835,7 @@ Cinfo ftinfo[] = {
 	{ PAPOUCHVid, PAPOUCHTMUDid },
 	{ FTVid, FTACGHFDUALDid },
 	{ FT8U232AMDid, FT4232HDid },
+	{ FTVid, FT230XDid },
 	{ FTVid, AMONKEYDid },
 	{ 0,	0 },
 };
