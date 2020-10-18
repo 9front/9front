@@ -372,6 +372,7 @@ replenish(Ctlr *ctlr)
 	ulong *next;
 	ulong incr, idx;
 	Block *bp;
+	u64int pa;
 
 	idx = ctlr->recvprodi;
 	incr = (idx + 1) & (RecvProdRingLen - 1);
@@ -385,7 +386,9 @@ replenish(Ctlr *ctlr)
 	ctlr->recvs[idx] = bp;
 	next = ctlr->recvprod + idx * 8;
 	memset(next, 0, 32);
-	next[1] = PADDR(bp->rp);
+	pa = PCIWADDR(bp->rp);
+	next[0] = pa >> 32;
+	next[1] = pa;
 	next[2] = Rbsz;
 	next[7] = idx;
 	coherence();
@@ -444,6 +447,7 @@ bcmtransmit(Ether *edev)
 	Block *bp;
 	ulong *next;
 	ulong incr;
+	u64int pa;
 	
 	ctlr = edev->ctlr;
 	ilock(&ctlr->txlock);
@@ -456,8 +460,9 @@ bcmtransmit(Ether *edev)
 		bp = qget(edev->oq);
 		if(bp == nil) break;
 		next = ctlr->sendr + ctlr->sendri * 4;
-		next[0] = 0;
-		next[1] = PADDR(bp->rp);
+		pa = PCIWADDR(bp->rp);
+		next[0] = pa >> 32;
+		next[1] = pa;
 		next[2] = (BLEN(bp) << 16) | PacketEnd;
 		next[3] = 0;
 		if(ctlr->sends[ctlr->sendri] != 0)
@@ -525,6 +530,7 @@ bcminit(Ether *edev)
 {
 	ulong i, j;
 	Ctlr *ctlr;
+	u64int pa;
 	
 	ctlr = edev->ctlr;
 	print("bcm: reset\n");
@@ -590,21 +596,24 @@ bcminit(Ether *edev)
 		iprint("bcm: ftq failed to reset\n");
 		return -1;
 	}
-	csr32(ctlr, ReceiveBDHostAddr) = 0;
-	csr32(ctlr, ReceiveBDHostAddr + 4) = PADDR(ctlr->recvprod);
+	pa = PCIWADDR(ctlr->recvprod);
+	csr32(ctlr, ReceiveBDHostAddr + 0) = pa >> 32;
+	csr32(ctlr, ReceiveBDHostAddr + 4) = pa;
 	csr32(ctlr, ReceiveBDFlags) = RecvProdRingLen << 16;
 	csr32(ctlr, ReceiveBDNIC) = 0x6000;
 	csr32(ctlr, ReceiveBDRepl) = 25;
 	csr32(ctlr, SendBDRingHostIndex) = 0;
 	csr32(ctlr, SendBDRingHostIndex+4) = 0;
-	mem32(ctlr, SendRCB) = 0;
-	mem32(ctlr, SendRCB + 4) = PADDR(ctlr->sendr);
+	pa = PCIWADDR(ctlr->sendr);
+	mem32(ctlr, SendRCB + 0) = pa >> 32;
+	mem32(ctlr, SendRCB + 4) = pa;
 	mem32(ctlr, SendRCB + 8) = SendRingLen << 16;
 	mem32(ctlr, SendRCB + 12) = 0x4000;
 	for(i=1;i<4;i++)
 		mem32(ctlr, RecvRetRCB + i * 0x10 + 8) = 2;
-	mem32(ctlr, RecvRetRCB) = 0;
-	mem32(ctlr, RecvRetRCB + 4) = PADDR(ctlr->recvret);
+	pa = PCIWADDR(ctlr->recvret);
+	mem32(ctlr, RecvRetRCB + 0) = pa >> 32;
+	mem32(ctlr, RecvRetRCB + 4) = pa;
 	mem32(ctlr, RecvRetRCB + 8) = RecvRetRingLen << 16;
 	csr32(ctlr, RecvProdBDRingIndex) = 0;
 	csr32(ctlr, RecvProdBDRingIndex+4) = 0;
@@ -639,8 +648,9 @@ bcminit(Ether *edev)
 	csr32(ctlr, SendMaxCoalescedFrames) = 10;
 	csr32(ctlr, RecvMaxCoalescedFramesInt) = 0;
 	csr32(ctlr, SendMaxCoalescedFramesInt) = 0;
-	csr32(ctlr, StatusBlockHostAddr) = 0;
-	csr32(ctlr, StatusBlockHostAddr + 4) = PADDR(ctlr->status);
+	pa = PCIWADDR(ctlr->status);
+	csr32(ctlr, StatusBlockHostAddr + 0) = pa >> 32;
+	csr32(ctlr, StatusBlockHostAddr + 4) = pa;
 	csr32(ctlr, HostCoalescingMode) |= Enable;
 	csr32(ctlr, ReceiveBDCompletionMode) |= Enable | Attn;
 	csr32(ctlr, ReceiveListPlacementMode) |= Enable;
