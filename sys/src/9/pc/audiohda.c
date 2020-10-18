@@ -1164,6 +1164,7 @@ writering(Ring *r, uchar *p, long n)
 static int
 streamalloc(Ctlr *ctlr, Stream *s, int num)
 {
+	u64int pa;
 	Ring *r;
 	int i;
 
@@ -1175,8 +1176,9 @@ streamalloc(Ctlr *ctlr, Stream *s, int num)
 		return -1;
 	}
 	for(i=0; i<Nblocks; i++){
-		s->blds[i].addrlo = PADDR(r->buf) + i*Blocksize;
-		s->blds[i].addrhi = 0;
+		pa = PCIWADDR(r->buf) + i*Blocksize;
+		s->blds[i].addrlo = pa;
+		s->blds[i].addrhi = pa >> 32;
 		s->blds[i].len = Blocksize;
 		s->blds[i].flags = 0x01;	/* interrupt on completion */
 	}
@@ -1205,8 +1207,9 @@ streamalloc(Ctlr *ctlr, Stream *s, int num)
 	csr16(ctlr, Sdfmt+s->sdctl) = s->afmt;
 
 	/* program stream DMA & parms */
-	csr32(ctlr, Sdbdplo+s->sdctl) = PADDR(s->blds);
-	csr32(ctlr, Sdbdphi+s->sdctl) = 0;
+	pa = PCIWADDR(s->blds);
+	csr32(ctlr, Sdbdplo+s->sdctl) = pa;
+	csr32(ctlr, Sdbdphi+s->sdctl) = pa >> 32;
 	csr32(ctlr, Sdcbl+s->sdctl) = r->nbuf;
 	csr16(ctlr, Sdlvi+s->sdctl) = (Nblocks - 1) & 0xff;
 
@@ -1661,6 +1664,7 @@ hdastart(Ctlr *ctlr)
 {
 	static int cmdbufsize[] = { 2, 16, 256, 2048 };
 	int n, size;
+	u64int pa;
 	uint cap;
 	
 	/* reset controller */
@@ -1712,8 +1716,9 @@ hdastart(Ctlr *ctlr)
 	csr8(ctlr, Rirbsts) = csr8(ctlr, Rirbsts);
 	
 	/* setup CORB */
-	csr32(ctlr, Corblbase) = PADDR(ctlr->corb);
-	csr32(ctlr, Corbubase) = 0;
+	pa = PCIWADDR(ctlr->corb);
+	csr32(ctlr, Corblbase) = pa;
+	csr32(ctlr, Corbubase) = pa >> 32;
 	csr16(ctlr, Corbwp) = 0;
 	csr16(ctlr, Corbrp) = Corbptrrst;
 	waitup16(ctlr, Corbrp, Corbptrrst, Corbptrrst);
@@ -1723,8 +1728,9 @@ hdastart(Ctlr *ctlr)
 	waitup8(ctlr, Corbctl, Corbdma, Corbdma);
 	
 	/* setup RIRB */
-	csr32(ctlr, Rirblbase) = PADDR(ctlr->rirb);
-	csr32(ctlr, Rirbubase) = 0;
+	pa = PCIWADDR(ctlr->rirb);
+	csr32(ctlr, Rirblbase) = pa;
+	csr32(ctlr, Rirbubase) = pa >> 32;
 	csr16(ctlr, Rirbwp) = Rirbptrrst;
 	csr8(ctlr, Rirbctl) = Rirbdma;
 	waitup8(ctlr, Rirbctl, Rirbdma, Rirbdma);
