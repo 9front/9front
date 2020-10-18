@@ -2125,6 +2125,7 @@ didtype(Pcidev *p)
 		break;
 	case 0x10de:
 	case 0x1039:
+	case 0x1b21:	/* ASMedia */
 	case 0x1b4b:
 	case 0x11ab:
 		break;
