@@ -127,7 +127,7 @@ qcmd(WS *ws, Ctlr *ctlr, int adm, u32int opc, u32int nsid, void *mptr, void *dat
 	e[2] = 0;
 	e[3] = 0;
 	if(mptr != nil){
-		pa = PADDR(mptr);
+		pa = PCIWADDR(mptr);
 		e[4] = pa;
 		e[5] = pa>>32;
 	} else {
@@ -135,7 +135,7 @@ qcmd(WS *ws, Ctlr *ctlr, int adm, u32int opc, u32int nsid, void *mptr, void *dat
 		e[5] = 0;
 	}
 	if(len > 0){
-		pa = PADDR(data);
+		pa = PCIWADDR(data);
 		e[6] = pa;
 		e[7] = pa>>32;
 		if(len > ctlr->mps - (pa & ctlr->mps-1))
@@ -531,11 +531,11 @@ nvmeenable(SDev *sd)
 		return 0;
 	}
 	
-	pa = PADDR(cqalloc(ctlr, &ctlr->cq[0], ctlr->mpsshift));
+	pa = PCIWADDR(cqalloc(ctlr, &ctlr->cq[0], ctlr->mpsshift));
 	ctlr->reg[ACQBase0] = pa;
 	ctlr->reg[ACQBase1] = pa>>32;
 
-	pa = PADDR(sqalloc(ctlr, &ctlr->sq[0], ctlr->mpsshift));
+	pa = PCIWADDR(sqalloc(ctlr, &ctlr->sq[0], ctlr->mpsshift));
 	ctlr->reg[ASQBase0] = pa;
 	ctlr->reg[ASQBase1] = pa>>32;
 
