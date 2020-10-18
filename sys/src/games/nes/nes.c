@@ -85,7 +85,7 @@ loadrom(char *file, int sflag)
 		chr = malloc(nchr * CHRSZ);
 		if(chr == nil)
 			sysfatal("malloc: %r");
-		if(readn(fd, chr, nchr * CHRSZ) < nchr * CHRSZ)
+		if(readn(fd, chr, nchr * CHRSZ) < 1)
 			sysfatal("read: %r");
 	}else{
 		nchr = 1;

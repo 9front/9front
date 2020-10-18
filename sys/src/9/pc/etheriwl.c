@@ -3513,7 +3513,6 @@ cmd(Ctlr *ctlr, uint code, uchar *data, int size)
 	if((err = qcmd(ctlr, 4, code, data, size, nil)) != nil
 	|| (err = flushq(ctlr, 4)) != nil){
 		print("#l%d: cmd %ud: %s\n", ctlr->edev->ctlrno, code, err);
-		ctlr->broken = 1;
 		return err;
 	}
 	return nil;
