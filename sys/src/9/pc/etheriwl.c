@@ -2892,6 +2892,8 @@ postboot6000(Ctlr *ctlr)
 	if((err = cmd(ctlr, 90, c, 4+4*16)) != nil)
 		return err;
 
+	/* 6235 times out if we calibrate the crystal immediately */
+	tsleep(&up->sleep, return0, nil, 10);
 	if(ctlr->type != Type5150){
 		/* calibrate crystal */
 		memset(c, 0, sizeof(c));
