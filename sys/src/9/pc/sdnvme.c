@@ -41,6 +41,7 @@ struct SQ
 	u32int	*base;
 	WS	**wait;
 	Ctlr	*ctlr;
+	Lock;
 };
 
 struct Ctlr
@@ -62,6 +63,8 @@ struct Ctlr
 	u32int	mps;		/* mps = 1<<mpsshift */
 	u32int	mpsshift;
 	u32int	dstrd;
+
+	u32int	nsq;
 
 	CQ	cq[1+1];
 	SQ	sq[1+MAXMACH];
@@ -99,7 +102,9 @@ qcmd(WS *ws, Ctlr *ctlr, int adm, u32int opc, u32int nsid, void *mptr, void *dat
 	if(!adm){
 	Retry:
 		splhi();
-		sq = &ctlr->sq[1+m->machno];
+		sq = &ctlr->sq[1+(m->machno % ctlr->nsq)];
+		if(conf.nmach > ctlr->nsq)
+			lock(sq);
 	} else {
 		qlock(ctlr);
 		sq = &ctlr->sq[0];
@@ -207,7 +212,9 @@ wcmd(WS *ws)
 	coherence();
 	ctlr->reg[DBell + ((sq-ctlr->sq)*2+0 << ctlr->dstrd)] = sq->tail & sq->mask;
 	if(sq > ctlr->sq) {
-		assert(sq == &ctlr->sq[1+m->machno]);
+		assert(sq == &ctlr->sq[1+(m->machno % ctlr->nsq)]);
+		if(conf.nmach > ctlr->nsq)
+			unlock(sq);
 		spllo();
 	} else
 		qunlock(sq->ctlr);
@@ -381,7 +388,7 @@ sqalloc(Ctlr *ctlr, SQ *sq, u32int lgsize)
 static void
 setupqueues(Ctlr *ctlr)
 {
-	u32int lgsize, *e;
+	u32int lgsize, st, *e;
 	CQ *cq;
 	SQ *sq;
 	WS ws;
@@ -400,6 +407,8 @@ setupqueues(Ctlr *ctlr)
 	e[11] = 3; /* IEN | PC */
 	checkstatus(wcmd(&ws), "create completion queue");
 
+	st = 0;
+
 	/* SQID[1..nmach]: submission queue per cpu */
 	for(i=1; i<=conf.nmach; i++){
 		sq = &ctlr->sq[i];
@@ -407,8 +416,19 @@ setupqueues(Ctlr *ctlr)
 		e = qcmd(&ws, ctlr, 1, 0x01, 0, nil, sq->base, 0x1000);
 		e[10] = i | sq->mask<<16;
 		e[11] = (cq - ctlr->cq)<<16 | 1;	/* CQID<<16 | PC */
-		checkstatus(wcmd(&ws), "create submission queue");
+
+		st = wcmd(&ws);
+		if(st != 0){
+			free(sq->base);
+			free(sq->wait);
+			memset(sq, 0, sizeof(*sq));
+			break;
+		}
 	}
+	
+	ctlr->nsq = i - 1;
+	if(ctlr->nsq < 1)
+		checkstatus(st, "create submission queues");
 
 	ilock(&ctlr->intr);
 	ctlr->ints |= 1<<(cq - ctlr->cq);
@@ -544,7 +564,7 @@ nvmeenable(SDev *sd)
 Ready:
 	identify(ctlr);
 	setupqueues(ctlr);
-
+	print("%s: using %d submit queues\n", name, ctlr->nsq);
 	poperror();
 
 	return 1;
