@@ -77,7 +77,7 @@ sectype38(Vnc *v)
 				type == ANoAuth ? "None" :
 				type == AVncAuth ? "VNC" : "Unknown");
 		}
-		if(type > auth)
+		if(type > auth && type <= AVncAuth)
 			auth = type;
 	}
 	return auth;
