@@ -404,7 +404,7 @@ parseattachments(Message *m, Mailbox *mb)
 	Message *nm, **l;
 
 	/* if there's a boundary, recurse... */
-	dprint("parseattachments %p %ld bonudary %s\n", m->start, (ulong)(m->end - m->start), m->boundary);
+	dprint("parseattachments %p %ld boundary %s\n", m->start, (ulong)(m->end - m->start), m->boundary);
 	if(m->boundary != nil){
 		p = m->body;
 		nm = nil;
