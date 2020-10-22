@@ -88,14 +88,13 @@ struct VGA {
 };
 
 static void
-newpal(int l, int n, int dofree)
+newpal(int l, int n)
 {
 	int x;
 
 	assert(l >= 0 && n + l <= 256);
 	for(; n-- > 0; l++){
-		if(dofree)
-			freeimage(vga.col[l]);
+		freeimage(vga.col[l]);
 		vga.col[l] = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, vga.pal[l]);
 		if(vga.col[l] == nil) sysfatal("allocimage: %r");
 	}
@@ -118,7 +117,7 @@ vgasetpal(u8int n, u32int v)
 {
 	qlock(&vga);
 	vga.pal[n] = v;
-	newpal(n, 1, 1);
+	newpal(n, 1);
 	qunlock(&vga);
 }
 
@@ -128,11 +127,10 @@ screeninit(int resize)
 	Point p;
 	int ch;
 
-	if(!resize)
-		freeimage(img);
-	else{
+	if(resize){
+		freeimage(bg);
 		bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
-		newpal(0, 256, 0);
+		newpal(0, 256);
 	}
 	p = divpt(addpt(screen->r.min, screen->r.max), 2);
 	picr = (Rectangle){subpt(p, Pt(curmode->w/2, curmode->h/2)), addpt(p, Pt((curmode->w+1)/2, (curmode->h+1)/2))};
@@ -140,12 +138,13 @@ screeninit(int resize)
 	case 0: ch = screen->chan; break;
 	case CHAN1(CMap, 4): case CMAP8:
 		if(vesamode){
-			ch = RGBA32;
+			ch = XRGB32;
 			break;
 		}
 		/* wet floor */
 	default: ch = curmode->chan; break;
 	}
+	freeimage(img);
 	img = allocimage(display, Rect(0, 0, curmode->w, curmode->h), ch, 0, 0);
 	draw(screen, screen->r, bg, nil, ZP);
 }
@@ -168,7 +167,7 @@ vgaio(int isin, u16int port, u32int val, int sz, void *)
 		if((vga.aidx & 0x80) != 0){
 			vmdebug("vga: attribute write %#.2x = %#.2x", vga.aidx & 0x1f, val);
 			vga.attr[vga.aidx & 0x1f] = val;
-			qlock(&vga); newpal(0, 0, 0); qunlock(&vga);
+			qlock(&vga); newpal(0, 0); qunlock(&vga);
 		}else
 			vga.aidx = val & 0x3f;
 		vga.aidx ^= 0x80;
@@ -186,7 +185,7 @@ vgaio(int isin, u16int port, u32int val, int sz, void *)
 	case 0x3c8: vga.wdidx = val << 2; return 0;
 	case 0x3c9:
 		vga.pal[vga.wdidx >> 2] = vga.pal[vga.wdidx >> 2] & ~(0xff << (~vga.wdidx << 3 & 24)) | val << 2 + (~vga.wdidx << 3 & 24);
-		qlock(&vga); newpal(vga.wdidx >> 2, 1, 1); qunlock(&vga);
+		qlock(&vga); newpal(vga.wdidx >> 2, 1); qunlock(&vga);
 		vga.wdidx = vga.wdidx + 1 + (vga.wdidx >> 1 & 1) & 0x3ff;
 		return 0;
 	case 0x3ce: vga.gidx = val; return 0;
@@ -745,6 +744,8 @@ vgainit(void)
 	PCIDev *d;
 	extern void vesainit(void);
 
+	memset(vga.col, 0, sizeof(vga.col));
+	memset(vga.acol, 0, sizeof(vga.acol));
 	if(curmode == nil) return;
 	nextmode = curmode;
 	nexthbytes = curhbytes;
