@@ -7,10 +7,10 @@ newuser \- adding a new user
 To establish a new user on Plan 9, add the user to
 .B /adm/users
 by running the
-.I uname
+.I newuser
 command on the console of the file server
 (see
-.IR users (6)).
+.IR fs (8)).
 Next, give the user a password using
 .I auth/changeuser
 on the console of the authentication server (see
@@ -110,5 +110,5 @@ that reflect the properties of the local environment.
 .IR passwd (1),
 .IR rio (1),
 .IR namespace (4),
-.IR users (6),
+.IR fs (8),
 .IR auth (8).
