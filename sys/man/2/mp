@@ -287,8 +287,8 @@ These functions, in addition to
 .I mpnew
 and
 .IR mpcopy ,
-will return
-.B nil
+will call sysfatal (see
+.IR perror (2))
 if the allocation fails.
 .PP
 Input and result parameters may point to the same
