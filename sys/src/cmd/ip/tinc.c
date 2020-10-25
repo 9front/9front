@@ -377,9 +377,9 @@ reportedge(Conn *c, Edge *e)
 		consend(c, "%d %x %s %s", DEL_EDGE, rand(),
 			e->src->name, e->dst->name);
 	} else
-		consend(c, "%d %x %s %s %s %d %x %d", ADD_EDGE, rand(),
+		consend(c, "%d %x %s %s %I %d %x %d", ADD_EDGE, rand(),
 			e->src->name, e->dst->name,
-			e->dst->addr, e->dst->port, e->dst->options, e->weight);
+			e->ip, e->port, e->options, e->weight);
 }
 
 void
