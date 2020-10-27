@@ -462,10 +462,9 @@ waitup32(Ctlr *ctlr, int reg, uint mask, uint set)
 static int
 hdacmd(Ctlr *ctlr, uint request, uint reply[2])
 {
-	uint rp, wp;
-	uint re;
-	int wait;
-	
+	uint rp, wp, re;
+	int wait, ret;
+
 	re = csr16(ctlr, Rirbwp);
 	rp = csr16(ctlr, Corbrp);
 	wp = (csr16(ctlr, Corbwp) + 1) % ctlr->corbsize;
@@ -476,15 +475,22 @@ hdacmd(Ctlr *ctlr, uint request, uint reply[2])
 	ctlr->corb[wp] = request;
 	coherence();
 	csr16(ctlr, Corbwp) = wp;
+
+	ret = 0;
 	for(wait=0; wait < Maxrirbwait; wait++){
 		if(csr16(ctlr, Rirbwp) != re){
 			re = (re + 1) % ctlr->rirbsize;
 			memmove(reply, &ctlr->rirb[re*2], 8);
-			return 1;
+			ret = 1;
+			break;
 		}
 		microdelay(1);
 	}
-	return 0;
+
+	/* reset intcnt for qemu */
+	csr8(ctlr, Rirbsts) = Rirbrover|Rirbrint;
+
+	return ret;
 }
 
 static int
@@ -1732,7 +1738,15 @@ hdastart(Ctlr *ctlr)
 	csr32(ctlr, Rirblbase) = pa;
 	csr32(ctlr, Rirbubase) = pa >> 32;
 	csr16(ctlr, Rirbwp) = Rirbptrrst;
-	csr8(ctlr, Rirbctl) = Rirbdma;
+
+	/*
+	 * qemu requires interrupt handshake,
+	 * even tho we just poll the irb write
+	 * pointer for command completion.
+	 */
+	csr16(ctlr, Rintcnt) = 1;
+	csr8(ctlr, Rirbctl) = Rirbdma|Rirbint;
+
 	waitup8(ctlr, Rirbctl, Rirbdma, Rirbdma);
 	
 	/* enable interrupts */
