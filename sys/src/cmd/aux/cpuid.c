@@ -107,11 +107,53 @@ func1(ulong)
 }
 
 void
+func7(ulong)
+{
+	Res r;
+	static char *bitebx[32] = {
+		[0]		"fsgsbase", nil,          "sgx",      "bmi1",
+		[4]		"hle",      "avx2",       nil,        "smep",
+		[8]		"bmi2",     "erms",       "invpcid",  "rtm",
+		[12]	"pqm",      nil,          "mpx",      "pqe",
+		[16]	"avx512",   "avx512dq",   "rdseed",   "adx",
+		[20]	"smap",     "avx512ifma", "pcommit",  "clflushopt",
+		[24]	"clwb",     "intelpt",    "avx512pf", "avx512er",
+		[28]	"avx512cd", "sha",        "avx512bw", "avx512vl",
+	};
+	static char *bitecx[32] = {
+		[0]		"prefetchwt1",  "avx512vbmi", "umip",            "pku",
+		[4]		"ospke",        "waitpkg",    "avx512vbmi2",     "cetss",
+		[8]		"gfni",         "vaes",       "vpclmulqdq",      "avx512vnni",
+		[12]	"avx512bitalg", nil,          "avx512vpopcntdq", nil,
+		[16]	nil,            nil,          nil,               nil,
+		[20]	nil,            nil,          "rdpid",           nil,
+		[24]	nil,            "cldemote",   nil,               "movdiri",
+		[28]	"movdir64b",    "enqcmd",     "sgxlc",           "pks",
+	};
+	static char *bitedx[32] = {
+		[0]		nil,          nil, "avx512vnniw4", "avx512fmaps4",
+		[4]		"fsrm",       nil, nil,            nil,
+		[8]		"avx512vp2i", nil, nil,            nil,
+	};
+	static char *biteax[32] = {
+		[0]		nil, nil,          nil, nil,
+		[4]		nil, "avx512bf16", nil, nil,
+	};
+
+	r = cpuid(7, 0);
+	printbits("features", r.bx, bitebx);
+	printbits("features", r.cx, bitecx);
+	printbits("features", r.dx, bitedx);
+	r = cpuid(7, 1);
+	printbits("features", r.ax, biteax);
+}
+
+void
 func13(ulong)
 {
 	Res r;
 	static char *bitsax[32] = {
-		[0]	"xsaveopt",
+		[0]	"xsaveopt", "xsavec", "xgetbv1", "xsaves",
 	};
 
 	r = cpuid(13, 1);
@@ -188,6 +230,7 @@ extfunc8(ulong ax)
 void (*funcs[])(ulong) = {
 	[0] 	func0,
 	[1] 	func1,
+	[7]		func7,
 	[13]	func13,
 };
 
