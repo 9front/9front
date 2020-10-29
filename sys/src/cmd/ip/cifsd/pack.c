@@ -161,6 +161,7 @@ vunpack(uchar *b, uchar *p, uchar *e, char *f, va_list a)
 	return p - t;
 }
 
+int
 vpack(uchar *b, uchar *p, uchar *e, char *f, va_list a)
 {
 	struct {
