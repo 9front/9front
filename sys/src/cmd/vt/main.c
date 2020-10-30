@@ -67,6 +67,7 @@ int	olines;
 int	peekc;
 int	blocksel = 0;
 int	cursoron = 1;
+int	chording = 0;
 int	hostclosed = 0;
 Menu	menu2;
 Menu	menu3;
@@ -156,6 +157,7 @@ char *term;
 struct funckey *fk, *appfk;
 
 /* functions */
+int	input(void);
 int	waitchar(void);
 void	waitio(void);
 int	rcvchar(void);
@@ -648,144 +650,157 @@ sendfk(char *name)
 }
 
 int
-waitchar(void)
+input(void)
 {
 	static char echobuf[4*BSIZE];
 
+Again:
+	if(resize_flag)
+		resized();
+	if(backp)
+		return(0);
+	if(snarffp) {
+		int c;
+
+		if((c = Bgetrune(snarffp)) < 0) {
+			Bterm(snarffp);
+			snarffp = nil;
+			goto Again;
+		}
+		kbdchar = c;
+	}
+	if(kbdchar) {
+		if(backc){
+			backc = 0;
+			backup(backc);
+		}
+		if(blocked)
+			resize_flag = 1;
+		if(cs->raw) {
+			switch(kbdchar){
+			case Kins:
+				if(!sendfk("insert"))
+					goto Send;
+				break;
+			case Kdel:
+				if(!sendfk("delete"))
+					goto Send;
+				break;
+			case Khome:
+				if(!sendfk("home"))
+					goto Send;
+				break;
+			case Kend:
+				if(!sendfk("end"))
+					goto Send;
+				break;
+
+			case Kpgup:
+				sendfk("page up");
+				break;
+			case Kpgdown:
+				sendfk("page down");
+				break;
+
+			case Kup:
+				sendfk("up key");
+				break;
+			case Kdown:
+				sendfk("down key");
+				break;
+			case Kleft:
+				sendfk("left key");
+				break;
+			case Kright:
+				sendfk("right key");
+				break;
+
+			case KF|1:
+				sendfk("F1");
+				break;
+			case KF|2:
+				sendfk("F2");
+				break;
+			case KF|3:
+				sendfk("F3");
+				break;
+			case KF|4:
+				sendfk("F4");
+				break;
+			case KF|5:
+				sendfk("F5");
+				break;
+			case KF|6:
+				sendfk("F6");
+				break;
+			case KF|7:
+				sendfk("F7");
+				break;
+			case KF|8:
+				sendfk("F8");
+				break;
+			case KF|9:
+				sendfk("F9");
+				break;
+			case KF|10:
+				sendfk("F10");
+				break;
+			case KF|11:
+				sendfk("F11");
+				break;
+			case KF|12:
+				sendfk("F12");
+				break;
+
+			case '\n':
+				echobuf[0] = '\r';
+				sendnchars(1, echobuf);
+				break;
+			case '\r':
+				echobuf[0] = '\n';
+				sendnchars(1, echobuf);
+				break;
+			default:
+			Send:
+				sendnchars(runetochar(echobuf, &kbdchar), echobuf);
+				break;
+			}
+		} else {
+			switch(canon(echobuf, kbdchar)){
+			case SCROLL:
+				if(!blocked)
+					bigscroll();
+				break;
+			default:
+				strcat(echo_input,echobuf);
+			}
+		}
+		blocked = 0;
+		kbdchar = 0;
+		goto Again;
+	} else if(nbrecv(kc->c, &kbdchar))
+		goto Again;
+	if(!blocked){
+		if(host_avail())
+			return(rcvchar());
+		free(hostbuf);
+		hostbufp = hostbuf = nbrecvp(hc[1]);
+		if(host_avail() && nrand(32))
+			return(rcvchar());
+	}
+	return -1;
+}
+
+
+int
+waitchar(void)
+{
+	int r;
+
 	for(;;) {
-		if(resize_flag)
-			resized();
-		if(backp)
-			return(0);
-		if(snarffp) {
-			int c;
-
-			if((c = Bgetrune(snarffp)) < 0) {
-				Bterm(snarffp);
-				snarffp = nil;
-				continue;
-			}
-			kbdchar = c;
-		}
-		if(kbdchar) {
-			if(backc){
-				backc = 0;
-				backup(backc);
-			}
-			if(blocked)
-				resize_flag = 1;
-			if(cs->raw) {
-				switch(kbdchar){
-				case Kins:
-					if(!sendfk("insert"))
-						goto Send;
-					break;
-				case Kdel:
-					if(!sendfk("delete"))
-						goto Send;
-					break;
-				case Khome:
-					if(!sendfk("home"))
-						goto Send;
-					break;
-				case Kend:
-					if(!sendfk("end"))
-						goto Send;
-					break;
-
-				case Kpgup:
-					sendfk("page up");
-					break;
-				case Kpgdown:
-					sendfk("page down");
-					break;
-
-				case Kup:
-					sendfk("up key");
-					break;
-				case Kdown:
-					sendfk("down key");
-					break;
-				case Kleft:
-					sendfk("left key");
-					break;
-				case Kright:
-					sendfk("right key");
-					break;
-
-				case KF|1:
-					sendfk("F1");
-					break;
-				case KF|2:
-					sendfk("F2");
-					break;
-				case KF|3:
-					sendfk("F3");
-					break;
-				case KF|4:
-					sendfk("F4");
-					break;
-				case KF|5:
-					sendfk("F5");
-					break;
-				case KF|6:
-					sendfk("F6");
-					break;
-				case KF|7:
-					sendfk("F7");
-					break;
-				case KF|8:
-					sendfk("F8");
-					break;
-				case KF|9:
-					sendfk("F9");
-					break;
-				case KF|10:
-					sendfk("F10");
-					break;
-				case KF|11:
-					sendfk("F11");
-					break;
-				case KF|12:
-					sendfk("F12");
-					break;
-
-				case '\n':
-					echobuf[0] = '\r';
-					sendnchars(1, echobuf);
-					break;
-				case '\r':
-					echobuf[0] = '\n';
-					sendnchars(1, echobuf);
-					break;
-				default:
-				Send:
-					sendnchars(runetochar(echobuf, &kbdchar), echobuf);
-					break;
-				}
-			} else {
-				switch(canon(echobuf, kbdchar)){
-				case SCROLL:
-					if(!blocked)
-						bigscroll();
-					break;
-				default:
-					strcat(echo_input,echobuf);
-				}
-			}
-			blocked = 0;
-			kbdchar = 0;
-			continue;
-		} else if(nbrecv(kc->c, &kbdchar))
-			continue;
-		if(!blocked){
-			if(host_avail())
-				return(rcvchar());
-			free(hostbuf);
-			hostbufp = hostbuf = nbrecvp(hc[1]);
-			if(host_avail() && nrand(32))
-				return(rcvchar());
-		}
+		r = input();
+		if(r != -1)
+			return r;
 		drawscreen();
 		drawcursor();
 		waitio();
@@ -817,7 +832,7 @@ Next:
 		flushimage(display, 1);
 	switch(alt(a)){
 	case AMOUSE:
-		if(button1())
+		if(button1() || chording)
 			selecting();
 		else if(button2() || button3())
 			readmenu();
@@ -1098,25 +1113,31 @@ selecting(void)
 	Point p, q;
 	static ulong t, mode;
 
-	p = pos(mc->xy);
-	t += mc->msec;
-	mode++;
-	do{
-		q = pos(mc->xy);
-		if(t > 200)
-			mode = 0;
-		if(mode > 2)
-			mode = 2;
-		select(p, q, mode);
-		drawscreen();
-		readmouse(mc);
-	} while(button1());
-	switch(mc->buttons & 0x7){
-	case 3:	snarfsel();	break;
-	case 5:	paste();	break;
+	if(!chording){
+		p = pos(mc->xy);
+		t += mc->msec;
+		mode++;
+		do{
+			q = pos(mc->xy);
+			if(t > 200)
+				mode = 0;
+			if(mode > 2)
+				mode = 2;
+			select(p, q, mode);
+			drawscreen();
+			readmouse(mc);
+		} while(button1());
 	}
-	while(mc->buttons&7) readmouse(mc);
+	if(mc->buttons != chording){
+		switch(mc->buttons & 0x7){
+		case 0:	/* nothing */	break;
+		case 3:	snarfsel();	break;
+		case 5:	paste();	break;
+		}
+	}
+	drawscreen();
 	t = -mc->msec;
+	chording = mc->buttons;
 }
 
 int
