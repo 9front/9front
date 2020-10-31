@@ -389,8 +389,12 @@ readbyte(Header *h)
 	if(h->peek >= 0){
 		x = h->peek;
 		h->peek = -1;
-	}else if(Bread(h->fd, &x, 1) != 1)
-		jpgerror(h, readerr);
+	}else
+		switch(Bread(h->fd, &x, 1)){
+		case 0: return -1;
+		case 1: break;
+		default: jpgerror(h, readerr);
+		}
 	return x;
 }
 
@@ -403,6 +407,8 @@ marker(Header *h)
 Again:
 	while((c=readbyte(h)) == 0)
 		;
+	if(c < 0)
+		return EOI;
 	if(c != 0xFF)
 		goto Again;
 	while(c == 0xFF)
