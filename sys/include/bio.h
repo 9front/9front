@@ -34,6 +34,7 @@ struct	Biobufhdr
 	uchar*	gbuf;		/* pointer to good data in buf */
 	void	(*errorf)(char *);	/* called on error if not nil */
 	int	(*iof)(Biobufhdr*, void *, long);	/* called to do i/o */
+	void	*aux;		/* user data */
 };
 
 struct	Biobuf

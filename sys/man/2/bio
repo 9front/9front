@@ -1,6 +1,6 @@
 .TH BIO 2
 .SH NAME
-Bopen, Bfdopen, Binit, Binits, Brdline, Brdstr, Bgetc, Bgetrune, Bgetd, Bungetc, Bungetrune, Bread, Bseek, Boffset, Bfildes, Blinelen, Bputc, Bputrune, Bprint, Bvprint, Bwrite, Bflush, Bterm, Bbuffered, Blethal \- buffered input/output
+Bopen, Bfdopen, Binit, Binits, Brdline, Brdstr, Bgetc, Bgetrune, Bgetd, Bungetc, Bungetrune, Bread, Bseek, Boffset, Bfildes, Blinelen, Bputc, Bputrune, Bprint, Bvprint, Bwrite, Bflush, Bterm, Bbuffered, Blethal, Biofn \- buffered input/output
 .SH SYNOPSIS
 .ta \w'Biobuf* 'u
 .B #include <u.h>
@@ -8,6 +8,16 @@ Bopen, Bfdopen, Binit, Binits, Brdline, Brdstr, Bgetc, Bgetrune, Bgetd, Bungetc,
 .B #include <libc.h>
 .br
 .B #include <bio.h>
+.PP
+.ft L
+.nf
+.ta \w'    'u +\w'    'u +\w'    'u +\w'    'u +\w'    'u
+typedef struct Biobufhdr	Biobufhdr;
+struct Biobufhdr {
+	void	*aux;		/* user data */
+	...			/* internals */
+};
+.fi
 .PP
 .B
 Biobuf* Bopen(char *file, int mode)
