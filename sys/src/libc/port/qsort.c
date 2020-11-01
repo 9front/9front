@@ -100,7 +100,7 @@ qsorts(char *a, long n, Sort *p)
 		j = (pj - a) / es;
 
 		n = n-j-1;
-		if(j >= n) {
+		if(j < n) {
 			qsorts(a, j, p);
 			a += (j+1)*es;
 		} else {
