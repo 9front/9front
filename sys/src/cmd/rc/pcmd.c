@@ -1,7 +1,7 @@
 #include "rc.h"
 #include "io.h"
 #include "fns.h"
-char nl='\n';		/* change to semicolon for bourne-proofing */
+
 #define	c0	t->child[0]
 #define	c1	t->child[1]
 #define	c2	t->child[2]
@@ -76,7 +76,7 @@ pcmd(io *f, tree *t)
 	case ';':
 		if(c0){
 			if(c1)
-				pfmt(f, "%t%c%t", c0, nl, c1);
+				pfmt(f, "%t\n%t", c0, c1);
 			else pfmt(f, "%t", c0);
 		}
 		else pfmt(f, "%t", c1);

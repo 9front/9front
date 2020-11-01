@@ -164,9 +164,12 @@ Xrdfn(void)
 	if(runq->argv->words == 0)
 		poplist();
 	else {
+		free(runq->cmdfile);
 		int f = open(runq->argv->words->word, 0);
-		popword();
+		lexline = 0;
+		runq->cmdfile = strdup(runq->argv->words->word);
 		runq->pc--;
+		popword();
 		if(f>=0) execcmds(openfd(f));
 	}
 }

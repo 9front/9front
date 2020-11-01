@@ -14,11 +14,12 @@ start(code *c, int pc, var *local)
 	struct thread *p = new(struct thread);
 
 	p->code = codecopy(c);
+	p->line = runq?runq->line:0;
 	p->pc = pc;
 	p->argv = 0;
-	p->redir = p->startredir = runq?runq->redir:0;
+	p->redir = p->startredir = runq?runq->redir:nil;
 	p->local = local;
-	p->cmdfile = 0;
+	p->cmdfile = nil;
 	p->cmdfd = 0;
 	p->eof = 0;
 	p->iflag = 0;
@@ -201,10 +202,14 @@ main(int argc, char *argv[])
 	bootstrap[i++].f = Xexit;
 	bootstrap[i].i = 0;
 	start(bootstrap, 1, (var *)0);
+	runq->cmdfile = strdup("rc");
 	/* prime bootstrap argv */
 	pushlist();
 	argv0 = estrdup(argv[0]);
 	for(i = argc-1;i!=0;--i) pushword(argv[i]);
+
+	lexline = 0;
+
 	for(;;){
 		if(flag['r'])
 			pfnc(err, runq);
@@ -260,6 +265,8 @@ main(int argc, char *argv[])
  * Xunlocal				delete local variable
  * Xword[string]			push string
  * Xwrite(file)[fd]			open file to write
+ * Xsrcline[line]			set current line number
+ * Xsrcfile[file]			set current file name
  */
 
 void
@@ -932,7 +939,7 @@ Xrdcmds(void)
 			if(p->cmdfile)
 				free(p->cmdfile);
 			closeio(p->cmdfd);
-			Xreturn();	/* should this be omitted? */
+			Xreturn();
 		}
 		else{
 			if(Eintr()){
@@ -950,13 +957,22 @@ Xrdcmds(void)
 	freenodes();
 }
 
+char*
+curfile(thread *p)
+{
+	for(; p != nil; p = p->ret)
+		if(p->cmdfile != nil)
+			return p->cmdfile;
+	return "unknown";
+}
+
 void
 Xerror(char *s)
 {
 	if(strcmp(argv0, "rc")==0 || strcmp(argv0, "/bin/rc")==0)
-		pfmt(err, "rc: %s: %r\n", s);
+		pfmt(err, "rc:%d: %s: %r\n", runq->line, s);
 	else
-		pfmt(err, "rc (%s): %s: %r\n", argv0, s);
+		pfmt(err, "%s:%d: %s: %r\n", curfile(runq), runq->line, s);
 	flush(err);
 	setstatus("error");
 	while(!runq->iflag) Xreturn();
@@ -966,9 +982,9 @@ void
 Xerror1(char *s)
 {
 	if(strcmp(argv0, "rc")==0 || strcmp(argv0, "/bin/rc")==0)
-		pfmt(err, "rc: %s\n", s);
+		pfmt(err, "rc:%d: %s\n", runq->line, s);
 	else
-		pfmt(err, "rc (%s): %s\n", argv0, s);
+		pfmt(err, "%s:%d: %s\n", curfile(runq), runq->line, s);
 	flush(err);
 	setstatus("error");
 	while(!runq->iflag) Xreturn();
@@ -1024,4 +1040,17 @@ void
 Xglob(void)
 {
 	globlist(runq->argv->words);
+}
+
+void
+Xsrcline(void)
+{
+	runq->line = runq->code[runq->pc++].i;
+}
+
+void
+Xsrcfile(void)
+{
+	free(runq->cmdfile);
+	runq->cmdfile = strdup(runq->code[runq->pc++].s);
 }

@@ -5,7 +5,7 @@ extern void Xappend(void), Xasync(void), Xbackq(void), Xbang(void), Xclose(void)
 extern void Xconc(void), Xcount(void), Xdelfn(void), Xdol(void), Xqw(void), Xdup(void);
 extern void Xexit(void), Xfalse(void), Xfn(void), Xfor(void), Xglob(void);
 extern void Xjump(void), Xmark(void), Xmatch(void), Xpipe(void), Xread(void);
-extern void Xrdwr(void);
+extern void Xrdwr(void), Xsrcline(void), Xsrcfile(void);
 extern void Xrdfn(void), Xunredir(void), Xstar(void), Xreturn(void), Xsubshell(void);
 extern void Xtrue(void), Xword(void), Xglobs(void), Xwrite(void), Xpipefd(void), Xcase(void);
 extern void Xlocal(void), Xunlocal(void), Xassign(void), Xsimple(void), Xpopm(void);
@@ -30,7 +30,7 @@ word *newword(char *, word *), *copywords(word *, word *);
 struct redir{
 	char type;			/* what to do */
 	short from, to;			/* what to do it to */
-	struct redir *next;		/* what else to do (reverse order) */
+	redir *next;		/* what else to do (reverse order) */
 };
 #define	NSTATUS	ERRMAX			/* length of status (from plan 9) */
 /*
@@ -40,14 +40,15 @@ struct redir{
 #define	RDUP	2			/* dup2(from, to); */
 #define	RCLOSE	3			/* close(from); */
 struct thread{
-	union code *code;		/* code for this thread */
+	code *code;			/* code for this thread */
 	int pc;				/* code[pc] is the next instruction */
-	struct list *argv;		/* argument stack */
-	struct redir *redir;		/* redirection stack */
-	struct redir *startredir;	/* redir inheritance point */
-	struct var *local;		/* list of local variables */
+	int line;			/* source code line */
+	list *argv;			/* argument stack */
+	redir *redir;			/* redirection stack */
+	redir *startredir;		/* redir inheritance point */
+	var *local;			/* list of local variables */
 	char *cmdfile;			/* file name in Xrdcmd */
-	struct io *cmdfd;		/* file descriptor for Xrdcmd */
+	io *cmdfd;			/* file descriptor for Xrdcmd */
 	int iflast;			/* static `if not' checking */
 	int eof;			/* is cmdfd at eof? */
 	int iflag;			/* interactive? */
@@ -55,7 +56,7 @@ struct thread{
 	int pid;			/* process for Xpipewait to wait for */
 	char status[NSTATUS];		/* status for Xpipewait */
 	tree *treenodes;		/* tree nodes created by this process */
-	thread *ret;		/* who continues when this finishes */
+	thread *ret;			/* who continues when this finishes */
 };
 thread *runq;
 code *codecopy(code*);
@@ -74,3 +75,4 @@ int execforkexec(void);
 void execexit(void), execshift(void);
 void execwait(void), execumask(void), execdot(void), execflag(void);
 void execfunc(var*), execcmds(io *);
+char *curfile(thread*);

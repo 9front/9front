@@ -25,6 +25,13 @@ int future = EOF;
 int doprompt = 1;
 int inquote;
 int incomm;
+int lastc;
+int ndot;
+int nerror;
+int lexline;
+int nlexpath;
+int lexpathsz;
+
 /*
  * Look ahead in the input stream
  */
@@ -39,13 +46,14 @@ nextc(void)
 /*
  * Consume the lookahead character.
  */
-
 int
 advance(void)
 {
 	int c = nextc();
 	lastc = future;
 	future = EOF;
+	if(c == '\n')
+		lexline++;
 	return c;
 }
 /*

@@ -16,6 +16,7 @@ newtree(void)
 	t->str = 0;
 	t->child[0] = t->child[1] = t->child[2] = 0;
 	t->next = treenodes;
+	t->line = lexline;
 	treenodes = t;
 	return t;
 }

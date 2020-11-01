@@ -51,6 +51,7 @@ struct{
 	Xrdfn, "Xrdfn",
 	Xsimple, "Xsimple",
 	Xqw, "Xqw",
+	Xsrcline, "Xsrcline",
 0};
 
 void
@@ -59,7 +60,8 @@ pfnc(io *fd, thread *t)
 	int i;
 	void (*fn)(void) = t->code[t->pc].f;
 	list *a;
-	pfmt(fd, "pid %d cycle %p %d ", getpid(), t->code, t->pc);
+
+	pfmt(fd, "%s:%d: pid %d cycle %p %d ", t->cmdfile, t->line, getpid(), t->code, t->pc);
 	for(i = 0;fname[i].f;i++) if(fname[i].f==fn){
 		pstr(fd, fname[i].name);
 		break;

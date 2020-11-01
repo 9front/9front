@@ -43,6 +43,7 @@ struct tree{
 	char	*str;
 	int	quoted;
 	int	iskw;
+	int	line;
 	tree	*child[3];
 	tree	*next;
 };
@@ -54,6 +55,7 @@ tree *mung3(tree*, tree*, tree*, tree*), *epimung(tree*, tree*);
 tree *simplemung(tree*), *heredoc(tree*);
 void freetree(tree*);
 tree *cmdtree;
+
 /*
  * The first word of any code vector is a reference count.
  * Always create a new reference to a code vector by calling codecopy(.).
@@ -126,10 +128,12 @@ int mypid;
  */
 #define	onebyte(c)	((c&0x80)==0x00)
 
-char **argp;
-char **args;
-int nerror;		/* number of errors encountered during compilation */
-int doprompt;		/* is it time for a prompt? */
+extern char **argp;
+extern char **args;
+extern int nerror;		/* number of errors encountered during compilation */
+extern int doprompt;		/* is it time for a prompt? */
+extern int lexline;
+
 /*
  * Which fds are the reading/writing end of a pipe?
  * Unfortunately, this can vary from system to system.
@@ -143,7 +147,7 @@ char Rcmain[], Fdprefix[];
  * How many dot commands have we executed?
  * Used to ensure that -v flag doesn't print rcmain.
  */
-int ndot;
+extern int ndot;
+extern int lastc;
+extern int lastword;
 char *getstatus(void);
-int lastc;
-int lastword;

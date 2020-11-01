@@ -11,8 +11,15 @@
  */
 int
 exitnext(void){
-	union code *c=&runq->code[runq->pc];
-	while(c->f==Xpopredir || c->f==Xunlocal) c++;
+	code *c=&runq->code[runq->pc];
+	while(1){
+		if(c->f==Xpopredir || c->f==Xunlocal)
+			c++;
+		else if(c->f==Xsrcline || c->f==Xsrcfile)
+			c += 2;
+		else
+			break;
+	}
 	return c->f==Xexit;
 }
 
@@ -260,6 +267,7 @@ void
 execcmds(io *f)
 {
 	static int first = 1;
+
 	if(first){
 		rdcmds[0].i = 1;
 		rdcmds[1].f = Xrdcmds;
@@ -319,6 +327,7 @@ execdot(void)
 	}
 	else
 		eflagok = 1;
+
 	popword();
 	if(p->argv->words && strcmp(p->argv->words->word, "-i")==0){
 		iflag = 1;
@@ -354,6 +363,9 @@ execdot(void)
 		Xerror(".: can't open");
 		return;
 	}
+
+	lexline = 1;
+
 	/* set up for a new command loop */
 	start(dotcmds, 1, (struct var *)0);
 	pushredir(RCLOSE, fd, 0);

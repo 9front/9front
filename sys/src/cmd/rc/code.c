@@ -6,10 +6,12 @@
 #define	c0	t->child[0]
 #define	c1	t->child[1]
 #define	c2	t->child[2]
+code *codebuf;
 int codep, ncode;
 #define	emitf(x) ((codep!=ncode || morecode()), codebuf[codep].f = (x), codep++)
 #define	emiti(x) ((codep!=ncode || morecode()), codebuf[codep].i = (x), codep++)
 #define	emits(x) ((codep!=ncode || morecode()), codebuf[codep].s = (x), codep++)
+
 void stuffdot(int);
 char *fnstr(tree*);
 void outcode(tree*, int);
@@ -38,7 +40,7 @@ int
 compile(tree *t)
 {
 	ncode = 100;
-	codebuf = (code *)emalloc(ncode*sizeof codebuf[0]);
+	codebuf = emalloc(ncode*sizeof codebuf[0]);
 	codep = 0;
 	emiti(0);			/* reference count */
 	outcode(t, flag['e']?1:0);
@@ -64,12 +66,8 @@ fnstr(tree *t)
 {
 	io *f = openstr();
 	void *v;
-	extern char nl;
-	char svnl = nl;
 
-	nl = ';';
 	pfmt(f, "%t", t);
-	nl = svnl;
 	v = f->strp;
 	f->strp = 0;
 	closeio(f);
@@ -79,12 +77,19 @@ fnstr(tree *t)
 void
 outcode(tree *t, int eflag)
 {
+	static int line;
 	int p, q;
 	tree *tt;
+	char *f;
 	if(t==0)
 		return;
 	if(t->type!=NOT && t->type!=';')
 		runq->iflast = 0;
+	if(t->line != line){
+		line = t->line;
+		emitf(Xsrcline);
+		emiti(line);
+	}
 	switch(t->type){
 	default:
 		pfmt(err, "bad type %d in outcode\n", t->type);
@@ -174,6 +179,12 @@ outcode(tree *t, int eflag)
 			emitf(Xfn);
 			p = emiti(0);
 			emits(fnstr(c1));
+			if((f = curfile(runq)) != nil){
+				emitf(Xsrcfile);
+				emits(strdup(f));
+			}
+			emitf(Xsrcline);
+			emiti(lexline);
 			outcode(c1, eflag);
 			emitf(Xunlocal);	/* get rid of $* */
 			emitf(Xreturn);
