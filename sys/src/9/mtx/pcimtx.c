@@ -115,17 +115,13 @@ pcicfginit(void)
 int
 pcicfgrw8(int tbdf, int rno, int data, int read)
 {
-	int o, type, x;
+	int o, x;
 
-	if(BUSBNO(tbdf))
-		type = 0x01;
-	else
-		type = 0x00;
 	switch(pcicfgmode){
 	case 1:
 		o = rno & 0x03;
 		rno &= ~0x03;
-		outl(PciADDR, 0x80000000|BUSBDF(tbdf)|rno|type);
+		outl(PciADDR, 0x80000000|BUSBDF(tbdf)|rno);
 		if(read)
 			data = inb(PciDATA+o);
 		else
@@ -151,17 +147,13 @@ pcicfgrw8(int tbdf, int rno, int data, int read)
 int
 pcicfgrw16(int tbdf, int rno, int data, int read)
 {
-	int o, type;
+	int o;
 
-	if(BUSBNO(tbdf))
-		type = 0x01;
-	else
-		type = 0x00;
 	switch(pcicfgmode){
 	case 1:
 		o = rno & 0x02;
 		rno &= ~0x03;
-		outl(PciADDR, 0x80000000|BUSBDF(tbdf)|rno|type);
+		outl(PciADDR, 0x80000000|BUSBDF(tbdf)|rno);
 		if(read)
 			data = ins(PciDATA+o);
 		else
@@ -186,16 +178,10 @@ pcicfgrw16(int tbdf, int rno, int data, int read)
 int
 pcicfgrw32(int tbdf, int rno, int data, int read)
 {
-	int type;
-
-	if(BUSBNO(tbdf))
-		type = 0x01;
-	else
-		type = 0x00;
 	switch(pcicfgmode){
 	case 1:
 		rno &= ~0x03;
-		outl(PciADDR, 0x80000000|BUSBDF(tbdf)|rno|type);
+		outl(PciADDR, 0x80000000|BUSBDF(tbdf)|rno);
 		if(read)
 			data = inl(PciDATA);
 		else
