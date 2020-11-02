@@ -237,7 +237,7 @@ pciio(int isin, u16int port, u32int val, int sz, void *)
 
 	switch(isin << 16 | port){
 	case 0x0cf8: cfgaddr = val; return 0;
-	case 0x10cf8: return cfgaddr;
+	case 0x10cf8: return cfgaddr & ~0x7f000003;
 	case 0xcfc: case 0xcfd: case 0xcfe: case 0xcff:
 		val <<= 8 * (port & 3);
 		mask = -1UL >> 32 - 8 * sz << 8 * (port & 3);
