@@ -40,13 +40,29 @@ getcc(char tag[4])
 }
 
 void
-main(int, char *argv[])
+usage(void)
+{
+	fprint(2, "usage: %s [ -s SECONDS ]\n", argv0);
+	exits("usage");
+}
+
+void
+main(int argc, char **argv)
 {
 	char buf[1024], fmt[32];
+	double seekto;
 	ulong len, n;
 	Wave wav;
 
-	argv0 = argv[0];
+	seekto = 0.0;
+	ARGBEGIN{
+	case 's':
+		seekto = atof(EARGF(usage()));
+		break;
+	default:
+		usage();
+	}ARGEND
+
 	if(memcmp(getcc(buf), "RIFF", 4) != 0)
 		sysfatal("no riff format");
 	get4();
@@ -95,6 +111,11 @@ main(int, char *argv[])
 		break;
 	default:
 		sysfatal("wave format (0x%lux) not supported", (ulong)wav.fmt);
+	}
+	if(seekto != 0.0){
+		if(seek(0, (ulong)seekto*wav.rate*wav.framesz & ~wav.framesz, 1) < 1)
+			seekto = 0.0;
+		fprint(2, "time: %g\n", seekto);
 	}
 	snprint(buf, sizeof(buf), "%lud", len);
 	execl("/bin/audio/pcmconv", "pcmconv", "-i", fmt, "-l", buf, nil);

@@ -23,6 +23,10 @@ mp3dec, mp3enc, oggdec, oggenc, flacdec, sundec, wavdec, pcmconv, mixfs \- decod
 ]
 .br
 .B audio/wavdec
+[
+.B -s
+.I seconds
+]
 .br
 .B audio/sundec
 .PP
