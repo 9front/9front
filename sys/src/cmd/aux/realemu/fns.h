@@ -29,3 +29,12 @@ void clockpit(Pit *pit, vlong cycles);
 void setgate(Pit *ch, uchar gate);
 uchar rpit(Pit *pit, uchar addr);
 void wpit(Pit *pit, uchar addr, uchar data);
+
+/* pci */
+Pcidev *pciopen(int bdf);
+int pcicfgr(Pcidev *pci, void *data, int len, int addr);
+int pcicfgw(Pcidev *pci, void *data, int len, int addr);
+
+#define BDFBNO(bdf)	(((int)bdf >> 16) & 0xFF)
+#define BDFDNO(bdf)	(((int)bdf >> 11) & 0x1F)
+#define BDFFNO(bdf)	(((int)bdf >>  8) & 0x07)

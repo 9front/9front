@@ -3,6 +3,7 @@ typedef struct Inst Inst;
 typedef struct Bus Bus;
 typedef struct Cpu Cpu;
 typedef struct Pit Pit;
+typedef struct Pcidev Pcidev;
 
 enum {
 	RAX,
@@ -103,6 +104,13 @@ struct Cpu
 	/* argument buffers */
 	ulong iabuf;
 	Iarg abuf[0x80];
+};
+
+struct Pcidev
+{
+	Pcidev	*next;
+	int	bdf;
+	int	fd;
 };
 
 struct Pit

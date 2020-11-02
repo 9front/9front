@@ -29,6 +29,7 @@ static int realmemfd;
 static int cputrace;
 static int porttrace;
 static Pit pit[3];
+static ulong pcicfgaddr;
 static uchar rtcaddr;
 
 static vlong pitclock;
@@ -155,8 +156,9 @@ wrealmem(void *, ulong off, ulong w, int len)
 static ulong
 rport(void *, ulong p, int len)
 {
+	Pcidev *pci;
 	uchar data[4];
-	ulong w;
+	ulong w, addr;
 
 	switch(p){
 	case 0x20:	/* PIC 1 */
@@ -210,6 +212,24 @@ rport(void *, ulong p, int len)
 	case 0xa1:
 		w = 0;
 		break;
+	case 0xcf8:
+		w = pcicfgaddr & ~0x7F000003;
+		break;
+	case 0xcfc: case 0xcfd: case 0xcfe: case 0xcff:
+		w = -1;
+		if((pcicfgaddr & (1<<31)) == 0)
+			break;
+		addr = (pcicfgaddr & 0xFC) | (p & 3);
+		if((pci = pciopen(pcicfgaddr & 0xFFFF00)) == nil)
+			break;
+		if(pcicfgr(pci, data, len, addr) != len)
+			break;
+		w = gw[len](data);
+		if(porttrace)
+			fprint(2, "pcicfgr %d.%d.%d %.2lux %.*lux\n",
+				BDFBNO(pcicfgaddr), BDFDNO(pcicfgaddr), BDFFNO(pcicfgaddr),
+				addr, len<<1, w);
+		break;
 	default:
 		if(pread(portfd[len], data, len, p) != len){
 			fprint(2, "bad %d bit port read %.4lux: %r\n", len*8, p);
@@ -225,7 +245,9 @@ rport(void *, ulong p, int len)
 static void
 wport(void *, ulong p, ulong w, int len)
 {
+	Pcidev *pci;
 	uchar data[4];
+	ulong addr;
 
 	if(porttrace)
 		fprint(2, "wport %.4lux %.*lux\n", p, len<<1, w);
@@ -274,6 +296,22 @@ wport(void *, ulong p, ulong w, int len)
 	case 0xA1:
 		break;
 	
+	case 0xcf8:
+		pcicfgaddr = w;
+		break;
+	case 0xcfc: case 0xcfd: case 0xcfe: case 0xcff:
+		if((pcicfgaddr & (1<<31)) == 0)
+			break;
+		addr = (pcicfgaddr & 0xFC) | (p & 3);
+		if(porttrace)
+			fprint(2, "pcicfgw %d.%d.%d %.2lux %.*lux\n",
+				BDFBNO(pcicfgaddr), BDFDNO(pcicfgaddr), BDFFNO(pcicfgaddr),
+				addr, len<<1, w);
+		if((pci = pciopen(pcicfgaddr & 0xFFFF00)) == nil)
+			break;
+		pw[len](data, w);
+		pcicfgw(pci, data, len, addr);
+		break;
 	default:
 		pw[len](data, w);
 		if(pwrite(portfd[len], data, len, p) != len){
