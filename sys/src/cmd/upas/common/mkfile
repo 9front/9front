@@ -14,10 +14,7 @@ OFILES=\
 HFILES=common.h\
 	sys.h\
 
-UPDATE=\
-	mkfile\
-	${OFILES:%.$O=%.c}\
-	$HFILES\
+CLEANFILES=$LIB
 
 </sys/src/cmd/mklib
 
