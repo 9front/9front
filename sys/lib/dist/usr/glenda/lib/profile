@@ -19,8 +19,8 @@ case cpu
 	bind -q /mnt/term/dev/consctl /dev/consctl
 	>[2] /dev/null {
 		cp /dev/sysname /mnt/term/dev/label
-		if(wsys=`{cat /mnt/term/env/wsys})
-			wsys=/mnt/term^$wsys
+		if(test -s /mnt/term/env/wsys)
+			wsys=/mnt/term^`{cat /mnt/term/env/wsys}
 	} 
 	bind -a /mnt/term/dev /dev
 	prompt=('cpu% ' '	')
