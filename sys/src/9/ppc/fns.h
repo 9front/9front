@@ -50,8 +50,6 @@ int	inb(int);
 void	intr(Ureg*);
 void	intrenable(int, void (*)(Ureg*, void*), void*, char*);
 void	intrdisable(int, void (*)(Ureg*, void*), void*, char*);
-int	ioalloc(int, int, int, char*);
-void	iofree(int);
 int	iprint(char*, ...);
 int	isaconfig(char*, int, ISAConf*);
 void	kfpinit(void);

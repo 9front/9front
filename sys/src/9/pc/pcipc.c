@@ -528,59 +528,78 @@ pcirouting(void)
 }
 
 static void
-pcireservemem(void)
+pcireserve(void)
 {
+	char tag[64];
 	Pcidev *p;
 	uvlong pa;
+	ulong io;
 	int i;
 
 	/*
-	 * mark all valid physical address space claimed by pci devices
-	 * as in use, so that upaalloc doesn't give it out.
+	 * mark all valid io/mem address space claimed by pci devices
+	 * so that ioreserve/upaalloc doesn't give it out.
 	 */
 	for(p=pciroot; p != nil; p=p->list){
+		snprint(tag, sizeof(tag), "%T", p->tbdf);
 		for(i=0; i<nelem(p->mem); i++){
 			if(p->mem[i].size == 0)
 				continue;
-			if(p->mem[i].bar & 1)
-				continue;
-			if((p->mem[i].bar & ~0xFULL) == 0)
-				continue;
-			upaalloc(p->mem[i].bar&~0xFULL, p->mem[i].size, 0);
+			if(p->mem[i].bar & 1){
+				io = p->mem[i].bar & ~3ULL;
+				if(io == 0)
+					continue;
+				ioreserve(io, p->mem[i].size, 0, tag);
+			} else {
+				pa = p->mem[i].bar & ~0xFULL;
+				if(pa == 0)
+					continue;
+				upaalloc(pa, p->mem[i].size, 0);
+			}
 		}
 	}
 
 	/*
-	 * allocate physical address space for unassigned membars.
+	 * allocate io/mem address space for unassigned membars.
 	 */
 	for(p=pciroot; p != nil; p=p->list){
+		snprint(tag, sizeof(tag), "%T", p->tbdf);
 		for(i=0; i<nelem(p->mem); i++){
 			if(p->mem[i].size == 0)
 				continue;
-			if(p->mem[i].bar & ~0xEULL)
-				continue;
-
-			if(p->parent == nil){
-				pa = upaalloc(-1ULL,
-					p->mem[i].size, p->mem[i].size);
-			} else if(p->mem[i].bar & 8){
-				pa = upaallocwin(p->parent->prefa.bar, p->parent->prefa.size,
-					p->mem[i].size, p->mem[i].size);
-				if(pa == -1ULL)
-					goto Mem;
+			if(p->mem[i].bar & 1){
+				if(p->mem[i].bar & ~0x3ULL)
+					continue;
+				if(p->parent == nil){
+					io = ioreserve(-1, p->mem[i].size, p->mem[i].size, tag);
+				} else {
+					io = ioreservewin(p->parent->ioa.bar, p->parent->ioa.size,
+						p->mem[i].size, p->mem[i].size, tag);
+				}
+				if(io == -1)
+					continue;
+				p->mem[i].bar |= io;
 			} else {
-			Mem:
-				pa = upaallocwin(p->parent->mema.bar, p->parent->mema.size,
-					p->mem[i].size, p->mem[i].size);
+				if(p->mem[i].bar & ~0xFULL)
+					continue;
+				if(p->parent == nil){
+					pa = upaalloc(-1ULL, p->mem[i].size, p->mem[i].size);
+				} else if(p->mem[i].bar & 8){
+					pa = upaallocwin(p->parent->prefa.bar, p->parent->prefa.size,
+						p->mem[i].size, p->mem[i].size);
+					if(pa == -1ULL)
+						goto Mem;
+				} else {
+				Mem:
+					pa = upaallocwin(p->parent->mema.bar, p->parent->mema.size,
+						p->mem[i].size, p->mem[i].size);
+				}
+				if(pa == -1ULL)
+					continue;
+				p->mem[i].bar |= pa;
 			}
-			if(pa == -1ULL)
-				continue;
-
-			p->mem[i].bar |= pa;
 			pcisetbar(p, PciBAR0 + i*4, p->mem[i].bar);
-
-			DBG("%T: bar%d: fixed %.8lluX %d\n",
-				p->tbdf, i, p->mem[i].bar, p->mem[i].size);
+			DBG("%s: bar%d: fixed %.8lluX %d\n", tag, i, p->mem[i].bar, p->mem[i].size);
 		}
 	}
 }
@@ -620,6 +639,9 @@ pcicfginit(void)
 			outl(PciADDR, 0x80000000);
 			outb(PciADDR+3, 0);
 			if(inl(PciADDR) & 0x80000000){
+				ioalloc(PciADDR, 4, 0, "pcicfg.addr");
+				ioalloc(PciDATA, 4, 0, "pcicfg.data");
+
 				pcicfgmode = 1;
 				pcimaxdno = 31;
 			}
@@ -634,6 +656,10 @@ pcicfginit(void)
 			if(!(n & 0xF0)){
 				outb(PciCSE, 0x0E);
 				if(inb(PciCSE) == 0x0E){
+					ioalloc(PciCSE, 1, 0, "pcicfg.cse");
+					ioalloc(PciFORWARD, 1, 0, "pcicfg.forward");
+					ioalloc(0xC000, 0x1000, 0, "pcicfg.io");
+
 					pcicfgmode = 2;
 					pcimaxdno = 15;
 				}
@@ -705,16 +731,19 @@ pcicfginit(void)
 		 */
 		mema = upaalloc(-1ULL, mema, mema);
 		if(mema == -1ULL)
-			panic("pcicfginit: can't allocate pci window");
+			panic("pcicfginit: can't allocate pci mem window");
 
-		ioa = 0x1000;
+		ioa = ioreserve(-1, ioa, ioa, "pci");
+		if(ioa == -1UL)
+			panic("pcicfginit: can't allocate pci io window");
+
 		DBG("Base:  mem=%.8llux io=%lux\n", mema, ioa);
 		pcibusmap(pciroot, &mema, &ioa, 1);
 		DBG("Limit: mem=%.8llux io=%lux\n", mema, ioa);
 		goto out;
 	}
 
-	pcireservemem();
+	pcireserve();
 
 	if(!nopcirouting)
 		pcirouting();
