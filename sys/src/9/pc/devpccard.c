@@ -816,7 +816,7 @@ configure(Cardbus *cb)
 
 	if(iolen < 512)
 		iolen = 512;
-	iobase = ioreserve(~0, iolen, 0, "cardbus");
+	iobase = ioreserve(-1, iolen, 0, "cardbus");
 	if(iobase == -1)
 		return;
 

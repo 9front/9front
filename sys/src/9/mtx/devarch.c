@@ -6,28 +6,8 @@
 #include "io.h"
 #include "../port/error.h"
 
-typedef struct IOMap IOMap;
-struct IOMap
-{
-	IOMap	*next;
-	char	tag[13];
-	ulong	start;
-	ulong	end;
-};
-
-static struct
-{
-	Lock;
-	IOMap	*m;
-	IOMap	*free;
-	IOMap	maps[32];		// some initial free maps
-
-	QLock	ql;			// lock for reading map
-} iomap;
-
 enum {
 	Qdir = 0,
-	Qioalloc = 1,
 	Qiob,
 	Qiow,
 	Qiol,
@@ -43,7 +23,6 @@ static Rdwrfn *writefn[Qmax];
 
 static Dirtab archdir[] = {
 	".",	{ Qdir, 0, QTDIR },	0,	0555,
-	"ioalloc",	{ Qioalloc, 0 },	0,	0444,
 	"iob",		{ Qiob, 0 },		0,	0660,
 	"iow",		{ Qiow, 0 },		0,	0660,
 	"iol",		{ Qiol, 0 },		0,	0660,
@@ -95,109 +74,10 @@ addarchfile(char *name, int perm, Rdwrfn *rdfn, Rdwrfn *wrfn)
 void
 ioinit(void)
 {
-	int i;
-
-	for(i = 0; i < nelem(iomap.maps)-1; i++)
-		iomap.maps[i].next = &iomap.maps[i+1];
-	iomap.maps[i].next = nil;
-	iomap.free = iomap.maps;
+	iomapinit(IOSIZE-1);
 
 	// a dummy entry at 2^17
 	ioalloc(0x20000, 1, 0, "dummy");
-}
-
-//
-//	alloc some io port space and remember who it was
-//	alloced to.  if port < 0, find a free region.
-//
-int
-ioalloc(int port, int size, int align, char *tag)
-{
-	IOMap *m, **l;
-	int i;
-
-	lock(&iomap);
-	if(port < 0){
-		// find a free port above 0x400 and below 0x1000
-		port = 0x400;
-		for(l = &iomap.m; *l; l = &(*l)->next){
-			m = *l;
-			i = m->start - port;
-			if(i > size)
-				break;
-			if(align > 0)
-				port = ((port+align-1)/align)*align;
-			else
-				port = m->end;
-		}
-		if(*l == nil){
-			unlock(&iomap);
-			return -1;
-		}
-	} else {
-		// see if the space clashes with previously allocated ports
-		for(l = &iomap.m; *l; l = &(*l)->next){
-			m = *l;
-			if(m->end <= port)
-				continue;
-			if(m->start >= port+size)
-				break;
-			unlock(&iomap);
-			return -1;
-		}
-	}
-	m = iomap.free;
-	if(m == nil){
-		print("ioalloc: out of maps");
-		unlock(&iomap);
-		return port;
-	}
-	iomap.free = m->next;
-	m->next = *l;
-	m->start = port;
-	m->end = port + size;
-	strncpy(m->tag, tag, sizeof(m->tag));
-	m->tag[sizeof(m->tag)-1] = 0;
-	*l = m;
-
-	archdir[0].qid.vers++;
-
-	unlock(&iomap);
-	return m->start;
-}
-
-void
-iofree(int port)
-{
-	IOMap *m, **l;
-
-	lock(&iomap);
-	for(l = &iomap.m; *l; l = &(*l)->next){
-		if((*l)->start == port){
-			m = *l;
-			*l = m->next;
-			m->next = iomap.free;
-			iomap.free = m;
-			break;
-		}
-		if((*l)->start > port)
-			break;
-	}
-	archdir[0].qid.vers++;
-	unlock(&iomap);
-}
-
-int
-iounused(int start, int end)
-{
-	IOMap *m;
-
-	for(m = iomap.m; m; m = m->next){
-		if(start >= m->start && start < m->end
-		|| start <= m->start && end > m->start)
-			return 0; 
-	}
-	return 1;
 }
 
 static void
@@ -243,16 +123,11 @@ archclose(Chan*)
 {
 }
 
-enum
-{
-	Linelen= 31,
-};
-
 static long
 archread(Chan *c, void *a, long n, vlong offset)
 {
-	char buf[Linelen+1], *p;
 	int port;
+	uchar *cp;
 	ushort *sp;
 	ulong *lp;
 	IOMap *m;
@@ -266,8 +141,8 @@ archread(Chan *c, void *a, long n, vlong offset)
 	case Qiob:
 		port = offset;
 		checkport(offset, offset+n);
-		for(p = a; port < offset+n; port++)
-			*p++ = inb(port);
+		for(cp = a; port < offset+n; port++)
+			*cp++ = inb(port);
 		return n;
 
 	case Qiow:
@@ -290,40 +165,20 @@ archread(Chan *c, void *a, long n, vlong offset)
 			*lp++ = inl(port);
 		return n*4;
 
-	case Qioalloc:
-		break;
-
 	default:
 		if(c->qid.path < narchdir && (fn = readfn[c->qid.path]))
 			return fn(c, a, n, offset);
 		error(Eperm);
 		break;
 	}
-
-	offset = offset/Linelen;
-	n = n/Linelen;
-	p = a;
-	lock(&iomap);
-	for(m = iomap.m; n > 0 && m != nil; m = m->next){
-		if(offset-- > 0)
-			continue;
-		if(strcmp(m->tag, "dummy") == 0)
-			break;
-		sprint(buf, "%8lux %8lux %-12.12s\n", m->start, m->end-1, m->tag);
-		memmove(p, buf, Linelen);
-		p += Linelen;
-		n--;
-	}
-	unlock(&iomap);
-
-	return p - (char*)a;
+	return 0;
 }
 
 static long
 archwrite(Chan *c, void *a, long n, vlong offset)
 {
-	char *p;
 	int port;
+	uchar *cp;
 	ushort *sp;
 	ulong *lp;
 	Rdwrfn *fn;
@@ -331,10 +186,10 @@ archwrite(Chan *c, void *a, long n, vlong offset)
 	switch((ulong)c->qid.path){
 
 	case Qiob:
-		p = a;
+		cp = a;
 		checkport(offset, offset+n);
 		for(port = offset; port < offset+n; port++)
-			outb(port, *p++);
+			outb(port, *cp++);
 		return n;
 
 	case Qiow:
