@@ -292,7 +292,7 @@ mtrr0(uvlong base, uvlong size, char *tstr)
 	slot = -1;
 	for(i = 0; i < vcnt; i++){
 		mok = mtrrdec(&mtrreg[i], &mp, &msize, &mtype);
-		if(slot == -1 && (!mok || mtype == (def & Deftype)))
+		if(slot == -1 && !mok)
 			slot = i;	/* good, but look further for exact match */
 		if(mok && mp == base && msize == size){
 			slot = i;
