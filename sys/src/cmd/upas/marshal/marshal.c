@@ -193,7 +193,7 @@ void
 main(int argc, char **argv)
 {
 	int ccargc, bccargc, flags, fd, noinput, headersrv;
-	char *subject, *type, *boundary;
+	char *subject, *type, *boundary, *saveto;
 	char *ccargv[32], *bccargv[32];
 	Addr *to, *cc, *bcc;
 	Attach *first, **l, *a;
@@ -207,6 +207,7 @@ main(int argc, char **argv)
 	l = &first;
 	type = nil;
 	hdrstring = nil;
+	saveto = nil;
 	ccargc = bccargc = 0;
 
 	tmfmtinstall();
@@ -243,6 +244,9 @@ main(int argc, char **argv)
 		break;
 	case 'F':
 		Fflag = 1;		/* file message */
+		break;
+	case 'S':
+		saveto = EARGF(usage());
 		break;
 	case 'n':			/* no standard input */
 		nflag = 1;
@@ -336,7 +340,9 @@ main(int argc, char **argv)
 		}
 	}
 
-	fd = sendmail(to, cc, bcc, &pid, Fflag ? argv[0] : nil);
+	if(Fflag)
+		saveto=argc>0?argv[0]:to->v;
+	fd = sendmail(to, cc, bcc, &pid, saveto);
 	if(fd < 0)
 		sysfatal("execing sendmail: %r\n:");
 	if(xflag || lbflag || dflag){
@@ -1079,10 +1085,8 @@ sendmail(Addr *to, Addr *cc, Addr *bcc, int *pid, char *rcvr)
 				break;
 			case 0:
 				close(pfd[0]);
-				b = 0;
 				/* BOTCH; "From " time gets changed */
-				if(rcvr)
-					b = openfolder(foldername(nil, user, rcvr), time(0));
+				b = openfolder(foldername(nil, user, rcvr), time(0));
 				fd = b? Bfildes(b): -1;
 				printunixfrom(fd);
 				tee(0, pfd[1], fd);
