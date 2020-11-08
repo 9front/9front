@@ -83,17 +83,17 @@ is created for each mailbox examined.
 .IR Imap4d 's
 options are:
 .TP 4
-.B a
+.B -a
 Assume the user is already authenticated.
 By default, the user must authenticate using
 CRAM-MD5 or
 .IR securenet (8)
 challenge/response authentication.
 .TP
-.B c
+.B -c
 Allow plan 9 challenge response authentication.
 .TP
-.B p
+.B -p
 Allow login authentication.  This option
 should only be enabled for servers using
 an encrypted connection, such as SSL,
@@ -101,10 +101,10 @@ and when enabled, all non-encrypted connections should be disallowed.
 .I Imap4d
 does not enforce this policy.
 .TP
-.B v
+.B -v
 Turn on verbose output to the debug file.
 .TP
-.B s
+.B -s
 The server's name.
 If none is provided,
 .B cs
@@ -114,7 +114,7 @@ is queried or
 .B /env/sysname
 is used.
 .TP
-.B d
+.B -d
 The local mail domain.
 Defaults to the server
 .B /env/site
