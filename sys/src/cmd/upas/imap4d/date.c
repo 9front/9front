@@ -3,7 +3,7 @@
 int
 imap4date(Tm *tm, char *date)
 {
-	if(tmparse(tm, "DD-?MM-YYYY hh:mm:ss ?Z", date, nil, nil) == nil)
+	if(tmparse(tm, "DD-?MM-YYYY", date, nil, nil) == nil)
 		return 0;
 	return 1;
 }
