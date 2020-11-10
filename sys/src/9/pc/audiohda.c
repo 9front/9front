@@ -1577,6 +1577,9 @@ hdainterrupt(Ureg *, void *arg)
 		}
 		wakeup(&r->r);
 	}
+	if(sts & Cis){
+		csr8(ctlr, Rirbsts) = Rirbrover|Rirbrint;
+	}
 	iunlock(ctlr);
 }
 
