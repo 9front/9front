@@ -1752,9 +1752,6 @@ hdastart(Ctlr *ctlr)
 
 	waitup8(ctlr, Rirbctl, Rirbdma, Rirbdma);
 	
-	/* enable interrupts */
-	csr32(ctlr, Intctl) |= Gie | Cie;
-	
 	return 0;
 }
 
@@ -1958,6 +1955,9 @@ hdareset1(Audio *adev, Ctlr *ctlr)
 	adev->ctl = hdactl;
 	
 	intrenable(irq, hdainterrupt, adev, tbdf, "hda");
+	
+	/* enable interrupts */
+	csr32(ctlr, Intctl) |= Gie | Cie;
 
 	ctlr->q = qopen(256, 0, 0, 0);
 
