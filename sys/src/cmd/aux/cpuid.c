@@ -63,7 +63,7 @@ printbits(char *id, ulong x, char **s)
 			}
 			Bprint(out, "%s ", s[i]);
 		}
-	if(j % 16 != 0)
+	if(j != 0)
 		Bprint(out, "\n");
 }
 
