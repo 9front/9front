@@ -3502,6 +3502,7 @@ flushq(Ctlr *ctlr, uint qid)
 	qunlock(q);
 	if(ctlr->broken)
 		return "flushq: broken";
+	ctlr->broken = 1;
 	return "flushq: timeout";
 }
 
@@ -4296,6 +4297,7 @@ iwlshutdown(Ether *edev)
 	if(ctlr->power)
 		poweroff(ctlr);
 	ctlr->broken = 0;
+	pcidisable(ctlr->pdev);
 }
 
 static Ctlr *iwlhead, *iwltail;
