@@ -284,6 +284,8 @@ fsdestroyfid(Fid *fid)
 {
 	ReadState *rs;
 
+	if(fid->omode == -1)
+		return;
 	rs = fid->aux;
 	if(rs != nil){
 		free(rs->buf);
