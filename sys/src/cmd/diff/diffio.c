@@ -392,7 +392,7 @@ flushchanges(void)
 		for(; i<j; i++){
 			fetch(ixold, at, changes[i].a-1, input[0], mode == 'u' ? " " : "  ");
 			fetch(ixold, changes[i].a, changes[i].b, input[0], mode == 'u' ? "-" : "- ");
-			fetch(ixnew, changes[i].c, changes[i].d, input[1], mode == 'u' ? "+" : "- ");
+			fetch(ixnew, changes[i].c, changes[i].d, input[1], mode == 'u' ? "+" : "+ ");
 			at = changes[i].b+1;
 		}
 		fetch(ixold, at, b, input[0], mode == 'u' ? " " : "  ");
