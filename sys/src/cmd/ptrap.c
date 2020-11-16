@@ -356,7 +356,7 @@ threadmain(int argc, char **argv)
 	default: usage();
 	}ARGEND;
 
-	if(argc % 2) usage();
+	if(argc == 0 || argc % 2) usage();
 	for(i = 0; i < argc; i += 2){
 		f = emalloc9p(sizeof(PFilter));
 		f->name = strdup(argv[i]);
