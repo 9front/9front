@@ -9,8 +9,6 @@
 #include	"../port/error.h"
 #include	<trace.h>
 
-static int trapinited;
-
 void	noted(Ureg*, ulong);
 
 static void debugexc(Ureg*, void*);
@@ -197,13 +195,13 @@ trapinit0(void)
 	int d1, v;
 	ulong vaddr;
 	Segdesc *idt;
+	ushort ptr[3];
 
 	idt = (Segdesc*)IDTADDR;
 	vaddr = (ulong)vectortable;
 	for(v = 0; v < 256; v++){
 		d1 = (vaddr & 0xFFFF0000)|SEGP;
 		switch(v){
-
 		case VectorBPT:
 			d1 |= SEGPL(3)|SEGIG;
 			break;
@@ -220,6 +218,10 @@ trapinit0(void)
 		idt[v].d1 = d1;
 		vaddr += 6;
 	}
+	ptr[0] = sizeof(Segdesc)*256-1;
+	ptr[1] = IDTADDR & 0xFFFF;
+	ptr[2] = IDTADDR >> 16;
+	lidt(ptr);
 }
 
 void
@@ -237,7 +239,6 @@ trapinit(void)
 	nmienable();
 
 	addarchfile("irqalloc", 0444, irqallocread, nil);
-	trapinited = 1;
 }
 
 static char* excname[32] = {
@@ -327,13 +328,6 @@ trap(Ureg* ureg)
 	char buf[ERRMAX];
 	Vctl *ctl, *v;
 	Mach *mach;
-
-	if(!trapinited){
-		/* fault386 can give a better error message */
-		if(ureg->trap == VectorPF)
-			fault386(ureg, nil);
-		panic("trap %lud: not ready", ureg->trap);
-	}
 
 	m->perf.intrts = perfticks();
 	user = userureg(ureg);
@@ -482,6 +476,10 @@ trap(Ureg* ureg)
 					return;
 				}
 			}
+
+			/* early fault before trapinit() */
+			if(vno == VectorPF)
+				fault386(ureg, 0);
 		}
 
 		dumpregs(ureg);

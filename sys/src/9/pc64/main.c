@@ -175,13 +175,13 @@ void
 main(void)
 {
 	mach0init();
+	trapinit0();
 	bootargsinit();
 	ioinit();
 	i8250console();
 	quotefmtinstall();
 	screeninit();
 	print("\nPlan 9\n");
-	trapinit0();
 	i8253init();
 	cpuidentify();
 	meminit0();

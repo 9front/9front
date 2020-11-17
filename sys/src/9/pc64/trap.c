@@ -9,8 +9,6 @@
 #include	"../port/error.h"
 #include	<trace.h>
 
-static int trapinited;
-
 void	noted(Ureg*, ulong);
 
 static void debugexc(Ureg*, void*);
@@ -194,13 +192,13 @@ trapinit0(void)
 	u32int d1, v;
 	uintptr vaddr;
 	Segdesc *idt;
+	uintptr ptr[2];
 
 	idt = (Segdesc*)IDTADDR;
 	vaddr = (uintptr)vectortable;
 	for(v = 0; v < 256; v++){
 		d1 = (vaddr & 0xFFFF0000)|SEGP;
 		switch(v){
-
 		case VectorBPT:
 			d1 |= SEGPL(3)|SEGIG;
 			break;
@@ -224,6 +222,9 @@ trapinit0(void)
 
 		vaddr += 6;
 	}
+	((ushort*)&ptr[1])[-1] = sizeof(Segdesc)*512-1;
+	ptr[1] = IDTADDR;
+	lidt(&((ushort*)&ptr[1])[-1]);
 }
 
 void
@@ -240,7 +241,6 @@ trapinit(void)
 	trapenable(Vector15, unexpected, 0, "unexpected");
 	nmienable();
 	addarchfile("irqalloc", 0444, irqallocread, nil);
-	trapinited = 1;
 }
 
 static char* excname[32] = {
@@ -323,13 +323,6 @@ trap(Ureg *ureg)
 	char buf[ERRMAX];
 	Vctl *ctl, *v;
 	Mach *mach;
-
-	if(!trapinited){
-		/* faultamd64 can give a better error message */
-		if(ureg->type == VectorPF)
-			faultamd64(ureg, nil);
-		panic("trap %llud: not ready", ureg->type);
-	}
 
 	m->perf.intrts = perfticks();
 	user = userureg(ureg);
@@ -447,11 +440,15 @@ trap(Ureg *ureg)
 					return;
 				}
 			} else if(pc == _peekinst){
-				if(vno == VectorGPF){
+				if(vno == VectorGPF || vno == VectorPF){
 					ureg->pc += 2;
 					return;
 				}
 			}
+
+			/* early fault before trapinit() */
+			if(vno == VectorPF)
+				faultamd64(ureg, 0);
 		}
 
 		dumpregs(ureg);
