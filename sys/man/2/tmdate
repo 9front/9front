@@ -267,7 +267,7 @@ Add a day. Because cross daylight savings, only 23 hours are added.
 Tm t;
 char *date = "Sun Nov 2 13:11:11 PST 2019";
 if(tmparse(&t, "W MMM D hh:mm:ss z YYYY, date, nil) == nil)
-	print("failed to arse");
+	print("failed to parse");
 t.day++;
 tmnorm(&t);
 print("%τ", &t); /*  Mon Nov 3 13:11:11 PST 2019 */
