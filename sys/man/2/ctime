@@ -118,6 +118,7 @@ GMT 0 GMT 0
 .SH "SEE ALSO"
 .IR date (1),
 .IR time (2),
+.IR tmdate (2),
 .IR init (8)
 .SH BUGS
 The return values point to static data
