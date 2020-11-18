@@ -2,15 +2,8 @@
 <../mkupas
 
 TARG=pop3
-
+LIB=../common/libcommon.a$O
 OFILES=pop3.$O
 
-LIB=../common/libcommon.a$O
-
-UPDATE=\
-	mkfile\
-	${OFILES:%.$O=%.c}\
-
 </sys/src/cmd/mkone
-
 CFLAGS=$CFLAGS -I../common

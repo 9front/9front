@@ -1,30 +1,22 @@
 </$objtype/mkfile
+<../mkupas
 
-TARG = smtpd\
+TARG=\
+	smtpd\
 	smtp\
 
-TEST=\
-	parsetest
-
+LIB=../common/libcommon.a$O
 OFILES=
-
-LIB=../common/libcommon.a$O\
-
-HFILES=../common/common.h\
+HFILES=\
+	../common/common.h\
 	../common/sys.h\
 	smtpd.h\
 	smtp.h\
+	rfc822.tab.h\
 
-UPDATE=\
-	greylist.c\
-	mkfile\
-	mxdial.c\
-	rfc822.y\
-	smtpd.y\
-	spam.c\
-	$HFILES\
-	${OFILES:%.$O=%.c}\
-	${TARG:%=%.c}\
+TEST=parsetest
+
+CLEANFILES=*.tab.?
 
 </sys/src/cmd/mkmany
 CFLAGS=$CFLAGS -I../common
@@ -35,24 +27,16 @@ $O.smtpd:\
 	rfc822.tab.$O\
 	greylist.$O\
 
-$O.smtp:	rfc822.tab.$O mxdial.$O
+$O.smtp: rfc822.tab.$O mxdial.$O
 
 smtpd.tab.c: smtpd.y
 	yacc -o xxx smtpd.y
 	sed 's/yy/zz/g' < xxx > $target
 	rm xxx
 
-rfc822.tab.c: rfc822.y
-	yacc -d -o $target rfc822.y
+rfc822.tab.c rfc822.tab.h:D: rfc822.y
+	yacc -d -s rfc822 rfc822.y
 
 $O.parsetest: rfc822.tab.$O
 
 parsetest.$O: rfc822.tab.$O
-
-clean:V:
-	rm -f *.[$OS] [$OS].^($TARG $TEST) smtpd.tab.c rfc822.tab.c y.tab.? y.debug $TARG
-
-../common/libcommon.a$O:
-	cd ../common && mk
-
-<../mkupas

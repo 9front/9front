@@ -2,11 +2,6 @@
 <../mkupas
 
 TARG=unesc
-OFILES=unesc.$O\
-
-UPDATE=\
-	mkfile\
-	$HFILES\
-	${OFILES:%.$O=%.c}\
+OFILES=unesc.$O
 
 </sys/src/cmd/mkone

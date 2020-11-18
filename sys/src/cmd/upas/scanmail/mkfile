@@ -1,25 +1,20 @@
 </$objtype/mkfile
+<../mkupas
 
-TARG=scanmail\
+TARG=\
+	scanmail\
 	testscan
 
-OFILES=	common.$O
+LIB=../common/libcommon.a$O
 
-HFILES=	spam.h\
+OFILES=common.$O
+
+HFILES=\
+	spam.h\
 	../common/sys.h\
-
-LIB=	../common/libcommon.a$O\
-
-UPDATE=\
-	mkfile\
-	$HFILES\
-	${OFILES:%.$O=%.c}\
-	${TARG:%=%.c}\
 
 </sys/src/cmd/mkmany
 CFLAGS=$CFLAGS -I../common
 
-<../mkupas
-
-scanmail.$O:	scanmail.c
+scanmail.$O: scanmail.c
 	$CC $CFLAGS scanmail.c

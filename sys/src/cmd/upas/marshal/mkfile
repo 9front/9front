@@ -2,18 +2,10 @@
 <../mkupas
 
 TARG=marshal
+LIB=../common/libcommon.a$O
+OFILES=marshal.$O
+HFILES=../common/common.h
 
-LIB=../common/libcommon.a$O\
-
-HFILES=	../common/common.h\
-
-OFILES= marshal.$O
-
-UPDATE=\
-	mkfile\
-	$HFILES\
-	${OFILES:%.$O=%.c}\
-	
 </sys/src/cmd/mkone
 CFLAGS=$CFLAGS -I../common
 

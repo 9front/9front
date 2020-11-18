@@ -7,7 +7,7 @@
 #include <mp.h>
 #include <libsec.h>
 #include <auth.h>
-#include "../smtp/y.tab.h"
+#include "rfc822.tab.h"
 
 char	*me;
 char	*him="";

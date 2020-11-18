@@ -1,5 +1,5 @@
 
-RCFILES=mail.rc\
+RCFILES=mail.rc
 
 all:Q:
 	;
@@ -20,19 +20,3 @@ clean:Q:
 	;
 nuke:V:
 	rm /rc/bin/mail
-
-UPDATE=\
-	gone.fishing\
-	gone.msg\
-	mail.rc\
-	mail.sh\
-	makefile\
-	mkfile\
-	namefiles\
-	omail.rc\
-	qmail\
-	remotemail\
-	rewrite\
-
-update:V:
-	update $UPDATEFLAGS $UPDATE

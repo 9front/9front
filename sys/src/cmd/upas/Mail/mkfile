@@ -3,23 +3,17 @@
 
 TARG=Mail
 OFILES=\
-		html.$O\
-		mail.$O\
-		mesg.$O\
-		reply.$O\
-		util.$O\
-		win.$O
+	html.$O\
+	mail.$O\
+	mesg.$O\
+	reply.$O\
+	util.$O\
+	win.$O\
 
 HFILES=dat.h
-LIB=
 
 # BIN=/acme/bin/$objtype
 BIN=$ABIN
-
-UPDATE=\
-	mkfile\
-	$HFILES\
-	${OFILES:%.$O=%.c}\
 
 </sys/src/cmd/mkone
 
@@ -29,4 +23,3 @@ $O.out: $OFILES
 syms:V:
 	$CC -a mail.c	>syms
 	$CC -aa mesg.c reply.c util.c win.c 	>>syms
-

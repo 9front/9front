@@ -2,7 +2,7 @@
 #include "send.h"
 #include <regexp.h>
 #include "../smtp/smtp.h"
-#include "../smtp/y.tab.h"
+#include "../smtp/rfc822.tab.h"
 
 enum{
 	VMLIMIT	= 64*1024,

@@ -1,13 +1,7 @@
 </$objtype/mkfile
+<../mkupas
 
 TARG=qfrom
-OFILES=qfrom.$O\
-
-BIN=/$objtype/bin/upas
-
-UPDATE=\
-	mkfile\
-	$HFILES\
-	${OFILES:%.$O=%.c}\
+OFILES=qfrom.$O
 
 </sys/src/cmd/mkone

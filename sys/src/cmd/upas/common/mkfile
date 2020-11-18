@@ -11,13 +11,10 @@ OFILES=\
 	libsys.$O\
 	process.$O\
 
-HFILES=common.h\
+HFILES=\
+	common.h\
 	sys.h\
 
-CLEANFILES=$LIB
+CLEANFILES=libcommon.a[$OS]
 
 </sys/src/cmd/mklib
-
-nuke:V:
-	mk clean
-	rm -f libcommon.a[$OS]

@@ -1,7 +1,8 @@
 </$objtype/mkfile
+<../mkupas
 
 TARG=fs
-
+LIB=../common/libcommon.a$O
 OFILES=\
 	cache.$O\
 	fs.$O\
@@ -18,21 +19,12 @@ OFILES=\
 	strtotm.$O\
 	tls.$O\
 
-LIB=../common/libcommon.a$O\
-
-HFILES= ../common/common.h\
-	dat.h
-
-UPDATE=\
-	mkfile\
-	$HFILES\
-	${TARG:%=%.c}\
-	${OFILES:%.$O=%.c}\
+HFILES=\
+	../common/common.h\
+	dat.h\
 
 </sys/src/cmd/mkone
 CFLAGS=$CFLAGS  -I../common
-
-<../mkupas
 
 acid:V:
 	$CC -a $CFLAGS fs.c>a$O

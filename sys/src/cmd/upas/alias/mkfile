@@ -2,19 +2,11 @@
 <../mkupas
 
 TARG=aliasmail
-
-OFILES=aliasmail.$O\
-
-LIB=../common/libcommon.a$O\
-
-HFILES=../common/common.h\
-	 ../common/sys.h\
-
-
-UPDATE=\
-	mkfile\
-	$HFILES\
-	${OFILES:%.$O=%.c}\
+LIB=../common/libcommon.a$O
+OFILES=aliasmail.$O
+HFILES=\
+	../common/common.h\
+	../common/sys.h\
 
 </sys/src/cmd/mkone
 CFLAGS=$CFLAGS -I../common

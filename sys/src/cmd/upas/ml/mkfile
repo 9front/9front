@@ -1,30 +1,20 @@
 </$objtype/mkfile
 <../mkupas
 
-TARG=ml\
+TARG=\
+	ml\
 	mlowner\
 	mlmgr\
 
-OFILES=\
-	common.$O\
+LIB=../common/libcommon.a$O
 
-LIB=../common/libcommon.a$O\
+OFILES=common.$O
 
-UHFILES= ../common/common.h\
+HFILES=\
+	../common/common.h\
 	../common/sys.h\
 	dat.h\
-
-HFILES=$UHFILES\
-	../smtp/y.tab.h\
-
-LIB=../common/libcommon.a$O\
-
-UPDATE=\
-	mkfile\
-	$UHFILES\
-	${TARG:%=%.c}\
-	${OFILES:%.$O=%.c}\
-	../smtp/rfc822.y\
+	../smtp/rfc822.tab.h\
 
 </sys/src/cmd/mkmany
 CFLAGS=$CFLAGS -I../common
@@ -32,5 +22,5 @@ CFLAGS=$CFLAGS -I../common
 $O.ml: ../smtp/rfc822.tab.$O
 $O.mlowner: ../smtp/rfc822.tab.$O
 
-../smtp/y.tab.h ../smtp/rfc822.tab.$O:
+../smtp/rfc822.tab.h ../smtp/rfc822.tab.$O: ../smtp/rfc822.y
 	cd ../smtp && mk rfc822.tab.$O
