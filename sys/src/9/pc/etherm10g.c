@@ -237,21 +237,6 @@ typedef struct Ctlr {
 static Ctlr 	*ctlrs;
 
 enum {
-	PciCapPMG	 = 0x01,	/* power management */
-	PciCapAGP	 = 0x02,
-	PciCapVPD	 = 0x03,	/* vital product data */
-	PciCapSID	 = 0x04,	/* slot id */
-	PciCapMSI	 = 0x05,
-	PciCapCHS	 = 0x06,	/* compact pci hot swap */
-	PciCapPCIX	 = 0x07,
-	PciCapHTC	 = 0x08,	/* hypertransport irq conf */
-	PciCapVND	 = 0x09,	/* vendor specific information */
-	PciCapHSW	 = 0x0C,	/* hot swap */
-	PciCapPCIe	 = 0x10,
-	PciCapMSIX	 = 0x11,
-};
-
-enum {
 	PcieAERC = 1,
 	PcieVC,
 	PcieSNC,
