@@ -1706,6 +1706,7 @@ void stdinit(void)	/* in case stdin, etc., are not constants */
 	files[1].fp = &stdout;
 	files[2].fp = &stderr;
 }
+#define writing(m) ((m) != LT && (m) != LE)
 
 Biobuf *openfile(int a, char *us)
 {
@@ -1719,8 +1720,11 @@ Biobuf *openfile(int a, char *us)
 		if (files[i].fname && strcmp(s, files[i].fname) == 0) {
 			if (a == files[i].mode || (a==APPEND && files[i].mode==GT))
 				return files[i].fp;
-			if (a == FFLUSH)
+			if (a == FFLUSH) {
+				if(!writing(files[i].mode))
+					return nil;
 				return files[i].fp;
+			}
 		}
 	if (a == FFLUSH)	/* didn't find it, so don't create it! */
 		return nil;
@@ -1813,12 +1817,10 @@ void closeall(void)
 void flush_all(void)
 {
 	int i;
-
 	for (i = 0; i < FOPEN_MAX; i++)
-		if (files[i].fp)
+		if (files[i].fp && writing(files[i].mode))
 			Bflush(files[i].fp);
 }
-
 void backsub(char **pb_ptr, char **sptr_ptr);
 
 Cell *sub(Node **a, int)	/* substitute command */
