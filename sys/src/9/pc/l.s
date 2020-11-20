@@ -144,18 +144,6 @@ TEXT tgdtptr(SB), $0
 	WORD	$(3*8)
 	LONG	$tgdt-KZERO(SB)
 
-TEXT m0rgdtptr(SB), $0
-	WORD	$(NGDT*8-1)
-	LONG	$(CPU0GDT-KZERO)
-
-TEXT m0gdtptr(SB), $0
-	WORD	$(NGDT*8-1)
-	LONG	$CPU0GDT
-
-TEXT m0idtptr(SB), $0
-	WORD $(256*8-1)
-	LONG $IDTADDR
-
 TEXT vtgdtptr(SB), $0
 	WORD	$(3*8)
 	LONG	$tgdt(SB)
