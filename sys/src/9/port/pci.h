@@ -247,7 +247,6 @@ extern void pcisetmwi(Pcidev* p);
 extern void pciclrmwi(Pcidev* p);
 
 extern int pcicap(Pcidev *p, int cap);
-extern int pcinextcap(Pcidev *pci, int offset);
 extern int pcihtcap(Pcidev *p, int cap);
 extern int pcigetpms(Pcidev* p);
 extern int pcisetpms(Pcidev* p, int state);

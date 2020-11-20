@@ -934,17 +934,6 @@ pcisetpms(Pcidev* p, int state)
 	return ostate;
 }
 
-int
-pcinextcap(Pcidev *pci, int offset)
-{
-	if(offset == 0) {
-		if((pcicfgr16(pci, PciPSR) & (1<<4)) == 0)
-			return 0; /* no capabilities */
-		offset = PciCAP-1;
-	}
-	return pcicfgr8(pci, offset+1) & ~3;
-}
-
 void
 pcienable(Pcidev *p)
 {
