@@ -383,16 +383,16 @@ rtl8169miimiw(Mii* mii, int pa, int ra, int data)
 	return 0;
 }
 
-static int
-rtl8169mii(Ctlr* ctlr)
+static void
+rtl8169mii(Ether *edev)
 {
+	Ctlr *ctlr = edev->ctlr;
 	MiiPhy *phy;
 
 	/*
 	 * Link management.
 	 */
-	if((ctlr->mii = malloc(sizeof(Mii))) == nil)
-		return -1;
+	ctlr->mii = smalloc(sizeof(Mii));
 	ctlr->mii->mir = rtl8169miimir;
 	ctlr->mii->miw = rtl8169miimiw;
 	ctlr->mii->ctlr = ctlr;
@@ -420,22 +420,20 @@ rtl8169mii(Ctlr* ctlr)
 		csr8w(ctlr, Ldps, 1);				/* magic */
 		rtl8169miimiw(ctlr->mii, 1, 0x0B, 0x0000);	/* magic */
 	}
-
+	
 	if(mii(ctlr->mii, (1<<1)) == 0 || (phy = ctlr->mii->curphy) == nil){
-		free(ctlr->mii);
-		ctlr->mii = nil;
-		return -1;
+		error("no phy");
+		return;
 	}
-	print("rtl8169: oui %#ux phyno %d, macv = %#8.8ux phyv = %#4.4ux\n",
-		phy->oui, phy->phyno, ctlr->macv, ctlr->phyv);
+
+	print("#l%d: rtl8169: oui %#ux phyno %d, macv = %#8.8ux phyv = %#4.4ux\n",
+		edev->ctlrno, phy->oui, phy->phyno, ctlr->macv, ctlr->phyv);
 
 	miireset(ctlr->mii);
 
 	microdelay(100);
 
 	miiane(ctlr->mii, ~0, ~0, ~0);
-
-	return 0;
 }
 
 static void
@@ -615,6 +613,8 @@ static void
 rtl8169halt(Ctlr* ctlr)
 {
 	csr8w(ctlr, Cr, 0);
+
+	ctlr->imr = 0;
 	csr16w(ctlr, Imr, 0);
 	csr16w(ctlr, Isr, ~0);
 }
@@ -648,6 +648,7 @@ rtl8169replenish(Ctlr* ctlr)
 	D *d;
 	int x;
 	Block *bp;
+	u64int pa;
 
 	x = ctlr->rdt;
 	while(NEXT(x, ctlr->nrd) != ctlr->rdh){
@@ -658,9 +659,10 @@ rtl8169replenish(Ctlr* ctlr)
 		}
 		ctlr->rb[x] = bp;
 		ctlr->nrq++;
+		pa = PCIWADDR(bp->rp);
 		d = &ctlr->rd[x];
-		d->addrlo = PCIWADDR(bp->rp);
-		d->addrhi = 0;
+		d->addrlo = pa;
+		d->addrhi = pa >> 32;
 		coherence();
 		d->control = (d->control & Eor) | Own | BALLOC(bp);
 		x = NEXT(x, ctlr->nrd);
@@ -668,19 +670,22 @@ rtl8169replenish(Ctlr* ctlr)
 	}
 }
 
-static int
+static void
 rtl8169init(Ether* edev)
 {
 	int i;
 	u32int r;
 	Block *bp;
 	Ctlr *ctlr;
+	u64int pa;
 	u16int cplusc;
 
 	ctlr = edev->ctlr;
 	ilock(ctlr);
-
-	rtl8169reset(ctlr);
+	if(rtl8169reset(ctlr) < 0){
+		iunlock(ctlr);
+		error("reset failed");
+	}
 
 	memset(ctlr->td, 0, sizeof(D)*ctlr->ntd);
 	ctlr->tdh = ctlr->tdt = ctlr->ntq = 0;
@@ -716,10 +721,13 @@ rtl8169init(Ether* edev)
 	}
 	csr16w(ctlr, Cplusc, cplusc);
 
-	csr32w(ctlr, Tnpds+4, 0);
-	csr32w(ctlr, Tnpds, PCIWADDR(ctlr->td));
-	csr32w(ctlr, Rdsar+4, 0);
-	csr32w(ctlr, Rdsar, PCIWADDR(ctlr->rd));
+	pa = PCIWADDR(ctlr->td);
+	csr32w(ctlr, Tnpds+4, pa>>32);
+	csr32w(ctlr, Tnpds, pa);
+
+	pa = PCIWADDR(ctlr->rd);
+	csr32w(ctlr, Rdsar+4, pa>>32);
+	csr32w(ctlr, Rdsar, pa);
 
 	csr8w(ctlr, Cr, Te|Re);
 
@@ -755,8 +763,6 @@ rtl8169init(Ether* edev)
 	csr32w(ctlr, Mpc, 0);
 
 	iunlock(ctlr);
-
-	return 0;
 }
 
 static void
@@ -766,69 +772,80 @@ rtl8169reseter(void *arg)
 	Ctlr *ctlr;
 
 	edev = arg;
-
+	while(waserror())
+		;
 	for(;;){
-		rtl8169init(edev);
-
 		ctlr = edev->ctlr;
-		qunlock(&ctlr->alock);
-
-		while(waserror())
-			;
 		sleep(&ctlr->reset, return0, nil);
-		poperror();
-
-		qlock(&ctlr->alock);
+		rtl8169init(edev);
 	}
 }
+
+static void rtl8169interrupt(Ureg*, void* arg);
 
 static void
 rtl8169attach(Ether* edev)
 {
-	int timeo;
 	Ctlr *ctlr;
 
 	ctlr = edev->ctlr;
 	qlock(&ctlr->alock);
-	if(!ctlr->init){
-		ctlr->ntd = Ntd;
-		ctlr->nrd = Nrd;
-		ctlr->tb = malloc(ctlr->ntd*sizeof(Block*));
-		ctlr->rb = malloc(ctlr->nrd*sizeof(Block*));
-		ctlr->td = mallocalign(sizeof(D)*ctlr->ntd, 256, 0, 0);
-		ctlr->rd = mallocalign(sizeof(D)*ctlr->nrd, 256, 0, 0);
-		ctlr->dtcc = mallocalign(sizeof(Dtcc), 64, 0, 0);
-		if(ctlr->rb == nil || ctlr->rb == nil || 
-		   ctlr->rd == nil || ctlr->rd == nil || ctlr->dtcc == nil){
-			free(ctlr->tb);
-			ctlr->tb = nil;
-			free(ctlr->rb);
-			ctlr->rb = nil;
-			free(ctlr->td);
-			ctlr->td = nil;
-			free(ctlr->rd);
-			ctlr->rd = nil;
-			free(ctlr->dtcc);
-			ctlr->dtcc = nil;
-			qunlock(&ctlr->alock);
-			error(Enomem);
-		}
-		ctlr->init = 1;
-		kproc("rtl8169", rtl8169reseter, edev);
-
-		/* rtl8169reseter() does qunlock(&ctlr->alock) when complete */
-		qlock(&ctlr->alock);
+	if(ctlr->init){
+		qunlock(&ctlr->alock);
+		return;
 	}
+	if(waserror()){
+		print("#l%d: rtl8169: %s\n", edev->ctlrno, up->errstr);
+		qunlock(&ctlr->alock);
+		nexterror();
+	}
+	ctlr->ntd = Ntd;
+	ctlr->nrd = Nrd;
+
+	ctlr->tb = malloc(ctlr->ntd*sizeof(Block*));
+	ctlr->rb = malloc(ctlr->nrd*sizeof(Block*));
+	ctlr->td = mallocalign(sizeof(D)*ctlr->ntd, 256, 0, 0);
+	ctlr->rd = mallocalign(sizeof(D)*ctlr->nrd, 256, 0, 0);
+	ctlr->dtcc = mallocalign(sizeof(Dtcc), 64, 0, 0);
+	if(waserror()){
+		free(ctlr->tb);
+		ctlr->tb = nil;
+		free(ctlr->rb);
+		ctlr->rb = nil;
+		free(ctlr->td);
+		ctlr->td = nil;
+		free(ctlr->rd);
+		ctlr->rd = nil;
+		free(ctlr->dtcc);
+		ctlr->dtcc = nil;
+		nexterror();
+	}
+
+	if(ctlr->tb == nil || ctlr->rb == nil 
+	|| ctlr->td == nil || ctlr->rd == nil
+	|| ctlr->dtcc == nil)
+		error(Enomem);
+
+	pcisetbme(ctlr->pcidev);
+	intrenable(edev->irq, rtl8169interrupt, edev, edev->tbdf, edev->name);
+	if(waserror()){
+		rtl8169halt(ctlr);
+		pciclrbme(ctlr->pcidev);
+		intrdisable(edev->irq, rtl8169interrupt, edev, edev->tbdf, edev->name);
+		nexterror();
+	}
+
+	rtl8169init(edev);
+	rtl8169mii(edev);
+	ctlr->init = 1;
+
+	poperror();
+	poperror();
+
+	kproc("rtl8169", rtl8169reseter, edev);
+
 	qunlock(&ctlr->alock);
-
-	/*
-	 * Wait for link to be ready.
-	 */
-	for(timeo = 0; timeo < 35; timeo++){
-		if(miistatus(ctlr->mii) == 0)
-			break;
-		delay(100);		/* print fewer miistatus messages */
-	}
+	poperror();
 }
 
 static void
@@ -866,6 +883,7 @@ rtl8169transmit(Ether* edev)
 	D *d;
 	Block *bp;
 	Ctlr *ctlr;
+	u64int pa;
 	int x;
 
 	ctlr = edev->ctlr;
@@ -894,9 +912,10 @@ rtl8169transmit(Ether* edev)
 		if((bp = qget(edev->oq)) == nil)
 			break;
 
+		pa = PCIWADDR(bp->rp);
 		d = &ctlr->td[x];
-		d->addrlo = PCIWADDR(bp->rp);
-		d->addrhi = 0;
+		d->addrlo = pa;
+		d->addrhi = pa >> 32;
 		coherence();
 		d->control = (d->control & Eor) | Own | Fs | Ls | BLEN(bp);
 
@@ -990,7 +1009,6 @@ rtl8169receive(Ether* edev)
 static void
 rtl8169restart(Ctlr *ctlr)
 {
-	ctlr->imr = 0;
 	rtl8169halt(ctlr);
 	wakeup(&ctlr->reset);
 }
@@ -1035,6 +1053,14 @@ rtl8169interrupt(Ureg*, void* arg)
 		if(isr & Punlc)
 			rtl8169link(edev);
 	}
+}
+
+static void
+rtl8169shutdown(Ether *edev)
+{
+	Ctlr *ctlr = edev->ctlr;
+
+	rtl8169halt(ctlr);
 }
 
 int
@@ -1103,11 +1129,14 @@ rtl8169pci(void)
 			break;
 		}
 
+		if(p->mem[0].size == 0 || (p->mem[0].bar & 1) == 0)
+			continue;
 		port = p->mem[0].bar & ~3;
 		if(ioalloc(port, p->mem[0].size, 0, "rtl8169") < 0){
 			print("rtl8169: port %#ux in use\n", port);
 			continue;
 		}
+
 		ctlr = malloc(sizeof(Ctlr));
 		if(ctlr == nil){
 			print("rtl8169: can't allocate memory\n");
@@ -1121,31 +1150,19 @@ rtl8169pci(void)
 
 		pcienable(p);
 		if(vetmacv(ctlr, &macv) == -1){
+			print("rtl8169: %T: unknown mac %.4ux %.8ux\n", p->tbdf, p->did, macv);
 			pcidisable(p);
 			iofree(port);
 			free(ctlr);
-			print("rtl8169: unknown mac %.4ux %.8ux\n", p->did, macv);
 			continue;
 		}
-
-		if(rtl8169reset(ctlr)){
-			pcidisable(p);
-			iofree(port);
-			free(ctlr);
-			print("rtl8169: reset failed\n");
-			continue;
-		}
+		rtl8169halt(ctlr);
 
 		/*
 		 * Extract the chip hardware version,
 		 * needed to configure each properly.
 		 */
 		ctlr->macv = macv;
-
-		rtl8169mii(ctlr);
-
-		pcisetbme(p);
-
 		if(rtl8169ctlrhead != nil)
 			rtl8169ctlrtail->next = ctlr;
 		else
@@ -1208,14 +1225,13 @@ rtl8169pnp(Ether* edev)
 	edev->attach = rtl8169attach;
 	edev->transmit = rtl8169transmit;
 	edev->ifstat = rtl8169ifstat;
+	edev->shutdown = rtl8169shutdown;
 
 	edev->arg = edev;
 	edev->promiscuous = rtl8169promiscuous;
 	edev->multicast = rtl8169multicast;
 
 	rtl8169link(edev);
-
-	intrenable(edev->irq, rtl8169interrupt, edev, edev->tbdf, edev->name);
 
 	return 0;
 }
