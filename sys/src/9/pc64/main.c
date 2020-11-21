@@ -176,8 +176,8 @@ void
 main(void)
 {
 	mach0init();
-	trapinit0();
 	bootargsinit();
+	trapinit0();
 	ioinit();
 	i8250console();
 	quotefmtinstall();
