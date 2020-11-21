@@ -5,6 +5,7 @@
 #include	"dat.h"
 #include	"fns.h"
 #include	"io.h"
+#include	"../port/pci.h"
 #include	"ureg.h"
 #include	"pool.h"
 #include	"rebootcode.i"
@@ -285,6 +286,9 @@ reboot(void *entry, void *code, ulong size)
 
 	/* shutdown devices */
 	chandevshutdown();
+
+	/* disable pci devices */
+	pcireset();
 
 	rebootjump((uintptr)entry & (ulong)~0xF0000000UL, PADDR(code), size);
 }
