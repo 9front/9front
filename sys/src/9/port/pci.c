@@ -753,7 +753,7 @@ pcireset(void)
 		/* don't mess with the bridges */
 		if(p->ccrb == 0x06)
 			continue;
-		pciclrbme(p);
+		pcidisable(p);
 	}
 }
 
@@ -870,7 +870,63 @@ pcihtcap(Pcidev *p, int cap)
 }
 
 static int
-pcigetpmrb(Pcidev* p)
+pcigetmsi(Pcidev *p)
+{
+	if(p->msi != 0)
+		return p->msi;
+	return p->msi = pcicap(p, PciCapMSI);
+}
+
+enum {
+	MSICtrl = 0x02, /* message control register (16 bit) */
+	MSIAddr = 0x04, /* message address register (64 bit) */
+	MSIData32 = 0x08, /* message data register for 32 bit MSI (16 bit) */
+	MSIData64 = 0x0C, /* message data register for 64 bit MSI (16 bit) */
+};
+
+int
+pcimsienable(Pcidev *p, uvlong addr, ulong data)
+{
+	int off, ok64;
+
+	if((off = pcigetmsi(p)) < 0)
+		return -1;
+	ok64 = (pcicfgr16(p, off + MSICtrl) & (1<<7)) != 0;
+	pcicfgw32(p, off + MSIAddr, addr);
+	if(ok64) pcicfgw32(p, off + MSIAddr+4, addr >> 32);
+	pcicfgw16(p, off + (ok64 ? MSIData64 : MSIData32), data);
+	pcicfgw16(p, off + MSICtrl, 1);
+	return 0;
+}
+
+int
+pcimsidisable(Pcidev *p)
+{
+	int off;
+
+	if((off = pcigetmsi(p)) < 0)
+		return -1;
+	pcicfgw16(p, off + MSICtrl, 0);
+	return 0;
+}
+
+enum {
+	MSIXCtrl = 0x02,
+};
+
+static int
+pcimsixdisable(Pcidev *p)
+{
+	int off;
+
+	if((off = pcicap(p, PciCapMSIX)) < 0)
+		return -1;
+	pcicfgw16(p, off + MSIXCtrl, 0);
+	return 0;
+}
+
+static int
+pcigetpmrb(Pcidev *p)
 {
         if(p->pmrb != 0)
                 return p->pmrb;
@@ -1009,5 +1065,7 @@ pcidisable(Pcidev *p)
 {
 	if(p == nil)
 		return;
+	pcimsixdisable(p);
+	pcimsidisable(p);
 	pciclrbme(p);
 }

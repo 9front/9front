@@ -411,13 +411,6 @@ Findbus:
 }
 
 enum {
-	MSICtrl = 0x02, /* message control register (16 bit) */
-	MSIAddr = 0x04, /* message address register (64 bit) */
-	MSIData32 = 0x08, /* message data register for 32 bit MSI (16 bit) */
-	MSIData64 = 0x0C, /* message data register for 64 bit MSI (16 bit) */
-};
-
-enum {
 	HTMSIMapping	= 0xA8,
 	HTMSIFlags	= 0x02,
 	HTMSIFlagsEn	= 0x01,
@@ -479,7 +472,7 @@ htmsienable(Pcidev *pdev)
 static int
 msiintrenable(Vctl *v)
 {
-	int tbdf, vno, cap, cpu, ok64;
+	int tbdf, vno, cpu;
 	Pcidev *pci;
 
 	if(getconf("*nomsi") != nil)
@@ -494,16 +487,12 @@ msiintrenable(Vctl *v)
 	}
 	if(htmsienable(pci) < 0)
 		return -1;
-	cap = pcicap(pci, PciCapMSI);
-	if(cap < 0)
+	if(pcimsidisable(pci) < 0)
 		return -1;
 	vno = allocvector();
 	cpu = mpintrcpu();
-	ok64 = (pcicfgr16(pci, cap + MSICtrl) & (1<<7)) != 0;
-	pcicfgw32(pci, cap + MSIAddr, (0xFEE << 20) | (cpu << 12));
-	if(ok64) pcicfgw32(pci, cap + MSIAddr + 4, 0);
-	pcicfgw16(pci, cap + (ok64 ? MSIData64 : MSIData32), vno | (1<<14));
-	pcicfgw16(pci, cap + MSICtrl, 1);
+	if(pcimsienable(pci, 0xFEE00000ULL | (cpu << 12), vno | (1<<14)) < 0)
+		return -1;
 	v->isr = lapicisr;
 	v->eoi = lapiceoi;
 	return vno;

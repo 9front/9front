@@ -110,13 +110,6 @@ pcicfgrw8(int tbdf, int rno, int data, int read)
 	return data;
 }
 
-enum {
-	MSICtrl = 0x02, /* message control register (16 bit) */
-	MSIAddr = 0x04, /* message address register (64 bit) */
-	MSIData32 = 0x08, /* message data register for 32 bit MSI (16 bit) */
-	MSIData64 = 0x0C, /* message data register for 64 bit MSI (16 bit) */
-};
-
 typedef struct Pciisr Pciisr;
 struct Pciisr {
 	void	(*f)(Ureg*, void*);
@@ -130,9 +123,7 @@ static Lock pciisrlk;
 void
 pciintrenable(int tbdf, void (*f)(Ureg*, void*), void *a)
 {
-	int cap, ok64;
-	u32int dat;
-	u64int adr;
+	ulong dat;
 	Pcidev *p;
 	Pciisr *isr;
 
@@ -140,8 +131,9 @@ pciintrenable(int tbdf, void (*f)(Ureg*, void*), void *a)
 		print("pciintrenable: %T: unknown device\n", tbdf);
 		return;
 	}
-	if((cap = pcicap(p, PciCapMSI)) < 0){
-		print("pciintrenable: %T: no MSI cap\n", tbdf);
+
+	if(pcimsidisable(p) < 0){
+		print("pciintrenable: %T: device doesnt support msi\n", tbdf);
 		return;
 	}
 
@@ -170,14 +162,9 @@ pciintrenable(int tbdf, void (*f)(Ureg*, void*), void *a)
 		return;
 	}
 
-	adr = MSI_TARGET_ADDR;
-	ok64 = (pcicfgr16(p, cap + MSICtrl) & (1<<7)) != 0;
-	pcicfgw32(p, cap + MSIAddr, adr);
-	if(ok64) pcicfgw32(p, cap + MSIAddr + 4, adr>>32);
 	dat = regs[MISC_MSI_DATA_CONFIG];
 	dat = ((dat >> 16) & (dat & 0xFFFF)) | (isr-pciisr);
-	pcicfgw16(p, cap + (ok64 ? MSIData64 : MSIData32), dat);
-	pcicfgw16(p, cap + MSICtrl, 1);
+	pcimsienable(p, MSI_TARGET_ADDR, dat);
 }
 
 void

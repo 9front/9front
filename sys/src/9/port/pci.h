@@ -199,6 +199,7 @@ struct Pcidev
 	} prefa;
 
 	int	pmrb;			/* power management register block */
+	int	msi;			/* MSI capability register block */
 };
 
 enum {
@@ -248,6 +249,10 @@ extern void pciclrmwi(Pcidev* p);
 
 extern int pcicap(Pcidev *p, int cap);
 extern int pcihtcap(Pcidev *p, int cap);
+
+extern int pcimsienable(Pcidev *p, uvlong addr, ulong data);
+extern int pcimsidisable(Pcidev *p);
+
 extern int pcigetpms(Pcidev* p);
 extern int pcisetpms(Pcidev* p, int state);
 
