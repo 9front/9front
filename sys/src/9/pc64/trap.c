@@ -111,6 +111,8 @@ intrdisable(int irq, void (*f)(Ureg *, void *), void *a, int tbdf, char *name)
 				break;
 		}
 		if(v != nil){
+			if(v->disable != nil)
+				(*v->disable)(v);
 			*pv = v->next;
 			xfree(v);
 

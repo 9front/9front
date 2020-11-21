@@ -48,15 +48,19 @@ enum {
 typedef struct Vctl {
 	Vctl*	next;			/* handlers on this vector */
 
-	char	name[KNAMELEN];		/* of driver */
+	void	(*f)(Ureg*, void*);	/* handler to call */
+	void*	a;			/* argument to call it with */
+
 	int	isintr;			/* interrupt or fault/trap */
-	int	irq;
-	int	tbdf;
+
 	int	(*isr)(int);		/* get isr bit for this irq */
 	int	(*eoi)(int);		/* eoi */
 
-	void	(*f)(Ureg*, void*);	/* handler to call */
-	void*	a;			/* argument to call it with */
+	void	(*disable)(Vctl*);
+	int	irq;
+	int	tbdf;
+
+	char	name[KNAMELEN];		/* of driver */
 } Vctl;
 
 enum {

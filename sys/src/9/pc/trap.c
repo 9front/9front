@@ -89,8 +89,7 @@ intrdisable(int irq, void (*f)(Ureg *, void *), void *a, int tbdf, char *name)
 		irq = 9;
 	if(arch->intrvecno == nil || (tbdf != BUSUNKNOWN && (irq == 0xff || irq == 0))){
 		/*
-		 * on APIC machine, irq is pretty meaningless
-		 * and disabling a the vector is not implemented.
+		 * on APIC machine, irq is pretty meaningless.
 		 * however, we still want to remove the matching
 		 * Vctl entry to prevent calling Vctl.f() with a
 		 * stale Vctl.a pointer.
@@ -109,6 +108,8 @@ intrdisable(int irq, void (*f)(Ureg *, void *), void *a, int tbdf, char *name)
 				break;
 		}
 		if(v != nil){
+			if(v->disable != nil)
+				(*v->disable)(v);
 			*pv = v->next;
 			xfree(v);
 

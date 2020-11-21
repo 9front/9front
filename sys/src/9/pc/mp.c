@@ -469,6 +469,15 @@ htmsienable(Pcidev *pdev)
 	return -1;
 }
 
+static void
+msiintrdisable(Vctl *v)
+{
+	Pcidev *pci;
+
+	if((pci = pcimatchtbdf(v->tbdf)) != nil)
+		pcimsidisable(pci);
+}
+
 static int
 msiintrenable(Vctl *v)
 {
@@ -493,6 +502,7 @@ msiintrenable(Vctl *v)
 	cpu = mpintrcpu();
 	if(pcimsienable(pci, 0xFEE00000ULL | (cpu << 12), vno | (1<<14)) < 0)
 		return -1;
+	v->disable = msiintrdisable;
 	v->isr = lapicisr;
 	v->eoi = lapiceoi;
 	return vno;
