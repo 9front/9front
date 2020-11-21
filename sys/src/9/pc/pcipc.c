@@ -716,6 +716,8 @@ pcicfginit(void)
 	if(pciroot == nil)
 		goto out;
 
+	pcireset();
+
 	if(nobios) {
 		uvlong mema;
 		ulong ioa;
