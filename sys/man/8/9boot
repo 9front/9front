@@ -47,7 +47,7 @@ will end the console and attempt booting the kernel.
 .SS
 There are many ways to boot a PC so
 .IR 9boot
-was split into a number of distinct programs one for each boot
+was split into a number of distinct programs, one for each boot
 method.
 .SH FAT BOOTING
 When booting Plan 9 from a harddisk or USB pen drive, a
@@ -143,8 +143,18 @@ is discovered and
 configuration is read from it in the same way as
 with the BIOS-based
 .I 9boot*
-loaders.
-
+loaders.  If the EFI loader was executed from a 
+.B FAT
+partition, it will first search for
+.IR plan9.ini (8)
+in the same
+.B FAT 
+filesystem that it was loaded from, and if not found, will search for 
+.IR plan9.ini (8)
+in any other partition in an implementation-defined order.  The kernel
+is always loaded from the same partition that
+.IR plan9.ini (8)
+is read from.
 .SH FILES
 .B /386/pbs
 .br
@@ -171,6 +181,8 @@ loaders.
 .IR mk9660 (8),
 .IR dhcpd (8),
 .IR ndb (6)
+.br
+.I https://uefi.org
 .SH HISTORY
 9boot first appeared in 9front (April, 2011).
 EFI support first appeared in 9front (Oct, 2014).
