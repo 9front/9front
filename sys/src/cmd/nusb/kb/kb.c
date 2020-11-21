@@ -368,6 +368,14 @@ setproto(Hiddev *f, int eid)
 		}
 		proto = Bootproto;
 	}
+
+	/*
+	 * if a HID's subclass code is 1 (boot mode), it will support
+	 * setproto, otherwise it is not guaranteed to.
+	 */
+	if(Subclass(iface->csp) != 1)
+		return 0;
+ 
 	return usbcmd(f->dev, Rh2d|Rclass|Riface, Setproto, proto, iface->id, nil, 0);
 }
 

@@ -222,6 +222,14 @@ setproto(KDev *f, int eid)
 		proto = Reportproto;
 	}else
 		kbfatal(f, "no report");
+
+	/*
+	 * if a HID's subclass code is 1 (boot mode), it will support
+	 * setproto, otherwise it is not guaranteed to.
+	 */
+	if(Subclass(f->dev->usb->ep[eid]->iface->csp) != 1)
+		return 0;
+
 	return usbcmd(f->dev, Rh2d|Rclass|Riface, Setproto, proto, id, nil, 0);
 }
 
