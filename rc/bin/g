@@ -14,18 +14,24 @@ while(! ~ $#* 1 && ~ $1 -* && ! ~ $1 --){
 if(~ $1 --)
 	shift
 
+suffixes='\.([bcChlmsy]|asm|awk|cc|cgi|cpp|cs|go|goc|hs|java|lx|ms|pl|py|rc|tex|xy)$'
+fullnames='(^|/)mkfile$'
 switch($#*){
 case 0
 	echo 'usage: g [flags] pattern [files]' >[1=2]
 	exit usage
 case 1
 	pattern=$1
-	fullnames='mkfile$'
-	suffixes='\.([bcChlmsy]|asm|awk|cc|cgi|cpp|cs|go|goc|hs|java|lx|ms|pl|py|rc|tex|xy)$'
 	files=`$nl{walk -f $recurse | grep -e $fullnames -e $suffixes >[2]/dev/null}
 case *
 	pattern=$1
 	shift
-	files=`$nl{walk -f $recurse -- $*}
+	for(f in $*){
+		if(test -d $f)
+			files=($files `$nl{walk -f $recurse -- $* \
+				| grep -e $fullnames -e $suffixes >[2]/dev/null})
+		if not
+			files=$(files $f)
+	}
 }
 grep -n $flags -- $pattern $files /dev/null
