@@ -638,8 +638,11 @@ commnds(void)
 				p = sptr->val;
 				if(c >= ARRAYST) {
 					rewind(p);
-					while(sfeof(p) == 0)
-						release(dcgetwd(p));
+					while(sfeof(p) == 0) {
+						q = dcgetwd(p);
+						if(q != 0)
+							release(q);
+					}
 				}
 				release(p);
 			} else {
@@ -711,6 +714,7 @@ commnds(void)
 					p = q;
 				}
 			}
+			sptr->val = p;
 			seekc(p,c*PTRSZ);
 			q = lookwd(p);
 			if(q!=0)
@@ -718,7 +722,6 @@ commnds(void)
 			s = pop();
 			EMPTY;
 			salterwd(p, s);
-			sptr->val = p;
 			continue;
 		case ';':
 			p = pop();
@@ -1921,7 +1924,8 @@ command(void)
 		sl = line;
 		*sl++ = c;
 		while((c = readc()) != '\n')
-			*sl++ = c;
+			if(sl-line < sizeof(line)-1)
+				*sl++ = c;
 		*sl = 0;
 		if((pid = fork()) == 0) {
 			execl("/bin/rc","rc","-c",line,nil);
