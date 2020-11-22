@@ -24,6 +24,9 @@ PROGS=\
 #libs must be made first
 DIRS=$LIBS $PROGS
 
+default:V:
+	mk all
+
 all install installall clean nuke:V:
 	for (i in $DIRS) @{
 		cd $i
