@@ -1,5 +1,4 @@
 </$objtype/mkfile
-<../mkupas
 
 RCFILES=\
 	isspam\
@@ -27,3 +26,5 @@ nuke:V:
 
 $BIN/%: %.rc
 	cp $stem.rc $BIN/$stem
+
+<../mkupas

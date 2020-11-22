@@ -1,5 +1,4 @@
 </$objtype/mkfile
-<../mkupas
 
 TARG=\
 	scanmail\
@@ -14,6 +13,7 @@ HFILES=\
 	../common/sys.h\
 
 </sys/src/cmd/mkmany
+<../mkupas
 CFLAGS=$CFLAGS -I../common
 
 scanmail.$O: scanmail.c

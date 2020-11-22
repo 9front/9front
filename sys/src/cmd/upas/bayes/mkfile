@@ -1,9 +1,9 @@
 </$objtype/mkfile
-<../mkupas
 
 TARG=addhash bayes msgtok
 
 </sys/src/cmd/mkmany
+<../mkupas
 
 # msg tokenizer
 $O.regen: regcomp.$O dfa.$O

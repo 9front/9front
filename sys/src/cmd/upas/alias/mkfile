@@ -1,5 +1,4 @@
 </$objtype/mkfile
-<../mkupas
 
 TARG=aliasmail
 LIB=../common/libcommon.a$O
@@ -9,4 +8,5 @@ HFILES=\
 	../common/sys.h\
 
 </sys/src/cmd/mkone
+<../mkupas
 CFLAGS=$CFLAGS -I../common

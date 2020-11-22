@@ -1,5 +1,4 @@
 </$objtype/mkfile
-<../mkupas
 
 TARG=Mail
 OFILES=\
@@ -16,6 +15,7 @@ HFILES=dat.h
 BIN=$ABIN
 
 </sys/src/cmd/mkone
+<../mkupas
 
 $O.out: $OFILES
 	$LD -o $target  $LDFLAGS $OFILES

@@ -1,5 +1,4 @@
 </$objtype/mkfile
-<../mkupas
 
 TARG=\
 	send\
@@ -32,6 +31,7 @@ HFILES=\
 	../common/sys.h\
 
 </sys/src/cmd/mkmany
+<../mkupas
 CFLAGS=$CFLAGS -I../common
 
 $O.send: $SOBJ $OFILES
@@ -42,4 +42,4 @@ $O.filter: $FOBJ
 message.$O: ../smtp/rfc822.tab.h
 
 ../smtp/rfc822.tab.h ../smtp/rfc822.tab.$O: ../smtp/rfc822.y
-	cd ../smtp && mk rfc822.tab.$O
+	cd ../smtp && mk rfc822.tab.h rfc822.tab.$O

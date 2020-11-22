@@ -1,5 +1,4 @@
 </$objtype/mkfile
-<../mkupas
 
 TARG=fs
 LIB=../common/libcommon.a$O
@@ -24,6 +23,7 @@ HFILES=\
 	dat.h\
 
 </sys/src/cmd/mkone
+<../mkupas
 CFLAGS=$CFLAGS  -I../common
 
 acid:V:

@@ -1,5 +1,4 @@
 </$objtype/mkfile
-<../mkupas
 
 TARG=\
 	ml\
@@ -17,10 +16,11 @@ HFILES=\
 	../smtp/rfc822.tab.h\
 
 </sys/src/cmd/mkmany
+<../mkupas
 CFLAGS=$CFLAGS -I../common
 
 $O.ml: ../smtp/rfc822.tab.$O
 $O.mlowner: ../smtp/rfc822.tab.$O
 
 ../smtp/rfc822.tab.h ../smtp/rfc822.tab.$O: ../smtp/rfc822.y
-	cd ../smtp && mk rfc822.tab.$O
+	cd ../smtp && mk rfc822.tab.h rfc822.tab.$O

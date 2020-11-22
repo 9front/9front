@@ -1,5 +1,4 @@
 </$objtype/mkfile
-<../mkupas
 
 TARG=\
 	smtpd\
@@ -16,9 +15,10 @@ HFILES=\
 
 TEST=parsetest
 
-CLEANFILES=*.tab.?
+CLEANFILES=rfc822.tab.h rfc822.tab.c smtpd.tab.c
 
 </sys/src/cmd/mkmany
+<../mkupas
 CFLAGS=$CFLAGS -I../common
 
 $O.smtpd:\

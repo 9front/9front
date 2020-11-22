@@ -1,5 +1,4 @@
 </$objtype/mkfile
-<../mkupas
 
 TARG=\
 	deliver\
@@ -11,4 +10,5 @@ LIB=../common/libcommon.a$O
 OFILES=readaddrs.$O
 
 </sys/src/cmd/mkmany
+<../mkupas
 CFLAGS=$CFLAGS -I../common

@@ -1,5 +1,4 @@
 </$objtype/mkfile
-<../mkupas
 
 TARG=imap4d
 
@@ -31,3 +30,4 @@ HFILES=\
 	fns.h\
 
 </sys/src/cmd/mkone
+<../mkupas
