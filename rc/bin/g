@@ -31,7 +31,7 @@ case *
 			files=($files `$nl{walk -f $recurse -- $* \
 				| grep -e $fullnames -e $suffixes >[2]/dev/null})
 		if not
-			files=$(files $f)
+			files=($files $f)
 	}
 }
 grep -n $flags -- $pattern $files /dev/null
