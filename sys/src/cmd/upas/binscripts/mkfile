@@ -22,7 +22,7 @@ safeinstallall:V: install
 clean:Q:
 	;
 nuke:V:
-	rm $BIN/^($RCFILES)
+	rm -f $BIN/^($RCFILES)
 
 $BIN/%: %.rc
 	cp $stem.rc $BIN/$stem

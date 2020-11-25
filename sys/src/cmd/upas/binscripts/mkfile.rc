@@ -19,4 +19,4 @@ safeinstallall:V:
 clean:Q:
 	;
 nuke:V:
-	rm /rc/bin/mail
+	rm -f /rc/bin/mail
