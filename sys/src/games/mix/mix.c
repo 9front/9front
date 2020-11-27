@@ -729,14 +729,20 @@ void
 mixmove(int s, int f)
 {
 	int d;
+	u32int *p, *q, *pe;
 
 	if(f == 0)
 		return;
-
+	if(s < 0 || s >= 4000 || s+f < 0 || s+f > 4000)
+		vmerror("Bad src range MOVE %d:%d", s, s+f-1);
 	d = mval(ri[1], 0, MASK2);
-	if(d < 0 || d > 4000)
-		vmerror("Bad address MOVE %d", d);
-	memcpy(cells+d, cells+s, f*sizeof(u32int));
+	if(d < 0 || d >= 4000 || d+f < 0 || d+f > 4000)
+		vmerror("Bad dst range MOVE %d:%d", d, d+f-1);
+	p = cells+d;
+	q = cells+s;
+	pe = p+f;
+	while(p < pe)
+		*p++ = *q++;
 	d += f;
 	d &= MASK2;
 	ri[1] = d < 0 ? -d|SIGNB : d;
