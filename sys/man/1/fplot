@@ -45,7 +45,7 @@ Plot the absolute value and x^3 functions to a 400x400 image(6) on standard outp
 .IR page (1).
 .IP
 .EX
-fplot -c -s 400x400 'sqrt(x*x)' 'x^3' | page
+fplot -c -s 400x400 'abs(x)' 'x^3' | page
 .EE
 .SH SOURCE
 .B /sys/src/cmd/fplot.c
