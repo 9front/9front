@@ -997,9 +997,9 @@ mixvm(int ip, int once)
 			case 0: mixslra(m, 1);	break;
 			case 1: mixslra(m, 0);	break;
 			case 2: mixslrax(m, 1);	break;
-			case 4: mixslrax(m, 0);	break;
-			case 5: mixslc(m);	break;
-			case 6: mixsrc(m);	break;
+			case 3: mixslrax(m, 0);	break;
+			case 4: mixslc(m);	break;
+			case 5: mixsrc(m);	break;
 			}
 			break;
 		case 7:
