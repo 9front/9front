@@ -668,9 +668,9 @@ mixslrax(int m, int left)
 	rax |= rx & MASK5;
 	rx &= ~MASK5;
 	if(left)
-		rax <<= m;
+		rax <<= m*BITS;
 	else
-		rax >>= m;
+		rax >>= m*BITS;
 	rx |= rax & MASK5;
 	ra |= rax>>5*BITS & MASK5;
 }
