@@ -67,6 +67,8 @@ trapinit(void)
 {
 	irqinit();
 
+	nmienable();
+
 	/*
 	 * Special traps.
 	 * Syscall() is called directly without going through trap().

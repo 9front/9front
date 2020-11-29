@@ -324,31 +324,6 @@ nop(void)
 {
 }
 
-void
-archreset(void)
-{
-	i8042reset();
-
-	/*
-	 * Often the BIOS hangs during restart if a conventional 8042
-	 * warm-boot sequence is tried. The following is Intel specific and
-	 * seems to perform a cold-boot, but at least it comes back.
-	 * And sometimes there is no keyboard...
-	 *
-	 * The reset register (0xcf9) is usually in one of the bridge
-	 * chips. The actual location and sequence could be extracted from
-	 * ACPI but why bother, this is the end of the line anyway.
-	 */
-	print("Takes a licking and keeps on ticking...\n");
-	*(ushort*)KADDR(0x472) = 0x1234;	/* BIOS warm-boot flag */
-	outb(0xcf9, 0x02);
-	outb(0xcf9, 0x06);
-
-	print("can't reset\n");
-	for(;;)
-		idle();
-}
-
 /*
  * 386 has no compare-and-swap instruction.
  * Run it with interrupts turned off instead.
@@ -379,25 +354,6 @@ int (*cmpswap)(long*, long, long) = cmpswap386;
 
 PCArch* arch;
 extern PCArch* knownarch[];
-
-PCArch archgeneric = {
-.id=		"generic",
-.ident=		0,
-.reset=		archreset,
-.serialpower=	unimplemented,
-.modempower=	unimplemented,
-
-.intrinit=	i8259init,
-.intrenable=	i8259enable,
-.intrvecno=	i8259vecno,
-.intrdisable=	i8259disable,
-.intron=	i8259on,
-.introff=	i8259off,
-
-.clockenable=	i8253enable,
-.fastclock=	i8253read,
-.timerset=	i8253timerset,
-};
 
 typedef struct X86type X86type;
 struct X86type {
@@ -912,26 +868,22 @@ archinit(void)
 {
 	PCArch **p;
 
-	arch = &archgeneric;
+	arch = knownarch[0];
 	for(p = knownarch; *p != nil; p++){
 		if((*p)->ident != nil && (*p)->ident() == 0){
 			arch = *p;
 			break;
 		}
 	}
-	if(arch != &archgeneric){
+	if(arch != knownarch[0]){
 		if(arch->id == nil)
-			arch->id = archgeneric.id;
+			arch->id = knownarch[0]->id;
 		if(arch->reset == nil)
-			arch->reset = archgeneric.reset;
-		if(arch->serialpower == nil)
-			arch->serialpower = archgeneric.serialpower;
-		if(arch->modempower == nil)
-			arch->modempower = archgeneric.modempower;
+			arch->reset = knownarch[0]->reset;
 		if(arch->intrinit == nil)
-			arch->intrinit = archgeneric.intrinit;
-		if(arch->intrenable == nil)
-			arch->intrenable = archgeneric.intrenable;
+			arch->intrinit = knownarch[0]->intrinit;
+		if(arch->intrassign == nil)
+			arch->intrassign = knownarch[0]->intrassign;
 	}
 
 	/*
@@ -1098,6 +1050,33 @@ dumpmcregs(void)
 		}
 		iprint("\n");
 	}
+}
+
+static void
+nmihandler(Ureg *ureg, void*)
+{
+	iprint("cpu%d: nmi PC %#p, status %ux\n",
+		m->machno, ureg->pc, inb(0x61));
+	while(m->machno != 0)
+		;
+}
+
+void
+nmienable(void)
+{
+	int x;
+
+	trapenable(VectorNMI, nmihandler, nil, "nmi");
+
+	/*
+	 * Hack: should be locked with NVRAM access.
+	 */
+	outb(0x70, 0x80);		/* NMI latch clear */
+	outb(0x70, 0);
+
+	x = inb(0x61) & 0x07;		/* Enable NMI */
+	outb(0x61, 0x0C|x);
+	outb(0x61, x);
 }
 
 void

@@ -28,154 +28,15 @@ enum {
   
 void	noted(Ureg*, ulong);
 
+extern void irqinit(void);
+extern int irqhandled(Ureg*, int);
+
 static void debugbpt(Ureg*, void*);
 static void fault386(Ureg*, void*);
 static void safe_fault386(Ureg*, void*);
 static void doublefault(Ureg*, void*);
 static void unexpected(Ureg*, void*);
 static void _dumpstack(Ureg*);
-
-static Lock vctllock;
-static Vctl *vctl[256];
-
-enum
-{
-	Ntimevec = 20		/* number of time buckets for each intr */
-};
-ulong intrtimes[256][Ntimevec];
-
-void
-intrenable(int irq, void (*f)(Ureg*, void*), void* a, int tbdf, char *name)
-{
-	int vno;
-	Vctl *v;
-
-/**/
-	SETUPLOG(dprint("intrenable: irq %d, f %p, a %p, tbdf 0x%x, name %s\n", 
-			irq, f, a, tbdf, name);)
-/**/
-	if(f == nil){
-		print("intrenable: nil handler for %d, tbdf 0x%uX for %s\n",
-			irq, tbdf, name);
-		return;
-	}
-
-	v = xalloc(sizeof(Vctl));
-	v->isintr = 1;
-	v->irq = irq;
-	v->tbdf = tbdf;
-	v->f = f;
-	v->a = a;
-	strncpy(v->name, name, KNAMELEN-1);
-	v->name[KNAMELEN-1] = 0;
-
-	ilock(&vctllock);
-	vno = arch->intrenable(v);
-	if(vno == -1){
-		iunlock(&vctllock);
-		print("intrenable: couldn't enable irq %d, tbdf 0x%uX for %s\n",
-			irq, tbdf, v->name);
-		xfree(v);
-		return;
-	}
-	if(vctl[vno]){
-		if(vctl[vno]->isr != v->isr || vctl[vno]->eoi != v->eoi)
-			panic("intrenable: handler: %s %s %p %p %p %p\n",
-				vctl[vno]->name, v->name,
-				vctl[vno]->isr, v->isr, vctl[vno]->eoi, v->eoi);
-		v->next = vctl[vno];
-	}
-	vctl[vno] = v;
-	SETUPLOG(dprint("INTRENABLE: vctl[%d] is %p\n", vno, vctl[vno]);)
-	iunlock(&vctllock);
-}
-
-void
-intrdisable(int irq, void (*f)(Ureg *, void *), void *a, int tbdf, char *name)
-{
-	Vctl **pv, *v;
-	int vno;
-
-	vno = arch->intrvecno(irq);
-	ilock(&vctllock);
-	for(pv = &vctl[vno]; (v = *pv) != nil; pv = &v->next){
-		if(v->isintr && v->irq == irq
-		&& v->tbdf == tbdf && v->f == f && v->a == a
-		&& strcmp(v->name, name) == 0){
-			*pv = v->next;
-			xfree(v);
-
-			if(vctl[vno] == nil && arch->intrdisable != nil)
-				arch->intrdisable(irq);
-			break;
-		}
-	}
-	iunlock(&vctllock);
-}
-
-static long
-irqallocread(Chan*, void *a, long n, vlong offset)
-{
-	char buf[2*(11+1)+KNAMELEN+1+1];
-	int vno, m;
-	Vctl *v;
-
-	if(n < 0 || offset < 0)
-		error(Ebadarg);
-
-	for(vno=0; vno<nelem(vctl); vno++){
-		for(v=vctl[vno]; v; v=v->next){
-			m = snprint(buf, sizeof(buf), "%11d %11d %.*s\n", vno, v->irq, KNAMELEN, v->name);
-			offset -= m;
-			if(offset >= 0)
-				continue;
-			if(n > -offset)
-				n = -offset;
-			offset += m;
-			memmove(a, buf+offset, n);
-			return n;
-		}
-	}
-	return 0;
-}
-
-void
-trapenable(int vno, void (*f)(Ureg*, void*), void* a, char *name)
-{
-	Vctl *v;
-
-	if(vno < 0 || vno >= VectorPIC)
-		panic("trapenable: vno %d\n", vno);
-	v = xalloc(sizeof(Vctl));
-	v->tbdf = BUSUNKNOWN;
-	v->f = f;
-	v->a = a;
-	strncpy(v->name, name, KNAMELEN);
-	v->name[KNAMELEN-1] = 0;
-
-	lock(&vctllock);
-	if(vctl[vno])
-		v->next = vctl[vno]->next;
-	vctl[vno] = v;
-	unlock(&vctllock);
-}
-
-static void
-nmienable(void)
-{
-	/* leave this here in case plan 9 ever makes it to dom0 */
-#ifdef NOWAY
-	/*
-	 * Hack: should be locked with NVRAM access.
-	 */
-	outb(0x70, 0x80);		/* NMI latch clear */
-	outb(0x70, 0);
-
-	x = inb(0x61) & 0x07;		/* Enable NMI */
-	outb(0x61, 0x08|x);
-	outb(0x61, x);
-#endif
-}
 
 /* we started out doing the 'giant bulk init' for all traps. 
   * we're going to do them one-by-one since error analysis is 
@@ -212,6 +73,8 @@ trapinit(void)
 		vaddr += 6;
 	}
 
+	irqinit();
+
 	/*
 	 * Special traps.
 	 * Syscall() is called directly without going through trap().
@@ -220,9 +83,6 @@ trapinit(void)
 	trapenable(VectorPF, fault386, 0, "fault386");
 	trapenable(Vector2F, doublefault, 0, "doublefault");
 	trapenable(Vector15, unexpected, 0, "unexpected");
-
-	nmienable();
-	addarchfile("irqalloc", 0444, irqallocread, nil);
 }
 
 static char* excname[32] = {
@@ -260,27 +120,18 @@ static char* excname[32] = {
 	"31 (reserved)",
 };
 
-/*
- *  keep histogram of interrupt service times
- */
-void
-intrtime(Mach*, int vno)
+static int
+usertrap(int vno)
 {
-	ulong diff;
-	ulong x;
+	char buf[ERRMAX];
 
-	x = perfticks();
-	diff = x - m->perf.intrts;
-	m->perf.intrts = x;
-
-	m->perf.inintr += diff;
-	if(up == nil && m->perf.inidle > diff)
-		m->perf.inidle -= diff;
-
-	diff /= m->cpumhz*100;	// quantum = 100µsec
-	if(diff >= Ntimevec)
-		diff = Ntimevec-1;
-	intrtimes[vno][diff]++;
+	if(vno < nelem(excname)){
+		spllo();
+		sprint(buf, "sys: trap: %s", excname[vno]);
+		postnote(up, 1, buf, NDebug);
+		return 1;
+	}
+	return 0;
 }
 
 /* go to user space */
@@ -304,120 +155,27 @@ kexit(Ureg*)
  *  rather than directly vectoring the handler.  However, this avoids a
  *  lot of code duplication and possible bugs.  The only exception is
  *  VectorSYSCALL.
- *  Trap is called with interrupts (and events) disabled via interrupt-gates.
+ *  Trap is called with interrupts disabled via interrupt-gates.
  */
 void
 trap(Ureg* ureg)
 {
-	int clockintr, i, vno, user;
-	char buf[ERRMAX];
-	Vctl *ctl, *v;
-	Mach *mach;
+	int vno, user;
 
-	TRAPLOG(dprint("trap ureg %lux %lux\n", (ulong*)ureg, ureg->trap);)
-	m->perf.intrts = perfticks();
-	user = (ureg->cs & 0xFFFF) == UESEL;
+	user = userureg(ureg);
 	if(user){
 		up->dbgreg = ureg;
 		cycles(&up->kentry);
 	}
 
-	clockintr = 0;
-
 	vno = ureg->trap;
-	if(vno < 0 || vno >= 256)
-		panic("bad interrupt number %d\n", vno);
-	TRAPLOG(dprint("trap: vno is 0x%x, vctl[%d] is %p\n", vno, vno, vctl[vno]);)
-	if(ctl = vctl[vno]){
-		INTRLOG(dprint("ctl is %p, isintr is %d\n", ctl, ctl->isintr);)
-		if(ctl->isintr){
-			m->intr++;
-			if(vno >= VectorPIC && vno != VectorSYSCALL)
-				m->lastintr = ctl->irq;
+	if(!irqhandled(ureg, vno) && (!user || !usertrap(vno))){
+		if(!user){
+			/* early fault before trapinit() */
+			if(vno == VectorPF)
+				fault386(ureg, 0);
 		}
 
-		INTRLOG(dprint("ctl %p, isr %p\n", ctl, ctl->isr);)
-		if(ctl->isr)
-			ctl->isr(vno);
-		for(v = ctl; v != nil; v = v->next){
-			INTRLOG(dprint("ctl %p, f is %p\n", v, v->f);)
-			if(v->f)
-				v->f(ureg, v->a);
-		}
-		INTRLOG(dprint("ctl %p, eoi %p\n", ctl, ctl->eoi);)
-		if(ctl->eoi)
-			ctl->eoi(vno);
-
-		if(ctl->isintr){
-			intrtime(m, vno);
-
-			//if(ctl->irq == IrqCLOCK || ctl->irq == IrqTIMER)
-			if (ctl->tbdf != BUSUNKNOWN && ctl->irq == VIRQ_TIMER)
-				clockintr = 1;
-
-			if(up && !clockintr)
-				preempted();
-		}
-	}
-	else if(vno <= nelem(excname) && user){
-		spllo();
-		sprint(buf, "sys: trap: %s", excname[vno]);
-		postnote(up, 1, buf, NDebug);
-	}
-	else if(vno >= VectorPIC && vno != VectorSYSCALL){
-		/*
-		 * An unknown interrupt.
-		 * Check for a default IRQ7. This can happen when
-		 * the IRQ input goes away before the acknowledge.
-		 * In this case, a 'default IRQ7' is generated, but
-		 * the corresponding bit in the ISR isn't set.
-		 * In fact, just ignore all such interrupts.
-		 */
-
-		/* call all interrupt routines, just in case */
-		for(i = VectorPIC; i <= MaxIrqLAPIC; i++){
-			ctl = vctl[i];
-			if(ctl == nil)
-				continue;
-			if(!ctl->isintr)
-				continue;
-			for(v = ctl; v != nil; v = v->next){
-				if(v->f)
-					v->f(ureg, v->a);
-			}
-			/* should we do this? */
-			if(ctl->eoi)
-				ctl->eoi(i);
-		}
-
-		iprint("cpu%d: spurious interrupt %d, last %d\n",
-			m->machno, vno, m->lastintr);
-		if(0)if(conf.nmach > 1){
-			for(i = 0; i < MAXMACH; i++){
-				if(active.machs[i] == 0)
-					continue;
-				mach = MACHP(i);
-				if(m->machno == mach->machno)
-					continue;
-				print(" cpu%d: last %d",
-					mach->machno, mach->lastintr);
-			}
-			print("\n");
-		}
-		m->spuriousintr++;
-		if(user)
-			kexit(ureg);
-		return;
-	}
-	else{
-		if(vno == VectorNMI){
-			nmienable();
-			if(m->machno != 0){
-				print("cpu%d: PC %8.8luX\n",
-					m->machno, ureg->pc);
-				for(;;);
-			}
-		}
 		dumpregs(ureg);
 		if(!user){
 			ureg->sp = (ulong)&ureg->sp;
@@ -425,17 +183,9 @@ trap(Ureg* ureg)
 		}
 		if(vno < nelem(excname))
 			panic("%s", excname[vno]);
-		panic("unknown trap/intr: %d\n", vno);
+		panic("unknown trap/intr: %d", vno);
 	}
 	splhi();
-
-	/* delaysched set because we held a lock or because our quantum ended */
-	if(up && up->delaysched && clockintr){
-		INTRLOG(dprint("calling sched in trap? \n");)
-		sched();
-		INTRLOG(dprint("Back from calling sched in trap?\n");)
-		splhi();
-	}
 
 	if(user){
 		if(up->procctl || up->nnote)

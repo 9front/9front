@@ -71,6 +71,7 @@ OBJ=\
 	mmu.$O\
 	random.$O\
 	rdb.$O\
+	irq.$O\
 	trap.$O\
 	$CONF.root.$O\
 	$CONF.rootc.$O\

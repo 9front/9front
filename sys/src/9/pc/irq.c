@@ -9,7 +9,7 @@
 #include	"../port/error.h"
 
 static Lock vctllock;
-static Vctl *vctl[256];
+static Vctl *vclock, *vctl[256];
 
 enum
 {
@@ -46,86 +46,55 @@ irqhandled(Ureg *ureg, int vno)
 	Vctl *ctl, *v;
 	int i;
 
-	if(ctl = vctl[vno]){
-		if(ctl->isintr){
-			m->perf.intrts = perfticks();
-			m->intr++;
-			if(vno >= VectorPIC)
-				m->lastintr = ctl->irq;
+	ctl = vctl[vno];
+	if(ctl != nil){
+		if(vno < VectorPIC){
+			(*ctl->f)(ureg, ctl->a);
+			return 1;
 		}
-		if(ctl->isr)
-			ctl->isr(vno);
-		for(v = ctl; v != nil; v = v->next){
-			if(v->f)
-				v->f(ureg, v->a);
-		}
-		if(ctl->eoi)
-			ctl->eoi(vno);
 
-		if(ctl->isintr){
-			intrtime(m, vno);
+		m->perf.intrts = perfticks();
+		m->intr++;
+		m->lastintr = ctl->irq;
+		if(ctl->isr != nil)
+			(*ctl->isr)(vno);
+		for(v = ctl; v != nil; v = v->next)
+			(*v->f)(ureg, v->a);
+		if(ctl->eoi != nil)
+			(*ctl->eoi)(vno);
+		intrtime(m, vno);
 
-			if(up){
-				if(ctl->irq == IrqCLOCK || ctl->irq == IrqTIMER){
-					/* delaysched set because we held a lock or because our quantum ended */
-					if(up->delaysched)
-						sched();
-				} else {
-					preempted();
-				}
+		if(up != nil){
+			if(ctl == vclock){
+				/* delaysched set because we held a lock or because our quantum ended */
+				if(up->delaysched)
+					sched();
+			} else {
+				preempted();
 			}
 		}
 		return 1;
 	}
 
-	if(vno < VectorPIC)
+	if(vno < VectorPIC || vno == VectorSYSCALL)
 		return 0;
 
-	/*
-	 * An unknown interrupt.
-	 * Check for a default IRQ7. This can happen when
-	 * the IRQ input goes away before the acknowledge.
-	 * In this case, a 'default IRQ7' is generated, but
-	 * the corresponding bit in the ISR isn't set.
-	 * In fact, just ignore all such interrupts.
-	 */
-
-	/* call all interrupt routines, just in case */
-	for(i = VectorPIC; i <= MaxIrqLAPIC; i++){
-		ctl = vctl[i];
-		if(ctl == nil)
-			continue;
-		if(!ctl->isintr)
-			continue;
-		for(v = ctl; v != nil; v = v->next){
-			if(v->f)
-				v->f(ureg, v->a);
-		}
-		/* should we do this? */
-		if(ctl->eoi)
-			ctl->eoi(i);
-	}
-
-	/* clear the interrupt */
-	i8259isr(vno);
-
-	if(0)print("cpu%d: spurious interrupt %d, last %d\n",
-		m->machno, vno, m->lastintr);
-	if(0)if(conf.nmach > 1){
-		for(i = 0; i < MAXMACH; i++){
-			Mach *mach;
-
-			if(active.machs[i] == 0)
-				continue;
-			mach = MACHP(i);
-			if(m->machno == mach->machno)
-				continue;
-			print(" cpu%d: last %d",
-				mach->machno, mach->lastintr);
-		}
-		print("\n");
-	}
 	m->spuriousintr++;
+	if(arch->intrspurious != nil && (*arch->intrspurious)(vno) == 0)
+		return 1;	/* false alarm */
+
+	iprint("cpu%d: spurious interrupt %d, last %d\n",
+		m->machno, vno, m->lastintr);
+
+	/* call all non-local interrupt routines, just in case */
+	for(i = VectorPIC; i < nelem(vctl); i++){
+		ctl = vctl[i];
+		if(ctl == nil || ctl == vclock || ctl->local)
+			continue;
+		for(v = ctl; v != nil; v = v->next)
+			(*v->f)(ureg, v->a);
+	}
+
 	return -1;
 }
 
@@ -134,28 +103,59 @@ trapenable(int vno, void (*f)(Ureg*, void*), void* a, char *name)
 {
 	Vctl *v;
 
-	if(vno < 0 || vno >= VectorPIC)
-		panic("trapenable: vno %d", vno);
+	if(f == nil){
+		print("trapenable: nil handler for %d, for %s\n",
+			vno, name);
+		return;
+	}
+
+	if(vno < 0 || vno >= VectorPIC){
+		print("trapenable: vno %d out of range", vno);
+		return;
+	}
+
 	if((v = xalloc(sizeof(Vctl))) == nil)
 		panic("trapenable: out of memory");
-	v->tbdf = BUSUNKNOWN;
+
 	v->f = f;
 	v->a = a;
+
+	v->tbdf = BUSUNKNOWN;
+	v->irq = -1;
+	v->vno = vno;
+	v->cpu = -1;
+
 	strncpy(v->name, name, KNAMELEN-1);
 	v->name[KNAMELEN-1] = 0;
 
 	ilock(&vctllock);
-	if(vctl[vno])
-		v->next = vctl[vno]->next;
+	if(vctl[vno] != nil){
+		print("trapenable: vno %d assigned twice: %s %s\n",
+			vno, vctl[vno]->name, v->name);
+		iunlock(&vctllock);
+		xfree(v);
+		return;
+	}
 	vctl[vno] = v;
 	iunlock(&vctllock);
+}
+
+static Vctl*
+delayfree(Vctl *v)
+{
+	static Vctl *q[4];
+	static uint x;
+	Vctl *r;
+
+	r = q[x], q[x] = v;
+	x = (x+1) % nelem(q);
+	return r;
 }
 
 void
 intrenable(int irq, void (*f)(Ureg*, void*), void* a, int tbdf, char *name)
 {
-	int vno;
-	Vctl *v;
+	Vctl **pv, *v;
 
 	if(f == nil){
 		print("intrenable: nil handler for %d, tbdf 0x%uX for %s\n",
@@ -163,45 +163,63 @@ intrenable(int irq, void (*f)(Ureg*, void*), void* a, int tbdf, char *name)
 		return;
 	}
 
-	if(tbdf != BUSUNKNOWN && (irq == 0xff || irq == 0))
-		irq = -1;
-
-
-	/*
-	 * IRQ2 doesn't really exist, it's used to gang the interrupt
-	 * controllers together. A device set to IRQ2 will appear on
-	 * the second interrupt controller as IRQ9.
-	 */
-	if(irq == 2)
-		irq = 9;
+	if(arch->intrirqno != nil)
+		irq = (*arch->intrirqno)(irq, tbdf);
 
 	if((v = xalloc(sizeof(Vctl))) == nil)
 		panic("intrenable: out of memory");
-	v->isintr = 1;
-	v->irq = irq;
-	v->tbdf = tbdf;
+
 	v->f = f;
 	v->a = a;
+
+	v->tbdf = tbdf;
+	v->irq = irq;
+	v->vno = -1;
+	v->cpu = -1;
+
 	strncpy(v->name, name, KNAMELEN-1);
 	v->name[KNAMELEN-1] = 0;
 
 	ilock(&vctllock);
-	vno = arch->intrenable(v);
-	if(vno == -1){
-		iunlock(&vctllock);
-		print("intrenable: couldn't enable irq %d, tbdf 0x%uX for %s\n",
+	v->vno = (*arch->intrassign)(v);
+	if(v->vno < VectorPIC || v->vno >= nelem(vctl)){
+		print("intrenable: couldn't assign irq %d, tbdf 0x%uX for %s\n",
 			irq, tbdf, v->name);
-		xfree(v);
+Unlockandfree:
+		iunlock(&vctllock);
+		if(v != nil)
+			xfree(v);
 		return;
 	}
-	if(vctl[vno]){
-		if(vctl[vno]->isr != v->isr || vctl[vno]->eoi != v->eoi)
-			panic("intrenable: handler: %s %s %#p %#p %#p %#p",
-				vctl[vno]->name, v->name,
-				vctl[vno]->isr, v->isr, vctl[vno]->eoi, v->eoi);
-		v->next = vctl[vno];
+	pv = &vctl[v->vno];
+	if(*pv != nil){
+		if((*pv)->isr != v->isr || (*pv)->eoi != v->eoi){
+			print("intrenable: incompatible handler: %s %s %#p %#p %#p %#p\n",
+				(*pv)->name, v->name,
+				(*pv)->isr, v->isr,
+				(*pv)->eoi, v->eoi);
+			goto Unlockandfree;
+		}
+		if(*pv == vclock)
+			pv = &vclock->next;
+		v->next = *pv;
 	}
-	vctl[vno] = v;
+	if(strcmp(name, "clock") == 0)
+		vclock = v;
+	*pv = v;
+	if(v->enable != nil){
+		coherence();
+		if((*v->enable)(v, pv != &vctl[v->vno] || v->next != nil) < 0){
+			print("intrenable: couldn't enable irq %d, tbdf 0x%uX for %s\n",
+				irq, tbdf, v->name);
+			*pv = v->next;
+			if(v == vclock)
+				vclock = nil;
+			if(conf.nmach > 1)
+				v = delayfree(v);
+			goto Unlockandfree;
+		}
+	}
 	iunlock(&vctllock);
 }
 
@@ -211,40 +229,47 @@ intrdisable(int irq, void (*f)(Ureg *, void *), void *a, int tbdf, char *name)
 	Vctl **pv, *v;
 	int vno;
 
-	if(irq == 2)
-		irq = 9;
-	if(arch->intrvecno == nil || (tbdf != BUSUNKNOWN && (irq == 0xff || irq == 0))){
-		/*
-		 * on APIC machine, irq is pretty meaningless
-		 * and disabling a the vector is not implemented.
-		 * however, we still want to remove the matching
-		 * Vctl entry to prevent calling Vctl.f() with a
-		 * stale Vctl.a pointer.
-		 */
+	if(arch->intrirqno != nil)
+		irq = (*arch->intrirqno)(irq, tbdf);
+
+	if(irq != -1 && arch->intrvecno != nil) {
+		vno = (*arch->intrvecno)(irq);
+		if(vno < VectorPIC || vno >= nelem(vctl)){
+			irq = -1;
+			vno = VectorPIC;
+		}
+	} else {
 		irq = -1;
 		vno = VectorPIC;
-	} else {
-		vno = arch->intrvecno(irq);
 	}
+
 	ilock(&vctllock);
 	do {
 		for(pv = &vctl[vno]; (v = *pv) != nil; pv = &v->next){
-			if(v->isintr && (v->irq == irq || irq == -1)
+			if((v->irq == irq || irq == -1)
 			&& v->tbdf == tbdf && v->f == f && v->a == a
 			&& strcmp(v->name, name) == 0)
 				break;
 		}
 		if(v != nil){
-			if(v->disable != nil)
-				(*v->disable)(v);
+			if(v->disable != nil){
+				if((*v->disable)(v, pv != &vctl[vno] || v->next != nil) < 0){
+					print("intrdisable: couldn't disable irq %d, tbdf 0x%uX for %s\n",
+						irq, tbdf, name);
+				}
+				coherence();
+			}
 			*pv = v->next;
-			xfree(v);
-
-			if(irq != -1 && vctl[vno] == nil && arch->intrdisable != nil)
-				arch->intrdisable(irq);
-			break;
+			if(v == vclock)
+				vclock = nil;
+			if(conf.nmach > 1)
+				v = delayfree(v);
+			iunlock(&vctllock);
+			if(v != nil)
+				xfree(v);
+			return;
 		}
-	} while(irq == -1 && ++vno <= MaxVectorAPIC);
+	} while(irq == -1 && ++vno < nelem(vctl));
 	iunlock(&vctllock);
 }
 
@@ -258,8 +283,8 @@ irqallocread(Chan*, void *a, long n, vlong offset)
 	if(n < 0 || offset < 0)
 		error(Ebadarg);
 
-	for(vno=0; vno<nelem(vctl); vno++){
-		for(v=vctl[vno]; v; v=v->next){
+	for(vno = 0; vno < nelem(vctl); vno++){
+		for(v = vctl[vno]; v != nil; v = v->next){
 			m = snprint(buf, sizeof(buf), "%11d %11d %.*s\n", vno, v->irq, KNAMELEN, v->name);
 			offset -= m;
 			if(offset >= 0)
@@ -274,40 +299,8 @@ irqallocread(Chan*, void *a, long n, vlong offset)
 	return 0;
 }
 
-static void
-nmienable(void)
-{
-	int x;
-
-	/*
-	 * Hack: should be locked with NVRAM access.
-	 */
-	outb(0x70, 0x80);		/* NMI latch clear */
-	outb(0x70, 0);
-
-	x = inb(0x61) & 0x07;		/* Enable NMI */
-	outb(0x61, 0x0C|x);
-	outb(0x61, x);
-}
-
-static void
-nmihandler(Ureg *ureg, void*)
-{
-	/*
-	 * Don't re-enable, it confuses the crash dumps.
-	nmienable();
-	 */
-	iprint("cpu%d: nmi PC %#p, status %ux\n",
-		m->machno, ureg->pc, inb(0x61));
-	while(m->machno != 0)
-		;
-}
-
 void
 irqinit(void)
 {
 	addarchfile("irqalloc", 0444, irqallocread, nil);
-
-	trapenable(VectorNMI, nmihandler, nil, "nmi");
-	nmienable();
 }

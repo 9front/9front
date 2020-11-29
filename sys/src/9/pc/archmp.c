@@ -194,6 +194,7 @@ mkiointr(PCMPintr* p)
 	}
 	aintr->apic = mpioapic[p->apicno];
 	aintr->next = bus->aintr;
+	aintr->bus = bus;
 	bus->aintr = aintr;
 
 	return aintr;
@@ -366,13 +367,15 @@ mpreset(void)
 }
 
 static int identify(void);
+extern int i8259irqno(int, int);
 
 PCArch archmp = {
 .id=		"_MP_",	
 .ident=		identify,
 .reset=		mpreset,
 .intrinit=	pcmpinit,
-.intrenable=	mpintrenable,
+.intrassign=	mpintrassign,
+.intrirqno=	i8259irqno,
 .intron=	lapicintron,
 .introff=	lapicintroff,
 .fastclock=	i8253read,

@@ -256,6 +256,7 @@ Foundbus:
 	ai->intr = pi;
 	ai->apic = a;
 	ai->next = bus->aintr;
+	ai->bus = bus;
 	bus->aintr = ai;
 }
 
@@ -733,13 +734,15 @@ acpireset(void)
 }
 
 static int identify(void);
+extern int i8259irqno(int, int);
 
 PCArch archacpi = {
 .id=		"ACPI",	
 .ident=		identify,
 .reset=		acpireset,
 .intrinit=	acpiinit,
-.intrenable=	mpintrenable,
+.intrassign=	mpintrassign,
+.intrirqno=	i8259irqno,
 .intron=	lapicintron,
 .introff=	lapicintroff,
 .fastclock=	i8253read,

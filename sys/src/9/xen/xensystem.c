@@ -389,6 +389,26 @@ xenupcall(Ureg *ureg)
 	
 }
 
+static int
+xenirqenable(Vctl *v, int shared)
+{
+	if(!shared){
+		uint port = v->vno-100;
+		HYPERVISOR_shared_info->evtchn_mask[port/32] &= ~(1<<(port%32));
+	}
+	return 0;
+}
+
+static int
+xenirqdisable(Vctl *v, int shared)
+{
+	if(!shared){
+		uint port = v->vno-100;
+		HYPERVISOR_shared_info->evtchn_mask[port/32] |= (1<<(port%32));
+	}
+	return 0;
+}
+
 /*
  * tbdf field is abused to distinguish virqs from channels:
  *
@@ -396,34 +416,27 @@ xenupcall(Ureg *ureg)
  * tbdf=0 -> irq is a channel number
  */
 int
-xenintrenable(Vctl *v)
+xenintrassign(Vctl *v)
 {
 	evtchn_op_t op;
 	uint port;
 
-	/* XXX locking? */
 	if (v->tbdf != BUSUNKNOWN) {
 		op.cmd = EVTCHNOP_bind_virq;
 		op.u.bind_virq.virq = v->irq;
 		op.u.bind_virq.vcpu = m->machno;
-		if(HYPERVISOR_event_channel_op(&op) != 0)
-			panic("xenintrenable: bind %d failed", v->irq);
+		if(HYPERVISOR_event_channel_op(&op) != 0){
+			print("xenintrenable: bind %d failed", v->irq);
+			return -1;
+		}
 		port = op.u.bind_virq.port;
 	} else
 		port = v->irq;
 	if (port > 155)
 		return -1;
-	HYPERVISOR_shared_info->evtchn_mask[port/32] &= ~(1<<(port%32));
-	if(0)print("xenintrenable %s: irq %d port %d mask[%d] = %#lux\n", v->name, v->irq, port, port/32, HYPERVISOR_shared_info->evtchn_mask[port/32]);
+	v->enable = xenirqenable;
+	v->disable = xenirqdisable;
 	return 100+port;
-}
-
-int
-xenintrdisable(int irq)
-{
-	USED(irq);
-	panic("xenintrdisable notyet\n");
-	return 0;
 }
 
 int

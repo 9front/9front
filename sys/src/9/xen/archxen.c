@@ -52,9 +52,7 @@ shutdown(void)
 	HYPERVISOR_shutdown(1);
 }
 
-int xenintrenable(Vctl *v);
-int xenintrvecno(int irq);
-int xenintrdisable(int irq);
+int xenintrassign(Vctl *v);
 void	xentimerenable(void);
 uvlong	xentimerread(uvlong*);
 void	xentimerset(uvlong);
@@ -64,16 +62,14 @@ PCArch archxen = {
 .ident=		identify,
 .reset=		shutdown,
 .intrinit=	intrinit,
-.intrenable=	xenintrenable,
-.intrvecno=	xenintrvecno,
-.intrdisable=	xenintrdisable,
+.intrassign=	xenintrassign,
 .clockenable=	xentimerenable,
 .fastclock=	xentimerread,
 .timerset=	xentimerset,
 };
 
 /*
- * Placeholders to satisfy external references in generic devarch.c
+ * Placeholders to satisfy external references in devarch.c
  */
 ulong	getcr4(void)	{ return 0; }
 void	putcr4(ulong)	{}
@@ -83,19 +79,7 @@ ulong	inl(int)	{ return 0; }
 void	outb(int, int)	{}
 void	outs(int, ushort)	{}
 void	outl(int, ulong)	{}
-void	i8042reset(void)	{}
-void	i8253enable(void)	{}
-void	i8253init(void)	{}
-void	i8253link(void)	{}
-uvlong	i8253read(uvlong*)	{ return 0; }
-void	i8253timerset(uvlong)	{}
-int	i8259disable(int)	{ return 0; }
-int	i8259enable(Vctl*)	{ return 0; }
-void	i8259init(void)	{}
-int	i8259isr(int)	{ return 0; }
-void	i8259on(void)	{}
-void	i8259off(void)	{}
-int	i8259vecno(int)	{ return 0; }
+
 int	mtrrprint(char*, long) { return 0; }
 char*	mtrr(uvlong, uvlong, char *) { return nil; }
 void	mtrrsync(void) {}

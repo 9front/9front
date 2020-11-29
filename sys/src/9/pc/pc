@@ -96,6 +96,7 @@ link
 misc
 	pci		pcipc
 
+	archgeneric	devkbd i8259 i8253
 	archacpi	mp apic squidboy ec
 	archmp		mp apic squidboy
 	mtrr

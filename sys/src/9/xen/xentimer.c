@@ -68,7 +68,7 @@ xentimerclock(Ureg* ureg, void*)
 void
 xentimerenable(void)
 {
-	intrenable(VIRQ_TIMER, xentimerclock, nil, 0, "Xen Timer");
+	intrenable(VIRQ_TIMER, xentimerclock, nil, 0, "clock");
 }
 
 uvlong

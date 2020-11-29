@@ -168,6 +168,7 @@ typedef struct Bus {
 typedef struct Aintr {
 	PCMPintr* intr;
 	Apic*	apic;
+	Bus*	bus;
 	Aintr*	next;
 };
 
@@ -249,7 +250,7 @@ extern void lapictimerset(uvlong);
 
 extern int mpintrinit(Bus*, PCMPintr*, int, int);
 extern void mpinit(void);
-extern int mpintrenable(Vctl*);
+extern int mpintrassign(Vctl*);
 extern void mpshutdown(void);
 extern void mpstartap(Apic*);
 

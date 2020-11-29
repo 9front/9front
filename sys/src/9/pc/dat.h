@@ -280,13 +280,12 @@ struct PCArch
 	char*	id;
 	int	(*ident)(void);		/* this should be in the model */
 	void	(*reset)(void);		/* this should be in the model */
-	int	(*serialpower)(int);	/* 1 == on, 0 == off */
-	int	(*modempower)(int);	/* 1 == on, 0 == off */
 
 	void	(*intrinit)(void);
-	int	(*intrenable)(Vctl*);
+	int	(*intrassign)(Vctl*);
+	int	(*intrirqno)(int, int);
+	int	(*intrspurious)(int);
 	int	(*intrvecno)(int);
-	int	(*intrdisable)(int);
 	void	(*introff)(void);
 	void	(*intron)(void);
 
