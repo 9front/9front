@@ -169,6 +169,7 @@ struct Window
 	uchar		deleted;
 	uchar		mouseopen;
 	uchar		kbdopen;
+	uchar		winnameread;
 	char			*label;
 	char			*dir;
 };

@@ -345,6 +345,7 @@ xfidclose(Xfid *x)
 	case Qmouse:
 		w->resized = FALSE;
 		w->mouseopen = FALSE;
+		w->winnameread = FALSE;
 		if(w->i != nil)
 			wsendctlmesg(w, Refresh, w->i->r, nil);
 		break;
@@ -776,6 +777,7 @@ xfidread(Xfid *x)
 			break;
 		}
 		t = estrdup(w->name);
+		w->winnameread = TRUE;
 		goto Text;
 
 	case Qwindow:

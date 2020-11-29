@@ -101,16 +101,19 @@ wresize(Window *w, Image *i)
 	frinit(w, r, w->font, w->i, cols);
 	wsetcols(w, 1);
 	w->maxtab = maxtab*stringwidth(w->font, "0");
-	r = insetrect(w->i->r, Selborder);
-	draw(w->i, r, cols[BACK], nil, w->entire.min);
-	wfill(w);
-	wsetselect(w, w->q0, w->q1);
-	wscrdraw(w);
+	if(!w->mouseopen || !w->winnameread){
+		r = insetrect(w->i->r, Selborder);
+		draw(w->i, r, cols[BACK], nil, w->entire.min);
+		wfill(w);
+		wsetselect(w, w->q0, w->q1);
+		wscrdraw(w);
+	}
 	wborder(w, Selborder);
 	flushimage(display, 1);
 	wsetname(w);
 	w->topped = ++topped;
 	w->resized = TRUE;
+	w->winnameread = FALSE;
 	w->mouse.counter++;
 	w->wctlready = 1;
 }
@@ -751,7 +754,7 @@ void
 wrepaint(Window *w)
 {
 	wsetcols(w, w == input);
-	if(!w->mouseopen)
+	if(!w->mouseopen || !w->winnameread)
 		frredraw(w);
 	if(w == input)
 		wborder(w, Selborder);
@@ -1180,7 +1183,7 @@ wctlmesg(Window *w, int m, Rectangle r, void *p)
 		flushimage(display, 1);
 		break;
 	case Refresh:
-		if(w->i==nil || Dx(w->screenr)<=0 || w->mouseopen)
+		if(w->i==nil || Dx(w->screenr)<=0)
 			break;
 		wrefresh(w);
 		flushimage(display, 1);
