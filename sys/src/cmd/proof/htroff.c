@@ -550,7 +550,7 @@ botpage(int np)	/* called at bottom of page np-1 == top of page np */
 			continue;
 		}
 
-		fprint(2, "illegal;  try q, 17, +2, -1, p, m.7, /2, x1, y-.5 or return\n");
+		fprint(2, "illegal:  try q, 17, +2, -1, p, m.7, /2, x1, y-.5 or return\n");
 	}
 	return 0;
 }
