@@ -157,11 +157,6 @@ Any characters not specified above are copied directly to output,
 without modification.
 
 .PP
-If the format argument is nil, it makes an
-attempt to parse common human readable date formats.  These
-formats include ISO-8601, RFC3339 and RFC2822 dates.
-.
-.PP
 Tmfmt produces a format description structure suitable for passing
 to
 .IR fmtprint (2) .
