@@ -470,6 +470,10 @@
 2192  ->          →	right arrow
 2193  da          ↓	down arrow
 2194  ab          ↔	left right arrow
+2196  nw          ↖	north-west arrow
+2197  ne          ↗	north-east arrow
+2198  se          ↘	south-east arrow
+2199  sw          ↙	south-west arrow
 21D0  V=          ⇐	left double arrow
 21D2  =V          ⇒	right double arrow
 2200  fa          ∀	for all
@@ -547,6 +551,10 @@
 2423              ␣	open box, visible space
 2468  O9 9O       ⑨	circled digit nine
 2605  P*          ★	pentagram
+261C  fl          ☜	finger left
+261D  fu          ☝	finger up
+261E  fr          ☞	finger right
+261F  fd          ☟	finger down
 2620  X(          ☠	skull face
 2622  TF          ☢	trefoil
 262D  SU          ☭	hammer and sickle
