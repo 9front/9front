@@ -96,12 +96,6 @@ Error:
 	}
 	a[0] = 'F';
 	BPLONG(a+1, s->id);
-	/*
-	 * flush(1) because screen is likely holding last reference to
-	 * window, and want it to disappear visually.
-	 */
-	if(flushimage(d, 1) < 0)
-		goto Error;
 	free(s);
 	return 1;
 }
