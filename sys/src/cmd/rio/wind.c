@@ -129,6 +129,7 @@ wrefresh(Window *w)
 		wborder(w, Unselborder);
 	r = insetrect(w->i->r, Selborder);
 	draw(w->i, r, w->cols[BACK], nil, w->entire.min);
+	wfill(w);
 	w->ticked = 0;
 	if(w->p0 > 0)
 		frdrawsel(w, frptofchar(w, 0), 0, w->p0, 0);
