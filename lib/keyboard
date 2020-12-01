@@ -393,6 +393,7 @@
 2019  r'          ’	single comma quotation mark
 201C  l"          “	double turned comma quotation mark
 201D  r"          ”	double comma quotation mark
+201E  lq          „	double low-9 quotation mark
 2020  dg          †	dagger
 2021  dd          ‡	double dagger
 2022  bu          •	bullet
