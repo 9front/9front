@@ -9,6 +9,7 @@
 
 int	history = 0;	/* use old interface, showing history of mailbox rather than current state */
 int	initload = 0;	/* initialize program with contents of mail box */
+int	clickrm = 0;	/* allows removing mail faces by left clicking */
 
 enum
 {
@@ -600,7 +601,7 @@ click(int button, Mouse *m)
 		}else{
 			for(i=first; i<last; i++)	/* clear vwhois faces */
 				if(ptinrect(p, facerect(i-first)) 
-				&& strstr(faces[i]->str[Sshow], "/XXXvwhois")){
+				&& (clickrm || strstr(faces[i]->str[Sshow], "/XXXvwhois"))){
 					delface(i);
 					flushimage(display, 1);
 				}
@@ -675,7 +676,7 @@ startproc(void (*f)(void), int index)
 void
 usage(void)
 {
-	fprint(2, "usage: faces [-hi] [-m maildir]\n");
+	fprint(2, "usage: faces [-chi] [-m maildir]\n");
 	exits("usage");
 }
 
@@ -694,6 +695,9 @@ main(int argc, char *argv[])
 	case 'm':
 		addmaildir(EARGF(usage()));
 		maildir = nil;
+		break;
+	case 'c':
+		clickrm++;
 		break;
 	default:
 		usage();

@@ -4,7 +4,7 @@ faces, seemail, vwhois \-  mailbox interface
 .SH SYNOPSIS
 .B faces
 [
-.B -ih
+.B -ihc
 ] [
 .B -m
 .I maildir
@@ -85,6 +85,12 @@ instead of
 Multiple
 .B -m
 flags may be used to watch multiple mailboxes.
+.PP
+Starting
+.I faces
+with the
+.B -c
+flag allows the user to remove faces with a click with button 1.
 .PP
 The
 .B -h
