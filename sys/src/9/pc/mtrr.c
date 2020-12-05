@@ -691,6 +691,16 @@ mtrr(uvlong base, uvlong size, char *tstr)
 	return nil;
 }
 
+char*
+mtrrattr(uvlong pa, uvlong *pnext)
+{
+	if(cpu0state.mask == 0)
+		return nil;
+	if(pnext != nil)
+		*pnext = getnext(&cpu0state, pa, nil);
+	return type2str(gettype(&cpu0state, pa, nil));
+}
+
 int
 mtrrprint(char *buf, long bufsize)
 {

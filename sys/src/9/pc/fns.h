@@ -101,6 +101,7 @@ void	mfence(void);
 void	mmuinit(void);
 ulong*	mmuwalk(ulong*, ulong, int, int);
 char*	mtrr(uvlong, uvlong, char *);
+char*	mtrrattr(uvlong, uvlong *);
 void	mtrrclock(void);
 int	mtrrprint(char *, long);
 void	mtrrsync(void);

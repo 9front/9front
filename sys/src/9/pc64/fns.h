@@ -99,6 +99,7 @@ void	mfence(void);
 void	mmuinit(void);
 uintptr	*mmuwalk(uintptr*, uintptr, int, int);
 char*	mtrr(uvlong, uvlong, char *);
+char*	mtrrattr(uvlong, uvlong *);
 void	mtrrclock(void);
 int	mtrrprint(char *, long);
 void	mtrrsync(void);
