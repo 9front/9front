@@ -191,10 +191,10 @@ main(void)
 	ramdiskinit();
 	confinit();
 	xinit();
-	pcicfginit();
-	bootscreeninit();
 	if(i8237alloc != nil)
 		i8237alloc();
+	pcicfginit();
+	bootscreeninit();
 	trapinit();
 	printinit();
 	cpuidprint();
