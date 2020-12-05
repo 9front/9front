@@ -909,9 +909,9 @@ static int
 atadmasetup(Drive* drive, int len)
 {
 	Prd *prd;
-	ulong pa;
 	Ctlr *ctlr;
-	int bmiba, bmisx, count, i, span;
+	uintptr pa, span;
+	int bmiba, bmisx, count, i;
 
 	ctlr = drive->ctlr;
 	pa = PCIWADDR(drive->data);

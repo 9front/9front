@@ -183,7 +183,7 @@ long
 dmasetup(int chan, void *va, long len, int flags)
 {
 	DMA *dp;
-	ulong pa;
+	uintptr pa;
 	uchar mode;
 	DMAxfer *xp;
 
