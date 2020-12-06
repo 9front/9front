@@ -142,17 +142,6 @@ ndbsearch(Ndb *db, Ndbs *s, char *attr, char *val)
 		}
 		s->ptr = NDBGETP(p);
 		s->type = Cptr1;
-	} else if(db->length > 128*1024){
-		print("Missing or out of date hash file %s.%s.\n", db->file, attr);
-		syslog(0, "ndb", "Missing or out of date hash file %s.%s.", db->file, attr);
-
-		/* advance search to next db file */
-		s->ptr = NDBNAP;
-		_ndbcacheadd(db, s, attr, val, nil);
-		if(db->next == nil)
-			return nil;
-		t = ndbsearch(db->next, s, attr, val);
-		goto out;
 	} else {
 		s->ptr = 0;
 		s->type = Dptr;
