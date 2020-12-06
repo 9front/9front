@@ -392,13 +392,15 @@ whichrect(Rectangle r, Point p, int which)
 int
 portion(int x, int lo, int hi)
 {
+	int t;
 	x -= lo;
 	hi -= lo;
-	if(hi < 20)
+	t = min(20, max(1, hi/2));
+	if(hi < t)
 		return x > 0 ? 2 : 0;
-	if(x < 20)
+	if(x < t)
 		return 0;
-	if(x > hi-20)
+	if(x > hi-t)
 		return 2;
 	return 1;
 }
