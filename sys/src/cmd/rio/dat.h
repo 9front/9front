@@ -325,6 +325,7 @@ Image	*lightholdcol;
 Image	*paleholdcol;
 Image	*paletextcol;
 Image	*sizecol;
+Image	*badsizecol;
 int	reverse;	/* there are no pastel paints in the dungeons and dragons world -- rob pike */
 
 Window	**window;
