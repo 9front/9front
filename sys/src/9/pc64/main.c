@@ -488,7 +488,7 @@ mathemu(Ureg *ureg, void*)
 			up->fpstate |= FPkernel;
 		}
 		while(up->fpslot[index] == nil)
-			up->fpslot[index] = mallocalign(m->fpsavesz, m->fpalign, 0, 0);
+			up->fpslot[index] = mallocalign(m->fpsavesz, FPalign, 0, 0);
 		up->fpsave = up->fpslot[index];
 		up->fpstate = FPactive | (up->fpstate & (FPnouser|FPkernel|FPindexm));
 		break;
@@ -574,7 +574,7 @@ procfork(Proc *p)
 	case FPinactive	| FPpush:
 	case FPinactive:
 		while(p->fpslot[0] == nil)
-			p->fpslot[0] = mallocalign(m->fpsavesz, m->fpalign, 0, 0);
+			p->fpslot[0] = mallocalign(m->fpsavesz, FPalign, 0, 0);
 		memmove(p->fpsave = p->fpslot[0], up->fpslot[0], m->fpsavesz);
 		p->fpstate = FPinactive;
 	}

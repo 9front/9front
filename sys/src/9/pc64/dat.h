@@ -242,7 +242,6 @@ struct Mach
 	u64int	dr7;			/* shadow copy of dr7 */
 	u64int	xcr0;
 	u32int	fpsavesz;
-	u32int	fpalign;
 
 	void*	vmx;
 
