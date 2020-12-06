@@ -16,7 +16,6 @@ fpuinit(void)
 	uintptr cr4;
 	ulong regs[4];
 
-	m->fpsavesz = sizeof(FPsave); /* always enough to fit sse+avx */
 	if((m->cpuiddx & (Sse|Fxsr)) == (Sse|Fxsr)){ /* have sse fp? */
 		cr4 = getcr4() | CR4Osfxsr|CR4Oxmmex;
 		putcr4(cr4);
@@ -30,9 +29,6 @@ fpuinit(void)
 			putxcr0(m->xcr0);
 			fpsave = fpxsave;
 			fprestore = fpxrestore;
-
-			cpuid(0xd, 0, regs);
-			m->fpsavesz = regs[1];
 
 			cpuid(0xd, 1, regs);
 			if(regs[0] & Xsaveopt)
