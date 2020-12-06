@@ -826,7 +826,7 @@ sweep(void)
 				if(i == nil)
 					goto Rescue;
 				oi = i;
-				border(i, r, Selborder, goodrect(r)?sizecol:badsizecol, ZP);
+				border(i, r, Selborder, sizecol, ZP);
 				draw(i, insetrect(r, Selborder), cols[BACK], nil, ZP);
 			}
 		}
@@ -947,8 +947,8 @@ bandsize(Window *w)
 			riosetcursor(corners[which]);
 		}
 		r = whichrect(or, p, owhich);
-		if(!eqrect(r, or)){
-			drawborder(r, goodrect(r)?sizecol:badsizecol);
+		if(!eqrect(r, or) && goodrect(r)){
+			drawborder(r, sizecol);
 			or = r;
 		}
 		readmouse(mousectl);

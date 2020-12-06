@@ -196,7 +196,6 @@ iconinit(void)
 	paleholdcol = allocimage(display, Rect(0,0,1,1), CMAP8, 1, DPalegreyblue);
 	paletextcol = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0x666666FF^reverse);
 	sizecol = allocimage(display, Rect(0,0,1,1), CMAP8, 1, DRed);
-	badsizecol = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0x880000FF);
 
 	if(reverse == 0)
 		holdcol = dholdcol;
