@@ -95,7 +95,7 @@ goodrect(Rectangle r)
 		return 0;
 	if(Dy(r) > BIG*Dy(screen->r))
 		return 0;
-	if(Dx(r) < 100 || Dy(r) < 3*font->height)
+	if(Dx(r) < 100 || Dy(r) < 3*Borderwidth+font->height)
 		return 0;
 	/* window must be on screen */
 	if(!rectXrect(screen->r, r))
