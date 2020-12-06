@@ -88,7 +88,7 @@ static char *params[] = {
 int
 goodrect(Rectangle r)
 {
-	if(!eqrect(canonrect(r), r))
+	if(badrect(r) || !eqrect(canonrect(r), r))
 		return 0;
 	/* reasonable sizes only please */
 	if(Dx(r) > BIG*Dx(screen->r))
