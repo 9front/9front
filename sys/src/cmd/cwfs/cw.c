@@ -2281,7 +2281,7 @@ cmd_cwcmd(int argc, char *argv[])
 		blockcmp(dev, s1, s2);
 	} else if(strcmp(arg, "startdump") == 0) {
 		if(argc > 2)
-			cw->nodump = number(argv[2], 0, 10);
+			cw->nodump = !number(argv[2], 0, 10);
 		else
 			cw->nodump = !cw->nodump;
 		if(cw->nodump)
