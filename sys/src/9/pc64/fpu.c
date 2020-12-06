@@ -30,18 +30,6 @@ extern void _fwait(void);
 extern void _ldmxcsr(u32int);
 extern void _stts(void);
 
-/*
- * not used, AMD64 mandated SSE
- */
-static void
-fpx87save(FPsave*)
-{
-}
-static void
-fpx87restore(FPsave*)
-{
-}
-
 static void
 fpssesave(FPsave *s)
 {
@@ -261,34 +249,29 @@ mathinit(void)
 void
 fpuinit(void)
 {
-	uintptr cr4;
+	u64int cr4;
 	ulong regs[4];
 
-	if((m->cpuiddx & (Sse|Fxsr)) == (Sse|Fxsr)){ /* have sse fp? */
-		cr4 = getcr4() | CR4Osfxsr|CR4Oxmmex;
+	cr4 = getcr4() | CR4Osfxsr|CR4Oxmmex;
+	putcr4(cr4);
+	fpsave = fpssesave;
+	fprestore = fpsserestore;
+
+	if((m->cpuidcx & (Xsave|Avx)) == (Xsave|Avx) && getconf("*noavx") == nil){
+		cr4 |= CR4Oxsave;
 		putcr4(cr4);
-		fpsave = fpssesave;
-		fprestore = fpsserestore;
+		m->xcr0 = 7; /* x87, sse, avx */
+		putxcr0(m->xcr0);
+		fpsave = fpxsave;
+		fprestore = fpxrestore;
 
-		if((m->cpuidcx & (Xsave|Avx)) == (Xsave|Avx) && getconf("*noavx") == nil){
-			cr4 |= CR4Oxsave;
-			putcr4(cr4);
-			m->xcr0 = 7; /* x87, sse, avx */
-			putxcr0(m->xcr0);
-			fpsave = fpxsave;
-			fprestore = fpxrestore;
-
-			cpuid(0xd, 1, regs);
-			if(regs[0] & Xsaveopt)
-				fpsave = fpxsaveopt;
-			if(regs[0] & Xsaves){
-				fpsave = fpxsaves;
-				fprestore = fpxrestores;
-			}
+		cpuid(0xd, 1, regs);
+		if(regs[0] & Xsaveopt)
+			fpsave = fpxsaveopt;
+		if(regs[0] & Xsaves){
+			fpsave = fpxsaves;
+			fprestore = fpxrestores;
 		}
-	} else {
-		fpsave = fpx87save;
-		fprestore = fpx87restore;
 	}
 }
 
