@@ -68,6 +68,7 @@ OBJ=\
 	plan9l.$O\
 	xen.$O\
 	main.$O\
+	fpu.$O\
 	mmu.$O\
 	random.$O\
 	rdb.$O\
