@@ -83,18 +83,3 @@ void	outl(int, ulong)	{}
 int	mtrrprint(char*, long) { return 0; }
 char*	mtrr(uvlong, uvlong, char *) { return nil; }
 void	mtrrsync(void) {}
-
-/*
- * XXX until fpsave is debugged
- */
-void
-fpssesave(FPsave* f)
-{
-	fpx87save(f);
-}
-
-void
-fpsserestore(FPsave* f)
-{
-	fpx87restore(f);
-}
