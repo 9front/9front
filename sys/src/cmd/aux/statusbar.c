@@ -21,10 +21,10 @@ initcolor(void)
 	text = display->black;
 	light = allocimagemix(display, DPalegreen, DWhite);
 	dark = allocimage(display, Rect(0,0,1,1), CMAP8, 1, DDarkgreen);
+	if(light == nil || dark == nil) sysfatal("initcolor: %r");
 }
 
 Rectangle rbar;
-Point ptext;
 vlong n, d;
 int last;
 int lastp = -1;
@@ -75,7 +75,7 @@ drawbar(void)
 	if(lastp != p){
 		sprint(buf, "%3d%%", p);
 		
-		stringbg(screen, addpt(screen->r.min, Pt(Dx(rbar)-30, 4)), text, ZP, display->defaultfont, buf, light, ZP);
+		stringbg(screen, Pt(screen->r.max.x-4-stringwidth(display->defaultfont, buf), screen->r.min.y+4), text, ZP, display->defaultfont, buf, light, ZP);
 		lastp = p;
 	}
 
@@ -94,24 +94,13 @@ drawbar(void)
 void
 eresized(int new)
 {
-	Point p, q;
-	Rectangle r;
-
 	if(new && getwindow(display, Refnone) < 0)
 		fprint(2,"can't reattach to window");
 
-	r = screen->r;
-	draw(screen, r, light, nil, ZP);
-	p = string(screen, addpt(r.min, Pt(4,4)), text, ZP,
-		display->defaultfont, title);
-
-	p.x = r.min.x+4;
-	p.y += display->defaultfont->height+4;
-
-	q = subpt(r.max, Pt(4,4));
-	rbar = Rpt(p, q);
-
-	ptext = Pt(r.max.x-4-stringwidth(display->defaultfont, "100%"), r.min.x+4);
+	draw(screen, screen->r, light, nil, ZP);
+	if(title) string(screen, addpt(screen->r.min, Pt(4,4)), text, ZP, font, title);
+	rbar = insetrect(screen->r, 4);
+	rbar.min.y += font->height + 4;
 	border(screen, rbar, -2, dark, ZP);
 	last = 0;
 	lastp = -1;
@@ -163,7 +152,7 @@ bar(Biobuf *b)
 void
 usage(void)
 {
-	fprint(2, "usage: aux/statusbar [-kt] [-w minx,miny,maxx,maxy] 'title'\n");
+	fprint(2, "usage: %s [-kt] [-w minx,miny,maxx,maxy] [title]\n", argv0);
 	exits("usage");
 }
 
@@ -190,11 +179,14 @@ main(int argc, char **argv)
 		usage();
 	}ARGEND;
 
-	if(argc != 1)
+	switch(argc){
+	default:
 		usage();
-
-	title = argv[0];
-
+	case 1:
+		title = argv[0];
+	case 0:
+		break;
+	}
 	lfd = dup(0, -1);
 
 	while(q = strchr(p, ','))
@@ -204,7 +196,7 @@ main(int argc, char **argv)
 		textmode = 1;
 		rbar = Rect(0, 0, 60, 1);
 	}else{
-		if(initdraw(0, 0, title) < 0)
+		if(initdraw(0, 0, title ? title : argv0) < 0)
 			exits("initdraw");
 		initcolor();
 		einit(Emouse|Ekeyboard);
