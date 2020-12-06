@@ -249,9 +249,10 @@ _idle:
  */
 TEXT cpuid(SB), $-4
 	MOVL	RARG, AX			/* function in AX */
+	MOVL	cx+8(FP), CX		/* sub-level in CX */
 	CPUID
 
-	MOVQ	info+8(FP), BP
+	MOVQ	info+16(FP), BP
 	MOVL	AX, 0(BP)
 	MOVL	BX, 4(BP)
 	MOVL	CX, 8(BP)
@@ -397,6 +398,21 @@ TEXT getcr4(SB), 1, $-4				/* Extensions */
 
 TEXT putcr4(SB), 1, $-4
 	MOVQ	RARG, CR4
+	RET
+
+TEXT getxcr0(SB), 1, $-4			/* XCR0 - extended control */
+	XORQ CX, CX
+	WORD $0x010f; BYTE $0xd0	// XGETBV
+	SHLQ $32, DX
+	ORQ DX, AX
+	RET
+
+TEXT putxcr0(SB), 1, $-4
+	XORQ CX, CX
+	MOVL RARG, DX
+	SHRQ $32, DX
+	MOVL RARG, AX
+	WORD $0x010f; BYTE $0xd1	// XSETBV
 	RET
 
 TEXT mb386(SB), 1, $-4				/* hack */
@@ -624,6 +640,36 @@ TEXT _fxrstor(SB), 1, $-4
 
 TEXT _fxsave(SB), 1, $-4
 	FXSAVE64 (RARG)
+	RET
+
+TEXT _xrstor(SB), 1, $-4
+	MOVL $7, AX
+	XORL DX, DX
+	BYTE $0x48; BYTE $0x0f; BYTE $0xae; BYTE $0x6d; BYTE $0x00 // XRSTOR (RARG)
+	RET
+
+TEXT _xrstors(SB), 1, $-4
+	MOVL $7, AX
+	XORL DX, DX
+	BYTE $0x48; BYTE $0x0f; BYTE $0xc7; BYTE $0x5d; BYTE $0x00 // XRSTORS (RARG)
+	RET
+
+TEXT _xsave(SB), 1, $-4
+	MOVL $7, AX
+	XORL DX, DX
+	BYTE $0x48; BYTE $0x0f; BYTE $0xae; BYTE $0x65; BYTE $0x00 // XSAVE (RARG)
+	RET
+
+TEXT _xsaveopt(SB), 1, $-4
+	MOVL $7, AX
+	XORL DX, DX
+	BYTE $0x48; BYTE $0x0f; BYTE $0xae; BYTE $0x75; BYTE $0x00 // XSAVEOPT (RARG)
+	RET
+
+TEXT _xsaves(SB), 1, $-4
+	MOVL $7, AX
+	XORL DX, DX
+	BYTE $0x48; BYTE $0x0f; BYTE $0xc7; BYTE $0x6d; BYTE $0x00 // XSAVES (RARG)
 	RET
 
 TEXT _fwait(SB), 1, $-4

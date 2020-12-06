@@ -304,6 +304,9 @@ extern void _fnclex(void);
 extern void _fninit(void);
 extern void _fxrstor(void*);
 extern void _fxsave(void*);
+extern void _xrstor(void*);
+extern void _xsave(void*);
+extern void _xsaveopt(void*);
 extern void _fwait(void);
 extern void _ldmxcsr(u32int);
 extern void _stts(void);
@@ -331,6 +334,39 @@ fpsserestore(FPsave *s)
 {
 	_clts();
 	_fxrstor(s);
+}
+
+void
+fpxsave(FPsave *s)
+{
+	_xsave(s);
+	_stts();
+}
+void
+fpxrestore(FPsave *s)
+{
+	_clts();
+	_xrstor(s);
+}
+
+void
+fpxsaves(FPsave *s)
+{
+	_xsaveopt(s);
+	_stts();
+}
+void
+fpxrestores(FPsave *s)
+{
+	_clts();
+	_xrstor(s);
+}
+
+void
+fpxsaveopt(FPsave *s)
+{
+	_xsaveopt(s);
+	_stts();
 }
 
 static char* mathmsg[] =
@@ -452,7 +488,7 @@ mathemu(Ureg *ureg, void*)
 			up->fpstate |= FPkernel;
 		}
 		while(up->fpslot[index] == nil)
-			up->fpslot[index] = mallocalign(sizeof(FPsave), FPalign, 0, 0);
+			up->fpslot[index] = mallocalign(m->fpsavesz, m->fpalign, 0, 0);
 		up->fpsave = up->fpslot[index];
 		up->fpstate = FPactive | (up->fpstate & (FPnouser|FPkernel|FPindexm));
 		break;
@@ -538,8 +574,8 @@ procfork(Proc *p)
 	case FPinactive	| FPpush:
 	case FPinactive:
 		while(p->fpslot[0] == nil)
-			p->fpslot[0] = mallocalign(sizeof(FPsave), FPalign, 0, 0);
-		memmove(p->fpsave = p->fpslot[0], up->fpslot[0], sizeof(FPsave));
+			p->fpslot[0] = mallocalign(m->fpsavesz, m->fpalign, 0, 0);
+		memmove(p->fpsave = p->fpslot[0], up->fpslot[0], m->fpsavesz);
 		p->fpstate = FPinactive;
 	}
 	splx(s);

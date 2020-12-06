@@ -18,11 +18,6 @@ enum {
 	Qmax = 32,
 };
 
-enum {
-	CR4Osfxsr = 1 << 9,
-	CR4Oxmmex = 1 << 10,
-};
-
 enum {				/* cpuid standard function codes */
 	Highstdfunc = 0,	/* also returns vendor string */
 	Procsig,
@@ -507,13 +502,13 @@ cpuidentify(void)
 	ulong regs[4];
 	vlong mca, mct, pat;
 
-	cpuid(Highstdfunc, regs);
+	cpuid(Highstdfunc, 0, regs);
 	memmove(m->cpuidid,   &regs[1], BY2WD);	/* bx */
 	memmove(m->cpuidid+4, &regs[3], BY2WD);	/* dx */
 	memmove(m->cpuidid+8, &regs[2], BY2WD);	/* cx */
 	m->cpuidid[12] = '\0';
 
-	cpuid(Procsig, regs);
+	cpuid(Procsig, 0, regs);
 	m->cpuidax = regs[0];
 	m->cpuidcx = regs[2];
 	m->cpuiddx = regs[3];
@@ -650,15 +645,6 @@ cpuidentify(void)
 	if(m->cpuiddx & Mtrr)
 		mtrrsync();
 
-	if((m->cpuiddx & (Sse|Fxsr)) == (Sse|Fxsr)){			/* have sse fp? */
-		fpsave = fpssesave;
-		fprestore = fpsserestore;
-		putcr4(getcr4() | CR4Osfxsr|CR4Oxmmex);
-	} else {
-		fpsave = fpx87save;
-		fprestore = fpx87restore;
-	}
-
 	if(strcmp(m->cpuidid, "GenuineIntel") == 0 && (m->cpuidcx & Rdrnd) != 0)
 		hwrandbuf = rdrandbuf;
 	else
@@ -669,9 +655,9 @@ cpuidentify(void)
 		m->havewatchpt8 = 1;
 
 		/* check and enable NX bit */
-		cpuid(Highextfunc, regs);
+		cpuid(Highextfunc, 0, regs);
 		if(regs[0] >= Procextfeat){
-			cpuid(Procextfeat, regs);
+			cpuid(Procextfeat, 0, regs);
 			if((regs[3] & (1<<20)) != 0){
 				vlong efer;
 
@@ -689,13 +675,15 @@ cpuidentify(void)
 		|| family == 6 && (model == 15 || model == 23 || model == 28))
 			m->havewatchpt8 = 1;
 		/* Intel SDM claims amd64 support implies 8-byte watchpoint support */
-		cpuid(Highextfunc, regs);
+		cpuid(Highextfunc, 0, regs);
 		if(regs[0] >= Procextfeat){
-			cpuid(Procextfeat, regs);
+			cpuid(Procextfeat, 0, regs);
 			if((regs[3] & 1<<29) != 0)
 				m->havewatchpt8 = 1;
 		}
 	}
+
+	fpuinit();
 
 	cputype = t;
 	return t->family;

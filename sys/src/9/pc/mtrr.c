@@ -289,9 +289,9 @@ physmask(void)
 	ulong regs[4];
 	uvlong mask;
 
-	cpuid(Exthighfunc, regs);
+	cpuid(Exthighfunc, 0, regs);
 	if(regs[0] >= Extaddrsz) {			/* ax */
-		cpuid(Extaddrsz, regs);
+		cpuid(Extaddrsz, 0, regs);
 		mask = (1ULL << (regs[0] & 0xFF)) - 1;	/* ax */
 	} else {
 		mask = (1ULL << 36) - 1;

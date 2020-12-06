@@ -22,8 +22,9 @@ enum {
 enum {
 	Cr0Pg	= 1<<31,
 	
-	Cr4Pse	= 1<<4,
-	Cr4Pae	= 1<<5,
+	Cr4Pse		= 1<<4,
+	Cr4Pae		= 1<<5,
+	Cr4Osxsave	= 1<<18,
 	
 	EferLme	= 1<<8,
 };

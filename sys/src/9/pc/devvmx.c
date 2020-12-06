@@ -44,6 +44,7 @@ enum {
 	
 	PROCB_CTLS = 0x4002,
 	PROCB_IRQWIN = 1<<2,
+	PROCB_TSCOFFSET = 1<<3,
 	PROCB_EXITHLT = 1<<7,
 	PROCB_EXITINVLPG = 1<<9,
 	PROCB_EXITMWAIT = 1<<10,
@@ -100,6 +101,7 @@ enum {
 	VMENTRY_INTRCODE = 0x4018,
 	VMENTRY_INTRILEN = 0x401a,
 	
+	VMCS_TSC_OFFSET = 0x2010,
 	VMCS_LINK = 0x2800,
 	
 	GUEST_ES = 0x800,
@@ -264,7 +266,9 @@ struct Vmx {
 	int index, machno;
 	char errstr[ERRMAX];
 	Ureg ureg;
+	uvlong tscoffset;
 	uintptr cr2;
+	uintptr xcr0;
 	uintptr dr[8]; /* DR7 is also kept in VMCS */
 	u8int launched;
 	u8int vpid;
@@ -484,6 +488,13 @@ dr7write(Vmx *vmx, char *s)
 }
 
 static int
+xcr0write(Vmx *vmx, char *s)
+{
+	vmx->xcr0 = parseval(s) & 7;
+	return 0;
+}
+
+static int
 readonly(Vmx *, char *)
 {
 	return -1;
@@ -581,6 +592,7 @@ static GuestReg guestregs[] = {
 	{VMXVAR(dr[2]), 0, "dr2"},
 	{VMXVAR(dr[3]), 0, "dr3"},
 	{VMXVAR(dr[6]), 0, "dr6", nil, dr6write},
+	{VMXVAR(xcr0), 0, "xcr0", nil, xcr0write},
 	{GUEST_DR7, 0, "dr7", nil, dr7write},
 	{VM_INSTRERR, 4, "instructionerror", nil, readonly},
 	{VM_EXREASON, 4, "exitreason", nil, readonly},
@@ -857,7 +869,7 @@ vmxreset(void)
 	vlong msr;
 	int i;
 
-	cpuid(1, regs);
+	cpuid(1, 0, regs);
 	if((regs[2] & 1<<5) == 0) return;
 	/* check if disabled by BIOS */
 	if(rdmsr(0x3a, &msr) < 0) return;
@@ -945,8 +957,8 @@ vmcsinit(Vmx *vmx)
 	
 	if(rdmsr(VMX_PROCB_CTLS_MSR, &msr) < 0) error("rdmsr(VMX_PROCB_CTLS_MSR failed");
 	x = (u32int)procb_ctls | 1<<1 | 7<<4 | 1<<8 | 1<<13 | 1<<14 | 1<<26; /* currently reserved default1 bits */
-	x |= PROCB_EXITHLT | PROCB_EXITMWAIT;
-	x |= PROCB_EXITMOVDR | PROCB_EXITIO | PROCB_EXITMONITOR | PROCB_MSRBITMAP;
+	x |= PROCB_TSCOFFSET | PROCB_EXITMWAIT | PROCB_EXITMONITOR | PROCB_EXITHLT;
+	x |= PROCB_EXITMOVDR | PROCB_EXITIO | PROCB_MSRBITMAP;
 	x |= PROCB_USECTLS2;
 	x &= msr >> 32;
 	vmcswrite(PROCB_CTLS, x);
@@ -1042,8 +1054,8 @@ vmcsinit(Vmx *vmx)
 	
 	vmx->onentry = FLUSHVPID | FLUSHEPT;
 	fpinit();
-	fpsave(&vmx->fp);
-	
+	vmx->xcr0 = m->xcr0 & 1; /* x87 alone */
+
 	memset(vmx->msrbits, -1, 4096);
 	vmxtrapmsr(vmx, Efer, 0);
 	vmcswrite(VMENTRY_MSRLDADDR, PADDR(vmx->msrguest));
@@ -1051,6 +1063,9 @@ vmcsinit(Vmx *vmx)
 	vmcswrite(VMEXIT_MSRLDADDR, PADDR(vmx->msrhost));
 	vmcswrite(MSR_BITMAP, PADDR(vmx->msrbits));
 	
+	cycles(&vmx->tscoffset);
+	vmcswrite(VMCS_TSC_OFFSET, vmx->tscoffset);
+
 	if(sizeof(uintptr) == 8){
 		vmxaddmsr(vmx, Star, 0);
 		vmxaddmsr(vmx, Lstar, 0);
@@ -1074,7 +1089,7 @@ vmxstart(Vmx *vmx)
 	uintptr cr;
 	vlong x;
 
-	putcr4(getcr4() | 0x2000); /* set VMXE */
+	putcr4(getcr4() | CR4VMXE);
 	putcr0(getcr0() | 0x20); /* set NE */
 	cr = getcr0();
 	if(rdmsr(VMX_CR0_FIXED0, &msr) < 0) error("rdmsr(VMX_CR0_FIXED0) failed");
@@ -1590,8 +1605,9 @@ runcmd(Vmx *vmx)
 static void
 vmxproc(void *vmxp)
 {
-	int init, rc, x;
+	int init, rc, x, useend;
 	u32int procbctls, defprocbctls;
+	u64int start, end, adj;
 	vlong v;
 	Vmx *vmx;
 
@@ -1599,6 +1615,8 @@ vmxproc(void *vmxp)
 	procwired(up, vmx->machno);
 	sched();
 	init = 0;
+	useend = 0;
+	adj = 0;
 	defprocbctls = 0;
 	while(waserror()){
 		kstrcpy(vmx->errstr, up->errstr, ERRMAX);
@@ -1653,11 +1671,29 @@ vmxproc(void *vmxp)
 			}
 			if((vmx->dr[7] & ~0xd400) != 0)
 				putdr01236(vmx->dr);
-			fpsserestore(&vmx->fp);
-			putcr2(vmx->cr2);
+
+			fprestore(&vmx->fp);
+			if(m->xcr0 != 0 && vmx->xcr0 != m->xcr0)
+				putxcr0(vmx->xcr0);
+			if(vmx->cr2 != getcr2())
+				putcr2(vmx->cr2);
+			cycles(&start);
+			if(useend){
+				vmx->tscoffset -= end - start + adj;
+				vmcswrite(VMCS_TSC_OFFSET, vmx->tscoffset);
+			}
+			if(adj == 0){
+				cycles(&adj);
+				adj -= start;
+			}
 			rc = vmlaunch(&vmx->ureg, vmx->launched);
+			cycles(&end);
+			useend = 1;
 			vmx->cr2 = getcr2();
-			fpssesave(&vmx->fp);
+			if(m->xcr0 != 0 && vmx->xcr0 != m->xcr0)
+				putxcr0(m->xcr0);
+			fpsave(&vmx->fp);
+
 			splx(x);
 			if(rc < 0)
 				error("vmlaunch failed");
@@ -1799,6 +1835,7 @@ vmxnew(void)
 		free(vmx);
 		nexterror();
 	}
+	memset(vmx, 0, sizeof(Vmx));
 	vmx->state = VMXINIT;
 	vmx->lastcmd = &vmx->firstcmd;
 	vmx->mem.next = &vmx->mem;

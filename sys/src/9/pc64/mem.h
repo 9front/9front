@@ -26,7 +26,6 @@
 #define	ROUND(s, sz)	(((s)+((sz)-1))&~((sz)-1))
 #define	PGROUND(s)	ROUND(s, BY2PG)
 #define	BLOCKALIGN	8
-#define	FPalign		16
 
 #define	MAXMACH		128			/* max # cpus system can run */
 

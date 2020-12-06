@@ -1,3 +1,4 @@
+#define MIN(a,b) ((a)<(b)?(a):(b))
 void *emalloc(ulong);
 void loadkernel(char *);
 uvlong rget(char *);
