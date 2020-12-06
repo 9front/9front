@@ -95,7 +95,12 @@ goodrect(Rectangle r)
 		return 0;
 	if(Dy(r) > BIG*Dy(screen->r))
 		return 0;
-	if(Dx(r) < 100 || Dy(r) < 3*Borderwidth+font->height)
+	/*
+	 * the height has to be big enough to fit one line of text.
+	 * that includes the border on each side with an extra pixel
+	 * so that the text is still drawn
+	 */
+	if(Dx(r) < 100 || Dy(r) < 2*(Borderwidth+1)+font->height)
 		return 0;
 	/* window must be on screen */
 	if(!rectXrect(screen->r, r))
