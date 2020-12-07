@@ -179,7 +179,7 @@ Rune kbtabesc1[Nscan] =
 [0x40]	0,	0,	0,	0,	0,	0,	Kbreak,	Khome,
 [0x48]	Kup,	Kpgup,	0,	Kleft,	0,	Kright,	0,	Kend,
 [0x50]	Kdown,	Kpgdown,Kins,	Kdel,	0,	0,	0,	0,
-[0x58]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x58]	0,	0,	0,	Kmod4,	0,	0,	0,	0,
 [0x60]	0,	0,	0,	0,	0,	0,	0,	0,
 [0x68]	0,	0,	0,	0,	0,	0,	0,	0,
 [0x70]	0,	0,	0,	0,	0,	0,	0,	0,
