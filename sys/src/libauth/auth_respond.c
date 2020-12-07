@@ -31,7 +31,7 @@ dorespond(void *chal, uint nchal, char *user, uint nuser, void *resp, uint nresp
 	AuthRpc *rpc;
 	Attr *a;
 
-	if((afd = open("/mnt/factotum/rpc", ORDWR)) < 0)
+	if((afd = open("/mnt/factotum/rpc", ORDWR|OCEXEC)) < 0)
 		return -1;
 	
 	if((rpc = auth_allocrpc(afd)) == nil){

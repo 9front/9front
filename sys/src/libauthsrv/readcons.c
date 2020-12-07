@@ -13,13 +13,13 @@ readcons(char *prompt, char *def, int raw)
 	s = p = nil;
 	fdout = ctl = -1;
 
-	if((fdin = open("/dev/cons", OREAD)) < 0)
+	if((fdin = open("/dev/cons", OREAD|OCEXEC)) < 0)
 		goto Out;
-	if((fdout = open("/dev/cons", OWRITE)) < 0)
+	if((fdout = open("/dev/cons", OWRITE|OCEXEC)) < 0)
 		goto Out;
 
 	if(raw){
-		if((ctl = open("/dev/consctl", OWRITE)) < 0)
+		if((ctl = open("/dev/consctl", OWRITE|OCEXEC)) < 0)
 			goto Out;
 		write(ctl, "rawon", 5);
 	}

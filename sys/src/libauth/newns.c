@@ -41,7 +41,7 @@ buildns(int newns, char *user, char *file)
 
 	rpc = nil;
 	/* try for factotum now because later is impossible */
-	afd = open("/mnt/factotum/rpc", ORDWR);
+	afd = open("/mnt/factotum/rpc", ORDWR|OCEXEC);
 	if(afd < 0 && newnsdebug)
 		fprint(2, "open /mnt/factotum/rpc: %r\n");
 	if(afd >= 0){
@@ -58,8 +58,8 @@ buildns(int newns, char *user, char *file)
 		}
 		file = "/lib/namespace";
 	}
-	b = Bopen(file, OREAD);
-	if(b == 0){
+	b = Bopen(file, OREAD|OCEXEC);
+	if(b == nil){
 		werrstr("can't open %s: %r", file);
 		return freecloserpc(rpc);
 	}
@@ -135,6 +135,8 @@ famount(int fd, AuthRpc *rpc, char *mntpt, int flags, char *aname)
 			auth_freeAI(ai);
 	}
 	ret = mount(fd, afd, mntpt, flags, aname);
+	if(ret == -1)
+		close(fd);
 	if(afd >= 0)
 		close(afd);
 	return ret;
@@ -151,7 +153,7 @@ nsop(char *fn, int argc, char *argv[], AuthRpc *rpc)
 
 	cdroot = 0;
 	flags = 0;
-	argv0 = 0;
+	argv0 = nil;
 	if(newnsdebug){
 		for (i = 0; i < argc; i++)
 			fprint(2, "%s ", argv[i]);
@@ -176,7 +178,7 @@ nsop(char *fn, int argc, char *argv[], AuthRpc *rpc)
 		flags |= MREPL;
 
 	if(strcmp(argv0, ".") == 0 && argc == 1){
-		b = Bopen(argv[0], OREAD);
+		b = Bopen(argv[0], OREAD|OCEXEC);
 		if(b == nil)
 			return 0;
 		cdroot |= nsfile(fn, b, rpc);
@@ -192,7 +194,7 @@ nsop(char *fn, int argc, char *argv[], AuthRpc *rpc)
 		else if(argc == 2)
 			unmount(argv[0], argv[1]);
 	}else if(strcmp(argv0, "mount") == 0){
-		fd = open(argv[0], ORDWR);
+		fd = open(argv[0], ORDWR|OCEXEC);
 		if(fd < 0){
 			if(newnsdebug)
 				fprint(2, "%s: mount: %s: %r\n", fn, argv[0]);
@@ -204,8 +206,9 @@ nsop(char *fn, int argc, char *argv[], AuthRpc *rpc)
 		}else if(argc == 3){
 			if(famount(fd, rpc, argv[1], flags, argv[2]) == -1 && newnsdebug)
 				fprint(2, "%s: mount: %s %s %s: %r\n", fn, argv[0], argv[1], argv[2]);
+		} else {
+			close(fd);
 		}
-		close(fd);
 	}else if(strcmp(argv0, "cd") == 0 && argc == 1){
 		if(chdir(argv[0]) == 0 && *argv[0] == '/')
 			cdroot = 1;
@@ -316,7 +319,7 @@ expandarg(char *arg, char *buf)
 		strcpy(env, "#e/");
 		strncpy(env+3, p, len);
 		env[3+len] = '\0';
-		fd = open(env, OREAD);
+		fd = open(env, OREAD|OCEXEC);
 		if(fd >= 0){
 			len = read(fd, &buf[n], ANAMELEN - 1);
 			/* some singleton environment variables have trailing NULs */
@@ -345,7 +348,7 @@ setenv(char *name, char *val)
 	long s;
 
 	sprint(ename, "#e/%s", name);
-	f = create(ename, OWRITE, 0664);
+	f = create(ename, OWRITE|OCEXEC, 0664);
 	if(f < 0)
 		return -1;
 	s = strlen(val);
