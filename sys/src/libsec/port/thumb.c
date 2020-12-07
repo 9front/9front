@@ -95,7 +95,7 @@ loadThumbprints(char *file, char *tag, Thumbprint *table, Thumbprint *crltab, in
 	}
 	if(access(file, AEXIST) < 0)
 		return 0;	/* not an error */
-	if((bin = Bopen(file, OREAD)) == nil)
+	if((bin = Bopen(file, OREAD|OCEXEC)) == nil)
 		return -1;
 	for(; (line = Brdstr(bin, '\n', 1)) != nil; free(line)){
 		if(tokenize(line, field, nelem(field)) < 2)

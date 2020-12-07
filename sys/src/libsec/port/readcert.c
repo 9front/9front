@@ -8,7 +8,7 @@ readfile(char *name)
 	char *s;
 	Dir *d;
 
-	fd = open(name, OREAD);
+	fd = open(name, OREAD|OCEXEC);
 	if(fd < 0)
 		return nil;
 	if((d = dirfstat(fd)) == nil) {

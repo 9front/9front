@@ -459,7 +459,7 @@ tlsServer(int fd, TLSconn *conn)
 
 	if(conn == nil)
 		return -1;
-	ctl = open("#a/tls/clone", ORDWR);
+	ctl = open("#a/tls/clone", ORDWR|OCEXEC);
 	if(ctl < 0)
 		return -1;
 	n = read(ctl, buf, sizeof(buf)-1);
@@ -470,7 +470,7 @@ tlsServer(int fd, TLSconn *conn)
 	buf[n] = 0;
 	snprint(conn->dir, sizeof(conn->dir), "#a/tls/%s", buf);
 	snprint(dname, sizeof(dname), "#a/tls/%s/hand", buf);
-	hand = open(dname, ORDWR);
+	hand = open(dname, ORDWR|OCEXEC);
 	if(hand < 0){
 		close(ctl);
 		return -1;
@@ -592,7 +592,7 @@ tlsClient(int fd, TLSconn *conn)
 
 	if(conn == nil)
 		return -1;
-	ctl = open("#a/tls/clone", ORDWR);
+	ctl = open("#a/tls/clone", ORDWR|OCEXEC);
 	if(ctl < 0)
 		return -1;
 	n = read(ctl, buf, sizeof(buf)-1);
@@ -603,7 +603,7 @@ tlsClient(int fd, TLSconn *conn)
 	buf[n] = 0;
 	snprint(conn->dir, sizeof(conn->dir), "#a/tls/%s", buf);
 	snprint(dname, sizeof(dname), "#a/tls/%s/hand", buf);
-	hand = open(dname, ORDWR);
+	hand = open(dname, ORDWR|OCEXEC);
 	if(hand < 0){
 		close(ctl);
 		return -1;
@@ -2178,7 +2178,7 @@ initCiphers(void)
 		unlock(&ciphLock);
 		return nciphers;
 	}
-	j = open("#a/tls/encalgs", OREAD);
+	j = open("#a/tls/encalgs", OREAD|OCEXEC);
 	if(j < 0){
 		werrstr("can't open #a/tls/encalgs: %r");
 		goto out;
@@ -2202,7 +2202,7 @@ initCiphers(void)
 		cipherAlgs[i].ok = ok;
 	}
 
-	j = open("#a/tls/hashalgs", OREAD);
+	j = open("#a/tls/hashalgs", OREAD|OCEXEC);
 	if(j < 0){
 		werrstr("can't open #a/tls/hashalgs: %r");
 		goto out;
@@ -2261,7 +2261,7 @@ factotum_rsa_open(RSApub *rsapub)
 	AuthRpc *rpc;
 
 	// start talking to factotum
-	if((afd = open("/mnt/factotum/rpc", ORDWR)) < 0)
+	if((afd = open("/mnt/factotum/rpc", ORDWR|OCEXEC)) < 0)
 		return nil;
 	if((rpc = auth_allocrpc(afd)) == nil){
 		close(afd);
