@@ -59,7 +59,7 @@ void
 threadsetname(char *fmt, ...)
 {
 	int fd;
-	char buf[128];
+	char buf[32];
 	va_list arg;
 	Proc *p;
 	Thread *t;
@@ -72,8 +72,8 @@ threadsetname(char *fmt, ...)
 	t->cmdname = vsmprint(fmt, arg);
 	va_end(arg);
 	if(t->cmdname && p->nthreads == 1){
-		snprint(buf, sizeof buf, "#p/%lud/args", _tos->pid); //getpid());
-		if((fd = open(buf, OWRITE)) >= 0){
+		snprint(buf, sizeof buf, "/proc/%lud/args", (ulong)getpid());
+		if((fd = open(buf, OWRITE|OCEXEC)) >= 0){
 			write(fd, t->cmdname, strlen(t->cmdname)+1);
 			close(fd);
 		}

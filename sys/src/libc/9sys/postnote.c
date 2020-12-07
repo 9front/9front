@@ -4,21 +4,21 @@
 int
 postnote(int group, int pid, char *note)
 {
-	char file[128];
+	char file[32];
 	int f, r;
 
 	switch(group) {
 	case PNPROC:
-		sprint(file, "/proc/%d/note", pid);
+		snprint(file, sizeof(file), "/proc/%lud/note", (ulong)pid);
 		break;
 	case PNGROUP:
-		sprint(file, "/proc/%d/notepg", pid);
+		snprint(file, sizeof(file), "/proc/%lud/notepg", (ulong)pid);
 		break;
 	default:
 		return -1;
 	}
 
-	f = open(file, OWRITE);
+	f = open(file, OWRITE|OCEXEC);
 	if(f < 0)
 		return -1;
 

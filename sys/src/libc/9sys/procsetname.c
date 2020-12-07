@@ -8,8 +8,9 @@ procsetname(char *fmt, ...)
 	char buf[128];
 	va_list arg;
 
-	snprint(buf, sizeof buf, "#p/%lud/args", (ulong)getpid());
-	if((fd = open(buf, OWRITE)) < 0)
+	snprint(buf, sizeof buf, "/proc/%lud/args", (ulong)getpid());
+	fd = open(buf, OWRITE|OCEXEC);
+	if(fd < 0)
 		return;
 	va_start(arg, fmt);
 	n = vsnprint(buf, sizeof buf, fmt, arg);

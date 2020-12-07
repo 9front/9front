@@ -24,7 +24,7 @@ access(char *name, int mode)
 			return 0;
 		return -1;
 	}
-	fd = open(name, omode[mode&7]);
+	fd = open(name, omode[mode&7]|OCEXEC);
 	if(fd >= 0){
 		close(fd);
 		return 0;

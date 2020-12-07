@@ -244,7 +244,7 @@ putsnarf(void)
 
 	if(snarffd<0 || nsnarf==0)
 		return;
-	fd = open("/dev/snarf", OWRITE);
+	fd = open("/dev/snarf", OWRITE|OCEXEC);
 	if(fd < 0)
 		return;
 	/* snarf buffer could be huge, so fprint will truncate; do it in blocks */

@@ -22,7 +22,7 @@ _getsubfont(Display *d, char *name)
 	if(dolock)
 		unlockdisplay(d);
 
-	fd = open(name, OREAD);
+	fd = open(name, OREAD|OCEXEC);
 	if(fd < 0) {
 		fprint(2, "getsubfont: can't open %s: %r\n", name);
 		f = nil;

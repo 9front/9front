@@ -8,7 +8,7 @@ getppid(void)
 	int f;
 
 	memset(b, 0, sizeof(b));
-	f = open("/dev/ppid", 0);
+	f = open("/dev/ppid", OREAD|OCEXEC);
 	if(f >= 0) {
 		read(f, b, sizeof(b));
 		close(f);

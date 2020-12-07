@@ -18,7 +18,8 @@ getenv(char *name)
 	snprint(s, HUNK, "/env/%s", name);
 	n = 0;
 	r = -1;
-	if((f = open(s, OREAD)) >= 0){
+	f = open(s, OREAD|OCEXEC);
+	if(f >= 0){
 		while((r = read(f, s+n, HUNK)) > 0){
 			n += r;
 			r = -1;
