@@ -1420,7 +1420,7 @@ wclosewin(Window *w)
 void
 wsetpid(Window *w, int pid, int dolabel)
 {
-	char buf[64];
+	char buf[32];
 	int ofd;
 
 	ofd = w->notefd;
@@ -1428,11 +1428,11 @@ wsetpid(Window *w, int pid, int dolabel)
 		w->notefd = -1;
 	else {
 		if(dolabel){
-			snprint(buf, sizeof(buf), "rc %d", pid);
+			snprint(buf, sizeof(buf), "rc %lud", (ulong)pid);
 			free(w->label);
 			w->label = estrdup(buf);
 		}
-		snprint(buf, sizeof(buf), "/proc/%d/notepg", pid);
+		snprint(buf, sizeof(buf), "/proc/%lud/notepg", (ulong)pid);
 		w->notefd = open(buf, OWRITE|OCEXEC);
 	}
 	if(ofd >= 0)
