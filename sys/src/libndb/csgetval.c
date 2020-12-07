@@ -25,10 +25,10 @@ csgetvalue(char *netroot, char *attr, char *val, char *rattr, Ndbtuple **pp)
 		snprint(line, sizeof(line), "%s/cs", netroot);
 	else
 		strcpy(line, "/net/cs");
-	fd = open(line, ORDWR);
+	fd = open(line, ORDWR|OCEXEC);
 	if(fd < 0)
 		return nil;
-	seek(fd, 0, 0);
+
 	snprint(line, sizeof(line), "!%s=%s %s=*", attr, val, rattr);
 	if(write(fd, line, strlen(line)) < 0){
 		close(fd);

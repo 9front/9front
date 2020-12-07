@@ -57,42 +57,42 @@ hfopen(Ndb *db, char *attr)
 
 	/* try opening the data base if it's closed */
 	if(db->mtime==0 && ndbreopen(db) < 0)
-		return 0;
+		return nil;
 
 	/* if the database has changed, throw out hash files and reopen db */
 	if((d = dirfstat(Bfildes(&db->b))) == nil || db->qid.path != d->qid.path
 	|| db->qid.vers != d->qid.vers){
 		if(ndbreopen(db) < 0){
 			free(d);
-			return 0;
+			return nil;
 		}
 	}
 	free(d);
 
 	if(db->nohash)
-		return 0;
+		return nil;
 
 	/* see if a hash file exists for this attribute */
-	for(hf = db->hf; hf; hf= hf->next){
+	for(hf = db->hf; hf != nil; hf= hf->next){
 		if(strcmp(hf->attr, attr) == 0)
 			return hf;
 	}
 
 	/* create a new one */
 	hf = (Ndbhf*)malloc(sizeof(Ndbhf));
-	if(hf == 0)
-		return 0;
+	if(hf == nil)
+		return nil;
 	memset(hf, 0, sizeof(Ndbhf));
 
 	/* compare it to the database file */
 	strncpy(hf->attr, attr, sizeof(hf->attr)-1);
 	sprint(buf, "%s.%s", db->file, hf->attr);
-	hf->fd = open(buf, OREAD);
+	hf->fd = open(buf, OREAD|OCEXEC);
 	if(hf->fd >= 0){
 		hf->len = 0;
 		hf->off = 0;
 		p = hfread(hf, 0, 2*NDBULLEN);
-		if(p){
+		if(p != nil){
 			hf->dbmtime = NDBGETUL(p);
 			hf->hlen = NDBGETUL(p+NDBULLEN);
 			if(hf->dbmtime == db->mtime){
@@ -105,7 +105,7 @@ hfopen(Ndb *db, char *attr)
 	}
 
 	free(hf);
-	return 0;
+	return nil;
 }
 
 /*
@@ -162,7 +162,7 @@ match(Ndbtuple *t, char *attr, char *val)
 		if(strcmp(attr, nt->attr) == 0
 		&& strcmp(val, nt->val) == 0)
 			return nt;
-	return 0;
+	return nil;
 }
 
 /*

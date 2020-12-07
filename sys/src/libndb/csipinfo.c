@@ -23,10 +23,10 @@ csipinfo(char *netroot, char *attr, char *val, char **list, int n)
 		snprint(line, sizeof(line), "%s/cs", netroot);
 	else
 		strcpy(line, "/net/cs");
-	fd = open(line, ORDWR);
+	fd = open(line, ORDWR|OCEXEC);
 	if(fd < 0)
-		return 0;
-	seek(fd, 0, 0);
+		return nil;
+
 	e = line + sizeof(line);
 	p = seprint(line, e, "!ipinfo %s=%s", attr, val);
 	for(i = 0; i < n; i++){
@@ -37,11 +37,11 @@ csipinfo(char *netroot, char *attr, char *val, char **list, int n)
 	
 	if(write(fd, line, strlen(line)) < 0){
 		close(fd);
-		return 0;
+		return nil;
 	}
 	seek(fd, 0, 0);
 
-	first = last = 0;
+	first = last = nil;
 	for(;;){
 		n = read(fd, line, sizeof(line)-2);
 		if(n <= 0)
@@ -50,15 +50,15 @@ csipinfo(char *netroot, char *attr, char *val, char **list, int n)
 		line[n+1] = 0;
 
 		t = _ndbparseline(line);
-		if(t == 0)
+		if(t == nil)
 			continue;
-		if(first)
+		if(first != nil)
 			last->entry = t;
 		else
 			first = t;
 		last = t;
 
-		while(last->entry)
+		while(last->entry != nil)
 			last = last->entry;
 	}
 	close(fd);

@@ -29,7 +29,7 @@ dnsquery(char *net, char *val, char *type)
 		net = "/net";
 
 	snprint(buf, sizeof(buf), "%s/dns", net);
-	if((fd = open(buf, ORDWR)) < 0)
+	if((fd = open(buf, ORDWR|OCEXEC)) < 0)
 		return nil;
 
 	/* zero out the error string */
@@ -84,7 +84,6 @@ doquery(int fd, char *dn, char *type)
 	int n;
 	Ndbtuple *t, *first, *last;
 
-	seek(fd, 0, 0);
 	snprint(buf, sizeof(buf), "!%s %s", dn, type);
 	if(write(fd, buf, strlen(buf)) < 0)
 		return nil;
