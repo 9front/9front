@@ -19,6 +19,15 @@ iointerrupt(Ioproc *io)
 	qunlock(io);
 }
 
+static int
+openprocctl(void)
+{
+	char buf[32];
+
+	snprint(buf, sizeof(buf), "/proc/%lud/ctl", (ulong)getpid());
+	return open(buf, OWRITE|OCEXEC);
+}
+
 static void
 xioproc(void *a)
 {
@@ -28,15 +37,11 @@ xioproc(void *a)
 
 	c = a;
 	if(io = mallocz(sizeof(*io), 1)){
-		char buf[128];
-
 		/*
 		 * open might fail, ignore it for programs like factotum
 		 * that don't use iointerrupt() anyway.
 		 */
-		snprint(buf, sizeof(buf), "/proc/%d/ctl", getpid());
-		io->ctl = open(buf, OWRITE);
-
+		io->ctl = openprocctl();
 		if((io->creply = chancreate(sizeof(void*), 0)) == nil){
 			if(io->ctl >= 0)
 				close(io->ctl);
