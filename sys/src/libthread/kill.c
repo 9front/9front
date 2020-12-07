@@ -76,24 +76,31 @@ threadint(int id)
 	threadxxx(id, 0);
 }
 
+static int
+writeprocctl(int pid, char *ctl)
+{
+	char buf[32];
+	int fd;
+
+	snprint(buf, sizeof(buf), "/proc/%lud/ctl", (ulong)pid);
+	fd = open(buf, OWRITE|OCEXEC);
+	if(fd < 0)
+		return -1;
+	if(write(fd, ctl, strlen(ctl)) < 0){
+		close(fd);
+		return -1;
+	}
+	close(fd);
+	return 0;
+}
+
 static void
 tinterrupt(Proc *p, Thread *t)
 {
-	char buf[64];
-	int fd;
-
 	switch(t->state){
 	case Running:
-		snprint(buf, sizeof(buf), "/proc/%d/ctl", p->pid);
-		fd = open(buf, OWRITE|OCEXEC);
-		if(fd >= 0){
-			if(write(fd, "interrupt", 9) == 9){
-				close(fd);
-				break;
-			}
-			close(fd);
-		}
-		postnote(PNPROC, p->pid, "threadint");
+		if(writeprocctl(p->pid, "interrupt") < 0)
+			postnote(PNPROC, p->pid, "threadint");
 		break;
 	case Rendezvous:
 		_threadflagrendez(t);
