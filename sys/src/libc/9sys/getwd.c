@@ -1,14 +1,12 @@
 #include <u.h>
 #include <libc.h>
 
-static char *nsgetwd(char*, int);
-
 char*
 getwd(char *buf, int nbuf)
 {
 	int n, fd;
 
-	fd = open(".", OREAD);
+	fd = open(".", OREAD|OCEXEC);
 	if(fd < 0)
 		return nil;
 	n = fd2path(fd, buf, nbuf);

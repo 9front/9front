@@ -174,11 +174,12 @@ loadzone(Tzone *tz, char *name)
 	else
 		snprint(path, sizeof(path), "/adm/timezone/%s", name);
 	memset(buf, 0, sizeof(buf));
-	if((f = open(path, 0)) == -1)
+	f = open(path, OREAD|OCEXEC);
+	if(f < 0)
 		return -1;
 	r = read(f, buf, sizeof(buf));
 	close(f);
-	if(r == sizeof(buf) || r == -1)
+	if(r < 0 || r >= sizeof(buf))
 		return -1;
 	buf[r] = 0;
 	p = buf;

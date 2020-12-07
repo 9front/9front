@@ -13,7 +13,7 @@ getendpoint(char *dir, char *file, char **sysp, char **servp)
 	sys = serv = 0;
 
 	snprint(buf, sizeof buf, "%s/%s", dir, file);
-	fd = open(buf, OREAD);
+	fd = open(buf, OREAD|OCEXEC);
 	if(fd >= 0){
 		n = read(fd, buf, sizeof(buf)-1);
 		if(n>0){
@@ -41,7 +41,6 @@ getnetconninfo(char *dir, int fd)
 	NetConnInfo *nci;
 	char *cp;
 	Dir *d;
-	char spec[10];
 	char path[128];
 	char netname[128], *p;
 
@@ -76,10 +75,8 @@ getnetconninfo(char *dir, int fd)
 
 	/* figure out bind spec */
 	d = dirstat(nci->dir);
-	if(d != nil){
-		sprint(spec, "#%C%d", d->type, d->dev);
-		nci->spec = strdup(spec);
-	}
+	if(d != nil)
+		nci->spec = smprint("#%C%d", d->type, d->dev);
 	if(nci->spec == nil)
 		nci->spec = unknown;
 	free(d);
