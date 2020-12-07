@@ -118,37 +118,27 @@ cexecpipe(int *p0, int *p1)
 Filsys*
 filsysinit(Channel *cxfidalloc)
 {
-	int n, fd, pid, p0;
+	int p0;
 	Filsys *fs;
 	Channel *c;
-	char buf[128];
 
 	fs = emalloc(sizeof(Filsys));
 	if(cexecpipe(&fs->cfd, &fs->sfd) < 0)
 		goto Rescue;
 	fmtinstall('F', fcallfmt);
 	clockfd = open("/dev/time", OREAD|OCEXEC);
-	fd = open("/dev/user", OREAD);
-	strcpy(buf, "Jean-Paul_Belmondo");
-	if(fd >= 0){
-		n = read(fd, buf, sizeof buf-1);
-		if(n > 0)
-			buf[n] = 0;
-		close(fd);
-	}
-	fs->user = estrdup(buf);
+	fs->user = getuser();
 	fs->csyncflush = chancreate(sizeof(int), 0);
 	if(fs->csyncflush == nil)
 		error("chancreate syncflush");
 	fs->cxfidalloc = cxfidalloc;
-	pid = getpid();
 
 	/*
 	 * Create and post wctl pipe
 	 */
 	if(cexecpipe(&p0, &wctlfd) < 0)
 		goto Rescue;
-	snprint(srvwctl, sizeof(srvwctl), "/srv/riowctl.%s.%d", fs->user, pid);
+	snprint(srvwctl, sizeof(srvwctl), "/srv/riowctl.%s.%lud", fs->user, (ulong)getpid());
 	post(srvwctl, "wctl", p0);
 	close(p0);
 
@@ -165,7 +155,7 @@ filsysinit(Channel *cxfidalloc)
 	/*
 	 * Post srv pipe
 	 */
-	snprint(srvpipe, sizeof(srvpipe), "/srv/rio.%s.%d", fs->user, pid);
+	snprint(srvpipe, sizeof(srvpipe), "/srv/rio.%s.%lud", fs->user, (ulong)getpid());
 	post(srvpipe, "wsys", fs->cfd);
 
 	return fs;
@@ -234,7 +224,7 @@ filsysmount(Filsys *fs, int id)
 	char buf[32];
 
 	close(fs->sfd);	/* close server end so mount won't hang if exiting */
-	sprint(buf, "%d", id);
+	snprint(buf, sizeof buf, "%d", id);
 	if(mount(fs->cfd, -1, "/mnt/wsys", MREPL, buf) == -1){
 		fprint(2, "mount failed: %r\n");
 		return -1;
