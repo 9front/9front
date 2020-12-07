@@ -49,7 +49,7 @@ geninitdraw(char *devdir, void(*error)(Display*, char*), char *fontname, char *l
 		return -1;
 	}
 	if(fontname == nil){
-		fd = open("/env/font", OREAD);
+		fd = open("/env/font", OREAD|OCEXEC);
 		if(fd >= 0){
 			n = read(fd, buf, sizeof(buf));
 			if(n>0 && n<sizeof buf-1){
@@ -82,11 +82,11 @@ geninitdraw(char *devdir, void(*error)(Display*, char*), char *fontname, char *l
 	 */
 	if(label != nil){
 		snprint(buf, sizeof buf, "%s/label", display->windir);
-		fd = open(buf, OREAD);
+		fd = open(buf, OREAD|OCEXEC);
 		if(fd >= 0){
 			read(fd, display->oldlabel, (sizeof display->oldlabel)-1);
 			close(fd);
-			fd = create(buf, OWRITE, 0666);
+			fd = create(buf, OWRITE|OCEXEC, 0666);
 			if(fd >= 0){
 				write(fd, label, strlen(label));
 				close(fd);
@@ -125,7 +125,7 @@ gengetwindow(Display *d, char *winname, Image **winp, Screen **scrp, int ref)
 
 	obuf[0] = 0;
 retry:
-	fd = open(winname, OREAD);
+	fd = open(winname, OREAD|OCEXEC);
 	if(fd<0 || (n=read(fd, buf, sizeof buf-1))<=0){
 		if(fd >= 0) close(fd);
 		strcpy(buf, "noborder");
@@ -345,7 +345,7 @@ _closedisplay(Display *disp, int isshutdown)
 		display = nil;
 	if(disp->oldlabel[0]){
 		snprint(buf, sizeof buf, "%s/label", disp->windir);
-		fd = open(buf, OWRITE);
+		fd = open(buf, OWRITE|OCEXEC);
 		if(fd >= 0){
 			write(fd, disp->oldlabel, strlen(disp->oldlabel));
 			close(fd);

@@ -16,7 +16,7 @@ writecolmap(Display *d, RGB *m)
 	ulong r, g, b;
 
 	sprint(buf, "/dev/draw/%d/colormap", d->dirno);
-	fd = open(buf, OWRITE);
+	fd = open(buf, OWRITE|OCEXEC);
 	if(fd < 0)
 		drawerror(d, "writecolmap: open colormap failed");
 	t = malloc(8192);
