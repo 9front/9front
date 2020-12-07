@@ -504,7 +504,7 @@ sendnotif(void (*f)(void *), void *arg)
 		send(notifch, &notif);
 }
 
-extern void vgainit(void);
+extern void vgainit(int);
 extern void pciinit(void);
 extern void pcibusmap(void);
 extern void cpuidinit(void);
@@ -574,7 +574,7 @@ usage(void)
 	for(p = blanks; *p != 0; p++)
 		*p = ' ';
 	fprint(2, "usage: %s [ -M mem ] [ -c com1rd[,com1wr] ] [ -C com2rd[,com2r] ] [ -n nic ]\n", argv0);
-	fprint(2, "       %s [ -d blockfile ] [ -m module ] [ -v vga ] [ -9 srv ] kernel [ args ... ]\n", blanks);
+	fprint(2, "       %s [ -d blockfile ] [ -m module ] [ -v|-w vga ] [ -9 srv ] kernel [ args ... ]\n", blanks);
 	threadexitsall("usage");
 }
 
@@ -590,6 +590,7 @@ threadmain(int argc, char **argv)
 	static uvlong gmemsz = 64*1024*1024;
 	static char *srvname;
 	extern uintptr fbsz, fbaddr;
+	int newwin = 0;
 	int i;
 
 	quotefmtinstall();
@@ -637,6 +638,8 @@ threadmain(int argc, char **argv)
 		gmemsz = siparse(EARGF(usage()));
 		if(gmemsz != (uintptr) gmemsz) sysfatal("too much memory for address space");
 		break;
+	case 'w':
+		newwin = 1;
 	case 'v':
 		vgafbparse(EARGF(usage()));
 		break;
@@ -673,7 +676,7 @@ threadmain(int argc, char **argv)
 	loadkernel(argv[0]);
 	pciinit();
 
-	vgainit();
+	vgainit(newwin);
 	for(i = 0; i < edevn; i++)
 		if(edev[i](edevaux[i]) < 0)
 			sysfatal("%s: %r", edevt[i]);

@@ -737,7 +737,7 @@ vgafbparse(char *fbstring)
 
 
 void
-vgainit(void)
+vgainit(int new)
 {
 	char buf[512];
 	int i;
@@ -760,7 +760,7 @@ vgainit(void)
 			sysfatal("got nil ptr for framebuffer");
 	}
 	snprint(buf, sizeof(buf), "-dx %d -dy %d", maxw+50, maxh+50);
-	if(newwindow(buf) < 0 || initdraw(nil, nil, "vmx") < 0)
+	if((new && newwindow(buf) < 0) || initdraw(nil, nil, "vmx") < 0)
 		sysfatal("failed to initialize graphics: %r");
 	screeninit(1);
 	flushimage(display, 1);

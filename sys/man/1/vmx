@@ -24,7 +24,7 @@ vmx \- virtual PC
 .I blockfile
 ]
 [
-.B -v
+.BR -v | -w
 .I vga
 ]
 [
@@ -61,6 +61,11 @@ argument.
 If
 .B -v
 is specified, a graphics device, PS/2 keyboard and mouse are simulated.
+The
+.B -w
+flag behaves the same as
+.B -v
+but also creates a new window for the screen.
 Clicking on the screen "grabs" the mouse; pressing Ctrl and Alt simultaneously releases the grab.
 Valid values for the argument are
 .TP
