@@ -15,7 +15,7 @@ noworld(char *user)
 	char *p;
 	int n;
 
-	b = Bopen("/adm/users", OREAD);
+	b = Bopen("/adm/users", OREAD|OCEXEC);
 	if(b == nil)
 		return 0;
 	while((p = Brdline(b, '\n')) != nil){

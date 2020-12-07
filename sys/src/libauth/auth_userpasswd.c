@@ -11,7 +11,7 @@ auth_userpasswd(char *user, char *passwd)
 	char *s;
 	int afd;
 
-	afd = open("/mnt/factotum/rpc", ORDWR);
+	afd = open("/mnt/factotum/rpc", ORDWR|OCEXEC);
 	if(afd < 0)
 		return nil;
 	ai = nil;
