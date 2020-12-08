@@ -491,16 +491,19 @@ cpuidprint(void)
  *		(if so turn it on)
  *	- whether or not it supports the page global flag
  *		(if so turn it on)
+ *	- detect PAT feature and add write-combining entry
+ *	- detect MTRR support and synchronize state with cpu0
+ *	- detect NX support and enable it for AMD64
+ *	- detect watchpoint support
+ *	- detect FPU features and enable the FPU
  */
 int
 cpuidentify(void)
 {
-	char *p;
-	int family, model, nomce;
+	int family, model;
 	X86type *t, *tab;
-	uintptr cr4;
 	ulong regs[4];
-	vlong mca, mct, pat;
+	uintptr cr4;
 
 	cpuid(Highstdfunc, 0, regs);
 	memmove(m->cpuidid,   &regs[1], BY2WD);	/* bx */
@@ -567,14 +570,13 @@ cpuidentify(void)
 	 * If machine check was enabled clear out any lingering status.
 	 */
 	if(m->cpuiddx & (Pge|Mce|Pse)){
+		vlong mca, mct;
+
 		cr4 = getcr4();
 		if(m->cpuiddx & Pse)
 			cr4 |= 0x10;		/* page size extensions */
-		if(p = getconf("*nomce"))
-			nomce = strtoul(p, 0, 0);
-		else
-			nomce = 0;
-		if((m->cpuiddx & Mce) != 0 && !nomce){
+
+		if((m->cpuiddx & Mce) != 0 && getconf("*nomce") == nil){
 			if((m->cpuiddx & Mca) != 0){
 				vlong cap;
 				int bank;
@@ -626,7 +628,6 @@ cpuidentify(void)
 			cr4 |= 0x80;		/* page global enable bit */
 			m->havepge = 1;
 		}
-
 		putcr4(cr4);
 
 		if((m->cpuiddx & (Mca|Mce)) == Mce)
@@ -635,10 +636,14 @@ cpuidentify(void)
 
 #ifdef PATWC
 	/* IA32_PAT write combining */
-	if((m->cpuiddx & Pat) != 0 && rdmsr(0x277, &pat) != -1){
-		pat &= ~(255LL<<(PATWC*8));
-		pat |= 1LL<<(PATWC*8);	/* WC */
-		wrmsr(0x277, pat);
+	if((m->cpuiddx & Pat) != 0){
+		vlong pat;
+
+		if(rdmsr(0x277, &pat) != -1){
+			pat &= ~(255LL<<(PATWC*8));
+			pat |= 1LL<<(PATWC*8);	/* WC */
+			wrmsr(0x277, pat);
+		}
 	}
 #endif
 
