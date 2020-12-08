@@ -6,8 +6,7 @@ enum {
 	Xshift = 0xFFE1,
 	Xctl = 0xFFE3,
 	Xmeta = 0xFFE7,
-	Xalt = 0xFFE9,
-	Xsuper = 0xFFEB,
+	Xalt = 0xFFE9
 };
 
 static struct {
@@ -42,11 +41,10 @@ static struct {
 	{KF|10,	0xffc7},
 	{KF|11,	0xffc8},
 	{KF|12,	0xffc9},
-	{Kaltgr, 0xfe03},
 
 	{Kshift, Xshift},
 	{Kalt, Xalt},
-	{Kmod4, Xsuper},
+	{Kaltgr, Xmeta},
 	{Kctl, Xctl},
 };
 
@@ -97,7 +95,7 @@ readcons(Vnc *v)
 {
 	char buf[256], k[10];
 	ulong ks;
-	int ctlfd, fd, kr, kn, w, shift, ctl, alt, mod4;
+	int ctlfd, fd, kr, kn, w, shift, ctl, alt;
 	Rune r;
 
 	snprint(buf, sizeof buf, "%s/cons", display->devdir);
@@ -110,7 +108,7 @@ readcons(Vnc *v)
 	write(ctlfd, "rawon", 5);
 
 	kn = 0;
-	shift = alt = ctl = mod4 = 0;
+	shift = alt = ctl = 0;
 	for(;;){
 		while(!fullrune(k, kn)){
 			kr = read(fd, k+kn, sizeof k - kn);
@@ -135,10 +133,6 @@ readcons(Vnc *v)
 		case Kshift:
 			shift = !shift;
 			keyevent(v, Xshift, shift);
-			break;
-		case Kmod4:
-			mod4 = !mod4;
-			keyevent(v, Xsuper, alt);
 			break;
 		default:
 			if(r == ks && r < 0x1A){	/* control key */
@@ -180,10 +174,6 @@ readcons(Vnc *v)
 			}
 			if(shift){
 				keyevent(v, Xshift, 0);
-				shift = 0;
-			}
-			if(mod4){
-				keyevent(v, Xsuper, 0);
 				shift = 0;
 			}
 			break;
@@ -238,7 +228,7 @@ readkbd(Vnc *v)
 					if((r == Kshift) ||
 					   utfrune(buf+1, Kctl) || 
 					   utfrune(buf+1, Kalt) ||
-					   utfrune(buf+1, Kmod4))
+					   utfrune(buf+1, Kaltgr))
 						keyevent(v, runetovnc(r), 1);
 			}
 			break;
@@ -251,7 +241,7 @@ readkbd(Vnc *v)
 			}
 			break;
 		case 'c':
-			if(utfrune(buf2+1, Kctl) || utfrune(buf2+1, Kalt) || utfrune(buf2+1, Kmod4))
+			if(utfrune(buf2+1, Kctl) || utfrune(buf2+1, Kalt) || utfrune(buf2+1, Kaltgr))
 				continue;
 			chartorune(&r, buf+1);
 			keyevent(v, runetovnc(r), 1);
