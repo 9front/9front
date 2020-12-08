@@ -622,7 +622,8 @@ vesathread(void *)
 			if(vesaddc(&ur) < 0 || vesasetregs(sp, &ur) < 0) continue;
 			break;
 		default:
-			vmerror("vesa: unsupported function %#x", ur.ax);
+			vesasetax(sp, 0x0100);
+			vmdebug("vesa: unsupported function %#x", ur.ax);
 		}
 	}
 }
