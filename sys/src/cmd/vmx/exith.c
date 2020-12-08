@@ -368,7 +368,7 @@ movcr(ExitInfo *ei)
 	case 0:
 		switch(q >> 4 & 3){
 		case 0:
-			vmdebug("illegal CR0 write, value %#ux", rget(x86reg[q >> 8 & 15]));
+			vmdebug("illegal CR0 write, value %#ux", (u32int)rget(x86reg[q >> 8 & 15]));
 			rset("cr0real", rget(x86reg[q >> 8 & 15]));
 			skipinstr(ei);
 			break;
@@ -390,7 +390,7 @@ movcr(ExitInfo *ei)
 	case 4:
 		switch(q >> 4 & 3){
 		case 0:
-			vmdebug("illegal CR4 write, value %#ux", rget(x86reg[q >> 8 & 15]));
+			vmdebug("illegal CR4 write, value %#ux", (u32int)rget(x86reg[q >> 8 & 15]));
 			rset("cr4real", rget(x86reg[q >> 8 & 15]));
 			skipinstr(ei);
 			break;
@@ -405,7 +405,7 @@ movcr(ExitInfo *ei)
 		}
 		break;
 	default:
-		vmerror("access to unknown control register CR%d", ei->qual & 15);
+		vmerror("access to unknown control register CR%ud", q & 15);
 		postexc("#ud", NOERRC);
 	}
 }

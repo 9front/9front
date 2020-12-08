@@ -48,23 +48,6 @@ vmerror(char *fmt, ...)
 	fmtfdflush(&f);
 }
 
-void
-vmdebug(char *fmt, ...)
-{
-	Fmt f;
-	char buf[256];
-	va_list arg;
-
-	if(debug == 0)
-		return;
-	fmtfdinit(&f, 2, buf, sizeof buf);
-	va_start(arg, fmt);
-	fmtvprint(&f, fmt, arg);
-	va_end(arg);
-	fmtprint(&f, "\n");
-	fmtfdflush(&f);
-}
-
 int
 ctl(char *fmt, ...)
 {
@@ -616,7 +599,6 @@ threadmain(int argc, char **argv)
 	waitch = chancreate(sizeof(char *), 32);
 	sleepch = chancreate(sizeof(ulong), 32);
 	notifch = chancreate(sizeof(VmxNotif), 16);
-	debug = 0;
 
 	ARGBEGIN {
 	case 'm':
