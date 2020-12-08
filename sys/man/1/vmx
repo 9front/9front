@@ -4,6 +4,9 @@ vmx \- virtual PC
 .SH SYNOPSIS
 .B vmx
 [
+.B -D
+]
+[
 .B -M
 .I mem
 ]
@@ -57,6 +60,9 @@ is passed to the kernel as its command line.
 Boot modules can be specified with the
 .B -m
 argument.
+.PP
+.B -D
+enables debug messages.
 .PP
 If
 .B -v

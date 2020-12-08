@@ -11,7 +11,7 @@ Region *mmap;
 int ctlfd, regsfd, mapfd, waitfd;
 Channel *waitch, *sleepch, *notifch;
 enum { MSEC = 1000*1000, MinSleep = MSEC, SleeperPoll = 2000*MSEC } ;
-int getexit, state;
+int getexit, state, debug;
 typedef struct VmxNotif VmxNotif;
 struct VmxNotif {
 	void (*f)(void *);
@@ -40,6 +40,23 @@ vmerror(char *fmt, ...)
 	char buf[256];
 	va_list arg;
 	
+	fmtfdinit(&f, 2, buf, sizeof buf);
+	va_start(arg, fmt);
+	fmtvprint(&f, fmt, arg);
+	va_end(arg);
+	fmtprint(&f, "\n");
+	fmtfdflush(&f);
+}
+
+void
+vmdebug(char *fmt, ...)
+{
+	Fmt f;
+	char buf[256];
+	va_list arg;
+
+	if(debug == 0)
+		return;
 	fmtfdinit(&f, 2, buf, sizeof buf);
 	va_start(arg, fmt);
 	fmtvprint(&f, fmt, arg);
@@ -599,7 +616,8 @@ threadmain(int argc, char **argv)
 	waitch = chancreate(sizeof(char *), 32);
 	sleepch = chancreate(sizeof(ulong), 32);
 	notifch = chancreate(sizeof(VmxNotif), 16);
-	
+	debug = 0;
+
 	ARGBEGIN {
 	case 'm':
 		bootmod = realloc(bootmod, (bootmodn + 1) * sizeof(char *));
@@ -633,6 +651,9 @@ threadmain(int argc, char **argv)
 			edevt[edevn] = "virtio block";
 		}
 		edevn++;
+		break;
+	case 'D':
+		debug++;
 		break;
 	case 'M':
 		gmemsz = siparse(EARGF(usage()));

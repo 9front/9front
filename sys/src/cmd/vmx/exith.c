@@ -294,7 +294,7 @@ cpuid(ExitInfo *ei)
 		break;
 	default:
 		if((ax & 0xf0000000) != 0x40000000)
-			vmerror("unknown cpuid field eax=%#ux", ax);
+			vmdebug("unknown cpuid field eax=%#ux", ax);
 	zero:
 		ax = cx = 0;
 		break;
@@ -327,10 +327,10 @@ rdwrmsr(ExitInfo *ei)
 		break;
 	default:
 		if(rd){
-			vmerror("read from unknown MSR %#ux ignored", cx);
+			vmdebug("read from unknown MSR %#ux ignored", cx);
 			val = 0;
 		}else
-			vmerror("write to unknown MSR %#ux ignored (val=%#ullx)", cx, val);
+			vmdebug("write to unknown MSR %#ux ignored (val=%#ullx)", cx, val);
 		break;
 	}
 	if(rd){

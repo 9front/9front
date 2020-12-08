@@ -726,7 +726,7 @@ kbdcmd(u8int val)
 		case 0xf2: keyputc(0xfa); keyputc(0xab); keyputc(0x41); break; /* keyboard id */
 		case 0xee: keyputc(0xee); break; /* echo */
 		default:
-			vmerror("unknown kbd command %#ux", val);
+			vmdebug("unknown kbd command %#ux", val);
 			keyputc(0xfe);
 		}
 	}
@@ -1203,9 +1203,9 @@ u32int
 iowhine(int isin, u16int port, u32int val, int sz, void *mod)
 {
 	if(isin)
-		vmerror("%s%sread from unknown i/o port %#ux ignored (sz=%d, pc=%#ullx)", mod != nil ? mod : "", mod != nil ? ": " : "", port, sz, rget(RPC));
+		vmdebug("%s%sread from unknown i/o port %#ux ignored (sz=%d, pc=%#ullx)", mod != nil ? mod : "", mod != nil ? ": " : "", port, sz, rget(RPC));
 	else
-		vmerror("%s%swrite to unknown i/o port %#ux ignored (val=%#ux, sz=%d, pc=%#ullx)", mod != nil ? mod : "", mod != nil ? ": " : "", port, val, sz, rget(RPC));
+		vmdebug("%s%swrite to unknown i/o port %#ux ignored (val=%#ux, sz=%d, pc=%#ullx)", mod != nil ? mod : "", mod != nil ? ": " : "", port, val, sz, rget(RPC));
 	return -1;
 }
 

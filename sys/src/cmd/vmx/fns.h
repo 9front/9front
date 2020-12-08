@@ -11,7 +11,7 @@ void pitadvance(void);
 void rtcadvance(void);
 void settimer(vlong targ);
 void vmerror(char *, ...);
-#define vmdebug vmerror
+void vmdebug(char *, ...);
 int ctl(char *, ...);
 void registermmio(uvlong, uvlong, uvlong (*)(int, uvlong, uvlong));
 void irqline(int, int);
