@@ -78,7 +78,6 @@ int	iprint(char*, ...);
 int	isaconfig(char*, int, ISAConf*);
 void*	kaddr(ulong);
 #define	kmapinval()
-void	ldmxcsr(ulong);
 void	lgdt(ushort[3]);
 void	lldt(ulong);
 void	lidt(ushort[3]);

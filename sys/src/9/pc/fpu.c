@@ -16,6 +16,7 @@ extern void fpsserestore(FPsave*);
 extern void fpssesave(FPsave*);
 extern void fpx87restore0(FPsave*);
 extern void fpx87save0(FPsave*);
+extern void ldmxcsr(ulong);
 
 void
 putxcr0(ulong)
