@@ -354,7 +354,7 @@ enum {
 static void
 putstate(State *s)
 {
-	ulong cr0, cr4;
+	uintptr cr0, cr4;
 	int i, x;
 
 	x = splhi();
