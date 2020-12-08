@@ -14,7 +14,7 @@ md \- emulator
 .I Md
 is an emulator for the Sega Megadrive/Genesis.
 It executes the romfile given as an argument.
-The \fBz\fR, \fBx\fR, \fBa\fR, return and shift keys correspond to A, B, C, Start and Select, respectively.
+The \fBz\fR, \fBx\fR, \fBc\fR, return and shift keys correspond to A, B, C, Start and Select, respectively.
 Other keys:
 .TP
 F1
