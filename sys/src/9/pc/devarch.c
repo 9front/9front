@@ -642,7 +642,7 @@ cpuidentify(void)
 	}
 #endif
 
-	if(m->cpuiddx & Mtrr)
+	if((m->cpuiddx & Mtrr) != 0 && getconf("*nomtrr") == nil)
 		mtrrsync();
 
 	if(strcmp(m->cpuidid, "GenuineIntel") == 0 && (m->cpuidcx & Rdrnd) != 0)
