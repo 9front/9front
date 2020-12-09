@@ -29,7 +29,7 @@ auth_chuid(AuthInfo *ai, char *ns)
 	}
 
 	/* get a link to factotum as new user */
-	fd = open("/srv/factotum", ORDWR|OCEXEC);
+	fd = open("/srv/factotum", ORDWR);
 	if(fd >= 0){
 		if(mount(fd, -1, "/mnt", MREPL, "") == -1)
 			close(fd);

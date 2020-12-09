@@ -194,7 +194,7 @@ nsop(char *fn, int argc, char *argv[], AuthRpc *rpc)
 		else if(argc == 2)
 			unmount(argv[0], argv[1]);
 	}else if(strcmp(argv0, "mount") == 0){
-		fd = open(argv[0], ORDWR|OCEXEC);
+		fd = open(argv[0], ORDWR);
 		if(fd < 0){
 			if(newnsdebug)
 				fprint(2, "%s: mount: %s: %r\n", fn, argv[0]);
