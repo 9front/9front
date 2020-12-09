@@ -13,7 +13,7 @@ newwindow(char *str)
 	wsys = getenv("wsys");
 	if(wsys == nil)
 		return -1;
-	fd = open(wsys, ORDWR|OCEXEC);
+	fd = open(wsys, ORDWR);
 	if(fd < 0){
 		free(wsys);
 		return -1;
