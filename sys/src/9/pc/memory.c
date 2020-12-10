@@ -383,8 +383,16 @@ e820scan(void)
 		}
 	}
 
-	/* RAM needs to be writeback */
-	mtrrexclude(MemRAM, "wb");
+	/*
+	 * Make sure RAM is set to writeback,
+	 * but do a sanity check first checking
+	 * that the kernel text is writeback.
+	 * This is needed as some emulators (bhyve)
+	 * set everything to uncached.
+	 */
+	s = mtrrattr(PADDR(KTZERO), nil);
+	if(s != nil && strcmp(s, "wb") == 0)
+		mtrrexclude(MemRAM, "wb");
 
 	for(base = memmapnext(-1, MemRAM); base != -1; base = memmapnext(base, MemRAM)){
 		size = memmapsize(base, BY2PG) & ~(BY2PG-1);
