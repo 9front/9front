@@ -13,6 +13,8 @@ fn dbsrc{
 fn go{
 	type=`{file <$1 | sed 's/stdin: //'}
 	switch($type){
+	case 'Ascii'
+		plumbit $1 '(ascii file)'
 	case 'rc executable file'
 		plumbit $1 '(rc executable)'
 	case *executable* *'plan 9 boot image'*
