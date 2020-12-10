@@ -320,9 +320,6 @@ gend(void *v)
 	return (u8int *) v + gavail(v);
 }
 
-void *tmp, *vgamem;
-uvlong tmpoff, vgamemoff;
-
 static void
 mksegment(char *sn)
 {
@@ -355,8 +352,9 @@ mksegment(char *sn)
 		close(fd);
 		gmem = segattach(0, sn, nil, sz);
 		if(gmem == (void*)-1) sysfatal("segattach: %r");
+	}else{
+		memset(gmem, 0, sz > 1<<24 ? 1<<24 : sz);
 	}
-	memset(gmem, 0, sz > 1<<24 ? 1<<24 : sz);
 	p = gmem;
 	for(r = mmap; r != nil; r = r->next){
 		if(r->segname == nil) continue;
@@ -365,14 +363,12 @@ mksegment(char *sn)
 		p += r->end - r->start;
 		r->ve = p;
 	}
-	vgamem = p;
-	vgamemoff = p - gmem;
-	regptr(0xa0000)->segoff = vgamemoff;
-	regptr(0xa0000)->v = vgamem;
+	/* vga */
+	r = regptr(0xa0000);
+	r->segoff = p - gmem;
+	r->v = p;
 	p += 256*1024;
-	regptr(0xa0000)->ve = p;
-	tmp = p;
-	tmpoff = p - gmem;
+	r->ve = p;
 
 	for(r = mmap; r != nil; r = r->next)
 		modregion(r);
