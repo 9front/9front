@@ -678,6 +678,10 @@ mtrr(uvlong base, uvlong size, char *tstr)
 	if((new.type = str2type(tstr)) < 0)
 		return "bad cache type";
 
+	if(new.type == Writecomb
+	&& (cpu0state.cap & Capwc) == 0)
+		return "write combining not supported";
+
 	qlock(&mtrrlk);
 	newstate = cpu0state;
 	nr = getranges(&newstate, ranges, Nranges, &new);
