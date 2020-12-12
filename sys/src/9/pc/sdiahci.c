@@ -1553,7 +1553,6 @@ iaenable(SDev *s)
 	}
 	if(c->ndrive == 0)
 		panic("iaenable: zero s->ctlr->ndrive");
-	pcisetbme(c->pci);
 	snprint(name, sizeof name, "%s (%s)", s->name, s->ifc->name);
 	intrenable(c->pci->intl, iainterrupt, c, c->pci->tbdf, name);
 	/* supposed to squelch leftover interrupts here. */
@@ -2228,6 +2227,7 @@ iapnp(void)
 			c->drive[d->driveno] = d;
 			iadrive[niadrive + d->driveno] = d;
 		}
+		pcisetbme(c->pci);
 		for(i = 0; i < n; i++){
 			c->drive[i]->mode = DMautoneg;
 			configdrive(c->drive[i]);
