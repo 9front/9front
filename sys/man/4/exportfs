@@ -1,6 +1,6 @@
 .TH EXPORTFS 4
 .SH NAME
-exportfs, srvfs \- network file server plumbing
+exportfs, srvfs \- file server plumbing
 .SH SYNOPSIS
 .B exportfs
 [
@@ -26,17 +26,11 @@ exportfs, srvfs \- network file server plumbing
 .I path
 .SH DESCRIPTION
 .I Exportfs
-is a user level file server that allows Plan 9 compute servers, rather
-than file servers, to export portions of a name space across networks.
-The service is started either by the
-.IR cpu (1)
-command or by a network listener process.  An initial protocol
-establishes a root directory for the exported name space.
-The
-connection to
-.I exportfs
-is then mounted, typically on
-.BR /mnt/term .
+is a user level file server that allows Plan 9 cpu servers, rather
+than file servers, to export portions of a name space.
+It is usually started by other programs such as
+.IR rcpu (1)
+after a secure channel has been established.
 .I Exportfs
 then acts as a relay file server: operations in the imported file
 tree are executed on the remote server and the results returned.  This
@@ -44,80 +38,12 @@ gives the appearance of exporting a name space from a remote machine
 into a local file tree.
 .PP
 The options are:
-.TF "-A \fIaddress"
-.PD
-.TP
-.B -A \fIaddress
-Use the network
-.I address
-to announce
-.IR aan (8)
-connections,
-if requested by the initial protocol.
-.TP
-.B -a
-Authenticate the user with the
-.I p9any
-protocol before running the regular
-.I exportfs
-session; used when 
-.I exportfs
-is invoked to handle an incoming network connection.
-.I Exportfs
-creates a new name space for each connection, using
-.B /lib/namespace
-by default (see
-.IR namespace (6)).
-.TP
-.B -B \fIaddress
-Dial
-.IR address ,
-authenticate as a
-.I p9any
-client, and then
-serve that network connection.
-Requires setting the root of the name space with 
-.B -r
-or
-.BR -s .
-The remote system should run
-.B import
-.B -B
-to handle the call.
-See
-.IR import (4)
-for an example.
 .TP
 .B -d -f \fIdbgfile
 Log all 9P traffic to
 .I dbgfile
 (default
 .BR /tmp/exportdb ).
-.TP
-.B -e '\fIenc auth\fL'
-Set the encryption and authentication algorithms to use for
-encrypting the wire traffic (see
-.IR ssl (3)).
-The defaults are
-.B rc4_256
-and
-.BR sha1 .
-.TP
-.B -m \fImsize
-Set the maximum message size that 
-.I exportfs
-should offer to send (see
-.IR version (5));
-this helps tunneled
-9P connections to avoid unnecessary fragmentation.
-.TP
-.B -N \fInsfile
-Serve the name space described by
-.IR nsfile .
-.TP
-.B -n
-Disallow mounts by user
-.BR none .
 .TP
 .B -P \fIpatternfile
 Restrict the set of exported files.
@@ -137,11 +63,11 @@ must not match.
 Make the served name space read only.
 .TP
 .B -r \fIroot
-Bypass the initial protocol, serving the name space rooted at
+Serve the name space rooted at
 .IR root .
 .TP
 .B -S \fIservice
-bypass the initial protocol, serving the result of mounting
+Serve the result of mounting
 .IR service .
 A separate mount is used for each
 .IR attach (5)
@@ -156,28 +82,15 @@ equivalent to
 .B -r
 .BR / ;
 kept for compatibility.
+.TP
+.B -m \fImsize
+Set the maximum message size that 
+.I exportfs
+should offer to send (see
+.IR version (5));
+this helps tunneled
+9P connections to avoid unnecessary fragmentation.
 .PD
-.PP
-The
-.B cpu
-command uses
-.I exportfs
-to serve device files in the terminal.  The
-.IR import (4)
-command calls
-.I exportfs
-on a remote machine, permitting users to access arbitrary pieces of
-name space on other systems.
-.PP
-Because the kernel disallows reads and writes on mounted pipes
-(as might be found in
-.BR /srv ),
-.I exportfs
-calls itself (with appropriate
-.B -m
-and
-.B -S 
-options) to simulate reads and writes on such files.
 .PP
 .I Srvfs
 invokes
@@ -251,7 +164,4 @@ cd /n/spy; ls
 .br
 .B /sys/src/cmd/srvfs.c
 .SH SEE ALSO
-.IR dial (2),
-.IR import (4),
-.IR aan (8),
-.IR listen (8)
+.IR rcpu (1)

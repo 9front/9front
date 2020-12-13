@@ -1,0 +1,146 @@
+.TH OEXPORTFS 4
+.SH NAME
+oexportfs \- legacy exportfs for cpu and import
+.SH SYNOPSIS
+.PP
+.B oexportfs
+[
+.I options
+]
+.SH DESCRIPTION
+.I Oexportfs
+is older version of the
+.IR exportfs (4)
+program that handles an initial protocol to establish a root directory
+for the exported name space.
+It also provides authentication and encryption using
+the
+.IR ssl (3)
+device.
+.PP
+It is used exclusively by the deprecated
+.IR cpu (1)
+and
+.IR import (4)
+services.
+.PP
+The options are:
+.TP
+.B -d -f \fIdbgfile
+Log all 9P traffic to
+.I dbgfile
+(default
+.BR /tmp/exportdb ).
+.TP
+.B -P \fIpatternfile
+Restrict the set of exported files.
+.I Patternfile
+contains one regular expression per line,
+to be matched against path names
+relative to the current working directory
+and starting with
+.BR / .
+For a file to be exported, all lines with a prefix
+.B +
+must match and all those with prefix
+.B -
+must not match.
+.TP
+.B -R
+Make the served name space read only.
+.TP
+.B -r \fIroot
+Serve the name space rooted at
+.IR root .
+.TP
+.B -S \fIservice
+Serve the result of mounting
+.IR service .
+A separate mount is used for each
+.IR attach (5)
+message,
+to correctly handle servers in which each mount
+corresponds to a different client
+.IR e.g. , (
+.IR rio (4)).
+.TP
+.B -s
+equivalent to
+.B -r
+.BR / ;
+kept for compatibility.
+.TP
+.B -m \fImsize
+Set the maximum message size that 
+.I oexportfs
+should offer to send (see
+.IR version (5));
+this helps tunneled
+9P connections to avoid unnecessary fragmentation.
+.TP
+.B -A \fIaddress
+Use the network
+.I address
+to announce
+.IR aan (8)
+connections,
+if requested by the initial protocol.
+.TP
+.B -a
+Authenticate the user with the
+.I p9any
+protocol before running the regular
+.I oexportfs
+session; used when 
+.I oexportfs
+is invoked to handle an incoming network connection.
+.I Exportfs
+creates a new name space for each connection, using
+.B /lib/namespace
+by default (see
+.IR namespace (6)).
+.TP
+.B -B \fIaddress
+Dial
+.IR address ,
+authenticate as a
+.I p9any
+client, and then
+serve that network connection.
+Requires setting the root of the name space with 
+.B -r
+or
+.BR -s .
+The remote system should run
+.B import
+.B -B
+to handle the call.
+See
+.IR import (4)
+for an example.
+.TP
+.B -e '\fIenc auth\fL'
+Set the encryption and authentication algorithms to use for
+encrypting the wire traffic (see
+.IR ssl (3)).
+The defaults are
+.B rc4_256
+and
+.BR sha1 .
+.TP
+.B -N \fInsfile
+Serve the name space described by
+.IR nsfile .
+.TP
+.B -n
+Disallow mounts by user
+.BR none .
+.EE
+.SH SOURCE
+.B /sys/src/cmd/exportfs/oexportfs.c
+.SH SEE ALSO
+.IR dial (2),
+.IR exportfs (4),
+.IR import (4),
+.IR aan (8),
+.IR listen (8)
