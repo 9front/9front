@@ -396,6 +396,8 @@ shropen(Chan *c, int omode)
 	case Qcmpt:
 		if(omode&OTRUNC)
 			error(Eexist);
+		if(omode&ORCLOSE)
+			error(Eperm);
 		shr = sch->shr;
 		mpt = sch->mpt;
 		devpermcheck(mpt->owner, mpt->perm, mode);

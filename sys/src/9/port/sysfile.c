@@ -25,33 +25,45 @@ int
 growfd(Fgrp *f, int fd)	/* fd is always >= 0 */
 {
 	Chan **newfd, **oldfd;
+	uchar *newflag, *oldflag;
+	int nfd;
 
-	if(fd < f->nfd)
+	nfd = f->nfd;
+	if(fd < nfd)
 		return 0;
-	if(fd >= f->nfd+DELTAFD)
+	if(fd >= nfd+DELTAFD)
 		return -1;	/* out of range */
 	/*
 	 * Unbounded allocation is unwise; besides, there are only 16 bits
 	 * of fid in 9P
 	 */
-	if(f->nfd >= 5000){
+	if(nfd >= 5000){
     Exhausted:
 		print("no free file descriptors\n");
 		return -1;
 	}
-	newfd = malloc((f->nfd+DELTAFD)*sizeof(Chan*));
+	oldfd = f->fd;
+	oldflag = f->flag;
+	newfd = malloc((nfd+DELTAFD)*sizeof(newfd[0]));
 	if(newfd == nil)
 		goto Exhausted;
-	oldfd = f->fd;
-	memmove(newfd, oldfd, f->nfd*sizeof(Chan*));
+	memmove(newfd, oldfd, nfd*sizeof(newfd[0]));
+	newflag = malloc((nfd+DELTAFD)*sizeof(newflag[0]));
+	if(newflag == nil){
+		free(newfd);
+		goto Exhausted;
+	}
+	memmove(newflag, oldflag, nfd*sizeof(newflag[0]));
 	f->fd = newfd;
-	free(oldfd);
-	f->nfd += DELTAFD;
+	f->flag = newflag;
+	f->nfd = nfd+DELTAFD;
 	if(fd > f->maxfd){
 		if(fd/100 > f->maxfd/100)
 			f->exceed = (fd/100)*100;
 		f->maxfd = fd;
 	}
+	free(oldfd);
+	free(oldflag);
 	return 1;
 }
 
@@ -72,9 +84,9 @@ findfreefd(Fgrp *f, int start)
 }
 
 int
-newfd(Chan *c)
+newfd(Chan *c, int mode)
 {
-	int fd;
+	int fd, flag;
 	Fgrp *f;
 
 	f = up->fgrp;
@@ -87,6 +99,13 @@ newfd(Chan *c)
 	if(fd > f->maxfd)
 		f->maxfd = fd;
 	f->fd[fd] = c;
+
+	/* per file-descriptor flags */
+	flag = 0;
+	if(mode & OCEXEC)
+		flag |= CCEXEC;
+	f->flag[fd] = flag;
+
 	unlockfgrp(f);
 	return fd;
 }
@@ -112,6 +131,8 @@ newfd2(int fd[2], Chan *c[2])
 		f->maxfd = fd[1];
 	f->fd[fd[0]] = c[0];
 	f->fd[fd[1]] = c[1];
+	f->flag[fd[0]] = 0;
+	f->flag[fd[1]] = 0;
 	unlockfgrp(f);
 	return 0;
 }
@@ -247,6 +268,7 @@ sysdup(va_list list)
 
 		oc = f->fd[fd];
 		f->fd[fd] = c;
+		f->flag[fd] = 0;
 		unlockfgrp(f);
 		if(oc != nil)
 			cclose(oc);
@@ -255,7 +277,7 @@ sysdup(va_list list)
 			cclose(c);
 			nexterror();
 		}
-		fd = newfd(c);
+		fd = newfd(c, 0);
 		if(fd < 0)
 			error(Enofd);
 		poperror();
@@ -280,7 +302,7 @@ sysopen(va_list list)
 		cclose(c);
 		nexterror();
 	}
-	fd = newfd(c);
+	fd = newfd(c, mode);
 	if(fd < 0)
 		error(Enofd);
 	poperror();
@@ -295,7 +317,7 @@ fdclose(int fd, int flag)
 
 	lock(f);
 	c = fd <= f->maxfd ? f->fd[fd] : nil;
-	if(c == nil || (flag != 0 && (c->flag&flag) == 0)){
+	if(c == nil || (flag != 0 && ((f->flag[fd]|c->flag)&flag) == 0)){
 		unlock(f);
 		return;
 	}
@@ -1166,7 +1188,7 @@ syscreate(va_list list)
 		cclose(c);
 		nexterror();
 	}
-	fd = newfd(c);
+	fd = newfd(c, mode);
 	if(fd < 0)
 		error(Enofd);
 	poperror();

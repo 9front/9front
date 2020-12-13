@@ -63,6 +63,8 @@ dupopen(Chan *c, int omode)
 	Chan *f;
 	int fd, twicefd;
 
+	if(omode & ORCLOSE)
+		error(Eperm);
 	if(c->qid.type & QTDIR){
 		if(omode != 0)
 			error(Eisdir);

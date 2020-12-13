@@ -135,6 +135,8 @@ srvopen(Chan *c, int omode)
 
 	if(omode&OTRUNC)
 		error(Eexist);
+	if(omode&ORCLOSE)
+		error(Eperm);
 	if(openmode(omode)!=sp->chan->mode && sp->chan->mode!=ORDWR)
 		error(Eperm);
 	devpermcheck(sp->owner, sp->perm, omode);
@@ -338,8 +340,6 @@ srvwrite(Chan *c, void *va, long n, vlong)
 		cclose(c1);
 		nexterror();
 	}
-	if(c1->flag & (CCEXEC|CRCLOSE))
-		error("posted fd has remove-on-close or close-on-exec");
 	if(c1->qid.type & QTAUTH)
 		error("cannot post auth file in srv");
 	sp = srvlookup(nil, c->qid.path);
