@@ -354,6 +354,7 @@ main(int argc, char **argv)
 		sysfatal("fork: %r");
 	case 0:
 		dup(efd[0], 0);
+		dup(efd[0], 1);
 		close(efd[0]);
 		close(efd[1]);
 		close(pfd[1]);
