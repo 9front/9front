@@ -1065,4 +1065,6 @@ main(int argc, char **argv)
 	if(in == nil) sysfatal("Bfdopen: %r");
 	extern void yyparse(void);
 	yyparse();
+	extern int yynerrs;
+	exits(yynerrs ? "error" : nil);
 }
