@@ -535,6 +535,8 @@ eresized(int new)
 	r.max.x = screen->r.min.x;
 	r.min.y = screen->r.min.y + font->height + 2*BORDER;
 	for(icon = h.first; icon != nil; icon = icon->next){
+		if(icon->img == nil)
+			continue;
 		r.min.x = r.max.x + BORDER;
 		r.max.x = r.min.x + Dx(icon->img->r);
 		r.max.y = r.min.y + Dy(icon->img->r);
