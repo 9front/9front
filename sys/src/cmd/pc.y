@@ -7,7 +7,7 @@
 #include <thread.h>
 #include <libsec.h>
 
-int inbase = 10, outbase, divmode, sep, heads, fail, prompt;
+int inbase = 10, outbase, divmode, sep, heads, fail, prompt, eof;
 enum { MAXARGS = 16 };
 
 typedef struct Num Num;
@@ -591,18 +591,23 @@ yylex(void)
 	int c, b;
 	char buf[512], *p;
 	Keyword *kw;
-	
-	if(prompt && !prompted) {print("; "); prompted = 1;}
+
+	if(prompt && !prompted && !eof) {print("; "); prompted = 1;}
 	do
 		c = Bgetc(in);
 	while(c != '\n' && isspace(c));
-	if(c == '\n') prompted = 0;
+	if(c < 0 && !eof){
+		eof = 1;
+		c = '\n';
+	}
+	if(c == '\n')
+		prompted = 0;
 	if(isdigit(c)){
 		for(p = buf, *p++ = c; c = Bgetc(in), isalnum(c) || c == '_'; )
 			if(p < buf + sizeof(buf) - 1 && c != '_')
 				*p++ = c;
 		*p = 0;
-		Bungetc(in);
+		if(c >= 0) Bungetc(in);
 		b = inbase;
 		p = buf;
 		if(*p == '0'){
@@ -636,7 +641,7 @@ yylex(void)
 		for(; kw->name[0] == c; kw++)
 			if(kw->name[0] == b)
 				return kw->tok;
-		Bungetc(in);
+		if(c >= 0) Bungetc(in);
 	}
 	return c;
 }
