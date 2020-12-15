@@ -21,7 +21,6 @@
 #define	idprint(...)	if(prid)	print(__VA_ARGS__); else USED(prid)
 #define	aprint(...)	if(datapi)	print(__VA_ARGS__); else USED(datapi)
 #define	ledprint(...)	if(dled)	print(__VA_ARGS__); else USED(dled)
-#define	Pciwaddrh(a)	0
 #define Tname(c)	tname[(c)->type]
 #define	Ticks		MACHP(0)->ticks
 #define	MS2TK(t)	(((ulong)(t)*HZ)/1000)
@@ -284,20 +283,23 @@ mkalist(Aportm *m, uint flags, uchar *data, int len)
 	Actab *t;
 	Alist *l;
 	Aprdt *p;
+	uvlong pa;
 
 	t = m->ctab;
 	if(data && len > 0){
+		pa = PCIWADDR(data);
 		p = &t->prdt;
-		p->dba = PCIWADDR(data);
-		p->dbahi = Pciwaddrh(data);
+		p->dba = pa;
+		p->dbahi = pa>>32;
 		p->count = 1<<31 | len - 2 | 1;
 		flags |= 1<<16;
 	}
+	pa = PCIWADDR(t);
 	l = m->list;
 	l->flags = flags | 0x5;
 	l->len = 0;
-	l->ctab = PCIWADDR(t);
-	l->ctabhi = Pciwaddrh(t);
+	l->ctab = pa;
+	l->ctabhi = pa>>32;
 	return l;
 }
 
@@ -600,6 +602,7 @@ ahciwakeup(Aportc *c, uint mode)
 static int
 ahciconfigdrive(Ahba *h, Aportc *c, int mode)
 {
+	uvlong pa;
 	Aportm *m;
 	Aport *p;
 	int i;
@@ -618,10 +621,12 @@ ahciconfigdrive(Ahba *h, Aportc *c, int mode)
 		return -1;
 	}
 
-	p->list = PCIWADDR(m->list);
-	p->listhi = Pciwaddrh(m->list);
-	p->fis = PCIWADDR(m->fis.base);
-	p->fishi = Pciwaddrh(m->fis.base);
+	pa = PCIWADDR(m->list);
+	p->list = pa;
+	p->listhi = pa>>32;
+	pa = PCIWADDR(m->fis.base);
+	p->fis = pa;
+	p->fishi = pa>>32;
 
 	p->cmd |= Afre;
 
@@ -1553,7 +1558,6 @@ iaenable(SDev *s)
 	}
 	if(c->ndrive == 0)
 		panic("iaenable: zero s->ctlr->ndrive");
-	pcisetbme(c->pci);
 	snprint(name, sizeof name, "%s (%s)", s->name, s->ifc->name);
 	intrenable(c->pci->intl, iainterrupt, c, c->pci->tbdf, name);
 	/* supposed to squelch leftover interrupts here. */
@@ -2228,6 +2232,7 @@ iapnp(void)
 			c->drive[d->driveno] = d;
 			iadrive[niadrive + d->driveno] = d;
 		}
+		pcisetbme(c->pci);
 		for(i = 0; i < n; i++){
 			c->drive[i]->mode = DMautoneg;
 			configdrive(c->drive[i]);

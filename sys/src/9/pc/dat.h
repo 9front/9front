@@ -250,7 +250,7 @@ struct Mach
 	int	pdbfree;
 	
 	u32int	dr7;			/* shadow copy of dr7 */
-	
+	u32int	xcr0;
 	void*	vmx;
 
 	int	stack[1];

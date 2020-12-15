@@ -304,8 +304,6 @@ setbuttonmap(char* map)
 
 	one = two = three = 0;
 	for(i = 0; i < 3; i++){
-		if(map[i] == 0)
-			error(Ebadarg);
 		if(map[i] == '1'){
 			if(one)
 				error(Ebadarg);

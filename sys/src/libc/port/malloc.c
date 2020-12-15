@@ -99,13 +99,13 @@ checkenv(void)
 {
 	int n, fd;
 	char buf[20];
-	fd = open("/env/MALLOCFD", OREAD);
+	fd = open("/env/MALLOCFD", OREAD|OCEXEC);
 	if(fd < 0)
 		return -1;
-	if((n = read(fd, buf, sizeof buf)) < 0) {
-		close(fd);
+	n = read(fd, buf, sizeof buf);
+	close(fd);
+	if(n < 0)
 		return -1;
-	}
 	if(n >= sizeof buf)
 		n = sizeof(buf)-1;
 	buf[n] = 0;

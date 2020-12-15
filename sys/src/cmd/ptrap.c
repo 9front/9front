@@ -8,6 +8,7 @@
 
 typedef struct IOProc IOProc;
 typedef struct PFilter PFilter;
+typedef struct FAttr FAttr;
 typedef struct PFid PFid;
 
 struct IOProc {
@@ -27,11 +28,19 @@ struct PFid {
 };
 Qid rootqid = {.type QTDIR};
 
+struct FAttr {
+	char *name;
+	Reprog *filt;
+	int invert;
+	FAttr *next;
+};
+
 struct PFilter {
 	char *name;
 	Reprog *filt;
-	PFilter *next;
 	int invert;
+	FAttr *attr;
+	PFilter *next;
 };
 PFilter *filters;
 
@@ -162,12 +171,32 @@ ptrapopen(Req *r)
 }
 
 static int
+filter(PFilter *f, Plumbmsg *pm)
+{
+	FAttr *a;
+	char *value;
+
+	if(!(regexec(f->filt, pm->data, nil, 0) ^ f->invert))
+		return 0;
+	for(a = f->attr; a; a = a->next){
+		value = plumblookup(pm->attr, a->name);
+		if(value == nil)
+			return 0;
+		if(!(regexec(a->filt, value, nil, 0) ^ f->attr->invert))
+			return 0;
+	}
+	return 1;
+}
+
+static int
 filterread(Req *r, PFid *pf)
 {
 	int rc, len, more;
 	char *buf;
 	Plumbmsg *pm;
+	PFilter *f;
 	
+	f = pf->filter;
 	for(;;){
 		if(pf->msg != nil){
 			rc = r->ifcall.count;
@@ -194,7 +223,7 @@ filterread(Req *r, PFid *pf)
 			len += rc;
 		}
 		free(buf);
-		if(regexec(pf->filter->filt, pm->data, nil, 0) ^ pf->filter->invert){
+		if(filter(f, pm)){
 			pf->msg = plumbpack(pm, &pf->msgn);
 			pf->msgp = 0;
 		}
@@ -341,7 +370,7 @@ Srv ptrapsrv = {
 void
 usage(void)
 {
-	fprint(2, "usage: %s port regex [ port regex ... ]\n", argv0);
+	fprint(2, "usage: %s port regex [ +attr regex ... ] ...\n", argv0);
 	exits("usage");
 }
 
@@ -349,6 +378,7 @@ void
 threadmain(int argc, char **argv)
 {
 	PFilter *f;
+	FAttr *fa;
 	char *p;
 	int i;
 
@@ -357,19 +387,33 @@ threadmain(int argc, char **argv)
 	}ARGEND;
 
 	if(argc == 0 || argc % 2) usage();
-	for(i = 0; i < argc; i += 2){
+	for(i = 0; i+1 < argc;){
+		p = argv[i];
 		f = emalloc9p(sizeof(PFilter));
-		f->name = strdup(argv[i]);
+		f->name = estrdup9p(p);
 		p = argv[i+1];
-		if(*p == '!'){
+		if(p[0] == '!'){
 			p++;
 			f->invert = 1;
 		}
-		f->filt = regcomp(p);
-		if(f->filt == nil)
-			sysfatal("%r");
+		if((f->filt = regcomp(p)) == nil)
+			sysfatal("regcomp: %r");
 		f->next = filters;
 		filters = f;
+		for(i += 2; p = argv[i], i+1 < argc && p[0] == '+'; i += 2){
+			p++;
+			fa = emalloc9p(sizeof(FAttr));
+			fa->name = estrdup9p(p);
+			p = argv[i+1];
+			if(p[0] == '!'){
+				p++;
+				fa->invert = 1;
+			}
+			if((fa->filt = regcomp(p)) == nil)
+				sysfatal("regcomp: %r");
+			fa->next = f->attr;
+			f->attr = fa;
+		}
 	}
 	threadpostmountsrv(&ptrapsrv, nil, "/mnt/plumb", MREPL | MCREATE);
 

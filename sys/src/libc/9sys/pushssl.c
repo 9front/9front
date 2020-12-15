@@ -11,7 +11,7 @@ int
 pushssl(int fd, char *alg, char *secin, char *secout, int *cfd)
 {
 	char buf[8];
-	char dname[64];
+	char dname[32];
 	int n, data, ctl;
 
 	ctl = open("#D/ssl/clone", ORDWR);
@@ -21,7 +21,7 @@ pushssl(int fd, char *alg, char *secin, char *secout, int *cfd)
 	if(n < 0)
 		goto error;
 	buf[n] = 0;
-	sprint(dname, "#D/ssl/%s/data", buf);
+	snprint(dname, sizeof(dname), "#D/ssl/%s/data", buf);
 	data = open(dname, ORDWR);
 	if(data < 0)
 		goto error;

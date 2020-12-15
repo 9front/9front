@@ -16,8 +16,8 @@ _reqqueueproc(void *v)
 	q = v;
 	rfork(RFNOTEG);
 
-	buf = smprint("/proc/%d/ctl", getpid());
-	fd = open(buf, OWRITE);
+	buf = smprint("/proc/%lud/ctl", (ulong)getpid());
+	fd = open(buf, OWRITE|OCEXEC);
 	free(buf);
 	
 	for(;;){
@@ -40,6 +40,8 @@ _reqqueueproc(void *v)
 		f(r);
 	}
 
+	if(fd >= 0)
+		close(fd);
 	free(r);
 	free(q);
 	threadexits(nil);

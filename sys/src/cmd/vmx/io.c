@@ -292,7 +292,7 @@ picio(int isin, u16int port, u32int val, int sz, void *)
 			p->imr = 0;
 			p->prio = 7;
 			p->flags = 0;
-			if((val & 0x0b) != 0x01) vmerror("PIC%ld ICW1 with unsupported value %#ux", p-pic, val);
+			if((val & 0x0b) != 0x01) vmerror("PIC%zd ICW1 with unsupported value %#ux", p-pic, (u32int)val);
 			p->init = 1;
 			return 0;
 		}
@@ -347,7 +347,7 @@ picio(int isin, u16int port, u32int val, int sz, void *)
 	case 0xa1:
 		switch(p->init){
 		default:
-			vmerror("write to PIC%ld in init=%d state", p-pic, p->init);
+			vmerror("write to PIC%zd in init=%d state", p-pic, p->init);
 			return 0;
 		case 1:
 			p->base = val;
@@ -355,11 +355,11 @@ picio(int isin, u16int port, u32int val, int sz, void *)
 			return 0;
 		case 2:
 			if(p == &pic[0] && val != 4 || p == &pic[1] && val != 2)
-				vmerror("PIC%ld ICW3 with unsupported value %#ux", p-pic, val);
+				vmerror("PIC%zd ICW3 with unsupported value %#ux", p-pic, val);
 			p->init = 3;
 			return 0;
 		case 3:
-			if((val & 0xfd) != 1) vmerror("PIC%ld ICW4 with unsupported value %#ux", p-pic, val);
+			if((val & 0xfd) != 1) vmerror("PIC%zd ICW4 with unsupported value %#ux", p-pic, val);
 			if((val & 2) != 0) p->flags |= AEOI;
 			p->init = 4;
 			picupdate(p);
@@ -726,7 +726,7 @@ kbdcmd(u8int val)
 		case 0xf2: keyputc(0xfa); keyputc(0xab); keyputc(0x41); break; /* keyboard id */
 		case 0xee: keyputc(0xee); break; /* echo */
 		default:
-			vmerror("unknown kbd command %#ux", val);
+			vmdebug("unknown kbd command %#ux", val);
 			keyputc(0xfe);
 		}
 	}
@@ -1203,9 +1203,9 @@ u32int
 iowhine(int isin, u16int port, u32int val, int sz, void *mod)
 {
 	if(isin)
-		vmerror("%s%sread from unknown i/o port %#ux ignored (sz=%d, pc=%#ullx)", mod != nil ? mod : "", mod != nil ? ": " : "", port, sz, rget(RPC));
+		vmdebug("%s%sread from unknown i/o port %#ux ignored (sz=%d, pc=%#ullx)", mod != nil ? mod : "", mod != nil ? ": " : "", port, sz, rget(RPC));
 	else
-		vmerror("%s%swrite to unknown i/o port %#ux ignored (val=%#ux, sz=%d, pc=%#ullx)", mod != nil ? mod : "", mod != nil ? ": " : "", port, val, sz, rget(RPC));
+		vmdebug("%s%swrite to unknown i/o port %#ux ignored (val=%#ux, sz=%d, pc=%#ullx)", mod != nil ? mod : "", mod != nil ? ": " : "", port, val, sz, rget(RPC));
 	return -1;
 }
 

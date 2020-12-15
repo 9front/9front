@@ -11,7 +11,7 @@ Region *mmap;
 int ctlfd, regsfd, mapfd, waitfd;
 Channel *waitch, *sleepch, *notifch;
 enum { MSEC = 1000*1000, MinSleep = MSEC, SleeperPoll = 2000*MSEC } ;
-int getexit, state;
+int getexit, state, debug;
 typedef struct VmxNotif VmxNotif;
 struct VmxNotif {
 	void (*f)(void *);
@@ -320,9 +320,6 @@ gend(void *v)
 	return (u8int *) v + gavail(v);
 }
 
-void *tmp, *vgamem;
-uvlong tmpoff, vgamemoff;
-
 static void
 mksegment(char *sn)
 {
@@ -355,8 +352,9 @@ mksegment(char *sn)
 		close(fd);
 		gmem = segattach(0, sn, nil, sz);
 		if(gmem == (void*)-1) sysfatal("segattach: %r");
+	}else{
+		memset(gmem, 0, sz > 1<<24 ? 1<<24 : sz);
 	}
-	memset(gmem, 0, sz > 1<<24 ? 1<<24 : sz);
 	p = gmem;
 	for(r = mmap; r != nil; r = r->next){
 		if(r->segname == nil) continue;
@@ -365,14 +363,12 @@ mksegment(char *sn)
 		p += r->end - r->start;
 		r->ve = p;
 	}
-	vgamem = p;
-	vgamemoff = p - gmem;
-	regptr(0xa0000)->segoff = vgamemoff;
-	regptr(0xa0000)->v = vgamem;
+	/* vga */
+	r = regptr(0xa0000);
+	r->segoff = p - gmem;
+	r->v = p;
 	p += 256*1024;
-	regptr(0xa0000)->ve = p;
-	tmp = p;
-	tmpoff = p - gmem;
+	r->ve = p;
 
 	for(r = mmap; r != nil; r = r->next)
 		modregion(r);
@@ -504,7 +500,7 @@ sendnotif(void (*f)(void *), void *arg)
 		send(notifch, &notif);
 }
 
-extern void vgainit(void);
+extern void vgainit(int);
 extern void pciinit(void);
 extern void pcibusmap(void);
 extern void cpuidinit(void);
@@ -574,7 +570,7 @@ usage(void)
 	for(p = blanks; *p != 0; p++)
 		*p = ' ';
 	fprint(2, "usage: %s [ -M mem ] [ -c com1rd[,com1wr] ] [ -C com2rd[,com2r] ] [ -n nic ]\n", argv0);
-	fprint(2, "       %s [ -d blockfile ] [ -m module ] [ -v vga ] [ -9 srv ] kernel [ args ... ]\n", blanks);
+	fprint(2, "       %s [ -d blockfile ] [ -m module ] [ -v|-w vga ] [ -9 srv ] kernel [ args ... ]\n", blanks);
 	threadexitsall("usage");
 }
 
@@ -590,6 +586,7 @@ threadmain(int argc, char **argv)
 	static uvlong gmemsz = 64*1024*1024;
 	static char *srvname;
 	extern uintptr fbsz, fbaddr;
+	int newwin = 0;
 	int i;
 
 	quotefmtinstall();
@@ -598,7 +595,7 @@ threadmain(int argc, char **argv)
 	waitch = chancreate(sizeof(char *), 32);
 	sleepch = chancreate(sizeof(ulong), 32);
 	notifch = chancreate(sizeof(VmxNotif), 16);
-	
+
 	ARGBEGIN {
 	case 'm':
 		bootmod = realloc(bootmod, (bootmodn + 1) * sizeof(char *));
@@ -633,10 +630,15 @@ threadmain(int argc, char **argv)
 		}
 		edevn++;
 		break;
+	case 'D':
+		debug++;
+		break;
 	case 'M':
 		gmemsz = siparse(EARGF(usage()));
 		if(gmemsz != (uintptr) gmemsz) sysfatal("too much memory for address space");
 		break;
+	case 'w':
+		newwin = 1;
 	case 'v':
 		vgafbparse(EARGF(usage()));
 		break;
@@ -673,7 +675,7 @@ threadmain(int argc, char **argv)
 	loadkernel(argv[0]);
 	pciinit();
 
-	vgainit();
+	vgainit(newwin);
 	for(i = 0; i < edevn; i++)
 		if(edev[i](edevaux[i]) < 0)
 			sysfatal("%s: %r", edevt[i]);

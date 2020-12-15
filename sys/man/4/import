@@ -45,7 +45,7 @@ A process is started on the
 remote machine, with authority of the user of
 .IR import ,
 to perform work for the local machine using the
-.IR exportfs (4)
+.IR oexportfs (4)
 service.
 The default port used is TCP 17007.
 If
@@ -76,7 +76,7 @@ This is useful for connecting to foreign systems like Inferno.
 .B -z
 Bypass the initial protocol request for which remote tree to serve.
 This is necessary when the remote 
-.IR exportfs (4) 
+.IR oexportfs (4) 
 is running with the 
 .B -r 
 or 
@@ -144,7 +144,7 @@ runs a
 .I p9any
 authentication (as server) over its file descriptor 0
 (expected to be an incoming network connection from
-.B exportfs
+.B oexportfs
 .BR -B ),
 mounts the connection onto
 .IR mntpt ,
@@ -189,7 +189,7 @@ When
 boots, it runs
 .IP
 .EX
-exportfs -R -r /usr/web -B tcp!webvax!999
+oexportfs -R -r /usr/web -B tcp!webvax!999
 .EE
 .PP
 to serve a read-only copy of
@@ -212,7 +212,7 @@ to restart
 .IR rcpu (1),
 .IR bind (1),
 .IR ssl (3),
-.IR exportfs (4),
+.IR oexportfs (4),
 .IR srv (4),
 .IR aan (8),
 .IR listen (8),

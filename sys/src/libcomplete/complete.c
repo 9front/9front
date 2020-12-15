@@ -53,7 +53,7 @@ complete(char *dir, char *s)
 		return nil;
 	}
 
-	fd = open(dir, OREAD);
+	fd = open(dir, OREAD|OCEXEC);
 	if(fd < 0)
 		return nil;
 

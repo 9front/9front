@@ -1468,9 +1468,6 @@ namec(char *aname, int amode, int omode, ulong perm)
 			saveregisters();
 
 			c = devtab[c->type]->open(c, omode&~OCEXEC);
-
-			if(omode & OCEXEC)
-				c->flag |= CCEXEC;
 			if(omode & ORCLOSE)
 				c->flag |= CRCLOSE;
 			break;
@@ -1571,11 +1568,9 @@ namec(char *aname, int amode, int omode, ulong perm)
 			incref(cnew->path);
 
 			cnew = devtab[cnew->type]->create(cnew, e.elems[e.nelems-1], omode&~(OEXCL|OCEXEC), perm);
-			poperror();
-			if(omode & OCEXEC)
-				cnew->flag |= CCEXEC;
 			if(omode & ORCLOSE)
 				cnew->flag |= CRCLOSE;
+			poperror();
 			putmhead(m);
 			cclose(c);
 			c = cnew;

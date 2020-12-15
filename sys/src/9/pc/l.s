@@ -520,7 +520,7 @@ TEXT _peekinst(SB), $0
  * a 386 (Ac bit can't be set). If it's not a 386 and the Id bit can't be
  * toggled then it's an older 486 of some kind.
  *
- *	cpuid(fun, regs[4]);
+ *	cpuid(fn, sublvl, regs[4]);
  */
 TEXT cpuid(SB), $0
 	MOVL	$0x240000, AX
@@ -539,6 +539,7 @@ TEXT cpuid(SB), $0
 	TESTL	$0x200000, AX			/* Id */
 	JZ	_cpu486				/* can't toggle this bit on some 486 */
 	MOVL	fn+0(FP), AX
+	MOVL	sublvl+4(FP), CX
 	CPUID
 	JMP	_cpuid
 _cpu486:
@@ -555,7 +556,7 @@ _zaprest:
 	XORL	CX, CX
 	XORL	DX, DX
 _cpuid:
-	MOVL	regs+4(FP), BP
+	MOVL	regs+8(FP), BP
 	MOVL	AX, 0(BP)
 	MOVL	BX, 4(BP)
 	MOVL	CX, 8(BP)

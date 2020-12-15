@@ -118,7 +118,7 @@ idegoio(IDE *d, int wr)
 	
 	addr = getlba(d);
 	if(addr < 0){
-		vmerror("ide%d: access to invalid sector address (access to CHS=(%#.4ux,%#ux,%#.2ux); geometry is (%#.4ux,%#ux,%#.2ux)", d-ide, d->cyl, d->head&0xf, d->sec, d->lcyl, d->lhead, d->lsec);
+		vmerror("ide%zd: access to invalid sector address (access to CHS=(%#.4ux,%#ux,%#.2ux); geometry is (%#.4ux,%#ux,%#.2ux)", d-ide, d->cyl, d->head&0xf, d->sec, d->lcyl, d->lhead, d->lsec);
 		postexc("#bp", NOERRC);
 		d->stat = IDEDRDY | IDEDSC | IDEDRQ | IDEERR;
 		d->err = IDEIDNF;
@@ -325,7 +325,7 @@ ideioproc(void *dp)
 				qunlock(io);
 				werrstr("eof");
 				if(getsector(a+i, p) < 0 && pread(d->fd, p, 512, (a+i)*512) < 512){
-					vmerror("ide%d: read: %r", d - ide);
+					vmerror("ide%zd: read: %r", d - ide);
 					qlock(io);
 					io->err = IDEUNC;
 					qunlock(io);
@@ -355,7 +355,7 @@ idecmd(IDE *d, u8int cmd)
 		break;
 	default:
 		if((d->flags & IDEPRESENT) == 0){
-			vmerror("ide%d: command %#ux issued to absent drive", d-ide, cmd);
+			vmerror("ide%zd: command %#ux issued to absent drive", d-ide, cmd);
 			return;
 		}
 	}
@@ -435,7 +435,7 @@ idecmd(IDE *d, u8int cmd)
 		case 0x66: d->flags |= IDEKEEPFEAT; break; /* retain settings */
 		case 0xcc: d->flags &= ~IDEKEEPFEAT; break; /* revert to default on reset */
 		default:
-			vmerror("ide%d: unknown feature %#ux", d-ide, d->feat);
+			vmerror("ide%zd: unknown feature %#ux", d-ide, d->feat);
 			d->stat = IDEDRDY|IDEDSC|IDEERR;
 			d->err = IDEABRT;
 			return;
@@ -443,7 +443,7 @@ idecmd(IDE *d, u8int cmd)
 		d->stat = IDEDRDY|IDEDSC;
 		break;
 	default:
-		vmerror("ide%d: unknown command %#ux", d-ide, cmd);
+		vmerror("ide%zd: unknown command %#ux", d-ide, cmd);
 		d->stat = IDEDRDY|IDEDSC|IDEERR;
 		d->err = IDEABRT;
 	}

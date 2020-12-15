@@ -18,11 +18,6 @@ enum {
 	Qmax = 32,
 };
 
-enum {
-	CR4Osfxsr = 1 << 9,
-	CR4Oxmmex = 1 << 10,
-};
-
 enum {				/* cpuid standard function codes */
 	Highstdfunc = 0,	/* also returns vendor string */
 	Procsig,
@@ -496,24 +491,27 @@ cpuidprint(void)
  *		(if so turn it on)
  *	- whether or not it supports the page global flag
  *		(if so turn it on)
+ *	- detect PAT feature and add write-combining entry
+ *	- detect MTRR support and synchronize state with cpu0
+ *	- detect NX support and enable it for AMD64
+ *	- detect watchpoint support
+ *	- detect FPU features and enable the FPU
  */
 int
 cpuidentify(void)
 {
-	char *p;
-	int family, model, nomce;
+	int family, model;
 	X86type *t, *tab;
-	uintptr cr4;
 	ulong regs[4];
-	vlong mca, mct, pat;
+	uintptr cr4;
 
-	cpuid(Highstdfunc, regs);
+	cpuid(Highstdfunc, 0, regs);
 	memmove(m->cpuidid,   &regs[1], BY2WD);	/* bx */
 	memmove(m->cpuidid+4, &regs[3], BY2WD);	/* dx */
 	memmove(m->cpuidid+8, &regs[2], BY2WD);	/* cx */
 	m->cpuidid[12] = '\0';
 
-	cpuid(Procsig, regs);
+	cpuid(Procsig, 0, regs);
 	m->cpuidax = regs[0];
 	m->cpuidcx = regs[2];
 	m->cpuiddx = regs[3];
@@ -572,14 +570,13 @@ cpuidentify(void)
 	 * If machine check was enabled clear out any lingering status.
 	 */
 	if(m->cpuiddx & (Pge|Mce|Pse)){
+		vlong mca, mct;
+
 		cr4 = getcr4();
 		if(m->cpuiddx & Pse)
 			cr4 |= 0x10;		/* page size extensions */
-		if(p = getconf("*nomce"))
-			nomce = strtoul(p, 0, 0);
-		else
-			nomce = 0;
-		if((m->cpuiddx & Mce) != 0 && !nomce){
+
+		if((m->cpuiddx & Mce) != 0 && getconf("*nomce") == nil){
 			if((m->cpuiddx & Mca) != 0){
 				vlong cap;
 				int bank;
@@ -631,7 +628,6 @@ cpuidentify(void)
 			cr4 |= 0x80;		/* page global enable bit */
 			m->havepge = 1;
 		}
-
 		putcr4(cr4);
 
 		if((m->cpuiddx & (Mca|Mce)) == Mce)
@@ -640,24 +636,19 @@ cpuidentify(void)
 
 #ifdef PATWC
 	/* IA32_PAT write combining */
-	if((m->cpuiddx & Pat) != 0 && rdmsr(0x277, &pat) != -1){
-		pat &= ~(255LL<<(PATWC*8));
-		pat |= 1LL<<(PATWC*8);	/* WC */
-		wrmsr(0x277, pat);
+	if((m->cpuiddx & Pat) != 0){
+		vlong pat;
+
+		if(rdmsr(0x277, &pat) != -1){
+			pat &= ~(255LL<<(PATWC*8));
+			pat |= 1LL<<(PATWC*8);	/* WC */
+			wrmsr(0x277, pat);
+		}
 	}
 #endif
 
-	if(m->cpuiddx & Mtrr)
+	if((m->cpuiddx & Mtrr) != 0 && getconf("*nomtrr") == nil)
 		mtrrsync();
-
-	if((m->cpuiddx & (Sse|Fxsr)) == (Sse|Fxsr)){			/* have sse fp? */
-		fpsave = fpssesave;
-		fprestore = fpsserestore;
-		putcr4(getcr4() | CR4Osfxsr|CR4Oxmmex);
-	} else {
-		fpsave = fpx87save;
-		fprestore = fpx87restore;
-	}
 
 	if(strcmp(m->cpuidid, "GenuineIntel") == 0 && (m->cpuidcx & Rdrnd) != 0)
 		hwrandbuf = rdrandbuf;
@@ -669,9 +660,9 @@ cpuidentify(void)
 		m->havewatchpt8 = 1;
 
 		/* check and enable NX bit */
-		cpuid(Highextfunc, regs);
+		cpuid(Highextfunc, 0, regs);
 		if(regs[0] >= Procextfeat){
-			cpuid(Procextfeat, regs);
+			cpuid(Procextfeat, 0, regs);
 			if((regs[3] & (1<<20)) != 0){
 				vlong efer;
 
@@ -689,13 +680,15 @@ cpuidentify(void)
 		|| family == 6 && (model == 15 || model == 23 || model == 28))
 			m->havewatchpt8 = 1;
 		/* Intel SDM claims amd64 support implies 8-byte watchpoint support */
-		cpuid(Highextfunc, regs);
+		cpuid(Highextfunc, 0, regs);
 		if(regs[0] >= Procextfeat){
-			cpuid(Procextfeat, regs);
+			cpuid(Procextfeat, 0, regs);
 			if((regs[3] & 1<<29) != 0)
 				m->havewatchpt8 = 1;
 		}
 	}
+
+	fpuinit();
 
 	cputype = t;
 	return t->family;

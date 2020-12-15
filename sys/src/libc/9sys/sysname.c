@@ -10,7 +10,7 @@ sysname(void)
 	if(b[0])
 		return b;
 
-	f = open("#c/sysname", 0);
+	f = open("/dev/sysname", OREAD|OCEXEC);
 	if(f >= 0) {
 		n = read(f, b, sizeof(b)-1);
 		if(n > 0)

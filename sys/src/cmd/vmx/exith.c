@@ -1,9 +1,8 @@
 #include <u.h>
 #include <libc.h>
-#include <thread.h>
-#include <bio.h>
 #include "dat.h"
 #include "fns.h"
+#include "x86.h"
 
 int persist = 1;
 
@@ -118,109 +117,167 @@ eptfault(ExitInfo *ei)
 
 typedef struct CPUID CPUID;
 struct CPUID {
-	u32int idx;
 	u32int ax, bx, cx, dx;
 };
-static CPUID *cpuidf;
-static int ncpuidf;
+static u32int cpuidmax;
+static u32int cpuidmaxext;
+static CPUID leaf1;
+static struct {
+	uvlong miscen;
+}msr;
 
-static void
-auxcpuidproc(void *vpfd)
-{
-	int *pfd;
-	
-	pfd = vpfd;
-	close(pfd[1]);
-	close(0);
-	open("/dev/null", OREAD);
-	dup(pfd[0], 1);
-	close(pfd[0]);
-	procexecl(nil, "/bin/aux/cpuid", "cpuid", "-r", nil);
-	threadexits("exec: %r");
-}
+static uchar _cpuid[] = {
+	0x5E,			/* POP SI (PC) */
+	0x5D,			/* POP BP (CPUID&) */
+	0x58,			/* POP AX */
+	0x59,			/* POP CX */
+
+	0x51,			/* PUSH CX */
+	0x50,			/* PUSH AX */
+	0x55,			/* PUSH BP */
+	0x56,			/* PUSH SI */
+
+	0x31, 0xDB,		/* XOR BX, BX */
+	0x31, 0xD2,		/* XOR DX, DX */
+
+	0x0F, 0xA2,		/* CPUID */
+
+	0x89, 0x45, 0x00,	/* MOV AX, 0(BP) */
+	0x89, 0x5d, 0x04,	/* MOV BX, 4(BP) */
+	0x89, 0x4d, 0x08,	/* MOV CX, 8(BP) */
+	0x89, 0x55, 0x0C,	/* MOV DX, 12(BP) */
+	0xC3,			/* RET */
+};
+
+static CPUID (*getcpuid)(ulong ax, ulong cx) = (CPUID(*)(ulong, ulong)) _cpuid;
 
 void
 cpuidinit(void)
 {
-	int pfd[2];
-	Biobuf *bp;
-	char *l, *f[5];
-	CPUID *cp;
-	
-	pipe(pfd);
-	procrfork(auxcpuidproc, pfd, 4096, RFFDG);
-	close(pfd[0]);
-	bp = Bfdopen(pfd[1], OREAD);
-	if(bp == nil) sysfatal("Bopenfd: %r");
-	for(; l = Brdstr(bp, '\n', 1), l != nil; free(l)){
-		if(tokenize(l, f, 5) < 5) continue;
-		cpuidf = realloc(cpuidf, (ncpuidf + 1) * sizeof(CPUID));
-		cp = cpuidf + ncpuidf++;
-		cp->idx = strtoul(f[0], nil, 16);
-		cp->ax = strtoul(f[1], nil, 16);
-		cp->bx = strtoul(f[2], nil, 16);
-		cp->cx = strtoul(f[3], nil, 16);
-		cp->dx = strtoul(f[4], nil, 16);
+	CPUID r;
+	int f;
+
+	if(sizeof(uintptr) == 8) /* patch out POP BP -> POP AX */
+		_cpuid[1] = 0x58;
+	segflush(_cpuid, sizeof(_cpuid));
+
+	r = getcpuid(0, 0);
+	cpuidmax = r.ax;
+	r = getcpuid(0x80000000, 0);
+	cpuidmaxext = r.ax;
+	leaf1 = getcpuid(1, 0);
+
+	memset(&msr, 0, sizeof(msr));
+	if((f = open("/dev/msr", OREAD)) >= 0){
+		pread(f, &msr.miscen, 8, 0x1a0);
+		msr.miscen &= 1<<0; /* fast strings */
+		close(f);
 	}
-	Bterm(bp);
-	close(pfd[1]);
 }
 
-CPUID *
-getcpuid(ulong idx)
-{
-	CPUID *cp;
-	
-	for(cp = cpuidf; cp < cpuidf + ncpuidf; cp++)
-		if(cp->idx == idx)
-			return cp;
-	return nil;
-}
-
-int maxcpuid = 7;
+static int xsavesz[] = {
+	[1] = 512+64,
+	[3] = 512+64,
+	[7] = 512+64+256,
+};
 
 static void
 cpuid(ExitInfo *ei)
 {
 	u32int ax, bx, cx, dx;
-	CPUID *cp;
-	static CPUID def;
-	
+	CPUID cp;
+
 	ax = rget(RAX);
-	cp = getcpuid(ax);
-	if(cp == nil) cp = &def;
+	cx = rget(RCX);
+	bx = dx = 0;
+	cp = getcpuid(ax, cx);
 	switch(ax){
-	case 0: /* highest register & GenuineIntel */
-		ax = maxcpuid;
-		bx = cp->bx;
-		dx = cp->dx;
-		cx = cp->cx;
+	case 0x00: /* highest register & GenuineIntel */
+		ax = MIN(cpuidmax, 0x18);
+		bx = cp.bx;
+		dx = cp.dx;
+		cx = cp.cx;
 		break;
-	case 1: /* features */
-		ax = cp->ax;
-		bx = cp->bx & 0xffff;
-		cx = cp->cx & 0x60de2203;
-		dx = cp->dx & 0x0782a179;
+	case 0x01: /* features */
+		ax = cp.ax;
+		bx = cp.bx & 0xffff;
+		/* some features removed, hypervisor added */
+		cx = cp.cx & 0x76de3217 | 0x80000000UL;
+		dx = cp.dx & 0x0f8aa579;
+		if(leaf1.cx & 1<<27){
+			if(rget("cr4real") & Cr4Osxsave)
+				cx |= 1<<27;
+		}else{
+			cx &= ~0x1c000000;
+		}
 		break;
-	case 2: goto literal; /* cache stuff */
-	case 3: goto zero; /* processor serial number */
-	case 4: goto zero; /* cache stuff */
-	case 5: goto zero; /* monitor/mwait */
-	case 6: goto zero; /* thermal management */
-	case 7: goto zero; /* more features */
-	case 10: goto zero; /* performance counters */
+	case 0x02: goto literal; /* cache stuff */
+	case 0x03: goto zero; /* processor serial number */
+	case 0x04: goto literal; /* cache stuff */
+	case 0x05: goto zero; /* monitor/mwait */
+	case 0x06: goto zero; /* thermal management */
+	case 0x07: /* more features */
+		if(cx == 0){
+			ax = 0;
+			bx = cp.bx & 0x2369;
+			cx = 0;
+			if((leaf1.cx & 1<<27) == 0)
+				bx &= ~0xdc230020;
+		}else{
+			goto zero;
+		}
+		break;
+	case 0x08: goto zero;
+	case 0x09: goto literal; /* direct cache access */
+	case 0x0a: goto zero; /* performance counters */
+	case 0x0b: goto zero; /* extended topology */
+	case 0x0c: goto zero;
+	case 0x0d: /* extended state */
+		if((leaf1.cx & 1<<27) == 0)
+			goto zero;
+		if(cx == 0){ /* main leaf */
+			ax = cp.ax & 7; /* x87, sse, avx */
+			bx = xsavesz[rget("xcr0")]; /* current xsave size */
+			cx = xsavesz[ax]; /* max xsave size */
+		}else if(cx == 1){ /* sub leaf */
+			ax = cp.ax & 7; /* xsaveopt, xsavec, xgetbv1 */
+			bx = xsavesz[rget("xcr0")];
+			cx = 0;
+		}else if(cx == 2){
+			ax = xsavesz[7] - xsavesz[3];
+			bx = xsavesz[3];
+			cx = 0;
+		}else{
+			goto zero;
+		}
+		break;
+	case 0x0f: goto zero; /* RDT */
+	case 0x10: goto zero; /* RDT */
+	case 0x12: goto zero; /* SGX */
+	case 0x14: goto zero; /* PT */
+	case 0x15: goto zero; /* TSC */
+	case 0x16: goto zero; /* cpu clock */
+	case 0x17: goto zero; /* SoC */
+	case 0x18: goto literal; /* pages, tlb */
+
+	case 0x40000000: /* hypervisor */
+		ax = 0;
+		bx = 0x4b4d564b; /* act as KVM */
+		cx = 0x564b4d56;
+		dx = 0x4d;
+		break;
+
 	case 0x80000000: /* highest register */
-		ax = 0x80000008;
-		bx = cx = dx = 0;
+		ax = MIN(cpuidmaxext, 0x80000008);
+		cx = 0;
 		break;
 	case 0x80000001: /* signature & ext features */
-		ax = cp->ax;
-		bx = 0;
-		cx = cp->cx & 0x121;
+		ax = cp.ax;
+		cx = cp.cx & 0x121;
 		if(sizeof(uintptr) == 8)
-			dx = cp->dx & 0x24100800;
+			dx = cp.dx & 0x24100800;
 		else
-			dx = cp->dx & 0x04100000;
+			dx = cp.dx & 0x04100000;
 		break;
 	case 0x80000002: goto literal; /* brand string */
 	case 0x80000003: goto literal; /* brand string */
@@ -230,18 +287,16 @@ cpuid(ExitInfo *ei)
 	case 0x80000007: goto zero; /* invariant tsc */
 	case 0x80000008: goto literal; /* address bits */
 	literal:
-		ax = cp->ax;
-		bx = cp->bx;
-		cx = cp->cx;
-		dx = cp->dx;
+		ax = cp.ax;
+		bx = cp.bx;
+		cx = cp.cx;
+		dx = cp.dx;
 		break;
 	default:
-		vmerror("unknown cpuid field eax=%#ux", ax);
+		if((ax & 0xf0000000) != 0x40000000)
+			vmdebug("unknown cpuid field eax=%#ux", ax);
 	zero:
-		ax = 0;
-		bx = 0;
-		cx = 0;
-		dx = 0;
+		ax = cx = 0;
 		break;
 	}
 	rset(RAX, ax);
@@ -267,12 +322,15 @@ rdwrmsr(ExitInfo *ei)
 		else rset("pat", val);
 		break;
 	case 0x8B: val = 0; break; /* microcode update */
+	case 0x1A0: /* IA32_MISC_ENABLE */
+		if(rd) val = msr.miscen;
+		break;
 	default:
 		if(rd){
-			vmerror("read from unknown MSR %#ux ignored", cx);
+			vmdebug("read from unknown MSR %#ux ignored", cx);
 			val = 0;
 		}else
-			vmerror("write to unknown MSR %#ux ignored (val=%#ullx)", cx, val);
+			vmdebug("write to unknown MSR %#ux ignored (val=%#ullx)", cx, val);
 		break;
 	}
 	if(rd){
@@ -310,7 +368,7 @@ movcr(ExitInfo *ei)
 	case 0:
 		switch(q >> 4 & 3){
 		case 0:
-			vmdebug("illegal CR0 write, value %#ux", rget(x86reg[q >> 8 & 15]));
+			vmdebug("illegal CR0 write, value %#ux", (u32int)rget(x86reg[q >> 8 & 15]));
 			rset("cr0real", rget(x86reg[q >> 8 & 15]));
 			skipinstr(ei);
 			break;
@@ -332,7 +390,7 @@ movcr(ExitInfo *ei)
 	case 4:
 		switch(q >> 4 & 3){
 		case 0:
-			vmdebug("illegal CR4 write, value %#ux", rget(x86reg[q >> 8 & 15]));
+			vmdebug("illegal CR4 write, value %#ux", (u32int)rget(x86reg[q >> 8 & 15]));
 			rset("cr4real", rget(x86reg[q >> 8 & 15]));
 			skipinstr(ei);
 			break;
@@ -347,7 +405,7 @@ movcr(ExitInfo *ei)
 		}
 		break;
 	default:
-		vmerror("access to unknown control register CR%d", ei->qual & 15);
+		vmerror("access to unknown control register CR%ud", q & 15);
 		postexc("#ud", NOERRC);
 	}
 }
@@ -373,6 +431,26 @@ irqackhand(ExitInfo *ei)
 	irqack(ei->qual);
 }
 
+static void
+xsetbv(ExitInfo *ei)
+{
+	uvlong v;
+
+	/* this should also #ud if LOCK prefix is used */
+
+	v = rget(RAX)&0xffffffff | rget(RDX)<<32;
+	if(rget(RCX) & 0xffffffff)
+		postexc("#gp", 0);
+	else if(v != 1 && v != 3 && v != 7)
+		postexc("#gp", 0);
+	else if((leaf1.cx & 1<<26) == 0 || (rget("cr4real") & Cr4Osxsave) == 0)
+		postexc("#ud", NOERRC);
+	else{
+		rset("xcr0", v);
+		skipinstr(ei);
+	}
+}
+
 typedef struct ExitType ExitType;
 struct ExitType {
 	char *name;
@@ -389,6 +467,7 @@ static ExitType etypes[] = {
 	{".movdr", movdr},
 	{"#db", dbgexc},
 	{"movcr", movcr},
+	{".xsetbv", xsetbv},
 };
 
 void

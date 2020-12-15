@@ -32,6 +32,19 @@ requires that
 .I newfd
 be no greater than 20 more than the highest file descriptor ever used by
 the program.
+.PP
+.I Dup
+does not copy the per file descriptor
+.B OCEXEC
+flag,
+meaning that
+.I newfd
+will not be closed on
+.IR exec(2)
+syscall,
+when
+.I oldfd
+had been previously opend with it.
 .SH SOURCE
 .B /sys/src/libc/9syscall
 .SH SEE ALSO

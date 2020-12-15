@@ -100,7 +100,7 @@ getremotesys(char *ndir)
 
 	snprint(buf, sizeof buf, "%s/remote", ndir);
 	sys = nil;
-	fd = open(buf, OREAD);
+	fd = open(buf, OREAD|OCEXEC);
 	if(fd >= 0){
 		n = read(fd, buf, sizeof(buf)-1);
 		if(n>0){

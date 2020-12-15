@@ -37,7 +37,7 @@ char	*patternfile;
 char	*origargs;
 
 char	*srvname = "ncpu";
-char	*exportfs = "/bin/exportfs";
+char	*exportfs = "/bin/oexportfs";
 char	*ealgs = "rc4_256 sha1";
 
 /* message size for exportfs; may be larger so we can do big graphics in CPU window */

@@ -112,7 +112,10 @@ void Xwalk(Fsrpc*);
 void Xwstat(Fsrpc*);
 void slave(Fsrpc*);
 
+void	io(void);
 void	reply(Fcall*, Fcall*, char*);
+void	mounterror(char*);
+
 Fid 	*getfid(int);
 int	freefid(int);
 Fid	*newfid(int);

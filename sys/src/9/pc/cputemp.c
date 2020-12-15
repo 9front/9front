@@ -13,7 +13,7 @@ intelcputempok(void)
 
 	if(m->cpuiddx & Acpif)
 	if(strcmp(m->cpuidid, "GenuineIntel") == 0){
-		cpuid(6, regs);
+		cpuid(6, 0, regs);
 		return regs[0] & 1;
 	}
 	return 0;
@@ -28,7 +28,7 @@ cputemprd0(Chan*, void *a, long n, vlong offset)
 	ulong regs[4];
 	static ulong tj;
 
-	cpuid(6, regs);
+	cpuid(6, 0, regs);
 	if((regs[0] & 1) == 0)
 		goto unsup;
 	if(tj == 0){

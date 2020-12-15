@@ -49,6 +49,7 @@ PORT=\
 OBJ=\
 	l.$O\
 	cga.$O\
+	fpu.$O\
 	i8253.$O\
 	i8259.$O\
 	main.$O\

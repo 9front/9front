@@ -244,7 +244,7 @@ putsnarf(void)
 
 	if(snarffd<0 || nsnarf==0)
 		return;
-	fd = open("/dev/snarf", OWRITE);
+	fd = open("/dev/snarf", OWRITE|OCEXEC);
 	if(fd < 0)
 		return;
 	/* snarf buffer could be huge, so fprint will truncate; do it in blocks */
@@ -394,12 +394,13 @@ portion(int x, int lo, int hi)
 {
 	x -= lo;
 	hi -= lo;
-	if(hi < 20)
-		return x > 0 ? 2 : 0;
-	if(x < 20)
-		return 0;
-	if(x > hi-20)
-		return 2;
+	if(x < hi/2){
+		if(x < 20)
+			return 0;
+	} else {
+		if(x > hi-20)
+			return 2;
+	}
 	return 1;
 }
 
@@ -857,7 +858,7 @@ sweep(void)
 }
 
 void
-drawedge(Image **bp, Rectangle r)
+drawedge(Image **bp, Image *col, Rectangle r)
 {
 	Image *b = *bp;
 	if(b != nil && Dx(b->r) == Dx(r) && Dy(b->r) == Dy(r))
@@ -865,28 +866,30 @@ drawedge(Image **bp, Rectangle r)
 	else{
 		freeimage(b);
 		b = allocwindow(wscreen, r, Refbackup, DNofill);
-		if(b != nil) draw(b, r, sizecol, nil, ZP);
+		if(b != nil) draw(b, r, col, nil, ZP);
 		*bp = b;
 	}
 }
 
 void
-drawborder(Rectangle r, int show)
+drawborder(Rectangle r, Image *col)
 {
-	static Image *b[4];
-	int i;
-	if(show == 0){
-		for(i = 0; i < 4; i++){
-			freeimage(b[i]);
-			b[i] = nil;
-		}
-	}else{
-		r = canonrect(r);
-		drawedge(&b[0], Rect(r.min.x, r.min.y, r.min.x+Borderwidth, r.max.y));
-		drawedge(&b[1], Rect(r.min.x+Borderwidth, r.min.y, r.max.x-Borderwidth, r.min.y+Borderwidth));
-		drawedge(&b[2], Rect(r.max.x-Borderwidth, r.min.y, r.max.x, r.max.y));
-		drawedge(&b[3], Rect(r.min.x+Borderwidth, r.max.y-Borderwidth, r.max.x-Borderwidth, r.max.y));
+	static Image *b[4], *lastcol;
+
+	if(col != lastcol){
+		freeimage(b[0]), b[0] = nil;
+		freeimage(b[1]), b[1] = nil;
+		freeimage(b[2]), b[2] = nil;
+		freeimage(b[3]), b[3] = nil;
 	}
+	if(col != nil){
+		r = canonrect(r);
+		drawedge(&b[0], col, Rect(r.min.x, r.min.y, r.min.x+Borderwidth, r.max.y));
+		drawedge(&b[1], col, Rect(r.min.x+Borderwidth, r.min.y, r.max.x-Borderwidth, r.min.y+Borderwidth));
+		drawedge(&b[2], col, Rect(r.max.x-Borderwidth, r.min.y, r.max.x, r.max.y));
+		drawedge(&b[3], col, Rect(r.min.x+Borderwidth, r.max.y-Borderwidth, r.max.x-Borderwidth, r.max.y));
+	}
+	lastcol = col;
 }
 
 Image*
@@ -901,17 +904,17 @@ drag(Window *w)
 	dm = subpt(om, w->screenr.min);
 	d = subpt(w->screenr.max, w->screenr.min);
 	op = subpt(om, dm);
-	drawborder(Rect(op.x, op.y, op.x+d.x, op.y+d.y), 1);
+	drawborder(Rect(op.x, op.y, op.x+d.x, op.y+d.y), sizecol);
 	while(mouse->buttons==4){
 		p = subpt(mouse->xy, dm);
 		if(!eqpt(p, op)){
-			drawborder(Rect(p.x, p.y, p.x+d.x, p.y+d.y), 1);
+			drawborder(Rect(p.x, p.y, p.x+d.x, p.y+d.y), sizecol);
 			op = p;
 		}
 		readmouse(mousectl);
 	}
 	r = Rect(op.x, op.y, op.x+d.x, op.y+d.y);
-	drawborder(r, 0);
+	drawborder(r, nil);
 	p = mouse->xy;
 	riosetcursor(inborder(r, p) ? corners[whichcorner(r, p)] : nil);
 	menuing = FALSE;
@@ -935,7 +938,7 @@ bandsize(Window *w)
 	or = w->screenr;
 	but = mouse->buttons;
 	startp = onscreen(mouse->xy);
-	drawborder(or, 1);
+	drawborder(or, sizecol);
 	while(mouse->buttons == but) {
 		p = onscreen(mouse->xy);
 		which = whichcorner(or, p);
@@ -945,12 +948,14 @@ bandsize(Window *w)
 		}
 		r = whichrect(or, p, owhich);
 		if(!eqrect(r, or) && goodrect(r)){
+			drawborder(r, sizecol);
 			or = r;
-			drawborder(r, 1);
 		}
 		readmouse(mousectl);
 	}
-	drawborder(or, 0);
+	drawborder(or, nil);
+	if(!goodrect(or))
+		riosetcursor(nil);
 	if(mouse->buttons!=0 || !goodrect(or) || eqrect(or, w->screenr)
 	|| abs(p.x-startp.x)+abs(p.y-startp.y) <= 1){
 		flushimage(display, 1);

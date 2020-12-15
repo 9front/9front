@@ -1,10 +1,10 @@
 </$objtype/mkfile
 
-TARG=exportfs
+TARG=exportfs oexportfs
 OFILES=\
-	exportfs.$O\
 	exportsrv.$O\
 	pattern.$O\
+	io.$O\
 
 HFILES=exportfs.h\
 
@@ -15,4 +15,4 @@ UPDATE=\
 	$HFILES\
 	${OFILES:%.$O=%.c}\
 
-</sys/src/cmd/mkone
+</sys/src/cmd/mkmany

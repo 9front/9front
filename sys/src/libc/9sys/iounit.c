@@ -13,7 +13,7 @@ iounit(int fd)
 	char buf[128], *args[10];
 
 	snprint(buf, sizeof buf, "#d/%dctl", fd);
-	cfd = open(buf, OREAD);
+	cfd = open(buf, OREAD|OCEXEC);
 	if(cfd < 0)
 		return 0;
 	i = read(cfd, buf, sizeof buf-1);

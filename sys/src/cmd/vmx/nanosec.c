@@ -17,14 +17,15 @@ nanosec(void)
 		return nsec() - xstart;
 
 	if(fasthz == 0){
-		if((fasthz = _tos->cyclefreq) == 0){
-			fasthz = ~0ULL;
+		if(_tos->cyclefreq){
+			cycles(&xstart);
+			fasthz = _tos->cyclefreq;
+		} else {
 			xstart = nsec();
+			fasthz = ~0ULL;
 			fprint(2, "cyclefreq not available, falling back to nsec()\n");
 			fprint(2, "you might want to disable aux/timesync\n");
 			return 0;
-		}else{
-			cycles(&xstart);
 		}
 	}
 	cycles(&x);

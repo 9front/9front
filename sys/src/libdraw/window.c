@@ -90,7 +90,6 @@ freescreen(Screen *s)
 	d = s->display;
 	a = bufimage(d, 1+4);
 	if(a == nil){
-Error:
 		free(s);
 		return -1;
 	}

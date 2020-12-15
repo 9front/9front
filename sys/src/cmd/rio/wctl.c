@@ -88,14 +88,19 @@ static char *params[] = {
 int
 goodrect(Rectangle r)
 {
-	if(!eqrect(canonrect(r), r))
+	if(badrect(r) || !eqrect(canonrect(r), r))
 		return 0;
 	/* reasonable sizes only please */
 	if(Dx(r) > BIG*Dx(screen->r))
 		return 0;
 	if(Dy(r) > BIG*Dy(screen->r))
 		return 0;
-	if(Dx(r) < 100 || Dy(r) < 3*font->height)
+	/*
+	 * the height has to be big enough to fit one line of text.
+	 * that includes the border on each side with an extra pixel
+	 * so that the text is still drawn
+	 */
+	if(Dx(r) < 100 || Dy(r) < 2*(Borderwidth+1)+font->height)
 		return 0;
 	/* window must be on screen */
 	if(!rectXrect(screen->r, r))

@@ -2,6 +2,8 @@ typedef struct BIOS32si	BIOS32si;
 typedef struct BIOS32ci	BIOS32ci;
 typedef struct Conf	Conf;
 typedef struct Confmem	Confmem;
+typedef struct FPssestate	FPssestate;
+typedef struct FPavxstate	FPavxstate;
 typedef struct FPsave	FPsave;
 typedef struct PFPU	PFPU;
 typedef struct ISAConf	ISAConf;
@@ -49,7 +51,7 @@ struct Label
 	uintptr	pc;
 };
 
-struct FPsave
+struct FPssestate
 {
 	u16int	fcw;			/* x87 control word */
 	u16int	fsw;			/* x87 status word */
@@ -63,6 +65,18 @@ struct FPsave
 	uchar	st[128];		/* shared 64-bit media and x87 regs */
 	uchar	xmm[256];		/* 128-bit media regs */
 	uchar	ign[96];		/* reserved, ignored */
+};
+
+struct FPavxstate
+{
+	FPssestate;
+	uchar	header[64];		/* XSAVE header */
+	uchar	ymm[256];		/* upper 128-bit regs (AVX) */
+};
+
+struct FPsave
+{
+	FPavxstate;
 };
 
 enum
@@ -224,9 +238,10 @@ struct Mach
 	int	havewatchpt8;
 	int	havenx;
 	uvlong	tscticks;
-	
+
 	u64int	dr7;			/* shadow copy of dr7 */
-	
+	u64int	xcr0;
+
 	void*	vmx;
 
 	uintptr	stack[1];
@@ -270,8 +285,14 @@ struct PCArch
 
 /* cpuid instruction result register bits */
 enum {
+	/* ax */
+	Xsaveopt = 1<<0,
+	Xsaves = 1<<3,
+
 	/* cx */
 	Monitor	= 1<<3,
+	Xsave = 1<<26,
+	Avx	= 1<<28,
 
 	/* dx */
 	Fpuonchip = 1<<0,

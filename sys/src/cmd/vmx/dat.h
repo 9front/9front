@@ -11,6 +11,7 @@ enum {
 	VMDEAD,
 };
 extern int state;
+extern int debug;
 
 enum {
 	BY2PG = 4096

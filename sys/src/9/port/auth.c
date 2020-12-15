@@ -97,13 +97,12 @@ sysfauth(va_list list)
 		nexterror();
 	}
 
-	fd = newfd(ac);
+	/* always mark it close on exec */
+	fd = newfd(ac, OCEXEC);
 	if(fd < 0)
 		error(Enofd);
 	poperror();	/* ac */
 
-	/* always mark it close on exec */
-	ac->flag |= CCEXEC;
 	return (uintptr)fd;
 }
 

@@ -201,7 +201,7 @@ Chan*		namec(char*, int, int, ulong);
 void		nameerror(char*, char*);
 int		needpages(void*);
 Chan*		newchan(void);
-int		newfd(Chan*);
+int		newfd(Chan*, int);
 Mhead*		newmhead(Chan*);
 Mount*		newmount(Chan*, int, char*);
 Page*		newpage(int, Segment **, uintptr);

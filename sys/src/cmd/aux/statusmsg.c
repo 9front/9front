@@ -22,6 +22,7 @@ initcolor(void)
 {
 	text = display->black;
 	light = allocimagemix(display, DPalegreen, DWhite);
+	if(light == nil) sysfatal("initcolor: %r");
 }
 
 void
@@ -136,7 +137,6 @@ main(int argc, char **argv)
 		usage();
 	case 1:
 		title = argv[0];
-		break;
 	case 0:
 		break;
 	}
@@ -153,7 +153,7 @@ main(int argc, char **argv)
 		if((bout = Bfdopen(1, OWRITE)) == nil)
 			sysfatal("Bfdopen: %r");
 	}else{
-		if(initdraw(0, 0, title) < 0)
+		if(initdraw(0, 0, title ? title : argv0) < 0)
 			sysfatal("initdraw: %r");
 		initcolor();
 		einit(Emouse|Ekeyboard);

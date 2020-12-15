@@ -5,8 +5,6 @@
 #define Extern	extern
 #include "exportfs.h"
 
-extern char *netdir, *local, *remote;
-
 char Ebadfid[] = "Bad fid";
 char Enotdir[] = "Not a directory";
 char Edupfid[] = "Fid already in use";
@@ -493,12 +491,6 @@ slave(Fsrpc *f)
 			return;
 
 		case 0:
-			if (local[0] != '\0')
-				if (netdir[0] != '\0')
-					procsetname("%s: %s -> %s", netdir, 
-						local, remote);
-				else
-					procsetname("%s -> %s", local, remote);
 			blockingslave(m);
 			_exits(0);
 

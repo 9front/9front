@@ -13,7 +13,7 @@ putenv(char *name, char *val)
 		return -1;
 	}
 	snprint(ename, sizeof(ename), "/env/%s", name);
-	f = create(ename, OWRITE, 0664);
+	f = create(ename, OWRITE|OCEXEC, 0664);
 	if(f < 0)
 		return -1;
 	n = strlen(val);

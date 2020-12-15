@@ -137,7 +137,7 @@ _profdump(void)
 		snprint(filename, sizeof filename - 1, "prof.%ld", _tos->prof.pid);
 	else
 		snprint(filename, sizeof filename - 1, "prof.out");
-	f = create(filename, 1, 0666);
+	f = create(filename, OWRITE|OCEXEC, 0666);
 	if(f < 0) {
 		perror("create prof.out");
 		return;
@@ -245,7 +245,7 @@ _profmain(void)
 		khz = _tos->cyclefreq / 1000;	/* Report times in milliseconds */
 		havecycles = 1;
 	}
-	f = open("/env/profsize", OREAD);
+	f = open("/env/profsize", OREAD|OCEXEC);
 	if(f >= 0) {
 		memset(ename, 0, sizeof(ename));
 		read(f, ename, sizeof(ename)-1);
@@ -253,7 +253,7 @@ _profmain(void)
 		n = atol(ename);
 	}
 	_tos->prof.what = Profuser;
-	f = open("/env/proftype", OREAD);
+	f = open("/env/proftype", OREAD|OCEXEC);
 	if(f >= 0) {
 		memset(ename, 0, sizeof(ename));
 		read(f, ename, sizeof(ename)-1);

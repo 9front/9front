@@ -289,9 +289,9 @@ physmask(void)
 	ulong regs[4];
 	uvlong mask;
 
-	cpuid(Exthighfunc, regs);
+	cpuid(Exthighfunc, 0, regs);
 	if(regs[0] >= Extaddrsz) {			/* ax */
-		cpuid(Extaddrsz, regs);
+		cpuid(Extaddrsz, 0, regs);
 		mask = (1ULL << (regs[0] & 0xFF)) - 1;	/* ax */
 	} else {
 		mask = (1ULL << 36) - 1;
@@ -305,11 +305,13 @@ getstate(State *s)
 	vlong v;
 	int i;
 
-	s->mask = physmask();
+	if(rdmsr(MTRRCap, &s->cap) < 0)
+		return -1;
+
+	if((s->cap & (Capfix|Capvcnt)) == 0)
+		return -1;
 
 	if(rdmsr(MTRRDefaultType, &s->def) < 0)
-		return -1;
-	if(rdmsr(MTRRCap, &s->cap) < 0)
 		return -1;
 
 	if(s->cap & Capfix){
@@ -331,6 +333,8 @@ getstate(State *s)
 		if(rdmsr(MTRRPhysMask0 + 2*i, &s->varreg[i].mask) < 0)
 			return -1;
 	}
+
+	s->mask = physmask();
 
 	if(strcmp(m->cpuidid, "AuthenticAMD") != 0
 	|| m->cpuidfamily < 15
@@ -354,7 +358,7 @@ enum {
 static void
 putstate(State *s)
 {
-	ulong cr0, cr4;
+	uintptr cr0, cr4;
 	int i, x;
 
 	x = splhi();
@@ -673,6 +677,10 @@ mtrr(uvlong base, uvlong size, char *tstr)
 	new.size = size;
 	if((new.type = str2type(tstr)) < 0)
 		return "bad cache type";
+
+	if(new.type == Writecomb
+	&& (cpu0state.cap & Capwc) == 0)
+		return "write combining not supported";
 
 	qlock(&mtrrlk);
 	newstate = cpu0state;

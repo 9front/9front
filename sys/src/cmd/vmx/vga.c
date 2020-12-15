@@ -178,7 +178,7 @@ vgaio(int isin, u16int port, u32int val, int sz, void *)
 		switch(vga.sidx){
 		case 0: vga.seq[vga.sidx] = val & 3; return 0;
 		case 4: vga.seq[vga.sidx] = val & 0xe; return 0;
-		default: vmerror("vga: write to unknown sequencer register %#ux (val=%#ux)", vga.sidx, val); return 0;
+		default: vmdebug("vga: write to unknown sequencer register %#ux (val=%#ux)", vga.sidx, val); return 0;
 		}
 	case 0x3c6: return 0;
 	case 0x3c7: vga.rdidx = val << 2; return 0;
@@ -194,7 +194,7 @@ vgaio(int isin, u16int port, u32int val, int sz, void *)
 		case 4: vga.graph[vga.gidx] = val & 3; break;
 		case 8: vga.graph[vga.gidx] = val; break;
 		default:
-			vmerror("vga: write to unknown graphics register %#ux (val=%#ux)", vga.gidx, val);
+			vmdebug("vga: write to unknown graphics register %#ux (val=%#ux)", vga.gidx, val);
 		}
 		return 0;
 	case 0x3d4: vga.cidx = val; return 0;
@@ -204,7 +204,7 @@ vgaio(int isin, u16int port, u32int val, int sz, void *)
 			vga.crtc[vga.cidx] = val;
 			return 0;
 		default:
-			vmerror("vga: write to unknown CRTC register %#ux (val=%#ux)", vga.cidx, val);
+			vmdebug("vga: write to unknown CRTC register %#ux (val=%#ux)", vga.cidx, val);
 		}
 		return 0;
 	case 0x103c0: return vga.aidx & 0x3f;
@@ -215,7 +215,7 @@ vgaio(int isin, u16int port, u32int val, int sz, void *)
 		case 0:
 		case 4:
 			return vga.seq[vga.sidx];
-		default: vmerror("vga: read from unknown sequencer register %#ux (val=%#ux)", vga.sidx, val); return 0;
+		default: vmdebug("vga: read from unknown sequencer register %#ux (val=%#ux)", vga.sidx, val); return 0;
 		}
 	case 0x103c6: return 0xff;
 	case 0x103c7: return vga.rdidx >> 2;
@@ -232,7 +232,7 @@ vgaio(int isin, u16int port, u32int val, int sz, void *)
 		case 8:
 			return vga.graph[vga.gidx];
 		default:
-			vmerror("vga: read from unknown graphics register %#ux", vga.gidx);
+			vmdebug("vga: read from unknown graphics register %#ux", vga.gidx);
 			return 0;
 		}
 	case 0x103d4: return vga.cidx;
@@ -241,7 +241,7 @@ vgaio(int isin, u16int port, u32int val, int sz, void *)
 		case 10: case 11: case 12: case 13: case 14: case 15:
 			return vga.crtc[vga.cidx];
 		default:
-			vmerror("vga: read from unknown CRTC register %#ux", vga.cidx);
+			vmdebug("vga: read from unknown CRTC register %#ux", vga.cidx);
 			return 0;
 		}
 	case 0x103ca:
@@ -374,7 +374,7 @@ keyproc(void *)
 					nkdown[k->code >> 6] |= 1ULL<<(k->code&63);
 					break;
 				}
-			if(k == nil) vmerror("unknown key %d", r);
+			if(k == nil) vmdebug("unknown key %d", r);
 		}
 		if(mousegrab && (nkdown[0]>>29 & 1) != 0 && (nkdown[0]>>56 & 1) != 0){
 			mousegrab = 0;
@@ -737,7 +737,7 @@ vgafbparse(char *fbstring)
 
 
 void
-vgainit(void)
+vgainit(int new)
 {
 	char buf[512];
 	int i;
@@ -760,7 +760,7 @@ vgainit(void)
 			sysfatal("got nil ptr for framebuffer");
 	}
 	snprint(buf, sizeof(buf), "-dx %d -dy %d", maxw+50, maxh+50);
-	if(newwindow(buf) < 0 || initdraw(nil, nil, "vmx") < 0)
+	if((new && newwindow(buf) < 0) || initdraw(nil, nil, "vmx") < 0)
 		sysfatal("failed to initialize graphics: %r");
 	screeninit(1);
 	flushimage(display, 1);

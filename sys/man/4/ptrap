@@ -7,10 +7,7 @@ filter
 .B ptrap
 .I port
 [\fB!\fR]\fIregexp\fR
-[
-.I port
-[\fB!\fR]\fIregexp\fR ...
-]
+[ +\fIattr\fR [\fB!\fR]\fIregexp\fR ... ] ...
 .SH DESCRIPTION
 .I Ptrap
 is a program that mounts itself over a
@@ -20,20 +17,20 @@ service mounted at
 and filters incoming messages according to the rules provided on the command line.
 .PP
 .I Ptrap
-accepts an arbitrary number of argument pairs; each pair consists of a port name
-.I port
-and a regular expression
-.I regexp
-(see
-.IR regexp (6)).
-Each incoming message that does not match
-.I regexp
-is discarded.
-The
-.I regexp
-can be optionally prefixed by
-.B !
-to indicate logical inversion (i.e. messages matching the regexp are discarded).
+accepts an arbitrary number of filters;
+each filter applies to a port, and may match over both the data and attributes of plumb messages.
+.PP
+A filter is formatted as a port name, a data filter, and a list of attribute filters.
+.PP
+The data filter is a
+.IR regex (6)
+that matches the plumbed data.
+The attribute filter consists of the attribute name prefixed with a '+', followed by a
+.IR regex (6)
+that matches the contents of the attribute.
+Any regex may be prefixed with a '!' in order to negate a match,
+causing all matches for that regex to be discarded.
+All parts of a filter must match in order for a plumb message to be forwarded.
 .SH EXAMPLES
 Start a 
 .IR sam (1)
@@ -51,6 +48,15 @@ instance for all other editing jobs:
 .EX
 ptrap edit '!^/sys/src/9/'
 sam
+.EE
+.PP
+Start an
+.IR acme (1)
+instance instance dedicated to reading plumbed manual pages:
+.IP
+.EX
+ptrap edit '.*' +action '^showdata' +filename '^/man/'
+acme -c1
 .EE
 .SH SOURCE
 .B /sys/src/cmd/ptrap.c

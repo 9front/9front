@@ -9,8 +9,9 @@ statusbar, statusmsg \- display a bar graph or status message window
 [
 .B -w
 .I minx,miny,maxx,maxy
-]
+] [
 .I title
+]
 .br
 .B aux/statusmsg
 [

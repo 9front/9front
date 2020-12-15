@@ -140,7 +140,8 @@ dupfgrp(Fgrp *f)
 
 	new = smalloc(sizeof(Fgrp));
 	if(f == nil){
-		new->fd = smalloc(DELTAFD*sizeof(Chan*));
+		new->flag = smalloc(DELTAFD*sizeof(new->flag[0]));
+		new->fd = smalloc(DELTAFD*sizeof(new->fd[0]));
 		new->nfd = DELTAFD;
 		new->ref = 1;
 		return new;
@@ -152,9 +153,16 @@ dupfgrp(Fgrp *f)
 	i = new->nfd%DELTAFD;
 	if(i != 0)
 		new->nfd += DELTAFD - i;
-	new->fd = malloc(new->nfd*sizeof(Chan*));
+	new->fd = malloc(new->nfd*sizeof(new->fd[0]));
 	if(new->fd == nil){
 		unlock(f);
+		free(new);
+		error("no memory for fgrp");
+	}
+	new->flag = malloc(new->nfd*sizeof(new->flag[0]));
+	if(new->flag == nil){
+		unlock(f);
+		free(new->fd);
 		free(new);
 		error("no memory for fgrp");
 	}
@@ -165,6 +173,7 @@ dupfgrp(Fgrp *f)
 		if((c = f->fd[i]) != nil){
 			incref(c);
 			new->fd[i] = c;
+			new->flag[i] = f->flag[i];
 		}
 	}
 	unlock(f);
@@ -194,6 +203,7 @@ closefgrp(Fgrp *f)
 	up->closingfgrp = nil;
 
 	free(f->fd);
+	free(f->flag);
 	free(f);
 }
 

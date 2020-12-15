@@ -99,7 +99,7 @@ ndbreopen(Ndb *db)
 	}
 
 	/* try the open again */
-	fd = open(db->file, OREAD);
+	fd = open(db->file, OREAD|OCEXEC);
 	if(fd < 0)
 		return -1;
 	d = dirfstat(fd);

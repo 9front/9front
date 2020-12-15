@@ -12,7 +12,7 @@ readfile(char *name)
 	n = 0;
 	r = -1;
 	if((s = malloc(HUNK)) != nil){
-		if((f = open(name, OREAD)) >= 0){
+		if((f = open(name, OREAD|OCEXEC)) >= 0){
 			while((r = read(f, s+n, HUNK)) > 0){
 				n += r;
 				r = -1;

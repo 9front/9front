@@ -91,9 +91,9 @@ findnvram(Nvrwhere *locp)
 			v[0] = "";
 			v[1] = nil;
 		}
-		fd = open(v[0], ORDWR);
+		fd = open(v[0], ORDWR|OCEXEC);
 		if (fd < 0)
-			fd = open(v[0], OREAD);
+			fd = open(v[0], OREAD|OCEXEC);
 		safelen = sizeof(Nvrsafe);
 		if(strstr(v[0], "/9fat") == nil)
 			safeoff = 0;
@@ -120,7 +120,7 @@ findnvram(Nvrwhere *locp)
 		for(i=0; i<nelem(nvtab); i++){
 			if(strcmp(cputype, nvtab[i].cputype) != 0)
 				continue;
-			if((fd = open(nvtab[i].file, ORDWR)) < 0)
+			if((fd = open(nvtab[i].file, ORDWR|OCEXEC)) < 0)
 				continue;
 			safeoff = nvtab[i].off;
 			safelen = nvtab[i].len;

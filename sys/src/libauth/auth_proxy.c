@@ -200,7 +200,7 @@ auth_proxy(int fd, AuthGetkey *getkey, char *fmt, ...)
 	va_end(arg);
 
 	ai = nil;
-	afd = open("/mnt/factotum/rpc", ORDWR);
+	afd = open("/mnt/factotum/rpc", ORDWR|OCEXEC);
 	if(afd < 0){
 		werrstr("opening /mnt/factotum/rpc: %r");
 		free(p);

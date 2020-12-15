@@ -23,7 +23,7 @@ auth_challenge(char *fmt, ...)
 		return nil;
 	}
 
-	if((c->afd = open("/mnt/factotum/rpc", ORDWR)) < 0){
+	if((c->afd = open("/mnt/factotum/rpc", ORDWR|OCEXEC)) < 0){
 	Error:
 		auth_freechal(c);
 		free(p);

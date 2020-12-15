@@ -637,7 +637,7 @@ hidparse(int t, int f, int g[], int l[], int, void *a)
 			s->h = v;
 			break;
 
-		case 0x0D0051:	/* Conteact identifier */
+		case 0x0D0051:	/* Contact identifier */
 			s->id = v;
 			break;
 
@@ -684,7 +684,7 @@ readerproc(void* a)
 {
 	char	err[ERRMAX], mbuf[80];
 	uchar	lastk[64], uk, dk;
-	int	i, c, nerrs, lastb, nlastk;
+	int	i, c, nerrs, bpress, lastb, nlastk;
 	int	abs, x, y, z, b;
 	Hidreport p;
 	Hidslot lasts[nelem(p.s)], *s, *l;
@@ -774,7 +774,7 @@ readerproc(void* a)
 			continue;
 
 		/* combine all the slots */
-		abs = x = y = z = b = 0;
+		bpress = abs = x = y = z = b = 0;
 		for(i=0; i<p.ns; *l = *s, i++){
 			s = &p.s[i];
 
@@ -785,7 +785,7 @@ readerproc(void* a)
 			if(l == &lasts[nelem(lasts)-1] || !l->valid)
 				*l = *s;
 
-			/* convet absolute z to relative */
+			/* convert absolute z to relative */
 			z += s->z;
 			if(s->abs & 4)
 				z -= l->z;
@@ -808,6 +808,7 @@ readerproc(void* a)
 				b |= 2;
 			if(s->b & 2)
 				b |= 4;
+			bpress |= s->m;
 
 			/* X/Y are absolute? */
 			if((s->abs & 3) == 3){
@@ -825,7 +826,9 @@ readerproc(void* a)
 				y += s->y;
 			}
 		}
-	
+
+		if(bpress == 0)
+			b = lastb & 7;
 		if(z != 0)
 			b |= z > 0 ? 8 : 16;
 

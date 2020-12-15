@@ -16,7 +16,7 @@ auth_chuid(AuthInfo *ai, char *ns)
 	}
 
 	/* change uid */
-	fd = open("#¤/capuse", OWRITE);
+	fd = open("#¤/capuse", OWRITE|OCEXEC);
 	if(fd < 0){
 		werrstr("opening #¤/capuse: %r");
 		return -1;
@@ -31,8 +31,8 @@ auth_chuid(AuthInfo *ai, char *ns)
 	/* get a link to factotum as new user */
 	fd = open("/srv/factotum", ORDWR);
 	if(fd >= 0){
-		mount(fd, -1, "/mnt", MREPL, "");
-		close(fd);
+		if(mount(fd, -1, "/mnt", MREPL, "") == -1)
+			close(fd);
 	}
 
 	/* set up new namespace */
