@@ -116,12 +116,13 @@ enum {					/* CSR12 - General-Purpose Port */
 	Gpc		= 0x00000100,	/* General Purpose Control */
 };
 
-typedef struct Des {
-	int	status;
-	int	control;
-	ulong	addr;
-	Block*	bp;
-} Des;
+enum {
+	Dstatus,
+	Dcontrol,
+	Daddr1,
+	Daddr2,
+	Dsize,
+};
 
 enum {					/* status */
 	Of		= 0x00000001,	/* Rx: OverFlow */
@@ -227,18 +228,20 @@ typedef struct Ctlr {
 
 	Lock	lock;
 
-	Des*	rdr;			/* receive descriptor ring */
+	Block	**rbp;
+	ulong	*rdr;			/* receive descriptor ring */
 	int	nrdr;			/* size of rdr */
 	int	rdrx;			/* index into rdr */
 
 	Lock	tlock;
-	Des*	tdr;			/* transmit descriptor ring */
+	Block	*setupbp;
+	Block	**tbp;
+	ulong	*tdr;			/* transmit descriptor ring */
 	int	ntdr;			/* size of tdr */
 	int	tdrh;			/* host index into tdr */
 	int	tdri;			/* interface index into tdr */
 	int	ntq;			/* descriptors active */
 	int	ntqmax;
-	Block*	setupbp;
 
 	ulong	of;			/* receive statistics */
 	ulong	ce;
@@ -375,14 +378,13 @@ txstart(Ether* ether)
 {
 	Ctlr *ctlr;
 	Block *bp;
-	Des *des;
-	int control;
+	ulong *des, control;
 
 	ctlr = ether->ctlr;
 	while(ctlr->ntq < (ctlr->ntdr-1)){
-		if(ctlr->setupbp){
+		if(ctlr->setupbp != nil){
 			bp = ctlr->setupbp;
-			ctlr->setupbp = 0;
+			ctlr->setupbp = nil;
 			control = Ic|Set|BLEN(bp);
 		}
 		else{
@@ -391,15 +393,15 @@ txstart(Ether* ether)
 				break;
 			control = Ic|Lseg|Fseg|BLEN(bp);
 		}
-
-		ctlr->tdr[PREV(ctlr->tdrh, ctlr->ntdr)].control &= ~Ic;
-		des = &ctlr->tdr[ctlr->tdrh];
-		des->bp = bp;
-		des->addr = PCIWADDR(bp->rp);
-		des->control |= control;
+		ctlr->tbp[ctlr->tdrh] = bp;
+		des = &ctlr->tdr[PREV(ctlr->tdrh, ctlr->ntdr)*Dsize];
+		des[Dcontrol] &= ~Ic;
+		des = &ctlr->tdr[ctlr->tdrh*Dsize];
+		des[Daddr1] = PCIWADDR(bp->rp);
+		des[Dcontrol] |= control;
 		ctlr->ntq++;
 		coherence();
-		des->status = Own;
+		des[Dstatus] = Own;
 		csr32w(ctlr, 1, 0);
 		ctlr->tdrh = NEXT(ctlr->tdrh, ctlr->ntdr);
 	}
@@ -424,9 +426,8 @@ interrupt(Ureg*, void* arg)
 {
 	Ctlr *ctlr;
 	Ether *ether;
-	int len, status;
-	Des *des;
-	Block *bp;
+	Block **bpp, *bp;
+	ulong *des, status, len;
 
 	ether = arg;
 	ctlr = ether->ctlr;
@@ -459,37 +460,39 @@ interrupt(Ureg*, void* arg)
 		 * Received packets.
 		 */
 		if(status & Ri){
-			des = &ctlr->rdr[ctlr->rdrx];
-			while(!(des->status & Own)){
-				if(des->status & Es){
-					if(des->status & Of)
+			for(;;){
+				des = &ctlr->rdr[ctlr->rdrx*Dsize];
+				if(des[Dstatus] & Own)
+					break;
+
+				if(des[Dstatus] & Es){
+					if(des[Dstatus] & Of)
 						ctlr->of++;
-					if(des->status & Ce)
+					if(des[Dstatus] & Ce)
 						ctlr->ce++;
-					if(des->status & Cs)
+					if(des[Dstatus] & Cs)
 						ctlr->cs++;
-					if(des->status & Tl)
+					if(des[Dstatus] & Tl)
 						ctlr->tl++;
-					if(des->status & Rf)
+					if(des[Dstatus] & Rf)
 						ctlr->rf++;
-					if(des->status & De)
+					if(des[Dstatus] & De)
 						ctlr->de++;
 				}
-				else if(bp = iallocb(Rbsz)){
-					len = ((des->status & Fl)>>16)-4;
-					des->bp->wp = des->bp->rp+len;
-					etheriq(ether, des->bp);
-					des->bp = bp;
-					des->addr = PCIWADDR(bp->rp);
+				else if((bp = iallocb(Rbsz)) != nil){
+					bpp = &ctlr->rbp[ctlr->rdrx];
+					len = ((des[Dstatus] & Fl)>>16)-4;
+					(*bpp)->wp += len;
+					etheriq(ether, *bpp);
+					*bpp = bp;
+					des[Daddr1] = PCIWADDR(bp->rp);
 				}
-
-				des->control &= Er;
-				des->control |= Rbsz;
+				des[Dcontrol] &= Er;
+				des[Dcontrol] |= Rbsz;
 				coherence();
-				des->status = Own;
+				des[Dstatus] = Own;
 
 				ctlr->rdrx = NEXT(ctlr->rdrx, ctlr->nrdr);
-				des = &ctlr->rdr[ctlr->rdrx];
 			}
 			status &= ~Ri;
 		}
@@ -529,28 +532,31 @@ interrupt(Ureg*, void* arg)
 
 		ilock(&ctlr->tlock);
 		while(ctlr->ntq){
-			des = &ctlr->tdr[ctlr->tdri];
-			if(des->status & Own)
+			des = &ctlr->tdr[ctlr->tdri*Dsize];
+			if(des[Dstatus] & Own)
 				break;
 
-			if(des->status & Es){
-				if(des->status & Uf)
+			if(des[Dstatus] & Es){
+				if(des[Dstatus] & Uf)
 					ctlr->uf++;
-				if(des->status & Ec)
+				if(des[Dstatus] & Ec)
 					ctlr->ec++;
-				if(des->status & Lc)
+				if(des[Dstatus] & Lc)
 					ctlr->lc++;
-				if(des->status & Nc)
+				if(des[Dstatus] & Nc)
 					ctlr->nc++;
-				if(des->status & Lo)
+				if(des[Dstatus] & Lo)
 					ctlr->lo++;
-				if(des->status & To)
+				if(des[Dstatus] & To)
 					ctlr->to++;
 				ether->oerrs++;
 			}
+			des[Dcontrol] &= Er;
+			coherence();
 
-			freeb(des->bp);
-			des->control &= Er;
+			bpp = &ctlr->tbp[ctlr->tdri];
+			freeb(*bpp);
+			*bpp = nil;
 
 			ctlr->ntq--;
 			ctlr->tdri = NEXT(ctlr->tdri, ctlr->ntdr);
@@ -562,7 +568,7 @@ interrupt(Ureg*, void* arg)
 		 * Anything left not catered for?
 		 */
 		if(status)
-			panic("#l%d: status %8.8uX", ether->ctlrno, status);
+			panic("#l%d: status %8.8luX", ether->ctlrno, status);
 	}
 }
 
@@ -570,7 +576,7 @@ static void
 ctlrinit(Ether* ether)
 {
 	Ctlr *ctlr;
-	Des *des;
+	ulong *des;
 	Block *bp;
 	int i;
 	uchar bi[Eaddrlen*2];
@@ -584,23 +590,31 @@ ctlrinit(Ether* ether)
 	 * create and post a setup packet to initialise
 	 * the physical ethernet address.
 	 */
-	ctlr->rdr = xspanalloc(ctlr->nrdr*sizeof(Des), 8*sizeof(ulong), 0);
-	for(des = ctlr->rdr; des < &ctlr->rdr[ctlr->nrdr]; des++){
-		des->bp = iallocb(Rbsz);
-		if(des->bp == nil)
+	ctlr->rbp = xspanalloc(ctlr->nrdr*sizeof(Block*), 0, 0);
+	ctlr->rdr = xspanalloc(ctlr->nrdr*sizeof(ulong)*Dsize, 8*sizeof(ulong), 0);
+	for(i = 0; i < ctlr->nrdr; i++){
+		bp = iallocb(Rbsz);
+		if(bp == nil)
 			panic("can't allocate ethernet receive ring");
-		des->status = Own;
-		des->control = Rbsz;
-		des->addr = PCIWADDR(des->bp->rp);
+		ctlr->rbp[i] = bp;
+		des = &ctlr->rdr[i*Dsize];
+		des[Dstatus] = Own;
+		des[Dcontrol] = Rbsz;
+		des[Daddr1] = PCIWADDR(bp->rp);
 	}
-	ctlr->rdr[ctlr->nrdr-1].control |= Er;
+	ctlr->rdr[(ctlr->nrdr-1)*Dsize + Dcontrol] |= Er;
 	ctlr->rdrx = 0;
+	coherence();
 	csr32w(ctlr, 3, PCIWADDR(ctlr->rdr));
 
-	ctlr->tdr = xspanalloc(ctlr->ntdr*sizeof(Des), 8*sizeof(ulong), 0);
-	ctlr->tdr[ctlr->ntdr-1].control |= Er;
+	ctlr->tbp = xspanalloc(ctlr->ntdr*sizeof(Block*), 0, 0);
+	ctlr->tdr = xspanalloc(ctlr->ntdr*sizeof(ulong)*Dsize, 8*sizeof(ulong), 0);
+	for(i = 0; i < ctlr->ntdr; i++)
+		ctlr->tbp[i] = nil;
+	ctlr->tdr[(ctlr->ntdr-1)*Dsize + Dcontrol] |= Er;
 	ctlr->tdrh = 0;
 	ctlr->tdri = 0;
+	coherence();
 	csr32w(ctlr, 4, PCIWADDR(ctlr->tdr));
 
 	/*
@@ -619,6 +633,7 @@ ctlrinit(Ether* ether)
 		bi[i*4+2] = ether->ea[i*2+1];
 		bi[i*4+3] = ether->ea[i*2];
 	}
+
 	bp = iallocb(Eaddrlen*2*16);
 	if(bp == nil)
 		panic("can't allocate ethernet setup buffer");
