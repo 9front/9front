@@ -1654,7 +1654,7 @@ dec2114xpci(void)
 
 	p = nil;
 	while(p = pcimatch(p, 0, 0)){
-		if(p->ccrb != 0x02 || p->ccru != 0)
+		if(p->ccrb != 0x02 || p->ccru != 0 || (p->mem[0].bar & 1) == 0)
 			continue;
 		switch((p->did<<16)|p->vid){
 		default:
