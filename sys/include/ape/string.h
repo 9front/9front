@@ -19,6 +19,7 @@ extern int memcmp(const void *, const void *, size_t);
 extern int strcmp(const char *, const char *);
 extern int strcoll(const char *, const char *);
 extern char *strdup(char*);
+extern char *strndup(char*, size_t);
 extern int strncmp(const char *, const char *, size_t);
 extern size_t strxfrm(char *, const char *, size_t);
 extern void *memchr(const void *, int, size_t);
