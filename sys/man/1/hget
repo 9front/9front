@@ -38,6 +38,9 @@ hget, hpost, webpaste, urlencode \- retrieve, post to a web page corresponding t
 .B -m
 .I action
 ] [
+.B -r
+.I header
+] [
 .B -u
 ]
 .I url
@@ -119,6 +122,9 @@ Option
 .B -r
 sends an arbitrary HTTP
 .IR header .
+The
+.B -r
+flag can be repeated to send multiple headers.
 .PP
 Option
 .B -m
