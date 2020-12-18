@@ -8,13 +8,11 @@ strndup(char *p, size_t max)
 	int n;
 	char *np;
 
-	n = strlen(p)+1;
-	if(n > max)
-		n = max+1;
-	np = malloc(n);
+	n = strnlen(p, max);
+	np = malloc(n+1);
 	if(!np)
-		return nil;
-	memmove(np, p, n);
-	np[n-1] = 0;
+		return NULL;
+	memcpy(np, p, n);
+	np[n] = 0;
 	return np;
 }
