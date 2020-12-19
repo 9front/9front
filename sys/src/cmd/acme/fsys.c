@@ -116,8 +116,6 @@ void
 fsysinit(void)
 {
 	int p[2];
-	int n, fd;
-	char buf[256];
 
 	if(pipe(p) < 0)
 		error("can't create pipe");
@@ -125,15 +123,7 @@ fsysinit(void)
 	sfd = p[1];
 	fmtinstall('F', fcallfmt);
 	clockfd = open("/dev/time", OREAD|OCEXEC);
-	fd = open("/dev/user", OREAD);
-	if(fd >= 0){
-		n = read(fd, buf, sizeof buf-1);
-		if(n > 0){
-			buf[n] = 0;
-			user = estrdup(buf);
-		}
-		close(fd);
-	}
+	user = getuser();
 	proccreate(fsysproc, nil, STACK);
 }
 
