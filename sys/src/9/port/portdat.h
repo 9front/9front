@@ -474,7 +474,6 @@ struct Pgrp
 	Ref;
 	RWlock	ns;			/* Namespace n read/one write lock */
 	int	noattach;
-	ulong	pgrpid;
 	Mhead	*mnthash[MNTHASH];
 };
 

@@ -17,7 +17,6 @@ cons \- console, clocks, process/process group ids, user, null, reboot, etc.
 .B /dev/mordor
 .B /dev/null
 .B /dev/osversion
-.B /dev/pgrpid
 .B /dev/pid
 .B /dev/ppid
 .B /dev/random
@@ -247,9 +246,6 @@ The other files served by the
 .I cons
 device are all single numbers:
 .TP 10
-.B pgrpid
-process group number
-.TP
 .B pid
 process number
 .TP

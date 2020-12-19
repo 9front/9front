@@ -9,7 +9,6 @@ enum {
 	Whinesecs = 10,		/* frequency of out-of-resources printing */
 };
 
-static Ref pgrpid;
 static Ref mountid;
 
 Pgrp*
@@ -19,7 +18,6 @@ newpgrp(void)
 
 	p = smalloc(sizeof(Pgrp));
 	p->ref = 1;
-	p->pgrpid = incref(&pgrpid);
 	return p;
 }
 
