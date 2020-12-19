@@ -8,17 +8,13 @@
 int
 become(char **, char *who)
 {
-	int fd;
-
 	if(strcmp(who, "none") == 0) {
-		fd = open("#c/user", OWRITE);
-		if(fd < 0 || write(fd, "none", strlen("none")) < 0) {
-			werrstr("can't become none");
+		if(procsetuser("none") < 0) {
+			werrstr("can't become none: %r");
 			return -1;
 		}
-		close(fd);
-		if(newns("none", 0)) {
-			werrstr("can't set new namespace");
+		if(newns("none", nil) < 0) {
+			werrstr("can't set new namespace: %r");
 			return -1;
 		}
 	}

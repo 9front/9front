@@ -129,16 +129,12 @@ main(int argc, char **argv)
 static void
 becomenone(char *namespace)
 {
-	int fd;
-
-	fd = open("#c/user", OWRITE);
-	if(fd < 0 || write(fd, "none", strlen("none")) < 0)
-		sysfatal("can't become none");
-	close(fd);
+	if(procsetuser("none") < 0)
+		sysfatal("can't become none: %r");
 	if(newns("none", nil) < 0)
-		sysfatal("can't build normal namespace");
+		sysfatal("can't build normal namespace: %r");
 	if(addns("none", namespace) < 0)
-		sysfatal("can't build httpd namespace");
+		sysfatal("can't build httpd namespace: %r");
 }
 
 static HConnect*

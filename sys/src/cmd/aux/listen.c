@@ -338,12 +338,8 @@ scandir(char *proto, char *protodir, char *addr, char *dname)
 void
 becomenone(void)
 {
-	int fd;
-
-	fd = open("#c/user", OWRITE);
-	if(fd < 0 || write(fd, "none", strlen("none")) < 0)
+	if(procsetuser("none") < 0)
 		error("can't become none");
-	close(fd);
 	if(newns("none", namespace) < 0)
 		error("can't build namespace");
 }

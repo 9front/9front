@@ -43,13 +43,8 @@ main(int argc, char *argv[])
 		usage();
 	}ARGEND
 
-	fd = open("#c/user", OWRITE);
-	if(fd < 0)
-		sysfatal("can't open #c/user: %r");
-	if(write(fd, "none", strlen("none")) < 0)
+	if(procsetuser("none") < 0)
 		sysfatal("can't become none: %r");
-	close(fd);
-
 	if(newns("none", namespace) < 0)
 		sysfatal("can't build namespace: %r");
 

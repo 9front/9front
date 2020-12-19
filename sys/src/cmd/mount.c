@@ -83,8 +83,7 @@ main(int argc, char *argv[])
 	}
 
 	if(asnone){
-		rv = open("#c/user", OWRITE);
-		if(rv < 0 || write(rv, "none", 4) != 4){
+		if(procsetuser("none") < 0){
 			if(qflag)
 				exits(0);
 			fprint(2, "%s: can't become none: %r\n", argv0);

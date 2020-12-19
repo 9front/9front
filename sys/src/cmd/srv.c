@@ -202,12 +202,11 @@ Mount:
 		exits(0);
 
 	if(asnone){
-		try = open("#c/user", OWRITE);
-		if(try < 0 || write(try, "none", 4) != 4){
+		if(procsetuser("none") < 0){
 			fprint(2, "srv %s: can't become none: %r\n", dest);
 			exits("becomenone");
 		}
-		try = 0;
+		try = 0;	/* no retry */
 	}
 
 	if((!doauth && mount(fd, -1, mtpt, mountflag, "") == -1)
