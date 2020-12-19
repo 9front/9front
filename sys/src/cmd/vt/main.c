@@ -298,6 +298,8 @@ threadmain(int argc, char **argv)
 		break;
 	}ARGEND;
 
+	if(rfork(RFENVG) < 0)
+		sysfatal("rfork: %r");
 	quotefmtinstall();
 	notify(catch);
 	atexit(shutdown);
