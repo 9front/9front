@@ -1,6 +1,6 @@
 .TH AUTH 2
 .SH NAME
-amount, newns, addns, login, noworld, auth_proxy, fauth_proxy, auth_allocrpc, auth_freerpc, auth_rpc, auth_getkey, amount_getkey, auth_freeAI, auth_chuid, auth_challenge, auth_response, auth_freechal, auth_respond, auth_respondAI, auth_userpasswd, auth_getuserpasswd, auth_getinfo \- routines for authenticating users
+amount, newns, addns, login, noworld, procsetuser, auth_proxy, fauth_proxy, auth_allocrpc, auth_freerpc, auth_rpc, auth_getkey, amount_getkey, auth_freeAI, auth_chuid, auth_challenge, auth_response, auth_freechal, auth_respond, auth_respondAI, auth_userpasswd, auth_getuserpasswd, auth_getinfo \- routines for authenticating users
 .SH SYNOPSIS
 .nf
 .PP
@@ -25,6 +25,9 @@ int		login(char *user, char *password, char *namespace);
 .PP
 .B
 int		noworld(char *user);
+.PP
+.B
+int		procsetuser(char *user);
 .PP
 .B
 AuthInfo*	auth_proxy(int fd, AuthGetkey *getkey, char *fmt, ...);
@@ -130,7 +133,7 @@ and
 .IR amount .
 .PP
 .I Login
-changes the user id of the process
+changes the user id of the process to
 .I user
 and recreates the namespace using the file
 .I namespace
@@ -150,6 +153,15 @@ Otherwise, it returns 0.
 .I Noworld
 is used by telnetd and ftpd to provide sandboxed
 access for some users.
+.PP
+.I Procsetuser
+changes the user id of the process to
+.I user
+but keeps the namespace unchanged.
+Only hostowner can change the user to
+anything other than the
+.B none
+user.
 .PP
 The following routines use the
 .B AuthInfo

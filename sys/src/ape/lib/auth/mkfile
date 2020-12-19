@@ -18,6 +18,7 @@ OFILES=\
 	login.$O\
 	newns.$O\
 	noworld.$O\
+	procsetuser.$O\
 	passtokey.$O\
 
 HFILES=\

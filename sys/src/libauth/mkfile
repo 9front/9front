@@ -17,6 +17,7 @@ OFILES=\
 	login.$O\
 	newns.$O\
 	noworld.$O\
+	procsetuser.$O\
 
 HFILES=\
 	/sys/include/auth.h\

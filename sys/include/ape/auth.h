@@ -102,6 +102,8 @@ extern	int	amount(int, char*, int, char*);
 
 extern	int	login(char*, char*, char*);
 
+extern	int	procsetuser(char*);
+
 typedef struct Attr Attr;
 enum {
 	AttrNameval,		/* name=val -- when matching, must have name=val */
