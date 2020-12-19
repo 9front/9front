@@ -244,7 +244,7 @@ int		procindex(ulong);
 void		procinit0(void);
 ulong		procpagecount(Proc*);
 void		procpriority(Proc*, int, int);
-void		procsetuser(Proc*, char*);
+void		procsetuser(char*);
 Proc*		proctab(int);
 extern void	(*proctrace)(Proc*, int, vlong); 
 void		procwired(Proc*, int);

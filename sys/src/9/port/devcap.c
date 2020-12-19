@@ -246,7 +246,7 @@ capwrite(Chan *c, void *va, long n, vlong)
 		}
 		secfree(p);
 
-		procsetuser(up, to);
+		procsetuser(to);
 
 		secfree(cp);
 		poperror();

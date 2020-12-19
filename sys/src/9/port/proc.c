@@ -1608,12 +1608,12 @@ renameuser(char *old, char *new)
 }
 
 void
-procsetuser(Proc *p, char *new)
+procsetuser(char *new)
 {
-	qlock(&p->debug);
-	kstrdup(&p->user, new);
-	p->basepri = PriNormal;
-	qunlock(&p->debug);
+	qlock(&up->debug);
+	kstrdup(&up->user, new);
+	up->basepri = PriNormal;
+	qunlock(&up->debug);
 }
 
 /*
