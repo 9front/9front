@@ -1,6 +1,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -9,14 +10,15 @@
 pid_t
 getppid(void)
 {
-	char b[20];
+	char buf[32];
 	int f;
 
-	memset(b, 0, sizeof(b));
-	f = _OPEN("/dev/ppid", OREAD);
-	if(f >= 0) {
-		_PREAD(f, b, sizeof(b), 0);
-		_CLOSE(f);
-	}
-	return atol(b);
+	snprintf(buf, sizeof(buf), "/proc/%d/ppid", getpid());
+	f = open(buf, 0);
+	if(f < 0)
+		return 0;
+	memset(buf, 0, sizeof(buf));
+	read(f, buf, sizeof(buf)-1);
+	close(f);
+	return atol(buf);
 }

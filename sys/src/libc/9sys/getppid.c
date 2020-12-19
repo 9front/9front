@@ -4,14 +4,15 @@
 int
 getppid(void)
 {
-	char b[20];
+	char buf[32];
 	int f;
 
-	memset(b, 0, sizeof(b));
-	f = open("/dev/ppid", OREAD|OCEXEC);
-	if(f >= 0) {
-		read(f, b, sizeof(b));
-		close(f);
-	}
-	return atol(b);
+	snprint(buf, sizeof(buf), "/proc/%lud/ppid", (ulong)getpid());
+	f = open(buf, OREAD|OCEXEC);
+	if(f < 0)
+		return 0;
+	memset(buf, 0, sizeof(buf));
+	read(f, buf, sizeof(buf)-1);
+	close(f);
+	return atol(buf);
 }
