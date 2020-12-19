@@ -667,7 +667,7 @@ rowload(Row *row, char *file, int initing)
 		textinsert(&w->tag, w->tag.file->nc, r+n+1, nr-(n+1), TRUE);
 		if(ndumped >= 0){
 			/* simplest thing is to put it in a file and load that */
-			sprint(buf, "/tmp/d%d.%.4sacme", getpid(), getuser());
+			sprint(buf, "/tmp/d%d.%.4sacme", getpid(), user);
 			fd = create(buf, OWRITE|ORCLOSE, 0600);
 			if(fd < 0){
 				free(r);

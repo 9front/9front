@@ -538,6 +538,7 @@ Column		*activecol;
 Buffer		snarfbuf;
 Rectangle		nullrect;
 int			fsyspid;
+char			*user;
 char			*cputype;
 char			*objtype;
 char			*home;

@@ -19,7 +19,7 @@ tempfile(void)
 	char buf[128];
 	int i, fd;
 
-	snprint(buf, sizeof buf, "/tmp/X%d.%.4sacme", getpid(), getuser());
+	snprint(buf, sizeof buf, "/tmp/X%d.%.4sacme", getpid(), user);
 	for(i='A'; i<='Z'; i++){
 		buf[5] = i;
 		if(access(buf, AEXIST) == 0)

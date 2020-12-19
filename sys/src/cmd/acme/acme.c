@@ -329,7 +329,7 @@ acmeerrorinit(void)
 
 	if(pipe(pfd) < 0)
 		error("can't create pipe");
-	sprint(acmeerrorfile, "/srv/acme.%s.%d", getuser(), mainpid);
+	sprint(acmeerrorfile, "/srv/acme.%s.%d", user, mainpid);
 	fd = create(acmeerrorfile, OWRITE, 0666);
 	if(fd < 0){
 		remove(acmeerrorfile);
