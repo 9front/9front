@@ -104,6 +104,7 @@ int consctlopen;
 int quiet = 0;
 char *sname = nil;
 char *mntpt = "/dev";
+char *user;
 
 int debug;
 
@@ -1249,36 +1250,14 @@ kbmapwrite(Req *req)
  * Filesystem
  */
 
-static char*
-getauser(void)
-{
-	static char user[64];
-	int fd;
-	int n;
-
-	if(*user)
-		return user;
-	if((fd = open("/dev/user", OREAD)) < 0)
-		strcpy(user, "none");
-	else {
-		n = read(fd, user, (sizeof user)-1);
-		close(fd);
-		if(n < 0)
-			strcpy(user, "none");
-		else
-			user[n] = 0;
-	}
-	return user;
-}
-
 static int
 fillstat(ulong qid, Dir *d)
 {
+	static char *user;
 	struct Qtab *t;
 
 	memset(d, 0, sizeof *d);
-	d->uid = getauser();
-	d->gid = getauser();
+	d->uid = d->gid = user;
 	d->muid = "";
 	d->qid = (Qid){qid, 0, 0};
 	d->atime = time(0);
@@ -1639,6 +1618,7 @@ threadmain(int argc, char** argv)
 	kbdchan = chancreate(sizeof(char*), 128);
 	intchan = chancreate(sizeof(int), 0);
 
+	user = getuser();
 	threadpostmountsrv(&fs, sname, mntpt, MBEFORE);
 	threadexits(0);
 }
