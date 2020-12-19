@@ -69,38 +69,6 @@ skip(char *p)
 	return p;
 }
 
-static long
-_times(long *t)
-{
-	char b[200], *p;
-	int f;
-	ulong r;
-
-	memset(b, 0, sizeof(b));
-	f = open("/dev/cputime", OREAD|OCEXEC);
-	if(f < 0)
-		return 0;
-	if(read(f, b, sizeof(b)) <= 0){
-		close(f);
-		return 0;
-	}
-	p = b;
-	if(t)
-		t[0] = atol(p);
-	p = skip(p);
-	if(t)
-		t[1] = atol(p);
-	p = skip(p);
-	r = atol(p);
-	if(t){
-		p = skip(p);
-		t[2] = atol(p);
-		p = skip(p);
-		t[3] = atol(p);
-	}
-	return r;
-}
-
 static void
 efork(Execargs *e)
 {
