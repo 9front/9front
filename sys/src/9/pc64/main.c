@@ -304,25 +304,17 @@ procsetup(Proc *p)
 		m->dr7 = 0;
 		putdr7(0);
 	}
-
-	cycles(&p->kentry);
-	p->pcycles = -p->kentry;
 }
 
 void
 procfork(Proc *p)
 {
-	p->kentry = up->kentry;
-	p->pcycles = -p->kentry;
-
 	fpuprocfork(p);
 }
 
 void
 procrestore(Proc *p)
 {
-	uvlong t;
-	
 	if(p->dr[7] != 0){
 		m->dr7 = p->dr[7];
 		putdr(p->dr);
@@ -332,24 +324,11 @@ procrestore(Proc *p)
 		vmxprocrestore(p);
 
 	fpuprocrestore(p);
-
-	if(p->kp)
-		return;
-
-	cycles(&t);
-	p->kentry += t;
-	p->pcycles -= t;
 }
 
 void
 procsave(Proc *p)
 {
-	uvlong t;
-	
-	cycles(&t);
-	p->kentry -= t;
-	p->pcycles += t;
-
 	if(m->dr7 != 0){
 		m->dr7 = 0;
 		putdr7(0);

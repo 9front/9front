@@ -152,23 +152,6 @@ kvce(Ureg *ur, int ecode)
 	}
 }
 
-/* prepare to go to user space */
-void
-kexit(Ureg *ur)
-{
-	Tos *tos;
-
-	/* replicate fpstate to ureg status */
-	if(up->fpstate != FPactive)
-		ur->status &= ~CU1;
-
-	/* precise time accounting, kernel exit */
-	tos = (Tos*)(USTKTOP-sizeof(Tos));
-	tos->kcycles += fastticks(&tos->cyclefreq) - up->kentry;
-	tos->pcycles = up->pcycles;
-	tos->pid = up->pid;
-}
-
 void
 trap(Ureg *ur)
 {
@@ -190,18 +173,11 @@ trap(Ureg *ur)
 		dumpstack();
 		for(;;);
 	}
-
-	ecode = (ur->cause>>2)&EXCMASK;
-	user = userureg(ur);
+	user = kenter(ur);
 	if (ur->cause & TS)
 		panic("trap: tlb shutdown");
-
+	ecode = (ur->cause>>2)&EXCMASK;
 	fpchk = 0;
-	if(user){
-		up->dbgreg = ur;
-		cycles(&up->kentry);
-	}
-
 	clockintr = 0;
 	switch(ecode){
 	case CINT:
@@ -308,6 +284,9 @@ trap(Ureg *ur)
 
 	if(user){
 		notify(ur);
+		/* replicate fpstate to ureg status */
+		if(up->fpstate != FPactive)
+			ur->status &= ~CU1;
 		kexit(ur);
 	}
 }
@@ -701,12 +680,12 @@ syscall(Ureg *ur)
 	vlong startns;
 	char *e;
 
-	cycles(&up->kentry);
+	if(!kenter(ur))
+		panic("syscall from kernel");
 
 	m->syscall++;
 	up->insyscall = 1;
 	up->pc = ur->pc;
-	up->dbgreg = ur;
 	ur->cause = 16<<2;	/* for debugging: system call is undef 16 */
 
 	scallnr = ur->r1;
@@ -774,6 +753,9 @@ syscall(Ureg *ur)
 	/* if we delayed sched because we held a lock, sched now */
 	if(up->delaysched)
 		sched();
+	/* replicate fpstate to ureg status */
+	if(up->fpstate != FPactive)
+		ur->status &= ~CU1;
 	kexit(ur);
 }
 
@@ -794,23 +776,11 @@ forkchild(Proc *p, Ureg *ur)
 	cur->pc += 4;
 }
 
-static
 void
-linkproc(void)
+kprocchild(Proc *p, void (*entry)(void))
 {
-	spllo();
-	up->kpfun(up->kparg);
-	pexit("kproc exiting", 0);
-}
-
-void
-kprocchild(Proc *p, void (*func)(void*), void *arg)
-{
-	p->sched.pc = (ulong)linkproc;
+	p->sched.pc = (ulong)entry;
 	p->sched.sp = (ulong)p->kstack+KSTACK;
-
-	p->kpfun = func;
-	p->kparg = arg;
 }
 
 /* set up user registers before return from exec() */

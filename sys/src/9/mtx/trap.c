@@ -215,11 +215,8 @@ trap(Ureg *ureg)
 	int ecode, user;
 	char buf[ERRMAX], *s;
 
+	user = kenter(ureg);
 	ecode = (ureg->cause >> 8) & 0xff;
-	user = (ureg->srr1 & MSR_PR) != 0;
-	if(user)
-		up->dbgreg = ureg;
-
 	if((ureg->status & MSR_RI) == 0)
 		print("double fault?: ecode = %d\n", ecode);
 
@@ -503,22 +500,11 @@ dumpregs(Ureg *ur)
 		print("%s\t%.8lux\t%s\t%.8lux\n", regname[i], l[0], regname[i+1], l[1]);
 }
 
-static void
-linkproc(void)
-{
-	spllo();
-	(*up->kpfun)(up->kparg);
-	pexit("", 0);
-}
-
 void
-kprocchild(Proc *p, void (*func)(void*), void *arg)
+kprocchild(Proc *p, void (*entry)(void))
 {
-	p->sched.pc = (ulong)linkproc;
+	p->sched.pc = (ulong)entry;
 	p->sched.sp = (ulong)p->kstack+KSTACK;
-
-	p->kpfun = func;
-	p->kparg = arg;
 }
 
 /*
@@ -625,7 +611,6 @@ syscall(Ureg* ureg)
 	m->syscall++;
 	up->insyscall = 1;
 	up->pc = ureg->pc;
-	up->dbgreg = ureg;
 
 	scallnr = ureg->r3;
 	up->scallnr = ureg->r3;

@@ -39,25 +39,6 @@ evenaddr(uintptr addr)
 	}
 }
 
-/* go to user space */
-void
-kexit(Ureg*)
-{
-	uvlong t;
-	Tos *tos;
-
-	/* precise time accounting, kernel exit */
-	tos = (Tos*)(USTKTOP-sizeof(Tos));
-	cycles(&t);
-	tos->kcycles += t - up->kentry;
-	tos->pcycles = up->pcycles;
-	tos->cyclefreq = m->cpuhz;
-	tos->pid = up->pid;
-
-	/* make visible immediately to user phase */
-	l1cache->wbse(tos, sizeof *tos);
-}
-
 /*
  *  return the userpc the last exception happened at
  */
@@ -80,28 +61,14 @@ setregisters(Ureg* ureg, char* pureg, char* uva, int n)
 }
 
 /*
- *  this is the body for all kproc's
- */
-static void
-linkproc(void)
-{
-	spllo();
-	up->kpfun(up->kparg);
-	pexit("kproc exiting", 0);
-}
-
-/*
  *  setup stack and initial PC for a new kernel proc.  This is architecture
  *  dependent because of the starting stack location
  */
 void
-kprocchild(Proc *p, void (*func)(void*), void *arg)
+kprocchild(Proc *p, void (*entry)(void))
 {
-	p->sched.pc = (uintptr)linkproc;
+	p->sched.pc = (uintptr)entry;
 	p->sched.sp = (uintptr)p->kstack+KSTACK;
-
-	p->kpfun = func;
-	p->kparg = arg;
 }
 
 /*
@@ -134,11 +101,6 @@ procsetup(Proc* p)
 void
 procsave(Proc* p)
 {
-	uvlong t;
-
-	cycles(&t);
-	p->pcycles += t;
-
 	fpuprocsave(p);
 	l1cache->wbse(p, sizeof *p);		/* is this needed? */
 	l1cache->wb();				/* is this needed? */
@@ -147,21 +109,14 @@ procsave(Proc* p)
 void
 procfork(Proc* p)
 {
-	p->kentry = up->kentry;
-	p->pcycles = -p->kentry;
-	
 	fpuprocfork(p);
 }
 
 void
 procrestore(Proc* p)
 {
-	uvlong t;
-
 	if(p->kp)
 		return;
-	cycles(&t);
-	p->pcycles -= t;
 	wakewfi();		/* in case there's another runnable proc */
 
 	/* let it fault in at first use */

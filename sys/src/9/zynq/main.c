@@ -43,9 +43,6 @@ procfork(Proc *p)
 {
 	ulong s;
 
-	p->kentry = up->kentry;
-	p->pcycles = -p->kentry;
-	
 	s = splhi();
 	switch(up->fpstate & ~FPillegal){
 	case FPactive:
@@ -63,22 +60,6 @@ procsetup(Proc *p)
 {
 	p->fpstate = FPinit;
 	fpoff();
-	
-	cycles(&p->kentry);
-	p->pcycles = -p->kentry;
-}
-
-void
-kexit(Ureg *)
-{
-	Tos *tos;
-	uvlong t;
-
-	tos = (Tos*)(USTKTOP-sizeof(Tos));
-	cycles(&t);
-	tos->kcycles += t - up->kentry;
-	tos->pcycles = t + up->pcycles;
-	tos->pid = up->pid;
 }
 
 ulong *l2;

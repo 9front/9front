@@ -289,18 +289,12 @@ procsetup(Proc *p)
 {
 	p->fpstate = FPinit;
 	memmove(p->fpsave, &initfp, sizeof(FPsave));
-
-	cycles(&p->kentry);
-	p->pcycles = -p->kentry;
 }
 
 void
 procfork(Proc *p)
 {
 	int s;
-
-	p->kentry = up->kentry;
-	p->pcycles = -p->kentry;
 
 	s = splhi();
 	switch(up->fpstate & ~FPillegal){
@@ -318,28 +312,17 @@ procfork(Proc *p)
 void
 procsave(Proc *p)
 {
-	uvlong t;
-
 	if(p->fpstate == FPactive){
 		if(p->state != Moribund) {
 			savefpregs(p->fpsave);
 			p->fpstate = FPinactive;
 		}
 	}
-	
-	cycles(&t);
-	p->pcycles += t;
 }
 
 void
 procrestore(Proc *p)
 {
-	uvlong t;
-
-	if(p->kp)
-		return;
-	cycles(&t);
-	p->pcycles -= t;
 }
 
 void

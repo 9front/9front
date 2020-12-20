@@ -686,7 +686,7 @@ struct Proc
 
 	uvlong	kentry;		/* Kernel entry time stamp (for profiling) */
 	/*
-	 * pcycles: cycles spent in this process (updated on procsave/restore)
+	 * pcycles: cycles spent in this process (updated on procswitch)
 	 * when this is the current proc and we're in the kernel
 	 * (procrestores outnumber procsaves by one)
 	 * the number of cycles spent in the proc is pcycles + cycles()

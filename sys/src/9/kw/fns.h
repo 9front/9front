@@ -140,8 +140,6 @@ extern int userureg(Ureg*);
 void*	vmap(uintptr, usize);
 void	vunmap(void*, usize);
 
-extern void kexit(Ureg*);
-
 #define	getpgcolor(a)	0
 #define	kmapinval()
 

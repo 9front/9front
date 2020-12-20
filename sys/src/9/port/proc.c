@@ -6,6 +6,8 @@
 #include	"../port/error.h"
 #include	"edf.h"
 #include	<trace.h>
+#include	"tos.h"
+#include	"ureg.h"
 
 int	schedgain = 30;	/* units in seconds */
 int	nrdy;
@@ -109,6 +111,58 @@ schedinit(void)		/* never returns */
 	sched();
 }
 
+int
+kenter(Ureg *ureg)
+{
+	int user;
+
+	user = userureg(ureg);
+	if(user){
+		up->dbgreg = ureg;
+		cycles(&up->kentry);
+	}
+	return user;
+}
+
+void
+kexit(Ureg*)
+{
+	uvlong t;
+	Tos *tos;
+
+	cycles(&t);
+
+	/* precise time accounting, kernel exit */
+	tos = (Tos*)(USTKTOP-sizeof(Tos));
+	tos->kcycles += t - up->kentry;
+	tos->pcycles = t + up->pcycles;
+	tos->pid = up->pid;
+}
+
+static void
+procswitch(void)
+{
+	uvlong t;
+
+	/* statistics */
+	m->cs++;
+
+	cycles(&t);
+	up->kentry -= t;
+	up->pcycles += t;
+
+	procsave(up);
+
+	if(!setlabel(&up->sched))
+		gotolabel(&m->sched);
+
+	procrestore(up);
+
+	cycles(&t);
+	up->kentry += t;
+	up->pcycles -= t;
+}
+
 /*
  *  If changing this routine, look also at sleep().  It
  *  contains a copy of the guts of sched().
@@ -151,19 +205,10 @@ sched(void)
 			return;
 		}
 		up->delaysched = 0;
-
 		splhi();
-
-		/* statistics */
-		m->cs++;
-
-		procsave(up);
-		if(setlabel(&up->sched)){
-			procrestore(up);
-			spllo();
-			return;
-		}
-		gotolabel(&m->sched);
+ 		procswitch();
+		spllo();
+		return;
 	}
 	p = runproc();
 	if(p->edf == nil){
@@ -758,25 +803,9 @@ sleep(Rendez *r, int (*f)(void*), void *arg)
 			pt(up, SSleep, 0);
 		up->state = Wakeme;
 		up->r = r;
-
-		/* statistics */
-		m->cs++;
-
-		procsave(up);
-		if(setlabel(&up->sched)) {
-			/*
-			 *  here when the process is awakened
-			 */
-			procrestore(up);
-			spllo();
-		} else {
-			/*
-			 *  here to go to sleep (i.e. stop Running)
-			 */
-			unlock(&up->rlock);
-			unlock(r);
-			gotolabel(&m->sched);
-		}
+		unlock(&up->rlock);
+		unlock(r);
+		procswitch();
 	}
 
 	if(up->notepending) {
@@ -1376,6 +1405,14 @@ procflushothers(void)
 	procflushmmu(matchother, up);
 }
 
+static void
+linkproc(void)
+{
+	spllo();
+	(*up->kpfun)(up->kparg);
+	pexit("kproc exiting", 0);
+}
+
 void
 kproc(char *name, void (*func)(void *), void *arg)
 {
@@ -1406,7 +1443,9 @@ kproc(char *name, void (*func)(void *), void *arg)
 	p->hang = 0;
 	p->kp = 1;
 
-	kprocchild(p, func, arg);
+	p->kpfun = func;
+	p->kparg = arg;
+	kprocchild(p, linkproc);
 
 	kstrdup(&p->text, name);
 	kstrdup(&p->user, eve);
@@ -1422,6 +1461,8 @@ kproc(char *name, void (*func)(void *), void *arg)
 	p->insyscall = 1;
 	memset(p->time, 0, sizeof(p->time));
 	p->time[TReal] = MACHP(0)->ticks;
+	cycles(&p->kentry);
+	p->pcycles = -p->kentry;
 
 	pidalloc(p);
 

@@ -186,16 +186,13 @@ syscall(Ureg* ureg)
 	long ret;
 	int i, scallnr;
 
-	if(!userureg(ureg))
+	if(!kenter(ureg))
 		panic("syscall: from kernel: pc %#lux r14 %#lux psr %#lux",
 			ureg->pc, ureg->r14, ureg->psr);
-
-	cycles(&up->kentry);
 
 	m->syscall++;
 	up->insyscall = 1;
 	up->pc = ureg->pc;
-	up->dbgreg = ureg;
 
 	if(up->procctl == Proc_tracesyscall){
 		up->procctl = Proc_stopme;

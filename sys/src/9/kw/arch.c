@@ -39,25 +39,6 @@ evenaddr(uintptr addr)
 	}
 }
 
-/* go to user space */
-void
-kexit(Ureg*)
-{
-	uvlong t;
-	Tos *tos;
-
-	/* precise time accounting, kernel exit */
-	tos = (Tos*)(USTKTOP-sizeof(Tos));
-	t = fastticks(nil);
-	tos->kcycles += t - up->kentry;
-	tos->pcycles = t + up->pcycles;
-	tos->cyclefreq = Frequency;
-	tos->pid = up->pid;
-
-	/* make visible immediately to user proc */
-	cachedwbinvse(tos, sizeof *tos);
-}
-
 /*
  *  return the userpc the last exception happened at
  */
@@ -80,28 +61,14 @@ setregisters(Ureg* ureg, char* pureg, char* uva, int n)
 }
 
 /*
- *  this is the body for all kproc's
- */
-static void
-linkproc(void)
-{
-	spllo();
-	up->kpfun(up->kparg);
-	pexit("kproc exiting", 0);
-}
-
-/*
  *  setup stack and initial PC for a new kernel proc.  This is architecture
  *  dependent because of the starting stack location
  */
 void
-kprocchild(Proc *p, void (*func)(void*), void *arg)
+kprocchild(Proc *p, void (*entry)(void))
 {
-	p->sched.pc = (uintptr)linkproc;
+	p->sched.pc = (uintptr)entry;
 	p->sched.sp = (uintptr)p->kstack+KSTACK;
-
-	p->kpfun = func;
-	p->kparg = arg;
 }
 
 /*
@@ -126,16 +93,11 @@ void
 procsetup(Proc* p)
 {
 	fpusysprocsetup(p);
-
-	cycles(&p->kentry);
-	p->pcycles = -p->kentry;
 }
 
 void
-procfork(Proc* p)
+procfork(Proc*)
 {
-	p->kentry = up->kentry;
-	p->pcycles = -p->kentry;
 }
 
 /*
@@ -144,27 +106,12 @@ procfork(Proc* p)
 void
 procsave(Proc* p)
 {
-	uvlong t;
-
-	cycles(&t);
-	p->pcycles += t;
-	p->kentry -= t;
-
 	fpuprocsave(p);
 }
 
 void
 procrestore(Proc* p)
 {
-	uvlong t;
-
-	if(p->kp)
-		return;
-
-	cycles(&t);
-	p->pcycles -= t;
-	p->kentry += t;
-
 	fpuprocrestore(p);
 }
 

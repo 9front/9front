@@ -337,9 +337,6 @@ procfork(Proc *p)
 {
 	int s;
 
-	p->kentry = up->kentry;
-	p->pcycles = -p->kentry;
-
 	/* save floating point state */
 	s = splhi();
 	switch(up->fpstate & ~FPillegal){
@@ -358,12 +355,6 @@ procfork(Proc *p)
 void
 procrestore(Proc *p)
 {
-	uvlong t;
-
-	if(p->kp)
-		return;
-	cycles(&t);
-	p->pcycles -= t;
 }
 
 /*
@@ -372,10 +363,6 @@ procrestore(Proc *p)
 void
 procsave(Proc *p)
 {
-	uvlong t;
-
-	cycles(&t);
-	p->pcycles += t;
 	if(p->fpstate == FPactive){
 		if(p->state == Moribund)
 			fpclear();

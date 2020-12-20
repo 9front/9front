@@ -18,7 +18,7 @@ sysr1(va_list)
 }
 
 static void
-abortion(void*)
+abortion(void)
 {
 	pexit("fork aborted", 1);
 }
@@ -125,6 +125,8 @@ sysrfork(va_list list)
 	p->insyscall = 0;
 	memset(p->time, 0, sizeof(p->time));
 	p->time[TReal] = MACHP(0)->ticks;
+	p->kentry = up->kentry;
+	p->pcycles = -p->kentry;
 
 	pid = pidalloc(p);
 
@@ -133,7 +135,7 @@ sysrfork(va_list list)
 	/* Abort the child process on error */
 	if(waserror()){
 		p->kp = 1;
-		kprocchild(p, abortion, 0);
+		kprocchild(p, abortion);
 		ready(p);
 		nexterror();
 	}
@@ -577,6 +579,7 @@ sysexec(va_list list)
 	up->notified = 0;
 	up->privatemem = 0;
 	up->noswap = 0;
+	up->pcycles = -up->kentry;
 	procsetup(up);
 	qunlock(&up->debug);
 

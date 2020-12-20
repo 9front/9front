@@ -150,12 +150,7 @@ trap(Ureg *ureg)
 			rem, up, ureg, ureg->pc);
 	}
 
-	user = (ureg->psr & PsrMask) == PsrMusr;
-	if(user){
-		up->dbgreg = ureg;
-		cycles(&up->kentry);
-	}
-
+	user = kenter(ureg);
 	/*
 	 * All interrupts/exceptions should be resumed at ureg->pc-4,
 	 * except for Data Abort which resumes at ureg->pc-8.

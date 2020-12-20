@@ -251,18 +251,12 @@ procsetup(Proc *p)
 		m->dr7 = 0;
 		putdr7(0);
 	}
-
-	cycles(&p->kentry);
-	p->pcycles = -p->kentry;
 }
 
 void
 procfork(Proc *p)
 {
 	int s;
-
-	p->kentry = up->kentry;
-	p->pcycles = -p->kentry;
 
 	/* inherit user descriptors */
 	memmove(p->gdt, up->gdt, sizeof(p->gdt));
@@ -292,8 +286,6 @@ procfork(Proc *p)
 void
 procrestore(Proc *p)
 {
-	uvlong t;
-	
 	if(p->dr[7] != 0){
 		m->dr7 = p->dr[7];
 		putdr(p->dr);
@@ -301,13 +293,6 @@ procrestore(Proc *p)
 	
 	if(p->vmx != nil)
 		vmxprocrestore(p);
-
-	if(p->kp)
-		return;
-
-	cycles(&t);
-	p->kentry += t;
-	p->pcycles -= t;
 }
 
 /*
@@ -316,12 +301,6 @@ procrestore(Proc *p)
 void
 procsave(Proc *p)
 {
-	uvlong t;
-	
-	cycles(&t);
-	p->kentry -= t;
-	p->pcycles += t;
-
 	/* we could just always putdr7(0) but accessing DR7 might be slow in a VM */
 	if(m->dr7 != 0){
 		m->dr7 = 0;

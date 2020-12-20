@@ -30,7 +30,6 @@ void mmuinit(void);
 uintptr ttbget(void);
 void ttbput(uintptr);
 void cycles(uvlong *);
-void kexit(Ureg *);
 ulong getifsr(void);
 ulong getdfsr(void);
 uintptr getifar(void);

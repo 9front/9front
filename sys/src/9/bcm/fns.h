@@ -129,8 +129,6 @@ extern void setkernur(Ureg*, Proc*);		/* only devproc.c */
 extern void* sysexecregs(uintptr, ulong, int);
 extern void sysprocsetup(Proc*);
 
-extern void kexit(Ureg*);
-
 #define	getpgcolor(a)	0
 #define	kmapinval()
 #define countpagerefs(a, b)

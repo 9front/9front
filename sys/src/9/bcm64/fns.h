@@ -8,7 +8,8 @@ extern int tas(void *);
 extern int cmpswap(long*, long, long);
 extern void coherence(void);
 extern void idlehands(void);
-extern uvlong cycles(void);
+extern uvlong vcycles(void);
+#define cycles(ip) *(ip) = vcycles()
 extern int splfhi(void);
 extern void splflo(void);
 extern void touser(uintptr sp);

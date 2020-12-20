@@ -131,30 +131,11 @@ usertrap(int vno)
 
 /* go to user space */
 void
-kexit(Ureg*)
-{
-	uvlong t;
-	Tos *tos;
-
-	/* precise time accounting, kernel exit */
-	tos = (Tos*)((uintptr)USTKTOP-sizeof(Tos));
-	cycles(&t);
-	tos->kcycles += t - up->kentry;
-	tos->pcycles = t + up->pcycles;
-	tos->pid = up->pid;
-}
-
-void
 trap(Ureg *ureg)
 {
 	int vno, user;
 
-	user = userureg(ureg);
-	if(user){
-		up->dbgreg = ureg;
-		cycles(&up->kentry);
-	}
-
+	user = kenter(ureg);
 	vno = ureg->type;
 	if(!irqhandled(ureg, vno) && (!user || !usertrap(vno))){
 		if(!user){
@@ -463,15 +444,12 @@ syscall(Ureg* ureg)
 	ulong scallnr;
 	vlong startns, stopns;
 
-	if(!userureg(ureg))
+	if(!kenter(ureg))
 		panic("syscall: cs 0x%4.4lluX", ureg->cs);
-
-	cycles(&up->kentry);
 
 	m->syscall++;
 	up->insyscall = 1;
 	up->pc = ureg->pc;
-	up->dbgreg = ureg;
 
 	sp = ureg->sp;
 	scallnr = ureg->bp;	/* RARG */
@@ -775,27 +753,16 @@ setregisters(Ureg* ureg, char* pureg, char* uva, int n)
 	ureg->pc &= UADDRMASK;
 }
 
-static void
-linkproc(void)
-{
-	spllo();
-	up->kpfun(up->kparg);
-	pexit("kproc dying", 0);
-}
-
 void
-kprocchild(Proc* p, void (*func)(void*), void* arg)
+kprocchild(Proc *p, void (*entry)(void))
 {
 	/*
 	 * gotolabel() needs a word on the stack in
 	 * which to place the return PC used to jump
 	 * to linkproc().
 	 */
-	p->sched.pc = (uintptr)linkproc;
+	p->sched.pc = (uintptr)entry;
 	p->sched.sp = (uintptr)p->kstack+KSTACK-BY2WD;
-
-	p->kpfun = func;
-	p->kparg = arg;
 }
 
 void

@@ -80,7 +80,7 @@ clockinit(void)
 
 	m->speed = mips;
 	m->hz = m->speed*Mhz;
-
+	m->cyclefreq = Basetickfreq;
 	m->maxperiod = Basetickfreq / HZ;
 	m->minperiod = Basetickfreq / (100*HZ);
 	m->lastcount = rdcount();

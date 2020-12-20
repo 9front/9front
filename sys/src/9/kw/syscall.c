@@ -187,16 +187,13 @@ syscall(Ureg* ureg)
 	int i, scallnr;
 	vlong startns, stopns;
 
-	if(!userureg(ureg))
+	if(!kenter(ureg))
 		panic("syscall: from kernel: pc %#lux r14 %#lux psr %#lux",
 			ureg->pc, ureg->r14, ureg->psr);
-
-	cycles(&up->kentry);
 
 	m->syscall++;
 	up->insyscall = 1;
 	up->pc = ureg->pc;
-	up->dbgreg = ureg;
 
 	scallnr = ureg->r0;
 	up->scallnr = scallnr;

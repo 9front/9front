@@ -141,35 +141,16 @@ char *regname[]={
 };
 
 void
-kexit(Ureg*)
-{
-	uvlong t;
-	Tos *tos;
-
-	/* precise time accounting, kernel exit */
-	tos = (Tos*)(USTKTOP-sizeof(Tos));
-	cycles(&t);
-	tos->kcycles += t - up->kentry;
-	tos->pcycles = t + up->pcycles;
-	tos->pid = up->pid;
-}
-
-void
 trap(Ureg *ureg)
 {
 	int ecode, user;
 	char buf[ERRMAX], *s;
 	extern FPsave initfp;
 
-	ecode = (ureg->cause >> 8) & 0xff;
-	user = (ureg->srr1 & MSR_PR) != 0;
-	if(user){
-		cycles(&up->kentry);
-		up->dbgreg = ureg;
-	}
+	user = kenter(ureg);
 	if((ureg->status & MSR_RI) == 0)
 		print("double fault?: ecode = %d\n", ecode);
-
+	ecode = (ureg->cause >> 8) & 0xff;
 	switch(ecode) {
 	case CEI:
 		m->intr++;
@@ -495,22 +476,11 @@ dumpregs(Ureg *ur)
 	delay(500);
 }
 
-static void
-linkproc(void)
-{
-	spllo();
-	(*up->kpfun)(up->kparg);
-	pexit("", 0);
-}
-
 void
-kprocchild(Proc *p, void (*func)(void*), void *arg)
+kprocchild(Proc *p, void (*entry)(void))
 {
-	p->sched.pc = (ulong)linkproc;
+	p->sched.pc = (ulong)entry;
 	p->sched.sp = (ulong)p->kstack+KSTACK;
-
-	p->kpfun = func;
-	p->kparg = arg;
 }
 
 /*
@@ -618,7 +588,6 @@ syscall(Ureg* ureg)
 	m->syscall++;
 	up->insyscall = 1;
 	up->pc = ureg->pc;
-	up->dbgreg = ureg;
 
 	if (up->fpstate == FPactive && (ureg->srr1 & MSR_FP) == 0){
 		print("fpstate check, entry syscall\n");

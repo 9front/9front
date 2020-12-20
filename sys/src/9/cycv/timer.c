@@ -96,6 +96,7 @@ timerinit(void)
 	hz = HPS_CLK * 1000000 * (numer + 1) / ((denum + 1) * 2 * (mpuclk + 1));
 	m->cpumhz = (hz + 500000) / 1000000;
 	m->cpuhz = hz;
+	m->cyclefreq = hz;
 	timerhz = m->cpuhz / 4;
 
 	mpcore[GTIMERCTL] = TIMERDIV - 1 << 8 | 3;

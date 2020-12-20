@@ -297,7 +297,7 @@ _goodnight:
 	WFE
 	RETURN
 
-TEXT cycles(SB), 1, $-4
+TEXT vcycles(SB), 1, $-4
 TEXT lcycles(SB), 1, $-4
 	MRS	PMCCNTR_EL0, R0
 	RETURN

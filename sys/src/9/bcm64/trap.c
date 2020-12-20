@@ -81,20 +81,6 @@ trapinit(void)
 	splx(0x3<<6);	// unmask serr and debug
 }
 
-void
-kexit(Ureg*)
-{
-	Tos *tos;
-	uvlong t;
-
-	t = cycles();
-
-	tos = (Tos*)(USTKTOP-sizeof(Tos));
-	tos->kcycles += t - up->kentry;
-	tos->pcycles = t + up->pcycles;
-	tos->pid = up->pid;
-}
-
 static char *traps[64] = {
 	[0x00]	"sys: trap: unknown",
 	[0x01]	"sys: trap: WFI or WFE instruction execution",
@@ -112,17 +98,15 @@ void
 trap(Ureg *ureg)
 {
 	u32int type, intr;
-	
+	int user;
+
 	intr = ureg->type >> 32;
 	if(intr == 2){
 		fiq(ureg);
 		return;
 	}
 	splflo();
-	if(userureg(ureg)){
-		up->dbgreg = ureg;
-		up->kentry = cycles();
-	}
+	user = kenter(ureg);
 	type = (u32int)ureg->type >> 26;
 	switch(type){
 	case 0x20:	// instruction abort from lower level
@@ -187,7 +171,7 @@ trap(Ureg *ureg)
 		break;
 	}
 	splhi();
-	if(userureg(ureg)){
+	if(user){
 		if(up->procctl || up->nnote)
 			notify(ureg);
 		kexit(ureg);
@@ -203,12 +187,12 @@ syscall(Ureg *ureg)
 	int i, s;
 	char *e;
 
-	up->kentry = cycles();
+	if(!kenter(ureg))
+		panic("syscall from  kernel");
 	
 	m->syscall++;
 	up->insyscall = 1;
 	up->pc = ureg->pc;
-	up->dbgreg = ureg;
 	
 	sp = ureg->sp;
 	up->scallnr = scallnr = ureg->r0;
@@ -542,9 +526,6 @@ procfork(Proc *p)
 	splx(s);
 
 	p->tpidr = up->tpidr;
-
-	p->kentry = up->kentry;
-	p->pcycles = -p->kentry;
 }
 
 void
@@ -555,16 +536,11 @@ procsetup(Proc *p)
 
 	p->tpidr = 0;
 	syswr(TPIDR_EL0, p->tpidr);
-
-	p->kentry = cycles();
-	p->pcycles = -p->kentry;
 }
 
 void
 procsave(Proc *p)
 {
-	uvlong t;
-
 	if(p->fpstate == FPactive){
 		if(p->state == Moribund)
 			fpclear();
@@ -577,44 +553,21 @@ procsave(Proc *p)
 		p->tpidr = sysrd(TPIDR_EL0);
 
 	putasid(p);	// release asid
-
-	t = cycles();
-	p->kentry -= t;
-	p->pcycles += t;
 }
 
 void
 procrestore(Proc *p)
 {
-	uvlong t;
-
-	if(p->kp)
-		return;
-	
-	syswr(TPIDR_EL0, p->tpidr);
-
-	t = cycles();
-	p->kentry += t;
-	p->pcycles -= t;
-}
-
-static void
-linkproc(void)
-{
-	spllo();
-	up->kpfun(up->kparg);
-	pexit("kproc dying", 0);
+	if(p->kp == 0)
+		syswr(TPIDR_EL0, p->tpidr);
 }
 
 void
-kprocchild(Proc* p, void (*func)(void*), void* arg)
+kprocchild(Proc *p, void (*entry)(void))
 {
-	p->sched.pc = (uintptr) linkproc;
+	p->sched.pc = (uintptr) entry;
 	p->sched.sp = (uintptr) p->kstack + KSTACK - 16;
 	*(void**)p->sched.sp = kprocchild;	/* fake */
-
-	p->kpfun = func;
-	p->kparg = arg;
 }
 
 void

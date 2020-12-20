@@ -327,6 +327,7 @@ archconfinit(void)
 		if (hz >= 100*Mhz && hz <= 3600UL*Mhz)
 			m->cpuhz = hz;
 	}
+	m->cyclefreq = m->cpuhz;
 	m->delayloop = m->cpuhz/2000;		/* initial estimate */
 	errata();
 }

@@ -150,13 +150,7 @@ trap(Ureg *ureg)
 	int user;
 	ulong opc, cp;
 
-	user = userureg(ureg);
-	if(user){
-		if(up == nil)
-			panic("user trap: up=nil");
-		up->dbgreg = ureg;
-		cycles(&up->kentry);
-	}
+	user = kenter(ureg);
 	switch(ureg->type){
 	case PsrMund:
 		ureg->pc -= 4;
@@ -213,15 +207,12 @@ syscall(Ureg *ureg)
 	ulong scallnr;
 	vlong startns, stopns;
 	
-	if(!userureg(ureg))
+	if(!kenter(ureg))
 		panic("syscall: pc=%#.8lux", ureg->pc);
-	
-	cycles(&up->kentry);
 	
 	m->syscall++;
 	up->insyscall = 1;
 	up->pc = ureg->pc;
-	up->dbgreg = ureg;
 	
 	sp = ureg->sp;
 	up->scallnr = scallnr = ureg->r0;
@@ -511,8 +502,6 @@ dbgpc(Proc *)
 void
 procsave(Proc *p)
 {
-	uvlong t;
-
 	if(p->fpstate == FPactive){
 		if(p->state == Moribund)
 			fpclear();
@@ -520,42 +509,19 @@ procsave(Proc *p)
 			fpsave(p->fpsave);
 		p->fpstate = FPinactive;
 	}
-	cycles(&t);
-	p->kentry -= t;
-	p->pcycles += t;
-
 	l1switch(&m->l1, 0);
 }
 
 void
 procrestore(Proc *p)
 {
-	uvlong t;
-
-	if(p->kp)
-		return;
-
-	cycles(&t);
-	p->kentry += t;
-	p->pcycles -= t;
-}
-
-static void
-linkproc(void)
-{
-	spllo();
-	up->kpfun(up->kparg);
-	pexit("kproc dying", 0);
 }
 
 void
-kprocchild(Proc* p, void (*func)(void*), void* arg)
+kprocchild(Proc *p, void (*entry)(void))
 {
-	p->sched.pc = (uintptr) linkproc;
+	p->sched.pc = (uintptr) entry;
 	p->sched.sp = (uintptr) p->kstack + KSTACK;
-
-	p->kpfun = func;
-	p->kparg = arg;
 }
 
 void
