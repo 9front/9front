@@ -448,6 +448,7 @@ retry:
 		rp->rmb = dnlookup(NAME(dname), Cin, 1);
 		rp->rp  = dnlookup(NAME(dname), Cin, 1);
 		break;
+	case Tdnskey:
 	case Tkey:
 		USHORT(rp->key->flags);
 		UCHAR(rp->key->proto);

@@ -893,6 +893,7 @@ rrcopy(RR *rp, RR **last)
 		nrp->srv = srv;
 		*srv = *rp->srv;
 		break;
+	case Tdnskey:
 	case Tkey:
 		key = nrp->key;
 		*nrp = *rp;
@@ -1273,6 +1274,7 @@ rrfmt(Fmt *f)
 	case Trp:
 		fmtprint(&fstr, "\t%s %s", dnname(rp->rmb), dnname(rp->rp));
 		break;
+	case Tdnskey:
 	case Tkey:
 		if (rp->key == nil)
 			fmtprint(&fstr, "\t<null> <null> <null>");
@@ -1413,6 +1415,7 @@ rravfmt(Fmt *f)
 			idnname(rp->rmb, buf, sizeof(buf)),
 			idnname(rp->rp, buf, sizeof(buf)));
 		break;
+	case Tdnskey:
 	case Tkey:
 		if (rp->key == nil)
 			fmtprint(&fstr, " flags=<null> proto=<null> alg=<null>");
@@ -1951,6 +1954,7 @@ rralloc(int type)
 		rp->srv = emalloc(sizeof(*rp->srv));
 		setmalloctag(rp->srv, rp->pc);
 		break;
+	case Tdnskey:
 	case Tkey:
 		rp->key = emalloc(sizeof(*rp->key));
 		setmalloctag(rp->key, rp->pc);
@@ -1994,6 +1998,7 @@ rrfree(RR *rp)
 		memset(rp->srv, 0, sizeof *rp->srv);	/* cause trouble */
 		free(rp->srv);
 		break;
+	case Tdnskey:
 	case Tkey:
 		free(rp->key->data);
 		memset(rp->key, 0, sizeof *rp->key);	/* cause trouble */

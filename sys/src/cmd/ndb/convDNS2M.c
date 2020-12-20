@@ -275,6 +275,7 @@ convRR2M(RR *rp, uchar *p, uchar *ep, Dict *dp)
 		NAME(rp->rmb->name);
 		NAME(rp->rp->name);
 		break;
+	case Tdnskey:
 	case Tkey:
 		USHORT(rp->key->flags);
 		UCHAR(rp->key->proto);
