@@ -214,12 +214,12 @@ and
 .IR y .
 Following these numbers are strings, also padded to 12 characters,
 describing the window's state:
-.B hidden
-or
-.BR visible ;
 .B current
 or
-.BR notcurrent .
+.BR notcurrent ;
+.B hidden
+or
+.BR visible .
 A subsequent read will block until the window changes size, location, or state.
 When written to,
 .B wctl
