@@ -307,3 +307,54 @@ fpuinit(void)
 		fprestore = fpx87restore;
 	}
 }
+
+void
+fpuprocsetup(Proc *p)
+{
+	p->fpstate = FPinit;
+	fpoff();
+}
+
+void
+fpuprocfork(Proc *p)
+{
+	int s;
+
+	s = splhi();
+	switch(up->fpstate & ~FPillegal){
+	case FPactive:
+		fpsave(up->fpsave);
+		up->fpstate = FPinactive;
+	case FPinactive:
+		while(p->fpsave == nil)
+			p->fpsave = mallocalign(sizeof(FPsave), FPalign, 0, 0);
+		memmove(p->fpsave, up->fpsave, sizeof(FPsave));
+		p->fpstate = FPinactive;
+	}
+	splx(s);
+}
+
+void
+fpuprocsave(Proc *p)
+{
+	if(p->fpstate == FPactive){
+		if(p->state == Moribund)
+			fpclear();
+		else{
+			/*
+			 * Fpsave() stores without handling pending
+			 * unmasked exeptions. Postnote() can't be called
+			 * so the handling of pending exceptions is delayed
+			 * until the process runs again and generates an
+			 * emulation fault to activate the FPU.
+			 */
+			fpsave(p->fpsave);
+		}
+		p->fpstate = FPinactive;
+	}
+}
+
+void
+fpuprocrestore(Proc*)
+{
+}

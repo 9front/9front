@@ -233,14 +233,10 @@ confinit(void)
 	}
 }
 
-/*
- *  set up floating point for a new process
- */
 void
 procsetup(Proc *p)
 {
-	p->fpstate = FPinit;
-	fpoff();
+	fpuprocsetup(p);
 
 	memset(p->gdt, 0, sizeof(p->gdt));
 	p->nldt = 0;
@@ -256,8 +252,6 @@ procsetup(Proc *p)
 void
 procfork(Proc *p)
 {
-	int s;
-
 	/* inherit user descriptors */
 	memmove(p->gdt, up->gdt, sizeof(p->gdt));
 
@@ -268,19 +262,7 @@ procfork(Proc *p)
 		p->nldt = up->nldt;
 	}
 
-	/* save floating point state */
-	s = splhi();
-	switch(up->fpstate & ~FPillegal){
-	case FPactive:
-		fpsave(up->fpsave);
-		up->fpstate = FPinactive;
-	case FPinactive:
-		while(p->fpsave == nil)
-			p->fpsave = mallocalign(sizeof(FPsave), FPalign, 0, 0);
-		memmove(p->fpsave, up->fpsave, sizeof(FPsave));
-		p->fpstate = FPinactive;
-	}
-	splx(s);
+	fpuprocfork(p);
 }
 
 void
@@ -293,6 +275,8 @@ procrestore(Proc *p)
 	
 	if(p->vmx != nil)
 		vmxprocrestore(p);
+
+	fpuprocrestore(p);
 }
 
 /*
@@ -309,21 +293,7 @@ procsave(Proc *p)
 	if(p->state == Moribund)
 		p->dr[7] = 0;
 
-	if(p->fpstate == FPactive){
-		if(p->state == Moribund)
-			fpclear();
-		else{
-			/*
-			 * Fpsave() stores without handling pending
-			 * unmasked exeptions. Postnote() can't be called
-			 * so the handling of pending exceptions is delayed
-			 * until the process runs again and generates an
-			 * emulation fault to activate the FPU.
-			 */
-			fpsave(p->fpsave);
-		}
-		p->fpstate = FPinactive;
-	}
+	fpuprocsave(p);
 
 	/*
 	 * While this processor is in the scheduler, the process could run
