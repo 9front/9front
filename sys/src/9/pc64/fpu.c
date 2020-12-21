@@ -323,8 +323,7 @@ fpuprocsave(Proc *p)
 		/*
 		 * Fpsave() stores without handling pending
 		 * unmasked exeptions. Postnote() can't be called
-		 * here as sleep() already has up->rlock, so
-		 * the handling of pending exceptions is delayed
+		 * so the handling of pending exceptions is delayed
 		 * until the process runs again and generates an
 		 * emulation fault to activate the FPU.
 		 */
