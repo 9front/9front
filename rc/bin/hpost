@@ -9,7 +9,7 @@ af=()	# file fields
 l=()
 
 fn usage {
-	echo 'usage: hpost [ -l ] [ -[gpm] action ] [ -r ] header [ -u ] url [ field:value | field@file ... ]' >[1=2]
+	echo 'usage: hpost [ -l ] [ -[gpm] action ] [ -r header ] [ -u ] url [ field:value | field@file ... ]' >[1=2]
 	exit usage
 }
 
