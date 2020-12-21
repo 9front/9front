@@ -1036,8 +1036,8 @@ struct
 	Proc	*p[NBROKEN];
 }broken;
 
-void
-addbroken(Proc *p)
+static void
+addbroken(void)
 {
 	qlock(&broken);
 	if(broken.n == NBROKEN) {
@@ -1045,12 +1045,12 @@ addbroken(Proc *p)
 		memmove(&broken.p[0], &broken.p[1], sizeof(Proc*)*(NBROKEN-1));
 		--broken.n;
 	}
-	broken.p[broken.n++] = p;
+	broken.p[broken.n++] = up;
 	qunlock(&broken);
 
 	edfstop(up);
-	p->state = Broken;
-	p->psstate = nil;
+	up->state = Broken;
+	up->psstate = nil;
 	sched();
 }
 
@@ -1182,7 +1182,7 @@ pexit(char *exitstr, int freemem)
 	}
 
 	if(!freemem)
-		addbroken(up);
+		addbroken();
 
 	qlock(&up->debug);
 
