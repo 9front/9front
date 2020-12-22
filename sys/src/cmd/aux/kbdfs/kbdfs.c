@@ -1253,7 +1253,6 @@ kbmapwrite(Req *req)
 static int
 fillstat(ulong qid, Dir *d)
 {
-	static char *user;
 	struct Qtab *t;
 
 	memset(d, 0, sizeof *d);
