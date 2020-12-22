@@ -197,23 +197,21 @@ flushmmu(void)
 void
 mmurelease(Proc *proc)
 {
-	Page *p, *n;
+	Page *p;
 
-	if(islo())
-		panic("mmurelease: islo");
-	
 	l1switch(&m->l1, 0);
-	if(proc->kmaptable != nil){
+	if((p = proc->kmaptable) != nil){
+		if(p->ref != 1)
+			panic("mmurelease: kmap ref %ld", p->ref);
 		if(proc->l1 == nil)
 			panic("mmurelease: no l1");
-		if(decref(proc->kmaptable) != 0)
-			panic("mmurelease: kmap ref %ld", proc->kmaptable->ref);
 		if(proc->nkmap)
 			panic("mmurelease: nkmap %d", proc->nkmap);
-		if(PPN(proc->l1->va[L1X(KMAP)]) != proc->kmaptable->pa)
-			panic("mmurelease: bad kmap l2 %#.8lux kmap %#.8lux", proc->l1->va[L1X(KMAP)], proc->kmaptable->pa);
+		if(PPN(proc->l1->va[L1X(KMAP)]) != p->pa)
+			panic("mmurelease: bad kmap l2 %#.8lux kmap %#.8lux", proc->l1->va[L1X(KMAP)], p->pa);
 		proc->l1->va[L1X(KMAP)] = 0;
-		pagechainhead(proc->kmaptable);
+		p->next = proc->mmufree;
+		proc->mmufree = p;
 		proc->kmaptable = nil;
 	}
 	if(proc->l1 != nil){
@@ -221,14 +219,7 @@ mmurelease(Proc *proc)
 		l1free(proc->l1);
 		proc->l1 = nil;
 	}
-	for(p = proc->mmufree; p != nil; p = n){
-		n = p->next;
-		if(decref(p) != 0)
-			panic("mmurelease: p->ref %ld", p->ref);
-		pagechainhead(p);
-	}
-	if(proc->mmufree != nil)
-		pagechaindone();
+	freepages(proc->mmufree, nil, 0);
 	proc->mmufree = nil;
 }
 

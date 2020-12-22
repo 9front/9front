@@ -81,27 +81,21 @@ schedinit(void)		/* never returns */
 		case Moribund:
 			up->state = Dead;
 			edfstop(up);
-			if(up->edf != nil)
+			if(up->edf != nil){
 				free(up->edf);
-			up->edf = nil;
+				up->edf = nil;
+			}
 
-			/*
-			 * Holding locks from pexit:
-			 * 	procalloc
-			 *	palloc
-			 */
 			mmurelease(up);
-			unlock(&palloc);
 
-			updatecpu(up);
+			lock(&procalloc);
 			up->mach = nil;
-
 			up->qnext = procalloc.free;
 			procalloc.free = up;
-
 			/* proc is free now, make sure unlock() wont touch it */
 			up = procalloc.Lock.p = nil;
 			unlock(&procalloc);
+
 			sched();
 		}
 		coherence();
@@ -1222,10 +1216,6 @@ pexit(char *exitstr, int freemem)
 		}
 	}
 	qunlock(&up->seglock);
-
-	/* Sched must not loop for these locks */
-	lock(&procalloc);
-	lock(&palloc);
 
 	edfstop(up);
 	up->state = Moribund;

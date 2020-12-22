@@ -518,20 +518,10 @@ mmuswitch(Proc *p)
 void
 mmurelease(Proc *p)
 {
-	Page *t;
-
 	mmuswitch(nil);
 	mmufree(p);
-
-	if((t = p->mmufree) != nil){
-		do {
-			p->mmufree = t->next;
-			if(--t->ref != 0)
-				panic("mmurelease: bad page ref");
-			pagechainhead(t);
-		} while((t = p->mmufree) != nil);
-		pagechaindone();
-	}
+	freepages(p->mmufree, nil, 0);
+	p->mmufree = nil;
 }
 
 void

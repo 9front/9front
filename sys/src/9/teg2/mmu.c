@@ -475,20 +475,12 @@ flushmmu(void)
 void
 mmurelease(Proc* proc)
 {
-	Page *page, *next;
-
 	/* write back dirty and invalidate caches */
 	l1cache->wbinv();
 
 	mmul2empty(proc, 0);
-	for(page = proc->mmul2cache; page != nil; page = next){
-		next = page->next;
-		if(--page->ref)
-			panic("mmurelease: page->ref %ld", page->ref);
-		pagechainhead(page);
-	}
-	if(proc->mmul2cache != nil)
-		pagechaindone();
+
+	freepages(proc->mmul2cache, nil, 0);
 	proc->mmul2cache = nil;
 
 	mmul1empty();

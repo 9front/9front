@@ -282,15 +282,8 @@ mmurelease(Proc* proc)
 		}
 	}
 
-	for(page = proc->mmufree; page; page = next){
-		next = page->next;
-		if(--page->ref)
-			panic("mmurelease: page->ref %ld\n", page->ref);
-		pagechainhead(page);
-	}
-	if(proc->mmufree)
-		pagechaindone();
-	proc->mmufree = 0;
+	freepages(proc->mmufree, nil, 0);
+	proc->mmufree = nil;
 }
 
 static Page*

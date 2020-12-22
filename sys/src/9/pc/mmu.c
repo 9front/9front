@@ -320,54 +320,48 @@ mmuswitch(Proc* proc)
  *   cleaning any user entries in the pdb (proc->mmupdb);
  *   if there's a pdb put it in the cache of pre-initialised pdb's
  *   for this processor (m->pdbpool) or on the process' free list;
- *   finally, place any pages freed back into the free pool (palloc).
- * This routine is only called from schedinit() with palloc locked.
+ *   finally, place any pages freed back into the free pool (freepages).
  */
 void
 mmurelease(Proc* proc)
 {
-	Page *page, *next;
 	ulong *pdb;
+	Page *page;
 
-	if(islo())
-		panic("mmurelease: islo");
 	taskswitch(PADDR(m->pdb), (ulong)m + BY2PG);
-	if(proc->kmaptable != nil){
+	if((page = proc->kmaptable) != nil){
+		if(page->ref != 1)
+			panic("mmurelease: kmap ref %ld", page->ref);
 		if(proc->mmupdb == nil)
 			panic("mmurelease: no mmupdb");
-		if(--proc->kmaptable->ref != 0)
-			panic("mmurelease: kmap ref %ld", proc->kmaptable->ref);
 		if(proc->nkmap)
 			panic("mmurelease: nkmap %d", proc->nkmap);
 		/*
 		 * remove kmaptable from pdb before putting pdb up for reuse.
 		 */
 		pdb = tmpmap(proc->mmupdb);
-		if(PPN(pdb[PDX(KMAP)]) != proc->kmaptable->pa)
+		if(PPN(pdb[PDX(KMAP)]) != page->pa)
 			panic("mmurelease: bad kmap pde %#.8lux kmap %#.8lux",
-				pdb[PDX(KMAP)], proc->kmaptable->pa);
+				pdb[PDX(KMAP)], page->pa);
 		pdb[PDX(KMAP)] = 0;
 		tmpunmap(pdb);
+
 		/*
 		 * move kmaptable to free list.
 		 */
-		pagechainhead(proc->kmaptable);
+		page->next = proc->mmufree;
+		proc->mmufree = page;
 		proc->kmaptable = nil;
 	}
-	if(proc->mmupdb != nil){
+	if((page = proc->mmupdb) != nil){
 		mmuptefree(proc);
-		mmupdbfree(proc, proc->mmupdb);
+		mmupdbfree(proc, page);
 		proc->mmupdb = nil;
 	}
-	for(page = proc->mmufree; page != nil; page = next){
-		next = page->next;
-		if(--page->ref != 0)
-			panic("mmurelease: page->ref %ld", page->ref);
-		pagechainhead(page);
+	if((page = proc->mmufree) != nil){
+		freepages(page, nil, 0);
+		proc->mmufree = nil;
 	}
-	if(proc->mmufree != nil)
-		pagechaindone();
-	proc->mmufree = nil;
 	if(proc->ldt != nil){
 		free(proc->ldt);
 		proc->ldt = nil;

@@ -11,7 +11,7 @@ void
 pageinit(void)
 {
 	int color, i, j;
-	Page *p;
+	Page *p, **t;
 	Pallocmem *pm;
 	vlong m, v, u;
 
@@ -29,8 +29,12 @@ pageinit(void)
 	}
 
 	color = 0;
+	palloc.freecount = 0;
 	palloc.head = nil;
+
+	t = &palloc.head;
 	p = palloc.pages;
+
 	for(i=0; i<nelem(palloc.mem); i++){
 		pm = &palloc.mem[i];
 		for(j=0; j<pm->npage; j++){
@@ -40,7 +44,8 @@ pageinit(void)
 				continue;
 			p->color = color;
 			color = (color+1)%NCOLOR;
-			pagechainhead(p);
+			*t = p, t = &p->next;
+			palloc.freecount++;
 			p++;
 		}
 	}
@@ -65,15 +70,7 @@ pageinit(void)
 	print("%lldM swap\n", v/(1024*1024));
 }
 
-void
-pagechainhead(Page *p)
-{
-	p->next = palloc.head;
-	palloc.head = p;
-	palloc.freecount++;
-}
-
-void
+static void
 pagechaindone(void)
 {
 	if(palloc.pwait[0].p != nil && wakeup(&palloc.pwait[0]) != nil)
@@ -85,11 +82,23 @@ pagechaindone(void)
 void
 freepages(Page *head, Page *tail, ulong np)
 {
-	assert(palloc.Lock.p == up);
+	if(head == nil)
+		return;
+	if(tail == nil){
+		tail = head;
+		for(np = 1;; np++){
+			tail->ref = 0;
+			if(tail->next == nil)
+				break;
+			tail = tail->next;
+		}
+	}
+	lock(&palloc);
 	tail->next = palloc.head;
 	palloc.head = head;
 	palloc.freecount += np;
 	pagechaindone();
+	unlock(&palloc);
 }
 
 ulong
@@ -138,11 +147,8 @@ pagereclaim(Image *i)
 	}
 	putimage(i);
 
-	if(np > 0){
-		lock(&palloc);
+	if(np > 0)
 		freepages(fh, ft, np);
-		unlock(&palloc);
-	}
 
 	return np;
 }
@@ -237,11 +243,8 @@ putpage(Page *p)
 		decref(p);
 		return;
 	}
-	if(decref(p) == 0){
-		lock(&palloc);
+	if(decref(p) == 0)
 		freepages(p, p, 1);
-		unlock(&palloc);
-	}
 }
 
 void

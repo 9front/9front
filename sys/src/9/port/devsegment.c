@@ -469,7 +469,7 @@ fixedseg(uintptr va, ulong len)
 {
 	KMap *k;
 	Segment *s;
-	Page **f, *p, *l, *h;
+	Page **f, *p, *l, *h, *t;
 	ulong n, i;
 	int color;
 
@@ -492,12 +492,13 @@ fixedseg(uintptr va, ulong len)
 			continue;
 
 		i = 0;
-		h = nil;
+		h = t = nil;
 		f = &palloc.head;
 		while((p = *f) != nil){
 			if(p > &l[-len] && p <= l){
 				*f = p->next;
-				p->next = h;
+				if((p->next = h) == nil)
+					t = p;
 				h = p;
 				if(++i < len)
 					continue;
@@ -505,15 +506,15 @@ fixedseg(uintptr va, ulong len)
 			}
 			f = &p->next;
 		}
-		palloc.freecount -= i;
 
 		if(i != len){
-			while((p = h) != nil){
-				h = h->next;
-				pagechainhead(p);
+			if(h != nil){
+				t->next = palloc.head;
+				palloc.head = h;
 			}
 			goto Retry;
 		}
+		palloc.freecount -= i;
 		unlock(&palloc);
 
 		p = &l[-len];
