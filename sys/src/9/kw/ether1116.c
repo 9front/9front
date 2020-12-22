@@ -18,7 +18,7 @@
 #include "../port/netif.h"
 #include "../port/etherif.h"
 
-#include "ethermii.h"
+#include "../port/ethermii.h"
 #include "../ip/ip.h"
 
 #define	MIIDBG	if(0)iprint
@@ -361,6 +361,36 @@ enum {
 
 	SmiRegaddroff	= 21,		/* PHY device register addr */
 	SmiRegaddrmask	= 0x1f << SmiRegaddroff,
+};
+
+enum {
+	/* 88e1116-specific paged registers */
+	Scr		= 16,		/* special control register */
+	Ssr		= 17,		/* special status register */
+	Ier		= 18,		/* interrupt enable reg */
+	Isr		= 19,		/* interrupt status reg */
+	Escr		= 20,		/* extended special control reg */
+	Recr		= 21,		/* RX error counter reg */
+	Eadr		= 22,		/* extended address reg (page select) */
+	Globsts		= 23,		/* global status */
+	Impover		= 24,		/* RGMII output impedance override (page 2) */
+	Imptarg		= 25,		/* RGMII output impedance target (page 2) */
+	Scr2		= 26,		/* special control register 2 */
+};
+
+enum {					/* Scr page 0 */
+	Pwrdown		= 0x0004,	/* power down */
+	Mdix		= 0x0060,	/* MDI crossover mode */
+	Endetect	= 0x0300,	/* energy detect */
+};
+
+enum {					/* Scr page 2 */
+	Rgmiipwrup	= 0x0008,	/* RGMII power up: must sw reset after */
+};
+
+enum {					/* Recr page 2 */
+	Txtiming	= 1<<4,
+	Rxtiming	= 1<<5,
 };
 
 struct Gbereg {
