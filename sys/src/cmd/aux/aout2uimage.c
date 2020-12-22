@@ -67,7 +67,7 @@ put(uchar *p, u32int v)
 void
 usage(void)
 {
-	fprint(2, "usage: %s a.out", argv0);
+	fprint(2, "usage: %s a.out\n", argv0);
 	exits("usage");
 }
 
