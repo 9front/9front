@@ -13,5 +13,5 @@ if(~ $#box 1 && test -f /mnt/plumb/seemail || test -f /mnt/term/mnt/plumb/seemai
 		plumb -dseemail -a 'filetype=vwhois digest='$i.$pid' mailtype=new sender='$i /mail/fs/$box/XXXvwhois
 }
 if not for (i){
-	echo vwhois: vwhois: vwhois: delivered `{cat /dev/user} From $i '(vwho)' >> /sys/log/mail
+	echo vwhois: vwhois: vwhois: delivered $user From $i '(vwho)' >> /sys/log/mail
 }

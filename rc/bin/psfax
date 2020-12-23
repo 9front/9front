@@ -24,7 +24,6 @@ shift
 
 script=/tmp/fax.$pid
 header=/tmp/faxh.$pid
-user=`{cat /dev/user}
 tmp=/tmp/page.$pid
 tmpin=/tmp/page.in.$pid
 tel=`{grep '\) '$user /lib/tel}

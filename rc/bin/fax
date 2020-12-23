@@ -46,7 +46,6 @@ shift
 
 script=/tmp/fax.$pid
 header=/tmp/faxh.$pid
-user=`{cat /dev/user}
 tmp=/tmp/fax.g3.$pid
 tmpin=/tmp/fax.in.$pid
 tmpps=/tmp/fax.ps.$pid
