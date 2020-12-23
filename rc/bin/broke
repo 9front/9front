@@ -1,8 +1,8 @@
 #!/bin/rc
-U=`{cat /dev/user}
+rfork e
 if(~ $#* 1){
-	U=$1
+	user=$1
 }
-ps | sed -n '/^'$U' .* Broken/s%[^ ]*  *%~>/proc/%
+ps | sed -n '/^'$user' .* Broken/s%[^ ]*  *%~>/proc/%
 s%  *.* (.*)%/ctl # \1%
 s%~%echo kill%p'

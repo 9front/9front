@@ -1,8 +1,7 @@
 #!/bin/rc
 rfork e
-U=`{cat /dev/user}
 for(i){
-	ps | sed -n '/^'$U' .* '$i'$/s%[^ ]*  *%~>/proc/%
+	ps | sed -n '/^'$user' .* '$i'$/s%[^ ]*  *%~>/proc/%
 	s%  *.* (.*)%/note} # \1%
 	s%~%@{echo kill%p'
 }
