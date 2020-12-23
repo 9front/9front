@@ -1,5 +1,7 @@
 #!/bin/rc
 
+rfork e
+
 files=()
 dest=()
 
