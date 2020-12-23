@@ -1,5 +1,4 @@
 #!/bin/rc
-U=`{cat /dev/user}
-ps | sed -n '/^'$U' .* '$1'$/s%[^ ]*  *%~>/proc/%
+~ $#* 0 || ps | sed -n '/^'$user' .* '$1'$/s%[^ ]*  *%~>/proc/%
 s%  *.*%/ctl%
 s%~%echo stop%p'
