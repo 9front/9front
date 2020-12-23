@@ -24,6 +24,7 @@ OFILES=\
 	getenv.$O\
 	getpid.$O\
 	getppid.$O\
+	getuser.$O\
 	getwd.$O\
 	idn.$O\
 	iounit.$O\

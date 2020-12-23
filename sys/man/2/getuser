@@ -18,22 +18,23 @@ null-terminated
 name of the user who
 owns the current process.
 .I Getuser
-reads
-.B /dev/user
+stats the file
+.BI /proc/ pid /status
 to find the name.
 .PP
 .I Sysname
-provides the same service for the file
-.BR #c/sysname ,
+reads the file
+.BR /dev/sysname ,
 which contains the name of the machine.
 Unlike
 .IR getuser ,
 .I sysname
 caches the string, reading the file only once.
 .SH SOURCE
-.B /sys/src/libc/port/getuser.c
+.B /sys/src/libc/9sys/getuser.c
 .br
 .B /sys/src/libc/9sys/sysname.c 
 .SH SEE ALSO
 .IR intro (2),
+.IR proc (3),
 .IR cons (3)
