@@ -27,12 +27,12 @@ if(! bind -a '#u' /dev)
 		case 010106
 			nusb/ptp $id
 		case *
-			# HUAWEI E220 modem
-			if(~ $2$3 12d11003)
+			switch($2$3){
+			case 12d11003 *0403
 				nusb/serial $id
-			# FTDI
-			if(~ $2 0403)
-				nusb/serial $id
+			case 59862113
+				nusb/cam $id
+			}
 		}
 	}
 	fn detach {
