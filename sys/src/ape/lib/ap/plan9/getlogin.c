@@ -1,21 +1,24 @@
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
+#include "lib.h"
 #include <unistd.h>
-#include <sys/limits.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "sys9.h"
+#include "dir.h"
 
 char *
-getlogin_r(char *buf, int len)
+getlogin_r(char *user, int len)
 {
-	int f, n;
+	char name[32];
+	Dir *dir;
 
-	f = open("/dev/user", O_RDONLY);
-	if(f < 0)
-		return 0;
-	n = read(f, buf, len);
-	buf[len-1] = 0;
-	close(f);
-	return (n>=0)? buf : 0;
+	snprintf(name, sizeof(name), "/proc/%d/status", getpid());
+	if((dir = _dirstat(name)) == nil){
+		_syserrno();
+		return NULL;
+	}
+	snprintf(user, len, "%s", dir->uid);
+	free(dir);
+	return user;
 }
 
 char *
