@@ -539,7 +539,7 @@ procwstat(Chan *c, uchar *db, int n)
 		error(Eperm);
 
 	if(!emptystr(d->uid) && strcmp(d->uid, p->user) != 0){
-		if(!iseve())
+		if(strcmp(d->uid, "none") != 0 && !iseve())
 			error(Eperm);
 		kstrdup(&p->user, d->uid);
 	}
