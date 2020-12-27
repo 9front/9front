@@ -434,8 +434,6 @@ dump(Vga* vga, Ctlr* ctlr)
 
 	printitem(ctlr->name, "virtual");
 	Bprint(&stdout, "%ld %ld\n", vga->virtx, vga->virty);
-	printitem(ctlr->name, "panning");
-	Bprint(&stdout, "%s\n", vga->panning ? "on" : "off");
 	if(vga->f[0]){
 		printitem(ctlr->name, "clock[0] f");
 		Bprint(&stdout, "%9ld\n", vga->f[0]);

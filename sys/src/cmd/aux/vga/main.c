@@ -204,14 +204,14 @@ chanstr[32+1] = {
 static void
 usage(void)
 {
-	fprint(2, "usage: aux/vga [ -BcdilpvV ] [ -b bios-id ] [ -m monitor ] [ -x db ] [ mode [ virtualsize ] ]\n");
+	fprint(2, "usage: aux/vga [ -BcdilpvV ] [ -b bios-id ] [ -m monitor ] [ -x db ] [ -t tilt ] [ mode [ virtualsize ] ]\n");
 	exits("usage");
 }
 
 void
 main(int argc, char** argv)
 {
-	char *bios, buf[256], sizeb[256], *p, *vsize, *psize;
+	char *bios, buf[256], sizeb[256], *p, *vsize, *psize, *tilt;
 	char *type, *vtype;
 	int virtual, len;
 	Ctlr *ctlr;
@@ -220,8 +220,9 @@ main(int argc, char** argv)
 	fmtinstall('H', encodefmt);
 	Binit(&stdout, 1, OWRITE);
 
+	tilt = getenv("tiltscreen");
 	bios = getenv("vgactlr");
-	if((type = getenv("monitor")) == 0)
+	if((type = getenv("monitor")) == nil)
 		type = "vga";
 	psize = vsize = "640x480x8";
 
@@ -258,6 +259,9 @@ main(int argc, char** argv)
 		 * rflag > 1 means "leave me alone, I know what I'm doing."
 		 */
 		rflag++;
+		break;
+	case 't':
+		tilt = EARGF(usage());
 		break;
 	case 'v':
 		vflag = 1;
@@ -372,12 +376,10 @@ main(int argc, char** argv)
 			vga->virty = atoi(p+1);
 			if(vga->virtx < vga->mode->x || vga->virty < vga->mode->y)
 				error("virtual size smaller than physical size\n");
-			vga->panning = 1;
 		}
 		else{
 			vga->virtx = vga->mode->x;
 			vga->virty = vga->mode->y;
-			vga->panning = 0;
 		}
 
 		trace("vmf %d vmdf %d vf1 %lud vbw %lud\n",
@@ -526,9 +528,10 @@ main(int argc, char** argv)
 			if(vga->virtx != vga->mode->x || vga->virty != vga->mode->y){
 				sprint(buf, "%dx%d", vga->mode->x, vga->mode->y);
 				vgactlw("actualsize", buf);
-				if(vga->panning)
-					vgactlw("panning", "on");
 			}
+
+			if(tilt != nil && *tilt != '\0')
+				vgactlw("tilt", tilt);
 
 			if(pflag)
 				dump(vga);

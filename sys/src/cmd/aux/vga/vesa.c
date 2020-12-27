@@ -275,7 +275,6 @@ options(Vga *vga, Ctlr *ctlr)
 	if(v = dbattr(vga->mode->attr, "virtx")){
 		vga->virtx = atoi(v);
 		vga->virty = vga->mode->y;
-		vga->panning = 0;
 	}
 	ctlr->flag |= Foptions;
 }

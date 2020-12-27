@@ -212,8 +212,6 @@ typedef struct Vga {
 	ulong	virtx;			/* resolution of virtual screen */
 	ulong	virty;
 
-	int	panning;		/* pan the virtual screen */
-
 	Ctlr*	ctlr;
 	Ctlr*	ramdac;
 	Ctlr*	clock;

@@ -15,6 +15,10 @@ vga \- configure a VGA card
 .I monitor
 ]
 [
+.B -t
+.I tilt
+]
+[
 .B -x
 .I file
 ]
@@ -91,6 +95,17 @@ print a trace of the functions called.
 .B -V
 print a verbose trace of the functions called.
 .TP
+.B -t
+can be used to change the tilt of the screen.
+The value is one of
+.BR none ,
+.BR left ,
+.B inverted
+and
+.BR right .
+See
+.IR vga (3).
+.TP
 .BI -x " file"
 use 
 .I file
@@ -137,9 +152,6 @@ is of the form
 .I X x Y
 and configures the display to have a virtual
 screen of the given size.
-The physical screen will pan to follow the mouse.
-This is useful on displays with small screens,
-such as laptops, but can be confusing.
 .PP
 Using the monitor name
 .B vesa
