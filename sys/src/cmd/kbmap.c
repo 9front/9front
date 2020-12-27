@@ -103,6 +103,8 @@ geometry(void)
 	Rectangle r;
 
 	rows = (Dy(screen->r)-2*MARGIN+PAD)/(font->height+PAD);
+	if(rows < 1)
+		rows = 1;
 
 	r = Rect(0,0,(Dx(screen->r)-2*MARGIN), font->height);
 	for(i=0; i<nmap; i++)
