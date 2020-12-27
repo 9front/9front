@@ -80,12 +80,6 @@ char Enotconfigured[] = "device not configured";
 #define HOST_MEM_MODE_V             		0xC0000000
 #define HOST_MEM_MODE_NORMAL     		HOST_YUV_APERTURE_UPPER 
 
-static Chan *ovl_chan;		/* Channel of controlling process */
-static int ovl_width;		/* Width of input overlay buffer */
-static int ovl_height;		/* Height of input overlay buffer */
-static int ovl_format;		/* Overlay format */
-static ulong ovl_fib;		/* Frame in bytes */
-
 enum {
 	 VTGTB1S1	= 0x01, /* Asic description for VTB1S1 and GTB1S1. */
 	 VT4GTIIC	= 0x3A,		/* asic descr for VT4 and RAGE IIC */
@@ -117,7 +111,6 @@ struct Mach64types {
 static ulong mach64refclock;
 static Mach64types *mach64type;
 static int mach64revb;			/* Revision B or greater? */
-static ulong mach64overlay;		/* Overlay buffer */
 
 static Mach64types mach64s[] = {
 	('C'<<8)|'T',	0,	1350000, /*?*/	0,	/* 4354: CT */
@@ -480,69 +473,10 @@ ptalmostinrect(Point p, Rectangle r)
 	       p.y>=r.min.y && p.y<=r.max.y;
 }
 
-/*
- * If necessary, translate the rectangle physr
- * some multiple of [dx dy] so that it includes p.
- * Return 1 if the rectangle changed.
- */
-static int
-screenpan(Point p, Rectangle *physr, int dx, int dy)
-{
-	int d;
-
-	if(ptalmostinrect(p, *physr))
-		return 0;
-
-	if(p.y < physr->min.y){
-		d = physr->min.y - (p.y&~(dy-1));
-		physr->min.y -= d;
-		physr->max.y -= d;
-	}
-	if(p.y > physr->max.y){
-		d = ((p.y+dy-1)&~(dy-1)) - physr->max.y;
-		physr->min.y += d;
-		physr->max.y += d;
-	}
-
-	if(p.x < physr->min.x){
-		d = physr->min.x - (p.x&~(dx-1));
-		physr->min.x -= d;
-		physr->max.x -= d;
-	}
-	if(p.x > physr->max.x){
-		d = ((p.x+dx-1)&~(dx-1)) - physr->max.x;
-		physr->min.x += d;
-		physr->max.x += d;
-	}
-	return 1;
-}
-
 static int
 mach64xxcurmove(VGAscr* scr, Point p)
 {
 	int x, xo, y, yo;
-	int dx;
-	ulong off, pitch;
-
-	/*
-	 * If the point we want to display is outside the current
-	 * screen rectangle, pan the screen to display it.
-	 *
-	 * We have to move in 64-bit chunks.
-	 */
-	if(scr->gscreen->depth == 24)
-		dx = (64*3)/24;
-	else
-		dx = 64 / scr->gscreen->depth;
-
-	if(panning && screenpan(p, &physgscreenr, dx, 1)){
-		off = (physgscreenr.min.y*Dx(scr->gscreen->r)+physgscreenr.min.x)/dx;
-		pitch = Dx(scr->gscreen->r)/8;
-		iow32(scr, CrtcOffPitch, (pitch<<22)|off);
-	}
-
-	p.x -= physgscreenr.min.x;
-	p.y -= physgscreenr.min.y;
 
 	/*
 	 * Mustn't position the cursor offscreen even partially,
@@ -589,7 +523,7 @@ mach64xxcurenable(VGAscr* scr)
 	 * Find a place for the cursor data in display memory.
 	 * Must be 64-bit aligned.
 	 */
-	storage = (scr->gscreen->width*sizeof(ulong)*scr->gscreen->r.max.y+7)/8;
+	storage = (scr->pitch*scr->height+7)/8;
 	iow32(scr, CurOffset, storage);
 	scr->storage = storage*8;
 
@@ -644,63 +578,22 @@ resetengine(VGAscr *scr)
 }
 
 static void
-init_overlayclock(VGAscr *scr)
-{
-	uchar *cc, save, pll_ref_div, pll_vclk_cntl, vclk_post_div, 
-			vclk_fb_div, ecp_div;
-	int i;
-	ulong dotclock;
-
-	/* Taken from GLX */
-	/* Get monitor dotclock, check for Overlay Scaler clock limit */
- 	cc = (uchar *)&scr->mmio[mmoffset[ClockCntl]];
-  	save = cc[1]; i = cc[0] & 3;
-  	cc[1] = 2<<2; pll_ref_div = cc[2];
-  	cc[1] = 5<<2; pll_vclk_cntl = cc[2];
-  	cc[1] = 6<<2; vclk_post_div = (cc[2]>>(i+i)) & 3;
-  	cc[1] = (7+i)<<2; vclk_fb_div = cc[2];
-
-	dotclock = 2 * mach64refclock * vclk_fb_div / 
-			(pll_ref_div * (1 << vclk_post_div));
-	/* ecp_div: 0=dotclock, 1=dotclock/2, 2=dotclock/4 */
-  	ecp_div = dotclock / mach64type->m64_ovlclock;
-  	if (ecp_div>2) ecp_div = 2;
-
-  	/* Force a scaler clock factor of 1 if refclock *
-   	  * is unknown (VCLK_SRC not PLLVCLK)  */
-  	if ((pll_vclk_cntl & 0x03) != 0x03) 
-		ecp_div = 0;
-  	if ((pll_vclk_cntl & 0x30) != ecp_div<<4) {
-    		cc[1] = (5<<2)|2;
-    		cc[2] = (pll_vclk_cntl&0xCF) | (ecp_div<<4);
-	}
-
-  	/* Restore PLL Register Index */
-  	cc[1] = save;
-}
-
-static void
 initengine(VGAscr *scr)
 {
-	ulong pitch;
 	uchar *bios;
 	ushort table;
-
-	pitch = Dx(scr->gscreen->r)/8;
-	if(scr->gscreen->depth == 24)
-		pitch *= 3;
 
 	resetengine(scr);
 	waitforfifo(scr, 14);
 	iow32(scr, ContextMask, ~0);
-	iow32(scr, DstOffPitch, pitch<<22);
+	iow32(scr, DstOffPitch, scr->pitch<<22);
 	iow32(scr, DstYX, 0);
 	iow32(scr, DstHeight, 0);
 	iow32(scr, DstBresErr, 0);
 	iow32(scr, DstBresInc, 0);
 	iow32(scr, DstBresDec, 0);
 	iow32(scr, DstCntl, 0x23);
-	iow32(scr, SrcOffPitch, pitch<<22);
+	iow32(scr, SrcOffPitch, scr->pitch<<22);
 	iow32(scr, SrcYX, 0);
 	iow32(scr, SrcHeight1Width1, 1);
 	iow32(scr, SrcYXstart, 0);
@@ -793,19 +686,16 @@ initengine(VGAscr *scr)
 static int
 mach64hwfill(VGAscr *scr, Rectangle r, ulong sval)
 {
-	ulong pitch;
 	ulong ctl;
 
 	/* shouldn't happen */
 	if(scr->io == 0x2EC || scr->io == 0x1C8 || scr->io == 0)
 		return 0;
 
-	pitch = Dx(scr->gscreen->r)/8;
 	ctl = 1|2;	/* left-to-right, top-to-bottom */
 	if(scr->gscreen->depth == 24){
 		r.min.x *= 3;
 		r.max.x *= 3;
-		pitch *= 3;
 		ctl |= (1<<7)|(((r.min.x/4)%6)<<8);
 	}
 
@@ -817,7 +707,7 @@ mach64hwfill(VGAscr *scr, Rectangle r, ulong sval)
 	iow32(scr, ClrCmpCntl, 0x00000000);
 	iow32(scr, ScLeftRight, 0x1FFF0000);
 	iow32(scr, ScTopBottom, 0x1FFF0000);
-	iow32(scr, DstOffPitch, pitch<<22);
+	iow32(scr, DstOffPitch, scr->pitch<<22);
 	iow32(scr, DstCntl, ctl);
 	iow32(scr, DstYX, (r.min.x<<16)|r.min.y);
 	iow32(scr, DstHeightWidth, (Dx(r)<<16)|Dy(r));
@@ -829,17 +719,14 @@ mach64hwfill(VGAscr *scr, Rectangle r, ulong sval)
 static int
 mach64hwscroll(VGAscr *scr, Rectangle r, Rectangle sr)
 {
-	ulong pitch;
 	Point dp, sp;
 	ulong ctl;
 	int dx, dy;
 
 	dx = Dx(r);
 	dy = Dy(r);
-	pitch = Dx(scr->gscreen->r)/8;
 	if(scr->gscreen->depth == 24){
 		dx *= 3;
-		pitch *= 3;
 		r.min.x *= 3;
 		sr.min.x *= 3;
 	}
@@ -875,11 +762,11 @@ mach64hwscroll(VGAscr *scr, Rectangle r, Rectangle sr)
 	iow32(scr, ClrCmpCntl, 0x00000000);
 
 	waitforfifo(scr, 8);
-	iow32(scr, SrcOffPitch, pitch<<22);
+	iow32(scr, SrcOffPitch, scr->pitch<<22);
 	iow32(scr, SrcCntl, 0x00000000);
 	iow32(scr, SrcYX, (sp.x<<16)|sp.y);
 	iow32(scr, SrcWidth1, dx);
-	iow32(scr, DstOffPitch, pitch<<22);
+	iow32(scr, DstOffPitch, scr->pitch<<22);
 	iow32(scr, DstCntl, ctl);
 
 	iow32(scr, DstYX, (dp.x<<16)|dp.y);
@@ -957,222 +844,6 @@ mach64xxdrawinit(VGAscr *scr)
 	}
 }
 
-static void
-ovl_configure(VGAscr *scr, Chan *c, char **field)
-{
-	int w, h;
-	char *format;
-
-	w = (int)strtol(field[1], nil, 0);
-	h = (int)strtol(field[2], nil, 0);
-	format = field[3];
-
-	if (c != ovl_chan) 
-		error(Einuse);
-	if (strcmp(format, "YUYV"))
-		error(Eunsupportedformat);
-	
-	ovl_width  = w;
-	ovl_height = h;
-	ovl_fib       = w * h * sizeof(ushort);
-
-	waitforidle(scr);
-	scr->mmio[mmoffset[BusCntl]] |= 0x08000000;	/* Enable regblock 1 */
-	scr->mmio[mmoffset[OverlayScaleCntl]] = 
-		SCALE_ZERO_EXTEND|SCALE_RED_TEMP_6500K|
-		SCALE_HORZ_BLEND|SCALE_VERT_BLEND;
-	scr->mmio[mmoffset[!mach64revb? Buf0Pitch: ScalerBuf0Pitch]] = w;
-	scr->mmio[mmoffset[CaptureConfig]] = 
-		SCALER_FRAME_READ_MODE_FULL|
-		SCALER_BUF_MODE_SINGLE|
-		SCALER_BUF_NEXT_0;
-	scr->mmio[mmoffset[OverlayKeyCntl]] = !mach64revb?
-		OVERLAY_MIX_ALWAYS_V|(OVERLAY_EXCLUSIVE_NORMAL << 28): 
-		0x011;
-
-	if (mach64type->m64_pro) {
-		waitforfifo(scr, 6);
-
-		/* set the scaler co-efficient registers */
-		scr->mmio[mmoffset[ScalerColourCntl]] = 
-			(0x00) | (0x10 << 8) | (0x10 << 16);
-		scr->mmio[mmoffset[ScalerHCoef0]] = 
-			(0x00) | (0x20 << 8);
-		scr->mmio[mmoffset[ScalerHCoef1]] = 
-			(0x0D) | (0x20 << 8) | (0x06 << 16) | (0x0D << 24);
-		scr->mmio[mmoffset[ScalerHCoef2]] = 
-			(0x0D) | (0x1C << 8) | (0x0A << 16) | (0x0D << 24);
-		scr->mmio[mmoffset[ScalerHCoef3]] = 
-			(0x0C) | (0x1A << 8) | (0x0E << 16) | (0x0C << 24);
-		scr->mmio[mmoffset[ScalerHCoef4]] = 
-			(0x0C) | (0x14 << 8) | (0x14 << 16) | (0x0C << 24);
-	}
-	
-	waitforfifo(scr, 3);
-	scr->mmio[mmoffset[VideoFormat]] = SCALE_IN_YVYU422 |
-		(!mach64revb? 0xC: 0);
-
-	if (mach64overlay == 0)
-		mach64overlay = scr->storage + 64 * 64 * sizeof(uchar);
-	scr->mmio[mmoffset[!mach64revb? Buf0Offset: ScalerBuf0Offset]] = 
-		mach64overlay;
-}
-
-static void
-ovl_enable(VGAscr *scr, Chan *c, char **field)
-{
-	int x, y, w, h;
-	long h_inc, v_inc;
-
-	x = (int)strtol(field[1], nil, 0);
-	y = (int)strtol(field[2], nil, 0);
-	w = (int)strtol(field[3], nil, 0);
-	h = (int)strtol(field[4], nil, 0);
-
-	if (x < 0 || x + w > physgscreenr.max.x ||
-	     y < 0 || y + h > physgscreenr.max.y)
-		error(Ebadarg);
-
-	if (c != ovl_chan) 
-		error(Einuse);
-	if (scr->mmio[mmoffset[CrtcGenCntl]] & 1) {	/* double scan enable */
-		y *= 2;
-		h *= 2;
-	}
-
-	waitforfifo(scr, 2);
-	scr->mmio[mmoffset[OverlayYX]] = 
-			((x & 0xFFFF) << 16) | (y & 0xFFFF);
-	scr->mmio[mmoffset[OverlayYXEnd]] = 
-			(((x + w) & 0xFFFF) << 16) | ((y + h) & 0xFFFF);
-
-	h_inc = (ovl_width << 12) / (w >> 1);  /* ??? */
-	v_inc = (ovl_height << 12) / h;
-	waitforfifo(scr, 2);
-	scr->mmio[mmoffset[OverlayScaleInc]] = 
-			((h_inc & 0xFFFF) << 16) | (v_inc & 0xFFFF);
-	scr->mmio[mmoffset[ScalerHeightWidth]] = 
-			((ovl_width & 0xFFFF) << 16) | (ovl_height & 0xFFFF);
-	waitforidle(scr);
-	scr->mmio[mmoffset[OverlayScaleCntl]] |= 
-			(SCALE_ENABLE|OVERLAY_ENABLE);
-}
-
-static void
-ovl_status(VGAscr *scr, Chan *, char **field)
-{
-	pprint("%s: %s %.4uX, VT/GT %s, PRO %s, ovlclock %lud, rev B %s, refclock %ld\n",
-		   scr->dev->name, field[0], mach64type->m64_id,
-		   mach64type->m64_vtgt? "yes": "no",
-		   mach64type->m64_pro? "yes": "no",
-		   mach64type->m64_ovlclock,
-		   mach64revb? "yes": "no",
-		   mach64refclock);
-	pprint("%s: storage @%.8luX, aperture @%8.ullX, ovl buf @%.8ulX\n",
-		   scr->dev->name, scr->storage, scr->paddr,
-		   mach64overlay);
-}
-	
-static void
-ovl_openctl(VGAscr *, Chan *c, char **)
-{
-	if (ovl_chan) 
-		error(Einuse);
-	ovl_chan = c;
-}
-
-static void
-ovl_closectl(VGAscr *scr, Chan *c, char **)
-{
-	if (c != ovl_chan) return;
-
-	waitforidle(scr);
-	scr->mmio[mmoffset[OverlayScaleCntl]] &=
-			~(SCALE_ENABLE|OVERLAY_ENABLE);
-	ovl_chan = nil;
-	ovl_width = ovl_height = ovl_fib = 0;
-}
-
-enum
-{
-	CMclosectl,
-	CMconfigure,
-	CMenable,
-	CMopenctl,
-	CMstatus,
-};
-
-static void (*ovl_cmds[])(VGAscr *, Chan *, char **) =
-{
-	[CMclosectl]	ovl_closectl,
-	[CMconfigure]	ovl_configure,
-	[CMenable]	ovl_enable,
-	[CMopenctl]	ovl_openctl,
-	[CMstatus]	ovl_status,
-};
-
-static Cmdtab mach64xxcmd[] =
-{
-	CMclosectl,	"closectl",	1,
-	CMconfigure,	"configure",	4,
-	CMenable,	"enable",	5,
-	CMopenctl,	"openctl",	1,
-	CMstatus,	"status",	1,
-};
-
-static void
-mach64xxovlctl(VGAscr *scr, Chan *c, void *a, int n)
-{
-	Cmdbuf *cb;
-	Cmdtab *ct;
-
-	if(!mach64type->m64_vtgt) 
-		error(Enodev);
-
-	if(!scr->overlayinit){
-		scr->overlayinit = 1;
-		init_overlayclock(scr);
-	}
-	cb = parsecmd(a, n);
-	if(waserror()){
-		free(cb);
-		nexterror();
-	}
-
-	ct = lookupcmd(cb, mach64xxcmd, nelem(mach64xxcmd));
-
-	ovl_cmds[ct->index](scr, c, cb->f);
-
-	poperror();
-	free(cb);
-}
-
-static int
-mach64xxovlwrite(VGAscr *scr, void *a, int len, vlong offs)
-{
-	uchar *src;
-	int _len;
-
-	if (ovl_chan == nil) return len;	/* Acts as a /dev/null */
-	
-	/* Calculate the destination address */
-	_len = len;
-	src   = (uchar *)a;
-	while (len > 0) {
-		ulong _offs;
-		int nb;
-
-		_offs = (ulong)(offs % ovl_fib);
-		nb     = (_offs + len > ovl_fib)? ovl_fib - _offs: len;
-		memmove((uchar *)scr->vaddr + mach64overlay + _offs, 
-				  src, nb);
-		offs += nb;
-		src  += nb;
-		len  -= nb;
-	}
-	return _len;
-}
-
 VGAdev vgamach64xxdev = {
 	"mach64xx",
 
@@ -1180,10 +851,7 @@ VGAdev vgamach64xxdev = {
 	0,				/* disable */
 	0,				/* page */
 	mach64xxlinear,			/* linear */
-	mach64xxdrawinit,	/* drawinit */
-	0,
-	mach64xxovlctl,	/* overlay control */
-	mach64xxovlwrite,	/* write the overlay */
+	mach64xxdrawinit,		/* drawinit */
 };
 
 VGAcur vgamach64xxcur = {
@@ -1193,7 +861,5 @@ VGAcur vgamach64xxcur = {
 	mach64xxcurdisable,		/* disable */
 	mach64xxcurload,		/* load */
 	mach64xxcurmove,		/* move */
-
-	1					/* doespanning */
 };
 

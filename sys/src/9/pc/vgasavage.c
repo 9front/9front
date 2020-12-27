@@ -540,7 +540,7 @@ savageinit(VGAscr *scr)
 
 	/* set bitmap descriptors */
 	bd = (scr->gscreen->depth<<DepthShift) |
-		(Dx(scr->gscreen->r)<<StrideShift) | BlockWriteDis
+		(scr->width<<StrideShift) | BlockWriteDis
 		| BDS64;
 
 	*(ulong*)(mmio+GBD1) = 0;

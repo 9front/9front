@@ -350,7 +350,7 @@ radeonscroll(VGAscr*scr, Rectangle dst, Rectangle src)
 static void
 radeondrawinit(VGAscr*scr)
 {
-	ulong bpp, dtype, i, pitch, clock_cntl_index, mclk_cntl, rbbm_soft_reset;
+	ulong dtype, i, clock_cntl_index, mclk_cntl, rbbm_soft_reset;
 
 	if (scr->mmio == 0)
 		return;
@@ -359,19 +359,15 @@ radeondrawinit(VGAscr*scr)
 	case 6:
 	case 8:
 		dtype = 2;
-		bpp = 1;
 		break;
 	case 15:
 		dtype = 3;
-		bpp = 2;
 		break;
 	case 16:
 		dtype = 4;
-		bpp = 2;
 		break;
 	case 32:
 		dtype = 6;
-		bpp = 4;
 		break;
 	default:
 		return;
@@ -413,11 +409,10 @@ radeondrawinit(VGAscr*scr)
 	radeonwaitfifo(scr, 1);
 	OUTREG(scr->mmio, RB2D_DSTCACHE_MODE, 0);
 
-	pitch = Dx(scr->gscreen->r) * bpp;
 	radeonwaitfifo(scr, 4);
-	OUTREG(scr->mmio, DEFAULT_PITCH, pitch);
-	OUTREG(scr->mmio, DST_PITCH, pitch);
-	OUTREG(scr->mmio, SRC_PITCH, pitch);
+	OUTREG(scr->mmio, DEFAULT_PITCH, scr->pitch);
+	OUTREG(scr->mmio, DST_PITCH, scr->pitch);
+	OUTREG(scr->mmio, SRC_PITCH, scr->pitch);
 	OUTREG(scr->mmio, DST_PITCH_OFFSET_C, 0);
 
 	radeonwaitfifo(scr, 3);
@@ -501,5 +496,4 @@ VGAcur vgaradeoncur = {
 	radeoncurdisable,
 	radeoncurload,
 	radeoncurmove,
-	0				/* doespanning */
 };

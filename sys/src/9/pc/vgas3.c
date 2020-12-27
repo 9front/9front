@@ -309,7 +309,7 @@ s3enable(VGAscr* scr)
 	 * Find a place for the cursor data in display memory.
 	 * Must be on a 1024-byte boundary.
 	 */
-	storage = (scr->gscreen->width*sizeof(ulong)*scr->gscreen->r.max.y+1023)/1024;
+	storage = (scr->pitch*scr->height+1023)/1024;
 	vgaxo(Crtx, 0x4C, storage>>8);
 	vgaxo(Crtx, 0x4D, storage & 0xFF);
 	storage *= 1024;
@@ -420,14 +420,12 @@ hwscroll(VGAscr *scr, Rectangle r, Rectangle sr)
 {
 	enum { Bitbltop = 0xCC };	/* copy source */
 	ulong *mmio;
-	ulong cmd, stride;
+	ulong cmd;
 	Point dp, sp;
-	int did, d;
+	int did;
 
-	d = scr->gscreen->depth;
-	did = (d-8)/8;
+	did = (scr->gscreen->depth-8)/8;
 	cmd = 0x00000020|(Bitbltop<<17)|(did<<2);
-	stride = Dx(scr->gscreen->r)*d/8;
 
 	if(r.min.x <= sr.min.x){
 		cmd |= 1<<25;
@@ -452,7 +450,7 @@ hwscroll(VGAscr *scr, Rectangle r, Rectangle sr)
 	waitforfifo(scr, 7);
 	mmio[SrcBase] = scr->paddr;
 	mmio[DstBase] = scr->paddr;
-	mmio[Stride] = (stride<<16)|stride;
+	mmio[Stride] = (scr->pitch<<16)|scr->pitch;
 	mmio[WidthHeight] = ((Dx(r)-1)<<16)|Dy(r);
 	mmio[SrcXY] = (sp.x<<16)|sp.y;
 	mmio[DestXY] = (dp.x<<16)|dp.y;
@@ -466,20 +464,18 @@ hwfill(VGAscr *scr, Rectangle r, ulong sval)
 {
 	enum { Bitbltop = 0xCC };	/* copy source */
 	ulong *mmio;
-	ulong cmd, stride;
-	int did, d;
+	ulong cmd;
+	int did;
 
-	d = scr->gscreen->depth;
-	did = (d-8)/8;
+	did = (scr->gscreen->depth-8)/8;
 	cmd = 0x16000120|(Bitbltop<<17)|(did<<2);
-	stride = Dx(scr->gscreen->r)*d/8;
 	mmio = scr->mmio;
 	waitforlinearfifo(scr);
 	waitforfifo(scr, 8);
 	mmio[SrcBase] = scr->paddr;
 	mmio[DstBase] = scr->paddr;
 	mmio[DstBase] = scr->paddr;
-	mmio[Stride] = (stride<<16)|stride;
+	mmio[Stride] = (scr->pitch<<16)|scr->pitch;
 	mmio[FgrdData] = sval;
 	mmio[WidthHeight] = ((Dx(r)-1)<<16)|Dy(r);
 	mmio[DestXY] = (r.min.x<<16)|r.min.y;

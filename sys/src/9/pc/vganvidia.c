@@ -343,12 +343,10 @@ static int
 nvresetgraphics(VGAscr *scr)
 {
 	ulong	surfaceFormat, patternFormat, rectFormat, lineFormat;
-	int	pitch, i;
+	int	i;
 
 	if(scr->paddr == 0)
 		return -1;
-
-	pitch = scr->gscreen->width*sizeof(ulong);
 
 	/*
 	 * DMA is at the end of the virtual window,
@@ -416,7 +414,7 @@ nvresetgraphics(VGAscr *scr)
 
 	nvdmastart(scr, SURFACE_FORMAT, 4);
 	nvdmanext(surfaceFormat);
-	nvdmanext(pitch | (pitch << 16));
+	nvdmanext(scr->pitch | (scr->pitch << 16));
 	nvdmanext(0);
 	nvdmanext(0);
 

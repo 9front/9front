@@ -75,8 +75,6 @@ struct VGAcur {
 	void	(*disable)(VGAscr*);
 	void	(*load)(VGAscr*, Cursor*);
 	int	(*move)(VGAscr*, Point);
-
-	int	doespanning;
 };
 
 /*
@@ -96,6 +94,12 @@ struct VGAscr {
 	void*	vaddr;
 	int	apsize;
 
+	int	bpp;
+	int	pitch;
+
+	int	width;
+	int	height;
+
 	ulong	io;		/* device specific registers */
 	ulong	*mmio;
 	
@@ -110,8 +114,8 @@ struct VGAscr {
 	int	(*scroll)(VGAscr*, Rectangle, Rectangle);
 	void	(*blank)(VGAscr*, int);
 	ulong	id;	/* internal identifier for driver use */
-	int	overlayinit;
 	int	softscreen;
+	int	tilt;
 };
 
 extern VGAscr vgascreen[];
@@ -128,16 +132,17 @@ extern void	mouseredraw(void);
 /* screen.c */
 extern int	hwaccel;	/* use hw acceleration */
 extern int	hwblank;	/* use hw blanking */
-extern int	panning;	/* use virtual screen panning */
+extern char	*tiltstr[4];
+extern Rectangle actualscreensize(VGAscr*);
+extern void	setactualsize(VGAscr*, Rectangle);
+extern void	setscreensize(VGAscr*, int, int, int, ulong, int);
 extern void	addvgaseg(char*, uvlong, ulong);
 extern Memdata*	attachscreen(Rectangle*, ulong*, int*, int*, int*);
 extern void	flushmemscreen(Rectangle);
 extern void	cursoron(void);
 extern void	cursoroff(void);
 extern void	setcursor(Cursor*);
-extern int	screensize(int, int, int, ulong);
-extern int	screenaperture(int, int);
-extern Rectangle physgscreenr;	/* actual monitor size */
+extern int	screenaperture(VGAscr*, int, int);
 extern void	blankscreen(int);
 extern char*	rgbmask2chan(char *buf, int depth, u32int rm, u32int gm, u32int bm);
 extern void	bootscreeninit(void);

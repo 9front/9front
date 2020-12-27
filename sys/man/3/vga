@@ -6,8 +6,6 @@ vga \- VGA controller device
 .B bind #v /dev
 
 .B /dev/vgactl
-.B /dev/vgaovl
-.B /dev/vgaovlctl
 .fi
 .SH DESCRIPTION
 The VGA device allows configuration of a graphics controller
@@ -48,31 +46,25 @@ pixels wide by
 .I Y 
 pixels high.
 This message is optional;
-it is used to implement panning and to accommodate
-displays that require the in-memory screen image
-to have certain alignment properties.
+it is used to accommodate displays that require the
+in-memory screen image to have certain alignment properties.
 For example, a 1400x1050 screen with a 1408x1050 in-memory image
 will use 
 .B "size 1408x1050
 but
 .BR "actualsize 1400x1050" .
 .TP
-.BI panning " mode"
-Depending on whether
-.I mode
-is 
-.B on
-or
-.BR off ,
-enable or disable panning in a virtual screen.
-If panning is on and the screen's
-.B size
-is larger than its
-.BR actualsize ,
-the displayed portion of the screen will pan to follow the mouse.
-Setting the panning mode after the first attach of the
-.B #i
-driver has no effect.
+.BI tilt " value"
+Set the tilt of the screen,
+altering the screen's orientation.
+The
+.I value
+can be one of:
+.BR none ,
+.BR left ,
+.B inverted
+and
+.BR right .
 .TP
 .BI type " ctlr"
 Set the type of VGA controller being used.
@@ -206,46 +198,6 @@ This must be sent after setting the
 Reading
 .B vgactl
 returns the current settings, one per line.
-.PP
-Some VGA cards support overlay graphics.
-Writing strings to
-.B vgaovlctl
-configures such cards.
-The following are valid overlay control commands:
-.TP
-.BI openctl
-opens the overlay device.
-.TP
-.BI configure " w h format"
-allocates resources inside the driver to support an overlay area
-of width
-.I w
-and height
-.I h
-pixels.  Currently, the only supported
-.I format
-is
-.B YUYV
-packed.
-In
-.B YUYV
-two pixels are encoded by their separate Y values
-and their combined U and V values.
-The size of the two pixels is 32 bits.
-.TP
-.BI enable " x y w h"
-enables drawing data on the display through the overlay mode.  The data
-is drawn at position
-.IR x , y
-and has a width and height of
-.IR w , h
-respectively.
-.TP
-.BI closectl
-terminates overlay control.
-.PP
-Overlay data can be written to
-.BR vgaovl .
 .SH EXAMPLES
 The following disables hardware acceleration.
 .IP

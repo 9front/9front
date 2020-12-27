@@ -459,13 +459,8 @@ t2r4blank(VGAscr *scr, int blank)
 static void
 t2r4drawinit(VGAscr *scr)
 {
-	ulong pitch;
-	int depth;
 	int fmt;
 	ulong *d;
-
-	pitch = Dx(scr->gscreen->r);
-	depth = scr->gscreen->depth;
 
 	switch(scr->gscreen->chan){
 	case RGB16:
@@ -488,8 +483,8 @@ t2r4drawinit(VGAscr *scr)
 	d[BufCtl] = fmt<<24;
 	d[DeSorg] = 0;
 	d[DeDorg] = 0;
-	d[DeSptch] = (pitch*depth)/8;
-	d[DeDptch] = (pitch*depth)/8;
+	d[DeSptch] = scr->pitch;
+	d[DeDptch] = scr->pitch;
 	d[CmdClp] = 0;	/* 2 = inside rectangle */
 	d[Mask] = ~0;
 	d[DeKey] = 0;

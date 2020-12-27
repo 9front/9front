@@ -19,15 +19,11 @@
 enum {
 	Qdir,
 	Qvgactl,
-	Qvgaovl,
-	Qvgaovlctl,
 };
 
 static Dirtab vgadir[] = {
-	".",	{ Qdir, 0, QTDIR },		0,	0550,
-	"vgactl",		{ Qvgactl, 0 },		0,	0660,
-	"vgaovl",		{ Qvgaovl, 0 },		0,	0660,
-	"vgaovlctl",	{ Qvgaovlctl, 0 },	0, 	0660,
+	".",		{ Qdir, 0, QTDIR },	0,	0550,
+	"vgactl",	{ Qvgactl, 0 },		0,	0660,
 };
 
 enum {
@@ -38,12 +34,12 @@ enum {
 	CMhwgc,
 	CMlinear,
 	CMpalettedepth,
-	CMpanning,
 	CMsize,
 	CMtextmode,
 	CMtype,
 	CMsoftscreen,
 	CMpcidev,
+	CMtilt,
 };
 
 static Cmdtab vgactlmsg[] = {
@@ -54,12 +50,12 @@ static Cmdtab vgactlmsg[] = {
 	CMhwgc,		"hwgc",		2,
 	CMlinear,	"linear",	0,
 	CMpalettedepth,	"palettedepth",	2,
-	CMpanning,	"panning",	2,
 	CMsize,		"size",		3,
 	CMtextmode,	"textmode",	1,
 	CMtype,		"type",		2,
 	CMsoftscreen,	"softscreen",	2,
 	CMpcidev,	"pcidev",	2,
+	CMtilt,		"tilt",		2,
 };
 
 static void
@@ -120,35 +116,12 @@ vgastat(Chan* c, uchar* dp, int n)
 static Chan*
 vgaopen(Chan* c, int omode)
 {
-	VGAscr *scr;
-	static char *openctl = "openctl\n";
-
-	scr = &vgascreen[0];
-	if ((ulong)c->qid.path == Qvgaovlctl) {
-		if (scr->dev && scr->dev->ovlctl)
-			scr->dev->ovlctl(scr, c, openctl, strlen(openctl));
-		else 
-			error(Enonexist);
-	}
 	return devopen(c, omode, vgadir, nelem(vgadir), devgen);
 }
 
 static void
-vgaclose(Chan* c)
+vgaclose(Chan*)
 {
-	VGAscr *scr;
-	static char *closectl = "closectl\n";
-
-	scr = &vgascreen[0];
-	if((ulong)c->qid.path == Qvgaovlctl)
-		if(scr->dev && scr->dev->ovlctl){
-			if(waserror()){
-				print("ovlctl error: %s\n", up->errstr);
-				return;
-			}
-			scr->dev->ovlctl(scr, c, closectl, strlen(closectl));
-			poperror();
-		}
 }
 
 static long
@@ -176,19 +149,20 @@ vgaread(Chan* c, void* a, long n, vlong off)
 		p = seprint(p, e, "type %s\n",
 			scr->dev != nil ? scr->dev->name : "cga");
 		if(scr->gscreen != nil) {
+			Rectangle r;
+
 			p = seprint(p, e, "size %dx%dx%d %s\n",
-				scr->gscreen->r.max.x, scr->gscreen->r.max.y,
-				scr->gscreen->depth, chantostr(chbuf, scr->gscreen->chan));
-			if(Dx(scr->gscreen->r) != Dx(physgscreenr) 
-			|| Dy(scr->gscreen->r) != Dy(physgscreenr))
-				p = seprint(p, e, "actualsize %dx%d\n",
-					physgscreenr.max.x, physgscreenr.max.y);
+				scr->width, scr->height, scr->gscreen->depth,
+				chantostr(chbuf, scr->gscreen->chan));
+			r = actualscreensize(scr);
+			if(scr->width != r.max.x || scr->height != r.max.y)
+				p = seprint(p, e, "actualsize %dx%d\n", r.max.x, r.max.y);
+			p = seprint(p, e, "tilt %s\n", tiltstr[scr->tilt]);
 		}
 		p = seprint(p, e, "hwgc %s\n",
 			scr->cur != nil ? scr->cur->name : "off");
 		p = seprint(p, e, "hwaccel %s\n", hwaccel ? "on" : "off");
 		p = seprint(p, e, "hwblank %s\n", hwblank ? "on" : "off");
-		p = seprint(p, e, "panning %s\n", panning ? "on" : "off");
 		p = seprint(p, e, "addr p 0x%.8llux v %#p size %#ux\n",
 			scr->paddr, scr->vaddr, scr->apsize);
 		p = seprint(p, e, "softscreen %s\n", scr->softscreen ? "on" : "off");
@@ -198,11 +172,6 @@ vgaread(Chan* c, void* a, long n, vlong off)
 		free(s);
 
 		return n;
-
-	case Qvgaovl:
-	case Qvgaovlctl:
-		error(Ebadusefd);
-		break;
 
 	default:
 		error(Egreg);
@@ -216,18 +185,16 @@ static char Ebusy[] = "vga already configured";
 static char Enoscreen[] = "set the screen size first";
 
 static void
-vgactl(Cmdbuf *cb)
+vgactl(VGAscr *scr, Cmdbuf *cb)
 {
-	int align, i, size, x, y, z;
+	int align, size, tilt, z, i;
 	Rectangle r;
 	char *chanstr, *p;
 	ulong chan;
 	Cmdtab *ct;
-	VGAscr *scr;
 	extern VGAdev *vgadev[];
 	extern VGAcur *vgacur[];
 
-	scr = &vgascreen[0];
 	ct = lookupcmd(cb, vgactlmsg, nelem(vgactlmsg));
 	switch(ct->index){
 	case CMhwgc:
@@ -298,14 +265,15 @@ vgactl(Cmdbuf *cb)
 		return;
 
 	case CMsize:
-		x = strtoul(cb->f[1], &p, 0);
+		r.min = ZP;
+		r.max.x = strtoul(cb->f[1], &p, 0);
 		if(*p)
 			p++;
-		y = strtoul(p, &p, 0);
+		r.max.y = strtoul(p, &p, 0);
 		if(*p)
 			p++;
 		z = strtoul(p, &p, 0);
-		if(badrect(Rect(0,0,x,y)))
+		if(badrect(r))
 			error(Ebadarg);
 		chanstr = cb->f[2];
 		if((chan = strtochan(chanstr)) == 0)
@@ -313,32 +281,30 @@ vgactl(Cmdbuf *cb)
 		if(chantodepth(chan) != z)
 			error("depth, channel do not match");
 		deletescreenimage();
-		if(screensize(x, y, z, chan))
-			error(Egreg);
-		bootscreenconf(scr);
+		setscreensize(scr, r.max.x, r.max.y, z, chan, scr->tilt);
 		return;
 
 	case CMactualsize:
 		if(scr->gscreen == nil)
 			error(Enoscreen);
-		x = strtoul(cb->f[1], &p, 0);
+		r.min = ZP;
+		r.max.x = strtoul(cb->f[1], &p, 0);
 		if(*p)
 			p++;
-		y = strtoul(p, nil, 0);
-		r = Rect(0,0,x,y);
+		r.max.y = strtoul(p, nil, 0);
 		if(badrect(r))
 			error(Ebadarg);
-		if(!rectinrect(r, scr->gscreen->r))
+		if(r.max.x > scr->width || r.max.y > scr->height)
 			error("physical screen bigger than virtual");
 		deletescreenimage();
-		physgscreenr = r;
+		setactualsize(scr, r);
 		goto Resized;
 	
 	case CMpalettedepth:
-		x = strtoul(cb->f[1], &p, 0);
-		if(x != 8 && x != 6)
+		z = strtoul(cb->f[1], &p, 0);
+		if(z != 8 && z != 6)
 			error(Ebadarg);
-		scr->palettedepth = x;
+		scr->palettedepth = z;
 		return;
 
 	case CMsoftscreen:
@@ -348,17 +314,22 @@ vgactl(Cmdbuf *cb)
 			scr->softscreen = 0;
 		else
 			break;
+		if(0){
+	case CMtilt:
+			for(tilt = 0; tilt < nelem(tiltstr); tilt++)
+				if(strcmp(cb->f[1], tiltstr[tilt]) == 0)
+					break;
+		} else {
+			tilt = scr->tilt;
+		}
 		if(scr->gscreen == nil)
 			return;
-		r = physgscreenr;
-		x = scr->gscreen->r.max.x;
-		y = scr->gscreen->r.max.y;
-		z = scr->gscreen->depth;
+		r = actualscreensize(scr);
 		chan = scr->gscreen->chan;
+		z = scr->gscreen->depth;
 		deletescreenimage();
-		if(screensize(x, y, z, chan))
-			error(Egreg);
-		physgscreenr = r;
+		setscreensize(scr, scr->width, scr->height, z, chan, tilt);
+		setactualsize(scr, r);
 		/* no break */
 	case CMdrawinit:
 		if(scr->gscreen == nil)
@@ -368,7 +339,6 @@ vgactl(Cmdbuf *cb)
 		hwblank = scr->blank != nil;
 		hwaccel = scr->fill != nil || scr->scroll != nil;
 	Resized:
-		scr->gscreen->clipr = panning ? scr->gscreen->r : physgscreenr;
 		vgascreenwin(scr);
 		resetscreenimage();
 		return;
@@ -381,26 +351,9 @@ vgactl(Cmdbuf *cb)
 			align = 0;
 		else
 			align = strtoul(cb->f[2], 0, 0);
-		if(screenaperture(size, align) < 0)
+		if(screenaperture(scr, size, align) < 0)
 			error("not enough free address space");
 		return;
-
-	case CMpanning:
-		if(strcmp(cb->f[1], "on") == 0){
-			if(scr->cur == nil)
-				error("set cursor first");
-			if(!scr->cur->doespanning)
-				error("panning not supported");
-			panning = 1;
-		}
-		else if(strcmp(cb->f[1], "off") == 0){
-			panning = 0;
-		}else
-			break;
-		if(scr->gscreen == nil)
-			return;
-		deletescreenimage();
-		goto Resized;
 
 	case CMhwaccel:
 		if(strcmp(cb->f[1], "on") == 0)
@@ -424,14 +377,11 @@ vgactl(Cmdbuf *cb)
 	cmderror(cb, "bad VGA control message");
 }
 
-char Enooverlay[] = "No overlay support";
-
 static long
 vgawrite(Chan* c, void* a, long n, vlong off)
 {
 	ulong offset = off;
 	Cmdbuf *cb;
-	VGAscr *scr;
 
 	switch((ulong)c->qid.path){
 
@@ -446,26 +396,9 @@ vgawrite(Chan* c, void* a, long n, vlong off)
 			free(cb);
 			nexterror();
 		}
-		vgactl(cb);
+		vgactl(&vgascreen[0], cb);
 		poperror();
 		free(cb);
-		return n;
-
-	case Qvgaovl:
-		scr = &vgascreen[0];
-		if (scr->dev == nil || scr->dev->ovlwrite == nil) {
-			error(Enooverlay);
-			break;
-		}
-		return scr->dev->ovlwrite(scr, a, n, off);
-
-	case Qvgaovlctl:
-		scr = &vgascreen[0];
-		if (scr->dev == nil || scr->dev->ovlctl == nil) {
-			error(Enooverlay);
-			break;
-		}
-		scr->dev->ovlctl(scr, c, a, n);
 		return n;
 
 	default:

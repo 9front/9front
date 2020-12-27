@@ -16,16 +16,125 @@
 
 extern VGAcur vgasoftcur;
 
-Rectangle physgscreenr;
-
 Memimage *gscreen;
 
 VGAscr vgascreen[1];
 
-int
-screensize(int x, int y, int, ulong chan)
+char *tiltstr[4] = {
+	"none",
+	"left",
+	"inverted",
+	"right",
+};
+
+static Point
+tiltpt(int tilt, Point dim, Point p)
 {
-	VGAscr *scr;
+	switch(tilt&3){
+	case 1:	return Pt(dim.y-p.y-1, p.x);
+	case 2:	return Pt(dim.x-p.x-1, dim.y-p.y-1);
+	case 3:	return Pt(p.y, dim.x-p.x-1);
+	}
+	return p;
+}
+
+static Rectangle
+tiltrect(int tilt, Point dim, Rectangle r)
+{
+	switch(tilt&3){
+	case 1:	return Rect(dim.y-r.max.y, r.min.x, dim.y-r.min.y, r.max.x);
+	case 2:	return Rect(dim.x-r.max.x, dim.y-r.max.y, dim.x-r.min.x, dim.y-r.min.y);
+	case 3:	return Rect(r.min.y, dim.x-r.max.x, r.max.y, dim.x-r.min.x);
+	}
+	return r;
+}
+
+static Point
+tiltsize(int tilt, Point dim)
+{
+	return (tilt & 1) != 0 ? Pt(dim.y, dim.x) : dim;
+}
+
+Rectangle
+actualscreensize(VGAscr *scr)
+{
+	return Rpt(ZP, tiltsize(-scr->tilt, scr->gscreen->clipr.max));
+}
+
+void
+setactualsize(VGAscr *scr, Rectangle r)
+{
+	qlock(&drawlock);
+
+	r.min = ZP;
+	r.max = tiltsize(scr->tilt, r.max);
+	if(rectclip(&r, scr->gscreen->r) == 0){
+		qunlock(&drawlock);
+		return;
+	}
+	scr->gscreen->clipr = r;
+
+	qunlock(&drawlock);
+}
+
+static char*
+setscreensize0(VGAscr *scr, int width, int height, int depth, ulong chan, int tilt)
+{
+	int bpp, pitch;
+
+	scr->gscreendata = nil;
+	scr->gscreen = nil;
+	if(gscreen != nil){
+		freememimage(gscreen);
+		gscreen = nil;
+	}
+	if(scr->paddr == 0){
+		if(scr->dev && scr->dev->page){
+			scr->vaddr = KADDR(VGAMEM());
+			scr->apsize = 1<<16;
+		}
+		scr->softscreen = 1;
+	}
+
+	depth = chantodepth(chan);
+	bpp = (depth+7) / 8;
+	pitch = ((width * depth+31) & ~31) / 8;
+
+	if(tilt)
+		scr->softscreen = 1;
+	if(scr->softscreen){
+		gscreen = allocmemimage(Rpt(ZP, tiltsize(tilt, Pt(width, height))), chan);
+		scr->useflush = 1;
+	}else{
+		static Memdata md;
+
+		md.ref = 1;
+		if((md.bdata = scr->vaddr) == 0)
+			error("framebuffer not maped");
+		gscreen = allocmemimaged(Rpt(ZP, Pt(width, height)), chan, &md);
+		scr->useflush = scr->dev && scr->dev->flush;
+	}
+	if(gscreen == nil)
+		return "no memory for vga memimage";
+
+	scr->bpp = bpp;
+	scr->pitch = pitch;
+	scr->width = width;
+	scr->height = height;
+	scr->tilt = tilt & 3;
+
+	scr->palettedepth = 6;	/* default */
+	scr->memdefont = getmemdefont();
+	scr->gscreen = gscreen;
+	scr->gscreendata = gscreen->data;
+
+	return nil;
+}
+
+void
+setscreensize(VGAscr *scr, int x, int y, int z, ulong chan, int tilt)
+{
+	char *err;
 
 	qlock(&drawlock);
 	if(waserror()){
@@ -42,68 +151,37 @@ screensize(int x, int y, int, ulong chan)
 		nexterror();
 	}
 
-	scr = &vgascreen[0];
-	scr->gscreendata = nil;
-	scr->gscreen = nil;
-	if(gscreen){
-		freememimage(gscreen);
-		gscreen = nil;
-	}
-
-	if(scr->paddr == 0){
-		if(scr->dev && scr->dev->page){
-			scr->vaddr = KADDR(VGAMEM());
-			scr->apsize = 1<<16;
-		}
-		scr->softscreen = 1;
-	}
-	if(scr->softscreen){
-		gscreen = allocmemimage(Rect(0,0,x,y), chan);
-		scr->useflush = 1;
-	}else{
-		static Memdata md;
-
-		md.ref = 1;
-		if((md.bdata = scr->vaddr) == 0)
-			error("framebuffer not maped");
-		gscreen = allocmemimaged(Rect(0,0,x,y), chan, &md);
-		scr->useflush = scr->dev && scr->dev->flush;
-	}
-	if(gscreen == nil)
-		error("no memory for vga memimage");
-
-	scr->palettedepth = 6;	/* default */
-	scr->memdefont = getmemdefont();
-	scr->gscreen = gscreen;
-	scr->gscreendata = gscreen->data;
-
-	physgscreenr = gscreen->r;
+	err = setscreensize0(scr, x, y, z, chan, tilt);
+	if(err != nil)
+		error(err);
 
 	vgaimageinit(chan);
+	bootscreenconf(scr);
 
 	unlock(&vgascreenlock);
 	poperror();
 
 	drawcmap();
 
+	if(scr->cur && scr->cur != &vgasoftcur){
+		cursoroff();
+		setcursor(&cursor);
+		cursoron();
+	}
+
 	qunlock(&drawlock);
 	poperror();
-
-	return 0;
 }
 
 int
-screenaperture(int size, int align)
+screenaperture(VGAscr *scr, int size, int align)
 {
-	VGAscr *scr;
 	uvlong pa;
 
-	scr = &vgascreen[0];
-
-	if(scr->paddr)	/* set up during enable */
+	if(size == 0)
 		return 0;
 
-	if(size == 0)
+	if(scr->paddr)	/* set up during enable */
 		return 0;
 
 	if(scr->dev && scr->dev->linear){
@@ -152,19 +230,61 @@ flushmemscreen(Rectangle r)
 {
 	VGAscr *scr;
 	uchar *sp, *disp, *sdisp, *edisp;
-	int y, len, incs, off, page;
+	int x, y, len, incs, off, page;
 
 	scr = &vgascreen[0];
 	if(scr->gscreen == nil || scr->useflush == 0)
 		return;
-	if(rectclip(&r, scr->gscreen->r) == 0)
+	if(rectclip(&r, scr->gscreen->clipr) == 0)
 		return;
+
+	if(scr->tilt){
+		Point size;
+
+		/* only supported on linear framebuffer */
+		disp = scr->vaddr;
+		if(scr->paddr == 0 || disp == nil)
+			return;
+
+		size = scr->gscreen->clipr.max;
+		r = tiltrect(-scr->tilt, size, r);
+		size = tiltsize(-scr->tilt, size);
+		sp = byteaddr(scr->gscreen, tiltpt(scr->tilt, size, r.min));
+		incs = byteaddr(scr->gscreen, tiltpt(scr->tilt, size, Pt(r.min.x+1, r.min.y))) - sp;
+
+		for(;;){
+			sdisp = disp + r.min.y * scr->pitch;
+			for(x = r.min.x; x < r.max.x; x++, sp += incs){
+				switch(scr->bpp){
+				case 4:
+					((ulong*)sdisp)[x] = *(ulong*)sp;
+					break;
+				case 3:
+					sdisp[x*3+0] = sp[0];
+					sdisp[x*3+1] = sp[1];
+					sdisp[x*3+2] = sp[2];
+					break;
+				case 2:
+					((ushort*)sdisp)[x] = *(ushort*)sp;
+					break;
+				case 1:
+					sdisp[x] = sp[0];
+					break;
+				}
+			}
+			if(++r.min.y >= r.max.y)
+				break;
+			sp = byteaddr(scr->gscreen, tiltpt(scr->tilt, size, r.min));
+		}
+		return;
+	}
+
 	if(scr->dev && scr->dev->flush){
 		scr->dev->flush(scr, r);
 		return;
 	}
 	disp = scr->vaddr;
-	incs = scr->gscreen->width*sizeof(ulong);
+	incs = scr->pitch;
 	off = (r.min.x*scr->gscreen->depth) / 8;
 	len = (r.max.x*scr->gscreen->depth + 7) / 8;
 	len -= off;
@@ -299,16 +419,48 @@ setcolor(ulong p, ulong r, ulong g, ulong b)
 	return setpalette(p, r, g, b);
 }
 
+static void
+tiltcursor(int t, Cursor *src, Cursor *dst)
+{
+	static Point dim = {16, 16};
+	uint i, j, im, jm;
+	Point p;
+
+	for(i = 0; i < 16*16; i++){
+		p = tiltpt(t, dim, Pt(i&15,i>>4));
+		j = p.y<<4 | p.x;
+		im = 0x80>>(i&7);
+		jm = 0x80>>(j&7);
+		if(src->clr[i>>3] & im)
+			dst->clr[j>>3] |= jm;
+		else
+			dst->clr[j>>3] &= ~jm;
+		if(src->set[i>>3] & im)
+			dst->set[j>>3] |= jm;
+		else
+			dst->set[j>>3] &= ~jm;
+	}
+
+	p = Pt(-src->offset.x & 15, -src->offset.y & 15);
+	p = tiltpt(t, dim, p);
+	dst->offset = Pt(-p.x, -p.y);
+}
+
 void
 cursoron(void)
 {
 	VGAscr *scr;
 	VGAcur *cur;
+	Point p;
 
 	scr = &vgascreen[0];
 	cur = scr->cur;
-	if(cur && cur->move)
-		cur->move(scr, mousexy());
+	if(cur && cur->move){
+		p = mousexy();
+		if(scr->tilt && cur != &vgasoftcur)
+			p = tiltpt(-scr->tilt, scr->gscreen->clipr.max, p);
+		cur->move(scr, p);
+	}
 }
 
 void
@@ -324,13 +476,18 @@ setcursor(Cursor* curs)
 
 	scr = &vgascreen[0];
 	cur = scr->cur;
-	if(cur && cur->load)
+	if(cur && cur->load){
+		if(scr->tilt && cur != &vgasoftcur){
+			static Cursor tmp;
+			tiltcursor(-scr->tilt, curs, &tmp);
+			curs = &tmp;
+		}
 		cur->load(scr, curs);
+	}
 }
 
 int hwaccel = 0;
 int hwblank = 0;
-int panning = 0;
 
 int
 hwdraw(Memdrawparam *par)
@@ -358,7 +515,7 @@ hwdraw(Memdrawparam *par)
 		if(mask && mask->data->bdata == scrd->bdata)
 			swcursoravoid(par->mr);
 	}
-	if(!hwaccel || scr->softscreen)
+	if(!hwaccel || scr->softscreen || scr->tilt)
 		return 0;
 	if(dst->data->bdata != scrd->bdata || src == nil || mask == nil)
 		return 0;
@@ -396,13 +553,13 @@ blankscreen(int blank)
 {
 	VGAscr *scr;
 
+	if(!hwblank)
+		return;
 	scr = &vgascreen[0];
-	if(hwblank){
-		if(scr->blank)
-			scr->blank(scr, blank);
-		else
-			vgablank(scr, blank);
-	}
+	if(scr->blank)
+		scr->blank(scr, blank);
+	else
+		vgablank(scr, blank);
 }
 
 static char*
@@ -461,6 +618,8 @@ vgalinearpci0(VGAscr *scr)
 	Pcidev *p;
 	
 	p = scr->pci;
+	if(p == nil)
+		return "no pci card";
 
 	/*
 	 * Scan for largest memory region on card.
@@ -575,7 +734,7 @@ void
 bootscreeninit(void)
 {
 	VGAscr *scr;
-	int x, y, z;
+	int x, y, z, tilt;
 	uvlong pa;
 	ulong chan, sz;
 	char *s, *p, *err;
@@ -608,34 +767,36 @@ bootscreeninit(void)
 	pa = strtoull(p+1, &s, 0);
 	if(pa == 0)
 		return;
-	if(*s++ == ' ')
-		sz = strtoul(s, nil, 0);
+	if(*s == ' ')
+		sz = strtoul(s+1, nil, 0);
 	if(sz < x * y * (z+7)/8)
 		sz = x * y * (z+7)/8;
 
-	/* map framebuffer */
+	tilt = 0;
+	if((p = getconf("tiltscreen")) != nil){
+		for(; tilt < nelem(tiltstr); tilt++)
+			if(strcmp(p, tiltstr[tilt]) == 0)
+				break;
+		tilt &= 3;
+	}
+
 	scr = &vgascreen[0];
+	scr->dev = nil;
+	scr->softscreen = 1;
+
 	if((err = bootmapfb(scr, pa, sz)) != nil){
 		print("bootmapfb: %s\n", err);
 		return;
 	}
 
-	if(memimageinit() < 0)
+	if(memimageinit() < 0){
+		print("memimageinit failed\n");
 		return;
-
-	gscreen = allocmemimage(Rect(0,0,x,y), chan);
-	if(gscreen == nil)
+	}
+	if((err = setscreensize0(scr, x, y, z, chan, tilt)) != nil){
+		print("setscreensize0: %s\n", err);
 		return;
-
-	scr->palettedepth = 6;	/* default */
-	scr->memdefont = getmemdefont();
-	scr->gscreen = gscreen;
-	scr->gscreendata = gscreen->data;
-	scr->softscreen = 1;
-	scr->useflush = 1;
-	scr->dev = nil;
-
-	physgscreenr = gscreen->r;
+	}
 
 	vgaimageinit(chan);
 	vgascreenwin(scr);
@@ -659,10 +820,11 @@ bootscreenconf(VGAscr *scr)
 	char conf[100], chan[30];
 
 	conf[0] = '\0';
-	if(scr != nil && scr->paddr != 0 && scr->gscreen != nil)
+	if(scr != nil && scr->paddr != 0 && scr->gscreen != nil){
 		snprint(conf, sizeof(conf), "%dx%dx%d %s 0x%.8llux %d\n",
-			scr->gscreen->r.max.x, scr->gscreen->r.max.y,
-			scr->gscreen->depth, chantostr(chan, scr->gscreen->chan),
+			scr->width, scr->height, scr->gscreen->depth, chantostr(chan, scr->gscreen->chan),
 			scr->paddr, scr->apsize);
+		ksetenv("tiltscreen", tiltstr[scr->tilt], 1);
+	}
 	ksetenv("*bootscreen", conf, 1);
 }

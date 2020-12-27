@@ -376,8 +376,8 @@ neomagichwfill(VGAscr *scr, Rectangle r, ulong sval)
 		| NEO_BC3_SKIP_MAPPING
 		| GXcopy;
 	mmio[DstStartOff] = scr->paddr
-		+ r.min.y*scr->gscreen->width*sizeof(ulong)
-		+ r.min.x*scr->gscreen->depth/BI2BY;
+		+ r.min.y*scr->pitch
+		+ r.min.x*scr->bpp;
 	mmio[XYExt] = (Dy(r) << 16) | (Dx(r) & 0xffff);
 	waitforidle(scr);
 	return 1;
@@ -387,12 +387,8 @@ static int
 neomagichwscroll(VGAscr *scr, Rectangle r, Rectangle sr)
 {
 	ulong *mmio;
-	int pitch, pixel;
 
 	mmio = scr->mmio;
-
-	pitch = scr->gscreen->width*sizeof(ulong);
-	pixel = scr->gscreen->depth/BI2BY;
 
 	waitforfifo(scr, 4);
 	if (r.min.y < sr.min.y || (r.min.y == sr.min.y && r.min.x < sr.min.x)) {
@@ -402,9 +398,9 @@ neomagichwscroll(VGAscr *scr, Rectangle r, Rectangle sr)
 			| NEO_BC3_SKIP_MAPPING
 			| GXcopy;
 		mmio[SrcStartOff] = scr->paddr
-			+ sr.min.y*pitch + sr.min.x*pixel;
+			+ sr.min.y*scr->pitch + sr.min.x*scr->bpp;
 		mmio[DstStartOff] = scr->paddr
-			+ r.min.y*pitch + r.min.x*pixel;
+			+ r.min.y*scr->pitch + r.min.x*scr->bpp;
 	} else {
 		/* start from lower-right */
 		mmio[BltCntl] = neomagicbltflags
@@ -415,9 +411,9 @@ neomagichwscroll(VGAscr *scr, Rectangle r, Rectangle sr)
 			| NEO_BC3_SKIP_MAPPING
 			| GXcopy;
 		mmio[SrcStartOff] = scr->paddr
-			+ (sr.max.y-1)*pitch + (sr.max.x-1)*pixel;
+			+ (sr.max.y-1)*scr->pitch + (sr.max.x-1)*scr->bpp;
 		mmio[DstStartOff] = scr->paddr
-			+ (r.max.y-1)*pitch + (r.max.x-1)*pixel;
+			+ (r.max.y-1)*scr->pitch + (r.max.x-1)*scr->bpp;
 	}
 	mmio[XYExt] = (Dy(r) << 16) | (Dx(r) & 0xffff);
 	waitforidle(scr);
@@ -428,11 +424,9 @@ static void
 neomagicdrawinit(VGAscr *scr)
 {
 	ulong *mmio;
-	uint bltmode, pitch;
+	uint bltmode;
 
 	mmio = scr->mmio;
-
-	pitch = scr->gscreen->width*sizeof(ulong);
 
 	neomagicbltflags = bltmode = 0;
 
@@ -450,7 +444,7 @@ neomagicdrawinit(VGAscr *scr)
 		return;
 	}
 
-	switch(Dx(scr->gscreen->r)) {
+	switch(scr->width) {
 	case 320:
 		bltmode |= NEO_MODE1_X_320;
 		neomagicbltflags |= NEO_BC1_X_320;
@@ -486,7 +480,7 @@ neomagicdrawinit(VGAscr *scr)
 
 	waitforidle(scr);
 	mmio[BltStat] = bltmode << 16;
-	mmio[Pitch] = (pitch << 16) | (pitch & 0xffff);
+	mmio[Pitch] = (scr->pitch << 16) | (scr->pitch & 0xffff);
 
 	scr->fill = neomagichwfill;
 	scr->scroll = neomagichwscroll;
