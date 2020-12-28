@@ -48,13 +48,12 @@ int
 clickmatch(Reprog *re, char *text, Resub rs[10], int click)
 {
 	char *clickp;
-	int i, w;
+	int i;
 	Rune r;
 
 	/* click is in characters, not bytes */
-	for(i=0; i<click && text[i]!='\0'; i+=w)
-		w = chartorune(&r, text+i);
-	clickp = text+i;
+	for(i=0, clickp=text; i<click && *clickp!='\0'; i++)
+		clickp += chartorune(&r, clickp);
 	for(i=0; i<=click; i++){
 		memset(rs, 0, 10*sizeof(Resub));
 		if(regexec(re, text+i, rs, 10))
