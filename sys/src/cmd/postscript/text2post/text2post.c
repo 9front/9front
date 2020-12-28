@@ -325,6 +325,11 @@ txt2post(void) {
 		thischar = r & 0xff;
 		thisfont = (r>>8) & 0xff;
 
+		if (thisfont >= FONTABSIZE) {
+			Bprint(Bstderr, "font out of range\n");
+			exits("font");
+		}
+
 		if (line_no == 0 && char_no == 0)
 			startpage();
 
