@@ -99,7 +99,7 @@ static Dirtab dir[NDIR] =
 static int	ndir = NQID;
 
 static int		srvfd;
-static int		srvclosefd;			/* rock for end of pipe to close */
+static int		mntfd;
 static int		clockfd;
 static int		clock;
 static Fid		*fids[Nhash];
@@ -190,35 +190,46 @@ getclock(void)
 	return atoi(buf);
 }
 
+/*
+ * Build pipe with OCEXEC set on second fd.
+ * Can't put it on both because we want to post one in /srv.
+ */
+static int
+cexecpipe(int *p0, int *p1)
+{
+	/* pipe the hard way to get close on exec */
+	if(bind("#|", "/mnt/temp", MREPL) == -1)
+		return -1;
+	*p0 = open("/mnt/temp/data", ORDWR);
+	*p1 = open("/mnt/temp/data1", ORDWR|OCEXEC);
+	unmount(nil, "/mnt/temp");
+	if(*p0<0 || *p1<0)
+		return -1;
+	return 0;
+}
+
 void
 startfsys(void)
 {
-	int p[2], fd;
+	int fd;
 
 	fmtinstall('F', fcallfmt);
 	clockfd = open("/dev/time", OREAD|OCEXEC);
 	clock = getclock();
-	if(pipe(p) < 0)
+	if(cexecpipe(&mntfd, &srvfd) < 0)
 		error("can't create pipe: %r");
-	/* 0 will be server end, 1 will be client end */
-	srvfd = p[0];
-	srvclosefd = p[1];
 	sprint(srvfile, "/srv/plumb.%s.%d", user, getpid());
 	if(putenv("plumbsrv", srvfile) < 0)
 		error("can't write $plumbsrv: %r");
 	fd = create(srvfile, OWRITE|OCEXEC|ORCLOSE, 0600);
 	if(fd < 0)
 		error("can't create /srv file: %r");
-	if(fprint(fd, "%d", p[1]) <= 0)
+	if(fprint(fd, "%d", mntfd) <= 0)
 		error("can't write /srv/file: %r");
-	/* leave fd open; ORCLOSE will take care of it */
-
 	procrfork(fsysproc, nil, Stack, RFFDG);
-
-	close(p[0]);
-	if(mount(p[1], -1, "/mnt/plumb", MREPL, "") == -1)
+	close(srvfd);
+	if(mount(mntfd, -1, "/mnt/plumb", MREPL, "") == -1)
 		error("can't mount /mnt/plumb: %r");
-	close(p[1]);
 }
 
 static void
@@ -229,8 +240,8 @@ fsysproc(void*)
 	Fid *f;
 	uchar *buf;
 
-	close(srvclosefd);
-	srvclosefd = -1;
+	close(mntfd);
+
 	t = nil;
 	for(;;){
 		buf = malloc(messagesize);	/* avoid memset of emalloc */
