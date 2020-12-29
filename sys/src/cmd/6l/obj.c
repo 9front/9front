@@ -17,7 +17,7 @@ char	*paramspace	= "FP";
  *	-H3 -T4128 -R4096		is plan9 32-bit format
  *	-H5 -T0x80110000 -R4096		is ELF32
  *
- *	options used: 189BLQSWabcjlnpsvz
+ *	options used: 189BLQSWabcejlnpsvz
  */
 
 static int

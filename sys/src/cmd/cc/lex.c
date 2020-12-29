@@ -9,7 +9,7 @@
  * known debug flags
  * flags without a description may be exclusive to certain architectures
  *	-.		Inhibit search for includes in source directory
- *	-0
+ *	-0		R0ISZERO - qc
  *	-4
  *	-8
  *	-<
@@ -34,10 +34,10 @@
  *	-W
  *	-X		abort on error
  *	-Y
- *	-Z
+ *	-Z		pickle
 
  *	-a		acid declaration output
- *	-c
+ *	-c		print const if
  *	-d		print declarations
  *	-e
  *	-f
