@@ -15,7 +15,7 @@ cpus(void)
 	char buf[256], *p;
 	int f, n;
 
-	f = open("#c/sysstat", OREAD);
+	f = open("#c/sysstat", OREAD|OCEXEC);
 	if(f < 0)
 		return -1;
 	n = read(f, buf, sizeof(buf)-1);
