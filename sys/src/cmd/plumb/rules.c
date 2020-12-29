@@ -410,11 +410,11 @@ include(char *s)
 	if(n>2 && args[2][0] != '#')
 		goto Err;
 	t = args[1];
-	fd = open(t, OREAD);
+	fd = open(t, OREAD|OCEXEC);
 	if(fd<0 && t[0]!='/' && strncmp(t, "./", 2)!=0 && strncmp(t, "../", 3)!=0){
 		snprint(buf, sizeof buf, "/sys/lib/plumb/%s", t);
 		t = buf;
-		fd = open(t, OREAD);
+		fd = open(t, OREAD|OCEXEC);
 	}
 	if(fd < 0)
 		parseerror("can't open %s for inclusion", t);
