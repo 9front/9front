@@ -209,6 +209,8 @@ dofile(Biobuf *b)
 			free(ol);
 			ol = l;
 		}
+		free(ol->key);
+		free(ol);
 		return;
 	}
 
