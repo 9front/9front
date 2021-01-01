@@ -1251,7 +1251,7 @@ ismp4(void)
 		return 0;
 	if(memcmp(&buf[4], "ftyp", 4) != 0)
 		return 0;
-	if(memcmp(&buf[8], "isom", 4) == 0){
+	if(memcmp(&buf[8], "isom", 4) == 0 || memcmp(&buf[8], "mp4", 3) == 0){
 		print("%s\n", mime ? "video/mp4" : "mp4 video");
 		return 1;
 	}
