@@ -14,6 +14,17 @@ Req, Reqpool, allocreqpool, freereqpool, allocreq, closereq, lookupreq, removere
 .PP
 .ft L
 .nf
+.ta \w'\fL    'u +\w'\fLuvlong 'u
+typedef struct Qid
+{
+	uvlong	path;
+	ulong	vers;
+	uchar	type;
+} Qid;
+.fi
+.PP
+.ft L
+.nf
 .ta \w'\fL    'u +\w'\fLulong 'u
 typedef struct Fid
 {
