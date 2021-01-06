@@ -732,8 +732,11 @@ main(int argc, char **argv)
 	b = qrcode(ver, lev, mode, buf, rc, &s);
 	if(b == nil)
 		sysfatal("%r");
-	print("%11s %11d %11d %11d %11d ", "k8", 0, 0, s, s);
-	write(1, b, s * s);
+	if(print("%11s %11d %11d %11d %11d ", "k8", 0, 0, s, s) != 5*12)
+		sysfatal("print: %r");
+	if(write(1, b, s*s) != s*s)
+		sysfatal("write: %r");
+	exits(0);
 }
 
 uchar qrrawpolys[] = {
