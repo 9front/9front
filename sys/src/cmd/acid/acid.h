@@ -3,7 +3,7 @@ enum
 {
 	Eof		= -1,
 	Strsize		= 4096,
-	Hashsize	= 128,
+	Hashsize	= 32768,
 	Maxarg		= 512,
 	NFD		= 100,
 	Maxproc		= 50,
