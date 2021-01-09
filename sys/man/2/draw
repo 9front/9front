@@ -103,6 +103,8 @@ int	bezierop(Image *dst, Point p0, Point p1, Point p2, Point p3,
 		int end0, int end1, int radius, Image *src, Point sp,
 		Drawop op)
 .PB
+int	bezierpts(Point p0, Point p1, Point p2, Point p3, Point **pp)
+.PB
 int	bezspline(Image *dst, Point *pt, int npt, int end0, int end1,
 		int radius, Image *src, Point sp)
 .PB
@@ -602,6 +604,16 @@ corresponds to
 .I a
 in
 .IR dst .
+.TP
+\f5bezierpts(\f2a\fP, \f2b\fP, \f2c\fP, \f2d\fP, \f2pp\fP)
+.I Bezierpts
+returns in
+.I pp
+a list of points making up the open polygon that
+.I bezier
+would draw.
+The caller is responsible for freeing
+.IR *pp .
 .TP
 \f5bezspline(\f2dst\fP, \f2p\fP, \f2np\fP, \f2end0\fP, \f2end1\fP, \f2thick\fP, \f2src\fP, \f2sp\fP)
 .I Bezspline

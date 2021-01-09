@@ -98,10 +98,21 @@ bpts(Plist *l, Point p0, Point p1, Point p2, Point p3)
 }
 
 static void
-bezierpts(Plist *l, Point p0, Point p1, Point p2, Point p3)
+_bezierpts(Plist *l, Point p0, Point p1, Point p2, Point p3)
 {
 	bpts(l, p0, p1, p2, p3);
 	appendpt(l, p3);
+}
+
+int
+bezierpts(Point p0, Point p1, Point p2, Point p3, Point **pp)
+{
+	Plist l;
+	l.p = nil;
+	l.np = 0;
+	_bezierpts(&l, p0, p1, p2, p3);
+	*pp = l.p;
+	return l.np;
 }
 
 static void
@@ -167,7 +178,7 @@ bezierop(Image *dst, Point p0, Point p1, Point p2, Point p3, int end0, int end1,
 	Plist l;
 
 	l.np = 0;
-	bezierpts(&l, p0, p1, p2, p3);
+	_bezierpts(&l, p0, p1, p2, p3);
 	if(l.np == -1)
 		return 0;
 	if(l.np != 0){
@@ -211,7 +222,7 @@ fillbezierop(Image *dst, Point p0, Point p1, Point p2, Point p3, int w, Image *s
 	Plist l;
 
 	l.np = 0;
-	bezierpts(&l, p0, p1, p2, p3);
+	_bezierpts(&l, p0, p1, p2, p3);
 	if(l.np == -1)
 		return 0;
 	if(l.np != 0){

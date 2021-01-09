@@ -436,6 +436,7 @@ extern Point	_string(Image*, Point, Image*, Point, Font*, char*, Rune*, int, Rec
 extern Point	stringsubfont(Image*, Point, Image*, Subfont*, char*);
 extern int		bezier(Image*, Point, Point, Point, Point, int, int, int, Image*, Point);
 extern int		bezierop(Image*, Point, Point, Point, Point, int, int, int, Image*, Point, Drawop);
+extern int		bezierpts(Point, Point, Point, Point, Point**);
 extern int		bezspline(Image*, Point*, int, int, int, int, Image*, Point);
 extern int		bezsplineop(Image*, Point*, int, int, int, int, Image*, Point, Drawop);
 extern int		bezsplinepts(Point*, int, Point**);
