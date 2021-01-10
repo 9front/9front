@@ -716,7 +716,15 @@ pcicfginit(void)
 	if(pciroot == nil)
 		goto out;
 
-	pcireset();
+	/*
+	 * Disabling devices here (by clearing bus master enable)
+	 * causes problems with with some OHCI USB controllers.
+	 * I supected that this is due to legacy device emulation
+	 * and revoking bus master flag before executing the handoff
+	 * makes BIOS/SMM lock up the system.
+	 *
+	 * pcireset();
+	 */
 
 	if(nobios) {
 		uvlong mema;
