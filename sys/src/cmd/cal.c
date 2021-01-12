@@ -2,15 +2,9 @@
 #include <libc.h>
 #include <bio.h>
 
-char	*dayw[] =
+char	dayws[] =
 {
-	" S  M Tu  W Th  F  S",
-	" M Tu  W Th  F Sa Su",
-	"Tu  W Th  F Sa Su  M",
-	" W Th  F Sa Su  M Tu",
-	"Th  F Sa Su  M Tu  W",
-	" F Sa Su  M Tu  W Th",
-	"Sa Su  M Tu  W Th  F"
+	"Su  M Tu  W Th  F Sa Su  M Tu  W Th  F Sa",
 };
 char	*smon[] =
 {
@@ -48,6 +42,7 @@ void
 main(int argc, char *argv[])
 {
 	int y, i, j, m;
+	char *dayw;
 
 	ARGBEGIN{
 	case 's':
@@ -63,6 +58,9 @@ main(int argc, char *argv[])
 	if(argc > 2)
 		usage();
 	Binit(&bout, 1, OWRITE);
+
+	dayw = dayws + 3*wstart;
+	dayw[3*7] = '\0';
 
 /*
  * no arg, print current month
@@ -108,7 +106,7 @@ xshort:
 	if(y < 1 || y > 9999)
 		goto badarg;
 	Bprint(&bout, "   %s %ud\n", smon[m-1], y);
-	Bprint(&bout, "%s\n", dayw[wstart]);
+	Bprint(&bout, "%s\n", dayw);
 	cal(m, y, string, 24);
 	for(i=0; i<6*24; i+=24)
 		pstr(string+i, 24);
@@ -129,7 +127,7 @@ xlong:
 		Bprint(&bout, "         %.3s", smon[i]);
 		Bprint(&bout, "                    %.3s", smon[i+1]);
 		Bprint(&bout, "                    %.3s\n", smon[i+2]);
-		Bprint(&bout, "%s   %s   %s\n", dayw[wstart], dayw[wstart], dayw[wstart]);
+		Bprint(&bout, "%s   %s   %s\n", dayw, dayw, dayw);
 		cal(i+1, y, string, 72);
 		cal(i+2, y, string+23, 72);
 		cal(i+3, y, string+46, 72);
