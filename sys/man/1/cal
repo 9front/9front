@@ -4,9 +4,11 @@ cal \- print calendar
 .SH SYNOPSIS
 .B cal
 [
+.B -s
+.I 1..7
+] [
 .I month
-]
-[
+] [
 .I year
 ]
 .SH DESCRIPTION
@@ -29,6 +31,15 @@ a calendar for all twelve months of the given year is produced;
 otherwise a calendar for just one month is printed.
 The calendar
 produced is that for England and her colonies.
+.PP
+.B -s
+.I N
+makes
+.I cal
+display
+.I N,
+specified as a number between 1 to 7 (Monday to Sunday), as the
+first day of the week. The default is Sunday.
 .PP
 Try
 .EX
