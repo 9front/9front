@@ -65,7 +65,7 @@ main(int argc, char *argv[])
 	case 'b':
 		bits = atoi(EARGF(usage()));
 		if(bits <= 8 || bits > 32){
-			fprintf(stderr, "bits per sample = %d not supported\n");
+			fprintf(stderr, "bits per sample = %d not supported\n", bits);
 			exit(1);
 		}
 		break;
