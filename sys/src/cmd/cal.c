@@ -54,6 +54,7 @@ main(int argc, char *argv[])
 		wstart = atoi(EARGF(usage()));
 		if(wstart < 0 || wstart > 7)
 			usage();
+		wstart %= 7;
 		break;
 	default:
 		usage();
