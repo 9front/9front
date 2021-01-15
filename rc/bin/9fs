@@ -31,7 +31,7 @@ case 9fat esp pidos dos
 case dump other
 	mount -C /srv/boot /n/$1 $1
 case sources
-	srv -nqC tcp!sources.cs.bell-labs.com sources /n/sources
+	srv -nqC tcp!9p.io sources /n/sources
 case sourcesdump
 	9fs sources
 	mount -nC /srv/sources /n/sourcesdump main/archive
