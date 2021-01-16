@@ -155,6 +155,16 @@ If the image is the unmagnified file, also close any magnified views of that fil
 Quit
 .IR tweak .
 The program will complain once about modified but unwritten files.
+.PP
+.I Tweak
+listens to the
+.I plumber
+channel
+.B imageedit
+for filenames as well as image data. Plumbed image data is stored as files in
+.B /tmp
+and is automatically cleaned when exiting
+.IR tweak .
 .SH SOURCE
 .B /sys/src/cmd/tweak.c
 .SH "SEE ALSO"

@@ -3,7 +3,10 @@
 #include <draw.h>
 #include <cursor.h>
 #include <event.h>
+#include <plumb.h>
 #include <bio.h>
+
+#define Eplumb 128
 
 typedef struct	Thing	Thing;
 
@@ -157,6 +160,8 @@ int		mag;
 int		but1val = 0;
 int		but2val = 255;
 int		invert = 0;
+int		blockinput = 0;
+int		tmpindex = 0;
 Image		*values[256];
 Image		*greyvalues[256];
 uchar		data[8192];
@@ -172,12 +177,60 @@ void	drawall(void);
 void	tclose1(Thing*);
 
 void
+flushevents(ulong keys)
+{
+	Event e;
+	if(keys == 0)
+		return;
+	while(ecanread(keys))
+		eread(keys, &e);
+}
+
+char*
+pshowdata(Plumbmsg *pm)
+{
+	int fd;
+	char *file;
+	file = smprint("/tmp/tweaktmp.%d.%d", getpid(), tmpindex++);
+	if(file == 0)
+		sysfatal("malloc failed: %r");
+	fd = create(file, OWRITE|OEXCL, 0600);
+	if(fd < 0){
+		free(file);
+		mesg("cannot create tmpfile.");
+		return nil;
+	}
+	if(write(fd, pm->data, pm->ndata) != pm->ndata){
+		mesg("error writing tmpfile: %r");
+		close(fd);
+		free(file);
+		return nil;
+	}
+	close(fd);
+	return file;
+}
+
+char*
+pfilename(Plumbmsg *pm)
+{
+	char *file;
+	if(pm->data[0] == '/')
+		file = smprint("%.*s", pm->ndata, pm->data);
+	else
+		file = smprint("%s/%.*s", pm->wdir, pm->ndata, pm->data);
+	return cleanname(file);
+}
+
+void
 main(int argc, char *argv[])
 {
 	int i;
 	Event e;
 	Thing *t;
+	Plumbmsg *pm;
+	char *s;
 
+	srand(time(0));
 	mag = Mag;
 	if(initdraw(error, 0, "tweak") < 0){
 		fprint(2, "tweak: initdraw failed: %r\n");
@@ -190,6 +243,7 @@ main(int argc, char *argv[])
 			drawerror(display, "can't allocate image");
 	}
 	einit(Emouse|Ekeyboard);
+	eplumb(Eplumb, "imageedit");
 	eresized(0);
 	i = 1;
 	setjmp(err);
@@ -214,7 +268,39 @@ main(int argc, char *argv[])
 			}
 			if(mouse.buttons & 4)
 				menu();
+			break;
+		case Eplumb:
+			pm = e.v;
+			if(pm->ndata == 0)
+				break;
+			s = plumblookup(pm->attr, "action");
+			if(s && strcmp(s, "showdata") == 0)
+				file = pshowdata(pm);
+			else
+				file = pfilename(pm);
+			if(!file){
+				mesg("invalid plumb data");
+				plumbfree(pm);
+				break;
+			}
+			plumbfree(pm);
+			t = tget(file);
+			if(t)
+				drawthing(t, 1);
+			flushimage(display, 1);
+			file = 0;
 		}
+}
+
+void
+cleantmpfiles(void)
+{
+	char *s;
+	for(tmpindex--; tmpindex >= 0; tmpindex--){
+		s = smprint("/tmp/tweaktmp.%d.%d", getpid(), tmpindex);
+		remove(s);
+		free(s);
+	}
 }
 
 void
@@ -226,6 +312,7 @@ error(Display*, char *s)
 		mesg("/dev/bitblt error: %s", s);
 	if(err[0])
 		longjmp(err, 1);
+	cleantmpfiles();
 	exits(s);
 }
 
@@ -531,6 +618,12 @@ drawthing(Thing *nt, int link)
 	nt->tr.max.y = nt->tr.min.y + nl;
 	nt->er.max.y = nt->tr.max.y + Border;
 	text(nt);
+
+	mesg("");
+	if(blockinput){
+		flushevents(Emouse|Ekeyboard);
+		blockinput = 0;
+	}
 }
 
 int
@@ -556,6 +649,9 @@ tget(char *file)
 	jmp_buf oerr;
 	uchar buf[256];
 	char *data;
+
+	mesg("reading %s", file);
+	blockinput = 1;
 
 	buf[0] = '\0';
 	errstr((char*)buf, sizeof buf);	/* flush pending error message */
@@ -2041,6 +2137,7 @@ menu(void)
 		buttons(Down);
 		if(mouse.buttons == 4){
 			buttons(Up);
+			cleantmpfiles();
 			exits(0);
 		}
 		buttons(Up);
