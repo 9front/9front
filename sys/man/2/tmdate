@@ -265,7 +265,7 @@ if(tmparse(&t, "W MMM D hh:mm:ss z YYYY, date, nil) == nil)
 	print("failed to parse");
 t.day++;
 tmnorm(&t);
-print("%τ", &t); /*  Mon Nov 3 13:11:11 PST 2019 */
+print("%τ", tmfmt(&t, nil)); /*  Mon Nov 3 13:11:11 PST 2019 */
 .EE
 
 .SH BUGS
