@@ -72,7 +72,7 @@ nojunk(char *p)
 static void
 usage(void)
 {
-	fprint(2, "usage: %s [-f fmt] date-time/win m...\n", argv0);
+	fprint(2, "usage: %s [-f fmt] date-time...\n", argv0);
 	exits("usage");
 }
 
