@@ -1,0 +1,20 @@
+.TH ZEROTRUNC 8
+.SH NAME
+zerotrunc \- truncate input on zero byte
+.SH SYNOPSIS
+.B aux/zerotrunc
+.SH DESCRIPTION
+.PP
+.B Zerotrunc
+copies input to output until reading a first zero byte or end-of-file.
+.SH EXAMPLES
+.B Zerotrunc
+can be used to read metadata of Plan 9 image files, e. g.:
+.IP
+.EX
+% aux/zerotrunc < /dev/window
+.EE
+.SH SOURCE
+.B /sys/src/cmd/aux/zerotrunc.c
+.SH "SEE ALSO"
+.IR cat (1)
