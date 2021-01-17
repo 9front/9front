@@ -351,7 +351,7 @@ struct Ctlr
 	Qtree*	tree;		/* tree for t Ep i/o */
 	int	ntree;		/* number of dummy Eds in tree */
 	Pcidev*	pcidev;
-	uintptr	base;
+	uvlong	base;
 };
 
 #define dqprint		if(debug || io && io->debug)print
@@ -366,7 +366,6 @@ static char* iosname[] = { "idle", "install", "run", "done", "close", "FREE" };
 static int debug;
 static Edpool edpool;
 static Tdpool tdpool;
-static Ctlr* ctlrs[Nhcis];
 
 static	char	EnotWritten[] = "usb write unfinished";
 static	char	EnotRead[] = "usb read unfinished";
@@ -2377,18 +2376,19 @@ init(Hci *hp)
 		dumpohci(ctlr);
 }
 
-static void
+
+static Ctlr*
 scanpci(void)
 {
-	uintptr io;
+	static Ctlr *first, **lastp;
 	Ctlr *ctlr;
 	Pcidev *p;
-	int i;
-	static int already = 0;
+	uvlong io;
 
-	if(already)
-		return;
-	already = 1;
+	if(lastp != nil)
+		return first;
+	lastp = &first;
+
 	p = nil;
 	while(p = pcimatch(p, 0, 0)) {
 		/*
@@ -2396,10 +2396,12 @@ scanpci(void)
 		 */
 		if(p->ccrb != Pcibcserial || p->ccru != Pciscusb || p->ccrp != 0x10)
 			continue;
-		io = p->mem[0].bar & ~0x0F;
+		if(p->mem[0].bar & 1)
+			continue;
+		io = p->mem[0].bar & ~0xFULL;
 		if(io == 0)
 			continue;
-		print("usbohci: %#x %#x: port %#p size %#x irq %d\n",
+		print("usbohci: %#x %#x: port %llux size %#x irq %d\n",
 			p->vid, p->did, io, p->mem[0].size, p->intl);
 		ctlr = malloc(sizeof(Ctlr));
 		if(ctlr == nil){
@@ -2414,14 +2416,12 @@ scanpci(void)
 		ctlr->pcidev = p;
 		ctlr->base = io;
 		dprint("scanpci: ctlr %#p, ohci %#p\n", ctlr, ctlr->ohci);
-		for(i = 0; i < Nhcis; i++)
-			if(ctlrs[i] == nil){
-				ctlrs[i] = ctlr;
-				break;
-			}
-		if(i == Nhcis)
-			print("ohci: bug: no more controllers\n");
+
+		*lastp = ctlr;
+		lastp = &ctlr->next;
 	}
+
+	return first;
 }
 
 static void
@@ -2527,12 +2527,13 @@ ohcireset(Ctlr *ctlr)
 	 * Is this needed?
 	 */
 	delay(100);
+	ctlr->ohci->intrdisable = Mie;
+	ctlr->ohci->intrenable = 0;
 	ctlr->ohci->control = 0;
 	delay(100);
 
 	/* legacy support register: turn off lunacy mode */
 	pcicfgw16(ctlr->pcidev, 0xc0, 0x2000);
-
 	iunlock(ctlr);
 }
 
@@ -2554,31 +2555,24 @@ shutdown(Hci *hp)
 static int
 reset(Hci *hp)
 {
-	int i;
 	Ctlr *ctlr;
 	Pcidev *p;
-	static Lock resetlck;
 
 	if(getconf("*nousbohci"))
 		return -1;
-	ilock(&resetlck);
-	scanpci();
 
 	/*
 	 * Any adapter matches if no hp->port is supplied,
 	 * otherwise the ports must match.
 	 */
-	ctlr = nil;
-	for(i = 0; i < Nhcis && ctlrs[i] != nil; i++){
-		ctlr = ctlrs[i];
+	for(ctlr = scanpci(); ctlr != nil; ctlr = ctlr->next){
 		if(ctlr->active == 0)
 		if(hp->port == 0 || hp->port == ctlr->base){
 			ctlr->active = 1;
 			break;
 		}
 	}
-	iunlock(&resetlck);
-	if(ctlrs[i] == nil || i == Nhcis)
+	if(ctlr == nil)
 		return -1;
 
 	p = ctlr->pcidev;
@@ -2617,6 +2611,7 @@ reset(Hci *hp)
 	hp->shutdown = shutdown;
 	hp->debug = usbdebug;
 	hp->type = "ohci";
+
 	intrenable(hp->irq, hp->interrupt, hp, hp->tbdf, hp->type);
 
 	return 0;
