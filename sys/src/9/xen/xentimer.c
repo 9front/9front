@@ -34,7 +34,7 @@ getshadow(void)
 
 /* just get it from the shared info */
 void
-guesscpuhz(int) // XXX no arg!
+xentimerinit(void)
 {
 	vcpu_time_info_t *t;
 

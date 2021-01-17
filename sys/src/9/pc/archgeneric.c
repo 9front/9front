@@ -40,6 +40,41 @@ archreset(void)
 		idle();
 }
 
+void
+delay(int millisecs)
+{
+	millisecs *= m->loopconst;
+	if(millisecs <= 0)
+		millisecs = 1;
+	aamloop(millisecs);
+}
+
+void
+microdelay(int microsecs)
+{
+	microsecs *= m->loopconst;
+	microsecs /= 1000;
+	if(microsecs <= 0)
+		microsecs = 1;
+	aamloop(microsecs);
+}
+
+/*  
+ *  performance measurement ticks.  must be low overhead.
+ *  doesn't have to count over a second.
+ */
+ulong
+perfticks(void)
+{
+	uvlong x;
+
+	if(m->havetsc)
+		cycles(&x);
+	else
+		x = 0;
+	return x;
+}
+
 PCArch archgeneric = {
 .id=		"generic",
 .ident=		0,
@@ -53,6 +88,7 @@ PCArch archgeneric = {
 .intron=	i8259on,
 .introff=	i8259off,
 
+.clockinit=	i8253init,
 .clockenable=	i8253enable,
 .fastclock=	i8253read,
 .timerset=	i8253timerset,

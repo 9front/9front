@@ -52,10 +52,11 @@ shutdown(void)
 	HYPERVISOR_shutdown(1);
 }
 
-int xenintrassign(Vctl *v);
-void	xentimerenable(void);
-uvlong	xentimerread(uvlong*);
-void	xentimerset(uvlong);
+extern int	xenintrassign(Vctl *v);
+extern void	xentimerinit(void);
+extern void	xentimerenable(void);
+extern uvlong	xentimerread(uvlong*);
+extern void	xentimerset(uvlong);
 
 PCArch archxen = {
 .id=		"Xen",	
@@ -63,6 +64,7 @@ PCArch archxen = {
 .reset=		shutdown,
 .intrinit=	intrinit,
 .intrassign=	xenintrassign,
+.clockinit=	xentimerinit,
 .clockenable=	xentimerenable,
 .fastclock=	xentimerread,
 .timerset=	xentimerset,

@@ -15,6 +15,8 @@ squidboy(Apic* apic)
 	machinit();
 	mmuinit();
 	cpuidentify();
+	if(arch->clockinit)
+		arch->clockinit();
 	cpuidprint();
 	syncclock();
 	active.machs[m->machno] = 1;

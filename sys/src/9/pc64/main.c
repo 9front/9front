@@ -183,10 +183,11 @@ main(void)
 	quotefmtinstall();
 	screeninit();
 	print("\nPlan 9\n");
-	i8253init();
 	cpuidentify();
 	meminit0();
 	archinit();
+	if(arch->clockinit)
+		arch->clockinit();
 	meminit();
 	ramdiskinit();
 	confinit();

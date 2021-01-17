@@ -115,28 +115,11 @@ i8253reset(void)
 	iunlock(&i8253);
 }
 
-void
-i8253init(void)
-{
-	ioalloc(T0cntr, 4, 0, "i8253");
-	ioalloc(T2ctl, 1, 0, "i8253.cntr2ctl");
-
-	i8253reset();
-}
-
-void
-guesscpuhz(int aalcycles)
+static uvlong
+i8253cpufreq(void)
 {
 	int loops, x, y;
-	uvlong a, b, cpufreq;
-
-	if(m->machno != 0){
-		m->cpuhz = MACHP(0)->cpuhz;
-		m->cpumhz = MACHP(0)->cpumhz;
-		m->cyclefreq = MACHP(0)->cyclefreq;
-		m->loopconst = MACHP(0)->loopconst;
-		return;
-	}
+	uvlong a, b;
 
 	ilock(&i8253);
 	for(loops = 1000;;loops += 1000) {
@@ -175,21 +158,38 @@ guesscpuhz(int aalcycles)
 	if(x == 0)
 		x = 1;
 
-	/*
- 	 *  figure out clock frequency and a loop multiplier for delay().
-	 *  n.b. counter goes up by 2*Freq
-	 */
-	cpufreq = (vlong)loops*((aalcycles*2*Freq)/x);
-	m->loopconst = (cpufreq/1000)/aalcycles;	/* AAM+LOOP's for 1 ms */
-
-	/* a == b means virtualbox has confused us */
 	if(m->havetsc && b > a){
 		b -= a;
-		b *= 2*Freq;
-		b /= x;
-		m->cyclefreq = b;
-		cpufreq = b;
+		m->cyclefreq = b * 2*Freq / x;
+		m->aalcycles = (b + loops-1) / loops;
+
+		return m->cyclefreq;
 	}
+
+	return (vlong)loops*m->aalcycles * 2*Freq / x;
+}
+
+void
+i8253init(void)
+{
+	uvlong cpufreq;
+
+	if(m->machno != 0){
+		m->cpuhz = MACHP(0)->cpuhz;
+		m->cpumhz = MACHP(0)->cpumhz;
+		m->cyclefreq = MACHP(0)->cyclefreq;
+		m->loopconst = MACHP(0)->loopconst;
+		return;
+	}
+
+	ioalloc(T0cntr, 4, 0, "i8253");
+	ioalloc(T2ctl, 1, 0, "i8253.cntr2ctl");
+
+	i8253reset();
+
+	cpufreq = i8253cpufreq();
+
+	m->loopconst = (cpufreq/1000)/m->aalcycles;	/* AAM+LOOP's for 1 ms */
 	m->cpuhz = cpufreq;
 
 	/*
@@ -280,39 +280,4 @@ i8253read(uvlong *hz)
 	iunlock(&i8253);
 
 	return ticks<<Tickshift;
-}
-
-void
-delay(int millisecs)
-{
-	millisecs *= m->loopconst;
-	if(millisecs <= 0)
-		millisecs = 1;
-	aamloop(millisecs);
-}
-
-void
-microdelay(int microsecs)
-{
-	microsecs *= m->loopconst;
-	microsecs /= 1000;
-	if(microsecs <= 0)
-		microsecs = 1;
-	aamloop(microsecs);
-}
-
-/*  
- *  performance measurement ticks.  must be low overhead.
- *  doesn't have to count over a second.
- */
-ulong
-perfticks(void)
-{
-	uvlong x;
-
-	if(m->havetsc)
-		cycles(&x);
-	else
-		x = 0;
-	return x;
 }

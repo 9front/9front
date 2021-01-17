@@ -461,8 +461,6 @@ static X86type x86sis[] =
 	{ -1,	-1,	23,	"unknown", },	/* total default */
 };
 
-static X86type *cputype;
-
 static void	simplecycles(uvlong*);
 void	(*cycles)(uvlong*) = simplecycles;
 void	_cycles(uvlong*);	/* in l.s */
@@ -547,6 +545,7 @@ cpuidentify(void)
 		|| (t->family == -1))
 			break;
 
+	m->aalcycles = t->aalcycles;
 	m->cpuidtype = t->name;
 
 	/*
@@ -558,11 +557,6 @@ cpuidentify(void)
 		if(m->cpuiddx & Cpumsr)
 			wrmsr(0x10, 0);
 	}
-
-	/*
-	 *  use i8253 to guess our cpu speed
-	 */
-	guesscpuhz(t->aalcycles);
 
 	/*
 	 * If machine check exception, page size extensions or page global bit
@@ -690,7 +684,6 @@ cpuidentify(void)
 
 	fpuinit();
 
-	cputype = t;
 	return t->family;
 }
 
@@ -702,7 +695,7 @@ cputyperead(Chan*, void *a, long n, vlong offset)
 
 	mhz = (m->cpuhz+999999)/1000000;
 
-	snprint(str, sizeof(str), "%s %lud\n", cputype->name, mhz);
+	snprint(str, sizeof(str), "%s %lud\n", m->cpuidtype, mhz);
 	return readstr(offset, a, n, str);
 }
 
@@ -715,7 +708,7 @@ archctlread(Chan*, void *a, long nn, vlong offset)
 	p = buf = smalloc(READSTR);
 	ep = p + READSTR;
 	p = seprint(p, ep, "cpu %s %lud%s\n",
-		cputype->name, (ulong)(m->cpuhz+999999)/1000000,
+		m->cpuidtype, (ulong)(m->cpuhz+999999)/1000000,
 		m->havepge ? " pge" : "");
 	p = seprint(p, ep, "pge %s\n", getcr4()&0x80 ? "on" : "off");
 	p = seprint(p, ep, "coherence ");
@@ -877,6 +870,8 @@ archinit(void)
 			arch->intrinit = knownarch[0]->intrinit;
 		if(arch->intrassign == nil)
 			arch->intrassign = knownarch[0]->intrassign;
+		if(arch->clockinit == nil)
+			arch->clockinit = knownarch[0]->clockinit;
 	}
 
 	/*

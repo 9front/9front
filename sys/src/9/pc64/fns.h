@@ -52,7 +52,6 @@ u64int	getcr4(void);
 u64int	getxcr0(void);
 u64int	getdr6(void);
 char*	getconf(char*);
-void	guesscpuhz(int);
 void	halt(void);
 void	mwait(void*);
 int	i8042auxcmd(int);

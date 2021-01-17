@@ -51,7 +51,6 @@ ulong	getcr3(void);
 ulong	getcr4(void);
 u32int	getdr6(void);
 char*	getconf(char*);
-void	guesscpuhz(int);
 void	halt(void);
 void	mwait(void*);
 int	i8042auxcmd(int);
