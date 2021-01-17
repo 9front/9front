@@ -220,7 +220,6 @@ enum {
 	P1ulpi_bypass = 1<<0,	/* utmi if set; else ulpi */
 };
 
-extern Ecapio *ehcidebugcapio;
 extern int ehcidebugport;
 
 extern int ehcidebug;

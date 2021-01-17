@@ -40,17 +40,15 @@ ehcireset(Ctlr *ctlr)
 		opio->seg = 0;
 	}
 
-	if(ehcidebugcapio != ctlr->capio){
-		opio->cmd |= Chcreset;	/* controller reset */
-		coherence();
-		for(i = 0; i < 100; i++){
-			if((opio->cmd & Chcreset) == 0)
-				break;
-			delay(1);
-		}
-		if(i == 100)
-			print("ehci %#p controller reset timed out\n", ctlr->capio);
+	opio->cmd |= Chcreset;	/* controller reset */
+	coherence();
+	for(i = 0; i < 100; i++){
+		if((opio->cmd & Chcreset) == 0)
+			break;
+		delay(1);
 	}
+	if(i == 100)
+		print("ehci %#p controller reset timed out\n", ctlr->capio);
 
 	/* requesting more interrupts per µframe may miss interrupts */
 	opio->cmd |= 0x10000;		/* 1 intr. per ms */

@@ -370,7 +370,6 @@ static Edpool edpool;
 static char Ebug[] = "not yet implemented";
 static char* qhsname[] = { "idle", "install", "run", "done", "close", "FREE" };
 
-Ecapio* ehcidebugcapio;
 int ehcidebugport;
 
 void
@@ -3250,7 +3249,6 @@ init(Hci *hp)
 {
 	Ctlr *ctlr;
 	Eopio *opio;
-	static int ctlrno;
 	int i;
 
 	hp->highspeed = 1;
@@ -3280,7 +3278,6 @@ init(Hci *hp)
 	iunlock(ctlr);
 	if(ehcidebug > 1)
 		dump(hp);
-	ctlrno++;
 }
 
 void
@@ -3297,7 +3294,5 @@ ehcilinkage(Hci *hp)
 	hp->portenable = portenable;
 	hp->portreset = portreset;
 	hp->portstatus = portstatus;
-//	hp->shutdown = shutdown;
-//	hp->debug = setdebug;
 	hp->type = "ehci";
 }

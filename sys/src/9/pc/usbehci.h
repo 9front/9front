@@ -170,7 +170,8 @@ struct Ctlr
 	Lock;			/* for ilock. qh lists and basic ctlr I/O */
 	QLock	portlck;	/* for port resets/enable... (and doorbell) */
 	int	active;		/* in use or not */
-	uintptr	base;
+	Ctlr*	next;
+	uvlong	base;
 	Pcidev*	pcidev;
 	Ecapio*	capio;		/* Capability i/o regs */
 	Eopio*	opio;		/* Operational i/o regs */
@@ -218,7 +219,6 @@ struct Eopio
 };
 
 extern int ehcidebug;
-extern Ecapio *ehcidebugcapio;
 extern int ehcidebugport;
 
 void	ehcilinkage(Hci *hp);

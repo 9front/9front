@@ -105,16 +105,13 @@ portstatus(Hci *hp, int port)
 static int
 reset(Hci *hp)
 {
-	static Lock resetlck;
 	Ctlr *ctlr;
 	
-	ilock(&resetlck);
 	for(ctlr = ctlrs; ctlr->base != 0; ctlr++)
 		if(!ctlr->active && (hp->port == 0 || hp->port == ctlr->base)){
 			ctlr->active = 1;
 			break;
 		}
-	iunlock(&resetlck);
 	if(ctlr->base == 0)
 		return -1;
 	hp->port = ctlr->base;
@@ -140,8 +137,7 @@ reset(Hci *hp)
 	ehciportstatus = hp->portstatus;
 	hp->portstatus = portstatus;
 
-	if(hp->interrupt != nil)
-		intrenable(hp->irq, hp->interrupt, hp, LEVEL, hp->type);
+	intrenable(hp->irq, hp->interrupt, hp, LEVEL, hp->type);
 	return 0;
 }
 

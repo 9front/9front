@@ -15,9 +15,6 @@
 #include	"../port/usb.h"
 #include	"usbehci.h"
 
-static Ctlr* ctlrs[Nhcis];
-static int maxehci = Nhcis;
-
 static int
 ehciecap(Ctlr *ctlr, int cap)
 {
@@ -66,10 +63,11 @@ ehcireset(Ctlr *ctlr)
 	dprint("ehci %#p reset\n", ctlr->capio);
 	opio = ctlr->opio;
 
-	/*
-	 * reclaim from bios
-	 */
+	/* reclaim from bios */
 	getehci(ctlr);
+
+	/* disable interrupts */
+	opio->intr = 0;
 
 	/*
 	 * halt and route ports to companion controllers
@@ -88,17 +86,16 @@ ehcireset(Ctlr *ctlr)
 		coherence();
 	}
 
-	if(ehcidebugcapio != ctlr->capio){
-		opio->cmd |= Chcreset;	/* controller reset */
-		coherence();
-		for(i = 0; i < 100; i++){
-			if((opio->cmd & Chcreset) == 0)
-				break;
-			delay(1);
-		}
-		if(i == 100)
-			print("ehci %#p controller reset timed out\n", ctlr->capio);
+	opio->cmd |= Chcreset;	/* controller reset */
+	coherence();
+	for(i = 0; i < 100; i++){
+		if((opio->cmd & Chcreset) == 0)
+			break;
+		delay(1);
 	}
+	if(i == 100)
+		print("ehci %#p controller reset timed out\n", ctlr->capio);
+
 	opio->cmd |= Citc1;		/* 1 intr. per µframe */
 	coherence();
 	switch(opio->cmd & Cflsmask){
@@ -115,6 +112,7 @@ ehcireset(Ctlr *ctlr)
 		panic("ehci: unknown fls %ld", opio->cmd & Cflsmask);
 	}
 	dprint("ehci: %d frames\n", ctlr->nframes);
+
 	iunlock(ctlr);
 }
 
@@ -134,7 +132,12 @@ shutdown(Hci *hp)
 	ctlr = hp->aux;
 	ilock(ctlr);
 	opio = ctlr->opio;
-	opio->cmd |= Chcreset;		/* controller reset */
+
+	/* disable interrupts */
+	opio->intr = 0;
+
+	/* controller reset */
+	opio->cmd |= Chcreset;
 	coherence();
 	for(i = 0; i < 100; i++){
 		if((opio->cmd & Chcreset) == 0)
@@ -149,19 +152,19 @@ shutdown(Hci *hp)
 	iunlock(ctlr);
 }
 
-static void
+static Ctlr*
 scanpci(void)
 {
-	static int already = 0;
-	int i;
-	uvlong io;
+	static Ctlr *first, **lastp;
 	Ctlr *ctlr;
 	Pcidev *p;
 	Ecapio *capio;
+	uvlong io;
 
-	if(already)
-		return;
-	already = 1;
+	if(lastp != nil)
+		return first;
+	lastp = &first;
+
 	p = nil;
 	while ((p = pcimatch(p, 0, 0)) != nil) {
 		/*
@@ -173,7 +176,7 @@ scanpci(void)
 		case 0x20:
 			if(p->mem[0].bar & 1)
 				continue;
-			io = p->mem[0].bar & ~0x0f;
+			io = p->mem[0].bar & ~0xFULL;
 			break;
 		default:
 			continue;
@@ -200,59 +203,36 @@ scanpci(void)
 		ctlr->pcidev = p;
 		ctlr->base = io;
 		ctlr->capio = capio;
-		for(i = 0; i < Nhcis; i++)
-			if(ctlrs[i] == nil){
-				ctlrs[i] = ctlr;
-				break;
-			}
-		if(i >= Nhcis)
-			print("ehci: bug: more than %d controllers\n", Nhcis);
 
-		/*
-		 * currently, if we enable a second ehci controller,
-		 * we'll wedge solid after iunlock in init for the second one.
-		 */
-		if (i >= maxehci) {
-			iprint("usbehci: ignoring controllers after first %d, "
-				"at %.8llux\n", maxehci, io);
-			ctlrs[i] = nil;
-		}
+		*lastp = ctlr;
+		lastp = &ctlr->next;
 	}
+
+	return first;
 }
 
 static int
 reset(Hci *hp)
 {
-	int i;
-	char *s;
 	Ctlr *ctlr;
 	Ecapio *capio;
 	Pcidev *p;
-	static Lock resetlck;
 
-	s = getconf("*maxehci");
-	if (s != nil && s[0] >= '0' && s[0] <= '9')
-		maxehci = atoi(s);
-	if(maxehci == 0 || getconf("*nousbehci"))
+	if(getconf("*nousbehci"))
 		return -1;
-	ilock(&resetlck);
-	scanpci();
 
 	/*
 	 * Any adapter matches if no hp->port is supplied,
 	 * otherwise the ports must match.
 	 */
-	ctlr = nil;
-	for(i = 0; i < Nhcis && ctlrs[i] != nil; i++){
-		ctlr = ctlrs[i];
+	for(ctlr = scanpci(); ctlr != nil; ctlr = ctlr->next){
 		if(ctlr->active == 0)
 		if(hp->port == 0 || hp->port == ctlr->base){
 			ctlr->active = 1;
 			break;
 		}
 	}
-	iunlock(&resetlck);
-	if(i >= Nhcis || ctlrs[i] == nil)
+	if(ctlr == nil)
 		return -1;
 
 	p = ctlr->pcidev;
