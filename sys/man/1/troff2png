@@ -1,0 +1,36 @@
+.TH TROFF2PNG 1
+.SH NAME
+troff2png, troff2gif \- miscellaneous text processing tools
+.SH SYNOPSIS
+.B troff2png
+[
+.B troffargs
+] [
+.B file
+]
+.br
+.B troff2gif
+[
+.B troffargs
+] [
+.B file
+]
+.SH DESCRIPTION
+.PP
+.B Troff2png
+uses
+.IR troff (1)
+to compile a document using the
+.IR ms (6)
+macro library to a PNG image on standard output.
+.PP
+.B Troff2gif
+is similar but outputs GIF data.
+.SH SOURCE
+.B /bin/troff2png
+.br
+.B /bin/troff2gif
+.SH "SEE ALSO"
+.IR ms (6)
+.br
+.IR troff (1)
