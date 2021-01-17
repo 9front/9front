@@ -76,6 +76,8 @@ main(void)
 	// meminit() is not for us
 	confinit();
 	archinit();
+	if(arch->clockinit)
+		arch->clockinit();
 	xinit();
 	trapinit();
 	printinit();

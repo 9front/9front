@@ -27,7 +27,6 @@ void	(*fprestore)(FPsave*);
 void	(*fpsave)(FPsave*);
 ulong	getcr4(void);
 char*	getconf(char*);
-void	guesscpuhz(int);
 void	halt(void);
 void	mwait(void*);
 void	i8042reset(void);

@@ -221,6 +221,7 @@ struct Mach
 	int	lastintr;
 
 	int	loopconst;
+	int	aalcycles;
 
 	int	cpumhz;
 	uvlong	cyclefreq;		/* Frequency of user readable cycle counter */
@@ -278,6 +279,7 @@ struct PCArch
 	void	(*introff)(void);
 	void	(*intron)(void);
 
+	void	(*clockinit)(void);
 	void	(*clockenable)(void);
 	uvlong	(*fastclock)(uvlong*);
 	void	(*timerset)(uvlong);

@@ -180,6 +180,20 @@ maptables(void)
 	}
 }
 
+static Tbl*
+findtable(char sig[4])
+{
+	Tbl *t;
+	int i;
+
+	for(i=0; i<ntblmap; i++){
+		t = tblmap[i];
+		if(memcmp(t->sig, sig, 4) == 0)
+			return t;
+	}
+	return nil;
+}
+
 static Apic*
 findapic(int gsi, int *pintin)
 {
@@ -569,13 +583,9 @@ acpiinit(void)
 	amlinit();
 
 	/* load DSDT */
-	for(i=0; i<ntblmap; i++){
-		t = tblmap[i];
-		if(memcmp(t->sig, "DSDT", 4) == 0){
-			amlintmask = (~0ULL) >> (t->rev <= 1)*32;
-			amlload(t->data, tbldlen(t));
-			break;
-		}
+	if((t = findtable("DSDT")) != nil){
+		amlintmask = (~0ULL) >> (t->rev <= 1)*32;
+		amlload(t->data, tbldlen(t));
 	}
 
 	/* load SSDT, there can be multiple tables */
@@ -588,15 +598,10 @@ acpiinit(void)
 	/* set APIC mode */
 	amleval(amlwalk(amlroot, "_PIC"), "i", 1, nil);
 
-	for(i=0; i<ntblmap; i++){
-		t = tblmap[i];
-		if(memcmp(t->sig, "APIC", 4) == 0)
-			goto Foundapic;
-	}
-	panic("acpiinit: no MADT (APIC) table");
-	return;
+	t = findtable("APIC");
+	if(t == nil)
+		panic("acpiinit: no MADT (APIC) table");
 
-Foundapic:
 	s = t->data;
 	e = s + tbldlen(t);
 	lapicbase = get32(s); s += 8;
@@ -708,16 +713,12 @@ acpireset(void)
 {
 	uchar *p;
 	Tbl *t;
-	int i;
 
 	/* stop application processors */
 	mpshutdown();
 
 	/* locate and write platform reset register */
-	for(i=0; i < ntblmap; i++){
-		t = tblmap[i];
-		if(memcmp(t->sig, "FACP", 4) != 0)
-			continue;
+	while((t = findtable("FACP")) != nil){
 		if(get32(t->len) <= 128)
 			break;
 		p = (uchar*)t;
@@ -735,6 +736,11 @@ acpireset(void)
 
 static int identify(void);
 extern int i8259irqno(int, int);
+extern void i8253init(void);
+
+extern int hpetprobe(uvlong);
+extern void hpetinit(void);
+extern uvlong hpetread(uvlong*);
 
 PCArch archacpi = {
 .id=		"ACPI",	
@@ -745,6 +751,7 @@ PCArch archacpi = {
 .intrirqno=	i8259irqno,
 .intron=	lapicintron,
 .introff=	lapicintroff,
+.clockinit=	i8253init,
 .fastclock=	i8253read,
 .timerset=	lapictimerset,
 };
@@ -782,6 +789,7 @@ identify(void)
 {
 	uvlong pa;
 	char *cp;
+	Tbl *t;
 
 	if((cp = getconf("*acpi")) == nil)
 		return 1;
@@ -799,12 +807,20 @@ identify(void)
 	maptables();
 	addarchfile("acpitbls", 0444, readtbls, nil);
 	addarchfile("acpimem", 0600, readmem, writemem);
-	if(strcmp(cp, "0") == 0)
+	if(strcmp(cp, "0") == 0 || findtable("APIC") == nil)
 		return 1;
 	if((cp = getconf("*nomp")) != nil && strcmp(cp, "0") != 0)
 		return 1;
+	if(getconf("*nohpet") == nil
+	&& (t = findtable("HPET")) != nil
+	&& ((uchar*)t)[40] == 0
+	&& hpetprobe(get64((uchar*)t+44)) == 0){
+		archacpi.clockinit = hpetinit;
+		archacpi.fastclock = hpetread;
+	}
 	if(m->havetsc && getconf("*notsc") == nil)
 		archacpi.fastclock = tscticks;
+
 	return 0;
 }
 
