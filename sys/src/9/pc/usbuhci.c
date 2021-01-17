@@ -144,6 +144,7 @@ struct Ctlr
 	Lock;			/* for ilock. qh lists and basic ctlr I/O */
 	QLock	portlck;	/* for port resets/enable... */
 	Pcidev*	pcidev;
+	Ctlr	*next;
 	int	active;
 	int	port;		/* I/O address */
 	Qh*	qhs;		/* list of Qhs for this controller */
@@ -288,8 +289,6 @@ struct Td
 #define ddiprint		if(debug>1 || iso->debug>1)print
 #define dqprint		if(debug || (qh->io && qh->io->debug))print
 #define ddqprint		if(debug>1 || (qh->io && qh->io->debug>1))print
-
-static Ctlr* ctlrs[Nhcis];
 
 static Tdpool tdpool;
 static Qhpool qhpool;
@@ -533,19 +532,8 @@ xdump(Ctlr *ctlr, int doilock)
 	Qh *qh;
 	int i;
 
-	if(doilock){
-		if(ctlr == ctlrs[0]){
-			lock(&tdpool);
-			print("tds: alloc %d = inuse %d + free %d\n",
-				tdpool.nalloc, tdpool.ninuse, tdpool.nfree);
-			unlock(&tdpool);
-			lock(&qhpool);
-			print("qhs: alloc %d = inuse %d + free %d\n",
-				qhpool.nalloc, qhpool.ninuse, qhpool.nfree);
-			unlock(&qhpool);
-		}
+	if(doilock)
 		ilock(ctlr);
-	}
 	print("uhci port %#x frames %#p nintr %d ntdintr %d",
 		ctlr->port, ctlr->frames, ctlr->nintr, ctlr->ntdintr);
 	print(" nqhintr %d nisointr %d\n", ctlr->nqhintr, ctlr->nisointr);
@@ -564,8 +552,19 @@ xdump(Ctlr *ctlr, int doilock)
 		}
 	}
 	print("\n");
-	if(doilock)
+	if(doilock){
 		iunlock(ctlr);
+		if(ctlr->next == nil){
+			lock(&tdpool);
+			print("tds: alloc %d = inuse %d + free %d\n",
+				tdpool.nalloc, tdpool.ninuse, tdpool.nfree);
+			unlock(&tdpool);
+			lock(&qhpool);
+			print("qhs: alloc %d = inuse %d + free %d\n",
+				qhpool.nalloc, qhpool.ninuse, qhpool.nfree);
+			unlock(&qhpool);
+		}
+	}
 }
 
 static void
@@ -2109,18 +2108,18 @@ portstatus(Hci *hp, int port)
 	return r;
 }
 
-static void
+static Ctlr*
 scanpci(void)
 {
-	static int already = 0;
-	int io;
-	int i;
+	static Ctlr *first, **lastp;
 	Ctlr *ctlr;
 	Pcidev *p;
+	int io;
 
-	if(already)
-		return;
-	already = 1;
+	if(lastp != nil)
+		return first;
+	lastp = &first;
+
 	p = nil;
 	while(p = pcimatch(p, 0, 0)){
 		/*
@@ -2158,14 +2157,11 @@ scanpci(void)
 		}
 		ctlr->pcidev = p;
 		ctlr->port = io;
-		for(i = 0; i < Nhcis; i++)
-			if(ctlrs[i] == nil){
-				ctlrs[i] = ctlr;
-				break;
-			}
-		if(i == Nhcis)
-			print("usbuhci: bug: no more controllers\n");
+
+		*lastp = ctlr;
+		lastp = &ctlr->next;
 	}
+	return first;
 }
 
 static void
@@ -2293,32 +2289,24 @@ shutdown(Hci *hp)
 static int
 reset(Hci *hp)
 {
-	static Lock resetlck;
-	int i;
 	Ctlr *ctlr;
 	Pcidev *p;
 
 	if(getconf("*nousbuhci"))
 		return -1;
 
-	ilock(&resetlck);
-	scanpci();
-
 	/*
 	 * Any adapter matches if no hp->port is supplied,
 	 * otherwise the ports must match.
 	 */
-	ctlr = nil;
-	for(i = 0; i < Nhcis && ctlrs[i] != nil; i++){
-		ctlr = ctlrs[i];
+	for(ctlr = scanpci(); ctlr != nil; ctlr = ctlr->next){
 		if(ctlr->active == 0)
 		if(hp->port == 0 || hp->port == ctlr->port){
 			ctlr->active = 1;
 			break;
 		}
 	}
-	iunlock(&resetlck);
-	if(ctlrs[i] == nil || i == Nhcis)
+	if(ctlr == nil)
 		return -1;
 
 	p = ctlr->pcidev;
@@ -2352,6 +2340,7 @@ reset(Hci *hp)
 	hp->shutdown = shutdown;
 	hp->debug = setdebug;
 	hp->type = "uhci";
+
 	intrenable(hp->irq, hp->interrupt, hp, hp->tbdf, hp->type);
 
 	return 0;
