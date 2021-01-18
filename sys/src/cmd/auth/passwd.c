@@ -7,7 +7,7 @@
 void
 main(int argc, char **argv)
 {
-	int fd, n, try;
+	int fd, n, dp9ik;
 	Ticketreq tr;
 	Ticket t;
 	Passwordreq pr;
@@ -15,7 +15,14 @@ main(int argc, char **argv)
 	char buf[512];
 	char *s, *user;
 
+	dp9ik = 1;
 	ARGBEGIN{
+	case '1':
+		dp9ik = 0;
+		break;
+	default:
+		fprint(2, "%s [-1]\n", argv0);
+		exits("usage");
 	}ARGEND
 
 	argv0 = "passwd";
@@ -48,31 +55,17 @@ main(int argc, char **argv)
 	memset(&pr, 0, sizeof(pr));
 	getpass(&key, pr.old, 0, 0);
 
-	/*
-	 *  negotiate PAK key. we need to retry in case the AS does
-	 *  not support the AuthPAK request or when the user has
-	 *  not yet setup a new key and the AS made one up.
-	 */
-	try = 0;
-	authpak_hash(&key, tr.uid);
-	if(_asgetpakkey(fd, &tr, &key) < 0){
-Retry:
-		try++;
-		close(fd);
-		fd = authdial(nil, s);
-		if(fd < 0)
-			error("authdial: %r");
+	if(dp9ik){
+		authpak_hash(&key, tr.uid);
+		if(_asgetpakkey(fd, &tr, &key) < 0)
+			error("%r");
 	}
-	/* send ticket request to AS */
 	if(_asrequest(fd, &tr) < 0)
 		error("%r");
 	if(_asgetresp(fd, &t, nil, &key) < 0)
 		error("%r");
-	if(t.num != AuthTp || strcmp(t.cuid, tr.uid) != 0){
-		if(try == 0)
-			goto Retry;
+	if(t.num != AuthTp || strcmp(t.cuid, tr.uid) != 0)
 		error("bad password");
-	}
 
 	/* loop trying new passwords */
 	for(;;){
