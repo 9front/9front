@@ -707,6 +707,7 @@ MIPS-specific binaries for applications
 .br
 .B /acme/bin/source/win
 .SH SEE ALSO
+.IR emacs (1)
 .IR acme (4)
 .br
 Rob Pike,
