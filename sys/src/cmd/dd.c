@@ -353,7 +353,9 @@ number(vlong big)
 		n = n*10 + *cs++ - '0';
 	for(;;)
 	switch(*cs++) {
-
+	case 'm':
+		n *= 1024*1024;
+		continue;
 	case 'k':
 		n *= 1024;
 		continue;
@@ -373,6 +375,9 @@ number(vlong big)
 			exits("range");
 		}
 		return n;
+	default:
+		fprint(2, "dd: invalid size suffix '%c'\n", cs[-1]);
+		exits("invalid");
 	}
 	/* never gets here */
 }
