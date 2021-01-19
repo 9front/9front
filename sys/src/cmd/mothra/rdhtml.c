@@ -35,6 +35,16 @@ struct Fontdata{
 	"lucidasans/typeunicode.16", 0, 0,
 };
 
+static struct{
+	char *prefix;
+	int len;
+}links[]={
+	{"http://", 7},
+	{"https://", 8},
+	{"gemini://", 9},
+	{"ftp://", 6},
+};
+
 Font *pl_whichfont(int f, int s, int *space){
 	char name[NNAME];
 
@@ -296,12 +306,12 @@ int entchar(int c){
 
 /* return url if text token looks like a hyperlink */
 char *linkify(char *s){
+	int i;
 	if(s == 0 && s[0] == 0)
 		return 0;
-	if(!cistrncmp(s, "http://", 7))
-		return strdup(s);
-	if(!cistrncmp(s, "https://", 8))
-		return strdup(s);
+	for(i = 0; i < nelem(links); i++)
+		if(!cistrncmp(s, links[i].prefix, links[i].len))
+			return strdup(s);
 	if(!cistrncmp(s, "www.", 4)){
 		int d, i;
 
