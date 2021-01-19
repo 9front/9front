@@ -776,7 +776,7 @@ void search(void){
 void hiturl(int buttons, char *url, int map){
 	switch(buttons){
 	case 1: geturl(url, -1, 0, map); break;
-	case 2: selurl(url); break;
+	case 2: urlresolve(selurl(url)); break;
 	case 4: message("Button 3 hit on url can't happen!"); break;
 	}
 }
