@@ -54,14 +54,19 @@ _startbuf(int fd)
 	Fdinfo *f;
 	Muxbuf *b;
 	void *v;
+	Muxseg *m;
 
 	if(mux == 0){
-		_RFORK(RFREND);
-		mux = (Muxseg*)_SEGATTACH(0, "shared", 0, sizeof(Muxseg));
-		if(mux == (void*)-1){
+		if(_RFORK(RFREND) == -1){
 			_syserrno();
 			return -1;
 		}
+		m = (Muxseg*)_SEGATTACH(0, "shared", 0, sizeof(Muxseg));
+		if(m == (void*)-1){
+			_syserrno();
+			return -1;
+		}
+		mux = m;
 		/* segattach has returned zeroed memory */
 		atexit(_killmuxsid);
 	}
