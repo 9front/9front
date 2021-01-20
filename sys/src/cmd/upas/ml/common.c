@@ -58,12 +58,12 @@ remaddr(char *addr)
 	Addr **l;
 	Addr *a;
 
-	for(l = &al; *l; l = &(*l)->next){
+	for(l = &addrlist; *l; l = &(*l)->next){
 		a = *l;
 		if(strcmp(addr, a->addr) == 0){
 			(*l) = a->next;
 			free(a);
-			na--;
+			naddrlist--;
 			break;
 		}
 	}
@@ -75,10 +75,10 @@ addaddr(char *addr)
 	Addr **l;
 	Addr *a;
 
-	for(l = &al; *l; l = &(*l)->next)
+	for(l = &addrlist; *l; l = &(*l)->next)
 		if(strcmp(addr, (*l)->addr) == 0)
 			return 0;
-	na++;
+	naddrlist++;
 	*l = a = malloc(sizeof(*a)+strlen(addr)+1);
 	if(a == nil)
 		sysfatal("allocating: %r");
@@ -147,12 +147,12 @@ startmailer(char *name)
 	dup(pfd[0], 0);
 	close(pfd[0]);
 
-	av = malloc(sizeof(char*)*(na+2));
+	av = malloc(sizeof(char*)*(naddrlist+2));
 	if(av == nil)
 		sysfatal("starting mailer: %r");
 	ac = 0;
 	av[ac++] = name;
-	for(a = al; a != nil; a = a->next)
+	for(a = addrlist; a != nil; a = a->next)
 		av[ac++] = a->addr;
 	av[ac] = 0;
 	exec("/bin/upas/send", av);

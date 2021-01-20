@@ -12,8 +12,8 @@ struct Addr
 String *from;
 String *sender;
 Field *firstfield;
-int na;
-Addr *al;
+int naddrlist;
+Addr *addrlist;
 
 extern String*	getaddr(Node *p);
 extern void	getaddrs(void);
