@@ -606,143 +606,25 @@ isbadcookie(Cookie *c, char *dom, char *path)
 }
 
 /*
+ * Parse a date in one of these formats:
  * Sunday, 25-Jan-2002 12:24:36 GMT
  * Sunday, 25 Jan 2002 12:24:36 GMT
  * Sun, 25 Jan 02 12:24:36 GMT
  */
-int
-isleap(int year)
-{
-	return year%4==0 && (year%100!=0 || year%400==0);
-}
-
 uint
 strtotime(char *s)
 {
-	char *os;
-	int i;
+	char **f, *fmts[] = {
+		"?WW, ?DD-?MM-?YYYY hh:mm:ss ?Z",
+		"?WW, ?DD ?MM ?YYYY hh:mm:ss ?Z",
+		nil,
+	};
 	Tm tm;
 
-	static int mday[2][12] = {
-		31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
-		31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
-	};
-	static char *wday[] = {
-		"Sunday", "Monday", "Tuesday", "Wednesday",
-		"Thursday", "Friday", "Saturday",
-	};
-	static char *mon[] = {
-		"Jan", "Feb", "Mar", "Apr", "May", "Jun",
-		"Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-	};
-
-	memset(&tm, 0, sizeof(tm));
-
-	os = s;
-	/* Sunday, */
-	for(i=0; i<nelem(wday); i++){
-		if(cistrncmp(s, wday[i], strlen(wday[i])) == 0){
-			s += strlen(wday[i]);
-			break;
-		}
-		if(cistrncmp(s, wday[i], 3) == 0){
-			s += 3;
-			break;
-		}
-	}
-	if(i==nelem(wday)){
-		if(debug)
-			fprint(2, "bad wday (%s)\n", os);
-		return -1;
-	}
-	if(*s++ != ',' || *s++ != ' '){
-		if(debug)
-			fprint(2, "bad wday separator (%s)\n", os);
-		return -1;
-	}
-
-	/* 25- */
-	if(!isdigit(s[0]) || !isdigit(s[1]) || (s[2]!='-' && s[2]!=' ')){
-		if(debug)
-			fprint(2, "bad day of month (%s)\n", os);
-		return -1;
-	}
-	tm.mday = strtol(s, 0, 10);
-	s += 3;
-
-	/* Jan- */
-	for(i=0; i<nelem(mon); i++)
-		if(cistrncmp(s, mon[i], 3) == 0){
-			tm.mon = i;
-			s += 3;
-			break;
-		}
-	if(i==nelem(mon)){
-		if(debug)
-			fprint(2, "bad month (%s)\n", os);
-		return -1;
-	}
-	if(s[0] != '-' && s[0] != ' '){
-		if(debug)
-			fprint(2, "bad month separator (%s)\n", os);
-		return -1;
-	}
-	s++;
-
-	/* 2002 */
-	if(!isdigit(s[0]) || !isdigit(s[1])){
-		if(debug)
-			fprint(2, "bad year (%s)\n", os);
-		return -1;
-	}
-	tm.year = strtol(s, 0, 10);
-	s += 2;
-	if(isdigit(s[0]) && isdigit(s[1]))
-		s += 2;
-	else{
-		if(tm.year <= 68)
-			tm.year += 2000;
-		else
-			tm.year += 1900;
-	}
-	if(tm.mday==0 || tm.mday > mday[isleap(tm.year)][tm.mon]){
-		if(debug)
-			fprint(2, "invalid day of month (%s)\n", os);
-		return -1;
-	}
-	tm.year -= 1900;
-	if(*s++ != ' '){
-		if(debug)
-			fprint(2, "bad year separator (%s)\n", os);
-		return -1;
-	}
-
-	if(!isdigit(s[0]) || !isdigit(s[1]) || s[2]!=':'
-	|| !isdigit(s[3]) || !isdigit(s[4]) || s[5]!=':'
-	|| !isdigit(s[6]) || !isdigit(s[7]) || s[8]!=' '){
-		if(debug)
-			fprint(2, "bad time (%s)\n", os);
-		return -1;
-	}
-
-	tm.hour = strtol(s, 0, 10);
-	tm.min = strtol(s+3, 0, 10);
-	tm.sec = strtol(s+6, 0, 10);
-	if(tm.hour >= 24 || tm.min >= 60 || tm.sec >= 60){
-		if(debug)
-			fprint(2, "invalid time (%s)\n", os);
-		return -1;
-	}
-	s += 9;
-
-	if(cistrcmp(s, "GMT") != 0){
-		if(debug)
-			fprint(2, "time zone not GMT (%s)\n", os);
-		return -1;
-	}
-	strcpy(tm.zone, "GMT");
-	tm.yday = 0;
-	return tm2sec(&tm);
+	for(f = fmts; *f != nil; f++)
+		if(tmparse(&tm, *f, s, nil, nil) != nil)
+			return tmnorm(&tm);
+	return -1;
 }
 
 /*
