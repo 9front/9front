@@ -62,6 +62,8 @@ enum {
 	Qbattery,
 	Qcputemp,
 	Qctl,
+
+	Qdisable = (uvlong)-1,
 };
 
 static void rootread(Req*);
@@ -354,7 +356,7 @@ fswalk1(Fid *fid, char *name, Qid *qid)
 	}
 
 	for(i = 1; i < nelem(dfile); i++){	/* i=1: 0 is root dir */
-		if(strcmp(dfile[i].name, name) == 0){
+		if(dfile[i].qid.path != Qdisable && strcmp(dfile[i].name, name) == 0){
 			*qid = dfile[i].qid;
 			fid->qid = *qid;
 			return nil;
@@ -424,12 +426,14 @@ rootread(Req *r)
 
 	if(offset == 0) /* skip root */
 		offset = 1;
-	for(; p+2 < ep; p += n){
+	for(; p+2 < ep && offset < nelem(dfile); p += n){
 		if(fillstat(offset, &d, 0) < 0)
-			break;
-		n = convD2M(&d, (uchar*)p, ep-p);
-		if(n <= BIT16SZ)
-			break;
+			n = 0;
+		else{
+			n = convD2M(&d, (uchar*)p, ep-p);
+			if(n <= BIT16SZ)
+				break;
+		}
 		offset++;
 	}
 	r->fid->aux = (void*)offset;
@@ -539,6 +543,11 @@ threadmain(int argc, char **argv)
 	amlenum(amlroot, "_HID", enumec, nil);
 	amlenum(amlroot, "_BIF", enumbat, nil);
 	amlenum(amlroot, "_PSL", enumtmp, nil);
+
+	if(nbats < 1)
+		dfile[Qbattery].qid.path = Qdisable;
+	if(ntherms < 1)
+		dfile[Qcputemp].qid.path = Qdisable;
 
 	threadpostmountsrv(&fs, srv, mtpt, MREPL);
 	threadexits(nil);
