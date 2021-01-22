@@ -219,7 +219,9 @@ int	ngraph;	/* totaly number is ngraph*nmach */
 double	scale = 1.0;
 int	logscale = 0;
 int	ylabels = 0;
-int 	sleeptime = 1000;
+int	sleeptime = 1000;
+int	batteryperiod = 1000;
+int	tempperiod = 1000;
 
 char	*procnames[NPROC] = {"main", "input"};
 
@@ -625,6 +627,7 @@ initmach(Machine *m, char *name)
 	}
 	m->bitsybatfd = -1;
 	if(m->batteryfd >= 0){
+		batteryperiod = 10000;
 		if(loadbuf(m, &m->batteryfd) && readnums(m, nelem(m->batterystats), a, 0))
 			memmove(m->batterystats, a, sizeof(m->batterystats));
 	}else{
@@ -636,6 +639,7 @@ initmach(Machine *m, char *name)
 	snprint(buf, sizeof buf, "%s/dev/cputemp", mpt);
 	m->tempfd = open(buf, OREAD);
 	if(m->tempfd < 0){
+		tempperiod = 5000;
 		snprint(buf, sizeof buf, "%s/mnt/acpi/cputemp", mpt);
 		m->tempfd = open(buf, OREAD);
 	}
@@ -679,7 +683,14 @@ needether(int init)
 int
 needbattery(int init)
 {
-	return init | present[Mbattery];
+	static uint step = 0;
+
+	if(++step*sleeptime >= batteryperiod){
+		step = 0;
+		return init | present[Mbattery];
+	}
+
+	return 0;
 }
 
 int
@@ -691,7 +702,14 @@ needsignal(int init)
 int
 needtemp(int init)
 {
-	return init | present[Mtemp];
+	static uint step = 0;
+
+	if(++step*sleeptime >= tempperiod){
+		step = 0;
+		return init | present[Mtemp];
+	}
+
+	return 0;
 }
 
 void
@@ -737,10 +755,12 @@ readmach(Machine *m, int init)
 	if(needsignal(init) && loadbuf(m, &m->ifstatsfd) && strncmp(m->buf, "Signal: ", 8)==0 && readnums(m, nelem(m->netetherifstats), a, 1)){
 		memmove(m->netetherifstats, a, sizeof m->netetherifstats);
 	}
-	if(needbattery(init) && loadbuf(m, &m->batteryfd) && readnums(m, nelem(m->batterystats), a, 0))
-		memmove(m->batterystats, a, sizeof(m->batterystats));
-	if(needbattery(init) && loadbuf(m, &m->bitsybatfd) && readnums(m, 1, a, 0))
-		memmove(m->batterystats, a, sizeof(m->batterystats));
+	if(needbattery(init)){
+		if(loadbuf(m, &m->batteryfd) && readnums(m, nelem(m->batterystats), a, 0))
+			memmove(m->batterystats, a, sizeof(m->batterystats));
+		else if(loadbuf(m, &m->bitsybatfd) && readnums(m, 1, a, 0))
+			memmove(m->batterystats, a, sizeof(m->batterystats));
+	}
 	if(needtemp(init) && loadbuf(m, &m->tempfd))
 		for(n=0; n < nelem(m->temp) && readnums(m, 2, a, 0); n++)
 			 m->temp[n] = a[0];
