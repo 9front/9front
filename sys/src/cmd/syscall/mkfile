@@ -17,7 +17,7 @@ UPDATE=\
 SYSCALL=/sys/src/libc/9syscall/sys.h
 
 tab.h:	$SYSCALL mktab.awk
-	mktab.awk $SYSCALL >$target
+	./mktab.awk $SYSCALL >$target
 
 clean:V:
 	rm -f *.[$OS] [$OS].out $TARG $HFILES
