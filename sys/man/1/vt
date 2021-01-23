@@ -12,13 +12,18 @@ vt \- emulate a VT-100 or VT-220 terminal
 ] [
 .B -l
 .I log
+] [
+.I cmd...
 ]
 .SH DESCRIPTION
 .I Vt
 replaces a
 .I rio
-window with a fresh instance of the shell,
-.IR rc (1),
+window with a fresh instance of the program
+.I cmd
+(or the
+.IR rc (1)
+shell when omited)
 running within an emulation of a DEC VT-100 terminal.
 .SS Options
 .TF m
