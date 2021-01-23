@@ -33,7 +33,11 @@ struct Vnc {
 
 	Rectangle	dim;
 	Pixfmt;
-	char		*name;	/* client only */
+
+	/* client only */
+	char		*name;
+	char		*srvaddr;
+	int		vers;
 
 	int		canresize;
 	struct {
@@ -44,6 +48,7 @@ struct Vnc {
 };
 
 enum {
+	VerLen		= 12,
 	/* authentication negotiation */
 	AFailed		= 0,
 	ANoAuth,
@@ -142,4 +147,3 @@ extern	void		hexdump(void*, int);
 extern	void		vnchungup(Vnc*);
 
 extern	int		verbose;
-extern	char*		serveraddr;

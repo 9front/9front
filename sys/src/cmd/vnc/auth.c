@@ -2,26 +2,12 @@
 #include <libsec.h>
 #include <auth.h>
 
-char *serveraddr;
-
-enum
-{
-	VerLen	= 12
-};
-
-static char version33[VerLen+1] = "RFB 003.003\n";
-static char version38[VerLen+1] = "RFB 003.008\n";
-static int srvversion;
-
 int
 vncsrvhandshake(Vnc *v)
 {
 	char msg[VerLen+1];
 
-	strecpy(msg, msg+sizeof msg, version33);
-	if(verbose)
-		fprint(2, "server version: %s\n", msg);
-	vncwrbytes(v, msg, VerLen);
+	vncwrbytes(v, "RFB 003.003\n", VerLen);
 	vncflush(v);
 
 	vncrdbytes(v, msg, VerLen);
@@ -33,67 +19,57 @@ vncsrvhandshake(Vnc *v)
 int
 vnchandshake(Vnc *v)
 {
-	char msg[VerLen+1];
+	char msg[VerLen + 1];
 
 	msg[VerLen] = 0;
 	vncrdbytes(v, msg, VerLen);
-	if(strncmp(msg, "RFB 003.", 8) != 0 ||
-	   strncmp(msg, "RFB 003.007\n", VerLen) == 0){
-		werrstr("bad rfb version \"%s\"", msg);
-		return -1;
-	}
-	if(strncmp(msg, "RFB 003.008\n", VerLen) == 0)
-		srvversion = 38;
-	else
-		srvversion = 33;
 
 	if(verbose)
 		fprint(2, "server version: %s\n", msg);
-	strcpy(msg, version38);
+
+	if(strncmp(msg, "RFB 003.003\n", VerLen) == 0)
+		v->vers = 33;
+	else if(strncmp(msg, "RFB 003.007\n", VerLen) == 0)
+		v->vers = 37;
+	else if(strncmp(msg, "RFB 003.008\n", VerLen) == 0)
+		v->vers = 38;
+	else /* RFC6143: Any other should be treated as 3.3. */
+		v->vers = 33;
+
+	strcpy(msg, "RFB 003.008\n");
 	vncwrbytes(v, msg, VerLen);
 	vncflush(v);
 	return 0;
 }
 
-ulong
-sectype38(Vnc *v)
-{
-	ulong auth, type;
-	int i, ntypes;
-
-	ntypes = vncrdchar(v);
-	if(ntypes == 0){
-		werrstr("no security types from server");
-		return AFailed;
-	}
-
-	/* choose the "most secure" security type */
-	auth = AFailed;
-	for(i = 0; i < ntypes; i++){
-		type = vncrdchar(v);
-		if(verbose){
-			fprint(2, "auth type %s\n",
-				type == AFailed ? "Invalid" :
-				type == ANoAuth ? "None" :
-				type == AVncAuth ? "VNC" : "Unknown");
-		}
-		if(type > auth && type <= AVncAuth)
-			auth = type;
-	}
-	return auth;
-}
-
 int
 vncauth(Vnc *v, char *keypattern)
 {
-	char *reason;
 	uchar chal[VncChalLen];
-	ulong auth;
+	ulong auth, type;
+	int i, ntypes;
+	char *err;
 
 	if(keypattern == nil)
 		keypattern = "";
 
-	auth = srvversion == 38 ? sectype38(v) : vncrdlong(v);
+	auth = AFailed;
+	if(v->vers == 33)
+		auth = vncrdlong(v);
+	else{
+		ntypes = vncrdchar(v);
+		for(i = 0; i < ntypes; i++){
+			type = vncrdchar(v);
+			if(verbose)
+				fprint(2, "auth type %uld\n", type);
+			if(type > auth && type <= AVncAuth)
+				auth = type;
+		}
+		if(auth == AFailed){
+			werrstr("no supported auth types");
+			return -1;
+		}
+	}
 
 	switch(auth){
 	default:
@@ -103,15 +79,14 @@ vncauth(Vnc *v, char *keypattern)
 		return -1;
 
 	case AFailed:
-	failed:
-		reason = vncrdstring(v);
-		werrstr("%s", reason);
+		err = vncrdstring(v);
+		werrstr("%s", err);
 		if(verbose)
-			fprint(2, "auth failed: %s\n", reason);
+			fprint(2, "auth failed: %s\n", err);
 		return -1;
 
 	case ANoAuth:
-		if(srvversion == 38){
+		if(v->vers == 38){
 			vncwrchar(v, auth);
 			vncflush(v);
 		}
@@ -120,14 +95,14 @@ vncauth(Vnc *v, char *keypattern)
 		break;
 
 	case AVncAuth:
-		if(srvversion == 38){
+		if(v->vers == 38){
 			vncwrchar(v, auth);
 			vncflush(v);
 		}
 
 		vncrdbytes(v, chal, VncChalLen);
 		if(auth_respond(chal, VncChalLen, nil, 0, chal, VncChalLen, auth_getkey,
-			"proto=vnc role=client server=%s %s", serveraddr, keypattern) != VncChalLen){
+			"proto=vnc role=client server=%s %s", v->srvaddr, keypattern) != VncChalLen){
 			return -1;
 		}
 		vncwrbytes(v, chal, VncChalLen);
@@ -135,18 +110,18 @@ vncauth(Vnc *v, char *keypattern)
 		break;
 	}
 
-	/* in version 3.8 the auth status is always sent, in 3.3 only in AVncAuth */
-	if(srvversion == 38 || auth == AVncAuth){
+	/* in version 3.8 the auth status is always sent, in 3.3 and 3.7, only in AVncAuth */
+	if(v->vers == 38 || auth == AVncAuth){
 		auth = vncrdlong(v); /* auth status */
 		switch(auth){
 		default:
 			werrstr("unknown server response 0x%lux", auth);
 			return -1;
 		case VncAuthFailed:
-			if (srvversion == 38)
-				goto failed;
-
-			werrstr("server says authentication failed");
+			err = (v->vers == 38) ? vncrdstring(v) : "rejected";
+			werrstr("%s", err);
+			if(verbose)
+				fprint(2, "auth failed: %s\n", err);
 			return -1;
 		case VncAuthTooMany:
 			werrstr("server says too many tries");

@@ -111,10 +111,9 @@ main(int argc, char **argv)
 	if(argc != 1)
 		usage();
 
-	serveraddr = strdup(argv[0]);
-	dfd = dial(netmkvncaddr(serveraddr), nil, nil, &cfd);
+	dfd = dial(netmkvncaddr(argv[0]), nil, nil, &cfd);
 	if(dfd < 0)
-		sysfatal("cannot dial %s: %r", serveraddr);
+		sysfatal("cannot dial %s: %r", argv[0]);
 	if(tls){
 		TLSconn conn;
 
@@ -126,6 +125,7 @@ main(int argc, char **argv)
 		free(conn.sessionID);
 	}
 	vnc = vncinit(dfd, cfd, nil);
+	vnc->srvaddr = strdup(argv[0]);
 
 	if(vnchandshake(vnc) < 0)
 		sysfatal("handshake failure: %r");
