@@ -15,7 +15,7 @@ qer, runq \- queue management for spooled files
 .br
 .B runq
 [
-.B -adsER
+.B -dER
 ]
 [
 .B -f
@@ -24,10 +24,6 @@ qer, runq \- queue management for spooled files
 [
 .B -q
 .I subdir
-]
-[
-.B -l
-.I load
 ]
 [
 .B -t
@@ -39,7 +35,7 @@ qer, runq \- queue management for spooled files
 ]
 [
 .B -n
-.I nprocs
+.I njobs
 ]
 .I root cmd
 .SH DESCRIPTION
@@ -84,10 +80,7 @@ starts with 'F', the second 'G', etc.
 .I Runq
 processes the files queued by
 .IR qer .
-Without the
-.B -a
-option,
-.I runq
+.I Runq
 processes all requests in the directory
 .IR root / subdir ,
 where
@@ -96,9 +89,6 @@ is the argument to
 .B -q
 if present, else the contents of
 .BR /dev/user .
-With the
-.B -a
-it processes all requests.
 Each request is processed by executing the command
 .I cmd
 with the contents of the control file as its arguments,
@@ -172,31 +162,12 @@ be drained incrementally.  It is most useful in combination with the
 .I -q
 flag.
 .P
-The
-.BR -s ,
-.BR -n ,
-and
-.B -l
-flags are only meaningful with the
-.B -a
-flag.  They control amount of parallelism that
-is used when sweeping all of the queues.  The argument following the
+The argument following the
 .B -n
-flag specifies the number of queues that are swept
-in parallel; the default is 50.  The argument following the
-.B -l
-flag specifies the total number of queues that are being swept.
-By default, there is no limit.  The number of active sweeps
-is cumulative over all active executions of
-.IR runq .
-The
-.B -s
-flag forces each queue directory to be processed by exactly
-one instance of
-.IR runq .
-This is useful on systems that connect to slow
-external systems and prevents all the queue sweeps from
-piling up trying to process a few slow systems.
+flag specifies the number of queued jobs that are processed
+in parallel from the queue; the default is 1.
+This is useful for a large queue to be processed with a bounded
+amount of parallelism.
 .PP
 .I Runq
 is often called from
