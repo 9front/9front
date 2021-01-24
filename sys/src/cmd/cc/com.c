@@ -1392,7 +1392,7 @@ compar(Node *n, int reverse)
 	if(reverse){
 		r = n->left;
 		l = n->right;
-		op = comrel[relindex(n->op)];
+		op = invrel[relindex(n->op)];
 	}else{
 		l = n->left;
 		r = n->right;
