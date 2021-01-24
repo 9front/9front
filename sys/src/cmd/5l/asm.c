@@ -785,7 +785,10 @@ PP = p;
 
 	case 8:		/* sll $c,[R],R -> mov (R<<$c),R */
 		aclass(&p->from);
-		o1 = oprrr(p->as, p->scond);
+		if((p->as == ASRL || p->as == ASRA) && instoffset == 0)
+			o1 = oprrr(ASLL, p->scond);
+		else
+			o1 = oprrr(p->as, p->scond);
 		r = p->reg;
 		if(r == NREG)
 			r = p->to.reg;
