@@ -109,7 +109,7 @@ and
 are formatted as 4 digit hexadecimal.
 .I Csp
 is the device class, subclass, protocol indentifier
-formatd as 6 digit hexadecimal.
+formatted as 6 digit hexadecimal.
 .I Usbd
 assigns a stable device unique name based on the
 device descriptor for
