@@ -10,6 +10,7 @@ OFILES=\
 	fabs.$O\
 	floor.$O\
 	fmin.$O\
+	fmod.$O\
 	gamma.$O\
 	hypot.$O\
 	j0.$O\
