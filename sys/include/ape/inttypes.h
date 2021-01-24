@@ -1,7 +1,3 @@
-#ifndef _SUSV2_SOURCE
-#error "inttypes.h is SUSV2"
-#endif
-
 #ifndef _INTTYPES_H_
 #define _INTTYPES_H_ 1
 
