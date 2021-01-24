@@ -1360,19 +1360,6 @@ cmp(Big x, Big y)
 	}
 	return 0;
 }
-static Big
-add(Big x, int y)
-{
-	uvlong ob;
-	
-	ob = x.b;
-	x.b += y;
-	if(y > 0 && x.b < ob)
-		x.a++;
-	if(y < 0 && x.b > ob)
-		x.a--;
-	return x;
-} 
 
 Big
 big(vlong a, uvlong b)
@@ -1468,14 +1455,14 @@ compar(Node *n, int reverse)
 	case OHS:
 		if(cmp(x, lo) <= 0)
 			goto useless;
-		if(cmp(x, add(hi, 1)) >= 0)
+		if(cmp(x, hi) > 0)
 			goto useless;
 		break;
 	case OLE:
 	case OLS:
 	case OGT:
 	case OHI:
-		if(cmp(x, add(lo, -1)) <= 0)
+		if(cmp(x, lo) < 0)
 			goto useless;
 		if(cmp(x, hi) >= 0)
 			goto useless;
