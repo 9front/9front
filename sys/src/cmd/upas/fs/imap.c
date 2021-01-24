@@ -687,8 +687,7 @@ imap4ntlm(Imap *imap)
 		return "auth_respond failed";
 
 	/* prepare NtLmAuthenticate blob */
-
-	memset(buf, sizeof buf, 0);
+	memset(buf, 0, sizeof(buf));
 	p = buf;
 	ep = p + 8 + 6*8 + 2*4;
 	q = ep;
@@ -850,14 +849,6 @@ imap4dial(Imap *imap)
 		return err;
 	}
 	return nil;
-}
-
-static void
-imap4hangup(Imap *imap)
-{
-	imap4cmd(imap, "logout");
-	imap4resp(imap);
-	imap4disconnect(imap);
 }
 
 /* gmail lies about message sizes */
