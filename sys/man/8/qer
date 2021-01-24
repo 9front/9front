@@ -15,7 +15,7 @@ qer, runq \- queue management for spooled files
 .br
 .B runq
 [
-.B -dER
+.B -adER
 ]
 [
 .B -f
@@ -50,13 +50,7 @@ separated by spaces.
 The data file contains the standard input to
 .IR qer .
 The files are created in the directory
-.IR root / subdir ,
-where
-.I subdir
-is the argument to
-.B -q
-if present, else the contents of
-.BR /dev/user .
+.IR root / subdi
 The names of the control and data files differ only
 in the first character which is `C' and `D' respectively.
 .IR Mktemp (2)
@@ -76,6 +70,18 @@ flag is copied into the queue directory.  The names
 of the copies differ from the name of the data file
 only in the first character.  The first one
 starts with 'F', the second 'G', etc.
+.P
+Qer takes the following arguments:
+.TP
+.B -q subdir
+Specifies the queue subdirectory to use. If
+unspecified, the contents of
+.B /dev/user
+are used.
+.TP
+.B -f file
+Specifies the files to copy into the queue
+directory, in the manner described above.
 .P
 .I Runq
 processes the files queued by
@@ -124,32 +130,34 @@ a data file younger than one hour will not be processed if its
 error file exists and was last modified within the preceding 10 minutes.
 A data file older than one hour will not be processed if its error
 file exists and was last modified within the preceding hour.
-The 
+.PP
+The following flags are accepted by runq:
+.TP
+.B -a
+Causes runq to process all user directories in sequence, instead
+of only the directory of the current user.
+.TP
 .B -E
-flag causes all files to be reprocessed regardless of
+Causes all files to be reprocessed regardless of
 the file times.
-.P
-The
+.TP
 .B -R
-flag instructs
+Instructs
 .I runq
 never to give up on a failed queue job, instead leaving
 it in the queue to be retried.
-.P
-The
+.TP
 .B -d
-option causes debugging output on standard error
+Causes debugging output on standard error
 describing the progress through the queues.
-.P
-The
+.TP
 .B -t
-flags specifies the number of hours
+Specifies the number of hours
 that retries will continue after a send
 failure.  The default is 48 hours.
-.P
-The
+.TP
 .BR -r
-flag limits the number of files that are processed in a single pass of a queue.
+Limits the number of files that are processed in a single pass of a queue.
 .I Runq
 accumulates the entire directory containing a queue before processing any
 files.  When a queue contains many files and the system does not
@@ -161,10 +169,9 @@ to process the directory in chunks, allowing the queue to
 be drained incrementally.  It is most useful in combination with the
 .I -q
 flag.
-.P
-The argument following the
+.TP
 .B -n
-flag specifies the number of queued jobs that are processed
+Specifies the number of queued jobs that are processed
 in parallel from the queue; the default is 1.
 This is useful for a large queue to be processed with a bounded
 amount of parallelism.

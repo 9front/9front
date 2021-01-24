@@ -2,6 +2,13 @@
 #include <ctype.h>
 
 typedef struct Job Job;
+typedef struct Wdir Wdir;
+
+struct Wdir {
+	Dir	*d;
+	int	nd;
+	char	*name;
+};
 
 struct Job {
 	Job	*next;
@@ -10,6 +17,7 @@ struct Job {
 	int	dfd;
 	char	**av;
 	char	*buf;	/* backing for av */
+	Wdir	*wdir;	/* work dir */
 	Dir	*dp;	/* not owned */
 	Mlock	*l;
 	Biobuf	*b;
@@ -17,29 +25,22 @@ struct Job {
 
 void	doalldirs(void);
 void	dodir(char*);
-Job*	dofile(Dir*);
+Job*	dofile(Wdir*, Dir*);
 Job*	donefile(Job*, Waitmsg*);
 void	freejob(Job*);
 void	rundir(char*);
 char*	file(char*, char);
 void	warning(char*, void*);
 void	error(char*, void*);
-int	returnmail(char**, char*, char*);
-void	logit(char*, char*, char**);
+int	returnmail(char**, Wdir*, char*, char*);
+void	logit(char*, Wdir*, char*, char**);
 void	doload(int);
 
-#define HUNK 32
 char	*cmd;
 char	*root;
 int	debug;
 int	giveup = 2*24*60*60;
 int	limit;
-
-/* the current directory */
-Dir	*dirbuf;
-long	ndirbuf = 0;
-int	nfiles;
-char	*curdir;
 
 char *runqlog = "runq";
 
@@ -48,6 +49,7 @@ int	nbad;
 int	njob = 1;		/* number of concurrent jobs to invoke */
 int	Eflag;			/* ignore E.xxxxxx dates */
 int	Rflag;			/* no giving up, ever */
+int	aflag;			/* do all dirs */
 
 void
 usage(void)
@@ -82,27 +84,37 @@ main(int argc, char **argv)
 	case 'q':
 		qdir = EARGF(usage());
 		break;
+	case 'a':
+		aflag++;
+		break;
 	case 'n':
 		njob = atoi(EARGF(usage()));
 		if(njob == 0)
 			usage();
+		break;
+	default:
+		usage();
 		break;
 	}ARGEND;
 
 	if(argc != 2)
 		usage();
 
-	if(qdir == nil) 
+	if(!aflag && qdir == nil){
 		qdir = getuser();
-	if(qdir == nil)
-		error("unknown user", 0);
+		if(qdir == nil)
+			error("unknown user", 0);
+	}
 	root = argv[0];
 	cmd = argv[1];
 
 	if(chdir(root) < 0)
 		error("can't cd to %s", root);
 
-	dodir(qdir);
+	if(aflag)
+		doalldirs();
+	else
+		dodir(qdir);
 	exits(0);
 }
 
@@ -129,13 +141,41 @@ emptydir(char *name)
 }
 
 /*
+ *  run all user directories, must be bootes (or root on unix) to do this
+ */
+void
+doalldirs(void)
+{
+	Dir *db;
+	int fd;
+	long i, n;
+
+
+	if((fd = open(".", OREAD)) == -1)
+		warning("opening %s", root);
+		return;
+	}
+	if((n = dirreadall(fd, &db)) == -1){
+		warning("reading %s: ", root);
+		return;
+	}
+	for(i=0; i<n; i++){
+		if((db[i].qid.type & QTDIR) == 0)
+			continue;
+		if(emptydir(db[i].name))
+			continue;
+		dodir(db[i].name);
+	}
+	free(db);
+	close(fd);
+}
+
+/*
  *  cd to a user directory and run it
  */
 void
 dodir(char *name)
 {
-	curdir = name;
-
 	if(chdir(name) < 0){
 		warning("cd to %s", name);
 		return;
@@ -152,9 +192,10 @@ dodir(char *name)
 void
 rundir(char *name)
 {
-	Job *hd, *j, **p;
 	int nlive, fidx, fd, found;
+	Job *hd, *j, **p;
 	Waitmsg *w;
+	Wdir wd;
 
 	fd = open(".", OREAD);
 	if(fd == -1){
@@ -164,14 +205,15 @@ rundir(char *name)
 	fidx= 0;
 	hd = nil;
 	nlive = 0;
-	nfiles = dirreadall(fd, &dirbuf);
-	while(nlive > 0 ||  fidx< nfiles){
-		while(fidx< nfiles && nlive < njob){
-			if(strncmp(dirbuf[fidx].name, "C.", 2) != 0){
+	wd.name = name;
+	wd.nd = dirreadall(fd, &wd.d);
+	while(nlive > 0 ||  fidx< wd.nd){
+		while(fidx< wd.nd && nlive < njob){
+			if(strncmp(wd.d[fidx].name, "C.", 2) != 0){
 				fidx++;
 				continue;
 			}
-			if((j = dofile(&dirbuf[fidx])) != nil){
+			if((j = dofile(&wd, &wd.d[fidx])) != nil){
 				nlive++;
 				j->next = hd;
 				hd = j;
@@ -201,7 +243,7 @@ rescan:
 			goto rescan;
 	}
 	assert(hd == nil);
-	free(dirbuf);
+	free(wd.d);
 	close(fd);
 }
 
@@ -209,15 +251,15 @@ rescan:
  *  free files matching name in the current directory
  */
 void
-remmatch(char *name)
+remmatch(Wdir *w, char *name)
 {
 	long i;
 
-	syslog(0, runqlog, "removing %s/%s", curdir, name);
+	syslog(0, runqlog, "removing %s/%s", w->name, name);
 
-	for(i=0; i<nfiles; i++){
-		if(strcmp(&dirbuf[i].name[1], &name[1]) == 0)
-			remove(dirbuf[i].name);
+	for(i=0; i<w->nd; i++){
+		if(strcmp(&w->d[i].name[1], &name[1]) == 0)
+			remove(w->d[i].name);
 	}
 
 	/* error file (may have) appeared after we read the directory */
@@ -263,7 +305,7 @@ keeplockalive(char *path, int fd)
  *  tracks the running pid.
  */
 Job*
-dofile(Dir *dp)
+dofile(Wdir *w, Dir *dp)
 {
 	int dtime, efd, i, etime;
 	Job *j;
@@ -280,13 +322,13 @@ dofile(Dir *dp)
 	d = dirstat(file(dp->name, 'D'));
 	if(d == nil){
 		syslog(0, runqlog, "no data file for %s", dp->name);
-		remmatch(dp->name);
+		remmatch(w, dp->name);
 		return nil;
 	}
 	if(dp->length == 0){
 		if(time(0)-dp->mtime > 15*60){
 			syslog(0, runqlog, "empty ctl file for %s", dp->name);
-			remmatch(dp->name);
+			remmatch(w, dp->name);
 		}
 		return nil;
 	}
@@ -338,7 +380,7 @@ dofile(Dir *dp)
 	 *	- read args into (malloc'd) buffer
 	 *	- malloc a vector and copy pointers to args into it
 	 */
-
+	j->wdir = w;
 	j->buf = malloc(dp->length+1);
 	if(j->buf == nil){
 		warning("buffer allocation", 0);
@@ -381,9 +423,9 @@ dofile(Dir *dp)
 	j->av[j->ac] = 0;
 
 	if(!Eflag &&time(0) - dtime > giveup){
-		if(returnmail(j->av, dp->name, "Giveup") != 0)
-			logit("returnmail failed", dp->name, j->av);
-		remmatch(dp->name);
+		if(returnmail(j->av, w, dp->name, "Giveup") != 0)
+			logit("returnmail failed", w, dp->name, j->av);
+		remmatch(w, dp->name);
 		goto done;
 	}
 
@@ -415,7 +457,7 @@ dofile(Dir *dp)
 				fprint(2, " %s", j->av[i]);
 			fprint(2, "\n");
 		}
-		logit("execing", dp->name, j->av);
+		logit("execing", w, dp->name, j->av);
 		close(0);
 		dup(j->dfd, 0);
 		close(j->dfd);
@@ -461,9 +503,9 @@ donefile(Job *j, Waitmsg *wm)
 			fprint(2, "[%d] wm->msg == %s\n", getpid(), wm->msg);
 		if(!Rflag && strstr(wm->msg, "Retry")==0){
 			/* return the message and remove it */
-			if(returnmail(j->av, j->dp->name, wm->msg) != 0)
-				logit("returnmail failed", j->dp->name, j->av);
-			remmatch(j->dp->name);
+			if(returnmail(j->av, j->wdir, j->dp->name, wm->msg) != 0)
+				logit("returnmail failed", j->wdir, j->dp->name, j->av);
+			remmatch(j->wdir, j->dp->name);
 		} else {
 			/* add sys to bad list and try again later */
 			nbad++;
@@ -472,7 +514,7 @@ donefile(Job *j, Waitmsg *wm)
 		}
 	} else {
 		/* it worked remove the message */
-		remmatch(j->dp->name);
+		remmatch(j->wdir, j->dp->name);
 	}
 	n = j->next;
 	freejob(j);
@@ -520,7 +562,7 @@ file(char *name, char type)
  *  return 0 if successful
  */
 int
-returnmail(char **av, char *name, char *msg)
+returnmail(char **av, Wdir *w, char *name, char *msg)
 {
 	char buf[256], attachment[Pathlen], *sender;
 	int i, fd, pfd[2];
@@ -529,7 +571,7 @@ returnmail(char **av, char *name, char *msg)
 	String *s;
 
 	if(av[1] == 0 || av[2] == 0){
-		logit("runq - dumping bad file", name, av);
+		logit("runq - dumping bad file", w, name, av);
 		return 0;
 	}
 
@@ -537,21 +579,21 @@ returnmail(char **av, char *name, char *msg)
 	sender = s_to_c(s);
 
 	if(!returnable(sender) || strcmp(sender, "postmaster") == 0) {
-		logit("runq - dumping p to p mail", name, av);
+		logit("runq - dumping p to p mail", w, name, av);
 		return 0;
 	}
 
 	if(pipe(pfd) < 0){
-		logit("runq - pipe failed", name, av);
+		logit("runq - pipe failed", w, name, av);
 		return -1;
 	}
 
 	switch(rfork(RFFDG|RFPROC|RFENVG)){
 	case -1:
-		logit("runq - fork failed", name, av);
+		logit("runq - fork failed", w, name, av);
 		return -1;
 	case 0:
-		logit("returning", name, av);
+		logit("returning", w, name, av);
 		close(pfd[1]);
 		close(0);
 		dup(pfd[0], 0);
@@ -592,14 +634,14 @@ out:
 	wm = wait();
 	if(wm == nil){
 		syslog(0, "runq", "wait: %r");
-		logit("wait failed", name, av);
+		logit("wait failed", w, name, av);
 		return -1;
 	}
 	i = 0;
 	if(wm->msg[0]){
 		i = -1;
 		syslog(0, "runq", "returnmail child: %s", wm->msg);
-		logit("returnmail child failed", name, av);
+		logit("returnmail child failed", w, name, av);
 	}
 	free(wm);
 	return i;
@@ -635,12 +677,12 @@ error(char *f, void *a)
 }
 
 void
-logit(char *msg, char *file, char **av)
+logit(char *msg, Wdir *w, char *file, char **av)
 {
 	int n, m;
 	char buf[256];
 
-	n = snprint(buf, sizeof(buf), "%s/%s: %s", curdir, file, msg);
+	n = snprint(buf, sizeof(buf), "%s/%s: %s", w->name, file, msg);
 	for(; *av; av++){
 		m = strlen(*av);
 		if(n + m + 4 > sizeof(buf))
