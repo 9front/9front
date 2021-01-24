@@ -151,12 +151,13 @@ doalldirs(void)
 	long i, n;
 
 
-	if((fd = open(".", OREAD)) == -1)
+	if((fd = open(".", OREAD)) == -1){
 		warning("opening %s", root);
 		return;
 	}
 	if((n = dirreadall(fd, &db)) == -1){
 		warning("reading %s: ", root);
+		close(fd);
 		return;
 	}
 	for(i=0; i<n; i++){
@@ -166,8 +167,8 @@ doalldirs(void)
 			continue;
 		dodir(db[i].name);
 	}
-	free(db);
 	close(fd);
+	free(db);
 }
 
 /*
