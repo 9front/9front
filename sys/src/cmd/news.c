@@ -44,30 +44,39 @@ void	note(char *s);
 void
 main(int argc, char *argv[])
 {
-	int i;
+	int i, aflag = 0, nflag = 0;
+	int doupdate = 1;
+	int printall = 0;
+	void (*printer)(char*) = print_item;
 
 	Binit(&bout, 1, OWRITE);
 	if(argc == 1) {
-		eachitem(print_item, 0, 1);
+		eachitem(print_item, printall, doupdate);
 		exits(0);
 	}
 	ARGBEGIN{
 	case 'a':	/* print all */
-		eachitem(print_item, 1, 0);
+		doupdate = 0;
+		printall = 1;
 		break;
 
 	case 'n':	/* names only */
-		eachitem(note, 0, 0);
-		if(n_items)
-			Bputc(&bout, '\n');
+		doupdate = 0;
+		printer = note;
 		break;
 
 	default:
 		fprint(2, "news: bad option %c\n", ARGC());
 		exits("usage");
 	}ARGEND
-	for(i=0; i<argc; i++)
-		print_item(argv[i]);
+	
+	if (argc == 0)
+		eachitem(printer, printall, doupdate);
+	else
+		for(i=0; i<argc; i++)
+			print_item(argv[i]);
+	if (n_items)
+		Bputc(&bout, '\n');
 	exits(0);
 }
 
@@ -227,3 +236,4 @@ note(char *file)
 	Bprint(&bout, " %s", file);
 	n_items++;
 }
+
