@@ -17,6 +17,7 @@ usage(void)
 	exits("usage");
 }
 
+/* ^D, Delete, Enter, Backspace, ^U */
 void
 readline(char *buf, int nbuf)
 {
@@ -116,27 +117,38 @@ grabmouse(void*)
 }
 
 void
+top(void*)
+{
+	int fd;
+
+	if((fd = open("/dev/wctl", OWRITE)) < 0)
+		return;
+
+	for(;;){
+		write(fd, "current", 7);
+		sleep(500);
+	}
+}
+
+void
 lockscreen(void)
 {
-	enum { Nfld = 5, Fldlen = 12, Cursorlen = 2*4 + 2*2*16, };
+	enum { Cursorlen = 2*4 + 2*2*16 };
 	char *s;
-	char buf[Nfld*Fldlen], *flds[Nfld], newcmd[128], cbuf[Cursorlen];
+	char newcmd[128], cbuf[Cursorlen];
 	int fd, dx, dy;
 	Image *i;
 	Point p;
 	Rectangle r;
 	Tm *tm;
 
-	if((fd = open("/dev/screen", OREAD)) < 0)
-		sysfatal("can't open /dev/screen: %r");
-	if(read(fd, buf, Nfld*Fldlen) != Nfld*Fldlen)
-		sysfatal("can't read /dev/screen: %r");
-	close(fd);
-	buf[sizeof buf-1] = 0;
-	if(tokenize(buf, flds, Nfld) != Nfld)
-		sysfatal("can't tokenize /dev/screen header");
-	snprint(newcmd, sizeof newcmd, "-r %s %s %s %s",
-		flds[1], flds[2], flds[3], flds[4]);
+	display = initdisplay(nil, nil, nil);
+	if(display == nil)
+		sysfatal("can't open /dev/draw: %r");
+	r = display->image->r;
+	snprint(newcmd, sizeof newcmd, "-r %d %d %d %d",
+		r.min.x, r.min.y, r.max.x, r.max.y);
+	closedisplay(display);
 
 	newwindow(newcmd);
 	if((fd = open("/dev/consctl", OWRITE)) >= 0)
@@ -179,6 +191,7 @@ lockscreen(void)
 	flushimage(display, 1);
 
 	/* screen is now open and covered.  grab mouse and hold on tight */
+	procrfork(top, nil, 8*1024, RFFDG);
 	procrfork(grabmouse, nil, 8*1024, RFFDG);
 	procrfork(blanker, nil, 8*1024, RFFDG);
 
