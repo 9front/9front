@@ -10,16 +10,17 @@
 #include <math.h>
 #include <errno.h>
 
-#define	log2    0.693147180559945309e0
-#define	ln10o1  .4342944819032518276511
-#define	sqrto2  0.707106781186547524e0
-#define	p0      -.240139179559210510e2
-#define	p1      0.309572928215376501e2
-#define	p2      -.963769093377840513e1
-#define	p3      0.421087371217979714e0
-#define	q0      -.120069589779605255e2
-#define	q1      0.194809660700889731e2
-#define	q2      -.891110902798312337e1
+#define	Log2    0.693147180559945309e0
+#define	Ln2o1   1.4426950408889634073599
+#define	Ln10o1  .4342944819032518276511
+#define	Sqrto2  0.707106781186547524e0
+#define	P0      -.240139179559210510e2
+#define	P1      0.309572928215376501e2
+#define	P2      -.963769093377840513e1
+#define	P3      0.421087371217979714e0
+#define	Q0      -.120069589779605255e2
+#define	Q1      0.194809660700889731e2
+#define	Q2      -.891110902798312337e1
 
 double
 log(double arg)
@@ -36,7 +37,7 @@ log(double arg)
 		x *= 2;
 		exp--;
 	}
-	if(x < sqrto2) {
+	if(x < Sqrto2) {
 		x *= 2;
 		exp--;
 	}
@@ -44,19 +45,28 @@ log(double arg)
 	z = (x-1) / (x+1);
 	zsq = z*z;
 
-	temp = ((p3*zsq + p2)*zsq + p1)*zsq + p0;
-	temp = temp/(((zsq + q2)*zsq + q1)*zsq + q0);
-	temp = temp*z + exp*log2;
+	temp = ((P3*zsq + P2)*zsq + P1)*zsq + P0;
+	temp = temp/(((zsq + Q2)*zsq + Q1)*zsq + Q0);
+	temp = temp*z + exp*Log2;
 	return temp;
 }
 
 double
 log10(double arg)
 {
-
 	if(arg <= 0) {
 		errno = (arg==0)? ERANGE : EDOM;
 		return -HUGE_VAL;
 	}
-	return log(arg) * ln10o1;
+	return log(arg) * Ln10o1;
+}
+
+double
+log2(double arg)
+{
+	if(arg <= 0) {
+		errno = (arg==0)? ERANGE : EDOM;
+		return -HUGE_VAL;
+	}
+	return log(arg) * Ln2o1;
 }

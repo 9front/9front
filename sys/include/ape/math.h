@@ -25,6 +25,7 @@ extern double exp(double);
 extern double frexp(double, int *);
 extern double ldexp(double, int);
 extern double log(double);
+extern double log2(double);
 extern double log10(double);
 extern double modf(double, double *);
 extern double pow(double, double);
