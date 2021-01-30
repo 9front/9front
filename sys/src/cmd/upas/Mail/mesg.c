@@ -300,7 +300,7 @@ mesgshow(Mesg *m)
 static void
 reply(Mesg *m, char **f, int nf)
 {
-	if(nf >= 1 &&  strcmp(f[0], "all") != 0)
+	if(nf >= 1 &&  strcmp(f[0], "all") == 0)
 		compose(m->replyto, m, 1);
 	else
 		compose(m->replyto, m, 0);
