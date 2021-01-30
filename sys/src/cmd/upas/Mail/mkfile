@@ -1,25 +1,14 @@
 </$objtype/mkfile
 
+BIN=/acme/bin/$objtype
 TARG=Mail
 OFILES=\
-	html.$O\
-	mail.$O\
+	mbox.$O\
 	mesg.$O\
-	reply.$O\
+	comp.$O\
 	util.$O\
-	win.$O\
+	win.$O
 
-HFILES=dat.h
-
-# BIN=/acme/bin/$objtype
-BIN=$ABIN
+HFILES=mail.h
 
 </sys/src/cmd/mkone
-<../mkupas
-
-$O.out: $OFILES
-	$LD -o $target  $LDFLAGS $OFILES
-
-syms:V:
-	$CC -a mail.c	>syms
-	$CC -aa mesg.c reply.c util.c win.c 	>>syms

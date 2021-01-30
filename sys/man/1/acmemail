@@ -1,0 +1,231 @@
+.TH NAIL 1
+.SH NAME
+Nail \- view mail in acme
+
+.SH SYNOPSIS
+
+Nail
+[
+.B -OsT
+]
+[
+.B -m
+.I maildir
+]
+[
+.B -f
+.I format
+]
+[
+.B -o
+.I outbox
+]
+
+.SH DESCRIPTION
+.PP
+.B Nail
+edits a mailbox in an
+.IR acme (1)
+environment.
+The default mailbox is /mail/fs/mbox.
+Nail shows 3 views:
+The list view, the message view, and the composition view.
+
+.PP
+At startup,
+.B Nail
+takes the following options:
+.PD 0
+.TP
+.B -T
+Disable threading
+.TP
+.B -O
+Disable writing to outbox
+.PD 0
+.TP
+.BI -s
+Accept sendmail plumb messages. By default, only
+the Nail instance viewing /mail/fs/mbox will
+accept plumb messages.
+.PD 0
+.TP
+.BI -m " maildir
+Open the maildir
+.I maildir
+instead of the default
+.PD 0
+.TP
+.BI -f " format
+Define the format of individual messages in the list view
+(see "Format strings" below).
+.TP
+.BI -o " outbox
+Save a copy of outgoing messages to the mailbox
+.IR outbox ,
+instead of discarding them after they're enqueued.
+
+.PP
+Nail presents and acme interface for a upas/fs mailbox.
+When started, a mailbox, by default
+.IR /mail/fs/mbox ,
+is presented.
+In the message list, the tag bar commands typically affect
+the selected messsage.
+In the message and composition views, they typically apply
+to the current message.
+
+.PP
+The following text commands are recognized by the message
+list:
+
+.TP
+.B Put
+Flush pending changes back to
+.IR upasfs (4).
+.PD 0
+.TP
+.B Delmesg, Undelmesg
+Flags a message for deletion on the next
+.I Put
+invocation.
+.PD 0
+.TP
+.B Next
+Select the next unread message in the mailbox.
+.PD 0
+.TP
+.B Mark [±flags]
+Add or remove message flags. The flags recognized
+are listed in
+.IR upasfs (4)
+.PD 0
+.TP
+.B Redraw
+Redraws the contents of the mailbox.
+
+.PP
+The following text commands are recognized by the message
+view:
+
+.TP
+.B Reply [all]
+Replies to a message, quoting it.
+If all is specified, reply to all addresses on the message.
+.PD 0
+.TP
+.B Delmesg, Undelmesg
+As with the message view, but applied to the open message.
+.PD 0
+.TP
+.B Mark
+As with the message view, but applied to the open message.
+
+.PP
+The following text commands are recognized by the composition
+window:
+
+.TP
+.B Post
+Sends the message currently being composed.
+
+.SS Format strings
+The formatting of messages in the list view is controlled by the
+format string defined through the
+.I -f
+flag.
+The format string is composed of multiple directives: plain 
+characters, which are displayed unchanged; indentation directives,
+which allows spacing based on thread depth; and messages directives, 
+which display message fields.
+.PP
+Directives have the following format:
+.IP
+.B "% [flags] [width] verb
+.PP
+.IR width
+limits the number of characters displayed.
+If width is negative, text is aligned right instead of left.
+.PP
+The supported flags are:
+.PD 0
+.TP
+.B >
+Insert indentation into the start of the field. This
+does not increase the width of the field.
+
+.PP
+Messages directives are:
+.PD 0
+.TP
+.B s
+Subject
+.PD 0
+.TP
+.B f
+From field
+.PD 0
+.TP
+.B F
+From field including sender's name
+.PD 0
+.TP
+.B t
+To field
+.PD 0
+.TP
+.B c
+Cc field
+.PD 0
+.TP
+.B r
+Reply-to field
+
+.PP
+Indentation directives are:
+.PD 0
+.TP
+.B i
+Adds spacing depending on message depth in thread but limited to a single level.
+If
+.IR width
+is not specified, adds a tabulation otherwise
+.IR width
+specifies the number of spaces to display.
+.PD 0
+.TP
+.B I
+Similar to
+.IR i
+but not limited to a single level.
+
+.PP
+Two special directives are also available:
+.PD 0
+.TP
+.B "[...]
+Text within the brackets is displayed if the message is not the toplevel message of a thread.
+.PD 0
+.TP
+.B "{...}
+Text within the braces is used as the format string for tmfmt(2).
+
+.PP
+The default format string is "%>48s\\t<%f>"
+
+.SH FILES
+
+.SH "SEE ALSO"
+.IR mail (1),
+.IR aliasmail (8),
+.IR filter (1),
+.IR marshal (1),
+.IR mlmgr (1),
+.IR nedmail (1),
+.IR upasfs (4),
+.IR smtp (8),
+.IR faces (1),
+.IR rewrite (6)
+
+.SH BUGS
+Probably.

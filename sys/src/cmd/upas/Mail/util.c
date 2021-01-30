@@ -2,104 +2,139 @@
 #include <libc.h>
 #include <bio.h>
 #include <thread.h>
-#include <plumb.h>
-#include "dat.h"
+#include <regexp.h>
 
-void*
-emalloc(uint n)
+#include "mail.h"
+
+void *
+emalloc(ulong n)
 {
-	void *p;
-
-	p = malloc(n);
-	if(p == nil)
-		error("can't malloc: %r");
-	memset(p, 0, n);
-	setmalloctag(p, getcallerpc(&n));
-	return p;
+	void *v;
+	
+	v = mallocz(n, 1);
+	if(v == nil)
+		sysfatal("malloc: %r");
+	setmalloctag(v, getcallerpc(&n));
+	return v;
 }
 
-void*
-erealloc(void *p, uint n)
+void *
+erealloc(void *p, ulong n)
 {
-	p = realloc(p, n);
-	if(p == nil)
-		error("can't realloc: %r");
-	setmalloctag(p, getcallerpc(&n));
-	return p;
+	void *v;
+	
+	v = realloc(p, n);
+	if(v == nil)
+		sysfatal("realloc: %r");
+	setmalloctag(v, getcallerpc(&p));
+	return v;
 }
 
 char*
 estrdup(char *s)
 {
-	char *t;
-
-	t = emalloc(strlen(s)+1);
-	strcpy(t, s);
-	return t;
-}
-
-char*
-estrstrdup(char *s, char *t)
-{
-	char *u;
-
-	u = emalloc(strlen(s)+strlen(t)+1);
-	strcpy(u, s);
-	strcat(u, t);
-	return u;
-}
-
-char*
-eappend(char *s, char *sep, char *t)
-{
-	char *u;
-
-	if(t == nil)
-		u = estrstrdup(s, sep);
-	else{
-		u = emalloc(strlen(s)+strlen(sep)+strlen(t)+1);
-		strcpy(u, s);
-		strcat(u, sep);
-		strcat(u, t);
-	}
-	free(s);
-	return u;
-}
-
-char*
-egrow(char *s, char *sep, char *t)
-{
-	s = eappend(s, sep, t);
-	free(t);
+	s = strdup(s);
+	if(s == nil)
+		sysfatal("strdup: %r");
+	setmalloctag(s, getcallerpc(&s));
 	return s;
 }
 
-void
-error(char *fmt, ...)
+char*
+estrjoin(char *s, ...)
 {
-	Fmt f;
-	char buf[64];
-	va_list arg;
+	va_list ap;
+	char *r, *t, *p, *e;
+	int n;
 
-	fmtfdinit(&f, 2, buf, sizeof buf);
-	fmtprint(&f, "Mail: ");
-	va_start(arg, fmt);
-	fmtvprint(&f, fmt, arg);
-	va_end(arg);
-	fmtprint(&f, "\n");
-	fmtfdflush(&f);
-	threadexitsall(fmt);
+	va_start(ap, s);
+	n = strlen(s) + 1;
+	while((p = va_arg(ap, char*)) != nil)
+		n += strlen(p);
+	va_end(ap);
+
+	r = emalloc(n);
+	e = r + n;
+	va_start(ap, s);
+	t = strecpy(r, e, s);
+	while((p = va_arg(ap, char*)) != nil)
+		t = strecpy(t, e, p);
+	va_end(ap);
+	return r;
 }
 
-void
-ctlprint(int fd, char *fmt, ...)
+char*
+esmprint(char *fmt, ...)
 {
-	int n;
-	va_list arg;
+	char *s;
+	va_list ap;
 
-	va_start(arg, fmt);
-	n = vfprint(fd, fmt, arg);
-	va_end(arg);
-	if(n <= 0)
-		error("control file write error: %r");
+	va_start(ap, fmt);
+	s = vsmprint(fmt, ap);
+	va_end(ap);
+	if(s == nil)
+		sysfatal("smprint: %r");
+	setmalloctag(s, getcallerpc(&fmt));
+	return s;
+}
+
+char*
+fslurp(int fd, int *nbuf)
+{
+	int n, sz, r;
+	char *buf;
+
+	n = 0;
+	sz = 128;
+	buf = emalloc(sz);
+	while(1){
+		r = read(fd, buf + n, sz - n);
+		if(r == 0)
+			break;
+		if(r == -1)
+			goto error;
+		n += r;
+		if(n == sz){
+			sz += sz/2;
+			buf = erealloc(buf, sz);
+		}
+	}
+	buf[n] = 0;
+	if(nbuf)
+		*nbuf = n;
+	return buf;
+error:
+	free(buf);
+	return nil;
+}
+
+char *
+rslurp(Mesg *m, char *f, int *nbuf)
+{
+	char *path;
+	int fd;
+	char *r;
+
+	if(m == nil)
+		path = estrjoin(mbox.path, "/", f, nil);
+	else
+		path = estrjoin(mbox.path, "/", m->name, "/", f, nil);
+	fd = open(path, OREAD);
+	free(path);
+	if(fd == -1)
+		return nil;
+	r = fslurp(fd, nbuf);
+	close(fd);
+	return r;
+}
+
+u32int
+strhash(char *s)
+{
+	u32int h, c;
+
+	h = 5381;
+	while(c = *s++ & 0xff)
+		h = ((h << 5) + h) + c;
+	return h;
 }
