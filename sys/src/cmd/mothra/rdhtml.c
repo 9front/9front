@@ -965,6 +965,8 @@ void plrdhtml(char *name, int fd, Www *dst, int killimgs){
 			g.spacc=0;
 			break;
 		case Tag_div:
+			g.spacc=0;
+			break;
 		case Tag_br:
 		case Tag_wbr:
 			g.spacc=0;
