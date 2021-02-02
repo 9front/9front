@@ -185,19 +185,21 @@ drawwin(int i)
 int
 geometry(void)
 {
-	int i, ncols, z;
+	int i, nrows, ncols, z;
 	Rectangle r;
 
 	z = 0;
-	rows = (Dy(screen->r)-2*MARGIN+PAD)/(font->height+PAD);
-	if(rows <= 0)
-		rows = 1;
-	if(rows*cols < nwin || rows*cols >= nwin*2){
-		ncols = nwin <= 0 ? 1 : (nwin+rows-1)/rows;
-		if(ncols != cols){
-			cols = ncols;
-			z = 1;
-		}
+	nrows = (Dy(screen->r)-2*MARGIN+PAD)/(font->height+PAD);
+	if(nrows <= 0)
+		nrows = 1;
+	if(nrows != rows){
+		rows = nrows;
+		z = 1;
+	}
+	ncols = nwin <= 0 ? 1 : (nwin+rows-1)/rows;
+	if(ncols != cols){
+		cols = ncols;
+		z = 1;
 	}
 
 	r = Rect(0,0,(Dx(screen->r)-2*MARGIN+PAD)/cols-PAD, font->height);
