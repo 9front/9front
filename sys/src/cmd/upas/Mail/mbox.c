@@ -321,7 +321,7 @@ change(char *name, char *digest)
 		return nil;
 	free(m->mflags);
 	m->mflags = f;
-	m->flags = 0;
+	m->flags &= ~(Fdel|Fseen|Fresp);
 	if(strchr(m->mflags, 'd')) m->flags |= Fdel;
 	if(strchr(m->mflags, 's')) m->flags |= Fseen;
 	if(strchr(m->mflags, 'a')) m->flags |= Fresp;
@@ -797,7 +797,6 @@ changemesg(Plumbmsg *pm)
 
 	digest = plumblookup(pm->attr, "digest");
 	action = plumblookup(pm->attr, "mailtype");
-//	fprint(2, "changing message %s, %s %s\n", action, pm->data, digest);
 	if(strcmp(action, "new") == 0){
 		if((m = load(pm->data, digest, 1)) == nil)
 			return;
