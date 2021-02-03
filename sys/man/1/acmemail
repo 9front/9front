@@ -1,10 +1,10 @@
 .TH NAIL 1
 .SH NAME
-Nail \- view mail in acme
+Mail \- view mail in acme
 
 .SH SYNOPSIS
 
-Nail
+Mail
 [
 .B -OsT
 ]
@@ -23,17 +23,17 @@ Nail
 
 .SH DESCRIPTION
 .PP
-.B Nail
+.B Mail
 edits a mailbox in an
 .IR acme (1)
 environment.
 The default mailbox is /mail/fs/mbox.
-Nail shows 3 views:
+Mail shows 3 views:
 The list view, the message view, and the composition view.
 
 .PP
 At startup,
-.B Nail
+.B Mail
 takes the following options:
 .PD 0
 .TP
@@ -46,7 +46,7 @@ Disable writing to outbox
 .TP
 .BI -s
 Accept sendmail plumb messages. By default, only
-the Nail instance viewing /mail/fs/mbox will
+the Mail instance viewing /mail/fs/mbox will
 accept plumb messages.
 .PD 0
 .TP
@@ -66,7 +66,7 @@ Save a copy of outgoing messages to the mailbox
 instead of discarding them after they're enqueued.
 
 .PP
-Nail presents and acme interface for a upas/fs mailbox.
+Mail presents and acme interface for a upas/fs mailbox.
 When started, a mailbox, by default
 .IR /mail/fs/mbox ,
 is presented.
