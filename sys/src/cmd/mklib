@@ -39,7 +39,7 @@ nuke:V:
 	rm -f *.[$OS] y.tab.? y.output y.error $CLEANFILES $LIB
 
 clean:V:
-	rm -f *.[$OS] y.tab.? y.output y.error $CLEANFILES
+	rm -f *.[$OS] *.a[$OS] y.tab.? y.output y.error $CLEANFILES
 
 %.acid:V:
 	$CC $CFLAGS -a `{basename $stem .$objtype}^.c >$target
