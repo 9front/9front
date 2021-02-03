@@ -610,13 +610,14 @@ winaddincl(Window *w, Rune *r, int n)
 		r = runerealloc(r, n+1);
 		r[n] = 0;
 	}
-	free(a);
 	if((d->qid.type&QTDIR) == 0){
 		free(d);
 		warning(nil, "%s: not a directory\n", a);
 		free(r);
+		free(a);
 		return;
 	}
+	free(a);
 	free(d);
 	w->nincl++;
 	w->incl = realloc(w->incl, w->nincl*sizeof(Rune*));
