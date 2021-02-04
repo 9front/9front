@@ -151,7 +151,7 @@ nodraw:
 			}
 			if(k == Kleft){
 				for(i = 0; i < n; i += l){
-					l = chartorune(&k, buf+tick);
+					l = chartorune(&k, buf+i);
 					if(i+l >= tick){
 						tick = i;
 						break;
