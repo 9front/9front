@@ -152,13 +152,15 @@ nodraw:
 				continue;
 			}
 			if(k == Ketb){
+				l = tick;
 				while(tick > 0){
 					tick--;
 					if(tick == 0 ||
-					   strchr(" !\"#$%&'()*+,-./:;<=>?@`[\\]^{|}~", buf[tick-1]))
+						strchr(" !\"#$%&'()*+,-./:;<=>?@`[\\]^{|}~", buf[tick-1]))
 						break;
 				}
-				buf[n = tick] = 0;
+				memmove(buf+tick, buf+l, n-l);
+				buf[n -= l-tick] = 0;
 				break;
 			}
 			if(k == Kbs){
