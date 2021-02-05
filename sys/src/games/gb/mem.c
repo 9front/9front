@@ -473,13 +473,13 @@ memread(u16int a)
 		return mapper(READ, a);
 	case 12: case 14:
 		return wram[a & 0xfff];
+	case 13:
+		return wramb[a & 0xfff];
 	case 15:
 		if(a >= 0xff00)
 			return regread(a);
 		else if(a >= 0xfe00)
 			return oam[a - 0xfe00];
-	case 13:
-		return wramb[a & 0xfff];
 	}
 	return 0xff;
 }
@@ -504,16 +504,15 @@ memwrite(u16int a, u8int v)
 	case 12: case 14:
 		wram[a & 0xfff] = v;
 		return;
-	case 15:
-		if(a >= 0xff00){
-			regwrite(a, v);
-			return;
-		}else if(a >= 0xfe00){
-			oam[a - 0xfe00] = v;
-			return;
-		}
 	case 13:
 		wramb[a & 0xfff] = v;
+		return;
+	case 15:
+		if(a >= 0xff00)
+			regwrite(a, v);
+		else if(a >= 0xfe00)
+			oam[a - 0xfe00] = v;
+		return;
 	}
 }
 
