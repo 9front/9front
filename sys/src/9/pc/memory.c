@@ -568,13 +568,16 @@ meminit(void)
 		size = memmapsize(base, BY2PG) & ~(BY2PG-1);
 		if(size == 0)
 			continue;
+		if(cm >= &conf.mem[nelem(conf.mem)]){
+			print("meminit: out of entries, loosing: %#p (%llud)\n", base, (uvlong)size);
+			continue;
+		}
 		cm->base = memmapalloc(base, size, BY2PG, MemRAM);
 		if(cm->base == -1)
 			continue;
 		base = cm->base;
 		cm->npage = size/BY2PG;
-		if(++cm >= &conf.mem[nelem(conf.mem)])
-			break;
+		cm++;
 	}
 
 	if(0) memmapdump();
