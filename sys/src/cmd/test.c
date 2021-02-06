@@ -30,7 +30,7 @@ int	isolderthan(char *, char *);
 int	isnewerthan(char *, char *);
 int	hasmode(char *, ulong);
 int	tio(char *, int);
-int	e(void), e1(void), e2(void), e3(void);
+int	e(int), e1(int), e2(int), e3(int);
 char	*nxtarg(int);
 
 void
@@ -47,12 +47,8 @@ main(int argc, char *argv[])
 	argv[ac] = 0;
 	if (ac<=1)
 		exits("usage");
-	r = e();
-	/*
-	 * nice idea but short-circuit -o and -a operators may have
-	 * not consumed their right-hand sides.
-	 */
-	if(0 && (c = nxtarg(1)) != nil)
+	r = e(1);
+	if((c = nxtarg(1)) != nil)
 		synbad("unexpected operator/operand: ", c);
 	exits(r?0:"false");
 }
@@ -81,78 +77,128 @@ nxtintarg(int *pans)
 }
 
 int
-e(void)
+e(int eval)
 {
+	char *op;
 	int p1;
 
-	p1 = e1();
-	if (EQ(nxtarg(1), "-o"))
-		return(p1 || e());
-	ap--;
-	return(p1);
+	p1 = e1(eval);
+	for(;;){
+		op = nxtarg(1);
+		if(op == nil)
+			break;
+		if(!EQ(op, "-o")){
+			ap--;
+			return p1;
+		}
+		if(!p1 && eval)
+			p1 |= e1(1);
+		else
+			e1(0);
+	}
+	return p1;
 }
 
 int
-e1(void)
+e1(int eval)
 {
+	char *op;
 	int p1;
 
-	p1 = e2();
-	if (EQ(nxtarg(1), "-a"))
-		return (p1 && e1());
-	ap--;
-	return(p1);
+	p1 = e2(eval);
+	for(;;){
+		op = nxtarg(1);
+		if(op == nil)
+			break;
+		if(!EQ(op, "-a")){
+			ap--;
+			return p1;
+		}
+		if(p1 && eval)
+			p1 &= e2(1);
+		else
+			e2(0);
+	}
+	return p1;
 }
 
 int
-e2(void)
+e2(int eval)
 {
-	if (EQ(nxtarg(0), "!"))
-		return(!e2());
+	char *op;
+	int p1;
+
+	p1 = 0;
+	for(;;){
+		op = nxtarg(1);
+		if(op == nil)
+			return p1 ^ 1;
+		if(!EQ(op, "!"))
+			break;
+		p1 ^= 1;
+	}
 	ap--;
-	return(e3());
+	return(p1^e3(eval));
 }
 
 int
-e3(void)
+e3(int eval)
 {
 	int p1, int1, int2;
-	char *a, *p2;
+	char *a, *b, *p2;
 
 	a = nxtarg(0);
 	if(EQ(a, "(")) {
-		p1 = e();
+		p1 = e(eval);
 		if(!EQ(nxtarg(0), ")"))
 			synbad(") expected","");
 		return(p1);
 	}
 
-	if(EQ(a, "-A"))
-		return(hasmode(nxtarg(0), DMAPPEND));
+	if(EQ(a, "-A")){
+		b = nxtarg(0);
+		return(eval && hasmode(b, DMAPPEND));
+	}
 
-	if(EQ(a, "-L"))
-		return(hasmode(nxtarg(0), DMEXCL));
+	if(EQ(a, "-L")){
+		b = nxtarg(0);
+		return(eval && hasmode(b, DMEXCL));
+	}
 
-	if(EQ(a, "-T"))
-		return(hasmode(nxtarg(0), DMTMP));
+	if(EQ(a, "-T")){
+		b = nxtarg(0);
+		return(eval && hasmode(b, DMTMP));
+	}
 
-	if(EQ(a, "-f"))
-		return(isreg(nxtarg(0)));
+	if(EQ(a, "-f")){
+		b = nxtarg(0);
+		return(eval && isreg(b));
+	}
 
-	if(EQ(a, "-d"))
-		return(isdir(nxtarg(0)));
+	if(EQ(a, "-d")){
+		b = nxtarg(0);
+		return(eval && isdir(b));
+	}
 
-	if(EQ(a, "-r"))
-		return(tio(nxtarg(0), AREAD));
+	if(EQ(a, "-r")){
+		b = nxtarg(0);
+		return(eval && tio(b, AREAD));
+	}
 
-	if(EQ(a, "-w"))
-		return(tio(nxtarg(0), AWRITE));
+	if(EQ(a, "-w")){
+		b = nxtarg(0);
+		return(eval && tio(b, AWRITE));
+	}
 
-	if(EQ(a, "-x"))
-		return(tio(nxtarg(0), AEXEC));
+	if(EQ(a, "-x")){
+		b = nxtarg(0);
+		return(eval && tio(b, AEXEC));
+	}
 
-	if(EQ(a, "-e"))
-		return(tio(nxtarg(0), AEXIST));
+	if(EQ(a, "-e")){
+		b = nxtarg(0);
+		return(eval && tio(b, AEXIST));
+	}
 
 	if(EQ(a, "-c"))
 		return(0);
@@ -166,14 +212,16 @@ e3(void)
 	if(EQ(a, "-g"))
 		return(0);
 
-	if(EQ(a, "-s"))
-		return(fsizep(nxtarg(0)));
+	if(EQ(a, "-s")){
+		b = nxtarg(0);
+		return(eval && fsizep(b));
+	}
 
 	if(EQ(a, "-t"))
 		if(ap>=ac)
-			return(isatty(1));
+			return(eval && isatty(1));
 		else if(nxtintarg(&int1))
-			return(isatty(int1));
+			return(eval && isatty(int1));
 		else
 			synbad("not a valid file descriptor number ", "");
 
@@ -191,35 +239,40 @@ e3(void)
 	if(EQ(p2, "!="))
 		return(!EQ(nxtarg(0), a));
 
-	if(EQ(p2, "-older"))
-		return(isolder(nxtarg(0), a));
-
-	if(EQ(p2, "-ot"))
-		return(isolderthan(nxtarg(0), a));
-
-	if(EQ(p2, "-nt"))
-		return(isnewerthan(nxtarg(0), a));
-
-	if(!isint(a, &int1))
-		synbad("unexpected operator/operand: ", p2);
-
-	if(nxtintarg(&int2)){
-		if(EQ(p2, "-eq"))
-			return(int1==int2);
-		if(EQ(p2, "-ne"))
-			return(int1!=int2);
-		if(EQ(p2, "-gt"))
-			return(int1>int2);
-		if(EQ(p2, "-lt"))
-			return(int1<int2);
-		if(EQ(p2, "-ge"))
-			return(int1>=int2);
-		if(EQ(p2, "-le"))
-			return(int1<=int2);
+	if(EQ(p2, "-older")){
+		b = nxtarg(0);
+		return(eval && isolder(b, a));
 	}
 
-	synbad("unknown operator ",p2);
-	return 0;		/* to shut ken up */
+	if(EQ(p2, "-ot")){
+		b = nxtarg(0);
+		return(eval && isolderthan(b, a));
+	}
+
+	if(EQ(p2, "-nt")){
+		b = nxtarg(0);
+		return(eval && isnewerthan(b, a));
+	}
+
+	if(isint(a, &int1)){
+		if(nxtintarg(&int2)){
+			if(EQ(p2, "-eq"))
+				return(int1==int2);
+			if(EQ(p2, "-ne"))
+				return(int1!=int2);
+			if(EQ(p2, "-gt"))
+				return(int1>int2);
+			if(EQ(p2, "-lt"))
+				return(int1<int2);
+			if(EQ(p2, "-ge"))
+				return(int1>=int2);
+			if(EQ(p2, "-le"))
+				return(int1<=int2);
+			ap--;
+		}
+	}
+	ap--;
+	return !EQ(a, "");
 }
 
 int

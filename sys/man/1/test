@@ -100,11 +100,6 @@ or
 .BR -le
 may be used in place of
 .BR -eq .
-The (nonstandard) construct
-.BI -l " string\f1,
-meaning the length of
-.IR string ,
-may be used in place of an integer.
 .TP
 .IB a " -nt " b
 True if file
@@ -209,10 +204,3 @@ is in the current directory.
 .B /sys/src/cmd/test.c
 .SH "SEE ALSO"
 .IR rc (1) 
-.SH BUGS
-Won't complain about extraneous arguments
-since there may be arguments left unprocessed by
-short-circuit evaluation of
-.B -a
-or
-.BR -o .
