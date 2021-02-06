@@ -244,6 +244,16 @@ void
 pcibcmlink(void)
 {
 	int log2dmasize = 30;	// 1GB
+	char *s;
+
+	if((s = getconf("*pciwin")) != nil){
+		print("*pciwin: %s\n", s);
+		soc.pciwin = (uintptr)strtoll(s, nil, 16);
+	}
+	if((s = getconf("*pcidmawin")) != nil){
+		print("*pcidmawin: %s\n", s);
+		soc.pcidmawin = (uintptr)strtoll(s, nil, 16);
+	}
 
 	regs[RGR1_SW_INIT_1] |= 3;
 	delay(200);
@@ -266,8 +276,8 @@ pcibcmlink(void)
 	// SCB_ACCESS_EN, CFG_READ_UR_MODE, MAX_BURST_SIZE_128, SCB0SIZE
 	regs[MISC_MISC_CTRL] = 1<<12 | 1<<13 | 0<<20 | (log2dmasize-15)<<27;
 
-	regs[MISC_RC_BAR2_CONFIG_LO] = (log2dmasize-15);
-	regs[MISC_RC_BAR2_CONFIG_HI] = 0;
+	regs[MISC_RC_BAR2_CONFIG_LO] = ((u32int)soc.pcidmawin & ~0x1F) | (log2dmasize-15);
+	regs[MISC_RC_BAR2_CONFIG_HI] = soc.pcidmawin >> 32;
 
 	regs[MISC_RC_BAR1_CONFIG_LO] = 0;
 	regs[MISC_RC_BAR3_CONFIG_LO] = 0;
