@@ -12,6 +12,7 @@ static char *confname[MAXCONF];
 static char *confval[MAXCONF];
 static int nconf;
 static char maxmem[256];
+static char pciwin[38], pcidmawin[38];
 
 static int
 findconf(char *k)
@@ -89,27 +90,43 @@ beget4(uchar *p)
 static void
 devtreeprop(char *path, char *key, void *val, int len)
 {
+	uvlong addr, size;
+	uchar *p = val;
+	char *s;
+
 	if((strcmp(path, "/memory") == 0 || strcmp(path, "/memory@0") == 0)
 	&& strcmp(key, "reg") == 0){
 		if(findconf("*maxmem") < 0 && len > 0 && (len % (3*4)) == 0){
-			uvlong top;
-			uchar *p = val;
-			char *s;
-
-			top = (uvlong)beget4(p)<<32 | beget4(p+4);
-			top += beget4(p+8);
-			s = seprint(maxmem, &maxmem[sizeof(maxmem)], "%#llux", top);
+			addr = (uvlong)beget4(p)<<32 | beget4(p+4);
+			addr += beget4(p+8);
+			s = seprint(maxmem, &maxmem[sizeof(maxmem)], "%#llux", addr);
 			p += 3*4;
 			len -= 3*4;
 			while(len > 0){
-				top = (uvlong)beget4(p)<<32 | beget4(p+4);
-				s = seprint(s, &maxmem[sizeof(maxmem)], " %#llux", top);
-				top += beget4(p+8);
-				s = seprint(s, &maxmem[sizeof(maxmem)], " %#llux", top);
+				addr = (uvlong)beget4(p)<<32 | beget4(p+4);
+				s = seprint(s, &maxmem[sizeof(maxmem)], " %#llux", addr);
+				addr += beget4(p+8);
+				s = seprint(s, &maxmem[sizeof(maxmem)], " %#llux", addr);
 				p += 3*4;
 				len -= 3*4;
 			}
 			addconf("*maxmem", maxmem);
+		}
+		return;
+	}
+	if(strncmp(path, "/scb/pcie@", 10) == 0 && len == (3*4 + 4*4)){
+		if((beget4(p) & 0x3000000) == 0x2000000){
+			size = (uvlong)beget4(p+5*4)<<32 | beget4(p+5*4+4);
+			if(strcmp(key, "ranges") == 0 && findconf("*pciwin") < 0){
+				addr = (uvlong)beget4(p+3*4)<<32 | beget4(p+4*4);
+				snprint(pciwin, sizeof(pciwin), "%#llux %#llux", addr, addr+size);
+				addconf("*pciwin", pciwin);
+			} else if(strcmp(key, "dma-ranges") == 0 && findconf("*pcidmawin") < 0){
+				addr = (uvlong)beget4(p+1*4)<<32 | beget4(p+2*4);
+				addr -= (uvlong)beget4(p+3*4)<<32 | beget4(p+4*4);
+				snprint(pcidmawin, sizeof(pcidmawin), "%#llux %#llux", addr, addr+size);
+				addconf("*pcidmawin", pcidmawin);
+			}
 		}
 		return;
 	}

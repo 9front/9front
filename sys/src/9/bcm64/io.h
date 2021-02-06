@@ -6,5 +6,5 @@ enum {
 	IRQether	= IRQgic + 29,
 };
 
-#define PCIWINDOW	0
+#define PCIWINDOW	soc.pcidmawin
 #define PCIWADDR(va)	(PADDR(va)+PCIWINDOW)

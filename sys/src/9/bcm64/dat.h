@@ -249,7 +249,8 @@ struct Soc {			/* SoC dependent configuration */
 	uintptr	physio;
 	uintptr	virtio;
 	uintptr	armlocal;
-	uintptr	pciwin;
+	uintptr	pciwin;		/* PCI outbound window CPU->PCI */
+	uintptr	pcidmawin;	/* PCI inbound window PCI->DRAM */
 	int	oscfreq;
 };
 extern Soc soc;
