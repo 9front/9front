@@ -140,6 +140,8 @@ main(int argc, char **argv)
 	if(argc)
 		usage();
 
+	tmfmtinstall();
+
 	Binit(&in, 0, OREAD);
 	Binit(&out, 1, OWRITE);
 
