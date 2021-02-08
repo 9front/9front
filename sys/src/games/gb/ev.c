@@ -8,7 +8,7 @@ Event evhblank, evtimer, evenv;
 extern Event evsamp, chev[4];
 Event *events[NEVENT] = {&evhblank, &evtimer, &evenv, &evsamp, &chev[0], &chev[1], &chev[2], &chev[3]};
 Event *elist;
-static int timshtab[4] = {12, 4, 6, 8}, timsh;
+static int timshtab[4] = {10, 4, 6, 8}, timsh;
 ulong timclock;
 Var evvars[] = {VAR(timsh), VAR(timclock), {nil, 0, 0}};
 
