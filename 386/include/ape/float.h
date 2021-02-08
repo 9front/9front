@@ -52,9 +52,10 @@ union FPdbleword
 #ifdef _PLAN9_SOURCE
 /* FCR */
 #define	FPINEX	(1<<5)
-#define	FPOVFL	(1<<3)
 #define	FPUNFL	((1<<4)|(1<<1))
+#define	FPOVFL	(1<<3)
 #define	FPZDIV	(1<<2)
+#define	FPINVAL	(1<<0)
 #define	FPRNR	(0<<10)
 #define	FPRZ	(3<<10)
 #define	FPRPINF	(2<<10)
@@ -69,5 +70,6 @@ union FPdbleword
 #define	FPAOVFL	FPOVFL
 #define	FPAUNFL	FPUNFL
 #define	FPAZDIV	FPZDIV
+#define	FPAINVAL	FPINVAL
 #endif
 #endif /* __FLOAT */

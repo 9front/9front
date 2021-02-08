@@ -50,24 +50,29 @@ union FPdbleword
 #define Sudden_Underflow 1
 #endif
 #ifdef _PLAN9_SOURCE
-/* FCR */
-#define	FPINEX	(1<<5)
-#define	FPOVFL	(1<<3)
-#define	FPUNFL	((1<<4)|(1<<1))
-#define	FPZDIV	(1<<2)
-#define	FPRNR	(0<<10)
-#define	FPRZ	(3<<10)
-#define	FPRPINF	(2<<10)
-#define	FPRNINF	(1<<10)
-#define	FPRMASK	(3<<10)
-#define	FPPEXT	(3<<8)
-#define	FPPSGL	(0<<8)
-#define	FPPDBL	(2<<8)
-#define	FPPMASK	(3<<8)
-/* FSR */
-#define	FPAINEX	FPINEX
-#define	FPAOVFL	FPOVFL
-#define	FPAUNFL	FPUNFL
-#define	FPAZDIV	FPZDIV
+/* FPCR (control) */
+#define	FPINEX		(1<<12)
+#define	FPUNFL		(1<<11)
+#define	FPOVFL		(1<<10)
+#define	FPZDIV		(1<<9)
+#define	FPINVAL		(1<<8)
+
+#define	FPRNR		(0<<22)
+#define	FPRPINF		(1<<22)
+#define	FPRNINF		(2<<22)
+#define	FPRZ		(3<<22)
+
+#define	FPRMASK		(3<<22)
+
+/* FPSR (status) */
+#define	FPPEXT	0
+#define	FPPSGL	0
+#define	FPPDBL	0
+#define	FPPMASK	0
+#define	FPAINEX		(1<<4)
+#define	FPAUNFL		(1<<3)
+#define	FPAOVFL		(1<<2)
+#define	FPAZDIV		(1<<1)
+#define	FPAINVAL	(1<<0)
 #endif
 #endif /* __FLOAT */

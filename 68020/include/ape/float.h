@@ -58,6 +58,7 @@ union FPdbleword
 #define	FPZDIV	(1<<10)
 #define	FPRNR	(0<<4)
 #define	FPRZ	(1<<4)
+#define	FPINVAL	(3<<13)
 #define	FPRPINF	(3<<4)
 #define	FPRNINF	(2<<4)
 #define	FPRMASK	(3<<4)
@@ -70,5 +71,6 @@ union FPdbleword
 #define	FPAOVFL	FPOVFL
 #define	FPAUNFL	FPUNFL
 #define	FPAZDIV	FPZDIV
+#define	FPAINVAL	FPINVAL
 #endif
 #endif /* __FLOAT */
