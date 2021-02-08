@@ -505,19 +505,15 @@ problemchild(Part *p)
 	if(justreject)
 		return p;
 
-fprint(2, "x\n");
 	syslog(0, "mail", "vf wrapped %s %s", p->type?s_to_c(p->type):"?",
 		p->filename?s_to_c(p->filename):"?");
-fprint(2, "x\n");
 
 	boundary = mkboundary();
-fprint(2, "x\n");
 	/* print out non-mime headers */
 	for(hl = p->hl; hl != nil; hl = hl->next)
 		if(cistrncmp(s_to_c(hl->s), "content-", 8) != 0)
 			Bprint(&out, "%s", s_to_c(hl->s));
 
-fprint(2, "x\n");
 	/* add in our own multipart headers and message */
 	Bprint(&out, "Content-Type: multipart/mixed;\n");
 	Bprint(&out, "\tboundary=\"%s\"\n", s_to_c(boundary));
@@ -561,11 +557,9 @@ fprint(2, "x\n");
 		break;
 	}
 
-fprint(2, "z\n");
 	/* pass the body */
 	np = passbody(p, 0);
 
-fprint(2, "w\n");
 	/* add the new boundary and the original terminator */
 	Bprint(&out, "--%s--\n", s_to_c(boundary));
 	if(np && np->boundary){
@@ -573,7 +567,6 @@ fprint(2, "w\n");
 		Bwrite(&out, cp, Blinelen(&in));
 	}
 
-fprint(2, "a %p\n", np);
 	return np;
 }
 
