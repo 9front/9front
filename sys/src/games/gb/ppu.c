@@ -338,8 +338,8 @@ hblanktick(void *)
 			reg[IF] |= IRQLCDS;
 		t = hblclock + 456 * 2 - clock;
 		addevent(&evhblank, t < 0 ? 456 * 2 : t);
-		if(dma < 0)
-			dma = 1;
+		if(dma & DMAHBLANK)
+			dma |= DMAREADY;
 		break;
 	}
 }

@@ -308,7 +308,7 @@ threadmain(int argc, char **argv)
 			qlock(&pauselock);
 			qunlock(&pauselock);
 		}
-		if(dma > 0)
+		if(dma & DMAREADY)
 			t = dmastep();
 		else
 			t = step();

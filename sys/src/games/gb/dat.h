@@ -8,7 +8,7 @@ extern MBC3Timer timer;
 extern uchar vram[16384];
 extern int nrom, nback, nbackbank;
 extern u32int pal[64];
-extern s8int dma;
+extern u8int dma;
 extern u32int divclock;
 
 extern Event *elist;
@@ -113,6 +113,9 @@ enum {
 	FEATRAM = 1,
 	FEATBAT = 2,
 	FEATTIM = 4,
+
+	DMAREADY = 1,
+	DMAHBLANK = 2,
 	
 	INIT = -1,
 	SAVE = -2,

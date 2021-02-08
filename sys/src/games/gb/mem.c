@@ -15,7 +15,7 @@ int nrom, nback, nbackbank;
 u32int divclock;
 int prish;
 MBC3Timer timer, timerl;
-s8int dma;
+u8int dma;
 u32int white;
 u32int moncols[4];
 
@@ -175,7 +175,14 @@ regwrite(u8int a, u8int v)
 	case HDMAC:
 		if((mode & COL) == 0)
 			goto ff;
-		dma = (v & 0x80) != 0 ? -1 : 1;
+		if(v & 0x80){
+			v &= 0x7f;
+			dma = DMAHBLANK;
+		}else if(dma){
+			v |= 0x80;
+			dma = 0;
+		}else
+			dma = DMAREADY;
 		break;
 	case NR10: v |= 0x80; goto snd;
 	case NR14: case NR24: v |= 0x38; goto snd;
@@ -534,6 +541,7 @@ meminit(void)
 	reg[VBK] = 0xfe;
 	reg[SVBK] = 0xf8;
 	reg[IF] = 0xe0;
+	reg[HDMAC] = 0xff;
 }
 
 void
@@ -572,7 +580,7 @@ dmastep(void)
 {
 	int i;
 	u16int sa, da;
-	
+
 	sa = (reg[HDMASL] | reg[HDMASH] << 8) & 0xfff0;
 	da = (reg[HDMADL] | reg[HDMADH] << 8) & 0x1ff0 | 0x8000;
 	for(i = 0; i < 16; i++)
@@ -583,12 +591,9 @@ dmastep(void)
 	reg[HDMADL] += 16;
 	if((reg[HDMADL] & 0xf0) == 0)
 		reg[HDMADH]++;
-	if((reg[HDMAC] & 0x7f) == 0)
+	if(--reg[HDMAC] == 0xff)
 		dma = 0;
-	else{
-		reg[HDMAC]--;
-		if((reg[HDMAC] & 0x80) != 0)
-			dma = 1;
-	}
+	else if(dma & DMAHBLANK)
+		dma &= ~DMAREADY;
 	return 64;
 }
