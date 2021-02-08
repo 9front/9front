@@ -115,13 +115,13 @@ filter(int t)
 		if(i == 2 ? ((reg[NR30] & 0x80) == 0) : ((*sndch[i].env & 0xf8) == 0))
 			continue;
 		v = sndch[i].samp * 2 - 15;
-		if((cnth & 1<<i) != 0)
-			ov0 += v;
 		if((cnth & 1<<4<<i) != 0)
+			ov0 += v;
+		if((cnth & 1<<i) != 0)
 			ov1 += v;
 	}
-	ov0 *= 1 + (cntl & 7);
-	ov1 *= 1 + (cntl >> 4 & 7);
+	ov0 *= 1 + (cntl >> 4 & 7);
+	ov1 *= 1 + (cntl & 7);
 }
 
 static void
