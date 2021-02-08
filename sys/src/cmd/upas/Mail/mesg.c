@@ -136,7 +136,7 @@ mesgload(char *name)
 }
 
 static Mesg*
-readparts(Mesg *m)
+readparts(Mesg *r, Mesg *m)
 {
 	char *dpath, *apath;
 	int n, i, dfd;
@@ -168,18 +168,18 @@ readparts(Mesg *m)
 		if(a == nil)
 			continue;
 		if(strncmp(a->type, "multipart/", strlen("multipart/")) == 0){
-			sub = readparts(a);
+			sub = readparts(r, a);
 			if(sub != a)
 				m->body = sub;
 			continue;
 		} 
-		if(m->nparts >= m->xparts)
-			m->parts = erealloc(m->parts, (2 + m->nparts*2)*sizeof(Mesg*));
-		m->parts[m->nparts++] = a;
-		if(m->body == nil && strcmp(a->type, "text/plain") == 0)
-			m->body = a;
-		else if(m->body == nil && strcmp(a->type, "text/html") == 0)
-			m->body = a;
+		if(r->nparts >= r->xparts)
+			r->parts = erealloc(r->parts, (2 + r->nparts*2)*sizeof(Mesg*));
+		r->parts[r->nparts++] = a;
+		if(r->body == nil && strcmp(a->type, "text/plain") == 0)
+			r->body = a;
+		else if(r->body == nil && strcmp(a->type, "text/html") == 0)
+			r->body = a;
 	}
 	free(d);
 	if(m->body == nil)
@@ -532,7 +532,7 @@ mesgopenbody(Mesg *m)
 	int rfd;
 	Mesg *b;
 
-	b = readparts(m);
+	b = readparts(m, m);
 	path = estrjoin(mbox.path, b->name, "body", nil);
 	if(strcmp(b->type, "text/html") == 0)
 		rfd = htmlfmt(m, path);
