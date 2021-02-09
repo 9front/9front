@@ -811,7 +811,6 @@ dtoa(double _d, int mode, int ndigits, int *decpt, int *sign, char **rve)
 		b5 = -k;
 		s5 = 0;
 	}
-	assert(k < 100);
 	if (mode < 0 || mode > 9)
 		mode = 0;
 	try_quick = 1;
