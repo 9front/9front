@@ -25,7 +25,6 @@ fn e{
 	if(~ $yn y)
 		cat /tmp/post >$mnt/$group/post
 }
-fn f { du -a $* | sed 's/^.*	//g' }
 fn fmtd{
 	date=`{cat}
 	if(! ~ $date(1) [0-9]*)
@@ -96,7 +95,7 @@ fn getr{
 fn h{ sed -n $1^p /tmp/h }
 fn k{
 	kmnt=`{echo $mnt | sed 's/\//\\\//g'}
-	f $mnt/$* |
+	walk $mnt/$* |
 		grep -v -e '\/([0-9]+|article|body|header|post|xover)$' |
 		sed 's/^'$"kmnt'\//  g	/g' |
 		sort |

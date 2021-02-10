@@ -91,6 +91,7 @@
 .p		text		plain			-	y # Pascal program
 .p7m		application	x-pkcs7-mime		-	y # SMIME
 .p7s		application	x-pkcs7-signature	-	y # SMIME
+.patch		text		plain		-		y
 .pbm		image		x-portable-bitmap	-	y
 .pdf		application	pdf		-		y # Adobe Portable Document Format
 .pif		application	octet-stream	-		r # DOS executable

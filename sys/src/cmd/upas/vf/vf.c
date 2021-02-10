@@ -387,7 +387,7 @@ save(Part *p, char *file)
 	Bprint(&out, "From virusfilter %τ\n", thedate(&tm));
 	writeheader(p, 0);
 	bodyoff = Boffset(&out);
-	passbody(p, 1);
+	passbody(p, 0);
 	Bprint(&out, "\n");
 	Bterm(&out);
 	close(fd);
