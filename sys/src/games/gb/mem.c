@@ -329,7 +329,7 @@ void
 timerforward(MBC3Timer *t)
 {
 	vlong n, nd;
-	int x;
+	uint x;
 	
 	n = nsec();
 	nd = n - t->ns;
@@ -340,7 +340,7 @@ timerforward(MBC3Timer *t)
 		return;
 	}
 	t->ns = n - nd % BILLION;
-	x = t->sec + t->min * 60 + t->hr * 3600 + t->dl * 86400 + t->dh * (256 * 86400);
+	x = t->sec + t->min * 60 + t->hr * 3600 + ((t->dh & 1) << 8 | t->dl) * 86400;
 	x += nd / BILLION;
 	t->sec = x % 60;
 	x /= 60;
@@ -398,12 +398,12 @@ mbc3(int a, int v)
 	case 2: b1 = v & 15; break;
 	case 3:
 		if(latch == 0 && v == 1){
+			timerforward(&timer);
 			timerl = timer;
-			timerforward(&timerl);
 		}
 		latch = v;
 		break;
-	case 0xa:
+	case 5:
 		if(!ramen)
 			return 0;
 		switch(b1){
