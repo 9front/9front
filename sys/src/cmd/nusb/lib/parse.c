@@ -111,8 +111,6 @@ parseendpt(Usbdev *d, Conf *c, Iface *ip, Altc *altc, uchar *b, int n, Ep **epp)
 		return -1;
 	}
 	dep = (DEp *)b;
-	altc->attrib = dep->bmAttributes;	/* here? */
-	altc->interval = dep->bInterval;
 
 	type = dep->bmAttributes & 0x03;
 	addr = dep->bEndpointAddress;
@@ -145,13 +143,18 @@ parseendpt(Usbdev *d, Conf *c, Iface *ip, Altc *altc, uchar *b, int n, Ep **epp)
 	ep->maxpkt = GET2(dep->wMaxPacketSize);
 	ep->ntds = 1 + ((ep->maxpkt >> 11) & 3);
 	ep->maxpkt &= 0x7FF;
-	altc->maxpkt = ep->maxpkt;
-	altc->ntds = ep->ntds;
 	ep->addr = addr;
 	ep->type = type;
 	ep->isotype = (dep->bmAttributes>>2) & 0x03;
+ 	ep->isousage = (dep->bmAttributes>>4) & 0x03;
 	ep->conf = c;
 	ep->iface = ip;
+	if(ep->type != Eiso || ep->isousage == Edata || ep->isousage == Eimplicit){
+		altc->attrib = dep->bmAttributes;
+		altc->interval = dep->bInterval;
+		altc->maxpkt = ep->maxpkt;
+		altc->ntds = ep->ntds;
+	}
 	for(i = 0; i < nelem(ip->ep); i++)
 		if(ip->ep[i] == nil)
 			break;

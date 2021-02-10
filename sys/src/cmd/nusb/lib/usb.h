@@ -116,6 +116,11 @@ enum {
 	Eadapt = 2,
 	Esync = 3,
 
+	/* endpoint isousage */
+	Edata = 0,
+	Efeedback = 1,
+	Eimplicit = 2,
+
 	/* config attrib */
 	Cbuspowered = 1<<7,
 	Cselfpowered = 1<<6,
@@ -209,7 +214,9 @@ struct Ep
 	uchar	addr;		/* endpt address, 0-15 (|0x80 if Ein) */
 	uchar	dir;		/* direction, Ein/Eout */
 	uchar	type;		/* Econtrol, Eiso, Ebulk, Eintr */
-	uchar	isotype;		/* Eunknown, Easync, Eadapt, Esync */
+	uchar	isotype;	/* Eunknown, Easync, Eadapt, Esync */
+	uchar	isousage;	/* Edata, Efeedback, Eimplicit */
+	
 	int	id;
 	int	maxpkt;		/* max. packet size */
 	int	ntds;		/* nb. of Tds per µframe */
