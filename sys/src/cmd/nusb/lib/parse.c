@@ -127,7 +127,7 @@ parseendpt(Usbdev *d, Conf *c, Iface *ip, Altc *altc, uchar *b, int n, Ep **epp)
 		ep = mkep(d, epid);
 		ep->dir = dir;
 	}else if((ep->addr & 0x80) != (addr & 0x80)){
-		if(ep->type == type)
+		if(ep->type == type && type != Eiso)
 			ep->dir = Eboth;
 		else {
 			/*
