@@ -18,7 +18,7 @@ encwrite(FLAC__StreamEncoder *enc, FLAC__byte buffer[], size_t bytes, unsigned s
 static FLAC__StreamEncoderSeekStatus
 encseek(FLAC__StreamEncoder *enc, FLAC__uint64 absolute_byte_offset, void *client_data)
 {
-	return fseeko(stdout, absolute_byte_offset, SEEK_SET) != absolute_byte_offset ?
+	return fseeko(stdout, absolute_byte_offset, SEEK_SET) != 0 ?
 		FLAC__STREAM_ENCODER_SEEK_STATUS_UNSUPPORTED :
 		FLAC__STREAM_ENCODER_SEEK_STATUS_OK;
 }
