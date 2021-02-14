@@ -71,6 +71,7 @@ enum
 	Tmailb=	253,	/* { Tmb, Tmg, Tmr } */
 	Tmaila= 254,	/* obsolete */
 	Tall=	255,	/* all records */
+	Tcaa=	257,	/* certification authority authorization */
 
 	/* classes */
 	Csym=	0,	/* internal symbols */
@@ -171,6 +172,7 @@ typedef struct Server	Server;
 typedef struct Sig	Sig;
 typedef struct Srv	Srv;
 typedef struct Txt	Txt;
+typedef struct Caa	Caa;
 
 /*
  *  a structure to track a request and any slave process handling it
@@ -214,6 +216,12 @@ struct Key
 	int	flags;
 	int	proto;
 	int	alg;
+	Block;
+};
+struct Caa
+{
+	int	flags;
+	DN	*tag;
 	Block;
 };
 struct Cert
@@ -288,6 +296,7 @@ struct RR
 		SOA	*soa;	/* soa timers - soa */
 		Srv	*srv;
 		Key	*key;
+		Caa	*caa;
 		Cert	*cert;
 		Sig	*sig;
 		Null	*null;
@@ -432,7 +441,6 @@ extern char	*zonerefreshprogram;
 
 
 /* dn.c */
-extern char	*rrtname[];
 extern char	*rname[];
 extern unsigned	nrname;
 extern char	*opname[];

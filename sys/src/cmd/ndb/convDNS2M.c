@@ -299,6 +299,11 @@ convRR2M(RR *rp, uchar *p, uchar *ep, Dict *dp)
 		UCHAR(rp->cert->alg);
 		BYTES(rp->cert->data, rp->cert->dlen);
 		break;
+	case Tcaa:
+		UCHAR(rp->caa->flags);
+		SYMBOL(rp->caa->tag->name);
+		BYTES(rp->caa->data, rp->caa->dlen);
+		break;
 	}
 
 	/* stuff in the rdata section length */

@@ -472,6 +472,11 @@ retry:
 		UCHAR(rp->cert->alg);
 		BYTES(rp->cert->data, rp->cert->dlen);
 		break;
+	case Tcaa:
+		UCHAR(rp->caa->flags);
+		SYMBOL(rp->caa->tag);
+		BYTES(rp->caa->data, rp->caa->dlen);
+		break;
 	}
 	if(sp->p - data != len) {
 		char ptype[64];

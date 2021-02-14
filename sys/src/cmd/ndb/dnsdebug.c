@@ -243,6 +243,11 @@ prettyrrfmt(Fmt *f)
 		seprint(p, e, "\t%d %d %d",
 			rp->sig->type, rp->sig->tag, rp->sig->alg);
 		break;
+	case Tcaa:
+		seprint(p, e, "\t%d %s %.*s",
+			rp->caa->flags, rp->caa->tag->name,
+			rp->caa->dlen, (char*)rp->caa->data);
+		break;
 	}
 out:
 	return fmtstrcpy(f, buf);

@@ -35,7 +35,7 @@ static struct {
 } dnvars;
 
 /* names of RR types */
-char *rrtname[] =
+static char *rrtname[] =
 {
 [Ta]		"ip",
 [Tns]		"ns",
@@ -97,7 +97,7 @@ char *rrtname[] =
 [Tmailb]	"mailb",
 [Tmaila]	"maila",
 [Tall]		"all",
-		0,
+[Tcaa]		"caa",
 };
 
 /* names of response codes */
@@ -461,6 +461,9 @@ dnagenever(DN *dp)
 			break;
 		case Tsig:
 			MARK(rp->sig->signer);
+			break;
+		case Tcaa:
+			MARK(rp->caa->tag);
 			break;
 		}
 	}
@@ -872,6 +875,7 @@ rrcopy(RR *rp, RR **last)
 	SOA *soa;
 	Srv *srv;
 	Key *key;
+	Caa *caa;
 	Cert *cert;
 	Sig *sig;
 	Null *null;
@@ -901,6 +905,14 @@ rrcopy(RR *rp, RR **last)
 		*key = *rp->key;
 		key->data = emalloc(key->dlen);
 		memmove(key->data, rp->key->data, rp->key->dlen);
+		break;
+	case Tcaa:
+		caa = nrp->caa;
+		*nrp = *rp;
+		nrp->caa = caa;
+		*caa = *rp->caa;
+		caa->data = emalloc(caa->dlen);
+		memmove(caa->data, rp->caa->data, rp->caa->dlen);
 		break;
 	case Tcert:
 		cert = nrp->cert;
@@ -1043,7 +1055,7 @@ rrtype(char *atype)
 {
 	int i;
 
-	for(i = 0; i <= Tall; i++)
+	for(i = 0; i < nelem(rrtname); i++)
 		if(rrtname[i] && strcmp(rrtname[i], atype) == 0)
 			return i;
 
@@ -1062,7 +1074,7 @@ rrtype(char *atype)
 int
 rrsupported(int type)
 {
-	if(type < 0 || type >Tall)
+	if(type < 0 || type >= nelem(rrtname))
 		return 0;
 	return rrtname[type] != nil;
 }
@@ -1299,6 +1311,14 @@ rrfmt(Fmt *f)
 			fmtprint(&fstr, "\t%d %d %d",
 				rp->cert->type, rp->cert->tag, rp->cert->alg);
 		break;
+	case Tcaa:
+		if (rp->caa == nil)
+			fmtprint(&fstr, "\t<null> <null> <null>");
+		else
+			fmtprint(&fstr, "\t%d %s %.*s",
+				rp->caa->flags, dnname(rp->caa->tag),
+				rp->caa->dlen, (char*)rp->caa->data);
+		break;
 	}
 out:
 	strp = fmtstrflush(&fstr);
@@ -1440,6 +1460,14 @@ rravfmt(Fmt *f)
 		else
 			fmtprint(&fstr, " type=%d tag=%d alg=%d",
 				rp->cert->type, rp->cert->tag, rp->cert->alg);
+		break;
+	case Tcaa:
+		if (rp->caa == nil)
+			fmtprint(&fstr, " flags=<null> tag=<null> value=<null>");
+		else
+			fmtprint(&fstr, " flags=%d tag=%s value=%.*s",
+				rp->caa->flags, dnname(rp->caa->tag),
+				rp->caa->dlen, (char*)rp->caa->data);
 		break;
 	}
 out:
@@ -1596,6 +1624,8 @@ rrequiv(RR *r1, RR *r2)
 		return blockequiv(r1->null, r2->null);
 	case Ttxt:
 		return txtequiv(r1->txt, r2->txt);
+	case Tcaa:
+		return r1->caa->flags == r2->caa->flags && r1->caa->tag == r2->caa->tag && blockequiv(r1->caa, r2->caa);
 	}
 	return 1;
 }
@@ -1894,7 +1924,7 @@ rrname(int type, char *buf, int len)
 	char *t;
 
 	t = nil;
-	if(type >= 0 && type <= Tall)
+	if(type >= 0 && type < nelem(rrtname))
 		t = rrtname[type];
 	if(t==nil){
 		snprint(buf, len, "%d", type);
@@ -1959,6 +1989,10 @@ rralloc(int type)
 		rp->key = emalloc(sizeof(*rp->key));
 		setmalloctag(rp->key, rp->pc);
 		break;
+	case Tcaa:
+		rp->caa = emalloc(sizeof(*rp->caa));
+		setmalloctag(rp->caa, rp->pc);
+		break;
 	case Tcert:
 		rp->cert = emalloc(sizeof(*rp->cert));
 		setmalloctag(rp->cert, rp->pc);
@@ -2018,6 +2052,10 @@ rrfree(RR *rp)
 		free(rp->null->data);
 		memset(rp->null, 0, sizeof *rp->null);	/* cause trouble */
 		free(rp->null);
+		break;
+	case Tcaa:
+		free(rp->caa->data);
+		memset(rp->caa, 0, sizeof *rp->caa);	/* cause trouble */
 		break;
 	case Ttxt:
 		while(t = rp->txt){

@@ -40,7 +40,7 @@ static RR*	soarr(Ndbtuple*, Ndbtuple*);
 static RR*	srvrr(Ndbtuple*, Ndbtuple*);
 static RR*	txtrr(Ndbtuple*, Ndbtuple*);
 
-static int	implemented[Tall] =
+static int	implemented[] =
 {
 	[Ta]		1,
 	[Taaaa]		1,
@@ -118,7 +118,7 @@ dblookup(char *name, int class, int type, int auth, int ttl)
 	rp = nil;
 
 	if(type == Tall){
-		for (type = Ta; type < Tall; type++)
+		for (type = 0; type < nelem(implemented); type++)
 			if(implemented[type])
 				rrcat(&rp, dblookup(name, class, type, auth, ttl));
 
