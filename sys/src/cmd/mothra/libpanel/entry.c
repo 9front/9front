@@ -8,13 +8,25 @@
 
 typedef struct Entry Entry;
 struct Entry{
-	char *entry;
-	char *entp;
-	char *eent;
+	Rectangle lastr;
+	Rune *entry;
+	char *sentry;
+	int sz, n;
+	int a, b;
+	Point text;
 	void (*hit)(Panel *, char *);
 	Point minsize;
 };
 #define	SLACK	7	/* enough for one extra rune and ◀ and a nul */
+void pl_cutentry(Panel *p){
+	Entry *ep;
+
+	ep=p->data;
+	memmove(ep->entry+ep->a, ep->entry+ep->b, (ep->n-ep->b)*sizeof(Rune));
+	ep->n -= ep->b-ep->a;
+	ep->entry[ep->n]=0;
+	ep->b=ep->a;
+}
 char *pl_snarfentry(Panel *p){
 	Entry *ep;
 	int n;
@@ -22,72 +34,144 @@ char *pl_snarfentry(Panel *p){
 	if(p->flags&USERFL)	/* no snarfing from password entry */
 		return nil;
 	ep=p->data;
-	n=utfnlen(ep->entry, ep->entp-ep->entry);
+	n=ep->b-ep->a;
 	if(n<1) return nil;
-	return smprint("%.*s", n, ep->entry);
+	return smprint("%.*S", n, ep->entry+ep->a);
 }
 void pl_pasteentry(Panel *p, char *s){
 	Entry *ep;
-	char *e;
-	int n, m;
+	int m;
 
 	ep=p->data;
-	n=ep->entp-ep->entry;
-	m=strlen(s);
-	e=pl_erealloc(ep->entry,n+m+SLACK);
-	ep->entry=e;
-	e+=n;
-	strncpy(e, s, m);
-	e+=m;
-	*e='\0';
-	ep->entp=ep->eent=e;
+	m=utflen(s);
+	ep->sz=ep->n+m+100+SLACK;
+	ep->entry=pl_erealloc(ep->entry,ep->sz*sizeof(Rune));
+	memmove(ep->entry+ep->a+m, ep->entry+ep->b, (ep->n-ep->b)*sizeof(Rune));
+	ep->n+=m-(ep->b-ep->a);
+	while(m-- > 0)
+		s += chartorune(&ep->entry[ep->a++], s);
+	ep->b=ep->a;
+	ep->entry[ep->n]=0;
 	pldraw(p, p->b);
+}
+static void drawentry(Panel *p, Rectangle r, Rune *s){
+	Rectangle save;
+	Point tick;
+	Entry *ep;
+	Image *b;
+	int d;
+
+	ep = p->data;
+	b = p->b;
+
+	if(Dx(r) != Dx(ep->lastr)){
+		ep->text = r.min;
+		ep->lastr = r;
+	}
+	tick = ep->text;
+	tick.x += runestringnwidth(font, s, ep->a);
+
+	if(plkbfocus == p)
+		r.max.x -= TICKW;
+	ep->text.y = r.min.y;
+	if(!ptinrect(tick, r)){
+		d = 0;
+		if(tick.x < r.min.x)
+			d = r.min.x - tick.x;
+		else if(tick.x > r.max.x)
+			d = r.max.x - tick.x;
+		tick.x += d;
+		ep->text.x += d;
+	}
+	if(plkbfocus == p)
+		r.max.x += TICKW;
+
+	save = b->clipr;
+	if(!rectclip(&r, save))
+		return;
+	replclipr(b, b->repl, r);
+	runestring(b, ep->text, pl_black, ZP, font, s);
+	if(plkbfocus == p){
+		r.min = tick;
+		if(ep->a != ep->b){
+			r.max.x = ep->text.x+runestringnwidth(font, s, ep->b);
+			if(r.max.x < r.min.x){
+				d = r.min.x;
+				r.min.x = r.max.x;
+				r.max.x = d;
+			}
+			pl_highlight(b, r);
+		}else
+			pl_drawtick(b, r);
+	}
+	replclipr(b, b->repl, save);
 }
 void pl_drawentry(Panel *p){
 	Rectangle r;
 	Entry *ep;
-	char *s;
+	Rune *s;
 
 	ep=p->data;
 	r=pl_box(p->b, p->r, p->state|BORDER);
 	s=ep->entry;
 	if(p->flags & USERFL){
-		char *p;
-		s=strdup(s);
+		Rune *p;
+		s=runestrdup(s);
 		for(p=s; *p; p++)
 			*p='*';
 	}
-	if(stringwidth(font, s)<=r.max.x-r.min.x)
-		pl_drawicon(p->b, r, PLACEW, 0, s);
-	else
-		pl_drawicon(p->b, r, PLACEE, 0, s);
+	drawentry(p, r, s);
 	if(s != ep->entry)
 		free(s);
 }
 int pl_hitentry(Panel *p, Mouse *m){
+	Entry *ep;
+	int i, n, selecting;
 	if((m->buttons&7)==1){
+		if(plkbfocus != p)
+			p->state=DOWN;
 		plgrabkb(p);
-
-		p->state=DOWN;
+		ep = p->data;
+		for(i = 1; i <= ep->n; i++)
+			if(runestringnwidth(font, ep->entry, i) > m->xy.x-ep->text.x)
+				break;
+		n = i-1;
+		ep->a = ep->b = n;
 		pldraw(p, p->b);
+		selecting = 1;
 		while(m->buttons&1){
 			int old;
 			old=m->buttons;
 			if(display->bufp > display->buf)
 				flushimage(display, 1);
 			*m=emouse();
+			p->state=UP;
 			if((old&7)==1){
 				if((m->buttons&7)==3){
-					Entry *ep;
-
 					plsnarf(p);
-
-					/* cut */
-					ep=p->data;
-					ep->entp=ep->entry;
-					*ep->entp='\0';
+					pl_cutentry(p);
 					pldraw(p, p->b);
+					ep->b = n = ep->a;
 				}
+				if(selecting && (m->buttons&7)==1){
+					p->state=UP;
+					for(i = 0; i < ep->n; i++)
+						if(runestringnwidth(font, ep->entry, i)+TICKW > m->xy.x-ep->text.x)
+							break;
+					/*
+					 * tick is moved towards the mouse pointer dragging the selection
+					 * after drawing it has to be set so that (a <= b), since
+					 * the rest of the logic assumes that's always the case
+					 */
+					ep->a = i;
+					ep->b = n;
+					pldraw(p, p->b);
+					if(ep->a > ep->b){
+						ep->a = n;
+						ep->b = i;
+					}
+				}else
+					selecting = 0;
 				if((m->buttons&7)==5)
 					plpaste(p);
 			}
@@ -98,45 +182,67 @@ int pl_hitentry(Panel *p, Mouse *m){
 	return 0;
 }
 void pl_typeentry(Panel *p, Rune c){
-	int n;
 	Entry *ep;
 	ep=p->data;
 	switch(c){
 	case '\n':
 	case '\r':
-		*ep->entp='\0';
-		if(ep->hit) ep->hit(p, ep->entry);
+		if(ep->hit) ep->hit(p, plentryval(p));
 		return;
+	case Kleft:
+		if(ep->a > 0)
+			ep->a--;
+		ep->b=ep->a;
+		break;
+	case Kright:
+		if(ep->a<ep->n)
+			ep->a++;
+		ep->b = ep->a;
+		break;
+	case Ksoh:
+		ep->a=ep->b=0;
+		break;
+	case Kenq:
+		ep->a=ep->b=ep->n;
+		break;
 	case Kesc:
+		ep->a=0;
+		ep->b=ep->n;
 		plsnarf(p);
 		/* no break */
 	case Kdel:	/* clear */
+		ep->a = ep->b = ep->n = 0;
+		*ep->entry = 0;
+		break;
 	case Knack:	/* ^U: erase line */
-		ep->entp=ep->entry;
-		*ep->entp='\0';
+		ep->a = 0;
+		pl_cutentry(p);
 		break;
 	case Kbs:	/* ^H: erase character */
-		while(ep->entp!=ep->entry && !pl_rune1st(ep->entp[-1])) *--ep->entp='\0';
-		if(ep->entp!=ep->entry) *--ep->entp='\0';
-		break;
+		if(ep->a > 0 && ep->a == ep->b)
+			ep->a--;
+		/* wet floor */
+		if(0){
 	case Ketb:	/* ^W: erase word */
-		while(ep->entp!=ep->entry && !pl_idchar(ep->entp[-1]))
-			--ep->entp;
-		while(ep->entp!=ep->entry && pl_idchar(ep->entp[-1]))
-			--ep->entp;
-		*ep->entp='\0';
+			while(ep->a>0 && !pl_idchar(ep->entry[ep->a-1]))
+				--ep->a;
+			while(ep->a>0 && pl_idchar(ep->entry[ep->a-1]))
+				--ep->a;
+		}
+		pl_cutentry(p);
 		break;
 	default:
 		if(c < 0x20 || (c & 0xFF00) == KF || (c & 0xFF00) == Spec)
 			break;
-		ep->entp+=runetochar(ep->entp, &c);
-		if(ep->entp>ep->eent){
-			n=ep->entp-ep->entry;
-			ep->entry=pl_erealloc(ep->entry, n+100+SLACK);
-			ep->entp=ep->entry+n;
-			ep->eent=ep->entp+100;
+		memmove(ep->entry+ep->a+1, ep->entry+ep->b, (ep->n-ep->b)*sizeof(Rune));
+		ep->n -= ep->b - ep->a - 1;
+		ep->entry[ep->a++] = c;
+		ep->b = ep->a;
+		if(ep->n>ep->sz){
+			ep->sz = ep->n+100;
+			ep->entry=pl_erealloc(ep->entry, (ep->sz+SLACK)*sizeof(Rune));
 		}
-		*ep->entp='\0';
+		ep->entry[ep->n]=0;
 		break;
 	}
 	pldraw(p, p->b);
@@ -152,10 +258,11 @@ void pl_freeentry(Panel *p){
 	Entry *ep;
 	ep = p->data;
 	free(ep->entry);
-	ep->entry = ep->eent = ep->entp = 0;
+	free(ep->sentry);
+	ep->entry = nil;
+	ep->sentry = nil;
 }
 void plinitentry(Panel *v, int flags, int wid, char *str, void (*hit)(Panel *, char *)){
-	int elen;
 	Entry *ep;
 	ep=v->data;
 	v->flags=flags|LEAF;
@@ -169,12 +276,11 @@ void plinitentry(Panel *v, int flags, int wid, char *str, void (*hit)(Panel *, c
 	v->free=pl_freeentry;
 	v->snarf=pl_snarfentry;
 	v->paste=pl_pasteentry;
-	elen=100;
-	if(str) elen+=strlen(str);
-	ep->entry=pl_erealloc(ep->entry, elen+SLACK);
-	ep->eent=ep->entry+elen;
-	strecpy(ep->entry, ep->eent, str ? str : "");
-	ep->entp=ep->entry+strlen(ep->entry);
+	ep->a = ep->b = 0;
+	ep->n = str ? utflen(str) : 0;
+	ep->sz = ep->n + 100;
+	ep->entry=pl_erealloc(ep->entry, (ep->sz+SLACK)*sizeof(Rune));
+	runesnprint(ep->entry, ep->sz, "%s", str ? str : "");
 	ep->hit=hit;
 	v->kind="entry";
 }
@@ -187,6 +293,7 @@ Panel *plentry(Panel *parent, int flags, int wid, char *str, void (*hit)(Panel *
 char *plentryval(Panel *p){
 	Entry *ep;
 	ep=p->data;
-	*ep->entp='\0';
-	return ep->entry;
+	free(ep->sentry);
+	ep->sentry = smprint("%S", ep->entry);
+	return ep->sentry;
 }

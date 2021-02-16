@@ -374,7 +374,7 @@ void pl_rmentities(Hglob *, char *s){
 /*
  * Skip over white space
  */
-char *pl_white(char *s){
+char *pl_whitespace(char *s){
 	while(*s==' ' || *s=='\t' || *s=='\n' || *s=='\r') s++;
 	return s;
 }
@@ -431,19 +431,19 @@ void pl_tagparse(Hglob *g, char *str){
 	g->tag=tagp-tag;
 	if(g->tag==Tag_end) htmlerror(g->name, g->lineno, "no tag %s", name);
 	for(;;){
-		s=pl_white(s);
+		s=pl_whitespace(s);
 		if(*s=='\0'){
 			ap->name=0;
 			return;
 		}
 		ap->name=s;
 		s=pl_word(s);
-		t=pl_white(s);
+		t=pl_whitespace(s);
 		c=*t;
 		*s='\0';
 		for(s=ap->name;*s;s++) if('A'<=*s && *s<='Z') *s+='a'-'A';
 		if(c=='='){
-			s=pl_white(t+1);
+			s=pl_whitespace(t+1);
 			if(*s=='\'' || *s=='"'){
 				ap->value=s+1;
 				s=pl_quote(s);

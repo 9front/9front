@@ -13,8 +13,8 @@
 #define	CKWID	1	/* width of frame around check mark */
 #define	CKINSET	1	/* space around check mark frame */
 #define	CKBORDER 2	/* space around X inside frame */
-static Image *pl_white, *pl_light, *pl_dark, *pl_black, *pl_hilit;
-Image *pl_blue;
+static Image *pl_light, *pl_dark, *pl_tick, *pl_hilit;
+Image *pl_blue, *pl_white, *pl_black;
 int pl_drawinit(void){
 	pl_white=allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xFFFFFFFF);
 	pl_light=allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xFFFFFFFF);
@@ -22,7 +22,13 @@ int pl_drawinit(void){
 	pl_black=allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x000000FF);
 	pl_hilit=allocimage(display, Rect(0,0,1,1), CHAN1(CAlpha,8), 1, 0x80);
 	pl_blue=allocimage(display, Rect(0,0,1,1), RGB24, 1, 0x0000FFFF);
-	if(pl_white==0 || pl_light==0 || pl_black==0 || pl_dark==0 || pl_blue==0) sysfatal("allocimage: %r");
+	if((pl_tick = allocimage(display, Rect(0, 0, TICKW, font->height), screen->chan, 0, DNofill)) != nil){
+		draw(pl_tick, pl_tick->r, pl_white, nil, ZP);
+		draw(pl_tick, Rect(TICKW/2, 0, TICKW/2+1, font->height), pl_black, nil, ZP);
+		draw(pl_tick, Rect(0, 0, TICKW, TICKW), pl_black, nil, ZP);
+		draw(pl_tick, Rect(0, font->height-TICKW, TICKW, font->height), pl_black, nil, ZP);
+	}
+	if(pl_white==0 || pl_light==0 || pl_black==0 || pl_dark==0 || pl_blue==0 || pl_tick==0) sysfatal("allocimage: %r");
 	return 1;
 }
 Rectangle pl_boxoutline(Image *b, Rectangle r, int style, int fill){
@@ -226,6 +232,9 @@ Point pl_iconsize(int flags, Icon *p){
 }
 void pl_highlight(Image *b, Rectangle r){
 	draw(b, r, pl_dark, pl_hilit, ZP);
+}
+void pl_drawtick(Image *b, Rectangle r){
+	draw(b, r, pl_tick, nil, ZP);
 }
 void pl_clr(Image *b, Rectangle r){
 	draw(b, r, display->white, 0, ZP);

@@ -6,6 +6,11 @@
 #include "pldefs.h"
 
 void plgrabkb(Panel *g){
+	Panel *o;
+	o=plkbfocus;
+	plkbfocus=nil;
+	if(o && o!=g) /* redraw if lost focus */
+		pldraw(o, o->b);
 	plkbfocus=g;
 }
 void plkeyboard(Rune c){

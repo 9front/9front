@@ -399,6 +399,7 @@ void main(int argc, char *argv[]){
 		case Ekeyboard:
 			switch(e.kbdc){
 			default:
+Plkey:
 				adjkb();
 				plkeyboard(e.kbdc);
 				break;
@@ -424,9 +425,13 @@ void main(int argc, char *argv[]){
 				search();
 				break;
 			case Kright:
+				if(plkbfocus)
+					goto Plkey;
 				sidescroll(text->size.x/4, 1);
 				break;
 			case Kleft:
+				if(plkbfocus)
+					goto Plkey;
 				sidescroll(-text->size.x/4, 1);
 				break;
 			}
@@ -441,6 +446,8 @@ void main(int argc, char *argv[]){
 				break;
 			}
 			plmouse(root, &mouse);
+			if(mouse.buttons == 1 && root->lastmouse == root)
+				plgrabkb(nil);
 			break;
 		case Eplumb:
 			pm=e.v;

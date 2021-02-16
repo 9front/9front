@@ -13,6 +13,7 @@ Rtext *pl_rthit(Rtext *, Point, Point, Point);
 #define	LEAF	0x10000		/* newpanel will refuse to attach children */
 #define	INVIS	0x20000		/* don't draw this */
 #define	REMOUSE	0x40000		/* send next mouse event here, even if not inside */
+#define	TICKW	3			/* tick width */
 /*
  * States, also styles
  */
@@ -40,7 +41,7 @@ enum{
 	SCROLLABSX,
 };
 
-extern Image *pl_blue;
+extern Image *pl_blue, *pl_white, *pl_black;
 
 /*
  * Scrollbar, slider orientations
@@ -70,6 +71,7 @@ void pl_sliderupd(Image *, Rectangle, int, int, int);
 void pl_invis(Panel *, int);
 Point pl_iconsize(int, Icon *);
 void pl_highlight(Image *, Rectangle);
+void pl_drawtick(Image *, Rectangle);
 void pl_clr(Image *, Rectangle);
 void pl_fill(Image *, Rectangle);
 void pl_cpy(Image *, Point, Rectangle);
