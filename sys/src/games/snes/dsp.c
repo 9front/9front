@@ -120,10 +120,10 @@ dspwrite(u8int p, u8int v)
 	if(p >= 0x80)
 		return;
 	switch(p){
-	case 0x4c:
+	case KON:
 		dsp[NEWKON] = v;
 		break;
-	case 0x7c:
+	case ENDX:
 		v = 0;
 		break;
 	}
