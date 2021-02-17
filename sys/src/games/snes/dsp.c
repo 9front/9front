@@ -6,7 +6,7 @@
 #include "fns.h"
 
 u8int dsp[256], dspstate;
-u16int dspcounter, noise;
+u16int dspcounter, noise = 0x8000;
 static s16int samp[2], echoin[2];
 
 enum {
@@ -517,6 +517,8 @@ dspstep(void)
 		}
 		if(dspcounter-- == 0)
 			dspcounter = 0x77ff;
+		if(envyes(dsp[FLG] & 0x1f))
+			noise = (noise << 13 ^ noise << 14) & 0x8000 | noise >> 1 & ~1;
 		break;
 	case 31: voice(0, 4); voice(2, 1); break;
 	}
