@@ -275,8 +275,8 @@ decode(vctxt *p)
 		d = (s16int)(clamp16(d) << 1);
 		p->buf[p->bp] = d;
 		p->buf[p->bp++ + 12] = d;
-		s1 = d;
 		s2 = s1;
+		s1 = d;
 		brr <<= 4;
 	}
 	if(p->bp == 12)
