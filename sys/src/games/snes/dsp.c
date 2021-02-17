@@ -7,7 +7,9 @@
 
 u8int dsp[256], dspstate;
 u16int dspcounter, noise = 0x8000;
-static s16int samp[2], echoin[2];
+static s16int samp[2], echoin[2], echobuf[2*2*8];
+static u16int echoaddr;
+static int echobp, echopos;
 
 enum {
 	VOLL = 0,
@@ -24,15 +26,17 @@ enum {
 	EFB = 0x0d,
 	MVOLR = 0x1c,
 	EVOLL = 0x2c,
-	EVOLR = 0x2d,
 	PMON = 0x2d,
+	EVOLR = 0x3c,
 	NON = 0x3d,
 	EON = 0x4d,
 	KON = 0x4c,
 	KOFF = 0x5c,
 	DIR = 0x5d,
 	FLG = 0x6c,
+	ESA = 0x6d,
 	ENDX = 0x7c,
+	EDL = 0x7d,
 	NEWKON = 0x8e,
 	INT = 0x80,
 };
@@ -94,6 +98,13 @@ spc16(u16int p)
 	v = spcmem[p++];
 	v |= spcmem[p] << 8;
 	return v;
+}
+
+static void
+spcput16(u16int p, u16int v)
+{
+	spcmem[p++] = v;
+	spcmem[p] = v >> 8;
 }
 
 u8int
@@ -412,33 +423,57 @@ static void
 echo(int s)
 {
 	static s16int echoout[2];
-	static u8int fir[8];
+	s16int *x;
+	s8int h;
 	int a, b;
 
+	x = echobuf + echobp;
 	switch(s){
 	case 22:
-		echoout[0] = 0;
-		fir[0] = dsp[0x0f];
+		echoaddr = (dsp[INT|ESA] << 8) + echopos;
+		x[0] = x[16] = spc16(echoaddr);
+		h = dsp[0x0f];
+		echoout[0] = x[2] * h >> 7;
+		echoout[1] = x[3] * h >> 7;
 		break;
 	case 23:
-		fir[1] = dsp[0x1f];
-		fir[2] = dsp[0x2f];
+		h = dsp[0x1f];
+		echoout[0] += x[4] * h >> 7;
+		echoout[1] += x[5] * h >> 7;
+		h = dsp[0x2f];
+		echoout[0] += x[6] * h >> 7;
+		echoout[1] += x[7] * h >> 7;
+		x[1] = x[17] = spc16(echoaddr + 2);
 		break;
 	case 24:
-		fir[3] = dsp[0x3f];
-		fir[4] = dsp[0x4f];
-		fir[5] = dsp[0x5f];
+		h = dsp[0x3f];
+		echoout[0] += x[8] * h >> 7;
+		echoout[1] += x[9] * h >> 7;
+		h = dsp[0x4f];
+		echoout[0] += x[10] * h >> 7;
+		echoout[1] += x[11] * h >> 7;
+		h = dsp[0x5f];
+		echoout[0] += x[12] * h >> 7;
+		echoout[1] += x[13] * h >> 7;
 		break;
 	case 25:
-		fir[6] = dsp[0x6f];
-		fir[7] = dsp[0x7f];
+		h = dsp[0x6f];
+		echoout[0] += x[14] * h >> 7;
+		echoout[1] += x[15] * h >> 7;
+		h = dsp[0x7f];
+		echoout[0] += x[16] * h >> 7;
+		echoout[1] += x[17] * h >> 7;
+		echoout[0] &= ~1;
+		echoout[1] &= ~1;
 		break;
 	case 26:
 		a = (samp[0] * (s8int)dsp[MVOLL]) >> 7;
 		b = (echoout[0] * (s8int)dsp[EVOLL]) >> 7;
 		samp[0] = clamp16(a + b);
-		echoin[0] = (echoin[0] * (s8int)dsp[EFB]) >> 7;
-		echoin[1] = (echoin[1] * (s8int)dsp[EFB]) >> 7;
+		a = echoout[0] * (s8int)dsp[EFB] >> 7;
+		echoin[0] = clamp16(echoin[0] + a) & ~1;
+		a = echoout[1] * (s8int)dsp[EFB] >> 7;
+		echoin[1] = clamp16(echoin[1] + a) & ~1;
 		break;
 	case 27:
 		a = (samp[1] * (s8int)dsp[MVOLR]) >> 7;
@@ -449,9 +484,22 @@ echo(int s)
 		dsp[INT|FLG] = dsp[FLG];
 		break;
 	case 29:
+		dsp[INT|ESA] = dsp[ESA];
+		if(echopos == 0)
+			dsp[INT|EDL] = dsp[EDL] & 0xf;
+		echopos += 4;
+		if(echopos >= dsp[INT|EDL] << 11)
+			echopos = 0;
+		if((dsp[INT|FLG] & 0x20) == 0)
+			spcput16(echoaddr, echoin[0]);
+		echoin[0] = 0;
 		dsp[INT|FLG] = dsp[FLG];
 		break;
 	case 30:
+		if((dsp[INT|FLG] & 0x20) == 0)
+			spcput16(echoaddr + 2, echoin[1]);
+		echoin[1] = 0;
+		echobp = echobp + 2 & 15;
 		break;
 	}
 }
