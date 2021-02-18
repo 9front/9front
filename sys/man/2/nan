@@ -45,7 +45,9 @@ is greater than or equal to zero,
 else negative infinity.
 .I IsInf
 returns true if its first argument is infinity
-with the same sign as the second argument.
+with a sign matching the second argument.
+A zero sign matches both negative and positive
+infinities.
 .SH SOURCE
 .B /sys/src/libc/port/nan.c
 .SH "SEE ALSO"
