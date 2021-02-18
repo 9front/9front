@@ -38,7 +38,7 @@ enctell(FLAC__StreamEncoder *enc, FLAC__uint64 *absolute_byte_offset, void *clie
 static void
 usage(void)
 {
-	fprintf(stderr, "usage: %s [-b bitspersample] [-c channels] [-l compresslevel] [-r sfreq] [-P padding] [-T field=value]\n", argv0);
+	fprintf(stderr, "usage: %s [-b bitspersample] [-c channels] [-l compresslevel] [-s sfreq] [-P padding] [-T field=value]\n", argv0);
 	exit(1);
 }
 
