@@ -200,11 +200,35 @@ or
 .B long
 argument;
 an optional
+.B ll
+specifying that a following
+.BR d ,
+.BR i ,
+.BR o ,
+.BR u ,
+.BR x ,
+or
+.B X
+conversion character applies to a
+.B long long
+or
+.B unsigned
+.B long long
+argument;
+an optional
 .B l
 specifying that a following
 .B n
 conversion specifier applies to a pointer to a
 .B long
+.B int
+argument;
+an optional
+.B ll
+specifying that a following
+.B n
+conversion specifier applies to a pointer to a
+.B long long
 .B int
 argument;
 or an optional
@@ -222,6 +246,7 @@ argument.
 If an
 .BR h ,
 .BR l ,
+.BR ll ,
 or
 .B L
 appears with any other conversion specifier, the behavior is undefined.
@@ -459,7 +484,7 @@ zero
 value for
 the argument yields undefined results.
 .TP
-.B P
+.B p
 The
 .B void*
 argument is printed in an implementation-defined way (for Plan 9:
@@ -487,7 +512,7 @@ If any argument is, or points to, a union or an aggregate
 conversion, or a pointer cast to be a pointer to
 .B void
 using
-.B %P
+.B %p
 conversion), the behavior is undefined.
 .PP
 In no case does a nonexistent or small field width cause truncation

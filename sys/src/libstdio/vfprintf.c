@@ -17,6 +17,7 @@
 #define	LONG	64		/* 'l' convert a long integer */
 #define	LDBL	128		/* 'L' convert a long double */
 #define	PTR	256		/*     convert a void * (%p) */
+#define	VLONG	512		/* 'll' convert a long long integer */
 
 static int lflag[] = {	/* leading flags */
 0,	0,	0,	0,	0,	0,	0,	0,	/* ^@ ^A ^B ^C ^D ^E ^F ^G */
@@ -148,7 +149,7 @@ QLock _stdiolk;
 int
 vfprintf(FILE *f, const char *s, va_list args)
 {
-	int flags, width, precision;
+	int tfl, flags, width, precision;
 
 	qlock(&_stdiolk);
 
@@ -187,7 +188,15 @@ vfprintf(FILE *f, const char *s, va_list args)
 		}
 		else
 			precision = -1;
-		while(tflag[*s&_IO_CHMASK]) flags |= tflag[*s++&_IO_CHMASK];
+
+		while(tfl = tflag[*s&_IO_CHMASK]){
+			if(tfl == LONG && (flags & LONG)){
+				flags &= ~LONG;
+				tfl = VLONG;
+			}
+			flags |= tfl;
+			s++;
+		}
 		if(ocvt[*s]) nprint += (*ocvt[*s++])(f, &args, flags, width, precision);
 		else if(*s){
 			putc(*s++, f);
@@ -208,9 +217,8 @@ vfprintf(FILE *f, const char *s, va_list args)
 }
 
 static int
-ocvt_c(FILE *f, va_list *args, int flags, int width, int precision)
+ocvt_c(FILE *f, va_list *args, int flags, int width, int)
 {
-#pragma ref precision
 	int i;
 
 	if(!(flags&LEFT)) for(i=1; i<width; i++) putc(' ', f);
@@ -226,6 +234,8 @@ ocvt_s(FILE *f, va_list *args, int flags, int width, int precision)
 	char *s;
 
 	s = va_arg(*args, char *);
+	if(!s)
+		s = "<nil>";
 	if(!(flags&LEFT)){
 		if(precision >= 0)
 			for(i=0; i!=precision && s[i]; i++);
@@ -257,15 +267,14 @@ ocvt_s(FILE *f, va_list *args, int flags, int width, int precision)
 }
 
 static int
-ocvt_n(FILE *f, va_list *args, int flags, int width, int precision)
+ocvt_n(FILE *, va_list *args, int flags, int, int)
 {
-#pragma ref f
-#pragma ref width
-#pragma ref precision
 	if(flags&SHORT)
 		*va_arg(*args, short *) = nprint;
 	else if(flags&LONG)
 		*va_arg(*args, long *) = nprint;
+	else if(flags&VLONG)
+		*va_arg(*args, long long*) = nprint;
 	else
 		*va_arg(*args, int *) = nprint;
 	return 0;
@@ -288,14 +297,15 @@ ocvt_fixed(FILE *f, va_list *args, int flags, int width, int precision,
 	char digits[128];	/* no reasonable machine will ever overflow this */
 	char *sign;
 	char *dp;
-	long snum;
-	unsigned long num;
+	long long snum;
+	unsigned long long num;
 	int nout, npad, nlzero;
 
 	if(sgned){
-		if(flags&PTR) snum = (long)va_arg(*args, void *);
+		if(flags&PTR) snum = (uintptr)va_arg(*args, void *);
 		else if(flags&SHORT) snum = va_arg(*args, short);
 		else if(flags&LONG) snum = va_arg(*args, long);
+		else if(flags&VLONG) snum = va_arg(*args, long long);
 		else snum = va_arg(*args, int);
 		if(snum < 0){
 			sign = "-";
@@ -308,9 +318,10 @@ ocvt_fixed(FILE *f, va_list *args, int flags, int width, int precision,
 		}
 	} else {
 		sign = "";
-		if(flags&PTR) num = (long)va_arg(*args, void *);
+		if(flags&PTR) num = (uintptr)va_arg(*args, void *);
 		else if(flags&SHORT) num = va_arg(*args, unsigned short);
 		else if(flags&LONG) num = va_arg(*args, unsigned long);
+		else if(flags&VLONG) num = va_arg(*args, unsigned long long);
 		else num = va_arg(*args, unsigned int);
 	}
 	if(num == 0) prefix = "";
@@ -391,7 +402,7 @@ static int
 ocvt_p(FILE *f, va_list *args, int flags, int width, int precision)
 {
 	return ocvt_fixed(f, args, flags|PTR|ALT, width, precision, 16, 0,
-		"0123456789ABCDEF", "0X");
+		"0123456789ABCDEF", "0x");
 }
 
 static int
@@ -495,6 +506,10 @@ ocvt_flt(FILE *f, va_list *args, int flags, int width, int precision, char afmt)
 		fmt = 'f';
 	}
 	ndig = edigits-digits;
+	if(ndig == 0) {
+		ndig = 1;
+		digits = "0";
+	}
 	if((afmt=='g' || afmt=='G') && !(flags&ALT)){	/* knock off trailing zeros */
 		if(fmt == 'f'){
 			if(precision+exponent > ndig) {
@@ -527,7 +542,7 @@ ocvt_flt(FILE *f, va_list *args, int flags, int width, int precision, char afmt)
 	if(sign) putc('-', f);
 	else if(flags&SIGN) putc('+', f);
 	else if(flags&SPACE) putc(' ', f);
-	if(flags&ZPAD)
+	if((flags&ZPAD) && !(flags&LEFT))
 		while(nout < width){
 			putc('0', f);
 			nout++;
