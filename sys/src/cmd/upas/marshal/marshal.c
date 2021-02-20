@@ -985,10 +985,12 @@ tee(int in, int out1, int out2)
 	int n;
 	char buf[8*1024];
 
-	while ((n = read(in, buf, sizeof buf)) > 0)
-		if (write(out1, buf, n) != n ||
-		    write(out2, buf, n) != n)
+	while ((n = read(in, buf, sizeof buf)) > 0){
+		if(out1 != -1 && write(out1, buf, n) != n)
 			break;
+		if(out2 != -1 && write(out2, buf, n) != n)
+			break;
+	}
 }
 
 /* print the unix from line */
@@ -1033,7 +1035,7 @@ int
 sendmail(Addr *to, Addr *cc, Addr *bcc, int *pid, char *rcvr)
 {
 	int ac, fd, pfd[2];
-	char **v, cmd[Pathlen];
+	char **v, *f, cmd[Pathlen];
 	Addr *a;
 	Biobuf *b;
 
@@ -1086,12 +1088,18 @@ sendmail(Addr *to, Addr *cc, Addr *bcc, int *pid, char *rcvr)
 			case 0:
 				close(pfd[0]);
 				/* BOTCH; "From " time gets changed */
-				b = openfolder(foldername(nil, user, rcvr), time(0));
-				fd = b? Bfildes(b): -1;
-				printunixfrom(fd);
-				tee(0, pfd[1], fd);
-				write(fd, "\n", 1);
-				closefolder(b);
+				f = foldername(nil, user, rcvr);
+				b = openfolder(f, time(0));
+				if(b != nil){
+					fd = Bfildes(b);
+					printunixfrom(fd);
+					tee(0, pfd[1], fd);
+					write(fd, "\n", 1);
+					closefolder(b);
+				}else{
+					fprint(2, "warning: open %s: %r", f);
+					tee(0, pfd[1], -1);
+				}
 				exits(0);
 			default:
 				close(pfd[1]);
@@ -1172,6 +1180,7 @@ waitforsubprocs(void)
 
 	err = nil;
 	while((w = wait()) != nil){
+		fprint(2, "%d: %s\n", w->pid, w->msg);
 		if(w->pid == pid || w->pid == pgppid)
 			if(w->msg[0] != 0)
 				err = estrdup(w->msg);
