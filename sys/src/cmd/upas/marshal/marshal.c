@@ -1088,7 +1088,7 @@ sendmail(Addr *to, Addr *cc, Addr *bcc, int *pid, char *rcvr)
 			case 0:
 				close(pfd[0]);
 				/* BOTCH; "From " time gets changed */
-				f = foldername(nil, user, rcvr);
+				f = foldername(nil, login, rcvr);
 				b = openfolder(f, time(0));
 				if(b != nil){
 					fd = Bfildes(b);
