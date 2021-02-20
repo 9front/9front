@@ -691,11 +691,8 @@ static long
 cputyperead(Chan*, void *a, long n, vlong offset)
 {
 	char str[32];
-	ulong mhz;
 
-	mhz = (m->cpuhz+999999)/1000000;
-
-	snprint(str, sizeof(str), "%s %lud\n", m->cpuidtype, mhz);
+	snprint(str, sizeof(str), "%s %d\n", m->cpuidtype, m->cpumhz);
 	return readstr(offset, a, n, str);
 }
 
@@ -707,9 +704,8 @@ archctlread(Chan*, void *a, long nn, vlong offset)
 
 	p = buf = smalloc(READSTR);
 	ep = p + READSTR;
-	p = seprint(p, ep, "cpu %s %lud%s\n",
-		m->cpuidtype, (ulong)(m->cpuhz+999999)/1000000,
-		m->havepge ? " pge" : "");
+	p = seprint(p, ep, "cpu %s %d%s\n",
+		m->cpuidtype, m->cpumhz, m->havepge ? " pge" : "");
 	p = seprint(p, ep, "pge %s\n", getcr4()&0x80 ? "on" : "off");
 	p = seprint(p, ep, "coherence ");
 	if(coherence == mb386)
