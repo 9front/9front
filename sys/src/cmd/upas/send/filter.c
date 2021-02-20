@@ -26,7 +26,7 @@ findbody(char *p)
 int
 refuse(dest*, message *, char *cp, int, int)
 {
-	fprint(2, "%s", cp);
+	fprint(2, "%s\n", cp);
 	exits("error");
 	return 0;
 }
