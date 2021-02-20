@@ -1990,6 +1990,7 @@ didtype(int d)
 	case 0x1570:		/* i219-v */
 	case 0x15b8:		/* i219-v */
 	case 0x15b9:		/* i219-lm */
+	case 0x15bb:		/* i219-lm */
 	case 0x15d6:		/* i219-v */
 	case 0x15d7:		/* i219-lm */
 	case 0x15d8:		/* i219-v */
