@@ -143,14 +143,16 @@ matchfile(String *r)
 int
 filematch(File *f, String *r)
 {
-	char *c, buf[STRSIZE+100];
+	char *c, *s;
 	String *t;
 
 	c = Strtoc(&f->name);
-	sprint(buf, "%c%c%c %s\n", " '"[f->mod],
+	s = smprint("%c%c%c %s\n", " '"[f->mod],
 		"-+"[f->rasp!=0], " ."[f==curfile], c);
+	if(s == nil)
+		error(Etoolong);
 	free(c);
-	t = tmpcstr(buf);
+	t = tmpcstr(s);
 	Strduplstr(&genstr, t);
 	freetmpstr(t);
 	/* A little dirty... */
@@ -159,6 +161,7 @@ filematch(File *f, String *r)
 	bufreset(menu);
 	bufinsert(menu, 0, genstr.s, genstr.n);
 	compile(r);
+	free(s);
 	return execute(menu, 0, menu->nc);
 }
 
