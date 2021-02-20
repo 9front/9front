@@ -1180,7 +1180,6 @@ waitforsubprocs(void)
 
 	err = nil;
 	while((w = wait()) != nil){
-		fprint(2, "%d: %s\n", w->pid, w->msg);
 		if(w->pid == pid || w->pid == pgppid)
 			if(w->msg[0] != 0)
 				err = estrdup(w->msg);
