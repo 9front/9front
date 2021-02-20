@@ -151,8 +151,8 @@ enum
 	/* parallelism: tune; was 32; allow lots */
 	Maxactive=	250,
 
-	/* tune; was 60*1000; keep it short */
-	Maxreqtm=	8*1000,	/* max. ms to process a request */
+	/* tune; was 8*1000; that was too short */
+	Maxreqtm=	60*1000,	/* max. ms to process a request */
 
 	Notauthoritative = 0,
 	Authoritative,
