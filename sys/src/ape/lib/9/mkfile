@@ -28,6 +28,7 @@ OFILES=\
 	u32.$O\
 	u64.$O\
 	unmount.$O\
+	fd2path.$O\
 
 </sys/src/cmd/mksyslib
 

@@ -74,5 +74,6 @@ extern	unsigned long	getfcr(void);
 extern	unsigned long	getfsr(void);
 extern	void		setfcr(unsigned long);
 extern	void		setfsr(unsigned long);
+extern	int 	fd2path(int, char*, int);
 
 #endif
