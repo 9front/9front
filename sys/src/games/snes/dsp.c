@@ -49,7 +49,6 @@ enum { RELEASE, ATTACK, DECAY, SUSTAIN };
 
 enum { Freq = 44100 };
 static s16int sbuf[2*2000], *sbufp;
-static int stime;
 static int fd;
 
 void
@@ -61,16 +60,36 @@ audioinit(void)
 	sbufp = sbuf;
 }
 
+static int
+hermite(int *x, int t)
+{
+	int y;
+
+	y = (x[0] - x[6]) / 2 + (x[4] - x[2]) * 3 / 2;
+	y = y * t >> 15;
+	y += x[6] - x[4] * 5 / 2 + x[2] * 2 - x[0] / 2;
+	y = y * t >> 15;
+	y += (x[2] - x[6]) / 2;
+	y = y * t >> 15;
+	y += x[4];
+	return y;
+}
+
 static void
 audiosample(s16int *s)
 {
-	stime -= 1<<16;
+	static int x[8], t;
+
+	x[0] = s[0];
+	x[1] = s[1];
 	do {
-		sbufp[0] = s[0];
-		sbufp[1] = s[1];
+		sbufp[0] = hermite(x, t);
+		sbufp[1] = hermite(x + 1, t);
 		sbufp += 2;
-		stime += (32000<<16)/Freq;
-	} while(stime < 0);
+		t += (32000<<15)/Freq;
+	} while(t < 1<<15);
+	t -= 1<<15;
+	memmove(x + 2, x, sizeof(x) - 2 * sizeof(x[0]));
 }
 
 int
