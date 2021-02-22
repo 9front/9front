@@ -1,5 +1,9 @@
 URL=https://github.com/raspberrypi/firmware/raw/master/boot
-FILES=bootcode.bin fixup_cd.dat start_cd.elf fixup4cd.dat start4cd.elf bcm2711-rpi-4-b.dtb LICENCE.broadcom
+FILES=bootcode.bin fixup_cd.dat start_cd.elf fixup4cd.dat start4cd.elf \
+	bcm2711-rpi-4-b.dtb \
+	bcm2711-rpi-400.dtb \
+	bcm2711-rpi-cm4.dtb \
+	LICENCE.broadcom
 
 all:V:	$FILES
 
