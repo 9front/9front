@@ -70,9 +70,9 @@ struct Region {
 };
 
 struct Field {
-	void	*reg;	/* Buffer or Region */
-	Field	*index;
-	void	*indexv;
+	void	*reg;	/* Buffer or Region or data Field */
+	void	*bank;	/* bank value */
+	Field	*index;	/* bank or index Field */
 	int	flags;
 	int	bitoff;
 	int	bitlen;
@@ -217,8 +217,8 @@ gcmark(void *p)
 	case 'u':
 		f = p;
 		gcmark(f->reg);
+		gcmark(f->bank);
 		gcmark(f->index);
-		gcmark(f->indexv);
 		break;
 	}
 }
@@ -608,18 +608,46 @@ fieldalign(int flags)
 	}
 }
 
+static void *rwfield(Field *f, void *v, int write);
+
+static uvlong
+rwfieldunit(Field *f, int off, int len, uvlong v, int write)
+{
+	if(f->index){
+		if(TAG(f->reg) == 'f'){
+			void *b;
+
+			/* set index field */
+			rwfield(f->index, mki(off), 1);
+
+			/* set data field */
+			f = f->reg;
+			if(write){
+				b = mk('b', len);
+				putle(b, len, v);
+				rwfield(f, b, 1);
+			}else{
+				b = rwfield(f, nil, 0);
+				v = getle(b, len);
+			}
+			return v;
+		}
+
+		/* set bank field */
+		rwfield(f->index, f->bank, 1);
+	}
+	return rwreg(f->reg, off, len, v, write);
+}
+
 static void*
 rwfield(Field *f, void *v, int write)
 {
 	int boff, blen, wo, ws, wl, wa, wd, i;
 	uvlong w, m;
-	void *reg;
 	uchar *b;
 
-	if(f == nil || (reg = deref(f->reg)) == nil)
+	if(f == nil)
 		return nil;
-	if(f->index)
-		store(f->indexv, f->index);
 	blen = f->bitlen;
 	if(write){
 		if(v && TAG(v) == 'b'){
@@ -649,11 +677,11 @@ rwfield(Field *f, void *v, int write)
 			w <<= ws;
 			if(wl != wd){
 				m = ((1ULL<<wl)-1) << ws;
-				w |= rwreg(reg, wo*wa, wa, 0, 0) & ~m;
+				w |= rwfieldunit(f, wo*wa, wa, 0, 0) & ~m;
 			}
-			rwreg(reg, wo*wa, wa, w, 1);
+			rwfieldunit(f, wo*wa, wa, w, 1);
 		} else {
-			w = rwreg(reg, wo*wa, wa, 0, 0) >> ws;
+			w = rwfieldunit(f, wo*wa, wa, 0, 0) >> ws;
 			for(i = 0; i < wl; i++, boff++){
 				b[boff/8] |= (w&1)<<(boff%8);
 				w >>= 1;
@@ -937,9 +965,14 @@ Vfmt(Fmt *f)
 		/* no break */
 	case 'f':
 		l = p;
-		if(l->index)
-			return fmtprint(f, "IndexField(%x, %x, %x) @ %V[%V]",
-				l->flags, l->bitoff, l->bitlen, l->index, l->indexv);
+		if(l->index){
+			if(TAG(l->reg) == 'f')
+				return fmtprint(f, "IndexField(%x, %x, %x) @ %V[%V]",
+					l->flags, l->bitoff, l->bitlen, l->reg, l->index);
+			else
+				return fmtprint(f, "BankField(%x, %x, %x, %V=%V) @ %V",
+					l->flags, l->bitoff, l->bitlen, l->index, l->bank, l->reg);
+		}
 		return fmtprint(f, "Field(%x, %x, %x) @ %V",
 			l->flags, l->bitoff, l->bitlen, l->reg);
 	default:
@@ -1374,28 +1407,36 @@ evalcfield(void)
 static void*
 evalfield(void)
 {
-	int flags, bitoff, wa, n;
-	Field *f, *df;
+	int flags, bitoff, n;
+	Field *f, *index;
+	void *reg, *bank;
 	Name *d;
 	uchar *p;
 
-	df = nil;
-	flags = 0;
+	bank = nil;
+	index = nil;
 	bitoff = 0;
 	switch(FP->op - optab){
+	default:
+		goto Out;
 	case Ofld:
+		if((reg = deref(FP->arg[0])) == nil || TAG(reg) != 'r')
+			goto Out;
 		flags = ival(FP->arg[1]);
 		break;
 	case Oxfld:
-		df = deref(FP->arg[1]);
-		if(df == nil || TAG(df) != 'f')
+		if((index = deref(FP->arg[0])) == nil || TAG(index) != 'f')
+			goto Out;
+		if((reg = deref(FP->arg[1])) == nil || TAG(reg) != 'f')	/* data field */
 			goto Out;
 		flags = ival(FP->arg[2]);
 		break;
 	case Obfld:
-		df = deref(FP->arg[1]);
-		if(df == nil || TAG(df) != 'f')
+		if((reg = deref(FP->arg[0])) == nil || TAG(reg) != 'r')
 			goto Out;
+		if((index = deref(FP->arg[1])) == nil || TAG(index) != 'f')
+			goto Out;
+		bank = FP->arg[2];
 		flags = ival(FP->arg[3]);
 		break;
 	}
@@ -1425,25 +1466,10 @@ evalfield(void)
 		f = mk('f', sizeof(Field));
 		f->flags = flags;
 		f->bitlen = n;
-		switch(FP->op - optab){
-		case Ofld:
-			f->reg = FP->arg[0];
-			f->bitoff = bitoff;
-			break;
-		case Oxfld:
-			wa = fieldalign(df->flags);
-			f->reg = df->reg;
-			f->bitoff = df->bitoff + (bitoff % (wa*8));
-			f->indexv = mki((bitoff/(wa*8))*wa);
-			f->index = FP->arg[0];
-			break;
-		case Obfld:
-			f->reg = FP->arg[0];
-			f->bitoff = bitoff;
-			f->indexv = FP->arg[2];
-			f->index = df;
-			break;
-		}
+		f->bitoff = bitoff;
+		f->reg = reg;
+		f->bank = bank;
+		f->index = index;
 		bitoff += n;
 		d->v = f;
 	}
