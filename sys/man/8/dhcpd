@@ -42,6 +42,8 @@ dhcpd, dhcp6d, dhcpleases, rarpd, tftpd \- Internet booting
 .IR homedir ]
 .RB [ -x
 .IR netmtpt ]
+.RB [ -n
+.IR namespace-file ]
 .SH DESCRIPTION
 These programs support booting over the Internet.
 They should all be run on the same server to
@@ -318,6 +320,9 @@ supports only octet mode.
 .B r
 Restricts access to only those files rooted in the
 .IR homedir .
+.TP
+.B n
+Sets the namespace file (default /lib/namespace).
 .PD
 .SH FILES
 .BR /lib/ndb/dhcp "    directory of dynamic address files

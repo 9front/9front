@@ -93,6 +93,7 @@ char	raddr[64];
 char	*dirsl;
 int	dirsllen;
 char	*homedir = "/";
+char	*nsfile = nil;
 char	flog[] = "ipboot";
 char	net[Maxpath];
 
@@ -137,6 +138,9 @@ main(int argc, char **argv)
 		break;
 	case 'x':
 		setnetmtpt(net, sizeof net, EARGF(usage()));
+		break;
+	case 'n':
+		nsfile = EARGF(usage());
 		break;
 	default:
 		usage();
@@ -740,7 +744,7 @@ setuser(void)
 {
 	if(procsetuser("none") < 0)
 		sysfatal("can't become none: %r");
-	if(newns("none", nil) < 0)
+	if(newns("none", nsfile) < 0)
 		sysfatal("can't build namespace: %r");
 }
 
