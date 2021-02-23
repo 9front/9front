@@ -423,24 +423,28 @@ int timerid;
 static void
 sleeperproc(void *)
 {
-	vlong then, now;
+	vlong then, now, dt, adj;
 
 	timerid = threadid();
 	timerevent = nanosec() + SleeperPoll;
 	unlock(&timerlock);
 	threadsetname("sleeper");
+	adj = 0;
 	for(;;){
 		lock(&timerlock);
 		then = timerevent;
 		now = nanosec();
 		if(then <= now) timerevent = now + SleeperPoll;
 		unlock(&timerlock);
-		if(then - now >= MinSleep){
-			sleep((then - now) / MSEC);
-			continue;
+		if(then > now){
+			dt = then - now;
+			if(dt+adj >= MinSleep){
+				sleep((dt + adj) / MSEC);
+				continue;
+			}
+			adj = dt;
 		}
-		while(nanosec() < then)
-			;
+
 		sendul(sleepch, 0);
 	}
 }
