@@ -738,12 +738,8 @@ nak(int fd, int code, char *msg)
 void
 setuser(void)
 {
-	int fd;
-
-	fd = open("#c/user", OWRITE);
-	if(fd < 0 || write(fd, "none", strlen("none")) < 0)
+	if(procsetuser("none") < 0)
 		sysfatal("can't become none: %r");
-	close(fd);
 	if(newns("none", nil) < 0)
 		sysfatal("can't build namespace: %r");
 }
