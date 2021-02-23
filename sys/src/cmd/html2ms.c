@@ -765,7 +765,7 @@ parserune(int c)
 				break;
 		} while((c = Bgetc(&in)) > 0);
 	}
-	return 0xFFFD;
+	return Runeerror;
 }
 
 Rune
