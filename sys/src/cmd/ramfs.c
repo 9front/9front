@@ -249,7 +249,8 @@ truncfile(File *f, vlong l)
 		if(i < n){
 			o = l % ESIZE;
 			if(o != 0 && x->ent[i] != nil){
-				x->ent[i]->size = o * sizeof(Ram*);
+				if(o < x->ent[i]->size)
+					x->ent[i]->size = o;
 				i++;
 			}
 			while(i < n){
