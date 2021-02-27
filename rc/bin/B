@@ -10,6 +10,14 @@ if(~ $#* 0){
 	exit usage
 }
 
+if(test -f /mnt/plumb/edit || test -f /mnt/term/mnt/plumb/edit){
+	for(i)
+		plumb -s B -d edit $i
+	exit
+}
+
+# using sam srv file
+
 for(i)
 	switch($i){
 	case /*
@@ -17,14 +25,6 @@ for(i)
 	case *
 		files = ( $files `{cleanname `{pwd}^/$i} )
 	}
-
-
-if(test -f /mnt/plumb/edit || test -f /mnt/term/mnt/plumb/edit){
-	plumb -s B -d edit $files
-	exit
-}
-
-# using sam srv file
 
 if(test -f /mnt/term/srv/sam.$user) dest = /mnt/term/srv/sam.$user
 if not if(test -f /srv/sam.$user) dest = /srv/sam.$user

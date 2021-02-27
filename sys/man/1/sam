@@ -17,9 +17,6 @@ sam, B, sam.save, samterm \- screen editor with structural regular expressions
 .B sam.save
 .PP
 .B B
-[
-.BI -nnnn
-]
 .I file ...
 .SH DESCRIPTION
 .I Sam
@@ -866,16 +863,13 @@ which acts as an additional source of commands.  Characters written to
 the named pipe are treated as if they had been typed in the command window.
 .PP
 .I B
-is a shell-level command that causes an instance of
-.I sam
-running on the same terminal to load the named
-.IR files .
-.I B
-uses either plumbing or the named pipe, whichever service is available.
-If plumbing is not enabled,
-the option allows a line number to be specified for
-the initial position to display in the last named file
-(plumbing provides a more general mechanism for this ability).
+is a shell command that sends the named
+.IR files
+to the edit port of the plumber.
+If plumbing is not available,
+it attempts to load 
+.IR files
+through the named pipe.
 .SS Abnormal termination
 If
 .I sam

@@ -14,5 +14,5 @@ switch($#res){
 case 0
 	echo $1: not found >[2=1]
 case 1
-	plumb $res
+	B $res
 }
