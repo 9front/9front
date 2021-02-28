@@ -139,7 +139,7 @@ screeninit(void)
 		chan = RGB16;
 		break;
 	case 24:
-		chan = BGR24;
+		chan = RGB24;
 		break;
 	case 32:
 		chan = XRGB32;
