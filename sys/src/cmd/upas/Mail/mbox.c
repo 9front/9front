@@ -260,13 +260,15 @@ addmesg(Mesg *m, int ins)
 		mbox.mesgsz *= 2;
 		mbox.mesg = erealloc(mbox.mesg, mbox.mesgsz*sizeof(Mesg*));
 	}
-	if(ins)
-		idx = slotfor(m);
-	else
-		idx = mbox.nmesg;
-	memmove(&mbox.mesg[idx + 1], &mbox.mesg[idx], (mbox.nmesg - idx)*sizeof(Mesg*));
-	mbox.mesg[idx] = m;
-	mbox.nmesg++;
+	if(ins >= 0){
+		if(ins == 0)
+			idx = slotfor(m);
+		else
+			idx = mbox.nmesg;
+		memmove(&mbox.mesg[idx + 1], &mbox.mesg[idx], (mbox.nmesg - idx)*sizeof(Mesg*));
+		mbox.mesg[idx] = m;
+		mbox.nmesg++;
+	}
 	if(m->messageid == nil)
 		return;
 
@@ -296,7 +298,7 @@ addmesg(Mesg *m, int ins)
 }
 
 static Mesg *
-placeholder(char *msgid, vlong time, int ins)
+placeholder(char *msgid, vlong time)
 {
 	Mesg *m;
 
@@ -305,7 +307,6 @@ placeholder(char *msgid, vlong time, int ins)
 	m->messageid = estrdup(msgid);
 	m->hash = strhash(msgid);
 	m->time = time;
-	addmesg(m, ins);
 	return m;
 }
 
@@ -381,8 +382,10 @@ load(char *name, char *digest, int ins)
 		return m;
 	}
 	p = lookupid(m->inreplyto);
-	if(p == nil)
-		p = placeholder(m->inreplyto, m->time, ins);
+	if(p == nil){
+		p = placeholder(m->inreplyto, m->time);
+		addmesg(m, ins);
+	}
 	if(!addchild(p, m, d))
 		m->state |= Stoplev;
 	return m;
@@ -656,6 +659,8 @@ relinkmsg(Mesg *p, Mesg *m)
 
 	/* remove child, preserving order */
 	j = 0;
+	if(p == nil || m == nil)
+		return;
 	for(i = 0; p && i < p->nchild; i++){
 		if(p->child[i] != m)
 			p->child[j++] = p->child[i];
@@ -675,7 +680,7 @@ relinkmsg(Mesg *p, Mesg *m)
 static void
 mbflush(char **, int)
 {
-	int i, j, ln, fd;
+	int i, j, ln, fd, dummy;
 	char *path;
 	Mesg *m, *p;
 
@@ -687,7 +692,7 @@ mbflush(char **, int)
 		sysfatal("open mbox: %r");
 	while(i < mbox.nmesg){
 		m = mbox.mesg[i];
-		if((m->state & Sopen) || !(m->flags & (Fdel|Ftodel))){
+		if((m->state & (Sopen|Sdummy)) || !(m->flags & (Fdel|Ftodel))){
 			i++;
 			continue;
 		}
@@ -698,18 +703,23 @@ mbflush(char **, int)
 			fprint(fd, "delete %s %d", mailbox, atoi(m->name));
 
 		p = m->parent;
+		dummy = 0;
 		removeid(m);
 		if(p == nil && m->nsub != 0){
-			p = placeholder(m->messageid, m->time, 1);
+			p = placeholder(m->messageid, m->time);
 			p->nsub = m->nsub + 1;
+			addmesg(p, -1);
 			mbox.mesg[i] = p;
+			dummy = 1;
 		}
-		if(p != nil)
-			relinkmsg(p, m);
+		relinkmsg(p, m);
 		for(j = 0; j < m->nchild; j++)
 			mbredraw(m->child[j], 1, 1);
-		memmove(&mbox.mesg[i], &mbox.mesg[i+1], (mbox.nmesg - i)*sizeof(Mesg*));
-		mbox.nmesg--;
+		if(!dummy){
+			memmove(&mbox.mesg[i], &mbox.mesg[i+1], (mbox.nmesg - i)*sizeof(Mesg*));
+			mbox.nmesg--;
+		}
+		mesgfree(m);
  	}
 	close(fd);
 	fprint(mbox.ctl, "clean\n");
