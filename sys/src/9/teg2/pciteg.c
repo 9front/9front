@@ -181,7 +181,7 @@ pcicfginit(void)
 	list = &pciroot;
 	/* was bno = 0; trimslice needs to start at 1 */
 	for(bno = 1; bno <= pcimaxbno; bno++) {
-		bno = pciscan(bno, list);
+		bno = pciscan(bno, list, nil);
 		while(*list)
 			list = &(*list)->link;
 	}

@@ -557,6 +557,10 @@ pcireserve(void)
 				upaalloc(pa, p->mem[i].size, 0);
 			}
 		}
+		if(p->rom.size && (p->rom.bar & 1) != 0){
+			pa = p->rom.bar & ~0x7FFULL;
+			upaalloc(pa, p->rom.size, 0);
+		}
 	}
 
 	/*
@@ -688,7 +692,7 @@ pcicfginit(void)
 	list = &pciroot;
 	for(bno = 0; bno <= pcimaxbno; bno++) {
 		int sbno = bno;
-		bno = pciscan(bno, list);
+		bno = pciscan(bno, list, nil);
 
 		while(*list)
 			list = &(*list)->link;

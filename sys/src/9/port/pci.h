@@ -96,7 +96,7 @@ enum {					/* type 1 pre-defined header */
 	PciPULR		= 0x2C,		/* prefetchable limit upper 32 bits */
 	PciIUBR		= 0x30,		/* I/O base upper 16 bits */
 	PciIULR		= 0x32,		/* I/O limit upper 16 bits */
-	PciEBAR1	= 0x28,		/* expansion ROM base address */
+	PciEBAR1	= 0x38,		/* expansion ROM base address */
 	PciBCR		= 0x3E,		/* bridge control register */
 };
 
@@ -173,30 +173,33 @@ struct Pcidev
 	uchar	cls;
 	uchar	ltr;
 
+	uchar	intl;			/* interrupt line */
+
 	struct {
 		uvlong	bar;		/* base address */
 		int	size;
 	} mem[6];
 
-	struct {
+	struct {			/* expansion rom bar */
 		uvlong	bar;	
 		int	size;
 	} rom;
-	uchar	intl;			/* interrupt line */
+
+	struct {			/* 32-bit io and memory windows */
+		uvlong	bar;
+		int	size;
+	} ioa, mema;
+
+	struct {			/* 64-bit prefechable memory window */
+		uvlong	bar;
+		uvlong	size;
+	} prefa;
 
 	Pcidev*	list;
 	Pcidev*	link;			/* next device on this bno */
 
 	Pcidev*	parent;			/* up a bus */
 	Pcidev*	bridge;			/* down a bus */
-	struct {
-		uvlong	bar;
-		int	size;
-	} ioa, mema;
-	struct {
-		uvlong	bar;
-		uvlong	size;
-	} prefa;
 
 	int	pmrb;			/* power management register block */
 	int	msi;			/* MSI capability register block */
@@ -221,6 +224,8 @@ enum
 
 extern int pcimaxdno;
 
+extern void pcidevfree(Pcidev* pcidev);
+
 extern int pcicfgr32(Pcidev* pcidev, int rno);
 extern void pcicfgw32(Pcidev* pcidev, int rno, int data);
 extern int pcicfgr16(Pcidev* pcidev, int rno);
@@ -228,7 +233,7 @@ extern void pcicfgw16(Pcidev* pcidev, int rno, int data);
 extern int pcicfgr8(Pcidev* pcidev, int rno);
 extern void pcicfgw8(Pcidev* pcidev, int rno, int data);
 
-extern int pciscan(int bno, Pcidev **list);
+extern int pciscan(int bno, Pcidev **list, Pcidev *parent);
 extern void pcibusmap(Pcidev *root, uvlong *pmema, ulong *pioa, int wrreg);
 extern void pcibussize(Pcidev *root, uvlong *msize, ulong *iosize);
 

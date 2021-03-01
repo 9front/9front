@@ -101,7 +101,6 @@ enum {
 
 	PciPMC = 0xa4,
 
-	Nbars = 6,
 	Ncmd = 10,
 	CBIRQ = 9,
 
@@ -346,7 +345,7 @@ engine(Cardbus *cb, int message)
 			break;
 		default:
 			if(DEBUG)
-				print("#Y%ld: Invalid message %s in SlotEmpty state\n",
+				print("#Y%zd: Invalid message %s in SlotEmpty state\n",
 					cb - cbslots, messages[message]);
 			break;
 		}
@@ -365,7 +364,7 @@ engine(Cardbus *cb, int message)
 			break;
 		default:
 			if(DEBUG)
-				print("#Y%ld: Invalid message %s in SlotFull state\n",
+				print("#Y%zd: Invalid message %s in SlotFull state\n",
 					cb - cbslots, messages[message]);
 			break;
 		}
@@ -383,7 +382,7 @@ engine(Cardbus *cb, int message)
 			powerdown(cb);
 			break;
 		default:
-			print("#Y%ld: Invalid message %s in SlotPowered state\n",
+			print("#Y%zd: Invalid message %s in SlotPowered state\n",
 				cb - cbslots, messages[message]);
 			break;
 		}
@@ -399,7 +398,7 @@ engine(Cardbus *cb, int message)
 			break;
 		default:
 			if(DEBUG)
-				print("#Y%ld: Invalid message %s in SlotConfigured state\n",
+				print("#Y%zd: Invalid message %s in SlotConfigured state\n",
 					cb - cbslots, messages[message]);
 			break;
 		}
@@ -492,7 +491,7 @@ cbinterrupt(Ureg *, void *)
 		rdreg(cb, Rcsc);	/* Ack the interrupt */
 
 		if(DEBUG)
-			print("#Y%ld: interrupt: event %.8lX, state %.8lX, (%s)\n",
+			print("#Y%zd: interrupt: event %.8lX, state %.8lX, (%s)\n",
 				cb - cbslots, event, state, states[cb->state]);
 
 		if (event & SE_CCD) {
@@ -520,7 +519,6 @@ devpccardlink(void)
 	static int initialized;
 	Pcidev *pci;
 	int i;
-	uchar intl;
 	char *p;
 
 	if (initialized)
@@ -539,9 +537,7 @@ devpccardlink(void)
 
 	/* Find all CardBus controllers */
 	pci = nil;
-	intl = 0xff;
 	while ((pci = pcimatch(pci, 0, 0)) != nil) {
-		uvlong baddr;
 		Cardbus *cb;
 		uchar pin;
 
@@ -559,20 +555,20 @@ devpccardlink(void)
 		cb->pci = pci;
 		cb->variant = &variant[i];
 
-		if (pci->vid != TI_vid) {
-			/*
-			 * Gross hack, needs a fix.  Inherit the mappings from
-			 * 9load for the TIs (pb)
-			 */
-			pcicfgw32(pci, PciCBMBR0, 0xffffffff);
-			pcicfgw32(pci, PciCBMLR0, 0);
-			pcicfgw32(pci, PciCBMBR1, 0xffffffff);
-			pcicfgw32(pci, PciCBMLR1, 0);
-			pcicfgw32(pci, PciCBIBR0, 0xffffffff);
-			pcicfgw32(pci, PciCBILR0, 0);
-			pcicfgw32(pci, PciCBIBR1, 0xffffffff);
-			pcicfgw32(pci, PciCBILR1, 0);
-		}
+		if(pci->mem[0].size == 0 || (pci->mem[0].bar & 0xF) != 0)
+			continue;
+		cb->regs = (ulong *)vmap(pci->mem[0].bar & ~0xFULL, pci->mem[0].size);
+		if(cb->regs == nil)
+			continue;
+
+		pcicfgw32(pci, PciCBMBR0, 0xffffffff);
+		pcicfgw32(pci, PciCBMLR0, 0);
+		pcicfgw32(pci, PciCBMBR1, 0xffffffff);
+		pcicfgw32(pci, PciCBMLR1, 0);
+		pcicfgw32(pci, PciCBIBR0, 0xffffffff);
+		pcicfgw32(pci, PciCBILR0, 0);
+		pcicfgw32(pci, PciCBIBR1, 0xffffffff);
+		pcicfgw32(pci, PciCBILR1, 0);
 
 		/* Set up PCI bus numbers if needed. */
 		if (pcicfgr8(pci, PciSBN) == 0) {
@@ -590,7 +586,7 @@ devpccardlink(void)
 			pcicfgw8(pci, PciINTL, pci->intl);
 
 			if (pci->intl == 0xff || pci->intl == 0)
-				print("#Y%ld: No interrupt?\n", cb - cbslots);
+				print("#Y%zd: No interrupt?\n", cb - cbslots);
 		}
 
 		/* Don't you love standards! */
@@ -632,30 +628,15 @@ devpccardlink(void)
 			pcicfgw8(cb->pci, 0x94, 0xCA);
 			pcicfgw8(cb->pci, 0xD4, 0xCA);
 		}
-
-		baddr = pcicfgr32(cb->pci, PciBAR0);
-		if (baddr == 0) {
-			int size = (pci->did == Ricoh_478_did)? 0x10000: 0x1000;
-			baddr = upaalloc(-1ULL, size, size);
-			if(baddr == -1)
-				continue;
-			pcicfgw32(cb->pci, PciBAR0, (ulong)baddr);
-			cb->regs = (ulong *)vmap(baddr, size);
-		}
-		else
-			cb->regs = (ulong *)vmap(baddr, 4096);
-		if(cb->regs == nil)
-			continue;
 		cb->state = SlotEmpty;
 
-		if (intl != 0xff && intl != pci->intl)
-			intrenable(pci->intl, cbinterrupt, cb, pci->tbdf, "cardbus");
+		intrenable(pci->intl, cbinterrupt, cb, pci->tbdf, "cardbus");
 
 		/* Don't really know what to do with this... */
 		i82365probe(cb, LegacyAddr, LegacyAddr + 1);
 
-		print("#Y%ld: %s, %.8lluX intl %d\n", cb - cbslots,
-			 variant[i].name, baddr, pci->intl);
+		print("#Y%zd: %s, %.8lluX intl %d\n", cb - cbslots,
+			 variant[i].name, pci->mem[0].bar, pci->intl);
 
 		nslots++;
 	}
@@ -699,7 +680,7 @@ powerup(Cardbus *cb)
 	state = cb->regs[SocketState];
 	if (state & SS_PC16) {
 		if(DEBUG)
-			print("#Y%ld: Probed a PC16 card, powering up card\n",
+			print("#Y%zd: Probed a PC16 card, powering up card\n",
 				cb - cbslots);
 		cb->type = PC16;
 		memset(&cb->linfo, 0, sizeof(Pcminfo));
@@ -719,19 +700,19 @@ powerup(Cardbus *cb)
 		return 0;
 
 	if (state & SS_NOTCARD) {
-		print("#Y%ld: No card inserted\n", cb - cbslots);
+		print("#Y%zd: No card inserted\n", cb - cbslots);
 		return 0;
 	}
 
 	if ((state & SS_3V) == 0 && (state & SS_5V) == 0) {
-		print("#Y%ld: Unsupported voltage, powering down card!\n",
+		print("#Y%zd: Unsupported voltage, powering down card!\n",
 			cb - cbslots);
 		cb->regs[SocketControl] = 0;
 		return 0;
 	}
 
 	if(DEBUG)
-		print("#Y%ld: card %spowered at %d volt\n", cb - cbslots,
+		print("#Y%zd: card %spowered at %d volt\n", cb - cbslots,
 			(state & SS_POWER)? "": "not ",
 			(state & SS_3V)? 3: (state & SS_5V)? 5: -1);
 
@@ -777,10 +758,9 @@ powerdown(Cardbus *cb)
 static void
 configure(Cardbus *cb)
 {
-	int i, r;
 	Pcidev *pci;
-	uvlong romlen, memlen, membase, rombase, bar;
-	ulong iobase, iolen, size;
+	ulong iobase, iolen;
+	uvlong membase, memlen;
 
 	if(DEBUG)
 		print("configuring slot %ld (%s)\n", cb - cbslots, states[cb->state]);
@@ -796,102 +776,68 @@ configure(Cardbus *cb)
 	}
 
 	/* Scan the CardBus for new PCI devices */
-	pciscan(pcicfgr8(cb->pci, PciSBN), &cb->pci->bridge);
+	pciscan(pcicfgr8(cb->pci, PciSBN), &cb->pci->bridge, cb->pci);
 
-	/*
-	 * size the devices on the bus, reserve a minimum for devices arriving later,
-	 * allow for ROM space, allocate space, and set the cardbus mapping registers
-	 */
-	pcibussize(cb->pci->bridge, &memlen, &iolen);	/* TO DO: need initial alignments */
-
-	romlen = 0;
-	for(pci = cb->pci->bridge; pci != nil; pci = pci->list){
-		size = pcibarsize(pci, PciEBAR0);
-		if(size > 0){
-			pci->rom.bar = -1;
-			pci->rom.size = size;
-			romlen += size;
-		}
-	}
+	/* size the devices on the bus, reserve a minimum for devices arriving later */
+	pcibussize(cb->pci->bridge, &memlen, &iolen);
 
 	if(iolen < 512)
 		iolen = 512;
-	iobase = ioreserve(-1, iolen, 0, "cardbus");
-	if(iobase == -1)
-		return;
-
-	rombase = memlen;
-	memlen += romlen;
 	if(memlen < 1*1024*1024)
 		memlen = 1*1024*1024;
-	membase = upaalloc(-1ULL, memlen, 4*1024*1024);	/* TO DO: better alignment */
-	if(membase == -1)
+
+	print("#Y%zd: iolen=%lud, memlen=%llud\n", cb - cbslots, iolen, memlen);
+
+	if(cb->pci->parent == nil){
+		iobase = ioreserve(-1,
+			iolen, iolen, "cardbus");
+		if(iobase == -1){
+NoIO:
+			print("#Y%zd: can't allocate io space\n", cb - cbslots);
+			return;
+		}
+		membase = upaalloc(-1ULL,
+			memlen, 4*1024*1024);
+	} else {
+		iobase = ioreservewin(cb->pci->parent->ioa.bar, cb->pci->parent->ioa.size,
+			iolen, iolen, "cardbus");
+		if(iobase == -1)
+			goto NoIO;
+		membase = upaallocwin(cb->pci->parent->mema.bar, cb->pci->parent->mema.size,
+			memlen, 4*1024*1024);
+	}
+	if(membase == -1){
+		print("#Y%zd: can't allocate memory space\n", cb - cbslots);
 		return;
+	}
+
+	print("#Y%zd: iobase=%lux, membase=%llux\n", cb - cbslots, iobase, membase);
 
 	pcicfgw32(cb->pci, PciCBIBR0, iobase);
 	pcicfgw32(cb->pci, PciCBILR0, iobase + iolen-1);
-	pcicfgw32(cb->pci, PciCBIBR1, 0);
+	pcicfgw32(cb->pci, PciCBIBR1, 0xffffffff);
 	pcicfgw32(cb->pci, PciCBILR1, 0);
+	cb->pci->ioa.bar = iobase;
+	cb->pci->ioa.size = iolen;
 
 	pcicfgw32(cb->pci, PciCBMBR0, (ulong)membase);
 	pcicfgw32(cb->pci, PciCBMLR0, (ulong)membase + memlen-1);
-	pcicfgw32(cb->pci, PciCBMBR1, 0);
+	pcicfgw32(cb->pci, PciCBMBR1, 0xffffffff);
 	pcicfgw32(cb->pci, PciCBMLR1, 0);
+	cb->pci->mema.bar = membase;
+	cb->pci->mema.size = memlen;
 
-//	pcibussize(cb->pci->bridge, &membase, &iobase);	/* now assign them */
-	rombase += membase;
+	/* Route interrupts to INTA#/B#, Disable prefetch for MEM0/1 */
+	pcicfgw16(cb->pci, PciBCR, pcicfgr16(cb->pci, PciBCR) & ~(7 << 7));
 
-	for(pci = cb->pci->bridge; pci != nil; pci = pci->list){
-		r = pcicfgr16(pci, PciPCR);
-		r &= ~(PciPCR_IO|PciPCR_MEM);
-		pcicfgw16(pci, PciPCR, r);
+	/* Assign resources */
+	pcibusmap(cb->pci->bridge, &membase, &iobase, 1);
 
-		/*
-		 * Treat the found device as an ordinary PCI card.
-		 * It seems that the CIS is not always present in
-		 * CardBus cards.
-		 * XXX, need to support multifunction cards
-		 */
-		for(i = 0; i < Nbars; i++) {
-			if(pci->mem[i].size == 0)
-				continue;
-			bar = pci->mem[i].bar;
-			if(bar & 1)
-				bar += iobase;
-			else
-				bar += membase;
-			pci->mem[i].bar = bar;
-			pcicfgw32(pci, PciBAR0 + 4*i, bar);
-			if((bar & 1) == 0){
-				print("%T mem[%d] %8.8llux %d\n", pci->tbdf, i, bar, pci->mem[i].size);
-				if(bar & 0x80){	/* TO DO: enable prefetch */
-					;
-				}
-			}
-		}
-		if((size = pcibarsize(pci, PciEBAR0)) > 0) {	/* TO DO: can this be done by pci.c? */
-			pci->rom.bar = rombase;
-			pci->rom.size = size;
-			rombase += size;
-			pcicfgw32(pci, PciEBAR0, pci->rom.bar);
-		}
-
-		/* Set the basic PCI registers for the device */
-		pci->pcr = pcicfgr16(pci, PciPCR);
-		pci->pcr |= PciPCR_IO|PciPCR_MEM|PciPCR_Master;
-		pci->cls = 8;
-		pci->ltr = 64;
-		pcicfgw16(pci, PciPCR, pci->pcr);
-		pcicfgw8(pci, PciCLS, pci->cls);
-		pcicfgw8(pci, PciLTR, pci->ltr);
-
-		if (pcicfgr8(pci, PciINTP)) {
-			pci->intl = pcicfgr8(cb->pci, PciINTL);
+	/* Assign legacy IRQ's */
+	for(pci = cb->pci->bridge; pci != nil; pci = pci->link) {
+		if(pcicfgr8(pci, PciINTP) != 0) {
+			pci->intl = cb->pci->intl;
 			pcicfgw8(pci, PciINTL, pci->intl);
-
-			/* Route interrupts to INTA#/B# */
-			pcicfgw16(cb->pci, PciBCR,
-					  pcicfgr16(cb->pci, PciBCR) & ~(1 << 7));
 		}
 	}
 }
@@ -899,58 +845,51 @@ configure(Cardbus *cb)
 static void
 unconfigure(Cardbus *cb)
 {
-	Pcidev *pci;
-	int i, ioindex, memindex, r;
-
 	if (cb->type == PC16) {
-		print("#Y%d: Don't know how to unconfigure a PC16 card\n",
-			 (int)(cb - cbslots));
-
+		print("#Y%zd: Don't know how to unconfigure a PC16 card\n", cb - cbslots);
 		memset(&cb->linfo, 0, sizeof(Pcminfo));
 		return;
 	}
 
-	pci = cb->pci->bridge;
-	if (pci == nil)
-		return;		/* Not configured */
-	cb->pci->bridge = nil;
+	pcicfgw32(cb->pci, PciCBIBR0, 0xffffffff);
+	pcicfgw32(cb->pci, PciCBILR0, 0);
+	pcicfgw32(cb->pci, PciCBIBR1, 0xffffffff);
+	pcicfgw32(cb->pci, PciCBILR1, 0);
 
-	memindex = ioindex = 0;
-	while (pci) {
-		Pcidev *_pci;
+	pcicfgw32(cb->pci, PciCBMBR0, 0xffffffff);
+	pcicfgw32(cb->pci, PciCBMLR0, 0);
+	pcicfgw32(cb->pci, PciCBMBR1, 0xffffffff);
+	pcicfgw32(cb->pci, PciCBMLR1, 0);
 
-		for (i = 0; i != Nbars; i++) {
-			if (pci->mem[i].size == 0)
-				continue;
-			if (pci->mem[i].bar & 1) {
+	/* free i/o space */
+	if(cb->pci->ioa.size){
+		Pcidev *pci;
+		int i;
+
+		for(pci = cb->pci->bridge; pci != nil; pci = pci->link) {
+			for(i = 0; i < nelem(pci->mem); i++) {
+				if((pci->mem[i].size == 0)
+				|| (pci->mem[i].bar & 1) == 0
+				|| (pci->mem[i].bar & ~3) == 0)
+					continue;
 				iofree(pci->mem[i].bar & ~3);
-				pcicfgw16(cb->pci, PciCBIBR0 + ioindex * 8,
-						 (ushort)-1);
-				pcicfgw16(cb->pci, PciCBILR0 + ioindex * 8, 0);
-				ioindex++;
-				continue;
 			}
-
-			upafree(pci->mem[i].bar & ~0xF, pci->mem[i].size);
-			pcicfgw32(cb->pci, PciCBMBR0 + memindex * 8, (ulong)-1);
-			pcicfgw32(cb->pci, PciCBMLR0 + memindex * 8, 0);
-			r = pcicfgr16(cb->pci, PciBCR);
-			r &= ~(1 << (8 + memindex));
-			pcicfgw16(cb->pci, PciBCR, r);
-			memindex++;
 		}
-
-		if (pci->rom.bar && memindex < 2) {
-			upafree(pci->rom.bar & ~0xF, pci->rom.size);
-			pcicfgw32(cb->pci, PciCBMBR0 + memindex * 8, (ulong)-1);
-			pcicfgw32(cb->pci, PciCBMLR0 + memindex * 8, 0);
-			memindex++;
-		}
-
-		_pci = pci->list;
-		free(_pci);
-		pci = _pci;
+		iofree(cb->pci->ioa.bar);
+		cb->pci->ioa.bar = 0;
+		cb->pci->ioa.size = 0;
 	}
+
+	/* free memory space */
+	if(cb->pci->mema.size){
+		upafree(cb->pci->mema.bar, cb->pci->mema.size);
+		cb->pci->mema.bar = 0;
+		cb->pci->mema.size = 0;
+	}
+
+	/* remove the devices */
+	while(cb->pci->bridge != nil)
+		pcidevfree(cb->pci->bridge);
 }
 
 static void
@@ -1174,7 +1113,7 @@ pccard_pcmspecial(char *idstr, ISAConf *isa)
 	pi->irq = isa->irq;
 	unlock(cb);
 
-	print("#Y%ld: %s irq %d, port %lluX\n", cb - cbslots, pi->verstr, isa->irq, isa->port);
+	print("#Y%zd: %s irq %d, port %lluX\n", cb - cbslots, pi->verstr, isa->irq, isa->port);
 	return (int)(cb - cbslots);
 }
 
@@ -1321,10 +1260,10 @@ pccardread(Chan *c, void *a, long n, vlong offset)
 				Pcidev *pci = cb->pci->bridge;
 				int i;
 
-				while (pci) {
+				while (pci != nil) {
 					p = seprint(p, e, "%.4uX %.4uX; irq %d\n",
 							  pci->vid, pci->did, pci->intl);
-					for (i = 0; i != Nbars; i++)
+					for (i = 0; i < nelem(pci->mem); i++)
 						if (pci->mem[i].size)
 							p = seprint(p, e,
 									  "\tmem[%d] %.8ullX (%.8uX)\n",
@@ -1333,7 +1272,7 @@ pccardread(Chan *c, void *a, long n, vlong offset)
 					if (pci->rom.size)
 						p = seprint(p, e, "\tROM %.8ullX (%.8uX)\n",
 								  pci->rom.bar, pci->rom.size);
-					pci = pci->list;
+					pci = pci->link;
 				}
 			}
 			break;

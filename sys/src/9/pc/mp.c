@@ -351,13 +351,19 @@ Findbus:
 
 	if(bus == nil){
 		/*
-		 * if the PCI device is behind a PCI-PCI bridge thats not described
-		 * by the MP or ACPI tables then walk up the bus translating interrupt
-		 * pin to parent bus.
+		 * if the PCI device is behind a bridge thats not described
+		 * by the MP or ACPI tables then walk up the bus translating
+		 * interrupt pin to parent bus.
 		 */
 		if(pci != nil && pci->parent != nil && pin > 0){
-			pin = ((dno+(pin-1))%4)+1;
 			pci = pci->parent;
+			if(pci->ccrb == 6 && pci->ccru == 7){
+				/* Cardbus bridge, use controllers interrupt pin */
+				pin = pcicfgr8(pci, PciINTP);
+			} else {
+				/* PCI-PCI bridge */
+				pin = ((dno+(pin-1))%4)+1;
+			}
 			bno = BUSBNO(pci->tbdf);
 			dno = BUSDNO(pci->tbdf);
 			goto Findbus;

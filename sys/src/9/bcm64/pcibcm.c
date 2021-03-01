@@ -210,7 +210,7 @@ pcicfginit(void)
 
 	fmtinstall('T', tbdffmt);
 
-	pciscan(0, &pciroot);
+	pciscan(0, &pciroot, nil);
 	if(pciroot == nil)
 		return;
 

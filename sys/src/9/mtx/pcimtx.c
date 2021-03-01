@@ -67,7 +67,7 @@ pcicfginit(void)
 	list = &pciroot;
 	for(bno = 0; bno <= pcimaxbno; bno++) {
 		int sbno = bno;
-		bno = pciscan(bno, list);
+		bno = pciscan(bno, list, nil);
 
 		while(*list)
 			list = &(*list)->link;

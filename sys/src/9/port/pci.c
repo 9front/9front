@@ -18,8 +18,7 @@ struct Pcisiz
 int pcimaxdno;
 
 static Lock pcicfglock;
-static Pcidev* pcilist;
-static Pcidev* pcitail;
+static Pcidev *pcilist, **pcitail;
 
 static char* bustypes[] = {
 	"CBUSI",
@@ -66,6 +65,46 @@ tbdffmt(Fmt* fmt)
 			}
 		}
 	}
+}
+
+static Pcidev*
+pcidevalloc(void)
+{
+	Pcidev *p;
+
+	p = xalloc(sizeof(*p));
+	if(p == nil)
+		panic("pci: no memory for Pcidev");
+	return p;
+}
+
+void
+pcidevfree(Pcidev *p)
+{
+	Pcidev **l;
+
+	if(p == nil)
+		return;
+
+	while(p->bridge != nil)
+		pcidevfree(p->bridge);
+
+	if(p->parent != nil){
+		for(l = &p->parent->bridge; *l != nil; l = &(*l)->link) {
+			if(*l == p) {
+				*l = p->link;
+				break;
+			}
+		}
+	}
+	for(l = &pcilist; *l != nil; l = &(*l)->list) {
+		if(*l == p) {
+			if((*l = p->list) == nil)
+				pcitail = l;
+			break;
+		}
+	}
+	/* leaked */
 }
 
 int
@@ -135,12 +174,15 @@ pcibarsize(Pcidev *p, int rno)
 	pcicfgrw32(p->tbdf, rno, v, 0);
 	iunlock(&pcicfglock);
 
-	if(v & 1){
+	if(rno == PciEBAR0 || rno == PciEBAR1){
+		size &= ~0x7FF;
+	} else if(v & 1){
 		size = (short)size;
 		size &= ~3;
 	} else {
 		size &= ~0xF;
 	}
+
 	return -size;
 }
 
@@ -217,7 +259,7 @@ pcibusmap(Pcidev *root, uvlong *pmema, ulong *pioa, int wrreg)
 		ntb++;
 
 	ntb *= (PciCIS-PciBAR0)/4;
-	table = malloc(2*ntb*sizeof(Pcisiz));
+	table = malloc((2*ntb+1)*sizeof(Pcisiz));
 	if(table == nil)
 		panic("pcibusmap: can't allocate memory");
 	itb = table;
@@ -228,6 +270,22 @@ pcibusmap(Pcidev *root, uvlong *pmema, ulong *pioa, int wrreg)
 	 */
 	for(p = root; p != nil; p = p->link) {
 		if(p->ccrb == 0x06) {
+			/* carbus bridge? */
+			if(p->ccru == 0x07){
+				if(pcicfgr32(p, PciBAR0) & 1)
+					continue;
+				size = pcibarsize(p, PciBAR0);
+				if(size == 0)
+					continue;
+				mtb->dev = p;
+				mtb->bar = 0;
+				mtb->siz = size;
+				mtb->typ = 0;
+				mtb++;
+				continue;
+			}
+
+			/* pci bridge? */
 			if(p->ccru != 0x04 || p->bridge == nil)
 				continue;
 
@@ -252,7 +310,25 @@ pcibusmap(Pcidev *root, uvlong *pmema, ulong *pioa, int wrreg)
 			mtb->siz = hole;
 			mtb->typ = 0;
 			mtb++;
+
+			size = pcibarsize(p, PciEBAR1);
+			if(size != 0){
+				mtb->dev = p;
+				mtb->bar = -3;
+				mtb->siz = size;
+				mtb->typ = 0;
+				mtb++;
+			}
 			continue;
+		}
+
+		size = pcibarsize(p, PciEBAR0);
+		if(size != 0){
+			mtb->dev = p;
+			mtb->bar = -2;
+			mtb->siz = size;
+			mtb->typ = 0;
+			mtb++;
 		}
 
 		for(i = 0; i < nelem(p->mem); i++) {
@@ -321,6 +397,14 @@ pcibusmap(Pcidev *root, uvlong *pmema, ulong *pioa, int wrreg)
 			if(tptr->bar == -1) {
 				p->mema.bar = mema;
 				p->mema.size = tptr->siz;
+			} else if(tptr->bar == -2) {
+				p->rom.bar = mema|1;
+				p->rom.size = tptr->siz;
+				pcisetbar(p, PciEBAR0, p->rom.bar);
+			} else if(tptr->bar == -3) {
+				p->rom.bar = mema|1;
+				p->rom.size = tptr->siz;
+				pcisetbar(p, PciEBAR1, p->rom.bar);
 			} else {
 				p->mem[tptr->bar].size = tptr->siz;
 				p->mem[tptr->bar].bar = mema|tptr->typ;
@@ -409,10 +493,10 @@ pcivalidbar(Pcidev *p, uvlong bar, int size)
 	}
 }
 
-static int
-pcilscan(int bno, Pcidev** list, Pcidev *parent)
+int
+pciscan(int bno, Pcidev** list, Pcidev *parent)
 {
-	Pcidev *p, *head, *tail;
+	Pcidev *p, *head, **tail;
 	int dno, fno, i, hdt, l, maxfno, maxubn, rno, sbn, tbdf, ubn;
 
 	maxubn = bno;
@@ -437,18 +521,10 @@ pcilscan(int bno, Pcidev** list, Pcidev *parent)
 
 			if(l == 0xFFFFFFFF || l == 0)
 				continue;
-			p = malloc(sizeof(*p));
-			if(p == nil)
-				panic("pcilscan: can't allocate memory");
+			p = pcidevalloc();
 			p->tbdf = tbdf;
 			p->vid = l;
 			p->did = l>>16;
-
-			if(pcilist != nil)
-				pcitail->list = p;
-			else
-				pcilist = p;
-			pcitail = p;
 
 			p->pcr = pcicfgr16(p, PciPCR);
 			p->rid = pcicfgr8(p, PciRID);
@@ -502,20 +578,43 @@ pcilscan(int bno, Pcidev** list, Pcidev *parent)
 					}
 					rno += 4;
 				}
+
+				p->rom.bar = (ulong)pcicfgr32(p, PciEBAR0);
+				p->rom.size = pcibarsize(p, PciEBAR0);
 				break;
 
-			case 0x05:		/* memory controller */
 			case 0x06:		/* bridge device */
+				/* cardbus bridge? */
+				if(p->ccru == 0x07){
+					p->mem[0].bar = (ulong)pcicfgr32(p, PciBAR0);
+					p->mem[0].size = pcibarsize(p, PciBAR0);
+					break;
+				}
+
+				/* pci bridge? */
+				if(p->ccru != 0x04)
+					break;
+
+				p->rom.bar = (ulong)pcicfgr32(p, PciEBAR1);
+				p->rom.size = pcibarsize(p, PciEBAR1);
+				break;
+			case 0x05:		/* memory controller */
 			default:
 				break;
 			}
 
 			p->parent = parent;
 			if(head != nil)
-				tail->link = p;
+				*tail = p;
 			else
 				head = p;
-			tail = p;
+			tail = &p->link;
+
+			if(pcilist != nil)
+				*pcitail = p;
+			else
+				pcilist = p;
+			pcitail = &p->list;
 		}
 	}
 
@@ -529,6 +628,7 @@ pcilscan(int bno, Pcidev** list, Pcidev *parent)
 			if(p->ccru == 0x04)
 				break;
 		default:
+			/* check and clear invalid membars for non bridges */
 			for(i = 0; i < nelem(p->mem); i++) {
 				if(p->mem[i].size == 0)
 					continue;
@@ -540,7 +640,22 @@ pcilscan(int bno, Pcidev** list, Pcidev *parent)
 					pcisetbar(p, PciBAR0 + i*4, p->mem[i].bar);
 				}
 			}
+			if(p->rom.size) {
+				if((p->rom.bar & 1) == 0
+				|| !pcivalidbar(p, p->rom.bar & ~0x7FFUL, p->rom.size)){
+					p->rom.bar = 0;
+					pcisetbar(p, PciEBAR0, p->rom.bar);
+				}
+			}
 			continue;
+		}
+
+		if(p->rom.size) {
+			if((p->rom.bar & 1) == 0
+			|| !pcivalidbar(p, p->rom.bar & ~0x7FFULL, p->rom.size)){
+				p->rom.bar = 0;
+				pcisetbar(p, PciEBAR1, p->rom.bar);
+			}
 		}
 
 		/*
@@ -581,7 +696,7 @@ pcilscan(int bno, Pcidev** list, Pcidev *parent)
 			pcisetwin(p, 0xFFF00000|0, 0);
 			pcisetwin(p, 0xFFF00000|8, 0);
 
-			maxubn = pcilscan(sbn, &p->bridge, p);
+			maxubn = pciscan(sbn, &p->bridge, p);
 			l = (maxubn<<16)|(sbn<<8)|bno;
 
 			pcicfgw32(p, PciPBN, l);
@@ -635,17 +750,11 @@ pcilscan(int bno, Pcidev** list, Pcidev *parent)
 
 			if(ubn > maxubn)
 				maxubn = ubn;
-			pcilscan(sbn, &p->bridge, p);
+			pciscan(sbn, &p->bridge, p);
 		}
 	}
 
 	return maxubn;
-}
-
-int
-pciscan(int bno, Pcidev **list)
-{
-	return pcilscan(bno, list, nil);
 }
 
 void
@@ -720,6 +829,8 @@ pcilhinv(Pcidev* p)
 				continue;
 			print("%d:%.8llux %d ", i, t->mem[i].bar, t->mem[i].size);
 		}
+		if(t->rom.bar || t->rom.size)
+			print("rom:%.8llux %d ", t->rom.bar, t->rom.size);
 		if(t->ioa.bar || t->ioa.size)
 			print("ioa:%.8llux-%.8llux %d ", t->ioa.bar, t->ioa.bar+t->ioa.size, t->ioa.size);
 		if(t->mema.bar || t->mema.size)
