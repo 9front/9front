@@ -675,6 +675,16 @@ void docmd(Panel *p, char *s){
 		if(*s=='\0' && selection)
 			hit3(3, 0);
 		break;
+	case 'd':
+		s = arg(s);
+		if(*s){
+			s = smprint("https://duckduckgo.com/html/?q=%U", s);
+			if(s != nil)
+				geturl(s, -1, 0, 0);
+			free(s);
+		}else
+			message("Usage: d text");
+		break;
 	case 'g':
 		s = arg(s);
 		if(*s=='\0'){

@@ -132,6 +132,11 @@ The typed commands are:
 .B a
 Toggle alt display.
 .TP
+.BI d " text
+Search for the given
+.I text
+on the internet.
+.TP
 .BI g " url
 Go to the page with the given URL.
 .TP
