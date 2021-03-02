@@ -1,6 +1,5 @@
 #!/bin/rc
-window 0,0,161,117 stats -lmisce
 window -miny 130
-
+window 0,0,161,117 stats -lmisce
 # run a system shell on the serial console
 ~ $#console 0 || window -scroll console
