@@ -678,7 +678,7 @@ void docmd(Panel *p, char *s){
 	case 'd':
 		s = arg(s);
 		if(*s){
-			s = smprint("https://duckduckgo.com/html/?q=%U", s);
+			s = smprint("https://lite.duckduckgo.com/lite/?q=%U&kd=-1", s);
 			if(s != nil)
 				geturl(s, -1, 0, 0);
 			free(s);
