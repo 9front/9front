@@ -135,7 +135,7 @@ Toggle alt display.
 .BI d " text
 Search for the given
 .I text
-on the internet.
+at DuckDuckGo.
 .TP
 .BI g " url
 Go to the page with the given URL.
