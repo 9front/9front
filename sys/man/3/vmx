@@ -17,7 +17,7 @@ The
 .I vmx
 device supports "virtual CPUs" using the Intel VT-x extension (a.k.a. VMX instruction set).
 This is used by
-.IR vmx (3)
+.IR vmx (1)
 to implement virtual machines.
 Access to the
 .I vmx
