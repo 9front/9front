@@ -380,6 +380,7 @@ wctlcmd(Window *w, Rectangle r, int cmd, char *err)
 		} else { /* hidden */
 			if(eqrect(r, w->i->r))
 				return 1;
+			wuncurrent(w);
 			i = allocimage(display, r, w->i->chan, 0, DNofill);
 			r = ZR;
 		}
@@ -409,8 +410,9 @@ wctlcmd(Window *w, Rectangle r, int cmd, char *err)
 			strcpy(err, "window is hidden");
 			return -1;
 		}
-		wtopme(w);
 		wcurrent(w);
+		wtopme(w);
+		wsendctlmesg(w, Topped, ZR, nil);
 		return 1;
 	case Hide:
 		switch(whide(w)){

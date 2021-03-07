@@ -530,8 +530,10 @@ mousethread(void*)
 				else
 					i = drag(winput);
 				sweeping = FALSE;
-				if(i != nil)
+				if(i != nil){
+					wcurrent(winput);
 					wsendctlmesg(winput, Reshaped, i->r, i);
+				}
 				wclose(winput);
 				continue;
 			}
@@ -616,9 +618,10 @@ resized(void)
 		if(j < nhidden){
 			im = allocimage(display, r, screen->chan, 0, DNofill);
 			r = ZR;
-		} else
+		} else {
 			im = allocwindow(wscreen, r, Refbackup, DNofill);
-		if(im)
+		}
+		if(im!=nil)
 			wsendctlmesg(w, Reshaped, r, im);
 		wclose(w);
 	}
@@ -1001,7 +1004,7 @@ delete(void)
 	Window *w;
 
 	w = pointto(TRUE);
-	if(w)
+	if(w!=nil)
 		wsendctlmesg(w, Deleted, ZR, nil);
 }
 
@@ -1016,8 +1019,10 @@ resize(void)
 		return;
 	incref(w);
 	i = sweep();
-	if(i)
+	if(i!=nil){
+		wcurrent(w);
 		wsendctlmesg(w, Reshaped, i->r, i);
+	}
 	wclose(w);
 }
 
@@ -1032,8 +1037,10 @@ move(void)
 		return;
 	incref(w);
 	i = drag(w);
-	if(i)
+	if(i!=nil){
+		wcurrent(w);
 		wsendctlmesg(w, Reshaped, i->r, i);
+	}
 	wclose(w);
 }
 
@@ -1049,8 +1056,9 @@ whide(Window *w)
 	if(nhidden >= nelem(hidden))
 		return 0;
 	incref(w);
+	wuncurrent(w);
 	i = allocimage(display, w->screenr, w->i->chan, 0, DNofill);
-	if(i){
+	if(i!=nil){
 		hidden[nhidden++] = w;
 		wsendctlmesg(w, Reshaped, ZR, i);
 	}
@@ -1070,8 +1078,9 @@ wunhide(Window *w)
 	if(j == nhidden)
 		return -1;	/* not hidden */
 	incref(w);
+	wcurrent(w);
 	i = allocwindow(wscreen, w->i->r, Refbackup, DNofill);
-	if(i){
+	if(i!=nil){
 		--nhidden;
 		memmove(hidden+j, hidden+j+1, (nhidden-j)*sizeof(Window*));
 		wsendctlmesg(w, Reshaped, w->i->r, i);
@@ -1109,8 +1118,9 @@ unhide(int j)
 	for(j=0; j<nwindow; j++)
 		if(window[j] == w){
 			incref(w);
-			wtopme(w);
 			wcurrent(w);
+			wtopme(w);
+			wsendctlmesg(w, Topped, ZR, nil);
 			wclose(w);
 			return;
 		}
