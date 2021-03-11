@@ -45,7 +45,7 @@ func0(ulong)
 	((ulong *) buf)[0] = r.bx;
 	((ulong *) buf)[1] = r.dx;
 	((ulong *) buf)[2] = r.cx;
-	buf[13] = 0;
+	buf[12] = 0;
 	Bprint(out, "vendor %s\n", buf);
 }
 
