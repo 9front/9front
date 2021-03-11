@@ -15,6 +15,7 @@ enum {
 	Sdummy	= 1<<0,	/* message placeholder */
 	Stoplev	= 1<<1,	/* not a response to anything */
 	Sopen	= 1<<2,	/* opened for viewing */
+	Szap	= 1<<3, /* flushed, to be removed from list */
 };
 
 enum {

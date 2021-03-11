@@ -144,7 +144,7 @@ mesglineno(Mesg *msg, int *depth)
 				break;
 			o += p->child[i]->nsub + 1;
 		}
-		if(!(p->state & Sdummy)){
+		if(!(p->state & (Sdummy|Szap))){
 			o++;
 			d++;
 		}
@@ -157,7 +157,7 @@ mesglineno(Mesg *msg, int *depth)
 			break;
 		if(m->state & Stoplev){
 			n += mbox.mesg[i]->nsub;
-			if(!(m->state & Sdummy))
+			if(!(m->state & (Sdummy|Szap)))
 				n++;
 		}
 
@@ -679,38 +679,43 @@ mbflush(char **, int)
 	char *path;
 	Mesg *m, *p;
 
-	i = 0;
 	path = estrjoin(maildir, "/ctl", nil);
 	fd = open(path, OWRITE);
 	free(path);
 	if(fd == -1)
 		sysfatal("open mbox: %r");
-	while(i < mbox.nmesg){
+	for(i = 0; i < mbox.nmesg; i++){
 		m = mbox.mesg[i];
-		if((m->state & Sopen) || !(m->flags & (Fdel|Ftodel))){
-			i++;
+		p = m->parent;
+		if(m->state & (Sopen|Szap) || (m->flags & (Fdel|Ftodel)) == 0)
 			continue;
-		}
+
 		ln = mesglineno(m, nil);
 		fprint(mbox.addr, "%d,%d", ln, ln+m->nsub);
 		write(mbox.data, "", 0);
 		if(m->flags & Ftodel)
 			fprint(fd, "delete %s %d", mailbox, atoi(m->name));
 
-		p = m->parent;
 		removeid(m);
+		m->state |= Szap;
 		if(p == nil && m->nsub != 0){
 			p = placeholder(m->messageid, m->time, 1);
 			p->nsub = m->nsub + 1;
-			mbox.mesg[i] = p;
 		}
 		if(p != nil)
 			relinkmsg(p, m);
 		for(j = 0; j < m->nchild; j++)
 			mbredraw(m->child[j], 1, 1);
-		memmove(&mbox.mesg[i], &mbox.mesg[i+1], (mbox.nmesg - i)*sizeof(Mesg*));
-		mbox.nmesg--;
  	}
+
+	for(i = 0, j = 0; i < mbox.nmesg; i++){
+		m = mbox.mesg[i];
+		if((m->state & Szap) != 0)
+			mesgfree(m);
+		else
+			mbox.mesg[j++] = m;
+	}
+		
 	close(fd);
 	fprint(mbox.ctl, "clean\n");
 }
