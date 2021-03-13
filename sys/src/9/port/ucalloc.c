@@ -119,7 +119,7 @@ ucfree(void* v)
 }
 
 void*
-ucallocalign(usize size, int align, int span)
+ucallocalign(usize size, int align, usize span)
 {
 	void *v;
 
