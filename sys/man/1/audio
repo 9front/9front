@@ -295,7 +295,7 @@ specifies the number of bits
 unsigned little-endian integer format
 .TP
 .BI S #
-singed big-endian integer format
+signed big-endian integer format
 .TP
 .BI U #
 unsigned big-endian integer format
