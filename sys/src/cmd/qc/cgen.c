@@ -109,6 +109,8 @@ cgen(Node *n, Node *nn)
 				regalloc(&nod, r, nn);
 				cgen(r, &nod);
 				gmove(&nod, l);
+				if(nn != Z)
+					gmove(&nod, nn);
 				regfree(&nod);
 			} else
 				gmove(r, l);
@@ -131,6 +133,8 @@ cgen(Node *n, Node *nn)
 			reglcgen(&nod1, l, Z);
 		}
 		gmove(&nod, &nod1);
+		if(nn != Z)
+			gmove(&nod, nn);
 		regfree(&nod);
 		regfree(&nod1);
 		break;

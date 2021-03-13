@@ -112,6 +112,8 @@ cgen(Node *n, Node *nn)
 		if(l->complex >= r->complex) {
 			if(l->op == OINDEX && immconst(r)) {
 				gmove(r, l);
+				if(nn != Z)
+					gmove(r, nn);
 				break;
 			}
 			reglcgen(&nod1, l, Z);
@@ -130,6 +132,8 @@ cgen(Node *n, Node *nn)
 			reglcgen(&nod1, l, Z);
 		}
 		gmove(&nod, &nod1);
+		if(nn != Z)
+			gmove(&nod, nn);
 		regfree(&nod);
 		regfree(&nod1);
 		break;

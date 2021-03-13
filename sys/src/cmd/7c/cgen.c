@@ -128,6 +128,8 @@ cgenrel(Node *n, Node *nn, int inrel)
 			reglcgen(&nod1, l, Z);
 		}
 		gmove(&nod, &nod1);
+		if(nn != Z)
+			gmove(&nod, nn);
 		regfree(&nod);
 		regfree(&nod1);
 		break;
@@ -267,7 +269,8 @@ cgenrel(Node *n, Node *nn, int inrel)
 			gopcode(OAS, &nod2, Z, &nod);
 			gopcode(o, r, Z, &nod);
 			gopcode(OAS, &nod, Z, &nod2);
-	
+			if(nn != Z)
+				gmove(&nod, nn);
 			regfree(&nod);
 			if(l->addable < INDEXED)
 				regfree(&nod2);
@@ -528,6 +531,8 @@ cgenrel(Node *n, Node *nn, int inrel)
 
 		regalloc(&nod, l, nn);
 		gopcode(OAS, &nod2, Z, &nod);
+		if(nn != Z)
+			gmove(&nod, nn);
 		regalloc(&nod1, l, Z);
 		if(typefd[l->type->etype]) {
 			regalloc(&nod3, l, Z);
@@ -580,9 +585,11 @@ cgenrel(Node *n, Node *nn, int inrel)
 		} else
 			gopcode(OADD, nodconst(v), Z, &nod);
 		gopcode(OAS, &nod, Z, &nod2);
-		if(nn && l->op == ONAME)	/* in x=++i, emit USED(i) */
-			gins(ANOP, l, Z);
-
+		if(nn != Z){
+			gmove(&nod, nn);
+			if(l->op == ONAME)	/* in x=++i, emit USED(i) */
+				gins(ANOP, l, Z);
+		}
 		regfree(&nod);
 		if(l->addable < INDEXED)
 			regfree(&nod2);
