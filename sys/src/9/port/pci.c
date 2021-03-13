@@ -642,7 +642,7 @@ pciscan(int bno, Pcidev** list, Pcidev *parent)
 			}
 			if(p->rom.size) {
 				if((p->rom.bar & 1) == 0
-				|| !pcivalidbar(p, p->rom.bar & ~0x7FFUL, p->rom.size)){
+				|| !pcivalidbar(p, p->rom.bar & ~0x7FFULL, p->rom.size)){
 					p->rom.bar = 0;
 					pcisetbar(p, PciEBAR0, p->rom.bar);
 				}
