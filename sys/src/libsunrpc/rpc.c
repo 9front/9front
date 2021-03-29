@@ -428,8 +428,9 @@ sunStringUnpack(uchar *a, uchar *ea, uchar **pa, char **s, u32int max)
 		goto Err;
 	/* slide string down over length to make room for NUL */
 	memmove(dat-1, dat, n);
-	dat[-1+n] = 0;
-	*s = (char*)(dat-1);
+	dat--;
+	dat[n] = 0;
+	*s = (char*)dat;
 	return 0;
 Err:
 	return -1;
