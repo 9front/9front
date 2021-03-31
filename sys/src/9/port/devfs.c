@@ -117,11 +117,9 @@ static int qidvers;
 static char *disk;		/* default tree name used */
 static char *source;		/* default inner device used */
 static int sectorsz = Sectorsz;	/* default sector size */
-static char confstr[Maxconf];	/* textual configuration */
+static char *confstr;		/* textual configuration */
 
 static int debug;
-
-static char cfgstr[] = "fsdev:\n";
 
 static Qid tqid = {Qtop, 0, QTDIR};
 static Qid cqid = {Qctl, 0, 0};
@@ -178,6 +176,36 @@ seprintdev(char *s, char *e, Fsdev *mp)
 		panic("#k: seprintdev bug");
 	}
 	return s;
+}
+
+static char*
+seprintconf(char *s, char *e)
+{
+	int	i, j;
+	Tree	*t;
+
+	*s = 0;
+	for(i = 0; i < ntrees; i++){
+		t = trees[i];
+		if(t != nil)
+			for(j = 0; j < t->nadevs; j++)
+				if(t->devs[j] != nil)
+					s = seprintdev(s, e, t->devs[j]);
+	}
+	return s;
+}
+
+/* called with lck w */
+static void
+setconfstr(void)
+{
+	char *s;
+
+	s = confstr;
+	if(s == nil)
+		s = smalloc(Maxconf);
+	seprintconf(s, s+Maxconf);
+	confstr = s;
 }
 
 static vlong
@@ -405,6 +433,8 @@ Again:
 			}
 		}
 	}
+	if(some)
+		setconfstr();
 	wunlock(&lck);
 	if(some == 0 && alltrees == 0)
 		error(Enonexist);
@@ -560,7 +590,11 @@ mconfig(char* a, long n)
 	Tree	*t;
 
 	/* ignore comments & empty lines */
-	if (*a == '\0' || *a == '#' || *a == '\n')
+	if (n < 1 || *a == '\0' || *a == '#' || *a == '\n')
+		return;
+
+	/* ignore historical config signature */
+	if (n >= 6 && memcmp(a, "fsdev:", 6) == 0)
 		return;
 
 	dprint("mconfig\n");
@@ -722,8 +756,9 @@ Fail:
 	}
 	setdsize(mp, ilen);
 
-	poperror();
+	setconfstr();
 	wunlock(&lck);
+	poperror();
 	free(idev);
 	free(ilen);
 	free(cb);
@@ -732,21 +767,30 @@ Fail:
 static void
 rdconf(void)
 {
-	int mustrd;
 	char *c, *e, *p, *s;
 	Chan *cc;
-	static int configed;
+	int mustrd;
 
 	/* only read config file once */
-	if (configed)
+	if (confstr != nil)
 		return;
-	configed = 1;
+
+	wlock(&lck);
+	if (confstr != nil) {
+		wunlock(&lck);
+		return;	/* already done */
+	}
+
+	/* add the std "fs" tree */
+	if(ntrees == 0){
+		fstree.name = "fs";
+		trees[ntrees++] = &fstree;
+	}
+
+	setconfstr();
+	wunlock(&lck);
 
 	dprint("rdconf\n");
-	/* add the std "fs" tree */
-	trees[0] = &fstree;
-	ntrees++;
-	fstree.name = "fs";
 
 	/* identify the config file */
 	s = getconf("fsconfig");
@@ -756,7 +800,9 @@ rdconf(void)
 	} else
 		mustrd = 1;
 
+	c = smalloc(Maxconf+1);
 	if(waserror()){
+		free(c);
 		if(!mustrd)
 			return;
 		nexterror();
@@ -768,23 +814,12 @@ rdconf(void)
 		cclose(cc);
 		nexterror();
 	}
-	devtab[cc->type]->read(cc, confstr, sizeof confstr, 0);
-	poperror();
+	devtab[cc->type]->read(cc, c, Maxconf, 0);
 	cclose(cc);
+	poperror();
 
-	/* validate, copy and erase config; mconfig will repopulate confstr */
-	if (strncmp(confstr, cfgstr, sizeof cfgstr - 1) != 0)
-		error("bad #k config, first line must be: 'fsdev:\\n'");
-
-	c = nil;
-	kstrdup(&c, confstr + sizeof cfgstr - 1);
-	if(waserror()){
-		free(c);
-		nexterror();
-	}
-	memset(confstr, 0, sizeof confstr);
 	/* process config copy one line at a time */
-	for (p = c; p != nil && *p != '\0'; p = e){
+	for (p = c; *p != '\0'; p = e){
 		e = strchr(p, '\n');
 		if (e == nil)
 			e = p + strlen(p);
@@ -792,10 +827,9 @@ rdconf(void)
 			e++;
 		mconfig(p, e - p);
 	}
-	poperror();
-	free(c);
 
-	poperror();	/* mustrd */
+	free(c);
+	poperror();	/* c */
 }
 
 static int
@@ -1138,23 +1172,6 @@ interio(Fsdev *mp, int isread, void *a, long n, vlong off)
 	return res;
 }
 
-static char*
-seprintconf(char *s, char *e)
-{
-	int	i, j;
-	Tree	*t;
-
-	*s = 0;
-	for(i = 0; i < ntrees; i++){
-		t = trees[i];
-		if(t != nil)
-			for(j = 0; j < t->nadevs; j++)
-				if(t->devs[j] != nil)
-					s = seprintdev(s, e, t->devs[j]);
-	}
-	return s;
-}
-
 static long
 mread(Chan *c, void *a, long n, vlong off)
 {
@@ -1175,7 +1192,6 @@ mread(Chan *c, void *a, long n, vlong off)
 		goto Done;
 	}
 	if(c->qid.path == Qctl){
-		seprintconf(confstr, confstr + sizeof(confstr));
 		res = readstr((long)off, a, n, confstr);
 		goto Done;
 	}
