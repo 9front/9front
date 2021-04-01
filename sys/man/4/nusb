@@ -60,7 +60,7 @@ upon attachment of the device to the bus. All drivers except
 .I usbd
 take the decimal usb 
 .I devid
-of the device they should handle as ther last argument. A
+of the device they should handle as their last argument. A
 driver's instance handles only one device at a time.
 .PP
 Drivers that provide file systems make them available as shares under
@@ -181,6 +181,9 @@ explicit
 such as
 .BR rndis ,
 .BR smsc ,
+.BR url ,
+.BR lan78xx ,
+.BR aue ,
 .BR a88772
 or
 .BR a88178
