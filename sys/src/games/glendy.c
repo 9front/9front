@@ -386,7 +386,7 @@ nextglenda(void)
 			nextdir = (nrand(++count) == 0)?dir:nextdir;
 		}
 	}
-	if(min < 100)
+	if(min <= 100)
 		domove(nextdir, p.x, p.y);
 	else
 		finished = Won;
@@ -459,7 +459,6 @@ main(int argc, char **argv)
 	Mouse m;
 	Event ev;
 	int e, mousedown=0;
-	char *fontname;
 
 	USED(argv, argc);
 
@@ -474,10 +473,6 @@ main(int argc, char **argv)
 	allocimages();
 	initlevel();	/* must happen before "eresized" */
 	eresized(0);
-
-	fontname = "/lib/font/bit/lucidasans/unicode.8.font";
-	if((font = openfont(display, fontname)) == nil)
-		sysfatal("font '%s' not found", fontname);	
 
 	for(;;) {
 		e = event(&ev);

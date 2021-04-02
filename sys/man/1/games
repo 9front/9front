@@ -200,7 +200,9 @@ and
 add gibberish diagrams, equations and tables.
 .TP
 .B glendy
-Don't let the rabbit escape.
+Don't let the rabbit escape. Button 2 presents a menu that you
+can set the difficulty level from. Button 3 presents a menu
+that you can either play a new game, reset the game or exit.
 .TP
 .B juggle
 Display the juggling
