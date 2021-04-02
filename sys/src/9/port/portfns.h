@@ -213,6 +213,7 @@ Rgrp*		newrgrp(void);
 Proc*		newproc(void);
 void		nexterror(void);
 int		notify(Ureg*);
+ulong		nkpages(Confmem*);
 uvlong		ns2fastticks(uvlong);
 int		okaddr(uintptr, ulong, int);
 int		openmode(ulong);

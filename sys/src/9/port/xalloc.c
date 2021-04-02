@@ -43,10 +43,8 @@ void
 xinit(void)
 {
 	ulong maxpages, kpages, n;
-	uintptr size;
-	Confmem *m;
-	Pallocmem *pm;
 	Hole *h, *eh;
+	Confmem *cm;
 	int i;
 
 	eh = &xlists.hole[Nhole-1];
@@ -57,36 +55,28 @@ xinit(void)
 
 	kpages = conf.npage - conf.upages;
 
-	pm = palloc.mem;
 	for(i=0; i<nelem(conf.mem); i++){
-		m = &conf.mem[i];
-		n = m->npage;
+		cm = &conf.mem[i];
+		n = cm->npage;
 		if(n > kpages)
 			n = kpages;
 		/* don't try to use non-KADDR-able memory for kernel */
-		maxpages = cankaddr(m->base)/BY2PG;
+		maxpages = cankaddr(cm->base)/BY2PG;
 		if(n > maxpages)
 			n = maxpages;
-		size = (uintptr)n*BY2PG;
-		/* first give to kernel */
+		/* give to kernel */
 		if(n > 0){
-			m->kbase = (uintptr)KADDR(m->base);
-			m->klimit = (uintptr)m->kbase+size;
-			if(m->klimit == 0)
-				m->klimit = (uintptr)-BY2PG;
-			xhole(m->base, m->klimit - m->kbase);
+			cm->kbase = (uintptr)KADDR(cm->base);
+			cm->klimit = (uintptr)cm->kbase+(uintptr)n*BY2PG;
+			if(cm->klimit == 0)
+				cm->klimit = (uintptr)-BY2PG;
+			xhole(cm->base, cm->klimit - cm->kbase);
 			kpages -= n;
 		}
-		/* if anything left over, give to user */
-		if(n < m->npage){
-			if(pm >= palloc.mem+nelem(palloc.mem)){
-				print("xinit: losing %lud pages\n", m->npage-n);
-				continue;
-			}
-			pm->base = m->base+size;
-			pm->npage = m->npage - n;
-			pm++;
-		}
+		/*
+		 * anything left over: cm->npage - nkpages(cm)
+		 * will be given to user by pageinit()
+		 */
 	}
 	xsummary();
 }

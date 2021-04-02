@@ -25,7 +25,6 @@ typedef struct Note	Note;
 typedef struct Page	Page;
 typedef struct Path	Path;
 typedef struct Palloc	Palloc;
-typedef struct Pallocmem	Pallocmem;
 typedef struct Perf	Perf;
 typedef struct PhysUart	PhysUart;
 typedef struct Pgrp	Pgrp;
@@ -519,12 +518,6 @@ enum
 	DELTAFD	= 20		/* incremental increase in Fgrp.fd's */
 };
 
-struct Pallocmem
-{
-	uintptr	base;
-	ulong	npage;
-};
-
 struct Palloc
 {
 	Lock;
@@ -533,7 +526,6 @@ struct Palloc
 	Page	*pages;			/* array of all pages */
 	ulong	user;			/* how many user pages */
 	Rendezq		pwait[2];	/* Queues of procs waiting for memory */
-	Pallocmem	mem[16];	/* physical user page banks */
 };
 
 struct Waitq

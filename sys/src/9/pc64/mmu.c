@@ -652,16 +652,16 @@ patwc(void *a, int n)
 void
 preallocpages(void)
 {
-	Pallocmem *pm;
+	Confmem *cm;
 	uintptr va, base, top;
 	vlong tsize, psize;
 	ulong np, nt;
 	int i;
 
 	np = 0;
-	for(i=0; i<nelem(palloc.mem); i++){
-		pm = &palloc.mem[i];
-		np += pm->npage;
+	for(i=0; i<nelem(conf.mem); i++){
+		cm = &conf.mem[i];
+		np += cm->npage - nkpages(cm);
 	}
 	nt = np / 50;	/* 2% for mmupool */
 	np -= nt;
@@ -676,16 +676,19 @@ preallocpages(void)
 	psize += tsize;
 	psize = ROUND(psize, PGLSZ(1));
 
-	for(i=0; i<nelem(palloc.mem); i++){
-		pm = &palloc.mem[i];
-		base = ROUND(pm->base, PGLSZ(1));
-		top = pm->base + (uvlong)pm->npage * BY2PG;
-		if((base + psize) <= VMAPSIZE && (vlong)(top - base) >= psize){
-			pm->base = base + psize;
-			pm->npage = (top - pm->base)/BY2PG;
+	for(i=0; i<nelem(conf.mem); i++){
+		cm = &conf.mem[i];
+		base = cm->base;
+		top = base + (uvlong)cm->npage * BY2PG;
+		base += (uvlong)nkpages(cm) * BY2PG;
+		top &= -PGLSZ(1);
+		if(top <= VMAPSIZE && (vlong)(top - base) >= psize){
+			/* steal memory from the end of the bank */
+			top -= psize;
+			cm->npage = (top - cm->base) / BY2PG;
 
-			va = base + VMAP;
-			pmap(base | PTEGLOBAL|PTEWRITE|PTENOEXEC|PTEVALID, va, psize);
+			va = top + VMAP;
+			pmap(top | PTEGLOBAL|PTEWRITE|PTENOEXEC|PTEVALID, va, psize);
 
 			palloc.pages = (void*)(va + tsize);
 

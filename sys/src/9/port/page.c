@@ -7,21 +7,27 @@
 
 Palloc palloc;
 
+ulong
+nkpages(Confmem *cm)
+{
+	return ((cm->klimit - cm->kbase) + BY2PG-1) / BY2PG;
+}
+
 void
 pageinit(void)
 {
 	int color, i, j;
 	Page *p, **t;
-	Pallocmem *pm;
+	Confmem *cm;
 	vlong m, v, u;
 
 	if(palloc.pages == nil){
 		ulong np;
 
 		np = 0;
-		for(i=0; i<nelem(palloc.mem); i++){
-			pm = &palloc.mem[i];
-			np += pm->npage;
+		for(i=0; i<nelem(conf.mem); i++){
+			cm = &conf.mem[i];
+			np += cm->npage - nkpages(cm);
 		}
 		palloc.pages = xalloc(np*sizeof(Page));
 		if(palloc.pages == nil)
@@ -35,11 +41,11 @@ pageinit(void)
 	t = &palloc.head;
 	p = palloc.pages;
 
-	for(i=0; i<nelem(palloc.mem); i++){
-		pm = &palloc.mem[i];
-		for(j=0; j<pm->npage; j++){
+	for(i=0; i<nelem(conf.mem); i++){
+		cm = &conf.mem[i];
+		for(j=nkpages(cm); j<cm->npage; j++){
 			memset(p, 0, sizeof *p);
-			p->pa = pm->base+j*BY2PG;
+			p->pa = cm->base+j*BY2PG;
 			if(cankaddr(p->pa) && (KADDR(p->pa) == nil || KADDR(p->pa) == (void*)-BY2PG))
 				continue;
 			p->color = color;
