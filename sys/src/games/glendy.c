@@ -45,17 +45,17 @@ Image	*won;
 
 char *mbuttons[] = 
 {
-	"easy",
-	"medium",
-	"hard",
+	"Easy",
+	"Medium",
+	"Hard",
 	0
 };
 
 char *rbuttons[] = 
 {
-	"new",
-	"reset",
-	"exit",
+	"New",
+	"Reset",
+	"Exit",
 	0
 };
 
@@ -386,7 +386,7 @@ nextglenda(void)
 			nextdir = (nrand(++count) == 0)?dir:nextdir;
 		}
 	}
-	if(min <= 100)
+	if(min < 100 || min == 999)
 		domove(nextdir, p.x, p.y);
 	else
 		finished = Won;
