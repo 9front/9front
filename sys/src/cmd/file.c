@@ -962,6 +962,8 @@ iff(void)
 			print("%s\n", mime? "audio/wave": "wave audio");
 		else if (strncmp((char*)buf+8, "AVI ", 4) == 0)
 			print("%s\n", mime? "video/avi": "avi video");
+		else if (strncmp((char*)buf+8, "WEBP", 4) == 0)
+			print("%s\n", mime? "image/webp": "webp image");
 		else
 			print("%s\n", mime? OCTET : "riff file");
 		return 1;
