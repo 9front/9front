@@ -2,6 +2,7 @@
 #include <libc.h>
 #include <bio.h>
 #include <String.h>
+#include <fcall.h>
 
 int Cflag = 0;
 int uflag = 0;
@@ -70,7 +71,7 @@ dofile(char *path, Dir *f, int pathonly)
 			break;
 		case 'q': Bprint(bout, "%ullx.%uld.%.2uhhx", f->qid.path, f->qid.vers, f->qid.type); break;
 		case 's': Bprint(bout, "%lld", f->length); break;
-		case 'x': Bprint(bout, "%ulo", f->mode); break;
+		case 'x': Bprint(bout, "%M", f->mode); break;
 
 		/* These two  are slightly different, as they tell us about the fileserver instead of the file */
 		case 'D': Bprint(bout, "%ud", f->dev); break;
@@ -249,6 +250,8 @@ main(int argc, char **argv)
 	default:
 		usage();
 	}ARGEND;
+
+	fmtinstall('M', dirmodefmt);
 
 	if((bout = Bfdopen(1, OWRITE)) == nil)
 		sysfatal("Bfdopen: %r");

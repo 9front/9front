@@ -123,8 +123,6 @@ walk -fn1 -esp
 .IR ls (1),
 .IR du (1)
 .SH BUGS
-Statfmt character `x' displays permissions as an integer.
-.PP
 Manipulating ifs is a nuisance.
 .PP
 File names are assumed to not contain newlines.
