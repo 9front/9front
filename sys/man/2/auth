@@ -269,7 +269,7 @@ take a pointer to a routine,
 .IR getkey ,
 to invoke should
 .I factotum
-not posess a key for the authentication.  If
+not possess a key for the authentication.  If
 .I getkey
 is nil, the authentication fails.
 .I Getkey

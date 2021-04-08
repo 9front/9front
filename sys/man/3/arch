@@ -144,7 +144,7 @@ Reads from
 .I acpitbls
 return a concatenation of system ACPI tables. Each table
 is prefixed with a fixed size header that gives the name
-sigature and size of the table (see section
+signature and size of the table (see section
 .IR "5.2.6 System Description Table Header"
 in the ACPI specification).
 .SH EXAMPLE
