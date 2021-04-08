@@ -33,12 +33,11 @@ if(! nusb/usbd)
 			switch($4){
 			case *03
 				nusb/kb $id
+			case ff0202
+				nusb/ether -t rndis $etherargs $id
 			case *02
-				# RNDIS, otherwise CDC ethernet
-				if(~ $4 ff0202)
-					nusb/ether -t rndis $etherargs $id
-				if not
-					nusb/ether $etherargs $id
+				# CDC ethernet
+				nusb/ether $etherargs $id
 			case *08
 				if(nusb/disk $id) @{
 					rfork ne

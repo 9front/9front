@@ -13,6 +13,8 @@ if(! bind -a '#u' /dev)
 		switch($4){
 		case *01
 			nusb/audio $id
+		case ff0202
+			# RNDIS; handled by /sys/src/9/boot/nusbrc
 		case *02
 			# serial and ethernet
 			nusb/serial $id
