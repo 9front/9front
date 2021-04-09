@@ -1,46 +1,63 @@
-.ds dF /usr/lib/font
-.ds dQ /usr/lib/postscript
-.TH TROFFTABLE 1 "DWB 3.2"
+.ds dF /sys/lib/troff/font
+.ds dQ /sys/lib/postscript/prologues
+.TH TROFFTABLE 1
 .SH NAME
-.B trofftable
-\- output a PostScript program that builds a font width table
+trofftable \- output a PostScript program that builds a font width table
 .SH SYNOPSIS
-\*(mBtrofftable\f1
-.OP "" options []
-.OP "" shortname
-.OP "" longname []
-.SH DESCRIPTION
 .B trofftable
+[
+.B -t
+.I name
+] [
+.B -C
+.I file
+] [
+.B -H
+.I hostdir
+] [
+.B -L
+.I file
+] [
+.B -S
+.I file
+] [
+.B -T
+.I name
+]
+.I shortname
+[
+.I longname
+]
+.SH DESCRIPTION
+.I Trofftable
 writes a PostScript program on the standard output that builds a
 font width table or typesetter description file.
-The following
-.I options
-are understood:
-.TP 1.0i
-.OP \-t name
+The following options are understood:
+.TP
+.BI -t " name"
 Use
 .I name
 as the template for fonts not in the default set.
 Choose
-.MW R
+.B R
 for proportionally spaced fonts and
-.MW CW
+.B CW
 for fixed width fonts.
 Try
-.MW ZD
+.B ZD
 (ZapfDingbats) if the font has a non-standard
 character set.
 The default is
-.MR R .
-.TP 1.0i
-.OP \-C file
+.BR R .
+.TP
+.BI -C " file"
 Copy
 .I file
 into each PostScript table program;
 .I file
 must contain legitimate PostScript.
-.TP 1.0i
-.OP \-H hostdir
+.TP
+.BI -H " hostdir"
 Use
 .I hostdir
 as the host resident font directory.
@@ -50,55 +67,55 @@ that matches the name of the troff font is assumed to be a host
 resident font program and is included in the PostScript width
 table program.
 There is no default.
-.TP 1.0i
-.OP \-L file
+.TP
+.BI -L " file"
 Use
 .I file
 as the PostScript prologue.
 .br
 The default is
-.MW \*(dQ/trofftable.ps
-.TP 1.0i
-.OP \-S file
+.B \*(dQ/trofftable.ps
+.TP
+.BI -S " file"
 Use
 .I file
 as the shell library file.
 Overrides the choice made with the
-.OP \-T
+.B -T
 option.
-.TP 1.0i
-.OP \-T name
+.TP
+.BI -T " name"
 Set the target device to
 .IR name .
 Device
 .I name
 means
 .br
-.MI \*(dF/dev name /shell.lib
+.BI \*(dF/dev name /shell.lib
 is the shell library file.
 There is no default.
 .PP
 One of
-.OP \-T
+.B -T
 or
-.OP \-S
+.B -S
 is required.
 If both are given
-.OP \-S
+.B -S
 wins.
 Either
-.OP \-H
+.B -H
 or
-.OP \-C
+.B -C
 can be used to include a host resident font.
 .PP
 The shell library file defines a collection of functions used to
 build troff tables.
 The default set of tables is the list of names returned by the
-.MW AllTables
+.B AllTables
 function.
 Changes to the default list can be made by updating the
-.MW BuiltinTables
+.B BuiltinTables
 function.
 .PP
 .I Shortname
@@ -112,16 +129,16 @@ can be omitted only if
 .I shortname
 is a default table name.
 PostScript table programs created by
-.B trofftable
+.I trofftable
 return data to the host computer using PostScript's
-.MW print
+.B print
 operator.
 See
-.BR hardcopy (1)
+.IR hardcopy (1)
 if you don't have access to the printer's serial port.
 .SH EXAMPLES
 Get the PostScript program that builds a width table for font
-.MR R :
+.BR R :
 .EX
 trofftable -Tpost R >R.ps
 .EE
@@ -133,32 +150,32 @@ trofftable -TLatin1 GL Garamond-Light >GL.ps
 .EE
 A font must be available on the printer when the table is built.
 Use
-.OP \-H
+.B -H
 or
-.OP \-C
+.B -C
 to include host resident fonts.
 .SH WARNINGS
 A width table will not build properly if the printer cannot access
 the PostScript font.
 .PP
 The
-.OP -TLatin1
+.B -TLatin1
 option only works on PostScript printers that support the full
 .SM ISO
 Latin-1 character set.
 The error message from older printers will likely indicate a missing
-.MW ISOLatin1Encoding
+.B ISOLatin1Encoding
 array.
 .SH FILES
-.MW \*(dF/dev*/shell.lib
+.B \*(dF/dev*/shell.lib
 .br
-.MW \*(dQ/dpost.ps
+.B \*(dQ/dpost.ps
 .br
-.MW \*(dQ/trofftable.ps
+.B \*(dQ/trofftable.ps
 .SH SEE ALSO
-.BR dpost (1),
-.BR hardcopy (1),
-.BR postio (1),
-.BR troff (1),
-.BR buildtables (1),
-.BR font (5)
+.IR dpost (1),
+.IR hardcopy (1),
+.IR postio (1),
+.IR troff (1),
+.IR buildtables (1),
+.IR font (5)

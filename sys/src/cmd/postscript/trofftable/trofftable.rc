@@ -5,6 +5,8 @@
 # serial port. Try hardcopy if you don't have access to the port.
 #
 
+rfork e
+
 POSTLIB=/sys/lib/postscript/prologues
 FONTDIR=/sys/lib/troff/font
 
@@ -15,7 +17,7 @@ COPYFILE=()
 HOSTFONTDIR=()
 DEVICE=()
 LIBRARY=()
-TEMPLATE=-R
+TEMPLATE=R
 
 SLOWDOWN=25
 STARTCOMMENTS=256
@@ -28,8 +30,8 @@ TRAILER='%%Trailer'
 
 while (! ~ $#* 0 && ~ $1 -*) {
 	switch ($1) {
-	case -C;  shift; COPYFILE=$COPYFILE' '$1
-	case -C*; COPYFILE=$COPYFILE' '`{echo $1 | sed s/-C//}
+	case -C;  shift; COPYFILE=($COPYFILE $1)
+	case -C*; COPYFILE=($COPYFILE `{echo $1 | sed s/-C//})
 
 	case -F;  shift; FONTDIR=$1
 	case -F*; FONTDIR=`{echo $1 | sed s/-F//}
@@ -63,7 +65,7 @@ while (! ~ $#* 0 && ~ $1 -*) {
 	shift
 }
 
-if (! ~ $#DEVICE 0  && ! ~ $#LIBRARY 0) {
+if (~ $#DEVICE 0  && ~ $#LIBRARY 0) {
     echo $0: no device or shell library >[1=2]
     exit 1
 }
@@ -73,28 +75,31 @@ if (! ~ $#* 1 2) {
     exit 1
 }
 
-if (test -d $HOSTFONTDIR -a -f $HOSTFONTDIR/$1) {
-    COPYFILE=$COPYFILE' '$HOSTFONTDIR/$1
+if (! ~ $#HOSTFONTDIR 0 && test -d $HOSTFONTDIR -a -f $HOSTFONTDIR/$1) {
+    COPYFILE=($COPYFILE $HOSTFONTDIR/$1)
 }
 
 #
 # Include the shell library and get the command used to build the table.
 # Make awk call a separate library function??
 #
-if (~ $#LIBRARY 0 || ~ $LIBRARY '') LIBRARY=$FONTDIR/dev$DEVICE/shell.lib
+if (~ $#LIBRARY 0) LIBRARY=$FONTDIR/dev$DEVICE/shell.lib
 
 . $LIBRARY
 
 if (~ $#* 1) TEMPLATE=$1
+
+if (~ $#* 2) pname=$2
+if not pname=''
 
 CMD=`{BuiltinTables | awk '$2 == template"" {
 	if ( pname == "" )
 		pname = $3
 	printf "%s %s %s", $1, tname, pname
 	exit 0
-}' template=$TEMPLATE tname=$1 pname=$2}
+}' 'template='$TEMPLATE 'tname='$1 'pname='$pname}
 
-if (! $CMD) {
+if (~ $#CMD 0) {
     echo $0: $TEMPLATE not found >[1=2]
     exit 1
 }
@@ -111,8 +116,8 @@ echo end def
 echo $ENDPROLOG
 
 echo $BEGINSETUP
-if (~ $COPYFILE '') COPYFILE=/dev/null
-cat $COPYFILE
+if (! ~ $#COPYFILE 0)
+	cat $COPYFILE
 echo /slowdown $SLOWDOWN def
 echo /startcomments $STARTCOMMENTS def
 echo $ENDSETUP
@@ -120,4 +125,3 @@ echo $ENDSETUP
 $CMD
 
 echo $TRAILER
-
