@@ -713,7 +713,7 @@ popenfile(Page *p)
 	"application/troff",		popengs,	"lp -dstdout",
 	"text/plain",			popengs,	"lp -dstdout",
 	"text/html",			popengs,	"uhtml | html2ms | tbl | troff -ms | lp -dstdout",
-	"application/dvi",		popengs,	"dvips -Pps -r0 -q1 -f1",
+	"application/dvi",		popengs,	"dvips -Pps -r0 -q1 /fd/0",
 	"application/doc",		popengs,	"doc2ps",
 	"application/zip",		popentape,	"fs/zipfs",
 	"application/x-tar",		popentape,	"fs/tarfs",
