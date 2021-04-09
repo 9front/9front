@@ -71,7 +71,7 @@ UPDATE=mkfile\
 	$CFILES\
 	$SFILES\
 
-all:V:	$LIB sched.acid channel.acid
+all:V:	$LIB sched.$objtype.acid channel.$objtype.acid
 
 spim.$O:	mips.c
 	$CC $CFLAGS -o $target mips.c
