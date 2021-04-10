@@ -60,7 +60,7 @@ if(test -r /net/ipselftab){
 		addrs=`{ndb/query -a sys $sysname ether}
 		if(! ~ $#addrs 0){
 			for(ether in /net/ether*){
-				addr=`{cat $ether/addr}
+				addr=`{cat $ether/addr >[2]/dev/null}
 				switch($addr){
 				case $addrs
 					# try /lib/ndb first, then do dhcp/slaac
