@@ -106,7 +106,7 @@ static Option option[256] =
 [ODrebindingtime]	{ "rebindingtime",	Tulong },
 [ODvendorclass]		{ "vendorclass",	Tvec },
 [ODclientid]		{ "clientid",		Tvec },
-[ODtftpserver]		{ "tftp",		Taddr },
+[ODtftpserver]		{ "tftp",		Tstr },
 [ODbootfile]		{ "bootfile",		Tstr },
 [ODdnsdomain]		{ "dnsdomain",		Tnames },
 };
