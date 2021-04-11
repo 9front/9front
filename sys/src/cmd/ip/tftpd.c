@@ -737,6 +737,8 @@ nak(int fd, int code, char *msg)
 	buf[n-1] = 0;
 	if(write(fd, buf, n) != n)
 		sysfatal("write nak: %r");
+
+	syslog(dbg, flog, "tftpd %d sent NAK '%s' to %s", pid, msg, raddr);
 }
 
 void
