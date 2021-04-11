@@ -1136,8 +1136,7 @@ miscoptions(Req *rp, uchar *ip)
 	uchar *addrs[8];
 	uchar *op, *omax;
 	uchar x[nelem(addrs)*IPaddrlen], vopts[Maxoptlen];
-	char *p;
-	char *attr[100], **a;
+	char ip4str[16], *p, *attr[100], **a;
 	Ndbtuple *t;
 	Iplifc *lifc;
 
@@ -1278,6 +1277,21 @@ miscoptions(Req *rp, uchar *ip)
 			break;
 		case OBttl:
 			byteopt(rp, OBttl, 255);
+			break;
+
+		case ODtftpserver:
+			/* 
+			 * This option actually should contain a hostname, BUT:
+			 * It appears that Rpi4 PXE firmware ignores the siaddr
+			 * and instead insists on this (DHCP option 66) to contain
+			 * the IP address string of the TFTP server.
+			 */
+			snprint(ip4str, sizeof(ip4str), "%V", rp->bp->siaddr);
+			stringopt(rp, ODtftpserver, ip4str);
+			break;
+		case ODbootfile:
+			if(*rp->bp->file)
+				stringopt(rp, ODbootfile, rp->bp->file);
 			break;
 		}
 
