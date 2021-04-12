@@ -715,6 +715,7 @@ mbflush(char **, int)
 		else
 			mbox.mesg[j++] = m;
 	}
+	mbox.nmesg = j;
 		
 	close(fd);
 	fprint(mbox.ctl, "clean\n");
