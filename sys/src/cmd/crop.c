@@ -148,9 +148,6 @@ main(int argc, char *argv[])
 		usage();
 	}ARGEND
 
-	if(mode == None && cropval == 0 && eqpt(ZP, t))
-		usage();
-
 	file = "<stdin>";
 	fd = 0;
 	if(argc > 1)
