@@ -40,7 +40,6 @@ DIRS=\
 	mahjongg\
 	mines\
 	mix\
-	music\
 	md\
 	nes\
 	opl3\
