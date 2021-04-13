@@ -2,6 +2,7 @@
 <../config
 
 TARG=mkplist zuke
+CFLAGS=$CFLAGS -I../libtags
 
 HFILES=\
 	plist.h\
