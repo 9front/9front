@@ -1,0 +1,24 @@
+</$objtype/mkfile
+LIB=libtags.a$O
+
+OFILES=\
+	8859.$O\
+	flac.$O\
+	id3genres.$O\
+	id3v1.$O\
+	id3v2.$O\
+	it.$O\
+	m4a.$O\
+	opus.$O\
+	s3m.$O\
+	tags.$O\
+	utf16.$O\
+	vorbis.$O\
+	wav.$O\
+	xm.$O\
+
+HFILES=\
+	tags.h\
+	tagspriv.h\
+
+</sys/src/cmd/mklib

@@ -1,0 +1,13 @@
+</$objtype/mkfile
+<../config
+
+TARG=readtags
+CFLAGS=$CFLAGS -I../libtags
+
+OFILES=\
+	readtags.$O\
+	
+HFILES=\
+	../libtags/tags.h\
+
+</sys/src/cmd/mkone

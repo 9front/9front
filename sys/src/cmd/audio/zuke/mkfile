@@ -1,0 +1,17 @@
+</$objtype/mkfile
+<../config
+
+TARG=mkplist zuke
+
+HFILES=\
+	plist.h\
+	icy.h\
+	../libtags/tags.h\
+
+default:V: all
+
+$O.mkplist: icy.$O plist.$O mkplist.$O
+
+$O.zuke: plist.$O zuke.$O
+
+</sys/src/cmd/mkmany
