@@ -1057,7 +1057,7 @@ plumbaudio(void *kbd)
 static void
 usage(void)
 {
-	fprint(2, "usage: %s [-s] [-G] [-c aAdDtTp]\n", argv0);
+	fprint(2, "usage: %s [-s] [-c aAdDtTp]\n", argv0);
 	sysfatal("usage");
 }
 
@@ -1080,11 +1080,10 @@ threadmain(int argc, char **argv)
 		{ nil, &ind, CHANRCV },
 		{ nil, nil, CHANEND },
 	};
-	int n, scrolling, oldpcur, oldbuttons, pnew, shuffled, nogui;
+	int n, scrolling, oldpcur, oldbuttons, pnew, shuffled;
 	char buf[64];
 
 	shuffled = 0;
-	nogui = 0;
 	ARGBEGIN{
 	case 'd':
 		debug++;
@@ -1096,9 +1095,6 @@ threadmain(int argc, char **argv)
 		cols = EARGF(usage());
 		if(strlen(cols) >= nelem(colwidth))
 			sysfatal("max %d columns allowed", nelem(colwidth));
-		break;
-	case 'G':
-		nogui = 1;
 		break;
 	default:
 		usage();
@@ -1112,11 +1108,6 @@ threadmain(int argc, char **argv)
 	close(0);
 
 	Binit(&out, 1, OWRITE);
-	if(nogui){
-		writeplist();
-		Bterm(&out);
-		threadexitsall(nil);
-	}
 	pnotifies = fd2path(1, buf, sizeof(buf)) == 0 && strcmp(buf, "/dev/cons") != 0;
 
 	if(initdraw(nil, nil, "zuke") < 0)
