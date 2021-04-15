@@ -208,8 +208,8 @@ colresize(Column *c, Rectangle r)
 			r1.max.y = r.max.y;
 		else {
 			r1.max.y = r1.min.y;
-			if(new > 0 && old > 0 && Dy(w->r) > Border+font->height)
-				r1.max.y += (Dy(w->r)-Border-font->height)*new/old + Border + font->height;
+			if(new > 0 && old > 0 && Dy(w->r) > font->height)
+				r1.max.y += (Dy(w->r)-font->height)*new/old + Border + font->height;
 		}
 		r2 = r1;
 		r2.max.y = r2.min.y+Border;
@@ -422,7 +422,7 @@ colgrow(Column *c, Window *w, int but)
 		}
 		if(j < c->nw-1){	/* no border on last window */
 			r.min.y = v->r.max.y;
-			r.max.y += Border;
+			r.max.y = r.min.y + Border;
 			draw(screen, r, display->black, nil, ZP);
 		}
 		y1 = r.max.y;

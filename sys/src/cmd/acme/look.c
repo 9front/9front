@@ -314,7 +314,7 @@ isfilec(Rune r)
 {
 	if(isalnum(r))
 		return TRUE;
-	if(runestrchr(L".-+/:", r))
+	if(runestrchr(L".-+/:@", r))
 		return TRUE;
 	return FALSE;
 }
