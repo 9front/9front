@@ -189,7 +189,7 @@ loopbackgen(Chan *c, char*, Dirtab*, int, int i, Dir *dp)
 		switch(type){
 		case Qtopdir:
 		case Qloopdir:
-			snprint(up->genbuf, sizeof(up->genbuf), "#X%ld", c->dev);
+			snprint(up->genbuf, sizeof(up->genbuf), "#λ%ld", c->dev);
 			mkqid(&qid, QID(0, Qtopdir), 0, QTDIR);
 			devdir(c, qid, up->genbuf, 0, eve, 0555, dp);
 			break;
