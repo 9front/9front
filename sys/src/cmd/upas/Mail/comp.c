@@ -67,9 +67,6 @@ postmesg(Comp *c, char **, int nf)
 	chanfree(c->sync);
 	close(c->fd[0]);
 
-	/* needed because mail is by default Latin-1 */
-	fprint(c->fd[1], "Content-Type: text/plain; charset=\"UTF-8\"\n");
-	fprint(c->fd[1], "Content-Transfer-Encoding: 8bit\n");
 	buf = emalloc(Bufsz);
 	while((n = read(fd, buf, Bufsz)) > 0)
 		if(write(c->fd[1], buf, n) != n)
