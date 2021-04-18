@@ -865,14 +865,16 @@ static int
 imap4fetch(Mailbox *mb, Message *m, uvlong o, ulong l)
 {
 	Imap *imap;
+	char *resp;
 
 	imap = mb->aux;
 	if(imap->flags & Fgmail)
 		l = gmaildiscount(m, o, l);
 	idprint(imap, "uid fetch %lud (flags body.peek[]<%llud.%lud>)\n", (ulong)m->imapuid, o, l);
 	imap4cmd(imap, "uid fetch %lud (flags body.peek[]<%llud.%lud>)", (ulong)m->imapuid, o, l);
-	if(!isokay(imap4resp0(imap, mb, m))){
-		eprint("imap: imap fetch failed\n");
+	resp = imap4resp0(imap, mb, m);
+	if(!isokay(resp)){
+		eprint("imap: imap fetch failed: %s\n", resp);
 		return -1;
 	}
 	return 0;
