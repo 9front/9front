@@ -169,6 +169,7 @@ int	istar(void);
 int	isface(void);
 int	isexec(void);
 int	isudiff(void);
+int	isexecscript(void);
 int	p9bitnum(char*, int*);
 int	p9subfont(uchar*);
 void	print_utf(void);
@@ -182,6 +183,7 @@ int	(*call[])(void) =
 	istring,	/* recognizable by first string */
 	iself,		/* ELF (foreign) executable */
 	isexec,		/* native executables */
+	isexecscript,	/* executable scripts */
 	iff,		/* interchange file format (strings) */
 	longoff,	/* recognizable by 4 bytes at some offset */
 	isoffstr,	/* recognizable by string at some offset */
@@ -722,6 +724,41 @@ isexec(void)
 	return 0;
 }
 
+/* executable scripts */
+int
+isexecscript(void)
+{
+	char tmp[128+1], *p;
+	
+	if (memcmp("#!", buf, 2) != 0)
+		return 0;
+	memmove(tmp, buf+2, sizeof(tmp) - 1);
+	tmp[sizeof(tmp) - 1] = 0;
+	if ((p = strchr(tmp, '\n')) != nil)
+		*p = 0;
+	if ((p = strpbrk(tmp, " \t")) != nil)
+		*p = 0;
+	if ((p = strrchr(tmp, '/')) != nil)
+		p++;
+	else
+		p = tmp;
+
+	if (strcmp("rc", p) == 0)
+		print("%s\n", mime ? PLAIN : "rc executable file");
+	else if (strcmp("sh", p) == 0)
+		print("%s\n", mime ? "application/x-sh" : "sh executable file");
+	else if (strcmp("bash", p) == 0)
+		print("%s\n", mime ? "application/x-sh" : "bash executable file");
+	else if (strcmp("awk", p) == 0)
+		print("%s\n", mime ? PLAIN : "awk executable file");
+	else if (strcmp("sed", p) == 0)
+		print("%s\n", mime ? PLAIN : "sed executable file");
+	else if (strcmp("perl", p) == 0)
+		print("%s\n", mime ? PLAIN : "perl executable file");
+	else
+		print("%s\n", mime ? PLAIN : "unknown executable file");
+	return 1;
+}
 
 /* from tar.c */
 enum { NAMSIZ = 100, TBLOCK = 512 };
@@ -805,8 +842,6 @@ struct	FILE_STRING
 	"!<arch>\n__.SYMDEF",	"archive random library",	16,	OCTET,
 	"!<arch>\n",		"archive",			8,	OCTET,
 	"070707",		"cpio archive - ascii header",	6,	OCTET,
-	"#!/bin/rc",		"rc executable file",		9,	PLAIN,
-	"#!/bin/sh",		"sh executable file",		9,	PLAIN,
 	"%!",			"postscript",			2,	"application/postscript",
 	"\004%!",		"postscript",			3,	"application/postscript",
 	"x T post",		"troff output for post",	8,	"application/troff",
@@ -820,10 +855,10 @@ struct	FILE_STRING
 	"%PDF",			"PDF",				4,	"application/pdf",
 	"<!DOCTYPE",		"HTML file",			9,	"text/html",
 	"<!doctype",		"HTML file",			9,	"text/html",
-	"<!--",			"HTML file",			4,	"text/html",
+	"<!--",			"XML file",			4,	"text/xml",
 	"<html>",		"HTML file",			6,	"text/html",
 	"<HTML>",		"HTML file",			6,	"text/html",
-	"<?xml",		"HTML file",			5,	"text/html",
+	"<?xml",		"XML file",			5,	"text/xml",
 	"\111\111\052\000",	"tiff",				4,	"image/tiff",
 	"\115\115\000\052",	"tiff",				4,	"image/tiff",
 	"\377\330\377\340",	"jpeg",				4,	"image/jpeg",
@@ -1108,7 +1143,7 @@ ismbox(void)
 		return 0;
 	*q = 0;
 	if(strncmp(p, "From ", 5) == 0 && strstr(p, " remote from ") == nil){
-		print("%s\n", mime ? PLAIN : "mail box");
+		print("%s\n", mime ? "application/mbox" : "mail box");
 		return 1;
 	}
 	*q = '\n';
