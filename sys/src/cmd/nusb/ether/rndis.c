@@ -112,14 +112,16 @@ rndisinit(Dev *d)
 {
 	uchar res[128];
 	int r, i, off, sz;
+	ulong csp;
 	Ep *ep;
 
 	r = 0;
 	for(i = 0; i < nelem(d->usb->ep); i++){
 		if((ep = d->usb->ep[i]) == nil)
 			continue;
+		csp = ep->iface->csp;
 		// ff0202 is canonical CSP per Linux kernel; 301e0 used by Nexus 5
-		if(ep->iface->csp == 0xff0202 || ep->iface->csp == 0x000301e0)
+		if(csp == 0xff0202 || csp == 0x0301e0 || csp == 0x0104ef)
 			r = 1;
 	}
 	if(!r){
