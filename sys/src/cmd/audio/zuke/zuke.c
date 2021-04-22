@@ -144,7 +144,7 @@ positionfmt(Fmt *f)
 	u64int sec;
 
 	s = tmp;
-	sec = va_arg(f->args, int);
+	sec = va_arg(f->args, uvlong);
 	if(sec >= 3600){
 		s = seprint(s, tmp+sizeof(tmp), "%02lld:", sec/3600);
 		sec %= 3600;
