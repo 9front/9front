@@ -1145,7 +1145,7 @@ threadmain(int argc, char **argv)
 	}
 
 	redraw(1);
-	oldbuttons = 0;
+	m.buttons = 0;
 	scrolling = 0;
 
 	proccreate(plumbaudio, kctl->c, 4096);
@@ -1157,6 +1157,7 @@ threadmain(int argc, char **argv)
 			redraw(0);
 		}
 
+		oldbuttons = m.buttons;
 		switch(alt(a)){
 		case Emouse:
 			if(ptinrect(m.xy, seekbar)){
@@ -1182,16 +1183,9 @@ threadmain(int argc, char **argv)
 				break;
 			}
 
-
-			if(oldbuttons == 0 && !scrolling && ptinrect(m.xy, insetrect(seekbar, -4))){
-				if(ptinrect(m.xy, seekbar))
-					seekrel(playercurr, seekoff/1000.0 - byteswritten/Bps);
-				break;
-			}
-
 			n = (m.xy.y - screen->r.min.y)/f->height;
 
-			if(oldbuttons == 0 && m.xy.x <= screen->r.min.x+Scrollwidth){
+			if(m.xy.x <= screen->r.min.x+Scrollwidth){
 				if(m.buttons == 1){
 					scroll = MAX(0, scroll-n-1);
 					redraw(1);
@@ -1205,6 +1199,12 @@ threadmain(int argc, char **argv)
 				}
 			}
 
+			if(!scrolling && ptinrect(m.xy, insetrect(seekbar, -4))){
+				if(ptinrect(m.xy, seekbar))
+					seekrel(playercurr, seekoff/1000.0 - byteswritten/Bps);
+				break;
+			}
+
 			if(scrolling){
 				if(scrollsz >= pl->n)
 					break;
@@ -1215,7 +1215,7 @@ threadmain(int argc, char **argv)
 				n += scroll;
 				if(n < pl->n){
 					pcur = n;
-					if(m.buttons == 2){
+					if(m.buttons == 2 && oldbuttons == 0){
 						stop(playercurr);
 						playercurr = newplayer(pcur, 1);
 						start(playercurr);
