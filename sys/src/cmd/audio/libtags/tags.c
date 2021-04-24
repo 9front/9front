@@ -18,6 +18,7 @@ extern int tags3m(Tagctx *ctx);
 extern int tagvorbis(Tagctx *ctx);
 extern int tagwav(Tagctx *ctx);
 extern int tagxm(Tagctx *ctx);
+extern int tagmod(Tagctx *ctx);
 
 static const Getter g[] =
 {
@@ -31,6 +32,7 @@ static const Getter g[] =
 	{tagit, Fit},
 	{tagxm, Fxm},
 	{tags3m, Fs3m},
+	{tagmod, Fmod},
 };
 
 void

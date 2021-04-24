@@ -9,6 +9,7 @@ OFILES=\
 	id3v2.$O\
 	it.$O\
 	m4a.$O\
+	mod.$O\
 	opus.$O\
 	s3m.$O\
 	tags.$O\

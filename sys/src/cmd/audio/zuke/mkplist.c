@@ -31,6 +31,7 @@ static char *fmts[] =
 	[Fit] = "mod",
 	[Fxm] = "mod",
 	[Fs3m] = "mod",
+	[Fmod] = "mod",
 };
 
 static Meta *
@@ -196,7 +197,10 @@ scanfile(char *path)
 	}
 
 	if(ctx.duration == 0){
-		if(ctx.format == Fit || ctx.format == Fxm || ctx.format == Fs3m)
+		if(ctx.format == Fit ||
+		ctx.format == Fxm ||
+		ctx.format == Fs3m ||
+		ctx.format == Fmod)
 			ctx.duration = modduration(path);
 		if(ctx.duration == 0)
 			fprint(2, "%s: no duration\n", path);

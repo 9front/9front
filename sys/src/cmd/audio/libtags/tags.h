@@ -33,6 +33,7 @@ enum
 	Fit,
 	Fxm,
 	Fs3m,
+	Fmod,
 
 	Fmax,
 };
