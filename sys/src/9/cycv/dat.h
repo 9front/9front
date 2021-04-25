@@ -116,47 +116,23 @@ struct MMMU
 
 struct Mach
 {
-	/* known to assembly */
 	int	machno;			/* physical id of processor */
 	uintptr	splpc;			/* pc of last caller to splhi */
 	Proc*	proc;			/* current process */
 	ulong	excregs[3];
 	ulong	cycleshi;
-	/* end of known to assembly */
+	/* end of known offsets to assembly */
 
-	int	flushmmu;		/* flush current proc mmu state */
+	MMMU;
 
-	ulong	ticks;			/* of the clock since boot time */
-	Label	sched;			/* scheduler wakeup */
-	Lock	alarmlock;		/* access to alarm list */
-	void*	alarm;			/* alarms bound to this clock */
-	int	inclockintr;
+	PMach;
 
-	Proc*	readied;		/* for runproc */
-	ulong	schedticks;		/* next forced context switch */
-
-	ulong	delayloop;
-
-	/* stats */
-	int	tlbfault;
-	int	tlbpurge;
-	int	pfault;
-	int	cs;
-	int	syscall;
-	int	load;
-	int	intr;
 	int	lastintr;
-	int	ilockdepth;
-	Perf	perf;			/* performance counters */
-
 
 	int	cpumhz;
 	uvlong	cpuhz;			/* speed of cpu */
-	uvlong	cyclefreq;		/* Frequency of user readable cycle counter */
-	
-	MMMU;
 
-	int	stack[1];
+	uintptr	stack[1];
 };
 
 #define NISAOPT		8

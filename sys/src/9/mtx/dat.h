@@ -123,54 +123,28 @@ struct Mach
 {
 	/* OFFSETS OF THE FOLLOWING KNOWN BY l.s */
 	int	machno;			/* physical id of processor */
-	ulong	splpc;			/* pc that called splhi() */
+	uintptr	splpc;			/* pc that called splhi() */
 	Proc	*proc;			/* current process on this processor */
 
 	/* ordering from here on irrelevant */
+	PMach;
 
-	ulong	ticks;			/* of the clock since boot time */
-	Label	sched;			/* scheduler wakeup */
-	Lock	alarmlock;		/* access to alarm list */
-	void	*alarm;			/* alarms bound to this clock */
-	int	inclockintr;
+	uintptr	ptabbase;		/* start of page table in kernel virtual space */
+	int	slotgen;		/* next pte (byte offset) when pteg is full */
+	int	mmupid;			/* next mmu pid to use */
+	int	sweepcolor;
+	int	trigcolor;
+	Rendez	sweepr;
+
 	int	cputype;
 	ulong	loopconst;
-
-	Proc*	readied;		/* for runproc */
-	ulong	schedticks;	/* next forced context switch */
-
 	vlong	cpuhz;
 	ulong	bushz;
 	ulong	dechz;
 	ulong	tbhz;
-	uvlong	cyclefreq;		/* Frequency of user readable cycle counter */
-
-	ulong	pcclast;
-	uvlong	fastclock;
-	Perf	perf;			/* performance counters */
-
-	int	tlbfault;		/* only used by devproc; no access to tlb */
-	int	tlbpurge;		/* ... */
-	int	pfault;
-	int	cs;
-	int	syscall;
-	int	load;
-	int	intr;
-	int	flushmmu;		/* make current proc flush it's mmu state */
-	int	ilockdepth;
-
-	ulong	ptabbase;		/* start of page table in kernel virtual space */
-	int		slotgen;		/* next pte (byte offset) when pteg is full */
-	int		mmupid;		/* next mmu pid to use */
-	int		sweepcolor;
-	int		trigcolor;
-	Rendez	sweepr;
-
-	ulong	spuriousintr;
-	int	lastintr;
 
 	/* MUST BE LAST */
-	int	stack[1];
+	uintptr	stack[1];
 };
 
 struct

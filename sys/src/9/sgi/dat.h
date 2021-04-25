@@ -144,48 +144,34 @@ struct Mach
 	int	machno;			/* physical id of processor */
 	Softtlb*stb;
 	Proc*	proc;			/* process on this processor */
-	ulong	splpc;			/* pc that called splhi() */
+	uintptr	splpc;			/* pc that called splhi() */
 	ulong	tlbfault;
 
 	/* the following is safe to move */
-	ulong	tlbpurge;
-	ulong	ticks;			/* of the clock since boot time */
-	Label	sched;			/* scheduler wakeup */
-	void*	alarm;			/* alarms bound to this clock */
+	PMach;
+
 	int	lastpid;		/* last pid allocated on this machine */
 	Proc*	pidproc[NTLBPID];	/* proc that owns tlbpid on this mach */
+
 	KMap*	kactive;		/* active on this machine */
 	int	knext;
 	uchar	ktlbx[NTLB];		/* tlb index used for kmap */
 	uchar	ktlbnext;
-	int	speed;			/* cpu speed */
-	ulong	delayloop;		/* for the delay() routine */
-	ulong	fairness;		/* for runproc */
-	int	flushmmu;
-	int	inclockintr;
-	int	ilockdepth;
-	Perf	perf;			/* performance counters */
-	uvlong	cyclefreq;		/* Frequency of user readable cycle counter */
 
 	/* for per-processor timers */
-	ulong	lastcount;
 	uvlong	fastticks;
+	ulong	lastcount;
+
 	ulong	hz;
+	int	speed;			/* cpu speed */
+	ulong	delayloop;		/* for the delay() routine */
 	ulong	maxperiod;
 	ulong	minperiod;
 
-	Proc*	readied;		/* for runproc */
-	ulong	schedticks;		/* next forced context switch */
-
-	int	pfault;
-	int	cs;
-	int	syscall;
-	int	load;
-	int	intr;
 	int	hashcoll;		/* soft-tlb hash collisions */
 	int	paststartup;		/* for putktlb */
 
-	int	stack[1];
+	uintptr	stack[1];
 };
 
 struct KMap

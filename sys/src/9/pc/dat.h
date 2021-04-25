@@ -190,50 +190,25 @@ typedef struct {
 	ulong	iomap;			/* I/O map base address + T-bit */
 } Tss;
 
+
 struct Mach
 {
-	int	machno;			/* physical id of processor (KNOWN TO ASSEMBLY) */
-	ulong	splpc;			/* pc of last caller to splhi */
-
-	ulong*	pdb;			/* page directory base for this processor (va) */
-	Tss*	tss;			/* tss for this processor */
-	Segdesc	*gdt;			/* gdt for this processor */
-
+	int	machno;			/* physical id of processor */
+	uintptr	splpc;			/* pc of last caller to splhi */
 	Proc*	proc;			/* current process on this processor */
 	Proc*	externup;		/* extern register Proc *up */
 
-	Page*	pdbpool;
-	int	pdbcnt;
+	PMach;
 
-	ulong	ticks;			/* of the clock since boot time */
-	Label	sched;			/* scheduler wakeup */
-	Lock	alarmlock;		/* access to alarm list */
-	void*	alarm;			/* alarms bound to this clock */
-	int	inclockintr;
-
-	Proc*	readied;		/* for runproc */
-	ulong	schedticks;		/* next forced context switch */
-
-	int	tlbfault;
-	int	tlbpurge;
-	int	pfault;
-	int	cs;
-	int	syscall;
-	int	load;
-	int	intr;
-	int	flushmmu;		/* make current proc flush it's mmu state */
-	int	ilockdepth;
-	Perf	perf;			/* performance counters */
-
+	uvlong	tscticks;
 	ulong	spuriousintr;
 	int	lastintr;
 
 	int	loopconst;
 	int	aalcycles;
-
 	int	cpumhz;
-	uvlong	cyclefreq;		/* Frequency of user readable cycle counter */
 	uvlong	cpuhz;
+
 	int	cpuidax;
 	int	cpuidcx;
 	int	cpuiddx;
@@ -242,19 +217,26 @@ struct Mach
 	uchar	cpuidfamily;
 	uchar	cpuidmodel;
 	uchar	cpuidstepping;
-	int	havetsc;
-	int	havepge;
-	int	havewatchpt8;
-	int	havenx;
-	uvlong	tscticks;
-	int	pdballoc;
-	int	pdbfree;
+
+	char	havetsc;
+	char	havepge;
+	char	havewatchpt8;
+	char	havenx;
+
+	ulong*	pdb;			/* page directory base for this processor (va) */
+	Tss*	tss;			/* tss for this processor */
+	Segdesc*gdt;			/* gdt for this processor */
 	
 	u32int	dr7;			/* shadow copy of dr7 */
 	u32int	xcr0;
 	void*	vmx;
 
-	int	stack[1];
+	Page*	pdbpool;
+	int	pdbcnt;
+	int	pdballoc;
+	int	pdbfree;
+
+	uintptr	stack[1];
 };
 
 /*

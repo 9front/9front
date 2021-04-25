@@ -150,42 +150,17 @@ struct Mach
 {
 	int	machno;			/* physical id of processor */
 	uintptr	splpc;			/* pc of last caller to splhi */
-
-	Proc*	proc;			/* current process */
+	Proc*	proc;			/* current process on this processor */
 
 	MMMU;
-	int	flushmmu;		/* flush current proc mmu state */
+	/* end of offsets known to asm */
 
-	ulong	ticks;			/* of the clock since boot time */
-	Label	sched;			/* scheduler wakeup */
-	Lock	alarmlock;		/* access to alarm list */
-	void*	alarm;			/* alarms bound to this clock */
-
-	Proc*	readied;		/* for runproc */
-	ulong	schedticks;		/* next forced context switch */
+	PMach;
 
 	int	cputype;
 	ulong	delayloop;
-
-	/* stats */
-	int	tlbfault;
-	int	tlbpurge;
-	int	pfault;
-	int	cs;
-	int	syscall;
-	int	load;
-	int	intr;
-	uvlong	fastclock;		/* last sampled value */
-	uvlong	inidle;			/* time spent in idlehands() */
-	ulong	spuriousintr;
-	int	lastintr;
-	int	ilockdepth;
-	Perf	perf;			/* performance counters */
-
-
 	int	cpumhz;
 	uvlong	cpuhz;			/* speed of cpu */
-	uvlong	cyclefreq;		/* Frequency of user readable cycle counter */
 
 	/* vfp2 or vfp3 fpu */
 	int	havefp;
@@ -206,7 +181,7 @@ struct Mach
 	u32int	smon[5];		/* probably not needed */
 	u32int	ssys[5];
 
-	int	stack[1];
+	uintptr	stack[1];
 };
 
 /*

@@ -184,48 +184,21 @@ typedef struct {
 
 struct Mach
 {
-	int	machno;			/* physical id of processor (KNOWN TO ASSEMBLY) */
-	uintptr	splpc;			/* pc of last caller to splhi (KNOWN TO ASSEMBLY) */
+	int	machno;			/* physical id of processor */
+	uintptr	splpc;			/* pc of last caller to splhi */
+	Proc*	proc;			/* current process on this processor */
 
-	Proc*	proc;			/* current process on this processor (KNOWN TO ASSEMBLY) */
+	PMach;
 
-	u64int*	pml4;			/* pml4 base for this processor (va) */
-	Tss*	tss;			/* tss for this processor */
-	Segdesc	*gdt;			/* gdt for this processor */
-
-	u64int	mmumap[4];		/* bitmap of pml4 entries for zapping */
-	MMU*	mmufree;		/* freelist for MMU structures */
-	ulong	mmucount;		/* number of MMU structures in freelist */
-
-	ulong	ticks;			/* of the clock since boot time */
-	Label	sched;			/* scheduler wakeup */
-	Lock	alarmlock;		/* access to alarm list */
-	void*	alarm;			/* alarms bound to this clock */
-	int	inclockintr;
-
-	Proc*	readied;		/* for runproc */
-	ulong	schedticks;		/* next forced context switch */
-
-	int	tlbfault;
-	int	tlbpurge;
-	int	pfault;
-	int	cs;
-	int	syscall;
-	int	load;
-	int	intr;
-	int	flushmmu;		/* make current proc flush it's mmu state */
-	int	ilockdepth;
-	Perf	perf;			/* performance counters */
-
+	uvlong	tscticks;
 	ulong	spuriousintr;
 	int	lastintr;
 
 	int	loopconst;
 	int	aalcycles;
-
 	int	cpumhz;
-	uvlong	cyclefreq;		/* Frequency of user readable cycle counter */
 	uvlong	cpuhz;
+
 	int	cpuidax;
 	int	cpuidcx;
 	int	cpuiddx;
@@ -234,16 +207,23 @@ struct Mach
 	uchar	cpuidfamily;
 	uchar	cpuidmodel;
 	uchar	cpuidstepping;
-	int	havetsc;
-	int	havepge;
-	int	havewatchpt8;
-	int	havenx;
-	uvlong	tscticks;
+
+	char	havetsc;
+	char	havepge;
+	char	havewatchpt8;
+	char	havenx;
+
+	u64int*	pml4;			/* pml4 base for this processor (va) */
+	Tss*	tss;			/* tss for this processor */
+	Segdesc*gdt;			/* gdt for this processor */
 
 	u64int	dr7;			/* shadow copy of dr7 */
 	u64int	xcr0;
-
 	void*	vmx;
+
+	MMU*	mmufree;		/* freelist for MMU structures */
+	ulong	mmucount;		/* number of MMU structures in freelist */
+	u64int	mmumap[4];		/* bitmap of pml4 entries for zapping */
 
 	uintptr	stack[1];
 };

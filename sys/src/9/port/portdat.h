@@ -31,6 +31,7 @@ typedef struct Pgrp	Pgrp;
 typedef struct Physseg	Physseg;
 typedef struct Proc	Proc;
 typedef struct Pte	Pte;
+typedef struct PMach	PMach;
 typedef struct QLock	QLock;
 typedef struct Queue	Queue;
 typedef struct Ref	Ref;
@@ -967,6 +968,29 @@ struct Watchpt
 	uintptr addr, len;
 };
 
+struct PMach
+{
+	Proc*	readied;		/* for runproc */
+	Label	sched;			/* scheduler wakeup */
+	ulong	ticks;			/* of the clock since boot time */
+	ulong	schedticks;		/* next forced context switch */
+
+	int	pfault;
+	int	cs;
+	int	syscall;
+	int	load;
+	int	intr;
+	int	ilockdepth;
+
+	int	flushmmu;		/* make current proc flush it's mmu state */
+
+	int	tlbfault;
+	int	tlbpurge;
+
+	Perf	perf;			/* performance counters */
+
+	uvlong	cyclefreq;		/* Frequency of user readable cycle counter */
+};
 
 /* queue state bits,  Qmsg, Qcoalesce, and Qkick can be set in qopen */
 enum

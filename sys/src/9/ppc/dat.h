@@ -137,55 +137,31 @@ struct Mach
 /*0x14*/	ulong	dmiss;	/* number of data misses */
 
 	/* ordering from here on irrelevant */
+	PMach;
 
 	Imap*	imap;
 
-	ulong	ticks;		/* of the clock since boot time */
-	Label	sched;		/* scheduler wakeup */
-	Lock	alarmlock;	/* access to alarm list */
-	void	*alarm;		/* alarms bound to this clock */
-	int	inclockintr;
-	int	cputype;
-	ulong	loopconst;
-	Perf	perf;		/* performance counters */
-
-	Proc*	readied;	/* for runproc */
-	ulong	schedticks;	/* next forced context switch */
-
-	ulong	clkin;		/* basic clock frequency */
-	ulong	vco_out;
-	vlong	cpuhz;
-	uvlong	cyclefreq;	/* Frequency of user readable cycle counter */
-	ulong	bushz;
-	ulong	dechz;
-	ulong	tbhz;
-	ulong	cpmhz;		/* communications processor module frequency */
-	ulong	brghz;		/* baud rate generator frequency */
-
-	ulong	pcclast;
-	uvlong	fastclock;
-
-	int	tlbpurge;	/* # of tlb purges */
-	int	pfault;		/* # of page faults */
-	int	cs;
-	int	syscall;
-	int	load;
-	int	intr;
-	int	flushmmu;	/* make current proc flush it's mmu state */
-	int	ilockdepth;
-
-	ulong	ptabbase;	/* start of page table in kernel virtual space */
+	uintptr	ptabbase;	/* start of page table in kernel virtual space */
 	int	slotgen;	/* next pte (byte offset) when pteg is full */
 	int	mmupid;		/* next mmu pid to use */
 	int	sweepcolor;
 	int	trigcolor;
 	Rendez	sweepr;
 
-	ulong	spuriousintr;
-	int	lastintr;
+	int	cputype;
+	ulong	loopconst;
+
+	ulong	clkin;		/* basic clock frequency */
+	ulong	vco_out;
+	vlong	cpuhz;
+	ulong	bushz;
+	ulong	dechz;
+	ulong	tbhz;
+	ulong	cpmhz;		/* communications processor module frequency */
+	ulong	brghz;		/* baud rate generator frequency */
 
 	/* MUST BE LAST */
-	int	stack[1];
+	uintptr	stack[1];
 };
 
 struct
