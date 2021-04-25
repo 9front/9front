@@ -858,7 +858,7 @@ struct	FILE_STRING
 	"<!--",			"XML file",			4,	"text/xml",
 	"<html>",		"HTML file",			6,	"text/html",
 	"<HTML>",		"HTML file",			6,	"text/html",
-	"<?xml",		"XML file",			5,	"text/xml",
+	"<?xml",		"HTML file",			5,	"text/html",
 	"\111\111\052\000",	"tiff",				4,	"image/tiff",
 	"\115\115\000\052",	"tiff",				4,	"image/tiff",
 	"\377\330\377\340",	"jpeg",				4,	"image/jpeg",
