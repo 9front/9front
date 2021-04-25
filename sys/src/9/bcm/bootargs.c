@@ -265,7 +265,7 @@ bootargsinit(uintptr pa)
 	uintptr len;
 
 	/*
-	 * kernel gets DTB/ATAGS pointer in R0 on entry
+	 * kernel gets DTB/ATAGS pointer on entry
 	 */
 	if(pa != 0 && (len = cankaddr(pa)) != 0){
 		void *va = KADDR(pa);

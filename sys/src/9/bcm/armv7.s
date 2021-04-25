@@ -126,6 +126,9 @@ TEXT _startpg(SB), 1, $-4
 	MOVW	$1, R1
 	MCR	CpSC, 0, R1, C(CpCLD), C(CpCLDena), CpCLDenapmnc
 
+	/* first arg to main is saved R2 */
+	MOVW	R10, R0
+
 	/*
 	 * call main and loop forever if it returns
 	 */

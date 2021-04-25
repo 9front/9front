@@ -10,6 +10,9 @@
  * other cpus enter at cpureset in armv7.s
  */
 TEXT _start(SB), 1, $-4
+	/* save R2 in extern register R10 (Mach *m) */
+	MOVW	R2, R10
+
 	/*
 	 * load physical base for SB addressing while mmu is off
 	 * keep a handy zero in R0 until first function call

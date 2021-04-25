@@ -75,7 +75,7 @@ launchinit(void)
 }
 
 void
-main(void)
+main(uintptr arg0)
 {
 	extern char edata[], end[];
 	uint fw, board;
@@ -84,7 +84,7 @@ main(void)
 	memset(edata, 0, end - edata);	/* clear bss */
 	mach0init();
 	quotefmtinstall();
-	bootargsinit(0);
+	bootargsinit(arg0);
 	confinit();		/* figures out amount of memory */
 	xinit();
 	uartconsinit();

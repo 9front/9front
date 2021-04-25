@@ -84,6 +84,7 @@ dowfi:
 	BEQ	dowfi		/* if zero, wait again */
 
 bootcpu:
+	MOVW	$0, R2		/* no ATAGS/DTB pointer */
 	BIC	$KSEGM, R8	/* entry to physical */
 	ORR	$PHYSDRAM, R8
 	BL	(R8)
