@@ -67,10 +67,10 @@ void
 resamplex(uchar *in, int off, int d, int inx, uchar *out, int outx)
 {
 	int i, x, k;
-	double X, xx, v, rat;
-
+	double X, xx, v, rat, rato10;
 
 	rat = (double)inx/(double)outx;
+	rato10 = rat/10.;
 	for(x=0; x<outx; x++){
 		if(inx == outx){
 			/* don't resample if size unchanged */
@@ -79,14 +79,15 @@ resamplex(uchar *in, int off, int d, int inx, uchar *out, int outx)
 		}
 		v = 0.0;
 		X = x*rat;
+		xx = X + rato10*(-K2);
 		for(k=-K2; k<=K2; k++){
-			xx = X + rat*k/10.;
 			i = xx;
 			if(i < 0)
 				i = 0;
 			if(i >= inx)
 				i = inx-1;
 			v += in[off+i*d] * K[K2+k];
+			xx += rato10;
 		}
 		out[off+x*d] = v;
 	}
@@ -96,9 +97,10 @@ void
 resampley(uchar **in, int off, int iny, uchar **out, int outy)
 {
 	int y, i, k;
-	double Y, yy, v, rat;
+	double Y, yy, v, rat, rato10;
 
 	rat = (double)iny/(double)outy;
+	rato10 = rat/10.;
 	for(y=0; y<outy; y++){
 		if(iny == outy){
 			/* don't resample if size unchanged */
@@ -107,14 +109,15 @@ resampley(uchar **in, int off, int iny, uchar **out, int outy)
 		}
 		v = 0.0;
 		Y = y*rat;
+		yy = Y + rato10*(-K2);
 		for(k=-K2; k<=K2; k++){
-			yy = Y + rat*k/10.;
 			i = yy;
 			if(i < 0)
 				i = 0;
 			if(i >= iny)
 				i = iny-1;
 			v += in[i][off] * K[K2+k];
+			yy += rato10;
 		}
 		out[y][off] = v;
 	}
