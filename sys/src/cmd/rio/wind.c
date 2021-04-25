@@ -378,6 +378,7 @@ wresize(Window *w, Image *i)
 	w->topped = ++topped;
 	w->resized = TRUE;
 	w->winnameread = FALSE;
+	w->mc.buttons = 0;	/* avoid re-triggering clicks on resize */
 	w->mouse.counter++;
 	w->wctlready = 1;
 }
@@ -1379,6 +1380,14 @@ wctlmesg(Window *w, int m, Rectangle r, void *p)
 			/* sync with input change from wcurrent()/wuncurrent() */
 			Channel *c = p;
 			input = recvp(c);
+
+			/* when we lost input, release mouse buttons */
+			if(w->mc.buttons){
+				w->mc.buttons = 0;
+				w->mouse.counter++;
+			}
+			w->wctlready = 1;
+
 			sendp(c, w);
 		}
 		if(w->i==nil || Dx(w->screenr)<=0)
