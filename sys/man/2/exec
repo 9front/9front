@@ -141,7 +141,7 @@ When the new program begins, the global pointer
 is set to the address of a structure
 that holds information
 allowing accurate time keeping and clock reading in user space.
-These data are updated by the kernel during of the life of the process,
+These data are updated by the kernel during the life of the process,
 including across
 .IR rfork s
 and

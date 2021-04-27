@@ -42,7 +42,7 @@ field provides timing.
 It is a multiple of a command period, during which the
 .SM OPL3
 chip may be sampled before processing the next command.
-The period itself is the inverse of the command rate, 44100 Hz by default.
+The period itself is the inverse of the sampling rate, 44100 Hz by default.
 This rate can be set using the
 .B -r
 parameter.
