@@ -4,7 +4,7 @@ opl3 \- OPL3 chip emulator
 .SH SYNOPSIS
 .B opl3
 [
-.B -n
+.B -r
 .I rate
 ] [
 .I file
@@ -44,7 +44,7 @@ It is a multiple of a command period, during which the
 chip may be sampled before processing the next command.
 The period itself is the inverse of the command rate, 44100 Hz by default.
 This rate can be set using the
-.B -n
+.B -r
 parameter.
 .SH SOURCE
 .B /sys/src/games/opl3

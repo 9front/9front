@@ -6,29 +6,25 @@ void	opl3out(uchar *, int);
 void	opl3wr(int, int);
 void	opl3init(int);
 
-enum{
-	Rate = 44100,
-};
-
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-n nsamp] [file]\n", argv0);
+	fprint(2, "usage: %s [-r rate] [file]\n", argv0);
 	exits("usage");
 }
 
 void
 main(int argc, char **argv)
 {
-	int r, v, dt, nsamp, fd;
-	uchar *sb, u[5];
-	Biobuf *bi, *bo;
+	int rate, r, v, dt, fd;
+	uchar sb[65536 * 4], u[5];
+	Biobuf *bi;
 
 	fd = 0;
-	nsamp = 1;
+	rate = 44100;
 	ARGBEGIN{
-	case 'n':
-		nsamp = Rate / atoi(EARGF(usage()));
+	case 'r':
+		rate = atoi(EARGF(usage()));
 		break;
 	default:
 		usage();
@@ -37,21 +33,16 @@ main(int argc, char **argv)
 		if((fd = open(*argv, OREAD)) < 0)
 			sysfatal("open: %r");
 	bi = Bfdopen(fd, OREAD);
-	bo = Bfdopen(1, OWRITE);
-	if(bi == nil || bo == nil)
+	if(bi == nil)
 		sysfatal("Bfdopen: %r");
-	nsamp *= 4;
-	if((sb = malloc(nsamp)) == nil)
-		sysfatal("malloc: %r");
-	opl3init(Rate);
+	opl3init(rate);
 	while(Bread(bi, u, sizeof u) > 0){
 		r = u[1] << 8 | u[0];
 		v = u[2];
-		dt = u[4] << 8 | u[3];
 		opl3wr(r, v);
-		while(dt-- > 0){
-			opl3out(sb, nsamp);
-			Bwrite(bo, sb, nsamp);
+		if(dt = (u[4] << 8 | u[3]) * 4){	/* 16-bit stereo */
+			opl3out(sb, dt);
+			write(1, sb, dt);
 		}
 	}
 }
