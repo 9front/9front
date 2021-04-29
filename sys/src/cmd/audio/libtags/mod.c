@@ -41,8 +41,8 @@ tagmod(Tagctx *ctx)
 		return -1;
 	if(ctx->read(ctx, d, 20) != 20)
 		return -1;
-	cp437toutf8(o, sizeof(o), d, 20);
-	txtcb(ctx, Ttitle, "", o);
+	if(cp437toutf8(o, sizeof(o), d, 20) > 0)
+		txtcb(ctx, Ttitle, "", o);
 
 	return 0;
 }

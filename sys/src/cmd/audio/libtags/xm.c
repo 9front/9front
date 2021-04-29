@@ -9,8 +9,8 @@ tagxm(Tagctx *ctx)
 		return -1;
 	d[17+20] = 0;
 	for(s = d+17; *s == ' '; s++);
-	cp437toutf8(o, sizeof(o), d+17, 20);
-	txtcb(ctx, Ttitle, "", o);
+	if(cp437toutf8(o, sizeof(o), d+17, 20) > 0)
+		txtcb(ctx, Ttitle, "", o);
 
 	return 0;
 }
