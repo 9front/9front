@@ -28,6 +28,11 @@ int iso88591toutf8(uchar *out, int osz, const uchar *src, int sz);
 int utf16to8(uchar *out, int osz, const uchar *src, int sz);
 
 /*
+ * Same as utf16to8, but CP437 to UTF-8.
+ */
+int cp437toutf8(char *o, int osz, const char *s, int sz);
+
+/*
  * This one is common for both vorbis.c and flac.c
  * It maps a string k to tag type and executes the callback from ctx.
  * Returns 1 if callback was called, 0 otherwise.

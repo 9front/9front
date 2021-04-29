@@ -1,7 +1,7 @@
 #include "tagspriv.h"
 
 /* insane. */
-static char* variants[] =
+static char *variants[] =
 {
 	"M.K.",
 	"M!K!",
@@ -24,23 +24,25 @@ static char* variants[] =
 int
 tagmod(Tagctx *ctx)
 {
-	char d[20+1];
+	char d[20], o[20*UTFmax+1];
 	int i;
 
-	if (ctx->seek(ctx, 1080, 0) != 1080)
+	if(ctx->seek(ctx, 1080, 0) != 1080)
 		return -1;
-	if (ctx->read(ctx, d, 4) != 4)
+	if(ctx->read(ctx, d, 4) != 4)
 		return -1;
-	for (i = 0; ; i++)
-		if (variants[i] == nil)
+	for(i = 0; ; i++){
+		if(variants[i] == nil)
 			return -1;
-		else if (memcmp(d, variants[i], 4) == 0)
+		if(memcmp(d, variants[i], 4) == 0)
 			break;
-	memset(d, 0, sizeof d);
-	if (ctx->seek(ctx, 0, 0) != 0)
+	}
+	if(ctx->seek(ctx, 0, 0) != 0)
 		return -1;
-	if (ctx->read(ctx, d, 20) != 20)
+	if(ctx->read(ctx, d, 20) != 20)
 		return -1;
-	txtcb(ctx, Ttitle, "", d);
+	cp437toutf8(o, sizeof(o), d, 20);
+	txtcb(ctx, Ttitle, "", o);
+
 	return 0;
 }
