@@ -65,7 +65,7 @@ tagsget(Tagctx *ctx)
 	ctx->found = 0;
 	ctx->format = Funknown;
 	res = -1;
-	for(i = 0; i < (int)(sizeof(g)/sizeof(g[0])); i++){
+	for(i = 0; i < nelem(g); i++){
 		ctx->num = 0;
 		if(g[i].f(ctx) == 0){
 			if(ctx->num > 0)
