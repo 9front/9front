@@ -8,43 +8,41 @@ static void
 postproc(void *v)
 {
 	Srv *s = v;
-	rendezvous(0, 0);
-	close(s->srvfd);
+	close((int)(uintptr)rendezvous(s, 0));
 	srv(s);
 }
 
-void
+int
 postsrv(Srv *s, char *name)
 {
-	char buf[80];
-	int fd[2];
-	int cfd;
+	int fd[2], cfd;
 
 	if(pipe(fd) < 0)
-		sysfatal("pipe: %r");
-	s->infd = s->outfd = fd[1];
-	s->srvfd = fd[0];
-
+		return -1;
 	if(name != nil){
+		char buf[80];
+
 		snprint(buf, sizeof buf, "/srv/%s", name);
-		if((cfd = create(buf, OWRITE|ORCLOSE|OCEXEC, 0600)) < 0)
-			sysfatal("create %s: %r", buf);
-		if(fprint(cfd, "%d", s->srvfd) < 0)
-			sysfatal("write %s: %r", buf);
+		if((cfd = create(buf, OWRITE|ORCLOSE|OCEXEC, 0600)) < 0
+		|| fprint(cfd, "%d", fd[0]) < 0){
+			close(fd[0]);
+			fd[0] = -1;
+			goto Out;
+		}
 	} else
 		cfd = -1;
 
+	/* now we are commited */
+	s->infd = s->outfd = fd[1];
 	if(s->forker == nil)
 		s->forker = srvforker;
 	(*s->forker)(postproc, s, RFNAMEG|RFNOTEG);
 
 	rfork(RFFDG);
-	rendezvous(0, 0);
-
-	close(s->infd);
-	if(s->infd != s->outfd)
-		close(s->outfd);
-
+	rendezvous(s, (void*)(uintptr)fd[0]);
+Out:
 	if(cfd >= 0)
 		close(cfd);
+	close(fd[1]);
+	return fd[0];
 }

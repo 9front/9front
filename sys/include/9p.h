@@ -214,7 +214,6 @@ struct Srv {
 
 	int		infd;
 	int		outfd;
-	int		srvfd;
 	char*	keyspec;
 
 /* below is implementation-specific; don't use */
@@ -243,13 +242,13 @@ void		srvforker(void (*)(void*), void*, int);
 void		threadsrvforker(void (*)(void*), void*, int);
 
 void		srv(Srv*);
-void		postsrv(Srv*, char*);
+int		postsrv(Srv*, char*);
 void		postmountsrv(Srv*, char*, char*, int);
 void		postsharesrv(Srv*, char*, char*, char*);
 void		listensrv(Srv*, char*);
 
 void		threadsrv(Srv*);
-void		threadpostsrv(Srv*, char*);
+int		threadpostsrv(Srv*, char*);
 void		threadpostmountsrv(Srv*, char*, char*, int);
 void		threadpostsharesrv(Srv*, char*, char*, char*);
 void		threadlistensrv(Srv *s, char *addr);

@@ -18,7 +18,7 @@ listensrv(Srv *os, char *addr)
 	*s = *os;
 
 	s->addr = estrdup9p(addr);
-	s->infd = s->outfd = s->srvfd = -1;
+	s->infd = s->outfd = -1;
 	s->fpool = nil;
 	s->rpool = nil;
 	s->msize = 0;

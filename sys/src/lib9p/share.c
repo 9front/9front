@@ -8,7 +8,7 @@ void
 postsharesrv(Srv *s, char *name, char *mtpt, char *desc)
 {
 	char buf[80];
-	int cfd;
+	int cfd, sfd;
 
 	if(mtpt != nil && desc != nil){
 		snprint(buf, sizeof buf, "#σc/%s", mtpt);
@@ -21,12 +21,13 @@ postsharesrv(Srv *s, char *name, char *mtpt, char *desc)
 	} else
 		cfd = -1;
 
-	postsrv(s, name);
-
+	sfd = postsrv(s, name);
+	if(sfd < 0)
+		sysfatal("postsrv: %r");
 	if(cfd >= 0){
-		if(fprint(cfd, "%d\n", s->srvfd) < 0)
+		if(fprint(cfd, "%d\n", sfd) < 0)
 			sysfatal("write %s: %r", buf);
 		close(cfd);
 	}
-	close(s->srvfd);
+	close(sfd);
 }

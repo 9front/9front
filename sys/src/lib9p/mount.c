@@ -8,12 +8,15 @@
 void
 postmountsrv(Srv *s, char *name, char *mtpt, int flag)
 {
-	postsrv(s, name);
+	int sfd;
 
+	sfd = postsrv(s, name);
+	if(sfd < 0)
+		sysfatal("postsrv: %r");
 	if(mtpt != nil){
-		if(amount(s->srvfd, mtpt, flag, "") == -1)
+		if(amount(sfd, mtpt, flag, "") == -1)
 			sysfatal("mount %s: %r", mtpt);
-		/* mount closed s->srvfd */
+		/* mount closed sfd */
 	} else
-		close(s->srvfd);
+		close(sfd);
 }

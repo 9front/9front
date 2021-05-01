@@ -329,7 +329,6 @@ main()
 	
 	pipe(fd);
 	tabletsrv.infd = tabletsrv.outfd = fd[0];
-	tabletsrv.srvfd = fd[1];
 	tabletsrv.tree = alloctree(getuser(), getuser(), 0555, 0);
 	tfile = createfile(tabletsrv.tree->root, "tablet", getuser(), 0400, 0);
 	if(rfork(RFPROC | RFMEM | RFNOWAIT | RFNOTEG) > 0) exits(nil);

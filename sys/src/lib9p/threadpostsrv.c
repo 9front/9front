@@ -4,10 +4,10 @@
 #include <thread.h>
 #include <9p.h>
 
-void
+int
 threadpostsrv(Srv *s, char *name)
 {
 	if(s->forker == nil)
 		s->forker = threadsrvforker;
-	postsrv(s, name);
+	return postsrv(s, name);
 }

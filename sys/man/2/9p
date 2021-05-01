@@ -63,7 +63,6 @@ typedef struct Srv {
 
 	int		infd;
 	int		outfd;
-	int		srvfd;
 
 	void		(*forker)(void (*fn)(void*), void *arg, int flags);
 } Srv;
@@ -73,12 +72,12 @@ typedef struct Srv {
 .ft L
 .ta \w'\fLvoid* 'u
 void	srv(Srv *s)
-void	postsrv(Srv *s, char *name);
+int	postsrv(Srv *s, char *name);
 void	postmountsrv(Srv *s, char *name, char *mtpt, int flag)
 void	postsharesrv(Srv *s, char *name, char *mtpt, char *desc)
 void	listensrv(Srv *s, char *addr)
 void	threadsrv(Srv *s)
-void	threadpostsrv(Srv *s, char *name);
+int	threadpostsrv(Srv *s, char *name);
 void	threadpostmountsrv(Srv *s, char *name, char *mtpt, int flag)
 void	threadpostsharesrv(Srv *s, char *name, char *mtpt, char *desc)
 void	threadlistensrv(Srv *s, char *addr)
@@ -193,12 +192,24 @@ or
 (see
 .IR thread (2)).
 .PP
-.I Postmountsrv
+
+.I Postsrv
 and
-.I threadpostmountsrv
+.I threadpostsrv
 are wrappers that create a separate process in which to run
 .IR srv .
 They do the following:
+.IP
+Initialize
+.IB s -> infd
+and
+.IB s -> outfd
+to be one end of a freshly allocated pipe.
+.IP
+If
+.B name
+is non-nil, post the other end file descriptor under the name
+.BI /srv/ name .
 .IP
 Initialize
 .IB s -> forker
@@ -207,24 +218,6 @@ to eigther
 or
 .I threadsrvforker
 unless already initialized to a non-nil value.
-.IP
-Initialize
-.IB s -> infd
-and
-.IB s -> outfd
-to be one end of a freshly allocated pipe,
-with
-.IB s -> srvfd
-initialized as the other end.
-.IP
-If
-.B name
-is non-nil, post the file descriptor
-.IB s -> srvfd
-under the name
-.BI /srv/ name
-using a call to
-.IR postsrv .
 .IP
 Fork a child process via
 .IB s -> forker
@@ -248,27 +241,37 @@ flag. This way, the service loop will share the original
 file descriptor table with previously created child
 processes of the caller.
 .IP
-The child process then calls
-.IB close( s -> srvfd )
-and then
-.IB srv( s ) \fR;
-it will exit once
-.I srv
-returns.
+The child process then closes the other end file descriptor
+and calls
+.IR srv .
 .IP
-If
+The parent process returns from the function with the
+mountable file descriptor
+.IR sfd .
+On error,
+.I postsrv
+and
+.I threadpostsrv
+return a file descriptor of
+.BR -1
+with error string set.
+.PP
+.I Postmountsrv
+and
+.I threadpostmntsrv
+call
+.I postsrv
+with
+.I name
+and then if
 .I mtpt
 is non-nil,
 call
-.BI amount( s -> srvfd,
+.BI amount( sfd ,
 .IB mtpt ,
 .IB flag ,
 \fB"")\fR;
-otherwise, close
-.IB s -> srvfd \fR.
-.IP
-The parent returns to the caller.
-.LP
+otherwise, close the file descriptor.
 If any error occurs during
 this process, the entire process is terminated by calling
 .I sysfatal
