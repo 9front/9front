@@ -9,16 +9,21 @@ estrdup9p,
 listensrv,
 postmountsrv,
 postsharesrv,
+postsrv,
 readbuf,
 readstr,
 respond,
 responderror,
+srv
 srvacquire,
+srvforker,
 srvrelease,
 threadlistensrv,
 threadpostmountsrv,
 threadpostsharesrv,
-srv \- 9P file service
+threadpostsrv,
+threadsrv,
+threadsrvforker - 9P file service
 .SH SYNOPSIS
 .ft L
 .nf
@@ -59,6 +64,8 @@ typedef struct Srv {
 	int		infd;
 	int		outfd;
 	int		srvfd;
+
+	void		(*forker)(void (*fn)(void*), void *arg, int flags);
 } Srv;
 .fi
 .PP
@@ -66,12 +73,17 @@ typedef struct Srv {
 .ft L
 .ta \w'\fLvoid* 'u
 void	srv(Srv *s)
+void	postsrv(Srv *s, char *name);
 void	postmountsrv(Srv *s, char *name, char *mtpt, int flag)
 void	postsharesrv(Srv *s, char *name, char *mtpt, char *desc)
+void	listensrv(Srv *s, char *addr)
+void	threadsrv(Srv *s)
+void	threadpostsrv(Srv *s, char *name);
 void	threadpostmountsrv(Srv *s, char *name, char *mtpt, int flag)
 void	threadpostsharesrv(Srv *s, char *name, char *mtpt, char *desc)
-void	listensrv(Srv *s, char *addr)
 void	threadlistensrv(Srv *s, char *addr)
+void	srvforker(void (*fn)(void*), void *arg, int flags)
+void	threadsrvforker(void (*fn)(void*), void *arg, int flags)
 void	respond(Req *r, char *error)
 void	responderror(Req*)
 void	readstr(Req *r, char *src)
@@ -106,7 +118,9 @@ extern int chatty9p;
 .SH DESCRIPTION
 The function
 .I srv
-serves a 9P session by reading requests from
+and
+.I threadsrv
+serve a 9P session by reading requests from
 .BR s->infd ,
 dispatching them to the function pointers kept in 
 .BR Srv ,
@@ -166,12 +180,33 @@ but abort the program if they run out of memory.
 If alternate behavior is desired, clients can link against
 alternate implementations of these functions.
 .PP
+The functions
+.I srvforker
+and
+.I threadsrvforker
+handle the creation of new processes on a connection which use
+.I rfork
+(see
+.IR fork (2))
+or
+.I procrfork
+(see
+.IR thread (2)).
+.PP
 .I Postmountsrv
 and
 .I threadpostmountsrv
 are wrappers that create a separate process in which to run
 .IR srv .
 They do the following:
+.IP
+Initialize
+.IB s -> forker
+to eigther
+.I srvforker
+or
+.I threadsrvforker
+unless already initialized to a non-nil value.
 .IP
 Initialize
 .IB s -> infd
@@ -187,16 +222,12 @@ If
 is non-nil, post the file descriptor
 .IB s -> srvfd
 under the name
-.BI /srv/ name .
+.BI /srv/ name
+using a call to
+.IR postsrv .
 .IP
 Fork a child process via
-.I rfork
-(see
-.IR fork (2))
-or
-.I procrfork
-(see
-.IR thread (2)),
+.IB s -> forker
 using the
 .BR RFPROC ,
 .BR RFNOWAIT ,

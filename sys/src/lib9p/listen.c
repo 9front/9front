@@ -11,7 +11,7 @@ static void srvfree(Srv *);
 static char *getremotesys(char*);
 
 void
-_listensrv(Srv *os, char *addr)
+listensrv(Srv *os, char *addr)
 {
 	Srv *s;
 
@@ -33,9 +33,9 @@ _listensrv(Srv *os, char *addr)
 	s->spid = 0;
 	s->free = nil;
 
-	if(_forker == nil)
-		sysfatal("no forker");
-	_forker(listenproc, s, 0);
+	if(s->forker == nil)
+		s->forker = srvforker;
+	(*s->forker)(listenproc, s, 0);
 }
 
 static void
@@ -72,7 +72,7 @@ listenproc(void *v)
 		s->addr = getremotesys(ndir);
 		s->infd = s->outfd = data;
 		s->free = srvfree;
-		_forker(srvproc, s, 0);
+		(*s->forker)(srvproc, s, 0);
 	}
 	free(os->addr);
 	free(os);

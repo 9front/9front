@@ -5,8 +5,6 @@
 #include <thread.h>
 #include <9p.h>
 
-void (*_forker)(void(*)(void*), void*, int);
-
 static char Ebadattach[] = "unknown specifier in attach";
 static char Ebadoffset[] = "bad offset";
 static char Ebadcount[] = "bad count";
@@ -813,7 +811,7 @@ srvrelease(Srv *srv)
 {
 	if(decref(&srv->sref) == 0){
 		incref(&srv->sref);
-		_forker(srvwork, srv, 0);
+		(*srv->forker)(srvwork, srv, 0);
 	}
 	qunlock(&srv->slock);
 }
@@ -842,6 +840,9 @@ srv(Srv *srv)
 
 	if(srv->start)
 		srv->start(srv);
+
+	if(srv->forker == nil)
+		srv->forker = srvforker;
 
 	incref(&srv->sref);
 	srvwork(srv);

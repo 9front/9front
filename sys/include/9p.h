@@ -235,22 +235,28 @@ struct Srv {
 
 	int	spid;	/* pid of srv() caller */
 
+	void	(*forker)(void (*)(void*), void*, int);
 	void	(*free)(Srv*);
 };
 
+void		srvforker(void (*)(void*), void*, int);
+void		threadsrvforker(void (*)(void*), void*, int);
+
 void		srv(Srv*);
+void		postsrv(Srv*, char*);
 void		postmountsrv(Srv*, char*, char*, int);
-void		_postmountsrv(Srv*, char*, char*, int);
 void		postsharesrv(Srv*, char*, char*, char*);
-void		_postsharesrv(Srv*, char*, char*, char*);
 void		listensrv(Srv*, char*);
-void		_listensrv(Srv*, char*);
-int		chatty9p;
-void		respond(Req*, char*);
-void		responderror(Req*);
+
+void		threadsrv(Srv*);
+void		threadpostsrv(Srv*, char*);
 void		threadpostmountsrv(Srv*, char*, char*, int);
 void		threadpostsharesrv(Srv*, char*, char*, char*);
 void		threadlistensrv(Srv *s, char *addr);
+
+int		chatty9p;
+void		respond(Req*, char*);
+void		responderror(Req*);
 
 /*
  * Helper.  Assumes user is same as group.
@@ -275,8 +281,6 @@ void		authread(Req*);
 void		authwrite(Req*);
 void		authdestroy(Fid*);
 int		authattach(Req*);
-
-extern void (*_forker)(void (*)(void*), void*, int);
 
 void		srvacquire(Srv *);
 void		srvrelease(Srv *);

@@ -5,7 +5,9 @@
 #include <9p.h>
 
 void
-threadsrvforker(void (*fn)(void*), void *arg, int rflag)
+threadsrv(Srv *s)
 {
-	procrfork(fn, arg, 32*1024, rflag);
+	if(s->forker == nil)
+		s->forker = threadsrvforker;
+	srv(s);
 }
