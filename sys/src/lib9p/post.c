@@ -3,7 +3,6 @@
 #include <fcall.h>
 #include <thread.h>
 #include <9p.h>
-#include <auth.h>
 
 static void
 postproc(void *v)

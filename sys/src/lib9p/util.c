@@ -1,9 +1,8 @@
 #include <u.h>
 #include <libc.h>
-#include <auth.h>
 #include <fcall.h>
 #include <thread.h>
-#include "9p.h"
+#include <9p.h>
 
 void
 readbuf(Req *r, void *s, long n)

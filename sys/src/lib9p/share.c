@@ -3,7 +3,6 @@
 #include <fcall.h>
 #include <thread.h>
 #include <9p.h>
-#include <auth.h>
 
 void
 postsharesrv(Srv *s, char *name, char *mtpt, char *desc)
