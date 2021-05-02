@@ -12,9 +12,11 @@ telnetd, rlogind, rexexec, ftpd, socksd, hproxy \- Internet remote access daemon
 .B ip/rexexec
 .PP
 .B ip/ftpd
-.RB [ -aAde ]
+.RB [ -aAdei ]
 .RB [ -n
 .IR namepace-file ]
+.RB [ -c
+.IR cert-path ]
 .PP
 .B ip/socksd
 [
@@ -113,30 +115,18 @@ standard Plan 9 authentication (see
 .IR authsrv (6)).
 .PP
 .I Ftpd
-runs the Internet file transfer protocol.  Users may transfer
+runs the Internet file transfer protocol.  It supports both 
+implicit and explicit ftps. Users may transfer
 files in either direction between the local and
 remote machines.
-As for
-.IR telnetd ,
-there are three types of login:
-.TF anonymo
+There are two types of login:
+.TF anonymous
 .TP
 .I normal
-Normal users authenticate
-via the same challenge/response as for
-.IR telnetd .
+Normal users authenticate with their username and password when using tls.
 .BI /usr/ username /lib/namespace.ftp
 or, if that file does not exist,
 .B /lib/namespace
-defines the namespace.
-.TP
-.I noworld
-Users in group
-.B noworld
-in
-.B /adm/users
-login using a password in the clear.
-.B /lib/namespace.noworld
 defines the namespace.
 .TP
 .I anonymous
@@ -150,9 +140,7 @@ The argument to the
 option (default
 .IR /lib/namespace.ftp )
 defines the namespace.
-Anonymous users may only store files in the subtree
-below
-.BR /incoming .
+Anonymous users may not store files.
 .PD
 .PP
 .IR Ftpd 's
@@ -167,22 +155,17 @@ allow
 anonymous access
 .TP
 .B d
-write debugging output to standard error
+write debugging output to the log
 .TP
 .B e
 treat any user as anonymous
 .TP
+.B c
+the certificate to use for serving ftps. The key must be stored in factotum.
+.TP
 .B n
 the namespace for anonymous users (default
 .BR /lib/namespace.ftp )
-.PP
-To preserve intended protections in shared file trees,
-any directory containing a file
-.I .httplogin
-is locked by
-.IR ftpd;
-see
-.IR httpd (8).
 .PP
 .I Socksd
 is a SOCKS4 and SOCKS5
