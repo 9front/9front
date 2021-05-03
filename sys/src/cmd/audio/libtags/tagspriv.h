@@ -41,4 +41,4 @@ void cbvorbiscomment(Tagctx *ctx, char *k, char *v);
 
 void tagscallcb(Tagctx *ctx, int type, const char *k, char *s, int offset, int size, Tagread f);
 
-#define txtcb(ctx, type, k, s) tagscallcb(ctx, type, k, (const char*)s, 0, 0, nil)
+#define txtcb(ctx, type, k, s) tagscallcb(ctx, type, k, (char*)s, 0, 0, nil)
