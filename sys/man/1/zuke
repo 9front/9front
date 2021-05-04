@@ -18,9 +18,9 @@ mkplist, zuke \- graphical music player
 is a graphical music player that reads a playlist from standard input
 and presents an interface to play music.  Playlists are generated
 by
-.I mkplist
-, which accepts files, directories, and URLs as its arguments and
-writes the resulting playlist to standard output.
+.IR mkplist ,
+which accepts files, directories, and URLs as its arguments,
+and writes the resulting playlist to standard output.
 .PP
 Formats supported by
 .I zuke
@@ -37,6 +37,7 @@ following letters along
 .B -c
 option:
 .RS
+.TF "c"
 .TP
 .B A
 Artist
@@ -61,6 +62,7 @@ Track number
 .TP
 .B p
 Full file path
+.PD
 .RE
 .PP
 By default,
@@ -77,12 +79,13 @@ is shown if shuffle mode is enabled.
 .I Zuke
 provides a number of keyboard controls:
 .RS
+.TF "p c Space"
 .TP
 .B -
-Lower the volume.
+Lower volume.
 .TP
 .B + =
-Increase the volume.
+Increase volume.
 .TP
 .B ← →
 Seek 10 seconds back/forward.
@@ -91,19 +94,19 @@ Seek 10 seconds back/forward.
 Seek 60 seconds back/forward.
 .TP
 .B ↑ ↓ Pgup Pgdown Home End
-Move withing the playlist.
+Move within the playlist.
 .TP
 .B o i
-Move to the currently playing track.
+Jump to current track.
 .TP
 .B Enter
-Play the selected track.
+Play selected track.
 .TP
 .B > b
-Skip to the next track.
+Skip to next track.
 .TP
 .B < z
-Skip to the previous track.
+Skip to previous track.
 .TP
 .B v
 Stop
@@ -129,6 +132,7 @@ Repeat search forward.
 .B N
 Repeat search backwards.
 .RE
+.PD
 .PP
 .I Zuke
 can be controlled by emulating key presses via the plumber port
@@ -149,7 +153,7 @@ audio/mkplist /usr/glenda/music \\
 Playing a playlist:
 .IP
 .EX
-audio/zuke < plist
+audio/zuke < music.plist
 .EE
 .PP
 Append to a playlist:
