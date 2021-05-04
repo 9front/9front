@@ -430,6 +430,10 @@ readstr(int fd, char *str, int len)
 		n = read(fd, str, 1);
 		if(n < 0) 
 			return -1;
+		if(n == 0){
+			werrstr("hung up");
+			return -1;
+		}
 		if(*str == '\0')
 			return 0;
 		str++;
