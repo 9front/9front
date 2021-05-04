@@ -3,12 +3,11 @@
 int
 tagxm(Tagctx *ctx)
 {
-	char d[17+20+1], o[20*UTFmax+1], *s;
+	char d[17+20+1], o[20*UTFmax+1];
 
-	if(ctx->read(ctx, d, 17+20) != 17+20 || memcmp(d, "Extended Module: ", 17) != 0)
+	if(ctx->read(ctx, d, 17+20) != 17+20 || cistrncmp(d, "Extended Module: ", 17) != 0)
 		return -1;
 	d[17+20] = 0;
-	for(s = d+17; *s == ' '; s++);
 	if(cp437toutf8(o, sizeof(o), d+17, 20) > 0)
 		txtcb(ctx, Ttitle, "", o);
 

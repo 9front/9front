@@ -1,0 +1,177 @@
+.TH ZUKE 1
+.SH NAME
+mkplist, zuke \- graphical music player
+.SH SYNOPSIS
+.B audio/mkplist
+.I directory/file/URL [...]
+.br
+.B audio/zuke
+[
+.B -s
+] [
+.B -c
+.I columns
+]
+.SH DESCRIPTION
+.PP
+.I Zuke
+is a graphical music player that reads a playlist from standard input
+and presents an interface to play music.  Playlists are generated
+by
+.IR mkplist ,
+which accepts files, directories, and URLs as its arguments,
+and writes the resulting playlist to standard output.
+.PP
+Formats supported by
+.I zuke
+are: MP3, OGG/Vorbis, FLAC, and WAV.  With additional programs, Opus,
+modules and M4A (AAC) can be played.
+.I Zuke
+also supports network streams, such as IceCast.
+Option
+.B -s
+enables ``shuffle'' mode on start.
+.PP
+The columns (and their order) displayed can be changed by passing the
+following letters along
+.B -c
+option:
+.RS
+.TF "c"
+.TP
+.B A
+Artist
+.TP
+.B a
+Album
+.TP
+.B b
+File basename
+.TP
+.B t
+Title
+.TP
+.B D
+Duration
+.TP
+.B d
+Date
+.TP
+.B T
+Track number
+.TP
+.B p
+Full file path
+.PD
+.RE
+.PP
+By default, artist, album, title, and duration are displayed, which
+corresponds to
+.B "-c AatD."
+.PP
+.I Zuke
+can be controlled with a mouse, keyboard, and plumber.  Button 1
+selects a track, button 2 plays a track.  Clicking on the seek bar
+changes the playback position accordingly.  On the right of the seek
+bar, current position, track duration and volume are displayed.  ``∫''
+is shown if shuffle mode is enabled.
+.PP
+.I Zuke
+provides a number of keyboard controls:
+.RS
+.TF "p c Space"
+.TP
+.B -
+Lower volume.
+.TP
+.B + =
+Increase volume.
+.TP
+.B ← →
+Seek 10 seconds back/forward.
+.TP
+.B , .
+Seek 60 seconds back/forward.
+.TP
+.B ↑ ↓ Pgup Pgdown Home End
+Move within the playlist.
+.TP
+.B o i
+Jump to current track.
+.TP
+.B Enter
+Play selected track.
+.TP
+.B > b
+Skip to next track.
+.TP
+.B < z
+Skip to previous track.
+.TP
+.B v
+Stop
+.TP
+.B p c Space
+Pause/Resume.
+.TP
+.B s
+Toggle ``shuffle''.
+.TP
+.B q Del
+Quit.
+.TP
+.B /
+Search forward.
+.TP
+.B ?
+Search backwards.
+.TP
+.B n
+Repeat search forward.
+.TP
+.B N
+Repeat search backwards.
+.RE
+.PD
+.PP
+.I Zuke
+can be controlled by emulating key presses via the plumber port
+.IR audio .
+.PP
+Files present in the current playlist can be plumbed too, and will be
+played immediately.
+.SH EXAMPLES
+Generate a playlist:
+.IP
+.EX
+audio/mkplist /usr/glenda/music \\
+	file.mp3 \\
+	http://stream.nauticradio.net:14280/ > music.plist
+.EE
+.PP
+Playing a playlist:
+.IP
+.EX
+audio/zuke < music.plist
+.EE
+.PP
+Append to a playlist:
+.IP
+.EX
+audio/mkplist /n/moremusic >> music.plist
+.EE
+.PP
+Skip to the next track using plumber:
+.IP
+.EX
+plumb -d audio 'key >'
+.EE
+.SH SEE ALSO
+.IR play (1)
+.SH SOURCE
+.B /sys/src/cmd/audio/zuke
+.br
+.B /sys/src/cmd/audio/libtags
+.SH HISTORY
+.I Zuke
+first appeared in 9front (April, 2021).

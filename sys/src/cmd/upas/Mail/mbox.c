@@ -175,10 +175,9 @@ addchild(Mesg *p, Mesg *m, int d)
 
 	assert(m->parent == nil);
 	for(q = p; q != nil; q = q->parent){
-		if(ideq(m->messageid, q->messageid)){
-			fprint(2, "wonky message replies to self\n");
+		/* some messages refer to themselves */
+		if(ideq(m->messageid, q->messageid))
 			return 0;
-		}
 		if(m->time > q->time)
 			q->time = m->time;
 	}
