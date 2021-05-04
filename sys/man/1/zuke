@@ -24,13 +24,13 @@ and writes the resulting playlist to standard output.
 .PP
 Formats supported by
 .I zuke
-are: MP3, OGG/Vorbis, FLAC and WAV.  With additional programs, Opus,
+are: MP3, OGG/Vorbis, FLAC, and WAV.  With additional programs, Opus,
 modules and M4A (AAC) can be played.
 .I Zuke
 also supports network streams, such as IceCast.
 Option
 .B -s
-enables "shuffle" mode on start.
+enables ``shuffle'' mode on start.
 .PP
 The columns (and their order) displayed can be changed by passing the
 following letters along
@@ -65,15 +65,15 @@ Full file path
 .PD
 .RE
 .PP
-By default,
-artist, album, title and duration are displayed, which corresponds to
+By default, artist, album, title, and duration are displayed, which
+corresponds to
 .B "-c AatD."
 .PP
 .I Zuke
-can be controlled with a mouse, keyboard and plumber.  Button 1
+can be controlled with a mouse, keyboard, and plumber.  Button 1
 selects a track, button 2 plays a track.  Clicking on the seek bar
 changes the playback position accordingly.  On the right of the seek
-bar, current position, track duration and volume are displayed.  "∫"
+bar, current position, track duration and volume are displayed.  ``∫''
 is shown if shuffle mode is enabled.
 .PP
 .I Zuke
@@ -115,7 +115,7 @@ Stop
 Pause/Resume.
 .TP
 .B s
-Toggle "shuffle".
+Toggle ``shuffle''.
 .TP
 .B q Del
 Quit.
@@ -136,8 +136,7 @@ Repeat search backwards.
 .PP
 .I Zuke
 can be controlled by emulating key presses via the plumber port
-.I audio.
-See examples section.
+.IR audio .
 .PP
 Files present in the current playlist can be plumbed too, and will be
 played immediately.
