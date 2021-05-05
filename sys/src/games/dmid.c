@@ -8,7 +8,7 @@ typedef struct Opl Opl;
 typedef struct Chan Chan;
 typedef struct Trk Trk;
 enum{
-	Rate = 44100,
+	Rate = 49716,		/* opl3 sampling rate */
 	Ninst = 128 + 81-35+1,
 
 	Rwse = 0x01,
@@ -236,7 +236,7 @@ setoct(Opl *o)
 	e = freq[n] + (d % 0x1000) * (freq[n+1] - freq[n]) / 0x1000;
 	if(o->c->i->fixed)
 		e = (double)(int)e;
-	f = (e * (1 << 20)) / 49716;
+	f = (e * (1 << 20)) / Rate;
 	for(b=1; b<8; b++, f>>=1)
 		if(f < 1024)
 			break;

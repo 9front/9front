@@ -17,7 +17,11 @@ is an emulator of a single Yamaha 262 chip, also known as
 The emulated chip is programmed by a stream of commands either from
 .I file
 or from standard in.
-It then synthesizes a number of stereo 16 bit little-endian samples for a sampling rate of 44.1 kHz,
+It then synthesizes stereo 16-bit little-endian PCM samples
+at the chip's sampling rate, 49.716 kHz,
+resamples them to
+.IR audio (3)'s
+default 44.1 kHz rate,
 and writes them to standard out.
 .PP
 Commands are 5 bytes wide, in little-endian byte order:
@@ -42,14 +46,24 @@ field provides timing.
 It is a multiple of a command period, during which the
 .SM OPL3
 chip may be sampled before processing the next command.
-The period itself is the inverse of the sampling rate, 44100 Hz by default.
-This rate can be set using the
+The period itself is the inverse of the input stream's sampling rate,
+by default the same as the chip's output sampling rate.
+The
 .B -r
-parameter.
+parameter
+sets the input sampling rate.
 .SH SOURCE
 .B /sys/src/games/opl3
 .SH "SEE ALSO"
 .IR audio (3)
+.PP
+Yamaha
+``YMF262 Manual'',
+1994.
+.PP
+V. Arnost
+``Programmer's Guide to Yamaha YMF 262/OPL3 FM Music Synthesizer'',
+version 1.12 dated Nov. 23rd 2000.
 .SH HISTORY
 .I Opl3
 first appeared in 9front (July, 2018), based on
