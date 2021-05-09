@@ -1,13 +1,17 @@
 #!/bin/rc
-# iwhois [-n] domain - print registration data for domain
+# print registration data for domain
 rfork e
 noboiler=()
-if (! ~ $#* 0 && ~ $1 -n){
+if (~ $1 -n){
 	noboiler=yes
 	shift
 }
+if (~ $#* 0 || ~ $1 -*) {
+	echo 'iwhois [-n] domain' >[1=2]
+	exit usage
+}
 person=`{echo $1|sed s/@.*//}
-fn boilerplate { sed -n '/^[	 ]*[A-Za-z][A-Za-z]*:$/,$p' $* }
+fn boilerplate { sed '/>>> ?Last update of ..... database:/,$d' $* }
 
 switch($1){
 case *@*
@@ -20,7 +24,7 @@ case *.us
 	fn boilerplate { sed '/^>* Whois database was last updated on/,$d' $* }
 case *.co.uk *.net.uk *.org.uk
 	machine=whois.nic.uk
-	fn boilerplate { sed '/^ +WHOIS database last updated at/,$d' $* }
+	fn boilerplate { sed '/^-- /,$d' $* }
 case *.ac.uk
 	machine=whois.ja.net
 case *.au
@@ -30,6 +34,8 @@ case *.be
 	machine=whois.dns.be
 	person='-T dn '^$person
 	fn boilerplate { cat $* }
+case *.com *.net
+	machine=whois.verisign-grs.com
 case *.cn
 	machine=whois.cnnic.net.cn
 	fn boilerplate { cat $* }
@@ -55,16 +61,20 @@ case *.jp
 	fn boilerplate { cat $* }
 case *.org
 	machine=whois.pir.org
-	fn boilerplate { sed '/^>>> Last update of WHOIS database/,$d' $* }
 case *.se
 	machine=whois.nic-se.se
 	fn boilerplate { grep -v '^#' $* | uniq }
-case [0-9]*.[0-9]*.[0-9]*.[0-9]*
+case [0-9]*.[0-9]*.[0-9]*.[0-9]* *:*:*
 	machine=whois.arin.net
 	fn boilerplate { cat $* }
 case *
-	machine=whois.internic.net	# alternate: whois.networksolutions.com
-	fn boilerplate { cat $* }
+	tld=`{echo $1 | sed 's;.*\.(.*)$;\1;'}
+	if(ndb/dnsgetip whois.nic.$tld >/dev/null >[2=1])
+		machine=whois.nic.$tld
+	if not{
+		machine=whois.internic.net	# alternate: whois.networksolutions.com
+		fn boilerplate { cat $* }
+	}
 }
 if(! ~ $#noboiler 0)
 	fn boilerplate { cat $* }
@@ -73,8 +83,8 @@ fn sigexit {
 	rm -f $file
 }
 echo $person | telnet -nr tcp!$machine!whois > $file
-x=`{ sed -n -e 's/.*Whois Server: (.*)/\1/p' \
-	-e 's;.*ReferralServer: whois://(.*)(:43)?;\1;p' $file }
+x=`{ tr A-Z a-z < $file | sed -n -e 's;.*whois server: ([^ /]+).*$;\1;p' \
+	-e 's;.*referralserver: +whois://(.*)(:43)?;\1;p'}
 switch($#x){
 case 0
 	;			# e.g., for .ca
