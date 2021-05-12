@@ -106,9 +106,9 @@ vmxsetup(void)
 }
 
 enum { RCENT = 256 };
-char *rcname[RCENT];
-uvlong rcval[RCENT];
-uvlong rcvalid[(RCENT+63)/64], rcdirty[(RCENT+63)/64];
+static char *rcname[RCENT];
+static uvlong rcval[RCENT];
+static uvlong rcvalid[(RCENT+63)/64], rcdirty[(RCENT+63)/64];
 
 static int
 rclookup(char *n)
@@ -149,7 +149,7 @@ rcflush(int togo)
 static void
 rcload(void)
 {
-	char buf[4096];
+	static char buf[4096];
 	char *p, *q, *f[2];
 	int nf;
 	int i, rc;
@@ -166,14 +166,12 @@ rcload(void)
 		nf = tokenize(p, f, nelem(f));
 		p = q + 1;
 		if(nf < 2) break;
-		free(rcname[i]);
-		rcname[i] = strdup(f[0]);
+		rcname[i] = f[0];
 		rcval[i] = strtoull(f[1], nil, 0);
 		rcvalid[i>>6] |= 1ULL<<(i&63);
 	}
 	for(; i < nelem(rcname); i++){
-		free(rcname[i]);
-		rcname[i] = 0;
+		rcname[i] = nil;
 		rcvalid[i>>6] &= ~(1ULL<<(i&63));
 	}
 }
@@ -204,7 +202,7 @@ rpoke(char *reg, uvlong val, int clean)
 	}
 	for(i = 0; i < nelem(rcname); i++)
 		if(rcname[i] == nil){
-			rcname[i] = strdup(reg);
+			rcname[i] = reg;
 			break;
 		}
 	assert(i < nelem(rcname));
