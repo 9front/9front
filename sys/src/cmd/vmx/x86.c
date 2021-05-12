@@ -60,10 +60,44 @@ translatepae(uintptr, uintptr *, int *)
 }
 
 static uintptr
-translate64(uintptr, uintptr *, int *)
+translate64(uintptr va, uintptr *pa, int *perm)
 {
-	vmerror("long mode translation not implemented");
-	return 0;	
+	void *pml4, *pdp, *pd, *pt;
+	u64int pml4e, pdpe, pde, pte;
+
+	pml4 = gptr(rget("cr3") & 0xffffffffff000ULL, 4096);
+	if(pml4 == nil) return 0;
+	pml4e = GET64(pml4, (va & (511ULL<<39)) >> (39-3));
+	if(perm != nil) *perm = pml4e & 15;
+	if((pml4e & 1) == 0) return 0;
+
+	pdp = gptr(pml4e & 0xffffffffff000ULL, 4096);
+	if(pdp == nil) return 0;
+	pdpe = GET64(pdp, (va & (511ULL<<30)) >> (30-3));
+	if((pdpe & 1) == 0) return 0;
+	if(perm != nil) *perm &= pdpe;
+	if((pdpe & 0x80) != 0){
+		*pa = (pdpe & 0xfffffc0000000ULL) | (va & 0x3fffffffULL);
+		return 0x40000000ULL - (va & 0x3fffffffULL);
+	}
+
+	pd = gptr(pdpe & 0xffffffffff000ULL, 4096);
+	if(pd == nil) return 0;
+	pde = GET64(pd, (va & (511ULL<<21)) >> (21-3));
+	if((pde & 1) == 0) return 0;
+	if(perm != nil) *perm &= pde;
+	if((pde & 0x80) != 0){
+		*pa = (pde & 0xfffffffe00000ULL) | (va & 0x1fffffULL);
+		return 0x200000ULL - (va & 0x1fffffULL);
+	}
+
+	pt = gptr(pde & 0xffffffffff000ULL, 4096);
+	if(pt == nil) return 0;
+	pte = GET64(pt, (va & (511ULL<<12)) >> (12-3));
+	if((pte & 1) == 0) return 0;
+	if(perm != nil) *perm &= pte;
+	*pa = (pte & 0xffffffffff000ULL) | (va & 0xfffULL);
+	return 0x1000ULL - (va & 0xfffULL);
 }
 
 static uintptr (*
@@ -229,6 +263,7 @@ x86access(int seg, uintptr addr0, int asz, uvlong *val, int sz, int acc, TLB *tl
 	cpl = rget("cs") & 3;
 	wp = (rget("cr0real") & 1<<16) != 0;
 	for(i = 0; i < sz; ){
+		pperm = 0;
 		l = translator()(addr+i, &pav, &pperm);
 		if(l == 0){
 		pf:
