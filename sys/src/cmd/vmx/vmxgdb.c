@@ -132,7 +132,7 @@ char *
 regpacket(void)
 {
 	char *buf;
-	char rbuf[8192];
+	char rbuf[4096];
 	int rc;
 	char *p, *q, *f[2];
 	int pos, i, l;
@@ -148,10 +148,7 @@ regpacket(void)
 		return strdup("");
 	}
 	rbuf[rc] = 0;
-	p = rbuf;
-	for(;; p = q + 1){
-		q = strchr(p, '\n');
-		if(q == nil) break;
+	for(p = rbuf; (q = strchr(p, '\n')) != nil; p = q + 1){
 		*q = 0;
 		if(tokenize(p, f, nelem(f)) < 2) continue;
 		v = strtoull(f[1], nil, 0);
@@ -183,6 +180,11 @@ memread(char *p)
 	char tbuf[3];
 	
 	addr = strtoull(p, &q, 16);
+
+	/* avoid negative file offset */
+	addr <<= 1;
+	addr >>= 1;
+
 	if(p == q || *q != ',') return strdup("E99");
 	count = strtoull(q + 1, &p, 16);
 	if(q+1 == p || *p != 0) return strdup("E99");
@@ -213,7 +215,7 @@ main(int, char **)
 	free(p);
 	if(memfd < 0) sysfatal("open: %r");
 
-	p = smprint("%s/regs", vmxroot);
+	p = smprint("%s/xregs", vmxroot);
 	regsfd = open(p, OREAD);
 	free(p);
 	if(regsfd < 0) sysfatal("open: %r");
