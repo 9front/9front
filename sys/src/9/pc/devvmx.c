@@ -1522,14 +1522,8 @@ cmdextrap(VmCmd *, va_list va)
 static int
 gotcmd(void *vmxp)
 {
-	int rc;
-	Vmx *vmx;
-
-	vmx = vmxp;
-	ilock(&vmx->cmdlock);
-	rc = vmx->firstcmd != nil;
-	iunlock(&vmx->cmdlock);
-	return rc;
+	Vmx *vmx = vmxp;
+	return vmx->firstcmd != nil;
 }
 
 static void
