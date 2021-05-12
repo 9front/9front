@@ -67,7 +67,7 @@ taskswitch(uintptr stack)
 	tss->rsp1[1] = stack >> 32;
 	tss->rsp2[0] = (u32int)stack;
 	tss->rsp2[1] = stack >> 32;
-	mmuflushtlb();
+	mmuflushtlb(PADDR(m->pml4));
 }
 
 static void kernelro(void);

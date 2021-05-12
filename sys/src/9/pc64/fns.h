@@ -96,7 +96,7 @@ void	meminit(void);
 void	meminit0(void);
 void	memreserve(uintptr, uintptr);
 void	mfence(void);
-#define mmuflushtlb() putcr3(getcr3())
+#define mmuflushtlb(pml4) putcr3(pml4)
 void	mmuinit(void);
 uintptr	*mmuwalk(uintptr*, uintptr, int, int);
 char*	mtrr(uvlong, uvlong, char *);

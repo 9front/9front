@@ -239,7 +239,7 @@ rebootjump(uintptr entry, uintptr code, ulong size)
 	if((pte = mmuwalk(m->pml4, REBOOTADDR, 0, 0)) != nil)
 		*pte &= ~PTENOEXEC;
 
-	mmuflushtlb();
+	mmuflushtlb(PADDR(m->pml4));
 
 	/* setup reboot trampoline function */
 	f = (void*)REBOOTADDR;
@@ -350,5 +350,5 @@ procsave(Proc *p)
 	 * You might think it would be a win not to do this in that case,
 	 * especially on VMware, but it turns out not to matter.
 	 */
-	mmuflushtlb();
+	mmuflushtlb(PADDR(m->pml4));
 }
