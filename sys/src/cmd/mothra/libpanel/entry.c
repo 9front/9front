@@ -64,13 +64,10 @@ static void drawentry(Panel *p, Rectangle r, Rune *s){
 	ep = p->data;
 	b = p->b;
 
-	if(Dx(r) != Dx(ep->lastr)){
-		ep->text = r.min;
-		ep->lastr = r;
-	}
+	ep->text = r.min;
+	ep->lastr = r;
 	tick = ep->text;
 	tick.x += runestringnwidth(font, s, ep->a);
-
 	if(plkbfocus == p)
 		r.max.x -= TICKW;
 	ep->text.y = r.min.y;
