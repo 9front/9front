@@ -1,0 +1,39 @@
+#!/bin/rc -e
+rfork ne
+. /sys/lib/git/common.rc
+
+gitup
+
+flagfmt='r:remove'; args='file ...'
+eval `''{aux/getflags $*} || exec aux/usage
+
+add='tracked'
+del='removed'
+if(~ $remove 1){
+	add='removed'
+	del='tracked'
+}
+if(~ $#* 0)
+	exec aux/usage
+
+if(~ $add tracked)
+	files=`$nl{walk -f $gitrel/$*}
+if not
+	files=`$nl{cd .git/index9/tracked/ && walk -f $gitrel/$*}
+
+for(f in $files){
+	if(! ~ `{cleanname $f} .git/*){
+		addpath=.git/index9/$add/$f
+		delpath=.git/index9/$del/$f
+		mkdir -p `{basename -d $addpath}
+		mkdir -p `{basename -d $delpath}
+		# We don't want a matching qid, so that
+		# git/walk doesn't think this came from
+		# a checkout.
+		if(! test -e $addpath)
+			if(~ $add 'tracked' || test -e /mnt/git/HEAD/tree/$f)
+				touch $addpath
+		rm -f $delpath
+	}
+}
+exit ''
