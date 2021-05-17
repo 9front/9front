@@ -51,6 +51,7 @@ typedef struct Req
 	Fid	*fid;
 	Fid	*afid;
 	Fid	*newfid;
+	Srv	*srv;
 	\fI...\fP
 } Req;
 .fi
