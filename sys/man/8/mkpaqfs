@@ -6,6 +6,8 @@ mkpaqfs \- make a compressed read-only file system
 [
 .B -u
 ] [
+.B -1-9
+] [
 .B -b
 .I blocksize
 ] [
@@ -42,6 +44,12 @@ option is set, the blocks are not compressed.
 Otherwise each block is compressed using the
 .IR flate (2)
 compression algorithm.
+The compression level can be set using the flags
+.B -1
+to
+.B -9
+(defaults to 
+.BR -6 ).
 The
 .B -l
 option embeds a label of up to 32 bytes within the file header and may be

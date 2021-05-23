@@ -33,6 +33,7 @@ void warn(char *fmt, ...);
 
 int uflag=0;			/* uncompressed */
 long blocksize = 4*1024;
+int level = 6;
 
 Biobuf *out;
 DigestState *outdg;
@@ -56,6 +57,10 @@ main(int argc, char *argv[])
 		label = ARGF();
 		if(label == nil)
 			usage();
+		break;
+	case '1': case '2': case '3': case '4':
+	case '5': case '6': case '7': case '8': case '9':
+		level = ARGC() - '0';
 		break;
 	case 'b':
 		s = ARGF();
@@ -105,7 +110,7 @@ main(int argc, char *argv[])
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-u] [-b blocksize] -o output [root]\n", argv0);
+	fprint(2, "usage: %s [-u] [-1-9] [-b blocksize] -o output [root]\n", argv0);
 	exits("usage");
 }
 
@@ -370,7 +375,7 @@ writeBlock(uchar *b, int type)
 
 	if(!uflag) {
 		cb = emallocz(blocksize);
-		n = deflateblock(cb, blocksize, b, blocksize, 6, 0);
+		n = deflateblock(cb, blocksize, b, blocksize, level, 0);
 		if(n > 0 && n < blocksize) {
 			bh.encoding = DeflateEnc;
 			bh.size = n;
