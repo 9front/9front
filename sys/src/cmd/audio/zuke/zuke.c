@@ -663,9 +663,10 @@ restart:
 		}else if(r != 0){
 			if(c == Ctoggle){
 				audiooff();
-				if(recv(player->ctl, &c) < 0 || c == Cstop)
+				if(recv(player->ctl, &c) < 0)
 					goto stop;
-			}else if(c == Cseekrel){
+			}
+			if(c == Cseekrel){
 				boffset = MAX(0, boffset + player->seek*Bps);
 				n = 0;
 				break;
