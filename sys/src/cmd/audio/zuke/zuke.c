@@ -724,11 +724,10 @@ freeplayer:
 	threadexits(nil);
 }
 
-static void
+static int
 toggle(Player *player)
 {
-	if(player != nil)
-		sendul(player->ctl, Ctoggle);
+	return (player != nil && sendul(player->ctl, Ctoggle) == 1) ? 0 : -1;
 }
 
 static void
@@ -1328,7 +1327,8 @@ playcur:
 			case 'c':
 			case 'p':
 			case ' ':
-				toggle(playercurr);
+				if(toggle(playercurr) != 0)
+					goto playcur;
 				break;
 			case '/':
 			case '?':
