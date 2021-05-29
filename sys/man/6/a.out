@@ -25,7 +25,7 @@ typedef struct Exec {
 	long	pcsz;	/* size of pc/line number table */
 } Exec;
 
-#define HDR_MAGIC	0x00008000
+#define HDR_MAGIC	0x00008000	/* header expansion */
 
 #define	_MAGIC(f, b)	((f)|((((4*(b))+0)*(b))+7))
 #define	A_MAGIC	_MAGIC(0, 8)		/* 68020 */
@@ -62,7 +62,18 @@ The text segment consists of the header and the first
 bytes of the binary file.
 The
 .B entry
-field gives the virtual address of the entry point of the program.
+field gives the virtual address of the entry point of the program
+unless
+.B HDR_MAGIC
+flag is present in the
+.B magic
+field.
+In that case, the header is expanded
+by 8 bytes containing the 64-bit virtual address of the
+program entry point and the 32-bit
+.B entry
+field is reserved for physical kernel entry point.
+.PP
 The data segment starts at the first page-rounded virtual address
 after the text segment.
 It consists of the next

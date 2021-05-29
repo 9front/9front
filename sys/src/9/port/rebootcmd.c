@@ -6,16 +6,6 @@
 #include	"../port/error.h"
 #include	"a.out.h"
 
-static ulong
-l2be(long l)
-{
-	uchar *cp;
-
-	cp = (uchar*)&l;
-	return (cp[0]<<24) | (cp[1]<<16) | (cp[2]<<8) | cp[3];
-}
-
-
 static void
 readn(Chan *c, void *vp, long n)
 {
@@ -35,8 +25,11 @@ readn(Chan *c, void *vp, long n)
 void
 rebootcmd(int argc, char *argv[])
 {
+	struct {
+		Exec;
+		uvlong	hdr[1];
+	} ehdr;
 	Chan *c;
-	Exec exec;
 	ulong magic, text, rtext, entry, data, size, align;
 	uchar *p;
 
@@ -49,11 +42,11 @@ rebootcmd(int argc, char *argv[])
 		nexterror();
 	}
 
-	readn(c, &exec, sizeof(Exec));
-	magic = l2be(exec.magic);
-	entry = l2be(exec.entry);
-	text = l2be(exec.text);
-	data = l2be(exec.data);
+	readn(c, &ehdr, sizeof(Exec));
+	magic = beswal(ehdr.magic);
+	entry = beswal(ehdr.entry);
+	text = beswal(ehdr.text);
+	data = beswal(ehdr.data);
 
 	if(!(magic == AOUT_MAGIC)){
 		switch(magic){
@@ -66,7 +59,7 @@ rebootcmd(int argc, char *argv[])
 		}
 	}
 	if(magic & HDR_MAGIC)
-		readn(c, &exec, 8);
+		readn(c, ehdr.hdr, sizeof(ehdr.hdr));
 
 	switch(magic){
 	case R_MAGIC:
