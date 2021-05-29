@@ -234,6 +234,8 @@ shargs(char *s, int n, char **ap)
 {
 	int i;
 
+	if(n <= 2 || s[0] != '#' || s[1] != '!')
+		return -1;
 	s += 2;
 	n -= 2;		/* skip #! */
 	for(i=0;; i++){
@@ -261,27 +263,42 @@ shargs(char *s, int n, char **ap)
 	return i;
 }
 
-static ulong
-l2be(long l)
+ulong
+beswal(ulong l)
 {
-	uchar *cp;
+	uchar *p;
 
-	cp = (uchar*)&l;
-	return (cp[0]<<24) | (cp[1]<<16) | (cp[2]<<8) | cp[3];
+	p = (uchar*)&l;
+	return (p[0]<<24) | (p[1]<<16) | (p[2]<<8) | p[3];
+}
+
+uvlong
+beswav(uvlong v)
+{
+	uchar *p;
+
+	p = (uchar*)&v;
+	return ((uvlong)p[0]<<56) | ((uvlong)p[1]<<48) | ((uvlong)p[2]<<40)
+				  | ((uvlong)p[3]<<32) | ((uvlong)p[4]<<24)
+				  | ((uvlong)p[5]<<16) | ((uvlong)p[6]<<8)
+				  | (uvlong)p[7];
 }
 
 uintptr
 sysexec(va_list list)
 {
-	Exec exec;
-	char line[sizeof(Exec)];
+	struct {
+		Exec;
+		uvlong	hdr[1];
+	} ehdr;
+	char line[sizeof(ehdr)];
 	char *progarg[sizeof(line)/2+1];
 	volatile char *args, *elem, *file0;
 	char **argv, **argp, **argp0;
 	char *a, *e, *charp, *file;
 	int i, n, indir;
 	ulong magic, ssize, nargs, nbytes;
-	uintptr t, d, b, entry, bssend, text, data, bss, tstk, align;
+	uintptr t, d, b, entry, text, data, bss, bssend, tstk, align;
 	Segment *s, *ts;
 	Image *img;
 	Tos *tos;
@@ -311,7 +328,7 @@ sysexec(va_list list)
 		}
 		nexterror();
 	}
-	align = BY2PG;
+	align = BY2PG-1;
 	indir = 0;
 	file = file0;
 	for(;;){
@@ -323,39 +340,47 @@ sysexec(va_list list)
 		if(!indir)
 			kstrdup(&elem, up->genbuf);
 
-		n = devtab[tc->type]->read(tc, &exec, sizeof(Exec), 0);
-		if(n <= 2)
-			error(Ebadexec);
-		magic = l2be(exec.magic);
-		if(n == sizeof(Exec) && (magic == AOUT_MAGIC)){
-			entry = l2be(exec.entry);
-			text = l2be(exec.text);
-			if(magic & HDR_MAGIC)
-				text += 8;
-			switch(magic){
-			case S_MAGIC:	/* 2MB segment alignment for amd64 */
-				align = 0x200000;
-				break;
-			case V_MAGIC:	/* 16K segment alignment for mips */
-				align = 0x4000;
-				break;
-			case R_MAGIC:	/* 64K segment alignment for arm64 */
-				align = 0x10000;
-				break;
+		n = devtab[tc->type]->read(tc, &ehdr, sizeof(ehdr), 0);
+		if(n >= sizeof(Exec)) {
+			magic = beswal(ehdr.magic);
+			if(magic == AOUT_MAGIC) {
+				if(magic & HDR_MAGIC) {
+					if(n < sizeof(ehdr))
+						error(Ebadexec);
+					entry = beswav(ehdr.hdr[0]);
+					text = UTZERO+sizeof(ehdr);
+				} else {
+					entry = beswal(ehdr.entry);
+					text = UTZERO+sizeof(Exec);
+				}
+				if(entry < text)
+					error(Ebadexec);
+				text += beswal(ehdr.text);
+				if(text <= entry || text >= (USTKTOP-USTKSIZE))
+					error(Ebadexec);
+
+				switch(magic){
+				case S_MAGIC:	/* 2MB segment alignment for amd64 */
+					align = 0x1fffff;
+					break;
+				case V_MAGIC:	/* 16K segment alignment for mips */
+					align = 0x3fff;
+					break;
+				case R_MAGIC:	/* 64K segment alignment for arm64 */
+					align = 0xffff;
+					break;
+				}
+				break; /* for binary */
 			}
-			if(text >= (USTKTOP-USTKSIZE)-(UTZERO+sizeof(Exec))
-			|| entry < UTZERO+sizeof(Exec)
-			|| entry >= UTZERO+sizeof(Exec)+text)
-				error(Ebadexec);
-			break; /* for binary */
 		}
+
+		if(indir++)
+			error(Ebadexec);
 
 		/*
 		 * Process #! /bin/sh args ...
 		 */
-		memmove(line, &exec, n);
-		if(line[0]!='#' || line[1]!='!' || indir++)
-			error(Ebadexec);
+		memmove(line, &ehdr, n);
 		n = shargs(line, n, progarg);
 		if(n < 1)
 			error(Ebadexec);
@@ -371,10 +396,10 @@ sysexec(va_list list)
 		cclose(tc);
 	}
 
-	data = l2be(exec.data);
-	bss = l2be(exec.bss);
-	align--;
-	t = (UTZERO+sizeof(Exec)+text+align) & ~align;
+	t = (text+align) & ~align;
+	text -= UTZERO;
+	data = beswal(ehdr.data);
+	bss = beswal(ehdr.bss);
 	align = BY2PG-1;
 	d = (t + data + align) & ~align;
 	bssend = t + data + bss;
@@ -518,7 +543,7 @@ sysexec(va_list list)
 	up->seg[TSEG] = ts;
 	ts->flushme = 1;
 	ts->fstart = 0;
-	ts->flen = sizeof(Exec)+text;
+	ts->flen = text;
 	unlock(img);
 
 	/* Data. Shared. */

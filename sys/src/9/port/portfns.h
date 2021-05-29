@@ -10,6 +10,8 @@ Block*		allocb(int);
 int		anyhigher(void);
 int		anyready(void);
 Image*		attachimage(int, Chan*, uintptr, ulong);
+ulong		beswal(ulong);
+uvlong		beswav(uvlong);
 int		blocklen(Block*);
 void		bootlinks(void);
 void		cachedel(Image*, uintptr);
