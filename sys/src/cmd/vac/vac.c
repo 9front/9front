@@ -8,7 +8,7 @@
 void
 usage(void)
 {
-	fprint(2, "vac [-imqsv] [-a archive.vac] [-b bsize] [-d old.vac] [-e exclude] [-f new.vac] [-i name] [-h host] [-x excludefile] file...\n");
+	fprint(2, "vac [-imqstv] [-a archive.vac] [-b bsize] [-d old.vac] [-e exclude] [-f new.vac] [-i name] [-h host] [-x excludefile] file...\n");
 	threadexitsall("usage");
 }
 
@@ -29,6 +29,7 @@ struct
 int qdiff;
 int merge;
 int verbose;
+int notmp;
 char *host;
 VtConn *z;
 VacFs *fs;
@@ -108,6 +109,9 @@ threadmain(int argc, char **argv)
 		break;
 	case 's':
 		printstats++;
+		break;
+	case 't':
+		notmp++;
 		break;
 	case 'v':
 		verbose++;
@@ -422,7 +426,7 @@ vac(VacFile *fp, VacFile *diffp, char *name, Dir *d)
 	VacFile *f, *fdiff;
 	VtEntry e;
 
-	if(!includefile(name)){
+	if(!includefile(name) || (notmp && (d->qid.type&QTTMP))) {
 		warn("excluding %s%s", name, (d->mode&DMDIR) ? "/" : "");
 		return;
 	}

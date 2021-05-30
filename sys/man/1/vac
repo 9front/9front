@@ -4,7 +4,7 @@ vac, unvac \- create, extract a vac archive on Venti
 .SH SYNOPSIS
 .B vac
 [
-.B -mqsv
+.B -mqstv
 ] [
 .B -a
 .I vacfile
@@ -165,6 +165,9 @@ rather than examining the contents of the files.
 .TP
 .B -s
 Print out various statistics on standard error.
+.TP
+.B -t
+Exclude files and directories with the temporary flag set.
 .TP
 .B -v
 Produce more verbose output on standard error, including the name of the files added to the archive
