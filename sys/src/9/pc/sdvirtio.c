@@ -611,7 +611,7 @@ viopnp(void)
 
 	id = 'F';
 	for(vd =  viopnpdevs(TypBlk); vd; vd = vd->next){
-		if(vd->nqueue != 1)
+		if(vd->nqueue == 0)
 			continue;
 
 		if((s = malloc(sizeof(*s))) == nil)
