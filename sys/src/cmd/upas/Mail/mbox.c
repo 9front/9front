@@ -745,7 +745,7 @@ showlist(void)
 	Mesg *m;
 	int i;
 
-	bfd = bwinopen(&mbox, "data", OWRITE);
+	bfd = bwindata(&mbox, OWRITE);
 	for(i = 0; i < mbox.nmesg; i++){
 		m = mbox.mesg[i];
 		if(mbox.view == Vflat || m->state & (Sdummy|Stoplev))
