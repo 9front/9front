@@ -1,35 +1,17 @@
 #!/bin/rc
-
 rfork en
-
-updating=()
-nl='
-'
-if(! test -d /dist/plan9front/.git){
-	>[1=2] echo 'end of line for hg: moving to git.'
-	updating=1
-
-	if(! test -f /bin/git/pull){
-		>[1=2] echo 'git is required:'
-		>[1=2] echo '	cd /sys/src/cmd/git && mk install'
-		exit gitless
-	}
-
-	>[1=2] echo '	fetching snapshot...'
-	cd /dist/plan9front
-	hget http://git.9front.org/static/plan9front-seed.tar.gz | tar xz
-	mv .git-snap .git
-
-	git/fs
-	git/walk >/dev/null
-	>[1=2] echo '	pulling with git...'
-}
-
+source=https://code.9front.org/hg/plan9front
 cd /
-if(! test -d .git)
+if(! test -d .hg)
 	bind -ac /dist/plan9front /
-git/pull -u gits://git.9front.org/plan9front/plan9front
-
-if(~ $updating 1)
-	>[1=2] echo 'got git: you may remove /dist/plan9front/.hg'
-exit ''
+while(! ~ $#* 0){
+	switch($1){
+	case -i
+		hg incoming $source
+	case *
+		echo usage: sysupdate '[-i]' >[1=2]
+		exit usage
+	}
+	shift
+}
+hg -v pull -u $source
