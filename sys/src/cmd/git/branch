@@ -60,9 +60,10 @@ if(~ $#newbr 0){
 commit=`{git/query $base} || die 'branch does not exist:' $base
 if(~ $new */*)
 	mkdir -p .git/`{basename -d $new}
-echo $commit > .git/$new
-if(! ~ $#stay 0)
+if(! ~ $#stay 0){
+	echo $commit > .git/$new
 	exit
+}
 basedir=`{git/query -p $base}
 dirtypaths=()
 cleanpaths=($modified $deleted)
@@ -79,6 +80,7 @@ if(! ~ $#cleandirs 0){
 	mkdir -p $cleandirs
 	mkdir -p .git/index9/tracked/$cleandirs
 }
+echo $commit > .git/$new
 for(m in $cleanpaths){
 	# Modifications can turn a file into
 	# a directory, or vice versa, so we
