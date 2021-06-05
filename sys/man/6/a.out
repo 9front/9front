@@ -93,7 +93,7 @@ bytes of the file contain symbol table
 entries, each laid out as:
 .IP
 .EX
-uchar value[4];
+uchar value[4]; /* value[8] on 64 bit systems */
 char  type;
 char  name[\f2n\fP];   /* NUL-terminated */
 .EE
@@ -141,6 +141,9 @@ automatic (local) variable symbol
 .TP
 .B p
 function parameter symbol
+.TP
+.B m
+frame symbol
 .RE
 .PD
 .PP
