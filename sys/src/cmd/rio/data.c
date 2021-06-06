@@ -175,7 +175,7 @@ Cursor *corners[9] = {
 void
 iconinit(void)
 {
-	background = allocimage(display, Rect(0,0,1,1), RGB24, 1, 0x777777FF);
+	background = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x777777FF);
 
 	/* greys are multiples of 0x11111100+0xFF, 14* being palest */
 	cols[BACK] = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0xFFFFFFFF^reverse);
