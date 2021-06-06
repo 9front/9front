@@ -434,6 +434,5 @@ usr	d775
 dist	d775
 	plan9front	d775
 		uid=glenda
-		.hgignore	664
-		.hg		d775
+		.git		d775
 			+
