@@ -39,19 +39,13 @@ These flags are useful for reporting new installs to the
 development team.
 .PP
 .I Sysupdate
-updates the local mercurial repository by executing
+updates the local git repository by executing
 the following commands:
 .IP
 .EX
 bind -ac /dist/plan9front /
-hg -v pull -u
+git/pull -u $repo
 .EE
-.PP
-If the
-.B -i
-flag is included, the command
-.B hg incoming
-is prepended.
 .SH SOURCE
 .B /rc/bin/sysinfo
 .br
