@@ -11,9 +11,6 @@ sysinfo, sysupdate \- report information about, update the system
 ]
 .br
 .B sysupdate
-[
-.B -i
-]
 .SH DESCRIPTION
 .I Sysinfo
 executes a number of commands that report information
