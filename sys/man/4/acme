@@ -472,6 +472,15 @@ Text written to
 .B tag
 is always appended; the file offset is ignored.
 .TP
+.B rdsel
+holds the contents of the current selection. It may be read at any byte offset.
+.TP
+.B wrsel
+writing to the
+.B wrsel
+file modifies the text in the selection. Text written always 
+replaces the text selected; the file offset is ignored.
+.TP
 .B xdata
 The
 .B xdata
