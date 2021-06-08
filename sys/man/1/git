@@ -631,8 +631,12 @@ $repo/.git/config
 The configuration file for a repository.
 .TP
 $home/lib/git/config
-The global configuration for git.
+The user-wide configuration for git.
 The contents of this file are used as fallbacks for the per-repository config.
+.TP
+/sys/lib/git/config
+The system-wide configuration for git.
+The contents of this file are used as fallbacks for the per-user config.
 
 .SH SEE ALSO
 .IR hg (1)
