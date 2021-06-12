@@ -147,39 +147,6 @@ extproc(void *argv)
 	}
 }
 
-void
-extstart(void)
-{
-	char buf[32];
-	int fd;
-	static int p[2];
-	static void *arg[2];
-
-	if(pipe(p) < 0)
-		return;
-	sprint(exname, "/srv/sam.%s", getuser());
-	fd = create(exname, 1, 0600);
-	if(fd < 0){	/* assume existing guy is more important */
-    Err:
-		close(p[0]);
-		close(p[1]);
-		return;
-	}
-	sprint(buf, "%d", p[0]);
-	if(write(fd, buf, strlen(buf)) <= 0)
-		goto Err;
-	close(fd);
-	/*
-	 * leave p[0] open so if the file is removed the event
-	 * library won't get an error
-	 */
-	plumbc = chancreate(sizeof(int), 0);
-	arg[0] = plumbc;
-	arg[1] = &p[1];
-	proccreate(extproc, arg, STACK);
-	atexit(removeextern);
-}
-
 int
 plumbformat(int i)
 {

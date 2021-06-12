@@ -43,8 +43,7 @@ initio(void)
 		threadexitsall("kbd");
 	}
 	hoststart();
-	if(plumbstart() < 0)
-		extstart();
+	plumbstart();
 }
 
 void

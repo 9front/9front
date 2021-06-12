@@ -103,7 +103,6 @@ void	startnewfile(int, Text*);
 void	getmouse(void);
 void	mouseunblock(void);
 void	kbdblock(void);
-void	extstart(void);
 void	hoststart(void);
 int	plumbstart(void);
 int	button(int but);
