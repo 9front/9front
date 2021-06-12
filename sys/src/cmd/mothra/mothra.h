@@ -28,6 +28,7 @@ struct Url{
 	char *reltext;
 	char fullname[NNAME];
 	char tag[NNAME];
+	char contenttype[NNAME];
 	int map;		/* is this an image map? */
 };
 struct Www{
@@ -97,6 +98,7 @@ int Ufmt(Fmt *f);
 #pragma	varargck type "U" char*
 void message(char *, ...);
 int filetype(int, char *, int);
+int mimetotype(char *);
 int snooptype(int);
 void mkfieldpanel(Rtext *);
 void geturl(char *, int, int, int);

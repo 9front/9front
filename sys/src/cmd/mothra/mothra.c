@@ -1017,8 +1017,9 @@ void geturl(char *urlname, int post, int plumb, int map){
 		message("getting %s", selection->fullname);
 		if(mothmode && !plumb)
 			typ = -1;
-		else
+		else if((typ = mimetotype(selection->contenttype)) < 0)
 			typ = snooptype(fd);
+
 		switch(typ){
 		default:
 			if(plumb){

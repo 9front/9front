@@ -215,6 +215,9 @@ urlget(Url *url, int body)
 
 	snprint(buf+n, sizeof(buf)-n, "/parsed/fragment");
 	readstr(buf, url->tag, sizeof(url->tag));
+	
+	snprint(buf+n, sizeof(buf)-n, "/contenttype");
+	readstr(buf, url->contenttype, sizeof(url->contenttype));
 
 	snprint(buf+n, sizeof(buf)-n, "/contentencoding");
 	readstr(buf, buf, sizeof(buf));

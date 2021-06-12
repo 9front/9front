@@ -87,8 +87,9 @@ Err1:
 }
 
 int
-snooptype(int fd)
+mimetotype(char *mime)
 {
+	int i;
 	static struct {
 		char	*typ;
 		int	val;
@@ -110,13 +111,23 @@ snooptype(int fd)
 	"image/",			PAGE,
 	"text/",			PLAIN,
 	"message/rfc822",		PLAIN,
-	};
+	};	
+
+	for(i=0; i<nelem(tab); i++)
+		if(strncmp(mime, tab[i].typ, strlen(tab[i].typ)) == 0)
+			return tab[i].val;
+			
+	return -1;
+}
+
+int
+snooptype(int fd)
+{
 	char buf[128];
 	int i;
+	
 	if(filetype(fd, buf, sizeof(buf)) < 0)
 		return -1;
-	for(i=0; i<nelem(tab); i++)
-		if(strncmp(buf, tab[i].typ, strlen(tab[i].typ)) == 0)
-			return tab[i].val;
-	return -1;
+		
+	return mimetotype(buf);
 }
