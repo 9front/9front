@@ -14,7 +14,7 @@ readbuf,
 readstr,
 respond,
 responderror,
-srv
+srv,
 srvacquire,
 srvforker,
 srvrelease,
@@ -23,7 +23,11 @@ threadpostmountsrv,
 threadpostsharesrv,
 threadpostsrv,
 threadsrv,
-threadsrvforker - 9P file service
+threadsrvforker,
+auth9p,
+authattach,
+authread,
+authwrite \- 9P file service
 .SH SYNOPSIS
 .ft L
 .nf
@@ -113,6 +117,15 @@ char*	estrdup9p(char *s)
 .nf
 .ft L
 extern int chatty9p;
+.fi
+.PP
+.nf
+.ft L
+.ta \w'\fLvoid* 'u
+void	auth9p(Req *r);
+int		authattach(Req *r);
+void	authread(Req *r);
+void	authwrite(Req *r);
 .fi
 .SH DESCRIPTION
 The function
@@ -813,6 +826,40 @@ from its caller) terminates using
 (see
 .IR exits (2)).
 .PD
+.PP
+.I Auth9p,
+.I authattach,
+.I authwrite,
+and
+.I authread
+are functions to assist in the creation of authenticated
+file servers.
+.I Auth9p
+sets
+.I afid
+to point to
+.B /mnt/factotum/rpc
+then calls
+.I respond.
+It can be used as the
+.I auth
+service function address.
+.I Authattach
+will return 0 if the session has properly
+authenticated or will return -1 and
+call
+.I respond
+with an apropiate error.
+.I Authread
+and
+.I authwrite
+can be called from the
+.I read
+and
+.I write
+service functions respectfully to handle
+calls on the
+.I afid.
 .PP
 If the 
 .B chatty9p
