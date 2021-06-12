@@ -10,10 +10,9 @@ if(~ $#* 0){
 	exit usage
 }
 
-if(test -f /mnt/plumb/edit || test -f /mnt/term/mnt/plumb/edit){
-	for(i)
-		plumb -s B -d edit $i
-	exit
+wdir=`{pwd}
+for(i){
+	if(! ~ $i /*)
+		i=$wdir/$i
+	plumb -s B -d edit $i
 }
-
-echo 'no plumber' >[1=2]
