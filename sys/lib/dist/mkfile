@@ -169,7 +169,7 @@ cd:V:	/tmp/9front.386.iso.gz
 	}
 
 binds:V:
-	test -d /n/src9/.hg && bind /n/src9 /n/src9/dist/plan9front
+	test -d /n/src9/.git && bind /n/src9 /n/src9/dist/plan9front
 	bind cfg /n/src9/cfg
 	bind mail/lib /n/src9/mail/lib
 	bind ndb /n/src9/lib/ndb
