@@ -1202,16 +1202,19 @@ indexpack(char *pack, char *idx, Hash ph)
 		while(c < nobj && (obj[c]->hash.h[0] & 0xff) <= i)
 			c++;
 		PUTBE32(buf, c);
-		hwrite(f, buf, 4, &st);
+		if(hwrite(f, buf, 4, &st) == -1)
+			goto error;
 	}
 	for(i = 0; i < nobj; i++){
 		o = obj[i];
-		hwrite(f, o->hash.h, sizeof(o->hash.h), &st);
+		if(hwrite(f, o->hash.h, sizeof(o->hash.h), &st) == -1)
+			goto error;
 	}
 
 	for(i = 0; i < nobj; i++){
 		PUTBE32(buf, obj[i]->crc);
-		hwrite(f, buf, 4, &st);
+		if(hwrite(f, buf, 4, &st) == -1)
+			goto error;
 	}
 
 	nbig = 0;
@@ -1222,15 +1225,18 @@ indexpack(char *pack, char *idx, Hash ph)
 			PUTBE32(buf, (1ull << 31) | nbig);
 			nbig++;
 		}
-		hwrite(f, buf, 4, &st);
+		if(hwrite(f, buf, 4, &st) == -1)
+			goto error;
 	}
 	for(i = 0; i < nobj; i++){
 		if(obj[i]->off >= (1ull<<31)){
 			PUTBE64(buf, obj[i]->off);
-			hwrite(f, buf, 8, &st);
+			if(hwrite(f, buf, 8, &st) == -1)
+				goto error;
 		}
 	}
-	hwrite(f, ph.h, sizeof(ph.h), &st);
+	if(hwrite(f, ph.h, sizeof(ph.h), &st) == -1)
+		goto error;
 	sha1(nil, 0, h.h, st);
 	Bwrite(f, h.h, sizeof(h.h));
 
@@ -1630,7 +1636,7 @@ genpack(int fd, Meta **meta, int nmeta, Hash *h, int odelta)
 	DigestState *st;
 	Biobuf *bfd;
 	Meta *m;
-	Object *o, *b;
+	Object *o, *po, *b;
 	char *p, buf[32];
 
 	st = nil;
@@ -1655,27 +1661,34 @@ genpack(int fd, Meta **meta, int nmeta, Hash *h, int odelta)
 	for(i = 0; i < nmeta; i++){
 		pct = showprogress((i*100)/nmeta, pct);
 		m = meta[i];
-		m->off = Boffset(bfd);
+		if((m->off = Boffset(bfd)) == -1)
+			goto error;
 		if((o = readobject(m->obj->hash)) == nil)
 			return -1;
 		if(m->delta == nil){
 			nh = packhdr(buf, o->type, o->size);
-			hwrite(bfd, buf, nh, &st);
+			if(hwrite(bfd, buf, nh, &st) == -1)
+				goto error;
 			if(hcompress(bfd, o->data, o->size, &st) == -1)
 				goto error;
 		}else{
-			b = readobject(m->prev->obj->hash);
+			if((b = readobject(m->prev->obj->hash)) == nil)
+				goto error;
 			nd = encodedelta(m, o, b, &p);
 			unref(b);
 			if(odelta && m->prev->off != 0){
 				nh = 0;
 				nh += packhdr(buf, GOdelta, nd);
 				nh += packoff(buf+nh, m->off - m->prev->off);
-				hwrite(bfd, buf, nh, &st);
+				if(hwrite(bfd, buf, nh, &st) == -1)
+					goto error;
 			}else{
 				nh = packhdr(buf, GRdelta, nd);
-				hwrite(bfd, buf, nh, &st);
-				hwrite(bfd, m->prev->obj->hash.h, sizeof(m->prev->obj->hash.h), &st);
+				po = m->prev->obj;
+				if(hwrite(bfd, buf, nh, &st) == -1)
+					goto error;
+				if(hwrite(bfd, po->hash.h, sizeof(po->hash.h), &st) == -1)
+					goto error;
 			}
 			res = hcompress(bfd, p, nd, &st);
 			free(p);
