@@ -50,7 +50,7 @@ git/pull -u $repo
 .SH SEE ALSO
 .IR intro (3),
 .IR plan9.ini (8),
-.IR hg (1)
+.IR git (1)
 .SH HISTORY
 .I Sysinfo
 first appeared in 9front (May, 2012).

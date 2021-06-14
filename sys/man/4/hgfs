@@ -22,7 +22,7 @@ Mercurial is a distributed version control system. It tracks
 and organizes files and keeps a change history of them. The
 file revisions are stored as packed deltas in a repository
 that can be checked out with the
-.IR hg (1)
+.I hg 
 program.
 
 .I Hgfs
@@ -124,8 +124,6 @@ Same as
 but contains only the changed files of the changeset.
 .SH SOURCE
 .B /sys/src/cmd/hgfs
-.SH SEE ALSO
-.IR hg (1)
 .SH HISTORY
 .I Hgfs
 first appeared in 9front (June, 2011).

@@ -639,7 +639,6 @@ The system-wide configuration for git.
 The contents of this file are used as fallbacks for the per-user config.
 
 .SH SEE ALSO
-.IR hg (1)
 .IR replica (1)
 .IR patch (1)
 .IR gitfs (4)

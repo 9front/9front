@@ -97,8 +97,6 @@ The global configuration for git tools.
 
 .SH "SEE ALSO"
 .IR git (1)
-.IR hg (1)
-.IR hgfs (4)
 
 .SH BUGS
 Symlinks are only partially supported.
