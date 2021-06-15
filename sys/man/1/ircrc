@@ -34,7 +34,7 @@ is an IRC client.
 Messages are sent from standard input and
 received from standard output.
 The default server is
-.BR irc.freenode.net .
+.BR irc.oftc.net .
 The arguments
 .B bitlbee
 and

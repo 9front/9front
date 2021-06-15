@@ -2,7 +2,7 @@
 
 rfork ne
 
-server=irc.freenode.net
+server=irc.oftc.net
 port=6667
 realname='<nil>'
 target=''
