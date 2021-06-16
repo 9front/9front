@@ -43,6 +43,8 @@ phead1(void)
 	if(nine) {
 		Bprint(&fout,
 				"int infd, outfd;\n"
+				"outfd = 1;\n"
+				"infd = 0;\n"
 				"\n"
 				"void\n"
 				"output(char c)\n"
