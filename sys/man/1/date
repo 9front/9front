@@ -6,6 +6,9 @@ date, clock \- date and time
 [
 .I option
 ] [
+.B -f
+.I format
+] [
 .I seconds
 ]
 .br
@@ -16,6 +19,8 @@ Print the date, in the format
 .B
 	Tue Aug 16 17:03:52 CDT 1977
 .PP
+Or the format specified by the format option.
+
 The options are
 .TP
 .B -u
@@ -33,6 +38,13 @@ Report the date as ISO-8601 with time and timezone suffix.
 .TP
 .B -m
 Report the date as an email compatible (RFC2822) time stamp.
+.TP
+.B -f
+Print using the format specified by the
+.I format
+string rather than the default. Format strings are in the format used by
+.IR tmdate (2)
+
 .PP
 The conversion from Greenwich Mean Time to local time depends on the
 .B $timezone
@@ -65,3 +77,5 @@ into
 .B /sys/src/cmd/date.c
 .br
 .B /sys/src/cmd/clock.c
+.SH "SEE ALSO"
+.IR tmdate (2)
