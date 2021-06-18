@@ -66,18 +66,20 @@ struct TlsSec {
 	int psklen;
 	int clientVers;			// version in ClientHello
 	uchar sec[MasterSecretSize];	// master secret
-	uchar crandom[RandomSize];	// client random
 	uchar srandom[RandomSize];	// server random
+	uchar crandom[RandomSize];	// client random
 
+	Namedcurve *nc; // selected curve for ECDHE
 	// diffie hellman state
 	DHstate dh;
 	struct {
 		ECdomain dom;
 		ECpriv Q;
 	} ec;
+	uchar X[32];
 
 	// byte generation and handshake checksum
-	void (*prf)(uchar*, int, uchar*, int, char*, uchar*, int, uchar*, int);
+	void (*prf)(uchar*, int, uchar*, int, char*, uchar*, int);
 	void (*setFinished)(TlsSec*, HandshakeHash, uchar*, int);
 	int nfin;
 };
@@ -107,7 +109,7 @@ typedef struct Msg{
 	int tag;
 	union {
 		struct {
-			int version;
+			int	version;
 			uchar 	random[RandomSize];
 			Bytes*	sid;
 			Ints*	ciphers;
@@ -115,7 +117,7 @@ typedef struct Msg{
 			Bytes*	extensions;
 		} clientHello;
 		struct {
-			int version;
+			int	version;
 			uchar	random[RandomSize];
 			Bytes*	sid;
 			int	cipher;
@@ -214,78 +216,35 @@ enum {
 
 // cipher suites
 enum {
-	TLS_NULL_WITH_NULL_NULL			= 0x0000,
-	TLS_RSA_WITH_NULL_MD5			= 0x0001,
-	TLS_RSA_WITH_NULL_SHA			= 0x0002,
-	TLS_RSA_EXPORT_WITH_RC4_40_MD5		= 0x0003,
-	TLS_RSA_WITH_RC4_128_MD5		= 0x0004,
-	TLS_RSA_WITH_RC4_128_SHA		= 0x0005,
-	TLS_RSA_EXPORT_WITH_RC2_CBC_40_MD5	= 0X0006,
-	TLS_RSA_WITH_IDEA_CBC_SHA		= 0X0007,
-	TLS_RSA_EXPORT_WITH_DES40_CBC_SHA	= 0X0008,
-	TLS_RSA_WITH_DES_CBC_SHA		= 0X0009,
 	TLS_RSA_WITH_3DES_EDE_CBC_SHA		= 0X000A,
-	TLS_DH_DSS_EXPORT_WITH_DES40_CBC_SHA	= 0X000B,
-	TLS_DH_DSS_WITH_DES_CBC_SHA		= 0X000C,
-	TLS_DH_DSS_WITH_3DES_EDE_CBC_SHA	= 0X000D,
-	TLS_DH_RSA_EXPORT_WITH_DES40_CBC_SHA	= 0X000E,
-	TLS_DH_RSA_WITH_DES_CBC_SHA		= 0X000F,
-	TLS_DH_RSA_WITH_3DES_EDE_CBC_SHA	= 0X0010,
-	TLS_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA	= 0X0011,
-	TLS_DHE_DSS_WITH_DES_CBC_SHA		= 0X0012,
-	TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA	= 0X0013,	// ZZZ must be implemented for tls1.0 compliance
-	TLS_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA	= 0X0014,
-	TLS_DHE_RSA_WITH_DES_CBC_SHA		= 0X0015,
 	TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA	= 0X0016,
-	TLS_DH_anon_EXPORT_WITH_RC4_40_MD5	= 0x0017,
-	TLS_DH_anon_WITH_RC4_128_MD5		= 0x0018,
-	TLS_DH_anon_EXPORT_WITH_DES40_CBC_SHA	= 0X0019,
-	TLS_DH_anon_WITH_DES_CBC_SHA		= 0X001A,
-	TLS_DH_anon_WITH_3DES_EDE_CBC_SHA	= 0X001B,
-	TLS_RSA_WITH_AES_128_CBC_SHA		= 0X002F,	// aes, aka rijndael with 128 bit blocks
-	TLS_DH_DSS_WITH_AES_128_CBC_SHA		= 0X0030,
-	TLS_DH_RSA_WITH_AES_128_CBC_SHA		= 0X0031,
-	TLS_DHE_DSS_WITH_AES_128_CBC_SHA	= 0X0032,
+
+	TLS_RSA_WITH_AES_128_CBC_SHA		= 0X002F,
 	TLS_DHE_RSA_WITH_AES_128_CBC_SHA	= 0X0033,
-	TLS_DH_anon_WITH_AES_128_CBC_SHA	= 0X0034,
 	TLS_RSA_WITH_AES_256_CBC_SHA		= 0X0035,
-	TLS_DH_DSS_WITH_AES_256_CBC_SHA		= 0X0036,
-	TLS_DH_RSA_WITH_AES_256_CBC_SHA		= 0X0037,
-	TLS_DHE_DSS_WITH_AES_256_CBC_SHA	= 0X0038,
 	TLS_DHE_RSA_WITH_AES_256_CBC_SHA	= 0X0039,
-	TLS_DH_anon_WITH_AES_256_CBC_SHA	= 0X003A,
 	TLS_RSA_WITH_AES_128_CBC_SHA256		= 0X003C,
 	TLS_RSA_WITH_AES_256_CBC_SHA256		= 0X003D,
 	TLS_DHE_RSA_WITH_AES_128_CBC_SHA256	= 0X0067,
 
 	TLS_RSA_WITH_AES_128_GCM_SHA256		= 0x009C,
-	TLS_RSA_WITH_AES_256_GCM_SHA384		= 0x009D,
 	TLS_DHE_RSA_WITH_AES_128_GCM_SHA256	= 0x009E,
-	TLS_DHE_RSA_WITH_AES_256_GCM_SHA384	= 0x009F,
-	TLS_DH_RSA_WITH_AES_128_GCM_SHA256	= 0x00A0,
-	TLS_DH_RSA_WITH_AES_256_GCM_SHA384	= 0x00A1,
-	TLS_DHE_DSS_WITH_AES_128_GCM_SHA256	= 0x00A2,
-	TLS_DHE_DSS_WITH_AES_256_GCM_SHA384	= 0x00A3,
-	TLS_DH_DSS_WITH_AES_128_GCM_SHA256	= 0x00A4,
-	TLS_DH_DSS_WITH_AES_256_GCM_SHA384	= 0x00A5,
-	TLS_DH_anon_WITH_AES_128_GCM_SHA256	= 0x00A6,
-	TLS_DH_anon_WITH_AES_256_GCM_SHA384	= 0x00A7,
+
+	TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA	= 0xC013,
+	TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA	= 0xC014,
+	TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256	= 0xC023,
+	TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256	= 0xC027,
 
 	TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 = 0xC02B,
 	TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256	= 0xC02F,
 
-	TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA	= 0xC013,
-	TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA	= 0xC014,
-	TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256	= 0xC027,
-	TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256	= 0xC023,
+	GOOGLE_ECDHE_RSA_WITH_CHACHA20_POLY1305		= 0xCC13,
+	GOOGLE_ECDHE_ECDSA_WITH_CHACHA20_POLY1305	= 0xCC14,
+	GOOGLE_DHE_RSA_WITH_CHACHA20_POLY1305		= 0xCC15,
 
 	TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305	= 0xCCA8,
 	TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305	= 0xCCA9,
 	TLS_DHE_RSA_WITH_CHACHA20_POLY1305	= 0xCCAA,
-
-	GOOGLE_ECDHE_RSA_WITH_CHACHA20_POLY1305		= 0xCC13,
-	GOOGLE_ECDHE_ECDSA_WITH_CHACHA20_POLY1305	= 0xCC14,
-	GOOGLE_DHE_RSA_WITH_CHACHA20_POLY1305		= 0xCC15,
 
 	TLS_PSK_WITH_CHACHA20_POLY1305		= 0xCCAB,
 	TLS_PSK_WITH_AES_128_CBC_SHA256		= 0x00AE,
@@ -298,6 +257,20 @@ enum {
 enum {
 	CompressionNull = 0,
 	CompressionMax
+};
+
+
+// curves
+enum {
+	X25519 = 0x001d,
+};
+
+// extensions
+enum {
+	Extsni = 0x0000,
+	Extec = 0x000a,
+	Extecp = 0x000b,
+	Extsigalgs = 0x000d,
 };
 
 static Algs cipherAlgs[] = {
@@ -343,6 +316,7 @@ static uchar compressors[] = {
 };
 
 static Namedcurve namedcurves[] = {
+	X25519, nil,
 	0x0017, secp256r1,
 	0x0018, secp384r1,
 };
@@ -402,7 +376,7 @@ static int isPSK(int tlsid);
 static int isECDSA(int tlsid);
 
 static int setAlgs(TlsConnection *c, int a);
-static int okCipher(Ints *cv, int ispsk);
+static int okCipher(Ints *cv, int ispsk, int canec);
 static int okCompression(Bytes *cv);
 static int initCiphers(void);
 static Ints* makeciphers(int ispsk);
@@ -413,7 +387,7 @@ static void factotum_rsa_close(AuthRpc *rpc);
 
 static void	tlsSecInits(TlsSec *sec, int cvers, uchar *crandom);
 static int	tlsSecRSAs(TlsSec *sec, Bytes *epm);
-static Bytes*	tlsSecECDHEs1(TlsSec *sec, Namedcurve *nc);
+static Bytes*	tlsSecECDHEs1(TlsSec *sec);
 static int	tlsSecECDHEs2(TlsSec *sec, Bytes *Yc);
 static void	tlsSecInitc(TlsSec *sec, int cvers);
 static Bytes*	tlsSecRSAc(TlsSec *sec, uchar *cert, int ncert);
@@ -454,6 +428,7 @@ tlsServer(int fd, TLSconn *conn)
 {
 	char buf[8];
 	char dname[64];
+	uchar seed[2*RandomSize];
 	int n, data, ctl, hand;
 	TlsConnection *tls;
 
@@ -498,13 +473,15 @@ tlsServer(int fd, TLSconn *conn)
 	conn->sessionID = nil;
 	if(conn->sessionKey != nil
 	&& conn->sessionType != nil
-	&& strcmp(conn->sessionType, "ttls") == 0)
+	&& strcmp(conn->sessionType, "ttls") == 0){
+		memmove(seed, tls->sec->crandom, RandomSize);
+		memmove(seed+RandomSize, tls->sec->srandom, RandomSize);
 		tls->sec->prf(
 			conn->sessionKey, conn->sessionKeylen,
 			tls->sec->sec, MasterSecretSize,
 			conn->sessionConst, 
-			tls->sec->crandom, RandomSize,
-			tls->sec->srandom, RandomSize);
+			seed, sizeof(seed));
+	}
 	tlsConnectionFree(tls);
 	close(fd);
 	return data;
@@ -526,7 +503,7 @@ tlsClientExtensions(TLSconn *conn, int *plen)
 		b = erealloc(b, m + 2+2+2+1+2+n);
 		p = b + m;
 
-		put16(p, 0), p += 2;		/* Type: server_name */
+		put16(p, Extsni), p += 2;	/* Type: server_name */
 		put16(p, 2+1+2+n), p += 2;	/* Length */
 		put16(p, 1+2+n), p += 2;	/* Server Name list length */
 		*p++ = 0;			/* Server Name Type: host_name */
@@ -535,26 +512,26 @@ tlsClientExtensions(TLSconn *conn, int *plen)
 		p += n;
 	}
 
-	// ECDHE
+	// Elliptic Curves (also called Supported Groups)
 	if(ProtocolVersion >= TLS10Version){
 		m = p - b;
 		b = erealloc(b, m + 2+2+2+nelem(namedcurves)*2 + 2+2+1+nelem(pointformats));
 		p = b + m;
 
 		n = nelem(namedcurves);
-		put16(p, 0x000a), p += 2;	/* Type: elliptic_curves */
+		put16(p, Extec), p += 2;	/* Type: elliptic_curves / supported_groups */
 		put16(p, (n+1)*2), p += 2;	/* Length */
 		put16(p, n*2), p += 2;		/* Elliptic Curves Length */
-		for(i=0; i < n; i++){		/* Elliptic curves */
+		for(i=0; i < n; i++){		/* Elliptic Curves */
 			put16(p, namedcurves[i].tlsid);
 			p += 2;
 		}
 
 		n = nelem(pointformats);
-		put16(p, 0x000b), p += 2;	/* Type: ec_point_formats */
+		put16(p, Extecp), p += 2;	/* Type: ec_point_formats */
 		put16(p, n+1), p += 2;		/* Length */
 		*p++ = n;			/* EC point formats Length */
-		for(i=0; i < n; i++)		/* Elliptic curves point formats */
+		for(i=0; i < n; i++)		/* EC point formats */
 			*p++ = pointformats[i];
 	}
 
@@ -566,7 +543,7 @@ tlsClientExtensions(TLSconn *conn, int *plen)
 		b = erealloc(b, m + 2+2+2+n*2);
 		p = b + m;
 
-		put16(p, 0x000d), p += 2;
+		put16(p, Extsigalgs), p += 2;
 		put16(p, n*2 + 2), p += 2;
 		put16(p, n*2), p += 2;
 		for(i=0; i < n; i++){
@@ -586,6 +563,7 @@ tlsClient(int fd, TLSconn *conn)
 {
 	char buf[8];
 	char dname[64];
+	uchar seed[2*RandomSize];
 	int n, data, ctl, hand;
 	TlsConnection *tls;
 	uchar *ext;
@@ -641,13 +619,15 @@ tlsClient(int fd, TLSconn *conn)
 	conn->sessionID = nil;
 	if(conn->sessionKey != nil
 	&& conn->sessionType != nil
-	&& strcmp(conn->sessionType, "ttls") == 0)
+	&& strcmp(conn->sessionType, "ttls") == 0){
+		memmove(seed, tls->sec->crandom, RandomSize);
+		memmove(seed+RandomSize, tls->sec->srandom, RandomSize);
 		tls->sec->prf(
 			conn->sessionKey, conn->sessionKeylen,
 			tls->sec->sec, MasterSecretSize,
 			conn->sessionConst, 
-			tls->sec->crandom, RandomSize,
-			tls->sec->srandom, RandomSize);
+			seed, sizeof(seed));
+	}
 	tlsConnectionFree(tls);
 	close(fd);
 	return data;
@@ -664,6 +644,53 @@ countchain(PEMChain *p)
 	}
 	return i;
 }
+
+static int
+checkClientExtensions(TlsConnection *c, Bytes *ext)
+{
+	uchar *p, *e;
+	int i, j, n;
+
+	p = ext->data;
+	e = p+ext->len;
+	while(p < e){
+		if(e-p < 2)
+			goto Short;
+		switch(get16(p)){
+		case Extec:	
+			p += 2;
+			n = get16(p);
+			if(e-p < n || n < 2)
+				goto Short;
+			p += 2;
+			n = get16(p);
+			p += 2;
+			if(e-p < n || n & 1 || n == 0)
+				goto Short;
+			for(i = 0; i < nelem(namedcurves) && c->sec->nc == nil; i++)
+				for(j = 0; j < n; j += 2)
+					if(namedcurves[i].tlsid == get16(p+j)){
+						c->sec->nc = &namedcurves[i];
+						break;
+					}
+			p += n;
+			break;
+		default:
+			p += 2;
+			n = get16(p);
+			p += 2;
+			if(e-p < n)
+				goto Short;
+			p += n;
+			break;
+		}
+	}
+
+	return 0;
+Short:
+	tlsError(c, EDecodeError, "clienthello extensions has invalid length");
+	return -1; 
+} 
 
 static TlsConnection *
 tlsServer2(int ctl, int hand,
@@ -708,19 +735,6 @@ tlsServer2(int ctl, int hand,
 		tlsError(c, EInappropriateFallback, "inappropriate fallback");
 		goto Err;
 	}
-	cipher = okCipher(m.u.clientHello.ciphers, psklen > 0);
-	if(cipher < 0 || !setAlgs(c, cipher)) {
-		tlsError(c, EHandshakeFailure, "no matching cipher suite");
-		goto Err;
-	}
-	compressor = okCompression(m.u.clientHello.compressors);
-	if(compressor < 0) {
-		tlsError(c, EHandshakeFailure, "no matching compressor");
-		goto Err;
-	}
-	if(trace)
-		trace("  cipher %x, compressor %x\n", cipher, compressor);
-
 	tlsSecInits(c->sec, m.u.clientHello.version, m.u.clientHello.random);
 	tlsSecVers(c->sec, c->version);
 	if(psklen > 0){
@@ -740,6 +754,20 @@ tlsServer2(int ctl, int hand,
 			goto Err;
 		}
 	}
+	if(checkClientExtensions(c, m.u.clientHello.extensions) < 0)
+		goto Err;
+	cipher = okCipher(m.u.clientHello.ciphers, psklen > 0, c->sec->nc != nil);
+	if(cipher < 0 || !setAlgs(c, cipher)) {
+		tlsError(c, EHandshakeFailure, "no matching cipher suite");
+		goto Err;
+	}
+	compressor = okCompression(m.u.clientHello.compressors);
+	if(compressor < 0) {
+		tlsError(c, EHandshakeFailure, "no matching compressor");
+		goto Err;
+	}
+	if(trace)
+		trace("  cipher %x, compressor %x\n", cipher, compressor);
 	msgClear(&m);
 
 	m.tag = HServerHello;
@@ -764,11 +792,9 @@ tlsServer2(int ctl, int hand,
 	}
 
 	if(isECDHE(cipher)){
-		Namedcurve *nc = &namedcurves[0];	/* secp256r1 */
-
 		m.tag = HServerKeyExchange;
-		m.u.serverKeyExchange.curve = nc->tlsid;
-		m.u.serverKeyExchange.dh_parameters = tlsSecECDHEs1(c->sec, nc);
+		m.u.serverKeyExchange.curve = c->sec->nc->tlsid;
+		m.u.serverKeyExchange.dh_parameters = tlsSecECDHEs1(c->sec);
 		if(m.u.serverKeyExchange.dh_parameters == nil){
 			tlsError(c, EInternalError, "can't set DH parameters");
 			goto Err;
@@ -889,7 +915,9 @@ tlsSecDHEc(TlsSec *sec, Bytes *p, Bytes *g, Bytes *Ys)
 
 	if(p == nil || g == nil || Ys == nil)
 		return nil;
-
+	// reject dh primes that is susceptible to logjam
+	if(p->len <= 1024/8)
+		return nil;
 	Yc = nil;
 	P = bytestomp(p);
 	G = bytestomp(g);
@@ -920,49 +948,65 @@ Out:
 static Bytes*
 tlsSecECDHEc(TlsSec *sec, int curve, Bytes *Ys)
 {
+	static char zero[32] = {0};
 	ECdomain *dom = &sec->ec.dom;
 	ECpriv *Q = &sec->ec.Q;
-	Namedcurve *nc;
 	ECpub *pub;
 	ECpoint K;
+	Namedcurve *nc;
 	Bytes *Yc;
+	Bytes *Z;
 	int n;
 
 	if(Ys == nil)
 		return nil;
-	for(nc = namedcurves; nc != &namedcurves[nelem(namedcurves)]; nc++)
-		if(nc->tlsid == curve)
-			goto Found;
-	return nil;
 
-Found:
-	ecdominit(dom, nc->init);
-	pub = ecdecodepub(dom, Ys->data, Ys->len);
-	if(pub == nil)
-		return nil;
+	if(curve == X25519){
+		if(Ys->len != 32)
+			return nil;
+		Yc = newbytes(32);
+		curve25519_dh_new(sec->X, Yc->data);
+		Z = newbytes(32);
+		curve25519_dh_finish(sec->X, Ys->data, Z->data);
+		// rfc wants us to terminate the connection if
+		// shared secret == all zeroes.
+		if(tsmemcmp(Z->data, zero, Z->len) == 0){
+			freebytes(Yc);
+			freebytes(Z);
+			return nil;
+		}
+		setMasterSecret(sec, Z);
+	}else{
+		for(nc = namedcurves; nc->tlsid != curve; nc++)
+			if(nc == &namedcurves[nelem(namedcurves)])
+				return nil;
+		ecdominit(dom, nc->init);
+		pub = ecdecodepub(dom, Ys->data, Ys->len);
+		if(pub == nil)
+			return nil;
 
-	memset(Q, 0, sizeof(*Q));
-	Q->x = mpnew(0);
-	Q->y = mpnew(0);
-	Q->d = mpnew(0);
+		memset(Q, 0, sizeof(*Q));
+		Q->x = mpnew(0);
+		Q->y = mpnew(0);
+		Q->d = mpnew(0);
 
-	memset(&K, 0, sizeof(K));
-	K.x = mpnew(0);
-	K.y = mpnew(0);
+		memset(&K, 0, sizeof(K));
+		K.x = mpnew(0);
+		K.y = mpnew(0);
 
-	ecgen(dom, Q);
-	ecmul(dom, pub, Q->d, &K);
+		ecgen(dom, Q);
+		ecmul(dom, pub, Q->d, &K);
 
-	n = (mpsignif(dom->p)+7)/8;
-	setMasterSecret(sec, mptobytes(K.x, n));
-	Yc = newbytes(1 + 2*n);
-	Yc->len = ecencodepub(dom, Q, Yc->data, Yc->len);
+		n = (mpsignif(dom->p)+7)/8;
+		setMasterSecret(sec, mptobytes(K.x, n));
+		Yc = newbytes(1 + 2*n);
+		Yc->len = ecencodepub(dom, Q, Yc->data, Yc->len);
 
-	mpfree(K.x);
-	mpfree(K.y);
+		mpfree(K.x);
+		mpfree(K.y);
 
-	ecpubfree(pub);
-
+		ecpubfree(pub);
+	}
 	return Yc;
 }
 
@@ -1045,7 +1089,6 @@ tlsClient2(int ctl, int hand,
 		tlsError(c, EIllegalParameter, "invalid compression");
 		goto Err;
 	}
-
 	dhx = isDHE(cipher) || isECDHE(cipher);
 	if(!msgRecv(c, &m))
 		goto Err;
@@ -2136,13 +2179,17 @@ setAlgs(TlsConnection *c, int a)
 }
 
 static int
-okCipher(Ints *cv, int ispsk)
+okCipher(Ints *cv, int ispsk, int canec)
 {
 	int i, c;
 
 	for(i = 0; i < nelem(cipherAlgs); i++) {
 		c = cipherAlgs[i].tlsid;
-		if(!cipherAlgs[i].ok || isECDSA(c) || isDHE(c) || isPSK(c) != ispsk)
+		if(!cipherAlgs[i].ok || isECDSA(c) || isDHE(c))
+			continue;
+		if(isPSK(c) != ispsk)
+			continue;
+		if(isECDHE(c) && !canec)
 			continue;
 		if(lookupid(cv, c) >= 0)
 			return c;
@@ -2313,114 +2360,55 @@ factotum_rsa_close(AuthRpc *rpc)
 }
 
 static void
-tlsPmd5(uchar *buf, int nbuf, uchar *key, int nkey, uchar *label, int nlabel, uchar *seed0, int nseed0, uchar *seed1, int nseed1)
-{
-	uchar ai[MD5dlen], tmp[MD5dlen];
-	int i, n;
-	MD5state *s;
-
-	// generate a1
-	s = hmac_md5(label, nlabel, key, nkey, nil, nil);
-	s = hmac_md5(seed0, nseed0, key, nkey, nil, s);
-	hmac_md5(seed1, nseed1, key, nkey, ai, s);
-
-	while(nbuf > 0) {
-		s = hmac_md5(ai, MD5dlen, key, nkey, nil, nil);
-		s = hmac_md5(label, nlabel, key, nkey, nil, s);
-		s = hmac_md5(seed0, nseed0, key, nkey, nil, s);
-		hmac_md5(seed1, nseed1, key, nkey, tmp, s);
-		n = MD5dlen;
-		if(n > nbuf)
-			n = nbuf;
-		for(i = 0; i < n; i++)
-			buf[i] ^= tmp[i];
-		buf += n;
-		nbuf -= n;
-		hmac_md5(ai, MD5dlen, key, nkey, tmp, nil);
-		memmove(ai, tmp, MD5dlen);
-	}
-}
-
-static void
-tlsPsha1(uchar *buf, int nbuf, uchar *key, int nkey, uchar *label, int nlabel, uchar *seed0, int nseed0, uchar *seed1, int nseed1)
-{
-	uchar ai[SHA1dlen], tmp[SHA1dlen];
-	int i, n;
-	SHAstate *s;
-
-	// generate a1
-	s = hmac_sha1(label, nlabel, key, nkey, nil, nil);
-	s = hmac_sha1(seed0, nseed0, key, nkey, nil, s);
-	hmac_sha1(seed1, nseed1, key, nkey, ai, s);
-
-	while(nbuf > 0) {
-		s = hmac_sha1(ai, SHA1dlen, key, nkey, nil, nil);
-		s = hmac_sha1(label, nlabel, key, nkey, nil, s);
-		s = hmac_sha1(seed0, nseed0, key, nkey, nil, s);
-		hmac_sha1(seed1, nseed1, key, nkey, tmp, s);
-		n = SHA1dlen;
-		if(n > nbuf)
-			n = nbuf;
-		for(i = 0; i < n; i++)
-			buf[i] ^= tmp[i];
-		buf += n;
-		nbuf -= n;
-		hmac_sha1(ai, SHA1dlen, key, nkey, tmp, nil);
-		memmove(ai, tmp, SHA1dlen);
-	}
-}
-
-static void
-p_sha256(uchar *buf, int nbuf, uchar *key, int nkey, uchar *label, int nlabel, uchar *seed, int nseed)
+tlsP(uchar *buf, int nbuf, uchar *key, int nkey, uchar *label, int nlabel, uchar *seed, int nseed,
+	DigestState* (*x)(uchar*, ulong, uchar*, ulong, uchar*, DigestState*), int xlen)
 {
 	uchar ai[SHA2_256dlen], tmp[SHA2_256dlen];
-	SHAstate *s;
+	DigestState *s;
 	int n;
 
+	assert(sizeof(ai) <= xlen && sizeof(tmp) <= xlen);
 	// generate a1
-	s = hmac_sha2_256(label, nlabel, key, nkey, nil, nil);
-	hmac_sha2_256(seed, nseed, key, nkey, ai, s);
+	s = x(label, nlabel, key, nkey, nil, nil);
+	x(seed, nseed, key, nkey, ai, s);
 
 	while(nbuf > 0) {
-		s = hmac_sha2_256(ai, SHA2_256dlen, key, nkey, nil, nil);
-		s = hmac_sha2_256(label, nlabel, key, nkey, nil, s);
-		hmac_sha2_256(seed, nseed, key, nkey, tmp, s);
-		n = SHA2_256dlen;
+		s = x(ai, xlen, key, nkey, nil, nil);
+		s = x(label, nlabel, key, nkey, nil, s);
+		x(seed, nseed, key, nkey, tmp, s);
+		n = xlen;
 		if(n > nbuf)
 			n = nbuf;
 		memmove(buf, tmp, n);
 		buf += n;
 		nbuf -= n;
-		hmac_sha2_256(ai, SHA2_256dlen, key, nkey, tmp, nil);
-		memmove(ai, tmp, SHA2_256dlen);
+		x(ai, xlen, key, nkey, tmp, nil);
+		memmove(ai, tmp, xlen);
 	}
 }
 
 // fill buf with md5(args)^sha1(args)
 static void
-tls10PRF(uchar *buf, int nbuf, uchar *key, int nkey, char *label, uchar *seed0, int nseed0, uchar *seed1, int nseed1)
+tls10PRF(uchar *buf, int nbuf, uchar *key, int nkey, char *label, uchar *seed, int nseed)
 {
 	int nlabel = strlen(label);
 	int n = (nkey + 1) >> 1;
 
-	memset(buf, 0, nbuf);
-	tlsPmd5(buf, nbuf, key, n, (uchar*)label, nlabel, seed0, nseed0, seed1, nseed1);
-	tlsPsha1(buf, nbuf, key+nkey-n, n, (uchar*)label, nlabel, seed0, nseed0, seed1, nseed1);
+	tlsP(buf, nbuf, key, n, (uchar*)label, nlabel, seed, nseed,
+		hmac_md5, MD5dlen);
+	tlsP(buf, nbuf, key+nkey-n, n, (uchar*)label, nlabel, seed, nseed,
+		hmac_sha1, SHA1dlen);
 }
 
 static void
-tls12PRF(uchar *buf, int nbuf, uchar *key, int nkey, char *label, uchar *seed0, int nseed0, uchar *seed1, int nseed1)
+tls12PRF(uchar *buf, int nbuf, uchar *key, int nkey, char *label, uchar *seed, int nseed)
 {
-	uchar seed[2*RandomSize];
-
-	assert(nseed0+nseed1 <= sizeof(seed));
-	memmove(seed, seed0, nseed0);
-	memmove(seed+nseed0, seed1, nseed1);
-	p_sha256(buf, nbuf, key, nkey, (uchar*)label, strlen(label), seed, nseed0+nseed1);
+	tlsP(buf, nbuf, key, nkey, (uchar*)label, strlen(label), seed, nseed,
+		hmac_sha2_256, SHA2_256dlen);
 }
 
 static void
-sslPRF(uchar *buf, int nbuf, uchar *key, int nkey, char *label, uchar *seed0, int nseed0, uchar *seed1, int nseed1)
+sslPRF(uchar *buf, int nbuf, uchar *key, int nkey, char *label, uchar *seed, int nseed)
 {
 	uchar sha1dig[SHA1dlen], md5dig[MD5dlen], tmp[26];
 	DigestState *s;
@@ -2435,8 +2423,7 @@ sslPRF(uchar *buf, int nbuf, uchar *key, int nkey, char *label, uchar *seed0, in
 			tmp[i] = 'A' - 1 + len;
 		s = sha1(tmp, len, nil, nil);
 		s = sha1(key, nkey, nil, s);
-		s = sha1(seed0, nseed0, nil, s);
-		sha1(seed1, nseed1, sha1dig, s);
+		sha1(seed, nseed, sha1dig, s);
 		s = md5(key, nkey, nil, nil);
 		md5(sha1dig, SHA1dlen, md5dig, s);
 		n = MD5dlen;
@@ -2486,18 +2473,18 @@ sslSetFinished(TlsSec *sec, HandshakeHash hsh, uchar *finished, int isclient)
 static void
 tls10SetFinished(TlsSec *sec, HandshakeHash hsh, uchar *finished, int isclient)
 {
-	uchar h0[MD5dlen], h1[SHA1dlen];
+	uchar h[MD5dlen+SHA1dlen];
 	char *label;
 
 	// get current hash value, but allow further messages to be hashed in
-	md5(nil, 0, h0, &hsh.md5);
-	sha1(nil, 0, h1, &hsh.sha1);
+	md5(nil, 0, h, &hsh.md5);
+	sha1(nil, 0, h+MD5dlen, &hsh.sha1);
 
 	if(isclient)
 		label = "client finished";
 	else
 		label = "server finished";
-	tls10PRF(finished, TLSFinishedLen, sec->sec, MasterSecretSize, label, h0, MD5dlen, h1, SHA1dlen);
+	tls10PRF(finished, TLSFinishedLen, sec->sec, MasterSecretSize, label, h, sizeof(h));
 }
 
 static void
@@ -2513,7 +2500,7 @@ tls12SetFinished(TlsSec *sec, HandshakeHash hsh, uchar *finished, int isclient)
 		label = "client finished";
 	else
 		label = "server finished";
-	p_sha256(finished, TLSFinishedLen, sec->sec, MasterSecretSize, (uchar*)label, strlen(label), seed, SHA2_256dlen);
+	tls12PRF(finished, TLSFinishedLen, sec->sec, MasterSecretSize, label, seed, SHA2_256dlen);
 }
 
 static void
@@ -2523,8 +2510,9 @@ tlsSecInits(TlsSec *sec, int cvers, uchar *crandom)
 	sec->clientVers = cvers;
 	memmove(sec->crandom, crandom, RandomSize);
 
-	put32(sec->srandom, time(nil));
-	genrandom(sec->srandom+4, RandomSize-4);
+	// putting time()'s output to the first 4 bytes is no
+	// longer recommended and is not useful
+	genrandom(sec->srandom, RandomSize);
 }
 
 static int
@@ -2549,61 +2537,88 @@ tlsSecRSAs(TlsSec *sec, Bytes *epm)
 }
 
 static Bytes*
-tlsSecECDHEs1(TlsSec *sec, Namedcurve *nc)
+tlsSecECDHEs1(TlsSec *sec)
 {
 	ECdomain *dom = &sec->ec.dom;
 	ECpriv *Q = &sec->ec.Q;
 	Bytes *par;
 	int n;
 
-	ecdominit(dom, nc->init);
-	memset(Q, 0, sizeof(*Q));
-	Q->x = mpnew(0);
-	Q->y = mpnew(0);
-	Q->d = mpnew(0);
-	ecgen(dom, Q);
-	n = 1 + 2*((mpsignif(dom->p)+7)/8);
-	par = newbytes(1+2+1+n);
-	par->data[0] = 3;
-	put16(par->data+1, nc->tlsid);
-	n = ecencodepub(dom, Q, par->data+4, par->len-4);
-	par->data[3] = n;
-	par->len = 1+2+1+n;
-
+	if(sec->nc == nil)
+		return nil;
+	if(sec->nc->tlsid == X25519){
+		par = newbytes(1+2+1+32);
+		par->data[0] = 3;
+		put16(par->data+1, X25519);
+		par->data[3] = 32;
+		curve25519_dh_new(sec->X, par->data+4);
+	}else{
+		ecdominit(dom, sec->nc->init);
+		memset(Q, 0, sizeof(*Q));
+		Q->x = mpnew(0);
+		Q->y = mpnew(0);
+		Q->d = mpnew(0);
+		ecgen(dom, Q);
+		n = 1 + 2*((mpsignif(dom->p)+7)/8);
+		par = newbytes(1+2+1+n);
+		par->data[0] = 3;
+		put16(par->data+1, sec->nc->tlsid);
+		n = ecencodepub(dom, Q, par->data+4, par->len-4);
+		par->data[3] = n;
+		par->len = 1+2+1+n;
+	}
 	return par;
 }
 
 static int
 tlsSecECDHEs2(TlsSec *sec, Bytes *Yc)
 {
+	static char zero[32] = {0};
 	ECdomain *dom = &sec->ec.dom;
 	ECpriv *Q = &sec->ec.Q;
 	ECpoint K;
 	ECpub *Y;
+	Bytes *Z;
 
 	if(Yc == nil){
 		werrstr("no public key");
 		return -1;
 	}
 
-	if((Y = ecdecodepub(dom, Yc->data, Yc->len)) == nil){
-		werrstr("bad public key");
-		return -1;
+	if(sec->nc->tlsid == X25519){
+		if(Yc->len != 32){
+			werrstr("bad public key");
+			return -1;
+		}
+		Z = newbytes(32);
+		curve25519_dh_finish(sec->X, Yc->data, Z->data);
+		// rfc wants us to terminate the connection if
+		// shared secret == all zeroes.
+		if(tsmemcmp(Z->data, zero, Z->len) == 0){
+			werrstr("unlucky shared key");
+			freebytes(Z);
+			return -1;
+		}
+		setMasterSecret(sec, Z);
+	}else{
+		if((Y = ecdecodepub(dom, Yc->data, Yc->len)) == nil){
+			werrstr("bad public key");
+			return -1;
+		}
+
+		memset(&K, 0, sizeof(K));
+		K.x = mpnew(0);
+		K.y = mpnew(0);
+
+		ecmul(dom, Y, Q->d, &K);
+
+		setMasterSecret(sec, mptobytes(K.x, (mpsignif(dom->p)+7)/8));
+
+		mpfree(K.x);
+		mpfree(K.y);
+
+		ecpubfree(Y);
 	}
-
-	memset(&K, 0, sizeof(K));
-	K.x = mpnew(0);
-	K.y = mpnew(0);
-
-	ecmul(dom, Y, Q->d, &K);
-
-	setMasterSecret(sec, mptobytes(K.x, (mpsignif(dom->p)+7)/8));
-
-	mpfree(K.x);
-	mpfree(K.y);
-
-	ecpubfree(Y);
-
 	return 0;
 }
 
@@ -2612,8 +2627,8 @@ tlsSecInitc(TlsSec *sec, int cvers)
 {
 	memset(sec, 0, sizeof(*sec));
 	sec->clientVers = cvers;
-	put32(sec->crandom, time(nil));
-	genrandom(sec->crandom+4, RandomSize-4);
+	// see the comment on tlsSecInits
+	genrandom(sec->crandom, RandomSize);
 }
 
 static Bytes*
@@ -2671,13 +2686,15 @@ tlsSecVers(TlsSec *sec, int v)
 static int
 setSecrets(TlsConnection *c, int isclient)
 {
-	uchar kd[MaxKeyData];
+	uchar kd[MaxKeyData], seed[2*RandomSize];
 	char *secrets;
 	int rv;
 
 	assert(c->nsecret <= sizeof(kd));
 	secrets = emalloc(2*c->nsecret);
 
+	memmove(seed, c->sec->srandom, RandomSize);
+	memmove(seed+RandomSize, c->sec->crandom, RandomSize);
 	/*
 	 * generate secret keys from the master secret.
 	 *
@@ -2686,7 +2703,7 @@ setSecrets(TlsConnection *c, int isclient)
 	 * but it's all generated using the same function.
 	 */
 	(*c->sec->prf)(kd, c->nsecret, c->sec->sec, MasterSecretSize, "key expansion",
-			c->sec->srandom, RandomSize, c->sec->crandom, RandomSize);
+			seed, sizeof(seed));
 
 	enc64(secrets, 2*c->nsecret, kd, c->nsecret);
 	memset(kd, 0, c->nsecret);
@@ -2705,6 +2722,8 @@ setSecrets(TlsConnection *c, int isclient)
 static void
 setMasterSecret(TlsSec *sec, Bytes *pm)
 {
+	uchar seed[2*RandomSize];
+
 	if(sec->psklen > 0){
 		Bytes *opm = pm;
 		uchar *p;
@@ -2721,8 +2740,10 @@ setMasterSecret(TlsSec *sec, Bytes *pm)
 		freebytes(opm);
 	}
 
+	memmove(seed, sec->crandom, RandomSize);
+	memmove(seed+RandomSize, sec->srandom, RandomSize);
 	(*sec->prf)(sec->sec, MasterSecretSize, pm->data, pm->len, "master secret",
-			sec->crandom, RandomSize, sec->srandom, RandomSize);
+			seed, sizeof(seed));
 
 	memset(pm->data, 0, pm->len);	
 	freebytes(pm);
