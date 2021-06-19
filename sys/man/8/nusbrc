@@ -31,5 +31,5 @@ and
 identified by the devices unique name assigned by usbd.
 When the environment variable
 .I nousbhname
-is defined, devies are named by ther dynamically assigned
+is defined, devices are named by ther dynamically assigned
 usb device address instead. This emulates the old behaviour.
