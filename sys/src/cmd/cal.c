@@ -60,7 +60,7 @@ main(int argc, char *argv[])
 	Binit(&bout, 1, OWRITE);
 
 	dayw = dayws + 3*wstart;
-	dayw[3*7] = '\0';
+	dayw[(3*7)-1] = '\0';
 
 /*
  * no arg, print current month
