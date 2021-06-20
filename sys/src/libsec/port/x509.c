@@ -2576,9 +2576,9 @@ asn1encodedigest(DigestState* (*fun)(uchar*, ulong, uchar*, DigestState*), uchar
 }
 
 static Elem
-mkcont(Elem e, int num)
+mkcont(int num, Elist *l)
 {
-	e = mkseq(mkel(e, nil));
+	Elem e = mkseq(l);
 	e.tag.class = Context;
 	e.tag.num = num;
 	return e;
@@ -2592,7 +2592,7 @@ mkaltname(char *s)
 
 	for(i=0; i<nelem(DN_oid); i++){
 		if(strstr(s, DN_oid[i].prefix) != nil)
-			return mkcont(mkDN(s), 4); /* DN */
+			return mkcont(4, mkel(mkDN(s), nil)); /* DN */
 	}
 	e = mkstring(s, IA5String);
 	e.tag.class = Context;
@@ -2652,12 +2652,13 @@ mkextensions(char *alts, int req)
 	if((sl = mkaltnames(alts)) != nil)
 		xl = mkextel(mkseq(sl), (Ints*)&oid_subjectAltName, xl);
 	if(xl != nil){
-		if(req) return mkel(mkcont(mkseq(
-			mkel(mkoid((Ints*)&oid_extensionRequest),
-			mkel(mkset(mkel(mkseq(xl), nil)), nil))), 0), nil);
-		return mkel(mkcont(mkseq(xl), 3), nil);
+		xl = mkel(mkseq(xl), nil);
+		if(req)
+			xl = mkel(mkseq(
+				mkel(mkoid((Ints*)&oid_extensionRequest),
+				mkel(mkset(xl), nil))), nil);
 	}
-	return nil;
+	return xl;
 }
 
 static char*
@@ -2763,7 +2764,7 @@ X509rsagen(RSApriv *priv, char *subj, ulong valid[2], int *certlen)
 	alts = splitalts(subj);
 
 	e = mkseq(
-		mkel(mkcont(mkint(2), 0),
+		mkel(mkcont(0, mkel(mkint(2), nil)),
 		mkel(mkint(serial),
 		mkel(mkalg(sigalg),
 		mkel(mkDN(subj),
@@ -2776,7 +2777,7 @@ X509rsagen(RSApriv *priv, char *subj, ulong valid[2], int *certlen)
 			mkel(mkalg(ALG_rsaEncryption),
 			mkel(mkbits(pkbytes->data, pkbytes->len),
 			nil))),
-		mkextensions(alts, 0)))))))));
+		mkel(mkcont(3, mkextensions(alts, 0)), nil)))))))));
 	freebytes(pkbytes);
 	if(encode(e, &certinfobytes) != ASN_OK)
 		goto errret;
@@ -2842,7 +2843,7 @@ X509rsareq(RSApriv *priv, char *subj, int *certlen)
 			mkel(mkalg(ALG_rsaEncryption),
 			mkel(mkbits(pkbytes->data, pkbytes->len),
 			nil))),
-		mkextensions(alts, 1)))));
+		mkel(mkcont(0, mkextensions(alts, 1)), nil)))));
 	freebytes(pkbytes);
 	if(encode(e, &certinfobytes) != ASN_OK)
 		goto errret;
