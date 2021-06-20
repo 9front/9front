@@ -3,6 +3,7 @@
 #include <libsec.h>
 
 static uchar nine[32] = {9};
+static uchar zero[32] = {0};
 
 void
 curve25519_dh_new(uchar x[32], uchar y[32])
@@ -20,7 +21,7 @@ curve25519_dh_new(uchar x[32], uchar y[32])
 	y[31] |= b & 0x80;
 }
 
-void
+int
 curve25519_dh_finish(uchar x[32], uchar y[32], uchar z[32])
 {
 	/* remove the random bit */
@@ -31,4 +32,6 @@ curve25519_dh_finish(uchar x[32], uchar y[32], uchar z[32])
 
 	memset(x, 0, 32);
 	memset(y, 0, 32);
+
+	return tsmemcmp(z, zero, 32) != 0;
 }

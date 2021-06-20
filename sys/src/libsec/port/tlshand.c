@@ -948,7 +948,6 @@ Out:
 static Bytes*
 tlsSecECDHEc(TlsSec *sec, int curve, Bytes *Ys)
 {
-	static char zero[32] = {0};
 	ECdomain *dom = &sec->ec.dom;
 	ECpriv *Q = &sec->ec.Q;
 	ECpub *pub;
@@ -967,10 +966,7 @@ tlsSecECDHEc(TlsSec *sec, int curve, Bytes *Ys)
 		Yc = newbytes(32);
 		curve25519_dh_new(sec->X, Yc->data);
 		Z = newbytes(32);
-		curve25519_dh_finish(sec->X, Ys->data, Z->data);
-		// rfc wants us to terminate the connection if
-		// shared secret == all zeroes.
-		if(tsmemcmp(Z->data, zero, Z->len) == 0){
+		if(!curve25519_dh_finish(sec->X, Ys->data, Z->data)){
 			freebytes(Yc);
 			freebytes(Z);
 			return nil;
@@ -2573,7 +2569,6 @@ tlsSecECDHEs1(TlsSec *sec)
 static int
 tlsSecECDHEs2(TlsSec *sec, Bytes *Yc)
 {
-	static char zero[32] = {0};
 	ECdomain *dom = &sec->ec.dom;
 	ECpriv *Q = &sec->ec.Q;
 	ECpoint K;
@@ -2591,10 +2586,7 @@ tlsSecECDHEs2(TlsSec *sec, Bytes *Yc)
 			return -1;
 		}
 		Z = newbytes(32);
-		curve25519_dh_finish(sec->X, Yc->data, Z->data);
-		// rfc wants us to terminate the connection if
-		// shared secret == all zeroes.
-		if(tsmemcmp(Z->data, zero, Z->len) == 0){
+		if(!curve25519_dh_finish(sec->X, Yc->data, Z->data)){
 			werrstr("unlucky shared key");
 			freebytes(Z);
 			return -1;

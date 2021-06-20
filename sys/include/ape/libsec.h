@@ -583,7 +583,7 @@ void curve25519(uchar mypublic[32], uchar secret[32], uchar basepoint[32]);
 
 /* Curve25519 diffie hellman */
 void curve25519_dh_new(uchar x[32], uchar y[32]);
-void curve25519_dh_finish(uchar x[32], uchar y[32], uchar z[32]);
+int curve25519_dh_finish(uchar x[32], uchar y[32], uchar z[32]);
 
 /* password-based key derivation function 2 (rfc2898) */
 void pbkdf2_x(uchar *p, ulong plen, uchar *s, ulong slen, ulong rounds, uchar *d, ulong dlen,

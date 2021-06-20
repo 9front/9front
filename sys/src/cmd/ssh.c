@@ -600,7 +600,8 @@ Next1:	switch(recvpkt()){
 	if((S = ssh2rsasig(sig, nsig)) == nil)
 		sysfatal("bad server signature");
 
-	curve25519_dh_finish(x, ys, z);
+	if(!curve25519_dh_finish(x, ys, z))
+		sysfatal("unlucky shared key");
 
 	K = betomp(z, 32, nil);
 	nk = (mpsignif(K)+8)/8;
