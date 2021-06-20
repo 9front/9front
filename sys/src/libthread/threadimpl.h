@@ -120,15 +120,8 @@ struct Proc
 	Tqueue		ready;			/* Runnable threads */
 	Lock		readylock;
 
-	char		printbuf[Printsize];
-	int		blocked;		/* In a rendezvous */
 	int		pending;		/* delayed note pending */
-	int		nonotes;		/*  delay notes */
-	uint		nextID;			/* ID of most recently created thread */
 	Proc		*next;			/* linked list of Procs */
-
-	void		*arg;			/* passed between shared and unshared stk */
-	char		str[ERRMAX];		/* used by threadexits to avoid malloc */
 
 	void*		udata;			/* User per-proc data pointer */
 	char		threadint;		/* tag for threadexitsall() */
