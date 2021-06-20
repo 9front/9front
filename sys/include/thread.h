@@ -96,7 +96,6 @@ void	threadintgrp(int);	/* interrupt threads in grp */
 void	threadkill(int);	/* kill thread */
 void	threadkillgrp(int);	/* kill threads in group */
 void	threadmain(int argc, char *argv[]);
-void	threadnonotes(void);
 int	threadnotify(int (*f)(void*, char*), int in);
 int	threadid(void);
 int	threadpid(int);
