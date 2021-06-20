@@ -47,7 +47,6 @@ typedef enum
 enum
 {
 	RENDHASH = 13,
-	Printsize = 2048,
 };
 
 struct Rgrp
