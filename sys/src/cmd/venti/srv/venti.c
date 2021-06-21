@@ -97,8 +97,10 @@ allocbypcnt(u32int mempcnt, u32int stfree)
 		fprint(2, "%s: bloom filter bigger than mem pcnt; "
 			"resorting to minimum values (9MB total)\n", argv0);
 	else {
-		if (avail >= 3840UL * 1024 * 1024)
+		if (avail >= 3840UL * 1024 * 1024){
 			avail = 3840UL * 1024 * 1024;	/* sanity */
+			fprint(2, "%s: restricting memory usage to 3840MiB\n", argv0);
+		}
 		avail /= 2;
 		all.icmem = avail;
 		avail /= 3;
