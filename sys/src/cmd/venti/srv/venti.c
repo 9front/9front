@@ -55,20 +55,17 @@ freemem(void)
 		Bterm(bp);
 		if (pgsize > 0 && userpgs > 0 && userused > 0)
 			size = (userpgs - userused) * pgsize;
-	} else {
+	} else
 		fprint(2, "%s: failed to open /dev/swap\n", argv0);
-	}
 	/* cap it to keep the size within 32 bits */
-	if (size >= 3840UL * 1024 * 1024){
-		size = 3840UL * 1024 * 1024;
-		fprint(2, "%s: Reduced free memory detected to 3840MiB because we don't support 64-bit addresses yet.\n", argv0);
-	}
 	/* FIXME: we use signed 32-bit integers in some places for some fucking reason. 
-	   Limiting accordingly for now.
-	*/
-	if (size >= 2047UL * 1024 * 1024){
+	 * Limiting accordingly for now.
+	 * if (size >= 3840UL * 1024 * 1024)
+	 *	size = 3840UL * 1024 * 1024;
+	 */
+	if (size >= 2047UL * 1024 * 1024) {
 		size = 2047UL * 1024 * 1024;
-		fprint(2, "%s: Reduced free memory detected to 2047MiB because we have bugz.\n", argv0);
+		fprint(2, "%s: mem pct overflows: restricting to 2047MiB\n", argv0);
 	}
 	return size;
 }
@@ -110,7 +107,7 @@ allocbypcnt(u32int mempcnt, u32int stfree)
 	else {
 		if (avail >= 2047UL * 1024 * 1024){
 			avail = 2047UL * 1024 * 1024;	/* sanity */
-			fprint(2, "%s: restricting memory usage to 2047MiB\n", argv0);
+			fprint(2, "%s: mem pct overflows: restricting to 2047MiB\n", argv0);
 		}
 		avail /= 2;
 		all.icmem = avail;
