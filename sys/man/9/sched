@@ -1,7 +1,7 @@
 .TH SCHED 9
 .SH NAME
 anyhigher, anyready, hzsched, procpriority, procrestore, procsave, scheddump, schedinit, sched, yield
-\– scheduler interactions
+\- scheduler interactions
 .SH SYNOPSIS
 .ta \w'\fLchar* 'u +10n +8n +8n
 .EX
