@@ -35,7 +35,7 @@ freemem(void)
 	Biobuf *bp;
 
 	size = 64*1024*1024;
-	bp = Bopen("#c/swap", OREAD);
+	bp = Bopen("/dev/swap", OREAD);
 	if (bp != nil) {
 		while ((ln = Brdline(bp, '\n')) != nil) {
 			ln[Blinelen(bp)-1] = '\0';
@@ -57,8 +57,17 @@ freemem(void)
 			size = (userpgs - userused) * pgsize;
 	}
 	/* cap it to keep the size within 32 bits */
-	if (size >= 3840UL * 1024 * 1024)
+	if (size >= 3840UL * 1024 * 1024){
 		size = 3840UL * 1024 * 1024;
+		fprint(2, "%s: Reduced free memory detected to 3840MiB because we don't support 64-bit addresses yet.\n", argv0);
+	}
+	/* FIXME: we use signed 32-bit integers in some places for some fucking reason. 
+	   Limiting accordingly for now.
+	*/
+	if (size >= 2047UL * 1024 * 1024){
+		size = 2047UL * 1024 * 1024;
+		fprint(2, "%s: Reduced free memory detected to 2047MiB because we have bugz.\n", argv0);
+	}
 	return size;
 }
 
@@ -97,9 +106,9 @@ allocbypcnt(u32int mempcnt, u32int stfree)
 		fprint(2, "%s: bloom filter bigger than mem pcnt; "
 			"resorting to minimum values (9MB total)\n", argv0);
 	else {
-		if (avail >= 3840UL * 1024 * 1024){
-			avail = 3840UL * 1024 * 1024;	/* sanity */
-			fprint(2, "%s: restricting memory usage to 3840MiB\n", argv0);
+		if (avail >= 2047UL * 1024 * 1024){
+			avail = 2047UL * 1024 * 1024;	/* sanity */
+			fprint(2, "%s: restricting memory usage to 2047MiB\n", argv0);
 		}
 		avail /= 2;
 		all.icmem = avail;
