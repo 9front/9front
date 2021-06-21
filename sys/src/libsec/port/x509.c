@@ -2658,6 +2658,10 @@ mkextensions(char *alts, int req)
 				mkel(mkoid((Ints*)&oid_extensionRequest),
 				mkel(mkset(xl), nil))), nil);
 	}
+	if(req)
+		xl = mkel(mkcont(0, xl), nil);
+	else if(xl != nil)
+		xl = mkel(mkcont(3, xl), nil);
 	return xl;
 }
 
@@ -2777,7 +2781,7 @@ X509rsagen(RSApriv *priv, char *subj, ulong valid[2], int *certlen)
 			mkel(mkalg(ALG_rsaEncryption),
 			mkel(mkbits(pkbytes->data, pkbytes->len),
 			nil))),
-		mkel(mkcont(3, mkextensions(alts, 0)), nil)))))))));
+		mkextensions(alts, 0)))))))));
 	freebytes(pkbytes);
 	if(encode(e, &certinfobytes) != ASN_OK)
 		goto errret;
@@ -2843,7 +2847,7 @@ X509rsareq(RSApriv *priv, char *subj, int *certlen)
 			mkel(mkalg(ALG_rsaEncryption),
 			mkel(mkbits(pkbytes->data, pkbytes->len),
 			nil))),
-		mkel(mkcont(0, mkextensions(alts, 1)), nil)))));
+		mkextensions(alts, 1)))));
 	freebytes(pkbytes);
 	if(encode(e, &certinfobytes) != ASN_OK)
 		goto errret;
