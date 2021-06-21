@@ -648,6 +648,6 @@ The contents of this file are used as fallbacks for the per-user config.
 .PP
 Repositories with submodules are effectively read-only.
 .PP
-There are a some of missing commands, features, and tools, such as git/rebase
+There are a some of missing commands, features, and tools
 .PP
 git/compat only works within a git repository.
