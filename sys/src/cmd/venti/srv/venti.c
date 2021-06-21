@@ -55,6 +55,8 @@ freemem(void)
 		Bterm(bp);
 		if (pgsize > 0 && userpgs > 0 && userused > 0)
 			size = (userpgs - userused) * pgsize;
+	} else {
+		fprint(2, "%s: failed to open /dev/swap\n", argv0);
 	}
 	/* cap it to keep the size within 32 bits */
 	if (size >= 3840UL * 1024 * 1024){
