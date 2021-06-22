@@ -49,6 +49,7 @@ struct thread{
 	var *local;			/* list of local variables */
 	char *cmdfile;			/* file name in Xrdcmd */
 	io *cmdfd;			/* file descriptor for Xrdcmd */
+	int lexline;			/* file descriptor line */
 	int iflast;			/* static `if not' checking */
 	int eof;			/* is cmdfd at eof? */
 	int iflag;			/* interactive? */

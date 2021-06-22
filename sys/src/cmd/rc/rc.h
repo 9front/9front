@@ -132,7 +132,6 @@ extern char **argp;
 extern char **args;
 extern int nerror;		/* number of errors encountered during compilation */
 extern int doprompt;		/* is it time for a prompt? */
-extern int lexline;
 
 /*
  * Which fds are the reading/writing end of a pipe?

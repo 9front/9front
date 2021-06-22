@@ -364,13 +364,12 @@ execdot(void)
 		return;
 	}
 
-	lexline = 1;
-
 	/* set up for a new command loop */
 	start(dotcmds, 1, (struct var *)0);
 	pushredir(RCLOSE, fd, 0);
 	runq->cmdfile = zero;
 	runq->cmdfd = openfd(fd);
+	runq->lexline = 1;
 	runq->iflag = iflag;
 	runq->iflast = 0;
 	/* push $* value */

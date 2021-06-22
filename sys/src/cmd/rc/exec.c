@@ -23,7 +23,7 @@ start(code *c, int pc, var *local)
 	p->cmdfd = 0;
 	p->eof = 0;
 	p->iflag = 0;
-	p->lineno = 1;
+	p->lineno = runq ? runq->lineno : 1;
 	p->ret = runq;
 	runq = p;
 }
@@ -203,12 +203,12 @@ main(int argc, char *argv[])
 	bootstrap[i].i = 0;
 	start(bootstrap, 1, (var *)0);
 	runq->cmdfile = strdup("rc");
+	runq->lexline = 0;
 	/* prime bootstrap argv */
 	pushlist();
 	argv0 = estrdup(argv[0]);
 	for(i = argc-1;i!=0;--i) pushword(argv[i]);
 
-	lexline = 0;
 
 	for(;;){
 		if(flag['r'])
@@ -922,6 +922,7 @@ Xrdcmds(void)
 {
 	struct thread *p = runq;
 	word *prompt;
+
 	flush(err);
 	nerror = 0;
 	if(flag['s'] && !truestatus())

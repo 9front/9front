@@ -166,8 +166,8 @@ Xrdfn(void)
 	else {
 		free(runq->cmdfile);
 		int f = open(runq->argv->words->word, 0);
-		lexline = 0;
 		runq->cmdfile = strdup(runq->argv->words->word);
+		runq->lexline = 1;
 		runq->pc--;
 		popword();
 		if(f>=0) execcmds(openfd(f));

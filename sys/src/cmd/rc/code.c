@@ -184,7 +184,7 @@ outcode(tree *t, int eflag)
 				emits(strdup(f));
 			}
 			emitf(Xsrcline);
-			emiti(lexline);
+			emiti(runq->lexline);
 			outcode(c1, eflag);
 			emitf(Xunlocal);	/* get rid of $* */
 			emitf(Xreturn);

@@ -28,7 +28,6 @@ int incomm;
 int lastc;
 int ndot;
 int nerror;
-int lexline;
 int nlexpath;
 int lexpathsz;
 
@@ -53,7 +52,7 @@ advance(void)
 	lastc = future;
 	future = EOF;
 	if(c == '\n')
-		lexline++;
+		runq->lexline++;
 	return c;
 }
 /*
