@@ -74,6 +74,15 @@ hierarchy are the same as the date of the commit.
 .PP
 Trees are presented as directory listings, and blobs
 as files.
+The repository controls the user permissions.
+The group and world permissions are derived by masking
+the user permissions with the permissions of the
+.I .git
+directory.
+The user and group presented is the same as the user and
+group of the
+.I .git
+directory.
 
 .SH FILES
 .TP
@@ -100,11 +109,14 @@ The global configuration for git tools.
 
 .SH BUGS
 Symlinks are only partially supported.
-Symlinks are treated as regular files when reading.
-Modifying symlinks is unsupported.
+They will be followed when reading, but a commit that
+modifies a symlink is an error.
 
 .PP
-There is no way to inspect the raw objects. This is
-a feature that would be useful for debugging.
+For efficiency, git/fs only loads repo permissions at startup
+
+.PP
+There is no way to inspect the raw objects.
+Inspecting raw objects would be useful for debugging.
 
 

@@ -70,6 +70,7 @@ int	cachemax = 4096;
 Packf	*packf;
 int	npackf;
 int	openpacks;
+int	gitdirmode = -1;
 
 static void
 clear(Object *o)
@@ -887,7 +888,7 @@ parsecommit(Object *o)
 static void
 parsetree(Object *o)
 {
-	int m, entsz, nent;
+	int m, a, entsz, nent;
 	Dirent *t, *ent;
 	char *p, *ep;
 
@@ -908,7 +909,15 @@ parsetree(Object *o)
 		if(*p != ' ')
 			sysfatal("malformed tree %H: *p=(%d) %c\n", o->hash, *p, *p);
 		p++;
-		t->mode = m & 0777;	
+		/*
+		 * only the stored permissions for the user
+		 * are relevant; git fills group and world
+		 * bits with whatever -- so to serve with
+		 * useful permissions, replicate the mode
+		 * of the git repo dir.
+		 */
+		a = (m & 0777)>>6;
+		t->mode = ((a<<6)|(a<<3)|a) & gitdirmode;
 		t->ismod = 0;
 		t->islink = 0;
 		if(m == 0160000){
@@ -1048,7 +1057,14 @@ Object*
 readobject(Hash h)
 {
 	Object *o;
+	Dir *d;
 
+	if(gitdirmode == -1){
+		if((d = dirstat(".git")) == nil)
+			sysfatal("stat .git: %r");
+		gitdirmode = d->mode & 0777;
+		free(d);
+	}
 	if((o = readidxobject(nil, h, 0)) == nil)
 		return nil;
 	parseobject(o);
