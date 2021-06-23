@@ -103,7 +103,7 @@ The minute in unpadded or padded form, respectively
 .B s, ss
 The second in unpadded or padded form, respectively
 .TP
-.B t, tt
+.B t, tt, ttt
 The milliseconds in unpadded and padded form, respectively.
 .B u, uu, uuu, uuuu
 The microseconds in unpadded. padded form modulo milliseconds,
