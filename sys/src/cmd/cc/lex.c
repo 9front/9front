@@ -229,7 +229,7 @@ compile(char *file, char **defs, int ndef)
 			dup(2, 1);
 		}
 	} else {
-		c = mycreat(outfile, 0664);
+		c = mycreat(outfile, 0664 | DMTMP);
 		if(c < 0) {
 			diag(Z, "cannot open %s - %r", outfile);
 			outfile = 0;
