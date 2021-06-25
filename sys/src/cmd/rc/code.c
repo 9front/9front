@@ -181,7 +181,7 @@ outcode(tree *t, int eflag)
 			emits(fnstr(c1));
 			if((f = curfile(runq)) != nil){
 				emitf(Xsrcfile);
-				emits(strdup(f));
+				emits(estrdup(f));
 			}
 			emitf(Xsrcline);
 			emiti(runq->lexline);
@@ -486,10 +486,11 @@ codefree(code *cp)
 		|| p->f==Xrdwr
 		|| p->f==Xasync || p->f==Xbackq || p->f==Xcase || p->f==Xfalse
 		|| p->f==Xfor || p->f==Xjump
+		|| p->f==Xsrcline
 		|| p->f==Xsubshell || p->f==Xtrue) p++;
 		else if(p->f==Xdup || p->f==Xpipefd) p+=2;
 		else if(p->f==Xpipe) p+=4;
-		else if(p->f==Xglobs) free(p[1].s), p+=2;
+		else if(p->f==Xglobs || p->f==Xsrcfile) free(p[1].s), p+=2;
 		else if(p->f==Xword || p->f==Xdelhere) free((++p)->s);
 		else if(p->f==Xfn){
 			free(p[2].s);
