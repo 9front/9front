@@ -134,9 +134,7 @@ Point	ftsize;
 
 Rune	kbdchar;
 
-#define	button1()	((mc->buttons & 07)==1)
-#define	button2()	((mc->buttons & 07)==2)
-#define	button3()	((mc->buttons & 07)==4)
+#define	button(num)	(mc->buttons == (1<<((num)-1)))
 
 Mousectl	*mc;
 Keyboardctl	*kc;
@@ -835,10 +833,14 @@ Next:
 		flushimage(display, 1);
 	switch(alt(a)){
 	case AMOUSE:
-		if(button1() || chording)
+		if(button(1) || chording)
 			selecting();
-		else if(button2() || button3())
+		else if(button(2) || button(3))
 			readmenu();
+		else if(button(4))
+			backup(backc+1);
+		else if(button(5) && backc > 0)
+			backup(--backc);
 		else if(resize_flag == 0)
 			goto Next;
 		break;
@@ -1130,7 +1132,7 @@ selecting(void)
 			select(p, q, mode);
 			drawscreen();
 			readmouse(mc);
-		} while(button1());
+		} while(button(1));
 	}
 	if(mc->buttons != chording){
 		switch(mc->buttons & 0x7){
@@ -1169,7 +1171,7 @@ readmenu(void)
 	Point p;
 
 	p = pos(mc->xy);
-	if(button3()) {
+	if(button(3)) {
 		menu3.item[1] = ttystate[cs->raw].crnl ? "cr" : "crnl";
 		menu3.item[2] = ttystate[cs->raw].nlcr ? "nl" : "nlcr";
 		menu3.item[3] = cs->raw ? "cooked" : "raw";
@@ -1203,8 +1205,7 @@ readmenu(void)
 
 	switch(menuhit(2, mc, &menu2, nil)) {
 	case Mbackup:		/* back up */
-		if(backup(backc+1))
-			backc++;
+		backup(backc+1);
 		return;
 
 	case Mforward:		/* move forward */
@@ -1239,7 +1240,7 @@ readmenu(void)
 	}
 }
 
-int
+void
 backup(int count)
 {
 	Rune *cp;
@@ -1272,7 +1273,8 @@ backup(int count)
 	if(cp >= &hist[HISTSIZ])
 		cp = hist;
 	backp = cp;
-	return left;
+	if(left)
+		backc = count;
 }
 
 Point
