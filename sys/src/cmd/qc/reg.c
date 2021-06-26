@@ -317,9 +317,9 @@ loop2:
 			  ~(r->refahead.b[z] | r->calahead.b[z] | addrs.b[z]);
 		if(bany(&bit)) {
 			nearln = r->prog->lineno;
-			warn(Z, "assignment not used: %B", bit);
+			warn(Z, "set and not used: %B", bit);
 			if(debug['R'])
-				print("set an not used: %B\n", bit);
+				print("set and not used: %B\n", bit);
 			excise(r);
 		}
 		for(z=0; z<BITS; z++)
