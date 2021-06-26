@@ -61,6 +61,7 @@ int	backc;
 int	nbacklines;
 int	xmax, ymax;
 int	blocked;
+int	winchgen;
 int	resize_flag = 1;
 int	pagemode;
 int	olines;
@@ -867,6 +868,7 @@ putenvint(char *name, int x)
 void
 exportsize(void)
 {
+	putenvint("WINCH", ++winchgen);
 	putenvint("XPIXELS", (xmax+1)*ftsize.x);
 	putenvint("YPIXELS", (ymax+1)*ftsize.y);
 	putenvint("LINES", ymax+1);

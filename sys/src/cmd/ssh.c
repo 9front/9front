@@ -1090,13 +1090,22 @@ static struct {
 	int	ypixels;
 	int	lines;
 	int	cols;
+	int	gen;
 } tty;
 
-void
+int
 getdim(void)
 {
 	char *s;
+	int g;
 
+	if(s = getenv("WINCH")){
+		g = atoi(s);
+		if(tty.gen == g)
+			return 0;
+		tty.gen = g;
+		free(s);
+	}
 	if(s = getenv("XPIXELS")){
 		tty.xpixels = atoi(s);
 		free(s);
@@ -1113,6 +1122,7 @@ getdim(void)
 		tty.cols = atoi(s);
 		free(s);
 	}
+	return 1;
 }
 
 void
@@ -1175,6 +1185,7 @@ main(int argc, char *argv[])
 	fmtinstall('[', encodefmt);
 	fmtinstall('k', kfmt);
 
+	tty.gen = -1;
 	tty.term = getenv("TERM");
 	if(tty.term == nil)
 		tty.term = "";
@@ -1403,20 +1414,22 @@ Mux:
 			intr = 1;
 		if(intr){
 			if(!raw) break;
-			getdim();
-			sendpkt("busbuuuu", MSG_CHANNEL_REQUEST,
-				send.chan,
-				"window-change", 13,
-				0,
-				tty.cols,
-				tty.lines,
-				tty.xpixels,
-				tty.ypixels);
-			sendpkt("busbs", MSG_CHANNEL_REQUEST,
-				send.chan,
-				"signal", 6,
-				0,
-				"INT", 3);
+			if(getdim()){
+				sendpkt("busbuuuu", MSG_CHANNEL_REQUEST,
+					send.chan,
+					"window-change", 13,
+					0,
+					tty.cols,
+					tty.lines,
+					tty.xpixels,
+					tty.ypixels);
+			}else{
+				sendpkt("busbs", MSG_CHANNEL_REQUEST,
+					send.chan,
+					"signal", 6,
+					0,
+					"INT", 3);
+			}
 			intr = 0;
 			continue;
 		}
