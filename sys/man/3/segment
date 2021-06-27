@@ -81,6 +81,7 @@ or
 .B sticky
 segments.
 .PP
+When the segment is attached using
 .IR segattach,
 the address and length arguments are ignored in the call;
 they are defined only by the
