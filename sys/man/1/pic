@@ -288,10 +288,34 @@ may contain newlines.
 The
 .B undef
 statement removes the definition of a macro.
+.SH EXAMPLES
+.EX
+arrow "input" above; box "process"; arrow "output" above
+move
+A: ellipse
+   circle rad .1 with .w at A.e
+   circle rad .05 at 0.5 <A.c, A.ne>
+   circle rad .065 at 0.5 <A.c, A.ne>
+   spline from last circle.nw left .25 then left .05 down .05
+   arc from A.c to A.se rad 0.5
+   for i = 1 to 10 do { line from A.s+.025*i,.01*i down i/50 }
+.EE
+.PP
+.PS
+arrow "input" above; box "process"; arrow "output" above
+move
+A: ellipse
+   circle rad .1 with .w at A.e
+   circle rad .05 at 0.5 <A.c, A.ne>
+   circle rad .065 at 0.5 <A.c, A.ne>
+   spline from last circle.nw left .25 then left .05 down .05
+   arc from A.c to A.se rad 0.5
+   for i = 1 to 10 do { line from A.s+.025*i,.01*i down i/50 }
+.PE
 .SH SOURCE
 .B /sys/src/cmd/pic
 .SH "SEE ALSO"
-.IR grap (1), 
+.IR grap (1),
 .IR doctype (1),
 .IR troff (1)
 .br
