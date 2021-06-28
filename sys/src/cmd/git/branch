@@ -100,8 +100,10 @@ for(m in $cleanpaths){
 		rm -rf .git/index9/tracked/$m
 	}
 	if(~ $b file){
-		cp -x $basedir/tree/$m $m
-		walk -eq $m > .git/index9/tracked/$m
+		if(cp -x -- $basedir/tree/$m $m)
+			walk -eq $m > .git/index9/tracked/$m
+		if not
+			echo -n > .git/index9/tracked/$m
 	}
 }
 

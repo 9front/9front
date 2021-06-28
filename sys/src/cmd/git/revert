@@ -14,7 +14,9 @@ if(~ $#query 1)
 files=`$nl{cleanname -d $gitrel $*}
 for(f in `$nl{cd $commit/tree/ && walk -f $files}){
 	mkdir -p `{basename -d $f}
-	cp -x -- $commit/tree/$f $f
-	git/add $f
+	if(cp -x -- $commit/tree/$f $f)
+		walk -eq $m > .git/index9/tracked/$m
+	if not
+		echo -n > .git/index9/tracked/$m
 }
 exit ''
