@@ -15,8 +15,8 @@ files=`$nl{cleanname -d $gitrel $*}
 for(f in `$nl{cd $commit/tree/ && walk -f $files}){
 	mkdir -p `{basename -d $f}
 	if(cp -x -- $commit/tree/$f $f)
-		walk -eq $m > .git/index9/tracked/$m
+		walk -eq $f > .git/index9/tracked/$f
 	if not
-		echo -n > .git/index9/tracked/$m
+		echo -n > .git/index9/tracked/$f
 }
 exit ''
