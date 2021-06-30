@@ -229,13 +229,14 @@ respondto(Biobuf *fd, char *to, Mesg *r, int all)
 		return;
 	}
 
-	n = 0;
 	addrs = emalloc(64*sizeof(char*));
+	n = 0;
 	n += tokenize(to, addrs+n, 64-n);
 	n += tokenize(rpto, addrs+n, 64-n);
 	n += tokenize(r->to, addrs+n, 64-n);
 	show(fd, "To", addrs, n);
-	n = tokenize(r->cc, addrs+n, 64-n);
+	n = 0;
+	n += tokenize(r->cc, addrs+n, 64-n);
 	show(fd, "CC", addrs, n);
 	free(addrs);
 }
