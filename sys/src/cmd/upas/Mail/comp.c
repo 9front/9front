@@ -200,13 +200,17 @@ show(Biobuf *fd, char *type, char **addrs, int naddrs)
 	if(naddrs == 0)
 		return;
 	qsort(addrs, naddrs, sizeof(char*), strpcmp);
+	for(i = 1; i < naddrs; i++){
+		if(strcmp(addrs[i-1], addrs[i]) == 0)
+			addrs[i-1] = nil;
+	}
 	Bprint(fd, "%s: ", type);
 	for(i = 0; i < naddrs; i++){
-		if(i > 0 && strcmp(addrs[i-1], addrs[i]) == 0)
+		if(addrs[i] == nil)
 			continue;
 		w += Bprint(fd, "%s%s", sep, addrs[i]);
 		sep = ", ";
-		if(w > 50){
+		if(w > 50 && i < naddrs-1){
 			w = 0;
 			sep = "";
 			Bprint(fd, "\n%s: ", type);
