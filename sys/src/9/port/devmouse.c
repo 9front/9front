@@ -98,7 +98,7 @@ static uchar buttonmap[8] = {
 static int mouseswap;
 static int scrollswap;
 static ulong mousetime;
-static ulong blanktime = 30;	/* in minutes; a half hour */
+static ulong blanktime;
 
 extern Memimage* gscreen;
 
