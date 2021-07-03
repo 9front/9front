@@ -25,7 +25,7 @@ dec32chr(int c)
 }
 
 int
-dec32(uchar *dest, int ndest, char *src, int nsrc)
+dec32x(uchar *dest, int ndest, char *src, int nsrc, int (*chr)(int))
 {
 	uchar *start;
 	int i, j, u[8];
@@ -35,7 +35,7 @@ dec32(uchar *dest, int ndest, char *src, int nsrc)
 	start = dest;
 	while(nsrc>=8){
 		for(i=0; i<8; i++){
-			j = dec32chr(src[i]);
+			j = chr(src[i]);
 			if(j < 0)
 				j = 0;
 			u[i] = j;
@@ -52,7 +52,7 @@ dec32(uchar *dest, int ndest, char *src, int nsrc)
 		if(nsrc == 1 || nsrc == 3 || nsrc == 6)
 			return -1;
 		for(i=0; i<nsrc; i++){
-			j = dec32chr(src[i]);
+			j = chr(src[i]);
 			if(j < 0)
 				j = 0;
 			u[i] = j;
@@ -73,7 +73,7 @@ out:
 }
 
 int
-enc32(char *dest, int ndest, uchar *src, int nsrc)
+enc32x(char *dest, int ndest, uchar *src, int nsrc, int (*chr)(int))
 {
 	char *start;
 	int j;
@@ -83,50 +83,62 @@ enc32(char *dest, int ndest, uchar *src, int nsrc)
 	start = dest;
 	while(nsrc>=5){
 		j = (0x1f & (src[0]>>3));
-		*dest++ = enc32chr(j);
+		*dest++ = chr(j);
 		j = (0x1c & (src[0]<<2)) | (0x03 & (src[1]>>6));
-		*dest++ = enc32chr(j);
+		*dest++ = chr(j);
 		j = (0x1f & (src[1]>>1));
-		*dest++ = enc32chr(j);
+		*dest++ = chr(j);
 		j = (0x10 & (src[1]<<4)) | (0x0f & (src[2]>>4));
-		*dest++ = enc32chr(j);
+		*dest++ = chr(j);
 		j = (0x1e & (src[2]<<1)) | (0x01 & (src[3]>>7));
-		*dest++ = enc32chr(j);
+		*dest++ = chr(j);
 		j = (0x1f & (src[3]>>2));
-		*dest++ = enc32chr(j);
+		*dest++ = chr(j);
 		j = (0x18 & (src[3]<<3)) | (0x07 & (src[4]>>5));
-		*dest++ = enc32chr(j);
+		*dest++ = chr(j);
 		j = (0x1f & (src[4]));
-		*dest++ = enc32chr(j);
+		*dest++ = chr(j);
 		src  += 5;
 		nsrc -= 5;
 	}
 	if(nsrc){
 		j = (0x1f & (src[0]>>3));
-		*dest++ = enc32chr(j);
+		*dest++ = chr(j);
 		j = (0x1c & (src[0]<<2));
 		if(nsrc == 1)
 			goto out;
 		j |= (0x03 & (src[1]>>6));
-		*dest++ = enc32chr(j);
+		*dest++ = chr(j);
 		j = (0x1f & (src[1]>>1));
-		*dest++ = enc32chr(j);
+		*dest++ = chr(j);
 		j = (0x10 & (src[1]<<4));
 		if(nsrc == 2)
 			goto out;
 		j |= (0x0f & (src[2]>>4));
-		*dest++ = enc32chr(j);
+		*dest++ = chr(j);
 		j = (0x1e & (src[2]<<1));
 		if(nsrc == 3)
 			goto out;
 		j |= (0x01 & (src[3]>>7));
-		*dest++ = enc32chr(j);
+		*dest++ = chr(j);
 		j = (0x1f & (src[3]>>2));
-		*dest++ = enc32chr(j);
+		*dest++ = chr(j);
 		j = (0x18 & (src[3]<<3));
 out:
-		*dest++ = enc32chr(j);
+		*dest++ = chr(j);
 	}
 	*dest = 0;
 	return dest-start;
+}
+
+int
+enc32(char *dest, int ndest, uchar *src, int nsrc)
+{
+	return enc32x(dest, ndest, src, nsrc, enc32chr);
+}
+
+int
+dec32(uchar *dest, int ndest, char *src, int nsrc)
+{
+	return dec32x(dest, ndest, src, nsrc, dec32chr);
 }

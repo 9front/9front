@@ -30,7 +30,7 @@ dec64chr(int c)
 }
 
 int
-dec64(uchar *out, int lim, char *in, int n)
+dec64x(uchar *out, int lim, char *in, int n, int (*chr)(int))
 {
 	ulong b24;
 	uchar *start = out;
@@ -40,7 +40,7 @@ dec64(uchar *out, int lim, char *in, int n)
 	b24 = 0;
 	i = 0;
 	while(n-- > 0){
-		c = dec64chr(*in++);
+		c = chr(*in++);
 		if(c < 0)
 			continue;
 		switch(i){
@@ -84,7 +84,7 @@ exhausted:
 }
 
 int
-enc64(char *out, int lim, uchar *in, int n)
+enc64x(char *out, int lim, uchar *in, int n, int (*chr)(int))
 {
 	int i;
 	ulong b24;
@@ -97,10 +97,10 @@ enc64(char *out, int lim, uchar *in, int n)
 		b24 |= *in++;
 		if(out + 4 >= e)
 			goto exhausted;
-		*out++ = enc64chr(b24>>18);
-		*out++ = enc64chr((b24>>12)&0x3f);
-		*out++ = enc64chr((b24>>6)&0x3f);
-		*out++ = enc64chr(b24&0x3f);
+		*out++ = chr(b24>>18);
+		*out++ = chr((b24>>12)&0x3f);
+		*out++ = chr((b24>>6)&0x3f);
+		*out++ = chr(b24&0x3f);
 	}
 
 	switch(n%3){
@@ -109,17 +109,17 @@ enc64(char *out, int lim, uchar *in, int n)
 		b24 |= *in<<8;
 		if(out + 4 >= e)
 			goto exhausted;
-		*out++ = enc64chr(b24>>18);
-		*out++ = enc64chr((b24>>12)&0x3f);
-		*out++ = enc64chr((b24>>6)&0x3f);
+		*out++ = chr(b24>>18);
+		*out++ = chr((b24>>12)&0x3f);
+		*out++ = chr((b24>>6)&0x3f);
 		*out++ = '=';
 		break;
 	case 1:
 		b24 = *in<<16;
 		if(out + 4 >= e)
 			goto exhausted;
-		*out++ = enc64chr(b24>>18);
-		*out++ = enc64chr((b24>>12)&0x3f);
+		*out++ = chr(b24>>18);
+		*out++ = chr((b24>>12)&0x3f);
 		*out++ = '=';
 		*out++ = '=';
 		break;
@@ -127,4 +127,16 @@ enc64(char *out, int lim, uchar *in, int n)
 exhausted:
 	*out = 0;
 	return out - start;
+}
+
+int
+enc64(char *out, int lim, uchar *in, int n)
+{
+	return enc64x(out, lim, in, n, enc64chr);
+}
+
+int
+dec64(uchar *out, int lim, char *in, int n)
+{
+	return dec64x(out, lim, in, n, dec64chr);
 }

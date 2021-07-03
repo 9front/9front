@@ -1,6 +1,7 @@
 .TH ENCODE 2
 .SH NAME
 dec64, enc64, dec32, enc32, dec16, enc16, \
+dec64x, enc64x, dec32x, enc32x, \
 dec64chr, enc64chr, dec32chr, enc32chr, dec16chr, enc16chr, \
 encodefmt \- encoding byte arrays as strings
 .SH SYNOPSIS
@@ -12,13 +13,25 @@ encodefmt \- encoding byte arrays as strings
 int	dec64(uchar *out, int lim, char *in, int n)
 .PP
 .B
+int	dec64x(uchar *out, int lim, char *in, int n, int (*map)(int))
+.PP
+.B
 int	enc64(char *out, int lim, uchar *in, int n)
+.PP
+.B
+int	enc64x(char *out, int lim, uchar *in, int n, int (*map)(int))
 .PP
 .B
 int	dec32(uchar *out, int lim, char *in, int n)
 .PP
 .B
+int	dec32x(uchar *out, int lim, char *in, int n, int (*map)(int))
+.PP
+.B
 int	enc32(char *out, int lim, uchar *in, int n)
+.PP
+.B
+int	enc32x(char *out, int lim, uchar *in, int n, int (*map)(int))
 .PP
 .B
 int	dec16(uchar *out, int lim, char *in, int n)
@@ -82,6 +95,31 @@ and
 .I enc64chr
 encode a symbol of the alphabet given a value.
 if the value is out of range then zero is returned.
+.PP
+The
+.I enc64x
+and
+.I enc32x
+variants are identical to the above, except that they take a
+function mapping from an arbitrary index in the alphabet to
+the encoded character.
+For example, in the following 32-character alphabet,
+.EX
+.I ABCDEFGHIJKLMNOPQRSTUVWXYZ234567
+.EE
+the chr function would map the value
+.I 3
+to the character
+.IR D .
+
+The
+.I dec64x
+and
+.I dec32x
+variants are similar to the above, however the function passed
+maps from a character within the alphabet to the index within
+the alphabet.
+
 .PP
 .I Encodefmt
 can be used with
