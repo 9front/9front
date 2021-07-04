@@ -357,6 +357,7 @@ RSApriv*	rsaprivalloc(void);
 void		rsaprivfree(RSApriv*);
 RSApub*		rsaprivtopub(RSApriv*);
 RSApub*		X509toRSApub(uchar*, int, char*, int);
+RSApub*		X509reqtoRSApub(uchar*, int, char*, int);
 RSApub*		asn1toRSApub(uchar*, int);
 RSApriv*	asn1toRSApriv(uchar*, int);
 void		asn1dump(uchar *der, int len);

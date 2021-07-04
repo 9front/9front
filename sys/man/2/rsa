@@ -15,6 +15,7 @@ rsaprivtopub,
 rsapuballoc,
 rsapubfree,
 X509toRSApub,
+X509reqtoRSApub,
 X509rsagen,
 X509rsareq,
 X509rsaverify,
@@ -61,6 +62,9 @@ RSApub*	rsaprivtopub(RSApriv*)
 RSApub*	X509toRSApub(uchar *cert, int ncert, char *name, int nname)
 .PP
 .B
+RSApub* X509reqtoRSApub(uchar *req, int nreq, char *name*, int nname)
+.PP
+.B
 RSApriv*	asn1toRSApriv(uchar *priv, int npriv)
 .PP
 .B
@@ -79,7 +83,7 @@ uchar*	decodePEM(char *s, char *type, int *len, char **new_s)
 uchar*	X509rsagen(RSApriv *priv, char *subj, ulong valid[2], int *certlen);
 .PP
 .B
-uchar*	X509rsareq(RSApriv *priv, char *subj, int *certlen);
+uchar*	X509rsareq(RSApriv *priv, char *subj, int *reqlen)
 .PP
 .B
 char*	X509rsaverify(uchar *cert, int ncert, RSApub *pk)
@@ -159,9 +163,10 @@ returns the public key and, if
 .I name
 is not
 .BR nil ,
-the CN part of the Distinguished Name of the
-certificate's Subject.
-(This is conventionally a userid or a host DNS name.)
+a concatenation of the CN part of the Distinguished Name of the
+certificate's Subject and further Subject Alternative Names
+separated by comma.
+(These are conventionally a userid or a host DNS name.)
 No verification is done of the certificate signature;  the
 caller should check the fingerprint,
 .IR sha1(cert) ,
@@ -180,6 +185,12 @@ It returns
 .B nil
 if successful, else an error string.
 .PP
+The routine
+.I X509reqtoRSApub
+is similar to
+.I X509toRSApub
+above, but decodes a X509 certificate request.
+.PP
 .I X509rsaverifydigest
 takes a encoded PKCS #1 signature as used in X.509 as
 .IR sig [ siglen ]
@@ -197,8 +208,8 @@ a issuer/subject string
 .IR subj ,
 and the starting and ending validity dates,
 .IR valid .
-Length of the allocated binary certificate is stored in
-.IR certlen .
+Length of the allocated binary certificate request is stored in
+.IR reqlen .
 The subject line is conventionally of the form
 .IP
 .EX

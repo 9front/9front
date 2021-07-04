@@ -35,6 +35,7 @@ TARG=\
 	userpasswd\
 	warning\
 	wrkey\
+	x5092pub\
 
 DIRS=\
 	factotum\
