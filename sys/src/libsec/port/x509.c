@@ -1905,7 +1905,9 @@ decode_cert(uchar *buf, int len)
  	esubj = &el->hd;
  	el = el->tl;
  	epubkey = &el->hd;
-	if(el->tl != nil && el->tl->hd.tag.class == Context && el->tl->hd.tag.num == 3){
+	if(el->tl != nil
+	&& el->tl->hd.tag.class == Context && el->tl->hd.tag.num == 3
+	&& el->tl->hd.val.tag == VOctets){
 		c->ext = el->tl->hd.val.u.octetsval;
 		el->tl->hd.val.u.octetsval = nil;	/* transfer ownership */
 	}
@@ -2742,12 +2744,13 @@ appendaltnames(char *name, int nname, Bytes *ext, int isreq)
 			continue;
 		case 1:	/* email */
 		case 2:	/* DNS */
-			if(ext == nil)
+			if(el->hd.val.tag != VOctets)
 				goto erralt;
 			alt = smprint("%.*s", ext->len, (char*)ext->data);
 			break;
 		case 4:	/* DN */
-			if(ext == nil || decode(ext->data, ext->len, &edn) != ASN_OK)
+			if(el->hd.val.tag != VOctets
+			|| decode(ext->data, ext->len, &edn) != ASN_OK)
 				goto erralt;
 			alt = parse_name(&edn);
 			freevalfields(&edn.val);
@@ -2756,7 +2759,7 @@ appendaltnames(char *name, int nname, Bytes *ext, int isreq)
 		if(alt == nil)
 			goto erralt;
 		len = strlen(alt);
-		if(strncmp(name, alt, len) == 0 && strchr(",", name[len]) == nil){
+		if(strncmp(name, alt, len) == 0 && strchr(",", name[len]) != nil){
 			free(alt);	/* same as the subject */
 			continue;
 		}
@@ -2998,7 +3001,10 @@ X509reqtoRSApub(uchar *req, int nreq, char *name, int nname)
 	copysubject(name, nname, subject);
 	free(subject);
 	el = el->tl;
-	if(el->tl != nil && el->tl->hd.tag.class == Context && el->tl->hd.tag.num == 0)
+	if(el->tl != nil
+	&& el->tl->hd.tag.class == Context
+	&& el->tl->hd.tag.num == 0
+	&& el->tl->hd.val.tag == VOctets)
 		appendaltnames(name, nname, el->tl->hd.val.u.octetsval, 1);
 	if(!is_seq(&el->hd, &el) || elistlen(el) != 2)
 		goto errret;
