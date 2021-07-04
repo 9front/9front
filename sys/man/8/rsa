@@ -1,6 +1,6 @@
 .TH RSA 8
 .SH NAME
-rsagen, rsafill, asn12rsa, rsa2asn1, rsa2pub, rsa2ssh, rsa2x509, rsa2csr \- generate and format rsa keys
+rsagen, rsafill, asn12rsa, rsa2asn1, rsa2pub, rsa2ssh, rsa2x509, rsa2csr, x5092pub \- generate and format rsa keys
 .SH SYNOPSIS
 .B rsagen
 [
@@ -61,6 +61,13 @@ rsagen, rsafill, asn12rsa, rsa2asn1, rsa2pub, rsa2ssh, rsa2x509, rsa2csr \- gene
 .B rsa2csr
 .I subject
 [
+.I file
+]
+.PP
+.B x5092pub
+[
+.B -r
+] [
 .I file
 ]
 .SH DESCRIPTION
@@ -245,6 +252,18 @@ avoiding it being stored unencrypted on the filesystem.
 takes the
 .I subject
 and a RSA private key and outputs a signing request in ASN.1 format.
+.PP
+The program
+.I x5092pub
+converts a binary certificate (or certificate request when
+.B -r
+flag is given)
+read from
+.I file
+or stdin,
+and outputs the public key with a
+.B subject
+attribute on standard output.
 .SH EXAMPLES
 Generate a fresh key and use it to start a TLS-enabled web server:
 .IP

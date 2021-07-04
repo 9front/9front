@@ -12,7 +12,7 @@ char subject[1024];
 void
 usage(void)
 {
-	fprint(2, "usage: aux/x5092pub [-r] [file]\n");
+	fprint(2, "usage: auth/x5092pub [-r] [file]\n");
 	exits("usage");
 }
 
