@@ -671,8 +671,10 @@ struct PCMouse {
 	} state;
 	u8int buf[64];
 	u8int bufr, bufw;
-	u8int actcmd;
-	u8int scaling21, res, rate;
+	u8int actcmd, id;
+	u8int scaling21, res;
+	u8int ratepp, ratep, rate;
+	int scroll;
 } mouse = {
 	.res = 2,
 	.rate = 100
@@ -741,6 +743,8 @@ updatemouse(void)
 	while(nbrecv(mousech, &m) > 0){
 		mouse.xy = addpt(mouse.xy, m.xy);
 		mouse.buttons = m.buttons;
+		if(m.buttons & 24)
+			mouse.scroll += (m.buttons>>2 & 6) - 3;
 		mouse.gotmouse = 1;
 	}
 }
@@ -750,13 +754,14 @@ clearmouse(void)
 {
 	updatemouse();
 	mouse.xy = Pt(0, 0);
+	mouse.scroll = 0;
 	mouse.gotmouse = 0;
 }
 
 static void
 mousepacket(int force)
 {
-	int dx, dy;
+	int dx, dy, dz;
 	u8int b0;
 
 	updatemouse();
@@ -764,6 +769,7 @@ mousepacket(int force)
 		return;
 	dx = mouse.xy.x;
 	dy = -mouse.xy.y;
+	dz = MIN(7, MAX(-8, mouse.scroll));
 	b0 = 8;
 	if((ulong)(dx + 256) > 511) dx = dx >> 31 ^ 0xff;
 	if((ulong)(dy + 256) > 511) dy = dy >> 31 ^ 0xff;
@@ -772,9 +778,12 @@ mousepacket(int force)
 	mouseputc(b0);
 	mouseputc((u8int)dx);
 	mouseputc((u8int)dy);
+	if(mouse.id == 3)
+		mouseputc((u8int)dz);
 	mouse.xy.x -= dx;
 	mouse.xy.y += dy;
-	mouse.gotmouse = mouse.xy.x != 0 || mouse.xy.y != 0;
+	mouse.scroll -= dz;
+	mouse.gotmouse = mouse.xy.x != 0 || mouse.xy.y != 0 || mouse.scroll != 0;
 }
 
 static void
@@ -800,19 +809,22 @@ mousecmd(u8int val)
 		mouse.actcmd = 0;
 		break;
 	case 0xf3: /* set sampling rate */
+		mouse.ratepp = mouse.ratep;
+		mouse.ratep = mouse.rate;
 		mouse.rate = val;
+		if(mouse.ratepp == 200 && mouse.ratep == 100 && mouse.rate == 80)
+			mouse.id = 3; /* magic sequence for IntelliMouse */
 		mouseputc(0xfa);
 		mouse.actcmd = 0;
 		break;
 	default:
 		switch(val){
 		case 0xf3: case 0xe8: mouseputc(0xfa); mouse.actcmd = val; break;
-		
 		case 0xff: mouseputc(0xfa); mousedefaults(); mouse.state = MOUSERESET; break; /* reset */
 		case 0xf6: mouseputc(0xfa); mousedefaults(); mouse.state = mouse.state & ~0xf | MOUSESTREAM; break; /* set defaults */
 		case 0xf5: mouseputc(0xfa); clearmouse(); if((mouse.state&0xf) == MOUSESTREAM) mouse.state &= ~MOUSEREP; break; /* disable reporting */
 		case 0xf4: mouseputc(0xfa); clearmouse(); if((mouse.state&0xf) == MOUSESTREAM) mouse.state |= MOUSEREP; break; /* enable reporting */
-		case 0xf2: mouseputc(0xfa); mouseputc(0x00); clearmouse(); break; /* report device id */
+		case 0xf2: mouseputc(0xfa); mouseputc(mouse.id); clearmouse(); break; /* report device id */
 		case 0xf0: mouseputc(0xfa); clearmouse(); mouse.state = mouse.state & ~0xf | MOUSEREMOTE; break; /* set remote mode */
 		case 0xee: mouseputc(0xfa); clearmouse(); mouse.state |= MOUSEWRAP; break; /* set wrap mode */
 		case 0xec: mouseputc(0xfa); clearmouse(); mouse.state &= ~MOUSEWRAP; break; /* reset wrap mode */
