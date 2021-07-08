@@ -1906,7 +1906,8 @@ decode_cert(uchar *buf, int len)
  	el = el->tl;
  	epubkey = &el->hd;
 	if(el->tl != nil
-	&& el->tl->hd.tag.class == Context && el->tl->hd.tag.num == 3
+	&& el->tl->hd.tag.class == Context
+	&& el->tl->hd.tag.num == 3
 	&& el->tl->hd.val.tag == VOctets){
 		c->ext = el->tl->hd.val.u.octetsval;
 		el->tl->hd.val.u.octetsval = nil;	/* transfer ownership */
@@ -2700,7 +2701,7 @@ appendaltnames(char *name, int nname, Bytes *ext, int isreq)
 	Elem eext, ealt, edn;
 	Elist *el, *l;
 	Ints *oid;
-	char *alt;
+	char *alt, *e;
 	int len;
 
 	if(name == nil || ext == nil)
@@ -2758,6 +2759,9 @@ appendaltnames(char *name, int nname, Bytes *ext, int isreq)
 		}
 		if(alt == nil)
 			goto erralt;
+		/* take just CN part of Distinguished Name */
+		if((e = strchr(alt, ',')) != nil)
+			*e = '\0';
 		len = strlen(alt);
 		if(strncmp(name, alt, len) == 0 && strchr(",", name[len]) != nil){
 			free(alt);	/* same as the subject */
