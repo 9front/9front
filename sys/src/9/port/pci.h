@@ -254,6 +254,7 @@ extern void pciclrmwi(Pcidev* p);
 
 extern int pcicap(Pcidev *p, int cap);
 extern int pcihtcap(Pcidev *p, int cap);
+extern int pcienumcaps(Pcidev *p, int (*fmatch)(Pcidev*, int, int, int), int arg);
 
 extern int pcimsienable(Pcidev *p, uvlong addr, ulong data);
 extern int pcimsidisable(Pcidev *p);

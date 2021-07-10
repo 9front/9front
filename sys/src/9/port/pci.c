@@ -910,8 +910,8 @@ pciclrmwi(Pcidev* p)
 	pcicfgw16(p, PciPCR, p->pcr);
 }
 
-static int
-enumcaps(Pcidev *p, int (*fmatch)(Pcidev*, int, int, int), int arg)
+int
+pcienumcaps(Pcidev *p, int (*fmatch)(Pcidev*, int, int, int), int arg)
 {
 	int i, r, cap, off;
 
@@ -971,13 +971,13 @@ matchhtcap(Pcidev *p, int cap, int off, int arg)
 int
 pcicap(Pcidev *p, int cap)
 {
-	return enumcaps(p, matchcap, cap);
+	return pcienumcaps(p, matchcap, cap);
 }
 
 int
 pcihtcap(Pcidev *p, int cap)
 {
-	return enumcaps(p, matchhtcap, cap);
+	return pcienumcaps(p, matchhtcap, cap);
 }
 
 static int
