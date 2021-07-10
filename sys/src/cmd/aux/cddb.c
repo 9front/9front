@@ -3,7 +3,7 @@
 #include <bio.h>
 #include <ctype.h>
 
-char *server = "freedb.freedb.org";
+char *server = "gnudb.org";
 
 int debug;
 #define DPRINT if(debug)fprint
@@ -95,7 +95,7 @@ cddbfilltoc(Toc *t)
 	int nf;
 	char *id, *categ;
 
-	fd = dial(netmkaddr(server, "tcp", "888"), 0, 0, 0);
+	fd = dial(netmkaddr(server, "tcp", "8880"), 0, 0, 0);
 	if(fd < 0) {
 		fprint(2, "%s: %s: cannot dial: %r\n", argv0, server);
 		return -1;
