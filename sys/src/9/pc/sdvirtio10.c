@@ -46,6 +46,7 @@ enum {
 enum {
 	Acknowledge = 1,
 	Driver = 2,
+	FeaturesOk = 8,
 	DriverOk = 4,
 	Failed = 0x80,
 };
@@ -335,6 +336,7 @@ Baddev:
 		cfg->drvfeat = vd->feat[1] & 1;
 		cfg->drvfeatsel = 0;
 		cfg->drvfeat = 0;
+		cfg->status |= FeaturesOk;
 
 		for(i=0; i<nelem(vd->queue); i++){
 			cfg->queuesel = i;
@@ -698,11 +700,11 @@ vioenable(SDev *sd)
 	intrenable(vd->pci->intl, viointerrupt, vd, vd->pci->tbdf, name);
 	coherence();
 
-	vd->cfg->status |= DriverOk;
 	for(i = 0; i < vd->nqueue; i++){
 		vd->cfg->queuesel = i;
 		vd->cfg->queueenable = 1;
 	}
+	vd->cfg->status |= DriverOk;
 
 	return 1;
 }

@@ -40,7 +40,7 @@ enum {
 	Sacknowledge = 1,
 	Sdriver = 2,
 	Sdriverok = 4,
-	Sfeatureok = 8,
+	Sfeaturesok = 8,
 	Sfailed = 128,
 
 	/* flags in Qnetstatus */
@@ -466,14 +466,15 @@ attach(Ether* edev)
 	}
 	ctlr->attached = 1;
 
-	/* driver is ready */
-	ctlr->cfg->status |= Sdriverok;
-
 	/* enable the queues */
 	for(i = 0; i < ctlr->nqueue; i++){
 		ctlr->cfg->queuesel = i;
 		ctlr->cfg->queueenable = 1;
 	}
+
+	/* driver is ready */
+	ctlr->cfg->status |= Sdriverok;
+
 	iunlock(ctlr);
 
 	/* start kprocs */
@@ -691,6 +692,8 @@ pciprobe(void)
 
 		cfg->drvfeatsel = 0;
 		cfg->drvfeat = c->feat[0] & (Fmac|Fctrlvq|Fctrlrx);
+
+		cfg->status |= Sfeaturesok;
 
 		for(i=0; i<nelem(c->queue); i++){
 			cfg->queuesel = i;
