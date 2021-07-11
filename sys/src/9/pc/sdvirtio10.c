@@ -1,6 +1,17 @@
 /*
- * virtio ethernet driver implementing the legacy interface:
+ * virtio 1.0 disk driver
  * http://docs.oasis-open.org/virtio/virtio/v1.0/virtio-v1.0.html
+ *
+ * In contrast to sdvirtio.c, this driver handles the non-legacy
+ * interface for virtio disk which uses mmio for all register accesses
+ * and requires a laborate pci capability structure dance to get working.
+ *
+ * It is kind of pointless as it is most likely slower than
+ * port i/o (harder to emulate on the pc platform).
+ * 
+ * The reason why this driver is needed it is that vultr set the
+ * disable-legacy=on option in the -device parameter for qemu
+ * on their hypervisor.
  */
 #include "u.h"
 #include "../port/lib.h"
@@ -14,13 +25,16 @@
 
 #include "../port/sd.h"
 
+typedef struct Vscsidev Vscsidev;
+typedef struct Vblkdev Vblkdev;
+
+typedef struct Vconfig Vconfig;
 typedef struct Vring Vring;
 typedef struct Vdesc Vdesc;
 typedef struct Vused Vused;
 typedef struct Vqueue Vqueue;
 typedef struct Vdev Vdev;
 
-typedef struct ScsiCfg ScsiCfg;
 
 /* device types */
 enum {
@@ -36,20 +50,6 @@ enum {
 	Failed = 0x80,
 };
 
-/* virtio ports */
-enum {
-	Devfeat = 0,
-	Drvfeat = 4,
-	Qaddr = 8,
-	Qsize = 12,
-	Qselect = 14,
-	Qnotify = 16,
-	Status = 18,
-	Isr = 19,
-
-	Devspec = 20,
-};
-
 /* descriptor flags */
 enum {
 	Next = 1,
@@ -60,7 +60,56 @@ enum {
 /* struct sizes */
 enum {
 	VringSize = 4,
-};	
+};
+
+enum {
+	CDBSIZE		= 32,
+	SENSESIZE	= 96,
+};
+
+	
+struct Vscsidev
+{
+	u32int	num_queues;
+	u32int	seg_max;
+	u32int	max_sectors;
+	u32int	cmd_per_lun;
+	u32int	event_info_size;
+	u32int	sense_size;
+	u32int	cdb_size;
+	u16int	max_channel;
+	u16int	max_target;
+	u32int	max_lun;
+};
+
+struct Vblkdev
+{
+	u64int	capacity;
+};
+
+struct Vconfig {
+	u32int	devfeatsel;
+	u32int	devfeat;
+	u32int	drvfeatsel;
+	u32int	drvfeat;
+
+	u16int	msixcfg;
+	u16int	nqueues;
+
+	u8int	status;
+	u8int	cfggen;
+	u16int	queuesel;
+
+	u16int	queuesize;
+	u16int	queuemsixvect;
+
+	u16int	queueenable;
+	u16int	queuenotifyoff;
+
+	u64int	queuedesc;
+	u64int	queueavail;
+	u64int	queueused;
+};
 
 struct Vring
 {
@@ -87,6 +136,7 @@ struct Vqueue
 	Lock;
 
 	Vdev	*dev;
+	void	*notify;
 	int	idx;
 
 	int	size;
@@ -114,34 +164,21 @@ struct Vdev
 
 	Pcidev	*pci;
 
-	ulong	port;
-	ulong	feat;
+	uvlong	port;
+	ulong	feat[2];
 
 	int	nqueue;
 	Vqueue	*queue[16];
 
-	void	*cfg;	/* device specific config (for scsi) */
+	void	*dev;	/* device specific config (for scsi) */
+
+	/* registers */
+	Vconfig	*cfg;
+	u8int	*isr;
+	u8int	*notify;
+	u32int	notifyoffmult;
 
 	Vdev	*next;
-};
-
-enum {
-	CDBSIZE		= 32,
-	SENSESIZE	= 96,
-};
-
-struct ScsiCfg
-{
-	u32int	num_queues;
-	u32int	seg_max;
-	u32int	max_sectors;
-	u32int	cmd_per_lun;
-	u32int	event_info_size;
-	u32int	sense_size;
-	u32int	cdb_size;
-	u16int	max_channel;
-	u16int	max_target;
-	u32int	max_lun;
 };
 
 static Vqueue*
@@ -194,55 +231,126 @@ mkvqueue(int size)
 	return q;
 }
 
+static int
+matchvirtiocfgcap(Pcidev *p, int cap, int off, int typ)
+{
+	int bar;
+
+	if(cap != 9 || pcicfgr8(p, off+3) != typ)
+		return 1;
+
+	/* skip invalid or non memory bars */
+	bar = pcicfgr8(p, off+4);
+	if(bar < 0 || bar >= nelem(p->mem) 
+	|| p->mem[bar].size == 0
+	|| (p->mem[bar].bar & 3) != 0)
+		return 1;
+
+	return 0;
+}
+
+static int
+virtiocap(Pcidev *p, int typ)
+{
+	return pcienumcaps(p, matchvirtiocfgcap, typ);
+}
+
+static void*
+virtiomapregs(Pcidev *p, int cap, int size)
+{
+	int bar, len;
+	uvlong addr;
+
+	if(cap < 0)
+		return nil;
+	bar = pcicfgr8(p, cap+4) % nelem(p->mem);
+	addr = pcicfgr32(p, cap+8);
+	len = pcicfgr32(p, cap+12);
+	if(size <= 0)
+		size = len;
+	else if(len < size)
+		return nil;
+	if(addr+len > p->mem[bar].size)
+		return nil;
+	addr += p->mem[bar].bar & ~0xFULL;
+	return vmap(addr, size);
+}
+
 static Vdev*
 viopnpdevs(int typ)
 {
 	Vdev *vd, *h, *t;
+	Vconfig *cfg;
 	Vqueue *q;
 	Pcidev *p;
+	int cap, bar;
 	int n, i;
 
 	h = t = nil;
-	for(p = nil; p = pcimatch(p, 0x1AF4, 0);){
-		if((p->did < 0x1000) || (p->did > 0x103F))
+	for(p = nil; p = pcimatch(p, 0x1AF4, 0x1040+typ);){
+		if(p->rid == 0)
 			continue;
-		if(p->rid != 0)
+		if((cap = virtiocap(p, 1)) < 0)
 			continue;
-		if((p->mem[0].bar & 1) == 0)
-			continue;
-		if(pcicfgr16(p, 0x2E) != typ)
+		bar = pcicfgr8(p, cap+4) % nelem(p->mem);
+		cfg = virtiomapregs(p, cap, sizeof(Vconfig));
+		if(cfg == nil)
 			continue;
 		if((vd = malloc(sizeof(*vd))) == nil){
 			print("virtio: no memory for Vdev\n");
 			break;
 		}
-		vd->port = p->mem[0].bar & ~3;
-		if(ioalloc(vd->port, p->mem[0].size, 0, "virtio") < 0){
-			print("virtio: port %lux in use\n", vd->port);
+		vd->port = p->mem[bar].bar & ~0xFULL;
+		vd->typ = typ;
+		vd->pci = p;
+		vd->cfg = cfg;
+		pcienable(p);
+
+		vd->isr = virtiomapregs(p, virtiocap(p, 3), 0);
+		if(vd->isr == nil){
+Baddev:
+			pcidisable(p);
+			/* TODO: vunmap */
 			free(vd);
 			continue;
 		}
-		vd->typ = typ;
-		vd->pci = p;
-		pcienable(p);
+		cap = virtiocap(p, 2);
+		vd->notify = virtiomapregs(p, cap, 0);
+		if(vd->notify == nil)
+			goto Baddev;
+		vd->notifyoffmult = pcicfgr32(p, cap+16);
 
 		/* reset */
-		outb(vd->port+Status, 0);
+		cfg->status = 0;
+		while(cfg->status != 0)
+			delay(1);
+		cfg->status = Acknowledge|Driver;
 
-		vd->feat = inl(vd->port+Devfeat);
-		outb(vd->port+Status, Acknowledge|Driver);
+		/* negotiate feature bits */
+		cfg->devfeatsel = 1;
+		vd->feat[1] = cfg->devfeat;
+		cfg->devfeatsel = 0;
+		vd->feat[0] = cfg->devfeat;
+		cfg->drvfeatsel = 1;
+		cfg->drvfeat = vd->feat[1] & 1;
+		cfg->drvfeatsel = 0;
+		cfg->drvfeat = 0;
+
 		for(i=0; i<nelem(vd->queue); i++){
-			outs(vd->port+Qselect, i);
-			n = ins(vd->port+Qsize);
+			cfg->queuesel = i;
+			n = cfg->queuesize;
 			if(n == 0 || (n & (n-1)) != 0)
 				break;
 			if((q = mkvqueue(n)) == nil)
 				break;
+			q->notify = vd->notify + vd->notifyoffmult * cfg->queuenotifyoff;
 			q->dev = vd;
 			q->idx = i;
 			vd->queue[i] = q;
 			coherence();
-			outl(vd->port+Qaddr, PADDR(vd->queue[i]->desc)/BY2PG);
+			cfg->queuedesc = PADDR(q->desc);
+			cfg->queueavail = PADDR(q->avail);
+			cfg->queueused = PADDR(q->used);
 		}
 		vd->nqueue = i;
 	
@@ -296,7 +404,7 @@ viointerrupt(Ureg *, void *arg)
 {
 	Vdev *vd = arg;
 
-	if(inb(vd->port+Isr) & 1)
+	if(vd->isr[0] & 1)
 		vqinterrupt(vd->queue[vd->typ == TypSCSI ? 2 : 0]);
 }
 
@@ -319,7 +427,7 @@ vqio(Vqueue *q, int head)
 	q->avail->idx++;
 	iunlock(q);
 	if((q->used->flags & 1) == 0)
-		outs(q->dev->port+Qnotify, q->idx);
+		*((u16int*)q->notify) = q->idx;
 	while(!rock.done){
 		while(waserror())
 			;
@@ -405,11 +513,11 @@ vioscsireq(SDreq *r)
 	Vdesc *d;
 	Vdev *vd;
 	SDunit *u;
-	ScsiCfg *cfg;
+	Vscsidev *scsi;
 
 	u = r->unit;
 	vd = u->dev->ctlr;
-	cfg = vd->cfg;
+	scsi = vd->dev;
 
 	memset(resp, 0, sizeof(resp));
 	memset(req, 0, sizeof(req));
@@ -437,7 +545,7 @@ vioscsireq(SDreq *r)
 
 	d = &q->desc[free]; free = d->next;
 	d->addr = PADDR(req);
-	d->len = 8+8+3+cfg->cdb_size;
+	d->len = 8+8+3+scsi->cdb_size;
 	d->flags = Next;
 
 	if(r->write && r->dlen > 0){
@@ -449,7 +557,7 @@ vioscsireq(SDreq *r)
 
 	d = &q->desc[free]; free = d->next;
 	d->addr = PADDR(resp);
-	d->len = 4+4+2+2+cfg->sense_size;
+	d->len = 4+4+2+2+scsi->sense_size;
 	d->flags = Write;
 
 	if(!r->write && r->dlen > 0){
@@ -545,16 +653,16 @@ viorio(SDreq *r)
 static int
 vioonline(SDunit *u)
 {
-	uvlong cap;
 	Vdev *vd;
+	Vblkdev *blk;
+	uvlong cap;
 
 	vd = u->dev->ctlr;
 	if(vd->typ == TypSCSI)
 		return scsionline(u);
 
-	cap = inl(vd->port+Devspec+4);
-	cap <<= 32;
-	cap |= inl(vd->port+Devspec);
+	blk = vd->dev;
+	cap = blk->capacity;
 	if(u->sectors != cap){
 		u->sectors = cap;
 		u->secsize = 512;
@@ -575,19 +683,27 @@ vioverify(SDunit *u)
 	return 1;
 }
 
-SDifc sdvirtioifc;
+SDifc sdvirtio10ifc;
 
 static int
 vioenable(SDev *sd)
 {
 	char name[32];
 	Vdev *vd;
+	int i;
 
 	vd = sd->ctlr;
 	pcisetbme(vd->pci);
 	snprint(name, sizeof(name), "%s (%s)", sd->name, sd->ifc->name);
 	intrenable(vd->pci->intl, viointerrupt, vd, vd->pci->tbdf, name);
-	outb(vd->port+Status, inb(vd->port+Status) | DriverOk);
+	coherence();
+
+	vd->cfg->status |= DriverOk;
+	for(i = 0; i < vd->nqueue; i++){
+		vd->cfg->queuesel = i;
+		vd->cfg->queueenable = 1;
+	}
+
 	return 1;
 }
 
@@ -618,11 +734,13 @@ viopnp(void)
 		if(vd->nqueue == 0)
 			continue;
 
+		if((vd->dev = virtiomapregs(vd->pci, virtiocap(vd->pci, 4), sizeof(Vblkdev))) == nil)
+			break;
 		if((s = malloc(sizeof(*s))) == nil)
 			break;
 		s->ctlr = vd;
 		s->idno = id++;
-		s->ifc = &sdvirtioifc;
+		s->ifc = &sdvirtio10ifc;
 		s->nunit = 1;
 		if(h)
 			t->next = s;
@@ -633,54 +751,43 @@ viopnp(void)
 
 	id = '0';
 	for(vd = viopnpdevs(TypSCSI); vd; vd = vd->next){
-		ScsiCfg *cfg;
+		Vscsidev *scsi;
 
 		if(vd->nqueue < 3)
 			continue;
 
-		if((cfg = malloc(sizeof(*cfg))) == nil)
+		if((scsi = virtiomapregs(vd->pci, virtiocap(vd->pci, 4), sizeof(Vscsidev))) == nil)
 			break;
-		cfg->num_queues = inl(vd->port+Devspec+4*0);
-		cfg->seg_max = inl(vd->port+Devspec+4*1);
-		cfg->max_sectors = inl(vd->port+Devspec+4*2);
-		cfg->cmd_per_lun = inl(vd->port+Devspec+4*3);
-		cfg->event_info_size = inl(vd->port+Devspec+4*4);
-		cfg->sense_size = inl(vd->port+Devspec+4*5);
-		cfg->cdb_size = inl(vd->port+Devspec+4*6);
-		cfg->max_channel = ins(vd->port+Devspec+4*7);
-		cfg->max_target = ins(vd->port+Devspec+4*7+2);
-		cfg->max_lun = inl(vd->port+Devspec+4*8);
-
-		if(cfg->max_target == 0){
-			free(cfg);
+		if(scsi->max_target == 0){
+			vunmap(scsi, sizeof(Vscsidev));
 			continue;
 		}
-		if((cfg->cdb_size > CDBSIZE) || (cfg->sense_size > SENSESIZE)){
+		if((scsi->cdb_size > CDBSIZE) || (scsi->sense_size > SENSESIZE)){
 			print("sdvirtio: cdb %ud or sense size %ud too big\n",
-				cfg->cdb_size, cfg->sense_size);
-			free(cfg);
+				scsi->cdb_size, scsi->sense_size);
+			vunmap(scsi, sizeof(Vscsidev));
 			continue;
 		}
-		vd->cfg = cfg;
+		vd->dev = scsi;
 
 		if((s = malloc(sizeof(*s))) == nil)
 			break;
 		s->ctlr = vd;
 		s->idno = id++;
-		s->ifc = &sdvirtioifc;
-		s->nunit = cfg->max_target;
+		s->ifc = &sdvirtio10ifc;
+		s->nunit = scsi->max_target;
+
 		if(h)
 			t->next = s;
 		else
 			h = s;
 		t = s;
 	}
-
 	return h;
 }
 
-SDifc sdvirtioifc = {
-	"virtio",			/* name */
+SDifc sdvirtio10ifc = {
+	"virtio10",			/* name */
 
 	viopnp,				/* pnp */
 	nil,				/* legacy */
