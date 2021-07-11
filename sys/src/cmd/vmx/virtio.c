@@ -311,6 +311,17 @@ vioqaddrset(VIOQueue *q, u64int addr)
 }
 
 static void
+vioqreset(VIOQueue *q)
+{
+	q->desc = nil;
+	q->avail = nil;
+	q->used = nil;
+	q->addr = 0;
+	q->availidx = 0;
+	q->usedidx = 0;
+}
+
+static void
 viodevstatset(VIODev *v, u32int val)
 {
 	int i;
@@ -325,6 +336,7 @@ viodevstatset(VIODev *v, u32int val)
 			qlock(&v->qu[i]);
 			while(v->qu[i].livebuf > 0)
 				rsleep(&v->qu[i].livebufrend);
+			vioqreset(&v->qu[i]);
 			qunlock(&v->qu[i]);
 		}
 	}else{
@@ -396,6 +408,7 @@ mkvioqueue(VIODev *d, int sz, void (*fn)(VIOQueue*))
 	q->size = sz;
 	q->d = d;
 	q->notify = fn;
+	vioqreset(q);
 	return q;
 }
 
