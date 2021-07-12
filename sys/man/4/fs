@@ -12,13 +12,15 @@ protocols on Ethernets.
 The name of the main file server at Murray Hill was
 .BR emelie .
 .PP
-The file server normally requires all users except
+The file server does not require authentication on
+.IR attach (5)
+by default. To require all users except
 .L none
 to provide authentication tickets on each
-.IR attach (5).
-This can be disabled using the
+.IR attach (5),
+use the
 .B noauth
-configuration command (see
+toggle switch command (see
 .IR fsconfig (8)).
 .PP
 The group numbered 9999, normally called
