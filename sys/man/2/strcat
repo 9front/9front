@@ -161,9 +161,7 @@ occurrence of byte
 .I c
 in string
 .IR s ,
-or
-.L 0
-if
+or nil if
 .I c
 does not occur in the string.
 The null byte terminating a string is considered to
@@ -174,8 +172,7 @@ returns a pointer to the first occurrence in string
 .I s1
 of any byte from string
 .IR s2 ,
-.L 0
-if no byte from
+nil if no byte from
 .I s2
 exists in
 .IR s1 .
@@ -205,9 +202,7 @@ keeps track of its position in the string
 between separate calls; subsequent calls,
 signified by
 .I s1
-being
-.LR 0 ,
-will work through the string
+being nil, will work through the string
 .I s1
 immediately following that token.
 The separator string
@@ -215,24 +210,21 @@ The separator string
 may be different from call to call.
 When no token remains in
 .IR s1 ,
-.L 0
-is returned.
+nil is returned.
 .PP
 .I Strdup
 returns a pointer to a distinct copy of the null-terminated string
 .I s
 in space obtained from
 .IR malloc (2)
-or
-.L 0
-if no space can be obtained.
+or nil if no space can be obtained.
 .PP
 .I Strstr
 returns a pointer to the first occurrence of
 .I s2
 as a substring of
 .IR s1 ,
-or 0 if there is none.
+or nil if there is none.
 If
 .I s2
 is the null string,
