@@ -488,7 +488,7 @@ to make further subwindows.
 Programs desiring multiple independent windows
 may use the mechanisms of
 .IR rio (4)
-to create more windows (usually by a fresh mount of the window sytem
+to create more windows (usually by a fresh mount of the window system
 in a directory other than
 .BR /dev ),
 then use
