@@ -122,7 +122,6 @@ struct Conf
 	ulong	nmach;		/* processors */
 	ulong	nproc;		/* processes */
 	ulong	monitor;	/* has monitor? */
-	Confmem	mem[16];	/* physical memory */
 	ulong	npage;		/* total physical pages of memory */
 	ulong	upages;		/* user page pool */
 	ulong	nimage;		/* number of page cache image headers */
@@ -132,6 +131,7 @@ struct Conf
 	ulong	ialloc;		/* max interrupt time allocation in bytes */
 	ulong	pipeqsize;	/* size in bytes of pipe queues */
 	int	nuart;		/* number of uart devices */
+	Confmem	mem[64];	/* physical memory */
 };
 
 struct Segdesc
