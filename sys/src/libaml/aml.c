@@ -285,7 +285,7 @@ mk(int tag, int size)
 	int a;
 
 	a = sizeof(Heap) + size;
-	assert(a >= 0);
+	assert(a >= sizeof(Heap));
 	h = amlalloc(a);
 	h->size = size;
 	h->tag = tag;
@@ -615,20 +615,16 @@ rwfieldunit(Field *f, int off, int len, uvlong v, int write)
 {
 	if(f->index){
 		if(TAG(f->reg) == 'f'){
-			void *b;
-
 			/* set index field */
 			rwfield(f->index, mki(off), 1);
 
-			/* set data field */
-			f = f->reg;
+			/* set or get data field */
 			if(write){
-				b = mk('b', len);
+				void *b = mk('b', len);
 				putle(b, len, v);
-				rwfield(f, b, 1);
+				rwfield(f->reg, b, 1);
 			}else{
-				b = rwfield(f, nil, 0);
-				v = getle(b, len);
+				v = ival(rwfield(f->reg, nil, 0));
 			}
 			return v;
 		}
@@ -661,6 +657,11 @@ rwfield(Field *f, void *v, int write)
 		}
 	} else
 		b = mk('b', (blen+7)/8);
+	/*
+	 * don't free b while in rwfieldunit()/rwreg(),
+	 * gc can't find this temporary object referenced.
+	 */
+	amltake(b);
 	wa = fieldalign(f->flags);
 	wd = wa*8;
 	boff = 0;
@@ -688,6 +689,7 @@ rwfield(Field *f, void *v, int write)
 			}
 		}
 	}
+	amldrop(b);
 	if(write)
 		return nil;
 	if(blen > 64)
