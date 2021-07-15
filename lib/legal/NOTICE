@@ -21,13 +21,5 @@ The following exceptions apply:
    covered by the Aladdin Free Public License, reproduced in the file
    /lib/legal/afpl.
 
-4. The Python programming language in the subdirectories /sys/src/cmd/python and
-   /sys/lib/python is covered by the Python Software Foundation License, reproduced
-   in the file /sys/src/cmd/python/LICENSE.
-
-5. The Mercurial version control system in the subdirectories /sys/src/cmd/hg and
-   /sys/lib/mercurial is covered by the GNU GPL, version 2, reproduced in
-   the file /lib/legal/gpl.
-
 Other, less notable exceptions are marked in the file tree with
 COPYING, COPYRIGHT, or LICENSE files.
