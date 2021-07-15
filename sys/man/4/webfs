@@ -170,7 +170,7 @@ The resulting data may be read from
 as it arrives.
 .PP
 The following is a list of attributes that can be
-set to do a connection prior initiating the request:
+set for a connection prior to initiating the request:
 .TP
 .B url,baseurl
 See above.
@@ -186,14 +186,14 @@ Usually, the HTTP method used is
 .B POST
 when
 .B postbody
-file is opend first or
+file is opened first or
 .B GET
 otherwise. This can be overridden with the
 .B request
-attribute so send arbitrary HTTP requests.
+attribute to send arbitrary HTTP requests.
 .TP
 .B headers
-Adds arbitrary HTTP headers to be send with
+Adds arbitrary HTTP headers to be sent with
 the request.
 .SH EXAMPLE
 .B /rc/bin/hget
