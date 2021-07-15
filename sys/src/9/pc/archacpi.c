@@ -787,18 +787,18 @@ readtbls(Chan*, void *v, long n, vlong o)
 static int
 identify(void)
 {
-	uvlong pa;
+	uvlong v;
 	char *cp;
 	Tbl *t;
 
 	if((cp = getconf("*acpi")) == nil)
-		return 1;
-	pa = (uintptr)strtoull(cp, nil, 16);
-	if(pa <= 1)
+		cp = "1";	/* search for rsd by default */
+	v = (uintptr)strtoull(cp, nil, 16);
+	if(v <= 1)
 		rsd = rsdsearch();
 	else {
-		memreserve(pa, sizeof(Rsd));
-		rsd = vmap(pa, sizeof(Rsd));
+		memreserve(v, sizeof(Rsd));
+		rsd = vmap(v, sizeof(Rsd));
 	}
 	if(rsd == nil)
 		return 1;
@@ -807,7 +807,7 @@ identify(void)
 	maptables();
 	addarchfile("acpitbls", 0444, readtbls, nil);
 	addarchfile("acpimem", 0600, readmem, writemem);
-	if(strcmp(cp, "0") == 0 || findtable("APIC") == nil)
+	if(v == 0 || findtable("APIC") == nil)
 		return 1;
 	if((cp = getconf("*nomp")) != nil && strcmp(cp, "0") != 0)
 		return 1;
