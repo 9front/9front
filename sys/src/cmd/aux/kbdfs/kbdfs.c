@@ -371,6 +371,13 @@ shutdown(void)
 	threadexitsall(nil);
 }
 
+void
+shiftup(void)
+{
+	Key key = { .down = 0, .r = Kshift, .b = Kshift };
+	send(keychan, &key);
+}
+
 /*
  * Scan code processing
  */
@@ -433,8 +440,12 @@ kbdputsc(Scan *scan, int c)
 	if(scan->caps && key.r<='z' && key.r>='a')
 		key.r += 'A' - 'a';
 
-	if(scan->ctl && scan->alt && key.r == Kdel)
-		reboot();
+	if(scan->ctl && scan->alt && key.r == Kdel){
+		if(scan->shift)
+			shiftup();
+		else
+			reboot();
+	}
 
 	if(key.b)
 		send(keychan, &key);
