@@ -19,6 +19,9 @@ cdfs, cddb \- optical disc (CD, DVD, BD) track reader and writer file system
 ] [
 .B -s
 .I server
+] [
+.B -e
+.I dir
 ]
 .B query
 .I diskid
@@ -175,7 +178,7 @@ reading and writing speeds.
 Additional lines may further describe the current disc.
 .PP
 .I Aux/cddb
-takes 4 optional arguments.
+takes 5 optional arguments.
 The
 .B -s
 option makes
@@ -183,7 +186,7 @@ option makes
 use
 .I server
 for the query instead of
-.LR freedb.freedb.org .
+.LR gnudb.org .
 The
 .B -D
 option causes the raw database response from the server to be dumped
@@ -195,6 +198,12 @@ option causes the time of each track to be appended to the normal output.
 is like
 .B -t
 but prints a final line with the total time.
+The
+.B -e
+option will print rc commands using
+.IR audio/flacenc (1)
+to encode and tag audio tracks from the disc to output directory
+.I dir .
 .SH EXAMPLES
 Backup to a BD-R disc:
 .br

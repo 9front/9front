@@ -9,11 +9,13 @@ int debug;
 #define DPRINT if(debug)fprint
 int tflag;
 int Tflag;
+char *eflag;
 
 typedef struct Track Track;
 struct Track {
 	int n;
 	char *title;
+	char *artist;
 };
 
 enum {
@@ -25,6 +27,8 @@ struct Toc {
 	ulong diskid;
 	int ntrack;
 	char *title;
+	char *year;
+	char *artist;
 	Track track[MTRACK];
 };
 
@@ -55,17 +59,23 @@ dumpcddb(Toc *t)
 {
 	int i, n, s;
 
-	print("title	%s\n", t->title);
+	print("title\t%s\n", t->title);
+	if(t->year[0] != 0)
+		print("year\t%s\n", t->year);
+	if(t->artist[0] != 0)
+		print("artist\t%s\n", t->artist);
 	for(i=0; i<t->ntrack; i++){
+		print("%d\t%s", i+1, t->track[i].title);
 		if(tflag){
 			n = t->track[i+1].n;
 			if(i == t->ntrack-1)
 				n *= 75;
 			s = (n - t->track[i].n)/75;
-			print("%d\t%s\t%d:%2.2d\n", i+1, t->track[i].title, s/60, s%60);
+			print("\t%d:%2.2d", s/60, s%60); 
 		}
-		else
-			print("%d\t%s\n", i+1, t->track[i].title);
+		if(t->track[i].artist[0] != 0)
+			print("\t%s", t->track[i].artist);
+		print("\n");
 	}
 	if(Tflag){
 		s = t->track[i].n;
@@ -73,15 +83,32 @@ dumpcddb(Toc *t)
 	}
 }
 
-char*
-append(char *a, char *b)
+static void
+dumpencode(Toc *t)
 {
-	char *c;
+	int i;
 
-	c = emalloc(strlen(a)+strlen(b)+1);
-	strcpy(c, a);
-	strcat(c, b);
-	return c;
+	quotefmtinstall();
+	for(i=0; i < t->ntrack; i++){
+		print("</mnt/cd/a%03d audio/flacenc ", i);
+		print("-T 'title='^%q -T 'trackno=%d' ", t->track[i].title, i+1);
+		if(t->year[0] != 0)
+			print("-T 'year='^%q ", t->year);
+		if(t->track[i].artist[0] != 0 || t->artist[0] != 0)
+			print("-T 'artist='^%q ", t->track[i].artist[0] != 0 ? t->track[i].artist : t->artist);
+		print(">%q/a%03d.flac\n", eflag, i);
+	}
+}
+
+static char*
+split(char *s)
+{
+	char *p;
+
+	if((p = strchr(s, '/')) == nil)
+		return nil;
+	p[-1] = 0;
+	return p+2;
 }
 
 static int
@@ -89,7 +116,7 @@ cddbfilltoc(Toc *t)
 {
 	int fd;
 	int i;
-	char *p, *q;
+	char *p, *q, *a;
 	Biobuf bin;
 	char *f[10];
 	int nf;
@@ -183,8 +210,12 @@ cddbfilltoc(Toc *t)
 	}
 
 	t->title = "";
-	for(i=0; i<t->ntrack; i++)
+	t->artist = "";
+	t->year = "";
+	for(i=0; i<t->ntrack; i++) {
 		t->track[i].title = "";
+		t->track[i].artist = "";
+	}
 
 	/* fetch results for this cd */
 	fprint(fd, "cddb read %s %s\r\n", categ, id);
@@ -195,8 +226,18 @@ cddbfilltoc(Toc *t)
 		while(isspace(*q))
 			*q-- = 0;
 DPRINT(2, "cddb %s\n", p);
-		if(strncmp(p, "DTITLE=", 7) == 0)
-			t->title = append(t->title, p+7);
+		if(strncmp(p, "DTITLE=", 7) == 0) {
+			p += 7;
+			a = split(p);
+			if(a != nil) {
+				t->artist = estrdup(p);
+				p = a;
+			}
+			t->title = estrdup(p);
+		}
+		else if(strncmp(p, "DYEAR=", 6) == 0) {
+			t->year = estrdup(p+6);
+		}
 		else if(strncmp(p, "TTITLE", 6) == 0 && isdigit(p[6])) {
 			i = atoi(p+6);
 			if(i < t->ntrack) {
@@ -205,8 +246,12 @@ DPRINT(2, "cddb %s\n", p);
 					p++;
 				if(*p == '=')
 					p++;
-
-				t->track[i].title = append(t->track[i].title, estrdup(p));
+				a = split(p);
+				if(a != nil) {
+					t->track[i].artist = estrdup(p);
+					p = a;
+				}
+				t->track[i].title = estrdup(p);	
 			}
 		} 
 	} while(*p != '.');
@@ -238,6 +283,9 @@ main(int argc, char **argv)
 	case 's':
 		server = EARGF(usage());
 		break;
+	case 'e':
+		eflag = EARGF(usage());
+		break;
 	case 'T':
 		Tflag = 1;
 		/*FALLTHROUGH*/
@@ -260,6 +308,9 @@ main(int argc, char **argv)
 	if(cddbfilltoc(&toc) < 0)
 		exits("whoops");
 
-	dumpcddb(&toc);
+	if(eflag != nil)
+		dumpencode(&toc);
+	else
+		dumpcddb(&toc);
 	exits(nil);
 }
