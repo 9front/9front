@@ -119,14 +119,19 @@ grabmouse(void*)
 void
 top(void*)
 {
-	int fd;
+	int fd, n;
+	char buf[128];
 
-	if((fd = open("/dev/wctl", OWRITE)) < 0)
+	if((fd = open("/dev/wctl", ORDWR)) < 0)
 		return;
 
 	for(;;){
-		write(fd, "current", 7);
-		sleep(500);
+		n = read(fd, buf, sizeof buf-1);
+		if(n > 48){
+			buf[n] = '\0';
+			if(strstr(buf+48, "notcurrent"))
+				write(fd, "current", 7);
+		}
 	}
 }
 
@@ -186,7 +191,7 @@ lockscreen(void)
 		tm = localtime(time(&blank));
 		s = smprint("user %s at %d:%02.2d", getuser(), tm->hour, tm->min);
 		p = subpt(p, Pt(stringwidth(font, "m") * strlen(s) / 2, 0));
-		string(screen, p, screen->display->white, ZP, font, s);
+		stringbg(screen, p, display->white, ZP, font, s, display->black, ZP);
 	}
 	flushimage(display, 1);
 
