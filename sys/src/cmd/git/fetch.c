@@ -267,7 +267,7 @@ fetchpack(Conn *c)
 
 	if((packtmp = smprint(".git/objects/pack/fetch.%d.pack", getpid())) == nil)
 		sysfatal("smprint: %r");
-	if((idxtmp = smprint(".git/objects/idx/fetch.%d.idx", getpid())) == nil)
+	if((idxtmp = smprint(".git/objects/pack/fetch.%d.idx", getpid())) == nil)
 		sysfatal("smprint: %r");
 	if(mkoutpath(packtmp) == -1)
 		sysfatal("could not create %s: %r", packtmp);
