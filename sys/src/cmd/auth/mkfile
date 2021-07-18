@@ -26,6 +26,7 @@ TARG=\
 	readnvram\
 	rsa2asn1\
 	rsa2csr\
+	rsa2jwk\
 	rsa2pub\
 	rsa2ssh\
 	rsa2x509\
@@ -106,10 +107,10 @@ nuke:V:
 	rm -f *.[$OS] *.[$OS].a [$OS].* y.tab.? y.debug y.output $TARG *.acid
 
 $O.%:	$LIB
-$O.rsa2asn1 $O.rsa2ssh $O.rsafill $O.rsa2x509 $O.rsa2pub $O.rsa2csr: rsa2any.$O
+$O.rsa2asn1 $O.rsa2ssh $O.rsafill $O.rsa2x509 $O.rsa2pub $O.rsa2csr $O.rsa2jwk: rsa2any.$O
 $O.authsrv $O.guard.srv: secureidcheck.$O
 
-rsa2asn1.$O rsa2ssh.$O rsafill.$O rsa2x509.$O rsa2pub.$O rsa2csr.$O: rsa2any.h
+rsa2asn1.$O rsa2ssh.$O rsafill.$O rsa2x509.$O rsa2pub.$O rsa2csr.$O rsa2jwk.$O: rsa2any.h
 
 $BIN/netkey:V:	$O.netkey
 	cp $O.netkey /$objtype/bin/netkey
