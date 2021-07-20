@@ -43,7 +43,7 @@ data areas need to use
 .IR brk .
 A call to
 .I sbrk
-with a zero argument returns the lowest address
+with a zero argument returns the end address
 in the dynamic segment.
 .SH SOURCE
 .B /sys/src/libc/9sys/sbrk.c
