@@ -207,10 +207,10 @@ int vtscorefmt(Fmt*);
  * error-checking malloc et al.
  */
 void	vtfree(void *);
-void*	vtmalloc(int);
-void*	vtmallocz(int);
-void*	vtrealloc(void *p, int);
-void*	vtbrk(int n);
+void*	vtmalloc(ulong);
+void*	vtmallocz(ulong);
+void*	vtrealloc(void *p, ulong);
+void*	vtbrk(ulong);
 char*	vtstrdup(char *);
 
 /*

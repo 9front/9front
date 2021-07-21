@@ -216,7 +216,7 @@ icachewriteproc(void *v)
 	threadsetname("icachewriteproc:%s", is->part->name);
 
 	bsize = 1<<is->blocklog;
-	buf = emalloc(Bufsize+bsize);
+	buf = vtmalloc(Bufsize+bsize);
 	buf = (u8int*)(((uintptr)buf+bsize-1)&~(uintptr)(bsize-1));
 
 	for(;;){

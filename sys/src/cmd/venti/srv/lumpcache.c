@@ -47,9 +47,9 @@ initlumpcache(u32int size, u32int nblocks)
 	lumpcache.nblocks = nblocks;
 	lumpcache.allowed = size;
 	lumpcache.avail = size;
-	lumpcache.heads = MKNZ(Lump*, HashSize);
-	lumpcache.heap = MKNZ(Lump*, nblocks);
-	lumpcache.blocks = MKNZ(Lump, nblocks);
+	lumpcache.heads = vtbrk(sizeof(Lump*) * HashSize);
+	lumpcache.heap = vtbrk(sizeof(Lump*) * nblocks);
+	lumpcache.blocks = vtbrk(sizeof(Lump) * nblocks);
 	setstat(StatLcacheSize, lumpcache.nblocks);
 
 	last = nil;
@@ -413,7 +413,7 @@ checklumpcache(void)
 	}
 	if(lumpcache.avail != lumpcache.allowed - size){
 		fprint(2, "mismatched available=%d and allowed=%d - used=%d space", lumpcache.avail, lumpcache.allowed, size);
-		*(int*)0=0;
+		abort();
 	}
 
 	nfree = 0;

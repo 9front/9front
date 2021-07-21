@@ -278,14 +278,12 @@ scachemiss(u64int addr)
  */
 
 void
-initicache(u32int mem0)
+initicache(u32int mem)
 {
-	u32int mem;
 	int i, entries, scache;
 	
 	icache.full.l = &icache.lock;
 
-	mem = mem0;
 	entries = mem / (sizeof(IEntry)+sizeof(IEntry*));
 	scache = (entries/8) / ArenaCIGSize;
 	entries -= entries/8;
@@ -295,7 +293,7 @@ initicache(u32int mem0)
 		scache = 16;
 	if(entries < 1000)
 		entries = 1000;
-fprint(2, "icache %,d bytes = %,d entries; %d scache\n", mem0, entries, scache);
+fprint(2, "icache %,lud bytes = %,lud entries; %lud scache\n", mem, entries, scache);
 
 	icache.clean.prev = icache.clean.next = &icache.clean;
 	icache.dirty.prev = icache.dirty.next = &icache.dirty;
@@ -304,7 +302,7 @@ fprint(2, "icache %,d bytes = %,d entries; %d scache\n", mem0, entries, scache);
 	icache.hash = mkihash(entries);
 	icache.nentries = entries;
 	setstat(StatIcacheSize, entries);
-	icache.entries = vtmallocz(entries*sizeof icache.entries[0]);
+	icache.entries = vtbrk(entries*sizeof icache.entries[0]);
 	icache.maxdirty = entries / 2;
 	for(i=0; i<entries; i++)
 		pushfirst(&icache.free, &icache.entries[i]);

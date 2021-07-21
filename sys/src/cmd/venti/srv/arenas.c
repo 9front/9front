@@ -375,7 +375,7 @@ parseamap(IFile *f, AMapN *amn)
 	for(i = 0; i < n; i++){
 		s = ifileline(f);
 		if(s)
-			t = estrdup(s);
+			t = vtstrdup(s);
 		else
 			t = nil;
 		if(s == nil || getfields(s, flds, 4, 0, "\t") != 3){

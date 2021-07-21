@@ -29,13 +29,9 @@ void		delaykickroundproc(void*);
 void		dirtydblock(DBlock*, int);
 void		diskaccess(int);
 void		disksched(void);
-void		*emalloc(ulong);
 void		emptydcache(void);
 void		emptyicache(void);
 void		emptylumpcache(void);
-void		*erealloc(void *, ulong);
-char		*estrdup(char*);
-void		*ezmalloc(ulong);
 Arena		*findarena(char *name);
 int		flushciblocks(Arena *arena);
 void		flushdcache(void);
@@ -151,6 +147,8 @@ int		readclumpinfos(Arena *arena, int clump, ClumpInfo *cis, int n);
 ZBlock		*readfile(char *name);
 int		readifile(IFile *f, char *name);
 Packet		*readlump(u8int *score, int type, u32int size, int *cached);
+// If the return value is not negative one, n bytes were successfully read.
+// If n == -1, this will ALWAYS report failure, even when the read succeeded.
 int		readpart(Part *part, u64int addr, u8int *buf, u32int n);
 int		resetbloom(Bloom*);
 int		runconfig(char *config, Config*);
@@ -221,8 +219,8 @@ void		zeropart(Part *part, int blocksize);
 #define scorecmp(h1,h2)		memcmp((h1),(h2),VtScoreSize)
 #define scorecp(h1,h2)		memmove((h1),(h2),VtScoreSize)
 
-#define MK(t)			((t*)emalloc(sizeof(t)))
-#define MKZ(t)			((t*)ezmalloc(sizeof(t)))
-#define MKN(t,n)		((t*)emalloc((n)*sizeof(t)))
-#define MKNZ(t,n)		((t*)ezmalloc((n)*sizeof(t)))
-#define MKNA(t,at,n)		((t*)emalloc(sizeof(t) + (n)*sizeof(at)))
+#define MK(t)			((t*)vtmalloc(sizeof(t)))
+#define MKZ(t)			((t*)vtmallocz(sizeof(t)))
+#define MKN(t,n)		((t*)vtmalloc((n)*sizeof(t)))
+#define MKNZ(t,n)		((t*)vtmallocz((n)*sizeof(t)))
+#define MKNA(t,at,n)		((t*)vtmalloc(sizeof(t) + (n)*sizeof(at)))

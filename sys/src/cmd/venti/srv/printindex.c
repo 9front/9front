@@ -44,7 +44,7 @@ dumpisect(ISect *is)
 	IBucket ib;
 	IEntry ie;
 
-	buf = emalloc(is->blocksize);
+	buf = vtmalloc(is->blocksize);
 	for(i=0; i<is->blocks; i++){
 		off = is->blockbase+(u64int)is->blocksize*i;
 		if(readpart(is->part, off, buf, is->blocksize) < 0)

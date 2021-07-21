@@ -47,7 +47,7 @@ parsepart(char *name, char **file, u64int *lo, u64int *hi)
 {
 	char *p;
 
-	*file = estrdup(name);
+	*file = vtstrdup(name);
 	if((p = strrchr(*file, ':')) == nil){
 		*lo = 0;
 		*hi = 0;
@@ -87,8 +87,8 @@ initpart(char *name, int mode)
 		return nil;
 	trace(TraceDisk, "initpart %s file %s lo 0x%llx hi 0x%llx", name, file, lo, hi);
 	part = MKZ(Part);
-	part->name = estrdup(name);
-	part->filename = estrdup(file);
+	part->name = vtstrdup(name);
+	part->filename = vtstrdup(file);
 	if(readonly){
 		mode &= ~(OREAD|OWRITE|ORDWR);
 		mode |= OREAD;

@@ -446,7 +446,7 @@ mkipool(ISect *isect, Minibuf *mbuf, u32int nmbuf,
 	IEntryLink *l;
 	
 	nentry = (nmbuf+1)*bufsize / IEntrySize;
-	p = ezmalloc(sizeof(IPool)
+	p = vtmallocz(sizeof(IPool)
 		+nentry*sizeof(IEntry)
 		+nmbuf*sizeof(IEntryLink*)
 		+nmbuf*sizeof(u32int)
@@ -676,7 +676,7 @@ sortminibuffer(ISect *is, Minibuf *mb, uchar *buf, u32int nbuf, u32int bufsize)
 	Part *part;
 	
 	part = is->part;
-	buckdata = emalloc(is->blocksize);
+	buckdata = vtmalloc(is->blocksize);
 	
 	if(mb->nwentry == 0)
 		return;
@@ -691,7 +691,6 @@ sortminibuffer(ISect *is, Minibuf *mb, uchar *buf, u32int nbuf, u32int bufsize)
 		errors = 1;
 		return;
 	}
-	assert(*(uint*)buf != 0xa5a5a5a5);
 	
 	/*
 	 * remove fragmentation due to IEntrySize
@@ -820,7 +819,7 @@ isectproc(void *v)
 	bufsize = MinBufSize;
 	while(bufsize*2*nbuf <= isectmem && bufsize < MaxBufSize)
 		bufsize *= 2;
-	data = emalloc(nbuf*bufsize);
+	data = vtmalloc(nbuf*bufsize);
 	epbuf = bufsize/IEntrySize;
 	fprint(2, "%T %s: %,ud buckets, %,ud groups, %,ud minigroups, %,ud buffer\n",
 		is->part->name, nbucket, nbuf, nminibuf, bufsize);
@@ -951,7 +950,7 @@ isectproc(void *v)
 			if(space < mbuf[j].woffset - mbuf[j].boffset)
 				space = mbuf[j].woffset - mbuf[j].boffset;
 
-		data = emalloc(space);
+		data = vtmalloc(space);
 		for(j=0; j<nminibuf; j++){
 			mb = &mbuf[j];
 			sortminibuffer(is, mb, data, space, bufsize);

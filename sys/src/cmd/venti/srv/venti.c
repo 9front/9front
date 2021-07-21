@@ -359,7 +359,7 @@ static void
 vtrerror(VtReq *r, char *error)
 {
 	r->rx.msgtype = VtRerror;
-	r->rx.error = estrdup(error);
+	r->rx.error = vtstrdup(error);
 }
 
 static void

@@ -84,7 +84,7 @@ runconfig(char *file, Config *config)
 			ok = 0;
 			break;
 		}
-		line = estrdup(s);
+		line = vtstrdup(s);
 		i = getfields(s, flds, MaxArgs + 1, 1, " \t\r");
 		if(i == 2 && strcmp(flds[0], "isect") == 0){
 			sv = MKN(ISect*, config->nsects + 1);
@@ -122,7 +122,7 @@ runconfig(char *file, Config *config)
 				seterr(EAdmin, "duplicate indices in config file %s", file);
 				break;
 			}
-			config->index = estrdup(flds[1]);
+			config->index = vtstrdup(flds[1]);
 		}else if(i == 2 && strcmp(flds[0], "bcmem") == 0){
 			if(numok(flds[1]) < 0){
 				seterr(EAdmin, "illegal size %s in config file %s",
@@ -163,19 +163,19 @@ runconfig(char *file, Config *config)
 				seterr(EAdmin, "duplicate httpaddr lines in configuration file %s", file);
 				break;
 			}
-			config->haddr = estrdup(flds[1]);
+			config->haddr = vtstrdup(flds[1]);
 		}else if(i == 2 && strcmp(flds[0], "webroot") == 0){
 			if(config->webroot){
 				seterr(EAdmin, "duplicate webroot lines in configuration file %s", file);
 				break;
 			}
-			config->webroot = estrdup(flds[1]);
+			config->webroot = vtstrdup(flds[1]);
 		}else if(i == 2 && strcmp(flds[0], "addr") == 0){
 			if(config->vaddr){
 				seterr(EAdmin, "duplicate addr lines in configuration file %s", file);
 				break;
 			}
-			config->vaddr = estrdup(flds[1]);
+			config->vaddr = vtstrdup(flds[1]);
 		}else{
 			seterr(EAdmin, "illegal line '%s' in configuration file %s", line, file);
 			break;

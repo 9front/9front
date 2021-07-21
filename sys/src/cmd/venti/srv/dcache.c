@@ -82,10 +82,11 @@ initdcache(u32int mem)
 	int i;
 	u8int *p;
 
-	if(mem < maxblocksize * 2)
-		sysfatal("need at least %d bytes for the disk cache", maxblocksize * 2);
 	if(maxblocksize == 0)
 		sysfatal("no max. block size given for disk cache");
+	if(mem < maxblocksize * 2)
+		sysfatal("need at least 2 max-size blocks (%d bytes) for the disk cache", maxblocksize * 2);
+
 	blocksize = maxblocksize;
 	nblocks = mem / blocksize;
 	dcache.full.l = &dcache.lock;
@@ -94,11 +95,11 @@ initdcache(u32int mem)
 	trace(TraceProc, "initialize disk cache with %d blocks of %d bytes, maximum %d dirty blocks\n",
 			nblocks, blocksize, dcache.maxdirty);
 	dcache.size = blocksize;
-	dcache.heads = MKNZ(DBlock*, HashSize);
-	dcache.heap = MKNZ(DBlock*, nblocks);
-	dcache.blocks = MKNZ(DBlock, nblocks);
-	dcache.write = MKNZ(DBlock*, nblocks);
-	dcache.mem = MKNZ(u8int, (nblocks+1+128) * blocksize);
+	dcache.heads = vtbrk(sizeof(DBlock*) * HashSize);
+	dcache.heap = vtbrk(sizeof(DBlock*) * nblocks);
+	dcache.blocks = vtbrk(sizeof(DBlock) * nblocks);
+	dcache.write = vtbrk(sizeof(DBlock*) * nblocks);
+	dcache.mem = vtbrk((nblocks+1+128) * blocksize);
 
 	last = nil;
 	p = (u8int*)(((uintptr)dcache.mem+blocksize-1)&~(uintptr)(blocksize-1));
