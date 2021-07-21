@@ -3,7 +3,7 @@
 gzip, gunzip, bzip2, bunzip2, compress, uncompress, zip, unzip \- compress and expand data
 .SH SYNOPSIS
 .B gzip
-.RB [ -cvD [ 1-9 ]]
+.RB [ -cvnD [ 1-9 ]]
 .RI [ file
 .BR ... ]
 .PP
@@ -13,7 +13,7 @@ gzip, gunzip, bzip2, bunzip2, compress, uncompress, zip, unzip \- compress and e
 .BR ... ]
 .PP
 .B bzip2
-.RB [ -cvD [ 1-9 ]]
+.RB [ -cvnD [ 1-9 ]]
 .RI [ file
 .BR ... ]
 .PP
@@ -179,6 +179,19 @@ adds the uncompressed size in bytes and the modification time to the output.
 Without
 .BR -t ,
 prints the names of files on standard error as they are compressed or decompressed.
+.TP
+.B -n
+The
+.I gzip
+and
+.I bzip2
+file formats include a modification timestamp which is by default set
+to the modification time of the files being compressed or the current
+time when the source file is read from standard input.
+The
+.B -n
+flag overrides this behaviour and puts a timestamp of zero instead,
+making the compressed output deterministic.
 .TP
 .B -D
 Produce debugging output.

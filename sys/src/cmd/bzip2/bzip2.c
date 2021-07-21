@@ -3,7 +3,7 @@
 #include <bio.h>
 #include "bzlib.h"
 
-static	int	bzipf(char*, int);
+static	int	bzipf(char*, int, int);
 static	int	bzip(char*, long, int, Biobuf*);
 
 static	Biobuf	bout;
@@ -15,7 +15,7 @@ static	int	verbose;
 static void
 usage(void)
 {
-	fprint(2, "usage: bzip2 [-vcD] [-1-9] [file ...]\n");
+	fprint(2, "usage: bzip2 [-vcnD] [-1-9] [file ...]\n");
 	exits("usage");
 }
 
@@ -23,9 +23,11 @@ void
 main(int argc, char **argv)
 {
 	int i, ok, stdout;
+	long mtime;
 
 	level = 6;
 	stdout = 0;
+	mtime = time(nil);
 	ARGBEGIN{
 	case 'D':
 		debug++;
@@ -35,6 +37,9 @@ main(int argc, char **argv)
 		break;
 	case 'c':
 		stdout++;
+		break;
+	case 'n':
+		mtime = 0;
 		break;
 	case '1': case '2': case '3': case '4':
 	case '5': case '6': case '7': case '8': case '9':
@@ -47,18 +52,18 @@ main(int argc, char **argv)
 
 	if(argc == 0){
 		Binit(&bout, 1, OWRITE);
-		ok = bzip(nil, time(0), 0, &bout);
+		ok = bzip(nil, mtime, 0, &bout);
 		Bterm(&bout);
 	}else{
 		ok = 1;
 		for(i = 0; i < argc; i++)
-			ok &= bzipf(argv[i], stdout);
+			ok &= bzipf(argv[i], !mtime, stdout);
 	}
 	exits(ok ? nil: "errors");
 }
 
 static int
-bzipf(char *file, int stdout)
+bzipf(char *file, int nomtime, int stdout)
 {
 	Dir *dir;
 	char ofile[128], *f, *s;
@@ -110,7 +115,7 @@ bzipf(char *file, int stdout)
 		fprint(2, "compressing %s to %s\n", file, ofile);
 
 	Binit(&bout, ofd, OWRITE);
-	ok = bzip(file, dir->mtime, ifd, &bout);
+	ok = bzip(file, nomtime ? 0 : dir->mtime, ifd, &bout);
 	if(!ok || Bflush(&bout) < 0){
 		fprint(2, "bzip2: error writing %s: %r\n", ofile);
 		if(!stdout)

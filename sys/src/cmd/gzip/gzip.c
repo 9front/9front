@@ -4,7 +4,7 @@
 #include <flate.h>
 #include "gzip.h"
 
-static	int	gzipf(char*, int);
+static	int	gzipf(char*, int, int);
 static	int	gzip(char*, long, int, Biobuf*);
 static	int	crcread(void *fd, void *buf, int n);
 static	int	gzwrite(void *bout, void *buf, int n);
@@ -21,7 +21,7 @@ static	int	verbose;
 void
 usage(void)
 {
-	fprint(2, "usage: gzip [-vcD] [-1-9] [file ...]\n");
+	fprint(2, "usage: gzip [-vcnD] [-1-9] [file ...]\n");
 	exits("usage");
 }
 
@@ -29,9 +29,11 @@ void
 main(int argc, char *argv[])
 {
 	int i, ok, stdout;
+	long mtime;
 
 	level = 6;
 	stdout = 0;
+	mtime = time(nil);
 	ARGBEGIN{
 	case 'D':
 		debug++;
@@ -41,6 +43,9 @@ main(int argc, char *argv[])
 		break;
 	case 'c':
 		stdout = 1;
+		break;
+	case 'n':
+		mtime = 0;
 		break;
 	case '1': case '2': case '3': case '4':
 	case '5': case '6': case '7': case '8': case '9':
@@ -58,18 +63,18 @@ main(int argc, char *argv[])
 
 	if(argc == 0){
 		Binit(&bout, 1, OWRITE);
-		ok = gzip(nil, time(0), 0, &bout);
+		ok = gzip(nil, mtime, 0, &bout);
 		Bterm(&bout);
 	}else{
 		ok = 1;
 		for(i = 0; i < argc; i++)
-			ok &= gzipf(argv[i], stdout);
+			ok &= gzipf(argv[i], !mtime, stdout);
 	}
 	exits(ok ? nil: "errors");
 }
 
 static int
-gzipf(char *file, int stdout)
+gzipf(char *file, int nomtime, int stdout)
 {
 	Dir *dir;
 	char ofile[256], *f, *s;
@@ -120,7 +125,7 @@ gzipf(char *file, int stdout)
 		fprint(2, "compressing %s to %s\n", file, ofile);
 
 	Binit(&bout, ofd, OWRITE);
-	ok = gzip(file, dir->mtime, ifd, &bout);
+	ok = gzip(file, nomtime ? 0 : dir->mtime, ifd, &bout);
 	if(!ok || Bflush(&bout) < 0){
 		fprint(2, "gzip: error writing %s: %r\n", ofile);
 		if(!stdout)
