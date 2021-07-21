@@ -1270,7 +1270,7 @@ main(int argc, char *argv[])
 	fprint(fd, "%s\r\n", send.v);
 	recv.v = readline();
 	if(debug)
-		fprint(2, "server verison: %s\n", recv.v);
+		fprint(2, "server version: %s\n", recv.v);
 	if(strncmp("SSH-2.0-", recv.v, 8) != 0)
 		sysfatal("bad server version: %s", recv.v);
 	recv.v = strdup(recv.v);
