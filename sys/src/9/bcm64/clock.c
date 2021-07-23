@@ -2,14 +2,14 @@
  * bcm283[56] timers
  *	System timers run at 1MHz (timers 1 and 2 are used by GPU)
  *	ARM timer usually runs at 250MHz (may be slower in low power modes)
- *	Cycle counter runs at 700MHz (unless overclocked)
  *    All are free-running up-counters
  *
  * Use system timer 3 (64 bits) for hzclock interrupts and fastticks
  *   For smp on bcm2836, use local generic timer for interrupts on cpu1-3
  * Use ARM timer (32 bits) for perfticks
  * Use ARM timer to force immediate interrupt
- * Use cycle counter for cycles()
+ * Use performance cycle counter for lcycles()
+ * Use generic timer virtual counter for cycles()
  */
 
 #include "u.h"
@@ -118,6 +118,7 @@ clockinit(void)
 	syswr(PMCR_EL0, 1<<6 | 7);
 	syswr(PMCNTENSET, 1<<31);
 	syswr(PMUSERENR_EL0, 1<<2);
+	syswr(CNTKCTL_EL1, 1<<1);
 
 	syswr(CNTP_TVAL_EL0, ~0UL);
 	if(m->machno == 0){
@@ -147,7 +148,19 @@ clockinit(void)
 	t1 -= t0;
 	m->cpuhz = 100 * t1;
 	m->cpumhz = (m->cpuhz + Mhz/2 - 1) / Mhz;
-	m->cyclefreq = m->cpuhz;
+
+	/*
+	 * Cyclefreq used to be the same as cpuhz as
+	 * we where using the PMCCNTR_EL0 which counts
+	 * per core cpu cycles. But is is kind of useless
+	 * in userspace because each core has a differnet
+	 * counter and it stops when the core is idle (WFI).
+	 * So we change it to use the generic timer
+	 * virtual counter register CNTVCT_EL0 instead
+	 * running at the same frequency as system timer.
+	 * (CNTFRQ_EL0 is WRONG on raspberry pi).
+	 */
+	m->cyclefreq = SystimerFreq;
 
 	if(m->machno == 0){
 		tn->cs = 1<<3;

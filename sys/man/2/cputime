@@ -39,6 +39,7 @@ if any, and stores it via
 Currently supported architectures are
 .BR 386 ,
 .BR amd64 ,
+.B arm64
 and
 .BR power ;
 on all others,
