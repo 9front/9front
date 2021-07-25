@@ -137,11 +137,7 @@ are the complements of
 .IR dial .
 .I Announce
 establishes a network
-name to which calls can be made.
-Like
-.IR dial ,
-.I announce
-returns an open
+name to which calls can be made, and returns an open
 .B ctl
 file.
 The 
@@ -247,7 +243,7 @@ Otherwise, the mount point is the string pointed to by
 .I from
 appended to the string
 .BR /net .
-The last form is obsolete and is should be avoided.
+The last form is obsolete and it should be avoided.
 It exists only to aid in conversion.
 .SH EXAMPLES
 Make a call and return an open file descriptor to
