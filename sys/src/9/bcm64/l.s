@@ -298,6 +298,9 @@ _goodnight:
 	RETURN
 
 TEXT vcycles(SB), 1, $-4
+	MRS	CNTVCT_EL0, R0
+	RETURN
+
 TEXT lcycles(SB), 1, $-4
 	MRS	PMCCNTR_EL0, R0
 	RETURN
