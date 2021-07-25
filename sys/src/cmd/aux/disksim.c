@@ -349,13 +349,13 @@ Have:
 }
 
 void*
-evommem(void *a, void *b, ulong n)
+evommem(void *a, void *b, usize n)
 {
 	return memmove(b, a, n);
 }
 
 int
-isnonzero(void *v, ulong n)
+isnonzero(void *v, usize n)
 {
 	uchar *a, *ea;
 	
@@ -375,7 +375,7 @@ rdwrpart(Req *r)
 	vlong offset;
 	long count, tot, n, o;
 	uchar *blk, *dat;
-	void *(*move)(void*, void*, ulong);
+	void *(*move)(void*, void*, usize);
 
 	q = r->fid->qid.path-Qpart;
 	if(q < 0 || q > nelem(tab) || !tab[q].inuse || tab[q].vers != r->fid->qid.vers){

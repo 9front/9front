@@ -8,11 +8,11 @@
 /*
  * mem routines
  */
-extern	void*	memccpy(void*, void*, int, ulong);
-extern	void*	memset(void*, int, ulong);
-extern	int	memcmp(void*, void*, ulong);
-extern	void*	memmove(void*, void*, ulong);
-extern	void*	memchr(void*, int, ulong);
+extern	void*	memccpy(void*, void*, int, usize);
+extern	void*	memset(void*, int, usize);
+extern	int	memcmp(void*, void*, usize);
+extern	void*	memmove(void*, void*, usize);
+extern	void*	memchr(void*, int, usize);
 
 /*
  * string routines

@@ -2,7 +2,7 @@
 #include	<libc.h>
 
 void*
-memset(void *ap, int c, ulong n)
+memset(void *ap, int c, usize n)
 {
 	char *p;
 

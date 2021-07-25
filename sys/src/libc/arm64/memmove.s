@@ -1,7 +1,7 @@
 TEXT memcpy(SB), $-4
 TEXT memmove(SB), $-4
 	MOV	from+8(FP), R1
-	MOVWU	n+16(FP), R2
+	MOV	n+16(FP), R2
 
 	CMP	R0, R1
 	BEQ	_done

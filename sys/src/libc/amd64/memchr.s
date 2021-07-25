@@ -1,7 +1,7 @@
-	TEXT	memchr(SB),$0
+TEXT	memchr(SB),$0
 
-	MOVL	n+16(FP), CX
-	CMPL	CX, $0
+	MOVQ	n+16(FP), CX
+	CMPQ	CX, $0
 	JEQ	none
 	MOVQ	RARG, DI
 	MOVBLZX	c+8(FP), AX

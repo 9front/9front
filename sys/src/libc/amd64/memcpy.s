@@ -2,8 +2,8 @@ TEXT memcpy(SB), $0
 	MOVQ	RARG, DI
 	MOVQ	DI, AX			/* return value */
 	MOVQ	p2+8(FP), SI
-	MOVL	n+16(FP), BX
-	CMPL	BX, $0
+	MOVQ	n+16(FP), BX
+	CMPQ	BX, $0
 	JGT	_ok
 	JEQ	_return			/* nothing to do if n == 0 */
 	MOVL	$0, SI			/* fault if n < 0 */
@@ -40,7 +40,7 @@ _forward:
  */
 	JEQ	_return			/* flags set by above ANDL */
 c3f:
-	MOVL	BX, CX
+	MOVQ	BX, CX
 	REP;	MOVSB
 
 	RET
@@ -62,7 +62,7 @@ _back:
 	ORQ	SI, DX
 	ANDL	$3, DX
 	JNE	c3b
-	MOVL	BX, CX
+	MOVQ	BX, CX
 	SHRQ	$2, CX
 	ANDL	$3, BX
 	REP;	MOVSL
@@ -74,7 +74,7 @@ _back:
 c3b:
 	ADDQ	$3, DI
 	ADDQ	$3, SI
-	MOVL	BX, CX
+	MOVQ	BX, CX
 	REP;	MOVSB
 
 _return:

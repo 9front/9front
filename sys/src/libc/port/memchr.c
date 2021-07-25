@@ -2,7 +2,7 @@
 #include	<libc.h>
 
 void*
-memchr(void *ap, int c, ulong n)
+memchr(void *ap, int c, usize n)
 {
 	uchar *sp;
 

@@ -1,13 +1,13 @@
-	TEXT	memset(SB),$0
+TEXT	memset(SB),$0
 
 	CLD
 	MOVQ	RARG, DI
 	MOVBLZX	c+8(FP), AX
-	MOVL	n+16(FP), BX
+	MOVQ	n+16(FP), BX
 /*
  * if not enough bytes, just set bytes
  */
-	CMPL	BX, $9
+	CMPQ	BX, $9
 	JLS	c3
 /*
  * if not aligned, just set bytes

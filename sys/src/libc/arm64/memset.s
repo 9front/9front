@@ -1,6 +1,6 @@
 TEXT memset(SB), $-4
 	MOVBU	c+8(FP), R1
-	MOVWU	n+16(FP), R2
+	MOV	n+16(FP), R2
 
 	MOV	R0, R5
 	ADD	R0, R2, R3

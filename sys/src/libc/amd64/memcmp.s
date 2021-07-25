@@ -1,7 +1,7 @@
-	TEXT	memcmp(SB),$0
+TEXT	memcmp(SB),$0
 
-	MOVL	n+16(FP), BX
-	CMPL	BX, $0
+	MOVQ	n+16(FP), BX
+	CMPQ	BX, $0
 	JEQ	none
 	MOVQ	RARG, DI
 	MOVQ	p2+8(FP), SI
@@ -14,7 +14,7 @@
  * first by longs
  */
 
-	MOVL	BX, CX
+	MOVQ	BX, CX
 	SHRQ	$2, CX
 
 	REP;	CMPSL
@@ -25,7 +25,7 @@
  */
 	ANDL	$3, BX
 c3:
-	MOVL	BX, CX
+	MOVQ	BX, CX
 	REP;	CMPSB
 	JNE	found1
 

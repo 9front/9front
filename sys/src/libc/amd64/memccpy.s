@@ -1,7 +1,7 @@
-	TEXT	memccpy(SB),$0
+TEXT	memccpy(SB),$0
 
-	MOVL	n+24(FP), CX
-	CMPL	CX, $0
+	MOVQ	n+24(FP), CX
+	CMPQ	CX, $0
 	JEQ	none
 	MOVQ	p2+8(FP), DI
 	MOVBLZX	c+16(FP), AX
@@ -18,7 +18,7 @@
  */
 none:
 	MOVL	$0, AX
-	MOVL	n+24(FP), BX
+	MOVQ	n+24(FP), BX
 	JMP	memcpy
 
 /*
@@ -44,7 +44,7 @@ memcpy:
 	ORQ	SI, DX
 	ANDL	$3, DX
 	JNE	c3
-	MOVL	BX, CX
+	MOVQ	BX, CX
 	SHRQ	$2, CX
 	REP;	MOVSL
 /*
@@ -52,7 +52,7 @@ memcpy:
  */
 	ANDL	$3, BX
 c3:
-	MOVL	BX, CX
+	MOVQ	BX, CX
 	REP;	MOVSB
 
 	RET

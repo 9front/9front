@@ -2,7 +2,7 @@
 #include	<libc.h>
 
 int
-memcmp(void *a1, void *a2, ulong n)
+memcmp(void *a1, void *a2, usize n)
 {
 	uchar *s1, *s2;
 	uint c1, c2;

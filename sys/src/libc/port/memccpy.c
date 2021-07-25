@@ -2,7 +2,7 @@
 #include	<libc.h>
 
 void*
-memccpy(void *a1, void *a2, int c, ulong n)
+memccpy(void *a1, void *a2, int c, usize n)
 {
 	uchar *s1, *s2;
 
