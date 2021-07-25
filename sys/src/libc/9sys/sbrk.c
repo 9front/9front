@@ -23,7 +23,7 @@ brk(void *p)
 }
 
 void*
-sbrk(ulong n)
+sbrk(usize n)
 {
 	uintptr bl;
 

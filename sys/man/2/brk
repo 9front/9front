@@ -11,7 +11,7 @@ brk, sbrk \- change memory allocation
 int	brk(void *addr)
 .PP
 .B
-void*	sbrk(ulong incr)
+void*	sbrk(usize incr)
 .SH DESCRIPTION
 .I Brk
 sets the system's idea of the lowest bss location not used by the program
