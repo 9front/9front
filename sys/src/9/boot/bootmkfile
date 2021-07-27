@@ -1,24 +1,15 @@
-BOOTDIR=../boot
+boot.$O:	../boot/boot.c
+	$CC -I../boot $CFLAGS ../boot/boot.c
 
-BOOTFILES=\
-	aux.$O\
-	boot.$O\
-	printstub.$O\
-
-$BOOTFILES:	$BOOTDIR/boot.h
-
-%.$O:	$BOOTDIR/%.c
-	$CC -I$BOOTDIR $CFLAGS $BOOTDIR/$stem.c
-
-boot:	$BOOTFILES
-	$LD -o $target $BOOTFILES
+boot:	boot.$O
+	$LD -o $target $prereq
 
 # look for proto file in order:
 #	1) $CONF.bootfs.proto		(config specific)
 #	2) bootfs.proto			(kernel specific)
-#	3) $BOOTDIR/bootfs.proto	(default generic)
+#	3) ../boot/bootfs.proto		(default generic)
 #
-BOOTFSPROTO=`{for(i in $CONF.bootfs.proto bootfs.proto $BOOTDIR/bootfs.proto) test -r $i && echo $i && exit}
+BOOTFSPROTO=`{for(i in $CONF.bootfs.proto bootfs.proto ../boot/bootfs.proto) test -r $i && echo $i && exit}
 
 bootfs.paq:	$BOOTFSPROTO `{disk/mkfs -aos / $BOOTFSPROTO >[2]/dev/null}
 	mkdir -p bootfs

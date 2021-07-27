@@ -1,48 +1,34 @@
 #include <u.h>
 #include <libc.h>
-#include <auth.h>
-#include <fcall.h>
-#include "../boot/boot.h"
+
+char bin[] = "/bin";
+char root[] = "/root";
 
 void
-main(int argc, char *argv[])
+main(int, char *argv[])
 {
-	char cputype[64];
 	char buf[32];
 
-	fmtinstall('r', errfmt);
-
-	bind("#c", "/dev", MREPL);
-	open("/dev/cons", OREAD);
-	open("/dev/cons", OWRITE);
-	open("/dev/cons", OWRITE);
-	/*
-	 * init will reinitialize its namespace.
-	 * #ec gets us plan9.ini settings (*var variables).
-	 */
-	bind("#ec", "/env", MREPL);
-	bind("#e", "/env", MBEFORE|MCREATE);
-	bind("#s", "/srv", MREPL|MCREATE);
-	bind("#σ", "/shr", MREPL);
-
-	if(Debug){
-		int i;
-
-		print("argc=%d\n", argc);
-		for(i = 0; i < argc; i++)
-			print("%p %s ", argv[i], argv[i]);
-		print("\n");
-	}
-	USED(argc);
-
-	readfile("#e/cputype", cputype, sizeof(cputype));
-
 	/* setup the boot namespace */
-	bind("/boot", "/bin", MAFTER);
-	run("/bin/paqfs", "-qa", "-c", "8", "-m" "/root", "/boot/bootfs.paq", nil);
-	bind("/root", "/", MAFTER);
-	snprint(buf, sizeof(buf), "/%s/bin", cputype);
-	bind(buf, "/bin", MAFTER);
-	bind("/rc/bin", "/bin", MAFTER);
+	bind("/boot", bin, MAFTER);
+
+	if(fork() == 0){
+		execl("/bin/paqfs", "-qa", "-c", "8", "-m", root, "/boot/bootfs.paq", nil);
+		goto Err;
+	}
+	if(await(buf, sizeof(buf)) < 0)
+		goto Err;
+
+	bind(root, "/", MAFTER);
+
+	buf[0] = '/';
+	buf[1+read(open("/env/cputype", OREAD|OCEXEC), buf+1, sizeof buf - 5)] = '\0';
+	strcat(buf, bin);
+	bind(buf, bin, MAFTER);
+	bind("/rc/bin", bin, MAFTER);
+
 	exec("/bin/bootrc", argv);
+Err:
+	errstr(buf, sizeof buf);
+	_exits(buf);
 }
