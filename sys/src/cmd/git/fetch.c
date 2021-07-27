@@ -181,7 +181,7 @@ int
 fetchpack(Conn *c)
 {
 	char buf[Pktmax], *sp[3];
-	char *packtmp, *idxtmp;
+	char *packtmp, *idxtmp, **ref;
 	Hash h, *have, *want;
 	int nref, refsz, first;
 	int i, n, req, pfd;
@@ -193,6 +193,7 @@ fetchpack(Conn *c)
 	first = 1;
 	have = eamalloc(refsz, sizeof(have[0]));
 	want = eamalloc(refsz, sizeof(want[0]));
+	ref = eamalloc(refsz, sizeof(ref[0]));
 	while(1){
 		n = readpkt(c, buf, sizeof(buf));
 		if(n == -1)
@@ -213,19 +214,20 @@ fetchpack(Conn *c)
 			continue;
 		if(refsz == nref + 1){
 			refsz *= 2;
-			have = erealloc(have, refsz * sizeof(have[0]));
-			want = erealloc(want, refsz * sizeof(want[0]));
+			have = earealloc(have, refsz, sizeof(have[0]));
+			want = earealloc(want, refsz, sizeof(want[0]));
+			ref = earealloc(ref, refsz, sizeof(ref[0]));
 		}
 		if(hparse(&want[nref], sp[0]) == -1)
 			sysfatal("invalid hash %s", sp[0]);
 		if (resolveremote(&have[nref], sp[1]) == -1)
 			memset(&have[nref], 0, sizeof(have[nref]));
-		print("remote %s %H local %H\n", sp[1], want[nref], have[nref]);
+		ref[nref] = estrdup(sp[1]);
 		nref++;
 	}
 	if(listonly){
 		flushpkt(c);
-		return 0;
+		goto showrefs;
 	}
 
 	if(writephase(c) == -1)
@@ -295,6 +297,15 @@ fetchpack(Conn *c)
 		fail(packtmp, idxtmp, "could not index fetched pack: %r");
 	if(rename(packtmp, idxtmp, h) == -1)
 		fail(packtmp, idxtmp, "could not rename indexed pack: %r");
+
+showrefs:
+	for(i = 0; i < nref; i++){
+		print("remote %s %H local %H\n", ref[i], want[i], have[i]);
+		free(ref[i]);
+	}
+	free(ref);
+	free(want);
+	free(have);
 	return 0;
 }
 
