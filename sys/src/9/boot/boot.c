@@ -22,7 +22,7 @@ main(int, char *argv[])
 	bind(root, "/", MAFTER);
 
 	buf[0] = '/';
-	buf[1+read(open("/env/cputype", OREAD|OCEXEC), buf+1, sizeof buf - 5)] = '\0';
+	buf[1+read(open("/env/cputype", OREAD|OCEXEC), buf+1, sizeof buf - 6)] = '\0';
 	strcat(buf, bin);
 	bind(buf, bin, MAFTER);
 	bind("/rc/bin", bin, MAFTER);
