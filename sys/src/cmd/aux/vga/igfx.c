@@ -366,6 +366,8 @@ devtype(Igfx *igfx)
 	case 0x0a16:	/* HD 4400 - 4th Gen Core (ULT) */
 		igfx->isult = 1;
 		/* wet floor */
+	case 0x0a06:
+	case 0x3185:    /* UHD 600 - 9.5 Gen Core */
 	case 0x0412:	/* HD 4600 - 4th Gen Core */
 		return TypeHSW;
 	case 0x0166:	/* 3rd Gen Core - ThinkPad X230 */
