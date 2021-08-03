@@ -1,6 +1,6 @@
 </$objtype/mkfile
 
-LIB=libpanel.$O.a
+LIB=libpanel.a$O
 OFILES=\
 	button.$O\
 	canvas.$O\

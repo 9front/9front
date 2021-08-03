@@ -1,7 +1,7 @@
 </$objtype/mkfile
 
 TARG=mothra
-LIB=libpanel/libpanel.$O.a 
+LIB=libpanel/libpanel.a$O
 CFILES= \
 	snoop.c \
 	forms.c \
