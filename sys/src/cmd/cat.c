@@ -7,7 +7,7 @@ cat(int f, char *s)
 	char buf[8192];
 	long n;
 
-	while((n=read(f, buf, (long)sizeof buf))>0)
+	while((n=read(f, buf, sizeof buf))>0)
 		if(write(1, buf, n)!=n)
 			sysfatal("write error copying %s: %r", s);
 	if(n < 0)
