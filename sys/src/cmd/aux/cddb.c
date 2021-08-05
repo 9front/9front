@@ -91,7 +91,7 @@ dumpencode(Toc *t)
 	quotefmtinstall();
 	for(i=0; i < t->ntrack; i++){
 		print("</mnt/cd/a%03d audio/flacenc ", i);
-		print("-T 'title='^%q -T 'trackno=%d' ", t->track[i].title, i+1);
+		print("-T 'title='^%q -T 'album='^%q -T 'track=%d' ", t->track[i].title, t->title, i+1);
 		if(t->year[0] != 0)
 			print("-T 'year='^%q ", t->year);
 		if(t->track[i].artist[0] != 0 || t->artist[0] != 0)
