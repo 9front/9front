@@ -226,7 +226,7 @@ is non-nil, post the other end file descriptor under the name
 .IP
 Initialize
 .IB s -> forker
-to eigther
+to either
 .I srvforker
 or
 .I threadsrvforker
