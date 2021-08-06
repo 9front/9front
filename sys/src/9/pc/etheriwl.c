@@ -1,9 +1,10 @@
 /*
  * Intel WiFi Link driver.
  *
- * Written without any documentation but Damien Bergaminis
- * OpenBSD iwn(4) and iwm(4) driver sources. Requires intel
- * firmware to be present in /lib/firmware/iwn-* on attach.
+ * Written without any documentation but Damien Bergamini's
+ * iwn(4) and Stefan Sperling's iwm(4) OpenBSD driver sources.
+ * Requires Intel firmware to be present in /lib/firmware/iw[nm]-*
+ * on attach.
  */
 
 #include "u.h"
@@ -242,6 +243,8 @@ enum {
 
 	SbCpu1Status	= 0xa01e30,
 	SbCpu2Status	= 0xa01e34,
+	OscClk		= 0xa04068,
+		OscClkCtrl	= 1<<3,
 	UregChick	= 0xa05c00,
 		UregChickMsiEnable	= 1<<24,
 
@@ -632,6 +635,7 @@ enum {
 	Type2030	= 12,
 	Type2000	= 16,
 
+	Type7260	= 30,
 	Type8265	= 35,
 };
 
@@ -686,6 +690,7 @@ static char *fwname[32] = {
 	[Type6005] "iwn-6005", /* see in iwlattach() below */
 	[Type2030] "iwn-2030",
 	[Type2000] "iwn-2000",
+	[Type7260] "iwm-7260-17",
 };
 
 static char *qcmd(Ctlr *ctlr, uint qid, uint code, uchar *data, int size, Block *block);
@@ -1085,6 +1090,23 @@ poweron(Ctlr *ctlr)
 		if((err = niclock(ctlr)) != nil)
 			return err;
 		prphwrite(ctlr, UregChick, UregChickMsiEnable);
+		nicunlock(ctlr);
+	}
+
+	/* Enable the oscillator to count wake up time for L1 exit. (weird W/A) */
+	if(ctlr->type == Type7260){
+		if((err = niclock(ctlr)) != nil)
+			return err;
+
+		prphread(ctlr, OscClk);
+		prphread(ctlr, OscClk);
+		delay(20);
+
+		prphwrite(ctlr, OscClk, prphread(ctlr, OscClk) | OscClkCtrl);
+
+		prphread(ctlr, OscClk);
+		prphread(ctlr, OscClk);
+
 		nicunlock(ctlr);
 	}
 
@@ -2800,6 +2822,15 @@ disablebeaconfilter(Ctlr *ctlr)
 	return cmd(ctlr, 210, c, 11*4);
 }
 
+static void
+tttxbackoff(Ctlr *ctlr)
+{
+	uchar c[4];
+	
+	put32(c, 0);
+	cmd(ctlr, 126, c, sizeof(c));
+}
+
 static char*
 updatedevicepower(Ctlr *ctlr)
 {
@@ -2863,6 +2894,10 @@ postboot7000(Ctlr *ctlr)
 
 		if((err = sendbtcoexadv(ctlr)) != nil)
 			return err;
+
+		/* Initialize tx backoffs to the minimum. */
+		if(ctlr->family == 7000)
+			tttxbackoff(ctlr);
 
 		if((err = updatedevicepower(ctlr)) != nil){
 			print("can't update device power: %s\n", err);
@@ -3416,6 +3451,12 @@ qcmd(Ctlr *ctlr, uint qid, uint code, uchar *data, int size, Block *block)
 		iunlock(ctlr);
 		return "qcmd: broken";
 	}
+	/* wake up the nic (just needed for 7k) */
+	if(ctlr->family == 7000 && q->n == 0)
+		if(niclock(ctlr) != nil){
+			iunlock(ctlr);
+			return "qcmd: busy";
+		}
 	q->n++;
 	q->lastcmd = code;
 
@@ -4242,6 +4283,9 @@ receive(Ctlr *ctlr)
 		if(tx != nil && tx->n > 0){
 			tx->n--;
 			wakeup(tx);
+			/* unlock 7k family nics as all commands are done */
+			if(ctlr->family == 7000 && tx->n == 0)
+				nicunlock(ctlr);
 		}
 	}
 
@@ -4349,6 +4393,11 @@ iwlpci(void)
 		case 0x088e:	/* Centrino Advanced-N 6235 */
 		case 0x088f:	/* Centrino Advanced-N 6235 */
 			family = 0;
+			fwname = nil;
+			break;
+		case 0x08b1:	/* Wireless AC 7260 */
+		case 0x08b2:	/* Wireless AC 7260 */
+			family = 7000;
 			fwname = nil;
 			break;
 		case 0x24f3:	/* Wireless AC 8260 */
