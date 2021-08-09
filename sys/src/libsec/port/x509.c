@@ -1025,13 +1025,11 @@ val_enc(uchar** pp, Elem e, int *pconstr, int lenonly)
 			el = e.val.u.setval;
 		else
 			err = ASN_EINVAL;
-		if(el != nil) {
-			*pconstr = CONSTR_MASK;
-			for(; el != nil; el = el->tl) {
-				err = enc(&p, el->hd, lenonly);
-				if(err != ASN_OK)
-					break;
-			}
+		*pconstr = CONSTR_MASK;
+		for(; el != nil; el = el->tl) {
+			err = enc(&p, el->hd, lenonly);
+			if(err != ASN_OK)
+				break;
 		}
 		break;
 
