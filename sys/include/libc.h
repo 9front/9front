@@ -424,7 +424,7 @@ extern	void	perror(char*);
 extern	int	postnote(int, int, char *);
 extern	double	pow10(int);
 extern	int	putenv(char*, char*);
-extern	void	qsort(void*, long, long, int (*)(void*, void*));
+extern	void	qsort(void*, usize, usize, int (*)(void*, void*));
 extern	int	setjmp(jmp_buf);
 extern	double	strtod(char*, char**);
 extern	long	strtol(char*, char**, int);

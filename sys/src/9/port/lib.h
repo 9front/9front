@@ -158,7 +158,7 @@ extern	int	tokenize(char*, char**, int);
 extern	int	dec64(uchar*, int, char*, int);
 extern	int	dec16(uchar*, int, char*, int);
 extern	int	encodefmt(Fmt*);
-extern	void	qsort(void*, long, long, int (*)(void*, void*));
+extern	void	qsort(void*, usize, usize, int (*)(void*, void*));
 
 /*
  * Syscall data structures
