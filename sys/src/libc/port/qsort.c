@@ -8,12 +8,12 @@ typedef
 struct
 {
 	int	(*cmp)(void*, void*);
-	void	(*swap)(char*, char*, long);
-	long	es;
+	void	(*swap)(char*, char*, usize);
+	usize	es;
 } Sort;
 
 static	void
-swapb(char *i, char *j, long es)
+swapb(char *i, char *j, usize es)
 {
 	char c;
 
@@ -27,7 +27,7 @@ swapb(char *i, char *j, long es)
 }
 
 static	void
-swapi(char *ii, char *ij, long es)
+swapi(char *ii, char *ij, usize es)
 {
 	long *i, *j, c;
 
@@ -42,9 +42,9 @@ swapi(char *ii, char *ij, long es)
 }
 
 static	char*
-pivot(char *a, long n, Sort *p)
+pivot(char *a, usize n, Sort *p)
 {
-	long j;
+	usize j;
 	char *pi, *pj, *pk;
 
 	j = n/6 * p->es;
@@ -69,9 +69,9 @@ pivot(char *a, long n, Sort *p)
 }
 
 static	void
-qsorts(char *a, long n, Sort *p)
+qsorts(char *a, usize n, Sort *p)
 {
-	long j, es;
+	usize j, es;
 	char *pi, *pj, *pn;
 
 	es = p->es;
@@ -111,7 +111,7 @@ qsorts(char *a, long n, Sort *p)
 }
 
 void
-qsort(void *va, long n, long es, int (*cmp)(void*, void*))
+qsort(void *va, usize n, usize es, int (*cmp)(void*, void*))
 {
 	Sort s;
 
