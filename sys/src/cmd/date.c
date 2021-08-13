@@ -32,7 +32,6 @@ main(int argc, char *argv[])
 	case 'u':	uflg = 1;				break;
 	case 't':	fmt = "YYYY-MM-DDThh:mm:ssZZ";		break;
 	case 'i':	fmt = "YYYY-MM-DD";			break;
-	case 'm':	fmt = "WW, DD MMM YYYY hh:mm:ss Z";	break;
 	case 'f':	fmt = EARGF(usage());			break;
 	default:	usage();
 	}ARGEND
