@@ -42,7 +42,7 @@ exclusions(void)
 				if(include == nil)
 					fatal("out of memory");
 			}
-			DEBUG(DFD, "\tinclude %s\n", line+2);
+			DEBUG(2, "\tinclude %s\n", line+2);
 			include[ni] = regcomp(line+2);
 			include[++ni] = nil;
 			break;
@@ -53,12 +53,12 @@ exclusions(void)
 				if(exclude == nil)
 					fatal("out of memory");
 			}
-			DEBUG(DFD, "\texclude %s\n", line+2);
+			DEBUG(2, "\texclude %s\n", line+2);
 			exclude[ne] = regcomp(line+2);
 			exclude[++ne] = nil;
 			break;
 		default:
-			DEBUG(DFD, "ignoring pattern %s\n", line);
+			DEBUG(2, "ignoring pattern %s\n", line);
 			break;
 		}
 	}
@@ -76,16 +76,16 @@ excludefile(char *path)
 	else
 		p = path+1;
 
-	DEBUG(DFD, "checking %s\n", p);
+	DEBUG(2, "checking %s\n", p);
 	for(re = include; *re != nil; re++){
 		if(regexec(*re, p, nil, 0) != 1){
-			DEBUG(DFD, "excluded+ %s\n", p);
+			DEBUG(2, "excluded+ %s\n", p);
 			return -1;
 		}
 	}
 	for(re = exclude; *re != nil; re++){
 		if(regexec(*re, p, nil, 0) == 1){
-			DEBUG(DFD, "excluded- %s\n", p);
+			DEBUG(2, "excluded- %s\n", p);
 			return -1;
 		}
 	}
@@ -98,7 +98,7 @@ preaddir(Fid *f, uchar *data, int n, vlong offset)
 	int r = 0, m;
 	Dir *d;
 
-	DEBUG(DFD, "\tpreaddir n=%d wo=%lld fo=%lld\n", n, offset, f->offset);
+	DEBUG(2, "\tpreaddir n=%d wo=%lld fo=%lld\n", n, offset, f->offset);
 	if(offset == 0 && f->offset != 0){
 		if(seek(f->fid, 0, 0) != 0)
 			return -1;
@@ -128,9 +128,9 @@ preaddir(Fid *f, uchar *data, int n, vlong offset)
 			free(p);
 		}
 		m = convD2M(d, data, n);
-		DEBUG(DFD, "\t\tconvD2M %d\n", m);
+		DEBUG(2, "\t\tconvD2M %d\n", m);
 		if(m <= BIT16SZ){
-			DEBUG(DFD, "\t\t\tneeded %d\n", GBIT16(data));
+			DEBUG(2, "\t\t\tneeded %d\n", GBIT16(data));
 			/* not enough room for full entry; leave for next time */
 			f->cdir--;
 			return r;

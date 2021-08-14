@@ -49,7 +49,7 @@ io(void)
 		if(convM2S(r->buf, n, &r->work) != n)
 			fatal("convM2S format error");
 
-		DEBUG(DFD, "%F\n", &r->work);
+		DEBUG(2, "%F\n", &r->work);
 		(fcalls[r->work.type])(r);
 	}
 }
@@ -69,7 +69,7 @@ reply(Fcall *r, Fcall *t, char *err)
 	else 
 		t->type = r->type + 1;
 
-	DEBUG(DFD, "\t%F\n", t);
+	DEBUG(2, "\t%F\n", t);
 
 	data = malloc(messagesize);	/* not mallocz; no need to clear */
 	if(data == nil)
@@ -224,7 +224,7 @@ freefile(File *f)
 
 	while(--f->ref == 0){
 		freecnt++;
-		DEBUG(DFD, "free %s\n", f->name);
+		DEBUG(2, "free %s\n", f->name);
 		/* delete from parent */
 		parent = f->parent;
 		if(parent->child == f)
@@ -250,7 +250,7 @@ file(File *parent, char *name)
 	char *path;
 	File *f;
 
-	DEBUG(DFD, "\tfile: 0x%p %s name %s\n", parent, parent->name, name);
+	DEBUG(2, "\tfile: 0x%p %s name %s\n", parent, parent->name, name);
 
 	path = makepath(parent, name);
 	if(patternfile != nil && excludefile(path)){
@@ -429,17 +429,17 @@ uniqueqid(Dir *d)
 	}
 	path = d->qid.path;
 	while(qidexists(path)){
-		DEBUG(DFD, "collision on %s\n", d->name);
+		DEBUG(2, "collision on %s\n", d->name);
 		/* collision: find a new one */
 		ncollision++;
 		path &= QIDPATH;
 		++newqid;
 		if(newqid >= (1<<16)){
-			DEBUG(DFD, "collision wraparound\n");
+			DEBUG(2, "collision wraparound\n");
 			newqid = 1;
 		}
 		path |= newqid<<48;
-		DEBUG(DFD, "assign qid %.16llux\n", path);
+		DEBUG(2, "assign qid %.16llux\n", path);
 	}
 	qidcnt++;
 	q = emallocz(sizeof(Qidtab));
@@ -472,7 +472,7 @@ fatal(char *s, ...)
 		postnote(PNPROC, m->pid, "kill");
 
 	if(s != nil) {
-		DEBUG(DFD, "%s\n", buf);
+		DEBUG(2, "%s\n", buf);
 		sysfatal("%s", buf);	/* caution: buf could contain '%' */
 	} else
 		exits(nil);
