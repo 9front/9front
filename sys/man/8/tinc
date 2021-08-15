@@ -29,7 +29,7 @@ tinc - mesh peer to peer VPN
 .SH DESCRIPTION
 Tinc implements the mesh peer to peer VPN protocol from
 .I https://www.tinc-vpn.org/
-as of version 1.0.32. Within a tinc VPN one can reach all
+as of version 1.0.36. Within a tinc VPN one can reach all
 the subnets of all hosts within the network even when not
 directly connected to the owning host of the subnet.
 .PP
@@ -110,7 +110,7 @@ for the VPN.
 .TP
 .B -n
 Sets our hostname to
-.IR myhost .
+.IR myname .
 .SH "SEE ALSO"
 .IR rsa (8),
 .IR ip (3)

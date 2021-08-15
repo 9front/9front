@@ -76,7 +76,7 @@ struct Edge
 	Host	*src;
 	Host	*dst;
 	Edge	*next;	/* next edge on src */
-	Edge	*rev;	/* reverse drection edge */
+	Edge	*rev;	/* reverse direction edge */
 
 	uchar	ip[IPaddrlen];
 	int	port;
@@ -1135,7 +1135,7 @@ metaauth(Conn *c)
 	if(n != 6 || atoi(f[0]) != META_KEY || strlen(f[5]) != 2*n2)
 		return -1;
 	if(atoi(f[1]) != EVP_AES256CFB || atoi(f[2]) != EVP_SHA256){
-		fprint(2, "%s uses unknown cipher/digest agorithms: %s %s\n",
+		fprint(2, "%s uses unknown cipher/digest algorithms: %s %s\n",
 			c->host->name, f[1], f[2]);
 		return -1;
 	}
