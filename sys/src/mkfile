@@ -1,5 +1,12 @@
 </$objtype/mkfile
 
+SUPPORTED_OBJS=\
+	386\
+	amd64\
+	arm\
+	arm64\
+	mips\
+
 LIBS=\
 	lib9p\
 	libString\
@@ -52,21 +59,29 @@ none:VQ:
 
 all install clean nuke:VQ:
 	date
-	for (i in $LIBS $SUBSYS $CMDS) @{
-		cd $i
-		mk $target
+	if (~ $objtype $SUPPORTED_OBJS) {
+		for (i in $LIBS $SUBSYS $CMDS) @{
+			cd $i
+			mk $target
+		}
 	}
+	if not
+		echo $objtype arch not supported by 9front >[1=2]
 	date
 
 installall:V:
 	echo "installall not supported"
 
 release:V:
-	mk nuke
-	rm -f /$objtype/lib/ape/*.a
-	rm -f /$objtype/lib/*.a
-	mk install
-	mk clean
+	if (~ $objtype $SUPPORTED_OBJS) {
+		mk nuke
+		rm -f /$objtype/lib/ape/*.a
+		rm -f /$objtype/lib/*.a
+		mk install
+		mk clean
+	}
+	if not
+		echo $objtype architecture not supported >[1=2]
 
 kernels:V:
 	for (i in 9 boot) @{
