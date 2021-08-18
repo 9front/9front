@@ -59,7 +59,7 @@ filter(int fd, char *cmd, char *host)
 		strecpy(strrchr(addr, '!'), addr+sizeof(addr), s);
 	}
 
-	DEBUG(2, "filter: %s\n", addr);
+	DEBUG(DFD, "filter: %s\n", addr);
 
 	snprint(buf, sizeof(buf), "%s", cmd);
 	argc = tokenize(buf, argv, nelem(argv)-3);
@@ -256,7 +256,7 @@ main(int argc, char **argv)
 
 	if(dbg) {
 		n = create(dbfile, OWRITE|OTRUNC, 0666);
-		dup(n, 2);
+		dup(n, DFD);
 		close(n);
 	}
 
@@ -265,7 +265,7 @@ main(int argc, char **argv)
 		usage();
 	}
 
-	DEBUG(2, "%s: started\n", argv0);
+	DEBUG(DFD, "%s: started\n", argv0);
 
 	rfork(RFNOTEG|RFREND);
 
@@ -289,10 +289,10 @@ main(int argc, char **argv)
 		if(chdir(srv) < 0) {
 			ebuf[0] = '\0';
 			errstr(ebuf, sizeof ebuf);
-			DEBUG(2, "chdir(\"%s\"): %s\n", srv, ebuf);
+			DEBUG(DFD, "chdir(\"%s\"): %s\n", srv, ebuf);
 			mounterror(ebuf);
 		}
-		DEBUG(2, "invoked as server for %s", srv);
+		DEBUG(DFD, "invoked as server for %s", srv);
 		strncpy(buf, srv, sizeof buf);
 	}
 	else {
@@ -301,22 +301,22 @@ main(int argc, char **argv)
 		if(n < 0) {
 			errstr(buf, sizeof buf);
 			fprint(0, "read(0): %s\n", buf);
-			DEBUG(2, "read(0): %s\n", buf);
+			DEBUG(DFD, "read(0): %s\n", buf);
 			exits(buf);
 		}
 		buf[n] = 0;
 		if(chdir(buf) < 0) {
 			errstr(ebuf, sizeof ebuf);
 			fprint(0, "chdir(%d:\"%s\"): %s\n", n, buf, ebuf);
-			DEBUG(2, "chdir(%d:\"%s\"): %s\n", n, buf, ebuf);
+			DEBUG(DFD, "chdir(%d:\"%s\"): %s\n", n, buf, ebuf);
 			exits(ebuf);
 		}
 	}
 
-	DEBUG(2, "\niniting root\n");
+	DEBUG(DFD, "\niniting root\n");
 	initroot();
 
-	DEBUG(2, "%s: %s\n", argv0, buf);
+	DEBUG(DFD, "%s: %s\n", argv0, buf);
 
 	if(srv == nil && srvfd == -1 && write(0, "OK", 2) != 2)
 		fatal("open ack write");
@@ -436,7 +436,7 @@ main(int argc, char **argv)
 
 		if(convM2S(r->buf, n, &r->work) != n)
 			fatal("convM2S format error");
-		DEBUG(2, "%F\n", &r->work);
+		DEBUG(DFD, "%F\n", &r->work);
 		(fcalls[r->work.type])(r);
 	}
 	io();

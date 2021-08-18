@@ -4,23 +4,7 @@ exportfs, srvfs \- file server plumbing
 .SH SYNOPSIS
 .B exportfs
 [
-.B -dsR
-]
-[
-.B -m
-.I msize
-]
-[
-.B -r
-.I root
-]
-[
-.B -P
-.I patternfile
-]
-[
-.B -S
-.I srvfile
+.I options
 ]
 .PP
 .B srvfs
@@ -55,8 +39,11 @@ into a local file tree.
 .PP
 The options are:
 .TP
-.B -d
-Log all 9P traffic to stderr.
+.B -d -f \fIdbgfile
+Log all 9P traffic to
+.I dbgfile
+(default
+.BR /tmp/exportdb ).
 .TP
 .B -P \fIpatternfile
 Restrict the set of exported files.

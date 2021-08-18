@@ -3,6 +3,7 @@
  */
 
 #define DEBUG		if(!dbg){}else fprint
+#define DFD		9
 #define fidhash(s)	fhash[s%FHASHSIZE]
 
 typedef struct Fsrpc Fsrpc;

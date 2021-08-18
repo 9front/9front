@@ -10,16 +10,18 @@ int	readonly;
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-dsR] [-m msize] [-r root] "
-		"[-P patternfile] [-S srvfile]\n", argv0);
+	fprint(2, "usage: %s [-dsR] [-f dbgfile] [-m msize] [-r root] "
+		"[-S srvfile] [-P exclusion-file]\n", argv0);
 	fatal("usage");
 }
 
 void
 main(int argc, char **argv)
 {
-	char *srv, *srvfdfile;
+	char *dbfile, *srv, *srvfdfile;
+	int n;
 
+	dbfile = "/tmp/exportdb";
 	srv = nil;
 	srvfd = -1;
 	srvfdfile = nil;
@@ -27,6 +29,10 @@ main(int argc, char **argv)
 	ARGBEGIN{
 	case 'd':
 		dbg++;
+		break;
+
+	case 'f':
+		dbfile = EARGF(usage());
 		break;
 
 	case 'm':
@@ -76,7 +82,13 @@ main(int argc, char **argv)
 
 	exclusions();
 
-	DEBUG(2, "exportfs: started\n");
+	if(dbg) {
+		n = create(dbfile, OWRITE|OTRUNC, 0666);
+		dup(n, DFD);
+		close(n);
+	}
+
+	DEBUG(DFD, "exportfs: started\n");
 
 	rfork(RFNOTEG|RFREND);
 
@@ -94,13 +106,13 @@ main(int argc, char **argv)
 			char ebuf[ERRMAX];
 			ebuf[0] = '\0';
 			errstr(ebuf, sizeof ebuf);
-			DEBUG(2, "chdir(\"%s\"): %s\n", srv, ebuf);
+			DEBUG(DFD, "chdir(\"%s\"): %s\n", srv, ebuf);
 			mounterror(ebuf);
 		}
-		DEBUG(2, "invoked as server for %s", srv);
+		DEBUG(DFD, "invoked as server for %s", srv);
 	}
 
-	DEBUG(2, "\niniting root\n");
+	DEBUG(DFD, "\niniting root\n");
 	initroot();
 	io();
 }
