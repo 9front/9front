@@ -26,11 +26,8 @@ services.
 .PP
 The options are:
 .TP
-.B -d -f \fIdbgfile
-Log all 9P traffic to
-.I dbgfile
-(default
-.BR /tmp/exportdb ).
+.B -d
+Log all 9P traffic to standard error.
 .TP
 .B -P \fIpatternfile
 Restrict the set of exported files.

@@ -59,7 +59,7 @@ filter(int fd, char *cmd, char *host)
 		strecpy(strrchr(addr, '!'), addr+sizeof(addr), s);
 	}
 
-	DEBUG(DFD, "filter: %s\n", addr);
+	DEBUG(2, "filter: %s\n", addr);
 
 	snprint(buf, sizeof(buf), "%s", cmd);
 	argc = tokenize(buf, argv, nelem(argv)-3);
@@ -108,7 +108,7 @@ mksecret(char *t, uchar *f)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-adnsR] [-f dbgfile] [-m msize] [-r root] "
+	fprint(2, "usage: %s [-adnsR] [-m msize] [-r root] "
 		"[-S srvfile] [-e 'crypt hash'] [-P exclusion-file] "
 		"[-A announce-string] [-B address]\n", argv0);
 	fatal("usage");
@@ -118,12 +118,11 @@ void
 main(int argc, char **argv)
 {
 	char buf[ERRMAX], ebuf[ERRMAX], initial[4], *ini, *srvfdfile;
-	char *dbfile, *srv, *na, *nsfile, *keyspec;
+	char *srv, *na, *nsfile, *keyspec;
 	int doauth, n, fd;
 	AuthInfo *ai;
 	Fsrpc *r;
 
-	dbfile = "/tmp/exportdb";
 	srv = nil;
 	srvfd = -1;
 	srvfdfile = nil;
@@ -146,10 +145,6 @@ main(int argc, char **argv)
 		ealgs = EARGF(usage());
 		if(*ealgs == 0 || strcmp(ealgs, "clear") == 0)
 			ealgs = nil;
-		break;
-
-	case 'f':
-		dbfile = EARGF(usage());
 		break;
 
 	case 'k':
@@ -254,18 +249,12 @@ main(int argc, char **argv)
 
 	exclusions();
 
-	if(dbg) {
-		n = create(dbfile, OWRITE|OTRUNC, 0666);
-		dup(n, DFD);
-		close(n);
-	}
-
 	if(srvfd >= 0 && srv != nil){
 		fprint(2, "%s: -S cannot be used with -r or -s\n", argv0);
 		usage();
 	}
 
-	DEBUG(DFD, "%s: started\n", argv0);
+	DEBUG(2, "%s: started\n", argv0);
 
 	rfork(RFNOTEG|RFREND);
 
@@ -289,10 +278,10 @@ main(int argc, char **argv)
 		if(chdir(srv) < 0) {
 			ebuf[0] = '\0';
 			errstr(ebuf, sizeof ebuf);
-			DEBUG(DFD, "chdir(\"%s\"): %s\n", srv, ebuf);
+			DEBUG(2, "chdir(\"%s\"): %s\n", srv, ebuf);
 			mounterror(ebuf);
 		}
-		DEBUG(DFD, "invoked as server for %s", srv);
+		DEBUG(2, "invoked as server for %s", srv);
 		strncpy(buf, srv, sizeof buf);
 	}
 	else {
@@ -301,22 +290,22 @@ main(int argc, char **argv)
 		if(n < 0) {
 			errstr(buf, sizeof buf);
 			fprint(0, "read(0): %s\n", buf);
-			DEBUG(DFD, "read(0): %s\n", buf);
+			DEBUG(2, "read(0): %s\n", buf);
 			exits(buf);
 		}
 		buf[n] = 0;
 		if(chdir(buf) < 0) {
 			errstr(ebuf, sizeof ebuf);
 			fprint(0, "chdir(%d:\"%s\"): %s\n", n, buf, ebuf);
-			DEBUG(DFD, "chdir(%d:\"%s\"): %s\n", n, buf, ebuf);
+			DEBUG(2, "chdir(%d:\"%s\"): %s\n", n, buf, ebuf);
 			exits(ebuf);
 		}
 	}
 
-	DEBUG(DFD, "\niniting root\n");
+	DEBUG(2, "\niniting root\n");
 	initroot();
 
-	DEBUG(DFD, "%s: %s\n", argv0, buf);
+	DEBUG(2, "%s: %s\n", argv0, buf);
 
 	if(srv == nil && srvfd == -1 && write(0, "OK", 2) != 2)
 		fatal("open ack write");
@@ -436,7 +425,7 @@ main(int argc, char **argv)
 
 		if(convM2S(r->buf, n, &r->work) != n)
 			fatal("convM2S format error");
-		DEBUG(DFD, "%F\n", &r->work);
+		DEBUG(2, "%F\n", &r->work);
 		(fcalls[r->work.type])(r);
 	}
 	io();

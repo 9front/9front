@@ -65,7 +65,7 @@ Xflush(Fsrpc *t)
 		w = m->busy;
 		if(w != nil && w->work.tag == t->work.oldtag) {
 			w->flushtag = t->work.tag;
-			DEBUG(DFD, "\tset flushtag %d\n", t->work.tag);
+			DEBUG(2, "\tset flushtag %d\n", t->work.tag);
 			postnote(PNPROC, m->pid, "flush");
 			unlock(m);
 			putsbuf(t);
@@ -75,7 +75,7 @@ Xflush(Fsrpc *t)
 	}
 
 	reply(&t->work, &rhdr, 0);
-	DEBUG(DFD, "\tflush reply\n");
+	DEBUG(2, "\tflush reply\n");
 	putsbuf(t);
 }
 
@@ -359,7 +359,7 @@ Xremove(Fsrpc *t)
 	}
 
 	path = makepath(f->f, "");
-	DEBUG(DFD, "\tremove: %s\n", path);
+	DEBUG(2, "\tremove: %s\n", path);
 	if(remove(path) < 0) {
 		free(path);
 		errstr(err, sizeof err);
@@ -518,7 +518,7 @@ blockingslave(Proc *m)
 		if(p == nil)		/* Swept */
 			break;
 
-		DEBUG(DFD, "\tslave: %d %F\n", m->pid, &p->work);
+		DEBUG(2, "\tslave: %d %F\n", m->pid, &p->work);
 		if(p->flushtag != NOTAG)
 			goto flushme;
 
@@ -629,7 +629,7 @@ slaveopen(Fsrpc *p)
 	}
 	
 	path = makepath(f->f, "");
-	DEBUG(DFD, "\topen: %s %d\n", path, work->mode);
+	DEBUG(2, "\topen: %s %d\n", path, work->mode);
 	f->fid = open(path, work->mode);
 	free(path);
 	if(f->fid < 0 || (d = dirfstat(f->fid)) == nil) {
@@ -646,7 +646,7 @@ slaveopen(Fsrpc *p)
 			goto Error;
 	}
 
-	DEBUG(DFD, "\topen: fd %d\n", f->fid);
+	DEBUG(2, "\topen: fd %d\n", f->fid);
 	f->mode = work->mode;
 	f->offset = 0;
 	rhdr.iounit = getiounit(f->fid);
@@ -688,7 +688,7 @@ slaveread(Fsrpc *p)
 		reply(work, &rhdr, err);
 		return;
 	}
-	DEBUG(DFD, "\tread: fd=%d %d bytes\n", f->fid, r);
+	DEBUG(2, "\tread: fd=%d %d bytes\n", f->fid, r);
 
 	rhdr.data = data;
 	rhdr.count = r;
@@ -720,7 +720,7 @@ slavewrite(Fsrpc *p)
 		return;
 	}
 
-	DEBUG(DFD, "\twrite: %d bytes fd=%d\n", n, f->fid);
+	DEBUG(2, "\twrite: %d bytes fd=%d\n", n, f->fid);
 
 	rhdr.count = n;
 	reply(work, &rhdr, 0);

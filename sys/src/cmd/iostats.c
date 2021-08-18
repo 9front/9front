@@ -6,7 +6,6 @@
 #include <auth.h>
 #include <fcall.h>
 
-#define DEBUGFILE	"iostats.out"
 #define DONESTR		"done"
 
 enum{
@@ -250,7 +249,7 @@ rio(Fcall *fin, Fcall *fout)
 void
 usage(void)
 {
-	fprint(2, "usage: iostats [-dC] [-f debugfile] cmds [args ...]\n");
+	fprint(2, "usage: iostats [-dC] cmds [args ...]\n");
 	exits("usage");
 }
 
@@ -259,7 +258,6 @@ main(int argc, char **argv)
 {
 	Rpc *rpc;
 	ulong ttime;
-	char *dbfile;
 	char buf[64*1024];
 	float brpsec, bwpsec, bppsec;
 	int cpid, fspid, expid, rspid, dbg, n, mflag;
@@ -270,14 +268,10 @@ main(int argc, char **argv)
 
 	dbg = 0;
 	mflag = MREPL;
-	dbfile = DEBUGFILE;
 
 	ARGBEGIN{
 	case 'd':
 		dbg++;
-		break;
-	case 'f':
-		dbfile = ARGF();
 		break;
 	case 'C':
 		mflag |= MCACHE;
@@ -285,8 +279,6 @@ main(int argc, char **argv)
 	default:
 		usage();
 	}ARGEND
-
-	USED(dbfile);
 
 	if(argc == 0)
 		usage();
@@ -359,7 +351,7 @@ main(int argc, char **argv)
 		close(efd[1]);
 		close(pfd[1]);
 		if(dbg){
-			execl("/bin/exportfs", "exportfs", "-df", dbfile, "-r", "/", nil);
+			execl("/bin/exportfs", "exportfs", "-d", "-r", "/", nil);
 		} else {
 			execl("/bin/exportfs", "exportfs", "-r", "/", nil);
 		}

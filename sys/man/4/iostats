@@ -7,9 +7,6 @@ iostats \- file system to measure I/O
 .B -d
 ] [
 .B -C
-] [
-.B -f
-.I dbfile
 ]
 .I cmd
 [
@@ -17,7 +14,7 @@ iostats \- file system to measure I/O
 ]
 .SH DESCRIPTION
 .I Iostats
-is a user-level 9p filter that interposes itself between a program
+is a user-level 9P filter that interposes itself between a program
 and the regular file server, which
 allows it to gather statistics of file system
 use at the level of the Plan 9 file system protocol, 9P.
@@ -51,11 +48,8 @@ by the program in terms of opens, reads and writes.
 .PP
 If the
 .B -d
-flag is present, a debugging log including all traffic
-is written to
-.I dbfile
-(default
-.BR iostats.out ).
+flag is present, a debugging log including all 9P traffic
+is written to standard error.
 .PP
 The
 .B -C
@@ -73,7 +67,7 @@ iostats ls
 Start a new shell, displaying all 9P traffic caused by the shell or its children:
 .IP
 .EX
-iostats -df /fd/1 rc
+iostats -d rc
 .EE
 .SH SOURCE
 .B /sys/src/cmd/iostats.c
