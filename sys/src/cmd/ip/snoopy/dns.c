@@ -488,6 +488,7 @@ rrfree(RR *rp)
 		memset(rp->srv, 0, sizeof *rp->srv);	/* cause trouble */
 		free(rp->srv);
 		break;
+	case Tdnskey:
 	case Tkey:
 		free(rp->key->data);
 		memset(rp->key, 0, sizeof *rp->key);	/* cause trouble */
@@ -508,9 +509,12 @@ rrfree(RR *rp)
 		memset(rp->null, 0, sizeof *rp->null);	/* cause trouble */
 		free(rp->null);
 		break;
+	case Tcaa:
+		free(rp->caa->data);
+		memset(rp->caa, 0, sizeof *rp->caa);	/* cause trouble */
+		break;
 	case Ttxt:
-		while(rp->txt != nil){
-			t = rp->txt;
+		while(t = rp->txt){
 			rp->txt = t->next;
 			free(t->p);
 			memset(t, 0, sizeof *t);	/* cause trouble */
