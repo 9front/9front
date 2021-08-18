@@ -430,9 +430,14 @@ rralloc(int type)
 		rp->srv = emalloc(sizeof(*rp->srv));
 		setmalloctag(rp->srv, rp->pc);
 		break;
+	case Tdnskey:
 	case Tkey:
 		rp->key = emalloc(sizeof(*rp->key));
 		setmalloctag(rp->key, rp->pc);
+		break;
+	case Tcaa:
+		rp->caa = emalloc(sizeof(*rp->caa));
+		setmalloctag(rp->caa, rp->pc);
 		break;
 	case Tcert:
 		rp->cert = emalloc(sizeof(*rp->cert));
