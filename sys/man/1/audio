@@ -391,8 +391,7 @@ dd -conv swab | audio/mp3enc -a -r -m m --resample 16 -b 24
 .B /sys/src/cmd/audio
 .SH "SEE ALSO"
 .IR play (1),
-.IR juke (7),
-.IR playlistfs (7)
+.IR zuke (1)
 .br
 .B http://www.underbit.com/products/mad/
 .br
