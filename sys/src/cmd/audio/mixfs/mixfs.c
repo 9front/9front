@@ -16,6 +16,7 @@ struct Stream
 {
 	int	used;
 	int	run;
+	int	rd;
 	ulong	wp;
 	QLock;
 	Rendez;
@@ -23,6 +24,7 @@ struct Stream
 
 ulong	mixrp;
 int	mixbuf[NBUF][NCHAN];
+int	lbbuf[NBUF][NCHAN];
 Lock	mixlock;
 Stream	streams[16];
 
@@ -61,6 +63,7 @@ fsopen(Req *r)
 			s->used = 1;
 			qunlock(s);
 
+			s->rd = (r->ifcall.mode&OWRITE) == 0;
 			r->fid->aux = s;
 			respond(r, nil);
 			return;
@@ -144,6 +147,7 @@ audioproc(void *)
 		for(i=0; i<m; i++){
 			for(j=0; j<NCHAN; j++){
 				v = clip16(mixbuf[mixrp % NBUF][j]);
+				lbbuf[mixrp % NBUF][j] = v;
 				mixbuf[mixrp % NBUF][j] = 0;
 				*p++ = v & 0xFF;
 				*p++ = v >> 8;
@@ -152,6 +156,56 @@ audioproc(void *)
 		}
 		write(fd, buf, p - buf);
 	}
+}
+
+void
+fsread(Req *r)
+{
+	Srv *srv;
+	int i, j, n, m, v;
+	Stream *s;
+	uchar *p;
+
+	p = (uchar*)r->ofcall.data;
+	n = r->ifcall.count;
+	n &= ~(NCHAN*2 - 1);
+	r->ofcall.count = n;
+	n /= (NCHAN*2);
+
+	srv = r->srv;
+	srvrelease(srv);
+	s = r->fid->aux;
+	qlock(s);
+	while(n > 0){
+		if(s->run == 0){
+			s->wp = mixrp;
+			s->run = 1;
+		}
+		m = NBUF-1 - (long)(s->wp - mixrp);
+		if(m <= 0){
+			s->run = 1;
+			rsleep(s);
+			continue;
+		}
+		if(m > n)
+			m = n;
+
+		lock(&mixlock);
+		for(i=0; i<m; i++){
+			for(j=0; j<NCHAN; j++){
+				v = lbbuf[s->wp % NBUF][j];
+				*p++ = v & 0xFF;
+				*p++ = v >> 8;
+			}
+			s->wp++;
+		}
+		unlock(&mixlock);
+
+		n -= m;
+	}
+	qunlock(s);
+	respond(r, nil);
+	srvacquire(srv);
 }
 
 void
@@ -234,7 +288,7 @@ fsstart(Srv *)
 	Stream *s;
 
 	for(s=streams; s < streams+nelem(streams); s++){
-		s->used = s->run = 0;
+		s->used = s->run = s->rd = 0;
 		s->Rendez.l = &s->QLock;
 	}
 	proccreate(audioproc, nil, 16*1024);
@@ -248,6 +302,7 @@ fsend(Srv *)
 
 Srv fs = {
 	.open=		fsopen,
+	.read=		fsread,
 	.write=		fswrite,
 	.stat=		fsstat,
 	.destroyfid=	fsclunk,
@@ -286,7 +341,7 @@ threadmain(int argc, char **argv)
 		usage();
 
 	fs.tree = alloctree(nil, nil, DMDIR|0777, nil);
-	createfile(fs.tree->root, "audio", nil, 0222, nil);
+	createfile(fs.tree->root, "audio", nil, 0666, nil);
 	threadpostmountsrv(&fs, srv, mtpt, MREPL);
 
 	mtpt = smprint("%s/audio", mtpt);
