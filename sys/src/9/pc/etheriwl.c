@@ -329,6 +329,28 @@ enum {
 	SchedTransTblOff	= 0x7E0,		// +q*2
 };
 
+/*
+ * uCode TLV api
+ */
+enum {
+	/* api[0] */
+	UcodeApiSta	= 1<<30,
+};
+
+/*
+ * uCode capabilities
+ */
+enum {
+	/* capa[0] */
+	UcodeCapLar	= 1<<1,
+
+	/* capa[1] */
+	UcodeCapQuota	= 1<<12,
+	
+	/* capa[2] */
+	UcodeCapLar2	= 1<<9,
+};
+
 enum {
 	FilterPromisc		= 1<<0,
 	FilterCtl		= 1<<1,
@@ -418,6 +440,7 @@ struct FWImage
 	uint	build;
 	char	descr[64+1];
 
+	u32int	flags;
 	u32int	capa[4];
 	u32int	api[4];
 
@@ -635,8 +658,7 @@ enum {
 	Type2030	= 12,
 	Type2000	= 16,
 
-	Type7260	= 30,
-	Type8265	= 35,
+	Type7260	= 20,
 };
 
 static struct ratetab {
@@ -690,7 +712,6 @@ static char *fwname[32] = {
 	[Type6005] "iwn-6005", /* see in iwlattach() below */
 	[Type2030] "iwn-2030",
 	[Type2000] "iwn-2000",
-	[Type7260] "iwm-7260-17",
 };
 
 static char *qcmd(Ctlr *ctlr, uint qid, uint code, uchar *data, int size, Block *block);
@@ -728,10 +749,12 @@ niclock(Ctlr *ctlr)
 	int i;
 
 	csr32w(ctlr, Gpc, csr32r(ctlr, Gpc) | MacAccessReq);
-	for(i=0; i<1000; i++){
+	if(ctlr->family >= 8000)
+		microdelay(2);
+	for(i=0; i<1500; i++){
 		if((csr32r(ctlr, Gpc) & (NicSleep | MacAccessEna)) == MacAccessEna)
 			return 0;
-		delay(10);
+		microdelay(10);
 	}
 	return "niclock: timeout";
 }
@@ -944,7 +967,7 @@ eepromlock(Ctlr *ctlr)
 		for(j=0; j<100; j++){
 			if(csr32r(ctlr, Cfg) & EepromLocked)
 				return 0;
-			delay(10);
+			microdelay(10);
 		}
 	}
 	return "eepromlock: timeout";
@@ -969,7 +992,7 @@ eepromread(Ctlr *ctlr, void *data, int count, uint off)
 			w = csr32r(ctlr, EepromIo);
 			if(w & 1)
 				break;
-			delay(5);
+			microdelay(5);
 		}
 		if(i == 10)
 			return "eepromread: timeout";
@@ -990,34 +1013,31 @@ eepromread(Ctlr *ctlr, void *data, int count, uint off)
 static char*
 handover(Ctlr *ctlr)
 {
-	int i;
+	int i, j;
 
 	csr32w(ctlr, Cfg, csr32r(ctlr, Cfg) | NicReady);
 	for(i=0; i<5; i++){
 		if(csr32r(ctlr, Cfg) & NicReady)
 			goto Ready;
-		delay(10);
+		microdelay(10);
 	}
+
 	if(ctlr->family >= 7000){
 		csr32w(ctlr, Dbglinkpwrmgmt, csr32r(ctlr, Dbglinkpwrmgmt) | (1<<31));
 		delay(1);
 	}
 
 	csr32w(ctlr, Cfg, csr32r(ctlr, Cfg) | Prepare);
-	for(i=0; i<15000; i++){
-		if((csr32r(ctlr, Cfg) & PrepareDone) == 0)
-			break;
-		delay(10);
+	for(i=0; i<750; i++){
+		csr32w(ctlr, Cfg, csr32r(ctlr, Cfg) | NicReady);
+		for(j=0; j<5; j++){
+			if(csr32r(ctlr, Cfg) & NicReady)
+				goto Ready;
+			microdelay(10);
+		}
+		microdelay(200);
 	}
-	if(i >= 15000)
-		return "handover: timeout";
 
-	csr32w(ctlr, Cfg, csr32r(ctlr, Cfg) | NicReady);
-	for(i=0; i<5; i++){
-		if(csr32r(ctlr, Cfg) & NicReady)
-			goto Ready;
-		delay(10);
-	}
 	return "handover: timeout";
 Ready:
 	if(ctlr->family >= 7000)
@@ -1035,7 +1055,7 @@ clockwait(Ctlr *ctlr)
 	for(i=0; i<2500; i++){
 		if(csr32r(ctlr, Gpc) & MacClockReady)
 			return 0;
-		delay(10);
+		microdelay(10);
 	}
 	return "clockwait: timeout";
 }
@@ -1045,7 +1065,6 @@ poweron(Ctlr *ctlr)
 {
 	int capoff;
 	char *err;
-
 
 	if(ctlr->family >= 7000){
 		/* Reset entire device */
@@ -1100,7 +1119,7 @@ poweron(Ctlr *ctlr)
 
 		prphread(ctlr, OscClk);
 		prphread(ctlr, OscClk);
-		delay(20);
+		microdelay(20);
 
 		prphwrite(ctlr, OscClk, prphread(ctlr, OscClk) | OscClkCtrl);
 
@@ -1119,7 +1138,7 @@ poweron(Ctlr *ctlr)
 			prphwrite(ctlr, ApmgClkEna, DmaClkRqt | BsmClkRqt);
 		else
 			prphwrite(ctlr, ApmgClkEna, DmaClkRqt);
-		delay(20);
+		microdelay(20);
 
 		/* Disable L1-Active. */
 		prphwrite(ctlr, ApmgPciStt, prphread(ctlr, ApmgPciStt) | (1<<11));
@@ -1158,7 +1177,7 @@ poweroff(Ctlr *ctlr)
 			for(j = 0; j < 200; j++){
 				if(csr32r(ctlr, FhTxStatus) & (0x10000<<i))
 					break;
-				delay(10);
+				microdelay(20);
 			}
 		}
 		nicunlock(ctlr);
@@ -1168,17 +1187,17 @@ poweroff(Ctlr *ctlr)
 	if(niclock(ctlr) == nil){
 		if(ctlr->mqrx){
 			prphwrite(ctlr, RfhDmaCfg, 0);
-			for(j = 0; j < 200; j++){
+			for(j = 0; j < 1000; j++){
 				if(prphread(ctlr, RfhGenStatus) & RfhGenStatusDmaIdle)
 					break;
-				delay(10);
+				microdelay(10);
 			}
 		} else {
 			csr32w(ctlr, FhRxConfig, 0);
-			for(j = 0; j < 200; j++){
+			for(j = 0; j < 1000; j++){
 				if(csr32r(ctlr, FhRxStatus) & 0x1000000)
 					break;
-				delay(10);
+				microdelay(10);
 			}
 		}
 		nicunlock(ctlr);
@@ -1190,7 +1209,7 @@ poweroff(Ctlr *ctlr)
 			prphwrite(ctlr, ApmgClkDis, DmaClkRqt);
 			nicunlock(ctlr);
 		}
-		delay(5);
+		microdelay(5);
 	}
 
 	if(ctlr->family >= 7000){
@@ -1206,12 +1225,12 @@ poweroff(Ctlr *ctlr)
 	for(j = 0; j < 100; j++){
 		if(csr32r(ctlr, Reset) & (1<<8))
 			break;
-		delay(10);
+		microdelay(10);
 	}
 
 	/* Reset the entire device. */
 	csr32w(ctlr, Reset, csr32r(ctlr, Reset) | (1<<7));
-	delay(10);
+	delay(5);
 
 	/* Clear "initialization complete" bit. */
 	csr32w(ctlr, Gpc, csr32r(ctlr, Gpc) & ~InitDone);
@@ -1239,7 +1258,7 @@ rominit(Ctlr *ctlr)
 	if((err = niclock(ctlr)) != nil)
 		return err;
 	prphwrite(ctlr, ApmgPs, prphread(ctlr, ApmgPs) | ResetReq);
-	delay(5);
+	microdelay(5);
 	prphwrite(ctlr, ApmgPs, prphread(ctlr, ApmgPs) & ~ResetReq);
 	nicunlock(ctlr);
 
@@ -1308,7 +1327,7 @@ iwlinit(Ether *edev)
 		ctlr->type &= 0x1FF;
 		ctlr->dash = ctlr->type & 3, ctlr->type >>= 2;
 		ctlr->step = ctlr->type & 3, ctlr->type >>= 2;
-		if(fwname[ctlr->type] == nil){
+		if(ctlr->fwname == nil && fwname[ctlr->type] == nil){
 			print("iwl: unsupported controller type %d\n", ctlr->type);
 			return -1;
 		}
@@ -1478,6 +1497,11 @@ Tooshort:
 				s = &i->boot.text;
 				s->addr = 0x00000000;
 				goto Sect;
+			case 18:
+				if(l < 4)
+					goto Tooshort;
+				i->flags = get32(p);
+				break;
 			case 19:
 				if(i->main.nsect >= nelem(i->main.sect))
 					return "too many main sections";
@@ -1984,7 +2008,7 @@ sendmccupdate(Ctlr *ctlr, char *mcc)
 	*p++ = mcc[0];
 	*p++ = 0;
 	*p++ = 0;	// reserved
-	if(1){
+	if(ctlr->fw->capa[2] & UcodeCapLar2){
 		p += 4;
 		p += 5*4;
 	}
@@ -2236,10 +2260,6 @@ readnvmconfig(Ctlr *ctlr)
 		ctlr->rfcfg.step = (u >> 2) & 3;
 		ctlr->rfcfg.dash = (u >> 0) & 3;
 		ctlr->rfcfg.pnum = (u >> 6) & 3;
-
-		ctlr->rfcfg.txantmask = (u >> 8) & 15;
-		ctlr->rfcfg.rxantmask = (u >> 12) & 15;
-
 	} else {
 		if(readnvmsect(ctlr, 12, buf, 8, 0) != 8)
 			return "can't read nvm phy config";
@@ -2272,7 +2292,20 @@ readnvmconfig(Ctlr *ctlr)
 			ea[5] = a1 >> 0;
 		}
 	} else {
-		readnvmsect(ctlr, 0, ea, Eaddrlen, 0x15<<1);
+		/*
+		 * 7260 gets angry if we read 6 bytes from 0x15*2.
+		 * reading 8 bytes from 0x14*2 works fine.
+		 */
+		if(readnvmsect(ctlr, 0, buf, 8, 0x14<<1) != 8)
+			return "can't read ea from nvm";
+
+		/* byte order is 16 bit little endian. */
+		ea[0] = buf[3];
+		ea[1] = buf[2];
+		ea[2] = buf[5];
+		ea[3] = buf[4];
+		ea[4] = buf[7];
+		ea[5] = buf[6];
 	}
 	memmove(ctlr->edev->addr, ea, Eaddrlen);
 
@@ -2366,7 +2399,7 @@ setstation(Ctlr *ctlr, int id, int type, uchar addr[6], Station *sta)
 		p += 2;			/* sleep_tx_count */
 		p++;			/* sleep state flags */
 
-		*p++ = (ctlr->fw->api[0] & (1<<30)) != 0 ? type : 0;		/* station_type */
+		*p++ = ctlr->fw->api[0] & UcodeApiSta ? type : 0;		/* station_type */
 
 		p += 2;			/* assoc id */
 
@@ -2375,7 +2408,7 @@ setstation(Ctlr *ctlr, int id, int type, uchar addr[6], Station *sta)
 		put32(p, 1<<0);
 		p += 4;			/* tfd_queue_mask */
 
-		if(1){
+		if(ctlr->fw->api[0] & UcodeApiSta){
 			p += 2;		/* rx_ba_window */
 			p++;		/* sp_length */
 			p++;		/* uapsd_acs */
@@ -2640,7 +2673,7 @@ timeeventdone(void *arg)
 static char*
 settimeevent(Ctlr *ctlr, int amr, int ival)
 {
-	int duration, delay, timeid;
+	int timeid;
 	uchar c[9*4], *p;
 	char *err;
 
@@ -2662,14 +2695,6 @@ settimeevent(Ctlr *ctlr, int amr, int ival)
 		break;
 	}
 
-	if(ival){
-		duration = ival*2;
-		delay = ival/2;
-	} else {
-		duration = 1024;
-		delay = 0;
-	}
-
 	memset(p = c, 0, sizeof(c));
 	put32(p, ctlr->macid);
 	p += 4;
@@ -2678,23 +2703,27 @@ settimeevent(Ctlr *ctlr, int amr, int ival)
 	put32(p, timeid);
 	p += 4;
 
-	put32(p, 0);	// apply time
-	p += 4;
-	put32(p, delay);
-	p += 4;
-	put32(p, 0);	// depends on
-	p += 4;
-	put32(p, 1);	// interval
-	p += 4;
-	put32(p, duration);
-	p += 4;
-	*p++ = 1;	// repeat
-	*p++ = 0;	// max frags
-	put16(p, 1<<0 | 1<<1 | 1<<11);	// policy
-	p += 2;
+	if(amr == CmdRemove)
+		p += 6*4;
+	else{
+		put32(p, 0);			// apply time
+		p += 4;
+		put32(p, ival/2);		// max delay
+		p += 4;
+		put32(p, 0);			// depends on
+		p += 4;
+		put32(p, 1);			// interval
+		p += 4;
+		put32(p, ival? ival*2: 1024);	// duration
+		p += 4;
+		*p++ = 1;			// repeat
+		*p++ = 0;			// max frags
+		put16(p, 1<<0 | 1<<1 | 1<<11);	// policy
+		p += 2;
+	}
 
 	ctlr->te.active = 0;
-	if((err =  cmd(ctlr, 41, c, p - c)) != nil)
+	if((err = cmd(ctlr, 41, c, p - c)) != nil)
 		return err;
 
 	if(amr == CmdRemove){
@@ -2712,6 +2741,9 @@ setbindingquotas(Ctlr *ctlr, int bindid)
 {
 	uchar c[4*(3*4)], *p;
 	int i;
+
+	if((ctlr->fw->capa[1] & UcodeCapQuota) == 0)
+		return nil;
 
 	i = 0;
 	p = c;
@@ -2822,13 +2854,13 @@ disablebeaconfilter(Ctlr *ctlr)
 	return cmd(ctlr, 210, c, 11*4);
 }
 
-static void
+static char*
 tttxbackoff(Ctlr *ctlr)
 {
 	uchar c[4];
 	
 	put32(c, 0);
-	cmd(ctlr, 126, c, sizeof(c));
+	return cmd(ctlr, 126, c, sizeof(c));
 }
 
 static char*
@@ -2848,6 +2880,9 @@ postboot7000(Ctlr *ctlr)
 	char *err;
 
 	if(ctlr->calib.done == 0){
+		if(ctlr->family == 7000)
+			if((err = sendbtcoexadv(ctlr)) != nil)
+				return err;
 		if((err = readnvmconfig(ctlr)) != nil)
 			return err;
 	}
@@ -2897,16 +2932,16 @@ postboot7000(Ctlr *ctlr)
 
 		/* Initialize tx backoffs to the minimum. */
 		if(ctlr->family == 7000)
-			tttxbackoff(ctlr);
+			if((err = tttxbackoff(ctlr)) != nil)
+				return err;
 
 		if((err = updatedevicepower(ctlr)) != nil){
 			print("can't update device power: %s\n", err);
 			return err;
 		}
-		if((err = sendmccupdate(ctlr, "ZZ")) != nil){
-			print("can't disable beacon filter: %s\n", err);
-			return err;
-		}
+		if(ctlr->fw->capa[0] & UcodeCapLar)
+			if((err = sendmccupdate(ctlr, "ZZ")) != nil)
+				return err;
 		if((err = disablebeaconfilter(ctlr)) != nil){
 			print("can't disable beacon filter: %s\n", err);
 			return err;
@@ -3362,7 +3397,7 @@ boot(Ctlr *ctlr)
 	for(i=0; i<1000; i++){
 		if((prphread(ctlr, BsmWrCtrl) & (1<<31)) == 0)
 			break;
-		delay(10);
+		microdelay(10);
 	}
 	if(i == 1000){
 		nicunlock(ctlr);
@@ -3418,6 +3453,7 @@ txqready(void *arg)
 static char*
 qcmd(Ctlr *ctlr, uint qid, uint code, uchar *data, int size, Block *block)
 {
+	char *err;
 	int hdrlen;
 	Block *bcmd;
 	uchar *d, *c;
@@ -3452,10 +3488,10 @@ qcmd(Ctlr *ctlr, uint qid, uint code, uchar *data, int size, Block *block)
 		return "qcmd: broken";
 	}
 	/* wake up the nic (just needed for 7k) */
-	if(ctlr->family == 7000 && q->n == 0)
-		if(niclock(ctlr) != nil){
+	if(ctlr->family == 7000 && qid == 4 && q->n == 0)
+		if((err = niclock(ctlr)) != nil){
 			iunlock(ctlr);
-			return "qcmd: busy";
+			return err;
 		}
 	q->n++;
 	q->lastcmd = code;
@@ -3586,8 +3622,15 @@ rxoff7000(Ether *edev, Ctlr *ctlr)
 	int i;
 
 	for(i = 0; i < nelem(ctlr->tx); i++)
-		flushq(ctlr, i);
-	settimeevent(ctlr, CmdRemove, 0);
+		if((err = flushq(ctlr, i)) != nil){
+			print("can't flush queue %d: %s\n", i, err);
+			return err;
+		}
+
+	if((err = settimeevent(ctlr, CmdRemove, 0)) != nil){
+		print("can't remove time event: %s\n", err);
+		return err;
+	}
 
 	if((err = setbindingquotas(ctlr, -1)) != nil){
 		print("can't disable quotas: %s\n", err);
@@ -3630,7 +3673,7 @@ rxon7000(Ether *edev, Ctlr *ctlr)
 		return err;
 	}
 	if((err = setbindingcontext(ctlr, CmdAdd)) != nil){
-		print("removing bindingcontext: %s\n", err);
+		print("adding bindingcontext: %s\n", err);
 		return err;
 	}
 	if((err = setmcastfilter(ctlr)) != nil){
@@ -4176,6 +4219,8 @@ receive(Ctlr *ctlr)
 			/* wet floor */
 		case 103:	/* calibration done (Type5000 only) */
 			ctlr->calib.done = 1;
+			if(ctlr->wait.w == Ierr)
+				wakeup(&ctlr->wait);
 			break;
 		case 107:	/* calibration result (>= 7000 family) */
 			if(ctlr->family < 7000)
@@ -4283,8 +4328,8 @@ receive(Ctlr *ctlr)
 		if(tx != nil && tx->n > 0){
 			tx->n--;
 			wakeup(tx);
-			/* unlock 7k family nics as all commands are done */
-			if(ctlr->family == 7000 && tx->n == 0)
+			/* unlock 7k family nics as the command is done */
+			if(ctlr->family == 7000 && qid == 4 && tx->n == 0)
 				nicunlock(ctlr);
 		}
 	}
@@ -4354,13 +4399,11 @@ iwlpci(void)
 	int family;
 	
 	pdev = nil;
-	while(pdev = pcimatch(pdev, 0, 0)) {
+	while(pdev = pcimatch(pdev, Vintel, 0)) {
 		Ctlr *ctlr;
 		void *mem;
 		
 		if(pdev->ccrb != 2 || pdev->ccru != 0x80)
-			continue;
-		if(pdev->vid != 0x8086)
 			continue;
 		if(pdev->mem[0].bar & 1)
 			continue;
@@ -4399,7 +4442,7 @@ iwlpci(void)
 		case 0x08b1:	/* Wireless AC 7260 */
 		case 0x08b2:	/* Wireless AC 7260 */
 			family = 7000;
-			fwname = nil;
+			fwname = "iwm-7260-17";
 			break;
 		case 0x24f3:	/* Wireless AC 8260 */
 			family = 8000;
