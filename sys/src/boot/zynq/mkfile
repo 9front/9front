@@ -7,9 +7,6 @@ TEXTBASE=0xfffc0000
 
 all:V: $TARG
 
-install:V:
-	echo install not supported >[1=2]
-
 clean:V:
 	rm -rf $TARG *.$O
 	@{objtype=$cputype mk -f mkfile.port clean}
