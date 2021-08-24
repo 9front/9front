@@ -92,7 +92,7 @@ to clear a pending interrupt.
 .PP
 .I Closeioproc
 terminates the I/O proc and frees the associated
-.B Ioproc .
+.BR Ioproc .
 .PP
 .I Iocall
 is a primitive that may be used to implement

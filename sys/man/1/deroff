@@ -83,11 +83,11 @@ but remove lists as well.
 .IR spell (1)
 .SH BUGS
 This filter is not a complete interpreter of
-.I troff .
+.IR troff .
 For example, macro definitions containing
 .L \e$
 cause chaos in
-.IR deroff
+.I deroff
 when the popular
 .L $$
 delimiters for

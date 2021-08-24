@@ -158,7 +158,7 @@ The list is sorted by count in decreasing order.
 .I Umem
 prints summarizes all allocations, not just 
 memory leaks, but it is faster and requires less memory than 
-.I leak .
+.IR leak .
 .PP
 .I Kmem
 is like

@@ -283,7 +283,7 @@ The server replies with its own authenticator,
 proving to the client that it also knows
 .I Kn
 and therefore 
-.I Ks .
+.IR Ks .
 .PP
 The 64-bit shared secret
 .I Kn

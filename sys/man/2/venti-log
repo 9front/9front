@@ -54,7 +54,7 @@ The logs are named by UTF strings.
 .PP
 .I Vtlogopen
 returns a reference to the log with the given
-.I name .
+.IR name .
 If a log with that name does not exist and
 .I size 
 is non-zero,

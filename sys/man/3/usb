@@ -19,7 +19,7 @@ usb \- USB Host Controller Interface
 .SH DESCRIPTION
 The Universal Serial Bus is a complex yet popular bus
 for connecting all kind of devices to a computer.
-It is a four-wire tree-shaped bus that provides both communication and (limited)
+It is a tree-shaped bus that provides both communication and (limited)
 power to devices.
 Branching points in the tree are provided by devices called
 .IR hubs .
@@ -41,7 +41,6 @@ UHCI and OHCI for USB 1 (up to 12 Mb/s),
 EHCI for USB 2 (up to 480 Mb/s)
 and
 XHCI for USB 3 (up to 5 Gb/s).
-We currently support all but XHCI, which is still quite new.
 .PP
 The USB bus is fully controlled by the host; all devices are polled.
 Hubs are passive in the sense that they do not poll the devices attached
@@ -57,7 +56,7 @@ for particular classes of devices (such as mice, keyboards, or audio devices).
 Specialization continues as subclasses and subsubclasses are explored.
 .PP
 Enumeration of the bus and initial configuration of devices is done
-by a user level program,
+by a user-level program,
 .IR usbd .
 Device drivers are implemented by separate user programs, although
 some of them may be statically linked into
@@ -179,7 +178,7 @@ in
 to resume I/O.
 The most common error is
 .L crc/timeout
-indicating problems in communication with the device (eg., a physical
+indicating problems in communication with the device (e.g., a physical
 detach of the device or a wiring problem).
 .PP
 For control and isochronous transfers, there is an implicit
@@ -267,9 +266,11 @@ Speed
 (1.5 Mb/s),
 .BR full
 (12 Mb/s),
-or
 .BR high
-(480 Mb/s).
+(480 Mb/s)
+or
+.BR super
+(5 Gb/s).
 .TP
 Maximum packet size
 Used when performing I/O on the data file.
@@ -426,7 +427,7 @@ state.
 .TP
 .BI name " str"
 Generates an additional file name,
-.I str ,
+.IR str ,
 for the
 .B data
 file of the endpoint.
@@ -484,16 +485,16 @@ or
 .BR rw ,
 which creates, respectively, an input, output, or input/output endpoint.
 .TP
-.B "speed {low|full|high}
-Set the endpoint speed to full, low, or high, respectively.
+.B "speed {low|full|high|super}
+Set the endpoint speed to full, low, high, or SuperSpeed, respectively.
 .TP
 .B hub
 Tell this driver that the endpoint corresponds to a hub device.
 .PD
 .PP
-Setup endpoints for hub devices also accept his request:
+Setup endpoints for hub devices also accept
 .TP
-.B "newdev {low|full|high} \fIport\fP
+.B "newdev {low|full|high|super} \fIport\fP
 Create a new setup endpoint to represent a new device.
 The first argument is the device speed.
 .I Port

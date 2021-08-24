@@ -88,7 +88,7 @@ attachment. It provides a filesystem with the file
 .B usbevent
 (usually seen as
 .BR /dev/usbevent )
-which, when read, returns a 6 column, space separated line of
+which, when read, returns a 6-column, space-separated line of
 text, one for each event. The columns are:
 .B attach
 or
@@ -99,7 +99,7 @@ followed by
 .I did
 .I csp
 and
-.I hname .
+.IR hname .
 The
 .I addr
 is the decimal device address assigned.
@@ -111,9 +111,9 @@ are formatted as 4 digit hexadecimal.
 is the device class, subclass, protocol indentifier
 formatted as 6 digit hexadecimal.
 .I Usbd
-assigns a stable device unique name based on the
+assigns a stable device identifier based on the
 device descriptor for
-.I hname .
+.IR hname .
 This information is read by
 .IR nusbrc (8)
 and the
@@ -142,7 +142,7 @@ provides a file system (usually seen under
 .BR /dev )
 that includes one directory per storage device, named
 .BI sdU N [. M ]
-in correspondence with the usb device unique name
+in correspondence with the USB device identifier
 and the storage unit number (or LUN). The LUN is omited
 for single lun devices.
 .PP
@@ -160,7 +160,7 @@ file supplies the device geometry and partitions when read.
 .SS Ethernet
 .I Ether
 handles USB ethernet devices. The file system provided is
-compatible to
+compatible with
 .IR ether (3)
 and added to the share
 .B usbnet
@@ -232,9 +232,9 @@ and
 .SS Audio devices
 .I Audio
 configures and manages a USB audio device.
-It implements a file system, (normally seen under
-.BI /dev )
-compatible to
+It implements a file system (normally seen under
+.BR /dev ),
+compatible with
 .IR audio (3).
 .SH SOURCE
 .B /sys/src/cmd/nusb

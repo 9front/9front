@@ -225,7 +225,7 @@ When written to,
 .B wctl
 accepts messages to change the size or placement of the associated window,
 and to create new windows.
-The messages are in a command-line like format, with a command name,
+The messages are in a command-line-like format, with a command name,
 possibly followed by options introduced by a minus sign.
 The options must be separated by blanks, for example
 .B -dx 100
@@ -276,14 +276,14 @@ and
 .B new
 commands accept
 .B -minx
-.IR n ,
+.RI [±] n ,
 .B -miny
-.IR n ,
+.RI [±] n ,
 .B -maxx
-.IR n ,
+.RI [±] n ,
 and
-.BR -maxy
-.I n
+.B -maxy
+.RI [±] n
 options to set the position of the corresponding edge of the window.
 They also accept an option
 .B -r

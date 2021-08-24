@@ -66,7 +66,7 @@ option specifies that the arena starts at byte
 (default
 .BR 0 )
 in
-.I arenafile .
+.IR arenafile .
 This is useful for reading directly from
 the Venti arena partition:
 .IP

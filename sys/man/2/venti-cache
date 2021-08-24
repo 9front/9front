@@ -126,7 +126,7 @@ and
 with room for
 .I nblocks
 of maximum block size
-.I blocksize .
+.IR blocksize .
 .PP
 .I Vtcachefree
 frees a cache and all the associated blocks.

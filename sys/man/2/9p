@@ -511,7 +511,7 @@ prone to error, the helper routine
 will handle the request given pointers to two functions
 .I walk1
 and (optionally)
-.I clone .
+.IR clone .
 .IR Clone ,
 if non-nil, is called to signal the creation of
 .I newfid
@@ -881,7 +881,7 @@ option to increment
 .IR nntpfs (4),
 .IR snap (4),
 and
-.B /sys/src/lib9p/ramfs.c
+.B /sys/src/cmd/ramfs.c
 are good examples of simple single-threaded file servers.
 .PP
 In general, the

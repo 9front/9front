@@ -764,7 +764,7 @@ option enables caching which is handy for debugging the dns code.
 .PP
 .I Ndb/dnsgetip
 resolves and prints A and AAAA records without consulting
-.I ndb/dns .
+.IR ndb/dns .
 By default,
 .I ndb/dnsgetip
 queries A records first and then AAAA records. As with

@@ -82,7 +82,7 @@ the files under an extra two levels of directory hierarchy named
 .I yyyy/mmdd
 (year, month, day)
 in the style of the dump file system
-(see Plan 9's \fIfs\fR(4)).
+(see \fIfs\fR(4)).
 If
 .I vacfile
 already exists, an additional backup day is added to the
@@ -184,7 +184,7 @@ All other lines should be of the form
 .I pattern
 or
 .B exclude
-.I pattern .
+.IR pattern .
 When considering whether to include a directory or file
 in the vac archive,
 the earliest matching pattern in the file

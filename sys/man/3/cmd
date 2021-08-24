@@ -61,7 +61,7 @@ accepts the following textual commands, allowing quoting as interpreted by
 Run the host command in directory
 .IR wdir ,
 which is a directory
-.I "on the host system" .
+.IR "on the host system" .
 Issue this request before starting the command.
 By default, commands are run in the Inferno root directory on the host system.
 .TP
@@ -207,10 +207,10 @@ means success, and a non-empty string contains a diagnostic.
 .SS "Command execution"
 In all cases, the command runs in the host operating system's
 own file name space.
-All file names will be interpreted in that space, not Plan9's.
+All file names will be interpreted in that space, not Plan 9's.
 For example, on Unix
 .B /
-refers to the host's file system root, not Plan9's;
+refers to the host's file system root, not Plan 9's;
 the effects of mounts and binds will not be visible.
 .SH "SEE ALSO"
 .IR os (1)

@@ -203,7 +203,7 @@ The
 option will print rc commands using
 .IR audio/flacenc (1)
 to encode and tag audio tracks from the disc to output directory
-.I dir .
+.IR dir .
 .SH EXAMPLES
 Backup to a BD-R disc:
 .br

@@ -97,7 +97,7 @@ uchar	v4prefix[IPaddrlen];
 .SH DESCRIPTION
 These routines are used by Internet Protocol (IP) programs to
 manipulate IP and Ethernet addresses.
-Plan 9, by default, uses V6 format IP addresses.  Since V4
+Plan 9, by default, uses V6-format IP addresses.  Since V4
 addresses fit into the V6 space, all IP addresses can be represented.
 IP addresses are stored as a string of 16
 .B unsigned
@@ -222,7 +222,7 @@ operates on v6 addresses.
 .PP
 .I Defmask
 returns the standard class A, B, or C mask for
-.I ipaddr .
+.IR ipaddr .
 .PP
 .I Isv4
 returns non-zero if the V6 address is in the V4 space, that is,

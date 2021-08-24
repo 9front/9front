@@ -78,10 +78,10 @@ returns a file descriptor for the TLS data channel.  Anything written to this
 descriptor will get encrypted and authenticated and then written to the
 file descriptor,
 .IR fd .
-.I Pushtls ,
-.IR tlsClient
+.IR Pushtls ,
+.I tlsClient
 and
-.IR tlsServer
+.I tlsServer
 close the original file descriptor on success.
 If
 .I dir
