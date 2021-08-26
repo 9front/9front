@@ -46,6 +46,7 @@ DIRS=\
 	snes\
 	sokoban\
 	sudoku\
+	swar\
 	timmy\
 	v8e\
 

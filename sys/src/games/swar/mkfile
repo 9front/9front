@@ -1,0 +1,10 @@
+</$objtype/mkfile
+
+BIN=/$objtype/bin/games
+TARG=swar
+OFILES=\
+	swar.$O\
+
+HFILES=player0.icon player1.icon accel.h missile.icon deathstar.icon boom.icon
+
+</sys/src/cmd/mkone
