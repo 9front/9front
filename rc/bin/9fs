@@ -45,9 +45,9 @@ case atomdump
 case 9pio
 	srv -nq tcp!9p.io 9pio && mount -nC /srv/9pio /n/9pio
 case 9front
-	9fs 9front.org
+	9fs tcp!9front.org!9000
 	for(i in 9front extra fqa hardware iso lists pkg sites)
-		bind /n/9front.org/$i /n/$i
+		bind /n/9front.org!9000/$i /n/$i
 case 9bugs
 	9fs contrib.9front.org
 	bind /n/contrib.9front.org/bugs /n/bugs
