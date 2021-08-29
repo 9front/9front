@@ -120,6 +120,7 @@ enum {					/* Tcr */
 	Macv28		= 0x2c000000,	/* RTL8111/8168B */
 	Macv29		= 0x40800000,	/* RTL8101/8102E */
 	Macv30		= 0x24000000,	/* RTL8101E? (untested) */
+	Macv38		= 0x44000000,	/* RTL8402 */
 	Macv39		= 0x44800000,	/* RTL8106E */
 	Macv40		= 0x4c000000,	/* RTL8168G */
 	Macv42		= 0x50800000,	/* RTL8168GU */
@@ -1089,6 +1090,7 @@ vetmacv(Ctlr *ctlr, uint *macv)
 	case Macv28:
 	case Macv29:
 	case Macv30:
+	case Macv38:
 	case Macv39:
 	case Macv40:
 	case Macv42:
