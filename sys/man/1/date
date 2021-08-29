@@ -36,9 +36,6 @@ Report the date as ISO-8601 without time and timezone suffix.
 .B -t
 Report the date as ISO-8601 with time and timezone suffix.
 .TP
-.B -m
-Report the date as an email compatible (RFC2822) time stamp.
-.TP
 .B -f
 Print using the format specified by the
 .I format
