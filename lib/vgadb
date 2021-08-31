@@ -446,6 +446,7 @@ ctlr
 ctlr
 	vid=0x8086 did=0xa011   # PineView Graphics
 	vid=0x8086 did=0x2592	# Intel 915GM
+	vid=0x8086 did=0x27ae	# Intel 945GME
 	vid=0x8086 did=0x27a2	# Intel GM945/82940GML (hardware cursor broken)
 	vid=0x8086 did=0x2a02	# Intel GM965/GL960/X3100 (hardware cursor broken)
 	link=vga
@@ -1864,4 +1865,11 @@ eeepc=1024x600
 	shb=1048 ehb=1184 ht=1344
 	vrs=603 vre=609 vt=670
 	hsync=- vsync=-
+	lcd=1
+
+eeepc1005ha=1024x600
+	clock=51.42
+	shb=1117 ehb=1152 ht=1240
+	vrs=617 vre=622 vt=638
+	hsync=? vsync=?
 	lcd=1
