@@ -46,6 +46,9 @@ Enable audio output.
 .TP
 .B -x
 Scale the screen to a given factor regardless of the window's size.
+.PP
+A joystick may be used to play the emulator via
+.IR joy (1).
 .SH SOURCE
 .B /sys/src/games/2600
 .SH BUGS

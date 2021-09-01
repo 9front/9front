@@ -1,0 +1,39 @@
+#!/bin/rc
+# usage: nusb/joy epX.Y | joy [N]
+~ $#* 0 && *=''
+awk -safe -v 'joy='$1 '
+	/^axis 0 0/   { k[0] = "left " }
+	/^axis 0 255/ { k[0] = "right " }
+	/^axis 0 128/ { k[0] = "" }
+
+	/^axis 1 0/   { k[1] = "up " }
+	/^axis 1 255/ { k[1] = "down " }
+	/^axis 1 128/ { k[1] = "" }
+
+	/^down 1$/ { k[3] = "b " }
+	/^down 5$/ { k[2] = "a " }
+	/^down 6$/ { k[8] = "x " }
+	/^down 2$/ { k[9] = "y " }
+	/^down 3$/ { k[4] = "control " }
+	/^down 4$/ { k[5] = "start " }
+	/^down 7$/ { k[6] = "l1 " }
+	/^down 8$/ { k[7] = "r1 " }
+
+	/^up 1$/ { k[3] = "" }
+	/^up 5$/ { k[2] = "" }
+	/^up 6$/ { k[8] = "" }
+	/^up 2$/ { k[9] = "" }
+	/^up 3$/ { k[4] = "" }
+	/^up 4$/ { k[5] = "" }
+	/^up 7$/ { k[6] = "" }
+	/^up 8$/ { k[7] = "" }
+
+	{
+		if(joy != "")
+			printf "joy%s ", joy
+		for(i in k)
+			printf k[i]
+		printf "\n"
+		fflush
+	}
+'

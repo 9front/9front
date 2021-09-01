@@ -1,0 +1,45 @@
+.TH MUS 1
+.SH NAME
+joy \- joystick input for games
+.SH SYNOPSIS
+.B joy
+[
+.I player
+]
+.SH DESCRIPTION
+.I Joy
+interprets input from a USB joystick device
+(see
+.IR nusb (4))
+to pass it on to a console emulator
+as a string of controller keys
+which are pressed down.
+.PP
+The optional
+.B player
+argument specifies a player number
+for those emulators that support it.
+It should be an integer equal to 1 or greater.
+Currently only players 1 and 2 are supported.
+.PP
+Note that each USB controller has its own mappings
+and the program may have to be modified
+to use its own key ids.
+.SH EXAMPLES
+Use USB device 10 as a joystick
+for the player number 1's controller
+with the Nintendo Entertainment System (NES) emulator:
+.IP
+.EX
+% nusb/joy /dev/usb/ep10.0 | joy 1 | games/nes -a rom.nes
+.EE
+.SH "SEE ALSO"
+.IR atari (1),
+.IR nintendo (1),
+.IR sega (1),
+.IR nusb (4)
+.SH SOURCE
+.B /rc/bin/joy
+.SH HISTORY
+.I Joy
+first appeared in 9front (June, 2014).

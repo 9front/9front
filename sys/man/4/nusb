@@ -35,6 +35,12 @@ usbd - Universal Serial Bus drivers
 ]
 .I devid
 .PP
+.B nusb/joy
+[
+.B -d
+]
+.I devid
+.PP
 .B nusb/serial
 [
 .B -d
@@ -135,6 +141,27 @@ process them.
 Mouse events are sent to
 .BR /dev/mousein
 in the same way.
+.SS Joysticks
+.I Joy
+parses data packets from a given endpoint and prints back
+any changes in the device's axes or buttons.
+Buttons are identified via an integer id.
+.PP
+Directional buttons are reported as axes
+with 3 positions:
+.IR 0 ,
+.IR 128 ,
+and
+.I 255
+for left (or up), center and right (or down) respectively.
+Messages are in the form \fIaxis id position\fR.
+.PP
+On/off buttons are reported as either
+.I down
+or
+.I up
+respectively.
+Messages are in the form \fIdown\fB|\fIup id\fR.
 .SS Disks
 .I Disk
 configures and manages USB mass storage devices. It
@@ -239,6 +266,7 @@ compatible with
 .SH SOURCE
 .B /sys/src/cmd/nusb
 .SH "SEE ALSO"
+.IR joy (1),
 .IR audio (3),
 .IR ether (3),
 .IR mouse (3),
@@ -248,6 +276,9 @@ compatible with
 .IR shr (3),
 .IR nusbrc (8),
 .IR kbdfs (8)
+.SH HISTORY
+.I Joy
+first appeared in 9front (March, 2014).
 .SH BUGS
 The various device drivers are generic USB drivers and
 may work only for certain devices of each class.

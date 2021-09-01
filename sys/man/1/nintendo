@@ -134,6 +134,11 @@ sets HiROM.
 .TP
 .B -m
 Enable mouse emulation using system mouse. Mouse button 1 (left button) engages the SNES left mouse button. Mouse button 3 (right button) engages the SNES right mouse button. Holding down mouse button 2 (middle button) disengages the SNES mouse entirely so that the Plan 9 cursor offset can be adjusted to align with the SNES cursor.
+.PP
+Each of these emulators support the use of joysticks via
+.IR joy (1).
+.I Nes
+also supports selecting the joystick for either player 1 or 2.
 .SH SOURCE
 .B /sys/src/games/gb
 .br
