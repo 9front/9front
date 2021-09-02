@@ -398,14 +398,16 @@ ssh2rsapub(uchar *data, int len)
 	return pub;
 }
 
+static char rsasha256[] = "rsa-sha2-256";
+
 int
 rsasig2ssh(RSApub *pub, mpint *S, uchar *data, int len)
 {
 	int l = (mpsignif(pub->n)+7)/8;
-	if(4+7+4+l > len)
+	if(4+12+4+l > len)
 		return -1;
-	mptober(S, data+4+7+4, l);
-	return pack(data, len, "ss", sshrsa, sizeof(sshrsa)-1, data+4+7+4, l);
+	mptober(S, data+4+12+4, l);
+	return pack(data, len, "ss", rsasha256, sizeof(rsasha256)-1, data+4+12+4, l);
 }
 
 mpint*
@@ -417,7 +419,7 @@ ssh2rsasig(uchar *data, int len)
 
 	m = mpnew(0);
 	if(unpack(data, len, "sm", &s, &n, m) < 0
-	|| n != sizeof(sshrsa)-1 || memcmp(s, sshrsa, n) != 0){
+	|| n != sizeof(rsasha256)-1 || memcmp(s, rsasha256, n) != 0){
 		mpfree(m);
 		return nil;
 	}
@@ -427,10 +429,10 @@ ssh2rsasig(uchar *data, int len)
 mpint*
 pkcs1digest(uchar *data, int len, RSApub *pub)
 {
-	uchar digest[SHA1dlen], buf[256];
+	uchar digest[SHA2_256dlen], buf[256];
 
-	sha1(data, len, digest, nil);
-	return pkcs1padbuf(buf, asn1encodedigest(sha1, digest, buf, sizeof(buf)), pub->n, 1);
+	sha2_256(data, len, digest, nil);
+	return pkcs1padbuf(buf, asn1encodedigest(sha2_256, digest, buf, sizeof(buf)), pub->n, 1);
 }
 
 int
@@ -489,7 +491,7 @@ kex(int gotkexinit)
 	static char kexalgs[] = "curve25519-sha256,curve25519-sha256@libssh.org";
 	static char cipheralgs[] = "chacha20-poly1305@openssh.com";
 	static char zipalgs[] = "none";
-	static char macalgs[] = "hmac-sha1";	/* work around for github.com */
+	static char macalgs[] = "";
 	static char langs[] = "";
 
 	uchar cookie[16], x[32], yc[32], z[32], k[32+1], h[SHA2_256dlen], *ys, *ks, *sig;
@@ -506,7 +508,7 @@ kex(int gotkexinit)
 	sendpkt("b[ssssssssssbu", MSG_KEXINIT,
 		cookie, sizeof(cookie),
 		kexalgs, sizeof(kexalgs)-1,
-		sshrsa, sizeof(sshrsa)-1,
+		rsasha256, sizeof(rsasha256)-1,
 		cipheralgs, sizeof(cipheralgs)-1,
 		cipheralgs, sizeof(cipheralgs)-1,
 		macalgs, sizeof(macalgs)-1,
@@ -744,7 +746,7 @@ pubkeyauth(void)
 			service, strlen(service),
 			authmeth, sizeof(authmeth)-1,
 			0,
-			sshrsa, sizeof(sshrsa)-1,
+			rsasha256, sizeof(rsasha256)-1,
 			pk, npk);
 Next1:		switch(recvpkt()){
 		default:
@@ -767,7 +769,7 @@ Next1:		switch(recvpkt()){
 			service, strlen(service),
 			authmeth, sizeof(authmeth)-1,
 			1,
-			sshrsa, sizeof(sshrsa)-1,
+			rsasha256, sizeof(rsasha256)-1,
 			pk, npk);
 		S = pkcs1digest(send.b, n, pub);
 		n = snprint((char*)send.b, sizeof(send.b), "%B", S);
@@ -788,7 +790,7 @@ Next1:		switch(recvpkt()){
 			service, strlen(service),
 			authmeth, sizeof(authmeth)-1,
 			1,
-			sshrsa, sizeof(sshrsa)-1,
+			rsasha256, sizeof(rsasha256)-1,
 			pk, npk,
 			sig, nsig);
 Next2:		switch(recvpkt()){
