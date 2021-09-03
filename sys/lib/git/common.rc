@@ -38,7 +38,22 @@ fn present {
 		status=()
 }
 
-# merge1 out theirs base ours
+fn whoami{
+	name=`$nl{git/conf user.name}
+	email=`$nl{git/conf user.email}
+	if(test -f /adm/keys.who){
+		if(~ $name '')
+			name=`$nl{awk -F'|' '$1=="'$user'" {x=$3} END{print x}' </adm/keys.who}
+		if(~ $email '')
+			email=`$nl{awk -F'|' '$1=="'$user'" {x=$5} END{print x}' </adm/keys.who}
+	}
+	if(~ $name '')
+		name=glenda
+	if(~ $email '')
+		email=glenda@9front.local
+}
+
+# merge1 out ours base theirs
 fn merge1 {@{
 	rfork e
 	n=$pid

@@ -153,6 +153,9 @@ show(Object *o)
 		tmtime(&tm, o->commit->mtime, tzload("local"));
 		Bprint(out, "Hash:\t%H\n", o->hash);
 		Bprint(out, "Author:\t%s\n", o->commit->author);
+		if(o->commit->committer != nil
+		&& strcmp(o->commit->author, o->commit->committer) != 0)
+			Bprint(out, "Commiter:\t%s\n", o->commit->committer);
 		Bprint(out, "Date:\t%τ\n", tmfmt(&tm, "WW MMM D hh:mm:ss z YYYY"));
 		Bprint(out, "\n");
 		p = o->commit->msg;
