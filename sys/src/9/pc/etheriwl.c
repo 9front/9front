@@ -4380,6 +4380,7 @@ iwlpci(void)
 		case 0x423b:	/* PRO/Wireless 5350 AGN */
 		case 0x0082:	/* Centrino Advanced-N 6205 */
 		case 0x0085:	/* Centrino Advanced-N 6205 */
+		case 0x0089:    /* Centrino Advanced-N + WiMAX 6250 */
 		case 0x422b:	/* Centrino Ultimate-N 6300 variant 1 */
 		case 0x4238:	/* Centrino Ultimate-N 6300 variant 2 */
 		case 0x08ae:	/* Centrino Wireless-N 100 */
