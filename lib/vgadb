@@ -291,6 +291,7 @@ ctlr
 	0xC0093="Trident TGUI96xx"
 	0xC0044="GL A6.00E"
 	0xC68A5="TVGA BIOS LS  6.0 (08)"		# Sharp Actius A250, Cyber 9525/DVD
+ 	0xC70C5="TVGA BIOS KTT 6.0"				# Toshiba Satellite 2250CDT, Cyber 9525
 	0xC7E5F="TVGA BIOS 1.14"				# iTuner
 	link=vga
 	ctlr=cyber938x linear=1
