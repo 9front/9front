@@ -613,7 +613,7 @@ dbpair2cache(DN *dp, Ndbtuple *entry, Ndbtuple *pair)
 		rp = cnamerr(entry, pair);
 	else if(strcmp(pair->attr, "nullrr") == 0)
 		rp = nullrr(entry, pair);
-	else if(strcmp(pair->attr, "txtrr") == 0)
+	else if(strcmp(pair->attr, "txt") == 0)
 		rp = txtrr(entry, pair);
 	if(rp == nil)
 		return;
