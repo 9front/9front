@@ -37,7 +37,7 @@ void	squirrelserveraddrs(void);
 void
 usage(void)
 {
-	fprint(2, "%s: [-rx] [-f db-file] [[@server] domain [type]]\n", argv0);
+	fprint(2, "%s: [-crdx] [-f db-file] [[@server] domain [type]]\n", argv0);
 	exits("usage");
 }
 

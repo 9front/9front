@@ -97,7 +97,7 @@ query, ipquery, mkhash, mkdb, mkhosts, cs, csquery, dns, dnstcp, dnsquery, dnsde
 .br
 .B ndb/dnsdebug
 [
-.B -rxc
+.B -crdx
 ] [
 .B -f
 .I dbfile
