@@ -40,7 +40,7 @@ flag,
 meaning that
 .I newfd
 will not be closed on
-.IR exec(2)
+.IR exec (2)
 syscall,
 when
 .I oldfd

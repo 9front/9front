@@ -64,7 +64,7 @@ causing it, if necessary, to wake from
 or break out of a
 .IR rendezvous (2)
 or an
-.IR eqlock(9),
+.IR eqlock (9),
 with an
 .IR error (9)
 `interrupted'.

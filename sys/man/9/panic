@@ -18,7 +18,7 @@ might reboot the system.
 The format
 .I fmt
 and associated arguments are the same as those for
-.IR print (9).
+.IR print (2).
 .I Panic
 adds a prefix
 .L "panic: "
