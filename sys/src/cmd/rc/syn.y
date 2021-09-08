@@ -17,7 +17,7 @@
 	struct tree *tree;
 };
 %type<tree> line paren brace body cmdsa cmdsan assign epilog redir
-%type<tree> cmd simple first word comword keyword words comwords
+%type<tree> cmd simple first word comword keyword words
 %type<tree> NOT FOR IN WHILE IF TWIDDLE BANG SUBSHELL SWITCH FN
 %type<tree> WORD REDIR DUP PIPE
 %%
@@ -68,10 +68,8 @@ cmd:				{$$=0;}
 |	assign cmd %prec BANG	{$$=mung3($1, $1->child[0], $1->child[1], $2);}
 |	BANG cmd		{$$=mung1($1, $2);}
 |	SUBSHELL cmd		{$$=mung1($1, $2);}
-|	FN comwords brace	{$$=tree2(FN, $2, $3);}
-|	FN comwords SUBSHELL brace
-				{$$=tree2(FN, $2, mung1($3, $4));}
-|	FN comwords		{$$=tree1(FN, $2);}
+|	FN words brace		{$$=tree2(FN, $2, $3);}
+|	FN words		{$$=tree1(FN, $2);}
 simple:	first
 |	simple word		{$$=tree2(ARGLIST, $1, $2);}
 |	simple redir		{$$=tree2(ARGLIST, $1, $2);}
@@ -92,5 +90,3 @@ comword: '$' word		{$$=tree1('$', $2);}
 keyword: FOR|IN|WHILE|IF|NOT|TWIDDLE|BANG|SUBSHELL|SWITCH|FN
 words:				{$$=(struct tree*)0;}
 |	words word		{$$=tree2(WORDS, $1, $2);}
-comwords:			{$$=(struct tree*)0;}
-|	comwords comword	{$$=tree2(WORDS, $1, $2);}
