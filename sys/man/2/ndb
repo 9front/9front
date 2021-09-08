@@ -336,7 +336,7 @@ The tuples are logically arranged into lines using the
 field in the structure.
 The possible
 .IR type 's
-of query are and the attributes on each returned tuple line is:
+of query are the attributes on each returned tuple line:
 .TP
 .B ip
 find the IP addresses.  Returns

@@ -257,6 +257,17 @@ and
 .B soa
 start of area (for DNS)
 .TP
+.B txt
+a descriptive text.
+For DNS, a
+.L TXT
+record.
+.TP
+.B txtrr
+obsolete, same as
+.B txt
+above.
+.TP
 .B tcp
 a TCP service name
 .TP
