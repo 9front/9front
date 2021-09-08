@@ -26,6 +26,8 @@ static QLock	dblock;
 static Ipifc	*ipifcs;
 static QLock	ipifclock;
 
+static RR*	addr4rr(Ndbtuple*, Ndbtuple*);
+static RR*	addr6rr(Ndbtuple*, Ndbtuple*);
 static RR*	addrrr(Ndbtuple*, Ndbtuple*);
 static RR*	cnamerr(Ndbtuple*, Ndbtuple*);
 static void	createptrs(void);
@@ -203,12 +205,13 @@ dblookup1(char *name, int type, int auth, int ttl)
 	RR *rp, *list, **l;
 	Ndbs s;
 	char dname[Domlen];
-	char *attr;
+	char *attr, *attr2;
 	DN *dp;
 	RR *(*f)(Ndbtuple*, Ndbtuple*);
 	int found, x;
 
 	dp = nil;
+	attr2 = nil;
 	switch(type){
 	case Tptr:
 		attr = "ptr";
@@ -216,11 +219,12 @@ dblookup1(char *name, int type, int auth, int ttl)
 		break;
 	case Ta:
 		attr = "ip";
-		f = addrrr;
+		f = addr4rr;
 		break;
 	case Taaaa:
-		attr = "ipv6";
-		f = addrrr;
+		attr = "ip";
+		attr2 = "ipv6";
+		f = addr6rr;
 		break;
 	case Tnull:
 		attr = "nullrr";
@@ -240,6 +244,7 @@ dblookup1(char *name, int type, int auth, int ttl)
 		break;
 	case Ttxt:
 		attr = "txt";
+		attr2 = "txtrr";	/* undocumented */
 		f = txtrr;
 		break;
 	case Tmx:
@@ -283,19 +288,19 @@ dblookup1(char *name, int type, int auth, int ttl)
 			break;
 		}
 		for(nt = ndbsearch(db, &s, "dom", dname); nt != nil; nt = ndbsnext(&s, "dom", dname)) {
-			if(ndbfindattr(nt, s.t, attr) == nil) {
+			if(ndbfindattr(nt, s.t, attr) != nil
+			|| attr2 != nil && ndbfindattr(nt, s.t, attr2) != nil)
+				t = ndbconcatenate(t, ndbreorder(nt, s.t));
+			else
 				ndbfree(nt);
-				continue;
-			}
-			t = ndbconcatenate(t, ndbreorder(nt, s.t));
 		}
 		if(t == nil && strchr(dname, '.') == nil) {
 			for(nt = ndbsearch(db, &s, "sys", dname); nt != nil; nt = ndbsnext(&s, "sys", dname)) {
-				if(ndbfindattr(nt, s.t, attr) == nil) {
+				if(ndbfindattr(nt, s.t, attr) != nil
+				|| attr2 != nil && ndbfindattr(nt, s.t, attr2) != nil)
+					t = ndbconcatenate(t, ndbreorder(nt, s.t));
+				else
 					ndbfree(nt);
-					continue;
-				}
-				t = ndbconcatenate(t, ndbreorder(nt, s.t));
 			}
 		}
 		s.t = t;
@@ -303,18 +308,16 @@ dblookup1(char *name, int type, int auth, int ttl)
 			break;
 	}
 
-	if(t == nil) {
-//		dnslog("dblookup1(%s) name not found", name);
+	if(t == nil)
 		return nil;
-	}
-
 
 	/* search whole entry for default domain name */
-	for(nt = t; nt; nt = nt->entry)
-		if(strcmp(nt->attr, "dom") == 0){
+	for(nt = t; nt; nt = nt->entry) {
+		if(strcmp(nt->attr, "dom") == 0) {
 			nstrcpy(dname, nt->val, sizeof dname);
 			break;
 		}
+	}
 
 	/* ttl is maximum of soa minttl and entry's ttl ala rfc883 */
 	x = intval(t, s.t, "ttl", 0);
@@ -338,7 +341,8 @@ dblookup1(char *name, int type, int auth, int ttl)
 			nstrcpy(dname, nt->val, sizeof dname);
 			found = 1;
 		}
-		if(strcmp(attr, nt->attr) == 0 && (rp = (*f)(t, nt)) != nil){
+		if((strcmp(attr, nt->attr) == 0 || attr2 != nil && strcmp(attr2, nt->attr) == 0)
+		&& (rp = (*f)(t, nt)) != nil){
 			rp->auth = auth;
 			rp->db = 1;
 			if(ttl)
@@ -356,8 +360,10 @@ dblookup1(char *name, int type, int auth, int ttl)
 	}
 
 	/* search whole entry */
-	for(nt = t; nt; nt = nt->entry)
-		if(nt->ptr == 0 && strcmp(attr, nt->attr) == 0 && (rp = (*f)(t, nt)) != nil){
+	for(nt = t; nt; nt = nt->entry){
+		if(nt->ptr == 0
+		&& (strcmp(attr, nt->attr) == 0 || attr2 != nil && strcmp(attr2, nt->attr) == 0)
+		&& (rp = (*f)(t, nt)) != nil){
 			rp->auth = auth;
 			rp->db = 1;
 			if(ttl)
@@ -368,17 +374,48 @@ dblookup1(char *name, int type, int auth, int ttl)
 			*l = rp;
 			l = &rp->next;
 		}
+	}
+
 	ndbfree(t);
 
 	unique(list);
 
-//	dnslog("dblookup1(%s) -> %#p", name, list);
 	return list;
 }
 
 /*
  *  make various types of resource records from a database entry
  */
+static RR*
+addr4rr(Ndbtuple*, Ndbtuple *pair)
+{
+	RR *rp;
+	uchar ip[IPaddrlen];
+
+	if(parseip(ip, pair->val) == -1)
+		return nil;
+	if(!isv4(ip) || strcmp(pair->attr, "ipv6") == 0)
+		return nil;
+	rp = rralloc(Ta);
+	rp->ip = ipalookup(ip, Cin, 1);
+	return rp;
+}
+
+static RR*
+addr6rr(Ndbtuple*, Ndbtuple *pair)
+{
+	RR *rp;
+	uchar ip[IPaddrlen];
+
+	if(parseip(ip, pair->val) == -1)
+		return nil;
+	if(isv4(ip) && strcmp(pair->attr, "ipv6") != 0)
+		return nil;
+	rp = rralloc(Taaaa);
+	rp->ip = ipalookup(ip, Cin, 1);
+	return rp;
+}
+
 static RR*
 addrrr(Ndbtuple*, Ndbtuple *pair)
 {
@@ -387,10 +424,11 @@ addrrr(Ndbtuple*, Ndbtuple *pair)
 
 	if(parseip(ip, pair->val) == -1)
 		return nil;
-	rp = rralloc(isv4(ip) ? Ta : Taaaa);
+	rp = rralloc(isv4(ip) && strcmp(pair->attr, "ipv6") != 0 ? Ta : Taaaa);
 	rp->ip = ipalookup(ip, Cin, 1);
 	return rp;
 }
+
 static RR*
 nullrr(Ndbtuple*, Ndbtuple *pair)
 {
@@ -613,6 +651,8 @@ dbpair2cache(DN *dp, Ndbtuple *entry, Ndbtuple *pair)
 		rp = cnamerr(entry, pair);
 	else if(strcmp(pair->attr, "nullrr") == 0)
 		rp = nullrr(entry, pair);
+	else if(strcmp(pair->attr, "txtrr") == 0)	/* undocumented */
+		rp = txtrr(entry, pair);
 	else if(strcmp(pair->attr, "txt") == 0)
 		rp = txtrr(entry, pair);
 	if(rp == nil)
