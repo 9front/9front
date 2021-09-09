@@ -867,6 +867,7 @@ scan(void)
 			pcimsix = 3;
 			break;
 		case 0x10fb:		/* 82599 */
+		case 0x1557:
 		case 0x1528:		/* T540-T1 */
 			pcimsix = 4;
 			break;
