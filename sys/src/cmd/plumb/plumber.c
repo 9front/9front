@@ -15,6 +15,7 @@ Ruleset **rules;
 int	printerrors=1;
 jmp_buf	parsejmp;
 char	*lasterror;
+char	*srvname;
 
 void
 makeports(Ruleset *rules[])
@@ -38,6 +39,13 @@ mainproc(void *v)
 }
 
 void
+usage(void)
+{
+	fprint(2, "usage: %s [-p plumbfile] [-s srvname]\n", argv0);
+	exits("usage");
+}
+
+void
 threadmain(int argc, char *argv[])
 {
 	char buf[512];
@@ -48,7 +56,13 @@ threadmain(int argc, char *argv[])
 
 	ARGBEGIN{
 	case 'p':
-		plumbfile = ARGF();
+		plumbfile = EARGF(usage());
+		break;
+	case 's':
+		srvname = EARGF(usage());
+		break;
+	default:
+		usage();
 		break;
 	}ARGEND
 

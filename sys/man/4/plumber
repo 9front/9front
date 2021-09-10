@@ -6,6 +6,9 @@ plumber \- file system for interprocess messaging
 [
 .B -p
 .I plumbing
+] [
+.B -s
+.I srvname
 ]
 .SH DESCRIPTION
 The
@@ -31,11 +34,17 @@ and
 and a set of output
 .I ports
 for dispatching messages to applications.
+.PP
 The service is also published as a
 .IR srv (4)
-file, named in
-.BR $plumbsrv ,
+file,
+.IR srvname ,
 for mounting elsewhere.
+By default, its name is a dot-separated concatenation
+of the program's name and a process id.
+A different one can be specified via the
+.B -s
+option.
 .PP
 Programs use
 .B write

@@ -218,9 +218,10 @@ startfsys(void)
 	clock = getclock();
 	if(cexecpipe(&mntfd, &srvfd) < 0)
 		error("can't create pipe: %r");
-	sprint(srvfile, "/srv/plumb.%s.%d", user, getpid());
-	if(putenv("plumbsrv", srvfile) < 0)
-		error("can't write $plumbsrv: %r");
+	if(srvname == nil)
+		snprint(srvfile, sizeof(srvfile), "/srv/plumb.%s.%d", user, getpid());
+	else
+		snprint(srvfile, sizeof(srvfile), "/srv/%s", srvname);
 	fd = create(srvfile, OWRITE|OCEXEC|ORCLOSE, 0600);
 	if(fd < 0)
 		error("can't create /srv file: %r");
