@@ -267,6 +267,7 @@ struct Vmx {
 	char errstr[ERRMAX];
 	Ureg ureg;
 	uvlong tscoffset;
+	u32int procbctls;
 	uintptr cr2;
 	uintptr xcr0;
 	uintptr dr[8]; /* DR7 is also kept in VMCS */
@@ -962,6 +963,7 @@ vmcsinit(Vmx *vmx)
 	x |= PROCB_USECTLS2;
 	x &= msr >> 32;
 	vmcswrite(PROCB_CTLS, x);
+	vmx->procbctls = x;
 	
 	if(rdmsr(VMX_PROCB_CTLS2_MSR, &msr) < 0) error("rdmsr(VMX_PROCB_CTLS2_MSR failed");
 	x = PROCB_EPT | PROCB_VPID | PROCB_UNRESTR;
@@ -1062,9 +1064,11 @@ vmcsinit(Vmx *vmx)
 	vmcswrite(VMEXIT_MSRSTADDR, PADDR(vmx->msrguest));
 	vmcswrite(VMEXIT_MSRLDADDR, PADDR(vmx->msrhost));
 	vmcswrite(MSR_BITMAP, PADDR(vmx->msrbits));
-	
-	cycles(&vmx->tscoffset);
-	vmcswrite(VMCS_TSC_OFFSET, vmx->tscoffset);
+
+	if(vmx->procbctls & PROCB_TSCOFFSET){
+		cycles(&vmx->tscoffset);
+		vmcswrite(VMCS_TSC_OFFSET, vmx->tscoffset);
+	}
 
 	if(sizeof(uintptr) == 8){
 		vmxaddmsr(vmx, Star, 0);
@@ -1682,7 +1686,7 @@ vmxproc(void *vmxp)
 			}
 			rc = vmlaunch(&vmx->ureg, vmx->launched);
 			cycles(&end);
-			useend = 1;
+			useend = vmx->procbctls & PROCB_TSCOFFSET;
 			vmx->cr2 = getcr2();
 			if(m->xcr0 != 0 && vmx->xcr0 != m->xcr0)
 				putxcr0(m->xcr0);
