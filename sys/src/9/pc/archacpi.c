@@ -791,7 +791,7 @@ identify(void)
 	char *cp;
 	Tbl *t;
 
-	if((cp = getconf("*acpi")) == nil)
+	if((cp = getconf("*acpi")) == nil || *cp == '\0')
 		cp = "1";	/* search for rsd by default */
 	v = (uintptr)strtoull(cp, nil, 16);
 	if(v <= 1)
