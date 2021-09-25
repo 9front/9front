@@ -728,13 +728,18 @@ obsdload(void)
 static int
 tryelf(void)
 {
-	char *s;
+	char *s, *t;
 
 	if(!elfheaders()) return 0;
 	elfdata();
 	if(!elfsymbols()) return 0;
 	s = symaddr(elfsym("ostype"));
 	if(s != nil && strcmp(s, "OpenBSD") == 0)
+		return obsdload();
+	/* from 6.9 up, bsd.rd has just these syms */
+	s = symaddr(elfsym("rd_root_image"));
+	t = symaddr(elfsym("rd_root_size"));
+	if(s != nil && t != nil)
 		return obsdload();
 	return 0;
 }
