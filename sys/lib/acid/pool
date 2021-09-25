@@ -82,13 +82,13 @@ Btail(addr) {
 	print("	datadiff	", SHORT(addr.datasize), "\n");
 	print("	magic1	", addr.magic1, "\n");
 	print("	size	", addr.size\X, "\n");
-	print("	hdr	", addr+sizeofBtail-addr.size\X, "\n");
+	print("	hdr	", addr+sizeofBtail-addr.size\A, "\n");
 };
 
 defn
 Tail(addr)
 {
-	print("	", B2T(addr)\X, "\n");
+	print("	", B2T(addr)\A, "\n");
 	Btail(B2T(addr));
 }
 
@@ -119,7 +119,7 @@ Block(addr)
 {
 	complex Bhdr addr;
 	print("	", Magic(addr.magic), "\n");
-	print("	data ", B2D(addr), "\n");
+	print("	data ", B2D(addr)\A, "\n");
 	print("	datasize ", getdsize(addr), "\n");
 	Bhdr(addr);
 	Tail(addr);
@@ -156,38 +156,38 @@ checkblock(addr)
 
 	if addr.magic == FREE_MAGIC || addr.magic == UNALLOC_MAGIC then {
 		if taddr.magic0 != TAIL_MAGIC0 || taddr.magic1 != TAIL_MAGIC1 then
-			print(addr\X, " corrupt tail magic\n");
+			print(addr\A, " corrupt tail magic\n");
 		if taddr.size != addr.size then
-			print(addr\X, " corrupt tail header pointer\n");
+			print(addr\A, " corrupt tail header pointer\n");
 	}
 
 	if addr.magic == ARENA_MAGIC then {
 		taddr = A2TB(addr);
 		if taddr.magic != ARENATAIL_MAGIC then
-			print(addr\X, " arena with bad tail block\n");
+			print(addr\A, " arena with bad tail block\n");
 		else
 			addr = taddr;
 	}
 
 	if addr.magic == ARENATAIL_MAGIC then {
 		if addr.size != 0 then
-			print(addr\X, " bad size in arena tail\n");
+			print(addr\A, " bad size in arena tail\n");
 	}
 
 	if addr.magic == ALLOC_MAGIC then {
 		a = addr;
 		complex Alloc a;
 		if a.size > 1024*1024*1024 then 
-			print(addr\X, " block ridiculously large\n");
+			print(addr\A, " block ridiculously large\n");
 		t = B2T(addr);
 		if t.magic0 != TAIL_MAGIC0 || t.magic1 != TAIL_MAGIC1 then
-			print(addr\X, " bad tail magic\n");
+			print(addr\A, " bad tail magic\n");
 		if t.size != addr.size then
-			print(addr\X, " bad tail pointer\n");
+			print(addr\A, " bad tail pointer\n");
 		dsize = getdsize(a);
 		if dsize > a.size then
-			print(addr\X, " too much data in block\n");
-		q = B2D(a)\X+dsize;
+			print(addr\A, " too much data in block\n");
+		q = B2D(a)\A+dsize;
 		n = 4;
 		if q+4 > t then
 			n = t-q;
@@ -199,7 +199,7 @@ checkblock(addr)
 			q = q+1;
 		}
 		if badmagic then
-			print(addr\X, " size ", dsize, " user has overwritten boundary\n");
+			print(addr\A, " size ", dsize, " user has overwritten boundary\n");
 	}
 }
 
@@ -215,7 +215,7 @@ checkarena(arena)
 		checkblock(b);
 		nb = B2NB(b);
 		if nb == b then {
-			print("B2NB(", b\X, ") = b\n");
+			print("B2NB(", b\A, ") = b\n");
 			b = atail;	// end loop
 		} else
 			b = nb;
@@ -223,7 +223,7 @@ checkarena(arena)
 
 	checkblock(b);
 	if b != atail then
-		print("found wrong tail to arena ", arena\X, "\n");
+		print("found wrong tail to arena ", arena\A, "\n");
 }
 
 defn
@@ -246,7 +246,7 @@ gendumptree(f, in, s)
 	complex Free f;
 
 	loop 1,in do {print(" ");}
-	print(s, " size ", f.size\D, " left ", f.left\X, " right ", f.right\X, "\n");
+	print(s, " size ", f.size\D, " left ", f.left\A, " right ", f.right\A, "\n");
 	if f.left != 0 then
 		gendumptree(f.left, in+1, "l");
 	if f.right != 0 then
@@ -279,12 +279,11 @@ arenawhopointsat(arena, addr)
 	local atail, b;
 
 	atail = A2TB(arena);
-	complex Bhdr arena;
-	b = arena;
+	b = fmt(arena, 'A');
 	while b < atail do {
 		if *b == addr then 
-			print(b\X, "\n");
-		b = b+4;
+			print(b, "\n");
+		b++;
 	}
 }
 
