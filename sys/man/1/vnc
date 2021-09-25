@@ -201,9 +201,12 @@ print verbose output to standard error.
 If the remote frame buffer is larger than the local screen,
 only the upper left corner can be accessed.
 .PP
+.I Vncs
+and
+.I vncv
+encryption is not secure.  It's advisable to tunnel through
+ssh or some other secure protocol.
+.PP
 .I Vncv
 does no verification of the TLS certificate presented
 by the server.
-.PP
-.I Vncv
-supports only version 3.3 of the RFB protocol.
