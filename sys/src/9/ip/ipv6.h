@@ -178,8 +178,6 @@ extern int v6snpreflen;
 extern int v6aNpreflen;
 extern int v6aLpreflen;
 
-extern int ReTransTimer;
-
 void ipv62smcast(uchar *, uchar *);
 void icmpns(Fs *f, uchar* src, int suni, uchar* targ, int tuni, uchar* mac);
 void icmpna(Fs *f, uchar* src, uchar* dst, uchar* targ, uchar* mac, uchar flags);

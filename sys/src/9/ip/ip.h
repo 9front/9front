@@ -613,6 +613,7 @@ extern int	arpread(Arp*, char*, ulong, int);
 extern int	arpwrite(Fs*, char*, int);
 extern Arpent*	arpget(Arp*, Block *bp, int version, Ipifc *ifc, uchar *ip, uchar *h);
 extern void	arprelease(Arp*, Arpent *a);
+extern void	arpcontinue(Arp*, Arpent *a);
 extern Block*	arpresolve(Arp*, Arpent *a, Medium *type, uchar *mac);
 extern int	arpenter(Fs*, int version, uchar *ip, uchar *mac, int n, uchar *ia, Ipifc *ifc, int refresh);
 extern void	ndpsendsol(Fs*, Ipifc*, Arpent*);
@@ -682,6 +683,7 @@ extern char*	ipifcremove6(Ipifc *ifc, char**argv, int argc);
  *  ip.c
  */
 extern void	iprouting(Fs*, int);
+extern void	icmpnohost(Fs*, Ipifc*, Block*);
 extern void	icmpnoconv(Fs*, Block*);
 extern void	icmpcantfrag(Fs*, Block*, int);
 extern void	icmpttlexceeded(Fs*, Ipifc*, Block*);

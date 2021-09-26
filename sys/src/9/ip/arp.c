@@ -37,7 +37,7 @@ struct Arp
 	Fs	*f;
 	Arpent	*hash[NHASH];
 	Arpent	cache[NCACHE];
-	Arpent	*rxmt;
+	Arpent	*rxmt[2];
 	Proc	*rxmitp;	/* neib sol re-transmit proc */
 	Rendez	rxmtq;
 	Block 	*dropf, *dropl;
@@ -47,16 +47,15 @@ char *Ebadarp = "bad arp";
 
 #define haship(s) ((s)[IPaddrlen-1]%NHASH)
 
-int 	ReTransTimer = RETRANS_TIMER;
-
-static void 	rxmitproc(void *v);
+static void 	rxmitproc(void*);
 
 void
 arpinit(Fs *f)
 {
 	f->arp = smalloc(sizeof(Arp));
 	f->arp->f = f;
-	f->arp->rxmt = nil;
+	f->arp->rxmt[0] = nil;
+	f->arp->rxmt[1] = nil;
 	f->arp->dropf = f->arp->dropl = nil;
 	kproc("rxmitproc", rxmitproc, f->arp);
 }
@@ -79,7 +78,7 @@ rxmtunchain(Arp *arp, Arpent *a)
 {
 	Arpent **l;
 
-	for(l = &arp->rxmt; *l != nil; l = &((*l)->nextrxt)){
+	for(l = &arp->rxmt[isv4(a->ip) != 0]; *l != nil; l = &((*l)->nextrxt)){
 		if(*l == a){
 			*l = a->nextrxt;
 			break;
@@ -104,26 +103,20 @@ cleanarpent(Arp *arp, Arpent *a)
 	}
 	a->hash = nil;
 
-	/* dump waiting packets */
-	bp = a->hold;
-	a->hold = nil;
-	if(isv4(a->ip))
-		freeblistchain(bp);
-	else {
-		rxmtunchain(arp, a);
+	/* remove from retransmit / timout chain */
+	rxmtunchain(arp, a);
 
-		/* queue icmp unreachable for rxmitproc later on, w/o arp lock */
-		if(bp != nil){
-			if(arp->dropf == nil)
-				arp->dropf = bp;
-			else
-				arp->dropl->list = bp;
-			arp->dropl = a->last;
-
-			if(bp == arp->dropf)
-				wakeup(&arp->rxmtq);
-		}
+	/* queue packets for icmp unreachable for rxmitproc later on, w/o arp lock */
+	if((bp = a->hold) != nil){
+		if(arp->dropf == nil)
+			arp->dropf = bp;
+		else
+			arp->dropl->list = bp;
+		arp->dropl = a->last;
+		if(bp == arp->dropf)
+			wakeup(&arp->rxmtq);
 	}
+	a->hold = nil;
 	a->last = nil;
 
 	a->ifc = nil;
@@ -152,7 +145,7 @@ newarpent(Arp *arp, uchar *ip, Ipifc *ifc)
 	e = &arp->cache[NCACHE];
 	a = arp->cache;
 	t = a->utime;
-	for(f = a; f < e; f++){
+	for(f = a+1; t > 0 && f < e; f++){
 		if(f->utime < t){
 			t = f->utime;
 			a = f;
@@ -182,7 +175,6 @@ newarpent(Arp *arp, uchar *ip, Ipifc *ifc)
 Arpent*
 arpget(Arp *arp, Block *bp, int version, Ipifc *ifc, uchar *ip, uchar *mac)
 {
-	int hash;
 	Arpent *a;
 	uchar v6ip[IPaddrlen];
 
@@ -192,8 +184,7 @@ arpget(Arp *arp, Block *bp, int version, Ipifc *ifc, uchar *ip, uchar *mac)
 	}
 
 	qlock(arp);
-	hash = haship(ip);
-	for(a = arp->hash[hash]; a != nil; a = a->hash){
+	for(a = arp->hash[haship(ip)]; a != nil; a = a->hash){
 		if(a->ifc == ifc && a->ifcid == ifc->ifcid && ipcmp(ip, a->ip) == 0)
 			break;
 	}
@@ -225,6 +216,39 @@ arpget(Arp *arp, Block *bp, int version, Ipifc *ifc, uchar *ip, uchar *mac)
 }
 
 /*
+ * continue address resolution for the entry,
+ * schedule it on the retransmit / timeout chains
+ * and unlock the arp cache.
+ */
+void
+arpcontinue(Arp *arp, Arpent *a)
+{
+	Arpent **l;
+	Block *bp;
+
+	/* try to keep it around for a second more */
+	a->ctime = NOW;
+
+	/* remove all but the last message */
+	while((bp = a->hold) != nil){
+		if(bp == a->last)
+			break;
+		a->hold = bp->list;
+		freeblist(bp);
+	}
+
+	/* put on end of re-transmit / timeout chain */
+	for(l = rxmtunchain(arp, a); *l != nil; l = &(*l)->nextrxt)
+		;
+	*l = a;
+
+	if(l == &arp->rxmt[0] || l == &arp->rxmt[1])
+		wakeup(&arp->rxmtq);
+
+	qunlock(arp);
+}
+
+/*
  * called with arp locked
  */
 void
@@ -232,6 +256,7 @@ arprelease(Arp *arp, Arpent*)
 {
 	qunlock(arp);
 }
+
 
 /*
  * Copy out the mac address from the Arpent.  Return the
@@ -245,7 +270,7 @@ arpresolve(Arp *arp, Arpent *a, Medium *type, uchar *mac)
 	Block *bp;
 
 	memmove(a->mac, mac, type->maclen);
-	if(a->state == AWAIT && !isv4(a->ip)){
+	if(a->state == AWAIT) {
 		rxmtunchain(arp, a);
 		a->rxtsrem = 0;
 	}
@@ -363,7 +388,7 @@ arpwrite(Fs *fs, char *s, int len)
 		memset(arp->hash, 0, sizeof(arp->hash));
 		freeblistchain(arp->dropf);
 		arp->dropf = arp->dropl = nil;
-		arp->rxmt = nil;
+		arp->rxmt[0] = arp->rxmt[1] = nil;
 		qunlock(arp);
 	} else if(strcmp(f[0], "add") == 0){
 		switch(n){
@@ -480,32 +505,22 @@ void
 ndpsendsol(Fs *f, Ipifc *ifc, Arpent *a)
 {
 	uchar targ[IPaddrlen], src[IPaddrlen];
-	Arpent **l;
 
-	a->ctime = NOW;
 	if(a->rxtsrem == 0)
 		a->rxtsrem = MAX_MULTICAST_SOLICIT;
 	else
 		a->rxtsrem--;
 
-	/* put on end of re-transmit chain */
-	for(l = rxmtunchain(f->arp, a); *l != nil; l = &(*l)->nextrxt)
-		;
-	*l = a;
-
-	if(l == &f->arp->rxmt)
-		wakeup(&f->arp->rxmtq);
-
 	/* try to use source address of original packet */
 	ipmove(targ, a->ip);
 	if(a->last != nil){
 		ipmove(src, ((Ip6hdr*)a->last->rp)->src);
-		arprelease(f->arp, a);
+		arpcontinue(f->arp, a);
 
 		if(iplocalonifc(ifc, src) != nil || ipproxyifc(f, ifc, src))
 			goto send;
 	} else {
-		arprelease(f->arp, a);
+		arpcontinue(f->arp, a);
 	}
 	if(!ipv6local(ifc, src, 0, targ))
 		return;
@@ -516,16 +531,17 @@ send:
 	}
 }
 
-static void
-rxmitsols(Arp *arp)
+static Block*
+rxmt(Arp *arp)
 {
-	Block *next, *bp;
 	Arpent *a;
+	Block *bp;
 	Ipifc *ifc;
-	Route *r;
 
 	qlock(arp);
-	while((a = arp->rxmt) != nil && NOW - a->ctime > 3*ReTransTimer/4){
+
+	/* retransmit ipv6 solicitations */
+	while((a = arp->rxmt[0]) != nil && NOW - a->ctime > 3*RETRANS_TIMER/4){
 		if(a->rxtsrem > 0 && (ifc = a->ifc) != nil && canrlock(ifc)){
 			if(a->ifcid == ifc->ifcid){
 				ndpsendsol(arp->f, ifc, a);	/* unlocks arp */
@@ -537,17 +553,40 @@ rxmitsols(Arp *arp)
 		}
 		cleanarpent(arp, a);
 	}
+
+	/* timeout waiting ipv4 arp entries */
+	while((a = arp->rxmt[1]) != nil && NOW - a->ctime > 3*RETRANS_TIMER)
+		cleanarpent(arp, a);
+
 	bp = arp->dropf;
 	arp->dropf = arp->dropl = nil;
+
 	qunlock(arp);
+
+	return bp;
+}
+
+static void
+drop(Fs *f, Block *bp)
+{
+	Block *next;
+	Ipifc *ifc;
+	Route *r;
 
 	for(; bp != nil; bp = next){
 		next = bp->list;
 		bp->list = nil;
-		r = v6lookup(arp->f, ((Ip6hdr*)bp->rp)->src, ((Ip6hdr*)bp->rp)->dst, nil);
+
+		if((bp->rp[0]&0xF0) == IP_VER4)
+			r = v4lookup(f, ((Ip4hdr*)bp->rp)->src, ((Ip4hdr*)bp->rp)->dst, nil);
+		else
+			r = v6lookup(f, ((Ip6hdr*)bp->rp)->src, ((Ip6hdr*)bp->rp)->dst, nil);
 		if(r != nil && (ifc = r->ifc) != nil && canrlock(ifc)){
 			if(!waserror()){
-				icmphostunr6(arp->f, ifc, bp, Icmp6_adr_unreach, (r->type & Runi) != 0);
+				if((bp->rp[0]&0xF0) == IP_VER4)
+					icmpnohost(f, ifc, bp);
+				else
+					icmphostunr6(f, ifc, bp, Icmp6_adr_unreach, (r->type & Runi) != 0);
 				poperror();
 			}
 			runlock(ifc);
@@ -561,7 +600,7 @@ rxready(void *v)
 {
 	Arp *arp = (Arp *)v;
 
-	return arp->rxmt != nil || arp->dropf != nil;
+	return arp->rxmt[0] != nil || arp->rxmt[1] != nil || arp->dropf != nil;
 }
 
 static void
@@ -576,7 +615,7 @@ rxmitproc(void *v)
 	}
 	for(;;){
 		sleep(&arp->rxmtq, rxready, v);
-		rxmitsols(arp);
-		tsleep(&arp->rxmtq, return0, nil, ReTransTimer/4);
+		drop(arp->f, rxmt(arp));
+		tsleep(&arp->rxmtq, return0, nil, RETRANS_TIMER/4);
 	}
 }

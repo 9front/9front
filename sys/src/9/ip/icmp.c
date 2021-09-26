@@ -242,22 +242,34 @@ icmpttlexceeded(Fs *f, Ipifc *ifc, Block *bp)
 }
 
 static void
-icmpunreachable(Fs *f, Block *bp, int code, int seq)
+icmpunreachable(Fs *f, Ipifc *ifc, Block *bp, int code, int seq)
 {
 	Block	*nbp;
 	Icmp	*p, *np;
+	uchar	ia[IPv4addrlen];
 
 	p = (Icmp *)bp->rp;
-	if(!ip4me(f, p->dst) || !ip4reply(f, p->src))
+	if(!ip4reply(f, p->src))
 		return;
 
-	netlog(f, Logicmp, "sending icmpnoconv -> %V\n", p->src);
+	if(ifc == nil){
+		if(!ipforme(f, p->dst))
+			return;
+		memmove(ia, p->dst, sizeof(p->dst));
+	} else {
+		if(!ipv4local(ifc, ia, 0, p->src))
+			return;
+	}
+
+	netlog(f, Logicmp, "sending icmpunreachable %V -> src %V dst %V\n",
+		ia, p->src, p->dst);
+
 	nbp = allocb(ICMP_IPSIZE + ICMP_HDRSIZE + ICMP_IPSIZE + 8);
 	nbp->wp += ICMP_IPSIZE + ICMP_HDRSIZE + ICMP_IPSIZE + 8;
 	np = (Icmp *)nbp->rp;
 	np->vihl = IP_VER4;
+	memmove(np->src, ia, sizeof(np->src));
 	memmove(np->dst, p->src, sizeof(np->dst));
-	memmove(np->src, p->dst, sizeof(np->src));
 	memmove(np->data, bp->rp, ICMP_IPSIZE + 8);
 	np->type = Unreachable;
 	np->code = code;
@@ -270,15 +282,21 @@ icmpunreachable(Fs *f, Block *bp, int code, int seq)
 }
 
 void
+icmpnohost(Fs *f, Ipifc *ifc, Block *bp)
+{
+	icmpunreachable(f, ifc, bp, 1, 0);
+}
+
+void
 icmpnoconv(Fs *f, Block *bp)
 {
-	icmpunreachable(f, bp, 3, 0);
+	icmpunreachable(f, nil, bp, 3, 0);
 }
 
 void
 icmpcantfrag(Fs *f, Block *bp, int mtu)
 {
-	icmpunreachable(f, bp, 4, mtu);
+	icmpunreachable(f, nil, bp, 4, mtu);
 }
 
 static void

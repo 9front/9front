@@ -17,15 +17,6 @@ struct Etherhdr
 	uchar	t[2];
 };
 
-static uchar ipbroadcast[IPaddrlen] = {
-	0xff,0xff,0xff,0xff,
-	0xff,0xff,0xff,0xff,
-	0xff,0xff,0xff,0xff,
-	0xff,0xff,0xff,0xff,
-};
-
-static uchar etherbroadcast[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
-
 static void	etherread4(void *a);
 static void	etherread6(void *a);
 static void	etherbind(Ipifc *ifc, int argc, char **argv);
@@ -35,8 +26,7 @@ static void	etheraddmulti(Ipifc *ifc, uchar *a, uchar *ia);
 static void	etherremmulti(Ipifc *ifc, uchar *a, uchar *ia);
 static void	etherareg(Fs *f, Ipifc *ifc, Iplifc *lifc, uchar *ip);
 static Block*	multicastarp(Fs *f, Arpent *a, Medium*, uchar *mac);
-static void	sendarp(Ipifc *ifc, Arpent *a);
-static void	sendndp(Ipifc *ifc, Arpent *a);
+static void	sendarpreq(Ipifc *ifc, Arpent *a);
 static int	multicastea(uchar *ea, uchar *ip);
 static void	recvarpproc(void*);
 static void	etherpref2addr(uchar *pref, uchar *ea);
@@ -276,12 +266,17 @@ etherbwrite(Ipifc *ifc, Block *bp, int version, uchar *ip)
 		/* check for broadcast or multicast */
 		bp = multicastarp(er->f, a, ifc->m, mac);
 		if(bp == nil){
+			/* don't do anything if it's been less than a second since the last */
+			if(NOW - a->ctime < RETRANS_TIMER){
+				arprelease(er->f->arp, a);
+				return;
+			}
 			switch(version){
 			case V4:
-				sendarp(ifc, a);
+				sendarpreq(ifc, a);		/* unlocks arp */
 				break;
 			case V6:
-				sendndp(ifc, a);
+				ndpsendsol(er->f, ifc, a);	/* unlocks arp */
 				break;
 			default:
 				panic("etherbwrite: version %d", version);
@@ -442,7 +437,7 @@ etherremmulti(Ipifc *ifc, uchar *a, uchar *)
  *  (only v4, v6 uses the neighbor discovery, rfc1970)
  */
 static void
-sendarp(Ipifc *ifc, Arpent *a)
+sendarpreq(Ipifc *ifc, Arpent *a)
 {
 	int n;
 	Block *bp;
@@ -450,25 +445,8 @@ sendarp(Ipifc *ifc, Arpent *a)
 	Etherrock *er = ifc->arg;
 	uchar targ[IPv4addrlen], src[IPv4addrlen];
 
-	/* don't do anything if it's been less than a second since the last */
-	if(NOW - a->ctime < 1000){
-		arprelease(er->f->arp, a);
-		return;
-	}
-
-	/* try to keep it around for a second more */
-	a->ctime = NOW;
-
-	/* remove all but the last message */
-	while((bp = a->hold) != nil){
-		if(bp == a->last)
-			break;
-		a->hold = bp->list;
-		freeblist(bp);
-	}
-
 	memmove(targ, a->ip+IPv4off, IPv4addrlen);
-	arprelease(er->f->arp, a);
+	arpcontinue(er->f->arp, a);
 
 	if(!ipv4local(ifc, src, 0, targ))
 		return;
@@ -477,8 +455,8 @@ sendarp(Ipifc *ifc, Arpent *a)
 	if(n < ifc->m->mintu)
 		n = ifc->m->mintu;
 	bp = allocb(n);
-	memset(bp->rp, 0, n);
 	e = (Etherarp*)bp->rp;
+	memset(e, 0, n);
 	memmove(e->tpa, targ, sizeof(e->tpa));
 	memmove(e->spa, src, sizeof(e->spa));
 	memmove(e->sha, ifc->mac, sizeof(e->sha));
@@ -496,29 +474,6 @@ sendarp(Ipifc *ifc, Arpent *a)
 	devtab[er->achan->type]->bwrite(er->achan, bp, 0);
 }
 
-static void
-sendndp(Ipifc *ifc, Arpent *a)
-{
-	Block *bp;
-	Etherrock *er = ifc->arg;
-
-	/* don't do anything if it's been less than a second since the last */
-	if(NOW - a->ctime < ReTransTimer){
-		arprelease(er->f->arp, a);
-		return;
-	}
-
-	/* remove all but the last message */
-	while((bp = a->hold) != nil){
-		if(bp == a->last)
-			break;
-		a->hold = bp->list;
-		freeblist(bp);
-	}
-
-	ndpsendsol(er->f, ifc, a);	/* unlocks arp */
-}
-
 /*
  *  send a gratuitous arp to refresh arp caches
  */
@@ -534,8 +489,8 @@ sendgarp(Ipifc *ifc, uchar *ip)
 	if(n < ifc->m->mintu)
 		n = ifc->m->mintu;
 	bp = allocb(n);
-	memset(bp->rp, 0, n);
 	e = (Etherarp*)bp->rp;
+	memset(e, 0, n);
 	memmove(e->tpa, ip+IPv4off, sizeof(e->tpa));
 	memmove(e->spa, ip+IPv4off, sizeof(e->spa));
 	memmove(e->sha, ifc->mac, sizeof(e->sha));
