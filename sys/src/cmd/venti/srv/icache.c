@@ -293,7 +293,7 @@ initicache(u32int mem)
 		scache = 16;
 	if(entries < 1000)
 		entries = 1000;
-fprint(2, "icache %,lud bytes = %,lud entries; %lud scache\n", mem, entries, scache);
+	fprint(2, "icache %,ud bytes = %,ud entries; %ud scache\n", mem, entries, scache);
 
 	icache.clean.prev = icache.clean.next = &icache.clean;
 	icache.dirty.prev = icache.dirty.next = &icache.dirty;
