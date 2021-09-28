@@ -8,8 +8,7 @@ tagopus(Tagctx *ctx)
 	int sz, numtags, i, npages;
 
 	d = (uchar*)ctx->buf;
-	/* need to find vorbis frame with type=3 */
-	for(npages = 0; npages < 2; npages++){ /* vorbis comment is the second header */
+	for(npages = 0; npages < 2; npages++){
 		int nsegs;
 		if(ctx->read(ctx, d, 27) != 27)
 			return -1;
@@ -76,7 +75,7 @@ tagopus(Tagctx *ctx)
 				break;
 			for(; v != nil && v < ctx->buf+sz;){
 				v = memchr(v, 'O', ctx->buf+sz - v - 14);
-				if(v != nil && v[1] == 'g' && v[2] == 'g' && v[3] == 'S' && (v[5] & 4) == 4){ /* last page */
+				if(v != nil && v[1] == 'g' && v[2] == 'g' && v[3] == 'S'){
 					uvlong g = leuint(v+6) | (uvlong)leuint(v+10)<<32;
 					ctx->duration = g * 1000 / 48000; /* granule positions are always 48KHz */
 					return 0;
