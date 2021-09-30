@@ -45,7 +45,7 @@ Enable audio output.
 .B -x
 Scale the screen to a given factor regardless of the window's size.
 .PP
-Each of these emulators support the use of joysticks via
+A joystick may be used with the emulator via
 .IR joy (1).
 .SH SOURCE
 .B /sys/src/games/md
