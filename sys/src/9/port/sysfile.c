@@ -583,9 +583,14 @@ mountfix(Chan *c, uchar *op, long n, long maxn)
 			 * If it's a union directory and the original is
 			 * in the union, don't rewrite anything.
 			 */
-			for(m = mh->mount; m != nil; m = m->next)
-				if(eqchantdqid(m->to, d.type, d.dev, d.qid, 1))
+			rlock(&mh->lock);
+			for(m = mh->mount; m != nil; m = m->next){
+				if(eqchantdqid(m->to, d.type, d.dev, d.qid, 1)){
+					runlock(&mh->lock);
 					goto Norewrite;
+				}
+			}
+			runlock(&mh->lock);
 
 			name = dirname(p, &nname);
 			/*
@@ -594,8 +599,8 @@ mountfix(Chan *c, uchar *op, long n, long maxn)
 			 * what can we do?  Nothing, really.  Might as well skip it.
 			 */
 			if(buf == nil){
-				buf = smalloc(4096);
 				nbuf = 4096;
+				buf = smalloc(nbuf);
 			}
 			if(waserror())
 				goto Norewrite;
@@ -1025,7 +1030,7 @@ syschdir(va_list list)
 	return 0;
 }
 
-long
+static int
 bindmount(int ismount, int fd, int afd, char* arg0, char* arg1, int flag, char* spec)
 {
 	int ret;
@@ -1080,7 +1085,7 @@ bindmount(int ismount, int fd, int afd, char* arg0, char* arg1, int flag, char* 
 		nexterror();
 	}
 
-	ret = cmount(&c0, c1, flag, spec);
+	ret = cmount(c0, c1, flag, spec);
 
 	poperror();
 	cclose(c1);

@@ -667,6 +667,7 @@ readns1(Chan *c, Proc *p, char *buf, int nbuf)
 	cm = nil;
 	for(i = 0; i < MNTHASH; i++) {
 		for(f = pg->mnthash[i]; f != nil; f = f->hash) {
+			rlock(&f->lock);
 			for(t = f->mount; t != nil; t = t->next) {
 				if(t->mountid >= minid && t->mountid < bestmid) {
 					bestmid = t->mountid;
@@ -674,6 +675,7 @@ readns1(Chan *c, Proc *p, char *buf, int nbuf)
 					mh = f;
 				}
 			}
+			runlock(&f->lock);
 		}
 	}
 

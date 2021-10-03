@@ -608,6 +608,7 @@ newmhead(Chan *from)
 	mh->ref = 1;
 	mh->from = from;
 	incref(from);
+	setmalloctag(mh, getcallerpc(&from));
 	return mh;
 }
 
@@ -633,128 +634,124 @@ newmhead(Chan *from)
 void
 putmhead(Mhead *m)
 {
-	if(m != nil && decref(m) == 0){
-		assert(m->mount == nil);
-		cclose(m->from);
-		free(m);
-	}
+	if(m == nil)
+		return;
+	if(decref(m))
+		return;
+	assert(m->mount == nil);
+	cclose(m->from);
+	free(m);
 }
 
 int
-cmount(Chan **newp, Chan *old, int flag, char *spec)
+cmount(Chan *new, Chan *old, int flag, char *spec)
 {
-	int order, flg;
-	Chan *new;
+	int order;
 	Mhead *m, **l, *mh;
-	Mount *nm, *f, *um, **h;
+	Mount *nm, *f, *um;
 	Pgrp *pg;
 
-	if(QTDIR & (old->qid.type^(*newp)->qid.type))
-		error(Emount);
-
 	if(old->umh != nil)
-		print("cmount: unexpected umh, caller %#p\n", getcallerpc(&newp));
+		print("cmount: unexpected umh, caller %#p\n", getcallerpc(&new));
+
+	if(QTDIR & (old->qid.type^new->qid.type))
+		error(Emount);
 
 	order = flag&MORDER;
 
 	if((old->qid.type&QTDIR) == 0 && order != MREPL)
 		error(Emount);
 
-	new = *newp;
+	nm = newmount(new, flag, spec);
 	mh = new->umh;
+	if(mh != nil) {
+		rlock(&mh->lock);
+		if(waserror()) {
+			runlock(&mh->lock);
+			mountfree(nm);
+			nexterror();
+		}
+		um = mh->mount;
+		if(um != nil){
+			/*
+			 * Not allowed to bind when the old directory is itself a union. 
+			 * (Maybe it should be allowed, but I don't see what the semantics
+			 * would be.)
+			 *
+			 * We need to check mh->mount->next to tell unions apart from
+			 * simple mount points, so that things like
+			 *	mount -c fd /root
+			 *	bind -c /root /
+			 * work.  
+			 * 
+			 * The check of mount->mflag allows things like
+			 *	mount fd /root
+			 *	bind -c /root /
+			 * 
+			 * This is far more complicated than it should be, but I don't
+			 * see an easier way at the moment.
+			 */
+			if((flag&MCREATE) != 0 && (um->next != nil || (um->mflag&MCREATE) == 0))
+				error(Emount);
 
-	/*
-	 * Not allowed to bind when the old directory is itself a union. 
-	 * (Maybe it should be allowed, but I don't see what the semantics
-	 * would be.)
-	 *
-	 * We need to check mh->mount->next to tell unions apart from
-	 * simple mount points, so that things like
-	 *	mount -c fd /root
-	 *	bind -c /root /
-	 * work.  
-	 * 
-	 * The check of mount->mflag allows things like
-	 *	mount fd /root
-	 *	bind -c /root /
-	 * 
-	 * This is far more complicated than it should be, but I don't
-	 * see an easier way at the moment.
-	 */
-	if((flag&MCREATE) != 0 && mh != nil && mh->mount != nil
-	&& (mh->mount->next != nil || (mh->mount->mflag&MCREATE) == 0))
-		error(Emount);
+			/*
+			 *  copy a union when binding it onto a directory
+			 */
+			f = nm;
+			for(um = um->next; um != nil; um = um->next){
+				f->next = newmount(um->to, order==MREPL? MAFTER: order, um->spec);
+				f = f->next;
+			}
+		}
+		runlock(&mh->lock);
+		poperror();
+	}
 
 	pg = up->pgrp;
 	wlock(&pg->ns);
-
 	l = &MOUNTH(pg, old->qid);
 	for(m = *l; m != nil; m = m->hash){
 		if(eqchan(m->from, old, 1))
 			break;
 		l = &m->hash;
 	}
-
 	if(m == nil){
 		/*
 		 *  nothing mounted here yet.  create a mount
 		 *  head and add to the hash table.
 		 */
 		m = newmhead(old);
-		*l = m;
-
 		/*
 		 *  if this is a union mount, add the old
 		 *  node to the mount chain.
 		 */
 		if(order != MREPL)
 			m->mount = newmount(old, 0, nil);
+		*l = m;
 	}
 	wlock(&m->lock);
-	if(waserror()){
-		wunlock(&m->lock);
-		nexterror();
-	}
-	wunlock(&pg->ns);
-
-	nm = newmount(new, flag, spec);
-	if(mh != nil && mh->mount != nil){
-		/*
-		 *  copy a union when binding it onto a directory
-		 */
-		flg = order;
-		if(order == MREPL)
-			flg = MAFTER;
-		h = &nm->next;
-		um = mh->mount;
-		for(um = um->next; um != nil; um = um->next){
-			f = newmount(um->to, flg, um->spec);
-			*h = f;
-			h = &f->next;
-		}
-	}
-
-	if(m->mount != nil && order == MREPL){
-		mountfree(m->mount);
-		m->mount = nil;
-	}
-
-	if(flag & MCREATE)
-		nm->mflag |= MCREATE;
-
-	if(m->mount != nil && order == MAFTER){
-		for(f = m->mount; f->next != nil; f = f->next)
+	um = m->mount;
+	if(um != nil && order == MAFTER){
+		for(f = um; f->next != nil; f = f->next)
 			;
 		f->next = nm;
-	}else{
-		for(f = nm; f->next != nil; f = f->next)
-			;
-		f->next = m->mount;
+		um = nil;
+	} else {
+		if(order != MREPL){
+			for(f = nm; f->next != nil; f = f->next)
+				;
+			f->next = um;
+			um = nil;
+		}
 		m->mount = nm;
 	}
+	order = nm->mountid;
 	wunlock(&m->lock);
-	poperror();
-	return nm->mountid;
+	wunlock(&pg->ns);
+
+	mountfree(um);
+
+	return order;
 }
 
 void
@@ -857,13 +854,13 @@ findmount(Chan **cp, Mhead **mp, int type, int dev, Qid qid)
 	rlock(&pg->ns);
 	for(m = MOUNTH(pg, qid); m != nil; m = m->hash){
 		if(eqchantdqid(m->from, type, dev, qid, 1)){
-			rlock(&m->lock);
-			runlock(&pg->ns);
 			if(mp != nil)
 				incref(m);
+			rlock(&m->lock);
 			to = m->mount->to;
 			incref(to);
 			runlock(&m->lock);
+			runlock(&pg->ns);
 			if(mp != nil){
 				putmhead(*mp);
 				*mp = m;
@@ -1078,7 +1075,7 @@ walk(Chan **cp, char **names, int nnames, int nomount, int *nerror)
 				n = wq->nqid;
 				nc = wq->clone;
 			}else{		/* stopped early, at a mount point */
-				didmount = 1;
+				assert(didmount);
 				if(wq->clone != nil){
 					cclose(wq->clone);
 					wq->clone = nil;
@@ -1459,10 +1456,16 @@ namec(char *aname, int amode, int omode, ulong perm)
 		case Aopen:
 		case Acreate:
 			/* only save the mount head if it's a multiple element union */
-			if(m != nil && m->mount != nil && m->mount->next != nil)
-				c->umh = m;
-			else
-				putmhead(m);
+			if(m != nil) {
+				rlock(&m->lock);
+				if(m->mount != nil && m->mount->next != nil) {
+					c->umh = m;
+					runlock(&m->lock);
+				} else {
+					runlock(&m->lock);
+					putmhead(m);
+				}
+			}
 
 			/* save registers else error() in open has wrong value of c saved */
 			saveregisters();

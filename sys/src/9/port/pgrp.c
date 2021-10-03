@@ -62,16 +62,12 @@ closepgrp(Pgrp *p)
 	free(p);
 }
 
-void
+static void
 pgrpinsert(Mount **order, Mount *m)
 {
 	Mount *f;
 
 	m->order = nil;
-	if(*order == nil) {
-		*order = m;
-		return;
-	}
 	for(f = *order; f != nil; f = f->order) {
 		if(m->mountid < f->mountid) {
 			m->order = f;
@@ -90,15 +86,14 @@ void
 pgrpcpy(Pgrp *to, Pgrp *from)
 {
 	Mount *n, *m, **link, *order;
-	Mhead *f, **tom, **l, *mh;
+	Mhead *f, **l, *mh;
 	int i;
 
 	wlock(&to->ns);
 	rlock(&from->ns);
 	order = nil;
-	tom = to->mnthash;
 	for(i = 0; i < MNTHASH; i++) {
-		l = tom++;
+		l = &to->mnthash[i];
 		for(f = from->mnthash[i]; f != nil; f = f->hash) {
 			rlock(&f->lock);
 			mh = newmhead(f->from);
@@ -248,7 +243,7 @@ newmount(Chan *to, int flag, char *spec)
 	m->mflag = flag;
 	if(spec != nil)
 		kstrdup(&m->spec, spec);
-
+	setmalloctag(m, getcallerpc(&to));
 	return m;
 }
 
