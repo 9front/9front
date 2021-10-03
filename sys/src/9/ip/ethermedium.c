@@ -267,7 +267,7 @@ etherbwrite(Ipifc *ifc, Block *bp, int version, uchar *ip)
 		bp = multicastarp(er->f, a, ifc->m, mac);
 		if(bp == nil){
 			/* don't do anything if it's been less than a second since the last */
-			if(NOW - a->ctime < RETRANS_TIMER){
+			if(a->utime - a->ctime < RETRANS_TIMER){
 				arprelease(er->f->arp, a);
 				return;
 			}
@@ -284,6 +284,9 @@ etherbwrite(Ipifc *ifc, Block *bp, int version, uchar *ip)
 			return;
 		}
 	}
+
+	/* need to have single block */
+	assert(bp->list == nil);
 
 	/* make it a single block with space for the ether header */
 	bp = padblock(bp, ifc->m->hsize);

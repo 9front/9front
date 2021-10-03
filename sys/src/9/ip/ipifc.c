@@ -53,7 +53,7 @@ struct Ipmcast
 };
 
 /* quick hash for ip addresses */
-#define hashipa(a) ( ( ((a)[IPaddrlen-2]<<8) | (a)[IPaddrlen-1] )%NHASH )
+#define hashipa(a) (((a)[IPaddrlen-2] + (a)[IPaddrlen-1])%NHASH)
 
 static char tifc[] = "ifc ";
 
