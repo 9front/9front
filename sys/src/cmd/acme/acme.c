@@ -895,16 +895,14 @@ iconinit(void)
 		freeimage(colbutton);
 	}
 
-	r = Rect(0, 0, Scrollwid+2, font->height+1);
+	r = Rect(0, 0, Scrollwid, font->height+1);
 	button = allocimage(display, r, screen->chan, 0, DNofill);
 	draw(button, r, tagcols[BACK], nil, r.min);
-	r.max.x -= 2;
 	border(button, r, 2, tagcols[BORD], ZP);
 
 	r = button->r;
 	modbutton = allocimage(display, r, screen->chan, 0, DNofill);
 	draw(modbutton, r, tagcols[BACK], nil, r.min);
-	r.max.x -= 2;
 	border(modbutton, r, 2, tagcols[BORD], ZP);
 	r = insetrect(r, 2);
 	tmp = allocimage(display, Rect(0,0,1,1), screen->chan, 1, DMedblue);
