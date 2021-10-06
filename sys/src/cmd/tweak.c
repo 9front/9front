@@ -1731,6 +1731,7 @@ twrite(Thing *t)
 		if(writeimage(fd, t->b, 0)<0 || (t->s && writesubfont(fd, t->s)<0)){
 			close(fd);
 			mesg("can't write %s: %r", t->name);
+			return;
 		}
 	t->mod = 0;
 	close(fd);
