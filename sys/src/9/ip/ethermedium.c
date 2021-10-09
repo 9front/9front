@@ -21,12 +21,12 @@ static void	etherread4(void *a);
 static void	etherread6(void *a);
 static void	etherbind(Ipifc *ifc, int argc, char **argv);
 static void	etherunbind(Ipifc *ifc);
-static void	etherbwrite(Ipifc *ifc, Block *bp, int version, uchar *ip);
+static void	etherbwrite(Ipifc *ifc, Block *bp, int version, uchar *ip, Routehint *rh);
 static void	etheraddmulti(Ipifc *ifc, uchar *a, uchar *ia);
 static void	etherremmulti(Ipifc *ifc, uchar *a, uchar *ia);
 static void	etherareg(Fs *f, Ipifc *ifc, Iplifc *lifc, uchar *ip);
-static Block*	multicastarp(Fs *f, Arpent *a, Medium*, uchar *mac);
-static void	sendarpreq(Ipifc *ifc, Arpent *a);
+static Block*	multicastarp(Fs *f, Arpent *a, uchar *mac, Routehint *rh);
+static void	sendarpreq(Fs *f, Arpent *a);
 static int	multicastea(uchar *ea, uchar *ip);
 static void	recvarpproc(void*);
 static void	etherpref2addr(uchar *pref, uchar *ea);
@@ -253,7 +253,7 @@ etherunbind(Ipifc *ifc)
  *  called by ipoput with a single block to write with ifc rlock'd
  */
 static void
-etherbwrite(Ipifc *ifc, Block *bp, int version, uchar *ip)
+etherbwrite(Ipifc *ifc, Block *bp, int version, uchar *ip, Routehint *rh)
 {
 	Etherhdr *eh;
 	Arpent *a;
@@ -261,22 +261,22 @@ etherbwrite(Ipifc *ifc, Block *bp, int version, uchar *ip)
 	Etherrock *er = ifc->arg;
 
 	/* get mac address of destination */
-	a = arpget(er->f->arp, bp, version, ifc, ip, mac);
+	a = arpget(er->f->arp, bp, version, ifc, ip, mac, rh);
 	if(a != nil){
 		/* check for broadcast or multicast */
-		bp = multicastarp(er->f, a, ifc->m, mac);
+		bp = multicastarp(er->f, a, mac, rh);
 		if(bp == nil){
 			/* don't do anything if it's been less than a second since the last */
 			if(a->utime - a->ctime < RETRANS_TIMER){
-				arprelease(er->f->arp, a);
+				arprelease(er->f->arp, a);	/* unlocks arp */
 				return;
 			}
 			switch(version){
 			case V4:
-				sendarpreq(ifc, a);		/* unlocks arp */
+				sendarpreq(er->f, a);	/* unlocks arp */
 				break;
 			case V6:
-				ndpsendsol(er->f, ifc, a);	/* unlocks arp */
+				ndpsendsol(er->f, a);	/* unlocks arp */
 				break;
 			default:
 				panic("etherbwrite: version %d", version);
@@ -440,16 +440,17 @@ etherremmulti(Ipifc *ifc, uchar *a, uchar *)
  *  (only v4, v6 uses the neighbor discovery, rfc1970)
  */
 static void
-sendarpreq(Ipifc *ifc, Arpent *a)
+sendarpreq(Fs *f, Arpent *a)
 {
 	int n;
 	Block *bp;
 	Etherarp *e;
+	Ipifc *ifc = a->ifc;
 	Etherrock *er = ifc->arg;
 	uchar targ[IPv4addrlen], src[IPv4addrlen];
 
 	memmove(targ, a->ip+IPv4off, IPv4addrlen);
-	arpcontinue(er->f->arp, a);
+	arpcontinue(f->arp, a);
 
 	if(!ipv4local(ifc, src, 0, targ))
 		return;
@@ -668,19 +669,19 @@ multicastea(uchar *ea, uchar *ip)
  *  IP address.
  */
 static Block*
-multicastarp(Fs *f, Arpent *a, Medium *medium, uchar *mac)
+multicastarp(Fs *f, Arpent *a, uchar *mac, Routehint *rh)
 {
 	/* is it broadcast? */
 	if(ipforme(f, a->ip) == Rbcast){
-		memset(mac, 0xff, medium->maclen);
-		return arpresolve(f->arp, a, medium, mac);
+		memset(mac, 0xff, a->ifc->m->maclen);
+		return arpresolve(f->arp, a, mac, rh);
 	}
 
 	/* if multicast, fill in mac */
 	switch(multicastea(mac, a->ip)){
 	case V4:
 	case V6:
-		return arpresolve(f->arp, a, medium, mac);
+		return arpresolve(f->arp, a, mac, rh);
 	}
 
 	/* let arp take care of it */

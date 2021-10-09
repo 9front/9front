@@ -99,7 +99,7 @@ ipoput6(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
 	medialen = ifc->maxtu - ifc->m->hsize;
 	if(len <= medialen) {
 		hnputs(eh->ploadlen, len - IP6HDR);
-		ipifcoput(ifc, bp, V6, gate);
+		ipifcoput(ifc, bp, V6, gate, rh);
 		runlock(ifc);
 		poperror();
 		return 0;
@@ -195,7 +195,7 @@ ipoput6(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
 			if(xp->rp == xp->wp)
 				xp = xp->next;
 		}
-		ipifcoput(ifc, nb, V6, gate);
+		ipifcoput(ifc, nb, V6, gate, rh);
 		ip->stats[FragCreates]++;
 	}
 	ip->stats[FragOKs]++;
@@ -252,8 +252,8 @@ ipiput6(Fs *f, Ipifc *ifc, Block *bp)
 
 	/* route */
 	if(!ipforme(f, h->dst)) {
-		Route *r;
 		Routehint rh;
+		Route *r;
 		Ipifc *nifc;
 
 		if(!ip->iprouting)
@@ -268,6 +268,7 @@ ipiput6(Fs *f, Ipifc *ifc, Block *bp)
 			
 		/* don't forward to source's network */
 		rh.r = nil;
+		rh.a = nil;
 		r  = v6lookup(f, h->dst, h->src, &rh);
 		if(r == nil || (nifc = r->ifc) == nil || (r->type & Rv4) != 0
 		|| (nifc == ifc && !ifc->reflect)){

@@ -1332,6 +1332,7 @@ retry:
 	c->state = Idle;
 	ipmove(c->laddr, IPnoaddr);
 	ipmove(c->raddr, IPnoaddr);
+	c->a = nil;
 	c->r = nil;
 	c->rgen = 0;
 	c->lport = 0;

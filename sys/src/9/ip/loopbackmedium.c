@@ -71,7 +71,7 @@ loopbackunbind(Ipifc *ifc)
 }
 
 static void
-loopbackbwrite(Ipifc *ifc, Block *bp, int, uchar*)
+loopbackbwrite(Ipifc *ifc, Block *bp, int, uchar*, Routehint*)
 {
 	LB *lb;
 

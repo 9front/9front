@@ -19,7 +19,7 @@ nullunbind(Ipifc*)
 }
 
 static void
-nullbwrite(Ipifc*, Block *bp, int, uchar*)
+nullbwrite(Ipifc*, Block *bp, int, uchar*, Routehint*)
 {
 	freeb(bp);
 	error("nullbwrite");

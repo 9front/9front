@@ -153,7 +153,7 @@ ipoput4(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
 		eh->cksum[1] = 0;
 		hnputs(eh->cksum, ipcsum(&eh->vihl));
 
-		ipifcoput(ifc, bp, V4, gate);
+		ipifcoput(ifc, bp, V4, gate, rh);
 		runlock(ifc);
 		poperror();
 		return 0;
@@ -237,7 +237,7 @@ ipoput4(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
 		feh->cksum[1] = 0;
 		hnputs(feh->cksum, ipcsum(&feh->vihl));
 
-		ipifcoput(ifc, nb, V4, gate);
+		ipifcoput(ifc, nb, V4, gate, rh);
 		ip->stats[FragCreates]++;
 	}
 	ip->stats[FragOKs]++;
@@ -308,8 +308,8 @@ ipiput4(Fs *f, Ipifc *ifc, Block *bp)
 	/* route */
 	v4tov6(v6dst, h->dst);
 	if(!ipforme(f, v6dst)) {
-		Route *r;
 		Routehint rh;
+		Route *r;
 		Ipifc *nifc;
 
 		if(!ip->iprouting)
@@ -317,6 +317,7 @@ ipiput4(Fs *f, Ipifc *ifc, Block *bp)
 
 		/* don't forward to source's network */
 		rh.r = nil;
+		rh.a = nil;
 		r = v4lookup(f, h->dst, h->src, &rh);
 		if(r == nil || (nifc = r->ifc) == nil
 		|| (nifc == ifc && !ifc->reflect)){

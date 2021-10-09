@@ -9,7 +9,7 @@
 
 static void	netdevbind(Ipifc *ifc, int argc, char **argv);
 static void	netdevunbind(Ipifc *ifc);
-static void	netdevbwrite(Ipifc *ifc, Block *bp, int version, uchar *ip);
+static void	netdevbwrite(Ipifc *ifc, Block *bp, int version, uchar *ip, Routehint*);
 static void	netdevread(void *a);
 
 typedef struct	Netdevrock Netdevrock;
@@ -99,7 +99,7 @@ netdevunbind(Ipifc *ifc)
  *  called by ipoput with a single block to write
  */
 static void
-netdevbwrite(Ipifc *ifc, Block *bp, int, uchar*)
+netdevbwrite(Ipifc *ifc, Block *bp, int, uchar*, Routehint*)
 {
 	Netdevrock *er = ifc->arg;
 

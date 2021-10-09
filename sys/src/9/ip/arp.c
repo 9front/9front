@@ -19,6 +19,8 @@ enum
 
 	AOK		= 1,
 	AWAIT		= 2,
+
+	MAXAGE_TIMER	= 15*60*1000,
 };
 
 char *arpstate[] =
@@ -182,7 +184,7 @@ arplookup(Arp *arp, Ipifc *ifc, uchar *ip)
  *  waiting for ip->mac to be resolved.
  */
 Arpent*
-arpget(Arp *arp, Block *bp, int version, Ipifc *ifc, uchar *ip, uchar *mac)
+arpget(Arp *arp, Block *bp, int version, Ipifc *ifc, uchar *ip, uchar *mac, Routehint *rh)
 {
 	uchar v6ip[IPaddrlen];
 	Arpent *a;
@@ -191,15 +193,32 @@ arpget(Arp *arp, Block *bp, int version, Ipifc *ifc, uchar *ip, uchar *mac)
 		v4tov6(v6ip, ip);
 		ip = v6ip;
 	}
+
+	if(rh != nil
+	&& (a = rh->a) != nil
+	&& a->state == AOK
+	&& a->ifc == ifc
+	&& a->ifcid == ifc->ifcid
+	&& ipcmp(ip, a->ip) == 0){
+		memmove(mac, a->mac, ifc->m->maclen);
+		a->utime = NOW;
+		if(a->utime - a->ctime < MAXAGE_TIMER)
+			return nil;
+	}
+
 	rlock(arp);
 	if((a = arplookup(arp, ifc, ip)) != nil && a->state == AOK){
 		memmove(mac, a->mac, ifc->m->maclen);
 		a->utime = NOW;
-		if(a->utime - a->ctime < 15*60*1000){
+		if(a->utime - a->ctime < MAXAGE_TIMER){
+			if(rh != nil)
+				rh->a = a;
 			runlock(arp);
 			return nil;
 		}
 	}
+	if(rh != nil)
+		rh->a = nil;
 	runlock(arp);
 	wlock(arp);
 	if((a = arplookup(arp, ifc, ip)) == nil)
@@ -269,11 +288,11 @@ arprelease(Arp *arp, Arpent*)
  * called with arp locked
  */
 Block*
-arpresolve(Arp *arp, Arpent *a, Medium *type, uchar *mac)
+arpresolve(Arp *arp, Arpent *a, uchar *mac, Routehint *rh)
 {
 	Block *bp;
 
-	memmove(a->mac, mac, type->maclen);
+	memmove(a->mac, mac, a->ifc->m->maclen);
 	if(a->state == AWAIT) {
 		rxmtunchain(arp, a);
 		a->rxtsrem = 0;
@@ -282,6 +301,8 @@ arpresolve(Arp *arp, Arpent *a, Medium *type, uchar *mac)
 	a->hold = a->last = nil;
 	a->ctime = a->utime = NOW;
 	a->state = AOK;
+	if(rh != nil)
+		rh->a = a;
 	wunlock(arp);
 
 	return bp;
@@ -290,6 +311,7 @@ arpresolve(Arp *arp, Arpent *a, Medium *type, uchar *mac)
 int
 arpenter(Fs *fs, int version, uchar *ip, uchar *mac, int n, uchar *ia, Ipifc *ifc, int refresh)
 {
+	Routehint rh;
 	uchar v6ip[IPaddrlen];
 	Block *bp, *next;
 	Arpent *a;
@@ -299,14 +321,16 @@ arpenter(Fs *fs, int version, uchar *ip, uchar *mac, int n, uchar *ia, Ipifc *if
 	if(ifc->m == nil || ifc->m->maclen != n || ifc->m->maclen == 0)
 		return -1;
 
+	rh.r = nil;
+	rh.a = nil;
 	switch(version){
 	case V4:
-		r = v4lookup(fs, ip, ia, nil);
+		r = v4lookup(fs, ip, ia, &rh);
 		v4tov6(v6ip, ip);
 		ip = v6ip;
 		break;
 	case V6:
-		r = v6lookup(fs, ip, ia, nil);
+		r = v6lookup(fs, ip, ia, &rh);
 		break;
 	default:
 		panic("arpenter: version %d", version);
@@ -326,9 +350,9 @@ arpenter(Fs *fs, int version, uchar *ip, uchar *mac, int n, uchar *ia, Ipifc *if
 		}
 		a = newarpent(arp, ip, ifc);
 	}
+	bp = arpresolve(arp, a, mac, &rh);	/* unlocks arp */
 	if(version == V4)
 		ip += IPv4off;
-	bp = arpresolve(arp, a, ifc->m, mac);	/* unlocks arp */
 	for(; bp != nil; bp = next){
 		next = bp->list;
 		bp->list = nil;
@@ -336,7 +360,7 @@ arpenter(Fs *fs, int version, uchar *ip, uchar *mac, int n, uchar *ia, Ipifc *if
 			freeblistchain(next);
 			break;
 		}
-		ipifcoput(ifc, bp, version, ip);
+		ipifcoput(ifc, bp, version, ip, &rh);
 		poperror();
 	}
 	return 1;
@@ -496,8 +520,9 @@ arpread(Arp *arp, char *s, ulong offset, int len)
 }
 
 void
-ndpsendsol(Fs *f, Ipifc *ifc, Arpent *a)
+ndpsendsol(Fs *f, Arpent *a)
 {
+	Ipifc *ifc = a->ifc;
 	uchar targ[IPaddrlen], src[IPaddrlen];
 
 	if(a->rxtsrem == 0)
@@ -538,7 +563,7 @@ rxmt(Arp *arp)
 	while((a = arp->rxmt[0]) != nil && NOW - a->ctime > 3*RETRANS_TIMER/4){
 		if(a->rxtsrem > 0 && (ifc = a->ifc) != nil && canrlock(ifc)){
 			if(a->ifcid == ifc->ifcid){
-				ndpsendsol(arp->f, ifc, a);	/* unlocks arp */
+				ndpsendsol(arp->f, a);	/* unlocks arp */
 				runlock(ifc);
 
 				wlock(arp);

@@ -168,6 +168,7 @@ struct Routehint
 {
 	Route	*r;			/* last route used */
 	ulong	rgen;			/* routetable generation for *r */
+	Arpent	*a;			/* last arp entry used */
 };
 
 /*
@@ -232,7 +233,7 @@ struct Medium
 	int	maclen;		/* mac address length  */
 	void	(*bind)(Ipifc*, int, char**);
 	void	(*unbind)(Ipifc*);
-	void	(*bwrite)(Ipifc *ifc, Block *b, int version, uchar *ip);
+	void	(*bwrite)(Ipifc *ifc, Block *b, int version, uchar *ip, Routehint *rh);
 
 	/* for arming interfaces to receive multicast */
 	void	(*addmulti)(Ipifc *ifc, uchar *a, uchar *ia);
@@ -565,8 +566,8 @@ struct Route
 
 extern void	addroute(Fs *f, uchar *a, uchar *mask, uchar *s, uchar *smask, uchar *gate, int type, Ipifc *ifc, char *tag);
 extern void	remroute(Fs *f, uchar *a, uchar *mask, uchar *s, uchar *smask, uchar *gate, int type, Ipifc *ifc, char *tag);
-extern Route*	v4lookup(Fs *f, uchar *a, uchar *s, Routehint *h);
-extern Route*	v6lookup(Fs *f, uchar *a, uchar *s, Routehint *h);
+extern Route*	v4lookup(Fs *f, uchar *a, uchar *s, Routehint *rh);
+extern Route*	v6lookup(Fs *f, uchar *a, uchar *s, Routehint *rh);
 extern Route*	v4source(Fs *f, uchar *a, uchar *s);
 extern Route*	v6source(Fs *f, uchar *a, uchar *s);
 extern long	routeread(Fs *f, char*, ulong, int);
@@ -611,12 +612,12 @@ struct Arpent
 extern void	arpinit(Fs*);
 extern int	arpread(Arp*, char*, ulong, int);
 extern int	arpwrite(Fs*, char*, int);
-extern Arpent*	arpget(Arp*, Block *bp, int version, Ipifc *ifc, uchar *ip, uchar *h);
+extern Arpent*	arpget(Arp*, Block *bp, int version, Ipifc *ifc, uchar *ip, uchar *mac, Routehint *rh);
 extern void	arprelease(Arp*, Arpent *a);
 extern void	arpcontinue(Arp*, Arpent *a);
-extern Block*	arpresolve(Arp*, Arpent *a, Medium *type, uchar *mac);
+extern Block*	arpresolve(Arp*, Arpent *a, uchar *mac, Routehint *rh);
 extern int	arpenter(Fs*, int version, uchar *ip, uchar *mac, int n, uchar *ia, Ipifc *ifc, int refresh);
-extern void	ndpsendsol(Fs*, Ipifc*, Arpent*);
+extern void	ndpsendsol(Fs*, Arpent*);
 
 /*
  * ipaux.c
@@ -661,7 +662,7 @@ extern Medium	pktmedium;
  */
 extern Medium*	ipfindmedium(char *name);
 extern void	addipmedium(Medium *med);
-extern void	ipifcoput(Ipifc *ifc, Block *bp, int version, uchar *ip);
+extern void	ipifcoput(Ipifc *ifc, Block *bp, int version, uchar *ip, Routehint *rh);
 extern int	ipforme(Fs*, uchar *addr);
 extern int	ipismulticast(uchar *ip);
 extern Ipifc*	findipifc(Fs*, uchar *local, uchar *remote, int type);

@@ -10,7 +10,7 @@
 
 static void	pktbind(Ipifc*, int, char**);
 static void	pktunbind(Ipifc*);
-static void	pktbwrite(Ipifc*, Block*, int, uchar*);
+static void	pktbwrite(Ipifc*, Block*, int, uchar*, Routehint*);
 static void	pktin(Fs*, Ipifc*, Block*);
 
 Medium pktmedium =
@@ -49,7 +49,7 @@ pktunbind(Ipifc*)
  *  called by ipoput with a single packet to write
  */
 static void
-pktbwrite(Ipifc *ifc, Block *bp, int, uchar*)
+pktbwrite(Ipifc *ifc, Block *bp, int, uchar*, Routehint*)
 {
 	/* enqueue onto the conversation's rq */
 	if(ifc->conv->snoopers.ref > 0)

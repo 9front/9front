@@ -347,7 +347,7 @@ ipifcsetspeed(Ipifc *ifc, int speed)
 }
 
 void
-ipifcoput(Ipifc *ifc, Block *bp, int version, uchar *ip)
+ipifcoput(Ipifc *ifc, Block *bp, int version, uchar *ip, Routehint *rh)
 {
 	if(ifc->speed){
 		ulong now = MACHP(0)->ticks;
@@ -363,7 +363,7 @@ ipifcoput(Ipifc *ifc, Block *bp, int version, uchar *ip)
 	}
 	bp = concatblock(bp);
 	ifc->load += BLEN(bp);
-	ifc->m->bwrite(ifc, bp, version, ip);
+	ifc->m->bwrite(ifc, bp, version, ip, rh);
 }
 
 
