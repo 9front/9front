@@ -353,7 +353,7 @@ cachebody(Mailbox *mb, Message *m)
 	if(mb->fetch == nil || m->cstate&Cbody)
 		return 0;
 	o = m->end - m->start;
-	dprint("cachebody %lud [%D] %lud %lud %s", m->id, m->fileid, o, m->size, cstate(m));
+	dprint("cachebody %lud [%D] %lud %lud %s\n", m->id, m->fileid, o, m->size, cstate(m));
 	if(o < m->size)
 	if(fetch(mb, m, o, m->size - o) < 0)
 		return -1;
