@@ -99,15 +99,15 @@ returns the Point
 .PP
 .I Rectaddpt
 returns the Rectangle
-.BI Rect(add( r .min,
+.BI Rpt(addpt( r .min,
 .IB p ) \f1,
-.BI add( r .max,
+.BI addpt( r .max,
 .IB p )) \f1;
 .I rectsubpt
 returns the Rectangle
-.BI Rpt(sub( r .min,
+.BI Rpt(subpt( r .min,
 .IB p ),
-.BI sub( r .max,
+.BI subpt( r .max,
 .IB p ))\fR.
 .PP
 .I Insetrect
