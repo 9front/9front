@@ -47,14 +47,10 @@ allocroute(int type)
 		l = &v6freelist;
 	}
 
-	r = *l;
-	if(r != nil){
+	if((r = *l) != nil)
 		*l = r->mid;
-	} else {
-		r = malloc(n);
-		if(r == nil)
-			panic("out of routing nodes");
-	}
+	else
+		r = smalloc(n);
 	memset(r, 0, n);
 	r->type = type;
 	r->ifc = nil;
@@ -388,7 +384,7 @@ looknodetag(Route *r, char *tag)
 static void
 routeadd(Fs *f, Route *r)
 {
-	Route **h, **e, *p;
+	Route **h, **e, *p, *q;
 
 	if(r->type & Rv4){
 		h = &f->v4root[V4H(r->v4.address)];
@@ -414,8 +410,9 @@ routeadd(Fs *f, Route *r)
 		addnode(f, h, p);
 		while((p = f->queue) != nil) {
 			f->queue = p->mid;
-			walkadd(f, h, p->left);
+			q = p->left;
 			freeroute(p);
+			walkadd(f, h, q);
 		}
 	}
 
@@ -428,7 +425,7 @@ routeadd(Fs *f, Route *r)
 static void
 routerem(Fs *f, Route *r)
 {
-	Route **h, **e, **l, *p;
+	Route **h, **e, **l, *p, *q;
 
 	if(r->type & Rv4){
 		h = &f->v4root[V4H(r->v4.address)];
@@ -452,8 +449,9 @@ routerem(Fs *f, Route *r)
 
 		while((p = f->queue) != nil) {
 			f->queue = p->mid;
-			walkadd(f, h, p->left);
+			q = p->left;
 			freeroute(p);
+			walkadd(f, h, q);
 		}
 	}
 
@@ -605,9 +603,11 @@ v4lookup(Fs *f, uchar *a, uchar *s, Routehint *rh)
 	&& q->ref > 0)
 		return q;
 
+	q = nil;
 	la = nhgetl(a);
 	ls = nhgetl(s);
-	q = nil;
+
+	rlock(&routelock);
 	for(p = f->v4root[V4H(la)]; p != nil;){
 		if(la < p->v4.address){
 			p = p->left;
@@ -630,15 +630,15 @@ v4lookup(Fs *f, uchar *a, uchar *s, Routehint *rh)
 		q = p;
 		p = p->mid;
 	}
-
-	if(q == nil || q->ref == 0 || routefindipifc(q, f) == nil)
-		return nil;
-
-	if(rh != nil){
-		rh->r = q;
-		rh->rgen = v4routegeneration;
+	if(q != nil){
+		if(routefindipifc(q, f) == nil)
+			q = nil;
+		else if(rh != nil){
+			rh->r = q;
+			rh->rgen = v4routegeneration;
+		}
 	}
-
+	runlock(&routelock);
 	return q;
 }
 
@@ -665,12 +665,13 @@ v6lookup(Fs *f, uchar *a, uchar *s, Routehint *rh)
 	&& q->ref > 0)
 		return q;
 
+	q = nil;
 	for(h = 0; h < IPllen; h++){
 		la[h] = nhgetl(a+4*h);
 		ls[h] = nhgetl(s+4*h);
 	}
 
-	q = nil;
+	rlock(&routelock);
 	for(p = f->v6root[V6H(la)]; p != nil;){
 		for(h = 0; h < IPllen; h++){
 			x = la[h];
@@ -722,15 +723,15 @@ v6lookup(Fs *f, uchar *a, uchar *s, Routehint *rh)
 		p = p->mid;
 next:		;
 	}
-
-	if(q == nil || q->ref == 0 || routefindipifc(q, f) == nil)
-		return nil;
-
-	if(rh != nil){
-		rh->r = q;
-		rh->rgen = v6routegeneration;
+	if(q != nil){
+		if(routefindipifc(q, f) == nil)
+			q = nil;
+		else if(rh != nil){
+			rh->r = q;
+			rh->rgen = v6routegeneration;
+		}
 	}
-	
+	runlock(&routelock);
 	return q;
 }
 
