@@ -383,7 +383,7 @@ looknodetag(Route *r, char *tag)
 }
 
 #define	V4H(a)	((a&0x07ffffff)>>(32-Lroot-5))
-#define	V6H(a)	(((a)[IPllen-1]&0x07ffffff)>>(32-Lroot-5))
+#define	V6H(a)	(((a)[0]&0x80000000)>>(32-Lroot) | ((a)[(IPllen/2)-1]&(0xffff>>(16-Lroot))))
 
 static void
 routeadd(Fs *f, Route *r)
