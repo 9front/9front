@@ -230,6 +230,7 @@ ulong		perfticks(void);
 void		pexit(char*, int);
 void		pgrpcpy(Pgrp*, Pgrp*);
 ulong		pidalloc(Proc*);
+#define		waserror()		setlabel(&up->errlab[up->nerrlab++])
 #define		poperror()		up->nerrlab--
 void		portcountpagerefs(ulong*, int);
 int		postnote(Proc*, int, char*, int);

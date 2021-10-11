@@ -16,7 +16,6 @@ void procsetup(Proc *);
 KMap* kmap(Page *);
 void kunmap(KMap *);
 
-#define	waserror()	(up->nerrlab++, setlabel(&up->errlab[up->nerrlab-1]))
 #define getpgcolor(a) 0
 #define kmapinval()
 #define KADDR(a) kaddr(a)

@@ -177,6 +177,5 @@ int	xchgw(ushort*, int);
 void	rdrandbuf(void*, ulong);
 
 #define	userureg(ur)	(((ur)->cs & 3) == 3)
-#define	waserror()	(up->nerrlab++, setlabel(&up->errlab[up->nerrlab-1]))
 #define	KADDR(a)	kaddr(a)
 #define PADDR(a)	paddr((void*)(a))

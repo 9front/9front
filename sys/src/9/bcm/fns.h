@@ -133,8 +133,6 @@ extern void sysprocsetup(Proc*);
 #define	kmapinval()
 #define countpagerefs(a, b)
 
-#define	waserror()	(up->nerrlab++, setlabel(&up->errlab[up->nerrlab-1]))
-
 #define KADDR(pa)	((void*)(KZERO | ((uintptr)(pa) & ~KSEGM)))
 #define PADDR(va)	(PHYSDRAM | ((uintptr)(va) & ~KSEGM))
 

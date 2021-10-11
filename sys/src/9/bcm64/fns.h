@@ -1,7 +1,5 @@
 #include "../port/portfns.h"
 
-#define	waserror()	(up->nerrlab++, setlabel(&up->errlab[up->nerrlab-1]))
-
 /* l.s */
 extern void sev(void);
 extern int tas(void *);

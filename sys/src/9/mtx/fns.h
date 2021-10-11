@@ -89,6 +89,5 @@ void	tlbflushall(void);
 #define	userureg(ur) (((ur)->status & MSR_PR) != 0)
 void	watchreset(void);
 
-#define	waserror()	(up->nerrlab++, setlabel(&up->errlab[up->nerrlab-1]))
 #define KADDR(a)	((void*)((ulong)(a)|KZERO))
 #define PADDR(a)	((ulong)(a)&~KZERO)

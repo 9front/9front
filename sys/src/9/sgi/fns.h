@@ -63,8 +63,6 @@ void	wrcount(ulong);
 #define PTR2UINT(p)	((uintptr)(p))
 #define UINT2PTR(i)	((void*)(i))
 
-#define	waserror()	(up->nerrlab++, setlabel(&up->errlab[up->nerrlab-1]))
-
 #define KADDR(a)	((void*)((ulong)(a)|KSEG0))
 #define PADDR(a)	((ulong)(a)&~KSEGM)
 

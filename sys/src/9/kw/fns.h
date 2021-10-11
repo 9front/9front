@@ -143,8 +143,6 @@ void	vunmap(void*, usize);
 #define	getpgcolor(a)	0
 #define	kmapinval()
 
-#define	waserror()	(up->nerrlab++, setlabel(&up->errlab[up->nerrlab-1]))
-
 /*
  * this low-level printing stuff is ugly,
  * but there appears to be no other way to

@@ -92,7 +92,6 @@ uint	xchgw(ushort*, uint);
 uint	xchgb(uchar*, uint);
 void	rdrandbuf(void*, ulong);
 
-#define	waserror()	(up->nerrlab++, setlabel(&up->errlab[up->nerrlab-1]))
 #define KADDR(a)	((void*)((ulong)(a)|KZERO))
 #define PADDR(a)	((ulong)(a)&~KZERO)
 

@@ -160,8 +160,6 @@ void	vunmap(void*, usize);
 #define	getpgcolor(a)	0
 #define	kmapinval()
 
-#define	waserror()	(up->nerrlab++, setlabel(&up->errlab[up->nerrlab-1]))
-
 #define KADDR(pa)	((void*)(KZERO | ((uintptr)(pa) & ~KSEGM)))
 #define PADDR(va)	(PHYSDRAM | ((uintptr)(va) & ~KSEGM))
 
