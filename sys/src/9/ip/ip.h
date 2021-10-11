@@ -164,6 +164,12 @@ struct Ip4hdr
 	uchar	dst[4];		/* IP destination */
 };
 
+/*
+ *  cache for route and arp table lookups.
+ *  one per Conv so conversations with a
+ *  fixed target can avoid the per packet
+ *  lookup overhead.
+ */ 
 struct Routehint
 {
 	Route	*r;			/* last route used */
