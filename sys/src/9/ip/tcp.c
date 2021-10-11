@@ -90,8 +90,11 @@ enum
 	Defadvscale	= 4,		/* default advertisement */
 };
 
+/* negative return from ipoput means no route */
+static char Enoroute[] = "no route";
+
 /* Must correspond to the enumeration above */
-char *tcpstates[] =
+static char *tcpstates[] =
 {
 	"Closed", 	"Listen", 	"Syn_sent", "Syn_received",
 	"Established", 	"Finwait1",	"Finwait2", "Close_wait",
@@ -405,7 +408,7 @@ struct Tcppriv
  */
 int tcpporthogdefense = 0;
 
-static	int	addreseq(Fs*, Tcpctl*, Tcppriv*, Tcp*, Block*, ushort);
+static	int	addreseq(Fs*, Tcpctl*, Tcppriv*, Tcp*, Block**, ushort);
 static	int	dumpreseq(Tcpctl*);
 static	void	getreseq(Tcpctl*, Tcp*, Block**, ushort*);
 static	void	limbo(Conv*, uchar*, uchar*, Tcp*, int);
@@ -815,7 +818,7 @@ backoff(int n)
 }
 
 static void
-localclose(Conv *s, char *reason)	/* called with tcb locked */
+localclose(Conv *s, char *reason)	/* called with c locked */
 {
 	Tcpctl *tcb;
 	Tcppriv *tpriv;
@@ -1186,6 +1189,7 @@ ntohtcp6(Tcp *tcph, Block **bpp)
 	hdrlen = (h->tcpflag[0]>>2) & ~3;
 	if(hdrlen < TCP6_HDRSIZE) {
 		freeblist(*bpp);
+		*bpp = nil;
 		return -1;
 	}
 
@@ -1250,6 +1254,7 @@ ntohtcp4(Tcp *tcph, Block **bpp)
 	hdrlen = (h->tcpflag[0]>>2) & ~3;
 	if(hdrlen < TCP4_HDRSIZE) {
 		freeblist(*bpp);
+		*bpp = nil;
 		return -1;
 	}
 
@@ -1318,8 +1323,8 @@ tcpsndsyn(Conv *s, Tcpctl *tcb)
 	tpriv->stats[Mss] = tcb->mss;
 }
 
-void
-sndrst(Proto *tcp, uchar *source, uchar *dest, ushort length, Tcp *seg, uchar version, char *reason)
+static int
+sndrst(Proto *tcp, uchar *source, uchar *dest, ushort length, Tcp *seg, uchar version, char *reason, Routehint *rh)
 {
 	Block *hbp;
 	uchar rflags;
@@ -1332,7 +1337,7 @@ sndrst(Proto *tcp, uchar *source, uchar *dest, ushort length, Tcp *seg, uchar ve
 	tpriv = tcp->priv;
 
 	if(seg->flags & RST)
-		return;
+		return -1;
 
 	/* make pseudo header */
 	switch(version) {
@@ -1386,19 +1391,12 @@ sndrst(Proto *tcp, uchar *source, uchar *dest, ushort length, Tcp *seg, uchar ve
 	switch(version) {
 	case V4:
 		hbp = htontcp4(seg, nil, &ph4, nil);
-		if(hbp == nil)
-			return;
-		ipoput4(tcp->f, hbp, 0, MAXTTL, DFLTTOS, nil);
-		break;
+		return ipoput4(tcp->f, hbp, 0, MAXTTL, DFLTTOS, rh);
 	case V6:
 		hbp = htontcp6(seg, nil, &ph6, nil);
-		if(hbp == nil)
-			return;
-		ipoput6(tcp->f, hbp, 0, MAXTTL, DFLTTOS, nil);
-		break;
-	default:
-		panic("sndrst2: version %d", version);
+		return ipoput6(tcp->f, hbp, 0, MAXTTL, DFLTTOS, rh);
 	}
+	return -1;
 }
 
 /*
@@ -1454,11 +1452,18 @@ tcphangup(Conv *s)
 static int
 sndsynack(Proto *tcp, Limbo *lp)
 {
+	Routehint rh;
+	Route *rt;
 	Block *hbp;
 	Tcp4hdr ph4;
 	Tcp6hdr ph6;
 	Tcp seg;
 	uint scale;
+
+	rh.r = nil;
+	rh.a = nil;
+	if((rt = v6lookup(tcp->f, lp->raddr, lp->laddr, &rh)) == nil)
+		return -1;
 
 	/* make pseudo header */
 	switch(lp->version) {
@@ -1483,7 +1488,7 @@ sndsynack(Proto *tcp, Limbo *lp)
 		hnputs(ph6.tcpdport, lp->rport);
 		break;
 	default:
-		panic("sndrst: version %d", lp->version);
+		panic("sndsynack: version %d", lp->version);
 	}
 
 	memset(&seg, 0, sizeof seg);
@@ -1491,7 +1496,7 @@ sndsynack(Proto *tcp, Limbo *lp)
 	seg.ack = lp->irs+1;
 	seg.flags = SYN|ACK;
 	seg.urg = 0;
-	seg.mss = tcpmtu(v6lookup(tcp->f, lp->raddr, lp->laddr, nil), lp->version, &scale);
+	seg.mss = tcpmtu(rt, lp->version, &scale);
 	seg.wnd = QMAX;
 
 	/* if the other side set scale, we should too */
@@ -1502,25 +1507,17 @@ sndsynack(Proto *tcp, Limbo *lp)
 		seg.ws = 0;
 		lp->sndscale = 0;
 	}
+	lp->lastsend = NOW;
 
 	switch(lp->version) {
 	case V4:
 		hbp = htontcp4(&seg, nil, &ph4, nil);
-		if(hbp == nil)
-			return -1;
-		ipoput4(tcp->f, hbp, 0, MAXTTL, DFLTTOS, nil);
-		break;
+		return ipoput4(tcp->f, hbp, 0, MAXTTL, DFLTTOS, &rh);
 	case V6:
 		hbp = htontcp6(&seg, nil, &ph6, nil);
-		if(hbp == nil)
-			return -1;
-		ipoput6(tcp->f, hbp, 0, MAXTTL, DFLTTOS, nil);
-		break;
-	default:
-		panic("sndsnack: version %d", lp->version);
+		return ipoput6(tcp->f, hbp, 0, MAXTTL, DFLTTOS, &rh);
 	}
-	lp->lastsend = NOW;
-	return 0;
+	return -1;
 }
 
 #define hashipa(a, p) ( ( (a)[IPaddrlen-2] + (a)[IPaddrlen-1] + p )&LHTMASK )
@@ -1600,6 +1597,10 @@ limborexmit(Proto *tcp)
 
 	if(!canqlock(tcp))
 		return;
+	if(waserror()){
+		qunlock(tcp);
+		return;
+	}
 	seen = 0;
 	now = NOW;
 	for(h = 0; h < NLHT && seen < tpriv->nlimbo; h++){
@@ -1622,8 +1623,8 @@ limborexmit(Proto *tcp)
 				continue;
 
 			if(sndsynack(tcp, lp) < 0){
-				tpriv->nlimbo--;
 				*l = lp->next;
+				tpriv->nlimbo--;
 				free(lp);
 				continue;
 			}
@@ -1632,6 +1633,7 @@ limborexmit(Proto *tcp)
 		}
 	}
 	qunlock(tcp);
+	poperror();
 }
 
 /*
@@ -2073,6 +2075,7 @@ tcpiput(Proto *tcp, Ipifc*, Block *bp)
 	Conv *s;
 	Fs *f;
 	Tcppriv *tpriv;
+	char *reason;
 	uchar version;
 
 	f = tcp->f;
@@ -2173,8 +2176,8 @@ tcpiput(Proto *tcp, Ipifc*, Block *bp)
 			source, seg.source, dest, seg.dest);
 reset:
 		qunlock(tcp);
-		sndrst(tcp, source, dest, length, &seg, version, "no conversation");
 		freeblist(bp);
+		sndrst(tcp, source, dest, length, &seg, version, "no conversation", nil);
 		return;
 	}
 
@@ -2190,9 +2193,9 @@ reset:
 
 		/* if this is a new SYN, put the call into limbo */
 		if((seg.flags & SYN) && (seg.flags & ACK) == 0){
+			freeblist(bp);
 			limbo(s, source, dest, &seg, version);
 			qunlock(tcp);
-			freeblist(bp);
 			return;
 		}
 
@@ -2225,14 +2228,18 @@ reset:
 
 	switch(tcb->state) {
 	case Closed:
-		sndrst(tcp, source, dest, length, &seg, version, "sending to Closed");
+	closed:
+		reason = "sending to Closed";
+	reset2:
+		freeblist(bp);
+		bp = nil;
+		sndrst(tcp, source, dest, length, &seg, version, reason, s);
 		goto raise;
 	case Syn_sent:
 		if(seg.flags & ACK) {
 			if(!seq_within(seg.ack, tcb->iss+1, tcb->snd.nxt)) {
-				sndrst(tcp, source, dest, length, &seg, version,
-					 "bad seq in Syn_sent");
-				goto raise;
+				reason = "bad seq in Syn_sent";
+				goto reset2;
 			}
 		}
 		if(seg.flags & RST) {
@@ -2256,15 +2263,12 @@ reset:
 
 			if(length != 0 || (seg.flags & FIN))
 				break;
-
 			freeblist(bp);
 			goto output;
 		}
-		else
-			freeblist(bp);
-
 		qunlock(s);
 		poperror();
+		freeblist(bp);
 		return;
 	case Syn_received:
 		/* doesn't matter if it's the correct ack, we're just trying to set timing */
@@ -2315,10 +2319,8 @@ reset:
 	}
 
 	/* Cannot accept so answer with a rst */
-	if(length && tcb->state == Closed) {
-		sndrst(tcp, source, dest, length, &seg, version, "sending to Closed");
-		goto raise;
-	}
+	if(length && tcb->state == Closed)
+		goto closed;
 
 	/* The segment is beyond the current receive pointer so
 	 * queue the data in the resequence queue
@@ -2326,7 +2328,7 @@ reset:
 	if(seg.seq != tcb->rcv.nxt)
 	if(length != 0 || (seg.flags & (SYN|FIN))) {
 		update(s, &seg);
-		if(addreseq(f, tcb, tpriv, &seg, bp, length) < 0)
+		if(addreseq(f, tcb, tpriv, &seg, &bp, length) < 0)
 			print("reseq %I.%d -> %I.%d\n", s->raddr, s->rport, s->laddr, s->lport);
 		tcb->flags |= FORCE;		/* force duplicate ack; RFC 5681 §3.2 */
 		goto output;
@@ -2344,7 +2346,8 @@ reset:
 			if(tcb->state == Established) {
 				tpriv->stats[EstabResets]++;
 				if(tcb->rcv.nxt != seg.seq)
-					print("out of order RST rcvd: %I.%d -> %I.%d, rcv.nxt %lux seq %lux\n", s->raddr, s->rport, s->laddr, s->lport, tcb->rcv.nxt, seg.seq);
+					print("out of order RST rcvd: %I.%d -> %I.%d, rcv.nxt %lux seq %lux\n",
+						s->raddr, s->rport, s->laddr, s->lport, tcb->rcv.nxt, seg.seq);
 			}
 			localclose(s, Econrefused);
 			goto raise;
@@ -2356,9 +2359,8 @@ reset:
 		switch(tcb->state) {
 		case Syn_received:
 			if(!seq_within(seg.ack, tcb->snd.una+1, tcb->snd.nxt)){
-				sndrst(tcp, source, dest, length, &seg, version,
-					"bad seq in Syn_received");
-				goto raise;
+				reason = "bad seq in Syn_received";
+				goto reset2;
 			}
 			update(s, &seg);
 			tcpsetstate(s, Established);
@@ -2416,15 +2418,15 @@ reset:
 			tcb->rcv.urg = tcb->rcv.nxt;
 
 		if(length == 0) {
-			if(bp != nil)
-				freeblist(bp);
+			freeblist(bp);
+			bp = nil;
 		}
 		else {
 			switch(tcb->state){
 			default:
 				/* Ignore segment text */
-				if(bp != nil)
-					freeblist(bp);
+				freeblist(bp);
+				bp = nil;
 				break;
 
 			case Syn_received:
@@ -2433,7 +2435,7 @@ reset:
 				/* If we still have some data place on
 				 * receive queue
 				 */
-				if(bp) {
+				if(bp != nil) {
 					qpassnolim(s->rq, packblock(bp));
 					bp = nil;
 				}
@@ -2448,14 +2450,8 @@ reset:
 
 				break;
 			case Finwait2:
-				/* no process to read the data, send a reset */
-				if(bp != nil)
-					freeblist(bp);
-				sndrst(tcp, source, dest, length, &seg, version,
-					"send to Finwait2");
-				qunlock(s);
-				poperror();
-				return;
+				reason = "send to Finwait2";
+				goto reset2;
 			}
 		}
 
@@ -2700,18 +2696,10 @@ tcpoutput(Conv *s)
 		case V4:
 			tcb->protohdr.tcp4hdr.vihl = IP_VER4;
 			hbp = htontcp4(&seg, bp, &tcb->protohdr.tcp4hdr, tcb);
-			if(hbp == nil) {
-				freeblist(bp);
-				return;
-			}
 			break;
 		case V6:
 			tcb->protohdr.tcp6hdr.vcf[0] = IP_VER6;
 			hbp = htontcp6(&seg, bp, &tcb->protohdr.tcp6hdr, tcb);
-			if(hbp == nil) {
-				freeblist(bp);
-				return;
-			}
 			break;
 		default:
 			hbp = nil;	/* to suppress a warning */
@@ -2751,19 +2739,13 @@ tcpoutput(Conv *s)
 
 		switch(version){
 		case V4:
-			if(ipoput4(f, hbp, 0, s->ttl, s->tos, s) < 0){
-				/* a negative return means no route */
-				localclose(s, "no route");
-			}
+			if(ipoput4(f, hbp, 0, s->ttl, s->tos, s) < 0)
+				localclose(s, Enoroute);
 			break;
 		case V6:
-			if(ipoput6(f, hbp, 0, s->ttl, s->tos, s) < 0){
-				/* a negative return means no route */
-				localclose(s, "no route");
-			}
+			if(ipoput6(f, hbp, 0, s->ttl, s->tos, s) < 0)
+				localclose(s, Enoroute);
 			break;
-		default:
-			panic("tcpoutput2: version %d", version);
 		}
 		if((msgs%4) == 3){
 			qunlock(s);
@@ -2775,7 +2757,7 @@ tcpoutput(Conv *s)
 /*
  *  the BSD convention (hack?) for keep alives.  resend last uchar acked.
  */
-static void
+static int
 tcpsendka(Conv *s)
 {
 	Tcp seg;
@@ -2811,21 +2793,13 @@ tcpsendka(Conv *s)
 		/* Build header, link data and compute cksum */
 		tcb->protohdr.tcp4hdr.vihl = IP_VER4;
 		hbp = htontcp4(&seg, dbp, &tcb->protohdr.tcp4hdr, tcb);
-		if(hbp == nil) {
-			freeblist(dbp);
-			return;
-		}
-		ipoput4(s->p->f, hbp, 0, s->ttl, s->tos, s);
+		return ipoput4(s->p->f, hbp, 0, s->ttl, s->tos, s);
 	}
 	else {
 		/* Build header, link data and compute cksum */
 		tcb->protohdr.tcp6hdr.vcf[0] = IP_VER6;
 		hbp = htontcp6(&seg, dbp, &tcb->protohdr.tcp6hdr, tcb);
-		if(hbp == nil) {
-			freeblist(dbp);
-			return;
-		}
-		ipoput6(s->p->f, hbp, 0, s->ttl, s->tos, s);
+		return ipoput6(s->p->f, hbp, 0, s->ttl, s->tos, s);
 	}
 }
 
@@ -2860,8 +2834,9 @@ tcpkeepalive(void *v)
 	if(tcb->state != Closed){
 		if(--(tcb->kacounter) <= 0) {
 			localclose(s, Etimedout);
+		} else if(tcpsendka(s) < 0) {
+			localclose(s, Enoroute);
 		} else {
-			tcpsendka(s);
 			tcpgo(s->p->priv, &tcb->katimer);
 		}
 	}
@@ -3078,20 +3053,22 @@ logreseq(Fs *f, Reseq *r, ulong n)
 }
 
 static int
-addreseq(Fs *f, Tcpctl *tcb, Tcppriv *tpriv, Tcp *seg, Block *bp, ushort length)
+addreseq(Fs *f, Tcpctl *tcb, Tcppriv *tpriv, Tcp *seg, Block **bpp, ushort length)
 {
 	Reseq *rp, **rr;
 	int qmax;
 
 	rp = malloc(sizeof(Reseq));
 	if(rp == nil){
-		freeblist(bp);	/* bp always consumed by addreseq */
+		freeblist(*bpp);	/* *bpp always consumed by addreseq */
+		*bpp = nil;
 		return 0;
 	}
 
 	rp->seg = *seg;
-	rp->bp = bp;
+	rp->bp = *bpp;
 	rp->length = length;
+	*bpp = nil;
 
 	tcb->reseqlen += length;
 	tcb->nreseq++;
@@ -3177,6 +3154,7 @@ tcptrim(Tcpctl *tcb, Tcp *seg, Block **bp, ushort *length)
 	}
 	if(!accept) {
 		freeblist(*bp);
+		*bp = nil;
 		return -1;
 	}
 	dupcnt = tcb->rcv.nxt - seg->seq;
