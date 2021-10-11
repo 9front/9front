@@ -801,7 +801,7 @@ static Srv fs = {
 static void
 usage(void)
 {
-	fprint(2, "usgae:\t%s [-Dpt] [-s srvname] [-m mountpoint]\n", argv0);
+	fprint(2, "usage:\t%s [-Dpt] [-s srvname] [-m mountpoint]\n", argv0);
 	exits("usage");
 }
 
