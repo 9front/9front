@@ -28,8 +28,6 @@ main(int argc, char **argv)
 
 	rfork(RFREND);
 	mainp = &p;
-	if(setjmp(_mainjmp))
-		_schedinit(p);
 
 //_threaddebuglevel = (DBGSCHED|DBGCHAN|DBGREND)^~0;
 	_systhreadinit();
@@ -45,6 +43,7 @@ main(int argc, char **argv)
 	a->argv = argv;
 
 	p = _newproc(mainlauncher, a, mainstacksize, "threadmain", 0, 0);
+	setjmp(_mainjmp);
 	_schedinit(p);
 	abort();	/* not reached */
 }
@@ -117,18 +116,6 @@ void
 _schedexit(Proc *p)
 {
 	char ex[ERRMAX];
-	Proc **l;
-
-	lock(&_threadpq.lock);
-	for(l=&_threadpq.head; *l; l=&(*l)->next){
-		if(*l == p){
-			*l = p->next;
-			if(*l == nil)
-				_threadpq.tail = l;
-			break;
-		}
-	}
-	unlock(&_threadpq.lock);
 
 	utfecpy(ex, ex+sizeof ex, p->exitstr);
 	free(p);

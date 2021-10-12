@@ -2,7 +2,6 @@
 #include <libc.h>
 #include <thread.h>
 #include "threadimpl.h"
-#include <tos.h>
 
 int
 threadid(void)

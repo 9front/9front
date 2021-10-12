@@ -2,15 +2,9 @@
 #include <libc.h>
 #include <thread.h>
 #include "threadimpl.h"
-#include <tos.h>
-
-static Thread	*runthread(Proc*);
 
 static char *_psstate[] = {
-	"Moribund",
 	"Dead",
-	"Exec",
-	"Fork",
 	"Running",
 	"Ready",
 	"Rendezvous",
@@ -24,6 +18,23 @@ psstate(int s)
 	return _psstate[s];
 }
 
+static void
+unlinkproc(Proc *p)
+{
+	Proc **l;
+
+	lock(&_threadpq.lock);
+	for(l=&_threadpq.head; *l; l=&(*l)->next){
+		if(*l == p){
+			*l = p->next;
+			if(*l == nil)
+				_threadpq.tail = l;
+			break;
+		}
+	}
+	unlock(&_threadpq.lock);
+}
+
 void
 _schedinit(void *arg)
 {
@@ -31,8 +42,8 @@ _schedinit(void *arg)
 	Thread *t, **l;
 
 	p = arg;
+	p->pid = getpid();
 	_threadsetproc(p);
-	p->pid = _tos->pid; //getpid();
 	while(setjmp(p->sched))
 		;
 	_threaddebug(DBGSCHED, "top of schedinit, _threadexitsallstatus=%p", _threadexitsallstatus);
@@ -67,8 +78,15 @@ _schedinit(void *arg)
 			p->needexec = 0;
 		}
 		if(p->newproc){
-			t->ret = _schedfork(p->newproc);
-			p->newproc = nil;
+			Thread *x = p->newproc->threads.head;
+			if(x->moribund){
+				x->proc = p;
+				_threadready(x);
+				unlinkproc(p->newproc);
+				free(p->newproc);
+				p->newproc = nil;
+			} else if(_schedfork(p->newproc) != -1)
+				p->newproc = nil;
 		}
 		t->state = t->nextstate;
 		if(t->state == Ready)
@@ -90,41 +108,9 @@ needstack(int n)
 	
 	if((uchar*)&x - n < (uchar*)t->stk){
 		fprint(2, "%s %lud: &x=%p n=%d t->stk=%p\n",
-			argv0, _tos->pid, &x, n, t->stk);
-		fprint(2, "%s %lud: stack overflow\n", argv0, _tos->pid);
+			argv0, (ulong)p->pid, &x, n, t->stk);
+		fprint(2, "%s %lud: stack overflow\n", argv0, (ulong)p->pid);
 		abort();
-	}
-}
-
-void
-_sched(void)
-{
-	Proc *p;
-	Thread *t;
-
-Resched:
-	p = _threadgetproc();
-	if((t = p->thread) != nil){
-		needstack(128);
-		_threaddebug(DBGSCHED, "pausing, state=%s", psstate(t->state));
-		if(setjmp(t->sched)==0)
-			longjmp(p->sched, 1);
-		return;
-	}else{
-		t = runthread(p);
-		if(t == nil){
-			_threaddebug(DBGSCHED, "all threads gone; exiting");
-			_schedexit(p);
-		}
-		_threaddebug(DBGSCHED, "running %d.%d", t->proc->pid, t->id);
-		p->thread = t;
-		if(t->moribund){
-			_threaddebug(DBGSCHED, "%d.%d marked to die");
-			goto Resched;
-		}
-		t->state = Running;
-		t->nextstate = Ready;
-		longjmp(t->sched, 1);
 	}
 }
 
@@ -152,6 +138,39 @@ runthread(Proc *p)
 	q->head = t->next;
 	unlock(&p->readylock);
 	return t;
+}
+
+void
+_sched(void)
+{
+	Proc *p;
+	Thread *t;
+
+Resched:
+	p = _threadgetproc();
+	if((t = p->thread) != nil){
+		needstack(128);
+		_threaddebug(DBGSCHED, "pausing, state=%s", psstate(t->state));
+		if(setjmp(t->sched)==0)
+			longjmp(p->sched, 1);
+		return;
+	}else{
+		t = runthread(p);
+		if(t == nil){
+			_threaddebug(DBGSCHED, "all threads gone; exiting");
+			unlinkproc(p);
+			_schedexit(p);	/* frees proc */
+		}
+		_threaddebug(DBGSCHED, "running %d.%d", t->proc->pid, t->id);
+		p->thread = t;
+		if(t->moribund){
+			_threaddebug(DBGSCHED, "%d.%d marked to die");
+			goto Resched;
+		}
+		t->state = Running;
+		t->nextstate = Ready;
+		longjmp(t->sched, 1);
+	}
 }
 
 void

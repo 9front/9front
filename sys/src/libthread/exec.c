@@ -45,8 +45,10 @@ procexec(Channel *pidc, char *prog, char *args[])
 	close(p->exec.fd[1]);
 	p->exec.fd[1] = n;
 
+	while(p->needexec || p->newproc)
+		_sched();
+
 	/* exec in parallel via the scheduler */
-	assert(p->needexec==0);
 	p->exec.prog = prog;
 	p->exec.args = args;
 	p->needexec = 1;
@@ -61,6 +63,8 @@ procexec(Channel *pidc, char *prog, char *args[])
 	}
 	close(p->exec.fd[0]);
 
+	if(t->ret == -1)
+		goto Bad;
 	if(pidc)
 		sendul(pidc, t->ret);
 

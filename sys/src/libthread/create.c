@@ -97,7 +97,8 @@ procrfork(void (*f)(void *), void *arg, uint stacksize, int rforkflag)
 	int id;
 
 	p = _threadgetproc();
-	assert(p->newproc == nil);
+	while(p->newproc)
+		_sched();
 	p->newproc = _newproc(f, arg, stacksize, nil, p->thread->grp, rforkflag);
 	id = p->newproc->threads.head->id;
 	_sched();
