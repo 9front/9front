@@ -11,8 +11,6 @@ struct Mainarg
 };
 
 int	mainstacksize;
-int	_threadnotefd;
-int	_threadpasserpid;
 static jmp_buf _mainjmp;
 static void mainlauncher(void*);
 extern void (*_sysfatal)(char*, va_list);
