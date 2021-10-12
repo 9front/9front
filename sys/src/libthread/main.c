@@ -58,16 +58,6 @@ mainlauncher(void *arg)
 	threadexits("threadmain");
 }
 
-static char*
-skip(char *p)
-{
-	while(*p == ' ')
-		p++;
-	while(*p != ' ' && *p != 0)
-		p++;
-	return p;
-}
-
 static void
 efork(Execargs *e)
 {
