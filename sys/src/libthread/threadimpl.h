@@ -172,7 +172,6 @@ void	_threadnote(void*, char*);
 void	_threadready(Thread*);
 void*	_threadrendezvous(void*, void*);
 void	_threadsysfatal(char*, va_list);
-void**	_workerdata(void);
 
 extern int			_threaddebuglevel;
 extern char*		_threadexitsallstatus;
