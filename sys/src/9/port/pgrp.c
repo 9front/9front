@@ -268,7 +268,7 @@ resrcwait(char *reason)
 	char *p;
 
 	if(up == nil)
-		panic("resrcwait");
+		panic("resrcwait: %s", reason);
 
 	p = up->psstate;
 	if(reason != nil) {

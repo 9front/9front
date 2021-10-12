@@ -630,19 +630,13 @@ canpage(Proc *p)
 Proc*
 newproc(void)
 {
-	char msg[64];
 	Proc *p;
 
 	lock(&procalloc);
-	for(;;) {
-		if((p = procalloc.free) != nil)
-			break;
-
-		snprint(msg, sizeof msg, "no procs; %s forking",
-			up != nil ? up->text: "kernel");
+	p = procalloc.free;
+	if(p == nil){
 		unlock(&procalloc);
-		resrcwait(msg);
-		lock(&procalloc);
+		return nil;
 	}
 	procalloc.free = p->qnext;
 	p->qnext = nil;
@@ -1409,7 +1403,8 @@ kproc(char *name, void (*func)(void *), void *arg)
 	static Pgrp *kpgrp;
 	Proc *p;
 
-	p = newproc();
+	while((p = newproc()) == nil)
+		resrcwait("no procs for kproc");
 
 	qlock(&p->debug);
 	if(up != nil){

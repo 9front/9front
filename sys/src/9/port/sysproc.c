@@ -84,7 +84,8 @@ sysrfork(va_list list)
 		return 0;
 	}
 
-	p = newproc();
+	if((p = newproc()) == nil)
+		error("no procs");
 
 	qlock(&p->debug);
 
