@@ -143,7 +143,7 @@ Sym*	getsym(void);
 void	domacro(void);
 void	macund(void);
 void	macdef(void);
-void	macexpand(Sym*, char*, int);
+int	macexpand(Sym*, char*, int);
 void	macinc(void);
 void	maclin(void);
 void	macprag(void);

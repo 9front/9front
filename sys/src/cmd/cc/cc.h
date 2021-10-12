@@ -556,7 +556,7 @@ void	linehist(char*, int);
 void	macdef(void);
 void	macprag(void);
 void	macend(void);
-void	macexpand(Sym*, char*, int);
+int	macexpand(Sym*, char*, int);
 void	macif(int);
 void	macinc(void);
 void	maclin(void);

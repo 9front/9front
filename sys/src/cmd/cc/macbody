@@ -372,7 +372,7 @@ bad:
 	macend();
 }
 
-void
+int
 macexpand(Sym *s, char *b, int blen)
 {
 	char buf[2000];
@@ -386,15 +386,17 @@ macexpand(Sym *s, char *b, int blen)
 			goto toobig;
 		if(debug['m'])
 			print("#expand %s %s\n", s->name, b);
-		return;
+		return 1;
 	}
 	
 	nargs = (char)(*s->macro & ~VARMAC) - 1;
 	dots = *s->macro & VARMAC;
 
 	c = getnsc();
-	if(c != '(')
-		goto bad;
+	if(c != '('){
+		unget(c);
+		return 0;
+	}
 	n = 0;
 	c = getc();
 	if(c != ')') {
@@ -490,7 +492,7 @@ macexpand(Sym *s, char *b, int blen)
 	if(n != nargs) {
 		yyerror("argument mismatch expanding: %s", s->name);
 		*b = 0;
-		return;
+		return 0;
 	}
 	ob = b;
 	eb = b + blen-1;
@@ -526,16 +528,17 @@ macexpand(Sym *s, char *b, int blen)
 	*b = 0;
 	if(debug['m'])
 		print("#expand %s %s\n", s->name, ob);
-	return;
+	return 1;
 
 bad:
 	yyerror("syntax in macro expansion: %s", s->name);
 	*b = 0;
-	return;
+	return 0;
 
 toobig:
 	yyerror("too much text in macro expansion: %s", s->name);
 	*b = 0;
+	return 0;
 }
 
 void

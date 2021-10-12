@@ -755,18 +755,22 @@ talph:
 	if(s->macro) {
 		newio();
 		cp = ionext->b;
-		macexpand(s, cp, sizeof(ionext->b)-1);
-		pushio();
-		ionext->link = iostack;
-		iostack = ionext;
-		fi.p = cp;
-		fi.c = strlen(cp);
-		if(peekc != IGN) {
-			cp[fi.c++] = peekc;
-			cp[fi.c] = 0;
-			peekc = IGN;
+		if(macexpand(s, cp, sizeof(ionext->b)-1)){
+			pushio();
+			ionext->link = iostack;
+			iostack = ionext;
+			fi.p = cp;
+			fi.c = strlen(cp);
+			if(peekc != IGN) {
+				cp[fi.c++] = peekc;
+				cp[fi.c] = 0;
+				peekc = IGN;
+			}
+			goto l0;
+		} else {
+			ionext->link = iofree;
+			iofree = ionext;
 		}
-		goto l0;
 	}
 	yylval.sym = s;
 	if(s->class == CTYPEDEF || s->class == CTYPESTR)
