@@ -616,7 +616,7 @@ recover(void *arg)
 	while(waserror())
 		;
 	while(!needrecover(ctlr))
-		tsleep(&ctlr->recover, needrecover, ctlr, 10);
+		tsleep(&ctlr->recover, needrecover, ctlr, 1000);
 	shutdown(hp);
 
 	/*
