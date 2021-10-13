@@ -157,21 +157,22 @@ int	_schedexec(Execargs*);
 void	_schedexecwait(void);
 void	_schedexit(Proc*);
 int	_schedfork(Proc*);
-void	_schedinit(void*);
-void	_systhreadinit(void);
+void	_schedinit(void);
 void	_threadassert(char*);
 void	_threadbreakrendez(void);
-void	_threaddebug(ulong, char*, ...);
+void	_threadprint(char*, ...);
 void	_threadexitsall(char*);
 void	_threadflagrendez(Thread*);
-Proc*	_threadgetproc(void);
-void	_threadsetproc(Proc*);
 void	_threadinitstack(Thread*, void(*)(void*), void*);
 void*	_threadmalloc(long, int);
 void	_threadnote(void*, char*);
 void	_threadready(Thread*);
 void*	_threadrendezvous(void*, void*);
 void	_threadsysfatal(char*, va_list);
+
+Proc	**_threadprocp;
+#define	_threadgetproc()	(*_threadprocp)
+#define	_threadsetproc(p)	(*_threadprocp = (p))
 
 extern int			_threaddebuglevel;
 extern char*		_threadexitsallstatus;
@@ -186,5 +187,8 @@ extern Rgrp		_threadrgrp;
 /* #define DBGKILL	(1 << 19) */
 #define DBGNOTE	(1 << 20)
 #define DBGEXEC	(1 << 21)
+
+#pragma	varargck argpos _threadprint 1
+#define	_threaddebug(flag, ...)	if((_threaddebuglevel&(flag))==0){}else _threadprint(__VA_ARGS__)
 
 #define ioproc_arg(io, type)	(va_arg((io)->arg, type))

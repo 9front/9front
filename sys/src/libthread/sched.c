@@ -36,14 +36,13 @@ unlinkproc(Proc *p)
 }
 
 void
-_schedinit(void *arg)
+_schedinit(void)
 {
 	Proc *p;
 	Thread *t, **l;
 
-	p = arg;
+	p = _threadgetproc();
 	p->pid = getpid();
-	_threadsetproc(p);
 	while(setjmp(p->sched))
 		;
 	_threaddebug(DBGSCHED, "top of schedinit, _threadexitsallstatus=%p", _threadexitsallstatus);
@@ -164,7 +163,7 @@ Resched:
 		_threaddebug(DBGSCHED, "running %d.%d", t->proc->pid, t->id);
 		p->thread = t;
 		if(t->moribund){
-			_threaddebug(DBGSCHED, "%d.%d marked to die");
+			_threaddebug(DBGSCHED, "%d.%d marked to die", t->proc->pid, t->id);
 			goto Resched;
 		}
 		t->state = Running;

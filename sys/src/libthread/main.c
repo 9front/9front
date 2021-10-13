@@ -3,57 +3,39 @@
 #include <thread.h>
 #include "threadimpl.h"
 
-typedef struct Mainarg Mainarg;
-struct Mainarg
-{
-	int	argc;
-	char	**argv;
-};
-
-int	mainstacksize;
-static jmp_buf _mainjmp;
-static void mainlauncher(void*);
 extern void (*_sysfatal)(char*, va_list);
 extern void (*__assert)(char*);
 
-static Proc **mainp;
+int	mainstacksize;
+
+static jmp_buf mainjmp;
+static int mainargc;
+
+static void
+mainlauncher(void *arg)
+{
+	threadmain(mainargc, arg);
+	threadexits("threadmain");
+}
 
 void
 main(int argc, char **argv)
 {
-	Mainarg *a;
-	Proc *p;
-
 	rfork(RFREND);
-	mainp = &p;
 
 //_threaddebuglevel = (DBGSCHED|DBGCHAN|DBGREND)^~0;
-	_systhreadinit();
+	_threadprocp = privalloc();
 	_qlockinit(_threadrendezvous);
 	_sysfatal = _threadsysfatal;
 	__assert = _threadassert;
 	notify(_threadnote);
 	if(mainstacksize == 0)
 		mainstacksize = 8*1024;
-
-	a = _threadmalloc(sizeof *a, 1);
-	a->argc = argc;
-	a->argv = argv;
-
-	p = _newproc(mainlauncher, a, mainstacksize, "threadmain", 0, 0);
-	setjmp(_mainjmp);
-	_schedinit(p);
+	mainargc = argc;
+	_threadsetproc(_newproc(mainlauncher, argv, mainstacksize, "threadmain", 0, 0));
+	setjmp(mainjmp);
+	_schedinit();
 	abort();	/* not reached */
-}
-
-static void
-mainlauncher(void *arg)
-{
-	Mainarg *a;
-
-	a = arg;
-	threadmain(a->argc, a->argv);
-	threadexits("threadmain");
 }
 
 static void
@@ -93,8 +75,8 @@ _schedfork(Proc *p)
 
 	switch(pid = rfork(RFPROC|RFMEM|RFNOWAIT|p->rforkflag)){
 	case 0:
-		*mainp = p;	/* write to stack, so local to proc */
-		longjmp(_mainjmp, 1);
+		_threadsetproc(p);
+		longjmp(mainjmp, 1);
 	default:
 		return pid;
 	}
@@ -140,24 +122,4 @@ _schedexecwait(void)
 			free(w);
 	}
 	threadexits("procexec");
-}
-
-static Proc **procp;
-
-void
-_systhreadinit(void)
-{
-	procp = privalloc();
-}
-
-Proc*
-_threadgetproc(void)
-{
-	return *procp;
-}
-
-void
-_threadsetproc(Proc *p)
-{
-	*procp = p;
 }

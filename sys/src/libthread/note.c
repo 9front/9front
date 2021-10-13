@@ -72,7 +72,7 @@ delayednotes(Proc *p, void *v)
 					break;
 			}
 			if(i==NFN){
-				_threaddebug(DBGNOTE, "Unhandled note %s, proc %p\n", n->s, p);
+				_threaddebug(DBGNOTE, "Unhandled note %s, proc %p", n->s, p);
 				if(v != nil)
 					noted(NDFLT);
 				else if(strncmp(n->s, "sys:", 4)==0)
@@ -94,7 +94,7 @@ _threadnote(void *v, char *s)
 		noted(NDFLT);
 
 	if(_threadexitsallstatus){
-		_threaddebug(DBGNOTE, "Threadexitsallstatus = '%s'\n", _threadexitsallstatus);
+		_threaddebug(DBGNOTE, "Threadexitsallstatus = '%s'", _threadexitsallstatus);
 		_exits(_threadexitsallstatus);
 	}
 

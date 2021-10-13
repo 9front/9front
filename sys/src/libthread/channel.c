@@ -339,15 +339,7 @@ nbsend(Channel *c, void *v)
 	return runop(CHANSND, c, v, 1);
 }
 
-static void
-channelsize(Channel *c, int sz)
-{
-	if(c->e != sz){
-		fprint(2, "expected channel with elements of size %d, got size %d\n",
-			sz, c->e);
-		abort();
-	}
-}
+#define channelsize(c, sz)	assert(c->e == sz)
 
 int
 sendul(Channel *c, ulong v)

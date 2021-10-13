@@ -6,15 +6,12 @@
 int _threaddebuglevel;
 
 void
-_threaddebug(ulong flag, char *fmt, ...)
+_threadprint(char *fmt, ...)
 {
 	char buf[128];
 	va_list arg;
 	Fmt f;
 	Proc *p;
-
-	if((_threaddebuglevel&flag) == 0)
-		return;
 
 	fmtfdinit(&f, 2, buf, sizeof buf);
 
@@ -36,16 +33,6 @@ _threaddebug(ulong flag, char *fmt, ...)
 void
 _threadassert(char *s)
 {
-	char buf[256];
-	int n;
-	Proc *p;
-
-	p = _threadgetproc();
-	if(p && p->thread)
-		n = sprint(buf, "%d.%d ", p->pid, p->thread->id);
-	else
-		n = 0;
-	snprint(buf+n, sizeof(buf)-n, "%s: assertion failed\n", s);
-	write(2, buf, strlen(buf));
+	_threadprint("%s: assertion failed", s);
 	abort();
 }
