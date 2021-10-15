@@ -1,0 +1,151 @@
+.TH ACMED 8
+.SH NAME
+ip/acmed \- acme certificate client
+.SH SYNOPSIS
+.B ip/acmed
+[
+.B -a
+.I acctkey
+]
+[
+.B -o
+.I chalout
+]
+[
+.B -p
+.I provider
+]
+[
+.B -t
+.I type
+]
+.I acctname
+.I csr
+[
+.I domain
+]
+.SH DESCRIPTION
+Acmed fetches and renews TLS certificates
+using the
+.I acme (RFC8555)
+protocol.
+It requires a pre-generated account key
+and certificate signing key.
+.PP
+Acmed accepts the following options:
+.TP
+.B -a
+.I acctkey
+Specifies that
+.I acctkey
+is used to sign requests to the
+.I provider
+in place of the default
+.IR /sys/lib/tls/acme/$acctname.pub .
+The key must be a
+.I jwk
+formatted RSA key.
+.TP
+.B -o
+.I chalout
+Specifies that the challenge material is
+placed in the location
+.IR chalout .
+Its behavior depends on the challenge type,
+as specified with the
+.B -t
+flag.
+.IP
+For HTTP challenges,
+.I chalout
+must be a directory that your choice of
+.I httpd
+will serve at
+.IR http://domain.com/.well-known/acme-challenge .
+For DNS challenges,
+.I chalout
+is a file that should be included in your
+.I ndb
+database.
+.IP
+If unspecified,
+.I http
+challenges will output to
+.IR /usr/web/.well-known/acme-challenge ,
+whle
+.I dns
+challenges will output to
+.IR /lib/ndb/dnschallenge .
+.TP
+.B -p
+.I provider
+Specifies that
+.I provider
+is used as the provider URL, in place of the default
+.IR https://acme-v02.api.letsencrypt.org/directory .
+This must be the directory URL for the desired
+.I RFC8555
+compliant provider
+.TP
+.B -t
+.I type
+Specifies that the challenge type. Supported challenge
+types are currently
+.I http
+and
+.IR dns .
+.SH EXAMPLES
+Before
+.B acmed
+is run, the keys must be generated.
+.IP
+.EX
+auth/rsagen -t 'service=acme role=sign hash=sha256 acct=a@b.org'\\
+	>acct.key
+auth/rsa2jwk acct.key >/sys/lib/tls/acmed/me@example.org.pub
+auth/rsagen -t 'service=tls owner=*' >cert.key
+auth/rsa2csr 'CN=mydomain.com' cert.key \\
+	>/sys/lib/tls/acmed/mydomain.com.csr} \\
+.EE
+.PP
+This need only be run once.
+.EE
+.PP
+The certificate for the domain can now be fetched:
+.IP
+.EX
+acmed me@example.org /sys/lib/tls/acmed/mydomain.com.csr \\
+	>/sys/lib/tls/acmed/mydomain.com.crt
+.EE
+
+.PP
+When using a DNS challenge, your DNS server must be
+configured, and must be configured to include the
+DNS challenge file:
+.IP
+.EX
+database=
+	file=/net/ndb
+	file=/lib/ndb/local
+	file=/lib/ndb/common
+	file=/lib/ndb/dnschallenge
+.EE
+
+And
+.I acmed
+must be invoked with the domain:
+.IP
+.EX
+acmed me@example.org \\
+	/sys/lib/tls/acmed/mydomain.com.csr \\
+	mydomain.com \\
+	>/sys/lib/tls/acmed/mydomain.com.crt
+.EE
+.SH SEE ALSO
+.IR rsa (8), 
+.IR srvtls (4).
+.SH SOURCE
+.B /sys/src/cmd/ip/acmed.c
+.SH HISTORY
+.PP
+Ip/acmed first appeared in 9front (Oct 2021)
