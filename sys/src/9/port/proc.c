@@ -1401,8 +1401,10 @@ kproc(char *name, void (*func)(void *), void *arg)
 	static Pgrp *kpgrp;
 	Proc *p;
 
-	while((p = newproc()) == nil)
+	while((p = newproc()) == nil){
+		freebroken();
 		resrcwait("no procs for kproc");
+	}
 
 	qlock(&p->debug);
 	if(up != nil){
