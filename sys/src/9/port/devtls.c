@@ -1751,10 +1751,10 @@ tlswrite(Chan *c, void *a, long n, vlong off)
 	}else if(strcmp(cb->f[0], "alert") == 0){
 		if(cb->nf != 2)
 			error("usage: alert n");
+		m = strtol(cb->f[1], nil, 0);
+	Hangup:
 		if(tr->c == nil)
 			error("must set fd before sending alerts");
-		m = strtol(cb->f[1], nil, 0);
-
 		qunlock(&tr->in.seclock);
 		qunlock(&tr->out.seclock);
 		poperror();
@@ -1767,6 +1767,9 @@ tlswrite(Chan *c, void *a, long n, vlong off)
 			tlsclosed(tr, SLClose);
 
 		return n;
+	} else if(strcmp(cb->f[0], "hangup") == 0){
+		m = ECloseNotify;
+		goto Hangup;
 	} else if(strcmp(cb->f[0], "debug") == 0){
 		if(cb->nf == 2){
 			if(strcmp(cb->f[1], "on") == 0)
