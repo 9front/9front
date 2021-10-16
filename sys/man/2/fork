@@ -145,11 +145,11 @@ of the child process; the value returned in the child is zero.
 Without
 .BR RFPROC ,
 the return value is zero.
-Process ids range from 1 to the maximum integer
+Process ids range from 1 to the maximum positive integer
 .RB ( int )
 value.
 .I Rfork
-will sleep, if necessary, until required process resources are available.
+may also return -1 if process resources are exhausted.
 .PP
 .I Fork
 is just a call of
