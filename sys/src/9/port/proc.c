@@ -634,7 +634,7 @@ newproc(void)
 
 	lock(&procalloc);
 	p = procalloc.free;
-	if(p == nil){
+	if(p == nil || (p->kstack == nil && (p->kstack = malloc(KSTACK)) == nil)){
 		unlock(&procalloc);
 		return nil;
 	}
@@ -655,8 +655,6 @@ newproc(void)
 	p->nlocks = 0;
 	p->delaysched = 0;
 	p->trace = 0;
-	if(p->kstack == nil)
-		p->kstack = smalloc(KSTACK);
 
 	/* sched params */
 	p->mp = nil;
