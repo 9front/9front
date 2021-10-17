@@ -1800,7 +1800,7 @@ evalotype(void)
 	while(r != nil){
 		switch(TAG(r)){
 		case 'R': case 'A': case 'L':	/* Ref */
-			r = ((Ref*)r)->ref;
+			r = *((Ref*)r)->ptr;
 			continue;
 		case 'N':			/* Name */
 			r = ((Name*)r)->v;
