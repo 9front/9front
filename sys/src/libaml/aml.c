@@ -150,7 +150,7 @@ enum {
 	Oindex, Omatch, Omutex, Oevent,
 	Ocfld, Ocfld0, Ocfld1, Ocfld2, Ocfld4, Ocfld8,
 	Oif, Oelse, Owhile, Obreak, Oret, Ocall, 
-	Ostore, Oderef, Osize, Oref, Ocref, Ocat,
+	Ostore, Oderef, Ootype, Osize, Oref, Ocref, Ocat,
 	Oacq, Osignal, Orel, Ostall, Osleep, Oload, Ounload,
 	Otodec, Otohex, Otoint, Otostr,
 };
@@ -1790,6 +1790,36 @@ evalcondref(void)
 }
 
 static void*
+evalotype(void)
+{
+	void *r;
+	int t;
+
+	t = 0;	/* Uninitialized */
+	r = FP->arg[0];
+	while(r != nil){
+		switch(TAG(r)){
+		case 'R': case 'A': case 'L':	/* Ref */
+			r = ((Ref*)r)->ref;
+			continue;
+		case 'N':			/* Name */
+			r = ((Name*)r)->v;
+			continue;
+		case 'i': t = 1; break;		/* Integer */
+		case 's': t = 2; break;		/* String */
+		case 'b': t = 3; break;		/* Buffer */
+		case 'p': t = 4; break;		/* Package */
+		case 'f': t = 5; break;		/* FieldUnit */
+		case 'm': t = 8; break;		/* Method */
+		case 'r': t = 10; break;	/* OperationRegion */
+		case 'u': t = 14; break;	/* BufferField */
+		}
+		break;
+	}
+	return mki(t);	
+}
+
+static void*
 evalsize(void)
 {
 	return mki(amllen(FP->arg[0]));
@@ -2114,6 +2144,7 @@ static Op optab[] = {
 	[Ostore]	"Store",		"*@",		evalstore,
 	[Oindex]	"Index",		"@i@",		evalindex,
 	[Omatch]	"Match",		"*1*1*i",	evalmatch,
+	[Ootype]	"ObjectType",		"@",		evalotype,
 	[Osize]		"SizeOf",		"*",		evalsize,
 	[Oref]		"RefOf",		"@",		evaliarg0,
 	[Ocref]		"CondRefOf",		"@@",		evalcondref,
@@ -2152,7 +2183,7 @@ static uchar octab1[] = {
 /* 70 */	Ostore,	Oref,	Oadd,	Ocat,	Osub,	Oinc,	Odec,	Omul,
 /* 78 */	Odiv,	Oshl,	Oshr,	Oand,	Onand,	Oor,	Onor,	Oxor,
 /* 80 */	Onot,	Olbit,	Orbit,	Oderef,	Obad,	Omod,	Obad,	Osize,
-/* 88 */	Oindex,	Omatch,	Ocfld4,	Ocfld2,	Ocfld1,	Ocfld0,	Obad,	Ocfld8,
+/* 88 */	Oindex,	Omatch,	Ocfld4,	Ocfld2,	Ocfld1,	Ocfld0,	Ootype,	Ocfld8,
 /* 90 */	Oland,	Olor,	Olnot,	Oleq,	Olgt,	Ollt,	Obad,	Otodec,
 /* 98 */	Otohex,	Otoint,	Obad,	Obad,	Otostr,	Obad,	Obad,	Obad,
 /* A0 */	Oif,	Oelse,	Owhile,	Onop,	Oret,	Obreak,	Obad,	Obad,
