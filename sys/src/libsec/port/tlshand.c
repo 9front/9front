@@ -660,7 +660,7 @@ checkClientExtensions(TlsConnection *c, Bytes *ext)
 			goto Short;
 		switch(get16(p-4)){
 		case Extec:
-			if(n < 4 || n & 1 || get16(p) != (n -= 2))
+			if(n < 4 || n % 2 || get16(p) != (n -= 2))
 				goto Short;
 			p += 2;
 			for(i = 0; i < nelem(namedcurves) && c->sec->nc == nil; i++)
@@ -1574,7 +1574,7 @@ msgRecv(TlsConnection *c, Msg *m)
 		nn = get16(p);
 		p += 2, n -= 2;
 
-		if((nn & 1) || n < nn || nn < 2)
+		if(nn % 2 || n < nn || nn < 2)
 			goto Short;
 		m->u.clientHello.ciphers = newints(nn >> 1);
 		for(i = 0; i < nn; i += 2)
@@ -1663,7 +1663,7 @@ msgRecv(TlsConnection *c, Msg *m)
 				goto Short;
 			nn = get16(p);
 			p += 2, n -= 2;
-			if(nn & 1)
+			if(nn % 2)
 				goto Short;
 			m->u.certificateRequest.sigalgs = newints(nn>>1);
 			for(i = 0; i < nn; i += 2)
