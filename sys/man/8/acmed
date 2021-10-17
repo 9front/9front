@@ -146,6 +146,8 @@ acmed me@example.org \\
 .IR srvtls (4).
 .SH SOURCE
 .B /sys/src/cmd/ip/acmed.c
+.SH  BUGS
+.B https://bugzilla.mozilla.org/show_bug.cgi?id=647959
 .SH HISTORY
 .PP
 Ip/acmed first appeared in 9front (Oct 2021)
