@@ -496,9 +496,7 @@ tlsClientExtensions(TLSconn *conn, int *plen)
 	p = b = nil;
 
 	// RFC6066 - Server Name Identification
-	if(conn->serverName != nil){
-		n = strlen(conn->serverName);
-
+	if(conn->serverName != nil && (n = strlen(conn->serverName)) > 0){
 		m = p - b;
 		b = erealloc(b, m + 2+2+2+1+2+n);
 		p = b + m;
@@ -651,37 +649,26 @@ checkClientExtensions(TlsConnection *c, Bytes *ext)
 	uchar *p, *e;
 	int i, j, n;
 
-	p = ext->data;
-	e = p+ext->len;
-	while(p < e){
-		if(e-p < 2)
+	if(ext == nil)
+		return 0;
+
+	for(p = ext->data, e = p+ext->len; p < e; p += n){
+		if(e-p < 4)
 			goto Short;
-		switch(get16(p)){
-		case Extec:	
-			p += 2;
-			n = get16(p);
-			if(e-p < n || n < 2)
+		p += 4;
+		if(e-p < (n = get16(p-2)))
+			goto Short;
+		switch(get16(p-4)){
+		case Extec:
+			if(n < 4 || n & 1 || get16(p) != (n -= 2))
 				goto Short;
 			p += 2;
-			n = get16(p);
-			p += 2;
-			if(e-p < n || n & 1 || n == 0)
-				goto Short;
 			for(i = 0; i < nelem(namedcurves) && c->sec->nc == nil; i++)
 				for(j = 0; j < n; j += 2)
 					if(namedcurves[i].tlsid == get16(p+j)){
 						c->sec->nc = &namedcurves[i];
 						break;
 					}
-			p += n;
-			break;
-		default:
-			p += 2;
-			n = get16(p);
-			p += 2;
-			if(e-p < n)
-				goto Short;
-			p += n;
 			break;
 		}
 	}
