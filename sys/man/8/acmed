@@ -130,16 +130,14 @@ database=
 	file=/lib/ndb/common
 	file=/lib/ndb/dnschallenge
 .EE
-
+.PP
 And
 .I acmed
 must be invoked with the domain:
 .IP
 .EX
-acmed me@example.org \\
-	/sys/lib/tls/acmed/mydomain.com.csr \\
-	mydomain.com \\
-	>/sys/lib/tls/acmed/mydomain.com.crt
+ip/acmed me@example.com mydomain.com.csr mydomain.com \\
+	>mydomain.com.crt
 .EE
 .SH SEE ALSO
 .IR rsa (8), 
