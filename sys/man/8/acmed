@@ -114,7 +114,7 @@ This need only be run once.
 The certificate for the domain can now be fetched:
 .IP
 .EX
-acmed me@example.org /sys/lib/tls/acmed/mydomain.com.csr \\
+ip/acmed me@example.org /sys/lib/tls/acmed/mydomain.com.csr \\
 	>/sys/lib/tls/acmed/mydomain.com.crt
 .EE
 
@@ -136,7 +136,7 @@ And
 must be invoked with the domain:
 .IP
 .EX
-ip/acmed me@example.com mydomain.com.csr mydomain.com \\
+ip/acmed -t dns me@example.com mydomain.com.csr mydomain.com \\
 	>mydomain.com.crt
 .EE
 .SH SEE ALSO
