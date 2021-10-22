@@ -2350,7 +2350,7 @@ tlsP(uchar *buf, int nbuf, uchar *key, int nkey, uchar *label, int nlabel, uchar
 	DigestState *s;
 	int n;
 
-	assert(sizeof(ai) <= xlen && sizeof(tmp) <= xlen);
+	assert(xlen <= sizeof(ai) && xlen <= sizeof(tmp));
 	// generate a1
 	s = x(label, nlabel, key, nkey, nil, nil);
 	x(seed, nseed, key, nkey, ai, s);
