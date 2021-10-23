@@ -1720,3 +1720,42 @@ isdir(Chan *c)
 		return;
 	error(Enotdir);
 }
+
+
+enum
+{
+	DIRSIZE	= STATFIXLEN + 16 * 4		/* enough for encoded stat buf + some reasonable strings */
+};
+
+Dir*
+dirchanstat(Chan *c)
+{
+	Dir *d;
+	uchar *buf;
+	int n, nd, i;
+
+	nd = DIRSIZE;
+	for(i=0; i<2; i++){	/* should work by the second try */
+		d = smalloc(sizeof(Dir) + BIT16SZ + nd);
+		if(waserror()){
+			free(d);
+			nexterror();
+		}
+		buf = (uchar*)&d[1];
+		n = devtab[c->type]->stat(c, buf, BIT16SZ+nd);
+		if(n < BIT16SZ)
+			error(Eshortstat);
+		nd = GBIT16(buf);	/* upper bound on size of Dir + strings */
+		if(nd <= n){
+			if(convM2D(buf, n, d, (char*)&d[1]) == 0)
+				error(Eshortstat);
+			poperror();
+			return d;
+		}
+		/* else sizeof(Dir)+BIT16SZ+nd is plenty */
+		free(d);
+		poperror();
+	}
+	error(Eshortstat);
+	return nil;
+}

@@ -553,18 +553,6 @@ parsename(char *name, char *disk, char **tree, char **dev)
 	validname(*dev, 0);
 }
 
-static vlong
-getlen(Chan *c)
-{
-	uchar	buf[128];	/* old DIRLEN plus a little should be plenty */
-	Dir	d;
-	long	l;
-
-	l = devtab[c->type]->stat(c, buf, sizeof buf);
-	convM2D(buf, l, &d, nil);
-	return d.length;
-}
-
 /*
  * Process a single line of configuration,
  * often of the form "cmd newname idev0 idev1".
@@ -602,8 +590,6 @@ mconfig(char* a, long n)
 	start = 0;
 	mp = nil;
 	cb = nil;
-	idev = nil;
-	ilen = nil;
 	keylen = 0;
 
 	if(waserror()){
@@ -686,6 +672,8 @@ mconfig(char* a, long n)
 	 */
 	poperror();
 	rlock(&lck);
+	idev = smalloc(sizeof(Chan*) * Ndevs);
+	ilen = smalloc(sizeof(vlong) * Ndevs);
 	if(waserror()){
 		runlock(&lck);
 Fail:
@@ -699,11 +687,14 @@ Fail:
 		free(cb);
 		nexterror();
 	}
-	idev = smalloc(sizeof(Chan*) * Ndevs);
-	ilen = smalloc(sizeof(vlong) * Ndevs);
 	for(i = 1; i < cb->nf; i++){
+		Dir *dir;
+
 		idev[i-1] = namec(cb->f[i], Aopen, ORDWR, 0);
-		ilen[i-1] = getlen(idev[i-1]);
+
+		dir = dirchanstat(idev[i-1]);
+		ilen[i-1] = dir->length;
+		free(dir);
 	}
 	poperror();
 	runlock(&lck);

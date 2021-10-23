@@ -383,10 +383,6 @@ needpages(void*)
 static void
 setswapchan(Chan *c)
 {
-	uchar buf[sizeof(Dir)+100];
-	Dir d;
-	int n;
-
 	if(waserror()){
 		cclose(c);
 		nexterror();
@@ -403,16 +399,17 @@ setswapchan(Chan *c)
 	 *  to be at most the size of the partition
 	 */
 	if(devtab[c->type]->dc != L'M'){
-		n = devtab[c->type]->stat(c, buf, sizeof buf);
-		if(n <= 0 || convM2D(buf, n, &d, nil) == 0)
-			error("stat failed in setswapchan");
-		if(d.length < (vlong)conf.nswppo*BY2PG)
+		Dir *d = dirchanstat(c);
+		if(d->length < (vlong)conf.nswppo*BY2PG){
+			free(d);
 			error("swap device too small");
-		if(d.length < (vlong)conf.nswap*BY2PG){
-			conf.nswap = d.length/BY2PG;
+		}
+		if(d->length < (vlong)conf.nswap*BY2PG){
+			conf.nswap = d->length/BY2PG;
 			swapalloc.top = &swapalloc.swmap[conf.nswap];
 			swapalloc.free = conf.nswap;
 		}
+		free(d);
 	}
 	c->flag &= ~CCACHE;
 	cclunk(c);

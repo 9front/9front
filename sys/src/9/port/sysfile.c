@@ -592,22 +592,26 @@ mountfix(Chan *c, uchar *op, long n, long maxn)
 			}
 			runlock(&mh->lock);
 
+			if(waserror())
+				goto Norewrite;
 			name = dirname(p, &nname);
-			/*
-			 * Do the stat but fix the name.  If it fails, leave old entry.
-			 * BUG: If it fails because there isn't room for the entry,
-			 * what can we do?  Nothing, really.  Might as well skip it.
-			 */
 			if(buf == nil){
 				nbuf = 4096;
 				buf = smalloc(nbuf);
 			}
-			if(waserror())
-				goto Norewrite;
 			l = devtab[nc->type]->stat(nc, buf, nbuf);
+			if(l < BIT16SZ)
+				error(Eshortstat);
+			rest = BIT16SZ + GBIT16(buf) + nname;
+			if(rest > nbuf){
+				free(buf);
+				nbuf = rest;
+				buf = smalloc(nbuf);
+				l = devtab[nc->type]->stat(nc, buf, nbuf);
+			}
 			l = dirsetname(name, nname, buf, l, nbuf);
-			if(l == BIT16SZ)
-				error("dirsetname");
+			if(l <= BIT16SZ)
+				error(Eshortstat);
 			poperror();
 
 			/*
@@ -831,10 +835,8 @@ syspwrite(va_list list)
 static vlong
 sseek(int fd, vlong o, int type)
 {
+	Dir *d;
 	Chan *c;
-	uchar buf[sizeof(Dir)+100];
-	Dir dir;
-	int n;
 	vlong off;
 
 	c = fdtochan(fd, -1, 1, 1);
@@ -872,10 +874,9 @@ sseek(int fd, vlong o, int type)
 	case 2:
 		if(c->qid.type & QTDIR)
 			error(Eisdir);
-		n = devtab[c->type]->stat(c, buf, sizeof buf);
-		if(convM2D(buf, n, &dir, nil) == 0)
-			error("internal error: stat error in seek");
-		off = dir.length + o;
+		d = dirchanstat(c);
+		off = d->length + o;
+		free(d);
 		if(off < 0)
 			error(Enegoff);
 		c->offset = off;
@@ -967,34 +968,36 @@ pathlast(Path *p)
 uintptr
 sysfstat(va_list list)
 {
+	char *name;
+	uchar *s;
 	Chan *c;
 	int fd;
-	uint l;
-	uchar *s;
+	uint l, r;
 
 	fd = va_arg(list, int);
 	s = va_arg(list, uchar*);
 	l = va_arg(list, uint);
 	validaddr((uintptr)s, l, 1);
-
 	c = fdtochan(fd, -1, 0, 1);
 	if(waserror()) {
 		cclose(c);
 		nexterror();
 	}
-	l = devtab[c->type]->stat(c, s, l);
+	r = devtab[c->type]->stat(c, s, l);
+	if((name = pathlast(c->path)) != nil)
+		r = dirsetname(name, strlen(name), s, r, l);
 	poperror();
 	cclose(c);
-	return l;
+	return r;
 }
 
 uintptr
 sysstat(va_list list)
 {
 	char *name;
+	uchar *s;
 	Chan *c;
 	uint l, r;
-	uchar *s;
 
 	name = va_arg(list, char*);
 	s = va_arg(list, uchar*);
@@ -1007,10 +1010,8 @@ sysstat(va_list list)
 		nexterror();
 	}
 	r = devtab[c->type]->stat(c, s, l);
-	name = pathlast(c->path);
-	if(name != nil)
+	if((name = pathlast(c->path)) != nil)
 		r = dirsetname(name, strlen(name), s, r, l);
-
 	poperror();
 	cclose(c);
 	return r;
@@ -1330,12 +1331,10 @@ packoldstat(uchar *buf, Dir *d)
 uintptr
 sys_stat(va_list list)
 {
-	static char old[] = "old stat system call - recompile";
+	char *name;
+	uchar *s;
 	Chan *c;
-	uint l;
-	uchar *s, buf[128];	/* old DIRLEN plus a little should be plenty */
-	char strs[128], *name;
-	Dir d;
+	Dir *d;
 
 	name = va_arg(list, char*);
 	s = va_arg(list, uchar*);
@@ -1346,18 +1345,16 @@ sys_stat(va_list list)
 		cclose(c);
 		nexterror();
 	}
-	l = devtab[c->type]->stat(c, buf, sizeof buf);
-	/* buf contains a new stat buf; convert to old. yuck. */
-	if(l <= BIT16SZ)	/* buffer too small; time to face reality */
-		error(old);
-	name = pathlast(c->path);
-	if(name != nil)
-		l = dirsetname(name, strlen(name), buf, l, sizeof buf);
-	l = convM2D(buf, l, &d, strs);
-	if(l == 0)
-		error(old);
-	packoldstat(s, &d);
-	
+	d = dirchanstat(c);
+	if(waserror()){
+		free(d);
+		nexterror();
+	}
+	if((name = pathlast(c->path)) != nil)
+		d->name = name;
+	packoldstat(s, d);
+	poperror();
+	free(d);
 	poperror();
 	cclose(c);
 	return 0;
@@ -1366,13 +1363,10 @@ sys_stat(va_list list)
 uintptr
 sys_fstat(va_list list)
 {
-	static char old[] = "old fstat system call - recompile";
-	Chan *c;
 	char *name;
-	uint l;
-	uchar *s, buf[128];	/* old DIRLEN plus a little should be plenty */
-	char strs[128];
-	Dir d;
+	uchar *s;
+	Chan *c;
+	Dir *d;
 	int fd;
 
 	fd = va_arg(list, int);
@@ -1383,18 +1377,16 @@ sys_fstat(va_list list)
 		cclose(c);
 		nexterror();
 	}
-	l = devtab[c->type]->stat(c, buf, sizeof buf);
-	/* buf contains a new stat buf; convert to old. yuck. */
-	if(l <= BIT16SZ)	/* buffer too small; time to face reality */
-		error(old);
-	name = pathlast(c->path);
-	if(name != nil)
-		l = dirsetname(name, strlen(name), buf, l, sizeof buf);
-	l = convM2D(buf, l, &d, strs);
-	if(l == 0)
-		error(old);
-	packoldstat(s, &d);
-	
+	d = dirchanstat(c);
+	if(waserror()){
+		free(d);
+		nexterror();
+	}
+	if((name = pathlast(c->path)) != nil)
+		d->name = name;
+	packoldstat(s, d);
+	poperror();
+	free(d);
 	poperror();
 	cclose(c);
 	return 0;

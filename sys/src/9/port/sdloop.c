@@ -47,21 +47,14 @@ SDifc sdloopifc;
 static void
 identify(Ctlr *c, SDunit *u)
 {
-	int n;
 	uvlong s, osectors;
-	uchar buf[sizeof(Dir) + 100];
-	Dir dir;
+	Dir *dir;
 
-	if(waserror()){
-		iprint("sdloop: identify: %s\n", up->errstr);
-		nexterror();
-	}
 	osectors = c->sectors;
-	n = devtab[c->c->type]->stat(c->c, buf, sizeof buf);
-	if(convM2D(buf, n, &dir, nil) == 0)
-		error("internal error: stat error in seek");
-	s = dir.length / c->sectsize;
-	poperror();
+
+	dir = dirchanstat(c->c);
+	s = dir->length / c->sectsize;
+	free(dir);
 
 	memset(u->inquiry, 0, sizeof u->inquiry);
 	u->inquiry[2] = 2;

@@ -79,6 +79,7 @@ void		devshutdown(void);
 int		devstat(Chan*, uchar*, int, Dirtab*, int, Devgen*);
 Walkqid*	devwalk(Chan*, Chan*, char**, int, Dirtab*, int, Devgen*);
 int		devwstat(Chan*, uchar*, int);
+Dir*		dirchanstat(Chan *);
 void		drawactive(int);
 void		drawcmap(void);
 void		dumpaproc(Proc*);
