@@ -383,16 +383,15 @@ needpages(void*)
 static void
 setswapchan(Chan *c)
 {
+	uvlong s;
+
 	if(waserror()){
 		cclose(c);
 		nexterror();
 	}
-	if(swapimage.c != nil) {
-		if(swapalloc.free != conf.nswap)
-			error(Einuse);
-		cclose(swapimage.c);
-		swapimage.c = nil;
-	}
+
+	if(c->qid.type & (QTDIR|QTAPPEND|QTAUTH))
+		error(Ebadarg);
 
 	/*
 	 *  if this isn't a file, set the swap space
@@ -400,17 +399,28 @@ setswapchan(Chan *c)
 	 */
 	if(devtab[c->type]->dc != L'M'){
 		Dir *d = dirchanstat(c);
-		if(d->length < (vlong)conf.nswppo*BY2PG){
-			free(d);
-			error("swap device too small");
-		}
-		if(d->length < (vlong)conf.nswap*BY2PG){
-			conf.nswap = d->length/BY2PG;
-			swapalloc.top = &swapalloc.swmap[conf.nswap];
-			swapalloc.free = conf.nswap;
-		}
+		s = d->length / BY2PG;
 		free(d);
+	} else {
+		s = conf.nswap;
 	}
+
+	if(s < conf.nswppo)
+		error("swap device too small");
+
+	if(swapimage.c != nil) {
+		if(swapalloc.free != conf.nswap)
+			error(Einuse);
+		cclose(swapimage.c);
+		swapimage.c = nil;
+	}
+
+	if(s < conf.nswap){
+		conf.nswap = s;
+		swapalloc.top = &swapalloc.swmap[conf.nswap];
+		swapalloc.free = conf.nswap;
+	}
+
 	c->flag &= ~CCACHE;
 	cclunk(c);
 	poperror();
