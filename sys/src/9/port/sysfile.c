@@ -21,7 +21,7 @@ unlockfgrp(Fgrp *f)
 		pprint("warning: process exceeds %d file descriptors\n", ex);
 }
 
-int
+static int
 growfd(Fgrp *f, int fd)	/* fd is always >= 0 */
 {
 	Chan **newfd, **oldfd;
@@ -70,7 +70,7 @@ growfd(Fgrp *f, int fd)	/* fd is always >= 0 */
 /*
  *  this assumes that the fgrp is locked
  */
-int
+static int
 findfreefd(Fgrp *f, int start)
 {
 	int fd;
@@ -110,7 +110,7 @@ newfd(Chan *c, int mode)
 	return fd;
 }
 
-int
+static int
 newfd2(int fd[2], Chan *c[2])
 {
 	Fgrp *f;
