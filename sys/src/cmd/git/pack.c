@@ -1448,7 +1448,8 @@ pickdeltas(Meta **meta, int nmeta)
 
 	pct = 0;
 	dprint(1, "picking deltas\n");
-	fprint(2, "deltifying %d objects:   0%%", nmeta);
+	if(interactive)
+		fprint(2, "deltifying %d objects:   0%%", nmeta);
 	qsort(meta, nmeta, sizeof(Meta*), deltaordercmp);
 	for(i = 0; i < nmeta; i++){
 		m = meta[i];
