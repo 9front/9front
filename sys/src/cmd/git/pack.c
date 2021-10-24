@@ -1492,7 +1492,8 @@ pickdeltas(Meta **meta, int nmeta)
 	}
 	for(i = max(0, nmeta - 10); i < nmeta; i++)
 		dtclear(&meta[i]->dtab);
-	fprint(2, "\b\b\b\b100%%\n");
+	if(interactive)
+		fprint(2, "\b\b\b\b100%%\n");
 }
 
 static int
