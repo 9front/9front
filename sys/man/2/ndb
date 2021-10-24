@@ -411,6 +411,13 @@ name servers.  Returns domain name
 .RI ( dom )
 and name server
 .RI ( ns ).
+.TP
+.B caa
+get the certificate authority records.
+Returns the
+.RI ( tag )
+and
+.RI ( flags ).
 .PP
 .I Ndbfindattr
 searches

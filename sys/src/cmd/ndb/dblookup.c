@@ -41,6 +41,7 @@ static RR*	ptrrr(Ndbtuple*, Ndbtuple*);
 static RR*	soarr(Ndbtuple*, Ndbtuple*);
 static RR*	srvrr(Ndbtuple*, Ndbtuple*);
 static RR*	txtrr(Ndbtuple*, Ndbtuple*);
+static RR*	caarr(Ndbtuple*, Ndbtuple*);
 
 static int	implemented[] =
 {
@@ -54,6 +55,7 @@ static int	implemented[] =
 	[Tsoa]		1,
 	[Tsrv]		1,
 	[Ttxt]		1,
+	[Tcaa]		1,
 };
 
 /* straddle server configuration */
@@ -258,6 +260,10 @@ dblookup1(char *name, int type, int auth, int ttl)
 	case Taxfr:
 	case Tixfr:
 		return doaxfr(db, name);
+	case Tcaa:
+		attr = "caa";
+		f = caarr;
+		break;
 	default:
 //		dnslog("dblookup1(%s) bad type", name);
 		return nil;
@@ -590,6 +596,23 @@ srvrr(Ndbtuple *entry, Ndbtuple *pair)
 	return rp;
 }
 
+static RR*
+caarr(Ndbtuple *entry, Ndbtuple *pair)
+{
+	Ndbtuple *tag;
+	RR *rp;
+
+	rp = rralloc(Tcaa);
+	rp->caa->flags = intval(entry, pair, "flags", 0);
+	rp->caa->data = (uchar*)estrdup(pair->val);
+	rp->caa->dlen = strlen((char*)rp->caa->data);
+	if((tag = look(entry, pair, "tag")) != nil)
+		rp->caa->tag = dnlookup(tag->val, Cin, 1);
+	else
+		rp->caa->tag = dnlookup("issue", Cin, 1);
+	return rp;
+}
+
 /*
  *  Look for a pair with the given attribute.  look first on the same line,
  *  then in the whole entry.
@@ -655,6 +678,8 @@ dbpair2cache(DN *dp, Ndbtuple *entry, Ndbtuple *pair)
 		rp = txtrr(entry, pair);
 	else if(strcmp(pair->attr, "txt") == 0)
 		rp = txtrr(entry, pair);
+	else if(strcmp(pair->attr, "caa") == 0)
+		rp = caarr(entry, pair);
 	if(rp == nil)
 		return;
 
