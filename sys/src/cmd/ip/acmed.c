@@ -21,11 +21,11 @@ struct Hdr {
 #define Contenttype	"contenttype application/jose+json"
 #define between(x,min,max)	(((min-1-x) & (x-max-1))>>8)
 int	debug;
-int	(*challengefn)(char*, char*, int*);
+int	(*challengefn)(char*, char*, char*, int*);
 char	*keyspec;
 char	*provider = "https://acme-v02.api.letsencrypt.org/directory"; /* test endpoint */
+char	*challengecmd;
 char	*challengeout;
-char	*challengedom;
 char	*keyid;
 char	*epnewnonce;
 char	*epnewacct;
@@ -95,7 +95,7 @@ signRS256(char *hdr, char *prot)
 	int afd;
 	char *r;
 
-	if((afd = open("/mnt/factotum/rpc", ORDWR)) < 0)
+	if((afd = open("/mnt/factotum/rpc", ORDWR|OCEXEC)) < 0)
 		return nil;
 	if((rpc = auth_allocrpc(afd)) == nil){
 		close(afd);
@@ -160,10 +160,10 @@ webopen(char *url, char *dir, int ndir)
 	char buf[16];
 	int n, cfd, conn;
 
-	if((cfd = open("/mnt/web/clone", ORDWR)) == -1)
+	if((cfd = open("/mnt/web/clone", ORDWR|OCEXEC)) == -1)
 		return -1;
 	if((n = read(cfd, buf, sizeof(buf)-1)) == -1)
-		return -1;
+		goto Error;
 	buf[n] = 0;
 	conn = atoi(buf);
 
@@ -187,7 +187,7 @@ get(char *url, int *n)
 	if((cfd = webopen(url, dir, sizeof(dir))) == -1)
 		goto Error;
 	snprint(path, sizeof(path), "%s/%s", dir, "body");
-	if((dfd = open(path, OREAD)) == -1)
+	if((dfd = open(path, OREAD|OCEXEC)) == -1)
 		goto Error;
 	r = slurp(dfd, n);
 Error:
@@ -205,35 +205,39 @@ post(char *url, char *buf, int nbuf, int *nret, Hdr *h)
 	r = nil;
 	ok = 0;
 	dfd = -1;
+	hfd = -1;
 	if((cfd = webopen(url, dir, sizeof(dir))) == -1)
 		goto Error;
 	if(write(cfd, Contenttype, strlen(Contenttype)) == -1)
 		goto Error;
 	snprint(path, sizeof(path), "%s/%s", dir, "postbody");
-	if((dfd = open(path, OWRITE)) == -1)
+	if((dfd = open(path, OWRITE|OCEXEC)) == -1)
 		goto Error;
 	if(write(dfd, buf, nbuf) != nbuf)
 		goto Error;
 	close(dfd);
 	snprint(path, sizeof(path), "%s/%s", dir, "body");
-	if((dfd = open(path, OREAD)) == -1)
-		goto Error;
-	if((r = slurp(dfd, nret)) == nil)
+	if((dfd = open(path, OREAD|OCEXEC)) == -1)
 		goto Error;
 	if(h != nil){
 		snprint(path, sizeof(path), "%s/%s", dir, h->name);
-		if((hfd = open(path, OREAD)) == -1)
+		if((hfd = open(path, OREAD|OCEXEC)) == -1)
 			goto Error;
 		if((h->val = slurp(hfd, &h->nval)) == nil)
 			goto Error;
-		close(hfd);
 	}
+	if((r = slurp(dfd, nret)) == nil)
+		goto Error;
 	ok = 1;
 Error:
+	if(hfd != -1) close(hfd);
 	if(dfd != -1) close(dfd);
 	if(cfd != -1) close(cfd);
-	if(!ok && h != nil)
+	if(!ok && h != nil){
 		free(h->val);
+		h->val = nil;
+		h->nval = 0;
+	}
 	return r;
 }
 
@@ -289,10 +293,10 @@ getnonce(void)
 	fprint(cfd, "request HEAD");
 
 	snprint(path, sizeof(path), "%s/%s", dir, "body");
-	if((dfd = open(path, OREAD)) == -1)
+	if((dfd = open(path, OREAD|OCEXEC)) == -1)
 		goto Error;
 	snprint(path, sizeof(path), "%s/%s", dir, "replaynonce");
-	if((hfd = open(path, OREAD)) == -1)
+	if((hfd = open(path, OREAD|OCEXEC)) == -1)
 		goto Error;
 	r = slurp(hfd, &n);
 Error:
@@ -373,7 +377,7 @@ mkaccount(char *addr)
 {
 	char *nonce, *hdr, *msg, *req, *resp;
 	int nreq, nresp;
-	Hdr loc;
+	Hdr loc = { "location" };
 
 	if((nonce = getnonce()) == nil)
 		sysfatal("get nonce: %r");
@@ -396,7 +400,6 @@ mkaccount(char *addr)
 		sysfatal("failed to sign: %r");
 	dprint("req=\"%s\"\n", req);
 
-	loc.name = "location";
 	if((resp = post(epnewacct, req, nreq, &nresp, &loc)) == nil)
 		sysfatal("failed req: %r");
 	dprint("resp=%s, loc=%s\n", resp, loc.val);
@@ -438,8 +441,59 @@ submitorder(char **dom, int ndom, Hdr *hdr)
 	return r;
 }
 
+static void
+hashauthbuf(char *buf, int nbuf)
+{
+	uchar hash[SHA2_256dlen];
+	char *enc;
+
+	sha2_256((uchar*)buf, strlen(buf), hash, nil);
+	if((enc = encurl64(hash, sizeof(hash))) == nil)
+		sysfatal("hashbuf: %r");
+	if(snprint(buf, nbuf, "%s", enc) != strlen(enc))
+		sysfatal("hashbuf: buffer too small, truncated");
+	free(enc);
+}
+
 static int
-httpchallenge(char *ty, char *tok, int *matched)
+runchallenge(char *ty, char *dom, char *tok, int *matched)
+{
+	char auth[1024];
+	Waitmsg *w;
+	int pid;
+
+	snprint(auth, sizeof(auth), "%s.%s", tok, jwsthumb);
+	if(strcmp(ty, "dns-01") == 0)
+		hashauthbuf(auth, sizeof(auth));
+
+	pid = fork();
+	switch(pid){
+	case -1:
+		return -1;
+	case 0:
+		execl(challengecmd, challengecmd, ty, dom, tok, auth, nil);
+		exits("exec");
+	}
+
+	while((w = wait()) != nil){
+		if(w->pid != pid){
+			free(w);
+			continue;
+		}
+		if(w->msg[0] == '\0'){
+			free(w);
+			*matched = 1;
+			return 0;
+		}
+		werrstr("%s", w->msg);
+		free(w);
+		return -1;
+	}
+	return -1;
+}
+
+static int
+httpchallenge(char *ty, char *, char *tok, int *matched)
 {
 	char path[1024];
 	int fd, r;
@@ -447,8 +501,9 @@ httpchallenge(char *ty, char *tok, int *matched)
 	if(strcmp(ty, "http-01") != 0)
 		return -1;
 	*matched = 1;
+
 	snprint(path, sizeof(path), "%s/%s", challengeout, tok);
-	if((fd = create(path, OWRITE, 0666)) == -1)
+	if((fd = create(path, OWRITE|OCEXEC, 0666)) == -1)
 		return -1;
 	r = fprint(fd, "%s.%s\n", tok, jwsthumb);
 	close(fd);
@@ -456,58 +511,64 @@ httpchallenge(char *ty, char *tok, int *matched)
 }
 
 static int
-dnschallenge(char *ty, char *tok, int *matched)
+dnschallenge(char *ty, char *dom, char *tok, int *matched)
 {
-	char *enc, auth[1024], hash[SHA2_256dlen];
-	int fd, r;
+	char auth[1024];
+	int fd;
 
 	if(strcmp(ty, "dns-01") != 0)
 		return -1;
 	*matched = 1;
-	if(challengedom == nil){
-		werrstr("dns challenge requires domain");
+
+	snprint(auth, sizeof(auth), "%s.%s", tok, jwsthumb);
+	hashauthbuf(auth, sizeof(auth));
+
+	if((fd = create(challengeout, OWRITE|OCEXEC, 0666)) == -1){
+		werrstr("could not create challenge: %r");
 		return -1;
 	}
-
-	r = -1;
-	fd = -1;
-	snprint(auth, sizeof(auth), "%s.%s", tok, jwsthumb);
-	sha2_256((uchar*)auth, strlen(auth), (uchar*)hash, nil);
-	if((enc = encurl64(hash, sizeof(hash))) == nil){
-		werrstr("encoding failed: %r");
-		goto Error;
-	}
-	if((fd = create(challengeout, OWRITE, 0666)) == -1){
-		werrstr("could not create challenge: %r");
-		goto Error;
-	}
-	if(fprint(fd,"dom=_acme-challenge.%s soa=\n\ttxtrr=%s\n", challengedom, enc) == -1){
+	if(fprint(fd,"dom=_acme-challenge.%s soa=\n\ttxt=\"%s\"\n", dom, auth) == -1){
 		werrstr("could not write challenge: %r");
-		goto Error;
+		close(fd);
+		return -1;
 	}
-	if((fd = open("/net/dns", OWRITE)) == -1){
+	close(fd);
+
+	if((fd = open("/net/dns", OWRITE|OCEXEC)) == -1){
 		werrstr("could not open dns ctl: %r");
-		goto Error;
+		return -1;
 	}
 	if(fprint(fd, "refresh") == -1){
 		werrstr("could not write dns refresh: %r");
-		goto Error;
-	}
-	r = 0;
-
-Error:
-	if(fd != -1)
 		close(fd);
-	free(enc);
-	return r;
+		return -1;
+	}
+	close(fd);
+
+	return 0;
 }
 
 static int
-challenge(JSON *j, char *authurl, int *matched)
+challenge(JSON *j, char *authurl, JSON *id, char *dom[], int ndom, int *matched)
 {
-	JSON *ty, *url, *tok, *poll, *state;
+	JSON *dn, *ty, *url, *tok, *poll, *state;
 	char *resp;
 	int i, nresp;
+
+	if((dn = jsonbyname(id, "value")) == nil)
+		return -1;
+	if(dn->t != JSONString)
+		return -1;
+
+	/* make sure the identifier matches the csr */
+	for(i = 0; i < ndom; i++){
+		if(cistrcmp(dom[i], dn->s) == 0)
+			break;
+	}
+	if(i >= ndom){
+		werrstr("unknown challenge identifier '%s'", dn->s);
+		return -1;
+	}
 
 	if((ty = jsonbyname(j, "type")) == nil)
 		return -1;
@@ -515,11 +576,12 @@ challenge(JSON *j, char *authurl, int *matched)
 		return -1;
 	if((tok = jsonbyname(j, "token")) == nil)
 		return -1;
+
 	if(ty->t != JSONString || url->t != JSONString || tok->t != JSONString)
 		return -1;
 
 	dprint("trying challenge %s\n", ty->s);
-	if(challengefn(ty->s, tok->s, matched) == -1){
+	if(challengefn(ty->s, dn->s, tok->s, matched) == -1){
 		dprint("challengefn failed: %r\n");
 		return -1;
 	}
@@ -555,9 +617,9 @@ challenge(JSON *j, char *authurl, int *matched)
 }
 
 static int
-dochallenges(JSON *order)
+dochallenges(char *dom[], int ndom, JSON *order)
 {
-	JSON *chals, *j, *cl;
+	JSON *chals, *j, *cl, *id;
 	JSONEl *ae, *ce;
 	int nresp, matched;
 	char *resp;
@@ -583,6 +645,11 @@ dochallenges(JSON *order)
 			werrstr("invalid challenge: %r");
 			return -1;
 		}
+		if((id = jsonbyname(chals, "identifier")) == nil){
+			werrstr("missing identifier");
+			jsonfree(chals);
+			return -1;
+		}
 		if((cl = jsonbyname(chals, "challenges")) == nil){
 			werrstr("missing challenge");
 			jsonfree(chals);
@@ -590,7 +657,7 @@ dochallenges(JSON *order)
 		}
 		matched = 0;
 		for(ce = cl->first; ce != nil; ce = ce->next){
-			if(challenge(ce->val, ae->val->s, &matched) == 0)
+			if(challenge(ce->val, ae->val->s, id, dom, ndom, &matched) == 0)
 				break;
 			if(matched)
 				werrstr("could not complete challenge: %r");
@@ -678,10 +745,10 @@ getcert(char *csrpath)
 	uchar *der;
 	int nder, ndom, fd;
 	RSApub *rsa;
-	Hdr loc;
+	Hdr loc = { "location" };
 	JSON *o;
 
-	if((fd = open(csrpath, OREAD)) == -1)
+	if((fd = open(csrpath, OREAD|OCEXEC)) == -1)
 		sysfatal("open %s: %r", csrpath);
 	if((der = slurp(fd, &nder)) == nil)
 		sysfatal("read %s: %r", csrpath);
@@ -695,10 +762,9 @@ getcert(char *csrpath)
 	close(fd);
 	free(der);
 
-	loc.name = "location";
 	if((o = submitorder(dom, ndom, &loc)) == nil)
 		sysfatal("order: %r");
-	if(dochallenges(o) == -1)
+	if(dochallenges(dom, ndom, o) == -1)
 		sysfatal("challenge: %r");
 	if(submitcsr(o, csr) == -1)
 		sysfatal("signing cert: %r");
@@ -734,9 +800,11 @@ loadkey(char *path)
 	DigestState *ds;
 	int fd, nr;
 
-	if((fd = open(path, OREAD)) == -1)
+	if((fd = open(path, OREAD|OCEXEC)) == -1)
 		return -1;
-	if((nr = readn(fd, key, sizeof(key))) == -1)
+	nr = readn(fd, key, sizeof(key));
+	close(fd);
+	if(nr == -1)
 		return -1;
 	key[nr] = 0;
 
@@ -764,7 +832,7 @@ loadkey(char *path)
 static void
 usage(void)
 {
-	fprint(2, "usage: %s [-a acctkey] [-o chalout] [-p provider] [-t type] acct csr [domain]\n", argv0);
+	fprint(2, "usage: %s [-a acctkey] [-e cmd | -o chalout] [-p provider] [-t type] acct csr\n", argv0);
 	exits("usage");
 }
 
@@ -786,6 +854,9 @@ main(int argc, char **argv)
 	case 'a':
 		acctkey = EARGF(usage());
 		break;
+	case 'e':
+		challengecmd = EARGF(usage());
+		break;
 	case 'o':
 		co = EARGF(usage());
 		break;
@@ -800,7 +871,12 @@ main(int argc, char **argv)
 		break;
 	}ARGEND;
 
-	if(strcmp(ct, "http") == 0){
+	if(challengecmd){
+		if(co != nil)
+			usage();
+		challengeout = "/dev/null";
+		challengefn = runchallenge;
+	}else if(strcmp(ct, "http") == 0){
 		challengeout = (co != nil) ? co : "/usr/web/.well-known/acme-challenge";
 		challengefn = httpchallenge;
 	}else if(strcmp(ct, "dns") == 0){
@@ -810,9 +886,7 @@ main(int argc, char **argv)
 		sysfatal("unknown challenge type '%s'", ct);
 	}
 
-	if(argc == 3)
-		challengedom = argv[2];
-	else if(argc != 2)
+	if(argc != 2)
 		usage();
 
 	if(acctkey == nil)

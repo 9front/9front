@@ -8,6 +8,9 @@ ip/acmed \- acme certificate client
 .I acctkey
 ]
 [
+.B -e
+.I cmd
+|
 .B -o
 .I chalout
 ]
@@ -21,9 +24,6 @@ ip/acmed \- acme certificate client
 ]
 .I acctname
 .I csr
-[
-.I domain
-]
 .SH DESCRIPTION
 Acmed fetches and renews TLS certificates
 using the
@@ -45,6 +45,18 @@ in place of the default
 The key must be a
 .I jwk
 formatted RSA key.
+.TP
+.B -e
+.I cmd
+Specifies that an external command sholud be run to
+install the challenge response.
+The
+.I cmd
+is run with the following four arguments:
+The challenge method,
+the identifier (domain),
+the token,
+and last the challenge response.
 .TP
 .B -o
 .I chalout
@@ -133,10 +145,10 @@ database=
 .PP
 And
 .I acmed
-must be invoked with the domain:
+must be invoked like:
 .IP
 .EX
-ip/acmed -t dns me@example.com mydomain.com.csr mydomain.com \\
+ip/acmed -t dns me@example.com mydomain.com.csr \\
 	>mydomain.com.crt
 .EE
 .SH SEE ALSO
