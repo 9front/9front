@@ -5,6 +5,7 @@ database=
 	file=/net/ndb
 	file=/lib/ndb/local
 	file=/lib/ndb/common
+	file=/lib/ndb/dnschallenge
 
 #
 #  entries defining the dns root.  these will be overridden by any
