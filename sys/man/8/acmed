@@ -48,7 +48,7 @@ formatted RSA key.
 .TP
 .B -e
 .I cmd
-Specifies that an external command sholud be run to
+Specifies that an external command should be run to
 install the challenge response.
 The
 .I cmd
