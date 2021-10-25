@@ -268,6 +268,9 @@ obsolete, same as
 .B txt
 above.
 .TP
+.B caa
+certificate authority authorization (for DNS)
+.TP
 .B tcp
 a TCP service name
 .TP
