@@ -756,7 +756,7 @@ getcert(char *csrpath)
 		sysfatal("decode csr: %r");
 	if((csr = encurl64(der, nder)) == nil)
 		sysfatal("encode %s: %r", csrpath);
-	if((ndom = getfields(name, dom, nelem(dom), 1, ",")) == nelem(dom))
+	if((ndom = getfields(name, dom, nelem(dom), 1, ", ")) == nelem(dom))
 		sysfatal("too man domains");
 	rsapubfree(rsa);
 	close(fd);
