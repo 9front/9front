@@ -115,13 +115,83 @@ static int Scrollwidth;
 static int Scrollheight;
 static int Coversz;
 
+static char *
+matchvname(char *s)
+{
+	char *names[] = {"master", "pcm out"};
+	int i;
+
+	for(i = 0; i < nelem(names); i++){
+		if(strncmp(s, names[i], strlen(names[i])) == 0)
+			return names[i];
+	}
+
+	return nil;
+}
+
+static void
+chvolume(int d)
+{
+	int f, l, r, ol, or;
+	char *s, *a[2], *n;
+	Biobuf b;
+
+	if((f = open("/dev/volume", ORDWR)) < 0)
+		return;
+	Binit(&b, f, OREAD);
+
+	l = r = 0;
+	for(; (s = Brdline(&b, '\n')) != nil;){
+		memset(a, 0, sizeof(a));
+		if((n = matchvname(s)) != nil && tokenize(s+strlen(n), a, 2) >= 1){
+			if(a[1] == nil)
+				a[1] = a[0];
+			l = ol = atoi(a[0]);
+			r = or = atoi(a[1]);
+			for(;;){
+				l += d;
+				r += d;
+				fprint(f, "%s %d %d\n", n, l, r);
+				Bseek(&b, 0, 0);
+				for(; (s = Brdline(&b, '\n')) != nil;){
+					if((n = matchvname(s)) != nil && tokenize(s+strlen(n), a, 2) >= 1){
+						if(a[1] == nil)
+							a[1] = a[0];
+						if(atoi(a[0]) == l && atoi(a[1]) == r)
+							goto end;
+						if(atoi(a[0]) != ol && atoi(a[1]) != or)
+							goto end;
+						if(l < 0 || r < 0 || l > 100 || r > 100)
+							goto end;
+						break;
+					}
+				}
+			}
+		}
+	}
+
+end:
+	volume = (l+r)/2;
+	if(volume > 100)
+		volume = 100;
+	else if(volume < 0)
+		volume = 0;
+
+	Bterm(&b);
+	close(f);
+}
+
 static void
 audioon(void)
 {
 	lock(&audiolock);
-	if(audio < 0 && (audio = open("/dev/audio", OWRITE|OCEXEC)) < 0 && audioerr == 0){
-		fprint(2, "%r\n");
-		audioerr = 1;
+	if(audio < 0){
+		if((audio = open("/dev/audio", OWRITE|OCEXEC)) < 0 && audioerr == 0){
+			fprint(2, "%r\n");
+			audioerr = 1;
+		}else{
+			chvolume(0);
+		}
 	}
 	unlock(&audiolock);
 }
@@ -901,53 +971,6 @@ onemore:
 		i = -1;
 		goto onemore;
 	}
-}
-
-static void
-chvolume(int d)
-{
-	int f, l, r, ol, or;
-	Biobuf b;
-	char *s, *a[4];
-
-	if((f = open("/dev/volume", ORDWR)) < 0)
-		return;
-	Binit(&b, f, OREAD);
-
-	l = r = 0;
-	for(; (s = Brdline(&b, '\n')) != nil;){
-		if(strncmp(s, "master", 6) == 0 && tokenize(s, a, 3) == 3){
-			l = ol = atoi(a[1]);
-			r = or = atoi(a[2]);
-			for(;;){
-				l += d;
-				r += d;
-				fprint(f, "master %d %d\n", l, r);
-				Bseek(&b, 0, 0);
-				for(; (s = Brdline(&b, '\n')) != nil;){
-					if(strncmp(s, "master", 6) == 0 && tokenize(s, a, 3) == 3){
-						if(atoi(a[1]) == l && atoi(a[2]) == r)
-							goto end;
-						if(atoi(a[1]) != ol && atoi(a[2]) != or)
-							goto end;
-						if(l < 0 || r < 0 || l > 100 || r > 100)
-							goto end;
-						break;
-					}
-				}
-			}
-		}
-	}
-
-end:
-	volume = (l+r)/2;
-	if(volume > 100)
-		volume = 100;
-	else if(volume < 0)
-		volume = 0;
-
-	Bterm(&b);
-	close(f);
 }
 
 static void
