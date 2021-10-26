@@ -148,6 +148,8 @@ chvolume(int d)
 				a[1] = a[0];
 			l = ol = atoi(a[0]);
 			r = or = atoi(a[1]);
+			if(d == 0)
+				break;
 			for(;;){
 				l += d;
 				r += d;
