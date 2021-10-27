@@ -1,6 +1,6 @@
 .TH RSA 8
 .SH NAME
-rsagen, rsafill, asn12rsa, rsa2asn1, rsa2pub, rsa2ssh, rsa2x509, rsa2csr, x5092pub \- generate and format rsa keys
+rsagen, rsafill, asn12rsa, rsa2asn1, rsa2pub, rsa2ssh, rsa2x509, rsa2csr, rsa2jwk, x5092pub \- generate and format rsa keys
 .SH SYNOPSIS
 .B rsagen
 [
@@ -44,6 +44,11 @@ rsagen, rsafill, asn12rsa, rsa2asn1, rsa2pub, rsa2ssh, rsa2x509, rsa2csr, x5092p
 .B -c
 .I comment
 ]
+[
+.I file
+]
+.PP
+.B rsa2jwk
 [
 .I file
 ]
@@ -201,6 +206,10 @@ reads a Plan 9 RSA public or private key and prints the public portion
 in the format used by SSH2. The
 .B -c
 option will set the comment.
+.PP
+.I Rsa2jwk
+reads a Plan 9 RSA public or provate key and prints the public portion
+as a RFC7517 formated JSON Web Key.
 .PP
 .I Rsa2x509
 reads a Plan 9 RSA private key and writes a self-signed X.509 certificate
