@@ -17,7 +17,6 @@ struct Hdr {
 };
 
 #define Keyspec		"proto=rsa service=acme role=sign hash=sha256 acct=%s"
-#define Useragent	"useragent aclient-plan9"
 #define Contenttype	"contenttype application/jose+json"
 #define between(x,min,max)	(((min-1-x) & (x-max-1))>>8)
 int	debug;
