@@ -3,6 +3,7 @@
 #		programs
 #
 TARG=\
+	acmed\
 	as\
 	asaudit\
 	asn1dump\

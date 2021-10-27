@@ -1,8 +1,8 @@
 .TH ACMED 8
 .SH NAME
-ip/acmed \- acme certificate client
+auth/acmed \- acme certificate client
 .SH SYNOPSIS
-.B ip/acmed
+.B auth/acmed
 [
 .B -a
 .I acctkey
@@ -178,7 +178,7 @@ to be mounted as the ACME protocol uses HTTP
 to talk to the provider.
 .IP
 .EX
-ip/acmed me@example.com /sys/lib/tls/acmed/mydomain.com.csr \\
+auth/acmed me@example.com /sys/lib/tls/acmed/mydomain.com.csr \\
 	> /sys/lib/tls/acmed/mydomain.com.crt
 .EE
 .PP
@@ -217,14 +217,14 @@ can be invoked to fetch the certificate using the
 DNS challenge method:
 .IP
 .EX
-ip/acmed -t dns me@example.com mydomain.com.csr \\
+auth/acmed -t dns me@example.com mydomain.com.csr \\
 	> /sys/lib/tls/acmed/mydomain.com.crt
 .EE
 .SH FILES
 .BI /sys/lib/tls/acmed/ * .pub
 Account public keys.
 .SH SOURCE
-.B /sys/src/cmd/ip/acmed.c
+.B /sys/src/cmd/auth/acmed.c
 .SH SEE ALSO
 .IR factotum (4),
 .IR ndb (6),
