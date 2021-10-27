@@ -156,6 +156,7 @@ chvolume(int d)
 				fprint(f, "%s %d %d\n", n, l, r);
 				Bseek(&b, 0, 0);
 				for(; (s = Brdline(&b, '\n')) != nil;){
+					memset(a, 0, sizeof(a));
 					if((n = matchvname(s)) != nil && tokenize(s+strlen(n), a, 2) >= 1){
 						if(a[1] == nil)
 							a[1] = a[0];
@@ -613,7 +614,7 @@ newplayer(int pcur, int loadnext)
 	player->ev = chancreate(sizeof(ulong), 0);
 	player->pcur = pcur;
 
-	threadcreate(playerthread, player, 4096);
+	threadcreate(playerthread, player, 32768);
 	if(getmeta(pcur)->filefmt[0] && playerret(player) < 0)
 		return nil;
 
