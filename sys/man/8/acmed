@@ -13,26 +13,41 @@ ip/acmed \- acme certificate client
 |
 .B -o
 .I chalout
+.B -t
+.I type
 ]
 [
 .B -p
 .I provider
 ]
-[
-.B -t
-.I type
-]
 .I acctname
 .I csr
+>
+.I crt
 .SH DESCRIPTION
-Acmed fetches and renews TLS certificates
+Acmed fetches and renews a TLS certificate
 using the
-.I acme (RFC8555)
+.I ACME (RFC8555)
 protocol.
-It requires a pre-generated account key
-and certificate signing key.
+It requires a pre-generated account key in
+.IR factotum (4)
+that is identified by
+.I acctname
+or an
+.I acctkey
+file.
+It also needs a certificatficate signing request file
+.I csr
+in binary X.509 ASN.1/DER format
+that contains the public key and subjects (domain names)
+that we want to get a certificate for.
+On success,
+.I acmed
+outputs the new certificate in
+PEM format to stdandard output.
 .PP
-Acmed accepts the following options:
+.I Acmed
+accepts the following options:
 .TP
 .B -a
 .I acctkey
@@ -41,22 +56,34 @@ Specifies that
 is used to sign requests to the
 .I provider
 in place of the default
-.IR /sys/lib/tls/acme/$acctname.pub .
-The key must be a
-.I jwk
-formatted RSA key.
+.BI /sys/lib/tls/acme/ acctname .pub
+file.
+The key must be a JWK formatted RSA public key
+(see
+.IR rsa (8)).
 .TP
 .B -e
 .I cmd
 Specifies that an external command should be run to
-install the challenge response.
+install the challenge material.
 The
 .I cmd
 is run with the following four arguments:
 The challenge method,
-the identifier (domain),
+the subject (domain),
 the token,
 and last the challenge response.
+If
+.I cmd
+returns an error status,
+it is assumed that it does not support the
+challenge method for the given subject (domain)
+and another method might be tried.
+Because of this, the
+.B -o
+and
+.B -t
+options are unnecessary.
 .TP
 .B -o
 .I chalout
@@ -70,70 +97,103 @@ flag.
 .IP
 For HTTP challenges,
 .I chalout
-must be a directory that your choice of
-.I httpd
-will serve at
-.IR http://domain.com/.well-known/acme-challenge .
+must be a directory that your webserver will serve at
+.br
+.BI http:// mydomain.com /.well-known/acme-challenge .
+.br
+It defaults to
+.BR /usr/web/.well-known/acme-challenge .
+.IP
 For DNS challenges,
 .I chalout
 is a file that should be included in your
-.I ndb
+.IR ndb (6)
 database.
-.IP
-If unspecified,
-.I http
-challenges will output to
-.IR /usr/web/.well-known/acme-challenge ,
-whle
-.I dns
-challenges will output to
-.IR /lib/ndb/dnschallenge .
+It defaults to
+.BR /lib/ndb/dnschallenge .
+.TP
+.B -t
+.I type
+Specifies that the challenge type. Supported challenge
+types are currently
+.B http
+and
+.BR dns .
 .TP
 .B -p
 .I provider
 Specifies that
 .I provider
 is used as the provider URL, in place of the default
-.IR https://acme-v02.api.letsencrypt.org/directory .
+.BR https://acme-v02.api.letsencrypt.org/directory .
 This must be the directory URL for the desired
 .I RFC8555
-compliant provider
-.TP
-.B -t
-.I type
-Specifies that the challenge type. Supported challenge
-types are currently
-.I http
-and
-.IR dns .
+compliant provider.
 .SH EXAMPLES
 Before
-.B acmed
-is run, the keys must be generated.
+.I acmed
+can be used, the account key must be generated:
 .IP
 .EX
-auth/rsagen -t 'service=acme role=sign hash=sha256 acct=a@b.org'\\
-	>acct.key
-auth/rsa2jwk acct.key >/sys/lib/tls/acmed/me@example.org.pub
-auth/rsagen -t 'service=tls owner=*' >cert.key
+auth/rsagen -t \\
+	'service=acme role=sign hash=sha256 acct=me@example.com' \\
+	> acct.key
+auth/rsa2jwk acct.key > /sys/lib/tls/acmed/me@example.com.pub
+.EE
+.PP
+Then the
+.B acct.key
+must be loaded into
+.IR factotum(4).
+It is recommended to put
+.B acct.key
+into
+.IR secstore (1)
+instead of saving it unencrypted on the file system.
+.IP
+.EX
+cat acct.key > /mnt/factotum/ctl
+.EE
+.PP
+On the TLS server side, you can generate a RSA key
+and certificate signing request file like this:
+.IP
+.EX
+auth/rsagen -t 'service=tls owner=*' > cert.key
 auth/rsa2csr 'CN=mydomain.com' cert.key \\
-	>/sys/lib/tls/acmed/mydomain.com.csr} \\
+	> /sys/lib/tls/acmed/mydomain.com.csr
 .EE
 .PP
-This need only be run once.
-.EE
+See
+.IR rsa (8)
+and
+.IR tlssrv (8)
+for more examples on how to use RSA keys.
+.IP
 .PP
-The certificate for the domain can now be fetched:
+The certificate for the domain can now be fetched.
+This requires
+.IR webfs(4)
+to be mounted as the ACME protocol uses HTTP
+to talk to the provider.
 .IP
 .EX
-ip/acmed me@example.org /sys/lib/tls/acmed/mydomain.com.csr \\
-	>/sys/lib/tls/acmed/mydomain.com.crt
+ip/acmed me@example.com /sys/lib/tls/acmed/mydomain.com.csr \\
+	> /sys/lib/tls/acmed/mydomain.com.crt
 .EE
-
 .PP
-When using a DNS challenge, your DNS server must be
-configured, and must be configured to include the
-DNS challenge file:
+When using the DNS challenge method,
+your DNS server
+(see
+.IR ndb (8))
+must be configured,
+and
+.IR ndb (6)
+must be setup to include the
+.I chalout
+file that
+.I acmed
+can write to:
 .IP
 .EX
 database=
@@ -143,20 +203,61 @@ database=
 	file=/lib/ndb/dnschallenge
 .EE
 .PP
-And
+In addition, the domains that you like to get verified
+needs to have a certificate authority authorization record
+of your ACME provider declared:
+.IP
+.EX
+dom=mydomain.com caa=letsencrypt.org
+.EE
+.PP
+Then
 .I acmed
-must be invoked like:
+can be invoked to fetch the certificate using the
+DNS challenge method:
 .IP
 .EX
 ip/acmed -t dns me@example.com mydomain.com.csr \\
-	>mydomain.com.crt
+	> /sys/lib/tls/acmed/mydomain.com.crt
 .EE
-.SH SEE ALSO
-.IR rsa (8), 
-.IR srvtls (4).
+.SH FILES
+.BI /sys/lib/tls/acmed/ * .pub
+Account public keys.
 .SH SOURCE
 .B /sys/src/cmd/ip/acmed.c
+.SH SEE ALSO
+.IR factotum (4),
+.IR ndb (6),
+.IR ndb (8),
+.IR rsa (8),
+.IR secstore (1),
+.IR tlssrv (8),
+.IR webfs (4).
 .SH  BUGS
+.PP
+When using DNS challenge,
+the
+.B -t
+.B dns
+method assumes that the DNS server runs
+on the same machine as
+.I acmed
+and that it is mounted on
+.B /net
+and that we have hostowner permissions to
+write the
+.B refresh
+command to
+.BR /net/dns .
+Also, when using multi-domain certificates,
+the usable challenge methods might be different for
+individual domains.
+Using the
+.B -e
+.I cmd
+option to customize the challenge installation procedure
+can be used to work around this.
+.PP
 .B https://bugzilla.mozilla.org/show_bug.cgi?id=647959
 .SH HISTORY
 .PP
