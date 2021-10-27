@@ -23,7 +23,7 @@ struct Hdr {
 int	debug;
 int	(*challengefn)(char*, char*, char*, int*);
 char	*keyspec;
-char	*provider = "https://acme-v02.api.letsencrypt.org/directory"; /* test endpoint */
+char	*provider = "https://acme-v02.api.letsencrypt.org/directory"; /* default endpoint */
 char	*challengecmd;
 char	*challengeout;
 char	*keyid;
@@ -471,8 +471,9 @@ runchallenge(char *ty, char *dom, char *tok, int *matched)
 	case -1:
 		return -1;
 	case 0:
+		dup(1, 2);
 		execl(challengecmd, challengecmd, ty, dom, tok, auth, nil);
-		exits("exec");
+		sysfatal("%s: %r", challengecmd);
 	}
 
 	while((w = wait()) != nil){
@@ -832,7 +833,7 @@ loadkey(char *path)
 static void
 usage(void)
 {
-	fprint(2, "usage: %s [-a acctkey] [-e cmd | -o chalout] [-p provider] [-t type] acct csr\n", argv0);
+	fprint(2, "usage: %s [-a acctkey] [-e cmd | -o chalout -t type] [-p provider] acct csr\n", argv0);
 	exits("usage");
 }
 
@@ -844,7 +845,7 @@ main(int argc, char **argv)
 	JSONfmtinstall();
 	fmtinstall('E', Econv);
 
-	ct = "http";
+	ct = nil;
 	co = nil;
 	acctkey = nil;
 	ARGBEGIN{
@@ -860,29 +861,29 @@ main(int argc, char **argv)
 	case 'o':
 		co = EARGF(usage());
 		break;
-	case 'p':
-		provider = EARGF(usage());
-		break;
 	case 't':
 		ct = EARGF(usage());
+		break;
+	case 'p':
+		provider = EARGF(usage());
 		break;
 	default:
 		usage();
 		break;
 	}ARGEND;
 
-	if(challengecmd){
-		if(co != nil)
+	if(challengecmd != nil){
+		if(ct != nil || co != nil)
 			usage();
 		challengeout = "/dev/null";
 		challengefn = runchallenge;
-	}else if(strcmp(ct, "http") == 0){
+	}else if(ct == nil || strcmp(ct, "http") == 0){
 		challengeout = (co != nil) ? co : "/usr/web/.well-known/acme-challenge";
 		challengefn = httpchallenge;
 	}else if(strcmp(ct, "dns") == 0){
 		challengeout = (co != nil) ? co : "/lib/ndb/dnschallenge";
 		challengefn = dnschallenge;
-	}else{
+	}else {
 		sysfatal("unknown challenge type '%s'", ct);
 	}
 
