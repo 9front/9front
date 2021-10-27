@@ -36,7 +36,7 @@ that is identified by
 or an
 .I acctkey
 file.
-It also needs a certificatficate signing request file
+It also needs a certificate signing request file
 .I csr
 in binary X.509 ASN.1/DER format
 that contains the public key and subjects (domain names)
