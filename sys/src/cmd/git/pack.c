@@ -281,7 +281,7 @@ openpack(Packf *pf)
 static void
 closepack(Packf *pf)
 {
-	if(--pf->refs == 0){
+	if(--pf->refs == 0 && pf->pack != nil){
 		Bterm(pf->pack);
 		pf->pack = nil;
 	}
