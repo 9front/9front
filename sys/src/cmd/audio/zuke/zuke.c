@@ -116,14 +116,17 @@ static int Scrollheight;
 static int Coversz;
 
 static char *
-matchvname(char *s)
+matchvname(char **s)
 {
 	char *names[] = {"master", "pcm out"};
-	int i;
+	int i, l;
 
 	for(i = 0; i < nelem(names); i++){
-		if(strncmp(s, names[i], strlen(names[i])) == 0)
+		l = strlen(names[i]);
+		if(strncmp(*s, names[i], l) == 0){
+			*s += l;
 			return names[i];
+		}
 	}
 
 	return nil;
@@ -132,53 +135,39 @@ matchvname(char *s)
 static void
 chvolume(int d)
 {
-	int f, l, r, ol, or;
-	char *s, *a[2], *n;
+	int f, x, ox, want, try;
+	char *s, *e;
 	Biobuf b;
+	char *n;
 
 	if((f = open("/dev/volume", ORDWR)) < 0)
 		return;
 	Binit(&b, f, OREAD);
 
-	l = r = 0;
-	for(; (s = Brdline(&b, '\n')) != nil;){
-		memset(a, 0, sizeof(a));
-		if((n = matchvname(s)) != nil && tokenize(s+strlen(n), a, 2) >= 1){
-			if(a[1] == nil)
-				a[1] = a[0];
-			l = ol = atoi(a[0]);
-			r = or = atoi(a[1]);
-			if(d == 0)
+	want = x = -1;
+	ox = 0;
+	for(try = 0; try < 10; try++){
+		for(n = nil; (s = Brdline(&b, '\n')) != nil;){
+			if((n = matchvname(&s)) != nil && (ox = strtol(s, &e, 10)) >= 0 && s != e)
 				break;
-			for(;;){
-				l += d;
-				r += d;
-				fprint(f, "%s %d %d\n", n, l, r);
-				Bseek(&b, 0, 0);
-				for(; (s = Brdline(&b, '\n')) != nil;){
-					memset(a, 0, sizeof(a));
-					if((n = matchvname(s)) != nil && tokenize(s+strlen(n), a, 2) >= 1){
-						if(a[1] == nil)
-							a[1] = a[0];
-						if(atoi(a[0]) == l && atoi(a[1]) == r)
-							goto end;
-						if(atoi(a[0]) != ol && atoi(a[1]) != or)
-							goto end;
-						if(l < 0 || r < 0 || l > 100 || r > 100)
-							goto end;
-						break;
-					}
-				}
-			}
+			n = nil;
 		}
+
+		if(want < 0){
+			want = CLAMP(ox+d, 0, 100);
+			x = ox;
+		}
+		if(n == nil || (d > 0 && ox >= want) || (d < 0 && ox <= want))
+			break;
+		x = CLAMP(x+d, 0, 100);
+		if(fprint(f, "%s %d\n", n, x) < 0)
+			break;
+		/* go to eof and back */
+		while(Brdline(&b, '\n') != nil);
+		Bseek(&b, 0, 0);
 	}
 
-end:
-	volume = (l+r)/2;
-	if(volume > 100)
-		volume = 100;
-	else if(volume < 0)
-		volume = 0;
+	volume = CLAMP(ox, 0, 100);
 
 	Bterm(&b);
 	close(f);
