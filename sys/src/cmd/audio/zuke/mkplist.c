@@ -19,6 +19,7 @@ static Meta *all;
 static int numall;
 static int firstiscomposer;
 static int keepfirstartist;
+static int simplesort;
 
 static char *fmts[] =
 {
@@ -281,6 +282,9 @@ cmpmeta(void *a_, void *b_)
 	a = a_;
 	b = b_;
 
+	if(simplesort)
+		return cistrcmp(a->path, b->path);
+
 	ae = utfrrune(a->path, '/');
 	be = utfrrune(b->path, '/');
 	if(ae != nil && be != nil && (x = cistrncmp(a->path, b->path, MAX(ae-a->path, be-b->path))) != 0) /* different path */
@@ -313,21 +317,34 @@ cmpmeta(void *a_, void *b_)
 	return cistrcmp(a->path, b->path);
 }
 
+static void
+usage(void)
+{
+	fprint(2, "usage: %s [-s] directory/file/URL [...] > noise.plist\n", argv0);
+	exits("usage");
+}
+
 void
 main(int argc, char **argv)
 {
 	char *dir, wd[4096];
 	int i;
 
-	if(argc < 2){
-		fprint(2, "usage: mkplist DIR [DIR2 ...] > noise.plist\n");
-		exits("usage");
-	}
+	ARGBEGIN{
+	case 's':
+		simplesort = 1;
+		break;
+	default:
+		usage();
+	}ARGEND
+
+	if(argc < 1)
+		usage();
 	getwd(wd, sizeof(wd));
 
 	Binit(&out, 1, OWRITE);
 
-	for(i = 1; i < argc; i++){
+	for(i = 0; i < argc; i++){
 		if(strncmp(argv[i], "http://", 7) == 0 || strncmp(argv[i], "https://", 8) == 0){
 			if((curr = newmeta()) == nil)
 				sysfatal("no memory");
