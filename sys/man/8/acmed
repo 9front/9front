@@ -261,4 +261,5 @@ can be used to work around this.
 .B https://bugzilla.mozilla.org/show_bug.cgi?id=647959
 .SH HISTORY
 .PP
-Ip/acmed first appeared in 9front (Oct 2021)
+.I Auth/acmed
+first appeared in 9front (Oct 2021)
