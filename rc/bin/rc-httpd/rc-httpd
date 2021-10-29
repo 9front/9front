@@ -74,8 +74,8 @@ if(~ $REQUEST_URI *://* //*){
 }
 QUERY_STRING=`{echo $REQUEST_URI | sed 's;[^?]*\??;;'}
 params=`{echo $QUERY_STRING | sed 's;\+; ;g'}
-location=`{echo $REQUEST_URI | sed 's;\?.*;;'}
-location=`{echo $location | sed '
+location=`{echo $REQUEST_URI | sed '
+	s;\?.*;;
 	s;[^/]+/\.\./;/;g
 	s;/\./;/;g
 	s;//+;/;g
