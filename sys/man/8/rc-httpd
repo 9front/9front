@@ -80,6 +80,11 @@ variable. Fine-grained control of specific request strings may
 be configured via a similar method acting upon the
 .I location
 and/or other variables.
+.PP
+The
+.I REMOTE_USER
+variable provides a user identification string supplied by the
+client as part of user authentication.
 .SH EXAMPLES
 The following examples demonstrate possible ways to configure
 .BR select-handler.
@@ -91,6 +96,20 @@ if(~ $SERVER_NAME 9front.org){
 	PATH_INFO=$location
 	FS_ROOT=/usr/sl/www/$SERVER_NAME
 	exec static-or-index
+}
+.EE
+.RE
+.PP
+HTTP basic authentication:
+.RS
+.EX
+if(~ $SERVER_NAME *restricted.org){
+	PATH_INFO=$location
+	FS_ROOT=/usr/kgb/www/$SERVER_NAME
+	authorize
+	if(~ $REMOTE_USER (glenda kgb))
+		exec static-or-index
+	error 401
 }
 .EE
 .RE
@@ -151,6 +170,8 @@ exec /rc/bin/rc-httpd/rc-httpd >>[2]/sys/log/www
 .B /rc/bin/rc-httpd/rc-httpd
 .TP
 .B /rc/bin/rc-httpd/select-handler
+.TP
+.B /rc/bin/rc-httpd/handlers/authorize
 .TP
 .B /rc/bin/rc-httpd/handlers/cgi
 .TP
