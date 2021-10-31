@@ -2599,6 +2599,7 @@ mkcont(int num, Elist *l)
 static Elem
 mkaltname(char *s)
 {
+	char buf[256], *at;
 	Elem e;
 	int i;
 
@@ -2606,9 +2607,22 @@ mkaltname(char *s)
 		if(strstr(s, DN_oid[i].prefix) != nil)
 			return mkcont(4, mkel(mkDN(s), nil)); /* DN */
 	}
+
+	/*
+	 * domain name part must be encoded
+	 * as international domain name.
+	 */
+	i = 0;
+	if((at = strchr(s, '@')) != nil){
+		i = ++at - s;
+		strncpy(buf, s, i);
+	}
+	if(utf2idn(s+i, buf+i, sizeof(buf)-i) >= 0)
+		s = buf;
+
 	e = mkstring(s, IA5String);
 	e.tag.class = Context;
-	e.tag.num = strchr(s, '@') != nil ? 1 : 2; /* email : DNS */
+	e.tag.num = at != nil ? 1 : 2; /* email : DNS */
 	return e;
 }
 
@@ -2699,7 +2713,7 @@ appendaltnames(char *name, int nname, Bytes *ext, int isreq)
 	Elem eext, ealt, edn;
 	Elist *el, *l;
 	Ints *oid;
-	char *alt, *e;
+	char *alt, *e, buf[256];
 	int len;
 
 	if(name == nil || ext == nil)
@@ -2757,14 +2771,34 @@ appendaltnames(char *name, int nname, Bytes *ext, int isreq)
 		}
 		if(alt == nil)
 			goto erralt;
+
 		/* take just CN part of Distinguished Name */
 		if((e = strchr(alt, ',')) != nil)
 			*e = '\0';
+
 		len = strlen(alt);
 		if(strncmp(name, alt, len) == 0 && strchr(",", name[len]) != nil){
-			free(alt);	/* same as the subject */
+			free(alt);	/* same as the subject (idn) */
 			continue;
 		}
+
+		/* decode international domain names */
+		len = 0;
+		if((e = strchr(alt, '@')) != nil){
+			len = ++e - alt;
+			strncpy(buf, alt, len);
+		}
+		if(idn2utf(alt+len, buf+len, sizeof(buf)-len) >= 0){
+			free(alt);
+			alt = estrdup(buf);
+		}
+	
+		len = strlen(alt);
+		if(strncmp(name, alt, len) == 0 && strchr(",", name[len]) != nil){
+			free(alt);	/* same as the subject (utf) */
+			continue;
+		}
+
 		if(name[0] != '\0')
 			strncat(name, ", ", nname-1);
 		strncat(name, alt, nname-1);
