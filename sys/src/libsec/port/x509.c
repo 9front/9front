@@ -141,6 +141,10 @@ static void	edump(Elem);
 #define CLASS_MASK 0xC0
 #define MAXOBJIDLEN 20
 
+enum {
+	Domlen = 256,
+};
+
 static int ber_decode(uchar** pp, uchar* pend, Elem* pelem);
 static int tag_decode(uchar** pp, uchar* pend, Tag* ptag, int* pisconstr);
 static int length_decode(uchar** pp, uchar* pend, int* plength);
@@ -2268,8 +2272,7 @@ copysubject(char *name, int nname, char *subject)
 		}
 		strncpy(name, subject, i);
 	}
-	if(strncmp(subject+i, "xn--", 4) != 0
-	|| idn2utf(subject+i, name+i, nname-i) < 0){
+	if(idn2utf(subject+i, name+i, nname-i) < 0){
 botch:
 		strncpy(name+i, subject+i, nname-i);
 	}
@@ -2618,7 +2621,7 @@ mkcont(int num, Elist *l)
 static Elem
 mkaltname(char *s)
 {
-	char buf[256], *at;
+	char buf[Domlen], *at;
 	Elem e;
 	int i;
 
@@ -2734,7 +2737,7 @@ appendaltnames(char *name, int nname, Bytes *ext, int isreq)
 	Elem eext, ealt, edn;
 	Elist *el, *l;
 	Ints *oid;
-	char *alt, *e, buf[256];
+	char *alt, *e, buf[Domlen];
 	int len;
 
 	if(name == nil || nname < 1 || ext == nil)
