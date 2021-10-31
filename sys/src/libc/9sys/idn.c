@@ -191,6 +191,9 @@ idn2utf(char *name, char *buf, int nbuf)
 	Rune rb[Domlen], r;
 	int nc, nr, n;
 
+	if(nbuf < 1)
+		return -1;
+
 	cp = name;
 	dp = buf;
 	de = dp+nbuf-1;
@@ -230,6 +233,9 @@ utf2idn(char *name, char *buf, int nbuf)
 	char *dp, *de, *cp;
 	Rune rb[Domlen], r;
 	int nc, nr, n;
+
+	if(nbuf < 1)
+		return -1;
 
 	dp = buf;
 	de = dp+nbuf-1;
