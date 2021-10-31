@@ -12,6 +12,7 @@ OFILES=\
 	getcallerpc.$O\
 	getfcr.$O\
 	getfields.$O\
+	idn.$O\
 	mount.$O\
 	rendezvous.$O\
 	rfork.$O\
@@ -66,3 +67,6 @@ u32.$O: ../../../libc/port/u32.c
 
 u64.$O: ../../../libc/port/u64.c
 	$CC $CFLAGS -I. ../../../libc/port/u64.c
+
+idn.$O: ../../../libc/9sys/idn.c
+	$CC $CFLAGS -I. ../../../libc/9sys/idn.c

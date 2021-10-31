@@ -180,6 +180,9 @@ extern	int	enc32chr(int);
 extern	int	dec16chr(int);
 extern	int	enc16chr(int);
 
+extern	int	idn2utf(char *, char *, int);
+extern	int	utf2idn(char *, char *, int);
+
 extern int tokenize(char*, char**, int);
 extern int getfields(char*, char**, int, int, char*);
 extern int gettokens(char*, char**, int, char*);
