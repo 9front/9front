@@ -2247,17 +2247,36 @@ end:
 static void
 copysubject(char *name, int nname, char *subject)
 {
-	char *e;
+	char *e, *at;
+	int i;
 
-	if(name == nil)
+	if(name == nil || nname < 1)
 		return;
 	memset(name, 0, nname);
 	if(subject == nil)
 		return;
-	strncpy(name, subject, nname-1);
-	e = strchr(name, ',');
-	if(e != nil)
+
+	if((e = strchr(subject, ',')) != nil)
 		*e = 0;	/* take just CN part of Distinguished Name */
+
+	i = 0;
+	if((at = strchr(subject, '@')) != nil){
+		i = ++at - subject;
+		if(i >= nname){
+			i = 0;
+			goto botch;
+		}
+		strncpy(name, subject, i);
+	}
+	if(strncmp(subject+i, "xn--", 4) != 0
+	|| idn2utf(subject+i, name+i, nname-i) < 0){
+botch:
+		strncpy(name+i, subject+i, nname-i);
+	}
+	name[nname-1] = 0;
+
+	if(e != nil)
+		*e = ',';
 }
 
 ECpub*
@@ -2615,11 +2634,13 @@ mkaltname(char *s)
 	i = 0;
 	if((at = strchr(s, '@')) != nil){
 		i = ++at - s;
+		if(i >= sizeof(buf))
+			goto botch;
 		strncpy(buf, s, i);
 	}
 	if(utf2idn(s+i, buf+i, sizeof(buf)-i) >= 0)
 		s = buf;
-
+botch:
 	e = mkstring(s, IA5String);
 	e.tag.class = Context;
 	e.tag.num = at != nil ? 1 : 2; /* email : DNS */
@@ -2716,7 +2737,7 @@ appendaltnames(char *name, int nname, Bytes *ext, int isreq)
 	char *alt, *e, buf[256];
 	int len;
 
-	if(name == nil || ext == nil)
+	if(name == nil || nname < 1 || ext == nil)
 		return;
 	if(decode(ext->data, ext->len, &eext) != ASN_OK)
 		return;
@@ -2786,19 +2807,21 @@ appendaltnames(char *name, int nname, Bytes *ext, int isreq)
 		len = 0;
 		if((e = strchr(alt, '@')) != nil){
 			len = ++e - alt;
+			if(len >= sizeof(buf))
+				goto botch;
 			strncpy(buf, alt, len);
 		}
 		if(idn2utf(alt+len, buf+len, sizeof(buf)-len) >= 0){
 			free(alt);
 			alt = estrdup(buf);
 		}
-	
+
 		len = strlen(alt);
 		if(strncmp(name, alt, len) == 0 && strchr(",", name[len]) != nil){
 			free(alt);	/* same as the subject (utf) */
 			continue;
 		}
-
+botch:
 		if(name[0] != '\0')
 			strncat(name, ", ", nname-1);
 		strncat(name, alt, nname-1);
