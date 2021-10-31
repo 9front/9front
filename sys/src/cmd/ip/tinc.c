@@ -1669,7 +1669,7 @@ main(int argc, char *argv[])
 
 	for(i = 0; i < argc; i++){
 		if((h = gethost(argv[i], 0)) == nil)
-			sysfatal("unknown host: %s", *argv);
+			sysfatal("unknown host: %s", argv[i]);
 		if(h == myhost)
 			sysfatal("will not connect to myself");
 		if(h->rsapub == nil)
