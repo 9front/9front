@@ -200,6 +200,8 @@ idn2utf(char *name, char *buf, int nbuf)
 			n = chartorune(&r, cp+nc);
 			if(r == '.')
 				break;
+			if(nr >= nelem(rb))
+				return -1;
 			rb[nr++] = r;
 			nc += n;
 		}
@@ -234,10 +236,12 @@ utf2idn(char *name, char *buf, int nbuf)
 	cp = name;
 	for(;;){
 		nc = nr = 0;
-		while(cp[nc] != 0 && nr < nelem(rb)){
+		while(cp[nc] != 0){
 			n = chartorune(&r, cp+nc);
 			if(r == '.')
 				break;
+			if(nr >= nelem(rb))
+				return -1;
 			rb[nr++] = r;
 			nc += n;
 		}
