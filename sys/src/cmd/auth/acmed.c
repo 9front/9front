@@ -405,6 +405,15 @@ mkaccount(char *addr)
 	keyid = loc.val;
 }
 
+static char*
+idn(char *dom)
+{
+	static char buf[256];
+	if(utf2idn(dom, buf, sizeof(buf)) >= 0)
+		return buf;
+	return dom;
+}
+
 static JSON*
 submitorder(char **dom, int ndom, Hdr *hdr)
 {
@@ -422,7 +431,7 @@ submitorder(char **dom, int ndom, Hdr *hdr)
 			"  \"type\": \"dns\","
 			"  \"value\": \"%E\""
 			"}",
-			sep, dom[i]);
+			sep, idn(dom[i]));
 		sep = ",";
 	}
 	req = seprint(req, rbuf+sizeof(rbuf),
@@ -555,21 +564,6 @@ challenge(JSON *j, char *authurl, JSON *id, char *dom[], int ndom, int *matched)
 	char *resp;
 	int i, nresp;
 
-	if((dn = jsonbyname(id, "value")) == nil)
-		return -1;
-	if(dn->t != JSONString)
-		return -1;
-
-	/* make sure the identifier matches the csr */
-	for(i = 0; i < ndom; i++){
-		if(cistrcmp(dom[i], dn->s) == 0)
-			break;
-	}
-	if(i >= ndom){
-		werrstr("unknown challenge identifier '%s'", dn->s);
-		return -1;
-	}
-
 	if((ty = jsonbyname(j, "type")) == nil)
 		return -1;
 	if((url = jsonbyname(j, "url")) == nil)
@@ -580,8 +574,23 @@ challenge(JSON *j, char *authurl, JSON *id, char *dom[], int ndom, int *matched)
 	if(ty->t != JSONString || url->t != JSONString || tok->t != JSONString)
 		return -1;
 
-	dprint("trying challenge %s\n", ty->s);
-	if(challengefn(ty->s, dn->s, tok->s, matched) == -1){
+	if((dn = jsonbyname(id, "value")) == nil)
+		return -1;
+	if(dn->t != JSONString)
+		return -1;
+
+	/* make sure the identifier matches the csr */
+	for(i = 0; i < ndom; i++){
+		if(cistrcmp(idn(dom[i]), dn->s) == 0)
+			break;
+	}
+	if(i >= ndom){
+		werrstr("unknown challenge identifier '%s'", dn->s);
+		return -1;
+	}
+
+	dprint("trying challenge %s for %s (%s)\n", ty->s, dom[i], dn->s);
+	if(challengefn(ty->s, dom[i], tok->s, matched) == -1){
 		dprint("challengefn failed: %r\n");
 		return -1;
 	}
@@ -743,7 +752,7 @@ getcert(char *csrpath)
 {
 	char *csr, *dom[64], subj[2048];
 	uchar *der;
-	int nder, i, ndom, fd;
+	int nder, ndom, fd;
 	RSApub *rsa;
 	Hdr loc = { "location" };
 	JSON *o;
@@ -765,14 +774,6 @@ getcert(char *csrpath)
 	if((ndom = getfields(subj, dom, nelem(dom), 1, ", ")) == nelem(dom))
 		sysfatal("too man domains");
 
-	for(i = 0; i < ndom; i++){
-		char buf[256], *s = dom[i];
-		if(utf2idn(s, buf, sizeof(buf)) >= 0)
-			s = buf;
-		dprint("dom[%d]: %s\n", i, s);
-		dom[i] = strdup(s);
-	}
-
 	if((o = submitorder(dom, ndom, &loc)) == nil)
 		sysfatal("order: %r");
 	if(dochallenges(dom, ndom, o) == -1)
@@ -783,8 +784,6 @@ getcert(char *csrpath)
 	if(fetchcert(loc.val) == -1)
 		sysfatal("saving cert: %r");
 
-	for(i = 0; i < ndom; i++)
-		free(dom[i]);
 	free(csr);
 }
 
