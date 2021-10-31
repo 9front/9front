@@ -741,9 +741,9 @@ fetchcert(char *url)
 static void
 getcert(char *csrpath)
 {
-	char *csr, *dom[64], name[2048];
+	char *csr, *dom[64], subj[2048];
 	uchar *der;
-	int nder, ndom, fd;
+	int nder, i, ndom, fd;
 	RSApub *rsa;
 	Hdr loc = { "location" };
 	JSON *o;
@@ -752,24 +752,39 @@ getcert(char *csrpath)
 		sysfatal("open %s: %r", csrpath);
 	if((der = slurp(fd, &nder)) == nil)
 		sysfatal("read %s: %r", csrpath);
-	if((rsa = X509reqtoRSApub(der, nder, name, sizeof(name))) == nil)
+	close(fd);
+
+	if((rsa = X509reqtoRSApub(der, nder, subj, sizeof(subj))) == nil)
 		sysfatal("decode csr: %r");
+	rsapubfree(rsa);
 	if((csr = encurl64(der, nder)) == nil)
 		sysfatal("encode %s: %r", csrpath);
-	if((ndom = getfields(name, dom, nelem(dom), 1, ", ")) == nelem(dom))
-		sysfatal("too man domains");
-	rsapubfree(rsa);
-	close(fd);
 	free(der);
+
+	dprint("subject: %s\n", subj);
+	if((ndom = getfields(subj, dom, nelem(dom), 1, ", ")) == nelem(dom))
+		sysfatal("too man domains");
+
+	for(i = 0; i < ndom; i++){
+		char buf[256], *s = dom[i];
+		if(utf2idn(s, buf, sizeof(buf)) >= 0)
+			s = buf;
+		dprint("dom[%d]: %s\n", i, s);
+		dom[i] = strdup(s);
+	}
 
 	if((o = submitorder(dom, ndom, &loc)) == nil)
 		sysfatal("order: %r");
 	if(dochallenges(dom, ndom, o) == -1)
 		sysfatal("challenge: %r");
+
 	if(submitcsr(o, csr) == -1)
 		sysfatal("signing cert: %r");
 	if(fetchcert(loc.val) == -1)
 		sysfatal("saving cert: %r");
+
+	for(i = 0; i < ndom; i++)
+		free(dom[i]);
 	free(csr);
 }
 
