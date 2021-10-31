@@ -69,9 +69,8 @@ tagsget(Tagctx *ctx)
 	for(i = 0; i < nelem(g); i++){
 		ctx->num = 0;
 		if(g[i].f(ctx) == 0){
-			if(ctx->num > 0)
-				res = 0;
 			ctx->format = g[i].format;
+			res = 0;
 		}
 		ctx->seek(ctx, 0, 0);
 	}
