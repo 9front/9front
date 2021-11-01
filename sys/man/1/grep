@@ -40,11 +40,11 @@ with the addition of a newline character as an alternative
 with lowest precedence.
 Normally, each line matching the pattern is `selected',
 and each selected line is copied to the standard output.
-The options are
+.PP
+The options are:
 .TP
 .B -c
 Print only a count of matching lines.
-.PD 0
 .TP
 .B -h
 Do not print file name tags (headers) with output lines.
