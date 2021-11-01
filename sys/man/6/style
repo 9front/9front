@@ -18,7 +18,7 @@ avoid
 .IP •
 no tabs expanded to spaces.
 .IP •
-surround a binary operator (particular a low precedence one) with spaces;
+surround a binary operator (particularly a low precedence one) with spaces;
 don't try to write the most compact code possible
 but rather the most readable.
 .IP •

@@ -27,7 +27,7 @@ dom=
 	ns=M.ROOT-SERVERS.NET
 
 #
-#  because the public demands the name localsource
+#  because the public demands the name localhost
 #
 ip=127.0.0.1 sys=localhost dom=localhost
 

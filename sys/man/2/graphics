@@ -469,7 +469,7 @@ overwrites the global variables
 .BR screen ,
 a pointer to the
 .B Image
-defining the window (or the overall display, if no window system is running); and
+defining the window (or the overall display, if no window system is running), and
 .BR _screen ,
 a pointer to the
 .B Screen

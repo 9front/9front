@@ -34,7 +34,7 @@ cifs - Microsoft™ Windows network filesystem client
 .SH DESCRIPTION
 .I Cifs
 translates between Microsoft's file-sharing protocol
-(a.k.a. CIFS or SMB) and 9P, allowing Plan9 clients to mount file systems
+(a.k.a. CIFS or SMB) and 9P, allowing Plan 9 clients to mount file systems
 (shares or trees in MS terminology) published by such servers.
 .PP
 The root of the mounted directory contains one subdirectory per share,
@@ -204,7 +204,7 @@ Alternatively the
 .B -a
 option can be used to force
 .I cifs
-to use one of the less secure authentication mechnisms.
+to use one of the less secure authentication mechanisms.
 .LP
 Windows 7 has dropped support for RAP, which is used to generate
 the synthetic files offered by

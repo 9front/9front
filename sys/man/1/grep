@@ -111,7 +111,7 @@ invokes
 .I grep
 with
 .B -n
-(plus aditional flags, if provided)
+(plus additional flags, if provided)
 and forces tagging of output lines by file name. If no files
 are listed, it recursively searches the current directory for
 all files matching

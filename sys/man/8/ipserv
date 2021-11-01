@@ -169,7 +169,7 @@ the namespace for anonymous users (default
 .PP
 .I Socksd
 is a SOCKS4 and SOCKS5
-proxy server allowing non Plan9 machines to access the
+proxy server allowing non-Plan 9 machines to access the
 outside network.
 The net to use for outgoing calls can be specified
 with the

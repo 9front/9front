@@ -24,7 +24,7 @@ is mostly used by bootloaders to download kernel images for
 network bootstrap (see
 .IR dhcpd (8)).
 As the protocol has no way of distinguishing files from
-directories, the final path segment needs to conain a dot
+directories, the final path segment needs to contain a dot
 (.) character to be recognized as a file. To access files that
 have no dot in the filename, a trailing dot has to be added
 and will be stripped before it is passed to the server.

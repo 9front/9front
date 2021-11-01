@@ -36,7 +36,7 @@ followed by the preferred write unit (in bytes) and the string
 .B buffered
 followed by the number of bytes currently queued for output. The
 numbers are decimal and right-padded with spaces to fit.
-After this fixed header, the contents of the file is driver specific.
+After this fixed header, the content of the file is driver-specific.
 .PP
 .B Volume
 is the control file associated with the audio port.  Each source has
