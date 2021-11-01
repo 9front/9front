@@ -1201,8 +1201,7 @@ int
 rrfmt(Fmt *f)
 {
 	int rv;
-	char *strp;
-	char buf[Domlen];
+	char *strp, buf[Domlen];
 	Fmt fstr;
 	RR *rp;
 	Server *s;
@@ -1333,8 +1332,8 @@ out:
 int
 rravfmt(Fmt *f)
 {
-	int rv, quote;
-	char buf[Domlen], *strp;
+	int rv;
+	char *strp, buf[Domlen];
 	Fmt fstr;
 	RR *rp;
 	Server *s;
@@ -1357,9 +1356,7 @@ rravfmt(Fmt *f)
 
 	switch(rp->type){
 	case Thinfo:
-		fmtprint(&fstr, " cpu=%s os=%s",
-			idnname(rp->cpu, buf, sizeof(buf)),
-			idnname(rp->os, buf, sizeof(buf)));
+		fmtprint(&fstr, " cpu=%s os=%s", dnname(rp->cpu), dnname(rp->os));
 		break;
 	case Tcname:
 		fmtprint(&fstr, " cname=%s", idnname(rp->host, buf, sizeof(buf)));
@@ -1377,9 +1374,8 @@ rravfmt(Fmt *f)
 		fmtprint(&fstr, " mbox=%s", idnname(rp->mb, buf, sizeof(buf)));
 		break;
 	case Tminfo:
-		fmtprint(&fstr, " mbox=%s mbox=%s",
-			idnname(rp->mb, buf, sizeof(buf)),
-			idnname(rp->rmb, buf, sizeof(buf)));
+		fmtprint(&fstr, " mbox=%s", idnname(rp->mb, buf, sizeof(buf)));
+		fmtprint(&fstr, " mbox=%s", idnname(rp->rmb, buf, sizeof(buf)));
 		break;
 	case Tmx:
 		fmtprint(&fstr, " pref=%lud mx=%s", rp->pref,
@@ -1390,14 +1386,14 @@ rravfmt(Fmt *f)
 		fmtprint(&fstr, " ip=%s", dnname(rp->ip));
 		break;
 	case Tptr:
-		fmtprint(&fstr, " dom=%s", dnname(rp->ptr));
+		fmtprint(&fstr, " dom=%s", idnname(rp->ptr, buf, sizeof(buf)));
 		break;
 	case Tsoa:
 		soa = rp->soa;
+		fmtprint(&fstr, " ns=%s", idnname(rp->host, buf, sizeof(buf)));
+		fmtprint(&fstr, " mbox=%s", idnname(rp->rmb, buf, sizeof(buf)));
 		fmtprint(&fstr,
-" ns=%s mbox=%s serial=%lud refresh=%lud retry=%lud expire=%lud ttl=%lud",
-			idnname(rp->host, buf, sizeof(buf)),
-			idnname(rp->rmb, buf, sizeof(buf)),
+" serial=%lud refresh=%lud retry=%lud expire=%lud ttl=%lud",
 			(soa? soa->serial: 0),
 			(soa? soa->refresh: 0), (soa? soa->retry: 0),
 			(soa? soa->expire: 0), (soa? soa->minttl: 0));
@@ -1418,22 +1414,14 @@ rravfmt(Fmt *f)
 				rp->null->data);
 		break;
 	case Ttxt:
-		fmtprint(&fstr, " txt=");
-		quote = 0;
-		for(t = rp->txt; t != nil; t = t->next)
-			if(strchr(t->p, ' '))
-				quote = 1;
-		if(quote)
-			fmtprint(&fstr, "\"");
+		fmtprint(&fstr, " txt=\"");
 		for(t = rp->txt; t != nil; t = t->next)
 			fmtprint(&fstr, "%s", t->p);
-		if(quote)
-			fmtprint(&fstr, "\"");
+		fmtprint(&fstr, "\"");
 		break;
 	case Trp:
-		fmtprint(&fstr, " rp=%s txt=%s",
-			idnname(rp->rmb, buf, sizeof(buf)),
-			idnname(rp->rp, buf, sizeof(buf)));
+		fmtprint(&fstr, " mbox=%s", idnname(rp->rmb, buf, sizeof(buf)));
+		fmtprint(&fstr, " rp=%s", idnname(rp->rp, buf, sizeof(buf)));
 		break;
 	case Tdnskey:
 	case Tkey:
