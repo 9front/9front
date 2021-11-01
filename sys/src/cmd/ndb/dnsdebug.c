@@ -30,9 +30,11 @@ char	*zonerefreshprogram;
 void	docmd(int, char**);
 void	doquery(char*, char*);
 void	preloadserveraddrs(void);
-int	prettyrrfmt(Fmt*);
 int	setserver(char*);
 void	squirrelserveraddrs(void);
+
+#pragma	varargck	type	"P"	RR*
+int	prettyrrfmt(Fmt*);
 
 void
 usage(void)
@@ -77,7 +79,7 @@ main(int argc, char *argv[])
 	now = time(nil);
 	nowns = nsec();
 	dninit();
-	fmtinstall('R', prettyrrfmt);
+	fmtinstall('P', prettyrrfmt);
 	opendatabase();
 	srand(truerand());
 	db2cache(1);
@@ -156,101 +158,23 @@ mkptrname(char *ip, char *rip, int rlen)
 int
 prettyrrfmt(Fmt *f)
 {
+	int rv;
+	char *strp, *t, buf[32];
+	Fmt fstr;
 	RR *rp;
-	char buf[3*Domlen];
-	char *p, *e;
-	Txt *t;
 
+	fmtstrinit(&fstr);
 	rp = va_arg(f->args, RR*);
-	if(rp == 0){
-		strcpy(buf, "<null>");
-		goto out;
-	}
-
-	p = buf;
-	e = buf + sizeof(buf);
-	p = seprint(p, e, "%-32.32s %-15.15s %-5.5s", rp->owner->name,
-		longtime(rp->ttl),
-		rrname(rp->type, buf, sizeof buf));
-
-	if(rp->negative){
-		seprint(p, e, "negative rcode %d", rp->negrcode);
-		goto out;
-	}
-
-	switch(rp->type){
-	case Thinfo:
-		seprint(p, e, "\t%s %s", rp->cpu->name, rp->os->name);
-		break;
-	case Tcname:
-	case Tmb:
-	case Tmd:
-	case Tmf:
-	case Tns:
-		seprint(p, e, "\t%s", (rp->host? rp->host->name: ""));
-		break;
-	case Tmg:
-	case Tmr:
-		seprint(p, e, "\t%s", (rp->mb? rp->mb->name: ""));
-		break;
-	case Tminfo:
-		seprint(p, e, "\t%s %s", (rp->mb? rp->mb->name: ""),
-			(rp->rmb? rp->rmb->name: ""));
-		break;
-	case Tmx:
-		seprint(p, e, "\t%lud %s", rp->pref,
-			(rp->host? rp->host->name: ""));
-		break;
-	case Ta:
-	case Taaaa:
-		seprint(p, e, "\t%s", (rp->ip? rp->ip->name: ""));
-		break;
-	case Tptr:
-		seprint(p, e, "\t%s", (rp->ptr? rp->ptr->name: ""));
-		break;
-	case Tsoa:
-		seprint(p, e, "\t%s %s %lud %lud %lud %lud %lud",
-			rp->host->name, rp->rmb->name, rp->soa->serial,
-			rp->soa->refresh, rp->soa->retry,
-			rp->soa->expire, rp->soa->minttl);
-		break;
-	case Tsrv:
-		seprint(p, e, "\t%ud %ud %ud %s",
-			rp->srv->pri, rp->srv->weight, rp->port, rp->host->name);
-		break;
-	case Tnull:
-		seprint(p, e, "\t%.*H", rp->null->dlen, rp->null->data);
-		break;
-	case Ttxt:
-		p = seprint(p, e, "\t");
-		for(t = rp->txt; t != nil; t = t->next)
-			p = seprint(p, e, "%s", t->p);
-		break;
-	case Trp:
-		seprint(p, e, "\t%s %s", rp->rmb->name, rp->rp->name);
-		break;
-	case Tkey:
-		seprint(p, e, "\t%d %d %d", rp->key->flags, rp->key->proto,
-			rp->key->alg);
-		break;
-	case Tsig:
-		seprint(p, e, "\t%d %d %d %lud %lud %lud %d %s",
-			rp->sig->type, rp->sig->alg, rp->sig->labels,
-			rp->sig->ttl, rp->sig->exp, rp->sig->incep,
-			rp->sig->tag, rp->sig->signer->name);
-		break;
-	case Tcert:
-		seprint(p, e, "\t%d %d %d",
-			rp->sig->type, rp->sig->tag, rp->sig->alg);
-		break;
-	case Tcaa:
-		seprint(p, e, "\t%d %s %.*s",
-			rp->caa->flags, rp->caa->tag->name,
-			rp->caa->dlen, (char*)rp->caa->data);
-		break;
-	}
-out:
-	return fmtstrcpy(f, buf);
+	fmtprint(&fstr, "%R", rp);
+	strp = fmtstrflush(&fstr);
+	if((t = strchr(strp, '\t')) == nil || rp == nil)
+		rv = fmtstrcpy(f, strp);
+	else
+		rv = fmtprint(f, "%-32.32s %-15.15s %-5.5s%s",
+			rp->owner->name, longtime(rp->ttl),
+			rrname(rp->type, buf, sizeof buf), t);
+	free(strp);
+	return rv;
 }
 
 void
@@ -258,9 +182,9 @@ logsection(char *flag, RR *rp)
 {
 	if(rp == nil)
 		return;
-	print("\t%s%R\n", flag, rp);
+	print("\t%s%P\n", flag, rp);
 	for(rp = rp->next; rp != nil; rp = rp->next)
-		print("\t      %R\n", rp);
+		print("\t      %P\n", rp);
 }
 
 void
@@ -452,7 +376,7 @@ doquery(char *name, char *tstr)
 	if(rr){
 		print("----------------------------\n");
 		for(rp = rr; rp; rp = rp->next)
-			print("answer %R\n", rp);
+			print("answer %P\n", rp);
 		print("----------------------------\n");
 	}
 	rrfreelist(rr);
