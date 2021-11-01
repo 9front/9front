@@ -240,7 +240,7 @@ center;
 lfCW lw(4.5i).
 -m@name@	T{
 Read the macro file
-@cw /sys/lib/tmac. name@
+@cw /sys/lib/tmac/tmac. name@
 before the input @files@.
 T}
 -T@name@	T{
