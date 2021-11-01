@@ -53,41 +53,47 @@ static void
 query(int fd)
 {
 	int n;
-	char *lp;
+	char *lp, *bang;
 	char buf[1024], line[1024];
 	Biobuf in;
 
 	Binit(&in, 0, OREAD);
 	for(fprint(2, "> "); lp = Brdline(&in, '\n'); fprint(2, "> ")){
-		n = Blinelen(&in) -1;
-		while(isspace(lp[n]))
-			lp[n--] = 0;
-		n++;
-		while(isspace(*lp)){
-			lp++;
+		n = Blinelen(&in);
+		while(n > 0 && isspace(lp[n-1]))
 			n--;
+		lp[n] = 0;
+		while(isspace(*lp))
+			lp++;
+		bang = "";
+		while(*lp == '!'){
+			bang = "!";
+			lp++;
 		}
-		if(!*lp)
+		while(isspace(*lp))
+			lp++;
+		if(*lp == 0)
 			continue;
-		strcpy(line, lp);
 
 		/* default to an "ip" request if alpha, "ptr" if numeric */
-		if(strchr(line, ' ') == nil)
-			if(strcmp(ipattr(line), "ip") == 0) {
-				strcat(line, " ptr");
-				n += 4;
+		if(strchr(lp, ' ') == nil){
+			if(strcmp(ipattr(lp), "ip") == 0) {
+				n = snprint(line, sizeof line, "%s ptr", lp);
 			} else {
-				strcat(line, " ip");
-				n += 3;
+				n = snprint(line, sizeof line, "%s ip", lp);
 			}
+		} else {
+			n = snprint(line, sizeof line, "%s", lp);
+		}
 
 		if(n > 4 && strcmp(" ptr", &line[n-4]) == 0){
 			line[n-4] = 0;
 			mkptrname(line, buf, sizeof buf);
-			n = snprint(line, sizeof line, "%s ptr", buf);
+			snprint(line, sizeof line, "%s ptr", buf);
 		}
 
-		querydns(fd, line, n);
+		n = snprint(buf, sizeof buf, "%s%s", bang, line);
+		querydns(fd, buf, n);
 	}
 	Bterm(&in);
 }

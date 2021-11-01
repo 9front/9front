@@ -683,6 +683,9 @@ to see how it resolves requests.
 .I Ndb/dnsquery
 prompts for commands of the form
 .IP
+[
+.B !
+]
 .I "domain-name request-type"
 .LP
 where
@@ -700,6 +703,11 @@ In the case of the inverse query type,
 will reverse the ip address and tack on the
 .B .in-addr.arpa
 if necessary.
+If the command starts with an exclamation mark
+.B !
+then the response is returned in
+.IR ndb (6)
+format.
 The
 .B -x
 option switches
@@ -707,7 +715,7 @@ option switches
 to query the dns server on
 .B /net.alt
 instead of
-.B /net
+.BR /net .
 .PP
 .I Ndb/dnsdebug
 is like
