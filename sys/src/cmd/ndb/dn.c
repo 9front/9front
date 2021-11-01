@@ -1451,9 +1451,9 @@ rravfmt(Fmt *f)
 		break;
 	case Tcaa:
 		if (rp->caa == nil)
-			fmtprint(&fstr, " flags=<null> tag=<null> value=<null>");
+			fmtprint(&fstr, " flags=<null> tag=<null> caa=<null>");
 		else
-			fmtprint(&fstr, " flags=%d tag=%s value=%.*s",
+			fmtprint(&fstr, " flags=%d tag=%s caa=\"%.*s\"",
 				rp->caa->flags, dnname(rp->caa->tag),
 				rp->caa->dlen, (char*)rp->caa->data);
 		break;
