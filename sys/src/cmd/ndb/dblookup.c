@@ -36,7 +36,6 @@ static RR*	doaxfr(Ndb*, char*);
 static Ndbtuple*look(Ndbtuple*, Ndbtuple*, char*);
 static RR*	mxrr(Ndbtuple*, Ndbtuple*);
 static RR*	nsrr(Ndbtuple*, Ndbtuple*);
-static RR*	nullrr(Ndbtuple*, Ndbtuple*);
 static RR*	ptrrr(Ndbtuple*, Ndbtuple*);
 static RR*	soarr(Ndbtuple*, Ndbtuple*);
 static RR*	srvrr(Ndbtuple*, Ndbtuple*);
@@ -50,7 +49,6 @@ static int	implemented[] =
 	[Tcname]	1,
 	[Tmx]		1,
 	[Tns]		1,
-	[Tnull]		1,
 	[Tptr]		1,
 	[Tsoa]		1,
 	[Tsrv]		1,
@@ -228,10 +226,6 @@ dblookup1(char *name, int type, int auth, int ttl)
 		attr2 = "ipv6";
 		f = addr6rr;
 		break;
-	case Tnull:
-		attr = "nullrr";
-		f = nullrr;
-		break;
 	case Tns:
 		attr = "ns";
 		f = nsrr;
@@ -246,7 +240,7 @@ dblookup1(char *name, int type, int auth, int ttl)
 		break;
 	case Ttxt:
 		attr = "txt";
-		attr2 = "txtrr";	/* undocumented */
+		attr2 = "txtrr";	/* obsolete */
 		f = txtrr;
 		break;
 	case Tmx:
@@ -435,27 +429,17 @@ addrrr(Ndbtuple*, Ndbtuple *pair)
 	return rp;
 }
 
-static RR*
-nullrr(Ndbtuple*, Ndbtuple *pair)
-{
-	RR *rp;
-
-	rp = rralloc(Tnull);
-	rp->null->data = (uchar*)estrdup(pair->val);
-	rp->null->dlen = strlen((char*)rp->null->data);
-	return rp;
-}
 /*
- *  txt rr strings are at most 255 bytes long.  one
+ *  txt rr strings are at most Strlen-1 bytes long.  one
  *  can represent longer strings by multiple concatenated
- *  <= 255 byte ones.
+ *  < Strlen byte ones.
  */
 static RR*
 txtrr(Ndbtuple*, Ndbtuple *pair)
 {
 	RR *rp;
 	Txt *t, **l;
-	int i, len, sofar;
+	int i, n, len, sofar;
 
 	rp = rralloc(Ttxt);
 	l = &rp->txt;
@@ -466,14 +450,26 @@ txtrr(Ndbtuple*, Ndbtuple *pair)
 		t = emalloc(sizeof(*t));
 		t->next = nil;
 
-		i = len-sofar;
-		if(i > 255)
-			i = 255;
+		n = len-sofar;
+		if(n >= Strlen)
+			n = Strlen-1;
+		t->data = emalloc(n);
 
-		t->p = emalloc(i+1);
-		memmove(t->p, pair->val+sofar, i);
-		t->p[i] = 0;
-		sofar += i;
+		/* see bslashfmt() */
+		for(i = 0; i < n && sofar < len; i++){
+			uint c = pair->val[sofar++];
+			if(c == '\\' && sofar < len){
+				if(pair->val[sofar] >= '0' && pair->val[sofar] <= '7'){
+					c = pair->val[sofar++] - '0';
+					while(pair->val[sofar] >= '0' && pair->val[sofar] <= '7')
+						c = (c << 3) | (pair->val[sofar++] - '0');
+				} else {
+					c = pair->val[sofar++];
+				}
+			}
+			t->data[i] = c;
+		}
+		t->dlen = i;
 
 		*l = t;
 		l = &t->next;
@@ -672,9 +668,7 @@ dbpair2cache(DN *dp, Ndbtuple *entry, Ndbtuple *pair)
 		rp = srvrr(entry, pair);
 	else if(strcmp(pair->attr, "cname") == 0)
 		rp = cnamerr(entry, pair);
-	else if(strcmp(pair->attr, "nullrr") == 0)
-		rp = nullrr(entry, pair);
-	else if(strcmp(pair->attr, "txtrr") == 0)	/* undocumented */
+	else if(strcmp(pair->attr, "txtrr") == 0)	/* obsolete */
 		rp = txtrr(entry, pair);
 	else if(strcmp(pair->attr, "txt") == 0)
 		rp = txtrr(entry, pair);

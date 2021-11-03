@@ -251,7 +251,7 @@ struct Null
 struct Txt
 {
 	Txt	*next;
-	char	*p;
+	Block;
 };
 
 /*
@@ -436,6 +436,7 @@ extern char	*trace;
 extern int	traceactivity;
 extern char	*zonerefreshprogram;
 
+#pragma	varargck	type	"\\"	uchar*
 #pragma	varargck	type	"R"	RR*
 #pragma	varargck	type	"Q"	RR*
 
@@ -448,6 +449,7 @@ extern Lock	dnlock;
 
 void	abort(); /* char*, ... */;
 void	addserver(Server**, char*);
+int	bslashfmt(Fmt*);
 Server*	copyserverlist(Server*);
 void	db2cache(int);
 void	dnage(DN*);

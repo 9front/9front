@@ -139,7 +139,6 @@ Lock	dnlock;
 static ulong agefreq = Defagefreq;
 
 static int rrequiv(RR *r1, RR *r2);
-static int sencodefmt(Fmt*);
 
 static void
 ding(void*, char *msg)
@@ -157,9 +156,10 @@ dninit(void)
 	fmtinstall('E', eipfmt);
 	fmtinstall('I', eipfmt);
 	fmtinstall('V', eipfmt);
+	fmtinstall('\\', bslashfmt);
 	fmtinstall('R', rrfmt);
 	fmtinstall('Q', rravfmt);
-	fmtinstall('H', sencodefmt);
+	fmtinstall('H', encodefmt);
 
 	dnvars.oldest = maxage;
 	dnvars.names = 0;
@@ -944,7 +944,9 @@ rrcopy(RR *rp, RR **last)
 		*l = nil;
 		for(t = rp->txt; t != nil; t = t->next){
 			nt = emalloc(sizeof(*nt));
-			nt->p = estrdup(t->p);
+			nt->dlen = t->dlen;
+			nt->data = emalloc(t->dlen);
+			memmove(nt->data, t->data, t->dlen);
 			nt->next = nil;
 			*l = nt;
 			l = &nt->next;
@@ -1195,6 +1197,47 @@ idnname(DN *dn, char *buf, int nbuf)
 }
 
 /*
+ *  txt rr strings can contain binary data such as
+ *  control characters and double quotes (") which would
+ *  collide with ndb(6) format.
+ *  escape special characters by encoding them as: \DDD
+ *  where D is a octal digit. backslash (\) is escaped
+ *  by doubling. valid utf8 is encoded verbatim.
+ */
+int
+bslashfmt(Fmt *f)
+{
+	int len, out, n, c;
+	uchar *data;
+
+	out = 0;
+	len = f->prec;
+	f->prec = 0;
+	f->flags &= ~FmtPrec;
+	data = va_arg(f->args, uchar*);
+	for(; len > 0; data += n, len -= n){
+		if(*data >= Runeself && fullrune((char*)data, len)){
+			Rune r;
+
+			n = chartorune(&r, (char*)data);
+			if(r != Runeerror){
+				out += fmtprint(f, "%C", r);
+				continue;
+			}
+		}
+		c = *data;
+		if(c < ' ' || c == '"' || c > '~')
+			out += fmtprint(f, "\\%.3o", c);
+		else if(c == '\\')
+			out += fmtprint(f, "\\\\");
+		else
+			out += fmtprint(f, "%c", c);
+		n = 1;
+	}
+	return out;
+}
+
+/*
  *  print conversion for rr records
  */
 int
@@ -1280,7 +1323,7 @@ rrfmt(Fmt *f)
 	case Ttxt:
 		fmtprint(&fstr, "\t");
 		for(t = rp->txt; t != nil; t = t->next)
-			fmtprint(&fstr, "%s", t->p);
+			fmtprint(&fstr, "%.*\\", t->dlen, t->data);
 		break;
 	case Trp:
 		fmtprint(&fstr, "\t%s %s", dnname(rp->rmb), dnname(rp->rp));
@@ -1314,9 +1357,9 @@ rrfmt(Fmt *f)
 		if (rp->caa == nil)
 			fmtprint(&fstr, "\t<null> <null> <null>");
 		else
-			fmtprint(&fstr, "\t%d %s %.*s",
+			fmtprint(&fstr, "\t%d %s %.*\\",
 				rp->caa->flags, dnname(rp->caa->tag),
-				rp->caa->dlen, (char*)rp->caa->data);
+				rp->caa->dlen, rp->caa->data);
 		break;
 	}
 out:
@@ -1416,7 +1459,7 @@ rravfmt(Fmt *f)
 	case Ttxt:
 		fmtprint(&fstr, " txt=\"");
 		for(t = rp->txt; t != nil; t = t->next)
-			fmtprint(&fstr, "%s", t->p);
+			fmtprint(&fstr, "%.*\\", t->dlen, t->data);
 		fmtprint(&fstr, "\"");
 		break;
 	case Trp:
@@ -1453,9 +1496,9 @@ rravfmt(Fmt *f)
 		if (rp->caa == nil)
 			fmtprint(&fstr, " flags=<null> tag=<null> caa=<null>");
 		else
-			fmtprint(&fstr, " flags=%d tag=%s caa=\"%.*s\"",
+			fmtprint(&fstr, " flags=%d tag=%s caa=\"%.*\\\"",
 				rp->caa->flags, dnname(rp->caa->tag),
-				rp->caa->dlen, (char*)rp->caa->data);
+				rp->caa->dlen, rp->caa->data);
 		break;
 	}
 out:
@@ -1574,14 +1617,14 @@ certequiv(Cert *a, Cert *b)
 static int
 txtequiv(Txt *a, Txt *b)
 {
-	char *ap, *ae, *bp, *be;
+	uchar *ap, *ae, *bp, *be;
 	int n;
 
 	for(ap = ae = bp = be = nil;;ap += n, bp += n){
-		while(a != nil && (ap == nil || (ap == ae && (a = a->next) != nil)))
-			ap = a->p, ae = ap + strlen(ap);
-		while(b != nil && (bp == nil || (bp == be && (b = b->next) != nil)))
-			bp = b->p, be = bp + strlen(bp);
+		while(a != nil && (ap == nil || (ap >= ae && (a = a->next) != nil)))
+			ap = a->data, ae = ap + a->dlen;
+		while(b != nil && (bp == nil || (bp >= be && (b = b->next) != nil)))
+			bp = b->data, be = bp + b->dlen;
 		if(a == b || a == nil || b == nil)
 			break;
 		n = ae - ap;
@@ -1707,61 +1750,6 @@ randomize(RR *rp)
 	}
 
 	return first;
-}
-
-static int
-sencodefmt(Fmt *f)
-{
-	int i, len, ilen, rv;
-	char *out, *buf;
-	uchar *b;
-	char obuf[64];		/* rsc optimization */
-
-	if(!(f->flags&FmtPrec) || f->prec < 1)
-		goto error;
-
-	b = va_arg(f->args, uchar*);
-	if(b == nil)
-		goto error;
-
-	/* if it's a printable, go for it */
-	len = f->prec;
-	for(i = 0; i < len; i++)
-		if(!isprint(b[i]))
-			break;
-	if(i == len){
-		if(len >= sizeof obuf)
-			len = sizeof(obuf)-1;
-		memmove(obuf, b, len);
-		obuf[len] = 0;
-		fmtstrcpy(f, obuf);
-		return 0;
-	}
-
-	ilen = f->prec;
-	f->prec = 0;
-	f->flags &= ~FmtPrec;
-	len = 2*ilen + 1;
-	if(len > sizeof(obuf)){
-		buf = malloc(len);
-		if(buf == nil)
-			goto error;
-	} else
-		buf = obuf;
-
-	/* convert */
-	out = buf;
-	rv = enc16(out, len, b, ilen);
-	if(rv < 0)
-		goto error;
-
-	fmtstrcpy(f, buf);
-	if(buf != obuf)
-		free(buf);
-	return 0;
-
-error:
-	return fmtstrcpy(f, "<encodefmt>");
 }
 
 void*
@@ -2048,7 +2036,7 @@ rrfree(RR *rp)
 	case Ttxt:
 		while(t = rp->txt){
 			rp->txt = t->next;
-			free(t->p);
+			free(t->data);
 			memset(t, 0, sizeof *t);	/* cause trouble */
 			free(t);
 		}

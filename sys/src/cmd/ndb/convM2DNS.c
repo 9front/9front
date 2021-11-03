@@ -103,7 +103,7 @@ gv4addr(RR *rp, Scan *sp)
 	char addr[32];
 
 	if(sp->err)
-		return 0;
+		return nil;
 	if(sp->ep - sp->p < 4)
 		return (DN*)errtoolong(rp, sp, sp->ep - sp->p, 4, "gv4addr");
 	snprint(addr, sizeof addr, "%V", sp->p);
@@ -117,7 +117,7 @@ gv6addr(RR *rp, Scan *sp)
 	char addr[64];
 
 	if(sp->err)
-		return 0;
+		return nil;
 	if(sp->ep - sp->p < IPaddrlen)
 		return (DN*)errtoolong(rp, sp, sp->ep - sp->p, IPaddrlen,
 			"gv6addr");
@@ -133,20 +133,20 @@ gv6addr(RR *rp, Scan *sp)
 static DN*
 gsym(RR *rp, Scan *sp)
 {
+	char sym[Strlen];
 	int n;
-	char sym[Strlen+1];
 
 	if(sp->err)
-		return 0;
+		return nil;
 	n = 0;
 	if (sp->p < sp->ep)
 		n = *(sp->p++);
 	if(sp->ep - sp->p < n)
 		return (DN*)errtoolong(rp, sp, sp->ep - sp->p, n, "gsym");
 
-	if(n > Strlen){
+	if(n >= Strlen){
 		sp->err = "illegal string (symbol)";
-		return 0;
+		return nil;
 	}
 	strncpy(sym, (char*)sp->p, n);
 	sym[n] = 0;
@@ -164,30 +164,28 @@ static Txt*
 gstr(RR *rp, Scan *sp)
 {
 	int n;
-	char sym[Strlen+1];
 	Txt *t;
 
 	if(sp->err)
-		return 0;
+		return nil;
 	n = 0;
 	if (sp->p < sp->ep)
 		n = *(sp->p++);
 	if(sp->ep - sp->p < n)
 		return (Txt*)errtoolong(rp, sp, sp->ep - sp->p, n, "gstr");
 
-	if(n > Strlen){
+	if(n >= Strlen){
 		sp->err = "illegal string";
-		return 0;
+		return nil;
 	}
-	strncpy(sym, (char*)sp->p, n);
-	sym[n] = 0;
-	if (strlen(sym) != n)
-		sp->err = "string shorter than declared length";
-	sp->p += n;
 
 	t = emalloc(sizeof(*t));
 	t->next = nil;
-	t->p = estrdup(sym);
+	t->dlen = n;
+	t->data = emalloc(n);
+	memmove(t->data, sp->p, n);
+	sp->p += n;
+
 	return t;
 }
 

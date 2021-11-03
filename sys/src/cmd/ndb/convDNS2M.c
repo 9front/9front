@@ -26,7 +26,7 @@ struct Dict
 #define NAME(x)		p = pname(p, ep, x, dp)
 #define LABEL(x)	p = pname(p, ep, x, nil)
 #define SYMBOL(x)	p = psym(p, ep, x)
-#define STRING(x)	p = pstr(p, ep, x)
+#define STRING(x, n)	p = pstr(p, ep, x, n)
 #define BYTES(x, n)	p = pbytes(p, ep, x, n)
 #define USHORT(x)	p = pushort(p, ep, x)
 #define UCHAR(x)	p = puchar(p, ep, x)
@@ -35,24 +35,21 @@ struct Dict
 #define V6ADDR(x)	p = pv6addr(p, ep, x)
 
 static uchar*
-psym(uchar *p, uchar *ep, char *np)
+pstr(uchar *p, uchar *ep, uchar *s, int n)
 {
-	int n;
-
-	n = strlen(np);
 	if(n >= Strlen)			/* DNS maximum length string */
-		n = Strlen - 1;
+		n = Strlen-1;
 	if(ep - p < n+1)		/* see if it fits in the buffer */
 		return ep+1;
 	*p++ = n;
-	memmove(p, np, n);
+	memmove(p, s, n);
 	return p + n;
 }
 
 static uchar*
-pstr(uchar *p, uchar *ep, char *np)
+psym(uchar *p, uchar *ep, char *np)
 {
-	return psym(p, ep, np);
+	return pstr(p, ep, (uchar*)np, strlen(np));
 }
 
 static uchar*
@@ -266,7 +263,7 @@ convRR2M(RR *rp, uchar *p, uchar *ep, Dict *dp)
 		break;
 	case Ttxt:
 		for(t = rp->txt; t != nil; t = t->next)
-			STRING(t->p);
+			STRING(t->data, t->dlen);
 		break;
 	case Tnull:
 		BYTES(rp->null->data, rp->null->dlen);
