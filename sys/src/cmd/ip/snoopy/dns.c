@@ -68,12 +68,13 @@ char *rrtname[] =
 [Tmailb]	"mailb",
 [Tmaila]	"maila",
 [Tall]		"all",
+[Tcaa]		"caa",
 		0,
 };
 static char*
 rrtypestr(int t)
 {
-	char buf[20];
+	static char buf[20];
 
 	if(t >= 0 && t < nelem(rrtname) && rrtname[t])
 		return rrtname[t];
@@ -140,7 +141,8 @@ fmtrr(Msg *m, RR **rrp, int quest)
 		break;
 	case Ttxt:
 		for(t=rr->txt; t; t=t->next)
-			m->p = seprint(m->p, m->e, " txt=\"%.*s\"", t->dlen, (char*)t->data);
+			m->p = seprint(m->p, m->e, " txt=\"%.*s\"",
+				t->dlen, (char*)t->data);
 		break;
 	case Tnull:
 		m->p = seprint(m->p, m->e, " null=%.*H",
@@ -167,6 +169,10 @@ fmtrr(Msg *m, RR **rrp, int quest)
 			rr->cert->type, rr->cert->tag, rr->cert->alg,
 			rr->cert->dlen, rr->cert->data);
 		break;
+	case Tcaa:
+		m->p = seprint(m->p, m->e, " flags=%d tag=%s caa=\"%.*s\"",
+			rr->caa->flags, rr->caa->tag->name,
+			rr->caa->dlen, (char*)rr->caa->data);
 	}
 	rrfree(rr);
 }
