@@ -941,6 +941,8 @@ search(char d)
 			if(cistrstr(m->artist[a], buf) != nil)
 				break;
 		}
+		if(a < m->numartist)
+			break;
 		if(m->album != nil && cistrstr(m->album, buf) != nil)
 			break;
 		if(m->title != nil && cistrstr(m->title, buf) != nil)
