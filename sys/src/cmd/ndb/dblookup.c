@@ -459,10 +459,10 @@ txtrr(Ndbtuple*, Ndbtuple *pair)
 		for(i = 0; i < n && sofar < len; i++){
 			uint c = pair->val[sofar++];
 			if(c == '\\' && sofar < len){
-				if(pair->val[sofar] >= '0' && pair->val[sofar] <= '7'){
+				if(pair->val[sofar] >= '0' && pair->val[sofar] <= '9'){
 					c = pair->val[sofar++] - '0';
-					while(pair->val[sofar] >= '0' && pair->val[sofar] <= '7')
-						c = (c << 3) | (pair->val[sofar++] - '0');
+					while(pair->val[sofar] >= '0' && pair->val[sofar] <= '9')
+						c = (c * 10) + (pair->val[sofar++] - '0');
 				} else {
 					c = pair->val[sofar++];
 				}

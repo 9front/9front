@@ -1201,7 +1201,7 @@ idnname(DN *dn, char *buf, int nbuf)
  *  control characters and double quotes (") which would
  *  collide with ndb(6) format.
  *  escape special characters by encoding them as: \DDD
- *  where D is a octal digit. backslash (\) is escaped
+ *  where D is a decimal digit. backslash (\) is escaped
  *  by doubling. valid utf8 is encoded verbatim.
  */
 int
@@ -1227,7 +1227,7 @@ bslashfmt(Fmt *f)
 		}
 		c = *data;
 		if(c < ' ' || c == '"' || c > '~')
-			out += fmtprint(f, "\\%.3o", c);
+			out += fmtprint(f, "\\%.3d", c);
 		else if(c == '\\')
 			out += fmtprint(f, "\\\\");
 		else
