@@ -6,6 +6,7 @@ OFILES=\
 	csipinfo.$O\
 	dnsquery.$O\
 	ipattr.$O\
+	mkptrname.$O\
 	ndbaux.$O\
 	ndbcache.$O\
 	ndbcat.$O\

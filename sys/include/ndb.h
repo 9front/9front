@@ -128,6 +128,7 @@ char*		csgetvalue(char*, char*, char*, char*, Ndbtuple**);
 Ndbtuple*	csipinfo(char*, char*, char*, char**, int);
 Ndbtuple*	dnsquery(char*, char*, char*);
 char*		ipattr(char*);
+void		mkptrname(char *ip, char *rip, int rlen);
 Ndb*		ndbcat(Ndb*, Ndb*);
 int		ndbchanged(Ndb*);
 void		ndbclose(Ndb*);

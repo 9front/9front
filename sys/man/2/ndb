@@ -1,6 +1,6 @@
 .TH NDB 2
 .SH NAME
-ndbopen, ndbcat, ndbchanged, ndbclose, ndbreopen, ndbsearch, ndbsnext, ndbgetvalue, ndbfree, ipattr, ndbgetipaddr, ndbipinfo, csipinfo, ndbhash, ndbparse, csgetvalue, ndbfindattr, dnsquery, ndbdiscard, ndbconcatenate, ndbreorder, ndbsubstitute, ndbdedup \- network database
+ndbopen, ndbcat, ndbchanged, ndbclose, ndbreopen, ndbsearch, ndbsnext, ndbgetvalue, ndbfree, ipattr, mkptrname, ndbgetipaddr, ndbipinfo, csipinfo, ndbhash, ndbparse, csgetvalue, ndbfindattr, dnsquery, ndbdiscard, ndbconcatenate, ndbreorder, ndbsubstitute, ndbdedup \- network database
 .SH SYNOPSIS
 .B #include <u.h>
 .br
@@ -45,6 +45,9 @@ char*	csgetvalue(char *netroot, char *attr, char *val,
 .PP
 .B
 char*	ipattr(char *name)
+.PP
+.B
+void	mkptrname(char *ip, char *rip, int rlen);
 .PP
 .B
 Ndbtuple*	ndbgetipaddr(Ndb *db, char *sys);
@@ -235,6 +238,26 @@ Internet number
 .B sys
 system name
 .RE
+.PP
+.I Mkptrname
+converts the address string
+.I ip
+to a reverse lookup domain-name, returned in
+.IR rip .
+The
+.I rlen
+argument gives the maximum size of the
+.I rip
+buffer including the NUL-terminator.
+If
+.I ip
+already is a reverse lookup domain-name
+or has invalid ip address syntax,
+then
+.I ip
+is copied into
+.I rip
+verbatim.
 .PP
 .I Ndbgetipaddr
 looks in
