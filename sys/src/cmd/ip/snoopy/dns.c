@@ -140,7 +140,7 @@ fmtrr(Msg *m, RR **rrp, int quest)
 		break;
 	case Ttxt:
 		for(t=rr->txt; t; t=t->next)
-			m->p = seprint(m->p, m->e, " txt=%q", t->p);
+			m->p = seprint(m->p, m->e, " txt=\"%.*s\"", t->dlen, (char*)t->data);
 		break;
 	case Tnull:
 		m->p = seprint(m->p, m->e, " null=%.*H",
@@ -516,7 +516,7 @@ rrfree(RR *rp)
 	case Ttxt:
 		while(t = rp->txt){
 			rp->txt = t->next;
-			free(t->p);
+			free(t->data);
 			memset(t, 0, sizeof *t);	/* cause trouble */
 			free(t);
 		}
