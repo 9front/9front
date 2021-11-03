@@ -321,9 +321,9 @@ In particular, only the configuration needs to be
 changed if a component is moved to a different file.
 .PP
 The configuration file consists of lines in the form described below.
-Lines starting with
+Comments start with 
 .B #
-are comments.
+and continue until the end of the line.
 .TF "\fLindex\fI name "
 .PD
 .TP
