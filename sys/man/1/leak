@@ -218,7 +218,17 @@ and
 .I kmem
 depend on the internal structure of the
 libc pool memory allocator (see 
-.IR pool (2)).
+.IR pool (2))
+and require
+.B /sys/src/libc/port/pool.$objtype.acid
+to be present and generated from
+.BR pool.c 
+as follows:
+.IP
+.EX
+% cd /sys/src/libc/port && mk pool.$objtype.acid
+.EE
+.PP
 Since the ANSI/POSIX environment uses a different
 allocator,
 .I leak
@@ -228,8 +238,5 @@ will not work on APE programs.
 is not speedy, and
 .I acidleak
 can consume more memory than the process(es) being examined.
-.PP
-These commands require
-.B /sys/src/libc/port/pool.acid
-to be present and generated from
-.BR pool.c .
+
+
