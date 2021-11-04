@@ -5,7 +5,8 @@ rfork en
 gitup
 
 flagfmt='c:query query' args='file ...'
-eval `''{aux/getflags $*} || exec aux/usage
+if (! eval `''{aux/getflags $*} || ~ $#* 0)
+	exec aux/usage
 
 commit=$gitfs/HEAD
 if(~ $#query 1)
