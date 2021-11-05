@@ -103,17 +103,17 @@ threadmain(int argc, char *argv[])
 		exits("usage");
 	}ARGEND
 
-	if(fontnames[0] == nil)
-		fontnames[0] = getenv("font");
-	if(fontnames[0] == nil)
-		fontnames[0] = "/lib/font/bit/vga/unicode.font";
+	if(fontnames[0] != nil)
+		fontnames[0] = estrdup(fontnames[0]);
+	else
+		if((fontnames[0] = getenv("font")) == nil)
+			fontnames[0] = estrdup("/lib/font/bit/vga/unicode.font");		
 	if(access(fontnames[0], 0) < 0){
 		fprint(2, "acme: can't access %s: %r\n", fontnames[0]);
 		exits("font open");
 	}
 	if(fontnames[1] == nil)
 		fontnames[1] = fontnames[0];
-	fontnames[0] = estrdup(fontnames[0]);
 	fontnames[1] = estrdup(fontnames[1]);
 
 	quotefmtinstall();
