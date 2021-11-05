@@ -1777,11 +1777,12 @@ hdamatch(Pcidev *p)
 		case (0x8086 << 16) | 0x9ca0:	/* Intel Wildcat Point */
 		case (0x8086 << 16) | 0xa170:   /* Intel Sunrise Point-H */
 		case (0x8086 << 16) | 0x9d70:   /* Intel Sunrise Point-LP */
-		case (0x8086 << 16) | 0x9d71:   /* Intel Sunrise Point-LP */
+		case (0x8086 << 16) | 0x9d71:   /* Intel Kabylake-LP */
 		case (0x8086 << 16) | 0x3a6e:	/* Intel ICH10 */
 		case (0x8086 << 16) | 0x3198:   /* Intel Gemini-Lake */
 		case (0x8086 << 16) | 0x8d20:	/* Intel C610/X99 */
 		case (0x8086 << 16) | 0xa2f0:	/* Intel 200 Series PCH HD Audio */
+		case (0x8086 << 16) | 0xa3f0:	/* Intel CometLake-S */
 		case (0x8086 << 16) | 0x0f04:	/* Atom Z36*,Z37* */
 
 		case (0x10de << 16) | 0x026c:	/* NVidia MCP51 (untested) */
