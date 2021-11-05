@@ -352,8 +352,7 @@ del(Text *et, Text*, Text *argt, int flag1, int, Rune *arg, int narg)
 			pm->ndata = strlen(pm->data);
 			if(pm->ndata < messagesize-1024)
 				plumbsend(plumbsendfd, pm);
-			else
-				plumbfree(pm);
+			plumbfree(pm);
 		}
 		colclose(et->col, et->w, TRUE);
 	}
@@ -687,8 +686,7 @@ putfile(File *f, int q0, int q1, Rune *namer, int nname)
 		pm->ndata = strlen(pm->data);
 		if(pm->ndata < messagesize-1024)
 			plumbsend(plumbsendfd, pm);
-		else
-			plumbfree(pm);
+		plumbfree(pm);
 	}
 	fbuffree(s);
 	fbuffree(r);
