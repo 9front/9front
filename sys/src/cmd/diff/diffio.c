@@ -267,16 +267,22 @@ change(int a, int b, int c, int d)
 	if (a > b && c > d)
 		return;
 	anychange = 1;
-	if (mflag && firstchange == 0) {
-		if(mode) {
-			buf[0] = '-';
-			buf[1] = mode;
-			buf[2] = ' ';
-			buf[3] = '\0';
-		} else {
-			buf[0] = '\0';
+	if (firstchange == 0) {
+		if (mflag) {
+			if(mode) {
+				buf[0] = '-';
+				buf[1] = mode;
+				buf[2] = ' ';
+				buf[3] = '\0';
+			} else {
+				buf[0] = '\0';
+			}
+			Bprint(&stdout, "diff %s%s %s\n", buf, file1, file2);
 		}
-		Bprint(&stdout, "diff %s%s %s\n", buf, file1, file2);
+		if (mode == 'u') {
+			Bprint(&stdout, "--- %s\n", file1);
+			Bprint(&stdout, "+++ %s\n", file2);
+		}
 		firstchange = 1;
 	}
 	verb = a > b ? 'a': c > d ? 'd': 'c';
@@ -337,15 +343,6 @@ changeset(int i)
 	if(i<nchanges)
 		return i+1;
 	return nchanges;
-}
-
-void
-fileheader(void)
-{
-	if(mode != 'u')
-		return;
-	Bprint(&stdout, "--- %s\n", file1);
-	Bprint(&stdout, "+++ %s\n", file2);
 }
 
 void
