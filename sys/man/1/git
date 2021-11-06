@@ -261,7 +261,7 @@ When passed the
 option, all branches are pushed.
 When passed the
 .I -u upstream
-option, the changed are pushed to
+option, the changes are pushed to
 .I upstream
 instead of the configured origin.
 When given the
