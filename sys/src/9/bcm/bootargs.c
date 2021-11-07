@@ -12,6 +12,7 @@ static char *confname[MAXCONF];
 static char *confval[MAXCONF];
 static int nconf;
 static char maxmem[256];
+static char emmc2bus[38];
 static char pciwin[38], pcidmawin[38];
 
 static int
@@ -111,6 +112,16 @@ devtreeprop(char *path, char *key, void *val, int len)
 				len -= 3*4;
 			}
 			addconf("*maxmem", maxmem);
+		}
+		return;
+	}
+	if(strcmp(path, "/emmc2bus") == 0 && strcmp(key, "dma-ranges") == 0 && len == (2*4 + 2*4 + 1*4)){
+		if(findconf("*emmc2bus") < 0){
+			addr = (uvlong)beget4(p+0*4)<<32 | beget4(p+1*4);
+			addr -= (uvlong)beget4(p+2*4)<<32 | beget4(p+3*4);
+			size = beget4(p+4*4);
+			snprint(emmc2bus, sizeof(emmc2bus), "%#llux %#llux", addr, addr+size);
+			addconf("*emmc2bus", emmc2bus);
 		}
 		return;
 	}
