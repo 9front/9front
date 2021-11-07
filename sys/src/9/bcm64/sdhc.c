@@ -199,11 +199,11 @@ enum {
 
 struct Ctlr {
 	Rendez	r;
-	Rendez	cardr;
 	int	fastclock;
 	ulong	extclk;
 	int	appcmd;
 	Adma	*dma;
+	uintptr	busdram;
 };
 
 static Ctlr emmc;
@@ -247,7 +247,7 @@ dmaalloc(void *addr, int len)
 			p->desc |= len<<OLength | End | Int;
 		else
 			p->desc |= Maxdma<<OLength;
-		p->addr = dmaaddr((void*)a);
+		p->addr = emmc.busdram + (PADDR(a) - PHYSDRAM);
 		a += Maxdma;
 		len -= Maxdma;
 		n--;
@@ -293,7 +293,11 @@ emmcinit(void)
 {
 	u32int *r;
 	ulong clk;
+	char *s;
 
+	emmc.busdram = soc.busdram;
+	if((s = getconf("*emmc2bus")) != nil)
+		emmc.busdram = strtoull(s, nil, 16);
 	clk = getclkrate(ClkEmmc2);
 	if(clk == 0){
 		clk = Extfreq;
@@ -401,9 +405,9 @@ emmccmd(u32int cmd, u32int arg, u32int *resp)
 		WR(Interrupt, i);
 	}
 	WR(Cmdtm, c);
-	now = m->ticks;
+	now = MACHP(0)->ticks;
 	while(((i=r[Interrupt])&(Cmddone|Err)) == 0)
-		if(m->ticks-now > HZ)
+		if(MACHP(0)->ticks - now > HZ)
 			break;
 	if((i&(Cmddone|Err)) != Cmddone){
 		if((i&~(Err|Cardintr)) != Ctoerr)
@@ -507,7 +511,7 @@ emmciosetup(int write, void *buf, int bsize, int bcount)
 		cachedwbse(buf, len);
 	else
 		cachedwbinvse(buf, len);
-	WR(Dmadesc, dmaaddr(emmc.dma));
+	WR(Dmadesc, emmc.busdram + (PADDR(emmc.dma) - PHYSDRAM));
 	okay(1);
 }
 
@@ -549,8 +553,6 @@ mmcinterrupt(Ureg*, void*)
 	i = r[Interrupt];
 	if(i&(Datadone|Err))
 		wakeup(&emmc.r);
-	if(i&Cardintr)
-		wakeup(&emmc.cardr);
 	WR(Irpten, r[Irpten] & ~i);
 }
 
