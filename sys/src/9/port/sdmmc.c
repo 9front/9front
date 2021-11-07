@@ -79,6 +79,8 @@ struct Ctlr {
 	u32int	ocr;
 	u32int	cid[4];
 	u32int	csd[4];
+
+	int	retry;
 };
 
 extern SDifc sdmmcifc;
@@ -197,26 +199,12 @@ mmcswitchfunc(SDio *io, int arg)
 }
 
 static int
-mmconline(SDunit *unit)
+cardinit(Ctlr *ctl)
 {
-	int hcs, i;
 	u32int r[4];
-	Ctlr *ctl;
-	SDio *io;
+	int hcs, i;
+	SDio *io = ctl->io;
 
-	ctl = unit->dev->ctlr;
-	io = ctl->io;
-	assert(unit->subno == 0);
-
-	if(waserror()){
-		unit->sectors = 0;
-		return 0;
-	}
-	if(unit->sectors != 0){
-		io->cmd(SEND_STATUS, ctl->rca<<Rcashift, r);
-		poperror();
-		return 1;
-	}
 	io->cmd(GO_IDLE_STATE, 0, r);
 	hcs = 0;
 	if(!waserror()){
@@ -226,17 +214,14 @@ mmconline(SDunit *unit)
 		poperror();
 	}
 	for(i = 0; i < Inittimeout; i++){
-		delay(100);
+		tsleep(&up->sleep, return0, nil, 100);
 		io->cmd(APP_CMD, 0, r);
 		io->cmd(SD_SEND_OP_COND, hcs|V3_3, r);
 		if(r[0] & Powerup)
 			break;
 	}
-	if(i == Inittimeout){
-		print("sdmmc: card won't power up\n");
-		poperror();
+	if(i == Inittimeout)
 		return 2;
-	}
 	ctl->ocr = r[0];
 	io->cmd(ALL_SEND_CID, 0, r);
 	memmove(ctl->cid, r, sizeof ctl->cid);
@@ -244,6 +229,52 @@ mmconline(SDunit *unit)
 	ctl->rca = r[0]>>16;
 	io->cmd(SEND_CSD, ctl->rca<<Rcashift, r);
 	memmove(ctl->csd, r, sizeof ctl->csd);
+	return 1;
+}
+
+static void
+retryproc(void *arg)
+{
+	Ctlr *ctl = arg;
+	int i = 0;
+
+	while(waserror())
+		;
+	if(i++ < ctl->retry)
+		cardinit(ctl);
+	USED(i);
+	ctl->retry = 0;
+	pexit("", 1);
+}
+
+static int
+mmconline(SDunit *unit)
+{
+	u32int r[4];
+	Ctlr *ctl;
+	SDio *io;
+
+	assert(unit->subno == 0);
+	ctl = unit->dev->ctlr;
+	io = ctl->io;
+
+	if(ctl->retry)
+		return 0;
+	if(waserror()){
+		unit->sectors = 0;
+		if(ctl->retry++ == 0)
+			kproc(unit->name, retryproc, ctl);
+		return 0;
+	}
+	if(unit->sectors != 0){
+		io->cmd(SEND_STATUS, ctl->rca<<Rcashift, r);
+		poperror();
+		return 1;
+	}
+	if(cardinit(ctl) != 1){
+		poperror();
+		return 2;
+	}
 	identify(unit, ctl->csd);
 	io->cmd(SELECT_CARD, ctl->rca<<Rcashift, r);
 	io->cmd(SET_BLOCKLEN, unit->secsize, r);
@@ -265,13 +296,13 @@ mmcrctl(SDunit *unit, char *p, int l)
 	Ctlr *ctl;
 	int i, n;
 
-	ctl = unit->dev->ctlr;
 	assert(unit->subno == 0);
 	if(unit->sectors == 0){
 		mmconline(unit);
 		if(unit->sectors == 0)
 			return 0;
 	}
+	ctl = unit->dev->ctlr;
 	n = snprint(p, l, "rca %4.4ux ocr %8.8ux\ncid ", ctl->rca, ctl->ocr);
 	for(i = nelem(ctl->cid)-1; i >= 0; i--)
 		n += snprint(p+n, l-n, "%8.8ux", ctl->cid[i]);
