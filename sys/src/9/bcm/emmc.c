@@ -166,7 +166,6 @@ typedef struct Ctlr Ctlr;
 
 struct Ctlr {
 	Rendez	r;
-	Rendez	cardr;
 	int	fastclock;
 	ulong	extclk;
 	int	appcmd;
@@ -346,9 +345,9 @@ emmccmd(u32int cmd, u32int arg, u32int *resp)
 		WR(Interrupt, i);
 	}
 	WR(Cmdtm, c);
-	now = m->ticks;
+	now = MACHP(0)->ticks;
 	while(((i=r[Interrupt])&(Cmddone|Err)) == 0)
-		if(m->ticks-now > HZ)
+		if(MACHP(0)->ticks - now > HZ)
 			break;
 	if((i&(Cmddone|Err)) != Cmddone){
 		if((i&~(Err|Cardintr)) != Ctoerr)
@@ -495,8 +494,6 @@ mmcinterrupt(Ureg*, void*)
 	i = r[Interrupt];
 	if(i&(Datadone|Err))
 		wakeup(&emmc.r);
-	if(i&Cardintr)
-		wakeup(&emmc.cardr);
 	WR(Irpten, r[Irpten] & ~i);
 }
 
