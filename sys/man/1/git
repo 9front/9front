@@ -317,7 +317,7 @@ The copy of the file in the repository is left untouched.
 .PP
 .B Git/rm
 is an alias for
-.IR git/add -r .
+.IR git/add\ -r .
 
 .PP
 .B Git/commit
@@ -648,6 +648,6 @@ The contents of this file are used as fallbacks for the per-user config.
 .PP
 Repositories with submodules are effectively read-only.
 .PP
-There are a some of missing commands, features, and tools
+There are some missing commands, features, and tools.
 .PP
 git/compat only works within a git repository.
