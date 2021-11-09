@@ -22,5 +22,6 @@ Biobuf *prepare(int, char *);
 void panic(int, char *, ...);
 void check(Biobuf *, Biobuf *);
 void change(int, int, int, int);
+void fileheader(void);
 void flushchanges(void);
 

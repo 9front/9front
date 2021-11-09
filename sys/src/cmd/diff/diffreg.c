@@ -285,6 +285,7 @@ output(void)
 	m = len[0];
 	J[0] = 0;
 	J[m+1] = len[1]+1;
+	fileheader();
 	if (mode != 'e') {
 		for (i0 = 1; i0 <= m; i0 = i1+1) {
 			while (i0 <= m && J[i0] == J[i0-1]+1)
