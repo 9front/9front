@@ -9,6 +9,7 @@ emalloc(long n)
 	void *p = malloc(n);
 	if(p==0)
 		panic("Can't malloc %d bytes", n);
+	setmalloctag(p, getcallerpc(&n));
 	return p;
 }
 
@@ -18,6 +19,7 @@ erealloc(void *p, long n)
 	p = realloc(p, n);
 	if(p==0 && n!=0)
 		panic("Can't realloc %d bytes\n", n);
+	setrealloctag(p, getcallerpc(&p));
 	return p;
 }
 

@@ -465,6 +465,7 @@ Xreturn(void)
 	turfredir();
 	while(p->argv) poplist();
 	codefree(p->code);
+	free(p->cmdfile);
 	runq = p->ret;
 	free(p);
 	if(runq==0)
@@ -937,8 +938,6 @@ Xrdcmds(void)
 	Noerror();
 	if(yyparse()){
 		if(!p->iflag || p->eof && !Eintr()){
-			if(p->cmdfile)
-				free(p->cmdfile);
 			closeio(p->cmdfd);
 			Xreturn();
 		}
