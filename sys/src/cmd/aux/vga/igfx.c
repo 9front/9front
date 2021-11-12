@@ -368,6 +368,7 @@ devtype(Igfx *igfx)
 		/* wet floor */
 	case 0x0a06:
 	case 0x3185:    /* UHD 600 - 9.5 Gen Core */
+	case 0x1616:	/* HD 5500 - 5th Gen Core */
 	case 0x0412:	/* HD 4600 - 4th Gen Core */
 		return TypeHSW;
 	case 0x0166:	/* 3rd Gen Core - ThinkPad X230 */
