@@ -150,6 +150,7 @@ igfxcurregs(VGAscr* scr, int pipe)
 	case 0x0412:	/* Haswell HD Graphics 4600 */
 	case 0x0a16:	/* Haswell HD Graphics 4400 */
 	case 0x0a06:
+	case 0x1616:	/* Broadwell HD 5500 */
 		if(pipe > 3)
 			return nil;
 		if(pipe == 3)
