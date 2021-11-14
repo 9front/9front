@@ -158,6 +158,7 @@ readfile(char *fname)
 	char *seq;
 	int inseq;
 	int lineno;
+	int len;
 	Rune r;
 
 	if((b = Bopen(fname, OREAD)) == 0) {
@@ -168,18 +169,19 @@ readfile(char *fname)
 	lineno = 0;
 	while((line = Brdline(b, '\n')) != 0) {
 		lineno++;
-		if(line[0] == '#')
+		len = Blinelen(b) - 1;
+		if(len < 1 || line[0] == '#')
 			continue;
 
-		r = strtol(line, nil, 16);
-		p = strchr(line, ' ');
-		if(r == 0 || p == 0) {
+		p = line + len;
+		r = strtol(line, &p, 16);
+		if(r == 0 || *p != ' ' || len < 21) {
 			fprint(2, "%s:%d: cannot parse line\n", fname, lineno);
 			continue;
 		}
 
-		while(*p == ' ')
-			p++;
+		line[len] = 0;
+		p = line + 6;
 /*	00AE  Or rO       ®	registered trade mark sign	*/
 		for(inseq=1, seq=p; (uchar)*p < Runeself; p++) {
 			if(*p == '\0' || isspace(*p)) {
