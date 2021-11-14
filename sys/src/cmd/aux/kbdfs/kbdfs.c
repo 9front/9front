@@ -787,6 +787,7 @@ Forward:
 
 		if(r == 'x' || r == 'X'){
 			i = (r == 'X') ? 4 : 6;
+			j = i;
 			r = 0;
 			do {
 				if(nextrune(rawchan, &rr))
@@ -797,14 +798,20 @@ Forward:
 					r = (r << 4) | (10 + (rr - 'a'));
 				else if(rr >= 'A' && rr <= 'F')
 					r = (r << 4) | (10 + (rr - 'A'));
-				else
+				else{
+					if(i == j && rr != ';'){
+						r = j == 6 ? 'x' : 'X';
+						goto Nothex;
+					}
 					break;
+				}
 			} while(--i > 0);
 			if((i == 0 || rr == ';') && r != 0 && r <= Runemax)
 				goto Forward;
 		} else {
 			if(nextrune(rawchan, &rr))
 				continue;
+Nothex:
 			for(i = 0; i<nelem(tab); i++){
 				if(tab[i].ld[0] != r)
 					continue;
