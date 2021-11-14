@@ -4,7 +4,7 @@
 00A4  g$          ¤	currency sign
 00A5  y$          ¥	yen sign
 00A6  ||          ¦	broken vertical bar
-00A7  SS          §	section sign
+00A7  Ss          §	section sign
 00A8  ""          ¨	spacing diaeresis
 00A9  Oc cO       ©	copyright sign
 00AA  sa          ª	feminine ordinal indicator
@@ -587,3 +587,22 @@
 F015  ZA          	raw alt (plan 9 specific)
 F016  ZS          	raw shift (plan 9 specific)
 F017  ZC          	raw ctl (plan 9 specific)
+1D538 AA          𝔸	double-struct capital a
+1D539 BB          𝔹	double-struck capital b
+1D53B DD          𝔻	double-struck capital d
+1D53C EE          𝔼	double-struck capital e
+1D53D FF          𝔽	double-struck capital f
+1D53E GG          𝔾	double-struck capital g
+1D540 II          𝕀	double-struck capital i
+1D541 JJ          𝕁	double-struck capital j
+1D542 KK          𝕂	double-struck capital k
+1D543 LL          𝕃	double-struck capital l
+1D544 MM          𝕄	double-struck capital m
+1D546 OO          𝕆	double-struck capital o
+1D54A SS          𝕊	double-struck capital s
+1D54B TT          𝕋	double-struck capital t
+1D54C UU          𝕌	double-struck capital u
+1D54D VV          𝕍	double-struck capital v
+1D54E WW          𝕎	double-struck capital w
+1D54F XX          𝕏	double-struck capital x
+1D550 YY          𝕐	double-struck capital y
