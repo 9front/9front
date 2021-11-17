@@ -17,10 +17,6 @@ snap, snapfs \- create and mount process snapshots
 .B -m 
 .I mtpt
 ]
-[
-.B -s
-.I service
-]
 .I file...
 .SH DESCRIPTION
 .I Snap
@@ -64,10 +60,6 @@ while
 .B -a
 will cause it to mount the new directories
 after the current entries.
-The 
-.B -s
-option causes it to serve requests via
-.BI /srv/ service.
 .SH EXAMPLE
 Suppose
 .I page
