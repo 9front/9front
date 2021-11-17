@@ -890,6 +890,8 @@ copyu(Prog *p, Adr *v, Adr *s)
 		return 0;
 
 	case ARET:	/* funny */
+		if(REGEXT && v->type <= REGEXT && v->type > exregoffset)
+			return 2;
 		if(v->type == REGRET || v->type == FREGRET)
 			return 2;
 		if(s != A)
