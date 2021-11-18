@@ -1784,6 +1784,7 @@ hdamatch(Pcidev *p)
 		case (0x8086 << 16) | 0xa2f0:	/* Intel 200 Series PCH HD Audio */
 		case (0x8086 << 16) | 0xa3f0:	/* Intel CometLake-S */
 		case (0x8086 << 16) | 0x0f04:	/* Atom Z36*,Z37* */
+		case (0x8086 << 16) | 0x9dc8:	/* Intel Cannon Point-LP */
 
 		case (0x10de << 16) | 0x026c:	/* NVidia MCP51 (untested) */
 		case (0x10de << 16) | 0x0371:	/* NVidia MCP55 (untested) */
