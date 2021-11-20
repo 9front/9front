@@ -116,10 +116,10 @@ parameters derived from the other attributes, cached to speed decryption
 .PD
 .LP
 All the numbers are in hexadecimal except
-.I size ,
+.IR size ,
 which is decimal.
 An RSA public key omits the attributes beginning with
-.L ! .
+.LR ! .
 A key may have other attributes as well (for example, a
 .B service
 attribute identifying how this key is typically used),
@@ -208,7 +208,7 @@ in the format used by SSH2. The
 option will set the comment.
 .PP
 .I Rsa2jwk
-reads a Plan 9 RSA public or provate key and prints the public portion
+reads a Plan 9 RSA public or private key and prints the public portion
 as a RFC7517 formated JSON Web Key.
 .PP
 .I Rsa2x509
