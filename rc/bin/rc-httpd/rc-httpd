@@ -85,6 +85,11 @@ if(~ $#SERVER_NAME 2){
 	SERVER_PORT=$SERVER_NAME(2)
 	SERVER_NAME=$SERVER_NAME(1)
 }
+switch($SERVER_NAME){
+	case */* ..
+		error 400
+		exit
+}
 if(~ $REQUEST_METHOD (PUT POST)){
 	if(! ~ $"CONTENT_LENGTH '')
 		trim_input | exec $rc_httpd_dir/select-handler
