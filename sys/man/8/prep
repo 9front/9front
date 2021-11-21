@@ -83,7 +83,7 @@ Partitions of type
 .B 0x39
 are Plan 9 partitions.
 EFI systems use GUID partition table (GPT) format where partition types
-are identified by a 128-bit long identifiers. The randomly
+are identified by 128-bit long identifiers. The randomly
 generated GUID
 .B C91818F9-8025-47AF-89D2-F030D7000C2C
 is used to identify the Plan 9 partition type in this scheme.
@@ -209,7 +209,7 @@ starts.
 .I Prep
 and
 .I edisk
-works in units of disk sectors, which are almost always 512 bytes.
+work in units of disk sectors, which are almost always 512 bytes.
 .IR Fdisk ,
 .I edisk
 and
@@ -228,7 +228,7 @@ partition in the largest unused area on the disk,
 doing nothing if a
 Plan 9 partition already exists.
 .I Edisk
-also adds a EFI system partition (esp) when not already exists.
+also adds an EFI system partition (esp) if it does not already exist.
 If no other partition on the disk is marked active (i.e. marked as the boot partition),
 .I fdisk
 will mark the new partition active.
@@ -449,7 +449,7 @@ command.
 Delete the named partition.
 .TP
 .B h
-Print a help message listing command synopses.
+Print a help message listing command synopsis.
 .TP
 .B p
 Print the disk partition table.
@@ -737,7 +737,8 @@ Initialize the blank hard disk
 .EX
 disk/mbr -m /386/mbr /dev/sdC0/data
 disk/fdisk -baw /dev/sdC0/data
-disk/prep -bw -a^(9fat nvram fscache fsworm other swap) /dev/sdC0/plan9
+disk/prep -bw -a^(9fat nvram fscache fsworm other swap) \e
+	/dev/sdC0/plan9
 disk/format -b /386/pbs -d -r 2 /dev/sdC0/9fat \e
 	/386/9bootfat /386/9pc /tmp/plan9.ini
 .EE
