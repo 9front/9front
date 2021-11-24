@@ -683,6 +683,7 @@ void caseif1(int x)
 		if (TROFF)
 			true++;
 		break;
+	case 'h':
 	case ' ':
 		break;
 	default:
