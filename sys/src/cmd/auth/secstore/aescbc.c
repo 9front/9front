@@ -146,6 +146,8 @@ main(int argc, char **argv)
 				sysfatal("decrypted file failed to authenticate");
 		}
 	}
-	exits("");
+	if(Bflush(&bout) != 0)
+		sysfatal("write: %r");
+	exits(nil);
 	return 1;  /* keep  other compilers happy */
 }
