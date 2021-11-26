@@ -151,7 +151,7 @@ snarf(Vga* vga, Ctlr* ctlr)
 
 		mmio = segattach(0, "nvidiammio", 0, p->mem[0].size);
 		if(mmio == (void*)-1)
-			error("%s: segattach nvidiammio, size %d: %r\n",
+			error("%s: segattach nvidiammio, size %lld: %r\n",
 				ctlr->name, p->mem[0].size);
 
 		nv->pci = p;

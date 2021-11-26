@@ -71,8 +71,8 @@ pcicfginit(void)
 			if(j < 0 || j >= nelem(p->mem))
 				break;
 			p->mem[j].bar = strtoull(s+1, &s, 16);
-			p->mem[j].size = strtoul(s+1, &s, 10);
-			trace("\tmem[%d] = %llux %d\n", j, p->mem[j].bar, p->mem[j].size);
+			p->mem[j].size = strtoll(s+1, &s, 10);
+			trace("\tmem[%d] = %llux %lld\n", j, p->mem[j].bar, p->mem[j].size);
 		}
 
 		if(pcilist != nil)

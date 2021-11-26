@@ -247,7 +247,7 @@ snarf(Vga *vga, Ctlr *ctlr)
 		if (mmio == ~0)
 			error("%s: can't attach mmio segment\n", ctlr->name);
 
-		DBGPRINT("radeon: mmio address: %08#p [size=%#x]\n",
+		DBGPRINT("radeon: mmio address: %08#p [size=%lld]\n",
 			(void *)mmio, p->mem[2].size);
 
 		radeon->pci = p;

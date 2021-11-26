@@ -93,7 +93,7 @@ typedef struct Pcidev {
 
 	struct {
 		uvlong	bar;		/* base address */
-		int	size;
+		vlong	size;
 	} mem[6];
 
 	uchar	intl;			/* interrupt line */
