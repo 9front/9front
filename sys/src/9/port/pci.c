@@ -190,16 +190,16 @@ pcibarsize(Pcidev *p, int rno)
 			pcicfgrw32(p->tbdf, rno, v, 0);
 		}
 	}
+	size = -size;
 
 	iunlock(&pcicfglock);
 
-	if(size > 0){
-		print("pcibarsize: %T invalid bar rno %x mask %llux\n",
-			p->tbdf, rno, (uvlong)size);
+	if(size < 0 || (size & size-1) != 0){
+		print("pcibarsize: %T invalid bar rno %#x size %#llux mask %#llux\n",
+			p->tbdf, rno, size, -size);
 		return 0;
 	}
-
-	return -size;
+	return size;
 }
 
 void
