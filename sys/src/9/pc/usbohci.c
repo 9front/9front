@@ -2401,7 +2401,7 @@ scanpci(void)
 		io = p->mem[0].bar & ~0xFULL;
 		if(io == 0)
 			continue;
-		print("usbohci: %#x %#x: port %llux size %#x irq %d\n",
+		print("usbohci: %#x %#x: port %llux size %lld irq %d\n",
 			p->vid, p->did, io, p->mem[0].size, p->intl);
 		ctlr = malloc(sizeof(Ctlr));
 		if(ctlr == nil){

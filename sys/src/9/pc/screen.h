@@ -136,7 +136,7 @@ extern char	*tiltstr[4];
 extern Rectangle actualscreensize(VGAscr*);
 extern void	setactualsize(VGAscr*, Rectangle);
 extern void	setscreensize(VGAscr*, int, int, int, ulong, int);
-extern void	addvgaseg(char*, uvlong, ulong);
+extern void	addvgaseg(char*, uvlong, vlong);
 extern Memdata*	attachscreen(Rectangle*, ulong*, int*, int*, int*);
 extern void	flushmemscreen(Rectangle);
 extern void	cursoron(void);
@@ -159,7 +159,7 @@ extern QLock	drawlock;
 extern void	vgascreenwin(VGAscr*);
 extern void	vgaimageinit(ulong);
 extern void	vgalinearpci(VGAscr*);
-extern void	vgalinearaddr(VGAscr*, uvlong, int);
+extern void	vgalinearaddr(VGAscr*, uvlong, vlong);
 extern void	vgablank(VGAscr*, int);
 extern Lock	vgascreenlock;
 

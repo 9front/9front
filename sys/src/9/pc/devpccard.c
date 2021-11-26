@@ -1266,11 +1266,11 @@ pccardread(Chan *c, void *a, long n, vlong offset)
 					for (i = 0; i < nelem(pci->mem); i++)
 						if (pci->mem[i].size)
 							p = seprint(p, e,
-									  "\tmem[%d] %.8ullX (%.8uX)\n",
+									  "\tmem[%d] %.8ullX (%.8ullX)\n",
 									  i, pci->mem[i].bar,
 									  pci->mem[i].size);
 					if (pci->rom.size)
-						p = seprint(p, e, "\tROM %.8ullX (%.8uX)\n",
+						p = seprint(p, e, "\tROM %.8ullX (%.8ullX)\n",
 								  pci->rom.bar, pci->rom.size);
 					pci = pci->link;
 				}

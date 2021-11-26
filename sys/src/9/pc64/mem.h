@@ -53,10 +53,10 @@
 #define KZERO		(0xffffffff80000000ull)
 #define KTZERO		(KZERO+1*MiB+64*KiB)
 
-#define VMAP		(0xffffff0000000000ull)
-#define VMAPSIZE	(512ull*GiB)
+#define VMAP		(0xfffffe8000000000ull)
+#define VMAPSIZE	(1024ull*GiB)
 
-#define	KMAP		(0xfffffe8000000000ull)
+#define	KMAP		(0xfffffe0000000000ull)
 #define KMAPSIZE	(2*MiB)
 
 /*

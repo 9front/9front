@@ -563,9 +563,10 @@ blankscreen(int blank)
 }
 
 static char*
-vgalinearaddr0(VGAscr *scr, uvlong paddr, int size)
+vgalinearaddr0(VGAscr *scr, uvlong paddr, vlong size)
 {
-	int x, nsize;
+	int x;
+	vlong nsize;
 	uvlong npaddr;
 
 	/*
@@ -603,7 +604,7 @@ vgalinearaddr0(VGAscr *scr, uvlong paddr, int size)
 
 	scr->vaddr = (char*)scr->vaddr+x;
 	scr->paddr = paddr;
-	scr->apsize = nsize;
+	scr->apsize = (int)nsize;
 
 	mtrr(npaddr, nsize, "wc");
 
@@ -613,8 +614,7 @@ vgalinearaddr0(VGAscr *scr, uvlong paddr, int size)
 static char*
 vgalinearpci0(VGAscr *scr)
 {
-	int i, size, best;
-	uvlong paddr;
+	int i, best;
 	Pcidev *p;
 	
 	p = scr->pci;
@@ -645,12 +645,9 @@ vgalinearpci0(VGAscr *scr)
 		  && !(p->mem[best].bar&8)))
 			best = i;
 	}
-	if(best >= 0){
-		paddr = p->mem[best].bar & ~0x0F;
-		size = p->mem[best].size;
-		return vgalinearaddr0(scr, paddr, size);
-	}
-	return "no video memory found on pci card";
+	if(best < 0)
+		return "no video memory found on pci card";
+	return vgalinearaddr0(scr, p->mem[best].bar&~0xF, p->mem[best].size);
 }
 
 void
@@ -665,7 +662,7 @@ vgalinearpci(VGAscr *scr)
 }
 
 void
-vgalinearaddr(VGAscr *scr, uvlong paddr, int size)
+vgalinearaddr(VGAscr *scr, uvlong paddr, vlong size)
 {
 	char *err;
 

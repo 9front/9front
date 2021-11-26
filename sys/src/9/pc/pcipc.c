@@ -603,7 +603,7 @@ pcireserve(void)
 				p->mem[i].bar |= pa;
 			}
 			pcisetbar(p, PciBAR0 + i*4, p->mem[i].bar);
-			DBG("%s: bar%d: fixed %.8lluX %d\n", tag, i, p->mem[i].bar, p->mem[i].size);
+			DBG("%s: bar%d: fixed %.8lluX %lld\n", tag, i, p->mem[i].bar, p->mem[i].size);
 		}
 	}
 }

@@ -10,7 +10,7 @@ typedef struct Pcisiz Pcisiz;
 struct Pcisiz
 {
 	Pcidev*	dev;
-	int	siz;
+	vlong	siz;
 	int	bar;
 	int	typ;
 };
@@ -162,25 +162,41 @@ pcicfgw32(Pcidev* p, int rno, int data)
 	iunlock(&pcicfglock);
 }
 
-int
+vlong
 pcibarsize(Pcidev *p, int rno)
 {
-	int v, size;
+	vlong size;
+	int v;
 
 	ilock(&pcicfglock);
+
 	v = pcicfgrw32(p->tbdf, rno, 0, 1);
 	pcicfgrw32(p->tbdf, rno, -1, 0);
-	size = pcicfgrw32(p->tbdf, rno, 0, 1);
+	size = (int)pcicfgrw32(p->tbdf, rno, 0, 1);
 	pcicfgrw32(p->tbdf, rno, v, 0);
+
+	if(rno == PciEBAR0 || rno == PciEBAR1)
+		size &= ~0x7FFLL;
+	else if(v & 1)
+		size = (short)size & ~0x3LL;
+	else {
+		size &= ~0xFLL;
+
+		if(size >= 0 && (v&7)==4 && rno < PciBAR0+4*(nelem(p->mem)-1)){
+			rno += 4;
+			v = pcicfgrw32(p->tbdf, rno, 0, 1);
+			pcicfgrw32(p->tbdf, rno, -1, 0);
+			size |= (vlong)pcicfgrw32(p->tbdf, rno, 0, 1)<<32;
+			pcicfgrw32(p->tbdf, rno, v, 0);
+		}
+	}
+
 	iunlock(&pcicfglock);
 
-	if(rno == PciEBAR0 || rno == PciEBAR1){
-		size &= ~0x7FF;
-	} else if(v & 1){
-		size = (short)size;
-		size &= ~3;
-	} else {
-		size &= ~0xF;
+	if(size > 0){
+		print("pcibarsize: %T invalid bar rno %x mask %llux\n",
+			p->tbdf, rno, (uvlong)size);
+		return 0;
 	}
 
 	return -size;
@@ -216,39 +232,41 @@ pcisetwin(Pcidev *p, uvlong base, uvlong limit)
 static int
 pcisizcmp(void *a, void *b)
 {
-	Pcisiz *aa, *bb;
+	Pcisiz *aa = a, *bb = b;
 
-	aa = a;
-	bb = b;
-	return aa->siz - bb->siz;
+	if(aa->siz > bb->siz)
+		return 1;
+	if(aa->siz < bb->siz)
+		return -1;
+	return 0;
 }
 
-static ulong
-pcimask(ulong v)
+static vlong
+pcimask(vlong v)
 {
-	ulong m;
+	uvlong m;
 
-	m = BI2BY*sizeof(v);
-	for(m = 1<<(m-1); m != 0; m >>= 1) {
+	for(m = 1ULL<<63; m != 0; m >>= 1) {
 		if(m & v)
 			break;
 	}
 
 	m--;
-	if((v & m) == 0)
-		return v;
-
-	v |= m;
-	return v+1;
+	if(v & m){
+		v |= m;
+		v++;
+	}
+	return v;
 }
 
 void
 pcibusmap(Pcidev *root, uvlong *pmema, ulong *pioa, int wrreg)
 {
 	Pcidev *p;
-	int ntb, i, size, rno, hole;
+	int ntb, i, rno;
 	uvlong mema, smema;
 	ulong ioa, sioa, v;
+	vlong hole, size;
 	Pcisiz *table, *tptr, *mtb, *itb;
 
 	ioa = *pioa;
@@ -348,7 +366,7 @@ pcibusmap(Pcidev *root, uvlong *pmema, ulong *pioa, int wrreg)
 				mtb->bar = i;
 				mtb->siz = size;
 				mtb->typ = v & 7;
-				if(mtb->typ & 4)
+				if(mtb->typ == 4)
 					i++;
 				mtb++;
 			}
@@ -478,7 +496,7 @@ pcivalidwin(Pcidev *p, uvlong base, uvlong limit)
 }
 
 static int
-pcivalidbar(Pcidev *p, uvlong bar, int size)
+pcivalidbar(Pcidev *p, uvlong bar, vlong size)
 {
 	if(bar & 1){
 		bar &= ~3;
@@ -572,7 +590,8 @@ pciscan(int bno, Pcidev** list, Pcidev *parent)
 					p->mem[i].size = pcibarsize(p, rno);
 					if((p->mem[i].bar & 7) == 4 && i < nelem(p->mem)-1){
 						rno += 4;
-						p->mem[i++].bar |= (uvlong)pcicfgr32(p, rno) << 32;
+						p->mem[i].bar |= (uvlong)pcicfgr32(p, rno) << 32;
+						i++;
 						p->mem[i].bar = 0;
 						p->mem[i].size = 0;
 					}
@@ -827,16 +846,16 @@ pcilhinv(Pcidev* p)
 		for(i = 0; i < nelem(p->mem); i++) {
 			if(t->mem[i].size == 0)
 				continue;
-			print("%d:%.8llux %d ", i, t->mem[i].bar, t->mem[i].size);
+			print("%d:%.8llux %lld ", i, t->mem[i].bar, t->mem[i].size);
 		}
 		if(t->rom.bar || t->rom.size)
-			print("rom:%.8llux %d ", t->rom.bar, t->rom.size);
+			print("rom:%.8llux %lld ", t->rom.bar, t->rom.size);
 		if(t->ioa.bar || t->ioa.size)
-			print("ioa:%.8llux-%.8llux %d ", t->ioa.bar, t->ioa.bar+t->ioa.size, t->ioa.size);
+			print("ioa:%.8llux-%.8llux %lld ", t->ioa.bar, t->ioa.bar+t->ioa.size, t->ioa.size);
 		if(t->mema.bar || t->mema.size)
-			print("mema:%.8llux-%.8llux %d ", t->mema.bar, t->mema.bar+t->mema.size, t->mema.size);
+			print("mema:%.8llux-%.8llux %lld ", t->mema.bar, t->mema.bar+t->mema.size, t->mema.size);
 		if(t->prefa.bar || t->prefa.size)
-			print("prefa:%.8llux-%.8llux %llud ", t->prefa.bar, t->prefa.bar+t->prefa.size, t->prefa.size);
+			print("prefa:%.8llux-%.8llux %lld ", t->prefa.bar, t->prefa.bar+t->prefa.size, t->prefa.size);
 		if(t->bridge)
 			print("->%d", BUSBNO(t->bridge->tbdf));
 		print("\n");

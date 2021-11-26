@@ -113,7 +113,7 @@ wavelanpciscan(void)
 		 * On the Prism, bar[0] is the memory-mapped register address (4KB),
 		 */
 		if((p->mem[0].bar & 1) != 0 || p->mem[0].size != 4096){
-			print("wavelanpci: %.4ux %.4ux: unlikely mmio bar %llux size %d\n",
+			print("wavelanpci: %.4ux %.4ux: unlikely mmio bar %llux size %lld\n",
 				p->vid, p->did, p->mem[0].bar, p->mem[0].size);
 			continue;
 		}
@@ -126,7 +126,7 @@ wavelanpciscan(void)
 		ctlr->pcidev = p;
 		mem = vmap(p->mem[0].bar&~0xF, p->mem[0].size);
 		if(mem == nil){
-			print("wavelanpci: %.4ux %.4ux: vmap %llux %d failed\n",
+			print("wavelanpci: %.4ux %.4ux: vmap %llux %lld failed\n",
 				p->vid, p->did, p->mem[0].bar&~0xF, p->mem[0].size);
 			free(ctlr);
 			continue;

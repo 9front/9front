@@ -184,7 +184,7 @@ scanpci(void)
 		if(io == 0)
 			continue;
 
-		print("usbehci: %#x %#x: port %llux size %d irq %d\n",
+		print("usbehci: %#x %#x: port %llux size %lld irq %d\n",
 			p->vid, p->did, io, p->mem[0].size, p->intl);
 
 		ctlr = malloc(sizeof(Ctlr));

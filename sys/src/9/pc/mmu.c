@@ -530,13 +530,13 @@ static void pdbunmap(ulong*, ulong, int);
  * Add a device mapping to the vmap range.
  */
 void*
-vmap(uvlong pa, int size)
+vmap(uvlong pa, vlong size)
 {
-	int osize;
+	vlong osize;
 	ulong o, va;
 	
 	if(pa < BY2PG || size <= 0 || ((pa+size) >> 32) != 0 || size > VMAPSIZE){
-		print("vmap pa=%llux size=%d pc=%#p\n", pa, size, getcallerpc(&pa));
+		print("vmap pa=%llux size=%lld pc=%#p\n", pa, size, getcallerpc(&pa));
 		return nil;
 	}
 
@@ -560,7 +560,7 @@ vmap(uvlong pa, int size)
 		vmapsync(va+i);
 	*/
 	USED(osize);
-//	print("  vmap %#.8lux %d => %#.8lux\n", pa+o, osize, va+o);
+//	print("  vmap %#.8lux %lld => %#.8lux\n", pa+o, osize, va+o);
 	return (void*)(va + o);
 }
 
@@ -621,7 +621,7 @@ vmapalloc(ulong size)
  * the call need not be interlocked with vmap.
  */
 void
-vunmap(void *v, int size)
+vunmap(void *v, vlong size)
 {
 	ulong va, o;
 	
@@ -635,7 +635,7 @@ vunmap(void *v, int size)
 	size = ROUND(size, BY2PG);
 	
 	if(size < 0 || va < VMAP || va+size > VMAP+VMAPSIZE)
-		panic("vunmap va=%#.8lux size=%#x pc=%#.8lux",
+		panic("vunmap va=%#.8lux size=%lld pc=%#.8lux",
 			va, size, getcallerpc(&v));
 
 	pdbunmap(MACHP(0)->pdb, va, size);

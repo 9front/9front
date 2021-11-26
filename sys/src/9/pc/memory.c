@@ -245,13 +245,13 @@ rsdsearch(void)
  * Call vmap to do that.
  */
 uvlong
-upaalloc(uvlong pa, ulong size, ulong align)
+upaalloc(uvlong pa, uvlong size, uvlong align)
 {
 	return memmapalloc(pa, size, align, MemUPA);
 }
 
 uvlong
-upaallocwin(uvlong pa, ulong win, ulong size, ulong align)
+upaallocwin(uvlong pa, uvlong win, uvlong size, uvlong align)
 {
 	uvlong a, base, top = pa + win;
 
@@ -269,7 +269,7 @@ upaallocwin(uvlong pa, ulong win, ulong size, ulong align)
 }
 
 void
-upafree(uvlong pa, ulong size)
+upafree(uvlong pa, uvlong size)
 {
 	memmapfree(pa, size, MemUPA);
 }

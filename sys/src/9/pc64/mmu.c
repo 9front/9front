@@ -584,13 +584,13 @@ kunmap(KMap *k)
  * synchronization is being done.
  */
 void*
-vmap(uvlong pa, int size)
+vmap(uvlong pa, vlong size)
 {
 	uintptr va;
 	int o;
 
 	if(pa < BY2PG || size <= 0 || -pa < size || pa+size > VMAPSIZE){
-		print("vmap pa=%llux size=%d pc=%#p\n", pa, size, getcallerpc(&pa));
+		print("vmap pa=%llux size=%lld pc=%#p\n", pa, size, getcallerpc(&pa));
 		return nil;
 	}
 	va = pa+VMAP;
@@ -607,7 +607,7 @@ vmap(uvlong pa, int size)
 }
 
 void
-vunmap(void *v, int)
+vunmap(void *v, vlong)
 {
 	paddr(v);	/* will panic on error */
 }

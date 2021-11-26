@@ -29,7 +29,7 @@ neomagicenable(VGAscr* scr)
 	Pcidev *p;
 	int bar, curoff, vmsize;
 	uvlong ioaddr;
-	ulong iosize;
+	vlong iosize;
 
 	/*
 	 * scr->mmio holds the virtual address of the cursor registers
@@ -78,7 +78,7 @@ neomagicenable(VGAscr* scr)
 	default:
 		return;
 	}
-	if(p->mem[bar].bar & 1)
+	if(p->mem[bar].bar & 1 || p->mem[bar].size == 0)
 		return;
 	ioaddr = p->mem[bar].bar & ~0x0F;
 	iosize = p->mem[bar].size;

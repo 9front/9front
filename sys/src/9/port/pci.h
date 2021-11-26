@@ -177,22 +177,22 @@ struct Pcidev
 
 	struct {
 		uvlong	bar;		/* base address */
-		int	size;
+		vlong	size;
 	} mem[6];
 
 	struct {			/* expansion rom bar */
 		uvlong	bar;	
-		int	size;
+		vlong	size;
 	} rom;
 
 	struct {			/* 32-bit io and memory windows */
 		uvlong	bar;
-		int	size;
+		vlong	size;
 	} ioa, mema;
 
 	struct {			/* 64-bit prefechable memory window */
 		uvlong	bar;
-		uvlong	size;
+		vlong	size;
 	} prefa;
 
 	Pcidev*	list;
@@ -240,7 +240,7 @@ extern void pcibussize(Pcidev *root, uvlong *msize, ulong *iosize);
 extern Pcidev* pcimatch(Pcidev* prev, int vid, int did);
 extern Pcidev* pcimatchtbdf(int tbdf);
 
-extern int pcibarsize(Pcidev *, int rno);
+extern vlong pcibarsize(Pcidev *, int rno);
 extern void pcisetbar(Pcidev *, int, uvlong);
 
 extern uchar pciipin(Pcidev *pci, uchar pin);

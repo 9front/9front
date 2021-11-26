@@ -1814,7 +1814,7 @@ scanpci(void)
 		io = p->mem[0].bar & ~0x0f;
 		if(io == 0)
 			continue;
-		print("usbxhci: %#x %#x: port %llux size %d irq %d\n",
+		print("usbxhci: %#x %#x: port %llux size %lld irq %d\n",
 			p->vid, p->did, io, p->mem[0].size, p->intl);
 		mmio = vmap(io, p->mem[0].size);
 		if(mmio == nil){

@@ -32,7 +32,7 @@ squidboy(Apic* apic)
 void
 mpstartap(Apic* apic)
 {
-	uintptr *apbootp, *pml4, *pdp0;
+	uintptr *apbootp, *pml4, *pdp0, v;
 	Segdesc *gdt;
 	Mach *mach;
 	uchar *p;
@@ -65,8 +65,11 @@ mpstartap(Apic* apic)
 	 * map KZERO (note that we share the KZERO (and VMAP)
 	 * PDP between processors.
 	 */
-	pml4[PTLX(KZERO, 3)] = MACHP(0)->pml4[PTLX(KZERO, 3)];
-	pml4[PTLX(VMAP, 3)] = MACHP(0)->pml4[PTLX(VMAP, 3)];
+	*mmuwalk(pml4, KZERO, 3, 0) = *mmuwalk(m->pml4, KZERO, 3, 0);
+	for(v = VMAP; v < VMAP+VMAPSIZE; v += PGLSZ(3)){
+		mmuwalk(m->pml4, v, 2, 1);	/* force create */
+		*mmuwalk(pml4, v, 3, 0) = *mmuwalk(m->pml4, v, 3, 0);
+	}
 
 	/* double map */
 	pml4[0] = PADDR(pdp0) | PTEWRITE|PTEVALID;
