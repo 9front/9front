@@ -161,7 +161,7 @@ They are:
 system name (a short name)
 .TP
 .B dom
-Internet fully-qualified domain name
+Internet fully-qualified domain name (without the trailing period)
 .TP
 .B ip
 Internet address,

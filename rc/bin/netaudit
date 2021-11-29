@@ -1,5 +1,30 @@
 #!/bin/rc
 rfork e
+fn checkether {
+	echo -n '	'$1'='$2
+	if(! ~ $2 [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f])
+		echo ' has wrong format'
+	if not if(! grep -s $i /net/ether*/addr)
+		echo ' does not belong to any network interface'
+	if not
+		echo ' looks ok'
+}
+fn checkip {
+	echo -n '	'$1'='$2
+	if(! ~ $2 *.*.*.* *:*:*:*:*:*:*:* *::*)
+		echo ' does not look like an ip address'
+	if not
+		echo ' looks ok'
+}
+fn checkdom {
+	echo -n '	'$1'='$2
+	if(! ~ $2 *.*)
+		echo ' does not have a dot'
+	if not if(~ $2 *.)
+		echo ' has a trailing period'
+	if not
+		echo ' looks ok'
+}
 fn checkhost {
 	if(~ $sysname ''){
 		echo 'sysname= env var is not set'
@@ -9,19 +34,19 @@ fn checkhost {
 	ip=`{ndb/ipquery sys $sysname ip | sed 's/ip=//g'}
 	if(~ $ip '')
 		echo '	no ip= entry'
-	if not
-		echo '	ip='$ip 'looks ok'
+	if not {
+		for(i in $ip){
+			checkip ip $i
+		}
+	}
 	dom=`{ndb/ipquery sys $sysname dom | sed 's/dom=//g'}
 	if(~ $dom '')
 		echo '	no dom= entry'
 	if not {
 		for(i in $dom){
-			if(! ~ $i *.*)
-				echo '	dom='$i 'does not have a dot'
-			if not if(! ~ $i $sysname^.*)
+			checkdom dom $i
+			if(! ~ $i $sysname^.*)
 				echo '	dom='$i 'does not start with' $sysname^'; it''s supposed to be the FQDN, not the domain name!'
-			if not
-				echo '	dom='$i 'looks ok'
 		}
 	}
 	ether=`{ndb/ipquery sys $sysname ether | sed 's/ether=//g'}
@@ -29,12 +54,7 @@ fn checkhost {
 		echo '	no ether entry'
 	if not {
 		for(i in $ether){
-			if(! ~ $i [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f])
-				echo '	ether='$i 'has wrong format'
-			if not if(! grep -s $i /net/ether*/addr)
-				echo '	ether='$i 'does not belong to any network interface'
-			if not
-				echo '	ether='$i 'looks ok'
+			checkether ether $i
 		}
 	}
 }
@@ -44,17 +64,17 @@ fn checknet {
 	if(~ $ipnet ''){
 		echo '	we are not in an ipnet, so looking for entries in host tuple only'
 	}
-	if not
-		echo '	we are in ipnet='^$ipnet
+	if not {
+		echo '	we are in ' 'ipnet='^$ipnet
+	}
 	ipgw=`{ndb/ipquery sys $sysname ipgw | sed 's/ipgw=//g'}
 	if(~ $ipgw '' '::'){
 		echo '	we do not have an internet gateway, no ipgw= entry'
 	}
 	if not {
-		if(! ~ $ipgw *.*.*.* *:*:*:*:*:*:*:* *::*)
-			echo '	ipgw='$ipgw 'does not look like an ip address'
-		if not
-			echo '	ipgw='$ipgw 'looks ok'
+		for(i in $ipgw) {
+			checkip ipgw $i
+		}
 	}
 	dns=`{ndb/ipquery sys $sysname dns | sed 's/dns=//g'}
 	if(~ $dns '')
@@ -112,7 +132,7 @@ fn checkauth {
 	}
 	if not {
 		echo '	we are not the auth server '^$auth
-		echo '	if this is a mistake, set auth='$sysname' or auth='$dom
+		echo '	if this is a mistake, set auth='$sysname 'or auth='$dom
 		if(~ $authok 1)
 			echo '	run auth/debug to test the auth server'
 	}
