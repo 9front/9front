@@ -16,6 +16,13 @@ fn checkip {
 	if not
 		echo ' looks ok'
 }
+fn checksys {
+	echo -n '	'$1'='$2
+	if(~ $2 *.*)
+		echo ' contains a dot, it will be confused for a domain name or ip address'
+	if not
+		echo ' looks ok'
+}
 fn checkdom {
 	echo -n '	'$1'='$2
 	if(! ~ $2 *.*)
@@ -27,10 +34,19 @@ fn checkdom {
 }
 fn checkhost {
 	if(~ $sysname ''){
-		echo 'sysname= env var is not set'
+		echo 'env var $sysname is not set'
 		exit 'fail'
 	}
+	checksys 'env var $sysname' $sysname
 	echo 'checking this host''s tuple:'
+	sys=`{ndb/ipquery sys $sysname sys | sed 's/sys=//g'}
+	if(! ~ $sysname $sys)
+		echo '	no sys= entry'
+	if not {
+		for(i in $sys){
+			checksys sys $i
+		}
+	}
 	ip=`{ndb/ipquery sys $sysname ip | sed 's/ip=//g'}
 	if(~ $ip '')
 		echo '	no ip= entry'
@@ -118,7 +134,7 @@ fn checkauth {
 		echo '	no auth server'
 		exit fail
 	}
-	if not if(~ $sysname $auth){
+	if not if(~ $sys $auth){
 		echo '	we are the auth server'
 		authisus=1
 	}
