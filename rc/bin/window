@@ -100,6 +100,6 @@ if not {
 	}
 
 	if(! ~ $#wdir 0)
-		spec=($spec -cd $wdir)
+		spec=($spec -cd `{a=$wdir whatis a|sed 's!^a=!!;q'})
 	echo new $spec $argv0 -x $cmd >>$wctl
 }

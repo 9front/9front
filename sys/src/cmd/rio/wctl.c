@@ -203,7 +203,7 @@ int
 parsewctl(char **argp, Rectangle r, Rectangle *rp, int *pidp, int *idp, int *hiddenp, int *scrollingp, char **cdp, char *s, char *err)
 {
 	int cmd, param, xy, sign;
-	char *t;
+	char *f[2], *t;
 
 	*pidp = 0;
 	*hiddenp = 0;
@@ -252,10 +252,13 @@ parsewctl(char **argp, Rectangle r, Rectangle *rp, int *pidp, int *idp, int *hid
 			s++;
 		if(param == Cd){
 			*cdp = s;
-			while(*s && !isspace(*s))
-				s++;
-			if(*s != '\0')
-				*s++ = '\0';
+			gettokens(*cdp, f, nelem(f), " \t\r\n\v\f");
+			s += strlen(*cdp);
+			if((*cdp)[0] == '\'' && s[-1] == '\''){
+				/* drop quotes */
+				*cdp += 1;
+				s[-1] = '\0';
+			}
 			continue;
 		}
 		sign = 0;
