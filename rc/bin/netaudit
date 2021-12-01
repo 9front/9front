@@ -134,23 +134,21 @@ fn checkauth {
 		echo '	no auth server'
 		exit fail
 	}
-	if not if(~ $sys $auth){
-		echo '	we are the auth server'
-		authisus=1
-	}
-	if not if(~ $dom $auth){
-		echo '	we are the auth server'
-		authisus=1
-	}
-	if not if(~ $ip $auth){
-		echo '	we are the auth server'
-		authisus=1
-	}
 	if not {
-		echo '	we are not the auth server '^$auth
-		echo '	if this is a mistake, set auth='$sysname 'or auth='$dom
-		if(~ $authok 1)
-			echo '	run auth/debug to test the auth server'
+		for(i in $auth){
+			if(~ $i $sys){
+				echo '	we are the auth server '^$i
+				authisus=1
+			}
+			if not if(~ $i $dom){
+				echo '	we are the auth server '^$i
+				authisus=1
+			}
+			if not if(~ $i $ip){
+				echo '	we are the auth server '^$i
+				authisus=1
+			}
+		}
 	}
 	if(~ $authisus 1){
 		if(! grep -s keyfs <{ps})
@@ -165,7 +163,12 @@ fn checkauth {
 		}
 		echo '	run auth/asaudit to verify auth server configuration'
 	}
-
+	if not {
+		echo '	we are not the auth server(s):' $auth
+		echo '	if this is a mistake, set auth='$sys(1) 'or auth='^($sys(2-) $dom)
+		if(~ $authok 1)
+			echo '	run auth/debug to test the auth server'
+	}
 }
 fn checksec {
 	echo 'checking basic security:'
