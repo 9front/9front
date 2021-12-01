@@ -136,15 +136,7 @@ fn checkauth {
 	}
 	if not {
 		for(i in $auth){
-			if(~ $i $sys){
-				echo '	we are the auth server '^$i
-				authisus=1
-			}
-			if not if(~ $i $dom){
-				echo '	we are the auth server '^$i
-				authisus=1
-			}
-			if not if(~ $i $ip){
+			if(~ $i $sys $dom $ip){
 				echo '	we are the auth server '^$i
 				authisus=1
 			}
