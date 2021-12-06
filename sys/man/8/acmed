@@ -159,7 +159,7 @@ On the TLS server side, you can generate a RSA key
 and certificate signing request file like this:
 .IP
 .EX
-auth/rsagen -t 'service=tls owner=*' > cert.key
+auth/rsagen -t 'service=tls role=client owner=*' > cert.key
 auth/rsa2csr 'CN=mydomain.com' cert.key \\
 	> /sys/lib/tls/acmed/mydomain.com.csr
 .EE
