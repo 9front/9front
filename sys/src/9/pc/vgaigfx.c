@@ -68,13 +68,18 @@ igfxblank(VGAscr *scr, int blank)
 		return;
 
 	case 0x2a02:	/* GM965 */
+	case 0x27a2:	/* GM45 */
 	case 0x2a42:	/* GM45 */
 	case 0x2592:	/* GM915 */
 		off = 0x61204;
 		break;
 
+	case 0x0102:	/* ILK */
+	case 0x0046:	/* ILK/ARD */
 	case 0x0126:	/* SNB */
 	case 0x0166:	/* IVB */
+	case 0x0a16:	/* HSW */
+	case 0x1616:	/* BDW */
 		off = 0xC7204;
 		break;
 	}
