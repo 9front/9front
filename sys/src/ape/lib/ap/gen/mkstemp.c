@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 int
 mkstemp(char *template)
@@ -14,7 +15,7 @@ mkstemp(char *template)
    for(i=0; i<20; i++){
        strcpy(s, template);
        mktemp(s);
-       if((fd = creat(s, 0666)) >= 0){
+       if((fd = open(s, O_RDWR | O_CREAT | O_EXCL, 0600)) >= 0){
            strcpy(template, s);
            free(s);
            return fd;
