@@ -102,7 +102,6 @@ auth.$O devcons.$O:	/sys/include/authsrv.h
 devcap.$O:	/sys/include/libsec.h
 devfs.$O:	/sys/include/libsec.h
 devsdp.$O:	/sys/include/libsec.h
-devssl.$O:	/sys/include/libsec.h
 devtls.$O:	/sys/include/libsec.h
 devswap.$O:	/sys/include/libsec.h
 random.$O:	/sys/include/libsec.h

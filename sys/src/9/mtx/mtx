@@ -10,7 +10,6 @@ dev
 	mnt
 	srv
 	dup
-	ssl
 	cap
 	kprof
 	uart

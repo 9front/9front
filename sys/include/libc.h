@@ -536,7 +536,6 @@ extern	int	reject(int, char*, char*);
 /*
  *  encryption
  */
-extern	int	pushssl(int, char*, char*, char*, int*);
 extern	int	pushtls(int, char*, char*, int, char*, char*);
 
 /*

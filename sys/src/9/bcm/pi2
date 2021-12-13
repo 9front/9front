@@ -10,7 +10,6 @@ dev
 	shr
 	dup
 	arch
-	ssl
 	tls
 	cap
 	fs

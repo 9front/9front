@@ -33,7 +33,6 @@ OFILES=\
 	postnote.$O\
 	privalloc.$O\
 	procsetname.$O\
-	pushssl.$O\
 	pushtls.$O\
 	putenv.$O\
 	qlock.$O\
