@@ -303,11 +303,13 @@ tabletread(Req* req)
 		reply(req, m);
 		msgdecref(m);
 	} else {
+		lock(&readers);
 		if(r->req) {
 			respond(req, "no concurrent reads, please");
 		} else {
 			r->req = req;
 		}
+		unlock(&readers);
 	}
 }
 
