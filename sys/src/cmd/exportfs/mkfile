@@ -1,6 +1,6 @@
 </$objtype/mkfile
 
-TARG=exportfs oexportfs
+TARG=exportfs
 OFILES=\
 	exportsrv.$O\
 	pattern.$O\
