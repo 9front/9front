@@ -468,7 +468,7 @@ is a tool for querying the git configuration.
 The configuration key is provided as a dotted string. Spaces
 are accepted. For example, to find the URL of the origin
 repository, one might pass
-.I 'remote "origin".url".
+.I 'remote\ "origin".url'.
 When given the
 .I -r
 option, the root of the current repository is printed.
