@@ -260,7 +260,7 @@ fetchpack(Conn *c)
 	if(writepkt(c, buf, n) == -1)
 		sysfatal("write: %r");
 	if(!req)
-		goto showrefs;
+		return 0;
 	if(readphase(c) == -1)
 		sysfatal("read: %r");
 	if((n = readpkt(c, buf, sizeof(buf))) == -1)
