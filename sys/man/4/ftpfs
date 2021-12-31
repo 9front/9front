@@ -163,14 +163,14 @@ option.
 You want anonymous FTP access to the system
 .BR export.lcs.mit.edu .
 The first
-.IR import (4)
+.IR rimport (1)
 command is only necessary if your machine does not have access to the
 desired system, but another, called
 .B gateway
 in this example, does.
 .IP
 .EX
-import gateway /net
+rimport gateway /net
 ftpfs -a yourname@yourmachine export.lcs.mit.edu
 .EE
 .SH SOURCE
