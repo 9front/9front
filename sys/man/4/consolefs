@@ -175,7 +175,7 @@ script
 .B C
 automates this procedure.
 It uses
-.IR import (4)
+.IR rimport (1)
 to connect to
 .B /mnt/consoles
 on the machine connected to all the consoles, then uses
