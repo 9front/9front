@@ -37,4 +37,3 @@ if not{
 	status=''
 	. $*
 }
-exit $status
