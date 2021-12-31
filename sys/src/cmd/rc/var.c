@@ -58,6 +58,20 @@ klook(char *name)
 }
 
 var*
+newvar(char *name, var *next)
+{
+	int n = strlen(name)+1;
+	var *v = emalloc(sizeof(var)+n);
+	memmove(v->name, name, n);
+	v->next = next;
+	v->val = 0;
+	v->fn = 0;
+	v->changed = 0;
+	v->fnchanged = 0;
+	return v;
+}
+
+var*
 gvlook(char *name)
 {
 	int h = hash(name, NVAR);
@@ -79,8 +93,15 @@ vlook(char *name)
 void
 setvar(char *name, word *val)
 {
-	struct var *v = vlook(name);
+	var *v = vlook(name);
 	freewords(v->val);
 	v->val = val;
 	v->changed = 1;
+}
+
+void
+freevar(var *v)
+{
+	freewords(v->val);
+	free(v);
 }

@@ -2,93 +2,49 @@
 #include "exec.h"
 #include "io.h"
 #include "fns.h"
-struct here *here, **ehere;
-int ser = 0;
-char tmp[]="/tmp/here0000.0000";
-char hex[]="0123456789abcdef";
 
 void psubst(io*, uchar*);
 void pstrs(io*, word*);
 
-void
-hexnum(char *p, int n)
+char*
+readhere(tree *tag, io *in)
 {
-	*p++=hex[(n>>12)&0xF];
-	*p++=hex[(n>>8)&0xF];
-	*p++=hex[(n>>4)&0xF];
-	*p = hex[n&0xF];
-}
-
-tree*
-heredoc(tree *tag)
-{
-	struct here *h;
+	io *out;
+	char c, *m;
 
 	if(tag->type!=WORD){
 		yyerror("Bad here tag");
-		return nil;
+		return 0;
 	}
-	h = new(struct here);
-	h->next = 0;
-	if(here)
-		*ehere = h;
-	else
-		here = h;
-	ehere=&h->next;
-	h->tag = tag;
-	hexnum(&tmp[9], getpid());
-	hexnum(&tmp[14], ser++);
-	h->name = estrdup(tmp);
-	return token(tmp, WORD);
-}
-/*
- * bug: lines longer than NLINE get split -- this can cause spurious
- * missubstitution, or a misrecognized EOF marker.
- */
-#define	NLINE	4096
-
-void
-readhere(void)
-{
-	struct here *h, *nexth;
-	io *f;
-	char *s, *tag;
-	int c, subst;
-	char line[NLINE+1];
-	for(h = here;h;h = nexth){
-		subst=!h->tag->quoted;
-		tag = h->tag->str;
-		c = Creat(h->name);
-		if(c<0)
-			yyerror("can't create here document");
-		f = openfd(c);
-		s = line;
-		pprompt();
-		while((c = rchr(runq->cmdfd))!=EOF){
-			if(c=='\n' || s==&line[NLINE]){
-				*s='\0';
-				if(tag && strcmp(line, tag)==0) break;
-				if(subst)
-					psubst(f, (uchar *)line);
-				else
-					pstr(f, line);
-				s = line;
-				if(c=='\n'){
-					pprompt();
-					pchr(f, c);
-				}
-				else *s++=c;
-			}
-			else *s++=c;
+	pprompt();
+	out = openiostr();
+	m = tag->str;
+	while((c = rchr(in)) != EOF){
+		if(c=='\0'){
+			yyerror("NUL bytes in here doc");
+			closeio(out);
+			return 0;
 		}
-		flush(f);
-		closeio(f);
-		cleanhere(h->name);
-		nexth = h->next;
-		free(h);
+		if(c=='\n'){
+			lex->line++;
+			if(m && *m=='\0'){
+				out->bufp -= m - tag->str;
+				*out->bufp='\0';
+				break;
+			}
+			pprompt();
+			m = tag->str;
+		} else if(m){
+			if(*m == c){
+				m++;
+			} else {
+				m = 0;
+			}
+		}
+		pchr(out, c);
 	}
-	here = 0;
 	doprompt = 1;
+	return closeiostr(out);
 }
 
 void

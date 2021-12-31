@@ -6,7 +6,7 @@
 #define	c1	t->child[1]
 #define	c2	t->child[2]
 
-void
+static void
 pdeglob(io *f, char *s)
 {
 	while(*s){
@@ -14,6 +14,14 @@ pdeglob(io *f, char *s)
 			s++;
 		pchr(f, *s++);
 	}
+}
+
+static int ntab = 0;
+
+static char*
+tabs(void)
+{
+	return "\t\t\t\t\t\t\t\t"+8-(ntab%8);
 }
 
 void
@@ -38,7 +46,11 @@ pcmd(io *f, tree *t)
 	break;
 	case BANG:	pfmt(f, "! %t", c0);
 	break;
-	case BRACE:	pfmt(f, "{%t}", c0);
+	case BRACE:
+			ntab++;
+			pfmt(f, "{\n%s%t", tabs(), c0);
+			ntab--;
+			pfmt(f, "\n%s}", tabs());
 	break;
 	case COUNT:	pfmt(f, "$#%t", c0);
 	break;
@@ -75,9 +87,14 @@ pcmd(io *f, tree *t)
 		break;
 	case ';':
 		if(c0){
-			if(c1)
-				pfmt(f, "%t\n%t", c0, c1);
-			else pfmt(f, "%t", c0);
+			pfmt(f, "%t", c0);
+			if(c1){
+				if(c0->line==c1->line)
+					pstr(f, "; ");
+				else
+					pfmt(f, "\n%s", tabs());
+				pfmt(f, "%t", c1);
+			}
 		}
 		else pfmt(f, "%t", c1);
 		break;
@@ -109,6 +126,8 @@ pcmd(io *f, tree *t)
 		pchr(f, ' ');
 		switch(t->rtype){
 		case HERE:
+			if(c1)
+				pfmt(f, "%t ", c1);
 			pchr(f, '<');
 		case READ:
 		case RDWR:
@@ -127,7 +146,9 @@ pcmd(io *f, tree *t)
 			break;
 		}
 		pfmt(f, "%t", c0);
-		if(c1)
+		if(t->rtype == HERE)
+			pfmt(f, "\n%s%t\n", t->str, c0);
+		else if(c1)
 			pfmt(f, " %t", c1);
 		break;
 	case '=':

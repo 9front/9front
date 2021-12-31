@@ -30,6 +30,7 @@ typedef struct io io;
 typedef union code code;
 typedef struct var var;
 typedef struct list list;
+typedef struct lexer lexer;
 typedef struct redir redir;
 typedef struct thread thread;
 typedef struct builtin builtin;
@@ -40,10 +41,11 @@ typedef struct builtin builtin;
 struct tree{
 	int	type;
 	int	rtype, fd0, fd1;	/* details of REDIR PIPE DUP tokens */
-	char	*str;
-	int	quoted;
-	int	iskw;
 	int	line;
+	char	glob;			/* 0=string, 1=glob, -1=pattern see globprop() and noglobs() */
+	char	quoted;
+	char	iskw;
+	char	*str;
 	tree	*child[3];
 	tree	*next;
 };
@@ -52,12 +54,15 @@ tree *token(char*, int), *klook(char*), *tree1(int, tree*);
 tree *tree2(int, tree*, tree*), *tree3(int, tree*, tree*, tree*);
 tree *mung1(tree*, tree*), *mung2(tree*, tree*, tree*);
 tree *mung3(tree*, tree*, tree*, tree*), *epimung(tree*, tree*);
-tree *simplemung(tree*), *heredoc(tree*);
-void freetree(tree*);
-tree *cmdtree;
+tree *simplemung(tree*);
+tree *globprop(tree*);
+char *fnstr(tree*);
 
 /*
- * The first word of any code vector is a reference count.
+ * The first word of any code vector is a reference count
+ * and the second word is a string for srcfile().
+ * Code starts at pc 2. The last code word must be a zero
+ * terminator for codefree().
  * Always create a new reference to a code vector by calling codecopy(.).
  * Always call codefree(.) when deleting a reference.
  */
@@ -67,13 +72,34 @@ union code{
 	char	*s;
 };
 
-int newwdir;
-char *promptstr;
-int doprompt;
-
 #define	NTOK	8192
 
-char tok[NTOK];
+struct lexer{
+	io	*input;
+	char	*file;
+	int	line;
+
+	char	*prolog;
+	char	*epilog;
+
+	int	peekc;
+	int	future;
+	int	lastc;
+
+	char	eof;
+	char	inquote;
+	char	incomm;
+	char	lastword;	/* was the last token read a word or compound word terminator? */
+	char	lastdol;	/* was the last token read '$' or '$#' or '"'? */
+	char	iflast;		/* static `if not' checking */
+
+	char	qflag;
+
+	char	tok[NTOK];
+};
+extern lexer *lex;		/* current lexer */
+lexer *newlexer(io*, char*);
+void freelexer(lexer*);
 
 #define	APPEND	1
 #define	WRITE	2
@@ -84,15 +110,16 @@ char tok[NTOK];
 #define RDWR	7
 
 struct var{
-	char	*name;		/* ascii name */
-	word	*val;		/* value */
-	int	changed;
-	code	*fn;		/* pointer to function's code vector */
-	int	fnchanged;
-	int	pc;		/* pc of start of function */
 	var	*next;		/* next on hash or local list */
+	word	*val;		/* value */
+	code	*fn;		/* pointer to function's code vector */
+	int	pc;		/* pc of start of function */
+	char	fnchanged;
+	char	changed;
+	char	name[];
 };
 var *vlook(char*), *gvlook(char*), *newvar(char*, var*);
+void setvar(char*, word*), freevar(var*);
 
 #define	NVAR	521
 
@@ -104,13 +131,6 @@ void *emalloc(long);
 void *erealloc(void *, long);
 char *estrdup(char*);
 
-#define	NOFILE	128		/* should come from <param.h> */
-
-struct here{
-	tree	*tag;
-	char	*name;
-	struct here *next;
-};
 int mypid;
 
 /*
@@ -141,12 +161,4 @@ extern int doprompt;		/* is it time for a prompt? */
  */
 #define	PRD	0
 #define	PWR	1
-char Rcmain[], Fdprefix[];
-/*
- * How many dot commands have we executed?
- * Used to ensure that -v flag doesn't print rcmain.
- */
-extern int ndot;
-extern int lastc;
-extern int lastword;
-char *getstatus(void);
+extern char Rcmain[], Fdprefix[];

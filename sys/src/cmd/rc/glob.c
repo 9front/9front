@@ -5,18 +5,19 @@
 /*
  * delete all the GLOB marks from s, in place
  */
-
 char*
 deglob(char *s)
 {
-	char *b = s;
-	char *t = s;
-	do{
-		if(*t==GLOB)
-			t++;
-		*s++=*t;
-	}while(*t++);
-	return b;
+	char *r = strchr(s, GLOB);
+	if(r){
+		char *w = r++;
+		do{
+			if(*r==GLOB)
+				r++;
+			*w++=*r;
+		}while(*r++);
+	}
+	return s;
 }
 
 static int
@@ -55,91 +56,84 @@ matchfn(char *s, char *p)
 	return match(s, p, '/');
 }
 
-static word*
-globdir(word *list, char *p, char *name, char *namep)
+static void
+pappend(char **pdir, char *name)
 {
-	char *t, *newp;
-	int f;
+	char *path = makepath(*pdir, name);
+	free(*pdir);
+	*pdir = path;
+}
+
+static word*
+globdir(word *list, char *pattern, char *name)
+{
+	char *slash, *glob, *entry;
+	void *dir;
 
 	/* append slashes, Readdir() already filtered directories */
-	while(*p=='/'){
-		*namep++=*p++;
-		*namep='\0';
+	while(*pattern=='/'){
+		pappend(&name, "/");
+		pattern++;
 	}
-	if(*p=='\0')
-		return newword(name, list);
+	if(*pattern=='\0')
+		return Newword(name, list);
+
 	/* scan the pattern looking for a component with a metacharacter in it */
-	t = namep;
-	newp = p;
-	while(*newp){
-		if(*newp==GLOB)
-			break;
-		*t=*newp++;
-		if(*t++=='/'){
-			namep = t;
-			p = newp;
-		}
-	}
+	glob=strchr(pattern, GLOB);
+
 	/* If we ran out of pattern, append the name if accessible */
-	if(*newp=='\0'){
-		*t='\0';
+	if(glob==0){
+		pappend(&name, pattern);
 		if(access(name, 0)==0)
-			list = newword(name, list);
-		return list;
+			return Newword(name, list);
+		goto out;
 	}
+
+	*glob='\0';
+	slash=strrchr(pattern, '/');
+	if(slash){
+		*slash='\0';
+		pappend(&name, pattern);
+		*slash='/';
+		pattern=slash+1;
+	}
+	*glob=GLOB;
+
 	/* read the directory and recur for any entry that matches */
-	*namep='\0';
-	if((f = Opendir(name[0]?name:".")) >= 0){
-		while(*newp!='/' && *newp!='\0') newp++;
-		while(Readdir(f, namep, *newp=='/')){
-			if(matchfn(namep, p)){
-				for(t = namep;*t;t++);
-				list = globdir(list, newp, name, t);
-			}
-		}
-		Closedir(f);
+	dir = Opendir(name[0]?name:".");
+	if(dir==0)
+		goto out;
+	slash=strchr(glob, '/');
+	while((entry=Readdir(dir, slash!=0)) != 0){
+		if(matchfn(entry, pattern))
+			list = globdir(list, slash?slash:"", makepath(name, entry));
 	}
+	Closedir(dir);
+out:
+	free(name);
 	return list;
 }
 
 /*
  * Subsitute a word with its glob in place.
  */
-
-static void
+void
 globword(word *w)
 {
 	word *left, *right;
-	char *name;
 
-	if(w->glob == 0)
+	if(w==0 || strchr(w->word, GLOB)==0)
 		return;
-	name = emalloc(w->glob);
-	memset(name, 0, w->glob);
 	right = w->next;
-	left = globdir(right, w->word, name, name);
-	free(name);
+	left = globdir(right, w->word, estrdup(""));
 	if(left == right) {
 		deglob(w->word);
-		w->glob = 0;
 	} else {
 		free(w->word);
 		globsort(left, right);
-		*w = *left;
-		free(left);
+		w->next = left->next;
+		w->word = Freeword(left);
 	}
-}
-
-word*
-globlist(word *l)
-{
-	word *p, *q;
-
-	for(p=l;p;p=q){
-		q = p->next;
-		globword(p);
-	}
-	return l;
 }
 
 /*

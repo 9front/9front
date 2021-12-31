@@ -3,18 +3,13 @@
 #include "io.h"
 #include "fns.h"
 
-enum { Stralloc = 100, };
-
-int pfmtnest = 0;
+enum {
+	NBUF = 8192,
+};
 
 void
-pfmt(io *f, char *fmt, ...)
+vpfmt(io *f, char *fmt, va_list ap)
 {
-	va_list ap;
-	char err[ERRMAX];
-
-	va_start(ap, fmt);
-	pfmtnest++;
 	for(;*fmt;fmt++) {
 		if(*fmt!='%') {
 			pchr(f, *fmt);
@@ -42,51 +37,103 @@ pfmt(io *f, char *fmt, ...)
 			pwrd(f, va_arg(ap, char *));
 			break;
 		case 'r':
-			errstr(err, sizeof err); pstr(f, err);
+			pstr(f, Errstr());
 			break;
 		case 's':
 			pstr(f, va_arg(ap, char *));
 			break;
 		case 't':
-			pcmd(f, va_arg(ap, struct tree *));
+			pcmd(f, va_arg(ap, tree *));
 			break;
 		case 'v':
-			pval(f, va_arg(ap, struct word *));
+			pval(f, va_arg(ap, word *));
 			break;
 		default:
 			pchr(f, *fmt);
 			break;
 		}
 	}
+}
+
+void
+pfmt(io *f, char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	vpfmt(f, fmt, ap);
 	va_end(ap);
-	if(--pfmtnest==0)
-		flush(f);
 }
 
 void
 pchr(io *b, int c)
 {
-	if(b->bufp==b->ebuf)
-		fullbuf(b, c);
-	else *b->bufp++=c;
+	if(b->bufp>=b->ebuf)
+		flushio(b);
+	*b->bufp++=c;
 }
 
 int
 rchr(io *b)
 {
-	if(b->bufp==b->ebuf)
-		return emptybuf(b);
+	if(b->bufp>=b->ebuf)
+		return emptyiobuf(b);
 	return *b->bufp++;
+}
+
+char*
+rstr(io *b, char *stop)
+{
+	char *s, *p;
+	int l, m, n;
+
+	do {
+		l = rchr(b);
+		if(l == EOF)
+			return 0;
+	} while(strchr(stop, l));
+	b->bufp--;
+
+	s = 0;
+	l = 0;
+	for(;;){
+		p = (char*)b->bufp;
+		n = (char*)b->ebuf - p;
+		if(n > 0){
+			for(m = 0; m < n; m++){
+				if(strchr(stop, p[m])==0)
+					continue;
+
+				b->bufp += m+1;
+				if(m > 0 || s==0){
+					s = erealloc(s, l+m+1);
+					memmove(s+l, p, m);
+					l += m;
+				}
+				s[l]='\0';
+				return s;
+			}
+			s = erealloc(s, l+m+1);
+			memmove(s+l, p, m);
+			l += m;
+			b->bufp += m;
+		}
+		if(emptyiobuf(b) == EOF){
+			if(s) s[l]='\0';
+			return s;
+		}
+		b->bufp--;
+	}
 }
 
 void
 pquo(io *f, char *s)
 {
 	pchr(f, '\'');
-	for(;*s;s++)
+	for(;*s;s++){
 		if(*s=='\'')
-			pfmt(f, "''");
-		else pchr(f, *s);
+			pchr(f, *s);
+		pchr(f, *s);
+	}
 	pchr(f, '\'');
 }
 
@@ -154,37 +201,82 @@ poct(io *f, unsigned n)
 void
 pval(io *f, word *a)
 {
-	if(a){
-		while(a->next && a->next->word){
-			pwrd(f, (char *)a->word);
-			pchr(f, ' ');
-			a = a->next;
-		}
+	if(a==0)
+		return;
+	while(a->next && a->next->word){
 		pwrd(f, (char *)a->word);
+		pchr(f, ' ');
+		a = a->next;
 	}
+	pwrd(f, (char *)a->word);
 }
 
-int
-fullbuf(io *f, int c)
+io*
+newio(uchar *buf, int len, int fd)
 {
-	flush(f);
-	return *f->bufp++=c;
+	io *f = new(io);
+	f->buf = buf;
+	f->bufp = buf;
+	f->ebuf = buf+len;
+	f->fd = fd;
+	return f;
+}
+
+/*
+ * Open a string buffer for writing.
+ */
+io*
+openiostr(void)
+{
+	uchar *buf = emalloc(100+1);
+	memset(buf, '\0', 100+1);
+	return newio(buf, 100, -1);
+}
+
+/*
+ * Return the buf, free the io
+ */
+char*
+closeiostr(io *f)
+{
+	void *buf = f->buf;
+	free(f);
+	return buf;
+}
+
+/*
+ * Use a open file descriptor for reading.
+ */
+io*
+openiofd(int fd)
+{
+	return newio(emalloc(NBUF), 0, fd);
+}
+
+/*
+ * Open a corebuffer to read.  EOF occurs after reading len
+ * characters from buf.
+ */
+io*
+openiocore(uchar *buf, int len)
+{
+	return newio(buf, len, -1);
 }
 
 void
-flush(io *f)
+flushio(io *f)
 {
 	int n;
 
-	if(f->strp){
-		n = f->ebuf - f->strp;
-		f->strp = erealloc(f->strp, n+Stralloc+1);
-		f->bufp = f->strp + n;
-		f->ebuf = f->bufp + Stralloc;
-		memset(f->bufp, '\0', Stralloc+1);
+	if(f->fd<0){
+		n = f->ebuf - f->buf;
+		f->buf = erealloc(f->buf, n+n+1);
+		f->bufp = f->buf + n;
+		f->ebuf = f->bufp + n;
+		memset(f->bufp, '\0', n+1);
 	}
 	else{
-		n = f->bufp-f->buf;
+		n = f->bufp - f->buf;
 		if(n && Write(f->fd, f->buf, n) != n){
 			Write(2, "Write error\n", 12);
 			if(ntrap)
@@ -195,71 +287,18 @@ flush(io *f)
 	}
 }
 
-io*
-openfd(int fd)
-{
-	io *f = new(struct io);
-	f->fd = fd;
-	f->bufp = f->ebuf = f->buf;
-	f->strp = 0;
-	return f;
-}
-
-io*
-openstr(void)
-{
-	io *f = new(struct io);
-
-	f->fd = -1;
-	f->bufp = f->strp = emalloc(Stralloc+1);
-	f->ebuf = f->bufp + Stralloc;
-	memset(f->bufp, '\0', Stralloc+1);
-	return f;
-}
-/*
- * Open a corebuffer to read.  EOF occurs after reading len
- * characters from buf.
- */
-
-io*
-opencore(char *s, int len)
-{
-	io *f = new(struct io);
-	uchar *buf = emalloc(len);
-
-	f->fd = -1 /*open("/dev/null", 0)*/;
-	f->bufp = f->strp = buf;
-	f->ebuf = buf+len;
-	memmove(buf, s, len);
-	return f;
-}
-
 void
-rewind(io *io)
+closeio(io *f)
 {
-	if(io->fd==-1)
-		io->bufp = io->strp;
-	else{
-		io->bufp = io->ebuf = io->buf;
-		Seek(io->fd, 0L, 0);
-	}
-}
-
-void
-closeio(io *io)
-{
-	if(io->fd>=0)
-		close(io->fd);
-	if(io->strp)
-		free(io->strp);
-	free(io);
+	if(f->fd>=0) Close(f->fd);
+	free(closeiostr(f));
 }
 
 int
-emptybuf(io *f)
+emptyiobuf(io *f)
 {
 	int n;
-	if(f->fd==-1 || (n = Read(f->fd, f->buf, NBUF))<=0) return EOF;
+	if(f->fd<0 || (n = Read(f->fd, f->buf, NBUF))<=0) return EOF;
 	f->bufp = f->buf;
 	f->ebuf = f->buf + n;
 	return *f->bufp++;

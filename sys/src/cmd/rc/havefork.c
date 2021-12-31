@@ -4,32 +4,61 @@
 #include "io.h"
 #include "fns.h"
 
+static int *waitpids;
+static int nwaitpids;
+
+void
+addwaitpid(int pid)
+{
+	waitpids = erealloc(waitpids, (nwaitpids+1)*sizeof waitpids[0]);
+	waitpids[nwaitpids++] = pid;
+}
+
+void
+delwaitpid(int pid)
+{
+	int r, w;
+	
+	for(r=w=0; r<nwaitpids; r++)
+		if(waitpids[r] != pid)
+			waitpids[w++] = waitpids[r];
+	nwaitpids = w;
+}
+
+void
+clearwaitpids(void)
+{
+	nwaitpids = 0;
+}
+
+int
+havewaitpid(int pid)
+{
+	int i;
+
+	for(i=0; i<nwaitpids; i++)
+		if(waitpids[i] == pid)
+			return 1;
+	return 0;
+}
+
 void
 Xasync(void)
 {
-	int null = open("/dev/null", 0);
 	int pid;
 	char npid[10];
 
-	if(null<0){
-		Xerror("Can't open /dev/null\n");
-		return;
-	}
-	Updenv();
-	switch(pid = rfork(RFFDG|RFPROC|RFNOTEG)){
+	switch(pid = Fork()){
 	case -1:
-		close(null);
 		Xerror("try again");
 		break;
 	case 0:
 		clearwaitpids();
-		pushredir(ROPEN, null, 0);
-		start(runq->code, runq->pc+1, runq->local);
+		start(runq->code, runq->pc+1, runq->local, runq->redir);
 		runq->ret = 0;
 		break;
 	default:
 		addwaitpid(pid);
-		close(null);
 		runq->pc = runq->code[runq->pc].i;
 		inttoascii(npid, pid);
 		setvar("apid", newword(npid, (word *)0));
@@ -40,8 +69,8 @@ Xasync(void)
 void
 Xpipe(void)
 {
-	struct thread *p = runq;
-	int pc = p->pc, forkid;
+	thread *p = runq;
+	int pid, pc = p->pc;
 	int lfd = p->code[pc++].i;
 	int rfd = p->code[pc++].i;
 	int pfd[2];
@@ -50,25 +79,24 @@ Xpipe(void)
 		Xerror("can't get pipe");
 		return;
 	}
-	Updenv();
-	switch(forkid = fork()){
+	switch(pid = Fork()){
 	case -1:
 		Xerror("try again");
 		break;
 	case 0:
 		clearwaitpids();
-		start(p->code, pc+2, runq->local);
+		Close(pfd[PRD]);
+		start(p->code, pc+2, runq->local, runq->redir);
 		runq->ret = 0;
-		close(pfd[PRD]);
 		pushredir(ROPEN, pfd[PWR], lfd);
 		break;
 	default:
-		addwaitpid(forkid);
-		start(p->code, p->code[pc].i, runq->local);
-		close(pfd[PWR]);
+		addwaitpid(pid);
+		Close(pfd[PWR]);
+		start(p->code, p->code[pc].i, runq->local, runq->redir);
 		pushredir(ROPEN, pfd[PRD], rfd);
 		p->pc = p->code[pc+1].i;
-		p->pid = forkid;
+		p->pid = pid;
 		break;
 	}
 }
@@ -76,74 +104,50 @@ Xpipe(void)
 /*
  * Who should wait for the exit from the fork?
  */
-enum { Stralloc = 100, };
 
 void
 Xbackq(void)
 {
-	int c, l, pid;
-	int pfd[2];
-	char *s, *wd, *ewd, *stop;
-	struct io *f;
-	word *v, *nextv;
+	int pid, pfd[2];
+	char *s, *split;
+	word *end, **link;
+	io *f;
 
-	stop = "";
-	if(runq->argv && runq->argv->words)
-		stop = runq->argv->words->word;
 	if(pipe(pfd)<0){
 		Xerror("can't make pipe");
 		return;
 	}
-	Updenv();
-	switch(pid = fork()){
+	switch(pid = Fork()){
 	case -1:
 		Xerror("try again");
-		close(pfd[PRD]);
-		close(pfd[PWR]);
+		Close(pfd[PRD]);
+		Close(pfd[PWR]);
 		return;
 	case 0:
 		clearwaitpids();
-		close(pfd[PRD]);
-		start(runq->code, runq->pc+1, runq->local);
+		Close(pfd[PRD]);
+		start(runq->code, runq->pc+1, runq->local, runq->redir);
 		pushredir(ROPEN, pfd[PWR], 1);
 		return;
 	default:
 		addwaitpid(pid);
-		close(pfd[PWR]);
-		f = openfd(pfd[PRD]);
-		s = wd = ewd = 0;
-		v = 0;
-		while((c = rchr(f))!=EOF){
-			if(s==ewd){
-				l = s-wd;
-				wd = erealloc(wd, l+Stralloc);
-				ewd = wd+l+Stralloc-1;
-				s = wd+l;
-			}
-			if(strchr(stop, c)){
-				if(s!=wd){
-					*s='\0';
-					v = newword(wd, v);
-					s = wd;
-				}
-			}
-			else *s++=c;
+		Close(pfd[PWR]);
+
+		split = Popword();
+		poplist();
+		f = openiofd(pfd[PRD]);
+		end = runq->argv->words;
+		link = &runq->argv->words;
+		while((s = rstr(f, split)) != 0){
+			*link = Newword(s, (word*)0);
+			link = &(*link)->next;
 		}
-		if(s!=wd){
-			*s='\0';
-			v = newword(wd, v);
-		}
-		free(wd);
+		*link = end;
 		closeio(f);
+		free(split);
+
 		Waitfor(pid, 0);
-		poplist();	/* ditch split in "stop" */
-		/* v points to reversed arglist -- reverse it onto argv */
-		while(v){
-			nextv = v->next;
-			v->next = runq->argv->words;
-			runq->argv->words = v;
-			v = nextv;
-		}
+
 		runq->pc = runq->code[runq->pc].i;
 		return;
 	}
@@ -152,8 +156,8 @@ Xbackq(void)
 void
 Xpipefd(void)
 {
-	struct thread *p = runq;
-	int pc = p->pc, pid;
+	thread *p = runq;
+	int pid, pc = p->pc;
 	char name[40];
 	int pfd[2];
 	int sidefd, mainfd;
@@ -170,23 +174,22 @@ Xpipefd(void)
 		sidefd = pfd[PRD];
 		mainfd = pfd[PWR];
 	}
-	Updenv();
-	switch(pid = fork()){
+	switch(pid = Fork()){
 	case -1:
 		Xerror("try again");
 		break;
 	case 0:
 		clearwaitpids();
-		start(p->code, pc+2, runq->local);
-		close(mainfd);
+		Close(mainfd);
+		start(p->code, pc+2, runq->local, runq->redir);
 		pushredir(ROPEN, sidefd, p->code[pc].i==READ?1:0);
 		runq->ret = 0;
 		break;
 	default:
 		addwaitpid(pid);
-		close(sidefd);
+		Close(sidefd);
 		pushredir(ROPEN, mainfd, mainfd);
-		shuffleredir();	/* shuffle redir to bottom of stack for turfredir() */
+		shuffleredir();	/* shuffle redir to bottom of stack for Xpopredir() */
 		strcpy(name, Fdprefix);
 		inttoascii(name+strlen(name), mainfd);
 		pushword(name);
@@ -200,14 +203,13 @@ Xsubshell(void)
 {
 	int pid;
 
-	Updenv();
-	switch(pid = fork()){
+	switch(pid = Fork()){
 	case -1:
 		Xerror("try again");
 		break;
 	case 0:
 		clearwaitpids();
-		start(runq->code, runq->pc+1, runq->local);
+		start(runq->code, runq->pc+1, runq->local, runq->redir);
 		runq->ret = 0;
 		break;
 	default:
@@ -222,20 +224,15 @@ int
 execforkexec(void)
 {
 	int pid;
-	int n;
-	char buf[ERRMAX];
 
-	switch(pid = fork()){
+	switch(pid = Fork()){
 	case -1:
 		return -1;
 	case 0:
 		clearwaitpids();
 		pushword("exec");
 		execexec();
-		strcpy(buf, "can't exec: ");
-		n = strlen(buf);
-		errstr(buf+n, ERRMAX-n);
-		Exit(buf);
+		/* does not return */
 	}
 	addwaitpid(pid);
 	return pid;

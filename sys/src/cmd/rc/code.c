@@ -7,13 +7,12 @@
 #define	c1	t->child[1]
 #define	c2	t->child[2]
 code *codebuf;
-int codep, ncode;
+int codep, ncode, codeline;
 #define	emitf(x) ((codep!=ncode || morecode()), codebuf[codep].f = (x), codep++)
 #define	emiti(x) ((codep!=ncode || morecode()), codebuf[codep].i = (x), codep++)
 #define	emits(x) ((codep!=ncode || morecode()), codebuf[codep].s = (x), codep++)
 
 void stuffdot(int);
-char *fnstr(tree*);
 void outcode(tree*, int);
 void codeswitch(tree*, int);
 int iscase(tree*);
@@ -23,7 +22,7 @@ void codefree(code*);
 int
 morecode(void)
 {
-	ncode+=100;
+	ncode+=ncode;
 	codebuf = (code *)erealloc((char *)codebuf, ncode*sizeof codebuf[0]);
 	return 0;
 }
@@ -42,53 +41,66 @@ compile(tree *t)
 	ncode = 100;
 	codebuf = emalloc(ncode*sizeof codebuf[0]);
 	codep = 0;
+	codeline = 0;			/* force source */
 	emiti(0);			/* reference count */
-	outcode(t, flag['e']?1:0);
+	emits(estrdup(lex->file));	/* source file name */
+	outcode(t, !lex->qflag && flag['e']!=0);
 	if(nerror){
 		free(codebuf);
 		return 0;
 	}
-	readhere();
 	emitf(Xreturn);
 	emitf(0);
 	return 1;
 }
 
+/*
+ * called on a tree where we expect eigther
+ * a pattern or a string instead of a glob to
+ * remove the GLOB chars from the strings
+ * or set glob to -1 for pattern so not Xglob
+ * is inserted when compiling the tree.
+ */
 void
-cleanhere(char *f)
+noglobs(tree *t, int pattern)
 {
-	emitf(Xdelhere);
-	emits(estrdup(f));
-}
-
-char*
-fnstr(tree *t)
-{
-	io *f = openstr();
-	void *v;
-
-	pfmt(f, "%t", t);
-	v = f->strp;
-	f->strp = 0;
-	closeio(f);
-	return v;
+Again:
+	if(t==0)
+		return;
+	if(t->type==WORD && t->glob){
+		if(pattern)
+			t->glob=-1;
+		else{
+			deglob(t->str);
+			t->glob=0;
+		}
+	}
+	if(t->type==WORDS || t->type=='^'){
+		t->glob=0;
+		noglobs(c1, pattern);
+		t = c0;
+		goto Again;
+	}
 }
 
 void
 outcode(tree *t, int eflag)
 {
-	static int line;
+	void (*f)(void);
 	int p, q;
 	tree *tt;
-	char *f;
 	if(t==0)
 		return;
 	if(t->type!=NOT && t->type!=';')
-		runq->iflast = 0;
-	if(t->line != line){
-		line = t->line;
-		emitf(Xsrcline);
-		emiti(line);
+		lex->iflast = 0;
+	if(t->line != codeline){
+		codeline = t->line;
+		if(codebuf && codep >= 2 && codebuf[codep-2].f == Xsrcline)
+			codebuf[codep-1].i = codeline;
+		else {
+			emitf(Xsrcline);
+			emiti(codeline);
+		}
 	}
 	switch(t->type){
 	default:
@@ -96,26 +108,51 @@ outcode(tree *t, int eflag)
 		break;
 	case '$':
 		emitf(Xmark);
+		noglobs(c0, 0);
 		outcode(c0, eflag);
 		emitf(Xdol);
 		break;
 	case '"':
 		emitf(Xmark);
 		emitf(Xmark);
+		noglobs(c0, 0);
 		outcode(c0, eflag);
 		emitf(Xdol);
 		emitf(Xqw);
+		emitf(Xpush);
 		break;
 	case SUB:
 		emitf(Xmark);
+		noglobs(c0, 0);
 		outcode(c0, eflag);
 		emitf(Xmark);
+		noglobs(c1, 0);
 		outcode(c1, eflag);
 		emitf(Xsub);
 		break;
 	case '&':
 		emitf(Xasync);
 		p = emiti(0);
+
+		/* undocumented? */
+		emitf(Xmark);
+		emitf(Xword);
+		emits(estrdup("/dev/null"));
+		emitf(Xread);
+		emiti(0);
+
+		/* insert rfork s for plan9 */
+		f = builtinfunc("rfork");
+		if(f){
+			emitf(Xmark);
+			emitf(Xword);
+			emits(estrdup("s"));
+			emitf(Xword);
+			emits(estrdup("rfork"));
+			emitf(f);
+		}
+
+		codeline = 0;	/* force source */
 		outcode(c0, eflag);
 		emitf(Xexit);
 		stuffdot(p);
@@ -134,16 +171,18 @@ outcode(tree *t, int eflag)
 	case '`':
 		emitf(Xmark);
 		if(c0){
+			noglobs(c0, 0);
 			outcode(c0, 0);
-			emitf(Xglob);
 		} else {
 			emitf(Xmark);
 			emitf(Xword);
 			emits(estrdup("ifs"));
 			emitf(Xdol);
 		}
+		emitf(Xqw);
 		emitf(Xbackq);
 		p = emiti(0);
+		codeline = 0;	/* force source */
 		outcode(c1, 0);
 		emitf(Xexit);
 		stuffdot(p);
@@ -169,24 +208,20 @@ outcode(tree *t, int eflag)
 		break;
 	case COUNT:
 		emitf(Xmark);
+		noglobs(c0, 0);
 		outcode(c0, eflag);
 		emitf(Xcount);
 		break;
 	case FN:
 		emitf(Xmark);
+		noglobs(c0, 0);
 		outcode(c0, eflag);
 		if(c1){
 			emitf(Xfn);
 			p = emiti(0);
 			emits(fnstr(c1));
-			if((f = curfile(runq)) != nil){
-				emitf(Xsrcfile);
-				emits(estrdup(f));
-			}
-			emitf(Xsrcline);
-			emiti(runq->lexline);
+			codeline = 0;	/* force source */
 			outcode(c1, eflag);
-			emitf(Xunlocal);	/* get rid of $* */
 			emitf(Xreturn);
 			stuffdot(p);
 		}
@@ -202,7 +237,7 @@ outcode(tree *t, int eflag)
 		stuffdot(p);
 		break;
 	case NOT:
-		if(!runq->iflast)
+		if(!lex->iflast)
 			yyerror("`if not' does not follow `if(...)'");
 		emitf(Xifnot);
 		p = emiti(0);
@@ -229,6 +264,7 @@ outcode(tree *t, int eflag)
 	case SUBSHELL:
 		emitf(Xsubshell);
 		p = emiti(0);
+		codeline = 0;	/* force source */
 		outcode(c0, eflag);
 		emitf(Xexit);
 		stuffdot(p);
@@ -240,9 +276,11 @@ outcode(tree *t, int eflag)
 		break;
 	case TWIDDLE:
 		emitf(Xmark);
+		noglobs(c1, 1);
 		outcode(c1, eflag);
 		emitf(Xmark);
 		outcode(c0, eflag);
+		emitf(Xqw);
 		emitf(Xmatch);
 		if(eflag)
 			emitf(Xeflag);
@@ -267,7 +305,6 @@ outcode(tree *t, int eflag)
 		emitf(Xmark);
 		if(c1){
 			outcode(c1, eflag);
-			emitf(Xglob);
 		}
 		else{
 			emitf(Xmark);
@@ -277,6 +314,7 @@ outcode(tree *t, int eflag)
 		}
 		emitf(Xmark);		/* dummy value for Xlocal */
 		emitf(Xmark);
+		noglobs(c0, 0);
 		outcode(c0, eflag);
 		emitf(Xlocal);
 		p = emitf(Xfor);
@@ -288,19 +326,9 @@ outcode(tree *t, int eflag)
 		emitf(Xunlocal);
 		break;
 	case WORD:
-		if(t->quoted){
-			emitf(Xword);
-			emits(estrdup(t->str));
-		} else {
-			if((q = Globsize(t->str)) > 0){
-				emitf(Xglobs);
-				emits(estrdup(t->str));
-				emiti(q);
-			} else {
-				emitf(Xword);
-				emits(deglob(estrdup(t->str)));
-			}
-		}
+		emitf(Xword);
+		emits(t->str);
+		t->str=0;	/* passed ownership */
 		break;
 	case DUP:
 		if(t->rtype==DUPFD){
@@ -319,14 +347,20 @@ outcode(tree *t, int eflag)
 		emitf(Xpipefd);
 		emiti(t->rtype);
 		p = emiti(0);
+		codeline = 0;	/* force source */
 		outcode(c0, eflag);
 		emitf(Xexit);
 		stuffdot(p);
 		break;
 	case REDIR:
 		emitf(Xmark);
+		if(t->rtype==HERE){
+			/* replace end marker with mktmep() pattern */
+			free(c0->str);
+			c0->str=estrdup("/tmp/here.XXXXXXXXXXX");
+			c0->glob=0;
+		}
 		outcode(c0, eflag);
-		emitf(Xglob);
 		switch(t->rtype){
 		case APPEND:
 			emitf(Xappend);
@@ -335,11 +369,15 @@ outcode(tree *t, int eflag)
 			emitf(Xwrite);
 			break;
 		case READ:
-		case HERE:
 			emitf(Xread);
 			break;
 		case RDWR:
 			emitf(Xrdwr);
+			break;
+		case HERE:
+			emitf(Xhere);
+			emits(t->str);
+			t->str=0;	/* passed ownership */
 			break;
 		}
 		emiti(t->fd0);
@@ -354,6 +392,7 @@ outcode(tree *t, int eflag)
 				emitf(Xmark);
 				outcode(c1, eflag);
 				emitf(Xmark);
+				noglobs(c0, 0);
 				outcode(c0, eflag);
 				emitf(Xlocal);		/* push var for cmd */
 			}
@@ -366,6 +405,7 @@ outcode(tree *t, int eflag)
 				emitf(Xmark);
 				outcode(c1, eflag);
 				emitf(Xmark);
+				noglobs(c0, 0);
 				outcode(c0, eflag);
 				emitf(Xassign);	/* set var permanently */
 			}
@@ -378,18 +418,23 @@ outcode(tree *t, int eflag)
 		emiti(t->fd1);
 		p = emiti(0);
 		q = emiti(0);
+		codeline = 0;	/* force source */
 		outcode(c0, eflag);
 		emitf(Xexit);
 		stuffdot(p);
+		codeline = 0;	/* force source */
 		outcode(c1, eflag);
 		emitf(Xreturn);
 		stuffdot(q);
 		emitf(Xpipewait);
 		break;
 	}
+	if(t->glob > 0)
+		emitf(Xglob);
 	if(t->type!=NOT && t->type!=';')
-		runq->iflast = t->type==IF;
-	else if(c0) runq->iflast = c0->type==IF;
+		lex->iflast = t->type==IF;
+	else if(c0)
+		lex->iflast = c0->type==IF;
 }
 /*
  * switch code looks like this:
@@ -427,6 +472,7 @@ codeswitch(tree *t, int eflag)
 	}
 	emitf(Xmark);
 	outcode(c0, eflag);
+	emitf(Xqw);
 	emitf(Xjump);
 	nextcase = emiti(0);
 	out = emitf(Xjump);
@@ -436,7 +482,10 @@ codeswitch(tree *t, int eflag)
 	while(t->type==';'){
 		tt = c1;
 		emitf(Xmark);
-		for(t = c0->child[0];t->type==ARGLIST;t = c0) outcode(c1, eflag);
+		for(t = c0->child[0];t->type==ARGLIST;t = c0) {
+			noglobs(c1, 1);
+			outcode(c1, eflag);
+		}
 		emitf(Xcase);
 		nextcase = emiti(0);
 		t = tt;
@@ -481,7 +530,7 @@ codefree(code *cp)
 	code *p;
 	if(--cp[0].i!=0)
 		return;
-	for(p = cp+1;p->f;p++){
+	for(p = cp+2;p->f;p++){
 		if(p->f==Xappend || p->f==Xclose || p->f==Xread || p->f==Xwrite
 		|| p->f==Xrdwr
 		|| p->f==Xasync || p->f==Xbackq || p->f==Xcase || p->f==Xfalse
@@ -490,12 +539,13 @@ codefree(code *cp)
 		|| p->f==Xsubshell || p->f==Xtrue) p++;
 		else if(p->f==Xdup || p->f==Xpipefd) p+=2;
 		else if(p->f==Xpipe) p+=4;
-		else if(p->f==Xglobs || p->f==Xsrcfile) free(p[1].s), p+=2;
-		else if(p->f==Xword || p->f==Xdelhere) free((++p)->s);
+		else if(p->f==Xhere) free(p[1].s), p+=2;
+		else if(p->f==Xword) free((++p)->s);
 		else if(p->f==Xfn){
 			free(p[2].s);
 			p+=2;
 		}
 	}
+	free(cp[1].s);
 	free(cp);
 }
