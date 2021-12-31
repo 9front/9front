@@ -249,7 +249,8 @@ Updenv(void)
 			addenv(v);
 	if(runq)
 		updenvlocal(runq->local);
-	flushio(err);
+	if(err)
+		flushio(err);
 }
 
 void
