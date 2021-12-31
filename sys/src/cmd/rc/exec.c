@@ -224,7 +224,7 @@ main(int argc, char *argv[])
 
 	int i;
 	argv0 = argv[0];
-	argc = getflags(argc, argv, "SsrdiIlxebpvVc:1m:1[command]", 1);
+	argc = getflags(argc, argv, "srdiIlxebpvVc:1m:1[command]", 1);
 	if(argc==-1)
 		usage("[file [arg ...]]");
 	if(argv[0][0]=='-')

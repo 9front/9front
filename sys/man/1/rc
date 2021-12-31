@@ -4,7 +4,7 @@ rc, cd, eval, exec, exit, flag, rfork, shift, wait, whatis, ., ~ \- command lang
 .SH SYNOPSIS
 .B rc
 [
-.B -srdiIlxepvV
+.B -srdiIlxebpvV
 ]
 [
 .B -c
