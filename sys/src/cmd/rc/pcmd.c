@@ -147,7 +147,7 @@ pcmd(io *f, tree *t)
 		}
 		pfmt(f, "%t", c0);
 		if(t->rtype == HERE)
-			pfmt(f, "\n%s%t\n", t->str, c0);
+			pfmt(f, "\n%s%s\n", t->str, c0->str);
 		else if(c1)
 			pfmt(f, " %t", c1);
 		break;

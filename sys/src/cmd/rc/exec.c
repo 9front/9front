@@ -446,22 +446,11 @@ Xpush(void)
 void
 Xhere(void)
 {
-	char *file;
+	char file[] = "/tmp/here.XXXXXXXXXXX";
 	int fd;
 	io *io;
 
-	switch(count(runq->argv->words)){
-	default:
-		Xerror1("<< requires singleton");
-		return;
-	case 0:
-		Xerror1("<< requires file");
-		return;
-	case 1:
-		break;
-	}
-	file = mktemp(runq->argv->words->word);
-	if((fd = Creat(file))<0){
+	if((fd = Creat(mktemp(file)))<0){
 		Xerror("can't open");
 		return;
 	}
@@ -469,13 +458,35 @@ Xhere(void)
 	psubst(io, (uchar*)runq->code[runq->pc++].s);
 	flushio(io);
 	closeio(io);
+
 	/* open for reading and unlink */
 	if((fd = Open(file, 3))<0){
 		Xerror("can't open");
 		return;
 	}
 	pushredir(ROPEN, fd, runq->code[runq->pc++].i);
-	poplist();
+}
+
+void
+Xhereq(void)
+{
+	char file[] = "/tmp/here.XXXXXXXXXXX", *body;
+	int fd;
+
+	if((fd = Creat(mktemp(file)))<0){
+		Xerror("can't open");
+		return;
+	}
+	body = runq->code[runq->pc++].s;
+	Write(fd, body, strlen(body));
+	Close(fd);
+
+	/* open for reading and unlink */
+	if((fd = Open(file, 3))<0){
+		Xerror("can't open");
+		return;
+	}
+	pushredir(ROPEN, fd, runq->code[runq->pc++].i);
 }
 
 void

@@ -353,14 +353,10 @@ outcode(tree *t, int eflag)
 		stuffdot(p);
 		break;
 	case REDIR:
-		emitf(Xmark);
-		if(t->rtype==HERE){
-			/* replace end marker with mktmep() pattern */
-			free(c0->str);
-			c0->str=estrdup("/tmp/here.XXXXXXXXXXX");
-			c0->glob=0;
+		if(t->rtype!=HERE){
+			emitf(Xmark);
+			outcode(c0, eflag);
 		}
-		outcode(c0, eflag);
 		switch(t->rtype){
 		case APPEND:
 			emitf(Xappend);
@@ -375,7 +371,7 @@ outcode(tree *t, int eflag)
 			emitf(Xrdwr);
 			break;
 		case HERE:
-			emitf(Xhere);
+			emitf(c0->quoted?Xhereq:Xhere);
 			emits(t->str);
 			t->str=0;	/* passed ownership */
 			break;
@@ -539,7 +535,7 @@ codefree(code *cp)
 		|| p->f==Xsubshell || p->f==Xtrue) p++;
 		else if(p->f==Xdup || p->f==Xpipefd) p+=2;
 		else if(p->f==Xpipe) p+=4;
-		else if(p->f==Xhere) free(p[1].s), p+=2;
+		else if(p->f==Xhere || p->f==Xhereq) free(p[1].s), p+=2;
 		else if(p->f==Xword) free((++p)->s);
 		else if(p->f==Xfn){
 			free(p[2].s);
