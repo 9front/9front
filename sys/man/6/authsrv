@@ -592,15 +592,14 @@ authentication files
 and
 .IR attach (5)).
 Other services, such as
-.IR cpu (1),
-.IR exportfs (4)
+.IR rcpu (1),
+.IR rexport(1),
+.IR rimport(1)
 and
 .IR tlssrv (8)
 run
 .I p9any
 over the network and then use the session secret to derive an
-.IR ssl (3)
-or
 .IR tls (3)
 key to encrypt the rest of their communications.
 .SS "Password Change

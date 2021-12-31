@@ -62,10 +62,8 @@ already-announced network directory
 .I Aan
 is usually run automatically through the
 .B -p
-option of
-.IR import (4)
-and
-.IR cpu (1).
+option of rimport, rexport and
+.IR rcpu (1).
 .PP
 .I Aanuke
 prints commands that will cause all processes called
@@ -124,9 +122,8 @@ Log file
 .br
 .B /rc/bin/aanuke
 .SH SEE ALSO
-.IR import (4),
 .IR exportfs (4),
-.IR cpu (1)
+.IR rcpu (1)
 .SH HISTORY
 .I Aanuke
 first appeared in 9front (April, 2014).

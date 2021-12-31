@@ -399,7 +399,6 @@ is restricted but is sufficient to run
 .IR 9fs
 (see
 .IR srv (4)),
-.IR import (4),
 etc.,
 and to set environment variables such as
 .BR $objtype .

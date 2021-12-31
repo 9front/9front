@@ -205,9 +205,7 @@ tunnel.
 .B /rc/bin/rconnect
 .SH "SEE ALSO"
 .IR rc (1) ,
-.IR cpu (1) ,
 .IR con (1) ,
-.IR import (4) ,
 .IR exportfs (4) ,
 .IR tlssrv (8) ,
 .IR aan (8)

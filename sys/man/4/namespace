@@ -395,7 +395,7 @@ Mount point for the window system.
 .B /mnt/term
 Mount point for the terminal's name space as seen by the CPU server
 after a
-.IR cpu (1)
+.IR rcpu (1)
 command.
 .TP
 .B /n/kremvax

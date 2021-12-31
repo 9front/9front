@@ -523,7 +523,6 @@ messages.
 .SH "SEE ALSO"
 .IR rio (4),
 .IR rc (1),
-.IR cpu (1),
 .IR sam (1),
 .IR mail (1),
 .IR proof (1),

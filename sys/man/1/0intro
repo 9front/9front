@@ -208,13 +208,13 @@ such as running the window system
 on a terminal.
 .PP
 To do heavy work such as compiling, the
-.IR cpu (1)
+.IR rcpu (1)
 command connects a window to a CPU server;
 the same environment variables are set (to different values)
 and the same profile is run.
 The initial directory is the current directory in the terminal window
 where
-.I cpu
+.I rcpu
 was typed.
 The value of
 .B $service
