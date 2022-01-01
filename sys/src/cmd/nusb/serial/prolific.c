@@ -281,7 +281,7 @@ vendorwrite(Serialport *p, int val, int index)
 	dsprint(2, "serial: vendorwrite val: 0x%x idx:%d\n", val, index);
 	res = usbcmd(ser->dev, Rh2d | Rvendor | Rdev, VendorWriteReq,
 		val, index, nil, 0);
-	if(res != 8) fprint(2, "serial: vendorwrite failed with res=%d\n", res);
+	if(res != 0) fprint(2, "serial: vendorwrite failed with res=%d\n", res);
 	return res;
 }
 
@@ -373,7 +373,7 @@ plsetparam(Serialport *p)
 		dumpbuf(buf, sizeof buf);
 	res = usbcmd(ser->dev, Rh2d | Rclass | Riface, SetLineReq,
 		0, 0, buf, sizeof buf);
-	if(res != 8+ParamReqSz){
+	if(res != ParamReqSz){
 		fprint(2, "serial: plsetparam failed with res=%d\n", res);
 		if(res >= 0) werrstr("plsetparam failed with res=%d", res);
 		return -1;
