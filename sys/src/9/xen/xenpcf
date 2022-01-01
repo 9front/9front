@@ -12,7 +12,6 @@ dev
 	shr
 	dup
 	rtc
-	ssl
 	tls
 	cap
 	kprof
