@@ -22,6 +22,7 @@ struct{
 	Xrdwr, "Xrdwr",
 	Xread, "Xread",
 	Xhere, "Xhere",
+	Xhereq, "Xhereq",
 	Xreturn, "Xreturn",
 	Xtrue, "Xtrue",
 	Xif, "Xif",
