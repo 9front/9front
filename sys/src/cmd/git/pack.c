@@ -65,8 +65,8 @@ static Object	*readidxobject(Biobuf *, Hash, int);
 Objset objcache;
 Object *lruhead;
 Object *lrutail;
-int	ncache;
-int	cachemax = 4096;
+vlong	ncache;
+vlong	cachemax = 512*MiB;
 Packf	*packf;
 int	npackf;
 int	openpacks;
@@ -158,7 +158,7 @@ cache(Object *o)
 	if(!(o->flag & Ccache)){
 		o->flag |= Ccache;
 		ref(o);
-		ncache++;
+		ncache += o->size;
 	}
 	while(ncache > cachemax && lrutail != nil){
 		p = lrutail;
@@ -168,8 +168,8 @@ cache(Object *o)
 		p->flag &= ~Ccache;
 		p->prev = nil;
 		p->next = nil;
+		ncache -= p->size;
 		unref(p);
-		ncache--;
 	}		
 }
 

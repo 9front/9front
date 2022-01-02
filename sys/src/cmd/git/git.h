@@ -4,6 +4,7 @@
 #include <flate.h>
 #include <regexp.h>
 
+typedef struct Capset	Capset;
 typedef struct Conn	Conn;
 typedef struct Hash	Hash;
 typedef struct Delta	Delta;
@@ -26,6 +27,8 @@ enum {
 	Npackcache	= 32,
 	Hashsz		= 20,
 	Pktmax		= 65536,
+	KiB		= 1024,
+	MiB		= 1024*KiB,
 };
 
 enum {
@@ -241,9 +244,9 @@ struct Delta {
 
 extern Reprog	*authorpat;
 extern Objset	objcache;
+extern vlong	cachemax;
 extern Hash	Zhash;
 extern int	chattygit;
-extern int	cachemax;
 extern int	interactive;
 
 #pragma varargck type "H" Hash
