@@ -90,7 +90,7 @@ rstr(io *b, char *stop)
 		l = rchr(b);
 		if(l == EOF)
 			return 0;
-	} while(strchr(stop, l));
+	} while(l && strchr(stop, l));
 	b->bufp--;
 
 	s = 0;
