@@ -94,13 +94,13 @@ Xsimple(void)
 		}
 		else{
 			if((pid = execforkexec()) < 0){
-				Xerror("try again");
+				Xerror2("try again", Errstr());
 				return;
 			}
+			poplist();
 
 			/* interrupts don't get us out */
-			poplist();
-			while(Waitfor(pid, 1) < 0)
+			while(Waitfor(pid) < 0)
 				;
 		}
 	}
@@ -177,7 +177,7 @@ execexec(void)
 
 	popword();	/* "exec" */
 	if(runq->argv->words==0){
-		Xerror1("empty argument list");
+		Xerror1("exec: empty argument list");
 		return;
 	}
 	argv = mkargv(runq->argv->words);
@@ -189,7 +189,7 @@ execexec(void)
 	}
 	setstatus(Errstr());
 	pfln(err, srcfile(runq), runq->line);
-	pfmt(err, ": %s: %r\n", argv[1]);
+	pfmt(err, ": %s: %s\n", argv[1], getstatus());
 	Xexit();
 }
 
@@ -226,7 +226,7 @@ execcd(void)
 			free(dir);
 		}
 		if(cdpath==0)
-			pfmt(err, "Can't cd %s: %r\n", a->word);
+			pfmt(err, "Can't cd %s: %s\n", a->word, Errstr());
 		break;
 	case 1:
 		a = vlook("home")->val;
@@ -234,7 +234,7 @@ execcd(void)
 			if(Chdir(a->word)>=0)
 				setstatus("");
 			else
-				pfmt(err, "Can't cd %s: %r\n", a->word);
+				pfmt(err, "Can't cd %s: %s\n", a->word, Errstr());
 		}
 		else
 			pfmt(err, "Can't cd -- $home empty\n");
@@ -347,7 +347,7 @@ execeval(void)
 	pfln(f, srcfile(runq), runq->line);
 	pstr(f, " *eval*");
 
-	execcmds(openiocore((uchar*)cmds, len), closeiostr(f), runq->local, runq->redir);
+	execcmds(openiocore(cmds, len), closeiostr(f), runq->local, runq->redir);
 }
 
 void
@@ -406,7 +406,8 @@ Usage:
 		free(file);
 	}
 	if(fd<0){
-		if(!qflag) Xerror(".: can't open");
+		if(!qflag)
+			Xerror3(". can't open", argv->word, Errstr());
 		freewords(argv);
 		return;
 	}
@@ -436,18 +437,18 @@ execflag(void)
 	char *letter, *val;
 	switch(count(runq->argv->words)){
 	case 2:
-		setstatus(flag[(uchar)runq->argv->words->next->word[0]]?"":"flag not set");
+		setstatus(flag[(unsigned char)runq->argv->words->next->word[0]]?"":"flag not set");
 		break;
 	case 3:
 		letter = runq->argv->words->next->word;
 		val = runq->argv->words->next->next->word;
 		if(strlen(letter)==1){
 			if(strcmp(val, "+")==0){
-				flag[(uchar)letter[0]] = flagset;
+				flag[(unsigned char)letter[0]] = flagset;
 				break;
 			}
 			if(strcmp(val, "-")==0){
-				flag[(uchar)letter[0]] = 0;
+				flag[(unsigned char)letter[0]] = 0;
 				break;
 			}
 		}
@@ -526,10 +527,10 @@ execwait(void)
 		Xerror1("Usage: wait [pid]");
 		return;
 	case 2:
-		Waitfor(atoi(runq->argv->words->next->word), 0);
+		Waitfor(atoi(runq->argv->words->next->word));
 		break;
 	case 1:
-		Waitfor(-1, 0);
+		Waitfor(-1);
 		break;
 	}
 	poplist();

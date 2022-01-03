@@ -2,12 +2,12 @@
 
 struct io{
 	int	fd;
-	uchar	*buf, *bufp, *ebuf;
+	unsigned char *buf, *bufp, *ebuf;
 	io	*next;
 };
 io *err;
 
-io *openiofd(int), *openiostr(void), *openiocore(uchar*, int);
+io *openiofd(int), *openiostr(void), *openiocore(void*, int);
 void pchr(io*, int);
 int rchr(io*);
 char *rstr(io*, char*);

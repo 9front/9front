@@ -41,7 +41,7 @@ pfln(io *fd, char *file, int line)
 		pstr(fd, argv0);
 }
 
-char *bp;
+static char *bp;
 
 static void
 iacvt(int n)
@@ -69,5 +69,7 @@ panic(char *s, int n)
 	pfmt(err, "%s: ", argv0);
 	pfmt(err, s, n);
 	pchr(err, '\n');
+	flushio(err);
+
 	Abort();
 }

@@ -205,7 +205,8 @@ usage(char *tail)
 		errs(tail);
 	}
 	errs("\n");
-	Exit("bad flags");
+	setstatus("bad flags");
+	Exit();
 }
 
 static void

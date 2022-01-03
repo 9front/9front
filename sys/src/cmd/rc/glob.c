@@ -21,7 +21,7 @@ deglob(char *s)
 }
 
 static int
-globcmp(void *s, void *t)
+globcmp(const void *s, const void *t)
 {
 	return strcmp(*(char**)s, *(char**)t);
 }
@@ -70,11 +70,13 @@ globdir(word *list, char *pattern, char *name)
 	char *slash, *glob, *entry;
 	void *dir;
 
+#ifdef Plan9
 	/* append slashes, Readdir() already filtered directories */
 	while(*pattern=='/'){
 		pappend(&name, "/");
 		pattern++;
 	}
+#endif
 	if(*pattern=='\0')
 		return Newword(name, list);
 
@@ -140,32 +142,51 @@ globword(word *w)
  * Return a pointer to the next utf code in the string,
  * not jumping past nuls in broken utf codes!
  */
-
 static char*
 nextutf(char *p)
 {
-	Rune dummy;
+	int i, n, c = *p;
 
-	return p + chartorune(&dummy, p);
+	if(onebyte(c))
+		return p+1;
+	if(twobyte(c))
+		n = 2;
+	else if(threebyte(c))
+		n = 3;
+	else
+		n = 4;
+	for(i = 1; i < n; i++)
+		if(!xbyte(p[i]))
+			break;
+	return p+i;
 }
 
 /*
  * Convert the utf code at *p to a unicode value
  */
-
 static int
 unicode(char *p)
 {
-	Rune r;
+	int c = *p;
 
-	chartorune(&r, p);
-	return r;
+	if(onebyte(c))
+		return c&0xFF;
+	if(twobyte(c)){
+		if(xbyte(p[1]))
+			return ((c&0x1F)<<6) | (p[1]&0x3F);
+	} else if(threebyte(c)){
+		if(xbyte(p[1]) && xbyte(p[2]))
+			return ((c&0x0F)<<12) | ((p[1]&0x3F)<<6) | (p[2]&0x3F);
+	} else if(fourbyte(c)){
+		if(xbyte(p[1]) && xbyte(p[2]) && xbyte(p[3]))
+			return ((c&0x07)<<18) | ((p[1]&0x3F)<<12) | ((p[2]&0x3F)<<6) | (p[3]&0x3F);
+	}
+	return -1;
 }
 
 /*
  * Do p and q point at equal utf codes
  */
-
 static int
 equtf(char *p, char *q)
 {

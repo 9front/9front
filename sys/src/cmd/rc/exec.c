@@ -19,6 +19,8 @@ start(code *c, int pc, var *local, redir *redir)
 	p->lex = 0;
 	p->local = local;
 	p->iflag = 0;
+	p->pid = 0;
+	p->status = 0;
 	p->ret = runq;
 	runq = p;
 }
@@ -42,6 +44,7 @@ popthread(void)
 	runq = p->ret;
 	if(p->lex) freelexer(p->lex);
 	codefree(p->code);
+	free(p->status);
 	free(p);
 }
 
@@ -341,7 +344,7 @@ Xappend(void)
 	}
 	file = runq->argv->words->word;
 	if((fd = Open(file, 1))<0 && (fd = Creat(file))<0){
-		Xerror("can't open");
+		Xerror3(">> can't open", file, Errstr());
 		return;
 	}
 	Seek(fd, 0L, 2);
@@ -395,7 +398,7 @@ Xexit(void)
 			return;
 		}
 	}
-	Exit(getstatus());
+	Exit();
 }
 
 void
@@ -443,25 +446,51 @@ Xpush(void)
 	runq->argv->words = h;
 }
 
+static int
+herefile(char *tmp)
+{
+	char *s = tmp+strlen(tmp)-1;
+	static int ser;
+	int fd, i;
+
+	i = ser++;
+	while(*s == 'Y'){
+		*s-- = (i%26) + 'A';
+		i = i/26;
+	}
+	i = getpid();
+	while(*s == 'X'){
+		*s-- = (i%10) + '0';
+		i = i/10;
+	}
+	s++;
+	for(i='a'; i<'z'; i++){
+		if(access(tmp, 0)!=0 && (fd = Creat(tmp))>=0)
+			return fd;
+		*s = i;
+	}
+	return -1;
+}
+
 void
 Xhere(void)
 {
-	char file[] = "/tmp/here.XXXXXXXXXXX";
+	char file[]="/tmp/hereXXXXXXXXXXYY";
 	int fd;
 	io *io;
 
-	if((fd = Creat(mktemp(file)))<0){
-		Xerror("can't open");
+	if((fd = herefile(file))<0){
+		Xerror3("<< can't get temp file", file, Errstr());
 		return;
 	}
 	io = openiofd(fd);
-	psubst(io, (uchar*)runq->code[runq->pc++].s);
+	psubst(io, (unsigned char*)runq->code[runq->pc++].s);
 	flushio(io);
 	closeio(io);
 
 	/* open for reading and unlink */
 	if((fd = Open(file, 3))<0){
-		Xerror("can't open");
+		Xerror3("<< can't open", file, Errstr());
 		return;
 	}
 	pushredir(ROPEN, fd, runq->code[runq->pc++].i);
@@ -470,11 +499,11 @@ Xhere(void)
 void
 Xhereq(void)
 {
-	char file[] = "/tmp/here.XXXXXXXXXXX", *body;
+	char file[]="/tmp/hereXXXXXXXXXXYY", *body;
 	int fd;
 
-	if((fd = Creat(mktemp(file)))<0){
-		Xerror("can't open");
+	if((fd = herefile(file))<0){
+		Xerror3("<< can't get temp file", file, Errstr());
 		return;
 	}
 	body = runq->code[runq->pc++].s;
@@ -483,7 +512,7 @@ Xhereq(void)
 
 	/* open for reading and unlink */
 	if((fd = Open(file, 3))<0){
-		Xerror("can't open");
+		Xerror3("<< can't open", file, Errstr());
 		return;
 	}
 	pushredir(ROPEN, fd, runq->code[runq->pc++].i);
@@ -492,6 +521,7 @@ Xhereq(void)
 void
 Xread(void)
 {
+	char *file;
 	int fd;
 
 	switch(count(runq->argv->words)){
@@ -504,8 +534,9 @@ Xread(void)
 	case 1:
 		break;
 	}
-	if((fd = Open(runq->argv->words->word, 0))<0){
-		Xerror("can't open");
+	file = runq->argv->words->word;
+	if((fd = Open(file, 0))<0){
+		Xerror3("< can't open", file, Errstr());
 		return;
 	}
 	pushredir(ROPEN, fd, runq->code[runq->pc++].i);
@@ -515,6 +546,7 @@ Xread(void)
 void
 Xrdwr(void)
 {
+	char *file;
 	int fd;
 
 	switch(count(runq->argv->words)){
@@ -527,8 +559,9 @@ Xrdwr(void)
 	case 1:
 		break;
 	}
-	if((fd = Open(runq->argv->words->word, 2))<0){
-		Xerror("can't open");
+	file = runq->argv->words->word;
+	if((fd = Open(file, 2))<0){
+		Xerror3("<> can't open", file, Errstr());
 		return;
 	}
 	pushredir(ROPEN, fd, runq->code[runq->pc++].i);
@@ -555,7 +588,7 @@ Xreturn(void)
 		Xpopredir();
 	popthread();
 	if(runq==0)
-		Exit(getstatus());
+		Exit();
 }
 
 void
@@ -588,6 +621,7 @@ Xword(void)
 void
 Xwrite(void)
 {
+	char *file;
 	int fd;
 
 	switch(count(runq->argv->words)){
@@ -600,8 +634,9 @@ Xwrite(void)
 	case 1:
 		break;
 	}
-	if((fd = Creat(runq->argv->words->word))<0){
-		Xerror("can't open");
+	file = runq->argv->words->word;
+	if((fd = Creat(file))<0){
+		Xerror3("> can't create", file, Errstr());
 		return;
 	}
 	pushredir(ROPEN, fd, runq->code[runq->pc++].i);
@@ -696,7 +731,7 @@ Xassign(void)
 	var *v;
 
 	if(count(runq->argv->words)!=1){
-		Xerror1("variable name not singleton!");
+		Xerror1("= variable name not singleton!");
 		return;
 	}
 	v = vlook(runq->argv->words->word);
@@ -728,7 +763,7 @@ Xdol(void)
 	int n;
 
 	if(count(runq->argv->words)!=1){
-		Xerror1("variable name not singleton!");
+		Xerror1("$ variable name not singleton!");
 		return;
 	}
 	n = 0;
@@ -833,7 +868,7 @@ Xsub(void)
 	char *s;
 
 	if(count(runq->argv->next->words)!=1){
-		Xerror1("variable name not singleton!");
+		Xerror1("$() variable name not singleton!");
 		return;
 	}
 	s = runq->argv->next->words->word;
@@ -853,7 +888,7 @@ Xcount(void)
 	int n;
 
 	if(count(runq->argv->words)!=1){
-		Xerror1("variable name not singleton!");
+		Xerror1("$# variable name not singleton!");
 		return;
 	}
 	n = 0;
@@ -875,7 +910,7 @@ void
 Xlocal(void)
 {
 	if(count(runq->argv->words)!=1){
-		Xerror1("variable name must be singleton");
+		Xerror1("local variable name must be singleton");
 		return;
 	}
 	runq->local = newvar(runq->argv->words->word, runq->local);
@@ -932,29 +967,31 @@ Xdelfn(void)
 static char*
 concstatus(char *s, char *t)
 {
-	static char v[NSTATUS+1];
-	int n = strlen(s);
-	strncpy(v, s, NSTATUS);
-	if(n<NSTATUS){
-		v[n]='|';
-		strncpy(v+n+1, t, NSTATUS-n-1);
-	}
-	v[NSTATUS]='\0';
-	return v;
+	int n, m;
+
+	if(t==0) return s;
+	if(s==0) return t;
+	n = strlen(s);
+	m = strlen(t);
+	s = erealloc(s, n+m+2);
+	if(n > 0) s[n++]='|';
+	memmove(s+n, t, m+1);
+	free(t);
+	return s;
 }
 
 void
 Xpipewait(void)
 {
-	char status[NSTATUS+1];
-	if(runq->pid==-1)
-		setstatus(concstatus(runq->status, getstatus()));
-	else{
-		strncpy(status, getstatus(), NSTATUS);
-		status[NSTATUS]='\0';
-		Waitfor(runq->pid, 1);
+	char *old = Getstatus();
+	if(runq->pid==-1){
+		Setstatus(concstatus(runq->status, old));
+		runq->status=0;
+	}else{
+		while(Waitfor(runq->pid) < 0)
+			;
 		runq->pid=-1;
-		setstatus(concstatus(getstatus(), status));
+		Setstatus(concstatus(Getstatus(), old));
 	}
 }
 
@@ -995,7 +1032,6 @@ Xrdcmds(void)
 			p->lex = 0;
 		} else
 			--p->pc;	/* re-execute Xrdcmds after codebuf runs */
-		ntrap = 0;	/* avoid double-interrupts during blocked writes */
 		start(codebuf, 2, p->local, p->redir);
 	}
 	lex = 0;
@@ -1027,31 +1063,54 @@ srcfile(thread *p)
 }
 
 void
-Xerror(char *s)
-{
-	pfln(err, srcfile(runq), runq->line);
-	pfmt(err, ": %s: %r\n", s);
-	flushio(err);
-	setstatus("error");
-	while(!runq->iflag) Xreturn();
-}
-
-void
 Xerror1(char *s)
 {
+	setstatus("error");
 	pfln(err, srcfile(runq), runq->line);
 	pfmt(err, ": %s\n", s);
 	flushio(err);
-	setstatus("error");
+	while(!runq->iflag) Xreturn();
+}
+void
+Xerror2(char *s, char *e)
+{
+	setstatus(e);
+	pfln(err, srcfile(runq), runq->line);
+	pfmt(err, ": %s: %s\n", s, e);
+	flushio(err);
+	while(!runq->iflag) Xreturn();
+}
+void
+Xerror3(char *s, char *m, char *e)
+{
+	setstatus(e);
+	pfln(err, srcfile(runq), runq->line);
+	pfmt(err, ": %s: %s: %s\n", s, m, e);
+	flushio(err);
 	while(!runq->iflag) Xreturn();
 }
 
 void
+Setstatus(char *s)
+{
+	setvar("status", Newword(s?s:estrdup(""), (word *)0));
+}
+void
 setstatus(char *s)
 {
-	setvar("status", newword(s, (word *)0));
+	Setstatus(estrdup(s));
 }
-
+char*
+Getstatus(void)
+{
+	var *status = vlook("status");
+	word *val = status->val;
+	if(val==0) return 0;
+	status->val=0;
+	status->changed=1;
+	freewords(val->next);
+	return Freeword(val);
+}
 char*
 getstatus(void)
 {

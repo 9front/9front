@@ -11,8 +11,9 @@ extern void Xtrue(void), Xword(void), Xwrite(void), Xpipefd(void), Xcase(void);
 extern void Xlocal(void), Xunlocal(void), Xassign(void), Xsimple(void), Xpopm(void), Xpush(void);
 extern void Xrdcmds(void), Xwastrue(void), Xif(void), Xifnot(void), Xpipewait(void);
 extern void Xpopredir(void), Xsub(void), Xeflag(void), Xsettrue(void);
-extern void Xerror(char*);
 extern void Xerror1(char*);
+extern void Xerror2(char*,char*);
+extern void Xerror3(char*,char*,char*);
 
 /*
  * word lists are in correct order,
@@ -33,7 +34,6 @@ struct redir{
 	int from, to;			/* what to do it to */
 	redir *next;			/* what else to do (reverse order) */
 };
-#define	NSTATUS	128			/* length of status */
 
 /*
  * redir types
@@ -54,7 +54,7 @@ struct thread{
 	lexer *lex;			/* lexer for Xrdcmds */
 	int iflag;			/* interactive? */
 	int pid;			/* process for Xpipewait to wait for */
-	char status[NSTATUS];		/* status for Xpipewait */
+	char *status;			/* status for Xpipewait */
 	thread *ret;			/* who continues when this finishes */
 };
 
@@ -82,3 +82,5 @@ void startfunc(var*, word*, var*, redir*);
 
 char *srcfile(thread*);
 char *getstatus(void);
+
+extern char *argv0;

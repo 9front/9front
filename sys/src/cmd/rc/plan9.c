@@ -47,13 +47,17 @@ static char *syssigname[] = {
 	0
 };
 
+/*
+ * finit could be removed but is kept for
+ * backwards compatibility, see: rcmain.plan9
+ */
 static void
 execfinit(void)
 {
 	char *cmds = estrdup("for(i in '/env/fn#'*){. -bq $i}\n");
 	int line = runq->line;
 	poplist();
-	execcmds(openiocore((uchar*)cmds, strlen(cmds)), estrdup(srcfile(runq)), runq->local, runq->redir);
+	execcmds(openiocore(cmds, strlen(cmds)), estrdup(srcfile(runq)), runq->local, runq->redir);
 	runq->lex->line = line;
 	runq->lex->qflag = 1;
 }
@@ -131,7 +135,7 @@ Vinit(void)
 
 	dir = Open(Env("", 0), 0);
 	if(dir<0){
-		pfmt(err, "%s: can't open: %r\n", argv0);
+		pfmt(err, "%s: can't open: %s\n", argv0, Errstr());
 		return;
 	}
 	for(;;){
@@ -169,7 +173,7 @@ Errstr(void)
 }
 
 int
-Waitfor(int pid, int)
+Waitfor(int pid)
 {
 	thread *p;
 	Waitmsg *w;
@@ -187,7 +191,8 @@ Waitfor(int pid, int)
 		for(p = runq->ret;p;p = p->ret)
 			if(p->pid==w->pid){
 				p->pid=-1;
-				strcpy(p->status, w->msg);
+				p->status = estrdup(w->msg);
+				break;
 			}
 		free(w);
 	}
@@ -206,7 +211,7 @@ addenv(var *v)
 	if(v->changed){
 		v->changed = 0;
 		if((fd = Creat(Env(v->name, 0)))<0)
-			pfmt(err, "%s: can't open: %r\n", argv0);
+			pfmt(err, "%s: can't open: %s\n", argv0, Errstr());
 		else{
 			f = openiofd(fd);
 			for(w = v->val;w;w = w->next){
@@ -220,7 +225,7 @@ addenv(var *v)
 	if(v->fnchanged){
 		v->fnchanged = 0;
 		if((fd = Creat(Env(v->name, 1)))<0)
-			pfmt(err, "%s: can't open: %r\n", argv0);
+			pfmt(err, "%s: can't open: %s\n", argv0, Errstr());
 		else{
 			f = openiofd(fd);
 			if(v->fn)
@@ -420,16 +425,15 @@ Dup(int a, int b)
 }
 
 int
-Dup1(int)
+Dup1(int a)
 {
-	return -1;
+	return dup(a, -1);
 }
 
 void
-Exit(char *stat)
+Exit(void)
 {
 	Updenv();
-	setstatus(stat);
 	exits(truestatus()?"":getstatus());
 }
 
@@ -459,8 +463,7 @@ Isatty(int fd)
 void
 Abort(void)
 {
-	pfmt(err, "aborting\n");
-	Exit("aborting");
+	abort();
 }
 
 static int newwdir;

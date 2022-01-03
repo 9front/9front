@@ -1,28 +1,29 @@
 /*
  * Plan9 is defined for plan 9
- * V9 is defined for 9th edition
- * Sun is defined for sun-os
+ * otherwise its UNIX.
  * Please don't litter the code with ifdefs.  The three below (and one in
  * getflags) should be enough.
  */
-#define	Plan9
-#ifdef	Plan9
+#ifdef Plan9
 #include <u.h>
 #include <libc.h>
-#define	NSIG	32
+#define NSIG	32
 #define	SIGINT	2
 #define	SIGQUIT	3
-#endif
-#ifdef	V9
+#else
+#include <stdlib.h>
+#include <stdarg.h>
+#include <unistd.h>
+#include <string.h>
 #include <signal.h>
-#include <libc.h>
+#ifndef NSIG
+#define NSIG 32
 #endif
-#ifdef Sun
-#include <signal.h>
 #endif
+
 #define	YYMAXDEPTH	500
 #ifndef PAREN
-#include "x.tab.h"
+#include "y.tab.h"
 #endif
 typedef struct tree tree;
 typedef struct word word;
@@ -143,10 +144,13 @@ int mypid;
  */
 #define	GLOB	((char)0x01)
 /*
- * onebyte(c)
- * Is c the first character of a one-byte utf sequence?
+ * Is c the first character of a utf sequence?
  */
-#define	onebyte(c)	((c&0x80)==0x00)
+#define	onebyte(c)	(((c)&0x80)==0x00)
+#define twobyte(c)	(((c)&0xe0)==0xc0)
+#define threebyte(c)	(((c)&0xf0)==0xe0)
+#define fourbyte(c)	(((c)&0xf8)==0xf0)
+#define xbyte(c)	(((c)&0xc0)==0x80)
 
 extern char **argp;
 extern char **args;

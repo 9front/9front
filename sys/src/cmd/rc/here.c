@@ -3,7 +3,7 @@
 #include "io.h"
 #include "fns.h"
 
-void psubst(io*, uchar*);
+void psubst(io*, unsigned char*);
 void pstrs(io*, word*);
 
 char*
@@ -48,11 +48,12 @@ readhere(tree *tag, io *in)
 }
 
 void
-psubst(io *f, uchar *s)
+psubst(io *f, unsigned char *s)
 {
-	int savec, n;
-	uchar *t, *u;
+	unsigned char *t, *u;
 	word *star;
+	int savec, n;
+
 	while(*s){
 		if(*s!='$'){
 			if(0xa0 <= *s && *s <= 0xf5){

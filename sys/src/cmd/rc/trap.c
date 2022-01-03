@@ -11,10 +11,10 @@ dotrap(void)
 	var *trapreq;
 	word *starval;
 	starval = vlook("*")->val;
-	while(ntrap) for(i = 0;i!=NSIG;i++) while(trap[i]){
+	while(ntrap) for(i = 0;i<NSIG;i++) while(trap[i]){
 		--trap[i];
 		--ntrap;
-		if(getpid()!=mypid) Exit(getstatus());
+		if(getpid()!=mypid) Exit();
 		trapreq = vlook(Signame[i]);
 		if(trapreq->fn)
 			startfunc(trapreq, copywords(starval, (word*)0), (var*)0, (redir*)0);
@@ -27,6 +27,6 @@ dotrap(void)
 			 */
 			while(!runq->iflag) Xreturn();
 		}
-		else Exit(getstatus());
+		else Exit();
 	}
 }

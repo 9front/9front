@@ -460,7 +460,7 @@ codeswitch(tree *t, int eflag)
 	int out;		/* jump here to leave switch */
 	int nextcase;	/* patch jump address to next case */
 	tree *tt;
-	if(c1->child[0]==nil
+	if(c1->child[0]==0
 	|| c1->child[0]->type!=';'
 	|| !iscase(c1->child[0]->child[0])){
 		yyerror("case missing in switch");

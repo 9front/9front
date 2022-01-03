@@ -36,9 +36,6 @@ vpfmt(io *f, char *fmt, va_list ap)
 		case 'q':
 			pwrd(f, va_arg(ap, char *));
 			break;
-		case 'r':
-			pstr(f, Errstr());
-			break;
 		case 's':
 			pstr(f, va_arg(ap, char *));
 			break;
@@ -141,23 +138,23 @@ void
 pwrd(io *f, char *s)
 {
 	char *t;
-	for(t = s;*t;t++) if(*t >= 0 && needsrcquote(*t)) break;
+	for(t = s;*t;t++) if(*t >= 0 && strchr("`^#*[]=|\\?${}()'<>&;", *t)) break;
 	if(t==s || *t)
 		pquo(f, s);
 	else pstr(f, s);
 }
 
 void
-pptr(io *f, void *v)
+pptr(io *f, void *p)
 {
+	static char hex[] = "0123456789ABCDEF";
+	unsigned long long v;
 	int n;
-	uintptr p;
 
-	p = (uintptr)v;
-	if(sizeof(uintptr) == sizeof(uvlong) && p>>32)
-		for(n = 60;n>=32;n-=4) pchr(f, "0123456789ABCDEF"[(p>>n)&0xF]);
-
-	for(n = 28;n>=0;n-=4) pchr(f, "0123456789ABCDEF"[(p>>n)&0xF]);
+	v = (unsigned long long)p;
+	if(sizeof(v) == sizeof(p) && v>>32)
+		for(n = 60;n>=32;n-=4) pchr(f, hex[(v>>n)&0xF]);
+	for(n = 28;n>=0;n-=4) pchr(f, hex[(v>>n)&0xF]);
 }
 
 void
@@ -212,7 +209,7 @@ pval(io *f, word *a)
 }
 
 io*
-newio(uchar *buf, int len, int fd)
+newio(unsigned char *buf, int len, int fd)
 {
 	io *f = new(io);
 	f->buf = buf;
@@ -228,7 +225,7 @@ newio(uchar *buf, int len, int fd)
 io*
 openiostr(void)
 {
-	uchar *buf = emalloc(100+1);
+	unsigned char *buf = emalloc(100+1);
 	memset(buf, '\0', 100+1);
 	return newio(buf, 100, -1);
 }
@@ -258,7 +255,7 @@ openiofd(int fd)
  * characters from buf.
  */
 io*
-openiocore(uchar *buf, int len)
+openiocore(void *buf, int len)
 {
 	return newio(buf, len, -1);
 }

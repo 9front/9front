@@ -190,21 +190,22 @@ addtok(char *p, int val)
 static char*
 addutf(char *p, int c)
 {
-	uchar b, m;
-	int i;
+	int i, n;
 
 	p = addtok(p, c);	/* 1-byte UTF runes are special */
 	if(onebyte(c))
 		return p;
-
-	m = 0xc0;
-	b = 0x80;
-	for(i=1; i < UTFmax; i++){
-		if((c&m) == b)
+	if(twobyte(c))
+		n = 2;
+	else if(threebyte(c))
+		n = 3;
+	else
+		n = 4;
+	for(i = 1; i < n; i++) {
+		c = nextc();
+		if(c == EOF || !xbyte(c))
 			break;
 		p = addtok(p, advance());
-		b = m;
-		m = (m >> 1)|0x80;
 	}
 	return p;
 }

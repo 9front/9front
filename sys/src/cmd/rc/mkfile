@@ -21,7 +21,7 @@ OFILES=\
 	y.tab.$O\
 
 HFILES=rc.h\
-	x.tab.h\
+	y.tab.h\
 	io.h\
 	exec.h\
 	fns.h\
@@ -38,10 +38,9 @@ UPDATE=\
 	$YFILES\
 	${TARG:%=/386/bin/%}\
 
+CFLAGS=$CFLAGS -DPlan9
+
 </sys/src/cmd/mkone
 
-x.tab.h: y.tab.h
-	cmp -s x.tab.h y.tab.h || cp y.tab.h x.tab.h
-
 clean:V:
-	rm -f [$OS].out *.[$OS] [xy].tab.? y.debug $TARG
+	rm -f [$OS].out *.[$OS] y.tab.? y.debug $TARG

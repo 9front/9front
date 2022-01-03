@@ -50,7 +50,7 @@ Xasync(void)
 
 	switch(pid = Fork()){
 	case -1:
-		Xerror("try again");
+		Xerror2("try again", Errstr());
 		break;
 	case 0:
 		clearwaitpids();
@@ -76,12 +76,12 @@ Xpipe(void)
 	int pfd[2];
 
 	if(pipe(pfd)<0){
-		Xerror("can't get pipe");
+		Xerror2("can't get pipe", Errstr());
 		return;
 	}
 	switch(pid = Fork()){
 	case -1:
-		Xerror("try again");
+		Xerror2("try again", Errstr());
 		break;
 	case 0:
 		clearwaitpids();
@@ -114,12 +114,12 @@ Xbackq(void)
 	io *f;
 
 	if(pipe(pfd)<0){
-		Xerror("can't make pipe");
+		Xerror2("can't make pipe", Errstr());
 		return;
 	}
 	switch(pid = Fork()){
 	case -1:
-		Xerror("try again");
+		Xerror2("try again", Errstr());
 		Close(pfd[PRD]);
 		Close(pfd[PWR]);
 		return;
@@ -146,7 +146,7 @@ Xbackq(void)
 		closeio(f);
 		free(split);
 
-		Waitfor(pid, 0);
+		Waitfor(pid);
 
 		runq->pc = runq->code[runq->pc].i;
 		return;
@@ -163,7 +163,7 @@ Xpipefd(void)
 	int sidefd, mainfd;
 
 	if(pipe(pfd)<0){
-		Xerror("can't get pipe");
+		Xerror2("can't get pipe", Errstr());
 		return;
 	}
 	if(p->code[pc].i==READ){
@@ -176,7 +176,7 @@ Xpipefd(void)
 	}
 	switch(pid = Fork()){
 	case -1:
-		Xerror("try again");
+		Xerror2("try again", Errstr());
 		break;
 	case 0:
 		clearwaitpids();
@@ -205,7 +205,7 @@ Xsubshell(void)
 
 	switch(pid = Fork()){
 	case -1:
-		Xerror("try again");
+		Xerror2("try again", Errstr());
 		break;
 	case 0:
 		clearwaitpids();
@@ -214,7 +214,8 @@ Xsubshell(void)
 		break;
 	default:
 		addwaitpid(pid);
-		Waitfor(pid, 1);
+		while(Waitfor(pid) < 0)
+			;
 		runq->pc = runq->code[runq->pc].i;
 		break;
 	}
