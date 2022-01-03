@@ -45,7 +45,7 @@ _envsetup(void)
 	nohandle = 0;
 	fdinited = 0;
 	cnt = 0;
-	dfd = _OPEN("/env", OREAD);
+	dfd = _OPEN("/env", OREAD|OCEXEC);
 	if(dfd < 0)
 		goto done;
 	psize = Envhunk;
@@ -62,21 +62,36 @@ _envsetup(void)
 			ps = realloc(ps, psize);
 			p = ps + i;
 		}
-		strcpy(p, "/env/");
+		memcpy(p, "/env/", 5);
 		memcpy(p+5, d9->name, n+1);
-		f = _OPEN(p, OREAD);
-		memset(p, 0, n+6);
+		f = _OPEN(p, OREAD|OCEXEC);
+		if(f < 0)
+			continue;
+		if(n > 3 && memcmp(d9->name, "fn#", 3)==0){
+			if(m > 3
+			&& _READ(f, p+3, m) == m
+			&& memcmp(p+3, "fn ", 3) == 0
+			&& memcmp(p+3+3, d9->name+3, n-3) == 0
+			&& memchr(p+3+n, '{', m-n) != 0){
+				memcpy(p, "#()", 3);
+				p[3+m] = '\0';
+				p += m+4;
+				cnt++;
+			}
+			_CLOSE(f);
+			continue;
+		}
 		memcpy(p, d9->name, n);
 		p[n] = '=';
-		if(f < 0 || _READ(f, p+n+1, m) != m)
+		if(_READ(f, p+n+1, m) != m)
 			m = 0;
 		_CLOSE(f);
-		if(p[n+m] == 0)
+		if(p[n+m]=='\0')
 			m--;
 		for(i=0; i<m; i++)
-			if(p[n+1+i] == 0)
-				p[n+1+i] = 1;
-		p[n+1+m] = 0;
+			if(p[n+1+i]=='\0')
+				p[n+1+i] = '\1';
+		p[n+1+m] = '\0';
 		if(strcmp(d9->name, "_fdinfo") == 0) {
 			_fdinit(p+n+1, p+n+1+m);
 			fdinited = 1;

@@ -23,7 +23,7 @@ execve(const char *name, const char *argv[], const char *envp[])
 	 * in $_fdinfo (for open fd's)
 	 */
 
-	f = _CREATE("/env/_fdinfo", OWRITE, 0666);
+	f = _CREATE("/env/_fdinfo", OWRITE|OCEXEC, 0666);
 	ss = buf;
 	for(i = 0; i<OPEN_MAX; i++){
 		if(i == f)
@@ -65,7 +65,7 @@ execve(const char *name, const char *argv[], const char *envp[])
 	 * are ignored, in case the current value of the
 	 * variable ignored some.
 	 */
-	f = _CREATE("/env/_sighdlr", OWRITE, 0666);
+	f = _CREATE("/env/_sighdlr", OWRITE|OCEXEC, 0666);
 	if(f >= 0){
 		ss = buf;
 		for(i = 0; i <=MAXSIG; i++) {
@@ -86,32 +86,49 @@ execve(const char *name, const char *argv[], const char *envp[])
 	}
 	if(envp){
 		for(e = (char**)envp; (ss = *e); e++) {
-			se = strchr(ss, '=');
-			if(!se || ss==se)
-				continue;	/* what is name? value? */
-			n = se-ss;
-			if(n >= sizeof(buf)-5)
-				continue;	/* name too long */
-			strcpy(buf, "/env/");
-			memcpy(buf+5, ss, n);
-			buf[5+n] = 0;
-			f = _CREATE(buf, OWRITE, 0666);
-			if(f < 0)
-				continue;
-			ss = ++se;	/* past = */
-			se += strlen(ss);
-			while((n = (se - ss)) > 0){
-				if(n > sizeof(buf))
-					n = sizeof(buf);
-				/* decode nulls (see _envsetup()) */
-				for(i=0; i<n; i++)
-					if((buf[i] = ss[i]) == 1)
-						buf[i] = 0;
-				if(_WRITE(f, buf, n) != n)
-					break;
-				ss += n;
+			if(strncmp(ss, "#()fn ", 6)==0){
+				if((se = strchr(ss+6, '{'))==0)
+					continue;
+				while(se[-1]==' ') se--;
+				n = se-(ss+6);
+				if(n <= 0 || n >= sizeof(buf)-8)
+					continue;	/* name too long */
+				memcpy(buf, "/env/fn#", 8);
+				memcpy(buf+8, ss+6, n);
+				buf[8+n] = '\0';
+				f = _CREATE(buf, OWRITE|OCEXEC, 0666);
+				if(f < 0)
+					continue;
+				ss += 3;	/* past #() */
+				_WRITE(f, ss, strlen(ss));
+				_CLOSE(f);
+			} else {
+				if((se = strchr(ss, '='))==0)
+					continue;
+				n = se-ss;
+				if(n <= 0 || n >= sizeof(buf)-5)
+					continue;	/* name too long */
+				memcpy(buf, "/env/", 5);
+				memcpy(buf+5, ss, n);
+				buf[5+n] = '\0';
+				f = _CREATE(buf, OWRITE|OCEXEC, 0666);
+				if(f < 0)
+					continue;
+				ss = ++se;	/* past = */
+				se += strlen(se);
+				while((n = (se - ss)) > 0){
+					if(n > sizeof(buf))
+						n = sizeof(buf);
+					/* decode nulls (see _envsetup()) */
+					for(i=0; i<n; i++)
+						if((buf[i] = ss[i]) == 1)
+							buf[i] = 0;
+					if(_WRITE(f, buf, n) != n)
+						break;
+					ss += n;
+				}
+				_CLOSE(f);
 			}
-			_CLOSE(f);
 		}
 	}
 	n = _EXEC(name, argv);
