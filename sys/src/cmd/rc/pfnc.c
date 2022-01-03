@@ -43,7 +43,6 @@ struct{
 	Xpipewait, "Xpipewait",
 	Xpopredir, "Xpopredir",
 	Xrdcmds, "Xrdcmds",
-	(void (*)(void))Xerror, "Xerror",
 	Xbackq, "Xbackq",
 	Xpipefd, "Xpipefd",
 	Xsubshell, "Xsubshell",
