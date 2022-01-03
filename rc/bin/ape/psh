@@ -3,6 +3,7 @@
 rfork en
 fn sigterm{}
 HOME=$home
+test -d /dev/fd || aux/stub -d /dev/fd && bind /fd /dev/fd
 bind -b /rc/bin/ape /bin
 bind -b /$cputype/bin/ape /bin
 if(test -d /$cputype/bin/pub)
