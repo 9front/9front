@@ -17,7 +17,7 @@ OFILES=\
 	var.o\
 	havefork.o\
 	unix.o\
-	y.tab.o\
+	syn.o\
 
 HFILES=rc.h\
 	y.tab.h\
@@ -27,6 +27,7 @@ HFILES=rc.h\
 	getflags.h\
 
 YFILES=syn.y
+YFLAGS=-d
 
 PREFIX=/usr/local
 
@@ -39,13 +40,12 @@ install: $(TARG) rcmain.unix
 $(TARG): $(OFILES)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $(TARG) $(OFILES)
 
-y.tab.h y.tab.c: $(YFILES)
-	$(YACC) -d $(YFILES)
+y.tab.h: syn.c
 
-unix.o:	unix.c
+unix.o: unix.c
 	$(CC) $(CFLAGS) '-DPREFIX="$(PREFIX)"' -c unix.c
 
 $(OFILES): $(HFILES)
 
 clean:
-	rm -f $(OFILES) $(TARG) y.tab.? y.debug
+	rm -f $(OFILES) $(TARG) syn.c y.tab.? y.debug
