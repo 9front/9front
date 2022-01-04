@@ -57,16 +57,17 @@ struct thread{
 	char *status;			/* status for Xpipewait */
 	thread *ret;			/* who continues when this finishes */
 };
-
-thread *runq;
+extern thread *runq;
 void turfstack(var*);
 
+extern int mypid;
+extern int ntrap;			/* number of outstanding traps */
+extern int trap[NSIG];			/* number of outstanding traps per type */
+
 code *codecopy(code*);
-code *codebuf;				/* compiler output */
+extern code *codebuf;			/* compiler output */
 extern int ifnot;
 
-int ntrap;				/* number of outstanding traps */
-int trap[NSIG];				/* number of outstanding traps per type */
 struct builtin{
 	char *name;
 	void (*fnc)(void);
@@ -82,5 +83,3 @@ void startfunc(var*, word*, var*, redir*);
 
 char *srcfile(thread*);
 char *getstatus(void);
-
-extern char *argv0;

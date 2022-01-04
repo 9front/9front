@@ -123,16 +123,13 @@ var *vlook(char*), *gvlook(char*), *newvar(char*, var*);
 void setvar(char*, word*), freevar(var*);
 
 #define	NVAR	521
-
-var *gvar[NVAR];				/* hash for globals */
+extern var *gvar[NVAR];		/* hash for globals */
 
 #define	new(type)	((type *)emalloc(sizeof(type)))
 
 void *emalloc(long);
 void *erealloc(void *, long);
 char *estrdup(char*);
-
-int mypid;
 
 /*
  * Glob character escape in strings:
@@ -152,10 +149,10 @@ int mypid;
 #define fourbyte(c)	(((c)&0xf8)==0xf0)
 #define xbyte(c)	(((c)&0xc0)==0x80)
 
-extern char **argp;
-extern char **args;
+extern char *argv0;
 extern int nerror;		/* number of errors encountered during compilation */
 extern int doprompt;		/* is it time for a prompt? */
+extern io *err;
 
 /*
  * Which fds are the reading/writing end of a pipe?
@@ -166,3 +163,4 @@ extern int doprompt;		/* is it time for a prompt? */
 #define	PRD	0
 #define	PWR	1
 extern char Rcmain[], Fdprefix[];
+extern char *Signame[];

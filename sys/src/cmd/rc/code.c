@@ -7,7 +7,7 @@
 #define	c1	t->child[1]
 #define	c2	t->child[2]
 code *codebuf;
-int codep, ncode, codeline;
+static int codep, ncode, codeline;
 #define	emitf(x) ((codep!=ncode || morecode()), codebuf[codep].f = (x), codep++)
 #define	emiti(x) ((codep!=ncode || morecode()), codebuf[codep].i = (x), codep++)
 #define	emits(x) ((codep!=ncode || morecode()), codebuf[codep].s = (x), codep++)

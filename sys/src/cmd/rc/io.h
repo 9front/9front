@@ -5,7 +5,6 @@ struct io{
 	unsigned char *buf, *bufp, *ebuf;
 	io	*next;
 };
-io *err;
 
 io *openiofd(int), *openiostr(void), *openiocore(void*, int);
 void pchr(io*, int);

@@ -2,6 +2,8 @@
 #include "exec.h"
 #include "fns.h"
 
+var *gvar[NVAR];
+
 int
 hash(char *s, int n)
 {

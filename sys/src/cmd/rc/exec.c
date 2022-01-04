@@ -4,6 +4,11 @@
 #include "io.h"
 #include "fns.h"
 
+char *argv0="rc";
+io *err;
+int mypid;
+thread *runq;
+
 /*
  * Start executing the given code at the given pc with the given redirection
  */
@@ -216,8 +221,6 @@ shuffleredir(void)
  * fabricate bootstrap code and start it (*=(argv);. -bq /usr/lib/rcmain $*)
  * start interpreting code
  */
-char *argv0="rc";
-
 void
 main(int argc, char *argv[])
 {

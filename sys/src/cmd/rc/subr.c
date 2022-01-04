@@ -1,5 +1,4 @@
 #include "rc.h"
-#include "exec.h"
 #include "io.h"
 #include "fns.h"
 
