@@ -295,9 +295,6 @@ killprocs(void)
 	Command *c;
 
 	fsysclose();
-//	if(display)
-//		flushimage(display, 1);
-
 	for(c=command; c; c=c->next)
 		postnote(PNGROUP, c->pid, "hangup");
 	remove(acmeerrorfile);

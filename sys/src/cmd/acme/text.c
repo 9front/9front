@@ -68,14 +68,14 @@ textredraw(Text *t, Rectangle r, Font *f, Image *b, int odx)
 }
 
 int
-textresize(Text *t, Rectangle r)
+textresize(Text *t, Rectangle r, int fillfringe)
 {
 	int odx;
 
-	if(Dy(r) > 0)
-		r.max.y -= Dy(r)%t->font->height;
-	else
+	if(Dy(r) <= 0)
 		r.max.y = r.min.y;
+	else if(!fillfringe)
+		r.max.y -= Dy(r)%t->font->height;
 	odx = Dx(t->all);
 	t->all = r;
 	t->scrollr = r;
@@ -84,7 +84,14 @@ textresize(Text *t, Rectangle r)
 	r.min.x += Scrollwid+Scrollgap;
 	frclear(t, 0);
 	textredraw(t, r, t->font, t->b, odx);
-	return r.max.y;
+	if(fillfringe && t->r.max.y < t->all.max.y){
+		/* draw background in bottom fringe of text window */
+		r.min.x -= Scrollgap;
+		r.min.y = t->r.max.y;
+		r.max.y = t->all.max.y;
+		draw(screen, r, t->cols[BACK], nil, ZP);		
+	}
+	return t->all.max.y;
 }
 
 void
@@ -276,7 +283,7 @@ textload(Text *t, uint q0, char *file, int setqid)
 		if(u != t){
 			if(u->org > u->file->nc)	/* will be 0 because of reset(), but safety first */
 				u->org = 0;
-			textresize(u, u->all);
+			textresize(u, u->all, TRUE);
 			textbacknl(u, u->org, 0);	/* go to beginning of line */
 		}
 		textsetselect(u, q0, q0);

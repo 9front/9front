@@ -136,9 +136,7 @@ wintaglines(Window *w, Rectangle r)
 	if(!w->tagexpand && !w->showdel)
 		return 1;
 	w->showdel = FALSE;
-	w->noredraw = 1;
-	textresize(&w->tag, r);
-	w->noredraw = 0;
+	textresize(&w->tag, r, TRUE);
 	w->tagsafe = FALSE;
 	
 	if(!w->tagexpand) {
@@ -167,34 +165,33 @@ wintaglines(Window *w, Rectangle r)
 }
 
 int
-winresize(Window *w, Rectangle r, int safe)
+winresize(Window *w, Rectangle r, int safe, int fillfringe)
 {
-	int oy, mouseintag, mouseinbody;
+	int oy, y, mouseintag, mouseinbody;
 	Point p;
 	Rectangle r1;
-	int y;
 	Image *b;
 	Rectangle br;
 
 	mouseintag = ptinrect(mouse->xy, w->tag.all);
 	mouseinbody = ptinrect(mouse->xy, w->body.all);
 
+	/* Tagtop is first line of tag. */
 	w->tagtop = r;
 	w->tagtop.max.y = r.min.y+font->height;
 
 	r1 = r;
-	r1.max.y = r1.min.y + font->height;
 	r1.max.y = min(r.max.y, r1.min.y + w->taglines*font->height);
 
-	if(!safe || !w->tagsafe || !eqrect(w->tag.all, r1)){
+	/* If needed, recompute number of lines in tag. */
+	if(!safe || !w->tagsafe || !eqrect(w->tag.r, r1)){
 		w->taglines = wintaglines(w, r);
 		r1.max.y = min(r.max.y, r1.min.y + w->taglines*font->height);
 	}
-	if(Dy(r1) < font->height)
-		r1.max.y = r1.min.y+font->height;
+	/* If needed, resize & redraw tag. */
 	y = r1.max.y;
-	if(!safe || !eqrect(w->tag.r, r1)){
-		textresize(&w->tag, r1);
+	if(!safe || !w->tagsafe || !eqrect(w->tag.r, r1)){
+		textresize(&w->tag, r1, TRUE);
 		y = w->tag.r.max.y;
 		b = button;
 		if(w->body.file->mod && !w->isdir && !w->isscratch)
@@ -219,8 +216,10 @@ winresize(Window *w, Rectangle r, int safe)
 			p.y = w->tag.all.max.y+3;
 			moveto(mousectl, p);
 		}
-
 	}
+	/* If needed, resize & redraw body. */
+	r1 = r;
+	r1.min.y = y;
 	if(!safe || !eqrect(w->body.r, r1)){
 		oy = y;
 		if(y+1+w->body.font->height <= r.max.y){	/* room for one line */
@@ -234,7 +233,7 @@ winresize(Window *w, Rectangle r, int safe)
 			r1.min.y = y;
 			r1.max.y = y;
 		}
-		y = textresize(&w->body, r1);
+		y = textresize(&w->body, r1, fillfringe);
 		w->r = r;
 		w->r.max.y = y;
 		textscrdraw(&w->body);
@@ -539,7 +538,7 @@ winsettag1(Window *w)
 	br.max.y = br.min.y + Dy(b->r);
 	draw(screen, br, b, nil, b->r.min);
 	if(w->tagsafe == FALSE)
-		winresize(w, w->r, TRUE);
+		winresize(w, w->r, TRUE, TRUE);
 }
 
 void
