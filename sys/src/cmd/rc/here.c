@@ -6,16 +6,12 @@
 void psubst(io*, unsigned char*);
 void pstrs(io*, word*);
 
-char*
-readhere(tree *tag, io *in)
+static char*
+readhere1(tree *tag, io *in)
 {
 	io *out;
 	char c, *m;
 
-	if(tag->type!=WORD){
-		yyerror("Bad here tag");
-		return 0;
-	}
 	pprompt();
 	out = openiostr();
 	m = tag->str;
@@ -45,6 +41,34 @@ readhere(tree *tag, io *in)
 	}
 	doprompt = 1;
 	return closeiostr(out);
+}
+
+static tree *head, *tail;
+
+void
+heredoc(tree *redir)
+{
+	if(redir->child[0]->type!=WORD){
+		yyerror("Bad here tag");
+		return;
+	}
+	redir->child[2]=0;
+	if(head)
+		tail->child[2]=redir;
+	else
+		head=redir;
+	tail=redir;
+}
+
+void
+readhere(io *in)
+{
+	while(head){
+		tail=head->child[2];
+		head->child[2]=0;
+		head->str=readhere1(head->child[0], in);
+		head=tail;
+	}
 }
 
 void

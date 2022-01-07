@@ -22,7 +22,7 @@
 %type<tree> WORD REDIR DUP PIPE
 %%
 rc:				{ return 1;}
-|	line '\n'		{return !compile($1);}
+|	line '\n'		{readhere(lex->input); return !compile($1);}
 line:	cmd
 |	cmdsa line		{$$=tree2(';', $1, $2);}
 body:	cmd
@@ -30,13 +30,13 @@ body:	cmd
 cmdsa:	cmd ';'
 |	cmd '&'			{$$=tree1('&', $1);}
 cmdsan:	cmdsa
-|	cmd '\n'
+|	cmd '\n'		{readhere(lex->input);}
 brace:	'{' body '}'		{$$=tree1(BRACE, $2);}
 paren:	'(' body ')'		{$$=tree1(PCMD, $2);}
 assign:	first '=' word		{$$=tree2('=', $1, $3);}
 epilog:				{$$=0;}
 |	redir epilog		{$$=mung2($1, $1->child[0], $2);}
-redir:	REDIR word		{($$=mung1($1, $2))->str=$1->rtype==HERE?readhere($2,lex->input):0;}
+redir:	REDIR word		{$$=mung1($1, $2); if($$->rtype==HERE) heredoc($$);}
 |	DUP
 cmd:				{$$=0;}
 |	brace epilog		{$$=epimung($1, $2);}
