@@ -1144,12 +1144,14 @@ recvproc(void *)
 				}
 				r->req->ofcall.count = 0;
 				e = nil;
-			}else if(msgn > 0){
-				e = msg;
-				e[msgn] = 0;
+			/* prefer our well-defined error strings to arbitrary
+			 * strings from the server */
 			}else if(code < nelem(errors))
 				e = errors[code];
-			else{
+			else if(msgn > 0){
+				e = msg;
+				e[msgn] = 0;
+			}else{
 				snprint(ebuf, sizeof(ebuf), "error code %d", code);
 				e = ebuf;
 			}
