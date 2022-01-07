@@ -377,18 +377,19 @@ objread(Req *r, Gitaux *aux)
 static void
 readcommitparent(Req *r, Object *o)
 {
-	char *buf, *p;
+	char *buf, *p, *e;
 	int i, n;
 
-	n = o->commit->nparent * (40 + 2);
+	/* 40 bytes per hash, 1 per nl, 1 for terminator */
+	n = o->commit->nparent * (40 + 1) + 1;
 	buf = emalloc(n);
 	p = buf;
+	e = buf + n;
 	for (i = 0; i < o->commit->nparent; i++)
-		p += sprint(p, "%H\n", o->commit->parent[i]);
-	readbuf(r, buf, n);
+		p = seprint(p, e, "%H\n", o->commit->parent[i]);
+	readbuf(r, buf, p - buf);
 	free(buf);
 }
-
 
 static void
 gitattach(Req *r)
