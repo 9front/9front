@@ -317,6 +317,7 @@ main(int argc, char **argv)
 		bind("#c/ppid", "/dev/ppid", MREPL);
 		bind("#e", "/env", MREPL|MCREATE);
 		bind("#d", "/fd", MREPL);
+		bind("#s", "/srv", MREPL|MCREATE);
 
 		if(chdir(buf) < 0)
 			sysfatal("chdir: %r");
