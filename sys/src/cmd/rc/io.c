@@ -138,7 +138,7 @@ void
 pwrd(io *f, char *s)
 {
 	char *t;
-	for(t = s;*t;t++) if(*t >= 0 && strchr("`^#*[]=|\\?${}()'<>&;", *t)) break;
+	for(t = s;*t;t++) if(*t >= 0 && (*t <= ' ' || strchr("`^#*[]=|\\?${}()'<>&;", *t))) break;
 	if(t==s || *t)
 		pquo(f, s);
 	else pstr(f, s);
