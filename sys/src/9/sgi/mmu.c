@@ -389,9 +389,9 @@ putmmu(ulong tlbvirt, ulong tlbphys, Page *pg)
 	x = gettlbp(tlbvirt, tlbent);
 	if(x < 0) x = getrandom();
 	puttlbx(x, entry->virt, entry->phys0, entry->phys1, PGSZ);
-	if(pg->txtflush & (1<<m->machno)){
+	if(needtxtflush(pg)){
 		icflush((void*)pg->va, BY2PG);
-		pg->txtflush &= ~(1<<m->machno);
+		donetxtflush(pg);
 	}
 	splx(s);
 }

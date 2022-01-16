@@ -574,10 +574,11 @@ putmmu(uintptr va, uintptr pa, Page* page)
 	 */
 	l1cache->wb();
 
-	if(page->txtflush & (1<<m->machno)){
+	if(needtxtflush(page)){
 		cacheiinv();
-		page->txtflush &= ~(1<<m->machno);
+		donetxtflush(page);
 	}
+
 	if (Debug)
 		iprint("putmmu %#p %#p %#p\n", va, pa, PPN(pa)|x);
 }

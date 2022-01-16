@@ -718,8 +718,7 @@ segflush(void *va, uintptr len)
 				pg = &pte->pages[off/BY2PG];
 				pe = pg + len/BY2PG;
 				while(pg < pe) {
-					if(!pagedout(*pg))
-						(*pg)->txtflush = ~0;
+					settxtflush(*pg, !pagedout(*pg));
 					pg++;
 				}
 			}

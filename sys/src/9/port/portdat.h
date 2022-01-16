@@ -329,10 +329,19 @@ struct Page
 	uintptr	va;			/* Virtual address for user */
 	uintptr	daddr;			/* Disc address on swap */
 	Image	*image;			/* Associated text or swap image */
-	ulong	txtflush;		/* Flush icache for putmmu */
 	ushort	refage;			/* Swap reference age */
 	char	modref;			/* Simulated modify/reference bits */
 	char	color;			/* Cache coloring */
+
+#ifndef inittxtflush
+	/* Flush icache bitmap for putmmu() */
+	ulong	txtflush[(MAXMACH+31)/32];
+
+#define inittxtflush(p)	memset((p)->txtflush, 0, sizeof((p)->txtflush))
+#define settxtflush(p, c) if(c) memset((p)->txtflush, ~0, sizeof((p)->txtflush))
+#define needtxtflush(p)	((p)->txtflush[m->machno>>5] & (1 << (m->machno&0x1F)))
+#define donetxtflush(p)	((p)->txtflush[m->machno>>5] &= ~(1 << (m->machno&0x1F)))
+#endif
 };
 
 struct Swapalloc

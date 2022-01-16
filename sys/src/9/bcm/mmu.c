@@ -254,11 +254,10 @@ putmmu(uintptr va, uintptr pa, Page* page)
 	/* clear out the current entry */
 	mmuinvalidateaddr(PPN(va));
 
-	if((page->txtflush & (1<<m->machno)) != 0){
-		/* pio() sets PG_TXTFLUSH whenever a text pg has been written */
+	if(needtxtflush(page)){
 		cachedwbse((void*)(page->pa|KZERO), BY2PG);
 		cacheiinvse((void*)page->va, BY2PG);
-		page->txtflush &= ~(1<<m->machno);
+		donetxtflush(page);
 	}
 	//checkmmu(va, PPN(pa));
 	splx(s);

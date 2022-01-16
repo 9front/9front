@@ -135,8 +135,7 @@ retry:
 	}
 done:
 	putpage(new);
-	if(s->flushme)
-		(*p)->txtflush = ~0;
+	settxtflush(*p, s->flushme);
 }
 
 static int
@@ -202,8 +201,7 @@ fixfault(Segment *s, uintptr addr, int read)
 			new = newpage(0, &s, addr);
 			if(s == nil)
 				return -1;
-			if(s->flushme)
-				new->txtflush = ~0;
+			settxtflush(new, s->flushme);
 			*pg = new;
 			copypage(old, *pg);
 			putpage(old);
@@ -242,8 +240,7 @@ mapphys(Segment *s, uintptr addr, int attr)
 	pg.ref = 1;
 	pg.va = addr;
 	pg.pa = s->pseg->pa+(addr-s->base);
-	if(s->flushme)
-		pg.txtflush = ~0;
+	settxtflush(&pg, s->flushme);
 
 	mmuphys = PPN(pg.pa) | PTEVALID;
 	if((attr & SG_RONLY) == 0)

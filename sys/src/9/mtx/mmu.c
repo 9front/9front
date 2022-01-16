@@ -218,10 +218,10 @@ putmmu(uintptr va, uintptr pa, Page *pg)
 	q[1] = pa;
 	sync();
 
-	if(pg->txtflush & (1<<m->machno)){
+	if(needtxtflush(pg)){
 		dcflush((void*)pg->va, BY2PG);
 		icflush((void*)pg->va, BY2PG);
-		pg->txtflush &= ~(1<<m->machno);
+		donetxtflush(pg);
 	}
 }
 

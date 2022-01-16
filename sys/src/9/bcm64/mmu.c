@@ -460,11 +460,10 @@ putmmu(uintptr va, uintptr pa, Page *pg)
 		flushasidva((uvlong)up->asid<<48 | va>>12);
 	*pte = pa | PTEPAGE | PTEUSER | PTEPXN | PTENG | PTEAF |
 		(((pa & PTEMA(7)) == PTECACHED)? PTESH(SHARE_INNER): PTESH(SHARE_OUTER));
-	if(pg->txtflush & (1UL<<m->machno)){
-		/* pio() sets PG_TXTFLUSH whenever a text pg has been written */
+	if(needtxtflush(pg)){
 		cachedwbinvse(kmap(pg), BY2PG);
 		cacheiinvse((void*)va, BY2PG);
-		pg->txtflush &= ~(1UL<<m->machno);
+		donetxtflush(pg);
 	}
 	splx(s);
 }

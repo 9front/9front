@@ -169,6 +169,9 @@ struct PMMU
 	void	*vmx;
 };
 
+#define	inittxtflush(p)
+#define	settxtflush(p,c)
+
 #include "../port/portdat.h"
 
 typedef struct {

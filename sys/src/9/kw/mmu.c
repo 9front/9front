@@ -345,9 +345,9 @@ putmmu(uintptr va, uintptr pa, Page* page)
 	 *  rather than direct mapped.
 	 */
 	cachedwbinv();
-	if(page->txtflush){
+	if(needtxtflush(page)){
 		cacheiinv();
-		page->txtflush = 0;
+		donetxtflush(page);
 	}
 	//print("putmmu %#p %#p %#p\n", va, pa, PPN(pa)|x);
 }

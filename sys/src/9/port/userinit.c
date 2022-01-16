@@ -52,7 +52,7 @@ proc0(void*)
 	k = kmap(p);
 	memmove((void*)VA(k), initcode, sizeof(initcode));
 	kunmap(k);
-	p->txtflush = ~0;
+	settxtflush(p, 1);
 	segpage(up->seg[TSEG], p);
 	up->seg[TSEG]->flushme = 1;
 

@@ -227,7 +227,7 @@ newpage(int clear, Segment **s, uintptr va)
 	p->ref = 1;
 	p->va = va;
 	p->modref = 0;
-	p->txtflush = 0;
+	inittxtflush(p);
 
 	if(clear) {
 		k = kmap(p);
@@ -344,7 +344,6 @@ cachedel(Image *i, uintptr daddr)
 		putpage(p);
 	}
 }
-
 
 Pte*
 ptecpy(Pte *old)

@@ -523,7 +523,7 @@ fixedseg(uintptr va, ulong len)
 			p->ref = 1;
 			p->va = va;
 			p->modref = 0;
-			p->txtflush = ~0;
+			settxtflush(p, 1);
 			
 			k = kmap(p);
 			memset((void*)VA(k), 0, BY2PG);

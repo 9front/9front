@@ -168,14 +168,14 @@ putmmu(uintptr va, uintptr pa, Page *pg)
 	old = *e;
 	*e = pa | L2VALID | L2USER | L2LOCAL;
 	tmpunmap(l2);
-	splx(s);
 	if((old & L2VALID) != 0)
 		flushpg((void *) va);
-	if(pg->txtflush & (1<<m->machno)){
+	if(needtxtflush(pg)){
 		cleandse((void *) va, (void *) (va + BY2PG));
 		invalise((void *) va, (void *) (va + BY2PG));
-		pg->txtflush &= ~(1<<m->machno);
+		donetxtflush(pg);
 	}
+	splx(s);
 }
 
 void
