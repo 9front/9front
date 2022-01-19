@@ -145,8 +145,8 @@ decoutput(FLAC__StreamDecoder *dec, FLAC__Frame *frame, FLAC__int32 *buffer[], v
 		}
 	}
 	n = b * chans * len;
-	if(n > 0)
-		write(ifd, buf, n);
+	if(n > 0 && write(ifd, buf, n) != n)
+		return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
 
 	return FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE;
 }
@@ -191,7 +191,8 @@ int main(int argc, char *argv[])
 	if(seek > 0.0){
 		FLAC__uint64 srate;
 		do{
-			FLAC__stream_decoder_process_single(dec);
+			if(!FLAC__stream_decoder_process_single(dec))
+				break;
 			srate = FLAC__stream_decoder_get_sample_rate(dec);
 		}while(srate == 0);
 		if(!FLAC__stream_decoder_seek_absolute(dec, srate*seek)){
