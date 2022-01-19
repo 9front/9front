@@ -54,7 +54,7 @@ Image *frame, *paper, *ground;
 char pagespool[] = "/tmp/pagespool.";
 
 enum {
-	NPROC = 4,
+	NPROC = 8,
 	NBUF = 8*1024,
 	NPATH = 1024,
 };
@@ -898,10 +898,6 @@ loadpage(Page *p)
 {
 	int fd;
 
-	qlock(&lru);
-	llinkhead(p);
-	qunlock(&lru);
-
 	if(p->open != nil && p->image == nil){
 		fd = openpage(p);
 		if(fd >= 0){
@@ -951,7 +947,11 @@ void
 loadpages(Page *p, int oviewgen)
 {
 	while(p != nil && viewgen == oviewgen){
-		qlock(p);
+		qlock(&lru);
+		llinkhead(p);
+		qunlock(&lru);
+		if(!canqlock(p))
+			goto next;
 		loadpage(p);
 		if(viewgen != oviewgen){
 			unloadpage(p);
@@ -972,6 +972,7 @@ loadpages(Page *p, int oviewgen)
 			unlockdisplay(display);
 		}
 		qunlock(p);
+	next:
 		if(p != current && imemsize >= imemlimit)
 			break;		/* only one page ahead once we reach the limit */
 		if(forward < 0){
@@ -1309,16 +1310,17 @@ showpage1(Page *p)
 	writeaddr(p, "/dev/label");
 	current = p;
 	oviewgen = viewgen;
+	if(nproc >= NPROC)
+		waitpid();
 	switch(rfork(RFPROC|RFMEM)){
 	case -1:
 		sysfatal("rfork: %r");
 	case 0:
 		loadpages(p, oviewgen);
+		nproc--;
 		exits(nil);
 	}
-	if(++nproc >= NPROC)
-		if(waitpid() > 0)
-			nproc--;
+	nproc++;
 }
 
 /* recursive display lock, called from main proc only */
@@ -1691,6 +1693,8 @@ main(int argc, char *argv[])
 		addpage(root, "stdin", popenfile, strdup("/fd/0"), -1);
 	for(; *argv; argv++)
 		addpage(root, *argv, popenfile, strdup(*argv), -1);
+	for(i=0; i<NPROC/4; i++)	/* rice */
+		showpage1(current);
 
 	drawlock(1);
 	for(;;){
