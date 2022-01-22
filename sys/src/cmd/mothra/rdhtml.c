@@ -982,6 +982,7 @@ void plrdhtml(char *name, int fd, Www *dst, int killimgs){
 			g.state->size=NORMAL;
 			break;
 		case Tag_code:
+		case Tag_samp:
 			g.state->font=CWIDTH;
 			g.state->size=NORMAL;
 			break;
@@ -1113,7 +1114,6 @@ void plrdhtml(char *name, int fd, Www *dst, int killimgs){
 		case Tag_xmp:
 			htmlerror(g.name, g.lineno, "<%s> deprecated", tag[g.tag].name);
 		case Tag_pre:
-		case Tag_samp:
 			g.state->indent=0;
 			g.state->pre=1;
 			g.state->font=CWIDTH;
@@ -1203,7 +1203,6 @@ void plrdhtml(char *name, int fd, Www *dst, int killimgs){
 		case Tag_listing:
 		case Tag_menu:
 		case Tag_ol:
-		case Tag_samp:
 		case Tag_title:
 		case Tag_ul:
 		case Tag_xmp:
