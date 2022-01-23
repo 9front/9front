@@ -51,26 +51,6 @@ eatspace(Eval *ev)
 		ev->p++;
 }
 
-int
-objdatecmp(void *pa, void *pb)
-{
-	Object *a, *b;
-	int r;
-
-	a = readobject((*(Object**)pa)->hash);
-	b = readobject((*(Object**)pb)->hash);
-	assert(a->type == GCommit && b->type == GCommit);
-	if(a->commit->mtime == b->commit->mtime)
-		r = 0;
-	else if(a->commit->mtime < b->commit->mtime)
-		r = -1;
-	else
-		r = 1;
-	unref(a);
-	unref(b);
-	return r;
-}
-
 void
 push(Eval *ev, Object *o)
 {
@@ -406,7 +386,7 @@ static int
 range(Eval *ev)
 {
 	Object *a, *b, *p, *q, **all;
-	int nall, *idx, mark;
+	int nall, *idx;
 	Objset keep, skip;
 
 	b = pop(ev);
@@ -424,7 +404,6 @@ range(Eval *ev)
 	all = nil;
 	idx = nil;
 	nall = 0;
-	mark = ev->nstk;
 	osinit(&keep);
 	osinit(&skip);
 	osadd(&keep, a);
@@ -459,7 +438,6 @@ range(Eval *ev)
 		nall++;
 	}
 	free(all);
-	qsort(ev->stk + mark, ev->nstk - mark, sizeof(Object*), objdatecmp);
 	return 0;
 error:
 	free(all);
