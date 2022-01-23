@@ -982,7 +982,7 @@ oct:
 	if(c == 'x' || c == 'X')
 		goto hex;
 	while(c = *s++) {
-		if(c >= '0' || c <= '7')
+		if(c >= '0' && c <= '7')
 			nn = n*8 + c-'0';
 		else
 			goto bad;
