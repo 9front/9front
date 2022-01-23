@@ -58,6 +58,3 @@ in
 .IR plan9.ini (8)
 .SH SOURCE
 .B /sys/src/9/port/devenv.c
-.SH BUGS
-A write starting at an offset after the current extent of a file
-yields an error instead of zero filling.

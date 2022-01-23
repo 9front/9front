@@ -456,6 +456,8 @@ enum
 	NFD =		100,		/* per process file descriptors */
 	PGHLOG  =	9,
 	PGHSIZE	=	1<<PGHLOG,	/* Page hash for image lookup */
+	ENVLOG =	5,
+	ENVHASH =	1<<ENVLOG,	/* Egrp hash for variable lookup */
 };
 #define REND(p,s)	((p)->rendhash[(s)&((1<<RENDLOG)-1)])
 #define MOUNTH(p,qid)	((p)->mnthash[(qid).path&((1<<MNTLOG)-1)])
@@ -493,23 +495,27 @@ struct Rgrp
 	Proc	*rendhash[RENDHASH];	/* Rendezvous tag hash */
 };
 
+struct Evalue
+{
+	char	*value;
+	int	len;
+	ulong	vers;
+	uvlong	path;			/* qid.path: Egrp.path << 32 | index (of Egrp.ent[]) */
+	Evalue	*hash;
+	char	name[];
+};
+
 struct Egrp
 {
 	Ref;
 	RWlock;
-	Evalue	*ent;
-	int	nent;
-	int	ment;
-	ulong	path;	/* qid.path of next Evalue to be allocated */
-	ulong	vers;	/* of Egrp */
-};
-
-struct Evalue
-{
-	char	*name;
-	char	*value;
-	int	len;
-	Qid	qid;
+	Evalue	**ent;
+	int	nent;			/* numer of slots in ent[] */
+	int	low;			/* lowest free index in ent[] */
+	int	alloc;			/* bytes allocated for env */
+	ulong	path;			/* generator for qid path */
+	ulong	vers;			/* of Egrp */
+	Evalue	*hash[ENVHASH];		/* hashtable for name lookup */
 };
 
 struct Fgrp
