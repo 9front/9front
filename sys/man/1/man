@@ -106,6 +106,8 @@ index for
 .B /rc/bin/man
 .br
 .B /rc/bin/lookman
+.br
+.B /rc/bin/sig
 .SH "SEE ALSO"
 .IR page (1),
 .IR proof (1)
