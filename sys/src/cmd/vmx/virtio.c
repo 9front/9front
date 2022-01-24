@@ -792,7 +792,7 @@ mkvioblk(char *fn)
 	
 	fd = open(fn, ORDWR);
 	if(fd < 0) return -1;
-	d = mkviodev(0x1000, 0x018000, 2, 1);
+	d = mkviodev(0x1001, 0x018000, 2, 1);
 	mkvioqueue(d, 32, viowakeup);
 	d->io = vioblkio;
 	d->blk.fd = fd;
