@@ -283,7 +283,6 @@ compose(char *to, Mesg *r, int all)
 					break;
 			Bterm(rfd);
 		}
-		Bterm(wfd);
 	}
 	Bterm(wfd);
 	fprint(c->addr, "$");
