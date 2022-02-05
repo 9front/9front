@@ -43,7 +43,9 @@ dhcpd, dhcp6d, dhcpleases, rarpd, tftpd \- Internet booting
 .RB [ -x
 .IR netmtpt ]
 .RB [ -n
-.IR namespace-file ]
+.IR nsfile ]
+.RB [ -m
+.IR mapfile ]
 .SH DESCRIPTION
 These programs support booting over the Internet.
 They should all be run on the same server to
@@ -323,6 +325,26 @@ Restricts access to only those files rooted in the
 .TP
 .B n
 Sets the namespace file (default /lib/namespace).
+.TP
+.B m
+Loads name substitutions from
+.IR mapfile .
+The format is a space or tab separated two-column text
+with the first column being a regular expression
+(see
+.IR regexp (6))
+that is matched against the requested file name
+and the second column contains a subsitution.
+Lines starting with
+.B #
+are ignored.
+Occurances in the resulting filename of
+.BR %I ,
+.B %C
+or
+.B %E
+are replaced with the ip, cfgpxe name or ether MAC of
+of the client.
 .PD
 .SH FILES
 .BR /lib/ndb/dhcp "    directory of dynamic address files

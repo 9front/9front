@@ -6,6 +6,7 @@
 #include <auth.h>
 #include <bio.h>
 #include <ip.h>
+#include <regexp.h>
 
 enum
 {
@@ -63,6 +64,13 @@ struct Opt {
 	int	max;
 };
 
+typedef struct Map Map;
+struct Map {
+	Reprog	*re;
+	char	*sub;
+	Map	*next;
+};
+
 int 	dbg;
 int	restricted;
 int	pid;
@@ -85,6 +93,7 @@ void	ack(int, ushort);
 void	clrcon(void);
 void	setuser(void);
 void	remoteaddr(char*, char*, int);
+void	readmapfile(char*);
 void	doserve(int);
 
 char	bigbuf[32768];
@@ -94,6 +103,7 @@ char	*dirsl;
 int	dirsllen;
 char	*homedir = "/";
 char	*nsfile = nil;
+Map	*namemap = nil;
 char	flog[] = "ipboot";
 char	net[Maxpath];
 
@@ -109,7 +119,7 @@ static char *opnames[] = {
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-dr] [-h homedir] [-s svc] [-x netmtpt]\n",
+	fprint(2, "usage: %s [-dr] [-h homedir] [-s svc] [-x netmtpt] [-n nsfile] [-m mapfile]\n",
 		argv0);
 	exits("usage");
 }
@@ -141,6 +151,9 @@ main(int argc, char **argv)
 		break;
 	case 'n':
 		nsfile = EARGF(usage());
+		break;
+	case 'm':
+		readmapfile(EARGF(usage()));
 		break;
 	default:
 		usage();
@@ -177,7 +190,6 @@ main(int argc, char **argv)
 	if (cfd < 0)
 		sysfatal("announcing on %s: %r", buf);
 	syslog(dbg, flog, "tftpd started on %s dir %s", buf, adir);
-//	setuser();
 	for(;;) {
 		lcfd = listen(adir, ldir);
 		if(lcfd < 0)
@@ -368,16 +380,27 @@ optlog(char *bytes, char *p, int dlen)
 }
 
 /*
+ * substitute name from namemap file and
  * replace one occurrence of %[ICE] with ip, cfgpxe name, or ether mac, resp.
  * we can't easily use $ because u-boot has stranger quoting rules than sh.
  */
 char *
 mapname(char *file)
 {
-	int nf;
-	char *p, *newnm, *cur, *arpf, *ln, *remip, *bang;
-	char *fields[4];
+	char sub[1024], *p, *newnm, *cur, *arpf, *ln, *remip, *bang;
 	Biobuf *arp;
+	Map *map;
+
+	for(map = namemap; map != nil; map = map->next){
+		Resub subs[16];
+
+		memset(subs, 0, sizeof(subs));
+		if(regexec(map->re, file, subs, nelem(subs))){
+			regsub(map->sub, sub, sizeof(sub), subs, nelem(subs));
+			file = sub;
+			break;
+		}
+	}
 
 	p = strchr(file, '%');
 	if (p == nil || p[1] == '\0')
@@ -411,6 +434,9 @@ mapname(char *file)
 			break;
 		/* read lines looking for remip in 3rd field of 4 */
 		while ((ln = Brdline(arp, '\n')) != nil) {
+			char *fields[4];
+			int nf;
+
 			ln[Blinelen(arp)-1] = 0;
 			nf = tokenize(ln, fields, nelem(fields));
 			if (nf >= 4 && strcmp(fields[2], remip) == 0) {
@@ -448,7 +474,11 @@ doserve(int fd)
 	while(*p && dlen--)
 		p++;
 
+	syslog(dbg, flog, "tftpd %d mode %s file %s", pid, mode, file);
+
 	file = mapname(file);	/* we don't free the result; minor leak */
+
+	syslog(dbg, flog, "tftpd %d file -> %s", pid, file);
 
 	if(dlen == 0) {
 		nak(fd, 0, "bad tftpmode");
@@ -771,4 +801,52 @@ remoteaddr(char *dir, char *raddr, int len)
 	if(n > 0)
 		n--;
 	raddr[n] = 0;
+}
+
+void
+readmapfile(char *file)
+{
+	Map **link, *map;
+	Biobuf *bio;
+	char *s, *p, *d;
+	int line;
+
+	/* go to last entry */
+	for(link = &namemap; *link; link = &(*link)->next)
+		;
+
+	if((bio = Bopen(file, OREAD)) == nil)
+		sysfatal("open: %r");
+
+	for(line = 1; (s = Brdstr(bio, '\n', 1)) != nil; free(s), line++){
+		p = s;
+		while(strchr("\t ", *p))
+			p++;
+
+		if(*p == '#')
+			continue;
+
+		if(d = strchr(p, '\t'))
+			*d++ = '\0';
+		else if(d = strchr(p, ' '))
+			*d++ = '\0';
+		else {
+			fprint(2, "%s:%d: ignored: %s\n", file, line, p);
+			continue;
+		}
+		while(strchr("\t ", *d))
+			d++;
+		map = malloc(sizeof(Map));
+		map->re = regcomp(p);
+		if(map->re == nil){
+			fprint(2, "%s:%d: syntax error: %s\n", file, line, p);
+			free(map);
+			continue;
+		}
+		map->sub = strdup(d);
+		map->next = nil;
+		*link = map;
+		link = &map->next;
+	}
+	Bterm(bio);
 }
