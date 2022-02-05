@@ -448,6 +448,7 @@ gpioread(Chan *c, void *va, long n, vlong off)
 		n = 1;
 		break;
 	case Qctl:
+		n = 0;
 		break;
 	case Qevent:
 		if(off >= 4)
@@ -555,10 +556,10 @@ gpiowrite(Chan *c, void *va, long n, vlong)
 			break;
 		case CMfunc:
 			pin = getpin(cb->f[2]);
-			arg = cb->f[1];
 			if(pin == -1) {
 				error(Ebadctl);
 			}
+			arg = cb->f[1];
 			for(i = 0; i < nelem(funcname); i++)
 			{
 				if(strncmp(funcname[i], arg, strlen(funcname[i])) == 0)
@@ -588,7 +589,6 @@ gpiowrite(Chan *c, void *va, long n, vlong)
 			if(pin == -1) {
 				error(Ebadctl);
 			}
-				
 			arg = cb->f[1];
 			for(i = 0; i < nelem(evtypename); i++)
 			{
