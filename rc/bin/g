@@ -23,6 +23,7 @@ shift
 
 suffixes='\.([bcChlmsy]|asm|awk|cc|cgi|cpp|cs|go|goc|hs|java|lua|lx|mk|ml|mli|ms|myr|pl|py|rc|sh|tex|xy)$'
 fullnames='(^|/)mkfile$'
+repodirs='(^|/)(.git|.hg)($|/)'
 switch($#*){
 case 0
 	walk -f $recurse | grep -e $fullnames -e $suffixes >[2]/dev/null
@@ -34,4 +35,4 @@ case *
 		if not
 			echo $f
 	}
-} | xargs grep -n $flags -- $pattern
+} | grep -v $repodirs | xargs grep -n $flags -- $pattern /dev/null
