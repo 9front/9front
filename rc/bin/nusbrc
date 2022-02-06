@@ -30,7 +30,7 @@ if(! bind -a '#u' /dev)
 			nusb/ptp $id
 		case *
 			switch($2$3){
-			case 12d11003 *0403
+			case 12d11003 0403* # HUAWEI, FTDI
 				nusb/serial $id
 			case 59862113
 				nusb/cam $id
