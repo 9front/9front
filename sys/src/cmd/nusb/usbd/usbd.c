@@ -363,7 +363,8 @@ assignhname(Dev *dev)
 	char buf[64];
 	Usbdev *ud;
 	Hub *h;
-	int i;
+	int col;
+	int i, n;
 
 	ud = dev->usb;
 
@@ -371,22 +372,25 @@ assignhname(Dev *dev)
 	snprint(buf, sizeof(buf), "%.4x%.4x%.4x%.6lx%s",
 		ud->vid, ud->did, ud->dno, ud->csp, ud->serial);
 
-	hname(buf);
+	n = hname(buf);
 
 	/* check for collisions */
+	col = 0;
 	for(h = hubs; h != nil; h = h->next){
 		for(i = 1; i <= h->nport; i++){
 			if(h->port[i].dev == nil)
 				continue;
 			if(h->port[i].dev->hname == nil || h->port[i].dev == dev)
 				continue;
-			if(strcmp(h->port[i].dev->hname, buf) == 0){
-				dev->hname = smprint("%s%d", buf, dev->id);
-				return;
-			}
+			if(strncmp(h->port[i].dev->hname, buf, n) == 0)
+				col++;
 		}
 	}
-	dev->hname = strdup(buf);
+
+	if(col == 0)
+		dev->hname = strdup(buf);
+	else
+		dev->hname = smprint("%s%d", buf, col);
 }
 
 int
