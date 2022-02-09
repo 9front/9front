@@ -202,7 +202,7 @@ riostrtol(char *s, char **t)
 int
 parsewctl(char **argp, Rectangle r, Rectangle *rp, int *pidp, int *idp, int *hiddenp, int *scrollingp, char **cdp, char *s, char *err)
 {
-	int cmd, param, xy, sign;
+	int cmd, n, nt, param, xy, sign;
 	char *f[2], *t;
 
 	*pidp = 0;
@@ -252,13 +252,12 @@ parsewctl(char **argp, Rectangle r, Rectangle *rp, int *pidp, int *idp, int *hid
 			s++;
 		if(param == Cd){
 			*cdp = s;
-			gettokens(*cdp, f, nelem(f), " \t\r\n\v\f");
-			s += strlen(*cdp);
-			if((*cdp)[0] == '\'' && s[-1] == '\''){
-				/* drop quotes */
-				*cdp += 1;
-				s[-1] = '\0';
-			}
+			if((nt = gettokens(*cdp, f, nelem(f), " \t\r\n\v\f")) < 1)
+				return -1;
+			n = strlen(*cdp);
+			if((*cdp)[0] == '\'' && (*cdp)[n-1] == '\'')
+				((*cdp)++)[n-1] = '\0'; /* drop quotes */
+			s += n+(nt-1);
 			continue;
 		}
 		sign = 0;
