@@ -25,10 +25,11 @@ decinput(FLAC__StreamDecoder *dec, FLAC__byte buffer[], size_t *bytes, void *cli
 	int n = *bytes;
 
 	n = fread(buffer, 1, n, stdin);
-	if(n < 0)
+	if(n < 1){
+		if(feof(stdin))
+			return FLAC__STREAM_DECODER_READ_STATUS_END_OF_STREAM;
 		return FLAC__STREAM_DECODER_READ_STATUS_ABORT;
-	if(n == 0)
-		return FLAC__STREAM_DECODER_READ_STATUS_END_OF_STREAM;
+	}
 
 	*bytes = n;
 	return FLAC__STREAM_DECODER_READ_STATUS_CONTINUE;
