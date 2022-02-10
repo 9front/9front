@@ -572,7 +572,7 @@ eepromwrite(int n)
 	}
 }
 
-int flashstate, flashmode, flashbank;
+int flashstate, flashmode, flashbank, flashid;
 
 enum {
 	FLASHCMD0,
@@ -589,7 +589,7 @@ static u8int
 flashread(u16int a)
 {
 	if((flashmode & FLASHID) != 0)
-		return (a & 1) != 0 ? 0xd4 : 0xbf;
+		return (a & 1) != 0 ? flashid >> 8 : flashid;
 	return back[(flashbank << 16) + a];
 }
 

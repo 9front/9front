@@ -15,6 +15,15 @@ int clock;
 
 char *biosfile = "/sys/games/lib/gbabios.bin";
 
+enum {
+	IDSST = 0xd4bf,
+	IDMacronix64 = 0x1cc2,
+	IDPanasonic = 0x1b32,
+	IDAtmel = 0x3d1f,
+	IDSanyo = 0x1362,
+	IDMacronix128 = 0x09c2,
+};
+
 void
 writeback(void)
 {
@@ -65,10 +74,12 @@ romtype(int *size)
 		if(v == s3.u){
 			if(memcmp(p - 1, "FLASH_V", 7) == 0 || memcmp(p - 1, "FLASH512_V", 10) == 0){
 				*size = 64*KB;
+				flashid = IDSST;
 				return FLASH;
 			}
 			if(memcmp(p - 1, "FLASH1M_V", 9) == 0){
 				*size = 128*KB;
+				flashid = IDMacronix128;
 				return FLASH;
 			}
 		}
@@ -90,9 +101,27 @@ parsetype(char *s, int *size)
 		return SRAM;
 	}else if(strcmp(s, "flash512") == 0){
 		*size = 64*KB;
+		flashid = IDSST;
+		return FLASH;
+	}else if(strcmp(s, "flash512mx") == 0){
+		*size = 64*KB;
+		flashid = IDMacronix64;
+		return FLASH;
+	}else if(strcmp(s, "flash512pan") == 0){
+		*size = 64*KB;
+		flashid = IDPanasonic;
+		return FLASH;
+	}else if(strcmp(s, "flash512atm") == 0){
+		*size = 64*KB;
+		flashid = IDAtmel;
 		return FLASH;
 	}else if(strcmp(s, "flash1024") == 0){
 		*size = 128*KB;
+		flashid = IDMacronix128;
+		return FLASH;
+	}else if(strcmp(s, "flash1024san") == 0){
+		*size = 128*KB;
+		flashid = IDSanyo;
 		return FLASH;
 	}else
 		return NOBACK;
@@ -101,13 +130,20 @@ parsetype(char *s, int *size)
 void
 typename(char *s, int type, int size)
 {
-	char *st;
+	char *st, *id;
+	id = "";
 	switch(type){
 	case EEPROM:
 		st = "eeprom";
 		break;
 	case FLASH:
 		st = "flash";
+		switch(flashid){
+		case IDMacronix64: id = "mx"; break;
+		case IDPanasonic: id = "pan"; break;
+		case IDAtmel: id = "atm"; break;
+		case IDSanyo: id = "san"; break;
+		}
 		break;
 	case SRAM:
 		st = "sram";
@@ -116,7 +152,7 @@ typename(char *s, int type, int size)
 		sysfatal("typestr: unknown type %d -- shouldn't happen", type);
 		return;
 	}
-	snprint(s, BACKTYPELEN, "%s%d", st, size/128);
+	snprint(s, BACKTYPELEN, "%s%d%s", st, size/128, id);
 }
 
 void

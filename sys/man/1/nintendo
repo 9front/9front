@@ -112,6 +112,10 @@ Location of the GBA BIOS file (required to operate the emulator). Default is \fB
 .TP
 .B -s
 Save format used by the original game. Valid formats are: eeprom4, eeprom64, sram256, flash512, flash1024. The number corresponds to the size, in kilobits, of the save file. By default, the emulator attempts to automatically detect the save format, but does not always succeed.
+Some roms require a specific flash device id which may need to be set manually for them to work.
+Valid formats and corresponding ids are:
+flash512 (SST), flash512mx (Macronix 64K), flash512pan (Panasonic), flash512atm (Atmel),
+flash1024 (Macronix 128K), flash1024san (Sanyo).
 .PP
 .B nes
 options:
