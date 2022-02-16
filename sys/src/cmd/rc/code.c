@@ -58,8 +58,8 @@ compile(tree *t)
  * called on a tree where we expect eigther
  * a pattern or a string instead of a glob to
  * remove the GLOB chars from the strings
- * or set glob to -1 for pattern so not Xglob
- * is inserted when compiling the tree.
+ * or set glob to 2 for pattern so Xglob
+ * is not inserted when compiling the tree.
  */
 void
 noglobs(tree *t, int pattern)
@@ -69,13 +69,13 @@ Again:
 		return;
 	if(t->type==WORD && t->glob){
 		if(pattern)
-			t->glob=-1;
+			t->glob=2;
 		else{
 			deglob(t->str);
 			t->glob=0;
 		}
 	}
-	if(t->type==WORDS || t->type=='^'){
+	if(t->type==PAREN || t->type==WORDS || t->type=='^'){
 		t->glob=0;
 		noglobs(c1, pattern);
 		t = c0;
@@ -425,7 +425,7 @@ outcode(tree *t, int eflag)
 		emitf(Xpipewait);
 		break;
 	}
-	if(t->glob > 0)
+	if(t->glob==1)
 		emitf(Xglob);
 	if(t->type!=NOT && t->type!=';')
 		lex->iflast = t->type==IF;

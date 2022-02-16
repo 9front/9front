@@ -71,8 +71,8 @@ cmd:				{$$=0;}
 |	FN words brace		{$$=tree2(FN, $2, $3);}
 |	FN words		{$$=tree1(FN, $2);}
 simple:	first
-|	simple word		{$$=tree2(ARGLIST, $1, $2);}
-|	simple redir		{$$=tree2(ARGLIST, $1, $2);}
+|	simple word		{$$=globprop(tree2(ARGLIST, $1, $2));}
+|	simple redir		{$$=globprop(tree2(ARGLIST, $1, $2));}
 first:	comword	
 |	first '^' word		{$$=globprop(tree2('^', $1, $3));}
 word:	keyword			{lex->lastword=1; $1->type=WORD;}
@@ -85,7 +85,7 @@ comword: '$' word		{$$=tree1('$', $2);}
 |	WORD
 |	'`' brace		{$$=tree2('`', (tree*)0, $2);}
 |	'`' word brace		{$$=tree2('`', $2, $3);}
-|	'(' words ')'		{$$=tree1(PAREN, $2);}
+|	'(' words ')'		{$$=globprop(tree1(PAREN, $2));}
 |	REDIR brace		{$$=mung1($1, $2); $$->type=PIPEFD;}
 keyword: FOR|IN|WHILE|IF|NOT|TWIDDLE|BANG|SUBSHELL|SWITCH|FN
 words:				{$$=(tree*)0;}

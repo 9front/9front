@@ -43,7 +43,7 @@ struct tree{
 	int	type;
 	int	rtype, fd0, fd1;	/* details of REDIR PIPE DUP tokens */
 	int	line;
-	char	glob;			/* 0=string, 1=glob, -1=pattern see globprop() and noglobs() */
+	char	glob;			/* 0=string, 1=glob, 2=pattern see globprop() and noglobs() */
 	char	quoted;
 	char	iskw;
 	char	*str;

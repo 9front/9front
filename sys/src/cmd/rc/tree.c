@@ -158,12 +158,22 @@ globprop(tree *t)
 {
 	tree *c0 = t->child[0];
 	tree *c1 = t->child[1];
-	if(t->glob==0){
-		if(c0->glob || c1->glob){
-			if(c0->glob)
-				c0->glob=-1;
-			if(c1->glob)
-				c1->glob=-1;
+	if(c1==0){
+		while(c0 && c0->type==WORDS){
+			c1 = c0->child[1];
+			if(c1 && c1->glob){
+				c1->glob=2;
+				t->glob=1;
+			}
+			c0 = c0->child[0];
+		}
+	} else {
+		if(c0->glob){
+			c0->glob=2;
+			t->glob=1;
+		}
+		if(c1->glob){
+			c1->glob=2;
 			t->glob=1;
 		}
 	}

@@ -305,7 +305,7 @@ main(int argc, char *argv[])
  * Xfalse{...}				execute {} if false
  * Xfn(name){... Xreturn}		define function
  * Xfor(var, list){... Xreturn}		for loop
- * Xglob(word)				glob word inplace
+ * Xglob(list)				glob a list of words inplace
  * Xjump[addr]				goto
  * Xlocal(name, val)			create local variable, assign value
  * Xmark				mark stack
@@ -1152,7 +1152,12 @@ Xfor(void)
 void
 Xglob(void)
 {
-	globword(runq->argv->words);
+	word *a, *x;
+
+	for(a = runq->argv->words; a; a = x){
+		x = a->next;
+		globword(a);
+	}
 }
 
 void
