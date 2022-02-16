@@ -29,7 +29,6 @@ Medium pktmedium =
 
 /*
  *  called to bind an IP ifc to an packet device
- *  called with ifc wlock'd
  */
 static void
 pktbind(Ipifc*, int argc, char **argv)
@@ -37,9 +36,6 @@ pktbind(Ipifc*, int argc, char **argv)
 	USED(argc, argv);
 }
 
-/*
- *  called with ifc wlock'd
- */
 static void
 pktunbind(Ipifc*)
 {

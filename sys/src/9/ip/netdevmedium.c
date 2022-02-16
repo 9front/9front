@@ -35,7 +35,6 @@ Medium netdevmedium =
 
 /*
  *  called to bind an IP ifc to a generic network device
- *  called with ifc qlock'd
  */
 static void
 netdevbind(Ipifc *ifc, int argc, char **argv)
@@ -58,9 +57,6 @@ netdevbind(Ipifc *ifc, int argc, char **argv)
 	kproc("netdevread", netdevread, ifc);
 }
 
-/*
- *  called with ifc wlock'd
- */
 static void
 netdevunbind(Ipifc *ifc)
 {
@@ -68,26 +64,20 @@ netdevunbind(Ipifc *ifc)
 
 	while(waserror())
 		;
-
 	/* wait for reader to start */
 	while(er->readp == (void*)-1)
 		tsleep(&up->sleep, return0, 0, 300);
 
 	if(er->readp != nil)
 		postnote(er->readp, 1, "unbind", 0);
-
 	poperror();
 
-	wunlock(ifc);
 	while(waserror())
 		;
-
 	/* wait for reader to die */
 	while(er->readp != nil)
 		tsleep(&up->sleep, return0, 0, 300);
-
 	poperror();
-	wlock(ifc);
 
 	if(er->mchan != nil)
 		cclose(er->mchan);

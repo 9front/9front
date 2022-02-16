@@ -129,6 +129,9 @@ ipfindmedium(char *name)
 	return *mp;
 }
 
+/* same as nullmedium, to prevent unbind while bind or unbind is in progress */
+extern Medium unboundmedium;
+
 /*
  *  attach a device (or pkt driver) to the interface.
  *  called with c locked
@@ -154,14 +157,20 @@ ipifcbind(Conv *c, char **argv, int argc)
 		wunlock(ifc);
 		return Ebound;
 	}
+	ifc->m = &unboundmedium;	/* fake until bound */
+	ifc->arg = nil;
+	wunlock(ifc);
+
 	if(waserror()){
+		wlock(ifc);
+		ifc->m = nil;
 		wunlock(ifc);
 		nexterror();
 	}
-
-	/* do medium specific binding */
 	(*m->bind)(ifc, argc, argv);
+	poperror();
 
+	wlock(ifc);
 	/* set the bound device name */
 	if(argc > 2)
 		strncpy(ifc->dev, argv[2], sizeof(ifc->dev));
@@ -188,9 +197,7 @@ ipifcbind(Conv *c, char **argv, int argc)
 	qreopen(c->rq);
 	qreopen(c->eq);
 	qreopen(c->sq);
-
 	wunlock(ifc);
-	poperror();
 
 	return nil;
 }
@@ -205,34 +212,28 @@ ipifcunbind(Ipifc *ifc)
 
 	wlock(ifc);
 	m = ifc->m;
-	if(m == nil){
+	if(m == nil || m == &unboundmedium){
 		wunlock(ifc);
 		return Eunbound;
 	}
 
-	/* disassociate logical interfaces (before zeroing ifc->arg) */
+	/* disassociate logical interfaces */
 	while(ifc->lifc != nil)
 		ipifcremlifc(ifc, &ifc->lifc);
 
+
 	/* disassociate device */
 	if(m->unbind != nil){
-		extern Medium nullmedium;
-
-		/*
-		 * unbind() might unlock the ifc, so change the medium
-		 * to the nullmedium to prevent packets from getting
-		 * sent while the medium is shutting down.
-		 */
-		ifc->m = &nullmedium;
-
+		ifc->m = &unboundmedium;	/* fake until unbound */
+		wunlock(ifc);
 		if(!waserror()){
 			(*m->unbind)(ifc);
 			poperror();
 		}
+		wlock(ifc);
 	}
 
 	memset(ifc->dev, 0, sizeof(ifc->dev));
-	ifc->arg = nil;
 
 	ifc->reflect = 0;
 	ifc->reassemble = 0;

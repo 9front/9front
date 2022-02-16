@@ -107,7 +107,6 @@ static char *nbmsg = "nonblocking";
 
 /*
  *  called to bind an IP ifc to an ethernet device
- *  called with ifc wlock'd
  */
 static void
 etherbind(Ipifc *ifc, int argc, char **argv)
@@ -200,9 +199,6 @@ etherbind(Ipifc *ifc, int argc, char **argv)
 	kproc("recvarpproc", recvarpproc, ifc);
 }
 
-/*
- *  called with ifc wlock'd
- */
 static void
 etherunbind(Ipifc *ifc)
 {
@@ -210,7 +206,6 @@ etherunbind(Ipifc *ifc)
 
 	while(waserror())
 		;
-
 	/* wait for readers to start */
 	while(er->arpp == (void*)-1 || er->read4p == (void*)-1 || er->read6p == (void*)-1)
 		tsleep(&up->sleep, return0, 0, 300);
@@ -221,19 +216,14 @@ etherunbind(Ipifc *ifc)
 		postnote(er->read6p, 1, "unbind", 0);
 	if(er->arpp != nil)
 		postnote(er->arpp, 1, "unbind", 0);
-
 	poperror();
 
-	wunlock(ifc);
 	while(waserror())
 		;
-
 	/* wait for readers to die */
 	while(er->arpp != nil || er->read4p != nil || er->read6p != nil)
 		tsleep(&up->sleep, return0, 0, 300);
-
 	poperror();
-	wlock(ifc);
 
 	if(er->mchan4 != nil)
 		cclose(er->mchan4);

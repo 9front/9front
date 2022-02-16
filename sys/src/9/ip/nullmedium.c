@@ -33,6 +33,15 @@ Medium nullmedium =
 .bwrite=	nullbwrite,
 };
 
+/* used in ipifc to prevent unbind while bind is in progress */
+Medium unboundmedium =
+{
+.name=		"unbound",
+.bind=		nullbind,
+.unbind=	nullunbind,
+.bwrite=	nullbwrite,
+};
+
 void
 nullmediumlink(void)
 {
