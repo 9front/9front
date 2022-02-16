@@ -50,10 +50,8 @@ alters aspects of the interface.
 The possible
 .I ctl
 messages are:
-.TF cacheflush
-.PD
 .TP
-.BI "bind ether " "name ownhash path"
+.BI "bind ether " "name ownhash path [pvid[#prio][,vlans...]]"
 Treat the device mounted at
 .I path
 (e.g.,
@@ -63,8 +61,13 @@ and associate it with this bridge (forward its packets to the
 other interfaces associated with this bridge).
 .I Ownhash
 is an `owner hash'.
+The optional
+.I [pvid[#prio][,vlans...]]
+argument is explained in
+.B vlan
+command below.
 .TP
-.BI "bind tunnel " "name ownhash path path2
+.BI "bind tunnel " "name ownhash path path2 [pvid[#prio][,vlans...]]"
 Treat the device mounted at
 .I path
 as a network tunnel carrying Ethernet packets,
@@ -81,9 +84,60 @@ interface and write them to the
 interface.
 Such tunnels have an MTU of 1400 bytes.
 .TP
-.BI "unbind " "type address [ownhash]"
+.BI "vlan " "pvid[#prio][,vlans...] type name [ownhash]"
+Change the 802.1Q VLAN configuration of a port identified by
+.IR type ,
+.I name
+and
+.I ownhash.
+The
+.I pvid
+is the "Native" VLAN id associated with untagged packets
+on a port.
+Packets with a VLAN id of
+.I pvid
+will be send out untagged on the port.
+Untagged packets received on the port will be tagged with the
+.IR pvid .
+When
+.I pvid
+was not specified in a
+.B bind
+command above,
+ports default to a
+.I pvid
+of
+.BR "1" .
+The
+.I pvid
+can be specified as 0 when untagged packets should
+be ignored on a port.
+The optional
+.I prio
+argument specifies the default priority to assign to a
+incoming untagged packet on the port between 0 (lowest,
+default) and 7 (highest).
+The
+.I vlans...
+argument specifies comma separated ranges of other
+VLAN id's that the port is a member of (for trunk ports).
+Membership means the port is accepting
+tagged packets with VLAN id's listed here and
+ignores VLAN id's not listed here. Once accepted,
+packets are forwarded only to other ports that are
+members of the same (accepted) VLAN id.
+Unless
+.I pvid
+is
+.BR "0" ,
+a port is always a member of its own
+.I pvid
+VLAN id,
+so it does not need to be listed twice.
+.TP
+.BI "unbind " "type name [ownhash]"
 Disassociate the interface associated with
-.I address
+.I name
 from this bridge.
 .I Type
 must be
@@ -92,7 +146,7 @@ or
 .LR tunnel .
 .TP
 .B cacheflush
-Clear the cache of (destination MAC address, port) tuples.
+Clear the cache of (destination MAC address, VLAN id, port) tuples.
 .TP
 .BI "delay " "delay0 delayn"
 Set the
@@ -129,10 +183,11 @@ and will block at end of file awaiting new data.
 .PP
 Reading the
 .B cache
-file prints the cache of (destination MAC address, port) tuples,
+file prints the cache of (destination MAC address, VLAN id, port) tuples,
 one entry per line.
 The format is:
 the destination MAC (e.g., Ethernet) address in hex,
+VLAN id,
 port number,
 count of packets from this address,
 count of packets to this address,
@@ -163,7 +218,27 @@ bind -a '#l1' /net
 echo 'bind ether outer 0 /net/ether0' >/net/bridge0/ctl
 echo 'bind ether inner 0 /net/ether1' >/net/bridge0/ctl
 .EE
+.PP
+Set up bridge1 with 3 access ports and a trunk port.
+.IP
+.EX
+# create bridge1
+bind -a '#B1' /net
+
+# nic for trunk carrying only tagged vlans 10,20 and 30
+bind -a '#l0' /net
+echo 'bind ether trunk 0 /net/ether0 0,10,20,30' >/net/bridge1/ctl
+
+# create virtual nics for access ports
+bind -a '#l1:sink ea=001122334401' /net
+bind -a '#l2:sink ea=001122334402' /net
+bind -a '#l3:sink ea=001122334403' /net
+echo 'bind ether port1 0 /net/ether1 10' >/net/bridge1/ctl
+echo 'bind ether port2 0 /net/ether2 20' >/net/bridge1/ctl
+echo 'bind ether port3 0 /net/ether3 30' >/net/bridge1/ctl
+.EE
 .SH "SEE ALSO"
-.IR ip (3)
+.IR ip (3),
+.IR ether (3)
 .SH SOURCE
 .B /sys/src/9/port/devbridge.c
