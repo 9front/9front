@@ -54,9 +54,9 @@
 #if defined(_MSC_VER) && (_MSC_VER < 1800)
 #include <float.h>
 #elif defined(Plan9)
-#define copysign(x,y) ((x > 0.0 && y < 0.0) || (x < 0.0 && y > 0.0)) ? -x : x
+#define _copysign(x,y) ((x > 0.0 && y < 0.0) || (x < 0.0 && y > 0.0)) ? -x : x
 static inline long int lround(double x) {
-	return (long)(x + copysign(0.5, x));
+	return (long)(x + _copysign(0.5, x));
 }
 #elif !defined(HAVE_LROUND) && defined(__GNUC__)
 static inline long int lround(double x) {
@@ -1106,7 +1106,7 @@ void FLAC__lpc_restore_signal_wide(const FLAC__int32 * flac_restrict residual, u
 						sum += qlp_coeff[2] * (FLAC__int64)data[i-3];
 						sum += qlp_coeff[1] * (FLAC__int64)data[i-2];
 						sum += qlp_coeff[0] * (FLAC__int64)data[i-1];
-						data[i] = residual[i] + (FLAC__int32)(sum >> lp_quantization);
+						data[i] = (FLAC__int32) (residual[i] + (sum >> lp_quantization));
 					}
 				}
 				else { /* order == 11 */
@@ -1123,7 +1123,7 @@ void FLAC__lpc_restore_signal_wide(const FLAC__int32 * flac_restrict residual, u
 						sum += qlp_coeff[2] * (FLAC__int64)data[i-3];
 						sum += qlp_coeff[1] * (FLAC__int64)data[i-2];
 						sum += qlp_coeff[0] * (FLAC__int64)data[i-1];
-						data[i] = residual[i] + (FLAC__int32)(sum >> lp_quantization);
+						data[i] = (FLAC__int32) (residual[i] + (sum >> lp_quantization));
 					}
 				}
 			}
@@ -1141,7 +1141,7 @@ void FLAC__lpc_restore_signal_wide(const FLAC__int32 * flac_restrict residual, u
 						sum += qlp_coeff[2] * (FLAC__int64)data[i-3];
 						sum += qlp_coeff[1] * (FLAC__int64)data[i-2];
 						sum += qlp_coeff[0] * (FLAC__int64)data[i-1];
-						data[i] = residual[i] + (FLAC__int32)(sum >> lp_quantization);
+						data[i] = (FLAC__int32) (residual[i] + (sum >> lp_quantization));
 					}
 				}
 				else { /* order == 9 */
@@ -1156,7 +1156,7 @@ void FLAC__lpc_restore_signal_wide(const FLAC__int32 * flac_restrict residual, u
 						sum += qlp_coeff[2] * (FLAC__int64)data[i-3];
 						sum += qlp_coeff[1] * (FLAC__int64)data[i-2];
 						sum += qlp_coeff[0] * (FLAC__int64)data[i-1];
-						data[i] = residual[i] + (FLAC__int32)(sum >> lp_quantization);
+						data[i] = (FLAC__int32) (residual[i] + (sum >> lp_quantization));
 					}
 				}
 			}
@@ -1174,7 +1174,7 @@ void FLAC__lpc_restore_signal_wide(const FLAC__int32 * flac_restrict residual, u
 						sum += qlp_coeff[2] * (FLAC__int64)data[i-3];
 						sum += qlp_coeff[1] * (FLAC__int64)data[i-2];
 						sum += qlp_coeff[0] * (FLAC__int64)data[i-1];
-						data[i] = residual[i] + (FLAC__int32)(sum >> lp_quantization);
+						data[i] = (FLAC__int32) (residual[i] + (sum >> lp_quantization));
 					}
 				}
 				else { /* order == 7 */
@@ -1187,7 +1187,7 @@ void FLAC__lpc_restore_signal_wide(const FLAC__int32 * flac_restrict residual, u
 						sum += qlp_coeff[2] * (FLAC__int64)data[i-3];
 						sum += qlp_coeff[1] * (FLAC__int64)data[i-2];
 						sum += qlp_coeff[0] * (FLAC__int64)data[i-1];
-						data[i] = residual[i] + (FLAC__int32)(sum >> lp_quantization);
+						data[i] = (FLAC__int32) (residual[i] + (sum >> lp_quantization));
 					}
 				}
 			}
@@ -1201,7 +1201,7 @@ void FLAC__lpc_restore_signal_wide(const FLAC__int32 * flac_restrict residual, u
 						sum += qlp_coeff[2] * (FLAC__int64)data[i-3];
 						sum += qlp_coeff[1] * (FLAC__int64)data[i-2];
 						sum += qlp_coeff[0] * (FLAC__int64)data[i-1];
-						data[i] = residual[i] + (FLAC__int32)(sum >> lp_quantization);
+						data[i] = (FLAC__int32) (residual[i] + (sum >> lp_quantization));
 					}
 				}
 				else { /* order == 5 */
@@ -1212,7 +1212,7 @@ void FLAC__lpc_restore_signal_wide(const FLAC__int32 * flac_restrict residual, u
 						sum += qlp_coeff[2] * (FLAC__int64)data[i-3];
 						sum += qlp_coeff[1] * (FLAC__int64)data[i-2];
 						sum += qlp_coeff[0] * (FLAC__int64)data[i-1];
-						data[i] = residual[i] + (FLAC__int32)(sum >> lp_quantization);
+						data[i] = (FLAC__int32) (residual[i] + (sum >> lp_quantization));
 					}
 				}
 			}
@@ -1226,7 +1226,7 @@ void FLAC__lpc_restore_signal_wide(const FLAC__int32 * flac_restrict residual, u
 						sum += qlp_coeff[2] * (FLAC__int64)data[i-3];
 						sum += qlp_coeff[1] * (FLAC__int64)data[i-2];
 						sum += qlp_coeff[0] * (FLAC__int64)data[i-1];
-						data[i] = residual[i] + (FLAC__int32)(sum >> lp_quantization);
+						data[i] = (FLAC__int32) (residual[i] + (sum >> lp_quantization));
 					}
 				}
 				else { /* order == 3 */
@@ -1235,7 +1235,7 @@ void FLAC__lpc_restore_signal_wide(const FLAC__int32 * flac_restrict residual, u
 						sum += qlp_coeff[2] * (FLAC__int64)data[i-3];
 						sum += qlp_coeff[1] * (FLAC__int64)data[i-2];
 						sum += qlp_coeff[0] * (FLAC__int64)data[i-1];
-						data[i] = residual[i] + (FLAC__int32)(sum >> lp_quantization);
+						data[i] = (FLAC__int32) (residual[i] + (sum >> lp_quantization));
 					}
 				}
 			}
@@ -1245,7 +1245,7 @@ void FLAC__lpc_restore_signal_wide(const FLAC__int32 * flac_restrict residual, u
 						sum = 0;
 						sum += qlp_coeff[1] * (FLAC__int64)data[i-2];
 						sum += qlp_coeff[0] * (FLAC__int64)data[i-1];
-						data[i] = residual[i] + (FLAC__int32)(sum >> lp_quantization);
+						data[i] = (FLAC__int32) (residual[i] + (sum >> lp_quantization));
 					}
 				}
 				else { /* order == 1 */
@@ -1292,7 +1292,7 @@ void FLAC__lpc_restore_signal_wide(const FLAC__int32 * flac_restrict residual, u
 				         sum += qlp_coeff[ 1] * (FLAC__int64)data[i- 2];
 				         sum += qlp_coeff[ 0] * (FLAC__int64)data[i- 1];
 			}
-			data[i] = residual[i] + (FLAC__int32)(sum >> lp_quantization);
+			data[i] = (FLAC__int32) (residual[i] + (sum >> lp_quantization));
 		}
 	}
 }

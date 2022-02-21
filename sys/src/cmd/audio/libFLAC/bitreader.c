@@ -119,8 +119,10 @@ static inline void crc16_update_word_(FLAC__BitReader *br, brword word)
 {
 	register uint32_t crc = br->read_crc16;
 
-	for( ; br->crc16_align < FLAC__BITS_PER_WORD; br->crc16_align += 8)
-		crc = FLAC__CRC16_UPDATE((uint32_t)((word >> (FLAC__BITS_PER_WORD-8-br->crc16_align)) & 0xff), crc);
+	for ( ; br->crc16_align < FLAC__BITS_PER_WORD ; br->crc16_align += 8) {
+		uint32_t shift = FLAC__BITS_PER_WORD - 8 - br->crc16_align ;
+		crc = FLAC__CRC16_UPDATE ((uint32_t) (shift < FLAC__BITS_PER_WORD ? (word >> shift) & 0xff : 0), crc);
+	}
 
 	br->read_crc16 = crc;
 	br->crc16_align = 0;
@@ -131,16 +133,19 @@ static inline void crc16_update_block_(FLAC__BitReader *br)
 	if(br->consumed_words > br->crc16_offset && br->crc16_align)
 		crc16_update_word_(br, br->buffer[br->crc16_offset++]);
 
+	/* Prevent OOB read due to wrap-around. */
+	if (br->consumed_words > br->crc16_offset) {
 #if FLAC__BYTES_PER_WORD == 4
-	br->read_crc16 = FLAC__crc16_update_words32(br->buffer + br->crc16_offset, br->consumed_words - br->crc16_offset, br->read_crc16);
+		br->read_crc16 = FLAC__crc16_update_words32(br->buffer + br->crc16_offset, br->consumed_words - br->crc16_offset, br->read_crc16);
 #elif FLAC__BYTES_PER_WORD == 8
-	br->read_crc16 = FLAC__crc16_update_words64(br->buffer + br->crc16_offset, br->consumed_words - br->crc16_offset, br->read_crc16);
+		br->read_crc16 = FLAC__crc16_update_words64(br->buffer + br->crc16_offset, br->consumed_words - br->crc16_offset, br->read_crc16);
 #else
-	unsigned i;
+		unsigned i;
 
-	for(i = br->crc16_offset; i < br->consumed_words; i++)
-		crc16_update_word_(br, br->buffer[i]);
+		for (i = br->crc16_offset; i < br->consumed_words; i++)
+			crc16_update_word_(br, br->buffer[i]);
 #endif
+	}
 
 	br->crc16_offset = 0;
 }
@@ -398,19 +403,22 @@ FLAC__bool FLAC__bitreader_read_raw_uint32(FLAC__BitReader *br, FLAC__uint32 *va
 			/* this also works when consumed_bits==0, it's just a little slower than necessary for that case */
 			const uint32_t n = FLAC__BITS_PER_WORD - br->consumed_bits;
 			const brword word = br->buffer[br->consumed_words];
+			const brword mask = br->consumed_bits < FLAC__BITS_PER_WORD ? FLAC__WORD_ALL_ONES >> br->consumed_bits : 0;
 			if(bits < n) {
-				*val = (FLAC__uint32)((word & (FLAC__WORD_ALL_ONES >> br->consumed_bits)) >> (n-bits)); /* The result has <= 32 non-zero bits */
+				uint32_t shift = n - bits;
+				*val = shift < FLAC__BITS_PER_WORD ? (FLAC__uint32)((word & mask) >> shift) : 0; /* The result has <= 32 non-zero bits */
 				br->consumed_bits += bits;
 				return true;
 			}
 			/* (FLAC__BITS_PER_WORD - br->consumed_bits <= bits) ==> (FLAC__WORD_ALL_ONES >> br->consumed_bits) has no more than 'bits' non-zero bits */
-			*val = (FLAC__uint32)(word & (FLAC__WORD_ALL_ONES >> br->consumed_bits));
+			*val = (FLAC__uint32)(word & mask);
 			bits -= n;
 			br->consumed_words++;
 			br->consumed_bits = 0;
 			if(bits) { /* if there are still bits left to read, there have to be less than 32 so they will all be in the next word */
-				*val <<= bits;
-				*val |= (FLAC__uint32)(br->buffer[br->consumed_words] >> (FLAC__BITS_PER_WORD-bits));
+				uint32_t shift = FLAC__BITS_PER_WORD - bits;
+				*val = bits < 32 ? *val << bits : 0;
+				*val |= shift < FLAC__BITS_PER_WORD ? (FLAC__uint32)(br->buffer[br->consumed_words] >> shift) : 0;
 				br->consumed_bits = bits;
 			}
 			return true;
@@ -453,11 +461,11 @@ FLAC__bool FLAC__bitreader_read_raw_int32(FLAC__BitReader *br, FLAC__int32 *val,
 {
 	FLAC__uint32 uval, mask;
 	/* OPT: inline raw uint32 code here, or make into a macro if possible in the .h file */
-	if(!FLAC__bitreader_read_raw_uint32(br, &uval, bits))
+	if (bits < 1 || ! FLAC__bitreader_read_raw_uint32(br, &uval, bits))
 		return false;
 	/* sign-extend *val assuming it is currently bits wide. */
 	/* From: https://graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend */
-	mask = 1u << (bits - 1);
+	mask = bits >= 33 ? 0 : 1u << (bits - 1);
 	*val = (uval ^ mask) - mask;
 	return true;
 }
@@ -663,7 +671,7 @@ FLAC__bool FLAC__bitreader_read_unary_unsigned(FLAC__BitReader *br, uint32_t *va
 	*val = 0;
 	while(1) {
 		while(br->consumed_words < br->words) { /* if we've not consumed up to a partial tail word... */
-			brword b = br->buffer[br->consumed_words] << br->consumed_bits;
+			brword b = br->consumed_bits < FLAC__BITS_PER_WORD ? br->buffer[br->consumed_words] << br->consumed_bits : 0;
 			if(b) {
 				i = COUNT_ZERO_MSBS(b);
 				*val += i;
@@ -864,7 +872,7 @@ incomplete_lsbs:
 			cwords = br->consumed_words;
 			words = br->words;
 			ucbits = FLAC__BITS_PER_WORD - br->consumed_bits;
-			b = br->buffer[cwords] << br->consumed_bits;
+			b = cwords < br->capacity ? br->buffer[cwords] << br->consumed_bits : 0;
 		} while(cwords >= words && val < end);
 	}
 
