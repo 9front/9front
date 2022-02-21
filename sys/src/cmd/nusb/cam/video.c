@@ -197,43 +197,41 @@ cvtproc(void *v)
 	qunlock(&c->qulock);
 }
 
-static Altc *
-selaltc(Cam *c, ProbeControl *pc)
+static Ep*
+selaltc(Cam *c, ProbeControl *pc, Ep *ep)
 {
-	int k;
 	uvlong bw, bw1, minbw;
-	int mink;
 	Format *fo;
 	VSUncompressedFrame *f;
-	Iface *iface;
-	Altc *altc;
-	
+	Ep *mink;
+
 	if(getframedesc(c, pc->bFormatIndex, pc->bFrameIndex, &fo, &f) < 0){
 		werrstr("selaltc: PROBE_CONTROL returned invalid bFormatIndex,bFrameIndex=%d,%d", pc->bFormatIndex, pc->bFrameIndex);
 		return nil;
 	}
+	mink = nil;
+	minbw = ~0ULL;
 	bw = (uvlong)GET2(f->wWidth) * GET2(f->wHeight) * fo->desc->bBitsPerPixel * 10e6 / GET4(c->pc.dwFrameInterval);
-	iface = c->iface;
-	mink = -1;
-	for(k = 0; k < nelem(iface->altc); k++){
-		altc = iface->altc[k];
-		if(altc == nil) continue;
-		bw1 = altc->maxpkt * altc->ntds * 8 * 1000 * 8;
-		if(bw1 < bw) continue;
-		if(mink < 0 || bw1 < minbw){
-			minbw = bw1;
-			mink = k;
+	for(;ep != nil; ep = ep->next){
+		if(ep->iface->id != c->iface->id)
+			continue;
+		bw1 = ep->maxpkt * ep->ntds * 8 * 1000 * 8;
+		if(bw1 >= bw) {
+			if(mink == nil || bw1 < minbw){
+				minbw = bw1;
+				mink = ep;
+			}
 		}
 	}
-	if(mink < 0){
+	if(mink == nil){
 		werrstr("device does not have enough bandwidth (need %lld bit/s)", bw);
 		return nil;
 	}
-	if(usbcmd(c->dev, 0x01, Rsetiface, mink, iface->id, nil, 0) < 0){
-		werrstr("selaltc: SET_INTERFACE(%d, %d): %r", iface->id, mink);
+	if(usbcmd(c->dev, 0x01, Rsetiface, mink->iface->alt, mink->iface->id, nil, 0) < 0){
+		werrstr("selaltc: SET_INTERFACE(%d, %d): %r", ep->iface->id, ep->iface->alt);
 		return nil;
 	}
-	return iface->altc[mink];
+	return mink;
 }
 
 static void
@@ -261,8 +259,7 @@ int
 videoopen(Cam *c, int fr)
 {
 	Dev *d;
-	Altc *altc;
-	Dev *ep;
+	Ep *e;
 	Format *f;
 
 	qlock(&c->qulock);
@@ -282,24 +279,20 @@ err:
 	if(usbcmd(d, 0x21, SET_CUR, VS_PROBE_CONTROL << 8, c->iface->id, (uchar *) &c->pc, sizeof(ProbeControl)) < sizeof(ProbeControl)) goto err;
 	if(usbcmd(d, 0xA1, GET_CUR, VS_PROBE_CONTROL << 8, c->iface->id, (uchar *) &c->pc, sizeof(ProbeControl)) < 0) goto err;
 	if(usbcmd(d, 0x21, SET_CUR, VS_COMMIT_CONTROL << 8, c->iface->id, (uchar *) &c->pc, sizeof(ProbeControl)) < sizeof(ProbeControl)) goto err;
-	altc = selaltc(c, &c->pc);
-	if(altc == nil)
+	e = selaltc(c, &c->pc, d->usb->ep[c->hdr->bEndpointAddress & Epmax]);
+	if(e == nil)
 		goto err;
-	ep = openep(d, c->hdr->bEndpointAddress & 0x7f);
-	if(ep == nil){
+	c->ep = openep(d, e);
+	if(c->ep == nil){
 		usbcmd(d, 0x01, Rsetiface, 0, c->iface->id, nil, 0);
 		goto err;
 	}
-	devctl(ep, "pollival %d", altc->interval);
-	devctl(ep, "uframes 1");
-	devctl(ep, "ntds %d", altc->ntds);
-	devctl(ep, "maxpkt %d", altc->maxpkt);
-	if(opendevdata(ep, OREAD) < 0){
+	devctl(c->ep, "uframes 1");
+	if(opendevdata(c->ep, OREAD) < 0){
 		usbcmd(d, 0x01, Rsetiface, 0, c->iface->id, nil, 0);
-		closedev(ep);
+		closedev(c->ep);
 		goto err;
 	}
-	c->ep = ep;
 	mkframes(c);
 	c->active = 1;
 	c->framemode = fr;

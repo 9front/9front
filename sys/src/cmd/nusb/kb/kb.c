@@ -323,12 +323,10 @@ repparse(uchar *d, uchar *e,
 }
 
 static int
-setproto(Hiddev *f, int eid)
+setproto(Hiddev *f, Iface *iface)
 {
 	int proto;
-	Iface *iface;
 
-	iface = f->dev->usb->ep[eid]->iface;
 
 	/*
 	 * DWC OTG controller misses some split transaction inputs.
@@ -433,7 +431,7 @@ hdrecover(Hiddev *f)
 		qlock(&l);
 	}
 Resetdone:
-	if(setproto(f, f->ep->id) < 0){
+	if(setproto(f, f->ep->ep->iface) < 0){
 		rerrstr(err, sizeof(err));
 		qunlock(&l);
 		hdfatal(f, err);
@@ -883,11 +881,11 @@ hdsetup(Dev *d, Ep *ep)
 	f->kinfd = -1;
 	incref(d);
 	f->dev = d;
-	if(setproto(f, ep->id) < 0){
+	if(setproto(f, ep->iface) < 0){
 		fprint(2, "%s: %s: setproto: %r\n", argv0, d->dir);
 		goto Err;
 	}
-	f->ep = openep(f->dev, ep->id);
+	f->ep = openep(f->dev, ep);
 	if(f->ep == nil){
 		fprint(2, "%s: %s: openep %d: %r\n", argv0, d->dir, ep->id);
 		goto Err;

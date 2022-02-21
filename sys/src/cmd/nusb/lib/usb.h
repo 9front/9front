@@ -1,4 +1,3 @@
-typedef struct Altc Altc;
 typedef struct Conf Conf;
 typedef struct DConf DConf;
 typedef struct DDesc DDesc;
@@ -12,16 +11,16 @@ typedef struct Iface Iface;
 typedef struct Usbdev Usbdev;
 
 enum {
-	/* fundamental constants */
-	Nep	= 256,	/* max. endpoints per usb device & per interface */
-
 	/* tunable parameters */
+	Nep	= 64,	/* max. endpoints per interface */
 	Nconf	= 16,	/* max. configurations per usb device */
 	Nddesc	= 8*Nep, /* max. device-specific descriptors per usb device */
 	Niface	= 16,	/* max. interfaces per configuration */
-	Naltc	= 256,	/* max. alt configurations per interface */
 	Uctries	= 4,	/* no. of tries for usbcmd */
 	Ucdelay	= 50,	/* delay before retrying */
+
+	/* fundamental constants */
+	Epmax	= 0xF,		/* endpoint address mask */
 
 	/* request type */
 	Rh2d	= 0<<7,		/* host to device */
@@ -110,17 +109,6 @@ enum {
 	Ebulk = 2,
 	Eintr = 3,
 
-	/* endpoint isotype */
-	Eunknown = 0,
-	Easync = 1,
-	Eadapt = 2,
-	Esync = 3,
-
-	/* endpoint isousage */
-	Edata = 0,
-	Efeedback = 1,
-	Eimplicit = 2,
-
 	/* config attrib */
 	Cbuspowered = 1<<7,
 	Cselfpowered = 1<<6,
@@ -182,6 +170,7 @@ struct Dev
 	int	depth;		/* hub depth for usb3 hubs */
 	int	maxpkt;		/* cached from usb description */
 	Usbdev*	usb;		/* USB description */
+	Ep*	ep;		/* endpoint from epopen() */
 	void*	aux;		/* for the device driver */
 	char*	hname;		/* hash name, unique for device */
 };
@@ -205,40 +194,38 @@ struct Usbdev
 	int	class;		/* from descriptor */
 	int	nconf;		/* from descriptor */
 	Conf*	conf[Nconf];	/* configurations */
-	Ep*	ep[Nep];	/* all endpoints in device */
+	Ep*	ep[Epmax+1];	/* all endpoints in device (chained), indexed by address */
 	Desc*	ddesc[Nddesc];	/* (raw) device specific descriptors */
 };
 
 struct Ep
 {
-	uchar	addr;		/* endpt address, 0-15 (|0x80 if Ein) */
-	uchar	dir;		/* direction, Ein/Eout */
+	Iface*	iface;		/* the endpoint belongs to */
+	Conf*	conf;		/* the endpoint belongs to */
+
+	int	id;		/* endpoint number: (id & Epmax) == endpoint address */
+	uchar	dir;		/* direction, Ein/Eout/Eboth */
 	uchar	type;		/* Econtrol, Eiso, Ebulk, Eintr */
-	uchar	isotype;	/* Eunknown, Easync, Eadapt, Esync */
-	uchar	isousage;	/* Edata, Efeedback, Eimplicit */
-	
-	int	id;
+
+	int	attrib;
+	int	pollival;
 	int	maxpkt;		/* max. packet size */
 	int	ntds;		/* nb. of Tds per µframe */
-	Conf*	conf;		/* the endpoint belongs to */
-	Iface*	iface;		/* the endpoint belongs to */
-};
 
-struct Altc
-{
-	int	attrib;
-	int	interval;
-	int	maxpkt;
-	int	ntds;
+	/* chain of endpoints with same address (used in different interfaces/altsettings) */
+	Ep*	next;
+
 	void*	aux;		/* for the driver program */
 };
 
 struct Iface
 {
-	int 	id;		/* interface number */
+	int	id;		/* interface number */
+	int	alt;		/* altsetting for this interface */
 	ulong	csp;		/* USB class/subclass/proto */
-	Altc*	altc[Naltc];
-	Ep*	ep[Nep];
+	Iface*	next;		/* chain of interfaces of different altsettings */
+	Ep*	ep[Nep];	/* consecutive array of endpoints in this interface (not including ep0) */
+
 	void*	aux;		/* for the driver program */
 };
 
@@ -269,7 +256,6 @@ struct Desc
 	Conf*	conf;		/* where this descriptor was read */
 	Iface*	iface;		/* last iface before desc in conf. */
 	Ep*	ep;		/* last endpt before desc in conf. */
-	Altc*	altc;		/* last alt.c. before desc in conf. */
 	DDesc	data;		/* unparsed standard USB descriptor */
 };
 
@@ -360,7 +346,7 @@ int	loaddevdesc(Dev *d);
 char*	loaddevstr(Dev *d, int sid);
 Dev*	opendev(char *fn);
 int	opendevdata(Dev *d, int mode);
-Dev*	openep(Dev *d, int id);
+Dev*	openep(Dev *d, Ep *e);
 int	parseconf(Usbdev *d, Conf *c, uchar *b, int n);
 int	parsedesc(Usbdev *d, Conf *c, uchar *b, int n);
 int	parsedev(Dev *xd, uchar *b, int n);
@@ -369,5 +355,3 @@ int	usbcmd(Dev *d, int type, int req, int value, int index, uchar *data, int cou
 Dev*	getdev(char *devid);
 
 extern int usbdebug;	/* more messages for bigger values */
-
-

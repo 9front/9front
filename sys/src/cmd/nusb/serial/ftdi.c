@@ -1385,7 +1385,6 @@ Eagain:
 		chanclose(p->w4data);
 	if(p->gotdata != nil)
 		chanclose(p->gotdata);
-	devctl(ser->dev, "detach");
 	closedev(ser->dev);
 }
 
@@ -1426,7 +1425,6 @@ statusreader(void *u)
 	}
 
 	shutdownchan(c);
-	devctl(ser->dev, "detach");
 	closedev(ser->dev);
 }
 

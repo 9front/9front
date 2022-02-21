@@ -24,63 +24,47 @@ nameid(char *s)
 }
 
 Dev*
-openep(Dev *d, int id)
+openep(Dev *d, Ep *ep)
 {
 	char *mode;	/* How many modes? */
-	Ep *ep;
-	Altc *ac;
 	Dev *epd;
-	Usbdev *ud;
 	char name[40];
 
-	if(access("/dev/usb", AEXIST) < 0 && bind("#u", "/dev", MBEFORE) < 0)
-		return nil;
 	if(d->cfd < 0 || d->usb == nil){
 		werrstr("device not configured");
 		return nil;
 	}
-	ud = d->usb;
-	if(id < 0 || id >= nelem(ud->ep) || ud->ep[id] == nil){
-		werrstr("bad enpoint number");
-		return nil;
-	}
-	ep = ud->ep[id];
-	snprint(name, sizeof(name), "/dev/usb/ep%d.%d", d->id, id);
+	snprint(name, sizeof(name), "/dev/usb/ep%d.%d", d->id, ep->id);
 	if(access(name, AEXIST) == 0){
 		dprint(2, "%s: %s already exists; trying to open\n", argv0, name);
 		epd = opendev(name);
-		if(epd != nil){
-			epd->id = id;
-			epd->maxpkt = ep->maxpkt;	/* guess */
+	} else {
+		mode = "rw";
+		if(ep->dir == Ein)
+			mode = "r";
+		if(ep->dir == Eout)
+			mode = "w";
+		if(devctl(d, "new %d %d %s", ep->id, ep->type, mode) < 0){
+			dprint(2, "%s: %s: new: %r\n", argv0, d->dir);
+			return nil;
 		}
-		return epd;
+		epd = opendev(name);
 	}
-	mode = "rw";
-	if(ep->dir == Ein)
-		mode = "r";
-	if(ep->dir == Eout)
-		mode = "w";
-	if(devctl(d, "new %d %d %s", id, ep->type, mode) < 0){
-		dprint(2, "%s: %s: new: %r\n", argv0, d->dir);
-		return nil;
-	}
-	epd = opendev(name);
 	if(epd == nil)
 		return nil;
-	epd->id = id;
+	epd->ep = ep;
+	epd->id = ep->id;
 	if(devctl(epd, "maxpkt %d", ep->maxpkt) < 0)
 		fprint(2, "%s: %s: openep: maxpkt: %r\n", argv0, epd->dir);
 	else
 		dprint(2, "%s: %s: maxpkt %d\n", argv0, epd->dir, ep->maxpkt);
 	epd->maxpkt = ep->maxpkt;
-	ac = ep->iface->altc[0];
 	if(ep->ntds > 1 && devctl(epd, "ntds %d", ep->ntds) < 0)
 		fprint(2, "%s: %s: openep: ntds: %r\n", argv0, epd->dir);
 	else
 		dprint(2, "%s: %s: ntds %d\n", argv0, epd->dir, ep->ntds);
-
-	if(ac != nil && (ep->type == Eintr || ep->type == Eiso) && ac->interval != 0)
-		if(devctl(epd, "pollival %d", ac->interval) < 0)
+	if((ep->type == Eintr || ep->type == Eiso) && ep->pollival != 0)
+		if(devctl(epd, "pollival %d", ep->pollival) < 0)
 			fprint(2, "%s: %s: openep: pollival: %r\n", argv0, epd->dir);
 	return epd;
 }
@@ -91,8 +75,6 @@ opendev(char *fn)
 	Dev *d;
 	int l;
 
-	if(access("/dev/usb", AEXIST) < 0 && bind("#u", "/dev", MBEFORE) < 0)
-		return nil;
 	d = emallocz(sizeof(Dev), 1);
 	incref(d);
 
@@ -109,6 +91,7 @@ opendev(char *fn)
 	strcpy(d->dir+l, "/ctl");
 	d->cfd = open(d->dir, ORDWR|OCEXEC);
 	d->dir[l] = 0;
+	d->ep = nil;
 	d->id = nameid(fn);
 	if(d->cfd < 0){
 		werrstr("can't open endpoint %s: %r", d->dir);
@@ -173,8 +156,13 @@ mkep(Usbdev *d, int id)
 {
 	Ep *ep;
 
-	d->ep[id] = ep = emallocz(sizeof(Ep), 1);
+	ep = emallocz(sizeof(Ep), 1);
 	ep->id = id;
+
+	id &= Epmax;
+	ep->next = d->ep[id];
+	d->ep[id] = ep;
+
 	return ep;
 }
 
@@ -258,6 +246,7 @@ loaddevdesc(Dev *d)
 	ep0->dir = Eboth;
 	ep0->type = Econtrol;
 	ep0->maxpkt = d->maxpkt = 8;		/* a default */
+	d->ep = ep0;
 	nr = parsedev(d, buf, nr);
 	if(nr >= 0){
 		d->usb->vendor = loaddevstr(d, d->usb->vsid);
@@ -289,17 +278,17 @@ configdev(Dev *d)
 static void
 closeconf(Conf *c)
 {
+	Iface *f;
 	int i;
-	int a;
 
 	if(c == nil)
 		return;
-	for(i = 0; i < nelem(c->iface); i++)
-		if(c->iface[i] != nil){
-			for(a = 0; a < nelem(c->iface[i]->altc); a++)
-				free(c->iface[i]->altc[a]);
-			free(c->iface[i]);
+	for(i = 0; i < nelem(c->iface); i++){
+		while((f = c->iface[i]) != nil) {
+			c->iface[i] = f->next;
+			free(f);
 		}
+	}
 	free(c);
 }
 
@@ -307,6 +296,7 @@ void
 closedev(Dev *d)
 {
 	int i;
+	Ep *ep;
 	Usbdev *ud;
 
 	if(d==nil || decref(d) != 0)
@@ -327,11 +317,14 @@ closedev(Dev *d)
 		free(ud->vendor);
 		free(ud->product);
 		free(ud->serial);
-		for(i = 0; i < nelem(ud->ep); i++)
-			free(ud->ep[i]);
+		for(i = 0; i < nelem(ud->ep); i++){
+			while((ep = ud->ep[i]) != nil){
+				ud->ep[i] = ep->next;
+				free(ep);
+			}
+		}
 		for(i = 0; i < nelem(ud->ddesc); i++)
 			free(ud->ddesc[i]);
-
 		for(i = 0; i < nelem(ud->conf); i++)
 			closeconf(ud->conf[i]);
 		free(ud);

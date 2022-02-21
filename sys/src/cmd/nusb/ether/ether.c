@@ -586,55 +586,49 @@ fsdestroyfid(Fid *fid)
 	}
 }
 
-static void
-setalt(Dev *d, int ifcid, int altid)
-{
-	if(usbcmd(d, Rh2d|Rstd|Riface, Rsetiface, altid, ifcid, nil, 0) < 0)
-		dprint(2, "%s: setalt ifc %d alt %d: %r\n", argv0, ifcid, altid);
-}
-
 static int
-ifaceinit(Dev *d, Iface *ifc, int *ei, int *eo)
+ifaceinit(Dev *d, Iface *iface, Ep **ein, Ep **eout)
 {
-	int i, epin, epout;
 	Ep *ep;
+	int i;
 
-	if(ifc == nil)
+	if(iface == nil)
 		return -1;
-
-	epin = epout = -1;
-	for(i = 0; (epin < 0 || epout < 0) && i < nelem(ifc->ep); i++)
-		if((ep = ifc->ep[i]) != nil && ep->type == Ebulk){
-			if(ep->dir == Eboth || ep->dir == Ein)
-				if(epin == -1)
-					epin =  ep->id;
-			if(ep->dir == Eboth || ep->dir == Eout)
-				if(epout == -1)
-					epout = ep->id;
+	*ein = *eout = nil;
+	for(i = 0; i < nelem(iface->ep); i++){
+		ep = iface->ep[i];
+		if(ep == nil)
+			break;
+		if(ep->type != Ebulk)
+			continue;
+		if(ep->dir == Eboth || ep->dir == Ein){
+			if(*ein == nil)
+				*ein = ep;
 		}
-	if(epin == -1 || epout == -1)
-		return -1;
-
-	for(i = 0; i < nelem(ifc->altc); i++)
-		if(ifc->altc[i] != nil)
-			setalt(d, ifc->id, i);
-
-	*ei = epin;
-	*eo = epout;
+		if(ep->dir == Eboth || ep->dir == Eout){
+			if(*eout == nil)
+				*eout = ep;
+		}
+		if(*ein != nil && *eout != nil)
+			goto Found;
+	}
+	return -1;
+Found:
+	if(usbcmd(d, Rh2d|Rstd|Riface, Rsetiface, iface->alt, iface->id, nil, 0) < 0)
+		dprint(2, "%s: setalt ifc %d alt %d: %r\n", argv0, iface->id, iface->alt);
 	return 0;
 }
 
 int
-findendpoints(Dev *d, int *ei, int *eo)
+findendpoints(Dev *d, Ep **ein, Ep **eout)
 {
 	int i, j, ctlid, datid;
-	Iface *ctlif, *datif;
+	Iface *iface, *ctlif, *datif;
 	Usbdev *ud;
 	Desc *desc;
 	Conf *c;
 
 	ud = d->usb;
-	*ei = *eo = -1;
 
 	/* look for union descriptor with ethernet ctrl interface */
 	for(i = 0; i < nelem(ud->ddesc); i++){
@@ -651,16 +645,15 @@ findendpoints(Dev *d, int *ei, int *eo)
 
 		ctlif = datif = nil;
 		for(j = 0; j < nelem(c->iface); j++){
-			if(c->iface[j] == nil)
-				continue;
-			if(c->iface[j]->id == ctlid)
-				ctlif = c->iface[j];
-			if(c->iface[j]->id == datid)
-				datif = c->iface[j];
-
+			for(iface = c->iface[j]; iface != nil; iface = iface->next){
+				if(iface->id == ctlid)
+					ctlif = iface;
+				if(iface->id == datid)
+					datif = iface;
+			}
 			if(datif != nil && ctlif != nil){
 				if(Subclass(ctlif->csp) == Scether)
-					if(ifaceinit(d, datif, ei, eo) != -1)
+					if(ifaceinit(d, datif, ein, eout) != -1)
 						return 0;
 				break;
 			}
@@ -668,11 +661,18 @@ findendpoints(Dev *d, int *ei, int *eo)
 	}
 
 	/* try any other one that seems to be ok */
-	for(i = 0; i < nelem(ud->conf); i++)
-		if((c = ud->conf[i]) != nil)
-			for(j = 0; j < nelem(c->iface); j++)
-				if(ifaceinit(d,c->iface[j],ei,eo) != -1)
-					return 0;
+	for(i = 0; i < nelem(ud->conf); i++){
+		if((c = ud->conf[i]) != nil){
+			for(j = 0; j < nelem(c->iface); j++){
+				for(datif = c->iface[j]; datif != nil; datif = datif->next){
+					if(ifaceinit(d, datif, ein, eout) != -1)
+						return 0;
+				}
+			}
+		}
+	}
+
+	*ein = *eout = nil;
 
 	return -1;
 }
@@ -909,7 +909,8 @@ void
 threadmain(int argc, char **argv)
 {
 	char s[64], *t;
-	int et, ei, eo;
+	int et;
+	Ep *ein, *eout;
 
 	fmtinstall('E', eipfmt);
 
@@ -948,7 +949,8 @@ threadmain(int argc, char **argv)
 
 	if((epctl = getdev(*argv)) == nil)
 		sysfatal("getdev: %r");
-	if(findendpoints(epctl, &ei, &eo) < 0)
+
+	if(findendpoints(epctl, &ein, &eout) < 0)
 		sysfatal("no endpoints found");
 
 	werrstr("");
@@ -957,14 +959,14 @@ threadmain(int argc, char **argv)
 	if(epreceive == nil || eptransmit == nil)
 		sysfatal("bug in init");
 
-	if((epin = openep(epctl, ei)) == nil)
+	if((epin = openep(epctl, ein)) == nil)
 		sysfatal("openep: %r");
-	if(ei == eo){
+	if(ein == eout){
 		incref(epin);
 		epout = epin;
 		opendevdata(epin, ORDWR);
 	} else {
-		if((epout = openep(epctl, eo)) == nil)
+		if((epout = openep(epctl, eout)) == nil)
 			sysfatal("openep: %r");
 		opendevdata(epin, OREAD);
 		opendevdata(epout, OWRITE);

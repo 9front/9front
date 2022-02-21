@@ -199,13 +199,12 @@ repparse(uchar *d, uchar *e,
 }
 
 static int
-setproto(KDev *f, int eid)
+setproto(KDev *f, Iface *iface)
 {
-	int id, proto;
+	int proto;
 
 	proto = Bootproto;
-	id = f->dev->usb->ep[eid]->iface->id;
-	f->nrep = usbcmd(f->dev, Rd2h|Rstd|Riface, Rgetdesc, Dreport<<8, id, 
+	f->nrep = usbcmd(f->dev, Rd2h|Rstd|Riface, Rgetdesc, Dreport<<8, iface->id, 
 		f->rep, sizeof(f->rep));
 	if(f->nrep > 0){
 		if(debug){
@@ -227,10 +226,10 @@ setproto(KDev *f, int eid)
 	 * if a HID's subclass code is 1 (boot mode), it will support
 	 * setproto, otherwise it is not guaranteed to.
 	 */
-	if(Subclass(f->dev->usb->ep[eid]->iface->csp) != 1)
+	if(Subclass(iface->csp) != 1)
 		return 0;
 
-	return usbcmd(f->dev, Rh2d|Rclass|Riface, Setproto, proto, id, nil, 0);
+	return usbcmd(f->dev, Rh2d|Rclass|Riface, Setproto, proto, iface->id, nil, 0);
 }
 
 static void
@@ -387,11 +386,11 @@ kbstart(Dev *d, Ep *ep, void (*f)(void*))
 	kd = emallocz(sizeof(KDev), 1);
 	incref(d);
 	kd->dev = d;
-	if(setproto(kd, ep->id) < 0){
+	if(setproto(kd, ep->iface) < 0){
 		fprint(2, "%s: %s: setproto: %r\n", argv0, d->dir);
 		goto Err;
 	}
-	kd->ep = openep(kd->dev, ep->id);
+	kd->ep = openep(kd->dev, ep);
 	if(kd->ep == nil){
 		fprint(2, "%s: %s: openep %d: %r\n", argv0, d->dir, ep->id);
 		goto Err;

@@ -11,7 +11,6 @@ parsedev(Dev *xd, uchar *b, int n)
 	char *hd;
 
 	d = xd->usb;
-	assert(d != nil);
 	dd = (DDev*)b;
 	if(usbdebug>1){
 		hd = hexstr(b, Ddevlen);
@@ -50,62 +49,59 @@ parsedev(Dev *xd, uchar *b, int n)
 }
 
 static int
-parseiface(Usbdev *d, Conf *c, uchar *b, int n, Iface **ipp, Altc **app)
+parseiface(Usbdev *d, Conf *c, uchar *b, int n, Iface **ipp)
 {
-	int class, subclass, proto;
-	int ifid, altid;
+	int class, subclass, proto, alt, id;
+	ulong csp;
 	DIface *dip;
 	Iface *ip;
 
-	assert(d != nil && c != nil);
 	if(n < Difacelen){
 		werrstr("short interface descriptor");
 		return -1;
 	}
 	dip = (DIface *)b;
-	ifid = dip->bInterfaceNumber;
-	if(ifid < 0 || ifid >= nelem(c->iface)){
-		werrstr("bad interface number %d", ifid);
-		return -1;
-	}
-	if(c->iface[ifid] == nil)
-		c->iface[ifid] = emallocz(sizeof(Iface), 1);
-	ip = c->iface[ifid];
 	class = dip->bInterfaceClass;
 	subclass = dip->bInterfaceSubClass;
 	proto = dip->bInterfaceProtocol;
-	ip->csp = CSP(class, subclass, proto);
-	if(ip->csp == 0)
-		ip->csp = d->csp;
-	if(d->csp == 0)				/* use csp from 1st iface */
-		d->csp = ip->csp;		/* if device has none */
+	csp = CSP(class, subclass, proto);
+	if(csp == 0)
+		csp = d->csp;
 	if(d->class == 0)
 		d->class = class;
-	ip->id = ifid;
-	if(c == d->conf[0] && ifid == 0)	/* ep0 was already there */
-		d->ep[0]->iface = ip;
-	altid = dip->bAlternateSetting;
-	if(altid < 0 || altid >= nelem(ip->altc)){
-		werrstr("bad alternate conf. number %d", altid);
+	alt = dip->bAlternateSetting;
+	id = dip->bInterfaceNumber;
+	if(id < 0 || id >= nelem(c->iface)){
+		werrstr("bad interface number %d", id);
 		return -1;
 	}
-	if(ip->altc[altid] == nil)
-		ip->altc[altid] = emallocz(sizeof(Altc), 1);
+	for(ip = c->iface[id]; ip != nil; ip = ip->next)
+		if(ip->csp == csp && ip->alt == alt)
+			goto Found;
+	ip = emallocz(sizeof(Iface), 1);
+	ip->id = id;
+	ip->csp = csp;
+	ip->alt = alt;
+	ip->next = c->iface[id];
+	c->iface[id] = ip;
+	if(d->csp == 0)			/* use csp from 1st iface */
+		d->csp = ip->csp;	/* if device has none */
+	if(c == d->conf[0] && id == 0)	/* ep0 was already there */
+		d->ep[0]->iface = ip;
+Found:
 	*ipp = ip;
-	*app = ip->altc[altid];
 	return Difacelen;
 }
 
 extern Ep* mkep(Usbdev *, int);
 
 static int
-parseendpt(Usbdev *d, Conf *c, Iface *ip, Altc *altc, uchar *b, int n, Ep **epp)
+parseendpt(Usbdev *d, Conf *c, Iface *ip, uchar *b, int n, Ep **epp)
 {
-	int i, dir, epid, type, addr;
-	Ep *ep;
+	int addr, dir, type, id, i;
 	DEp *dep;
+	Ep *ep;
 
-	assert(d != nil && c != nil && ip != nil && altc != nil);
 	if(n < Deplen){
 		werrstr("short endpoint descriptor");
 		return -1;
@@ -118,54 +114,67 @@ parseendpt(Usbdev *d, Conf *c, Iface *ip, Altc *altc, uchar *b, int n, Ep **epp)
 		dir = Ein;
 	else
 		dir = Eout;
-	epid = addr & 0xF;	/* default map to 0..15 */
-	assert(epid < nelem(d->ep));
-	ep = d->ep[epid];
-	if(ep == nil){
-		ep = mkep(d, epid);
-		ep->dir = dir;
-	}else if((ep->addr & 0x80) != (addr & 0x80)){
-		if(ep->type == type && type != Eiso)
-			ep->dir = Eboth;
-		else {
-			/*
-			 * resolve conflict when same endpoint number
-			 * is used for different input and output types.
-			 * map input endpoint to 16..31 and output to 0..15.
-			 */
-			ep->id = ((ep->addr & 0x80) != 0)<<4 | (ep->addr & 0xF);
-			d->ep[ep->id] = ep;
-			epid = ep->id ^ 0x10;
-			ep = mkep(d, epid);
-			ep->dir = dir;
+
+	/*
+	 * the endpoint id is created once, setting
+	 * type and direction, meaning the endpoint's
+	 * id must be unique for (type, dir) relative
+	 * to all other potential endpoints from
+	 * interfaces/altsettings on this device.
+	 *
+	 * the low Epmax bits of the id contains the
+	 * endpoint address that must be preserved.
+	 */
+	id = addr & Epmax;
+Again:
+	for(ep = d->ep[id & Epmax]; ep != nil; ep = ep->next){
+		if(ep->id != id)
+			continue;
+		if(ep->type != type){
+			id += Epmax+1;
+			goto Again;
 		}
+		if(ep->dir == dir)
+			break;
+		/*
+		 * Ein/Eout endpoints from the same
+		 * interface/altsetting can be merged
+		 * into one. (except for iso).
+		 */
+		if(ep->iface != ip || type == Eiso){
+			id += Epmax+1;
+			goto Again;
+		}
+		dir = Eboth;
+		break;
 	}
+
+	if(ep == nil || ep->iface != ip)
+		ep = mkep(d, id);
+
+	ep->dir = dir;
+	ep->type = type;
+	ep->iface = ip;
+	ep->conf = c;
 	ep->maxpkt = GET2(dep->wMaxPacketSize);
 	ep->ntds = 1 + ((ep->maxpkt >> 11) & 3);
 	ep->maxpkt &= 0x7FF;
-	ep->addr = addr;
-	ep->type = type;
-	ep->isotype = (dep->bmAttributes>>2) & 0x03;
- 	ep->isousage = (dep->bmAttributes>>4) & 0x03;
-	ep->conf = c;
-	ep->iface = ip;
-	if(ep->type != Eiso || ep->isousage == Edata || ep->isousage == Eimplicit){
-		altc->attrib = dep->bmAttributes;
-		altc->interval = dep->bInterval;
-		altc->maxpkt = ep->maxpkt;
-		altc->ntds = ep->ntds;
-	}
-	for(i = 0; i < nelem(ip->ep); i++)
-		if(ip->ep[i] == nil)
+	ep->attrib = dep->bmAttributes;
+	ep->pollival = dep->bInterval;
+
+	for(i = 0; i < nelem(ip->ep); i++){
+		if(ip->ep[i] == nil){
+			ip->ep[i] = ep;
 			break;
-	if(i == nelem(ip->ep)){
-		werrstr("parseendpt: bug: too many end points on interface "
-			"with csp %#lux", ip->csp);
-		fprint(2, "%s: %r\n", argv0);
-		return -1;
+		}
+		if(ip->ep[i] == ep)
+			break;
 	}
-	*epp = ip->ep[i] = ep;
-	return Dep;
+	if(i >= nelem(ip->ep))
+		fprint(2, "%s: parseendpt: too many endpoints in interface", argv0);
+
+	*epp = ep;
+	return Deplen;
 }
 
 static char*
@@ -189,14 +198,11 @@ parsedesc(Usbdev *d, Conf *c, uchar *b, int n)
 	int	len, nd, tot;
 	Iface	*ip;
 	Ep 	*ep;
-	Altc	*altc;
 	char	*hd;
 
-	assert(d != nil && c != nil);
 	tot = 0;
 	ip = nil;
 	ep = nil;
-	altc = nil;
 	for(nd = 0; nd < nelem(d->ddesc); nd++)
 		if(d->ddesc[nd] == nil)
 			break;
@@ -216,23 +222,23 @@ parsedesc(Usbdev *d, Conf *c, uchar *b, int n)
 			ddprint(2, "%s\tparsedesc: %r", argv0);
 			break;
 		case Diface:
-			if(parseiface(d, c, b, n, &ip, &altc) < 0){
+			if(parseiface(d, c, b, n, &ip) < 0){
 				ddprint(2, "%s\tparsedesc: %r\n", argv0);
 				return -1;
 			}
 			break;
 		case Dep:
-			if(ip == nil || altc == nil){
+			if(ip == nil){
 				werrstr("unexpected endpoint descriptor");
 				break;
 			}
-			if(parseendpt(d, c, ip, altc, b, n, &ep) < 0){
+			if(parseendpt(d, c, ip, b, n, &ep) < 0){
 				ddprint(2, "%s\tparsedesc: %r\n", argv0);
 				return -1;
 			}
 			break;
 		default:
-			if(nd == nelem(d->ddesc)){
+			if(nd >= nelem(d->ddesc)){
 				fprint(2, "%s: parsedesc: too many "
 					"device-specific descriptors for device"
 					" %s %s\n",
@@ -242,7 +248,6 @@ parsedesc(Usbdev *d, Conf *c, uchar *b, int n)
 			d->ddesc[nd] = emallocz(sizeof(Desc)+b[0], 0);
 			d->ddesc[nd]->iface = ip;
 			d->ddesc[nd]->ep = ep;
-			d->ddesc[nd]->altc = altc;
 			d->ddesc[nd]->conf = c;
 			memmove(&d->ddesc[nd]->data, b, len);
 			++nd;
@@ -262,7 +267,6 @@ parseconf(Usbdev *d, Conf *c, uchar *b, int n)
 	int	nr;
 	char	*hd;
 
-	assert(d != nil && c != nil);
 	dc = (DConf*)b;
 	if(usbdebug>1){
 		hd = hexstr(b, Dconflen);

@@ -24,14 +24,17 @@ struct Dev {
 	int	id;		/* usb id for device or ep. number */
 	int	dfd;		/* descriptor for the data file */
 	int	cfd;		/* descriptor for the control file */
+	int	isusb3;		/* this is a usb3 device */
+	int	depth;		/* hub depth for usb3 hubs */
 	int	maxpkt;		/* cached from usb description */
 	Usbdev*	usb;		/* USB description */
+	Ep*	ep;		/* endpoint from epopen() */
 	void*	aux;		/* for the device driver */
-	void	(*free)(void*);	/* idem. to release aux */
 	char*	hname;		/* hash name, unique for device */
 };
 .sp 0.3v
 struct Usbdev {
+	int	ver;		/* usb version */
 	ulong	csp;		/* USB class/subclass/proto */
 	int	vid;		/* vendor id */
 	int	did;		/* product (device) id */
@@ -39,36 +42,42 @@ struct Usbdev {
 	char*	vendor;
 	char*	product;
 	char*	serial;
-	int	ls;		/* low speed */
+	int	vsid;
+	int	psid;
+	int	ssid;
 	int	class;		/* from descriptor */
 	int	nconf;		/* from descriptor */
 	Conf*	conf[Nconf];	/* configurations */
-	Ep*	ep[Nep];	/* all endpoints in device */
+	Ep*	ep[Epmax+1];	/* all endpoints in device (chained), indexed by address */
 	Desc*	ddesc[Nddesc];	/* (raw) device specific descriptors */
 };
 .sp 0.3v
 struct Ep {
-	uchar	addr;		/* endpt address */
-	uchar	dir;		/* direction, Ein/Eout */
-	uchar	type;		/* Econtrol, Eiso, Ebulk, Eintr */
-	uchar	isotype;	/* Eunknown, Easync, Eadapt, Esync */
-	int	id;
-	int	maxpkt;		/* max. packet size */
-	Conf*	conf;		/* the endpoint belongs to */
 	Iface*	iface;		/* the endpoint belongs to */
-};
-.sp 0.3v
-struct Altc {
+	Conf*	conf;		/* the endpoint belongs to */
+
+	int	id;		/* endpoint number: (id & Epmax) == endpoint address */
+	uchar	dir;		/* direction, Ein/Eout/Eboth */
+	uchar	type;		/* Econtrol, Eiso, Ebulk, Eintr */
+
 	int	attrib;
-	int	interval;
+	int	pollival;
+	int	maxpkt;		/* max. packet size */
+	int	ntds;		/* nb. of Tds per µframe */
+
+	/* chain of endpoints with same address (used in different interfaces/altsettings) */
+	Ep*	next;
+
 	void*	aux;		/* for the driver program */
 };
 .sp 0.3v
 struct Iface {
-	int 	id;		/* interface number */
+	int	id;		/* interface number */
+	int	alt;		/* altsetting for this interface */
 	ulong	csp;		/* USB class/subclass/proto */
-	Altc*	altc[Naltc];
-	Ep*	ep[Nep];
+	Iface*	next;		/* chain of interfaces of different altsettings */
+	Ep*	ep[Nep];	/* consecutive array of endpoints in this interface (not including ep0) */
+
 	void*	aux;		/* for the driver program */
 };
 .sp 0.3v
@@ -83,7 +92,6 @@ struct Desc {
 	Conf*	conf;		/* where this descriptor was read */
 	Iface*	iface;		/* last iface before desc in conf. */
 	Ep*	ep;		/* last endpt before desc in conf. */
-	Altc*	altc;		/* last alt.c. before desc in conf. */
 	DDesc	data;		/* unparsed standard USB descriptor */
 };
 .sp 0.3v
@@ -116,7 +124,7 @@ char*	hexstr(void *a, int n);
 char*	loaddevstr(Dev *d, int sid);
 Dev*	opendev(char *fn);
 int	opendevdata(Dev *d, int mode);
-Dev*	openep(Dev *d, int id);
+Dev*	openep(Dev *d, Ep *e);
 int	unstall(Dev *dev, Dev *ep, int dir);
 int	usbcmd(Dev *d, int type, int req,
 		int value, int index, uchar *data, int count);
@@ -160,11 +168,7 @@ to add references and
 to drop references (and release resources when the last one vanishes).
 As an aid to the driver, the field
 .B aux
-may keep driver-specific data and the function
-.B free
-will be called (if not null) to release the
-.B aux
-structure when the reference count goes down to zero.
+may keep driver-specific data.
 .PP
 .I Dev.dir
 holds the path for the endpoint's directory.
@@ -173,6 +177,9 @@ The field
 .B id
 keeps the device number for setup endpoints and the endpoint number
 for all other endpoints.
+The endpoint number identifies
+.I devusb
+endpoint and is unique within a device.
 For example, it would be
 .B 3
 for
@@ -184,6 +191,12 @@ for
 It is easy to remember this because the former is created to operate
 on the device, while the later has been created as a particular endpoint
 to perform I/O.
+.PP
+The field
+.B ep
+holds the endpoint structure that was passed in
+.I epopen
+which gives easy access to the endpoint configuration.
 .PP
 Fields
 .B dfd

@@ -52,24 +52,12 @@ static void
 fmtprintiface(Fmt *f, Iface *i)
 {
 	int	j;
-	Altc	*a;
 	Ep	*ep;
 	char	*eds, *ets;
 
-	fmtprint(f, "\t\tiface csp %s.%uld.%uld\n",
-		classname(Class(i->csp)), Subclass(i->csp), Proto(i->csp));
-	for(j = 0; j < Naltc; j++){
-		a=i->altc[j];
-		if(a == nil)
-			break;
-		fmtprint(f, "\t\t  alt %d attr %d ival %d",
-			j, a->attrib, a->interval);
-		if(a->aux != nil)
-			fmtprint(f, " devspec %p\n", a->aux);
-		else
-			fmtprint(f, "\n");
-	}
-	for(j = 0; j < Nep; j++){
+	fmtprint(f, "\t\tiface csp %s.%uld.%uld alt %d\n",
+		classname(Class(i->csp)), Subclass(i->csp), Proto(i->csp), i->alt);
+	for(j = 0; j < nelem(i->ep); j++){
 		ep = i->ep[j];
 		if(ep == nil)
 			break;
@@ -79,9 +67,9 @@ fmtprintiface(Fmt *f, Iface *i)
 		if(ep->type <= nelem(etype))
 			ets = etype[ep->type];
 		fmtprint(f, "\t\t  ep id %d addr %d dir %s type %s"
-			" itype %d maxpkt %d ntds %d\n",
-			ep->id, ep->addr, eds, ets, ep->isotype,
-			ep->maxpkt, ep->ntds);
+			"  attrib %x maxpkt %d ntds %d pollival %d\n",
+			ep->id, ep->id & Epmax, eds, ets, ep->attrib,
+			ep->maxpkt, ep->ntds, ep->pollival);
 	}
 }
 
@@ -90,16 +78,16 @@ fmtprintconf(Fmt *f, Usbdev *d, int ci)
 {
 	int i;
 	Conf *c;
+	Iface *fc;
 	char *hd;
 
 	c = d->conf[ci];
 	fmtprint(f, "\tconf: cval %d attrib %x %d mA\n",
 		c->cval, c->attrib, c->milliamps);
-	for(i = 0; i < Niface; i++)
-		if(c->iface[i] == nil)
-			break;
-		else
-			fmtprintiface(f, c->iface[i]);
+	for(i = 0; i < Niface; i++){
+		for(fc = c->iface[i]; fc != nil; fc = fc->next)
+			fmtprintiface(f, fc);
+	}
 	for(i = 0; i < Nddesc; i++)
 		if(d->ddesc[i] == nil)
 			break;

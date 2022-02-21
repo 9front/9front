@@ -40,15 +40,15 @@ parsedescr(Desc *dd)
 	uchar *b;
 	int i;
 
-	if(dd == nil || dd->iface == nil || dd->altc == nil)
+	if(dd == nil || dd->iface == nil)
 		return;
 	if(Subclass(dd->iface->csp) != 2)
 		return;
 
-	c = dd->altc->aux;
+	c = dd->iface->aux;
 	if(c == nil){
 		c = mallocz(sizeof(*c), 1);
-		dd->altc->aux = c;
+		dd->iface->aux = c;
 	}
 
 	b = (uchar*)&dd->data;
@@ -87,15 +87,12 @@ parsedescr(Desc *dd)
 Dev*
 setupep(Dev *d, Ep *e, int speed)
 {
-	Altc *x;
 	Aconf *c;
 	Range *f;
-	int i;
 
-	for(i = 0; i < nelem(e->iface->altc); i++){
-		if((x = e->iface->altc[i]) == nil)
-			continue;
-		if((c = x->aux) == nil)
+	for(;e != nil; e = e->next){
+		c = e->iface->aux;
+		if(c == nil)
 			continue;
 		for(f = c->freq; f != nil; f = f->next)
 			if(speed >= f->min && speed <= f->max)
@@ -105,7 +102,7 @@ setupep(Dev *d, Ep *e, int speed)
 	return nil;
 
 Foundaltc:
-	if(usbcmd(d, Rh2d|Rstd|Riface, Rsetiface, i, e->iface->id, nil, 0) < 0){
+	if(usbcmd(d, Rh2d|Rstd|Riface, Rsetiface, e->iface->alt, e->iface->id, nil, 0) < 0){
 		werrstr("set altc: %r");
 		return nil;
 	}
@@ -116,15 +113,14 @@ Foundaltc:
 		b[0] = speed;
 		b[1] = speed >> 8;
 		b[2] = speed >> 16;
-		if(usbcmd(d, Rh2d|Rclass|Rep, Rsetcur, 0x100, e->addr, b, 3) < 0)
+		if(usbcmd(d, Rh2d|Rclass|Rep, Rsetcur, 0x100, (e->type==Ein?0x80:0)|(e->id&Epmax), b, 3) < 0)
 			fprint(2, "warning: set freq: %r\n");
 	}
 
-	if((d = openep(d, e->id)) == nil){
+	if((d = openep(d, e)) == nil){
 		werrstr("openep: %r");
 		return nil;
 	}
-	devctl(d, "pollival %d", x->interval);
 	devctl(d, "samplesz %d", audiochan*audiores/8);
 	devctl(d, "sampledelay %d", audiodelay);
 	devctl(d, "hz %d", speed);
@@ -224,7 +220,7 @@ main(int argc, char *argv[])
 		parsedescr(d->usb->ddesc[i]);
 	for(i = 0; i < nelem(d->usb->ep); i++){
 		e = d->usb->ep[i];
-		if(e != nil && e->type == Eiso && e->iface != nil && e->iface->csp == CSP(Claudio, 2, 0)){
+		if(e != nil && e->type == Eiso && e->iface->csp == CSP(Claudio, 2, 0)){
 			switch(e->dir){
 			case Ein:
 				if(audioepin != nil)

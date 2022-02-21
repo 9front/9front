@@ -248,11 +248,10 @@ frameinterval(Cam *c, VSUncompressedFrame *f, double t)
 			val = max;
 		else{
 			val = floor((t - min) / step) * step + min;
-			if(t >= val + step / 2.0)
-				t += step;
 		}
 	}else{
 		mini = -1;
+		minδ = 0;
 		for(i = 0; i < f->bFrameIntervalType; i++){
 			δ = fabs(((u32int)GET4(f->dwFrameInterval[i])) - t);
 			if(mini < 0 || δ < minδ){

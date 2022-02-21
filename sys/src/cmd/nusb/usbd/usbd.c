@@ -411,11 +411,18 @@ attachdev(Port *p)
 		return 0;
 	}
 
-	/* create all endpoint files for default conf #1 */
+	/*
+	 * create all endpoint files for default conf #1
+	 * but do not create endpoints that have an altsetting.
+	 */
 	for(id=1; id<nelem(d->usb->ep); id++){
 		Ep *ep = d->usb->ep[id];
-		if(ep != nil && ep->conf != nil && ep->conf->cval == 1){
-			Dev *epd = openep(d, id);
+		if(ep != nil
+		&& ep->next == nil
+		&& ep->conf != nil
+		&& ep->conf->cval == 1
+		&& ep->iface->alt == 0){
+			Dev *epd = openep(d, ep);
 			if(epd != nil)
 				closedev(epd);
 		}

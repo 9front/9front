@@ -22,9 +22,7 @@ serialfatal(Serial *ser)
 	Serialport *p;
 	int i;
 
-	dsprint(2, "serial: fatal error, detaching\n");
-	devctl(ser->dev, "detach");
-
+	dsprint(2, "serial: fatal error, closing\n");
 	for(i = 0; i < ser->nifcs; i++){
 		p = &ser->p[i];
 		if(p->w4data != nil)
@@ -564,14 +562,14 @@ dwrite(Req *req)
 }
 
 static int
-openeps(Serialport *p, int epin, int epout, int epintr)
+openeps(Serialport *p, Ep *epin, Ep *epout, Ep *epintr)
 {
 	Serial *ser;
 
 	ser = p->s;
 	p->epin = openep(ser->dev, epin);
 	if(p->epin == nil){
-		fprint(2, "serial: openep %d: %r\n", epin);
+		fprint(2, "serial: openep %d: %r\n", epin->id);
 		return -1;
 	}
 	if(epin == epout){
@@ -580,14 +578,14 @@ openeps(Serialport *p, int epin, int epout, int epintr)
 	} else
 		p->epout = openep(ser->dev, epout);
 	if(p->epout == nil){
-		fprint(2, "serial: openep %d: %r\n", epout);
+		fprint(2, "serial: openep %d: %r\n", epout->id);
 		closedev(p->epin);
 		return -1;
 	}
 	if(ser->hasepintr){
 		p->epintr = openep(ser->dev, epintr);
 		if(p->epintr == nil){
-			fprint(2, "serial: openep %d: %r\n", epintr);
+			fprint(2, "serial: openep %d: %r\n", epintr->id);
 			closedev(p->epin);
 			closedev(p->epout);
 			return -1;
@@ -619,34 +617,30 @@ openeps(Serialport *p, int epin, int epout, int epintr)
 static int
 findendpoints(Serial *ser, int ifc)
 {
-	int i, epin, epout, epintr;
-	Ep *ep, **eps;
-
-	epintr = epin = epout = -1;
+	Ep **eps, *ep, *epin, *epout, *epintr;
+	int i;
 
 	/*
 	 * interfc 0 means start from the start which is equiv to
 	 * iterate through endpoints probably, could be done better
 	 */
 	eps = ser->dev->usb->conf[0]->iface[ifc]->ep;
-
+	epintr = epin = epout = nil;
 	for(i = 0; i < Nep; i++){
 		if((ep = eps[i]) == nil)
-			continue;
-		if(ser->hasepintr && ep->type == Eintr &&
-		    ep->dir == Ein && epintr == -1)
-			epintr = ep->id;
+			break;
+		if(ser->hasepintr && ep->type == Eintr && ep->dir == Ein && epintr == nil)
+			epintr = ep;
 		if(ep->type == Ebulk){
-			if((ep->dir == Ein || ep->dir == Eboth) && epin == -1)
-				epin = ep->id;
-			if((ep->dir == Eout || ep->dir == Eboth) && epout == -1)
-				epout = ep->id;
+			if((ep->dir == Ein || ep->dir == Eboth) && epin == nil)
+				epin = ep;
+			if((ep->dir == Eout || ep->dir == Eboth) && epout == nil)
+				epout = ep;
 		}
 	}
-	dprint(2, "serial[%d]: ep ids: in %d out %d intr %d\n", ifc, epin, epout, epintr);
-	if(epin == -1 || epout == -1 || (ser->hasepintr && epintr == -1))
+	if(epin == nil || epout == nil || (ser->hasepintr && epintr == nil))
 		return -1;
-
+	dprint(2, "serial[%d]: ep ids: in %d out %d intr %d\n", ifc, epin->id, epout->id, epintr!=nil?epintr->id:-1);
 	if(openeps(&ser->p[ifc], epin, epout, epintr) < 0)
 		return -1;
 

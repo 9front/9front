@@ -386,7 +386,6 @@ umsinit(void)
 	}
 	if(some == 0){
 		dprint(2, "disk: all luns failed\n");
-		devctl(dev, "detach");
 		return -1;
 	}
 	return 0;
@@ -950,46 +949,61 @@ dwrite(Req *req)
 int
 findendpoints(Ums *ums)
 {
-	Ep *ep;
+	Ep *ep, *ein, *eout;
 	Usbdev *ud;
-	ulong csp, sc;
-	int i, epin, epout;
+	ulong csp;
+	int i;
 
-	epin = epout = -1;
 	ud = dev->usb;
+
+	ein = eout = nil;
 	for(i = 0; i < nelem(ud->ep); i++){
 		if((ep = ud->ep[i]) == nil)
 			continue;
 		csp = ep->iface->csp;
-		sc = Subclass(csp);
-		if(!(Class(csp) == Clstorage && (Proto(csp) == Protobulk || Proto(csp) == Protouas)))
+		if(Class(csp) != Clstorage || Proto(csp) != Protobulk || ep->type != Ebulk)
 			continue;
-		if(sc != Subatapi && sc != Sub8070 && sc != Subscsi)
-			fprint(2, "disk: subclass %#ulx not supported. trying anyway\n", sc);
-		if(ep->type == Ebulk){
-			if(ep->dir == Eboth || ep->dir == Ein)
-				if(epin == -1)
-					epin =  ep->id;
-			if(ep->dir == Eboth || ep->dir == Eout)
-				if(epout == -1)
-					epout = ep->id;
-		}
+		if(ep->dir == Eboth || ep->dir == Ein)
+			if(ein == nil)
+				ein =  ep;
+		if(ep->dir == Eboth || ep->dir == Eout)
+			if(eout == nil)
+				eout = ep;
 	}
-	dprint(2, "disk: ep ids: in %d out %d\n", epin, epout);
-	if(epin == -1 || epout == -1)
+	if(ein != nil && eout != nil)
+		goto Found;
+
+	/* try UAS protocol */
+	ein = eout = nil;
+	for(i = 0; i < nelem(ud->ep); i++){
+		if((ep = ud->ep[i]) == nil)
+			continue;
+		csp = ep->iface->csp;
+		if(Class(csp) != Clstorage || Proto(csp) != Protouas || ep->type != Ebulk)
+			continue;
+		if(ep->dir == Eboth || ep->dir == Ein)
+			if(ein == nil)
+				ein =  ep;
+		if(ep->dir == Eboth || ep->dir == Eout)
+			if(eout == nil)
+				eout = ep;
+	}
+	if(ein == nil || eout == nil)
 		return -1;
-	ums->epin = openep(dev, epin);
+Found:
+	dprint(2, "disk: ep ids: in %d out %d\n", ein->id, eout->id);
+	ums->epin = openep(dev, ein);
 	if(ums->epin == nil){
-		fprint(2, "disk: openep %d: %r\n", epin);
+		fprint(2, "disk: openep %d: %r\n", ein->id);
 		return -1;
 	}
-	if(epout == epin){
+	if(ein == eout){
 		incref(ums->epin);
 		ums->epout = ums->epin;
 	}else
-		ums->epout = openep(dev, epout);
+		ums->epout = openep(dev, eout);
 	if(ums->epout == nil){
-		fprint(2, "disk: openep %d: %r\n", epout);
+		fprint(2, "disk: openep %d: %r\n", eout->id);
 		closedev(ums->epin);
 		return -1;
 	}
@@ -1064,6 +1078,7 @@ main(int argc, char **argv)
 	case 'd':
 		scsidebug(diskdebug);
 		diskdebug++;
+		usbdebug++;
 		break;
 	default:
 		usage();

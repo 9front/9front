@@ -958,29 +958,29 @@ fsend(Srv *)
 }
 
 static int
-findendpoints(Dev *d, int *epin, int *epout, int *epint)
+findendpoints(Dev *d, Ep **epin, Ep **epout, Ep **epint)
 {
 	int i;
 	Ep *ep;
 	Usbdev *ud;
 
 	ud = d->usb;
-	*epin = *epout = *epint = -1;
+	*epin = *epout = *epint = nil;
 	for(i=0; i<nelem(ud->ep); i++){
 		if((ep = ud->ep[i]) == nil)
 			continue;
-		if(ep->type == Eintr && *epint == -1)
-			*epint = ep->id;
+		if(ep->type == Eintr && *epint == nil)
+			*epint = ep;
 		if(ep->type != Ebulk)
 			continue;
 		if(ep->dir == Eboth || ep->dir == Ein)
-			if(*epin == -1)
-				*epin =  ep->id;
+			if(*epin == nil)
+				*epin =  ep;
 		if(ep->dir == Eboth || ep->dir == Eout)
-			if(*epout == -1)
-				*epout = ep->id;
+			if(*epout == nil)
+				*epout = ep;
 	}
-	if(*epin >= 0 && *epout >= 0)
+	if(*epin != nil && *epout != nil)
 		return 0;
 	return -1;
 }
@@ -1009,7 +1009,7 @@ void
 threadmain(int argc, char **argv)
 {
 	char name[64], desc[64];
-	int epin, epout, epint;
+	Ep *epin, *epout, *epint;
 	Dev *d;
 
 	ARGBEGIN {
