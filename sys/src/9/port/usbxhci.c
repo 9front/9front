@@ -1059,7 +1059,7 @@ epclose(Ep *ep)
 		w[0] = (w[0] & ~(0x1F<<27)) | slot->nep<<27;
 
 		/* (input) ep context */
-		w += ep->nb*2*8<<ctlr->csz;
+		w += (ep->nb&Epmax)*2*8<<ctlr->csz;
 		memset(w, 0, 2*32<<ctlr->csz);
 
 		dmaflush(1, slot->ibase, 32*33 << ctlr->csz);
@@ -1147,8 +1147,8 @@ initep(Ep *ep)
 		nexterror();
 	}
 	if(ep->mode != OREAD){
-		ring = initring(io[OWRITE].ring = &slot->epr[ep->nb*2-1], 8);
-		ring->id = ep->nb*2;
+		ring = initring(io[OWRITE].ring = &slot->epr[(ep->nb&Epmax)*2-1], 8);
+		ring->id = (ep->nb&Epmax)*2;
 		if(ring->id > slot->nep)
 			slot->nep = ring->id;
 		ring->slot = slot;
@@ -1157,8 +1157,8 @@ initep(Ep *ep)
 		w[1] |= 1 << ring->id;
 	}
 	if(ep->mode != OWRITE){
-		ring = initring(io[OREAD].ring = &slot->epr[ep->nb*2], 8);
-		ring->id = ep->nb*2+1;
+		ring = initring(io[OREAD].ring = &slot->epr[(ep->nb&Epmax)*2], 8);
+		ring->id = (ep->nb&Epmax)*2+1;
 		if(ring->id > slot->nep)
 			slot->nep = ring->id;
 		ring->slot = slot;
@@ -1174,7 +1174,7 @@ initep(Ep *ep)
 		w[0] &= ~(1<<25);	// MTT
 
 	/* (input) ep context */
-	w += ep->nb*2*8<<ctlr->csz;
+	w += (ep->nb&Epmax)*2*8<<ctlr->csz;
 	if(io[OWRITE].ring != nil){
 		memset(w, 0, 5*4);
 		initepctx(w, io[OWRITE].ring, ep);
