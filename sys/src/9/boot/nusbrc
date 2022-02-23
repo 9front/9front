@@ -33,7 +33,7 @@ if(! nusb/usbd)
 			switch($4){
 			case *03
 				nusb/kb $id
-			case ff0202 0104ef
+			case ff0202 0104ef 0301e0
 				nusb/ether -t rndis $etherargs $id
 			case *02
 				# CDC ethernet

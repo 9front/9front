@@ -111,23 +111,7 @@ int
 rndisinit(Dev *d)
 {
 	uchar res[128];
-	int r, i, off, sz;
-	ulong csp;
-	Ep *ep;
-
-	r = 0;
-	for(i = 0; i < nelem(d->usb->ep); i++){
-		if((ep = d->usb->ep[i]) == nil)
-			continue;
-		csp = ep->iface->csp;
-		// ff0202 is canonical CSP per Linux kernel; 301e0 used by Nexus 5
-		if(csp == 0xff0202 || csp == 0x0301e0 || csp == 0x0104ef)
-			r = 1;
-	}
-	if(!r){
-		werrstr("no rndis found");
-		return -1;
-	}
+	int off, sz, r;
 
 	/* initialize */
 	PUT4(minit+20, 1580); /* max xfer = 1580 */
