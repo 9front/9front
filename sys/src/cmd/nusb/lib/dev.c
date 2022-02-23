@@ -482,6 +482,16 @@ unstall(Dev *dev, Dev *ep, int dir)
 	return 0;
 }
 
+int
+setalt(Dev *d, Iface *ifc)
+{
+	if(usbcmd(d, Rh2d|Rstd|Riface, Rsetiface, ifc->alt, ifc->id, nil, 0) < 0){
+		werrstr("setalt: %s: %r", d->dir);
+		return -1;
+	}
+	return 0;
+}
+
 /*
  * To be sure it uses a single write.
  */
