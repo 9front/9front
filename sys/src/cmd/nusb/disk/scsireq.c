@@ -231,11 +231,11 @@ SRread(ScsiReq *rp, void *buf, long nbytes)
 	if(rp->lbsize == 0 || (nbytes % rp->lbsize) || nbytes > Maxiosize){
 		if(diskdebug)
 			if (nbytes % rp->lbsize)
-				fprint(2, "disk: i/o size %ld %% %ld != 0\n",
-					nbytes, rp->lbsize);
+				fprint(2, "%s: i/o size %ld %% %ld != 0\n",
+					argv0, nbytes, rp->lbsize);
 			else
-				fprint(2, "disk: i/o size %ld > %d\n",
-					nbytes, Maxiosize);
+				fprint(2, "%s: i/o size %ld > %d\n",
+					argv0, nbytes, Maxiosize);
 		rp->status = Status_BADARG;
 		return -1;
 	}
@@ -295,11 +295,11 @@ SRwrite(ScsiReq *rp, void *buf, long nbytes)
 	if(rp->lbsize == 0 || (nbytes % rp->lbsize) || nbytes > Maxiosize){
 		if(diskdebug)
 			if (nbytes % rp->lbsize)
-				fprint(2, "disk: i/o size %ld %% %ld != 0\n",
-					nbytes, rp->lbsize);
+				fprint(2, "%s: i/o size %ld %% %ld != 0\n",
+					argv0, nbytes, rp->lbsize);
 			else
-				fprint(2, "disk: i/o size %ld > %d\n",
-					nbytes, Maxiosize);
+				fprint(2, "%s: i/o size %ld > %d\n",
+					argv0, nbytes, Maxiosize);
 		rp->status = Status_BADARG;
 		return -1;
 	}
@@ -354,7 +354,7 @@ SRseek(ScsiReq *rp, vlong offset, int type)
 
 	default:
 		if(diskdebug)
-			fprint(2, "disk: seek failed\n");
+			fprint(2, "%s: seek failed\n", argv0);
 		rp->status = Status_BADARG;
 		return -1;
 	}
@@ -601,7 +601,6 @@ request(int fd, ScsiPtr *cmd, ScsiPtr *data, int *status)
 
 	/* read or write actual data */
 	werrstr("");
-//	alarm(5*1000);
 	if(data->write)
 		n = write(fd, data->p, data->count);
 	else {
@@ -611,7 +610,6 @@ request(int fd, ScsiPtr *cmd, ScsiPtr *data, int *status)
 		else if (n < data->count)
 			memset(data->p + n, 0, data->count - n);
 	}
-//	alarm(0);
 	if (n != data->count && n <= 0) {
 		if (debug)
 			fprint(2,
@@ -832,7 +830,7 @@ SRclose(ScsiReq *rp)
 {
 	if((rp->flags & Fopen) == 0){
 		if(diskdebug)
-			fprint(2, "disk: closing closed file\n");
+			fprint(2, "%s: closing closed file\n", argv0);
 		rp->status = Status_BADARG;
 		return -1;
 	}
@@ -853,16 +851,16 @@ dirdevopen(ScsiReq *rp)
 	rp->lbsize = GETBELONG(data+4);
 	blocks =     GETBELONG(data);
 	if(debug)
-		fprint(2, "disk: dirdevopen: 10-byte logical block size %lud, "
-			"# blocks %llud\n", rp->lbsize, blocks);
+		fprint(2, "%s: dirdevopen: 10-byte logical block size %lud, "
+			"# blocks %llud\n", argv0, rp->lbsize, blocks);
 	if(blocks == 0xffffffff){
 		if(SRrcapacity16(rp, data) == -1)
 			return -1;
 		rp->lbsize = GETBELONG(data + 8);
 		blocks = (vlong)GETBELONG(data)<<32 | GETBELONG(data + 4);
 		if(debug)
-			fprint(2, "disk: dirdevopen: 16-byte logical block size"
-				" %lud, # blocks %llud\n", rp->lbsize, blocks);
+			fprint(2, "%s: dirdevopen: 16-byte logical block size"
+				" %lud, # blocks %llud\n", argv0, rp->lbsize, blocks);
 	}
 	/* some newer dev's don't support 6-byte commands */
 	if(blocks > Max24off && !force6bytecmds)
@@ -881,8 +879,8 @@ seqdevopen(ScsiReq *rp)
 		rp->flags |= Fbfixed;
 		rp->lbsize = limits[4]<<8 | limits[5];
 		if(debug)
-			fprint(2, "disk: seqdevopen: 10-byte logical block size %lud\n",
-				rp->lbsize);
+			fprint(2, "%s: seqdevopen: 10-byte logical block size %lud\n",
+				argv0, rp->lbsize);
 		return 0;
 	}
 	/*
@@ -941,8 +939,8 @@ wormdevopen(ScsiReq *rp)
 		/* last 3 bytes of block 0 descriptor */
 		rp->lbsize = GETBE24(list+13);
 	if(debug)
-		fprint(2, "disk: wormdevopen: 10-byte logical block size %lud\n",
-			rp->lbsize);
+		fprint(2, "%s: wormdevopen: 10-byte logical block size %lud\n",
+			argv0, rp->lbsize);
 	return status;
 }
 
@@ -953,7 +951,7 @@ SRopenraw(ScsiReq *rp, char *unit)
 
 	if(rp->flags & Fopen){
 		if(diskdebug)
-			fprint(2, "disk: opening open file\n");
+			fprint(2, "%s: opening open file\n", argv0);
 		rp->status = Status_BADARG;
 		return -1;
 	}

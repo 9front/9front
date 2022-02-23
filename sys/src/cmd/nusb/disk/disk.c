@@ -217,10 +217,10 @@ getmaxlun(void)
 	max = 0;
 	r = Rd2h|Rclass|Riface;
 	if(usbcmd(dev, r, Getmaxlun, 0, 0, &max, 1) < 0){
-		dprint(2, "disk: %s: getmaxlun failed: %r\n", dev->dir);
+		dprint(2, "%s: %s: getmaxlun failed: %r\n", argv0, dev->dir);
 	}else{
 		max &= 017;			/* 15 is the max. allowed */
-		dprint(2, "disk: %s: maxlun %d\n", dev->dir, max);
+		dprint(2, "%s: %s: maxlun %d\n", argv0, dev->dir, max);
 	}
 	return max;
 }
@@ -232,7 +232,7 @@ umsreset(void)
 
 	r = Rh2d|Rclass|Riface;
 	if(usbcmd(dev, r, Umsreset, 0, 0, nil, 0) < 0){
-		fprint(2, "disk: reset: %r\n");
+		fprint(2, "%s: reset: %r\n", argv0);
 		return -1;
 	}
 	sleep(100);
@@ -245,10 +245,10 @@ umsrecover(void)
 	if(umsreset() < 0)
 		return -1;
 	if(unstall(dev, ums->epin, Ein) < 0)
-		dprint(2, "disk: unstall epin: %r\n");
+		dprint(2, "%s: unstall epin: %r\n", argv0);
 	/* do we need this when epin == epout? */
 	if(unstall(dev, ums->epout, Eout) < 0)
-		dprint(2, "disk: unstall epout: %r\n");
+		dprint(2, "%s: unstall epout: %r\n", argv0);
 	return 0;
 }
 
@@ -338,8 +338,8 @@ umscapacity(Umsc *lun)
 	lun->capacity = (vlong)lun->blocks * lun->lbsize;
 	fixlength(lun, lun->blocks);
 	if(diskdebug)
-		fprint(2, "disk: logical block size %lud, # blocks %llud\n",
-			lun->lbsize, lun->blocks);
+		fprint(2, "%s: logical block size %lud, # blocks %llud\n",
+			argv0, lun->lbsize, lun->blocks);
 	return 0;
 }
 
@@ -361,7 +361,7 @@ umsinit(void)
 		lun->lun = i;
 		lun->flags = Fopen | Fusb | Frw10;
 		if(SRinquiry(lun) < 0 && SRinquiry(lun) < 0){
-			dprint(2, "disk: lun %d inquiry failed\n", i);
+			dprint(2, "%s: lun %d inquiry failed\n", argv0, i);
 			continue;
 		}
 		switch(lun->inquiry[0]){
@@ -371,8 +371,8 @@ umsinit(void)
 		case Devmo:
 			break;
 		default:
-			fprint(2, "disk: lun %d is not a disk (type %#02x)\n",
-				i, lun->inquiry[0]);
+			fprint(2, "%s: lun %d is not a disk (type %#02x)\n",
+				argv0, i, lun->inquiry[0]);
 			continue;
 		}
 
@@ -385,7 +385,7 @@ umsinit(void)
 		umscapacity(lun);
 	}
 	if(some == 0){
-		dprint(2, "disk: all luns failed\n");
+		dprint(2, "%s: all luns failed\n", argv0);
 		return -1;
 	}
 	return 0;
@@ -411,7 +411,7 @@ umsrequest(Umsc *umsc, ScsiPtr *cmd, ScsiPtr *data, int *status)
 	cbw.flags = data->write? CbwDataOut: CbwDataIn;
 	cbw.lun = umsc->lun;
 	if(cmd->count < 1 || cmd->count > 16)
-		print("disk: umsrequest: bad cmd count: %ld\n", cmd->count);
+		fprint(2, "%s: umsrequest: bad cmd count: %ld\n", argv0, cmd->count);
 
 	cbw.len = cmd->count;
 	assert(cmd->count <= sizeof(cbw.command));
@@ -420,7 +420,7 @@ umsrequest(Umsc *umsc, ScsiPtr *cmd, ScsiPtr *data, int *status)
 
 	werrstr("");		/* we use %r later even for n == 0 */
 	if(diskdebug){
-		fprint(2, "disk: cmd: tag %#lx: ", cbw.tag);
+		fprint(2, "%s: cmd: tag %#lx: ", argv0, cbw.tag);
 		for(n = 0; n < cbw.len; n++)
 			fprint(2, " %2.2x", cbw.command[n]&0xFF);
 		fprint(2, " datalen: %ld\n", cbw.datalen);
@@ -428,7 +428,7 @@ umsrequest(Umsc *umsc, ScsiPtr *cmd, ScsiPtr *data, int *status)
 
 	/* issue tunnelled scsi command */
 	if(write(ums->epout->dfd, &cbw, CbwLen) != CbwLen){
-		fprint(2, "disk: cmd: %r\n");
+		fprint(2, "%s: cmd: %r\n", argv0);
 		goto Fail;
 	}
 
@@ -444,9 +444,9 @@ umsrequest(Umsc *umsc, ScsiPtr *cmd, ScsiPtr *data, int *status)
 		}
 		if(diskdebug)
 			if(n < 0)
-				fprint(2, "disk: data: %r\n");
+				fprint(2, "%s: data: %r\n", argv0);
 			else
-				fprint(2, "disk: data: %d bytes (nio: %d)\n", n, nio);
+				fprint(2, "%s: data: %d bytes (nio: %d)\n", argv0, n, nio);
 		nio = n;
 		if(n <= 0){
 			nio = 0;
@@ -464,22 +464,22 @@ umsrequest(Umsc *umsc, ScsiPtr *cmd, ScsiPtr *data, int *status)
 	}
 
 	if(n != CswLen || strncmp(csw.signature, "USBS", 4) != 0){
-		dprint(2, "disk: read n=%d: status: %r\n", n);
+		dprint(2, "%s: read n=%d: status: %r\n", argv0, n);
 		goto Fail;
 	}
 	if(csw.tag != cbw.tag){
-		dprint(2, "disk: status tag mismatch\n");
+		dprint(2, "%s: status tag mismatch\n", argv0);
 		goto Fail;
 	}
 	if(csw.status >= CswPhaseErr){
-		dprint(2, "disk: phase error\n");
+		dprint(2, "%s: phase error\n", argv0);
 		goto Fail;
 	}
 	if(csw.dataresidue == 0 || ums->wrongresidues)
 		csw.dataresidue = data->count - nio;
 	if(diskdebug){
-		fprint(2, "disk: status: %2.2ux residue: %ld\n",
-			csw.status, csw.dataresidue);
+		fprint(2, "%s: status: %2.2ux residue: %ld\n",
+			argv0, csw.status, csw.dataresidue);
 		if(cbw.command[0] == ScmdRsense){
 			fprint(2, "sense data:");
 			for(n = 0; n < data->count - csw.dataresidue; n++)
@@ -495,7 +495,7 @@ umsrequest(Umsc *umsc, ScsiPtr *cmd, ScsiPtr *data, int *status)
 		*status = STcheck;
 		break;
 	default:
-		dprint(2, "disk: phase error\n");
+		dprint(2, "%s: phase error\n", argv0);
 		goto Fail;
 	}
 	ums->nerrs = 0;
@@ -946,64 +946,56 @@ dwrite(Req *req)
 	srvacquire(srv);
 }
 
-int
-findendpoints(Ums *ums)
+static int
+findendpoints(Ums *ums, int proto)
 {
 	Ep *ep, *ein, *eout;
+	Iface *ifc;
 	Usbdev *ud;
-	ulong csp;
-	int i;
+	int i, j;
 
 	ud = dev->usb;
-
-	ein = eout = nil;
-	for(i = 0; i < nelem(ud->ep); i++){
-		if((ep = ud->ep[i]) == nil)
-			continue;
-		csp = ep->iface->csp;
-		if(Class(csp) != Clstorage || Proto(csp) != Protobulk || ep->type != Ebulk)
-			continue;
-		if(ep->dir == Eboth || ep->dir == Ein)
-			if(ein == nil)
-				ein =  ep;
-		if(ep->dir == Eboth || ep->dir == Eout)
-			if(eout == nil)
-				eout = ep;
+	for(i = 0; i < nelem(ud->conf[0]->iface); i++){
+		for(ifc = ud->conf[0]->iface[i]; ifc != nil; ifc = ifc->next){
+			if(Class(ifc->csp) != Clstorage)
+				continue;
+			if(Proto(ifc->csp) != proto)
+				continue;
+			ein = eout = nil;
+			for(j = 0; j < nelem(ifc->ep); j++){
+				ep = ifc->ep[j];
+				if(ep == nil)
+					break;
+				if(ep->type != Ebulk)
+					continue;
+				if(ep->dir == Eboth || ep->dir == Ein)
+					if(ein == nil)
+						ein =  ep;
+				if(ep->dir == Eboth || ep->dir == Eout)
+					if(eout == nil)
+						eout = ep;
+				if(ein != nil && eout != nil){
+					dprint(2, "%s: ifc %d csp %lux ep ids: in %d out %d\n",
+						argv0, ifc->id, ifc->csp, ein->id, eout->id);
+					goto Found;
+				}
+			}
+		}
 	}
-	if(ein != nil && eout != nil)
-		goto Found;
-
-	/* try UAS protocol */
-	ein = eout = nil;
-	for(i = 0; i < nelem(ud->ep); i++){
-		if((ep = ud->ep[i]) == nil)
-			continue;
-		csp = ep->iface->csp;
-		if(Class(csp) != Clstorage || Proto(csp) != Protouas || ep->type != Ebulk)
-			continue;
-		if(ep->dir == Eboth || ep->dir == Ein)
-			if(ein == nil)
-				ein =  ep;
-		if(ep->dir == Eboth || ep->dir == Eout)
-			if(eout == nil)
-				eout = ep;
-	}
-	if(ein == nil || eout == nil)
-		return -1;
+	werrstr("no endpoints found");
+	return -1;
 Found:
-	dprint(2, "disk: ep ids: in %d out %d\n", ein->id, eout->id);
-	ums->epin = openep(dev, ein);
-	if(ums->epin == nil){
-		fprint(2, "disk: openep %d: %r\n", ein->id);
+	if(ifc->alt != 0 && setalt(dev, ifc) < 0)
 		return -1;
-	}
+	ums->epin = openep(dev, ein);
+	if(ums->epin == nil)
+		return -1;
 	if(ein == eout){
 		incref(ums->epin);
 		ums->epout = ums->epin;
 	}else
 		ums->epout = openep(dev, eout);
 	if(ums->epout == nil){
-		fprint(2, "disk: openep %d: %r\n", eout->id);
 		closedev(ums->epin);
 		return -1;
 	}
@@ -1014,12 +1006,11 @@ Found:
 		opendevdata(ums->epout, OWRITE);
 	}
 	if(ums->epin->dfd < 0 || ums->epout->dfd < 0){
-		fprint(2, "disk: open i/o ep data: %r\n");
 		closedev(ums->epin);
 		closedev(ums->epout);
 		return -1;
 	}
-	dprint(2, "disk: ep in %s out %s\n", ums->epin->dir, ums->epout->dir);
+	dprint(2, "%s: ep in %s out %s\n", argv0, ums->epin->dir, ums->epout->dir);
 
 	devctl(ums->epin, "timeout 2000");
 	devctl(ums->epout, "timeout 2000");
@@ -1091,8 +1082,9 @@ main(int argc, char **argv)
 	notreallyums(dev);
 	ums = dev->aux = emallocz(sizeof(Ums), 1);
 	ums->maxlun = -1;
-	if(findendpoints(ums) < 0)
-		sysfatal("endpoints not found");
+	if(findendpoints(ums, Protobulk) < 0
+	&& findendpoints(ums, Protouas) < 0)
+		sysfatal("findendpoints: %r\n");
 
 	/*
 	 * SanDISK 512M gets residues wrong.
