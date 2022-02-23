@@ -87,10 +87,13 @@ parsedescr(Desc *dd)
 Dev*
 setupep(Dev *d, Ep *e, int speed)
 {
+	int dir = e->dir;
 	Aconf *c;
 	Range *f;
 
 	for(;e != nil; e = e->next){
+		if(e->dir!=dir && e->dir!=Eboth)
+			continue;
 		c = e->iface->aux;
 		if(c == nil)
 			continue;
@@ -102,10 +105,8 @@ setupep(Dev *d, Ep *e, int speed)
 	return nil;
 
 Foundaltc:
-	if(usbcmd(d, Rh2d|Rstd|Riface, Rsetiface, e->iface->alt, e->iface->id, nil, 0) < 0){
-		werrstr("set altc: %r");
+	if(setalt(d, e->iface) < 0)
 		return nil;
-	}
 
 	if(c->caps & 1){
 		uchar b[4];
@@ -113,7 +114,7 @@ Foundaltc:
 		b[0] = speed;
 		b[1] = speed >> 8;
 		b[2] = speed >> 16;
-		if(usbcmd(d, Rh2d|Rclass|Rep, Rsetcur, 0x100, (e->type==Ein?0x80:0)|(e->id&Epmax), b, 3) < 0)
+		if(usbcmd(d, Rh2d|Rclass|Rep, Rsetcur, 0x100, (e->dir==Ein?0x80:0)|(e->id&Epmax), b, 3) < 0)
 			fprint(2, "warning: set freq: %r\n");
 	}
 
@@ -124,7 +125,7 @@ Foundaltc:
 	devctl(d, "samplesz %d", audiochan*audiores/8);
 	devctl(d, "sampledelay %d", audiodelay);
 	devctl(d, "hz %d", speed);
-	if(e->dir == Ein)
+	if(e->dir==Ein)
 		devctl(d, "name audioin");
 	else
 		devctl(d, "name audio");
@@ -165,10 +166,9 @@ Setup:
 			return;
 		}
 		closedev(d);
-		if(audioepin != nil && audioepin != audioepout){
+		if(audioepin != nil && audioepin != audioepout)
 			if(d = setupep(audiodev, audioepin, speed))
 				closedev(d);
-		}
 		audiofreq = speed;
 	} else if(strcmp(f[0], "delay") == 0){
 		audiodelay = atoi(f[1]);
