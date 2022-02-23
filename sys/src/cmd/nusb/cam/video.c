@@ -278,7 +278,7 @@ err:
 	if(usbcmd(d, 0x21, SET_CUR, VS_COMMIT_CONTROL << 8, c->iface->id, (uchar *) &c->pc, sizeof(ProbeControl)) < sizeof(ProbeControl)) goto err;
 	e = selbw(c, &c->pc, d->usb->ep[c->hdr->bEndpointAddress & Epmax]);
 	if(e == nil || setalt(c->dev, e->iface) < 0)
-		return nil;
+		return -1;
 	c->ep = openep(d, e);
 	if(c->ep == nil){
 		setalt(d, c->iface);
