@@ -610,13 +610,9 @@ ifaceinit(Dev *d, Iface *iface, Ep **ein, Ep **eout)
 				*eout = ep;
 		}
 		if(*ein != nil && *eout != nil)
-			goto Found;
+			return setalt(d, iface);
 	}
 	return -1;
-Found:
-	if(usbcmd(d, Rh2d|Rstd|Riface, Rsetiface, iface->alt, iface->id, nil, 0) < 0)
-		dprint(2, "%s: setalt ifc %d alt %d: %r\n", argv0, iface->id, iface->alt);
-	return 0;
 }
 
 int
