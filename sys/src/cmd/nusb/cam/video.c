@@ -190,7 +190,7 @@ cvtproc(void *v)
 	c->abort = 1;
 	free(fbuf);
 	closedev(c->ep);
-	usbcmd(c->dev, 0x01, Rsetiface, 0, c->iface->id, nil, 0);
+	setalt(c->dev, c->iface);
 	c->ep = nil;
 	c->active = 0;
 	c->abort = 0;
@@ -198,7 +198,7 @@ cvtproc(void *v)
 }
 
 static Ep*
-selaltc(Cam *c, ProbeControl *pc, Ep *ep)
+selbw(Cam *c, ProbeControl *pc, Ep *ep)
 {
 	uvlong bw, bw1, minbw;
 	Format *fo;
@@ -206,7 +206,8 @@ selaltc(Cam *c, ProbeControl *pc, Ep *ep)
 	Ep *mink;
 
 	if(getframedesc(c, pc->bFormatIndex, pc->bFrameIndex, &fo, &f) < 0){
-		werrstr("selaltc: PROBE_CONTROL returned invalid bFormatIndex,bFrameIndex=%d,%d", pc->bFormatIndex, pc->bFrameIndex);
+		werrstr("selaltc: PROBE_CONTROL returned invalid bFormatIndex,bFrameIndex=%d,%d",
+			pc->bFormatIndex, pc->bFrameIndex);
 		return nil;
 	}
 	mink = nil;
@@ -218,17 +219,13 @@ selaltc(Cam *c, ProbeControl *pc, Ep *ep)
 		bw1 = ep->maxpkt * ep->ntds * 8 * 1000 * 8;
 		if(bw1 >= bw) {
 			if(mink == nil || bw1 < minbw){
-				minbw = bw1;
 				mink = ep;
+				minbw = bw1;
 			}
 		}
 	}
 	if(mink == nil){
 		werrstr("device does not have enough bandwidth (need %lld bit/s)", bw);
-		return nil;
-	}
-	if(usbcmd(c->dev, 0x01, Rsetiface, mink->iface->alt, mink->iface->id, nil, 0) < 0){
-		werrstr("selaltc: SET_INTERFACE(%d, %d): %r", ep->iface->id, ep->iface->alt);
 		return nil;
 	}
 	return mink;
@@ -275,22 +272,22 @@ err:
 	}
 	if(getconverter(f) == nil) goto err;
 	d = c->dev;
-	if(usbcmd(d, 0x01, Rsetiface, 0, c->iface->id, nil, 0) < 0) goto err;
+	if(setalt(d, c->iface) < 0) goto err;
 	if(usbcmd(d, 0x21, SET_CUR, VS_PROBE_CONTROL << 8, c->iface->id, (uchar *) &c->pc, sizeof(ProbeControl)) < sizeof(ProbeControl)) goto err;
 	if(usbcmd(d, 0xA1, GET_CUR, VS_PROBE_CONTROL << 8, c->iface->id, (uchar *) &c->pc, sizeof(ProbeControl)) < 0) goto err;
 	if(usbcmd(d, 0x21, SET_CUR, VS_COMMIT_CONTROL << 8, c->iface->id, (uchar *) &c->pc, sizeof(ProbeControl)) < sizeof(ProbeControl)) goto err;
-	e = selaltc(c, &c->pc, d->usb->ep[c->hdr->bEndpointAddress & Epmax]);
-	if(e == nil)
-		goto err;
+	e = selbw(c, &c->pc, d->usb->ep[c->hdr->bEndpointAddress & Epmax]);
+	if(e == nil || setalt(c->dev, e->iface) < 0)
+		return nil;
 	c->ep = openep(d, e);
 	if(c->ep == nil){
-		usbcmd(d, 0x01, Rsetiface, 0, c->iface->id, nil, 0);
+		setalt(d, c->iface);
 		goto err;
 	}
 	devctl(c->ep, "uframes 1");
 	if(opendevdata(c->ep, OREAD) < 0){
-		usbcmd(d, 0x01, Rsetiface, 0, c->iface->id, nil, 0);
 		closedev(c->ep);
+		setalt(d, c->iface);
 		goto err;
 	}
 	mkframes(c);
