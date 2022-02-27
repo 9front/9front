@@ -586,7 +586,7 @@ vlanrange(char *s, int *i, int *j)
 		/* -nnn */
 		*j = -(*i);
 		*i = 1;
-	} else if(*s == '-') {
+	} else if(*x == '-') {
 		/* nnn- */
 		s = x;
 		*j = -strtol(s, &x, 10);
