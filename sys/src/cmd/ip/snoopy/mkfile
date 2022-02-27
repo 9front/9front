@@ -43,6 +43,7 @@ PROTOS=\
 	tcp\
 	ttls\
 	udp\
+	vlan\
 
 POBJS=${PROTOS:%=%.$O}
 

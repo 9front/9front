@@ -16,7 +16,7 @@ struct Hdr {
 #define	ETHERMAXTU	1514	/* maximum transmit size */
 #define ETHERHDRSIZE	14	/* size of an ethernet header */
 
-static Mux p_mux[] =
+Mux ethertypes[] =
 {
 	{"ip",		0x0800,	} ,
 	{"arp",		0x0806,	} ,
@@ -27,6 +27,7 @@ static Mux p_mux[] =
 	{"eapol",	0x888e, },
 	{"aoe",		0x88a2, } ,
 	{"cec",		0xbcbc, } ,
+	{"vlan",	0x8100, } ,
 	{0}
 };
 
@@ -57,7 +58,7 @@ p_compile(Filter *f)
 		compile_cmp(ether.name, f, p_fields);
 		return;
 	}
-	for(m = p_mux; m->name != nil; m++)
+	for(m = ethertypes; m->name != nil; m++)
 		if(strcmp(f->s, m->name) == 0){
 			f->pr = m->pr;
 			f->ulv = m->val;
@@ -106,7 +107,7 @@ p_seprint(Msg *m)
 	m->ps += ETHERHDRSIZE;
 
 	t = NetS(h->type);
-	demux(p_mux, t, t, m, &dump);
+	demux(ethertypes, t, t, m, &dump);
 
 	m->p = seprint(m->p, m->e, "s=%E d=%E pr=%4.4ux ln=%d", h->s, h->d,
 		t, len);
@@ -119,7 +120,7 @@ Proto ether =
 	p_compile,
 	p_filter,
 	p_seprint,
-	p_mux,
+	ethertypes,
 	"%#.4lux",
 	p_fields,
 	defaultframer
