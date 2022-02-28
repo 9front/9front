@@ -1987,6 +1987,7 @@ didtype(int d)
 		return i218;
 	case 0x156f:		/* i219-lm */
 	case 0x15b7:		/* i219-lm */
+	case 0x15f9:		/* i219-lm */
 	case 0x1570:		/* i219-v */
 	case 0x15b8:		/* i219-v */
 	case 0x15b9:		/* i219-lm */
