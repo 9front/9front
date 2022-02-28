@@ -6,8 +6,8 @@
 #include "pci.h"
 #include "vga.h"
 
-static Modelist*
-addmode(Modelist *l, Mode m)
+static void
+addmode(Modelist **l, Mode m)
 {
 	Modelist *ll;
 	int rr;
@@ -15,17 +15,15 @@ addmode(Modelist *l, Mode m)
 	rr = (m.frequency+m.ht*m.vt/2)/(m.ht*m.vt);
 	snprint(m.name, sizeof m.name, "%dx%d@%dHz", m.x, m.y, rr);
 
-	for(ll = l; ll != nil; ll = ll->next){
-		if(strcmp(ll->name, m.name) == 0){
-			ll->Mode = m;
-			return l;
-		}
+	for(ll = *l; ll != nil; ll = *l){
+		if(strcmp(ll->name, m.name) == 0)
+			return;
+		l = &ll->next;
 	}
 
 	ll = alloc(sizeof(Modelist));
 	ll->Mode = m;
-	ll->next = l;
-	return ll;
+	*l = ll;
 }
 
 /*
@@ -282,70 +280,85 @@ parseedid128(void *v)
 
 	assert(p == (uchar*)v+8+10+2+5+10);
 	/*
+	 * Timing information priority order (EDID 1.3 section 5)
+	 *   1. Preferred Timing Mode (first detailed timing block)
+	 *   2. Other Detailed Timing Mode, in order listed
+	 *   3. Standard Timings, in order listed
+	 *   4. Established Timings
+	 */
+
+	/*
+	 * Detailed Timings
+	 */
+	p = (uchar*)v+8+10+2+5+10+3+16;
+	for(i=0; i<4; i++, p+=18)
+		if(p[0] || p[1])	/* detailed timing block: p[0] or p[1] != 0 */
+			if(decodedtb(&mode, p) == 0)
+				addmode(&e->modelist, mode);
+	assert(p == (uchar*)v+8+10+2+5+10+3+16+72);
+
+	/*
+	 * Standard Timing Identifications: eight 2-byte selectors
+	 * of more standard timings.
+	 */
+	p = (uchar*)v+8+10+2+5+10+3;
+	for(i=0; i<8; i++, p+=2)
+		if(decodesti(&mode, p+2*i) == 0)
+			addmode(&e->modelist, mode);
+	assert(p == (uchar*)v+8+10+2+5+10+3+16);
+
+	p = (uchar*)v+8+10+2+5+10+3+16;
+	for(i=0; i<4; i++, p+=18){
+		if(p[0] || p[1])
+			continue;
+		/* monitor descriptor block */
+		switch(p[3]) {
+		case 0xFF:	/* monitor serial number (13-byte ascii, 0A terminated) */
+			if(q = memchr(p+5, 0x0A, 13))
+				*q = '\0';
+			memset(e->serialstr, 0, sizeof(e->serialstr));
+			strncpy(e->serialstr, (char*)p+5, 13);
+			break;
+		case 0xFE:	/* ascii string (13-byte ascii, 0A terminated) */
+			break;
+		case 0xFD:	/* monitor range limits */
+			e->rrmin = p[5];
+			e->rrmax = p[6];
+			e->hrmin = p[7]*1000;
+			e->hrmax = p[8]*1000;
+			if(p[9] != 0xFF)
+				e->pclkmax = p[9]*10*1000000;
+			break;
+		case 0xFC:	/* monitor name (13-byte ascii, 0A terminated) */
+			if(q = memchr(p+5, 0x0A, 13))
+				*q = '\0';
+			memset(e->name, 0, sizeof(e->name));
+			strncpy(e->name, (char*)p+5, 13);
+			break;
+		case 0xFB:	/* extra color point data */
+			break;
+		case 0xFA:	/* extra standard timing identifications */
+			for(i=0; i<6; i++)
+				if(decodesti(&mode, p+5+2*i) == 0)
+					addmode(&e->modelist, mode);
+			break;
+		}
+	}
+	assert(p == (uchar*)v+8+10+2+5+10+3+16+72);
+
+	/*
 	 * Established timings: a bitmask of 19 preset timings.
 	 */
+	p = (uchar*)v+8+10+2+5+10;
 	estab = (p[0]<<16) | (p[1]<<8) | p[2];
 	p += 3;
 
 	for(i=0, m=1<<23; i<nelem(estabtime); i++, m>>=1)
 		if(estab & m)
 			if(vesalookup(&mode, estabtime[i]) == 0)
-				e->modelist = addmode(e->modelist,  mode);
-
+				addmode(&e->modelist, mode);
 	assert(p == (uchar*)v+8+10+2+5+10+3);
-	/*
-	 * Standard Timing Identifications: eight 2-byte selectors
-	 * of more standard timings.
-	 */
 
-	for(i=0; i<8; i++, p+=2)
-		if(decodesti(&mode, p+2*i) == 0)
-			e->modelist = addmode(e->modelist, mode);
-
-	assert(p == (uchar*)v+8+10+2+5+10+3+16);
-	/*
-	 * Detailed Timings
-	 */
-	for(i=0; i<4; i++, p+=18) {
-		if(p[0] || p[1]) {	/* detailed timing block: p[0] or p[1] != 0 */
-			if(decodedtb(&mode, p) == 0)
-				e->modelist = addmode(e->modelist, mode);
-		} else if(p[2]==0) {	/* monitor descriptor block */
-			switch(p[3]) {
-			case 0xFF:	/* monitor serial number (13-byte ascii, 0A terminated) */
-				if(q = memchr(p+5, 0x0A, 13))
-					*q = '\0';
-				memset(e->serialstr, 0, sizeof(e->serialstr));
-				strncpy(e->serialstr, (char*)p+5, 13);
-				break;
-			case 0xFE:	/* ascii string (13-byte ascii, 0A terminated) */
-				break;
-			case 0xFD:	/* monitor range limits */
-				e->rrmin = p[5];
-				e->rrmax = p[6];
-				e->hrmin = p[7]*1000;
-				e->hrmax = p[8]*1000;
-				if(p[9] != 0xFF)
-					e->pclkmax = p[9]*10*1000000;
-				break;
-			case 0xFC:	/* monitor name (13-byte ascii, 0A terminated) */
-				if(q = memchr(p+5, 0x0A, 13))
-					*q = '\0';
-				memset(e->name, 0, sizeof(e->name));
-				strncpy(e->name, (char*)p+5, 13);
-				break;
-			case 0xFB:	/* extra color point data */
-				break;
-			case 0xFA:	/* extra standard timing identifications */
-				for(i=0; i<6; i++)
-					if(decodesti(&mode, p+5+2*i) == 0)
-						e->modelist = addmode(e->modelist, mode);
-				break;
-			}
-		}
-	}
-
-	assert(p == (uchar*)v+8+10+2+5+10+3+16+72);
 	return e;
 }
 
