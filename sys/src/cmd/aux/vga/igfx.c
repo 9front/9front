@@ -1465,12 +1465,17 @@ enablepipe(Igfx *igfx, int x)
 			/* unmask bit lock and symbol lock bits */
 			csr(igfx, p->fdi->rximr.a, 3<<8, 0);
 
-			p->fdi->txctl.v &= ~(3<<28);	/* link train pattern1 */
-			p->fdi->txctl.v |= 1<<31;	/* enable */
-			loadreg(igfx, p->fdi->txctl);
+			/* enable fdi */
+			p->fdi->txctl.v |= 1<<31;
+			p->fdi->rxctl.v |= 1<<31;
 
-			p->fdi->rxctl.v &= ~(3<<8);	/* link train pattern1 */
-			p->fdi->rxctl.v |= 1<<31;	/* enable */
+			/* switch to link train pattern1 */
+			p->fdi->txctl.v &= ~(3<<28);
+			loadreg(igfx, p->fdi->txctl);
+			if(igfx->type == TypeILK)
+				p->fdi->rxctl.v &= ~(3<<28);
+			else
+				p->fdi->rxctl.v &= ~(3<<8);
 			loadreg(igfx, p->fdi->rxctl);
 
 			/* wait for bit lock */
@@ -1480,10 +1485,13 @@ enablepipe(Igfx *igfx, int x)
 					break;
 			}
 			csr(igfx, p->fdi->rxiir.a, 0, 1<<8);
-	
+
 			/* switch to link train pattern2 */
 			csr(igfx, p->fdi->txctl.a, 3<<28, 1<<28);
-			csr(igfx, p->fdi->rxctl.a, 3<<8, 1<<8);
+			if(igfx->type == TypeILK)
+				csr(igfx, p->fdi->rxctl.a, 3<<28, 1<<28);
+			else
+				csr(igfx, p->fdi->rxctl.a, 3<<8, 1<<8);
 
 			/* wait for symbol lock */
 			for(i=0; i<10; i++){
@@ -1495,7 +1503,10 @@ enablepipe(Igfx *igfx, int x)
 
 			/* switch to link train normal */
 			csr(igfx, p->fdi->txctl.a, 0, 3<<28);
-			csr(igfx, p->fdi->rxctl.a, 0, 3<<8);
+			if(igfx->type == TypeILK)
+				csr(igfx, p->fdi->rxctl.a, 0, 3<<28);
+			else
+				csr(igfx, p->fdi->rxctl.a, 0, 3<<8);
 
 			/* wait idle pattern time */
 			sleep(5);
