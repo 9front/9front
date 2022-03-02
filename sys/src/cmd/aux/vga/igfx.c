@@ -23,8 +23,9 @@ enum {
 
 enum {
 	TypeG45,
-	TypeIVB,		/* Ivy Bridge */
+	TypeILK,		/* Iron Lake */
 	TypeSNB,		/* Sandy Bridge (unfinished) */
+	TypeIVB,		/* Ivy Bridge */
 	TypeHSW,		/* Haswell */
 };
 
@@ -255,8 +256,9 @@ snarftrans(Igfx *igfx, Trans *t, u32int o)
 			t->ln[0] = snarfreg(igfx, 0x70064);	/* DPLinkN */
 		}
 		break;
-	case TypeIVB:
+	case TypeILK:
 	case TypeSNB:
+	case TypeIVB:
 		t->dm[0] = snarfreg(igfx, o + 0x30);
 		t->dn[0] = snarfreg(igfx, o + 0x34);
 		t->dm[1] = snarfreg(igfx, o + 0x38);
@@ -295,7 +297,8 @@ snarfpipe(Igfx *igfx, int x)
 	if(igfx->type != TypeHSW || x != 3)
 		p->src = snarfreg(igfx, o + 0x0001C);
 
-	if(igfx->type == TypeHSW) {
+	switch(igfx->type){
+	case TypeHSW:
 		p->dpctl = snarfreg(igfx, o + 0x400);	/* PIPE_DDI_FUNC_CTL_x */
 		p->dpll = &igfx->dpll[0];
 		if(x == 3){
@@ -303,7 +306,10 @@ snarfpipe(Igfx *igfx, int x)
 			p->src = snarfreg(igfx, 0x6001C);
 		}else
 			p->clksel = snarfreg(igfx, 0x46140 + x*4);
-	} else if(igfx->type == TypeIVB || igfx->type == TypeSNB) {
+		break;
+	case TypeILK:
+	case TypeSNB:
+	case TypeIVB:
 		p->fdi->txctl = snarfreg(igfx, o + 0x100);
 
 		o = 0xE0000 | x*0x1000;
@@ -324,8 +330,10 @@ snarfpipe(Igfx *igfx, int x)
 
 		p->fdi->dpll = &igfx->dpll[(igfx->dpllsel[0].v>>(x*4)) & 1];
 		p->dpll = nil;
-	} else {
+		break;
+	case TypeG45:
 		p->dpll = &igfx->dpll[x & 1];
+		break;
 	}
 
 	/* display plane */
@@ -349,6 +357,7 @@ snarfpipe(Igfx *igfx, int x)
 		p->dsp->pos	= snarfreg(igfx, 0x7018C + x*0x1000);
 		p->dsp->size	= snarfreg(igfx, 0x70190 + x*0x1000);
 		/* wet floor */
+	case TypeILK:
 	case TypeSNB:
 		p->cur->cntr	= snarfreg(igfx, 0x70080 + x*0x40);
 		p->cur->base	= snarfreg(igfx, 0x70084 + x*0x40);
@@ -375,6 +384,7 @@ devtype(Igfx *igfx)
 	case 0x0152:	/* 2nd/3rd Gen Core - Core-i3 */
 		return TypeIVB;
 	case 0x0046:	/* Thinkpad T510 */
+		return TypeILK;
 	case 0x0102:	/* Dell Optiplex 790 */
 	case 0x0126:	/* Thinkpad X220 */
 		return TypeSNB;
@@ -461,6 +471,7 @@ snarf(Vga* vga, Ctlr* ctlr)
 		igfx->vgacntrl		= snarfreg(igfx, 0x071400);
 		break;
 
+	case TypeILK:
 	case TypeSNB:
 		igfx->npipe = 2;	/* A,B */
 		igfx->cdclk = 400;	/* MHz */
@@ -780,6 +791,7 @@ initdpll(Igfx *igfx, int x, int freq, int port)
 		dpll->ctrl.v &= ~(3<<13);
 		dpll->ctrl.v |= (port == PortLCD ? 3 : 0) << 13;
 		break;
+	case TypeILK:
 	case TypeSNB:
 	case TypeIVB:
 		/* transcoder dpll enable */
@@ -1159,7 +1171,7 @@ init(Vga* vga, Ctlr* ctlr)
 	case PortLCD:
 		if(igfx->type == TypeHSW)
 			goto Badport;
-		if(igfx->type == TypeG45)
+		if(igfx->type == TypeG45 || igfx->type == TypeILK)
 			x = (igfx->lvds.v >> 30) & 1;
 		else
 			x = (igfx->lvds.v >> 29) & 3;
@@ -1412,7 +1424,7 @@ enablepipe(Igfx *igfx, int x)
 		loadreg(igfx, p->fdi->rxctl);
 		sleep(5);
 		/* clear auto training bits */
-		if(igfx->type == TypeSNB)
+		if(igfx->type == TypeILK || igfx->type == TypeSNB)
 			p->fdi->txctl.v &= ~(3<<28 | 1<<10 | 1);
 		else
 			p->fdi->txctl.v &= ~(7<<8 | 1);
@@ -1466,7 +1478,7 @@ enablepipe(Igfx *igfx, int x)
 		loadreg(igfx, p->fdi->rxtu[0]);
 		loadreg(igfx, p->fdi->rxmisc);
 
-		if(igfx->type == TypeSNB){
+		if(igfx->type == TypeILK || igfx->type == TypeSNB){
 			/* unmask bit lock and symbol lock bits */
 			csr(igfx, p->fdi->rximr.a, 3<<8, 0);
 
