@@ -850,7 +850,12 @@ initdpll(Igfx *igfx, int x, int freq, int port)
 	dpll->ctrl.v &= ~(3<<24);
 	if(port == PortLCD){
 		p2 = 14;
-		if(freq > 112*MHz){
+		/*
+		 * Use dual-channel LVDS if the display clock is
+		 * outside the range of single-channel, or it was
+		 * preconfigured by the BIOS.
+		 */
+		if(freq > 112*MHz || (igfx->lvds.v>>4 & 3) == 3){
 			p2 >>= 1;
 			dpll->ctrl.v |= (1<<24);
 		}
