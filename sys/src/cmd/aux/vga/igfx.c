@@ -65,7 +65,7 @@ struct Trans {
 	Reg	vss;		/* pipe/trans VSYNCSHIFT_x */
 
 	Reg	conf;		/* pipe/trans CONF_x */
-	Reg	chicken;	/* workarround register */
+	Reg	chicken;	/* workaround register */
 
 	Reg	dpctl;		/* TRANS_DP_CTL_x */
 
@@ -962,7 +962,7 @@ inittrans(Trans *t, Mode *m)
 	/* clear all but 27:28 frame start delay (initialized by bios) */
 	t->conf.v &= 3<<27;
 
-	/* tans/pipe enable */
+	/* trans/pipe enable */
 	t->conf.v |= 1<<31;
 
 	/* trans/pipe timing */
@@ -1384,7 +1384,7 @@ loadtrans(Igfx *igfx, Trans *t)
 		sleep(10);
 	}
 
-	/* workarround: set timing override bit */
+	/* workaround: set timing override bit */
 	csr(igfx, t->chicken.a, 0, 1<<31);
 
 	/* enable displayport transcoder */
@@ -1579,7 +1579,7 @@ disabletrans(Igfx *igfx, Trans *t)
 		if((rr(igfx, t->conf.a) & (1<<30)) == 0)
 			break;
 	}
-	/* workarround: clear timing override bit */
+	/* workaround: clear timing override bit */
 	csr(igfx, t->chicken.a, 1<<31, 0);
 
 	/* disable dpll  */
