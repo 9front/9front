@@ -366,13 +366,18 @@ static void
 createuserdir(Fs *fs, char *name, short uid)
 {
 	Chan *ch;
+	Dir di;
 
 	ch = chanattach(fs, CHFNOPERM);
 	if(ch == nil)
 		return;
 	ch->uid = uid;
-	if(chanwalk(ch, "usr") > 0)
+	if(chanwalk(ch, "usr") > 0){
 		chancreat(ch, name, DMDIR | 0775, OREAD);
+		nulldir(&di);
+		di.gid = name;
+		chanwstat(ch, &di);
+	}
 	chanclunk(ch);
 }
 
