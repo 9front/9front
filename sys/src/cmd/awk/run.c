@@ -1865,16 +1865,12 @@ Cell *sub(Node **a, int)	/* substitute command */
 				*pb++ = *sptr++;
 		}
 		*pb = '\0';
-		if (pb > buf + bufsz)
-			FATAL("sub result1 %.30s too big; can't happen", buf);
 		sptr = patbeg + patlen;
 		if ((patlen == 0 && *patbeg) || (patlen && *(sptr-1))) {
 			adjbuf(&buf, &bufsz, 1+strlen(sptr)+pb-buf, 0, &pb, "sub");
 			while ((*pb++ = *sptr++) != 0)
 				;
 		}
-		if (pb > buf + bufsz)
-			FATAL("sub result2 %.30s too big; can't happen", buf);
 		setsval(x, buf);	/* BUG: should be able to avoid copy */
 		result = True;;
 	}
@@ -1934,11 +1930,9 @@ Cell *gsub(Node **a, int)	/* global substitute */
 					}
 				}
 				if (*c == 0)	/* at end */
-					goto done;
+					break;
 				adjbuf(&buf, &bufsz, 2+pb-buf, recsize, &pb, "gsub");
 				*pb++ = *c++;
-				if (pb > buf + bufsz)	/* BUG: not sure of this test */
-					FATAL("gsub result0 %.30s too big; can't happen", buf);
 				mflag = 0;
 			}
 			else {	/* matched nonempty string */
@@ -1962,10 +1956,12 @@ Cell *gsub(Node **a, int)	/* global substitute */
 						*pb++ = *sptr++;
 				}
 				c = patbeg + patlen;
-				if ((c[-1] == 0) || (*c == 0))
-					goto done;
-				if (pb > buf + bufsz)
-					FATAL("gsub result1 %.30s too big; can't happen", buf);
+				if (c[-1] == 0){
+					c--;
+					break;
+				}
+				if (*c == 0)
+					break;
 				mflag = 1;
 			}
 		} while (pmatch(p, t, c));
@@ -1973,9 +1969,6 @@ Cell *gsub(Node **a, int)	/* global substitute */
 		adjbuf(&buf, &bufsz, 1+strlen(sptr)+pb-buf, 0, &pb, "gsub");
 		while ((*pb++ = *sptr++) != 0)
 			;
-	done:	if (pb > buf + bufsz)
-			FATAL("gsub result2 %.30s too big; can't happen", buf);
-		*pb = '\0';
 		setsval(x, buf);	/* BUG: should be able to avoid copy + free */
 	}
 	if (istemp(x))
