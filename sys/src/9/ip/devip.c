@@ -737,6 +737,7 @@ setladdr(Conv* c)
 char*
 setluniqueport(Conv* c, int lport)
 {
+	Translation *q;
 	Proto *p;
 	Conv *xp;
 	int x;
@@ -754,14 +755,22 @@ setluniqueport(Conv* c, int lport)
 		&& xp->lport == lport
 		&& xp->rport == c->rport
 		&& ipcmp(xp->raddr, c->raddr) == 0
-		&& ipcmp(xp->laddr, c->laddr) == 0){
-			qunlock(p);
-			return "address in use";
-		}
+		&& ipcmp(xp->laddr, c->laddr) == 0)
+			goto Inuse;
+	}
+	for(q = p->translations; q != nil; q = q->next){
+		if(q->backward.lport == lport
+		&& q->backward.rport == c->rport
+		&& ipcmp(q->backward.raddr, c->raddr) == 0
+		&& ipcmp(q->backward.laddr, c->laddr) == 0)
+			goto Inuse;
 	}
 	c->lport = lport;
 	qunlock(p);
 	return nil;
+Inuse:
+	qunlock(p);
+	return "address in use";
 }
 
 /*
@@ -770,18 +779,51 @@ setluniqueport(Conv* c, int lport)
 static int
 lportinuse(Proto *p, ushort lport)
 {
+	Translation *q;
 	int x;
 
 	for(x = 0; x < p->nc && p->conv[x]; x++)
 		if(p->conv[x]->lport == lport)
 			return 1;
+	for(q = p->translations; q != nil; q = q->next)
+		if(q->backward.lport == lport)
+			return 1;
 	return 0;
+}
+
+/* 
+ *  find a unused loacal port for a protocol.
+ *
+ *  p needs to be locked
+ */
+int
+unusedlport(Proto *p)
+{
+	ushort port;
+	int i;
+
+	/*
+	 * Unrestricted ports are chosen randomly
+	 * between 2^15 and 2^16.  There are at most
+	 * 4*Nchan = 4096 ports in use at any given time,
+	 * so even in the worst case, a random probe has a
+	 * 1 - 4096/2^15 = 87% chance of success.
+	 * If 64 successive probes fail, there is a bug somewhere
+	 * (or a once in 10^58 event has happened, but that's
+	 * less likely than a venti collision).
+	 */
+	for(i=0; i<64; i++){
+		port = (1<<15) + nrand(1<<15);
+		if(!lportinuse(p, port))
+			return port;
+	}
+	return -1;
 }
 
 /*
  *  pick a local port and set it
  */
-char *
+static char *
 setlport(Conv* c)
 {
 	Proto *p;
@@ -799,21 +841,9 @@ setlport(Conv* c)
 				goto chosen;
 		}
 	}else{
-		/*
-		 * Unrestricted ports are chosen randomly
-		 * between 2^15 and 2^16.  There are at most
-		 * 4*Nchan = 4096 ports in use at any given time,
-		 * so even in the worst case, a random probe has a
-		 * 1 - 4096/2^15 = 87% chance of success.
-		 * If 64 successive probes fail, there is a bug somewhere
-		 * (or a once in 10^58 event has happened, but that's
-		 * less likely than a venti collision).
-		 */
-		for(i=0; i<64; i++){
-			port = (1<<15) + nrand(1<<15);
-			if(!lportinuse(p, port))
-				goto chosen;
-		}
+		port = unusedlport(p);
+		if(port > 0)
+			goto chosen;
 	}
 	qunlock(p);
 	return "no ports available";

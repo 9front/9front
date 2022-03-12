@@ -51,6 +51,7 @@ static Netlogflag flags[] =
 	{ "udpmsg",	Logudp|Logudpmsg, },
 	{ "ipmsg",	Logip|Logipmsg, },
 	{ "esp",	Logesp, },
+	{ "trans",	Logtrans, },
 	{ nil,		0, },
 };
 

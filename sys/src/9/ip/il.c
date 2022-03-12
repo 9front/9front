@@ -308,8 +308,8 @@ illocalclose(Conv *c)
 	ic = (Ilcb*)c->ptcl;
 	ic->state = Ilclosed;
 	iphtrem(&ipriv->ht, c);
-	ipmove(c->laddr, IPnoaddr);
 	c->lport = 0;
+	ipmove(c->laddr, IPnoaddr);
 }
 
 static void
@@ -544,6 +544,7 @@ iliput(Proto *il, Ipifc*, Block *bp)
 	uchar laddr[IPaddrlen];
 	ushort sp, dp, csum;
 	int plen, illen;
+	Iphash *iph;
 	Conv *new, *s;
 	Ilpriv *ipriv;
 
@@ -584,14 +585,14 @@ iliput(Proto *il, Ipifc*, Block *bp)
 	}
 
 	qlock(il);
-	s = iphtlook(&ipriv->ht, raddr, dp, laddr, sp);
-	if(s == nil){
+	iph = iphtlook(&ipriv->ht, raddr, dp, laddr, sp);
+	if(iph == nil){
 		if(ih->iltype == Ilsync)
 			ilreject(il->f, ih);		/* no listener */
 		qunlock(il);
 		goto raise;
 	}
-
+	s = iphconv(iph);
 	ic = (Ilcb*)s->ptcl;
 	if(ic->state == Illistening){
 		if(ih->iltype != Ilsync){

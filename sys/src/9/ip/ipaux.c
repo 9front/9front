@@ -203,7 +203,6 @@ ipv62smcast(uchar *smcast, uchar *a)
 	smcast[15] = a[15];
 }
 
-
 /*
  *  parse a hex mac address
  */
@@ -233,140 +232,23 @@ parsemac(uchar *to, char *from, int len)
 }
 
 /*
- *  hashing tcp, udp, ... connections
+ *  return multicast version if any
  */
-ulong
-iphash(uchar *sa, ushort sp, uchar *da, ushort dp)
+int
+ipismulticast(uchar *ip)
 {
-	return ((sa[IPaddrlen-1]<<24) ^ (sp << 16) ^ (da[IPaddrlen-1]<<8) ^ dp ) % Nipht;
-}
-
-void
-iphtadd(Ipht *ht, Conv *c)
-{
-	ulong hv;
-	Iphash *h;
-
-	hv = iphash(c->raddr, c->rport, c->laddr, c->lport);
-	h = smalloc(sizeof(*h));
-	if(ipcmp(c->raddr, IPnoaddr) != 0)
-		h->match = IPmatchexact;
-	else {
-		if(ipcmp(c->laddr, IPnoaddr) != 0){
-			if(c->lport == 0)
-				h->match = IPmatchaddr;
-			else
-				h->match = IPmatchpa;
-		} else {
-			if(c->lport == 0)
-				h->match = IPmatchany;
-			else
-				h->match = IPmatchport;
-		}
+	if(isv4(ip)){
+		if(isv4mcast(&ip[IPv4off]))
+			return V4;
 	}
-	h->c = c;
-
-	lock(ht);
-	h->next = ht->tab[hv];
-	ht->tab[hv] = h;
-	unlock(ht);
+	else if(isv6mcast(ip))
+		return V6;
+	return 0;
 }
 
-void
-iphtrem(Ipht *ht, Conv *c)
-{
-	ulong hv;
-	Iphash **l, *h;
-
-	hv = iphash(c->raddr, c->rport, c->laddr, c->lport);
-	lock(ht);
-	for(l = &ht->tab[hv]; (*l) != nil; l = &(*l)->next)
-		if((*l)->c == c){
-			h = *l;
-			(*l) = h->next;
-			free(h);
-			break;
-		}
-	unlock(ht);
-}
-
-/* look for a matching conversation with the following precedence
- *	connected && raddr,rport,laddr,lport
- *	announced && laddr,lport
- *	announced && *,lport
- *	announced && laddr,*
- *	announced && *,*
+/*
+ *  return ip version of a connection
  */
-Conv*
-iphtlook(Ipht *ht, uchar *sa, ushort sp, uchar *da, ushort dp)
-{
-	ulong hv;
-	Iphash *h;
-	Conv *c;
-
-	/* exact 4 pair match (connection) */
-	hv = iphash(sa, sp, da, dp);
-	lock(ht);
-	for(h = ht->tab[hv]; h != nil; h = h->next){
-		if(h->match != IPmatchexact)
-			continue;
-		c = h->c;
-		if(sp == c->rport && dp == c->lport
-		&& ipcmp(sa, c->raddr) == 0 && ipcmp(da, c->laddr) == 0){
-			unlock(ht);
-			return c;
-		}
-	}
-
-	/* match local address and port */
-	hv = iphash(IPnoaddr, 0, da, dp);
-	for(h = ht->tab[hv]; h != nil; h = h->next){
-		if(h->match != IPmatchpa)
-			continue;
-		c = h->c;
-		if(dp == c->lport && ipcmp(da, c->laddr) == 0){
-			unlock(ht);
-			return c;
-		}
-	}
-
-	/* match just port */
-	hv = iphash(IPnoaddr, 0, IPnoaddr, dp);
-	for(h = ht->tab[hv]; h != nil; h = h->next){
-		if(h->match != IPmatchport)
-			continue;
-		c = h->c;
-		if(dp == c->lport){
-			unlock(ht);
-			return c;
-		}
-	}
-
-	/* match local address */
-	hv = iphash(IPnoaddr, 0, da, 0);
-	for(h = ht->tab[hv]; h != nil; h = h->next){
-		if(h->match != IPmatchaddr)
-			continue;
-		c = h->c;
-		if(ipcmp(da, c->laddr) == 0){
-			unlock(ht);
-			return c;
-		}
-	}
-
-	/* look for something that matches anything */
-	hv = iphash(IPnoaddr, 0, IPnoaddr, 0);
-	for(h = ht->tab[hv]; h != nil; h = h->next){
-		if(h->match != IPmatchany)
-			continue;
-		c = h->c;
-		unlock(ht);
-		return c;
-	}
-	unlock(ht);
-	return nil;
-}
-
 int
 convipvers(Conv *c)
 {
@@ -374,4 +256,314 @@ convipvers(Conv *c)
 		return V4;
 	else
 		return V6;
+}
+
+/*
+ *  hashing tcp, udp, ... connections
+ */
+static ulong
+iphash(uchar *sa, ushort sp, uchar *da, ushort dp)
+{
+	return ((sa[IPaddrlen-1]<<24) ^ (sp << 16) ^ (da[IPaddrlen-1]<<8) ^ dp ) % Nipht;
+}
+
+void
+iphtadd(Ipht *ht, Iphash *h)
+{
+	ulong hv;
+
+	if(ipcmp(h->raddr, IPnoaddr) != 0)
+		h->match = IPmatchexact;
+	else {
+		if(ipcmp(h->laddr, IPnoaddr) != 0){
+			if(h->lport == 0)
+				h->match = IPmatchaddr;
+			else
+				h->match = IPmatchpa;
+		} else {
+			if(h->lport == 0)
+				h->match = IPmatchany;
+			else
+				h->match = IPmatchport;
+		}
+	}
+	lock(ht);
+	hv = iphash(h->raddr, h->rport, h->laddr, h->lport);
+	h->nextiphash = ht->tab[hv];
+	ht->tab[hv] = h;
+	unlock(ht);
+}
+
+void
+iphtrem(Ipht *ht, Iphash *h)
+{
+	ulong hv;
+	Iphash **l;
+
+	lock(ht);
+	hv = iphash(h->raddr, h->rport, h->laddr, h->lport);
+	for(l = &ht->tab[hv]; (*l) != nil; l = &(*l)->nextiphash)
+		if(*l == h){
+			(*l) = h->nextiphash;
+			h->nextiphash = nil;
+			break;
+		}
+	unlock(ht);
+}
+
+/* look for a matching iphash with the following precedence
+ *	raddr,rport,laddr,lport
+ *	laddr,lport
+ *	*,lport
+ *	laddr,*
+ *	*,*
+ */
+Iphash*
+iphtlook(Ipht *ht, uchar *sa, ushort sp, uchar *da, ushort dp)
+{
+	ulong hv;
+	Iphash *h;
+
+	lock(ht);
+	/* exact 4 pair match (connection) */
+	hv = iphash(sa, sp, da, dp);
+	for(h = ht->tab[hv]; h != nil; h = h->nextiphash){
+		if(h->match != IPmatchexact)
+			continue;
+		if(sp == h->rport && dp == h->lport
+		&& ipcmp(sa, h->raddr) == 0 && ipcmp(da, h->laddr) == 0){
+			unlock(ht);
+			return h;
+		}
+	}
+
+	/* match local address and port */
+	hv = iphash(IPnoaddr, 0, da, dp);
+	for(h = ht->tab[hv]; h != nil; h = h->nextiphash){
+		if(h->match != IPmatchpa)
+			continue;
+		if(dp == h->lport && ipcmp(da, h->laddr) == 0){
+			unlock(ht);
+			return h;
+		}
+	}
+
+	/* match just port */
+	hv = iphash(IPnoaddr, 0, IPnoaddr, dp);
+	for(h = ht->tab[hv]; h != nil; h = h->nextiphash){
+		if(h->match != IPmatchport)
+			continue;
+		if(dp == h->lport){
+			unlock(ht);
+			return h;
+		}
+	}
+
+	/* match local address */
+	hv = iphash(IPnoaddr, 0, da, 0);
+	for(h = ht->tab[hv]; h != nil; h = h->nextiphash){
+		if(h->match != IPmatchaddr)
+			continue;
+		if(ipcmp(da, h->laddr) == 0){
+			unlock(ht);
+			return h;
+		}
+	}
+
+	/* look for something that matches anything */
+	hv = iphash(IPnoaddr, 0, IPnoaddr, 0);
+	for(h = ht->tab[hv]; h != nil; h = h->nextiphash){
+		if(h->match != IPmatchany)
+			continue;
+		unlock(ht);
+		return h;
+	}
+	unlock(ht);
+	return nil;
+}
+
+/*
+ * Move entry to front of Proto.translations
+ * and update the timestamp.
+ *
+ * Proto is locked.
+ */
+static Translation*
+transupdate(Proto *p, Translation *q)
+{
+	q->time = NOW;
+
+	/* unlink */
+	if(q->link != nil && (*q->link = q->next) != nil)
+		q->next->link = q->link;
+
+	/* link to front */
+	if((q->next = p->translations) != nil)
+		q->next->link = &q->next;
+	p->translations = q;
+	q->link = &p->translations;
+
+	return q;
+}
+
+/*
+ * Called with the 4-tuple (sa,sp,da,dp)
+ * that should be source translated,
+ * returning the translation.
+ *
+ * Proto is locked.
+ */
+Translation*
+transforward(Proto *p, Ipht *ht, uchar *sa, int sp, uchar *da, int dp, Route *r)
+{
+	uchar ia[IPaddrlen];
+	Routehint rh;
+	Translation *q;
+	Iphash *iph;
+	Ipifc *ifc;
+	int lport;
+	ulong now;
+	int num;
+
+	/* Translation already exists? */
+	iph = iphtlook(ht, sa, sp, da, dp);
+	if(iph != nil) {
+		if(iph->trans != 1)
+			return nil;
+		return transupdate(p, iphforward(iph));
+	}
+
+	/* Bad source address? */
+	if(ipismulticast(sa) || ipforme(p->f, sa) != 0){
+		netlog(p->f, Logtrans, "trans: bad source address: %s!%I!%d -> %I!%d\n",
+			p->name, sa, sp, da, dp);
+		return nil;
+	}
+
+	/* Bad forward route? */
+	if(r == nil || (ifc = r->ifc) == nil){
+		netlog(p->f, Logtrans, "trans: no forward route: %s!%I!%d -> %I!%d\n",
+			p->name, sa, sp, da, dp);
+		return nil;
+	}
+
+	/* Find a source address on the destination interface */
+	rlock(ifc);
+	memmove(ia, v4prefix, IPv4off);
+	if(!ipv4local(ifc, ia+IPv4off, 0, (r->type & (Rifc|Runi|Rbcast|Rmulti))? da+IPv4off: r->v4.gate)){
+		runlock(ifc);
+		netlog(p->f, Logtrans, "trans: no source ip: %s!%I!%d -> %I!%d\n",
+			p->name, sa, sp, da, dp);
+		return nil;
+	}
+	runlock(ifc);
+
+	/* Check backward route */
+	rh.a = nil;
+	rh.r = nil;
+	if(ipismulticast(da))
+		r = v4lookup(p->f, sa+IPv4off, ia+IPv4off, nil);
+	else
+		r = v4lookup(p->f, sa+IPv4off, da+IPv4off, &rh);
+	if(r == nil || (r->ifc == ifc && !ifc->reflect)){
+		netlog(p->f, Logtrans, "trans: bad backward route: %s!%I!%d <- %I <- %I!%d\n",
+			p->name, sa, sp, ia, da, dp);
+		return nil;
+	}
+
+	/* Find local port */
+	lport = unusedlport(p);
+	if(lport <= 0){
+		netlog(p->f, Logtrans, "trans: no local port: %s!%I!%d <- %I <- %I!%d\n",
+			p->name, sa, sp, ia, da, dp);
+		return nil;
+	}
+
+	/* Reuse expired entries */
+	num = 0;
+	now = NOW;
+	for(q = p->translations; q != nil; q = q->next) {
+		if(++num >= 1000 || (now - q->time) >= 5*60*1000){
+			netlog(p->f, Logtrans, "trans: removing %s!%I!%d -> %I!%d -> %I!%d\n",
+				p->name,
+				q->forward.raddr, q->forward.rport,
+				q->backward.laddr, q->backward.lport,
+				q->forward.laddr, q->forward.lport);
+
+			iphtrem(ht, &q->forward);
+			iphtrem(ht, &q->backward);
+			break;
+		}
+	}
+	if(q == nil){
+		q = malloc(sizeof(*q));
+		if(q == nil)
+			return nil;
+		q->link = nil;
+	}
+
+	/* Match what needs to be forwarded */
+	q->forward.trans = 1;
+	q->forward.lport = dp;
+	q->forward.rport = sp;
+	ipmove(q->forward.laddr, da);
+	ipmove(q->forward.raddr, sa);
+
+	/* Match what comes back to us */
+	q->backward.trans = 2;
+	q->backward.lport = lport;
+	ipmove(q->backward.laddr, ia);
+	if(p->ipproto == 1 || ipismulticast(da)){
+		q->backward.rport = 0;
+		ipmove(q->backward.raddr, IPnoaddr);
+	} else {
+		q->backward.rport = dp;
+		ipmove(q->backward.raddr, da);
+	}
+	memmove(&q->Routehint, &rh, sizeof(rh));
+
+	netlog(p->f, Logtrans, "trans: adding %s!%I!%d -> %I!%d -> %I!%d\n",
+		p->name,
+		q->forward.raddr, q->forward.rport,
+		q->backward.laddr, q->backward.lport,
+		q->forward.laddr, q->forward.lport);
+
+	iphtadd(ht, &q->forward);
+	iphtadd(ht, &q->backward);
+
+	return transupdate(p, q);
+}
+
+/*
+ * Check if backward translation is valid and
+ * update timestamp.
+ *
+ * Proto is locked.
+ */
+Translation*
+transbackward(Proto *p, Iphash *iph)
+{
+	if(iph == nil || iph->trans != 2)
+		return nil;
+
+	return transupdate(p, iphbackward(iph));
+}
+
+/*
+ * Checksum adjusting hnputs()
+ */
+void
+hnputs_csum(void *p, ushort v, uchar *pcsum)
+{
+	ulong csum;
+
+	assert((((uchar*)p - pcsum) & 1) == 0);
+
+	csum = nhgets(pcsum)^0xFFFF;
+	csum += nhgets(p)^0xFFFF;
+	csum += v;
+	hnputs(p, v);
+	while(v = csum >> 16)
+		csum = (csum & 0xFFFF) + v;
+	hnputs(pcsum, csum^0xFFFF);
 }

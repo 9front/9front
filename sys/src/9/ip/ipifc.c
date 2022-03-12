@@ -1436,21 +1436,6 @@ ipproxyifc(Fs *f, Ipifc *ifc, uchar *ip)
 }
 
 /*
- *  return multicast version if any
- */
-int
-ipismulticast(uchar *ip)
-{
-	if(isv4(ip)){
-		if(ip[IPv4off] >= 0xe0 && ip[IPv4off] < 0xf0)
-			return V4;
-	}
-	else if(ip[0] == 0xff)
-		return V6;
-	return 0;
-}
-
-/*
  *  add a multicast address to an interface.
  */
 void

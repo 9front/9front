@@ -411,6 +411,9 @@ multicast route
 .TP
 .B p
 point-to-point route
+.TP
+.B t
+network address translation on source
 .PD
 .PP
 The tag is an arbitrary, up to 4 character, string.  It is normally used to
@@ -442,7 +445,7 @@ with all subsequent routes added via this file descriptor.
 .TP
 .BI add\  "target mask nexthop tag interface source smask"
 .TP
-.BI add\  "target mask nexthop type tag interface source smask"
+.BI add\  "target mask nexthop flags tag interface source smask"
 Add the route to the table.  If one already exists with the
 same target and mask, replace it. The
 .I interface
@@ -461,7 +464,7 @@ IP address on the desired interface.
 .TP
 .BI remove\  "target mask nexthop tag interface source smask"
 .TP
-.BI remove\  "target mask nexthop type tag interface source smask"
+.BI remove\  "target mask nexthop flags tag interface source smask"
 Remove the matching route.
 .
 .SS "Address resolution

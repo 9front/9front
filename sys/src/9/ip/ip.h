@@ -22,6 +22,7 @@ typedef struct	Arpent	Arpent;
 typedef struct	Arp Arp;
 typedef struct	Route	Route;
 typedef struct	Routehint Routehint;
+typedef struct	Translation Translation;
 
 typedef struct	Routerparams	Routerparams;
 typedef struct 	Hostparams	Hostparams;
@@ -178,6 +179,71 @@ struct Routehint
 };
 
 /*
+ *  hash table for 2 ip addresses + 2 ports
+ */
+enum
+{
+	Nipht=		521,	/* convenient prime */
+
+	IPmatchexact=	0,	/* match on 4 tuple */
+	IPmatchany,		/* *!* */
+	IPmatchport,		/* *!port */
+	IPmatchaddr,		/* addr!* */
+	IPmatchpa,		/* addr!port */
+};
+
+struct Iphash
+{
+	Iphash	*nextiphash;
+
+	uchar	trans;			/* 0 = conv, 1 = foward, 2 = backward */
+	uchar	match;
+	ushort	lport;			/* local port number */
+	ushort	rport;			/* remote port number */
+	uchar	laddr[IPaddrlen];	/* local IP address */
+	uchar	raddr[IPaddrlen];	/* remote IP address */
+};
+
+struct Ipht
+{
+	Lock;
+	Iphash	*tab[Nipht];
+};
+
+void iphtadd(Ipht*, Iphash*);
+void iphtrem(Ipht*, Iphash*);
+Iphash *iphtlook(Ipht *ht, uchar *sa, ushort sp, uchar *da, ushort dp);
+
+/*
+ * NAT entry.
+ *
+ * This holds the 5 tuple as two Iphashes.
+ * The "forward" hash matches the the packets from
+ * the source that need to be translated and
+ * "backward" matches the packets coming back
+ * from the destination.
+ */
+struct Translation
+{
+	Translation *next;
+	Translation **link;
+
+	ulong	time;
+
+	Iphash	forward;
+#define iphforward(h) ((Translation*)((char*)(h) - (char*)&((Translation*)0)->forward))
+
+	Iphash	backward;
+#define iphbackward(h) ((Translation*)((char*)(h) - (char*)&((Translation*)0)->backward))
+
+	/* used for forwarding to the source */
+	Routehint;
+};
+
+Translation *transforward(Proto *p, Ipht *ht, uchar *sa, int sp, uchar *da, int dp, Route *r);
+Translation *transbackward(Proto *p, Iphash *iph);
+
+/*
  *  one per conversation directory
  */
 struct Conv
@@ -187,16 +253,15 @@ struct Conv
 	int	x;			/* conversation index */
 	Proto*	p;
 
-	int	restricted;		/* remote port is restricted */
-	int	ignoreadvice;		/* don't terminate connection on icmp errors */
 	uint	ttl;			/* max time to live */
 	uint	tos;			/* type of service */
 
+	uchar	restricted;		/* remote port is restricted */
+	uchar	ignoreadvice;		/* don't terminate connection on icmp errors */
 	uchar	ipversion;
-	uchar	laddr[IPaddrlen];	/* local IP address */
-	uchar	raddr[IPaddrlen];	/* remote IP address */
-	ushort	lport;			/* local port number */
-	ushort	rport;			/* remote port number */
+
+	Iphash;
+#define iphconv(h) ((Conv*)((char*)(h) - (char*)&((Conv*)0)->Iphash))
 
 	char	*owner;			/* protections */
 	int	perm;
@@ -206,7 +271,6 @@ struct Conv
 
 	/* udp specific */
 	int	headers;		/* data src/dst headers in udp */
-	int	reliable;		/* true if reliable udp */
 
 	Conv*	incall;			/* calls waiting to be listened for */
 	Conv*	next;
@@ -352,34 +416,6 @@ struct Ipmulti
 };
 
 /*
- *  hash table for 2 ip addresses + 2 ports
- */
-enum
-{
-	Nipht=		521,	/* convenient prime */
-
-	IPmatchexact=	0,	/* match on 4 tuple */
-	IPmatchany,		/* *!* */
-	IPmatchport,		/* *!port */
-	IPmatchaddr,		/* addr!* */
-	IPmatchpa,		/* addr!port */
-};
-struct Iphash
-{
-	Iphash	*next;
-	Conv	*c;
-	int	match;
-};
-struct Ipht
-{
-	Lock;
-	Iphash	*tab[Nipht];
-};
-void iphtadd(Ipht*, Conv*);
-void iphtrem(Ipht*, Conv*);
-Conv* iphtlook(Ipht *ht, uchar *sa, ushort sp, uchar *da, ushort dp);
-
-/*
  *  one per multiplexed protocol
  */
 struct Proto
@@ -412,8 +448,14 @@ struct Proto
 	Qid		qid;		/* qid for protocol directory */
 	ushort		nextrport;
 
+	/* network address translation */
+	Translation*	translations;
+	Block*		(*forward)(Proto*, Block*, Route*);
+
 	void		*priv;
 };
+
+int unusedlport(Proto *p);
 
 
 /*
@@ -489,6 +531,7 @@ enum
 	Logrudpmsg=	1<<16,
 	Logesp=		1<<17,
 	Logtcpwin=	1<<18,
+	Logtrans=	1<<19,
 };
 
 void	netloginit(Fs*);
@@ -522,7 +565,9 @@ enum
 	Rbcast=		(1<<4),		/* a broadcast self address */
 	Rmulti=		(1<<5),		/* a multicast self address */
 	Rproxy=		(1<<6),		/* this route should be proxied */
-	Rsrc=		(1<<7),		/* source specific route */
+	Rtrans=		(1<<7),		/* this route translates source address (NAT) */
+
+	Rsrc=		(1<<8),		/* source specific route */
 };
 
 struct	RouteTree
@@ -533,7 +578,7 @@ struct	RouteTree
 	Ipifc	*ifc;
 	uchar	ifcid;		/* must match ifc->id */
 	uchar	depth;
-	uchar	type;
+	ushort	type;
 	char	tag[4];
 	int	ref;
 };
@@ -641,10 +686,13 @@ extern int	isv4(uchar*);
 extern void	v4tov6(uchar *v6, uchar *v4);
 extern int	v6tov4(uchar *v4, uchar *v6);
 extern int	eipfmt(Fmt*);
+extern int	ipismulticast(uchar *ip);
 extern int	convipvers(Conv *c);
+extern void	hnputs_csum(void *p, ushort v, uchar *pcsum);
 
 #define	ipmove(x, y) memmove(x, y, IPaddrlen)
 #define	ipcmp(x, y) ( (x)[IPaddrlen-1] != (y)[IPaddrlen-1] || memcmp(x, y, IPaddrlen) )
+#define	isv4mcast(ip4)	((ip4)[0] >= 0xe0 && (ip4)[0] < 0xf0)
 
 extern uchar IPv4bcast[IPaddrlen];
 extern uchar IPv4bcastobs[IPaddrlen];
@@ -670,7 +718,6 @@ extern Medium*	ipfindmedium(char *name);
 extern void	addipmedium(Medium *med);
 extern void	ipifcoput(Ipifc *ifc, Block *bp, int version, uchar *ip, Routehint *rh);
 extern int	ipforme(Fs*, uchar *addr);
-extern int	ipismulticast(uchar *ip);
 extern Ipifc*	findipifc(Fs*, uchar *local, uchar *remote, int type);
 extern Ipifc*	findipifcstr(Fs *f, char *s);
 extern void	findlocalip(Fs*, uchar *local, uchar *remote);
@@ -694,6 +741,8 @@ extern void	icmpnohost(Fs*, Ipifc*, Block*);
 extern void	icmpnoconv(Fs*, Block*);
 extern void	icmpcantfrag(Fs*, Block*, int);
 extern void	icmpttlexceeded(Fs*, Ipifc*, Block*);
+extern void	icmpproxyadvice(Fs *, Block*, uchar*);
+
 extern ushort	ipcsum(uchar*);
 extern void	ipiput4(Fs*, Ipifc*, Block*);
 extern void	ipiput6(Fs*, Ipifc*, Block*);

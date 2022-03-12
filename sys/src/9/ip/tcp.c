@@ -126,7 +126,7 @@ struct Tcp4hdr
 	uchar	length[2];	/* packet length */
 	uchar	id[2];		/* Identification */
 	uchar	frag[2];	/* Fragment information */
-	uchar	Unused;
+	uchar	ttl;
 	uchar	proto;
 	uchar	tcplen[2];
 	uchar	tcpsrc[4];
@@ -1814,9 +1814,7 @@ tcpincoming(Conv *s, Tcp *segp, uchar *src, uchar *dst, uchar version)
 	}
 
 	tcpsetstate(new, Established);
-
 	iphtadd(&tpriv->ht, new);
-
 	return new;
 }
 
@@ -2068,10 +2066,11 @@ tcpiput(Proto *tcp, Ipifc*, Block *bp)
 	Tcp seg;
 	Tcp4hdr *h4;
 	Tcp6hdr *h6;
-	int hdrlen;
 	Tcpctl *tcb;
-	ushort length, csum;
+	int hdrlen;
+	ushort length;
 	uchar source[IPaddrlen], dest[IPaddrlen];
+	Iphash *iph;
 	Conv *s;
 	Fs *f;
 	Tcppriv *tpriv;
@@ -2087,21 +2086,32 @@ tcpiput(Proto *tcp, Ipifc*, Block *bp)
 	h6 = (Tcp6hdr*)(bp->rp);
 
 	if((h4->vihl&0xF0)==IP_VER4) {
+		int ttl = h4->ttl;
+
 		version = V4;
 		length = nhgets(h4->length);
+		if(length < TCP4_PKT){
+			tpriv->stats[HlenErrs]++;
+			tpriv->stats[InErrs]++;
+			netlog(f, Logtcp, "bad tcp len\n");
+			freeblist(bp);
+			return;
+		}
+		length -= TCP4_PKT;
 		v4tov6(dest, h4->tcpdst);
 		v4tov6(source, h4->tcpsrc);
 
-		h4->Unused = 0;
-		hnputs(h4->tcplen, length-TCP4_PKT);
-		if(!(bp->flag & Btcpck) && (h4->tcpcksum[0] || h4->tcpcksum[1]) &&
-			ptclcsum(bp, TCP4_IPLEN, length-TCP4_IPLEN)) {
+		h4->ttl = 0;
+		hnputs(h4->tcplen, length);
+		if(!(bp->flag & Btcpck) && (h4->tcpcksum[0] || h4->tcpcksum[1])
+		&& ptclcsum(bp, TCP4_IPLEN, length + TCP4_PKT - TCP4_IPLEN)) {
 			tpriv->stats[CsumErrs]++;
 			tpriv->stats[InErrs]++;
 			netlog(f, Logtcp, "bad tcp proto cksum\n");
 			freeblist(bp);
 			return;
 		}
+		h4->ttl = ttl;
 
 		hdrlen = ntohtcp4(&seg, &bp);
 		if(hdrlen < 0){
@@ -2110,16 +2120,8 @@ tcpiput(Proto *tcp, Ipifc*, Block *bp)
 			netlog(f, Logtcp, "bad tcp hdr len\n");
 			return;
 		}
-
-		/* trim the packet to the size claimed by the datagram */
-		length -= hdrlen+TCP4_PKT;
-		bp = trimblock(bp, hdrlen+TCP4_PKT, length);
-		if(bp == nil){
-			tpriv->stats[LenErrs]++;
-			tpriv->stats[InErrs]++;
-			netlog(f, Logtcp, "tcp len < 0 after trim\n");
-			return;
-		}
+		length -= hdrlen;
+		hdrlen += TCP4_PKT;
 	}
 	else {
 		int ttl = h6->ttl;
@@ -2133,13 +2135,13 @@ tcpiput(Proto *tcp, Ipifc*, Block *bp)
 		h6->ploadlen[0] = h6->ploadlen[1] = h6->proto = 0;
 		h6->ttl = proto;
 		hnputl(h6->vcf, length);
-		if((h6->tcpcksum[0] || h6->tcpcksum[1]) &&
-		    (csum = ptclcsum(bp, TCP6_IPLEN, length+TCP6_PHDRSIZE)) != 0) {
+		if((h6->tcpcksum[0] || h6->tcpcksum[1])
+		&& ptclcsum(bp, TCP6_IPLEN, length+TCP6_PHDRSIZE) != 0) {
 			tpriv->stats[CsumErrs]++;
 			tpriv->stats[InErrs]++;
 			netlog(f, Logtcp,
-			    "bad tcpv6 proto cksum: got %#ux, computed %#ux\n",
-				h6->tcpcksum[0]<<8 | h6->tcpcksum[1], csum);
+			    "bad tcpv6 proto cksum: got %#ux\n",
+				h6->tcpcksum[0]<<8 | h6->tcpcksum[1]);
 			freeblist(bp);
 			return;
 		}
@@ -2154,30 +2156,46 @@ tcpiput(Proto *tcp, Ipifc*, Block *bp)
 			netlog(f, Logtcp, "bad tcpv6 hdr len\n");
 			return;
 		}
-
-		/* trim the packet to the size claimed by the datagram */
 		length -= hdrlen;
-		bp = trimblock(bp, hdrlen+TCP6_PKT, length);
-		if(bp == nil){
-			tpriv->stats[LenErrs]++;
-			tpriv->stats[InErrs]++;
-			netlog(f, Logtcp, "tcpv6 len < 0 after trim\n");
-			return;
-		}
+		hdrlen += TCP6_PKT;
 	}
 
 	/* lock protocol while searching for a conversation */
 	qlock(tcp);
 
 	/* Look for a matching conversation */
-	s = iphtlook(&tpriv->ht, source, seg.source, dest, seg.dest);
-	if(s == nil){
+	iph = iphtlook(&tpriv->ht, source, seg.source, dest, seg.dest);
+	if(iph == nil){
 		netlog(f, Logtcp, "iphtlook(src %I!%d, dst %I!%d) failed\n",
 			source, seg.source, dest, seg.dest);
 reset:
 		qunlock(tcp);
 		freeblist(bp);
 		sndrst(tcp, source, dest, length, &seg, version, "no conversation", nil);
+		return;
+	}
+	if(iph->trans){
+		Translation *q;
+		int hop = h4->ttl;
+
+		if(hop <= 1 || (q = transbackward(tcp, iph)) == nil)
+			goto reset;
+		hnputs_csum(h4->tcpdst+0, nhgets(q->forward.raddr+IPv4off+0), h4->tcpcksum);
+		hnputs_csum(h4->tcpdst+2, nhgets(q->forward.raddr+IPv4off+2), h4->tcpcksum);
+		hnputs_csum(h4->tcpdport, q->forward.rport, h4->tcpcksum);
+		qunlock(tcp);
+		ipoput4(f, bp, 1, hop - 1, h4->tos, q);
+		return;
+	}
+	s = iphconv(iph);
+
+	/* trim off ip and tcp headers */
+	bp = trimblock(bp, hdrlen, length);
+	if(bp == nil){
+		tpriv->stats[LenErrs]++;
+		tpriv->stats[InErrs]++;
+		netlog(f, Logtcp, "tcp bad length after header trim off\n");
+		qunlock(tcp);
 		return;
 	}
 
@@ -3200,11 +3218,12 @@ tcpadvise(Proto *tcp, Block *bp, char *msg)
 {
 	Tcp4hdr *h4;
 	Tcp6hdr *h6;
-	Tcpctl *tcb;
 	uchar source[IPaddrlen];
 	uchar dest[IPaddrlen];
 	ushort psource, pdest;
-	Conv *s, **p;
+	Iphash *iph;
+	Tcpctl *tcb;
+	Conv *s;
 
 	h4 = (Tcp4hdr*)(bp->rp);
 	h6 = (Tcp6hdr*)(bp->rp);
@@ -3221,31 +3240,71 @@ tcpadvise(Proto *tcp, Block *bp, char *msg)
 		pdest = nhgets(h6->tcpdport);
 	}
 
-	/* Look for a connection */
+	/* Look for a connection (source/dest reversed; this is the original packet we sent) */
 	qlock(tcp);
-	for(p = tcp->conv; (s = *p) != nil; p++) {
-		tcb = (Tcpctl*)s->ptcl;
-		if(s->rport == pdest)
-		if(s->lport == psource)
-		if(tcb->state != Closed)
-		if(ipcmp(s->raddr, dest) == 0)
-		if(ipcmp(s->laddr, source) == 0){
-			if(s->ignoreadvice)
-				break;
-			qlock(s);
-			qunlock(tcp);
-			switch(tcb->state){
-			case Syn_sent:
-				localclose(s, msg);
-				break;
-			}
-			qunlock(s);
-			freeblist(bp);
-			return;
-		}
+	iph = iphtlook(&((Tcppriv*)tcp->priv)->ht, dest, pdest, source, psource);
+	if(iph == nil)
+		goto raise;
+	if(iph->trans){
+		Translation *q;
+
+		if((q = transbackward(tcp, iph)) == nil)
+			goto raise;
+
+		/* h4->tcplen is the ip header checksum */
+		hnputs_csum(h4->tcpsrc+0, nhgets(q->forward.raddr+IPv4off+0), h4->tcplen);
+		hnputs_csum(h4->tcpsrc+2, nhgets(q->forward.raddr+IPv4off+2), h4->tcplen);
+
+		/* dont bother fixing tcp checksum, packet is most likely truncated */
+		hnputs(h4->tcpsport, q->forward.rport);
+		qunlock(tcp);
+
+		icmpproxyadvice(tcp->f, bp, h4->tcpsrc);
+		return;
 	}
+	s = iphconv(iph);
+	if(s->ignoreadvice || s->state == Closed)
+		goto raise;
+	qlock(s);
+	qunlock(tcp);
+	tcb = (Tcpctl*)s->ptcl;
+	if(tcb->state == Syn_sent)
+		localclose(s, msg);
+	qunlock(s);
+	freeblist(bp);
+	return;
+raise:
 	qunlock(tcp);
 	freeblist(bp);
+}
+
+static Block*
+tcpforward(Proto *tcp, Block *bp, Route *r)
+{
+	uchar da[IPaddrlen], sa[IPaddrlen];
+	ushort dp, sp;
+	Tcp4hdr *h4;
+	Translation *q;
+
+	h4 = (Tcp4hdr*)(bp->rp);
+	v4tov6(da, h4->tcpdst);
+	v4tov6(sa, h4->tcpsrc);
+	dp = nhgets(h4->tcpdport);
+	sp = nhgets(h4->tcpsport);
+
+	qlock(tcp);
+	q = transforward(tcp, &((Tcppriv*)tcp->priv)->ht, sa, sp, da, dp, r);
+	if(q == nil){
+		qunlock(tcp);
+		freeblist(bp);
+		return nil;
+	}
+	hnputs_csum(h4->tcpsrc+0, nhgets(q->backward.laddr+IPv4off+0), h4->tcpcksum);
+	hnputs_csum(h4->tcpsrc+2, nhgets(q->backward.laddr+IPv4off+2), h4->tcpcksum);
+	hnputs_csum(h4->tcpsport, q->backward.lport, h4->tcpcksum);
+	qunlock(tcp);
+
+	return bp;
 }
 
 static char*
@@ -3371,6 +3430,7 @@ tcpinit(Fs *fs)
 	tcp->close = tcpclose;
 	tcp->rcv = tcpiput;
 	tcp->advise = tcpadvise;
+	tcp->forward = tcpforward;
 	tcp->stats = tcpstats;
 	tcp->inuse = tcpinuse;
 	tcp->gc = tcpgc;

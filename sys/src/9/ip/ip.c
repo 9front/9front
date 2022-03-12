@@ -252,7 +252,7 @@ free:
 void
 ipiput4(Fs *f, Ipifc *ifc, Block *bp)
 {
-	int hl, len, hop, tos;
+	int hl, len, hop;
 	uchar v6dst[IPaddrlen];
 	ushort frag;
 	Ip4hdr *h;
@@ -327,14 +327,42 @@ ipiput4(Fs *f, Ipifc *ifc, Block *bp)
 
 		/* don't forward if packet has timed out */
 		hop = h->ttl;
-		if(hop < 1) {
+		if(hop <= 1) {
 			ip->stats[InHdrErrors]++;
 			icmpttlexceeded(f, ifc, bp);
 			goto drop;
 		}
 
-		/* reassemble if the interface expects it */
-		if(nifc->reassemble){
+		if(r->type & Rtrans) {
+			p = Fsrcvpcolx(f, h->proto);
+			if(p == nil || p->forward == nil){
+				ip->stats[OutDiscards]++;
+				goto drop;
+			}
+
+			if(hl > IP4HDR) {
+				hl -= IP4HDR;
+				len -= hl;
+				bp->rp += hl;
+				memmove(bp->rp, h, IP4HDR);
+				h = (Ip4hdr*)bp->rp;
+				h->vihl = IP_VER4|IP_HLEN4;
+				hnputs(h->length, len);
+			}
+
+			frag = nhgets(h->frag);
+			if(frag & (IP_MF|IP_FO)) {
+				bp = ip4reassemble(ip, frag, bp);
+				if(bp == nil)
+					return;
+			}
+
+			bp = (*p->forward)(p, bp, r);
+			if(bp == nil)
+				return;
+			h = (Ip4hdr*)bp->rp;
+		} else if(nifc->reassemble) {
+			/* reassemble as the interface expects it */
 			frag = nhgets(h->frag);
 			if(frag & (IP_MF|IP_FO)) {
 				bp = ip4reassemble(ip, frag, bp);
@@ -345,9 +373,7 @@ ipiput4(Fs *f, Ipifc *ifc, Block *bp)
 		}
 
 		ip->stats[ForwDatagrams]++;
-		tos = h->tos;
-		hop = h->ttl;
-		ipoput4(f, bp, 1, hop - 1, tos, &rh);
+		ipoput4(f, bp, 1, hop - 1, h->tos, &rh);
 		return;
 	}
 

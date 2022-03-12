@@ -99,6 +99,8 @@ struct Icmppriv
 	/* message counts */
 	ulong	in[Maxtype+1];
 	ulong	out[Maxtype+1];
+
+	Ipht	ht;
 };
 
 static void icmpkick(void *x, Block*);
@@ -192,9 +194,9 @@ ip4reply(Fs *f, uchar ip4[4])
 	uchar addr[IPaddrlen];
 	int i;
 
-	v4tov6(addr, ip4);
-	if(ipismulticast(addr))
+	if(isv4mcast(ip4))
 		return 0;
+	v4tov6(addr, ip4);
 	i = ipforme(f, addr);
 	return i == 0 || i == Runi;
 }
@@ -204,9 +206,9 @@ ip4me(Fs *f, uchar ip4[4])
 {
 	uchar addr[IPaddrlen];
 
-	v4tov6(addr, ip4);
-	if(ipismulticast(addr))
+	if(isv4mcast(ip4))
 		return 0;
+	v4tov6(addr, ip4);
 	return ipforme(f, addr) == Runi;
 }
 
@@ -218,7 +220,7 @@ icmpttlexceeded(Fs *f, Ipifc *ifc, Block *bp)
 	uchar	ia[IPv4addrlen];
 
 	p = (Icmp *)bp->rp;
-	if(!ip4reply(f, p->src) || !ipv4local(ifc, ia, 0, p->src))
+	if(isv4mcast(p->dst) || !ip4reply(f, p->src) || !ipv4local(ifc, ia, 0, p->src))
 		return;
 
 	netlog(f, Logicmp, "sending icmpttlexceeded %V -> src %V dst %V\n",
@@ -249,7 +251,7 @@ icmpunreachable(Fs *f, Ipifc *ifc, Block *bp, int code, int seq)
 	uchar	ia[IPv4addrlen];
 
 	p = (Icmp *)bp->rp;
-	if(!ip4reply(f, p->src))
+	if(isv4mcast(p->dst) || !ip4reply(f, p->src))
 		return;
 
 	if(ifc == nil){
@@ -302,21 +304,43 @@ icmpcantfrag(Fs *f, Block *bp, int mtu)
 static void
 goticmpkt(Proto *icmp, Block *bp)
 {
-	ushort	recid;
 	uchar	dst[IPaddrlen], src[IPaddrlen];
+	ushort	recid;
 	Conv	**c, *s;
+	Iphash	*iph;
 	Icmp	*p;
-
-	p = (Icmp *) bp->rp;
+	
+	p = (Icmp *)bp->rp;
 	v4tov6(dst, p->dst);
 	v4tov6(src, p->src);
 	recid = nhgets(p->icmpid);
 
+	qlock(icmp);
+	iph = iphtlook(&((Icmppriv*)icmp->priv)->ht, src, recid, dst, recid);
+	if(iph != nil){
+		Translation *q;
+		int hop = p->ttl;
+
+		if(hop <= 1 || (q = transbackward(icmp, iph)) == nil)
+			goto raise;
+		memmove(p->dst, q->forward.raddr+IPv4off, IPv4addrlen);
+		hnputs_csum(p->icmpid, q->forward.rport, p->cksum);
+
+		/* only use route-hint when from original desination */
+		if(memcmp(p->src, q->forward.laddr+IPv4off, IPv4addrlen) != 0)
+			q = nil;
+		qunlock(icmp);
+
+		ipoput4(icmp->f, bp, 1, hop - 1, p->tos, q);
+		return;
+	}
 	for(c = icmp->conv; (s = *c) != nil; c++){
 		if(s->lport == recid)
 		if(ipcmp(s->laddr, dst) == 0 || ipcmp(s->raddr, src) == 0)
 			qpass(s->rq, copyblock(bp, blocklen(bp)));
 	}
+raise:
+	qunlock(icmp);
 	freeblist(bp);
 }
 
@@ -404,31 +428,6 @@ icmpiput(Proto *icmp, Ipifc*, Block *bp)
 		ipriv->out[EchoReply]++;
 		ipoput4(icmp->f, r, 0, MAXTTL, DFLTTOS, nil);
 		break;
-	case Unreachable:
-		if(p->code >= nelem(unreachcode)) {
-			snprint(m2, sizeof m2, "unreachable %V -> %V code %d",
-				p->src, p->dst, p->code);
-			msg = m2;
-		} else
-			msg = unreachcode[p->code];
-
-	Advise:
-		bp->rp += ICMP_IPSIZE+ICMP_HDRSIZE;
-		if(BLEN(bp) < MinAdvise){
-			ipriv->stats[LenErrs]++;
-			goto raise;
-		}
-		p = (Icmp *)bp->rp;
-		if((nhgets(p->frag) & IP_FO) == 0){
-			pr = Fsrcvpcolx(icmp->f, p->proto);
-			if(pr != nil && pr->advise != nil) {
-				(*pr->advise)(pr, bp, msg);
-				return;
-			}
-		}
-		bp->rp -= ICMP_IPSIZE+ICMP_HDRSIZE;
-		goticmpkt(icmp, bp);
-		break;
 	case TimeExceed:
 		if(p->code == 0){
 			snprint(msg = m2, sizeof m2, "ttl exceeded at %V", p->src);
@@ -436,29 +435,117 @@ icmpiput(Proto *icmp, Ipifc*, Block *bp)
 		}
 		goticmpkt(icmp, bp);
 		break;
+	case Unreachable:
+		if(p->code >= nelem(unreachcode)) {
+			snprint(m2, sizeof m2, "unreachable %V -> %V code %d",
+				p->src, p->dst, p->code);
+			msg = m2;
+		} else
+			msg = unreachcode[p->code];
+	Advise:
+		bp->rp += ICMP_IPSIZE+ICMP_HDRSIZE;
+		if(BLEN(bp) < MinAdvise){
+			ipriv->stats[LenErrs]++;
+			goto raise;
+		}
+		p = (Icmp *)bp->rp;
+		if(p->vihl == (IP_VER4|IP_HLEN4)	/* advise() does not expect options */
+		&& (nhgets(p->frag) & IP_FO) == 0	/* first fragment */
+		&& ipcsum(&p->vihl) == 0){
+			pr = Fsrcvpcolx(icmp->f, p->proto);
+			if(pr != nil && pr->advise != nil) {
+				netlog(icmp->f, Logicmp, "advising %s!%V -> %V: %s\n", pr->name, p->src, p->dst, msg);
+				(*pr->advise)(pr, bp, msg);
+				return;
+			}
+		}
+		bp->rp -= ICMP_IPSIZE+ICMP_HDRSIZE;
+		/* wet floor */
 	default:
 		goticmpkt(icmp, bp);
 		break;
 	}
 	return;
-
 raise:
+	freeblist(bp);
+}
+
+/*
+ * called from protocol advice handlers when the advice
+ * is actually for someone we source translate (ip4).
+ * the caller has fixed up the ip address and ports
+ * in the inner header, so we just restore the outer
+ * ip/icmp headers, recalculating icmp checksum
+ * and send the advice to ip4.
+ */
+void
+icmpproxyadvice(Fs *f, Block *bp, uchar *ip4)
+{
+	Icmp	*p;
+	int	hop;
+
+	/* inner header */
+	p = (Icmp *) bp->rp;
+	if(p->vihl != (IP_VER4|IP_HLEN4))
+		goto drop;
+	if(ipcsum(&p->vihl) != 0)
+		goto drop;
+
+	/* outer header */
+	bp->rp -= ICMP_IPSIZE+ICMP_HDRSIZE;
+	p = (Icmp *) bp->rp;
+	if(p->vihl != (IP_VER4|(ICMP_IPSIZE>>2)))
+		goto drop;
+
+	hop = p->ttl;
+	if(hop <= 1)
+		goto drop;
+
+	netlog(f, Logicmp|Logtrans, "proxying icmp advice from %V to %V->%V\n",
+		p->src, p->dst, ip4);
+	memmove(p->dst, ip4, IPv4addrlen);
+
+	/* recalculate ICMP checksum */
+	memset(p->cksum, 0, sizeof(p->cksum));
+	hnputs(p->cksum, ptclcsum(bp, ICMP_IPSIZE, blocklen(bp) - ICMP_IPSIZE));
+
+	ipoput4(f, bp, 1, hop - 1, p->tos, nil);
+	return;
+drop:
 	freeblist(bp);
 }
 
 static void
 icmpadvise(Proto *icmp, Block *bp, char *msg)
 {
-	ushort	recid;
 	uchar	dst[IPaddrlen], src[IPaddrlen];
+	ushort	recid;
 	Conv	**c, *s;
 	Icmp	*p;
+	Iphash	*iph;
 
 	p = (Icmp *) bp->rp;
 	v4tov6(dst, p->dst);
 	v4tov6(src, p->src);
 	recid = nhgets(p->icmpid);
 
+	qlock(icmp);
+	iph = iphtlook(&((Icmppriv*)icmp->priv)->ht, dst, recid, src, recid);
+	if(iph != nil){
+		Translation *q;
+
+		if((q = transbackward(icmp, iph)) == nil)
+			goto raise;
+
+		hnputs_csum(p->src+0, nhgets(q->forward.raddr+IPv4off+0), p->ipcksum);
+		hnputs_csum(p->src+2, nhgets(q->forward.raddr+IPv4off+2), p->ipcksum);
+
+		hnputs_csum(p->icmpid, q->forward.rport, p->cksum);
+		qunlock(icmp);
+
+		icmpproxyadvice(icmp->f, bp, p->src);
+		return;
+	}
 	for(c = icmp->conv; (s = *c) != nil; c++){
 		if(s->lport == recid)
 		if(ipcmp(s->laddr, src) == 0)
@@ -470,7 +557,36 @@ icmpadvise(Proto *icmp, Block *bp, char *msg)
 			break;
 		}
 	}
+raise:
+	qunlock(icmp);
 	freeblist(bp);
+}
+
+static Block*
+icmpforward(Proto *icmp, Block *bp, Route *r)
+{
+	uchar da[IPaddrlen], sa[IPaddrlen];
+	ushort id;
+	Icmp *p;
+	Translation *q;
+
+	p = (Icmp*)(bp->rp);
+	v4tov6(sa, p->src);
+	v4tov6(da, p->dst);
+	id = nhgets(p->icmpid);
+
+	qlock(icmp);
+	q = transforward(icmp, &((Icmppriv*)icmp->priv)->ht, sa, id, da, id, r);
+	if(q == nil){
+		qunlock(icmp);
+		freeblist(bp);
+		return nil;
+	}
+	memmove(p->src, q->backward.laddr+IPv4off, IPv4addrlen);
+	hnputs_csum(p->icmpid, q->backward.lport, p->cksum);
+	qunlock(icmp);
+
+	return bp;
 }
 
 static int
@@ -511,6 +627,7 @@ icmpinit(Fs *fs)
 	icmp->stats = icmpstats;
 	icmp->ctl = nil;
 	icmp->advise = icmpadvise;
+	icmp->forward = icmpforward;
 	icmp->gc = nil;
 	icmp->ipproto = IP_ICMPPROTO;
 	icmp->nc = 128;

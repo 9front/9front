@@ -711,9 +711,8 @@ icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 			goto raise;
 		}
 		p = (IPICMP *)bp->rp;
-
 		/* get rid of fragment header if this is the first fragment */
-		if(p->proto == FH && BLEN(bp) >= MinAdvise+IP6FHDR && MinAdvise > IP6HDR){
+		if((p->vcf[0] & 0xF0) == IP_VER6 && p->proto == FH && BLEN(bp) >= MinAdvise+IP6FHDR && MinAdvise > IP6HDR){
 			Fraghdr6 *fh = (Fraghdr6*)(bp->rp + IP6HDR);
 			if((nhgets(fh->offsetRM) & ~7) == 0){	/* first fragment */
 				p->proto = fh->nexthdr;
@@ -725,9 +724,10 @@ icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 				bp->rp -= IP6HDR;
 			}
 		}
-		if(p->proto != FH){
+		if((p->vcf[0] & 0xF0) == IP_VER6 && p->proto != FH){
 			pr = Fsrcvpcolx(icmp->f, p->proto);
 			if(pr != nil && pr->advise != nil) {
+				netlog(icmp->f, Logicmp, "advising %s!%I -> %I: %s\n", pr->name, p->src, p->dst, msg);
 				(*pr->advise)(pr, bp, msg);
 				return;
 			}

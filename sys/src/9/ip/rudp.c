@@ -220,9 +220,10 @@ rudpconnect(Conv *c, char **argv, int argc)
 	rudpstartackproc(c->p);
 	e = Fsstdconnect(c, argv, argc);
 	Fsconnected(c, e);
+	if(e != nil)
+		return e;
 	iphtadd(&upriv->ht, c);
-
-	return e;
+	return nil;
 }
 
 
@@ -256,7 +257,6 @@ rudpannounce(Conv *c, char** argv, int argc)
 		return e;
 	Fsconnected(c, nil);
 	iphtadd(&upriv->ht, c);
-
 	return nil;
 }
 
@@ -289,10 +289,11 @@ rudpclose(Conv *c)
 	qclose(c->rq);
 	qclose(c->wq);
 	qclose(c->eq);
-	ipmove(c->laddr, IPnoaddr);
-	ipmove(c->raddr, IPnoaddr);
+
 	c->lport = 0;
+	ipmove(c->laddr, IPnoaddr);
 	c->rport = 0;
+	ipmove(c->raddr, IPnoaddr);
 
 	ucb->headers = 0;
 	ucb->randdrop = 0;
@@ -460,11 +461,12 @@ rudpkick(void *x)
 void
 rudpiput(Proto *rudp, Ipifc *ifc, Block *bp)
 {
-	int len, olen, ottl;
+	int len, olen;
 	Udphdr *uh;
+	Iphash *iph;
 	Conv *c;
 	Rudpcb *ucb;
-	uchar raddr[IPaddrlen], laddr[IPaddrlen];
+	uchar raddr[IPaddrlen], laddr[IPaddrlen], ottl;
 	ushort rport, lport;
 	Rudppriv *upriv;
 	Fs *f;
@@ -503,9 +505,8 @@ rudpiput(Proto *rudp, Ipifc *ifc, Block *bp)
 	}
 
 	qlock(rudp);
-
-	c = iphtlook(&upriv->ht, raddr, rport, laddr, lport);
-	if(c == nil){
+	iph = iphtlook(&upriv->ht, raddr, rport, laddr, lport);
+	if(iph == nil){
 		/* no conversation found */
 		upriv->ustats.rudpNoPorts++;
 		qunlock(rudp);
@@ -517,6 +518,7 @@ rudpiput(Proto *rudp, Ipifc *ifc, Block *bp)
 		freeblist(bp);
 		return;
 	}
+	c = iphconv(iph);
 	ucb = (Rudpcb*)c->ptcl;
 	qlock(ucb);
 	qunlock(rudp);

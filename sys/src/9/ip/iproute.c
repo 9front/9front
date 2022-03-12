@@ -875,6 +875,9 @@ parseroutetype(char *p)
 	case 'p':
 		if(((type ^= Rptpt) & Rptpt) != Rptpt) return -1;
 		break;
+	case 't':
+		if(((type ^= Rtrans) & Rtrans) != Rtrans) return -1;
+		break;
 	case '\0':
 		return type;
 	}
@@ -900,6 +903,10 @@ routetype(int type, char p[8])
 
 	if(type & Rptpt)
 		*p++ = 'p';
+
+	if(type & Rtrans)
+		*p++ = 't';
+
 	*p = 0;
 }
 

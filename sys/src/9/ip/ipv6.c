@@ -278,7 +278,7 @@ ipiput6(Fs *f, Ipifc *ifc, Block *bp)
 
 		/* don't forward if packet has timed out */
 		hop = h->ttl;
-		if(hop < 1) {
+		if(hop <= 1) {
 			ip->stats[InHdrErrors]++;
 			icmpttlexceeded6(f, ifc, bp);
 			goto drop;
@@ -292,8 +292,7 @@ ipiput6(Fs *f, Ipifc *ifc, Block *bp)
 		ip->stats[ForwDatagrams]++;
 		h = (Ip6hdr*)bp->rp;
 		tos = (h->vcf[0]&0x0F)<<2 | (h->vcf[1]&0xF0)>>2;
-		hop = h->ttl;
-		ipoput6(f, bp, 1, hop-1, tos, &rh);
+		ipoput6(f, bp, 1, hop - 1, tos, &rh);
 		return;
 	}
 
