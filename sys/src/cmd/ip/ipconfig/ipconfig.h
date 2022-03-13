@@ -116,6 +116,7 @@ void	usage(void);
 int	ip4cfg(void);
 void	ipunconfig(void);
 
+void	setroutetag(char*);
 void	adddefroute(uchar*, uchar*, uchar*, uchar*);
 void	removedefroute(uchar*, uchar*, uchar*, uchar*);
 

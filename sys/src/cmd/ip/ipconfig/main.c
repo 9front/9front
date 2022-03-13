@@ -24,6 +24,7 @@ int	dolog;
 int	plan9 = 1;
 int	Oflag;
 int	rflag;
+int	tflag;
 
 int	dodhcp;
 int	nodhcpwatch;
@@ -53,7 +54,7 @@ static int	Ufmt(Fmt*);
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-6dDGnNOpPruX][-b baud][-c ctl]* [-g gw]"
+	fprint(2, "usage: %s [-6dDGnNOpPrtuX][-b baud][-c ctl]* [-g gw]"
 		"[-h host][-m mtu]\n"
 		"\t[-f dbfile][-x mtpt][-o dhcpopt] type dev [verb] [laddr [mask "
 		"[raddr [fs [auth]]]]]\n", argv0);
@@ -383,6 +384,9 @@ main(int argc, char **argv)
 	case 'r':
 		rflag = 1;
 		break;
+	case 't':
+		tflag = 1;
+		break;
 	case 'u':		/* IPv6: duplicate neighbour disc. off */
 		dupl_disc = 0;
 		break;
@@ -462,7 +466,7 @@ doadd(void)
 
 	/* run dhcp if we need something */
 	if(dodhcp){
-		fprint(conf.rfd, "tag dhcp");
+		setroutetag("dhcp");
 		dhcpquery(!noconfig, Sselecting);
 	}
 
@@ -587,12 +591,14 @@ ip4cfg(void)
 		ipmove(conf.mask, defmask(conf.laddr));
 	n += snprint(buf+n, sizeof buf-n, " %M", conf.mask);
 
-	if(validip(conf.raddr)){
-		n += snprint(buf+n, sizeof buf-n, " %I", conf.raddr);
-		if(conf.mtu != 0)
-			n += snprint(buf+n, sizeof buf-n, " %d", conf.mtu);
-	}
+	if(!validip(conf.raddr) || !isv4(conf.raddr))
+		maskip(conf.laddr, conf.mask, conf.raddr);
+	n += snprint(buf+n, sizeof buf-n, " %I", conf.raddr);
+	n += snprint(buf+n, sizeof buf-n, " %d", conf.mtu);
+	if(tflag)
+		n += snprint(buf+n, sizeof buf-n, " trans");
 
+	DEBUG("ip4cfg: %.*s", n, buf);
 	if(write(conf.cfd, buf, n) < 0){
 		warning("write(%s): %r", buf);
 		return -1;
@@ -601,6 +607,9 @@ ip4cfg(void)
 	if(validip(conf.gaddr) && isv4(conf.gaddr)
 	&& ipcmp(conf.gaddr, conf.laddr) != 0)
 		adddefroute(conf.gaddr, conf.laddr, conf.laddr, conf.mask);
+
+	if(tflag)
+		fprint(conf.cfd, "iprouting 1");
 
 	return 0;
 }
@@ -726,6 +735,15 @@ putndb(void)
 	close(fd);
 }
 
+static char *routetag = "none";
+
+void
+setroutetag(char *tag)
+{
+	routetag = tag;
+	fprint(conf.rfd, "tag %s", routetag);
+}
+
 static int
 issrcspec(uchar *src, uchar *smask)
 {
@@ -733,18 +751,22 @@ issrcspec(uchar *src, uchar *smask)
 }
 
 static void
-routectl(char *cmd, uchar *dst, uchar *mask, uchar *gate, uchar *ia, uchar *src, uchar *smask)
+routectl(char *cmd, uchar *dst, uchar *mask, uchar *gate, char *flags, uchar *ia, uchar *src, uchar *smask)
 {
 	char *ctl;
 
-	if(issrcspec(src, smask))
-		ctl = "%s %I %M %I %I %I %M";
-	else
-		ctl = "%s %I %M %I %I";
-	DEBUG(ctl, cmd, dst, mask, gate, ia, src, smask);
-	if(conf.rfd < 0)
+	if(*flags == '\0'){
+		if(!issrcspec(src, smask))
+			ctl = "%s %I %M %I %I";
+		else
+			ctl = "%s %I %M %I %I %I %M";
+		DEBUG(ctl, cmd, dst, mask, gate, ia, src, smask);
+		fprint(conf.rfd, ctl, cmd, dst, mask, gate, ia, src, smask);
 		return;
-	fprint(conf.rfd, ctl, cmd, dst, mask, gate, ia, src, smask);
+	}
+	ctl = "%s %I %M %I %s %s %I %I %M";
+	DEBUG(ctl, cmd, dst, mask, gate, flags, routetag, ia, src, smask);
+	fprint(conf.rfd, ctl, cmd, dst, mask, gate, flags, routetag, ia, src, smask);
 }
 
 static void
@@ -765,11 +787,18 @@ defroutectl(char *cmd, uchar *gaddr, uchar *ia, uchar *src, uchar *smask)
 		if(smask == nil)
 			smask = IPnoaddr;
 	}
-	routectl(cmd, dst, mask, gaddr, ia, src, smask);
 
-	/* also add a source specific route */
-	if(ipcmp(src, IPnoaddr) != 0 && ipcmp(src, v4prefix) != 0)
-		routectl(cmd, dst, mask, gaddr, ia, src, IPallbits);
+	if(tflag && isv4(gaddr)){
+		/* add route for everyone with source translation */
+		routectl(cmd, dst, mask, gaddr, "4t", ia, dst, mask);
+	} else {
+		/* add route for subnet */
+		routectl(cmd, dst, mask, gaddr, "", ia, src, smask);
+	}
+
+	/* add source specific route for us */
+	if(validip(src))
+		routectl(cmd, dst, mask, gaddr, "", ia, src, IPallbits);
 }
 
 void
@@ -1016,6 +1045,7 @@ ndb2conf(Ndb *db, uchar *myip)
 
 	ipmove(conf.mask, defmask(conf.laddr));
 
+	memset(conf.raddr, 0, sizeof(conf.raddr));
 	memset(conf.gaddr, 0, sizeof(conf.gaddr));
 	memset(conf.dns, 0, sizeof(conf.dns));
 	memset(conf.ntp, 0, sizeof(conf.ntp));

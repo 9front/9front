@@ -5,7 +5,7 @@ ipconfig, rip, linklocal \- Internet configuration and routing
 .in +0.25i
 .ti -0.25i
 .B ip/ipconfig
-.RB [ -6DGNOPdnpruX ]
+.RB [ -6DGNOPdnprtuX ]
 .RB [ -b
 .IR baud ]
 .RB [ -c
@@ -222,6 +222,10 @@ exits after trying DHCP for 15 seconds with no answer.
 This option directs
 .I ipconfig
 instead to fork a background process that keeps trying forever.
+.TP
+.B t
+enable source address translation on the interface and default route.
+(only usefull for IPv4).
 .TP
 .B u
 disable IPv6 duplicate discovery detection,

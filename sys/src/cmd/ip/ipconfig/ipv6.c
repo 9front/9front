@@ -354,8 +354,8 @@ arpcheck(uchar *ip)
 int
 ip6cfg(void)
 {
-	int tentative, n;
 	char buf[256];
+	int tentative, n;
 
 	if(!validip(conf.laddr) || isv4(conf.laddr))
 		return -1;
@@ -372,12 +372,12 @@ Again:
 	if(!validip(conf.mask))
 		ipmove(conf.mask, defmask(conf.laddr));
 	n += snprint(buf+n, sizeof buf-n, " %M", conf.mask);
-	if(validip(conf.raddr)){
-		n += snprint(buf+n, sizeof buf-n, " %I", conf.raddr);
-		if(conf.mtu != 0)
-			n += snprint(buf+n, sizeof buf-n, " %d", conf.mtu);
-	}
+	if(!validip(conf.raddr) || isv4(conf.raddr))
+		maskip(conf.laddr, conf.mask, conf.raddr);
+	n += snprint(buf+n, sizeof buf-n, " %I", conf.raddr);
+	n += snprint(buf+n, sizeof buf-n, " %d", conf.mtu);
 
+	DEBUG("ip6cfg: %.*s", n, buf);
 	if(write(conf.cfd, buf, n) < 0){
 		warning("write(%s): %r", buf);
 		return -1;
@@ -1134,8 +1134,7 @@ startra6(void)
 void
 doipv6(int what)
 {
-	fprint(conf.rfd, "tag ra6");
-
+	setroutetag("ra6");
 	switch (what) {
 	default:
 		sysfatal("unknown IPv6 verb");
