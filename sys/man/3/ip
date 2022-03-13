@@ -145,10 +145,10 @@ written to it will be looped back.
 .B "unbind
 Disassociate the physical device from an IP interface.
 .TP
-.BI add\  "local mask remote mtu " proxy
+.BI add\  "local mask remote mtu " proxy|trans
 .PD 0
 .TP
-.BI try\  "local mask remote mtu " proxy
+.BI try\  "local mask remote mtu " proxy|trans
 .PD
 Add a local IP address to the interface.
 .I Try
@@ -160,8 +160,9 @@ The
 .IR mask ,
 .IR remote ,
 .IR mtu ,
+.IR proxy ,
 and
-.B proxy
+.R trans
 arguments are all optional.
 The default
 .I mask
@@ -179,12 +180,18 @@ is 1514 for Ethernet and 4096 for packet media.
 The
 .I mtu
 is the size in bytes of the largest packet that this interface can send.
+Specifying a
+.I mtu
+of 0 will use the default.
 .IR Proxy ,
 if specified, means that this machine should answer
 ARP requests for the remote address.
 .IR Ppp (8)
 does this to make remote machines appear
 to be connected to the local Ethernet.
+The
+.I trans
+argument enables source address translation on interface.
 Adding the special null-address
 .B "0.0.0.0"
 or
