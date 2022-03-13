@@ -1342,7 +1342,7 @@ openlisten(char *net)
 		fatal("can't announce: %r");
 	if(fprint(cfd, "headers") < 0)
 		fatal("can't set header mode: %r");
-
+	fprint(cfd, "ignoreadvice");
 	sprint(data, "%s/data", devdir);
 	fd = open(data, ORDWR);
 	if(fd < 0)
