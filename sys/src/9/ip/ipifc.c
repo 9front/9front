@@ -465,8 +465,10 @@ ipifcadd(Ipifc *ifc, char **argv, int argc, int tentative, Iplifc *lifcp)
 	memset(rem, 0, IPaddrlen);
 	switch(argc){
 	case 6:
-		if(strcmp(argv[5], "proxy") == 0)
+		if(strstr(argv[5], "proxy") != 0)
 			type |= Rproxy;
+		if(strstr(argv[5], "trans") != 0)
+			type |= Rtrans;
 		/* fall through */
 	case 5:
 		mtu = strtoul(argv[4], 0, 0);
@@ -523,7 +525,7 @@ ipifcadd(Ipifc *ifc, char **argv, int argc, int tentative, Iplifc *lifcp)
 			if(!lifc->onlink && lifcp->onlink){
 				lifc->onlink = 1;
 				addroute(f, lifc->remote, lifc->mask, ip, IPallbits,
-					lifc->remote, lifc->type, ifc, tifc);
+					lifc->remote, lifc->type&~Rtrans, ifc, tifc);
 				if(v6addrtype(ip) != linklocalv6)
 					addroute(f, lifc->remote, lifc->mask, ip, IPnoaddr,
 						lifc->remote, lifc->type, ifc, tifc);
@@ -569,7 +571,7 @@ ipifcadd(Ipifc *ifc, char **argv, int argc, int tentative, Iplifc *lifcp)
 
 	/* add route for this logical interface */
 	if(lifc->onlink){
-		addroute(f, rem, mask, ip, IPallbits, rem, type, ifc, tifc);
+		addroute(f, rem, mask, ip, IPallbits, rem, type&~Rtrans, ifc, tifc);
 		if(v6addrtype(ip) != linklocalv6)
 			addroute(f, rem, mask, ip, IPnoaddr, rem, type, ifc, tifc);
 	}
@@ -664,7 +666,7 @@ ipifcremlifc(Ipifc *ifc, Iplifc **l)
 	if(lifc->onlink){
 		remroute(f, lifc->remote, lifc->mask,
 			lifc->local, IPallbits,
-			lifc->remote, lifc->type, ifc, tifc);
+			lifc->remote, lifc->type&~Rtrans, ifc, tifc);
 		if(v6addrtype(lifc->local) != linklocalv6)
 			remroute(f, lifc->remote, lifc->mask,
 				lifc->local, IPnoaddr,
@@ -907,6 +909,8 @@ addselfcache(Fs *f, Ipifc *ifc, Iplifc *lifc, uchar *a, int type)
 	int h;
 
 	type |= (lifc->type & Rv4);
+	type &= ~Rtrans;
+
 	qlock(f->self);
 	if(waserror()){
 		qunlock(f->self);
