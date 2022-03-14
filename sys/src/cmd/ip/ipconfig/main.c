@@ -466,7 +466,7 @@ doadd(void)
 
 	/* run dhcp if we need something */
 	if(dodhcp){
-		setroutetag("dhcp");
+		fprint(conf.rfd, "tag dhcp");
 		dhcpquery(!noconfig, Sselecting);
 	}
 
@@ -735,15 +735,6 @@ putndb(void)
 	close(fd);
 }
 
-static char *routetag = "none";
-
-void
-setroutetag(char *tag)
-{
-	routetag = tag;
-	fprint(conf.rfd, "tag %s", routetag);
-}
-
 static int
 issrcspec(uchar *src, uchar *smask)
 {
@@ -764,9 +755,9 @@ routectl(char *cmd, uchar *dst, uchar *mask, uchar *gate, char *flags, uchar *ia
 		fprint(conf.rfd, ctl, cmd, dst, mask, gate, ia, src, smask);
 		return;
 	}
-	ctl = "%s %I %M %I %s %s %I %I %M";
-	DEBUG(ctl, cmd, dst, mask, gate, flags, routetag, ia, src, smask);
-	fprint(conf.rfd, ctl, cmd, dst, mask, gate, flags, routetag, ia, src, smask);
+	ctl = "%s %I %M %I %s %I %I %M";
+	DEBUG(ctl, cmd, dst, mask, gate, flags, ia, src, smask);
+	fprint(conf.rfd, ctl, cmd, dst, mask, gate, flags, ia, src, smask);
 }
 
 static void

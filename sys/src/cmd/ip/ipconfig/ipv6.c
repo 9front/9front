@@ -1134,7 +1134,7 @@ startra6(void)
 void
 doipv6(int what)
 {
-	setroutetag("ra6");
+	fprint(conf.rfd, "tag ra6");
 	switch (what) {
 	default:
 		sysfatal("unknown IPv6 verb");

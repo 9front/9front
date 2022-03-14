@@ -1035,14 +1035,14 @@ routeread(Fs *f, char *p, ulong offset, int n)
  *	5	add	addr	mask	gate			ifc
  *	6	add	addr	mask	gate				src	smask
  *	7	add	addr	mask	gate			ifc	src	smask
- *	8	add	addr	mask	gate		tag	ifc	src	smask
+ *	8	add	addr	mask	gate	type		ifc	src	smask
  *	9	add	addr	mask	gate	type	tag	ifc	src	smask
  *	3	remove	addr	mask
  *	4	remove	addr	mask	gate
  *	5	remove	addr	mask					src	smask
  *	6	remove	addr	mask	gate				src	smask
  *	7	remove	addr	mask	gate			ifc	src	smask
- *	8	remove	addr	mask	gate		tag	ifc	src	smask
+ *	8	remove	addr	mask	gate	type		ifc	src	smask
  *	9	remove	addr	mask	gate	type	tag	ifc	src	smask
  */
 static Route
@@ -1064,6 +1064,7 @@ parseroute(Fs *f, char **argv, int argc)
 
 	if(argc < 3)
 		error(Ebadctl);
+
 	if(parseipandmask(addr, mask, argv[1], argv[2]) == -1)
 		error(Ebadip);
 
@@ -1073,29 +1074,28 @@ parseroute(Fs *f, char **argv, int argc)
 		if(parseip(gate, argv[3]) == -1)
 			error(Ebadip);
 	}
+
 	if(argc > 4 && (strcmp(argv[0], "add") != 0 || argc != 5)){
 		if(parseipandmask(src, smask, argv[argc-2], argv[argc-1]) == -1)
 			error(Ebadip);
 	}
+
 	if(argc == 5 && strcmp(argv[0], "add") == 0)
 		ifc = findipifcstr(f, argv[4]);
 	if(argc > 6)
 		ifc = findipifcstr(f, argv[argc-3]);
-	if(argc > 7)
-		tag = argv[argc-4];
-	if(argc > 8){
-		if((type = parseroutetype(argv[argc-5])) < 0)
-			error(Ebadctl);
-	} else {
-		if(isv4(addr))
-			type |= Rv4;
-	}
+
+	if(argc > 7 && (type = parseroutetype(argv[4])) < 0)
+		error(Ebadctl);
+	if(isv4(addr))
+		type |= Rv4;
+
+	if(argc > 8)
+		tag = argv[5];
 	if(argc > 9)
 		error(Ebadctl);
 
 	if(type & Rv4){
-		if(!isv4(addr))
-			error(Ebadip);
 		if(ipcmp(smask, IPnoaddr) != 0 && !isv4(src))
 			error(Ebadip);
 		if(ipcmp(gate, IPnoaddr) != 0 && !isv4(gate))

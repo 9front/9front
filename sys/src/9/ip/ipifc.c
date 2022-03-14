@@ -909,7 +909,6 @@ addselfcache(Fs *f, Ipifc *ifc, Iplifc *lifc, uchar *a, int type)
 	int h;
 
 	type |= (lifc->type & Rv4);
-	type &= ~Rtrans;
 
 	qlock(f->self);
 	if(waserror()){
