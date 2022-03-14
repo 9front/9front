@@ -13,6 +13,12 @@ enum {
 	Skip,
 };
 
+enum {
+	Lca,
+	Twixt,
+	Range,
+};
+
 struct Eval {
 	char	*str;
 	char	*p;
@@ -102,18 +108,20 @@ take(Eval *ev, char *m)
 }
 
 static int
-paint(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres, int ancestor)
+paint(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres, int mode)
 {
 	Qelt e;
 	Objq objq;
 	Objset keep, drop, skip;
-	Object *o, *c;
-	int i, nskip;
+	Object *o, *c, **range;
+	int i, nskip, nrange;
 
 	osinit(&keep);
 	osinit(&drop);
 	osinit(&skip);
 	qinit(&objq);
+	range = nil;
+	nrange = 0;
 	nskip = 0;
 
 	for(i = 0; i < nhead; i++){
@@ -158,6 +166,10 @@ paint(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres, in
 				continue;
 			if(oshas(&drop, e.o->hash))
 				e.color = Skip;
+			else if(mode == Range){
+				range = earealloc(range, nrange+1, sizeof(Object*));
+				range[nrange++] = e.o;
+			}
 			osadd(&keep, e.o);
 			break;
 		case Drop:
@@ -188,7 +200,8 @@ paint(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres, in
 		}
 		unref(o);
 	}
-	if(ancestor){
+	switch(mode){
+	case Lca:
 		dprint(1, "found ancestor\n");
 		o = nil;
 		for(i = 0; i < keep.sz; i++){
@@ -204,7 +217,8 @@ paint(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres, in
 			*res = eamalloc(1, sizeof(Object*));
 			(*res)[0] = o;
 		}
-	}else{
+		break;
+	case Twixt:
 		dprint(1, "found twixt\n");
 		*res = eamalloc(keep.nobj, sizeof(Object*));
 		*nres = 0;
@@ -215,21 +229,36 @@ paint(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres, in
 				(*nres)++;
 			}
 		}
+		break;
+	case Range:
+		dprint(1, "found range\n");
+		*res = eamalloc(nrange, sizeof(Object*));
+		*nres = 0;
+		for(i = nrange - 1; i >= 0; i--){
+			o = range[i];
+			if(!oshas(&drop, o->hash) && !oshas(&skip, o->hash)){
+				(*res)[*nres] = o;
+				(*nres)++;
+			}
+		}
+		free(range);
+		break;
 	}
 	osclear(&keep);
 	osclear(&drop);
 	osclear(&skip);
 	return 0;
 error:
-	dprint(1, "twixt error: %r\n");
+	dprint(1, "paint error: %r\n");
 	free(objq.heap);
+	free(range);
 	return -1;
 }
 
 int
 findtwixt(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres)
 {
-	return paint(head, nhead, tail, ntail, res, nres, 0);
+	return paint(head, nhead, tail, ntail, res, nres, Twixt);
 }
 
 Object*
@@ -238,7 +267,7 @@ ancestor(Object *a, Object *b)
 	Object **o, *r;
 	int n;
 
-	if(paint(&a->hash, 1, &b->hash, 1, &o, &n, 1) == -1 || n == 0)
+	if(paint(&a->hash, 1, &b->hash, 1, &o, &n, Lca) == -1 || n == 0)
 		return nil;
 	r = ref(o[0]);
 	free(o);
@@ -258,7 +287,7 @@ lca(Eval *ev)
 	n = 0;
 	b = pop(ev);
 	a = pop(ev);
-	paint(&a->hash, 1, &b->hash, 1, &o, &n, 1);
+	paint(&a->hash, 1, &b->hash, 1, &o, &n, Lca);
 	if(n == 0)
 		return -1;
 	push(ev, *o);
@@ -285,33 +314,10 @@ parent(Eval *ev)
 }
 
 static int
-unwind(Eval *ev, Object **obj, int *idx, int nobj, Object **p, Objset *set, int keep)
-{
-	int i;
-
-	for(i = nobj; i >= 0; i--){
-		idx[i]++;
-		if(keep && !oshas(set, obj[i]->hash)){
-			push(ev, obj[i]);
-			osadd(set, obj[i]);
-		}else{
-			osadd(set, obj[i]);
-		}
-		if(idx[i] < obj[i]->commit->nparent){
-			*p = obj[i];
-			return i;
-		}
-		unref(obj[i]);
-	}
-	return -1;
-}
-
-static int
 range(Eval *ev)
 {
-	Object *a, *b, *p, *q, **all;
-	int nall, *idx;
-	Objset keep, skip;
+	Object *a, *b, **o;
+	int i, n;
 
 	b = pop(ev);
 	a = pop(ev);
@@ -324,48 +330,12 @@ range(Eval *ev)
 		return -1;
 	}
 
-	p = b;
-	all = nil;
-	idx = nil;
-	nall = 0;
-	osinit(&keep);
-	osinit(&skip);
-	osadd(&keep, a);
-	while(1){
-		all = earealloc(all, (nall + 1), sizeof(Object*));
-		idx = earealloc(idx, (nall + 1), sizeof(int));
-		all[nall] = p;
-		idx[nall] = 0;
-		if(p == a || p->commit->nparent == 0 && a == &zcommit){
-			if((nall = unwind(ev, all, idx, nall, &p, &keep, 1)) == -1)
-				break;
-		}else if(p->commit->nparent == 0){
-			if((nall = unwind(ev, all, idx, nall, &p, &skip, 0)) == -1)
-				break;
-		}else if(oshas(&keep, p->hash)){
-			if((nall = unwind(ev, all, idx, nall, &p, &keep, 1)) == -1)
-				break;
-		}else if(oshas(&skip, p->hash))
-			if((nall = unwind(ev, all, idx, nall, &p, &skip, 0)) == -1)
-				break;
-		if(p->commit->nparent == 0)
-			break;
-		if((q = readobject(p->commit->parent[idx[nall]])) == nil){
-			werrstr("bad commit %H", p->commit->parent[idx[nall]]);
-			goto error;
-		}
-		if(q->type != GCommit){
-			werrstr("not commit: %H", q->hash);
-			goto error;
-		}
-		p = q;
-		nall++;
-	}
-	free(all);
+	if(paint(&b->hash, 1, &a->hash, 1, &o, &n, Range) == -1)
+		return -1;
+	for(i = 0; i < n; i++)
+		push(ev, o[i]);
+	free(o);
 	return 0;
-error:
-	free(all);
-	return -1;
 }
 
 int
