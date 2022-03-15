@@ -188,6 +188,8 @@ winresize(Window *w, Rectangle r, int safe, int fillfringe)
 		w->taglines = wintaglines(w, r);
 		r1.max.y = min(r.max.y, r1.min.y + w->taglines*font->height);
 	}
+	if(Dy(r1) < font->height)
+		r1.max.y = r1.min.y+font->height;
 	/* If needed, resize & redraw tag. */
 	y = r1.max.y;
 	if(!safe || !w->tagsafe || !eqrect(w->tag.r, r1)){
