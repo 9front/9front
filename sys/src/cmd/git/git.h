@@ -160,14 +160,12 @@ struct Qelt {
 	Object	*o;
 	vlong	mtime;
 	int	color;
-	int	dist;
 };
 
 struct Objq {
 	Qelt	*heap;
 	int	nheap;
 	int	heapsz;
-	int	nkeep;
 };
 
 struct Dtab {
@@ -324,5 +322,5 @@ void	closeconn(Conn *);
 /* queues */
 void	qinit(Objq*);
 void	qclear(Objq*);
-void	qput(Objq*, Object*, int, int);
+void	qput(Objq*, Object*, int);
 int	qpop(Objq*, Qelt*);

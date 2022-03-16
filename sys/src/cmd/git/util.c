@@ -338,7 +338,7 @@ qclear(Objq *q)
 }
 
 void
-qput(Objq *q, Object *o, int color, int dist)
+qput(Objq *q, Object *o, int color)
 {
 	Qelt t;
 	int i;
@@ -349,7 +349,6 @@ qput(Objq *q, Object *o, int color, int dist)
 	}
 	q->heap[q->nheap].o = o;
 	q->heap[q->nheap].color = color;
-	q->heap[q->nheap].dist = dist;
 	q->heap[q->nheap].mtime = o->commit->mtime;
 	for(i = q->nheap; i > 0; i = (i-1)/2){
 		if(q->heap[i].mtime < q->heap[(i-1)/2].mtime)
