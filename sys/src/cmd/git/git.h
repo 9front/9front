@@ -158,7 +158,7 @@ struct Objset {
 
 struct Qelt {
 	Object	*o;
-	vlong	mtime;
+	vlong	ctime;
 	int	color;
 };
 
