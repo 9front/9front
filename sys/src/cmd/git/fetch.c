@@ -279,7 +279,7 @@ fetchpack(Conn *c)
 	fprint(2, "fetching...\n");
 	packsz = 0;
 	while(1){
-		n = readn(c->rfd, buf, sizeof buf);
+		n = read(c->rfd, buf, sizeof buf);
 		if(n == 0)
 			break;
 		if(n == -1 || write(pfd, buf, n) != n)
