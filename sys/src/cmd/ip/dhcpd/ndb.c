@@ -248,9 +248,11 @@ lookup(Bootp *bp, Info *iip, Info *riip)
 		for(nt = t; nt != nil; nt = nt->entry){
 			if(strcmp(nt->attr, "ip") != 0)
 				continue;
-			if(parseip(ciaddr, nt->val) == -1)
+			if(parseip(ciaddr, nt->val) == -1 || !isv4(ciaddr))
 				continue;
-			if(!validip(ciaddr) || !samenet(ciaddr, riip))
+			if(!validip(ciaddr))
+				continue;
+			if(!samenet(ciaddr, riip))
 				continue;
 			if(lookupip(ciaddr, hwattr, hwval, iip, 0) < 0)
 				continue;
