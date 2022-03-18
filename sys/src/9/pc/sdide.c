@@ -2138,6 +2138,8 @@ atapnp(void)
 			map = 1;
 			irqack = ichirqack;
 			break;
+		case (0x1e3c<<16)|0x8086:	/* C210 Series Chipset Family IDE-r Controller */
+			break;
 		}
 		for(channel = 0; channel < 2; channel++){
 			if((map & 1<<channel) == 0)
