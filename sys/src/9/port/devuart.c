@@ -240,9 +240,30 @@ uartreset(void)
 
 		uart[i] = p;
 		p->dev = i;
+
+		/*
+		 * enable serial console for uarts detected
+		 * late during boot (like pci card).
+		 */
+		if(consuart == nil){
+			char *s, *options;
+
+			if((s = getconf("console")) != nil
+			&& strtoul(s, &options, 0) == i
+			&& options > s){
+				p->console = 1;
+				if(*options != '\0')
+					uartctl(p, options);
+			}
+		}
+
 		if(p->console || p->special){
 			if(uartenable(p) != nil){
 				if(p->console){
+					if(consuart == nil){
+						consuart = p;
+						uartputs(kmesg.buf, kmesg.n);
+					}
 					serialoq = p->oq;
 				}
 				p->opens++;
