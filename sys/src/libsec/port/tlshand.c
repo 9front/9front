@@ -2342,13 +2342,14 @@ factotum_rsa_close(AuthRpc *rpc)
 	auth_freerpc(rpc);
 }
 
+// buf ^= prf
 static void
 tlsP(uchar *buf, int nbuf, uchar *key, int nkey, uchar *label, int nlabel, uchar *seed, int nseed,
 	DigestState* (*x)(uchar*, ulong, uchar*, ulong, uchar*, DigestState*), int xlen)
 {
 	uchar ai[SHA2_256dlen], tmp[SHA2_256dlen];
 	DigestState *s;
-	int n;
+	int n, i;
 
 	assert(xlen <= sizeof(ai) && xlen <= sizeof(tmp));
 	// generate a1
@@ -2362,13 +2363,15 @@ tlsP(uchar *buf, int nbuf, uchar *key, int nkey, uchar *label, int nlabel, uchar
 		n = xlen;
 		if(n > nbuf)
 			n = nbuf;
-		memmove(buf, tmp, n);
+		for(i = 0; i < n; i++)
+			buf[i] ^= tmp[i];
 		buf += n;
 		nbuf -= n;
 		x(ai, xlen, key, nkey, tmp, nil);
 		memmove(ai, tmp, xlen);
 	}
 }
+
 
 // fill buf with md5(args)^sha1(args)
 static void
@@ -2377,6 +2380,7 @@ tls10PRF(uchar *buf, int nbuf, uchar *key, int nkey, char *label, uchar *seed, i
 	int nlabel = strlen(label);
 	int n = (nkey + 1) >> 1;
 
+	memset(buf, 0, nbuf);
 	tlsP(buf, nbuf, key, n, (uchar*)label, nlabel, seed, nseed,
 		hmac_md5, MD5dlen);
 	tlsP(buf, nbuf, key+nkey-n, n, (uchar*)label, nlabel, seed, nseed,
@@ -2386,6 +2390,7 @@ tls10PRF(uchar *buf, int nbuf, uchar *key, int nkey, char *label, uchar *seed, i
 static void
 tls12PRF(uchar *buf, int nbuf, uchar *key, int nkey, char *label, uchar *seed, int nseed)
 {
+	memset(buf, 0, nbuf);
 	tlsP(buf, nbuf, key, nkey, (uchar*)label, strlen(label), seed, nseed,
 		hmac_sha2_256, SHA2_256dlen);
 }
