@@ -636,7 +636,7 @@ yylex(void)
 		yylval.sym = getsym(buf, 1);
 		return LSYMB;
 	}
-	if(c < 128 && (kw = optab[c], kw != nil)){
+	if(c >= 0 && c < 128 && (kw = optab[c], kw != nil)){
 		b = Bgetc(in);
 		for(; kw->name[0] == c; kw++)
 			if(kw->name[0] == b)
