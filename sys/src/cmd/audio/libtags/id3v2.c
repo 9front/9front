@@ -366,6 +366,7 @@ tagid3v2(Tagctx *ctx)
 {
 	int sz, exsz, framesz;
 	int ver, unsync, offset;
+	int oldpos, newpos;
 	uchar d[10], *b;
 
 	if(ctx->read(ctx, d, sizeof(d)) != sizeof(d))
@@ -378,6 +379,7 @@ tagid3v2(Tagctx *ctx)
 		return 0;
 	}
 
+	oldpos = 0;
 header:
 	ver = d[3];
 	unsync = d[5] & (1<<7);
@@ -449,11 +451,13 @@ header:
 		if(ctx->read(ctx, ctx->buf, sz) != sz)
 			break;
 		for(b = (uchar*)ctx->buf; (b = memchr(b, 'I', sz - 1 - ((char*)b - ctx->buf))) != nil; b++){
-			ctx->seek(ctx, (char*)b - ctx->buf + offset + exsz, 0);
+			newpos = ctx->seek(ctx, (char*)b - ctx->buf + offset + exsz, 0);
 			if(ctx->read(ctx, d, sizeof(d)) != sizeof(d))
 				return 0;
-			if(isid3(d))
+			if(isid3(d) && newpos != oldpos){
+				oldpos = newpos;
 				goto header;
+			}
 		}
 		for(b = (uchar*)ctx->buf; (b = memchr(b, 0xff, sz-3)) != nil; b++){
 			if((b[1] & 0xe0) == 0xe0){
