@@ -19,7 +19,7 @@ tagwav(Tagctx *ctx)
 {
 	uchar *d;
 	int i, n, info;
-	u32int csz;
+	u32int csz, x;
 	uvlong sz;
 
 	d = (uchar*)ctx->buf;
@@ -59,9 +59,10 @@ tagwav(Tagctx *ctx)
 			csz -= 16;
 			ctx->channels = le16u(d+2);
 			ctx->samplerate = leuint(d+4);
-			if(ctx->channels < 1 || ctx->samplerate < 1)
+			x = leuint(d+8);
+			if(ctx->channels < 1 || ctx->samplerate < 1 || x < 1)
 				return -1;
-			ctx->duration = sz*1000 / leuint(d+8);
+			ctx->duration = sz*1000 / x;
 		}else if(memcmp(d, "LIST", 4) == 0){
 			sz = csz - 4;
 			continue;
