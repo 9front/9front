@@ -1,7 +1,7 @@
 /* https://xiph.org/flac/format.html */
 #include "tagspriv.h"
 
-#define beu3(d)   ((d)[0]<<16 | (d)[1]<<8  | (d)[2]<<0)
+#define beu3(d) ((d)[0]<<16 | (d)[1]<<8 | (d)[2]<<0)
 
 int
 tagflac(Tagctx *ctx)
@@ -18,6 +18,9 @@ tagflac(Tagctx *ctx)
 	sz = beu3(&d[5]); /* size of the stream info */
 	ctx->samplerate = beu3(&d[18]) >> 4;
 	ctx->channels = ((d[20]>>1) & 7) + 1;
+	if(ctx->samplerate < 1 || ctx->channels < 1)
+		return -1;
+
 	g = (uvlong)(d[21] & 0xf)<<32 | beu3(&d[22])<<8 | d[25];
 	ctx->duration = g * 1000 / ctx->samplerate;
 
