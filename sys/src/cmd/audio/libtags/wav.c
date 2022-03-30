@@ -59,6 +59,8 @@ tagwav(Tagctx *ctx)
 			csz -= 16;
 			ctx->channels = le16u(d+2);
 			ctx->samplerate = leuint(d+4);
+			if(ctx->channels < 1 || ctx->samplerate < 1)
+				return -1;
 			ctx->duration = sz*1000 / leuint(d+8);
 		}else if(memcmp(d, "LIST", 4) == 0){
 			sz = csz - 4;
