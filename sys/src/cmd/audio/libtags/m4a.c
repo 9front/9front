@@ -8,6 +8,7 @@ int
 tagm4a(Tagctx *ctx)
 {
 	uvlong duration;
+	uint x;
 	uchar *d;
 	int sz, type, dtype, i, skip, n;
 
@@ -101,12 +102,14 @@ tagm4a(Tagctx *ctx)
 				if(ctx->read(ctx, d, 16) != 16)
 					return -1;
 				sz -= 16;
-				duration = beuint(&d[12]) / beuint(&d[8]);
+				if((x = beuint(&d[8])) > 0)
+					duration = beuint(&d[12]) / x;
 			}else if(d[1] == 1){ /* version 1 */
 				if(ctx->read(ctx, d, 28) != 28)
 					return -1;
 				sz -= 28;
-				duration = ((uvlong)beuint(&d[20])<<32 | beuint(&d[24])) / (uvlong)beuint(&d[16]);
+				if((x = beuint(&d[16])) > 0)
+					duration = ((uvlong)beuint(&d[20])<<32 | beuint(&d[24])) / (uvlong)x;
 			}
 			ctx->duration = duration * 1000;
 			continue;
