@@ -27,6 +27,7 @@ TARG = 	6in4\
 	torrent\
 	udpecho\
 	socksd\
+	sol\
 	wol\
 
 DIRS=ftpfs cifsd dhcpd httpd ipconfig ppp snoopy

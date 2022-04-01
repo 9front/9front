@@ -1,0 +1,46 @@
+.TH SOL 8
+.SH NAME
+sol - Intel AMT serial-over-lan console
+.SH SYNOPSIS
+.B ip/sol
+[
+.B -rR
+] [
+.B -u
+.I user
+]
+.I host
+.SH DESCRIPTION
+This program provides remote access to the
+serial-over-lan interface of intel AMT
+enabled machines.
+.PP
+The protocol runs over tcp port 16995 and
+and is protected using TLS.
+.PP
+For authentication, a username and password
+is required. The default username, unless
+given by the
+.B -u
+.I user
+argument, is "admin".
+The password will be prompted and kept in
+factotum, tagged with the servers x509
+crtificate thumbprint.
+.PP
+The
+.B -r
+and
+.B -R
+flags enable or disable the use of /dev/cons
+in raw mode instead of just reading and writing
+standard input and output.
+By default, raw mode is enabled when the
+.B $TERM
+environment variable has been set.
+.SH SOURCE
+.B /sys/src/cmd/ip/sol.c
+.SH "SEE ALSO"
+.IR ssh (1),
+.IR consolefs (4),
+.IR factotum (4)
