@@ -2,6 +2,10 @@
 PATH_INFO=`{echo $PATH_INFO | urlencode -d}
 full_path=$"FS_ROOT^$"PATH_INFO
 full_path=$"full_path
+if(! ~ `{cleanname -d$FS_ROOT $full_path} `{cleanname $FS_ROOT}^*){
+       error 503
+       exit
+}
 if(! test -d $full_path){
 	error 404
 	exit
@@ -14,8 +18,7 @@ builtin cd $full_path
 if(~ $"NOINDEXFILE ^ $"NOINDEX ''){
 	ifile=index.htm*
 	if(! ~ $ifile(1) *'*'){
-		PATH_INFO=$ifile(1)
-		FS_ROOT=''
+		PATH_INFO=$PATH_INFO^$ifile(1)
 		exec serve-static
 	}
 }

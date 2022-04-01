@@ -1,6 +1,10 @@
 #!/bin/rc
 full_path=`{echo $"FS_ROOT^$"PATH_INFO | urlencode -d}
 full_path=$"full_path
+if(! ~ `{cleanname -d$FS_ROOT $full_path} `{cleanname $FS_ROOT}^*){
+       error 503
+       exit
+}
 if(~ $full_path */)
 	error 503
 if(test -d $full_path){
