@@ -18,15 +18,16 @@ enabled machines.
 The protocol runs over tcp port 16995 and
 and is protected using TLS.
 .PP
-For authentication, a username and password
-is required. The default username, unless
+For authentication, a
+.B proto=httpdigest
+key with a username and password is required.
+The default username, unless
 given by the
 .B -u
 .I user
 argument, is "admin".
 The password will be prompted and kept in
-factotum, tagged with the servers x509
-crtificate thumbprint.
+factotum.
 .PP
 The
 .B -r

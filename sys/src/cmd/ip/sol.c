@@ -15,24 +15,24 @@ enum {
 	HEATBEAT_INTERVAL = 5000,
 };
 
-int pid = 0, raw = -1, fd = -1;
-char thumbfile[] = "/sys/lib/tls/amt";
-
+int authok = 0, pid = 0, raw = -1, fd = -1;
 Biobuf bin, bout;
 jmp_buf reconnect;
 
 void
 killpid(void)
 {
-	postnote(PNPROC, pid, "kill");
+	if(pid != 0){
+		postnote(PNPROC, pid, "kill");
+		pid = 0;
+	}
 }
 
 void
 eof(void)
 {
-	if(pid == 0) sysfatal("eof: %r");
+	if(!authok) sysfatal("eof: %r");
 	killpid();
-	pid = 0;
 	longjmp(reconnect, 1);
 }
 
@@ -124,6 +124,59 @@ send(char *fmt, ...)
 }
 
 void
+digestauth(char *server, char *user, char *method, char *url)
+{
+	char realm[256+1], nonce[256+1], qop[256+1], nc[10], cnonce[32+1], chal[1024], resp[1024], ouser[256];
+	static uint counter;
+	int reply, ok, n;
+	
+	send("lblb[__b[____", 0x13, 4,
+		1+strlen(user) + 2 + 1+strlen(url) + 4,
+		strlen(user), user, strlen(user),
+		strlen(url), url, strlen(url));
+	recv("lbl", &reply, &ok, &n);
+	if(reply != 0x114 || ok != 4 || n == 0)
+		sysfatal("bad auth reply: %x %x", reply, ok);
+
+	recv("b", &n);
+	recv("[", realm, n);
+	realm[n] = '\0';
+
+	recv("b", &n);
+	recv("[", nonce, n);
+	nonce[n] = '\0';
+
+	recv("b", &n);
+	recv("[", qop, n);
+	qop[n] = '\0';
+
+	genrandom((uchar*)resp, 32);
+	snprint(cnonce, sizeof(cnonce), "%.32H", resp);
+	snprint(nc, sizeof(nc), "%8.8ud", ++counter);
+
+	n = snprint(chal, sizeof(chal), "%s:%s:%s:%s %s %s", nonce, nc, cnonce, qop, method, url);
+	n = auth_respond(chal, n, ouser, sizeof(ouser), resp, sizeof(resp), auth_getkey,
+		"proto=httpdigest role=client server=%q realm=%q user=%q", server, realm, user);
+	if(n < 0)
+		sysfatal("auth_respond: %r");
+
+	send("lblb[b[b[b[b[b[b[b[", 0x13, 4, 
+		1+strlen(ouser)+1+strlen(realm)+1+strlen(nonce)+1+strlen(url)+
+		1+strlen(cnonce)+1+strlen(nc)+1+n+1+strlen(qop),
+		strlen(ouser), ouser, strlen(ouser),
+		strlen(realm), realm, strlen(realm),
+		strlen(nonce), nonce, strlen(nonce),
+		strlen(url), url, strlen(url),
+		strlen(cnonce), cnonce, strlen(cnonce),
+		strlen(nc), nc, strlen(nc),
+		n, resp, n,
+		strlen(qop), qop, strlen(qop));
+	recv("lb*", &reply, &ok);
+	if(reply != 0x14 && ok != 4)
+		sysfatal("bad auth reply: %x %x", reply, ok);
+}
+
+void
 usage(void)
 {
 	fprint(2, "usage: %s [-Rr] [-u user] host\n", argv0);
@@ -133,10 +186,9 @@ usage(void)
 void
 main(int argc, char *argv[])
 {
-	uchar thumb[SHA2_256dlen], buf[MAX_TRANSMIT_BUFFER];
+	uchar buf[MAX_TRANSMIT_BUFFER];
 	TLSconn tls;
 	char  *user = "admin";
-	UserPasswd *up = nil;
 	int reply, ok, n;
 
 	fmtinstall('[', encodefmt);
@@ -187,26 +239,11 @@ Reconnect:
 	fd = tlsClient(fd, &tls);
 	if(fd < 0)
 		sysfatal("tls client: %r");
-	sha2_256(tls.cert, tls.certlen, buf, nil);
 	free(tls.cert);
 	free(tls.sessionID);
 	memset(&tls, 0, sizeof(tls));
 
-	if(up == nil){
-		memmove(thumb, buf, sizeof(thumb));
-		up = auth_getuserpasswd(auth_getkey,
-			"proto=pass service=sol user=%q server=%q thumb='%.*['",
-			user, argv[0], sizeof(thumb), thumb);
-		if(up == nil)
-			sysfatal("auth_getuserpasswd: %r");
-		close(fd);
-		goto Reconnect;
-	}
-
-	if(memcmp(buf, thumb, sizeof(thumb)) != 0)
-		sysfatal("certificate thumb changed: %.*[, expected %.*[",
-			sizeof(thumb), buf, sizeof(thumb), thumb);
-
+	authok = 0;
 	Binit(&bin, fd, OREAD);
 	Binit(&bout, fd, OWRITE);
 	if(setjmp(reconnect)){
@@ -221,13 +258,8 @@ Reconnect:
 	if(reply != 0x11 || ok != 1)
 		sysfatal("bad session reply: %x %x", reply, ok);
 
-	send("lblb[b[", 0x13, 1,
-		strlen(up->user)+1+strlen(up->passwd)+1, 
-		strlen(up->user), up->user, strlen(up->user),
-		strlen(up->passwd), up->passwd, strlen(up->passwd));
-	recv("lb*", &reply, &ok);
-	if(reply != 0x14 || ok != 1)
-		sysfatal("bad auth reply: %x %x", reply, ok);
+	digestauth(argv[0], user, "POST", "/RedirectionService");
+	authok = 1;
 
 	send("l____wwwwww____", 0x20,
 		MAX_TRANSMIT_BUFFER,
