@@ -672,6 +672,7 @@ in
 .B S
 .IR id [4]
 .IR chan [4]
+.br
 Attach to the public screen with the specified
 .IR id .
 It is an error if the screen does not exist, is not public, or does not
