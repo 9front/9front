@@ -362,7 +362,7 @@ hauthgetkey(char *params)
 int
 authenticate(Url *u, Url *ru, char *method, char *s)
 {
-	char oerr[ERRMAX], *user, *pass, *realm, *nonce, *opaque, *x;
+	char oerr[ERRMAX], *user, *pass, *realm, *nonce, *qop, *opaque, *x;
 	Hauth *a;
 	Fmt fmt;
 	int n;
@@ -415,6 +415,8 @@ authenticate(Url *u, Url *ru, char *method, char *s)
 	}else
 	if(!cistrncmp(s, "Digest ", 7)){
 		char chal[1024], ouser[128], resp[2*MD5LEN+1];
+		uchar cnonce[16];
+		uint nc;
 		int nchal;
 
 		s += 7;
@@ -422,6 +424,10 @@ authenticate(Url *u, Url *ru, char *method, char *s)
 			realm = unquote(x+6, &s);
 		if(x = cistrstr(s, "nonce="))
 			nonce = unquote(x+6, &s);
+		if(x = cistrstr(s, "qop="))
+			qop = unquote(x+4, &s);
+		else
+			qop = "";
 		if(x = cistrstr(s, "opaque="))
 			opaque = unquote(x+7, &s);
 		if(realm == nil || nonce == nil)
@@ -432,7 +438,19 @@ authenticate(Url *u, Url *ru, char *method, char *s)
 			fmtprint(&fmt, " user=%q", user);
 		if((s = fmtstrflush(&fmt)) == nil)
 			return -1;
-		nchal = snprint(chal, sizeof(chal), "%s %s %U", nonce, method, ru);
+
+		/* RFC2617 "quality of protection" (qop) extension */
+		if(cistrcmp(qop, "auth") == 0){
+			static uint counter = 0;
+
+			nc = ++counter;
+			genrandom(cnonce, sizeof(cnonce));
+			nchal = snprint(chal, sizeof(chal), "%s:%8.8ud:%.*H:%s %s %U",
+				nonce, nc, sizeof(cnonce), cnonce, qop, method, ru);
+		} else {
+			nc = 0;
+			nchal = snprint(chal, sizeof(chal), "%s %s %U", nonce, method, ru);
+		}
 		n = auth_respond(chal, nchal, ouser, sizeof ouser, resp, sizeof resp, hauthgetkey,
 			"proto=httpdigest role=client server=%q%s", u->host, s);
 		memset(chal, 0, sizeof(chal));
@@ -446,7 +464,11 @@ authenticate(Url *u, Url *ru, char *method, char *s)
 		fmtprint(&fmt, "host=\"%N\", ", u->host);
 		fmtprint(&fmt, "uri=\"%U\", ", ru);
 		fmtprint(&fmt, "nonce=\"%s\", ", nonce);
-		fmtprint(&fmt, "response=\"%s\"", resp);
+		if(cistrcmp(qop, "auth") == 0){
+			fmtprint(&fmt, "qop=%s, nc=%8.8ud, cnonce=\"%.*H\", ", qop, nc, sizeof(cnonce), cnonce);
+			memset(cnonce, 0, sizeof(cnonce));
+		}
+		fmtprint(&fmt, "response=\"%.*s\"", n, resp);
 		if(opaque)
 			fmtprint(&fmt, ", opaque=\"%s\"", opaque);
 		u = saneurl(url("/", u));	/* BUG: should be the ones in domain= only */

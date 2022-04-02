@@ -81,7 +81,7 @@ static char *service;
 static long time0;
 static char *user;
 static char *agent;
-static Client client[64];
+static Client client[256];
 static int nclient;
 
 #define	CLIENTID(c)	((int)(((Client*)(c)) - client))
