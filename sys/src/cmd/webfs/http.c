@@ -505,27 +505,33 @@ hauthenticate(Url *u, Url *ru, char *method, char *key, Key *hdr)
 }
 
 void
+freeauth(Hauth **a)
+{
+	Hauth *x = *a;
+
+	if(x == nil)
+		return;
+	*a = x->next;
+	if(debug)
+		fprint(2, "freeauth for %U\n", x->url);
+	freeurl(x->url);
+	memset(x->auth, 0, strlen(x->auth));
+	free(x->auth);
+	free(x);
+}
+
+void
 flushauth(Url *u, char *t)
 {
-	Hauth *a, *p;
+	Hauth **a;
 
-	qlock(&authlk);
-Again:
-	for(p = nil, a = hauth; a; p = a, a = a->next)
-		if(matchurl(u, a->url) && (t == nil || !strcmp(t, a->auth))){
-			if(p)
-				p->next = a->next;
-			else
-				hauth = a->next;
-			if(debug)
-				fprint(2, "flushauth for %U\n", a->url);
-			freeurl(a->url);
-			memset(a->auth, 0, strlen(a->auth));
-			free(a->auth);
-			free(a);
-			goto Again;
+	for(a = &hauth; *a != nil; ){
+		if(matchurl(u, (*a)->url) && (t == nil || !strcmp(t, (*a)->auth))){
+			freeauth(a);
+			continue;
 		}
-	qunlock(&authlk);
+		a = &(*a)->next;
+	}
 }
 
 static void
@@ -548,7 +554,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 	Url ru, tu, *nu;
 	Key *k, *rhdr;
 	Hconn *h;
-	Hauth *a;
+	Hauth **a;
 
 	incref(qbody);
 	if(qpost) incref(qpost);
@@ -598,15 +604,17 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 		/* preemptive authentication from hauth cache */
 		qlock(&authlk);
 		if(proxy && !lookkey(shdr, "Proxy-Authorization"))
-			for(a = hauth; a; a = a->next)
-				if(matchurl(a->url, proxy)){
-					shdr = addkey(shdr, "Proxy-Authorization", a->auth);
+			for(a = &hauth; *a != nil; a = &(*a)->next)
+				if(matchurl((*a)->url, proxy)){
+					shdr = addkey(shdr, "Proxy-Authorization", (*a)->auth);
+					if(strncmp((*a)->auth, "Digest ", 7) == 0) freeauth(a);
 					break;
 				}
 		if(!lookkey(shdr, "Authorization"))
-			for(a = hauth; a; a = a->next)
-				if(matchurl(a->url, u)){
-					shdr = addkey(shdr, "Authorization", a->auth);
+			for(a = &hauth; *a != nil; a = &(*a)->next)
+				if(matchurl((*a)->url, u)){
+					shdr = addkey(shdr, "Authorization", (*a)->auth);
+					if(strncmp((*a)->auth, "Digest ", 7) == 0) freeauth(a);
 					break;
 				}
 		qunlock(&authlk);
@@ -900,7 +908,9 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 		if(0){
 		case 401:	/* Unauthorized */
 			if(x = lookkey(shdr, "Authorization")){
+				qlock(&authlk);
 				flushauth(nil, x);
+				qunlock(&authlk);
 				if(badauth++)
 					goto Error;
 			}
@@ -918,7 +928,9 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 			if(proxy == nil)
 				goto Error;
 			if(x = lookkey(shdr, "Proxy-Authorization")){
+				qlock(&authlk);
 				flushauth(proxy, x);
+				qunlock(&authlk);
 				if(badauth++)
 					goto Error;
 			}
