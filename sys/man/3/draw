@@ -513,7 +513,8 @@ on its screen.
 Simultaneously change its internal (logical) coordinate system
 so that the point
 .I r.min
-corresponds to the upper left corner of the window, see memlorigin(2).
+corresponds to the upper left corner of the window, see
+.IR memlorigin (2).
 .HP
 .B O
 .IR op [1]
@@ -686,9 +687,9 @@ for its associated image.
 Send 
 .I n
 windows to the top (if
-.I t
+.I top
 is non-zero) or bottom (if
-.I t
+.I top
 is zero) of the window stack.
 The window is specified by the list of
 .I n
