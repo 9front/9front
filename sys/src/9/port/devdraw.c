@@ -1383,6 +1383,10 @@ printmesg(char *fmt, uchar *a, int plsprnt)
 			q += sprint(q, " %.4ux", BGSHORT(a));
 			a += 2;
 			break;
+		case 'z':
+			q += sprint(q, " %.*q", (int)*a, (char*)(a+1));
+			a += 1 + *a;
+			break;
 		}
 	}
 	*q++ = '\n';
