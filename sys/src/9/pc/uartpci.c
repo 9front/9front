@@ -212,6 +212,7 @@ uartpcipnp(void)
 				break;
 			}
 			break;
+		case (0x2a47 << 16)|0x8086:	/* AMT SOL Redirection */
 		case (0x1e3d << 16)|0x8086:	/* C210 Series Chipset Family KT Controller */
 			uart = uartpci(ctlrno, p, 0, 1, 1843200, "serialoverlan", 8);
 			break;
