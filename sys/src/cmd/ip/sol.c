@@ -15,7 +15,10 @@ enum {
 	HEATBEAT_INTERVAL = 5000,
 };
 
-int authok = 0, pid = 0, raw = -1, fd = -1;
+char *user = "admin";
+int authok = 0, pid = 0, raw = -1, kvm = 0, fd = -1, tls = 1;
+int reply, ok, n;
+char buf[MAX_TRANSMIT_BUFFER];
 Biobuf bin, bout;
 jmp_buf reconnect;
 
@@ -123,12 +126,11 @@ send(char *fmt, ...)
 	}
 }
 
-void
+int
 digestauth(char *server, char *user, char *method, char *url)
 {
 	char realm[256+1], nonce[256+1], qop[256+1], nc[10], cnonce[32+1], chal[1024], resp[1024], ouser[256];
 	static uint counter;
-	int reply, ok, n;
 	
 	send("lblb[__b[____", 0x13, 4,
 		1+strlen(user) + 2 + 1+strlen(url) + 4,
@@ -136,7 +138,7 @@ digestauth(char *server, char *user, char *method, char *url)
 		strlen(url), url, strlen(url));
 	recv("lbl", &reply, &ok, &n);
 	if(reply != 0x114 || ok != 4 || n == 0)
-		sysfatal("bad auth reply: %x %x", reply, ok);
+		return -1;	/* not supported */
 
 	recv("b", &n);
 	recv("[", realm, n);
@@ -173,24 +175,52 @@ digestauth(char *server, char *user, char *method, char *url)
 		strlen(qop), qop, strlen(qop));
 	recv("lb*", &reply, &ok);
 	if(reply != 0x14 && ok != 4)
-		sysfatal("bad auth reply: %x %x", reply, ok);
+		sysfatal("bad digest auth reply: %x %x", reply, ok);
+	return 0;
+}
+
+void
+plainauth(char *user, char *pass)
+{
+	send("lblb[b[", 0x13, 1,
+		strlen(user)+1+strlen(pass)+1, 
+		strlen(user), user, strlen(user),
+		strlen(pass), pass, strlen(pass));
+	recv("lb*", &reply, &ok);
+	if(reply != 0x14 || ok != 1)
+		sysfatal("bad password auth reply: %x %x", reply, ok);
+}
+
+void
+auth(char *server, char *user)
+{
+	static UserPasswd *up = nil;
+
+	if(up == nil){
+		if(digestauth(server, user, "POST", "/RedirectionService") == 0)
+			return;
+
+		/* if digest auth not supported, get plaintext password */
+		up = auth_getuserpasswd(auth_getkey,
+			"proto=pass service=sol user=%q server=%q",
+			user, server);
+		if(up == nil)
+			sysfatal("auth_getuserpasswd: %r");
+		longjmp(reconnect, 1);
+	}	
+	plainauth(up->user, up->passwd);
 }
 
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-Rr] [-u user] host\n", argv0);
+	fprint(2, "usage: %s [-TRrk] [-u user] host\n", argv0);
 	exits("usage");
 }
 
 void
 main(int argc, char *argv[])
 {
-	uchar buf[MAX_TRANSMIT_BUFFER];
-	TLSconn tls;
-	char  *user = "admin";
-	int reply, ok, n;
-
 	fmtinstall('[', encodefmt);
 	fmtinstall('H', encodefmt);
 
@@ -198,11 +228,17 @@ main(int argc, char *argv[])
 	case 'u':
 		user = EARGF(usage());
 		break;
+	case 'T':
+		tls = 0;
+		break;
 	case 'R':
 		raw = 0;
 		break;
 	case 'r':
 		raw = 1;
+		break;
+	case 'k':
+		kvm = 1;
 		break;
 	default:
 		usage();
@@ -210,6 +246,9 @@ main(int argc, char *argv[])
 
 	if(argc != 1)
 		usage();
+
+	if(kvm)
+		goto Connect;
 
 	if(raw < 0) {
 		char *term = getenv("TERM");
@@ -230,18 +269,22 @@ main(int argc, char *argv[])
 			write(fd, "rawon", 5);
 	}
 
-Reconnect:
-	fd = dial(netmkaddr(argv[0], "tcp", "16995"), nil, nil, nil);
+Connect:
+	fd = dial(netmkaddr(argv[0], "tcp", tls ? "16995" : "16994"), nil, nil, nil);
 	if(fd < 0)
 		sysfatal("dial: %r");
 
-	memset(&tls, 0, sizeof(tls));
-	fd = tlsClient(fd, &tls);
-	if(fd < 0)
-		sysfatal("tls client: %r");
-	free(tls.cert);
-	free(tls.sessionID);
-	memset(&tls, 0, sizeof(tls));
+	if(tls){
+		TLSconn conn;
+
+		memset(&conn, 0, sizeof(conn));
+		fd = tlsClient(fd, &conn);
+		if(fd < 0)
+			sysfatal("tls: %r");
+		free(conn.cert);
+		free(conn.sessionID);
+		memset(&conn, 0, sizeof(conn));
+	}
 
 	authok = 0;
 	Binit(&bin, fd, OREAD);
@@ -250,17 +293,52 @@ Reconnect:
 		Bterm(&bin);
 		Bterm(&bout);
 		close(fd);
-		goto Reconnect;
+		goto Connect;
 	}
 
-	send("l[", 0x10, "SOL ", 4);
+	if(kvm)
+		send("l[", 0x110, "KVMR", 4);
+	else
+		send("l[", 0x10, "SOL ", 4);
+
 	recv("lb*", &reply, &ok);
 	if(reply != 0x11 || ok != 1)
 		sysfatal("bad session reply: %x %x", reply, ok);
 
-	digestauth(argv[0], user, "POST", "/RedirectionService");
+	auth(argv[0], user);
 	authok = 1;
 
+	/* kvm port redirect */
+	if(kvm){
+		int from, to;
+
+		send("b_______", 0x40);
+		if(read(fd, buf, 8) != 8 || buf[0] != 0x41)
+			sysfatal("bad redirection reply: %x %x", reply, ok);
+
+		pid = fork();
+		if(pid == 0){
+			pid = getppid();
+			from = 0;
+			to = fd;
+		} else {
+			from = fd;
+			to = 1;
+		}
+		atexit(killpid);
+		for(;;){
+			n = read(from, buf, sizeof(buf));
+			if(n < 0)
+				sysfatal("read: %r");
+			if(n == 0)
+				break;
+			if(write(to, buf, n) != n)
+				sysfatal("write: %r");
+		}
+		exits(nil);
+	}
+
+	/* serial over lan */
 	send("l____wwwwww____", 0x20,
 		MAX_TRANSMIT_BUFFER,
 		TRANSMIT_BUFFER_TIMEOUT,
@@ -270,7 +348,7 @@ Reconnect:
 		HEATBEAT_INTERVAL);
 	recv("lb*", &reply, &ok);
 	if(reply != 0x21 || ok != 1)
-		sysfatal("bad redirection reply: %x %x", reply, ok);
+		sysfatal("bad sol reply: %x %x", reply, ok);
 
 	pid = fork();
 	if(pid == 0){
@@ -305,5 +383,6 @@ Reconnect:
 			}
 		}
 	}
+
 	exits(nil);
 }

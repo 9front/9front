@@ -4,7 +4,7 @@ sol - Intel AMT serial-over-lan console
 .SH SYNOPSIS
 .B ip/sol
 [
-.B -rR
+.B -TRrk
 ] [
 .B -u
 .I user
@@ -15,12 +15,10 @@ This program provides remote access to the
 serial-over-lan interface of intel AMT
 enabled machines.
 .PP
-The protocol runs over tcp port 16995 and
-and is protected using TLS.
+The protocol runs over tcp ports 16994/16995 and
+and is optinally protected using TLS.
 .PP
-For authentication, a
-.B proto=httpdigest
-key with a username and password is required.
+For authentication, a username and password is required.
 The default username, unless
 given by the
 .B -u
@@ -28,6 +26,10 @@ given by the
 argument, is "admin".
 The password will be prompted and kept in
 factotum.
+.PP
+The
+.B -T
+flag disables TLS encryption (enabled by default).
 .PP
 The
 .B -r
@@ -39,9 +41,20 @@ standard input and output.
 By default, raw mode is enabled when the
 .B $TERM
 environment variable has been set.
+.PP
+The
+.B -k
+flag connects to the VNC port instead.
+.SH EXAMPLE
+Connect to the KVM port with
+.IR vnc(1):
+.IP
+.EX
+execnet && vnc 'exec!ip/sol -k host'
+.EE
 .SH SOURCE
 .B /sys/src/cmd/ip/sol.c
 .SH "SEE ALSO"
-.IR ssh (1),
-.IR consolefs (4),
+.IR execnet (4),
+.IR vncv (1),
 .IR factotum (4)
