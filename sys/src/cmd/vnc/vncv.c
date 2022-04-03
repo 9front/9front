@@ -48,6 +48,10 @@ netmkvncaddr(char *server)
 	char *p, portstr[NETPATHLEN];
 	int port;
 
+	/* leave execnet dial strings alone */
+	if(strncmp(server, "exec!", 5) == 0)
+		return server;
+
 	port = 5900;
 	if(tls)
 		port = 35729;
@@ -96,7 +100,7 @@ main(int argc, char **argv)
 		tls = 1;
 		break;
 	case 'v':
-		verbose = 1;
+		verbose++;
 		break;
 	case 'k':
 		keypattern = EARGF(usage());

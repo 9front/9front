@@ -171,17 +171,17 @@ loadbuf(Vnc *v, Rectangle r, int stride)
 
 	if(cvtpixels){
 		y = r.min.y;
-		off = y * stride;
+		off = y * stride + r.min.x * pixb;
 		for(; y < r.max.y; y++){
 			vncrdbytes(v, linebuf, Dx(r) * vpixb);
-			(*cvtpixels)(&pixbuf[off + r.min.x * pixb], linebuf, Dx(r));
+			(*cvtpixels)(&pixbuf[off], linebuf, Dx(r));
 			off += stride;
 		}
 	}else{
 		y = r.min.y;
-		off = y * stride;
+		off = y * stride + r.min.x * pixb;
 		for(; y < r.max.y; y++){
-			vncrdbytes(v, &pixbuf[off + r.min.x * pixb], Dx(r) * pixb);
+			vncrdbytes(v, &pixbuf[off], Dx(r) * pixb);
 			off += stride;
 		}
 	}
@@ -396,7 +396,7 @@ readfromserver(Vnc *v)
 		type = vncrdchar(v);
 		switch(type){
 		default:
-			sysfatal("bad message from server");
+			sysfatal("bad message from server: %x", type);
 			break;
 		case MFrameUpdate:
 			vncrdchar(v);

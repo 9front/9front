@@ -35,6 +35,8 @@ vnchandshake(Vnc *v)
 		v->vers = 38;
 	else if(strncmp(msg, "RFB 003.889\n", VerLen) == 0)
 		v->vers = 38;  /* Darwin */
+	else if(strncmp(msg, "RFB 004.000\n", VerLen) == 0)
+		v->vers = 38;
 	else /* RFC6143: Any other should be treated as 3.3. */
 		v->vers = 33;
 
