@@ -50,7 +50,7 @@ deleted=`$nl{git/query -c HEAD $base | grep '^-' | subst '^..'}
 
 if(! ~ $#modified 0 || {! ~ $#deleted 0 && ~ $#merge 0}){
 	git/walk -fRMA $modified $deleted || 
-		die 'uncommited changes would be clobbered'
+		die 'uncommitted changes would be clobbered'
 }
 if(~ $delete 1){
 	rm -f .git/$new
