@@ -68,8 +68,6 @@ basedir=`{git/query -p $base}
 dirtypaths=()
 if(! ~ $#modified 0 || ! ~ $#deleted 0)
 	dirtypaths=`$nl{git/walk -cfRMA $modified $deleted}
-if(! ~ $#modified 0 || ! ~ $#deleted 0)
-	dirtypaths=`$nl{git/walk -cfRMA $modified $deleted}
 if(~ $#dirtypaths 0)
 	cleanpaths=($modified $deleted)
 if not {
