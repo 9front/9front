@@ -38,6 +38,22 @@ run(char **a)
 	sysfatal("exec: %s: %r", a[0]);
 }
 
+int
+mountfactotum(void)
+{
+	int fd;
+
+	/* get a link to factotum as new user */
+	fd = open("/srv/factotum", ORDWR);
+	if(fd < 0)
+		return -1;
+	if(mount(fd, -1, "/mnt", MREPL, "") == -1){
+		close(fd);
+		return -1;
+	}
+	return 0;
+}
+
 void
 main(int argc, char *argv[])
 {
@@ -57,6 +73,10 @@ main(int argc, char *argv[])
 
 	if(becomeuser(argv[0]) < 0)
 		sysfatal("can't change uid for %s: %r", argv[0]);
+
+	if(mountfactotum() < 0)
+		sysfatal("can't mount factotum for uid for %s: %r", argv[0]);
+
 	if(newns(argv[0], namespace) < 0)
 		sysfatal("can't build namespace: %r");
 
