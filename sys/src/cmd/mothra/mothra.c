@@ -140,11 +140,11 @@ int adjkb(void){
 	return 0;
 }
 
-void scrolltext(int dy, int whence)
+void scrollpanel(Panel *p, int dy, int whence)
 {
 	Scroll s;
 
-	s = plgetscroll(text);
+	s = plgetscroll(p);
 	switch(whence){
 	case 0:
 		s.pos.y = dy;
@@ -160,7 +160,7 @@ void scrolltext(int dy, int whence)
 		s.pos.y = s.size.y;
 	if(s.pos.y < 0)
 		s.pos.y = 0;
-	plsetscroll(text, s);
+	plsetscroll(p, s);
 }
 
 void sidescroll(int dx, int whence)
@@ -404,22 +404,22 @@ Plkey:
 				plkeyboard(e.kbdc);
 				break;
 			case Khome:
-				scrolltext(0, 0);
+				scrollpanel(text, 0, 0);
 				break;
 			case Kup:
-				scrolltext(-text->size.y/4, 1);
+				scrollpanel(text, -text->size.y/4, 1);
 				break;
 			case Kpgup:
-				scrolltext(-text->size.y/2, 1);
+				scrollpanel(text, -text->size.y/2, 1);
 				break;
 			case Kdown:
-				scrolltext(text->size.y/4, 1);
+				scrollpanel(text, text->size.y/4, 1);
 				break;
 			case Kpgdown:
-				scrolltext(text->size.y/2, 1);
+				scrollpanel(text, text->size.y/2, 1);
 				break;
 			case Kend:
-				scrolltext(-text->size.y, 2);
+				scrollpanel(text, -text->size.y, 2);
 				break;
 			case Kack:
 				search();
@@ -438,11 +438,18 @@ Plkey:
 			break;
 		case Emouse:
 			mouse=e.mouse;
+			if(mouse.buttons & (8|16) && ptinrect(mouse.xy, list->r) && defdisplay){
+				if(mouse.buttons & 8)
+					scrollpanel(list, list->r.min.y - mouse.xy.y, 1);
+				else
+					scrollpanel(list, mouse.xy.y - list->r.min.y, 1);
+				break;
+			}
 			if(mouse.buttons & (8|16) && ptinrect(mouse.xy, text->r)){
 				if(mouse.buttons & 8)
-					scrolltext(text->r.min.y - mouse.xy.y, 1);
+					scrollpanel(text, text->r.min.y - mouse.xy.y, 1);
 				else
-					scrolltext(mouse.xy.y - text->r.min.y, 1);
+					scrollpanel(text, mouse.xy.y - text->r.min.y, 1);
 				break;
 			}
 			plmouse(root, &mouse);
