@@ -13,12 +13,13 @@
 #define	CKWID	1	/* width of frame around check mark */
 #define	CKINSET	1	/* space around check mark frame */
 #define	CKBORDER 2	/* space around X inside frame */
-static Image *pl_light, *pl_dark, *pl_tick, *pl_hilit;
+static Image *pl_light, *pl_dark, *pl_scrl, *pl_tick, *pl_hilit;
 Image *pl_blue, *pl_white, *pl_black;
 int pl_drawinit(void){
 	pl_white=allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xFFFFFFFF);
 	pl_light=allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xFFFFFFFF);
 	pl_dark=allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x777777FF);
+	pl_scrl=allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x999999FF);
 	pl_black=allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x000000FF);
 	pl_hilit=allocimage(display, Rect(0,0,1,1), CHAN1(CAlpha,8), 1, 0x80);
 	pl_blue=allocimage(display, Rect(0,0,1,1), RGB24, 1, 0x0000FFFF);
@@ -28,7 +29,7 @@ int pl_drawinit(void){
 		draw(pl_tick, Rect(0, 0, TICKW, TICKW), pl_black, nil, ZP);
 		draw(pl_tick, Rect(0, font->height-TICKW, TICKW, font->height), pl_black, nil, ZP);
 	}
-	if(pl_white==0 || pl_light==0 || pl_black==0 || pl_dark==0 || pl_blue==0 || pl_tick==0) sysfatal("allocimage: %r");
+	if(pl_white==0 || pl_light==0 || pl_black==0 || pl_dark==0 || pl_scrl==0 || pl_blue==0 || pl_tick==0) sysfatal("allocimage: %r");
 	return 1;
 }
 Rectangle pl_boxoutline(Image *b, Rectangle r, int style, int fill){
@@ -205,6 +206,19 @@ void pl_sliderupd(Image *b, Rectangle r1, int dir, int lo, int hi){
 	draw(b, r1, pl_light, 0, ZP);
 	draw(b, r2, pl_dark, 0, ZP);
 	draw(b, r3, pl_light, 0, ZP);
+}
+void pl_scrollupd(Image *b, Rectangle r, int lo, int hi)
+{
+	Rectangle sr;
+	if(lo<0) lo=0;
+	if(hi<=lo) hi=lo+1;
+	sr=r;
+	sr.min.y+=lo;
+	sr.max.x-=1;
+	sr.max.y=sr.min.y+hi;
+	if(sr.max.y>r.max.y) sr.max.y=r.max.y;
+	draw(b, r, pl_scrl, 0, ZP);
+	draw(b, sr, pl_light, 0, ZP);
 }
 void pl_draw1(Panel *p, Image *b);
 void pl_drawall(Panel *p, Image *b){

@@ -68,6 +68,7 @@ Rectangle pl_check(Image *, Rectangle, int);
 Rectangle pl_radio(Image *, Rectangle, int);
 int pl_ckwid(void);
 void pl_sliderupd(Image *, Rectangle, int, int, int);
+void pl_scrollupd(Image *, Rectangle, int, int);
 void pl_invis(Panel *, int);
 Point pl_iconsize(int, Icon *);
 void pl_highlight(Image *, Rectangle);

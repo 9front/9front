@@ -12,12 +12,12 @@ struct Scrollbar{
 	Rectangle interior;
 	Point minsize;
 };
-#define	SBWID	15	/* should come from draw.c? */
+#define	SBWID	8	/* should come from draw.c? */
 void pl_drawscrollbar(Panel *p){
 	Scrollbar *sp;
 	sp=p->data;
 	sp->interior=pl_outline(p->b, p->r, SUP); /* SUP was p->state */
-	pl_sliderupd(p->b, sp->interior, sp->dir, sp->lo, sp->hi);
+	pl_scrollupd(p->b, sp->interior, sp->lo, sp->hi);
 }
 int pl_hitscrollbar(Panel *g, Mouse *m){
 	int oldstate, pos, len, dy;
@@ -49,8 +49,7 @@ int pl_hitscrollbar(Panel *g, Mouse *m){
 		switch(m->buttons){
 		case 1:
 			dy=pos*(sp->hi-sp->lo)/len;
-			pl_sliderupd(g->b, sp->interior, sp->dir, sp->lo-dy,
-				sp->hi-dy);
+			pl_scrollupd(g->b, sp->interior, sp->lo-dy, sp->hi-dy);
 			break;
 		case 2:
 			if(g->scrollee && g->scrollee->scroll)
@@ -59,8 +58,7 @@ int pl_hitscrollbar(Panel *g, Mouse *m){
 			break;
 		case 4:
 			dy=pos*(sp->hi-sp->lo)/len;
-			pl_sliderupd(g->b, sp->interior, sp->dir, sp->lo+dy,
-				sp->hi+dy);
+			pl_scrollupd(g->b, sp->interior, sp->lo+dy, sp->hi+dy);
 			break;
 		}
 	}
@@ -94,7 +92,6 @@ void pl_setscrollbarscrollbar(Panel *p, int lo, int hi, int len){
 	sp=p->data;
 	ul=p->r.min;
 	size=subpt(p->r.max, p->r.min);
-	pl_interior(p->state, &ul, &size);
 	mylen=sp->dir==HORIZ?size.x:size.y;
 	if(len==0) len=1;
 	sp->lo=lo*mylen/len;
