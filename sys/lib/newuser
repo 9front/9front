@@ -8,7 +8,7 @@ if(test -f $home/lib/profile){
 }
 cd $home
 x='$'
-mkdir bin bin/rc bin/mips bin/386 bin/amd64 bin/power bin/arm
+mkdir bin bin/rc bin/mips bin/386 bin/amd64 bin/power bin/arm bin/arm64 
 mkdir lib tmp
 chmod +t tmp
 bind -qc /n/other/usr/$user/tmp $home/tmp
@@ -35,8 +35,12 @@ case cpu
 	bind -q /mnt/term/dev/consctl /dev/consctl
 	>[2] /dev/null {
 		cp /dev/sysname /mnt/term/dev/label
-		if(wsys=`{cat /mnt/term/env/wsys})
+		if(wsys=`{cat /mnt/term/env/wsys} && ~ $x^#wsys 1) {
 			wsys=/mnt/term^$x^wsys
+		}
+		if not {
+			wsys=()
+		}
 	} 
 	bind -a /mnt/term/dev /dev
 	prompt=('cpu% ' '	')
