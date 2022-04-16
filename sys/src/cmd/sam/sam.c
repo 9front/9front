@@ -688,11 +688,27 @@ nlcount(File *f, Posn p0, Posn p1)
 }
 
 void
-printposn(File *f, int charsonly)
+printposn(File *f, int chars)
 {
 	Posn l1, l2;
+	char *s;
 
-	if(!charsonly){
+	if(f->name.s[0]){
+		if(f->name.s[0]!='/'){
+			getcurwd();
+			s = Strtoc(&curwd);
+			dprint("%s", s);
+			free(s);
+		}
+		s = Strtoc(&f->name);
+		dprint("%s:", s);
+		free(s);
+	}
+	if(chars){
+		dprint("#%lud", addr.r.p1);
+		if(addr.r.p2 != addr.r.p1)
+			dprint(",#%lud", addr.r.p2);
+	}else{
 		l1 = 1+nlcount(f, (Posn)0, addr.r.p1);
 		l2 = l1+nlcount(f, addr.r.p1, addr.r.p2);
 		/* check if addr ends with '\n' */
@@ -701,11 +717,7 @@ printposn(File *f, int charsonly)
 		dprint("%lud", l1);
 		if(l2 != l1)
 			dprint(",%lud", l2);
-		dprint("; ");
 	}
-	dprint("#%lud", addr.r.p1);
-	if(addr.r.p2 != addr.r.p1)
-		dprint(",#%lud", addr.r.p2);
 	dprint("\n");
 }
 

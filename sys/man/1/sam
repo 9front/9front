@@ -403,10 +403,10 @@ Print the text in the range.
 Set dot.
 .TP
 .B =
-Print the line address and character address of the range.
+Print the file name and line address of the range.
 .TP
 .B =#
-Print just the character address of the range.
+Print the file name and character address of the range.
 .PD
 .SS File commands
 .PD 0
