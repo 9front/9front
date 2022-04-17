@@ -10,7 +10,7 @@ fn update{
 	dflag=()
 	if(! ~ $#debug 0)
 		dflag='-d'
-	{git/fetch $dflag -u $upstream $url >[2=3] || die $status} | awk '
+	{git/get $dflag -u $upstream $url >[2=3] || die $status} | awk '
 	/^remote/{
 		if($2=="HEAD")
 			next

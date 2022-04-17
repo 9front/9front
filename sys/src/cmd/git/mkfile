@@ -3,7 +3,7 @@
 BIN=/$objtype/bin/git
 TARG=\
 	conf\
-	fetch\
+	get\
 	fs\
 	log\
 	query\
