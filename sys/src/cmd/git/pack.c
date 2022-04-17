@@ -1036,7 +1036,6 @@ retry:
 			return obj;
 		}
 	}
-			
 
 	snprint(hbuf, sizeof(hbuf), "%H", h);
 	snprint(path, sizeof(path), ".git/objects/%c%c/%s", hbuf[0], hbuf[1], hbuf + 2);
