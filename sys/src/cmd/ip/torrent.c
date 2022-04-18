@@ -404,7 +404,7 @@ peer(int fd, int incoming, char *addr)
 		}
 		if((incoming && !i) || (!incoming && i)){
 			n = 20 + 8 + sizeof(infohash);
-			if((n = readn(fd, buf, n)) != n)
+			if(readn(fd, buf, n) != n)
 				return 1;
 			if(memcmp(buf, "\x13BitTorrent protocol", 20))
 				return 0;
