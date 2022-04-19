@@ -73,6 +73,7 @@ fn merge1 {@{
 		base=/dev/null
 	if(! test -f $theirs)
 		theirs=/dev/null
+	mkdir -p `{basename -d $tmp}
 	if(! ape/diff3 -3 -m $ours $base $theirs > $tmp)
 		echo merge needed: $out >[1=2]
 
@@ -94,10 +95,10 @@ fn gitup{
 	gitrel=`{pwd | drop $gitroot | sed 's@^/@@'}
 	if(~ $#gitrel 0)
 		gitrel='.'
-	cd $gitroot
+	if(! cd $gitroot)
+		die cd $gitroot: no repo there
 	startfs=()
-	if(! test -d $gitfs)
-		mkdir -p $gitfs
+	mkdir -p $gitfs
 	if(! test -e $gitfs/ctl)
 		startfs=true
 	if(! grep -s '^repo '$gitroot'$' $gitfs/ctl >[2]/dev/null)
