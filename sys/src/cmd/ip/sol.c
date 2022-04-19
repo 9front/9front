@@ -173,9 +173,15 @@ digestauth(char *server, char *user, char *method, char *url)
 		strlen(nc), nc, strlen(nc),
 		n, resp, n,
 		strlen(qop), qop, strlen(qop));
+
+	/* can get timeout/tls error here, so enable restart once we have the key */
+	authok = 1;
 	recv("lb*", &reply, &ok);
-	if(reply != 0x14 && ok != 4)
+	if(reply != 0x14 && ok != 4){
+		authok = 0;
 		sysfatal("bad digest auth reply: %x %x", reply, ok);
+	}
+
 	return 0;
 }
 
