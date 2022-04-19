@@ -50,7 +50,7 @@ Connect to the KVM port with
 .IR vnc(1):
 .IP
 .EX
-execnet && vnc 'exec!ip/sol -k host'
+execnet && vncv 'exec!ip/sol -k host'
 .EE
 .SH SOURCE
 .B /sys/src/cmd/ip/sol.c
