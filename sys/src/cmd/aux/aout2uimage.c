@@ -100,9 +100,10 @@ main(int argc, char **argv)
 {
 	Fhdr fhdr;
 	u64int kzero;
+	ulong rtext;
 	uchar header[64];
 	char *ofile, *iname;
-	int n, arch;
+	int arch;
 
 	kzero = 0xF0000000;
 	ofile = nil;
@@ -116,7 +117,10 @@ main(int argc, char **argv)
 	infd = open(argv[0], OREAD);
 	if(infd < 0) sysfatal("infd: %r");
 	if(crackhdr(infd, &fhdr) == 0) sysfatal("crackhdr: %r");
-	
+	if((uint)mach->mtype >= nelem(archtab) || archtab[mach->mtype] == 0)
+		sysfatal("archloch");
+	arch = archtab[mach->mtype];
+	assert(sizeof(buf) >= mach->pgsize);
 	iname = strrchr(argv[0], '/');
 	if(iname != nil)
 		iname++;
@@ -127,29 +131,25 @@ main(int argc, char **argv)
 	if(outfd < 0) sysfatal("create: %r");
 	
 	tab = mkcrctab(0xEDB88320);
-	assert(sizeof(buf) >= mach->pgsize);
-	seek(infd, 0, 0);
+	seek(infd, fhdr.hdrsz, 0);	/* a.out header not part of the image */
 	seek(outfd, sizeof(header), 0);
 	dcrc = 0;
-	
-	copy(fhdr.hdrsz + fhdr.txtsz);
-	n = -(fhdr.hdrsz + fhdr.txtsz) & mach->pgsize - 1;
-	if(n > 0){
-		memset(buf, 0, n);
-		if(write(outfd, buf, n) < 0) sysfatal("write: %r");
-		dcrc = blockcrc(tab, dcrc, buf, n);
+	copy(fhdr.txtsz);
+
+	/* round text out to page boundary (see rebootcmd()) */
+	rtext = ((fhdr.entry + fhdr.txtsz + mach->pgsize-1) & -mach->pgsize) - fhdr.entry;
+	if(rtext > fhdr.txtsz){
+		memset(buf, 0, rtext - fhdr.txtsz);
+		if(write(outfd, buf, rtext - fhdr.txtsz) < 0) sysfatal("write: %r");
+		dcrc = blockcrc(tab, dcrc, buf, rtext - fhdr.txtsz);
 	}
 	copy(fhdr.datsz);
-	
-	if((uint)mach->mtype >= nelem(archtab) || archtab[mach->mtype] == 0)
-		sysfatal("archloch");
-	arch = archtab[mach->mtype];
 	
 	memset(header, 0, sizeof(header));
 	put(&header[0], 0x27051956); /* magic */
 	put(&header[8], time(0)); /* time */
-	put(&header[12], -(-(fhdr.hdrsz + fhdr.txtsz) & -mach->pgsize) + fhdr.datsz); /* image size */
-	put(&header[16], fhdr.txtaddr - fhdr.hdrsz - kzero); /* load address */
+	put(&header[12], rtext + fhdr.datsz); /* image size */
+	put(&header[16], fhdr.txtaddr - kzero); /* load address */
 	put(&header[20], fhdr.entry - kzero); /* entry point */
 	put(&header[24], dcrc); /* data crc */
 	header[28] = 23; /* os = plan 9 */
