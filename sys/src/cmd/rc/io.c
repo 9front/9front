@@ -275,7 +275,6 @@ flushio(io *f)
 	else{
 		n = f->bufp - f->buf;
 		if(n && Write(f->fd, f->buf, n) != n){
-			Write(2, "Write error\n", 12);
 			if(ntrap)
 				dotrap();
 		}
