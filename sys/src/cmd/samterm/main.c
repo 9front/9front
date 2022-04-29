@@ -540,8 +540,7 @@ type(Flayer *l, int res)	/* what a bloody mess this is */
 				*p++ = ' ';
 		} else
 			*p++ = c;
-		if(autoindent)
-		if(c == '\n'){
+		if(c == '\n' && autoindent && t != &cmd){
 			/* autoindent */
 			int cursor, ch;
 			cursor = ctlu(&t->rasp, 0, a+(p-buf)-1);
