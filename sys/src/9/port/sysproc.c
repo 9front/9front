@@ -79,14 +79,18 @@ sysrfork(va_list list)
 				envcpy(up->egrp, oeg);
 			closeegrp(oeg);
 		}
-		if(flag & RFNOTEG)
-			setnoteid(up, 0);
+		if(flag & RFNOTEG){
+			qlock(&up->debug);
+			setnoteid(up, 0);	/* can't error() with 0 argument */
+			qunlock(&up->debug);
+		}
 		return 0;
 	}
 
 	if((p = newproc()) == nil)
 		error("no procs");
 
+	qlock(&up->debug);
 	qlock(&p->debug);
 
 	p->scallnr = up->scallnr;
@@ -112,7 +116,8 @@ sysrfork(va_list list)
 		p->procctl = Proc_tracesyscall;
 	p->kp = 0;
 
-	/* Craft a return frame which will cause the child to pop out of
+	/*
+	 * Craft a return frame which will cause the child to pop out of
 	 * the scheduler in user mode with the return register zero
 	 */
 	forkchild(p, up->dbgreg);
@@ -132,6 +137,7 @@ sysrfork(va_list list)
 	pid = pidalloc(p);
 
 	qunlock(&p->debug);
+	qunlock(&up->debug);
 
 	/* Abort the child process on error */
 	if(waserror()){

@@ -1820,6 +1820,19 @@ procindex(ulong pid)
 	return -1;
 }
 
+/*
+ *  for the following functions:
+ *    setnoteid(), pidalloc() and pidfree()
+ *
+ *  They need to be called with p->debug held
+ *  to prevent devproc's changenoteid() from
+ *  changing the noteid under us and make the
+ *  update atomic.
+ */
+
+/*
+ *  change the noteid of a process
+ */
 ulong
 setnoteid(Proc *p, ulong noteid)
 {
@@ -1840,15 +1853,6 @@ setnoteid(Proc *p, ulong noteid)
 	return p->noteid = i->pid;
 }
 
-static ulong
-setparentpid(Proc *p, Proc *pp)
-{
-	Pid *i;
-
-	i = pidadd(pp->pid);
-	return p->parentpid = i->pid;
-}
-
 /*
  *  allocate pid, noteid and parentpid to a process
  */
@@ -1858,8 +1862,11 @@ pidalloc(Proc *p)
 	Pid *i;
 
 	/* skip for the boot process */
-	if(up != nil)
-		setparentpid(p, up);
+	if(up != nil){
+		i = pidadd(up->pid);
+		p->parentpid = i->pid;
+	} else
+		p->parentpid = 0;
 
 	i = pidadd(0);
 	i->procindex = (int)(p - procalloc.arena);
