@@ -8,6 +8,7 @@
 #include "pool.h"
 #include "io.h"
 #include "sysreg.h"
+#include "ureg.h"
 
 Conf conf;
 
@@ -46,7 +47,7 @@ confinit(void)
 	char *p;
 	int i;
 
-	conf.nmach = 1;
+	conf.nmach = MAXMACH;
 
 	if(p = getconf("service")){
 		if(strcmp(p, "cpu") == 0)
@@ -117,6 +118,29 @@ machinit(void)
 }
 
 void
+mpinit(void)
+{
+	extern void _start(void);
+	int i;
+
+	splhi();
+	for(i = 1; i < conf.nmach; i++){
+		Ureg u = {0};
+
+		MACHP(i)->machno = i;
+		cachedwbinvse(MACHP(i), MACHSIZE);
+
+		u.r0 = 0x84000003;
+		u.r1 = (sysrd(MPIDR_EL1) & ~0xFF) | i;
+		u.r2 = PADDR(_start);
+		u.r3 = i;
+		smccall(&u);
+	}
+	synccycles();
+	spllo();
+}
+
+void
 main(void)
 {
 	machinit();
@@ -125,7 +149,7 @@ main(void)
 		fpuinit();
 		intrinit();
 		clockinit();
-		// cpuidprint();
+		print("cpu%d: UP!\n", m->machno);
 		synccycles();
 		timersinit();
 		flushtlb();
@@ -152,7 +176,7 @@ main(void)
 	links();
 	chandevreset();
 	userinit();
-//	mpinit();
+	mpinit();
 	mmu0clear((uintptr*)L1);
 	flushtlb();
 	mmu1init();
@@ -162,9 +186,13 @@ main(void)
 void
 exit(int)
 {
+	Ureg u = { .r0 = 0x84000009 };
+
 	cpushutdown();
 	splfhi();
-	for(;;);
+
+	/* system reset */
+	smccall(&u);
 }
 
 int

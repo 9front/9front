@@ -139,18 +139,15 @@ intrinit(void)
 
 		/* clear all interrupts */
 		n = ((dregs[GICD_TYPER] & 0x1F)+1) << 5;
-print("nirq %d\n", n);
 		for(i = 32; i < n; i += 32){
 			dregs[GICD_IGROUPR0 + (i/32)] = -1;
 
 			dregs[GICD_ISENABLER0 + (i/32)] = -1;
 			while(dregs[GICD_CTLR]&(1<<31))
 				;
-print("%d: distributor stuck disabled: %.8ux\n", i, ~dregs[GICD_ISENABLER0 + (i/32)]);
 			dregs[GICD_ICENABLER0 + (i/32)] = -1;
 			while(dregs[GICD_CTLR]&(1<<31))
 				;
-print("%d: distributor stuck enabled:  %.8ux\n", i, dregs[GICD_ISENABLER0 + (i/32)]);
 			dregs[GICD_ICACTIVER0 + (i/32)] = -1;
 		}
 		for(i = 0; i < n; i += 4){
@@ -174,11 +171,9 @@ print("%d: distributor stuck enabled:  %.8ux\n", i, dregs[GICD_ISENABLER0 + (i/3
 		rregs[GICR_ISENABLER0 + (i/32)] = -1;
 		while(rregs[GICR_CTLR]&(1<<3))
 			;
-print("%d: re-distributor stuck disabled: %.8ux\n", i, ~rregs[GICR_ISENABLER0 + (i/32)]);
 		rregs[GICR_ICENABLER0 + (i/32)] = -1;
 		while(dregs[GICD_CTLR]&(1<<31))
 			;
-print("%d: re-distributor stuck enabled:  %.8ux\n", i, rregs[GICR_ISENABLER0 + (i/32)]);
 		rregs[GICR_ICACTIVER0 + (i/32)] = -1;
 	}
 	for(i = 0; i < n; i += 4){

@@ -679,3 +679,34 @@ _peekloop:
 	SUBS	$1, R0
 	BNE	_peekloop
 	RETURN
+
+TEXT smccall(SB), 1, $32
+	/* save extern registers */
+	MOVP	R26, R27, (RSP)
+
+	/* R0 = Ureg */
+	MOV	R0, R8
+
+	/* save ureg pointer */
+	MOV	R8, 16(RSP)
+
+	MOVP	0(R8), R0, R1
+	MOVP	16(R8), R2, R3
+	MOVP	32(R8), R4, R5
+	MOVP	48(R8), R6, R7
+
+	SMC
+
+	/* restore ureg pointer */
+	MOV	16(RSP), R8
+
+	MOVP	R0, R1, 0(R8)
+	MOVP	R2, R3, 16(R8)
+
+	/* restore extern registers */
+	MOVP	(RSP), R26, R27
+
+	RETURN
+
+
+	
