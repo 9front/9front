@@ -166,13 +166,16 @@ kick(Uart *u)
 {
 	u32int *regs = (u32int*)u->regs;
 
-	if(u->blocked)
-		return;
-	while(regs[USR1] & SR1_TRDY){
-		if(u->op >= u->oe && uartstageoutput(u) == 0)
+	while(u->op < u->oe || uartstageoutput(u)){
+		if(u->blocked)
 			break;
+		if((regs[USR1] & SR1_TRDY) == 0){
+			regs[UCR1] |= CR1_TRDYEN;
+			return;
+		}
 		regs[UTXD] = *(u->op++) & TX_DATA;
 	}
+	regs[UCR1] &= ~CR1_TRDYEN;
 }
 
 static void
@@ -195,11 +198,11 @@ config(Uart *u)
 	regs[UCR4] = 31<<CR4_CTSTL_SHIFT;
 
 	/* baud = clock / (16 * (ubmr+1)/(ubir+1)) */
-	regs[UFCR] = (6 - 1)<<FCR_RFDIV_SHIFT | 32<<FCR_TXTL_SHIFT | 32<<FCR_RXTL_SHIFT;
+	regs[UFCR] = (6 - 1)<<FCR_RFDIV_SHIFT | 16<<FCR_TXTL_SHIFT | 1<<FCR_RXTL_SHIFT;
 	regs[UBIR] = ((16*u->baud) / 1600)-1;
 	regs[UBMR] = (u->freq / 1600)-1;
 
-	regs[UCR1] = CR1_UARTEN | CR1_TRDYEN | CR1_RRDYEN;
+	regs[UCR1] = CR1_UARTEN | CR1_RRDYEN;
 }
 
 static int
