@@ -1,7 +1,7 @@
 #!/bin/rc
 rfork e
 if(! ~ $#* 1){
-	echo usage: $0 fn >[2=1]
+	echo usage: $0 fn >[1=2]
 	exit usage
 }
 if(~ $#srcpath 0) srcpath=.
@@ -12,7 +12,7 @@ for(i in $res)
 	echo $i
 switch($#res){
 case 0
-	echo $1: not found >[2=1]
+	echo $1: not found >[1=2]
 case 1
 	B $res
 }

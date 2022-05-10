@@ -66,7 +66,7 @@ while(~ $1 -*){
 	case -l
 		load = yes
 	case *
-		echo >[2=1] 'usage: ipso [-a -f -e -l] [-s] [file ...]'
+		echo >[1=2] 'usage: ipso [-a -f -e -l] [-s] [file ...]'
 		exit usage
 	}
 	shift
@@ -85,7 +85,7 @@ if(~ $flush yes && ~ $edit no && ~ $load no){
 }
 
 if(~ $get aesget && ~ $#* 0){
-	echo >[2=1] ipso: must specify a fully qualified file name for aescbc '(-a)'
+	echo >[1=2] ipso: must specify a fully qualified file name for aescbc '(-a)'
 	exit usage
 }
 

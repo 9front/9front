@@ -8,7 +8,7 @@ if(! test -d /n/sources/patch){
 
 pref=''
 builtin cd /n/sources/patch || {
-	echo 'can''t cd /n/sources/patch' >[2=1]
+	echo 'can''t cd /n/sources/patch' >[1=2]
 	exit no-sources
 }
 
@@ -45,7 +45,7 @@ for(i in $*){
 		}
 	}
 	if not
-		echo '	'bad patch: $status >[2=1]
+		echo '	'bad patch: $status >[1=2]
 	echo
 }
 } >/tmp/patchtmp.$pid

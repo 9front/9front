@@ -29,7 +29,7 @@ fn xxx {
 		cp $2.backup $1
 	}
 	if not
-		echo $1 has changed since patch was applied! >[2=1]
+		echo $1 has changed since patch was applied! >[1=2]
 }
 cat files | sed 's/^/xxx /' |rc
 

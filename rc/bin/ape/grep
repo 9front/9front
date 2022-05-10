@@ -12,7 +12,7 @@ while(! ~ $#* 0){
 	case -q
 		opts=($opts -s)
 	case -*
-		echo $argv0 $1 not supported >[2=1]
+		echo $argv0 $1 not supported >[1=2]
 		exit 'not supported'
 	case *
 		files=($files $1)
