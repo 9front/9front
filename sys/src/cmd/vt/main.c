@@ -311,7 +311,7 @@ threadmain(int argc, char **argv)
 		sysfatal("initkeyboard failed: %r");
 
 	hc[0] = chancreate(sizeof(char*), 256);	/* input to host */
-	hc[1] = chancreate(sizeof(Rune*), 8);	/* output from host */
+	hc[1] = chancreate(sizeof(Rune*), 256);	/* output from host */
 
 	cs->raw = rflag;
 

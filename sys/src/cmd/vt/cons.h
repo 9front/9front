@@ -8,7 +8,7 @@ struct Consstate{
 extern Consstate cs[];
 
 #define	INSET	2
-#define	BUFS	32
+#define	BUFS	256
 #define	HISTSIZ	(64*1024)	/* number of history characters */
 #define BSIZE	(8*1024)
 
