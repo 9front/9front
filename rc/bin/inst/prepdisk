@@ -14,7 +14,8 @@ fn autotype {
 
 switch($1) {
 case checkready
-	if(! test -f /dev/sd*/plan9*){
+	disks=(/dev/sd*/plan9*)
+	if(! test -f $disks(1)){
 		prepdisk=notdone
 		export prepdisk
 	}
@@ -43,7 +44,8 @@ case go
 	disk/prep -p $disk >`{basename -d $disk}^/ctl >[2]/dev/null
 
 case checkdone
-	if(! test -f /dev/sd*/9fat)
+	disks=(/dev/sd*/9fat)
+	if(! test -f $disks(1))
 		prepdisk=ready
 	if(! ~ $prepdisk ready)
 		prepdisk=done
