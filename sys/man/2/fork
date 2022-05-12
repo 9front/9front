@@ -69,10 +69,17 @@ Is mutually exclusive with
 .BR RFNAMEG .
 .TP
 .B RFNOMNT
-If set, subsequent mounts into the new name space and dereferencing
-of pathnames starting with
+If set, subsequent mounts into the new name space are disallowed.
+All pathnames starting with
 .B #
-are disallowed.
+besides those used to access
+.IR pipe(3) ,
+.IR dup(3) ,
+.IR env(3) ,
+.IR cons(3) ,
+and
+.IR proc(3) 
+can not be walked.
 .TP
 .B RFENVG
 If set, the environment variables are copied;
