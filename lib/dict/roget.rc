@@ -1,0 +1,5 @@
+#!/bin/rc
+# Project Gutenberg Roget's thesaurus
+9fs sources
+fcp /n/sources/extra/roget/* /lib/dict
+
