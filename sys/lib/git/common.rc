@@ -29,13 +29,23 @@ fn drop {
 	' $*
 }
 
-fn present {
+fn mergeperm {
 	if(~ $1 /dev/null && cmp $2 $3>/dev/null)
 		status=gone
 	if not if (~ $3 /dev/null && cmp $1 $2>/dev/null)
 		status=gone
-	if not
+	if not {
+		mergedperms='-x'
+		if(test -x $2){
+			if(test -x $1 -a -x $3)
+				mergedperms='+x'
+		}
+		if not{
+			if(test -x $1 -o -x $3)
+				mergedperms='+x'
+		}
 		status=()
+	}
 }
 
 fn whoami{
@@ -73,13 +83,13 @@ fn merge1 {@{
 		base=/dev/null
 	if(! test -f $theirs)
 		theirs=/dev/null
-	mkdir -p `{basename -d $tmp}
 	if(! ape/diff3 -3 -m $ours $base $theirs > $tmp)
 		echo merge needed: $out >[1=2]
 
-	if(present $ours $base $theirs){
+	if(mergeperm $ours $base $theirs){
 		mv $tmp $out
 		git/add $out
+		chmod $mergedperms $out
 	}
 	if not {
 		rm -f $tmp $out
