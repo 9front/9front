@@ -14,7 +14,6 @@ struct Pipe
 	Pipe	*next;
 	int	ref;
 	ulong	path;
-	long	perm;
 	Queue	*q[2];
 	int	qref[2];
 };
@@ -35,10 +34,9 @@ enum
 Dirtab pipedir[] =
 {
 	".",		{Qdir,0,QTDIR},	0,		DMDIR|0500,
-	"data",		{Qdata0},	0,		0600,
-	"data1",	{Qdata1},	0,		0600,
+	"data",		{Qdata0},	0,		0666,
+	"data1",	{Qdata1},	0,		0666,
 };
-#define NPIPEDIR 3
 
 static void
 pipeinit(void)
@@ -86,7 +84,6 @@ pipeattach(char *spec)
 	lock(&pipealloc);
 	p->path = ++pipealloc.path;
 	unlock(&pipealloc);
-	p->perm = pipedir[Qdata0].perm;
 
 	mkqid(&c->qid, NETQID(2*p->path, Qdir), 0, QTDIR);
 	c->aux = p;
@@ -123,7 +120,7 @@ pipegen(Chan *c, char*, Dirtab *tab, int ntab, int i, Dir *dp)
 		break;
 	}
 	mkqid(&q, NETQID(NETID(c->qid.path), tab->qid.path), 0, QTFILE);
-	devdir(c, q, tab->name, len, eve, p->perm, dp);
+	devdir(c, q, tab->name, len, eve, tab->perm, dp);
 	return 1;
 }
 
@@ -134,7 +131,7 @@ pipewalk(Chan *c, Chan *nc, char **name, int nname)
 	Walkqid *wq;
 	Pipe *p;
 
-	wq = devwalk(c, nc, name, nname, pipedir, NPIPEDIR, pipegen);
+	wq = devwalk(c, nc, name, nname, pipedir, nelem(pipedir), pipegen);
 	if(wq != nil && wq->clone != nil && wq->clone != c){
 		p = c->aux;
 		qlock(p);
@@ -160,18 +157,22 @@ pipestat(Chan *c, uchar *db, int n)
 {
 	Pipe *p;
 	Dir dir;
+	ulong path;
+	Dirtab *d;
 
 	p = c->aux;
+	path = NETTYPE(c->qid.path);
+	d = pipedir + path;
 
-	switch(NETTYPE(c->qid.path)){
+	switch(path){
 	case Qdir:
-		devdir(c, c->qid, ".", 0, eve, 0555, &dir);
+		devdir(c, c->qid, d->name, 0, eve, d->perm, &dir);
 		break;
 	case Qdata0:
-		devdir(c, c->qid, "data", qlen(p->q[0]), eve, p->perm, &dir);
+		devdir(c, c->qid, d->name, qlen(p->q[0]), eve, d->perm, &dir);
 		break;
 	case Qdata1:
-		devdir(c, c->qid, "data1", qlen(p->q[1]), eve, p->perm, &dir);
+		devdir(c, c->qid, d->name, qlen(p->q[1]), eve, d->perm, &dir);
 		break;
 	default:
 		panic("pipestat");
@@ -180,36 +181,6 @@ pipestat(Chan *c, uchar *db, int n)
 	if(n < BIT16SZ)
 		error(Eshortstat);
 	return n;
-}
-
-static int
-pipewstat(Chan* c, uchar* db, int n)
-{
-	int m;
-	Dir *dir;
-	Pipe *p;
-
-	p = c->aux;
-	if(strcmp(up->user, eve) != 0)
-		error(Eperm);
-	if(NETTYPE(c->qid.path) == Qdir)
-		error(Eisdir);
-
-	dir = smalloc(sizeof(Dir)+n);
-	if(waserror()){
-		free(dir);
-		nexterror();
-	}
-	m = convM2D(db, n, &dir[0], (char*)&dir[1]);
-	if(m == 0)
-		error(Eshortstat);
-	if(!emptystr(dir[0].uid))
-		error("can't change owner");
-	if(dir[0].mode != ~0UL)
-		p->perm = dir[0].mode;
-	poperror();
-	free(dir);
-	return m;
 }
 
 /*
@@ -309,7 +280,7 @@ piperead(Chan *c, void *va, long n, vlong)
 
 	switch(NETTYPE(c->qid.path)){
 	case Qdir:
-		return devdirread(c, va, n, pipedir, NPIPEDIR, pipegen);
+		return devdirread(c, va, n, pipedir, nelem(pipedir), pipegen);
 	case Qdata0:
 		return qread(p->q[0], va, n);
 	case Qdata1:
@@ -424,5 +395,5 @@ Dev pipedevtab = {
 	pipewrite,
 	pipebwrite,
 	devremove,
-	pipewstat,
+	devwstat,
 };
