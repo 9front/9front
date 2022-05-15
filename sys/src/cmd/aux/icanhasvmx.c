@@ -241,6 +241,10 @@ main(int argc, char **argv)
 				print("no VPID support\n");
 				no++;
 			}
+			if((msr >> 32 & PROCB_UNRESTR) == 0){
+				print("no unrestricted guest support\n");
+				no++;
+			}
 		}
 		if(no == 0)
 			print("VMX is supported\n");
