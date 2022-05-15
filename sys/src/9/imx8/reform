@@ -15,7 +15,10 @@ dev
 	ether	netif
 	ip	arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium inferno
 	uart
+	usb
+
 link
+	usbxhciimx
 	etherimx	ethermii
 	ethermedium
 	loopbackmedium
