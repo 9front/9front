@@ -481,28 +481,19 @@ getserv(char *proto, char *dir, Service *s)
 	long n;
 
 	readstr(dir, "remote", s->remote, sizeof(s->remote)-1);
-	if(p = utfrune(s->remote, L'\n'))
+	if(p = utfrune(s->remote, '\n'))
 		*p = '\0';
 
 	n = readstr(dir, "local", addr, sizeof(addr)-1);
 	if(n <= 0)
 		return 0;
-	if(p = utfrune(addr, L'\n'))
+	if(p = utfrune(addr, '\n'))
 		*p = '\0';
-	serv = utfrune(addr, L'!');
+	serv = utfrune(addr, '!');
 	if(!serv)
-		serv = "login";
-	else
-		serv++;
-
-	/*
-	 * disallow service names like
-	 * ../../usr/user/bin/rc/su
-	 */
-	if(strlen(serv) +strlen(proto) >= NAMELEN || utfrune(serv, L'/') || *serv == '.')
 		return 0;
-	snprint(s->serv, sizeof s->serv, "%s%s", proto, serv);
 
+	snprint(s->serv, sizeof s->serv, "%s%s", proto, serv+1);
 	return 1;
 }
 
