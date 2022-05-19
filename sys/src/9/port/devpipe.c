@@ -136,17 +136,6 @@ pipewalk(Chan *c, Chan *nc, char **name, int nname)
 		p = c->aux;
 		qlock(p);
 		p->ref++;
-		if(c->flag & COPEN){
-			print("channel open in pipewalk\n");
-			switch(NETTYPE(c->qid.path)){
-			case Qdata0:
-				p->qref[0]++;
-				break;
-			case Qdata1:
-				p->qref[1]++;
-				break;
-			}
-		}
 		qunlock(p);
 	}
 	return wq;
