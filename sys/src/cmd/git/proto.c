@@ -58,8 +58,8 @@ readpkt(Conn *c, char *buf, int nbuf)
 	char *e;
 	int n;
 
-	if(readn(c->rfd, len, 4) == -1)
-		return -1;
+	if(readn(c->rfd, len, 4) != 4)
+		sysfatal("pktline: short read from transport");
 	len[4] = 0;
 	n = strtol(len, &e, 16);
 	if(n == 0){
