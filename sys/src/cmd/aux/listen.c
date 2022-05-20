@@ -2,14 +2,9 @@
 #include <libc.h>
 #include <auth.h>
 
-#define	NAMELEN	64	/* reasonable upper limit for name elements */
-
-typedef struct Service	Service;
-struct Service
-{
-	char	serv[NAMELEN];		/* name of the service */
-	char	remote[3*NAMELEN];	/* address of remote system */
-	char	prog[5*NAMELEN+1];	/* program to execute */
+enum{
+	Maxpath = 1024,
+	Maxserv = 64,
 };
 
 typedef struct Announce	Announce;
@@ -24,9 +19,7 @@ struct Announce
 
 int	readstr(char*, char*, char*, int);
 void	dolisten(char*, int, char*, char*, long*);
-void	newcall(int, char*, Service*);
-int 	findserv(char*, Service*, char*);
-int	getserv(char*, Service*);
+void	newcall(int, char*, char*, char*);
 void	error(char*);
 void	scandir(char*);
 void	becomenone(void);
@@ -42,7 +35,6 @@ char	*proto;
 char	*protodir;
 char	*addr;
 Announce *announcements;
-#define SEC 1000
 
 char *namespace;
 
@@ -56,7 +48,6 @@ usage(void)
 void
 main(int argc, char *argv[])
 {
-	Service *s;
 	char *trustdir;
 	char *servdir;
 
@@ -102,9 +93,9 @@ main(int argc, char *argv[])
 	if(!servdir && !trustdir)
 		servdir = "/bin/service";
 
-	if(servdir && strlen(servdir) + NAMELEN >= sizeof(s->prog))
+	if(servdir && strlen(servdir) + Maxserv >= Maxpath)
 		error("service directory too long");
-	if(trustdir && strlen(trustdir) + NAMELEN >= sizeof(s->prog))
+	if(trustdir && strlen(trustdir) + Maxserv >= Maxpath)
 		error("trusted service directory too long");
 
 	switch(argc){
@@ -186,8 +177,7 @@ listendir(char *srvdir, int trusted)
 
 			sleep((pid*10)%200);
 
-			/* copy to stack */
-			strncpy(ds, a->a, sizeof(ds));
+			snprint(ds, sizeof ds, "%s!%s!%s", protodir, addr, a->a);
 			whined = a->whined;
 
 			/* a process per service */
@@ -211,7 +201,7 @@ listendir(char *srvdir, int trusted)
 						else
 							exits("ctl");
 					}
-					dolisten(dir, ctl, srvdir, ds, &childs);
+					dolisten(dir, ctl, srvdir, a->a, &childs);
 					close(ctl);
 				}
 			default:
@@ -290,7 +280,6 @@ scandir(char *dname)
 	Announce *a, **l;
 	int fd, i, n, nlen;
 	char *nm;
-	char ds[128];
 	Dir *db;
 
 	for(a = announcements; a != nil; a = a->next)
@@ -310,8 +299,7 @@ scandir(char *dname)
 				continue;
 			if(strncmp(nm, proto, nlen) != 0)
 				continue;
-			snprint(ds, sizeof ds, "%s!%s!%s", protodir, addr, nm + nlen);
-			addannounce(ds);
+			addannounce(nm + nlen);
 		}
 		free(db);
 	}
@@ -341,14 +329,16 @@ becomenone(void)
 }
 
 void
-dolisten(char *dir, int ctl, char *srvdir, char *dialstr, long *pchilds)
+dolisten(char *dir, int ctl, char *srvdir, char *port, long *pchilds)
 {
-	Service s;
 	char ndir[40], wbuf[64];
+	char prog[Maxpath], serv[Maxserv];
 	int nctl, data, wfd, nowait;
 
-	procsetname("%s %s", dir, dialstr);
-
+	procsetname("%s %s!%s!%s", dir, proto, addr, port);
+	snprint(serv, sizeof serv, "%s%s", proto, port);
+	snprint(prog, sizeof prog, "%s/%s", srvdir, serv);
+	
 	wfd = -1;
 	nowait = RFNOWAIT;
 	if(pchilds && maxprocs > 0){
@@ -413,17 +403,6 @@ dolisten(char *dir, int ctl, char *srvdir, char *dialstr, long *pchilds)
 			close(nctl);
 			continue;
 		case 0:
-			/*
-			 *  see if we know the service requested
-			 */
-			memset(&s, 0, sizeof s);
-			if(!findserv(ndir, &s, srvdir)){
-				if(!quiet)
-					syslog(1, listenlog, "%s: unknown service '%s' from '%s': %r",
-						proto, s.serv, s.remote);
-				reject(nctl, ndir, "connection refused");
-				exits(0);
-			}
 			data = accept(nctl, ndir);
 			if(data < 0){
 				syslog(1, listenlog, "can't open %s/data: %r", ndir);
@@ -434,7 +413,7 @@ dolisten(char *dir, int ctl, char *srvdir, char *dialstr, long *pchilds)
 			close(nctl);
 			if(wfd >= 0)
 				close(wfd);
-			newcall(data, ndir, &s);
+			newcall(data, ndir, prog, serv);
 			exits(0);
 		default:
 			close(nctl);
@@ -447,61 +426,19 @@ dolisten(char *dir, int ctl, char *srvdir, char *dialstr, long *pchilds)
 	}
 }
 
-/*
- * look in the service directory for the service.
- * if the shell script or program is zero-length, ignore it,
- * thus providing a way to disable a service with a bind.
- */
-int
-findserv(char *dir, Service *s, char *srvdir)
-{
-	int rv;
-	Dir *d;
-
-	if(!getserv(dir, s))
-		return 0;
-	snprint(s->prog, sizeof s->prog, "%s/%s", srvdir, s->serv);
-	d = dirstat(s->prog);
-	rv = d && d->length > 0;	/* ignore unless it's non-empty */
-	free(d);
-	return rv;
-}
-
-/*
- *  get the service name out of the local address
- */
-int
-getserv(char *dir, Service *s)
-{
-	char addr[128], *serv, *p;
-	long n;
-
-	readstr(dir, "remote", s->remote, sizeof(s->remote)-1);
-	if(p = utfrune(s->remote, '\n'))
-		*p = '\0';
-	if(p = utfrune(s->remote, '!'))
-		*p = '\0';
-
-	n = readstr(dir, "local", addr, sizeof(addr)-1);
-	if(n <= 0)
-		return 0;
-	if(p = utfrune(addr, '\n'))
-		*p = '\0';
-	serv = utfrune(addr, '!');
-	if(!serv)
-		return 0;
-
-	snprint(s->serv, sizeof s->serv, "%s%s", proto, serv+1);
-	return 1;
-}
-
 void
-newcall(int fd, char *dir, Service *s)
+newcall(int fd, char *dir, char *prog, char *serv)
 {
-	char data[4*NAMELEN];
+	char data[Maxpath];
+	char remote[128];
+	char *p;
 
-	if(!quiet)
-		syslog(0, listenlog, "%s call for %s on chan %s (%s)", proto, s->serv, dir, s->remote);
+	if(!quiet){
+		readstr(dir, "remote", remote, sizeof remote);
+		if(p = utfrune(remote, '!'))
+			*p = '\0';
+		syslog(0, listenlog, "%s call for %s on chan %s (%s)", proto, serv, dir, remote);
+	}
 
 	snprint(data, sizeof data, "%s/data", dir);
 	bind(data, "/dev/cons", MREPL);
@@ -515,8 +452,8 @@ newcall(int fd, char *dir, Service *s)
 	 */
 	for(fd=3; fd<20; fd++)
 		close(fd);
-	execl(s->prog, s->prog, s->serv, proto, dir, nil);
-	error(s->prog);
+	execl(prog, prog, serv, proto, dir, nil);
+	error(prog);
 }
 
 void
@@ -533,7 +470,7 @@ int
 readstr(char *dir, char *info, char *s, int len)
 {
 	int n, fd;
-	char buf[3*NAMELEN+4];
+	char buf[Maxpath];
 
 	snprint(buf, sizeof buf, "%s/%s", dir, info);
 	fd = open(buf, OREAD);
