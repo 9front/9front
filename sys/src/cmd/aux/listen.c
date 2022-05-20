@@ -23,14 +23,14 @@ struct Announce
 };
 
 int	readstr(char*, char*, char*, int);
-void	dolisten(char*, char*, int, char*, char*, long*);
-void	newcall(int, char*, char*, Service*);
-int 	findserv(char*, char*, Service*, char*);
-int	getserv(char*, char*, Service*);
+void	dolisten(char*, int, char*, char*, long*);
+void	newcall(int, char*, Service*);
+int 	findserv(char*, Service*, char*);
+int	getserv(char*, Service*);
 void	error(char*);
-void	scandir(char*, char*, char*, char*);
+void	scandir(char*);
 void	becomenone(void);
-void	listendir(char*, char*, char*, int);
+void	listendir(char*, int);
 
 char	listenlog[] = "listen";
 
@@ -39,6 +39,7 @@ long	maxprocs;
 int	quiet;
 int	immutable;
 char	*proto;
+char	*protodir;
 char	*addr;
 Announce *announcements;
 #define SEC 1000
@@ -56,7 +57,6 @@ void
 main(int argc, char *argv[])
 {
 	Service *s;
-	char *protodir;
 	char *trustdir;
 	char *servdir;
 
@@ -125,8 +125,8 @@ main(int argc, char *argv[])
 		proto = protodir;
 	else
 		proto++;
-	listendir(protodir, addr, servdir, 0);
-	listendir(protodir, addr, trustdir, 1);
+	listendir(servdir, 0);
+	listendir(trustdir, 1);
 
 	/* command returns */
 	exits(0);
@@ -141,7 +141,7 @@ dingdong(void*, char *msg)
 }
 
 void
-listendir(char *protodir, char *addr, char *srvdir, int trusted)
+listendir(char *srvdir, int trusted)
 {
 	int ctl, pid, start;
 	char dir[40], err[128], ds[128];
@@ -174,7 +174,7 @@ listendir(char *protodir, char *addr, char *srvdir, int trusted)
 	notify(dingdong);
 
 	pid = getpid();
-	scandir(proto, protodir, addr, srvdir);
+	scandir(srvdir);
 	for(;;){
 		/*
 		 * loop through announcements and process trusted services in
@@ -211,7 +211,7 @@ listendir(char *protodir, char *addr, char *srvdir, int trusted)
 						else
 							exits("ctl");
 					}
-					dolisten(proto, dir, ctl, srvdir, ds, &childs);
+					dolisten(dir, ctl, srvdir, ds, &childs);
 					close(ctl);
 				}
 			default:
@@ -249,7 +249,7 @@ listendir(char *protodir, char *addr, char *srvdir, int trusted)
 		}
 		if(!immutable){
 			alarm(0);
-			scandir(proto, protodir, addr, srvdir);
+			scandir(srvdir);
 		}
 		start = 60 - (time(0)-start);
 		if(start > 0)
@@ -285,7 +285,7 @@ addannounce(char *str)
 }
 
 void
-scandir(char *proto, char *protodir, char *addr, char *dname)
+scandir(char *dname)
 {
 	Announce *a, **l;
 	int fd, i, n, nlen;
@@ -341,7 +341,7 @@ becomenone(void)
 }
 
 void
-dolisten(char *proto, char *dir, int ctl, char *srvdir, char *dialstr, long *pchilds)
+dolisten(char *dir, int ctl, char *srvdir, char *dialstr, long *pchilds)
 {
 	Service s;
 	char ndir[40], wbuf[64];
@@ -417,7 +417,7 @@ dolisten(char *proto, char *dir, int ctl, char *srvdir, char *dialstr, long *pch
 			 *  see if we know the service requested
 			 */
 			memset(&s, 0, sizeof s);
-			if(!findserv(proto, ndir, &s, srvdir)){
+			if(!findserv(ndir, &s, srvdir)){
 				if(!quiet)
 					syslog(1, listenlog, "%s: unknown service '%s' from '%s': %r",
 						proto, s.serv, s.remote);
@@ -434,7 +434,7 @@ dolisten(char *proto, char *dir, int ctl, char *srvdir, char *dialstr, long *pch
 			close(nctl);
 			if(wfd >= 0)
 				close(wfd);
-			newcall(data, proto, ndir, &s);
+			newcall(data, ndir, &s);
 			exits(0);
 		default:
 			close(nctl);
@@ -453,12 +453,12 @@ dolisten(char *proto, char *dir, int ctl, char *srvdir, char *dialstr, long *pch
  * thus providing a way to disable a service with a bind.
  */
 int
-findserv(char *proto, char *dir, Service *s, char *srvdir)
+findserv(char *dir, Service *s, char *srvdir)
 {
 	int rv;
 	Dir *d;
 
-	if(!getserv(proto, dir, s))
+	if(!getserv(dir, s))
 		return 0;
 	snprint(s->prog, sizeof s->prog, "%s/%s", srvdir, s->serv);
 	d = dirstat(s->prog);
@@ -471,13 +471,15 @@ findserv(char *proto, char *dir, Service *s, char *srvdir)
  *  get the service name out of the local address
  */
 int
-getserv(char *proto, char *dir, Service *s)
+getserv(char *dir, Service *s)
 {
 	char addr[128], *serv, *p;
 	long n;
 
 	readstr(dir, "remote", s->remote, sizeof(s->remote)-1);
 	if(p = utfrune(s->remote, '\n'))
+		*p = '\0';
+	if(p = utfrune(s->remote, '!'))
 		*p = '\0';
 
 	n = readstr(dir, "local", addr, sizeof(addr)-1);
@@ -493,42 +495,13 @@ getserv(char *proto, char *dir, Service *s)
 	return 1;
 }
 
-char *
-remoteaddr(char *dir)
-{
-	char buf[128], *p;
-	int n, fd;
-
-	snprint(buf, sizeof buf, "%s/remote", dir);
-	fd = open(buf, OREAD);
-	if(fd < 0)
-		return strdup("");
-	n = read(fd, buf, sizeof(buf));
-	close(fd);
-	if(n > 0){
-		buf[n] = 0;
-		p = strchr(buf, '!');
-		if(p)
-			*p = 0;
-		return strdup(buf);
-	}
-	return strdup("");
-}
-
 void
-newcall(int fd, char *proto, char *dir, Service *s)
+newcall(int fd, char *dir, Service *s)
 {
 	char data[4*NAMELEN];
-	char *p;
 
-	if(!quiet){
-		if(dir != nil){
-			p = remoteaddr(dir);
-			syslog(0, listenlog, "%s call for %s on chan %s (%s)", proto, s->serv, dir, p);
-			free(p);
-		} else
-			syslog(0, listenlog, "%s call for %s on chan %s", proto, s->serv, dir);
-	}
+	if(!quiet)
+		syslog(0, listenlog, "%s call for %s on chan %s (%s)", proto, s->serv, dir, s->remote);
 
 	snprint(data, sizeof data, "%s/data", dir);
 	bind(data, "/dev/cons", MREPL);
