@@ -38,7 +38,6 @@ long	procs;
 long	maxprocs;
 int	quiet;
 int	immutable;
-char	*cpu;
 char	*proto;
 char	*addr;
 Announce *announcements;
@@ -69,9 +68,6 @@ main(int argc, char *argv[])
 	immutable = 0;
 	argv0 = argv[0];
 	maxprocs = 0;
-	cpu = getenv("cputype");
-	if(cpu == 0)
-		error("can't get cputype");
 
 	ARGBEGIN{
 	case 'a':
