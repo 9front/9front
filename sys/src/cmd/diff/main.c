@@ -149,7 +149,7 @@ diff(char *f, char *t, int level)
 			Bprint(&stdout, "Common subdirectories: %s and %s\n", fp, tp);
 	}
 	else if (REGULAR_FILE(fsb) && REGULAR_FILE(tsb))
-		diffreg(fp, tp);
+		diffreg(fp, f, tp, t);
 	else {
 		if (REGULAR_FILE(fsb)) {
 			if ((p = utfrrune(f, '/')) == 0)
@@ -157,14 +157,14 @@ diff(char *f, char *t, int level)
 			else
 				p++;
 			if (mkpathname(tb, tp, p) == 0)
-				diffreg(fp, tb);
+				diffreg(fp, f, tb, t);
 		} else {
 			if ((p = utfrrune(t, '/')) == 0)
 				p = t;
 			else
 				p++;
 			if (mkpathname(fb, fp, p) == 0)
-				diffreg(fb, tp);
+				diffreg(fb, f, tp, t);
 		}
 	}
 	free(fsb);

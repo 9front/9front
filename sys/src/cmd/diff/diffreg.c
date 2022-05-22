@@ -363,16 +363,16 @@ cmp(Biobuf* b1, Biobuf* b2)
 }
 
 void
-diffreg(char *f, char *t)
+diffreg(char *f, char *fo, char *t, char *to)
 {
 	Biobuf *b0, *b1;
 	int k;
 
 	binary = 0;
-	b0 = prepare(0, f);
+	b0 = prepare(0, f, fo);
 	if (!b0)
 		return;
-	b1 = prepare(1, t);
+	b1 = prepare(1, t, to);
 	if (!b1) {
 		Bterm(b0);
 		return;

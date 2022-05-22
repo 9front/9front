@@ -104,7 +104,7 @@ readhash(Biobuf *bp, char *buf)
 }
 
 Biobuf *
-prepare(int i, char *arg)
+prepare(int i, char *arg, char *orig)
 {
 	Line *p;
 	int j, h;
@@ -143,11 +143,10 @@ prepare(int i, char *arg)
 	file[i] = p;
 	input[i] = bp;			/*fix*/
 	if (i == 0) {			/*fix*/
-		file1 = arg;
+		file1 = orig;
 		firstchange = 0;
-	}
-	else
-		file2 = arg;
+	} else
+		file2 = orig;
 	return bp;
 }
 
