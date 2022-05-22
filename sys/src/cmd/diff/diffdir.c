@@ -22,7 +22,7 @@ scandir(char *name)
 	if ((fd = open(name, OREAD)) < 0) {
 		fprint(2, "%s: can't open %s: %r\n", argv0, name);
 		/* fake an empty directory */
-		cp = MALLOC(char*, 1);
+		cp = emalloc(sizeof(char*));
 		cp[0] = 0;
 		return cp;
 	}
@@ -30,14 +30,14 @@ scandir(char *name)
 	nitems = 0;
 	if((n = dirreadall(fd, &db)) > 0){
 		while (n--) {
-			cp = REALLOC(cp, char *, (nitems+1));
-			cp[nitems] = MALLOC(char, strlen((db+n)->name)+1);
+			cp = erealloc(cp, (nitems+1)*sizeof(char*));
+			cp[nitems] = emalloc(strlen((db+n)->name)+1);
 			strcpy(cp[nitems], (db+n)->name);
 			nitems++;
 		}
 		free(db);
 	}
-	cp = REALLOC(cp, char*, (nitems+1));
+	cp = erealloc(cp, (nitems+1)*sizeof(char*));
 	cp[nitems] = 0;
 	close(fd);
 	qsort((char *)cp, nitems, sizeof(char*), itemcmp);
@@ -105,9 +105,9 @@ diffdir(char *f, char *t, int level)
 		df++; dt++;
 	}
 	for (df = dirf; *df; df++)
-		FREE(*df);
+		free(*df);
 	for (dt = dirt; *dt; dt++)
-		FREE(*dt);
-	FREE(dirf);
-	FREE(dirt);
+		free(*dt);
+	free(dirf);
+	free(dirt);
 }

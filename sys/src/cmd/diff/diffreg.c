@@ -66,25 +66,25 @@
 *	3*(number of k-candidates installed),  typically about
 *	6n words for files of length n. 
 */
-/* TIDY THIS UP */
-struct cand {
+typedef struct Cand Cand;
+
+struct Cand {
 	int x;
 	int y;
 	int pred;
-} cand;
-struct line {
-	int serial;
-	int value;
-} *file[2], line;
+};
+
+Cand cand;
+Line *file[2], line;
 int len[2];
 int binary;
-struct line *sfile[2];	/*shortened by pruning common prefix and suffix*/
+Line *sfile[2];	/*shortened by pruning common prefix and suffix*/
 int slen[2];
 int pref, suff;	/*length of prefix and suffix*/
 int *class;	/*will be overlaid on file[0]*/
 int *member;	/*will be overlaid on file[1]*/
-int *klist;		/*will be overlaid on file[0] after class*/
-struct cand *clist;	/* merely a free storage pot for candidates */
+int *klist;	/*will be overlaid on file[0] after class*/
+Cand *clist;	/* merely a free storage pot for candidates */
 int clen;
 int *J;		/*will be overlaid on class*/
 long *ixold;	/*will be overlaid on klist*/
@@ -92,11 +92,11 @@ long *ixnew;	/*will be overlaid on file[1]*/
 /* END OF SOME TIDYING */
 
 static void	
-sort(struct line *a, int n)	/*shellsort CACM #201*/
+sort(Line *a, int n)	/*shellsort CACM #201*/
 {
 	int m;
-	struct line *ai, *aim, *j, *k;
-	struct line w;
+	Line *ai, *aim, *j, *k;
+	Line w;
 	int i;
 
 	m = 0;
@@ -124,17 +124,17 @@ sort(struct line *a, int n)	/*shellsort CACM #201*/
 }
 
 static void
-unsort(struct line *f, int l, int *b)
+unsort(Line *f, int l, int *b)
 {
 	int *a;
 	int i;
 
-	a = MALLOC(int, (l+1));
+	a = malloc((l+1)*sizeof(int));
 	for(i=1;i<=l;i++)
 		a[f[i].serial] = f[i].value;
 	for(i=1;i<=l;i++)
 		b[i] = a[i];
-	FREE(a);
+	free(a);
 }
 
 static void
@@ -157,7 +157,7 @@ prune(void)
 }
 
 static void
-equiv(struct line *a, int n, struct line *b, int m, int *c)
+equiv(Line *a, int n, Line *b, int m, int *c)
 {
 	int i, j;
 
@@ -187,9 +187,9 @@ equiv(struct line *a, int n, struct line *b, int m, int *c)
 static int
 newcand(int x, int  y, int pred)
 {
-	struct cand *q;
+	Cand *q;
 
-	clist = REALLOC(clist, struct cand, (clen+1));
+	clist = erealloc(clist, (clen+1)*sizeof(Cand));
 	q = clist + clen;
 	q->x = x;
 	q->y = y;
@@ -263,7 +263,7 @@ static void
 unravel(int p)
 {
 	int i;
-	struct cand *q;
+	Cand *q;
 
 	for(i=0; i<=len[0]; i++) {
 		if (i <= pref)
@@ -298,8 +298,7 @@ output(void)
 			J[i1] = j1;
 			change(i0, i1, j0, j1);
 		}
-	}
-	else {
+	} else {
 		for (i0 = m; i0 >= 1; i0 = i1-1) {
 			while (i0 >= 1 && J[i0] == J[i0+1]-1 && J[i0])
 				i0--;
@@ -393,28 +392,31 @@ diffreg(char *f, char *t)
 
 	member = (int *)file[1];
 	equiv(sfile[0], slen[0], sfile[1], slen[1], member);
-	member = REALLOC(member, int, slen[1]+2);
+	member = erealloc(member, (slen[1]+2)*sizeof(int));
 
 	class = (int *)file[0];
 	unsort(sfile[0], slen[0], class);
-	class = REALLOC(class, int, slen[0]+2);
+	class = erealloc(class, (slen[0]+2)*sizeof(int));
 
-	klist = MALLOC(int, slen[0]+2);
-	clist = MALLOC(struct cand, 1);
+	klist = emalloc((slen[0]+2)*sizeof(int));
+	clist = emalloc(sizeof(Cand));
 	k = stone(class, slen[0], member, klist);
-	FREE(member);
-	FREE(class);
+	free(member);
+	free(class);
 
-	J = MALLOC(int, len[0]+2);
+	J = emalloc((len[0]+2)*sizeof(int));
 	unravel(klist[k]);
-	FREE(clist);
-	FREE(klist);
+	free(clist);
+	free(klist);
 
-	ixold = MALLOC(long, len[0]+2);
-	ixnew = MALLOC(long, len[1]+2);
+	ixold = emalloc((len[0]+2)*sizeof(long));
+	ixnew = emalloc((len[1]+2)*sizeof(long));
 	Bseek(b0, 0, 0); Bseek(b1, 0, 0);
 	check(b0, b1);
 	output();
-	FREE(J); FREE(ixold); FREE(ixnew);
-	Bterm(b0); Bterm(b1);			/* ++++ */
+	free(J);
+	free(ixold);
+	free(ixnew);
+	Bterm(b0);
+	Bterm(b1);
 }

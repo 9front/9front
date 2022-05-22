@@ -7,11 +7,14 @@
 #define	REGULAR_FILE(s)		((s)->type == 'M' && !DIRECTORY(s))
 
 Biobuf	stdout;
+char	mode;			/* '\0', 'e', 'f', 'h' */
+char	bflag;			/* ignore multiple and trailing blanks */
+char	rflag;			/* recurse down directory trees */
+char	mflag;			/* pseudo flag: doing multiple files, one dir */
+int	anychange;
 
 static char *tmp[] = {"/tmp/diff1XXXXXXXXXXX", "/tmp/diff2XXXXXXXXXXX"};
 static int whichtmp;
-static char *progname;
-static char usage[] = "diff [-abcefmnrw] file1 ... file2\n";
 
 static void
 rmtmpfiles(void)
@@ -45,7 +48,7 @@ panic(int status, char *fmt, ...)
 
 	Bflush(&stdout);
 
-	fprint(2, "%s: ", progname);
+	fprint(2, "%s: ", argv0);
 	va_start(arg, fmt);
 	vfprint(2, fmt, arg);
 	va_end(arg);
@@ -114,8 +117,7 @@ statfile(char *file, Dir **sb)
 		}
 		free(dir);
 		return mktmpfile(0, sb);
-	}
-	else if (!REGULAR_FILE(dir) && !DIRECTORY(dir)) {
+	} else if (!REGULAR_FILE(dir) && !DIRECTORY(dir)) {
 		free(dir);
 		if ((input = open(file, OREAD)) == -1) {
 			panic(mflag ? 0: 2, "cannot open %s: %r\n", file);
@@ -123,8 +125,7 @@ statfile(char *file, Dir **sb)
 		}
 		file = mktmpfile(input, sb);
 		close(input);
-	}
-	else
+	} else
 		*sb = dir;
 	return file;
 }
@@ -145,8 +146,7 @@ diff(char *f, char *t, int level)
 		if (rflag || level == 0)
 			diffdir(fp, tp, level);
 		else
-			Bprint(&stdout, "Common subdirectories: %s and %s\n",
-				fp, tp);
+			Bprint(&stdout, "Common subdirectories: %s and %s\n", fp, tp);
 	}
 	else if (REGULAR_FILE(fsb) && REGULAR_FILE(tsb))
 		diffreg(fp, tp);
@@ -158,8 +158,7 @@ diff(char *f, char *t, int level)
 				p++;
 			if (mkpathname(tb, tp, p) == 0)
 				diffreg(fp, tb);
-		}
-		else {
+		} else {
 			if ((p = utfrrune(t, '/')) == 0)
 				p = t;
 			else
@@ -175,60 +174,57 @@ Return:
 }
 
 void
+usage(void)
+{
+	fprint(2, "usage: %s [-abcefmnrw] file1 ... file2\n", argv0);
+	exits("usage");
+}
+
+void
 main(int argc, char *argv[])
 {
-	char *p;
 	int i;
 	Dir *fsb, *tsb;
 
 	Binit(&stdout, 1, OWRITE);
-	progname = argv0 = *argv;
-	while (--argc && (*++argv)[0] == '-' && (*argv)[1]) {
-		for (p = *argv+1; *p; p++) {
-			switch (*p) {
+	ARGBEGIN{
+	case 'e':
+	case 'f':
+	case 'n':
+	case 'c':
+	case 'a':
+	case 'u':
+		mode = ARGC();
+		break;
+	case 'w':
+		bflag = 2;
+		break;
 
-			case 'e':
-			case 'f':
-			case 'n':
-			case 'c':
-			case 'a':
-			case 'u':
-				mode = *p;
-				break;
+	case 'b':
+		bflag = 1;
+		break;
 
-			case 'w':
-				bflag = 2;
-				break;
+	case 'r':
+		rflag = 1;
+		break;
 
-			case 'b':
-				bflag = 1;
-				break;
+	case 'm':
+		mflag = 1;	
+		break;
 
-			case 'r':
-				rflag = 1;
-				break;
-
-			case 'm':
-				mflag = 1;	
-				break;
-
-			case 'h':
-			default:
-				progname = "Usage";
-				panic(2, usage);
-			}
-		}
-	}
+	case 'h':
+	default:
+		usage();
+	}ARGEND;
 	if (argc < 2)
-		panic(2, usage, progname);
+		usage();
 	if ((tsb = dirstat(argv[argc-1])) == nil)
 		panic(2, "can't stat %s\n", argv[argc-1]);
 	if (argc > 2) {
 		if (!DIRECTORY(tsb))
-			panic(2, usage, progname);
+			panic(2, "not directory: %s", argv[argc-1]);
 		mflag = 1;
-	}
-	else {
+	} else {
 		if ((fsb = dirstat(argv[0])) == nil)
 			panic(2, "can't stat %s\n", argv[0]);
 		if (DIRECTORY(fsb) && DIRECTORY(tsb))
@@ -257,7 +253,7 @@ emalloc(unsigned n)
 void *
 erealloc(void *p, unsigned n)
 {
-	register void *rp;
+	void *rp;
 
 	if ((rp = realloc(p, n)) == 0)
 		panic(2, noroom);

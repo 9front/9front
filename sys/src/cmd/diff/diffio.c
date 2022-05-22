@@ -4,15 +4,6 @@
 #include <ctype.h>
 #include "diff.h"
 
-struct line {
-	int	serial;
-	int	value;
-};
-extern struct line *file[2];
-extern int len[2];
-extern long *ixold, *ixnew;
-extern int *J;
-
 static Biobuf *input[2];
 static char *file1, *file2;
 static int firstchange;
@@ -115,7 +106,7 @@ readhash(Biobuf *bp, char *buf)
 Biobuf *
 prepare(int i, char *arg)
 {
-	struct line *p;
+	Line *p;
 	int j, h;
 	Biobuf *bp;
 	char *cp, buf[MAXLINELEN];
@@ -145,9 +136,9 @@ prepare(int i, char *arg)
 		}
 		Bseek(bp, 0, 0);
 	}
-	p = MALLOC(struct line, 3);
+	p = emalloc(3*sizeof(Line));
 	for (j = 0; h = readhash(bp, buf); p[j].value = h)
-		p = REALLOC(p, struct line, (++j+3));
+		p = erealloc(p, (++j+3)*sizeof(Line));
 	len[i] = j;
 	file[i] = p;
 	input[i] = bp;			/*fix*/
