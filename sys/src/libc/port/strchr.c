@@ -4,17 +4,14 @@
 char*
 strchr(char *s, int c)
 {
-	char c0 = c;
-	char c1;
+	char r;
 
-	if(c == 0) {
+	if(c == 0)
 		while(*s++)
 			;
-		return s-1;
-	}
-
-	while(c1 = *s++)
-		if(c1 == c0)
-			return s-1;
-	return 0;
+	else
+		while((r = *s++) != c)
+			if(r == 0)
+				return 0;
+	return s-1;
 }
