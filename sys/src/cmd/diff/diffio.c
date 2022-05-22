@@ -141,8 +141,8 @@ prepare(int i, char *arg, char *orig)
 		p = erealloc(p, (++j+3)*sizeof(Line));
 	len[i] = j;
 	file[i] = p;
-	input[i] = bp;			/*fix*/
-	if (i == 0) {			/*fix*/
+	input[i] = bp;
+	if (i == 0) {
 		file1 = orig;
 		firstchange = 0;
 	} else

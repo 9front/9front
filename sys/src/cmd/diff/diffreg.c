@@ -89,7 +89,6 @@ int clen;
 int *J;		/*will be overlaid on class*/
 long *ixold;	/*will be overlaid on klist*/
 long *ixnew;	/*will be overlaid on file[1]*/
-/* END OF SOME TIDYING */
 
 static void	
 sort(Line *a, int n)	/*shellsort CACM #201*/
