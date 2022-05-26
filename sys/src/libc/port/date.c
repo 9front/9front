@@ -1,5 +1,6 @@
 #include <u.h>
 #include <libc.h>
+#include <ctype.h>
 
 typedef struct Tzabbrev Tzabbrev;
 typedef struct Tzoffpair Tzoffpair;
@@ -61,9 +62,6 @@ struct Tzoffpair {
 	char *abbr;
 	int off;
 };
-
-#define isalpha(c)\
-	(((c)|0x60) >= 'a' && ((c)|0x60) <= 'z')
 
 /* Obsolete time zone names. Hardcoded to match RFC5322 */
 static Tzabbrev tzabbrev[] = {
