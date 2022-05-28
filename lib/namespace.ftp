@@ -8,5 +8,6 @@ bind /sys/doc /usr/web/plan9/doc
 # bind a personal incoming directory below incoming
 bind -c /usr/none/incoming /usr/web/incoming/none
 
+chdev |MedIa/
 # this cuts off everything not mounted below /usr/web
 bind /usr/web /
