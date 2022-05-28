@@ -705,18 +705,22 @@ conswrite(Chan *c, void *va, long n, vlong off)
 			error(Ebadarg);
 		if(ct->index != CMchdev)
 			error(Ebadarg);
-		if(cb->nf < 2 || cb->nf > 3)
+		if(cb->nf == 1)
 			error(Ebadarg);
 
 		invert = 1;
-		a = cb->f[2];
+		a = "";
 		switch(cb->f[1][0]){
 		case '&':
+			if(cb->nf != 3)
+				error(Ebadarg);
+			a = cb->f[2];
 			if(cb->f[1][1] == '~')
 				invert--;
 			break;
 		case '~':
-			a = "";
+			if(cb->nf != 2)
+				error(Ebadarg);
 			break;
 		default:
 			error(Ebadarg);
