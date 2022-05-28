@@ -90,10 +90,60 @@ file is a read-only file that produces an infinite stream of zero-valued bytes w
 .PP
 The
 .B drivers
-file contains, one per line, a listing of the drivers configured in the kernel, in the format
+file contains, one per line, a listing of available kernel drivers, in the format
 .IP
 .EX
 #c cons
+.EE
+.PP
+Each process name group (see
+.IR fork (2))
+maintains a mask of allowed drivers.
+A process can modify that mask through writes to the 
+.B drivers
+file. Messages are in the format of: 
+.IP
+.EX
+chdev \f2op\fP \f2devmask\fP
+.EE
+.PP
+.I Devmask
+is a string of driver characters.
+.I Op
+specifies how
+.I devmask
+is interpreted.
+.I Op
+is one of:
+.TP
+.B &
+Permit access to just the drivers specified in
+.IR devmask .
+.TP
+.B &~
+Permit access to all but the drivers specified in
+.IR devmask .
+.TP
+.B ~
+Remove access to all devices.
+.I Devmask
+is ignored.
+.PP
+Access may only be removed. No
+.I op
+permits a process to regain access to a driver
+once it has been removed.
+Removing access to
+.IR mnt (3)
+additionally prevents new mounts into the current namespace. 
+The following removes access to all drivers except
+.IR draw (3),
+.IR cons (3),
+and
+.IR fs (3):
+.IP
+.EX
+chdev & ick
 .EE
 .PP
 The

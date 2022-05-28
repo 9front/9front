@@ -413,6 +413,9 @@ uint		nhgetl(void*);
 ushort		nhgets(void*);
 ulong		µs(void);
 long		lcycles(void);
+void		devmask(Pgrp*,int,char*);
+int		devallowed(Pgrp*, int);
+int		canmount(Pgrp*);
 
 #pragma varargck argpos iprint	1
 #pragma	varargck argpos	panic	1

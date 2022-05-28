@@ -1048,7 +1048,7 @@ bindmount(int ismount, int fd, int afd, char* arg0, char* arg1, int flag, char* 
 			nexterror();
 		}
 
-		if(up->pgrp->noattach)
+		if(!canmount(up->pgrp))
 			error(Enoattach);
 
 		ac = nil;
@@ -1160,14 +1160,8 @@ sysunmount(va_list list)
 		nexterror();
 	}
 	if(name != nil) {
-		/*
-		 * This has to be namec(..., Aopen, ...) because
-		 * if arg[0] is something like /srv/cs or /fd/0,
-		 * opening it is the only way to get at the real
-		 * Chan underneath.
-		 */
 		validaddr((uintptr)name, 1, 0);
-		cmounted = namec(name, Aopen, OREAD, 0);
+		cmounted = namec(name, Aunmount, OREAD, 0);
 	}
 	cunmount(cmount, cmounted);
 	poperror();

@@ -1272,7 +1272,7 @@ nameerror(char *name, char *err)
 Chan*
 namec(char *aname, int amode, int omode, ulong perm)
 {
-	int len, n, t, nomount;
+	int len, n, t, nomount, devunmount;
 	Chan *c;
 	Chan *volatile cnew;
 	Path *volatile path;
@@ -1290,6 +1290,24 @@ namec(char *aname, int amode, int omode, ulong perm)
 		nexterror();
 	}
 	name = aname;
+
+	/*
+	 * When unmounting, the name parameter must be accessed
+	 * using Aopen in order to get the real chan from
+	 * something like /srv/cs or /fd/0. However when sandboxing,
+	 * unmounting a sharp from a union is a valid operation even
+	 * if the device is blocked.
+	 */
+	devunmount = 0;
+	if(amode == Aunmount){
+		/*
+		 * Doing any walks down the device could leak information
+		 * about the existence of files.
+		 */
+		if(name[0] == '#' && utflen(name) == 2)
+			devunmount = 1;
+		amode = Aopen;
+	}
 
 	/*
 	 * Find the starting off point (the current slash, the root of
@@ -1313,24 +1331,13 @@ namec(char *aname, int amode, int omode, ulong perm)
 			up->genbuf[n++] = *name++;
 		}
 		up->genbuf[n] = '\0';
-		/*
-		 *  noattach is sandboxing.
-		 *
-		 *  the OK exceptions are:
-		 *	|  it only gives access to pipes you create
-		 *	d  this process's file descriptors
-		 *	e  this process's environment
-		 *  the iffy exceptions are:
-		 *	c  time and pid, but also cons and consctl
-		 *	p  control of your own processes (and unfortunately
-		 *	   any others left unprotected)
-		 */
 		n = chartorune(&r, up->genbuf+1)+1;
-		if(up->pgrp->noattach && utfrune("|decp", r)==nil)
-			error(Enoattach);
 		t = devno(r, 1);
 		if(t == -1)
 			error(Ebadsharp);
+		if(!devunmount && !devallowed(up->pgrp, r))
+			error(Enoattach);
+
 		c = devtab[t]->attach(up->genbuf+n);
 		break;
 

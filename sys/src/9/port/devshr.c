@@ -464,7 +464,7 @@ shrcreate(Chan *c, char *name, int omode, ulong perm)
 		cclose(c);
 		return nc;	
 	case Qcroot:
-		if(up->pgrp->noattach)
+		if(!canmount(up->pgrp))
 			error(Enoattach);
 		if((perm & DMDIR) == 0 || mode != OREAD)
 			error(Eperm);
@@ -498,7 +498,7 @@ shrcreate(Chan *c, char *name, int omode, ulong perm)
 		sch->shr = shr;
 		break;
 	case Qcshr:
-		if(up->pgrp->noattach)
+		if(!canmount(up->pgrp))
 			error(Enoattach);
 		if((perm & DMDIR) != 0 || mode != OWRITE)
 			error(Eperm);
@@ -731,7 +731,7 @@ shrwrite(Chan *c, void *va, long n, vlong)
 	Mhead *h;
 	Mount *m;
 
-	if(up->pgrp->noattach)
+	if(!canmount(up->pgrp))
 		error(Enoattach);
 	sch = tosch(c);
 	if(sch->level != Qcmpt)

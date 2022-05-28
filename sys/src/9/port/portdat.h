@@ -121,6 +121,7 @@ enum
 	Amount,				/* to be mounted or mounted upon */
 	Acreate,			/* is to be created */
 	Aremove,			/* will be removed by caller */
+	Aunmount,			/* unmount arg[0] */
 
 	COPEN	= 0x0001,		/* for i/o */
 	CMSG	= 0x0002,		/* the message channel for a mount */
@@ -484,7 +485,7 @@ struct Pgrp
 {
 	Ref;
 	RWlock	ns;			/* Namespace n read/one write lock */
-	int	noattach;
+	u64int	notallowed[4];		/* Room for 256 devices */
 	Mhead	*mnthash[MNTHASH];
 };
 

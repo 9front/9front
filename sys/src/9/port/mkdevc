@@ -78,6 +78,9 @@ END{
 	if(ARGC < 2)
 		exit "usage"
 
+	if(ndev >= 256)
+		exit "device count will overflow Pgrp.notallowed"
+
 	printf "#include \"u.h\"\n";
 	printf "#include \"../port/lib.h\"\n";
 	printf "#include \"mem.h\"\n";

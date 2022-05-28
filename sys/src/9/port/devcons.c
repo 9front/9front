@@ -39,6 +39,16 @@ Cmdtab rebootmsg[] =
 	CMrdb,		"rdb",		0,
 };
 
+enum
+{
+	CMchdev,
+};
+
+Cmdtab drivermsg[] = 
+{
+	CMchdev,	"chdev",	0,
+};
+
 void
 printinit(void)
 {
@@ -332,7 +342,7 @@ static Dirtab consdir[]={
 	"cons",		{Qcons},	0,		0660,
 	"consctl",	{Qconsctl},	0,		0220,
 	"cputime",	{Qcputime},	6*NUMSIZE,	0444,
-	"drivers",	{Qdrivers},	0,		0444,
+	"drivers",	{Qdrivers},	0,		0666,
 	"hostdomain",	{Qhostdomain},	DOMLEN,		0664,
 	"hostowner",	{Qhostowner},	0,		0664,
 	"kmesg",	{Qkmesg},	0,		0440,
@@ -583,9 +593,15 @@ consread(Chan *c, void *buf, long n, vlong off)
 	case Qdrivers:
 		b = smalloc(READSTR);
 		k = 0;
-		for(i = 0; devtab[i] != nil; i++)
+		
+		rlock(&up->pgrp->ns);
+		for(i = 0; devtab[i] != nil; i++){
+			if(up->pgrp->notallowed[i/(sizeof(u64int)*8)] & 1<<i%(sizeof(u64int)*8))
+				continue;
 			k += snprint(b+k, READSTR-k, "#%C %s\n",
 				devtab[i]->dc, devtab[i]->name);
+		}
+		runlock(&up->pgrp->ns);
 		if(waserror()){
 			free(b);
 			nexterror();
@@ -620,6 +636,7 @@ conswrite(Chan *c, void *va, long n, vlong off)
 {
 	char buf[256];
 	long l, bp;
+	int invert;
 	char *a;
 	Mach *mp;
 	int id;
@@ -674,6 +691,41 @@ conswrite(Chan *c, void *va, long n, vlong off)
 
 	case Qconfig:
 		error(Eperm);
+		break;
+
+	case Qdrivers:
+		cb = parsecmd(a, n);
+		if(waserror()) {
+			free(cb);
+			nexterror();
+		}
+
+		ct = lookupcmd(cb, drivermsg, nelem(drivermsg));
+		if(ct == nil)
+			error(Ebadarg);
+		if(ct->index != CMchdev)
+			error(Ebadarg);
+		if(cb->nf < 2 || cb->nf > 3)
+			error(Ebadarg);
+
+		invert = 1;
+		a = cb->f[2];
+		switch(cb->f[1][0]){
+		case '&':
+			if(cb->f[1][1] == '~')
+				invert--;
+			break;
+		case '~':
+			a = "";
+			break;
+		default:
+			error(Ebadarg);
+			break;
+		}
+
+		devmask(up->pgrp, invert, a);
+		poperror();
+		free(cb);
 		break;
 
 	case Qreboot:

@@ -34,6 +34,7 @@ sysrfork(va_list list)
 	Egrp *oeg;
 	ulong pid, flag;
 	Mach *wm;
+	char *devs;
 
 	flag = va_arg(list, ulong);
 	/* Check flags before we commit */
@@ -44,6 +45,11 @@ sysrfork(va_list list)
 	if((flag & (RFENVG|RFCENVG)) == (RFENVG|RFCENVG))
 		error(Ebadarg);
 
+	/*
+	 * Code using RFNOMNT expects to block all but
+	 * the following devices.
+	 */
+	devs = "|decp";
 	if((flag&RFPROC) == 0) {
 		if(flag & (RFMEM|RFNOWAIT))
 			error(Ebadarg);
@@ -60,12 +66,12 @@ sysrfork(va_list list)
 			up->pgrp = newpgrp();
 			if(flag & RFNAMEG)
 				pgrpcpy(up->pgrp, opg);
-			/* inherit noattach */
-			up->pgrp->noattach = opg->noattach;
+			/* inherit notallowed */
+			memmove(up->pgrp->notallowed, opg->notallowed, sizeof up->pgrp->notallowed);
 			closepgrp(opg);
 		}
 		if(flag & RFNOMNT)
-			up->pgrp->noattach = 1;
+			devmask(up->pgrp, 1, devs);
 		if(flag & RFREND) {
 			org = up->rgrp;
 			up->rgrp = newrgrp();
@@ -177,15 +183,15 @@ sysrfork(va_list list)
 		p->pgrp = newpgrp();
 		if(flag & RFNAMEG)
 			pgrpcpy(p->pgrp, up->pgrp);
-		/* inherit noattach */
-		p->pgrp->noattach = up->pgrp->noattach;
+		/* inherit notallowed */
+		memmove(p->pgrp->notallowed, up->pgrp->notallowed, sizeof p->pgrp->notallowed);
 	}
 	else {
 		p->pgrp = up->pgrp;
 		incref(p->pgrp);
 	}
 	if(flag & RFNOMNT)
-		p->pgrp->noattach = 1;
+		devmask(p->pgrp, 1, devs);
 
 	if(flag & RFREND)
 		p->rgrp = newrgrp();

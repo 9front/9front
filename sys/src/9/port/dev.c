@@ -31,6 +31,63 @@ devno(int c, int user)
 }
 
 void
+devmask(Pgrp *pgrp, int invert, char *devs)
+{
+	int i, t, w;
+	char *p;
+	Rune r;
+	u64int mask[nelem(pgrp->notallowed)];
+
+	if(invert)
+		memset(mask, 0xFF, sizeof mask);
+	else		
+		memset(mask, 0, sizeof mask);		
+
+	w = sizeof mask[0] * 8;
+	for(p = devs; *p != '\0';){
+		p += chartorune(&r, p);
+		t = devno(r, 1);
+		if(t == -1)
+			continue;
+		if(invert)
+			mask[t/w] &= ~(1<<t%w);
+		else
+			mask[t/w] |= 1<<t%w;
+	}
+
+	wlock(&pgrp->ns);
+	for(i=0; i < nelem(pgrp->notallowed); i++)
+		pgrp->notallowed[i] |= mask[i];
+	wunlock(&pgrp->ns);
+}
+
+int
+devallowed(Pgrp *pgrp, int r)
+{
+	int t, w, b;
+
+	t = devno(r, 1);
+	if(t == -1)
+		return 0;
+
+	w = sizeof(u64int) * 8;
+	rlock(&pgrp->ns);
+	b = !(pgrp->notallowed[t/w] & 1<<t%w);
+	runlock(&pgrp->ns);
+	return b;
+}
+
+int
+canmount(Pgrp *pgrp)
+{
+	/*
+	 * Devmnt is not usable directly from user procs, so
+	 * having it removed is interpreted to block any mounts.
+	 */
+	return devallowed(pgrp, 'M');
+}
+
+void
 devdir(Chan *c, Qid qid, char *n, vlong length, char *user, long perm, Dir *db)
 {
 	db->name = n;
