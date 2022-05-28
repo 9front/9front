@@ -1,0 +1,99 @@
+.TH CHDEV 1 
+.SH NAME
+chdev \- change kernel driver access
+.SH SYNOPSIS
+.B chdev
+[ -nr ] \f2devmask\fP...
+.SH DESCRIPTION
+.I Chdev
+modifies access to kernel drivers for the current
+process and processes within the same name group
+(see
+.IR fork (2)).
+Access is defined as the ability for a process
+to walk files and directories served by the driver
+through its location within '#'. Existing binds
+of drivers are left unaffected.
+.PP
+Access may only be removed; after a specific
+driver is ejected no further operations can
+permit access again. Access is inherited by
+all children of the name group, regardless if the
+child has elected to receive a clean namespace.
+.PP
+.IR Devmask
+is a string of driver characters. The default
+behavior is to block access to all but the listed
+drivers. Flags provide a way to modify this behavior:
+.TP
+.B -r
+Retain access to all but the specified drivers.
+.TP
+.B -n
+Remove access to all drivers.
+.I Devmask
+is ignored.
+.PP
+Access to some drivers is tied to other
+related process capabilities:
+.TP
+\f2mnt\fP(3)
+.IP
+Ability to perform the
+.IR mount (2)
+system call, and
+to post new services to
+.IR shr (3).
+.TP
+\f2pipe\fP(3)
+.IP
+Ability to perform the
+.IR pipe (2)
+system call.
+.SH EXAMPLES
+Permit access to only
+.IR draw (3),
+.IR rtc (3),
+.IR fs (3),
+and
+.IR srv (3):
+.IP
+.EX
+chdev irks
+.EE
+.PP
+Remove access to
+.IR cons (3),
+.IR rtc (3),
+.IR audio (3),
+and
+.IR proc (3):
+.IP
+.EX
+chdev -r crAp
+.EE
+.PP
+Create a
+.IR pipe (3)
+then remove the ability to create more:
+.IP
+.EX
+bind '#|' /n/pipe
+chdev -r '|'
+.EE
+.SH DIAGNOSTICS
+.I Chdev
+is implemented through writes to
+.BR /dev/drivers ,
+served by
+.IR cons (3).
+.SH SOURCE
+.B /rc/bin/chdev
+.SH "SEE ALSO"
+.B /dev/drivers
+for a list of current drivers.
+.PP
+.IR intro (3),
+.IR cons (3)
+.SH HISTORY
+Chdev first appeared in 9front (May, 2022).
