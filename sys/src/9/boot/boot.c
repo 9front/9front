@@ -25,6 +25,7 @@ main(int, char *argv[])
 	buf[1+read(open("/env/cputype", OREAD|OCEXEC), buf+1, sizeof buf - 6)] = '\0';
 	strcat(buf, bin);
 	bind(buf, bin, MAFTER);
+	bind("/root/rc", "/rc", MREPL);
 	bind("/rc/bin", bin, MAFTER);
 
 	exec("/bin/bootrc", argv);

@@ -22,6 +22,7 @@ mount -a /srv/mntexport /mnt/exportfs
 
 # standard bin
 bind /$cputype/bin /bin
+bind $rootdir'/rc' /rc
 bind -a /rc/bin /bin
 
 # internal networks

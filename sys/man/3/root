@@ -10,6 +10,7 @@ root \- the root file system
 .B /net
 .B /net.alt
 .B /proc
+.B /rc
 .B /root
 .B /srv
 .fi
