@@ -59,6 +59,12 @@ if
 .I new
 is missing.
 .TP
+.BR chdev \ [ -nr "] \fIdevmask
+.I Devmask
+defines a string of driver characters to restrict
+the current namespace to. Existing binds
+of drivers are left unaffected.
+.TP
 .BR clear
 Clear the name space with
 .BR rfork(RFCNAMEG) .
@@ -80,4 +86,5 @@ are interpreted as in
 .SH "SEE ALSO"
 .IR bind (1),
 .IR namespace (4),
-.IR init (8)
+.IR init (8),
+.IR chdev (1)

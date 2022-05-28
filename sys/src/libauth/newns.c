@@ -14,8 +14,8 @@ enum
 static int	setenv(char*, char*);
 static char	*expandarg(char*, char*);
 static int	splitargs(char*, char*[], char*, int);
-static int	nsfile(char*, Biobuf *, AuthRpc *);
-static int	nsop(char*, int, char*[], AuthRpc*);
+static int	nsfile(char*, Biobuf *, AuthRpc *, int);
+static int	nsop(char*, int, char*[], AuthRpc*, int);
 static int	catch(void*, char*);
 
 int newnsdebug;
@@ -35,7 +35,7 @@ buildns(int newns, char *user, char *file)
 {
 	Biobuf *b;
 	char home[4*ANAMELEN];
-	int afd, cdroot;
+	int afd, cdroot, dfd;
 	char *path;
 	AuthRpc *rpc;
 
@@ -51,8 +51,13 @@ buildns(int newns, char *user, char *file)
 	}
 	/* rpc != nil iff afd >= 0 */
 
+	dfd = open("#c/drivers", OWRITE|OCEXEC);
+	if(dfd < 0 && newnsdebug)
+		fprint(2, "open #c/drivers: %r\n");
+
 	if(file == nil){
 		if(!newns){
+			close(dfd);
 			werrstr("no namespace file specified");
 			return freecloserpc(rpc);
 		}
@@ -60,6 +65,7 @@ buildns(int newns, char *user, char *file)
 	}
 	b = Bopen(file, OREAD|OCEXEC);
 	if(b == nil){
+		close(dfd);
 		werrstr("can't open %s: %r", file);
 		return freecloserpc(rpc);
 	}
@@ -70,7 +76,8 @@ buildns(int newns, char *user, char *file)
 		setenv("home", home);
 	}
 
-	cdroot = nsfile(newns ? "newns" : "addns", b, rpc);
+	cdroot = nsfile(newns ? "newns" : "addns", b, rpc, dfd);
+	close(dfd);
 	Bterm(b);
 	freecloserpc(rpc);
 
@@ -87,7 +94,7 @@ buildns(int newns, char *user, char *file)
 }
 
 static int
-nsfile(char *fn, Biobuf *b, AuthRpc *rpc)
+nsfile(char *fn, Biobuf *b, AuthRpc *rpc, int dfd)
 {
 	int argc;
 	char *cmd, *argv[NARG+1], argbuf[MAXARG*NARG];
@@ -103,7 +110,7 @@ nsfile(char *fn, Biobuf *b, AuthRpc *rpc)
 			continue;
 		argc = splitargs(cmd, argv, argbuf, NARG);
 		if(argc)
-			cdroot |= nsop(fn, argc, argv, rpc);
+			cdroot |= nsop(fn, argc, argv, rpc, dfd);
 	}
 	atnotify(catch, 0);
 	return cdroot;
@@ -143,16 +150,18 @@ famount(int fd, AuthRpc *rpc, char *mntpt, int flags, char *aname)
 }
 
 static int
-nsop(char *fn, int argc, char *argv[], AuthRpc *rpc)
+nsop(char *fn, int argc, char *argv[], AuthRpc *rpc, int dfd)
 {
 	char *argv0;
 	ulong flags;
+	char *devop;
 	int fd, i;
 	Biobuf *b;
 	int cdroot;
 
 	cdroot = 0;
 	flags = 0;
+	devop = "&";
 	argv0 = nil;
 	if(newnsdebug){
 		for (i = 0; i < argc; i++)
@@ -172,6 +181,12 @@ nsop(char *fn, int argc, char *argv[], AuthRpc *rpc)
 	case 'C':
 		flags |= MCACHE;
 		break;
+	case 'r':
+		devop = "&~";
+		break;
+	case 'n':
+		devop = "~";
+		break;
 	}ARGEND
 
 	if(!(flags & (MAFTER|MBEFORE)))
@@ -181,7 +196,7 @@ nsop(char *fn, int argc, char *argv[], AuthRpc *rpc)
 		b = Bopen(argv[0], OREAD|OCEXEC);
 		if(b == nil)
 			return 0;
-		cdroot |= nsfile(fn, b, rpc);
+		cdroot |= nsfile(fn, b, rpc, dfd);
 		Bterm(b);
 	}else if(strcmp(argv0, "clear") == 0 && argc == 0){
 		rfork(RFCNAMEG);
@@ -212,6 +227,18 @@ nsop(char *fn, int argc, char *argv[], AuthRpc *rpc)
 	}else if(strcmp(argv0, "cd") == 0 && argc == 1){
 		if(chdir(argv[0]) == 0 && *argv[0] == '/')
 			cdroot = 1;
+	}else if(strcmp(argv0, "chdev") == 0){
+		//We should not silently fail if we can not honor a chdev
+		//due to the parent namespace missing #c/drivers.
+		if(dfd <= 0)
+			sysfatal("chdev requested, but could not open #c/drivers");
+		if(argc == 0 && devop[0] == '~'){
+			if(fprint(dfd, "chdev ~") < 0 && newnsdebug)
+				fprint(2, "%s: chdev ~: %r\n", fn);
+		}else if(argc == 1){
+			if(fprint(dfd, "chdev %s %s", devop, argv[0]) < 0 && newnsdebug)
+				fprint(2, "%s: chdev %s %s: %r\n", fn, devop, argv[0]);
+		}
 	}
 	return cdroot;
 }
