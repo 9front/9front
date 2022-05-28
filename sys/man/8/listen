@@ -96,6 +96,14 @@ For example,
 an inbound call on the TCP network for port 565 executes service
 .BR tcp565 .
 .PP
+Services may have individual
+.IR namespace (6)
+files specified within
+.IR srvdir .
+If provided, the namespace is used as the parent for each connection
+to the corresponding service. Namespace files are found by appending a .namespace
+suffix to the service name.
+.PP
 At least the following services are available in
 .BR /bin/service .
 .TF \ tcp0000

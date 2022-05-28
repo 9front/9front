@@ -136,6 +136,7 @@ listendir(char *srvdir, int trusted)
 {
 	int ctl, pid, start;
 	char dir[40], err[128], ds[128];
+	char prog[Maxpath], serv[Maxserv], ns[Maxpath];
 	long childs;
 	Announce *a;
 	Waitmsg *wm;
@@ -178,6 +179,10 @@ listendir(char *srvdir, int trusted)
 			sleep((pid*10)%200);
 
 			snprint(ds, sizeof ds, "%s!%s!%s", protodir, addr, a->a);
+			snprint(serv, sizeof serv, "%s%s", proto, a->a);
+			snprint(prog, sizeof prog, "%s/%s", srvdir, serv);
+			snprint(ns, sizeof ns, "%s.namespace", prog);
+
 			whined = a->whined;
 
 			/* a process per service */
@@ -201,7 +206,11 @@ listendir(char *srvdir, int trusted)
 						else
 							exits("ctl");
 					}
-					dolisten(dir, ctl, srvdir, a->a, &childs);
+					procsetname("%s %s", dir, ds);
+					if(!trusted)
+						if(newns("none", ns) < 0)
+							syslog(0, listenlog, "can't build namespace %s: %r\n", ns);
+					dolisten(dir, ctl, serv, prog, &childs);
 					close(ctl);
 				}
 			default:
@@ -299,6 +308,8 @@ scandir(char *dname)
 				continue;
 			if(strncmp(nm, proto, nlen) != 0)
 				continue;
+			if(strstr(nm + nlen, ".namespace") != nil)
+				continue;
 			addannounce(nm + nlen);
 		}
 		free(db);
@@ -329,15 +340,10 @@ becomenone(void)
 }
 
 void
-dolisten(char *dir, int ctl, char *srvdir, char *port, long *pchilds)
+dolisten(char *dir, int ctl, char *serv, char *prog, long *pchilds)
 {
 	char ndir[40], wbuf[64];
-	char prog[Maxpath], serv[Maxserv];
 	int nctl, data, wfd, nowait;
-
-	procsetname("%s %s!%s!%s", dir, proto, addr, port);
-	snprint(serv, sizeof serv, "%s%s", proto, port);
-	snprint(prog, sizeof prog, "%s/%s", srvdir, serv);
 	
 	wfd = -1;
 	nowait = RFNOWAIT;

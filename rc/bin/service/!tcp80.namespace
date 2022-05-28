@@ -1,0 +1,24 @@
+mount -aC #s/boot /root $rootspec
+
+# kernel devices
+bind #c /dev
+bind #d /fd
+bind -c #e /env
+bind #p /proc
+bind -a #l /net
+bind -a #I /net
+
+bind /root/$cputype/bin /bin
+bind /root/rc /rc
+bind -a /rc/bin /bin
+
+chdev Mcde|pslI/
+
+# grab just our webroot
+bind /root/usr/web /srv
+
+# or bind in the actual root
+# bind -a /root /
+
+unmount /root
+chdev -r Ms
