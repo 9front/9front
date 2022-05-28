@@ -303,6 +303,7 @@ int	swapsuffix(char *, int, char *, char *, char *);
 char	*strip(char *);
 int	findrepo(char *, int);
 int	showprogress(int, int);
+u64int	murmurhash2(void*, usize);
 
 /* packing */
 void	dtinit(Dtab *, Object*);

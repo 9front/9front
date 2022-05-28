@@ -10,6 +10,10 @@ Hash Zhash;
 int chattygit;
 int interactive = 1;
 
+enum {
+	Seed		= 2928213749ULL
+};
+
 Object*
 emptydir(void)
 {
@@ -390,4 +394,51 @@ qpop(Objq *q, Qelt *e)
 		i = m;
 	}
 	return 1;
+}
+
+u64int
+murmurhash2(void *pp, usize n)
+{
+	u32int m = 0x5bd1e995;
+	u32int r = 24;
+	u32int h, k;
+	u32int *w, *e;
+	uchar *p;
+	
+	h = Seed ^ n;
+	e = pp;
+	e += (n / 4);
+	for (w = pp; w != e; w++) {
+		/*
+		 * NB: this is endian dependent.
+		 * This is fine for use in git, since the
+		 * hashes computed here are only ever used
+		 * for in memory data structures.
+		 *
+		 * Pack files will differ when packed on
+		 * machines with different endianness,
+		 * but the results will still be correct.
+		 */
+		k = *w;
+		k *= m;
+		k ^= k >> r;
+		k *= m;
+
+		h *= m;
+		h ^= k;
+	}
+
+	p = (uchar*)w;
+	switch (n & 0x3) {
+	case 3:	h ^= p[2] << 16;
+	case 2:	h ^= p[1] << 8;
+	case 1:	h ^= p[0] << 0;
+		h *= m;
+	}
+
+	h ^= h >> 13;
+	h *= m;
+	h ^= h >> 15;
+
+	return h;
 }
