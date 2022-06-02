@@ -299,5 +299,3 @@ in
 .IR authsrv (2),
 .IR keyfs (4),
 .IR securenet (8)
-.SH BUGS
-Only CPU kernels permit changing userid.
