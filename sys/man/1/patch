@@ -1,0 +1,90 @@
+.TH PATCH 1
+.SH NAME
+patch \- apply diffs
+.SH SYNOPSIS
+.B patch
+[
+.B -lR
+]
+[
+.B -p
+.I nstrip
+]
+[
+.B -f
+.I maxfuzz
+]
+[
+.I patch ...
+]
+.SH DESCRIPTION
+.I Patch
+scans its input for a sequence of patches, and applies them, printing the list of changed files.
+When an applied patch does not match precisely,
+.I patch
+will scan the input file for matching context, applying the patch up to 250 lines away from
+its original location.
+If a hunk does not apply, then the file is left untouched.
+.PP
+The following options are supported:
+.TP
+.B -R
+Reverse direction of the patch. Additions become removals,
+and the new and old file names are swapped.
+.TP
+.BI -p \ nstrip
+Remove the prefix containing
+.I nstrip
+leading slashes from each file path in the diff file.
+.SH INPUT FORMAT
+A patch begins with a patch header, and is followed by a sequence of one or more hunks.
+All lines before a patch header or after the last hunk of a patch are comments,
+and are ignored by patch. A patch header is a sequence of 2 lines in the following
+format:
+.IP
+.EX
+--- oldfile [trailing text]
++++ newfile [trailing text]
+.EE
+.PP
+A hunk must immediately follow a patch header or another hunk.
+It begins with a header line in the following format:
+.IP
+.EX
+@@ -count,addr +count,addr @@
+.EE
+.PP
+And contains a sequence of lines beginning with a
+.LR - ,
+.LR + ,
+or space characters.
+A
+.L -
+indicates that the line is to be removed from the old file.
+A
+.L +
+indicates that the line is to be inserted into the new file.
+A space indicates that the line is context.
+It will be copied unchanged from the old file to the new file.
+.PP
+If the old file is
+.LR /dev/null ,
+the patch indicates a file creation.
+If the new file is
+.LR /dev/null ,
+the patch indicates a file deletion.
+In this case, the file printed is the file being removed.
+.SH SEE ALSO
+.IR diff (1),
+.IR git/export (1)
+.SH BUGS
+.PP
+The output of
+.B diff -c
+is not handled.
+.PP
+Reject files and backups are not supported.
+.PP
+All files are processed in memory, limiting the maximum file size to available RAM.
+
+
