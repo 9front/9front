@@ -1,18 +1,14 @@
 .TH PATCH 1
 .SH NAME
-patch \- apply diffs
+patch \- apply patches
 .SH SYNOPSIS
 .B patch
 [
-.B -lR
+.B -R
 ]
 [
 .B -p
 .I nstrip
-]
-[
-.B -f
-.I maxfuzz
 ]
 [
 .I patch ...
