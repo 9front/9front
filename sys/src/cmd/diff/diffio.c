@@ -330,23 +330,15 @@ changeset(int i)
 }
 
 void
-fileheader(void)
-{
-	if(mode != 'u')
-		return;
-	Bprint(&stdout, "--- %s\n", file1);
-	Bprint(&stdout, "+++ %s\n", file2);
-}
-
-void
 flushchanges(void)
 {
-	int a, b, c, d, at;
+	int a, b, c, d, at, hdr;
 	int i, j;
 
 	if(nchanges == 0)
 		return;
-	
+
+	hdr = 0;
 	for(i=0; i<nchanges; ){
 		j = changeset(i);
 		a = changes[i].a-Lines;
@@ -369,6 +361,11 @@ flushchanges(void)
 			j = nchanges;
 		}
 		if(mode == 'u'){
+			if(!hdr){
+				Bprint(&stdout, "--- %s\n", file1);
+				Bprint(&stdout, "+++ %s\n", file2);
+				hdr = 1;
+			}
 			Bprint(&stdout, "@@ -%d,%d +%d,%d @@\n", a, b-a+1, c, d-c+1);
 		}else{
 			Bprint(&stdout, "%s:", file1);
