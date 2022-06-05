@@ -18,6 +18,7 @@ enum
 	Tulong,
 	Tvec,
 	Tnames,
+	Tp9addrs,
 };
 
 typedef struct Option Option;
@@ -93,6 +94,7 @@ static Option option[256] =
 [OBircserver]		{ "irc",		Taddrs },
 [OBstserver]		{ "st",			Taddrs },
 [OBstdaserver]		{ "stdar",		Taddrs },
+[OBvendorinfo]		{ "vendorinfo",		Tvec },
 
 [ODipaddr]		{ "ipaddr",		Taddr },
 [ODlease]		{ "lease",		Tulong },
@@ -109,6 +111,14 @@ static Option option[256] =
 [ODtftpserver]		{ "tftp",		Tstr },
 [ODbootfile]		{ "bootfile",		Tstr },
 [ODdnsdomain]		{ "dnsdomain",		Tnames },
+
+[OP9authv4]		{ "p9authv4",		Taddrs },
+[OP9fsv4]		{ "p9fsv4",		Taddrs },
+[OP9fs]			{ "p9fs",		Tp9addrs },
+[OP9auth]		{ "p9auth",		Tp9addrs },
+[OP9ipaddr]		{ "p9ipaddr",		Tp9addrs },
+[OP9ipmask]		{ "p9ipmask",		Tp9addrs },
+[OP9ipgw]		{ "p9ipgw",		Tp9addrs },
 };
 
 static uchar defrequested[] = {
@@ -414,7 +424,7 @@ dhcprecv(void)
 	int i, n, type;
 	ulong lease;
 	char err[ERRMAX];
-	uchar buf[8000], vopts[256], taddr[IPaddrlen];
+	uchar buf[8000], vopts[256], taddr[IPaddrlen*2];
 	Bootp *bp;
 
 	memset(buf, 0, sizeof buf);
@@ -544,39 +554,33 @@ dhcprecv(void)
 		/* get plan9-specific options */
 		n = optgetvec(bp->optdata, OBvendorinfo, vopts, sizeof vopts-1);
 		if(n > 0 && parseoptions(vopts, n) == 0){
-			if(validip(conf.fs) && Oflag)
-				n = 1;
-			else {
-				n = optgetp9addrs(vopts, OP9fs, conf.fs, 2);
-				if (n == 0)
-					n = optgetaddrs(vopts, OP9fsv4,
-						conf.fs, 2);
+			if(!(Oflag && validip(conf.fs))){
+				n = optgetp9addrs(vopts, OP9fs, taddr, 2);
+				if(n < 2)
+					n += optgetaddrs(vopts, OP9fsv4, taddr + (n * IPaddrlen), 2 - n);
+				memmove(conf.fs, taddr, n * IPaddrlen);
 			}
-			for(i = 0; i < n; i++)
-				DEBUG("fs=%I ", conf.fs + i*IPaddrlen);
-
-			if(validip(conf.auth) && Oflag)
-				n = 1;
-			else {
-				n = optgetp9addrs(vopts, OP9auth, conf.auth, 2);
-				if (n == 0)
-					n = optgetaddrs(vopts, OP9authv4,
-						conf.auth, 2);
+			if(!(Oflag && validip(conf.auth))){
+				n = optgetp9addrs(vopts, OP9auth, taddr, 2);
+				if(n < 2)
+					n += optgetaddrs(vopts, OP9authv4, taddr + (n * IPaddrlen), 2 - n);
+				memmove(conf.auth, taddr, n * IPaddrlen);
 			}
-			for(i = 0; i < n; i++)
-				DEBUG("auth=%I ", conf.auth + i*IPaddrlen);
+			DEBUG("fs=(%I %I) auth=(%I %I)", conf.fs, conf.fs + IPaddrlen, conf.auth , conf.auth + IPaddrlen);
 
-			n = optgetp9addrs(vopts, OP9ipaddr, taddr, 1);
-			if (n > 0)
-				ipmove(conf.laddr, taddr);
-			n = optgetp9addrs(vopts, OP9ipmask, taddr, 1);
-			if (n > 0)
-				ipmove(conf.mask, taddr);
-			n = optgetp9addrs(vopts, OP9ipgw, taddr, 1);
-			if (n > 0)
-				ipmove(conf.gaddr, taddr);
-			DEBUG("new ipaddr=%I new ipmask=%M new ipgw=%I",
-				conf.laddr, conf.mask, conf.gaddr);
+			if(!(Oflag && validip(conf.laddr)))
+				if(optgetp9addrs(vopts, OP9ipaddr, taddr, 1))
+					ipmove(conf.laddr, taddr);
+
+			if(!(Oflag && validip(conf.mask)))
+				if(optgetp9addrs(vopts, OP9ipmask, taddr, 1))
+					ipmove(conf.mask, taddr);
+
+			if(!(Oflag && validip(conf.gaddr)))
+				if(optgetp9addrs(vopts, OP9ipgw, taddr, 1))
+					ipmove(conf.gaddr, taddr);
+
+			DEBUG("p9 opt ipaddr=%I ipmask=%M ipgw=%I", conf.laddr, conf.mask, conf.gaddr);
 		}
 		conf.lease = lease;
 		conf.state = Sbound;
@@ -779,8 +783,8 @@ optgetp9addrs(uchar *ap, int op, uchar *ip, int n)
 		slen = strlen(p) + 1;
 		if (parseip(&ip[i*IPaddrlen], p) == -1)
 			fprint(2, "%s: bad address %s\n", argv0, p);
-		DEBUG("got plan 9 option %d addr %I (%s)",
-			op, &ip[i*IPaddrlen], p);
+		DEBUG("got plan 9 option %s addr %I (%s)",
+			option[op].name, &ip[i*IPaddrlen], p);
 		p += slen;
 		len -= slen;
 	}
