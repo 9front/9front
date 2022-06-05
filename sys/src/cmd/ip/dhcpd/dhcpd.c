@@ -1477,6 +1477,7 @@ addrsopt(Req *rp, int t, uchar **ip, int i)
 	while(i-- > 0){
 		if (!isv4(*ip)) {
 			op = seprint(op, oe, " skipping %I ", *ip);
+			ip++;
 			continue;
 		}
 		v6tov4(rp->p, *ip);
