@@ -11,9 +11,7 @@ typedef struct Pipe	Pipe;
 struct Pipe
 {
 	QLock;
-	Pipe	*next;
 	int	ref;
-	ulong	path;
 	Queue	*q[2];
 	int	qref[2];
 };
@@ -57,6 +55,7 @@ pipeattach(char *spec)
 {
 	Pipe *p;
 	Chan *c;
+	ulong path;
 
 	c = devattach('|', spec);
 	if(waserror()){
@@ -82,10 +81,10 @@ pipeattach(char *spec)
 	poperror();
 
 	lock(&pipealloc);
-	p->path = ++pipealloc.path;
+	path = ++pipealloc.path;
 	unlock(&pipealloc);
 
-	mkqid(&c->qid, NETQID(2*p->path, Qdir), 0, QTDIR);
+	mkqid(&c->qid, NETQID(path, Qdir), 0, QTDIR);
 	c->aux = p;
 	c->dev = 0;
 	return c;
