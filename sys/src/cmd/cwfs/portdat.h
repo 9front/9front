@@ -20,18 +20,10 @@ typedef vlong	Devsize;	/* in bytes */
 #define	HOWMANY(x, y)	(((x)+((y)-1)) / (y))
 #define ROUNDUP(x, y)	(HOWMANY((x), (y)) * (y))
 
-#define	TK2MS(t) (((ulong)(t)*1000)/HZ)	/* ticks to ms - beware rounding */
-#define	MS2TK(t) (((ulong)(t)*HZ)/1000)	/* ms to ticks - beware rounding */
-#define	TK2SEC(t) ((t)/HZ)		/* ticks to seconds */
-
 /* constants that don't affect disk layout */
 enum {
 	MAXDAT		= 8192,		/* max allowable data message */
-	MAXMSG		= 128,		/* max protocol message sans data */
-
 	MB		= 1024*1024,
-
-	HZ		= 1,		/* clock frequency */
 };
 
 /*
@@ -152,8 +144,8 @@ enum {
 	DIRPERBUF	= BUFSIZE / sizeof(Dentry),
 	INDPERBUF	= BUFSIZE / sizeof(Off),
 	FEPERBUF	= (BUFSIZE-sizeof(Super1)-sizeof(Off)) / sizeof(Off),
-	SMALLBUF	= MAXMSG,
-	LARGEBUF	= MAXMSG+MAXDAT+256,
+	SMALLBUF	= 128,
+	LARGEBUF	= IOHDRSZ+MAXDAT+256,
 	RAGAP		= (300*1024)/BUFSIZE,	/* readahead parameter */
 	BKPERBLK	= 10,
 	CEPERBK		= (BUFSIZE - BKPERBLK*sizeof(Off)) /
@@ -459,7 +451,7 @@ enum {
 struct	Msgbuf
 {
 	ulong	magic;
-	short	count;
+	ulong	count;
 	short	flags;
 		#define	LARGE	(1<<0)
 		#define	FREE	(1<<1)

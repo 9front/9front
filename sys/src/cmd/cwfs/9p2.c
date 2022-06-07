@@ -1,7 +1,4 @@
 #include "all.h"
-#include <fcall.h>
-
-enum { MSIZE = MAXDAT+MAXMSG };
 
 static int
 mkmode9p1(ulong mode9p2)
@@ -155,10 +152,10 @@ version(Chan* chan, Fcall* f, Fcall* r)
 	if(chan->protocol != nil || f->msize < 256)
 		return Eversion;
 
-	if(f->msize < MSIZE)
+	if(f->msize < MAXDAT+IOHDRSZ)
 		r->msize = f->msize;
 	else
-		r->msize = MSIZE;
+		r->msize = MAXDAT+IOHDRSZ;
 
 	/*
 	 * Should check the '.' stuff here.
@@ -1825,7 +1822,7 @@ serve9p2(Msgbuf* mb)
 	 * replies.
 	 */
 	if(convM2S(mb->data, mb->count, &f) != mb->count){
-		fprint(2, "didn't like %d byte message\n", mb->count);
+		fprint(2, "didn't like %ld byte message\n", mb->count);
 		return 0;
 	}
 	type = f.type;
@@ -1921,7 +1918,7 @@ serve9p2(Msgbuf* mb)
 		 */
 		if(chan->msize == 0){
 			r.ename = "Tversion not seen";
-			n = convS2M(&r, rmb->data, MAXMSG);
+			n = convS2M(&r, rmb->data, SMALLBUF);
 		} else {
 			snprint(ename, sizeof(ename), "9p2: convS2M: type %d",
 				type);

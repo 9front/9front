@@ -711,9 +711,9 @@ cmd_time(int argc, char *argv[])
 {
 	int i, len;
 	char *cmd;
-	Timet t1, t2;
+	vlong t1, t2;
 
-	t1 = time(nil);
+	t1 = nsec();
 	len = 0;
 	for(i=1; i<argc; i++)
 		len += 1 + strlen(argv[i]);
@@ -724,9 +724,9 @@ cmd_time(int argc, char *argv[])
 		strcat(cmd, argv[i]);
 	}
 	cmd_exec(cmd);
-	t2 = time(nil);
+	t2 = nsec();
 	free(cmd);
-	print("time = %ld ms\n", TK2MS(t2-t1));
+	print("time = %lld ns\n", t2-t1);
 }
 
 void

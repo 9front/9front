@@ -1,5 +1,4 @@
 #include	"all.h"
-#include	<fcall.h>
 
 /* 9p2 */
 int	version(Chan*, Fcall*, Fcall*);

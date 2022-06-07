@@ -101,8 +101,6 @@ loop:
 	unlock(&flock);
 }
 
-enum { NOFID = (ulong)~0 };
-
 /*
  * returns a locked file structure
  */

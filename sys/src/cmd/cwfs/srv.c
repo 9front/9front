@@ -1,6 +1,5 @@
 #include "all.h"
 #include "io.h"
-#include <fcall.h>		/* 9p2000 */
 #include <thread.h>
 
 enum {
