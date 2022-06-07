@@ -1,0 +1,35 @@
+.TH SKEL 3 
+.SH NAME
+skel \- skeleton builder
+.SH SYNOPSIS
+.B bind #z/\fIskel\fR
+.I dir
+.PP
+.B bind #zd/\fIskel\fR
+.I dir
+.PP
+.B bind #ze/
+.I dir
+.SH DESCRIPTION
+.PP
+This device serves a single child directory with a single empty child
+file. The name of these files is determined by the first walk away
+from the root. After which, the hierarchy for that attached session
+becomes stable. The
+.B d
+attach option causes the child file to be an empty directory. The 
+.B e
+attach option presents a completly empty root directory.
+.SH EXAMPLES
+Skeleton files can be used for constructing arbitrary bind targets.
+.EX
+.IP
+bind -b '#zd/newroot' /
+bind '#zd/bin' /newroot
+bind '#z/walk' /newroot/bin
+bind /bin/walk /newroot/bin/walk
+bind /newroot /
+walk /
+.EE
+.SH SOURCE
+.B /sys/src/9/port/devskel.c
