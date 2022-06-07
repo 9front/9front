@@ -60,6 +60,20 @@ changeuser, convkeys, printnetkey, status, enable, disable, authsrv, guard.srv, 
 .I arg
 \&...
 .PP
+.B auth/box
+[
+.B -d
+] [
+.B -rc
+.I file
+] [
+.B -e
+.I devs
+]
+.I command
+.I arg
+\&...
+.PP
 .B auth/as
 [
 .B -d
@@ -263,6 +277,29 @@ If there are no arguments, it
 .BR /bin/rc .
 It's an easy way to run a command as
 .IR none .
+.PP
+.I Box
+sets up a restricted namespace and
+.IR exec's
+its arguments as the user
+.IR none .
+Components of the current namespace are bound
+into the child namespace with the
+.B -r 
+and 
+.B -c
+flags, using either
+.I MREPL 
+or
+.I MCREATE
+respectively. The only components
+in the child namespace will be those
+defined this way.
+By default all further kernel driver
+access is blocked. The
+.B -e
+flag specifies a string of driver
+characters to keep in the child namespace.
 .PP
 .I As
 executes

@@ -9,6 +9,7 @@ TARG=\
 	asn1dump\
 	asn12rsa\
 	authsrv\
+	box\
 	changeuser\
 	convkeys\
 	cron\
