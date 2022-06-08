@@ -54,9 +54,6 @@ resolvenames(char **names, int nname)
 		case '#':
 		case '/':
 			break;
-		case '.':
-			if(names[i][1] == '/')
-				break;
 		default:
 			names[i] = cleanname(smprint("%s/%s", buf, names[i]));
 		}	
@@ -111,19 +108,6 @@ sandbox(char **names, int *flags, int nname)
 	binderr(newroot, "/", MREPL);
 }
 
-static void
-run(char **a)
-{
-	exec(a[0], a);
-
-	if(a[0][0] != '/' && a[0][0] != '#' &&
-	  (a[0][0] != '.' || (a[0][1] != '/' &&
-		             (a[0][1] != '.' ||  a[0][2] != '/'))))
-		exec(smprint("/bin/%s", a[0]), a);
-
-	sysfatal("exec: %s: %r", a[0]);
-}
-
 void
 usage(void)
 {
@@ -134,6 +118,8 @@ usage(void)
 void
 main(int argc, char **argv)
 {
+	char *b;
+	Dir *d;
 	char devs[1024];
 	int dfd;
 	char *parts[256];
@@ -164,6 +150,19 @@ main(int argc, char **argv)
 	if(argc == 0)
 		usage();
 
+	b = argv[0];
+	d = dirstat(b);
+	if(d == nil){
+		b = smprint("/bin/%s", b);
+		d = dirstat(b);
+		if(d == nil)
+			sysfatal("could not stat %s %r", argv[0]);
+	}
+	free(d);
+	parts[nparts] = b;
+	mflags[nparts++] = MREPL;
+	argv[0] = b;
+
 	rfork(RFNAMEG|RFENVG);
 	dfd = open("/dev/drivers", OWRITE|OCEXEC);
 	if(dfd < 0)
@@ -188,5 +187,5 @@ main(int argc, char **argv)
 			sysfatal("could not write chdev: %r");
 	}
 	close(dfd);
-	run(argv);
+	exec(argv[0], argv);
 }
