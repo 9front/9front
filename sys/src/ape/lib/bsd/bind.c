@@ -56,10 +56,7 @@ bind(int fd, void *a, int alen)
 		return -1;
 	}
 	port = _sock_inport(&r->addr);
-	if(port > 0)
-		snprintf(msg, sizeof msg, "bind %d", port);
-	else
-		strcpy(msg, "bind *");
+	snprintf(msg, sizeof msg, "bind %d", port);
 	n = write(cfd, msg, strlen(msg));
 	if(n < 0){
 		errno = EOPNOTSUPP;	/* Improve error reporting!!! */
