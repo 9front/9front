@@ -279,27 +279,24 @@ It's an easy way to run a command as
 .IR none .
 .PP
 .I Box
-sets up a restricted namespace and
-.IR exec's
-its arguments as the user
-.IR none .
-Components of the current namespace are bound
-into the child namespace with the
-.B -r 
-and 
-.B -c
-flags, using either
-.I MREPL 
-or
-.I MCREATE
-respectively. The only components
-in the child namespace will be those
-defined this way.
-By default all further kernel driver
-access is blocked. The
+executes its arguments in a minimal namespace.
+This namespace is derived by binding in the specified
+program to the same name within a new hierarchy.
+The same is done with the paths
+provided as arguments. Paths provided with the
+.B -r
+flag are bound with
+.IR MREPL ,
+and those provided with the
+.B -c 
+flag are bound with
+.IR MCREATE .
+.I Box
+removes access to all kernel drivers from
+the child namespace; the
 .B -e
 flag specifies a string of driver
-characters to keep in the child namespace.
+characters to keep.
 .PP
 .I As
 executes

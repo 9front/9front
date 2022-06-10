@@ -163,17 +163,12 @@ main(int argc, char **argv)
 	mflags[nparts++] = MREPL;
 	argv[0] = b;
 
-	rfork(RFNAMEG|RFENVG);
+	rfork(RFNAMEG|RFFDG);
 	dfd = open("/dev/drivers", OWRITE|OCEXEC);
 	if(dfd < 0)
 		sysfatal("could not /dev/drivers: %r");
 
 	resolvenames(parts, nparts);
-
-	if(procsetuser("none") < 0)
-		sysfatal("cant become none: %r");
-	putenv("user", "none");
-
 	sandbox(parts, mflags, nparts);
 	
 	if(debug)
