@@ -121,7 +121,7 @@ listen(fd, backlog)
 	int backlog;
 {
 	Rock *r;
-	int n, cfd, port;
+	int n, cfd;
 	char msg[128];
 	struct sockaddr_un *lunix;
 
@@ -139,17 +139,13 @@ listen(fd, backlog)
 			errno = EBADF;
 			return -1;
 		}
-		port = _sock_inport(&r->addr);
-		if(port >= 0) {
-			if(write(cfd, "bind 0", 6) < 0) {
-				errno = EGREG;
-				close(cfd);
-				return -1;
-			}
-			snprintf(msg, sizeof msg, "announce %d", port);
+		/* FIXME: What is this good for? */
+		if(write(cfd, "bind 0", 6) < 0) {
+			errno = EGREG;
+			close(cfd);
+			return -1;
 		}
-		else
-			strcpy(msg, "announce *");
+		snprintf(msg, sizeof msg, "announce %d", _sock_inport(&r->addr));
 		n = write(cfd, msg, strlen(msg));
 		if(n < 0){
 			errno = EOPNOTSUPP;	/* Improve error reporting!!! */
