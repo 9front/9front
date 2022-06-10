@@ -43,5 +43,7 @@ extern int	_sock_data(int, char*, int, int, int, Rock**);
 extern int	_sock_ipattr(char*);
 extern void*	_sock_inip(struct sockaddr*);
 extern int	_sock_inport(struct sockaddr*);
+extern int	_sock_inisany(int af, void *addr);
 extern int	_sock_inaddr(int, char*, char*, void*, int*);
 extern void	_sock_ingetaddr(Rock*, void*, int*, char*);
+extern char*	_sock_inaddr2string(Rock *r, char *dest, int dlen);

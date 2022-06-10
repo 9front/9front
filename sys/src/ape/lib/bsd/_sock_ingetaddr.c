@@ -40,6 +40,30 @@ _sock_inport(struct sockaddr *a)
 }
 
 int
+_sock_inisany(int af, void *addr)
+{
+	int alen;
+	void *any;
+	/* an IPv4 address that is auto-initialized to all zeros */
+	static struct in_addr inaddr_any;
+
+	switch(af){
+	case AF_INET:
+		alen = sizeof inaddr_any.s_addr;
+		any = &inaddr_any;
+		break;
+	case AF_INET6:
+		alen = sizeof in6addr_any;
+		any = &in6addr_any;
+		break;
+	default:
+		return 0;
+	}
+
+	return 0 == memcmp(addr, any, alen);
+}
+
+int
 _sock_inaddr(int af, char *ip, char *port, void *a, int *alen)
 {
 	int len;
@@ -96,4 +120,24 @@ _sock_ingetaddr(Rock *r, void *a, int *alen, char *file)
 		}
 		close(fd);
 	}
+}
+
+char *
+_sock_inaddr2string(Rock *r, char *dest, int dlen)
+{
+	int af = r->domain;
+	void *addr = _sock_inip(&r->addr);
+	int port = _sock_inport(&r->addr);
+	char *d = dest;
+	char *dend = dest+dlen;
+
+	if(!_sock_inisany(af, addr)){
+		inet_ntop(af, addr, d, dlen-1);
+		d = memchr(d, 0, dlen-1);
+		*(d++) = '!';
+	}
+
+	snprintf(d, dend-d, "%d", port);
+
+	return dest;
 }

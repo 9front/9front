@@ -145,7 +145,8 @@ listen(fd, backlog)
 			close(cfd);
 			return -1;
 		}
-		snprintf(msg, sizeof msg, "announce %d", _sock_inport(&r->addr));
+		strcpy(msg, "announce ");
+		_sock_inaddr2string(r, msg + 9, sizeof msg - 9);
 		n = write(cfd, msg, strlen(msg));
 		if(n < 0){
 			errno = EOPNOTSUPP;	/* Improve error reporting!!! */
