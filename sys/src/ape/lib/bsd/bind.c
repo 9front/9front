@@ -68,7 +68,7 @@ bind(int fd, void *a, int alen)
 
 	close(cfd);
 
-	if(_sock_inport(&r->addr) <= 0)
+	if(_sock_inport(&r->addr) == 0)
 		_sock_ingetaddr(r, &r->addr, 0, "local");
 
 	return 0;
