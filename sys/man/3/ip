@@ -682,33 +682,43 @@ Otherwise a free port number starting at 5000 is chosen.
 The connect fails if the combination of local and remote address/port pairs
 are already assigned to another port.
 .TP
-.BI announce\  X
-.I X
-is a decimal port number or
-.LR * .
-Set the local port
-number to
-.I X
-and accept calls to
-.IR X .
-If
-.I X
-is
+.BI announce\  [ip-address ! ]port
+Set the local IP address and port number and accept calls there.  If
+ip-address is left out, accept calls on any address.  If port is 0, a
+port is automatically choosen that is not yet announced.
+If the address is
 .LR * ,
-accept
-calls for any port that no process has explicitly announced.
-The local IP address cannot be set.
+accept calls on any address.
+If port is
+.LR * ,
+accept calls on any port.
+If port is
+.LR * ,
+and the address is left out, accept calls on any address and port.
 .B Announce
-fails if the connection is already announced or connected.
+fails if the connection is already announced.
 .TP
-.BI bind\  X
-.I X
-is a decimal port number or
-.LR * .
-Set the local port number to
-.IR X .
-This exists to support emulation
-of BSD sockets by the APE libraries (see
+.BI bind\  [ip-address ! ]port
+Set the local IP address and port number like for a server connection
+similar to the
+.B announce
+command.
+If ip-address is left out, an address is automatically selected.  If
+port is 0, a port is automatically choosen that is not yet announced.
+This command has no actual effect, beyond remembering the parameters
+and possibly selecting an unused port.
+The commands
+.B announce
+and
+.B connect
+reset both the local address and the port according to their own
+parameters.
+This command also does
+.B not
+reserve the IP address and port, another connection can use them, even
+while they are registered in a connection by this command.
+This exists to support emulation of BSD sockets by the APE libraries
+(see
 .IR pcc (1))
 and is not otherwise used.
 .\" this is gone
