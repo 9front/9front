@@ -9,20 +9,6 @@ char	*pathpfx = nil;
 int	allowwrite;
 
 int
-fmtpkt(Conn *c, char *fmt, ...)
-{
-	char pkt[Pktmax];
-	va_list ap;
-	int n;
-
-	va_start(ap, fmt);
-	n = vsnprint(pkt, sizeof(pkt), fmt, ap);
-	n = writepkt(c, pkt, n);
-	va_end(ap);
-	return n;
-}
-
-int
 showrefs(Conn *c)
 {
 	int i, ret, nrefs;

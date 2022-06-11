@@ -94,6 +94,20 @@ writepkt(Conn *c, char *buf, int nbuf)
 }
 
 int
+fmtpkt(Conn *c, char *fmt, ...)
+{
+	char pkt[Pktmax];
+	va_list ap;
+	int n;
+
+	va_start(ap, fmt);
+	n = vsnprint(pkt, sizeof(pkt), fmt, ap);
+	n = writepkt(c, pkt, n);
+	va_end(ap);
+	return n;
+}
+
+int
 flushpkt(Conn *c)
 {
 	dprint(1, "<=w= 0000\n");

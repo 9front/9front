@@ -313,6 +313,7 @@ Delta*	deltify(Object*, Dtab*, int*);
 /* proto handling */
 int	readpkt(Conn*, char*, int);
 int	writepkt(Conn*, char*, int);
+int	fmtpkt(Conn*, char*, ...);
 int	flushpkt(Conn*);
 void	initconn(Conn*, int, int);
 int	gitconnect(Conn *, char *, char *);

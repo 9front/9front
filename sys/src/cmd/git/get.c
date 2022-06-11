@@ -177,17 +177,35 @@ fail(char *pack, char *idx, char *msg, ...)
 	exits(buf);
 }
 
+void
+enqueueparent(Objq *q, Object *o)
+{
+	Object *p;
+	int i;
+
+	if(o->type != GCommit)
+		return;
+	for(i = 0; i < o->commit->nparent; i++){
+		if((p = readobject(o->commit->parent[i])) == nil)
+			continue;
+		qput(q, p, 0);
+		unref(p);
+	}
+}
+
 int
 fetchpack(Conn *c)
 {
 	char buf[Pktmax], *sp[3], *ep;
-	char *packtmp, *idxtmp, **ref;
+	char *packtmp, *idxtmp, **ref, *caps;
 	Hash h, *have, *want;
-	int nref, refsz, first;
-	int i, n, l, req, pfd;
+	int nref, refsz, first, nsent;
+	int i, l, n, req, pfd;
 	vlong packsz;
 	Objset hadobj;
 	Object *o;
+	Objq haveq;
+	Qelt e;
 
 	nref = 0;
 	refsz = 16;
@@ -234,6 +252,7 @@ fetchpack(Conn *c)
 	if(writephase(c) == -1)
 		sysfatal("write: %r");
 	req = 0;
+	caps = " multi_ack";
 	for(i = 0; i < nref; i++){
 		if(hasheq(&have[i], &want[i]))
 			continue;
@@ -241,30 +260,58 @@ fetchpack(Conn *c)
 			unref(o);
 			continue;
 		}
-		n = snprint(buf, sizeof(buf), "want %H\n", want[i]);
-		if(writepkt(c, buf, n) == -1)
+		if(fmtpkt(c, "want %H%s\n", want[i], caps) == -1)
 			sysfatal("could not send want for %H", want[i]);
+		caps = "";
 		req = 1;
 	}
 	flushpkt(c);
+
+	nsent = 0;
+	qinit(&haveq);
 	osinit(&hadobj);
+	/*
+	 * We know we have these objects, and we want to make sure that
+	 * they end up at the front of the queue. Send the 'have lines'
+	 * first, and then enqueue their parents for a second round of
+	 * sends.
+	 */
 	for(i = 0; i < nref; i++){
 		if(hasheq(&have[i], &Zhash) || oshas(&hadobj, have[i]))
 			continue;
 		if((o = readobject(have[i])) == nil)
 			sysfatal("missing object we should have: %H", have[i]);
+		if(fmtpkt(c, "have %H", o->hash) == -1)
+			sysfatal("write: %r");
+		enqueueparent(&haveq, o);
 		osadd(&hadobj, o);
-		unref(o);	
-		n = snprint(buf, sizeof(buf), "have %H\n", have[i]);
-		if(writepkt(c, buf, n + 1) == -1)
-			sysfatal("could not send have for %H", have[i]);
+		unref(o);
+	}
+	/*
+	 * While we could short circuit this and check if upstream has
+	 * acked our objects, for the first 256 haves, this is simple
+	 * enough.
+	 *
+	 * Also, doing multiple rounds of reference discovery breaks
+	 * when using smart http.
+	 */
+	while(req && qpop(&haveq, &e) && nsent < 256){
+		if(oshas(&hadobj, e.o->hash))
+			continue;
+		if((o = readobject(e.o->hash)) == nil)
+			sysfatal("missing object we should have: %H", have[i]);
+		if(fmtpkt(c, "have %H", o->hash) == -1)
+			sysfatal("write: %r");
+		enqueueparent(&haveq, o);
+		osadd(&hadobj, o);
+		unref(o);
+		nsent++;
 	}
 	osclear(&hadobj);
+	qclear(&haveq);
 	if(!req)
 		flushpkt(c);
-
-	n = snprint(buf, sizeof(buf), "done\n");
-	if(writepkt(c, buf, n) == -1)
+	if(fmtpkt(c, "done\n") == -1)
 		sysfatal("write: %r");
 	if(!req)
 		goto showrefs;
@@ -298,9 +345,9 @@ fetchpack(Conn *c)
 		if(strncmp(buf, "PACK", 4) == 0)
 			break;
 		l = strtol(buf, &ep, 16);
-		if(l == 0 || ep != buf + 4)
+		if(ep != buf + 4)
 			sysfatal("fetch packfile: junk pktline");
-		if(readn(c->rfd, buf, l) != l)
+		if(readn(c->rfd, buf, l-4) != l-4)
 			sysfatal("fetch packfile: short read");
 	}
 	if(write(pfd, "PACK", 4) != 4)
