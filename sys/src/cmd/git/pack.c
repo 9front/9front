@@ -884,6 +884,7 @@ parsecommit(Object *o)
 		}else if(strcmp(buf, "gpgsig") == 0){
 			/* just drop it */
 			if((t = strstr(p, "-----END PGP SIGNATURE-----")) == nil)
+			if((t = strstr(p, "-----END SSH SIGNATURE-----")) == nil)
 				sysfatal("malformed gpg signature");
 			np -= t - p;
 			p = t;
