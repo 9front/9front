@@ -14,14 +14,18 @@ dev
 	fs
 	ether	netif
 	ip	arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium inferno
+	draw	screen swcursor
+	mouse	screen swcursor
 	uart
 	usb
+	i2c
 
 link
 	usbxhciimx
 	etherimx	ethermii
 	ethermedium
 	loopbackmedium
+	i2cimx		devi2c
 ip
 	tcp
 	udp
@@ -31,8 +35,10 @@ ip
 	icmp6
 	ipmux
 misc
+	ccm
 	gic
 	uartimx
+	lcd
 port
 	int cpuserver = 0;
 bootdir

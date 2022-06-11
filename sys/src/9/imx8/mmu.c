@@ -472,21 +472,36 @@ checkmmu(uintptr, uintptr)
 {
 }
 
-void*
-ucalloc(usize size)
+static void*
+ucramalloc(usize size, uintptr align, uint attr)
 {
 	static uintptr top = UCRAMBASE + UCRAMSIZE;
 	static Lock lk;
-	uintptr va;
-
-	size = PGROUND(size);
+	uintptr va, pg;
 
 	lock(&lk);
 	top -= size;
+	size += top & align-1;
+	top &= -align;
 	if(top < UCRAMBASE)
-		panic("ucalloc: %p needs %zd bytes\n", getcallerpc(&size), size);
+		panic("ucramalloc: need %zd bytes", size);
 	va = KZERO + top;
+	pg = va & -BY2PG;
+	if(pg != ((va+size) & -BY2PG))
+		mmukmap(pg | attr, pg - KZERO, PGROUND(size));
 	unlock(&lk);
 
-	return (void*)mmukmap(va | PTEUNCACHED, PADDR(va), size);
+	return (void*)va;
+}
+
+void*
+ucalloc(usize size)
+{
+	return ucramalloc(size, 8, PTEUNCACHED);
+}
+
+void*
+fbmemalloc(usize size)
+{
+	return ucramalloc(PGROUND(size), BY2PG, PTEWT);
 }

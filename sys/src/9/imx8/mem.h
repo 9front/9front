@@ -39,9 +39,9 @@
 #define STACKALIGN(sp)	((sp) & ~7)		/* bug: assure with alloc */
 #define TRAPFRAMESIZE	(38*8)
 
-/* reserved dram for ucalloc() at the end of KZERO (physical) */
+/* reserved dram for ucalloc() and fbmemalloc() at the end of KZERO (physical) */
 #define	UCRAMBASE	(-KZERO - UCRAMSIZE)
-#define	UCRAMSIZE	(1*MiB)
+#define	UCRAMSIZE	(8*MiB)
 
 #define VDRAM		(0xFFFFFFFFC0000000ULL)	/* 0x40000000 - 0x80000000 */
 #define	KTZERO		(VDRAM + 0x100000)	/* kernel text start */
@@ -54,7 +54,7 @@
 #define VMAP		(0xFFFFFFFF00000000ULL)	/* 0x00000000 - 0x40000000 */
 
 #define KMAPEND		(0xFFFFFFFF00000000ULL)	/* 0x140000000 */
-#define KMAP		(0xFFFFFFFE00000000ULL)	/* 0x40000000 */
+#define KMAP		(0xFFFFFFFE00000000ULL)	/*  0x40000000 */
 
 #define KSEG0		(0xFFFFFFFE00000000ULL)
 

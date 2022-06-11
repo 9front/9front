@@ -315,17 +315,35 @@ interrupt(Ureg*, void *arg)
 }
 
 static void
+clkenable(Uart *u, int on)
+{
+	char clk[32];
+
+	snprint(clk, sizeof(clk), "%s.ipg_perclk", u->name);
+	if(on) setclkrate(clk, "osc_25m_ref_clk", u->freq);
+	setclkgate(clk, on);
+}
+
+static void
 disable(Uart *u)
 {
 	u32int *regs = u->regs;
+
+	if(u->console)
+		return;	/* avoid glitch */
+
 	regs[UCR1] = 0;
+	clkenable(u, 0);
 }
 
 static void
 enable(Uart *u, int ie)
 {
 	disable(u);
+	clkenable(u, 1);
+
 	if(ie) intrenable(IRQuart1, interrupt, u, BUSUNKNOWN, u->name);
+
 	config(u);
 }
 

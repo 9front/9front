@@ -32,6 +32,7 @@ init0(void)
 		poperror();
 	}
 	kproc("alarm", alarmkproc, 0);
+
 	sp = (char**)(USTKTOP-sizeof(Tos) - 8 - sizeof(sp[0])*4);
 	sp[3] = sp[2] = sp[1] = nil;
 	strcpy(sp[1] = (char*)&sp[4], "boot");
@@ -99,14 +100,7 @@ confinit(void)
 		+ conf.nswap
 		+ conf.nswppo*sizeof(Page*);
 	mainmem->maxsize = kpages;
-	if(!cpuserver)
-		/*
-		 * give terminals lots of image memory, too; the dynamic
-		 * allocation will balance the load properly, hopefully.
-		 * be careful with 32-bit overflow.
-		 */
-		imagmem->maxsize = kpages;
-
+	imagmem->maxsize = kpages;
 }
 
 void
@@ -149,7 +143,6 @@ main(void)
 		fpuinit();
 		intrinit();
 		clockinit();
-		print("cpu%d: UP!\n", m->machno);
 		synccycles();
 		timersinit();
 		flushtlb();
@@ -175,6 +168,7 @@ main(void)
 	initseg();
 	links();
 	chandevreset();
+	lcdinit();
 	userinit();
 	mpinit();
 	mmu0clear((uintptr*)L1);

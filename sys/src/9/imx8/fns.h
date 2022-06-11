@@ -80,6 +80,7 @@ extern void meminit(void);
 extern void putasid(Proc*);
 
 extern void* ucalloc(usize);
+extern void* fbmemalloc(usize);
 
 /* clock */
 extern void clockinit(void);
@@ -138,3 +139,11 @@ extern void writeconf(void);
 
 extern int isaconfig(char*, int, ISAConf*);
 extern void links(void);
+
+/* ccm */
+extern void setclkgate(char *name, int on);
+extern void setclkrate(char *name, char *source, int freq);
+extern int getclkrate(char *name);
+
+/* lcd */
+extern void lcdinit(void);

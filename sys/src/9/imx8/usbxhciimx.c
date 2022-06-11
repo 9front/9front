@@ -1774,6 +1774,17 @@ portreset(Hci *hp, int port, int on)
 	return 0;
 }
 
+static void
+clkenable(int i, int on)
+{
+	char clk[32];
+
+	snprint(clk, sizeof(clk), "usb%d.ctrl", i+1);
+	setclkgate(clk, on);
+	snprint(clk, sizeof(clk), "usb%d.phy", i+1);
+	setclkgate(clk, on);
+}
+
 static int
 reset(Hci *hp)
 {
@@ -1796,6 +1807,15 @@ reset(Hci *hp)
 	return -1;
 
 Found:
+	if(i == 0){
+		for(i = 0; i < nelem(ctlrs); i++) clkenable(i, 0);
+		setclkrate("ccm_usb_bus_clk_root", "system_pll2_div2", 500*Mhz);
+		setclkrate("ccm_usb_core_ref_clk_root", "system_pll1_div8", 100*Mhz);
+		setclkrate("ccm_usb_phy_ref_clk_root", "system_pll1_div8", 100*Mhz);
+		i = 0;
+	}
+	clkenable(i, 1);
+
 	hp->init = init;
 	hp->dump = dump;
 	hp->interrupt = interrupt;

@@ -688,6 +688,16 @@ pnp(Ether *edev)
 	edev->mbps = 1000;
 	edev->maxmtu = Maxtu;
 
+	setclkgate("enet1.ipp_ind_mac0_txclk", 0);
+	setclkgate("sim_enet.mainclk", 0);
+
+	setclkrate("enet1.ipg_clk", "system_pll1_div3", 266*Mhz);
+	setclkrate("enet1.ipp_ind_mac0_txclk", "system_pll2_div8", Moduleclk);
+	setclkrate("enet1.ipg_clk_time", "system_pll2_div10", 25*Mhz);
+
+	setclkgate("enet1.ipp_ind_mac0_txclk", 1);
+	setclkgate("sim_enet.mainclk", 1);
+
 	if(reset(edev) < 0)
 		return -1;
 
