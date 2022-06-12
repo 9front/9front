@@ -5,7 +5,6 @@
 #include	"fns.h"
 #include	"../port/error.h"
 
-#include	"netif.h"
 
 typedef struct Srv Srv;
 struct Srv
@@ -18,34 +17,16 @@ struct Srv
 	ulong	path;
 };
 
-typedef struct Fid Fid;
-struct Fid
-{
-	int	ref;
-	QLock 	lk;
-	Srv 	*tail;
-	ulong 	nextpath;
-};
-
-enum{
-	Qroot,
-	Qclone,
-
-	Qend
-};
-
-static Fid global;
-
-struct {
-	QLock;
-	ulong path;
-} sessions;
+static QLock	srvlk;
+static Srv	*srv;
+static int	qidpath;
 
 static Srv*
-srvlookup(Srv *sp, char *name, ulong qidpath)
+srvlookup(char *name, ulong qidpath)
 {
-	qidpath = NETTYPE(qidpath);
-	for(; sp != nil; sp = sp->link) {
+	Srv *sp;
+
+	for(sp = srv; sp != nil; sp = sp->link) {
 		if(sp->path == qidpath || (name != nil && strcmp(sp->name, name) == 0))
 			return sp;
 	}
@@ -57,139 +38,47 @@ srvgen(Chan *c, char *name, Dirtab*, int, int s, Dir *dp)
 {
 	Srv *sp;
 	Qid q;
-	Fid *f;
-	ulong id;
 
 	if(s == DEVDOTDOT){
-		switch(NETTYPE(c->qid.path)){
-		case Qroot:
-			mkqid(&q, Qroot, 0, QTDIR);
-			devdir(c, q, "#s", 0, eve, 0555|DMDIR, dp);
-			break;
-		case Qclone:
-		default:
-			/*
-			 * Someone has walked down /srv/clone/clone/.... and
-			 * would like back up. We do not allow revisiting 
-			 * previous sessions. Dead end
-			 */
-			error(Enonexist);
-			break;
-		}
+		devdir(c, c->qid, "#s", 0, eve, 0555, dp);
 		return 1;
 	}
 
-	id = NETID(c->qid.path);
-	if(name != nil && strcmp(name, "clone") == 0){
-		/* walk; new session */
-		qlock(&sessions);
-		id = ++sessions.path;
-		qunlock(&sessions);
-
-		f = smalloc(sizeof *f);
-		f->ref = 1;
-		f->nextpath = Qend;
-
-		mkqid(&q, NETQID(id, Qclone), id, QTDIR);
-		devdir(c, q, "clone", 0, eve, 0555|DMDIR, dp);
-		c->aux = f;
-		return 1;
-	} else if(name == nil && s == 0) {
-		/* stat, dirread; current session */
-		mkqid(&q, NETQID(id, Qclone), id, QTDIR);
-		devdir(c, q, "clone", 0, eve, 0555|DMDIR, dp);
-		return 1;
-	}
-
-	f = c->aux;
-	qlock(&f->lk);
+	qlock(&srvlk);
 	if(name != nil)
-		sp = srvlookup(f->tail, name, -1);
+		sp = srvlookup(name, -1);
 	else {
-		s -= 1;
-		for(sp = f->tail; sp != nil && s > 0; sp = sp->link)
+		for(sp = srv; sp != nil && s > 0; sp = sp->link)
 			s--;
 	}
 	if(sp == nil || (name != nil && (strlen(sp->name) >= sizeof(up->genbuf)))) {
-		qunlock(&f->lk);
+		qunlock(&srvlk);
 		return -1;
 	}
-	mkqid(&q, NETQID(id, sp->path), 0, QTFILE);
+	mkqid(&q, sp->path, 0, QTFILE);
 	/* make sure name string continues to exist after we release lock */
 	kstrcpy(up->genbuf, sp->name, sizeof up->genbuf);
 	devdir(c, q, up->genbuf, 0, sp->owner, sp->perm, dp);
-	qunlock(&f->lk);
+	qunlock(&srvlk);
 	return 1;
 }
 
 static void
 srvinit(void)
 {
-	global.nextpath = Qend;
+	qidpath = 1;
 }
 
 static Chan*
 srvattach(char *spec)
 {
-	Chan *c;
-
-	c = devattach('s', spec);
-	c->aux = &global;
-	return c;
+	return devattach('s', spec);
 }
 
 static Walkqid*
 srvwalk(Chan *c, Chan *nc, char **name, int nname)
 {
-	Walkqid *wq;
-	Fid *f;
-	int tripped;
-	
-	/*
-	 * We need to allow for infinite recursions through clone but we
-	 * don't need to permit passing multiple clones in a single walk.
-	 * This allows us to ensure that only a single clone is alloted
-	 * per walk.
-	 */
-	tripped = 0;
-	if(nname > 1){
-		nname = 1;
-		tripped = 1;
-	}
-	wq = devwalk(c, nc, name, nname, 0, 0, srvgen);
-	if(wq == nil || wq->clone == nil || wq->clone == c)
-		return wq;
-
-	if(tripped){
-		/*
-		 * Our partial walk returned a newly alloc'd clone.
-		 * We wll never see a clunk for that partially walked
-		 * fid, so just clean it up now.
-		 */
-		if(NETTYPE(wq->clone->qid.path) == Qclone){
-			f = wq->clone->aux;
-			assert(f->tail == nil);
-			assert(f->ref == 1);
-			free(f);
-		}
-		/* Correct state to indicate failure to walk all names */
-		wq->clone->type = 0;
-		cclose(wq->clone);
-		wq->clone = nil;
-		return wq;
-	}
-	if(wq->clone->aux == &global)
-		return wq;
-
-	if(NETID(c->qid.path) != NETID(wq->clone->qid.path))
-		return wq;
-
-	assert(c->aux == wq->clone->aux);
-	f = c->aux;
-	qlock(&f->lk);
-	f->ref++;
-	qunlock(&f->lk);
-	return wq;
+	return devwalk(c, nc, name, nname, 0, 0, srvgen);
 }
 
 static int
@@ -202,13 +91,11 @@ char*
 srvname(Chan *c)
 {
 	Srv *sp;
-	Fid *f;
 	char *s;
 
 	s = nil;
-	f = &global;
-	qlock(&f->lk);
-	for(sp = f->tail; sp != nil; sp = sp->link) {
+	qlock(&srvlk);
+	for(sp = srv; sp != nil; sp = sp->link) {
 		if(sp->chan == c){
 			s = malloc(3+strlen(sp->name)+1);
 			if(s != nil)
@@ -216,7 +103,7 @@ srvname(Chan *c)
 			break;
 		}
 	}
-	qunlock(&f->lk);
+	qunlock(&srvlk);
 	return s;
 }
 
@@ -224,7 +111,6 @@ static Chan*
 srvopen(Chan *c, int omode)
 {
 	Srv *sp;
-	Fid *f;
 	Chan *nc;
 
 	if(c->qid.type == QTDIR){
@@ -237,14 +123,13 @@ srvopen(Chan *c, int omode)
 		c->offset = 0;
 		return c;
 	}
-	f = c->aux;
-	qlock(&f->lk);
+	qlock(&srvlk);
 	if(waserror()){
-		qunlock(&f->lk);
+		qunlock(&srvlk);
 		nexterror();
 	}
 
-	sp = srvlookup(f->tail, nil, c->qid.path);
+	sp = srvlookup(nil, c->qid.path);
 	if(sp == nil || sp->chan == nil)
 		error(Eshutdown);
 
@@ -259,7 +144,7 @@ srvopen(Chan *c, int omode)
 	nc = sp->chan;
 	incref(nc);
 
-	qunlock(&f->lk);
+	qunlock(&srvlk);
 	poperror();
 
 	cclose(c);
@@ -270,7 +155,6 @@ static Chan*
 srvcreate(Chan *c, char *name, int omode, ulong perm)
 {
 	Srv *sp;
-	Fid *f;
 
 	if(openmode(omode) != OWRITE)
 		error(Eperm);
@@ -278,32 +162,31 @@ srvcreate(Chan *c, char *name, int omode, ulong perm)
 	if(strlen(name) >= sizeof(up->genbuf))
 		error(Etoolong);
 
-	f = c->aux;
 	sp = smalloc(sizeof *sp);
 	kstrdup(&sp->name, name);
 	kstrdup(&sp->owner, up->user);
 
-	qlock(&f->lk);
+	qlock(&srvlk);
 	if(waserror()){
-		qunlock(&f->lk);
+		qunlock(&srvlk);
 		free(sp->owner);
 		free(sp->name);
 		free(sp);
 		nexterror();
 	}
-	if(srvlookup(f->tail, name, -1) != nil)
+	if(srvlookup(name, -1) != nil)
 		error(Eexist);
 
 	sp->perm = perm&0777;
-	sp->path = f->nextpath++;
+	sp->path = qidpath++;
 
-	c->qid.path = NETQID(NETID(c->qid.path), sp->path);
+	c->qid.path = sp->path;
 	c->qid.type = QTFILE;
 
-	sp->link = f->tail;
-	f->tail = sp;
+	sp->link = srv;
+	srv = sp;
 
-	qunlock(&f->lk);
+	qunlock(&srvlk);
 	poperror();
 
 	c->flag |= COPEN;
@@ -316,22 +199,18 @@ static void
 srvremove(Chan *c)
 {
 	Srv *sp, **l;
-	Fid *f;
-	ulong id;
 
 	if(c->qid.type == QTDIR)
 		error(Eperm);
 
-	f = c->aux;
-
-	qlock(&f->lk);
+	qlock(&srvlk);
 	if(waserror()){
-		qunlock(&f->lk);
+		qunlock(&srvlk);
 		nexterror();
 	}
-	l = &f->tail;
+	l = &srv;
 	for(sp = *l; sp != nil; sp = *l) {
-		if(sp->path == NETTYPE(c->qid.path))
+		if(sp->path == c->qid.path)
 			break;
 		l = &sp->link;
 	}
@@ -352,29 +231,15 @@ srvremove(Chan *c)
 
 	*l = sp->link;
 	sp->link = nil;
-	id = NETID(c->qid.path);
 
+	qunlock(&srvlk);
 	poperror();
+
 	if(sp->chan != nil)
 		cclose(sp->chan);
 	free(sp->owner);
 	free(sp->name);
 	free(sp);
-
-	if(f == &global){
-		qunlock(&f->lk);
-		return;
-	}
-
-	f->ref--;
-	if(f->ref == 0){
-		assert(f->tail == nil);
-		qunlock(&f->lk);
-		free(f);
-	} else if(f->ref < 0)
-		panic("srv ref rm %d id %uld", f->ref, id);
-	else
-		qunlock(&f->lk);
 }
 
 static int
@@ -382,7 +247,6 @@ srvwstat(Chan *c, uchar *dp, int n)
 {
 	char *strs;
 	Srv *sp;
-	Fid *f;
 	Dir d;
 
 	if(c->qid.type & QTDIR)
@@ -397,15 +261,13 @@ srvwstat(Chan *c, uchar *dp, int n)
 	if(n == 0)
 		error(Eshortstat);
 
-	f = c->aux;
-
-	qlock(&f->lk);
+	qlock(&srvlk);
 	if(waserror()){
-		qunlock(&f->lk);
+		qunlock(&srvlk);
 		nexterror();
 	}
 
-	sp = srvlookup(f->tail, nil, c->qid.path);
+	sp = srvlookup(nil, c->qid.path);
 	if(sp == nil)
 		error(Enonexist);
 
@@ -424,7 +286,7 @@ srvwstat(Chan *c, uchar *dp, int n)
 	if(d.mode != ~0UL)
 		sp->perm = d.mode & 0777;
 
-	qunlock(&f->lk);
+	qunlock(&srvlk);
 	poperror();
 
 	free(strs);
@@ -436,36 +298,16 @@ srvwstat(Chan *c, uchar *dp, int n)
 static void
 srvclose(Chan *c)
 {
-	Fid *f;
-
 	/*
 	 * in theory we need to override any changes in removability
 	 * since open, but since all that's checked is the owner,
 	 * which is immutable, all is well.
 	 */
-	if((c->flag & COPEN) && (c->flag & CRCLOSE)){
+	if(c->flag & CRCLOSE){
 		if(waserror())
-			goto ref;
-
+			return;
 		srvremove(c);
 		poperror();
-	} else {
-
-ref:
-		f = c->aux;
-		if(f == &global)
-			return;
-
-		qlock(&f->lk);
-		f->ref--;
-		if(f->ref == 0){
-			assert(f->tail == nil);
-			qunlock(&f->lk);
-			free(f);
-		} else if(f->ref < 0)
-			panic("srvref close %d %uld", f->ref, NETID(c->qid.path));
-		else
-			qunlock(&f->lk);
 	}
 }
 
@@ -480,7 +322,6 @@ static long
 srvwrite(Chan *c, void *va, long n, vlong)
 {
 	Srv *sp;
-	Fid *f;
 	Chan *c1;
 	int fd;
 	char buf[32];
@@ -493,17 +334,15 @@ srvwrite(Chan *c, void *va, long n, vlong)
 
 	c1 = fdtochan(fd, -1, 0, 1);	/* error check and inc ref */
 
-	f = c->aux;
-
-	qlock(&f->lk);
+	qlock(&srvlk);
 	if(waserror()) {
-		qunlock(&f->lk);
+		qunlock(&srvlk);
 		cclose(c1);
 		nexterror();
 	}
 	if(c1->qid.type & QTAUTH)
 		error("cannot post auth file in srv");
-	sp = srvlookup(f->tail, nil, c->qid.path);
+	sp = srvlookup(nil, c->qid.path);
 	if(sp == nil)
 		error(Enonexist);
 
@@ -512,7 +351,7 @@ srvwrite(Chan *c, void *va, long n, vlong)
 
 	sp->chan = c1;
 
-	qunlock(&f->lk);
+	qunlock(&srvlk);
 	poperror();
 	return n;
 }
@@ -542,13 +381,11 @@ void
 srvrenameuser(char *old, char *new)
 {
 	Srv *sp;
-	Fid *f;
 
-	f = &global;
-	qlock(&f->lk);
-	for(sp = f->tail; sp != nil; sp = sp->link) {
+	qlock(&srvlk);
+	for(sp = srv; sp != nil; sp = sp->link) {
 		if(sp->owner != nil && strcmp(old, sp->owner) == 0)
 			kstrdup(&sp->owner, new);
 	}
-	qunlock(&f->lk);
+	qunlock(&srvlk);
 }
