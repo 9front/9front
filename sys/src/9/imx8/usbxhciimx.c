@@ -1785,6 +1785,92 @@ clkenable(int i, int on)
 	setclkgate(clk, on);
 }
 
+static void
+hubreset(int on)
+{
+	/* gpio registers */
+	enum {
+		GPIO_DR = 0x00/4,
+		GPIO_GDIR = 0x04/4,
+		GPIO_PSR = 0x08/4,
+		GPIO_ICR1 = 0x0C/4,
+		GPIO_ICR2 = 0x10/4,
+		GPIO_IMR = 0x14/4,
+		GPIO_ISR = 0x18/4,
+		GPIO_EDGE_SEL = 0x1C/4,
+	};
+	static u32int *gpio1 = (u32int*)(VIRTIO + 0x200000);
+
+	gpio1[GPIO_GDIR] |= 1<<14;	/* output */
+	if(on)
+		gpio1[GPIO_DR] |= 1<<14;
+	else
+		gpio1[GPIO_DR] &= ~(1<<14);
+}
+
+static void
+powerup(int i)
+{
+	/* power gating controller registers */
+	enum {
+		GPC_PGC_CPU_0_1_MAPPING	= 0xEC/4,
+		GPC_PGC_PU_PGC_SW_PUP_REQ = 0xF8/4,
+			USB_OTG1_SW_PUP_REQ = 1<<2,
+	};
+	static u32int *gpc = (u32int*)(VIRTIO + 0x3A0000);
+
+	gpc[GPC_PGC_CPU_0_1_MAPPING] = 0x0000FFFF;
+
+	gpc[GPC_PGC_PU_PGC_SW_PUP_REQ] |= (USB_OTG1_SW_PUP_REQ<<i);
+	while(gpc[GPC_PGC_PU_PGC_SW_PUP_REQ] & (USB_OTG1_SW_PUP_REQ<<i))
+		;
+
+	gpc[GPC_PGC_CPU_0_1_MAPPING] = 0;
+}
+
+static void
+phyinit(u32int *reg)
+{
+	enum {
+		PHY_CTRL0 = 0x0/4,
+			CTRL0_REF_SSP_EN	= 1<<2,
+		PHY_CTRL1 = 0x4/4,
+			CTRL1_RESET		= 1<<0,
+			CTRL1_ATERESET		= 1<<3,
+			CTRL1_VDATSRCENB0	= 1<<19,
+			CTRL1_VDATDETEBB0	= 1<<20,
+		PHY_CTRL2 = 0x8/4,
+			CTRL2_TXENABLEN0	= 1<<8,
+	};
+	reg[PHY_CTRL1] = (reg[PHY_CTRL1] & ~(CTRL1_VDATSRCENB0 | CTRL1_VDATDETEBB0)) | CTRL1_RESET | CTRL1_ATERESET;
+	reg[PHY_CTRL0] |= CTRL0_REF_SSP_EN;
+	reg[PHY_CTRL2] |= CTRL2_TXENABLEN0;
+	reg[PHY_CTRL1] &= ~(CTRL1_RESET | CTRL1_ATERESET);	
+}
+
+static void
+coreinit(u32int *reg)
+{
+	enum {
+		GCTL	= 0xC110/4,
+			PWRDNSCALE_SHIFT = 19,
+			PWRDNSCALE_MASK = 0x3FFF << PWRDNSCALE_SHIFT,
+			PRTCAPDIR_SHIFT = 12,
+			PRTCAPDIR_MASK = 3 << PRTCAPDIR_SHIFT,
+			DISSCRAMBLE = 1<<3,
+			DSBLCLKGTNG = 1<<0,
+
+		GFLADJ	= 0xC630/4,
+			GFLADJ_30MHZ_SDBND_SEL = 1<<7,
+			GFLADJ_30MHZ_SHIFT = 0,
+			GFLADJ_30MHZ_MASK = 0x3F << GFLADJ_30MHZ_SHIFT,
+
+	};
+	reg[GCTL] &= ~(PWRDNSCALE_MASK | DISSCRAMBLE | DSBLCLKGTNG | PRTCAPDIR_MASK);
+	reg[GCTL] |= 2<<PWRDNSCALE_SHIFT | 1<<PRTCAPDIR_SHIFT;
+	reg[GFLADJ] = (reg[GFLADJ] & ~GFLADJ_30MHZ_MASK) | 0x20<<GFLADJ_30MHZ_SHIFT | GFLADJ_30MHZ_SDBND_SEL;
+}
+
 static int
 reset(Hci *hp)
 {
@@ -1808,13 +1894,31 @@ reset(Hci *hp)
 
 Found:
 	if(i == 0){
+		static u32int *iomuxc = (u32int*)(VIRTIO + 0x330000);
+		enum {
+			IOMUXC_CTL_PAD_GPIO1_IO13 = 0x5C/4,	/* for gpio1 13 */
+			IOMUXC_CTL_PAD_GPIO1_IO14 = 0x60/4,	/* for gpio1 14 */
+
+			IOMUXC_SW_PAD_CTRL_PAD_GPIO1_IO14 = 0x2C8/4,
+		};
+		iomuxc[IOMUXC_CTL_PAD_GPIO1_IO13] = 1;
+		iomuxc[IOMUXC_CTL_PAD_GPIO1_IO14] = 0;
+		iomuxc[IOMUXC_SW_PAD_CTRL_PAD_GPIO1_IO14] = 0x16;
+
+		hubreset(0);
+		microdelay(500);
+		hubreset(1);
+
 		for(i = 0; i < nelem(ctlrs); i++) clkenable(i, 0);
 		setclkrate("ccm_usb_bus_clk_root", "system_pll2_div2", 500*Mhz);
 		setclkrate("ccm_usb_core_ref_clk_root", "system_pll1_div8", 100*Mhz);
 		setclkrate("ccm_usb_phy_ref_clk_root", "system_pll1_div8", 100*Mhz);
 		i = 0;
 	}
+	powerup(i);
 	clkenable(i, 1);
+	phyinit(&ctlr->mmio[0xF0040/4]);
+	coreinit(ctlr->mmio);
 
 	hp->init = init;
 	hp->dump = dump;
