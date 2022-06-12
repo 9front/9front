@@ -933,9 +933,9 @@ lcdinit(void)
 	/*
 	 * start the pixel clock. running at the actual pixel clock
 	 * causes the screen to shift horizontally after a while.
-	 * using 60% seems to fix it - for now.
+	 * using 80% seems to fix it - for now.
 	 */
-	setclkrate("lcdif.pix_clk", "system_pll1_clk", (mode.pixclk*6)/10);
+	setclkrate("lcdif.pix_clk", "system_pll1_clk", (mode.pixclk*8)/10);
 	dpiinit(&mode);
 
 	/* release dpi reset */
