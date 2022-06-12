@@ -5,6 +5,7 @@ srv \- server registry
 .nf
 .B bind #s /srv
 
+.BI #s/ clone/
 .BI #s/ service1
 .BI #s/ service2
  ...
@@ -40,6 +41,16 @@ releases that reference.
 .PP
 It is an error to write more than one number into a server file,
 or to create a file with a name that is already being used.
+.PP
+A walk to
+.I clone
+creates a blank private bulletin board. Private boards are
+recursable but disjoint; walks may only descend. A process
+may get a private
+.B /srv
+by doing:
+.IP
+bind -c /srv/clone /srv
 .SH EXAMPLE
 To drop one end of a pipe into
 .BR /srv ,
