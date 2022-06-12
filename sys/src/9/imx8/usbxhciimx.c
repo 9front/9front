@@ -1809,26 +1809,6 @@ hubreset(int on)
 }
 
 static void
-powerup(int i)
-{
-	/* power gating controller registers */
-	enum {
-		GPC_PGC_CPU_0_1_MAPPING	= 0xEC/4,
-		GPC_PGC_PU_PGC_SW_PUP_REQ = 0xF8/4,
-			USB_OTG1_SW_PUP_REQ = 1<<2,
-	};
-	static u32int *gpc = (u32int*)(VIRTIO + 0x3A0000);
-
-	gpc[GPC_PGC_CPU_0_1_MAPPING] = 0x0000FFFF;
-
-	gpc[GPC_PGC_PU_PGC_SW_PUP_REQ] |= (USB_OTG1_SW_PUP_REQ<<i);
-	while(gpc[GPC_PGC_PU_PGC_SW_PUP_REQ] & (USB_OTG1_SW_PUP_REQ<<i))
-		;
-
-	gpc[GPC_PGC_CPU_0_1_MAPPING] = 0;
-}
-
-static void
 phyinit(u32int *reg)
 {
 	enum {
@@ -1874,6 +1854,7 @@ coreinit(u32int *reg)
 static int
 reset(Hci *hp)
 {
+	static char *powerdom[] = { "usb_otg1", "usb_otg2" };
 	static Ctlr ctlrs[2];
 	Ctlr *ctlr;
 	int i;
@@ -1915,7 +1896,7 @@ Found:
 		setclkrate("ccm_usb_phy_ref_clk_root", "system_pll1_div8", 100*Mhz);
 		i = 0;
 	}
-	powerup(i);
+	powerup(powerdom[i]);
 	clkenable(i, 1);
 	phyinit(&ctlr->mmio[0xF0040/4]);
 	coreinit(ctlr->mmio);

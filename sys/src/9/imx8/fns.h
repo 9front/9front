@@ -145,5 +145,8 @@ extern void setclkgate(char *name, int on);
 extern void setclkrate(char *name, char *source, int freq);
 extern int getclkrate(char *name);
 
+/* gpc */
+extern void powerup(char *dom);
+
 /* lcd */
 extern void lcdinit(void);

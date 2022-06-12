@@ -39,19 +39,6 @@ enum {
 	GPIO_EDGE_SEL = 0x1C/4,
 };
 
-/* power gating controller registers */
-enum {
-	GPC_PGC_CPU_0_1_MAPPING	= 0xEC/4,
-	GPC_PGC_PU_PGC_SW_PUP_REQ = 0xF8/4,
-
-	GPC_A53_PU_PGC_PUP_STATUS0 = 0x1C4/4,
-	GPC_A53_PU_PGC_PUP_STATUS1 = 0x1C8/4,
-	GPC_A53_PU_PGC_PUP_STATUS2 = 0x1CC/4,
-		DISP_SW_PUP_REQ	= 1<<10,
-		HDMI_SW_PUP_REQ	= 1<<9,
-		MIPI_SW_PUP_REQ = 1<<0,
-};
-
 /* system reset controller registers */
 enum {
 	SRC_MIPIPHY_RCR = 0x28/4,
@@ -393,7 +380,6 @@ static u32int *gpio3 = (u32int*)(VIRTIO + 0x220000);
 static u32int *pwm2 = (u32int*)(VIRTIO + 0x670000);
 
 static u32int *resetc= (u32int*)(VIRTIO + 0x390000);
-static u32int *gpc =   (u32int*)(VIRTIO + 0x3A0000);
 
 static u32int *dsi =   (u32int*)(VIRTIO + 0xA00000);
 static u32int *dphy =  (u32int*)(VIRTIO + 0xA00300);
@@ -875,11 +861,7 @@ lcdinit(void)
 	bridge->subaddr = 1;
 
 	/* power on mipi dsi */
-	wr(gpc, GPC_PGC_CPU_0_1_MAPPING, 0x0000FFFF);
-	mr(gpc, GPC_PGC_PU_PGC_SW_PUP_REQ, MIPI_SW_PUP_REQ, MIPI_SW_PUP_REQ);
-	while(rr(gpc, GPC_PGC_PU_PGC_SW_PUP_REQ) & MIPI_SW_PUP_REQ)
-		;
-	wr(gpc, GPC_PGC_CPU_0_1_MAPPING, 0);
+	powerup("mipi");
 
 	mr(resetc, SRC_MIPIPHY_RCR, 0, RCR_MIPI_DSI_RESET_N);
 	mr(resetc, SRC_MIPIPHY_RCR, 0, RCR_MIPI_DSI_PCLK_RESET_N);

@@ -36,6 +36,7 @@ ip
 	ipmux
 misc
 	ccm
+	gpc
 	gic
 	uartimx
 	lcd
