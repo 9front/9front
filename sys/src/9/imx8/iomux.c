@@ -998,24 +998,19 @@ static struct padopt padopts[] = {
 	"VSEL_6",	7<<11,	6<<11,
 	"VSEL_7",	7<<11,	7<<11,
 
-	"LVTTL_OFF",	1<<8,	0<<8,
 	"LVTTL",	1<<8,	1<<8,
 
-	"HYS_OFF",	1<<7,	0<<7,
 	"HYS",		1<<7,	1<<7,
 
 	"PUE",		1<<6,	1<<6,
-	"PUD",		1<<6,	0<<6,
 
 	"ODE",		1<<5,	1<<5,
-	"ODD",		1<<5,	0<<5,
 
 	"SLOW",		3<<3,	0<<3,
 	"MEDIUM",	3<<3,	1<<3,
 	"FAST",		3<<3,	2<<3,
 	"MAX",		3<<3,	3<<3,
 
-	/* DSE */
 	"HI-Z",		7,	0,
 	"255_OHM",	7,	1,
 	"105_OHM",	7,	2,
@@ -1048,10 +1043,15 @@ Padok:
 
 	if(cfg != nil){
 		struct padopt *o;
+		char *x;
 
 		for(o = padopts; o->s != nil; o++) {
-			if(strstr(cfg, o->s) != nil){
-				val |= o->v;
+			x = strstr(cfg, o->s);
+			if(x != nil){
+				if(x > cfg && x[-1] == '~')
+					val &= ~o->v;
+				else
+					val |= o->v;
 				mask |= o->m;
 			}
 		}
@@ -1063,12 +1063,12 @@ Padok:
 
 		val = 0;
 		mask = 0;
-		if(strstr(cfg, "SION") != nil){
-			val |= SION;
-			mask |= SION;
-		}
-		if(strstr(cfg, "SIOFF") != nil){
-			val &= ~SION;
+		x = strstr(cfg, "SION");
+		if(x != nil){
+			if(x > cfg && x[-1] == '~')
+				val &= ~SION;
+			else
+				val |= SION;
 			mask |= SION;
 		}
 	}
