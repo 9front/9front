@@ -154,3 +154,8 @@ extern void lcdinit(void);
 /* iomux */
 extern void iomuxpad(char *pads, char *sel, char *cfg);
 extern uint iomuxgpr(int gpr, uint set, uint mask);
+
+/* gpio */
+#define GPIO_PIN(n, m)	(((n)-1)<<5 | (m))
+extern void gpioout(uint pin, int set);
+extern int gpioin(uint pin);

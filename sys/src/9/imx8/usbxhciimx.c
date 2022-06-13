@@ -1786,29 +1786,6 @@ clkenable(int i, int on)
 }
 
 static void
-hubreset(int on)
-{
-	/* gpio registers */
-	enum {
-		GPIO_DR = 0x00/4,
-		GPIO_GDIR = 0x04/4,
-		GPIO_PSR = 0x08/4,
-		GPIO_ICR1 = 0x0C/4,
-		GPIO_ICR2 = 0x10/4,
-		GPIO_IMR = 0x14/4,
-		GPIO_ISR = 0x18/4,
-		GPIO_EDGE_SEL = 0x1C/4,
-	};
-	static u32int *gpio1 = (u32int*)(VIRTIO + 0x200000);
-
-	gpio1[GPIO_GDIR] |= 1<<14;	/* output */
-	if(on)
-		gpio1[GPIO_DR] |= 1<<14;
-	else
-		gpio1[GPIO_DR] &= ~(1<<14);
-}
-
-static void
 phyinit(u32int *reg)
 {
 	enum {
@@ -1878,9 +1855,10 @@ Found:
 		iomuxpad("pad_gpio1_io13", "usb1_otg_oc", nil);
 		iomuxpad("pad_gpio1_io14", "gpio1_io14", "FAST 45_OHM");
 
-		hubreset(0);
+		/* gpio1_io14: hub reset */
+		gpioout(GPIO_PIN(1, 14), 0);
 		microdelay(500);
-		hubreset(1);
+		gpioout(GPIO_PIN(1, 14), 1);
 
 		for(i = 0; i < nelem(ctlrs); i++) clkenable(i, 0);
 		setclkrate("ccm_usb_bus_clk_root", "system_pll2_div2", 500*Mhz);

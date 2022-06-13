@@ -14,18 +14,6 @@
 
 extern Memimage *gscreen;
 
-/* gpio registers */
-enum {
-	GPIO_DR = 0x00/4,
-	GPIO_GDIR = 0x04/4,
-	GPIO_PSR = 0x08/4,
-	GPIO_ICR1 = 0x0C/4,
-	GPIO_ICR2 = 0x10/4,
-	GPIO_IMR = 0x14/4,
-	GPIO_ISR = 0x18/4,
-	GPIO_EDGE_SEL = 0x1C/4,
-};
-
 /* system reset controller registers */
 enum {
 	SRC_MIPIPHY_RCR = 0x28/4,
@@ -358,9 +346,6 @@ struct dsi_cfg {
 };
 
 /* base addresses, VIRTIO is at 0x30000000 physical */
-
-static u32int *gpio1 = (u32int*)(VIRTIO + 0x200000);
-static u32int *gpio3 = (u32int*)(VIRTIO + 0x220000);
 
 static u32int *pwm2 = (u32int*)(VIRTIO + 0x670000);
 
@@ -802,6 +787,22 @@ dpiinit(struct video_mode *mode)
 	wr(dsi, DSI_HOST_CFG_DPI_VFP, mode->vso); 
 }
 
+static void
+backlighton(void)
+{
+	/* pwm2_out: for panel backlight */
+	iomuxpad("pad_spdif_rx", "pwm2_out", nil);
+
+	setclkrate("pwm2.ipg_clk_high_freq", "osc_25m_ref_clk", Pwmsrcclk);
+	setclkgate("pwm2.ipg_clk_high_freq", 1);
+
+	wr(pwm2, PWMIR, 0);	
+	wr(pwm2, PWMCR, CR_STOPEN | CR_DOZEN | CR_WAITEN | CR_DBGEN | CR_CLKSRC_HIGHFREQ | 0<<CR_PRESCALER_SHIFT);
+	wr(pwm2, PWMSAR, Pwmsrcclk/150000);
+	wr(pwm2, PWMPR, (Pwmsrcclk/100000)-2);
+	mr(pwm2, PWMCR, CR_EN, CR_EN);
+}
+
 void
 lcdinit(void)
 {
@@ -810,37 +811,25 @@ lcdinit(void)
 	I2Cdev *bridge;
 	char *err;
 
+	/* GPR13[MIPI_MUX_SEL]: 0 = LCDIF, 1 = DCSS */
+	iomuxgpr(13, 0, 1<<2);
+
 	/* gpio3_io20: sn65dsi86 bridge */
 	iomuxpad("pad_sai5_rxc", "gpio3_io20", nil);
 
 	/* gpio1_io10: for panel */
 	iomuxpad("pad_gpio1_io10", "gpio1_io10", nil);	
-
-	/* pwm2_out: for panel backlight */
-	iomuxpad("pad_spdif_rx", "pwm2_out", nil);
 	
-	/* GPR13[MIPI_MUX_SEL]: 0 = LCDIF, 1 = DCSS */
-	iomuxgpr(13, 0, 1<<2);
+	/* gpio1_io10 low: panel off */
+	gpioout(GPIO_PIN(1, 10), 0);
 
-	setclkgate("gpio1.ipg_clk_s", 1);
-	setclkgate("gpio3.ipg_clk_s", 1);
+	backlighton();
 
-	setclkrate("pwm2.ipg_clk_high_freq", "osc_25m_ref_clk", Pwmsrcclk);
-	setclkgate("pwm2.ipg_clk_high_freq", 1);
+	/* gpio1_io10 high: panel on */
+	gpioout(GPIO_PIN(1, 10), 1);
 
-	mr(gpio1, GPIO_GDIR, 1<<10, 1<<10);	/* gpio1 10 output */
-	mr(gpio1, GPIO_DR, 0<<10, 1<<10);	/* gpio1 10 low: panel off */
-
-	wr(pwm2, PWMIR, 0);	
-	wr(pwm2, PWMCR, CR_STOPEN | CR_DOZEN | CR_WAITEN | CR_DBGEN | CR_CLKSRC_HIGHFREQ | 0<<CR_PRESCALER_SHIFT);
-	wr(pwm2, PWMSAR, Pwmsrcclk/150000);
-	wr(pwm2, PWMPR, (Pwmsrcclk/100000)-2);
-	mr(pwm2, PWMCR, CR_EN, CR_EN);
-
-	mr(gpio1, GPIO_DR, 1<<10, 1<<10);	/* gpio1 10 high: panel on */
-
-	mr(gpio3, GPIO_GDIR, 1<<20, 1<<20);	/* gpio3 20 output */
-	mr(gpio3, GPIO_DR, 1<<20, 1<<20);	/* gpio3 20 high: bridge on */
+	/* gpio3_io20 high: bridge on */
+	gpioout(GPIO_PIN(3, 20), 1);
 
 	bridge = i2cdev(i2cbus("i2c4"), 0x2C);
 	if(bridge == nil)

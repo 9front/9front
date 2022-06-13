@@ -37,6 +37,7 @@ ip
 misc
 	ccm
 	gpc
+	gpio
 	gic
 	uartimx
 	lcd
