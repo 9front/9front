@@ -1875,16 +1875,8 @@ reset(Hci *hp)
 
 Found:
 	if(i == 0){
-		static u32int *iomuxc = (u32int*)(VIRTIO + 0x330000);
-		enum {
-			IOMUXC_CTL_PAD_GPIO1_IO13 = 0x5C/4,	/* for gpio1 13 */
-			IOMUXC_CTL_PAD_GPIO1_IO14 = 0x60/4,	/* for gpio1 14 */
-
-			IOMUXC_SW_PAD_CTRL_PAD_GPIO1_IO14 = 0x2C8/4,
-		};
-		iomuxc[IOMUXC_CTL_PAD_GPIO1_IO13] = 1;
-		iomuxc[IOMUXC_CTL_PAD_GPIO1_IO14] = 0;
-		iomuxc[IOMUXC_SW_PAD_CTRL_PAD_GPIO1_IO14] = 0x16;
+		iomuxpad("pad_gpio1_io13", "usb1_otg_oc", nil);
+		iomuxpad("pad_gpio1_io14", "gpio1_io14", "FAST 45_OHM");
 
 		hubreset(0);
 		microdelay(500);

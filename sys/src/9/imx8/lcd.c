@@ -16,12 +16,6 @@ extern Memimage *gscreen;
 
 /* pinmux registers */
 enum {
-	IOMUXC_CTL_PAD_SAI5_RXC = 0x144/4,	/* for gpio3 20 */
-	IOMUXC_CTL_PAD_SPDIF_RX = 0x1EC/4,	/* for pwm2 */
-	IOMUXC_CTL_PAD_GPIO1_IO10 = 0x50/4,	/* for gpio1 10 */
-		SION = 1<<4,
-		MUX_MODE = 7,
-
 	IOMUXC_GPR_GPR13	= 0x10034/4,	/* GPR13 for MIPI_MUX_SEL */
 		MIPI_MUX_SEL = 1<<2,
 		MIPI_MUX_INV = 1<<3,
@@ -825,13 +819,15 @@ lcdinit(void)
 	I2Cdev *bridge;
 	char *err;
 
-	/* gpio3 20 for sn65dsi86 bridge */
-	mr(iomuxc, IOMUXC_CTL_PAD_SAI5_RXC, 5, MUX_MODE);
-	/* gpio1 10 pad for panel */
-	mr(iomuxc, IOMUXC_CTL_PAD_GPIO1_IO10, 0, MUX_MODE);
-	/* pwm2 pad */
-	mr(iomuxc, IOMUXC_CTL_PAD_SPDIF_RX, 1, MUX_MODE);
+	/* gpio3_io20: sn65dsi86 bridge */
+	iomuxpad("pad_sai5_rxc", "gpio3_io20", nil);
 
+	/* gpio1_io10: for panel */
+	iomuxpad("pad_gpio1_io10", "gpio1_io10", nil);	
+
+	/* pwm2_out: for panel backlight */
+	iomuxpad("pad_spdif_rx", "pwm2_out", nil);
+	
 	/* lcdif to dpi=0, dcss=1 */
 	mr(iomuxc, IOMUXC_GPR_GPR13, 0, MIPI_MUX_SEL);
 

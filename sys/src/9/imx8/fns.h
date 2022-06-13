@@ -150,3 +150,6 @@ extern void powerup(char *dom);
 
 /* lcd */
 extern void lcdinit(void);
+
+/* iomuc */
+extern void iomuxpad(char *pads, char *sel, char *cfg);
