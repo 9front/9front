@@ -57,7 +57,7 @@ enable(uint pin)
 void
 gpioout(uint pin, int set)
 {
-	int bit = 1 << (pin % 32);
+	u32int bit = 1 << (pin % 32);
 	Ctlr *ctlr = enable(pin);
 	if(ctlr == nil)
 		return;
@@ -72,7 +72,7 @@ gpioout(uint pin, int set)
 int
 gpioin(uint pin)
 {
-	int bit = 1 << (pin % 32);
+	u32int bit = 1 << (pin % 32);
 	Ctlr *ctlr = enable(pin);
 	if(ctlr == nil)
 		return -1;
