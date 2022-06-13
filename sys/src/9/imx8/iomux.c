@@ -15,6 +15,8 @@ enum {
 	IOMUXC_SW_PAD_CTL_PAD_TEST_MODE	= 0x254/4,
 		
 	IOMUXC_CCM_PMIC_READY_SELECT_INPUT = 0x4BC/4,
+
+	IOMUXC_GPR_GPR0 = 0x10000/4,
 };
 
 enum {
@@ -1122,4 +1124,16 @@ Muxok:
 	reg = &iomuxc[IOMUXC_CCM_PMIC_READY_SELECT_INPUT + daisy];
 // iprint("iomuxpad: %s_input_select %p <= %.8ux & %.8ux\n", signame[sig], PADDR(reg), val, mask);
 	*reg = (*reg & ~mask) | val;
+}
+
+uint
+iomuxgpr(int gpr, uint set, uint mask)
+{
+	u32int *reg = &iomuxc[IOMUXC_GPR_GPR0 + gpr];
+
+	if(mask == 0)
+		return *reg;
+
+// iprint("iomuxgpr: gpr%d %p <= %.8ux & %.8ux\n", gpr, PADDR(reg), set, mask);
+	return *reg = (*reg & ~mask) | (set & mask);
 }

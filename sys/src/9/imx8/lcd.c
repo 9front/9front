@@ -14,13 +14,6 @@
 
 extern Memimage *gscreen;
 
-/* pinmux registers */
-enum {
-	IOMUXC_GPR_GPR13	= 0x10034/4,	/* GPR13 for MIPI_MUX_SEL */
-		MIPI_MUX_SEL = 1<<2,
-		MIPI_MUX_INV = 1<<3,
-};
-
 /* gpio registers */
 enum {
 	GPIO_DR = 0x00/4,
@@ -365,8 +358,6 @@ struct dsi_cfg {
 };
 
 /* base addresses, VIRTIO is at 0x30000000 physical */
-
-static u32int *iomuxc = (u32int*)(VIRTIO + 0x330000);
 
 static u32int *gpio1 = (u32int*)(VIRTIO + 0x200000);
 static u32int *gpio3 = (u32int*)(VIRTIO + 0x220000);
@@ -828,8 +819,8 @@ lcdinit(void)
 	/* pwm2_out: for panel backlight */
 	iomuxpad("pad_spdif_rx", "pwm2_out", nil);
 	
-	/* lcdif to dpi=0, dcss=1 */
-	mr(iomuxc, IOMUXC_GPR_GPR13, 0, MIPI_MUX_SEL);
+	/* GPR13[MIPI_MUX_SEL]: 0 = LCDIF, 1 = DCSS */
+	iomuxgpr(13, 0, 1<<2);
 
 	setclkgate("gpio1.ipg_clk_s", 1);
 	setclkgate("gpio3.ipg_clk_s", 1);
