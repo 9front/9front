@@ -38,17 +38,19 @@ static Ctlr ctlrs[5] = {
 static Ctlr*
 enable(uint pin)
 {
-	Ctlr *ctlr = &ctlrs[pin/32];
+	Ctlr *ctlr;
 
-	assert(ctlr < &ctlrs[nelem(ctlrs)]);
+	pin /= 32;
+	if(pin < 1 || pin > nelem(ctlrs))
+		return nil;
 
+	ctlr = &ctlrs[pin-1];
 	if(!ctlr->enabled){
 		setclkgate(ctlr->clk, 1);
 		ctlr->reg[GPIO_IMR] = 0;
 		ctlr->dir = ctlr->reg[GPIO_GDIR];
 		ctlr->enabled = 1;
 	}
-
 	return ctlr;
 }
 
@@ -57,7 +59,8 @@ gpioout(uint pin, int set)
 {
 	int bit = 1 << (pin % 32);
 	Ctlr *ctlr = enable(pin);
-
+	if(ctlr == nil)
+		return;
 	if((ctlr->dir & bit) == 0)
 		ctlr->reg[GPIO_GDIR] = ctlr->dir |= bit;
 	if(set)
@@ -71,7 +74,8 @@ gpioin(uint pin)
 {
 	int bit = 1 << (pin % 32);
 	Ctlr *ctlr = enable(pin);
-
+	if(ctlr == nil)
+		return -1;
 	if(ctlr->dir & bit)
 		ctlr->reg[GPIO_GDIR] = ctlr->dir &= ~bit;
 	return (ctlr->reg[GPIO_DR] & bit) != 0;
