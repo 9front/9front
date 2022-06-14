@@ -9,15 +9,15 @@
 
 typedef struct Skel Skel;
 struct Skel {
+	RWlock;
 	int ref;
-	QLock lk;
 	char name[KNAMELEN];
 	char mode;
 };
 
 struct
 {
-	QLock lk;
+	QLock;
 	ulong path;
 } skelalloc;
 
@@ -36,19 +36,26 @@ skelattach(char *spec)
 
 	c = devattach('z', spec);
 
-	f = smalloc(sizeof *f);
-	if(spec != nil && spec[0] != '\0' && strchr("de", spec[0]) != nil)
-		f->mode = spec[0];
-	else
+	f = mallocz(sizeof *f, 1);
+	if(f == nil)
+		exhausted("memory");
+	if(waserror()){
+		free(f);
+		nexterror();
+	}
+
+	if(spec == nil)
 		f->mode = 'f';
+	else
+		f->mode = spec[0];
 
-	f->ref = 1;
-
-	qlock(&skelalloc.lk);
+	eqlock(&skelalloc);
 	path = skelalloc.path++;
-	qunlock(&skelalloc.lk);
+	qunlock(&skelalloc);
 
-	mkqid(&c->qid, NETQID(path, Qroot), 0, QTDIR);
+	poperror();
+	mkqid(&c->qid, NETQID(path, Qroot), path, QTDIR);
+	f->ref = 1;
 	c->aux = f;
 	return c;
 }
@@ -59,19 +66,25 @@ step(Chan *c, Dir *dp, int direction)
 	Skel *f;
 	Qid qid;
 	ulong perm;
-	uvlong path;
+	int path;
 	char *name;
 
 	perm = 0555|DMDIR;
 	path = NETTYPE(c->qid.path);
 	f = c->aux;
+	rlock(f);
+	if(waserror()){
+		runlock(f);
+		return -1;
+	}
 	name = f->name;
 
 	path += direction;
-	if(!f->name[0] && path != Qroot)
-		return -1;
+	if(!f->name[0] && path > Qroot)
+		error(Enonexist);
 
 	switch(path){
+	case Qroot-1:
 	case Qroot:
 		mkqid(&qid, Qroot, 0, QTDIR);
 		name = "#z";
@@ -92,27 +105,39 @@ step(Chan *c, Dir *dp, int direction)
 		}
 		break;
 	default:
-		return -1;
+		error(Enonexist);
 	}
 
-	qid.path = NETQID(NETID(c->qid.path), qid.path);
+	qid.vers = NETID(c->qid.path);
+	qid.path = NETQID(qid.vers, qid.path);
 	devdir(c, qid, name, 0, eve, perm, dp);
+	runlock(f);
+	poperror();
 	return 1;
 }
 
 
 static int
-skelgen(Chan *c, char *name, Dirtab *, int, int s, Dir *dp)
+skelgen(Chan *c, char *name, Dirtab*, int, int s, Dir *dp)
 {
 	Skel *f;
 
-	f = c->aux;
-	//First walk away from root
-	if(name && !f->name[0] && f->mode != 'e' && NETTYPE(c->qid.path) == Qroot)
-		utfecpy(f->name, &f->name[sizeof f->name-1], name);
-
-	if(s != DEVDOTDOT)
+	switch(s){
+	case DEVDOTDOT:
+		break;
+	case 0:
 		s++;
+		break;
+	default:
+		return -1;
+	}
+	f = c->aux;
+	if(name && NETTYPE(c->qid.path) == Qroot){
+		wlock(f);
+		if(!f->name[0] && f->mode != 'e')
+			utfecpy(f->name, &f->name[sizeof f->name-1], name);
+		wunlock(f);
+	}
 
 	return step(c, dp, s);
 }
@@ -123,21 +148,16 @@ skelwalk(Chan *c, Chan *nc, char **name, int nname)
 	Walkqid *wq;
 	Skel *f;
 
-	f = c->aux;
-	qlock(&f->lk);
-	if(waserror()){
-		qunlock(&f->lk);
-		nexterror();
-	}
-
 	wq = devwalk(c, nc, name, nname, nil, 0, skelgen);
-	if(wq != nil && wq->clone != nil && wq->clone != c){
-		if(f->ref <= 0)
-			panic("devskel ref");
-		f->ref++;
-	}
-	qunlock(&f->lk);
-	poperror();
+	if(wq == nil || wq->clone == nil)
+		return wq;
+
+	f = c->aux;
+	wlock(f);
+	if(f->ref <= 0)
+		panic("devskel ref");
+	f->ref++;
+	wunlock(f);
 	return wq;
 }
 
@@ -161,53 +181,35 @@ skelclose(Chan *c)
 	Skel *f;
 
 	f = c->aux;
-	qlock(&f->lk);
+	wlock(f);
 	f->ref--;
 	if(f->ref == 0){
-		qunlock(&f->lk);
+		wunlock(f);
 		free(f);
 	} else
-		qunlock(&f->lk);
+		wunlock(f);
 }
 
 static long
 skelread(Chan *c, void *va, long n, vlong)
 {
-	Skel *f;
-	long nout;
-
-	if(!(c->qid.type & QTDIR))
-		error(Eperm);
-
-	f = c->aux;
-	qlock(&f->lk);
-	if(waserror()){
-		qunlock(&f->lk);
-		nexterror();
-	}
-	nout = devdirread(c, va, n, nil, 0, skelgen);
-	qunlock(&f->lk);
-	poperror();
-	return nout;
+	return devdirread(c, va, n, nil, 0, skelgen);
 }
 
 static long
-skelwrite(Chan *, void *, long, vlong)
+skelwrite(Chan*, void*, long, vlong)
 {
-	error(Eperm);
-	return 0;
+	error(Ebadusefd);
+	return -1;
 }
 
 static int
 skelstat(Chan *c, uchar *db, int n)
 {
-	Skel *f;
 	Dir dir;
 
-	f = c->aux;
-	qlock(&f->lk);
-	step(c, &dir, 0);
-	qunlock(&f->lk);
+	if(step(c, &dir, 0) < 0)
+		error(Enonexist);
 
 	n = convD2M(&dir, db, n);
 	if(n < BIT16SZ)
