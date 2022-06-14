@@ -32,6 +32,7 @@ fn connectreboot {
 
 		# set new kernel parameters
 		echo -n $bootargs > '#ec/bootargs'
+		rm -f '#ec/bootloop'
 
 		# remove part of our temporary root
 		/mnt/broot/$cputype/bin/unmount /$cputype/bin /bin
