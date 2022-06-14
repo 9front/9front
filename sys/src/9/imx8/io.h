@@ -7,6 +7,9 @@ enum {
 	IRQcntps	= PPI+13,
 	IRQcntpns	= PPI+14,
 
+	IRQusdhc1	= SPI+22,
+	IRQusdhc2	= SPI+23,
+
 	IRQuart1	= SPI+26,
 	IRQuart2	= SPI+27,
 	IRQuart3	= SPI+28,

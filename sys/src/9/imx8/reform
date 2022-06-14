@@ -19,6 +19,7 @@ dev
 	uart
 	usb
 	i2c
+	sd
 
 link
 	usbxhciimx
@@ -36,12 +37,13 @@ ip
 	ipmux
 misc
 	ccm
+	gic
 	gpc
 	gpio
-	gic
-	uartimx
 	lcd
+	uartimx
 	iomux
+	sdmmc	usdhc
 port
 	int cpuserver = 0;
 bootdir
