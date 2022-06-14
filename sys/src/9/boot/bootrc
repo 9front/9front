@@ -68,6 +68,11 @@ mt=()
 fn main{
 	mp=()
 	while(~ $#mp 0){
+		if(! ~ $#bootloop 0){
+			nobootprompt=$bootloop
+			# 'flatten' for the next boot
+			echo -n $bootloop > '#ec/bootloop'
+		}
 		if(~ $#nobootprompt 0){
 			echo
 			showlocaldevs
