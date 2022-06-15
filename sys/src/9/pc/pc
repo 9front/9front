@@ -18,7 +18,6 @@ dev
 	kprof
 	fs
 	dtracy
-	skel
 
 	ether		netif
 	bridge		netif log

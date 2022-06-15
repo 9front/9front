@@ -29,7 +29,7 @@ binderr(char *new, char *old, int flag)
 			dash[1] = 'a';
 			break;
 		}
-		print("bind %s %s %s\n", dash, new, old);
+		fprint(2, "bind %s %s %s\n", dash, new, old);
 	}
 	if(bind(new, old, flag) < 0)
 		sysfatal("bind: %r");
@@ -72,10 +72,10 @@ sandbox(char **names, int *flags, int nname)
 	Dir *d;
 	int i, j, n;
 
-	snprint(rootskel, sizeof rootskel, "#zd/newroot.%d", getpid());
+	snprint(rootskel, sizeof rootskel, "/mnt/d/newroot.%d", getpid());
 	binderr(rootskel, "/", MBEFORE);
 
-	newroot = rootskel + strlen("#zd");
+	newroot = rootskel + strlen("/mnt/d");
 
 	for(j = 0; j < nname; j++){
 		if(names[j] == nil)
@@ -97,15 +97,40 @@ sandbox(char **names, int *flags, int nname)
 			if(d == nil)
 				continue;
 			if(d->mode & DMDIR)
-				snprint(skel, sizeof skel, "#zd/%s", parts[i]);
+				snprint(skel, sizeof skel, "/mnt/d/%s", parts[i]);
 			else
-				snprint(skel, sizeof skel, "#zf/%s", parts[i]);
+				snprint(skel, sizeof skel, "/mnt/f/%s", parts[i]);
 			free(d);
 			binderr(skel, dir, MBEFORE);
 		}
 		binderr(names[j], targ, flags[j]);
 	}
 	binderr(newroot, "/", MREPL);
+}
+
+void
+skelfs(void)
+{
+	int p[2];
+	int dfd;
+
+	pipe(p);
+	switch(rfork(RFFDG|RFREND|RFPROC|RFNAMEG)){
+	case -1:
+		sysfatal("fork");
+	case 0:
+		close(p[1]);
+		dup(p[0], 0);
+		dup(p[0], 1);
+		execl("/bin/skelfs", "skelfs", debug > 1 ? "-Di" : "-i", nil);
+		sysfatal("exec /bin/skelfs: %r");
+	}
+	close(p[0]);
+	dfd = dup(p[1], -1);
+	if(mount(p[1], -1, "/mnt/f", MREPL, "file") < 0)
+		sysfatal("/mnt/f mount setup: %r");
+	if(mount(dfd, -1, "/mnt/d", MREPL, "dir") < 0)
+		sysfatal("/mnt/d mount setup: %r");
 }
 
 void
@@ -129,8 +154,10 @@ main(int argc, char **argv)
 	nparts = 0;
 	memset(devs, 0, sizeof devs);
 	ARGBEGIN{
+	case 'D':
+		debug++;
 	case 'd':
-		debug = 1;
+		debug++;
 		break;
 	case 'r':
 		parts[nparts] = EARGF(usage());
@@ -164,6 +191,7 @@ main(int argc, char **argv)
 	argv[0] = b;
 
 	rfork(RFNAMEG|RFFDG);
+	skelfs();
 	dfd = open("/dev/drivers", OWRITE|OCEXEC);
 	if(dfd < 0)
 		sysfatal("could not /dev/drivers: %r");
@@ -172,7 +200,7 @@ main(int argc, char **argv)
 	sandbox(parts, mflags, nparts);
 	
 	if(debug)
-		print("chdev %s\n", devs);
+		fprint(2, "chdev %s\n", devs);
 
 	if(devs[0] != '\0'){
 		if(fprint(dfd, "chdev & %s", devs) <= 0)

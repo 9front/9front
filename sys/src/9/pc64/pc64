@@ -41,7 +41,6 @@ dev
 	segment
 	vmx
 	dtracy
-	skel
 
 link
 #	devpccard	pci
