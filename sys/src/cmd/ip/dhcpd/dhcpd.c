@@ -64,8 +64,6 @@ int	mute, mutestat;
 int	minlease = MinLease;
 int	staticlease = StaticLease;
 
-uvlong	start;
-
 static int v6opts;
 
 /* option magic */
@@ -197,15 +195,6 @@ int	validip(uchar*);
 void	vectoropt(Req*, int, uchar*, int);
 
 void
-timestamp(char *tag)
-{
-	uvlong t;
-
-	t = nsec()/1000;
-	syslog(0, blog, "%s %lludµs", tag, t - start);
-}
-
-void
 usage(void)
 {
 	fprint(2, "usage: dhcp [-dmnprsSZ] [-h homedir] [-f ndbfile] [-M minlease] "
@@ -317,7 +306,6 @@ main(int argc, char **argv)
 		n = readlast(r.fd, r.buf, sizeof(r.buf));
 		if(n < Udphdrsize)
 			fatal("error reading requests: %r");
-		start = nsec()/1000;
 		op = optbuf;
 		*op = 0;
 		proto(&r, n);
@@ -409,7 +397,6 @@ proto(Req *rp, int n)
 		dhcp(rp);
 	else
 		bootp(rp);
-	timestamp("done");
 }
 
 static void
@@ -1689,6 +1676,9 @@ logdhcp(Req *rp)
 	char *p, *e;
 	int i;
 
+	if(!debug)
+		return;
+
 	p = buf;
 	e = buf + sizeof(buf);
 	if(rp->dhcptype > 0 && rp->dhcptype <= Inform)
@@ -1718,13 +1708,15 @@ logdhcp(Req *rp)
 	p = seprint(p, e, ")");
 
 	USED(p);
-	syslog(0, blog, "%s", buf);
+	fprint(2, "%s\n", buf);
 }
 
 void
 logdhcpout(Req *rp, char *type)
 {
-	syslog(0, blog, "%s(%I->%I)id(%s)ci(%V)gi(%V)yi(%V)si(%V) %s",
+	if(!debug)
+		return;
+	fprint(2, "%s(%I->%I)id(%s)ci(%V)gi(%V)yi(%V)si(%V) %s\n",
 		type, rp->up->laddr, rp->up->raddr, rp->id,
 		rp->bp->ciaddr, rp->bp->giaddr, rp->bp->yiaddr, rp->bp->siaddr, optbuf);
 }
