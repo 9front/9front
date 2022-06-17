@@ -144,6 +144,7 @@ misc
 
 	dtracysys
 	dtracytimer
+	dtracydev
 
 ip
 	tcp
