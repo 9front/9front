@@ -1852,8 +1852,8 @@ reset(Hci *hp)
 
 Found:
 	if(i == 0){
-		iomuxpad("pad_gpio1_io13", "usb1_otg_oc", nil);
-		iomuxpad("pad_gpio1_io14", "gpio1_io14", "FAST 45_OHM");
+		iomuxpad("pad_gpio1_io13", "usb1_otg_oc", "~LVTTL ~HYS ~PUE ~ODE FAST 45_OHM");
+		iomuxpad("pad_gpio1_io14", "gpio1_io14", "~LVTTL HYS PUE ~ODE FAST 45_OHM");
 
 		/* gpio1_io14: hub reset */
 		gpioout(GPIO_PIN(1, 14), 0);
