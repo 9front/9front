@@ -790,8 +790,14 @@ dpiinit(struct video_mode *mode)
 static void
 backlighton(void)
 {
+	/* gpio1_io10: for panel backlight enable */
+	iomuxpad("pad_gpio1_io10", "gpio1_io10", "~LVTTL ~HYS ~PUE ~ODE FAST 45_OHM");
+
+	/* gpio1_io10 low: panel backlight off */
+	gpioout(GPIO_PIN(1, 10), 0);
+
 	/* pwm2_out: for panel backlight */
-	iomuxpad("pad_spdif_rx", "pwm2_out", nil);
+	iomuxpad("pad_spdif_rx", "pwm2_out", "~LVTTL ~HYS ~PUE ~ODE FAST 45_OHM");
 
 	setclkrate("pwm2.ipg_clk_high_freq", "osc_25m_ref_clk", Pwmsrcclk);
 	setclkgate("pwm2.ipg_clk_high_freq", 1);
@@ -801,6 +807,9 @@ backlighton(void)
 	wr(pwm2, PWMSAR, Pwmsrcclk/150000);
 	wr(pwm2, PWMPR, (Pwmsrcclk/100000)-2);
 	mr(pwm2, PWMCR, CR_EN, CR_EN);
+
+	/* gpio1_io10 high: panel backlight on */
+	gpioout(GPIO_PIN(1, 10), 1);
 }
 
 void
@@ -814,19 +823,10 @@ lcdinit(void)
 	/* GPR13[MIPI_MUX_SEL]: 0 = LCDIF, 1 = DCSS */
 	iomuxgpr(13, 0, 1<<2);
 
-	/* gpio3_io20: sn65dsi86 bridge */
-	iomuxpad("pad_sai5_rxc", "gpio3_io20", nil);
-
-	/* gpio1_io10: for panel */
-	iomuxpad("pad_gpio1_io10", "gpio1_io10", nil);	
-	
-	/* gpio1_io10 low: panel off */
-	gpioout(GPIO_PIN(1, 10), 0);
-
 	backlighton();
 
-	/* gpio1_io10 high: panel on */
-	gpioout(GPIO_PIN(1, 10), 1);
+	/* gpio3_io20: sn65dsi86 bridge enable */
+	iomuxpad("pad_sai5_rxc", "gpio3_io20", "~LVTTL ~HYS ~PUE ~ODE FAST 45_OHM");	
 
 	/* gpio3_io20 high: bridge on */
 	gpioout(GPIO_PIN(3, 20), 1);
