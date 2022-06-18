@@ -688,6 +688,23 @@ pnp(Ether *edev)
 	edev->mbps = 1000;
 	edev->maxmtu = Maxtu;
 
+	iomuxpad("pad_enet_mdc", "enet1_mdc", "~LVTTL ~HYS ~PUE ~ODE SLOW 75_OHM");
+	iomuxpad("pad_enet_mdio", "enet1_mdio", "~LVTTL ~HYS ~PUE ODE SLOW 75_OHM");
+
+	iomuxpad("pad_enet_td3", "enet1_rgmii_td3", "~LVTTL ~HYS ~PUE ~ODE MAX 40_OHM");
+	iomuxpad("pad_enet_td2", "enet1_rgmii_td2", "~LVTTL ~HYS ~PUE ~ODE MAX 40_OHM");
+	iomuxpad("pad_enet_td1", "enet1_rgmii_td1", "~LVTTL ~HYS ~PUE ~ODE MAX 40_OHM");
+	iomuxpad("pad_enet_td0", "enet1_rgmii_td0", "~LVTTL ~HYS ~PUE ~ODE MAX 40_OHM");
+	iomuxpad("pad_enet_tx_ctl", "enet1_rgmii_tx_ctl",  "~LVTTL ~HYS ~PUE ~ODE MAX 40_OHM VSEL_0");
+	iomuxpad("pad_enet_txc", "enet1_rgmii_txc",  "~LVTTL ~HYS ~PUE ~ODE MAX 40_OHM");
+
+	iomuxpad("pad_enet_rxc", "enet1_rgmii_rxc", "~LVTTL HYS ~PUE ~ODE FAST 255_OHM");
+	iomuxpad("pad_enet_rx_ctl", "enet1_rgmii_rx_ctl", "~LVTTL HYS ~PUE ~ODE FAST 255_OHM");
+	iomuxpad("pad_enet_rd0", "enet1_rgmii_rd0", "~LVTTL HYS ~PUE ~ODE FAST 255_OHM");
+	iomuxpad("pad_enet_rd1", "enet1_rgmii_rd1", "~LVTTL HYS ~PUE ~ODE FAST 255_OHM");
+	iomuxpad("pad_enet_rd2", "enet1_rgmii_rd2", "~LVTTL HYS ~PUE ~ODE FAST 255_OHM");
+	iomuxpad("pad_enet_rd3", "enet1_rgmii_rd3", "~LVTTL HYS ~PUE ~ODE FAST 255_OHM");
+
 	setclkgate("enet1.ipp_ind_mac0_txclk", 0);
 	setclkgate("sim_enet.mainclk", 0);
 
