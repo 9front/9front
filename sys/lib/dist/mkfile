@@ -88,6 +88,18 @@ cd:V:	/tmp/9front.386.iso.gz
 	mv $target.$pid.disk $target
 	}
 
+%.reform.img:	/n/src9/sys/src/boot/reform/flash.bin
+	@{
+	objtype=arm64
+	kernel=/n/src9/$objtype/9reform.u
+	echo 'load ${devtype} ${devnum}:${bootpart} ${kernel_addr_r} ${prefix}9reform.u; bootm ${kernel_addr_r}' > /env/boot.txt
+	aux/txt2uimage -o /env/boot.scr /env/boot.txt
+	fatfiles=(/env/boot.scr $kernel)
+	mb=1885	# storage vendors idea of 2GB
+	mk $target.$pid.disk
+	mv $target.$pid.disk $target && dd -trunc 0 -bs 1024 -oseek 33 -if /n/src9/sys/src/boot/reform/flash.bin -of $target 
+	}
+
 %.pc.iso:D:	$proto /n/src9/sys/lib/sysconfig/proto/9bootproto $kernel
 	@{rfork n
 	mk binds
@@ -131,6 +143,20 @@ cd:V:	/tmp/9front.386.iso.gz
 	if(~ $target *.pi.img.* *.pi3.img.*){
 		{
 			echo 'a p1 . .+100M'
+			echo 't p1 FAT32'
+			echo 'a p2 . $'
+			echo 't p2 PLAN9'
+			echo 'A p1'
+			echo 'p'
+			echo 'w'
+			echo 'q'
+		} | disk/fdisk -b $d/data
+		disk/prep -bw -a^(nvram fs) $d/plan9
+		disk/format -d $d/dos $fatfiles
+	}
+	if not if(~ $target *.reform.img.*){
+		{
+			echo 'a p1 4M 100M'
 			echo 't p1 FAT32'
 			echo 'a p2 . $'
 			echo 't p2 PLAN9'
