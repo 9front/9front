@@ -10,6 +10,7 @@
 enum {
 	Initfreq	= 400000,	/* initialisation frequency for MMC */
 	SDfreq		= 25*Mhz,	/* standard SD frequency */
+	SDfreqhs	= 50*Mhz,	/* highspeed frequency */
 	DTO		= 14,		/* data timeout exponent (guesswork) */
 
 	GoIdle		= 0,		/* mmc/sdio go idle state */
@@ -446,6 +447,15 @@ usdhccmd(u32int cmd, u32int arg, u32int *resp)
 				WR(Control0, (RR(Control0) & ~DwidthMask) | Dwidth4);
 				break;
 			}
+		} else {
+			/*
+			 * If card switched into high speed mode, increase clock speed
+			 */
+			if((arg&0x8000000F) == 0x80000001){
+				delay(1);
+				usdhcclk(SDfreqhs);
+				delay(1);
+			}
 		}
 	}else if(cmd == IORWdirect && (arg & ~0xFF) == (1<<31|0<<28|7<<9)){
 		switch(arg & 0x3){
@@ -518,4 +528,5 @@ SDio sdio = {
 	usdhccmd,
 	usdhciosetup,
 	usdhcio,
+	.highspeed = 1,
 };
