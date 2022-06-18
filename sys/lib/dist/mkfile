@@ -77,7 +77,7 @@ cd:V:	/tmp/9front.386.iso.gz
 	mv $target.$pid.disk $target
 	}
 
-%.zynq.img:
+%.zynq.img:D:
 	@{
 	objtype=arm
 	kernel=/n/src9/$objtype/9zynq
@@ -88,13 +88,11 @@ cd:V:	/tmp/9front.386.iso.gz
 	mv $target.$pid.disk $target
 	}
 
-%.reform.img:	/n/src9/sys/src/boot/reform/flash.bin
+%.reform.img:D:	/n/src9/sys/src/boot/reform/flash.bin /n/src9/sys/src/boot/reform/boot.scr
 	@{
 	objtype=arm64
 	kernel=/n/src9/$objtype/9reform.u
-	echo 'load ${devtype} ${devnum}:${bootpart} ${kernel_addr_r} ${prefix}9reform.u; bootm ${kernel_addr_r}' > /env/boot.txt
-	aux/txt2uimage -o /env/boot.scr /env/boot.txt
-	fatfiles=(/env/boot.scr $kernel)
+	fatfiles=(/n/src9/sys/src/boot/reform/boot.scr $kernel)
 	mb=1885	# storage vendors idea of 2GB
 	mk $target.$pid.disk
 	mv $target.$pid.disk $target && dd -trunc 0 -bs 1024 -oseek 33 -if /n/src9/sys/src/boot/reform/flash.bin -of $target 

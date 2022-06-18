@@ -1,0 +1,2 @@
+load ${devtype} ${devnum}:${bootpart} ${kernel_addr_r} ${prefix}9reform.u
+bootm ${kernel_addr_r}
