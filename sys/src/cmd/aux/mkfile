@@ -43,6 +43,7 @@ TARG=\
 	tablet\
 	timesync\
 	trampoline\
+	txt2uimage\
 	unbflz\
 	usage\
 	write\
