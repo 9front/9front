@@ -355,6 +355,7 @@ portattach(Hub *h, int p, u32int sts)
 	char *sp;
 	int mp;
 	int nr;
+	int i;
 
 	d = h->dev;
 	pp = &h->port[p];
@@ -421,9 +422,13 @@ portattach(Hub *h, int p, u32int sts)
 	nd->isusb3 = h->dev->isusb3;
 	if(usbdebug > 2)
 		devctl(nd, "debug 1");
-	if(opendevdata(nd, ORDWR) < 0){
+	for(i=0;; i++){
+		if(opendevdata(nd, ORDWR) >= 0)
+			break;
 		fprint(2, "%s: %s: opendevdata: %r\n", argv0, nd->dir);
-		goto Fail;
+		if(i >= 4)
+			goto Fail;
+		sleep(500);
 	}
 	if(usbcmd(nd, Rh2d|Rstd|Rdev, Rsetaddress, nd->id, 0, nil, 0) < 0){
 		dprint(2, "%s: %s: port %d: setaddress: %r\n", argv0, d->dir, p);
