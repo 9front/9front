@@ -162,6 +162,7 @@ struct SDio {
 	void	(*iosetup)(int, void*, int, int);
 	void	(*io)(int, uchar*, int);
 	char	highspeed;
+	char	nomultiwrite;	/* quirk for usdhc */
 };
 
 extern SDio sdio;

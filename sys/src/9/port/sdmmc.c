@@ -332,7 +332,7 @@ mmcbio(SDunit *unit, int lun, int write, void *data, long nb, uvlong bno)
 		error(Echange);
 	buf = data;
 	len = unit->secsize;
-	if(Multiblock){
+	if(Multiblock && (!write || !io->nomultiwrite)){
 		b = bno;
 		tries = 0;
 		while(waserror())

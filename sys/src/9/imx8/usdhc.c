@@ -219,16 +219,15 @@ dmaalloc(void *addr, int len)
 	uintptr a;
 	Adma *adma, *p;
 
-	a = (uintptr)addr;
+	a = PADDR(addr);
 	n = (len + Maxdma-1) / Maxdma;
 	adma = sdmalloc(n * sizeof(Adma));
 	for(p = adma; len > 0; p++){
-		p->desc = Valid | Tran;
 		if(n == 1)
-			p->desc |= len<<OLength | End | Int;
+			p->desc = len<<OLength | End | Int | Valid | Tran;
 		else
-			p->desc |= Maxdma<<OLength;
-		p->addr = PADDR(a);
+			p->desc = Maxdma<<OLength | Valid | Tran;
+		p->addr = a;
 		a += Maxdma;
 		len -= Maxdma;
 		n--;
@@ -529,4 +528,5 @@ SDio sdio = {
 	usdhciosetup,
 	usdhcio,
 	.highspeed = 1,
+	.nomultiwrite = 1,
 };
