@@ -1,0 +1,9 @@
+FILES=flash.bin
+
+all:V:	flash.bin
+
+clean:V:
+	rm -f $FILES
+
+flash.bin:
+	hget -o flash.bin 'https://source.mnt.re/reform/reform-boundary-uboot/-/jobs/artifacts/v3/raw/flash.bin?job=build'
