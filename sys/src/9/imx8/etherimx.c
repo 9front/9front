@@ -9,7 +9,10 @@
 #include "../port/ethermii.h"
 
 enum {
-	Moduleclk	= 125000000,	/* 125Mhz */
+	Ptpclk		= 100*Mhz,
+	Busclk		= 266*Mhz,
+	Txclk		= 125*Mhz,
+
 	Maxtu		= 1518,
 
 	R_BUF_SIZE	= ((Maxtu+BLOCKALIGN-1)&~BLOCKALIGN),
@@ -231,6 +234,7 @@ struct Ctlr
 
 	struct {
 		Mii;
+		int done;
 		Rendez;
 	}	mii[1];
 
@@ -245,7 +249,7 @@ static int
 mdiodone(void *arg)
 {
 	Ctlr *ctlr = arg;
-	return rr(ctlr, ENET_EIR) & INT_MII;
+	return ctlr->mii->done || (rr(ctlr, ENET_EIR) & INT_MII) != 0;
 }
 static int
 mdiowait(Ctlr *ctlr)
@@ -265,9 +269,13 @@ mdiow(Mii* mii, int phy, int addr, int data)
 	Ctlr *ctlr = mii->ctlr;
 
 	data &= 0xFFFF;
+
 	wr(ctlr, ENET_EIR, INT_MII);
+	ctlr->mii->done = 0;
+
 	wr(ctlr, ENET_MMFR, MMFR_WR | MMFR_ST | MMFR_TA | phy<<MMFR_PA_SHIFT | addr<<MMFR_RA_SHIFT | data);
-	if(mdiowait(ctlr) < 0) return -1;
+	if(mdiowait(ctlr) < 0)
+		return -1;
 	return data;
 }
 static int
@@ -276,8 +284,11 @@ mdior(Mii* mii, int phy, int addr)
 	Ctlr *ctlr = mii->ctlr;
 
 	wr(ctlr, ENET_EIR, INT_MII);
+	ctlr->mii->done = 0;
+
 	wr(ctlr, ENET_MMFR, MMFR_RD | MMFR_ST | MMFR_TA | phy<<MMFR_PA_SHIFT | addr<<MMFR_RA_SHIFT);
-	if(mdiowait(ctlr) < 0) return -1;
+	if(mdiowait(ctlr) < 0)
+		return -1;
 	return rr(ctlr, ENET_MMFR) & 0xFFFF;
 }
 
@@ -289,11 +300,13 @@ interrupt(Ureg*, void *arg)
 	u32int e;
 
 	e = rr(ctlr, ENET_EIR);
-	wr(ctlr, ENET_EIR, e);
-
 	if(e & INT_RXF) wakeup(ctlr->rx);
 	if(e & INT_TXF) wakeup(ctlr->tx);
-	if(e & INT_MII) wakeup(ctlr->mii);
+	if(e & INT_MII) {
+		ctlr->mii->done = 1;
+		wakeup(ctlr->mii);
+	}
+	wr(ctlr, ENET_EIR, e);
 }
 
 static void
@@ -450,13 +463,11 @@ linkproc(void *arg)
 	Ether *edev = arg;
 	Ctlr *ctlr = edev->ctlr;
 	MiiPhy *phy;
-	int link = -1;
+	int link = 0;
 
 	while(waserror())
 		;
-
-	miiane(ctlr->mii, ~0, AnaAP|AnaP, ~0);
-
+	miiane(ctlr->mii, ~0, ~0, ~0);
 	for(;;){
 		miistatus(ctlr->mii);
 		phy = ctlr->mii->curphy;
@@ -505,7 +516,7 @@ linkproc(void *arg)
 			edev->mbps = phy->speed;
 
 			wr(ctlr, ENET_RDAR, RDAR_ACTIVE);
-		}
+		} 
 		edev->link = link;
 		print("#l%d: link %d speed %d\n", edev->ctlrno, edev->link, edev->mbps);
 	}
@@ -532,7 +543,7 @@ attach(Ether *edev)
 	wr(ctlr, ENET_RCR, RCR_MII_MODE | RCR_RGMII_EN | Maxtu<<RCR_MAX_FL_SHIFT);
 
 	/* set MII clock to 2.5Mhz, 10ns hold time */
-	wr(ctlr, ENET_MSCR, ((Moduleclk/(2*2500000))-1)<<MSCR_SPEED_SHIFT | ((Moduleclk/10000000)-1)<<MSCR_HOLD_SHIFT);
+	wr(ctlr, ENET_MSCR, ((Busclk/(2*2500000))-1)<<MSCR_SPEED_SHIFT | ((Busclk/1000000)-1)<<MSCR_HOLD_SHIFT);
 
 	ctlr->intmask |= INT_MII;
 	wr(ctlr, ENET_EIMR, ctlr->intmask);
@@ -586,8 +597,8 @@ attach(Ether *edev)
 	wr(ctlr, ENET_TFWR, TFWR_STRFWD);
 
 	/* interrupt coalescing: 200 pkts, 1000 µs */
-	wr(ctlr, ENET_RXIC0, IC_EN | 200<<IC_FT_SHIFT | ((1000*Moduleclk)/64000000)<<IC_TT_SHIFT);
-	wr(ctlr, ENET_TXIC0, IC_EN | 200<<IC_FT_SHIFT | ((1000*Moduleclk)/64000000)<<IC_TT_SHIFT);
+	wr(ctlr, ENET_RXIC0, IC_EN | 200<<IC_FT_SHIFT | ((1000*Txclk)/64000000)<<IC_TT_SHIFT);
+	wr(ctlr, ENET_TXIC0, IC_EN | 200<<IC_FT_SHIFT | ((1000*Txclk)/64000000)<<IC_TT_SHIFT);
 
 	ctlr->intmask |= INT_TXF | INT_RXF;
 	wr(ctlr, ENET_EIMR, ctlr->intmask);
@@ -708,9 +719,9 @@ pnp(Ether *edev)
 	setclkgate("enet1.ipp_ind_mac0_txclk", 0);
 	setclkgate("sim_enet.mainclk", 0);
 
-	setclkrate("enet1.ipg_clk", "system_pll1_div3", 266*Mhz);
-	setclkrate("enet1.ipp_ind_mac0_txclk", "system_pll2_div8", Moduleclk);
-	setclkrate("enet1.ipg_clk_time", "system_pll2_div10", 25*Mhz);
+	setclkrate("enet1.ipg_clk", "system_pll1_div3", Busclk);
+	setclkrate("enet1.ipp_ind_mac0_txclk", "system_pll2_div8", Txclk);
+	setclkrate("enet1.ipg_clk_time", "system_pll2_div10", Ptpclk);
 
 	setclkgate("enet1.ipp_ind_mac0_txclk", 1);
 	setclkgate("sim_enet.mainclk", 1);

@@ -87,6 +87,8 @@ miireset(Mii* mii)
 	if(mii == nil || mii->ctlr == nil || mii->curphy == nil)
 		return -1;
 	bmcr = mii->mir(mii, mii->curphy->phyno, Bmcr);
+	if(bmcr == -1)
+		return -1;
 	bmcr |= BmcrR;
 	mii->miw(mii, mii->curphy->phyno, Bmcr, bmcr);
 	microdelay(1);
@@ -104,6 +106,8 @@ miiane(Mii* mii, int a, int p, int e)
 	phyno = mii->curphy->phyno;
 
 	bmsr = mii->mir(mii, phyno, Bmsr);
+	if(bmsr == -1)
+		return -1;
 	if(!(bmsr & BmsrAna))
 		return -1;
 
@@ -113,6 +117,8 @@ miiane(Mii* mii, int a, int p, int e)
 		anar = mii->curphy->anar;
 	else{
 		anar = mii->mir(mii, phyno, Anar);
+		if(anar == -1)
+			return -1;
 		anar &= ~(AnaAP|AnaP|AnaT4|AnaTXFD|AnaTXHD|Ana10FD|Ana10HD);
 		if(bmsr & Bmsr10THD)
 			anar |= Ana10HD;
@@ -133,6 +139,8 @@ miiane(Mii* mii, int a, int p, int e)
 
 	if(bmsr & BmsrEs){
 		mscr = mii->mir(mii, phyno, Mscr);
+		if(mscr == -1)
+			return -1;
 		mscr &= ~(Mscr1000TFD|Mscr1000THD);
 		if(e != ~0)
 			mscr |= (Mscr1000TFD|Mscr1000THD) & e;
@@ -140,6 +148,8 @@ miiane(Mii* mii, int a, int p, int e)
 			mscr = mii->curphy->mscr;
 		else{
 			r = mii->mir(mii, phyno, Esr);
+			if(r == -1)
+				return -1;
 			if(r & Esr1000THD)
 				mscr |= Mscr1000THD;
 			if(r & Esr1000TFD)
@@ -148,9 +158,12 @@ miiane(Mii* mii, int a, int p, int e)
 		mii->curphy->mscr = mscr;
 		mii->miw(mii, phyno, Mscr, mscr);
 	}
-	mii->miw(mii, phyno, Anar, anar);
+	if(mii->miw(mii, phyno, Anar, anar) == -1)
+		return -1;
 
 	r = mii->mir(mii, phyno, Bmcr);
+	if(r == -1)
+		return -1;
 	if(!(r & BmcrR)){
 		r |= BmcrAne|BmcrRan;
 		mii->miw(mii, phyno, Bmcr, r);
@@ -175,12 +188,16 @@ miistatus(Mii* mii)
 	 * (Read status twice as the Ls bit is sticky).
 	 */
 	bmsr = mii->mir(mii, phyno, Bmsr);
+	if(bmsr == -1)
+		return -1;
 	if(!(bmsr & (BmsrAnc|BmsrAna))) {
 		// print("miistatus: auto-neg incomplete\n");
 		return -1;
 	}
 
 	bmsr = mii->mir(mii, phyno, Bmsr);
+	if(bmsr == -1)
+		return -1;
 	if(!(bmsr & BmsrLs)){
 		// print("miistatus: link down\n");
 		phy->link = 0;
@@ -190,6 +207,8 @@ miistatus(Mii* mii)
 	phy->speed = phy->fd = phy->rfc = phy->tfc = 0;
 	if(phy->mscr){
 		r = mii->mir(mii, phyno, Mssr);
+		if(r == -1)
+			return -1;
 		if((phy->mscr & Mscr1000TFD) && (r & Mssr1000TFD)){
 			phy->speed = 1000;
 			phy->fd = 1;
@@ -199,6 +218,8 @@ miistatus(Mii* mii)
 	}
 
 	anlpar = mii->mir(mii, phyno, Anlpar);
+	if(anlpar == -1)
+		return -1;
 	if(phy->speed == 0){
 		r = phy->anar & anlpar;
 		if(r & AnaTXFD){
