@@ -27,7 +27,7 @@ struct Ndb
 	Ndb		*next;
 
 	Biobufhdr	b;		/* buffered input file */
-	uchar		buf[256];	/* and its buffer */
+	uchar		buf[8192];	/* and its buffer */
 
 	ulong		mtime;		/* mtime of db file */
 	Qid		qid;		/* qid of db file */
