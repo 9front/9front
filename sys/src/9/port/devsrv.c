@@ -557,8 +557,13 @@ srvread(Chan *c, void *va, long n, vlong off)
 	if(NETTYPE(c->qid.path) == Qlease){
 		b = c->aux;
 		rlock(b);
+		if(waserror()){
+			runlock(b);
+			nexterror();
+		}
 		n = readstr((ulong)off, va, n, b->name);
 		runlock(b);
+		poperror();
 		return n;
 	}
 	isdir(c);
