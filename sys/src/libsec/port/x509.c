@@ -788,6 +788,7 @@ encode(Elem e, Bytes** pbytes)
 
 	p = &uc;
 	err = enc(&p, e, 1);
+	*pbytes = nil;
 	if(err == ASN_OK) {
 		ans = newbytes(p-&uc);
 		p = ans->data;
@@ -2900,6 +2901,32 @@ asn1encodeRSApriv(RSApriv *k, uchar *buf, int len)
 	}
 	memmove(buf, b->data, len = b->len);
 	freebytes(b);
+	return len;
+}
+
+int
+asn1encodeRSApubSPKI(RSApub *pk, uchar *buf, int len)
+{
+	Bytes *b, *k;
+	Elem e;
+
+	k = encode_rsapubkey(pk);
+	if(k == nil)
+		return -1;
+	e = mkseq(
+		mkel(mkalg(ALG_rsaEncryption),
+		mkel(mkbits(k->data, k->len),
+		nil)));
+	encode(e, &b);
+	freebytes(k);
+	if(b == nil)
+		return -1;
+	if(b->len > len){
+		freebytes(b);
+		werrstr("buffer too small");
+		return -1;
+	}
+	memmove(buf, b->data, len = b->len);
 	return len;
 }
 

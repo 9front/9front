@@ -28,7 +28,11 @@ rsagen, rsafill, asn12rsa, rsa2asn1, rsa2pub, rsa2ssh, rsa2x509, rsa2csr, rsa2jw
 .PP
 .B rsa2asn1
 [
--a
+.B -a
+]
+[
+.B -f
+.I fmt
 ]
 [
 .I file
@@ -200,6 +204,16 @@ but outputs the public key in ASN.1/DER format.
 With the
 .I -a
 flag a private key is read and encoded in ANS.1/DER format.
+With the
+.I -f
+flag, the format of the ASN.1/DER encoded key is selected.
+The supported formats are 
+.I pkcs1
+and 
+.IR spki ,
+which refer to RFC3447 RSAPublicKey and RFC5280 SubjectPublicKeyInfo
+formatted RSA keys respectively.
+The default format is pkcs1.
 .PP
 .I Rsa2ssh
 reads a Plan 9 RSA public or private key and prints the public portion 

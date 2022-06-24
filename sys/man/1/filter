@@ -24,6 +24,15 @@ filter, list, deliver, token, vf \-  filtering mail
 .I recipient
 .I fromfile
 .I mbox
+.B upas/dkim
+[
+.B -d
+.I domain
+]
+[
+.B -s
+.I selector
+]
 .PP
 .B upas/token
 .I key
@@ -183,6 +192,23 @@ mail to your pattern file.
 You should copy it into a directory that normally gets
 bound by your profile onto
 .BR /bin .
+.PP
+.I Dkim
+Takes a mail message as standard input, and signs
+a selection of headers and the body of the message.
+The
+.I -d
+flag specifies the domain,
+and the
+.I -s
+flag specifies the selector. If the selector is not
+specified, it defaults to
+.IR dkim .
+The keyspec searched for the signing key is:
+.IP
+.EX
+proto=rsa service=dkim role=sign hash=sha256 domain=$domain
+.EE
 .PP
 .I Vf
 (virus filter)

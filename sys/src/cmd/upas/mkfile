@@ -6,6 +6,7 @@ PROGS=\
 	alias\
 	bayes\
 	binscripts\
+	dkim\
 	filterkit\
 	fs\
 	imap4d\

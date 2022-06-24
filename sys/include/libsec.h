@@ -374,6 +374,7 @@ mpint*		pkcs1padbuf(uchar *buf, int len, mpint *modulus, int blocktype);
 int		pkcs1unpadbuf(uchar *buf, int len, mpint *modulus, int blocktype);
 int		asn1encodeRSApub(RSApub *pk, uchar *buf, int len);
 int		asn1encodeRSApriv(RSApriv *k, uchar *buf, int len);
+int		asn1encodeRSApubSPKI(RSApub *pk, uchar *buf, int len);
 int		asn1encodedigest(DigestState* (*fun)(uchar*, ulong, uchar*, DigestState*),
 			uchar *digest, uchar *buf, int len);
 
