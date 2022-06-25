@@ -54,11 +54,13 @@ static Cell dollar1 = { OCELL, CFLD, nil, "", 0.0, FLD|STR|DONTFREE };
 
 void recinit(unsigned int n)
 {
+	assert(n > 0);
 	record = (char *) malloc(n);
 	fields = (char *) malloc(n);
 	fldtab = (Cell **) malloc((nfields+1) * sizeof(Cell *));
 	if (record == nil || fields == nil || fldtab == nil)
 		FATAL("out of space for $0 and fields");
+	record[0] = '\0';
 	fldtab[0] = (Cell *) malloc(sizeof (Cell));
 	*fldtab[0] = dollar0;
 	fldtab[0]->sval = record;
@@ -108,7 +110,7 @@ int getrec(char **pbuf, int *pbufsize, int isrecord)	/* get next input record */
 		firsttime = 0;
 		initgetrec();
 	}
-	   dprint( ("RS=<%s>, FS=<%s>, AARGC=%g, FILENAME=%s\n",
+ 	dprint( ("RS=<%s>, FS=<%s>, AARGC=%g, FILENAME=%s\n",
 		*RS, *FS, *AARGC, *FILENAME) );
 	if (isrecord) {
 		donefld = 0;
