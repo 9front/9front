@@ -387,7 +387,7 @@ lower(char *s)
 }
 
 int
-spfquery(Squery *x, char *d, int include)
+spfquery(Squery *x, char *d, int include, int depth)
 {
 	char *s, **t, *r, *p, *q, buf[10];
 	int i, n, c;
@@ -396,6 +396,10 @@ spfquery(Squery *x, char *d, int include)
 	if(include)
 	if(inc = includeloop(d, nspf-1)){
 		fprint(2, "spf: include loop: %s (%s)\n", d, inc->s);
+		return -1;
+	}
+	if(depth >= 10){
+		fprint(2, "spf: too much recursion %s\n", d);
 		return -1;
 	}
 	s = spffetch(x, d);
@@ -457,7 +461,7 @@ spfquery(Squery *x, char *d, int include)
 				if(rflag)
 					fprint(2, "I> %s\n", q);
 				addbegin(mod, r, q);
-				if(spfquery(x, q, 1) == -1){
+				if(spfquery(x, q, 1, depth+1) == -1){
 					ditch();
 					addfail();
 				}else
@@ -704,7 +708,7 @@ main(int argc, char **argv)
 				goto loop;
 			spfinit(&q, d, argc, argv);	/* or s? */
 			addbegin('+', ".", s);
-			if(spfquery(&q, s, 0) != -1)
+			if(spfquery(&q, s, 0, 0) != -1)
 				break;
 		}
 		if(eflag && nspf)
