@@ -5,6 +5,8 @@
 #include <bio.h>
 
 uint messagesize = 65536;	/* just a buffer size */
+int aflag;
+int srvfd;
 
 void
 usage(void)
@@ -37,21 +39,31 @@ connectcmd(char *cmd)
 	}
 }
 
+static int rendez;
+
 void
 watch(int fd)
 {
 	int n;
 	uchar *buf;
-	Fcall f;
+	Fcall f, *p;
 	
 	buf = malloc(messagesize);
 	if(buf == nil)
 		sysfatal("out of memory");
 
 	while((n = read9pmsg(fd, buf, messagesize)) > 0){
+		memset(&f, 0, sizeof f);
 		if(convM2S(buf, n, &f) != n){
 			print("convM2S: %r\n");
 			continue;
+		}
+		if(aflag){
+			p = malloc(sizeof *p);
+			if(p == nil)
+				sysfatal("out of memory");
+			memmove(p, &f, sizeof f);
+			rendezvous(&rendez, p);
 		}
 		print("\t<- %F\n", &f);
 	}
@@ -62,7 +74,7 @@ watch(int fd)
 }
 
 char*
-tversion(Fcall *f, int, char **argv)
+version(Fcall *f, int, char **argv)
 {
 	f->msize = strtol(argv[0], 0, 0);
 	if(f->msize > messagesize)
@@ -78,6 +90,58 @@ tauth(Fcall *f, int, char **argv)
 	f->uname = argv[1];
 	f->aname = argv[2];
 	return nil;
+}
+
+char*
+strtoqid(char *s, Qid *q)
+{
+	char *dot;
+	int state;
+	char buf[1024];
+	char *p;
+
+	state = 0;
+	p = buf;
+	for(dot = s; *dot; dot++){
+		assert(p - buf < sizeof buf);
+		switch(*dot){
+		case '{':
+			continue;
+		default:
+			*p++ = *dot;
+			break;
+		case '}':
+		case ',':
+			*p = '\0';
+			switch(state){
+			case 0:
+				q->path = strtoull(buf, 0, 0);
+				break;
+			case 1:
+				q->vers = strtoul(buf, 0, 0);
+				break;
+			case 2:
+				if(buf[0] == 'f' || strcmp("QTFILE", buf) == 0)
+					q->type = QTFILE;
+				else if(buf[0] == 'd' || strcmp("QTDIR", buf) == 0)
+					q->type = QTDIR;
+				else
+					q->type = (uchar)strtol(buf, 0, 0);
+				break;
+			}
+			p = buf;
+			state++;
+		}
+	}
+	if(state != 3)
+		return "malformed qid";
+	return nil;
+}
+
+char*
+rauth(Fcall *f, int, char **argv)
+{
+	return strtoqid(argv[0], &f->aqid);
 }
 
 char*
@@ -98,6 +162,12 @@ tattach(Fcall *f, int, char **argv)
 }
 
 char*
+rattach(Fcall *f, int, char **argv)
+{
+	return strtoqid(argv[0], &f->qid);
+}
+
+char*
 twalk(Fcall *f, int argc, char **argv)
 {
 	int i;
@@ -115,11 +185,36 @@ twalk(Fcall *f, int argc, char **argv)
 }
 
 char*
+rwalk(Fcall *f, int argc, char **argv)
+{
+	int i;
+	char *e;
+
+	if(argc >= MAXWELEM)
+		return "too many names";
+
+	f->nwqid = argc;
+	for(i = 0; i < argc; i++){
+		e = strtoqid(argv[i], &f->wqid[i]);
+		if(e != nil)
+			return e;
+	}
+	return nil;
+}
+
+char*
 topen(Fcall *f, int, char **argv)
 {
 	f->fid = strtol(argv[0], 0, 0);
 	f->mode = strtol(argv[1], 0, 0);
 	return nil;
+}
+
+char*
+ropen(Fcall *f, int, char **argv)
+{
+	f->iounit = strtol(argv[1], 0, 0);
+	return strtoqid(argv[0], &f->qid);
 }
 
 char*
@@ -142,12 +237,27 @@ tread(Fcall *f, int, char **argv)
 }
 
 char*
+rread(Fcall *f, int, char **argv)
+{
+	f->data = argv[0];
+	f->count = strlen(argv[0]);
+	return nil;
+}
+
+char*
 twrite(Fcall *f, int, char **argv)
 {
 	f->fid = strtol(argv[0], 0, 0);
 	f->offset = strtoll(argv[1], 0, 0);
 	f->data = argv[2];
 	f->count = strlen(argv[2]);
+	return nil;
+}
+
+char*
+rwrite(Fcall *f, int, char **argv)
+{
+	f->count = strtol(argv[0], 0, 0);
 	return nil;
 }
 
@@ -194,16 +304,21 @@ twstat(Fcall *f, int, char **argv)
 	static uchar buf[DIRMAX];
 	Dir d;
 
+	//We function as Rstat as well
+	if(f->type == Twstat){
+		f->fid = strtol(argv[0], 0, 0);
+		argv++;
+	}
+
 	memset(&d, 0, sizeof d);
 	nulldir(&d);
-	d.name = argv[1];
-	d.uid = argv[2];
-	d.gid = argv[3];
-	d.mode = xstrtoul(argv[4]);
-	d.mtime = xstrtoul(argv[5]);
-	d.length = xstrtoull(argv[6]);
+	d.name = argv[0];
+	d.uid = argv[1];
+	d.gid = argv[2];
+	d.mode = xstrtoul(argv[3]);
+	d.mtime = xstrtoul(argv[4]);
+	d.length = xstrtoull(argv[5]);
 
-	f->fid = strtol(argv[0], 0, 0);
 	f->stat = buf;
 	f->nstat = convD2M(&d, buf, sizeof buf);
 	if(f->nstat < BIT16SZ)
@@ -211,6 +326,21 @@ twstat(Fcall *f, int, char **argv)
 
 	return nil;
 }
+
+char*
+nop(Fcall*, int, char**)
+{
+	/* Rwstat,Rremove,Rclunk,Rflush */
+	return nil;
+}
+
+enum{
+	Xsource = Tmax+1,
+	Xdef,
+	Xend,
+
+	Xnexttag,
+};
 
 int taggen;
 
@@ -224,6 +354,72 @@ settag(Fcall*, int, char **argv)
 	return buf;
 }
 
+char* shell9p(int);
+
+char*
+source(Fcall*, int, char **argv)
+{
+	int fd;
+	char *e;
+
+	fd = open(argv[0], OREAD);
+	if(fd < 0)
+		return smprint("^could not open %s: %r", argv[0]);
+	e = shell9p(fd);
+	close(fd);
+	return e;
+}
+
+typedef struct Func Func;
+struct Func {
+	Func *link;
+	char *name;
+	char *lines[128];
+	int n;
+};
+
+Func *globals;
+Func *local;
+
+char*
+funcdef(Fcall*, int, char **argv)
+{
+	if(local != nil)
+		return smprint("^can not define func %s; %s not terminated", argv[0], local->name);
+	local = mallocz(sizeof *local, 1);
+	if(local == nil)
+		return "!out of memory";
+	local->name = strdup(argv[0]);
+	return nil;
+}
+
+char*
+funcend(Fcall*, int, char**)
+{
+	Func **l;
+	Func *p;
+	int i;
+
+	if(local == nil)
+		return "?no function defined";
+	l = &globals;
+	for(p = globals; p != nil; p = p->link){
+		if(strcmp(local->name, p->name) == 0)
+			break;
+		l = &p->link;
+	}
+	if(p != nil){
+		for(i=0; i<p->n; i++)
+			free(p->lines[i]);
+		free(p->name);
+		free(p);
+	}
+	*l = local;
+	local = nil;
+
+	return nil;
+}
+
 typedef struct Cmd Cmd;
 struct Cmd {
 	char *name;
@@ -234,87 +430,184 @@ struct Cmd {
 };
 
 Cmd msg9p[] = {
-	"Tversion", Tversion, 2, "messagesize version", tversion,
+	"Tversion", Tversion, 2, "messagesize version", version,
+	"Rversion", Rversion, 2, "messagesize version", version,
+
 	"Tauth", Tauth, 3, "afid uname aname", tauth,
+	"Rauth", Rauth, 1, "aqid", rauth,
+
 	"Tflush", Tflush, 1, "oldtag", tflush,
+	"Rflush", Rflush, 0, "", nop,
+
 	"Tattach", Tattach, 4, "fid afid uname aname", tattach,
+	"Rattach", Rattach, 1, "qid", rattach,
+
 	"Twalk", Twalk, 0, "fid newfid [name...]", twalk,
+	"Rwalk", Rwalk, 0, "name...", rwalk,
+
 	"Topen", Topen, 2, "fid mode", topen,
+	"Ropen", Ropen, 2, "qid iounit", ropen,
+
 	"Tcreate", Tcreate, 4, "fid name perm mode", tcreate,
+	"Rcreate", Rcreate, 2, "qid iounit", ropen,
+
 	"Tread", Tread, 3, "fid offset count", tread,
+	"Rread", Rread, 1, "data", rread,
+
 	"Twrite", Twrite, 3, "fid offset data", twrite,
+	"Rwrite", Rwrite, 1, "count", rwrite,
+
 	"Tclunk", Tclunk, 1, "fid", tclunk,
+	"Rclunk", Rclunk, 0, "", nop,
+
 	"Tremove", Tremove, 1, "fid", tremove,
+	"Rremove", Rremove, 0, "", nop,
+
 	"Tstat", Tstat, 1, "fid", tstat,
+	"Rstat", Rstat, 6, "name uid gid mode mtime length", twstat,
+
 	"Twstat", Twstat, 7, "fid name uid gid mode mtime length", twstat,
-	"nexttag", 0, 0, "", settag,
+	"Rwstat", Rwstat, 0, "", nop,
+
+	".",	Xsource, 1, "file", source,
+	"def",	Xdef, 1, "name", funcdef,
+	"end",	Xend, 0, "", funcend,
+
+	"nexttag", Xnexttag, 0, "", settag,
 };
 
-void
+char*
+run(char *p)
+{
+	char *e, *f[10];
+	int i, n, nf, n2;
+	Fcall t, *r;
+	Func *func;
+	char *cp;
+	static uchar *buf = nil;
+	static uchar *buf2 = nil;
+
+	if(buf == nil)
+		buf = malloc(messagesize);
+	if(buf2 == nil)
+		buf2 = malloc(messagesize);
+	if(buf == nil || buf2 == nil)
+		return "!out of memory";
+
+	if(p[0] == '#')
+		return nil;
+	if(local != nil && strstr(p, "end") == nil){
+		local->lines[local->n++] = strdup(p);
+		return nil;
+	}
+	if((nf = tokenize(p, f, nelem(f))) == 0)
+		return nil;
+	for(i=0; i<nelem(msg9p); i++)
+		if(strcmp(f[0], msg9p[i].name) == 0)
+			break;
+	if(i == nelem(msg9p)){
+		if(local != nil)
+			return "?unknown message";
+		for(func = globals; func != nil; func = func->link){
+			if(strcmp(func->name, f[0]) != 0)
+				continue;
+			for(i = 0; i < func->n; i++){
+				cp = strdup(func->lines[i]);
+				if(e = run(cp)){
+					free(cp);
+					return e;
+				}
+				free(cp);
+			}
+			return nil;
+		}
+		return "?unknown message";
+	}
+
+	memset(&t, 0, sizeof t);
+	t.type = msg9p[i].type;
+	if(t.type == Tversion)
+		t.tag = NOTAG;
+	else
+		t.tag = ++taggen;
+	if(nf < 1 || (msg9p[i].argc && nf != 1+msg9p[i].argc))
+		return smprint("^usage: %s %s", msg9p[i].name, msg9p[i].usage);
+
+	if((e = msg9p[i].fn(&t, nf-1, f+1)) || t.type > Tmax)
+		return e;
+
+	n = convS2M(&t, buf, messagesize);
+	if(n <= BIT16SZ)
+		return "?message too large for buffer";
+
+	switch(msg9p[i].name[0]){
+	case 'R':
+		if(!aflag)
+			break;
+		r = rendezvous(&rendez, nil);
+		r->tag = t.tag;
+		n2 = convS2M(r, buf2, messagesize);
+		if(n != n2 || memcmp(buf, buf2, n) != 0){
+			fprint(2, "?mismatch %F != %F\n", r, &t);
+			return "!assert fail";
+		}
+		free(r);
+		break;
+	case 'T':
+		if(write(srvfd, buf, n) != n)
+			return "!write fails";
+		print("\t-> %F\n", &t);
+	}	
+	return nil;
+}
+
+char*
 shell9p(int fd)
 {
-	char *e, *f[10], *p;
-	uchar *buf;
-	int i, n, nf;
+	char *e, *p;
 	Biobuf b;
-	Fcall t;
 
-	buf = malloc(messagesize);
-	if(buf == nil){
-		fprint(2, "out of memory\n");
-		return;
-	}
-
-	taggen = 0;
-	Binit(&b, 0, OREAD);
+	Binit(&b, fd, OREAD);
 	while(p = Brdline(&b, '\n')){
 		p[Blinelen(&b)-1] = '\0';
-		if(p[0] == '#')
+		e = run(p);
+		if(e == nil)
 			continue;
-		if((nf = tokenize(p, f, nelem(f))) == 0)
-			continue;
-		for(i=0; i<nelem(msg9p); i++)
-			if(strcmp(f[0], msg9p[i].name) == 0)
-				break;
-		if(i == nelem(msg9p)){
-			fprint(2, "?unknown message\n");
-			continue;
-		}
-		memset(&t, 0, sizeof t);
-		t.type = msg9p[i].type;
-		if(t.type == Tversion)
-			t.tag = NOTAG;
-		else
-			t.tag = ++taggen;
-		if(nf < 1 || (msg9p[i].argc && nf != 1+msg9p[i].argc)){
-			fprint(2, "?usage: %s %s\n", msg9p[i].name, msg9p[i].usage);
-			continue;
-		}
-		if(e = msg9p[i].fn(&t, nf-1, f+1)){
-			fprint(2, "?%s\n", e);
-			continue;
-		}
-		n = convS2M(&t, buf, messagesize);
-		if(n <= BIT16SZ){
-			fprint(2, "?message too large for buffer\n");
-			continue;
-		}
-		if(write(fd, buf, n) != n){
-			fprint(2, "?write fails: %r\n");
+		switch(*e){
+		case 0:
 			break;
+		case '?':
+		default:
+			fprint(2, "%s\n", e);
+			break;
+		case '^':
+			e[0] = '?';
+			fprint(2, "%s\n", e);
+			free(e);
+			break;
+		case '!':
+			Bterm(&b);
+			return e;
 		}
-		print("\t-> %F\n", &t);
 	}
+	Bterm(&b);
+	return nil;
 }
 		
 void
 main(int argc, char **argv)
 {
-	int fd, pid, cmd, net;
+	int pid, cmd, net;
+	char *status;
 
 	cmd = 0;
 	net = 0;
+	aflag = 0;
+	taggen = 0;
 	ARGBEGIN{
+	case 'a':
+		aflag = 1;
+		break;
 	case 'c':
 		cmd = 1;
 		break;
@@ -339,29 +632,30 @@ main(int argc, char **argv)
 		usage();
 
 	if(cmd)
-		fd = connectcmd(argv[0]);
+		srvfd = connectcmd(argv[0]);
 	else if(net){
-		fd = dial(netmkaddr(argv[0], "net", "9fs"), 0, 0, 0);
-		if(fd < 0)
+		srvfd = dial(netmkaddr(argv[0], "net", "9fs"), 0, 0, 0);
+		if(srvfd < 0)
 			sysfatal("dial: %r");
 	}else{
-		fd = open(argv[0], ORDWR);
-		if(fd < 0)
+		srvfd = open(argv[0], ORDWR);
+		if(srvfd < 0)
 			sysfatal("open: %r");
 	}
 
+	status = nil;
 	switch(pid = rfork(RFPROC|RFMEM)){
 	case -1:
 		sysfatal("rfork: %r");
 		break;
 	case 0:
-		watch(fd);
+		watch(srvfd);
 		postnote(PNPROC, getppid(), "kill");
 		break;
 	default:
-		shell9p(fd);
+		status = shell9p(0);
 		postnote(PNPROC, pid, "kill");
 		break;
 	}
-	exits(nil);
+	exits(status);
 }
