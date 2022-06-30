@@ -45,7 +45,7 @@ struct Ptprpc
 	uchar	type[2];
 	uchar	code[2];
 	uchar	transid[4];
-	uchar	d[500];
+	uchar	d[1012];
 };
 
 struct Node
