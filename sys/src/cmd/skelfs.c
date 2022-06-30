@@ -214,6 +214,7 @@ void
 main(int argc, char **argv)
 {
 	char *s, *mode;
+	char *mtpt;
 	int stdio;
 
 	s = nil;
@@ -241,7 +242,13 @@ main(int argc, char **argv)
 		usage();
 
 	if(stdio == 0){
-		postmountsrv(&fs, s, argc ? argv[0] : "/mnt/skel", MREPL);
+		if(s != nil && argc == 0)
+			mtpt = nil;
+		else if(argc)
+			mtpt = argv[0];
+		else
+			mtpt = "/mnt/skel";
+		postmountsrv(&fs, s, mtpt, MREPL);
 		exits(nil);
 	}
 	fs.infd = 0;
