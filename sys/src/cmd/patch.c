@@ -287,13 +287,13 @@ hunk:
 	while(1){
 		if((ln = readline(f, &lnum)) == nil){
 			if(oldcnt != h.oldcnt || newcnt != h.newcnt)
-				sysfatal("%s:%d: malformed hunk", name, lnum);
+				sysfatal("%s:%d: malformed hunk: mismatched counts", name, lnum);
 			addhunk(p, &h);
 			break;
 		}
 		switch(ln[0]){
 		default:
-			sysfatal("%s:%d: malformed hunk2", name, lnum);
+			sysfatal("%s:%d: malformed hunk: leading junk", name, lnum);
 			goto out;
 		case '-':
 			addold(&h, ln);
@@ -301,6 +301,12 @@ hunk:
 			break;
 		case '+':
 			addnew(&h, ln);
+			newcnt++;
+			break;
+		case '\n':
+			addold(&h, " \n");
+			addnew(&h, " \n");
+			oldcnt++;
 			newcnt++;
 			break;
 		case ' ':
@@ -312,7 +318,7 @@ hunk:
 		}
 		free(ln);
 		if(oldcnt > h.oldcnt || newcnt > h.newcnt)
-			sysfatal("%s:%d: malformed hunk", name, lnum);
+			sysfatal("%s:%d: malformed hunk: oversized hunk", name, lnum);
 		if(oldcnt < h.oldcnt || newcnt < h.newcnt)
 			continue;
 
