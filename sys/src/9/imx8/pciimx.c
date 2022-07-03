@@ -248,7 +248,7 @@ pciinterrupt(Ureg *ureg, void *arg)
 {
 	Ctlr *ctlr = arg;
 	Intvec *vec;
-	u32int status, mask;
+	u32int status;
 
 	status = ctlr->dbi[MSI_CTRL_INT_0_STATUS];
 	if(status == 0)
@@ -256,8 +256,8 @@ pciinterrupt(Ureg *ureg, void *arg)
 	ctlr->dbi[MSI_CTRL_INT_0_STATUS] = status;
 
 	ilock(ctlr);
-	for(vec = ctlr->vec, mask = 1; vec < &ctlr->vec[nelem(ctlr->vec)]; vec++, mask <<= 1){
-		if((status & mask) != 0 && vec->f != nil)
+	for(vec = ctlr->vec; status != 0 && vec < &ctlr->vec[nelem(ctlr->vec)]; vec++, status >>= 1){
+		if((status & 1) != 0 && vec->f != nil)
 			(*vec->f)(ureg, vec->a);
 	}
 	iunlock(ctlr);
