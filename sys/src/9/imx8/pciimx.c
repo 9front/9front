@@ -410,6 +410,34 @@ pcicfginit(void)
 	rootinit(&ctlrs[1]);
 }
 
+/* undocumented magic to avoid interference between lcdif and pcie */
+static void
+qosmagic(void)
+{
+	static u32int *qosc = (u32int*)(VIRTIO + 0x7f0000);
+
+	/* unlock */
+	qosc[0x0000/4] = 0x0;
+	qosc[0x0000/4] = 0x1;
+	qosc[0x0060/4] = 0x0;
+
+	/* pci1 */
+	qosc[0x1000/4] = 0x0;
+	qosc[0x1000/4] = 0x1;
+	qosc[0x1050/4] = 0x01010100;
+	qosc[0x1060/4] = 0x01010100;
+	qosc[0x1070/4] = 0x01010100;
+	qosc[0x1000/4] = 0x1;
+
+	/* pcie2 */
+	qosc[0x2000/4] = 0x0;
+	qosc[0x2000/4] = 0x1;
+	qosc[0x2050/4] = 0x01010100;
+	qosc[0x2060/4] = 0x01010100;
+	qosc[0x2070/4] = 0x01010100;
+	qosc[0x2000/4] = 0x1;
+}
+
 enum {
 	SRC_PCIEPHY_RCR		= 0x2C/4,
 	SRC_PCIE2_RCR		= 0x48/4,
@@ -494,4 +522,6 @@ pciimxlink(void)
 	resetc[SRC_PCIE2_RCR] &= ~(PCIE_BTN | PCIE_G_RST);
 
 	pcicfginit();
+
+	qosmagic();
 }
