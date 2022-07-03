@@ -96,6 +96,10 @@ git/pull, git/rm, git/serve
 .I expr
 ]
 [
+.B -n
+.I count
+]
+[
 .B -s
 ]
 [
@@ -383,6 +387,11 @@ option logs starting from the provided commit, instead of HEAD.
 The
 .I -s
 option shows a summary of the commit, instead of the full message.
+The
+.I -n count
+option stops printing messages after
+.I count
+messages.
 The
 .I -e expr
 option shows commits matching the query expression provided.
