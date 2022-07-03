@@ -14,7 +14,7 @@ Biobuf	*out;
 char	*queryexpr;
 char	*commitid;
 int	shortlog;
-int	msgcount;
+int	msgcount = -1;
 
 Objset	done;
 Objq	objq;
@@ -181,7 +181,7 @@ showquery(char *q)
 
 	if((n = resolverefs(&h, q)) == -1)
 		sysfatal("resolve: %r");
-	for(i = 0; i < n && msgcount-- > 0; i++){
+	for(i = 0; i < n && (msgcount == -1 || msgcount-- > 0); i++){
 		if((o = readobject(h[i])) == nil)
 			sysfatal("read %H: %r", h[i]);
 		show(o);
@@ -207,7 +207,7 @@ showcommits(char *c)
 	qinit(&objq);
 	osinit(&done);
 	qput(&objq, o, 0);
-	while(qpop(&objq, &e) && msgcount-- > 0){
+	while(qpop(&objq, &e) && (msgcount == -1 || msgcount-- > 0)){
 		show(e.o);
 		for(i = 0; i < e.o->commit->nparent; i++){
 			if(oshas(&done, e.o->commit->parent[i]))
