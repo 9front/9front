@@ -135,6 +135,7 @@ qcmd(WS *ws, Ctlr *ctlr, int adm, u32int opc, u32int nsid, void *mptr, void *dat
 		e[5] = 0;
 	}
 	if(len > 0){
+		dmaflush(1, data, len);
 		pa = PCIWADDR(data);
 		e[6] = pa;
 		e[7] = pa>>32;
@@ -173,6 +174,7 @@ nvmeintr(Ureg *, void *arg)
 		phaseshift = 16 - cq->shift;
 		for(;;){
 			e = &cq->base[(cq->head & cq->mask)<<2];
+			dmaflush(0, e, 32);
 			if(((e[3] ^ (cq->head << phaseshift)) & 0x10000) == 0)
 				break;
 
@@ -204,11 +206,12 @@ wdone(void *arg)
 }
 
 static u32int
-wcmd(WS *ws)
+wcmd(WS *ws, u32int *e)
 {
 	SQ *sq = ws->queue;
 	Ctlr *ctlr = sq->ctlr;
 
+	if(e != nil) dmaflush(1, e, 64);
 	coherence();
 	ctlr->reg[DBell + ((sq-ctlr->sq)*2+0 << ctlr->dstrd)] = sq->tail & sq->mask;
 	if(sq > ctlr->sq) {
@@ -263,11 +266,12 @@ nvmebio(SDunit *u, int lun, int write, void *a, long count, uvlong lba)
 		e[13] = (count>n)<<6;	/* sequential request */
 		e[14] = 0;
 		e[15] = 0;
-		checkstatus(wcmd(&ws), write ? "write" : "read");
+		checkstatus(wcmd(&ws, e), write ? "write" : "read");
 		p += n*s;
 		count -= n;
 		lba += n;
 	}
+	if(!write) dmaflush(0, a, p - (uchar*)a);
 	return p - (uchar*)a;
 }
 
@@ -313,10 +317,11 @@ nvmeonline(SDunit *u)
 
 	e = qcmd(&ws, ctlr, 1, 0x06, ctlr->nsid[u->subno], nil, info, 0x1000);
 	e[10] = 0; // identify namespace
-	if(wcmd(&ws) != 0){
+	if(wcmd(&ws, e) != 0){
 		free(info);
 		return 0;
 	}
+	dmaflush(0, info, 0x1000);
 	p = info;
 	u->sectors = p[0] | p[1]<<8 | p[2]<<16 | p[3]<<24
 		| (u64int)p[4]<<32
@@ -405,7 +410,7 @@ setupqueues(Ctlr *ctlr)
 	e = qcmd(&ws, ctlr, 1, 0x05, 0, nil, cq->base, 1<<lgsize);
 	e[10] = (cq - ctlr->cq) | cq->mask<<16;
 	e[11] = 3; /* IEN | PC */
-	checkstatus(wcmd(&ws), "create completion queue");
+	checkstatus(wcmd(&ws, e), "create completion queue");
 
 	st = 0;
 
@@ -416,8 +421,7 @@ setupqueues(Ctlr *ctlr)
 		e = qcmd(&ws, ctlr, 1, 0x01, 0, nil, sq->base, 0x1000);
 		e[10] = i | sq->mask<<16;
 		e[11] = (cq - ctlr->cq)<<16 | 1;	/* CQID<<16 | PC */
-
-		st = wcmd(&ws);
+		st = wcmd(&ws, e);
 		if(st != 0){
 			free(sq->base);
 			free(sq->wait);
@@ -451,11 +455,14 @@ identify(Ctlr *ctlr)
 
 	e = qcmd(&ws, ctlr, 1, 0x06, 0, nil, ctlr->ident, 0x1000);
 	e[10] = 1; // identify controller
-	checkstatus(wcmd(&ws), "identify controller");
+	checkstatus(wcmd(&ws, e), "identify controller");
+	dmaflush(0, ctlr->ident, 0x1000);
 
 	e = qcmd(&ws, ctlr, 1, 0x06, 0, nil, ctlr->nsid, 0x1000);
 	e[10] = 2; // namespace list 
-	if(wcmd(&ws) != 0)
+	if(wcmd(&ws, e) == 0)
+		dmaflush(0, ctlr->nsid, 0x1000);
+	else
 		ctlr->nsid[0] = 1;	/* assume namespace #1 */
 
 	ctlr->nnsid = 0;
@@ -532,10 +539,12 @@ nvmeenable(SDev *sd)
 	}
 	
 	pa = PCIWADDR(cqalloc(ctlr, &ctlr->cq[0], ctlr->mpsshift));
+	dmaflush(1, ctlr->cq[0].base, 1<<ctlr->mpsshift);
 	ctlr->reg[ACQBase0] = pa;
 	ctlr->reg[ACQBase1] = pa>>32;
 
 	pa = PCIWADDR(sqalloc(ctlr, &ctlr->sq[0], ctlr->mpsshift));
+	dmaflush(1, ctlr->sq[0].base, 1<<ctlr->mpsshift);
 	ctlr->reg[ASQBase0] = pa;
 	ctlr->reg[ASQBase1] = pa>>32;
 
