@@ -159,3 +159,10 @@ extern uint iomuxgpr(int gpr, uint set, uint mask);
 #define GPIO_PIN(n, m)	((n)<<5 | (m))
 extern void gpioout(uint pin, int set);
 extern int gpioin(uint pin);
+
+/* pciimx */
+extern int pcicfgrw8(int tbdf, int rno, int data, int read);
+extern int pcicfgrw16(int tbdf, int rno, int data, int read);
+extern int pcicfgrw32(int tbdf, int rno, int data, int read);
+extern void pciintrenable(int tbdf, void (*f)(Ureg*, void*), void *a);
+extern void pciintrdisable(int tbdf, void (*f)(Ureg*, void*), void *a);

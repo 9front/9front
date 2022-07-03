@@ -1075,6 +1075,90 @@ enablepll(int input)
 	}
 }
 
+enum {
+	CCM_ANALOG_PLLOUT_MONITOR_CFG	= 0x74/4,
+		PLLOUT_MONITOR_CLK_CKE	= 1<<4,
+	CCM_ANALOG_FRAC_PLLOUT_DIV_CFG	= 0x78/4,
+	CCM_ANALOG_SCCG_PLLOUT_DIV_CFG	= 0x7C/4,
+};
+
+static struct {
+	uchar	input;
+	uchar	reg;		/* divider register */
+	uchar	shift;		/* divider shift */
+} anapllout_input[16] = {
+[0]	OSC_25M_REF_CLK,
+[1]	OSC_27M_REF_CLK,
+/* [2]	HDMI_PHY_27M_CLK */
+/* [3]	CLK1_P_N */
+[4]	OSC_32K_REF_CLK,
+[5]	AUDIO_PLL1_CLK,		CCM_ANALOG_FRAC_PLLOUT_DIV_CFG,	0,
+[6]	AUDIO_PLL2_CLK,		CCM_ANALOG_FRAC_PLLOUT_DIV_CFG, 4,
+[7]	GPU_PLL_CLK,		CCM_ANALOG_FRAC_PLLOUT_DIV_CFG,	12,
+[8]	VPU_PLL_CLK,		CCM_ANALOG_FRAC_PLLOUT_DIV_CFG, 16,
+[9]	VIDEO_PLL1_CLK,		CCM_ANALOG_FRAC_PLLOUT_DIV_CFG, 8,
+[10]	ARM_PLL_CLK,		CCM_ANALOG_FRAC_PLLOUT_DIV_CFG, 20,
+[11]	SYSTEM_PLL1_CLK,	CCM_ANALOG_SCCG_PLLOUT_DIV_CFG, 0,
+[12]	SYSTEM_PLL2_CLK,	CCM_ANALOG_SCCG_PLLOUT_DIV_CFG, 4,
+[13]	SYSTEM_PLL3_CLK,	CCM_ANALOG_SCCG_PLLOUT_DIV_CFG, 8,
+[14]	VIDEO_PLL2_CLK,		CCM_ANALOG_SCCG_PLLOUT_DIV_CFG, 16,
+[15]	DRAM_PLL1_CLK,		CCM_ANALOG_SCCG_PLLOUT_DIV_CFG, 12,
+};
+
+static void
+setanapllout(int input, int freq)
+{
+	int mux, div, reg;
+
+	for(mux = 0; mux < nelem(anapllout_input); mux++)
+		if(anapllout_input[mux].input == input)
+			goto Muxok;
+	panic("setanapllout: bad input clock\n");
+	return;
+Muxok:
+	anatop[CCM_ANALOG_PLLOUT_MONITOR_CFG] = mux;
+	if(freq <= 0)
+		return;
+	div = input_clk_freq[input] / freq;
+	if(div < 1 || div > 8){
+		panic("setanapllout: divider out of range\n");
+		return;
+	}
+	enablepll(input);
+	reg = anapllout_input[mux].reg;
+	if(reg){
+		int shift = anapllout_input[mux].shift;
+		anatop[reg] = (anatop[reg] & ~(7<<shift)) | ((div-1)<<shift);
+	} else if(div != 1){
+		panic("setanapllout: bad frequency\n");
+		return;
+	}
+	anatop[CCM_ANALOG_PLLOUT_MONITOR_CFG] |= PLLOUT_MONITOR_CLK_CKE;
+}
+
+static int
+getanapllout(void)
+{
+	int mux, input, freq, reg, div;
+	u32int cfg = anatop[CCM_ANALOG_PLLOUT_MONITOR_CFG];
+
+	mux = cfg & 0xF;
+	input = anapllout_input[mux].input;
+	if(input == 0)
+		return 0;
+	freq = input_clk_freq[input];
+	if((cfg & PLLOUT_MONITOR_CLK_CKE) == 0)
+		freq = -freq;
+	reg = anapllout_input[mux].reg;
+	if(reg){
+		int shift = anapllout_input[mux].shift;
+		div = ((anatop[reg] >> shift) & 7)+1;
+	} else {
+		div = 1;
+	}
+	return freq / div;
+}
+
 static u32int
 clkgate(Clock *gate, u32int val)
 {
@@ -1330,6 +1414,11 @@ setclkrate(char *name, char *source, int freq)
 {
 	int root, input;
 
+	if(cistrcmp(name, "ccm_analog_pllout") == 0){
+		setanapllout(lookinputclk(source), freq);
+		return;
+	}
+
 	if((root = lookrootclk(name)) < 0)
 		panic("setclkrate: clock %s not defined", name);
 	if(source == nil)
@@ -1345,6 +1434,9 @@ int
 getclkrate(char *name)
 {
 	int root, input;
+
+	if(cistrcmp(name, "ccm_analog_pllout") == 0)
+		return getanapllout();
 
 	if((root = lookrootclk(name)) >= 0)
 		return rootclkgetcfg(root, &input);

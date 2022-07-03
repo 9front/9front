@@ -223,6 +223,7 @@ enum
 };
 
 extern int pcimaxdno;
+extern Pcidev *pciparentdev;
 
 extern void pcidevfree(Pcidev* pcidev);
 

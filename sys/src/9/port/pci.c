@@ -16,6 +16,7 @@ struct Pcisiz
 };
 
 int pcimaxdno;
+Pcidev *pciparentdev;
 
 static Lock pcicfglock;
 static Pcidev *pcilist, **pcitail;
@@ -113,6 +114,8 @@ pcicfgr8(Pcidev* p, int rno)
 	int data;
 
 	ilock(&pcicfglock);
+	pciparentdev = p->parent;
+
 	data = pcicfgrw8(p->tbdf, rno, 0, 1);
 	iunlock(&pcicfglock);
 
@@ -122,6 +125,8 @@ void
 pcicfgw8(Pcidev* p, int rno, int data)
 {
 	ilock(&pcicfglock);
+	pciparentdev = p->parent;
+
 	pcicfgrw8(p->tbdf, rno, data, 0);
 	iunlock(&pcicfglock);
 }
@@ -131,6 +136,8 @@ pcicfgr16(Pcidev* p, int rno)
 	int data;
 
 	ilock(&pcicfglock);
+	pciparentdev = p->parent;
+
 	data = pcicfgrw16(p->tbdf, rno, 0, 1);
 	iunlock(&pcicfglock);
 
@@ -140,6 +147,8 @@ void
 pcicfgw16(Pcidev* p, int rno, int data)
 {
 	ilock(&pcicfglock);
+	pciparentdev = p->parent;
+
 	pcicfgrw16(p->tbdf, rno, data, 0);
 	iunlock(&pcicfglock);
 }
@@ -149,6 +158,8 @@ pcicfgr32(Pcidev* p, int rno)
 	int data;
 
 	ilock(&pcicfglock);
+	pciparentdev = p->parent;
+
 	data = pcicfgrw32(p->tbdf, rno, 0, 1);
 	iunlock(&pcicfglock);
 
@@ -158,6 +169,8 @@ void
 pcicfgw32(Pcidev* p, int rno, int data)
 {
 	ilock(&pcicfglock);
+	pciparentdev = p->parent;
+
 	pcicfgrw32(p->tbdf, rno, data, 0);
 	iunlock(&pcicfglock);
 }
@@ -169,6 +182,7 @@ pcibarsize(Pcidev *p, int rno)
 	int v;
 
 	ilock(&pcicfglock);
+	pciparentdev = p->parent;
 
 	v = pcicfgrw32(p->tbdf, rno, 0, 1);
 	pcicfgrw32(p->tbdf, rno, -1, 0);
@@ -206,6 +220,8 @@ void
 pcisetbar(Pcidev *p, int rno, uvlong bar)
 {
 	ilock(&pcicfglock);
+	pciparentdev = p->parent;
+
 	pcicfgrw32(p->tbdf, rno, bar, 0);
 	if((bar&7) == 4 && rno >= PciBAR0 && rno < PciBAR0+4*(nelem(p->mem)-1))
 		pcicfgrw32(p->tbdf, rno+4, bar>>32, 0);
@@ -216,6 +232,8 @@ void
 pcisetwin(Pcidev *p, uvlong base, uvlong limit)
 {
 	ilock(&pcicfglock);
+	pciparentdev = p->parent;
+
 	if(base & 1){
 		pcicfgrw16(p->tbdf, PciIBR, (limit & 0xF000)|((base & 0xF000)>>8), 0);
 		pcicfgrw32(p->tbdf, PciIUBR, (limit & 0xFFFF0000)|(base>>16), 0);
@@ -534,12 +552,15 @@ pciscan(int bno, Pcidev** list, Pcidev *parent)
 			tbdf = MKBUS(BusPCI, bno, dno, fno);
 
 			lock(&pcicfglock);
+			pciparentdev = parent;
+
 			l = pcicfgrw32(tbdf, PciVID, 0, 1);
 			unlock(&pcicfglock);
 
 			if(l == 0xFFFFFFFF || l == 0)
 				continue;
 			p = pcidevalloc();
+			p->parent = parent;
 			p->tbdf = tbdf;
 			p->vid = l;
 			p->did = l>>16;
@@ -622,7 +643,6 @@ pciscan(int bno, Pcidev** list, Pcidev *parent)
 				break;
 			}
 
-			p->parent = parent;
 			if(head != nil)
 				*tail = p;
 			else

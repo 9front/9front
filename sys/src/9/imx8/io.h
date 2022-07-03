@@ -28,7 +28,12 @@ enum {
 	IRQsctr0	= SPI+47,
 	IRQsctr1	= SPI+48,
 
+	IRQpci2		= SPI+74,
+
 	IRQenet1	= SPI+118,
+
+	IRQpci1		= SPI+122,
 };
 
 #define BUSUNKNOWN (-1)
+#define	PCIWADDR(x)	PADDR(x)

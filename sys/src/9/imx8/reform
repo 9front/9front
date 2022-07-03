@@ -27,6 +27,7 @@ link
 	ethermedium
 	loopbackmedium
 	i2cimx		devi2c
+	pciimx		pci
 ip
 	tcp
 	udp
@@ -44,6 +45,7 @@ misc
 	uartimx
 	iomux
 	sdmmc	usdhc
+	sdnvme	pci
 port
 	int cpuserver = 0;
 bootdir

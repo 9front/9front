@@ -254,6 +254,11 @@ intrenable(int irq, void (*f)(Ureg*, void*), void *a, int tbdf, char *)
 	u32int intid;
 	int cpu, prio;
 
+	if(BUSTYPE(tbdf) == BusPCI){
+		pciintrenable(tbdf, f, a);
+		return;
+	}
+
 	if(tbdf != BUSUNKNOWN)
 		return;
 
@@ -306,6 +311,10 @@ intrenable(int irq, void (*f)(Ureg*, void*), void *a, int tbdf, char *)
 }
 
 void
-intrdisable(int, void (*)(Ureg*, void*), void *, int, char*)
+intrdisable(int tbdf, void (*f)(Ureg*, void*), void *a, int, char*)
 {
+	if(BUSTYPE(tbdf) == BusPCI){
+		pciintrdisable(tbdf, f, a);
+		return;
+	}
 }
