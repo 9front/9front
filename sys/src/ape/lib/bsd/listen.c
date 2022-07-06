@@ -139,12 +139,6 @@ listen(fd, backlog)
 			errno = EBADF;
 			return -1;
 		}
-		/* FIXME: What is this good for? */
-		if(write(cfd, "bind 0", 6) < 0) {
-			errno = EGREG;
-			close(cfd);
-			return -1;
-		}
 		strcpy(msg, "announce ");
 		_sock_inaddr2string(r, msg + 9, sizeof msg - 9);
 		n = write(cfd, msg, strlen(msg));
