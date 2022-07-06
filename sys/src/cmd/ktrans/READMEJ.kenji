@@ -1,0 +1,126 @@
+Plan 9がRelase 3になってソースが公開されました。このため、更に多くのユーザがPlan 9を
+使い始める事になると思います。このバージョンになって、Windowシステムが8½からrioに
+変更になり、それにともなって、release 2に含まれていたktransが無くなりました。
+
+そこで、Rob Pikeさんにお願いしたら、pipefileというすばらしいアイデアを考えて戴け
+ました。これはrelease 2でDennis Ritchieさんが提供した/dev/kbdを置き替えるもので、
+このいきさつは、Pikeさんの9fansのlmailing-listへの投稿を同封してありますので、
+そちら(pipefile)を御覧下さい。この方法は何時でもどのウィンドへも日本語を入力出来る
+ので、以前のバージョンの様にウィンド毎にktransを起動する必要がなくなりました。
+pipefileはrioより前に起動される必要がありますので、ここに同封したKanjiという
+スクリプトを各自のlib/profileにrioを起動する替わりに、このKanjiスクリプトを
+起動する様にして下さい。
+
+
+Main features are as follows:
+
+1) There is a "local" dictionary file for translation from kana to kanji, which can 
+      easily be edited by the user.  The default file name is $home/lib/ktrans-jisho.
+      If you want to use another dictionary file, set the KTJISHO environment 
+      variable to point to that file.  This dictionary comprises many lines of
+      edittable text strings.  
+
+2) Capital romaji input is used for words such as verbs or adjectives with okurigana, 
+      which follows the idea of the SKK system by Masahiko Sato of Kyoto Univ.
+      (masahiko@kuis.kyoto-u.ac.jp).  If you want to get the kanji string (runes)
+      "動かす", which is a verb, you may input "ugoKasu" from the keyboard.  
+      Note here the Kasu's k is a capital (important).  You will see hiragana
+      runes "うごかす", and then the kanji runes of "動かす", when you type
+      "Shift+Space". 
+        If you are satisfied by that translation, continue to input the next word.   
+      If you are not pleased with that candidate, hit 'Shift+Space' once more 
+      to see more candiates for that hiragana input.  When there are no more candidates
+      registered in your dictionary, you will see the initial hiragana input.
+
+3) For Japanese "joshi", a post-positioned short word after a noun, you can use another
+      method that I developed for this work.  If you want the kanji string (runes) "私は", 
+      then type "watashiHA" from the keyboard.  Note that the sound of "wa(ha)" is expressed 
+      as capitalized "HA".  You will see a hiragana string of "わたしは", and then "私は" 
+      after `Shift+Space'.
+
+4) A control sequence of 'ctl-l' is introduced to leave input hiragana runes unchanged.
+      This is occasionally neccessary.
+
+5) A simple leaning mechanism has been implemented for the in-memory hashing 
+      dictinary, in which the most recently used kanji runes (candidate) moves to the top 
+      of the list of candidates.  This is valid only during the session you called ktrans.
+      It is done this way intentionally, because the present learning method is ..well... 
+      naive. ^_^  I know this; however, I believe you can solve it by making a good 
+      dictionary best fitted to your purposes on your own.
+
+6)  'ctl-x' re-reads the new kana-kanji translation dictionary when you have edited your
+      kana-kanji translation, and want to incorporate it into your current in-memory translation 
+      dictionary.  The kana-kanji translation dictionary is usually read only once, at the 
+      beginning of the ktrans session.  I believe this simplification is not a serious constraint, 
+      because you can edit the dictionary anytime by co-working with acme and using this ctl-x 
+      mechanism.
+
+7) A mode change to kana-input is triggered by 'ctl-n', ctl-k for katakana mode, 
+      ctl-g for Greek mode, and ctl-r for Russian mode.
+
+8) As the starting $home/lib/ktrans-jisho, you may re-format the SKK-JISYO.S (66.9KB) of the 
+      SKK system, which can be retrieved from ftp.kuis.kyoto-u.ac.jp.  The next three lines 
+      show the short sed filter to transform from an SKK type dictionary to Plan 9.  Before 
+      this, you should change the kanji code of the SKK dictionary from ujis(euc) to UTF-8 by 
+      the tcs utility, of course.
+            s/\// /g
+            s/  /	/g
+            s/ $//g
+      The header items are sorted in a strange order in the original SKK dictionary.  
+      This implementation does not care about the order, therefore, you can change it on 
+      your own.
+
+9) SKK jisho, such as SKK-JISYO.S, is composed of two parts, okuri-ari and okuri-nashi 
+      entries.  This greatly depends on the Japanese grammer, and okuri-ari may represent 
+      verb/adjective etc., i.e., not noun.  These two parts work differently in the original 
+      SKK system, however, I did not employ that method; rather, I took a simple approarch 
+      as described in (2) and (3).  Here, we make no difference between these two parts, 
+      and the reason why I left the two-part structure is just to make it easier to read for 
+      editting.  Of course, you can change it without any side-effects.
+    
+10) The essence of this Japanese input method is to convert every one word by one key 
+      triggering.  This may cause some cumbersome feelings for Nihongo users who are accustomed 
+      to, say, Windows. I know this.  However, I intended to keep the codes as compact as 
+      possible as a first step towards developing a Nihongo input system on Plan 9.  
+      Furthermore, I've never seen the latter work perfectly.  I think the conversion failed 
+      essentially when we see more than, say, five/six candidates for one set of hiragana runes.  
+      Finaly, I'd like to add that I have no problem to write long Japanese documents by 
+      this version.
+
+11) The translation trigger key has been changed from ^t to Shift+Space, because
+      we experienced butting of the trigger key sequence sometime.  For this reason,
+      you have to edit the key-binding table, such as kbtabshift[0x39] in /sys/src/9/pc/kbd.c
+      or keymapshift[0x79] in /sys/src/9/ss/screen.c to assign Shift+Space to '^\'.
+      I use here '^\' as the trigger key.  Therefore, you can trigger translation 
+      from kana to kanji by Shit+Space or just '^\'.
+
+12) A usage example:  If you want to make the Japanese text as below:
+
+           私は毎日35分以上歩いて、 更に10分電車に乗って学校に通います。
+           健康の維持にも役だっていますが、 なかなかたのしいものです。
+
+      your keyboard typing stream should be:
+
+      watashiHA[^t]mainichi[^t]35[^l]fun[^t]ijou[^t]aruIte, [^t]saraNI[^t]
+      10[^l]fun[^t]denshaNI[^t]noTte[^t]gakkouNI[^t]kayoImasu.[^t]
+      kenkouNO[^t]ijiNImo[^t]yakuDAtteimasuga, [^t]nakanaka[^l]tanoshiI[^t]
+      monodesu.[^l]
+
+    where [^t], [^l] indicates 'Shift+Space' and 'ctl-l', respectively.
+
+
+		       				Kenji  Okamoto  August 14, 2000
+
+
+これはRelease 2のPlan 9に含まれていたDennis Ritchieさんのktransを機能強化したもので、
+大阪府立大学の岡本健二が作成いたしました。  疑問、提案等がございましたら、
+okamoto@granite.cias.osakafu-u.ac.jpまで御連絡ください。
+なお, Plan 9そのものにつきましては、 
+    http://basalt.cias.osakafu-u.ac.jp/plan9/p9index.html に95年度より
+ささやかなWeb Pageをもっていますので、そちらも参照くださいませ。
+
+なおこのプログラムはPlan 9のderived workとしてのライセンスを持った配布となります。
+Plan 9のLicense fileを同封してありますので、ここに書かれている事を守ってお使い
+下さいませ。
+
+大阪府立大学総合科学部    岡本健二			August 14, 2000
