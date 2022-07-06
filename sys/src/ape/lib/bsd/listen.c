@@ -143,7 +143,9 @@ listen(fd, backlog)
 		_sock_inaddr2string(r, msg + 9, sizeof msg - 9);
 		n = write(cfd, msg, strlen(msg));
 		if(n < 0){
-			errno = EOPNOTSUPP;	/* Improve error reporting!!! */
+			_syserrno();
+			if(errno == EPLAN9)
+				errno = EOPNOTSUPP;
 			close(cfd);
 			return -1;
 		}

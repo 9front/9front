@@ -61,7 +61,9 @@ bind(int fd, void *a, int alen)
 
 	n = write(cfd, msg, strlen(msg));
 	if(n < 0){
-		errno = EOPNOTSUPP;	/* Improve error reporting!!! */
+		_syserrno();
+		if(errno == EPLAN9)
+			errno = EOPNOTSUPP;
 		close(cfd);
 		return -1;
 	}
