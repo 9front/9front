@@ -135,6 +135,12 @@ mpinit(void)
 }
 
 void
+cpuidprint(void)
+{
+	iprint("cpu%d: %dMHz ARM Cortex A53\n", m->machno, m->cpumhz);
+}
+
+void
 main(void)
 {
 	machinit();
@@ -143,6 +149,7 @@ main(void)
 		fpuinit();
 		intrinit();
 		clockinit();
+		cpuidprint();
 		synccycles();
 		timersinit();
 		flushtlb();
@@ -162,6 +169,7 @@ main(void)
 	fpuinit();
 	intrinit();
 	clockinit();
+	cpuidprint();
 	timersinit();
 	pageinit();
 	procinit0();

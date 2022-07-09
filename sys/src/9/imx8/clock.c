@@ -29,6 +29,9 @@ localclockintr(Ureg *ureg, void *)
 void
 clockinit(void)
 {
+	uvlong tstart, tend;
+	ulong t0, t1;
+
 	syswr(PMCR_EL0, 1<<6 | 7);
 	syswr(PMCNTENSET, 1<<31);
 	syswr(PMUSERENR_EL0, 1<<2);
@@ -41,8 +44,22 @@ clockinit(void)
 		freq = sysrd(CNTFRQ_EL0);
 		print("timer frequency %lld Hz\n", freq);
 	}
-	m->cpuhz = freq;
-	m->cpumhz = (freq + Mhz/2 - 1) / Mhz;
+	tstart = sysrd(CNTPCT_EL0);
+	do{
+		t0 = lcycles();
+	}while(sysrd(CNTPCT_EL0) == tstart);
+	tend = tstart + (freq/100);
+	do{
+		t1 = lcycles();
+	}while(sysrd(CNTPCT_EL0) < tend);
+	t1 -= t0;
+	m->cpuhz = 100 * t1;
+	m->cpumhz = (m->cpuhz + Mhz/2 - 1) / Mhz;
+
+	/*
+	 * we are using virtual counter register CNTVCT_EL0
+	 * instead of the performance counter in userspace.
+	 */
 	m->cyclefreq = freq;
 
 	intrenable(IRQcntpns, localclockintr, nil, BUSUNKNOWN, "clock");
