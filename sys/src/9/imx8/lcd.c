@@ -813,6 +813,12 @@ backlighton(void)
 }
 
 void
+blankscreen(int blank)
+{
+	gpioout(GPIO_PIN(1, 10), blank == 0);
+}
+
+void
 lcdinit(void)
 {
 	struct dsi_cfg dsi_cfg;

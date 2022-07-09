@@ -178,11 +178,6 @@ setcolor(ulong p, ulong r, ulong g, ulong b)
 	return 0;
 }
 
-void
-blankscreen(int)
-{
-}
-
 static void
 myscreenputs(char *s, int n)
 {
