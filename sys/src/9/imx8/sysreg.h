@@ -38,6 +38,7 @@
 #define CNTP_TVAL_EL0			SYSREG(3,3,14,2,0)
 #define CNTP_CTL_EL0			SYSREG(3,3,14,2,1)
 #define CNTP_CVAL_EL0			SYSREG(3,3,14,2,2)
+#define CNTVOFF_EL2			SYSREG(3,4,14,0,3)
 
 #define TPIDR_EL0			SYSREG(3,3,13,0,2)
 #define TPIDR_EL1			SYSREG(3,0,13,0,4)

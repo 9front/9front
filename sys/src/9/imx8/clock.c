@@ -41,6 +41,9 @@ clockinit(void)
 		freq = sysrd(CNTFRQ_EL0);
 		print("timer frequency %lld Hz\n", freq);
 	}
+	m->cpuhz = freq;
+	m->cpumhz = (freq + Mhz/2 - 1) / Mhz;
+	m->cyclefreq = freq;
 
 	intrenable(IRQcntpns, localclockintr, nil, BUSUNKNOWN, "clock");
 }

@@ -96,6 +96,10 @@ el2:
 	MSR	R0, MDCR_EL2
 	ISB	$SY
 
+	/* set virtual timer offset to zero */
+	MOV	$0, R0
+	MSR	R0, CNTVOFF_EL2
+
 	/* HCR = RW, HCD, SWIO, BSU, FB */
 	MOVWU	$(1<<31 | 1<<29 | 1<<2 | 0<<10 | 0<<9), R0
 	MSR	R0, HCR_EL2
