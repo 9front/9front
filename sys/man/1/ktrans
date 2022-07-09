@@ -86,8 +86,10 @@ or run it with a sub-rio on a window like:
 .SH EXAMPLES
 If you want to make the Japanese text as below:
 
+.ft Jp
 私は毎日35分以上歩いて、 更に10分電車に乗って学校に通います。
  健康の維持にも役だっていますが、 なかなかたのしいものです。
+.ft
 
 your keyboard typing stream should be:
 

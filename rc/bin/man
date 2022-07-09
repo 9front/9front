@@ -11,6 +11,7 @@ d=0
 
 fn roff {
 	preproc=()
+	Jpflag=()
 	postproc=cat
 	x=`{doctype $2}
 	if (~ $1 t) {
@@ -19,6 +20,8 @@ fn roff {
 		if(~ $x *pic*)
 			preproc=($preproc pic)
 		Nflag=-Tutf
+		if(grep -s '^.ft Jp|\f\[Jp\]' $2)
+			Jpflag='-mnihongo'
 	}
 	if not {
 		Nflag='-N'
@@ -34,17 +37,17 @@ fn roff {
 	{echo -n $FONTS; cat $2 </dev/null} |
 		switch($#preproc) {
 		case 0
-			troff $Nflag $Lflag -$MAN 
+			troff $Nflag $Lflag -$MAN $Jpflag
 		case 1
-			$preproc | troff $Nflag $Lflag -$MAN
+			$preproc | troff $Nflag $Lflag -$MAN $Jpflag
 		case 2
-			$preproc(1) | $preproc(2) | troff $Nflag $Lflag -$MAN
+			$preproc(1) | $preproc(2) | troff $Nflag $Lflag -$MAN $Jpflag
 		case 3
 			$preproc(1) | $preproc(2) | $preproc(3) |
-				troff $Nflag $Lflag -$MAN
+				troff $Nflag $Lflag -$MAN $Jpflag
 		case *
 			$preproc(1) | $preproc(2) | $preproc(3) |
-				$preproc(4) | troff $Nflag $Lflag -$MAN
+				$preproc(4) | troff $Nflag $Lflag -$MAN $Jpflag
 		} | $postproc
 }
 
