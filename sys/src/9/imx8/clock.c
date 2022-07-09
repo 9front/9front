@@ -43,6 +43,10 @@ clockinit(void)
 	if(m->machno == 0){
 		freq = sysrd(CNTFRQ_EL0);
 		print("timer frequency %lld Hz\n", freq);
+
+		/* TURBO! */
+		setclkrate("ccm_arm_a53_clk_root", "osc_25m_ref_clk", 25*Mhz);
+		setclkrate("ccm_arm_a53_clk_root", "arm_pll_clk", 1400*Mhz);
 	}
 	tstart = sysrd(CNTPCT_EL0);
 	do{

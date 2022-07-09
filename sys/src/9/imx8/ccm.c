@@ -146,7 +146,7 @@ enum {
 };
 
 static int input_clk_freq[] = {
-	[ARM_PLL_CLK] 1600*Mhz, 
+	[ARM_PLL_CLK] 1400*Mhz, 
 	[GPU_PLL_CLK] 1600*Mhz,
 	[VPU_PLL_CLK] 800*Mhz,
 	[DRAM_PLL1_CLK] 800*Mhz,
@@ -977,25 +977,21 @@ enablefracpll(u32int *reg, int ref_sel, int ref_freq, int freq)
 
 	error = freq;
 	for(divq = 2; divq <= 64; divq += 2){
-		for(divr = 1; divr <= 64; divr++){
+		for(divr = 2; divr <= 64; divr++){
 			ref = ref_freq/divr;
-			if(ref < 10*Mhz || ref > 300*Mhz)
+
+			v = (vlong)freq*divq;
+			v <<= 24;
+			v /= ref * 8;
+
+			divfi = v >> 24;
+			divff = v & 0xFFFFFF;
+			if(divfi < 1 || divfi > 128)
 				continue;
 
-			ref *= 8;
-			divfi = ((vlong)freq*divq) / ref;
-			if(divfi < 1 || divfi > 32)
-				continue;
-
-			v = ((vlong)freq*divq) - (vlong)ref*divfi;
-			divff = (v<<24) / ref;
-			if(divff < 1 || divff > (1<<24))
-				continue;
-
-			v = (vlong)ref*(vlong)divff;
-			pllout = (ref*divfi + (v>>24))/divq;
-			if(pllout < 30*Mhz || pllout > 2000*Mhz)
-				continue;
+			v *= (vlong)ref * 8;
+			v /= (vlong)divq << 24;
+			pllout = v;
 
 			if(pllout > freq)
 				continue;
@@ -1003,16 +999,15 @@ enablefracpll(u32int *reg, int ref_sel, int ref_freq, int freq)
 			if(freq - pllout > error)
 				continue;
 
-// iprint("%p enablefracpll: freq=%d (actual %d)\n", PADDR(reg), freq, pllout);
-
 			cfg0 = 1<<21 | ref_sel<<16 | 1<<15 | (divr-1)<<5 | (divq/2)-1;
-			cfg1 = divff<<7 | divfi-1;
+			cfg1 = divff<<7 | (divfi-1);
 
 			error = freq - pllout;
 			if(error == 0)
 				goto Found;
 		}
 	}
+	panic("enablefracpll: %#p freq %d: out of range", PADDR(reg), freq);
 
 Found:
 	/* skip if nothing has changed */
@@ -1022,19 +1017,16 @@ Found:
 
 	reg[0] |= 1<<14;	/* bypass */
 
-// iprint("%p cfg1=%.8ux\n", PADDR(reg), cfg1);
 	reg[1] = cfg1;
 
-// iprint("%p cfg0=%.8ux\n", PADDR(reg), cfg0);
 	reg[0] = cfg0 | (1<<14) | (1<<12);
 
 	/* unbypass */
 	reg[0] &= ~(1<<14);
 
-// iprint("%p wait for lock...", PADDR(reg));
 	while((reg[0] & (1<<31)) == 0)
 		;
-// iprint("locked!\n");
+
 	reg[0] &= ~(1<<12);
 }
 
