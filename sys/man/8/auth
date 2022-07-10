@@ -296,7 +296,11 @@ removes access to all kernel drivers from
 the child namespace; the
 .B -e
 flag specifies a string of driver
-characters to keep.
+characters to keep. The
+.B -s
+flag gives a base set of namespace
+components, ones expected by rc, then passes
+the first argument as a script file to rc.
 .PP
 .I As
 executes

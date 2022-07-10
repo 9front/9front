@@ -10,11 +10,11 @@ binderr(char *new, char *old, int flag)
 	char dash[4] = { '-' };
 
 	if(debug){
-		if(flag & MCREATE){
+		if(flag & MCREATE)
 			dash[2] = 'c';
-			flag &= ~MCREATE;
-		}
+
 		switch(flag){
+		case MCREATE|MREPL:
 		case MREPL:
 			dash[0] = ' ';
 			if(dash[2] == 'c')
@@ -133,26 +133,40 @@ skelfs(void)
 		sysfatal("/mnt/d mount setup: %r");
 }
 
+static char *parts[256];
+static int  mflags[nelem(parts)];
+static int  nparts;
+static char *rc[] = { "/bin/rc", nil , nil};
+
+static void
+push(char *path, int flag)
+{
+	if(nparts == nelem(parts))
+		sysfatal("component overflow");
+	parts[nparts] = path;
+	mflags[nparts++] = flag;
+}
+
 void
 usage(void)
 {
-	fprint(2, "usage %s: [ -d ] [ -r file ] [ -c dir ] [ -e devs ] cmd args...\n", argv0);
+	fprint(2, "usage %s: [ -d ] [ -r file ] [ -c dir ] [ -e devs ] [ -. path ] cmd args...\n", argv0);
 	exits("usage");
 }
 
 void
 main(int argc, char **argv)
 {
-	char *b;
-	Dir *d;
 	char devs[1024];
 	int dfd;
-	char *parts[256];
-	int mflags[256];
-	int nparts;
+	char *path;
+	char *a;
+	int sflag;
 
 	nparts = 0;
+	path = "/";
 	memset(devs, 0, sizeof devs);
+	sflag = 0;
 	ARGBEGIN{
 	case 'D':
 		debug++;
@@ -160,35 +174,48 @@ main(int argc, char **argv)
 		debug++;
 		break;
 	case 'r':
-		parts[nparts] = EARGF(usage());
-		mflags[nparts++] = MREPL;
+		a = EARGF(usage());
+		push(a, MREPL);
 		break;
 	case 'c':
-		parts[nparts] = EARGF(usage());
-		mflags[nparts++] = MCREATE|MREPL;
+		a = EARGF(usage());
+		push(a, MREPL|MCREATE);
 		break;
 	case 'e':
 		snprint(devs, sizeof devs, "%s%s", devs, EARGF(usage()));
+		break;
+	case '.':
+		path = EARGF(usage());
+		break;
+	case 's':
+		sflag = 1;
 		break;
 	default:
 		usage();
 		break;
 	}ARGEND
+
 	if(argc == 0)
 		usage();
 
-	b = argv[0];
-	d = dirstat(b);
-	if(d == nil){
-		b = smprint("/bin/%s", b);
-		d = dirstat(b);
-		if(d == nil)
-			sysfatal("could not stat %s %r", argv[0]);
+	if(sflag){
+		snprint(devs, sizeof devs, "%s%s", devs, "|d");
+		push("/srv", MREPL|MCREATE);
+		push("/env", MREPL|MCREATE);
+		push("/rc", MREPL);
+		push("/bin", MREPL);
+		push(argv[0], MREPL);
+		rc[1] = argv[0];
+		argv = rc;
+	} else {
+		if(access(argv[0], AEXIST) == -1){
+			if((argv[0] = smprint("/bin/%s", argv[0])) == nil)
+				sysfatal("smprint: %r");
+			if(access(argv[0], AEXIST) == -1)
+				sysfatal("could not stat %s %r", argv[0]);
+		}
+		push(argv[0], MREPL);
 	}
-	free(d);
-	parts[nparts] = b;
-	mflags[nparts++] = MREPL;
-	argv[0] = b;
 
 	rfork(RFNAMEG|RFFDG);
 	skelfs();
@@ -210,5 +237,9 @@ main(int argc, char **argv)
 			sysfatal("could not write chdev: %r");
 	}
 	close(dfd);
+
+	if(chdir(path) < 0)
+		sysfatal("can not cd to %s", path);
 	exec(argv[0], argv);
+	sysfatal("exec: %r");
 }
