@@ -10,6 +10,8 @@
 #include "sysreg.h"
 #include "ureg.h"
 
+#include "rebootcode.i"
+
 Conf conf;
 
 /*
@@ -124,7 +126,7 @@ mpinit(void)
 		MACHP(i)->machno = i;
 		cachedwbinvse(MACHP(i), MACHSIZE);
 
-		u.r0 = 0x84000003;
+		u.r0 = 0x84000003;	/* CPU_ON */
 		u.r1 = (sysrd(MPIDR_EL1) & ~0xFF) | i;
 		u.r2 = PADDR(_start);
 		u.r3 = i;
@@ -188,12 +190,13 @@ main(void)
 void
 exit(int)
 {
-	Ureg u = { .r0 = 0x84000009 };
+	Ureg u = { .r0 = 0x84000002 };	/* CPU_OFF */
 
 	cpushutdown();
 	splfhi();
 
-	/* system reset */
+	if(m->machno == 0)
+		u.r0 = 0x84000009;	/* SYSTEM RESET */
 	smccall(&u);
 }
 
@@ -214,9 +217,54 @@ writeconf(void)
 {
 }
 
-void
-reboot(void *, void *, ulong)
+static void
+rebootjump(void *entry, void *code, ulong size)
 {
+	void (*f)(void*, void*, ulong);
+
+	intrcpushutdown();
+
+	/* redo identity map */
+	mmuidmap((uintptr*)L1);
+
+	/* setup reboot trampoline function */
+	f = (void*)REBOOTADDR;
+	memmove(f, rebootcode, sizeof(rebootcode));
+
+	cachedwbinvse(f, sizeof(rebootcode));
+	cacheiinvse(f, sizeof(rebootcode));
+
+	(*f)(entry, code, size);
+
+	for(;;);
+}
+
+void
+reboot(void*, void *code, ulong size)
+{
+	writeconf();
+	while(m->machno != 0){
+		procwired(up, 0);
+		sched();
+	}
+
+	cpushutdown();
+	delay(2000);
+
+	splfhi();
+
+	/* turn off buffered serial console */
+	serialoq = nil;
+
+	/* shutdown devices */
+	chandevshutdown();
+
+	/* stop the clock */
+	clockshutdown();
+	intrsoff();
+
+	/* off we go - never to return */
+	rebootjump((void*)(KTZERO-KZERO), code, size);
 }
 
 void

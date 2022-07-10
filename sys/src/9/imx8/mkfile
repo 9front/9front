@@ -87,8 +87,15 @@ install:V: /$objtype/$p$CONF
 <../port/portmkfile
 <|../port/mkbootrules $CONF
 
+main.$O: rebootcode.i
+
+pciimx.$O: ../port/pci.h
+
 initcode.out:		init9.$O initcode.$O /$objtype/lib/libc.a
 	$LD -l -R1 -s -o $target $prereq
+
+rebootcode.out:		rebootcode.$O cache.v8.$O
+	$LD -l -H6 -R1 -T0x40020000 -s -o $target $prereq
 
 $CONF.clean:
 	rm -rf $p$CONF $p$CONF.u errstr.h $CONF.c boot$CONF.c

@@ -44,7 +44,7 @@
 #define	UCRAMSIZE	(8*MiB)
 
 #define VDRAM		(0xFFFFFFFFC0000000ULL)	/* 0x40000000 - 0x80000000 */
-#define	KTZERO		(VDRAM + 0x100000)	/* kernel text start */
+#define	KTZERO		(VDRAM + 0x100000)	/* 0x40100000 - kernel text start */
 
 #define	ARMLOCAL	(0xFFFFFFFFB1000000ULL)	/* 0x31000000 */
 #define	VIRTIO		(0xFFFFFFFFB0000000ULL)	/* 0x30000000 */
@@ -63,6 +63,9 @@
 #define L1TOP		((MACHADDR(MAXMACH-1)-L1TOPSIZE)&-BY2PG)
 
 #define MACHADDR(n)	(KTZERO-((n)+1)*MACHSIZE)
+
+#define CONFADDR	(VDRAM + 0x10000)	/* 0x40010000 */
+#define	REBOOTADDR	(0x40020000)		/* 0x40020000 */
 
 #define	UZERO		0ULL			/* user segment */
 #define	UTZERO		(UZERO+0x10000)		/* user text start */

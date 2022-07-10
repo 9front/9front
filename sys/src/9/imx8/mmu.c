@@ -61,6 +61,24 @@ mmu0clear(uintptr *l1)
 }
 
 void
+mmuidmap(uintptr *l1)
+{
+	uintptr va, pa, pe;
+
+	pe = -VDRAM;
+	for(pa = VDRAM - KZERO, va = VDRAM; pa < pe; pa += PGLSZ(1), va += PGLSZ(1))
+		l1[PTL1X(pa, 1)] = l1[PTL1X(va, 1)];
+	if(PTLEVELS > 2)
+	for(pa = VDRAM - KZERO, va = VDRAM; pa < pe; pa += PGLSZ(2), va += PGLSZ(2))
+		l1[PTL1X(pa, 2)] = l1[PTL1X(va, 2)];
+	if(PTLEVELS > 3)
+	for(pa = VDRAM - KZERO, va = VDRAM; pa < pe; pa += PGLSZ(3), va += PGLSZ(3))
+		l1[PTL1X(pa, 3)] = l1[PTL1X(va, 3)];
+	setttbr(PADDR(&l1[L1TABLEX(0, PTLEVELS-1)]));
+	flushtlb();
+}
+
+void
 mmu1init(void)
 {
 	m->mmutop = mallocalign(L1TOPSIZE, BY2PG, 0, 0);
