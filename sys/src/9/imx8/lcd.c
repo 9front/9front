@@ -441,6 +441,14 @@ dsiparams(struct dsi_cfg *cfg, int lanes, int hs_clk, int ref_clk, int tx_esc_cl
 }
 
 static void
+lcdifreset(void)
+{
+	wr(lcdif, LCDIF_CTRL_SET, CTRL_SFTRST);
+	delay(1);
+	wr(lcdif, LCDIF_CTRL_SET, CTRL_CLKGATE);
+}
+
+static void
 lcdifinit(struct video_mode *mode)
 {
 	wr(lcdif, LCDIF_CTRL_CLR, CTRL_SFTRST);
@@ -500,6 +508,11 @@ static void
 bridgeinit(I2Cdev *dev, struct video_mode *mode, struct dsi_cfg *cfg)
 {
 	int n;
+
+	// soft reset
+	i2cwritebyte(dev, 0x09, 1);
+	while(i2creadbyte(dev, 0x09) & 1)
+		;
 
 	// clock derived from dsi clock
 	switch(cfg->hs_clk/2000000){
@@ -838,8 +851,10 @@ lcdinit(void)
 	gpioout(GPIO_PIN(3, 20), 1);
 
 	bridge = i2cdev(i2cbus("i2c4"), 0x2C);
-	if(bridge == nil)
-		return;
+	if(bridge == nil){
+		err = "could not find bridge";
+		goto out;
+	}
 	bridge->subaddr = 1;
 
 	/* power on mipi dsi */
@@ -857,6 +872,8 @@ lcdinit(void)
 	setclkrate("disp.rtrm_clk", "system_pll1_clk", 400*Mhz);
 	setclkgate("disp.axi_clk", 1);
 	setclkgate("sim_display.mainclk", 1);
+
+	lcdifreset();
 
 	setclkrate("mipi.core", "system_pll1_div3", 266*Mhz);
 	setclkrate("mipi.CLKREF", "system_pll2_clk", 25*Mhz);
