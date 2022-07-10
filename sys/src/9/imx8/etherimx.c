@@ -655,18 +655,22 @@ ctl(Ether*, void*, long len)
 static int
 reset(Ether *edev)
 {
-	Ctlr *ctlr = edev->ctlr;
-	u32int paddr1, paddr2;
+	enum {
+		OCOTP_HW_OCOTP_MAC_ADDR0 = 0x640/4,
+		OCOTP_HW_OCOTP_MAC_ADDR1 = 0x650/4,
+	};
+	static u32int *ocotp = (u32int*)(VIRTIO + 0x350000);
+	u32int a0, a1;
 
-	/* steal mac address from uboot */
-	paddr1 = rr(ctlr, ENET_PALR);
-	paddr2 = rr(ctlr, ENET_PAUR);
-	edev->ea[0] = paddr1>>24;
-	edev->ea[1] = paddr1>>16;
-	edev->ea[2] = paddr1>>8;
-	edev->ea[3] = paddr1>>0;
-	edev->ea[4] = paddr2>>24;
-	edev->ea[5] = paddr2>>16;
+	a0 = ocotp[OCOTP_HW_OCOTP_MAC_ADDR0];
+	a1 = ocotp[OCOTP_HW_OCOTP_MAC_ADDR1];
+
+	edev->ea[0] = a1>>8;
+	edev->ea[1] = a1>>0;
+	edev->ea[2] = a0>>24;
+	edev->ea[3] = a0>>16;
+	edev->ea[4] = a0>>8;
+	edev->ea[5] = a0>>0;
 
 	shutdown(edev);
 
