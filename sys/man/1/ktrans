@@ -19,7 +19,7 @@ return to default English mode (no transliteration).
 .B ctl-n
 Japanese hiragana: interpret lower-case letters as a Hepburn
 representation of hiragana.  In this mode, typing ctl-\\ looks up the
-last `word' in a hiragana-kanji dictionary and replaces it.
+last `word' in a kana-kanji dictionary and replaces it.
 Subsequent ctl-\\ characters cycle through the possibilities.  A word
 is the longest immediately preceding unbroken string of hiragana
 characters.
@@ -28,15 +28,14 @@ characters.
 Japanese katakana.
 .TP
 .B ctl-l
-If you want to put the hiragana not converted, you can type.
+If you want to put the hiragana without modification.
 .TP
 .B ctl-x
-Read kana-kanji conversion dictionary once more, and renews it.  This
-will be convenient when you updated kana-kanji conversion dictionary
-on such acme editor.In default, the kana-kanji conversion dictionary
-is read once at beginning and to make a hashed table, which will be
-arranged so that the last selected candidate will be the first
-candidate for later search.
+Reload the in-memory kana-kanji conversion dictionary (kanji jisho).
+This is so you can update the kanji jisho on-the-fly.  By default, the
+kanji jisho is read once at the beginning, to make a hash table, which
+will be arranged so that the last selected candidate will be the first
+candidate for later searches.
 .TP
 .B ctl-r
 Russian: interpret letters as Cyrillic; the transliteration is mostly
@@ -62,7 +61,10 @@ Greek.
 .B ctl-s
 Korean.
 .PP
-To use it you have to run it before a rio session. You can put it on your $home/lib/profile like:
+To use
+.I ktrans
+you have to run it before a rio session.  You can put it on your
+$home/lib/profile like:
 .EX
 	...
 	ktrans
@@ -73,6 +75,13 @@ or run it with a sub-rio on a window like:
 .EX
 	% @{ktrans; rio}
 .EE
+.PP
+The default location of the kanji jisho is
+.LR /lib/kanji.jisho .
+You can change that by means of the
+.L $jisho
+environment variable, so you can keep a customized version of the
+dictionary that fits your personal needs.
 .PP
 .SH SOURCE
 .B /sys/src/cmd/ktrans
