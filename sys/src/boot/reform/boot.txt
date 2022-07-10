@@ -1,2 +1,4 @@
-load ${devtype} ${devnum}:${bootpart} ${kernel_addr_r} ${prefix}9reform.u
-bootm ${kernel_addr_r}
+mw.b 0x40010000 0x0 0x10000
+load ${devtype} ${devnum}:${bootpart} 0x40010000 ${prefix}plan9.ini
+load ${devtype} ${devnum}:${bootpart} 0x40100000 ${prefix}9reform.u
+bootm 0x40100000

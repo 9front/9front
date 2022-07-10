@@ -64,6 +64,10 @@
 #define MACHADDR(n)	(KTZERO-((n)+1)*MACHSIZE)
 
 #define CONFADDR	(VDRAM + 0x10000)	/* 0x40010000 */
+
+#define BOOTARGS	((char*)CONFADDR)
+#define BOOTARGSLEN	0x10000
+
 #define	REBOOTADDR	(VDRAM-KZERO + 0x20000)	/* 0x40020000 */
 
 #define	UZERO		0ULL			/* user segment */
