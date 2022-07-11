@@ -115,3 +115,7 @@ method.
 There is no way to generate the control characters literally.  At the
 beggining of a new line, you have to begin with ctl-l for successful
 kana-kanji conversion.
+.SH HISTORY
+Ktrans was originally written by Kenji Okamoto in August of 2000 for
+the 2nd edition of Plan 9.  It was imported in to 9front in July of
+2022, with patches by several contributors.
