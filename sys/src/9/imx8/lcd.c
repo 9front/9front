@@ -461,7 +461,10 @@ lcdifinit(struct video_mode *mode)
 	wr(lcdif, LCDIF_CTRL1_SET, CTRL1_FIFO_CLEAR);
 	wr(lcdif, LCDIF_AS_CTRL, 0);
 
-	wr(lcdif, LCDIF_CTRL1, sm(7, CTRL1_BYTE_PACKING_FORMAT));
+	/* enable underflow recovery to fix image shift */
+	wr(lcdif, LCDIF_CTRL1,
+		sm(7, CTRL1_BYTE_PACKING_FORMAT) |
+		CTRL1_RECOVER_ON_UNDERFLOW);
 
 	wr(lcdif, LCDIF_CTRL,
 		CTRL_BYPASS_COUNT |
@@ -911,12 +914,8 @@ lcdinit(void)
 		goto out;
 	}
 
-	/*
-	 * start the pixel clock. running at the actual pixel clock
-	 * causes the screen to shift horizontally after a while.
-	 * using 80% seems to fix it - for now.
-	 */
-	setclkrate("lcdif.pix_clk", "system_pll1_clk", (mode.pixclk*8)/10);
+	/* start the pixel clock */
+	setclkrate("lcdif.pix_clk", "system_pll1_clk", mode.pixclk);
 	dpiinit(&mode);
 
 	/* release dpi reset */
