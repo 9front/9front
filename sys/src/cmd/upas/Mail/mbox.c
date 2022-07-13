@@ -802,6 +802,8 @@ changemesg(Plumbmsg *pm)
 
 	digest = plumblookup(pm->attr, "digest");
 	action = plumblookup(pm->attr, "mailtype");
+	if(digest == nil || action == nil)
+		return;
 	if(strcmp(action, "new") == 0){
 		if((m = load(pm->data, digest, 1)) == nil)
 			return;
