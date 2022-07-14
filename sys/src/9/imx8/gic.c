@@ -265,7 +265,7 @@ intrenable(int irq, void (*f)(Ureg*, void*), void *a, int tbdf, char *)
 	prio = 0x80;
 	intid = irq;
 	if((v = xalloc(sizeof(Vctl))) == nil)
-		panic("irqenable: no mem");
+		panic("intrenable: no mem");
 	v->irq = irq;
 	v->intid = intid;
 	v->f = f;
