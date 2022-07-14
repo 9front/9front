@@ -835,8 +835,10 @@ used.
 The snarf buffer is unaffected.
 .TP
 .B <rio>
-Exchange snarf buffers with
+Exchange dot with snarf buffer of
 .IR rio .
+If dot is the null string, the text in the snarf buffer is
+used.
 .TP
 .BI / regexp
 Search forward for the next match of the last regular expression
