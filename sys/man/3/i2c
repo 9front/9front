@@ -8,7 +8,6 @@ i2c \- I²C Bus Interface
 .nf
 .BI /dev/ bus /i2c. n .ctl
 .BI /dev/ bus /i2c. n .data
-.fi
 .SH DESCRIPTION
 The I²C (Inter-Integrated Circuit) bus is a serial bus standard
 invented by Philips.
@@ -19,21 +18,21 @@ The bus requires only a single data signal
 a clock signal
 .I SDC
 and ground.
-Devices on the bus have 7-bit or 10-bit addreesses, which is
+Devices on the bus have 7-bit or 10-bit addresses, which is
 determined by the device (see the datasheet).
 Every device monitors the bus and waits for the master to initiate
 a transaction.
 Each transaction starts with the master sending the target device address
-and direction bit and the device is acknowledging each byte
+with a direction bit and the device acknowledges each byte
 received if its address matched.
 Depending on the device, more bytes must be transmitted after the
 .IR device-address .
-For example, to encode a register number an memory offset.
+For example, encoding a register number at a memory offset.
 We refer to these bytes as the
 .IR sub-address .
 After the address phase, the data phase begins where
-zero or more data bytes are eigther transmitted or received
-depending on the transactoin direction.
+zero or more data bytes are either transmitted or received
+depending on the transaction direction.
 .PP
 This driver supports multiple buses (controllers) to be registered
 by platform specific code in the kernel.
@@ -46,9 +45,9 @@ on a bus, which is done when accessing the
 directory.
 .PP
 Platform specific code can also register individual devices,
-supplying a meaningfull device configuration.
-It can also be neccesary to manually register devices if
-the device has been disabled by a enable signal or
+supplying a meaningful device configuration.
+It can also be necessary to manually register devices if
+the device has been disabled by an enable signal or
 otherwise inhibited during enumeration.
 .PP
 Each device appears as a control (
@@ -67,12 +66,12 @@ The data file is used to initiate transactions to the device.
 The initial
 .I sub-address
 bytes sent are derived from the file position according to the device
-configuration and the length of the data phase is controlled by
+configuration, and the length of the data phase is controlled by
 the requested read or write size.
 The requested size might be truncated by the driver if
 the request exceeds the logical file-size.
 .PP
-The control-file provides access the device configuration.
+The control-file provides access to the device configuration.
 When read,
 it reproduces this configuration in text form.
 The following text lines are accepted when written to the control-file:
