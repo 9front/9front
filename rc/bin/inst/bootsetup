@@ -30,17 +30,27 @@ case go
 	9fat=$rd
 	export 9fat
 
-	bootfile=`{basename $bootfile}
+	if(~ $#bootfile 1){
+		bootfile=`{basename $bootfile}
+	}
+	if(! ~ $#bootfile 1 || ! test -f /$cputype/$bootfile) {
+		bootfile=()
+	}
 
 	if(! test -f /tmp/plan9.ini) {
 		@{
-			echo 'bootfile='^$bootfile
-			echo 'bootargs=local!'^$fs' '$"fsflags
+			if(~ $#bootfile 1)
+				echo 'bootfile='^$bootfile
+			if(~ $#fs 1)
+				echo 'bootargs=local!'^$fs' '$"fsflags
 			if(~ $#nvram 1)
 				echo 'nvram='^$nvram
-			echo 'mouseport='^$mouseport
-			echo 'monitor='^$monitor
-			echo 'vgasize='^$vgasize
+			if(~ $#mouseport 1)
+				echo 'mouseport='^$mouseport
+			if(~ $#monitor 1)
+				echo 'monitor='^$monitor
+			if(~ $#vgasize 1)
+				echo 'vgasize='^$vgasize
 			cd '#ec'
 			for(i in *){
 				echo -n $"i'='
@@ -72,32 +82,50 @@ case go
 	# always make backup of old bootsector
 	logprog dd -bs 512 -count 1 -if $9fat -of /tmp/pbs.bak
 
-	if(~ $need9fatformat yes){
-		log Initializing Plan 9 FAT partition.
-		logprog disk/format -r 2 -d -b /n/newfs/386/pbs -l PLAN9 $9fat
+	if (! test -f /386/pbs) {
+		if(~ $need9fatformat yes){
+			log Initializing Plan 9 FAT partition.
+			logprog disk/format -r 2 -d -l PLAN9 $9fat
+		}
 	}
 	if not {
-		log Updating bootsector.
-		logprog disk/format -b /n/newfs/386/pbs $9fat
+		if(~ $need9fatformat yes){
+			log Initializing Plan 9 FAT partition.
+			logprog disk/format -r 2 -d -b /386/pbs -l PLAN9 $9fat
+		}
+		if not {
+			log Updating bootsector.
+			logprog disk/format -b /386/pbs $9fat
+		}
 	}
 
 	logprog mount -c /srv/dos /n/9fat $9fat
 
-	logprog rm -f /n/9fat/^(9bootfat plan9.ini $bootfile)
+	if(test -f /386/9bootfat) {
+		logprog rm -f /n/9fat/9bootfat
+		logprog cp /386/9bootfat /n/9fat/9bootfat
 
-	logprog cp /n/newfs/386/9bootfat /n/9fat/9bootfat
-	# make file continous on disk
-	logprog chmod +al /n/9fat/9bootfat
+		# make file continous on disk
+		logprog chmod +al /n/9fat/9bootfat
+	}
 
 	# copy config
+	logprog rm -f /n/9fat/plan9.ini
 	logprog cp /tmp/plan9.ini /n/9fat/plan9.ini
 
 	# copy kernel
-	logprog cp /n/newfs/$cputype/$bootfile /n/9fat/
+	if(~ $#bootfile 1){
+		logprog rm -f /n/9fat/$bootfile
+		logprog cp /$cputype/$bootfile /n/9fat/$bootfile
+	}
 
 	# copy efi bootloader
-	logprog mkdir -p /n/9fat/efi/boot
-	logprog cp /386/^(bootia32.efi bootx64.efi) /n/9fat/efi/boot
+	for(i in /386/*.efi){
+		if(test -f $i) {
+			logprog mkdir -p /n/9fat/efi/boot
+			logprog cp $i /n/9fat/efi/boot/
+		}
+	}
 
 	# copy in backups
 	if(test -f /tmp/oldplan9.ini)
