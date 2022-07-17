@@ -1,0 +1,2 @@
+#!/bin/rc
+tcs -sf jis | awk '$1 !~ /;;/ {gsub("(^\/|\/$)", "", $2); gsub(" ", "	"); gsub("\/", " ", $2);} {print}'

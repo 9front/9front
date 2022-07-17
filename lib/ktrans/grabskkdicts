@@ -1,0 +1,2 @@
+#!/bin/rc
+git/clone https://github.com/skk-dev/dict skkdicts

@@ -1,0 +1,12 @@
+#
+# The following are a set of tools to obtain and process dictionaries from the SKK project in order to use them with ktrans(1).
+#
+# grabskkdicts pulls the skk kana-kanji conversion dictionaries from the skk-dev/dict repo.
+# skk2ktrans takes an skk dictionary and converts it into a kanji jisho suitable to be used with ktrans(1).
+#
+# You can fetch and convert all the dictionaries by running this file.
+#
+
+grabskkdicts
+for(d in skkdicts/SKK-JISYO.*)
+	<$d skk2ktrans >$d.jisho
