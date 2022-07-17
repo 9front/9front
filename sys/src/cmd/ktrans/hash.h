@@ -16,8 +16,8 @@ struct Hmap {
 
 Hmap*	hmapalloc(int nbuckets, int size);
 int	hmapget(Hmap *h, char *key, void *dst);
-int	hmapset(Hmap **h, char *key, void *new, void *old);
+int	hmaprepl(Hmap **h, char *key, void *new, void *old, int freekeys);
+int	hmapupd(Hmap **h, char *key, void *new);
 int	hmapdel(Hmap *h, char *key, void *dst, int freekey);
-void	hmapfree(Hmap *h, int freekeys);
 char*	hmapkey(Hmap *h, char *key);
 void	hmapreset(Hmap *h, int freekeys);

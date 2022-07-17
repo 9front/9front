@@ -47,7 +47,7 @@ hmapalloc(int nbuckets, int size)
 }
 
 int
-hmapset(Hmap **store, char *key, void *new, void *old)
+hmaprepl(Hmap **store, char *key, void *new, void *old, int freekeys)
 {
 	Hnode *n;
 	uchar *v;
@@ -66,6 +66,8 @@ hmapset(Hmap **store, char *key, void *new, void *old)
 		if(n->filled == 0)
 			goto replace;
 		if(strcmp(n->key, key) == 0){
+			if(freekeys)
+				free(n->key);
 			oldv = v + Tagsize;
 			goto replace;
 		}
@@ -103,6 +105,18 @@ replace:
 		return 1;
 	}
 	return 0;
+}
+
+int
+hmapupd(Hmap **h, char *key, void *new)
+{
+	char *prev;
+
+	prev = hmapkey(*h, key);
+	if(prev == nil)
+		prev = key;
+
+	return hmaprepl(h, prev, new, nil, 0);
 }
 
 void*
@@ -184,7 +198,7 @@ hmaprehash(Hmap *old, int buckets)
 	for(i=0 ; i < old->len; i++){
 		v = old->nodes + i*old->nsz;
 		n = (Hnode*)v;
-		hmapset(&new, n->key, v + Tagsize, nil);
+		hmaprepl(&new, n->key, v + Tagsize, nil, 0);
 	}
 	free(old);
 	return new;

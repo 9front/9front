@@ -122,14 +122,13 @@ initmap(Map *m, int n)
 					//confict; partial & valid input
 					prev = m[i];
 					prev.leadstomore = 1;
-					free(hmapkey(h, buf));
 				}
 			}
 
 			if(s[1] == '\0'){
-				hmapset(&h, strdup(buf), &prev, nil);
+				hmaprepl(&h, strdup(buf), &prev, nil, 1);
 			} else {
-				hmapset(&h, strdup(buf), &signalmore, nil);
+				hmaprepl(&h, strdup(buf), &signalmore, nil, 1);
 			}
 			j++;
 		}
@@ -425,7 +424,7 @@ opendict(Hmap *h, char *name)
 			kouho[i] = rest;
 
 		/* key is the base pointer; overwrites clean up for us */
-		hmapset(&h, p, kouho, nil);
+		hmaprepl(&h, p, kouho, nil, 1);
 	}
 	Bterm(b);
 	return h;
@@ -537,7 +536,7 @@ dotrans(Hmap *dic)
 				p = kouho[0];
 				kouho[0] = kouho[i];
 				kouho[i] = p;
-				hmapset(&dic, hmapkey(dic, v), kouho, nil);
+				hmapupd(&dic, v, kouho);
 			}
 
 			olen = okuri = joshi = 0;
