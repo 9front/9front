@@ -14,7 +14,8 @@ dev
 	cap
 	fs
 	ether	netif
-	ip		arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium inferno
+	bridge	log
+	ip	arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium inferno
 	draw	screen swcursor
 	mouse	mouse
 	uart	gpio
@@ -31,6 +32,7 @@ link
 	ethergenet	ethermii
 	ethermedium
 	loopbackmedium
+	netdevmedium
 
 ip
 	tcp

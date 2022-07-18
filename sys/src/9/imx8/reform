@@ -13,6 +13,7 @@ dev
 	cap
 	fs
 	ether	netif
+	bridge	log
 	ip	arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium inferno
 	draw	screen swcursor
 	mouse	screen swcursor
@@ -26,8 +27,10 @@ link
 	etherimx	ethermii
 	ethermedium
 	loopbackmedium
+	netdevmedium
 	i2cimx		devi2c
 	pciimx		pci
+
 ip
 	tcp
 	udp

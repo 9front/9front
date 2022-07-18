@@ -13,7 +13,8 @@ dev
 	tls
 	cap
 	fs
-	ip		arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium inferno
+	bridge	log
+	ip	arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium inferno
 	draw	screen swcursor
 	mouse	mouse
 	uart	gpio
@@ -23,10 +24,11 @@ dev
 	dtracy
 
 link
-	loopbackmedium
-	ethermedium
 	archbcm3
 	usbdwc
+	ethermedium
+	loopbackmedium 
+	netdevmedium
 
 ip
 	tcp

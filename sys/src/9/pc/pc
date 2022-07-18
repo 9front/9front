@@ -20,7 +20,7 @@ dev
 	dtracy
 
 	ether		netif
-	bridge		netif log
+	bridge		log
 	ip		arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium inferno
 
 	draw		screen vga vgax vgasoft
@@ -81,9 +81,9 @@ link
 	ethervirtio	pci
 	ethervirtio10	pci
 	ethermedium
-	pcmciamodem
-	netdevmedium
 	loopbackmedium
+	netdevmedium
+	pcmciamodem
 	usbuhci		pci
 	usbohci		pci
 	usbehci		usbehcipc

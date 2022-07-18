@@ -11,8 +11,9 @@ dev
 	env
 	pipe
 	dup
-	ether netif
-	ip		arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium inferno
+	ether	netif
+	bridge	log
+	ip	arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium inferno
 	tls
 	cap
 	kprof

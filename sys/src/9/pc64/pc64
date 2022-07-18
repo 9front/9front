@@ -19,8 +19,8 @@ dev
 	fs
 
 	ether		netif
-	bridge		netif log
-	ip		arp chandial ip ipv6 ipaux iproute netlog ethermedium nullmedium pktmedium inferno
+	bridge		log
+	ip		arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium inferno
 
 	draw		screen vga vgax vgasoft
 	mouse		mouse
@@ -79,9 +79,9 @@ link
 	ethervirtio	pci
 	ethervirtio10	pci
 	ethermedium
-#	pcmciamodem
-	netdevmedium
 	loopbackmedium
+	netdevmedium
+#	pcmciamodem
 	usbuhci		pci
 	usbohci		pci
 	usbehci		pci usbehcipc
