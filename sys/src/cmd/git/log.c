@@ -64,7 +64,7 @@ lookup(Pfilt *pf, Object *o)
 }
 
 int
-filtermatch1(Pfilt *pf, Object *t, Object *pt)
+matchesfilter1(Pfilt *pf, Object *t, Object *pt)
 {
 	Object *a, *b;
 	Hash ha, hb;
@@ -88,7 +88,7 @@ filtermatch1(Pfilt *pf, Object *t, Object *pt)
 			sysfatal("read %H: %r", ha);
 		if((b = readobject(hb)) == nil)
 			sysfatal("read %H: %r", hb);
-		r = filtermatch1(&pf->sub[i], a, b);
+		r = matchesfilter1(&pf->sub[i], a, b);
 		unref(a);
 		unref(b);
 		if(r)
@@ -98,11 +98,12 @@ filtermatch1(Pfilt *pf, Object *t, Object *pt)
 }
 
 int
-filtermatch(Object *o)
+matchesfilter(Object *o)
 {
 	Object *t, *p, *pt;
 	int i, r;
 
+	assert(o->type == GCommit);
 	if(pathfilt == nil)
 		return 1;
 	if((t = readobject(o->commit->tree)) == nil)
@@ -112,7 +113,7 @@ filtermatch(Object *o)
 			sysfatal("read %H: %r", o->commit->parent[i]);
 		if((pt = readobject(p->commit->tree)) == nil)
 			sysfatal("read %H: %r", o->commit->tree);
-		r = filtermatch1(pathfilt, t, pt);
+		r = matchesfilter1(pathfilt, t, pt);
 		unref(p);
 		unref(pt);
 		if(r)
@@ -131,16 +132,13 @@ nextline(char *p, char *e)
 	return p;
 }
 
-static void
+static int
 show(Object *o)
 {
 	Tm tm;
 	char *p, *q, *e;
 
 	assert(o->type == GCommit);
-	if(!filtermatch(o))
-		return;
-
 	if(shortlog){
 		p = o->commit->msg;
 		e = p + o->commit->nmsg;
@@ -170,6 +168,7 @@ show(Object *o)
 		Bprint(out, "\n");
 	}
 	Bflush(out);
+	return 1;
 }
 
 static void
@@ -181,10 +180,14 @@ showquery(char *q)
 
 	if((n = resolverefs(&h, q)) == -1)
 		sysfatal("resolve: %r");
-	for(i = 0; i < n && (msgcount == -1 || msgcount-- > 0); i++){
+	for(i = 0; i < n && (msgcount == -1 || msgcount > 0); i++){
 		if((o = readobject(h[i])) == nil)
 			sysfatal("read %H: %r", h[i]);
-		show(o);
+		if(matchesfilter(o)){
+			show(o);
+			if(msgcount != -1)
+				msgcount--;
+		}
 		unref(o);
 	}
 	exits(nil);
@@ -207,8 +210,12 @@ showcommits(char *c)
 	qinit(&objq);
 	osinit(&done);
 	qput(&objq, o, 0);
-	while(qpop(&objq, &e) && (msgcount == -1 || msgcount-- > 0)){
-		show(e.o);
+	while(qpop(&objq, &e) && (msgcount == -1 || msgcount > 0)){
+		if(matchesfilter(e.o)){
+			show(e.o);
+			if(msgcount != -1)
+				msgcount--;
+		}
 		for(i = 0; i < e.o->commit->nparent; i++){
 			if(oshas(&done, e.o->commit->parent[i]))
 				continue;
