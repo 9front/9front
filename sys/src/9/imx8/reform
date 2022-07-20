@@ -20,6 +20,7 @@ dev
 	uart
 	usb
 	i2c
+	rtc	devi2c
 	sd
 
 link
