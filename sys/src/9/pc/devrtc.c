@@ -227,26 +227,25 @@ rtcwrite(Chan* c, void* buf, long n, vlong off)
 	char *a, *start;
 	Rtc rtc;
 	ulong secs;
+	char *cp, sbuf[32];
 	uchar bcdclock[Nbcd];
-	char *cp, *ep;
 	ulong offset = off;
 
 	if(offset!=0)
 		error(Ebadarg);
-
 
 	switch((ulong)c->qid.path){
 	case Qrtc:
 		/*
 		 *  read the time
 		 */
-		cp = ep = buf;
-		ep += n;
-		while(cp < ep){
-			if(*cp>='0' && *cp<='9')
+		if(n >= sizeof(sbuf))
+			error(Ebadarg);
+		strncpy(sbuf, buf, n);
+		sbuf[n] = '\0';
+		for(cp = sbuf; *cp != '\0'; cp++)
+			if(*cp >= '0' && *cp <= '9')
 				break;
-			cp++;
-		}
 		secs = strtoul(cp, 0, 0);
 	
 		/*
