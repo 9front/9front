@@ -177,7 +177,7 @@ rtcwrite(Chan* c, void* buf, long n, vlong off)
 		if(n >= sizeof(sbuf))
 			error(Ebadarg);
 		strncpy(sbuf, buf, n);
-		sbuf[n] = '\0'
+		sbuf[n] = '\0';
 		for(cp = sbuf; *cp != '\0'; cp++)
 			if(*cp >= '0' && *cp <= '9')
 				break;
