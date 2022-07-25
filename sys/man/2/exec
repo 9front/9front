@@ -67,6 +67,11 @@ and any initial arguments to that program, for example
 ls | mc
 .EE
 .PP
+There may be up to 256 bytes of arguments passed to the interpreter.
+These are tokenized into up to 32 arguments by
+.IR tokenize (2)
+before being passed as the interpreters argument vector.
+.PP
 When a C program is executed,
 it is called as follows:
 .IP

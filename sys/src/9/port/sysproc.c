@@ -243,35 +243,19 @@ sysrfork(va_list list)
 }
 
 static int
-shargs(char *s, int n, char **ap)
+shargs(char *s, int n, char **ap, int nap)
 {
+	char *p;
 	int i;
 
 	if(n <= 2 || s[0] != '#' || s[1] != '!')
 		return -1;
 	s += 2;
 	n -= 2;		/* skip #! */
-	for(i=0;; i++){
-		if(i >= n)
-			return 0;
-		if(s[i]=='\n')
-			break;
-	}
-	s[i] = 0;
-
-	i = 0;
-	for(;;) {
-		while(*s==' ' || *s=='\t')
-			s++;
-		if(*s == 0)
-			break;
-		ap[i++] = s++;
-		while(*s && *s!=' ' && *s!='\t')
-			s++;
-		if(*s == 0)
-			break;
-		*s++ = 0;
-	}
+	if((p = memchr(s, '\n', n)) == nil)
+		return 0;
+	*p = 0;
+	i = tokenize(s, ap, nap-1);
 	ap[i] = nil;
 	return i;
 }
@@ -300,12 +284,15 @@ beswav(uvlong v)
 uintptr
 sysexec(va_list list)
 {
-	struct {
-		Exec;
-		uvlong	hdr[1];
-	} ehdr;
-	char line[sizeof(ehdr)];
-	char *progarg[sizeof(line)/2+1];
+	union {
+		struct {
+			Exec;
+			uvlong	hdr[1];
+		} ehdr;
+		char buf[256];
+	} u;
+	char line[256];
+	char *progarg[32+1];
 	volatile char *args, *elem, *file0;
 	char **argv, **argp, **argp0;
 	char *a, *e, *charp, *file;
@@ -353,22 +340,22 @@ sysexec(va_list list)
 		if(!indir)
 			kstrdup(&elem, up->genbuf);
 
-		n = devtab[tc->type]->read(tc, &ehdr, sizeof(ehdr), 0);
+		n = devtab[tc->type]->read(tc, u.buf, sizeof(u.buf), 0);
 		if(n >= sizeof(Exec)) {
-			magic = beswal(ehdr.magic);
+			magic = beswal(u.ehdr.magic);
 			if(magic == AOUT_MAGIC) {
 				if(magic & HDR_MAGIC) {
-					if(n < sizeof(ehdr))
+					if(n < sizeof(u.ehdr))
 						error(Ebadexec);
-					entry = beswav(ehdr.hdr[0]);
-					text = UTZERO+sizeof(ehdr);
+					entry = beswav(u.ehdr.hdr[0]);
+					text = UTZERO+sizeof(u.ehdr);
 				} else {
-					entry = beswal(ehdr.entry);
+					entry = beswal(u.ehdr.entry);
 					text = UTZERO+sizeof(Exec);
 				}
 				if(entry < text)
 					error(Ebadexec);
-				text += beswal(ehdr.text);
+				text += beswal(u.ehdr.text);
 				if(text <= entry || text >= (USTKTOP-USTKSIZE))
 					error(Ebadexec);
 
@@ -393,8 +380,8 @@ sysexec(va_list list)
 		/*
 		 * Process #! /bin/sh args ...
 		 */
-		memmove(line, &ehdr, n);
-		n = shargs(line, n, progarg);
+		memmove(line, u.buf, n);
+		n = shargs(line, n, progarg, nelem(progarg));
 		if(n < 1)
 			error(Ebadexec);
 		/*
@@ -411,8 +398,8 @@ sysexec(va_list list)
 
 	t = (text+align) & ~align;
 	text -= UTZERO;
-	data = beswal(ehdr.data);
-	bss = beswal(ehdr.bss);
+	data = beswal(u.ehdr.data);
+	bss = beswal(u.ehdr.bss);
 	align = BY2PG-1;
 	d = (t + data + align) & ~align;
 	bssend = t + data + bss;
