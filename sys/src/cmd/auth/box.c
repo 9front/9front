@@ -2,7 +2,11 @@
 #include <libc.h>
 #include <auth.h>
 
-static int debug;
+static int	debug;
+static char	cwd[8192];
+static char	*parts[256];
+static int	mflags[nelem(parts)];
+static int	nparts;
 
 static void
 binderr(char *new, char *old, int flag)
@@ -32,20 +36,14 @@ binderr(char *new, char *old, int flag)
 		fprint(2, "bind %s %s %s\n", dash, new, old);
 	}
 	if(bind(new, old, flag) < 0)
-		sysfatal("bind: %r");
+		sysfatal("bind %s: %r", new);
 }
 
 static void
 resolvenames(char **names, int nname)
 {
 	int i;
-	char buf[8192];
-	int fd;
 
-	fd = open(".", OREAD|OCEXEC);
-	if(fd < 0)
-		sysfatal("could not open .: %r");
-	fd2path(fd, buf, sizeof buf);
 	for(i = 0; i < nname; i++){
 		if(names[i] == nil)
 			continue;
@@ -55,10 +53,9 @@ resolvenames(char **names, int nname)
 		case '/':
 			break;
 		default:
-			names[i] = cleanname(smprint("%s/%s", buf, names[i]));
-		}	
+			names[i] = cleanname(smprint("%s/%s", cwd, names[i]));
+		}
 	}
-	close(fd);
 }
 
 static void
@@ -103,7 +100,8 @@ sandbox(char **names, int *flags, int nname)
 			free(d);
 			binderr(skel, dir, MBEFORE);
 		}
-		binderr(names[j], targ, flags[j]);
+		if(flags[j] != -1)
+			binderr(names[j], targ, flags[j]);
 	}
 	binderr(newroot, "/", MREPL);
 }
@@ -133,16 +131,11 @@ skelfs(void)
 		sysfatal("/mnt/d mount setup: %r");
 }
 
-static char *parts[256];
-static int  mflags[nelem(parts)];
-static int  nparts;
-static char *rc[] = { "/bin/rc", nil , nil};
-
 static void
 push(char *path, int flag)
 {
 	if(nparts == nelem(parts))
-		sysfatal("component overflow");
+		sysfatal("too many bound paths");
 	parts[nparts] = path;
 	mflags[nparts++] = flag;
 }
@@ -150,23 +143,23 @@ push(char *path, int flag)
 void
 usage(void)
 {
-	fprint(2, "usage %s: [ -d ] [ -r file ] [ -c dir ] [ -e devs ] [ -. path ] cmd args...\n", argv0);
+	fprint(2, "usage %s: [ -r file ] [ -c dir ] [ -e devs ] cmd args...\n", argv0);
 	exits("usage");
 }
 
 void
 main(int argc, char **argv)
 {
-	char devs[1024];
-	int dfd;
-	char *path;
+	char **argp, devs[128];
+	int i, narg, dfd;
 	char *a;
 	int sflag;
 
 	nparts = 0;
-	path = "/";
+	narg = 0;
 	memset(devs, 0, sizeof devs);
 	sflag = 0;
+	argp = argv;
 	ARGBEGIN{
 	case 'D':
 		debug++;
@@ -184,9 +177,6 @@ main(int argc, char **argv)
 	case 'e':
 		snprint(devs, sizeof devs, "%s%s", devs, EARGF(usage()));
 		break;
-	case '.':
-		path = EARGF(usage());
-		break;
 	case 's':
 		sflag = 1;
 		break;
@@ -195,18 +185,19 @@ main(int argc, char **argv)
 		break;
 	}ARGEND
 
-	if(argc == 0)
+	if(argc == 0 && !sflag)
 		usage();
 
+	if(getwd(cwd, sizeof(cwd)) == nil)
+		sysfatal("getwd: %r");
+	push(cwd, -1);
 	if(sflag){
 		snprint(devs, sizeof devs, "%s%s", devs, "|d");
 		push("/srv", MREPL|MCREATE);
 		push("/env", MREPL|MCREATE);
 		push("/rc", MREPL);
 		push("/bin", MREPL);
-		push(argv[0], MREPL);
-		rc[1] = argv[0];
-		argv = rc;
+		argp[narg++] = "/bin/rc";
 	} else {
 		if(access(argv[0], AEXIST) == -1){
 			if((argv[0] = smprint("/bin/%s", argv[0])) == nil)
@@ -216,6 +207,9 @@ main(int argc, char **argv)
 		}
 		push(argv[0], MREPL);
 	}
+	for(i = 0; i < argc; i++)
+		argp[narg++] = argv[i];
+	argp[narg] = nil;
 
 	rfork(RFNAMEG|RFFDG);
 	skelfs();
@@ -225,7 +219,7 @@ main(int argc, char **argv)
 
 	resolvenames(parts, nparts);
 	sandbox(parts, mflags, nparts);
-	
+
 	if(debug)
 		fprint(2, "chdev %s\n", devs);
 
@@ -238,8 +232,8 @@ main(int argc, char **argv)
 	}
 	close(dfd);
 
-	if(chdir(path) < 0)
-		sysfatal("can not cd to %s", path);
-	exec(argv[0], argv);
+	if(chdir(cwd) < 0)
+		sysfatal("chdir %s: %r", cwd);
+	exec(argp[0], argp);
 	sysfatal("exec: %r");
 }

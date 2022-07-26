@@ -62,7 +62,7 @@ changeuser, convkeys, printnetkey, status, enable, disable, authsrv, guard.srv, 
 .PP
 .B auth/box
 [
-.B -d
+.B -s
 ] [
 .B -rc
 .I file
@@ -298,9 +298,8 @@ the child namespace; the
 flag specifies a string of driver
 characters to keep. The
 .B -s
-flag gives a base set of namespace
-components, ones expected by rc, then passes
-the first argument as a script file to rc.
+flag initializes the namespace to what rc expects,
+and passes its arguments unmodified to /bin/rc.
 .PP
 .I As
 executes
