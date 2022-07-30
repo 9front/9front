@@ -224,8 +224,7 @@ is undone.
 .IR mnt (3),
 .IR srv (3)
 .SH DIAGNOSTICS
-The return value is a positive integer (a unique sequence number) for
-success, -1 for failure.
+The return value is 0 for success, -1 for failure.
 These routines set
 .IR errstr .
 .SH BUGS

@@ -745,13 +745,12 @@ cmount(Chan *new, Chan *old, int flag, char *spec)
 		}
 		m->mount = nm;
 	}
-	order = nm->mountid;
 	wunlock(&m->lock);
 	wunlock(&pg->ns);
 
 	mountfree(um);
 
-	return order;
+	return 0;
 }
 
 void
