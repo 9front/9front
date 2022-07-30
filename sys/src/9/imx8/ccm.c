@@ -146,7 +146,7 @@ enum {
 };
 
 static int input_clk_freq[] = {
-	[ARM_PLL_CLK] 1400*Mhz, 
+	[ARM_PLL_CLK] 1600*Mhz, 
 	[GPU_PLL_CLK] 1600*Mhz,
 	[VPU_PLL_CLK] 800*Mhz,
 	[DRAM_PLL1_CLK] 800*Mhz,
@@ -1015,7 +1015,8 @@ Found:
 	&& ((reg[1] ^ cfg1) & ~(1<<31)) == 0)
 		return;
 
-	reg[0] |= 1<<14;	/* bypass */
+	/* bypass */
+	reg[0] |= 1<<14;
 
 	reg[1] = cfg1;
 
