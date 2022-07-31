@@ -1365,7 +1365,7 @@ isohsinterrupt(Ctlr *ctlr, Isoio *iso)
 	ctlr->nisointr++;
 	ddiprint("isohsintr: iso %#p: tdi %#p tdu %#p\n", iso, tdi, iso->tdu);
 	if(iso->state != Qrun && iso->state != Qdone)
-		panic("isofsintr: iso state");
+		panic("isohsintr: iso state");
 	if(ehcidebug > 1 || iso->debug > 1)
 		isodump(iso, 0);
 
@@ -1394,6 +1394,8 @@ isohsinterrupt(Ctlr *ctlr, Isoio *iso)
 			tdi->ndata = 0;
 
 		if(tdi->next == iso->tdu || tdi->next->next == iso->tdu){
+			diprint("overrun iso %#p tdi %#p tdu %#p\n", iso, tdi, iso->tdu);
+
 			memset(iso->tdu->data, 0, iso->tdu->mdata);
 			itdinit(ctlr, iso, iso->tdu);
 			iso->tdu = iso->tdu->next;
@@ -1402,13 +1404,13 @@ isohsinterrupt(Ctlr *ctlr, Isoio *iso)
 		tdi = tdi->next;
 		coherence();
 	}
-	ddiprint("isohsintr: %d frames processed\n", nframes);
+	ddiprint("isohsintr: %d frames processed\n", i);
 	if(i == nframes){
 		tdi->csw[0] |= Itdioc;
 		coherence();
 	}
-	iso->tdi = tdi;
 	coherence();
+	iso->tdi = tdi;
 	if(isocanwrite(iso) || isocanread(iso)){
 		diprint("wakeup iso %#p tdi %#p tdu %#p\n", iso,
 			iso->tdi, iso->tdu);
@@ -1444,20 +1446,24 @@ isofsinterrupt(Ctlr *ctlr, Isoio *iso)
 		err = stdi->csw & Stderrors;
 		if(err == 0){
 			iso->nerrs = 0;
-			if(iso->tok == Tdtokin)
-				stdi->ndata = (stdi->csw>>Stdlenshift)&Stdlenmask;
-		}else if(iso->nerrs++ > iso->nframes/2){
-			if(iso->err == nil){
-				iso->err = serrmsg(err);
-				diprint("isofsintr: tdi %#p error %#ux %s\n",
-					stdi, err, iso->err);
-				diprint("ctlr load %uld\n", ctlr->load);
+			if(iso->tok == Tdtokin){
+				ulong residue = (stdi->csw>>Stdlenshift)&Stdlenmask;
+				stdi->ndata = residue < stdi->ndata ? stdi->ndata - residue : 0;
+				diprint("isofsintr: tdi %#p ndata %lud, mdata %lud\n", stdi, stdi->ndata, stdi->mdata);
+			}
+		}else {
+			diprint("isofsintr: tdi %#p error %#ux %s\n", stdi, err, serrmsg(err));
+			if(iso->nerrs++ > iso->nframes/2){
+				if(iso->err == nil){
+					iso->err = serrmsg(err);
+					diprint("ctlr load %uld\n", ctlr->load);
+				}
 			}
 			stdi->ndata = 0;
-		}else
-			stdi->ndata = 0;
-
+		}
 		if(stdi->next == iso->stdu || stdi->next->next == iso->stdu){
+			diprint("overrun iso %#p tdi %#p tdu %#p\n", iso, stdi, iso->stdu);
+
 			memset(iso->stdu->data, 0, iso->stdu->mdata);
 			sitdinit(ctlr, iso, iso->stdu);
 			iso->stdu = iso->stdu->next;
@@ -1466,13 +1472,13 @@ isofsinterrupt(Ctlr *ctlr, Isoio *iso)
 		coherence();
 		stdi = stdi->next;
 	}
-	ddiprint("isofsintr: %d frames processed\n", nframes);
+	ddiprint("isofsintr: %d frames processed\n", i);
 	if(i == nframes){
 		stdi->csw |= Stdioc;
 		coherence();
 	}
-	iso->stdi = stdi;
 	coherence();
+	iso->stdi = stdi;
 	if(isocanwrite(iso) || isocanread(iso)){
 		diprint("wakeup iso %#p tdi %#p tdu %#p\n", iso,
 			iso->stdi, iso->stdu);

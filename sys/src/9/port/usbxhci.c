@@ -1338,7 +1338,6 @@ isoread(Ep *ep, uchar *p, long n)
 	}
 	µ = io->period;
 	ctlr = ep->hp->aux;
-Again:
 	if(needrecover(ctlr))
 		error(Erecover);
 
@@ -1386,10 +1385,6 @@ Again:
 	io->frame = i;
 
 	*io->ring->doorbell = io->ring->id;
-	if(p == s){
-		tsleep(&up->sleep, return0, nil, 5);
-		goto Again;
-	}
 	qunlock(io);
 	poperror();
 

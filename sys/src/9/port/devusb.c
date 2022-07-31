@@ -1199,19 +1199,22 @@ usbread(Chan *c, void *a, long n, vlong offset)
 		error(Enotconf);
 	case Tctl:
 		nr = rhubread(ep, a, n);
-		if(nr >= 0){
-			n = nr;
+		if(nr >= 0)
 			break;
-		}
 		/* else fall */
 	default:
 		ddeprint("\nusbread q %#x fid %d cnt %ld off %lld\n",q,c->fid,n,offset);
-		n = ep->hp->epread(ep, a, n);
+	Again:
+		nr = ep->hp->epread(ep, a, n);
+		if(nr == 0 && ep->ttype == Tiso){
+			tsleep(&up->sleep, return0, nil, 2*ep->pollival);
+			goto Again;
+		}
 		break;
 	}
 	poperror();
 	putep(ep);
-	return n;
+	return nr;
 }
 
 /*
