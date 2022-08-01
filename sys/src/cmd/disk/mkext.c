@@ -39,7 +39,7 @@ main(int argc, char **argv)
 	namep = name;
 	ARGBEGIN{
 	case 'd':
-		p = ARGF();
+		p = EARGF(usage());
 		if(strlen(p) >= LEN)
 			error("destination fs name too long\n");
 		strcpy(name, p);
