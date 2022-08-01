@@ -1,5 +1,6 @@
 #include <u.h>
 #include <libc.h>
+#include <bio.h>
 #include <thread.h>
 #include "dat.h"
 #include "fns.h"
@@ -184,14 +185,23 @@ err:
 	return -1;
 }
 
+static int
+Bchanwrite(Biobufhdr *b, void *p, long n)
+{
+	Dir d;
+	if(chanstat(b->aux, &d) < 0)
+		return -1;
+	return chanwrite(b->aux, p, n, d.length);
+}
+
 int
 userssave(Fs *fs, Chan *ch)
 {
 	User *u, *v;
 	int nu, i;
-	char buf[512], ubuf[USERLEN], *p, *e;
-	uvlong off;
-	
+	char ubuf[USERLEN], *uname;
+	Biobuf buf;
+
 	rlock(&fs->udatal);
 	u = fs->udata;
 	if(u == nil){
@@ -199,31 +209,30 @@ userssave(Fs *fs, Chan *ch)
 		nu = nelem(udef);
 	}else
 		nu = fs->nudata;
-	off = 0;
+
+	Binit(&buf, 2, OWRITE);
+	if(ch != nil)
+		Biofn(&buf, Bchanwrite);
+	buf.aux = ch;
+
 	for(v = u; v < u + nu; v++){
-		p = buf;
-		e = buf + sizeof(buf);
-		p = seprint(p, e, "%d:%s:", v->uid, v->name);
-		if(v->lead != NOUID)
-			p = strecpy(p, e, uid2name(fs, v->lead, ubuf));
-		if(p < e)
-			*p++ = ':';
+		uname = v->lead == NOUID ? "" : uid2name(fs, v->lead, ubuf);
+		if(Bprint(&buf, "%d:%s:%s:", v->uid, v->name, uname) < 0)
+			goto err;
 		for(i = 0; i < v->nmemb; i++){
 			if(v->memb[i] == NOUID)
 				continue;
-			if(p < e && i > 0)
-				*p++ = ',';
-			p = strecpy(p, e, uid2name(fs, v->memb[i], ubuf));
+			uname = uid2name(fs, v->memb[i], ubuf);
+			if(Bprint(&buf, "%s%s", i < 1 ? "" : ",", uname) < 0)
+				goto err;
 		}
-		*p++ = '\n';
-		if(ch == nil)
-			write(2, buf, p - buf);
-		else if(chanwrite(ch, buf, p - buf, off) < p - buf)
+		if(Bputc(&buf, '\n') < 0)
 			goto err;
-		off += p - buf;
 	}
-	runlock(&fs->udatal);
-	return 0;
+	if(Bterm(&buf) == 0){
+		runlock(&fs->udatal);
+		return 0;
+	}
 err:
 	runlock(&fs->udatal);
 	return -1;
