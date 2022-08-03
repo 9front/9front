@@ -298,8 +298,16 @@ the child namespace; the
 flag specifies a string of driver
 characters to keep. The
 .B -s
-flag initializes the namespace to what rc expects,
-and passes its arguments unmodified to /bin/rc.
+flag initializes the namespace to an environment which includes
+.IR /bin ,
+.IR /srv ,
+.IR /env ,
+.IR /rc ,
+adds the
+.I |d
+devices, and execs
+.IR /bin/rc ,
+passing all arguments as though rc was invoked directly.
 .PP
 .I As
 executes
