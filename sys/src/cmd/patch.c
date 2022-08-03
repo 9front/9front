@@ -6,6 +6,7 @@
 typedef struct Patch Patch;
 typedef struct Hunk Hunk;
 typedef struct Fbuf Fbuf;
+typedef struct Fchg Fchg;
 
 struct Patch {
 	char	*name;
@@ -39,10 +40,18 @@ struct Fbuf {
 	int	len;
 };
 
+struct Fchg {
+	char	*tmp;
+	char	*old;
+	char	*new;
+};
+
 int	strip;
 int	reverse;
 void	(*addnew)(Hunk*, char*);
 void	(*addold)(Hunk*, char*);
+Fchg	*changed;
+int	nchanged;
 
 char*
 readline(Biobuf *f, int *lnum)
@@ -398,13 +407,47 @@ blat(char *old, char *new, char *o, usize len)
 		sysfatal("open %s: %r", tmp);
 	if(write(fd, o, len) != len)
 		sysfatal("write %s: %r", tmp);
-	if(strcmp(old, new) == 0 && remove(old) == -1)
-		sysfatal("remove %s: %r", old);
-	if(rename(fd, new) == -1)
-		sysfatal("create %s: %r", new);
-	if(close(fd) == -1)
-		sysfatal("close %s: %r", tmp);
-	free(tmp);
+	if((changed = realloc(changed, (nchanged+1)*sizeof(Fchg))) == nil)
+		sysfatal("realloc: %r");
+	if((changed[nchanged].new = strdup(new)) == nil)
+		sysfatal("strdup: %r");
+	if((changed[nchanged].old = strdup(old)) == nil)
+		sysfatal("strdup: %r");
+	changed[nchanged].tmp = tmp;
+	nchanged++;
+	close(fd);
+}
+
+void
+finish(int ok)
+{
+	Fchg *c;
+	int i, fd;
+
+	for(i = 0; i < nchanged; i++){
+		c = &changed[i];
+		if(!ok){
+			if(remove(c->tmp) == -1)
+				fprint(2, "remove %s: %r\n", c->tmp);
+		}else{
+			if((fd = open(c->tmp, ORDWR)) == -1)
+				sysfatal("open %s: %r", c->tmp);
+			if(strcmp(c->old, c->new) == 0 && remove(c->old) == -1)
+				sysfatal("remove %s: %r", c->old);
+			if(rename(fd, c->new) == -1)
+				sysfatal("create %s: %r", c->new);
+			if(close(fd) == -1)
+				sysfatal("close %s: %r", c->tmp);
+			if(strcmp(c->new, "/dev/null") == 0)
+				print("%s\n", c->old);
+			else
+				print("%s\n", c->new);
+		}
+		free(c->tmp);
+		free(c->old);
+		free(c->new);
+	}
+	free(changed);
 }
 
 int
@@ -530,10 +573,6 @@ apply(Patch *p, char *fname)
 		if(i+1 == p->nhunk || strcmp(curfile, p->hunk[i+1].newpath) != 0){
 			o = append(o, &osz, e, f.buf + f.len);
 			blat(h->oldpath, h->newpath, o, osz);
-			if(strcmp(h->newpath, "/dev/null") == 0)
-				print("%s\n", h->oldpath);
-			else
-				print("%s\n", h->newpath);
 			osz = 0;
 		}
 	}
@@ -571,7 +610,7 @@ main(int argc, char **argv)
 {
 	Biobuf *f;
 	Patch *p;
-	int i;
+	int i, ok;
 
 	ARGBEGIN{
 	case 'p':
@@ -592,13 +631,16 @@ main(int argc, char **argv)
 		addnew = addnewfn;
 		addold = addoldfn;
 	}
+	ok = 1;
 	if(argc == 0){
 		if((f = Bfdopen(0, OREAD)) == nil)
 			sysfatal("open stdin: %r");
 		if((p = parse(f, "stdin")) == nil)
 			sysfatal("parse patch: %r");
-		if(apply(p, "stdin") == -1)
-			sysfatal("apply stdin: %r");
+		if(apply(p, "stdin") == -1){
+			fprint(2, "apply stdin: %r\n");
+			ok = 0;
+		}
 		freepatch(p);
 		Bterm(f);
 	}else{
@@ -607,11 +649,14 @@ main(int argc, char **argv)
 				sysfatal("open %s: %r", argv[i]);
 			if((p = parse(f, argv[i])) == nil)
 				sysfatal("parse patch: %r");
-			if(apply(p, argv[i]) == -1)
-				sysfatal("apply %s: %r", argv[i]);
+			if(apply(p, argv[i]) == -1){
+				fprint(2, "apply %s: %r\n", argv[i]);
+				ok = 0;
+			}
 			freepatch(p);
 			Bterm(f);
 		}
 	}
+	finish(ok);
 	exits(nil);
 }
