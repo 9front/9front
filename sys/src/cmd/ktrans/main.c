@@ -6,379 +6,140 @@
  *                   okamoto@granite.cias.osakafu-u.ac.jp
  */
 
-/*
- * A glossary on some of the Japanese vocabulary used:
- * kana: syllabic letting, either hiragana(ひらがな) or katakana(カタカナ)
- * kanji(漢字): borrowed characters, 楽 in 楽しい
- * Okurigana(送り仮名): kana tail to kanji, しい in 楽しい
- * Joshi(助詞): particle, は in 私は
- * Jisho(辞書): dictionary
- * kouho(候補): candidate
- */
-
 #include <u.h>
 #include <libc.h>
+#include <ctype.h>
 #include <bio.h>
+#include <fcall.h>
+#include <thread.h>
+#include <9p.h>
+
 #include "hash.h"
 #include "ktrans.h"
 
-#define	LSIZE	256
+static Hmap  *jisho, *zidian;
+static int   deflang;
+static char  backspace[64];
 
-Rune	lbuf[LSIZE];		/* hiragana buffer for key input written by send() */
-Hmap	*table;
-uchar	okurigana[LSIZE];	/* buffer for okurigana */
-char	okuri = 0;		/* buffer/flag for capital input char */
-int	in, out;
-int	llen, olen, joshi = 0;
-int	natural = 1;		/* not Japanese but English mode */
+mainstacksize = 8192*2;
 
-int	changelang(int);
-int	dotrans(Hmap*);
-int	nrune(char *);
-void	send(uchar *, int);
-Hmap*	opendict(Hmap *, char *);
-
-void
-kbdopen(void)
-{
-	int n, kinfd, koutfd, fd[2];
-	char buf[128];
-	int kbd;
-
-	kbd = 1;
-	if((kinfd = open("/dev/kbd", OREAD)) < 0){
-		kbd = 0;
-		if((kinfd = open("/dev/cons", OREAD)) < 0)
-			sysfatal("open kbd: %r");
-	}
-	if(bind("#|", "/n/temp", MREPL) < 0)
-		sysfatal("bind /n/temp: %r");
-	if((koutfd = open("/n/temp/data1", OWRITE)) < 0)
-		sysfatal("open kbd pipe: %r");
-	if(bind("/n/temp/data", kbd? "/dev/kbd": "/dev/cons", MREPL) < 0)
-		sysfatal("bind kbd pipe: %r");
-	unmount(nil, "/n/temp");
-	if(!kbd){
-		in = kinfd;
-		out = koutfd;
-		return;
-	}
-	if(pipe(fd) < 0)
-		sysfatal("pipe: %r");
-	if(fork()){
-		in = out = fd[0];
-		close(fd[1]);
-		close(kinfd);
-		close(koutfd);
-		return;
-	}
-	close(fd[0]);
-	if(fork()){
-		Biobuf b;
-		long r;
-
-		Binit(&b, fd[1], OREAD);
-		while((r = Bgetrune(&b)) >= 0){
-			n = snprint(buf, sizeof(buf), "c%C", (Rune)r)+1;
-			write(koutfd, buf, n); /* pass on result */
-		}
-	} else
-		while((n = read(kinfd, buf, sizeof(buf))) > 0){
-			buf[n-1] = 0;
-			if(n < 2 || buf[0] != 'c')
-				write(koutfd, buf, n); /* pass on */
-			else
-				write(fd[1], buf+1, n-2); /* to translator */
-		}
-	exits(nil);
-}
-
-Map signalmore = {
-	"_", nil, 1,
-};
-
-Hmap*
-initmap(Map *m, int n)
-{
-	int i, j;
-	char buf[16];
-	char *s;
-	Map prev;
-	Hmap *h;
-
-	h = hmapalloc(n, sizeof(Map));
-	for(i = 0; i < n; i++){
-		if(m[i].roma == nil || m[i].roma[0] == '\0')
-			continue;
-
-		//We mark all partial strings so we know when
-		//we have partial match when ingesting.
-		j = 2;
-		for(s = m[i].roma; *s && j <= sizeof buf; s++){
-			snprint(buf, j, "%s", m[i].roma);
-			prev = m[i];
-			if(hmapget(h, buf, &prev) == 0){
-				if(prev.leadstomore == 1 && s[1] == '\0'){
-					//confict; partial & valid input
-					prev = m[i];
-					prev.leadstomore = 1;
-				}
-			}
-
-			if(s[1] == '\0'){
-				hmaprepl(&h, strdup(buf), &prev, nil, 1);
-			} else {
-				hmaprepl(&h, strdup(buf), &signalmore, nil, 1);
-			}
-			j++;
-		}
-	}
-	return h;
-}
-
-void
-usage(void)
-{
-	fprint(2, "usage: %s\n", argv0);
-	exits("usage");
-}
-
-void
-main(int argc, char *argv[])
-{
-
-	uchar *bp, *ep, buf[128];
-	Map lkup, last;
-	int wantmore;
-	int n, c;
-	char *jishoname, *zidianname;
-	Hmap *jisho, *zidian;
-
-	ARGBEGIN{
-	default: usage();
-	}ARGEND;
-	if(argc != 0)
-		usage();
-
-	if((jishoname = getenv("jisho")) == nil)
-		jishoname = "/lib/kanji.jisho";
-	jisho = opendict(nil, jishoname);
-
-	if((zidianname = getenv("zidian")) == nil)
-		zidianname = "/lib/hanzi.zidian";
-	zidian = opendict(nil, zidianname);
-
-	hira 	= table = initmap(mhira, nelem(mhira));
-	kata 	= initmap(mkata, nelem(mkata));
-	greek 	= initmap(mgreek, nelem(mgreek));
-	cyril 	= initmap(mcyril, nelem(mcyril));
-	hangul 	= initmap(mhangul, nelem(mhangul));
-	last = (Map){nil, nil, -1};
-
-	kbdopen();
-	if(fork())
-		exits(nil); /* parent process will exit */
-
-	bp = ep = buf;
-	wantmore = 0;
-	for (;;) { /* key board input loop */
-	getmore:
-		if (bp>=ep || wantmore) {
-			if (wantmore==0)
-				bp = ep = buf; /* clear all */
-			n = read(in, ep, &buf[sizeof(buf)]-ep);
-			if (n<=0)
-				exits("");
-			ep += n;
-			*ep = '\0';
-		}
-		while (bp<ep) { /* there are input data */
-			if (table == hira && natural != 1 && (*bp>'A' && *bp<='Z') && ep-bp<2
-			   && !strchr("EIOU", *bp)) {
-				wantmore = 1;
-				goto getmore;
-			}
-			if (!fullrune((char *)bp, ep-bp)) { /* not enough length of input */
-				wantmore = 1;
-				goto getmore;
-			}
-			wantmore = 0;
-
-			if (*bp=='') { /* ^x read ktrans-jisho once more */
-				jisho = opendict(jisho, jishoname);
-				zidian = opendict(zidian, zidianname);
-				llen = 0;
-				olen = okuri = joshi = 0;
-				wantmore=0;
-				bp=ep=buf;
-				continue;
-			}
-			if (*bp=='') { /* ^\ (start translation command) */
-				if (table == hanzi)
-					c = dotrans(zidian);
-				else
-					c = dotrans(jisho);
-				if (c)
-					*bp = c; /* pointer to translated rune */
-				else
-					bp++;
-				continue;
-			}
-			if (*bp=='') { /* ^l (no translate command) */
-				bp++;
-				llen = 0;
-				olen = okuri = joshi = 0;
-				last.kana = nil;
-				continue;
-			}
-			if (changelang(*bp)) { /* change language mode OK */
-				bp++;
-				olen = okuri = joshi = 0;
-				last.kana = nil;
-				continue;
-			}
-			if (natural || *bp<=' ' || *bp>='{') { /* English mode but not ascii */
-				Rune r;
-				int rlen = chartorune(&r, (char *)bp);
-				send(bp, rlen); /* write bp to /dev/cons */
-				bp += rlen;
-				last.kana = nil;
-				continue;
-			}
-			if (table == hira && (*bp >= 'A' && *bp <= 'Z') && (*(bp+1) < 'A'
-			   || *(bp+1) > 'Z')) {
-				*bp = okuri = tolower(*bp);
-				joshi = olen = 0;
-			} else if (table == hira && (*bp >= 'A' && *bp <= 'Z') &&
-			   (*(bp+1) >= 'A' && *(bp+1) <= 'Z')) {
-				*bp = okuri = tolower(*bp);
-				*(bp+1) = tolower(*(bp+1));
-				joshi = 1;
-				olen = 0;
-			}
-			if(hmapget(table, (char*)bp, &lkup) < 0){
-				if(last.kana != nil){
-					send((uchar*)last.kana, strlen(last.kana));
-					bp += strlen(last.roma);
-				} else
-					send(bp++, 1);
-				last.kana = nil;
-				break;
-			}
-			/* concatinations; only advance a single character */
-			if(lkup.kana != nil && strstr("ッっ", lkup.kana))
-				lkup.roma = "_";
-			/* partial match */
-			if(lkup.kana == nil || lkup.leadstomore == 1){
-				if(lkup.kana != nil)
-					last = lkup;
-
-				wantmore = 1;
-				break;
-			}
-			last.kana = nil;
-			send((uchar*)lkup.kana, strlen(lkup.kana));
-			bp += strlen(lkup.roma);
-		}
-	}
-}
-
-/*
- * send UTF string (p) with length (n) to stdout
- * and write rune (r) in global lbuf[] buffer
- * or okurigana[] buffer if okuri (verb or joshi) mode
- */
-void
-send(uchar *p, int n)
+char*
+pushutf(char *dst, char *e, char *u, int nrune)
 {
 	Rune r;
-	uchar *ep;
+	char *p;
+	char *d;
 
-	if (write(out, (char*)p, n) != n)
-		sysfatal("write: %r");
+	if(dst >= e)
+		return dst;
 
-	if (llen>LSIZE-64) {
-		memmove((char*)lbuf, (char*)lbuf+64, 64*sizeof(Rune));
-		llen -= 64;
-	}
-
-	if(table != hira && table != hanzi)
-		return;
-	if(natural && table != hanzi)
-		return;
-
-	ep = p+n;
-	if(okuri)
-		while (olen<LSIZE && p<ep)
-			okurigana[olen++] = *p++;
-	else
-		while (llen<LSIZE && p<ep) {
-			p += chartorune(&r, (char*)p);
-			if (r=='\b') {
-				if (llen>0)
-				llen--;
-				continue;
+	d = dst;
+	p = u;
+	while(d < e-1){
+		if(isascii(*p)){
+			if((*d = *p) == '\0')
+				return d;
+			p++;
+			d++;
+		} else {
+			p += chartorune(&r, p);
+			if(r == Runeerror){
+				*d = '\0';
+				return d;
 			}
-			if (r==0x80) /* ignore view key */
-				continue;
-			lbuf[llen++] = r;
-	   }
+			d += runetochar(d, &r);
+		}
+		if(nrune > 0 && --nrune == 0)
+			break;
+	}
+	if(d > e-1)
+		d = e-1;
+
+	*d = '\0';
+	return d;
 }
 
-int
-changelang(int c)
+typedef struct Str Str;
+struct Str {
+	char b[128];
+	char *p;
+};
+
+#define strend(s) ((s)->b + sizeof (s)->b)
+
+void
+resetstr(Str *s, ...)
 {
-	switch(c){
-	case '': /* ^t (English mode) */
-		natural = 1;
-		table = hira;
-		llen = 0;
-		return 1;
-		break;
+	va_list args;
+	va_start(args, s);
+	do {
+		s->p = s->b;
+		s->p[0] = '\0';
+		s = va_arg(args, Str*);
+	} while(s != nil);
+	va_end(args);
+}
 
-	case '': /* ^n (Japanese hiragana mode ) */
-		natural = 0;
-		table = hira;
-		llen = 0;
-		return 1;
-		break;
+void
+popstr(Str *s)
+{
+	while(s->p > s->b && (*--s->p & 0xC0)==0x80)
+		;
 
-	case '': /* ^k (Japanese katakana mode) */
-		natural = 0;
-		table = kata;
-		llen = 0;
-		return 1;
-		break;
+	s->p[0] = '\0';
+}
 
-	case '': /* ^r (Russian mode) */
-		natural = 0;
-		table = cyril;
-		llen = 0;
-		return 1;
-		break;
+Hmap*
+openmap(char *file)
+{
+	Biobuf *b;
+	char *s;
+	Map map;
+	Hmap *h;
+	char *key, *val;
+	Str partial;
+	Rune r;
 
-	case '': /* ^o (Greek mode) */
-		natural = 0;
-		table = greek;
-		llen = 0;
-		return 1;
-		break;
+	h = hmapalloc(64, sizeof(Map));
+	b = Bopen(file, OREAD);
+	if(b == nil)
+		return nil;
 
-	case '': /* ^s (Korean mode) */
-		natural = 0;
-		table = hangul;
-		llen = 0;
-		return 1;
-		break;
+	while(key = Brdstr(b, '\n', 1)){
+		if(key[0] == '\0'){
+		Err:
+			free(key);
+			continue;
+		}
 
-	case '': /* ^c (Chinese mode) */
-		natural = 1;
-		table = hanzi;
-		llen = 0;
-		return 1;
-		break;
+		val = strchr(key, '\t');
+		if(val == nil || val[1] == '\0')
+			goto Err;
+
+		*val = '\0';
+		val++;
+		resetstr(&partial, nil);
+		for(s = key; *s; s += chartorune(&r, s)){
+			partial.p = pushutf(partial.p, strend(&partial), s, 1);
+			map.leadstomore = 0;
+			if(hmapget(h, partial.b, &map) == 0){
+				if(map.leadstomore == 1 && s[1] == '\0')
+					map.leadstomore = 1;
+			}
+			if(s[1] == '\0'){
+				map.roma = key;
+				map.kana = val;
+				hmaprepl(&h, strdup(map.roma), &map, nil, 1);
+			} else {
+				map.roma = strdup(partial.b);
+				map.leadstomore = 1;
+				map.kana = nil;
+				hmaprepl(&h, strdup(partial.b), &map, nil, 1);
+			}
+		}
 	}
-	return 0;
+	Bterm(b);
+	return h;
 }
 
 Hmap*
@@ -404,7 +165,7 @@ opendict(Hmap *h, char *name)
 			free(p);
 			continue;
 		}
-		dot = utfrune(p, '\t');
+		dot = strchr(p, '\t');
 		if(dot == nil)
 			goto Err;
 
@@ -430,136 +191,396 @@ opendict(Hmap *h, char *name)
 	return h;
 }
 
-/*
- * write translated kanji runes to stdout and return last character
- * if it's not ctl-\. if the last is ctl-\, proceed with
- * translation of the next kouho
- */
+enum{
+	LangEN 	= '',	// ^t
+	LangJP	= '', 	// ^n
+	LangJPK = '',	// ^k
+	LangRU 	= '',	// ^r
+	LangEL	= '',	// ^o
+	LangKO	= '',	// ^s
+	LangZH	= '',	// ^c
+};
+
+Hmap *natural;
+Hmap *hira, *kata;
+Hmap *cyril;
+Hmap *greek;
+Hmap *hangul;
+Hmap *hanzi;
+
+Hmap **langtab[] = {
+	[LangEN]  &natural,
+	[LangJP]  &hira,
+	[LangJPK] &kata,
+	[LangRU]  &cyril,
+	[LangEL]  &greek,
+	[LangKO]  &hangul,
+	[LangZH]  &hanzi,
+};
+
+char *langcodetab[] = {
+	[LangEN]  "en",
+	[LangJP]  "jp",
+	[LangJPK] "jpk",
+	[LangRU]  "ru",
+	[LangEL]  "el",
+	[LangKO]  "ko",
+	[LangZH]  "zh",
+};
+
 int
-dotrans(Hmap *dic)
+parselang(char *s)
 {
-	Rune *res, r[1];
-	char v[1024], *p, tbuf[64], hirabuf[64];
-	int j, lastlen, nokouho = 0;
-	char ch;
 	int i;
-	char *kouho[16];
 
-	if (llen==0)
-		return 0; /* don't use kanji transform function */
-	if (okuri && joshi != 1) {
-		   lbuf[llen++] = (Rune)okuri;
-		   lbuf[llen] = 0;
-	}else
-		lbuf[llen] = 0;
-	okurigana[olen] = 0;
-
-	/*
-	 * search the matched index for the key word in the dict hash table, and
-	 * return a pointer to the matched kouho, 0 otherwise.
-	 */
-	res = lbuf;
-	for (j=0; *res != L'\0'; j += runetochar(v+j, res++))
-		;
-	v[j] = '\0';
-	strcpy(tbuf, v);
-	strcpy(hirabuf, v); /* to remember the initial hiragana input */
-
-	if (okuri && joshi != 1) /* verb mode */
-		hirabuf[strlen(hirabuf) - 1] = '\0';
-
-	if(hmapget(dic, v, kouho) < 0){
-		llen = olen = okuri = joshi = 0;
-		okurigana[0] = 0;
-		return 0;
+	for(i = 0; i < nelem(langcodetab); i++){
+		if(langcodetab[i] == nil)
+			continue;
+		if(strcmp(langcodetab[i], s) == 0)
+			return i;
 	}
-	for(i = 0; i < nelem(kouho) && kouho[i] != nil; i++) {
-		p = kouho[i];
-		lastlen = nrune(tbuf); /* number of rune chars */
 
-		if (okuri && joshi != 1) /* verb mode */
-	   		for (j=0; j<lastlen-1; j++)
-				write(out, "\b", 1); /* clear hiragana input */
-		else
-			for (j=0; j<lastlen; j++)
-				write(out, "\b", 1); /* clear hiragana input */
-
-		if (okuri) {
-			lastlen = nrune((char *)okurigana);
-			for (j=0; j<lastlen; j++)
-				write(out, "\b", 1);
-		}
-
-		write(out, p, strlen(p)); /* write kanji to stdout */
-		if (okuri)
-			write(out, (char *)okurigana, olen);
-
-		if (read(in, &ch, 1)<=0) /* read from stdin */
-			exits(nil);
-
-		if (ch == '') { /* if next input is ^\, once again */
-			if(i+1 < nelem(kouho) && kouho[i+1] != nil) { /* have next kouho */
-				nokouho = 0;
-				strcpy(tbuf, p);
-
-				if (okuri && joshi != 1) /* verb mode */
-					for (j=0; j<nrune(tbuf); j++)
-						write(out, "\b", 1);
-				continue;
-			} else { /* the last kouho */
-				if (okuri) {
-					lastlen = nrune((char *)okurigana);
-					for (j=0; j<lastlen; j++)
-						write(out, "\b", 1);
-				}
-
-				for (lastlen=0; *p != 0; p += j) {
-					j = chartorune(r, p);
-					lastlen++;
-				}
-
-				for (j=0; j<lastlen; j++)
-					write(out, "\b", 1);
-
-				if(hirabuf[0])
-					write(out, hirabuf, strlen(hirabuf));
-
-				if(okurigana[0])
-					write(out, (char *)okurigana, olen);
-
-				olen = okuri = joshi = 0;
-				okurigana[0] = 0;
-				break;
-			}
-		} else {
-			if(!nokouho && i != 0){  /* learn the previous use of the kouho */
-				p = kouho[0];
-				kouho[0] = kouho[i];
-				kouho[i] = p;
-				hmapupd(&dic, v, kouho);
-			}
-
-			olen = okuri = joshi = 0;
-			okurigana[0] = 0;
-			break;
-		}
-	}
-	llen = 0;
-	return ch;
+	return -1; 
 }
 
-/*
- * returns the number of characters in the pointed Rune
- */
 int
-nrune(char *p)
+checklang(int *dst, int c)
 {
-	int n = 0;
-	Rune r;
+	Hmap **p;
 
-	while (*p) {
-		p += chartorune(&r, p);
-		n++;
+	if(c >= nelem(langtab))
+		return 0;
+
+	p = langtab[c];
+	if(p == nil)
+		return 0;
+
+	*dst = c;
+	return c;
+}
+
+int
+maplkup(int lang, char *s, Map *m)
+{
+	Hmap **h;
+
+	if(lang >= nelem(langtab))
+		return -1;
+
+	h = langtab[lang];
+	if(h == nil || *h == nil)
+		return -1;
+
+	return hmapget(*h, s, m);
+}
+
+static int
+emitutf(Channel *out, char *u, int nrune)
+{
+	Msg m;
+	char *e;
+
+	m.code = 'c';
+	e = pushutf(m.buf, m.buf + sizeof m.buf, u, nrune);
+	send(out, &m);
+	return e - m.buf;
+}
+
+static void
+dictthread(void *a)
+{
+	Trans *t;
+	Msg m;
+	Rune r;
+	int n;
+	char *p;
+	Hmap *dict;
+	char *kouho[16];
+	Str line;
+	Str last;
+	Str okuri;
+	int selected;
+
+	enum{
+		Kanji,
+		Okuri,
+		Joshi,
+	};
+	int mode;
+
+	t = a;
+	dict = jisho;
+	selected = -1;
+	kouho[0] = nil;
+	mode = Kanji;
+	resetstr(&last, &line, &okuri, nil);
+
+	threadsetname("dict");
+	while(recv(t->dict, &m) != -1){
+		for(p = m.buf; *p; p += n){
+			n = chartorune(&r, p);
+			if(r != ''){
+				if(selected >= 0){
+					resetstr(&okuri, nil);
+					mode = Kanji;
+				}
+				resetstr(&last, nil);
+				selected = -1;
+				kouho[0] = nil;
+			}
+			switch(r){
+			case LangJP:
+				dict = jisho;
+				break;
+			case LangZH:
+				dict = zidian;
+				break;
+			case '':
+				if(line.b == line.p){
+					emitutf(t->output, "", 1);
+					break;
+				}
+				emitutf(t->output, backspace, utflen(line.b));
+				/* fallthrough */
+			case ' ': case ',': case '.':
+			case '':
+				mode = Kanji;
+				resetstr(&line, &okuri, nil);
+				break;
+			case '\b':
+				if(mode != Kanji){
+					if(okuri.p == okuri.b){
+						mode = Kanji;
+						popstr(&line);
+					}else
+						popstr(&okuri);
+					break;
+				}
+				popstr(&line);
+				break;
+			case '\n':
+				if(line.b == line.p){
+					emitutf(t->output, "\n", 1);
+					break;
+				}
+				/* fallthrough */
+			case '':
+				selected++;
+				if(selected == 0){
+					if(hmapget(dict, line.b, kouho) < 0){
+						resetstr(&line, &last, nil);
+						selected = -1;
+						break;
+					}
+					if(dict == jisho && line.p > line.b && isascii(line.p[-1]))
+						line.p[-1] = '\0';
+				}
+				if(kouho[selected] == nil){
+					/* cycled through all matches; bail */
+					emitutf(t->output, backspace, utflen(last.b));
+					emitutf(t->output, line.b, 0);
+					resetstr(&line, &last, &okuri, nil);
+					selected = -1;
+					break;
+				}
+
+				if(okuri.p != okuri.b)
+					emitutf(t->output, backspace, utflen(okuri.b));
+				if(selected == 0)
+					emitutf(t->output, backspace, utflen(line.b));
+				else
+					emitutf(t->output, backspace, utflen(last.b));
+
+				emitutf(t->output, kouho[selected], 0);
+				last.p = pushutf(last.b, strend(&last), kouho[selected], 0);
+				emitutf(t->output, okuri.b, 0);
+
+				resetstr(&line, nil);
+				mode = Kanji;
+				break;
+			default:
+				if(dict == zidian){
+					line.p = pushutf(line.p, strend(&line), p, 1);
+					break;
+				}
+
+				if(mode == Joshi){
+					okuri.p = pushutf(okuri.p, strend(&okuri), p, 1);
+					break;
+				}
+	
+				if(isupper(*p)){
+					if(mode == Okuri){
+						popstr(&line);
+						mode = Joshi;
+						okuri.p = pushutf(okuri.p, strend(&okuri), p, 1);
+						break;
+					}
+					mode = Okuri;
+					*p = tolower(*p);
+					line.p = pushutf(line.p, strend(&line), p, 1);
+					okuri.p = pushutf(okuri.b, strend(&okuri), p, 1);
+					break;	
+				}
+				if(mode == Kanji)
+					line.p = pushutf(line.p, strend(&line), p, 1);
+				else
+					okuri.p = pushutf(okuri.p, strend(&okuri), p, 1);
+				break;
+			}
+		}
 	}
-	return n;
+
+	send(t->done, nil);
+}
+
+void
+keyproc(void *a)
+{
+	Trans *t;
+	int lang;
+	Msg m;
+	Map lkup;
+	char *p;
+	int n;
+	Rune r;
+	char peek[UTFmax+1];
+	Str line;
+	int mode;
+
+	t = a;
+	mode = 0;
+	peek[0] = lang = deflang;
+	threadcreate(dictthread, a, mainstacksize);
+	resetstr(&line, nil);
+	if(lang == LangJP || lang == LangZH)
+		emitutf(t->dict, peek, 1);
+
+	threadsetname("key");
+	while(recv(t->input, &m) != -1){
+		if(m.code != 'c'){
+			if(m.code == 'q')
+				send(t->lang, &langcodetab[lang]);
+			else
+				send(t->output, &m);
+			continue;
+		}
+
+		for(p = m.buf; *p; p += n){
+			n = chartorune(&r, p);
+			if(checklang(&lang, r)){
+				emitutf(t->dict, "", 1);
+				if(lang == LangJP || lang == LangZH)
+					emitutf(t->dict, p, 1);
+				resetstr(&line, nil);
+				continue;
+			}
+			if(lang == LangZH || lang == LangJP){
+				emitutf(t->dict, p, 1);
+				if(utfrune("\n", r) != nil){
+					resetstr(&line, nil);
+					continue;
+				}
+				if(lang == LangJP && isupper(*p)){
+					*p = tolower(*p);
+					mode++;
+				} else {
+					mode = 0;
+				}
+			}
+
+			emitutf(t->output, p, 1);
+			if(lang == LangEN || lang == LangZH)
+				continue;
+			if(r == '\b'){
+				popstr(&line);
+				continue;
+			}
+
+			line.p = pushutf(line.p, strend(&line), p, 1);
+			if(maplkup(lang, line.b, &lkup) < 0){
+				resetstr(&line, nil);
+				pushutf(peek, peek + sizeof peek, p, 1);
+				if(maplkup(lang, peek, &lkup) == 0)
+					line.p = pushutf(line.p, strend(&line), p, 1);
+				continue;
+			}
+			if(lkup.kana == nil)
+				continue;
+
+			if(!lkup.leadstomore)
+				resetstr(&line, nil);
+
+			if(lang == LangJP){
+				emitutf(t->dict, backspace, utflen(lkup.roma));
+				emitutf(t->dict, lkup.kana, 0);
+			}
+			emitutf(t->output, backspace, utflen(lkup.roma));
+			emitutf(t->output, lkup.kana, 0);
+		}
+	}
+	send(t->done, nil);
+}
+
+void
+usage(void)
+{
+	fprint(2, "usage: %s [ -K ] [ -l lang ]\n", argv0);
+	exits("usage");
+}
+
+void
+threadmain(int argc, char *argv[])
+{
+
+	char *jishoname, *zidianname;
+	char *kbd, *srv, *mntpt;
+
+	kbd = "/dev/kbd";
+	srv = nil;
+	mntpt = "/mnt/ktrans";
+	deflang = LangEN;
+	ARGBEGIN{
+	case 'K':
+		kbd = nil;
+		break;
+	case 'k':
+		kbd = EARGF(usage());
+		break;
+	case 'l':
+		deflang = parselang(EARGF(usage()));
+		if(deflang < 0)
+			usage();
+		break;
+	case 's':
+		srv = EARGF(usage());
+		break;
+	case 'm':
+		mntpt = EARGF(usage());
+		break;
+	default:
+		usage();
+	}ARGEND;
+	if(argc != 0)
+		usage();
+
+	memset(backspace, '\b', sizeof backspace-1);
+	backspace[sizeof backspace-1] = '\0';
+
+	if((jishoname = getenv("jisho")) == nil)
+		jishoname = "/lib/ktrans/kanji.dict";
+	jisho = opendict(nil, jishoname);
+
+	if((zidianname = getenv("zidian")) == nil)
+		zidianname = "/lib/ktrans/wubi.dict";
+	zidian = opendict(nil, zidianname);
+
+	natural = hanzi = nil;
+	hira 	= openmap("/lib/ktrans/hira.map");
+	kata 	= openmap("/lib/ktrans/kata.map");
+	greek 	= openmap("/lib/ktrans/greek.map");
+	cyril 	= openmap("/lib/ktrans/cyril.map");
+	hangul 	= openmap("/lib/ktrans/hangul.map");
+
+	launchfs(srv, mntpt, kbd);
 }

@@ -6,5 +6,6 @@ HFILES=ktrans.h
 OFILES=\
 	hash.$O\
 	main.$O\
+	fs.$O\
 
 </sys/src/cmd/mkone
