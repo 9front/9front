@@ -124,7 +124,7 @@ threadmain(int argc, char *argv[])
 	Image *i;
 	Rectangle r;
 
-	if(strstr(argv[0], ".out") == nil){
+	if(access("/dev/wctl", AEXIST) != 0){
 		menu3str[Exit] = nil;
 		Hidden--;
 	}
