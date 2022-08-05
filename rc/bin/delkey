@@ -3,10 +3,6 @@
 rfork e
 
 ctl = /mnt/factotum/ctl
-if(test -r /mnt/term/mnt/factotum/ctl)
-	ctl = /mnt/term/mnt/factotum/ctl
 
-ifs='
-'
-
-sed 's/ ![0-9a-zA-Z_]+\??/ /g; s/''/''''/g; s/ +$//' $ctl | awk -v 'ctl='^$ctl ' { printf "echo ''del%s'' > %s\n", $0, ctl } '
+sed 's/ ![0-9a-zA-Z_]+\??/ /g; s/''/''''/g; s/ +$//' $ctl | \
+	awk -v 'ctl='^$ctl ' { printf "echo ''del%s'' > %s\n", $0, ctl } '
