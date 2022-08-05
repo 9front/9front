@@ -4,7 +4,7 @@ paqfs  \- compressed read-only file system
 .SH SYNOPSIS
 .B paqfs
 [
-.B -disv
+.B -adipqsv
 ]
 [
 .B -c
@@ -39,6 +39,9 @@ has a single member with the same name.
 Options to 
 .I paqfs
 are:
+.TP
+.BI -a
+Treat everyone as group/owner.
 .TP
 .BI -c " cachesize
 The number of file system blocks to cache in memory. The default is 20 blocks.
