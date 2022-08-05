@@ -1,7 +1,6 @@
 #!/bin/rc
 
 rfork e
-path=(/bin/)
 
 sym = 'threadmain?z
 	main?z'
@@ -46,12 +45,15 @@ while(~ $1 -*)
 		usage
 	}
 
-if(~ $#* 0) usage
-
-for(i){
-	if(test -f $i) go $i
-	if not if(test -f /bin/$i) go /bin/$i
-	if not if(test -f /bin/*/$i) go /bin/*/$i
-	if not if(test -f /bin/*/*/$i) go /bin/*/*/$i
-	if not echo 'src: can''t find '$i
+if(~ $#* 0)
+	usage
+for(i in $*){
+	if(~ $i /*){
+		test -f $i && go $i && exit
+	}
+	if not{
+		for(f in $path^/^$i)
+			test -f $f && go $f && exit
+	}
+	echo 'src: can''t find '$i
 }
