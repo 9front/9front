@@ -48,12 +48,10 @@ while(~ $1 -*)
 if(~ $#* 0)
 	usage
 for(i in $*){
-	if(~ $i /*){
+	if(~ $i /*)
 		test -f $i && go $i && exit
-	}
-	if not{
+	if not
 		for(f in $path^/^$i)
-			test -f $f && go $f && exit
-	}
+			test -x $f && go $f && exit
 	echo 'src: can''t find '$i
 }
