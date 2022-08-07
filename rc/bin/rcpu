@@ -23,6 +23,7 @@ fn server {
 	if(test -d /mnt/term/mnt/cpunote) {
 		rfork e
 		mainproc=$apid
+		rm -f /mnt/term/env/rfailed
 		{cat; echo -n hangup} </mnt/term/mnt/cpunote/data >/proc/$mainproc/notepg &
 		noteproc=$apid
 		wait $mainproc
@@ -33,6 +34,7 @@ fn server {
 
 fn client {
 	echo -n >/env/rstatus
+	echo -n 'lost connection' > /env/rfailed
 	rfork n
 	bind '#|' /mnt/cpunote || exit
 	</fd/0 exec $exportfs -r / &
@@ -44,6 +46,10 @@ fn client {
 		while(~ $status interrupted) {
 			echo -n interrupt
 			wait
+		}
+		if(test -e /env/rfailed){
+			>[1=2] echo lost connection
+			exit 'disconnected'
 		}
 		status=`{cat /env/rstatus}
 		exit $"status
