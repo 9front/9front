@@ -1107,7 +1107,8 @@ getdim(void)
 			return 0;
 		tty.gen = g;
 		free(s);
-	}
+	}else
+		return 0;
 	if(s = getenv("XPIXELS")){
 		tty.xpixels = atoi(s);
 		free(s);
@@ -1415,8 +1416,8 @@ Mux:
 		if(n < 0 && wasintr())
 			intr = 1;
 		if(intr){
-			if(!raw) break;
 			if(getdim()){
+				if(!raw) break;
 				sendpkt("busbuuuu", MSG_CHANNEL_REQUEST,
 					send.chan,
 					"window-change", 13,
