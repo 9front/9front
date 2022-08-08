@@ -622,7 +622,7 @@ initmach(Machine *m, char *name)
 	snprint(buf, sizeof buf, "%s/mnt/apm/battery", mpt);
 	m->batteryfd = open(buf, OREAD);
 	if(m->batteryfd < 0){
-		snprint(buf, sizeof buf, "%s/mnt/acpi/battery", mpt);
+		snprint(buf, sizeof buf, "%s/mnt/pm/battery", mpt);
 		m->batteryfd = open(buf, OREAD);
 	}
 	m->bitsybatfd = -1;
@@ -640,7 +640,7 @@ initmach(Machine *m, char *name)
 	m->tempfd = open(buf, OREAD);
 	if(m->tempfd < 0){
 		tempperiod = 5000;
-		snprint(buf, sizeof buf, "%s/mnt/acpi/cputemp", mpt);
+		snprint(buf, sizeof buf, "%s/mnt/pm/cputemp", mpt);
 		m->tempfd = open(buf, OREAD);
 	}
 	if(loadbuf(m, &m->tempfd))

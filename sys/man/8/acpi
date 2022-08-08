@@ -19,7 +19,7 @@ acpi \- Advanced Configuration and Power Interface
 presents at
 .I mountpoint
 (default
-.BR /mnt/acpi )
+.BR /mnt/pm )
 an interface to the ACPI. If a
 .I service
 is specified, the interface will be

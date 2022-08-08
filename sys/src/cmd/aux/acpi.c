@@ -456,7 +456,7 @@ fsattach(Req *r)
 static void
 usage(void)
 {
-	fprint(2, "usage: aux/acpi [-Dp] [-m /mnt/acpi] [-s service]\n");
+	fprint(2, "usage: aux/acpi [-Dp] [-m /mnt/pm] [-s service]\n");
 	exits("usage");
 }
 
@@ -481,7 +481,7 @@ threadmain(int argc, char **argv)
 	Tbl *t;
 	int fd, n, l;
 
-	mtpt = "/mnt/acpi";
+	mtpt = "/mnt/pm";
 	srv = nil;
 	ARGBEGIN{
 	case 'D':
