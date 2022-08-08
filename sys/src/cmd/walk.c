@@ -307,10 +307,11 @@ seen(Dir *dir)
 	int i;
 	Cache *c;
 
-	c = &cache[dir->qid.path&(NCACHE-1)];
+	c = &cache[(dir->qid.path^dir->qid.vers)&(NCACHE-1)];
 	dp = c->cache;
 	for(i=0; i<c->n; i++, dp++)
 		if(dir->qid.path == dp->qid.path &&
+		   dir->qid.vers == dp->qid.vers &&
 		   dir->type == dp->type &&
 		   dir->dev == dp->dev)
 			return 1;
