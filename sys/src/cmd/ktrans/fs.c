@@ -221,7 +221,7 @@ fsread(Req *r)
 	char *p;
 
 	aux = r->fid->aux;
-	switch(r->fid->qid.path){
+	switch((uint)r->fid->qid.path){
 	case Qroot:
 		dirread9p(r, dirgen, nil);
 		respond(r, nil);
@@ -261,7 +261,7 @@ fswrite(Req *r)
 
 	aux = r->fid->aux;
 	n = r->ifcall.count;
-	switch(r->fid->qid.path){
+	switch((uint)r->fid->qid.path){
 	case Qkbdin:
 		if(n < 3){
 			respond(r, "short write");
