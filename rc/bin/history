@@ -1,0 +1,73 @@
+#!/bin/rc
+rfork e
+
+nl='
+'
+
+fn prfile {
+	echo -n `{date $flagu -f 'MMM DD hh:mm:ss ZZZ YYYY' `{walk -e m $1}}
+	walk -e psM $1 | awk '{printf " %s %lld [%s]\n", $1,$2,$3,$4}'
+}
+
+fn diffflags {
+	t=()
+	for(f in a b c e m n w) {
+		flagname=flag$f
+		if(~ $$flagname 1)
+			t=(-$f $t)
+	}
+	echo $t
+}
+
+fn ysearch {
+	if(~ $1 /*)
+		file=$1
+	if not
+		file=`{pwd}^/$1
+
+	if(test -f $file)
+		prfile $file
+	if not
+		echo history: warning: $file does not exist >[1=2]
+
+	old=()
+	ls -qr /n/$dump/*/*/$file >[2] /dev/null |
+	sed  's/\(([^ ]*) *([^ ]*) *([^ ]*)\)/\1\2\3/p' |
+	awk '"/n/'$dump/$since'" <= $2 {next}
+	     $1 != qid {
+		qid=$1
+		gsub($1, "")
+		print}' |
+	while(new=`$nl{read}){
+		prfile $new
+		if (~ $flagD 1 && ~ $#old 1)
+			diff `{diffflags} $new $old
+		old=$new
+	}
+}
+
+flagfmt='D,a,b,f,c,e,m,n,w,u,d:dump,s since'
+args='[ -Dabcemnw ] [ -uf ] [ -d dumpfilesystem ] [ -s yyyymmdd ] files ...'
+if(! ifs=() eval `{aux/getflags $*} || 
+   ~ $#* 0 ||
+   ! ~ $#dump 0 && ! ~ $#dump 1 ||
+   ! ~ $#flags 0 && ! ~ $#flags 1) {
+	aux/usage
+	exit usage
+}
+
+if(~ $#dump 0)
+	dump=dump
+
+if(~ $#flags 0)
+	flags=`{date -f 'YYYYMMDD'}
+
+if(~ $#flagu 1)
+	flagu=-u
+
+since=`{date -f 'YYYY\/MMDD' `{seconds -f 'YYYYMMDD' $flags}}
+
+9fs $dump
+
+for(arg in $*)
+	ysearch $arg
