@@ -22,6 +22,7 @@ TARG=\
 	getflags\
 	icanhasmsi\
 	icanhasvmx\
+	imx8pm\
 	lines\
 	listen\
 	listen1\

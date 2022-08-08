@@ -834,6 +834,19 @@ blankscreen(int blank)
 	gpioout(GPIO_PIN(1, 10), blank == 0);
 }
 
+static void
+lcdmeminit(void)
+{
+	Physseg seg;
+
+	memset(&seg, 0, sizeof seg);
+	seg.attr = SG_PHYSICAL | SG_DEVICE | SG_NOEXEC;
+	seg.name = "pwm2";
+	seg.pa = (uintptr)pwm2 - KZERO;
+	seg.size = BY2PG;
+	addphysseg(&seg);
+}
+
 void
 lcdinit(void)
 {
@@ -913,6 +926,9 @@ lcdinit(void)
 		err = "screeninit failed";
 		goto out;
 	}
+
+	/* expose useful segment(s) to the userspace */
+	lcdmeminit();
 
 	/* start the pixel clock */
 	setclkrate("lcdif.pix_clk", "system_pll1_clk", mode.pixclk);
