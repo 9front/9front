@@ -5,14 +5,16 @@ ls, lc \- list contents of directory
 .B ls
 [
 .B -dlmnpqrstuFQT
+] [
+.I file ...
 ]
-.I name ...
 .PP
 .B lc
 [
 .B -dlmnqrstuQT
+] [
+.I file ...
 ]
-.I name ...
 .SH DESCRIPTION
 For each directory argument,
 .I ls
