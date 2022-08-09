@@ -439,6 +439,7 @@ ctlr
 	vid=0x8086 did=0x2a42	# Intel 4 Series Mobile
 	vid=0x8086 did=0x0a16	# Intel 4th Gen Core (HD 4400)
 	vid=0x8086 did=0x0412	# Intel 4th Gen Core (HD 4600)
+	vid=0x8086 did=0x041a   # Intel Xeon E3-1200v3 Core (HD 4600)
 	vid=0x8086 did=0x1616	# Intel 5th Gen Core (HD 5500)
 	vid=0x8086 did=0x3185	# Intel 9.5th Gen Core (UHD 600)
 	vid=0x8086 did=0x0a06
