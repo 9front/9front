@@ -9,7 +9,18 @@ enum {
 	Whinesecs = 10,		/* frequency of out-of-resources printing */
 };
 
-static Ref mountid;
+uvlong
+nextmount(void)
+{
+	static uvlong next = 0;
+	static Lock lk;
+	uvlong n;
+
+	lock(&lk);
+	n = ++next;
+	unlock(&lk);
+	return n;
+}
 
 Pgrp*
 newpgrp(void)
@@ -119,7 +130,7 @@ pgrpcpy(Pgrp *to, Pgrp *from)
 	 * Allocate mount ids in the same sequence as the parent group
 	 */
 	for(m = order; m != nil; m = m->order)
-		m->mountid = incref(&mountid);
+		m->mountid = nextmount();
 	runlock(&from->ns);
 	wunlock(&to->ns);
 }
@@ -239,7 +250,7 @@ newmount(Chan *to, int flag, char *spec)
 	m = smalloc(sizeof(Mount));
 	m->to = to;
 	incref(to);
-	m->mountid = incref(&mountid);
+	m->mountid = nextmount();
 	m->mflag = flag;
 	if(spec != nil)
 		kstrdup(&m->spec, spec);

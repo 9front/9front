@@ -247,7 +247,7 @@ struct Walkqid
 
 struct Mount
 {
-	ulong	mountid;
+	uvlong	mountid;
 	int	mflag;
 	Mount*	next;
 	Mount*	order;
