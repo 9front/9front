@@ -21,6 +21,7 @@ RC=\
 	compat\
 	diff\
 	export\
+	hist\
 	import\
 	init\
 	merge\

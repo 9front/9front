@@ -1,0 +1,34 @@
+#!/bin/rc
+rfork ne
+
+. /sys/lib/git/common.rc
+gitup
+
+fn dodiff {
+	while(t=`{read}){
+		h=$t(1)
+		o=.git/fs/object/`{git/query $h~}
+		c=.git/fs/object/$h
+		echo 'Hash:' $h
+		echo -n 'Date: '; date `{walk -em $c/msg}
+		echo -n 'Author: '; cat $c/author
+		echo -n 'Message: '; cat $c/msg
+		echo
+		for(f in $files){
+			curr=$c/tree/$f
+			prev=$o/tree/$f
+			if(! test -e $curr)
+				curr=/dev/null
+			if(! test -e $prev)
+				prev=/dev/null
+			diff -u $prev $curr
+		}
+		echo
+	}
+}
+
+if(~ $#* 0)
+	die usage: $0 files...
+
+files=`{cleanname $gitrel/$*}
+git/log -s $files | dodiff
