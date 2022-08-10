@@ -43,8 +43,8 @@ confinit(void)
 	conf.nproc = 100 + ((conf.npage*BY2PG)/MB)*5;
 	if(cpuserver)
 		conf.nproc *= 3;
-	if(conf.nproc > 2000)
-		conf.nproc = 2000;
+	if(conf.nproc > 4000)
+		conf.nproc = 4000;
 	conf.nimage = 200;
 	conf.nswap = conf.nproc*80;
 	conf.nswppo = 4096;

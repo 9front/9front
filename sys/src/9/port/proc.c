@@ -23,8 +23,9 @@ ulong	load;
 static struct Procalloc
 {
 	Lock;
-	Proc*	arena;
-	Proc*	free;
+	Proc	**tab;
+	Proc	*free;
+	int	nextindex;
 } procalloc;
 
 enum
@@ -630,13 +631,25 @@ canpage(Proc *p)
 Proc*
 newproc(void)
 {
+	char *b;
 	Proc *p;
 
 	lock(&procalloc);
 	p = procalloc.free;
-	if(p == nil || (p->kstack == nil && (p->kstack = malloc(KSTACK)) == nil)){
-		unlock(&procalloc);
-		return nil;
+	if(p == nil){
+		if(procalloc.nextindex >= conf.nproc){
+			unlock(&procalloc);
+			return nil;
+		}
+		b = malloc(KSTACK+sizeof(Proc));
+		if(b == nil){
+			unlock(&procalloc);
+			return nil;
+		}
+		p = (Proc*)(b + KSTACK);
+		p->index = procalloc.nextindex++;
+		p->kstack = b;
+		procalloc.tab[p->index] = p;
 	}
 	procalloc.free = p->qnext;
 	p->qnext = nil;
@@ -682,8 +695,7 @@ procwired(Proc *p, int bm)
 		/* pick a machine to wire to */
 		memset(nwired, 0, sizeof(nwired));
 		p->wired = nil;
-		for(i=0; i<conf.nproc; i++){
-			pp = proctab(i);
+		for(i=0; (pp = proctab(i)) != nil; i++){
 			wm = pp->wired;
 			if(wm != nil && pp->pid)
 				nwired[wm->machno]++;
@@ -720,20 +732,14 @@ procpriority(Proc *p, int pri, int fixed)
 void
 procinit0(void)		/* bad planning - clashes with devproc.c */
 {
-	Proc *p;
-	int i;
-
-	p = xalloc(conf.nproc*sizeof(Proc));
-	if(p == nil){
+	procalloc.free = nil;
+	/* allocate 1 extra for a nil terminator */
+	procalloc.tab = xalloc((conf.nproc+1)*sizeof(Proc*));
+	if(procalloc.tab == nil){
 		xsummary();
 		panic("cannot allocate %lud procs (%ludMB)", conf.nproc, conf.nproc*sizeof(Proc)/(1024*1024));
 	}
-	procalloc.arena = p;
-	procalloc.free = p;
-	for(i=0; i<conf.nproc-1; i++, p++)
-		p->qnext = p+1;
-	p->qnext = nil;
-
+	memset(procalloc.tab, 0, (conf.nproc+1)*sizeof(Proc*));
 	pidinit();
 }
 
@@ -1263,7 +1269,7 @@ pwait(Waitmsg *w)
 Proc*
 proctab(int i)
 {
-#define proctab(x) (&procalloc.arena[(x)])
+#define proctab(x) (procalloc.tab[(x)])
 	return proctab(i);
 }
 
@@ -1304,8 +1310,7 @@ procflushmmu(int (*match)(Proc*, void*), void *a)
 	 */
 	memset(await, 0, conf.nmach*sizeof(await[0]));
 	nwait = 0;
-	for(i = 0; i < conf.nproc; i++){
-		p = proctab(i);
+	for(i = 0; (p = proctab(i)) != nil; i++){
 		if(p->state != Dead && (*match)(p, a)){
 			p->newtlb = 1;
 			for(nm = 0; nm < conf.nmach; nm++){
@@ -1572,8 +1577,7 @@ killbig(char *why)
 
 	max = 0;
 	kp = nil;
-	for(i = 0; i < conf.nproc; i++) {
-		p = proctab(i);
+	for(i = 0; (p = proctab(i)) != nil; i++) {
 		if(p->state == Dead || p->kp || p->parentpid == 0)
 			continue;
 		if((p->noswap || (p->procmode & 0222) == 0) && strcmp(eve, p->user) == 0)
@@ -1588,8 +1592,7 @@ killbig(char *why)
 		return;
 	print("%lud: %s killed: %s\n", kp->pid, kp->text, why);
 	qlock(&kp->seglock);
-	for(i = 0; i < conf.nproc; i++) {
-		p = proctab(i);
+	for(i = 0; (p = proctab(i)) != nil; i++) {
 		if(p->state == Dead || p->kp)
 			continue;
 		if(p != kp && p->seg[BSEG] != nil && p->seg[BSEG] == kp->seg[BSEG])
@@ -1624,8 +1627,7 @@ renameuser(char *old, char *new)
 	Proc *p;
 	int i;
 
-	for(i = 0; i < conf.nproc; i++){
-		p = proctab(i);
+	for(i = 0; (p = proctab(i)) != nil; i++){
 		qlock(&p->debug);
 		if(p->user != nil && strcmp(old, p->user) == 0)
 			kstrdup(&p->user, new);
@@ -1809,12 +1811,15 @@ piddel(Pid *i)
 int
 procindex(ulong pid)
 {
+	Proc *p;
 	Pid *i;
+	int x;
 
 	i = pidlookup(pid);
 	if(i != nil){
-		int x = i->procindex;
-		if(proctab(x)->pid == pid)
+		x = i->procindex;
+		p = proctab(x);
+		if(p != nil && p->pid == pid)
 			return x;
 	}
 	return -1;
@@ -1869,7 +1874,7 @@ pidalloc(Proc *p)
 		p->parentpid = 0;
 
 	i = pidadd(0);
-	i->procindex = (int)(p - procalloc.arena);
+	i->procindex = p->index;
 
 	if(p->noteid == 0){
 		incref(i);

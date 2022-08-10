@@ -373,17 +373,15 @@ edfadmit(Proc *p)
 		pt(p, SAdmit, 0);
 
 	/* Look for another proc with the same period to synchronize to */
-	SET(r);
-	for(i=0; i<conf.nproc; i++) {
-		r = proctab(i);
+	for(i=0; (r = proctab(i)) != nil; i++) {
 		if(r->state == Dead || r == p)
 			continue;
-		if (r->edf == nil || (r->edf->flags & Admitted) == 0)
+		if(r->edf == nil || (r->edf->flags & Admitted) == 0)
 			continue;
-		if (r->edf->T == e->T)
-				break;
+		if(r->edf->T == e->T)
+			break;
 	}
-	if (i == conf.nproc){
+	if(r == nil){
 		/* Can't synchronize to another proc, release now */
 		e->t = now;
 		e->d = 0;
@@ -627,11 +625,10 @@ testschedulability(Proc *theproc)
 	/* initialize */
 	DPRINT("schedulability test %lud\n", theproc->pid);
 	qschedulability = nil;
-	for(i=0; i<conf.nproc; i++) {
-		p = proctab(i);
+	for(i=0; (p = proctab(i)) != nil; i++) {
 		if(p->state == Dead)
 			continue;
-		if ((p->edf == nil || (p->edf->flags & Admitted) == 0) && p != theproc)
+		if((p->edf == nil || (p->edf->flags & Admitted) == 0) && p != theproc)
 			continue;
 		p->edf->testtype = Rl;
 		p->edf->testtime = 0;

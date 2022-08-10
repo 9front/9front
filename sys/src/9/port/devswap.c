@@ -162,7 +162,7 @@ pager(void*)
 	while(waserror())
 		;
 
-	x = -1;
+	x = 0;
 	for(;;){
 		up->psstate = "Reclaim";
 		if(reclaim()){
@@ -183,12 +183,13 @@ pager(void*)
 
 		i = ageclock;
 		do {
-			if(++x >= conf.nproc){
+			p = proctab(x++);
+			if(p == nil){
 				if(++ageclock == i)
 					goto Killbig;
 				x = 0;
+				continue;
 			}
-			p = proctab(x);
 		} while(p->state == Dead || p->noswap || !canqlock(&p->seglock));
 		up->psstate = "Pageout";
 		for(i = 0; i < NSEG; i++) {
@@ -274,8 +275,7 @@ canflush(Proc *p, Segment *s)
 	 * Now we must do hardwork to ensure all processes which have tlb
 	 * entries for this segment will be flushed if we succeed in paging it out
 	 */
-	for(x = 0; x < conf.nproc; x++){
-		p = proctab(x);
+	for(x = 0; (p = proctab(x)) != nil; x++){
 		if(p->state == Dead)
 			continue;
 		for(i = 0; i < NSEG; i++){

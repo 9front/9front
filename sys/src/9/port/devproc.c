@@ -149,7 +149,8 @@ static char *sname[]={ "Text", "Data", "Bss", "Stack", "Shared", "Phys", "Fixed"
 #define	QSHIFT	5	/* location in qid of proc slot # */
 
 #define	QID(q)		((((ulong)(q).path)&0x0000001F)>>0)
-#define	SLOT(q)		(((((ulong)(q).path)&0x07FFFFFE0)>>QSHIFT)-1)
+#define	SLOTMAX		0x4000000
+#define	SLOT(q)		(((((ulong)(q).path)>>QSHIFT)&(SLOTMAX-1))-1)
 #define	PID(q)		((q).vers)
 #define	NOTEID(q)	((q).vers)
 
@@ -202,6 +203,8 @@ procgen(Chan *c, char *name, Dirtab *tab, int, int s, Dir *dp)
 			return -1;
 
 		p = proctab(s);
+		if(p == nil)
+			return 0;
 		pid = p->pid;
 		if(pid == 0)
 			return 0;
@@ -227,7 +230,7 @@ procgen(Chan *c, char *name, Dirtab *tab, int, int s, Dir *dp)
 		panic("procgen");
 
 	tab = &procdir[s];
-	path = c->qid.path&~(((1<<QSHIFT)-1));	/* slot component */
+	path = c->qid.path&~((1<<QSHIFT)-1);	/* slot component */
 
 	/* p->procmode determines default mode for files in /proc */
 	p = proctab(SLOT(c->qid));
@@ -281,8 +284,9 @@ _proctrace(Proc* p, Tevent etype, vlong ts)
 static void
 procinit(void)
 {
-	if(conf.nproc >= (1<<(16-QSHIFT))-1)
-		print("warning: too many procs for devproc\n");
+	/* slot masks: lets see how big we can go */
+	if(conf.nproc > SLOTMAX)
+		panic("warning: too many procs for devproc\n");
 }
 
 static Chan*
@@ -335,8 +339,7 @@ changenoteid(Proc *p, ulong noteid)
 		setnoteid(p, noteid);
 		return;
 	}
-	for(i = 0; i < conf.nproc; i++){
-		pp = proctab(i);
+	for(i = 0; (pp = proctab(i)) != nil; i++){
 		if(pp->noteid != noteid || pp->kp)
 			continue;
 		if(strcmp(pp->user, p->user) == 0){
@@ -354,8 +357,7 @@ postnotepg(ulong noteid, char *n, int flag)
 	Proc *p;
 	int i;
 
-	for(i = 0; i < conf.nproc; i++){
-		p = proctab(i);
+	for(i = 0; (p = proctab(i)) != nil; i++){
 		if(p == up)
 			continue;
 		if(p->noteid != noteid || p->kp)
@@ -414,7 +416,7 @@ procopen(Chan *c, int omode0)
 		nexterror();
 	}
 	pid = PID(c->qid);
-	if(p->pid != pid)
+	if(p == nil || p->pid != pid)
 		error(Eprocdied);
 
 	omode = openmode(omode0);

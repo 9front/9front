@@ -671,6 +671,7 @@ struct Proc
 	ulong	pid;
 	ulong	noteid;		/* Equivalent of note group */
 	ulong	parentpid;
+	ulong	index;
 
 	Proc	*parent;	/* Process to send wait record on exit */
 	Lock	exl;		/* Lock count and waitq */
@@ -760,7 +761,7 @@ struct Proc
 	ulong	delaysched;
 	ulong	priority;	/* priority level */
 	ulong	basepri;	/* base priority level */
-	uchar	fixedpri;	/* priority level deson't change */
+	uchar	fixedpri;	/* priority level doesn't change */
 	ulong	cpu;		/* cpu average */
 	ulong	lastupdate;
 	uchar	yield;		/* non-zero if the process just did a sleep(0) */
