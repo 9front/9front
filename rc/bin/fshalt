@@ -1,15 +1,17 @@
 #!/bin/rc
-# fshalt [-r] - sync (flush) and, if possible, halt all file servers
+# fshalt [-r [kernel]] - sync (flush) and, if possible, halt all file servers
 #	and optionally reboot
 rfork en
+flagfmt='r:reboot'
 reboot=no
 scram=no
-switch ($#*) {
-case 0
-case 1
+bootf=()
+if(~ $1 -r){
 	reboot=yes
-case *
-	echo usage: $0 '[-r]' >[1=2]
+	shift
+}
+if not if(! ~ $#* 0 && ! ~ $#* 1){
+	echo usage: $0 '[-r bootkern]' >[1=2]
 	exit usage
 }
 
@@ -46,6 +48,11 @@ cp /bin/sed /tmp
 cp /bin/sleep /tmp
 cp /bin/scram /tmp
 cp /bin/test /tmp
+if(~ $reboot yes && ~ $#* 1){
+	if(! cp $1 /tmp/bootf)
+		exit 'failed to copy kernel'
+	bootf=/bin/bootf
+}
 bind /tmp /rc
 bind /tmp /bin
 
@@ -66,7 +73,7 @@ fn x {
 
 	if (~ $reboot yes) {
 		echo rebooting...
-		echo reboot >'#c/reboot'
+		echo reboot $bootf >'#c/reboot'
 	}
 	if (~ $scram yes){
 		scram
