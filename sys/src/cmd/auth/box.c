@@ -143,7 +143,7 @@ push(char *path, int flag)
 void
 usage(void)
 {
-	fprint(2, "usage %s: [ -r file ] [ -c dir ] [ -e devs ] cmd args...\n", argv0);
+	fprint(2, "usage %s: [ -s ] [ -rc file ] [ -e devs ] command arg ...\n", argv0);
 	exits("usage");
 }
 

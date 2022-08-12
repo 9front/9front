@@ -1,6 +1,6 @@
 .TH AUTH 8
 .SH NAME
-changeuser, convkeys, printnetkey, status, enable, disable, authsrv, guard.srv, debug, wrkey, login, newns, none, as \- maintain or query authentication databases
+changeuser, convkeys, printnetkey, status, enable, disable, authsrv, guard.srv, debug, wrkey, login, newns, none, box, as \- maintain or query authentication databases
 .SH SYNOPSIS
 .B auth/changeuser
 .RB [ -np ]
