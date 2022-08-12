@@ -233,7 +233,7 @@ confinit(void)
 	 */
 	kpages *= BY2PG;
 	kpages -= conf.upages*sizeof(Page)
-		+ conf.nproc*sizeof(Proc)
+		+ conf.nproc*sizeof(Proc*)
 		+ conf.nimage*sizeof(Image)
 		+ conf.nswap
 		+ conf.nswppo*sizeof(Page*);

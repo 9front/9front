@@ -85,7 +85,7 @@ confinit(void)
 	 * datastructures. Mntcache and Mntrpc are not accounted for.
 	 */
 	kpages *= BY2PG;
-	kpages -= conf.nproc*sizeof(Proc)
+	kpages -= conf.nproc*sizeof(Proc*)
 		+ conf.nimage*sizeof(Image)
 		+ conf.nswap
 		+ conf.nswppo*sizeof(Page*);

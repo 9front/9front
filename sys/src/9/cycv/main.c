@@ -117,7 +117,7 @@ confinit(void)
 	kmem = 200*1024*1024;
 	conf.upages = conf.npage - kmem/BY2PG;
 	kmem -= conf.upages*sizeof(Page)
-		+ conf.nproc*sizeof(Proc)
+		+ conf.nproc*sizeof(Proc*)
 		+ conf.nimage*sizeof(Image);
 	mainmem->maxsize = kmem;
 	imagmem->maxsize = kmem - (kmem/10);
