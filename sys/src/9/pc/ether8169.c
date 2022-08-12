@@ -126,6 +126,7 @@ enum {					/* Tcr */
 	Macv42		= 0x50800000,	/* RTL8168GU */
 	Macv44		= 0x5c800000,	/* RTL8411B */
 	Macv45		= 0x54000000,	/* RTL8111HN */
+	Macv51		= 0x50000000,	/* RTL8168EP */
 
 	Ifg0		= 0x01000000,	/* Interframe Gap 0 */
 	Ifg1		= 0x02000000,	/* Interframe Gap 1 */
@@ -714,6 +715,7 @@ rtl8169init(Ether* edev)
 	switch(ctlr->macv){
 	case Macv40:
 	case Macv44:
+	case Macv51:
 		cplusc |= Macstatdis;
 		break;
 	default:
@@ -737,6 +739,7 @@ rtl8169init(Ether* edev)
 	switch(ctlr->macv){
 	case Macv42:
 	case Macv45:
+	case Macv51:
 		ctlr->rcr = Rxfth256|Mrxdmaunlimited|Ab|Am|Apm;
 		break;
 	default:
@@ -757,6 +760,9 @@ rtl8169init(Ether* edev)
 	/* no early rx interrupts */
 	r = csr16r(ctlr, Mulint) & 0xF000;
 	csr16w(ctlr, Mulint, r);
+
+	if(ctlr->macv == Macv51)
+		csr8w(ctlr, Cr, Te|Re);
 
 	ctlr->imr = Serr|Fovw|Punlc|Rdu|Ter|Rer|Rok|Tdu;
 	csr16w(ctlr, Imr, ctlr->imr);
@@ -1096,6 +1102,7 @@ vetmacv(Ctlr *ctlr, uint *macv)
 	case Macv42:
 	case Macv44:
 	case Macv45:
+	case Macv51:
 		break;
 	}
 	return 0;
