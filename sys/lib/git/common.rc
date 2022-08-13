@@ -58,9 +58,9 @@ fn whoami{
 			email=`$nl{awk -F'|' '$1=="'$user'" {x=$5} END{print x}' </adm/keys.who}
 	}
 	if(~ $name '')
-		name=glenda
+		name=$user
 	if(~ $email '')
-		email=glenda@9front.local
+		email=$user@$sysname
 }
 
 # merge1 out ours base theirs
