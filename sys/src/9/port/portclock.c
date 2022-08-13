@@ -154,6 +154,7 @@ hzclock(Ureg *ur)
 	}
 
 	accounttime();
+	dtracytick(ur);
 	kmapinval();
 
 	if(kproftimer != nil)

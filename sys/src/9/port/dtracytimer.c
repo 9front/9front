@@ -4,44 +4,44 @@
 #include	"dat.h"
 #include	"fns.h"
 #include	"../port/error.h"
+#include	"ureg.h"
 
 #include	<dtracy.h>
 
 static DTProbe *timerprobe;
+static int	running;
 
-static void
-dtracytimer(void *)
+void
+dtracytick(Ureg *ur)
 {
 	DTTrigInfo info;
 
+	if(!running)
+		return;
 	memset(&info, 0, sizeof(info));
-	for(;;){
-		tsleep(&up->sleep, return0, nil, 1000);
-		dtptrigger(timerprobe, &info);
-	}
+	info.arg[0] = ur->pc;
+	info.arg[1] = userureg(ur);
+	dtptrigger(timerprobe, &info);
 }
 
 static void
 timerprovide(DTProvider *prov)
 {
-	timerprobe = dtpnew("timer::1s", prov, nil);
+	if(timerprobe == nil)
+		timerprobe = dtpnew("timer::1tk", prov, nil);
 }
 
 static int
 timerenable(DTProbe *)
 {
-	static int gotkproc;
-	
-	if(!gotkproc){
-		kproc("dtracytimer", dtracytimer, nil);
-		gotkproc=1;
-	}
+	running = 1;
 	return 0;
 }
 
 static void
 timerdisable(DTProbe *)
 {
+	running = 0;
 }
 
 DTProvider dtracytimerprov = {

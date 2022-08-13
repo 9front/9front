@@ -82,6 +82,7 @@ int		devwstat(Chan*, uchar*, int);
 Dir*		dirchanstat(Chan *);
 void		drawactive(int);
 void		drawcmap(void);
+void		dtracytick(Ureg*);
 void		dumpaproc(Proc*);
 void		dumpregs(Ureg*);
 void		dumpstack(void);
