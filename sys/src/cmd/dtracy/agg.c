@@ -93,7 +93,7 @@ aggparsebuf(uchar *p, int n)
 		np = (ANode *) avllookup(tp, key, 0);
 		if(np == nil){
 			np = emalloc(sizeof(ANode) - 1 + a->keysize);
-			*np = *key;
+			memcpy(np, key, sizeof(ANode) - 1 + a->keysize);
 			createrecord(a->type, np, (s64int*)&p[8+a->keysize]);
 			avlinsert(tp, np);
 		}else
