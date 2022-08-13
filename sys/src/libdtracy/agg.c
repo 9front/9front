@@ -128,7 +128,7 @@ dtarecord(DTChan *ch, int mach, DTAgg *a, uchar *key, int nkey, s64int val)
 	q[1] = a->id;
 	if(nkey == a->keysize)
 		memmove(&q[2], key, nkey);
-	else if(nkey > a->keysize){
+	else if(nkey < a->keysize){
 		memmove(&q[2], key, nkey);
 		memset((uchar*)q + 8 + nkey, 0, a->keysize - nkey);
 	}else
