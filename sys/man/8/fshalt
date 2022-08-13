@@ -5,6 +5,9 @@ fshalt, scram, reboot \- halt any local file systems and optionally shut down or
 .B fshalt
 [
 .B -r
+[
+.I kernelpath
+]
 ]
 .br
 .B reboot
@@ -23,7 +26,9 @@ servers.
 If given
 .BR -r ,
 .I fshalt
-will then reboot the machine.
+will then reboot the machine,
+optionally starting
+.IR kernelpath .
 Else it will invoke
 .I scram
 to shut down the machine.
