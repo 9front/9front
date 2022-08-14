@@ -73,8 +73,7 @@ menusel(Rectangle r, Point p)
 	return (p.y-r.min.y)/(font->height+Vspacing);
 }
 
-static
-void
+static void
 paintitem(Menu *menu, Rectangle textr, int off, int i, int highlight, Image *save, Image *restore)
 {
 	char *item;
