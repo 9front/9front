@@ -1,0 +1,101 @@
+#!/bin/rc
+rfork en
+
+mbox = /mail/box/$user/mbox
+dest = /mail/box/$user/mboxdir-
+
+fn usage{
+	echo 'usage: splitmbox [[mbox] dest]'>[1=2]
+	exit usage
+}
+
+fn dirbits{
+	awk -v 'isdir='$1 '
+	{
+		str = $1
+		printf "0"
+		for(i = 3; i < 12; i += 3){
+			s = substr(str, i, 3);
+			b = 0;
+			if(s ~ /r/)
+				b += 2
+			if(s ~ /w/)
+				b += 4
+			if(s ~ /x/ || isdir && s ~ /[rwx]/)
+				b += 1
+			printf b
+		}
+		print ""
+	}
+	'
+}
+
+fn docopy{
+	src=$1; shift
+	dst=$dest/$1; shift
+	echo $src '->' $dst
+	# painful reminder that rc does need a break statement.
+	done=()
+	while(~ $#done 0){
+		if(! test -f $dst^.^$1){
+			if(! cp $src/rawunix $dst^.^$1)
+				exit copy
+			done = 1
+		}
+		shift
+	}
+}
+
+fn doit{
+	upas/fs -pf$mbox
+	if(! test -d $dest)
+		mkdir $dest #upas/nedmail -c $dest
+	if(! test -d $dest)
+		exits mkdir
+	if(! chgrp $user $des)
+		exits chgrp
+	if(! chmod g+rwx $dest)
+		exits chmod
+	if(~ $mbox mbox */mbox)
+	if(! chmod o+wx $dest)
+		exits chmod
+
+	cd /mail/fs/mbox
+	l = `{{for(i in [0-9]*) echo $i} | sort -n}
+	echo $l
+	if(! ~ $l '[0-9]*')
+	for(i in $l)
+		docopy $i `{cat $i/fileid|sed 's/\.00$//g'} `{seq -w 0 99}
+}
+
+lucky = cat
+if(~ $1 -l){
+	shift
+	lucky = rc
+}
+
+switch($#*){
+case 0
+case 1
+	mbox=`{cleanname -d `{pwd} $1}
+case 2
+	mbox=`{cleanname -d `{pwd} $1}
+	dest=$2
+case *
+	usage
+}
+
+usenupas
+whatis dest
+doit
+
+bits=`{ls -ld $mbox | dirbits 1}
+chmod $bits $dest
+if(~ $mbox mbox || ~ `{ls -ld $mbox | sed 's/ .*//'} *w)
+	chgrp $user $dest
+
+
+{
+	echo '#' if everything is fine, execute the following commands
+	echo mv $mbox $mbox^- '&&' mv $dest $mbox
+} | $lucky
