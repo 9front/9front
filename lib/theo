@@ -963,3 +963,8 @@ That seems disgustingly verbose to me.
 The worm will eat it's tail.
 When new things arise, must they become dominant?
 How does it hurt you?
+I love it.
+So my question is:  What will be broken by this change?
+Unless POSIX specifies the requirement, I'd like to see some justification.
+There will always be situations that UNIX didn't anticipate or handle, and then POSIX failed to specify.
+Isn't that bad?
