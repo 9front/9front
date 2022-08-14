@@ -367,17 +367,17 @@ snarfpipe(Igfx *igfx, int x)
 }
 
 static int
-devtype(Igfx *igfx)
+devtype(Igfx*igfx)
 {
 	if(igfx->pci->vid != 0x8086)
 		return -1;
 	switch(igfx->pci->did){
+	case 0x1616:	/* HD 5500 - 5th Gen Core (ULT) */
 	case 0x0a16:	/* HD 4400 - 4th Gen Core (ULT) */
 		igfx->isult = 1;
 		/* wet floor */
 	case 0x0a06:
 	case 0x3185:    /* UHD 600 - 9.5 Gen Core */
-	case 0x1616:	/* HD 5500 - 5th Gen Core */
 	case 0x0412:	/* HD 4600 - 4th Gen Core */
 	case 0x041a:	/* HD 4600 - Xeon E3-1200v3 Core */
 		return TypeHSW;
@@ -524,6 +524,8 @@ snarf(Vga* vga, Ctlr* ctlr)
 	case TypeHSW:
 		igfx->npipe = 4;	/* A,B,C,eDP */
 		igfx->cdclk = igfx->isult ? 450 : 540;	/* MHz */
+		if(igfx->pci->did == 0x1616)
+			igfx->cdclk = 540;
 
 		igfx->dpll[0].ctrl	= snarfreg(igfx, 0x130040);	/* LCPLL_CTL */
 		igfx->dpll[1].ctrl	= snarfreg(igfx, 0x46040);	/* WRPLL_CTL1 */
@@ -928,9 +930,11 @@ needlanes(int freq, int lsclk, int bpp)
 	vlong v;
 	int n;
 
+	trace("needlanes %d %d %d\n", freq, lsclk, bpp);
 	v = ((vlong)freq * bpp) / 8;
 	for(n=1; n<4 && v>lsclk; n<<=1, v>>=1)
 		;
+	trace("needlanes %d v %llud lsclk %d\n", n, v, lsclk);
 	return n;
 }
 
@@ -1091,8 +1095,6 @@ init(Vga* vga, Ctlr* ctlr)
 	if(m->z != 32)
 		error("%s: unsupported color depth %d\n", ctlr->name, m->z);
 
-	bpc = 8;	/* bits per color channel */
-
 	igfx = vga->private;
 
 	/* disable vga */
@@ -1134,12 +1136,11 @@ init(Vga* vga, Ctlr* ctlr)
 
 	if((val = dbattr(m->attr, "display")) != nil){
 		port = atoi(val)-1;
-		if(igfx->type == TypeHSW && !igfx->dp[port-PortDPA].hdmi)
-			bpc = 6;
 	}else if(dbattr(m->attr, "lcd") != nil)
 		port = PortLCD;
 	else
 		port = PortVGA;
+	bpc = 8;	/* bits per color channel */
 
 	trace("%s: display #%d\n", ctlr->name, port+1);
 
@@ -1207,18 +1208,23 @@ init(Vga* vga, Ctlr* ctlr)
 
 		if(igfx->type == TypeHSW){
 			if(port == PortDPA){
+				int c;
+
 				/* only enable panel for eDP */
 				igfx->ppcontrol.v |= 5;
 				/* use eDP pipe */
 				x = 3;
+				c = rr(igfx, igfx->pipe[x].dpctl.a);
+				if((c & 7<<20) == 2<<20)	/* 0 is bpc=8 */
+					bpc = 6;
 			}
 
 			/* reserved MBZ */
 			r->v &= ~(7<<28) & ~(1<<26) & ~(63<<19) & ~(3<<16) & ~(15<<11) & ~(1<<7) & ~31;
 			/* displayport SST mode */
 			r->v &= ~(1<<27);
-			/* link not in training, send normal pixels */
-			r->v |= 3<<8;
+			/* enable with training pattern 1 armed */
+			r->v &= ~(7<<8);
 			if(igfx->dp[port-PortDPA].hdmi){
 				/* hdmi: do not configure displayport */
 				r->a = 0;
@@ -1230,11 +1236,6 @@ init(Vga* vga, Ctlr* ctlr)
 			r->v |= 1<<31;
 			/* reserved MBZ */
 			r->v &= ~(7<<28) & ~(127<<17) & ~(255<<8) & ~(3<<5);
-			/* grab lanes shared with port e when using port a */
-			if(port == PortDPA)
-				r->v |= 1<<4;
-			else if(port == PortDPE)
-				igfx->dp[0].bufctl.v &= ~(1<<4);
 			/* dp port width */
 			r->v &= ~(15<<1);
 			if(!igfx->dp[port-PortDPA].hdmi){
@@ -1244,6 +1245,11 @@ init(Vga* vga, Ctlr* ctlr)
 					goto Badport;
 				r->v |= nl-1 << 1;
 			}
+			/* grab lanes shared with port e when using port a */
+			if(port == PortDPA)	// FIXME: shoudn't be touched?
+				r->v |= 1<<4;
+			else if(port == PortDPE)
+				igfx->dp[0].bufctl.v &= ~(1<<4);
 			/* port reversal: off */
 			r->v &= ~(1<<16);
 
@@ -1307,7 +1313,7 @@ init(Vga* vga, Ctlr* ctlr)
 	}
 	p = &igfx->pipe[x];
 
-	/* plane enable, 32bpp */
+	/* plane enable, 32bit BGRX 8:8:8 */
 	p->dsp->cntr.v = (1<<31) | (6<<26);
 	if(igfx->type == TypeG45)
 		p->dsp->cntr.v |= x<<24;	/* pipe assign */
@@ -1557,9 +1563,6 @@ disabletrans(Igfx *igfx, Trans *t)
 {
 	int i;
 
-	/* deselect pipe clock */
-	csr(igfx, t->clksel.a, 7<<29, 0);
-
 	/* disable displayport transcoder */
 	if(igfx->type == TypeHSW){
 		csr(igfx, t->dpctl.a, 15<<28, 0);
@@ -1582,6 +1585,9 @@ disabletrans(Igfx *igfx, Trans *t)
 	}
 	/* workaround: clear timing override bit */
 	csr(igfx, t->chicken.a, 1<<31, 0);
+
+	/* deselect pipe clock */
+	csr(igfx, t->clksel.a, 7<<29, 0);
 
 	/* disable dpll  */
 	if(igfx->type != TypeHSW && t->dpll != nil)
@@ -1644,7 +1650,11 @@ checkgtt(Igfx *igfx, Mode *m)
 	for(i=1; i<64*1024/4-4; i++, pa+=1<<12)
 		if((gtt[i] & ~((1<<11)-1<<1)) != pa)
 			break;
+	if(i == 1)
+		return;
 	n = m->x * m->y * m->z / 8;
+	trace("checkgtt x=%d y=%d z=%d mem=%ud\n",
+		m->x, m->y, m->z, i<<12);
 	if(i<<12 >= n)
 		return;
 
@@ -1767,6 +1777,9 @@ load(Vga* vga, Ctlr* ctlr)
 			csr(igfx, igfx->dpll[x].ctrl.a, 1<<31, 0);
 	}
 
+	/* program lcd power */
+	loadreg(igfx, igfx->ppcontrol);
+
 	/* program new clock sources */
 	loadreg(igfx, igfx->rawclkfreq);
 	loadreg(igfx, igfx->drefctl);
@@ -1782,6 +1795,7 @@ load(Vga* vga, Ctlr* ctlr)
 	/* new dpll setting */
 	for(x=0; x<nelem(igfx->dpllsel); x++)
 		loadreg(igfx, igfx->dpllsel[x]);
+	sleep(10);
 
 	/* program all pipes */
 	for(x = 0; x < igfx->npipe; x++)
@@ -1795,15 +1809,24 @@ load(Vga* vga, Ctlr* ctlr)
 	loadreg(igfx, igfx->sdvob);
 	loadreg(igfx, igfx->sdvoc);
 	for(x = 0; x < nelem(igfx->dp); x++){
+		if((igfx->dp[x].ctl.a == 0 || (igfx->dp[x].ctl.v & 1<<31) == 0) && !igfx->dp[x].hdmi)
+			continue;
+		if(!igfx->dp[x].hdmi){
+			igfx->dp[x].ctl.v &= ~(7<<8);	/* arm pattern 1 */
+			loadreg(igfx, igfx->dp[x].ctl);
+		}
 		for(y=0; y<nelem(igfx->dp[x].buftrans); y++)
 			loadreg(igfx, igfx->dp[x].buftrans[y]);
+		sleep(100);
 		loadreg(igfx, igfx->dp[x].bufctl);
+		sleep(500);	/* needs to take a breath before training */
 		if(enabledp(igfx, &igfx->dp[x]) < 0)
 			ctlr->flag |= Ferror;
+		if(!igfx->dp[x].hdmi){
+			igfx->dp[x].ctl.v |= 3<<8;	/* send normal pixels */
+			loadreg(igfx, igfx->dp[x].ctl);
+		}
 	}
-
-	/* program lcd power */
-	loadreg(igfx, igfx->ppcontrol);
 
 	ctlr->flag |= Fload;
 }
@@ -2139,7 +2162,7 @@ dpauxtra(Igfx *igfx, Dp *dp, int cmd, int addr, uchar *data, int len)
 	buf[1] = addr >> 8;
 	buf[2] = addr;
 	buf[3] = len-1;
-	r = 3;	
+	r = 3;
 	if(data != nil && len > 0){
 		if((cmd & CmdRead) == 0)
 			memmove(buf+4, data, len);
@@ -2189,13 +2212,13 @@ enabledp(Igfx *igfx, Dp *dp)
 	if((dp->ctl.v & (1<<31)) == 0)
 		return 0;
 
-	/* FIXME: always times out */
-	if(igfx->type == TypeHSW && dp == &igfx->dp[0])
-		goto Skip;
-
 	/* Link configuration */
-	wdpaux(igfx, dp, 0x100, (270*MHz) / 27000000);
-	w = dp->ctl.v >> (igfx->type == TypeHSW ? 1 : 19) & 7;
+	for(try=0; try<30; try++)
+		if(wdpaux(igfx, dp, 0x100, (270*MHz) / 27000000) >= 0)
+			break;
+	if(try >= 30)
+		trace("can\'t start training\n");
+	w = dp->bufctl.v >> (igfx->type == TypeHSW ? 1 : 19) & 7;
 	wdpaux(igfx, dp, 0x101, w+1);
 
 	r = 0;
@@ -2245,11 +2268,8 @@ enabledp(Igfx *igfx, Dp *dp)
 				break;
 		}
 	}
-Skip:
+
 	/* stop training */
-	dp->ctl.v &= ~(7<<8);
-	dp->ctl.v |= 3<<8;
-	loadreg(igfx, dp->ctl);
 	wdpaux(igfx, dp, 0x102, 0x00);
 	return 1;
 
