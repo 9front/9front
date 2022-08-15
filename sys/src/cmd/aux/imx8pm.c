@@ -29,6 +29,8 @@ enum
 		TIDR_MASK = 0xe0000000,
 	TMUTISCR = 0x28/4,
 	TMUTICSCR = 0x2c/4,
+	TMUTTCFGR = 0x80/4,
+	TMUTSCFGR = 0x84/4,
 	TMUTRITSR0 = 0x100/4,
 	TMUTRITSR1 = 0x110/4,
 	TMUTRITSR2 = 0x120/4,
@@ -46,7 +48,7 @@ static char *uid = "mntpm";
 static void
 wr(u32int *base, int reg, u32int v)
 {
-	//fprint(2, "[0%x] ← 0x%ux\n", reg, v);
+	//fprint(2, "[0%x] ← 0x%ux\n", reg*4, v);
 	if(base != nil)
 		base[reg] = v;
 }
@@ -115,13 +117,18 @@ getcputemp(int c[3])
 static void
 tmuinit(void)
 {
-	wr(tmu, TMUTMR, 0); /* disable */
+	/* without proper calibration data sensing is useless */
+	static u8int cfg[4][12] = {
+		{0x23, 0x29, 0x2f, 0x35, 0x3d, 0x43, 0x4b, 0x51, 0x57, 0x5f, 0x67, 0x6f},
+		{0x1b, 0x23, 0x2b, 0x33, 0x3b, 0x43, 0x4b, 0x55, 0x5d, 0x67, 0x70, 0},
+		{0x17, 0x23, 0x2d, 0x37, 0x41, 0x4b, 0x57, 0x63, 0x6f, 0},
+		{0x15, 0x21, 0x2d, 0x39, 0x45, 0x53, 0x5f, 0x71, 0},
+	};
+	int i, j;
 
-	wr(tmu, TMUTIDR, TIDR_MASK); /* W1Clear interrupt detect */
-	wr(tmu, TMUTISCR, 0); /* clear interrupt site */
-	wr(tmu, TMUTICSCR, 0); /* clear interrupt critical site */
+	wr(tmu, TMUTMR, 0); /* disable */
 	wr(tmu, TMUTIER, 0); /* disable all interrupts */
-	wr(tmu, TMUTMTMIR, 7); /* interval 800MHz=1.34s */
+	wr(tmu, TMUTMTMIR, 0xf); /* no monitoring interval */
 
 	/* configure default ranges */
 	wr(tmu, TMUTTR0CR, 11<<CR_CAL_PTR_SHIFT | 0);
@@ -129,8 +136,16 @@ tmuinit(void)
 	wr(tmu, TMUTTR2CR, 8<<CR_CAL_PTR_SHIFT | 72);
 	wr(tmu, TMUTTR3CR, 7<<CR_CAL_PTR_SHIFT | 97);
 
-	/* enable: all sites, ALPF 00=1.0 */
-	wr(tmu, TMUTMR, TMR_ME | 0<<TMR_ALPF_SHIFT | 7<<TMR_MSITE_SHIFT);
+	/* calibration data */
+	for(i = 0; i < 4; i++){
+		for(j = 0; j < 12 && cfg[i][j] != 0; j++){
+			wr(tmu, TMUTTCFGR, i<<16|j);
+			wr(tmu, TMUTSCFGR, cfg[i][j]);
+		}
+	}
+
+	/* enable: all sites, ALPF 11=0.125 */
+	wr(tmu, TMUTMR, TMR_ME | 3<<TMR_ALPF_SHIFT | 7<<TMR_MSITE_SHIFT);
 }
 
 static void
