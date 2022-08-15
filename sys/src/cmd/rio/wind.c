@@ -81,6 +81,7 @@ void
 wcurrent(Window *w)
 {
 	Channel *c;
+	Tapmesg m;
 
 	if(input == nil){
 		input = w;
@@ -88,6 +89,9 @@ wcurrent(Window *w)
 	}
 	if(w == input)
 		return;
+	m.type = Freset;
+	m.s = nil;
+	send(fromtap, &m);
 	incref(input);
 	c = chancreate(sizeof(Window*), 0);
 	wsendctlmesg(input, Repaint, ZR, c);

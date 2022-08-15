@@ -18,6 +18,7 @@ enum
 	Qwindow,
 	Qwsys,		/* directory of window directories */
 	Qwsysdir,		/* window directory, child of wsys */
+	Qtap,
 
 	QMAX,
 };
@@ -40,6 +41,7 @@ typedef	struct	Timer Timer;
 typedef	struct	Wctlmesg Wctlmesg;
 typedef	struct	Window Window;
 typedef	struct	Xfid Xfid;
+typedef struct	Tapmesg Tapmesg;
 
 enum
 {
@@ -117,7 +119,19 @@ struct Mouseinfo
 	ulong	lastcounter;	/* serial no. of last mouse event sent to client */
 	int	lastb;	/* last button state we received */
 	uchar	qfull;	/* filled the queue; no more recording until client comes back */	
-};	
+};
+
+enum{
+	Fon = 'b',
+	Foff = 'e',
+	Freset = 'r',
+};
+
+struct Tapmesg
+{
+	char type;
+	char *s;
+};
 
 struct Window
 {
@@ -313,6 +327,8 @@ int		nwindow;
 int		snarffd;
 int		gotscreen;
 int		servekbd;
+Channel	*fromtap; 	/* input from kbd tap program to window */
+Channel *totap; 	/* our keyboard input to tap program */
 Window	*input;
 QLock	all;			/* BUG */
 Filsys	*filsys;

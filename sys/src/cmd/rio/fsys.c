@@ -37,6 +37,7 @@ Dirtab dirtab[]=
 	{ "wctl",		QTFILE,	Qwctl,		0600 },
 	{ "window",	QTFILE,	Qwindow,		0400 },
 	{ "wsys",		QTDIR,	Qwsys,		0500|DMDIR },
+	{ "kbdtap",	QTFILE,	Qtap,	0660 },
 	{ nil, }
 };
 
@@ -113,6 +114,16 @@ cexecpipe(int *p0, int *p1)
 	if(*p0<0 || *p1<0)
 		return -1;
 	return 0;
+}
+
+void
+toggletap(char mode)
+{
+	Tapmesg m;
+
+	m.type = mode;
+	m.s = nil;
+	send(fromtap, &m);
 }
 
 Filsys*
@@ -506,7 +517,9 @@ filsysopen(Filsys *fs, Xfid *x, Fid *f)
 	}
 	if(((f->dir->perm&~(DMDIR|DMAPPEND))&m) != m)
 		goto Deny;
-		
+
+	if(FILE(f->qid) == Qtap)
+		toggletap(Fon);
 	sendp(x->c, xfidopen);
 	return nil;
 
@@ -616,6 +629,8 @@ filsysclunk(Filsys *fs, Xfid *x, Fid *f)
 	if(f->open){
 		f->busy = FALSE;
 		f->open = FALSE;
+		if(FILE(f->qid) == Qtap)
+			toggletap(Foff);
 		sendp(x->c, xfidclose);
 		return nil;
 	}

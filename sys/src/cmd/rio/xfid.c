@@ -376,6 +376,7 @@ xfidwrite(Xfid *x)
 	Window *w;
 	Rune *r;
 	Conswritemesg cwm;
+	Tapmesg fmsg;
 	Stringpair pair;
 	enum { CWdata, CWgone, CWflush, NCW };
 	Alt alts[NCW+1];
@@ -568,6 +569,16 @@ xfidwrite(Xfid *x)
 		}
 		break;
 
+	case Qtap:
+		if(cnt < 2){
+			filsysrespond(x->fs, x, &fc, "malformed key");
+			return;
+		}
+		fmsg.type = x->data[0];
+		fmsg.s = strdup(x->data+1);
+		send(fromtap, &fmsg);
+		break;
+
 	default:
 		fprint(2, "unknown qid %d in write\n", qid);
 		filsysrespond(x->fs, x, &fc, "unknown qid in write");
@@ -678,6 +689,14 @@ xfidread(Xfid *x)
 		recv(c2, &pair);
 		fc.data = pair.s;
 		fc.count = min(cnt, pair.ns);
+		filsysrespond(x->fs, x, &fc, nil);
+		free(t);
+		break;
+
+	case Qtap:
+		recv(totap, &t);
+		fc.data = t;
+		fc.count = strlen(t)+1;
 		filsysrespond(x->fs, x, &fc, nil);
 		free(t);
 		break;
