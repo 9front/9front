@@ -142,6 +142,14 @@ navigation keys and input on the
 .IR cons
 file is disabled.
 .TP
+.B kbdtap
+provides access to the global
+keyboard input. When opened,
+global keyboard input to windows
+is instead given through writes
+to
+.BR kbdtap .
+.TP
 .B cursor
 Like
 .B mouse
