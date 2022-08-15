@@ -1,66 +1,40 @@
-.TH KTRANS 4
+.TH KTRANS 1
 .SH NAME
 ktrans \- language transliterator
 .SH SYNOPSIS
 .B ktrans
 [
-.B -K
-]
-[
-.B -k
-.I kbd
+.B -t
+.I kbdtap
 ]
 [
 .B -l
 .I lang
 ]
-[
-.B -m
-.I mnt
-]
-.nf
-
-.IB /mnt/ktrans/kbd
-.IB /mnt/ktrans/kbdin
-.IB /mnt/ktrans/lang
-.fi
 .SH DESCRIPTION
-.I ktrans
-is a fileserver that provides a transliteration overlay to
-.IR kbdfs (8).
-When run,
-.I ktrans
-mounts itself to
-.B /mnt/ktrans
-and binds its own
-.B kbd
-and
-.B kbdin
-files over those present in
-.BR /dev .
-.PP
-By default,
-.I ktrans
-also forks and reads input from the existing
-.BR /dev/kbd .
+.I Ktrans
+provides a transliteration layer
+to keyboard input through reads and
+writes to
+.BR /dev/kbdtap .
 The
-.B -k
-flag changes which file is read. The
-.B -K
-flag disables this process all together, limiting
-input to only the
-.B kbdin
-file.
+.B -t
+flag changes the
+.I kbdtap
+file used. The
+.B -l
+flag changes the initial
+language.
 .SH CONVERSION
 Conversion is done in two steps: An implicit layer
-that is used for direct mappings between latin characters and
+that is used for direct mappings between ascii characters and
 an explicit multi rune conversion used for compound mappings.
 .I Ktrans
 does implicit conversion by passing through characters
 as they are input. Then when a sequence of input is matched,
 backspaces are emitted to clear the input sequence and the matched
 rune sequence is emitted. The last 'word' of input may be then
-additionaly transliterated by typing ctrl-\\. A newline character also
+explicitely transliterated by typing ctrl-\\. A newline character also
 performs this lookup, but additional newline characters will not
 cycle through alternatives.
 .SH CONTROL
@@ -109,7 +83,7 @@ Korean mode. Implicit layer converts latin to Korean Hangul.
 .SH SOURCE
 .B /sys/src/cmd/ktrans
 .SH SEE ALSO
-.IR rio (1)
+.IR rio (4)
 .IR kbdfs (8)
 .br
 .IR /sys/src/cmd/ktrans/README.kenji
@@ -139,4 +113,5 @@ There is no way to generate the control characters literally.
 .SH HISTORY
 Ktrans was originally written by Kenji Okamoto in August of 2000 for
 the 2nd edition of Plan 9.  It was imported in to 9front in July of
-2022, with patches by several contributors.
+2022, with patches by several contributors. It was towed inside
+the environment during the 2022 9front hackathon.

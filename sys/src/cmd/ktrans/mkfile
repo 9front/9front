@@ -2,10 +2,9 @@
 
 BIN=/$objtype/bin
 TARG=ktrans
-HFILES=ktrans.h
+HFILES=hash.h
 OFILES=\
 	hash.$O\
 	main.$O\
-	fs.$O\
 
 </sys/src/cmd/mkone

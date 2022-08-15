@@ -1,11 +1,3 @@
-/*
- *   Mostly based on the original source codes of Plan 9 release 2
- *   distribution.
- *             by Kenji Okamoto, August 4 2000
- *                   Osaka Prefecture Univ.
- *                   okamoto@granite.cias.osakafu-u.ac.jp
- */
-
 #include <u.h>
 #include <libc.h>
 #include <ctype.h>
@@ -13,15 +5,7 @@
 #include <fcall.h>
 #include <thread.h>
 #include <9p.h>
-
 #include "hash.h"
-#include "ktrans.h"
-
-static Hmap  *jisho, *zidian;
-static int   deflang;
-static char  backspace[64];
-
-mainstacksize = 8192*2;
 
 char*
 pushutf(char *dst, char *e, char *u, int nrune)
@@ -83,11 +67,18 @@ resetstr(Str *s, ...)
 void
 popstr(Str *s)
 {
-	while(s->p > s->b && (*--s->p & 0xC0)==0x80)
+	while(s->p > s->b && (*--s->p & 0xC0)==Runesync)
 		;
 
 	s->p[0] = '\0';
 }
+
+typedef	struct Map Map;
+struct Map {
+	char	*roma;
+	char	*kana;
+	char	leadstomore;
+};
 
 Hmap*
 openmap(char *file)
@@ -201,12 +192,14 @@ enum{
 	LangZH	= '',	// ^c
 };
 
+int deflang;
+
 Hmap *natural;
-Hmap *hira, *kata;
+Hmap *hira, *kata, *jisho;
 Hmap *cyril;
 Hmap *greek;
 Hmap *hangul;
-Hmap *hanzi;
+Hmap *hanzi, *zidian;
 
 Hmap **langtab[] = {
 	[LangEN]  &natural,
@@ -274,6 +267,16 @@ maplkup(int lang, char *s, Map *m)
 	return hmapget(*h, s, m);
 }
 
+typedef struct Msg Msg;
+struct Msg {
+	char code;
+	char buf[64];
+};
+static Channel *dictch;
+static Channel *output;
+static Channel *input;
+static char  backspace[64];
+
 static int
 emitutf(Channel *out, char *u, int nrune)
 {
@@ -287,9 +290,8 @@ emitutf(Channel *out, char *u, int nrune)
 }
 
 static void
-dictthread(void *a)
+dictthread(void*)
 {
-	Trans *t;
 	Msg m;
 	Rune r;
 	int n;
@@ -308,7 +310,6 @@ dictthread(void *a)
 	};
 	int mode;
 
-	t = a;
 	dict = jisho;
 	selected = -1;
 	kouho[0] = nil;
@@ -316,7 +317,7 @@ dictthread(void *a)
 	resetstr(&last, &line, &okuri, nil);
 
 	threadsetname("dict");
-	while(recv(t->dict, &m) != -1){
+	while(recv(dictch, &m) != -1){
 		for(p = m.buf; *p; p += n){
 			n = chartorune(&r, p);
 			if(r != ''){
@@ -337,10 +338,10 @@ dictthread(void *a)
 				break;
 			case '':
 				if(line.b == line.p){
-					emitutf(t->output, "", 1);
+					emitutf(output, "", 1);
 					break;
 				}
-				emitutf(t->output, backspace, utflen(line.b));
+				emitutf(output, backspace, utflen(line.b));
 				/* fallthrough */
 			case ' ': case ',': case '.':
 			case '':
@@ -360,7 +361,7 @@ dictthread(void *a)
 				break;
 			case '\n':
 				if(line.b == line.p){
-					emitutf(t->output, "\n", 1);
+					emitutf(output, "\n", 1);
 					break;
 				}
 				/* fallthrough */
@@ -377,23 +378,23 @@ dictthread(void *a)
 				}
 				if(kouho[selected] == nil){
 					/* cycled through all matches; bail */
-					emitutf(t->output, backspace, utflen(last.b));
-					emitutf(t->output, line.b, 0);
+					emitutf(output, backspace, utflen(last.b));
+					emitutf(output, line.b, 0);
 					resetstr(&line, &last, &okuri, nil);
 					selected = -1;
 					break;
 				}
 
 				if(okuri.p != okuri.b)
-					emitutf(t->output, backspace, utflen(okuri.b));
+					emitutf(output, backspace, utflen(okuri.b));
 				if(selected == 0)
-					emitutf(t->output, backspace, utflen(line.b));
+					emitutf(output, backspace, utflen(line.b));
 				else
-					emitutf(t->output, backspace, utflen(last.b));
+					emitutf(output, backspace, utflen(last.b));
 
-				emitutf(t->output, kouho[selected], 0);
+				emitutf(output, kouho[selected], 0);
 				last.p = pushutf(last.b, strend(&last), kouho[selected], 0);
-				emitutf(t->output, okuri.b, 0);
+				emitutf(output, okuri.b, 0);
 
 				resetstr(&line, nil);
 				mode = Kanji;
@@ -430,14 +431,11 @@ dictthread(void *a)
 			}
 		}
 	}
-
-	send(t->done, nil);
 }
 
-void
-keyproc(void *a)
+static void
+keythread(void*)
 {
-	Trans *t;
 	int lang;
 	Msg m;
 	Map lkup;
@@ -448,35 +446,35 @@ keyproc(void *a)
 	Str line;
 	int mode;
 
-	t = a;
 	mode = 0;
 	peek[0] = lang = deflang;
-	threadcreate(dictthread, a, mainstacksize);
 	resetstr(&line, nil);
 	if(lang == LangJP || lang == LangZH)
-		emitutf(t->dict, peek, 1);
+		emitutf(dictch, peek, 1);
 
-	threadsetname("key");
-	while(recv(t->input, &m) != -1){
+	threadsetname("keytrans");
+	while(recv(input, &m) != -1){
+		if(m.code == 'r'){
+			emitutf(dictch, "", 1);
+			resetstr(&line, nil);
+			continue;
+		}
 		if(m.code != 'c'){
-			if(m.code == 'q')
-				send(t->lang, &langcodetab[lang]);
-			else
-				send(t->output, &m);
+			send(output, &m);
 			continue;
 		}
 
 		for(p = m.buf; *p; p += n){
 			n = chartorune(&r, p);
 			if(checklang(&lang, r)){
-				emitutf(t->dict, "", 1);
+				emitutf(dictch, "", 1);
 				if(lang == LangJP || lang == LangZH)
-					emitutf(t->dict, p, 1);
+					emitutf(dictch, p, 1);
 				resetstr(&line, nil);
 				continue;
 			}
 			if(lang == LangZH || lang == LangJP){
-				emitutf(t->dict, p, 1);
+				emitutf(dictch, p, 1);
 				if(utfrune("\n", r) != nil){
 					resetstr(&line, nil);
 					continue;
@@ -489,7 +487,7 @@ keyproc(void *a)
 				}
 			}
 
-			emitutf(t->output, p, 1);
+			emitutf(output, p, 1);
 			if(lang == LangEN || lang == LangZH)
 				continue;
 			if(r == '\b'){
@@ -512,57 +510,110 @@ keyproc(void *a)
 				resetstr(&line, nil);
 
 			if(lang == LangJP){
-				emitutf(t->dict, backspace, utflen(lkup.roma));
-				emitutf(t->dict, lkup.kana, 0);
+				emitutf(dictch, backspace, utflen(lkup.roma));
+				emitutf(dictch, lkup.kana, 0);
 			}
-			emitutf(t->output, backspace, utflen(lkup.roma));
-			emitutf(t->output, lkup.kana, 0);
+			emitutf(output, backspace, utflen(lkup.roma));
+			emitutf(output, lkup.kana, 0);
 		}
 	}
-	send(t->done, nil);
+}
+
+static int kbdin;
+static int kbdout;
+
+void
+kbdtap(void*)
+{
+	Msg msg;
+	char buf[128];
+	char *p, *e;
+	int n;
+
+	threadsetname("kbdtap");
+	for(;;){
+Drop:
+		n = read(kbdin, buf, sizeof buf);
+		if(n < 0)
+			break;
+		for(p = buf; p < buf+n;){
+			msg.code = p[0];
+			p++;
+			switch(msg.code){
+			case 'c': case 'k': case 'K':
+			case 'r':
+				break;
+			default:
+				goto Drop;
+			}
+			e = utfecpy(msg.buf, msg.buf + sizeof msg.buf, p);
+			p += e - msg.buf;
+			p++;
+			if(send(input, &msg) == -1)
+				return;
+		}
+	}
+}
+
+void
+kbdsink(void*)
+{
+	Msg m;
+	char *p;
+	Rune rn;
+
+	threadsetname("kbdsink");
+	while(recv(output, &m) != -1){
+		if(m.code != 'c'){
+			fprint(kbdout, "%c%s", m.code, m.buf);
+			continue;
+		}
+		p = m.buf;
+		for(;;){
+			p += chartorune(&rn, p);
+			if(rn == Runeerror || rn == '\0')
+				break;
+			fprint(kbdout, "c%C", rn);
+		}
+	}
 }
 
 void
 usage(void)
 {
-	fprint(2, "usage: %s [ -K ] [ -l lang ]\n", argv0);
-	exits("usage");
+	fprint(2, "usage: %s [ -t tap ] [ -l lang ]\n", argv0);
+	threadexits("usage");
 }
+
+mainstacksize = 8192*2;
 
 void
 threadmain(int argc, char *argv[])
 {
 
 	char *jishoname, *zidianname;
-	char *kbd, *srv, *mntpt;
+	char *tap;
 
-	kbd = "/dev/kbd";
-	srv = nil;
-	mntpt = "/mnt/ktrans";
+	tap = "/dev/kbdtap";
 	deflang = LangEN;
 	ARGBEGIN{
-	case 'K':
-		kbd = nil;
-		break;
-	case 'k':
-		kbd = EARGF(usage());
+	case 't':
+		tap = EARGF(usage());
 		break;
 	case 'l':
 		deflang = parselang(EARGF(usage()));
 		if(deflang < 0)
 			usage();
 		break;
-	case 's':
-		srv = EARGF(usage());
-		break;
-	case 'm':
-		mntpt = EARGF(usage());
-		break;
 	default:
 		usage();
 	}ARGEND;
 	if(argc != 0)
 		usage();
+
+	kbdin = kbdout = open(tap, ORDWR);
+	if(kbdin < 0 || kbdout < 0)
+		sysfatal("failed to get keyboard: %r");
 
 	memset(backspace, '\b', sizeof backspace-1);
 	backspace[sizeof backspace-1] = '\0';
@@ -582,5 +633,14 @@ threadmain(int argc, char *argv[])
 	cyril 	= openmap("/lib/ktrans/cyril.map");
 	hangul 	= openmap("/lib/ktrans/hangul.map");
 
-	launchfs(srv, mntpt, kbd);
+	dictch 	= chancreate(sizeof(Msg), 0);
+	input 	= chancreate(sizeof(Msg), 0);
+	output 	= chancreate(sizeof(Msg), 0);
+
+	proccreate(kbdtap, nil, mainstacksize);
+	proccreate(kbdsink, nil, mainstacksize);
+	threadcreate(dictthread, nil, mainstacksize);
+	threadcreate(keythread, nil, mainstacksize);
+
+	threadexits(nil);
 }
