@@ -251,6 +251,20 @@ cpuidprint(void)
 	iprint("cpu%d: %dMHz ARM Cortex A53\n", m->machno, m->cpumhz);
 }
 
+static void
+tmuinit(void)
+{
+	Physseg seg;
+
+	setclkgate("tmu.clk", 1);
+	memset(&seg, 0, sizeof(seg));
+	seg.attr = SG_PHYSICAL | SG_DEVICE | SG_NOEXEC;
+	seg.name = "tmu";
+	seg.pa = VIRTIO + 0x260000 - KZERO;
+	seg.size = BY2PG;
+	addphysseg(&seg);
+}
+
 void
 main(void)
 {
@@ -289,6 +303,7 @@ main(void)
 	links();
 	chandevreset();
 	lcdinit();
+	tmuinit();
 	userinit();
 	mpinit();
 	mmu0clear((uintptr*)L1);

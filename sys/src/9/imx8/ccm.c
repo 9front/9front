@@ -760,6 +760,8 @@ static Clock clocks[] = {
 	{ "pcie_mem.mstr_axi_clk", MAIN_AXI_CLK_ROOT, 37 },
 	{ "pcie_mem.slv_axi_clk", MAIN_AXI_CLK_ROOT, 37 },
 
+	{ "tmu.clk", IPG_CLK_ROOT, 98 },
+
 	{ "pcie2_clk_rst.auxclk", PCIE2_AUX_CLK_ROOT, 100 },
 	{ "pcie2_clk_rst.mstr_axi_clk", MAIN_AXI_CLK_ROOT, 100 },
 	{ "pcie2_clk_rst.slv_axi_clk", MAIN_AXI_CLK_ROOT, 100 },
