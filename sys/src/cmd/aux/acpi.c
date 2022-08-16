@@ -275,7 +275,7 @@ tmpread(Req *r)
 		t = 0;
 		if(amleval(therms[n].tmp, "", &er) >= 0)
 			t = amlint(er);
-			p += snprint(p, ep-p, "%d\n", (t - 2732)/10);
+			p += snprint(p, ep-p, "%d.0\n", (t - 2732)/10);
 	}
 
 	readstr(r, buf);
