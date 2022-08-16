@@ -1341,7 +1341,6 @@ isoread(Ep *ep, uchar *p, long n)
 				memmove(p, d, n);
 				io->nleft += n;
 				p += n;
-				n = 0;
 				break;
 			}
 			dmaflush(0, d, m);
