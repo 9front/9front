@@ -160,7 +160,7 @@ fsread(Req *r)
 			snprint(msg, sizeof(msg), "brightness %d\n", getbrightness());
 		else if(r->fid->file->aux == (void*)Temp){
 			if(getcputemp(c) == 0)
-				snprint(msg, sizeof(msg), "%d.0\n%d.0\n%d.0\n", c[0], c[1], c[2]);
+				snprint(msg, sizeof(msg), "%d.0\n", c[0]);
 			else
 				snprint(msg, sizeof(msg), "%r\n");
 		}
