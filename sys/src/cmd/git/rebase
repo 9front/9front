@@ -7,8 +7,6 @@ flagfmt='a:abort, r:resume, i:interactive'; args='onto'
 eval `''{aux/getflags $*} || exec aux/usage
 
 tmp=_rebase.working
-if(! git/walk -q)
-	die dirty working tree
 if(~ $#abort 1){
 	if(! test -f .git/rebase.todo)
 		die no rebase to abort

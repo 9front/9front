@@ -52,6 +52,7 @@ void	(*addnew)(Hunk*, char*);
 void	(*addold)(Hunk*, char*);
 Fchg	*changed;
 int	nchanged;
+int	dryrun;
 
 char*
 readline(Biobuf *f, int *lnum)
@@ -392,21 +393,22 @@ blat(char *old, char *new, char *o, usize len)
 	char *tmp;
 	int fd;
 
-	if(strcmp(new, "/dev/null") == 0){
-		if(len != 0)
-			sysfatal("diff modifies removed file");
-		if(remove(old) == -1)
-			sysfatal("removeold %s: %r", old);
+	if(strcmp(new, "/dev/null") == 0 && len != 0){
+		sysfatal("diff modifies removed file");
 		return;
 	}
-	if(mkpath(new) == -1)
-		sysfatal("mkpath %s: %r", new);
-	if((tmp = smprint("%s.tmp%d", new, getpid())) == nil)
-		sysfatal("smprint: %r");
-	if((fd = create(tmp, OWRITE, 0666)) == -1)
-		sysfatal("open %s: %r", tmp);
-	if(write(fd, o, len) != len)
-		sysfatal("write %s: %r", tmp);
+	tmp = nil;
+	if(!dryrun){
+		if(mkpath(new) == -1)
+			sysfatal("mkpath %s: %r", new);
+		if((tmp = smprint("%s.tmp%d", new, getpid())) == nil)
+			sysfatal("smprint: %r");
+		if((fd = create(tmp, OWRITE, 0666)) == -1)
+			sysfatal("open %s: %r", tmp);
+		if(write(fd, o, len) != len)
+			sysfatal("write %s: %r", tmp);
+		close(fd);
+	}
 	if((changed = realloc(changed, (nchanged+1)*sizeof(Fchg))) == nil)
 		sysfatal("realloc: %r");
 	if((changed[nchanged].new = strdup(new)) == nil)
@@ -415,7 +417,6 @@ blat(char *old, char *new, char *o, usize len)
 		sysfatal("strdup: %r");
 	changed[nchanged].tmp = tmp;
 	nchanged++;
-	close(fd);
 }
 
 void
@@ -429,7 +430,14 @@ finish(int ok)
 		if(!ok){
 			if(remove(c->tmp) == -1)
 				fprint(2, "remove %s: %r\n", c->tmp);
-		}else{
+			goto Free;
+		}
+		if(!dryrun){
+			if(strcmp(c->new, "/dev/null") == 0){
+				if(remove(c->old) == -1)
+					sysfatal("remove %s: %r", c->old);
+				goto Print;
+			}
 			if((fd = open(c->tmp, ORDWR)) == -1)
 				sysfatal("open %s: %r", c->tmp);
 			if(strcmp(c->old, c->new) == 0 && remove(c->old) == -1)
@@ -438,11 +446,13 @@ finish(int ok)
 				sysfatal("create %s: %r", c->new);
 			if(close(fd) == -1)
 				sysfatal("close %s: %r", c->tmp);
-			if(strcmp(c->new, "/dev/null") == 0)
-				print("%s\n", c->old);
-			else
-				print("%s\n", c->new);
 		}
+Print:
+		if(strcmp(c->new, "/dev/null") == 0)
+			print("%s\n", c->old);
+		else
+			print("%s\n", c->new);
+Free:
 		free(c->tmp);
 		free(c->old);
 		free(c->new);
@@ -560,16 +570,18 @@ apply(Patch *p, char *fname)
 	for(i = 0; i < p->nhunk; i++){
 		h = &p->hunk[i];
 		if(curfile == nil || strcmp(curfile, h->newpath) != 0){
-			if(slurp(&f, h->oldpath) == -1)
+			if(!dryrun && slurp(&f, h->oldpath) == -1)
 				sysfatal("slurp %s: %r", h->oldpath);
 			curfile = h->newpath;
 			e = f.buf;
 		}
-		s = e;
-		e = search(&f, h, fname);
-		o = append(o, &osz, s, e);
-		o = append(o, &osz, h->new, h->new + h->newlen);
-		e += h->oldlen;
+		if(!dryrun){
+			s = e;
+			e = search(&f, h, fname);
+			o = append(o, &osz, s, e);
+			o = append(o, &osz, h->new, h->new + h->newlen);
+			e += h->oldlen;
+		}
 		if(i+1 == p->nhunk || strcmp(curfile, p->hunk[i+1].newpath) != 0){
 			o = append(o, &osz, e, f.buf + f.len);
 			blat(h->oldpath, h->newpath, o, osz);
@@ -601,7 +613,7 @@ freepatch(Patch *p)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-R] [-p nstrip] [patch...]\n", argv0);
+	fprint(2, "usage: %s [-nR] [-p nstrip] [patch...]\n", argv0);
 	exits("usage");
 }
 
@@ -615,6 +627,9 @@ main(int argc, char **argv)
 	ARGBEGIN{
 	case 'p':
 		strip = atoi(EARGF(usage()));
+		break;
+	case 'n':
+		dryrun++;
 		break;
 	case 'R':
 		reverse++;

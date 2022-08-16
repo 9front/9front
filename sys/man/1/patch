@@ -28,6 +28,9 @@ The following options are supported:
 Reverse direction of the patch. Additions become removals,
 and the new and old file names are swapped.
 .TP
+.B -n
+Print the files that would be modified by this patch, but do not apply it.
+.TP
 .BI -p \ nstrip
 Remove the prefix containing
 .I nstrip

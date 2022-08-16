@@ -76,8 +76,16 @@ fn apply @{
 
 	# force re-reading env
 	rc -c '
-		echo applying $msg | sed 1q
 		date=`{seconds $date}
+		files=`$nl{patch -np1 < $diffpath}
+		if(! git/walk -q $files){
+			>[1=2] {
+				echo patch would clobber files:
+				git/walk $files
+				exit clobber
+			}
+		}
+		echo applying $msg | sed 1q
 		if(! files=`$nl{patch -p1 < $diffpath})
 			die ''patch failed''
 		for(f in $files){
@@ -111,6 +119,6 @@ for(p in $patches){
 	if(test -d $p && test -f $p/header && test -f $p/body)
 		{{cat $p/header; echo; cat $p/body} | apply} || die $status
 	if not
-		apply < $p || die $status
+		apply < $p
 }
 exit ''
