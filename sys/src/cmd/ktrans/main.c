@@ -581,7 +581,7 @@ kbdsink(void*)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [ -t tap ] [ -l lang ]\n", argv0);
+	fprint(2, "usage: %s [ -l lang ] [ kbdtap ]\n", argv0);
 	threadexits("usage");
 }
 
@@ -592,14 +592,9 @@ threadmain(int argc, char *argv[])
 {
 
 	char *jishoname, *zidianname;
-	char *tap;
 
-	tap = "/dev/kbdtap";
 	deflang = LangEN;
 	ARGBEGIN{
-	case 't':
-		tap = EARGF(usage());
-		break;
 	case 'l':
 		deflang = parselang(EARGF(usage()));
 		if(deflang < 0)
@@ -608,12 +603,19 @@ threadmain(int argc, char *argv[])
 	default:
 		usage();
 	}ARGEND;
-	if(argc != 0)
+	switch(argc){
+	case 0:
+		kbdin = 0;
+		kbdout = 1;
+		break;
+	case 1:
+		kbdin = kbdout = open(argv[0], ORDWR);
+		if(kbdin < 0)
+			sysfatal("failed to open kbdtap: %r");
+		break;
+	default:
 		usage();
-
-	kbdin = kbdout = open(tap, ORDWR);
-	if(kbdin < 0 || kbdout < 0)
-		sysfatal("failed to get keyboard: %r");
+	}
 
 	memset(backspace, '\b', sizeof backspace-1);
 	backspace[sizeof backspace-1] = '\0';

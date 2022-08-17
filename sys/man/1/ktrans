@@ -4,39 +4,41 @@ ktrans \- language transliterator
 .SH SYNOPSIS
 .B ktrans
 [
-.B -t
-.I kbdtap
-]
-[
 .B -l
 .I lang
 ]
+[
+.I kbdtap
+]
 .SH DESCRIPTION
 .I Ktrans
-provides a transliteration layer
-to keyboard input through reads and
-writes to
-.BR /dev/kbdtap .
-The
-.B -t
-flag changes the
+transliterates a stream of keyboard
+events. Without any arguments,
+.I ktrans
+reads events from standard input
+and writes out converted events to stdout.
+If a
 .I kbdtap
-file used. The
-.B -l
-flag changes the initial
-language.
+file is given, it is used for both
+input and output instead.
 .SH CONVERSION
-Conversion is done in two steps: An implicit layer
-that is used for direct mappings between ascii characters and
-an explicit multi rune conversion used for compound mappings.
+Conversion is done in two layers, an implicit
+layer for unambigious mappings, and an explicit
+layer for selecting one match out of a list of
+ambigious matches.
+.PP
+The implicit layer happens automatically as characters
+are input, transforming a consecutive set of key strokes
+in to their rune counterpart. A series of these runes can
+then be explicitely converted using ctrl-\\. Consecutive
+inputs of ctrl-\\ can then be used to cycle through all the
+matches. A newline may also be used to perform an explicit
+conversion, but will not cycle through other possible matches.
+.PP
+Input is always passed along, when a match is found
 .I Ktrans
-does implicit conversion by passing through characters
-as they are input. Then when a sequence of input is matched,
-backspaces are emitted to clear the input sequence and the matched
-rune sequence is emitted. The last 'word' of input may be then
-explicitely transliterated by typing ctrl-\\. A newline character also
-performs this lookup, but additional newline characters will not
-cycle through alternatives.
+will emit backspaces to clear the input sequence and replace
+it with the matched sequence.
 .SH CONTROL
 The language is selected by typing a control character:
 .TP
