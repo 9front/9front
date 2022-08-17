@@ -685,14 +685,14 @@ if(0) print("%s %lud: noted %.8lux %.8lux\n",
 		break;
 
 	default:
-		up->lastnote.flag = NDebug;
+		up->lastnote->flag = NDebug;
 		/* fall through */
 
 	case NDFLT:
 		qunlock(&up->debug);
-		if(up->lastnote.flag == NDebug)
-			pprint("suicide: %s\n", up->lastnote.msg);
-		pexit(up->lastnote.msg, up->lastnote.flag!=NDebug);
+		if(up->lastnote->flag == NDebug)
+			pprint("suicide: %s\n", up->lastnote->msg);
+		pexit(up->lastnote->msg, up->lastnote->flag!=NDebug);
 	}
 }
 

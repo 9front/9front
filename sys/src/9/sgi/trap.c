@@ -587,14 +587,14 @@ noted(Ureg *kur, ulong arg0)
 
 	default:
 		pprint("unknown noted arg %#lux\n", arg0);
-		up->lastnote.flag = NDebug;
+		up->lastnote->flag = NDebug;
 		/* fall through */
 
 	case NDFLT:
-		if(up->lastnote.flag == NDebug)
-			pprint("suicide: %s\n", up->lastnote.msg);
 		qunlock(&up->debug);
-		pexit(up->lastnote.msg, up->lastnote.flag!=NDebug);
+		if(up->lastnote->flag == NDebug)
+			pprint("suicide: %s\n", up->lastnote->msg);
+		pexit(up->lastnote->msg, up->lastnote->flag!=NDebug);
 	}
 }
 

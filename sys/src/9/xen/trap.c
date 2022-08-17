@@ -613,16 +613,14 @@ noted(Ureg* ureg, ulong arg0)
 
 	default:
 		pprint("unknown noted arg 0x%lux\n", arg0);
-		up->lastnote.flag = NDebug;
+		up->lastnote->flag = NDebug;
 		/* fall through */
 		
 	case NDFLT:
-		if(up->lastnote.flag == NDebug){ 
-			qunlock(&up->debug);
-			pprint("suicide: %s\n", up->lastnote.msg);
-		} else
-			qunlock(&up->debug);
-		pexit(up->lastnote.msg, up->lastnote.flag!=NDebug);
+		qunlock(&up->debug);
+		if(up->lastnote->flag == NDebug)
+			pprint("suicide: %s\n", up->lastnote->msg);
+		pexit(up->lastnote->msg, up->lastnote->flag!=NDebug);
 	}
 }
 

@@ -105,12 +105,12 @@ sysrfork(va_list list)
 	p->dot = up->dot;
 	incref(p->dot);
 
-	memmove(p->note, up->note, sizeof(p->note));
-	p->nnote = up->nnote;
-	p->notify = up->notify;
+	p->nnote = 0;
+ 	p->notify = up->notify;
 	p->notified = 0;
 	p->notepending = 0;
-	p->lastnote = up->lastnote;
+	p->lastnote = nil;
+
 	if((flag & RFNOTEG) == 0)
 		p->noteid = up->noteid;
 
@@ -599,7 +599,9 @@ sysexec(va_list list)
 	up->nargs = n;
 	up->setargs = 0;
 
-	up->nnote = 0;
+	freenotes(up);
+	free(up->lastnote);
+	up->lastnote = nil;
 	up->notify = nil;
 	up->notified = 0;
 	up->privatemem = 0;

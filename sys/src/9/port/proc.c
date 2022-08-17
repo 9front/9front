@@ -912,32 +912,35 @@ popnote(Ureg *u)
 	if(up->nnote == 0)
 		return nil;
 	assert(up->nnote > 0);
+	assert(up->note[0] != nil);
 
 	/* hold off user notes during note handling */
-	if(up->notified && up->note[0].flag == NUser)
+	if(up->notified && up->note[0]->flag == NUser)
 		return nil;
 
-	memmove(&up->lastnote, &up->note[0], sizeof(Note));
-	if(--up->nnote)
-		memmove(&up->note[0], &up->note[1], up->nnote*sizeof(Note));
+	free(up->lastnote);
+	up->lastnote = up->note[0];
+	if(--up->nnote > 0)
+		memmove(&up->note[0], &up->note[1], up->nnote*sizeof(Note*));
+	up->note[up->nnote] = nil;
 
-	if(u != nil && strncmp(up->lastnote.msg, "sys:", 4) == 0){
-		int l = strlen(up->lastnote.msg);
+	if(u != nil && strncmp(up->lastnote->msg, "sys:", 4) == 0){
+		int l = strlen(up->lastnote->msg);
 		assert(l < ERRMAX);
-		snprint(up->lastnote.msg+l, ERRMAX-l, " pc=%#p", u->pc);
+		snprint(up->lastnote->msg+l, ERRMAX-l, " pc=%#p", u->pc);
 	}
 
 	if(up->notify == nil || up->notified){
 		qunlock(&up->debug);
-		if(up->lastnote.flag == NDebug){
+		if(up->lastnote->flag == NDebug){
 			up->fpstate &= ~FPillegal;
-			pprint("suicide: %s\n", up->lastnote.msg);
+			pprint("suicide: %s\n", up->lastnote->msg);
 		}
-		pexit(up->lastnote.msg, up->lastnote.flag!=NDebug);
+		pexit(up->lastnote->msg, up->lastnote->flag!=NDebug);
 	}
 	up->notified = 1;
 
-	return up->lastnote.msg;
+	return up->lastnote->msg;
 }
 
 /*
@@ -948,10 +951,11 @@ popnote(Ureg *u)
  *  lock if we can't get the r->lock and retrying.
  */
 int
-postnote(Proc *p, int dolock, char *n, int flag)
+postnote(Proc *p, int dolock, char *msg, int flag)
 {
 	int s, ret;
 	QLock *q;
+	Note *n;
 
 	if(p == nil)
 		return 0;
@@ -965,14 +969,22 @@ postnote(Proc *p, int dolock, char *n, int flag)
 		return 0;
 	}
 
-	if(n != nil && flag != NUser && (p->notify == nil || p->notified))
-		p->nnote = 0;
-
 	ret = 0;
-	if(p->nnote < NNOTE && n != nil) {
-		kstrcpy(p->note[p->nnote].msg, n, ERRMAX);
-		p->note[p->nnote++].flag = flag;
-		ret = 1;
+	if(msg != nil){
+		if(flag != NUser && (p->notify == nil || p->notified))
+			freenotes(p);
+		if(p->nnote < NNOTE){
+			if(flag != NUser)
+				n = smalloc(sizeof(Note));
+			else
+				n = malloc(sizeof(Note));
+			if(n != nil){
+				kstrcpy(n->msg, msg, ERRMAX);
+				n->flag = flag;
+				p->note[p->nnote++] = n;
+				ret = 1;
+			}
+		}
 	}
 	p->notepending = 1;
 	if(dolock)
@@ -1121,6 +1133,15 @@ freebroken(void)
 }
 
 void
+freenotes(Proc *p)
+{
+	while(p->nnote > 0){
+		free(p->note[--p->nnote]);
+		up->note[p->nnote] = nil;
+	}
+}
+
+void
 pexit(char *exitstr, int freemem)
 {
 	Proc *p;
@@ -1230,6 +1251,11 @@ pexit(char *exitstr, int freemem)
 		up->waitq = wq->next;
 		free(wq);
 	}
+
+	freenotes(up);
+	free(up->lastnote);
+	up->lastnote = nil;
+	up->notified = 0;
 
 	/* release debuggers */
 	if(up->pdbg != nil) {
@@ -1464,9 +1490,10 @@ kproc(char *name, void (*func)(void *), void *arg)
 	}
 
 	p->nnote = 0;
-	p->notify = nil;
+ 	p->notify = nil;
 	p->notified = 0;
 	p->notepending = 0;
+	p->lastnote = nil;
 
 	p->procmode = 0640;
 	p->privatemem = 1;

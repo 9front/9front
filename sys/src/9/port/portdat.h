@@ -745,10 +745,10 @@ struct Proc
 	Chan	*slash;
 	Chan	*dot;
 
-	Note	note[NNOTE];
+	Note	*note[NNOTE];
 	short	nnote;
 	short	notified;	/* sysnoted is due */
-	Note	lastnote;
+	Note	*lastnote;
 	int	(*notify)(void*, char*);
 
 	Lock	*lockwait;

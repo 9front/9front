@@ -1138,14 +1138,18 @@ procread(Chan *c, void *va, long n, vlong off)
 		if(p->nnote == 0)
 			n = 0;
 		else {
-			i = strlen(p->note[0].msg) + 1;
+			assert(p->note[0] != nil);
+			i = strlen(p->note[0]->msg) + 1;
 			if(i < n)
 				n = i;
-			memmove(va, p->note[0].msg, n-1);
+			memmove(va, p->note[0]->msg, n-1);
 			((char*)va)[n-1] = '\0';
+			free(p->note[0]);
 			if(--p->nnote == 0)
 				p->notepending = 0;
-			memmove(p->note, p->note+1, p->nnote*sizeof(Note));
+			else
+				memmove(&p->note[0], &p->note[1], p->nnote*sizeof(Note*));
+			p->note[p->nnote] = nil;
 		}
 		break;
 

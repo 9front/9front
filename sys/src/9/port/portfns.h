@@ -121,6 +121,7 @@ void		free(void*);
 void		freeb(Block*);
 void		freeblist(Block*);
 int		freebroken(void);
+void		freenotes(Proc*);
 void		freepages(Page*, Page*, ulong);
 void		freepte(Segment*, Pte*);
 void		getcolor(ulong, ulong*, ulong*, ulong*);
