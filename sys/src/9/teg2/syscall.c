@@ -104,11 +104,10 @@ noted(Ureg* cur, uintptr arg0)
 int
 notify(Ureg* ureg)
 {
-	int l;
-	Note *n;
 	u32int s;
 	uintptr sp;
 	NFrame *nf;
+	char *msg;
 
 	if(up->procctl)
 		procctl();
@@ -119,33 +118,13 @@ notify(Ureg* ureg)
 
 	s = spllo();
 	qlock(&up->debug);
-
-	up->notepending = 0;
-	n = &up->note[0];
-	if(strncmp(n->msg, "sys:", 4) == 0){
-		l = strlen(n->msg);
-		if(l > ERRMAX-23)	/* " pc=0x0123456789abcdef\0" */
-			l = ERRMAX-23;
-		snprint(n->msg + l, sizeof n->msg - l, " pc=%#lux", ureg->pc);
-	}
-
-	if(n->flag != NUser && (up->notified || up->notify == 0)){
-		qunlock(&up->debug);
-		if(n->flag == NDebug)
-			pprint("suicide: %s\n", n->msg);
-		pexit(n->msg, n->flag != NDebug);
-	}
-
-	if(up->notified){
+	msg = popnote(ureg);
+	if(msg == nil){
 		qunlock(&up->debug);
 		splhi();
 		return 0;
 	}
-		
-	if(up->notify == nil){
-		qunlock(&up->debug);
-		pexit(n->msg, n->flag != NDebug);
-	}
+
 	if(!okaddr((uintptr)up->notify, 1, 0)){
 		qunlock(&up->debug);
 		pprint("suicide: notify function address %#p\n", up->notify);
@@ -163,7 +142,7 @@ notify(Ureg* ureg)
 	memmove(&nf->ureg, ureg, sizeof(Ureg));
 	nf->old = up->ureg;
 	up->ureg = nf;
-	memmove(nf->msg, up->note[0].msg, ERRMAX);
+	memmove(nf->msg, msg, ERRMAX);
 	nf->arg1 = nf->msg;
 	nf->arg0 = &nf->ureg;
 	nf->ip = 0;
@@ -171,11 +150,6 @@ notify(Ureg* ureg)
 	ureg->sp = sp;
 	ureg->pc = (uintptr)up->notify;
 	ureg->r0 = (uintptr)nf->arg0;
-
-	up->notified = 1;
-	up->nnote--;
-	memmove(&up->lastnote, &up->note[0], sizeof(Note));
-	memmove(&up->note[0], &up->note[1], up->nnote*sizeof(Note));
 
 	qunlock(&up->debug);
 	splx(s);

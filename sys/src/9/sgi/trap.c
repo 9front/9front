@@ -470,9 +470,9 @@ dumpregs(Ureg *ur)
 int
 notify(Ureg *ur)
 {
-	int l, s;
+	int s;
 	ulong sp;
-	Note *n;
+	char *msg;
 
 	if(up->procctl)
 		procctl();
@@ -487,34 +487,13 @@ notify(Ureg *ur)
 
 	s = spllo();
 	qlock(&up->debug);
-	up->notepending = 0;
-	n = &up->note[0];
-	if(strncmp(n->msg, "sys:", 4) == 0) {
-		l = strlen(n->msg);
-		if(l > ERRMAX-15)	/* " pc=0x12345678\0" */
-			l = ERRMAX-15;
-
-		seprint(n->msg+l, &n->msg[sizeof n->msg], " pc=%#lux", ur->pc);
-	}
-
-	if(n->flag != NUser && (up->notified || up->notify==0)) {
-		if(n->flag == NDebug)
-			pprint("suicide: %s\n", n->msg);
-
-		qunlock(&up->debug);
-		pexit(n->msg, n->flag!=NDebug);
-	}
-
-	if(up->notified) {
+	msg = popnote(ur);
+	if(msg == nil){
 		qunlock(&up->debug);
 		splx(s);
 		return 0;
 	}
 
-	if(!up->notify) {
-		qunlock(&up->debug);
-		pexit(n->msg, n->flag!=NDebug);
-	}
 	sp = ur->usp & ~(BY2V-1);
 	sp -= sizeof(Ureg);
 
@@ -530,7 +509,7 @@ notify(Ureg *ur)
 	up->ureg = (void*)sp;
 
 	sp -= BY2WD+ERRMAX;
-	memmove((char*)sp, up->note[0].msg, ERRMAX);	/* push err string */
+	memmove((char*)sp, msg, ERRMAX);	/* push err string */
 
 	sp -= 3*BY2WD;
 	*(ulong*)(sp+2*BY2WD) = sp+3*BY2WD;	/* arg 2 is string */
@@ -543,11 +522,6 @@ notify(Ureg *ur)
 	 * were being called.
 	 */
 	ur->pc = (ulong)up->notify;
-
-	up->notified = 1;
-	up->nnote--;
-	memmove(&up->lastnote, &up->note[0], sizeof(Note));
-	memmove(&up->note[0], &up->note[1], up->nnote*sizeof(Note));
 
 	qunlock(&up->debug);
 	splx(s);

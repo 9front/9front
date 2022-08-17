@@ -235,6 +235,7 @@ ulong		pidalloc(Proc*);
 #define		waserror()		setlabel(&up->errlab[up->nerrlab++])
 #define		poperror()		up->nerrlab--
 void		portcountpagerefs(ulong*, int);
+char*		popnote(Ureg*);
 int		postnote(Proc*, int, char*, int);
 int		pprint(char*, ...);
 int		preempted(void);

@@ -554,9 +554,8 @@ syscall(Ureg* ureg)
 int
 notify(Ureg* ureg)
 {
-	int l;
 	uintptr sp;
-	Note *n;
+	char *msg;
 
 	if(up->procctl)
 		procctl();
@@ -564,39 +563,18 @@ notify(Ureg* ureg)
 		return 0;
 	spllo();
 	qlock(&up->debug);
-	up->notepending = 0;
-	n = &up->note[0];
-	if(strncmp(n->msg, "sys:", 4) == 0){
-		l = strlen(n->msg);
-		if(l > ERRMAX-15)	/* " pc=0x12345678\0" */
-			l = ERRMAX-15;
-		sprint(n->msg+l, " pc=%#p", ureg->pc);
-	}
-
-	if(n->flag!=NUser && (up->notified || up->notify==0)){
-		qunlock(&up->debug);
-		if(n->flag == NDebug){
-			up->fpstate &= ~FPillegal;
-			pprint("suicide: %s\n", n->msg);
-		}
-		pexit(n->msg, n->flag!=NDebug);
-	}
-
-	if(up->notified){
+	msg = popnote(ureg);
+	if(msg == nil){
 		qunlock(&up->debug);
 		splhi();
 		return 0;
 	}
 
-	if(!up->notify){
-		qunlock(&up->debug);
-		pexit(n->msg, n->flag!=NDebug);
-	}
 	sp = ureg->sp;
 	sp -= 256;	/* debugging: preserve context causing problem */
 	sp -= sizeof(Ureg);
 if(0) print("%s %lud: notify %#p %#p %#p %s\n",
-	up->text, up->pid, ureg->pc, ureg->sp, sp, n->msg);
+	up->text, up->pid, ureg->pc, ureg->sp, sp, msg);
 
 	if(!okaddr((uintptr)up->notify, 1, 0)
 	|| !okaddr(sp-ERRMAX-4*BY2WD, sizeof(Ureg)+ERRMAX+4*BY2WD, 1)){
@@ -610,7 +588,7 @@ if(0) print("%s %lud: notify %#p %#p %#p %s\n",
 	*(Ureg**)(sp-BY2WD) = up->ureg;	/* word under Ureg is old up->ureg */
 	up->ureg = (void*)sp;
 	sp -= BY2WD+ERRMAX;
-	memmove((char*)sp, up->note[0].msg, ERRMAX);
+	memmove((char*)sp, msg, ERRMAX);
 	sp -= 3*BY2WD;
 	((uintptr*)sp)[2] = sp + 3*BY2WD;	/* arg2 string */
 	((uintptr*)sp)[1] = (uintptr)up->ureg;	/* arg1 is ureg* */
@@ -620,10 +598,6 @@ if(0) print("%s %lud: notify %#p %#p %#p %s\n",
 	ureg->bp = (uintptr)up->ureg;		/* arg1 passed in RARG */
 	ureg->cs = UESEL;
 	ureg->ss = UDSEL;
-	up->notified = 1;
-	up->nnote--;
-	memmove(&up->lastnote, &up->note[0], sizeof(Note));
-	memmove(&up->note[0], &up->note[1], up->nnote*sizeof(Note));
 	qunlock(&up->debug);
 	splhi();
 	if(up->fpstate == FPactive){

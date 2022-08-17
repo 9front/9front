@@ -899,6 +899,48 @@ wakeup(Rendez *r)
 }
 
 /*
+ *  pop a note from the calling process or suicide if theres
+ *  no note handler or notify during note handling. 
+ *  Called from notify() with up->debug lock held.
+ */
+char*
+popnote(Ureg *u)
+{
+	assert(!canqlock(&up->debug));
+
+	up->notepending = 0;
+	if(up->nnote == 0)
+		return nil;
+	assert(up->nnote > 0);
+
+	/* hold off user notes during note handling */
+	if(up->notified && up->note[0].flag == NUser)
+		return nil;
+
+	memmove(&up->lastnote, &up->note[0], sizeof(Note));
+	if(--up->nnote)
+		memmove(&up->note[0], &up->note[1], up->nnote*sizeof(Note));
+
+	if(u != nil && strncmp(up->lastnote.msg, "sys:", 4) == 0){
+		int l = strlen(up->lastnote.msg);
+		assert(l < ERRMAX);
+		snprint(up->lastnote.msg+l, ERRMAX-l, " pc=%#p", u->pc);
+	}
+
+	if(up->notify == nil || up->notified){
+		qunlock(&up->debug);
+		if(up->lastnote.flag == NDebug){
+			up->fpstate &= ~FPillegal;
+			pprint("suicide: %s\n", up->lastnote.msg);
+		}
+		pexit(up->lastnote.msg, up->lastnote.flag!=NDebug);
+	}
+	up->notified = 1;
+
+	return up->lastnote.msg;
+}
+
+/*
  *  if waking a sleeping process, this routine must hold both
  *  p->rlock and r->lock.  However, it can't know them in
  *  the same order as wakeup causing a possible lock ordering

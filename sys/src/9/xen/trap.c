@@ -480,9 +480,8 @@ syscall(Ureg* ureg)
 int
 notify(Ureg* ureg)
 {
-	int l;
 	ulong s, sp;
-	Note *n;
+	char *msg;
 
 	if(up->procctl)
 		procctl();
@@ -497,39 +496,20 @@ notify(Ureg* ureg)
 
 	s = spllo();
 	qlock(&up->debug);
-	up->notepending = 0;
-	n = &up->note[0];
-	if(strncmp(n->msg, "sys:", 4) == 0){
-		l = strlen(n->msg);
-		if(l > ERRMAX-15)	/* " pc=0x12345678\0" */
-			l = ERRMAX-15;
-		sprint(n->msg+l, " pc=0x%.8lux", ureg->pc);
-	}
-
-	if(n->flag!=NUser && (up->notified || up->notify==0)){
-		if(n->flag == NDebug)
-			pprint("suicide: %s\n", n->msg);
-		qunlock(&up->debug);
-		pexit(n->msg, n->flag!=NDebug);
-	}
-
-	if(up->notified){
+	msg = popnote(ureg);
+	if(msg == nil){
 		qunlock(&up->debug);
 		splhi();
 		return 0;
 	}
-		
-	if(!up->notify){
-		qunlock(&up->debug);
-		pexit(n->msg, n->flag!=NDebug);
-	}
+
 	sp = ureg->usp;
 	sp -= sizeof(Ureg);
 
 	if(!okaddr((ulong)up->notify, 1, 0)
 	|| !okaddr(sp-ERRMAX-4*BY2WD, sizeof(Ureg)+ERRMAX+4*BY2WD, 1)){
-		pprint("suicide: bad address in notify\n");
 		qunlock(&up->debug);
+		pprint("suicide: bad address in notify\n");
 		pexit("Suicide", 0);
 	}
 
@@ -538,18 +518,13 @@ notify(Ureg* ureg)
 	*(Ureg**)(sp-BY2WD) = up->ureg;	/* word under Ureg is old up->ureg */
 	up->ureg = (void*)sp;
 	sp -= BY2WD+ERRMAX;
-	memmove((char*)sp, up->note[0].msg, ERRMAX);
+	memmove((char*)sp, msg, ERRMAX);
 	sp -= 3*BY2WD;
 	*(ulong*)(sp+2*BY2WD) = sp+3*BY2WD;		/* arg 2 is string */
 	*(ulong*)(sp+1*BY2WD) = (ulong)up->ureg;	/* arg 1 is ureg* */
 	*(ulong*)(sp+0*BY2WD) = 0;			/* arg 0 is pc */
 	ureg->usp = sp;
 	ureg->pc = (ulong)up->notify;
-	up->notified = 1;
-	up->nnote--;
-	memmove(&up->lastnote, &up->note[0], sizeof(Note));
-	memmove(&up->note[0], &up->note[1], up->nnote*sizeof(Note));
-
 	qunlock(&up->debug);
 	splx(s);
 	return 1;
