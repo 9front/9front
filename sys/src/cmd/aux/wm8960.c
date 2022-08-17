@@ -87,11 +87,8 @@ setvol(Out *o, int l, int r)
 {
 	int zc;
 
-	l = CLAMP(l, 0, 100);
-	r = CLAMP(r, 0, 100);
-
-	o->vol[0] = l;
-	o->vol[1] = r;
+	o->vol[0] = l = CLAMP(l, 0, 100);
+	o->vol[1] = r = CLAMP(r, 0, 100);
 
 	if(l > 0)
 		l += o->volmax - 100;
@@ -149,6 +146,7 @@ fsread(Req *r)
 	}else if(r->fid->file->aux == (void*)Vol){
 		for(i = 0, o = out; i < Nout; i++, o++)
 			s = seprint(s, e, "%s %d %d\n", o->name, o->vol[0], o->vol[1]);
+		seprint(s, e, "speed 44100\n");
 	}
 
 	readstr(r, msg);
