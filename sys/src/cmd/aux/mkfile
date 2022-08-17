@@ -50,6 +50,7 @@ TARG=\
 	write\
 	wacom\
 	wikifmt\
+	wm8960\
 	wpa\
 	zerotrunc\
 
