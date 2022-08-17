@@ -22,6 +22,7 @@ dev
 	i2c
 	rtc	devi2c
 	sd
+	audio
 
 link
 	usbxhciimx
@@ -31,6 +32,7 @@ link
 	netdevmedium
 	i2cimx		devi2c
 	pciimx		pci
+	sai
 
 ip
 	tcp

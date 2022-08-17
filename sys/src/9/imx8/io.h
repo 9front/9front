@@ -30,6 +30,8 @@ enum {
 
 	IRQpci2		= SPI+74,
 
+	IRQsai2		= SPI+96,
+
 	IRQenet1	= SPI+118,
 
 	IRQpci1		= SPI+122,
