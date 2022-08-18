@@ -280,8 +280,10 @@ vgactl(VGAscr *scr, Cmdbuf *cb)
 			error("bad channel");
 		if(chantodepth(chan) != z)
 			error("depth, channel do not match");
+		qlock(&drawlock);
 		deletescreenimage();
 		setscreensize(scr, r.max.x, r.max.y, z, chan, scr->tilt);
+		qunlock(&drawlock);
 		return;
 
 	case CMactualsize:
@@ -296,6 +298,7 @@ vgactl(VGAscr *scr, Cmdbuf *cb)
 			error(Ebadarg);
 		if(r.max.x > scr->width || r.max.y > scr->height)
 			error("physical screen bigger than virtual");
+		qlock(&drawlock);
 		deletescreenimage();
 		setactualsize(scr, r);
 		goto Resized;
@@ -324,6 +327,7 @@ vgactl(VGAscr *scr, Cmdbuf *cb)
 		}
 		if(scr->gscreen == nil)
 			return;
+		qlock(&drawlock);
 		r = actualscreensize(scr);
 		chan = scr->gscreen->chan;
 		z = scr->gscreen->depth;
@@ -331,9 +335,11 @@ vgactl(VGAscr *scr, Cmdbuf *cb)
 		setscreensize(scr, scr->width, scr->height, z, chan, tilt);
 		setactualsize(scr, r);
 		/* no break */
-	case CMdrawinit:
-		if(scr->gscreen == nil)
+	Init:
+		if(scr->gscreen == nil){
+			qunlock(&drawlock);
 			error(Enoscreen);
+		}
 		if(scr->dev && scr->dev->drawinit)
 			scr->dev->drawinit(scr);
 		hwblank = scr->blank != nil;
@@ -341,7 +347,12 @@ vgactl(VGAscr *scr, Cmdbuf *cb)
 	Resized:
 		vgascreenwin(scr);
 		resetscreenimage();
+		qunlock(&drawlock);
 		return;
+
+	case CMdrawinit:
+		qlock(&drawlock);
+		goto Init;
 
 	case CMlinear:
 		if(cb->nf!=2 && cb->nf!=3)

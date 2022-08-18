@@ -299,8 +299,8 @@ fbctlwrite(Chan*, void *a, long n, vlong)
 		if(chantodepth(chan) != z)
 			error("depth, channel do not match");
 
-		deletescreenimage();
 		eqlock(&drawlock);
+		deletescreenimage();
 		if(memimageinit() < 0){
 			qunlock(&drawlock);
 			error("memimageinit failed");
@@ -310,14 +310,18 @@ fbctlwrite(Chan*, void *a, long n, vlong)
 			gscreen = nil;
 		}
 		gscreen = allocmemimage(Rect(0,0,x,y), chan);
+	Init:
+		if(gscreen == nil){
+			qunlock(&drawlock);
+			error("no framebuffer");
+		}
+		resetscreenimage();
 		qunlock(&drawlock);
-		/* wet floor */
+		break;
 
 	case CMinit:
-		if(gscreen == nil)
-			error("no framebuffer");
-		resetscreenimage();
-		break;
+		qlock(&drawlock);
+		goto Init;
 	}
 	free(cb);
 	poperror();

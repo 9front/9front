@@ -183,8 +183,6 @@ vgascreenwin(VGAscr* scr)
 	Point p;
 	int h;
 
-	qlock(&drawlock);
-	
 	h = scr->memdefont->height;
 	r = scr->gscreen->r;
 
@@ -215,11 +213,7 @@ vgascreenwin(VGAscr* scr)
 	curpos = window.min;
 
 	flushmemscreen(r);
-
-	qunlock(&drawlock);
-
 	vgascreenputs(kmesg.buf, kmesg.n);
-
 	screenputs = vgascreenputs;
 }
 

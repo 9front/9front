@@ -64,17 +64,11 @@ actualscreensize(VGAscr *scr)
 void
 setactualsize(VGAscr *scr, Rectangle r)
 {
-	qlock(&drawlock);
-
 	r.min = ZP;
 	r.max = tiltsize(scr->tilt, r.max);
-	if(rectclip(&r, scr->gscreen->r) == 0){
-		qunlock(&drawlock);
+	if(rectclip(&r, scr->gscreen->r) == 0)
 		return;
-	}
 	scr->gscreen->clipr = r;
-
-	qunlock(&drawlock);
 }
 
 static char*
@@ -136,11 +130,8 @@ setscreensize(VGAscr *scr, int x, int y, int z, ulong chan, int tilt)
 {
 	char *err;
 
-	qlock(&drawlock);
-	if(waserror()){
-		qunlock(&drawlock);
+	if(waserror())
 		nexterror();
-	}
 
 	if(memimageinit() < 0)
 		error("memimageinit failed");
@@ -169,7 +160,6 @@ setscreensize(VGAscr *scr, int x, int y, int z, ulong chan, int tilt)
 		cursoron();
 	}
 
-	qunlock(&drawlock);
 	poperror();
 }
 
