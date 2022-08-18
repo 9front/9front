@@ -13,8 +13,8 @@ typedef struct Out Out;
 enum
 {
 	Dac,
-	Spk,
 	Hp,
+	Spk,
 	Nout,
 
 	Ctl = 1,
@@ -26,6 +26,7 @@ struct Out
 	char *name;
 	int volreg;
 	int volmax;
+	int togglemask;
 	void (*toggle)(Out *o, int on);
 	int on;
 	int vol[2];
@@ -33,7 +34,7 @@ struct Out
 
 static char *uid = "audio";
 static int data;
-static int reg1a = 1<<0; /* pll enable */
+static int reg1a;
 
 static void
 wr(int a, int v)
@@ -42,45 +43,33 @@ wr(int a, int v)
 
 	//fprint(2, "[0x%x] ← 0x%ux\n", a, v & 0x1ff);
 	c = v & 0xff;
-	pwrite(data, &c, 1, a<<1 | ((v>>8)&1));
+	if(pwrite(data, &c, 1, a<<1 | ((v>>8)&1)) < 1)
+		fprint(2, "reg %x write failed: %r\n", a);
 }
 
 static void
-dactoggle(Out *o, int on)
+classdspk(Out *, int on)
 {
-	if(o->on = on)
-		reg1a |= 3<<7;
-	else
-		reg1a &= ~(3<<7);
-	wr(0x1a, reg1a);
+	wr(0x31, (on ? 3 : 0)<<6 | 0x37); /* class D SPK out */
 }
 
 static void
-spktoggle(Out *o, int on)
+toggle(Out *o, int on)
 {
-	if(o->on = on)
-		reg1a |= 3<<3;
+	if(on)
+		reg1a |= o->togglemask;
 	else
-		reg1a &= ~(3<<3);
-	wr(0x31, (on ? 3 : 0)<<6); /* class D SPK out */
+		reg1a &= ~o->togglemask;
 	wr(0x1a, reg1a);
-}
-
-static void
-hptoggle(Out *o, int on)
-{
-	if(o->on = on)
-		reg1a |= 3<<5;
-	else
-		reg1a &= ~(3<<5);
-	wr(0x1a, reg1a);
+	if(o->toggle != nil)
+		o->toggle(o, on);
 }
 
 static Out out[Nout] =
 {
-	[Dac] = {"master", 0x0a, 0xff, dactoggle, 0},
-	[Spk] = {"spk", 0x28, 0x7f, spktoggle, 0},
-	[Hp] = {"hp", 0x02, 0x7f, hptoggle, 0},
+	[Dac] = {"master", 0x0a, 0xff, 3<<7, nil, 0},
+	[Hp] = {"hp", 0x02, 0x7f, 3<<5, nil, 0},
+	[Spk] = {"spk", 0x28, 0x7f, 3<<3, classdspk, 0},
 };
 
 static void
@@ -88,17 +77,17 @@ setvol(Out *o, int l, int r)
 {
 	int zc;
 
-	o->vol[0] = l = CLAMP(l, 0, 100);
-	o->vol[1] = r = CLAMP(r, 0, 100);
-
-	if(l > 0)
+	l = CLAMP(l, 0, 100);
+	r = CLAMP(r, 0, 100);
+	if(l == o->vol[0] && r == o->vol[1])
+		return;
+	if((o->vol[0] = l) > 0)
 		l += o->volmax - 100;
-	if(r > 0)
+	if((o->vol[1] = r) > 0)
 		r += o->volmax - 100;
 
 	zc = o->volmax < 0x80;
 	wr(o->volreg+0, 0<<8 | zc<<7 | l);
-	wr(o->volreg+1, 0<<8 | zc<<7 | r);
 	wr(o->volreg+1, 1<<8 | zc<<7 | r);
 }
 
@@ -106,8 +95,6 @@ static void
 reset(void)
 {
 	u32int k;
-	Out *o;
-	int i;
 
 	/*
 	 * getting DAC ready for s16c2r44100:
@@ -132,7 +119,12 @@ reset(void)
 	 *  → dclkdiv = /16 → dclk = 705.6kHz
 	 */
 
+	toggle(out+Dac, 0);
+	wr(0x1c, 1<<7 | 1<<4 | 1<<3 | 1<<2); /* Vmid/r bias; Vgs/r on; Vmid soft start */
+	wr(0x19, 0<<7); /* Vmid off, Vref off */
+	sleep(500);
 	wr(0x0f, 0); /* reset registers to default */
+
 	wr(0x04,
 		0<<3 | /* dacdiv → sysclk/(1*256) = 44100 */
 		2<<1 | /* sysclkdiv → /2 */
@@ -150,28 +142,39 @@ reset(void)
 	wr(0x36, (k>>8) & 0xff);
 	wr(0x37, k & 0xff);
 
-	wr(0x05, 0<<3); /* unmute DAC */
-	wr(0x06, 1<<3 | 1<<2); /* ramp up DAC volume slowly */
 	wr(0x07, 1<<6 | 2); /* master mode; i²s, 16-bit words, slave mode */
 	wr(0x08, 7<<6 | 7<<0); /* dclkdiv → sysclk/16; bclkdiv → sysclk/8 */
-	wr(0x17, 1<<8 | 1<<0); /* slow clock on; thermal shutdown on */
-	wr(0x18, 1<<6); /* HP switch on; high = HP */
-	wr(0x19, 1<<7 | 1<<6); /* Vmid = playback, VREF on */
-	wr(0x1b, 1<<3); /* HP_[LR] responsive to jack detect */
+
+	wr(0x1a, reg1a = reg1a | 1<<0); /* enable pll */
+	wr(0x17, 1<<8 | 3<<6 | 1<<1); /* thermal shutdown on; avdd=3.3v; slow clock on */
+
+	wr(0x06, 1<<3 | 1<<2); /* ramp up DAC volume slowly */
+	wr(0x2f, 3<<2); /* output mixer on */
 	wr(0x22, 1<<8); /* L DAC to mixer */
 	wr(0x25, 1<<8); /* R DAC to mixer */
-	wr(0x2f, 3<<2); /* output mixer on */
-	wr(0x30, 2<<2 | 1<<1); /* JD2 jack detect; Tsense on */
 	wr(0x33, 5<<0); /* +5.1dB AC SPK boost - Reform's speakers can be too quiet */
 
-	/* sensible defaults */
-	setvol(&out[Dac], 100, 100);
-	setvol(&out[Spk], 80, 80);
-	setvol(&out[Hp], 65, 65);
+	wr(0x17, 1<<8 | 3<<6 | 1<<0); /* thermal shutdown on; avdd=3.3v; slow clock on */
+	wr(0x1c, 1<<7 | 1<<4 | 1<<3 | 1<<2); /* Vmid/r bias; Vgs/r on; Vmid soft start */
+	wr(0x19, 1<<7); /* start Vmid (playback) */
+	sleep(650);
+	wr(0x1c, 1<<3); /* done with anti-pop */
+	wr(0x19, 1<<7 | 1<<6); /* Vref on */
 
-	/* enable every output and let the user decide later */
-	for(i = 0, o = out; i < Nout; i++, o++)
-		o->toggle(o, 1);
+	wr(0x30, 2<<4 | 2<<2 | 1<<1); /* JD2 jack detect; Tsense on */
+	wr(0x1b, 1<<3); /* HP_[LR] responsive to jack detect */
+	wr(0x18, 1<<6); /* HP switch on; high = HP */
+
+	/* turn on all outputs */
+	toggle(out+Hp, 1);
+	toggle(out+Spk, 1);
+	toggle(out+Dac, 1);
+
+	/* sensible defaults */
+	setvol(out+Spk, 80, 80);
+	setvol(out+Hp, 65, 65);
+	setvol(out+Dac, 80, 80);
+	wr(0x05, 0<<3); /* unmute DAC */
 }
 
 static void
@@ -231,7 +234,7 @@ Emsg:
 			on = !o->on;
 		else
 			goto Emsg;
-		o->toggle(o, on);
+		toggle(o, on);
 	}else if(r->fid->file->aux == (void*)Vol){
 		vl = atoi(f[1]);
 		vr = nf < 3 ? vl : atoi(f[2]);
