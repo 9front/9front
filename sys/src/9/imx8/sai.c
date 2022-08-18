@@ -12,6 +12,7 @@ typedef struct Ring Ring;
 
 enum {
 	Byteps = 4,
+	Wmark = 96,
 
 	TCSR = 0x08/4,
 		TCSR_TE = 1<<31,
@@ -27,10 +28,12 @@ enum {
 	TCR2 = 0x10/4,
 		TCR2_MSEL_MCLK1 = 1<<26,
 		TCR2_BCP = 1<<25,
+		TCR2_BCD_SLAVE = 0<<24,
 		TCR2_BCD_MASTER = 1<<24,
 	TCR3 = 0x14/4,
 		TCR3_TCE_SHIFT = 16,
 	TCR4 = 0x18/4,
+		TCR4_FCONT = 1<<28,
 		TCR4_FPACK_16BIT = 3<<24,
 		TCR4_FRSZ_SHIFT = 16,
 		TCR4_SYWD_SHIFT = 8,
@@ -38,6 +41,7 @@ enum {
 		TCR4_MSB_FIRST = 1<<4,
 		TCR4_FSE = 1<<3,
 		TCR4_FSP_LOW = 1<<1,
+		TCR4_FSD_SLAVE = 0<<0,
 		TCR4_FSD_MASTER = 1<<0,
 	TCR5 = 0x1c/4,
 		TCR5_WNW_SHIFT = 24,
@@ -147,7 +151,7 @@ saikick(Ctlr *ctlr)
 		ctlr->wactive = 1;
 		/* activate channel 1 */
 		wr(TCR3, 1<<TCR3_TCE_SHIFT);
-		wr(TCSR, TCSR_TE | TCSR_FEF | TCSR_FRIE | TCSR_FWIE | TCSR_FEIE);
+		wr(TCSR, TCSR_TE | TCSR_FEF | TCSR_FRIE | TCSR_FEIE);
 	}
 }
 
@@ -203,13 +207,14 @@ saireset(Ctlr *ctlr)
 	delay(1);
 
 	/* watermark - hit early enough */
-	wr(TCR1, 32);
-	/* derive from mclk1; generate bitclock (active low), f = mclk1/(8+1)*2 = mclk1/18 */
-	wr(TCR2, TCR2_MSEL_MCLK1 | TCR2_BCD_MASTER | TCR2_BCP | 8);
+	wr(TCR1, Wmark);
+	/* slave bitclock (active low) */
+	wr(TCR2, TCR2_BCD_SLAVE | TCR2_BCP);
 	/* activate channel 1 */
 	wr(TCR3, 1<<TCR3_TCE_SHIFT);
 	/* set up for i²s */
 	wr(TCR4,
+		TCR4_FCONT | /* continue on errors */
 		TCR4_CHMOD | /* output mode, no TDM */
 		TCR4_MSB_FIRST |
 		TCR4_FPACK_16BIT | /* 16-bit packed words */
@@ -218,7 +223,7 @@ saireset(Ctlr *ctlr)
 		/* frame sync */
 		TCR4_FSE | /* one bit earlier */
 		TCR4_FSP_LOW | /* active high */
-		TCR4_FSD_MASTER /* generate internally */
+		TCR4_FSD_SLAVE /* generate internally */
 	);
 	/* 16-bit words, MSB first */
 	wr(TCR5, 15<<TCR5_WNW_SHIFT | 15<<TCR5_W0W_SHIFT | 15<<TCR5_FBT_SHIFT);
@@ -300,7 +305,7 @@ saiinterrupt(Ureg *, void *arg)
 		if(ctlr->wactive){
 			if(buffered(r) < 128*Byteps) /* having less than fifo buffered */
 				saistop(ctlr);
-			else if(fifo(ctlr, (128-32)*Byteps) > 0)
+			else if(fifo(ctlr, (128-Wmark)*Byteps) > 0)
 				v |= TCSR_TE;
 		}
 		wakeup(&r->r);
