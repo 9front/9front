@@ -35,6 +35,7 @@ struct Out
 static char *uid = "audio";
 static int data;
 static int reg1a;
+static int rate = 44100;
 
 static void
 wr(int a, int v)
@@ -91,10 +92,13 @@ setvol(Out *o, int l, int r)
 	wr(o->volreg+1, 1<<8 | zc<<7 | r);
 }
 
-static void
-reset(void)
+static int
+setrate(int s)
 {
 	u32int k;
+
+	if(s != 44100 && s != 48000)
+		return -1;
 
 	/*
 	 * getting DAC ready for s16c2r44100:
@@ -118,12 +122,7 @@ reset(void)
 	 *  → sysclk/768000 = 14
 	 *  → dclkdiv = /16 → dclk = 705.6kHz
 	 */
-
-	toggle(out+Dac, 0);
-	wr(0x1c, 1<<7 | 1<<4 | 1<<3 | 1<<2); /* Vmid/r bias; Vgs/r on; Vmid soft start */
-	wr(0x19, 0<<7); /* Vmid off, Vref off */
-	sleep(500);
-	wr(0x0f, 0); /* reset registers to default */
+	wr(0x1a, reg1a = reg1a & ~(1<<0)); /* disable pll */
 
 	wr(0x04,
 		0<<3 | /* dacdiv → sysclk/(1*256) = 44100 */
@@ -137,15 +136,32 @@ reset(void)
 		7<<0 | /* N */
 		0
 	);
-	k = 3780645; /* K */
-	wr(0x35, (k>>16) & 0x3f);
+	k = s == 44100 ? 3780645 : 14500883; /* K */
+	wr(0x35, (k>>16) & 0xff);
 	wr(0x36, (k>>8) & 0xff);
 	wr(0x37, k & 0xff);
 
-	wr(0x07, 1<<6 | 2); /* master mode; i²s, 16-bit words, slave mode */
 	wr(0x08, 7<<6 | 7<<0); /* dclkdiv → sysclk/16; bclkdiv → sysclk/8 */
-
 	wr(0x1a, reg1a = reg1a | 1<<0); /* enable pll */
+
+	rate = s;
+
+	return 0;
+}
+
+static void
+reset(void)
+{
+	toggle(out+Dac, 0);
+	wr(0x1c, 1<<7 | 1<<4 | 1<<3 | 1<<2); /* Vmid/r bias; Vgs/r on; Vmid soft start */
+	wr(0x19, 0<<7); /* Vmid off, Vref off */
+	sleep(500);
+	wr(0x0f, 0); /* reset registers to default */
+
+	setrate(rate);
+
+	wr(0x07, 1<<6 | 2); /* master mode; i²s, 16-bit words */
+
 	wr(0x17, 1<<8 | 3<<6 | 1<<1); /* thermal shutdown on; avdd=3.3v; slow clock on */
 
 	wr(0x06, 1<<3 | 1<<2); /* ramp up DAC volume slowly */
@@ -193,7 +209,7 @@ fsread(Req *r)
 	}else if(r->fid->file->aux == (void*)Vol){
 		for(i = 0, o = out; i < Nout; i++, o++)
 			s = seprint(s, e, "%s %d %d\n", o->name, o->vol[0], o->vol[1]);
-		seprint(s, e, "speed 44100\n");
+		seprint(s, e, "speed %d\n", rate);
 	}
 
 	readstr(r, msg);
@@ -209,7 +225,8 @@ fswrite(Req *r)
 
 	snprint(msg, sizeof(msg), "%.*s",
 		utfnlen((char*)r->ifcall.data, r->ifcall.count), (char*)r->ifcall.data);
-	if((nf = tokenize(msg, f, nelem(f))) < 2){
+	nf = tokenize(msg, f, nelem(f));
+	if(nf < 2){
 		if(nf == 1 && strcmp(f[0], "reset") == 0){
 			reset();
 			goto Done;
@@ -218,6 +235,14 @@ Emsg:
 		respond(r, "invalid ctl message");
 		return;
 	}
+	if(nf == 2 && strcmp(f[0], "speed") == 0){
+		if(setrate(atoi(f[1])) != 0){
+			respond(r, "not supported");
+			return;
+		}
+		goto Done;
+	}
+
 	for(i = 0, o = out; i < Nout && strcmp(f[0], o->name) != 0; i++, o++)
 		;
 	if(i >= Nout)
