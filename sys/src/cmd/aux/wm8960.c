@@ -32,14 +32,15 @@ struct Out
 };
 
 static char *uid = "audio";
-static int data, reg1a;
+static int data;
+static int reg1a = 1<<0; /* pll enable */
 
 static void
 wr(int a, int v)
 {
 	u8int c;
 
-	//fprint(2, "[0x%x] ← 0x%ux = ", a, v & 0x1ff);
+	//fprint(2, "[0x%x] ← 0x%ux\n", a, v & 0x1ff);
 	c = v & 0xff;
 	pwrite(data, &c, 1, a<<1 | ((v>>8)&1));
 }
@@ -104,15 +105,32 @@ setvol(Out *o, int l, int r)
 static void
 reset(void)
 {
+	u32int k;
 	Out *o;
 	int i;
 
 	wr(0x0f, 0); /* reset registers to default */
-	wr(0x04, 0); /* sysclk (div 1) derived from mclk; dacdiv=sysclk/256 */
+	wr(0x04,
+		1<<0 | /* sysclk derived from pll */
+		2<<1 | /* sysclk div by 2 */
+		1<<3 | /* dacdiv = sysclk/(1.5*256) */
+		0
+	);
+	wr(0x34,
+		1<<5  | /* enable fractional mode */
+		1<<4  | /* pllprescale (divide mclk by 2 before) */
+		10<<0 | /* plln = int(f1/f2) */
+		0
+	);
+	k = 0x7654321; /* fractional part */
+	wr(0x35, k>>18);
+	wr(0x36, k>>9);
+	wr(0x37, k);
+
 	wr(0x05, 0<<3); /* unmute DAC */
 	wr(0x06, 1<<3 | 1<<2); /* ramp up DAC volume slowly */
-	wr(0x07, 2); /* i²s, 16-bit words, slave mode */
-	wr(0x08, 7<<6); /* class D divider: sysclk/16 */
+	wr(0x07, 1<<6 | 2); /* master mode; i²s, 16-bit words, slave mode */
+	wr(0x08, 5<<6 | 9<<0); /* class D divider: sysclk/8; bclk = sysclk/12 */
 	wr(0x19, 1<<7 | 1<<6); /* Vmid = playback, VREF on */
 	wr(0x22, 1<<8); /* L DAC to mixer */
 	wr(0x25, 1<<8); /* R DAC to mixer */
@@ -207,7 +225,7 @@ static Srv fs = {
 static void
 usage(void)
 {
-	fprint(2, "usage: aux/wm8960\n");
+	fprint(2, "usage: aux/wm8960 [-1] [-D] [-m /mnt/pm] [-s service]\n");
 	exits("usage");
 }
 
@@ -215,11 +233,15 @@ void
 main(int argc, char **argv)
 {
 	char *mtpt, *srv;
-	int ctl;
+	int ctl, oneshot;
 
 	mtpt = "/mnt/wm8960";
 	srv = nil;
+	oneshot = 0;
 	ARGBEGIN{
+	case '1':
+		oneshot = 1;
+		break;
 	case 'D':
 		chatty9p = 1;
 		break;
@@ -242,6 +264,9 @@ main(int argc, char **argv)
 	close(ctl);
 
 	reset();
+
+	if(oneshot)
+		exits(nil);
 
 	fs.tree = alloctree(uid, uid, DMDIR|0555, nil);
 	createfile(fs.tree->root, "audioctl", uid, 0666, (void*)Ctl);
