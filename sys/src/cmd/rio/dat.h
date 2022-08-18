@@ -308,6 +308,7 @@ Cursor	sightcursor;
 Cursor	whitearrow;
 Cursor	query;
 Cursor	*corners[9];
+Cursor	skull;
 
 Image	*background;
 Image	*cols[NCOL];
