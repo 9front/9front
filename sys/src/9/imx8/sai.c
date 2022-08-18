@@ -365,7 +365,7 @@ saiprobe(Audio *adev)
 	ctlr->reg = (u32int*)(VIRTIO + 0x8b0000);
 	ctlr->adev = adev;
 
-	adev->delay = 1024;
+	adev->delay = 2048;
 	adev->ctlr = ctlr;
 	adev->write = saiwrite;
 	adev->close = saiclose;
@@ -383,7 +383,6 @@ saiprobe(Audio *adev)
 void
 sailink(void)
 {
-
 	iomuxpad("pad_sai2_rxfs", "sai2_rx_sync", "SION ~LVTTL HYS PUE ~ODE FAST 45_OHM VSEL_0");
 	iomuxpad("pad_sai2_rxc", "sai2_rx_bclk", "SION ~LVTTL HYS PUE ~ODE FAST 45_OHM VSEL_0");
 	iomuxpad("pad_sai2_rxd0", "sai2_rx_data0", "SION ~LVTTL HYS PUE ~ODE FAST 45_OHM VSEL_0");
@@ -392,6 +391,8 @@ sailink(void)
 	iomuxpad("pad_sai2_txd0", "sai2_tx_data0", "SION ~LVTTL HYS PUE ~ODE FAST 45_OHM VSEL_0");
 	iomuxpad("pad_sai2_mclk", "sai2_mclk", "SION ~LVTTL HYS PUE ~ODE FAST 45_OHM VSEL_0");
 
+	setclkgate("sai2.ipg_clk", 0);
+	setclkrate("sai2.ipg_clk", "audio_pll1_clk", 25*Mhz);
 	setclkgate("sai2.ipg_clk", 1);
 
 	addaudiocard("sai", saiprobe);
