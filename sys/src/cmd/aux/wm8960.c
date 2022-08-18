@@ -109,28 +109,51 @@ reset(void)
 	Out *o;
 	int i;
 
+	/*
+	 * getting DAC ready for s16c2r44100:
+	 *
+	 * mclk₀ = 25Mhz (set in sai)
+	 * pllprescale = /2 → *actual* mclk₁ is 25/2 = 12.5Mhz
+	 * sysclk = 44.1kHz*256 = 11.2896Mhz
+	 *   → dacdiv = /(1*256) = sysclk/(1*256) = 44.1kHz
+	 * f₂ = 4*2*sysclk = 90.3168Mhz
+	 *
+	 * PLL freq ration:
+	 *   R = f₂/mclk₁
+	 *   N = int(R) = 7
+	 *   K = 2²⁴*(R-N) = 3780644.9623
+	 *
+	 * dacdiv = /(1*256) → DAC at max rate
+	 *  → pick bclk rate 1.4112Mhz (sysclk/8)
+	 *  → bclkdiv = /8
+	 *
+	 * class D clk needs to be ~768kHz (700-800)
+	 *  → sysclk/768000 = 14
+	 *  → dclkdiv = /16 → dclk = 705.6kHz
+	 */
+
 	wr(0x0f, 0); /* reset registers to default */
 	wr(0x04,
-		1<<0 | /* sysclk derived from pll */
-		2<<1 | /* sysclk div by 2 */
-		1<<3 | /* dacdiv = sysclk/(1.5*256) */
+		0<<3 | /* dacdiv → sysclk/(1*256) = 44100 */
+		2<<1 | /* sysclkdiv → /2 */
+		1<<0 | /* clksel → pll output */
 		0
 	);
 	wr(0x34,
-		1<<5  | /* enable fractional mode */
-		1<<4  | /* pllprescale (divide mclk by 2 before) */
-		10<<0 | /* plln = int(f1/f2) */
+		1<<5 | /* enable fractional mode */
+		1<<4 | /* pllprescale */
+		7<<0 | /* N */
 		0
 	);
-	k = 0xda0000; /* fractional part */
-	wr(0x35, (k>>16) & 0xff);
+	k = 3780645; /* K */
+	wr(0x35, (k>>16) & 0x3f);
 	wr(0x36, (k>>8) & 0xff);
 	wr(0x37, k & 0xff);
 
 	wr(0x05, 0<<3); /* unmute DAC */
 	wr(0x06, 1<<3 | 1<<2); /* ramp up DAC volume slowly */
 	wr(0x07, 1<<6 | 2); /* master mode; i²s, 16-bit words, slave mode */
-	wr(0x08, 5<<6 | 9<<0); /* class D divider: sysclk/8; bclk = sysclk/12 */
+	wr(0x08, 7<<6 | 7<<0); /* dclkdiv → sysclk/16; bclkdiv → sysclk/8 */
 	wr(0x17, 1<<8 | 1<<0); /* slow clock on; thermal shutdown on */
 	wr(0x18, 1<<6); /* HP switch on; high = HP */
 	wr(0x19, 1<<7 | 1<<6); /* Vmid = playback, VREF on */
