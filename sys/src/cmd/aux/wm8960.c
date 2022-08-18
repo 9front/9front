@@ -122,20 +122,23 @@ reset(void)
 		10<<0 | /* plln = int(f1/f2) */
 		0
 	);
-	k = 0x7654321; /* fractional part */
-	wr(0x35, k>>18);
-	wr(0x36, k>>9);
-	wr(0x37, k);
+	k = 0xda0000; /* fractional part */
+	wr(0x35, (k>>16) & 0xff);
+	wr(0x36, (k>>8) & 0xff);
+	wr(0x37, k & 0xff);
 
 	wr(0x05, 0<<3); /* unmute DAC */
 	wr(0x06, 1<<3 | 1<<2); /* ramp up DAC volume slowly */
 	wr(0x07, 1<<6 | 2); /* master mode; i²s, 16-bit words, slave mode */
 	wr(0x08, 5<<6 | 9<<0); /* class D divider: sysclk/8; bclk = sysclk/12 */
+	wr(0x17, 1<<8 | 1<<0); /* slow clock on; thermal shutdown on */
+	wr(0x18, 1<<6); /* HP switch on; high = HP */
 	wr(0x19, 1<<7 | 1<<6); /* Vmid = playback, VREF on */
+	wr(0x1b, 1<<3); /* HP_[LR] responsive to jack detect */
 	wr(0x22, 1<<8); /* L DAC to mixer */
 	wr(0x25, 1<<8); /* R DAC to mixer */
 	wr(0x2f, 3<<2); /* output mixer on */
-	wr(0x30, 1<<1); /* Tsense on */
+	wr(0x30, 2<<2 | 1<<1); /* JD2 jack detect; Tsense on */
 	wr(0x33, 5<<0); /* +5.1dB AC SPK boost - Reform's speakers can be too quiet */
 
 	/* sensible defaults */
