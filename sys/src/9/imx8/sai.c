@@ -156,12 +156,28 @@ saikick(Ctlr *ctlr)
 }
 
 static void
+setempty(Ctlr *ctlr)
+{
+	ilock(ctlr);
+	ctlr->w.ri = 0;
+	ctlr->w.wi = 0;
+	iunlock(ctlr);
+}
+
+static void
 saistop(Ctlr *ctlr)
 {
 	if(!ctlr->wactive)
 		return;
 	ctlr->wactive = 0;
 	wr(TCSR, TCSR_FR | TCSR_SR);
+}
+
+static int
+inactive(void *arg)
+{
+	Ctlr *ctlr = arg;
+	return !ctlr->wactive;
 }
 
 static long
@@ -193,8 +209,10 @@ saiclose(Audio *adev, int mode)
 {
 	Ctlr *ctlr = adev->ctlr;
 
-	if(mode == OWRITE || mode == ORDWR)
-		saistop(ctlr);
+	if(mode == OWRITE || mode == ORDWR){
+		sleep(&ctlr->w.r, inactive, ctlr);
+		setempty(ctlr);
+	}
 }
 
 static void
