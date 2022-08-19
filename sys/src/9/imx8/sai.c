@@ -306,11 +306,10 @@ saiinterrupt(Ureg *, void *arg)
 			if(buffered(r) < 128*Byteps) /* having less than fifo buffered */
 				saistop(ctlr);
 			else if(fifo(ctlr, (128-Wmark)*Byteps) > 0)
-				v |= TCSR_TE;
+				wr(TCSR, v | TCSR_TE | TCSR_FEF);
 		}
 		wakeup(&r->r);
 	}
-	wr(TCSR, v | TCSR_FEF);
 	iunlock(ctlr);
 }
 
