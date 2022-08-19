@@ -64,9 +64,9 @@ Enhanced stereo separation can be enabled by writing
 .BR 3d ,
 followed by desired percentage of the effect.
 .SH SOURCE
-.B /sys/src/cmd/aux/imx8pm.c
+.B /sys/src/cmd/aux/wm8960.c
 .SH SEE ALSO
-.IR wm8960 (8)
+.IR imx8pm (8)
 .SH BUGS
 Absolutely yes.
 .SH HISTORY
