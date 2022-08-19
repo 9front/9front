@@ -36,6 +36,7 @@ static char *uid = "audio";
 static int data;
 static int reg1a;
 static int rate = 44100;
+static int ⅓d;
 
 static void
 wr(int a, int v)
@@ -90,6 +91,14 @@ setvol(Out *o, int l, int r)
 	zc = o->volmax < 0x80;
 	wr(o->volreg+0, 0<<8 | zc<<7 | l);
 	wr(o->volreg+1, 1<<8 | zc<<7 | r);
+}
+
+static void
+set3d(int x)
+{
+	⅓d = CLAMP(x, 0, 100);
+	x = (⅓d+5)/7;
+	wr(0x10, x<<1 | (x ? 1 : 0)<<0);
 }
 
 static int
@@ -159,6 +168,7 @@ reset(void)
 	wr(0x0f, 0); /* reset registers to default */
 
 	setrate(rate);
+	set3d(⅓d);
 
 	wr(0x07, 1<<6 | 2); /* master mode; i²s, 16-bit words */
 
@@ -209,8 +219,9 @@ fsread(Req *r)
 	}else if(r->fid->file->aux == (void*)Vol){
 		for(i = 0, o = out; i < Nout; i++, o++)
 			s = seprint(s, e, "%s %d %d\n", o->name, o->vol[0], o->vol[1]);
-		seprint(s, e, "speed %d\n", rate);
+		s = seprint(s, e, "speed %d\n", rate);
 	}
+	seprint(s, e, "3d %d\n", ⅓d);
 
 	readstr(r, msg);
 	respond(r, nil);
@@ -226,21 +237,23 @@ fswrite(Req *r)
 	snprint(msg, sizeof(msg), "%.*s",
 		utfnlen((char*)r->ifcall.data, r->ifcall.count), (char*)r->ifcall.data);
 	nf = tokenize(msg, f, nelem(f));
-	if(nf < 2){
-		if(nf == 1 && strcmp(f[0], "reset") == 0){
-			reset();
-			goto Done;
-		}
-Emsg:
-		respond(r, "invalid ctl message");
-		return;
-	}
-	if(nf == 2 && strcmp(f[0], "speed") == 0){
+	if(nf == 1 && strcmp(f[0], "reset") == 0){
+		reset();
+		goto Done;
+	}else if(nf == 2 && strcmp(f[0], "speed") == 0){
 		if(setrate(atoi(f[1])) != 0){
 			respond(r, "not supported");
 			return;
 		}
 		goto Done;
+	}else if(nf == 2 && strcmp(f[0], "3d") == 0){
+		set3d(atoi(f[1]));
+		goto Done;
+	}
+	if(nf < 2){
+Emsg:
+		respond(r, "invalid ctl message");
+		return;
 	}
 
 	for(i = 0, o = out; i < Nout && strcmp(f[0], o->name) != 0; i++, o++)
