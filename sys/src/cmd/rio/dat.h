@@ -122,15 +122,9 @@ struct Mouseinfo
 };
 
 enum{
-	Fon = 'b',
-	Foff = 'e',
-	Freset = 'r',
-};
-
-struct Tapmesg
-{
-	char type;
-	char *s;
+	Tapon = 'b',
+	Tapoff = 'e',
+	Tapreset = 'r',
 };
 
 struct Window

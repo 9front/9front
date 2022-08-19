@@ -116,16 +116,6 @@ cexecpipe(int *p0, int *p1)
 	return 0;
 }
 
-void
-toggletap(char mode)
-{
-	Tapmesg m;
-
-	m.type = mode;
-	m.s = nil;
-	send(fromtap, &m);
-}
-
 Filsys*
 filsysinit(Channel *cxfidalloc)
 {
@@ -518,8 +508,6 @@ filsysopen(Filsys *fs, Xfid *x, Fid *f)
 	if(((f->dir->perm&~(DMDIR|DMAPPEND))&m) != m)
 		goto Deny;
 
-	if(FILE(f->qid) == Qtap)
-		toggletap(Fon);
 	sendp(x->c, xfidopen);
 	return nil;
 
@@ -629,8 +617,6 @@ filsysclunk(Filsys *fs, Xfid *x, Fid *f)
 	if(f->open){
 		f->busy = FALSE;
 		f->open = FALSE;
-		if(FILE(f->qid) == Qtap)
-			toggletap(Foff);
 		sendp(x->c, xfidclose);
 		return nil;
 	}

@@ -197,7 +197,7 @@ threadmain(int argc, char *argv[])
 	if(kbdchan == nil)
 		error("can't find keyboard");
 	totap = chancreate(sizeof(char*), 0);
-	fromtap = chancreate(sizeof(Tapmesg), 0);
+	fromtap = chancreate(sizeof(char*), 0);
 
 	wscreen = allocscreen(screen, background, 0);
 	if(wscreen == nil)
@@ -340,11 +340,10 @@ void
 keyboardthread(void*)
 {
 	char *s;
-	Tapmesg m;
 	Channel *out;
 	int mode;
 	enum { Kdev, Ktap, NALT};
-	enum { Mnorm, Mfilt };
+	enum { Mnorm, Mtap };
 
 	threadsetname("keyboardthread");	
 
@@ -353,7 +352,7 @@ keyboardthread(void*)
 	alts[Kdev].v = &s;
 	alts[Kdev].op = CHANRCV;
 	alts[Ktap].c = fromtap;
-	alts[Ktap].v = &m;
+	alts[Ktap].v = &s;
 	alts[Ktap].op = CHANRCV;
 	alts[NALT].op = CHANEND;
 
@@ -362,24 +361,24 @@ keyboardthread(void*)
 	for(;;)
 		switch(alt(alts)){
 		case Ktap:
-			switch(m.type){
+			switch(*s){
 			case 'K': case 'k': case 'c':
 				break;
-			case Freset:
-				if(mode != Mfilt)
-					continue;
-				s = smprint("%c", m.type);
+			case Tapreset:
+				if(mode != Mtap)
+					goto Next;
 				goto Send;
-			case Foff:
+			case Tapoff:
 				mode = Mnorm;
-				continue;
-			case Fon:
-				mode = Mfilt;
-				continue;
+				goto Next;
+			case Tapon:
+				mode = Mtap;
+				/* fallthrough */
 			default:
+			Next:
+				free(s);
 				continue;
 			}
-			s = smprint("%c%s", m.type, m.s);
 			out = input == nil ? nil : input->ck;
 			goto Send;
 		case Kdev:
@@ -387,7 +386,7 @@ keyboardthread(void*)
 			case Mnorm:
 				out = input == nil ? nil : input->ck;
 				break;
-			case Mfilt:
+			case Mtap:
 				out = totap;
 				break;
 			}

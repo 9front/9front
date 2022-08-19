@@ -307,6 +307,9 @@ xfidopen(Xfid *x)
 			wsendctlmesg(w, Wakeup, ZR, nil);
 		}
 		break;
+	case Qtap:
+		chanprint(fromtap, "%c", Tapon);
+		break;
 	}
 	t.qid = x->f->qid;
 	t.iounit = messagesize-IOHDRSZ;
@@ -361,6 +364,9 @@ xfidclose(Xfid *x)
 		if(x->f->mode==OREAD || x->f->mode==ORDWR)
 			w->wctlopen = FALSE;
 		break;
+	case Qtap:
+		chanprint(fromtap, "%c", Tapoff);
+		break;
 	}
 	wclose(w);
 	filsysrespond(x->fs, x, &t, nil);
@@ -371,12 +377,11 @@ xfidwrite(Xfid *x)
 {
 	Fcall fc;
 	int cnt, qid, nb, off, nr;
-	char err[ERRMAX], *p;
+	char err[ERRMAX], *p, *e;
 	Point pt;
 	Window *w;
 	Rune *r;
 	Conswritemesg cwm;
-	Tapmesg fmsg;
 	Stringpair pair;
 	enum { CWdata, CWgone, CWflush, NCW };
 	Alt alts[NCW+1];
@@ -574,9 +579,9 @@ xfidwrite(Xfid *x)
 			filsysrespond(x->fs, x, &fc, "malformed key");
 			return;
 		}
-		fmsg.type = x->data[0];
-		fmsg.s = strdup(x->data+1);
-		send(fromtap, &fmsg);
+		e = x->data + cnt;
+		for(p = x->data; p < e; p += strlen(p)+1)
+			chanprint(fromtap, "%s", p);
 		break;
 
 	default:
@@ -694,7 +699,26 @@ xfidread(Xfid *x)
 		break;
 
 	case Qtap:
-		recv(totap, &t);
+		alts[Adata].c = totap;
+		alts[Adata].v = &t;
+		alts[Adata].op = CHANRCV;
+		alts[Agone].c = w->gone;
+		alts[Agone].v = nil;
+		alts[Agone].op = CHANRCV;
+		alts[Aflush].c = x->flushc;
+		alts[Aflush].v = nil;
+		alts[Aflush].op = CHANRCV;
+		alts[Aend].op = CHANEND;
+		switch(alt(alts)){
+		case Adata:
+			break;
+		case Agone:
+			filsysrespond(x->fs, x, &fc, Edeleted);
+			return;
+		case Aflush:
+			filsyscancel(x);
+			return;
+		}
 		fc.data = t;
 		fc.count = strlen(t)+1;
 		filsysrespond(x->fs, x, &fc, nil);
