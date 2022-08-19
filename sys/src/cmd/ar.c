@@ -483,7 +483,7 @@ qcmd(char *arname, int count, char **files)
 	fd = openar(arname, ORDWR, 1);
 	if (fd < 0) {
 		if(!cflag)
-			fprint(2, "ar: creating %s\n", arname);
+			print("ar: creating %s\n", arname);
 		fd = arcreate(arname);
 	}
 	Binit(&bar, fd, OREAD);
@@ -793,7 +793,7 @@ install(char *arname, Arfile *astart, Arfile *amiddle, Arfile *aend, int createf
 	rfork(RFNOTEG);
 
 	if(createflag)
-		fprint(2, "ar: creating %s\n", arname);
+		print("ar: creating %s\n", arname);
 	fd = arcreate(arname);
 
 	if(allobj)
