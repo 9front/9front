@@ -178,7 +178,6 @@ reset(void)
 	wr(0x2f, 3<<2); /* output mixer on */
 	wr(0x22, 1<<8); /* L DAC to mixer */
 	wr(0x25, 1<<8); /* R DAC to mixer */
-	wr(0x33, 5<<0); /* +5.1dB AC SPK boost - Reform's speakers can be too quiet */
 
 	wr(0x17, 1<<8 | 3<<6 | 1<<0); /* thermal shutdown on; avdd=3.3v; slow clock on */
 	wr(0x1c, 1<<7 | 1<<4 | 1<<3 | 1<<2); /* Vmid/r bias; Vgs/r on; Vmid soft start */
