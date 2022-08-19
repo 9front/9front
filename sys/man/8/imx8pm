@@ -1,0 +1,44 @@
+.TH IMX8PM 8
+.SH NAME
+imx8pm \- power management for MNT Reform 2
+.SH SYNOPSIS
+.B aux/imx8pm
+[
+.B -D
+]
+[
+.B -m
+.I mountpoint
+]
+[
+.B -s
+.I service
+]
+.SH DESCRIPTION
+.I Aux/imx8pm
+presents at
+.I mountpoint
+(default
+.BR /mnt/pm )
+an interface to miscellaneous functions of IMX8MQ. If a
+.I service
+is specified, the interface will be posted at
+.BI /srv/ service 
+as well.
+.PP
+The directory contains the following files.
+.TP
+.B cputemp
+Exposes the current temperature reading of the CPU.
+.TP
+.B ctl
+Provides a way to control the brightness of the built-in LCD.
+.SH SOURCE
+.B /sys/src/cmd/aux/imx8pm.c
+.SH SEE ALSO
+.IR wm8960 (8)
+.SH BUGS
+Absolutely yes.
+.SH HISTORY
+.I Acpi
+first appeared in 9front (August, 2022).

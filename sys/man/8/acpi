@@ -54,6 +54,8 @@ The
 file currently does not provide any functionality.
 .SH SOURCE
 .B /sys/src/cmd/aux/acpi.c
+.SH SEE ALSO
+.IR imx8pm (8)
 .SH BUGS
 ACPI itself.
 .SH HISTORY
