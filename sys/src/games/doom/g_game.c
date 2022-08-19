@@ -157,6 +157,7 @@ int		key_speed;
 int             mousebfire; 
 int             mousebstrafe; 
 int             mousebforward; 
+int             m_forward;
  
 int             joybfire; 
 int             joybstrafe; 
@@ -186,6 +187,7 @@ boolean*	mousebuttons = &mousearray[1];		// allow [-1]
 // mouse values are used once 
 int             mousex;
 int		mousey;         
+extern int usemouse;
 
 int             dclicktime;
 int		dclickstate;
@@ -399,7 +401,8 @@ void G_BuildTiccmd (ticcmd_t* cmd)
 	} 
     } 
  
-    forward += mousey; 
+    if (m_forward)
+        forward += mousey; 
     if (strafe) 
 	side += mousex*2; 
     else 
@@ -563,6 +566,8 @@ boolean G_Responder (event_t* ev)
 	return false;   // always let key up events filter down 
 		 
       case ev_mouse: 
+	if (!usemouse)
+	    return true;
 	mousebuttons[0] = ev->data1 & 1; 
 	mousebuttons[1] = ev->data1 & 2; 
 	mousebuttons[2] = ev->data1 & 4; 

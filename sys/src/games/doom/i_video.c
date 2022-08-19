@@ -11,6 +11,7 @@
 
 static int resized;
 static int mouseactive;
+extern int usemouse;
 
 static Rectangle grabout;
 static Point center;
@@ -160,7 +161,7 @@ void I_MouseEnable(int on)
 	static char nocurs[2*4+2*2*16];
 	static int fd = -1;
 
-	if(mouseactive == on)
+	if(mouseactive == on || !usemouse)
 		return;
 	if(mouseactive = on){
 		if((fd = open("/dev/cursor", ORDWR|OCEXEC)) < 0)
