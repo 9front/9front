@@ -65,11 +65,12 @@ toggle(Out *o, int on)
 	wr(0x1a, reg1a);
 	if(o->toggle != nil)
 		o->toggle(o, on);
+	o->on = on;
 }
 
 static Out out[Nout] =
 {
-	[Dac] = {"master", 0x0a, 0xff, 3<<7, nil, 0},
+	[Dac] = {"master", 0x0a, 0xf9, 3<<7, nil, 0},
 	[Hp] = {"hp", 0x02, 0x7f, 3<<5, nil, 0},
 	[Spk] = {"spk", 0x28, 0x7f, 3<<3, classdspk, 0},
 };
@@ -79,13 +80,11 @@ setvol(Out *o, int l, int r)
 {
 	int zc;
 
-	l = CLAMP(l, 0, 100);
-	r = CLAMP(r, 0, 100);
-	if(l == o->vol[0] && r == o->vol[1])
-		return;
-	if((o->vol[0] = l) > 0)
+	o->vol[0] = l = CLAMP(l, 0, 100);
+	o->vol[1] = r = CLAMP(r, 0, 100);
+	if(l > 0)
 		l += o->volmax - 100;
-	if((o->vol[1] = r) > 0)
+	if(r > 0)
 		r += o->volmax - 100;
 
 	zc = o->volmax < 0x80;
@@ -161,6 +160,13 @@ setrate(int s)
 static void
 reset(void)
 {
+	int i;
+
+	for(i = 0; i < Nout; i++){
+		out[i].vol[0] = -1;
+		out[i].vol[1] = -1;
+	}
+
 	toggle(out+Dac, 0);
 	wr(0x1c, 1<<7 | 1<<4 | 1<<3 | 1<<2); /* Vmid/r bias; Vgs/r on; Vmid soft start */
 	wr(0x19, 0<<7); /* Vmid off, Vref off */
@@ -172,7 +178,7 @@ reset(void)
 
 	wr(0x07, 1<<6 | 2); /* master mode; i²s, 16-bit words */
 
-	wr(0x17, 1<<8 | 3<<6 | 1<<1); /* thermal shutdown on; avdd=3.3v; slow clock on */
+	wr(0x17, 1<<8 | 3<<6 | 0<<1); /* thermal shutdown on; avdd=3.3v; slow clock on */
 
 	wr(0x06, 1<<3 | 1<<2); /* ramp up DAC volume slowly */
 	wr(0x2f, 3<<2); /* output mixer on */
@@ -186,7 +192,11 @@ reset(void)
 	wr(0x1c, 1<<3); /* done with anti-pop */
 	wr(0x19, 1<<7 | 1<<6); /* Vref on */
 
-	wr(0x30, 2<<4 | 2<<2 | 1<<1); /* JD2 jack detect; Tsense on */
+	/*
+	 * Debounced jack detect output on gpio - no that it is used, but it
+	 * could be soldered to SoC's input and actually become useful.
+	 */
+	wr(0x30, 3<<4 | 2<<2 | 1<<1); /* JD2 jack detect in; Tsense on */
 	wr(0x1b, 1<<3); /* HP_[LR] responsive to jack detect */
 	wr(0x18, 1<<6); /* HP switch on; high = HP */
 
@@ -196,10 +206,17 @@ reset(void)
 	toggle(out+Dac, 1);
 
 	/* sensible defaults */
-	setvol(out+Spk, 80, 80);
-	setvol(out+Hp, 65, 65);
+	setvol(out+Spk, 100, 100);
+	setvol(out+Hp, 75, 75);
 	setvol(out+Dac, 80, 80);
-	wr(0x05, 0<<3); /* unmute DAC */
+
+	/*
+	 * Jack detect becomes extremely unstable when playing on spk and the
+	 * volume is very high - DAC start to switch back and forth between two
+	 * outputs.  Solve this by always attenuating by -6dB and somewhat limiting
+	 * the volume on DAC ("master") - to 0xf9 instead of 0xff (max).
+	 */
+	wr(0x05, 1<<7 | 0<<3); /* unmute DAC */
 }
 
 static void
