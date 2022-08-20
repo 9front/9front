@@ -14,6 +14,11 @@ imx8pm \- power management for MNT Reform 2
 .B -s
 .I service
 ]
+.nf
+.sp 0.3v
+.B /mnt/pm/cputemp
+.B /mnt/pm/ctl
+.fi
 .SH DESCRIPTION
 .I Aux/imx8pm
 presents at
@@ -26,13 +31,22 @@ is specified, the interface will be posted at
 .BI /srv/ service 
 as well.
 .PP
-The directory contains the following files.
-.TP
 .B cputemp
 Exposes the current temperature reading of the CPU.
-.TP
+.PP
 .B ctl
-Provides a way to control the brightness of the built-in LCD.
+Provides a way to control the brightness of the built-in LCD by
+writing
+.IP
+.I brightness [-+]N
+.PP
+.B N
+is expressed in percentage, either as an absolute value (0-100) or
+relative to the current brightness - by prefixing with a sign.
+.PP
+Reading
+.B ctl
+returns the current brightness.
 .SH SOURCE
 .B /sys/src/cmd/aux/imx8pm.c
 .SH SEE ALSO

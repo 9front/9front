@@ -174,7 +174,7 @@ static void
 fswrite(Req *r)
 {
 	char msg[256], *f[4];
-	int nf;
+	int nf, v;
 
 	if(r->fid->file->aux == (void*)Ctl){
 		snprint(msg, sizeof(msg), "%.*s",
@@ -184,8 +184,12 @@ fswrite(Req *r)
 			respond(r, "invalid ctl message");
 			return;
 		}
-		if(strcmp(f[0], "brightness") == 0)
-			setbrightness(atoi(f[1]));
+		if(strcmp(f[0], "brightness") == 0){
+			v = atoi(f[1]);
+			if(*f[1] == '+' || *f[1] == '-')
+				v += getbrightness();
+			setbrightness(v);
+		}
 	}
 
 	r->ofcall.count = r->ifcall.count;
