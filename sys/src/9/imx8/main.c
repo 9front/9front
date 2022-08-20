@@ -302,6 +302,7 @@ main(void)
 	initseg();
 	links();
 	chandevreset();
+	gpioinit();
 	lcdinit();
 	tmuinit();
 	userinit();
