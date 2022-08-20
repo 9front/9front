@@ -33,7 +33,7 @@ c=`{ls /srv/cwfs*cmd >[2]/dev/null}
 h=`{ls /srv/hjfs*cmd >[2]/dev/null}
 
 # for scram, don't scram other systems
-bind -b '#P' /dev
+bind -b '#P' /dev >[2]/dev/null
 if(! ~ $reboot yes){
 	if (test -e '#P'/apm)
 		scram=yes
