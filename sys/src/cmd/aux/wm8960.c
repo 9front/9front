@@ -192,10 +192,7 @@ reset(void)
 	wr(0x1c, 1<<3); /* done with anti-pop */
 	wr(0x19, 1<<7 | 1<<6); /* Vref on */
 
-	/*
-	 * Debounced jack detect output on gpio - no that it is used, but it
-	 * could be soldered to SoC's input and actually become useful.
-	 */
+	wr(0x09, 1<<6); /* adclrc → gpio (for jack detect output) */
 	wr(0x30, 3<<4 | 2<<2 | 1<<1); /* JD2 jack detect in; Tsense on */
 	wr(0x1b, 1<<3); /* HP_[LR] responsive to jack detect */
 	wr(0x18, 1<<6); /* HP switch on; high = HP */

@@ -67,6 +67,7 @@ struct Ring {
 struct Ctlr {
 	u32int *reg;
 	Audio *adev;
+	int hp;
 
 	Ring w;
 	int wactive;
@@ -354,6 +355,7 @@ saistatus(Audio *adev, void *a, long n, vlong)
 		(v & TCSR_FWF) ? " fifo_warn" : "",
 		(v & TCSR_FRF) ? " fifo_req" : ""
 	);
+	s = seprint(s, e, "hp %d\n", ctlr->hp);
 
 	return s - (char*)a;
 }
@@ -364,6 +366,14 @@ saibuffered(Audio *adev)
 	Ctlr *ctlr = adev->ctlr;
 
 	return buffered(&ctlr->w);
+}
+
+static void
+jacksense(uint pin, void *a)
+{
+	Ctlr *ctlr = a;
+
+	ctlr->hp = gpioin(pin);
 }
 
 static int
@@ -390,9 +400,10 @@ saiprobe(Audio *adev)
 	adev->status = saistatus;
 	adev->ctl = saictl;
 
-	saireset(ctlr);
-
 	intrenable(IRQsai2, saiinterrupt, ctlr, BUSUNKNOWN, "sai2");
+	ctlr->hp = gpioin(GPIO_PIN(4, 21));
+	gpiointrenable(GPIO_PIN(4, 21), GpioEdge, jacksense, ctlr);
+	saireset(ctlr);
 
 	return 0;
 }
@@ -400,15 +411,14 @@ saiprobe(Audio *adev)
 void
 sailink(void)
 {
-	iomuxpad("pad_sai2_rxfs", "sai2_rx_sync", "SION ~LVTTL HYS PUE ~ODE FAST 45_OHM VSEL_0");
-	iomuxpad("pad_sai2_rxc", "sai2_rx_bclk", "SION ~LVTTL HYS PUE ~ODE FAST 45_OHM VSEL_0");
-	iomuxpad("pad_sai2_rxd0", "sai2_rx_data0", "SION ~LVTTL HYS PUE ~ODE FAST 45_OHM VSEL_0");
-	iomuxpad("pad_sai2_txfs", "sai2_tx_sync", "SION ~LVTTL HYS PUE ~ODE FAST 45_OHM VSEL_0");
-	iomuxpad("pad_sai2_txc", "sai2_tx_bclk", "SION ~LVTTL HYS PUE ~ODE FAST 45_OHM VSEL_0");
-	iomuxpad("pad_sai2_txd0", "sai2_tx_data0", "SION ~LVTTL HYS PUE ~ODE FAST 45_OHM VSEL_0");
-	iomuxpad("pad_sai2_mclk", "sai2_mclk", "SION ~LVTTL HYS PUE ~ODE FAST 45_OHM VSEL_0");
+	iomuxpad("pad_sai2_rxfs", "gpio4_io21", "SION ~LVTTL HYS ~PUE ~ODE FAST 45_OHM");
+	iomuxpad("pad_sai2_rxc", "sai2_rx_bclk", "~LVTTL HYS PUE ~ODE FAST 45_OHM");
+	iomuxpad("pad_sai2_rxd0", "sai2_rx_data0", "~LVTTL HYS PUE ~ODE FAST 45_OHM");
+	iomuxpad("pad_sai2_txfs", "sai2_tx_sync", "~LVTTL HYS PUE ~ODE FAST 45_OHM");
+	iomuxpad("pad_sai2_txc", "sai2_tx_bclk", "~LVTTL HYS PUE ~ODE FAST 45_OHM");
+	iomuxpad("pad_sai2_txd0", "sai2_tx_data0", "~LVTTL HYS PUE ~ODE FAST 45_OHM");
+	iomuxpad("pad_sai2_mclk", "sai2_mclk", "~LVTTL HYS PUE ~ODE FAST 45_OHM");
 
-	setclkgate("sai2.ipg_clk", 0);
 	setclkrate("sai2.ipg_clk", "audio_pll1_clk", 25*Mhz);
 	setclkgate("sai2.ipg_clk", 1);
 
