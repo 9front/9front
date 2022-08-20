@@ -2,7 +2,6 @@
 # fshalt [-r [kernel]] - sync (flush) and, if possible, halt all file servers
 #	and optionally reboot
 rfork en
-flagfmt='r:reboot'
 reboot=no
 scram=no
 bootf=()
