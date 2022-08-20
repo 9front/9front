@@ -376,7 +376,7 @@ void
 xfidwrite(Xfid *x)
 {
 	Fcall fc;
-	int cnt, qid, nb, off, nr;
+	int cnt, qid, nb, nr;
 	char err[ERRMAX], *p, *e;
 	Point pt;
 	Window *w;
@@ -393,7 +393,6 @@ xfidwrite(Xfid *x)
 	}
 	qid = FILE(x->f->qid);
 	cnt = x->count;
-	off = x->offset;
 	x->data[cnt] = 0;
 	switch(qid){
 	case Qcons:
@@ -494,10 +493,6 @@ xfidwrite(Xfid *x)
 		break;
 
 	case Qlabel:
-		if(off != 0){
-			filsysrespond(x->fs, x, &fc, "non-zero offset writing label");
-			return;
-		}
 		p = realloc(w->label, cnt+1);
 		if(p == nil){
 			filsysrespond(x->fs, x, &fc, Enomem);
