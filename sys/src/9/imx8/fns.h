@@ -159,6 +159,9 @@ extern uint iomuxgpr(int gpr, uint set, uint mask);
 #define GPIO_PIN(n, m)	((n)<<5 | (m))
 extern void gpioout(uint pin, int set);
 extern int gpioin(uint pin);
+void gpiointrenable(uint pin, int mode, void (*f)(uint pin, void *a), void *a);
+void gpiointrdisable(uint pin);
+void gpioinit(void);
 
 /* pciimx */
 extern int pcicfgrw8(int tbdf, int rno, int data, int read);

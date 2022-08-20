@@ -10,6 +10,12 @@
 
 enum {
 	Mhz	= 1000 * 1000,
+
+	GpioLow = 0,
+	GpioHigh,
+	GpioRising,
+	GpioFalling,
+	GpioEdge,
 };
 
 typedef struct Conf	Conf;

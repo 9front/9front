@@ -28,6 +28,17 @@ enum {
 	IRQsctr0	= SPI+47,
 	IRQsctr1	= SPI+48,
 
+	IRQgpio1l	= SPI+64,
+	IRQgpio1h	= SPI+65,
+	IRQgpio2l	= SPI+66,
+	IRQgpio2h	= SPI+67,
+	IRQgpio3l	= SPI+68,
+	IRQgpio3h	= SPI+69,
+	IRQgpio4l	= SPI+70,
+	IRQgpio4h	= SPI+71,
+	IRQgpio5l	= SPI+72,
+	IRQgpio5h	= SPI+73,
+
 	IRQpci2		= SPI+74,
 
 	IRQsai2		= SPI+96,
