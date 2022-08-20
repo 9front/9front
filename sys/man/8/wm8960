@@ -17,6 +17,11 @@ wm8960 \- audio controls for MNT Reform 2
 .B -s
 .I service
 ]
+.nf
+.sp 0.3v
+.B /mnt/wm8960/audioctl
+.B /mnt/wm8960/volume
+.fi
 .SH DESCRIPTION
 .I Aux/imx8pm
 presents at
@@ -28,7 +33,7 @@ MNT Reform 2.  If a
 .I service
 is specified, the interface will be posted at
 .BI /srv/ service 
-as well. In order to only initialize the DAC and immediately exit without
+as well. In order to initialize the DAC and immediately exit, without
 running a file system, option
 .I -1
 can be used.
@@ -57,7 +62,11 @@ DAC can be reinitialized by writing a single
 .BR reset .
 .TP
 .B volume
-Provides an interface for volume control (see \fIaudio\fR(3)). Only
+Provides an interface for volume control (see \fIaudio\fR(3)). For ease of use,
+.B volume
+supports relative adjustments by prefixing a number with a sign.
+.IP
+Only
 44100Hz (default) and 48000Hz sample rates are supported.
 .IP
 Enhanced stereo separation can be enabled by writing

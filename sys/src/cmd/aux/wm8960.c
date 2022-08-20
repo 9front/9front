@@ -240,6 +240,18 @@ fsread(Req *r)
 	respond(r, nil);
 }
 
+static int
+setoradd(int x, char *s)
+{
+	int d;
+
+	d = atoi(s);
+	if(*s == '+' || *s == '-')
+		return x + d;
+
+	return d;
+}
+
 static void
 fswrite(Req *r)
 {
@@ -287,8 +299,8 @@ Emsg:
 			goto Emsg;
 		toggle(o, on);
 	}else if(r->fid->file->aux == (void*)Vol){
-		vl = atoi(f[1]);
-		vr = nf < 3 ? vl : atoi(f[2]);
+		vl = setoradd(o->vol[0], f[1]);
+		vr = setoradd(o->vol[1], nf < 3 ? f[1] : f[2]);
 		setvol(o, vl, vr);
 	}
 
