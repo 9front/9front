@@ -38,7 +38,7 @@ Rectangle	viewr;
 int		threadrforkflag = 0;	/* should be RFENVG but that hides rio from plumber */
 
 void	mousethread(void*);
-void	keyboardthread(void*);
+void	keyboardtap(void*);
 void	winclosethread(void*);
 void	initcmd(void*);
 Channel* initkbd(void);
@@ -196,8 +196,9 @@ threadmain(int argc, char *argv[])
 	kbdchan = initkbd();
 	if(kbdchan == nil)
 		error("can't find keyboard");
-	totap = chancreate(sizeof(char*), 0);
-	fromtap = chancreate(sizeof(char*), 0);
+	totap = chancreate(sizeof(char*), 32);
+	fromtap = chancreate(sizeof(char*), 32);
+	proccreate(keyboardtap, nil, STACK);
 
 	wscreen = allocscreen(screen, background, 0);
 	if(wscreen == nil)
@@ -206,7 +207,6 @@ threadmain(int argc, char *argv[])
 	flushimage(display, 1);
 
 	timerinit();
-	threadcreate(keyboardthread, nil, STACK);
 	threadcreate(mousethread, nil, STACK);
 	threadcreate(winclosethread, nil, STACK);
 	filsys = filsysinit(xfidinit());
@@ -337,7 +337,7 @@ killprocs(void)
 }
 
 void
-keyboardthread(void*)
+keyboardtap(void*)
 {
 	char *s;
 	Channel *out;
@@ -345,7 +345,7 @@ keyboardthread(void*)
 	enum { Kdev, Ktap, NALT};
 	enum { Mnorm, Mtap };
 
-	threadsetname("keyboardthread");	
+	threadsetname("keyboardtap");	
 
 	static Alt alts[NALT+1];
 	alts[Kdev].c = kbdchan;

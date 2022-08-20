@@ -575,8 +575,14 @@ xfidwrite(Xfid *x)
 			return;
 		}
 		e = x->data + cnt;
-		for(p = x->data; p < e; p += strlen(p)+1)
+		for(p = x->data; p < e; p += strlen(p)+1){
+			if(*p == '\0'){
+				fc.count = p - x->data;
+				filsysrespond(x->fs, x, &fc, "null message type");
+				return;
+			}
 			chanprint(fromtap, "%s", p);
+		}
 		break;
 
 	default:
@@ -704,6 +710,7 @@ xfidread(Xfid *x)
 		alts[Aflush].v = nil;
 		alts[Aflush].op = CHANRCV;
 		alts[Aend].op = CHANEND;
+
 		switch(alt(alts)){
 		case Adata:
 			break;
@@ -715,6 +722,7 @@ xfidread(Xfid *x)
 			return;
 		}
 		fc.data = t;
+		/* kbdproc ensures we're only dealing with one message */
 		fc.count = strlen(t)+1;
 		filsysrespond(x->fs, x, &fc, nil);
 		free(t);
