@@ -1,0 +1,13 @@
+</$objtype/mkfile
+
+BIN=/$objtype/bin/reform
+TARG=\
+	audio\
+	pm\
+
+</sys/src/cmd/mkmany
+
+install:V: $BIN
+
+$BIN:
+	mkdir -p $BIN

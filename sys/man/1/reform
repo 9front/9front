@@ -1,0 +1,115 @@
+.TH REFORM 1
+.SH NAME
+audio,
+pm
+- MNT Reform 2 support utilities
+.SH SYNOPSIS
+.B reform/audio
+[
+.B -1
+]
+[
+.B -D
+]
+[
+.B -m
+.I mountpoint
+]
+[
+.B -s
+.I service
+]
+.PP
+.B reform/pm
+[
+.B -D
+]
+[
+.B -m
+.I mountpoint
+]
+[
+.B -s
+.I service
+]
+.SH DESCRIPTION
+These programs provide support for certain functions of MNT Reform 2
+computing device make controlling file systems available under
+.BR /dev .
+.PP
+.SS Audio
+.I audio
+initializes the DAC (Digital-to-Analog Converter) on the platform and
+provides a standard \fIaudio\fR(3) interface to control volume and
+other parameters.
+With
+.I -1
+only the initialization is performed and the program exits
+immediately.
+.PP
+The following files are provided by the program:
+.TP
+.B audioctl
+Shows the current status
+.I (on
+or
+.I off )
+of the three "outputs" -
+.BR master ,
+.BR hp
+and
+.BR spk .
+Each can be enabled, disabled or toggled, by writing a single line to
+the same file, consisting of the output name and the desired action -
+.I on ,
+.I off
+or
+.I toggle ,
+accordingly.
+.IP
+DAC can be reinitialized by writing a single
+.BR reset .
+.TP
+.B volume
+Provides an interface for volume control (see \fIaudio\fR(3)).  For
+ease of use,
+.B volume
+supports relative adjustments by prefixing a number with a sign.
+.IP
+.IP
+Enhanced stereo separation can be enabled by writing
+.BR 3d ,
+followed by desired percentage of the effect.
+.SS Power and monitoring
+.I pm
+presents a file system consisting of the following files:
+.TP
+.B light
+Provides a way to control the backlight of the built-in LCD by
+writing \fIlcd [-+]N\fR,
+where
+.I N
+is expressed in percentage, either as an absolute value (0-100) or
+relative to the current brightness - by prefixing with a sign.
+Reading
+.B light
+returns the current brightness.
+.TP
+.B cputemp
+Exposes the current temperature reading of the CPU.
+.SH SOURCE
+.B /sys/src/cmd/reform
+.SH SEE ALSO
+.IR audio (3)
+.SH HISTORY
+MNT Reform 2 support first appeared in 9front (August, 2022).
+.SH BUGS
+Only 44100Hz (default) and 48000Hz sample rates are supported with
+.IR audio ,
+recording is not implemented.
+.PP
+.I Light
+was chosen as a shorter alternative to
+.IR brightness .
+In the future it might support controlling keyboard and trackball
+light levels.

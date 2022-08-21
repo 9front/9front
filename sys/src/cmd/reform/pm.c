@@ -9,7 +9,7 @@ enum
 	Mhz = 1000*1000,
 	Pwmsrcclk = 25*Mhz,
 
-	Ctl = 1,
+	Light = 1,
 	Temp,
 
 	PWMSAR = 0x0c/4,
@@ -43,7 +43,7 @@ enum
 };
 
 static u32int *pwm2, *tmu;
-static char *uid = "mntpm";
+static char *uid = "pm";
 
 static void
 wr(u32int *base, int reg, u32int v)
@@ -60,7 +60,7 @@ rd(u32int *base, int reg)
 }
 
 static void
-setbrightness(int p)
+setlight(int p)
 {
 	u32int v;
 
@@ -74,7 +74,7 @@ setbrightness(int p)
 }
 
 static int
-getbrightness(void)
+getlight(void)
 {
 	u32int m, v;
 
@@ -156,8 +156,8 @@ fsread(Req *r)
 
 	msg[0] = 0;
 	if(r->ifcall.offset == 0){
-		if(r->fid->file->aux == (void*)Ctl)
-			snprint(msg, sizeof(msg), "brightness %d\n", getbrightness());
+		if(r->fid->file->aux == (void*)Light)
+			snprint(msg, sizeof(msg), "lcd %d\n", getlight());
 		else if(r->fid->file->aux == (void*)Temp){
 			if(getcputemp(c) == 0)
 				snprint(msg, sizeof(msg), "%d.0\n", c[0]);
@@ -176,7 +176,7 @@ fswrite(Req *r)
 	char msg[256], *f[4];
 	int nf, v;
 
-	if(r->fid->file->aux == (void*)Ctl){
+	if(r->fid->file->aux == (void*)Light){
 		snprint(msg, sizeof(msg), "%.*s",
 			utfnlen((char*)r->ifcall.data, r->ifcall.count), (char*)r->ifcall.data);
 		nf = tokenize(msg, f, nelem(f));
@@ -184,11 +184,11 @@ fswrite(Req *r)
 			respond(r, "invalid ctl message");
 			return;
 		}
-		if(strcmp(f[0], "brightness") == 0){
+		if(strcmp(f[0], "lcd") == 0){
 			v = atoi(f[1]);
 			if(*f[1] == '+' || *f[1] == '-')
-				v += getbrightness();
-			setbrightness(v);
+				v += getlight();
+			setlight(v);
 		}
 	}
 
@@ -204,7 +204,7 @@ static Srv fs = {
 static void
 usage(void)
 {
-	fprint(2, "usage: aux/imx8pm [-D] [-m /mnt/pm] [-s service]\n");
+	fprint(2, "usage: %s [-D] [-m /dev] [-s service]\n", argv0);
 	exits("usage");
 }
 
@@ -213,7 +213,7 @@ main(int argc, char **argv)
 {
 	char *mtpt, *srv;
 
-	mtpt = "/mnt/pm";
+	mtpt = "/dev";
 	srv = nil;
 	ARGBEGIN{
 	case 'D':
@@ -229,19 +229,15 @@ main(int argc, char **argv)
 		usage();
 	}ARGEND
 
-	fs.tree = alloctree(uid, uid, DMDIR|0555, nil);
-	createfile(fs.tree->root, "ctl", uid, 0666, (void*)Ctl);
-
 	if((tmu = segattach(0, "tmu", 0, 0xf20)) == (void*)-1)
-		tmu = nil;
-	else{
-		createfile(fs.tree->root, "cputemp", uid, 0444, (void*)Temp);
-		tmuinit();
-	}
+		sysfatal("no tmu");
 	if((pwm2 = segattach(0, "pwm2", 0, 0x18)) == (void*)-1)
-		pwm2 = nil;
-
-	postmountsrv(&fs, srv, mtpt, MREPL);
+		sysfatal("no pwm2");
+	tmuinit();
+	fs.tree = alloctree(uid, uid, DMDIR|0555, nil);
+	createfile(fs.tree->root, "cputemp", uid, 0444, (void*)Temp);
+	createfile(fs.tree->root, "light", uid, 0666, (void*)Light);
+	postmountsrv(&fs, srv, mtpt, MAFTER);
 
 	exits(nil);
 }

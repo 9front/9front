@@ -233,8 +233,8 @@ fsread(Req *r)
 		for(i = 0, o = out; i < Nout; i++, o++)
 			s = seprint(s, e, "%s %d %d\n", o->name, o->vol[0], o->vol[1]);
 		s = seprint(s, e, "speed %d\n", rate);
+		seprint(s, e, "3d %d\n", ⅓d);
 	}
-	seprint(s, e, "3d %d\n", ⅓d);
 
 	readstr(r, msg);
 	respond(r, nil);
@@ -317,7 +317,7 @@ static Srv fs = {
 static void
 usage(void)
 {
-	fprint(2, "usage: aux/wm8960 [-1] [-D] [-m /mnt/pm] [-s service]\n");
+	fprint(2, "usage: %s [-1] [-D] [-m /dev] [-s service]\n", argv0);
 	exits("usage");
 }
 
@@ -327,7 +327,7 @@ main(int argc, char **argv)
 	char *mtpt, *srv;
 	int ctl, oneshot;
 
-	mtpt = "/mnt/wm8960";
+	mtpt = "/dev";
 	srv = nil;
 	oneshot = 0;
 	ARGBEGIN{
@@ -363,8 +363,8 @@ main(int argc, char **argv)
 	fs.tree = alloctree(uid, uid, DMDIR|0555, nil);
 	createfile(fs.tree->root, "audioctl", uid, 0666, (void*)Ctl);
 	createfile(fs.tree->root, "volume", uid, 0666, (void*)Vol);
-
-	postmountsrv(&fs, srv, mtpt, MREPL);
+	/* have to mount -b to shadow sai's useless files */
+	postmountsrv(&fs, srv, mtpt, MBEFORE);
 
 	exits(nil);
 }
