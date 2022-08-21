@@ -121,12 +121,6 @@ struct Mouseinfo
 	uchar	qfull;	/* filled the queue; no more recording until client comes back */	
 };
 
-enum{
-	Tapon = 'b',
-	Tapoff = 'e',
-	Tapreset = 'r',
-};
-
 struct Window
 {
 	Ref;
@@ -322,8 +316,15 @@ int		nwindow;
 int		snarffd;
 int		gotscreen;
 int		servekbd;
-Channel	*fromtap; 	/* input from kbd tap program to window */
-Channel *totap; 	/* our keyboard input to tap program */
+
+enum{
+	Tapon = 'b',
+	Tapoff = 'e',
+};
+Channel *ctltap;	/* on/off messages */
+Channel	*fromtap;	/* input from kbd tap program to window */
+Channel *totap;		/* our keyboard input to tap program */
+Channel *wintap;	/* tell the tapthread which Window to send to */
 Window	*input;
 QLock	all;			/* BUG */
 Filsys	*filsys;

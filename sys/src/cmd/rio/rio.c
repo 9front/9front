@@ -198,6 +198,8 @@ threadmain(int argc, char *argv[])
 		error("can't find keyboard");
 	totap = chancreate(sizeof(char*), 32);
 	fromtap = chancreate(sizeof(char*), 32);
+	wintap = chancreate(sizeof(Window*), 0);
+	ctltap = chancreate(sizeof(Window*), 0);
 	proccreate(keyboardtap, nil, STACK);
 
 	wscreen = allocscreen(screen, background, 0);
@@ -339,62 +341,93 @@ killprocs(void)
 void
 keyboardtap(void*)
 {
-	char *s;
-	Channel *out;
+	char *s, *ctl;
+	Window *w, *cur;
 	int mode;
-	enum { Kdev, Ktap, NALT};
+	enum { Awin, Actl, Afrom, Adev, Ato, Ainp, NALT };
 	enum { Mnorm, Mtap };
 
 	threadsetname("keyboardtap");	
 
 	static Alt alts[NALT+1];
-	alts[Kdev].c = kbdchan;
-	alts[Kdev].v = &s;
-	alts[Kdev].op = CHANRCV;
-	alts[Ktap].c = fromtap;
-	alts[Ktap].v = &s;
-	alts[Ktap].op = CHANRCV;
+	/* ctl */
+	alts[Awin].c = wintap;
+	alts[Awin].v = &w;
+	alts[Awin].op = CHANRCV;
+	alts[Actl].c = ctltap;
+	alts[Actl].v = &ctl;
+	alts[Actl].op = CHANRCV;
+	/* kbd input */
+	alts[Afrom].c = fromtap;
+	alts[Afrom].v = &s;
+	alts[Afrom].op = CHANRCV;
+	alts[Adev].c = kbdchan;
+	alts[Adev].v = &s;
+	alts[Adev].op = CHANRCV;
+	/* kbd output */
+	alts[Ato].c = totap;
+	alts[Ato].v = &s;
+	alts[Ato].op = CHANNOP;
+	alts[Ainp].c = nil;
+	alts[Ainp].v = &s;
+	alts[Ainp].op = CHANNOP;
 	alts[NALT].op = CHANEND;
 
-	out = nil;
+	cur = nil;
 	mode = Mnorm;
 	for(;;)
 		switch(alt(alts)){
-		case Ktap:
-			switch(*s){
-			case 'K': case 'k': case 'c':
+		case Awin:
+			cur = w;
+			if(cur != nil){
+				alts[Ainp].c = cur->ck;
 				break;
-			case Tapreset:
-				if(mode != Mtap)
-					goto Next;
-				goto Send;
-			case Tapoff:
-				mode = Mnorm;
-				goto Next;
+			}
+			if(alts[Ainp].op != CHANNOP || alts[Ato].op != CHANNOP)
+				free(s);
+			goto Reset;
+		case Actl:
+			switch(*ctl){
 			case Tapon:
 				mode = Mtap;
-				/* fallthrough */
-			default:
-			Next:
+				break;
+			case Tapoff:
+				mode = Mnorm;
+				break;
+			}
+			free(ctl);
+			break;
+		case Afrom:
+			if(cur == nil){
 				free(s);
-				continue;
-			}
-			out = input == nil ? nil : input->ck;
-			goto Send;
-		case Kdev:
-			switch(mode){
-			case Mnorm:
-				out = input == nil ? nil : input->ck;
-				break;
-			case Mtap:
-				out = totap;
 				break;
 			}
-		Send:
+			alts[Afrom].op = CHANNOP;
+			alts[Adev].op = CHANNOP;
+			alts[Ato].op = CHANNOP;
+			alts[Ainp].op = CHANSND;
+			break;
+		case Adev:
+			if(mode == Mnorm && cur == nil){
+				free(s);
+				break;
+			}
+			alts[Afrom].op = CHANNOP;
+			alts[Adev].op = CHANNOP;
+			if(mode == Mnorm)
+				alts[Ainp].op = CHANSND;
+			else
+				alts[Ato].op = CHANSND;
+			break;
+		case Ainp:
 			if(*s == 'k' || *s == 'K')
 				shiftdown = utfrune(s+1, Kshift) != nil;
-			if(out == nil || sendp(out, s) <= 0)
-				free(s);
+		case Ato:
+		Reset:
+			alts[Ainp].op = CHANNOP;
+			alts[Ato].op = CHANNOP;
+			alts[Afrom].op = CHANRCV;
+			alts[Adev].op = CHANRCV;
 			break;
 		}
 }

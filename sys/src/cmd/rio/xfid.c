@@ -308,7 +308,7 @@ xfidopen(Xfid *x)
 		}
 		break;
 	case Qtap:
-		chanprint(fromtap, "%c", Tapon);
+		chanprint(ctltap, "%c", Tapon);
 		break;
 	}
 	t.qid = x->f->qid;
@@ -365,7 +365,7 @@ xfidclose(Xfid *x)
 			w->wctlopen = FALSE;
 		break;
 	case Qtap:
-		chanprint(fromtap, "%c", Tapoff);
+		chanprint(ctltap, "%c", Tapoff);
 		break;
 	}
 	wclose(w);

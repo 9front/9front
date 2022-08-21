@@ -83,13 +83,14 @@ wcurrent(Window *w)
 	Channel *c;
 
 	if(input == nil){
+		sendp(wintap, w);
 		input = w;
 		return;
 	}
 	if(w == input)
 		return;
-	chanprint(fromtap, "%c", Tapreset);
 	incref(input);
+	sendp(wintap, w);
 	c = chancreate(sizeof(Window*), 0);
 	wsendctlmesg(input, Repaint, ZR, c);
 	sendp(c, w);		/* send the new input */
@@ -1304,6 +1305,7 @@ wclunk(Window *w)
 		return;
 	w->deleted = TRUE;
 	if(w == input){
+		sendp(wintap, nil);
 		input = nil;
 		riosetcursor(nil);
 	}
