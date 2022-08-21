@@ -34,7 +34,7 @@ pm
 ]
 .SH DESCRIPTION
 These programs provide support for certain functions of MNT Reform 2
-computing device make controlling file systems available under
+computing device and make controlling file systems available under
 .BR /dev .
 .PP
 .SS Audio
@@ -56,7 +56,7 @@ or
 .I off )
 of the three "outputs" -
 .BR master ,
-.BR hp
+.B hp
 and
 .BR spk .
 Each can be enabled, disabled or toggled, by writing a single line to
@@ -75,7 +75,13 @@ Provides an interface for volume control (see \fIaudio\fR(3)).  For
 ease of use,
 .B volume
 supports relative adjustments by prefixing a number with a sign.
-.IP
+\fImaster +1\fR, for example, will increase the volume on
+.B master
+by 1%, which is 0.5dB for this particular output. For
+.B hp
+and
+.B spk
+one percent is 1dB.
 .IP
 Enhanced stereo separation can be enabled by writing
 .BR 3d ,

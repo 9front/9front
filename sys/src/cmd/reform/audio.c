@@ -111,14 +111,14 @@ setrate(int s)
 	/*
 	 * getting DAC ready for s16c2r44100:
 	 *
-	 * mclk₀ = 25Mhz (set in sai)
+	 * f₁ = mclk₀ = 25Mhz (set in sai)
 	 * pllprescale = /2 → *actual* mclk₁ is 25/2 = 12.5Mhz
 	 * sysclk = 44.1kHz*256 = 11.2896Mhz
 	 *   → dacdiv = /(1*256) = sysclk/(1*256) = 44.1kHz
 	 * f₂ = 4*2*sysclk = 90.3168Mhz
 	 *
-	 * PLL freq ration:
-	 *   R = f₂/mclk₁
+	 * PLL freq:
+	 *   R = f₂/f₁
 	 *   N = int(R) = 7
 	 *   K = 2²⁴*(R-N) = 3780644.9623
 	 *
@@ -178,8 +178,6 @@ reset(void)
 
 	wr(0x07, 1<<6 | 2); /* master mode; i²s, 16-bit words */
 
-	wr(0x17, 1<<8 | 3<<6 | 0<<1); /* thermal shutdown on; avdd=3.3v; slow clock on */
-
 	wr(0x06, 1<<3 | 1<<2); /* ramp up DAC volume slowly */
 	wr(0x2f, 3<<2); /* output mixer on */
 	wr(0x22, 1<<8); /* L DAC to mixer */
@@ -193,7 +191,7 @@ reset(void)
 	wr(0x19, 1<<7 | 1<<6); /* Vref on */
 
 	wr(0x09, 1<<6); /* adclrc → gpio (for jack detect output) */
-	wr(0x30, 3<<4 | 2<<2 | 1<<1); /* JD2 jack detect in; Tsense on */
+	wr(0x30, 3<<4 | 2<<2 | 1<<1); /* gpio jack detect out; JD2 jack detect in; Tsense on */
 	wr(0x1b, 1<<3); /* HP_[LR] responsive to jack detect */
 	wr(0x18, 1<<6); /* HP switch on; high = HP */
 
