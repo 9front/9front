@@ -248,7 +248,7 @@ mpinit(void)
 void
 cpuidprint(void)
 {
-	iprint("cpu%d: %dMHz ARM Cortex A53\n", m->machno, m->cpumhz);
+	print("cpu%d: %dMHz ARM Cortex A53\n", m->machno, m->cpumhz);
 }
 
 static void
