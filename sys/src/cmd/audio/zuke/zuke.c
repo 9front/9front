@@ -960,9 +960,11 @@ search(char d)
 
 	inc = (d == '/' || d == 'n') ? 1 : -1;
 	if(d == '/' || d == '?')
-		sz = enter(inc > 0 ? "forward:" : "backward:", buf, sizeof(buf), mctl, kctl, nil);
-	if(sz < 1)
+		sz = enter(inc > 0 ? "forward:" : "backward:", buf, sizeof(buf), mctl, kctl, screen->screen);
+	if(sz < 1){
+		redraw(1);
 		return;
+	}
 
 	cycle = 1;
 	for(i = pcur+inc; i >= 0 && i < pl->n;){
