@@ -969,10 +969,9 @@ search(char d)
 	inc = (d == '/' || d == 'n') ? 1 : -1;
 	if(d == '/' || d == '?')
 		sz = enter(inc > 0 ? "forward:" : "backward:", buf, sizeof(buf), mctl, kctl, screen->screen);
-	if(sz < 1){
-		redraw(1);
+	redraw(1);
+	if(sz < 1)
 		return;
-	}
 
 	cycle = 1;
 	for(i = pcur+inc; i >= 0 && i < pl->n;){
@@ -1186,7 +1185,7 @@ threadmain(int argc, char **argv)
 	a[3].c = chancreate(sizeof(ind), 0);
 	playc = a[3].c;
 
-	redrawc = chancreate(sizeof(ulong), 1);
+	redrawc = chancreate(sizeof(ulong), 8);
 	proccreate(redrawproc, nil, 8192);
 
 	for(n = 0; n < Numcolors; n++)
