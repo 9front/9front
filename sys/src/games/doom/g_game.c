@@ -157,7 +157,7 @@ int		autorun;
  
 int             mousebfire; 
 int             mousebstrafe; 
-int             mousebforward; 
+int             mousebuse; 
 int             m_forward;
  
 int             joybfire; 
@@ -189,13 +189,6 @@ boolean*	mousebuttons = &mousearray[1];		// allow [-1]
 int             mousex;
 int		mousey;         
 extern int usemouse;
-
-int             dclicktime;
-int		dclickstate;
-int		dclicks; 
-int             dclicktime2;
-int		dclickstate2;
-int		dclicks2;
 
 // joystick values are repeated 
 int             joyxmove;
@@ -238,7 +231,6 @@ void G_BuildTiccmd (ticcmd_t* cmd)
 { 
     int		i; 
     boolean	strafe;
-    boolean	bstrafe; 
     int		speed;
     int		tspeed; 
     int		forward;
@@ -332,11 +324,7 @@ void G_BuildTiccmd (ticcmd_t* cmd)
 	cmd->buttons |= BT_ATTACK; 
  
     if (gamekeydown[key_use] || joybuttons[joybuse] ) 
-    { 
 	cmd->buttons |= BT_USE;
-	// clear double clicks if hit use button 
-	dclicks = 0;                   
-    } 
 
     // chainsaw overrides 
     for (i=0 ; i<NUMWEAPONS-1 ; i++)        
@@ -348,60 +336,8 @@ void G_BuildTiccmd (ticcmd_t* cmd)
 	}
     
     // mouse
-    if (mousebuttons[mousebforward]) 
-	forward += forwardmove[speed];
-    
-    // forward double click
-    if (mousebuttons[mousebforward] != dclickstate && dclicktime > 1 ) 
-    { 
-	dclickstate = mousebuttons[mousebforward]; 
-	if (dclickstate) 
-	    dclicks++; 
-	if (dclicks == 2) 
-	{ 
+    if (mousebuttons[mousebuse])
 	    cmd->buttons |= BT_USE; 
-	    dclicks = 0; 
-	} 
-	else 
-	    dclicktime = 0; 
-    } 
-    else 
-    { 
-	dclicktime += ticdup; 
-	if (dclicktime > 20) 
-	{ 
-	    dclicks = 0; 
-	    dclickstate = 0; 
-	} 
-    }
-    
-    // strafe double click
-    bstrafe =
-	mousebuttons[mousebstrafe] 
-	|| joybuttons[joybstrafe]; 
-    if (bstrafe != dclickstate2 && dclicktime2 > 1 ) 
-    { 
-	dclickstate2 = bstrafe; 
-	if (dclickstate2) 
-	    dclicks2++; 
-	if (dclicks2 == 2) 
-	{ 
-	    cmd->buttons |= BT_USE; 
-	    dclicks2 = 0; 
-	} 
-	else 
-	    dclicktime2 = 0; 
-    } 
-    else 
-    { 
-	dclicktime2 += ticdup; 
-	if (dclicktime2 > 20) 
-	{ 
-	    dclicks2 = 0; 
-	    dclickstate2 = 0; 
-	} 
-    } 
- 
     if (m_forward)
         forward += mousey; 
     if (strafe) 
