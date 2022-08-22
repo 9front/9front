@@ -421,6 +421,7 @@ redraw_(int full)
 		w = stringwidth(f, tmp);
 		snprint(tmp, sizeof(tmp), "%s%d%%", shuffle != nil ? "∫ " : "", volume);
 	}
+
 	r = back->r;
 	right = r.max.x - w - 4;
 	r.min.x = left;
@@ -455,7 +456,10 @@ redraw_(int full)
 		draw(back, r, colors[Dbmed].im, nil, ZP);
 	}
 
+	if(!full)
+		replclipr(screen, 0, Rpt(addpt(screen->r.min, sel.min), screen->r.max));
 	draw(screen, screen->r, back, nil, ZP);
+	replclipr(screen, 0, screen->r);
 	flushimage(display, 1);
 	unlockdisplay(display);
 }
@@ -1404,7 +1408,7 @@ playcur:
 				scroll = pcur - scrollsz;
 		}
 
-		if(scroll != oscroll)
+		if(scroll != oscroll || pcur != oldpcur)
 			redraw(1);
 	}
 
