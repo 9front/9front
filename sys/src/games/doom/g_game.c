@@ -68,7 +68,7 @@ rcsid[] = "$Id: g_game.c,v 1.8 1997/02/03 22:45:09 b1 Exp $";
 #include "g_game.h"
 
 
-#define SAVEGAMESIZE	0x2c000
+#define SAVEGAMESIZE	0x200000
 #define SAVESTRINGSIZE	24
 
 
@@ -1203,7 +1203,8 @@ void G_DoSaveGame (void)
     sprintf (name,SAVEGAMENAME"%d.dsg",savegameslot); 
     description = savedescription; 
 	 
-    save_p = savebuffer = screens[1]+0x4000; 
+    savebuffer = Z_Malloc(SAVEGAMESIZE, PU_STATIC, 0);
+    save_p = savebuffer;
 	 
     memcpy (save_p, description, SAVESTRINGSIZE); 
     save_p += SAVESTRINGSIZE; 
@@ -1239,6 +1240,7 @@ void G_DoSaveGame (void)
 
     // draw the pattern into the back screen
     R_FillBackScreen ();	
+    Z_Free(savebuffer);	
 } 
  
 

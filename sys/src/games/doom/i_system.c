@@ -11,7 +11,7 @@
 #include "g_game.h"
 #include "m_misc.h"
 
-int mb_used = 6;	/* 6MB heap */
+int mb_used = 32;	/* 32MB heap */
 
 void I_Init (void)
 {

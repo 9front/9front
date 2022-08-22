@@ -78,7 +78,7 @@ typedef struct
 
 
 
-#define MAXANIMS                32
+#define MAXANIMS                256
 
 extern anim_t	anims[MAXANIMS];
 extern anim_t*	lastanim;
@@ -321,7 +321,7 @@ fixed_t	P_FindHighestFloorSurrounding(sector_t *sec)
 // Note: this should be doable w/o a fixed array.
 
 // 20 adjoining sectors max!
-#define MAX_ADJOINING_SECTORS    	20
+#define MAX_ADJOINING_SECTORS    	128
 
 fixed_t
 P_FindNextHighestFloor
