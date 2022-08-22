@@ -81,6 +81,7 @@ static int scroll, scrollsz;
 static Font *f;
 static Image *cover;
 static Channel *playc;
+static Channel *redrawc;
 static Mousectl *mctl;
 static Keyboardctl *kctl;
 static int colwidth[10];
@@ -292,7 +293,7 @@ updatescrollsz(void)
 }
 
 static void
-redraw(int full)
+redraw_(int full)
 {
 	Image *col;
 	Point p, sp;
@@ -448,6 +449,30 @@ redraw(int full)
 
 	flushimage(display, 1);
 	unlockdisplay(display);
+}
+
+static void
+redrawproc(void *)
+{
+	ulong full, nbfull;
+
+	threadsetname("redraw");
+	while(recv(redrawc, &full) == 1){
+		redraw_(full);
+		nbfull = 0;
+		while(nbrecv(redrawc, &nbfull) > 0);
+		/* full redraw was requested after a partial one */
+		if(nbfull > full)
+			redraw_(nbfull);
+	}
+
+	threadexits(nil);
+}
+
+static void
+redraw(int full)
+{
+	sendul(redrawc, full);
 }
 
 static void
@@ -1097,7 +1122,7 @@ threadmain(int argc, char **argv)
 		{ nil, &ind, CHANRCV },
 		{ nil, nil, CHANEND },
 	};
-	int n, scrolling, oldpcur, oldbuttons, pnew, shuffled;
+	int n, scrolling, oldpcur, oldbuttons, pnew, shuffled, oscroll;
 	char buf[64];
 
 	shuffled = 0;
@@ -1146,6 +1171,9 @@ threadmain(int argc, char **argv)
 	a[3].c = chancreate(sizeof(ind), 0);
 	playc = a[3].c;
 
+	redrawc = chancreate(sizeof(ulong), 1);
+	proccreate(redrawproc, nil, 8192);
+
 	for(n = 0; n < Numcolors; n++)
 		colors[n].im = allocimage(display, Rect(0,0,1,1), RGB24, 1, colors[n].rgb<<8 | 0xff);
 
@@ -1168,6 +1196,7 @@ threadmain(int argc, char **argv)
 	proccreate(plumbaudio, kctl->c, 4096);
 
 	for(;;){
+		oscroll = scroll;
 		oldpcur = pcur;
 		if(seekmx != newseekmx){
 			seekmx = newseekmx;
@@ -1191,12 +1220,10 @@ threadmain(int argc, char **argv)
 			if(m.buttons == 0)
 				break;
 			if(m.buttons == 8){
-				scroll = MAX(scroll-scrollsz/4-1, 0);
-				redraw(1);
+				scroll -= scrollsz/4+1;
 				break;
 			}else if(m.buttons == 16){
-				scroll = MIN(scroll+scrollsz/4+1, pl->n-scrollsz);
-				redraw(1);
+				scroll += scrollsz/4+1;
 				break;
 			}
 
@@ -1204,12 +1231,10 @@ threadmain(int argc, char **argv)
 
 			if(m.xy.x <= screen->r.min.x+Scrollwidth){
 				if(m.buttons == 1){
-					scroll = MAX(0, scroll-n-1);
-					redraw(1);
+					scroll -= n+1;
 					break;
 				}else if(m.buttons == 4){
-					scroll = MIN(scroll+n+1, pl->n-scrollsz);
-					redraw(1);
+					scroll += n+1;
 					break;
 				}else if(m.buttons == 2){
 					scrolling = 1;
@@ -1226,8 +1251,6 @@ threadmain(int argc, char **argv)
 				if(scrollsz >= pl->n)
 					break;
 				scroll = (m.xy.y - screen->r.min.y - Scrollheight/4)*(pl->n-scrollsz) / (Dy(screen->r)-Scrollheight/2);
-				scroll = CLAMP(scroll, 0, pl->n-scrollsz);
-				redraw(1);
 			}else if(m.buttons == 1 || m.buttons == 2){
 				n += scroll;
 				if(n < pl->n){
@@ -1374,6 +1397,9 @@ playcur:
 			if(pcur != oldpcur)
 				redraw(1);
 		}
+
+		if(scroll != oscroll)
+			redraw(1);
 	}
 
 end:
