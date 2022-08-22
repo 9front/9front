@@ -395,8 +395,8 @@ mouseproc(void)
 			
 			e.type = ev_mouse;
 			e.data1 = m.buttons;
-			e.data2 = 10*(m.xy.x - om.xy.x);
-			e.data3 = 10*(om.xy.y - m.xy.y);
+			e.data2 = m.xy.x - om.xy.x;
+			e.data3 = om.xy.y - m.xy.y;
 			D_PostEvent(&e);
 			om = m;
 

@@ -945,7 +945,7 @@ void M_DrawOptions(void)
 		       W_CacheLumpName(msgNames[showMessages],PU_CACHE));
 
     M_DrawThermo(OptionsDef.x,OptionsDef.y+LINEHEIGHT*(mousesens+1),
-		 10,mouseSensitivity);
+		 9,mouseSensitivity);
 	
     M_DrawThermo(OptionsDef.x,OptionsDef.y+LINEHEIGHT*(scrnsize+1),
 		 9,screenSize);
@@ -1099,7 +1099,7 @@ void M_ChangeSensitivity(int choice)
 	    mouseSensitivity--;
 	break;
       case 1:
-	if (mouseSensitivity < 9)
+	if (mouseSensitivity < 8)
 	    mouseSensitivity++;
 	break;
     }
