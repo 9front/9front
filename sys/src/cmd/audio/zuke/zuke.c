@@ -303,9 +303,6 @@ redraw_(int full)
 	uvlong dur, msec;
 	char tmp[32];
 
-	updatescrollsz();
-	scroll = CLAMP(scroll, 0, pl->n - scrollsz);
-
 	lockdisplay(display);
 
 	if(back == nil || Dx(screen->r) != Dx(back->r) || Dy(screen->r) != Dy(back->r)){
@@ -1406,6 +1403,9 @@ playcur:
 			else if(pcur > scroll + scrollsz)
 				scroll = pcur - scrollsz;
 		}
+
+		updatescrollsz();
+		scroll = CLAMP(scroll, 0, pl->n - scrollsz);
 
 		if(scroll != oscroll || pcur != oldpcur)
 			redraw(1);
