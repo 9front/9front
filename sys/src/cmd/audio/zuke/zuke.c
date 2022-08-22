@@ -303,13 +303,16 @@ redraw_(int full)
 	uvlong dur, msec;
 	char tmp[32];
 
+	updatescrollsz();
+	scroll = CLAMP(scroll, 0, pl->n - scrollsz);
+
+	lockdisplay(display);
+
 	if(back == nil || Dx(screen->r) != Dx(back->r) || Dy(screen->r) != Dy(back->r)){
 		freeimage(back);
 		back = allocimage(display, Rpt(ZP,subpt(screen->r.max, screen->r.min)), XRGB32, 0, DNofill);
 	}
 
-	updatescrollsz();
-	scroll = CLAMP(scroll, 0, pl->n - scrollsz);
 	left = back->r.min.x;
 	if(scrollsz < pl->n) /* adjust for scrollbar */
 		left += Scrollwidth + 1;
@@ -447,13 +450,14 @@ redraw_(int full)
 	if(pcurplaying >= 0 && dur > 0){
 		r = insetrect(sel, 3);
 		draw(back, r, colors[Dback].im, nil, ZP);
-		seekbar = r;
+		seekbar = Rpt(addpt(screen->r.min, r.min), addpt(screen->r.min, r.max));
 		r.max.x = r.min.x + Dx(r) * (double)msec / (double)dur;
 		draw(back, r, colors[Dbmed].im, nil, ZP);
 	}
 
 	draw(screen, screen->r, back, nil, ZP);
 	flushimage(display, 1);
+	unlockdisplay(display);
 }
 
 static void
@@ -467,7 +471,7 @@ redrawproc(void *)
 		nbfull = 0;
 		while(nbrecv(redrawc, &nbfull) > 0);
 		/* full redraw was requested after a partial one */
-		if(nbfull > full)
+		if(nbfull >= full)
 			redraw_(nbfull);
 	}
 
@@ -1161,6 +1165,8 @@ threadmain(int argc, char **argv)
 
 	if(initdraw(nil, nil, "zuke") < 0)
 		sysfatal("initdraw: %r");
+	unlockdisplay(display);
+	display->locking = 1;
 	f = display->defaultfont;
 	Scrollwidth = MAX(14, stringwidth(f, "#"));
 	Scrollheight = MAX(16, f->height);
@@ -1216,9 +1222,12 @@ threadmain(int argc, char **argv)
 				if(seekoff < 0)
 					seekoff = 0;
 				newseekmx = m.xy.x;
+				continue;
 			}else{
 				newseekmx = -1;
 			}
+			if(oldbuttons == m.buttons && m.buttons == 0)
+				continue;
 
 			if(m.buttons != 2)
 				scrolling = 0;
@@ -1333,7 +1342,6 @@ playcur:
 				stop(playercurr);
 				playercurr = newplayer(pnew, 1);
 				start(playercurr);
-				redraw(1);
 				break;
 			case 'z':
 			case '<':
@@ -1345,29 +1353,26 @@ playcur:
 				stop(playercurr);
 				playercurr = newplayer(pnew, 1);
 				start(playercurr);
-				redraw(1);
 				break;
 			case '-':
 				chvolume(-1);
 				redraw(0);
-				break;
+				continue;
 			case '+':
 			case '=':
 				chvolume(+1);
 				redraw(0);
-				break;
+				continue;
 			case 'v':
 				stop(playercurr);
 				playercurr = nil;
 				pcurplaying = -1;
 				freeimage(cover);
 				cover = nil;
-				redraw(1);
 				break;
 			case 's':
 				toggleshuffle();
 				recenter();
-				redraw(1);
 				break;
 			case 'c':
 			case 'p':
@@ -1397,10 +1402,6 @@ playcur:
 				scroll = pcur;
 			else if(pcur > scroll + scrollsz)
 				scroll = pcur - scrollsz;
-			scroll = CLAMP(scroll, 0, pl->n-scrollsz);
-
-			if(pcur != oldpcur)
-				redraw(1);
 		}
 
 		if(scroll != oscroll)
