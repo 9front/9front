@@ -92,7 +92,7 @@ void I_FinishUpdate(void)
 	Rectangle r;
 	int y, scale;
 	uchar *s, *e, *d, *m;
-	uchar buf[SCREENWIDTH*3*4];
+	uchar buf[SCREENWIDTH*3*12];
 
 	if(resized){
 		resized = 0;
@@ -109,8 +109,8 @@ void I_FinishUpdate(void)
 	scale = Dx(screen->r)/SCREENWIDTH;
 	if(scale <= 0)
 		scale = 1;
-	else if(scale > 4)
-		scale = 4;
+	else if(scale > 12)
+		scale = 12;
 
 	/* where to draw the scaled row */
 	r = rectsubpt(rectaddpt(Rect(0, 0, scale*SCREENWIDTH, scale), center),
@@ -128,6 +128,38 @@ void I_FinishUpdate(void)
 		for(; s < e; s++){
 			m = &cmap[*s * 3];
 			switch(scale){
+			case 12:
+				*d++ = m[2];
+				*d++ = m[1];
+				*d++ = m[0];
+			case 11:
+				*d++ = m[2];
+				*d++ = m[1];
+				*d++ = m[0];
+			case 10:
+				*d++ = m[2];
+				*d++ = m[1];
+				*d++ = m[0];
+			case 9:
+				*d++ = m[2];
+				*d++ = m[1];
+				*d++ = m[0];
+			case 8:
+				*d++ = m[2];
+				*d++ = m[1];
+				*d++ = m[0];
+			case 7:
+				*d++ = m[2];
+				*d++ = m[1];
+				*d++ = m[0];
+			case 6:
+				*d++ = m[2];
+				*d++ = m[1];
+				*d++ = m[0];
+			case 5:
+				*d++ = m[2];
+				*d++ = m[1];
+				*d++ = m[0];
 			case 4:
 				*d++ = m[2];
 				*d++ = m[1];
