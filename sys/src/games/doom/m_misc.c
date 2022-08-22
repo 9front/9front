@@ -173,6 +173,7 @@ extern int	joybspeed;
 extern int	viewwidth;
 extern int	viewheight;
 
+extern int	autorun;
 extern int	mouseSensitivity;
 extern int	showMessages;
 
@@ -214,6 +215,7 @@ default_t	defaults[] =
     {"key_use",&key_use, ' '},
     {"key_strafe",&key_strafe, KEY_RALT},
     {"key_speed",&key_speed, KEY_RSHIFT},
+    {"autorun",&autorun, 0},
 
     {"use_mouse",&usemouse, 1},
     {"mouseb_fire",&mousebfire,0},
