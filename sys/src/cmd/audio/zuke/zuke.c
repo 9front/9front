@@ -1222,7 +1222,6 @@ threadmain(int argc, char **argv)
 				if(seekoff < 0)
 					seekoff = 0;
 				newseekmx = m.xy.x;
-				continue;
 			}else{
 				newseekmx = -1;
 			}
