@@ -82,7 +82,6 @@ static Font *f;
 static Image *cover;
 static Channel *playc;
 static Channel *redrawc;
-static Image *back;
 static Mousectl *mctl;
 static Keyboardctl *kctl;
 static int colwidth[10];
@@ -115,6 +114,7 @@ static Color colors[Numcolors] =
 
 static int Scrollwidth;
 static int Scrollheight;
+static int Seekthicc;
 static int Coversz;
 
 static char *
@@ -224,61 +224,26 @@ static char *
 getcol(Meta *m, int c)
 {
 	static char tmp[32];
+	char *s;
 
+	s = nil;
 	switch(c){
-	case Palbum: return m->album;
-	case Partist: return m->artist[0];
-	case Pdate: return m->date;
-	case Ptitle: return (!colspath && *m->title == 0) ? m->basename : m->title;
-	case Ptrack: snprint(tmp, sizeof(tmp), "%4s", m->track); return m->track ? tmp : nil;
-	case Ppath: return m->path;
+	case Palbum: s = m->album; break;
+	case Partist: s = m->artist[0]; break;
+	case Pdate: s = m->date; break;
+	case Ptitle: s = (!colspath && (m->title == nil || *m->title == 0)) ? m->basename : m->title; break;
+	case Ptrack: snprint(tmp, sizeof(tmp), "%4s", m->track); s = m->track ? tmp : nil; break;
+	case Ppath: s = m->path; break;
 	case Pduration:
 		tmp[0] = 0;
 		if(m->duration > 0)
 			snprint(tmp, sizeof(tmp), "%8P", m->duration/1000);
-		return tmp;
+		s = tmp;
+		break;
 	default: sysfatal("invalid column '%c'", c);
 	}
 
-	return nil;
-}
-
-static void
-adjustcolumns(void)
-{
-	int i, n, x, total, width;
-
-	if(mincolwidth[0] == 0){
-		for(i = 0; cols[i] != 0; i++)
-			mincolwidth[i] = 1;
-		for(n = 0; n < pl->n; n++){
-			for(i = 0; cols[i] != 0; i++){
-				if((x = stringwidth(f, getcol(pl->m+n, cols[i]))) > mincolwidth[i])
-					mincolwidth[i] = x;
-			}
-		}
-	}
-
-	total = 0;
-	n = 0;
-	width = Dx(screen->r);
-	for(i = 0; cols[i] != 0; i++){
-		if(cols[i] == Pduration || cols[i] == Pdate || cols[i] == Ptrack)
-			width -= mincolwidth[i] + 8;
-		else{
-			total += mincolwidth[i];
-			n++;
-		}
-	}
-	colspath = 0;
-	for(i = 0; cols[i] != 0; i++){
-		if(cols[i] == Ppath || cols[i] == Pbasename)
-			colspath = 1;
-		if(cols[i] == Pduration || cols[i] == Pdate || cols[i] == Ptrack)
-			colwidth[i] = mincolwidth[i];
-		else
-			colwidth[i] = (width - Scrollwidth - n*8) * mincolwidth[i] / total;
-	}
+	return s ? s : "";
 }
 
 static Meta *
@@ -296,100 +261,17 @@ updatescrollsz(void)
 static void
 redraw_(int full)
 {
-	Image *col;
-	Point p, sp;
-	Rectangle sel, r;
-	int i, j, left, right, scrollcenter, w;
+	static Image *back, *ocover;
+	static int oscrollcenter, opcur, opcurplaying;
+
+	int x, i, j, scrollcenter, w;
 	uvlong dur, msec;
+	Rectangle sel, r;
 	char tmp[32];
+	Point p, sp, p₀, p₁;
+	Image *col;
 
-	lockdisplay(display);
-
-	if(back == nil || Dx(screen->r) != Dx(back->r) || Dy(screen->r) != Dy(back->r)){
-		freeimage(back);
-		back = allocimage(display, Rpt(ZP,subpt(screen->r.max, screen->r.min)), XRGB32, 0, DNofill);
-	}
-
-	left = back->r.min.x;
-	if(scrollsz < pl->n) /* adjust for scrollbar */
-		left += Scrollwidth + 1;
-
-	if(full){
-		draw(back, back->r, colors[Dback].im, nil, ZP);
-
-		adjustcolumns();
-		if(scrollsz < pl->n){ /* scrollbar */
-			p.x = sp.x = back->r.min.x + Scrollwidth;
-			p.y = back->r.min.y;
-			sp.y = back->r.max.y;
-			line(back, p, sp, Endsquare, Endsquare, 0, colors[Dflow].im, ZP);
-
-			r = back->r;
-			r.max.x = r.min.x + Scrollwidth - 1;
-			r.min.x += 1;
-			if(scroll < 1)
-				scrollcenter = 0;
-			else
-				scrollcenter = (Dy(back->r)-Scrollheight*5/4)*scroll / (pl->n - scrollsz);
-			r.min.y += scrollcenter + Scrollheight/4;
-			r.max.y = r.min.y + Scrollheight;
-			draw(back, r, colors[Dblow].im, nil, ZP);
-		}
-
-		p.x = sp.x = left;
-		p.y = 0;
-		sp.y = back->r.max.y;
-		for(i = 0; cols[i+1] != 0; i++){
-			p.x += colwidth[i] + 4;
-			sp.x = p.x;
-			line(back, p, sp, Endsquare, Endsquare, 0, colors[Dflow].im, ZP);
-			p.x += 4;
-		}
-
-		sp.x = sp.y = 0;
-		p.x = left + 2;
-		p.y = back->r.min.y + 2;
-
-		for(i = scroll; i < pl->n; i++, p.y += f->height){
-			if(i < 0)
-				continue;
-			if(p.y > back->r.max.y)
-				break;
-
-			if(pcur == i){
-				sel.min.x = left;
-				sel.min.y = p.y;
-				sel.max.x = back->r.max.x;
-				sel.max.y = p.y + f->height;
-				draw(back, sel, colors[Dbinv].im, nil, ZP);
-				col = colors[Dfinv].im;
-			}else{
-				col = colors[Dfmed].im;
-			}
-
-			sel = back->r;
-
-			p.x = left + 2 + 3;
-			for(j = 0; cols[j] != 0; j++){
-				sel.max.x = p.x + colwidth[j];
-				replclipr(back, 0, sel);
-				string(back, p, col, sp, f, getcol(getmeta(i), cols[j]));
-				p.x += colwidth[j] + 8;
-			}
-			replclipr(back, 0, back->r);
-
-			if(pcurplaying == i){
-				Point rightp, leftp;
-				leftp.y = rightp.y = p.y - 1;
-				leftp.x = left;
-				rightp.x = back->r.max.x;
-				line(back, leftp, rightp, 0, 0, 0, colors[Dflow].im, sp);
-				leftp.y = rightp.y = p.y + f->height;
-				line(back, leftp, rightp, 0, 0, 0, colors[Dflow].im, sp);
-			}
-		}
-	}
-
+	/* seekbar playback/duration text */
 	msec = 0;
 	dur = getmeta(pcurplaying)->duration;
 	if(pcurplaying >= 0){
@@ -419,44 +301,143 @@ redraw_(int full)
 		snprint(tmp, sizeof(tmp), "%s%d%%", shuffle != nil ? "∫ " : "", volume);
 	}
 
-	r = back->r;
-	right = r.max.x - w - 4;
-	r.min.x = left;
-	r.min.y = r.max.y - f->height - 4;
-	if(pcurplaying < 0 || dur == 0)
-		r.min.x = right;
-	draw(back, r, colors[Dblow].im, nil, ZP);
-	p = addpt(Pt(r.max.x-stringwidth(f, tmp)-4, r.min.y), Pt(2, 2));
-	r.max.x = right;
-	string(back, p, colors[Dfhigh].im, sp, f, tmp);
-	sel = r;
+	lockdisplay(display);
 
-	if(cover != nil && full){
-		r.max.x = r.min.x;
-		r.min.x = back->r.max.x - cover->r.max.x - 8;
-		draw(back, r, colors[Dblow].im, nil, ZP);
-		r = back->r;
-		r.min.x = r.max.x - cover->r.max.x - 8;
-		r.min.y = r.max.y - cover->r.max.y - 8 - f->height - 4;
-		r.max.y = r.min.y + cover->r.max.y + 8;
-		draw(back, r, colors[Dblow].im, nil, ZP);
-		draw(back, insetrect(r, 4), cover, nil, ZP);
+	if(back == nil || Dx(screen->r) != Dx(back->r) || Dy(screen->r) != Dy(back->r)){
+		freeimage(back);
+		back = allocimage(display, Rpt(ZP,subpt(screen->r.max, screen->r.min)), XRGB32, 0, DNofill);
+		full = 1;
 	}
 
-	/* seek bar */
-	seekbar = ZR;
+	r = screen->r;
+
+	/* scrollbar */
+	p₀ = Pt(r.min.x, r.min.y);
+	p₁ = Pt(r.min.x+Scrollwidth, r.max.y-Seekthicc);
+	if(scroll < 1)
+		scrollcenter = 0;
+	else
+		scrollcenter = (p₁.y-p₀.y-Scrollheight/2 - Seekthicc)*scroll / (pl->n - scrollsz);
+	if(full || oscrollcenter != scrollcenter){
+		draw(screen, Rpt(p₀, Pt(p₁.x, p₁.y)), colors[Dback].im, nil, ZP);
+		line(screen, Pt(p₁.x, p₀.y), p₁, Endsquare, Endsquare, 0, colors[Dflow].im, ZP);
+		r = Rpt(
+			Pt(p₀.x+1, p₀.y + scrollcenter + Scrollheight/4),
+			Pt(p₁.x-1, p₀.y + scrollcenter + Scrollheight/4 + Scrollheight)
+		);
+		/* scrollbar handle */
+		draw(screen, r, colors[Dblow].im, nil, ZP);
+	}
+
+	/* seek bar rectangle */
+	r = Rpt(Pt(p₀.x, p₁.y), Pt(screen->r.max.x-w-4, screen->r.max.y));
+
+	/* playback/duration text */
+	draw(screen, Rpt(Pt(r.max.x, p₁.y), screen->r.max), colors[Dblow].im, nil, ZP);
+	p = addpt(Pt(screen->r.max.x - stringwidth(f, tmp) - 4, p₁.y), Pt(2, 2));
+	string(screen, p, colors[Dfhigh].im, ZP, f, tmp);
+
+	/* seek control */
 	if(pcurplaying >= 0 && dur > 0){
-		r = insetrect(sel, 3);
-		draw(back, r, colors[Dback].im, nil, ZP);
-		seekbar = Rpt(addpt(screen->r.min, r.min), addpt(screen->r.min, r.max));
-		r.max.x = r.min.x + Dx(r) * (double)msec / (double)dur;
-		draw(back, r, colors[Dbmed].im, nil, ZP);
-	}
+		border(screen, r, 3, colors[Dblow].im, ZP);
+		r = insetrect(r, 3);
+		seekbar = r;
+		p = r.min;
+		x = p.x + Dx(r) * (double)msec / (double)dur;
+		r.min.x = x;
+		draw(screen, r, colors[Dback].im, nil, ZP);
+		r.min.x = p.x;
+		r.max.x = x;
+		draw(screen, r, colors[Dbmed].im, nil, ZP);
+	}else
+		draw(screen, r, colors[Dblow].im, nil, ZP);
 
-	if(!full)
-		replclipr(screen, 0, Rpt(addpt(screen->r.min, sel.min), screen->r.max));
-	draw(screen, screen->r, back, nil, ZP);
-	replclipr(screen, 0, screen->r);
+	Rectangle bp[2] = {
+		Rpt(addpt(screen->r.min, Pt(Scrollwidth+1, 0)), subpt(screen->r.max, Pt(0, Seekthicc))), 
+		ZR,
+	};
+
+	if(cover != nil){
+		r.min.x = screen->r.max.x - Dx(cover->r) - 8;
+		r.min.y = p₁.y - Dy(cover->r) - 6;
+		r.max.x = screen->r.max.x;
+		r.max.y = p₁.y + 2;
+		if(full || cover != ocover){
+			border(screen, r, 4, colors[Dblow].im, ZP);
+			draw(screen, insetrect(r, 4), cover, nil, ZP);
+		}
+		bp[1] = bp[0];
+		bp[0].max.y = r.min.y;
+		bp[1].max.x = r.min.x;
+		bp[1].min.y = r.min.y;
+	}else if(ocover != nil)
+		full = 1;
+
+	/* playlist */
+	if(full || oscrollcenter != scrollcenter || pcur != opcur || pcurplaying != opcurplaying){
+		draw(back, back->r, colors[Dback].im, nil, ZP);
+
+		p.x = sp.x = Scrollwidth;
+		p.y = 0;
+		sp.y = back->r.max.y;
+		for(i = 0; cols[i+1] != 0; i++){
+			p.x += colwidth[i] + 4;
+			sp.x = p.x;
+			line(back, p, sp, Endsquare, Endsquare, 0, colors[Dflow].im, ZP);
+			p.x += 4;
+		}
+
+		sp.x = sp.y = 0;
+		p.x = Scrollwidth + 2;
+		p.y = back->r.min.y + 2;
+
+		for(i = scroll; i < pl->n; i++, p.y += f->height){
+			if(i < 0)
+				continue;
+			if(p.y > back->r.max.y)
+				break;
+
+			if(pcur == i){
+				sel.min.x = Scrollwidth;
+				sel.min.y = p.y;
+				sel.max.x = back->r.max.x;
+				sel.max.y = p.y + f->height;
+				draw(back, sel, colors[Dbinv].im, nil, ZP);
+				col = colors[Dfinv].im;
+			}else{
+				col = colors[Dfmed].im;
+			}
+
+			sel = back->r;
+
+			p.x = Scrollwidth + 2 + 3;
+			for(j = 0; cols[j] != 0; j++){
+				sel.max.x = p.x + colwidth[j];
+				replclipr(back, 0, sel);
+				string(back, p, col, sp, f, getcol(getmeta(i), cols[j]));
+				p.x += colwidth[j] + 8;
+			}
+			replclipr(back, 0, back->r);
+
+			if(pcurplaying == i){
+				Point rightp, leftp;
+				leftp.y = rightp.y = p.y - 1;
+				leftp.x = Scrollwidth;
+				rightp.x = back->r.max.x;
+				line(back, leftp, rightp, 0, 0, 0, colors[Dflow].im, sp);
+				leftp.y = rightp.y = p.y + f->height;
+				line(back, leftp, rightp, 0, 0, 0, colors[Dflow].im, sp);
+			}
+		}
+
+		for(i = 0; bp[i].max.x ; i++)
+			draw(screen, bp[i], back, nil, subpt(bp[i].min, screen->r.min));
+	}
+	oscrollcenter = scrollcenter;
+	opcurplaying = pcurplaying;
+	ocover = cover;
+	opcur = pcur;
+
 	flushimage(display, 1);
 	unlockdisplay(display);
 }
@@ -464,15 +445,18 @@ redraw_(int full)
 static void
 redrawproc(void *)
 {
-	ulong full, nbfull;
+	ulong full, nbfull, another;
 
 	threadsetname("redraw");
 	while(recv(redrawc, &full) == 1){
 		redraw_(full);
-		nbfull = 0;
-		while(nbrecv(redrawc, &nbfull) > 0);
-		/* full redraw was requested after a partial one */
-		if(nbfull >= full)
+		another = 0;
+		full = 0;
+		while(nbrecv(redrawc, &nbfull) > 0){
+			full |= nbfull;
+			another = 1;
+		}
+		if(another)
 			redraw_(nbfull);
 	}
 
@@ -575,7 +559,6 @@ static void
 pnotify(Player *p)
 {
 	Meta *m;
-	char *s;
 	int i;
 
 	if(!pnotifies)
@@ -584,7 +567,7 @@ pnotify(Player *p)
 	if(p != nil){
 		m = getmeta(p->pcur);
 		for(i = 0; cols[i] != 0; i++)
-			Bprint(&out, "%s\t", (s = getcol(m, cols[i])) ? s : "");
+			Bprint(&out, "%s\t", getcol(m, cols[i]));
 	}
 	Bprint(&out, "\n");
 	Bflush(&out);
@@ -739,7 +722,7 @@ restart:
 	byteswritten = boffset;
 	pcurplaying = player->pcur;
 	if(c != Cseekrel)
-		redraw(1);
+		redraw(0);
 
 	while(1){
 		n = ioread(io, p[1], buf, Relbufsz);
@@ -750,7 +733,7 @@ restart:
 		if(player->img != nil && nbrecv(player->img, &thiscover) != 0){
 			freeimage(cover);
 			cover = thiscover;
-			redraw(1);
+			redraw(0);
 			player->img = nil;
 		}
 		r = nbrecv(player->ctl, &c);
@@ -884,8 +867,8 @@ static Playlist *
 readplist(int fd)
 {
 	char *raw, *s, *e, *a[5], *b;
+	int plsz, i, x;
 	Playlist *pl;
-	int plsz;
 	Meta *m;
 
 	if((raw = readall(fd)) == nil)
@@ -903,15 +886,25 @@ readplist(int fd)
 		return nil;
 	}
 
+	for(i = 0; cols[i] != 0; i++)
+		mincolwidth[i] = 1;
+
 	pl->raw = raw;
-	for(s = pl->raw, m = pl->m;; s = e){
+	for(s = pl->raw, m = pl->m, e = s; e != nil; s = e){
 		if((e = strchr(s, '\n')) == nil)
-			break;
+			goto addit;
 		s += 2;
 		*e++ = 0;
 		switch(s[-2]){
 		case 0:
 			if(m->path != nil){
+addit:
+				for(i = 0; cols[i] != 0; i++){
+					if((x = stringwidth(f, getcol(m, cols[i]))) > mincolwidth[i])
+						mincolwidth[i] = x;
+				}
+				if(m->filefmt == nil)
+					m->filefmt = "";
 				pl->n++;
 				m++;
 			}
@@ -942,8 +935,6 @@ readplist(int fd)
 			break;
 		}
 	}
-	if(m != nil && m->path != nil)
-		pl->n++;
 
 	return pl;
 }
@@ -966,9 +957,10 @@ search(char d)
 	inc = (d == '/' || d == 'n') ? 1 : -1;
 	if(d == '/' || d == '?')
 		sz = enter(inc > 0 ? "forward:" : "backward:", buf, sizeof(buf), mctl, kctl, screen->screen);
-	redraw(1);
-	if(sz < 1)
+	if(sz < 1){
+		redraw(1);
 		return;
+	}
 
 	cycle = 1;
 	for(i = pcur+inc; i >= 0 && i < pl->n;){
@@ -991,7 +983,7 @@ onemore:
 	if(i >= 0 && i < pl->n){
 		pcur = i;
 		recenter();
-		redraw(1);
+		redraw(0);
 	}else if(cycle && i+inc < 0){
 		cycle = 0;
 		i = pl->n;
@@ -1108,6 +1100,33 @@ plumbaudio(void *kbd)
 }
 
 static void
+adjustcolumns(void)
+{
+	int i, n, total, width;
+
+	total = 0;
+	n = 0;
+	width = Dx(screen->r);
+	for(i = 0; cols[i] != 0; i++){
+		if(cols[i] == Pduration || cols[i] == Pdate || cols[i] == Ptrack)
+			width -= mincolwidth[i] + 8;
+		else{
+			total += mincolwidth[i];
+			n++;
+		}
+	}
+	colspath = 0;
+	for(i = 0; cols[i] != 0; i++){
+		if(cols[i] == Ppath || cols[i] == Pbasename)
+			colspath = 1;
+		if(cols[i] == Pduration || cols[i] == Pdate || cols[i] == Ptrack)
+			colwidth[i] = mincolwidth[i];
+		else
+			colwidth[i] = (width - Scrollwidth - n*8) * mincolwidth[i] / total;
+	}
+}
+
+static void
 usage(void)
 {
 	fprint(2, "usage: %s [-s] [-c aAdDtTp]\n", argv0);
@@ -1133,7 +1152,8 @@ threadmain(int argc, char **argv)
 		{ nil, &ind, CHANRCV },
 		{ nil, nil, CHANEND },
 	};
-	int n, scrolling, oldpcur, oldbuttons, pnew, shuffled, oscroll;
+	int n, scrolling, oldpcur, oldbuttons, pnew, shuffled;
+	int seekmx, full;
 	char buf[64];
 
 	shuffled = 0;
@@ -1154,12 +1174,6 @@ threadmain(int argc, char **argv)
 		break;
 	}ARGEND;
 
-	if((pl = readplist(0)) == nil){
-		fprint(2, "playlist: %r\n");
-		sysfatal("playlist error");
-	}
-	close(0);
-
 	Binit(&out, 1, OWRITE);
 	pnotifies = fd2path(1, buf, sizeof(buf)) == 0 && strcmp(buf, "/dev/cons") != 0;
 
@@ -1170,6 +1184,7 @@ threadmain(int argc, char **argv)
 	f = display->defaultfont;
 	Scrollwidth = MAX(14, stringwidth(f, "#"));
 	Scrollheight = MAX(16, f->height);
+	Seekthicc = Scrollheight + 2;
 	Coversz = MAX(64, stringwidth(f, "∫ 00:00:00/00:00:00 100%"));
 	if((mctl = initmouse(nil, screen)) == nil)
 		sysfatal("initmouse: %r");
@@ -1194,6 +1209,13 @@ threadmain(int argc, char **argv)
 	fmtinstall('P', positionfmt);
 	threadsetname("zuke");
 
+	if((pl = readplist(0)) == nil){
+		fprint(2, "playlist: %r\n");
+		sysfatal("playlist error");
+	}
+	close(0);
+	adjustcolumns();
+
 	if(shuffled){
 		pcur = nrand(pl->n);
 		toggleshuffle();
@@ -1203,12 +1225,13 @@ threadmain(int argc, char **argv)
 	redraw(1);
 	m.buttons = 0;
 	scrolling = 0;
+	seekmx = 0;
 
 	proccreate(plumbaudio, kctl->c, 4096);
 
 	for(;;){
-		oscroll = scroll;
 		oldpcur = pcur;
+		full = 0;
 		if(seekmx != newseekmx){
 			seekmx = newseekmx;
 			redraw(0);
@@ -1242,7 +1265,7 @@ threadmain(int argc, char **argv)
 
 			n = (m.xy.y - screen->r.min.y)/f->height;
 
-			if(m.xy.x <= screen->r.min.x+Scrollwidth){
+			if(m.xy.x <= screen->r.min.x+Scrollwidth && m.xy.y <= screen->r.max.y-Seekthicc){
 				if(m.buttons == 1){
 					scroll -= n+1;
 					break;
@@ -1263,7 +1286,7 @@ threadmain(int argc, char **argv)
 			if(scrolling){
 				if(scrollsz >= pl->n)
 					break;
-				scroll = (m.xy.y - screen->r.min.y - Scrollheight/4)*(pl->n-scrollsz) / (Dy(screen->r)-Scrollheight/2);
+				scroll = (m.xy.y - screen->r.min.y)*(pl->n-scrollsz) / (Dy(screen->r)-Seekthicc);
 			}else if(m.buttons == 1 || m.buttons == 2){
 				n += scroll;
 				if(n < pl->n){
@@ -1279,6 +1302,7 @@ threadmain(int argc, char **argv)
 		case Eresize: /* resize */
 			if(getwindow(display, Refnone) < 0)
 				sysfatal("getwindow: %r");
+			adjustcolumns();
 			redraw(1);
 			break;
 		case Ekey:
@@ -1368,10 +1392,12 @@ playcur:
 				pcurplaying = -1;
 				freeimage(cover);
 				cover = nil;
+				full = 1;
 				break;
 			case 's':
 				toggleshuffle();
 				recenter();
+				full = 1;
 				break;
 			case 'c':
 			case 'p':
@@ -1405,9 +1431,7 @@ playcur:
 
 		updatescrollsz();
 		scroll = CLAMP(scroll, 0, pl->n - scrollsz);
-
-		if(scroll != oscroll || pcur != oldpcur)
-			redraw(1);
+		redraw(full);
 	}
 
 end:
