@@ -43,6 +43,14 @@ pushutf(char *dst, char *e, char *u, int nrune)
 	return d;
 }
 
+char*
+peekstr(char *s, char *b)
+{
+	while(s > b && (*--s & 0xC0)==Runesync)
+		;
+	return s;
+}
+
 typedef struct Str Str;
 struct Str {
 	char b[128];
@@ -67,9 +75,7 @@ resetstr(Str *s, ...)
 void
 popstr(Str *s)
 {
-	while(s->p > s->b && (*--s->p & 0xC0)==Runesync)
-		;
-
+	s->p = peekstr(s->p, s->b);
 	s->p[0] = '\0';
 }
 
@@ -190,6 +196,7 @@ enum{
 	LangEL	= '',	// ^o
 	LangKO	= '',	// ^s
 	LangZH	= '',	// ^c
+	LangVN	= '',	// ^v
 };
 
 int deflang;
@@ -200,6 +207,7 @@ Hmap *cyril;
 Hmap *greek;
 Hmap *hangul;
 Hmap *hanzi, *zidian;
+Hmap *telex;
 
 Hmap **langtab[] = {
 	[LangEN]  &natural,
@@ -209,6 +217,7 @@ Hmap **langtab[] = {
 	[LangEL]  &greek,
 	[LangKO]  &hangul,
 	[LangZH]  &hanzi,
+	[LangVN]  &telex,
 };
 
 char *langcodetab[] = {
@@ -219,6 +228,7 @@ char *langcodetab[] = {
 	[LangEL]  "el",
 	[LangKO]  "ko",
 	[LangZH]  "zh",
+	[LangVN]  "vn",
 };
 
 int
@@ -433,6 +443,41 @@ dictthread(void*)
 	}
 }
 
+int
+telexlkup(Str *line, Str *out)
+{
+	Map lkup;
+	char buf[UTFmax*3], *p, *e;
+	int n;
+
+	p = pushutf(buf, buf+sizeof buf, line->b, 1);
+	n = p-buf;
+
+	if(hmapget(telex, buf, &lkup) < 0)
+		return -1;
+
+	assert(lkup.leadstomore == 1);
+	if(utflen(line->b) < 2)
+		return 2;
+
+	e = peekstr(line->p, line->b);
+	pushutf(p, buf+sizeof buf, e, 1);
+	if(hmapget(telex, buf, &lkup) < 0){
+		/* not correct; matches should be allowed to span vowels */
+		if(hmapget(telex, buf+n, &lkup) == 0)
+			line->p = pushutf(line->b, strend(line), buf+n, 0);
+		return 2;
+	}
+
+	out->p = pushutf(out->b, strend(out), lkup.kana, 0);
+	out->p = pushutf(out->p, strend(out), line->b+n, 0);
+	popstr(out);
+
+	if(utflen(lkup.kana) == 2)
+		return 1;
+	return 0;
+}
+
 static void
 keythread(void*)
 {
@@ -440,10 +485,10 @@ keythread(void*)
 	Msg m;
 	Map lkup;
 	char *p;
-	int n;
+	int n, ln, rn;
 	Rune r;
 	char peek[UTFmax+1];
-	Str line;
+	Str line, tbuf;
 	int mode;
 
 	mode = 0;
@@ -473,6 +518,11 @@ keythread(void*)
 				resetstr(&line, nil);
 				continue;
 			}
+			if(lang == LangVN && utfrune(" ", r) != nil){
+				resetstr(&line, nil);
+				if(r != ' ')
+					continue;
+			}
 			if(lang == LangZH || lang == LangJP){
 				emitutf(dictch, p, 1);
 				if(utfrune("\n", r) != nil){
@@ -496,6 +546,26 @@ keythread(void*)
 			}
 
 			line.p = pushutf(line.p, strend(&line), p, 1);
+			if(lang == LangVN){
+			Again:
+				ln = utflen(line.b);
+				switch(rn = telexlkup(&line, &tbuf)){
+				default:
+					resetstr(&line, nil);
+					continue;
+				case 2:
+					continue;
+				case 1:
+				case 0:
+					if(ln > 0)
+						emitutf(output, backspace, ln);
+					emitutf(output, tbuf.b, 0);
+					line.p = pushutf(line.b, strend(&line), tbuf.b, 0);
+					if(rn == 0)
+						goto Again;
+					continue;
+				}
+			}
 			if(maplkup(lang, line.b, &lkup) < 0){
 				resetstr(&line, nil);
 				pushutf(peek, peek + sizeof peek, p, 1);
@@ -634,6 +704,7 @@ threadmain(int argc, char *argv[])
 	greek 	= openmap("/lib/ktrans/greek.map");
 	cyril 	= openmap("/lib/ktrans/cyril.map");
 	hangul 	= openmap("/lib/ktrans/hangul.map");
+	telex	= openmap("/lib/ktrans/telex.map");
 
 	dictch 	= chancreate(sizeof(Msg), 0);
 	input 	= chancreate(sizeof(Msg), 0);

@@ -82,6 +82,9 @@ Greek mode.
 .TP
 .B ctl-s
 Korean mode. Implicit layer converts latin to Korean Hangul.
+.TP
+.B ctrl-v
+Vietnamese Telex input.
 .SH SOURCE
 .B /sys/src/cmd/ktrans
 .SH SEE ALSO
