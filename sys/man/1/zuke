@@ -147,6 +147,14 @@ can be controlled by emulating key presses via the plumber port
 .PP
 Files present in the current playlist can be plumbed too, and will be
 played immediately.
+.PP
+When a new track starts playing,
+.I zuke
+will write its tags to
+.BR stdout ,
+each column separated by a tab character.  If playback is stopped, an
+empty line is written instead.  This can be used for scrobbling or
+displaying the current track in another window.
 .SH EXAMPLES
 Generate a playlist:
 .IP
