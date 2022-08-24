@@ -1,7 +1,8 @@
 .TH REFORM 1
 .SH NAME
 audio,
-pm
+pm,
+shortcuts
 - MNT Reform 2 support utilities
 .SH SYNOPSIS
 .B reform/audio
@@ -32,9 +33,20 @@ pm
 .B -s
 .I service
 ]
+.PP
+.B reform/shortcuts
+[
+.B -l
+.I light_step
+]
+[
+.B -v
+.I vol_step
+]
 .SH DESCRIPTION
 These programs provide support for certain functions of MNT Reform 2
-computing device and make controlling file systems available under
+computing device.  Some of them also make controlling file systems
+available under
 .BR /dev .
 .PP
 .SS Audio
@@ -103,6 +115,27 @@ returns the current brightness.
 .TP
 .B cputemp
 Exposes the current temperature reading of the CPU.
+.SS Shortcuts
+.I shortcuts
+enables LCD brightness and audio volume adjustment via keyboard shortcuts.
+.PP
+The program uses Rio's
+.I kbdtap
+to function:
+.IP
+.EX
+reform/shortcuts </dev/kbdtap >/dev/kbdtap
+.EE
+.PP
+.I Super+F1/F2
+decreases/increases LCD brightness,
+.I Super+F3/F4
+decreases/increases "master" volume.
+Optionally, a single step amount can be set with
+.I -l
+for LCD light level (default is 5) and
+.I -v
+for volume (default is 3).
 .SH SOURCE
 .B /sys/src/cmd/reform
 .SH SEE ALSO

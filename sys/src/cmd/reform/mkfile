@@ -4,6 +4,7 @@ BIN=/$objtype/bin/reform
 TARG=\
 	audio\
 	pm\
+	shortcuts\
 
 </sys/src/cmd/mkmany
 
