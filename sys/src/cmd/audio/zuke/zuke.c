@@ -897,8 +897,8 @@ readplist(int fd)
 		*e++ = 0;
 		switch(s[-2]){
 		case 0:
-			if(m->path != nil){
 addit:
+			if(m->path != nil){
 				for(i = 0; cols[i] != 0; i++){
 					if((x = stringwidth(f, getcol(m, cols[i]))) > mincolwidth[i])
 						mincolwidth[i] = x;
@@ -1222,6 +1222,7 @@ threadmain(int argc, char **argv)
 		recenter();
 	}
 
+	updatescrollsz();
 	redraw(1);
 	m.buttons = 0;
 	scrolling = 0;
