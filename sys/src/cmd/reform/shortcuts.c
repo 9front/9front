@@ -37,13 +37,13 @@ process(char *s)
 		}else if(mod && r >= (KF|1) && r <= (KF|4)){
 			if(*s == 'c'){
 				if(r == (KF|1))
-					fprint(light, "lcd -%d", lightstep);
+					fprint(light, "lcd %+d", -lightstep);
 				else if(r == (KF|2))
-					fprint(light, "lcd +%d", lightstep);
+					fprint(light, "lcd %+d", lightstep);
 				else if(r == (KF|3))
-					fprint(vol, "master -%d", volstep);
+					fprint(vol, "master %+d", -volstep);
 				else if(r == (KF|4))
-					fprint(vol, "master +%d", volstep);
+					fprint(vol, "master %+d", volstep);
 			}
 			continue;
 			}

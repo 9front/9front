@@ -135,7 +135,10 @@ Optionally, a single step amount can be set with
 .I -l
 for LCD light level (default is 5) and
 .I -v
-for volume (default is 3).
+for volume (default is 3).  Values can be negative to essentially swap
+.I F1
+with
+.IR F2 .
 .SH SOURCE
 .B /sys/src/cmd/reform
 .SH SEE ALSO
