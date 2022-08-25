@@ -47,8 +47,10 @@ newmeta(void)
 	else if((numall & (numall-1)) == 0)
 		all = realloc(all, numall*2*sizeof(Meta));
 
-	if(all == nil)
+	if(all == nil){
+		sysfatal("newmeta: no memory");
 		return nil;
+	}
 
 	memset(&all[numall++], 0, sizeof(Meta));
 	return &all[numall-1];
@@ -184,8 +186,7 @@ scanfile(char *path)
 		fprint(2, "%s: %r\n", path);
 		return;
 	}
-	if((curr = newmeta()) == nil)
-		sysfatal("no memory");
+	curr = newmeta();
 	firstiscomposer = keepfirstartist = 0;
 	res = tagsget(&ctx);
 	if(ctx.format != Funknown){
@@ -227,11 +228,13 @@ scan(char **dir, int depth)
 	long n;
 	int dirfd, len;
 
-	if((dirfd = open(*dir, OREAD)) < 0)
-		sysfatal("%s: %r", *dir);
+	if((dirfd = open(*dir, OREAD)) < 0){
+		fprint(2, "scan: %r\n");
+		return -1;
+	}
 	len = strlen(*dir);
 	if((*dir = realloc(*dir, len+1+Maxname)) == nil)
-		sysfatal("no memory");
+		sysfatal("scan: no memory");
 	path = *dir;
 	path[len] = '/';
 
@@ -346,8 +349,7 @@ main(int argc, char **argv)
 
 	for(i = 0; i < argc; i++){
 		if(strncmp(argv[i], "http://", 7) == 0 || strncmp(argv[i], "https://", 8) == 0){
-			if((curr = newmeta()) == nil)
-				sysfatal("no memory");
+			curr = newmeta();
 			curr->title = argv[i];
 			curr->path = argv[i];
 			curr->filefmt = "";
