@@ -855,6 +855,8 @@ readall(int f)
 			break;
 	}
 	if(n < 0 || sz < 1){
+		if(n == 0)
+			werrstr("empty");
 		free(s);
 		return nil;
 	}
