@@ -354,9 +354,9 @@ nvmerctl(SDunit *u, char *p, int l)
 	e = p+l;
 	s = p;
 
-	p = seprint(p, e, "model\t%.20s\n", (char*)ctlr->ident+24);
-	p = seprint(p, e, "serial\t%.10s\n", (char*)ctlr->ident+4);
-	p = seprint(p, e, "firm\t%.6s\n", (char*)ctlr->ident+64);
+	p = seprint(p, e, "model\t%.40s\n", (char*)ctlr->ident+24);
+	p = seprint(p, e, "serial\t%.20s\n", (char*)ctlr->ident+4);
+	p = seprint(p, e, "firm\t%.8s\n", (char*)ctlr->ident+64);
 	p = seprint(p, e, "geometry %llud %lud\n", u->sectors, u->secsize);
 
 	return p-s;
