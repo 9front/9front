@@ -3,7 +3,7 @@
 #include <keyboard.h>
 
 static int lightstep = 5, volstep = 3;
-static int light, vol, mod;
+static int light, vol, actl, mod;
 
 static void
 process(char *s)
@@ -34,7 +34,7 @@ process(char *s)
 				continue;
 			if(r == Kmod4)
 				mod = 0;
-		}else if(mod && r >= (KF|1) && r <= (KF|4)){
+		}else if(mod && ((r >= (KF|1) && r <= (KF|4) || r == Kesc))){
 			if(*s == 'c'){
 				if(r == (KF|1))
 					fprint(light, "lcd %+d", -lightstep);
@@ -44,9 +44,11 @@ process(char *s)
 					fprint(vol, "master %+d", -volstep);
 				else if(r == (KF|4))
 					fprint(vol, "master %+d", volstep);
+				else if(r == Kesc)
+					fprint(actl, "master toggle");
 			}
 			continue;
-			}
+		}
 
 		memmove(b+o, p, n);
 		o += n;
@@ -87,6 +89,7 @@ main(int argc, char **argv)
 
 	light = open("/dev/light", OWRITE);
 	vol = open("/dev/volume", OWRITE);
+	actl = open("/dev/audioctl", OWRITE);
 	for(i = 0;;){
 		if((n = read(0, b+i, sizeof(b)-i)) <= 0)
 			break;

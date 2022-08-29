@@ -130,7 +130,9 @@ reform/shortcuts </dev/kbdtap >/dev/kbdtap
 .I Super+F1/F2
 decreases/increases LCD brightness,
 .I Super+F3/F4
-decreases/increases "master" volume.
+decreases/increases "master" volume,
+.I Super+Escape
+(un)mutes the audio.
 Optionally, a single step amount can be set with
 .I -l
 for LCD light level (default is 5) and
