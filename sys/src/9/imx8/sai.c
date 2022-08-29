@@ -12,8 +12,9 @@ typedef struct Ring Ring;
 
 enum {
 	Byteps = 4,
-	Wmark = 96,
+	Wmark = 8,
 
+	PARAM = 0x04/4,
 	TCSR = 0x08/4,
 		TCSR_TE = 1<<31,
 		TCSR_FR = 1<<25,
@@ -22,14 +23,11 @@ enum {
 		TCSR_FWF = 1<<17,
 		TCSR_FRF = 1<<16, /* watermark hit */
 		TCSR_FEIE = 1<<10,
-		TCSR_FWIE = 1<<9,
 		TCSR_FRIE = 1<<8,
 	TCR1 = 0x0c/4,
 	TCR2 = 0x10/4,
-		TCR2_MSEL_MCLK1 = 1<<26,
 		TCR2_BCP = 1<<25,
 		TCR2_BCD_SLAVE = 0<<24,
-		TCR2_BCD_MASTER = 1<<24,
 	TCR3 = 0x14/4,
 		TCR3_TCE_SHIFT = 16,
 	TCR4 = 0x18/4,
@@ -42,7 +40,6 @@ enum {
 		TCR4_FSE = 1<<3,
 		TCR4_FSP_LOW = 1<<1,
 		TCR4_FSD_SLAVE = 0<<0,
-		TCR4_FSD_MASTER = 1<<0,
 	TCR5 = 0x1c/4,
 		TCR5_WNW_SHIFT = 24,
 		TCR5_W0W_SHIFT = 16,
@@ -67,6 +64,7 @@ struct Ring {
 struct Ctlr {
 	u32int *reg;
 	Audio *adev;
+	int fifosz;
 	int hp;
 
 	Ring w;
@@ -256,7 +254,6 @@ saictl(Audio *adev, void *a, long n, vlong)
 	char *p, *e, *x, *tok[4];
 	Ctlr *ctlr = adev->ctlr;
 	int ntok;
-	u32int v;
 
 	p = a;
 	e = p + n;
@@ -269,15 +266,9 @@ saictl(Audio *adev, void *a, long n, vlong)
 		if(ntok <= 0)
 			continue;
 
-		if(cistrcmp(tok[0], "div") == 0 && ntok >= 2){
-			v = strtoul(tok[1], nil, 0);
-			wr(TCR2, (rd(TCR2) & ~0xff) | (v & 0xff));
-		}else if(cistrcmp(tok[0], "msel") == 0 && ntok >= 2){
-			v = strtoul(tok[1], nil, 0);
-			wr(TCR2, (rd(TCR2) & ~(3<<26)) | (v & 3)<<26);
-		}else if(cistrcmp(tok[0], "reset") == 0){
+		if(cistrcmp(tok[0], "reset") == 0)
 			saireset(ctlr);
-		}else
+		else
 			error(Ebadctl);
 	}
 	return n;
@@ -322,9 +313,9 @@ saiinterrupt(Ureg *, void *arg)
 	if(v & (TCSR_FEF | TCSR_FRF | TCSR_FWF)){
 		r = &ctlr->w;
 		if(ctlr->wactive){
-			if(buffered(r) < 128*Byteps) /* having less than fifo buffered */
+			if(buffered(r) < ctlr->fifosz*Byteps) /* having less than fifo buffered */
 				saistop(ctlr);
-			else if(fifo(ctlr, (128-Wmark)*Byteps) > 0)
+			else if(fifo(ctlr, (ctlr->fifosz-Wmark)*Byteps) > 0)
 				wr(TCSR, v | TCSR_TE | TCSR_FEF);
 		}
 		wakeup(&r->r);
@@ -343,7 +334,7 @@ saistatus(Audio *adev, void *a, long n, vlong)
 	e = s + n;
 	v = rd(TCSR);
 	p = rd(TFR0);
-	s = seprint(s, e, "transmit wfp %d rfp %d delay %d buf %ld avail %ld active %d %s%s%s%s\n",
+	s = seprint(s, e, "transmit wfp %d rfp %d delay %d buf %ld avail %ld active %d%s%s%s%s\n",
 		(p>>TFRx_WFP_SHIFT) & 0xff,
 		(p>>TFRx_RFP_SHIFT) & 0xff,
 		adev->delay,
@@ -391,6 +382,7 @@ saiprobe(Audio *adev)
 	ctlr->w.buf = malloc(ctlr->w.nbuf = 44100*Byteps*2);
 	ctlr->reg = (u32int*)(VIRTIO + 0x8b0000);
 	ctlr->adev = adev;
+	ctlr->fifosz = 1 << ((rd(PARAM)>>8) & 0xf);
 
 	adev->delay = 2048;
 	adev->ctlr = ctlr;
