@@ -27,6 +27,8 @@ v2cb(Tagctx *ctx, char *k, char *v)
 		txtcb(ctx, Tdate, k-1, v);
 	else if(strcmp(k, "RK") == 0 || strcmp(k, "RCK") == 0)
 		txtcb(ctx, Ttrack, k-1, v);
+	else if(strcmp(k, "LEN") == 0)
+		ctx->duration = atoi(v);
 	else if(strcmp(k, "CO") == 0 || strcmp(k, "CON") == 0){
 		for(; v[0]; v++){
 			if(v[0] == '(' && v[1] <= '9' && v[1] >= '0'){
@@ -387,6 +389,8 @@ header:
 
 	if(ver == 2 && (d[5] & (1<<6)) != 0) /* compression */
 		return -1;
+
+	ctx->restart = sizeof(d)+sz;
 
 	if(ver > 2){
 		if((d[5] & (1<<4)) != 0) /* footer */

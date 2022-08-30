@@ -81,6 +81,7 @@ struct Tagctx
 	/* Private, don't touch. */
 	int found;
 	int num;
+	int restart;
 };
 
 /* Parse the file using this function. Returns 0 on success. */

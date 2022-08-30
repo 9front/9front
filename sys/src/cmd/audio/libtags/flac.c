@@ -25,7 +25,7 @@ tagflac(Tagctx *ctx)
 	ctx->duration = g * 1000 / ctx->samplerate;
 
 	/* skip the rest of the stream info */
-	if(ctx->seek(ctx, sz-18, 1) != 8+sz)
+	if(ctx->seek(ctx, sz-18, 1) != ctx->restart+8+sz)
 		return -1;
 
 	for(last = 0; !last;){

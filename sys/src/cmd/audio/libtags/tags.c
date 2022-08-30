@@ -65,6 +65,7 @@ tagsget(Tagctx *ctx)
 	ctx->channels = ctx->samplerate = ctx->bitrate = ctx->duration = 0;
 	ctx->found = 0;
 	ctx->format = Funknown;
+	ctx->restart = 0;
 	res = -1;
 	for(i = 0; i < nelem(g); i++){
 		ctx->num = 0;
@@ -72,7 +73,7 @@ tagsget(Tagctx *ctx)
 			ctx->format = g[i].format;
 			res = 0;
 		}
-		ctx->seek(ctx, 0, 0);
+		ctx->seek(ctx, ctx->restart, 0);
 	}
 
 	return res;
