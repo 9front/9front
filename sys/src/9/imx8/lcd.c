@@ -356,6 +356,11 @@ static u32int *dphy =  (u32int*)(VIRTIO + 0xA00300);
 
 static u32int *lcdif = (u32int*)(VIRTIO + 0x320000);
 
+static struct {
+	Lock;
+	int blank;
+}lcdifirq;
+
 /* shift and mask */
 static u32int
 sm(u32int v, u32int m)
@@ -464,7 +469,8 @@ lcdifinit(struct video_mode *mode)
 	/* enable underflow recovery to fix image shift */
 	wr(lcdif, LCDIF_CTRL1,
 		sm(7, CTRL1_BYTE_PACKING_FORMAT) |
-		CTRL1_RECOVER_ON_UNDERFLOW);
+		CTRL1_RECOVER_ON_UNDERFLOW |
+		CTRL1_CUR_FRAME_DONE_IRQ_EN);
 
 	wr(lcdif, LCDIF_CTRL,
 		CTRL_BYPASS_COUNT |
@@ -828,10 +834,35 @@ backlighton(void)
 	gpioout(GPIO_PIN(1, 10), 1);
 }
 
+static void
+lcdifinterrupt(Ureg *, void *)
+{
+	wr(lcdif, LCDIF_CTRL1_CLR, CTRL1_CUR_FRAME_DONE_IRQ);
+	ilock(&lcdifirq);
+	if(lcdifirq.blank){
+		/* turn off dotclk */
+		wr(lcdif, LCDIF_CTRL_CLR, CTRL_DOTCLK_MODE);
+		/* wait for the fifo to empty */
+		while(rr(lcdif, LCDIF_CTRL) & CTRL_RUN)
+			;
+		lcdifirq.blank = 0;
+	}
+	iunlock(&lcdifirq);
+}
+
 void
 blankscreen(int blank)
 {
+	ilock(&lcdifirq);
+	lcdifirq.blank = blank;
+	if(blank == 0) /* restart lcdif */
+		wr(lcdif, LCDIF_CTRL_SET, CTRL_DOTCLK_MODE | CTRL_RUN);
+	iunlock(&lcdifirq);
+
+	/* toggle panel backlight */
 	gpioout(GPIO_PIN(1, 10), blank == 0);
+	/* toggle PWM2 */
+	mr(pwm2, PWMCR, (blank == 0)*CR_EN, CR_EN);
 }
 
 static void
@@ -890,6 +921,8 @@ lcdinit(void)
 	setclkgate("sim_display.mainclk", 1);
 
 	lcdifreset();
+
+	intrenable(IRQlcdif, lcdifinterrupt, nil, BUSUNKNOWN, "lcdif");
 
 	setclkrate("mipi.core", "system_pll1_div3", 266*Mhz);
 	setclkrate("mipi.CLKREF", "system_pll2_clk", 25*Mhz);
