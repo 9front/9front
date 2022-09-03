@@ -30,7 +30,7 @@
 
 #define	MAXMACH		128			/* max # cpus system can run */
 
-#define KSTACK		(16*KiB)		/* Size of Proc kernel stack */
+#define KSTACK		(8*KiB)			/* Size of Proc kernel stack */
 
 /*
  * Time
