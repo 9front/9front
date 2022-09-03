@@ -311,8 +311,10 @@ addnode(Fs *f, Route **cur, Route *new)
 		 */
 		if((p->type & Rifc) == 0)
 			copygate(p, new);
-		else if(new->type & Rifc)
+		else if(new->type & Rifc){
+			p->type = (p->type & ~Rtrans) | (new->type & Rtrans);
 			p->ref++;
+		}
 		freeroute(new);
 		break;
 	case Roverlaps:
