@@ -312,7 +312,7 @@ addnode(Fs *f, Route **cur, Route *new)
 		if((p->type & Rifc) == 0)
 			copygate(p, new);
 		else if(new->type & Rifc){
-			p->type = (p->type & ~Rtrans) | (new->type & Rtrans);
+			p->type = (p->type & ~(Rproxy|Rtrans)) | (new->type & (Rproxy|Rtrans));
 			p->ref++;
 		}
 		freeroute(new);
@@ -877,6 +877,9 @@ parseroutetype(char *p)
 	case 'p':
 		if(((type ^= Rptpt) & Rptpt) != Rptpt) return -1;
 		break;
+	case 'y':
+		if(((type ^= Rproxy) & Rproxy) != Rproxy) return -1;
+		break;
 	case 't':
 		if(((type ^= Rtrans) & Rtrans) != Rtrans) return -1;
 		break;
@@ -905,6 +908,9 @@ routetype(int type, char p[8])
 
 	if(type & Rptpt)
 		*p++ = 'p';
+
+	if(type & Rproxy)
+		*p++ = 'y';
 
 	if(type & Rtrans)
 		*p++ = 't';

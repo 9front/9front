@@ -420,6 +420,9 @@ multicast route
 .B p
 point-to-point route
 .TP
+.B y
+proxy ARP for this route
+.TP
 .B t
 network source address translation
 .PD
