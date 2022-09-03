@@ -146,7 +146,7 @@ enum {
 };
 
 static int input_clk_freq[] = {
-	[ARM_PLL_CLK] 1500*Mhz, 
+	[ARM_PLL_CLK] 1600*Mhz, 
 	[GPU_PLL_CLK] 1600*Mhz,
 	[VPU_PLL_CLK] 800*Mhz,
 	[DRAM_PLL1_CLK] 800*Mhz,
