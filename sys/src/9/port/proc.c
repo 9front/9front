@@ -899,96 +899,19 @@ wakeup(Rendez *r)
 }
 
 /*
- *  pop a note from the calling process or suicide if theres
- *  no note handler or notify during note handling. 
- *  Called from notify() with up->debug lock held.
- */
-char*
-popnote(Ureg *u)
-{
-	assert(!canqlock(&up->debug));
-
-	up->notepending = 0;
-	if(up->nnote == 0)
-		return nil;
-	assert(up->nnote > 0);
-	assert(up->note[0] != nil);
-
-	/* hold off user notes during note handling */
-	if(up->notified && up->note[0]->flag == NUser)
-		return nil;
-
-	free(up->lastnote);
-	up->lastnote = up->note[0];
-	if(--up->nnote > 0)
-		memmove(&up->note[0], &up->note[1], up->nnote*sizeof(Note*));
-	up->note[up->nnote] = nil;
-
-	if(u != nil && strncmp(up->lastnote->msg, "sys:", 4) == 0){
-		int l = strlen(up->lastnote->msg);
-		assert(l < ERRMAX);
-		snprint(up->lastnote->msg+l, ERRMAX-l, " pc=%#p", u->pc);
-	}
-
-	if(up->notify == nil || up->notified){
-		qunlock(&up->debug);
-		if(up->lastnote->flag == NDebug){
-			up->fpstate &= ~FPillegal;
-			pprint("suicide: %s\n", up->lastnote->msg);
-		}
-		pexit(up->lastnote->msg, up->lastnote->flag!=NDebug);
-	}
-	up->notified = 1;
-
-	return up->lastnote->msg;
-}
-
-/*
  *  if waking a sleeping process, this routine must hold both
  *  p->rlock and r->lock.  However, it can't know them in
  *  the same order as wakeup causing a possible lock ordering
  *  deadlock.  We break the deadlock by giving up the p->rlock
  *  lock if we can't get the r->lock and retrying.
  */
-int
-postnote(Proc *p, int dolock, char *msg, int flag)
+void
+procinterrupt(Proc *p)
 {
-	int s, ret;
 	QLock *q;
-	Note *n;
+	int s;
 
-	if(p == nil)
-		return 0;
-
-	if(dolock)
-		qlock(&p->debug);
-
-	if(p->pid == 0){
-		if(dolock)
-			qunlock(&p->debug);
-		return 0;
-	}
-
-	ret = 0;
-	if(msg != nil){
-		if(flag != NUser && (p->notify == nil || p->notified))
-			freenotes(p);
-		if(p->nnote < NNOTE){
-			if(flag != NUser)
-				n = smalloc(sizeof(Note));
-			else
-				n = malloc(sizeof(Note));
-			if(n != nil){
-				kstrcpy(n->msg, msg, ERRMAX);
-				n->flag = flag;
-				p->note[p->nnote++] = n;
-				ret = 1;
-			}
-		}
-	}
 	p->notepending = 1;
-	if(dolock)
-		qunlock(&p->debug);
 
 	/* this loop is to avoid lock ordering problems. */
 	for(;;){
@@ -1005,7 +928,7 @@ postnote(Proc *p, int dolock, char *msg, int flag)
 		/* try for the second lock */
 		if(canlock(r)){
 			if(p->state != Wakeme || r->p != p)
-				panic("postnote: state %d %d %d", r->p != p, p->r != r, p->state);
+				panic("procinterrupt: state %d %d %d", r->p != p, p->r != r, p->state);
 			p->r = nil;
 			r->p = nil;
 			ready(p);
@@ -1067,7 +990,123 @@ postnote(Proc *p, int dolock, char *msg, int flag)
 		unlock(p->rgrp);
 		break;
 	}
+}
+
+/*
+ *  pop a note from the calling process or suicide if theres
+ *  no note handler or notify during note handling. 
+ *  Called from notify() with up->debug lock held.
+ */
+char*
+popnote(Ureg *u)
+{
+	up->notepending = 0;
+	if(up->nnote == 0)
+		return nil;
+	assert(up->nnote > 0);
+	assert(up->note[0] != nil);
+	assert(up->note[0]->ref > 0);
+
+	/* hold off user notes during note handling */
+	if(up->notified && up->note[0]->flag == NUser)
+		return nil;
+
+	freenote(up->lastnote);
+	up->lastnote = up->note[0];
+	if(--up->nnote > 0)
+		memmove(&up->note[0], &up->note[1], up->nnote*sizeof(Note*));
+	up->note[up->nnote] = nil;
+
+	if(u != nil && up->lastnote->ref == 1 && strncmp(up->lastnote->msg, "sys:", 4) == 0){
+		int l = strlen(up->lastnote->msg);
+		assert(l < ERRMAX);
+		snprint(up->lastnote->msg+l, ERRMAX-l, " pc=%#p", u->pc);
+	}
+
+	if(up->notify == nil || up->notified){
+		qunlock(&up->debug);
+		if(up->lastnote->flag == NDebug){
+			up->fpstate &= ~FPillegal;
+			pprint("suicide: %s\n", up->lastnote->msg);
+		}
+		pexit(up->lastnote->msg, up->lastnote->flag!=NDebug);
+	}
+	up->notified = 1;
+
+	return up->lastnote->msg;
+}
+
+static Note*
+mknote(char *msg, int flag)
+{
+	Note *n;
+
+	n = smalloc(sizeof(Note));
+	kstrcpy(n->msg, msg, ERRMAX);
+	n->flag = flag;
+	n->ref = 1;
+	return n;
+}
+
+int
+pushnote(Proc *p, Note *n)
+{
+	if(p->pid == 0){
+		freenote(n);
+		return 0;
+	}
+	assert(n->ref > 0);
+	if(n->flag != NUser && (p->notify == nil || p->notified))
+		freenotes(p);
+	if(p->nnote < NNOTE){
+		p->note[p->nnote++] = n;
+		procinterrupt(p);
+		return 1;
+	}
+	freenote(n);
+	return 0;
+}
+
+int
+postnote(Proc *p, int dolock, char *msg, int flag)
+{
+	Note *n;
+	int ret;
+
+	if(p == nil)
+		return 0;
+
+	n = mknote(msg, flag);
+	if(dolock)
+		qlock(&p->debug);
+	ret = pushnote(p, n);
+	if(dolock)
+		qunlock(&p->debug);
+
 	return ret;
+}
+
+void
+postnotepg(ulong noteid, char *msg, int flag)
+{
+	Note *n;
+	Proc *p;
+	int i;
+
+	n = mknote(msg, flag);
+	for(i = 0; (p = proctab(i)) != nil; i++){
+		if(p == up)
+			continue;
+		if(p->noteid != noteid || p->kp)
+			continue;
+		qlock(&p->debug);
+		if(p->noteid == noteid){
+			incref(n);
+			pushnote(p, n);
+		}
+		qunlock(&p->debug);
+	}
+	freenote(n);
 }
 
 /*
@@ -1133,10 +1172,18 @@ freebroken(void)
 }
 
 void
+freenote(Note *n)
+{
+	if(n == nil || decref(n))
+		return;
+	free(n);
+}
+
+void
 freenotes(Proc *p)
 {
 	while(p->nnote > 0){
-		free(p->note[--p->nnote]);
+		freenote(p->note[--p->nnote]);
 		up->note[p->nnote] = nil;
 	}
 }
@@ -1253,7 +1300,7 @@ pexit(char *exitstr, int freemem)
 	}
 
 	freenotes(up);
-	free(up->lastnote);
+	freenote(up->lastnote);
 	up->lastnote = nil;
 	up->notified = 0;
 

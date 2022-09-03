@@ -351,24 +351,6 @@ changenoteid(Proc *p, ulong noteid)
 	error(Eperm);
 }
 
-static void
-postnotepg(ulong noteid, char *n, int flag)
-{
-	Proc *p;
-	int i;
-
-	for(i = 0; (p = proctab(i)) != nil; i++){
-		if(p == up)
-			continue;
-		if(p->noteid != noteid || p->kp)
-			continue;
-		qlock(&p->debug);
-		if(p->noteid == noteid)
-			postnote(p, 0, n, flag);
-		qunlock(&p->debug);
-	}
-}
-
 static void clearwatchpt(Proc *p);
 
 static Chan*
@@ -1421,6 +1403,12 @@ parsetime(vlong *rt, char *s)
 static void
 procctlreq(Proc *p, char *va, int n)
 {
+	static Note killnote = {
+		"sys: killed",
+		NExit,
+		1,
+	};
+
 	Segment *s;
 	uintptr npc;
 	int pri;
@@ -1455,12 +1443,14 @@ procctlreq(Proc *p, char *va, int n)
 			break;
 		case Stopped:
 			p->procctl = Proc_exitme;
-			postnote(p, 0, "sys: killed", NExit);
+			incref(&killnote);
+			pushnote(p, &killnote);
 			ready(p);
 			break;
 		default:
 			p->procctl = Proc_exitme;
-			postnote(p, 0, "sys: killed", NExit);
+			incref(&killnote);
+			pushnote(p, &killnote);
 		}
 		break;
 	case CMnohang:
@@ -1542,7 +1532,7 @@ procctlreq(Proc *p, char *va, int n)
 		}
 		break;
 	case CMinterrupt:
-		postnote(p, 0, nil, NUser);
+		procinterrupt(p);
 		break;
 	case CMnointerrupt:
 		if(p->nnote == 0)

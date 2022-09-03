@@ -27,7 +27,13 @@ alarmkproc(void*)
 			if(!canqlock(&rp->debug))
 				break;
 			if(rp->alarm != 0){
-				postnote(rp, 0, "alarm", NUser);
+				static Note alarm = {
+					"alarm",
+					NUser,
+					1,
+				};
+				incref(&alarm);
+				pushnote(rp, &alarm);
 				rp->alarm = 0;
 			}
 			qunlock(&rp->debug);

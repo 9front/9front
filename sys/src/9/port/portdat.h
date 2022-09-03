@@ -314,6 +314,7 @@ struct Note
 {
 	char	msg[ERRMAX];
 	int	flag;			/* whether system posted it */
+	Ref;
 };
 
 enum
@@ -629,7 +630,7 @@ enum
 	TCSys,
 	TCReal,
 
-	NERR = 64,
+	NERR = 32,
 	NNOTE = 5,
 
 	Npriq		= 20,		/* number of scheduler priority levels */
@@ -714,7 +715,7 @@ struct Proc
 	int	procctl;	/* Control for /proc debugging */
 	uintptr	pc;		/* DEBUG only */
 
-	Lock	rlock;		/* sync sleep/wakeup with postnote */
+	Lock	rlock;		/* sync sleep/wakeup with procinterrupt */
 	Rendez	*r;		/* rendezvous point slept on */
 	Rendez	sleep;		/* place for syssleep/debug */
 	int	notepending;	/* note issued but not acted on */

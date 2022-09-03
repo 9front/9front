@@ -600,7 +600,7 @@ sysexec(va_list list)
 	up->setargs = 0;
 
 	freenotes(up);
-	free(up->lastnote);
+	freenote(up->lastnote);
 	up->lastnote = nil;
 	up->notify = nil;
 	up->notified = 0;
