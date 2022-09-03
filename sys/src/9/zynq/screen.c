@@ -155,7 +155,7 @@ mousectl(Cmdbuf *cb)
 			incref(s);
 		}
 		if(hwcursor.proc != nil){
-			postnote(hwcursor.proc, 0, "die", NUser);
+			postnote(hwcursor.proc, 1, "die", NUser);
 			while(hwcursor.proc != nil)
 				sched();
 		}
@@ -271,7 +271,7 @@ fbctlwrite(Chan*, void *a, long n, vlong)
 			incref(s);
 		}
 		if(fbscreen.proc != nil){
-			postnote(fbscreen.proc, 0, "die", NUser);
+			postnote(fbscreen.proc, 1, "die", NUser);
 			while(fbscreen.proc != nil)
 				sched();
 		}
