@@ -90,31 +90,10 @@ enum
 
 	MiiAddr		= 0x71,			/* MII address */
 	MiiData		= 0x72,			/* MII data */
-	PhySts0		= 0x6e,			/* Phy Status */
-		PhySts_TxF			= 0x01,
-		PhySts_RxF			= 0x02,
-		PhySts_Speed10		= 0x04,
-		PhySts_Speed1000	= 0x08,
-		PhySts_Fd			= 0x10,
-		PhySts_Link			= 0x40,
-		PhySts_RestSts		= 0x80,
 
 	/* 64 bits related registers. */
 	TxDescHi	= 0x18,
 	DataBufHi	= 0x1d,
-
-	/* CAM Registers */
-	Cam0 		= 0x10,
-	CamAddr		= 0x68,
-		CamAddr_Enable	= 0x80,
-	CamCtl		= 0x69,
-		CamCtl_PageSel	= 0xc0,
-		CamCtl_Write	= 0x04,
-		CamCtl_Read		= 0x08,
-	CamPageSel	= 0x69,			/* Alias of CamCtl for better readability */
-		CamPageSel_Mar		= 0x00,
-		CamPageSel_CamMask	= 0x40,
-		CamPageSel_CamData	= 0x80,
 
 	/* Rx engine registers. */
 	RxDescLo	= 0x38,			/* Rx descriptor base address (lo 32 bits) */
@@ -332,9 +311,6 @@ struct Ctlr
 	int	active;
 	uchar	ea[6];
 
-	uchar maddrs[32][Eaddrlen];
-	uint camidx;
-
 	RxDesc*	rx_ring;
 	Block*	rx_blocks[RxCount];
 
@@ -363,33 +339,6 @@ static Ctlr* vgbetail;
 #define ciow(c, r, b)	wiow(c, r, riob(c, r) & ~b)
 #define ciol(c, r, b)	wiol(c, r, riob(c, r) & ~b)
 
-
-static void
-vgbemiip(Ctlr* ctlr, int on)
-{
-	int i;
-
-	wiob(ctlr, MiiCmd, 0);
-	wiob(ctlr, MiiAddr, 0x80);
-
-	for(i = 0; i < 10000; i++){
-		if(riob(ctlr, MiiStatus) & MiiStatus_idle)
-			break;
-		microdelay(1);
-	}
-
-	if(on == 0)
-		return;
-
-	wiob(ctlr, MiiCmd, MiiCmd_auto);
-
-	for(i = 0; i < 10000; i++){
-                if(riob(ctlr, MiiStatus) & MiiStatus_idle)
-                        break;
-                microdelay(1);
-        }
-}
-
 static int
 vgbemiiw(Mii* mii, int phy, int addr, int data)
 {
@@ -400,8 +349,6 @@ vgbemiiw(Mii* mii, int phy, int addr, int data)
 		return -1;
 
 	ctlr = mii->ctlr;
-
-	vgbemiip(ctlr, 0);
 
 	wiob(ctlr, MiiAddr, addr);
 	wiow(ctlr, MiiData, (ushort) data);
@@ -416,8 +363,6 @@ vgbemiiw(Mii* mii, int phy, int addr, int data)
 		return -1;
 	}
 
-	vgbemiip(ctlr, 1);
-
 	return 0;
 }
 
@@ -426,14 +371,11 @@ vgbemiir(Mii* mii, int phy, int addr)
 {
 	Ctlr* ctlr;
 	int i;
-	u16int r;
 
 	if(phy != 1)
 		return -1;
 
 	ctlr = mii->ctlr;
-
-	vgbemiip(ctlr, 0);
 
 	wiob(ctlr, MiiAddr, addr);
 	wiob(ctlr, MiiCmd, MiiCmd_read);
@@ -447,11 +389,7 @@ vgbemiir(Mii* mii, int phy, int addr)
 		return -1;
 	}
 
-	r = riow(ctlr, MiiData);
-
-	vgbemiip(ctlr, 1);
-
-	return r;
+	return riow(ctlr, MiiData);
 }
 
 static long
@@ -714,11 +652,9 @@ vgbeinterrupt(Ureg *, void* arg)
 	if(status & Isr_PhyIntr)
 		print("vgbe: irq: PHY interrupt\n");
 
-	if(status & Isr_LinkStatus){
-		edev->link = (riob(ctlr, PhySts0) & PhySts_Link) ? 1 : 0;
-		vgbemiip(ctlr, 1);
+	if(status & Isr_LinkStatus)
 		print("vgbe: irq: link status change\n");
-	}
+
 	if(status & Isr_RxNoDesc)
 		print("vgbe: irq: ran out of Rx descriptors\n");
 
@@ -842,21 +778,9 @@ vgbeattach(Ether* edev)
 	for(i = 0; i < RxCount; i++)
 		vgbenewrx(ctlr, i);
 
-
-	/* Clear CAM Filter */
-	ciob(ctlr, CamCtl, CamCtl_PageSel);
-	siob(ctlr, CamPageSel, CamPageSel_CamMask);
-	wiob(ctlr, CamAddr, CamAddr_Enable);
-	for(i = 0; i < 8; i++)
-		wiob(ctlr, Cam0+i, 0);
-
-	wiob(ctlr, CamAddr, 0);
-	ciob(ctlr, CamCtl, CamCtl_PageSel);
-	siob(ctlr, CamPageSel, CamPageSel_Mar);
-
 	/* Init Rx MAC. */
 	wiob(ctlr, RxControl,
-		RxControl_BroadCast|RxControl_UniCast);
+		RxControl_MultiCast|RxControl_BroadCast|RxControl_UniCast);
 	wiob(ctlr, RxConfig, RxConfig_VlanOpt0);
 
 	/* Load Rx ring. */
@@ -901,7 +825,7 @@ vgbeattach(Ether* edev)
 static void
 vgbereset(Ctlr* ctlr)
 {
-	MiiPhy* phy;
+//	MiiPhy* phy;
 	int timeo, i;
 
 //	print("vgbe: reset\n");
@@ -974,10 +898,8 @@ vgbereset(Ctlr* ctlr)
 		return;
 	}
 
-	phy = ctlr->mii->curphy;
-	print("vgbe: phy:oui %#x\n", phy->oui);
-
-	vgbemiip(ctlr, 1);
+//	phy = ctlr->mii->curphy;
+//	print("vgbe: phy:oui %#x\n", phy->oui);
 }
 
 static void
@@ -1170,63 +1092,13 @@ vgbectl(Ether* edev, void* buf, long n)
 static void
 vgbepromiscuous(void* arg, int on)
 {
-	Ether* edev;
-	Ctlr* ctlr;
-
-	edev = arg;
-	ctlr = edev->ctlr;
-	if(on)
-	   siob(ctlr, RxControl, RxControl_Promisc | RxControl_MultiCast);
-	else
-	   ciob(ctlr, RxControl, RxControl_Promisc | RxControl_MultiCast);
+	USED(arg, on);
 }
 
 /* multicast already on, don't need to do anything */
 static void
-vgbemulticast(void* ether, uchar* ea, int add)
+vgbemulticast(void*, uchar*, int)
 {
-	Ether* edev;
-	Ctlr* ctlr;
-	int i;
-
-	edev = ether;
-	ctlr = edev->ctlr;
-
-	if(!add || ctlr->camidx == 32)
-		return;
-
-	for(i = 0; i < ctlr->camidx; i++){
-		if(memcmp(ea, ctlr->maddrs[i], Eaddrlen) == 0)
-			return;
-	}
-
-	memmove(ctlr->maddrs[i], ea, Eaddrlen);
-
-	ciob(ctlr, CamCtl, CamCtl_PageSel);
- 	siob(ctlr, CamPageSel, CamPageSel_CamData);
-
-	wiob(ctlr, CamAddr, CamAddr_Enable | ctlr->camidx);
-
-	for(i = 0; i < Eaddrlen; i++)
-		wiob(ctlr, Cam0+i, ea[i]);
-
-	siob(ctlr, CamCtl, CamCtl_Write);
-
-	for(i = 0; i < 10000; i++){
-		microdelay(1);
-		if((riob(ctlr, CamCtl) & CamCtl_Write) == 0)
-			break; 	
-	}
-	
-	ciob(ctlr, CamCtl, CamCtl_PageSel);
-	siob(ctlr, CamPageSel, CamPageSel_CamMask);
-	siob(ctlr, Cam0+(ctlr->camidx/8), 1<<(ctlr->camidx&7));
-
-	ctlr->camidx++;
-  
-	wiob(ctlr, CamAddr, 0);
-	ciob(ctlr, CamCtl, CamCtl_PageSel);
-	siob(ctlr, CamPageSel, CamPageSel_Mar);
 }
 
 static int
@@ -1262,12 +1134,11 @@ vgbepnp(Ether* edev)
 	edev->irq = ctlr->pdev->intl;
 	edev->tbdf = ctlr->pdev->tbdf;
 	edev->mbps = 1000;
-	edev->link = (riob(ctlr, PhySts0) & PhySts_Link) ? 1 : 0;
 	memmove(edev->ea, ctlr->ea, Eaddrlen);
 	edev->attach = vgbeattach;
 	edev->transmit = vgbetransmit;
 	edev->ifstat = vgbeifstat;
-	edev->promiscuous = vgbepromiscuous;
+//	edev->promiscuous = vgbepromiscuous;
 	edev->multicast = vgbemulticast;
 //	edev->shutdown = vgbeshutdown;
 	edev->ctl = vgbectl;
