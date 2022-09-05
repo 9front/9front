@@ -356,6 +356,12 @@ static u32int *dphy =  (u32int*)(VIRTIO + 0xA00300);
 
 static u32int *lcdif = (u32int*)(VIRTIO + 0x320000);
 
+static I2Cdev *bridge;
+
+static struct {
+	int blank;
+}lcdifirq;
+
 /* shift and mask */
 static u32int
 sm(u32int v, u32int m)
@@ -464,7 +470,8 @@ lcdifinit(struct video_mode *mode)
 	/* enable underflow recovery to fix image shift */
 	wr(lcdif, LCDIF_CTRL1,
 		sm(7, CTRL1_BYTE_PACKING_FORMAT) |
-		CTRL1_RECOVER_ON_UNDERFLOW);
+		CTRL1_RECOVER_ON_UNDERFLOW |
+		CTRL1_CUR_FRAME_DONE_IRQ_EN);
 
 	wr(lcdif, LCDIF_CTRL,
 		CTRL_BYPASS_COUNT |
@@ -508,13 +515,13 @@ lcdifinit(struct video_mode *mode)
 }
 
 static void
-bridgeinit(I2Cdev *dev, struct video_mode *mode, struct dsi_cfg *cfg)
+bridgeinit(struct video_mode *mode, struct dsi_cfg *cfg)
 {
 	int n;
 
 	// soft reset
-	i2cwritebyte(dev, 0x09, 1);
-	while(i2creadbyte(dev, 0x09) & 1)
+	i2cwritebyte(bridge, 0x09, 1);
+	while(i2creadbyte(bridge, 0x09) & 1)
 		;
 
 	// clock derived from dsi clock
@@ -526,56 +533,56 @@ bridgeinit(I2Cdev *dev, struct video_mode *mode, struct dsi_cfg *cfg)
 	case 486:	n = 3 << 1; break;
 	case 461:	n = 4 << 1; break;
 	}
-	i2cwritebyte(dev, 0x0a, n);
+	i2cwritebyte(bridge, 0x0a, n);
 
 	// single channel A
 	n = 1<<5 | (cfg->lanes-4)<<3 | 3<<1;
-	i2cwritebyte(dev, 0x10, n);
+	i2cwritebyte(bridge, 0x10, n);
 
 	// Enhanced framing and ASSR
-	i2cwritebyte(dev, 0x5a, 0x05);
+	i2cwritebyte(bridge, 0x5a, 0x05);
 
 	// 2 DP lanes w/o SSC
-	i2cwritebyte(dev, 0x93, 0x20);
+	i2cwritebyte(bridge, 0x93, 0x20);
 
 	// 2.7Gbps DP data rate
-	i2cwritebyte(dev, 0x94, 0x80);
+	i2cwritebyte(bridge, 0x94, 0x80);
 
 	// Enable PLL and confirm PLL is locked
-	i2cwritebyte(dev, 0x0d, 0x01);
+	i2cwritebyte(bridge, 0x0d, 0x01);
 
 	// wait for PLL to lock
-	while((i2creadbyte(dev, 0x0a) & 0x80) == 0)
+	while((i2creadbyte(bridge, 0x0a) & 0x80) == 0)
 		;
 
 	// Enable ASSR on display
-	i2cwritebyte(dev, 0x64, 0x01);
-	i2cwritebyte(dev, 0x75, 0x01);
-	i2cwritebyte(dev, 0x76, 0x0a);
-	i2cwritebyte(dev, 0x77, 0x01);
-	i2cwritebyte(dev, 0x78, 0x81);
+	i2cwritebyte(bridge, 0x64, 0x01);
+	i2cwritebyte(bridge, 0x75, 0x01);
+	i2cwritebyte(bridge, 0x76, 0x0a);
+	i2cwritebyte(bridge, 0x77, 0x01);
+	i2cwritebyte(bridge, 0x78, 0x81);
 
 	// Train link and confirm trained
-	i2cwritebyte(dev, 0x96, 0x0a);
-	while(i2creadbyte(dev, 0x96) != 1)
+	i2cwritebyte(bridge, 0x96, 0x0a);
+	while(i2creadbyte(bridge, 0x96) != 1)
 		;
 
 	// video timings
-	i2cwritebyte(dev, 0x20, mode->hactive & 0xFF);
-	i2cwritebyte(dev, 0x21, mode->hactive >> 8);
-	i2cwritebyte(dev, 0x24, mode->vactive & 0xFF);
-	i2cwritebyte(dev, 0x25, mode->vactive >> 8);
-	i2cwritebyte(dev, 0x2c, mode->hspw);
-	i2cwritebyte(dev, 0x2d, mode->hspw>>8 | (mode->hsync_pol=='-')<<7);
-	i2cwritebyte(dev, 0x30, mode->vspw);
-	i2cwritebyte(dev, 0x31, mode->vspw>>8 | (mode->vsync_pol=='-')<<7);
-	i2cwritebyte(dev, 0x34, mode->hblank - mode->hspw - mode->hso);
-	i2cwritebyte(dev, 0x36, mode->vblank - mode->vspw - mode->vso);
-	i2cwritebyte(dev, 0x38, mode->hso);
-	i2cwritebyte(dev, 0x3a, mode->vso);
+	i2cwritebyte(bridge, 0x20, mode->hactive & 0xFF);
+	i2cwritebyte(bridge, 0x21, mode->hactive >> 8);
+	i2cwritebyte(bridge, 0x24, mode->vactive & 0xFF);
+	i2cwritebyte(bridge, 0x25, mode->vactive >> 8);
+	i2cwritebyte(bridge, 0x2c, mode->hspw);
+	i2cwritebyte(bridge, 0x2d, mode->hspw>>8 | (mode->hsync_pol=='-')<<7);
+	i2cwritebyte(bridge, 0x30, mode->vspw);
+	i2cwritebyte(bridge, 0x31, mode->vspw>>8 | (mode->vsync_pol=='-')<<7);
+	i2cwritebyte(bridge, 0x34, mode->hblank - mode->hspw - mode->hso);
+	i2cwritebyte(bridge, 0x36, mode->vblank - mode->vspw - mode->vso);
+	i2cwritebyte(bridge, 0x38, mode->hso);
+	i2cwritebyte(bridge, 0x3a, mode->vso);
 
 	// Enable video stream, ASSR, enhanced framing
-	i2cwritebyte(dev, 0x5a, 0x0d);
+	i2cwritebyte(bridge, 0x5a, 0x0d);
 }
 
 static char*
@@ -629,18 +636,18 @@ parseedid128(struct video_mode *mode, uchar edid[128])
 }
 
 static char*
-getmode(I2Cdev *dev, struct video_mode *mode)
+getmode(struct video_mode *mode)
 {
 	static uchar edid[128];
 	static I2Cdev aux;
 
-	aux.bus = dev->bus;
+	aux.bus = bridge->bus;
 	aux.addr = 0x50;
 	aux.subaddr = 1;
 	aux.size = sizeof(edid);
 
 	/* enable passthru mode for address 0x50 (EDID) */
-	i2cwritebyte(dev, 0x60, aux.addr<<1 | 1);
+	i2cwritebyte(bridge, 0x60, aux.addr<<1 | 1);
 	addi2cdev(&aux);
 
 	if(i2crecv(&aux, edid, sizeof(edid), 0) != sizeof(edid))
@@ -828,15 +835,41 @@ backlighton(void)
 	gpioout(GPIO_PIN(1, 10), 1);
 }
 
+static void
+blankirq(Ureg *, void *)
+{
+	wr(lcdif, LCDIF_CTRL1_CLR, CTRL1_CUR_FRAME_DONE_IRQ);
+
+	if(lcdifirq.blank != 0){
+		lcdifirq.blank = 0;
+		wr(lcdif, LCDIF_CTRL_CLR, CTRL_DOTCLK_MODE);
+	}
+}
+
 void
 blankscreen(int blank)
 {
+	if(blank == 0){
+		setclkgate("disp.axi_clk", 1);
+		setclkgate("sim_display.mainclk", 1);
+		wr(lcdif, LCDIF_CTRL_SET, CTRL_DOTCLK_MODE);
+		wr(lcdif, LCDIF_CTRL_SET, CTRL_RUN);
+	}
+
 	/* panel backlight */
 	gpioout(GPIO_PIN(1, 10), blank == 0);
 	/* PWM2 */
 	mr(pwm2, PWMCR, (blank == 0)*CR_EN, CR_EN);
 	/* bridge output */
-	i2cwritebyte(i2cdev(i2cbus("i2c4"), 0x2c), 0x5a, blank == 0 ? 0x0d : 0x05);
+	i2cwritebyte(bridge, 0x5a, blank == 0 ? 0x0d : 0x05);
+
+	if(blank){
+		lcdifirq.blank = 1;
+		while(rr(lcdif, LCDIF_CTRL) & CTRL_RUN)
+			;
+		setclkgate("sim_display.mainclk", 0);
+		setclkgate("disp.axi_clk", 0);
+	}
 }
 
 static void
@@ -857,8 +890,9 @@ lcdinit(void)
 {
 	struct dsi_cfg dsi_cfg;
 	struct video_mode mode;
-	I2Cdev *bridge;
 	char *err;
+
+	intrenable(IRQlcdif, blankirq, nil, BUSUNKNOWN, "lcdif");
 
 	/* GPR13[MIPI_MUX_SEL]: 0 = LCDIF, 1 = DCSS */
 	iomuxgpr(13, 0, 1<<2);
@@ -922,7 +956,7 @@ lcdinit(void)
 	 * get mode information from EDID, this can only be done after the clocks
 	 * are generated by the DPHY and the clock resets have been released.
 	 */
-	err = getmode(bridge, &mode);
+	err = getmode(&mode);
 	if(err != nil)
 		goto out;
 
@@ -943,7 +977,7 @@ lcdinit(void)
 	mr(resetc, SRC_MIPIPHY_RCR, RCR_MIPI_DSI_DPI_RESET_N, RCR_MIPI_DSI_DPI_RESET_N);
 
 	/* enable display port bridge */
-	bridgeinit(bridge, &mode, &dsi_cfg);
+	bridgeinit(&mode, &dsi_cfg);
 
 	/* send the pixels */
 	lcdifinit(&mode);
