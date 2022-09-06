@@ -181,7 +181,7 @@ git/pull, git/rm, git/serve
 .I filters
 ]
 [
-.I [files...]
+.I file...
 ]
 
 .SH DESCRIPTION
@@ -209,7 +209,7 @@ This suite of
 tools provides a file interface to the
 .I .git
 directory mounted on
-.I $repo/.git/fs.
+.IR $repo/.git/fs .
 Modifications to the repository are done directly to the
 .I .git
 directory, and are reflected in the file system interface.
@@ -228,7 +228,7 @@ Passing the
 .B -b
 option will cause the repository to be initialized as a bare repository.
 Passing the
-.B -u
+. -u
 .I upstream
 option will cause the upstream to be configured to
 .I upstream.
@@ -244,7 +244,7 @@ The first argument is the repository to clone.
 The second argument, optionally, specifies the location to clone into.
 If not specified, the repository will be cloned into the last path component
 of the clone source, with the
-.I .git
+.B .git
 stripped off if present.
 
 .PP
@@ -255,20 +255,23 @@ the origin configured in
 .I .git/config,
 and only the changes on the current branch are pushed.
 When passed the
-.I -a
+.B -a
 option, all branches are pushed.
 When passed the
-.I -u upstream
+.B -u
+.I upstream
 option, the changes are pushed to
 .I upstream
 instead of the configured origin.
 When given the
-.I -r
+.B -r
 option, the branch is deleted from origin, instead of updated.
 
 .PP
 .B Git/revert
-restores the named files from HEAD. When passed the -c flag, restores files from
+restores the named files from HEAD. When passed the
+.B -c
+flag, restores files from
 the named commit.
 
 .PP
@@ -277,18 +280,20 @@ behaves in a similar manner to git/push, however it gets changes from
 the upstream repository.
 After fetching, it checks out the changes into the working directory.
 When passed the
-.I -f
+.B -f
 option, the update of the working copy is suppressed.
 When passed the
-.I -q
+.B -q
 option, the listing of changes is silenced.
 When passed the
-.I -u upstream
+.B -u
+.I upstream
 option, the changes are pulled from
 .I upstream
 instead of the configured origin.
 when passed the
-.I -b branch
+.B -b
+.I branch
 option, it only pulls changes related to
 .IR branch .
 
@@ -299,80 +304,83 @@ serves repositories using the
 protocol over stdin.
 By default, it serves them read-only.
 The 
-.I -w
+.B -w
 flag, it allows pushing into repositories.
 The
-.I -r
+.B -r
 .B path
 flag serves repositories relative to
-.BR path .
+.IR path .
 
 .PP
 .B Git/fs 
-serves a file system on $repo/.git/fs.
+serves a file system on
+.IR $repo/.git/fs .
 For full documentation, see
 .IR gitfs (4)
 
 .PP
 .B Git/add
 adds a file to the list of tracked files. When passed the
-.I -r
+.B -r
 flag, the file is removed from the list of tracked files.
 The copy of the file in the repository is left untouched.
 .PP
 .B Git/rm
 is an alias for
-.IR git/add\ -r .
+.I git/add
+.BR -r .
 
 .PP
 .B Git/commit
 creates a new commit consisting of all changes to the specified files.
 By default, an editor is opened to prepare the commit message.
-The
-.I -m
+The/ 
+.B -m
 flag supplies the commit message directly.
 The
-.I -r
+.B -r
 flag revises the contents of the previous commit, reusing the message.
 The
-.I -e
+.B -e
 flag opens an editor to finalize the commit message, regardless of
 whether or not it was specified explicitly or reused.
 To amend a commit message,
-.I -r
+.B -r
 can be used in conjuction with
-.I -m
+.B -m
 or
-.IR -e .
+.BR -e .
 
 .PP
 .B Git/branch
 is used to list or switch branches.
 When invoked with no arguments, it lists the current branch.
 To list all branches, pass the
-.I -a
+.B -a
 option.
 To switch between branches, pass a branch name.
 When passed the
-.I -n
+.B -n
 option, the branch will be created, overwriting existing branch.
 When passed the
-.I -b base
+.B -b
+.I base
 option, the branch created is based off of
 .I base
 instead of
-.I HEAD.
+.IR HEAD .
 When passed the
-.I -s
+.B -s
 option, the branch is created but the files are not checked out.
 When passed the
-.I -d
+.B -d
 option, the branch is deleted.
 .PP
 When switching branches, git/branch will refuse to clobber
 modificiations.
 Passing the
-.I -m
+.B -m
 option will cause git9 to attempt to merge the changes between
 the branches.
 
@@ -382,18 +390,22 @@ shows a history of the current branch.
 When passed a list of files, only commits affecting
 those files are shown.
 The
-.I -c commit
-option logs starting from the provided commit, instead of HEAD.
+.B -c
+.I commit
+option logs starting from the provided commit, instead of
+.IR HEAD .
 The
-.I -s
+.B -s
 option shows a summary of the commit, instead of the full message.
 The
-.I -n count
+.B -n
+.I count
 option stops printing messages after
 .I count
 messages.
 The
-.I -e expr
+.B -e
+.I expr
 option shows commits matching the query expression provided.
 The expression is in the syntax of
 .B git/query.
@@ -405,13 +417,14 @@ the
 .I HEAD
 commit.
 When passed the
-.I -c base
+.B -c
+.I base
 option, the diff is computed against
 .I base
 instead of
 .I HEAD.
 When passed the
-.I -s
+.B -s
 option, only the file statuses are
 printed.
 
@@ -429,7 +442,7 @@ date information.
 .PP
 .B Git/merge
 takes two branches and merges them filewise using
-.I ape/diff3.
+.IR ape/diff3 .
 The next commit made will be a merge commmit.
 
 .PP
@@ -438,14 +451,14 @@ takes one branch and moves it onto another.
 On error, the remaining commits to rebase are
 saved, and can be resumed once the conflict is
 resolved using the
-.I -r
+.B -r
 option.
 If the rebase is to be aborted, the
-.I -a
+.B -a
 option will clean up the in progress rebase
 and reset the state of the branch.
 The
-.I -i
+.B -i
 option will open an editor to modify the todo-list before the rebase
 begins.
 
@@ -478,24 +491,24 @@ is a tool for querying the git configuration.
 The configuration key is provided as a dotted string. Spaces
 are accepted. For example, to find the URL of the origin
 repository, one might pass
-.I 'remote\ "origin".url'.
+.IR 'remote\ "origin".url'.
 When given the
-.I -r
+.B -r
 option, the root of the current repository is printed.
 
 .B Git/query
 takes an expression describing a commit, or set of commits,
 and resolves it to a list of commits.
 The
-.I -r
+.B -r
 option reverses the order of the commit list.
 With the
-.I -p
+.B -p
 option, instead of printing the commit hashes, the full
 path to their
 .B git/fs
 path is printed. With the
-.I -c
+.B -c
 option, the query must resolve to two commits. The blobs
 that have changed in the commits are printed.
 
@@ -504,13 +517,13 @@ that have changed in the commits are printed.
 provides a tool for walking the list of tracked objects and printing their status.
 With no arguments, it prints a list of paths prefixed with the status character.
 When given the
-.I -c
+.B -c
 character, only the paths are printed.
 When given the
-.I -q
+.B -q
 option, all output is suppressed, and only the status is printed.
 When given the
-.I -f
+.B -f
 option, the output is filtered by status code, and only matching items are printed.
 
 .PP
@@ -565,7 +578,7 @@ but not reachable from
 
 .SH PROTOCOLS
 .PP
-Git9 supports URL schemes of the format
+Git supports URL schemes of the format
 .BR transport://dial/repo/path .
 The transport portion specifies the protocol to use.
 If the transport portion is omitted, then the transport used is

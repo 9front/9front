@@ -16,15 +16,18 @@ git/fs
 .SH DESCRIPTION
 
 .PP
-Git/fs serves a file system interface to a git repository in the
+.I Git/fs
+serves a file system interface to a git repository in the
 current directory.
 This file system provides a read-only view into the repository contents.
 By default, it is mounted on
 .B $repo/.git/fs.
-It does not cache mutable data, so any changes to the git repository will immediately be reflected in git/fs.
+It does not cache mutable data, so any changes to the git repository will immediately be reflected in
+.IR git/fs .
 
 .PP
-Git/fs serves a few levels of hierarchy.
+.I Git/fs
+serves a few levels of hierarchy.
 The top level contains the following files and directories:
 
 .TP
@@ -74,15 +77,6 @@ hierarchy are the same as the date of the commit.
 .PP
 Trees are presented as directory listings, and blobs
 as files.
-The repository controls the user permissions.
-The group and world permissions are derived by masking
-the user permissions with the permissions of the
-.I .git
-directory.
-The user and group presented is the same as the user and
-group of the
-.I .git
-directory.
 
 .SH FILES
 .TP
@@ -95,7 +89,7 @@ Used to populate
 .B $repo/.git/fs/HEAD
 .TP
 .git/config
-The per-repository configuation for git tools.
+The per-repository configuration for git tools.
 .TP
 .B $home/lib/git/config
 The global configuration for git tools.
@@ -106,17 +100,16 @@ The global configuration for git tools.
 
 .SH "SEE ALSO"
 .IR git (1)
+.IR hg (1)
+.IR hgfs (4)
 
 .SH BUGS
 Symlinks are only partially supported.
-They will be followed when reading, but a commit that
-modifies a symlink is an error.
+Symlinks are treated as regular files when reading.
+Modifying symlinks is unsupported.
 
 .PP
-For efficiency, git/fs only loads repo permissions at startup
-
-.PP
-There is no way to inspect the raw objects.
-Inspecting raw objects would be useful for debugging.
+There is no way to inspect the raw objects. This is
+a feature that would be useful for debugging.
 
 
