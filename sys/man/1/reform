@@ -167,11 +167,16 @@ with
 MNT Reform 2 support first appeared in 9front (August, 2022).
 .SH BUGS
 Only 44100Hz (default) and 48000Hz sample rates are supported with
-.IR audio ,
+.BR audio ,
 recording is not implemented.
 .PP
-.I Light
+.B Light
 was chosen as a shorter alternative to
-.IR brightness .
+.BR brightness .
 In the future it might support controlling keyboard and trackball
 light levels.
+.PP
+Values displayed in the
+.B battery
+file are not precise, cell capacities are hardcoded in the System
+Controller firmware.
