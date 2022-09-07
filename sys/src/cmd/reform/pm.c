@@ -9,8 +9,17 @@ enum
 	Mhz = 1000*1000,
 	Pwmsrcclk = 25*Mhz,
 
+	Scharge = 0,
+	Sovervolted,
+	Scooldown,
+	Sundervolted,
+	Smissing,
+	Sfullycharged,
+	Spowersave,
+
 	Light = 1,
 	Temp,
+	Battery,
 
 	PWMSAR = 0x0c/4,
 	PWMPR = 0x10/4,
@@ -39,10 +48,32 @@ enum
 	TMUTTR2CR = 0xf18/4,
 	TMUTTR3CR = 0xf1c/4,
 		CR_CAL_PTR_SHIFT = 16,
-	
+
+	SPIx_RXDATA = 0x00/4,
+	SPIx_TXDATA = 0x04/4,
+	SPIx_CONREG = 0x08/4,
+		CON_BURST_LENGTH = 1<<20,
+		CON_PRE_DIVIDER = 1<<12,
+		CON_POST_DIVIDER = 1<<8,
+		CON_CHAN_MASTER = 1<<4,
+		CON_XCH = 1<<2,
+		CON_EN = 1<<0,
+	SPIx_CONFIGREG = 0x0c/4,
+		CONFIG_SCLK_CTL_LOW = 0<<20,
+		CONFIG_DATA_CTL_HIGH = 0<<16,
+		CONFIG_SS_POL_LOW = 0<<12,
+		CONFIG_SS_CTL_NCSS = 1<<8,
+		CONFIG_SCLK_POL_HIGH = 0<<4,
+		CONFIG_SCLK_PHA_1 = 1<<0,
+	SPIx_INTREG = 0x10/4,
+	SPIx_STATREG = 0x18/4,
+		STAT_TC = 1<<7,
+		STAT_RR = 1<<3,
+		STAT_TE = 1<<0,
+	SPIx_PERIODREG = 0x1c/4,
 };
 
-static u32int *pwm2, *tmu;
+static u32int *pwm2, *tmu, *spi2;
 static char *uid = "pm";
 
 static void
@@ -149,6 +180,107 @@ tmuinit(void)
 }
 
 static void
+lpccall(char cmd, u8int arg, void *ret)
+{
+	u32int con;
+	int i;
+
+	con =
+		/* 8 bits burst */
+		CON_BURST_LENGTH*(8-1) |
+		/* clk=25Mhz, pre=1, post=2⁶ → 25Mhz/1/2⁶ ≲ 400kHz */
+		CON_PRE_DIVIDER*(1-1) | CON_POST_DIVIDER*6 |
+		/* master mode on channel 0 */
+		CON_CHAN_MASTER<<0 |
+		/* enable */
+		CON_EN;
+	wr(spi2, SPIx_CONREG, con);
+
+	wr(spi2, SPIx_CONFIGREG,
+		/* defaults */
+		CONFIG_SCLK_CTL_LOW |
+		CONFIG_DATA_CTL_HIGH |
+		CONFIG_SS_POL_LOW |
+		CONFIG_SCLK_POL_HIGH |
+		/* tx shift - rising edge SCLK; tx latch - falling edge */
+		CONFIG_SCLK_PHA_1 |
+		CONFIG_SS_CTL_NCSS);
+
+	wr(spi2, SPIx_TXDATA, 0xb5);
+	wr(spi2, SPIx_TXDATA, cmd);
+	wr(spi2, SPIx_TXDATA, arg);
+	wr(spi2, SPIx_CONREG, con | CON_XCH);
+
+	/*
+	 * give enough time to send and for LPC to process
+	 * 50ms seems safe but add more just in case
+	 */
+	sleep(75);
+	/* LPC buffers 3 bytes without responding, ignore */
+	for(i = 0; i < 3; i++)
+		rd(spi2, SPIx_RXDATA);
+
+	/*
+	 * at this point LPC hopefully is blocked waiting for
+	 * chip select to go active
+	 */
+
+	/* expecting 8 bytes, start the exchange */
+	for(i = 0; i < 8; i++)
+		wr(spi2, SPIx_TXDATA, 0);
+	wr(spi2, SPIx_CONREG, con | CON_XCH);
+
+	for(i = 0; i < 8; i++){
+		do{
+			sleep(10);
+		}while((rd(spi2, SPIx_STATREG) & STAT_RR) == 0);
+		((u8int*)ret)[i] = rd(spi2, SPIx_RXDATA);
+	}
+
+	wr(spi2, SPIx_CONREG, con & ~CON_EN);
+}
+
+static int
+readbattery(char *buf, int sz)
+{
+	u8int st[8], ch[8];
+	char *state;
+	s16int current;
+
+	lpccall('c', 0, ch);
+	lpccall('q', 0, st);
+	current = (s16int)(st[2] | st[3]<<8);
+
+	state = "unknown";
+	if(st[5] == Scharge){
+		if(current < 0)
+			state = "charging";
+		else if(current > 0)
+			state = "discharging";
+	}else{
+		switch(st[5]){
+		case Sfullycharged: state = "full"; break;
+		case Smissing: state = "missing"; break;
+		case Sovervolted: state = "overvolted"; break;
+		case Scooldown: state = "cooldown"; break;
+		case Spowersave: state = "powersave"; break;
+		}
+	}
+
+	if(st[5] != Smissing){
+		snprint(buf, sz, "%d mA %d %d %d ? %d mV %d ? ??:??:?? %s\n",
+			st[4],
+			ch[0]|ch[1]<<8, ch[4]|ch[5]<<8, ch[4]|ch[5]<<8, ch[2]|ch[3]<<8,
+			st[0]|st[1]<<8,
+			state
+		);
+		return 0;
+	}
+
+	return -1;
+}
+
+static void
 fsread(Req *r)
 {
 	char msg[256];
@@ -163,6 +295,11 @@ fsread(Req *r)
 				snprint(msg, sizeof(msg), "%d.0\n", c[0]);
 			else
 				snprint(msg, sizeof(msg), "%r\n");
+		}else if(r->fid->file->aux == (void*)Battery){
+			if(readbattery(msg, sizeof(msg)) != 0){
+				respond(r, "missing");
+				return;
+			}
 		}
 	}
 
@@ -233,8 +370,11 @@ main(int argc, char **argv)
 		sysfatal("no tmu");
 	if((pwm2 = segattach(0, "pwm2", 0, 0x18)) == (void*)-1)
 		sysfatal("no pwm2");
+	if((spi2 = segattach(0, "ecspi2", 0, 0x20)) == (void*)-1)
+		sysfatal("no spi2");
 	tmuinit();
 	fs.tree = alloctree(uid, uid, DMDIR|0555, nil);
+	createfile(fs.tree->root, "battery", uid, 0444,(void*)Battery);
 	createfile(fs.tree->root, "cputemp", uid, 0444, (void*)Temp);
 	createfile(fs.tree->root, "light", uid, 0666, (void*)Light);
 	postmountsrv(&fs, srv, mtpt, MAFTER);

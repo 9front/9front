@@ -265,6 +265,30 @@ tmuinit(void)
 	addphysseg(&seg);
 }
 
+static void
+lpcspiinit(void)
+{
+	Physseg seg;
+
+	iomuxpad("pad_ecspi2_sclk", "ecspi2_sclk", "~LVTTL ~HYS ~PUE ~ODE FAST 45_OHM");
+	iomuxpad("pad_ecspi2_mosi", "ecspi2_mosi", "~LVTTL ~HYS ~PUE ~ODE FAST 45_OHM");
+	iomuxpad("pad_ecspi2_miso", "ecspi2_miso", "~LVTTL ~HYS ~PUE ~ODE FAST 45_OHM");
+	iomuxpad("pad_ecspi2_ss0", "ecspi2_ss0", "~LVTTL ~HYS ~PUE ~ODE FAST 45_OHM");
+
+	setclkgate("ecspi2.ipg_clk", 0);
+	setclkgate("ecspi2.ipg_clk_per", 0);
+	setclkrate("ecspi2.ipg_clk_per", "osc_25m_ref_clk", 25*Mhz);
+	setclkgate("ecspi2.ipg_clk_per", 1);
+	setclkgate("ecspi2.ipg_clk", 1);
+
+	memset(&seg, 0, sizeof(seg));
+	seg.attr = SG_PHYSICAL | SG_DEVICE | SG_NOEXEC;
+	seg.name = "ecspi2";
+	seg.pa = VIRTIO + 0x830000 - KZERO;
+	seg.size = BY2PG;
+	addphysseg(&seg);
+}
+
 void
 main(void)
 {
@@ -305,6 +329,7 @@ main(void)
 	gpioinit();
 	lcdinit();
 	tmuinit();
+	lpcspiinit();
 	userinit();
 	mpinit();
 	mmu0clear((uintptr*)L1);
