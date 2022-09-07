@@ -183,7 +183,12 @@ static void
 lpccall(char cmd, u8int arg, void *ret)
 {
 	u32int con;
-	int i;
+	int i, try;
+
+	/* in case someone messed up and ran pm more than once */
+	try = 0;
+	while((rd(spi2, SPIx_CONREG) & CON_EN) != 0 && try++ < 50)
+		sleep(10);
 
 	con =
 		/* 8 bits burst */
@@ -231,9 +236,12 @@ lpccall(char cmd, u8int arg, void *ret)
 	wr(spi2, SPIx_CONREG, con | CON_XCH);
 
 	for(i = 0; i < 8; i++){
+		try = 0;
 		do{
 			sleep(10);
-		}while((rd(spi2, SPIx_STATREG) & STAT_RR) == 0);
+		}while((rd(spi2, SPIx_STATREG) & STAT_RR) == 0 && try++ < 50);
+		if(try >= 50) /* give up */
+			break;
 		((u8int*)ret)[i] = rd(spi2, SPIx_RXDATA);
 	}
 
@@ -255,6 +263,7 @@ lpcinit(void)
 static char *
 readbattery(char *s, char *e)
 {
+	int hh, mm, ss, full, remain, warn, safe;
 	u8int st[8], ch[8];
 	s16int current;
 	char *state;
@@ -262,34 +271,43 @@ readbattery(char *s, char *e)
 	lpccall('c', 0, ch);
 	lpccall('q', 0, st);
 	current = (s16int)(st[2] | st[3]<<8);
+	remain = ch[0]|ch[1]<<8;
+	warn = ch[2]|ch[3]<<8;
+	full = ch[4]|ch[5]<<8;
+	safe = remain - warn;
 
+	hh = mm = ss = 0;
 	state = "unknown";
-	if(st[5] == Scharge){
+	switch(st[5]){
+	case Sfullycharged: state = "full"; break;
+	case Sovervolted: state = "balancing"; break;
+	case Scooldown: state = "cooldown"; break;
+	case Spowersave: state = "powersave"; break;
+	case Scharge:
 		if(current < 0)
 			state = "charging";
-		else if(current > 0)
+		if(current > 0)
 			state = "discharging";
-	}else{
-		switch(st[5]){
-		case Sfullycharged: state = "full"; break;
-		case Smissing: state = "missing"; break;
-		case Sovervolted: state = "balancing"; break;
-		case Scooldown: state = "cooldown"; break;
-		case Spowersave: state = "powersave"; break;
+		if(current != 0){
+			ss = (current < 0 ? full - safe : safe) * 3600 / abs(current);
+			hh = ss/3600;
+			ss -= 3600*(ss/3600);
+			mm = ss/60;
+			ss -= 60*(ss/60);
 		}
+		break;
+	case Smissing:
+		werrstr("battery is missing");
+		return nil;
 	}
 
-	if(st[5] != Smissing){
-		return seprint(s, e, "%d mA %d %d %d ? %d mV %d ? ??:??:?? %s\n",
-			st[4],
-			ch[0]|ch[1]<<8, ch[4]|ch[5]<<8, ch[4]|ch[5]<<8, ch[2]|ch[3]<<8,
-			st[0]|st[1]<<8,
-			state
-		);
-	}
-
-	werrstr("battery is missing");
-	return nil;
+	return seprint(s, e, "%d mA %d %d %d %d ? mV %d ? %02d:%02d:%02d %s\n",
+		st[4],
+		remain, full, full, warn,
+		st[0]|st[1]<<8,
+		hh, mm, ss,
+		state
+	);
 }
 
 static char *
