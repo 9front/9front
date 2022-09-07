@@ -80,6 +80,9 @@ fn x {
 		echo rebooting...
 		echo reboot $bootf >'#c/reboot'
 	}
+	if not if (test -e /dev/pmctl) {
+		echo power off >>/dev/pmctl
+	}
 	if (~ $scram yes){
 		scram
 		echo 'It''s now safe to turn off your computer'

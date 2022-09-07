@@ -29,9 +29,10 @@ If given
 will then reboot the machine,
 optionally starting
 .IR kernelpath .
-Else it will invoke
-.I scram
-to shut down the machine.
+Else it will try to shut down the machine through
+.I /dev/pmctl
+(if available) or invoke
+.IR scram .
 The halting and rebooting is done by copying all necessary
 commands into a
 .IR ramfs (4)
