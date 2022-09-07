@@ -61,7 +61,7 @@ enum {
 	Qroot = 0,
 	Qbattery,
 	Qcputemp,
-	Qctl,
+	Qpmctl,
 
 	Qdisable = (uvlong)-1,
 };
@@ -80,10 +80,10 @@ Channel *creq, *cevent;
 Req *rlist, **tailp;
 
 Dfile dfile[] = {
-	{{Qroot,0,QTDIR},	"/",		DMDIR|0555,	rootread,		nil},
+	{{Qroot,0,QTDIR},	"/",		DMDIR|0555,	rootread,	nil},
 	{{Qbattery},		"battery",	0444,		batteryread,	nil},
-	{{Qcputemp},		"cputemp",	0444,		tmpread,		nil},
-	{{Qctl},			"ctl",		0666,		ctlread,		ctlwrite},
+	{{Qcputemp},		"cputemp",	0444,		tmpread,	nil},
+	{{Qpmctl},		"pmctl",	0666,		ctlread,	ctlwrite},
 };
 
 static char*
@@ -382,7 +382,7 @@ fsopen(Req *r)
 		}
 		break;
 
-	case Qctl:
+	case Qpmctl:
 		if((r->ifcall.mode & ~(OTRUNC|OREAD|OWRITE|ORDWR)) == 0){
 			respond(r, nil);
 			return;
@@ -456,7 +456,7 @@ fsattach(Req *r)
 static void
 usage(void)
 {
-	fprint(2, "usage: aux/acpi [-Dp] [-m /mnt/pm] [-s service]\n");
+	fprint(2, "usage: aux/acpi [-Dp] [-m mountpoint] [-s service]\n");
 	exits("usage");
 }
 
@@ -481,7 +481,7 @@ threadmain(int argc, char **argv)
 	Tbl *t;
 	int fd, n, l;
 
-	mtpt = "/mnt/pm";
+	mtpt = "/dev";
 	srv = nil;
 	ARGBEGIN{
 	case 'D':
@@ -549,7 +549,7 @@ threadmain(int argc, char **argv)
 	if(ntherms < 1)
 		dfile[Qcputemp].qid.path = Qdisable;
 
-	threadpostmountsrv(&fs, srv, mtpt, MREPL);
+	threadpostmountsrv(&fs, srv, mtpt, MAFTER);
 	threadexits(nil);
 
 fail:

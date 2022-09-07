@@ -19,7 +19,7 @@ acpi \- Advanced Configuration and Power Interface
 presents at
 .I mountpoint
 (default
-.BR /mnt/pm )
+.BR /dev )
 an interface to the ACPI. If a
 .I service
 is specified, the interface will be
@@ -48,9 +48,9 @@ or
 .B cputemp
 Each line provides a current temperature reading of a specific CPU.
 .TP
-.B ctl
+.B pmctl
 The
-.B ctl
+.B pmctl
 file currently does not provide any functionality.
 .SH SOURCE
 .B /sys/src/cmd/aux/acpi.c
