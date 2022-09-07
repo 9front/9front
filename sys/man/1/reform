@@ -102,6 +102,13 @@ followed by desired percentage of the effect.
 .I pm
 presents a file system consisting of the following files:
 .TP
+.B battery
+Returns attached battery array statistics in the same manner as
+\fIacpi\fR(8).
+.TP
+.B cputemp
+Exposes the current temperature reading of the CPU.
+.TP
 .B light
 Provides a way to control the backlight of the built-in LCD by
 writing \fIlcd [-+]N\fR,
@@ -113,11 +120,22 @@ Reading
 .B light
 returns the current brightness.
 .TP
-.B cputemp
-Exposes the current temperature reading of the CPU.
+.B pmctl
+Reading
+.B pmctl
+gives the System Controller firmware version string, voltage (mV) of
+each cell and current(mA) of the battery array.
+.IP
+Writing
+.I power off
+to
+.B pmctl
+will turn off all power rails, which is what \fIfshalt\fR(8) does
+after halting the file systems.
 .SS Shortcuts
 .I shortcuts
-enables LCD brightness and audio volume adjustment via keyboard shortcuts.
+enables LCD brightness and audio volume adjustment via keyboard
+shortcuts.
 .PP
 The program uses Rio's
 .I kbdtap

@@ -17,9 +17,12 @@ enum
 	Sfullycharged,
 	Spowersave,
 
+	Psomoff = 1,
+
 	Light = 1,
 	Temp,
 	Battery,
+	Pmctl,
 
 	PWMSAR = 0x0c/4,
 	PWMPR = 0x10/4,
@@ -65,14 +68,11 @@ enum
 		CONFIG_SS_CTL_NCSS = 1<<8,
 		CONFIG_SCLK_POL_HIGH = 0<<4,
 		CONFIG_SCLK_PHA_1 = 1<<0,
-	SPIx_INTREG = 0x10/4,
 	SPIx_STATREG = 0x18/4,
-		STAT_TC = 1<<7,
 		STAT_RR = 1<<3,
-		STAT_TE = 1<<0,
-	SPIx_PERIODREG = 0x1c/4,
 };
 
+static char lpcfw[9*3+1];
 static u32int *pwm2, *tmu, *spi2;
 static char *uid = "pm";
 
@@ -115,7 +115,7 @@ getlight(void)
 }
 
 static int
-getcputemp(int c[3])
+gettemp(int c[3])
 {
 	int i, r[] = {TMUTRITSR0, TMUTRITSR1, TMUTRITSR2};
 	u32int s;
@@ -240,12 +240,24 @@ lpccall(char cmd, u8int arg, void *ret)
 	wr(spi2, SPIx_CONREG, con & ~CON_EN);
 }
 
-static int
-readbattery(char *buf, int sz)
+static void
+lpcinit(void)
+{
+	char s[3][8];
+
+	lpccall(0, 0, s[0]); /* a dummy one to make sure there is no garbage */
+	lpccall('f', 0, s[0]);
+	lpccall('f', 1, s[1]);
+	lpccall('f', 2, s[2]);
+	snprint(lpcfw, sizeof(lpcfw), "%.*s %.*s %.*s", 8, s[0], 8, s[1], 8, s[2]);
+}
+
+static char *
+readbattery(char *s, char *e)
 {
 	u8int st[8], ch[8];
-	char *state;
 	s16int current;
+	char *state;
 
 	lpccall('c', 0, ch);
 	lpccall('q', 0, st);
@@ -261,45 +273,79 @@ readbattery(char *buf, int sz)
 		switch(st[5]){
 		case Sfullycharged: state = "full"; break;
 		case Smissing: state = "missing"; break;
-		case Sovervolted: state = "overvolted"; break;
+		case Sovervolted: state = "balancing"; break;
 		case Scooldown: state = "cooldown"; break;
 		case Spowersave: state = "powersave"; break;
 		}
 	}
 
 	if(st[5] != Smissing){
-		snprint(buf, sz, "%d mA %d %d %d ? %d mV %d ? ??:??:?? %s\n",
+		return seprint(s, e, "%d mA %d %d %d ? %d mV %d ? ??:??:?? %s\n",
 			st[4],
 			ch[0]|ch[1]<<8, ch[4]|ch[5]<<8, ch[4]|ch[5]<<8, ch[2]|ch[3]<<8,
 			st[0]|st[1]<<8,
 			state
 		);
-		return 0;
 	}
 
-	return -1;
+	werrstr("battery is missing");
+	return nil;
+}
+
+static char *
+readcells(char *s, char *e)
+{
+	u8int v[16];
+	int i;
+
+	lpccall('v', 0, v+0);
+	lpccall('v', 1, v+8);
+	s = seprint(s, e, "cells(mV)");
+	for(i = 0; i < 16; i += 2)
+		s = seprint(s, e, " %d", v[i] | v[i+1]<<8);
+	return seprint(s, e, "\n");
+}
+
+static char *
+readcurrent(char *s, char *e)
+{
+	u8int q[8];
+
+	lpccall('q', 0, q);
+	return seprint(s, e, "current(mA) %d\n", (s16int)(q[2] | q[3]<<8));
 }
 
 static void
 fsread(Req *r)
 {
-	char msg[256];
+	char msg[256], *s, *e;
+	void *aux;
 	int c[3];
 
 	msg[0] = 0;
 	if(r->ifcall.offset == 0){
-		if(r->fid->file->aux == (void*)Light)
+		aux = r->fid->file->aux;
+		s = msg;
+		e = s+sizeof(msg);
+		if(aux == (void*)Light){
 			snprint(msg, sizeof(msg), "lcd %d\n", getlight());
-		else if(r->fid->file->aux == (void*)Temp){
-			if(getcputemp(c) == 0)
-				snprint(msg, sizeof(msg), "%d.0\n", c[0]);
-			else
-				snprint(msg, sizeof(msg), "%r\n");
-		}else if(r->fid->file->aux == (void*)Battery){
-			if(readbattery(msg, sizeof(msg)) != 0){
-				respond(r, "missing");
+		}else if(aux == (void*)Temp){
+			if(gettemp(c) != 0){
+				responderror(r);
 				return;
 			}
+			/* only the first one is CPU temperature */
+			snprint(msg, sizeof(msg), "%d.0\n", c[0]);
+		}else if(aux == (void*)Battery){
+			if(readbattery(s, e) == nil){
+				responderror(r);
+				return;
+			}
+		}else if(aux == (void*)Pmctl){
+			s = seprint(s, e, "version %s\n", lpcfw);
+			s = readcells(s, e);
+			s = readcurrent(s, e);
+			USED(s);
 		}
 	}
 
@@ -311,13 +357,16 @@ static void
 fswrite(Req *r)
 {
 	char msg[256], *f[4];
-	int nf, v;
+	int nf, v, p;
+	void *aux;
 
-	if(r->fid->file->aux == (void*)Light){
-		snprint(msg, sizeof(msg), "%.*s",
-			utfnlen((char*)r->ifcall.data, r->ifcall.count), (char*)r->ifcall.data);
-		nf = tokenize(msg, f, nelem(f));
+	snprint(msg, sizeof(msg), "%.*s",
+		utfnlen((char*)r->ifcall.data, r->ifcall.count), (char*)r->ifcall.data);
+	nf = tokenize(msg, f, nelem(f));
+	aux = r->fid->file->aux;
+	if(aux == (void*)Light){
 		if(nf < 2){
+Bad:
 			respond(r, "invalid ctl message");
 			return;
 		}
@@ -327,6 +376,13 @@ fswrite(Req *r)
 				v += getlight();
 			setlight(v);
 		}
+	}else if(aux == (void*)Pmctl){
+		p = -1;
+		if(nf == 2 && strcmp(f[0], "power") == 0 && strcmp(f[1], "off") == 0)
+			p = Psomoff;
+		if(p < 0)
+			goto Bad;
+		lpccall('p', p, msg);
 	}
 
 	r->ofcall.count = r->ifcall.count;
@@ -341,7 +397,7 @@ static Srv fs = {
 static void
 usage(void)
 {
-	fprint(2, "usage: %s [-D] [-m /dev] [-s service]\n", argv0);
+	fprint(2, "usage: %s [-D] [-m mountpoint] [-s service]\n", argv0);
 	exits("usage");
 }
 
@@ -373,10 +429,12 @@ main(int argc, char **argv)
 	if((spi2 = segattach(0, "ecspi2", 0, 0x20)) == (void*)-1)
 		sysfatal("no spi2");
 	tmuinit();
+	lpcinit();
 	fs.tree = alloctree(uid, uid, DMDIR|0555, nil);
 	createfile(fs.tree->root, "battery", uid, 0444,(void*)Battery);
 	createfile(fs.tree->root, "cputemp", uid, 0444, (void*)Temp);
 	createfile(fs.tree->root, "light", uid, 0666, (void*)Light);
+	createfile(fs.tree->root, "pmctl", uid, 0666, (void*)Pmctl);
 	postmountsrv(&fs, srv, mtpt, MAFTER);
 
 	exits(nil);
