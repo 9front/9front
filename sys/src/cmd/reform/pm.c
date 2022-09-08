@@ -62,11 +62,7 @@ enum
 		CON_XCH = 1<<2,
 		CON_EN = 1<<0,
 	SPIx_CONFIGREG = 0x0c/4,
-		CONFIG_SCLK_CTL_LOW = 0<<20,
-		CONFIG_DATA_CTL_HIGH = 0<<16,
-		CONFIG_SS_POL_LOW = 0<<12,
 		CONFIG_SS_CTL_NCSS = 1<<8,
-		CONFIG_SCLK_POL_HIGH = 0<<4,
 		CONFIG_SCLK_PHA_1 = 1<<0,
 	SPIx_STATREG = 0x18/4,
 		STAT_RR = 1<<3,
@@ -183,12 +179,7 @@ static void
 lpccall(char cmd, u8int arg, void *ret)
 {
 	u32int con;
-	int i, try;
-
-	/* in case someone messed up and ran pm more than once */
-	try = 0;
-	while((rd(spi2, SPIx_CONREG) & CON_EN) != 0 && try++ < 50)
-		sleep(10);
+	int i;
 
 	con =
 		/* 8 bits burst */
@@ -202,12 +193,7 @@ lpccall(char cmd, u8int arg, void *ret)
 	wr(spi2, SPIx_CONREG, con);
 
 	wr(spi2, SPIx_CONFIGREG,
-		/* defaults */
-		CONFIG_SCLK_CTL_LOW |
-		CONFIG_DATA_CTL_HIGH |
-		CONFIG_SS_POL_LOW |
-		CONFIG_SCLK_POL_HIGH |
-		/* tx shift - rising edge SCLK; tx latch - falling edge */
+		/* tx shift - rising edge; rx latch - falling edge */
 		CONFIG_SCLK_PHA_1 |
 		CONFIG_SS_CTL_NCSS);
 
@@ -215,14 +201,10 @@ lpccall(char cmd, u8int arg, void *ret)
 	wr(spi2, SPIx_TXDATA, cmd);
 	wr(spi2, SPIx_TXDATA, arg);
 	wr(spi2, SPIx_CONREG, con | CON_XCH);
+	sleep(60);
 
-	/*
-	 * give enough time to send and for LPC to process
-	 * 50ms seems safe but add more just in case
-	 */
-	sleep(75);
-	/* LPC buffers 3 bytes without responding, ignore */
-	for(i = 0; i < 3; i++)
+	/* LPC buffers 3 bytes without responding, ignore (including garbage) */
+	while(rd(spi2, SPIx_STATREG) & STAT_RR)
 		rd(spi2, SPIx_RXDATA);
 
 	/*
@@ -234,16 +216,10 @@ lpccall(char cmd, u8int arg, void *ret)
 	for(i = 0; i < 8; i++)
 		wr(spi2, SPIx_TXDATA, 0);
 	wr(spi2, SPIx_CONREG, con | CON_XCH);
+	sleep(60);
 
-	for(i = 0; i < 8; i++){
-		try = 0;
-		do{
-			sleep(10);
-		}while((rd(spi2, SPIx_STATREG) & STAT_RR) == 0 && try++ < 50);
-		if(try >= 50) /* give up */
-			break;
+	for(i = 0; i < 8; i++)
 		((u8int*)ret)[i] = rd(spi2, SPIx_RXDATA);
-	}
 
 	wr(spi2, SPIx_CONREG, con & ~CON_EN);
 }
@@ -253,7 +229,6 @@ lpcinit(void)
 {
 	char s[3][8];
 
-	lpccall(0, 0, s[0]); /* a dummy one to make sure there is no garbage */
 	lpccall('f', 0, s[0]);
 	lpccall('f', 1, s[1]);
 	lpccall('f', 2, s[2]);
