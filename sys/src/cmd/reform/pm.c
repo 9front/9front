@@ -111,10 +111,14 @@ getlight(void)
 }
 
 static int
-gettemp(int c[3])
+getcputemp(void)
 {
-	int i, r[] = {TMUTRITSR0, TMUTRITSR1, TMUTRITSR2};
 	u32int s;
+	int i, c;
+
+	/* enable: all sites, ALPF 11=0.125 */
+	wr(tmu, TMUTMR, TMR_ME | 3<<TMR_ALPF_SHIFT | 0<<TMR_MSITE_SHIFT);
+	sleep(50);
 
 	s = rd(tmu, TMUTSR);
 	if(s & TSR_MIE){
@@ -126,19 +130,11 @@ gettemp(int c[3])
 		return -1;
 	}
 
-	c[0] = c[1] = c[2] = 0;
-	for(;;){
-		for(i = 0; i < 3; i++)
-			if(c[i] >= 0)
-				c[i] = rd(tmu, r[i]);
-		if(c[0] < 0 && c[1] < 0 && c[2] < 0)
-			break;
+	for(i = 0; (c = rd(tmu, TMUTRITSR0)) >= 0 && i < 10; i++)
 		sleep(10);
-	}
-	c[0] &= 0xff;
-	c[1] &= 0xff;
-	c[2] &= 0xff;
-	return 0;
+	wr(tmu, TMUTMR, 0);
+
+	return c & 0xff;
 }
 
 static void
@@ -170,9 +166,6 @@ tmuinit(void)
 			wr(tmu, TMUTSCFGR, cfg[i][j]);
 		}
 	}
-
-	/* enable: all sites, ALPF 11=0.125 */
-	wr(tmu, TMUTMR, TMR_ME | 3<<TMR_ALPF_SHIFT | 7<<TMR_MSITE_SHIFT);
 }
 
 static void
@@ -316,7 +309,7 @@ fsread(Req *r)
 {
 	char msg[256];
 	void *aux;
-	int c[3];
+	int c;
 
 	msg[0] = 0;
 	if(r->ifcall.offset == 0){
@@ -324,12 +317,11 @@ fsread(Req *r)
 		if(aux == (void*)Light){
 			snprint(msg, sizeof(msg), "lcd %d\n", getlight());
 		}else if(aux == (void*)Temp){
-			if(gettemp(c) != 0){
+			if((c = getcputemp()) < 0){
 				responderror(r);
 				return;
 			}
-			/* only the first one is CPU temperature */
-			snprint(msg, sizeof(msg), "%d.0\n", c[0]);
+			snprint(msg, sizeof(msg), "%d.0\n", c);
 		}else if(aux == (void*)Battery){
 			reqqueuepush(lpcreq, r, readbattery);
 			return;
