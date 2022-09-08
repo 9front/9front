@@ -68,7 +68,7 @@ enum
 		STAT_RR = 1<<3,
 };
 
-static char lpcfw[9*3+1];
+static Reqqueue *lpcreq;
 static u32int *pwm2, *tmu, *spi2;
 static char *uid = "pm";
 
@@ -225,22 +225,12 @@ lpccall(char cmd, u8int arg, void *ret)
 }
 
 static void
-lpcinit(void)
-{
-	char s[3][8];
-
-	lpccall('f', 0, s[0]);
-	lpccall('f', 1, s[1]);
-	lpccall('f', 2, s[2]);
-	snprint(lpcfw, sizeof(lpcfw), "%.*s %.*s %.*s", 8, s[0], 8, s[1], 8, s[2]);
-}
-
-static char *
-readbattery(char *s, char *e)
+readbattery(Req *r)
 {
 	int hh, mm, ss, full, remain, warn, safe;
 	u8int st[8], ch[8];
 	s16int current;
+	char msg[256];
 	char *state;
 
 	lpccall('c', 0, ch);
@@ -272,54 +262,65 @@ readbattery(char *s, char *e)
 		}
 		break;
 	case Smissing:
-		werrstr("battery is missing");
-		return nil;
+		respond(r, "battery is missing");
+		return;
+		
 	}
 
-	return seprint(s, e, "%d mA %d %d %d %d ? mV %d ? %02d:%02d:%02d %s\n",
+	snprint(msg, sizeof(msg), "%d mA %d %d %d %d ? mV %d ? %02d:%02d:%02d %s\n",
 		st[4],
 		remain, full, full, warn,
 		st[0]|st[1]<<8,
 		hh, mm, ss,
 		state
 	);
+
+	readstr(r, msg);
+	respond(r, nil);
 }
 
-static char *
-readcells(char *s, char *e)
+static void
+readpmctl(Req *r)
 {
-	u8int v[16];
+	char msg[256], *s, *e;
+	static char lpcfw[9*3+1];
+	u8int v[16], q[8];
 	int i;
 
+	if(lpcfw[0] == 0){
+		lpccall('f', 0, msg+0);
+		lpccall('f', 1, msg+8);
+		lpccall('f', 2, msg+16);
+		snprint(lpcfw, sizeof(lpcfw), "%.*s %.*s %.*s", 8, msg+0, 8, msg+8, 8, msg+16);
+	}
 	lpccall('v', 0, v+0);
 	lpccall('v', 1, v+8);
+	lpccall('q', 0, q);
+
+	s = msg;
+	e = s+sizeof(msg);
+	s = seprint(s, e, "version %s\n", lpcfw);
 	s = seprint(s, e, "cells(mV)");
 	for(i = 0; i < 16; i += 2)
 		s = seprint(s, e, " %d", v[i] | v[i+1]<<8);
-	return seprint(s, e, "\n");
-}
+	s = seprint(s, e, "\n");
+	s = seprint(s, e, "current(mA) %d\n", (s16int)(q[2] | q[3]<<8));
+	USED(s);
 
-static char *
-readcurrent(char *s, char *e)
-{
-	u8int q[8];
-
-	lpccall('q', 0, q);
-	return seprint(s, e, "current(mA) %d\n", (s16int)(q[2] | q[3]<<8));
+	readstr(r, msg);
+	respond(r, nil);
 }
 
 static void
 fsread(Req *r)
 {
-	char msg[256], *s, *e;
+	char msg[256];
 	void *aux;
 	int c[3];
 
 	msg[0] = 0;
 	if(r->ifcall.offset == 0){
 		aux = r->fid->file->aux;
-		s = msg;
-		e = s+sizeof(msg);
 		if(aux == (void*)Light){
 			snprint(msg, sizeof(msg), "lcd %d\n", getlight());
 		}else if(aux == (void*)Temp){
@@ -330,15 +331,11 @@ fsread(Req *r)
 			/* only the first one is CPU temperature */
 			snprint(msg, sizeof(msg), "%d.0\n", c[0]);
 		}else if(aux == (void*)Battery){
-			if(readbattery(s, e) == nil){
-				responderror(r);
-				return;
-			}
+			reqqueuepush(lpcreq, r, readbattery);
+			return;
 		}else if(aux == (void*)Pmctl){
-			s = seprint(s, e, "version %s\n", lpcfw);
-			s = readcells(s, e);
-			s = readcurrent(s, e);
-			USED(s);
+			reqqueuepush(lpcreq, r, readpmctl);
+			return;
 		}
 	}
 
@@ -382,9 +379,23 @@ Bad:
 	respond(r, nil);
 }
 
+static void
+fsflush(Req *r)
+{
+	void *aux;
+	Req *o;
+
+	o = r->oldreq;
+	aux = o->fid->file->aux;
+	if(o->ifcall.type == Tread && (aux == (void*)Battery || aux == (void*)Pmctl))
+		reqqueueflush(lpcreq, o);
+	respond(r, nil);
+}
+
 static Srv fs = {
 	.read = fsread,
 	.write = fswrite,
+	.flush = fsflush,
 };
 
 static void
@@ -395,7 +406,7 @@ usage(void)
 }
 
 void
-main(int argc, char **argv)
+threadmain(int argc, char **argv)
 {
 	char *mtpt, *srv;
 
@@ -422,13 +433,13 @@ main(int argc, char **argv)
 	if((spi2 = segattach(0, "ecspi2", 0, 0x20)) == (void*)-1)
 		sysfatal("no spi2");
 	tmuinit();
-	lpcinit();
+	lpcreq = reqqueuecreate();
 	fs.tree = alloctree(uid, uid, DMDIR|0555, nil);
 	createfile(fs.tree->root, "battery", uid, 0444,(void*)Battery);
 	createfile(fs.tree->root, "cputemp", uid, 0444, (void*)Temp);
 	createfile(fs.tree->root, "light", uid, 0666, (void*)Light);
 	createfile(fs.tree->root, "pmctl", uid, 0666, (void*)Pmctl);
-	postmountsrv(&fs, srv, mtpt, MAFTER);
+	threadpostmountsrv(&fs, srv, mtpt, MAFTER);
 
-	exits(nil);
+	threadexits(nil);
 }
