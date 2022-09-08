@@ -50,6 +50,18 @@ wr(int a, int v)
 }
 
 static void
+dactoggle(Out *, int on)
+{
+	/*
+	 * Jack detect becomes extremely unstable when playing on spk and the
+	 * volume is very high - DAC start to switch back and forth between two
+	 * outputs.  Solve this by always attenuating by -6dB and somewhat limiting
+	 * the volume on DAC ("master") - to 0xf9 instead of 0xff (max).
+	 */
+	wr(0x05, 1<<7 | (!on)<<3);
+}
+
+static void
 classdspk(Out *, int on)
 {
 	wr(0x31, (on ? 3 : 0)<<6 | 0x37); /* class D SPK out */
@@ -70,7 +82,7 @@ toggle(Out *o, int on)
 
 static Out out[Nout] =
 {
-	[Dac] = {"master", 0x0a, 0xf9, 3<<7, nil, 0},
+	[Dac] = {"master", 0x0a, 0xf9, 0, dactoggle, 0},
 	[Hp] = {"hp", 0x02, 0x7f, 3<<5, nil, 0},
 	[Spk] = {"spk", 0x28, 0x7f, 3<<3, classdspk, 0},
 };
@@ -198,20 +210,16 @@ reset(void)
 	/* turn on all outputs */
 	toggle(out+Hp, 1);
 	toggle(out+Spk, 1);
+
+	/* enable/unmute DAC */
+	reg1a |= 3<<7;
+	wr(0x1a, reg1a); 
 	toggle(out+Dac, 1);
 
 	/* sensible defaults */
 	setvol(out+Spk, 100, 100);
 	setvol(out+Hp, 75, 75);
 	setvol(out+Dac, 80, 80);
-
-	/*
-	 * Jack detect becomes extremely unstable when playing on spk and the
-	 * volume is very high - DAC start to switch back and forth between two
-	 * outputs.  Solve this by always attenuating by -6dB and somewhat limiting
-	 * the volume on DAC ("master") - to 0xf9 instead of 0xff (max).
-	 */
-	wr(0x05, 1<<7 | 0<<3); /* unmute DAC */
 }
 
 static void
