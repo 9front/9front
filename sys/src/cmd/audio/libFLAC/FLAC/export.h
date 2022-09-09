@@ -1,6 +1,6 @@
 /* libFLAC - Free Lossless Audio Codec library
  * Copyright (C) 2000-2009  Josh Coalson
- * Copyright (C) 2011-2016  Xiph.Org Foundation
+ * Copyright (C) 2011-2022  Xiph.Org Foundation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,7 +36,7 @@
 /** \file include/FLAC/export.h
  *
  *  \brief
- *  This module contains #defines and symbols for exporting function
+ *  This module contains \#defines and symbols for exporting function
  *  calls, and providing version information and compiled-in features.
  *
  *  See the \link flac_export export \endlink module.
@@ -46,7 +46,7 @@
  *  \ingroup flac
  *
  *  \brief
- *  This module contains #defines and symbols for exporting function
+ *  This module contains \#defines and symbols for exporting function
  *  calls, and providing version information and compiled-in features.
  *
  *  If you are compiling with MSVC and will link to the static library
@@ -56,14 +56,21 @@
  * \{
  */
 
-#if defined(FLAC__NO_DLL)
-#define FLAC_API
+/* This has grown quite complicated. FLAC__NO_DLL is used by MSVC sln
+ * files and CMake, which build either static or shared. autotools can
+ * build static, shared or **both**. Therefore, DLL_EXPORT, which is set
+ * by libtool, must override FLAC__NO_DLL on building shared components
+ */
+#if defined(_WIN32)
 
-#elif defined(_MSC_VER)
+#if defined(FLAC__NO_DLL) && !(defined(DLL_EXPORT))
+#define FLAC_API
+#else
 #ifdef FLAC_API_EXPORTS
 #define	FLAC_API __declspec(dllexport)
 #else
 #define FLAC_API __declspec(dllimport)
+#endif
 #endif
 
 #elif defined(FLAC__USE_VISIBILITY_ATTR)
@@ -74,12 +81,12 @@
 
 #endif
 
-/** These #defines will mirror the libtool-based library version number, see
+/** These \#defines will mirror the libtool-based library version number, see
  * http://www.gnu.org/software/libtool/manual/libtool.html#Libtool-versioning
  */
-#define FLAC_API_VERSION_CURRENT 11
+#define FLAC_API_VERSION_CURRENT 12
 #define FLAC_API_VERSION_REVISION 0 /**< see above */
-#define FLAC_API_VERSION_AGE 3 /**< see above */
+#define FLAC_API_VERSION_AGE 0 /**< see above */
 
 #ifdef __cplusplus
 extern "C" {
