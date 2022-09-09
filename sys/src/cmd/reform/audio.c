@@ -52,13 +52,7 @@ wr(int a, int v)
 static void
 dactoggle(Out *, int on)
 {
-	/*
-	 * Jack detect becomes extremely unstable when playing on spk and the
-	 * volume is very high - DAC start to switch back and forth between two
-	 * outputs.  Solve this by always attenuating by -6dB and somewhat limiting
-	 * the volume on DAC ("master") - to 0xf9 instead of 0xff (max).
-	 */
-	wr(0x05, 1<<7 | (!on)<<3);
+	wr(0x05, (!on)<<3);
 }
 
 static void
@@ -82,7 +76,7 @@ toggle(Out *o, int on)
 
 static Out out[Nout] =
 {
-	[Dac] = {"master", 0x0a, 0xf9, 0, dactoggle, 0},
+	[Dac] = {"master", 0x0a, 0xff, 0, dactoggle, 0},
 	[Hp] = {"hp", 0x02, 0x7f, 3<<5, nil, 0},
 	[Spk] = {"spk", 0x28, 0x7f, 3<<3, classdspk, 0},
 };
@@ -181,6 +175,7 @@ reset(void)
 
 	toggle(out+Dac, 0);
 	wr(0x1c, 1<<7 | 1<<4 | 1<<3 | 1<<2); /* Vmid/r bias; Vgs/r on; Vmid soft start */
+	wr(0x1d, 1<<6 | 0<<4); /* discharge HP caps; 400Ω */
 	wr(0x19, 0<<7); /* Vmid off, Vref off */
 	sleep(500);
 	wr(0x0f, 0); /* reset registers to default */
@@ -197,14 +192,15 @@ reset(void)
 
 	wr(0x17, 1<<8 | 3<<6 | 1<<0); /* thermal shutdown on; avdd=3.3v; slow clock on */
 	wr(0x1c, 1<<7 | 1<<4 | 1<<3 | 1<<2); /* Vmid/r bias; Vgs/r on; Vmid soft start */
+	wr(0x1d, 0); /* stop HP caps discharge */
 	wr(0x19, 1<<7); /* start Vmid (playback) */
 	sleep(650);
 	wr(0x1c, 1<<3); /* done with anti-pop */
 	wr(0x19, 1<<7 | 1<<6); /* Vref on */
 
-	wr(0x09, 1<<6); /* adclrc → gpio (for jack detect output) */
+	wr(0x09, 1<<6); /* ADCLRC → gpio (for jack detect output) */
 	wr(0x30, 3<<4 | 2<<2 | 1<<1); /* gpio jack detect out; JD2 jack detect in; Tsense on */
-	wr(0x1b, 1<<3); /* HP_[LR] responsive to jack detect */
+	wr(0x1b, 1<<6 | 0<<3 | 0<<0); /* capless mode disabled; 20kΩ; 44.1/48kHz */
 	wr(0x18, 1<<6); /* HP switch on; high = HP */
 
 	/* turn on all outputs */
