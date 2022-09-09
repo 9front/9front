@@ -144,6 +144,13 @@ rauth(Fcall *f, int, char **argv)
 	return strtoqid(argv[0], &f->aqid);
 }
 
+char *
+rerror(Fcall *f, int, char **argv)
+{
+	f->ename = argv[0];
+	return nil;
+}
+
 char*
 tflush(Fcall *f, int, char **argv)
 {
@@ -435,6 +442,8 @@ Cmd msg9p[] = {
 
 	"Tauth", Tauth, 3, "afid uname aname", tauth,
 	"Rauth", Rauth, 1, "aqid", rauth,
+
+	"Rerror", Rerror, 1, "ename", rerror,
 
 	"Tflush", Tflush, 1, "oldtag", tflush,
 	"Rflush", Rflush, 0, "", nop,
