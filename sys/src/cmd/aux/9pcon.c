@@ -144,7 +144,7 @@ rauth(Fcall *f, int, char **argv)
 	return strtoqid(argv[0], &f->aqid);
 }
 
-char *
+char*
 rerror(Fcall *f, int, char **argv)
 {
 	f->ename = argv[0];
