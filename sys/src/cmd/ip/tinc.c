@@ -1301,7 +1301,10 @@ metapeer(Conn *c)
 	while((n = conrecv(c, f, nelem(f))) > 0){
 		switch(atoi(f[0])){
 		case PING:
-			if(consend(c, "%d %x", PONG, rand()) < 0)
+			netlock(c);
+			n = consend(c, "%d %x", PONG, rand());
+			netunlock(c);
+			if(n < 0)
 				return;
 			continue;
 		case PONG:
