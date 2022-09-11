@@ -658,7 +658,7 @@ xfidread(Xfid *x)
 	case Qwctl:
 		if(w == nil){
 			if(off >= 6*12){
-				filsysrespond(x->fs, x, &fc, "no window");
+				filsysrespond(x->fs, x, &fc, Etooshort);
 				return;
 			}
 			n = sprint(buf, "%11d %11d %11d %11d nowindow    nowindow    ",
