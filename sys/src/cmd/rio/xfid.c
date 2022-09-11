@@ -657,8 +657,14 @@ xfidread(Xfid *x)
 	switch(qid){
 	case Qwctl:
 		if(w == nil){
-			filsysrespond(x->fs, x, &fc, "no window");
-			return;
+			if(off >= 6*12){
+				filsysrespond(x->fs, x, &fc, "no window");
+				return;
+			}
+			n = sprint(buf, "%11d %11d %11d %11d nowindow    nowindow    ",
+				screen->r.min.x, screen->r.min.y, screen->r.max.x, screen->r.max.y);
+			t = estrdup(buf);
+			goto Text;
 		}
 		if(cnt < 4*12){
 			filsysrespond(x->fs, x, &fc, Etooshort);
