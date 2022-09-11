@@ -462,7 +462,10 @@ writewctl(Xfid *x, char *err)
 	x->data[cnt] = '\0';
 	id = 0;
 
-	r = rectsubpt(w->screenr, screen->r.min);
+	if(w == nil)
+		r = ZR;
+	else
+		r = rectsubpt(w->screenr, screen->r.min);
 	cmd = parsewctl(&arg, r, &r, &pid, &id, &hideit, &scrollit, &dir, x->data, err);
 	if(cmd < 0)
 		return -1;
@@ -473,6 +476,11 @@ writewctl(Xfid *x, char *err)
 			strcpy(err, "no such window id");
 			return -1;
 		}
+	}
+
+	if(w == nil && cmd != New){
+		strcpy(err, "command needs to be run within a window");
+		return -1;
 	}
 
 	switch(cmd){
@@ -489,57 +497,4 @@ writewctl(Xfid *x, char *err)
 	wclose(w);
 
 	return id;
-}
-
-void
-wctlthread(void *v)
-{
-	char *buf, *arg, *dir;
-	int cmd, id, pid, hideit, scrollit;
-	Rectangle rect;
-	char err[ERRMAX];
-	Channel *c;
-
-	c = v;
-
-	threadsetname("WCTLTHREAD");
-
-	for(;;){
-		buf = recvp(c);
-		cmd = parsewctl(&arg, ZR, &rect, &pid, &id, &hideit, &scrollit, &dir, buf, err);
-
-		switch(cmd){
-		case New:
-			wctlnew(rect, arg, pid, hideit, scrollit, dir, err);
-		}
-		free(buf);
-	}
-}
-
-void
-wctlproc(void *v)
-{
-	char *buf;
-	int n, eofs;
-	Channel *c;
-
-	threadsetname("WCTLPROC");
-	c = v;
-
-	eofs = 0;
-	for(;;){
-		buf = emalloc(messagesize);
-		n = read(wctlfd, buf, messagesize-1);	/* room for \0 */
-		if(n < 0)
-			break;
-		if(n == 0){
-			if(++eofs > 20)
-				break;
-			continue;
-		}
-		eofs = 0;
-
-		buf[n] = '\0';
-		sendp(c, buf);
-	}
 }

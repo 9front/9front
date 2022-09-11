@@ -22,6 +22,12 @@ int	messagesize = 8192+IOHDRSZ;	/* good start */
 Dirtab dirtab[]=
 {
 	{ ".",			QTDIR,	Qdir,			0500|DMDIR },
+	{ "screen",		QTFILE,	Qscreen,		0400 },
+	{ "snarf",		QTFILE,	Qsnarf,		0600 },
+	{ "wctl",		QTFILE,	Qwctl,		0600 },
+	{ "kbdtap",	QTFILE,	Qtap,	0660 },
+	{ "wsys",		QTDIR,	Qwsys,		0500|DMDIR },
+
 	{ "cons",		QTFILE,	Qcons,		0600 },
 	{ "cursor",		QTFILE,	Qcursor,		0600 },
 	{ "consctl",	QTFILE,	Qconsctl,		0200 },
@@ -30,14 +36,9 @@ Dirtab dirtab[]=
 	{ "label",		QTFILE,	Qlabel,		0600 },
 	{ "kbd",	QTFILE,	Qkbd,		0600 },
 	{ "mouse",	QTFILE,	Qmouse,		0600 },
-	{ "screen",		QTFILE,	Qscreen,		0400 },
-	{ "snarf",		QTFILE,	Qsnarf,		0600 },
 	{ "text",		QTFILE,	Qtext,		0600 },
 	{ "wdir",		QTFILE,	Qwdir,		0600 },
-	{ "wctl",		QTFILE,	Qwctl,		0600 },
 	{ "window",	QTFILE,	Qwindow,		0400 },
-	{ "wsys",		QTDIR,	Qwsys,		0500|DMDIR },
-	{ "kbdtap",	QTFILE,	Qtap,	0660 },
 	{ nil, }
 };
 
@@ -119,9 +120,7 @@ cexecpipe(int *p0, int *p1)
 Filsys*
 filsysinit(Channel *cxfidalloc)
 {
-	int p0;
 	Filsys *fs;
-	Channel *c;
 
 	fs = emalloc(sizeof(Filsys));
 	if(cexecpipe(&fs->cfd, &fs->sfd) < 0)
@@ -134,28 +133,7 @@ filsysinit(Channel *cxfidalloc)
 		error("chancreate syncflush");
 	fs->cxfidalloc = cxfidalloc;
 
-	/*
-	 * Create and post wctl pipe
-	 */
-	if(cexecpipe(&p0, &wctlfd) < 0)
-		goto Rescue;
-	snprint(srvwctl, sizeof(srvwctl), "/srv/riowctl.%s.%lud", fs->user, (ulong)getpid());
-	post(srvwctl, "wctl", p0);
-	close(p0);
-
-	/*
-	 * Start server processes
-	 */
-	c = chancreate(sizeof(char*), 0);
-	if(c == nil)
-		error("wctl channel");
-	proccreate(wctlproc, c, 4096);
-	threadcreate(wctlthread, c, 4096);
 	proccreate(filsysproc, fs, 10000);
-
-	/*
-	 * Post srv pipe
-	 */
 	snprint(srvpipe, sizeof(srvpipe), "/srv/rio.%s.%lud", fs->user, (ulong)getpid());
 	post(srvpipe, "wsys", fs->cfd);
 
@@ -385,7 +363,8 @@ filsyswalk(Filsys *fs, Xfid *x, Fid *f)
 		nf->dir = f->dir;
 		nf->qid = f->qid;
 		nf->w = f->w;
-		incref(f->w);
+		if(f->w != nil)
+			incref(f->w);
 		nf->nrpart = 0;	/* not open, so must be zero */
 		f = nf;	/* walk f */
 	}
@@ -450,6 +429,8 @@ filsyswalk(Filsys *fs, Xfid *x, Fid *f)
 			d++;	/* skip '.' */
 			for(; d->name; d++)
 				if(strcmp(x->wname[i], d->name) == 0){
+					if(f->w == nil && d->qid >= Qglobal)
+						break;
 					path = d->qid;
 					type = d->type;
 					dir = d;
@@ -560,6 +541,8 @@ filsysread(Filsys *fs, Xfid *x, Fid *f)
 		d++;	/* first entry is '.' */
 		for(i=0; d->name!=nil && i<e; d++){
 			if(skipdir(d->name))
+				continue;
+			if(f->w == nil && d->qid >= Qglobal)
 				continue;
 			len = dostat(fs, WIN(x->f->qid), d, b+n, x->count-n, clock);
 			if(len <= BIT16SZ)

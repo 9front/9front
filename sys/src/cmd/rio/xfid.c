@@ -221,6 +221,9 @@ xfidattach(Xfid *x)
 			err = errbuf;
 		else
 			goto Allocate;
+	}else if(strncmp(x->aname, "none", 4) == 0){
+		x->f->w = nil;
+		goto Done;
 	}else{
 		id = atoi(x->aname);
 		w = wlookid(id);
@@ -234,6 +237,7 @@ xfidattach(Xfid *x)
 	}
 	if(!newlymade)	/* counteract dec() in winshell() */
 		incref(w);
+  Done:
 	qunlock(&all);
 	filsysrespond(x->fs, x, &t, nil);
 }
@@ -245,7 +249,7 @@ xfidopen(Xfid *x)
 	Window *w;
 
 	w = x->f->w;
-	if(w->deleted){
+	if(w != nil && w->deleted){
 		filsysrespond(x->fs, x, &t, Edeleted);
 		return;
 	}
@@ -368,7 +372,8 @@ xfidclose(Xfid *x)
 		chanprint(ctltap, "%c", Tapoff);
 		break;
 	}
-	wclose(w);
+	if(w)
+		wclose(w);
 	filsysrespond(x->fs, x, &t, nil);
 }
 
@@ -387,7 +392,7 @@ xfidwrite(Xfid *x)
 	Alt alts[NCW+1];
 
 	w = x->f->w;
-	if(w->deleted){
+	if(w != nil && w->deleted){
 		filsysrespond(x->fs, x, &fc, Edeleted);
 		return;
 	}
@@ -642,7 +647,7 @@ xfidread(Xfid *x)
 	Alt alts[Aend+1];
 
 	w = x->f->w;
-	if(w->deleted){
+	if(w != nil && w->deleted){
 		filsysrespond(x->fs, x, &fc, Edeleted);
 		return;
 	}
@@ -651,6 +656,10 @@ xfidread(Xfid *x)
 	cnt = x->count;
 	switch(qid){
 	case Qwctl:
+		if(w == nil){
+			filsysrespond(x->fs, x, &fc, "no window");
+			return;
+		}
 		if(cnt < 4*12){
 			filsysrespond(x->fs, x, &fc, Etooshort);
 			return;
@@ -703,9 +712,12 @@ xfidread(Xfid *x)
 		alts[Adata].c = totap;
 		alts[Adata].v = &t;
 		alts[Adata].op = CHANRCV;
-		alts[Agone].c = w->gone;
-		alts[Agone].v = nil;
-		alts[Agone].op = CHANRCV;
+		if(w != nil){
+			alts[Agone].c = w->gone;
+			alts[Agone].v = nil;
+			alts[Agone].op = CHANRCV;
+		} else
+			alts[Agone].op = CHANNOP;
 		alts[Aflush].c = x->flushc;
 		alts[Aflush].v = nil;
 		alts[Aflush].op = CHANRCV;

@@ -293,9 +293,21 @@ void
 initcmd(void *arg)
 {
 	char *cmd;
+	char *wsys;
+	int fd;
 
 	cmd = arg;
 	rfork(RFENVG|RFFDG|RFNOTEG|RFNAMEG);
+	wsys = getenv("wsys");
+	fd = open(wsys, ORDWR);
+	if(fd < 0)
+		fprint(2, "rio: failed to open wsys: %r\n");
+	if(mount(fd, -1, "/mnt/wsys", MREPL, "none") < 0)
+		fprint(2, "rio: failed to mount wsys: %r\n");
+	if(bind("/mnt/wsys", "/dev/", MBEFORE) < 0)
+		fprint(2, "rio: failed to bind wsys: %r\n");
+	free(wsys);
+	close(fd);
 	procexecl(nil, "/bin/rc", "rc", "-c", cmd, nil);
 	fprint(2, "rio: exec failed: %r\n");
 	exits("exec");

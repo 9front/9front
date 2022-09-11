@@ -1,6 +1,13 @@
 enum
 {
 	Qdir,			/* /dev for this window */
+	Qscreen,
+	Qsnarf,
+	Qwctl,
+	Qtap,
+	Qwsys,		/* directory of window directories */
+	Qwsysdir,		/* window directory, child of wsys */
+
 	Qcons,
 	Qconsctl,
 	Qcursor,
@@ -10,17 +17,11 @@ enum
 	Qlabel,
 	Qkbd,
 	Qmouse,
-	Qnew,
-	Qscreen,
-	Qsnarf,
 	Qtext,
-	Qwctl,
 	Qwindow,
-	Qwsys,		/* directory of window directories */
-	Qwsysdir,		/* window directory, child of wsys */
-	Qtap,
 
 	QMAX,
+	Qglobal = Qcons,	/* anything >= must have non nil window */
 };
 
 #define	STACK	8192
@@ -271,9 +272,6 @@ int		filsysmount(Filsys*, int);
 Xfid*		filsysrespond(Filsys*, Xfid*, Fcall*, char*);
 void		filsyscancel(Xfid*);
 
-void		wctlproc(void*);
-void		wctlthread(void*);
-
 void		deletetimeoutproc(void*);
 
 struct Timer
@@ -337,7 +335,6 @@ int		maxtab;
 Channel*	winclosechan;
 char		*startdir;
 int		sweeping;
-int		wctlfd;
 char		srvpipe[];
 char		srvwctl[];
 int		errorshouldabort;
