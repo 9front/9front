@@ -293,7 +293,7 @@ xfidopen(Xfid *x)
 			ntsnarf = 0;
 		break;
 	case Qwctl:
-		if(x->mode==OREAD || x->mode==ORDWR){
+		if(w != nil && (x->mode==OREAD || x->mode==ORDWR)){
 			/*
 			 * It would be much nicer to implement fan-out for wctl reads,
 			 * so multiple people can see the resizings, but rio just isn't
@@ -365,7 +365,7 @@ xfidclose(Xfid *x)
 		}
 		break;
 	case Qwctl:
-		if(x->f->mode==OREAD || x->f->mode==ORDWR)
+		if(w != nil && (x->f->mode==OREAD || x->f->mode==ORDWR))
 			w->wctlopen = FALSE;
 		break;
 	case Qtap:
