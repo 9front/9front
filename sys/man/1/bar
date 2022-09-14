@@ -1,0 +1,93 @@
+.TH BAR 1
+.SH NAME
+bar \- display a bar
+.SH SYNOPSIS
+.B bar
+[
+.I -b
+]
+[
+.I -d dateformat
+]
+[
+.I -p position
+]
+[
+.I -s separator
+]
+.SH DESCRIPTION
+.I bar
+displays a small window with current battery charge, date and time.
+Additional data may be displayed by writing lines of text to its
+standard input.
+.PP
+.I Bar
+reacts to mouse clicks by writing the "clicked" portion of the text
+(enclosed by the separator) to standard output.  This can be used to
+perform additional actions by a custom script. See
+.I Examples
+section.
+.PP
+By default,
+.I bar
+is placed at the bottom right corner of the screen.  This can be
+changed by speicifying option
+.I -p
+with first letters of the required placement:
+.I l
+for "left",
+.I r
+for "right",
+.I t
+for "top" and
+.I b
+for "bottom".  If neither left nor right is chosen, the window will be
+placed in either top or bottom center.
+.PP
+.I Bar
+keeps itself as a top window. To make it stay at the bottom, use
+.I -b .
+.PP
+Separator can be changed with
+.I -s
+option.
+.PP
+Date and time format may be set using
+.I -d
+option, see
+.I tmdate(2).
+.SH EXAMPLES
+An example of how
+.I bar
+can be used along with
+.I riow
+to control
+.I zuke
+playback via mouse clicks:
+.PP
+.EX
+#!/bin/rc
+rfork ne
+fn mybar {
+	sed -u 's/$/ │ ⏮ │ ⏯ │ ⏭/g' \\
+	| bar \\
+	| awk -v 'c=plumb -d audio ''key ' '
+		/⏮/{system(c"<''")}
+		/⏯/{system(c"p''")}
+		/⏭/{system(c">''")}
+		' >[2]/dev/null
+}
+riow </dev/kbdtap >/dev/kbdtap |[3] mybar
+.EE
+.PP
+The script is used instead of executing
+.I bar
+directly.
+.SH SOURCE
+/sys/src/cmd/bar.c
+.SH SEE ALSO
+.IR riow (1)
+.SH HISTORY
+Bar first appeared in 9front (September, 2022).
+.SH BUGS
+Impossible.
