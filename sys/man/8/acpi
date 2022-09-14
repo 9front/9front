@@ -49,9 +49,11 @@ or
 Each line provides a current temperature reading of a specific CPU.
 .TP
 .B pmctl
-The
+Writing
+.I power off
+to
 .B pmctl
-file currently does not provide any functionality.
+will turn off the power.
 .SH SOURCE
 .B /sys/src/cmd/aux/acpi.c
 .SH SEE ALSO

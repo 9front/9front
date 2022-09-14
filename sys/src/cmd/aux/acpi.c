@@ -6,10 +6,9 @@
 #include <aml.h>
 
 typedef struct Batstat Batstat;
-typedef struct Battery Battery;
-typedef struct Dfile Dfile;
+typedef struct Bat Bat;
 typedef struct Tbl Tbl;
-typedef struct Thermal Thermal;
+typedef struct Therm Therm;
 
 struct Batstat {
 	int rate;
@@ -18,7 +17,7 @@ struct Batstat {
 	int voltage;
 };
 
-struct Battery {
+struct Bat {
 	char *unit;
 	void *bst;
 	int fullcharge;
@@ -26,14 +25,6 @@ struct Battery {
 	int capacitywarn;
 	int capacitylow;
 	int voltage;
-};
-
-struct Dfile {
-	Qid qid;
-	char *name;
-	ulong mode;
-	void (*read)(Req*);
-	void (*write)(Req*);
 };
 
 struct Tbl {
@@ -49,42 +40,28 @@ struct Tbl {
 	uchar data[];
 };
 
-struct Thermal {
+struct Therm {
 	uint cpus;
 	void *tmp;
 };
 
 enum {
-	Stacksz = 16384,
 	Tblsz = 4+4+1+1+6+8+4+4+4,
 
-	Qroot = 0,
-	Qbattery,
-	Qcputemp,
-	Qpmctl,
+	Temp = 1,
+	Battery,
+	Pmctl,
 
-	Qdisable = (uvlong)-1,
+	SLP_EN = 0x2000,
+	SLP_TM = 0x1c00,
 };
 
-static void rootread(Req*);
-static void ctlread(Req*);
-static void ctlwrite(Req*);
-static void batteryread(Req*);
-static void tmpread(Req*);
-
-int ec, mem, iofd[5], nbats, ntherms, rp, wp;
-char *units[] = {"mW", "mA"};
-Battery bats[4];
-Thermal therms[4];
-Channel *creq, *cevent;
-Req *rlist, **tailp;
-
-Dfile dfile[] = {
-	{{Qroot,0,QTDIR},	"/",		DMDIR|0555,	rootread,	nil},
-	{{Qbattery},		"battery",	0444,		batteryread,	nil},
-	{{Qcputemp},		"cputemp",	0444,		tmpread,	nil},
-	{{Qpmctl},		"pmctl",	0666,		ctlread,	ctlwrite},
-};
+static ulong PM1a_CNT_BLK, PM1b_CNT_BLK, SLP_TYPa, SLP_TYPb;
+static ulong GPE0_BLK, GPE1_BLK, GPE0_BLK_LEN, GPE1_BLK_LEN;
+static int ec, mem, iofd[5], nbats, ntherms, facp;
+static char *uid = "pm", *units[] = {"mW", "mA"};
+static Therm therms[16];
+static Bat bats[4];
 
 static char*
 eisaid(void *v)
@@ -96,12 +73,12 @@ eisaid(void *v)
 	if(amltag(v) == 's')
 		return v;
 	b = amlint(v);
-	for(l = 0, i=24; i>=0; i -= 8, b >>= 8)
+	for(l = 0, i = 24; i >= 0; i -= 8, b >>= 8)
 		l |= (b & 0xFF) << i;
 	id[7] = 0;
-	for(i=6; i>=3; i--, l >>= 4)
+	for(i = 6; i >= 3; i--, l >>= 4)
 		id[i] = "0123456789ABCDEF"[l & 0xF];
-	for(i=2; i>=0; i--, l >>= 5)
+	for(i = 2; i >= 0; i--, l >>= 5)
 		id[i] = '@' + (l & 0x1F);
 	return id;
 }
@@ -112,12 +89,11 @@ enumec(void *dot, void *)
 	void *p;
 	char *id;
 	id = eisaid(amlval(amlwalk(dot, "^_HID")));
-	if (id == nil || strcmp(id, "PNP0C09") != 0)
+	if(id == nil || strcmp(id, "PNP0C09") != 0)
 		return 1;
 	p = amlwalk(dot, "^_REG");
-	if (p != nil) {
+	if(p != nil)
 		amleval(p, "ii", 0x3, 1, nil);
-	}
 	return 1;
 }
 
@@ -125,7 +101,7 @@ static int
 enumbat(void *dot, void *)
 {
 	void *p, *r, **rr;
-	Battery *b;
+	Bat *b;
 	int n;
 
 	if(nbats >= nelem(bats))
@@ -147,7 +123,7 @@ enumbat(void *dot, void *)
 	else
 		b->unit = units[n];
 	b->capacity = amlint(rr[1]);
-	if((int)b->capacity < 0) /* even though _STA tells it's there */
+	if(b->capacity < 0) /* even though _STA tells it's there */
 		return 1;
 	b->fullcharge = amlint(rr[2]);
 	b->voltage = amlint(rr[4]);
@@ -167,19 +143,17 @@ enumtmp(void *dot, void *)
 {
 	void *r, **rr;
 	char s[64];
-	int i, n;
 	uint cpus;
+	int i, n;
 
 	cpus = 0;
 	if(ntherms < nelem(therms) && amleval(dot, "", &r) >= 0 && amllen(r) > 0 && (rr = amlval(r)) != nil){
 		for(i = 0; i < amllen(r); i++){
 			snprint(s, sizeof(s), "%N", amlval(rr[i]));
-			if((n = strlen(s)) > 0){
-				for(n--; n > 3; n--){
-					if(s[n-2] == 'C' && s[n-1] == 'P' && s[n] == 'U' && s[n+1] >= '0' && s[n+1] <= '9'){
-						cpus |= 1<<atoi(&s[n+1]);
-						break;
-					}
+			for(n = strlen(s)-1; n > 3; n--){
+				if(s[n-2] == 'C' && s[n-1] == 'P' && s[n] == 'U' && s[n+1] >= '0' && s[n+1] <= '9'){
+					cpus |= 1 << atoi(&s[n+1]);
+					break;
 				}
 			}
 		}
@@ -195,7 +169,7 @@ enumtmp(void *dot, void *)
 }
 
 static int
-batstat(Battery *b, Batstat *s)
+batstat(Bat *b, Batstat *s)
 {
 	void *r, **rr;
 
@@ -212,244 +186,186 @@ batstat(Battery *b, Batstat *s)
 }
 
 static void
-batteryread(Req *r)
+batteryread(char *s, char *e)
 {
-	char buf[nelem(bats)*120], *ep, *p, *state;
-	Battery *b;
+	int n, x, hh, mm, ss;
+	char *state;
 	Batstat st;
-	int n, x, h, m, s;
+	Bat *b;
 
-	p = buf;
-	*p = 0;
-	ep = buf + sizeof(buf);
 	for(n = 0; n < nbats; n++){
 		b = &bats[n];
 
-		st.rate = -1;
-		st.capacity = -1;
-		st.state = 0;
-		st.voltage = -1;
-		batstat(b, &st);
+		state = "unknown";
+		ss = x = 0;
 
-		h = m = s = 0;
-		if(st.state & 4)
-			state = "critical";
-		else if(st.state & 1)
-			state = "discharging";
-		else if(st.state & 2)
-			state = "charging";
-		else
-			state = "unknown";
-		if(st.rate > 0){
-			s = ((st.state & 2) ? bats[n].fullcharge - st.capacity : st.capacity) * 3600 / st.rate;
-			h = s/3600;
-			s -= 3600*(s/3600);
-			m = s/60;
-			s -= 60*(s/60);
+		if(batstat(b, &st) == 0){
+			if(st.state & 4)
+				state = "critical";
+			else if(st.state & 1)
+				state = "discharging";
+			else if(st.state & 2)
+				state = "charging";
+			if(st.rate > 0 && (st.state & 2) == 0)
+				ss = st.capacity * 3600 / st.rate;
+			if(bats[n].fullcharge > 0){
+				x = st.capacity * 100 / bats[n].fullcharge;
+				if(st.state & 2)
+					ss = (bats[n].fullcharge - st.capacity) * 3600 / st.rate;
+			}
+		}else{
+			memset(&st, 0, sizeof(st));
 		}
-		x = bats[n].fullcharge > 0 ? st.capacity * 100 / bats[n].fullcharge : -1;
-		p += snprint(p, ep-p, "%d %s %d %d %d %d %d %s %d %d %02d:%02d:%02d %s\n",
+
+		hh = ss / 3600;
+		ss -= 3600 * (ss / 3600);
+		mm = ss / 60;
+		ss -= 60 * (ss / 60);
+		s = seprint(s, e, "%d %s %d %d %d %d %d %s %d %d %02d:%02d:%02d %s\n",
 			x,
 			bats[n].unit, st.capacity, b->fullcharge, b->capacity, b->capacitywarn, b->capacitylow,
 			"mV", st.voltage, b->voltage,
-			h, m, s,
+			hh, mm, ss,
 			state
 		);
 	}
-	
-	readstr(r, buf);
-	respond(r, nil);
 }
 
 static void
-tmpread(Req *r)
+tmpread(char *s, char *e)
 {
-	char buf[32], *ep, *p;
 	void *er;
 	int n, t;
 
-	p = buf;
-	ep = buf + sizeof(buf);
-
 	for(n = 0; n < ntherms; n++){
-		t = 0;
+		t = 2732;
 		if(amleval(therms[n].tmp, "", &er) >= 0)
 			t = amlint(er);
-			p += snprint(p, ep-p, "%d.0\n", (t - 2732)/10);
+		s = seprint(s, e, "%d.0\n", (t - 2732)/10);
 	}
-
-	readstr(r, buf);
-	respond(r, nil);
 }
 
 static void
-ctlread(Req *r)
+wirecpu0(void)
 {
-	respond(r, "no.");
+	char buf[128];
+	int ctl;
+
+	snprint(buf, sizeof(buf), "/proc/%d/ctl", getpid());
+	if((ctl = open(buf, OWRITE)) < 0){
+		snprint(buf, sizeof(buf), "#p/%d/ctl", getpid());
+		if((ctl = open(buf, OWRITE)) < 0)
+			return;
+	}
+	write(ctl, "wired 0", 7);
+	close(ctl);
 }
 
 static void
-ctlwrite(Req *r)
+outw(long addr, ushort val)
 {
-	respond(r, "no.");
-}
+	uchar buf[2];
 
-void*
-emalloc(ulong n)
-{
-	void *v;
-
-	v = malloc(n);
-	if(v == nil)
-		sysfatal("out of memory allocating %lud", n);
-	memset(v, 0, n);
-	setmalloctag(v, getcallerpc(&n));
-	return v;
-}
-
-char*
-estrdup(char *s)
-{
-	int l;
-	char *t;
-
-	if (s == nil)
-		return nil;
-	l = strlen(s)+1;
-	t = emalloc(l);
-	memcpy(t, s, l);
-	setmalloctag(t, getcallerpc(&s));
-	return t;
-}
-
-static int
-fillstat(uvlong path, Dir *d, int doalloc)
-{
-	int i;
-
-	for(i=0; i<nelem(dfile); i++)
-		if(path == dfile[i].qid.path)
-			break;
-	if(i == nelem(dfile))
-		return -1;
-
-	memset(d, 0, sizeof *d);
-	d->uid = doalloc ? estrdup("acpi") : "acpi";
-	d->gid = doalloc ? estrdup("acpi") : "acpi";
-	d->length = 0;
-	d->name = doalloc ? estrdup(dfile[i].name) : dfile[i].name;
-	d->mode = dfile[i].mode;
-	d->atime = d->mtime = time(0);
-	d->qid = dfile[i].qid;
-	return 0;
-}
-
-static char*
-fswalk1(Fid *fid, char *name, Qid *qid)
-{
-	int i;
-
-	if(strcmp(name, "..") == 0){
-		*qid = dfile[0].qid;
-		fid->qid = *qid;
-		return nil;
-	}
-
-	for(i = 1; i < nelem(dfile); i++){	/* i=1: 0 is root dir */
-		if(dfile[i].qid.path != Qdisable && strcmp(dfile[i].name, name) == 0){
-			*qid = dfile[i].qid;
-			fid->qid = *qid;
-			return nil;
-		}
-	}
-	return "file does not exist";
-}
-
-static void
-fsopen(Req *r)
-{
-	switch((ulong)r->fid->qid.path){
-	case Qroot:
-		r->fid->aux = (void*)0;
-		respond(r, nil);
+	if(addr == 0)
 		return;
-
-	case Qbattery:
-	case Qcputemp:
-		if(r->ifcall.mode == OREAD){
-			respond(r, nil);
-			return;
-		}
-		break;
-
-	case Qpmctl:
-		if((r->ifcall.mode & ~(OTRUNC|OREAD|OWRITE|ORDWR)) == 0){
-			respond(r, nil);
-			return;
-		}
-		break;
-	}
-	respond(r, "permission denied");
-	return;
+	buf[0] = val;
+	buf[1] = val >> 8;
+	pwrite(iofd[2], buf, 2, addr);
 }
 
 static void
-fsstat(Req *r)
+poweroff(void)
 {
-	fillstat(r->fid->qid.path, &r->d, 1);
-	respond(r, nil);
+	int n;
+
+	if(facp == 0){
+		werrstr("no FACP");
+		return;
+	}
+
+	wirecpu0();
+
+	/* disable GPEs */
+	for(n = 0; GPE0_BLK > 0 && n < GPE0_BLK_LEN/2; n += 2){
+		outw(GPE0_BLK + GPE0_BLK_LEN/2 + n, 0); /* EN */
+		outw(GPE0_BLK + n, 0xffff); /* STS */
+	}
+	for(n = 0; GPE1_BLK > 0 && n < GPE1_BLK_LEN/2; n += 2){
+		outw(GPE1_BLK + GPE1_BLK_LEN/2 + n, 0); /* EN */
+		outw(GPE1_BLK + n, 0xffff); /* STS */
+	}
+
+	outw(PM1a_CNT_BLK, ((SLP_TYPa << 10) & SLP_TM) | SLP_EN);
+	outw(PM1b_CNT_BLK, ((SLP_TYPb << 10) & SLP_TM) | SLP_EN);
+	sleep(100);
+
+	/*
+	 * The SetSystemSleeping() example from the ACPI spec 
+	 * writes the same value in both registers. But Linux/BSD
+	 * write distinct values from the _Sx package (like the
+	 * code above). The _S5 package on a HP DC5700 is
+	 * Package(0x2){0x0, 0x7} and writing SLP_TYPa of 0 to
+	 * PM1a_CNT_BLK seems to have no effect but 0x7 seems
+	 * to work fine. So trying the following as a last effort.
+	 */
+	SLP_TYPa |= SLP_TYPb;
+	outw(PM1a_CNT_BLK, ((SLP_TYPa << 10) & SLP_TM) | SLP_EN);
+	outw(PM1b_CNT_BLK, ((SLP_TYPa << 10) & SLP_TM) | SLP_EN);
+	sleep(100);
+
+	werrstr("acpi failed");
+}
+
+static void
+pmctlread(char *s, char *e)
+{
+	USED(s, e);
 }
 
 static void
 fsread(Req *r)
 {
-	dfile[r->fid->qid.path].read(r);
+	char msg[512], *s, *e;
+	void *aux;
+
+	s = msg;
+	e = s + sizeof(msg);
+	*s = 0;
+	aux = r->fid->file->aux;
+	if(r->ifcall.offset == 0){
+		if(aux == (void*)Temp)
+			tmpread(s, e);
+		else if(aux == (void*)Battery)
+			batteryread(s, e);
+		else if(aux == (void*)Pmctl)
+			pmctlread(s, e);
+	}
+
+	readstr(r, msg);
+	respond(r, nil);
 }
 
 static void
 fswrite(Req *r)
 {
-	dfile[r->fid->qid.path].write(r);
-}
+	char msg[256], *f[4];
+	void *aux;
+	int nf;
 
-static void
-rootread(Req *r)
-{
-	int n;
-	uvlong offset;
-	char *p, *ep;
-	Dir d;
-
-	offset = r->ifcall.offset == 0 ? 0 : (uvlong)r->fid->aux;
-	p = r->ofcall.data;
-	ep = r->ofcall.data + r->ifcall.count;
-
-	if(offset == 0) /* skip root */
-		offset = 1;
-	for(; p+2 < ep && offset < nelem(dfile); p += n){
-		if(fillstat(offset, &d, 0) < 0)
-			n = 0;
-		else{
-			n = convD2M(&d, (uchar*)p, ep-p);
-			if(n <= BIT16SZ)
-				break;
-		}
-		offset++;
-	}
-	r->fid->aux = (void*)offset;
-	r->ofcall.count = p - r->ofcall.data;
-	respond(r, nil);
-}
-
-static void
-fsattach(Req *r)
-{
-	if(r->ifcall.aname && r->ifcall.aname[0]){
-		respond(r, "invalid attach specifier");
+	snprint(msg, sizeof(msg), "%.*s",
+		utfnlen((char*)r->ifcall.data, r->ifcall.count), (char*)r->ifcall.data);
+	nf = tokenize(msg, f, nelem(f));
+	aux = r->fid->file->aux;
+	if(aux == (void*)Pmctl){
+		if(nf == 2 && strcmp(f[0], "power") == 0 && strcmp(f[1], "off") == 0)
+			poweroff(); /* should not go any further here */
+		else
+			werrstr("invalid ctl message");
+		responderror(r);
 		return;
 	}
-	r->fid->qid = dfile[0].qid;
-	r->ofcall.qid = dfile[0].qid;
+
+	r->ofcall.count = r->ifcall.count;
 	respond(r, nil);
 }
 
@@ -460,26 +376,24 @@ usage(void)
 	exits("usage");
 }
 
-static ulong
-get32(uchar *p){
-	return p[3]<<24 | p[2]<<16 | p[1]<<8 | p[0];
-}
-
-Srv fs = {
-	.attach = fsattach,
-	.walk1 = fswalk1,
-	.open = fsopen,
+static Srv fs = {
 	.read = fsread,
 	.write = fswrite,
-	.stat = fsstat,
 };
+
+static ulong
+get32(uchar *p)
+{
+	return p[3]<<24 | p[2]<<16 | p[1]<<8 | p[0];
+}
 
 void
 threadmain(int argc, char **argv)
 {
 	char *mtpt, *srv;
-	Tbl *t;
+	void *r, **rr;
 	int fd, n, l;
+	Tbl *t;
 
 	mtpt = "/dev";
 	srv = nil;
@@ -535,8 +449,22 @@ threadmain(int argc, char **argv)
 		if(memcmp("DSDT", t->sig, 4) == 0){
 			amlintmask = (~0ULL) >> (t->rev <= 1)*32;
 			amlload(t->data, l);
-		}else if(memcmp("SSDT", t->sig, 4) == 0)
+		}else if(memcmp("SSDT", t->sig, 4) == 0){
 			amlload(t->data, l);
+		}else if(memcmp("FACP", t->sig, 4) == 0){
+			facp = 1;
+			PM1a_CNT_BLK = get32(((uchar*)t) + 64);
+			PM1b_CNT_BLK = get32(((uchar*)t) + 68);
+			GPE0_BLK = get32(((uchar*)t) + 80);
+			GPE1_BLK = get32(((uchar*)t) + 84);
+			GPE0_BLK_LEN = *(((uchar*)t) + 92);
+			GPE1_BLK_LEN = *(((uchar*)t) + 93);
+		}
+	}
+	if(amleval(amlwalk(amlroot, "_S5"), "", &r) >= 0 && amltag(r) == 'p' && amllen(r) >= 2){
+		rr = amlval(r);
+		SLP_TYPa = amlint(rr[0]);
+		SLP_TYPb = amlint(rr[1]);
 	}
 	close(fd);
 
@@ -544,18 +472,18 @@ threadmain(int argc, char **argv)
 	amlenum(amlroot, "_BIF", enumbat, nil);
 	amlenum(amlroot, "_PSL", enumtmp, nil);
 
-	if(nbats < 1)
-		dfile[Qbattery].qid.path = Qdisable;
-	if(ntherms < 1)
-		dfile[Qcputemp].qid.path = Qdisable;
+	fs.tree = alloctree(uid, uid, DMDIR|0555, nil);
+	if(nbats > 0)
+		createfile(fs.tree->root, "battery", uid, 0444, (void*)Battery);
+	if(ntherms > 0)
+		createfile(fs.tree->root, "cputemp", uid, 0444, (void*)Temp);
+	createfile(fs.tree->root, "pmctl", uid, 0666, (void*)Pmctl);
 
 	threadpostmountsrv(&fs, srv, mtpt, MAFTER);
 	threadexits(nil);
 
 fail:
-	fprint(2, "%r\n");
-	amlexit();
-	threadexitsall("acpi");
+	sysfatal("%r");
 }
 
 static int
