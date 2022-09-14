@@ -1,0 +1,42 @@
+.TH FONTSEL 1
+.SH NAME
+fontsel \- a font selector program
+.SH SYNOPSIS
+.B fontsel
+[
+.I FILE
+]
+.SH DESCRIPTION
+.I fontsel
+scans
+.I /lib/font/bit
+and
+.I /lib/font/ttf
+for fonts and displays a text, either the default one,
+or the one specified by the user with an optional argument.
+.PP
+Font directory can be selected using middle mouse button.
+Specific font in that directory can be selected either
+.B -
+and
+.B +
+keys (bitmap fonts and TTF), or with the right mouse button
+(only for bitmap fonts).
+.PP
+Pressing
+.B q
+or
+.B del
+will exit the program and output the path to the last selected font,
+so that it's possible to select a font for a specific program in mind:
+.EX
+	font=`{fontsel} sam ...
+.EE
+.SH SOURCE
+/sys/src/cmd/fontsel.c
+.SH SEE ALSO
+.IR truetypefs (4)
+.SH HISTORY
+Fontsel first appeared in 9front (September, 2022).
+.SH BUGS
+TTF.
