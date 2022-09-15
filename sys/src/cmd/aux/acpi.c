@@ -210,7 +210,7 @@ batteryread(char *s, char *e)
 				ss = st.capacity * 3600 / st.rate;
 			if(bats[n].fullcharge > 0){
 				x = st.capacity * 100 / bats[n].fullcharge;
-				if(st.state & 2)
+				if(st.rate > 0 && (st.state & 2) != 0)
 					ss = (bats[n].fullcharge - st.capacity) * 3600 / st.rate;
 			}
 		}else{
