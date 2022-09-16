@@ -1,0 +1,16 @@
+.TH CAMV 1
+.SH NAME
+camv, camera display
+.SH SYNOPSIS
+.B camv cam-device
+.SH DESCRIPTION
+.I Camv
+uses the underlying
+.I cam-device
+file system to start a graphical camera display stream.
+.PP
+The file system is initialized using nusb/cam (see nusb(4)).
+.SH SOURCE
+.B /sys/src/cmd/camv.c
+.SH SEE ALSO
+.IR nusb (4)

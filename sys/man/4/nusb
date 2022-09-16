@@ -11,6 +11,12 @@ usbd - Universal Serial Bus drivers
 .B nusb/audio
 .I devid
 .PP
+.B nusb/cam
+[
+.B -d
+]
+.I devid
+.PP
 .B nusb/disk
 [
 .B -d
@@ -263,9 +269,17 @@ It implements a file system (normally seen under
 .BR /dev ),
 compatible with
 .IR audio (3).
+.SS Camera devices
+.I Cam
+configures and manages a USB camera device.
+It implements a file system (normally seen under
+.BR /dev ),
+compatible with
+.IR camv (1).
 .SH SOURCE
 .B /sys/src/cmd/nusb
 .SH "SEE ALSO"
+.IR camv (1),
 .IR joy (1),
 .IR audio (3),
 .IR ether (3),
