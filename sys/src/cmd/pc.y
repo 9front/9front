@@ -1025,8 +1025,9 @@ fncat(int n, Num **a)
 }
 
 void
-main(int argc, char **argv)
+main(int, char **)
 {
+	char buf[32];
 	Keyword *kw;
 	
 	fmtinstall('B', mpfmt);
@@ -1056,13 +1057,10 @@ main(int argc, char **argv)
 	regfunc("rev", fnrev, 2);
 	regfunc("cat", fncat, -1);
 
-	prompt = 1;
-	ARGBEGIN{
-	case 'n': prompt = 0; break;
-	}ARGEND;
-	
+	prompt = fd2path(0, buf, sizeof buf) >= 0 && strstr(buf, "/dev/cons") != nil;
 	in = Bfdopen(0, OREAD);
-	if(in == nil) sysfatal("Bfdopen: %r");
+	if(in == nil)
+		sysfatal("Bfdopen: %r");
 	extern void yyparse(void);
 	yyparse();
 	extern int yynerrs;
