@@ -71,7 +71,7 @@ for(c in $commits){
 			b=b/$f
 			if(! test -e $b)
 				b=/dev/null
-			ape/diff -urN $a $b
+			diff -ur $a $b
 		}
 	} >$patchfile
 	if(~ $#patchdir 0){
