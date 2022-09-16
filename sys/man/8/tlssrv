@@ -184,7 +184,7 @@ containing:
 .EX
 #!/bin/rc
 exec tlssrv -c/sys/lib/tls/imap.pem -limap4d -r`{cat $3/remote} \e
-    /bin/ip/imap4d -p -dyourdomain -r`{cat $3/remote} \e
+    /bin/upas/imap4d -p -dyourdomain -r`{cat $3/remote} \e
     >[2]/sys/log/imap4d
 .EE
 .PP
