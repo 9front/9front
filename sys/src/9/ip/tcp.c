@@ -3322,6 +3322,8 @@ tcpmssclamp(uchar *p, int n, int mtu)
 	if((h4->vihl&0xF0)==IP_VER4) {
 		if(h4->proto != IP_TCPPROTO)
 			return;
+		if((h4->frag[0] & (IP_FO>>8)) | (h4->frag[1] & IP_FO))
+			return;
 		if(!(h4->tcpflag[1] & SYN))
 			return;
 		hdrlen = (h4->tcpflag[0] >> 2) & ~3;
