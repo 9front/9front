@@ -134,14 +134,16 @@ ipoput4(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
 	if(ifc->m == nil)
 		goto raise;
 
-	if(!gating){
+	medialen = ifc->maxtu - ifc->m->hsize;
+	if(gating)
+		tcpmssclamp((uchar*)eh, len, medialen);
+	else {
 		eh->vihl = IP_VER4|IP_HLEN4;
 		eh->tos = tos;
 	}
 	eh->ttl = ttl;
 
 	/* If we dont need to fragment just send it */
-	medialen = ifc->maxtu - ifc->m->hsize;
 	if(len <= medialen) {
 		hnputs(eh->length, len);
 		if(!gating){

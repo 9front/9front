@@ -40,7 +40,6 @@ enum {
 	CacheTimeout=	5*60,		/* timeout for cache entry in seconds */
 	MaxMTU=		IP_MAX,		/* allow for jumbo frames and large UDP */
 
-	TcpMssMax = 1300,		/* max desirable Tcp MSS value */
 	TunnelMtu = 1400,
 };
 
@@ -151,27 +150,6 @@ struct Port
 	ushort	pvid;
 	ushort	prio;
 	uchar	member[0x1000/8];
-};
-
-enum {
-	EOLOPT		= 0,
-	NOOPOPT		= 1,
-	MSSOPT		= 2,
-	MSS_LENGTH	= 4,		/* Mean segment size */
-	SYN		= 0x02,		/* Pkt. is synchronise */
-	TCPHDR		= 20,
-};
-
-struct Tcphdr
-{
-	uchar	sport[2];
-	uchar	dport[2];
-	uchar	seq[4];
-	uchar	ack[4];
-	uchar	flag[2];
-	uchar	win[2];
-	uchar	cksum[2];
-	uchar	urg[2];
 };
 
 static Bridge *bridgetab[Maxbridge];
@@ -1011,89 +989,13 @@ ethermultiwrite(Bridge *b, Block *bp, int portid, ushort tag)
 static void
 tcpmsshack(Etherpkt *epkt, int n)
 {
-	int hl, optlen;
-	Tcphdr *tcphdr;
-	ulong mss, cksum;
-	uchar *optr;
-
 	/* ignore non-ip packets */
 	switch(nhgets(epkt->type)){
 	case ETIP4:
 	case ETIP6:
+		tcpmssclamp(epkt->data, n-ETHERHDRSIZE, TunnelMtu-ETHERHDRSIZE);
 		break;
-	default:
-		return;
 	}
-	n -= ETHERHDRSIZE;
-	if(n < 1)
-		return;
-	switch(epkt->data[0]&0xF0){
-	case IP_VER4:
-		hl = (epkt->data[0]&15)<<2;
-		if(n < hl+TCPHDR || hl < IP4HDR || epkt->data[9] != TCP)
-			return;
-		n -= hl;
-		tcphdr = (Tcphdr*)(epkt->data + hl);
-		break;
-	case IP_VER6:
-		if(n < IP6HDR+TCPHDR || epkt->data[6] != TCP)
-			return;
-		n -= IP6HDR;
-		tcphdr = (Tcphdr*)(epkt->data + IP6HDR);
-		break;
-	default:
-		return;
-	}
-
-	/* MSS can only appear in SYN packet */
-	if(!(tcphdr->flag[1] & SYN))
-		return;
-	hl = (tcphdr->flag[0] & 0xf0)>>2;
-	if(n < hl)
-		return;
-
-	/* check for MSS option */
-	optr = (uchar*)tcphdr + TCPHDR;
-	n = hl - TCPHDR;
-	for(;;) {
-		if(n <= 0 || *optr == EOLOPT)
-			return;
-		if(*optr == NOOPOPT) {
-			n--;
-			optr++;
-			continue;
-		}
-		optlen = optr[1];
-		if(optlen < 2 || optlen > n)
-			return;
-		if(*optr == MSSOPT && optlen == MSS_LENGTH)
-			break;
-		n -= optlen;
-		optr += optlen;
-	}
-
-	mss = nhgets(optr+2);
-	if(mss <= TcpMssMax)
-		return;
-
-	/* fix checksum */
-	cksum = nhgets(tcphdr->cksum);
-	if(optr-(uchar*)tcphdr & 1) {
-		// odd alignments are a pain
-		cksum += nhgets(optr+1);
-		cksum -= (optr[1]<<8)|(TcpMssMax>>8);
-		cksum += (cksum>>16);
-		cksum &= 0xffff;
-		cksum += nhgets(optr+3);
-		cksum -= ((TcpMssMax&0xff)<<8)|optr[4];
-		cksum += (cksum>>16);
-	} else {
-		cksum += mss;
-		cksum -= TcpMssMax;
-		cksum += (cksum>>16);
-	}
-	hnputs(tcphdr->cksum, cksum);
-	hnputs(optr+2, TcpMssMax);
 }
 
 /*

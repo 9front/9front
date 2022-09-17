@@ -3307,6 +3307,68 @@ tcpforward(Proto *tcp, Block *bp, Route *r)
 	return bp;
 }
 
+void
+tcpmssclamp(uchar *p, int n, int mtu)
+{
+	Tcp4hdr *h4;
+	Tcp6hdr *h6;
+	uchar *pcksum;
+	int hdrlen, optlen, newmss, oldmss;
+
+	if(n < TCP4_PKT)
+		return;
+	h4 = (Tcp4hdr*)p;
+	h6 = (Tcp6hdr*)p;
+	if((h4->vihl&0xF0)==IP_VER4) {
+		if(h4->proto != IP_TCPPROTO)
+			return;
+		if(!(h4->tcpflag[1] & SYN))
+			return;
+		hdrlen = (h4->tcpflag[0] >> 2) & ~3;
+		if(hdrlen > (n - TCP4_PKT))
+			return;
+		n = hdrlen - TCP4_HDRSIZE;
+		p = h4->tcpopt;
+		pcksum = h4->tcpcksum;
+		newmss = mtu - (TCP4_PKT + TCP4_HDRSIZE);
+	} else {
+		if(n < TCP6_PKT)
+			return;
+		if(h6->proto != IP_TCPPROTO)
+			return;
+		if(!(h6->tcpflag[1] & SYN))
+			return;
+		hdrlen = (h6->tcpflag[0] >> 2) & ~3;
+		if(hdrlen > (n - TCP6_PKT))
+			return;
+		n = hdrlen - TCP6_HDRSIZE;
+		p = h6->tcpopt;
+		pcksum = h6->tcpcksum;
+		newmss = mtu - (TCP6_PKT + TCP6_HDRSIZE);
+	}
+	while(n > 0 && *p != EOLOPT) {
+		if(*p == NOOPOPT) {
+			n--;
+			p++;
+			continue;
+		}
+		optlen = p[1];
+		if(optlen < 2 || optlen > n)
+			break;
+		if(*p == MSSOPT){
+			if(optlen != MSS_LENGTH)
+				break;
+			oldmss = nhgets(p+2);
+			if(newmss >= oldmss)
+				break;
+			hnputs_csum(p+2, newmss, pcksum);
+			break;
+		}
+		n -= optlen;
+		p += optlen;
+	}
+}
+
 static char*
 tcpporthogdefensectl(char *val)
 {

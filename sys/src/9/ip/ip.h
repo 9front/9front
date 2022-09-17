@@ -755,6 +755,11 @@ extern void	ip_init(Fs*);
 extern void	ip_init_6(Fs*);
 
 /*
+ *  tcp.c
+ */
+extern void	tcpmssclamp(uchar*, int, int);
+
+/*
  * bootp.c
  */
 extern int	bootpread(char*, ulong, int);

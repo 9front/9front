@@ -88,7 +88,10 @@ ipoput6(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
 	if(ifc->m == nil)
 		goto raise;
 
-	if(!gating){
+	medialen = ifc->maxtu - ifc->m->hsize;
+	if(gating)
+		tcpmssclamp((uchar*)eh, len, medialen);
+	else {
 		eh->vcf[0] = IP_VER6;
 		eh->vcf[0] |= tos >> 4;
 		eh->vcf[1]  = tos << 4;
@@ -96,7 +99,6 @@ ipoput6(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
 	eh->ttl = ttl;
 
 	/* If we dont need to fragment just send it */
-	medialen = ifc->maxtu - ifc->m->hsize;
 	if(len <= medialen) {
 		hnputs(eh->ploadlen, len - IP6HDR);
 		ipifcoput(ifc, bp, V6, gate, rh);

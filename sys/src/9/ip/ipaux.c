@@ -557,8 +557,11 @@ hnputs_csum(void *p, ushort v, uchar *pcsum)
 {
 	ulong csum;
 
-	assert((((uchar*)p - pcsum) & 1) == 0);
-
+	if(((uchar*)p - pcsum) & 1){
+		hnputs_csum((uchar*)p-1, (nhgets((uchar*)p-1) & 0xFF00) | v>>8, pcsum);
+		hnputs_csum((uchar*)p+1, (nhgets((uchar*)p+1) & 0x00FF) | v<<8, pcsum);
+		return;
+	}
 	csum = nhgets(pcsum)^0xFFFF;
 	csum += nhgets(p)^0xFFFF;
 	csum += v;
