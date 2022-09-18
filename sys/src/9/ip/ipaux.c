@@ -556,16 +556,17 @@ void
 hnputs_csum(void *p, ushort v, uchar *pcsum)
 {
 	ulong csum;
+	ushort o;
 
-	if(((uchar*)p - pcsum) & 1){
-		hnputs_csum((uchar*)p-1, (nhgets((uchar*)p-1) & 0xFF00) | v>>8, pcsum);
-		hnputs_csum((uchar*)p+1, (nhgets((uchar*)p+1) & 0x00FF) | v<<8, pcsum);
-		return;
-	}
 	csum = nhgets(pcsum)^0xFFFF;
-	csum += nhgets(p)^0xFFFF;
-	csum += v;
+	o = nhgets(p);
 	hnputs(p, v);
+	if(((uchar*)p - pcsum) & 1){
+		o = o << 8 | o >> 8;
+		v = v << 8 | v >> 8;
+	}
+	csum += o ^ 0xFFFF;
+	csum += v;
 	while(v = csum >> 16)
 		csum = (csum & 0xFFFF) + v;
 	hnputs(pcsum, csum^0xFFFF);
