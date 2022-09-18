@@ -85,8 +85,7 @@ Trk *tr;
 double freq[128];
 int mfmt, ntrk, div = 1, tempo, opl2, stream;
 uvlong T;
-Channel *echan;
-Biobuf *ib, *ob;
+Biobuf *ib;
 
 void *
 emalloc(ulong n)
@@ -174,7 +173,7 @@ putcmd(u16int r, u8int v, u16int dt)
 	*p++ = v;
 	*p++ = dt;
 	*p++ = dt >> 8;
-	Bwrite(ob, u, p-u);
+	write(1, u, p-u);
 }
 
 void
@@ -440,18 +439,13 @@ ev(Trk *x)
 void
 tproc(void *)
 {
-	vlong t, Δt;
+	uvlong t, Δt;
 	uchar u[4];
 	Trk x;
 
 	x.e = u + sizeof u;
 	t = nsec();
 	for(;;){
-		if(nbrecv(echan, u) > 0){
-			u[0] = 0;
-			x.p = u;
-			ev(&x);
-		}
 		putcmd(0, 0, 1);
 		t += 10000000 / (Rate / 100);
 		Δt = (t - nsec()) / 1000000;
@@ -541,7 +535,7 @@ threadmain(int argc, char **argv)
 	uchar u[4];
 	Chan *c;
 	Opl *o;
-	Trk *x, *minx;
+	Trk xs, *x, *minx;
 
 	i = "/mnt/wad/genmidi";
 	ARGBEGIN{
@@ -552,7 +546,6 @@ threadmain(int argc, char **argv)
 	}ARGEND
 	readinst(i);
 	readmid(*argv);
-	ob = bfdopen(1, OWRITE);
 	f = pow(2, 1./12);
 	for(n=0; n<nelem(freq); n++)
 		freq[n] = 440 * pow(f, n - 69);
@@ -570,12 +563,14 @@ threadmain(int argc, char **argv)
 	if(stream){
 		if(proccreate(tproc, nil, mainstacksize) < 0)
 			sysfatal("proccreate: %r");
-		if((echan = chancreate(sizeof u, 0)) == nil)
-			sysfatal("chancreate: %r");
+		xs.p = u;
+		xs.e = u + sizeof u;
 		for(;;){
 			if((n = Bread(ib, u, sizeof u)) != sizeof u)
 				break;
-			send(echan, u);
+			u[0] = 0;
+			xs.p = u;
+			ev(&xs);
 		}
 		threadexitsall(n < 0 ? "read: %r" : nil);
 	}
