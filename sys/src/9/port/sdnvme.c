@@ -211,7 +211,9 @@ wcmd(WS *ws, u32int *e)
 	SQ *sq = ws->queue;
 	Ctlr *ctlr = sq->ctlr;
 
-	if(e != nil) dmaflush(1, e, 64);
+	if(e != nil) {
+		dmaflush(1, e, 64);
+	}
 	coherence();
 	ctlr->reg[DBell + ((sq-ctlr->sq)*2+0 << ctlr->dstrd)] = sq->tail & sq->mask;
 	if(sq > ctlr->sq) {
@@ -271,7 +273,9 @@ nvmebio(SDunit *u, int lun, int write, void *a, long count, uvlong lba)
 		count -= n;
 		lba += n;
 	}
-	if(!write) dmaflush(0, a, p - (uchar*)a);
+	if(!write) {
+		dmaflush(0, a, p - (uchar*)a);
+	}
 	return p - (uchar*)a;
 }
 
@@ -460,9 +464,9 @@ identify(Ctlr *ctlr)
 
 	e = qcmd(&ws, ctlr, 1, 0x06, 0, nil, ctlr->nsid, 0x1000);
 	e[10] = 2; // namespace list 
-	if(wcmd(&ws, e) == 0)
+	if(wcmd(&ws, e) == 0) {
 		dmaflush(0, ctlr->nsid, 0x1000);
-	else
+	} else
 		ctlr->nsid[0] = 1;	/* assume namespace #1 */
 
 	ctlr->nnsid = 0;
