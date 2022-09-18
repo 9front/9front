@@ -31,7 +31,7 @@ smtp, smtpd \-  mail transport
 .ti -0.5i
 .B upas/smtpd
 [
-.B -adDfrg
+.B -adDeEfqrg
 ] [
 .B -c
 .I certfile
@@ -164,6 +164,12 @@ this deters some spammers.
 Connections from Class A networks frequented by spammers will incur
 a longer delay.
 .TP
+.B -e
+disable extra HELO checks. See RFC 7208 for details.
+.TP
+.B -E
+require authentication if extra HELO checks fail.
+.TP
 .B -f
 prevents relaying from non-trusted networks.
 It also tags messages from non-trusted sites when they deliver mail
@@ -231,6 +237,9 @@ the password in the clear, e.g.
 protocol. This should only be used if the connection has
 previously encrypted using e.g.
 .IR tlssrv (8).
+.TP
+.B -q
+don't log invalid HELO checks.
 .TP
 .B -r
 turns on forward DNS validation of non-trusted sender address.
