@@ -136,7 +136,7 @@ ipoput4(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
 
 	medialen = ifc->maxtu - ifc->m->hsize;
 	if(gating)
-		tcpmssclamp((uchar*)eh, len, medialen);
+		tcpmssclamp(bp->rp, BLEN(bp), medialen);
 	else {
 		eh->vihl = IP_VER4|IP_HLEN4;
 		eh->tos = tos;
