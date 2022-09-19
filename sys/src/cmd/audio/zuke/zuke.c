@@ -83,7 +83,8 @@ static Image *cover;
 static Channel *playc;
 static Channel *redrawc;
 static Mousectl *mctl;
-static Keyboardctl *kctl;
+static Keyboardctl kctl;
+static int shiftdown;
 static int colwidth[10];
 static int mincolwidth[10];
 static char *cols = "AatD";
@@ -958,7 +959,7 @@ search(char d)
 
 	inc = (d == '/' || d == 'n') ? 1 : -1;
 	if(d == '/' || d == '?')
-		sz = enter(inc > 0 ? "forward:" : "backward:", buf, sizeof(buf), mctl, kctl, screen->screen);
+		sz = enter(inc > 0 ? "forward:" : "backward:", buf, sizeof(buf), mctl, &kctl, screen->screen);
 	if(sz < 1){
 		redraw(1);
 		return;
@@ -1129,6 +1130,66 @@ adjustcolumns(void)
 }
 
 static void
+kbproc(void *cchan)
+{
+	char *s, buf[128], buf2[128];
+	int kbd, n;
+	Rune r;
+
+	threadsetname("kbproc");
+	if((kbd = open("/dev/kbd", OREAD)) < 0)
+		sysfatal("/dev/kbd: %r");
+
+	buf2[0] = 0;
+	buf2[1] = 0;
+	buf[0] = 0;
+	for(;;){
+		if(buf[0] != 0){
+			n = strlen(buf)+1;
+			memmove(buf, buf+n, sizeof(buf)-n);
+		}
+		if(buf[0] == 0){
+			n = read(kbd, buf, sizeof(buf)-1);
+			if(n <= 0)
+				break;
+			buf[n-1] = 0;
+			buf[n] = 0;
+		}
+
+		switch(buf[0]){
+		case 'k':
+			for(s = buf+1; *s;){
+				s += chartorune(&r, s);
+				if(utfrune(buf2+1, r) == nil){
+					if(r == Kshift)
+						shiftdown = 1;
+				}
+			}
+			break;
+		case 'K':
+			for(s = buf2+1; *s;){
+				s += chartorune(&r, s);
+				if(utfrune(buf+1, r) == nil){
+					if(r == Kshift)
+						shiftdown = 0;
+				}
+			}
+			break;
+		case 'c':
+			if(chartorune(&r, buf+1) > 0 && r != Runeerror)
+				nbsend(cchan, &r);
+		default:
+			continue;
+		}
+
+		strcpy(buf2, buf);
+	}
+
+	close(kbd);
+	threadexits(nil);
+}
+
+static void
 usage(void)
 {
 	fprint(2, "usage: %s [-s] [-c aAdDtTp]\n", argv0);
@@ -1190,14 +1251,15 @@ threadmain(int argc, char **argv)
 	Coversz = MAX(64, stringwidth(f, "∫ 00:00:00/00:00:00 100%"));
 	if((mctl = initmouse(nil, screen)) == nil)
 		sysfatal("initmouse: %r");
-	if((kctl = initkeyboard(nil)) == nil)
-		sysfatal("initkeyboard: %r");
 
-	a[0].c = mctl->c;
-	a[1].c = mctl->resizec;
-	a[2].c = kctl->c;
-	a[3].c = chancreate(sizeof(ind), 0);
-	playc = a[3].c;
+	kctl.c = chancreate(sizeof(Rune), 20);
+	proccreate(kbproc, kctl.c, 4096);
+	playc = chancreate(sizeof(ind), 0);
+
+	a[Emouse].c = mctl->c;
+	a[Eresize].c = mctl->resizec;
+	a[Ekey].c = kctl.c;
+	a[Eplay].c = playc;
 
 	redrawc = chancreate(sizeof(ulong), 8);
 	proccreate(redrawproc, nil, 8192);
@@ -1230,7 +1292,7 @@ threadmain(int argc, char **argv)
 	scrolling = 0;
 	seekmx = 0;
 
-	proccreate(plumbaudio, kctl->c, 4096);
+	proccreate(plumbaudio, kctl.c, 4096);
 
 	for(;;){
 		oldpcur = pcur;
@@ -1259,10 +1321,10 @@ threadmain(int argc, char **argv)
 			if(m.buttons == 0)
 				break;
 			if(m.buttons == 8){
-				scroll -= scrollsz/4+1;
+				scroll -= (shiftdown ? 0 : scrollsz/4)+1;
 				break;
 			}else if(m.buttons == 16){
-				scroll += scrollsz/4+1;
+				scroll += (shiftdown ? 0 : scrollsz/4)+1;
 				break;
 			}
 
