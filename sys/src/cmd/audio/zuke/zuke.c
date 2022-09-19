@@ -274,8 +274,8 @@ redraw_(int full)
 
 	/* seekbar playback/duration text */
 	msec = 0;
-	dur = getmeta(pcurplaying)->duration;
 	if(pcurplaying >= 0){
+		dur = getmeta(pcurplaying)->duration;
 		msec = byteswritten*1000/Bps;
 		if(dur > 0){
 			snprint(tmp, sizeof(tmp), "%s%P/%P 100%%",
@@ -297,6 +297,7 @@ redraw_(int full)
 				msec/1000, volume);
 		}
 	}else{
+		dur = 0;
 		snprint(tmp, sizeof(tmp), "%s%d%%", shuffle != nil ? "∫ " : "", 100);
 		w = stringwidth(f, tmp);
 		snprint(tmp, sizeof(tmp), "%s%d%%", shuffle != nil ? "∫ " : "", volume);
@@ -722,8 +723,7 @@ restart:
 	boffsetlast = boffset;
 	byteswritten = boffset;
 	pcurplaying = player->pcur;
-	if(c != Cseekrel)
-		redraw(0);
+	redraw(1);
 
 	while(1){
 		n = ioread(io, p[1], buf, Relbufsz);
@@ -947,6 +947,25 @@ recenter(void)
 {
 	updatescrollsz();
 	scroll = pcur - scrollsz/2 + 1;
+}
+
+static void
+seekto(char *s)
+{
+	uvlong p;
+	char *e;
+
+	for(p = 0; *s; s = e){
+		p += strtoll(s, &e, 10);
+		if(s == e)
+			break;
+		if(*e == ':'){
+			p *= 60;
+			e++;
+		}
+	}
+
+	seekrel(playercurr, p - byteswritten/Bps);
 }
 
 static void
@@ -1372,6 +1391,16 @@ threadmain(int argc, char **argv)
 			break;
 		case Ekey:
 			switch(key){
+			default:
+				if(isdigit(key) && pcurplaying >= 0 && getmeta(pcurplaying)->duration > 0){
+					buf[0] = key;
+					buf[1] = 0;
+					if(enter("seek:", buf, sizeof(buf), mctl, &kctl, screen->screen) < 1)
+						redraw(1);
+					else
+						seekto(buf);
+				}
+				break;
 			case Kleft:
 				seekrel(playercurr, -(double)Seek);
 				break;

@@ -86,19 +86,13 @@ is shown if shuffle mode is enabled.
 .I Zuke
 provides a number of keyboard controls:
 .RS
-.TF "p c Space"
+.TF "↑ ↓ Pgup Pgdown Home End"
 .TP
 .B -
 Lower volume.
 .TP
 .B + =
 Increase volume.
-.TP
-.B ← →
-Seek 10 seconds back/forward.
-.TP
-.B , .
-Seek 60 seconds back/forward.
 .TP
 .B ↑ ↓ Pgup Pgdown Home End
 Move within the playlist.
@@ -114,6 +108,12 @@ Skip to next track.
 .TP
 .B < z
 Skip to previous track.
+.TP
+.B ← →
+Seek 10 seconds back/forward.
+.TP
+.B , .
+Seek 60 seconds back/forward.
 .TP
 .B v
 Stop
@@ -140,6 +140,10 @@ Repeat search forward.
 Repeat search backwards.
 .RE
 .PD
+.PP
+Typing any digit initiates a "Seek to" prompt. Minutes, hours and
+seconds can be separated with a colon, if needed, otherwise the
+position is taken as seconds from the beginning of the track.
 .PP
 .I Zuke
 can be controlled by emulating key presses via the plumber port
