@@ -121,6 +121,9 @@ Stop
 .B p c Space
 Pause/Resume.
 .TP
+.B r
+Toggle ``repeat one''.
+.TP
 .B s
 Toggle ``shuffle''.
 .TP

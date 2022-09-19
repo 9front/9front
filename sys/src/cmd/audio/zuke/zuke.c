@@ -90,6 +90,7 @@ static int mincolwidth[10];
 static char *cols = "AatD";
 static int colspath;
 static int *shuffle;
+static int repeatone;
 static Rectangle seekbar;
 static int seekmx, newseekmx = -1;
 static double seekoff; /* ms */
@@ -273,34 +274,33 @@ redraw_(int full)
 	Image *col;
 
 	/* seekbar playback/duration text */
+	i = snprint(tmp, sizeof(tmp), "%s%s%s",
+		repeatone ? "¹" : "",
+		shuffle != nil ? "∫" : "",
+		(repeatone || shuffle != nil) ? " " : ""
+	);
 	msec = 0;
 	if(pcurplaying >= 0){
-		dur = getmeta(pcurplaying)->duration;
 		msec = byteswritten*1000/Bps;
-		if(dur > 0){
-			snprint(tmp, sizeof(tmp), "%s%P/%P 100%%",
-				shuffle != nil ? "∫ " : "",
-				dur/1000, dur/1000);
+		if((dur = getmeta(pcurplaying)->duration) > 0){
+			snprint(tmp+i, sizeof(tmp)-i, "%P/%P %d%%", dur/1000, dur/1000, 100);
 			w = stringwidth(f, tmp);
 			msec = MIN(msec, dur);
-			snprint(tmp, sizeof(tmp), "%s%P/%P %d%%",
-				shuffle != nil ? "∫ " : "",
+			snprint(tmp+i, sizeof(tmp)-i, "%P/%P %d%%",
 				(uvlong)(newseekmx >= 0 ? seekoff : msec)/1000,
-				dur/1000, volume);
+				dur/1000,
+				volume
+			);
 		}else{
-			snprint(tmp, sizeof(tmp), "%s%P %d%%",
-				shuffle != nil ? "∫ " : "",
-				msec/1000, 100);
+			snprint(tmp+i, sizeof(tmp)-i, "%P %d%%", msec/1000, 100);
 			w = stringwidth(f, tmp);
-			snprint(tmp, sizeof(tmp), "%s%P %d%%",
-				shuffle != nil ? "∫ " : "",
-				msec/1000, volume);
+			snprint(tmp, sizeof(tmp), "%P %d%%", msec/1000, volume);
 		}
 	}else{
 		dur = 0;
-		snprint(tmp, sizeof(tmp), "%s%d%%", shuffle != nil ? "∫ " : "", 100);
+		snprint(tmp+i, sizeof(tmp)-i, "%d%%", 100);
 		w = stringwidth(f, tmp);
-		snprint(tmp, sizeof(tmp), "%s%d%%", shuffle != nil ? "∫ " : "", volume);
+		snprint(tmp+i, sizeof(tmp)-i, "%d%%", volume);
 	}
 
 	lockdisplay(display);
@@ -727,8 +727,13 @@ restart:
 
 	while(1){
 		n = ioread(io, p[1], buf, Relbufsz);
-		if(n <= 0)
+		if(n <= 0){
+			if(repeatone){
+				c = Cseekrel;
+				boffset = 0;
+			}
 			break;
+		}
 
 		thiscover = nil;
 		if(player->img != nil && nbrecv(player->img, &thiscover) != 0){
@@ -1267,7 +1272,7 @@ threadmain(int argc, char **argv)
 	Scrollwidth = MAX(14, stringwidth(f, "#"));
 	Scrollheight = MAX(16, f->height);
 	Seekthicc = Scrollheight + 2;
-	Coversz = MAX(64, stringwidth(f, "∫ 00:00:00/00:00:00 100%"));
+	Coversz = MAX(64, stringwidth(f, "¹∫ 00:00:00/00:00:00 100%"));
 	if((mctl = initmouse(nil, screen)) == nil)
 		sysfatal("initmouse: %r");
 
@@ -1492,6 +1497,10 @@ playcur:
 				toggleshuffle();
 				recenter();
 				full = 1;
+				break;
+			case 'r':
+				repeatone ^= 1;
+				redraw(0);
 				break;
 			case 'c':
 			case 'p':
