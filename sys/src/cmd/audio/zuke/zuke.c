@@ -957,7 +957,7 @@ recenter(void)
 static void
 seekto(char *s)
 {
-	uvlong p;
+	vlong p;
 	char *e;
 
 	for(p = 0; *s; s = e){
