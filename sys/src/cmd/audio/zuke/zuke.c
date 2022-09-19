@@ -1010,7 +1010,6 @@ onemore:
 	if(i >= 0 && i < pl->n){
 		pcur = i;
 		recenter();
-		redraw(0);
 	}else if(cycle && i+inc < 0){
 		cycle = 0;
 		i = pl->n;
@@ -1020,6 +1019,7 @@ onemore:
 		i = -1;
 		goto onemore;
 	}
+	redraw(1);
 }
 
 static void
