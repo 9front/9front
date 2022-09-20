@@ -24,7 +24,7 @@ The language consists of a series of function definitions of the form:
 .PP
 All variables and parameters are extended precision integers and are
 passed by reference. Statements are separated by semicolon and the
-following statemens are defined:
+following statements are defined:
 .IP
 .I name
 .B =
