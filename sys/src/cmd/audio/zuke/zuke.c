@@ -42,6 +42,8 @@ enum
 	Dblow,
 	Dbinv,
 	Numcolors,
+
+	Ncol = 10,
 };
 
 struct Color {
@@ -85,8 +87,8 @@ static Channel *redrawc;
 static Mousectl *mctl;
 static Keyboardctl kctl;
 static int shiftdown;
-static int colwidth[10];
-static int mincolwidth[10];
+static int colwidth[Ncol];
+static int mincolwidth[Ncol];
 static char *cols = "AatD";
 static int colspath;
 static int *shuffle;
@@ -826,15 +828,6 @@ seekrel(Player *player, double off)
 }
 
 static void
-writeplist(void)
-{
-	int i;
-
-	for(i = 0; i < pl->n; i++)
-		printmeta(&out, pl->m+i);
-}
-
-static void
 freeplist(Playlist *pl)
 {
 	if(pl != nil){
@@ -872,7 +865,7 @@ readall(int f)
 }
 
 static Playlist *
-readplist(int fd)
+readplist(int fd, int mincolwidth[Ncol])
 {
 	char *raw, *s, *e, *a[5], *b;
 	int plsz, i, x;
@@ -1077,56 +1070,6 @@ toggleshuffle(void)
 }
 
 static void
-plumbaudio(void *kbd)
-{
-	int i, f, pf;
-	Playlist *p;
-	Plumbmsg *m;
-	char *s, *e;
-	Rune c;
-
-	threadsetname("audio/plumb");
-	if((f = plumbopen("audio", OREAD)) >= 0){
-		while((m = plumbrecv(f)) != nil){
-			s = m->data;
-			if(strncmp(s, "key", 3) == 0 && isspace(s[3])){
-				for(s = s+4; isspace(*s); s++);
-				for(; (i = chartorune(&c, s)) > 0 && c != Runeerror; s += i)
-					sendul(kbd, c);
-				continue;
-			} 
-			if(*s != '/' && m->wdir != nil)
-				s = smprint("%s/%.*s", m->wdir, m->ndata, m->data);
-
-			if((e = strrchr(s, '.')) != nil && strcmp(e, ".plist") == 0 && (pf = open(s, OREAD)) >= 0){
-				p = readplist(pf);
-				close(pf);
-				if(p == nil)
-					continue;
-
-				freeplist(pl);
-				pl = p;
-				memset(mincolwidth, 0, sizeof(mincolwidth)); /* readjust columns */
-				sendul(playc, 0);
-			}else{
-				for(i = 0; i < pl->n; i++){
-					if(strcmp(pl->m[i].path, s) == 0){
-						sendul(playc, i);
-						break;
-					}
-				}
-			}
-
-			if(s != m->data)
-				free(s);
-			plumbfree(m);
-		}
-	}
-
-	threadexits(nil);
-}
-
-static void
 adjustcolumns(void)
 {
 	int i, n, total, width;
@@ -1151,6 +1094,64 @@ adjustcolumns(void)
 		else
 			colwidth[i] = (width - Scrollwidth - n*8) * mincolwidth[i] / total;
 	}
+}
+
+static void
+plumbaudio(void *kbd)
+{
+	int i, f, pf, mcw[Ncol], wasplaying;
+	Playlist *p;
+	Plumbmsg *m;
+	char *s, *e;
+	Rune c;
+
+	threadsetname("audio/plumb");
+	if((f = plumbopen("audio", OREAD)) >= 0){
+		while((m = plumbrecv(f)) != nil){
+			s = m->data;
+			if(strncmp(s, "key", 3) == 0 && isspace(s[3])){
+				for(s = s+4; isspace(*s); s++);
+				for(; (i = chartorune(&c, s)) > 0 && c != Runeerror; s += i)
+					sendul(kbd, c);
+				continue;
+			} 
+			if(*s != '/' && m->wdir != nil)
+				s = smprint("%s/%.*s", m->wdir, m->ndata, m->data);
+
+			if((e = strrchr(s, '.')) != nil && strcmp(e, ".plist") == 0 && (pf = open(s, OREAD)) >= 0){
+				p = readplist(pf, mcw);
+				close(pf);
+				if(p == nil)
+					continue;
+				wasplaying = pcurplaying;
+				/* make sure nothing is playing */
+				while(pcurplaying >= 0){
+					sendul(kbd, 'v');
+					sleep(100);
+				}
+				freeplist(pl);
+				pl = p;
+				memmove(mincolwidth, mcw, sizeof(mincolwidth));
+				adjustcolumns();
+				pcur = 0;
+				if(wasplaying >= 0)
+					sendul(kbd, '\n');
+			}else{
+				for(i = 0; i < pl->n; i++){
+					if(strcmp(pl->m[i].path, s) == 0){
+						sendul(playc, i);
+						break;
+					}
+				}
+			}
+
+			if(s != m->data)
+				free(s);
+			plumbfree(m);
+		}
+	}
+
+	threadexits(nil);
 }
 
 static void
@@ -1297,7 +1298,7 @@ threadmain(int argc, char **argv)
 	fmtinstall('P', positionfmt);
 	threadsetname("zuke");
 
-	if((pl = readplist(0)) == nil){
+	if((pl = readplist(0, mincolwidth)) == nil){
 		fprint(2, "playlist: %r\n");
 		sysfatal("playlist error");
 	}
@@ -1487,7 +1488,9 @@ playcur:
 				continue;
 			case 'v':
 				stop(playercurr);
+				stop(playernext);
 				playercurr = nil;
+				playernext = nil;
 				pcurplaying = -1;
 				freeimage(cover);
 				cover = nil;

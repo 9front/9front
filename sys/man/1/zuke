@@ -83,6 +83,12 @@ changes the playback position accordingly.  On the right of the seek
 bar, current position, track duration and volume are displayed.  ``∫''
 is shown if shuffle mode is enabled.
 .PP
+Plumbing a file with
+.B .plist
+extension loads the playlist in
+.IR zuke .
+This is useful with a collection of playlists displayed aside.
+.PP
 .I Zuke
 provides a number of keyboard controls:
 .RS
