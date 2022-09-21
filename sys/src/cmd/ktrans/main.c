@@ -2,9 +2,7 @@
 #include <libc.h>
 #include <ctype.h>
 #include <bio.h>
-#include <fcall.h>
 #include <thread.h>
-#include <9p.h>
 #include "hash.h"
 
 char*
