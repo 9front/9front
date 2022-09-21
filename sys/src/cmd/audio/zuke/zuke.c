@@ -1099,7 +1099,7 @@ adjustcolumns(void)
 static void
 plumbaudio(void *kbd)
 {
-	int i, f, pf, mcw[Ncol], wasplaying;
+	int i, f, pf, mcw[Ncol], playing, shuffled;
 	Playlist *p;
 	Plumbmsg *m;
 	char *s, *e;
@@ -1123,7 +1123,9 @@ plumbaudio(void *kbd)
 				close(pf);
 				if(p == nil)
 					continue;
-				wasplaying = pcurplaying;
+				playing = pcurplaying;
+				if(shuffled = (shuffle != nil))
+					sendul(kbd, 's');
 				/* make sure nothing is playing */
 				while(pcurplaying >= 0){
 					sendul(kbd, 'v');
@@ -1134,7 +1136,12 @@ plumbaudio(void *kbd)
 				memmove(mincolwidth, mcw, sizeof(mincolwidth));
 				adjustcolumns();
 				pcur = 0;
-				if(wasplaying >= 0)
+				if(shuffled){
+					pcur = nrand(pl->n);
+					sendul(kbd, 's');
+				}
+				redraw(1);
+				if(playing >= 0)
 					sendul(kbd, '\n');
 			}else{
 				for(i = 0; i < pl->n; i++){
