@@ -449,6 +449,7 @@ static X86type x86winchip[] =
 	{6,	7,	23,	"Via C3 Samuel 2 or Ezra",},
 	{6,	8,	23,	"Via C3 Ezra-T",},
 	{6,	9,	23,	"Via C3 Eden-N",},
+	{6,	0xd,	23,	"Via C7 Eden",},
 	{ -1,	-1,	23,	"unknown", },	/* total default */
 };
 
