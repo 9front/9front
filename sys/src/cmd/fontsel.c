@@ -38,6 +38,7 @@ static char *textdef[] = {
 	"Gud hjälpe Zorns mö qvickt få byxa?",
 	"Разъярённый чтец эгоистично бьёт пятью",
 	"жердями шустрого фехтовальщика.",
+	"今日も一日がんばるぞい!",
 	"",
 	"static int",
 	"dosomestuff(Stuff *s, char *t, int n)",
