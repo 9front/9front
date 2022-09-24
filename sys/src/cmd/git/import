@@ -110,7 +110,7 @@ eval `''{aux/getflags $*} || exec aux/usage
 
 patches=(/fd/0)
 if(! ~ $#* 0)
-	patches=$*
+	patches=`{cleanname -d $gitrel $*}
 for(p in $patches){
 	# upas serves the decoded header and body separately,
 	# so we cat them together when applying a upas message.
