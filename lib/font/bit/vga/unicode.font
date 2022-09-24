@@ -251,3 +251,10 @@
 0xf101	0xf201	../germgoth/germgoth.14.f101
 0x3000	0x30ff	../fixed/10x20.3000
 0x2010	0x21d4	../shinonome/k14.2010
+0x3130	0x318f	../source/hansans.10.3130-318f
+0xac00	0xb3ff	../source/hansans.10.ac00-b3ff
+0xb400	0xbbff	../source/hansans.10.b400-bbff
+0xbc00	0xc3ff	../source/hansans.10.bc00-c3ff
+0xc400	0xcbff	../source/hansans.10.c400-cbff
+0xcc00	0xd3ff	../source/hansans.10.cc00-d3ff
+0xd400	0xd7a3	../source/hansans.10.d400-d7a3
