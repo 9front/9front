@@ -7,10 +7,27 @@
 #include "ureg.h"
 #include "tos.h"
 
-struct Timers
-{
+typedef struct Timers Timers;
+typedef struct Wheel Wheel;
+
+enum {
+	WSHIFT	= 5,
+	NWHEEL	= 6,
+	NSLOT	= 1<<WSHIFT,
+	SMASK	= NSLOT-1,
+	TMAX	= 1<<(WSHIFT*(NWHEEL-1)),
+};
+
+struct Wheel {
+	Timer	*slots[NSLOT];
+	int	idx;
+};
+	
+struct Timers {
 	Lock;
-	Timer	*head;
+	uvlong	tnow;
+	uvlong	tsched;
+	Wheel	wheels[NWHEEL];
 };
 
 static Timers timers[MAXMACH];
@@ -18,13 +35,102 @@ static Timers timers[MAXMACH];
 ulong intrcount[MAXMACH];
 ulong fcallcount[MAXMACH];
 
-static vlong
+#define slot(tt, i, j)	((tt)->wheels[(i)].slots[(j) & SMASK])
+#define slotp(tt, i, j)	(&(tt)->wheels[(i)].slots[(j) & SMASK])
+
+static void
+tins(Timers *tt, Timer *t)
+{
+	Timer *n, **p;
+	uvlong dt;
+	int i;
+
+	dt = t->twhen - tt->tnow;
+	assert((vlong)dt >= 0);
+	for(i = 0; dt >= NSLOT && i < NWHEEL-1; i++)
+		dt = (dt + tt->wheels[i].idx) >> WSHIFT;
+	dt = (dt + tt->wheels[i].idx) & SMASK;
+
+	p = &tt->wheels[i].slots[dt];
+	n = *p;
+	t->tt = tt;
+	t->tnext = n;
+	t->tlink = p;
+	if(n != nil)
+		n->tlink = &t->tnext;
+	*p = t;
+}
+
+static void
+tdel(Timer *dt)
+{
+	if(dt->tt == nil)
+		return;
+	if(dt->tnext != nil)
+		dt->tnext->tlink = dt->tlink;
+	*dt->tlink = dt->tnext;
+	dt->tlink = nil;
+	dt->tnext = nil;
+	dt->tt = nil;
+}
+
+/* look for another timer at same frequency for combining */
+static uvlong
+tcombine(Timers *tt, Timer *nt, uvlong now)
+{
+	int i, j, s;
+	Timer *t;
+
+	for(i = 0; i < NWHEEL; i++){
+		s = tt->wheels[i].idx;
+		for(j = s; j < s+NSLOT; j++)
+			for(t = slot(tt, i, j); t != nil && t->tns < nt->tns; t = t->tnext)
+				if(t->tmode == Tperiodic && t->twhen > now  && t->tns == nt->tns)
+					return t->twhen;
+	}
+	return fastticks(nil);
+}
+
+/* approximate time of the next timer to schedule, or 0 if there's already one scheduled */
+static uvlong
+tnext(Timers *tt, uvlong when)
+{
+	uvlong tk, dt;
+	int i, j, s;
+	Wheel *w;
+
+	if(when > tt->tsched)
+		return 0;
+
+	dt = 1;
+	for(i = 0; i < NWHEEL; i++){
+		w = &tt->wheels[i];
+		s = w->idx+1;
+		tk = tt->tnow;
+		/* the current slot should always already be processed, and thus empty */
+		assert(slot(tt, i, w->idx) == nil);
+		for(j = s; j < s+NSLOT-1; j++){
+			tk += dt;
+			if(tk >= when || slot(tt, i, j) != nil)
+				break;
+		}
+		if(tk < when)
+			when = tk;
+		dt <<= WSHIFT;
+	}
+	tt->tsched = when;
+	return when;
+
+}
+
+/* Called with tt locked */
+static void
 tadd(Timers *tt, Timer *nt)
 {
-	Timer *t, **last;
-
-	/* Called with tt locked */
 	assert(nt->tt == nil);
+	nt->tt = tt;
+	nt->tnext = nil;
+	nt->tlink = nil;
 	switch(nt->tmode){
 	default:
 		panic("timer");
@@ -36,54 +142,14 @@ tadd(Timers *tt, Timer *nt)
 		break;
 	case Tperiodic:
 		assert(nt->tns >= 100000);	/* At least 100 µs period */
-		if(nt->twhen == 0){
-			/* look for another timer at same frequency for combining */
-			for(t = tt->head; t; t = t->tnext){
-				if(t->tmode == Tperiodic && t->tns == nt->tns)
-					break;
-			}
-			if (t)
-				nt->twhen = t->twhen;
-			else
-				nt->twhen = fastticks(nil);
-		}
+		if(0 && nt->twhen == 0)
+			nt->twhen = tcombine(tt, nt, tt->tnow);
+		else
+			nt->twhen = fastticks(nil);
 		nt->twhen += ns2fastticks(nt->tns);
 		break;
 	}
-
-	for(last = &tt->head; t = *last; last = &t->tnext){
-		if(t->twhen > nt->twhen)
-			break;
-	}
-	nt->tnext = *last;
-	*last = nt;
-	nt->tt = tt;
-	if(last == &tt->head)
-		return nt->twhen;
-	return 0;
-}
-
-static uvlong
-tdel(Timer *dt)
-{
-
-	Timer *t, **last;
-	Timers *tt;
-
-	tt = dt->tt;
-	if (tt == nil)
-		return 0;
-	for(last = &tt->head; t = *last; last = &t->tnext){
-		if(t == dt){
-			assert(dt->tt);
-			dt->tt = nil;
-			*last = t->tnext;
-			break;
-		}
-	}
-	if(last == &tt->head && tt->head)
-		return tt->head->twhen;
-	return 0;
+	tins(tt, nt);
 }
 
 /* add or modify a timer */
@@ -91,18 +157,20 @@ void
 timeradd(Timer *nt)
 {
 	Timers *tt;
-	vlong when;
+	uvlong when;
 
 	/* Must lock Timer struct before Timers struct */
 	ilock(nt);
-	if(tt = nt->tt){
+	tt = nt->tt;
+	if(tt != nil){
 		ilock(tt);
 		tdel(nt);
 		iunlock(tt);
 	}
 	tt = &timers[m->machno];
 	ilock(tt);
-	when = tadd(tt, nt);
+	tadd(tt, nt);
+	when = tnext(tt, nt->twhen);
 	if(when)
 		timerset(when);
 	iunlock(tt);
@@ -123,9 +191,10 @@ timerdel(Timer *dt)
 	ilock(dt);
 	if(tt = dt->tt){
 		ilock(tt);
-		when = tdel(dt);
+		tdel(dt);
+		when = tnext(tt, dt->twhen);
 		if(when && tt == &timers[m->machno])
-			timerset(tt->head->twhen);
+			timerset(when);
 		iunlock(tt);
 	}
 	if((mp = dt->tactive) == nil || mp->machno == m->machno){
@@ -133,7 +202,6 @@ timerdel(Timer *dt)
 		return;
 	}
 	iunlock(dt);
-
 	/* rare, but tf can still be active on another cpu */
 	while(dt->tactive == mp && dt->tt == nil)
 		if(up->nlocks == 0 && islo())
@@ -166,9 +234,6 @@ hzclock(Ureg *ur)
 	if(active.exiting)
 		exit(0);
 
-	if(m->machno == 0)
-		checkalarms();
-
 	if(up && up->state == Running){
 		if(userureg(ur)){
 			/* user profiling clock */
@@ -184,47 +249,77 @@ hzclock(Ureg *ur)
 void
 timerintr(Ureg *u, Tval)
 {
-	Timer *t;
+	uvlong dt, when, now;
+	int i, j, s, hz;
+	Timer *t, *n;
 	Timers *tt;
-	uvlong when, now;
-	int callhzclock;
+	Wheel *w;
 
 	intrcount[m->machno]++;
-	callhzclock = 0;
 	tt = &timers[m->machno];
 	now = fastticks(nil);
+
 	ilock(tt);
-	while(t = tt->head){
-		/*
-		 * No need to ilock t here: any manipulation of t
-		 * requires tdel(t) and this must be done with a
-		 * lock to tt held.  We have tt, so the tdel will
-		 * wait until we're done
-		 */
-		when = t->twhen;
-		if(when > now){
-			timerset(when);
-			iunlock(tt);
-			if(callhzclock)
-				hzclock(u);
-			return;
+	hz = 0;
+	dt = now - tt->tnow;
+	tt->tnow = now;
+	/*
+	 * We need to look at all the wheels.
+	 */
+	for(i = 0; i < NWHEEL; i++){
+		w = &tt->wheels[i];
+		s = w->idx;
+		w->idx = (s+dt)&SMASK;
+		for(j = s; j <= s+dt && j < s+NSLOT; j++){
+			for(t = slot(tt, i, j); t != nil; t = n){
+				assert(t->tt == tt);
+				n = t->tnext;
+				/*
+				 * The last wheel can contain timers that are
+				 * expiring both before and after now.
+				 * Cascade the future ones, and expire the current
+				 * ones.
+				 */
+				if(t->twhen > now+TMAX)
+					continue;
+				/*
+				 * Otherwise, we cascade this timer into a new slot
+				 * in a closer wheel.
+				 */
+				tdel(t);
+				if(t->twhen > now){
+					tins(tt, t);
+					continue;
+				}
+				/*
+				 * No need to ilock t here: any manipulation of t
+				 * requires tdel(t) and this must be done with a
+				 * lock to tt held.  We have tt, so the tdel will
+				 * wait until we're done
+				 */
+				t->tactive = MACHP(m->machno);
+				fcallcount[m->machno]++;
+				iunlock(tt);
+				if(t->tf)
+					t->tf(u, t);
+				else
+					hz = 1;
+				t->tactive = nil;
+				ilock(tt);
+				if(t->tmode == Tperiodic)
+					tadd(tt, t);
+			}
 		}
-		tt->head = t->tnext;
-		assert(t->tt == tt);
-		t->tt = nil;
-		t->tactive = MACHP(m->machno);
-		fcallcount[m->machno]++;
-		iunlock(tt);
-		if(t->tf)
-			(*t->tf)(u, t);
-		else
-			callhzclock++;
-		t->tactive = nil;
-		ilock(tt);
-		if(t->tmode == Tperiodic)
-			tadd(tt, t);
+		dt += s;
+		dt >>= WSHIFT;
 	}
+	when = tnext(tt, ~0);
+
+	if(when != 0)
+		timerset(when);
 	iunlock(tt);
+	if(hz)
+		hzclock(u);
 }
 
 void
@@ -264,7 +359,8 @@ addclock0link(void (*f)(void), int ms)
 	nt->tf = (void (*)(Ureg*, Timer*))f;
 
 	ilock(&timers[0]);
-	when = tadd(&timers[0], nt);
+	tadd(&timers[0], nt);
+	when = tnext(&timers[0], nt->twhen);
 	if(when)
 		timerset(when);
 	iunlock(&timers[0]);

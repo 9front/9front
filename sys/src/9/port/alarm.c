@@ -3,109 +3,91 @@
 #include	"mem.h"
 #include	"dat.h"
 #include	"fns.h"
+#include	"error.h"
 
-static Alarms	alarms;
+static Proc	*tripped;
 static Rendez	alarmr;
+static Lock	triplk;
 
-void
-alarmkproc(void*)
+static int
+tfn(void *)
 {
-	Proc *rp;
-	ulong now, when;
+	int t;
 
-	while(waserror())
-		;
-
-	for(;;){
-		now = MACHP(0)->ticks;
-		qlock(&alarms);
-		for(rp = alarms.head; rp != nil; rp = rp->palarm){
-			if((when = rp->alarm) == 0)
-				continue;
-			if((long)(now - when) < 0)
-				break;
-			if(!canqlock(&rp->debug))
-				break;
-			if(rp->alarm != 0){
-				static Note alarm = {
-					"alarm",
-					NUser,
-					1,
-				};
-				incref(&alarm);
-				pushnote(rp, &alarm);
-				rp->alarm = 0;
-			}
-			qunlock(&rp->debug);
-		}
-		alarms.head = rp;
-		qunlock(&alarms);
-
-		sleep(&alarmr, return0, 0);
-	}
+	ilock(&triplk);
+	t = (tripped != nil);
+	iunlock(&triplk);
+	return t;
 }
 
 /*
  *  called every clock tick on cpu0
  */
-void
-checkalarms(void)
+static void
+tripalarm(Ureg*, Timer *t)
 {
-	Proc *p;
-	ulong now, when;
+	ilock(&triplk);
+	t->p->palarm = tripped;
+	tripped = t->p;
+	iunlock(&triplk);
 
-	p = alarms.head;
-	if(p != nil){
-		now = MACHP(0)->ticks;
-		when = p->alarm;
-		if(when == 0 || (long)(now - when) >= 0)
-			wakeup(&alarmr);
+	wakeup(&alarmr);
+}
+
+void
+alarmkproc(void*)
+{
+	static Note alarmnote = {
+		"alarm",
+		NUser,
+		1,
+	};
+	Proc *p, *n;
+	Timer *a;
+
+	while(waserror())
+		;
+
+	while(1){
+		ilock(&triplk);
+		p = tripped;
+		tripped = nil;
+		iunlock(&triplk);
+
+		for(; p != nil; p = n){
+			n = p->palarm;
+			a = &p->alarm;
+			if(!canqlock(&p->debug)){
+				a->tns = MS2NS(10);
+				timeradd(a);
+				continue;
+			}
+			incref(&alarmnote);
+			pushnote(p, &alarmnote);
+			qunlock(&p->debug);
+		}
+		sleep(&alarmr, tfn, nil);
 	}
 }
 
 ulong
 procalarm(ulong time)
 {
-	Proc **l, *f;
-	ulong when, old;
+	uvlong old;
+	Timer *a;
 
-	when = MACHP(0)->ticks;
-	old = up->alarm;
-	if(old) {
-		old -= when;
-		if((long)old > 0)
-			old = tk2ms(old);
-		else
-			old = 0;
-	}
-	if(time == 0) {
-		up->alarm = 0;
-		return old;
-	}
-	when += ms2tk(time);
-	if(when == 0)
-		when = 1;
+	a = &up->alarm;
+	old = a->tns;
+	timerdel(a);
 
-	qlock(&alarms);
-	l = &alarms.head;
-	for(f = *l; f; f = f->palarm) {
-		if(up == f){
-			*l = f->palarm;
-			break;
-		}
-		l = &f->palarm;
-	}
-	l = &alarms.head;
-	for(f = *l; f; f = f->palarm) {
-		time = f->alarm;
-		if(time != 0 && (long)(time - when) >= 0)
-			break;
-		l = &f->palarm;
-	}
-	up->palarm = f;
-	*l = up;
-	up->alarm = when;
-	qunlock(&alarms);
-
-	return old;
+	lock(a);
+	a->tns = MS2NS(time);
+	a->tf = tripalarm;
+	a->tmode = Trelative;
+	a->p = up;
+	a->ta = nil;
+	unlock(a);
+	if(time != 0)
+		timeradd(a);
+	return NS2MS(old);
 }
