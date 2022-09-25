@@ -26,6 +26,7 @@ void		chandevinit(void);
 void		chandevreset(void);
 void		chandevshutdown(void);
 void		chanfree(Chan*);
+void		checkalarms(void);
 void		checkb(Block*, char*);
 void		cinit(void);
 Chan*		cclone(Chan*);
@@ -175,7 +176,6 @@ void		log(Log*, int, char*, ...);
 Cmdtab*		lookupcmd(Cmdbuf*, Cmdtab*, int);
 Page*		lookpage(Image*, uintptr);
 #define		MS2NS(n) (((vlong)(n))*1000000LL)
-#define		NS2MS(n) (((vlong)(n)+500000LL)/100000LL)
 void		machinit(void);
 void*		mallocz(ulong, int);
 void*		malloc(ulong);

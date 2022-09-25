@@ -1,3 +1,4 @@
+typedef struct Alarms	Alarms;
 typedef struct Block	Block;
 typedef struct Chan	Chan;
 typedef struct Cmdbuf	Cmdbuf;
@@ -95,6 +96,12 @@ struct RWlock
 	Proc	*wproc;		/* writing proc */
 	int	readers;	/* number of readers */
 	int	writer;		/* number of writers */
+};
+
+struct Alarms
+{
+	QLock;
+	Proc	*head;
 };
 
 struct Sargs
@@ -568,7 +575,6 @@ struct Timer
 	Tval	tticks;		/* tns converted to ticks */
 	Tval	twhen;		/* ns represented in fastticks */
 	Timer	*tnext;
-	Timer	**tlink;	/* a pointer to the prev nodes's next */
 };
 
 enum
@@ -714,8 +720,8 @@ struct Proc
 	Rendez	sleep;		/* place for syssleep/debug */
 	int	notepending;	/* note issued but not acted on */
 	int	kp;		/* true if a kernel process */
-	Proc	*palarm;	/* triggered alarm chain */
-	Timer	alarm;		/* alarm context */
+	Proc	*palarm;	/* Next alarm time */
+	ulong	alarm;		/* Time of call */
 	int	newtlb;		/* Pager has changed my pte's, I must flush */
 
 	uintptr	rendtag;	/* Tag for rendezvous */

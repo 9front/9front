@@ -1203,7 +1203,7 @@ pexit(char *exitstr, int freemem)
 	void (*pt)(Proc*, int, vlong);
 
 	up->fpstate &= ~FPillegal;
-	procalarm(0);
+	up->alarm = 0;
 	timerdel(up);
 	pt = proctrace;
 	if(pt != nil)
