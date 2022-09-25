@@ -113,4 +113,4 @@ devether.$O ethersink.$O:	../port/etherif.h ../port/netif.h
 wifi.$O:	../port/etherif.h ../port/netif.h ../port/wifi.h /sys/include/libsec.h
 wifi.$O:	../ip/ip.h ../ip/ipv6.h
 ethermii.$O:	../port/ethermii.h
-pci.$O devpnp.$O usbxhci.$O:	../port/pci.h
+pci.$O devpnp.$O devpci.$O usbxhci.$O:	../port/pci.h

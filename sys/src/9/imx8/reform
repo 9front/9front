@@ -21,6 +21,7 @@ dev
 	usb
 	i2c
 	rtc	devi2c
+	pci	pci
 	sd
 	audio
 

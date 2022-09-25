@@ -20,6 +20,7 @@ dev
 	mouse	mouse
 	uart	gpio
 	gpio	gpio
+	pci	pci
 	sd
 	usb
 	dtracy
