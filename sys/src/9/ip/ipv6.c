@@ -90,7 +90,7 @@ ipoput6(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
 
 	medialen = ifc->maxtu - ifc->m->hsize;
 	if(gating)
-		tcpmssclamp((uchar*)eh, len, medialen);
+		tcpmssclamp(bp->rp, BLEN(bp), medialen);
 	else {
 		eh->vcf[0] = IP_VER6;
 		eh->vcf[0] |= tos >> 4;
