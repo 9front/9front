@@ -77,7 +77,7 @@ main(int argc, char *argv[])
 			ni = memonechan(i);
 			if(ni == nil)
 				sysfatal("converting image to RGBV: %r");
-			if(i != nil){
+			if(i != ni){
 				freememimage(i);
 				i = ni;
 			}
