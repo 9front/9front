@@ -21,9 +21,9 @@ The following exceptions apply:
    covered by the Aladdin Free Public License, reproduced in the file
    /lib/legal/afpl.
 
-4. The Source font identified in subdirectory /lib/font/bit/source is
-   released under the SIL Open Font License, reproduced in the file
-   /lib/legal/ofl.
+4. The Source and Terminus fonts identified in subdirectory
+   /lib/font/bit/ are released under the SIL Open Font License,
+   reproduced in the file /lib/legal/ofl.
 
 Other, less notable exceptions are marked in the file tree with
 COPYING, COPYRIGHT, or LICENSE files.
