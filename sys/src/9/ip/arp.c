@@ -283,7 +283,7 @@ arprelease(Arp *arp, Arpent*)
 
 /*
  * Copy out the mac address from the Arpent.  Return the
- * block waiting to get sent to this mac address.
+ * first block waiting to get sent to this mac address.
  *
  * called with arp locked
  */
@@ -305,6 +305,10 @@ arpresolve(Arp *arp, Arpent *a, uchar *mac, Routehint *rh)
 		rh->a = a;
 	wunlock(arp);
 
+	if(bp != nil){
+		freeblistchain(bp->list);
+		bp->list = nil;
+	}
 	return bp;
 }
 
@@ -350,7 +354,9 @@ arpenter(Fs *fs, int version, uchar *ip, uchar *mac, int n, uchar *ia, Ipifc *if
 		}
 		a = newarpent(arp, ip, ifc);
 	}
-	bp = arpresolve(arp, a, mac, &rh);	/* unlocks arp */
+	bp = a->hold;
+	a->hold = a->last = nil;
+	arpresolve(arp, a, mac, &rh);	/* unlocks arp */
 	if(version == V4)
 		ip += IPv4off;
 	for(; bp != nil; bp = next){
