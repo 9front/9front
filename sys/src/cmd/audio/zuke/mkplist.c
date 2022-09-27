@@ -2,8 +2,11 @@
 #include <libc.h>
 #include <bio.h>
 #include <tags.h>
+#include <thread.h>
 #include "plist.h"
 #include "icy.h"
+
+typedef struct Aux Aux;
 
 enum
 {
@@ -13,13 +16,22 @@ enum
 
 #define MAX(a, b) (a > b ? a : b)
 
-static Biobuf *bf, out;
-static Meta *curr;
-static Meta *all;
-static int numall;
-static int firstiscomposer;
-static int keepfirstartist;
+struct Aux {
+	Meta;
+
+	Biobuf *f;
+	int firstiscomposer;
+	int keepfirstartist;
+};
+
+int mainstacksize = 32768;
+
 static int simplesort;
+static int moddec;
+static Channel *cmeta;
+static Channel *cpath;
+static Meta **tracks;
+static int ntracks;
 
 static char *fmts[] =
 {
@@ -35,79 +47,79 @@ static char *fmts[] =
 	[Fmod] = "mod",
 };
 
-static Meta *
-newmeta(void)
+static void
+metathread(void *)
 {
-	if(numall == 0){
-		free(all);
-		all = nil;
-	}
-	if(all == nil)
-		all = mallocz(sizeof(Meta), 1);
-	else if((numall & (numall-1)) == 0)
-		all = realloc(all, numall*2*sizeof(Meta));
+	int max;
+	Meta *m;
 
-	if(all == nil){
-		sysfatal("newmeta: no memory");
-		return nil;
+	max = 0;
+	for(;;){
+		if((m = recvp(cmeta)) == nil)
+			break;
+		if(ntracks+1 > max){
+			max = max ? max*2 : 1024;
+			tracks = realloc(tracks, sizeof(Meta*)*max);
+		}
+		tracks[ntracks++] = m;
 	}
 
-	memset(&all[numall++], 0, sizeof(Meta));
-	return &all[numall-1];
+	threadexits(nil);
 }
 
 static void
 cb(Tagctx *ctx, int t, const char *k, const char *v, int offset, int size, Tagread f)
 {
 	int i, iscomposer;
+	Aux *aux;
 
-	USED(ctx);
+	aux = ctx->aux;
 
 	switch(t){
 	case Tartist:
-		if(curr->numartist < Maxartist){
+		if(aux->numartist < Maxartist){
 			iscomposer = strcmp(k, "TCM") == 0 || strcmp(k, "TCOM") == 0;
 			/* prefer lead performer/soloist, helps when TP2/TPE2 is the first one and is set to "VA" */
 			/* always put composer first, if available */
-			if(iscomposer || (!keepfirstartist && (strcmp(k, "TP1") == 0 || strcmp(k, "TPE1") == 0))){
-				if(curr->numartist > 0)
-					curr->artist[curr->numartist] = curr->artist[curr->numartist-1];
-				curr->artist[0] = strdup(v);
-				curr->numartist++;
-				keepfirstartist = 1;
-				firstiscomposer = iscomposer;
+			if(iscomposer || (!aux->keepfirstartist && (strcmp(k, "TP1") == 0 || strcmp(k, "TPE1") == 0))){
+				if(aux->numartist > 0)
+					aux->artist[aux->numartist] = aux->artist[aux->numartist-1];
+				aux->artist[0] = strdup(v);
+				aux->numartist++;
+				aux->keepfirstartist = 1;
+				aux->firstiscomposer = iscomposer;
 				return;
 			}
 
-			for(i = 0; i < curr->numartist; i++){
-				if(cistrcmp(curr->artist[i], v) == 0)
+			for(i = 0; i < aux->numartist; i++){
+				if(cistrcmp(aux->artist[i], v) == 0)
 					return;
 			}
-			curr->artist[curr->numartist++] = strdup(v);
+			aux->artist[aux->numartist++] = strdup(v);
 		}
 		break;
 	case Talbum:
-		if(curr->album == nil)
-			curr->album = strdup(v);
+		if(aux->album == nil)
+			aux->album = strdup(v);
 		break;
 	case Ttitle:
-		if(curr->title == nil)
-			curr->title = strdup(v);
+		if(aux->title == nil)
+			aux->title = strdup(v);
 		break;
 	case Tdate:
-		if(curr->date == nil)
-			curr->date = strdup(v);
+		if(aux->date == nil)
+			aux->date = strdup(v);
 		break;
 	case Ttrack:
-		if(curr->track == nil)
-			curr->track = strdup(v);
+		if(aux->track == nil)
+			aux->track = strdup(v);
 		break;
 	case Timage:
-		if(curr->imagefmt == nil){
-			curr->imagefmt = strdup(v);
-			curr->imageoffset = offset;
-			curr->imagesize = size;
-			curr->imagereader = f != nil;
+		if(aux->imagefmt == nil){
+			aux->imagefmt = strdup(v);
+			aux->imageoffset = offset;
+			aux->imagesize = size;
+			aux->imagereader = f != nil;
 		}
 		break;
 	}
@@ -116,37 +128,21 @@ cb(Tagctx *ctx, int t, const char *k, const char *v, int offset, int size, Tagre
 static int
 ctxread(Tagctx *ctx, void *buf, int cnt)
 {
-	USED(ctx);
-	return Bread(bf, buf, cnt);
+	return Bread(((Aux*)ctx->aux)->f, buf, cnt);
 }
 
 static int
 ctxseek(Tagctx *ctx, int offset, int whence)
 {
-	USED(ctx);
-	return Bseek(bf, offset, whence);
+	return Bseek(((Aux*)ctx->aux)->f, offset, whence);
 }
-
-static char buf[4096];
-static Tagctx ctx =
-{
-	.read = ctxread,
-	.seek = ctxseek,
-	.tag = cb,
-	.buf = buf,
-	.bufsz = sizeof(buf),
-	.aux = nil,
-};
 
 static uvlong
 modduration(char *path)
 {
-	static int moddec = -1;
 	int f, pid, p[2], n;
 	char t[1024], *s;
 
-	if(moddec < 0)
-		moddec = close(open("/bin/audio/moddec", OEXEC)) == 0;
 	if(!moddec)
 		return 0;
 
@@ -176,48 +172,71 @@ modduration(char *path)
 	return 0;
 }
 
-static void
+static Meta *
 scanfile(char *path)
 {
+	char buf[4096], *s;
+	Aux aux = {0};
+	Tagctx ctx = {
+		.read = ctxread,
+		.seek = ctxseek,
+		.tag = cb,
+		.buf = buf,
+		.bufsz = sizeof(buf),
+		.aux = &aux,
+	};
 	int res;
-	char *s;
+	Meta *m;
 
-	if((bf = Bopen(path, OREAD)) == nil){
+	if((aux.f = Bopen(path, OREAD)) == nil){
 		fprint(2, "%s: %r\n", path);
-		return;
+		return nil;
 	}
-	curr = newmeta();
-	firstiscomposer = keepfirstartist = 0;
 	res = tagsget(&ctx);
-	if(ctx.format != Funknown){
-		if(res != 0)
-			fprint(2, "%s: no tags\n", path);
-	}else{
-		numall--;
-		Bterm(bf);
-		return;
-	}
+	Bterm(aux.f);
+	if(ctx.format == Funknown)
+		return nil;
+	if(ctx.format >= nelem(fmts))
+		sysfatal("mkplist needs a rebuild with updated libtags");
+	m = malloc(sizeof(*m));
+	memmove(m, &aux.Meta, sizeof(*m));
 
+	if(res != 0)
+		fprint(2, "%s: no tags\n", path);
 	if(ctx.duration == 0){
-		if(ctx.format == Fit ||
-		ctx.format == Fxm ||
-		ctx.format == Fs3m ||
-		ctx.format == Fmod)
+		if(ctx.format == Fit || ctx.format == Fxm || ctx.format == Fs3m || ctx.format == Fmod)
 			ctx.duration = modduration(path);
 		if(ctx.duration == 0)
 			fprint(2, "%s: no duration\n", path);
 	}
-	if(curr->title == nil){
+	m->duration = ctx.duration;
+	if(m->title == nil){
 		if((s = utfrrune(path, '/')) == nil)
 			s = path;
-		curr->title = strdup(s+1);
+		m->title = strdup(s+1);
 	}
-	curr->path = strdup(path);
-	curr->duration = ctx.duration;
-	if(ctx.format >= nelem(fmts))
-		sysfatal("mkplist needs a rebuild with updated libtags");
-	curr->filefmt = fmts[ctx.format];
-	Bterm(bf);
+	m->path = strdup(path);
+	m->filefmt = fmts[ctx.format];
+
+	return m;
+}
+
+static void
+tagreadproc(void *cexit)
+{
+	char *path;
+	Meta *m;
+
+	for(;;){
+		if(recv(cpath, &path) != 1)
+			break;
+		if((m = scanfile(path)) != nil)
+			sendp(cmeta, m);
+		free(path);
+	}
+	sendul(cexit, 0);
+
+	threadexits(nil);
 }
 
 static int
@@ -241,7 +260,7 @@ scan(char **dir, int depth)
 	for(n = 0, buf = nil; n >= 0;){
 		if((n = dirread(dirfd, &buf)) < 0){
 			path[len] = 0;
-			scanfile(path);
+			sendp(cpath, strdup(path));
 			break;
 		}
 		if(n == 0){
@@ -259,7 +278,7 @@ scan(char **dir, int depth)
 				sysfatal("Maxname=%d was a bad choice", Maxname);
 
 			if((d->mode & DMDIR) == 0){
-				scanfile(path);
+				sendp(cpath, strdup(path));
 			}else if(depth < Maxdepth){ /* recurse into the directory */
 				scan(dir, depth+1);
 				path = *dir;
@@ -282,8 +301,8 @@ cmpmeta(void *a_, void *b_)
 	char *ae, *be;
 	int i, x;
 
-	a = a_;
-	b = b_;
+	a = *(Meta**)a_;
+	b = *(Meta**)b_;
 
 	if(simplesort)
 		return cistrcmp(a->path, b->path);
@@ -328,14 +347,17 @@ usage(void)
 }
 
 void
-main(int argc, char **argv)
+threadmain(int argc, char **argv)
 {
-	char *dir, wd[4096];
-	int i;
+	char *dir, *s, wd[4096];
+	Channel *cexit;
+	int i, nproc;
+	Biobuf out;
+	Meta *m;
 
 	ARGBEGIN{
 	case 's':
-		simplesort = 1;
+		simplesort++;
 		break;
 	default:
 		usage();
@@ -343,18 +365,36 @@ main(int argc, char **argv)
 
 	if(argc < 1)
 		usage();
-	getwd(wd, sizeof(wd));
+	if(getwd(wd, sizeof(wd)) == nil)
+		sysfatal("%r");
+	moddec = access("/bin/audio/moddec", AEXEC) == 0;
+	cmeta = chancreate(sizeof(Meta*), 0);
+	cpath = chancreate(sizeof(char*), 32);
+	cexit = chancreate(sizeof(ulong), 0);
+
+	if((s = getenv("NPROC")) == nil)
+		s = strdup("1");
+	if((nproc = atoi(s)-1) < 1)
+		nproc = 1;
+	free(s);
+	for(i = 0; i < nproc; i++)
+		proccreate(tagreadproc, cexit, 16384);
+
+	threadcreate(metathread, nil, 4096);
 
 	Binit(&out, 1, OWRITE);
 
 	for(i = 0; i < argc; i++){
 		if(strncmp(argv[i], "http://", 7) == 0 || strncmp(argv[i], "https://", 8) == 0){
-			curr = newmeta();
-			curr->title = argv[i];
-			curr->path = argv[i];
-			curr->filefmt = "";
-			if(icyfill(curr) != 0)
+			m = mallocz(sizeof(*m), 1);
+			m->title = argv[i];
+			m->path = argv[i];
+			m->filefmt = "";
+			if(icyfill(m) != 0){
 				fprint(2, "%s: %r\n", argv[i]);
+				free(m);
+			}
+			sendp(cmeta, m);
 		}else{
 			if(argv[i][0] == '/')
 				dir = strdup(argv[i]);
@@ -362,17 +402,26 @@ main(int argc, char **argv)
 				dir = smprint("%s/%s", wd, argv[i]);
 			cleanname(dir);
 			scan(&dir, 0);
+			free(dir);
 		}
 	}
-	qsort(all, numall, sizeof(Meta), cmpmeta);
-	for(i = 0; i < numall; i++){
-		if(all[i].numartist < 1)
-			fprint(2, "no artists: %s\n", all[i].path);
-		if(all[i].title == nil)
-			fprint(2, "no title: %s\n", all[i].path);
-		printmeta(&out, all+i);
+
+	chanclose(cpath);
+	for(i = 0; i < nproc; i++)
+		recvul(cexit);
+	chanclose(cmeta);
+
+	qsort(tracks, ntracks, sizeof(Meta*), cmpmeta);
+	for(i = 0; i < ntracks; i++){
+		if(tracks[i]->numartist < 1)
+			fprint(2, "no artists: %s\n", tracks[i]->path);
+		if(tracks[i]->title == nil)
+			fprint(2, "no title: %s\n", tracks[i]->path);
+		printmeta(&out, tracks[i]);
 	}
+
 	Bterm(&out);
-	fprint(2, "found %d tagged tracks\n", numall);
-	exits(nil);
+	fprint(2, "found %d tagged tracks\n", ntracks);
+
+	threadexitsall(nil);
 }
