@@ -175,24 +175,22 @@ reset(void)
 
 	toggle(out+Dac, 0);
 	wr(0x1c, 1<<7 | 1<<4 | 1<<3 | 1<<2); /* Vmid/r bias; Vgs/r on; Vmid soft start */
-	wr(0x1d, 1<<6 | 0<<4); /* discharge HP caps; 400Ω */
-	wr(0x19, 0<<7); /* Vmid off, Vref off */
-	sleep(500);
+	wr(0x19, 0); /* power down */
+	sleep(200);
 	wr(0x0f, 0); /* reset registers to default */
 
 	setrate(rate);
 	set3d(⅓d);
 
-	wr(0x07, 1<<6 | 2); /* master mode; i²s, 16-bit words */
+	wr(0x07, 1<<6 | 0<<2 | 2<<0); /* master mode; 16 bits; i²s */
 
-	wr(0x06, 1<<3 | 1<<2); /* ramp up DAC volume slowly */
+	wr(0x06, 1<<3 | 0<<2); /* soft mute; ramp up DAC volume fast */
 	wr(0x2f, 3<<2); /* output mixer on */
 	wr(0x22, 1<<8); /* L DAC to mixer */
 	wr(0x25, 1<<8); /* R DAC to mixer */
 
-	wr(0x17, 1<<8 | 3<<6 | 1<<0); /* thermal shutdown on; avdd=3.3v; slow clock on */
+	wr(0x17, 1<<8 | 3<<6 | 1<<1 | 1<<0); /* thermal shutdown on; avdd=3.3v; faster response; slow clock on */
 	wr(0x1c, 1<<7 | 1<<4 | 1<<3 | 1<<2); /* Vmid/r bias; Vgs/r on; Vmid soft start */
-	wr(0x1d, 0); /* stop HP caps discharge */
 	wr(0x19, 1<<7); /* start Vmid (playback) */
 	sleep(650);
 	wr(0x1c, 1<<3); /* done with anti-pop */
@@ -200,8 +198,8 @@ reset(void)
 
 	wr(0x09, 1<<6); /* ADCLRC → gpio (for jack detect output) */
 	wr(0x30, 3<<4 | 2<<2 | 1<<1); /* gpio jack detect out; JD2 jack detect in; Tsense on */
-	wr(0x1b, 1<<6 | 0<<3 | 0<<0); /* capless mode disabled; 20kΩ; 44.1/48kHz */
-	wr(0x18, 1<<6); /* HP switch on; high = HP */
+	wr(0x1b, 1<<6 | 0<<3 | 0<<0); /* 20kΩ; capless mode disabled; 44.1/48kHz */
+	wr(0x18, 1<<6 | 0<<5); /* HP switch on; high = HP */
 
 	/* turn on all outputs */
 	toggle(out+Hp, 1);
