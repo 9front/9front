@@ -586,7 +586,7 @@ recvarp(Ipifc *ifc)
 			n = ifc->mintu;
 		rbp = allocb(n);
 		r = (Etherarp*)rbp->rp;
-		memset(r, 0, sizeof(Etherarp));
+		memset(r, 0, n);
 		hnputs(r->type, ETARP);
 		hnputs(r->hrd, 1);
 		hnputs(r->pro, ETIP4);
