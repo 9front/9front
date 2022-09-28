@@ -9,6 +9,11 @@
 #include "ip.h"
 #include "ipv6.h"
 
+enum {
+	EHSIZE = 14,
+	EMINTU = 60,
+};
+
 typedef struct Etherhdr Etherhdr;
 struct Etherhdr
 {
@@ -26,6 +31,7 @@ static void	etheraddmulti(Ipifc *ifc, uchar *a, uchar *ia);
 static void	etherremmulti(Ipifc *ifc, uchar *a, uchar *ia);
 static void	etherareg(Fs *f, Ipifc *ifc, Iplifc *lifc, uchar *ip);
 static Block*	multicastarp(Fs *f, Arpent *a, uchar *mac, Routehint *rh);
+static Block*	newEARP(void);
 static void	sendarpreq(Fs *f, Arpent *a);
 static int	multicastea(uchar *ea, uchar *ip);
 static void	recvarpproc(void*);
@@ -34,8 +40,8 @@ static void	etherpref2addr(uchar *pref, uchar *ea);
 Medium ethermedium =
 {
 .name=		"ether",
-.hsize=		14,
-.mintu=		60,
+.hsize=		EHSIZE,
+.mintu=		EMINTU,
 .maxtu=		1514,
 .maclen=	6,
 .bind=		etherbind,
@@ -50,8 +56,8 @@ Medium ethermedium =
 Medium gbemedium =
 {
 .name=		"gbe",
-.hsize=		14,
-.mintu=		60,
+.hsize=		EHSIZE,
+.mintu=		EMINTU,
 .maxtu=		9014,
 .maclen=	6,
 .bind=		etherbind,
@@ -279,9 +285,9 @@ etherbwrite(Ipifc *ifc, Block *bp, int version, uchar *ip, Routehint *rh)
 	assert(bp->list == nil);
 
 	/* make it a single block with space for the ether header */
-	bp = padblock(bp, ifc->m->hsize);
-	if(BLEN(bp) < ifc->mintu)
-		bp = adjustblock(bp, ifc->mintu);
+	bp = padblock(bp, EHSIZE);
+	if(BLEN(bp) < EMINTU)
+		bp = adjustblock(bp, EMINTU);
 	eh = (Etherhdr*)bp->rp;
 
 	/* copy in mac addresses and ether type */
@@ -330,10 +336,10 @@ etherread4(void *a)
 			nexterror();
 		}
 		ifc->in++;
-		if(ifc->lifc == nil || BLEN(bp) <= ifc->m->hsize)
+		if(ifc->lifc == nil || BLEN(bp) <= EHSIZE)
 			freeb(bp);
 		else {
-			bp->rp += ifc->m->hsize;
+			bp->rp += EHSIZE;
 			ipiput4(er->f, ifc, bp);
 		}
 		runlock(ifc);
@@ -368,10 +374,10 @@ etherread6(void *a)
 			nexterror();
 		}
 		ifc->in++;
-		if(ifc->lifc == nil || BLEN(bp) <= ifc->m->hsize)
+		if(ifc->lifc == nil || BLEN(bp) <= EHSIZE)
 			freeb(bp);
 		else {
-			bp->rp += ifc->m->hsize;
+			bp->rp += EHSIZE;
 			ipiput6(er->f, ifc, bp);
 		}
 		runlock(ifc);
@@ -425,6 +431,17 @@ etherremmulti(Ipifc *ifc, uchar *a, uchar *)
 	}
 }
 
+static Block*
+newEARP(void)
+{
+	Block *bp;
+
+	bp = allocb(EMINTU);
+	bp->wp += EMINTU;
+	memset(bp->rp, 0, EMINTU);
+	return bp;
+}
+
 /*
  *  send an ethernet arp
  *  (only v4, v6 uses the neighbor discovery, rfc1970)
@@ -432,7 +449,6 @@ etherremmulti(Ipifc *ifc, uchar *a, uchar *)
 static void
 sendarpreq(Fs *f, Arpent *a)
 {
-	int n;
 	Block *bp;
 	Etherarp *e;
 	Ipifc *ifc = a->ifc;
@@ -445,12 +461,8 @@ sendarpreq(Fs *f, Arpent *a)
 	if(!ipv4local(ifc, src, 0, targ))
 		return;
 
-	n = sizeof(Etherarp);
-	if(n < ifc->m->mintu)
-		n = ifc->m->mintu;
-	bp = allocb(n);
+	bp = newEARP();
 	e = (Etherarp*)bp->rp;
-	memset(e, 0, n);
 	memmove(e->tpa, targ, sizeof(e->tpa));
 	memmove(e->spa, src, sizeof(e->spa));
 	memmove(e->sha, ifc->mac, sizeof(e->sha));
@@ -463,7 +475,6 @@ sendarpreq(Fs *f, Arpent *a)
 	e->hln = sizeof(e->sha);
 	e->pln = sizeof(e->spa);
 	hnputs(e->op, ARPREQUEST);
-	bp->wp += n;
 
 	devtab[er->achan->type]->bwrite(er->achan, bp, 0);
 }
@@ -474,17 +485,12 @@ sendarpreq(Fs *f, Arpent *a)
 static void
 sendgarp(Ipifc *ifc, uchar *ip)
 {
-	int n;
 	Block *bp;
 	Etherarp *e;
 	Etherrock *er = ifc->arg;
 
-	n = sizeof(Etherarp);
-	if(n < ifc->m->mintu)
-		n = ifc->m->mintu;
-	bp = allocb(n);
+	bp = newEARP();
 	e = (Etherarp*)bp->rp;
-	memset(e, 0, n);
 	memmove(e->tpa, ip+IPv4off, sizeof(e->tpa));
 	memmove(e->spa, ip+IPv4off, sizeof(e->spa));
 	memmove(e->sha, ifc->mac, sizeof(e->sha));
@@ -497,7 +503,6 @@ sendgarp(Ipifc *ifc, uchar *ip)
 	e->hln = sizeof(e->sha);
 	e->pln = sizeof(e->spa);
 	hnputs(e->op, ARPREQUEST);
-	bp->wp += n;
 
 	devtab[er->achan->type]->bwrite(er->achan, bp, 0);
 }
@@ -505,7 +510,7 @@ sendgarp(Ipifc *ifc, uchar *ip)
 static void
 recvarp(Ipifc *ifc)
 {
-	int n, forme;
+	int forme;
 	Block *ebp, *rbp;
 	Etherarp *e, *r;
 	uchar ip[IPaddrlen];
@@ -581,12 +586,8 @@ recvarp(Ipifc *ifc)
 		if(arpenter(er->f, V4, e->spa, e->sha, sizeof(e->sha), e->tpa, ifc, !forme) < 0 || !forme)
 			break;
 
-		n = sizeof(Etherarp);
-		if(n < ifc->mintu)
-			n = ifc->mintu;
-		rbp = allocb(n);
+		rbp = newEARP();
 		r = (Etherarp*)rbp->rp;
-		memset(r, 0, n);
 		hnputs(r->type, ETARP);
 		hnputs(r->hrd, 1);
 		hnputs(r->pro, ETIP4);
@@ -599,7 +600,6 @@ recvarp(Ipifc *ifc)
 		memmove(r->spa, e->tpa, sizeof(r->spa));
 		memmove(r->d, e->sha, sizeof(r->d));
 		memmove(r->s, ifc->mac, sizeof(r->s));
-		rbp->wp += n;
 
 		runlock(ifc);
 		freeb(ebp);

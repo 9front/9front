@@ -378,7 +378,6 @@ struct Ipifc
 	char	dev[64];	/* device we're attached to */
 	Medium	*m;		/* Media pointer */
 	int	maxtu;		/* Maximum transfer unit */
-	int	mintu;		/* Minumum tranfer unit */
 	void	*arg;		/* medium specific */
 
 	uchar	reflect;	/* allow forwarded packets to go out the same interface */

@@ -180,7 +180,6 @@ ipifcbind(Conv *c, char **argv, int argc)
 
 	/* set up parameters */
 	ifc->m = m;
-	ifc->mintu = ifc->m->mintu;
 	ifc->maxtu = ifc->m->maxtu;
 	ifc->delay = 40;
 	ifc->speed = 0;

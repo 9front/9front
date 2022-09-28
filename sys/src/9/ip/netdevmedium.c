@@ -93,9 +93,6 @@ netdevbwrite(Ipifc *ifc, Block *bp, int, uchar*, Routehint*)
 {
 	Netdevrock *er = ifc->arg;
 
-	if(BLEN(bp) < ifc->mintu)
-		bp = adjustblock(bp, ifc->mintu);
-
 	devtab[er->mchan->type]->bwrite(er->mchan, bp, 0);
 	ifc->out++;
 }
