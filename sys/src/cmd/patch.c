@@ -527,7 +527,7 @@ search(Fbuf *f, Hunk *h, char *fname)
 				return f->buf + off;
 			}
 		}
-		ln = h->oldln + fuzz - 1;
+		ln = h->oldln + fuzz + 1;
 		if(ln <= f->nlines){
 			off = f->lines[ln];
 			if(off + len >= f->len)
