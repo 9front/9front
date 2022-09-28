@@ -29,7 +29,7 @@ if not{
 	src=`{git/branch}
 	dst=`{git/query $1}
 	echo $src > .git/rebase.src
-	git/log -se $dst' '$src' @ .. '$src | sed 's/^/pick /' >.git/rebase.todo
+	git/log -se $dst'..'$src | sed 's/^/pick /' >.git/rebase.todo
 	if(! ~ $#interactive 0){
 		giteditor=`{git/conf core.editor}
 		if(~ $#editor 0)
