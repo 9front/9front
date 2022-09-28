@@ -177,6 +177,21 @@ arplookup(Arp *arp, Ipifc *ifc, uchar *ip)
 	return nil;
 }
 
+static int
+arphit(Arpent *a, uchar *mac, int maclen, Routehint *rh)
+{
+	if(a->state == AOK){
+		memmove(mac, a->mac, maclen);
+		a->utime = NOW;
+		if(a->utime - a->ctime < MAXAGE_TIMER){
+			if(rh != nil)
+				rh->a = a;
+			return 1;
+		}
+	}
+	return 0;
+}
+
 /*
  *  fill in the media address if we have it.  Otherwise return an
  *  Arpent that represents the state of the address resolution FSM
@@ -196,33 +211,29 @@ arpget(Arp *arp, Block *bp, int version, Ipifc *ifc, uchar *ip, uchar *mac, Rout
 
 	if(rh != nil
 	&& (a = rh->a) != nil
-	&& a->state == AOK
 	&& a->ifc == ifc
 	&& a->ifcid == ifc->ifcid
-	&& ipcmp(ip, a->ip) == 0){
-		memmove(mac, a->mac, ifc->m->maclen);
-		a->utime = NOW;
-		if(a->utime - a->ctime < MAXAGE_TIMER)
-			return nil;
-	}
+	&& ipcmp(ip, a->ip) == 0
+	&& arphit(a, mac, ifc->m->maclen, nil))
+		return nil;
 
 	rlock(arp);
-	if((a = arplookup(arp, ifc, ip)) != nil && a->state == AOK){
-		memmove(mac, a->mac, ifc->m->maclen);
-		a->utime = NOW;
-		if(a->utime - a->ctime < MAXAGE_TIMER){
-			if(rh != nil)
-				rh->a = a;
-			runlock(arp);
-			return nil;
-		}
+	if((a = arplookup(arp, ifc, ip)) != nil
+	&& arphit(a, mac, ifc->m->maclen, rh)){
+		runlock(arp);
+		return nil;
 	}
 	if(rh != nil)
 		rh->a = nil;
 	runlock(arp);
+
 	wlock(arp);
 	if((a = arplookup(arp, ifc, ip)) == nil)
 		a = newarpent(arp, ip, ifc);
+	else if(arphit(a, mac, ifc->m->maclen, rh)){
+		wunlock(arp);
+		return nil;
+	}
 	a->state = AWAIT;
 	a->utime = NOW;
 	if(bp != nil){
