@@ -318,11 +318,14 @@ int		servekbd;
 enum{
 	Tapon = 'b',
 	Tapoff = 'e',
+	Tapfocus = 'z',
 };
-Channel *ctltap;	/* on/off messages */
+Channel *ctltap;	/* open/close */
+Channel *resptap;	/* open/close err */
 Channel	*fromtap;	/* input from kbd tap program to window */
 Channel *totap;		/* our keyboard input to tap program */
 Channel *wintap;	/* tell the tapthread which Window to send to */
+
 Window	*input;
 QLock	all;			/* BUG */
 Filsys	*filsys;

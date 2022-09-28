@@ -247,6 +247,7 @@ xfidopen(Xfid *x)
 {
 	Fcall t;
 	Window *w;
+	char *s;
 
 	w = x->f->w;
 	if(w != nil && w->deleted){
@@ -312,8 +313,12 @@ xfidopen(Xfid *x)
 		}
 		break;
 	case Qtap:
-		chanprint(ctltap, "%c", Tapon);
-		break;
+		chanprint(ctltap, "%c%c", Tapon, x->mode);
+		s = recvp(resptap);
+		if(s == nil)
+			break;
+		filsysrespond(x->fs, x, &t, s);
+		return;
 	}
 	t.qid = x->f->qid;
 	t.iounit = messagesize-IOHDRSZ;
@@ -369,7 +374,8 @@ xfidclose(Xfid *x)
 			w->wctlopen = FALSE;
 		break;
 	case Qtap:
-		chanprint(ctltap, "%c", Tapoff);
+		chanprint(ctltap, "%c%c", Tapoff, x->f->mode);
+		recvp(resptap);
 		break;
 	}
 	if(w)
@@ -581,12 +587,18 @@ xfidwrite(Xfid *x)
 		}
 		e = x->data + cnt;
 		for(p = x->data; p < e; p += strlen(p)+1){
-			if(*p == '\0'){
+			switch(*p){
+			case '\0':
 				fc.count = p - x->data;
 				filsysrespond(x->fs, x, &fc, "null message type");
 				return;
+			case Tapfocus:
+				/* cleanup our own pollution */
+				break;
+			default:
+				chanprint(fromtap, "%s", p);
+				break;	
 			}
-			chanprint(fromtap, "%s", p);
 		}
 		break;
 

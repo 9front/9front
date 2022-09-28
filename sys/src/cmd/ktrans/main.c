@@ -497,7 +497,7 @@ keythread(void*)
 
 	threadsetname("keytrans");
 	while(recv(input, &m) != -1){
-		if(m.code == 'r'){
+		if(m.code == 'z'){
 			emitutf(dictch, "", 1);
 			resetstr(&line, nil);
 			continue;
@@ -609,7 +609,7 @@ Drop:
 			p++;
 			switch(msg.code){
 			case 'c': case 'k': case 'K':
-			case 'r':
+			case 'z':
 				break;
 			default:
 				goto Drop;

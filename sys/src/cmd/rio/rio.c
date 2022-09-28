@@ -199,7 +199,8 @@ threadmain(int argc, char *argv[])
 	totap = chancreate(sizeof(char*), 32);
 	fromtap = chancreate(sizeof(char*), 32);
 	wintap = chancreate(sizeof(Window*), 0);
-	ctltap = chancreate(sizeof(Window*), 0);
+	ctltap = chancreate(sizeof(char*), 0);
+	resptap = chancreate(sizeof(char*), 0);
 	proccreate(keyboardtap, nil, STACK);
 
 	wscreen = allocscreen(screen, background, 0);
@@ -350,17 +351,48 @@ killprocs(void)
 			write(window[i]->notefd, "hangup", 6); 
 }
 
+static int tapseats[] = { [OREAD] Tapoff, [OWRITE] Tapoff };
+
+char*
+tapctlmsg(char *msg)
+{
+	int perm;
+
+	perm = msg[1];
+	switch(msg[0]){
+	case Tapoff:
+		if(perm == ORDWR)
+			tapseats[OREAD] = Tapoff, tapseats[OWRITE] = Tapoff;
+		else
+			tapseats[perm] = Tapoff;
+		break;
+	case Tapon:
+		switch(perm){
+		case ORDWR:
+			if(tapseats[OREAD] != Tapoff || tapseats[OWRITE] != Tapoff)
+				return "seat taken";
+			tapseats[OREAD] = Tapon, tapseats[OWRITE] = Tapon;
+			break;
+		case OREAD: case OWRITE:
+			if(tapseats[perm] != Tapoff)
+				return "seat taken";
+			tapseats[perm] = Tapon;
+			break;
+		}
+		break;
+	}
+	return nil;
+}
+
 void
 keyboardtap(void*)
 {
 	char *s, *ctl;
+	char *watched;
 	Window *w, *cur;
-	int mode;
-	enum { Awin, Actl, Afrom, Adev, Ato, Ainp, NALT };
-	enum { Mnorm, Mtap };
 
-	threadsetname("keyboardtap");	
-
+	threadsetname("keyboardtap");
+	enum { Awin, Actl, Afrom, Adev, Ato, Ainp, Awatch, NALT };
 	static Alt alts[NALT+1];
 	/* ctl */
 	alts[Awin].c = wintap;
@@ -383,30 +415,31 @@ keyboardtap(void*)
 	alts[Ainp].c = nil;
 	alts[Ainp].v = &s;
 	alts[Ainp].op = CHANNOP;
+	alts[Awatch].c = totap;
+	alts[Awatch].v = &watched;
+	alts[Awatch].op = CHANNOP;
 	alts[NALT].op = CHANEND;
 
 	cur = nil;
-	mode = Mnorm;
+	watched = nil;
 	for(;;)
 		switch(alt(alts)){
 		case Awin:
 			cur = w;
 			if(cur != nil){
 				alts[Ainp].c = cur->ck;
-				break;
+				if(tapseats[OREAD] == Tapoff)	
+					break;
+				if(alts[Awatch].op == CHANSND)
+					free(watched);
+				watched = smprint("%c%d", Tapfocus, cur->id);
+				alts[Awatch].op = CHANSND;
 			}
 			if(alts[Ainp].op != CHANNOP || alts[Ato].op != CHANNOP)
 				free(s);
 			goto Reset;
 		case Actl:
-			switch(*ctl){
-			case Tapon:
-				mode = Mtap;
-				break;
-			case Tapoff:
-				mode = Mnorm;
-				break;
-			}
+			sendp(resptap, tapctlmsg(ctl));
 			free(ctl);
 			break;
 		case Afrom:
@@ -420,16 +453,19 @@ keyboardtap(void*)
 			alts[Ainp].op = CHANSND;
 			break;
 		case Adev:
-			if(mode == Mnorm && cur == nil){
+			if(tapseats[OWRITE] == Tapoff && cur == nil){
 				free(s);
 				break;
 			}
 			alts[Afrom].op = CHANNOP;
 			alts[Adev].op = CHANNOP;
-			if(mode == Mnorm)
+			if(tapseats[OWRITE] == Tapoff)
 				alts[Ainp].op = CHANSND;
 			else
 				alts[Ato].op = CHANSND;
+			break;
+		case Awatch:
+			alts[Awatch].op = CHANNOP;
 			break;
 		case Ainp:
 			if(*s == 'k' || *s == 'K')
