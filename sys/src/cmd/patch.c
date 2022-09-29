@@ -517,7 +517,7 @@ search(Fbuf *f, Hunk *h, char *fname)
 	for(fuzz = 0; scanning && fuzz <= nfuzz; fuzz++){
 		scanning = 0;
 		ln = h->oldln - fuzz;
-		if(ln > f->lastln){
+		if(ln > f->lastln && ln < f->nlines){
 			off = f->lines[ln];
 			if(off + len > f->len)
 				continue;
@@ -528,7 +528,7 @@ search(Fbuf *f, Hunk *h, char *fname)
 			}
 		}
 		ln = h->oldln + fuzz + 1;
-		if(ln <= f->nlines){
+		if(ln > f->lastln && ln < f->nlines){
 			off = f->lines[ln];
 			if(off + len >= f->len)
 				continue;
