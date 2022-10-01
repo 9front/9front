@@ -155,10 +155,10 @@ ctlstring(Umsc *lun)
 	part = &lun->part[0];
 
 	fmtstrinit(&fmt);
-	fmtprint(&fmt, "dev %s\n", dev->dir);
-	fmtprint(&fmt, "lun %zd\n", lun - &ums->lun[0]);
 	if(lun->flags & Finqok)
 		fmtprint(&fmt, "inquiry %s\n", lun->inq);
+	fmtprint(&fmt, "dev %s\n", dev->dir);
+	fmtprint(&fmt, "lun %zd\n", lun - &ums->lun[0]);
 	if(lun->blocks > 0)
 		fmtprint(&fmt, "geometry %llud %ld\n", lun->blocks, lun->lbsize);
 	for (p = &part[Qdata+1]; p < &part[Qmax]; p++)
