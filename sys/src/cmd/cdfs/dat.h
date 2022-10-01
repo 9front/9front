@@ -133,10 +133,11 @@ enum {
 	DVDNblock = 16,		/* DVD ECC block is 16 sectors */
 	BDNblock = 32,		/* BD ECC block (`cluster') is 32 sectors */
 	/*
-	 * make a single transfer fit in a 9P rpc.  if we don't do this,
-	 * remote access (e.g., via /mnt/term/dev/sd*) fails mysteriously.
+	 * number of blocks read/written must fit in this. if we don't do this,
+	 * remote access (e.g., via /mnt/term/dev/sd* or nusb/disk) fails mysteriously.
+	 * see /sys/src/9/port/devmnt.c MAXRPC.
 	 */
-	Readblock = 8192/BScdrom,
+	Maxrpc = 8192,
 };
 
 typedef struct Buf Buf;

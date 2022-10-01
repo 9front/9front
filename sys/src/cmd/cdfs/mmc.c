@@ -1171,7 +1171,7 @@ mmcopenrd(Drive *drive, int trackno)
 	o->track = &drive->track[trackno];
 	o->nchange = drive->nchange;
 	o->omode = OREAD;
-	o->buf = bopen(mmcread, OREAD, o->track->bs, Readblock);
+	o->buf = bopen(mmcread, OREAD, o->track->bs, Maxrpc/o->track->bs);
 	o->buf->otrack = o;
 
 	aux->nropen++;
@@ -1395,7 +1395,7 @@ mmccreate(Drive *drive, int type)
 	o->nchange = drive->nchange;
 	o->omode = OWRITE;
 	o->track = t;
-	o->buf = bopen(mmcwrite, OWRITE, bs, Readblock);
+	o->buf = bopen(mmcwrite, OWRITE, bs, Maxrpc/bs);
 	o->buf->otrack = o;
 
 	aux->nwopen++;
