@@ -47,7 +47,7 @@ The
 flag connects to the VNC port instead.
 .SH EXAMPLE
 Connect to the KVM port with
-.IR vnc(1):
+.IR vnc (1):
 .IP
 .EX
 execnet && vncv 'exec!ip/sol -k host'

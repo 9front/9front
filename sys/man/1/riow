@@ -9,7 +9,7 @@ riow \- keyboard-controller for rio(1)
 .SH DESCRIPTION
 .I riow
 provides keyboard controlling for
-.I rio(1)
+.IR rio (1)
 in the manner of
 .IR i3 ,
 .I sway
@@ -56,7 +56,7 @@ option.
 .TP
 .B Kmod4+enter
 Spawn a new
-.IR window(1) .
+.IR window (1).
 .TP
 .B Kmod4+h/j/k/l
 Focus left/down/up/right.

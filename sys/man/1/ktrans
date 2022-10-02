@@ -85,15 +85,6 @@ Korean mode. Implicit layer converts latin to Korean Hangul.
 .TP
 .B ctrl-v
 Vietnamese Telex input.
-.SH SOURCE
-.B /sys/src/cmd/ktrans
-.SH SEE ALSO
-.IR rio (4)
-.IR kbdfs (8)
-.br
-.IR /sys/src/cmd/ktrans/README.kenji
-.br
-.IR /sys/src/cmd/ktrans/READMEJ.kenji
 .SH EXAMPLES
 To type the following Japanese text:
 
@@ -112,6 +103,15 @@ nakanakatanoshiImonodesu.[\\n]
 where [^\\] and [^l] indicate 'ctl-\\' and 'ctl-l',
 respectively.  See README.kenji for the details of this Japanese input
 method.
+.SH SOURCE
+.B /sys/src/cmd/ktrans
+.SH SEE ALSO
+.IR rio (4)
+.IR kbdfs (8)
+.br
+.IR /sys/src/cmd/ktrans/README.kenji
+.br
+.IR /sys/src/cmd/ktrans/READMEJ.kenji
 .SH BUGS
 .PP
 There is no way to generate the control characters literally.

@@ -144,7 +144,7 @@ auth/rsa2jwk acct.key > /sys/lib/tls/acmed/me@example.com.pub
 Then the
 .B acct.key
 must be loaded into
-.IR factotum(4).
+.IR factotum (4).
 It is recommended to put
 .B acct.key
 into
@@ -173,7 +173,7 @@ for more examples on how to use RSA keys.
 .PP
 The certificate for the domain can now be fetched.
 This requires
-.IR webfs(4)
+.IR webfs (4)
 to be mounted as the ACME protocol uses HTTP
 to talk to the provider.
 .IP

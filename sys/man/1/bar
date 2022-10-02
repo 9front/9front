@@ -55,7 +55,7 @@ option.
 Date and time format may be set using
 .I -d
 option, see
-.I tmdate(2).
+.IR tmdate (2).
 .SH EXAMPLES
 An example of how
 .I bar

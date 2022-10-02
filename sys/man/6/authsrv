@@ -593,8 +593,8 @@ and
 .IR attach (5)).
 Other services, such as
 .IR rcpu (1),
-.IR rexport(1),
-.IR rimport(1)
+.IR rexport (1),
+.IR rimport (1)
 and
 .IR tlssrv (8)
 run
