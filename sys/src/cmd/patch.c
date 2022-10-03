@@ -568,10 +568,11 @@ apply(Patch *p, char *fname)
 	for(i = 0; i < p->nhunk; i++){
 		h = &p->hunk[i];
 		if(curfile == nil || strcmp(curfile, h->newpath) != 0){
-			if(!dryrun)
+			if(!dryrun){
 				slurp(&f, h->oldpath);
+				e = f.buf;
+			}
 			curfile = h->newpath;
-			e = f.buf;
 		}
 		if(!dryrun){
 			s = e;
@@ -581,7 +582,8 @@ apply(Patch *p, char *fname)
 			e += h->oldlen;
 		}
 		if(i+1 == p->nhunk || strcmp(curfile, p->hunk[i+1].newpath) != 0){
-			o = append(o, &osz, e, f.buf + f.len);
+			if(!dryrun)
+				o = append(o, &osz, e, f.buf + f.len);
 			blat(h->oldpath, h->newpath, o, osz);
 			osz = 0;
 		}
