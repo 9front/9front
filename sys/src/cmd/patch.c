@@ -459,7 +459,7 @@ Free:
 	free(changed);
 }
 
-int
+void
 slurp(Fbuf *f, char *path)
 {
 	int n, i, fd, sz, len, nlines, linesz;
@@ -502,7 +502,6 @@ slurp(Fbuf *f, char *path)
 	f->lines = lines;
 	f->nlines = nlines;
 	f->lastln = -1;
-	return 0;
 }
 
 char*
@@ -569,8 +568,8 @@ apply(Patch *p, char *fname)
 	for(i = 0; i < p->nhunk; i++){
 		h = &p->hunk[i];
 		if(curfile == nil || strcmp(curfile, h->newpath) != 0){
-			if(!dryrun && slurp(&f, h->oldpath) == -1)
-				sysfatal("slurp %s: %r", h->oldpath);
+			if(!dryrun)
+				slurp(&f, h->oldpath);
 			curfile = h->newpath;
 			e = f.buf;
 		}
