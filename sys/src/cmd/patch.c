@@ -556,23 +556,35 @@ append(char *o, int *sz, char *s, char *e)
 int
 apply(Patch *p, char *fname)
 {
-	char *o, *s, *e, *curfile;
+	char *o, *s, *e, *curfile, *nextfile;
 	int i, osz;
-	Hunk *h;
+	Hunk *h, *prevh;
 	Fbuf f;
 
 	e = nil;
 	o = nil;
 	osz = 0;
 	curfile = nil;
+	h = nil;
+	prevh = nil;
 	for(i = 0; i < p->nhunk; i++){
 		h = &p->hunk[i];
-		if(curfile == nil || strcmp(curfile, h->newpath) != 0){
+		if(strcmp(h->newpath, "/dev/null") == 0)
+			nextfile = h->oldpath;
+		else
+			nextfile = h->newpath;
+		if(curfile == nil || strcmp(curfile, nextfile) != 0){
+			if(curfile != nil){
+				if(!dryrun)
+					o = append(o, &osz, e, f.buf + f.len);
+				blat(prevh->oldpath, prevh->newpath, o, osz);
+				osz = 0;
+			}
 			if(!dryrun){
 				slurp(&f, h->oldpath);
 				e = f.buf;
 			}
-			curfile = h->newpath;
+			curfile = nextfile;
 		}
 		if(!dryrun){
 			s = e;
@@ -581,12 +593,12 @@ apply(Patch *p, char *fname)
 			o = append(o, &osz, h->new, h->new + h->newlen);
 			e += h->oldlen;
 		}
-		if(i+1 == p->nhunk || strcmp(curfile, p->hunk[i+1].newpath) != 0){
-			if(!dryrun)
-				o = append(o, &osz, e, f.buf + f.len);
-			blat(h->oldpath, h->newpath, o, osz);
-			osz = 0;
-		}
+		prevh = h;
+	}
+	if(curfile != nil){
+		if(!dryrun)
+			o = append(o, &osz, e, f.buf + f.len);
+		blat(h->oldpath, h->newpath, o, osz);
 	}
 	free(o);
 	return 0;
