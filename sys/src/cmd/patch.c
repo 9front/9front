@@ -393,12 +393,11 @@ blat(char *old, char *new, char *o, usize len)
 	char *tmp;
 	int fd;
 
-	if(strcmp(new, "/dev/null") == 0 && len != 0){
-		sysfatal("diff modifies removed file");
-		return;
-	}
 	tmp = nil;
-	if(!dryrun){
+	if(strcmp(new, "/dev/null") == 0){
+		if(len != 0)
+			sysfatal("diff modifies removed file");
+	}else if(!dryrun){
 		if(mkpath(new) == -1)
 			sysfatal("mkpath %s: %r", new);
 		if((tmp = smprint("%s.tmp%d", new, getpid())) == nil)
@@ -428,7 +427,7 @@ finish(int ok)
 	for(i = 0; i < nchanged; i++){
 		c = &changed[i];
 		if(!ok){
-			if(remove(c->tmp) == -1)
+			if(c->tmp != nil && remove(c->tmp) == -1)
 				fprint(2, "remove %s: %r\n", c->tmp);
 			goto Free;
 		}
