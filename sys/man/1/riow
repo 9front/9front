@@ -18,13 +18,9 @@ and so on.  It does so by working with
 (see \fIrio\fR(4)) and
 .IR /dev/wsys .
 .SS Running
+Example of running
 .I riow
-filters all key combinations that include
-.B Kmod4
-modifier, so it has to be placed
-.I last
-in the chain of programs using
-.IR /dev/kbdtap :
+with other programs handling input:
 .EX
 	</dev/kbdtap ktrans | \\
 		reform/shortcuts | \\
