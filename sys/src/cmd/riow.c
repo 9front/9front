@@ -88,6 +88,7 @@ wsupdate(void)
 		w->r.max.y = atoi(t[3]);
 		w->vd = -1;
 		w->flags = 0;
+		w->stickyforced = 0;
 
 		/* move over the current state of the window */
 		for(k = 0, seen = 0; k < wsn; k++){
