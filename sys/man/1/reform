@@ -147,9 +147,12 @@ reform/shortcuts </dev/kbdtap >/dev/kbdtap
 .PP
 .I Super+F1/F2
 decreases/increases LCD brightness,
-.I Super+F3/F4
+.I Hyper+F7/F8/F9
+skips to the previous track, (un)pauses or skips to the next track in
+.IR zuke (1),
+.I Hyper+F11/F12
 decreases/increases "master" volume,
-.I Super+Escape
+.I Hyper+F10
 (un)mutes the audio.
 Optionally, a single step amount can be set with
 .I -l
