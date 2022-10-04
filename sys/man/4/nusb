@@ -145,8 +145,12 @@ to let
 .IR kbdfs (8)
 process them.
 Mouse events are sent to
-.BR /dev/mousein
+.B /dev/mousein
 in the same way.
+A file
+.BI /dev/hid N ctl
+supports setting keyboard repeat and delay setting, the unit is
+milliseconds.
 .SS Joysticks
 .I Joy
 parses data packets from a given endpoint and prints back

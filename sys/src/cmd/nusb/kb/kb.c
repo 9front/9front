@@ -13,7 +13,9 @@
 
 #include <u.h>
 #include <libc.h>
+#include <fcall.h>
 #include <thread.h>
+#include <9p.h>
 #include "usb.h"
 #include "hid.h"
 
@@ -23,11 +25,7 @@ enum
 	Diemsg = 0xbeefbeef,
 };
 
-enum
-{
-	Kbdelay = 500,
-	Kbrepeat = 100,
-};
+char user[] = "kb";
 
 typedef struct Hiddev Hiddev;
 struct Hiddev
@@ -78,7 +76,7 @@ struct Hidreport
 	Hidslot	s[16];
 
 	int	nk;
-	uchar	k[64];
+	ushort	k[Nkey];
 
 	int	o;
 	uchar	*e;
@@ -92,6 +90,7 @@ enum {
 	/* Scan codes (see kbd.c) */
 	SCesc1		= 0xe0,		/* first of a 2-character sequence */
 	SCesc2		= 0xe1,
+	Consumer	= 0x100,	/* the key is on consumer page */
 	Keyup		= 0x80,		/* flag bit */
 	Keymask		= 0x7f,		/* regular scan code bits */
 };
@@ -101,12 +100,12 @@ enum {
  */
 #define isext(sc)	((sc) >= 0x80)
 
+static char sctab[2*256] =
+{
 /*
  * key code to scan code; for the page table used by
  * the logitech bluetooth keyboard.
  */
-static char sctab[256] = 
-{
 [0x00]	0x0,	0x0,	0x0,	0x0,	0x1e,	0x30,	0x2e,	0x20,
 [0x08]	0x12,	0x21,	0x22,	0x23,	0x17,	0x24,	0x25,	0x26,
 [0x10]	0x32,	0x31,	0x18,	0x19,	0x10,	0x13,	0x1f,	0x14,
@@ -139,6 +138,39 @@ static char sctab[256] =
 [0xe8]	0x0,	0x0,	0x0,	0x0,	0x0,	0xf3,	0xf2,	0xf1,
 [0xf0]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
 [0xf8]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+/* consumer page to scan code */
+[0x100]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x108]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x110]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x118]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x120]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x128]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x130]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x138]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x140]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x148]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x150]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x158]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x160]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x168]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x170]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x178]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x180]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x188]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x190]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x198]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x1a0]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x1a8]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x1b0]	0x0,	0x0,	0x0,	0x0,	0x0,	0x99,	0x90,	0x0,
+[0x1b8]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x1c0]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x1c8]	0x0,	0x0,	0x0,	0x0,	0x0,	0xa2,	0x0,	0x0,
+[0x1d0]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x1d8]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x1e0]	0x0,	0x0,	0xa0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x1e8]	0x0,	0xb0,	0xae,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x1f0]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+[0x1f8]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
 };
 
 static uchar kbdbootrep[] = {
@@ -165,6 +197,9 @@ static uchar ptrbootrep[] = {
 };
 
 static int debug = 0;
+static int kbdelay = 500;
+static int kbrepeat = 100;
+static int havekbd;
 
 static int
 signext(int v, int bits)
@@ -498,9 +533,9 @@ repeatproc(void* arg)
 			continue;
 		}
 		sc = l & 0xff;
-		t = Kbdelay;
+		t = kbdelay;
 		if(alt(a) == 1){
-			t = Kbrepeat;
+			t = kbrepeat;
 			while(alt(a) == 1)
 				putscan(f, sc, 0);
 		}
@@ -528,7 +563,7 @@ hidparse(int t, int f, int g[], int l[], int, void *a)
 {
 	Hidreport *p = a;
 	Hidslot *s = &p->s[p->ns];
-	int v, m;
+	int v, m, cp;
 
 	switch(t){
 	case Input:
@@ -571,11 +606,11 @@ hidparse(int t, int f, int g[], int l[], int, void *a)
 	if(debug > 1)
 		fprint(2, "hidparse: t=%x f=%x usage=%x v=%x\n", t, f, l[Usage], v);
 
-	if((l[Usage]>>16) == 0x07){	/* keycode */
+	if((cp = ((l[Usage]>>16) == 0x0c)) || (l[Usage]>>16) == 0x07){	/* consumer/keycode */
 		if((f & (Fvar|Farray)) == Fvar)
 			if(v != 0) v = l[Usage] & 0xFF;
 		if(p->nk < nelem(p->k) && v != 0)
-			p->k[p->nk++] = v;
+			p->k[p->nk++] = v | cp*Consumer;
 		return;
 	}
 
@@ -677,12 +712,23 @@ sethipri(void)
 	close(fd);
 }
 
+static ushort *
+keykey(ushort *a, ushort k, int n)
+{
+	while(n > 0){
+		if(*a++ == k)
+			return a-1;
+		n--;
+	}
+	return nil;
+}
+
 static void
 readerproc(void* a)
 {
 	char	err[ERRMAX], mbuf[80];
-	uchar	lastk[64], uk, dk;
-	int	i, c, nerrs, bpress, lastb, nlastk;
+	ushort	lastk[Nkey], uks[Nkey], dks[Nkey], nuks, ndks;
+	int	i, c, nerrs, bpress, lastb, nlastk, stopped;
 	int	abs, x, y, z, b;
 	Hidreport p;
 	Hidslot lasts[nelem(p.s)], *s, *l;
@@ -730,7 +776,7 @@ readerproc(void* a)
 			if(debug){
 				fprint(2, "kbd: ");
 				for(i = 0; i < p.nk; i++)
-					fprint(2, "%#2.2ux ", p.k[i]);
+					fprint(2, "%#4.4ux ", p.k[i]);
 				fprint(2, "\n");
 			}
 
@@ -745,25 +791,36 @@ readerproc(void* a)
 				proccreate(repeatproc, f, Stack);
 			}
 	
-			dk = uk = 0;
-			for(i=0; i<nlastk; i++){
-				if(memchr(p.k, lastk[i], p.nk) == nil){
-					uk = sctab[lastk[i]];
-					putscan(f, uk, Keyup);
-				}
+			/* collect key presses/releases */
+			for(i=nuks=0; i<nlastk; i++){
+				if(keykey(p.k, lastk[i], p.nk) == nil)
+					uks[nuks++] = sctab[lastk[i]];
 			}
-			for(i=0; i<p.nk; i++){
-				if(memchr(lastk, p.k[i], nlastk) == nil){
-					dk = sctab[p.k[i]];
-					putscan(f, dk, 0);
-				}
+			for(i=ndks=0; i<p.nk; i++){
+				if(keykey(lastk, p.k[i], nlastk) == nil)
+					dks[ndks++] = sctab[p.k[i]];
 			}
-			if(uk != 0 && (dk == 0 || dk == uk))
-				stoprepeat(f);
-			else if(dk != 0)
-				startrepeat(f, dk);
 
-			memmove(lastk, p.k, nlastk = p.nk);
+			/*
+			 * stop the repeats first to avoid race condition when
+			 * the key is released but the repeat happens right after
+			 */
+			for(stopped = i = 0; i < nuks; i++){
+				if(ndks == 0 || keykey(dks, uks[i], ndks) != nil){
+					stoprepeat(f);
+					stopped = 1;
+					break;
+				}
+			}
+			for(i = 0; i < nuks; i++)
+				putscan(f, uks[i], Keyup);
+			for(i = 0; i < ndks; i++)
+				putscan(f, dks[i], 0);
+
+			if(stopped == 0 && ndks > 0)
+				startrepeat(f, dks[ndks-1]);
+
+			memmove(lastk, p.k, (nlastk = p.nk)*sizeof(lastk[0]));
 			p.nk = 0;
 		}
 
@@ -902,6 +959,49 @@ Err:
 }
 
 static void
+fsread(Req *r)
+{
+	char msg[48], *s, *e;
+
+	s = msg;
+	e = msg+sizeof(msg);
+	*s = 0;
+	if(havekbd)
+		e = seprint(s, e, "repeat %d\ndelay %d\n", kbrepeat, kbdelay);
+	USED(e);
+	readstr(r, msg);
+	respond(r, nil);
+}
+
+static void
+fswrite(Req *r)
+{
+	char msg[256], *f[4];
+	int nf;
+
+	snprint(msg, sizeof(msg), "%.*s",
+		utfnlen((char*)r->ifcall.data, r->ifcall.count), (char*)r->ifcall.data);
+	nf = tokenize(msg, f, nelem(f));
+	if(nf < 2){
+		respond(r, "invalid ctl message");
+		return;
+	}
+	if(strcmp(f[0], "repeat") == 0)
+		kbrepeat = atoi(f[1]);
+	else if(strcmp(f[0], "delay") == 0)
+		kbdelay = atoi(f[1]);
+	else if(strcmp(f[0], "debug") == 0)
+		debug = atoi(f[1]);
+	r->ofcall.count = r->ifcall.count;
+	respond(r, nil);
+}
+
+static Srv fs = {
+	.read = fsread,
+	.write = fswrite,
+};
+
+static void
 usage(void)
 {
 	fprint(2, "usage: %s [-d] devid\n", argv0);
@@ -915,6 +1015,7 @@ threadmain(int argc, char* argv[])
 	Dev *d;
 	Ep *ep;
 	Usbdev *ud;
+	char buf[32];
 
 	ARGBEGIN{
 	case 'd':
@@ -936,6 +1037,7 @@ threadmain(int argc, char* argv[])
 			continue;
 		switch(ep->iface->csp){
 		case KbdCSP:
+			havekbd = 1;
 		case PtrCSP:
 		case PtrNonBootCSP:
 		case HidCSP:
@@ -943,6 +1045,11 @@ threadmain(int argc, char* argv[])
 			break;
 		}
 	}
+	fs.tree = alloctree(user, "usb", DMDIR|0555, nil);
+	snprint(buf, sizeof buf, "hidU%sctl", d->hname);
+	createfile(fs.tree->root, buf, user, 0666, nil);
+	snprint(buf, sizeof buf, "%s.hid", d->hname);
 	closedev(d);
+	threadpostsharesrv(&fs, nil, "usb", buf);
 	threadexits(nil);
 }

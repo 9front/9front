@@ -44,6 +44,14 @@ enum {
 	Kscrolloneup=	KF|0x20,
 	Kscrollonedown=	KF|0x21,
 
+	/* multimedia keys - no refunds */
+	Ksbwd=	KF|0x22,
+	Ksfwd=	KF|0x23,
+	Kpause=	KF|0x24,
+	Kvoldn=	KF|0x25,
+	Kvolup=	KF|0x26,
+	Kmute=	KF|0x27,
+
 	Ksoh=	0x01,
 	Kstx=	0x02,
 	Ketx=	0x03,
