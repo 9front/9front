@@ -286,7 +286,7 @@ threadmain(int argc, char **argv)
 			sysfatal("could not create log file: %s: %r", p);
 		break;
 	case 'x':
-		fk = vt220fk;
+		fk = xtermfk;
 		term = "xterm";
 		break;
 	case 'r':

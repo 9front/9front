@@ -39,7 +39,7 @@ struct funckey {
 	char	*sequence;
 };
 extern struct funckey *fk, *appfk;
-extern struct funckey ansifk[], ansiappfk[], vt220fk[];
+extern struct funckey ansifk[], ansiappfk[], vt220fk[], xtermfk[];
 
 extern int	x, y, xmax, ymax, olines;
 extern int	peekc, attribute;
