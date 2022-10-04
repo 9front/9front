@@ -61,6 +61,7 @@ fn whoami{
 		name=$user
 	if(~ $email '')
 		email=$user@$sysname
+	status=''
 }
 
 # merge1 out ours base theirs
