@@ -6,10 +6,8 @@ opts=()
 args=()
 
 fn cmd_init{
-	while(~ $#* 0){
+	while(! ~ $#* 0){
 		switch($1){
-		case --bare
-			opts=(-b)
 		case -- 
 			# go likes to use these
 		case -*
@@ -19,7 +17,6 @@ fn cmd_init{
 		}
 		shift
 	}
-	ls >[1=2]
 	git/init $opts $args
 }
 
