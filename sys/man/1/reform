@@ -111,7 +111,7 @@ Exposes the current temperature reading of the CPU.
 .TP
 .B light
 Provides a way to control the backlight of the built-in LCD by
-writing \fIlcd [-+]N\fR,
+writing \fIlcd [-+]N\fR or \fIkbd [-+]N\fR,
 where
 .I N
 is expressed in percentage, either as an absolute value (0-100) or
@@ -174,8 +174,9 @@ recording is not implemented.
 .B Light
 was chosen as a shorter alternative to
 .BR brightness .
-In the future it might support controlling keyboard and trackball
-light levels.
+.PP
+Current keyboard light level reading is only an indication, there is
+no way to get the actual value from the keyboard.
 .PP
 Values displayed in the
 .B battery
