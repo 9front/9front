@@ -13,6 +13,7 @@
 
 #include <u.h>
 #include <libc.h>
+#include <ctype.h>
 #include <fcall.h>
 #include <thread.h>
 #include <9p.h>
@@ -21,8 +22,9 @@
 
 enum
 {
-	Awakemsg=0xdeaddead,
+	Awakemsg = 0xdeaddead,
 	Diemsg = 0xbeefbeef,
+	Rawon = 0x0defaced,
 };
 
 char user[] = "kb";
@@ -410,12 +412,6 @@ setproto(Hiddev *f, Iface *iface)
 		return 0;
  
 	return usbcmd(f->dev, Rh2d|Rclass|Riface, Setproto, proto, iface->id, nil, 0);
-}
-
-static int
-setleds(Hiddev* f, int, uchar leds)
-{
-	return usbcmd(f->dev, Rh2d|Rclass|Riface, Setreport, Reportout, 0, &leds, 1);
 }
 
 static void
@@ -928,7 +924,7 @@ quirks(Hiddev *f)
 	}
 }
 
-static void
+static int
 hdsetup(Dev *d, Ep *ep)
 {
 	Hiddev *f;
@@ -953,9 +949,10 @@ hdsetup(Dev *d, Ep *ep)
 	}
 	quirks(f);
 	procrfork(readerproc, f, Stack, RFNOTEG);
-	return;
+	return 0;
 Err:
 	hdfree(f);
+	return -1;
 }
 
 static void
@@ -977,22 +974,37 @@ static void
 fswrite(Req *r)
 {
 	char msg[256], *f[4];
-	int nf;
+	void *data;
+	int nf, sz;
+	Dev *dev;
 
-	snprint(msg, sizeof(msg), "%.*s",
-		utfnlen((char*)r->ifcall.data, r->ifcall.count), (char*)r->ifcall.data);
-	nf = tokenize(msg, f, nelem(f));
-	if(nf < 2){
-		respond(r, "invalid ctl message");
-		return;
+	dev = r->fid->file->aux;
+	data = r->ifcall.data;
+	sz = r->ifcall.count;
+	if(r->fid->aux == (void*)Rawon){
+		if(sz == 6 && memcmp(data, "rawoff", 6) == 0)
+			r->fid->aux = nil;
+		else if(usbcmd(dev, Rh2d|Rclass|Riface, Setreport, Reportout, 0, data, sz) < 0){
+			responderror(r);
+			return;
+		}
+	}else{
+		snprint(msg, sizeof(msg), "%.*s", utfnlen(data, sz), data);
+		nf = tokenize(msg, f, nelem(f));
+		if(nf == 1 && strcmp(f[0], "rawon") == 0)
+			r->fid->aux = (void*)Rawon;
+		else if(nf == 2 && strcmp(f[0], "repeat") == 0)
+			kbrepeat = atoi(f[1]);
+		else if(nf == 2 && strcmp(f[0], "delay") == 0)
+			kbdelay = atoi(f[1]);
+		else if(nf == 2 && strcmp(f[0], "debug") == 0)
+			debug = atoi(f[1]);
+		else{
+			respond(r, "invalid ctl message");
+			return;
+		}
 	}
-	if(strcmp(f[0], "repeat") == 0)
-		kbrepeat = atoi(f[1]);
-	else if(strcmp(f[0], "delay") == 0)
-		kbdelay = atoi(f[1]);
-	else if(strcmp(f[0], "debug") == 0)
-		debug = atoi(f[1]);
-	r->ofcall.count = r->ifcall.count;
+	r->ofcall.count = sz;
 	respond(r, nil);
 }
 
@@ -1011,7 +1023,7 @@ usage(void)
 void
 threadmain(int argc, char* argv[])
 {
-	int i;
+	int i, n;
 	Dev *d;
 	Ep *ep;
 	Usbdev *ud;
@@ -1030,7 +1042,7 @@ threadmain(int argc, char* argv[])
 	if(d == nil)
 		sysfatal("getdev: %r");
 	ud = d->usb;
-	for(i = 0; i < nelem(ud->ep); i++){
+	for(i = n = 0; i < nelem(ud->ep); i++){
 		if((ep = ud->ep[i]) == nil)
 			continue;
 		if(ep->type != Eintr || ep->dir != Ein)
@@ -1041,15 +1053,17 @@ threadmain(int argc, char* argv[])
 		case PtrCSP:
 		case PtrNonBootCSP:
 		case HidCSP:
-			hdsetup(d, ep);
+			n += hdsetup(d, ep) == 0;
 			break;
 		}
 	}
-	fs.tree = alloctree(user, "usb", DMDIR|0555, nil);
-	snprint(buf, sizeof buf, "hidU%sctl", d->hname);
-	createfile(fs.tree->root, buf, user, 0666, nil);
-	snprint(buf, sizeof buf, "%s.hid", d->hname);
 	closedev(d);
-	threadpostsharesrv(&fs, nil, "usb", buf);
+	if(n > 0){
+		fs.tree = alloctree(user, "usb", DMDIR|0555, nil);
+		snprint(buf, sizeof buf, "hidU%sctl", d->hname);
+		createfile(fs.tree->root, buf, user, 0666, d);
+		snprint(buf, sizeof buf, "%s.hid", d->hname);
+		threadpostsharesrv(&fs, nil, "usb", buf);
+	}
 	threadexits(nil);
 }
