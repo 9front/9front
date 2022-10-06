@@ -45,12 +45,14 @@ enum {
 	Kscrollonedown=	KF|0x21,
 
 	/* multimedia keys - no refunds */
-	Ksbwd=	KF|0x22,
-	Ksfwd=	KF|0x23,
-	Kpause=	KF|0x24,
-	Kvoldn=	KF|0x25,
-	Kvolup=	KF|0x26,
-	Kmute=	KF|0x27,
+	Ksbwd=	KF|0x22,	/* skip backwards */
+	Ksfwd=	KF|0x23,	/* skip forward */
+	Kpause=	KF|0x24,	/* play/pause */
+	Kvoldn=	KF|0x25,	/* volume decrement */
+	Kvolup=	KF|0x26,	/* volume increment */
+	Kmute=	KF|0x27,	/* (un)mute */
+	Kbrtdn=	KF|0x28,	/* brightness decrement */
+	Kbrtup=	KF|0x29,	/* brightness increment */
 
 	Ksoh=	0x01,
 	Kstx=	0x02,

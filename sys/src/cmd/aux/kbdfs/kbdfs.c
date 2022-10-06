@@ -171,8 +171,8 @@ Rune kbtabesc1[Nscan] =
 {
 [0x00]	0,	0,	0,	0,	0,	0,	0,	0,
 [0x08]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x10]	Ksbwd,	0,	0,	0,	0,	0,	0,	0,
-[0x18]	0,	Ksfwd,	0,	0,	'\n',	Kctl,	0,	0,
+[0x10]	Ksbwd,	Kbrtdn,	0,	0,	0,	0,	0,	0,
+[0x18]	0,	Ksfwd,	Kbrtup,	0,	'\n',	Kctl,	0,	0,
 [0x20]	Kmute,	0,	Kpause,	0,	0,	0,	0,	0,
 [0x28]	0,	0,	0,	0,	0,	0,	Kvoldn,	0,
 [0x30]	Kvolup,	0,	0,	0,	0,	'/',	0,	Kprint,
