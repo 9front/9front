@@ -4,7 +4,7 @@
 #include <plumb.h>
 
 static int lightstep = 5, volstep = 3;
-static int light, vol, actl, mod;
+static int light, vol, actl;
 
 static void
 aplumb(char *s)
@@ -12,11 +12,8 @@ aplumb(char *s)
 	int f;
 
 	if((f = plumbopen("send", OWRITE)) >= 0){
-		if(plumbsendtext(f, "shortcuts", "audio", "/", s) < 0)
-			fprint(2, "aplumb: %r\n");
+		plumbsendtext(f, "shortcuts", "audio", "/", s);
 		close(f);
-	}else{
-		fprint(2, "aplumb: %r\n");
 	}
 }
 
@@ -29,8 +26,6 @@ process(char *s)
 
 	o = 0;
 	b[o++] = *s;
-	if(*s == 'k' || *s == 'K')
-		mod = utfrune(s+1, Kmod4) != nil;
 
 	for(p = s+1; *p != 0; p += n){
 		if((n = chartorune(&r, p)) == 1 && r == Runeerror){
@@ -42,27 +37,25 @@ process(char *s)
 			break;
 		}
 
-		skip = 0;
-		if(*s == 'c'){
-			if(mod){
-				if(skip |= (r == (KF|1)))
-					fprint(light, "lcd %+d", -lightstep);
-				else if(skip |= (r == (KF|2)))
-					fprint(light, "lcd %+d", lightstep);
-			}else{
-				if(skip |= (r == Kvoldn))
-					fprint(vol, "master %+d", -volstep);
-				else if(skip |= (r == Kvolup))
-					fprint(vol, "master %+d", volstep);
-				else if(skip |= (r == Kmute))
-					fprint(actl, "master toggle");
-				else if(skip |= (r == Ksbwd))
-					aplumb("key <");
-				else if(skip |= (r == Ksfwd))
-					aplumb("key >");
-				else if(skip |= (r == Kpause))
-					aplumb("key p");
-			}
+		if(skip = (*s == 'c')){
+			if(r == Kbrtdn)
+				fprint(light, "lcd %+d", -lightstep);
+			else if(r == Kbrtup)
+				fprint(light, "lcd %+d", lightstep);
+			else if(r == Kvoldn)
+				fprint(vol, "master %+d", -volstep);
+			else if(r == Kvolup)
+				fprint(vol, "master %+d", volstep);
+			else if(r == Kmute)
+				fprint(actl, "master toggle");
+			else if(r == Ksbwd)
+				aplumb("key <");
+			else if(r == Ksfwd)
+				aplumb("key >");
+			else if(r == Kpause)
+				aplumb("key p");
+			else
+				skip = 0;
 		}
 
 		if(!skip){
