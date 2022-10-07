@@ -124,8 +124,12 @@ Channel *kbdchan;	/* chan(char*) */
 Channel *intchan;	/* chan(int) */
 
 /*
- * The codes at 0x79 and 0x7b are produced by the PFU Happy Hacking keyboard.
- * A 'standard' keyboard doesn't produce anything above 0x58.
+ * The codes at 0x79 and 0x7b are for the (無)変換 "(Mu)henkan" keys
+ * used by OADG 109(A) keyboards. The PFU Happy Hacking keyboard
+ * has only one layout and will produce these for otherwise unmarked
+ * keys. The default mappings for the HHKB on other systems map
+ * these to Kdown and Kup. The jp kbmap will instead map these
+ * (along with 0x70) to control characters that ktrans understands.
  */
 Rune kbtab[Nscan] = 
 {
