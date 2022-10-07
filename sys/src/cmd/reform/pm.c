@@ -446,8 +446,16 @@ Bad:
 	}else if(aux == (void*)Pmctl){
 		p = -1;
 		if(nf >= 2 && strcmp(f[0], "power") == 0){
-			if(nf == 2 && strcmp(f[1], "off") == 0)
-				p = Psomoff;
+			if(nf == 2 && strcmp(f[1], "off") == 0){
+				/*
+				 * LPC firmware might not be up to date so try
+				 * shutting down through the keyboard first
+				 */
+				if((kbdhidfd = openkbdhid()) >= 0){
+					write(kbdhidfd, "PWR0", 4);
+					sleep(2000); /* give it a chance */
+				}
+			}
 		}
 		if(p < 0)
 			goto Bad;
