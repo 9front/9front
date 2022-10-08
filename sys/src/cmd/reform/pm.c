@@ -83,7 +83,7 @@ static Reqqueue *lpcreq;
 static u32int *pwm2, *tmu, *spi2;
 static int kbdlight = 0;
 static int kbdhidfd = -1;
-static Memimage *kbdoled;
+static Memimage *kbdoled, *image;
 static u8int kbdoledraw[4+KbdoledW*KbdoledH/8] = {'W', 'B', 'I', 'T', 0};
 
 static void
@@ -152,28 +152,71 @@ openkbdhid(void)
 }
 
 static int
-loadkbdoled(void *data, int size)
+loadkbdoled(char *data, int offset, int size)
 {
-	int x, y, i, k, v, bpl;
+	int x, y, i, k, v, bpl, used;
+	static Rectangle r;
+	char hdr[5*12+1];
 	u8int *p, q;
+	ulong chan;
 
 	if(openkbdhid() != 0)
 		return -1;
 	if(size == 0)
 		return write(kbdhidfd, "WCLR", 4);
 
-	bpl = bytesperline(kbdoled->r, kbdoled->depth);
-	if(size == 60+bpl*KbdoledH){
-		data = (u8int*)data + 60;
+	used = 0;
+	if(offset == 0){
+		if(size < 60){
+			werrstr("invalid header");
+			return -1;
+		}
+		memmove(hdr, data, 60);
+		hdr[11] = 0;
+		hdr[60] = 0;
+		if((chan = strtochan(data)) == 0){
+			werrstr("bad channel string %s", (char*)data);
+			return -1;
+		}
+		r.min.x = atoi(data+1*12);
+		r.min.y = atoi(data+2*12);
+		r.max.x = atoi(data+3*12);
+		r.max.y = atoi(data+4*12);
+		if(badrect(r)){
+			werrstr("bad rect");
+			return -1;
+		}
+		data += 60;
 		size -= 60;
-	}else if(size != bpl*KbdoledH){
-		werrstr("invalid image: expected %dx%d GREY1 (%d bytes)", KbdoledW, KbdoledH, bpl*KbdoledH);
+		used += 60;
+		if(image == nil || chan != image->chan || !eqrect(r, image->r)){
+			freememimage(image);
+			if((image = allocmemimage(r, chan)) == nil)
+				return -1;
+		}
+		r.max.y = r.min.y;
+	}
+	if(image == nil){
+		werrstr("no header");
 		return -1;
 	}
-
-	k = loadmemimage(kbdoled, kbdoled->r, data, size);
-	if(k < 0 || openkbdhid() != 0)
+	bpl = bytesperline(image->r, image->depth);
+	i = size / bpl;
+	if(i < 1)
+		return used;
+	v = loadmemimage(image, Rect(r.min.x, r.max.y, r.max.x, r.max.y+i), (uchar*)data, size);
+	if(v <= 0){
+		werrstr("loadmemimage: failed");
 		return -1;
+	}
+	r.max.y += i;
+	used += v;
+	if(r.max.y < image->r.max.y)
+		return used;
+
+	memimagedraw(kbdoled, kbdoled->r, image, image->r.min, nil, ZP, S);
+	bpl = bytesperline(kbdoled->r, kbdoled->depth);
+
 	for(y = 0, i = 4; y < KbdoledH; y += 8){
 		for(x = v = 0; x < KbdoledW; x++, v = (v+1)&7){
 			SET(p);
@@ -181,11 +224,14 @@ loadkbdoled(void *data, int size)
 				p = byteaddr(kbdoled, Pt(x,y));
 			for(k = q = 0; k < 8; k++)
 				q |= ((p[bpl*k] >> (7-v)) & 1) << k;
-			kbdoledraw[i++] = q;
+			kbdoledraw[i++] = ~q;
 		}
 	}
 
-	return write(kbdhidfd, kbdoledraw, sizeof(kbdoledraw));
+	if(write(kbdhidfd, kbdoledraw, sizeof(kbdoledraw)) != sizeof(kbdoledraw))
+		return -1;
+
+	return used;
 }
 
 static int
@@ -467,12 +513,12 @@ fswrite(Req *r)
 	aux = r->fid->file->aux;
 
 	if(aux == (void*)Kbdoled){
-		if(loadkbdoled(r->ifcall.data, r->ifcall.count) < 0){
+		if((v = loadkbdoled(r->ifcall.data, r->ifcall.offset, r->ifcall.count)) < 0){
 Err:
 			responderror(r);
 			return;
 		}
-		r->ofcall.count = r->ifcall.count;
+		r->ofcall.count = v;
 		respond(r, nil);
 		return;
 	}
