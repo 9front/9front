@@ -7,8 +7,8 @@ gitup
 fn dodiff {
 	while(t=`{read}){
 		h=$t(1)
-		o=$gitroot^.git/fs/object/`{git/query $h~}
-		c=$gitroot^.git/fs/object/$h
+		o=$gitfs/object/`{git/query $h~}
+		c=$gitfs/object/$h
 		echo 'Hash:' $h
 		echo -n 'Date: '; date `{walk -em $c/msg}
 		echo -n 'Author: '; cat $c/author
