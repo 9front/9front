@@ -9,11 +9,6 @@
 #include "ip.h"
 #include "ipv6.h"
 
-enum {
-	EHSIZE = 14,
-	EMINTU = 60,
-};
-
 typedef struct Etherhdr Etherhdr;
 struct Etherhdr
 {
@@ -40,9 +35,9 @@ static void	etherpref2addr(uchar *pref, uchar *ea);
 Medium ethermedium =
 {
 .name=		"ether",
-.hsize=		EHSIZE,
-.mintu=		EMINTU,
-.maxtu=		1514,
+.hsize=		ETHERHDRSIZE,
+.mintu=		ETHERMINTU,
+.maxtu=		ETHERHDRSIZE+1500,
 .maclen=	6,
 .bind=		etherbind,
 .unbind=	etherunbind,
@@ -56,9 +51,9 @@ Medium ethermedium =
 Medium gbemedium =
 {
 .name=		"gbe",
-.hsize=		EHSIZE,
-.mintu=		EMINTU,
-.maxtu=		9014,
+.hsize=		ETHERHDRSIZE,
+.mintu=		ETHERMINTU,
+.maxtu=		ETHERHDRSIZE+9000,
 .maclen=	6,
 .bind=		etherbind,
 .unbind=	etherunbind,
@@ -285,9 +280,9 @@ etherbwrite(Ipifc *ifc, Block *bp, int version, uchar *ip, Routehint *rh)
 	assert(bp->list == nil);
 
 	/* make it a single block with space for the ether header */
-	bp = padblock(bp, EHSIZE);
-	if(BLEN(bp) < EMINTU)
-		bp = adjustblock(bp, EMINTU);
+	bp = padblock(bp, ETHERHDRSIZE);
+	if(BLEN(bp) < ETHERMINTU)
+		bp = adjustblock(bp, ETHERMINTU);
 	eh = (Etherhdr*)bp->rp;
 
 	/* copy in mac addresses and ether type */
@@ -336,10 +331,10 @@ etherread4(void *a)
 			nexterror();
 		}
 		ifc->in++;
-		if(ifc->lifc == nil || BLEN(bp) <= EHSIZE)
+		if(ifc->lifc == nil || BLEN(bp) <= ETHERHDRSIZE)
 			freeb(bp);
 		else {
-			bp->rp += EHSIZE;
+			bp->rp += ETHERHDRSIZE;
 			ipiput4(er->f, ifc, bp);
 		}
 		runlock(ifc);
@@ -374,10 +369,10 @@ etherread6(void *a)
 			nexterror();
 		}
 		ifc->in++;
-		if(ifc->lifc == nil || BLEN(bp) <= EHSIZE)
+		if(ifc->lifc == nil || BLEN(bp) <= ETHERHDRSIZE)
 			freeb(bp);
 		else {
-			bp->rp += EHSIZE;
+			bp->rp += ETHERHDRSIZE;
 			ipiput6(er->f, ifc, bp);
 		}
 		runlock(ifc);
@@ -436,9 +431,9 @@ newEARP(void)
 {
 	Block *bp;
 
-	bp = allocb(EMINTU);
-	bp->wp += EMINTU;
-	memset(bp->rp, 0, EMINTU);
+	bp = allocb(ETHERMINTU);
+	bp->wp += ETHERMINTU;
+	memset(bp->rp, 0, ETHERMINTU);
 	return bp;
 }
 
