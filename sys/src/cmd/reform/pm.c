@@ -224,7 +224,7 @@ loadkbdoled(char *data, int offset, int size)
 				p = byteaddr(kbdoled, Pt(x,y));
 			for(k = q = 0; k < 8; k++)
 				q |= ((p[bpl*k] >> (7-v)) & 1) << k;
-			kbdoledraw[i++] = ~q;
+			kbdoledraw[i++] = q;
 		}
 	}
 
