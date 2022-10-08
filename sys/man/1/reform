@@ -109,6 +109,10 @@ Returns attached battery array statistics in the same manner as
 .B cputemp
 Exposes the current temperature reading of the CPU.
 .TP
+.B kbdoled
+An image can be displayed on the keyboard OLED by writing a 126x32x1
+uncompressed Plan 9 image (with or without a header).
+.TP
 .B light
 Provides a way to control the backlight of the built-in LCD by
 writing \fIlcd [-+]N\fR or \fIkbd [-+]N\fR,

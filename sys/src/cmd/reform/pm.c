@@ -3,6 +3,8 @@
 #include <fcall.h>
 #include <thread.h>
 #include <9p.h>
+#include <draw.h>
+#include <memdraw.h>
 
 enum
 {
@@ -23,7 +25,11 @@ enum
 	Light = 1,
 	Temp,
 	Battery,
+	Kbdoled,
 	Pmctl,
+
+	KbdoledW = 126,
+	KbdoledH = 32,
 
 	Lcd = 0,
 	Kbd,
@@ -72,11 +78,13 @@ enum
 		STAT_RR = 1<<3,
 };
 
+static char *uid = "pm";
 static Reqqueue *lpcreq;
 static u32int *pwm2, *tmu, *spi2;
 static int kbdlight = 0;
 static int kbdhidfd = -1;
-static char *uid = "pm";
+static Memimage *kbdoled;
+static u8int kbdoledraw[4+KbdoledW*KbdoledH/8] = {'W', 'B', 'I', 'T', 0};
 
 static void
 wr(u32int *base, int reg, u32int v)
@@ -125,23 +133,54 @@ openkbdhid(void)
 	char path[32], *s, *k, *e;
 	int f;
 
-	if(kbdhidfd >= 0)
-		return kbdhidfd;
-
-	if((f = open("/dev/usb/ctl", OREAD)) >= 0){
+	if(kbdhidfd < 0 && (f = open("/dev/usb/ctl", OREAD)) >= 0){
 		if((s = readall(f)) != nil &&
 			(k = strstr(s, "MNT 'Reform Keyboard'")) != nil &&
 			(e = strchr(k+22, ' ')) != nil){
 			*e = 0;
 			snprint(path, sizeof(path), "/dev/hidU%sctl", k+22);
-			if((kbdhidfd = open(path, OWRITE)) >= 0)
-				write(kbdhidfd, "rawon", 5);
+			if((kbdhidfd = open(path, OWRITE)) >= 0 && write(kbdhidfd, "rawon", 5) != 5){
+				close(kbdhidfd);
+				kbdhidfd = -1;
+			}
 		}
 		free(s);
 		close(f);
 	}
 
-	return kbdhidfd;
+	return kbdhidfd < 0;
+}
+
+static int
+loadkbdoled(void *data, int size)
+{
+	int x, y, i, k, v, bpl;
+	u8int *p, q;
+
+	bpl = bytesperline(kbdoled->r, kbdoled->depth);
+	if(size == 60+bpl*KbdoledH){
+		data = (u8int*)data + 60;
+		size -= 60;
+	}else if(size != bpl*KbdoledH){
+		werrstr("invalid image: expected %dx%d GREY1 (%d bytes)", KbdoledW, KbdoledH, bpl*KbdoledH);
+		return -1;
+	}
+
+	k = loadmemimage(kbdoled, kbdoled->r, data, size);
+	if(k < 0 || openkbdhid() != 0)
+		return -1;
+	for(y = 0, i = 4; y < KbdoledH; y += 8){
+		for(x = v = 0; x < KbdoledW; x++, v = (v+1)&7){
+			SET(p);
+			if(v == 0)
+				p = byteaddr(kbdoled, Pt(x,y));
+			for(k = q = 0; k < 8; k++)
+				q |= ((p[bpl*k] >> (7-v)) & 1) << k;
+			kbdoledraw[i++] = q;
+		}
+	}
+
+	return write(kbdhidfd, kbdoledraw, sizeof(kbdoledraw));
 }
 
 static int
@@ -158,7 +197,7 @@ setlight(int k, int p)
 		v = Pwmsrcclk / rd(pwm2, PWMSAR);
 		wr(pwm2, PWMPR, (Pwmsrcclk/(v*p/100))-2);
 		return 0;
-	}else if(k == Kbd && (kbdhidfd = openkbdhid()) >= 0){
+	}else if(k == Kbd && openkbdhid() == 0){
 		v = Kbdlightmax*p/100;
 		if(fprint(kbdhidfd, "LITE%c", '0'+v) > 0){
 			kbdlight = v;
@@ -420,10 +459,21 @@ fswrite(Req *r)
 	int nf, v, p, k;
 	void *aux;
 
-	snprint(msg, sizeof(msg), "%.*s",
-		utfnlen((char*)r->ifcall.data, r->ifcall.count), (char*)r->ifcall.data);
-	nf = tokenize(msg, f, nelem(f));
 	aux = r->fid->file->aux;
+
+	if(aux == (void*)Kbdoled){
+		if(loadkbdoled(r->ifcall.data, r->ifcall.count) < 0){
+Err:
+			responderror(r);
+			return;
+		}
+		r->ofcall.count = r->ifcall.count;
+		respond(r, nil);
+		return;
+	}
+
+	snprint(msg, sizeof(msg), "%.*s", utfnlen(r->ifcall.data, r->ifcall.count), r->ifcall.data);
+	nf = tokenize(msg, f, nelem(f));
 	if(aux == (void*)Light){
 		if(nf < 2){
 Bad:
@@ -439,10 +489,8 @@ Bad:
 		v = atoi(f[1]);
 		if(*f[1] == '+' || *f[1] == '-')
 			v += getlight(k);
-		if(setlight(k, v) != 0){
-			responderror(r);
-			return;
-		}
+		if(setlight(k, v) != 0)
+			goto Err;
 	}else if(aux == (void*)Pmctl){
 		p = -1;
 		if(nf >= 2 && strcmp(f[0], "power") == 0){
@@ -451,7 +499,7 @@ Bad:
 				 * LPC firmware might not be up to date so try
 				 * shutting down through the keyboard first
 				 */
-				if((kbdhidfd = openkbdhid()) >= 0){
+				if(openkbdhid() == 0){
 					write(kbdhidfd, "PWR0", 4);
 					sleep(2000); /* give it a chance */
 				}
@@ -520,11 +568,16 @@ threadmain(int argc, char **argv)
 	if((spi2 = segattach(0, "ecspi2", 0, 0x20)) == (void*)-1)
 		sysfatal("no spi2");
 	tmuinit();
+	if(memimageinit() != 0)
+		sysfatal("%r");
+	if((kbdoled = allocmemimage(Rect(0, 0, KbdoledW, KbdoledH), GREY1)) == nil)
+		sysfatal("%r");
 	lpcreq = reqqueuecreate();
 	fs.tree = alloctree(uid, uid, DMDIR|0555, nil);
 	createfile(fs.tree->root, "battery", uid, 0444, (void*)Battery);
 	createfile(fs.tree->root, "cputemp", uid, 0444, (void*)Temp);
 	createfile(fs.tree->root, "light", uid, 0666, (void*)Light);
+	createfile(fs.tree->root, "kbdoled", uid, 0222, (void*)Kbdoled);
 	createfile(fs.tree->root, "pmctl", uid, 0666, (void*)Pmctl);
 	threadpostmountsrv(&fs, srv, mtpt, MAFTER);
 
