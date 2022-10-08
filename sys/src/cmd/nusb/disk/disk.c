@@ -746,10 +746,6 @@ dread(Req *req)
 	qlock(lun);
 	switch(path){
 	case Qraw:
-		if(lun->lbsize <= 0 && umscapacity(lun) < 0){
-			respond(req, "phase error");
-			break;
-		}
 		switch(lun->phase){
 		case Pcmd:
 			respond(req, "phase error");
@@ -853,10 +849,6 @@ dwrite(Req *req)
 		free(s);
 		break;
 	case Qraw:
-		if(lun->lbsize <= 0 && umscapacity(lun) < 0){
-			respond(req, "phase error");
-			break;
-		}
 		switch(lun->phase){
 		case Pcmd:
 			if(count != 6 && count != 10 && count != 12 && count != 16){
