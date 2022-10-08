@@ -291,11 +291,6 @@ When passed the
 option, the changes are pulled from
 .I upstream
 instead of the configured origin.
-when passed the
-.B -b
-.I branch
-option, it only pulls changes related to
-.IR branch .
 
 .PP
 .B Git/serve

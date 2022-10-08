@@ -62,7 +62,7 @@ RSApub*	rsaprivtopub(RSApriv*)
 RSApub*	X509toRSApub(uchar *cert, int ncert, char *name, int nname)
 .PP
 .B
-RSApub* X509reqtoRSApub(uchar *req, int nreq, char *name*, int nname)
+RSApub* X509reqtoRSApub(uchar *req, int nreq, char *name, int nname)
 .PP
 .B
 RSApriv*	asn1toRSApriv(uchar *priv, int npriv)

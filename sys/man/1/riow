@@ -9,7 +9,7 @@ riow \- keyboard-controller for rio(1)
 .SH DESCRIPTION
 .I riow
 provides keyboard controlling for
-.I rio(1)
+.IR rio (1)
 in the manner of
 .IR i3 ,
 .I sway
@@ -18,13 +18,9 @@ and so on.  It does so by working with
 (see \fIrio\fR(4)) and
 .IR /dev/wsys .
 .SS Running
+Example of running
 .I riow
-filters all key combinations that include
-.B Kmod4
-modifier, so it has to be placed
-.I last
-in the chain of programs using
-.IR /dev/kbdtap :
+with other programs handling input:
 .EX
 	</dev/kbdtap ktrans | \\
 		reform/shortcuts | \\
@@ -56,7 +52,7 @@ option.
 .TP
 .B Kmod4+enter
 Spawn a new
-.IR window(1) .
+.IR window (1).
 .TP
 .B Kmod4+h/j/k/l
 Focus left/down/up/right.

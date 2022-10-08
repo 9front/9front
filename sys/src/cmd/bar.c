@@ -200,9 +200,9 @@ auxproc(void *c)
 	Binit(&b, 0, OREAD);
 	for(;;){
 		s = Brdstr(&b, '\n', 1);
-		sendp(c, s ? s : strdup(""));
 		if(s == nil)
 			break;
+		sendp(c, s);
 	}
 	Bterm(&b);
 

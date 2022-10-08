@@ -96,8 +96,10 @@ fn apply @{
 		}
 		git/walk -fRMA $files
 		if(~ $#nocommit 0){
-			if(hash=`{git/save -n $aname -e $amail -N $name -E $email -m $msg -d $date $parents $files})
+			if(hash=`{git/save -n $aname -e $amail -N $name -E $email -m $msg -d $date $parents $files}){
 				echo $hash > $refpath
+				rm -f .git/index9/removed/$files
+			}
 		}
 		status=''''
 	'

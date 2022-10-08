@@ -3,11 +3,14 @@
 #include <fcall.h>
 #include <thread.h>
 #include <9p.h>
+#include <draw.h>
+#include <memdraw.h>
 
 enum
 {
 	Mhz = 1000*1000,
 	Pwmsrcclk = 25*Mhz,
+	Kbdlightmax = 8,
 
 	Scharge = 0,
 	Sovervolted,
@@ -22,7 +25,14 @@ enum
 	Light = 1,
 	Temp,
 	Battery,
+	Kbdoled,
 	Pmctl,
+
+	KbdoledW = 126,
+	KbdoledH = 32,
+
+	Lcd = 0,
+	Kbd,
 
 	PWMSAR = 0x0c/4,
 	PWMPR = 0x10/4,
@@ -68,9 +78,13 @@ enum
 		STAT_RR = 1<<3,
 };
 
+static char *uid = "pm";
 static Reqqueue *lpcreq;
 static u32int *pwm2, *tmu, *spi2;
-static char *uid = "pm";
+static int kbdlight = 0;
+static int kbdhidfd = -1;
+static Memimage *kbdoled;
+static u8int kbdoledraw[4+KbdoledW*KbdoledH/8] = {'W', 'B', 'I', 'T', 0};
 
 static void
 wr(u32int *base, int reg, u32int v)
@@ -86,8 +100,96 @@ rd(u32int *base, int reg)
 	return base != nil ? base[reg] : -1;
 }
 
-static void
-setlight(int p)
+static char *
+readall(int f)
+{
+	int bufsz, sz, n;
+	char *s;
+
+	bufsz = 2047;
+	s = nil;
+	for(sz = 0;; sz += n){
+		if(bufsz-sz < 2048){
+			bufsz *= 2;
+			s = realloc(s, bufsz);
+		}
+		if((n = readn(f, s+sz, bufsz-sz-1)) < 1)
+			break;
+	}
+	if(n < 0 || sz < 1){
+		if(n == 0)
+			werrstr("empty");
+		free(s);
+		return nil;
+	}
+	s[sz] = 0;
+
+	return s;
+}
+
+static int
+openkbdhid(void)
+{
+	char path[32], *s, *k, *e;
+	int f;
+
+	if(kbdhidfd < 0 && (f = open("/dev/usb/ctl", OREAD)) >= 0){
+		if((s = readall(f)) != nil &&
+			(k = strstr(s, "MNT 'Reform Keyboard'")) != nil &&
+			(e = strchr(k+22, ' ')) != nil){
+			*e = 0;
+			snprint(path, sizeof(path), "/dev/hidU%sctl", k+22);
+			if((kbdhidfd = open(path, OWRITE)) >= 0 && write(kbdhidfd, "rawon", 5) != 5){
+				close(kbdhidfd);
+				kbdhidfd = -1;
+			}
+		}
+		free(s);
+		close(f);
+	}
+
+	return kbdhidfd < 0;
+}
+
+static int
+loadkbdoled(void *data, int size)
+{
+	int x, y, i, k, v, bpl;
+	u8int *p, q;
+
+	if(openkbdhid() != 0)
+		return -1;
+	if(size == 0)
+		return write(kbdhidfd, "WCLR", 4);
+
+	bpl = bytesperline(kbdoled->r, kbdoled->depth);
+	if(size == 60+bpl*KbdoledH){
+		data = (u8int*)data + 60;
+		size -= 60;
+	}else if(size != bpl*KbdoledH){
+		werrstr("invalid image: expected %dx%d GREY1 (%d bytes)", KbdoledW, KbdoledH, bpl*KbdoledH);
+		return -1;
+	}
+
+	k = loadmemimage(kbdoled, kbdoled->r, data, size);
+	if(k < 0 || openkbdhid() != 0)
+		return -1;
+	for(y = 0, i = 4; y < KbdoledH; y += 8){
+		for(x = v = 0; x < KbdoledW; x++, v = (v+1)&7){
+			SET(p);
+			if(v == 0)
+				p = byteaddr(kbdoled, Pt(x,y));
+			for(k = q = 0; k < 8; k++)
+				q |= ((p[bpl*k] >> (7-v)) & 1) << k;
+			kbdoledraw[i++] = q;
+		}
+	}
+
+	return write(kbdhidfd, kbdoledraw, sizeof(kbdoledraw));
+}
+
+static int
+setlight(int k, int p)
 {
 	u32int v;
 
@@ -96,17 +198,37 @@ setlight(int p)
 	if(p > 100)
 		p = 100;
 
-	v = Pwmsrcclk / rd(pwm2, PWMSAR);
-	wr(pwm2, PWMPR, (Pwmsrcclk/(v*p/100))-2);
+	if(k == Lcd){
+		v = Pwmsrcclk / rd(pwm2, PWMSAR);
+		wr(pwm2, PWMPR, (Pwmsrcclk/(v*p/100))-2);
+		return 0;
+	}else if(k == Kbd && openkbdhid() == 0){
+		v = Kbdlightmax*p/100;
+		if(fprint(kbdhidfd, "LITE%c", '0'+v) > 0){
+			kbdlight = v;
+			return 0;
+		}
+		close(kbdhidfd);
+		kbdhidfd = -1;
+		kbdlight = 0;
+	}
+
+	return -1;
 }
 
 static int
-getlight(void)
+getlight(int k)
 {
 	u32int m, v;
 
-	m = Pwmsrcclk / rd(pwm2, PWMSAR);
-	v = Pwmsrcclk / (rd(pwm2, PWMPR)+2);
+	SET(m, v);
+	if(k == Lcd){
+		m = Pwmsrcclk / rd(pwm2, PWMSAR);
+		v = Pwmsrcclk / (rd(pwm2, PWMPR)+2);
+	}else if(k == Kbd){
+		m = Kbdlightmax;
+		v = kbdlight;
+	}
 	return v*100/m;
 }
 
@@ -194,16 +316,16 @@ lpccall(char cmd, u8int arg, void *ret)
 	wr(spi2, SPIx_TXDATA, cmd);
 	wr(spi2, SPIx_TXDATA, arg);
 	wr(spi2, SPIx_CONREG, con | CON_XCH);
-	sleep(60);
-
-	/* LPC buffers 3 bytes without responding, ignore (including garbage) */
-	while(rd(spi2, SPIx_STATREG) & STAT_RR)
-		rd(spi2, SPIx_RXDATA);
 
 	/*
-	 * at this point LPC hopefully is blocked waiting for
-	 * chip select to go active
+	 * LPC buffers 3 bytes without responding, but spends some time
+	 * to prepare the response. 50ms should be safe, add a bit more
+	 * to be sure LPC is blocked waiting for the chip select to go
+	 * active again.
 	 */
+	sleep(60);
+	while(rd(spi2, SPIx_STATREG) & STAT_RR)
+		rd(spi2, SPIx_RXDATA);
 
 	/* expecting 8 bytes, start the exchange */
 	for(i = 0; i < 8; i++)
@@ -315,7 +437,7 @@ fsread(Req *r)
 	if(r->ifcall.offset == 0){
 		aux = r->fid->file->aux;
 		if(aux == (void*)Light){
-			snprint(msg, sizeof(msg), "lcd %d\n", getlight());
+			snprint(msg, sizeof(msg), "lcd %d\nkbd %d\n", getlight(Lcd), getlight(Kbd));
 		}else if(aux == (void*)Temp){
 			if((c = getcputemp()) < 0){
 				responderror(r);
@@ -339,29 +461,55 @@ static void
 fswrite(Req *r)
 {
 	char msg[256], *f[4];
-	int nf, v, p;
+	int nf, v, p, k;
 	void *aux;
 
-	snprint(msg, sizeof(msg), "%.*s",
-		utfnlen((char*)r->ifcall.data, r->ifcall.count), (char*)r->ifcall.data);
-	nf = tokenize(msg, f, nelem(f));
 	aux = r->fid->file->aux;
+
+	if(aux == (void*)Kbdoled){
+		if(loadkbdoled(r->ifcall.data, r->ifcall.count) < 0){
+Err:
+			responderror(r);
+			return;
+		}
+		r->ofcall.count = r->ifcall.count;
+		respond(r, nil);
+		return;
+	}
+
+	snprint(msg, sizeof(msg), "%.*s", utfnlen(r->ifcall.data, r->ifcall.count), r->ifcall.data);
+	nf = tokenize(msg, f, nelem(f));
 	if(aux == (void*)Light){
 		if(nf < 2){
 Bad:
 			respond(r, "invalid ctl message");
 			return;
 		}
-		if(strcmp(f[0], "lcd") == 0){
-			v = atoi(f[1]);
-			if(*f[1] == '+' || *f[1] == '-')
-				v += getlight();
-			setlight(v);
-		}
+		if(strcmp(f[0], "lcd") == 0)
+			k = Lcd;
+		else if(strcmp(f[0], "kbd") == 0)
+			k = Kbd;
+		else
+			goto Bad;
+		v = atoi(f[1]);
+		if(*f[1] == '+' || *f[1] == '-')
+			v += getlight(k);
+		if(setlight(k, v) != 0)
+			goto Err;
 	}else if(aux == (void*)Pmctl){
 		p = -1;
-		if(nf == 2 && strcmp(f[0], "power") == 0 && strcmp(f[1], "off") == 0)
-			p = Psomoff;
+		if(nf >= 2 && strcmp(f[0], "power") == 0){
+			if(nf == 2 && strcmp(f[1], "off") == 0){
+				/*
+				 * LPC firmware might not be up to date so try
+				 * shutting down through the keyboard first
+				 */
+				if(openkbdhid() == 0){
+					write(kbdhidfd, "PWR0", 4);
+					sleep(2000); /* give it a chance */
+				}
+			}
+		}
 		if(p < 0)
 			goto Bad;
 		lpccall('p', p, msg);
@@ -425,11 +573,16 @@ threadmain(int argc, char **argv)
 	if((spi2 = segattach(0, "ecspi2", 0, 0x20)) == (void*)-1)
 		sysfatal("no spi2");
 	tmuinit();
+	if(memimageinit() != 0)
+		sysfatal("%r");
+	if((kbdoled = allocmemimage(Rect(0, 0, KbdoledW, KbdoledH), GREY1)) == nil)
+		sysfatal("%r");
 	lpcreq = reqqueuecreate();
 	fs.tree = alloctree(uid, uid, DMDIR|0555, nil);
-	createfile(fs.tree->root, "battery", uid, 0444,(void*)Battery);
+	createfile(fs.tree->root, "battery", uid, 0444, (void*)Battery);
 	createfile(fs.tree->root, "cputemp", uid, 0444, (void*)Temp);
 	createfile(fs.tree->root, "light", uid, 0666, (void*)Light);
+	createfile(fs.tree->root, "kbdoled", uid, 0222, (void*)Kbdoled);
 	createfile(fs.tree->root, "pmctl", uid, 0666, (void*)Pmctl);
 	threadpostmountsrv(&fs, srv, mtpt, MAFTER);
 

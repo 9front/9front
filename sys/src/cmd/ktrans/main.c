@@ -2,6 +2,7 @@
 #include <libc.h>
 #include <ctype.h>
 #include <bio.h>
+#include <plumb.h>
 #include <thread.h>
 #include "hash.h"
 
@@ -275,32 +276,28 @@ maplkup(int lang, char *s, Map *m)
 	return hmapget(*h, s, m);
 }
 
-typedef struct Msg Msg;
-struct Msg {
-	char code;
-	char buf[64];
-};
-static Channel *dictch;
-static Channel *output;
-static Channel *input;
-static char  backspace[64];
+enum   { Msgsize = 64 };
+static Channel	*dictch;
+static Channel	*output;
+static Channel	*input;
+static char	backspace[Msgsize];
 
 static int
 emitutf(Channel *out, char *u, int nrune)
 {
-	Msg m;
+	char b[Msgsize];
 	char *e;
 
-	m.code = 'c';
-	e = pushutf(m.buf, m.buf + sizeof m.buf, u, nrune);
-	send(out, &m);
-	return e - m.buf;
+	b[0] = 'c';
+	e = pushutf(b+1, b + Msgsize - 1, u, nrune);
+	send(out, b);
+	return e - b;
 }
 
 static void
 dictthread(void*)
 {
-	Msg m;
+	char m[Msgsize];
 	Rune r;
 	int n;
 	char *p;
@@ -325,8 +322,8 @@ dictthread(void*)
 	resetstr(&last, &line, &okuri, nil);
 
 	threadsetname("dict");
-	while(recv(dictch, &m) != -1){
-		for(p = m.buf; *p; p += n){
+	while(recv(dictch, m) != -1){
+		for(p = m+1; *p; p += n){
 			n = chartorune(&r, p);
 			if(r != ''){
 				if(selected >= 0){
@@ -441,7 +438,7 @@ dictthread(void*)
 	}
 }
 
-int
+static int
 telexlkup(Str *line, Str *out)
 {
 	Map lkup;
@@ -454,7 +451,6 @@ telexlkup(Str *line, Str *out)
 	if(hmapget(telex, buf, &lkup) < 0)
 		return -1;
 
-	assert(lkup.leadstomore == 1);
 	if(utflen(line->b) < 2)
 		return 2;
 
@@ -480,34 +476,32 @@ static void
 keythread(void*)
 {
 	int lang;
-	Msg m;
+	char m[Msgsize];
 	Map lkup;
 	char *p;
 	int n, ln, rn;
 	Rune r;
 	char peek[UTFmax+1];
 	Str line, tbuf;
-	int mode;
 
-	mode = 0;
 	peek[0] = lang = deflang;
 	resetstr(&line, nil);
 	if(lang == LangJP || lang == LangZH)
 		emitutf(dictch, peek, 1);
 
 	threadsetname("keytrans");
-	while(recv(input, &m) != -1){
-		if(m.code == 'z'){
+	while(recv(input, m) != -1){
+		if(m[0] == 'z'){
 			emitutf(dictch, "", 1);
 			resetstr(&line, nil);
 			continue;
 		}
-		if(m.code != 'c'){
-			send(output, &m);
+		if(m[0] != 'c'){
+			send(output, m);
 			continue;
 		}
 
-		for(p = m.buf; *p; p += n){
+		for(p = m+1; *p; p += n){
 			n = chartorune(&r, p);
 			if(checklang(&lang, r)){
 				emitutf(dictch, "", 1);
@@ -527,12 +521,8 @@ keythread(void*)
 					resetstr(&line, nil);
 					continue;
 				}
-				if(lang == LangJP && isupper(*p)){
+				if(lang == LangJP && isupper(*p))
 					*p = tolower(*p);
-					mode++;
-				} else {
-					mode = 0;
-				}
 			}
 
 			emitutf(output, p, 1);
@@ -590,60 +580,93 @@ keythread(void*)
 static int kbdin;
 static int kbdout;
 
-void
+static void
 kbdtap(void*)
 {
-	Msg msg;
+	char m[Msgsize];
 	char buf[128];
 	char *p, *e;
 	int n;
 
 	threadsetname("kbdtap");
 	for(;;){
-Drop:
+	Drop:
 		n = read(kbdin, buf, sizeof buf);
 		if(n < 0)
 			break;
 		for(p = buf; p < buf+n;){
-			msg.code = p[0];
-			p++;
-			switch(msg.code){
+			switch(*p){
 			case 'c': case 'k': case 'K':
 			case 'z':
 				break;
 			default:
 				goto Drop;
 			}
-			e = utfecpy(msg.buf, msg.buf + sizeof msg.buf, p);
-			p += e - msg.buf;
+			*m = *p++;
+			e = utfecpy(m+1, m + Msgsize - 1, p);
+			p += e - m;
 			p++;
-			if(send(input, &msg) == -1)
+			if(send(input, m) == -1)
 				return;
 		}
 	}
 }
 
-void
+static void
 kbdsink(void*)
 {
-	Msg m;
+	char in[Msgsize];
+	char out[Msgsize];
 	char *p;
+	int n;
 	Rune rn;
 
+	out[0] = 'c';
 	threadsetname("kbdsink");
-	while(recv(output, &m) != -1){
-		if(m.code != 'c'){
-			fprint(kbdout, "%c%s", m.code, m.buf);
+	while(recv(output, in) != -1){
+		if(in[0] != 'c'){
+			if(write(kbdout, in, strlen(in)+1) < 0)
+				break;
 			continue;
 		}
-		p = m.buf;
-		for(;;){
-			p += chartorune(&rn, p);
+
+		for(p = in+1; *p; p += n){
+			n = chartorune(&rn, p);
 			if(rn == Runeerror || rn == '\0')
 				break;
-			fprint(kbdout, "c%C", rn);
+			memmove(out+1, p, n);
+			out[1+n] = '\0';
+			if(write(kbdout, out, 1+n+1) < 0)
+				break;
 		}
 	}
+}
+
+static int plumbfd;
+
+static void
+plumbproc(void*)
+{
+	char m[Msgsize];
+	Plumbmsg *p;
+
+	threadsetname("plumbproc");
+	for(; p = plumbrecv(plumbfd); plumbfree(p)){
+		if(p->ndata > sizeof m - 1)
+			continue;
+		memmove(m, p->data, p->ndata);
+		m[p->ndata] = '\0';
+
+		m[1] = parselang(m);
+		if(m[1] == -1)
+			continue;
+		m[0] = 'c';
+		m[2] = '\0';
+
+		if(send(input, m) == -1)
+			break;
+	}
+	plumbfree(p);
 }
 
 void
@@ -704,9 +727,13 @@ threadmain(int argc, char *argv[])
 	hangul 	= openmap("/lib/ktrans/hangul.map");
 	telex	= openmap("/lib/ktrans/telex.map");
 
-	dictch 	= chancreate(sizeof(Msg), 0);
-	input 	= chancreate(sizeof(Msg), 0);
-	output 	= chancreate(sizeof(Msg), 0);
+	dictch 	= chancreate(Msgsize, 0);
+	input 	= chancreate(Msgsize, 0);
+	output 	= chancreate(Msgsize, 0);
+
+	plumbfd = plumbopen("lang", OREAD);
+	if(plumbfd >= 0)
+		proccreate(plumbproc, nil, mainstacksize);
 
 	proccreate(kbdtap, nil, mainstacksize);
 	proccreate(kbdsink, nil, mainstacksize);

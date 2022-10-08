@@ -145,8 +145,12 @@ to let
 .IR kbdfs (8)
 process them.
 Mouse events are sent to
-.BR /dev/mousein
+.B /dev/mousein
 in the same way.
+A file
+.BI /dev/hid N ctl
+supports setting keyboard repeat and delay setting, the unit is
+milliseconds.
 .SS Joysticks
 .I Joy
 parses data packets from a given endpoint and prints back
@@ -271,11 +275,34 @@ compatible with
 .IR audio (3).
 .SS Camera devices
 .I Cam
-configures and manages a USB camera device.
-It implements a file system (normally seen under
-.BR /dev ),
-compatible with
-.IR camv (1).
+configures and exposes a USB camera device's capabilities,
+implementing a file system compatible with
+.IR camv (1),
+under a directory named
+.BI cam N [. M ].
+It provides the following files:
+.BR desc ,
+showing all of the device's internal descriptors and their values;
+.BR format ,
+listing admissible image resolutions and framerates;
+.BR ctl ,
+the picture settings control file;
+.BR frame ,
+which captures and outputs a single video frame as an
+.IR image (6)
+file;
+and
+.IR video ,
+streaming video in a preset format, resolution and framerate.
+In particular, reading from the
+.B ctl
+file yields a space-separated list of parameter settings,
+where the second and third columns correspond to key-value pairs,
+and an optional fourth column corresponds to the range of possible numerical values
+(formatted as
+.IR minimum / increment / maximum ).
+The same pairs can be written to the file to configure the camera.
+Currently, only the YUY2 video format is supported.
 .SH SOURCE
 .B /sys/src/cmd/nusb
 .SH "SEE ALSO"
@@ -288,11 +315,15 @@ compatible with
 .IR uart (3),
 .IR usb (3),
 .IR shr (3),
+.IR image (6),
 .IR nusbrc (8),
 .IR kbdfs (8)
 .SH HISTORY
 .I Joy
 first appeared in 9front (March, 2014).
+.br
+.I Cam
+first appeared in 9front (March, 2018).
 .SH BUGS
 The various device drivers are generic USB drivers and
 may work only for certain devices of each class.
@@ -307,3 +338,9 @@ and
 signals and some of the extra features are not implemented.
 For Ftdi, only the Sheevaplug and Guruplug have been tried.
 There is support for the EHCI debug port, but it loses bytes.
+.PP
+USB video format settings cannot be changed while
+.IR camv (1)
+is running, and must be set manually by writing them to
+.IR cam (4)'s ctl
+file before starting the viewer.

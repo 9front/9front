@@ -81,12 +81,6 @@ then remove the ability to create more:
 bind '#|' /n/pipe
 chdev -r '|'
 .EE
-.SH DIAGNOSTICS
-.I Chdev
-is implemented through writes to
-.BR /dev/drivers ,
-served by
-.IR cons (3).
 .SH SOURCE
 .B /rc/bin/chdev
 .SH "SEE ALSO"
@@ -95,5 +89,11 @@ for a list of current drivers.
 .PP
 .IR intro (3),
 .IR cons (3)
+.SH DIAGNOSTICS
+.I Chdev
+is implemented through writes to
+.BR /dev/drivers ,
+served by
+.IR cons (3).
 .SH HISTORY
 Chdev first appeared in 9front (May, 2022).

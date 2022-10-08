@@ -109,9 +109,14 @@ Returns attached battery array statistics in the same manner as
 .B cputemp
 Exposes the current temperature reading of the CPU.
 .TP
+.B kbdoled
+An image can be displayed on the keyboard OLED by writing a 126x32x1
+uncompressed Plan 9 image (with or without a header).  Zero-length
+write clears the display.
+.TP
 .B light
 Provides a way to control the backlight of the built-in LCD by
-writing \fIlcd [-+]N\fR,
+writing \fIlcd [-+]N\fR or \fIkbd [-+]N\fR,
 where
 .I N
 is expressed in percentage, either as an absolute value (0-100) or
@@ -145,20 +150,21 @@ to function:
 reform/shortcuts </dev/kbdtap >/dev/kbdtap
 .EE
 .PP
-.I Super+F1/F2
+.I Hyper+F1/F2
 decreases/increases LCD brightness,
-.I Super+F3/F4
-decreases/increases "master" volume,
-.I Super+Escape
-(un)mutes the audio.
-Optionally, a single step amount can be set with
+.I Hyper+F7/F8/F9
+skips to the previous track, (un)pauses or skips to the next track in
+.IR zuke (1),
+.I Hyper+F10
+(un)mutes the audio,
+.I Hyper+F11/F12
+decreases/increases "master" volume.  Optionally, a single step amount
+can be set with
 .I -l
 for LCD light level (default is 5) and
 .I -v
 for volume (default is 3).  Values can be negative to essentially swap
-.I F1
-with
-.IR F2 .
+the decrement and increment keys.
 .SH SOURCE
 .B /sys/src/cmd/reform
 .SH SEE ALSO
@@ -173,8 +179,9 @@ recording is not implemented.
 .B Light
 was chosen as a shorter alternative to
 .BR brightness .
-In the future it might support controlling keyboard and trackball
-light levels.
+.PP
+Current keyboard light level reading is only an indication, there is
+no way to get the actual value from the keyboard.
 .PP
 Values displayed in the
 .B battery

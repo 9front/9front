@@ -2,6 +2,7 @@
 #include <libc.h>
 #include <draw.h>
 #include <keyboard.h>
+#include <ctype.h>
 
 typedef struct W W;
 
@@ -24,6 +25,7 @@ struct W {
 	Rectangle r;
 	int vd;
 	int flags;
+	int stickyforced;
 };
 
 static int vd = 1; /* current virtual desktop */
@@ -86,12 +88,14 @@ wsupdate(void)
 		w->r.max.y = atoi(t[3]);
 		w->vd = -1;
 		w->flags = 0;
+		w->stickyforced = 0;
 
 		/* move over the current state of the window */
 		for(k = 0, seen = 0; k < wsn; k++){
 			if(ws[k].id == w->id){
 				w->vd = ws[k].vd;
 				w->flags = ws[k].flags & ~(Fvisible|Fcurrent);
+				w->stickyforced = ws[k].stickyforced;
 				if(w->flags & Ffullscreen)
 					w->r = ws[k].r;
 				seen = 1;
@@ -117,17 +121,21 @@ wsupdate(void)
 		}
 
 		/* because a different program can run in any window we have to re-read */
-		snprint(s, sizeof(s), "/dev/wsys/%d/label", w->id);
 		w->flags &= ~Fsticky;
-		if((f = open(s, OREAD)) >= 0){
-			n = read(f, s, sizeof(s)-1);
-			close(f);
-			if(n > 0){
-				s[n] = 0;
-				for(k = 0; k < nelem(sticky) && sticky[k] != nil; k++){
-					if(strcmp(sticky[k], s) == 0){
-						w->flags |= Fsticky;
-						break;
+		if(w->stickyforced){
+			w->flags |= Fsticky;
+		}else{
+			snprint(s, sizeof(s), "/dev/wsys/%d/label", w->id);
+			if((f = open(s, OREAD)) >= 0){
+				n = read(f, s, sizeof(s)-1);
+				close(f);
+				if(n > 0){
+					s[n] = 0;
+					for(k = 0; k < nelem(sticky) && sticky[k] != nil; k++){
+						if(strcmp(sticky[k], s) == 0){
+							w->flags |= Fsticky;
+							break;
+						}
 					}
 				}
 			}
@@ -153,6 +161,7 @@ togglefullscreen(void)
 {
 	int f;
 
+	wsupdate();
 	if(wcur == nil || (f = wwctl(wcur->id, OWRITE)) < 0)
 		return;
 	wcur->flags ^= Ffullscreen;
@@ -166,8 +175,9 @@ togglefullscreen(void)
 static void
 togglesticky(void)
 {
+	wsupdate();
 	if(wcur != nil)
-		wcur->flags ^= Fsticky;
+		wcur->stickyforced ^= 1;
 }
 
 static void
@@ -176,14 +186,15 @@ vdaction(int nvd)
 	int f, wcurf;
 	W *w;
 
+	if(vd == nvd)
+		return;
+
+	wsupdate();
 	if(mod == Mmod4){
 		wcur = nil;
 		wcurf = -1;
 		vd2wcur[vd] = -1;
 		for(w = ws; w < ws+wsn; w++){
-			if((f = wwctl(w->id, OWRITE)) < 0)
-				continue;
-
 			if(w->flags & Fvisible)
 				w->vd = vd;
 			else if(w->vd == vd)
@@ -192,24 +203,33 @@ vdaction(int nvd)
 			if(w->flags & Fcurrent)
 				vd2wcur[vd] = w->id;
 
-			if(w->vd != nvd && (w->flags & Fsticky) == 0){
-				fprint(f, "hide");
-			}else{
-				fprint(f, "unhide");
-				if(vd2wcur[nvd] == w->id && wcurf < 0){
-					wcur = w;
-					wcurf = f;
-					f = -1;
+			if(w->vd == nvd && (w->flags & Fsticky) == 0){
+				if((f = wwctl(w->id, OWRITE)) >= 0){
+					fprint(f, "unhide");
+					if(vd2wcur[nvd] == w->id && wcurf < 0){
+						wcur = w;
+						wcurf = f;
+					}else
+						close(f);
 				}
 			}
-			if(f >= 0)
-				close(f);
 		}
+
 		if(wcur != nil){
 			fprint(wcurf, "top");
 			fprint(wcurf, "current");
 			close(wcurf);
 		}
+
+		for(w = ws; w < ws+wsn; w++){
+			if(w->vd != nvd && (w->flags & (Fsticky|Fvisible)) == Fvisible){
+				if((f = wwctl(w->id, OWRITE)) >= 0){
+					fprint(f, "hide");
+					close(f);
+				}
+			}
+		}
+
 		vd = nvd;
 		fprint(3, "%d\n", vd);
 	}else if(mod == (Mmod4 | Mshift) && wcur != nil && wcur->vd != nvd){
@@ -228,6 +248,7 @@ arrowaction(int x, int y)
 {
 	int f;
 
+	wsupdate();
 	if(wcur == nil || (f = wwctl(wcur->id, OWRITE)) < 0)
 		return;
 
@@ -258,6 +279,7 @@ cycleaction(int x, int y)
 	int wcurid, i, f;
 	W *w, *w₀;
 
+	wsupdate();
 	wcurid = wcur == nil ? -1 : wcur->id;
 	cyclectx.x = x;
 	cyclectx.y = y;
@@ -286,49 +308,90 @@ cycleaction(int x, int y)
 	wcur = w;
 }
 
-static void
-keyevent(Rune r)
+static int
+keyevent(char c, Rune r)
 {
-	wsupdate();
-
-	if(r == '\n')
-		spawn("window");
-	else if(r == 'f')
-		togglefullscreen();
-	else if(r == 's')
-		togglesticky();
-	else if(r >= '0' && r <= '9')
+	if(c == 'c'){
+		if(r == '\n' && mod == Mmod4){
+			spawn("window");
+			return 0;
+		}
+		if(r == 'f' && mod == Mmod4){
+			togglefullscreen();
+			return 0;
+		}
+		if(r == 's' && mod == Mmod4){
+			togglesticky();
+			return 0;
+		}
+		if(r == Kup){
+			arrowaction(0, -1);
+			return 0;
+		}
+		if(r == Kdown){
+			arrowaction(0, 1);
+			return 0;
+		}
+		if(r == Kleft){
+			arrowaction(-1, 0);
+			return 0;
+		}
+		if(r == Kright){
+			arrowaction(1, 0);
+			return 0;
+		}
+		if(r == 'h' && mod == Mmod4){
+			cycleaction(-1, 0);
+			return 0;
+		}
+		if(r == 'l' && mod == Mmod4){
+			cycleaction(1, 0);
+			return 0;
+		}
+		if(r == 'j' && mod == Mmod4){
+			cycleaction(0, 1);
+			return 0;
+		}
+		if(r == 'k' && mod == Mmod4){
+			cycleaction(0, -1);
+			return 0;
+		}
+		if(r >= '0' && r <= '9' && (mod & Mctl) == 0){
+			vdaction(r - '0');
+			return 0;
+		}
+	}
+	/* mod4 + shift + 1…0 yields a shifted value on 'c': workaround */
+	if(c == 'k' && mod == (Mmod4|Mshift) && r >= '0' && r <= '9'){
 		vdaction(r - '0');
-	else if(r == Kup)
-		arrowaction(0, -1);
-	else if(r == Kdown)
-		arrowaction(0, 1);
-	else if(r == Kleft)
-		arrowaction(-1, 0);
-	else if(r == Kright)
-		arrowaction(1, 0);
-	else if(r == 'h')
-		cycleaction(-1, 0);
-	else if(r == 'l')
-		cycleaction(1, 0);
-	else if(r == 'j')
-		cycleaction(0, 1);
-	else if(r == 'k')
-		cycleaction(0, -1);
+		return 0;
+	}
+	/* don't bother to properly deal with handling shifted digit keys */
+	if((mod & Mshift) != 0 && (c == 'c' || c == 'k' || c == 'K'))
+		return ispunct(r) ? 0 : -1;
+
+	return -1;
 }
 
 static void
 process(char *s)
 {
-	int n, o, oldmod;
 	char b[128], *p;
+	int n, o;
 	Rune r;
-
-	if(*s == 'K' && s[1] == 0)
-		mod = 0;
 
 	o = 0;
 	b[o++] = *s;
+	if(*s == 'k' || *s == 'K'){
+		mod = 0;
+		if(utfrune(s+1, Kmod4) != nil)
+			mod |= Mmod4;
+		if(utfrune(s+1, Kctl) != nil)
+			mod |= Mctl;
+		if(utfrune(s+1, Kshift) != nil)
+			mod |= Mshift;
+	}
+
 	for(p = s+1; *p != 0; p += n){
 		if((n = chartorune(&r, p)) == 1 && r == Runeerror){
 			/* bail out */
@@ -339,36 +402,10 @@ process(char *s)
 			break;
 		}
 
-		oldmod = mod;
-
-		if(*s == 'c' && (mod & Mmod4) != 0){
-			keyevent(r);
-			continue;
+		if((mod & Mmod4) == 0 || keyevent(*s, r) != 0){
+			memmove(b+o, p, n);
+			o += n;
 		}
-
-		if(*s == 'k'){
-			if(r == Kmod4)
-				mod |= Mmod4;
-			else if(r == Kctl)
-				mod |= Mctl;
-			else if(r == Kshift)
-				mod |= Mshift;
-			else if(r >= '0' && r <= '9' && (mod & (Mshift|Mmod4)) == (Mshift|Mmod4))
-				keyevent(r);
-		}else if(*s == 'K'){
-			if(r == Kmod4)
-				mod &= ~Mmod4;
-			else if(r == Kctl)
-				mod &= ~Mctl;
-			else if(r == Kshift)
-				mod &= ~Mshift;
-		}
-
-		if((oldmod | mod) & Mmod4)
-			continue;
-
-		memmove(b+o, p, n);
-		o += n;
 	}
 
 	/* all runes filtered out - ignore completely */

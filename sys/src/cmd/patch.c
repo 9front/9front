@@ -393,12 +393,11 @@ blat(char *old, char *new, char *o, usize len)
 	char *tmp;
 	int fd;
 
-	if(strcmp(new, "/dev/null") == 0 && len != 0){
-		sysfatal("diff modifies removed file");
-		return;
-	}
 	tmp = nil;
-	if(!dryrun){
+	if(strcmp(new, "/dev/null") == 0){
+		if(len != 0)
+			sysfatal("diff modifies removed file");
+	}else if(!dryrun){
 		if(mkpath(new) == -1)
 			sysfatal("mkpath %s: %r", new);
 		if((tmp = smprint("%s.tmp%d", new, getpid())) == nil)
@@ -428,7 +427,7 @@ finish(int ok)
 	for(i = 0; i < nchanged; i++){
 		c = &changed[i];
 		if(!ok){
-			if(remove(c->tmp) == -1)
+			if(c->tmp != nil && remove(c->tmp) == -1)
 				fprint(2, "remove %s: %r\n", c->tmp);
 			goto Free;
 		}
@@ -460,7 +459,7 @@ Free:
 	free(changed);
 }
 
-int
+void
 slurp(Fbuf *f, char *path)
 {
 	int n, i, fd, sz, len, nlines, linesz;
@@ -503,7 +502,6 @@ slurp(Fbuf *f, char *path)
 	f->lines = lines;
 	f->nlines = nlines;
 	f->lastln = -1;
-	return 0;
 }
 
 char*
@@ -517,7 +515,7 @@ search(Fbuf *f, Hunk *h, char *fname)
 	for(fuzz = 0; scanning && fuzz <= nfuzz; fuzz++){
 		scanning = 0;
 		ln = h->oldln - fuzz;
-		if(ln > f->lastln){
+		if(ln > f->lastln && ln < f->nlines){
 			off = f->lines[ln];
 			if(off + len > f->len)
 				continue;
@@ -527,8 +525,8 @@ search(Fbuf *f, Hunk *h, char *fname)
 				return f->buf + off;
 			}
 		}
-		ln = h->oldln + fuzz - 1;
-		if(ln <= f->nlines){
+		ln = h->oldln + fuzz + 1;
+		if(ln > f->lastln && ln < f->nlines){
 			off = f->lines[ln];
 			if(off + len >= f->len)
 				continue;
@@ -558,22 +556,35 @@ append(char *o, int *sz, char *s, char *e)
 int
 apply(Patch *p, char *fname)
 {
-	char *o, *s, *e, *curfile;
+	char *o, *s, *e, *curfile, *nextfile;
 	int i, osz;
-	Hunk *h;
+	Hunk *h, *prevh;
 	Fbuf f;
 
 	e = nil;
 	o = nil;
 	osz = 0;
 	curfile = nil;
+	h = nil;
+	prevh = nil;
 	for(i = 0; i < p->nhunk; i++){
 		h = &p->hunk[i];
-		if(curfile == nil || strcmp(curfile, h->newpath) != 0){
-			if(!dryrun && slurp(&f, h->oldpath) == -1)
-				sysfatal("slurp %s: %r", h->oldpath);
-			curfile = h->newpath;
-			e = f.buf;
+		if(strcmp(h->newpath, "/dev/null") == 0)
+			nextfile = h->oldpath;
+		else
+			nextfile = h->newpath;
+		if(curfile == nil || strcmp(curfile, nextfile) != 0){
+			if(curfile != nil){
+				if(!dryrun)
+					o = append(o, &osz, e, f.buf + f.len);
+				blat(prevh->oldpath, prevh->newpath, o, osz);
+				osz = 0;
+			}
+			if(!dryrun){
+				slurp(&f, h->oldpath);
+				e = f.buf;
+			}
+			curfile = nextfile;
 		}
 		if(!dryrun){
 			s = e;
@@ -582,11 +593,12 @@ apply(Patch *p, char *fname)
 			o = append(o, &osz, h->new, h->new + h->newlen);
 			e += h->oldlen;
 		}
-		if(i+1 == p->nhunk || strcmp(curfile, p->hunk[i+1].newpath) != 0){
+		prevh = h;
+	}
+	if(curfile != nil){
+		if(!dryrun)
 			o = append(o, &osz, e, f.buf + f.len);
-			blat(h->oldpath, h->newpath, o, osz);
-			osz = 0;
-		}
+		blat(h->oldpath, h->newpath, o, osz);
 	}
 	free(o);
 	return 0;

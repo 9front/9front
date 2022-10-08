@@ -124,12 +124,16 @@ Channel *kbdchan;	/* chan(char*) */
 Channel *intchan;	/* chan(int) */
 
 /*
- * The codes at 0x79 and 0x7b are produced by the PFU Happy Hacking keyboard.
- * A 'standard' keyboard doesn't produce anything above 0x58.
+ * The codes at 0x79 and 0x7b are for the (無)変換 "(Mu)henkan" keys
+ * used by OADG 109(A) keyboards. The PFU Happy Hacking keyboard
+ * has only one layout and will produce these for otherwise unmarked
+ * keys. The default mappings for the HHKB on other systems map
+ * these to Kdown and Kup. The jp kbmap will instead map these
+ * (along with 0x70) to control characters that ktrans understands.
  */
 Rune kbtab[Nscan] = 
 {
-[0x00]	0,	0x1b,	'1',	'2',	'3',	'4',	'5',	'6',
+[0x00]	0,	Kesc,	'1',	'2',	'3',	'4',	'5',	'6',
 [0x08]	'7',	'8',	'9',	'0',	'-',	'=',	'\b',	'\t',
 [0x10]	'q',	'w',	'e',	'r',	't',	'y',	'u',	'i',
 [0x18]	'o',	'p',	'[',	']',	'\n',	Kctl,	'a',	's',
@@ -149,7 +153,7 @@ Rune kbtab[Nscan] =
 
 Rune kbtabshift[Nscan] =
 {
-[0x00]	0,	0x1b,	'!',	'@',	'#',	'$',	'%',	'^',
+[0x00]	0,	Kesc,	'!',	'@',	'#',	'$',	'%',	'^',
 [0x08]	'&',	'*',	'(',	')',	'_',	'+',	'\b',	'\t',
 [0x10]	'Q',	'W',	'E',	'R',	'T',	'Y',	'U',	'I',
 [0x18]	'O',	'P',	'{',	'}',	'\n',	Kctl,	'A',	'S',
@@ -171,11 +175,11 @@ Rune kbtabesc1[Nscan] =
 {
 [0x00]	0,	0,	0,	0,	0,	0,	0,	0,
 [0x08]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x10]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x18]	0,	0,	0,	0,	'\n',	Kctl,	0,	0,
-[0x20]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x28]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x30]	0,	0,	0,	0,	0,	'/',	0,	Kprint,
+[0x10]	Ksbwd,	Kbrtdn,	0,	0,	0,	0,	0,	0,
+[0x18]	0,	Ksfwd,	Kbrtup,	0,	'\n',	Kctl,	0,	0,
+[0x20]	Kmute,	0,	Kpause,	0,	0,	0,	0,	0,
+[0x28]	0,	0,	0,	0,	0,	0,	Kvoldn,	0,
+[0x30]	Kvolup,	0,	0,	0,	0,	'/',	0,	Kprint,
 [0x38]	Kaltgr,	0,	0,	0,	0,	0,	0,	0,
 [0x40]	0,	0,	0,	0,	0,	0,	Kbreak,	Khome,
 [0x48]	Kup,	Kpgup,	0,	Kleft,	0,	Kright,	0,	Kend,

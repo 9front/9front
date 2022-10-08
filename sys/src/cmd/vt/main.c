@@ -299,6 +299,7 @@ threadmain(int argc, char **argv)
 
 	if(rfork(RFENVG) < 0)
 		sysfatal("rfork: %r");
+	doquote = needsrcquote;
 	quotefmtinstall();
 	notify(catch);
 	atexit(shutdown);

@@ -1,16 +1,55 @@
 .TH CAMV 1
 .SH NAME
-camv, camera display
+camv \- USB camera display
 .SH SYNOPSIS
-.B camv cam-device
+.B camv
+.I cam-device
 .SH DESCRIPTION
 .I Camv
-uses the underlying
+uses the
 .I cam-device
-file system to start a graphical camera display stream.
+file tree provided by
+.IR nusb (4)
+to use and control a USB camera.
+It opens the tree's
+.I video
+file to play the video stream directly in the window.
 .PP
-The file system is initialized using nusb/cam (see nusb(4)).
+The middle mouse button menu shows and allows editing the current picture settings.
+While it lists resolution, format and framerate per second,
+those must be set manually before starting
+.IR camv (1).
+One can quit the program from the right mouse button menu.
+.SH EXAMPLES
+Initialize and configure a camera before starting
+.I camv
+in its own window.
+.IP
+.EX
+% nusb/cam 5
+% window -dx 320 -dy 240 \\
+	'label cam
+	cat <<EOF >/dev/cam5.1/ctl
+format 320x240
+fps 30
+backlight-compensation 1
+brightness 20
+contrast 95
+saturation 40
+sharpness 7
+gamma 200
+EOF
+	camv /dev/cam5.1
+\'
+.EE
 .SH SOURCE
 .B /sys/src/cmd/camv.c
-.SH SEE ALSO
+.SH "SEE ALSO"
 .IR nusb (4)
+.SH HISTORY
+.I Camv
+first appeared in 9front (March, 2018).
+.SH BUGS
+Not all available picture settings can be set while
+.IR camv (1)
+is running, some possibly not at all.

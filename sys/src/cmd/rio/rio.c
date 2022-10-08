@@ -393,32 +393,16 @@ keyboardtap(void*)
 
 	threadsetname("keyboardtap");
 	enum { Awin, Actl, Afrom, Adev, Ato, Ainp, Awatch, NALT };
-	static Alt alts[NALT+1];
-	/* ctl */
-	alts[Awin].c = wintap;
-	alts[Awin].v = &w;
-	alts[Awin].op = CHANRCV;
-	alts[Actl].c = ctltap;
-	alts[Actl].v = &ctl;
-	alts[Actl].op = CHANRCV;
-	/* kbd input */
-	alts[Afrom].c = fromtap;
-	alts[Afrom].v = &s;
-	alts[Afrom].op = CHANRCV;
-	alts[Adev].c = kbdchan;
-	alts[Adev].v = &s;
-	alts[Adev].op = CHANRCV;
-	/* kbd output */
-	alts[Ato].c = totap;
-	alts[Ato].v = &s;
-	alts[Ato].op = CHANNOP;
-	alts[Ainp].c = nil;
-	alts[Ainp].v = &s;
-	alts[Ainp].op = CHANNOP;
-	alts[Awatch].c = totap;
-	alts[Awatch].v = &watched;
-	alts[Awatch].op = CHANNOP;
-	alts[NALT].op = CHANEND;
+	Alt alts[NALT+1] = {
+		[Awin]	{.c = wintap, .v = &w, .op = CHANRCV},
+		[Actl]	{.c = ctltap, .v = &ctl, .op = CHANRCV},
+		[Afrom]	{.c = fromtap, .v = &s, .op = CHANRCV},
+		[Adev]	{.c = kbdchan, .v = &s, .op = CHANRCV},
+		[Ato]	{.c = totap, .v = &s, .op = CHANNOP},
+		[Ainp]	{.c = nil, .v = &s, .op = CHANNOP},
+		[Awatch]{.c = totap, .v = &watched, .op = CHANNOP},
+		[NALT]	{.op = CHANEND},
+	};
 
 	cur = nil;
 	watched = nil;

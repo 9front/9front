@@ -4,6 +4,7 @@
 enum {
 
 	Stack = 32 * 1024,
+	Nkey = 64,
 
 	/* HID class subclass protocol ids */
 	PtrCSP		= 0x020103,	/* mouse.boot.hid */
