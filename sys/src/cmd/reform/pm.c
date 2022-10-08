@@ -157,6 +157,11 @@ loadkbdoled(void *data, int size)
 	int x, y, i, k, v, bpl;
 	u8int *p, q;
 
+	if(openkbdhid() != 0)
+		return -1;
+	if(size == 0)
+		return write(kbdhidfd, "WCLR", 4);
+
 	bpl = bytesperline(kbdoled->r, kbdoled->depth);
 	if(size == 60+bpl*KbdoledH){
 		data = (u8int*)data + 60;

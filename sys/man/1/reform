@@ -111,7 +111,8 @@ Exposes the current temperature reading of the CPU.
 .TP
 .B kbdoled
 An image can be displayed on the keyboard OLED by writing a 126x32x1
-uncompressed Plan 9 image (with or without a header).
+uncompressed Plan 9 image (with or without a header).  Zero-length
+write clears the display.
 .TP
 .B light
 Provides a way to control the backlight of the built-in LCD by
