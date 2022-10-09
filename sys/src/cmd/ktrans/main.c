@@ -4,6 +4,9 @@
 #include <bio.h>
 #include <plumb.h>
 #include <thread.h>
+#include <draw.h>
+#include <mouse.h>
+#include <keyboard.h>
 #include "hash.h"
 
 char*
@@ -282,6 +285,113 @@ static Channel	*output;
 static Channel	*input;
 static char	backspace[Msgsize];
 
+static Channel	*displaych;
+static Channel	*selectch;
+
+static void
+displaythread(void*)
+{
+	Mousectl *mctl;
+	Mouse m;
+	Keyboardctl *kctl;
+	Rune key;
+	char *kouho[16+1+1], **s;
+	Image *back, *text, *board, *high;
+	Font *f;
+	Point p;
+	Rectangle r, exitr, selr;
+	int selected;
+	enum { Adisp, Aresize, Amouse, Asel, Akbd, Aend };
+	Alt a[] = {
+		[Adisp] { nil, kouho+1, CHANRCV },
+		[Aresize] { nil, nil, CHANRCV },
+		[Amouse] { nil, &m, CHANRCV },
+		[Asel] { nil, &selected, CHANRCV },
+		[Akbd] { nil, &key, CHANRCV },
+		[Aend] { nil, nil, CHANEND },
+	};
+
+	if(initdraw(nil, nil, "ktrans") < 0)
+		sysfatal("failed to initdraw: %r");
+
+	mctl = initmouse(nil, screen);
+	if(mctl == nil)
+		sysfatal("failed to get mouse: %r");
+
+	/*
+	 * For keys coming in to our specific window.
+	 * We've already transliterated these, but should
+	 * consume keys and exit on del to avoid artifacts.
+	 */
+	kctl = initkeyboard(nil);
+	if(kctl == nil)
+		sysfatal("failed to get keyboard: %r");
+
+	memset(kouho, 0, sizeof kouho);
+	kouho[0] = "候補";
+	selected = -1;
+	f = display->defaultfont;
+	high = allocimagemix(display, DYellowgreen, DWhite);
+	text = display->black;
+	back = allocimagemix(display, DPaleyellow, DWhite);
+	board = allocimagemix(display, DBlack, DWhite);
+
+	a[Adisp].c = displaych;
+	a[Aresize].c = mctl->resizec;
+	a[Amouse].c = mctl->c;
+	a[Asel].c = selectch;
+	a[Akbd].c = kctl->c;
+
+	threadsetname("display");
+	goto Redraw;
+	for(;;)
+		switch(alt(a)){
+		case Akbd:
+			if(key != Kdel)
+				break;
+			closedisplay(display);
+			threadexitsall(nil);
+		case Amouse:
+			if(!m.buttons)
+				break;
+			if(!ptinrect(m.xy, exitr))
+				break;
+			closedisplay(display);
+			threadexitsall(nil);
+		case Aresize:
+			getwindow(display, Refnone);
+		case Adisp:
+		Redraw:
+			r = screen->r;
+			draw(screen, r, back, nil, ZP);
+			r.max.y = r.min.y + f->height;
+			draw(screen, r, board, nil, ZP);
+
+			if(selected+1 > 0 && kouho[selected+1] != nil){
+				selr = screen->r;
+				selr.min.y += f->height*(selected+1);
+				selr.max.y = selr.min.y + f->height;
+				draw(screen, selr, high, nil, ZP);
+			}
+
+			r.min.x += Dx(r)/2;
+			p.y = r.min.y;
+			for(s = kouho; *s != nil; s++){
+				p.x = r.min.x - stringwidth(f, *s)/2;
+				string(screen, p, text, ZP, f, *s);
+				p.y += f->height;
+			}
+
+			p.x = r.min.x - stringwidth(f, "出口")/2;
+			p.y = screen->r.max.y - f->height;
+			exitr = Rpt(Pt(0, p.y), screen->r.max);
+			draw(screen, exitr, board, nil, ZP);
+			string(screen, p, text, ZP, f, "出口");
+			flushimage(display, 1);
+			break;
+		}
+}
+
 static int
 emitutf(Channel *out, char *u, int nrune)
 {
@@ -326,13 +436,14 @@ dictthread(void*)
 		for(p = m+1; *p; p += n){
 			n = chartorune(&r, p);
 			if(r != ''){
+				selected = -1;
+				kouho[0] = nil;
 				if(selected >= 0){
 					resetstr(&okuri, nil);
 					mode = Kanji;
+					send(selectch, &selected);
 				}
 				resetstr(&last, nil);
-				selected = -1;
-				kouho[0] = nil;
 			}
 			switch(r){
 			case LangJP:
@@ -352,6 +463,8 @@ dictthread(void*)
 			case '':
 				mode = Kanji;
 				resetstr(&line, &okuri, nil);
+				memset(kouho, 0, sizeof kouho);
+				send(displaych, kouho);
 				break;
 			case '\b':
 				if(mode != Kanji){
@@ -389,6 +502,8 @@ dictthread(void*)
 					selected = -1;
 					break;
 				}
+				send(selectch, &selected);
+				send(displaych, kouho);
 
 				if(okuri.p != okuri.b)
 					emitutf(output, backspace, utflen(okuri.b));
@@ -405,16 +520,11 @@ dictthread(void*)
 				mode = Kanji;
 				break;
 			default:
-				if(dict == zidian){
-					line.p = pushutf(line.p, strend(&line), p, 1);
-					break;
-				}
+				if(dict == zidian)
+					goto Line;
+				if(mode == Joshi)
+					goto Okuri;
 
-				if(mode == Joshi){
-					okuri.p = pushutf(okuri.p, strend(&okuri), p, 1);
-					break;
-				}
-	
 				if(isupper(*p)){
 					if(mode == Okuri){
 						popstr(&line);
@@ -424,14 +534,22 @@ dictthread(void*)
 					}
 					mode = Okuri;
 					*p = tolower(*p);
-					line.p = pushutf(line.p, strend(&line), p, 1);
 					okuri.p = pushutf(okuri.b, strend(&okuri), p, 1);
-					break;	
+					goto Line;	
 				}
-				if(mode == Kanji)
-					line.p = pushutf(line.p, strend(&line), p, 1);
-				else
+				if(mode != Kanji){
+			Okuri:
 					okuri.p = pushutf(okuri.p, strend(&okuri), p, 1);
+					break;
+				}
+			Line:
+				line.p = pushutf(line.p, strend(&line), p, 1);
+				memset(kouho, 0, sizeof kouho);
+				if(hmapget(dict, line.b, kouho) == 0){
+					selected = -1;
+					send(selectch, &selected);
+				}
+				send(displaych, kouho);
 				break;
 			}
 		}
@@ -672,7 +790,7 @@ plumbproc(void*)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [ -l lang ] [ kbdtap ]\n", argv0);
+	fprint(2, "usage: %s [ -G ] [ -l lang ] [ kbdtap ]\n", argv0);
 	threadexits("usage");
 }
 
@@ -681,15 +799,19 @@ mainstacksize = 8192*2;
 void
 threadmain(int argc, char *argv[])
 {
-
+	int nogui;
 	char *jishoname, *zidianname;
 
 	deflang = LangEN;
+	nogui = 0;
 	ARGBEGIN{
 	case 'l':
 		deflang = parselang(EARGF(usage()));
 		if(deflang < 0)
 			usage();
+		break;
+	case 'G':
+		nogui++;
 		break;
 	default:
 		usage();
@@ -706,6 +828,16 @@ threadmain(int argc, char *argv[])
 		break;
 	default:
 		usage();
+	}
+
+	/* allow gui to warm up while we're busy reading maps */
+	if(nogui || access("/dev/winid", AEXIST) < 0){
+		displaych = nil;
+		selectch = nil;
+	} else {
+		selectch = chancreate(sizeof(int), 1);
+		displaych = chancreate(sizeof(char*)*16, 1);
+		proccreate(displaythread, nil, mainstacksize);
 	}
 
 	memset(backspace, '\b', sizeof backspace-1);
