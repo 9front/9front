@@ -1,0 +1,41 @@
+.TH USBSDMUX 8
+.SH NAME
+usbsdmux \- change mode of a usb-sd-mux device
+.SH SYNOPSIS
+.B aux/usbsdmux
+.I mode
+.B [
+.I /dev/sdUxxxxx/raw
+.B ]
+.SH DESCRIPTION
+The USB-SD-Mux from Linux Automation GmbH is a device
+that can programmatically attach and detach a sd-card
+from a device-under-test (DUT), allowing it to be 
+re-written from another machine (HOST) without the
+need to physically swap the sd-card.
+.PP
+The
+.I mode
+can be one of the following:
+.TP
+off
+The sd-card is disconnected from both the HOST and the DUT.
+.TP
+dut
+The sd-card is connected to the DUT and disconnected from
+the HOST.
+.TP
+host
+The sd-card is connected to the HOST and disconnected from
+the DUT.
+.PP
+This program uses a vendor-specific SCSI command to change
+the mode.
+When not specified, it opens
+.B /dev/sdUdca10/raw
+which is the first USB-SD-Mux device attached to the HOST.
+.SH SOURCE
+.B /sys/src/cmd/aux/usbsdmux.c
+.SH SEE ALSO
+.IR nusb (4)
+.B https://linux-automation.com/en/products/usb-sd-mux.html

@@ -46,6 +46,7 @@ TARG=\
 	txt2uimage\
 	unbflz\
 	usage\
+	usbsdmux\
 	write\
 	wacom\
 	wikifmt\
