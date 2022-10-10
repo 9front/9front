@@ -55,13 +55,13 @@ Korean.
 Vietnamese.
 .SH CONVERSION
 Conversion is done in two layers, an implicit
-layer for unambigious mappings, and an explicit
+layer for unambiguous mappings, and an explicit
 layer for selecting one match out of a list of
-ambigious matches. The following control characters
+ambiguous matches. The following control characters
 are used for conversion instructions.
 .TP
 .B ctl-\e
-Explicitely match the current input, consecutive inputs of ctl-\e
+Explicitly match the current input, consecutive inputs of ctl-\e
 will cycle through all the possible options.
 .TP
 .B ctl-l
@@ -70,7 +70,7 @@ Reset the current input buffer.
 The implicit layer happens automatically as characters
 are input, transforming a consecutive set of key strokes
 in to their rune counterpart. A series of runes may then
-be explicitely matched by cycling through a list of options.
+be explicitly matched by cycling through a list of options.
 .I Ktrans
 automatically maintains a buffer of the current series of
 key strokes being considered for an explicit match, and resets
@@ -87,12 +87,12 @@ it with the matched sequence.
 will provide a graphical display of current explicit conversion
 candidates as implicit conversion is done. Candidates are highlighted
 as a user cycles through them. At the bottom of the list is an exit
-button for quiting the program. Keyboard input typed in to the window is
+button for quitting the program. Keyboard input typed in to the window is
 transliterated but discarded, providing a scratch input space. The 
 .B -G
 option disables this display.
 .SH JAPANESE
-The Hiragana and Katakana modes implicitly turn hepburn representations
+The Hiragana and Katakana modes implicitly turn Hepburn representations
 in to their Kana counterparts. Explicit conversions combine sequences
 of Hiragana in to Kanji.
 .PP
