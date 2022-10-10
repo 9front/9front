@@ -514,7 +514,7 @@ imap4resp0(Imap *imap, Mailbox *mb, Message *m)
 					imap->nuid = n;
 				break;
 			case Expunge:
-				if(n < 1 || n > imap->muid){
+				if(n < 1 || n > imap->muid || (n - 1) >= imap->nmsg){
 					snprint(error, sizeof(error), "bad expunge %d (nmsg %d)", n, imap->nuid);
 					return error;
 				}
