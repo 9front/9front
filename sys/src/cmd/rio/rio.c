@@ -233,6 +233,7 @@ threadmain(int argc, char *argv[])
 		recv(exitchan, nil);
 	}
 	killprocs();
+	closedisplay(display);
 	threadexitsall(nil);
 }
 
