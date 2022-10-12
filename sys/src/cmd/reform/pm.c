@@ -369,7 +369,7 @@ lpccall(char cmd, u8int arg, void *ret)
 	 * to be sure LPC is blocked waiting for the chip select to go
 	 * active again.
 	 */
-	sleep(60);
+	sleep(80);
 	while(rd(spi2, SPIx_STATREG) & STAT_RR)
 		rd(spi2, SPIx_RXDATA);
 
@@ -377,7 +377,7 @@ lpccall(char cmd, u8int arg, void *ret)
 	for(i = 0; i < 8; i++)
 		wr(spi2, SPIx_TXDATA, 0);
 	wr(spi2, SPIx_CONREG, con | CON_XCH);
-	sleep(60);
+	sleep(80);
 
 	for(i = 0; i < 8; i++)
 		((u8int*)ret)[i] = rd(spi2, SPIx_RXDATA);
