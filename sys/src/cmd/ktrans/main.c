@@ -141,13 +141,17 @@ openmap(char *file)
 	return h;
 }
 
+enum{
+	Maxkouho=32,
+};
+
 Hmap*
 opendict(Hmap *h, char *name)
 {
 	Biobuf *b;
 	char *p;
 	char *dot, *rest;
-	char *kouho[16];
+	char *kouho[Maxkouho];
 	int i;
 
 	b = Bopen(name, OREAD);
@@ -295,7 +299,7 @@ displaythread(void*)
 	Mouse m;
 	Keyboardctl *kctl;
 	Rune key;
-	char *kouho[16+1+1], **s;
+	char *kouho[Maxkouho+1], **s;
 	Image *back, *text, *board, *high;
 	Font *f;
 	Point p;
@@ -412,7 +416,7 @@ dictthread(void*)
 	int n;
 	char *p;
 	Hmap *dict;
-	char *kouho[16];
+	char *kouho[Maxkouho];
 	Str line;
 	Str last;
 	Str okuri;
@@ -427,24 +431,14 @@ dictthread(void*)
 
 	dict = jisho;
 	selected = -1;
-	kouho[0] = nil;
 	mode = Kanji;
+	memset(kouho, 0, sizeof kouho);
 	resetstr(&last, &line, &okuri, nil);
 
 	threadsetname("dict");
 	while(recv(dictch, m) != -1){
 		for(p = m+1; *p; p += n){
 			n = chartorune(&r, p);
-			if(r != ''){
-				selected = -1;
-				kouho[0] = nil;
-				if(selected >= 0){
-					resetstr(&okuri, nil);
-					mode = Kanji;
-					send(selectch, &selected);
-				}
-				resetstr(&last, nil);
-			}
 			switch(r){
 			case LangJP:
 				dict = jisho;
@@ -459,12 +453,9 @@ dictthread(void*)
 				}
 				emitutf(output, backspace, utflen(line.b));
 				/* fallthrough */
-			case ' ': case ',': case '.':
-			case '':
+			case '': case ' ': case '\n':
 				mode = Kanji;
-				resetstr(&line, &okuri, nil);
-				memset(kouho, 0, sizeof kouho);
-				send(displaych, kouho);
+				resetstr(&line, &okuri, &last, nil);
 				break;
 			case '\b':
 				if(mode != Kanji){
@@ -477,29 +468,20 @@ dictthread(void*)
 				}
 				popstr(&line);
 				break;
-			case '\n':
-				if(line.b == line.p){
-					emitutf(output, "\n", 1);
-					break;
-				}
-				/* fallthrough */
 			case '':
 				selected++;
 				if(selected == 0){
-					if(hmapget(dict, line.b, kouho) < 0){
-						resetstr(&line, &last, nil);
-						selected = -1;
+					if(hmapget(dict, line.b, kouho) < 0)
 						break;
-					}
 					if(dict == jisho && line.p > line.b && isascii(line.p[-1]))
 						line.p[-1] = '\0';
 				}
 				if(kouho[selected] == nil){
 					/* cycled through all matches; bail */
+					emitutf(output, backspace, utflen(okuri.b));
 					emitutf(output, backspace, utflen(last.b));
 					emitutf(output, line.b, 0);
-					resetstr(&line, &last, &okuri, nil);
-					selected = -1;
+					emitutf(output, okuri.b, 0);
 					break;
 				}
 				send(selectch, &selected);
@@ -515,9 +497,16 @@ dictthread(void*)
 				emitutf(output, kouho[selected], 0);
 				last.p = pushutf(last.b, strend(&last), kouho[selected], 0);
 				emitutf(output, okuri.b, 0);
-
-				resetstr(&line, nil);
 				mode = Kanji;
+				continue;
+			case ',': case '.':
+			case L'。': case L'、':
+				if(dict == zidian || line.p == line.b){
+					selected = 0; //hit cleanup below
+					break;
+				}
+				mode = Joshi;
+				okuri.p = pushutf(okuri.p, strend(&okuri), p, 1);
 				break;
 			default:
 				if(dict == zidian)
@@ -529,48 +518,58 @@ dictthread(void*)
 					if(mode == Okuri){
 						popstr(&line);
 						mode = Joshi;
-						okuri.p = pushutf(okuri.p, strend(&okuri), p, 1);
-						break;
+						goto Okuri;
 					}
 					mode = Okuri;
 					*p = tolower(*p);
 					okuri.p = pushutf(okuri.b, strend(&okuri), p, 1);
 					goto Line;	
 				}
-				if(mode != Kanji){
-			Okuri:
+
+				switch(mode){
+				case Kanji:
+				Line:
+					line.p = pushutf(line.p, strend(&line), p, 1);
+					break;
+				default:
+				Okuri:
 					okuri.p = pushutf(okuri.p, strend(&okuri), p, 1);
 					break;
 				}
-			Line:
-				line.p = pushutf(line.p, strend(&line), p, 1);
-				memset(kouho, 0, sizeof kouho);
-				if(hmapget(dict, line.b, kouho) == 0){
-					selected = -1;
-					send(selectch, &selected);
-				}
-				send(displaych, kouho);
-				break;
 			}
+
+			if(selected >= 0){
+				resetstr(&okuri, &last, &line, nil);
+				selected = -1;
+				send(selectch, &selected);
+			}
+			memset(kouho, 0, sizeof kouho);
+			hmapget(dict, line.b, kouho);
+			send(displaych, kouho);
 		}
 	}
 }
 
-static int
-telexlkup(Str *line, Str *out)
+static void
+telexlkup(Str *line)
 {
 	Map lkup;
 	char buf[UTFmax*3], *p, *e;
-	int n;
+	Str out;
+	int n, ln;
 
+Again:
+	ln = utflen(line->b);
 	p = pushutf(buf, buf+sizeof buf, line->b, 1);
 	n = p-buf;
 
-	if(hmapget(telex, buf, &lkup) < 0)
-		return -1;
+	if(hmapget(telex, buf, &lkup) < 0){
+		resetstr(line, nil);
+		return;
+	}
 
 	if(utflen(line->b) < 2)
-		return 2;
+		return;
 
 	e = peekstr(line->p, line->b);
 	pushutf(p, buf+sizeof buf, e, 1);
@@ -578,16 +577,20 @@ telexlkup(Str *line, Str *out)
 		/* not correct; matches should be allowed to span vowels */
 		if(hmapget(telex, buf+n, &lkup) == 0)
 			line->p = pushutf(line->b, strend(line), buf+n, 0);
-		return 2;
+		return;
 	}
 
-	out->p = pushutf(out->b, strend(out), lkup.kana, 0);
-	out->p = pushutf(out->p, strend(out), line->b+n, 0);
-	popstr(out);
+	out.p = pushutf(out.b, strend(&out), lkup.kana, 0);
+	out.p = pushutf(out.p, strend(&out), line->b+n, 0);
+	popstr(&out);
 
+	if(ln > 0)
+		emitutf(output, backspace, ln);
+	emitutf(output, out.b, 0);
+	line->p = pushutf(line->b, strend(line), out.b, 0);
 	if(utflen(lkup.kana) == 2)
-		return 1;
-	return 0;
+		return;
+	goto Again;
 }
 
 static void
@@ -597,10 +600,10 @@ keythread(void*)
 	char m[Msgsize];
 	Map lkup;
 	char *p;
-	int n, ln, rn;
+	int n;
 	Rune r;
 	char peek[UTFmax+1];
-	Str line, tbuf;
+	Str line;
 
 	peek[0] = lang = deflang;
 	resetstr(&line, nil);
@@ -628,49 +631,39 @@ keythread(void*)
 				resetstr(&line, nil);
 				continue;
 			}
-			if(lang == LangVN && utfrune(" ", r) != nil){
-				resetstr(&line, nil);
-				if(r != ' ')
-					continue;
-			}
-			if(lang == LangZH || lang == LangJP){
-				emitutf(dictch, p, 1);
-				if(utfrune("\n", r) != nil){
-					resetstr(&line, nil);
-					continue;
-				}
-				if(lang == LangJP && isupper(*p))
-					*p = tolower(*p);
-			}
-
-			emitutf(output, p, 1);
-			if(lang == LangEN || lang == LangZH)
+			if(lang == LangEN){
+				emitutf(output, p, 1);
 				continue;
-			if(r == '\b'){
+			}
+			if(utfrune("", r) != nil){
+				resetstr(&line, nil);
+				emitutf(dictch, p, 1);
+				continue;
+			}
+			emitutf(output, p, 1);
+
+			switch(lang){
+			case LangZH:
+				emitutf(dictch, p, 1);
+				continue;
+			case LangJP:
+				emitutf(dictch, p, 1);
+				if(isupper(*p))
+					*p = tolower(*p);
+				break;
+			}
+			if(utfrune("\n\t ", r) != nil){
+				resetstr(&line, nil);
+				continue;
+			} else if(r == '\b'){
 				popstr(&line);
 				continue;
 			}
 
 			line.p = pushutf(line.p, strend(&line), p, 1);
 			if(lang == LangVN){
-			Again:
-				ln = utflen(line.b);
-				switch(rn = telexlkup(&line, &tbuf)){
-				default:
-					resetstr(&line, nil);
-					continue;
-				case 2:
-					continue;
-				case 1:
-				case 0:
-					if(ln > 0)
-						emitutf(output, backspace, ln);
-					emitutf(output, tbuf.b, 0);
-					line.p = pushutf(line.b, strend(&line), tbuf.b, 0);
-					if(rn == 0)
-						goto Again;
-					continue;
-				}
+				telexlkup(&line);
+				continue;
 			}
 			if(maplkup(lang, line.b, &lkup) < 0){
 				resetstr(&line, nil);
@@ -836,7 +829,7 @@ threadmain(int argc, char *argv[])
 		selectch = nil;
 	} else {
 		selectch = chancreate(sizeof(int), 1);
-		displaych = chancreate(sizeof(char*)*16, 1);
+		displaych = chancreate(sizeof(char*)*Maxkouho, 1);
 		proccreate(displaythread, nil, mainstacksize);
 	}
 

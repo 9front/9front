@@ -91,15 +91,16 @@ button for quitting the program. Keyboard input typed in to the window is
 transliterated but discarded, providing a scratch input space. The 
 .B -G
 option disables this display.
-.SH JAPANESE
-The Hiragana and Katakana modes implicitly turn Hepburn representations
-in to their Kana counterparts. Explicit conversions combine sequences
-of Hiragana in to Kanji.
-.PP
+.SH "KEY MAPPING"
+For convenience, the control characters used by
+.I ktrans
+can be mapped directly to physical keys through modifications
+of the kbmap (see
+.IR kbdfs (8)).
 The
 .B /sys/lib/kbmap/jp
-keyboard map will turn the language input keys
-present on OADG 109(A) keyboards in to control
+mapping will turn language input keys
+present on Japanese A01/106/109(A) in to control
 sequences matching their label:
 .TP
 .B Henkan
@@ -113,9 +114,42 @@ Switch to Hiragana (ctl-n)
 .TP
 .B Shift + Hiragana / Katakana
 Switch to Katakana (ctl-v)
+.TP
+.B Hankaku / Zenkaku
+Switch to Hiragana (ctl-n)
+.TP
+.B Shift + Hankaku / Zenkaku
+Switch to passthrough (ctl-t)
+.TP
+.B Shift + Space
+Convert to Kanji (ctl-\e).
+This is a fallback for keyboards without a physical Henkan key.
+.SH JAPANESE
+The Hiragana and Katakana modes implicitly turn Hepburn representations
+in to their Kana counterparts. Explicit conversions combine sequences
+of Hiragana in to Kanji.
+.PP
+Capital Latin input is used for hinting. For adjectives and verbs, a single
+capital is used as an Okurigana hint. For example,
+.ft Jp
+動かす
+.ft
+is typed as 'ugoKasu[^\e]'. The hint serves two purposes, it is
+provided as part of the explicit sequence for Kanji lookup and denotes
+that the following runes are Okurigana. 
+.PP
+For particles, the entire Kana may be input in upper case. This similarly
+denotes the end of the Kanji portion of the sequence, but is not used
+as part of the lookup sequence itself. So to write
+.ft Jp
+私の猫
+.ft
+the user types "watashiNO[^\e]neko[^\e]". Note that in both cases
+we have successfully communicated to krans when to reset the explicit
+match buffer without needing to explicitily give a ctl-l character.
 .SH CHINESE
 The Wubizixing input method is used. No implicit conversion is done,
-explicit conversion interprets latin characters as their Wubi counterparts
+explicit conversion interprets Latin characters as their Wubi counterparts
 to do lookup of Hanzi.
 .SH RUSSIAN
 Implicit layer converts latin to Cyrillic; the transliteration is mostly
@@ -169,7 +203,9 @@ respectively.
 .IR /sys/src/cmd/ktrans/READMEJ.kenji
 .SH BUGS
 .PP
-There is no way to generate the control characters literally.
+There is no hint from rio when the user moves the cursor, as such
+moving it is unlikely to result in what the user expects.
+.PP
 Plan9 lacks support for rendering combinational Unicode sequences,
 limiting the use of some code ranges.
 .SH HISTORY
