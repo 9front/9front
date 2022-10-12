@@ -197,10 +197,6 @@ respectively.
 .SH SEE ALSO
 .IR rio (4)
 .IR kbdfs (8)
-.br
-.IR /sys/src/cmd/ktrans/README.kenji
-.br
-.IR /sys/src/cmd/ktrans/READMEJ.kenji
 .SH BUGS
 .PP
 There is no hint from rio when the user moves the cursor, as such
