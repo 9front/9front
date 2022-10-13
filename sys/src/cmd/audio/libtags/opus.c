@@ -5,10 +5,10 @@ tagopus(Tagctx *ctx)
 {
 	char *v;
 	uchar *d, h[4];
-	int sz, numtags, i, npages;
+	int sz, numtags, i, npages, pgend;
 
 	d = (uchar*)ctx->buf;
-	for(npages = 0; npages < 2; npages++){
+	for(npages = pgend = 0; npages < 2; npages++){
 		int nsegs;
 		if(ctx->read(ctx, d, 27) != 27)
 			return -1;
@@ -28,6 +28,8 @@ tagopus(Tagctx *ctx)
 			ctx->channels = d[1];
 			ctx->samplerate = leuint(&d[4]);
 		}else if(memcmp(&d[nsegs], "OpusTags", 8) == 0){
+			/* FIXME - embedded pics make tags span multiple packets */
+			pgend = ctx->seek(ctx, 0, 1) + sz;
 			break;
 		}
 
@@ -47,6 +49,9 @@ tagopus(Tagctx *ctx)
 				return -1;
 			if((sz = leuint(h)) < 0)
 				return -1;
+			/* FIXME - embedded pics make tags span multiple packets */
+			if(pgend < ctx->seek(ctx, 0, 1)+sz)
+				break;
 
 			if(ctx->bufsz < sz+1){
 				if(ctx->seek(ctx, sz, 1) < 0)

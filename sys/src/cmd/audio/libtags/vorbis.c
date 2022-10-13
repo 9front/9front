@@ -37,11 +37,11 @@ tagvorbis(Tagctx *ctx)
 {
 	char *v;
 	uchar *d, h[4];
-	int sz, numtags, i, npages;
+	int sz, numtags, i, npages, pgend;
 
 	d = (uchar*)ctx->buf;
 	/* need to find vorbis frame with type=3 */
-	for(npages = 0; npages < 2; npages++){ /* vorbis comment is the second header */
+	for(npages = pgend = 0; npages < 2; npages++){ /* vorbis comment is the second header */
 		int nsegs;
 		if(ctx->read(ctx, d, 27) != 27)
 			return -1;
@@ -54,8 +54,11 @@ tagvorbis(Tagctx *ctx)
 			return -1;
 		for(sz = i = 0; i < nsegs; sz += d[i++]);
 
-		if(d[nsegs] == 3) /* comment */
+		if(d[nsegs] == 3){ /* comment */
+			/* FIXME - embedded pics make tags span multiple packets */
+			pgend = ctx->seek(ctx, 0, 1) + sz;
 			break;
+		}
 		if(d[nsegs] == 1 && sz >= 28){ /* identification */
 			if(ctx->read(ctx, d, 28) != 28)
 				return -1;
@@ -82,6 +85,9 @@ tagvorbis(Tagctx *ctx)
 				return -1;
 			if((sz = leuint(h)) < 0)
 				return -1;
+			/* FIXME - embedded pics make tags span multiple packets */
+			if(pgend < ctx->seek(ctx, 0, 1)+sz)
+				break;
 
 			if(ctx->bufsz < sz+1){
 				if(ctx->seek(ctx, sz, 1) < 0)
