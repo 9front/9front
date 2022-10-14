@@ -1,5 +1,0 @@
-#!/bin/sed -f
-
-s/ [aeiou]n([a-z][a-z][a-z])/ man\1/
-s/ [a-z]em([a-z][a-z][a-z])/ fem\1/
-s/ [aeiou]m/ fem/
