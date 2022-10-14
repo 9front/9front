@@ -4,10 +4,14 @@ rfork e
 
 opts=()
 args=()
+nl='
+'
 
 fn cmd_init{
 	while(! ~ $#* 0){
 		switch($1){
+		case --bare
+			# ignore
 		case -- 
 			# go likes to use these
 		case -*
