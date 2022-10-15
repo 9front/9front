@@ -24,6 +24,11 @@ enum
 	Ctoggle,
 	Cseekrel,
 
+	Rgdisabled = 0,
+	Rgtrack,
+	Rgalbum,
+	Numrg,
+
 	Everror = 1,
 	Evready,
 
@@ -57,6 +62,7 @@ struct Player
 	Channel *ev;
 	Channel *img;
 	double seek;
+	double gain;
 	int pcur;
 };
 
@@ -72,7 +78,7 @@ int mainstacksize = 32768;
 
 static int debug;
 static int audio = -1;
-static int volume;
+static int volume, rg;
 static int pnotifies;
 static Playlist *pl;
 static Player *playernext;
@@ -276,10 +282,11 @@ redraw_(int full)
 	Image *col;
 
 	/* seekbar playback/duration text */
-	i = snprint(tmp, sizeof(tmp), "%s%s%s",
+	i = snprint(tmp, sizeof(tmp), "%s%s%s%s",
+		rg ? (rg == Rgalbum ? "ᴬ" : "ᵀ") : "",
 		repeatone ? "¹" : "",
 		shuffle != nil ? "∫" : "",
-		(repeatone || shuffle != nil) ? " " : ""
+		(rg || repeatone || shuffle != nil) ? " " : ""
 	);
 	msec = 0;
 	if(pcurplaying >= 0){
@@ -605,6 +612,20 @@ start(Player *player)
 
 static void playerthread(void *player_);
 
+static void
+setgain(Player *player)
+{
+	if(player == nil)
+		return;
+	if(rg == Rgdisabled)
+		player->gain = 0.0;
+	if(rg == Rgtrack)
+		player->gain = getmeta(player->pcur)->rgtrack;
+	else if(rg == Rgalbum)
+		player->gain = getmeta(player->pcur)->rgalbum;
+	player->gain = pow(10.0, player->gain/20.0);
+}
+
 static Player *
 newplayer(int pcur, int loadnext)
 {
@@ -624,6 +645,7 @@ newplayer(int pcur, int loadnext)
 	player->ctl = chancreate(sizeof(ulong), 0);
 	player->ev = chancreate(sizeof(ulong), 0);
 	player->pcur = pcur;
+	setgain(player);
 
 	threadcreate(playerthread, player, 32768);
 	if(getmeta(pcur)->filefmt[0] && playerret(player) < 0)
@@ -634,6 +656,18 @@ done:
 		playernext = newplayer(pcur+1, 0);
 
 	return player;
+}
+
+static void
+gain(double g, char *buf, long n)
+{
+	s16int *f;
+
+	if(g != 1.0)
+		for(f = (s16int*)buf; n >= 4; n -= 4){
+			*f = g * *f++;
+			*f = g * *f++;
+		}
 }
 
 static void
@@ -718,6 +752,7 @@ restart:
 		if(n < 1)
 			goto next;
 		audioon();
+		gain(player->gain, buf, n);
 		boffset = iowrite(io, audio, buf, n);
 		noinit = 1;
 	}
@@ -767,6 +802,7 @@ restart:
 		boffset += n;
 		byteswritten = boffset;
 		audioon();
+		gain(player->gain, buf, n);
 		iowrite(io, audio, buf, n);
 		if(trycoverload){
 			trycoverload = 0;
@@ -930,6 +966,8 @@ addit:
 		case Pdate:    m->date = s; break;
 		case Ptitle:   m->title = s; break;
 		case Ptrack:   m->track = s; break;
+		case Prgtrack: m->rgtrack = atof(s); break;
+		case Prgalbum: m->rgalbum = atof(s); break;
 		case Ppath:
 			m->path = s;
 			m->basename = (b = utfrrune(s, '/')) == nil ? s : b+1;
@@ -1502,6 +1540,12 @@ playcur:
 				freeimage(cover);
 				cover = nil;
 				full = 1;
+				break;
+			case 'g':
+				rg = (rg+1) % Numrg;
+				setgain(playercurr);
+				setgain(playernext);
+				redraw(0);
 				break;
 			case 's':
 				toggleshuffle();

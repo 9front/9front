@@ -21,6 +21,10 @@ printmeta(Biobuf *b, Meta *m)
 		Bprint(b, "%c %s\n", Ptrack, m->track);
 	if(m->duration > 0)
 		Bprint(b, "%c %llud\n", Pduration, m->duration);
+	if(m->rgtrack != 0.0)
+		Bprint(b, "%c %g\n", Prgtrack, m->rgtrack);
+	if(m->rgalbum != 0.0)
+		Bprint(b, "%c %g\n", Prgalbum, m->rgalbum);
 	if(m->imagesize > 0)
 		Bprint(b, "%c %d %d %d %s\n", Pimage, m->imageoffset, m->imagesize, m->imagereader, m->imagefmt);
 	Bprint(b, "\n");

@@ -122,6 +122,16 @@ cb(Tagctx *ctx, int t, const char *k, const char *v, int offset, int size, Tagre
 			aux->imagereader = f != nil;
 		}
 		break;
+	case Ttrackgain:
+		aux->rgtrack = atof(v);
+		if(strncmp(k, "R128_", 5) == 0)
+			aux->rgtrack /= 256.0;
+		break;
+	case Talbumgain:
+		aux->rgalbum = atof(v);
+		if(strncmp(k, "R128_", 5) == 0)
+			aux->rgalbum /= 256.0;
+		break;
 	}
 }
 
@@ -393,8 +403,8 @@ threadmain(int argc, char **argv)
 			if(icyfill(m) != 0){
 				fprint(2, "%s: %r\n", argv[i]);
 				free(m);
-			}
-			sendp(cmeta, m);
+			}else
+				sendp(cmeta, m);
 		}else{
 			if(argv[i][0] == '/')
 				dir = strdup(argv[i]);

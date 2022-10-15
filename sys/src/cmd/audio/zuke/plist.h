@@ -16,11 +16,13 @@ enum
 	Pbasename=		'b',
 	Pdate=			'd',
 	Pduration=		'D',
+	Pfilefmt=		'f',
 	Pimage=			'i',
 	Ptitle=			't',
 	Ptrack=			'T',
 	Ppath=			'p',
-	Pfilefmt=		'f',
+	Prgtrack=		'r',
+	Prgalbum=		'R',
 
 	/* unused */
 	Pchannels=		'c',
@@ -42,6 +44,8 @@ struct Meta
 	char *basename;
 	char *imagefmt;
 	char *filefmt;
+	double rgtrack;
+	double rgalbum;
 	uvlong duration;
 	int numartist;
 	int imageoffset;

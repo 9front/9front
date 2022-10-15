@@ -130,6 +130,9 @@ Pause/Resume.
 .B r
 Toggle ``repeat one''.
 .TP
+.B g
+Switch between no gain, track gain, and album gain applied.
+.TP
 .B s
 Toggle ``shuffle''.
 .TP
