@@ -20,11 +20,11 @@ cbvorbiscomment(Tagctx *ctx, char *k, char *v){
 		txtcb(ctx, Tdate, k, v);
 	else if(cistrcmp(k, "replaygain_track_peak") == 0)
 		txtcb(ctx, Ttrackpeak, k, v);
-	else if(cistrcmp(k, "replaygain_track_gain") == 0)
+	else if(cistrcmp(k, "replaygain_track_gain") == 0 || cistrcmp(k, "r128_track_gain") == 0)
 		txtcb(ctx, Ttrackgain, k, v);
 	else if(cistrcmp(k, "replaygain_album_peak") == 0)
 		txtcb(ctx, Talbumpeak, k, v);
-	else if(cistrcmp(k, "replaygain_album_gain") == 0)
+	else if(cistrcmp(k, "replaygain_album_gain") == 0 || cistrcmp(k, "r128_album_gain") == 0)
 		txtcb(ctx, Talbumgain, k, v);
 	else if(cistrcmp(k, "genre") == 0)
 		txtcb(ctx, Tgenre, k, v);
