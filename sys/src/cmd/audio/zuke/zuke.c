@@ -288,29 +288,25 @@ redraw_(int full)
 		shuffle != nil ? "∫" : "",
 		(rg || repeatone || shuffle != nil) ? " " : ""
 	);
-	msec = 0;
+	msec = dur = w = 0;
 	if(pcurplaying >= 0){
 		msec = byteswritten*1000/Bps;
 		if((dur = getmeta(pcurplaying)->duration) > 0){
-			snprint(tmp+i, sizeof(tmp)-i, "%P/%P %d%%", dur/1000, dur/1000, 100);
+			snprint(tmp+i, sizeof(tmp)-i, "%P/%P ", dur/1000, dur/1000);
 			w = stringwidth(f, tmp);
 			msec = MIN(msec, dur);
-			snprint(tmp+i, sizeof(tmp)-i, "%P/%P %d%%",
+			i += snprint(tmp+i, sizeof(tmp)-i, "%P/%P ",
 				(uvlong)(newseekmx >= 0 ? seekoff : msec)/1000,
-				dur/1000,
-				volume
+				dur/1000
 			);
 		}else{
-			snprint(tmp+i, sizeof(tmp)-i, "%P %d%%", msec/1000, 100);
+			i += snprint(tmp+i, sizeof(tmp)-i, "%P ", msec/1000);
 			w = stringwidth(f, tmp);
-			snprint(tmp, sizeof(tmp), "%P %d%%", msec/1000, volume);
 		}
-	}else{
-		dur = 0;
-		snprint(tmp+i, sizeof(tmp)-i, "%d%%", 100);
-		w = stringwidth(f, tmp);
-		snprint(tmp+i, sizeof(tmp)-i, "%d%%", volume);
 	}
+	snprint(tmp+i, sizeof(tmp)-i, "%d%%", 100);
+	w += stringwidth(f, tmp+i);
+	snprint(tmp+i, sizeof(tmp)-i, "%d%%", volume);
 
 	lockdisplay(display);
 
