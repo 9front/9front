@@ -291,12 +291,13 @@ redraw_(int full)
 		shuffle != nil ? "∫" : "",
 		(rg || repeatone || shuffle != nil) ? " " : ""
 	);
-	msec = dur = w = 0;
+	msec = dur = 0;
+	w = stringwidth(f, tmp);
 	if(pcurplaying >= 0){
 		msec = byteswritten*1000/Bps;
 		if((dur = getmeta(pcurplaying)->duration) > 0){
 			snprint(tmp+i, sizeof(tmp)-i, "%P/%P ", dur/1000, dur/1000);
-			w = stringwidth(f, tmp);
+			w += stringwidth(f, tmp+i);
 			msec = MIN(msec, dur);
 			i += snprint(tmp+i, sizeof(tmp)-i, "%P/%P ",
 				(uvlong)(newseekmx >= 0 ? seekoff : msec)/1000,
@@ -304,7 +305,7 @@ redraw_(int full)
 			);
 		}else{
 			i += snprint(tmp+i, sizeof(tmp)-i, "%P ", msec/1000);
-			w = stringwidth(f, tmp);
+			w += stringwidth(f, tmp+i);
 		}
 	}
 	snprint(tmp+i, sizeof(tmp)-i, "%d%%", 100);
