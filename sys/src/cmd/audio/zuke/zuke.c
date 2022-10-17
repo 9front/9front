@@ -424,7 +424,7 @@ redraw_(int full)
 			for(j = 0; cols[j] != 0; j++){
 				sel.max.x = p.x + colwidth[j];
 				replclipr(back, 0, sel);
-				if(pcurplaying == i && playercurr->icytitle != nil && cols[j] == Ptitle)
+				if(playercurr != nil && playercurr->icytitle != nil && pcurplaying == i && cols[j] == Ptitle)
 					s = playercurr->icytitle;
 				else
 					s = getcol(getmeta(i), cols[j]);
@@ -694,7 +694,6 @@ playerthread(void *player_)
 	buf = nil;
 	trycoverload = 1;
 	io = nil;
-	pid = -1;
 
 restart:
 	cur = getmeta(player->pcur);
@@ -810,7 +809,7 @@ restart:
 				if(recv(player->ctl, &c) < 0)
 					goto stop;
 			}
-			if(c == Cseekrel){
+			if(c == Cseekrel && *fmt){
 				boffset = MAX(0, boffset + player->seek*Bps);
 				n = 0;
 				break;
@@ -853,10 +852,7 @@ stop:
 	if(player->img != nil)
 		freeimage(recvp(player->img));
 freeplayer:
-	close(q[0]);
 	close(p[1]);
-	if(pid >= 0)
-		postnote(PNGROUP, pid, "interrupt");
 	closeioproc(io);
 	if(player->icytitlec != nil){
 		while((icytitle = recvp(player->icytitlec)) != nil)
@@ -884,7 +880,7 @@ toggle(Player *player)
 static void
 seekrel(Player *player, double off)
 {
-	if(player != nil && *getmeta(pcurplaying)->filefmt){
+	if(player != nil){
 		player->seek = off;
 		sendul(player->ctl, Cseekrel);
 	}
