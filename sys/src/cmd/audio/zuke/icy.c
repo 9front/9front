@@ -14,18 +14,6 @@ struct Icyaux
 	int metaint;
 };
 
-static char *
-truncate(char *s){
-	Rune … = L'…';
-	int n;
-
-	/* titles can be obnoxiously long */
-	if(strlen(s) > (n = 48-UTFmax))
-		s[n + runetochar(s+n, &…)] = 0;
-
-	return s;
-}
-
 static long
 Breadn(Biobufhdr *bp, void *addr, long nbytes)
 {
@@ -65,10 +53,8 @@ icyproc(void *b_)
 				break;
 			p[n] = 0;
 			if((s = strstr(p, "StreamTitle='")) != nil && (e = strstr(s+13, "';")) != nil && e != s+13){
-				s += 13;
 				*e = 0;
-				s = strdup(truncate(s));
-				if(sendp(aux->newtitle, s) != 1){
+				if(sendp(aux->newtitle, strdup(s+13)) != 1){
 					free(s);
 					break;
 				}
@@ -121,7 +107,7 @@ icyget(Meta *m, int outfd, Channel **newtitle)
 		}
 		s[n-2] = 0;
 		if(strncmp(s, "icy-name:", 9) == 0){
-			s = truncate(s+9);
+			s += 9;
 			if(newtitle != nil)
 				sendp(aux->newtitle, strdup(s));
 			else if(m->title == nil)

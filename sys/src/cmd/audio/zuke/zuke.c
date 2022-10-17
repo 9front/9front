@@ -927,11 +927,17 @@ readall(int f)
 	return s;
 }
 
+static int
+cmpint(void *a, void *b)
+{
+	return *(int*)a - *(int*)b;
+}
+
 static Playlist *
 readplist(int fd, int mincolwidth[Ncol])
 {
 	char *raw, *s, *e, *a[5], *b;
-	int plsz, i, x;
+	int plsz, i, *w;
 	Playlist *pl;
 	Meta *m;
 
@@ -950,9 +956,6 @@ readplist(int fd, int mincolwidth[Ncol])
 		return nil;
 	}
 
-	for(i = 0; cols[i] != 0; i++)
-		mincolwidth[i] = 1;
-
 	pl->raw = raw;
 	for(s = pl->raw, m = pl->m, e = s; e != nil; s = e){
 		if((e = strchr(s, '\n')) == nil)
@@ -963,10 +966,6 @@ readplist(int fd, int mincolwidth[Ncol])
 		case 0:
 addit:
 			if(m->path != nil){
-				for(i = 0; cols[i] != 0; i++){
-					if((x = stringwidth(f, getcol(m, cols[i]))) > mincolwidth[i])
-						mincolwidth[i] = x;
-				}
 				if(m->filefmt == nil)
 					m->filefmt = "";
 				pl->n++;
@@ -1001,6 +1000,15 @@ addit:
 			break;
 		}
 	}
+
+	w = malloc(sizeof(int)*pl->n);
+	for(i = 0; cols[i] != 0; i++){
+		for(m = pl->m; m != pl->m + pl->n; m++)
+			w[m - pl->m] = stringwidth(f, getcol(m, cols[i]));
+		qsort(w, pl->n, sizeof(*w), cmpint);
+		mincolwidth[i] = w[93*(pl->n-1)/100];
+	}
+	free(w);
 
 	return pl;
 }
