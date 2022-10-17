@@ -13,6 +13,6 @@ default:V: all
 
 $O.mkplist: icy.$O plist.$O mkplist.$O
 
-$O.zuke: plist.$O zuke.$O
+$O.zuke: icy.$O plist.$O zuke.$O
 
 </sys/src/cmd/mkmany

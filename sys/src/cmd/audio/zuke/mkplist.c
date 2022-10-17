@@ -397,14 +397,16 @@ threadmain(int argc, char **argv)
 	for(i = 0; i < argc; i++){
 		if(strncmp(argv[i], "http://", 7) == 0 || strncmp(argv[i], "https://", 8) == 0){
 			m = mallocz(sizeof(*m), 1);
-			m->title = argv[i];
 			m->path = argv[i];
 			m->filefmt = "";
-			if(icyfill(m) != 0){
+			if(icyget(m, -1, nil) != 0){
 				fprint(2, "%s: %r\n", argv[i]);
 				free(m);
-			}else
+			}else{
+				if(m->numartist == 0)
+					m->artist[m->numartist++] = argv[i];
 				sendp(cmeta, m);
+			}
 		}else{
 			if(argv[i][0] == '/')
 				dir = strdup(argv[i]);

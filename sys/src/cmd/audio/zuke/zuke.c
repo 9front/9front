@@ -8,6 +8,7 @@
 #include <plumb.h>
 #include <ctype.h>
 #include "plist.h"
+#include "icy.h"
 
 #define MAX(a,b) ((a)>=(b)?(a):(b))
 #define MIN(a,b) ((a)<=(b)?(a):(b))
@@ -61,6 +62,8 @@ struct Player
 	Channel *ctl;
 	Channel *ev;
 	Channel *img;
+	Channel *icytitlec;
+	char *icytitle;
 	double seek;
 	double gain;
 	int pcur;
@@ -277,7 +280,7 @@ redraw_(int full)
 	int x, i, j, scrollcenter, w;
 	uvlong dur, msec;
 	Rectangle sel, r;
-	char tmp[32];
+	char tmp[32], *s;
 	Point p, sp, p₀, p₁;
 	Image *col;
 
@@ -421,7 +424,11 @@ redraw_(int full)
 			for(j = 0; cols[j] != 0; j++){
 				sel.max.x = p.x + colwidth[j];
 				replclipr(back, 0, sel);
-				string(back, p, col, sp, f, getcol(getmeta(i), cols[j]));
+				if(pcurplaying == i && playercurr->icytitle != nil && cols[j] == Ptitle)
+					s = playercurr->icytitle;
+				else
+					s = getcol(getmeta(i), cols[j]);
+				string(back, p, col, sp, f, s);
 				p.x += colwidth[j] + 8;
 			}
 			replclipr(back, 0, back->r);
@@ -456,6 +463,7 @@ redrawproc(void *)
 
 	threadsetname("redraw");
 	while(recv(redrawc, &full) == 1){
+Again:
 		redraw_(full);
 		another = 0;
 		full = 0;
@@ -464,7 +472,7 @@ redrawproc(void *)
 			another = 1;
 		}
 		if(another)
-			redraw_(nbfull);
+			goto Again;
 	}
 
 	threadexits(nil);
@@ -669,12 +677,12 @@ gain(double g, char *buf, long n)
 static void
 playerthread(void *player_)
 {
-	char *buf, cmd[64], seekpos[12], *fmt;
+	char *buf, cmd[64], seekpos[12], *fmt, *path, *icytitle;
 	Player *player;
 	Ioproc *io;
 	Image *thiscover;
 	ulong c;
-	int p[2], fd, pid, noinit, trycoverload;
+	int p[2], q[2], fd, pid, noinit, trycoverload;
 	long n, r;
 	vlong boffset, boffsetlast;
 	Meta *cur;
@@ -691,7 +699,9 @@ playerthread(void *player_)
 restart:
 	cur = getmeta(player->pcur);
 	fmt = cur->filefmt;
+	path = cur->path;
 	fd = -1;
+	q[0] = -1;
 	if(*fmt){
 		if((fd = open(cur->path, OREAD)) < 0){
 			fprint(2, "%r\n");
@@ -702,14 +712,25 @@ restart:
 	}else{
 		sendul(player->ev, Evready);
 		chanclose(player->ev);
+		if(strncmp(cur->path, "http://", 7) == 0){ /* try icy */
+			pipe(q);
+			if(icyget(cur, q[0], &player->icytitlec) == 0){
+				fd = q[1];
+				path = nil;
+			}else{
+				close(q[0]); q[0] = -1;
+				close(q[1]);
+			}
+		}
 	}
 
 	pipe(p);
 	if((pid = rfork(RFPROC|RFFDG|RFNOTEG|RFCENVG|RFNOWAIT)) == 0){
+		close(q[0]);
 		close(p[1]);
 		if(fd < 0)
 			fd = open("/dev/null", OREAD);
-		dup(fd, 0); close(fd);
+		dup(fd, 0); close(fd); /* fd == q[1] when it's Icy */
 		dup(p[0], 1); close(p[0]);
 		if(!debug){
 			dup(fd = open("/dev/null", OWRITE), 2);
@@ -720,7 +741,7 @@ restart:
 			snprint(seekpos, sizeof(seekpos), "%g", (double)boffset/Bps);
 			execl(cmd, cmd, boffset ? "-s" : nil, seekpos, nil);
 		}else{
-			execl("/bin/play", "play", "-o", "/fd/1", cur->path, nil);
+			execl("/bin/play", "play", "-o", "/fd/1", path, nil);
 		}
 		close(0);
 		close(1);
@@ -728,8 +749,8 @@ restart:
 	}
 	if(pid < 0)
 		sysfatal("rfork: %r");
-	if(fd >= 0)
-		close(fd);
+	/* fd is q[1] when it's Icy */
+	close(fd);
 	close(p[0]);
 
 	c = 0;
@@ -767,7 +788,11 @@ restart:
 			}
 			break;
 		}
-
+		if(player->icytitlec != nil && nbrecv(player->icytitlec, &icytitle) != 0){
+			free(player->icytitle);
+			player->icytitle = icytitle;
+			redraw(1);
+		}
 		thiscover = nil;
 		if(player->img != nil && nbrecv(player->img, &thiscover) != 0){
 			freeimage(cover);
@@ -828,18 +853,24 @@ stop:
 	if(player->img != nil)
 		freeimage(recvp(player->img));
 freeplayer:
-	chanfree(player->ctl);
-	chanfree(player->ev);
+	close(q[0]);
+	close(p[1]);
 	if(pid >= 0)
 		postnote(PNGROUP, pid, "interrupt");
 	closeioproc(io);
-	if(p[1] >= 0)
-		close(p[1]);
+	if(player->icytitlec != nil){
+		while((icytitle = recvp(player->icytitlec)) != nil)
+			free(icytitle);
+		chanfree(player->icytitlec);
+	}
+	chanfree(player->ctl);
+	chanfree(player->ev);
 	if(player == playercurr)
 		playercurr = nil;
 	if(player == playernext)
 		playernext = nil;
 	free(buf);
+	free(player->icytitle);
 	free(player);
 	threadexits(nil);
 }
@@ -1488,6 +1519,7 @@ playcur:
 			case 'q':
 			case Kdel:
 				stop(playercurr);
+				stop(playernext);
 				goto end;
 			case 'i':
 			case 'o':
