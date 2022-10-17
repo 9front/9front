@@ -83,11 +83,12 @@ tagopus(Tagctx *ctx)
 				if(v != nil && v[1] == 'g' && v[2] == 'g' && v[3] == 'S'){
 					uvlong g = leuint(v+6) | (uvlong)leuint(v+10)<<32;
 					ctx->duration = g * 1000 / 48000; /* granule positions are always 48KHz */
-					return 0;
 				}
 				if(v != nil)
 					v++;
 			}
+			if(ctx->duration != 0)
+				break;
 		}
 	}
 

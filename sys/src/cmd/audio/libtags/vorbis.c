@@ -119,11 +119,12 @@ tagvorbis(Tagctx *ctx)
 				if(v != nil && v[1] == 'g' && v[2] == 'g' && v[3] == 'S' && (v[5] & 4) == 4){ /* last page */
 					uvlong g = leuint(v+6) | (uvlong)leuint(v+10)<<32;
 					ctx->duration = g * 1000 / ctx->samplerate;
-					return 0;
 				}
 				if(v != nil)
 					v++;
 			}
+			if(ctx->duration != 0)
+				break;
 		}
 	}
 
