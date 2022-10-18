@@ -304,8 +304,9 @@ redraw_(int full)
 				dur/1000
 			);
 		}else{
-			i += snprint(tmp+i, sizeof(tmp)-i, "%P ", msec/1000);
+			j = snprint(tmp+i, sizeof(tmp)-i, "%P ", msec/1000);
 			w += stringwidth(f, tmp+i);
+			i += j;
 		}
 	}
 	snprint(tmp+i, sizeof(tmp)-i, "%d%%", 100);
