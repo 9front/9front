@@ -90,12 +90,12 @@ if(~ $#mflag 1) {
 }
 if not {
 	if(~ $wctl ''){
-		if(test -f /dev/wctl) wctl=/dev/wctl
-		if not if(! ~ $wsys '') {
+		if(! ~ $wsys '') {
 			rfork n
 			mount -b $wsys /mnt/wsys none
 			wctl=/mnt/wsys/wctl
 		}
+		if not if(test -f /dev/wctl) wctl=/dev/wctl
 		if not if(test -f /mnt/term/dev/wctl) wctl=/mnt/term/dev/wctl
 		if not if(test -r /mnt/term/env/wctl) wctl=/mnt/term^`{cat /mnt/term/env/wctl}
 		if not {
