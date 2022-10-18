@@ -367,8 +367,11 @@ void pl_rmentities(Hglob *, char *s){
 				while(u<s)
 					*t++=*u++;
 			}
-		}	
-		else *t++=c;
+		}
+		else if((uchar)c == 0xc2 && (uchar)*s == 0xad)
+			s++; /* ignore soft hyphens */
+		else
+			*t++=c;
 	}while(c);
 }
 /*
