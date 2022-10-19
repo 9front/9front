@@ -389,6 +389,7 @@ void
 keyboardtap(void*)
 {
 	char *s, *ctl;
+	char *e;
 	char *watched;
 	Window *w, *cur;
 
@@ -414,7 +415,7 @@ keyboardtap(void*)
 			if(cur != nil){
 				alts[Ainp].c = cur->ck;
 				if(tapseats[OREAD] == Tapoff)	
-					break;
+					goto Reset;
 				if(alts[Awatch].op == CHANSND)
 					free(watched);
 				watched = smprint("%c%d", Tapfocus, cur->id);
@@ -424,9 +425,14 @@ keyboardtap(void*)
 				free(s);
 			goto Reset;
 		case Actl:
-			sendp(resptap, tapctlmsg(ctl));
+			e = tapctlmsg(ctl);
+			sendp(resptap, e);
+			if(e != nil || *ctl != Tapoff){
+				free(ctl);
+				break;
+			}
 			free(ctl);
-			break;
+			goto Reset;
 		case Afrom:
 			if(cur == nil){
 				free(s);
