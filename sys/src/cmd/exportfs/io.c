@@ -119,7 +119,7 @@ freefid(int nr)
 	l = &fidhash(nr);
 	for(f = *l; f != nil; f = f->next) {
 		if(f->nr == nr) {
-			if(f->mid) {
+			if(f->mid != -1) {
 				snprint(buf, sizeof(buf), "/mnt/exportfs/%d", f->mid);
 				unmount(0, buf);
 				psmap[f->mid] = 0;
@@ -171,7 +171,7 @@ newfid(int nr)
 	*l = new;
 	new->nr = nr;
 	new->fid = -1;
-	new->mid = 0;
+	new->mid = -1;
 
 	return new;	
 }
