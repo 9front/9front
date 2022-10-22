@@ -528,7 +528,7 @@ search(Fbuf *f, Hunk *h, char *fname)
 		ln = h->oldln + fuzz + 1;
 		if(ln > f->lastln && ln < f->nlines){
 			off = f->lines[ln];
-			if(off + len >= f->len)
+			if(off + len > f->len)
 				continue;
 			scanning = 1;
 			if(memcmp(f->buf + off, h->old, h->oldlen) == 0){
