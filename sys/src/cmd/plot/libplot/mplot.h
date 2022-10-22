@@ -36,6 +36,8 @@ int mapminx, mapminy, mapmaxx, mapmaxy;		/* centered square */
  */
 #include "../plot.h"
 void m_clrwin(int, int, int, int, int);
+void m_circ(Point, int, int);
+void m_disc(Point, int, int);
 void m_finish(void);
 void m_initialize(char *);
 int m_text(int, int, char *, char *, int, int, int);

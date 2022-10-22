@@ -34,6 +34,29 @@ m_clrwin(int x0, int y0, int x1, int y1, int c)
 	if(offscreen != screen && !buffer)
 		draw(screen, xlr(Rect(x0, y0, x1+1, y1+1)), getcolor(c), nil, ZP);
 }
+
+/*
+ * Draw circle at point p with radius rad in color c
+ */
+void
+m_circ(Point p, int rad, int c)
+{
+	ellipse(offscreen, p, rad, rad, 0, getcolor(c), ZP);
+	if (offscreen != screen && !buffer)
+		ellipse(screen, p, rad, rad, 0, getcolor(c), ZP);
+}
+
+/*
+ * Draw disc (filled circle) at point p with radius rad in color c
+ */
+void
+m_disc(Point p, int rad, int c)
+{
+	fillellipse(offscreen, p, rad, rad, getcolor(c), ZP);
+	if (offscreen != screen && !buffer)
+		fillellipse(screen, p, rad, rad, getcolor(c), ZP);
+}
+
 /*
  * Draw text between pointers p and q with first character centered at x, y.
  * Use color c.  Centered if cen is non-zero, right-justified if right is non-zero.

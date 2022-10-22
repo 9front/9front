@@ -8,5 +8,5 @@ void plotdisc(double xc, double yc, double r){
 		rad=SCR(-r);
 	else
 		rad=SCR(r);
-	fillellipse(screen, p, rad, rad, getcolor(e1->foregr), ZP);
+	m_disc(p, rad, e1->foregr);
 }
