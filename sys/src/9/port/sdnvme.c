@@ -113,11 +113,14 @@ qcmd(WS *ws, Ctlr *ctlr, int adm, u32int opc, u32int nsid, void *mptr, void *dat
 	ws->queue = sq;
 	ws->link = &sq->wait[sq->tail & sq->mask];
 	while(*ws->link != nil){
-		sched();
+		/* should be very rare */
 		if(!adm){
-			/* should be very rare */
+			if(conf.nmach > ctlr->nsq)
+				unlock(sq);
+			sched();
 			goto Retry;
 		}
+		sched();
 	}
 	*ws->link = ws;
 
