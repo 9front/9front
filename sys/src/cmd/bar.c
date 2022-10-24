@@ -147,7 +147,6 @@ redraw(void)
 	draw(screen, r, cback, nil, ZP);
 	string(screen, p, ctext, ZP, f, s);
 	if(hlitem >= 0){
-		r.min.x += sepw;
 		for(i = 0; i < hlitem; i++)
 			r.min.x += itemw[i];
 		r.max.x = r.min.x + itemw[i];
@@ -227,7 +226,7 @@ clicked(int x, int buttons)
 		return;
 	}
 
-	for(i = 0, ix = sepw; i < nitems; i++){
+	for(i = ix = 0; i < nitems; i++){
 		ix += itemw[i];
 		if(x <= ix){
 			fprint(1, "%d\t%s\n", buttons, items[i]);
