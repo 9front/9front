@@ -155,7 +155,7 @@ chvolume(int d)
 	Biobuf b;
 	char *n;
 
-	if((f = open("/dev/volume", ORDWR)) < 0)
+	if((f = open("/dev/volume", ORDWR|OCEXEC)) < 0)
 		return;
 	Binit(&b, f, OREAD);
 
@@ -414,6 +414,7 @@ redraw_(int full)
 				sel.min.y = p.y;
 				sel.max.x = back->r.max.x;
 				sel.max.y = p.y + f->height;
+				replclipr(back, 0, back->r);
 				draw(back, sel, colors[Dbinv].im, nil, ZP);
 				col = colors[Dfinv].im;
 			}else{
@@ -424,7 +425,7 @@ redraw_(int full)
 
 			p.x = Scrollwidth + 2 + 3;
 			for(j = 0; cols[j] != 0; j++){
-				sel.max.x = p.x + colwidth[j];
+				sel.max.x = p.x + colwidth[j] - 1;
 				replclipr(back, 0, sel);
 				if(playercurr != nil && playercurr->icytitle != nil && pcurplaying == i && cols[j] == Ptitle)
 					s = playercurr->icytitle;
@@ -433,13 +434,13 @@ redraw_(int full)
 				string(back, p, col, sp, f, s);
 				p.x += colwidth[j] + 8;
 			}
-			replclipr(back, 0, back->r);
 
 			if(pcurplaying == i){
 				Point rightp, leftp;
 				leftp.y = rightp.y = p.y - 1;
 				leftp.x = Scrollwidth;
 				rightp.x = back->r.max.x;
+				replclipr(back, 0, back->r);
 				line(back, leftp, rightp, 0, 0, 0, colors[Dflow].im, sp);
 				leftp.y = rightp.y = p.y + f->height;
 				line(back, leftp, rightp, 0, 0, 0, colors[Dflow].im, sp);
@@ -664,6 +665,13 @@ done:
 	return player;
 }
 
+static long
+iosetname(va_list *)
+{
+	procsetname("player/io");
+	return 0;
+}
+
 static void
 gain(double g, char *buf, long n)
 {
@@ -703,6 +711,7 @@ restart:
 	path = cur->path;
 	fd = -1;
 	q[0] = -1;
+	pid = -1;
 	if(*fmt){
 		if((fd = open(cur->path, OREAD)) < 0){
 			fprint(2, "%r\n");
@@ -763,6 +772,7 @@ restart:
 		buf = malloc(Relbufsz);
 		if((io = ioproc()) == nil)
 			sysfatal("player: %r");
+		iocall(io, iosetname);
 		if((n = ioreadn(io, p[1], buf, Relbufsz)) < 0)
 			fprint(2, "player: %r\n");
 		if(recv(player->ctl, &c) < 0 || c != Cstart)
@@ -840,6 +850,7 @@ restart:
 	if(n < 1){ /* seeking backwards or end of the song */
 		close(p[1]);
 		p[1] = -1;
+		postnote(PNGROUP, pid, "die");
 		if(c != Cseekrel || (getmeta(pcurplaying)->duration && boffset >= getmeta(pcurplaying)->duration/1000*Bps)){
 next:
 			playercurr = nil;
@@ -856,6 +867,7 @@ stop:
 freeplayer:
 	close(p[1]);
 	closeioproc(io);
+	postnote(PNGROUP, pid, "die");
 	if(player->icytitlec != nil){
 		while((icytitle = recvp(player->icytitlec)) != nil)
 			free(icytitle);
@@ -1240,7 +1252,7 @@ kbproc(void *cchan)
 	Rune r;
 
 	threadsetname("kbproc");
-	if((kbd = open("/dev/kbd", OREAD)) < 0)
+	if((kbd = open("/dev/kbd", OREAD|OCEXEC)) < 0)
 		sysfatal("/dev/kbd: %r");
 
 	buf2[0] = 0;
@@ -1526,7 +1538,7 @@ playcur:
 			case Kdel:
 				stop(playercurr);
 				stop(playernext);
-				goto end;
+				threadexitsall(nil);
 			case 'i':
 			case 'o':
 				if(pcur == pcurplaying)
@@ -1624,7 +1636,4 @@ playcur:
 		scroll = CLAMP(scroll, 0, pl->n - scrollsz);
 		redraw(full);
 	}
-
-end:
-	threadexitsall(nil);
 }
