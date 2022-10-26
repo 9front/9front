@@ -7,13 +7,14 @@
 #include <lib9.h>
 #include "FLAC/stream_decoder.h"
 
-static int ifd = -1;
+static int ifd = 1;
+static int pid = -1;
 static int sts;
 
 static void
 flushout(void)
 {
-	if(ifd >= 0){
+	if(pid >= 0){
 		close(ifd);
 		wait(&sts);
 	}
@@ -73,7 +74,7 @@ declen(FLAC__StreamDecoder *dec, FLAC__uint64 *stream_length, void *client_data)
 static FLAC__StreamDecoderWriteStatus
 decoutput(FLAC__StreamDecoder *dec, FLAC__Frame *frame, FLAC__int32 *buffer[], void *client_data)
 {
-	static int rate, chans, bits;
+	static int rate = 44100, chans = 2, bits = 16;
 	static unsigned char *buf;
 	static int nbuf;
 	FLAC__int32 *s, v;
@@ -84,7 +85,7 @@ decoutput(FLAC__StreamDecoder *dec, FLAC__Frame *frame, FLAC__int32 *buffer[], v
 	if(rate != frame->header.sample_rate
 	|| chans != frame->header.channels
 	|| bits != frame->header.bits_per_sample){
-		int pid, pfd[2];
+		int pfd[2];
 		char fmt[32];
 
 		rate = frame->header.sample_rate;
