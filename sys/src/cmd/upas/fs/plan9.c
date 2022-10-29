@@ -129,6 +129,7 @@ readmessage(Mailbox *mb, Message *m, Inbuf *b)
 {
 	char *s, *n;
 	long l, state;
+	int r;
 
 	werrstr("");
 	state = 0;
@@ -138,10 +139,12 @@ readmessage(Mailbox *mb, Message *m, Inbuf *b)
 			break;
 		n = s + (l = Blinelen(b->in)) - 1;
 		if(l >= 28 + 7 && n[0] == '\n')
-		if(strncmp(s, "From ", 5) == 0)
-		if(!chkunix(s + 5, l - 5))
-		if(++state == 2)
-			break;
+		if(strncmp(s, "From ", 5) == 0){
+			r = chkunix(s + 5, l - 5);
+			werrstr("");
+			if(r == 0 && ++state == 2)
+				break;
+		}
 		if(state == 0)
 			return -1;
 		addtomessage(m, s, l);
