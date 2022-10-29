@@ -985,7 +985,7 @@ Zoneparsed:
 		tmtimens(tm, abs, tm->nsec, tz);
 	return tm;
 baddate:
-	werrstr("invalid date %s", str);
+	werrstr("invalid %c component in '%s'", c0, str);
 	return nil;
 badfmt:
 	werrstr("garbled format %s near '%s'", fmt, p);
