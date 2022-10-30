@@ -445,10 +445,12 @@ execflag(void)
 		if(strlen(letter)==1){
 			if(strcmp(val, "+")==0){
 				flag[(unsigned char)letter[0]] = flagset;
+				setstatus("");
 				break;
 			}
 			if(strcmp(val, "-")==0){
 				flag[(unsigned char)letter[0]] = 0;
+				setstatus("");
 				break;
 			}
 		}
