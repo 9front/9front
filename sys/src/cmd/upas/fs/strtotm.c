@@ -6,6 +6,7 @@ strtotm(char *s, Tm *t)
 {
 	char **f, *fmt[] = {
 		"WW MMM DD hh:mm:ss ?Z YYYY",
+		"WW MMM DD hh:mm:ss YYYY",
 		"?WW ?DD ?MMM ?YYYY hh:mm:ss ?Z",
 		"?WW ?DD ?MMM ?YYYY hh:mm:ss",
 		"?WW, DD-?MM-YY",
