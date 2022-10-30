@@ -36,6 +36,7 @@ struct Fbuf {
 	int	*lines;
 	int	nlines;
 	int	lastln;
+	int	lastfuzz;
 	char	*buf;
 	int	len;
 };
@@ -491,50 +492,59 @@ slurp(Fbuf *f, char *path)
 	for(i = 0; i < len; i++){
 		if(buf[i] != '\n')
 			continue;
-		if(nlines+1 == linesz){
+		if(nlines+2 == linesz){
 			linesz *= 2;
 			lines = erealloc(lines, linesz*sizeof(int));
 		}
 		lines[nlines++] = i+1;
 	}
+	lines[nlines] = len;
 	f->len = len;
 	f->buf = buf;
 	f->lines = lines;
 	f->nlines = nlines;
-	f->lastln = -1;
+	f->lastln = 0;
+	f->lastfuzz = 0;
+}
+
+char*
+searchln(Fbuf *f, Hunk *h, int ln)
+{
+	int off;
+
+	off = f->lines[ln];
+	if(off + h->oldlen > f->len)
+		return nil;
+	if(memcmp(f->buf + off, h->old, h->oldlen) != 0)
+		return nil;
+	f->lastln = ln + h->oldcnt;
+	f->lastfuzz = ln - h->oldln;
+	return f->buf + off;
 }
 
 char*
 search(Fbuf *f, Hunk *h, char *fname)
 {
-	int ln, len, off, fuzz, nfuzz, scanning;
+	int ln, oldln, fuzz, scanning;
+	char *p;
 
-	scanning = 1;
-	len = h->oldlen;
-	nfuzz = (f->nlines < 250) ? f->nlines : 250;
-	for(fuzz = 0; scanning && fuzz <= nfuzz; fuzz++){
+	oldln = h->oldln + f->lastfuzz;
+	if(oldln + h->oldcnt > f->nlines)
+		oldln = f->nlines - h->oldcnt;
+	scanning = oldln >= f->lastln;
+	for(fuzz = 0; scanning && fuzz < 250; fuzz++){
 		scanning = 0;
-		ln = h->oldln - fuzz;
-		if(ln > f->lastln && ln < f->nlines){
-			off = f->lines[ln];
-			if(off + len > f->len)
-				continue;
+		ln = oldln - fuzz;
+		if(ln >= f->lastln){
 			scanning = 1;
-			if(memcmp(f->buf + off, h->old, h->oldlen) == 0){
-				f->lastln = ln;
-				return f->buf + off;
-			}
+			if((p = searchln(f, h, ln)) != nil)
+				return p;
 		}
-		ln = h->oldln + fuzz + 1;
-		if(ln > f->lastln && ln < f->nlines){
-			off = f->lines[ln];
-			if(off + len > f->len)
-				continue;
+		ln = oldln + fuzz + 1;
+		if(ln + h->oldcnt <= f->nlines){
 			scanning = 1;
-			if(memcmp(f->buf + off, h->old, h->oldlen) == 0){
-				f->lastln = ln;
-				return f->buf + off;
-			}
+			if((p = searchln(f, h, ln)) != nil)
+				return p;
 		}
 	}
 	sysfatal("%s:%d: unable to find hunk offset in %s", fname, h->lnum, h->oldpath);
