@@ -92,7 +92,9 @@ cd:V:	/tmp/9front.386.iso.gz
 	@{
 	objtype=arm64
 	kernel=/n/src9/$objtype/9reform.u
-	echo 'bootargs=local!/dev/sdM0/fs' > /env/plan9.ini
+	> /env/plan9.ini {
+		echo 'console=0'
+	}
 	fatfiles=(/n/src9/sys/src/boot/reform/boot.scr /env/plan9.ini $kernel)
 	mb=1885	# storage vendors idea of 2GB
 	mk $target.$pid.disk

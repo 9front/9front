@@ -17,7 +17,7 @@ Conf conf;
 #define	MAXCONF 64
 static char *confname[MAXCONF];
 static char *confval[MAXCONF];
-static int nconf;
+static int nconf = -1;
 
 void
 bootargsinit(void)
@@ -28,7 +28,7 @@ bootargsinit(void)
 	/*
 	 *  parse configuration args from dos file plan9.ini
 	 */
-	cp = BOOTARGS;	/* where b.com leaves its config */
+	cp = BOOTARGS;
 	cp[BOOTARGSLEN-1] = 0;
 
 	/*
@@ -47,6 +47,12 @@ bootargsinit(void)
 	*p = 0;
 
 	n = getfields(cp, line, MAXCONF, 1, "\n");
+	if(n <= 0){
+		/* empty plan9.ini, no configuration passed */
+		return;
+	}
+
+	nconf = 0;
 	for(i = 0; i < n; i++){
 		if(*line[i] == '#')
 			continue;
@@ -80,6 +86,12 @@ void
 setconfenv(void)
 {
 	int i;
+
+	if(nconf < 0){
+		/* use defaults when there was no configuration */
+		ksetenv("console", "0", 0);
+		return;
+	}
 
 	for(i = 0; i < nconf; i++){
 		if(confname[i][0] != '*')
@@ -138,7 +150,6 @@ init0(void)
 			ksetenv("service", "cpu", 0);
 		else
 			ksetenv("service", "terminal", 0);
-		ksetenv("console", "0", 0);
 		setconfenv();
 		poperror();
 	}
