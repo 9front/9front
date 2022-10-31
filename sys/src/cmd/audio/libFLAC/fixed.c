@@ -432,7 +432,18 @@ uint32_t FLAC__fixed_compute_best_predictor_limit_residual_33bit(const FLAC__int
 		error_1 = (i > 0) ? local_abs64(data[i] - data[i-1]) : 0 ;
 		error_2 = (i > 1) ? local_abs64(data[i] - 2 * data[i-1] + data[i-2]) : 0;
 		error_3 = (i > 2) ? local_abs64(data[i] - 3 * data[i-1] + 3 * data[i-2] - data[i-3]) : 0;
-		error_4 = (i > 3) ? local_abs64(data[i] - 4 * data[i-1] + 6 * data[i-2] - 4 * data[i-3] + data[i-4]) : 0;
+		if(i <= 3)
+			error_4 = 0;
+		else{
+			/* kencc workaround: we run out of registers */
+			FLAC__int64 e;
+			e = data[i];
+			e -= 4 * data[i-1];
+			e += 6 * data[i-2];
+			e -= 4 * data[i-3];
+			e += data[i-4];
+			error_4 = local_abs64(e);
+		}
 
 		total_error_0 += error_0;
 		total_error_1 += error_1;
@@ -547,8 +558,16 @@ void FLAC__fixed_compute_residual_wide_33bit(const FLAC__int64 data[], uint32_t 
 				residual[i] = data[i] - 3*data[i-1] + 3*data[i-2] - data[i-3];
 			break;
 		case 4:
-			for(i = 0; i < idata_len; i++)
-				residual[i] = data[i] - 4*data[i-1] + 6*data[i-2] - 4*data[i-3] + data[i-4];
+			for(i = 0; i < idata_len; i++){
+				/* kencc workaround: we run out of registers */
+				FLAC__int64 r;
+				r = data[i];
+				r -= 4*data[i-1];
+				r += 6*data[i-2];
+				r -= 4*data[i-3];
+				r += data[i-4];
+				residual[i] = r;
+			}
 			break;
 		default:
 			FLAC__ASSERT(0);
