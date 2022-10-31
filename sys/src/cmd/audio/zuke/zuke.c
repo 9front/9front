@@ -291,11 +291,13 @@ redraw_(int full)
 		shuffle != nil ? "∫" : "",
 		(rg || repeatone || shuffle != nil) ? " " : ""
 	);
-	msec = dur = 0;
+	msec = 0;
+	dur = 0;
 	w = stringwidth(f, tmp);
 	if(pcurplaying >= 0){
 		msec = byteswritten*1000/Bps;
-		if((dur = getmeta(pcurplaying)->duration) > 0){
+		dur = getmeta(pcurplaying)->duration;
+		if(dur > 0){
 			snprint(tmp+i, sizeof(tmp)-i, "%P/%P ", dur/1000, dur/1000);
 			w += stringwidth(f, tmp+i);
 			msec = MIN(msec, dur);
