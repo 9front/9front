@@ -20,7 +20,7 @@ postsrv(Srv *s, char *name)
 	if(pipe(fd) < 0)
 		return -1;
 	if(name != nil){
-		char buf[80];
+		char buf[160];
 
 		snprint(buf, sizeof buf, "/srv/%s", name);
 		if((cfd = create(buf, OWRITE|ORCLOSE|OCEXEC, 0600)) < 0
