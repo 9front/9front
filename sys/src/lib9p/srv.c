@@ -895,7 +895,7 @@ if(chatty9p)
 	qlock(&srv->wlock);
 	n = convS2M(&r->ofcall, srv->wbuf, srv->msize);
 	if(n <= 0){
-		fprint(2, "msize = %d n = %d %F\n", srv->msize, n, &r->ofcall);
+		fprint(2, "%s: msize = %d n = %d %F\n", argv0, srv->msize, n, &r->ofcall);
 		abort();
 	}
 	assert(n > 2);
@@ -903,7 +903,7 @@ if(chatty9p)
 		closereq(removereq(r->pool, r->ifcall.tag));
 	m = write(srv->outfd, srv->wbuf, n);
 	if(m != n)
-		fprint(2, "lib9p srv: write %d returned %d on fd %d: %r", n, m, srv->outfd);
+		fprint(2, "%s: 9p write %d returned %d on fd %d: %r\n", argv0, n, m, srv->outfd);
 	qunlock(&srv->wlock);
 
 	qlock(&r->lk);	/* no one will add flushes now */

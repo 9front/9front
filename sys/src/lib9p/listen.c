@@ -47,14 +47,14 @@ listenproc(void *v)
 	os = v;
 	ctl = announce(os->addr, dir);
 	if(ctl < 0){
-		fprint(2, "%s: announce %s: %r", argv0, os->addr);
+		fprint(2, "%s: announce %s: %r\n", argv0, os->addr);
 		return;
 	}
 
 	for(;;){
 		nctl = listen(dir, ndir);
 		if(nctl < 0){
-			fprint(2, "%s: listen %s: %r", argv0, os->addr);
+			fprint(2, "%s: listen %s: %r\n", argv0, os->addr);
 			break;
 		}
 		
