@@ -62,21 +62,17 @@ getthrdata(void)
 
 Fs *fsmain;
 
-int
+void
 dprint(char *fmt, ...)
 {
-	static char buf[2048];
-	static QLock lk;
+	char buf[128];
 	va_list va;
-	int rc;
 
-	qlock(&lk);
+	snprint(buf, sizeof(buf), "hjfs: %s", fmt);
+
 	va_start(va, fmt);
-	snprint(buf, 2048, "hjfs: %s", fmt);
-	rc = vfprint(2, buf, va);
+	vfprint(2, buf, va);
 	va_end(va);
-	qunlock(&lk);
-	return rc;
 }
 
 static void

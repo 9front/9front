@@ -13,7 +13,7 @@ devwork(void *v)
 	Buf *b;
 	Channel *r;
 	uchar buf[BLOCK];
-	
+
 	d = v;
 	for(;;){
 		qlock(&d->workl);

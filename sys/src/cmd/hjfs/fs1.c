@@ -654,7 +654,7 @@ found:
 		if(rc < 0)
 			goto end;
 		if(rc == 0){
-			dprint("getblk: block %lld has refcount 0\n");
+			dprint("getblk: block %lld has refcount 0\n", *loc);
 			werrstr("phase error -- getblk");
 			rc = -1;
 			goto end;

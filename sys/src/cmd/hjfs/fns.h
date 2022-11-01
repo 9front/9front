@@ -43,7 +43,8 @@ void	putloc(Fs *, Loc *, int);
 int	findentry(Fs *, FLoc *, Buf *, char *, FLoc *, int);
 void	modified(Loc *, Dentry *, short);
 int	trunc(Fs *, FLoc *, Buf *, uvlong);
-int	dprint(char *fmt, ...);
+void	dprint(char *fmt, ...);
+#pragma	varargck argpos dprint 1
 int	delete(Fs *, FLoc *, Buf *);
 int	chref(Fs *, uvlong, int);
 int	newentry(Fs *, Loc *, Buf *, char *, FLoc *, int);

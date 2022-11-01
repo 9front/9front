@@ -142,7 +142,7 @@ checkfile(FLoc *l, Buf *b)
 			dprint("bad block %ulld of %ulld in %s %s with directory entry index %d in block %ulld: %r\n", i, blocks, ftype, d->name, l->deind, l->blk);
 		putbuf(c);
 		if(chref(fsmain, r, 0) == 0)
-			dprint("block %ulld of %ulld in %s %s with directory entry index %d in block %ulld has a reference count of 0", i, blocks, ftype, d->name, l->deind, l->blk);
+			dprint("block %ulld of %ulld in %s %s with directory entry index %d in block %ulld has a reference count of 0\n", i, blocks, ftype, d->name, l->deind, l->blk);
 	}
 }
 
@@ -357,7 +357,7 @@ cmddebugdeind(int, char **argv)
 	if(walkpath(ch, argv[1], nil) < 0)
 		goto error;
 	rlock(fsmain);
-	dprint("loc %ulld / %uld, offset %ulld\n", ch->loc->blk, ch->loc->deind, BLOCK * ch->loc->blk + (RBLOCK - BLOCK) + DENTRYSIZ * ch->loc->deind);
+	dprint("loc %ulld / %d, offset %ulld\n", ch->loc->blk, ch->loc->deind, BLOCK * ch->loc->blk + (RBLOCK - BLOCK) + DENTRYSIZ * ch->loc->deind);
 	b = getbuf(fsmain->d, ch->loc->blk, TDENTRY, 0);
 	if(b == nil){
 		runlock(fsmain);
@@ -366,8 +366,8 @@ cmddebugdeind(int, char **argv)
 	d = &b->de[ch->loc->deind];
 	dprint("name %s\n", d->name);
 	dprint("uid %d, muid %d, gid %d\n", d->uid, d->muid, d->gid);
-	dprint("mode %#o, qid %ulld, type %#x, version %d\n", d->mode, d->path, d->type, d->vers);
-	dprint("size %d\n", d->size);
+	dprint("mode %#o, qid %ulld, type %#x, version %lud\n", d->mode, d->path, d->type, d->vers);
+	dprint("size %llud\n", d->size);
 	dprint("atime %ulld, mtime %ulld\n", d->atime, d->mtime);
 	putbuf(b);
 	runlock(fsmain);
