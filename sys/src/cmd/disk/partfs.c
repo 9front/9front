@@ -310,13 +310,13 @@ rdwrpart(Req *r)
 	if (r->ifcall.type == Twrite) {
 		tot = write(fd, dat, count);
 		if (tot != count) {
-			respond(r, "%r");
+			responderror(r);
 			return -1;
 		}
 	} else {
 		tot = read(fd, dat, count);
 		if (tot < 0) {
-			respond(r, "%r");
+			responderror(r);
 			return -1;
 		}
 	}
