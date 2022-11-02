@@ -70,6 +70,7 @@ enum {
 	unknownv6,		/* UGH */
 	unspecifiedv6,
 	linklocalv6,
+	ulav6,
 	globalv6,
 };
 
@@ -81,6 +82,8 @@ v6addrtype(uchar *addr)
 	else if(islinklocal(addr) || ipcmp(addr, v6loopback) == 0 ||
 	    isv6mcast(addr) && (addr[1] & 0xF) <= Link_local_scop)
 		return linklocalv6;
+	else if(isula(addr))
+		return ulav6;
 	else
 		return globalv6;
 }
@@ -1218,7 +1221,7 @@ findipifcstr(Fs *f, char *s)
 }
 
 /*
- *  find "best" (global > link local > unspecified)
+ *  find "best" (global > ula > link local > unspecified)
  *  local address; address must be current.
  */
 static void
