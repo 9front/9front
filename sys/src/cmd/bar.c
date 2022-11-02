@@ -14,6 +14,7 @@ enum {
 };
 
 static int wctl = -1, owidth, width, twidth, bottom, bat, minheight, seplen, sepw, hlitem;
+static int lastpx;
 static char sep[16], bats[16], *aux;
 static char *pos = "rb", *dfmt = "YYYY/MM/DD WW hh:mm:ss", *items[64];
 static int itemw[64], nitems;
@@ -114,7 +115,7 @@ split(char *s)
 		if(*i == 0)
 			continue;
 		items[nitems] = i;
-		itemw[nitems++] = stringwidth(f, i) + sepw;
+		itemw[nitems++] = stringwidth(f, i);
 		if(s == nil)
 			break;
 	}
@@ -144,11 +145,13 @@ redraw(void)
 		if(pos[0] == 'r' || pos[1] == 'r')
 			p.x = r.max.x - (stringwidth(f, s) + Off);
 	}
+	lastpx = p.x;
 	draw(screen, r, cback, nil, ZP);
 	string(screen, p, ctext, ZP, f, s);
 	if(hlitem >= 0){
+		r.min.x = lastpx;
 		for(i = 0; i < hlitem; i++)
-			r.min.x += itemw[i];
+			r.min.x += itemw[i] + sepw;
 		r.max.x = r.min.x + itemw[i];
 		replclipr(screen, 0, r);
 		stringbg(screen, p, cback, ZP, f, s, ctext, ZP);
@@ -221,18 +224,14 @@ clicked(int x, int buttons)
 {
 	int i, ix;
 
-	if(hlitem >= 0){
-		hlitem = -1;
-		return;
-	}
-
+	x -= lastpx;
 	for(i = ix = 0; i < nitems; i++){
-		ix += itemw[i];
-		if(x <= ix){
+		if(x >= ix && x <= ix+itemw[i]){
 			fprint(1, "%d\t%s\n", buttons, items[i]);
 			hlitem = i;
 			break;
 		}
+		ix += itemw[i] + sepw;
 	}
 }
 
@@ -348,16 +347,20 @@ threadmain(int argc, char **argv)
 			}
 			break;
 
-		case Emouse:	
+		case Emouse:
 			if(m.buttons == oldbuttons)
 				break;
-			clicked(m.xy.x-screen->r.min.x, m.buttons);
+			if(m.buttons == 0)
+				hlitem = -1;
+			else
+				clicked(m.xy.x, m.buttons);
 			/* wet floor */
 
 		if(0){
 		case Eresize:
 			if(getwindow(display, Refnone) < 0)
 				threadexitsall(nil);
+			owidth = 0;
 			/* wet floor */
 		}
 
@@ -376,8 +379,8 @@ threadmain(int argc, char **argv)
 				oldt = t;
 			}
 		}
-			redraw();
 			place();
+			redraw();
 			break;
 		}
 	}
