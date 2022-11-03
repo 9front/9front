@@ -520,11 +520,11 @@ coverload(void *player_)
 			*s = 0;
 
 			for(i = 0; i < nelem(covers) && prog == nil; i++){
-				if((s = smprint("%s/%s.jpg", path, covers[i])) != nil && (fd = open(s, OREAD)) >= 0)
+				if((s = smprint("%s/%s.jpg", path, covers[i])) != nil && (fd = open(s, OREAD|OCEXEC)) >= 0)
 					prog = "jpg";
 				free(s);
 				s = nil;
-				if(fd < 0 && (s = smprint("%s/%s.png", path, covers[i])) != nil && (fd = open(s, OREAD)) >= 0)
+				if(fd < 0 && (s = smprint("%s/%s.png", path, covers[i])) != nil && (fd = open(s, OREAD|OCEXEC)) >= 0)
 					prog = "png";
 				free(s);
 			}
@@ -536,7 +536,7 @@ coverload(void *player_)
 		goto done;
 
 	if(fd < 0){
-		fd = open(m->path, OREAD);
+		fd = open(m->path, OREAD|OCEXEC);
 		seek(fd, m->imageoffset, 0);
 	}
 	pipe(p);
@@ -564,8 +564,7 @@ done:
 		sendp(ch, nil);
 	chanclose(ch);
 	chanfree(ch);
-	if(pid >= 0)
-		postnote(PNGROUP, pid, "interrupt");
+	postnote(PNGROUP, pid, "die");
 	threadexits(nil);
 }
 
@@ -1203,7 +1202,7 @@ plumbaudio(void *kbd)
 			if(*s != '/' && m->wdir != nil)
 				s = smprint("%s/%.*s", m->wdir, m->ndata, m->data);
 
-			if((e = strrchr(s, '.')) != nil && strcmp(e, ".plist") == 0 && (pf = open(s, OREAD)) >= 0){
+			if((e = strrchr(s, '.')) != nil && strcmp(e, ".plist") == 0 && (pf = open(s, OREAD|OCEXEC)) >= 0){
 				p = readplist(pf, mcw);
 				close(pf);
 				if(p == nil)
@@ -1395,23 +1394,25 @@ threadmain(int argc, char **argv)
 		sysfatal("playlist error");
 	}
 	close(0);
+
+	m.buttons = 0;
+	scrolling = 0;
+	seekmx = 0;
 	adjustcolumns();
+
+	proccreate(plumbaudio, kctl.c, 4096);
 
 	if(shuffled){
 		pcur = nrand(pl->n);
 		toggleshuffle();
-		recenter();
 	}
-
-	updatescrollsz();
-	redraw(1);
-	m.buttons = 0;
-	scrolling = 0;
-	seekmx = 0;
-
-	proccreate(plumbaudio, kctl.c, 4096);
+	full = 1;
 
 	for(;;){
+		updatescrollsz();
+		scroll = CLAMP(scroll, 0, pl->n - scrollsz);
+		redraw(full);
+
 		oldpcur = pcur;
 		full = 0;
 		if(seekmx != newseekmx){
@@ -1633,9 +1634,5 @@ playcur:
 			else if(pcur > scroll + scrollsz)
 				scroll = pcur - scrollsz;
 		}
-
-		updatescrollsz();
-		scroll = CLAMP(scroll, 0, pl->n - scrollsz);
-		redraw(full);
 	}
 }
