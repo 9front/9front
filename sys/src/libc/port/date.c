@@ -628,6 +628,7 @@ tmparse(Tm *tm, char *fmt, char *str, Tzone *tz, char **ep)
 	zoned = 0;
 	zparsed = nil;
 	sloppy = 0;
+	c0 = -1;
 	/* Default all fields */
 	tmtime(tm, 0, nil);
 	if(*p == '~'){
