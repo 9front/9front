@@ -300,7 +300,7 @@ compile(char *file, char **defs, int ndef)
 	yyparse();
 	if(!debug['a'] && !debug['Z'])
 		gclean();
-	if(mywait(&status) > 0 && status != 0)
+	if(nerrors == 0 && mywait(&status) > 0 && status != 0)
 		nerrors++;
 	return nerrors;
 }
