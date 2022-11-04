@@ -499,7 +499,7 @@ stringify(Tokenrow *vp)
 			error(ERROR, "Stringified macro arg is too long");
 			break;
 		}
-		if (tp->wslen /* && (tp->flag&XPWS)==0 */)
+		if (tp->wslen && (tp->flag&XPWS)==0)
 			*sp++ = ' ';
 		for (i=0, cp=tp->t; i<tp->len; i++) {	
 			if (instring && (*cp=='"' || *cp=='\\'))
