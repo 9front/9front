@@ -19,7 +19,11 @@ bar \- display a bar
 .I bar
 displays a small window with current battery charge, date and time.
 Additional data may be displayed by writing lines of text to its
-standard input.
+standard input.  Data items should be separated between each other
+with a chosen separator character with spaces on both sides of it.
+The default separator is
+.B │
+(Unicode codepoint 0x2502).
 .PP
 .I Bar
 reacts to mouse clicks by writing the "clicked" portion of the text
