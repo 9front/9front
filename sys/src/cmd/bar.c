@@ -125,8 +125,7 @@ split(char *s)
 static void
 redraw(void)
 {
-	static char s[128];
-	char tmp[128];
+	char s[1024];
 	Rectangle r;
 	Tmfmt tf;
 	Point p;
@@ -161,10 +160,10 @@ redraw(void)
 
 	flushimage(display, 1);
 
-	snprint(tmp, sizeof(tmp), "%τ", tf);
-	twidth = MAX(twidth, stringwidth(f, tmp));
-	snprint(tmp, sizeof(tmp), "%|%s%|%s", bats, bats[0] ? "100%" : "", aux, aux);
-	width = twidth + stringwidth(f, tmp);
+	snprint(s, sizeof(s), "%τ", tf);
+	twidth = MAX(twidth, stringwidth(f, s));
+	snprint(s, sizeof(s), "%|%s%|%s", bats, bats[0] ? "100%" : "", aux, aux);
+	width = twidth + stringwidth(f, s);
 	if(owidth != width)
 		place();
 }
