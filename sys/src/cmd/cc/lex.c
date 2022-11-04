@@ -180,7 +180,7 @@ int
 compile(char *file, char **defs, int ndef)
 {
 	char *ofile, *p, **av;
-	int i, c, fd[2];
+	int i, c, fd[2], status;
 	static int first = 1;
 
 	ofile = strdup(file);
@@ -300,6 +300,8 @@ compile(char *file, char **defs, int ndef)
 	yyparse();
 	if(!debug['a'] && !debug['Z'])
 		gclean();
+	if(mywait(&status) > 0 && status != 0)
+		nerrors++;
 	return nerrors;
 }
 
