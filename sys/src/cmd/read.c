@@ -2,8 +2,7 @@
 #include <libc.h>
 
 int	multi;
-int	nlines;
-vlong	nchars;
+vlong	count;
 char	*status = nil;
 
 int
@@ -50,7 +49,7 @@ lines(int fd, char *file)
 	do{
 		if(line(fd, file) == 0)
 			break;
-	}while(multi || --nlines>0);
+	}while(multi || --count > 0);
 }
 
 void
@@ -60,10 +59,10 @@ chars(int fd, char *file)
 	vlong m;
 	int n;
 
-	for(m = 0; m < nchars; m += n){
+	for(m = 0; m < count; m += n){
 		n = sizeof(buf);
-		if(n > (nchars - m))
-			n = nchars - m;
+		if(n > (count - m))
+			n = count - m;
 		if((n = read(fd, buf, n)) < 0){
 			fprint(2, "read: error reading %s: %r\n", file);
 			exits("read error");
@@ -78,9 +77,45 @@ chars(int fd, char *file)
 }
 
 void
+runes(int fd, char *file)
+{
+	char buf[8*1024], *s, *e;
+	Rune r;
+
+	while(count > 0){
+		e = buf + read(fd, buf, count + UTFmax < sizeof buf ? count : sizeof buf - UTFmax);
+		if(e < buf){
+			fprint(2, "read: error reading %s: %r\n", file);
+			exits("read error");
+		}
+		if(e == buf)
+			break;
+		for(s = buf; s < e && fullrune(s, e - s); s += chartorune(&r, s))
+			count--;
+		if(s < e){
+			while(!fullrune(s, e - s))
+				switch(read(fd, e, 1)){
+				case -1:
+					fprint(2, "read: error reading %s: %r\n", file);
+					exits("read error");
+				case 0:
+					fprint(2, "warning: partial rune at end of %s: %r\n", file);
+					write(1, buf, e - buf);
+					return;
+				case 1:
+					e++;
+					break;
+				}
+			count--;
+		}
+		write(1, buf, e - buf);
+	}
+}
+
+void
 usage(void)
 {
-	fprint(2, "usage: read [-m] [-n nlines] [-c nbytes] [files...]\n");
+	fprint(2, "usage: read [ -m | -n nlines | -c nbytes | -r nrunes ] [ file ... ]\n");
 	exits("usage");
 }
 
@@ -93,11 +128,15 @@ main(int argc, char *argv[])
 	proc = lines;
 	ARGBEGIN{
 	case 'c':
-		nchars = atoll(EARGF(usage()));
+		count = atoll(EARGF(usage()));
 		proc = chars;
 		break;
+	case 'r':
+		count = atoll(EARGF(usage()));
+		proc = runes;
+		break;
 	case 'n':
-		nlines = atoi(EARGF(usage()));
+		count = atoi(EARGF(usage()));
 		break;
 	case 'm':
 		multi = 1;
