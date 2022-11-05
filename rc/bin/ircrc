@@ -32,28 +32,28 @@ fn etime {
 
 fn work {
         if(~ $#serverpass 1)
-                echo PASS $serverpass > $netdir/data
-	echo USER $user foo bar :$realname > $netdir/data
-	echo NICK $nick > $netdir/data
+                echo PASS $serverpass
+	echo USER $user foo bar :$realname
+	echo NICK $nick
 	if (~ $#pass 1)
-		echo PRIVMSG 'nickserv :'identify $"pass > $netdir/data
+		echo PRIVMSG 'nickserv :'identify $"pass
 	if(! ~ $target ''){
 		title
-		echo JOIN $target > $netdir/data
+		echo JOIN $target
 	}
 	if(~ $target *,*)
 		target = `{echo $target | awk -F',' '{print $NF}'}
 	while (cmd=`{read}) {
 		s=$status
 		if(~ $s *eof) {
-			echo  QUIT : Leaving... > $netdir/data
+			echo  QUIT : Leaving...
 			exit
 		}
 		msg=()
 		out=()
 		switch ($cmd(1)) {
 		case /!
-			eval `{mshift $cmd} | while(rc=`{read})echo 'PRIVMSG '^$target^' :' $rc | tee $netdir/data
+			eval `{mshift $cmd} | while(rc=`{read})echo 'PRIVMSG '^$target^' :' $rc | tee /dev/cons
 		case /M
 			msg = (MODE `{mshift $cmd})
 		case /N
@@ -101,18 +101,18 @@ fn work {
 		case /w
 			msg = (WHO `{mshift $cmd})
 		case /x
-			echo  QUIT : Leaving... > $netdir/data
+			echo  QUIT : Leaving...
 			exit
 		case /*
-			echo unknown command
+			echo unknown command >/dev/cons
 		case *
 			msg = 'PRIVMSG '^$target^' :'^$"cmd
 			out = '('^$target^')	⇐	'^$"cmd
 		}
 		if (! ~ $#msg 0)
-			echo $msg > $netdir/data
+			echo $msg
 		if (! ~ $#out 0)
-			echo `{etime}^' '^$out
+			echo `{etime}^' '^$out >/dev/cons
 	}
 }
 
@@ -248,6 +248,6 @@ if not {
 	tlsclient tcp!$server!$port <>$p/data1 >[1=0] &
 }
 netdir=$p
-cat $netdir/data | tr -d '\x2\x8\xd\x1f' | pretty &
-work
+<$netdir/data tr -d '\x2\x8\xd\x1f' | pretty &
+>$netdir/data work
 
