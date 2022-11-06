@@ -39,6 +39,7 @@ struct Fbuf {
 	int	lastfuzz;
 	char	*buf;
 	int	len;
+	int	mode;
 };
 
 struct Fchg {
@@ -389,7 +390,7 @@ mkpath(char *path)
 }
 
 void
-blat(char *old, char *new, char *o, usize len)
+blat(char *old, char *new, char *o, usize len, int mode)
 {
 	char *tmp;
 	int fd;
@@ -403,7 +404,7 @@ blat(char *old, char *new, char *o, usize len)
 			sysfatal("mkpath %s: %r", new);
 		if((tmp = smprint("%s.tmp%d", new, getpid())) == nil)
 			sysfatal("smprint: %r");
-		if((fd = create(tmp, OWRITE, 0666)) == -1)
+		if((fd = create(tmp, OWRITE, mode|0200)) == -1)
 			sysfatal("open %s: %r", tmp);
 		if(write(fd, o, len) != len)
 			sysfatal("write %s: %r", tmp);
@@ -466,9 +467,12 @@ slurp(Fbuf *f, char *path)
 	int n, i, fd, sz, len, nlines, linesz;
 	char *buf;
 	int *lines;
+	Dir *d;
 
 	if((fd = open(path, OREAD)) == -1)
 		sysfatal("open %s: %r", path);
+	if((d = dirfstat(fd)) == nil)
+		sysfatal("stat %s: %r", path);
 	sz = 8192;
 	len = 0;
 	buf = emalloc(sz);
@@ -505,6 +509,9 @@ slurp(Fbuf *f, char *path)
 	f->nlines = nlines;
 	f->lastln = 0;
 	f->lastfuzz = 0;
+	f->mode = d->mode;
+	free(d);
+	close(fd);
 }
 
 char*
@@ -587,7 +594,7 @@ apply(Patch *p, char *fname)
 			if(curfile != nil){
 				if(!dryrun)
 					o = append(o, &osz, e, f.buf + f.len);
-				blat(prevh->oldpath, prevh->newpath, o, osz);
+				blat(prevh->oldpath, prevh->newpath, o, osz, f.mode);
 				osz = 0;
 			}
 			if(!dryrun){
@@ -608,7 +615,7 @@ apply(Patch *p, char *fname)
 	if(curfile != nil){
 		if(!dryrun)
 			o = append(o, &osz, e, f.buf + f.len);
-		blat(h->oldpath, h->newpath, o, osz);
+		blat(h->oldpath, h->newpath, o, osz, f.mode);
 	}
 	free(o);
 	return 0;
