@@ -812,6 +812,14 @@ printdate(Biobuf *b)
 int
 printfrom(Biobuf *b)
 {
+	char *s;
+	int n;
+
+	if((n = strlen(user)) > 4 && user[n-1] == '>'){
+		if((s = strrchr(user, '<')) != nil && s != user && isspace(s[-1]))
+			return Bprint(b, "From: %.*U%s\n", (int)(s-user-1), user, s-1);
+	}
+
 	return Bprint(b, "From: %s\n", user);
 }
 
@@ -1766,19 +1774,20 @@ doublequote(Fmt *f)
 int
 rfc2047fmt(Fmt *fmt)
 {
-	char *s, *p;
+	char *s, *p, *e;
 
 	s = va_arg(fmt->args, char*);
 	if(s == nil)
 		return fmtstrcpy(fmt, "");
-	for(p=s; *p; p++)
+	e = s + ((fmt->flags & FmtPrec) ? fmt->prec : strlen(s));
+	for(p=s; *p && p != e; p++)
 		if((uchar)*p >= 0x80)
 			goto hard;
-	return fmtstrcpy(fmt, s);
+	return fmtprint(fmt, "%.*s", (int)(e-s), s);
 
 hard:
 	fmtprint(fmt, "=?utf-8?q?");
-	for(p = s; *p; p++){
+	for(p = s; *p && p != e; p++){
 		if(*p == ' ')
 			fmtrune(fmt, '_');
 		else if(*p == '_' || *p == '\t' || *p == '=' || *p == '?' ||
