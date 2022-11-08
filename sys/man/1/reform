@@ -110,7 +110,7 @@ Returns attached battery array statistics in the same manner as
 Exposes the current temperature reading of the CPU.
 .TP
 .B kbdoled
-An uncompressed Plan 9image can be written to the file to display on
+An uncompressed Plan 9 image can be written to the file to display on
 the keyboard OLED.  Zero-length write clears the display.
 .TP
 .B light
