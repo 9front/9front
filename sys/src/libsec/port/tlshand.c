@@ -68,6 +68,7 @@ struct TlsSec {
 	uchar sec[MasterSecretSize];	// master secret
 	uchar srandom[RandomSize];	// server random
 	uchar crandom[RandomSize];	// client random
+	int reneg;			// secure renegotiation flag
 
 	Namedcurve *nc; // selected curve for ECDHE
 	// diffie hellman state
@@ -251,6 +252,7 @@ enum {
 	TLS_PSK_WITH_AES_128_CBC_SHA		= 0x008C,
 
 	TLS_FALLBACK_SCSV = 0x5600,
+	TLS_EMPTY_RENEGOTIATION_INFO_SCSV = 0x00FF,
 };
 
 // compression methods
@@ -271,6 +273,7 @@ enum {
 	Extec = 0x000a,
 	Extecp = 0x000b,
 	Extsigalgs = 0x000d,
+	Extreneg = 0xff01,
 };
 
 static Algs cipherAlgs[] = {
@@ -670,6 +673,16 @@ checkClientExtensions(TlsConnection *c, Bytes *ext)
 						break;
 					}
 			break;
+		case Extreneg:
+			if(n < 1 || *p != (n -= 1))
+				goto Short;
+			if(*p != 0){
+				tlsError(c, EHandshakeFailure, "invalid renegotiation extension");
+				return -1;
+			}
+			c->sec->reneg = 1;
+			p++;
+
 		}
 	}
 
@@ -679,13 +692,37 @@ Short:
 	return -1; 
 } 
 
+static uchar*
+tlsServerExtensions(TlsConnection *c, int *plen)
+{
+	uchar *b, *p;
+	int m;
+
+	p = b = nil;
+
+	// RFC5746 - Renegotiation Indication
+	if(c->sec->reneg){
+		m = p - b;
+		b = erealloc(b, m + 2+2+1);
+		p = b + m;
+
+		put16(p, Extreneg), p += 2;	/* Type: renegotiation_info */
+		put16(p, 1), p += 2;		/* Length */
+		*p++ = 0;			/* Renegotiated Connection Length */
+	}
+
+	*plen = p - b;
+	return b;
+}
+
 static TlsConnection *
 tlsServer2(int ctl, int hand,
 	uchar *cert, int certlen,
 	char *pskid, uchar *psk, int psklen,
 	int (*trace)(char*fmt, ...), PEMChain *chp)
 {
-	int cipher, compressor, numcerts, i;
+	int cipher, compressor, numcerts, i, extlen;
+	uchar *ext;
 	TlsConnection *c;
 	Msg m;
 
@@ -741,6 +778,8 @@ tlsServer2(int ctl, int hand,
 			goto Err;
 		}
 	}
+	if(lookupid(m.u.clientHello.ciphers, TLS_EMPTY_RENEGOTIATION_INFO_SCSV) >= 0)
+		c->sec->reneg = 1;
 	if(checkClientExtensions(c, m.u.clientHello.extensions) < 0)
 		goto Err;
 	cipher = okCipher(m.u.clientHello.ciphers, psklen > 0, c->sec->nc != nil);
@@ -763,6 +802,9 @@ tlsServer2(int ctl, int hand,
 	m.u.serverHello.cipher = cipher;
 	m.u.serverHello.compressor = compressor;
 	m.u.serverHello.sid = makebytes(nil, 0);
+	ext = tlsServerExtensions(c, &extlen);
+	m.u.serverHello.extensions = makebytes(ext, extlen);
+	free(ext);
 	if(!msgSend(c, &m, AQueue))
 		goto Err;
 
@@ -2273,6 +2315,7 @@ makeciphers(int ispsk)
 	for(i = 0; i < nelem(cipherAlgs); i++)
 		if(cipherAlgs[i].ok && isPSK(cipherAlgs[i].tlsid) == ispsk)
 			is->data[j++] = cipherAlgs[i].tlsid;
+	is->data[j++] = TLS_EMPTY_RENEGOTIATION_INFO_SCSV;
 	is->len = j;
 	return is;
 }
