@@ -101,9 +101,6 @@ fsclone(Fid *old, Fid *new, void*)
 
 	s = old->aux;
 	s2 = emalloc9p(sizeof *s2);
-	if(s2 == nil)
-		return "out of memory";
-	memset(s2, 0, sizeof *s2);
 
 	s2->mode = s->mode;
 	utfecpy(s2->name, &s2->name[sizeof s2->name-1], s->name);
