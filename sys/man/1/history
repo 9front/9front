@@ -82,8 +82,7 @@ history /usr/ches/tmp
 .SH FILES
 .B /n/dump
 .SH SOURCE
-.B /sys/src/cmd/history.c
+.B /rc/bin/history
 .SH SEE ALSO
-.IR fs (4)
-.br
+.IR fs (4) ,
 .IR yesterday (1)
