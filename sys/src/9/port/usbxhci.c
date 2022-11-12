@@ -481,7 +481,10 @@ init(Hci *hp)
 		tsleep(&up->sleep, return0, nil, 10);
 
 	ctlr->opr[USBCMD] = HCRST;
+	/* some intel controllers require 1ms delay after reset */
 	delay(1);
+	for(i=0; (ctlr->opr[USBCMD] & HCRST) != 0 && i<100; i++)
+		tsleep(&up->sleep, return0, nil, 10);
 	for(i=0; (ctlr->opr[USBSTS] & (CNR|HCH)) != HCH && i<100; i++)
 		tsleep(&up->sleep, return0, nil, 10);
 
