@@ -816,10 +816,10 @@ installcmds(void)
 	cmd_install("who", "[user ...] -- print attaches", cmd_who);
 	cmd_install("hangup", "chan -- clunk files", cmd_hangup);
 	cmd_install("printconf", "-- print configuration", cmd_printconf);
-	cmd_install("noauth", "toggle noauth flag", cmd_noauth);
-	cmd_install("nonone", "toggle nonone flag", cmd_nonone);
-	cmd_install("noattach", "toggle noattach flag", cmd_noattach);
-	cmd_install("files", "report on files structure", cmd_files);
+	cmd_install("noauth", "-- toggle noauth flag", cmd_noauth);
+	cmd_install("nonone", "-- toggle nonone flag", cmd_nonone);
+	cmd_install("noattach", "-- toggle noattach flag", cmd_noattach);
+	cmd_install("files", "-- report on files structure", cmd_files);
 
 	chatflag = flag_install("chat", "-- verbose");
 	errorflag = flag_install("error", "-- on errors");
