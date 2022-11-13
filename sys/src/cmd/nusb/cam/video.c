@@ -213,7 +213,7 @@ selbw(Cam *c, ProbeControl *pc, Ep *ep)
 		if(ep->iface->id != c->iface->id)
 			continue;
 		bw1 = ep->maxpkt * ep->ntds * 8 * 1000 * 8;
-		if(bw1 >= bw) {
+		if(bw1 >= bw && GET4(c->pc.dwMaxPayloadTransferSize) <= ep->maxpkt*ep->ntds) {
 			if(mink == nil || bw1 < minbw){
 				mink = ep;
 				minbw = bw1;
