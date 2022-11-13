@@ -63,38 +63,34 @@ void
 yuy2convert(Format *, VSUncompressedFrame *g, uchar *in, VFrame *out)
 {
 	int y, x, w, h;
-	double Y0, Y1, U, V, R, G, B;
-	uchar *ip, *op;
-	
+	int R₀, G₀, B₀, R₁, G₁, B₁;
+	int Cb, Cr, z, Y₀, Y₁;
+	uchar *op;
+
 	w = GET2(g->wWidth);
 	h = GET2(g->wHeight);
 	op = out->d + out->n;
-	ip = in;
 	for(y = 0; y < h; y++)
-		for(x = 0; x < w; x += 2){
-			Y0 = ((int)ip[0] - 16) / 219.0;
-			Y1 = ((int)ip[2] - 16) / 219.0;
-			U = ((int)ip[1] - 128) / 224.0;
-			V = ((int)ip[3] - 128) / 224.0;
-			ip += 4;
-			R = Y0 + V;
-			B = Y0 + U;
-			G = Y0 - 0.509 * V - 0.194 * U;
-			if(R < 0) R = 0; if(R > 1) R = 1;
-			if(G < 0) G = 0; if(G > 1) G = 1;
-			if(B < 0) B = 0; if(B > 1) B = 1;
-			*op++ = R * 255;
-			*op++ = G * 255;
-			*op++ = B * 255;
-			R = Y1 + V;
-			B = Y1 + U;
-			G = Y1 - 0.509 * V - 0.194 * U;
-			if(R < 0) R = 0; if(R > 1) R = 1;
-			if(G < 0) G = 0; if(G > 1) G = 1;
-			if(B < 0) B = 0; if(B > 1) B = 1;
-			*op++ = R * 255;
-			*op++ = G * 255;
-			*op++ = B * 255;
+		for(x = 0; x < w; x += 2, in += 4){
+			Y₀ = in[0] * 0x10101;
+			Cb = in[1] - 0x80;
+			Y₁ = in[2] * 0x10101;
+			Cr = in[3] - 0x80;
+			z = 22554*Cb + 46802*Cr;
+			Cb *= 116130;
+			Cr *= 91881;
+			R₀ = Y₀ + Cr;
+			G₀ = Y₀ - z;
+			B₀ = Y₀ + Cb;
+			R₁ = Y₁ + Cr;
+			G₁ = Y₁ - z;
+			B₁ = Y₁ + Cb;
+			*op++ = (R₀>>24) ? ~(R₀>>31) : (R₀>>16);
+			*op++ = (G₀>>24) ? ~(G₀>>31) : (G₀>>16);
+			*op++ = (B₀>>24) ? ~(B₀>>31) : (B₀>>16);
+			*op++ = (R₁>>24) ? ~(R₁>>31) : (R₁>>16);
+			*op++ = (G₁>>24) ? ~(G₁>>31) : (G₁>>16);
+			*op++ = (B₁>>24) ? ~(B₁>>31) : (B₁>>16);
 		}
 	out->n = op - out->d;
 }
