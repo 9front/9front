@@ -12,22 +12,6 @@
 
 char user[] = "cam";
 
-void printVCHeader(void *vp);
-void printVCInputTerminal(void *vp);
-void printVCOutputTerminal(void *vp);
-void printVCCameraTerminal(void *vp);
-void printVCSelectorUnit(void *vp);
-void printVCProcessingUnit(void *vp);
-void printVCEncodingUnit(void *vp);
-void printVCExtensionUnit(void *vp);
-void printVSInputHeader(void *vp);
-void printVSOutputHeader(void *vp);
-void printVSStillFrame(void *vp);
-void printVSUncompressedFormat(void *vp);
-void printVSUncompressedFrame(void *vp);
-void printVSColorFormat(void *vp);
-void printProbeControl(void *vp);
-
 Cam *cams;
 int nunit;
 VCUnit **unit;
@@ -188,6 +172,7 @@ descread(Cam *c)
 		if(Class(d->iface->csp) != CC_VIDEO) continue;
 		printDescriptor(&fmt, d->iface, vdp);
 	}
+	printProbeControl(&fmt, &c->pc);
 	return fmtstrflush(&fmt);
 }
 

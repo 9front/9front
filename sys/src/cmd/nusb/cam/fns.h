@@ -1,4 +1,5 @@
 char *ctlread(Cam *);
+void printProbeControl(Fmt *fmt, void *vp);
 void printDescriptor(Fmt *, Iface *, void *);
 int videoopen(Cam *, int);
 void videoclose(Cam *);
