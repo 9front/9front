@@ -161,10 +161,8 @@ cvtproc(void *v)
 		rc = read(c->ep->dfd, buf, sizeof(buf));
 		if(c->abort || rc < 0) break;
 		if(rc == 0) continue;
-		if(((ob ^ buf[1]) & 1) != 0 && bufn != 0){
-			if(!c->framemode || bufn == frsz){
-				if(bufn < frsz)
-					memset(fbuf + bufn, 0, frsz - bufn);
+		if((ob ^ buf[1]) & 1){
+			if(bufn == frsz){
 				of = grabframe(c);
 				cvt->fn(f, g, fbuf, of);
 				pushframe(c, of);
