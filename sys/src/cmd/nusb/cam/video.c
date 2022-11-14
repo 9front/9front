@@ -298,6 +298,7 @@ videoclose(Cam *c)
 	if(c->active == 0 || c->abort)
 		return;
 	c->abort = -1;
+	threadint(c->cvtid);
 }
 
 void
