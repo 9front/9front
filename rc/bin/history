@@ -6,7 +6,7 @@ nl='
 
 fn prfile {
 	echo -n `{date $flagu -f 'MMM DD hh:mm:ss ZZZ YYYY' `{walk -e m $1}}
-	walk -e psM $1 | awk '{printf " %s %lld [%s]\n", $1,$2,$3,$4}'
+	walk -e psM $1 | awk '{$NF="["$NF"]"; print " "$0}'
 }
 
 fn diffflags {
@@ -31,12 +31,12 @@ fn ysearch {
 		echo history: warning: $file does not exist >[1=2]
 
 	old=()
-	ls -qr /n/$dump/*/*/$file >[2] /dev/null |
+	ls -Qqr /n/$dump/*/*/$file >[2] /dev/null |
 	sed  's/\(([^ ]*) *([^ ]*) *([^ ]*)\)/\1\2\3/p' |
 	awk '"/n/'$dump/$since'" <= $2 {next}
 	     $1 != qid {
 		qid=$1
-		gsub($1, "")
+		gsub($1"[ \t]+", "")
 		print}' |
 	while(new=`$nl{read}){
 		prfile $new
