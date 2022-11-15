@@ -64,12 +64,12 @@ multibootargs(void)
 				(1UL<<p[3])-1 << p[2],
 				(1UL<<p[5])-1 << p[4]);
 			}
-			cp = seprint(cp, ep, "*bootscreen=%dx%dx%d %s %#lux\n",
+			cp = seprint(cp, ep, "*bootscreen=%dx%dx%d %s %#llux\n",
 				(int)multiboot[24]*8 / depth,
 				(int)multiboot[26],
 				depth,
 				chan,
-				multiboot[22]);
+				(uvlong)multiboot[23]<<32 | multiboot[22]);
 		}
 	} else
 	if((multiboot[0] & (1<<11)) != 0 && multiboot[19] != 0)		/* vbe mode info */
