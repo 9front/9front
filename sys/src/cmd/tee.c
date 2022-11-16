@@ -9,7 +9,6 @@ enum {
 	FDSTART = 3,
 };
 
-int	uflag;
 int	aflag;
 
 char in[8192];
@@ -32,7 +31,6 @@ main(int argc, char **argv)
 		break;
 
 	case 'u':
-		uflag++;
 		/* uflag is ignored and undocumented; it's a relic from Unix */
 		break;
 
