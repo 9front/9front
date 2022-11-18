@@ -5,6 +5,17 @@
 #include <9p.h>
 #include "usb.h"
 
+enum {
+	Rgetcur	= 0x81,
+	Rgetmin	= 0x82,
+	Rgetmax	= 0x83,
+	Rgetres	= 0x84,
+	Rsetcur	= 0x01,
+	Rsetmin	= 0x02,
+	Rsetmax	= 0x03,
+	Rsetres	= 0x04,
+};
+
 typedef struct Range Range;
 struct Range
 {
