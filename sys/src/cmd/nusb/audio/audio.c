@@ -231,30 +231,36 @@ main(int argc, char *argv[])
 		parsedescr(d->usb->ddesc[i]);
 	for(i = 0; i < nelem(d->usb->ep); i++){
 		e = d->usb->ep[i];
-		if(e != nil && e->type == Eiso && e->iface->csp == CSP(Claudio, 2, 0)){
-			switch(e->dir){
-			case Ein:
-				if(audioepin != nil)
-					continue;
-				audioepin = e;
+		if(e == nil || e->type != Eiso || e->iface->csp != CSP(Claudio, 2, 0))
+			continue;
+		for(; e != nil; e = e->next){
+			if((e->attrib>>4 & 3) == Edata)
 				break;
-			case Eout:
-				if(audioepout != nil)
-					continue;
-				audioepout = e;
-				break;
-			}
-			if((ed = setupep(audiodev, e, audiofreq)) == nil){
-				fprint(2, "setupep: %r\n");
-
-				if(e == audioepin)
-					audioepin = nil;
-				if(e == audioepout)
-					audioepout = nil;
-				continue;
-			}
-			closedev(ed);
 		}
+		if(e == nil)
+			continue;
+		switch(e->dir){
+		case Ein:
+			if(audioepin != nil)
+				continue;
+			audioepin = e;
+			break;
+		case Eout:
+			if(audioepout != nil)
+				continue;
+			audioepout = e;
+			break;
+		}
+		if((ed = setupep(audiodev, e, audiofreq)) == nil){
+			fprint(2, "setupep: %r\n");
+
+			if(e == audioepin)
+				audioepin = nil;
+			if(e == audioepout)
+				audioepout = nil;
+			continue;
+		}
+		closedev(ed);
 	}
 	if(audioepout == nil)
 		sysfatal("no endpoints found");

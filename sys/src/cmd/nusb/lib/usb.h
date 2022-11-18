@@ -100,6 +100,11 @@ enum {
 	Ebulk = 2,
 	Eintr = 3,
 
+	/* endpoint isousage */
+	Edata = 0,
+	Efeedback = 1,
+	Eimplicit = 2,
+
 	/* config attrib */
 	Cbuspowered = 1<<7,
 	Cselfpowered = 1<<6,
