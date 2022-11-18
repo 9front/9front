@@ -6,14 +6,17 @@
 #include "usb.h"
 
 enum {
-	Rgetcur	= 0x81,
-	Rgetmin	= 0x82,
-	Rgetmax	= 0x83,
-	Rgetres	= 0x84,
+	Paudio1 = 0x00,
+	Paudio2 = 0x20,
+
+	Csamfreq = 0x01,
+
+	/* audio 1 */
 	Rsetcur	= 0x01,
-	Rsetmin	= 0x02,
-	Rsetmax	= 0x03,
-	Rsetres	= 0x04,
+
+	/* audio 2 */
+	Rcur = 0x01,
+	Rrange = 0x02,
 };
 
 typedef struct Range Range;
@@ -31,9 +34,15 @@ struct Aconf
 	int	bps;	/* subslot size (bytes per sample) */
 	int	format;
 	int	channels;
-	int	controls;
+	int	terminal;
 	Range	*freq;
 	int	nfreq;
+
+	/* audio 1 */
+	int	controls;
+
+	/* audio 2 */
+	int	clock;
 };
 
 int audiodelay = 1764;	/* 40 ms */
@@ -65,6 +74,24 @@ findiface(Conf *conf, int class, int subclass, int id)
 }
 
 Desc*
+findiad(Usbdev *u, int id, int csp)
+{
+	int i;
+	Desc *dd;
+	uchar *b;
+
+	for(i = 0; i < nelem(u->ddesc); i++){
+		dd = u->ddesc[i];
+		if(dd == nil || dd->data.bDescriptorType != 11 || dd->data.bLength != 8)
+			continue;
+		b = dd->data.bbytes;
+		if(b[0] == id && b[0]+b[1] <= Niface && csp == CSP(b[2], b[3], b[4]))
+			return dd;
+	}
+	return nil;
+}
+
+Desc*
 findacheader(Usbdev *u, Iface *ac)
 {
 	Desc *dd;
@@ -78,14 +105,70 @@ findacheader(Usbdev *u, Iface *ac)
 		if(dd->data.bLength < 8 || dd->data.bbytes[0] != 1)
 			continue;
 		b = dd->data.bbytes;
-		if(dd->data.bLength == 8+b[5])
+		switch(Proto(ac->csp)){
+		case Paudio1:
+			if(dd->data.bLength == 8+b[5])
+				return dd;
+			break;
+		case Paudio2:
+			if(dd->data.bLength == 9)
+				return dd;
+			break;
+		}
+	}
+	return nil;
+}
+
+Desc*
+findterminal(Usbdev *u, Iface *ac, int id)
+{
+	Desc *dd;
+	uchar *b;
+	int i;
+
+	for(i = 0; i < nelem(u->ddesc); i++){
+		dd = u->ddesc[i];
+		if(dd == nil || dd->iface != ac)
+			continue;
+		if(dd->data.bDescriptorType != 0x24 || dd->data.bLength < 4)
+			continue;
+		b = dd->data.bbytes;
+		if(b[1] != id)
+			continue;
+		/* check descriptor length according to type and proto */
+		switch(b[0]<<16 | dd->data.bLength<<8 | Proto(ac->csp)){
+		case 0x020C00|Paudio1:
+		case 0x030900|Paudio1:
+		case 0x021100|Paudio2:
+		case 0x030c00|Paudio2:
+			return dd;
+		}
+	}
+	return nil;
+}
+
+Desc*
+findclocksource(Usbdev *u, Iface *ac, int id)
+{
+	Desc *dd;
+	uchar *b;
+	int i;
+
+	for(i = 0; i < nelem(u->ddesc); i++){
+		dd = u->ddesc[i];
+		if(dd == nil || dd->iface != ac)
+			continue;
+		if(dd->data.bDescriptorType != 0x24 || dd->data.bLength != 8)
+			continue;
+		b = dd->data.bbytes;
+		if(b[0] == 0x0A && b[1] == id)
 			return dd;
 	}
 	return nil;
 }
 
 void
-parseasdesc(Desc *dd, Aconf *c)
+parseasdesc1(Desc *dd, Aconf *c)
 {
 	uchar *b;
 	Range *f;
@@ -101,6 +184,7 @@ parseasdesc(Desc *dd, Aconf *c)
 	case 0x2401:	/* CS_INTERFACE, AS_GENERAL */
 		if(dd->data.bLength != 7)
 			return;
+		c->terminal = b[1];
 		c->format = GET2(&b[3]);
 		break;
 
@@ -129,12 +213,82 @@ parseasdesc(Desc *dd, Aconf *c)
 }
 
 void
-parsestream(Dev *d, int id)
+parseasdesc2(Desc *dd, Aconf *c)
+{
+	uchar *b;
+
+	b = dd->data.bbytes;
+	switch(dd->data.bDescriptorType<<8 | b[0]){
+	case 0x2401:	/* CS_INTERFACE, AS_GENERAL */
+		if(dd->data.bLength != 16 || b[3] != 1)
+			return;
+		c->terminal = b[1];
+		c->format = GET4(&b[4]);
+		c->channels = b[8];
+		break;
+
+	case 0x2402:	/* CS_INTERFACE, FORMAT_TYPE */
+		if(dd->data.bLength != 6 || b[1] != 1)
+			return;
+		c->bps = b[2];
+		c->bits = b[3];
+		break;
+	}
+}
+
+int
+setclock(Dev *d, Iface *ac, Aconf *c, int speed)
+{
+	uchar b[4];
+	int index;
+
+	switch(Proto(ac->csp)){
+	case Paudio1:
+		if((c->controls & 1) == 0)
+			break;
+		b[0] = speed;
+		b[1] = speed >> 8;
+		b[2] = speed >> 16;
+		index = c->ep->id & Epmax;
+		if(c->ep->dir == Ein)
+			index |= 0x80;
+		return usbcmd(d, Rh2d|Rclass|Rep, Rsetcur, Csamfreq<<8, index, b, 3);
+	case Paudio2:
+		PUT4(b, speed);
+		index = c->clock<<8 | ac->id;
+		return usbcmd(d, Rh2d|Rclass|Riface, Rcur, Csamfreq<<8, index, b, 4);
+	}
+	return 0;
+}
+
+int
+getclockrange(Dev *d, Iface *ac, Aconf *c)
+{
+	uchar b[2 + 32*12];
+	int i, n, rc;
+
+	rc = usbcmd(d, Rd2h|Rclass|Riface, Rrange, Csamfreq<<8, c->clock<<8 | ac->id, b, sizeof(b));
+	if(rc < 0)
+		return -1;
+	if(rc < 2 || rc < 2 + (n = GET2(b))*12){
+		werrstr("invalid response");
+		return -1;
+	}
+	c->freq = emallocz(n, sizeof(Range));
+	c->nfreq = n;
+	for(i = 0; i < n; i++)
+		c->freq[i] = (Range){GET4(&b[2 + i*12]), GET4(&b[6 + i*12])};
+	return 0;
+}
+
+void
+parsestream(Dev *d, Iface *ac, int id)
 {
 	Iface *as;
 	Desc *dd;
 	Ep *e;
 	Aconf *c;
+	uchar *b;
 	int i;
 
 	/* find AS interface */
@@ -154,6 +308,7 @@ parsestream(Dev *d, int id)
 			}
 		}
 		if(c->ep == nil){
+		Skip:
 			free(c);
 			as->aux = nil;
 			continue;
@@ -164,13 +319,48 @@ parsestream(Dev *d, int id)
 			dd = d->usb->ddesc[i];
 			if(dd == nil || dd->iface != as)
 				continue;
-			parseasdesc(dd, c);
+			switch(Proto(ac->csp)){
+			case Paudio1:
+				parseasdesc1(dd, c);
+				break;
+			case Paudio2:
+				parseasdesc2(dd, c);
+				break;
+			}
+		}
+
+		if(Proto(ac->csp) == Paudio1)
+			continue;
+
+		dd = findterminal(d->usb, ac, c->terminal);
+		if(dd == nil)
+			goto Skip;
+		b = dd->data.bbytes;
+		switch(b[0]){
+		case 0x02:	/* INPUT_TERMINAL */
+			c->clock = b[5];
+			break;
+		case 0x03:	/* OUTPUT_TERMINAL */
+			c->clock = b[6];
+			break;
+		}
+
+		dd = findclocksource(d->usb, ac, c->clock);
+		if(dd == nil)
+			goto Skip;
+		b = dd->data.bbytes;
+		/* check that clock has rw frequency control */
+		if((b[3] & 3) != 3)
+			goto Skip;
+		if(getclockrange(d, ac, c) != 0){
+			fprint(2, "getclockrange %d: %r", c->clock);
+			goto Skip;
 		}
 	}
 }
 
 Dev*
-setupep(Dev *d, Ep *e, int speed)
+setupep(Dev *d, Iface *ac, Ep *e, int speed)
 {
 	int dir = e->dir;
 	Aconf *c;
@@ -192,15 +382,9 @@ setupep(Dev *d, Ep *e, int speed)
 Foundaltc:
 	if(setalt(d, e->iface) < 0)
 		return nil;
-
-	if(c->controls & 1){
-		uchar b[4];
-
-		b[0] = speed;
-		b[1] = speed >> 8;
-		b[2] = speed >> 16;
-		if(usbcmd(d, Rh2d|Rclass|Rep, Rsetcur, 0x100, (e->dir==Ein?0x80:0)|(e->id&Epmax), b, 3) < 0)
-			fprint(2, "warning: set freq: %r\n");
+	if(setclock(d, ac, c, speed) < 0){
+		werrstr("setclock: %r");
+		return nil;
 	}
 
 	if((d = openep(d, e)) == nil){
@@ -246,13 +430,13 @@ fswrite(Req *r)
 
 		speed = atoi(f[1]);
 Setup:
-		if((d = setupep(audiodev, audioepout, speed)) == nil){
+		if((d = setupep(audiodev, audiocontrol, audioepout, speed)) == nil){
 			responderror(r);
 			return;
 		}
 		closedev(d);
 		if(audioepin != nil)
-			if(d = setupep(audiodev, audioepin, speed))
+			if(d = setupep(audiodev, audiocontrol, audioepin, speed))
 				closedev(d);
 		audiofreq = speed;
 	} else if(strcmp(f[0], "delay") == 0){
@@ -286,6 +470,7 @@ main(int argc, char *argv[])
 	Iface *ac;
 	Aconf *c;
 	Ep *e;
+	uchar *b;
 	int i;
 
 	ARGBEGIN {
@@ -310,11 +495,24 @@ main(int argc, char *argv[])
 		sysfatal("no audio control interface");
 	audiocontrol = ac;
 
-	dd = findacheader(d->usb, ac);
-	if(dd == nil)
-		sysfatal("no audio control header");
-	for(i = 6; i < dd->data.bLength-2; i++)
-		parsestream(d, dd->data.bbytes[i]);
+	switch(Proto(ac->csp)){
+	case Paudio1:
+		dd = findacheader(d->usb, ac);
+		if(dd == nil)
+			sysfatal("no audio control header");
+		b = dd->data.bbytes;
+		for(i = 6; i < dd->data.bLength-2; i++)
+			parsestream(d, ac, b[i]);
+		break;
+	case Paudio2:
+		dd = findiad(d->usb, ac->id, CSP(Claudio, 0, Paudio2));
+		if(dd == nil)
+			sysfatal("no audio function");
+		b = dd->data.bbytes;
+		for(i = b[0]+1; i < b[0]+b[1]; i++)
+			parsestream(d, ac, i);
+		break;
+	}
 
 	for(i = 0; i < nelem(d->usb->ep); i++){
 		for(e = d->usb->ep[i]; e != nil; e = e->next){
@@ -336,7 +534,7 @@ main(int argc, char *argv[])
 			audioepout = e;
 			break;
 		}
-		if((ed = setupep(audiodev, e, audiofreq)) == nil){
+		if((ed = setupep(d, ac, e, audiofreq)) == nil){
 			fprint(2, "setupep: %r\n");
 
 			if(e == audioepin)
