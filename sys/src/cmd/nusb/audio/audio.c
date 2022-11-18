@@ -19,16 +19,21 @@ enum {
 typedef struct Range Range;
 struct Range
 {
-	Range	*next;
-	int	min;
-	int	max;
+	uint	min;
+	uint	max;
 };
 
 typedef struct Aconf Aconf;
 struct Aconf
 {
+	Ep	*ep;
+	int	bits;
+	int	bps;	/* subslot size (bytes per sample) */
+	int	format;
+	int	channels;
+	int	controls;
 	Range	*freq;
-	int	caps;
+	int	nfreq;
 };
 
 int audiodelay = 1764;	/* 40 ms */
@@ -39,59 +44,128 @@ int audiores = 16;
 char user[] = "audio";
 
 Dev *audiodev = nil;
-
+Iface *audiocontrol = nil;
 Ep *audioepin = nil;
 Ep *audioepout = nil;
 
-void
-parsedescr(Desc *dd)
+Iface*
+findiface(Conf *conf, int class, int subclass, int id)
 {
-	Aconf *c;
-	Range *f;
+	int i;
+	Iface *iface;
+
+	for(i = 0; i < nelem(conf->iface); i++){
+		iface = conf->iface[i];
+		if(iface == nil || Class(iface->csp) != class || Subclass(iface->csp) != subclass)
+			continue;
+		if(id == -1 || iface->id == id)
+			return iface;
+	}
+	return nil;
+}
+
+Desc*
+findacheader(Usbdev *u, Iface *ac)
+{
+	Desc *dd;
 	uchar *b;
 	int i;
 
-	if(dd == nil || dd->iface == nil)
-		return;
-	if(Subclass(dd->iface->csp) != 2)
-		return;
-
-	c = dd->iface->aux;
-	if(c == nil){
-		c = mallocz(sizeof(*c), 1);
-		dd->iface->aux = c;
+	for(i = 0; i < nelem(u->ddesc); i++){
+		dd = u->ddesc[i];
+		if(dd == nil || dd->iface != ac || dd->data.bDescriptorType != 0x24)
+			continue;
+		if(dd->data.bLength < 8 || dd->data.bbytes[0] != 1)
+			continue;
+		b = dd->data.bbytes;
+		if(dd->data.bLength == 8+b[5])
+			return dd;
 	}
+	return nil;
+}
 
-	b = (uchar*)&dd->data;
-	switch(b[1]<<8 | b[2]){
+void
+parseasdesc(Desc *dd, Aconf *c)
+{
+	uchar *b;
+	Range *f;
+
+	b = dd->data.bbytes;
+	switch(dd->data.bDescriptorType<<8 | b[0]){
 	case 0x2501:	/* CS_ENDPOINT, EP_GENERAL */
-		c->caps |= b[3];
+		if(dd->data.bLength != 7)
+			return;
+		c->controls = b[1];
+		break;
+
+	case 0x2401:	/* CS_INTERFACE, AS_GENERAL */
+		if(dd->data.bLength != 7)
+			return;
+		c->format = GET2(&b[3]);
 		break;
 
 	case 0x2402:	/* CS_INTERFACE, FORMAT_TYPE */
-		if(b[4] != audiochan)
-			break;
-		if(b[6] != audiores)
-			break;
-
-		if(b[7] == 0){
-			f = mallocz(sizeof(*f), 1);
-			f->min = b[8] | b[9]<<8 | b[10]<<16;
-			f->max = b[11] | b[12]<<8 | b[13]<<16;
-
-			f->next = c->freq;
-			c->freq = f;
-		} else {
-			for(i=0; i<b[7]; i++){
-				f = mallocz(sizeof(*f), 1);
-				f->min = b[8+3*i] | b[9+3*i]<<8 | b[10+3*i]<<16;
+		if(dd->data.bLength < 8 || b[1] != 1)
+			return;
+		c->channels = b[2];
+		c->bps = b[3];
+		c->bits = b[4];
+		if(b[5] == 0){	/* continuous frequency range */
+			c->nfreq = 1;
+			c->freq = emallocz(sizeof(*f), 1);
+			c->freq->min = b[6] | b[7]<<8 | b[8]<<16;
+			c->freq->max = b[9] | b[10]<<8 | b[11]<<16;
+		}else{		/* discrete sampling frequencies */
+			c->nfreq = b[5];
+			c->freq = emallocz(c->nfreq * sizeof(*f), 1);
+			b += 6;
+			for(f = c->freq; f < c->freq+c->nfreq; f++, b += 3){
+				f->min = b[0] | b[1]<<8 | b[2]<<16;
 				f->max = f->min;
-
-				f->next = c->freq;
-				c->freq = f;
 			}
 		}
 		break;
+	}
+}
+
+void
+parsestream(Dev *d, int id)
+{
+	Iface *as;
+	Desc *dd;
+	Ep *e;
+	Aconf *c;
+	int i;
+
+	/* find AS interface */
+	as = findiface(d->usb->conf[0], Claudio, 2, id);
+
+	/* enumerate through alt. settings */
+	for(; as != nil; as = as->next){
+		c = emallocz(sizeof(*c), 1);
+		as->aux = c;
+
+		/* find AS endpoint */
+		for(i = 0; i < nelem(as->ep); i++){
+			e = as->ep[i];
+			if(e != nil && e->type == Eiso && (e->attrib>>4 & 3) == Edata){
+				c->ep = e;
+				break;
+			}
+		}
+		if(c->ep == nil){
+			free(c);
+			as->aux = nil;
+			continue;
+		}
+
+		/* parse AS descriptors */
+		for(i = 0; i < nelem(d->usb->ddesc); i++){
+			dd = d->usb->ddesc[i];
+			if(dd == nil || dd->iface != as)
+				continue;
+			parseasdesc(dd, c);
+		}
 	}
 }
 
@@ -103,12 +177,12 @@ setupep(Dev *d, Ep *e, int speed)
 	Range *f;
 
 	for(;e != nil; e = e->next){
-		if(e->dir!=dir)
-			continue;
 		c = e->iface->aux;
-		if(c == nil)
+		if(c == nil || e != c->ep || e->dir != dir)
 			continue;
-		for(f = c->freq; f != nil; f = f->next)
+		if(c->format != 1 || c->bits != audiores || 8*c->bps != audiores || c->channels != audiochan)
+			continue;
+		for(f = c->freq; f != c->freq+c->nfreq; f++)
 			if(speed >= f->min && speed <= f->max)
 				goto Foundaltc;
 	}
@@ -119,7 +193,7 @@ Foundaltc:
 	if(setalt(d, e->iface) < 0)
 		return nil;
 
-	if(c->caps & 1){
+	if(c->controls & 1){
 		uchar b[4];
 
 		b[0] = speed;
@@ -207,6 +281,10 @@ main(int argc, char *argv[])
 {
 	char buf[32];
 	Dev *d, *ed;
+	Desc *dd;
+	Conf *conf;
+	Iface *ac;
+	Aconf *c;
 	Ep *e;
 	int i;
 
@@ -226,15 +304,22 @@ main(int argc, char *argv[])
 		sysfatal("getdev: %r");
 	audiodev = d;
 
-	/* parse descriptors, mark valid altc */
-	for(i = 0; i < nelem(d->usb->ddesc); i++)
-		parsedescr(d->usb->ddesc[i]);
+	conf = d->usb->conf[0];
+	ac = findiface(conf, Claudio, 1, -1);
+	if(ac == nil)
+		sysfatal("no audio control interface");
+	audiocontrol = ac;
+
+	dd = findacheader(d->usb, ac);
+	if(dd == nil)
+		sysfatal("no audio control header");
+	for(i = 6; i < dd->data.bLength-2; i++)
+		parsestream(d, dd->data.bbytes[i]);
+
 	for(i = 0; i < nelem(d->usb->ep); i++){
-		e = d->usb->ep[i];
-		if(e == nil || e->type != Eiso || e->iface->csp != CSP(Claudio, 2, 0))
-			continue;
-		for(; e != nil; e = e->next){
-			if((e->attrib>>4 & 3) == Edata)
+		for(e = d->usb->ep[i]; e != nil; e = e->next){
+			c = e->iface->aux;
+			if(c != nil && c->ep == e)
 				break;
 		}
 		if(e == nil)
@@ -263,7 +348,7 @@ main(int argc, char *argv[])
 		closedev(ed);
 	}
 	if(audioepout == nil)
-		sysfatal("no endpoints found");
+		sysfatal("no output stream found");
 
 	fs.tree = alloctree(user, "usb", DMDIR|0555, nil);
 	createfile(fs.tree->root, "volume", user, 0666, nil);
