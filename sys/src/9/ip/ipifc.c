@@ -19,6 +19,7 @@ enum {
 };
 
 Medium *media[Maxmedia] = { 0 };
+void (*multicastreportfn)(Fs*, Ipifc*, uchar*, uchar*, int);
 
 /*
  *  cache of local addresses (addresses we answer to)
@@ -38,18 +39,6 @@ struct Ipselftab
 	int	inited;
 	int	acceptall;	/* true if an interface has the null address */
 	Ipself	*hash[NHASH];	/* hash chains */
-};
-
-/*
- *  Multicast addresses are chained onto a Chan so that
- *  we can remove them when the Chan is closed.
- */
-typedef struct Ipmcast Ipmcast;
-struct Ipmcast
-{
-	Ipmcast	*next;
-	uchar	ma[IPaddrlen];	/* multicast address */
-	uchar	ia[IPaddrlen];	/* interface address */
 };
 
 /* quick hash for ip addresses */
@@ -611,6 +600,9 @@ ipifcadd(Ipifc *ifc, char **argv, int argc, int tentative, Iplifc *lifcp)
 		addselfcache(f, ifc, lifc, bcast, Rbcast);
 
 		addselfcache(f, ifc, lifc, IPv4bcast, Rbcast);
+
+		/* add all nodes multicast address */
+		addselfcache(f, ifc, lifc, IPv4allsys, Rmulti);
 	} else {
 		if(ipcmp(ip, v6loopback) == 0) {
 			/* add node-local mcast address */
@@ -684,11 +676,11 @@ ipifcremlifc(Ipifc *ifc, Iplifc **l)
 
 	/* remove route for all nodes multicast */
 	if((lifc->type & Rv4) == 0){
-		if(ipcmp(lifc->local, v6loopback) == 0)
+		if(ipcmp(lifc->local, v6loopback) == 0){
 			remroute(f, v6allnodesN, v6allnodesNmask,
 				lifc->local, IPallbits,
 				v6allnodesN, Rmulti, ifc, tifc);
-
+		}
 		remroute(f, v6allnodesL, v6allnodesLmask,
 			lifc->local, IPallbits,
 			v6allnodesL, Rmulti, ifc, tifc);
@@ -960,8 +952,12 @@ addselfcache(Fs *f, Ipifc *ifc, Iplifc *lifc, uchar *a, int type)
 				IPallbits : IPnoaddr,
 			a, type, ifc, tifc);
 
-		if((type & Rmulti) && ifc->m->addmulti != nil)
-			(*ifc->m->addmulti)(ifc, a, lifc->local);
+		if(type & Rmulti){
+			if(ifc->m->addmulti != nil)
+				(*ifc->m->addmulti)(ifc, a, lifc->local);
+			if(multicastreportfn != nil)
+				(*multicastreportfn)(f, ifc, a, lifc->local, 0);
+		}
 	} else
 		lp->ref++;
 
@@ -1072,24 +1068,32 @@ remselfcache(Fs *f, Ipifc *ifc, Iplifc *lifc, uchar *a)
 	if(--(link->ref) != 0)
 		goto out;
 
+	/* ref == 0, remove from both chains and free the link */
+	*l_lifc = link->lifclink;
+	*l_self = link->selflink;
+	iplinkfree(link);
+
+	if((p->type & Rmulti) != 0){
+		if(multicastreportfn != nil){
+			if(!waserror()){
+				(*multicastreportfn)(f, ifc, a, lifc->local, 1);
+				poperror();
+			}
+		}
+		if(ifc->m->remmulti != nil){
+			if(!waserror()){
+				(*ifc->m->remmulti)(ifc, a, lifc->local);
+				poperror();
+			}
+		}
+	}
+
 	/* remove from routing table */
 	remroute(f, a, IPallbits,
 		lifc->local, 
 		((p->type & (Rbcast|Rmulti)) != 0 || v6addrtype(a) == linklocalv6) ?
 			IPallbits : IPnoaddr,
 		a, p->type, ifc, tifc);
-
-	if((p->type & Rmulti) && ifc->m->remmulti != nil){
-		if(!waserror()){
-			(*ifc->m->remmulti)(ifc, a, lifc->local);
-			poperror();
-		}
-	}
-
-	/* ref == 0, remove from both chains and free the link */
-	*l_lifc = link->lifclink;
-	*l_self = link->selflink;
-	iplinkfree(link);
 
 	if(p->link != nil)
 		goto out;
@@ -1423,6 +1427,20 @@ ipremoteonifc(Ipifc *ifc, uchar *ip)
 	return nil;
 }
 
+/*
+ *  return link-local interface
+ */
+Iplifc*
+iplinklocalifc(Ipifc *ifc)
+{
+	Iplifc *lifc;
+
+	for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next)
+		if(islinklocal(lifc->local))
+			return lifc;
+
+	return nil;
+}
 
 /*
  *  See if we're proxying for this address on this interface
@@ -1441,6 +1459,65 @@ ipproxyifc(Fs *f, Ipifc *ifc, uchar *ip)
 }
 
 /*
+ *  Return a copy of the multicast addresses on the
+ *  specified interface and multicast address.
+ */
+Ipmulti*
+ipifcgetmulti(Fs *f, Ipifc *ifc, uchar *ma)
+{
+	Ipmulti *head, *tail, *mcast;
+	Iplifc *lifc;
+	Iplink *link;
+	Ipself *self;
+	int type;
+
+	type = Rmulti;
+	if(isv4(ma))
+		type |= Rv4;
+	if(ipismulticast(ma) == ((type & Rv4)? V4: V6)){
+		if(ipforme(f, ma) != Rmulti)
+			return nil;
+	} else {
+		ma = nil;
+	}
+
+	head = tail = nil;
+	for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next) {
+		if((type & Rv4) == 0 && !islinklocal(lifc->local))
+			continue;
+
+		for(link = lifc->link; link != nil; link = link->lifclink) {
+			self = link->self;
+			if((self->type & (Rv4|Rmulti)) != type)
+				continue;
+
+			if(ma != nil){
+				if(ipcmp(self->a, ma) != 0)
+					continue;
+			} else {
+				if(ipcmp(self->a, (type & Rv4)? IPv4allsys: v6allnodesL) == 0)
+					continue;
+			}
+
+			mcast = smalloc(sizeof(Ipmulti));
+			mcast->next = nil;
+			ipmove(mcast->ma, self->a);
+			ipmove(mcast->ia, lifc->local);
+
+			if(ma != nil)
+				return mcast;
+
+			if(head == nil)
+				head = mcast;
+			else
+				tail->next = mcast;
+			tail = mcast;
+		}
+	}
+	return head;
+}
+
+/*
  *  add a multicast address to an interface.
  */
 void
@@ -1451,6 +1528,8 @@ ipifcaddmulti(Conv *c, uchar *ma, uchar *ia)
 	Ipifc *ifc;
 	Fs *f;
 
+	if(!ipismulticast(ma))
+		error("addmulti for a non multicast address");
 	if(isv4(ma) != isv4(ia))
 		error("incompatible multicast/interface ip address");
 
@@ -1467,6 +1546,11 @@ ipifcaddmulti(Conv *c, uchar *ma, uchar *ia)
 		}
 		if((lifc = iplocalonifc(ifc, ia)) != nil)
 			addselfcache(f, ifc, lifc, ma, Rmulti);
+
+		/* for IPv6, must add also add to the link-local address */
+		if(!isv4(ia) && !islinklocal(ia) && (lifc = iplinklocalifc(ifc)) != nil)
+			addselfcache(f, ifc, lifc, ma, Rmulti);
+
 		runlock(ifc);
 		poperror();
 	}
@@ -1506,6 +1590,11 @@ ipifcremmulti(Conv *c, uchar *ma, uchar *ia)
 		rlock(ifc);
 		if(!waserror()){
 			if((lifc = iplocalonifc(ifc, ia)) != nil)
+				remselfcache(f, ifc, lifc, ma);
+			poperror();
+		}
+		if(!isv4(ia) && !islinklocal(ia) && !waserror()){
+			if((lifc = iplinklocalifc(ifc)) != nil)
 				remselfcache(f, ifc, lifc, ma);
 			poperror();
 		}

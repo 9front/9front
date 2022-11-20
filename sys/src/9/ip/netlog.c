@@ -42,6 +42,7 @@ static Netlogflag flags[] =
 	{ "il",		Logil, },
 	{ "tcp",	Logtcp, },
 	{ "icmp",	Logicmp, },
+	{ "igmp",	Logigmp, },
 	{ "udp",	Logudp, },
 	{ "compress",	Logcompress, },
 	{ "logilmsg",	Logilmsg, },

@@ -196,8 +196,7 @@ enum
 void
 ipv62smcast(uchar *smcast, uchar *a)
 {
-	assert(IPaddrlen == 16);
-	memmove(smcast, v6solicitednode, IPaddrlen);
+	ipmove(smcast, v6solicitednode);
 	smcast[13] = a[13];
 	smcast[14] = a[14];
 	smcast[15] = a[15];

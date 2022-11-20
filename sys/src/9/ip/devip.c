@@ -1173,27 +1173,27 @@ ipwrite(Chan* ch, void *v, long n, vlong off)
 			if(cb->nf < 2)
 				error("addmulti needs interface address");
 			if(cb->nf == 2){
-				if(!ipismulticast(c->raddr))
-					error("addmulti for a non multicast address");
 				if (parseip(ia, cb->f[1]) == -1)
 					error(Ebadip);
-				ipifcaddmulti(c, c->raddr, ia);
+				if(ipcmp(c->raddr, IPnoaddr) == 0 || ipismulticast(c->laddr))
+					ipifcaddmulti(c, c->laddr, ia);
+				else
+					ipifcaddmulti(c, c->raddr, ia);
 			} else {
 				if (parseip(ia, cb->f[1]) == -1 ||
 				    parseip(ma, cb->f[2]) == -1)
 					error(Ebadip);
-				if(!ipismulticast(ma))
-					error("addmulti for a non multicast address");
 				ipifcaddmulti(c, ma, ia);
 			}
 		} else if(strcmp(cb->f[0], "remmulti") == 0){
 			if(cb->nf < 2)
 				error("remmulti needs interface address");
-			if(!ipismulticast(c->raddr))
-				error("remmulti for a non multicast address");
 			if (parseip(ia, cb->f[1]) == -1)
 				error(Ebadip);
-			ipifcremmulti(c, c->raddr, ia);
+			if(ipcmp(c->raddr, IPnoaddr) == 0 || ipismulticast(c->laddr))
+				ipifcremmulti(c, c->laddr, ia);
+			else
+				ipifcremmulti(c, c->raddr, ia);
 		} else if(x->ctl != nil) {
 			p = (*x->ctl)(c, cb->f, cb->nf);
 			if(p != nil)
@@ -1258,7 +1258,7 @@ Fsproto(Fs *f, Proto *p)
 
 	p->f = f;
 
-	if(p->ipproto > 0){
+	if(p->ipproto >= 0){
 		if(f->t2p[p->ipproto] != nil)
 			return -1;
 		f->t2p[p->ipproto] = p;

@@ -725,6 +725,7 @@ extern int	ipv6local(Ipifc *ifc, uchar *local, int prefixlen, uchar *remote);
 extern Iplifc*	iplocalonifc(Ipifc *ifc, uchar *ip);
 extern Iplifc*	ipremoteonifc(Ipifc *ifc, uchar *ip);
 extern int	ipproxyifc(Fs *f, Ipifc *ifc, uchar *ip);
+extern Ipmulti*	ipifcgetmulti(Fs *f, Ipifc *ifc, uchar *ma);
 extern void	ipifcremmulti(Conv *c, uchar *ma, uchar *ia);
 extern void	ipifcaddmulti(Conv *c, uchar *ma, uchar *ia);
 extern char*	ipifcrem(Ipifc *ifc, char **argv, int argc);
@@ -777,4 +778,4 @@ extern Chan*	chandial(char*, char*, char*, Chan**);
 /*
  *  global to all of the stack
  */
-extern void	(*igmpreportfn)(Ipifc*, uchar*);
+extern void	(*multicastreportfn)(Fs*, Ipifc*, uchar*, uchar*, int);

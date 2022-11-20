@@ -100,6 +100,9 @@ typedef struct Udpcb Udpcb;
 struct Udpcb
 {
 	uchar	headers;
+
+	/* source ip used for transmission */
+	uchar	srcip[IPaddrlen];
 };
 
 static char*
@@ -113,6 +116,7 @@ udpconnect(Conv *c, char **argv, int argc)
 	Fsconnected(c, e);
 	if(e != nil)
 		return e;
+	ipmove(((Udpcb*)c->ptcl)->srcip, c->laddr);
 	iphtadd(&upriv->ht, c);
 	return nil;
 }
@@ -139,6 +143,7 @@ udpannounce(Conv *c, char** argv, int argc)
 	if(e != nil)
 		return e;
 	Fsconnected(c, nil);
+	ipmove(((Udpcb*)c->ptcl)->srcip, c->laddr);
 	iphtadd(&upriv->ht, c);
 	return nil;
 }
@@ -170,6 +175,7 @@ udpclose(Conv *c)
 
 	ucb = (Udpcb*)c->ptcl;
 	ucb->headers = 0;
+	ipmove(ucb->srcip, IPnoaddr);
 }
 
 void
@@ -214,6 +220,7 @@ udpkick(void *x, Block *bp)
 		bp->rp += 2+2;			/* Ignore local port */
 		break;
 	default:
+		ipmove(laddr, IPnoaddr);
 		rport = 0;
 		break;
 	}
@@ -225,6 +232,7 @@ udpkick(void *x, Block *bp)
 			version = V6;
 	} else {
 		version = convipvers(c);
+		ipmove(laddr, ucb->srcip);
 	}
 
 	dlen = blocklen(bp);
@@ -243,16 +251,13 @@ udpkick(void *x, Block *bp)
 		if(ucb->headers) {
 			v6tov4(uh4->udpdst, raddr);
 			hnputs(uh4->udpdport, rport);
-			v6tov4(uh4->udpsrc, laddr);
 			rh = nil;
 		} else {
 			v6tov4(uh4->udpdst, c->raddr);
 			hnputs(uh4->udpdport, c->rport);
-			if(ipcmp(c->laddr, IPnoaddr) == 0)
-				findlocalip(f, c->laddr, c->raddr);
-			v6tov4(uh4->udpsrc, c->laddr);
 			rh = c;
 		}
+		v6tov4(uh4->udpsrc, laddr);
 		hnputs(uh4->udpsport, c->lport);
 		hnputs(uh4->udplen, ptcllen);
 		uh4->udpcksum[0] = 0;
@@ -279,16 +284,13 @@ udpkick(void *x, Block *bp)
 		if(ucb->headers) {
 			ipmove(uh6->udpdst, raddr);
 			hnputs(uh6->udpdport, rport);
-			ipmove(uh6->udpsrc, laddr);
 			rh = nil;
 		} else {
 			ipmove(uh6->udpdst, c->raddr);
 			hnputs(uh6->udpdport, c->rport);
-			if(ipcmp(c->laddr, IPnoaddr) == 0)
-				findlocalip(f, c->laddr, c->raddr);
-			ipmove(uh6->udpsrc, c->laddr);
 			rh = c;
 		}
+		ipmove(uh6->udpsrc, laddr);
 		hnputs(uh6->udpsport, c->lport);
 		hnputs(uh6->udplen, ptcllen);
 		uh6->udpcksum[0] = 0;
@@ -394,6 +396,7 @@ udpiput(Proto *udp, Ipifc *ifc, Block *bp)
 	qlock(udp);
 	iph = iphtlook(&upriv->ht, raddr, rport, laddr, lport);
 	if(iph == nil){
+Noconv:
 		/* no conversation found */
 		upriv->ustats.udpNoPorts++;
 		qunlock(udp);
@@ -438,17 +441,32 @@ udpiput(Proto *udp, Ipifc *ifc, Block *bp)
 
 	if(c->state == Announced){
 		if(ucb->headers == 0){
-			/* create a new conversation */
-			if(ipforme(f, laddr) != Runi)
-				ipv6local(ifc, laddr, 0, raddr);
+			uchar srcip[IPaddrlen];
+
+			switch(ipforme(f, laddr)){
+			default:
+				goto Noconv;
+			case Runi:
+				ipmove(srcip, laddr);
+				break;
+			case Rmulti:
+			case Rbcast:
+				/*
+				 * use the multicast address for reception,
+				 * and local unicast ip for transmission.
+				 */
+				ipv6local(ifc, srcip, 0, raddr);
+				break;
+			}
 			c = Fsnewcall(c, raddr, rport, laddr, lport, version);
 			if(c == nil){
 				qunlock(udp);
 				freeblist(bp);
 				return;
 			}
-			iphtadd(&upriv->ht, c);
 			ucb = (Udpcb*)c->ptcl;
+			ipmove(ucb->srcip, srcip);
+			iphtadd(&upriv->ht, c);
 		}
 	}
 
