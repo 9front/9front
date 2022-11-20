@@ -49,6 +49,9 @@ enum
 	AddrMaskReply   = 18,
 	EchoRequestV6	= 128,
 	EchoReplyV6	= 129,
+	McastQuery	= 130,
+	McastReport	= 131,
+	McastDone	= 132,
 	RouterSolicit	= 133,
 	RouterAdvert	= 134,
 	NbrSolicit	= 135,
@@ -84,6 +87,9 @@ char *icmpmsg6[256] =
 [AddrMaskReply]		"AddrMaskReply",
 [EchoRequestV6]		"EchoRequestV6",
 [EchoReplyV6]		"EchoReplyV6",
+[McastQuery]		"McastQuery",
+[McastReport]		"McastReport",
+[McastDone]		"McastDone",
 [RouterSolicit]		"RouterSolicit",
 [RouterAdvert]		"RouterAdvert",
 [NbrSolicit]		"NbrSolicit",
@@ -421,6 +427,12 @@ p_seprint(Msg *m)
 	case InfoReply:
 		break;
 
+	case McastQuery:
+	case McastReport:
+	case McastDone:
+		m->ps += 20;
+		p = seprint(p, e, " delay=%d unused=%.4x mcast=%I", NetS(a), NetS(a+2), a+4);
+		break;
 	}
 	m->p = p;
 	return 0;

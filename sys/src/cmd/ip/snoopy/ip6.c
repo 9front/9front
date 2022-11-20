@@ -161,28 +161,28 @@ p_compile(Filter *f)
 }
 
 static int
-v6hdrlen(Hdr *h)
+v6hdrlen(Hdr *h, int *nexthdr)
 {
 	int plen, len = IP6HDR;
 	int pktlen = IP6HDR + NetS(h->length);
-	uchar nexthdr = h->proto;
 	uchar *pkt = (uchar*) h;
 
 	pkt += len;
 	plen = len;
 
-	while (nexthdr == HBH_HDR || nexthdr == ROUT_HDR ||
-	    nexthdr == FRAG_HDR || nexthdr == DEST_HDR) {
-		if (nexthdr == FRAG_HDR)
+	*nexthdr = h->proto;
+	while (*nexthdr == HBH_HDR || *nexthdr == ROUT_HDR ||
+	    *nexthdr == FRAG_HDR || *nexthdr == DEST_HDR) {
+		if (*nexthdr == FRAG_HDR)
 			len = FRAG_HSZ;
 		else
-			len = ((int)*(pkt+1) + 1) * 8;
+			len = ((int)pkt[1] + 1) * 8;
 
 		if (plen + len > pktlen)
 			return -1;
 
+		*nexthdr = *pkt;
 		pkt += len;
-		nexthdr = *pkt;
 		plen += len;
 	}
 	return plen;
@@ -192,14 +192,14 @@ static int
 p_filter(Filter *f, Msg *m)
 {
 	Hdr *h;
-	int hlen;
+	int hlen, proto;
 
 	if(m->pe - m->ps < IP6HDR)
 		return 0;
 
 	h = (Hdr*)m->ps;
 
-	if ((hlen = v6hdrlen(h)) < 0)
+	if ((hlen = v6hdrlen(h, &proto)) < 0)
 		return 0;
 	else
 		m->ps += hlen;
@@ -212,7 +212,7 @@ p_filter(Filter *f, Msg *m)
 		return memcmp(h->src, f->a, IPaddrlen) == 0 ||
 			memcmp(h->dst, f->a, IPaddrlen) == 0;
 	case Ot:
-		return h->proto == f->ulv;
+		return proto == f->ulv;
 	}
 	return 0;
 }
@@ -224,7 +224,7 @@ v6hdr_seprint(Msg *m)
 	uchar *pkt = m->ps;
 	Hdr *h = (Hdr *)pkt;
 	int pktlen = IP6HDR + NetS(h->length);
-	uchar nexthdr = h->proto;
+	int nexthdr = h->proto;
 
 	pkt += len;
 	plen = len;
@@ -253,10 +253,12 @@ v6hdr_seprint(Msg *m)
 			m->pr = &dump;
 			return -1;
 		}
+		nexthdr = *pkt;
 		plen += len;
 		pkt += len;
-		nexthdr = *pkt;
 	}
+
+	demux(p_mux, nexthdr, nexthdr, m, &dump);
 
 	m->ps = pkt;
 	return 1;
@@ -271,8 +273,6 @@ p_seprint(Msg *m)
 	if(m->pe - m->ps < IP6HDR)
 		return -1;
 	h = (Hdr*)m->ps;
-
-	demux(p_mux, h->proto, h->proto, m, &dump);
 
 	/* truncate the message if there's extra */
 	len = NetS(h->length) + IP6HDR;
