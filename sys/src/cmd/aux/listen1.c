@@ -7,11 +7,16 @@ int verbose;
 int trusted;
 int oneshot;
 char *nsfile;
+int nsopts, ncopts = 1;
+char *sopts[16], *copts[16] = { "keepalive", };
 
 void
 usage(void)
 {
-	fprint(2, "usage: listen1 [-1tv] [-p maxprocs] [-n namespace] address cmd args...\n");
+	fprint(2, "usage: listen1 [-1tv]"
+		" [-n namespace] [-p maxprocs]"
+		" [-O msg] [-o msg]"
+		" address cmd args...\n");
 	exits("usage");
 }
 
@@ -51,7 +56,7 @@ void
 main(int argc, char **argv)
 {
 	char data[60], dir[40], ndir[40], wbuf[64];
-	int ctl, nctl, fd;
+	int ctl, nctl, fd, i;
 	int wfd, nowait, procs;
 	Dir *d;
 
@@ -72,6 +77,16 @@ main(int argc, char **argv)
 		break;
 	case 'n':
 		nsfile = EARGF(usage());
+		break;
+	case 'o':
+		if(ncopts >= nelem(copts))
+			sysfatal("too many -o options");
+		copts[ncopts++] = EARGF(usage());
+		break;
+	case 'O':
+		if(nsopts >= nelem(sopts))
+			sysfatal("too many -O options");
+		sopts[nsopts++] = EARGF(usage());
 		break;
 	}ARGEND
 
@@ -94,6 +109,11 @@ main(int argc, char **argv)
 	ctl = announce(argv[0], dir);
 	if(ctl < 0)
 		sysfatal("announce %s: %r", argv[0]);
+
+	for(i = 0; i < nsopts; i++){
+		if(write(ctl, sopts[i], strlen(sopts[i])) < 0)
+			fprint(2, "%s/ctl: can't write %s: %r\n", dir, sopts[i]);
+	}
 
 	wfd = -1;
 	nowait = RFNOWAIT;
@@ -147,7 +167,10 @@ main(int argc, char **argv)
 		}
 
 		print("incoming call for %s from %s in %s\n", argv[0], remoteaddr(ndir), ndir);
-		fprint(nctl, "keepalive");
+
+		for(i = 0; i < ncopts; i++)
+			write(nctl, copts[i], strlen(copts[i]));
+
 		close(ctl);
 		close(nctl);
 		if(wfd >= 0)

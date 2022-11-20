@@ -38,10 +38,15 @@ Announce *announcements;
 
 char *namespace;
 
+int nsopts, ncopts = 1;
+char *sopts[16], *copts[16] = { "keepalive", };
+
 void
 usage(void)
 {
-	error("usage: aux/listen [-iq] [-d srvdir] [-t trustsrvdir] [-n namespace] [-p maxprocs]"
+	error("usage: aux/listen [-iq] [-d srvdir] [-t trustsrvdir]"
+		" [-n namespace] [-p maxprocs]"
+		" [-o copt] [-O sopt]"
 		" [-a addr] [proto]");
 }
 
@@ -78,6 +83,16 @@ main(int argc, char *argv[])
 		break;
 	case 'p':
 		maxprocs = atoi(EARGF(usage()));
+		break;
+	case 'o':
+		if(ncopts >= nelem(copts))
+			sysfatal("too many -o options");
+		copts[ncopts++] = EARGF(usage());
+		break;
+	case 'O':
+		if(nsopts >= nelem(sopts))
+			sysfatal("too many -O options");
+		sopts[nsopts++] = EARGF(usage());
 		break;
 	case 'i':
 		/*
@@ -134,7 +149,7 @@ dingdong(void*, char *msg)
 void
 listendir(char *srvdir, int trusted)
 {
-	int ctl, pid, start;
+	int ctl, pid, start, i;
 	char dir[40], err[128], ds[128];
 	char prog[Maxpath], serv[Maxserv], ns[Maxpath];
 	long childs;
@@ -343,8 +358,13 @@ void
 dolisten(char *dir, int ctl, char *serv, char *prog, long *pchilds)
 {
 	char ndir[40], wbuf[64];
-	int nctl, data, wfd, nowait;
+	int nctl, data, wfd, nowait, i;
 	
+	for(i = 0; i < nsopts; i++){
+		if(write(ctl, sopts[i], strlen(sopts[i])) < 0)
+			syslog(1, listenlog, "%s/ctl: can't write %s: %r", dir, sopts[i]);
+	}
+
 	wfd = -1;
 	nowait = RFNOWAIT;
 	if(pchilds && maxprocs > 0){
@@ -414,7 +434,8 @@ dolisten(char *dir, int ctl, char *serv, char *prog, long *pchilds)
 				syslog(1, listenlog, "can't open %s/data: %r", ndir);
 				exits(0);
 			}
-			fprint(nctl, "keepalive");
+			for(i = 0; i < ncopts; i++)
+				write(nctl, copts[i], strlen(copts[i]));
 			close(ctl);
 			close(nctl);
 			if(wfd >= 0)

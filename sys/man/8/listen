@@ -12,6 +12,10 @@ listen, listen1, tcp7, tcp9, tcp19, tcp21, tcp23, tcp25, tcp53, tcp110, tcp113, 
 .IR namespace ]
 .RB [ -p
 .IR maxprocs ]
+.RB [ -o
+.IR copt ]
+.RB [ -O
+.IR sopt ]
 .RB [ -a
 .IR addr ]
 .RI [ proto ]
@@ -20,10 +24,14 @@ listen, listen1, tcp7, tcp9, tcp19, tcp21, tcp23, tcp25, tcp53, tcp110, tcp113, 
 [
 .B -1tv
 ]
-.RB [ -p
-.IR maxprocs ]
 .RB [ -n
 .IR namespace ]
+.RB [ -p
+.IR maxprocs ]
+.RB [ -o
+.IR copt ]
+.RB [ -O
+.IR sopt ]
 .I addr
 .I cmd
 [
@@ -83,6 +91,21 @@ will log the event and delay servicing until the number
 of connection processes drops below the limit again. A
 .I maxprocs
 smaller or equal zero means no limit (default).
+The
+.B -o
+and
+.B -O
+options cause protocol-specific control messages
+to be written to the control file of the listening
+server connection
+.B -O
+or the incoming client
+connection
+.BR -o .
+They can be specified multiple
+times. See
+.IR ip (3)
+for details.
 Option
 .B -q
 suppresses affirmative log information.
@@ -251,7 +274,8 @@ by convention, TCP device bind point
 .B /rc/bin/service*
 .SH "SEE ALSO"
 .IR authsrv (6),
-.IR dial (2)
+.IR dial (2),
+.IR ip (3)
 .SH BUGS
 .IR Srvdir ,
 .IR trustsrvdir
