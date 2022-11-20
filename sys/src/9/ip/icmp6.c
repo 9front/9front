@@ -279,7 +279,6 @@ icmpkick6(void *x, Block *bp)
 	}
 
 	set_cksum(bp);
-	p->vcf[0] = 0x06 << 4;
 	if(p->type <= Maxtype6)
 		ipriv->out[p->type]++;
 	ipoput6(c->p->f, bp, 0, c->ttl, c->tos, nil);
@@ -378,9 +377,6 @@ icmpns(Fs *f, uchar* src, int suni, uchar* targ, int tuni, uchar* mac)
 		nbp->wp -= NDPKTSZ - NDISCSZ;
 
 	set_cksum(nbp);
-	np = (Ndpkt*)nbp->rp;
-	np->ttl = HOP_LIMIT;
-	np->vcf[0] = 0x06 << 4;
 	ipriv->out[NbrSolicit]++;
 	netlog(f, Logicmp, "sending neighbor solicitation %I\n", targ);
 	ipoput6(f, nbp, 0, MAXTTL, DFLTTOS, nil);
@@ -413,9 +409,6 @@ icmpna(Fs *f, uchar* src, uchar* dst, uchar* targ, uchar* mac, uchar flags)
 	memmove(np->lnaddr, mac, sizeof(np->lnaddr));
 
 	set_cksum(nbp);
-	np = (Ndpkt*)nbp->rp;
-	np->ttl = HOP_LIMIT;
-	np->vcf[0] = 0x06 << 4;
 	ipriv->out[NbrAdvert]++;
 	netlog(f, Logicmp, "sending neighbor advertisement %I\n", targ);
 	ipoput6(f, nbp, 0, MAXTTL, DFLTTOS, nil);
@@ -448,14 +441,18 @@ icmphostunr6(Fs *f, Ipifc *ifc, Block *bp, int code, int tome)
 	np->code = code;
 	memmove(nbp->rp + IPICMPSZ, bp->rp, sz - IPICMPSZ);
 	set_cksum(nbp);
-	np->ttl = HOP_LIMIT;
-	np->vcf[0] = 0x06 << 4;
 	ipriv->out[UnreachableV6]++;
 
-	if(tome)
+	if(tome){
+		np = (IPICMP *)nbp->rp;
+		np->vcf[0] = IP_VER6 | DFLTTOS>>4;
+		np->vcf[1] = DFLTTOS<<4;
+		np->ttl = MAXTTL;
+
 		ipiput6(f, ifc, nbp);
-	else 
-		ipoput6(f, nbp, 0, MAXTTL, DFLTTOS, nil);
+		return;
+	}
+	ipoput6(f, nbp, 0, MAXTTL, DFLTTOS, nil);
 }
 
 void
@@ -485,8 +482,6 @@ icmpttlexceeded6(Fs *f, Ipifc *ifc, Block *bp)
 	np->code = 0;
 	memmove(nbp->rp + IPICMPSZ, bp->rp, sz - IPICMPSZ);
 	set_cksum(nbp);
-	np->ttl = HOP_LIMIT;
-	np->vcf[0] = 0x06 << 4;
 	ipriv->out[TimeExceedV6]++;
 	ipoput6(f, nbp, 0, MAXTTL, DFLTTOS, nil);
 }
@@ -519,8 +514,6 @@ icmppkttoobig6(Fs *f, Ipifc *ifc, Block *bp)
 	hnputl(np->icmpid, ifc->maxtu - ifc->m->hsize);
 	memmove(nbp->rp + IPICMPSZ, bp->rp, sz - IPICMPSZ);
 	set_cksum(nbp);
-	np->ttl = HOP_LIMIT;
-	np->vcf[0] = 0x06 << 4;
 	ipriv->out[PacketTooBigV6]++;
 	ipoput6(f, nbp, 0, MAXTTL, DFLTTOS, nil);
 }
@@ -532,9 +525,10 @@ static int
 valid(Proto *icmp, Ipifc *, Block *bp, Icmppriv6 *ipriv)
 {
 	int sz, osz, unsp, ttl;
+	ulong vcf;
 	int pktsz = BLEN(bp);
 	uchar *packet = bp->rp;
-	IPICMP *p = (IPICMP *) packet;
+	IPICMP *p = (IPICMP *)packet;
 	Ndpkt *np;
 
 	if(pktsz < IPICMPSZ) {
@@ -549,7 +543,8 @@ valid(Proto *icmp, Ipifc *, Block *bp, Icmppriv6 *ipriv)
 		netlog(icmp->f, Logicmp, "icmp error: extension header\n");
 		goto err;
 	}
-	memset(packet, 0, 4);
+	vcf = nhgetl(p->vcf);
+	hnputl(p->vcf, 0);  	/* borrow IP header as pseudoheader */
 	ttl = p->ttl;
 	p->ttl = p->proto;
 	p->proto = 0;
@@ -560,12 +555,13 @@ valid(Proto *icmp, Ipifc *, Block *bp, Icmppriv6 *ipriv)
 	}
 	p->proto = p->ttl;
 	p->ttl = ttl;
+	hnputl(p->vcf, vcf);
 
 	/* additional tests for some pkt types */
 	if (p->type == NbrSolicit   || p->type == NbrAdvert ||
 	    p->type == RouterAdvert || p->type == RouterSolicit ||
 	    p->type == RedirectV6) {
-		if(p->ttl != HOP_LIMIT) {
+		if(p->ttl != MAXTTL) {
 			ipriv->stats[HoplimErrs6]++;
 			goto err;
 		}
