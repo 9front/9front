@@ -13,21 +13,33 @@ provides keyboard controlling for
 in the manner of
 .IR i3 ,
 .I sway
-and so on.  It does so by working with
+and
+.IR ratpoison .
+It does so by working with
 .I /dev/kbdtap
 (see \fIrio\fR(4)) and
 .IR /dev/wsys .
+
+.I riow
+outputs the current desktop number onto fd 3, which can be used by programs like
+.IR bar (1).
 .SS Running
+A minimal example of running
+.I riow
+with status output to
+.IR bar (1):
+.EX
+	window '</dev/kbdtap riow >/dev/kbdtap |[3] bar'
+.EE
+
 Example of running
 .I riow
 with other programs handling input:
 .EX
-	</dev/kbdtap ktrans | \\
-		reform/shortcuts | \\
-		riow >/dev/kbdtap |[3] bar
+	window '</dev/kbdtap ktrans |
+		reform/shortcuts |
+		riow >/dev/kbdtap |[3] bar'
 .EE
-Note that the current desktop number is printed to fd
-.IR 3 .
 .SS Keyboard shortcuts
 .TP
 .B Kmod4+0…9
@@ -72,7 +84,8 @@ Same, but in bigger steps.
 /sys/src/cmd/riow.c
 .SH SEE ALSO
 .IR bar (1),
-.IR rio (4)
+.IR rio (4),
+.IR ktrans (1)
 .SH HISTORY
 Riow first appeared in 9front (September, 2022).
 .SH BUGS
