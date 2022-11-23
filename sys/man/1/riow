@@ -29,16 +29,16 @@ A minimal example of running
 with status output to
 .IR bar (1):
 .EX
-	window 'rfork n; </dev/kbdtap riow >/dev/kbdtap |[3] bar'
+	</dev/kbdtap riow >/dev/kbdtap |[3] bar
 .EE
 
 Example of running
 .I riow
 with other programs handling input:
 .EX
-	window 'rfork n; </dev/kbdtap ktrans |
+	</dev/kbdtap ktrans |
 		reform/shortcuts |
-		riow >/dev/kbdtap |[3] bar'
+		riow >/dev/kbdtap |[3] bar
 .EE
 .SS Keyboard shortcuts
 .TP
