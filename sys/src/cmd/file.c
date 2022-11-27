@@ -616,7 +616,7 @@ Filemagic long0tab[] = {
 	070707,		0xFFFF,		"cpio archive", "application/x-cpio",
 	0x2F7,		0xFFFF,		"tex dvi", "application/dvi",
 	0xfaff,		0xfeff,		"mp3 audio",	"audio/mpeg",
-	0xf0ff,		0xf6ff,		"aac audio",	"audio/mpeg",
+	0xf0ff,		0xf6ff,		"aac audio",	"audio/aac",
 	/* 0xfeedface: this could alternately be a Next Plan 9 boot image */
 	0xcefaedfe,	0xFFFFFFFF,	"32-bit power Mach-O executable", OCTET,
 	/* 0xfeedfacf */

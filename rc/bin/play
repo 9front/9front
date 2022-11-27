@@ -46,6 +46,8 @@ fn play1 {
 					}
 				}
 			}
+		case *aac*
+			audio/aacdec
 		case *ogg* *vorbis*
 			audio/oggdec
 		case *mp3* *mpeg*
