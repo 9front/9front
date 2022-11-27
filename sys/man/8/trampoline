@@ -62,7 +62,7 @@ and the attribute
 .BR trampok .
 If no such entry is found, the call is rejected.
 .TP
-.BI -t " opt
+.BI -o " opt
 Write a protocol-specific control string
 .I opt
 to the connections control file.
