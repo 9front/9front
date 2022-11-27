@@ -28,10 +28,13 @@ int		macok(char*);
 int		timeout;
 int		activity;
 
+int		nopts;
+char		*opts[16];
+
 void
 usage(void)
 {
-	fprint(2, "usage: trampoline [-9] [-a addr] [-m netdir] [-t timeout] addr\n");
+	fprint(2, "usage: trampoline [-9] [-a addr] [-m netdir] [-o opt] [-t timeout] addr\n");
 	exits("usage");
 }
 
@@ -39,7 +42,7 @@ void
 main(int argc, char **argv)
 {
 	char *altaddr, *checkmac, *mac;
-	int fd, fd0, fd1;
+	int fd, fd0, fd1, ctl, i;
 	void (*x)(int, int);
 	Endpoints *ep;
 
@@ -58,6 +61,11 @@ main(int argc, char **argv)
 		break;
 	case 't':
 		timeout = atoi(EARGF(usage()));
+		break;
+	case 'o':
+		if(nopts >= nelem(opts))
+			sysfatal("too many -o options");
+		opts[nopts++] = EARGF(usage());
 		break;
 	default:
 		usage();
@@ -87,9 +95,15 @@ main(int argc, char **argv)
 			sysfatal("dial %s: %r", altaddr);
 		fd1 = fd0;
 	}
-	fd = dial(argv[0], 0, 0, 0);
+	fd = dial(argv[0], 0, 0, &ctl);
 	if(fd < 0)
 		sysfatal("dial %s: %r", argv[0]);
+
+	for(i = 0; i < nopts; i++){
+		if(write(ctl, opts[i], strlen(opts[i])) < 0)
+			fprint(2, "%s: can't write %s: %r\n", argv0, opts[i]);
+	}
+	close(ctl);
 
 	rfork(RFNOTEG);
 	if(timeout > 0){

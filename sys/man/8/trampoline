@@ -14,6 +14,9 @@ trampoline \- forward incoming calls to another address
 .B -m
 .I netdir
 ] [
+.B -o
+.I opt
+] [
 .B -t
 .I timeout
 ]
@@ -58,6 +61,12 @@ contains an entry with
 and the attribute
 .BR trampok .
 If no such entry is found, the call is rejected.
+.TP
+.BI -t " opt
+Write a protocol-specific control string
+.I opt
+to the connections control file.
+This can be specified multiple times.
 .TP
 .BI -t " timeout
 Terminates the connection after
