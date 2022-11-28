@@ -81,18 +81,7 @@ as files.
 .SH FILES
 .TP
 .B .git
-The git repository being expected.
-.TP
-.B .git/HEAD
-A reference to the current HEAD.
-Used to populate
-.B $repo/.git/fs/HEAD
-.TP
-.git/config
-The per-repository configuration for git tools.
-.TP
-.B $home/lib/git/config
-The global configuration for git tools.
+The git repository being mounted.
 
 .SH SOURCE
 .TP
