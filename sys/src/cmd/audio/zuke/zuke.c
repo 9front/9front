@@ -427,7 +427,7 @@ redraw_(int full)
 
 			p.x = Scrollwidth + 2 + 3;
 			for(j = 0; cols[j] != 0; j++){
-				sel.max.x = p.x + colwidth[j] - 1;
+				sel.max.x = cols[j+1] ? (p.x + colwidth[j] - 1) : back->r.max.x;
 				replclipr(back, 0, sel);
 				if(playercurr != nil && playercurr->icytitle != nil && pcurplaying == i && cols[j] == Ptitle)
 					s = playercurr->icytitle;
