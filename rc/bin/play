@@ -1,5 +1,5 @@
 #!/bin/rc
-rfork e
+rfork en
 
 nl='
 '
@@ -21,6 +21,13 @@ fn sigint {
 
 fn sigexit {
 	cleanup
+}
+
+fn midi {
+	if(test -f /mnt/wad/genmidi || games/wadfs /sys/games/lib/doom/doom1.wad >[2]/dev/null)
+		games/dmid | games/opl3
+	if not
+		games/midi -c
 }
 
 fn play1 {
@@ -59,9 +66,9 @@ fn play1 {
 		case *audio/basic*
 			audio/sundec
 		case *audio/midi*
-			games/midi -c
+			midi
 		case *audio/mus*
-			games/mus | games/midi -c
+			games/mus | midi
 		case *pls*
 			awk 'BEGIN {FS="="} /^File/{print $2}' | play1 list plain
 		case *
@@ -77,9 +84,9 @@ fn play1 {
 			case *.au *.AU
 				audio/sundec
 			case *.mid *.MID
-				games/midi -c
+				midi
 			case *.mus *.MUS
-				games/mus | games/midi -c
+				games/mus | midi
 			case *
 				echo $argv0: $1: unknown format: $2 >[1=2]
 			}
