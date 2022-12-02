@@ -154,28 +154,37 @@ timeout(int ms)
 #define BOOTARGS	((char*)(CONFADDR+BOOTLINELEN))
 #define	BOOTARGSLEN	(4096-0x200-BOOTLINELEN)
 
-char *confend;
+static char *confend;
+
+static char*
+findconf(char *s)
+{
+	char *p, *e;
+	int n = strlen(s);
+	for(p = BOOTARGS; p < confend; p = e+1){
+		for(e = p; e < confend && *e != '\n'; e++){
+			if(*e == '\0')
+				return nil;
+		}
+		if(e - p >= n && memcmp(p, s, n) == 0)
+			return p;
+	}
+	return nil;
+}
 
 static char*
 getconf(char *s, char *buf)
 {
 	char *p, *e;
-	int n;
 
-	n = strlen(s);
-	for(p = BOOTARGS; p < confend; p = e+1){
-		for(e = p+1; e < confend; e++)
-			if(*e == '\n')
-				break;
-		if(memcmp(p, s, n) == 0){
-			p += n;
-			n = e - p;
-			buf[n] = 0;
-			memmove(buf, p, n);
-			return buf;
-		}
-	}
-	return nil;
+	if((p = findconf(s)) == nil)
+		return nil;
+	p += strlen(s);
+	for(e = p; *e != '\n'; e++)
+		;
+	memmove(buf, p, e - p);
+	buf[e - p] = '\0';
+	return buf;
 }
 
 static int
@@ -183,21 +192,15 @@ delconf(char *s)
 {
 	char *p, *e;
 
-	for(p = BOOTARGS; p < confend; p = e){
-		for(e = p+1; e < confend; e++){
-			if(*e == '\n'){
-				e++;
-				break;
-			}
-		}
-		if(memcmp(p, s, strlen(s)) == 0){
-			memmove(p, e, confend - e);
-			confend -= e - p;
-			*confend = 0;
-			return 1;
-		}
-	}
-	return 0;
+	if((p = findconf(s)) == nil)
+		return 0;
+	for(e = p; *e != '\n'; e++)
+		;
+	e++;
+	memmove(p, e, confend - e);
+	confend -= e - p;
+	*confend = '\0';
+	return 1;
 }
 
 char*
@@ -364,6 +367,8 @@ bootkern(void *f)
 
 	close(f);
 	print("boot\n");
+
+	memconf(findconf("*e820=")?nil:&confend);
 	unload();
 
 	jump(e);

@@ -42,7 +42,7 @@ unload(void)
 	eficall(ST->BootServices->ExitBootServices, IH, MK);
 }
 
-static void
+void
 memconf(char **cfg)
 {
 	static uchar memtype[EfiMaxMemoryType] = {
@@ -73,6 +73,10 @@ memconf(char **cfg)
 	if(eficall(ST->BootServices->GetMemoryMap, &mapsize, mapbuf, &MK, &entsize, &entvers))
 		return;
 
+	/* only called to get MK for ExitBootServices() */
+	if(cfg == nil)
+		return;
+
 	s = *cfg;
 	for(p = mapbuf; mapsize >= entsize; p += entsize, mapsize -= entsize){
 		t = (EFI_MEMORY_DESCRIPTOR*)p;
@@ -93,7 +97,7 @@ memconf(char **cfg)
 	*s = '\0';
 	if(s > *cfg){
 		s[-1] = '\n';
-		print(*cfg);
+		/* print(*cfg); -- no printing allowed, can change MK */
 		*cfg = s;
 	}
 }
@@ -276,7 +280,7 @@ Found:
 void
 eficonfig(char **cfg)
 {
-	memconf(cfg);
+	/* memconf(cfg); -- must be called right before unload() */
 	acpiconf(cfg);
 	screenconf(cfg);
 }
