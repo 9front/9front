@@ -453,9 +453,6 @@ walklink(Gitaux *aux, char *link, int nlink, int ndotdot, int *mode)
 			break;
 	}
 	free(path);
-	for(i = 0; o != nil && i < aux->ncrumb; i++)
-		if(crumb(aux, i)->obj == o)
-			return nil;
 	return o;
 }
 
