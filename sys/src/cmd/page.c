@@ -513,7 +513,7 @@ int
 popengs(Page *p)
 {
 	int n, i, pdf, ifd, ofd, pin[2], pout[2], pdat[2];
-	char buf[NBUF], nam[32], *argv[16];
+	char buf[NBUF], nam[32], *argv[32];
 
 	pdf = 0;
 	ifd = p->fd;
@@ -544,7 +544,7 @@ popengs(Page *p)
 	}
 
 	argv[0] = (char*)p->data;
-	switch(rfork(RFPROC|RFMEM|RFFDG|RFREND|RFNOWAIT)){
+	switch(rfork(RFENVG|RFPROC|RFMEM|RFFDG|RFREND|RFNOWAIT)){
 	case -1:
 		goto Err2;
 	case 0:
@@ -554,21 +554,31 @@ popengs(Page *p)
 			dupfds(nullfd, nullfd, 2, pdat[1], ifd, -1);
 		if(argv[0])
 			pipeline(4, "%s", argv[0]);
-		argv[0] = "gs";
-		argv[1] = "-q";
-		argv[2] = "-sDEVICE=plan9";
-		argv[3] = "-sOutputFile=/fd/3";
-		argv[4] = "-dBATCH";
-		argv[5] = pdf ? "-dDELAYSAFER" : "-dSAFER";
-		argv[6] = "-dQUIET";
-		argv[7] = "-dTextAlphaBits=4";
-		argv[8] = "-dGraphicsAlphaBits=4";
+
+		i = 0;
+		argv[i++] = "auth/box";
+		argv[i++] = "-r";
+		argv[i++] = "/fd";
+		argv[i++] = "-r";
+		argv[i++] = "/sys/lib/ghostscript";
+		argv[i++] = "-c";
+		argv[i++] = "/env";
+
+		argv[i++] = "/bin/gs";
+		argv[i++] = "-q";
+		argv[i++] = "-sDEVICE=plan9";
+		argv[i++] = "-sOutputFile=/fd/3";
+		argv[i++] = "-dBATCH";
+		argv[i++] = pdf ? "-dDELAYSAFER" : "-dSAFER";
+		argv[i++] = "-dQUIET";
+		argv[i++] = "-dTextAlphaBits=4";
+		argv[i++] = "-dGraphicsAlphaBits=4";
 		snprint(buf, sizeof buf, "-r%d", ppi);
-		argv[9] = buf;
-		argv[10] = "-dDOINTERPOLATE";
-		argv[11] = pdf ? "-" : "/fd/4";
-		argv[12] = nil;
-		exec("/bin/gs", argv);
+		argv[i++] = buf;
+		argv[i++] = "-dDOINTERPOLATE";
+		argv[i++] = pdf ? "-" : "/fd/4";
+		argv[i] = nil;
+		exec("/bin/auth/box", argv);
 		sysfatal("exec: %r");
 	}
 
