@@ -5,6 +5,8 @@ srv \- server registry
 .nf
 .B bind #s /srv
 
+.BI #s/ clone
+.BI #s/ n
 .BI #s/ service1
 .BI #s/ service2
  ...
@@ -12,7 +14,7 @@ srv \- server registry
 .SH DESCRIPTION
 The
 .I srv
-device provides a one-level directory holding
+device provides a tree of directories holding
 already-open channels to services.
 In effect,
 .I srv
@@ -40,6 +42,18 @@ releases that reference.
 .PP
 It is an error to write more than one number into a server file,
 or to create a file with a name that is already being used.
+.PP
+Opening the
+.I clone
+file allocates a new service directory. Reading
+.I clone
+returns the id of the new directory. This new service
+directory can then be accessed at
+.BR /srv/id .
+Directories are recursable; each new service directory
+contains its own
+.I clone
+file.
 .SH EXAMPLE
 To drop one end of a pipe into
 .BR /srv ,
