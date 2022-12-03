@@ -950,7 +950,7 @@ cachedump(Bridge *b)
 static void
 ethermultiwrite(Bridge *b, Block *bp, int portid, ushort tag)
 {
-	Port *oport;
+	Port *p, *oport;
 	Etherpkt *ep;
 	int i, mcast;
 	ushort vid;
@@ -960,23 +960,23 @@ ethermultiwrite(Bridge *b, Block *bp, int portid, ushort tag)
 	mcast = ep->d[0] & 1;		/* multicast bit of ethernet address */
 	oport = nil;
 	for(i=0; i<b->nport; i++) {
-		if(i == portid || b->port[i] == nil || !ismember(b->port[i], vid))
+		if(i == portid || (p = b->port[i]) == nil || !ismember(p, vid))
 			continue;
 		/*
 		 * we need to forward multicast packets for ipv6,
 		 * so always do it.
 		 */
 		if(mcast)
-			b->port[i]->outmulti++;
+			p->outmulti++;
 		else
-			b->port[i]->outunknown++;
+			p->outunknown++;
 
 		/* delay one so that the last write does not copy */
 		if(oport != nil) {
 			b->copy++;
 			etherwrite(oport, copyblock(bp, BLEN(bp)), tag);
 		}
-		oport = b->port[i];
+		oport = p;
 	}
 
 	/* last write free block */
