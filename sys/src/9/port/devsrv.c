@@ -5,7 +5,7 @@
 #include	"fns.h"
 #include	"../port/error.h"
 
-#define SRVTYPE(x)	(((uvlong)x)&0x3)
+#define SRVTYPE(x)	(((uint)x)&0x3)
 #define SRVPATH(x)	(((uvlong)x)>>2)
 #define SRVQID(x, t)	((((uvlong)x)<<2)|((t)&0x3))
 
@@ -99,7 +99,6 @@ boardclunk(Board *b, int close)
 {
 	Srv *sp, *prv;
 	Board *ch;
-	long ref;
 
 	if(b == &root)
 		return;
@@ -117,7 +116,8 @@ boardclunk(Board *b, int close)
 		}
 		b->srv = nil;
 	}
-	ref = decref(b);
+	if(decref(b) != 0)
+		return;
 
 	/*
 	 * All boards must be walkable from root. So a board
@@ -125,7 +125,7 @@ boardclunk(Board *b, int close)
 	 * still has active children. For leaf nodes we then
 	 * have to walk up the tree to clear now empty parents.
 	 */
-	while(b->closed && b->child == nil && ref == 0){
+	while(b->closed && b->child == nil){
 		//Root should never be closed
 		assert(b->parent != nil);
 		ch = remove((Link**)&b->parent->child, b->name, ~0UL);
