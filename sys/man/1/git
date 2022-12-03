@@ -330,7 +330,7 @@ is an alias for
 .B Git/commit
 creates a new commit consisting of all changes to the specified files.
 By default, an editor is opened to prepare the commit message.
-The/ 
+The 
 .B -m
 flag supplies the commit message directly.
 The
