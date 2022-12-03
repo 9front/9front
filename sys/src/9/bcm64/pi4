@@ -29,7 +29,7 @@ link
 	gisb
 	pcibcm
 	archbcm4	pci
-	usbxhci		pci archbcm4
+	usbxhcipci	pci usbxhci archbcm4 
 	ethergenet	ethermii
 	ethermedium
 	loopbackmedium

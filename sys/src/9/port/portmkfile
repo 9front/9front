@@ -109,8 +109,9 @@ devaoe.$O sdaoe.$O:	/sys/include/fis.h
 sysproc.$O:	/sys/include/a.out.h
 syscallfmt.$O:	/sys/src/libc/9syscall/sys.h
 devusb.$O usbxhci.$O:	../port/usb.h
+usbxhci.$O usbxhcipci.$O:	../port/usbxhci.h
 devether.$O ethersink.$O:	../port/etherif.h ../port/netif.h
 wifi.$O:	../port/etherif.h ../port/netif.h ../port/wifi.h /sys/include/libsec.h
 wifi.$O:	../ip/ip.h ../ip/ipv6.h
 ethermii.$O:	../port/ethermii.h
-pci.$O devpnp.$O devpci.$O usbxhci.$O:	../port/pci.h
+pci.$O devpnp.$O devpci.$O usbxhcipci.$O:	../port/pci.h

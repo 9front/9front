@@ -26,7 +26,7 @@ dev
 	audio
 
 link
-	usbxhciimx
+	usbxhciimx	usbxhci
 	etherimx	ethermii
 	ethermedium
 	loopbackmedium

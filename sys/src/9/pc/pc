@@ -86,8 +86,8 @@ link
 	pcmciamodem
 	usbuhci		pci
 	usbohci		pci
-	usbehci		usbehcipc
-	usbxhci		pci
+	usbehci		pci usbehcipc
+	usbxhci		pci usbxhcipci
 
 	audiosb16	dma
 	audioac97	pci audioac97mix

@@ -4,9 +4,10 @@
 #include	"dat.h"
 #include	"fns.h"
 #include	"io.h"
-#include	"../port/pci.h"
 #include	"../port/error.h"
 #include	"../port/usb.h"
+
+#include	"usbxhci.h"
 
 enum {
 	/* Capability Registers */
@@ -222,9 +223,7 @@ struct Port
 
 struct Ctlr
 {
-	Pcidev	*pcidev;
-
-	u32int	*mmio;
+	Xhci;
 
 	u32int	*opr;	/* operational registers */
 	u32int	*rts;	/* runtime registers */
@@ -255,8 +254,6 @@ struct Ctlr
 	int	nslots;
 
 	Rendez	recover;	
-	void	*active;
-	uvlong	base;
 };
 
 struct Epio
@@ -358,14 +355,14 @@ flushring(Ring *r)
 }
 
 static u64int
-resetring(Ring *r)
+resetring(Ctlr *ctlr, Ring *r)
 {
 	u64int pa;
 
 	ilock(r);
 	flushring(r);
 	r->rp = r->wp;
-	pa = PCIWADDR(&r->base[4*(r->wp & r->mask)]) | ((~r->wp>>r->shift) & 1);
+	pa = (*ctlr->dmaaddr)(&r->base[4*(r->wp & r->mask)]) | ((~r->wp>>r->shift) & 1);
 	iunlock(r);
 
 	return pa;
@@ -376,7 +373,7 @@ xecp(Ctlr *ctlr, uchar id, u32int *p)
 {
 	u32int x, *e;
 
-	e = &ctlr->mmio[ctlr->pcidev->mem[0].size/4];
+	e = &ctlr->mmio[ctlr->size/4];
 	if(p == nil){
 		p = ctlr->mmio;
 		x = ctlr->hccparams>>16;
@@ -417,8 +414,8 @@ handoff(Ctlr *ctlr)
 	r[0] &= ~(1<<16);
 }
 
-static void
-shutdown(Hci *hp)
+void
+xhcishutdown(Hci *hp)
 {
 	Ctlr *ctlr = hp->aux;
 	int i;
@@ -426,8 +423,7 @@ shutdown(Hci *hp)
 	ctlr->opr[USBCMD] = 0;
 	for(i=0; (ctlr->opr[USBSTS] & HCH) == 0 && i < 10; i++)
 		delay(10);
-	intrdisable(ctlr->pcidev->intl, hp->interrupt, hp, ctlr->pcidev->tbdf, hp->type);
-	pcidisable(ctlr->pcidev);
+	intrdisable(hp->irq, hp->interrupt, hp, hp->tbdf, hp->type);
 }
 
 static void
@@ -454,8 +450,8 @@ release(Ctlr *ctlr)
 
 static void recover(void *arg);
 
-static void
-init(Hci *hp)
+void
+xhciinit(Hci *hp)
 {
 	Ctlr *ctlr;
 	Port *pp;
@@ -464,12 +460,6 @@ init(Hci *hp)
 	int i, j;
 
 	ctlr = hp->aux;
-	pcienable(ctlr->pcidev);
-	if(ctlr->mmio[CAPLENGTH] == -1){
-		pcidisable(ctlr->pcidev);
-		error("controller vanished");
-	}
-
 	ctlr->opr = &ctlr->mmio[(ctlr->mmio[CAPLENGTH]&0xFF)/4];
 	ctlr->dba = &ctlr->mmio[ctlr->mmio[DBOFF]/4];
 	ctlr->rts = &ctlr->mmio[ctlr->mmio[RTSOFF]/4];
@@ -481,18 +471,21 @@ init(Hci *hp)
 		tsleep(&up->sleep, return0, nil, 10);
 
 	ctlr->opr[USBCMD] = HCRST;
+
 	/* some intel controllers require 1ms delay after reset */
-	delay(1);
+	tsleep(&up->sleep, return0, nil, 1);
+
 	for(i=0; (ctlr->opr[USBCMD] & HCRST) != 0 && i<100; i++)
 		tsleep(&up->sleep, return0, nil, 10);
 	for(i=0; (ctlr->opr[USBSTS] & (CNR|HCH)) != HCH && i<100; i++)
 		tsleep(&up->sleep, return0, nil, 10);
 
-	pcisetbme(ctlr->pcidev);
-	intrenable(ctlr->pcidev->intl, hp->interrupt, hp, ctlr->pcidev->tbdf, hp->type);
+	if(ctlr->dmaenable != nil)
+		(*ctlr->dmaenable)(ctlr);
+	intrenable(hp->irq, hp->interrupt, hp, hp->tbdf, hp->type);
 
 	if(waserror()){
-		shutdown(hp);
+		(*hp->shutdown)(hp);
 		release(ctlr);
 		nexterror();
 	}
@@ -540,11 +533,11 @@ init(Hci *hp)
 			error(Enomem);
 		for(i=0, p = ctlr->sbp; i<ctlr->nscratch; i++, p += ctlr->pagesize){
 			memset(p, 0, ctlr->pagesize);
-			ctlr->sba[i] = PCIWADDR(p);
+			ctlr->sba[i] = (*ctlr->dmaaddr)(p);
 		}
 		dmaflush(1, ctlr->sbp, ctlr->nscratch*ctlr->pagesize);
 		dmaflush(1, ctlr->sba, ctlr->nscratch*8);
-		ctlr->dcba[0] = PCIWADDR(ctlr->sba);
+		ctlr->dcba[0] = (*ctlr->dmaaddr)(ctlr->sba);
 	} else {
 		ctlr->dcba[0] = 0;
 	}
@@ -554,12 +547,12 @@ init(Hci *hp)
 	ctlr->opr[CONFIG] = (ctlr->opr[CONFIG] & 0xFFFFFC00) | ctlr->nslots;	/* MaxSlotsEn */
 
 	dmaflush(1, ctlr->dcba, (1+ctlr->nslots)*sizeof(ctlr->dcba[0]));
-	setrptr(&ctlr->opr[DCBAAP], PCIWADDR(ctlr->dcba));
+	setrptr(&ctlr->opr[DCBAAP], (*ctlr->dmaaddr)(ctlr->dcba));
 
 	initring(ctlr->cr, 8);		/* 256 entries */
 	ctlr->cr->id = 0;
 	ctlr->cr->doorbell = &ctlr->dba[0];
-	setrptr(&ctlr->opr[CRCR], resetring(ctlr->cr));
+	setrptr(&ctlr->opr[CRCR], resetring(ctlr, ctlr->cr));
 
 	for(i=0; i<ctlr->nintrs; i++){
 		u32int *irs = &ctlr->rts[IR0 + i*8];
@@ -578,7 +571,7 @@ init(Hci *hp)
 		ctlr->erst[i] = mallocalign(4*4, 64, 0, 0);
 		if(ctlr->erst[i] == nil)
 			error(Enomem);
-		*((u64int*)ctlr->erst[i]) = PCIWADDR(ctlr->er[i].base);
+		*((u64int*)ctlr->erst[i]) = (*ctlr->dmaaddr)(ctlr->er[i].base);
 		ctlr->erst[i][2] = ctlr->er[i].mask+1;
 		ctlr->erst[i][3] = 0;
 		dmaflush(1, ctlr->erst[i], 4*4);
@@ -586,8 +579,8 @@ init(Hci *hp)
 		irs[ERSTSZ] = 1;	/* just one segment */
 		irs[IMAN] = 3;
 		irs[IMOD] = 0;
-		setrptr(&irs[ERSTBA], PCIWADDR(ctlr->erst[i]));
-		setrptr(&irs[ERDP], PCIWADDR(ctlr->er[i].base) | (1<<3));
+		setrptr(&irs[ERSTBA], (*ctlr->dmaaddr)(ctlr->erst[i]));
+		setrptr(&irs[ERDP], (*ctlr->dmaaddr)(ctlr->er[i].base) | (1<<3));
 	}
 	poperror();
 
@@ -620,7 +613,7 @@ recover(void *arg)
 		;
 	while(!needrecover(ctlr))
 		tsleep(&ctlr->recover, needrecover, ctlr, 1000);
-	shutdown(hp);
+	(*hp->shutdown)(hp);
 
 	/*
 	 * flush all transactions and wait until all devices have
@@ -665,7 +658,7 @@ recover(void *arg)
 	if(waserror()) {
 		print("xhci recovery failed: %s\n", up->errstr);
 	} else {
-		init(hp);
+		(*hp->init)(hp);
 		poperror();
 	}
 
@@ -687,8 +680,9 @@ queuetd(Ring *r, u32int c, u32int s, u64int p, Wait *w)
 
 	x = r->wp++;
 	if((x & r->mask) == r->mask){
+		Ctlr *ctlr = r->slot->ctlr;
 		td = r->base + 4*(x & r->mask);
-		*(u64int*)td = PCIWADDR(r->base);
+		*(u64int*)td = (*ctlr->dmaaddr)(r->base);
 		td[2] = 0;
 		td[3] = ((~x>>r->shift)&1) | (1<<1) | TR_LINK;
 		dmaflush(1, td, 4*4);
@@ -833,7 +827,7 @@ ctlrcmd(Ctlr *ctlr, u32int c, u32int s, u64int p, u32int *er)
 }
 
 static void
-completering(Ring *r, u32int *er)
+completering(Ctlr *ctlr, Ring *r, u32int *er)
 {
 	Wait *w, **wp;
 	u32int *td, x;
@@ -841,10 +835,9 @@ completering(Ring *r, u32int *er)
 
 	pa = (*(u64int*)er) & ~15ULL;
 	ilock(r);
-
 	for(x = r->rp; (int)(r->wp - x) > 0; x++){
 		td = &r->base[4*(x & r->mask)];
-		if((u64int)PCIWADDR(td) == pa){
+		if((*ctlr->dmaaddr)(td) == pa){
 			if(r->residue != nil)
 				r->residue[x & r->mask] = er[2] & 0xFFFFFF;
 			r->rp = x+1;
@@ -854,7 +847,7 @@ completering(Ring *r, u32int *er)
 
 	wp = &r->pending;
 	while(w = *wp){
-		if((u64int)PCIWADDR(w->td) == pa){
+		if((*ctlr->dmaaddr)(w->td) == pa){
 			Rendez *z = w->z;
 
 			memmove(w->er, er, 4*4);
@@ -899,7 +892,7 @@ interrupt(Ureg*, void *arg)
 
 		switch(td[3] & 0xFC00){
 		case ER_CMDCOMPL:
-			completering(ctlr->cr, td);
+			completering(ctlr, ctlr->cr, td);
 			break;
 		case ER_TRANSFER:
 			x = td[3]>>24;
@@ -908,7 +901,7 @@ interrupt(Ureg*, void *arg)
 			slot = ctlr->slot[x];
 			if(slot == nil)
 				break;
-			completering(&slot->epr[(td[3]>>16)-1&31], td);
+			completering(ctlr, &slot->epr[(td[3]>>16)-1&31], td);
 			break;
 		case ER_MFINDEXWRAP:
 			ctlr->µframe = (ctlr->rts[MFINDEX] & (1<<14)-1) | 
@@ -931,7 +924,7 @@ interrupt(Ureg*, void *arg)
 		}
 	}
 
-	setrptr(&irs[ERDP], PCIWADDR(td) | (1<<3));
+	setrptr(&irs[ERDP], (*ctlr->dmaaddr)(td) | (1<<3));
 }
 
 static void
@@ -1003,7 +996,7 @@ allocslot(Ctlr *ctlr, Udev *dev)
 	poperror();
 
 	dmaflush(1, slot->obase, 32*32 << ctlr->csz);
-	ctlr->dcba[slot->id] = PCIWADDR(slot->obase);
+	ctlr->dcba[slot->id] = (*ctlr->dmaaddr)(slot->obase);
 	dmaflush(1, &ctlr->dcba[slot->id], sizeof(ctlr->dcba[0]));
 
 	ctlr->slot[slot->id] = slot;
@@ -1066,7 +1059,8 @@ epclose(Ep *ep)
 		memset(w, 0, 2*32<<ctlr->csz);
 
 		dmaflush(1, slot->ibase, 32*33 << ctlr->csz);
-		ctlrcmd(ctlr, CR_CONFIGEP | (slot->id<<24), 0, PCIWADDR(slot->ibase), nil);
+		ctlrcmd(ctlr, CR_CONFIGEP | (slot->id<<24), 0,
+			(*ctlr->dmaaddr)(slot->ibase), nil);
 		dmaflush(0, slot->obase, 32*32 << ctlr->csz);
 
 		freering(io[OREAD].ring);
@@ -1078,7 +1072,7 @@ epclose(Ep *ep)
 }
 
 static void
-initepctx(u32int *w, Ring *r, Ep *ep)
+initepctx(Ctlr *ctlr, u32int *w, Ring *r, Ep *ep)
 {
 	int ival;
 
@@ -1093,7 +1087,7 @@ initepctx(u32int *w, Ring *r, Ep *ep)
 	w[1] = ((ep->ttype-Tctl) | (r->id&1)<<2)<<3 | (ep->ntds-1)<<8 | ep->maxpkt<<16;
 	if(ep->ttype != Tiso)
 		w[1] |= 3<<1;
-	*((u64int*)&w[2]) = PCIWADDR(r->base) | 1;
+	*((u64int*)&w[2]) = (*ctlr->dmaaddr)(r->base) | 1;
 	w[4] = 2*ep->maxpkt;
 	if(ep->ttype == Tintr || ep->ttype == Tiso)
 		w[4] |= (ep->maxpkt*ep->ntds)<<16;
@@ -1180,17 +1174,18 @@ initep(Ep *ep)
 	w += (ep->nb&Epmax)*2*8<<ctlr->csz;
 	if(io[OWRITE].ring != nil){
 		memset(w, 0, 5*4);
-		initepctx(w, io[OWRITE].ring, ep);
+		initepctx(ctlr, w, io[OWRITE].ring, ep);
 	}
 
 	w += 8<<ctlr->csz;
 	if(io[OREAD].ring != nil){
 		memset(w, 0, 5*4);
-		initepctx(w, io[OREAD].ring, ep);
+		initepctx(ctlr, w, io[OREAD].ring, ep);
 	}
 
 	dmaflush(1, slot->ibase, 32*33 << ctlr->csz);
-	err = ctlrcmd(ctlr, CR_CONFIGEP | (slot->id<<24), 0, PCIWADDR(slot->ibase), nil);
+	err = ctlrcmd(ctlr, CR_CONFIGEP | (slot->id<<24), 0,
+		(*ctlr->dmaaddr)(slot->ibase), nil);
 	dmaflush(0, slot->obase, 32*32 << ctlr->csz);
 	if(err != nil)
 		error(err);
@@ -1302,10 +1297,11 @@ epopen(Ep *ep)
 
 	/* (input) ep context 0 */
 	w += 8<<ctlr->csz;
-	initepctx(w, io[OWRITE].ring, ep);
+	initepctx(ctlr, w, io[OWRITE].ring, ep);
 
 	dmaflush(1, slot->ibase, 32*33 << ctlr->csz);
-	err = ctlrcmd(ctlr, CR_ADDRESSDEV | (slot->id<<24), 0, PCIWADDR(slot->ibase), nil);
+	err = ctlrcmd(ctlr, CR_ADDRESSDEV | (slot->id<<24), 0,
+		(*ctlr->dmaaddr)(slot->ibase), nil);
 	dmaflush(0, slot->obase, 32*32 << ctlr->csz);
 	if(err != nil)
 		error(err);
@@ -1382,7 +1378,8 @@ isoread(Ep *ep, uchar *p, long n)
 		m = io->tdsz;
 		d = io->b->rp + (i&io->ring->mask)*io->tdsz;
 		dmaflush(1, d, m);
-		queuetd(io->ring, TR_ISOCH | (i*µ/8 & 0x7ff)<<20 | TR_IOC, m, PCIWADDR(d), nil);
+		queuetd(io->ring, TR_ISOCH | (i*µ/8 & 0x7ff)<<20 | TR_IOC, m,
+			(*ctlr->dmaaddr)(d), nil);
 	}
 	io->frame = i;
 
@@ -1439,7 +1436,8 @@ isowrite(Ep *ep, uchar *p, long n)
 		m += io->nleft, d -= io->nleft;
 		io->nleft = 0;
 		dmaflush(1, d, m);
-		queuetd(io->ring, TR_ISOCH | (i*µ/8 & 0x7ff)<<20 | TR_IOC, m, PCIWADDR(d), nil);
+		queuetd(io->ring, TR_ISOCH | (i*µ/8 & 0x7ff)<<20 | TR_IOC, m,
+			(*ctlr->dmaaddr)(d), nil);
 	}
 	io->frame = i;
 
@@ -1464,6 +1462,7 @@ isowrite(Ep *ep, uchar *p, long n)
 static char*
 unstall(Ep *ep, Ring *r)
 {
+	Ctlr *ctlr = r->slot->ctlr;
 	char *err;
 
 	switch(r->ctx[0]&7){
@@ -1473,15 +1472,16 @@ unstall(Ep *ep, Ring *r)
 	}
 	if(ep->clrhalt){
 		ep->clrhalt = 0;
-		err = ctlrcmd(r->slot->ctlr, CR_RESETEP | (r->id<<16) | (r->slot->id<<24), 0, 0, nil);
-		dmaflush(0, r->ctx, 8*4 << r->slot->ctlr->csz);
+		err = ctlrcmd(ctlr, CR_RESETEP | (r->id<<16) | (r->slot->id<<24), 0, 0, nil);
+		dmaflush(0, r->ctx, 8*4 << ctlr->csz);
 		if(err != nil)
 			return err;
 		r->stopped = 1;
 	}
 	if(r->stopped){
-		err = ctlrcmd(r->slot->ctlr, CR_SETTRDQP | (r->id<<16) | (r->slot->id<<24), 0, resetring(r), nil);
-		dmaflush(0, r->ctx, 8*4 << r->slot->ctlr->csz);
+		err = ctlrcmd(ctlr, CR_SETTRDQP | (r->id<<16) | (r->slot->id<<24), 0,
+			resetring(ctlr, r), nil);
+		dmaflush(0, r->ctx, 8*4 << ctlr->csz);
 		if(err != nil)
 			return err;
 		r->stopped = 0;
@@ -1548,7 +1548,7 @@ epread(Ep *ep, void *va, long n)
 		error(err);
 
 	dmaflush(1, p, n);
-	queuetd(io->ring, TR_NORMAL | TR_IOC, n, PCIWADDR(p), w);
+	queuetd(io->ring, TR_NORMAL | TR_IOC, n, (*ctlr->dmaaddr)(p), w);
 	err = waittd(ctlr, w, ep->tmout);
 	dmaflush(0, p, n);
 	if(err != nil)
@@ -1625,21 +1625,21 @@ epwrite(Ep *ep, void *va, long n)
 			w[0] = 0;
 			w[1] = 1<<ring->id;
 			w += (ring->id+1)*8<<ctlr->csz;
-			initepctx(w, ring, ep);
+			initepctx(ctlr, w, ring, ep);
 			dmaflush(1, slot->ibase, 32*33 << ctlr->csz);
-			err = ctlrcmd(ctlr, CR_EVALCTX | (slot->id<<24), 0, PCIWADDR(slot->ibase), nil);
+			err = ctlrcmd(ctlr, CR_EVALCTX | (slot->id<<24), 0,
+				(*ctlr->dmaaddr)(slot->ibase), nil);
 			dmaflush(0, slot->obase, 32*32 << ctlr->csz);
 			if(err != nil)
 				error(err);
 		}
 
 		queuetd(ring, TR_SETUPSTAGE | (len > 0 ? 2+dir : 0)<<16 | TR_IDT | TR_IOC, 8,
-			p[0] | p[1]<<8 | GET2(&p[2])<<16 |
-			(u64int)(GET2(&p[4]) | len<<16)<<32, &w[0]);
+			p[0] | p[1]<<8 | GET2(&p[2])<<16 | (u64int)(GET2(&p[4]) | len<<16)<<32, &w[0]);
 		if(len > 0){
 			dmaflush(1, io->b->rp, len);
 			queuetd(ring, TR_DATASTAGE | dir<<16 | TR_IOC, len,
-				PCIWADDR(io->b->rp), &w[1]);
+				(*ctlr->dmaaddr)(io->b->rp), &w[1]);
 		}
 		queuetd(ring, TR_STATUSSTAGE | (len == 0 || !dir)<<16 | TR_IOC, 0, 0, &w[2]);
 
@@ -1700,7 +1700,7 @@ epwrite(Ep *ep, void *va, long n)
 		error(err);
 
 	dmaflush(1, p, n);
-	queuetd(io->ring, TR_NORMAL | TR_IOC, n, PCIWADDR(p), w);
+	queuetd(io->ring, TR_NORMAL | TR_IOC, n, (*ctlr->dmaaddr)(p), w);
 	if((err = waittd(ctlr, w, ep->tmout)) != nil)
 		error(err);
 
@@ -1783,93 +1783,40 @@ portreset(Hci *hp, int port, int on)
 	return 0;
 }
 
-
-static Ctlr *ctlrs[Nhcis];
-
-static void
-scanpci(void)
+static u64int
+physaddr(void *va)
 {
-	static int already = 0;
-	int i;
-	uvlong io;
-	Ctlr *ctlr;
-	Pcidev *p;
-	u32int *mmio; 
-
-	if(already)
-		return;
-	already = 1;
-	p = nil;
-	while ((p = pcimatch(p, 0, 0)) != nil) {
-		/*
-		 * Find XHCI controllers (Programming Interface = 0x30).
-		 */
-		if(p->ccrb != Pcibcserial || p->ccru != Pciscusb || p->ccrp != 0x30)
-			continue;
-		if(p->mem[0].bar & 1)
-			continue;
-		io = p->mem[0].bar & ~0x0f;
-		if(io == 0)
-			continue;
-		print("usbxhci: %#x %#x: port %llux size %lld irq %d\n",
-			p->vid, p->did, io, p->mem[0].size, p->intl);
-		mmio = vmap(io, p->mem[0].size);
-		if(mmio == nil){
-			print("usbxhci: cannot map registers\n");
-			continue;
-		}
-		ctlr = malloc(sizeof(Ctlr));
-		if(ctlr == nil){
-			print("usbxhci: no memory\n");
-			vunmap(mmio, p->mem[0].size);
-			continue;
-		}
-		ctlr->base = io;
-		ctlr->active = nil;
-		ctlr->pcidev = p;
-		ctlr->mmio = mmio;
-		for(i = 0; i < nelem(ctlrs); i++)
-			if(ctlrs[i] == nil){
-				ctlrs[i] = ctlr;
-				break;
-			}
-		if(i >= nelem(ctlrs))
-			print("xhci: bug: more than %d controllers\n", nelem(ctlrs));
-	}
+	return PADDR(va);
 }
 
-static int
-reset(Hci *hp)
+Xhci*
+xhcialloc(u32int *mmio, u64int base, u64int size)
 {
 	Ctlr *ctlr;
-	int i;
 
-	if(getconf("*nousbxhci"))
-		return -1;
-
-	scanpci();
-
-	/*
-	 * Any adapter matches if no hp->port is supplied,
-	 * otherwise the ports must match.
-	 */
-	for(i = 0; i < nelem(ctlrs) && ctlrs[i] != nil; i++){
-		ctlr = ctlrs[i];
-		if(ctlr->active == nil)
-		if(hp->port == 0 || hp->port == ctlr->base){
-			ctlr->active = hp;
-			goto Found;
-		}
+	ctlr = malloc(sizeof(Ctlr));
+	if(ctlr == nil){
+		print("usbxhci: no memory for controller\n");
+		return nil;
 	}
-	return -1;
+	ctlr->base = base;
+	ctlr->size = size;
+	ctlr->mmio = mmio;
 
-Found:
-	hp->aux = ctlr;
+	ctlr->dmaaddr = physaddr;
+
+	return ctlr;
+}
+
+void
+xhcilinkage(Hci *hp, Xhci *ctlr)
+{
 	hp->port = ctlr->base;
-	hp->irq = ctlr->pcidev->intl;
-	hp->tbdf = ctlr->pcidev->tbdf;
+	hp->aux = ctlr;
 
-	hp->init = init;
+	hp->init = xhciinit;
+	hp->shutdown = xhcishutdown;
+
 	hp->dump = dump;
 	hp->interrupt = interrupt;
 	hp->epopen = epopen;
@@ -1880,15 +1827,14 @@ Found:
 	hp->portenable = portenable;
 	hp->portreset = portreset;
 	hp->portstatus = portstatus;
-	hp->shutdown = shutdown;
+
 	hp->debug = setdebug;
 	hp->type = "xhci";
 
-	return 0;
+	ctlr->active = hp;
 }
 
 void
 usbxhcilink(void)
 {
-	addhcitype("xhci", reset);
 }
