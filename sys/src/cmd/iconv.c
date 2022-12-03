@@ -40,10 +40,9 @@ void
 main(int argc, char *argv[])
 {
 	char *tostr, *file;
-	int fd, uncompressed, r;
+	int fd, uncompressed;
 	ulong tochan;
 	Memimage *m, *n;
-	uchar extra[8192];
 
 	tostr = nil;
 	uncompressed = 0;
@@ -61,20 +60,24 @@ main(int argc, char *argv[])
 	memimageinit();
 
 	file = "<stdin>";
-	fd = 0;
+	m = nil;
+
 	switch(argc){
 	case 0:
+		m = readmemimage(0);
 		break;
 	case 1:
-		fd = open(file = argv[0], OREAD);
+		file = argv[0];
+		fd = open(file, OREAD);
 		if(fd < 0)
 			sysfatal("can't open %s: %r", file);
+		m = readmemimage(fd);
+		close(fd);
 		break;
 	default:
 		usage();
 	}
 
-	m = readmemimage(fd);
 	if(m == nil)
 		sysfatal("can't read %s: %r", file);
 
@@ -95,15 +98,5 @@ main(int argc, char *argv[])
 		writeuncompressed(1, n);
 	else
 		writememimage(1, n);
-
-	for(;;){
-		if((r = read(fd, extra, sizeof(extra))) < 0)
-			sysfatal("read failed: %r");
-		if(r == 0)
-			break;
-		if(write(1, extra, r) != r)
-			sysfatal("write failed: %r");
-	}
-
 	exits(nil);
 }

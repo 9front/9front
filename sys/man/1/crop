@@ -114,11 +114,8 @@ The default color is black.
 .I Iconv
 changes the format of pixels in the image
 .I file
-(default standard input) and writes the resulting image to standard
-output.  Any extra data following the source image is copied verbatim,
-which allows converting fonts without losing subfont header and
-character information.  Pixels in the image are converted according to
-the channel descriptor
+(default standard input) and writes the resulting image to standard output.
+Pixels in the image are converted according to the channel descriptor
 .IR chandesc ,
 (see
 .IR image (6)).
