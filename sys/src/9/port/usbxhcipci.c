@@ -83,11 +83,11 @@ scanpci(void)
 static void
 init(Hci *hp)
 {
-	Xhci *xhci = hp->aux;
-	Pcidev *pcidev = xhci->aux;
+	Xhci *ctlr = hp->aux;
+	Pcidev *pcidev = ctlr->aux;
 
 	pcienable(pcidev);
-	if(xhci->mmio[0] == -1){
+	if(ctlr->mmio[0] == -1){
 		pcidisable(pcidev);
 		error("controller vanished");
 	}
@@ -97,8 +97,8 @@ init(Hci *hp)
 static void
 shutdown(Hci *hp)
 {
-	Xhci *xhci = hp->aux;
-	Pcidev *pcidev = xhci->aux;
+	Xhci *ctlr = hp->aux;
+	Pcidev *pcidev = ctlr->aux;
 
 	xhcishutdown(hp);
 	pcidisable(pcidev);
@@ -120,8 +120,10 @@ reset(Hci *hp)
 	 * Any adapter matches if no hp->port is supplied,
 	 * otherwise the ports must match.
 	 */
-	for(i = 0; i < nelem(ctlrs) && ctlrs[i] != nil; i++){
+	for(i = 0; i < nelem(ctlrs); i++){
 		ctlr = ctlrs[i];
+		if(ctlr == nil)
+			break;
 		if(ctlr->active == nil)
 		if(hp->port == 0 || hp->port == ctlr->base)
 			goto Found;
@@ -130,11 +132,12 @@ reset(Hci *hp)
 
 Found:
 	pcidev = ctlr->aux;
+	hp->irq = pcidev->intl;
+	hp->tbdf = pcidev->tbdf;
+
 	xhcilinkage(hp, ctlr);
 	hp->init = init;
 	hp->shutdown = shutdown;
-	hp->irq = pcidev->intl;
-	hp->tbdf = pcidev->tbdf;
 
 	return 0;
 }

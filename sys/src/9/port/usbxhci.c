@@ -1799,9 +1799,9 @@ xhcialloc(u32int *mmio, u64int base, u64int size)
 		print("usbxhci: no memory for controller\n");
 		return nil;
 	}
+	ctlr->mmio = mmio;
 	ctlr->base = base;
 	ctlr->size = size;
-	ctlr->mmio = mmio;
 
 	ctlr->dmaaddr = physaddr;
 

@@ -74,6 +74,8 @@ reset(Hci *hp)
 		if(ctlrs[i] == nil){
 			uintptr base = VIRTIO + 0x8100000 + i*0x100000;
 			ctlr = xhcialloc((u32int*)base, base - KZERO, 0x100000);
+			if(ctlr == nil)
+				break;
 			ctlrs[i] = ctlr;
 			goto Found;
 		}
@@ -81,9 +83,9 @@ reset(Hci *hp)
 	return -1;
 
 Found:
-	xhcilinkage(hp, ctlr);
 	hp->tbdf = BUSUNKNOWN;
 	hp->irq = IRQusb1 + i;
+	xhcilinkage(hp, ctlr);
 
 	if(i == 0){
 		iomuxpad("pad_gpio1_io13", "usb1_otg_oc", "~LVTTL ~HYS ~PUE ~ODE FAST 45_OHM");
