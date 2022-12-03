@@ -435,6 +435,8 @@ com64(Node *n)
 			if(machcap(n))
 				return 1;
 			switch(n->type->etype) {
+			case TVOID:
+				return 1;
 			case TDOUBLE:
 				if(l->type->etype == TUVLONG)
 					a = noduv2d;
