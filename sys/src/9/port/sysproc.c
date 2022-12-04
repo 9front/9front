@@ -321,11 +321,6 @@ sysexec(va_list list)
 		/* Disaster after commit */
 		if(up->seg[SSEG] == nil)
 			pexit(up->errstr, 1);
-		s = up->seg[ESEG];
-		if(s != nil){
-			putseg(s);
-			up->seg[ESEG] = nil;
-		}
 		nexterror();
 	}
 	align = BY2PG-1;
@@ -451,6 +446,11 @@ sysexec(va_list list)
 	 */
 	qlock(&up->seglock);
 	if(waserror()){
+		s = up->seg[ESEG];
+		if(s != nil){
+			up->seg[ESEG] = nil;
+			putseg(s);
+		}
 		qunlock(&up->seglock);
 		nexterror();
 	}
@@ -524,15 +524,18 @@ sysexec(va_list list)
 	 * Special segments are maintained across exec
 	 */
 	for(i = SSEG; i <= BSEG; i++) {
-		putseg(up->seg[i]);
-		/* prevent a second free if we have an error */
-		up->seg[i] = nil;
+		s = up->seg[i];
+		if(s != nil) {
+			/* prevent a second free if we have an error */
+			up->seg[i] = nil;
+			putseg(s);
+		}
 	}
 	for(i = ESEG+1; i < NSEG; i++) {
 		s = up->seg[i];
 		if(s != nil && (s->type&SG_CEXEC) != 0) {
-			putseg(s);
 			up->seg[i] = nil;
+			putseg(s);
 		}
 	}
 
