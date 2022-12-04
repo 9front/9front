@@ -23,9 +23,12 @@ struct Stream
 };
 
 ulong	mixrp;
-int	mixbuf[NBUF][NCHAN];
+Lock	rplock;
 int	lbbuf[NBUF][NCHAN];
+
+int	mixbuf[NBUF][NCHAN];
 Lock	mixlock;
+
 Stream	streams[16];
 
 int
@@ -89,6 +92,7 @@ audioproc(void *)
 {
 	static uchar buf[NBUF*NCHAN*2];
 	int sweep, fd, i, j, n, m, v;
+	ulong rp;
 	Stream *s;
 	uchar *p;
 
@@ -144,16 +148,23 @@ audioproc(void *)
 		}
 
 		p = buf;
+		rp = mixrp;
 		for(i=0; i<m; i++){
 			for(j=0; j<NCHAN; j++){
-				v = clip16(mixbuf[mixrp % NBUF][j]);
-				lbbuf[mixrp % NBUF][j] = v;
-				mixbuf[mixrp % NBUF][j] = 0;
+				v = clip16(mixbuf[rp % NBUF][j]);
+				lbbuf[rp % NBUF][j] = v;
+				mixbuf[rp % NBUF][j] = 0;
 				*p++ = v & 0xFF;
 				*p++ = v >> 8;
 			}
-			mixrp++;
+			rp++;
 		}
+
+		/* barrier */
+		lock(&rplock);
+		mixrp = rp;
+		unlock(&rplock);
+
 		write(fd, buf, p - buf);
 	}
 }
@@ -182,6 +193,7 @@ fsread(Req *r)
 			s->run = 1;
 		}
 		m = NBUF-1 - (long)(s->wp - mixrp);
+
 		if(m <= 0){
 			s->run = 1;
 			rsleep(s);
@@ -190,7 +202,6 @@ fsread(Req *r)
 		if(m > n)
 			m = n;
 
-		lock(&mixlock);
 		for(i=0; i<m; i++){
 			for(j=0; j<NCHAN; j++){
 				v = lbbuf[s->wp % NBUF][j];
@@ -199,7 +210,6 @@ fsread(Req *r)
 			}
 			s->wp++;
 		}
-		unlock(&mixlock);
 
 		n -= m;
 	}
@@ -231,6 +241,7 @@ fswrite(Req *r)
 			s->run = 1;
 		}
 		m = NBUF-1 - (long)(s->wp - mixrp);
+
 		if(m <= 0){
 			s->run = 1;
 			rsleep(s);
