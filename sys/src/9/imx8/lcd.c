@@ -12,7 +12,7 @@
 #include	<cursor.h>
 #include	"screen.h"
 
-extern Memimage *gscreen;
+extern u8int *fbraw;
 
 /* system reset controller registers */
 enum {
@@ -504,8 +504,8 @@ lcdifinit(struct video_mode *mode)
 	wr(lcdif, LCDIF_VDCTRL4,
 		sm(mode->hactive, VDCTRL4_DOTCLK_H_VALID_DATA_CNT));
 
-	wr(lcdif, LCDIF_CUR_BUF, PADDR(gscreen->data->bdata));
-	wr(lcdif, LCDIF_NEXT_BUF, PADDR(gscreen->data->bdata));
+	wr(lcdif, LCDIF_CUR_BUF, PADDR(fbraw));
+	wr(lcdif, LCDIF_NEXT_BUF, PADDR(fbraw));
 
 	wr(lcdif, LCDIF_CTRL_SET, CTRL_DOTCLK_MODE);
 

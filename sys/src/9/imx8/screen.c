@@ -16,6 +16,7 @@ enum {
 };
 
 Memimage *gscreen;
+u8int *fbraw;
 
 static Memdata xgdata;
 static Memimage xgscreen;
@@ -125,14 +126,14 @@ screeninit(int width, int height, int depth)
 	xgscreen.clipr = xgscreen.r;
 	xgscreen.depth = depth;
 	xgscreen.width = wordsperline(xgscreen.r, xgscreen.depth);
-	xgdata.bdata = fbmemalloc(xgscreen.width*sizeof(ulong)*height);
+	xgdata.bdata = malloc(xgscreen.width*sizeof(ulong)*height);
 	xgdata.ref = 1;
 
 	xgscreen.data = &xgdata;
-
 	gscreen = &xgscreen;
-
 	conf.monitor = 1;
+
+	fbraw = fbmemalloc(xgscreen.width*sizeof(ulong)*height);
 
 	memimageinit();
 	memdefont = getmemdefont();
@@ -145,12 +146,26 @@ screeninit(int width, int height, int depth)
 }
 
 void
-flushmemscreen(Rectangle)
+flushmemscreen(Rectangle r)
 {
+	int pitch, n, y;
+	ulong *d, *s;
+
+	if(rectclip(&r, xgscreen.r)){
+		s = wordaddr(&xgscreen, r.min);
+		d = (ulong*)fbraw + (s - wordaddr(&xgscreen, xgscreen.r.min));
+		n = bytesperline(r, xgscreen.depth);
+		pitch = wordsperline(xgscreen.r, xgscreen.depth);
+		for(y = 0; y < Dy(r); y++){
+			memmove(d, s, n);
+			d += pitch;
+			s += pitch;
+		}
+	}
 }
 
 Memdata*
-attachscreen(Rectangle *r, ulong *chan, int* d, int *width, int *softscreen)
+attachscreen(Rectangle *r, ulong *chan, int *d, int *width, int *softscreen)
 {
 	if(gscreen == nil)
 		return nil;
@@ -159,7 +174,7 @@ attachscreen(Rectangle *r, ulong *chan, int* d, int *width, int *softscreen)
 	*d = gscreen->depth;
 	*chan = gscreen->chan;
 	*width = gscreen->width;
-	*softscreen = 0;
+	*softscreen = 1;
 
 	gscreen->data->ref++;
 	return gscreen->data;
