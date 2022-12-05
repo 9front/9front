@@ -1,0 +1,13 @@
+#!/bin/rc
+rfork e
+lifc=()
+while(~ $1 *.*.*.*){
+	lifc=($lifc $1)
+	shift
+}
+if(! ~ $#* 0){
+	echo 'Usage: audio/screamrecv [interfaceip]...' >[1=2]
+	exit 'usage'
+}
+if(~ $#lifc 0) lifc=`{awk '/4u/{print $1}' /net/ipselftab}
+exec aux/listen1 -t -p4 -O^'addmulti '^$lifc udp!239.255.77.77!4010 rc -c 'exec audio/screamdec > /dev/audio'

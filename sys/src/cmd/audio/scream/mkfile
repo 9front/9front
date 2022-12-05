@@ -1,0 +1,21 @@
+</$objtype/mkfile
+<../config
+
+TARG=screamenc screamdec
+RC=screamsend screamrecv
+
+</sys/src/cmd/mkmany
+
+$O.screamenc: screamenc.$O
+$O.screamdec: screamdec.$O
+
+# Override install target to install rc.
+install:V:
+	for (i in $TARG)
+		mk $MKFLAGS $i.install
+	for (i in $RC)
+		mk $MKFLAGS $i.rcinstall
+
+%.rcinstall:V:
+	cp $stem $BIN/$stem
+	chmod +x $BIN/$stem

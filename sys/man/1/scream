@@ -1,0 +1,77 @@
+.TH SCREAM 1
+.SH NAME
+screamsend, screamrecv, screamenc, screamdec \- multicast audio protocol
+.SH SYNOPSIS
+.B audio/screamsend
+[
+.I interfaceip
+]...
+.br
+.B audio/screamrecv
+[
+.I interfaceip
+]...
+.br
+.B audio/screamenc
+.br
+.B audio/screamdec
+.SH DESCRIPTION
+.PP
+Scream is a simple network protocol for transmitting PCM audio on a local network.
+It sends UDP packets at a constant rate to the multicast address
+.B 239.255.77.77
+on port
+.BR 4010 .
+Each packet starts with a small 5-byte header that contains information about the
+sample-rate and data format followed raw PCM data payload (maximum 1157 bytes).
+.PP
+.I Screamsend
+reads PCM audio from
+.B /dev/audio
+and sends scream packets to the local network on the interface given by
+.IR interfaceip.
+When
+.I interfaceip
+is omitted, it uses first IPv4 interface ip address from
+.B /net/ipselftab
+as a default.
+.PP
+.I Screamrecv
+listens for packets from the local network on the interfaces
+selected by
+.IR interfaceip
+and writes PCM audio to
+.BR /dev/audio .
+When no
+.I interfaceip
+addresses where given, it will listen on all interfaces with an IPv4 address.
+.PP
+Both
+.I screamsend
+and
+.I screamrecv
+are usually run after
+.I audio/mixfs
+(see
+.IR audio (1))
+to provide loopback audio source as well as mixing for multiple senders.
+.PP
+.I Screamenc
+reads PCM audio from standard-input and writes scream packets to standard-output.
+.PP
+.I Screamdec
+reads scream packets from standard-input, and writes PCM audio to standard-output.
+It spawns
+.I audio/pcmconv
+(see
+.IR audio (1))
+to convert the audio in case the scream packet format is not
+the default of 16-bit little-endian stereo samples at 44100 Hz.
+It exits when no packets have arrived for 500 milliseconds.
+.SH SOURCE
+.B /sys/src/cmd/audio/scream
+.SH SEE ALSO
+.IR audio (1).
+.br
+.B https://github.com/duncanthrax/scream
+
