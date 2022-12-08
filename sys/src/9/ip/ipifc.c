@@ -953,10 +953,18 @@ addselfcache(Fs *f, Ipifc *ifc, Iplifc *lifc, uchar *a, int type)
 			a, type, ifc, tifc);
 
 		if(type & Rmulti){
-			if(ifc->m->addmulti != nil)
-				(*ifc->m->addmulti)(ifc, a, lifc->local);
-			if(multicastreportfn != nil)
-				(*multicastreportfn)(f, ifc, a, lifc->local, 0);
+			if(ifc->m->addmulti != nil){
+				if(!waserror()){
+					(*ifc->m->addmulti)(ifc, a, lifc->local);
+					poperror();
+				}
+			}
+			if(multicastreportfn != nil){
+				if(!waserror()){
+					(*multicastreportfn)(f, ifc, a, lifc->local, 0);
+					poperror();
+				}
+			}
 		}
 	} else
 		lp->ref++;
