@@ -12,8 +12,6 @@
 #include	<cursor.h>
 #include	"screen.h"
 
-extern u8int *fbraw;
-
 /* system reset controller registers */
 enum {
 	SRC_MIPIPHY_RCR = 0x28/4,
@@ -455,7 +453,7 @@ lcdifreset(void)
 }
 
 static void
-lcdifinit(struct video_mode *mode)
+lcdifinit(struct video_mode *mode, u32int framebuffer)
 {
 	wr(lcdif, LCDIF_CTRL_CLR, CTRL_SFTRST);
 	while(rr(lcdif, LCDIF_CTRL) & CTRL_SFTRST)
@@ -504,8 +502,8 @@ lcdifinit(struct video_mode *mode)
 	wr(lcdif, LCDIF_VDCTRL4,
 		sm(mode->hactive, VDCTRL4_DOTCLK_H_VALID_DATA_CNT));
 
-	wr(lcdif, LCDIF_CUR_BUF, PADDR(fbraw));
-	wr(lcdif, LCDIF_NEXT_BUF, PADDR(fbraw));
+	wr(lcdif, LCDIF_CUR_BUF, framebuffer);
+	wr(lcdif, LCDIF_NEXT_BUF, framebuffer);
 
 	wr(lcdif, LCDIF_CTRL_SET, CTRL_DOTCLK_MODE);
 
@@ -891,6 +889,7 @@ lcdinit(void)
 	struct dsi_cfg dsi_cfg;
 	struct video_mode mode;
 	char *err;
+	void *fb;
 
 	intrenable(IRQlcdif, blankirq, nil, BUSUNKNOWN, "lcdif");
 
@@ -960,8 +959,8 @@ lcdinit(void)
 	if(err != nil)
 		goto out;
 
-	/* allocates the framebuffer (gscreen->data->bdata) */
-	if(screeninit(mode.hactive, mode.vactive, 32) < 0){
+	/* allocates the framebuffer */
+	if((fb = screeninit(mode.hactive, mode.vactive, 32)) == nil){
 		err = "screeninit failed";
 		goto out;
 	}
@@ -980,7 +979,7 @@ lcdinit(void)
 	bridgeinit(&mode, &dsi_cfg);
 
 	/* send the pixels */
-	lcdifinit(&mode);
+	lcdifinit(&mode, (u32int)PADDR(fb));
 	return;
 
 out:

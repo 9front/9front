@@ -16,10 +16,9 @@ enum {
 };
 
 Memimage *gscreen;
-u8int *fbraw;
 
-static Memdata xgdata;
-static Memimage xgscreen;
+static ulong *fbraw;
+
 static Memimage *conscol;
 static Memimage *back;
 static Memsubfont *memdefont;
@@ -85,6 +84,7 @@ int
 hwdraw(Memdrawparam *par)
 {
 	Memimage *dst, *src, *mask;
+	uchar *scrd;
 
 	if((dst = par->dst) == nil || dst->data == nil)
 		return 0;
@@ -93,24 +93,25 @@ hwdraw(Memdrawparam *par)
 	if((mask = par->mask) && mask->data == nil)
 		mask = nil;
 
-	if(dst->data->bdata == xgdata.bdata)
+	scrd = gscreen->data->bdata;
+	if(dst->data->bdata == scrd)
 		swcursoravoid(par->r);
-	if(src && src->data->bdata == xgdata.bdata)
+	if(src && src->data->bdata == scrd)
 		swcursoravoid(par->sr);
-	if(mask && mask->data->bdata == xgdata.bdata)
+	if(mask && mask->data->bdata == scrd)
 		swcursoravoid(par->mr);
 
 	return 0;
 }
 
-int
+void*
 screeninit(int width, int height, int depth)
 {
 	ulong chan;
 
 	switch(depth){
 	default:
-		return -1;
+		return nil;
 	case 32:
 		chan = XRGB32;
 		break;
@@ -121,46 +122,41 @@ screeninit(int width, int height, int depth)
 		chan = RGB16;
 		break;
 	}
-	memsetchan(&xgscreen, chan);
-	xgscreen.r = Rect(0, 0, width, height);
-	xgscreen.clipr = xgscreen.r;
-	xgscreen.depth = depth;
-	xgscreen.width = wordsperline(xgscreen.r, xgscreen.depth);
-	xgdata.bdata = malloc(xgscreen.width*sizeof(ulong)*height);
-	xgdata.ref = 1;
-
-	xgscreen.data = &xgdata;
-	gscreen = &xgscreen;
-	conf.monitor = 1;
-
-	fbraw = fbmemalloc(xgscreen.width*sizeof(ulong)*height);
-
 	memimageinit();
+
+	gscreen = allocmemimage(Rect(0, 0, width, height), chan);
+	if(gscreen == nil)
+		return nil;
+
+	conf.monitor = 1;
+	fbraw = ucalloc(PGROUND(gscreen->width*sizeof(ulong)*height));
+
 	memdefont = getmemdefont();
 	screenwin();
 	myscreenputs(kmesg.buf, kmesg.n);
 	screenputs = myscreenputs;
 	swcursorinit();
 
-	return 0;
+	return fbraw;
 }
 
 void
 flushmemscreen(Rectangle r)
 {
-	int pitch, n, y;
+	int pitch, n;
 	ulong *d, *s;
 
-	if(rectclip(&r, xgscreen.r)){
-		s = wordaddr(&xgscreen, r.min);
-		d = (ulong*)fbraw + (s - wordaddr(&xgscreen, xgscreen.r.min));
-		n = bytesperline(r, xgscreen.depth);
-		pitch = wordsperline(xgscreen.r, xgscreen.depth);
-		for(y = 0; y < Dy(r); y++){
-			memmove(d, s, n);
-			d += pitch;
-			s += pitch;
-		}
+	if(!rectclip(&r, gscreen->r))
+		return;
+
+	s = wordaddr(gscreen, r.min);
+	d = fbraw + (s - wordaddr(gscreen, gscreen->r.min));
+	n = bytesperline(r, gscreen->depth);
+	pitch = wordsperline(gscreen->r, gscreen->depth);
+	while(r.min.y++ < r.max.y){
+		memmove(d, s, n);
+		d += pitch;
+		s += pitch;
 	}
 }
 

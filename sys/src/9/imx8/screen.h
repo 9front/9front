@@ -7,7 +7,7 @@ extern Point mousexy(void);
 extern void mouseaccelerate(int);
 
 /* screen.c */
-extern int	screeninit(int width, int hight, int depth);
+extern void*	screeninit(int width, int hight, int depth);
 extern void	blankscreen(int);
 extern void	flushmemscreen(Rectangle);
 extern Memdata*	attachscreen(Rectangle*, ulong*, int*, int*, int*);

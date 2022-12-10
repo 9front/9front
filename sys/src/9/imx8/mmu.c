@@ -517,9 +517,3 @@ ucalloc(usize size)
 {
 	return ucramalloc(size, 8, PTEUNCACHED);
 }
-
-void*
-fbmemalloc(usize size)
-{
-	return ucramalloc(PGROUND(size), BY2PG, PTEWT);
-}

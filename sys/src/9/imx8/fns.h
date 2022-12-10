@@ -80,7 +80,6 @@ extern void meminit(void);
 extern void putasid(Proc*);
 
 extern void* ucalloc(usize);
-extern void* fbmemalloc(usize);
 
 /* clock */
 extern void clockinit(void);
