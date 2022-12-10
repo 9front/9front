@@ -802,6 +802,8 @@ serveraddrs(Query *qp, int nd, int depth, int type)
 			if(rp->marker & mark)
 				continue;
 			rp->marker |= mark;
+			if(strncmp(rp->owner->name, "local#", 6) == 0)
+				continue;
 			arp = dnresolve(rp->host->name, Cin, type, qp->req, 0,
 				depth+1, Recurse, 1, 0);
 			rrfreelist(rrremneg(&arp));
