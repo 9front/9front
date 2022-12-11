@@ -66,7 +66,7 @@ if(! nusb/usbd)
 	}
 	fn detach {
 		devs='#σc/sdU'^($1 $5)
-		rm -rf '#σc/usb/'^$1.* '#σc/usbnet/'^$1.* $devs $devs.* 
+		rm -rf '#σc/usb/'^$1.* '#σc/usb/'^$5.hid '#σc/usbnet/'^$1.* $devs $devs.*
 	}
 	rc < '#σ/usb/usbevent' &
 }
