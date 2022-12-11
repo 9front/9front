@@ -155,17 +155,18 @@ enum {
 
 struct SDio {
 	char	*name;
-	int	(*init)(void);
-	void	(*enable)(void);
-	int	(*inquiry)(char*, int);
-	int	(*cmd)(u32int, u32int, u32int*);
-	void	(*iosetup)(int, void*, int, int);
-	void	(*io)(int, uchar*, int);
+	int	(*init)(SDio*);
+	void	(*enable)(SDio*);
+	int	(*inquiry)(SDio*, char*, int);
+	int	(*cmd)(SDio*, u32int, u32int, u32int*);
+	void	(*iosetup)(SDio*, int, void*, int, int);
+	void	(*io)(SDio*, int, uchar*, int);
 	char	highspeed;
 	char	nomultiwrite;	/* quirk for usdhc */
+	void	*aux;
 };
 
-extern SDio sdio;
+extern void addmmcio(SDio *io);
 
 /* devsd.c */
 extern void sdadddevs(SDev*);

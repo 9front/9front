@@ -240,7 +240,7 @@ cardintready(void*)
 }
 
 static int
-emmcinit(void)
+emmcinit(SDio*)
 {
 	u32int *r;
 	ulong clk;
@@ -265,7 +265,7 @@ emmcinit(void)
 }
 
 static int
-emmcinquiry(char *inquiry, int inqlen)
+emmcinquiry(SDio*, char *inquiry, int inqlen)
 {
 	u32int *r;
 	uint ver;
@@ -278,7 +278,7 @@ emmcinquiry(char *inquiry, int inqlen)
 }
 
 static void
-emmcenable(void)
+emmcenable(SDio*)
 {
 	emmcclk(Initfreq);
 	WR(Irpten, 0);
@@ -288,7 +288,7 @@ emmcenable(void)
 }
 
 static int
-emmccmd(u32int cmd, u32int arg, u32int *resp)
+emmccmd(SDio*, u32int cmd, u32int arg, u32int *resp)
 {
 	u32int *r;
 	u32int c;
@@ -435,7 +435,7 @@ emmccmd(u32int cmd, u32int arg, u32int *resp)
 }
 
 static void
-emmciosetup(int write, void *buf, int bsize, int bcount)
+emmciosetup(SDio*, int write, void *buf, int bsize, int bcount)
 {
 	USED(write);
 	USED(buf);
@@ -443,7 +443,7 @@ emmciosetup(int write, void *buf, int bsize, int bcount)
 }
 
 static void
-emmcio(int write, uchar *buf, int len)
+emmcio(SDio*, int write, uchar *buf, int len)
 {
 	u32int *r;
 	int i;
@@ -497,13 +497,18 @@ mmcinterrupt(Ureg*, void*)
 	WR(Irpten, r[Irpten] & ~i);
 }
 
-SDio sdio = {
-	"emmc",
-	emmcinit,
-	emmcenable,
-	emmcinquiry,
-	emmccmd,
-	emmciosetup,
-	emmcio,
-	.highspeed = 1,
-};
+void
+emmclink(void)
+{
+	static SDio io = {
+		"emmc",
+		emmcinit,
+		emmcenable,
+		emmcinquiry,
+		emmccmd,
+		emmciosetup,
+		emmcio,
+		.highspeed = 1,
+	};
+	addmmcio(&io);
+}

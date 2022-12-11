@@ -91,6 +91,8 @@ link
 #	audioac97	pci audioac97mix
 	audiohda	pci
 
+	pmmc		pci
+
 misc
 	pci		pcipc
 	archgeneric	devkbd i8259 i8253

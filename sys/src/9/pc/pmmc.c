@@ -181,8 +181,6 @@ struct Ctlr {
 	} io;
 };
 
-static Ctlr pmmc[1];
-
 #define CR8(c, off)	*((u8int*)(c->mmio + off))
 #define CR16(c, off)	*((u16int*)(c->mmio + off))
 #define CR32(c, off)	*((u32int*)(c->mmio + off))
@@ -216,12 +214,14 @@ mmcinterrupt(Ureg*, void *arg)
 }
 
 static int
-pmmcinit(void)
+pmmcinit(SDio *io)
 {
-	Pcidev *p;
+	static Pcidev *p;
+	Ctlr *c;
 
-	p = nil;
 	while((p = pcimatch(p, 0, 0)) != nil){
+		if(p->mem[0].size < 256 || (p->mem[0].bar & 1) != 0)
+			continue;
 		if(p->ccrb == 8 && p->ccru == 5)
 			break;
 		if(p->vid == 0x1180){	/* Ricoh */
@@ -231,15 +231,19 @@ pmmcinit(void)
 				break;
 		}
 	}
-
-	if(p == nil || p->mem[0].size < 256 || (p->mem[0].bar & 1) != 0)
+	if(p == nil)
 		return -1;
-
-	pmmc->mmio = vmap(p->mem[0].bar & ~0x0F, p->mem[0].size);
-	if(pmmc->mmio == nil)
+	c = malloc(sizeof(Ctlr));
+	if(c == nil)
 		return -1;
+	c->mmio = vmap(p->mem[0].bar & ~0x0F, p->mem[0].size);
+	if(c->mmio == nil){
+		free(c);
+		return -1;
+	}
+	c->pdev = p;
+	io->aux = c;
 
-	pmmc->pdev = p;
 	pcienable(p);
 
 	if(p->did == 0x1180 && p->vid == 0xe823){	/* Ricoh */
@@ -257,11 +261,12 @@ pmmcinit(void)
 		pcicfgw8(p, 0xfc, 0x00);
 	}
 
-	return 0;
+	/* probe again for next device */
+	return 1;
 }
 
 static int
-pmmcinquiry(char *inquiry, int inqlen)
+pmmcinquiry(SDio*, char *inquiry, int inqlen)
 {
 	return snprint(inquiry, inqlen, "MMC Host Controller");
 }
@@ -361,9 +366,7 @@ resetctlr(Ctlr *c)
 static int
 waitcond(void *arg)
 {
-	Ctlr *c;
-
-	c = arg;
+	Ctlr *c = arg;
 	return (c->waitsts & c->waitmsk) != 0;
 }
 
@@ -402,30 +405,26 @@ intrwait(Ctlr *c, u32int mask, int tmo)
 
 
 static void
-pmmcenable(void)
+pmmcenable(SDio *io)
 {
-	Pcidev *p;
-	Ctlr *c;
+	Ctlr *c = io->aux;
+	Pcidev *p = c->pdev;
 
-	c = pmmc;
-	p = c->pdev;
 	resetctlr(c);
-	intrenable(p->intl, mmcinterrupt, c, p->tbdf, "mmc");
+	intrenable(p->intl, mmcinterrupt, c, p->tbdf, io->name);
 }
 
 static int
-pmmccmd(u32int cmd, u32int arg, u32int *resp)
+pmmccmd(SDio *io, u32int cmd, u32int arg, u32int *resp)
 {
+	Ctlr *c = io->aux;
 	u32int status;
 	int i, mode;
-	Ctlr *c;
 
 	if(cmd >= nelem(cmdinfo) || cmdinfo[cmd] == 0)
 		error(Egreg);
 	mode = cmdinfo[cmd] >> 8;
 	cmd = (cmd << 8) | (cmdinfo[cmd] & 0xFF);
-
-	c = pmmc;
 
 	if(c->change)
 		resetctlr(c);
@@ -489,9 +488,9 @@ pmmccmd(u32int cmd, u32int arg, u32int *resp)
 }
 
 static void
-pmmciosetup(int write, void *buf, int bsize, int bcount)
+pmmciosetup(SDio *io, int write, void *buf, int bsize, int bcount)
 {
-	Ctlr *c;
+	Ctlr *c = io->aux;
 
 	USED(write);
 	USED(buf);
@@ -499,7 +498,6 @@ pmmciosetup(int write, void *buf, int bsize, int bcount)
 	if(bsize == 0 || (bsize & 3) != 0)
 		error(Egreg);
 
-	c = pmmc;
 	c->io.bsize = bsize;
 	c->io.bcount = bcount;
 }
@@ -523,12 +521,11 @@ writeblock(Ctlr *c, uchar *buf, int len)
 }
 
 static void
-pmmcio(int write, uchar *buf, int len)
+pmmcio(SDio *io, int write, uchar *buf, int len)
 {
-	Ctlr *c;
+	Ctlr *c = io->aux;
 	int n;
 
-	c = pmmc;
 	if(len != c->io.bsize*c->io.bcount)
 		error(Egreg);
 	while(len > 0){
@@ -548,12 +545,17 @@ pmmcio(int write, uchar *buf, int len)
 		error(Eio);
 }
 
-SDio sdio = {
-	"pmmc",
-	pmmcinit,
-	pmmcenable,
-	pmmcinquiry,
-	pmmccmd,
-	pmmciosetup,
-	pmmcio,
-};
+void
+pmmclink(void)
+{
+	static SDio io = {
+		"pmmc",
+		pmmcinit,
+		pmmcenable,
+		pmmcinquiry,
+		pmmccmd,
+		pmmciosetup,
+		pmmcio,
+	};
+	addmmcio(&io);
+}

@@ -190,26 +190,27 @@ enum {
 };
 
 struct Ctlr {
-	Rendez	r;
+	u32int	*regs;
+	int	irq;
+
 	int	fastclock;
 	uint	extclk;
 	int	appcmd;
 	Adma	*dma;
-};
 
-static Ctlr usdhc;
+	Rendez	r;
+};
 
 static void usdhcinterrupt(Ureg*, void*);
 
-static u32int *regs = (u32int*)(VIRTIO+0xB50000);	/* USDHC2 */
-#define RR(reg)	(regs[reg])
+#define RR(ctlr, reg)	((ctlr)->regs[reg])
 
 static void
-WR(int reg, u32int val)
+WR(Ctlr *ctlr, int reg, u32int val)
 {
 	if(0)print("WR %2.2ux %ux\n", reg<<2, val);
 	coherence();
-	regs[reg] = val;
+	ctlr->regs[reg] = val;
 }
 
 static Adma*
@@ -237,9 +238,9 @@ dmaalloc(void *addr, int len)
 }
 
 static void
-usdhcclk(uint freq)
+usdhcclk(Ctlr *ctlr, uint freq)
 {
-	uint pre_div = 1, post_div = 1, clk = usdhc.extclk;
+	uint pre_div = 1, post_div = 1, clk = ctlr->extclk;
 
 	while(clk / (pre_div * 16) > freq && pre_div < 256)
 		pre_div <<= 1;
@@ -247,23 +248,53 @@ usdhcclk(uint freq)
 	while(clk / (pre_div * post_div) > freq && post_div < 16)
 		post_div++;
 
-	WR(Vendorspec, RR(Vendorspec) & ~ClkEn);
-	WR(Control1, (pre_div>>1)<<SDCLKFSshift | (post_div-1)<<DVSshift | DTO<<Datatoshift);
+	WR(ctlr, Vendorspec, RR(ctlr, Vendorspec) & ~ClkEn);
+	WR(ctlr, Control1, (pre_div>>1)<<SDCLKFSshift | (post_div-1)<<DVSshift | DTO<<Datatoshift);
 	delay(10);
-	WR(Vendorspec, RR(Vendorspec) | ClkEn | PerEn);
-	while((RR(Status) & Clkstable) == 0)
+	WR(ctlr, Vendorspec, RR(ctlr, Vendorspec) | ClkEn | PerEn);
+	while((RR(ctlr, Status) & Clkstable) == 0)
 		;
 }
 
 static int
-datadone(void*)
+datadone(void *arg)
 {
-	return RR(Interrupt) & (Datadone|Err);
+	Ctlr *ctlr = arg;
+	return RR(ctlr, Interrupt) & (Datadone|Err);
+}
+
+static void
+usdhcreset(Ctlr *ctlr)
+{
+	if(0)print("usdhc control %8.8ux %8.8ux %8.8ux\n",
+		RR(ctlr, Control0), RR(ctlr, Control1), RR(ctlr, Control2));
+
+	WR(ctlr, Control1, Srsthc);
+	delay(10);
+	while(RR(ctlr, Control1) & Srsthc)
+		;
+	WR(ctlr, Control1, Srstdata);
+	delay(10);
+	WR(ctlr, Control1, 0);
 }
 
 static int
-usdhcinit(void)
+usdhc1init(SDio *)
 {
+	/* TODO */
+	return -1;
+}
+
+static int
+usdhc2init(SDio *io)
+{
+	static Ctlr ctlr[1] = {
+		.regs = (u32int*)(VIRTIO+0xB50000),	/* USDHC2 */
+		.irq = IRQusdhc2,
+	};
+
+	io->aux = ctlr;
+
 	iomuxpad("pad_sd2_clk", "usdhc2_clk", "~LVTTL ~HYS ~PUE ~ODE SLOW 75_OHM");
 	iomuxpad("pad_sd2_cmd", "usdhc2_cmd", "~LVTTL HYS PUE ~ODE SLOW 75_OHM");
 	iomuxpad("pad_sd2_data0", "usdhc2_data0", "~LVTTL HYS PUE ~ODE SLOW 75_OHM");
@@ -277,51 +308,46 @@ usdhcinit(void)
 	setclkgate("usdhc2.ipg_clk_perclk", 1);
 	setclkgate("usdhc2.ipg_clk", 1);
 
-	usdhc.extclk = getclkrate("usdhc2.ipg_clk_perclk");
-	if(usdhc.extclk <= 0){
-		print("usdhc: usdhc2.ipg_clk_perclk not enabled\n");
+	ctlr->extclk = getclkrate("usdhc2.ipg_clk_perclk");
+	if(ctlr->extclk <= 0){
+		print("%s: usdhc2.ipg_clk_perclk not enabled\n", io->name);
 		return -1;
 	}
 
-	if(0)print("usdhc control %8.8ux %8.8ux %8.8ux\n",
-		RR(Control0), RR(Control1), RR(Control2));
+	usdhcreset(ctlr);
 
-	WR(Control1, Srsthc);
-	delay(10);
-	while(RR(Control1) & Srsthc)
-		;
-	WR(Control1, Srstdata);
-	delay(10);
-	WR(Control1, 0);
 	return 0;
 }
 
 static int
-usdhcinquiry(char *inquiry, int inqlen)
+usdhcinquiry(SDio*, char *inquiry, int inqlen)
 {
 	return snprint(inquiry, inqlen, "USDHC Host Controller");
 }
 
 static void
-usdhcenable(void)
+usdhcenable(SDio *io)
 {
-	WR(Control0, 0);
+	Ctlr *ctlr = io->aux;
+
+	WR(ctlr, Control0, 0);
 	delay(1);
-	WR(Vendorspec, RR(Vendorspec) & ~Vsel);
-	WR(Control0, LE | Dwidth1 | DmaADMA2);
-	WR(Control1, 0);
+	WR(ctlr, Vendorspec, RR(ctlr, Vendorspec) & ~Vsel);
+	WR(ctlr, Control0, LE | Dwidth1 | DmaADMA2);
+	WR(ctlr, Control1, 0);
 	delay(1);
-	WR(Vendorspec, RR(Vendorspec) | HclkEn | IpgEn);
-	usdhcclk(Initfreq);
-	WR(Irpten, 0);
-	WR(Irptmask, ~(Cardintr|Dmaintr));
-	WR(Interrupt, ~0);
-	intrenable(IRQusdhc2, usdhcinterrupt, nil, BUSUNKNOWN, "usdhc2");
+	WR(ctlr, Vendorspec, RR(ctlr, Vendorspec) | HclkEn | IpgEn);
+	usdhcclk(ctlr, Initfreq);
+	WR(ctlr, Irpten, 0);
+	WR(ctlr, Irptmask, ~(Cardintr|Dmaintr));
+	WR(ctlr, Interrupt, ~0);
+	intrenable(ctlr->irq, usdhcinterrupt, ctlr, BUSUNKNOWN, io->name);
 }
 
 static int
-usdhccmd(u32int cmd, u32int arg, u32int *resp)
+usdhccmd(SDio *io, u32int cmd, u32int arg, u32int *resp)
 {
+	Ctlr *ctlr = io->aux;
 	u32int c;
 	int i;
 	ulong now;
@@ -335,7 +361,7 @@ usdhccmd(u32int cmd, u32int arg, u32int *resp)
 	/*
 	 * CMD6 may be Setbuswidth or Switchfunc depending on Appcmd prefix
 	 */
-	if(cmd == Switchfunc && !usdhc.appcmd)
+	if(cmd == Switchfunc && !ctlr->appcmd)
 		c |= Isdata|Card2host;
 	if(c & Isdata)
 		c |= Dmaen;
@@ -344,106 +370,106 @@ usdhccmd(u32int cmd, u32int arg, u32int *resp)
 			c |= Host2card;
 		else
 			c |= Card2host;
-		if((RR(Blksizecnt)&0xFFFF0000) != 0x10000)
+		if((RR(ctlr, Blksizecnt)&0xFFFF0000) != 0x10000)
 			c |= Multiblock | Blkcnten;
 	}
 	/*
 	 * GoIdle indicates new card insertion: reset bus width & speed
 	 */
 	if(cmd == GoIdle){
-		WR(Control0, (RR(Control0) & ~DwidthMask) | Dwidth1);
-		usdhcclk(Initfreq);
+		WR(ctlr, Control0, (RR(ctlr, Control0) & ~DwidthMask) | Dwidth1);
+		usdhcclk(ctlr, Initfreq);
 	}
-	if(RR(Status) & Cmdinhibit){
+	if(RR(ctlr, Status) & Cmdinhibit){
 		print("usdhccmd: need to reset Cmdinhibit intr %ux stat %ux\n",
-			RR(Interrupt), RR(Status));
-		WR(Control1, RR(Control1) | Srstcmd);
-		while(RR(Control1) & Srstcmd)
+			RR(ctlr, Interrupt), RR(ctlr, Status));
+		WR(ctlr, Control1, RR(ctlr, Control1) | Srstcmd);
+		while(RR(ctlr, Control1) & Srstcmd)
 			;
-		while(RR(Status) & Cmdinhibit)
+		while(RR(ctlr, Status) & Cmdinhibit)
 			;
 	}
-	if((RR(Status) & Datinhibit) &&
+	if((RR(ctlr, Status) & Datinhibit) &&
 	   ((c & Isdata) || (c & Respmask) == Resp48busy)){
 		print("usdhccmd: need to reset Datinhibit intr %ux stat %ux\n",
-			RR(Interrupt), RR(Status));
-		WR(Control1, RR(Control1) | Srstdata);
-		while(RR(Control1) & Srstdata)
+			RR(ctlr, Interrupt), RR(ctlr, Status));
+		WR(ctlr, Control1, RR(ctlr, Control1) | Srstdata);
+		while(RR(ctlr, Control1) & Srstdata)
 			;
-		while(RR(Status) & Datinhibit)
+		while(RR(ctlr, Status) & Datinhibit)
 			;
 	}
-	while(RR(Status) & Datactive)
+	while(RR(ctlr, Status) & Datactive)
 		;
-	WR(Arg1, arg);
-	if((i = (RR(Interrupt) & ~Cardintr)) != 0){
+	WR(ctlr, Arg1, arg);
+	if((i = (RR(ctlr, Interrupt) & ~Cardintr)) != 0){
 		if(i != Cardinsert)
-			print("usdhc: before command, intr was %ux\n", i);
-		WR(Interrupt, i);
+			print("usdhccmd: before command, intr was %ux\n", i);
+		WR(ctlr, Interrupt, i);
 	}
-	WR(Mixctrl, (RR(Mixctrl) & ~MixCmdMask) | (c & MixCmdMask));
-	WR(Cmdtm, c & ~0xFFFF);
+	WR(ctlr, Mixctrl, (RR(ctlr, Mixctrl) & ~MixCmdMask) | (c & MixCmdMask));
+	WR(ctlr, Cmdtm, c & ~0xFFFF);
 
 	now = MACHP(0)->ticks;
-	while(((i=RR(Interrupt))&(Cmddone|Err)) == 0)
+	while(((i=RR(ctlr, Interrupt))&(Cmddone|Err)) == 0)
 		if(MACHP(0)->ticks - now > HZ)
 			break;
 	if((i&(Cmddone|Err)) != Cmddone){
 		if((i&~(Err|Cardintr)) != Ctoerr)
-			print("usdhc: cmd %ux arg %ux error intr %ux stat %ux\n", c, arg, i, RR(Status));
-		WR(Interrupt, i);
-		if(RR(Status)&Cmdinhibit){
-			WR(Control1, RR(Control1)|Srstcmd);
-			while(RR(Control1)&Srstcmd)
+			print("usdhccmd: cmd %ux arg %ux error intr %ux stat %ux\n", c, arg, i, RR(ctlr, Status));
+		WR(ctlr, Interrupt, i);
+		if(RR(ctlr, Status)&Cmdinhibit){
+			WR(ctlr, Control1, RR(ctlr, Control1)|Srstcmd);
+			while(RR(ctlr, Control1)&Srstcmd)
 				;
 		}
 		error(Eio);
 	}
-	WR(Interrupt, i & ~(Datadone|Readrdy|Writerdy));
+	WR(ctlr, Interrupt, i & ~(Datadone|Readrdy|Writerdy));
 	switch(c & Respmask){
 	case Resp136:
-		resp[0] = RR(Resp0)<<8;
-		resp[1] = RR(Resp0)>>24 | RR(Resp1)<<8;
-		resp[2] = RR(Resp1)>>24 | RR(Resp2)<<8;
-		resp[3] = RR(Resp2)>>24 | RR(Resp3)<<8;
+		resp[0] = RR(ctlr, Resp0)<<8;
+		resp[1] = RR(ctlr, Resp0)>>24 | RR(ctlr, Resp1)<<8;
+		resp[2] = RR(ctlr, Resp1)>>24 | RR(ctlr, Resp2)<<8;
+		resp[3] = RR(ctlr, Resp2)>>24 | RR(ctlr, Resp3)<<8;
 		break;
 	case Resp48:
 	case Resp48busy:
-		resp[0] = RR(Resp0);
+		resp[0] = RR(ctlr, Resp0);
 		break;
 	case Respnone:
 		resp[0] = 0;
 		break;
 	}
 	if((c & Respmask) == Resp48busy){
-		WR(Irpten, RR(Irpten)|Datadone|Err);
-		tsleep(&usdhc.r, datadone, 0, 1000);
-		i = RR(Interrupt);
+		WR(ctlr, Irpten, RR(ctlr, Irpten)|Datadone|Err);
+		tsleep(&ctlr->r, datadone, ctlr, 1000);
+		i = RR(ctlr, Interrupt);
 		if((i & Datadone) == 0)
 			print("usdhcio: no Datadone in %x after CMD%d\n", i, cmd);
 		if(i & Err)
 			print("usdhcio: CMD%d error interrupt %ux\n",
-				cmd, RR(Interrupt));
-		if(i != 0) WR(Interrupt, i);
+				cmd, RR(ctlr, Interrupt));
+		if(i != 0) WR(ctlr, Interrupt, i);
 	}
 	/*
 	 * Once card is selected, use faster clock
 	 */
 	if(cmd == MMCSelect){
-		usdhcclk(SDfreq);
-		usdhc.fastclock = 1;
+		usdhcclk(ctlr, SDfreq);
+		ctlr->fastclock = 1;
 	}
 	if(cmd == Setbuswidth){
-		if(usdhc.appcmd){
+		if(ctlr->appcmd){
 			/*
 			 * If card bus width changes, change host bus width
 			 */
 			switch(arg){
 			case 0:
-				WR(Control0, (RR(Control0) & ~DwidthMask) | Dwidth1);
+				WR(ctlr, Control0, (RR(ctlr, Control0) & ~DwidthMask) | Dwidth1);
 				break;
 			case 2:
-				WR(Control0, (RR(Control0) & ~DwidthMask) | Dwidth4);
+				WR(ctlr, Control0, (RR(ctlr, Control0) & ~DwidthMask) | Dwidth4);
 				break;
 			}
 		} else {
@@ -452,81 +478,102 @@ usdhccmd(u32int cmd, u32int arg, u32int *resp)
 			 */
 			if((arg&0x8000000F) == 0x80000001){
 				delay(1);
-				usdhcclk(SDfreqhs);
+				usdhcclk(ctlr, SDfreqhs);
 				delay(1);
 			}
 		}
 	}else if(cmd == IORWdirect && (arg & ~0xFF) == (1<<31|0<<28|7<<9)){
 		switch(arg & 0x3){
 		case 0:
-			WR(Control0, (RR(Control0) & ~DwidthMask) | Dwidth1);
+			WR(ctlr, Control0, (RR(ctlr, Control0) & ~DwidthMask) | Dwidth1);
 			break;
 		case 2:
-			WR(Control0, (RR(Control0) & ~DwidthMask) | Dwidth4);
+			WR(ctlr, Control0, (RR(ctlr, Control0) & ~DwidthMask) | Dwidth4);
 			break;
 		}
 	}
-	usdhc.appcmd = (cmd == Appcmd);
+	ctlr->appcmd = (cmd == Appcmd);
 	return 0;
 }
 
 static void
-usdhciosetup(int write, void *buf, int bsize, int bcount)
+usdhciosetup(SDio *io, int write, void *buf, int bsize, int bcount)
 {
+	Ctlr *ctlr = io->aux;
 	int len = bsize * bcount;
 	assert(((uintptr)buf&3) == 0);
 	assert((len&3) == 0);
 	assert(bsize <= 2048);
-	WR(Blksizecnt, bcount<<16 | bsize);
-	if(usdhc.dma)
-		sdfree(usdhc.dma);
-	usdhc.dma = dmaalloc(buf, len);
+	WR(ctlr, Blksizecnt, bcount<<16 | bsize);
+	if(ctlr->dma)
+		sdfree(ctlr->dma);
+	ctlr->dma = dmaalloc(buf, len);
 	if(write)
 		cachedwbse(buf, len);
 	else
 		cachedwbinvse(buf, len);
-	WR(Dmadesc, PADDR(usdhc.dma));
+	WR(ctlr, Dmadesc, PADDR(ctlr->dma));
 }
 
 static void
-usdhcio(int write, uchar *buf, int len)
+usdhcio(SDio *io, int write, uchar *buf, int len)
 {
+	Ctlr *ctlr = io->aux;
 	u32int i;
 
-	WR(Irpten, RR(Irpten) | Datadone|Err);
-	tsleep(&usdhc.r, datadone, 0, 3000);
-	WR(Irpten, RR(Irpten) & ~(Datadone|Err));
-	i = RR(Interrupt);
+	WR(ctlr, Irpten, RR(ctlr, Irpten) | Datadone|Err);
+	tsleep(&ctlr->r, datadone, ctlr, 3000);
+	WR(ctlr, Irpten, RR(ctlr, Irpten) & ~(Datadone|Err));
+	i = RR(ctlr, Interrupt);
 	if((i & (Datadone|Err)) != Datadone){
-		print("sdhc: %s error intr %ux stat %ux\n",
-			write? "write" : "read", i, RR(Status));
-		WR(Interrupt, i);
+		print("%s: %s error intr %ux stat %ux\n", io->name,
+			write? "write" : "read", i, RR(ctlr, Status));
+		WR(ctlr, Interrupt, i);
 		error(Eio);
 	}
-	WR(Interrupt, i);
+	WR(ctlr, Interrupt, i);
 	if(!write)
 		cachedinvse(buf, len);
 }
 
 static void
-usdhcinterrupt(Ureg*, void*)
-{	
+usdhcinterrupt(Ureg*, void *arg)
+{
+	Ctlr *ctlr = arg;
 	u32int i;
 
-	i = RR(Interrupt);
+	i = RR(ctlr, Interrupt);
 	if(i&(Datadone|Err))
-		wakeup(&usdhc.r);
-	WR(Irpten, RR(Irpten) & ~i);
+		wakeup(&ctlr->r);
+	WR(ctlr, Irpten, RR(ctlr, Irpten) & ~i);
 }
 
-SDio sdio = {
-	"usdhc",
-	usdhcinit,
-	usdhcenable,
-	usdhcinquiry,
-	usdhccmd,
-	usdhciosetup,
-	usdhcio,
-	.highspeed = 1,
-	.nomultiwrite = 1,
-};
+void
+usdhclink(void)
+{
+	static SDio usdhc1 = {
+		"usdhc1",
+		usdhc1init,
+		usdhcenable,
+		usdhcinquiry,
+		usdhccmd,
+		usdhciosetup,
+		usdhcio,
+		.highspeed = 1,
+		.nomultiwrite = 1,
+	};
+	static SDio usdhc2 = {
+		"usdhc2",
+		usdhc2init,
+		usdhcenable,
+		usdhcinquiry,
+		usdhccmd,
+		usdhciosetup,
+		usdhcio,
+		.highspeed = 1,
+		.nomultiwrite = 1,
+	};
+
+	addmmcio(&usdhc1);
+	addmmcio(&usdhc2);
+}

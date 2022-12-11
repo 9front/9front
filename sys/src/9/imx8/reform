@@ -34,6 +34,7 @@ link
 	i2cimx		devi2c
 	pciimx		pci
 	sai
+	usdhc
 
 ip
 	tcp

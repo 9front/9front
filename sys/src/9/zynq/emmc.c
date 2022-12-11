@@ -178,7 +178,7 @@ datadone(void*)
 }
 
 static int
-emmcinit(void)
+emmcinit(SDio*)
 {
 	u32int *r;
 	int i;
@@ -198,7 +198,7 @@ emmcinit(void)
 }
 
 static int
-emmcinquiry(char *inquiry, int inqlen)
+emmcinquiry(SDio*, char *inquiry, int inqlen)
 {
 	uint ver;
 
@@ -209,7 +209,7 @@ emmcinquiry(char *inquiry, int inqlen)
 }
 
 static void
-emmcenable(void)
+emmcenable(SDio *io)
 {
 	int i;
 
@@ -223,11 +223,11 @@ emmcenable(void)
 	if(i == 1000)
 		print("SD clock won't initialise!\n");
 	emmc.regs[Irptmask] = ~(Dtoerr|Cardintr|Dmaintr);
-	intrenable(emmc.irq, interrupt, nil, LEVEL, sdio.name);
+	intrenable(emmc.irq, interrupt, nil, LEVEL, io->name);
 }
 
 static int
-emmccmd(u32int cmd, u32int arg, u32int *resp)
+emmccmd(SDio*, u32int cmd, u32int arg, u32int *resp)
 {
 	ulong now;
 	u32int *r;
@@ -339,7 +339,7 @@ emmccmd(u32int cmd, u32int arg, u32int *resp)
 }
 
 static void
-emmciosetup(int, void *buf, int bsize, int bcount)
+emmciosetup(SDio*, int, void *buf, int bsize, int bcount)
 {
 	u32int *r;
 	uintptr pa;
@@ -360,7 +360,7 @@ emmciosetup(int, void *buf, int bsize, int bcount)
 }
 
 static void
-emmcio(int write, uchar *buf, int len)
+emmcio(SDio*, int write, uchar *buf, int len)
 {
 	u32int *r;
 	int i;
@@ -393,12 +393,17 @@ emmcio(int write, uchar *buf, int len)
 	}
 }
 
-SDio sdio = {
-	"emmc",
-	emmcinit,
-	emmcenable,
-	emmcinquiry,
-	emmccmd,
-	emmciosetup,
-	emmcio,
-};
+void
+emmclink(void)
+{
+	static SDio io = {
+		"emmc",
+		emmcinit,
+		emmcenable,
+		emmcinquiry,
+		emmccmd,
+		emmciosetup,
+		emmcio,
+	};
+	addmmcio(&io);
+}

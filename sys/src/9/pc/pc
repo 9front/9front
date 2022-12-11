@@ -93,6 +93,8 @@ link
 	audioac97	pci audioac97mix
 	audiohda	pci
 
+	pmmc		pci
+
 misc
 	pci		pcipc
 

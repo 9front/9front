@@ -28,6 +28,7 @@ link
 	ethermedium
 	loopbackmedium
 	netdevmedium
+	emmc
 
 ip
 	tcp

@@ -3,7 +3,6 @@
  *
  * Copyright © 2012 Richard Miller <r.miller@acm.org>
  *
- * Assumes only one card on the bus
  */
 
 #include "u.h"
@@ -74,6 +73,7 @@ enum {
 struct Ctlr {
 	SDev	*dev;
 	SDio	*io;
+
 	/* SD card registers */
 	u16int	rca;
 	u32int	ocr;
@@ -84,7 +84,78 @@ struct Ctlr {
 };
 
 extern SDifc sdmmcifc;
-extern SDio sdio;
+
+static SDio *sdio[8];
+static int nsdio, isdio;
+
+void
+addmmcio(SDio *io)
+{
+	assert(io != nil);
+	assert(isdio == 0);
+	if(nsdio >= nelem(sdio)){
+		print("addmmcio: out of slots for %s\n", io->name);
+		return;
+	}
+	sdio[nsdio++] = io;
+}
+
+static SDev*
+init1(void)
+{
+	SDev *sdev;
+	Ctlr *ctlr;
+	SDio *io;
+	int more;
+
+	if(isdio >= nsdio)
+		return nil;
+	if((sdev = malloc(sizeof(SDev))) == nil)
+		return nil;
+	if((ctlr = malloc(sizeof(Ctlr))) == nil){
+		free(sdev);
+		return nil;
+	}
+	if((io = malloc(sizeof(SDio))) == nil){
+		free(ctlr);
+		free(sdev);
+		return nil;
+	}
+Next:
+	memmove(io, sdio[isdio++], sizeof(SDio));
+	if(io->init != nil){
+		more = (*io->init)(io);
+		if(more < 0){
+			if(isdio < nsdio)
+				goto Next;
+
+			free(io);
+			free(ctlr);
+			free(sdev);
+			return nil;
+		}
+		if(more > 0)
+			isdio--;	/* try again */
+	}
+	sdev->idno = 'M';
+	sdev->ifc = &sdmmcifc;
+	sdev->nunit = 1;
+	sdev->ctlr = ctlr;
+	ctlr->dev = sdev;
+	ctlr->io = io;
+	return sdev;
+}
+
+static SDev*
+mmcpnp(void)
+{
+	SDev *list = nil, **link = &list;
+
+	while((*link = init1()) != nil)
+		link = &(*link)->next;
+
+	return list;
+}
 
 static uint
 rbits(u32int *p, uint start, uint len)
@@ -126,39 +197,14 @@ identify(SDunit *unit, u32int *csd)
 	}
 }
 
-static SDev*
-mmcpnp(void)
-{
-	SDev *sdev;
-	Ctlr *ctl;
-
-	if(sdio.init() < 0)
-		return nil;
-	sdev = malloc(sizeof(SDev));
-	if(sdev == nil)
-		return nil;
-	ctl = malloc(sizeof(Ctlr));
-	if(ctl == nil){
-		free(sdev);
-		return nil;
-	}
-	sdev->idno = 'M';
-	sdev->ifc = &sdmmcifc;
-	sdev->nunit = 1;
-	sdev->ctlr = ctl;
-	ctl->dev = sdev;
-	ctl->io = &sdio;
-	return sdev;
-}
-
 static int
 mmcverify(SDunit *unit)
 {
+	Ctlr *ctlr = unit->dev->ctlr;
+	SDio *io = ctlr->io;
 	int n;
-	Ctlr *ctl;
 
-	ctl = unit->dev->ctlr;
-	n = ctl->io->inquiry((char*)&unit->inquiry[8], sizeof(unit->inquiry)-8);
+	n = (*io->inquiry)(io, (char*)&unit->inquiry[8], sizeof(unit->inquiry)-8);
 	if(n < 0)
 		return 0;
 	unit->inquiry[0] = 0x00;	/* direct access (disk) */
@@ -170,116 +216,112 @@ mmcverify(SDunit *unit)
 static int
 mmcenable(SDev* dev)
 {
-	Ctlr *ctl;
-
-	ctl = dev->ctlr;
-	ctl->io->enable();
+	Ctlr *ctlr = dev->ctlr;
+	SDio *io = ctlr->io;
+	(*io->enable)(io);
 	return 1;
 }
 
 static void
 mmcswitchfunc(SDio *io, int arg)
 {
+	u32int r[4];
 	uchar *buf;
 	int n;
-	u32int r[4];
 
 	n = Funcbytes;
 	buf = sdmalloc(n);
 	if(waserror()){
-		print("mmcswitchfunc error\n");
+		print("%s: mmcswitchfunc error\n", io->name);
 		sdfree(buf);
 		nexterror();
 	}
-	io->iosetup(0, buf, n, 1);
-	io->cmd(SWITCH_FUNC, arg, r);
-	io->io(0, buf, n);
+	(*io->iosetup)(io, 0, buf, n, 1);
+	(*io->cmd)(io, SWITCH_FUNC, arg, r);
+	(*io->io)(io, 0, buf, n);
 	sdfree(buf);
 	poperror();
 }
 
 static int
-cardinit(Ctlr *ctl)
+cardinit(Ctlr *ctlr)
 {
+	SDio *io = ctlr->io;
 	u32int r[4];
 	int hcs, i;
-	SDio *io = ctl->io;
 
-	io->cmd(GO_IDLE_STATE, 0, r);
+	(*io->cmd)(io, GO_IDLE_STATE, 0, r);
 	hcs = 0;
 	if(!waserror()){
-		io->cmd(SD_SEND_IF_COND, Voltage|Checkpattern, r);
+		(*io->cmd)(io, SD_SEND_IF_COND, Voltage|Checkpattern, r);
 		if(r[0] == (Voltage|Checkpattern))	/* SD 2.0 or above */
 			hcs = Hcs;
 		poperror();
 	}
 	for(i = 0; i < Inittimeout; i++){
 		tsleep(&up->sleep, return0, nil, 100);
-		io->cmd(APP_CMD, 0, r);
-		io->cmd(SD_SEND_OP_COND, hcs|V3_3, r);
+		(*io->cmd)(io, APP_CMD, 0, r);
+		(*io->cmd)(io, SD_SEND_OP_COND, hcs|V3_3, r);
 		if(r[0] & Powerup)
 			break;
 	}
 	if(i == Inittimeout)
 		return 2;
-	ctl->ocr = r[0];
-	io->cmd(ALL_SEND_CID, 0, r);
-	memmove(ctl->cid, r, sizeof ctl->cid);
-	io->cmd(SEND_RELATIVE_ADDR, 0, r);
-	ctl->rca = r[0]>>16;
-	io->cmd(SEND_CSD, ctl->rca<<Rcashift, r);
-	memmove(ctl->csd, r, sizeof ctl->csd);
+	ctlr->ocr = r[0];
+	(*io->cmd)(io, ALL_SEND_CID, 0, r);
+	memmove(ctlr->cid, r, sizeof ctlr->cid);
+	(*io->cmd)(io, SEND_RELATIVE_ADDR, 0, r);
+	ctlr->rca = r[0]>>16;
+	(*io->cmd)(io, SEND_CSD, ctlr->rca<<Rcashift, r);
+	memmove(ctlr->csd, r, sizeof ctlr->csd);
 	return 1;
 }
 
 static void
 retryproc(void *arg)
 {
-	Ctlr *ctl = arg;
+	Ctlr *ctlr = arg;
 	int i = 0;
 
 	while(waserror())
 		;
-	if(i++ < ctl->retry)
-		cardinit(ctl);
+	if(i++ < ctlr->retry)
+		cardinit(ctlr);
 	USED(i);
-	ctl->retry = 0;
+	ctlr->retry = 0;
 	pexit("", 1);
 }
 
 static int
 mmconline(SDunit *unit)
 {
+	Ctlr *ctlr = unit->dev->ctlr;
+	SDio *io = ctlr->io;
 	u32int r[4];
-	Ctlr *ctl;
-	SDio *io;
 
 	assert(unit->subno == 0);
-	ctl = unit->dev->ctlr;
-	io = ctl->io;
-
-	if(ctl->retry)
+	if(ctlr->retry)
 		return 0;
 	if(waserror()){
 		unit->sectors = 0;
-		if(ctl->retry++ == 0)
-			kproc(unit->name, retryproc, ctl);
+		if(ctlr->retry++ == 0)
+			kproc(unit->name, retryproc, ctlr);
 		return 0;
 	}
 	if(unit->sectors != 0){
-		io->cmd(SEND_STATUS, ctl->rca<<Rcashift, r);
+		(*io->cmd)(io, SEND_STATUS, ctlr->rca<<Rcashift, r);
 		poperror();
 		return 1;
 	}
-	if(cardinit(ctl) != 1){
+	if(cardinit(ctlr) != 1){
 		poperror();
 		return 2;
 	}
-	identify(unit, ctl->csd);
-	io->cmd(SELECT_CARD, ctl->rca<<Rcashift, r);
-	io->cmd(SET_BLOCKLEN, unit->secsize, r);
-	io->cmd(APP_CMD, ctl->rca<<Rcashift, r);
-	io->cmd(SET_BUS_WIDTH, Width4, r);
+	identify(unit, ctlr->csd);
+	(*io->cmd)(io, SELECT_CARD, ctlr->rca<<Rcashift, r);
+	(*io->cmd)(io, SET_BLOCKLEN, unit->secsize, r);
+	(*io->cmd)(io, APP_CMD, ctlr->rca<<Rcashift, r);
+	(*io->cmd)(io, SET_BUS_WIDTH, Width4, r);
 	if(io->highspeed){
 		if(!waserror()){
 			mmcswitchfunc(io, Hispeed|Setfunc);
@@ -293,7 +335,7 @@ mmconline(SDunit *unit)
 static int
 mmcrctl(SDunit *unit, char *p, int l)
 {
-	Ctlr *ctl;
+	Ctlr *ctlr = unit->dev->ctlr;
 	int i, n;
 
 	assert(unit->subno == 0);
@@ -302,13 +344,12 @@ mmcrctl(SDunit *unit, char *p, int l)
 		if(unit->sectors == 0)
 			return 0;
 	}
-	ctl = unit->dev->ctlr;
-	n = snprint(p, l, "rca %4.4ux ocr %8.8ux\ncid ", ctl->rca, ctl->ocr);
-	for(i = nelem(ctl->cid)-1; i >= 0; i--)
-		n += snprint(p+n, l-n, "%8.8ux", ctl->cid[i]);
+	n = snprint(p, l, "rca %4.4ux ocr %8.8ux\ncid ", ctlr->rca, ctlr->ocr);
+	for(i = nelem(ctlr->cid)-1; i >= 0; i--)
+		n += snprint(p+n, l-n, "%8.8ux", ctlr->cid[i]);
 	n += snprint(p+n, l-n, " csd ");
-	for(i = nelem(ctl->csd)-1; i >= 0; i--)
-		n += snprint(p+n, l-n, "%8.8ux", ctl->csd[i]);
+	for(i = nelem(ctlr->csd)-1; i >= 0; i--)
+		n += snprint(p+n, l-n, "%8.8ux", ctlr->csd[i]);
 	n += snprint(p+n, l-n, "\ngeometry %llud %ld\n",
 		unit->sectors, unit->secsize);
 	return n;
@@ -317,16 +358,14 @@ mmcrctl(SDunit *unit, char *p, int l)
 static long
 mmcbio(SDunit *unit, int lun, int write, void *data, long nb, uvlong bno)
 {
+	Ctlr *ctlr = unit->dev->ctlr;
+	SDio *io = ctlr->io;
 	int len, tries;
-	ulong b;
 	u32int r[4];
 	uchar *buf;
-	Ctlr *ctl;
-	SDio *io;
+	ulong b;
 
 	USED(lun);
-	ctl = unit->dev->ctlr;
-	io = ctl->io;
 	assert(unit->subno == 0);
 	if(unit->sectors == 0)
 		error(Echange);
@@ -338,24 +377,24 @@ mmcbio(SDunit *unit, int lun, int write, void *data, long nb, uvlong bno)
 		while(waserror())
 			if(++tries == 3)
 				nexterror();
-		io->iosetup(write, buf, len, nb);
+		(*io->iosetup)(io, write, buf, len, nb);
 		if(waserror()){
-			io->cmd(STOP_TRANSMISSION, 0, r);
+			(*io->cmd)(io, STOP_TRANSMISSION, 0, r);
 			nexterror();
 		}
-		io->cmd(write? WRITE_MULTIPLE_BLOCK: READ_MULTIPLE_BLOCK,
-			ctl->ocr & Ccs? b: b * len, r);
-		io->io(write, buf, nb * len);
+		(*io->cmd)(io, write? WRITE_MULTIPLE_BLOCK: READ_MULTIPLE_BLOCK,
+			ctlr->ocr & Ccs? b: b * len, r);
+		(*io->io)(io, write, buf, nb * len);
 		poperror();
-		io->cmd(STOP_TRANSMISSION, 0, r);
+		(*io->cmd)(io, STOP_TRANSMISSION, 0, r);
 		poperror();
 		b += nb;
 	}else{
 		for(b = bno; b < bno + nb; b++){
-			io->iosetup(write, buf, len, 1);
-			io->cmd(write? WRITE_BLOCK : READ_SINGLE_BLOCK,
-				ctl->ocr & Ccs? b: b * len, r);
-			io->io(write, buf, len);
+			(*io->iosetup)(io, write, buf, len, 1);
+			(*io->cmd)(io, write? WRITE_BLOCK : READ_SINGLE_BLOCK,
+				ctlr->ocr & Ccs? b: b * len, r);
+			(*io->io)(io, write, buf, len);
 			buf += len;
 		}
 	}

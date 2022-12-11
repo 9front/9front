@@ -15,7 +15,7 @@
 #include "io.h"
 #include "../port/sd.h"
 
-#define EMMCREGS	(VIRTIO+0x340000)
+#define SDHCREGS	(VIRTIO+0x340000)
 
 enum {
 	Extfreq		= 100*Mhz,	/* guess external clock frequency if */
@@ -206,14 +206,14 @@ struct Ctlr {
 	uintptr	busdram;
 };
 
-static Ctlr emmc;
+static Ctlr sdhc;
 
 static void mmcinterrupt(Ureg*, void*);
 
 static void
 WR(int reg, u32int val)
 {
-	u32int *r = (u32int*)EMMCREGS;
+	u32int *r = (u32int*)SDHCREGS;
 
 	if(0)print("WR %2.2ux %ux\n", reg<<2, val);
 	coherence();
@@ -247,7 +247,7 @@ dmaalloc(void *addr, int len)
 			p->desc |= len<<OLength | End | Int;
 		else
 			p->desc |= Maxdma<<OLength;
-		p->addr = emmc.busdram + (PADDR(a) - PHYSDRAM);
+		p->addr = sdhc.busdram + (PADDR(a) - PHYSDRAM);
 		a += Maxdma;
 		len -= Maxdma;
 		n--;
@@ -257,15 +257,15 @@ dmaalloc(void *addr, int len)
 }
 
 static void
-emmcclk(uint freq)
+sdhcclk(uint freq)
 {
 	u32int *r;
 	uint div;
 	int i;
 
-	r = (u32int*)EMMCREGS;
-	div = emmc.extclk / (freq<<1);
-	if(emmc.extclk / (div<<1) > freq)
+	r = (u32int*)SDHCREGS;
+	div = sdhc.extclk / (freq<<1);
+	if(sdhc.extclk / (div<<1) > freq)
 		div++;
 	WR(Control1, clkdiv(div) |
 		DTO<<Datatoshift | Clkgendiv | Clken | Clkintlen);
@@ -275,7 +275,7 @@ emmcclk(uint freq)
 			break;
 	}
 	if(i == 1000)
-		print("emmc: can't set clock to %ud\n", freq);
+		print("sdhc: can't set clock to %ud\n", freq);
 }
 
 static int
@@ -283,29 +283,29 @@ datadone(void*)
 {
 	int i;
 
-	u32int *r = (u32int*)EMMCREGS;
+	u32int *r = (u32int*)SDHCREGS;
 	i = r[Interrupt];
 	return i & (Datadone|Err);
 }
 
 static int
-emmcinit(void)
+sdhcinit(SDio *io)
 {
 	u32int *r;
 	ulong clk;
 	char *s;
 
-	emmc.busdram = soc.busdram;
+	sdhc.busdram = soc.busdram;
 	if((s = getconf("*emmc2bus")) != nil)
-		emmc.busdram = strtoull(s, nil, 16);
+		sdhc.busdram = strtoull(s, nil, 16);
 	clk = getclkrate(ClkEmmc2);
 	if(clk == 0){
 		clk = Extfreq;
-		print("emmc: assuming external clock %lud Mhz\n", clk/1000000);
+		print("%s: assuming external clock %lud Mhz\n", io->name, clk/1000000);
 	}
-	emmc.extclk = clk;
-	r = (u32int*)EMMCREGS;
-	if(0)print("emmc control %8.8ux %8.8ux %8.8ux\n",
+	sdhc.extclk = clk;
+	r = (u32int*)SDHCREGS;
+	if(0)print("sdhc control %8.8ux %8.8ux %8.8ux\n",
 		r[Control0], r[Control1], r[Control2]);
 	WR(Control1, Srsthc);
 	delay(10);
@@ -318,12 +318,12 @@ emmcinit(void)
 }
 
 static int
-emmcinquiry(char *inquiry, int inqlen)
+sdhcinquiry(SDio *, char *inquiry, int inqlen)
 {
 	u32int *r;
 	uint ver;
 
-	r = (u32int*)EMMCREGS;
+	r = (u32int*)SDHCREGS;
 	ver = r[Slotisrver] >> 16;
 	return snprint(inquiry, inqlen,
 		"BCM SD Host Controller %2.2x Version %2.2x",
@@ -331,7 +331,7 @@ emmcinquiry(char *inquiry, int inqlen)
 }
 
 static void
-emmcenable(void)
+sdhcenable(SDio *io)
 {
 
 	WR(Control0, 0);
@@ -339,28 +339,28 @@ emmcenable(void)
 	WR(Control0, V3_3 | Buspower | Dwidth1 | DmaADMA2);
 	WR(Control1, 0);
 	delay(1);
-	emmcclk(Initfreq);
+	sdhcclk(Initfreq);
 	WR(Irpten, 0);
 	WR(Irptmask, ~(Cardintr|Dmaintr));
 	WR(Interrupt, ~0);
-	intrenable(IRQmmc, mmcinterrupt, nil, BUSUNKNOWN, "sdhc");
+	intrenable(IRQmmc, mmcinterrupt, nil, BUSUNKNOWN, io->name);
 }
 
 static int
-emmccmd(u32int cmd, u32int arg, u32int *resp)
+sdhccmd(SDio*, u32int cmd, u32int arg, u32int *resp)
 {
 	u32int *r;
 	u32int c;
 	int i;
 	ulong now;
 
-	r = (u32int*)EMMCREGS;
+	r = (u32int*)SDHCREGS;
 	assert(cmd < nelem(cmdinfo) && cmdinfo[cmd] != 0);
 	c = (cmd << Indexshift) | cmdinfo[cmd];
 	/*
 	 * CMD6 may be Setbuswidth or Switchfunc depending on Appcmd prefix
 	 */
-	if(cmd == Switchfunc && !emmc.appcmd)
+	if(cmd == Switchfunc && !sdhc.appcmd)
 		c |= Isdata|Card2host;
 	if(c & Isdata)
 		c |= Dmaen;
@@ -377,10 +377,10 @@ emmccmd(u32int cmd, u32int arg, u32int *resp)
 	 */
 	if(cmd == GoIdle){
 		WR(Control0, r[Control0] & ~(Dwidth4|Hispeed));
-		emmcclk(Initfreq);
+		sdhcclk(Initfreq);
 	}
 	if(r[Status] & Cmdinhibit){
-		print("emmccmd: need to reset Cmdinhibit intr %ux stat %ux\n",
+		print("sdhccmd: need to reset Cmdinhibit intr %ux stat %ux\n",
 			r[Interrupt], r[Status]);
 		WR(Control1, r[Control1] | Srstcmd);
 		while(r[Control1] & Srstcmd)
@@ -390,7 +390,7 @@ emmccmd(u32int cmd, u32int arg, u32int *resp)
 	}
 	if((r[Status] & Datinhibit) &&
 	   ((c & Isdata) || (c & Respmask) == Resp48busy)){
-		print("emmccmd: need to reset Datinhibit intr %ux stat %ux\n",
+		print("sdhccmd: need to reset Datinhibit intr %ux stat %ux\n",
 			r[Interrupt], r[Status]);
 		WR(Control1, r[Control1] | Srstdata);
 		while(r[Control1] & Srstdata)
@@ -401,7 +401,7 @@ emmccmd(u32int cmd, u32int arg, u32int *resp)
 	WR(Arg1, arg);
 	if((i = (r[Interrupt] & ~Cardintr)) != 0){
 		if(i != Cardinsert)
-			print("emmc: before command, intr was %ux\n", i);
+			print("sdhc: before command, intr was %ux\n", i);
 		WR(Interrupt, i);
 	}
 	WR(Cmdtm, c);
@@ -411,7 +411,7 @@ emmccmd(u32int cmd, u32int arg, u32int *resp)
 			break;
 	if((i&(Cmddone|Err)) != Cmddone){
 		if((i&~(Err|Cardintr)) != Ctoerr)
-			print("emmc: cmd %ux arg %ux error intr %ux stat %ux\n", c, arg, i, r[Status]);
+			print("sdhc: cmd %ux arg %ux error intr %ux stat %ux\n", c, arg, i, r[Status]);
 		WR(Interrupt, i);
 		if(r[Status]&Cmdinhibit){
 			WR(Control1, r[Control1]|Srstcmd);
@@ -438,12 +438,12 @@ emmccmd(u32int cmd, u32int arg, u32int *resp)
 	}
 	if((c & Respmask) == Resp48busy){
 		WR(Irpten, r[Irpten]|Datadone|Err);
-		tsleep(&emmc.r, datadone, 0, 3000);
+		tsleep(&sdhc.r, datadone, 0, 3000);
 		i = r[Interrupt];
 		if((i & Datadone) == 0)
-			print("emmcio: no Datadone after CMD%d\n", cmd);
+			print("sdhcio: no Datadone after CMD%d\n", cmd);
 		if(i & Err)
-			print("emmcio: CMD%d error interrupt %ux\n",
+			print("sdhcio: CMD%d error interrupt %ux\n",
 				cmd, r[Interrupt]);
 		WR(Interrupt, i);
 	}
@@ -452,12 +452,12 @@ emmccmd(u32int cmd, u32int arg, u32int *resp)
 	 */
 	if(cmd == MMCSelect){
 		delay(1);
-		emmcclk(SDfreq);
+		sdhcclk(SDfreq);
 		delay(1);
-		emmc.fastclock = 1;
+		sdhc.fastclock = 1;
 	}
 	if(cmd == Setbuswidth){
-		if(emmc.appcmd){
+		if(sdhc.appcmd){
 			/*
 			 * If card bus width changes, change host bus width
 			 */
@@ -475,7 +475,7 @@ emmccmd(u32int cmd, u32int arg, u32int *resp)
 			 */
 			if((arg&0x8000000F) == 0x80000001){
 				delay(1);
-				emmcclk(SDfreqhs);
+				sdhcclk(SDfreqhs);
 				delay(1);
 			}
 		}
@@ -490,12 +490,12 @@ emmccmd(u32int cmd, u32int arg, u32int *resp)
 			break;
 		}
 	}
-	emmc.appcmd = (cmd == Appcmd);
+	sdhc.appcmd = (cmd == Appcmd);
 	return 0;
 }
 
 static void
-emmciosetup(int write, void *buf, int bsize, int bcount)
+sdhciosetup(SDio*, int write, void *buf, int bsize, int bcount)
 {
 	int len;
 
@@ -504,30 +504,30 @@ emmciosetup(int write, void *buf, int bsize, int bcount)
 	assert((len&3) == 0);
 	assert(bsize <= 2048);
 	WR(Blksizecnt, bcount<<16 | bsize);
-	if(emmc.dma)
-		sdfree(emmc.dma);
-	emmc.dma = dmaalloc(buf, len);
+	if(sdhc.dma)
+		sdfree(sdhc.dma);
+	sdhc.dma = dmaalloc(buf, len);
 	if(write)
 		cachedwbse(buf, len);
 	else
 		cachedwbinvse(buf, len);
-	WR(Dmadesc, emmc.busdram + (PADDR(emmc.dma) - PHYSDRAM));
+	WR(Dmadesc, sdhc.busdram + (PADDR(sdhc.dma) - PHYSDRAM));
 	okay(1);
 }
 
 static void
-emmcio(int write, uchar *buf, int len)
+sdhcio(SDio*, int write, uchar *buf, int len)
 {
 	u32int *r;
 	int i;
 
-	r = (u32int*)EMMCREGS;
+	r = (u32int*)SDHCREGS;
 	if(waserror()){
 		okay(0);
 		nexterror();
 	}
 	WR(Irpten, r[Irpten] | Datadone|Err);
-	tsleep(&emmc.r, datadone, 0, 3000);
+	tsleep(&sdhc.r, datadone, 0, 3000);
 	WR(Irpten, r[Irpten] & ~(Datadone|Err));
 	i = r[Interrupt];
 	if((i & (Datadone|Err)) != Datadone){
@@ -549,20 +549,25 @@ mmcinterrupt(Ureg*, void*)
 	u32int *r;
 	int i;
 
-	r = (u32int*)EMMCREGS;
+	r = (u32int*)SDHCREGS;
 	i = r[Interrupt];
 	if(i&(Datadone|Err))
-		wakeup(&emmc.r);
+		wakeup(&sdhc.r);
 	WR(Irpten, r[Irpten] & ~i);
 }
 
-SDio sdio = {
-	"sdhc",
-	emmcinit,
-	emmcenable,
-	emmcinquiry,
-	emmccmd,
-	emmciosetup,
-	emmcio,
-	.highspeed = 1,
-};
+void
+sdhclink(void)
+{
+	static SDio io = {
+		"sdhc",
+		sdhcinit,
+		sdhcenable,
+		sdhcinquiry,
+		sdhccmd,
+		sdhciosetup,
+		sdhcio,
+		.highspeed = 1,
+	};
+	addmmcio(&io);
+}

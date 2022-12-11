@@ -30,6 +30,7 @@ link
 	loopbackmedium
 	netdevmedium
 	usbehci usbehcizynq
+	emmc
 
 misc
 	uartzynq
