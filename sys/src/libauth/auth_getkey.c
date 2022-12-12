@@ -23,6 +23,7 @@ auth_getkey(char *params)
 	}
 if(0)	if(d->type != '/'){
 		werrstr("auth_getkey: /factotum may be bad: didn't get key %s", params);
+		free(d);
 		return -1;
 	}
 	free(d);
