@@ -99,7 +99,7 @@ netinit(void)
 		if(net->dialstr == nil)
 			continue;
 		if((net->annfd = announce(net->dialstr, net->anndir)) < 0){
-			fprint(2, "can't announce %s: %r", net->dialstr);
+			fprint(2, "can't announce %s: %r\n", net->dialstr);
 			net->dialstr = nil;
 			continue;
 		}
