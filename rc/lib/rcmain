@@ -30,7 +30,7 @@ if not if(flag i){
 	}
 	status=''
 	if(! ~ $#* 0) . $*
-	. -i '#d/0'
+	. -i /fd/0
 }
 if not if(~ $#* 0) . '#d/0'
 if not{
