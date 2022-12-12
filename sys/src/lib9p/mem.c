@@ -9,10 +9,8 @@ emalloc9p(ulong sz)
 {
 	void *v;
 
-	if((v = malloc(sz)) == nil) {
-		fprint(2, "out of memory allocating %lud\n", sz);
-		exits("mem");
-	}
+	if((v = malloc(sz)) == nil)
+		sysfatal("out of memory allocating %lud", sz);
 	memset(v, 0, sz);
 	setmalloctag(v, getcallerpc(&sz));
 	return v;
@@ -23,10 +21,8 @@ erealloc9p(void *v, ulong sz)
 {
 	void *nv;
 
-	if((nv = realloc(v, sz)) == nil && sz != 0) {
-		fprint(2, "out of memory allocating %lud\n", sz);
-		exits("mem");
-	}
+	if((nv = realloc(v, sz)) == nil && sz != 0)
+		sysfatal("out of memory allocating %lud", sz);
 	if(v == nil)
 		setmalloctag(nv, getcallerpc(&v));
 	setrealloctag(nv, getcallerpc(&v));
@@ -38,10 +34,8 @@ estrdup9p(char *s)
 {
 	char *t;
 
-	if((t = strdup(s)) == nil) {
-		fprint(2, "out of memory in strdup(%.10s)\n", s);
-		exits("mem");
-	}
+	if((t = strdup(s)) == nil)
+		sysfatal("out of memory in strdup(%.10s)", s);
 	setmalloctag(t, getcallerpc(&s));
 	return t;
 }

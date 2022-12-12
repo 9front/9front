@@ -666,10 +666,6 @@ rstat(Req *r, char *error)
 	}
 	n = GBIT16(tmp)+BIT16SZ;
 	statbuf = emalloc9p(n);
-	if(statbuf == nil){
-		r->error = "out of memory";
-		return;
-	}
 	r->ofcall.nstat = convD2M(&r->d, statbuf, n);
 	r->ofcall.stat = statbuf;	/* freed in closereq */
 	if(r->ofcall.nstat <= BIT16SZ){
