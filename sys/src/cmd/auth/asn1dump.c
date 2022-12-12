@@ -32,7 +32,7 @@ main(int argc, char *argv[])
 	if(argc == 1)
 		file = argv[0];
 	else
-		file = "#d/0";
+		file = "/fd/0";
 
 	if((fd = open(file, OREAD)) < 0)
 		sysfatal("open %s: %r", file);

@@ -17,7 +17,7 @@ getrsakey(int argc, char **argv, int needprivate, Attr **pa)
 	Attr *a;
 
 	if(argc == 0)
-		file = "#d/0";
+		file = "/fd/0";
 	else
 		file = argv[0];
 
