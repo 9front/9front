@@ -426,10 +426,14 @@ transforward(Proto *p, Ipht *ht, uchar *sa, int sp, uchar *da, int dp, Route *r)
 
 	/* Translation already exists? */
 	iph = iphtlook(ht, sa, sp, da, dp);
-	if(iph != nil) {
-		if(iph->trans != 1)
+	if(iph != nil){
+		if(iph->trans == 1)
+			return transupdate(p, iphforward(iph));
+		if(iph->match == IPmatchexact){
+			netlog(p->f, Logtrans, "trans: backwards collision: %s!%I!%d -> %I!%d\n",
+				p->name, sa, sp, da, dp);
 			return nil;
-		return transupdate(p, iphforward(iph));
+		}
 	}
 
 	/* Bad source address? */
