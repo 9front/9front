@@ -25,6 +25,7 @@ if(0)	if(d->type != '/'){
 		werrstr("auth_getkey: /factotum may be bad: didn't get key %s", params);
 		return -1;
 	}
+	free(d);
 	switch(pid = fork()){
 	case -1:
 		werrstr("can't fork for %s: %r", name);
