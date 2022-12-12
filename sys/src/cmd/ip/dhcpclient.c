@@ -367,7 +367,7 @@ openlisten(char *net)
 
 	if(fprint(cfd, "headers") < 0)
 		myfatal("can't set header mode: %r");
-
+	fprint(cfd, "ignoreadvice");
 	sprint(data, "%s/data", devdir);
 	fd = open(data, ORDWR);
 	if(fd < 0)
