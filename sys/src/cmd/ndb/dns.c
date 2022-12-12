@@ -189,7 +189,7 @@ main(int argc, char *argv[])
 	nowns = nsec();
 	dnsuser = estrdup(getuser());
 
-	snprint(servefile, sizeof servefile, "#s/dns%s", ext);
+	snprint(servefile, sizeof servefile, "/srv/dns%s", ext);
 	dir = dirstat(servefile);
 	if (dir)
 		sysfatal("%s exists; another dns instance is running",

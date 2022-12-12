@@ -245,7 +245,7 @@ main(int argc, char *argv[])
 	netinit(0);
 
 	if(!justsetname){
-		snprint(servefile, sizeof(servefile), "#s/cs%s", ext);
+		snprint(servefile, sizeof(servefile), "/srv/cs%s", ext);
 		unmount(servefile, mntpt);
 		remove(servefile);
 
