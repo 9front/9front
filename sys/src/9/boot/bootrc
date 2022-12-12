@@ -8,9 +8,6 @@ mntgen -s mntexport /mnt/exportfs && chmod 666 /srv/mntexport
 bind /root /mnt/broot
 unmount /root
 
-bind -q '#σ' /shr
-bind -q '#d' /fd
-bind -q '#p' /proc
 for(i in ¶ P S f æ t b m)
 	bind -qa '#'^$i /dev
 
