@@ -95,27 +95,13 @@ remove(Link **l, char *name, ulong qidpath)
 }
 
 static void
-boardclunk(Board *b, int close)
+boardclunk(Board *b)
 {
-	Srv *sp, *prv;
 	Board *ch;
 
 	if(b == &root)
 		return;
 
-	if(close){
-		assert(b->closed == 0);
-		b->closed++;
-		for(sp = b->srv; sp != nil; sp = prv){
-			prv = sp->link;
-			free(sp->owner);
-			free(sp->name);
-			if(sp->chan != nil)
-				cclose(sp->chan);
-			free(sp);
-		}
-		b->srv = nil;
-	}
 	if(decref(b) != 0)
 		return;
 
@@ -126,6 +112,8 @@ boardclunk(Board *b, int close)
 	 * have to walk up the tree to clear now empty parents.
 	 */
 	while(b->closed && b->child == nil){
+		assert(b->srv == nil);
+
 		//Root should never be closed
 		assert(b->parent != nil);
 		ch = remove((Link**)&b->parent->child, b->name, ~0UL);
@@ -328,7 +316,7 @@ srvopen(Chan *c, int omode)
 		c->aux = ch;
 		c->qid.path = SRVQID(ch->path, Qlease);
 		c->mode = openmode(omode);
-		boardclunk(b, 0);
+		boardclunk(b);
 		wunlock(&srvlk);
 		poperror();
 		return c;
@@ -436,7 +424,7 @@ srvremove(Chan *c)
 	b = c->aux;
 	wlock(&srvlk);
 	if(waserror()){
-		boardclunk(b, 0);
+		boardclunk(b);
 		wunlock(&srvlk);
 		nexterror();
 	}
@@ -457,7 +445,7 @@ srvremove(Chan *c)
 
 	remove((Link**)&b->srv, nil, c->qid.path);
 
-	boardclunk(b, 0);
+	boardclunk(b);
 	wunlock(&srvlk);
 	poperror();
 
@@ -546,13 +534,10 @@ srvwstat(Chan *c, uchar *dp, int n)
 static void
 srvclose(Chan *c)
 {
+	Srv *sp, *link;
 	Board *b;
-	int expired;
 
-	expired = 0;
-	if(SRVTYPE(c->qid.path) == Qlease)
-		expired++;
-	else if(c->flag & CRCLOSE){
+	if(c->flag & CRCLOSE && SRVTYPE(c->qid.path) != Qlease){
 		/*
 		 * in theory we need to override any changes in removability
 		 * since open, but since all that's checked is the owner,
@@ -566,9 +551,31 @@ srvclose(Chan *c)
 	}
 
 	b = c->aux;
+	if(b == &root)
+		return;
+
 	wlock(&srvlk);
-	boardclunk(b, expired);
+	if(SRVTYPE(c->qid.path) != Qlease){
+		boardclunk(b);
+		wunlock(&srvlk);
+		return;
+	}
+
+	/* free later after releasing srvlk */
+	sp = b->srv;
+	b->srv = nil;
+	b->closed++;
+	boardclunk(b);
 	wunlock(&srvlk);
+
+	for(; sp != nil; sp = link){
+		link = sp->link;
+		if(sp->chan != nil)
+			ccloseq(sp->chan);
+		free(sp->owner);
+		free(sp->name);
+		free(sp);
+	}
 }
 
 static long
