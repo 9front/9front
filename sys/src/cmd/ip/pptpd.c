@@ -1259,7 +1259,7 @@ fdclose(void)
 	int fd, n, i;
 	Dir *d, *p;
 
-	if((fd = open("#d", OREAD)) < 0)
+	if((fd = open("/fd", OREAD)) < 0)
 		return;
 
 	n = dirreadall(fd, &d);
