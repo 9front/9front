@@ -38,7 +38,7 @@ ip_init_6(Fs *f)
 }
 
 int
-ipoput6(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
+ipoput6(Fs *f, Block *bp, Ipifc *gating, int ttl, int tos, Routehint *rh)
 {
 	int medialen, len, chunk, uflen, flen, seglen, lid, offset, fragoff;
 	int morefrags, blklen, rv = 0;
@@ -89,9 +89,12 @@ ipoput6(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
 		goto raise;
 
 	medialen = ifc->maxtu - ifc->m->hsize;
-	if(gating)
-		tcpmssclamp(bp->rp, BLEN(bp), medialen);
-	else {
+	if(gating != nil){
+		int mtu = gating->maxtu - gating->m->hsize;
+		if(medialen < mtu)
+			mtu = medialen;
+		tcpmssclamp(bp->rp, BLEN(bp), mtu);
+	} else {
 		eh->vcf[0] = IP_VER6;
 		eh->vcf[0] |= tos >> 4;
 		eh->vcf[1]  = tos << 4;
@@ -107,7 +110,7 @@ ipoput6(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
 		return 0;
 	}
 
-	if(gating && !ifc->reassemble) {
+	if(gating != nil && !ifc->reassemble) {
 		/*
 		 * v6 intermediate nodes are not supposed to fragment pkts;
 		 * we fragment if ifc->reassemble is turned on; an exception
@@ -294,7 +297,7 @@ ipiput6(Fs *f, Ipifc *ifc, Block *bp)
 		ip->stats[ForwDatagrams]++;
 		h = (Ip6hdr*)bp->rp;
 		tos = (h->vcf[0]&0x0F)<<2 | (h->vcf[1]&0xF0)>>2;
-		ipoput6(f, bp, 1, hop - 1, tos, &rh);
+		ipoput6(f, bp, ifc, hop - 1, tos, &rh);
 		return;
 	}
 

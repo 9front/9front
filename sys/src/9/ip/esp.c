@@ -423,9 +423,9 @@ espkick(void *x)
 	qunlock(c);
 	/* print("esp: pass down: %uld\n", BLEN(bp)); */
 	if (vers.version == V4)
-		ipoput4(c->p->f, bp, 0, c->ttl, c->tos, c);
+		ipoput4(c->p->f, bp, nil, c->ttl, c->tos, c);
 	else
-		ipoput6(c->p->f, bp, 0, c->ttl, c->tos, c);
+		ipoput6(c->p->f, bp, nil, c->ttl, c->tos, c);
 }
 
 /*
@@ -574,7 +574,7 @@ espctl(Conv *c, char **f, int n)
 
 /* called from icmp(v6) for unreachable hosts, time exceeded, etc. */
 void
-espadvise(Proto *esp, Block *bp, char *msg)
+espadvise(Proto *esp, Block *bp, Ipifc *, char *msg)
 {
 	Conv *c;
 	Versdep vers;

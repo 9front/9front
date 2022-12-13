@@ -221,7 +221,7 @@ char*	ilstart(Conv*, int, int);
 void	ilackproc(void*);
 void	iloutoforder(Conv*, Ilhdr*, Block*);
 void	iliput(Proto*, Ipifc*, Block*);
-void	iladvise(Proto*, Block*, char*);
+void	iladvise(Proto*, Block*, Ipifc*, char*);
 int	ilnextqt(Ilcb*);
 void	ilcbinit(Ilcb*);
 int	later(ulong, ulong, char*);
@@ -415,7 +415,7 @@ ilkick(void *x, Block *bp)
 
 	if(later(NOW, ic->timeout, nil))
 		ilsettimeout(ic);
-	ipoput4(f, bp, 0, c->ttl, c->tos, c);
+	ipoput4(f, bp, nil, c->ttl, c->tos, c);
 	priv->stats[OutMsgs]++;
 }
 
@@ -842,7 +842,7 @@ ilrexmit(Ilcb *ic)
 
 	ilbackoff(ic);
 
-	ipoput4(c->p->f, nb, 0, c->ttl, c->tos, c);
+	ipoput4(c->p->f, nb, nil, c->ttl, c->tos, c);
 
 	/* statistics */
 	ic->rxtot++;
@@ -1044,7 +1044,7 @@ if(ipc->p==nil)
 		iltype[ih->iltype], nhgetl(ih->ilid), nhgetl(ih->ilack), 
 		nhgets(ih->ilsrc), nhgets(ih->ildst));
 
-	return ipoput4(ipc->p->f, bp, 0, ttl, tos, ipc);
+	return ipoput4(ipc->p->f, bp, nil, ttl, tos, ipc);
 }
 
 void
@@ -1078,7 +1078,7 @@ ilreject(Fs *f, Ilhdr *inih)
 	if(ilcksum)
 		hnputs(ih->ilsum, ptclcsum(bp, IL_IPSIZE, IL_HDRSIZE));
 
-	ipoput4(f, bp, 0, MAXTTL, DFLTTOS, nil);
+	ipoput4(f, bp, nil, MAXTTL, DFLTTOS, nil);
 }
 
 void
@@ -1315,7 +1315,7 @@ ilfreeq(Ilcb *ic)
 }
 
 void
-iladvise(Proto *il, Block *bp, char *msg)
+iladvise(Proto *il, Block *bp, Ipifc*, char *msg)
 {
 	Ilhdr *h;
 	Ilcb *ic;		

@@ -1391,10 +1391,10 @@ sndrst(Proto *tcp, uchar *source, uchar *dest, ushort length, Tcp *seg, uchar ve
 	switch(version) {
 	case V4:
 		hbp = htontcp4(seg, nil, &ph4, nil);
-		return ipoput4(tcp->f, hbp, 0, MAXTTL, DFLTTOS, rh);
+		return ipoput4(tcp->f, hbp, nil, MAXTTL, DFLTTOS, rh);
 	case V6:
 		hbp = htontcp6(seg, nil, &ph6, nil);
-		return ipoput6(tcp->f, hbp, 0, MAXTTL, DFLTTOS, rh);
+		return ipoput6(tcp->f, hbp, nil, MAXTTL, DFLTTOS, rh);
 	}
 	return -1;
 }
@@ -1428,12 +1428,12 @@ tcphangup(Conv *s)
 			case V4:
 				tcb->protohdr.tcp4hdr.vihl = IP_VER4;
 				hbp = htontcp4(&seg, nil, &tcb->protohdr.tcp4hdr, tcb);
-				ipoput4(s->p->f, hbp, 0, s->ttl, s->tos, s);
+				ipoput4(s->p->f, hbp, nil, s->ttl, s->tos, s);
 				break;
 			case V6:
 				tcb->protohdr.tcp6hdr.vcf[0] = IP_VER6;
 				hbp = htontcp6(&seg, nil, &tcb->protohdr.tcp6hdr, tcb);
-				ipoput6(s->p->f, hbp, 0, s->ttl, s->tos, s);
+				ipoput6(s->p->f, hbp, nil, s->ttl, s->tos, s);
 				break;
 			default:
 				panic("tcphangup: version %d", s->ipversion);
@@ -1512,10 +1512,10 @@ sndsynack(Proto *tcp, Limbo *lp)
 	switch(lp->version) {
 	case V4:
 		hbp = htontcp4(&seg, nil, &ph4, nil);
-		return ipoput4(tcp->f, hbp, 0, MAXTTL, DFLTTOS, &rh);
+		return ipoput4(tcp->f, hbp, nil, MAXTTL, DFLTTOS, &rh);
 	case V6:
 		hbp = htontcp6(&seg, nil, &ph6, nil);
-		return ipoput6(tcp->f, hbp, 0, MAXTTL, DFLTTOS, &rh);
+		return ipoput6(tcp->f, hbp, nil, MAXTTL, DFLTTOS, &rh);
 	}
 	return -1;
 }
@@ -2061,7 +2061,7 @@ done:
 }
 
 static void
-tcpiput(Proto *tcp, Ipifc*, Block *bp)
+tcpiput(Proto *tcp, Ipifc *ifc, Block *bp)
 {
 	Tcp seg;
 	Tcp4hdr *h4;
@@ -2184,7 +2184,7 @@ reset:
 		hnputs_csum(h4->tcpdst+2, nhgets(q->forward.raddr+IPv4off+2), h4->tcpcksum);
 		hnputs_csum(h4->tcpdport, q->forward.rport, h4->tcpcksum);
 		qunlock(tcp);
-		ipoput4(f, bp, 1, hop - 1, h4->tos, q);
+		ipoput4(f, bp, ifc, hop - 1, h4->tos, q);
 		return;
 	}
 	s = iphconv(iph);
@@ -2757,11 +2757,11 @@ tcpoutput(Conv *s)
 
 		switch(version){
 		case V4:
-			if(ipoput4(f, hbp, 0, s->ttl, s->tos, s) < 0)
+			if(ipoput4(f, hbp, nil, s->ttl, s->tos, s) < 0)
 				localclose(s, Enoroute);
 			break;
 		case V6:
-			if(ipoput6(f, hbp, 0, s->ttl, s->tos, s) < 0)
+			if(ipoput6(f, hbp, nil, s->ttl, s->tos, s) < 0)
 				localclose(s, Enoroute);
 			break;
 		}
@@ -2811,13 +2811,13 @@ tcpsendka(Conv *s)
 		/* Build header, link data and compute cksum */
 		tcb->protohdr.tcp4hdr.vihl = IP_VER4;
 		hbp = htontcp4(&seg, dbp, &tcb->protohdr.tcp4hdr, tcb);
-		return ipoput4(s->p->f, hbp, 0, s->ttl, s->tos, s);
+		return ipoput4(s->p->f, hbp, nil, s->ttl, s->tos, s);
 	}
 	else {
 		/* Build header, link data and compute cksum */
 		tcb->protohdr.tcp6hdr.vcf[0] = IP_VER6;
 		hbp = htontcp6(&seg, dbp, &tcb->protohdr.tcp6hdr, tcb);
-		return ipoput6(s->p->f, hbp, 0, s->ttl, s->tos, s);
+		return ipoput6(s->p->f, hbp, nil, s->ttl, s->tos, s);
 	}
 }
 
@@ -3214,7 +3214,7 @@ tcptrim(Tcpctl *tcb, Tcp *seg, Block **bp, ushort *length)
 }
 
 static void
-tcpadvise(Proto *tcp, Block *bp, char *msg)
+tcpadvise(Proto *tcp, Block *bp, Ipifc *ifc, char *msg)
 {
 	Tcp4hdr *h4;
 	Tcp6hdr *h6;
@@ -3259,7 +3259,7 @@ tcpadvise(Proto *tcp, Block *bp, char *msg)
 		hnputs(h4->tcpsport, q->forward.rport);
 		qunlock(tcp);
 
-		icmpproxyadvice(tcp->f, bp, h4->tcpsrc);
+		icmpproxyadvice(tcp->f, bp, ifc, h4->tcpsrc);
 		return;
 	}
 	s = iphconv(iph);

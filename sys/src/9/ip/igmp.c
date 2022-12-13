@@ -121,7 +121,7 @@ igmpsendreport(Fs *f, uchar *src, uchar *dst, uchar *group, int done)
 	p->proto = IP_IGMPPROTO;
 	memmove(p->group, group+IPv4off, IPv4addrlen);
 	hnputs(p->igmpcksum, ptclcsum(bp, IGMP_IPHDRSIZE, IGMP_HDRSIZE));
-	ipoput4(f, bp, 0, 1, DFLTTOS, nil);	/* TTL of 1 */
+	ipoput4(f, bp, nil, 1, DFLTTOS, nil);	/* TTL of 1 */
 }
 
 static void
@@ -160,7 +160,7 @@ mldsendreport(Fs *f, uchar *src, uchar *dst, uchar *group, int done)
 	p->proto = IP_MLDPROTO;
 	hnputs(p->ploadlen, BLEN(bp) - IP6HDR);
 	
-	ipoput6(f, bp, 0, 1, DFLTTOS, nil);	/* TTL of 1 */
+	ipoput6(f, bp, nil, 1, DFLTTOS, nil);	/* TTL of 1 */
 }
 
 static void

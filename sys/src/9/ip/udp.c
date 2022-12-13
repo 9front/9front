@@ -267,7 +267,7 @@ udpkick(void *x, Block *bp)
 			csum = 0xffff;	/* -0 */
 		hnputs(uh4->udpcksum, csum);
 		uh4->vihl = IP_VER4;
-		ipoput4(f, bp, 0, c->ttl, c->tos, rh);
+		ipoput4(f, bp, nil, c->ttl, c->tos, rh);
 		break;
 
 	case V6:
@@ -303,7 +303,7 @@ udpkick(void *x, Block *bp)
 		uh6->viclfl[0] = IP_VER6;
 		hnputs(uh6->len, ptcllen);
 		uh6->nextheader = IP_UDPPROTO;
-		ipoput6(f, bp, 0, c->ttl, c->tos, rh);
+		ipoput6(f, bp, nil, c->ttl, c->tos, rh);
 		break;
 
 	default:
@@ -433,7 +433,7 @@ Noconv:
 		if(memcmp(uh4->udpsrc, q->forward.laddr+IPv4off, IPv4addrlen) != 0)
 			q = nil;
 		qunlock(udp);
-		ipoput4(f, bp, 1, hop - 1, uh4->tos, q);
+		ipoput4(f, bp, ifc, hop - 1, uh4->tos, q);
 		return;
 	}
 	c = iphconv(iph);
@@ -545,7 +545,7 @@ udpctl(Conv *c, char **f, int n)
 }
 
 void
-udpadvise(Proto *udp, Block *bp, char *msg)
+udpadvise(Proto *udp, Block *bp, Ipifc *ifc, char *msg)
 {
 	Udp4hdr *h4;
 	Udp6hdr *h6;
@@ -588,7 +588,7 @@ udpadvise(Proto *udp, Block *bp, char *msg)
 		hnputs(h4->udpsport, q->forward.rport);
 		qunlock(udp);
 
-		icmpproxyadvice(udp->f, bp, h4->udpsrc);
+		icmpproxyadvice(udp->f, bp, ifc, h4->udpsrc);
 		return;
 	}
 	s = iphconv(iph);

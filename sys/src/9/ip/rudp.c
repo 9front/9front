@@ -314,7 +314,7 @@ rudpclose(Conv *c)
  *  randomly don't send packets
  */
 static void
-doipoput(Conv *c, Fs *f, Block *bp, int x, int ttl, int tos)
+doipoput(Conv *c, Fs *f, Block *bp, int ttl, int tos)
 {
 	Rudpcb *ucb;
 
@@ -322,7 +322,7 @@ doipoput(Conv *c, Fs *f, Block *bp, int x, int ttl, int tos)
 	if(ucb->randdrop && nrand(100) < ucb->randdrop)
 		freeblist(bp);
 	else
-		ipoput4(f, bp, x, ttl, tos, nil);
+		ipoput4(f, bp, nil, ttl, tos, nil);
 }
 
 int
@@ -437,7 +437,7 @@ rudpkick(void *x)
 	DPRINT("sent: %lud/%lud, %lud/%lud\n", 
 		r->sndseq, r->sndgen, r->rcvseq, r->rcvgen);
 
-	doipoput(c, f, bp, 0, c->ttl, c->tos);
+	doipoput(c, f, bp, c->ttl, c->tos);
 
 	if(waserror()) {
 		relput(r);
@@ -622,7 +622,7 @@ rudpctl(Conv *c, char **f, int n)
 }
 
 void
-rudpadvise(Proto *rudp, Block *bp, char *msg)
+rudpadvise(Proto *rudp, Block *bp, Ipifc *, char *msg)
 {
 	Udphdr *h;
 	uchar source[IPaddrlen], dest[IPaddrlen];
@@ -987,7 +987,7 @@ relsendack(Conv *c, Reliable *r, int hangup)
 	hnputs(uh->udpcksum, ptclcsum(bp, UDP_IPHDR, UDP_RHDRSIZE));
 
 	DPRINT("sendack: %lud/%lud, %lud/%lud\n", 0L, r->sndgen, r->rcvseq, r->rcvgen);
-	doipoput(c, f, bp, 0, c->ttl, c->tos);
+	doipoput(c, f, bp, c->ttl, c->tos);
 }
 
 
@@ -1047,5 +1047,5 @@ relrexmit(Conv *c, Reliable *r)
 	upriv->rxmits++;
 	np = copyblock(r->unacked, blocklen(r->unacked));
 	DPRINT("rxmit r->ackrvcd+1 = %lud\n", r->ackrcvd+1);
-	doipoput(c, f, np, 0, c->ttl, c->tos);
+	doipoput(c, f, np, c->ttl, c->tos);
 }

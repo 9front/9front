@@ -661,9 +661,9 @@ ipmuxkick(void *x)
 		Ip4hdr *ih4 = (Ip4hdr*)(bp->rp);
 
 		if((ih4->vihl & 0xF0) != IP_VER6)
-			ipoput4(c->p->f, bp, 0, ih4->ttl, ih4->tos, nil);
+			ipoput4(c->p->f, bp, nil, ih4->ttl, ih4->tos, nil);
 		else
-			ipoput6(c->p->f, bp, 0, ((Ip6hdr*)ih4)->ttl, 0, nil);
+			ipoput6(c->p->f, bp, nil, ((Ip6hdr*)ih4)->ttl, 0, nil);
 	}
 }
 

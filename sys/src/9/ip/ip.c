@@ -85,7 +85,7 @@ iprouting(Fs *f, int on)
 }
 
 int
-ipoput4(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
+ipoput4(Fs *f, Block *bp, Ipifc *gating, int ttl, int tos, Routehint *rh)
 {
 	Ipifc *ifc;
 	uchar *gate;
@@ -135,9 +135,12 @@ ipoput4(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
 		goto raise;
 
 	medialen = ifc->maxtu - ifc->m->hsize;
-	if(gating)
-		tcpmssclamp(bp->rp, BLEN(bp), medialen);
-	else {
+	if(gating != nil) {
+		int mtu = gating->maxtu - gating->m->hsize;
+		if(medialen < mtu)
+			mtu = medialen;
+		tcpmssclamp(bp->rp, BLEN(bp), mtu);
+	} else {
 		eh->vihl = IP_VER4|IP_HLEN4;
 		eh->tos = tos;
 	}
@@ -146,7 +149,7 @@ ipoput4(Fs *f, Block *bp, int gating, int ttl, int tos, Routehint *rh)
 	/* If we dont need to fragment just send it */
 	if(len <= medialen) {
 		hnputs(eh->length, len);
-		if(!gating){
+		if(gating == nil){
 			hnputs(eh->id, incref(&ip->id4));
 			eh->frag[0] = 0;
 			eh->frag[1] = 0;
@@ -375,7 +378,7 @@ ipiput4(Fs *f, Ipifc *ifc, Block *bp)
 		}
 
 		ip->stats[ForwDatagrams]++;
-		ipoput4(f, bp, 1, hop - 1, h->tos, &rh);
+		ipoput4(f, bp, ifc, hop - 1, h->tos, &rh);
 		return;
 	}
 

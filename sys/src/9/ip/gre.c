@@ -435,7 +435,7 @@ restart:
 	memmove(gre->src, grec->coa, sizeof gre->dst);
 	memmove(gre->dst, grec->south, sizeof gre->dst);
 
-	ipoput4(c->p->f, copyblock(bp, BLEN(bp)), 0, gre->ttl - 1, gre->tos, nil);
+	ipoput4(c->p->f, copyblock(bp, BLEN(bp)), nil, gre->ttl - 1, gre->tos, nil);
 	grepdout++;
 	grebdout += BLEN(bp);
 
@@ -506,7 +506,7 @@ greuplink(Conv *c, Block *bp)
 	if(grec->ulsusp)
 		addring(&grec->ulbuffered, bp);
 	else{
-		ipoput4(c->p->f, bp, 0, gre->ttl - 1, gre->tos, nil);
+		ipoput4(c->p->f, bp, nil, gre->ttl - 1, gre->tos, nil);
 		grepuout++;
 		grebuout += BLEN(bp);
 	}
@@ -777,7 +777,7 @@ grectldlresume(Conv *c, int, char **)
 		gre = (GREhdr *)bp->rp;
 		qunlock(&grec->lock);
 
-		ipoput4(c->p->f, copyblock(bp, BLEN(bp)), 0, gre->ttl - 1, gre->tos, nil);
+		ipoput4(c->p->f, copyblock(bp, BLEN(bp)), nil, gre->ttl - 1, gre->tos, nil);
 
 		qlock(&grec->lock);
 		addring(&grec->dlpending, bp);
@@ -801,7 +801,7 @@ grectlulresume(Conv *c, int, char **)
 		gre = (GREhdr *)bp->rp;
 
 		qunlock(&grec->lock);
-		ipoput4(c->p->f, bp, 0, gre->ttl - 1, gre->tos, nil);
+		ipoput4(c->p->f, bp, nil, gre->ttl - 1, gre->tos, nil);
 		qlock(&grec->lock);
 	}
 	grec->ulsusp = 0;
@@ -843,7 +843,7 @@ grectlforward(Conv *c, int, char **argv)
 		memmove(gre->dst, grec->south, sizeof gre->dst);
 
 		qunlock(&grec->lock);
-		ipoput4(c->p->f, bp, 0, gre->ttl - 1, gre->tos, nil);
+		ipoput4(c->p->f, bp, nil, gre->ttl - 1, gre->tos, nil);
 		qlock(&grec->lock);
 	}
 
@@ -853,7 +853,7 @@ grectlforward(Conv *c, int, char **argv)
 		memmove(gre->dst, grec->south, sizeof gre->dst);
 
 		qunlock(&grec->lock);
-		ipoput4(c->p->f, bp, 0, gre->ttl - 1, gre->tos, nil);
+		ipoput4(c->p->f, bp, nil, gre->ttl - 1, gre->tos, nil);
 		qlock(&grec->lock);
 	}
 
@@ -864,7 +864,7 @@ grectlforward(Conv *c, int, char **argv)
 		memmove(gre->dst, grec->south, sizeof gre->dst);
 
 		qunlock(&grec->lock);
-		ipoput4(c->p->f, bp, 0, gre->ttl - 1, gre->tos, nil);
+		ipoput4(c->p->f, bp, nil, gre->ttl - 1, gre->tos, nil);
 		qlock(&grec->lock);
 	}
 	qunlock(&grec->lock);

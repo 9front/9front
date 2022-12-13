@@ -216,7 +216,7 @@ newIPICMP(int packetlen)
 }
 
 static void
-icmpadvise6(Proto *icmp, Block *bp, char *msg)
+icmpadvise6(Proto *icmp, Block *bp, Ipifc *, char *msg)
 {
 	ushort recid;
 	Conv **c, *s;
@@ -281,7 +281,7 @@ icmpkick6(void *x, Block *bp)
 	set_cksum(bp);
 	if(p->type <= Maxtype6)
 		ipriv->out[p->type]++;
-	ipoput6(c->p->f, bp, 0, c->ttl, c->tos, nil);
+	ipoput6(c->p->f, bp, nil, c->ttl, c->tos, nil);
 }
 
 static char*
@@ -379,7 +379,7 @@ icmpns(Fs *f, uchar* src, int suni, uchar* targ, int tuni, uchar* mac)
 	set_cksum(nbp);
 	ipriv->out[NbrSolicit]++;
 	netlog(f, Logicmp, "sending neighbor solicitation %I\n", targ);
-	ipoput6(f, nbp, 0, MAXTTL, DFLTTOS, nil);
+	ipoput6(f, nbp, nil, MAXTTL, DFLTTOS, nil);
 }
 
 /*
@@ -411,7 +411,7 @@ icmpna(Fs *f, uchar* src, uchar* dst, uchar* targ, uchar* mac, uchar flags)
 	set_cksum(nbp);
 	ipriv->out[NbrAdvert]++;
 	netlog(f, Logicmp, "sending neighbor advertisement %I\n", targ);
-	ipoput6(f, nbp, 0, MAXTTL, DFLTTOS, nil);
+	ipoput6(f, nbp, nil, MAXTTL, DFLTTOS, nil);
 }
 
 void
@@ -452,7 +452,7 @@ icmphostunr6(Fs *f, Ipifc *ifc, Block *bp, int code, int tome)
 		ipiput6(f, ifc, nbp);
 		return;
 	}
-	ipoput6(f, nbp, 0, MAXTTL, DFLTTOS, nil);
+	ipoput6(f, nbp, nil, MAXTTL, DFLTTOS, nil);
 }
 
 void
@@ -483,7 +483,7 @@ icmpttlexceeded6(Fs *f, Ipifc *ifc, Block *bp)
 	memmove(nbp->rp + IPICMPSZ, bp->rp, sz - IPICMPSZ);
 	set_cksum(nbp);
 	ipriv->out[TimeExceedV6]++;
-	ipoput6(f, nbp, 0, MAXTTL, DFLTTOS, nil);
+	ipoput6(f, nbp, nil, MAXTTL, DFLTTOS, nil);
 }
 
 void
@@ -515,7 +515,7 @@ icmppkttoobig6(Fs *f, Ipifc *ifc, Block *bp)
 	memmove(nbp->rp + IPICMPSZ, bp->rp, sz - IPICMPSZ);
 	set_cksum(nbp);
 	ipriv->out[PacketTooBigV6]++;
-	ipoput6(f, nbp, 0, MAXTTL, DFLTTOS, nil);
+	ipoput6(f, nbp, nil, MAXTTL, DFLTTOS, nil);
 }
 
 /*
@@ -692,7 +692,7 @@ icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 		if(r == nil)
 			goto raise;
 		ipriv->out[EchoReply]++;
-		ipoput6(icmp->f, r, 0, MAXTTL, DFLTTOS, nil);
+		ipoput6(icmp->f, r, nil, MAXTTL, DFLTTOS, nil);
 		break;
 
 	case UnreachableV6:
@@ -724,7 +724,7 @@ icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 			pr = Fsrcvpcolx(icmp->f, p->proto);
 			if(pr != nil && pr->advise != nil) {
 				netlog(icmp->f, Logicmp, "advising %s!%I -> %I: %s\n", pr->name, p->src, p->dst, msg);
-				(*pr->advise)(pr, bp, msg);
+				(*pr->advise)(pr, bp, ifc, msg);
 				return;
 			}
 		}

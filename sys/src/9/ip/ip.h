@@ -432,7 +432,7 @@ struct Proto
 	void		(*close)(Conv*);
 	void		(*rcv)(Proto*, Ipifc*, Block*);
 	char*		(*ctl)(Conv*, char**, int);
-	void		(*advise)(Proto*, Block*, char*);
+	void		(*advise)(Proto*, Block*, Ipifc*, char*);
 	int		(*stats)(Proto*, char*, int);
 	int		(*local)(Conv*, char*, int);
 	int		(*remote)(Conv*, char*, int);
@@ -741,13 +741,13 @@ extern void	icmpnohost(Fs*, Ipifc*, Block*);
 extern void	icmpnoconv(Fs*, Block*);
 extern void	icmpcantfrag(Fs*, Block*, int);
 extern void	icmpttlexceeded(Fs*, Ipifc*, Block*);
-extern void	icmpproxyadvice(Fs *, Block*, uchar*);
+extern void	icmpproxyadvice(Fs *, Block*, Ipifc*, uchar*);
 
 extern ushort	ipcsum(uchar*);
 extern void	ipiput4(Fs*, Ipifc*, Block*);
 extern void	ipiput6(Fs*, Ipifc*, Block*);
-extern int	ipoput4(Fs*, Block*, int, int, int, Routehint*);
-extern int	ipoput6(Fs*, Block*, int, int, int, Routehint*);
+extern int	ipoput4(Fs*, Block*, Ipifc*, int, int, Routehint*);
+extern int	ipoput6(Fs*, Block*, Ipifc*, int, int, Routehint*);
 extern int	ipstats(Fs*, char*, int);
 extern ushort	ptclbsum(uchar*, int);
 extern ushort	ptclcsum(Block*, int, int);
