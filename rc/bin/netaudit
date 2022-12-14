@@ -169,6 +169,10 @@ fn checksec {
 
 		echo $fs
 		if(srv $fs netaudit.$pid >[2] /dev/null || srvtls $fs netaudit.$pid >[2] /dev/null){
+			if(mount -N /srv/netaudit.$pid /n/netaudit >/dev/null >[2=1])
+				echo '	file server allows none attach'
+			if not
+				echo '	file server does not allow none attach'
 			if(mount -n /srv/netaudit.$pid /n/netaudit >/dev/null >[2=1])
 				echo '	file server does not require auth for user '^$user
 			if not
