@@ -166,20 +166,18 @@ fn checksec {
 	echo 'checking basic security:'
 	for(fs in `{ndb/ipquery sys $sysname fs | sed 's/fs=//g'}) @{
 		rfork n
-
-		echo $fs
 		if(srv $fs netaudit.$pid >[2] /dev/null || srvtls $fs netaudit.$pid >[2] /dev/null){
 			if(mount -N /srv/netaudit.$pid /n/netaudit >/dev/null >[2=1])
-				echo '	file server allows none attach'
+				echo '	fs='$fs 'allows none attach. mistake?'
 			if not
-				echo '	file server does not allow none attach'
+				echo '	fs='$fs 'does not allow none attach. ok'
 			if(mount -n /srv/netaudit.$pid /n/netaudit >/dev/null >[2=1])
-				echo '	file server does not require auth for user '^$user
+				echo '	fs='$fs 'does not require auth for user '^$user^'. mistake?'
 			if not
-				echo '	file server seems to require auth'
+				echo '	fs='$fs 'seems to require auth. ok'
 		}
 		if not
-			echo '	'^$fs^' is not listening'
+			echo '	fs='$fs 'is not listening'
 		rm -f /srv/netaudit.$pid
 	}
 }
