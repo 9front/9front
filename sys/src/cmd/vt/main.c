@@ -1007,13 +1007,30 @@ snarfsel(void)
 void
 plumbsel(void)
 {
-	char *s, wdir[1024];
+	char *s, *e, wdir[WDIR];
+	Plumbmsg msg;
 	int plumb;
 
 	s = selection();
 	if(s == nil || *s == 0)
 		return;
-	if(getwd(wdir, sizeof wdir) == nil){
+	memset(&msg, 0, sizeof(msg));
+	msg.src = "vt";
+	msg.type = "text";
+	msg.ndata = strlen(s);
+	msg.data = s;
+	msg.wdir = wdir;
+	if(*osc7cwd != 0){
+		strcpy(wdir, osc7cwd);
+		/* absolute path? adjust wdir and path */
+		if(*s == '/'){
+			if((e = strchr(wdir+3, '/')) != nil){
+				*e = 0;
+				msg.data++;
+				msg.ndata--;
+			}
+		}
+	}else if(getwd(wdir, sizeof wdir) == nil){
 		free(s);
 		return;
 	}
@@ -1021,7 +1038,7 @@ plumbsel(void)
 		free(s);
 		return;
 	}
-	plumbsendtext(plumb, "vt", nil, wdir, s);
+	plumbsend(plumb, &msg);
 	close(plumb);
 	free(s);
 }

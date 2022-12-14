@@ -32,6 +32,7 @@ int	wraparound = 1;
 int	originrelative = 0;
 
 int	tabcol[200];
+char osc7cwd[WDIR];
 
 struct funckey ansifk[] = {
 	{ "up key",		"\033[A", },
@@ -952,20 +953,30 @@ setattr(int argc, int *argv)
 	}
 }
 
+static int
+hexnib(char c)
+{
+	if(c >= 'a')
+		return c - 'a' + 10;
+	if(c >= 'A')
+		return c - 'A' + 10;
+	return c - '0';
+}
+
 // handle ESC], Operating System Command
 static void
 osc(void)
 {
 	Rune ch, buf[BUFS+1];
 	int fd, osc, got, i;
+	char *o, *s;
 	osc = number(&ch, &got);
 
 	if(got) {
 		switch(osc) {
 		case 0:
 		case 1:
-		case 2:
-			// set title
+		case 2: /* set title */
 			i = 0;
 
 			while((ch = get_next_char()) != '\a') {
@@ -977,6 +988,33 @@ osc(void)
 			if((fd = open("/dev/label", OWRITE)) >= 0) {
 				fprint(fd, "%S", buf);
 				close(fd);
+			}
+			break;
+
+		case 7: /* set pwd */
+			i = 0;
+
+			while((ch = get_next_char()) != '\033'){
+				if(i < sizeof(osc7cwd)-UTFmax-1)
+					i += runetochar(osc7cwd+i, &ch);
+			}
+			get_next_char();
+			osc7cwd[i] = 0;
+
+			/* file://hostname/path → /n/hostname/path */
+			if(strncmp(osc7cwd, "file://", 7) == 0){
+				osc7cwd[0] = '/';
+				osc7cwd[1] = 'n';
+				o = osc7cwd+2;
+				s = osc7cwd+6;
+				while(*s){
+					if(*s == '%' && s[1] != 0 && s[2] != 0){
+						*o++ = hexnib(s[1])<<4 | hexnib(s[2]);
+						s += 3;
+					}else
+						*o++ = *s++;
+				}
+				*o = 0;
 			}
 			break;
 		}

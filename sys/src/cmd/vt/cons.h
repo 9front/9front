@@ -10,7 +10,10 @@ extern Consstate cs[];
 #define	INSET	2
 #define	BUFS	256
 #define	HISTSIZ	(64*1024)	/* number of history characters */
-#define BSIZE	(8*1024)
+#define	BSIZE	(8*1024)
+#define	WDIR	1024
+
+extern char osc7cwd[];
 
 #define	SCROLL	2
 #define NEWLINE	1
