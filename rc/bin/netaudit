@@ -164,22 +164,19 @@ fn checkauth {
 }
 fn checksec {
 	echo 'checking basic security:'
-	fs=`{ndb/ipquery sys $sysname fs | sed 's/fs=//g'}
-	if(~ $fs '')
-		echo '	we do not seem to be netbooting'
-	if not @{
+	for(fs in `{ndb/ipquery sys $sysname fs | sed 's/fs=//g'}) @{
 		rfork n
-		</srv/clone {
-			bind -c /srv/^`{read} /srv
-			if(srv $fs netaudit.$pid >/dev/null >[2=1] || srvtls $fs netaudit.$pid >/dev/null >[2=1]){
-				if(mount -n /srv/netaudit.$pid /n/netaudit >/dev/null >[2=1])
-					echo '	file server does not require auth for user '^$user
-				if not
-					echo '	file server seems to require auth'
-			}
+
+		echo $fs
+		if(srv $fs netaudit.$pid >[2] /dev/null || srvtls $fs netaudit.$pid >[2] /dev/null){
+			if(mount -n /srv/netaudit.$pid /n/netaudit >/dev/null >[2=1])
+				echo '	file server does not require auth for user '^$user
 			if not
-				echo '	'^$fs^' is not listening'
+				echo '	file server seems to require auth'
 		}
+		if not
+			echo '	'^$fs^' is not listening'
+		rm -f /srv/netaudit.$pid
 	}
 }
 checkhost
