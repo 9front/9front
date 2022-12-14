@@ -165,11 +165,11 @@ fn checkauth {
 fn checksec {
 	echo 'checking basic security:'
 	if(@{rfork n; mount -n /srv/boot /root >/dev/null >[2=1]})
-		echo '	file server does not require auth for user '^`{cat '#c'/user}
+		echo '	file server does not require auth for user '^$user
 	if not
 		echo '	file server seems to require auth'
 }
 checkhost
 checknet
 checkauth
-#checksec
+checksec
