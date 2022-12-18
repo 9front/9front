@@ -184,7 +184,7 @@ auth(Chan* chan, Fcall* f, Fcall* r)
 	Filsys *fs;
 	int error;
 
-	if(noauth)
+	if(noauth || (cons.flags & authdisableflag) != 0)
 		return Eauthdisabled;
 
 	error = 0;
@@ -237,7 +237,7 @@ authorize(Chan* chan, Fcall* f)
 
 	db = cons.flags & authdebugflag;
 
-	if(noauth){
+	if(noauth || (cons.flags & authdisableflag) != 0){
 		uid = strtouid(f->uname);
 		if(db)
 			fprint(2, "permission granted by noauth uid %s = %d\n",

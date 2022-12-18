@@ -74,8 +74,10 @@ ulong	roflag;
 ulong	errorflag;
 ulong	chatflag;
 ulong	authdebugflag;
+ulong	authdisableflag;
+
 int	noattach;		/* attach is disabled */
-int	noauth;			/* auth is disable */
+int	noauth;			/* auth is disabled */
 int	nonone;			/* attach as none disabled */
 int	noatime;		/* atime is disabled */
 int	noatimeset;		/* noatime was changed (reset after dump) */

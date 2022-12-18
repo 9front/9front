@@ -730,20 +730,6 @@ cmd_time(int argc, char *argv[])
 }
 
 void
-cmd_noauth(int, char *[])
-{
-	noauth = !noauth;
-	print("auth %s\n", noauth ? "disabled" : "enabled");
-}
-
-void
-cmd_nonone(int, char *[])
-{
-	nonone = !nonone;
-	print("none %s\n", nonone ? "disabled" : "enabled");
-}
-
-void
 cmd_noattach(int, char *[])
 {
 	noattach = !noattach;
@@ -816,8 +802,6 @@ installcmds(void)
 	cmd_install("who", "[user ...] -- print attaches", cmd_who);
 	cmd_install("hangup", "chan -- clunk files", cmd_hangup);
 	cmd_install("printconf", "-- print configuration", cmd_printconf);
-	cmd_install("noauth", "-- toggle noauth flag", cmd_noauth);
-	cmd_install("nonone", "-- toggle nonone flag", cmd_nonone);
 	cmd_install("noattach", "-- toggle noattach flag", cmd_noattach);
 	cmd_install("files", "-- report on files structure", cmd_files);
 
@@ -825,6 +809,7 @@ installcmds(void)
 	errorflag = flag_install("error", "-- on errors");
 	whoflag = flag_install("allchans", "-- on who");
 	authdebugflag = flag_install("authdebug", "-- report authentications");
+	authdisableflag = flag_install("authdisable", "-- disable authentication");
 }
 
 int
