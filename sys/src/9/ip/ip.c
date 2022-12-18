@@ -167,7 +167,7 @@ ipoput4(Fs *f, Block *bp, Ipifc *gating, int ttl, int tos, Routehint *rh)
 	if(eh->frag[0] & (IP_DF>>8)){
 		ip->stats[FragFails]++;
 		ip->stats[OutDiscards]++;
-		icmpcantfrag(f, bp, medialen);
+		icmpcantfrag(f, gating!=nil? gating: ifc, bp, medialen);
 		netlog(f, Logip, "%V -> %V: can't fragment with DF flag set\n", eh->src, eh->dst);
 		goto raise;
 	}

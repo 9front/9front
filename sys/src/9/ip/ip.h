@@ -61,6 +61,7 @@ enum
 	IP_FO=		0x1fff,		/* v4: Fragment offset */
 	IP4HDR=		IP_HLEN4<<2,	/* sizeof(Ip4hdr) */
 	IP_MAX=		64*1024,	/* Max. Internet packet size, v4 & v6 */
+	v4MINTU=	68,		/* The minimum MTU for IPv4 is 68 bytes */
 
 	/* 2^Lroot trees in the root table */
 	Lroot=		10,
@@ -737,11 +738,11 @@ extern char*	ipifcremove6(Ipifc *ifc, char**argv, int argc);
  *  ip.c
  */
 extern void	iprouting(Fs*, int);
-extern void	icmpnohost(Fs*, Ipifc*, Block*);
-extern void	icmpnoconv(Fs*, Block*);
-extern void	icmpcantfrag(Fs*, Block*, int);
+extern void	icmpnohost(Fs*, Ipifc*, Block*, Routehint*);
+extern void	icmpnoconv(Fs*, Ipifc*, Block*);
+extern void	icmpcantfrag(Fs*, Ipifc*, Block*, int);
 extern void	icmpttlexceeded(Fs*, Ipifc*, Block*);
-extern void	icmpproxyadvice(Fs *, Block*, Ipifc*, uchar*);
+extern void	icmpproxyadvice(Fs*, Ipifc*, Block*, uchar*);
 
 extern ushort	ipcsum(uchar*);
 extern void	ipiput4(Fs*, Ipifc*, Block*);

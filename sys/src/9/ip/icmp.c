@@ -66,7 +66,7 @@ enum {
 	ICMP_IPSIZE	= 20,
 	ICMP_HDRSIZE	= 8,
 
-	MinAdvise	= ICMP_IPSIZE+4,	/* minimum needed for us to advise another protocol */ 
+	MinAdvise	= IP4HDR+4,	/* minimum needed for us to advise another protocol */
 };
 
 enum
@@ -212,93 +212,86 @@ ip4me(Fs *f, uchar ip4[4])
 	return ipforme(f, addr) == Runi;
 }
 
-void
-icmpttlexceeded(Fs *f, Ipifc *ifc, Block *bp)
-{
-	Block	*nbp;
-	Icmp	*p, *np;
-	uchar	ia[IPv4addrlen];
-
-	p = (Icmp *)bp->rp;
-	if(isv4mcast(p->dst) || !ip4reply(f, p->src) || !ipv4local(ifc, ia, 0, p->src))
-		return;
-
-	netlog(f, Logicmp, "sending icmpttlexceeded %V -> src %V dst %V\n",
-		ia, p->src, p->dst);
-
-	nbp = allocb(ICMP_IPSIZE + ICMP_HDRSIZE + ICMP_IPSIZE + 8);
-	nbp->wp += ICMP_IPSIZE + ICMP_HDRSIZE + ICMP_IPSIZE + 8;
-	np = (Icmp *)nbp->rp;
-	np->vihl = IP_VER4;
-	memmove(np->src, ia, sizeof(np->src));
-	memmove(np->dst, p->src, sizeof(np->dst));
-	memmove(np->data, bp->rp, ICMP_IPSIZE + 8);
-	np->type = TimeExceed;
-	np->code = 0;
-	np->proto = IP_ICMPPROTO;
-	hnputs(np->icmpid, 0);
-	hnputs(np->seq, 0);
-	memset(np->cksum, 0, sizeof(np->cksum));
-	hnputs(np->cksum, ptclcsum(nbp, ICMP_IPSIZE, blocklen(nbp) - ICMP_IPSIZE));
-	ipoput4(f, nbp, nil, MAXTTL, DFLTTOS, nil);
-}
-
+/*
+ *  Send a ICMP packet back of type/code/arg in response to packet bp
+ *  which was received on ifc. The route hint rh is valid for the
+ *  reverse route.
+ */
 static void
-icmpunreachable(Fs *f, Ipifc *ifc, Block *bp, int code, int seq)
+icmpsend(Fs *f, Ipifc *ifc, Block *bp, int type, int code, int arg, Routehint *rh)
 {
-	Block	*nbp;
-	Icmp	*p, *np;
+	Proto	*icmp;
 	uchar	ia[IPv4addrlen];
+	Block	*nbp;
+	Icmp	*np, *p;
+	int	sz, osz;
 
-	p = (Icmp *)bp->rp;
-	if(isv4mcast(p->dst) || !ip4reply(f, p->src))
+	osz = BLEN(bp);
+	if(osz < IP4HDR)
 		return;
 
-	if(ifc == nil){
-		if(!ipforme(f, p->dst))
-			return;
-		memmove(ia, p->dst, sizeof(p->dst));
-	} else {
-		if(!ipv4local(ifc, ia, 0, p->src))
-			return;
-	}
+	p = (Icmp *)bp->rp;
+	if(!ip4reply(f, p->dst) || !ip4reply(f, p->src) || !ipv4local(ifc, ia, 0, p->src))
+		return;
 
-	netlog(f, Logicmp, "sending icmpunreachable %V -> src %V dst %V\n",
-		ia, p->src, p->dst);
+	netlog(f, Logicmp, "icmpsend %s (%d) %d ia %V -> src %V dst %V\n",
+		icmpnames[type], type, code, ia, p->src, p->dst);
 
-	nbp = allocb(ICMP_IPSIZE + ICMP_HDRSIZE + ICMP_IPSIZE + 8);
-	nbp->wp += ICMP_IPSIZE + ICMP_HDRSIZE + ICMP_IPSIZE + 8;
+	sz = MIN(ICMP_IPSIZE + ICMP_HDRSIZE + osz, v4MINTU);
+	nbp = allocb(sz);
+	nbp->wp += sz;
+	memset(nbp->rp, 0, sz);
 	np = (Icmp *)nbp->rp;
 	np->vihl = IP_VER4;
 	memmove(np->src, ia, sizeof(np->src));
 	memmove(np->dst, p->src, sizeof(np->dst));
-	memmove(np->data, bp->rp, ICMP_IPSIZE + 8);
-	np->type = Unreachable;
+	memmove(np->data, bp->rp, sz - ICMP_IPSIZE - ICMP_HDRSIZE);
+	np->type = type;
 	np->code = code;
 	np->proto = IP_ICMPPROTO;
 	hnputs(np->icmpid, 0);
-	hnputs(np->seq, seq);
+	hnputs(np->seq, arg);
 	memset(np->cksum, 0, sizeof(np->cksum));
 	hnputs(np->cksum, ptclcsum(nbp, ICMP_IPSIZE, blocklen(nbp) - ICMP_IPSIZE));
-	ipoput4(f, nbp, nil, MAXTTL, DFLTTOS, nil);
+
+	icmp = f->t2p[IP_ICMPPROTO];
+	((Icmppriv*)icmp->priv)->out[type]++;
+
+	if(rh != nil && rh->r != nil && (rh->r->type & Runi) != 0){
+		np = (Icmp *)nbp->rp;
+		np->vihl = IP_VER4|IP_HLEN4;
+		np->tos = DFLTTOS;
+		np->ttl = MAXTTL;
+
+		(*icmp->rcv)(icmp, ifc, nbp);
+		return;
+	}
+
+	ipoput4(f, nbp, nil, MAXTTL, DFLTTOS, rh);
 }
 
 void
-icmpnohost(Fs *f, Ipifc *ifc, Block *bp)
+icmpnohost(Fs *f, Ipifc *ifc, Block *bp, Routehint *rh)
 {
-	icmpunreachable(f, ifc, bp, 1, 0);
+	icmpsend(f, ifc, bp, Unreachable, 1, 0, rh);
 }
 
 void
-icmpnoconv(Fs *f, Block *bp)
+icmpnoconv(Fs *f, Ipifc *ifc, Block *bp)
 {
-	icmpunreachable(f, nil, bp, 3, 0);
+	icmpsend(f, ifc, bp, Unreachable, 3, 0, nil);
 }
 
 void
-icmpcantfrag(Fs *f, Block *bp, int mtu)
+icmpcantfrag(Fs *f, Ipifc *ifc, Block *bp, int mtu)
 {
-	icmpunreachable(f, nil, bp, 4, mtu);
+	icmpsend(f, ifc, bp, Unreachable, 4, mtu, nil);
+}
+
+void
+icmpttlexceeded(Fs *f, Ipifc *ifc, Block *bp)
+{
+	icmpsend(f, ifc, bp, TimeExceed, 0, 0, nil);
 }
 
 static void
@@ -479,7 +472,7 @@ raise:
  * and send the advice to ip4.
  */
 void
-icmpproxyadvice(Fs *f, Block *bp, Ipifc *ifc, uchar *ip4)
+icmpproxyadvice(Fs *f, Ipifc *ifc, Block *bp, uchar *ip4)
 {
 	Icmp	*p;
 	int	hop;
@@ -543,7 +536,7 @@ icmpadvise(Proto *icmp, Block *bp, Ipifc *ifc, char *msg)
 		hnputs_csum(p->icmpid, q->forward.rport, p->cksum);
 		qunlock(icmp);
 
-		icmpproxyadvice(icmp->f, bp, ifc, p->src);
+		icmpproxyadvice(icmp->f, ifc, bp, p->src);
 		return;
 	}
 	for(c = icmp->conv; (s = *c) != nil; c++){

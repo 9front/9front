@@ -117,7 +117,7 @@ ipoput6(Fs *f, Block *bp, Ipifc *gating, int ttl, int tos, Routehint *rh)
 		 * needed for nat.
 		 */
 		ip->stats[OutDiscards]++;
-		icmppkttoobig6(f, ifc, bp);
+		icmppkttoobig6(f, gating, bp, medialen);
 		netlog(f, Logip, "%I -> %I: gated pkts not fragmented\n", eh->src, eh->dst);
 		goto raise;
 	}

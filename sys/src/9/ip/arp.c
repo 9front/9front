@@ -562,7 +562,7 @@ ndpsendsol(Fs *f, Arpent *a)
 		return;
 send:
 	if(!waserror()){
-		icmpns(f, src, SRC_UNI, targ, TARG_MULTI, ifc->mac);
+		icmpns6(f, src, SRC_UNI, targ, TARG_MULTI, ifc->mac);
 		poperror();
 	}
 }
@@ -606,24 +606,27 @@ rxmt(Arp *arp)
 static void
 drop(Fs *f, Block *bp)
 {
-	Block *next;
-	Ipifc *ifc;
+	Routehint rh;
 	Route *r;
+	Ipifc *ifc;
+	Block *next;
 
 	for(; bp != nil; bp = next){
 		next = bp->list;
 		bp->list = nil;
 
+		rh.r = nil;
+		rh.a = nil;
 		if((bp->rp[0]&0xF0) == IP_VER4)
-			r = v4lookup(f, ((Ip4hdr*)bp->rp)->src, ((Ip4hdr*)bp->rp)->dst, nil);
+			r = v4lookup(f, ((Ip4hdr*)bp->rp)->src, ((Ip4hdr*)bp->rp)->dst, &rh);
 		else
-			r = v6lookup(f, ((Ip6hdr*)bp->rp)->src, ((Ip6hdr*)bp->rp)->dst, nil);
+			r = v6lookup(f, ((Ip6hdr*)bp->rp)->src, ((Ip6hdr*)bp->rp)->dst, &rh);
 		if(r != nil && (ifc = r->ifc) != nil && canrlock(ifc)){
 			if(!waserror()){
 				if((bp->rp[0]&0xF0) == IP_VER4)
-					icmpnohost(f, ifc, bp);
+					icmpnohost(f, ifc, bp, &rh);
 				else
-					icmphostunr6(f, ifc, bp, Icmp6_adr_unreach, (r->type & Runi) != 0);
+					icmpnohost6(f, ifc, bp, &rh);
 				poperror();
 			}
 			runlock(ifc);

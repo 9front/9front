@@ -3243,7 +3243,7 @@ tcpadvise(Proto *tcp, Block *bp, Ipifc *ifc, char *msg)
 	/* Look for a connection (source/dest reversed; this is the original packet we sent) */
 	qlock(tcp);
 	iph = iphtlook(&((Tcppriv*)tcp->priv)->ht, dest, pdest, source, psource);
-	if(iph == nil)
+	if(iph == nil || iph->match != IPmatchexact)
 		goto raise;
 	if(iph->trans){
 		Translation *q;
@@ -3259,11 +3259,11 @@ tcpadvise(Proto *tcp, Block *bp, Ipifc *ifc, char *msg)
 		hnputs(h4->tcpsport, q->forward.rport);
 		qunlock(tcp);
 
-		icmpproxyadvice(tcp->f, bp, ifc, h4->tcpsrc);
+		icmpproxyadvice(tcp->f, ifc, bp, h4->tcpsrc);
 		return;
 	}
 	s = iphconv(iph);
-	if(s->ignoreadvice || s->state == Closed)
+	if(s->ignoreadvice || s->state == Announced || s->state == Closed)
 		goto raise;
 	qlock(s);
 	qunlock(tcp);

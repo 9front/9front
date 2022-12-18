@@ -66,16 +66,6 @@ enum {
 	/* various prefix lengths */
 	SOLN_PREF_LEN	= 13,
 
-	/* icmpv6 unreachability codes */
-	Icmp6_no_route		= 0,
-	Icmp6_ad_prohib		= 1,
-	Icmp6_out_src_scope	= 2,
-	Icmp6_adr_unreach	= 3,
-	Icmp6_port_unreach	= 4,
-	Icmp6_gress_src_fail	= 5,
-	Icmp6_rej_route		= 6,
-	Icmp6_unknown		= 7,  /* our own invention for internal use */
-
 	/* various flags & constants */
 	v6MINTU		= 1280,
 	IP6HDR		= 40,		/* sizeof(Ip6hdr) = 8 + 2*16 */
@@ -179,8 +169,9 @@ extern int v6aNpreflen;
 extern int v6aLpreflen;
 
 void ipv62smcast(uchar *, uchar *);
-void icmpns(Fs *f, uchar* src, int suni, uchar* targ, int tuni, uchar* mac);
-void icmpna(Fs *f, uchar* src, uchar* dst, uchar* targ, uchar* mac, uchar flags);
+void icmpns6(Fs *f, uchar* src, int suni, uchar* targ, int tuni, uchar* mac);
+void icmpna6(Fs *f, uchar* src, uchar* dst, uchar* targ, uchar* mac, uchar flags);
+void icmpnohost6(Fs *f, Ipifc *ifc, Block *bp, Routehint *rh);
+void icmpnoconv6(Fs *f, Ipifc *ifc, Block *bp);
 void icmpttlexceeded6(Fs *f, Ipifc *ifc, Block *bp);
-void icmppkttoobig6(Fs *f, Ipifc *ifc, Block *bp);
-void icmphostunr6(Fs *f, Ipifc *ifc, Block *bp, int code, int tome);
+void icmppkttoobig6(Fs *f, Ipifc *ifc, Block *bp, int mtu);

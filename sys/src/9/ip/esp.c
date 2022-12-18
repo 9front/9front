@@ -433,7 +433,7 @@ espkick(void *x)
  * pass the result up the spi's Conv's read queue.
  */
 void
-espiput(Proto *esp, Ipifc*, Block *bp)
+espiput(Proto *esp, Ipifc *ifc, Block *bp)
 {
 	int payload, nexthdr;
 	uchar *auth, *espspi;
@@ -462,7 +462,7 @@ espiput(Proto *esp, Ipifc*, Block *bp)
 		qunlock(esp);
 		netlog(f, Logesp, "esp: no conv %I -> %I!%lud\n", vers.raddr,
 			vers.laddr, vers.spi);
-		icmpnoconv(f, bp);
+		icmpnoconv(f, ifc, bp);
 		freeblist(bp);
 		return;
 	}

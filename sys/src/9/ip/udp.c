@@ -405,10 +405,10 @@ Noconv:
 
 		switch(version){
 		case V4:
-			icmpnoconv(f, bp);
+			icmpnoconv(f, ifc, bp);
 			break;
 		case V6:
-			icmphostunr6(f, ifc, bp, Icmp6_port_unreach, 0);
+			icmpnoconv6(f, ifc, bp);
 			break;
 		default:
 			panic("udpiput2: version %d", version);
@@ -572,7 +572,7 @@ udpadvise(Proto *udp, Block *bp, Ipifc *ifc, char *msg)
 	/* Look for a connection (source/dest reversed; this is the original packet we sent) */
 	qlock(udp);
 	iph = iphtlook(&((Udppriv*)udp->priv)->ht, dest, pdest, source, psource);
-	if(iph == nil)
+	if(iph == nil || iph->match != IPmatchexact)
 		goto raise;
 	if(iph->trans){
 		Translation *q;
@@ -588,11 +588,11 @@ udpadvise(Proto *udp, Block *bp, Ipifc *ifc, char *msg)
 		hnputs(h4->udpsport, q->forward.rport);
 		qunlock(udp);
 
-		icmpproxyadvice(udp->f, bp, ifc, h4->udpsrc);
+		icmpproxyadvice(udp->f, ifc, bp, h4->udpsrc);
 		return;
 	}
 	s = iphconv(iph);
-	if(s->ignoreadvice)
+	if(s->ignoreadvice || s->state == Announced)
 		goto raise;
 	qlock(s);
 	qunlock(udp);

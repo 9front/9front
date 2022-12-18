@@ -514,7 +514,7 @@ rudpiput(Proto *rudp, Ipifc *ifc, Block *bp)
 			laddr, lport);
 		uh->Unused = ottl;
 		hnputs(uh->udpplen, olen);
-		icmpnoconv(f, bp);
+		icmpnoconv(f, ifc, bp);
 		freeblist(bp);
 		return;
 	}

@@ -1004,7 +1004,7 @@ ilsendctl(Conv *ipc, Ilhdr *inih, int type, ulong id, ulong ack, int ilspec)
 	hnputs(ih->illen, IL_HDRSIZE);
 	ih->frag[0] = 0;
 	ih->frag[1] = 0;
-	if(inih) {
+	if(inih != nil) {
 		hnputl(ih->dst, nhgetl(inih->src));
 		hnputl(ih->src, nhgetl(inih->dst));
 		hnputs(ih->ilsrc, nhgets(inih->ildst));
@@ -1317,39 +1317,41 @@ ilfreeq(Ilcb *ic)
 void
 iladvise(Proto *il, Block *bp, Ipifc*, char *msg)
 {
+	uchar source[IPaddrlen], dest[IPaddrlen];
+	ushort psource, pdest;
+	Iphash *iph;
 	Ilhdr *h;
 	Ilcb *ic;		
-	uchar source[IPaddrlen], dest[IPaddrlen];
-	ushort psource;
-	Conv *s, **p;
+	Conv *s;
+
+	if(BLEN(bp) < IL_IPSIZE+IL_HDRSIZE-8){
+		freeblist(bp);
+		return;
+	}
 
 	h = (Ilhdr*)(bp->rp);
-
 	v4tov6(dest, h->dst);
 	v4tov6(source, h->src);
+	pdest = nhgets(h->ildst);
 	psource = nhgets(h->ilsrc);
 
-
-	/* Look for a connection, unfortunately the destination port is missing */
+	/* Look for a connection (source/dest reversed; this is the original packet we sent) */
 	qlock(il);
-	for(p = il->conv; *p; p++) {
-		s = *p;
-		if(s->lport == psource)
-		if(ipcmp(s->laddr, source) == 0)
-		if(ipcmp(s->raddr, dest) == 0){
-			if(s->ignoreadvice)
-				break;
-			qunlock(il);
-			ic = (Ilcb*)s->ptcl;
-			switch(ic->state){
-			case Ilsyncer:
-				ilhangup(s, msg);
-				break;
-			}
-			freeblist(bp);
-			return;
-		}
-	}
+	iph = iphtlook(&((Ilpriv*)il->priv)->ht, dest, pdest, source, psource);
+	if(iph == nil || iph->match != IPmatchexact)
+		goto raise;
+	s = iphconv(iph);
+	if(s->ignoreadvice || s->state == Announced)
+		goto raise;
+	qlock(s);
+	qunlock(il);
+	ic = (Ilcb*)s->ptcl;
+	if(ic->state == Ilsyncer)
+		ilhangup(s, msg);
+	qunlock(s);
+	freeblist(bp);
+	return;
+raise:
 	qunlock(il);
 	freeblist(bp);
 }
