@@ -149,7 +149,7 @@ postservice(char *name)
 	/* post 9p service */
 	if(pipe(p) < 0)
 		panic("can't make a pipe");
-	snprint(buf, sizeof(buf), "#s/%s", name);
+	snprint(buf, sizeof(buf), "/srv/%s", name);
 	srvfd(buf, 0666, p[0]);
 	close(p[0]);
 	srvchan(p[1], buf);
@@ -157,7 +157,7 @@ postservice(char *name)
 	/* post cmd service */
 	if(pipe(p) < 0)
 		panic("can't make a pipe");
-	snprint(buf, sizeof(buf), "#s/%s.cmd", name);
+	snprint(buf, sizeof(buf), "/srv/%s.cmd", name);
 	srvfd(buf, 0660, p[0]);
 	close(p[0]);
 
