@@ -4,34 +4,39 @@
 void
 main(int argc, char *argv[])
 {
-	long n;
+	enum { MAXSEC = 0x7fffffff/1000 };
+	long n, m;
 	char *p, *q;
 
 	if(argc>1){
-		for(n = strtol(argv[1], &p, 0); n > 0; n--)
-			sleep(1000);
+		for(n = strtol(argv[1], &p, 0); n > MAXSEC; n -= MAXSEC)
+			sleep(MAXSEC*1000);
 		/*
 		 * no floating point because it is useful to
 		 * be able to run sleep when bootstrapping
 		 * a machine.
 		 */
-		if(*p++ == '.' && (n = strtol(p, &q, 10)) > 0){
+		if(*p++ == '.' && (m = strtol(p, &q, 10)) > 0){
 			switch(q - p){
 			case 0:
 				break;
 			case 1:
-				n *= 100;
+				m *= 100;
 				break;
 			case 2:
-				n *= 10;
+				m *= 10;
 				break;
 			default:
 				p[3] = 0;
-				n = strtol(p, 0, 10);
+				m = strtol(p, 0, 10);
 				break;
 			}
-			sleep(n);
+		} else {
+			m = 0;
 		}
+		m += n*1000;
+		if(m > 0)
+			sleep(m);
 	}
 	exits(0);
 }
