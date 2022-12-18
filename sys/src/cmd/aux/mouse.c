@@ -333,12 +333,12 @@ main(int argc, char *argv[])
 	for(tries = 0; type == 0 && tries < 6; tries++){
 		if(tries)
 			fprint(2, "%s: Unknown mouse type, retrying...\n", argv0);
-		sprint(buf, "#t/eia%sctl", p);
+		snprint(buf, sizeof buf, "/dev/eia%sctl", p);
 		if((ctl = open(buf, ORDWR)) == -1){
 			fprint(2, "%s: can't open %s - %r\n", argv0, buf);
 			exits("open ctl");
 		}
-		sprint(buf, "#t/eia%s", p);
+		snprint(buf, sizeof buf, "/dev/eia%s", p);
 		if((data = open(buf, ORDWR)) == -1){
 			fprint(2, "%s: can't open %s - %r\n", argv0, buf);
 			exits("open data");
