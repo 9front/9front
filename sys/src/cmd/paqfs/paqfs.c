@@ -164,7 +164,7 @@ main(int argc, char *argv[])
 {
 	int pfd[2];
 	int fd, mnt, srv, stdio, verify;
-	char buf[64], *mntpoint, *srvname, *p;
+	char buf[128], *mntpoint, *srvname, *p;
 
 	fmtinstall('V', sha1fmt);
 
@@ -231,7 +231,7 @@ main(int argc, char *argv[])
 		if(pipe(pfd) < 0)
 			sysfatal("pipe: %r");
 		if(srv){
-			snprint(buf, sizeof buf, "#s/%s", srvname);
+			snprint(buf, sizeof buf, "/srv/%s", srvname);
 			fd = create(buf, OWRITE, 0666);
 			if(fd < 0)
 				sysfatal("create %s: %r", buf);
