@@ -72,10 +72,6 @@ main(int argc, char **argv)
 	iobuf_init();
 	/*notify(handler);*/
 
-	if(!chatty){
-		close(2);
-		open("#c/cons", OWRITE);
-	}
 	if(stdio){
 		srv(&ext2srv);
 	}else{
