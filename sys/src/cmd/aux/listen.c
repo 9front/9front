@@ -149,7 +149,7 @@ dingdong(void*, char *msg)
 void
 listendir(char *srvdir, int trusted)
 {
-	int ctl, pid, start, i;
+	int ctl, pid, start;
 	char dir[40], err[128], ds[128];
 	char prog[Maxpath], serv[Maxserv], ns[Maxpath];
 	long childs;
@@ -206,6 +206,12 @@ listendir(char *srvdir, int trusted)
 				syslog(1, listenlog, "couldn't fork for %s", ds);
 				break;
 			case 0:
+				/* optional per service namespace files */
+				if(!trusted && access(ns, AEXIST)==0)
+					if(newns("none", ns) < 0){
+						syslog(1, listenlog, "can't build namespace %s: %r\n", ns);
+						exits("newns");
+					}
 				childs = 0;
 				for(;;){
 					ctl = announce(ds, dir);
@@ -222,9 +228,6 @@ listendir(char *srvdir, int trusted)
 							exits("ctl");
 					}
 					procsetname("%s %s", dir, ds);
-					if(!trusted)
-						if(newns("none", ns) < 0)
-							syslog(0, listenlog, "can't build namespace %s: %r\n", ns);
 					dolisten(dir, ctl, serv, prog, &childs);
 					close(ctl);
 				}
