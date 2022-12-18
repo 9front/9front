@@ -36,7 +36,7 @@ text(int pid)
 	}
 	memset(&debug.fhdr, 0, sizeof debug.fhdr);
 	
-	snprint(buf, sizeof buf, "#p/%d/text", pid);
+	snprint(buf, sizeof buf, "/proc/%d/text", pid);
 	fd = open(buf, OREAD);
 	if(fd < 0)
 		return -1;
@@ -72,7 +72,7 @@ map(int pid)
 	char buf[100];
 	Map *m;
 	
-	snprint(buf, sizeof buf, "#p/%d/mem", pid);
+	snprint(buf, sizeof buf, "/proc/%d/mem", pid);
 	mem = open(buf, OREAD);
 	if(mem < 0)
 		return nil;
@@ -106,7 +106,7 @@ openfiles(void)
 	char buf[4096];
 	int fd, n;
 	
-	snprint(buf, sizeof buf, "#p/%d/fd", getpid());
+	snprint(buf, sizeof buf, "/proc/%d/fd", getpid());
 	if((fd = open(buf, OREAD)) < 0){
 		dprint("open %s: %r\n", buf);
 		return;
