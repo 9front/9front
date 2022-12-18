@@ -496,7 +496,7 @@ setnum(Biobuf *b, char *name, int min, int max)
 void
 xcmd(Biobuf *b)
 {
-	char *p, *fld[16], buf[1024];
+	char *p, *q, *fld[16];
 
 	int i, nfld;
 
@@ -505,6 +505,16 @@ xcmd(Biobuf *b)
 		sysfatal("xcmd error: %r");
 	if(debug)
 		fprint(2, "x command '%s'\n", p);
+
+	/* inline html? */
+	if(*p == 'X' && (q = strstr(p+1, "html [")) != nil){
+		p = q+6;
+		if((q = strrchr(p, ']')) != nil)
+			*q = '\0';
+		emitstr(estrdup(p));
+		return;
+	}
+
 	nfld = tokenize(p, fld, nelem(fld));
 	if(nfld == 0)
 		return;
@@ -548,12 +558,10 @@ xcmd(Biobuf *b)
 				if(strcmp(fld[3], "start") == 0){
 					/* set anchor attribute and remember string */
 					attr |= (1<<Anchor);
-					snprint(buf, sizeof buf,
-						"<a href=\"/magic/man2html/%c/%s\">",
-						fld[5][1], fld[4]);
 					nanchors++;
 					anchors = erealloc(anchors, nanchors*sizeof(char*));
-					anchors[nanchors-1] = estrdup(buf);
+					anchors[nanchors-1] = smprint("<a href=\"/magic/man2html/%c/%s\">",
+						fld[5][1], fld[4]);
 				}else if(strcmp(fld[3], "end") == 0)
 					attr &= ~(1<<Anchor);
 			}
@@ -561,16 +569,24 @@ xcmd(Biobuf *b)
 			didP = 1;
 			emitchar(Epp);
 		}else if(nfld<4 || strcmp(fld[2], "manref")!=0){
-			if(nfld>2 && strcmp(fld[2], "<P>")==0){	/* avoid triggering extra <br> */
+			if(nfld>2 && cistrcmp(fld[2], "<P>")==0){	/* avoid triggering extra <br> */
 				didP = 1;
 				/* clear all font attributes before paragraph */
 				emitchar(' ' | (attr & ~(0xFFFF|((1<<Italic)|(1<<Bold)|(1<<CW)))));
 				emitstr("<P>");
 				/* next emittec char will turn font attributes back on */
-			}else if(nfld>2 && strcmp(fld[2], "<H4>")==0)
+			}else if(nfld>2 && cistrcmp(fld[2], "<H4>")==0)
 				attr |= (1<<Heading);
-			else if(nfld>2 && strcmp(fld[2], "</H4>")==0)
+			else if(nfld>2 && cistrcmp(fld[2], "</H4>")==0)
 				attr &= ~(1<<Heading);
+			else if(nfld>2 && cistrcmp(fld[2], "<B>")==0)
+				attr |= (1<<Bold);
+			else if(nfld>2 && cistrcmp(fld[2], "</B>")==0)
+				attr &= ~(1<<Bold);
+			else if(nfld>2 && cistrcmp(fld[2], "<I>")==0)
+				attr |= (1<<Italic);
+			else if(nfld>2 && cistrcmp(fld[2], "</I>")==0)
+				attr &= ~(1<<Italic);
 			else if(debug)
 				fprint(2, "unknown in-line html %s... at %s:%#d\n",
 					fld[2], filename, cno);
