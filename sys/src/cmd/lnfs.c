@@ -173,7 +173,7 @@ post(char *srvname, int pfd)
 	char name[128];
 	int fd;
 
-	snprint(name, sizeof name, "#s/%s", srvname);
+	snprint(name, sizeof name, "/srv/%s", srvname);
 	fd = create(name, OWRITE, 0666);
 	if(fd < 0)
 		sysfatal("create of %s failed: %r", srvname);
