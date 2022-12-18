@@ -193,17 +193,18 @@ erealloc(void *p, ulong n)
 void
 setname(char *fmt, ...)
 {
-	char buf[128], buf2[32], *p;
+	char buf[128], *p;
 	int fd;
 	va_list arg;
+
+	snprint(buf, sizeof buf, "/proc/%d/args", getpid());
+	if((fd = open(buf, OWRITE)) < 0)
+		return;
 
 	va_start(arg, fmt);
 	p = vseprint(buf, buf + sizeof buf, fmt, arg);
 	va_end(arg);
 
-	snprint(buf2, sizeof buf2, "#p/%d/args", getpid());
-	if((fd = open(buf2, OWRITE)) >= 0){
-		write(fd, buf, p - buf);
-		close(fd);
-	}
+	write(fd, buf, p - buf);
+	close(fd);
 }

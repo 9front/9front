@@ -221,18 +221,18 @@ notifyf(void *, char *s)
 void
 setname(char **v)
 {
-	char buf[128], buf2[32], *p, *e;
+	char buf[128], *p, *e;
 	int fd, i;
 
+	snprint(buf, sizeof buf, "/proc/%d/args", getpid());
+	if((fd = open(buf, OWRITE)) < 0)
+		return;
 	e = buf + sizeof buf;
 	p = seprint(buf, e, "%s", v[0]);
 	for(i = 0; v[++i]; )
 		p = seprint(p, e, " %s", v[i]);
-	snprint(buf2, sizeof buf2, "#p/%d/args", getpid());
-	if((fd = open(buf2, OWRITE)) >= 0){
-		write(fd, buf, p - buf);
-		close(fd);
-	}
+	write(fd, buf, p - buf);
+	close(fd);
 }
 
 ulong
