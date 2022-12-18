@@ -691,13 +691,13 @@ tzinit(char *file)
 	Off o;
 	int f, n;
 
-	f = create("#e/timezone", OEXCL|OWRITE, 0666);
+	f = create("/env/timezone", OEXCL|OWRITE, 0666);
 	if(f < 0)
 		return;
 	if(walkto(file) || con_open(FID2, 0)) {
 		print("tzinit: cannot access %s\n", file);
 		close(f);
-		remove("#e/timezone");
+		remove("/env/timezone");
 		return;
 	}
 	for(o = 0; (n = con_read(FID2, buf, o, sizeof(buf))) > 0; o += n)
