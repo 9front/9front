@@ -18,7 +18,7 @@ char	repdata[Maxfdata];
 uchar	statbuf[STATMAX];
 int	errno;
 char	errbuf[ERRMAX];
-char	srvfile[64];
+char	srvfile[128];
 char	*deffile;
 int	doabort;
 int	trspaces;
@@ -80,9 +80,9 @@ main(int argc, char **argv)
 	}ARGEND
 
 	if(argc == 0)
-		strcpy(srvfile, "#s/dos");
+		snprint(srvfile, sizeof srvfile, "/srv/dos");
 	else if(argc == 1)
-		snprint(srvfile, sizeof srvfile, "#s/%s", argv[0]);
+		snprint(srvfile, sizeof srvfile, "/srv/%s", argv[0]);
 	else
 		usage();
 
@@ -109,11 +109,6 @@ main(int argc, char **argv)
 		_exits(nil);
 	case 0:
 		break;
-	}
-
-	if(!chatty){
-		close(2);
-		open("#c/cons", OWRITE);
 	}
 
 	io();
