@@ -360,8 +360,8 @@ fsmount(char *mntpt)
 	proccreate(fsrun, v, 16*1024);
 
 	/* Typically mounted before /srv exists */
-	if(access("#s/consoles", AEXIST) < 0){
-		srv = create("#s/consoles", OWRITE, 0666);
+	if(access("/srv/consoles", AEXIST) < 0){
+		srv = create("/srv/consoles", OWRITE, 0666);
 		if(srv < 0)
 			fatal("post: %r");
 
