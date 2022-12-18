@@ -77,14 +77,20 @@ readin(int pid, char *file)
 	char *name, *buf;
 	int fd, rc;
 	
-	name = smprint("#p/%d/%s", pid, file);
+	name = smprint("/proc/%d/%s", pid, file);
 	fd = open(name, OREAD);
-	if(fd < 0)
+	if(fd < 0){
+		free(name);
 		return nil;
+	}
 	buf = malloc(1024);
 	rc = read(fd, buf, 1023);
-	if(rc < 0)
+	if(rc < 0){
+		free(buf);
+		free(name);
+		close(fd);
 		return nil;
+	}
 	buf[rc] = 0;
 	free(name);
 	close(fd);
@@ -383,7 +389,7 @@ procwrite(Req *req)
 {
 	switch((int)(req->fid->qid.path % NQid)) {
 	case Qnote:
-		writeto(req, "#p/%lld/note", req->fid->qid.path / NQid);
+		writeto(req, "/proc/%lld/note", req->fid->qid.path / NQid);
 		break;
 	default:
 		respond(req, "the front fell off");
