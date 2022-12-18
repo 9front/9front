@@ -75,8 +75,8 @@ procgetname(void)
 	char *lp, *rp;
 	char buf[256];
 
-	snprint(buf, sizeof buf, "#p/%d/args", getpid());
-	if((fd = open(buf, OREAD)) < 0)
+	snprint(buf, sizeof buf, "/proc/%d/args", getpid());
+	if((fd = open(buf, OREAD|OCEXEC)) < 0)
 		return strdup("");
 	*buf = '\0';
 	n = read(fd, buf, sizeof buf-1);
