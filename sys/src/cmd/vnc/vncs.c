@@ -49,9 +49,6 @@ static void noteshutdown(void*, char*);
 static void vncaccept(Vncs*);
 static int vncsfmt(Fmt*);
 static void getremote(char*, char*);
-static void vncname(char*, ...);
-#pragma varargck argpos vncname 1
-
 #pragma varargck type "V" Vncs*
 
 void
@@ -233,7 +230,7 @@ main(int argc, char **argv)
 	atexit(shutdown);
 	notify(noteshutdown);
 	for(;;){
-		vncname("listener");
+		procsetname("listener");
 		cfd = listen(adir, ldir);
 		if(cfd < 0)
 			break;
@@ -614,23 +611,6 @@ vncaccept(Vncs *v)
 	}
 }
 
-static void
-vncname(char *fmt, ...)
-{
-	int fd;
-	char name[64], buf[32];
-	va_list arg;
-
-	va_start(arg, fmt);
-	vsnprint(name, sizeof name, fmt, arg);
-	va_end(arg);
-
-	sprint(buf, "/proc/%d/args", getpid());
-	if((fd = open(buf, OWRITE)) >= 0){
-		write(fd, name, strlen(name));
-		close(fd);
-	}
-}
 
 /*
  * Set the pixel format being sent.  Can only happen once.
@@ -731,7 +711,7 @@ clientreadproc(Vncs *v)
 	char *buf;
 	Rectangle r;
 
-	vncname("read %V", v);
+	procsetname("read %V", v);
 
 	for(;;){
 		type = vncrdchar(v);
@@ -1150,7 +1130,7 @@ clientwriteproc(Vncs *v)
 {
 	ulong last = 0;
 
-	vncname("write %V", v);
+	procsetname("write %V", v);
 	while(!v->ndead){
 		sleep(sleeptime);
 		updatesnarf(v);
