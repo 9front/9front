@@ -284,14 +284,13 @@ realmain(void *a)
 		fprint(2, "usage: %s [-d] svc-name directory\n", argv0);
 		exits("usage");
 	}
-	snprint(service, sizeof service, "#s/%s", argv[0]);
 	if(argv[1][0] != '/')
 		fatal("directory must be rooted");
 
 	if(pipe(pfd) < 0)
 		fatal("opening pipe: %r");
 
-	/* Typically mounted before /srv exists */
+	snprint(service, sizeof service, "/srv/%s", argv[0]);
 	srv = create(service, OWRITE, 0666);
 	if(srv < 0)
 		fatal("post: %r");
