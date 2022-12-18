@@ -50,9 +50,6 @@ static char *Ipcname = "IPC$";
 void
 setup(void)
 {
-	int fd;
-	char buf[32];
-
 	/*
 	 * This is revolting but I cannot see any other way to get
 	 * the pid of the server.  We need this as Windows doesn't
@@ -61,11 +58,7 @@ setup(void)
 	 */
 	Attachpid = getpid();
 
-	snprint(buf, sizeof buf, "#p/%d/args", getpid());
-	if((fd = open(buf, OWRITE)) >= 0){
-		fprint(fd, "%s network", Host);
-		close(fd);
-	}
+	procsetname("%s network", Host);
 }
 
 int
@@ -1135,15 +1128,10 @@ usage(void)
 static void
 keepalive(void)
 {
-	char buf[32];
 	uvlong tot, fre;
-	int fd, i, slot, rc;
+	int i, slot, rc;
 
-	snprint(buf, sizeof buf, "#p/%d/args", getpid());
-	if((fd = open(buf, OWRITE)) >= 0){
-		fprint(fd, "%s keepalive", Host);
-		close(fd);
-	}
+	procsetname("%s keepalive", Host);
 
 	rc = 0;
 	slot = 0;
