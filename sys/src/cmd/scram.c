@@ -114,17 +114,14 @@ wirecpu0(void)
 	int ctl;
 
 	snprint(buf, sizeof(buf), "/proc/%d/ctl", getpid());
-	if((ctl = open(buf, OWRITE)) < 0){
-		snprint(buf, sizeof(buf), "#p/%d/ctl", getpid());
-		if((ctl = open(buf, OWRITE)) < 0)
-			return;
-	}
+	if((ctl = open(buf, OWRITE)) < 0)
+		return;
 	write(ctl, "wired 0", 7);
 	close(ctl);
 }
 
 void
-main()
+main(void)
 {
 	int n;
 

@@ -248,15 +248,12 @@ tmpread(char *s, char *e)
 static void
 wirecpu0(void)
 {
-	char buf[128];
+	char buf[32];
 	int ctl;
 
 	snprint(buf, sizeof(buf), "/proc/%d/ctl", getpid());
-	if((ctl = open(buf, OWRITE)) < 0){
-		snprint(buf, sizeof(buf), "#p/%d/ctl", getpid());
-		if((ctl = open(buf, OWRITE)) < 0)
-			return;
-	}
+	if((ctl = open(buf, OWRITE)) < 0)
+		return;
 	write(ctl, "wired 0", 7);
 	close(ctl);
 }
