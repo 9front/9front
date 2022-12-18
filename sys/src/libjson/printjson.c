@@ -7,6 +7,33 @@ static int printarray(Fmt*, JSON*, int);
 static int printobject(Fmt*, JSON*, int);
 
 static int
+printstring(Fmt *f, char *s)
+{
+	Rune r;
+	int n;
+
+	n = fmtstrcpy(f, "\"");
+	while(*s){
+		s += chartorune(&r, s);
+		switch(r){
+		case '\\':	n += fmtstrcpy(f, "\\\\");	break;
+		case '\f':	n += fmtstrcpy(f, "\\f");	break;
+		case '\b':	n += fmtstrcpy(f, "\\b");	break;
+		case '\n':	n += fmtstrcpy(f, "\\n");	break;
+		case '\r':	n += fmtstrcpy(f, "\\r");	break;
+		case '\"':	n += fmtstrcpy(f, "\\\"");	break;
+		default:
+			if(r < 0x20)
+				n += fmtprint(f, "\\u%04x", r);
+			else
+				n += fmtrune(f, r);
+		}
+	}
+	n += fmtstrcpy(f, "\"");
+	return n;
+}
+
+static int
 printarray(Fmt *f, JSON *j, int indent)
 {
 	JSONEl *jl;
@@ -65,7 +92,7 @@ printjson(Fmt *f, JSON *j, int indent)
 		return fmtprint(f, "%f", j->n);
 		break;
 	case JSONString:
-		return fmtprint(f, "\"%s\"", j->s);
+		return printstring(f, j->s);
 		break;
 	case JSONArray:
 		return printarray(f, j, indent+1);
