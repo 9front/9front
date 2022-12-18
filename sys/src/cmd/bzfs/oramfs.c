@@ -168,7 +168,7 @@ ramfsmain(int argc, char *argv[])
 		mfd[0] = p[0];
 		mfd[1] = p[0];
 		if(defmnt == 0){
-			fd = create("#s/ramfs", OWRITE, 0666);
+			fd = create("/srv/ramfs", OWRITE, 0666);
 			if(fd < 0)
 				error("create of /srv/ramfs failed");
 			sprint(buf, "%d", p[1]);
