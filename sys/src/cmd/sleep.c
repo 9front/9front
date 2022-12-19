@@ -4,7 +4,7 @@
 void
 main(int argc, char *argv[])
 {
-	enum { MAXSEC = 0x7fffffff/1000 };
+	enum { MAXSEC = 0x7ffffc00/1000 };
 	long n, m;
 	char *p, *q;
 
