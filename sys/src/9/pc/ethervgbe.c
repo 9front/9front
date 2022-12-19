@@ -15,7 +15,6 @@
  *	- shutdown
  *	- promiscuous
  *	- report error
- *	- Rx/Tx Csum
  *	- Jumbo frames
  *
  * Philippe Anel, xigh@free.fr
@@ -312,6 +311,7 @@ struct Stats
 	ulong	rx;
 	ulong	tx;
 	ulong	txe;
+	ulong	txentry;
 	ulong	intr;
 };
 
@@ -467,6 +467,7 @@ vgbeifstat(Ether* edev, void* a, long n, ulong offset)
 	l = 0;
 	l += snprint(p+l, READSTR-l, "tx: %uld\n", ctlr->stats.tx);
 	l += snprint(p+l, READSTR-l, "tx [errs]: %uld\n", ctlr->stats.txe);
+	l += snprint(p+l, READSTR-l, "tx [no entry]: %uld\n", ctlr->stats.txentry);
 	l += snprint(p+l, READSTR-l, "rx: %uld\n", ctlr->stats.rx);
 	l += snprint(p+l, READSTR-l, "intr: %uld\n", ctlr->stats.intr);
 	snprint(p+l, READSTR-l, "\n");
@@ -803,7 +804,7 @@ vgbetransmit(Ether* edev)
 		wiob(ctlr, TxCsrS, TxCsr_Wakeup);
 
 	if(count == 0)
-		print("vgbe: transmit: no Tx entry available\n");
+		ctlr->stats.txentry++;
 }
 
 static void
