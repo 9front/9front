@@ -326,7 +326,6 @@ fsattach(Req *r)
 	r->fid->qid = r->ofcall.qid;
 
 	a = r->fid->aux = emalloc9p(sizeof(Aux));
-	memset(a, 0, sizeof(Aux));
 	a->path = estrdup9p("/");
 	a->sp = nil;
 	a->fh = -1;
@@ -353,7 +352,6 @@ fsclone(Fid *ofid, Fid *fid)
 
 	fid->aux = a;
 
-	memset(a, 0, sizeof(Aux));
 	a->sh = -1;
 	a->fh = -1;
 	a->sp = oa->sp;

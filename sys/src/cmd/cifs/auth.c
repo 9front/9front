@@ -55,7 +55,6 @@ auth_plain(char *windom, char *keyp, uchar *chal, int len)
 		sysfatal("cannot get key - %r");
 
 	ap = emalloc9p(sizeof(Auth));
-	memset(ap, 0, sizeof(ap));
 	ap->user = estrdup9p(up->user);
 	ap->windom = estrdup9p(windom);
 
@@ -87,7 +86,6 @@ auth_proto(char *proto, char *windom, char *keyp, uchar *chal, int len)
 		sysfatal("bad response size");
 
 	ap = emalloc9p(sizeof(Auth));
-	memset(ap, 0, sizeof(ap));
 	ap->user = estrdup9p(user);
 	ap->windom = estrdup9p(windom);
 

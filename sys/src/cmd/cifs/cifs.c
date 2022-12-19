@@ -28,7 +28,6 @@ cifsdial(char *host, char *called, char *sysname)
 	}
 
 	s = emalloc9p(sizeof(Session));
-	memset(s, 0, sizeof(Session));
 
 	s->fd = fd;
 	s->nbt = nbt;
@@ -76,7 +75,6 @@ cifshdr(Session *s, Share *sp, int cmd)
 	}
 
 	p = emalloc9p(sizeof(Pkt) + MTU);
-	memset(p, 0, sizeof(Pkt) +MTU);
 
 	p->buf = (uchar *)p + sizeof(Pkt);
 	p->s = s;

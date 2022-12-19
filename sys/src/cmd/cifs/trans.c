@@ -148,7 +148,6 @@ RAPshareenum(Session *s, Share *sp, Share **ent)
 
 	if(ngot == 0){
 		*ent = emalloc9p(sizeof(Share) * navail);
-		memset(*ent, 0, sizeof(Share) * navail);
 	}
 
 	q = *ent + ngot;
@@ -274,7 +273,6 @@ RAPsessionenum(Session *s, Share *sp, Sessinfo **sip)
 
 	if(ngot == 0){
 		*sip = emalloc9p(sizeof(Sessinfo) * navail);
-		memset(*sip, 0, sizeof(Sessinfo) * navail);
 	}
 
 	q = *sip + ngot;
@@ -333,7 +331,6 @@ RAPgroupenum(Session *s, Share *sp, Namelist **nlp)
 	}
 
 	*nlp = emalloc9p(sizeof(Namelist) * navail);
-	memset(*nlp, 0, sizeof(Namelist) * navail);
 
 	q = *nlp + ngot;
 	while(ngot < navail && nret--){
@@ -389,7 +386,6 @@ RAPgroupusers(Session *s, Share *sp, char *group, Namelist **nlp)
 	}
 
 	*nlp = emalloc9p(sizeof(Namelist) * navail);
-	memset(*nlp, 0, sizeof(Namelist) * navail);
 
 	q = *nlp + ngot;
 	while(ngot < navail && nret--){
@@ -443,7 +439,6 @@ RAPuserenum(Session *s, Share *sp, Namelist **nlp)
 	}
 
 	*nlp = emalloc9p(sizeof(Namelist) * navail);
-	memset(*nlp, 0, sizeof(Namelist) * navail);
 
 	q = *nlp + ngot;
 	while(ngot < navail && nret--){
@@ -502,7 +497,6 @@ more:
 
 	if(ngot == 0){
 		*nlp = emalloc9p(sizeof(Namelist) * navail);
-		memset(*nlp, 0, sizeof(Namelist) * navail);
 	}
 	q = *nlp + ngot;
 	while(ngot < navail && nret--){
@@ -616,7 +610,6 @@ RAPServerenum2(Session *s, Share *sp, char *workgroup, int type, int *more,
 	}
 
 	*si = emalloc9p(sizeof(Serverinfo) * navail);
-	memset(*si, 0, sizeof(Serverinfo) * navail);
 
 	q = *si;
 	for (; nret-- != 0 && ngot < navail; ngot++){
@@ -763,7 +756,6 @@ more:
 
 	if(ngot == 0){
 		*fip = emalloc9p(sizeof(Fileinfo) * navail);
-		memset(*fip, 0, sizeof(Fileinfo) * navail);
 	}
 	q = *fip + ngot;
 	for(; nret-- && ngot < navail; ngot++){

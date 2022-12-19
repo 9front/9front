@@ -379,7 +379,6 @@ redirect(Session *s, Share *sp, char *path)
 		sysfatal("no memory: %r");
 
 	cp = emalloc9p(sizeof(Dfscache));
-	memset(cp, 0, sizeof(Dfscache));
 	cp->rtt = SINT_MAX;
 
 	if(redir1(s, unc, cp, 1) == -1){
