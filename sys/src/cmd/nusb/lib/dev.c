@@ -234,8 +234,8 @@ loaddevdesc(Dev *d)
 	 * (a get configuration descriptor also fails for them!)
 	 */
 	if(nr < Ddevlen){
-		print("%s: %s: warning: device with short descriptor\n",
-			argv0, d->dir);
+		dprint(2, "%s: %s: warning: device with short descriptor (got %d bytes)\n",
+			argv0, d->dir, nr);
 		if(nr < Ddevlen-1){
 			werrstr("short device descriptor (%d bytes)", nr);
 			return -1;
