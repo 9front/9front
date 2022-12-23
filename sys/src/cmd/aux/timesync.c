@@ -308,7 +308,6 @@ main(int argc, char **argv)
 		close(fd);
 		break;
 	case Rtc:
-		bind("#r", "/dev", MAFTER);
 		if(access("/dev/rtc", AREAD) < 0)
 			sysfatal("accessing /dev/rtc: %r");
 		break;
