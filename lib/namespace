@@ -1,7 +1,3 @@
-# root
-mount -aC #s/boot /root $rootspec
-bind -a $rootdir /
-
 # kernel devices
 bind #c /dev
 bind #d /fd
@@ -11,6 +7,10 @@ bind -c #s$srvspec /srv
 bind -q #σ /shr
 bind -a #¤ /dev
 bind -qa #¶ /dev
+
+# root
+mount -C /srv/boot /root $rootspec
+bind -a $rootdir /
 
 # authentication
 mount -b /srv/factotum /mnt
@@ -22,13 +22,14 @@ mount -a /srv/mntexport /mnt/exportfs
 
 # standard bin
 bind /$cputype/bin /bin
-bind $rootdir'/rc' /rc
+bind $rootdir/rc /rc
 bind -a /rc/bin /bin
 
 # internal networks
 # mount -a /srv/ip /net
 bind -a #l /net
 bind -a #I /net
+bind -a #a /net
 mount -a /srv/cs /net
 mount -a /srv/dns /net
 mount -a /srv/net /net
