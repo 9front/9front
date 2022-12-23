@@ -12,7 +12,7 @@ iounit(int fd)
 	int i, cfd;
 	char buf[128], *args[10];
 
-	snprint(buf, sizeof buf, "#d/%dctl", fd);
+	snprint(buf, sizeof buf, "/fd/%dctl", fd);
 	cfd = open(buf, OREAD|OCEXEC);
 	if(cfd < 0)
 		return 0;
