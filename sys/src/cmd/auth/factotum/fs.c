@@ -179,18 +179,17 @@ main(int argc, char **argv)
 	exits(nil);
 }
 
-char *pmsg = "Warning! %s can't protect itself from debugging: %r\n";
-char *smsg = "Warning! %s can't turn off swapping: %r\n";
-
 /* don't allow other processes to debug us and steal keys */
 static void
 private(void)
 {
 	int fd;
-	char buf[64];
+	char buf[32];
+	static char pmsg[] = "Warning! %s can't protect itself from debugging: %r\n";
+	static char smsg[] = "Warning! %s can't turn off swapping: %r\n";
 
-	snprint(buf, sizeof(buf), "#p/%d/ctl", getpid());
-	fd = open(buf, OWRITE);
+	snprint(buf, sizeof(buf), "/proc/%d/ctl", getpid());
+	fd = open(buf, OWRITE|OCEXEC);
 	if(fd < 0){
 		fprint(2, pmsg, argv0);
 		return;
