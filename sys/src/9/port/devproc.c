@@ -671,11 +671,12 @@ readns1(Chan *c, Proc *p, char *buf, int nbuf)
 
 		int2flag(cm->mflag, flag);
 		if(strcmp(cm->to->path->s, "#M") == 0){
-			srv = srvname(cm->to->mchan);
+			srv = cm->to->mchan->srvname;
+			if(srv == nil)
+				srv = cm->to->mchan->path->s;
 			i = snprint(buf, nbuf, (cm->spec && *cm->spec)?
 				"mount %s %q %q %q\n": "mount %s %q %q\n", flag,
-				srv? srv: cm->to->mchan->path->s, mh->from->path->s, cm->spec);
-			free(srv);
+				srv, mh->from->path->s, cm->spec);
 		}else{
 			i = snprint(buf, nbuf, "bind %s %q %q\n", flag,
 				cm->to->path->s, mh->from->path->s);

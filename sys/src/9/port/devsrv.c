@@ -14,9 +14,9 @@ struct Link
 {
 	void 	*link;
 	char 	*name;
-	ulong 	path;
 	char	*owner;
 	ulong	perm;
+	ulong 	path;
 };
 
 typedef struct Srv Srv;
@@ -32,10 +32,16 @@ struct Board
 	Link;
 	Ref;
 
+	int 	closed;	
+	Srv 	*srv;
+
+	/* tree linkage */
 	Board 	*parent;
 	Board 	*child;
-	Srv 	*srv;
-	int 	closed;	
+
+	/* all boards list */
+	Board	*prev;
+	Board	*next;
 };
 
 enum{
@@ -44,11 +50,11 @@ enum{
 	Qlease,
 };
 
-Board root;
-RWlock srvlk;
-ulong srvpath;
+static char clone[] = "clone";
 
-static char Eexpired[] = "expired lease";
+static RWlock srvlk;
+static ulong srvpath;
+static Board srvroot;
 
 static void*
 lookup(Link *l, char *name, ulong qidpath)
@@ -95,14 +101,24 @@ remove(Link **l, char *name, ulong qidpath)
 }
 
 static void
+freelink(Link *l)
+{
+	free(l->name);
+	free(l->owner);
+	free(l);
+}
+
+/* always called with srvlock wlock'ed */
+static void
 boardclunk(Board *b)
 {
 	Board *ch;
 
-	if(b == &root)
+	/* srvroot is not ref-counted nor clunkable */
+	if(b == &srvroot)
 		return;
 
-	if(decref(b) != 0)
+	if(decref(b))
 		return;
 
 	/*
@@ -113,16 +129,18 @@ boardclunk(Board *b)
 	 */
 	while(b->closed && b->child == nil){
 		assert(b->srv == nil);
-
-		//Root should never be closed
 		assert(b->parent != nil);
+
+		/* unlink from parent board */
 		ch = remove((Link**)&b->parent->child, b->name, ~0UL);
 		assert(ch == b);
 
+		/* unlink from all boards list */
+		ch->prev->next = ch->next;
+		ch->next->prev = ch->prev;
+
 		b = ch->parent;
-		free(ch->name);
-		free(ch->owner);
-		free(ch);
+		freelink(ch);
 	}
 }
 
@@ -151,11 +169,11 @@ srvgen(Chan *c, char *name, Dirtab*, int, int s, Dir *dp)
 	case DEVDOTDOT:
 		ch = b->parent;
 		if(ch == nil)
-			ch = &root;
+			ch = &srvroot;
 		goto Child;
 	}
 	if(name != nil){
-		if(strcmp("clone", name) == 0)
+		if(strcmp(name, clone) == 0)
 			goto Clone;
 
 		sp = lookup(b->srv, name, ~0UL);
@@ -187,7 +205,7 @@ Child:
 	} else if(0){
 Clone:
 		q.path = SRVQID(SRVPATH(c->qid.path), Qclone);
-		devdir(c, q, "clone", 0, eve, 0444, dp);
+		devdir(c, q, clone, 0, eve, 0444, dp);
 	} else {
 		runlock(&srvlk);
 		poperror();
@@ -202,11 +220,12 @@ Clone:
 static void
 srvinit(void)
 {
-	srvpath = 0;
-	root.path = srvpath++;
-	root.name = "#s";
-	root.perm = 0777;
-	kstrdup(&root.owner, eve);
+	srvroot.next = &srvroot;
+	srvroot.prev = &srvroot;
+	srvroot.path = srvpath++;
+	srvroot.name = "#s";
+	srvroot.perm = 0777;
+	kstrdup(&srvroot.owner, eve);
 }
 
 static Chan*
@@ -215,7 +234,7 @@ srvattach(char *spec)
 	Chan *c;
 
 	c = devattach('s', spec);
-	c->aux = &root;
+	c->aux = &srvroot;
 	return c;
 }
 
@@ -230,7 +249,7 @@ srvwalk(Chan *c, Chan *nc, char **name, int nname)
 		return wq;
 
 	b = wq->clone->aux;
-	if(b == &root)
+	if(b == &srvroot)
 		return wq;
 
 	incref(b);
@@ -254,28 +273,6 @@ srvstat(Chan *c, uchar *db, int n)
 	return devstat(c, db, n, 0, 0, srvgen);
 }
 
-char*
-srvname(Chan *c)
-{
-	Board *b;
-	Srv *sp;
-	char *s;
-
-	s = nil;
-	b = &root;
-	rlock(&srvlk);
-	for(sp = b->srv; sp != nil; sp = sp->link) {
-		if(sp->chan == c){
-			s = malloc(3+strlen(sp->name)+1);
-			if(s != nil)
-				sprint(s, "#s/%s", sp->name);
-			break;
-		}
-	}
-	runlock(&srvlk);
-	return s;
-}
-
 static Chan*
 srvopen(Chan *c, int omode)
 {
@@ -283,39 +280,47 @@ srvopen(Chan *c, int omode)
 	Srv *sp;
 	Chan *nc;
 	char buf[64];
+	int mode;
 
 	if(omode&OTRUNC)
 		error(Eexist);
 	if(omode&ORCLOSE)
 		error(Eperm);
+	mode = openmode(omode);
 
 	b = c->aux;
-	if(SRVTYPE(c->qid.path) == Qclone){;
+	if(SRVTYPE(c->qid.path) == Qclone){
 		wlock(&srvlk);
 		if(waserror()){
 			wunlock(&srvlk);
 			nexterror();
 		}
 		if(b->closed)
-			error(Eexpired);
-
+			error(Eshutdown);
 		ch = smalloc(sizeof *ch);
 		ch->ref = 1;
 		ch->perm = 0770;
-		kstrdup(&ch->owner, up->user);
 		do {
 			ch->path = srvpath++;
 			snprint(buf, sizeof buf, "%ld", ch->path);
 		} while(lookup(b->srv, buf, ~0UL) != nil);
-
-		ch->parent = b;
 		kstrdup(&ch->name, buf);
+		kstrdup(&ch->owner, up->user);
 
+		/* link to all boards list */
+		ch->next = &srvroot;
+		ch->prev = srvroot.prev;
+		ch->next->prev = ch;
+		ch->prev->next = ch;
+
+		/* link to parent board */
+		ch->parent = b;
 		ch->link = b->child;
 		b->child = ch;
+
 		c->aux = ch;
 		c->qid.path = SRVQID(ch->path, Qlease);
-		c->mode = openmode(omode);
+		c->mode = mode;
 		boardclunk(b);
 		wunlock(&srvlk);
 		poperror();
@@ -328,12 +333,10 @@ srvopen(Chan *c, int omode)
 		nexterror();
 	}
 	if(c->qid.type == QTDIR){
-		if(omode & ORCLOSE)
-			error(Eperm);
 		if(omode != OREAD)
 			error(Eisdir);
 		devpermcheck(b->owner, b->perm, omode);
-		c->mode = openmode(omode);
+		c->mode = mode;
 		c->flag |= COPEN;
 		c->offset = 0;
 		runlock(&srvlk);
@@ -341,17 +344,18 @@ srvopen(Chan *c, int omode)
 		return c;
 	}
 	if(b->closed)
-		error(Eexpired);
-
-	sp = lookup(b->srv, nil, c->qid.path);
-	if(sp == nil || sp->chan == nil)
 		error(Eshutdown);
 
-	if(openmode(omode)!=sp->chan->mode && sp->chan->mode!=ORDWR)
+	sp = lookup(b->srv, nil, c->qid.path);
+	if(sp == nil)
+		error(Eshutdown);
+	nc = sp->chan;
+	if(nc == nil)
+		error(Eshutdown);
+	if(mode != nc->mode && nc->mode != ORDWR)
 		error(Eperm);
 	devpermcheck(sp->owner, sp->perm, omode);
 
-	nc = sp->chan;
 	incref(nc);
 
 	runlock(&srvlk);
@@ -373,8 +377,8 @@ srvcreate(Chan *c, char *name, int omode, ulong perm)
 	if(strlen(name) >= sizeof(up->genbuf))
 		error(Etoolong);
 
-	if(strcmp("clone", name) == 0)
-		error("reserved name");
+	if(strcmp(name, clone) == 0)
+		error(Eexist);
 
 	sp = smalloc(sizeof *sp);
 	kstrdup(&sp->name, name);
@@ -384,13 +388,11 @@ srvcreate(Chan *c, char *name, int omode, ulong perm)
 	wlock(&srvlk);
 	if(waserror()){
 		wunlock(&srvlk);
-		free(sp->owner);
-		free(sp->name);
-		free(sp);
+		freelink(sp);
 		nexterror();
 	}
 	if(b->closed)
-		error(Eexpired);
+		error(Eshutdown);
 	devpermcheck(b->owner, b->perm, OWRITE);
 	if(lookup(b->srv, name, ~0UL) != nil)
 		error(Eexist);
@@ -451,9 +453,7 @@ srvremove(Chan *c)
 
 	if(sp->chan != nil)
 		cclose(sp->chan);
-	free(sp->owner);
-	free(sp->name);
-	free(sp);
+	freelink(sp);
 }
 
 static int
@@ -469,7 +469,7 @@ srvwstat(Chan *c, uchar *dp, int n)
 	case Qclone:
 		error(Eperm);
 	}
-	if(c->qid.type == QTDIR && c->aux == &root)
+	if(c->qid.type == QTDIR && c->aux == &srvroot)
 		error(Eperm);
 
 	strs = smalloc(n);
@@ -488,7 +488,7 @@ srvwstat(Chan *c, uchar *dp, int n)
 		nexterror();
 	}
 	if(b->closed)
-		error(Eexpired);
+		error(Eshutdown);
 
 	if(c->qid.type == QTDIR)
 		lp = b;
@@ -506,7 +506,9 @@ srvwstat(Chan *c, uchar *dp, int n)
 		if(strlen(d.name) >= sizeof(up->genbuf))
 			error(Etoolong);
 
-		//Ensure new name doesn't conflict with old names
+		/* Ensure new name doesn't conflict with old names */
+		if(strcmp(d.name, clone) == 0)
+			error(Eexist);
 		if(c->qid.type == QTDIR)
 			s = b->parent;
 		else
@@ -537,7 +539,7 @@ srvclose(Chan *c)
 	Srv *sp, *link;
 	Board *b;
 
-	if(c->flag & CRCLOSE && SRVTYPE(c->qid.path) != Qlease){
+	if((c->flag & CRCLOSE) != 0 && SRVTYPE(c->qid.path) != Qlease){
 		/*
 		 * in theory we need to override any changes in removability
 		 * since open, but since all that's checked is the owner,
@@ -551,7 +553,7 @@ srvclose(Chan *c)
 	}
 
 	b = c->aux;
-	if(b == &root)
+	if(b == &srvroot)
 		return;
 
 	wlock(&srvlk);
@@ -572,9 +574,7 @@ srvclose(Chan *c)
 		link = sp->link;
 		if(sp->chan != nil)
 			ccloseq(sp->chan);
-		free(sp->owner);
-		free(sp->name);
-		free(sp);
+		freelink(sp);
 	}
 }
 
@@ -627,7 +627,7 @@ srvwrite(Chan *c, void *va, long n, vlong)
 		nexterror();
 	}
 	if(b->closed)
-		error(Eexpired);
+		error(Eshutdown);
 	if(c1->qid.type & QTAUTH)
 		error("cannot post auth file in srv");
 	sp = lookup(b->srv, nil, c->qid.path);
@@ -638,6 +638,9 @@ srvwrite(Chan *c, void *va, long n, vlong)
 		error(Ebadusefd);
 
 	sp->chan = c1;
+
+	if(c1->srvname == nil)
+		kstrdup(&c1->srvname, c->path->s);
 
 	wunlock(&srvlk);
 	poperror();
@@ -671,12 +674,15 @@ srvrenameuser(char *old, char *new)
 	Board *b;
 	Srv *sp;
 
-	b = &root;
 	wlock(&srvlk);
-	kstrdup(&b->owner, new);
-	for(sp = b->srv; sp != nil; sp = sp->link) {
-		if(sp->owner != nil && strcmp(old, sp->owner) == 0)
-			kstrdup(&sp->owner, new);
-	}
+	b = &srvroot;
+	do {
+		if(strcmp(b->owner, old) == 0)
+			kstrdup(&b->owner, new);
+		for(sp = b->srv; sp != nil; sp = sp->link)
+			if(strcmp(sp->owner, old) == 0)
+				kstrdup(&sp->owner, new);
+		b = b->next;
+	} while(b != &srvroot);
 	wunlock(&srvlk);
 }

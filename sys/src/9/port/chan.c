@@ -222,6 +222,7 @@ newchan(void)
 	c->mchan = nil;
 	memset(&c->mqid, 0, sizeof(c->mqid));
 	c->path = nil;
+	c->srvname = nil;
 	
 	return c;
 }
@@ -410,6 +411,10 @@ chanfree(Chan *c)
 	if(c->mchan != nil){
 		cclose(c->mchan);
 		c->mchan = nil;
+	}
+	if(c->srvname != nil){
+		free(c->srvname);
+		c->srvname = nil;
 	}
 
 	pathclose(c->path);

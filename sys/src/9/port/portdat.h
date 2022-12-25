@@ -193,6 +193,7 @@ struct Chan
 	Chan*	mchan;			/* channel to mounted server */
 	Qid	mqid;			/* qid of root of mount point */
 	Path*	path;
+	char*	srvname;		/* /srv/name when posted */
 };
 
 struct Path
