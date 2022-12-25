@@ -5,11 +5,11 @@ srv \- server registry
 .nf
 .BI "bind -c #s" $srvspec " /srv"
 
-.BI #s/ clone
-.BI #s/ id
-.BI #s/ service1
-.BI #s/ service2
- ...
+.BI /srv/ clone
+.BI /srv/ id / ...
+.BI /srv/ service1
+.BI /srv/ service2
+.I ...
 .fi
 .SH DESCRIPTION
 The
