@@ -30,7 +30,7 @@ chuid(AuthInfo *ai)
 	int rv, fd;
 
 	/* change uid */
-	fd = open("#¤/capuse", OWRITE);
+	fd = open("/dev/capuse", OCEXEC|OWRITE);
 	if(fd < 0)
 		sysfatal("can't change uid: %r");
 	rv = write(fd, ai->cap, strlen(ai->cap));

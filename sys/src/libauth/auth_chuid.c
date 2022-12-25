@@ -16,15 +16,15 @@ auth_chuid(AuthInfo *ai, char *ns)
 	}
 
 	/* change uid */
-	fd = open("#¤/capuse", OWRITE|OCEXEC);
+	fd = open("/dev/capuse", OCEXEC|OWRITE);
 	if(fd < 0){
-		werrstr("opening #¤/capuse: %r");
+		werrstr("opening /dev/capuse: %r");
 		return -1;
 	}
 	rv = write(fd, ai->cap, strlen(ai->cap));
 	close(fd);
 	if(rv < 0){
-		werrstr("writing %s to #¤/capuse: %r", ai->cap);
+		werrstr("writing %s to /dev/capuse: %r", ai->cap);
 		return -1;
 	}
 

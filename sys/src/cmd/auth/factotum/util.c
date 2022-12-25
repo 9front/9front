@@ -13,7 +13,7 @@ bindnetcs(void)
 		bind("#I", "/net", MBEFORE);
 
 	if(access("/net/cs", AEXIST) < 0){
-		if((srvfd = open("#s/cs", ORDWR)) >= 0){
+		if((srvfd = open("/srv/cs", ORDWR)) >= 0){
 			if(mount(srvfd, -1, "/net", MBEFORE, "") != -1)
 				return 0;
 			close(srvfd);
@@ -619,9 +619,9 @@ static int caphashfd;
 void
 initcap(void)
 {
-	caphashfd = open("#¤/caphash", OWRITE);
+	caphashfd = open("/dev/caphash", OCEXEC|OWRITE);
 //	if(caphashfd < 0)
-//		fprint(2, "%s: opening #¤/caphash: %r\n", argv0);
+//		fprint(2, "%s: opening /dev/caphash: %r\n", argv0);
 }
 
 /*
@@ -888,10 +888,10 @@ writehostowner(char *owner)
 
 	if((s = strchr(owner,'@')) != nil)
 		*s = 0;
-	fd = open("#c/hostowner", OWRITE);
+	fd = open("/dev/hostowner", OWRITE|OCEXEC);
 	if(fd >= 0){
 		if(fprint(fd, "%s", owner) < 0)
-			fprint(2, "factotum: setting #c/hostowner to %q: %r\n",
+			fprint(2, "factotum: setting /dev/hostowner to %q: %r\n",
 				owner);
 		close(fd);
 	}

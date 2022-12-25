@@ -619,9 +619,9 @@ static int caphashfd;
 void
 initcap(void)
 {
-	caphashfd = open("#¤/caphash", OCEXEC|OWRITE);
+	caphashfd = open("/dev/caphash", OCEXEC|OWRITE);
 	if(caphashfd < 0)
-		fprint(2, "%s: opening #¤/caphash: %r\n", argv0);
+		fprint(2, "%s: opening /dev/caphash: %r\n", argv0);
 }
 
 /*
@@ -667,7 +667,7 @@ usecap(char *cap)
 {
 	int fd, rv;
 
-	fd = open("#¤/capuse", OWRITE);
+	fd = open("/dev/capuse", OCEXEC|OWRITE);
 	if(fd < 0)
 		return -1;
 	rv = write(fd, cap, strlen(cap));

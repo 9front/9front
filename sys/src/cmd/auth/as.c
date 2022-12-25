@@ -100,7 +100,7 @@ mkcap(char *from, char *to)
 	uchar hash[SHA1dlen];
 	int fd;
 
-	fd = open("#¤/caphash", OCEXEC|OWRITE);
+	fd = open("/dev/caphash", OCEXEC|OWRITE);
 	if(fd < 0)
 		return nil;
 
@@ -135,7 +135,7 @@ usecap(char *cap)
 {
 	int fd, rv;
 
-	fd = open("#¤/capuse", OWRITE);
+	fd = open("/dev/capuse", OCEXEC|OWRITE);
 	if(fd < 0)
 		return -1;
 	rv = write(fd, cap, strlen(cap));
