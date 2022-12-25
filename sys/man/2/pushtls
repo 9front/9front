@@ -252,9 +252,6 @@ PEM certificate files
 .SH DIAGNOSTICS
 Return \-1 on failure.
 .SH BUGS
-Client certificates and client sessionIDs are not yet
-implemented.
-.PP
 Note that
 .IR pushtls ,
 .IR tlsClient
