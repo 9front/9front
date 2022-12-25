@@ -427,14 +427,14 @@ int
 tlsServer(int fd, TLSconn *conn)
 {
 	char buf[8];
-	char dname[64];
+	char dname[32];
 	uchar seed[2*RandomSize];
 	int n, data, ctl, hand;
 	TlsConnection *tls;
 
 	if(conn == nil)
 		return -1;
-	ctl = open("#a/tls/clone", ORDWR|OCEXEC);
+	ctl = open("/net/tls/clone", ORDWR|OCEXEC);
 	if(ctl < 0)
 		return -1;
 	n = read(ctl, buf, sizeof(buf)-1);
@@ -443,8 +443,8 @@ tlsServer(int fd, TLSconn *conn)
 		return -1;
 	}
 	buf[n] = 0;
-	snprint(conn->dir, sizeof(conn->dir), "#a/tls/%s", buf);
-	snprint(dname, sizeof(dname), "#a/tls/%s/hand", buf);
+	snprint(conn->dir, sizeof(conn->dir), "/net/tls/%s", buf);
+	snprint(dname, sizeof(dname), "/net/tls/%s/hand", buf);
 	hand = open(dname, ORDWR|OCEXEC);
 	if(hand < 0){
 		close(ctl);
@@ -457,7 +457,7 @@ tlsServer(int fd, TLSconn *conn)
 		conn->pskID, conn->psk, conn->psklen,
 		conn->trace, conn->chain);
 	if(tls != nil){
-		snprint(dname, sizeof(dname), "#a/tls/%s/data", buf);
+		snprint(dname, sizeof(dname), "/net/tls/%s/data", buf);
 		data = open(dname, ORDWR);
 	}
 	close(hand);
@@ -560,7 +560,7 @@ int
 tlsClient(int fd, TLSconn *conn)
 {
 	char buf[8];
-	char dname[64];
+	char dname[32];
 	uchar seed[2*RandomSize];
 	int n, data, ctl, hand;
 	TlsConnection *tls;
@@ -568,7 +568,7 @@ tlsClient(int fd, TLSconn *conn)
 
 	if(conn == nil)
 		return -1;
-	ctl = open("#a/tls/clone", ORDWR|OCEXEC);
+	ctl = open("/net/tls/clone", ORDWR|OCEXEC);
 	if(ctl < 0)
 		return -1;
 	n = read(ctl, buf, sizeof(buf)-1);
@@ -577,14 +577,14 @@ tlsClient(int fd, TLSconn *conn)
 		return -1;
 	}
 	buf[n] = 0;
-	snprint(conn->dir, sizeof(conn->dir), "#a/tls/%s", buf);
-	snprint(dname, sizeof(dname), "#a/tls/%s/hand", buf);
+	snprint(conn->dir, sizeof(conn->dir), "/net/tls/%s", buf);
+	snprint(dname, sizeof(dname), "/net/tls/%s/hand", buf);
 	hand = open(dname, ORDWR|OCEXEC);
 	if(hand < 0){
 		close(ctl);
 		return -1;
 	}
-	snprint(dname, sizeof(dname), "#a/tls/%s/data", buf);
+	snprint(dname, sizeof(dname), "/net/tls/%s/data", buf);
 	data = open(dname, ORDWR);
 	if(data < 0){
 		close(hand);
@@ -2208,15 +2208,15 @@ initCiphers(void)
 		unlock(&ciphLock);
 		return nciphers;
 	}
-	j = open("#a/tls/encalgs", OREAD|OCEXEC);
+	j = open("/net/tls/encalgs", OREAD|OCEXEC);
 	if(j < 0){
-		werrstr("can't open #a/tls/encalgs: %r");
+		werrstr("can't open /net/tls/encalgs: %r");
 		goto out;
 	}
 	n = read(j, s, MaxAlgF-1);
 	close(j);
 	if(n <= 0){
-		werrstr("nothing in #a/tls/encalgs: %r");
+		werrstr("nothing in /net/tls/encalgs: %r");
 		goto out;
 	}
 	s[n] = 0;
@@ -2232,15 +2232,15 @@ initCiphers(void)
 		cipherAlgs[i].ok = ok;
 	}
 
-	j = open("#a/tls/hashalgs", OREAD|OCEXEC);
+	j = open("/net/tls/hashalgs", OREAD|OCEXEC);
 	if(j < 0){
-		werrstr("can't open #a/tls/hashalgs: %r");
+		werrstr("can't open /net/tls/hashalgs: %r");
 		goto out;
 	}
 	n = read(j, s, MaxAlgF-1);
 	close(j);
 	if(n <= 0){
-		werrstr("nothing in #a/tls/hashalgs: %r");
+		werrstr("nothing in /net/tls/hashalgs: %r");
 		goto out;
 	}
 	s[n] = 0;

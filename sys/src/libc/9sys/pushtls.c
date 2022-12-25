@@ -47,9 +47,7 @@ pushtls(int fd, char *hashalg, char *encalg, int isclient, char *secret, char *d
 
 	// open a new filter; get ctl fd
 	data = hand = -1;
-	// /net/tls uses decimal file descriptors to name channels, hence a
-	// user-level file server can't stand in for #a; may as well hard-code it.
-	ctl = open("#a/tls/clone", ORDWR|OCEXEC);
+	ctl = open("/net/tls/clone", ORDWR|OCEXEC);
 	if(ctl < 0)
 		goto error;
 	n = read(ctl, buf, sizeof(buf)-1);
@@ -57,16 +55,16 @@ pushtls(int fd, char *hashalg, char *encalg, int isclient, char *secret, char *d
 		goto error;
 	buf[n] = 0;
 	if(dir)
-		sprint(dir, "#a/tls/%s", buf);
+		sprint(dir, "/net/tls/%s", buf);
 
 	// get application fd
-	snprint(dname, sizeof(dname), "#a/tls/%s/data", buf);
+	snprint(dname, sizeof(dname), "/net/tls/%s/data", buf);
 	data = open(dname, ORDWR);
 	if(data < 0)
 		goto error;
 
 	// get handshake fd
-	snprint(dname, sizeof(dname), "#a/tls/%s/hand", buf);
+	snprint(dname, sizeof(dname), "/net/tls/%s/hand", buf);
 	hand = open(dname, ORDWR|OCEXEC);
 	if(hand < 0)
 		goto error;
