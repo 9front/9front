@@ -19,20 +19,6 @@
 
 enum {
 	Extfreq		= 100*Mhz,	/* guess external clock frequency if */
-					/* not available from vcore */
-	Initfreq	= 400000,	/* initialisation frequency for MMC */
-	SDfreq		= 25*Mhz,	/* standard SD frequency */
-	SDfreqhs	= 50*Mhz,	/* high speed frequency */
-	DTO		= 14,		/* data timeout exponent (guesswork) */
-
-	GoIdle		= 0,		/* mmc/sdio go idle state */
-	MMCSelect	= 7,		/* mmc/sd card select command */
-	Setbuswidth	= 6,		/* mmc/sd set bus width command */
-	Switchfunc	= 6,		/* mmc/sd switch function command */
-	Voltageswitch = 11,		/* md/sdio switch to 1.8V */
-	IORWdirect = 52,		/* sdio read/write direct command */
-	IORWextended = 53,		/* sdio read/write extended command */
-	Appcmd = 55,			/* mmc/sd application command prefix */
 };
 
 enum {
@@ -80,6 +66,7 @@ enum {
 	Hispeed			= 1<<2,
 	Dwidth4			= 1<<1,
 	Dwidth1			= 0<<1,
+	DwidthMask		= Dwidth4|Dwidth8,
 	LED			= 1<<0,
 
 	/* Control1 */
@@ -87,6 +74,7 @@ enum {
 	Srstcmd			= 1<<25,	/* reset command circuit */
 	Srsthc			= 1<<24,	/* reset complete host controller */
 	Datatoshift		= 16,		/* data timeout unit exponent */
+		DTO		= 14,		/* data timeout exponent (guesswork) */
 	Datatomask		= 0xF0000,
 	Clkfreq8shift		= 8,		/* SD clock base divider LSBs */
 	Clkfreq8mask		= 0xFF00,
@@ -148,37 +136,12 @@ enum {
 	Cmdinhibit	= 1<<0,
 };
 
-static int cmdinfo[64] = {
-[0]  Ixchken,
-[2]  Resp136,
-[3]  Resp48 | Ixchken | Crcchken,
-[5]  Resp48,
-[6]  Resp48 | Ixchken | Crcchken,
-[7]  Resp48busy | Ixchken | Crcchken,
-[8]  Resp48 | Ixchken | Crcchken,
-[9]  Resp136,
-[11] Resp48 | Ixchken | Crcchken,
-[12] Resp48busy | Ixchken | Crcchken,
-[13] Resp48 | Ixchken | Crcchken,
-[16] Resp48,
-[17] Resp48 | Isdata | Card2host | Ixchken | Crcchken,
-[18] Resp48 | Isdata | Card2host | Multiblock | Blkcnten | Ixchken | Crcchken,
-[24] Resp48 | Isdata | Host2card | Ixchken | Crcchken,
-[25] Resp48 | Isdata | Host2card | Multiblock | Blkcnten | Ixchken | Crcchken,
-[41] Resp48,
-[52] Resp48 | Ixchken | Crcchken,
-[53] Resp48	| Ixchken | Crcchken | Isdata,
-[55] Resp48 | Ixchken | Crcchken,
-};
-
-typedef struct Adma Adma;
-typedef struct Ctlr Ctlr;
-
 /*
  * ADMA2 descriptor
  *	See SD Host Controller Simplified Specification Version 2.00
  */
 
+typedef struct Adma Adma;
 struct Adma {
 	u32int	desc;
 	u32int	addr;
@@ -197,18 +160,17 @@ enum {
 	Maxdma		= ((1<<16) - 4),
 };
 
+typedef struct Ctlr Ctlr;
 struct Ctlr {
 	Rendez	r;
-	int	fastclock;
 	ulong	extclk;
-	int	appcmd;
 	Adma	*dma;
 	uintptr	busdram;
 };
 
 static Ctlr sdhc;
 
-static void mmcinterrupt(Ureg*, void*);
+static void sdhcinterrupt(Ureg*, void*);
 
 static void
 WR(int reg, u32int val)
@@ -259,11 +221,10 @@ dmaalloc(void *addr, int len)
 static void
 sdhcclk(uint freq)
 {
-	u32int *r;
+	u32int *r = (u32int*)SDHCREGS;
 	uint div;
 	int i;
 
-	r = (u32int*)SDHCREGS;
 	div = sdhc.extclk / (freq<<1);
 	if(sdhc.extclk / (div<<1) > freq)
 		div++;
@@ -278,12 +239,33 @@ sdhcclk(uint freq)
 		print("sdhc: can't set clock to %ud\n", freq);
 }
 
+static void
+sdhcbus(SDio*, int width, int speed)
+{
+	u32int *r = (u32int*)SDHCREGS;
+
+	switch(width){
+	case 1:
+		WR(Control0, (r[Control0] & ~DwidthMask) | Dwidth1);
+		break;
+	case 4:
+		WR(Control0, (r[Control0] & ~DwidthMask) | Dwidth4);
+		break;
+	case 8:
+		WR(Control0, (r[Control0] & ~DwidthMask) | Dwidth8);
+		break;
+	}
+
+	if(speed)
+		sdhcclk(speed);
+}
+
 static int
 datadone(void*)
 {
+	u32int *r = (u32int*)SDHCREGS;
 	int i;
 
-	u32int *r = (u32int*)SDHCREGS;
 	i = r[Interrupt];
 	return i & (Datadone|Err);
 }
@@ -291,7 +273,7 @@ datadone(void*)
 static int
 sdhcinit(SDio *io)
 {
-	u32int *r;
+	u32int *r = (u32int*)SDHCREGS;
 	ulong clk;
 	char *s;
 
@@ -304,7 +286,6 @@ sdhcinit(SDio *io)
 		print("%s: assuming external clock %lud Mhz\n", io->name, clk/1000000);
 	}
 	sdhc.extclk = clk;
-	r = (u32int*)SDHCREGS;
 	if(0)print("sdhc control %8.8ux %8.8ux %8.8ux\n",
 		r[Control0], r[Control1], r[Control2]);
 	WR(Control1, Srsthc);
@@ -320,10 +301,9 @@ sdhcinit(SDio *io)
 static int
 sdhcinquiry(SDio *, char *inquiry, int inqlen)
 {
-	u32int *r;
+	u32int *r = (u32int*)SDHCREGS;
 	uint ver;
 
-	r = (u32int*)SDHCREGS;
 	ver = r[Slotisrver] >> 16;
 	return snprint(inquiry, inqlen,
 		"BCM SD Host Controller %2.2x Version %2.2x",
@@ -333,52 +313,55 @@ sdhcinquiry(SDio *, char *inquiry, int inqlen)
 static void
 sdhcenable(SDio *io)
 {
-
 	WR(Control0, 0);
 	delay(1);
 	WR(Control0, V3_3 | Buspower | Dwidth1 | DmaADMA2);
 	WR(Control1, 0);
 	delay(1);
-	sdhcclk(Initfreq);
+	sdhcclk(400000);
 	WR(Irpten, 0);
 	WR(Irptmask, ~(Cardintr|Dmaintr));
 	WR(Interrupt, ~0);
-	intrenable(IRQmmc, mmcinterrupt, nil, BUSUNKNOWN, io->name);
+	intrenable(IRQmmc, sdhcinterrupt, nil, BUSUNKNOWN, io->name);
 }
 
 static int
-sdhccmd(SDio*, u32int cmd, u32int arg, u32int *resp)
+sdhccmd(SDio*, SDiocmd *cmd, u32int arg, u32int *resp)
 {
-	u32int *r;
+	u32int *r = (u32int*)SDHCREGS;
 	u32int c;
 	int i;
 	ulong now;
 
-	r = (u32int*)SDHCREGS;
-	assert(cmd < nelem(cmdinfo) && cmdinfo[cmd] != 0);
-	c = (cmd << Indexshift) | cmdinfo[cmd];
-	/*
-	 * CMD6 may be Setbuswidth or Switchfunc depending on Appcmd prefix
-	 */
-	if(cmd == Switchfunc && !sdhc.appcmd)
-		c |= Isdata|Card2host;
-	if(c & Isdata)
-		c |= Dmaen;
-	if(cmd == IORWextended){
-		if(arg & (1<<31))
-			c |= Host2card;
+	c = (u32int)cmd->index << Indexshift;
+	switch(cmd->resp){
+	case 0:
+		c |= Respnone;
+		break;
+	case 1:
+		if(cmd->busy){
+			c |= Resp48busy | Ixchken | Crcchken;
+			break;
+		}
+	default:
+		c |= Resp48 | Ixchken | Crcchken;
+		break;
+	case 2:
+		c |= Resp136 | Crcchken;
+		break;
+	case 3:
+		c |= Resp48;
+		break;
+	}
+	if(cmd->data){
+		if(cmd->data & 1)
+			c |= Isdata | Card2host | Dmaen;
 		else
-			c |= Card2host;
-		if((r[Blksizecnt]&0xFFFF0000) != 0x10000)
+			c |= Isdata | Host2card | Dmaen;
+		if(cmd->data > 2)
 			c |= Multiblock | Blkcnten;
 	}
-	/*
-	 * GoIdle indicates new card insertion: reset bus width & speed
-	 */
-	if(cmd == GoIdle){
-		WR(Control0, r[Control0] & ~(Dwidth4|Hispeed));
-		sdhcclk(Initfreq);
-	}
+
 	if(r[Status] & Cmdinhibit){
 		print("sdhccmd: need to reset Cmdinhibit intr %ux stat %ux\n",
 			r[Interrupt], r[Status]);
@@ -411,7 +394,8 @@ sdhccmd(SDio*, u32int cmd, u32int arg, u32int *resp)
 			break;
 	if((i&(Cmddone|Err)) != Cmddone){
 		if((i&~(Err|Cardintr)) != Ctoerr)
-			print("sdhc: cmd %ux arg %ux error intr %ux stat %ux\n", c, arg, i, r[Status]);
+			print("sdhc: %s cmd %ux arg %ux error intr %ux stat %ux\n",
+				cmd->name, c, arg, i, r[Status]);
 		WR(Interrupt, i);
 		if(r[Status]&Cmdinhibit){
 			WR(Control1, r[Control1]|Srstcmd);
@@ -441,56 +425,12 @@ sdhccmd(SDio*, u32int cmd, u32int arg, u32int *resp)
 		tsleep(&sdhc.r, datadone, 0, 3000);
 		i = r[Interrupt];
 		if((i & Datadone) == 0)
-			print("sdhcio: no Datadone after CMD%d\n", cmd);
+			print("sdhcio: no Datadone after %s\n", cmd->name);
 		if(i & Err)
-			print("sdhcio: CMD%d error interrupt %ux\n",
-				cmd, r[Interrupt]);
+			print("sdhcio: %s error interrupt %ux\n",
+				cmd->name, r[Interrupt]);
 		WR(Interrupt, i);
 	}
-	/*
-	 * Once card is selected, use faster clock
-	 */
-	if(cmd == MMCSelect){
-		delay(1);
-		sdhcclk(SDfreq);
-		delay(1);
-		sdhc.fastclock = 1;
-	}
-	if(cmd == Setbuswidth){
-		if(sdhc.appcmd){
-			/*
-			 * If card bus width changes, change host bus width
-			 */
-			switch(arg){
-			case 0:
-				WR(Control0, r[Control0] & ~Dwidth4);
-				break;
-			case 2:
-				WR(Control0, r[Control0] | Dwidth4);
-				break;
-			}
-		}else{
-			/*
-			 * If card switched into high speed mode, increase clock speed
-			 */
-			if((arg&0x8000000F) == 0x80000001){
-				delay(1);
-				sdhcclk(SDfreqhs);
-				delay(1);
-			}
-		}
-	}else if(cmd == IORWdirect && (arg & ~0xFF) == (1<<31|0<<28|7<<9)){
-		switch(arg & 0x3){
-		case 0:
-			WR(Control0, r[Control0] & ~Dwidth4);
-			break;
-		case 2:
-			WR(Control0, r[Control0] | Dwidth4);
-			//WR(Control0, r[Control0] | Hispeed);
-			break;
-		}
-	}
-	sdhc.appcmd = (cmd == Appcmd);
 	return 0;
 }
 
@@ -518,10 +458,9 @@ sdhciosetup(SDio*, int write, void *buf, int bsize, int bcount)
 static void
 sdhcio(SDio*, int write, uchar *buf, int len)
 {
-	u32int *r;
+	u32int *r = (u32int*)SDHCREGS;
 	int i;
 
-	r = (u32int*)SDHCREGS;
 	if(waserror()){
 		okay(0);
 		nexterror();
@@ -544,12 +483,11 @@ sdhcio(SDio*, int write, uchar *buf, int len)
 }
 
 static void
-mmcinterrupt(Ureg*, void*)
+sdhcinterrupt(Ureg*, void*)
 {	
-	u32int *r;
+	u32int *r = (u32int*)SDHCREGS;
 	int i;
 
-	r = (u32int*)SDHCREGS;
 	i = r[Interrupt];
 	if(i&(Datadone|Err))
 		wakeup(&sdhc.r);
@@ -567,7 +505,7 @@ sdhclink(void)
 		sdhccmd,
 		sdhciosetup,
 		sdhcio,
-		.highspeed = 1,
+		sdhcbus,
 	};
 	addmmcio(&io);
 }

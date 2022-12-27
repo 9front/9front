@@ -78,6 +78,7 @@ devfs.$O:	../port/sd.h /$objtype/include/ureg.h
 devsd.$O:	../port/sd.h /$objtype/include/ureg.h
 sdscsi.$O:	../port/sd.h /$objtype/include/ureg.h
 sdaoe.$O:	../port/sd.h /$objtype/include/ureg.h
+sdmmc.$O:	../port/sd.h /$objtype/include/ureg.h
 trap.$O:	/$objtype/include/ureg.h
 proc.$O:	/$objtype/include/ureg.h
 devproc.$O:	/$objtype/include/ureg.h

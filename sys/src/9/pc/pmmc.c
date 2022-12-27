@@ -2,7 +2,6 @@
  * pci mmc controller.
  *
  * initially written for X230 Ricoh MMC controller.
- * cmdinfo[] table stolen from bcm/emmc.c, thanks richard.
  *
  * for sdhc documentation see: https://www.sdcard.org/
  */
@@ -135,33 +134,6 @@ enum {
 	Resp136		= 1,
 };
 
-/* fake for cmdinfo */
-enum {
-	Blkcnten	= Mblk << 8,
-	Multiblock	= Mcnt << 8,
-	Card2host	= Mrd << 8,
-	Host2card	= Mwr << 8,
-};
-
-static int cmdinfo[64] = {
-[0]  Ixchken,
-[2]  Resp136,
-[3]  Resp48 | Ixchken | Crcchken,
-[6]  Resp48 | Ixchken | Crcchken,
-[7]  Resp48busy | Ixchken | Crcchken,
-[8]  Resp48 | Ixchken | Crcchken,
-[9]  Resp136,
-[12] Resp48busy | Ixchken | Crcchken,
-[13] Resp48 | Ixchken | Crcchken,
-[16] Resp48,
-[17] Resp48 | Isdata | Card2host | Ixchken | Crcchken,
-[18] Resp48 | Isdata | Card2host | Multiblock | Blkcnten | Ixchken | Crcchken,
-[24] Resp48 | Isdata | Host2card | Ixchken | Crcchken,
-[25] Resp48 | Isdata | Host2card | Multiblock | Blkcnten | Ixchken | Crcchken,
-[41] Resp48,
-[55] Resp48 | Ixchken | Crcchken,
-};
-
 typedef struct Ctlr Ctlr;
 struct Ctlr {
 	Lock;
@@ -278,10 +250,10 @@ softreset(Ctlr *c, int all)
 
 	m = all ? 1 : 6;
 	CR8(c, Rsrst) = m;
-	for(i=10; i>=0; i--){
+	for(i=100; i>=0; i--){
 		if((CR8(c, Rsrst) & m) == 0)
 			break;
-		delay(10);
+		delay(1);
 		CR8(c, Rsrst) = 0;
 	}
 	if(i < 0) iprint("mmc: didnt reset\n");
@@ -307,26 +279,25 @@ setpower(Ctlr *c, int on)
 }
 
 static void
-setclkfreq(Ctlr *c, int khz)
+setclkfreq(Ctlr *c, uint hz)
 {
-	u32int caps, intfreq;
-	int i, div;
+	u32int caps, clk, div;
+	int i;
 
-	if(khz == 0){
+	if(hz == 0){
 		CR16(c, Rclc) |= ~4;	/* sd clock disable */
 		return;
 	}
 
 	caps = CR32(c, Rcap);
-	intfreq = 1000*((caps >> 8) & 0x3f);
-	for(div = 1; div <= 256; div <<= 1){
-		if((intfreq / div) <= khz){
-			div >>= 1;
+	clk = 1000000*((caps >> 8) & 0xff);
+	for(div = 2; div < 256; div *= 2){
+		if((clk / div) <= hz)
 			break;
-		}
 	}
+	// iprint("setclkfreq %ud = %ud / %d = %ud Hz\n", hz, clk, div, clk / div);
 	CR16(c, Rclc) = 0;
-	CR16(c, Rclc) = div<<8;
+	CR16(c, Rclc) = (div/2)<<8;
 	CR16(c, Rclc) |= 1;	/* int clock enable */
 	for(i=1000; i>=0; i--){
 		if(CR16(c, Rclc) & 2)	/* int clock stable */
@@ -359,7 +330,7 @@ resetctlr(Ctlr *c)
 	CR16(c, Reise) = Emask;
 
 	setpower(c, 1);	
-	setclkfreq(c, 400);
+	setclkfreq(c, 400000);
 	iunlock(c);
 }
 
@@ -415,16 +386,43 @@ pmmcenable(SDio *io)
 }
 
 static int
-pmmccmd(SDio *io, u32int cmd, u32int arg, u32int *resp)
+pmmccmd(SDio *io, SDiocmd *iocmd, u32int arg, u32int *resp)
 {
 	Ctlr *c = io->aux;
-	u32int status;
-	int i, mode;
+	u32int cmd, mode, status;
+	int i;
 
-	if(cmd >= nelem(cmdinfo) || cmdinfo[cmd] == 0)
-		error(Egreg);
-	mode = cmdinfo[cmd] >> 8;
-	cmd = (cmd << 8) | (cmdinfo[cmd] & 0xFF);
+// print("pmmccmd: %s (%ux)\n", iocmd->name, arg);
+	cmd = (u32int)iocmd->index << 8;
+	switch(iocmd->resp){
+	case 0:
+		cmd |= Respnone;
+		break;
+	case 1:
+		if(iocmd->busy){
+			cmd |= Resp48busy | Ixchken | Crcchken;
+			break;
+		}
+	default:
+		cmd |= Resp48 | Ixchken | Crcchken;
+		break;
+	case 2:
+		cmd |= Resp136 | Crcchken;
+		break;
+	case 3:
+		cmd |= Resp48;
+		break;
+	}
+	mode = 0;
+	if(iocmd->data){
+		cmd |= Isdata;
+		if(iocmd->data & 1)
+			mode |= Mrd;
+		else
+			mode |= Mwr;
+		if(iocmd->data > 2)
+			mode |= Mcnt | Mblk;
+	}
 
 	if(c->change)
 		resetctlr(c);
@@ -434,8 +432,8 @@ pmmccmd(SDio *io, u32int cmd, u32int arg, u32int *resp)
 	status = Pinhbc;
 	if((cmd & Isdata) != 0 || (cmd & Respmask) == Resp48busy)
 		status |= Pinhbd;
-	for(i=1000; (CR32(c, Rpres) & status) != 0 && i>=0; i--)
-		delay(1);
+	for(i=100; (CR32(c, Rpres) & status) != 0 && i>=0; i--)
+		tsleep(&up->sleep, return0, nil, 10);
 	if(i < 0)
 		error(Eio);
 
@@ -471,19 +469,6 @@ pmmccmd(SDio *io, u32int cmd, u32int arg, u32int *resp)
 		resp[0] = 0;
 		break;
 	}
-
-	cmd >>= 8;
-	if(cmd == 0x06){	/* buswidth */
-		switch(arg){
-		case 0:
-			CR8(c, Rhc) &= ~2;
-			break;
-		case 2:
-			CR8(c, Rhc) |= 2;
-			break;
-		}
-	}
-
 	return 0;
 }
 
@@ -545,6 +530,25 @@ pmmcio(SDio *io, int write, uchar *buf, int len)
 		error(Eio);
 }
 
+static void
+pmmcbus(SDio *io, int width, int speed)
+{
+	Ctlr *c = io->aux;
+
+	ilock(c);
+	switch(width){
+	case 1:
+		CR8(c, Rhc) &= ~2;
+		break;
+	case 4:
+		CR8(c, Rhc) |= 2;
+		break;
+	}
+	if(speed)
+		setclkfreq(c, speed);
+	iunlock(c);
+}
+
 void
 pmmclink(void)
 {
@@ -556,6 +560,7 @@ pmmclink(void)
 		pmmccmd,
 		pmmciosetup,
 		pmmcio,
+		pmmcbus,
 	};
 	addmmcio(&io);
 }

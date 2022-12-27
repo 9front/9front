@@ -14,15 +14,6 @@
 #include "../port/sd.h"
 
 enum {
-	Initfreq	= 400000,	/* initialisation frequency for MMC */
-	SDfreq		= 25000000,	/* standard SD frequency */
-	DTO		= 14,		/* data timeout exponent (guesswork) */
-
-	MMCSelect	= 7,		/* mmc/sd card select command */
-	Setbuswidth	= 6,		/* mmc/sd set bus width command */
-};
-
-enum {
 	/* Controller registers */
 	Sysaddr			= 0x00>>2,
 	Blksizecnt		= 0x04>>2,
@@ -56,6 +47,7 @@ enum {
 	Srsthc			= 1<<24,	/* reset complete host controller */
 	Datatoshift		= 16,		/* data timeout unit exponent */
 	Datatomask		= 0xF0000,
+		DTO		= 14,		/* data timeout exponent (guesswork) */
 	Clkfreq8shift		= 8,		/* SD clock base divider LSBs */
 	Clkfreq8mask		= 0xFF00,
 	Clkfreqms2shift		= 6,		/* SD clock base divider MSBs */
@@ -116,31 +108,11 @@ enum {
 	Cmdinhibit	= 1<<0,
 };
 
-static int cmdinfo[64] = {
-[0]  Ixchken,
-[2]  Resp136,
-[3]  Resp48 | Ixchken | Crcchken,
-[6]  Resp48 | Ixchken | Crcchken,
-[7]  Resp48busy | Ixchken | Crcchken,
-[8]  Resp48 | Ixchken | Crcchken,
-[9]  Resp136,
-[12] Resp48busy | Ixchken | Crcchken,
-[13] Resp48 | Ixchken | Crcchken,
-[16] Resp48,
-[17] Resp48 | Isdata | Card2host | Ixchken | Crcchken | Dmaen,
-[18] Resp48 | Isdata | Card2host | Multiblock | Blkcnten | Ixchken | Crcchken | Dmaen,
-[24] Resp48 | Isdata | Host2card | Ixchken | Crcchken | Dmaen,
-[25] Resp48 | Isdata | Host2card | Multiblock | Blkcnten | Ixchken | Crcchken | Dmaen,
-[41] Resp48,
-[55] Resp48 | Ixchken | Crcchken,
-};
-
 typedef struct Ctlr Ctlr;
 struct Ctlr {
 	Rendez	r;
 	u32int	*regs;
 	int	datadone;
-	int	fastclock;
 	ulong	extclk;
 	int	irq;
 };
@@ -209,33 +181,66 @@ emmcinquiry(SDio*, char *inquiry, int inqlen)
 }
 
 static void
-emmcenable(SDio *io)
+emmcclk(uint freq)
 {
+	u32int *r;
 	int i;
 
-	emmc.regs[Control1] = clkdiv(emmc.extclk / Initfreq - 1) | DTO << Datatoshift |
-		Clkgendiv | Clken | Clkintlen;
+	r = emmc.regs;
+	r[Control1] = clkdiv(emmc.extclk / freq - 1) |
+			DTO << Datatoshift | Clkgendiv | Clken | Clkintlen;
 	for(i = 0; i < 1000; i++){
 		delay(1);
-		if(emmc.regs[Control1] & Clkstable)
-			break;
+		if(r[Control1] & Clkstable)
+			return;
 	}
-	if(i == 1000)
-		print("SD clock won't initialise!\n");
+	print("SD clock won't initialise!\n");
+}
+
+static void
+emmcenable(SDio *io)
+{
+	emmcclk(400000);
 	emmc.regs[Irptmask] = ~(Dtoerr|Cardintr|Dmaintr);
 	intrenable(emmc.irq, interrupt, nil, LEVEL, io->name);
 }
 
 static int
-emmccmd(SDio*, u32int cmd, u32int arg, u32int *resp)
+emmccmd(SDio*, SDiocmd *cmd, u32int arg, u32int *resp)
 {
 	ulong now;
 	u32int *r;
 	u32int c;
 	int i;
 
-	assert(cmd < nelem(cmdinfo) && cmdinfo[cmd] != 0);
-	c = (cmd << Indexshift) | cmdinfo[cmd];
+	c = (u32int)cmd->index << Indexshift;
+	switch(cmd->resp){
+	case 0:
+		c |= Respnone;
+		break;
+	case 1:
+		if(cmd->busy){
+			c |= Resp48busy | Ixchken | Crcchken;
+			break;
+		}
+	default:
+		c |= Resp48 | Ixchken | Crcchken;
+		break;
+	case 2:
+		c |= Resp136 | Crcchken;
+		break;
+	case 3:
+		c |= Resp48;
+		break;
+	}
+	if(cmd->data){
+		if(cmd->data & 1)
+			c |= Isdata | Card2host | Dmaen;
+		else
+			c |= Isdata | Host2card | Dmaen;
+		if(cmd->data > 2)
+			c |= Multiblock | Blkcnten;
+	}
 
 	r = emmc.regs;
 	if(r[Status] & Cmdinhibit){
@@ -308,33 +313,6 @@ emmccmd(SDio*, u32int cmd, u32int arg, u32int *resp)
 				cmd, r[Interrupt]);
 		r[Interrupt] = i;
 	}
-	/*
-	 * Once card is selected, use faster clock
-	 */
-	if(cmd == MMCSelect){
-		delay(10);
-		r[Control1] = clkdiv(emmc.extclk / SDfreq - 1) |
-			DTO << Datatoshift | Clkgendiv | Clken | Clkintlen;
-		for(i = 0; i < 1000; i++){
-			delay(1);
-			if(r[Control1] & Clkstable)
-				break;
-		}
-		delay(10);
-		emmc.fastclock = 1;
-	}
-	/*
-	 * If card bus width changes, change host bus width
-	 */
-	if(cmd == Setbuswidth)
-		switch(arg){
-		case 0:
-			r[Control0] &= ~Dwidth4;
-			break;
-		case 2:
-			r[Control0] |= Dwidth4;
-			break;
-		}
 	return 0;
 }
 
@@ -393,6 +371,24 @@ emmcio(SDio*, int write, uchar *buf, int len)
 	}
 }
 
+static void
+emmcbus(SDio*, int width, int speed)
+{
+	u32int *r;
+
+	r = emmc.regs;
+	switch(width){
+	case 1:
+		r[Control0] &= ~Dwidth4;
+		break;
+	case 4:
+		r[Control0] |= Dwidth4;
+		break;
+	}
+	if(speed)
+		emmcclk(speed);
+}
+
 void
 emmclink(void)
 {
@@ -404,6 +400,7 @@ emmclink(void)
 		emmccmd,
 		emmciosetup,
 		emmcio,
+		emmcbus,
 	};
 	addmmcio(&io);
 }

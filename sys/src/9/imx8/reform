@@ -52,8 +52,8 @@ misc
 	lcd
 	uartimx
 	iomux
-	sdmmc	usdhc
 	sdnvme	pci
+	sdmmc	usdhc
 port
 	int cpuserver = 0;
 bootdir

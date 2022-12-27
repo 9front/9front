@@ -5,6 +5,7 @@ typedef struct SDev SDev;
 typedef struct SDfile SDfile;
 typedef struct SDifc SDifc;
 typedef struct SDio SDio;
+typedef struct SDiocmd SDiocmd;
 typedef struct SDpart SDpart;
 typedef struct SDperm SDperm;
 typedef struct SDreq SDreq;
@@ -149,19 +150,29 @@ enum {
 #define sdmalloc(n)	mallocalign(n, BY2PG, 0, 0)
 #define sdfree(p)	free(p)
 
+
 /*
  * mmc/sd/sdio host controller interface
  */
+
+struct SDiocmd {
+	uchar	index;
+	uchar	resp;	/* 0 = none, 1 = R1, 2 = R2, 3 = R3 ... */
+	uchar	busy;
+	uchar	data;	/* 1 = read, 2 = write, 3 = multi read, 4 = multi write */
+
+	char	*name;
+};
 
 struct SDio {
 	char	*name;
 	int	(*init)(SDio*);
 	void	(*enable)(SDio*);
 	int	(*inquiry)(SDio*, char*, int);
-	int	(*cmd)(SDio*, u32int, u32int, u32int*);
+	int	(*cmd)(SDio*, SDiocmd*, u32int, u32int*);
 	void	(*iosetup)(SDio*, int, void*, int, int);
 	void	(*io)(SDio*, int, uchar*, int);
-	char	highspeed;
+	void	(*bus)(SDio*, int, int);
 	char	nomultiwrite;	/* quirk for usdhc */
 	void	*aux;
 };

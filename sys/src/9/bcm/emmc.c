@@ -26,20 +26,6 @@
 enum {
 	Extfreq		= 100*Mhz,	/* guess external clock frequency if */
 					/* not available from vcore */
-	Initfreq	= 400000,	/* initialisation frequency for MMC */
-	SDfreq		= 25*Mhz,	/* standard SD frequency */
-	SDfreqhs	= 50*Mhz,	/* high speed frequency */
-	DTO		= 14,		/* data timeout exponent (guesswork) */
-
-	GoIdle		= 0,		/* mmc/sdio go idle state */
-	MMCSelect	= 7,		/* mmc/sd card select command */
-	Setbuswidth	= 6,		/* mmc/sd set bus width command */
-
-	Switchfunc	= 6,		/* mmc/sd switch function command */
-	Voltageswitch	= 11,		/* md/sdio switch to 1.8V */
-	IORWdirect	= 52,		/* sdio read/write direct command */
-	IORWextended	= 53,		/* sdio read/write extended command */
-	Appcmd		= 55,		/* mmc/sd application command prefix */
 };
 
 enum {
@@ -75,12 +61,14 @@ enum {
 	Hispeed			= 1<<2,	
 	Dwidth4			= 1<<1,
 	Dwidth1			= 0<<1,
+	DwidthMask		= Dwidth4,
 
 	/* Control1 */
 	Srstdata		= 1<<26,	/* reset data circuit */
 	Srstcmd			= 1<<25,	/* reset command circuit */
 	Srsthc			= 1<<24,	/* reset complete host controller */
 	Datatoshift		= 16,		/* data timeout unit exponent */
+		DTO		= 14,		/* data timeout exponent (guesswork) */
 	Datatomask		= 0xF0000,
 	Clkfreq8shift		= 8,		/* SD clock base divider LSBs */
 	Clkfreq8mask		= 0xFF00,
@@ -139,41 +127,16 @@ enum {
 	Cmdinhibit	= 1<<0,
 };
 
-static int cmdinfo[64] = {
-[0]  Ixchken,
-[2]  Resp136,
-[3]  Resp48 | Ixchken | Crcchken,
-[5]  Resp48,
-[6]  Resp48 | Ixchken | Crcchken,
-[7]  Resp48busy | Ixchken | Crcchken,
-[8]  Resp48 | Ixchken | Crcchken,
-[9]  Resp136,
-[11] Resp48 | Ixchken | Crcchken,
-[12] Resp48busy | Ixchken | Crcchken,
-[13] Resp48 | Ixchken | Crcchken,
-[16] Resp48,
-[17] Resp48 | Isdata | Card2host | Ixchken | Crcchken,
-[18] Resp48 | Isdata | Card2host | Multiblock | Blkcnten | Ixchken | Crcchken,
-[24] Resp48 | Isdata | Host2card | Ixchken | Crcchken,
-[25] Resp48 | Isdata | Host2card | Multiblock | Blkcnten | Ixchken | Crcchken,
-[41] Resp48,
-[52] Resp48 | Ixchken | Crcchken,
-[53] Resp48 | Ixchken | Crcchken | Isdata,
-[55] Resp48 | Ixchken | Crcchken,
-};
-
 typedef struct Ctlr Ctlr;
-
 struct Ctlr {
 	Rendez	r;
 	int	fastclock;
 	ulong	extclk;
-	int	appcmd;
 };
 
 static Ctlr emmc;
 
-static void mmcinterrupt(Ureg*, void*);
+static void emmcinterrupt(Ureg*, void*);
 
 static void
 WR(int reg, u32int val)
@@ -200,16 +163,16 @@ clkdiv(uint d)
 static void
 emmcclk(uint freq)
 {
-	u32int *r;
+	u32int *r = (u32int*)EMMCREGS;
 	uint div;
 	int i;
 
-	r = (u32int*)EMMCREGS;
 	div = emmc.extclk / (freq<<1);
 	if(emmc.extclk / (div<<1) > freq)
 		div++;
 	WR(Control1, clkdiv(div) |
 		DTO<<Datatoshift | Clkgendiv | Clken | Clkintlen);
+	emmc.fastclock = freq > 400000;
 	for(i = 0; i < 1000; i++){
 		delay(1);
 		if(r[Control1] & Clkstable)
@@ -219,12 +182,30 @@ emmcclk(uint freq)
 		print("emmc: can't set clock to %ud\n", freq);
 }
 
+static void
+emmcbus(SDio*, int width, int speed)
+{
+	u32int *r = (u32int*)EMMCREGS;
+
+	switch(width){
+	case 1:
+		WR(Control0, (r[Control0] & ~DwidthMask) | Dwidth1);
+		break;
+	case 4:
+		WR(Control0, (r[Control0] & ~DwidthMask) | Dwidth4);
+		break;
+	}
+
+	if(speed)
+		emmcclk(speed);
+}
+
 static int
 datadone(void*)
 {
+	u32int *r = (u32int*)EMMCREGS;
 	int i;
 
-	u32int *r = (u32int*)EMMCREGS;
 	i = r[Interrupt];
 	return i & (Datadone|Err);
 }
@@ -232,9 +213,9 @@ datadone(void*)
 static int
 cardintready(void*)
 {
+	u32int *r = (u32int*)EMMCREGS;
 	int i;
 
-	u32int *r = (u32int*)EMMCREGS;
 	i = r[Interrupt];
 	return i & Cardintr;
 }
@@ -242,7 +223,7 @@ cardintready(void*)
 static int
 emmcinit(SDio*)
 {
-	u32int *r;
+	u32int *r = (u32int*)EMMCREGS;
 	ulong clk;
 
 	clk = getclkrate(ClkEmmc);
@@ -251,7 +232,6 @@ emmcinit(SDio*)
 		print("emmc: assuming external clock %lud Mhz\n", clk/1000000);
 	}
 	emmc.extclk = clk;
-	r = (u32int*)EMMCREGS;
 	if(0)print("emmc control %8.8ux %8.8ux %8.8ux\n",
 		r[Control0], r[Control1], r[Control2]);
 	WR(Control1, Srsthc);
@@ -267,10 +247,9 @@ emmcinit(SDio*)
 static int
 emmcinquiry(SDio*, char *inquiry, int inqlen)
 {
-	u32int *r;
+	u32int *r = (u32int*)EMMCREGS;
 	uint ver;
 
-	r = (u32int*)EMMCREGS;
 	ver = r[Slotisrver] >> 16;
 	return snprint(inquiry, inqlen,
 		"Arasan eMMC SD Host Controller %2.2x Version %2.2x",
@@ -278,46 +257,52 @@ emmcinquiry(SDio*, char *inquiry, int inqlen)
 }
 
 static void
-emmcenable(SDio*)
+emmcenable(SDio *io)
 {
-	emmcclk(Initfreq);
+	emmcclk(400000);
 	WR(Irpten, 0);
 	WR(Irptmask, ~0);
 	WR(Interrupt, ~0);
-	intrenable(IRQmmc, mmcinterrupt, nil, BUSUNKNOWN, "mmc");
+	intrenable(IRQmmc, emmcinterrupt, nil, BUSUNKNOWN, io->name);
 }
 
 static int
-emmccmd(SDio*, u32int cmd, u32int arg, u32int *resp)
+emmccmd(SDio*, SDiocmd *cmd, u32int arg, u32int *resp)
 {
-	u32int *r;
+	u32int *r = (u32int*)EMMCREGS;
 	u32int c;
 	int i;
 	ulong now;
 
-	r = (u32int*)EMMCREGS;
-	assert(cmd < nelem(cmdinfo) && cmdinfo[cmd] != 0);
-	c = (cmd << Indexshift) | cmdinfo[cmd];
-	/*
-	 * CMD6 may be Setbuswidth or Switchfunc depending on Appcmd prefix
-	 */
-	if(cmd == Switchfunc && !emmc.appcmd)
-		c |= Isdata|Card2host;
-	if(cmd == IORWextended){
-		if(arg & (1<<31))
-			c |= Host2card;
+	c = (u32int)cmd->index << Indexshift;
+	switch(cmd->resp){
+	case 0:
+		c |= Respnone;
+		break;
+	case 1:
+		if(cmd->busy){
+			c |= Resp48busy | Ixchken | Crcchken;
+			break;
+		}
+	default:
+		c |= Resp48 | Ixchken | Crcchken;
+		break;
+	case 2:
+		c |= Resp136 | Crcchken;
+		break;
+	case 3:
+		c |= Resp48;
+		break;
+	}
+	if(cmd->data){
+		if(cmd->data & 1)
+			c |= Isdata | Card2host;
 		else
-			c |= Card2host;
-		if((r[Blksizecnt]&0xFFFF0000) != 0x10000)
+			c |= Isdata | Host2card;
+		if(cmd->data > 2)
 			c |= Multiblock | Blkcnten;
 	}
-	/*
-	 * GoIdle indicates new card insertion: reset bus width & speed
-	 */
-	if(cmd == GoIdle){
-		WR(Control0, r[Control0] & ~(Dwidth4|Hispeed));
-		emmcclk(Initfreq);
-	}
+
 	if((r[Status] & Datinhibit) &&
 	   ((c & Isdata) || (c & Respmask) == Resp48busy)){
 		print("emmccmd: need to reset Cmdinhibit intr %ux stat %ux\n",
@@ -351,7 +336,8 @@ emmccmd(SDio*, u32int cmd, u32int arg, u32int *resp)
 			break;
 	if((i&(Cmddone|Err)) != Cmddone){
 		if((i&~(Err|Cardintr)) != Ctoerr)
-			print("emmc: cmd %ux arg %ux error intr %ux stat %ux\n", c, arg, i, r[Status]);
+			print("emmc: %s cmd %ux arg %ux error intr %ux stat %ux\n",
+				cmd->name, c, arg, i, r[Status]);
 		WR(Interrupt, i);
 		if(r[Status]&Cmdinhibit){
 			WR(Control1, r[Control1]|Srstcmd);
@@ -381,56 +367,12 @@ emmccmd(SDio*, u32int cmd, u32int arg, u32int *resp)
 		tsleep(&emmc.r, datadone, 0, 3000);
 		i = r[Interrupt];
 		if((i & Datadone) == 0)
-			print("emmcio: no Datadone after CMD%d\n", cmd);
+			print("emmcio: no Datadone after %s\n", cmd->name);
 		if(i & Err)
-			print("emmcio: CMD%d error interrupt %ux\n",
-				cmd, r[Interrupt]);
+			print("emmcio: %s error interrupt %ux\n",
+				cmd->name, r[Interrupt]);
 		WR(Interrupt, i);
 	}
-	/*
-	 * Once card is selected, use faster clock
-	 */
-	if(cmd == MMCSelect){
-		delay(1);
-		emmcclk(SDfreq);
-		delay(1);
-		emmc.fastclock = 1;
-	}
-	if(cmd == Setbuswidth){
-		if(emmc.appcmd){
-			/*
-			 * If card bus width changes, change host bus width
-			 */
-			switch(arg){
-			case 0:
-				WR(Control0, r[Control0] & ~Dwidth4);
-				break;
-			case 2:
-				WR(Control0, r[Control0] | Dwidth4);
-				break;
-			}
-		}else{
-			/*
-			 * If card switched into high speed mode, increase clock speed
-			 */
-			if((arg&0x8000000F) == 0x80000001){
-				delay(1);
-				emmcclk(SDfreqhs);
-				delay(1);
-			}
-		}
-	}else if(cmd == IORWdirect && (arg & ~0xFF) == (1<<31|0<<28|7<<9)){
-		switch(arg & 0x3){
-		case 0:
-			WR(Control0, r[Control0] & ~Dwidth4);
-			break;
-		case 2:
-			WR(Control0, r[Control0] | Dwidth4);
-			//WR(Control0, r[Control0] | Hispeed);
-			break;
-		}
-	}
-	emmc.appcmd = (cmd == Appcmd);
 	return 0;
 }
 
@@ -445,10 +387,9 @@ emmciosetup(SDio*, int write, void *buf, int bsize, int bcount)
 static void
 emmcio(SDio*, int write, uchar *buf, int len)
 {
-	u32int *r;
+	u32int *r = (u32int*)EMMCREGS;
 	int i;
 
-	r = (u32int*)EMMCREGS;
 	assert((len&3) == 0);
 	okay(1);
 	if(waserror()){
@@ -485,12 +426,11 @@ emmcio(SDio*, int write, uchar *buf, int len)
 }
 
 static void
-mmcinterrupt(Ureg*, void*)
+emmcinterrupt(Ureg*, void*)
 {	
-	u32int *r;
+	u32int *r = (u32int*)EMMCREGS;
 	int i;
 
-	r = (u32int*)EMMCREGS;
 	i = r[Interrupt];
 	if(i&(Datadone|Err))
 		wakeup(&emmc.r);
@@ -508,7 +448,7 @@ emmclink(void)
 		emmccmd,
 		emmciosetup,
 		emmcio,
-		.highspeed = 1,
+		emmcbus,
 	};
 	addmmcio(&io);
 }
