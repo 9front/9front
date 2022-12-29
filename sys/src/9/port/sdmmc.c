@@ -16,10 +16,12 @@
 #include "../port/sd.h"
 
 /* Commands */
-SDiocmd	GO_IDLE_STATE		= { 0, 0, 0, 0, "GO_IDLE_STATE" };
+SDiocmd GO_IDLE_STATE		= { 0, 0, 0, 0, "GO_IDLE_STATE" };
 SDiocmd SEND_OP_COND		= { 1, 3, 0, 0, "SEND_OP_COND" };
 SDiocmd ALL_SEND_CID		= { 2, 2, 0, 0, "ALL_SEND_CID" };
 SDiocmd SET_RELATIVE_ADDR	= { 3, 1, 0, 0, "SET_RELATIVE_ADDR" };
+SDiocmd SEND_RELATIVE_ADDR	= { 3, 6, 0, 0, "SEND_RELATIVE_ADDR" };
+SDiocmd SWITCH			= { 6, 1, 1, 0, "SWITCH" };
 SDiocmd SWITCH_FUNC		= { 6, 1, 0, 1, "SWITCH_FUNC" };
 SDiocmd SELECT_CARD		= { 7, 1, 1, 0, "SELECT_CARD" };
 SDiocmd SEND_EXT_CSD		= { 8, 1, 0, 1, "SEND_EXT_CSD" };
@@ -41,16 +43,11 @@ SDiocmd  SD_SEND_OP_COND	= {41, 3, 0, 0, "SD_SEND_OP_COND" };
 /* Command arguments */
 enum {
 	/* SD_SEND_IF_COND */
-	Voltage		= 1<<8,
+	Voltage		= 1<<8,	/* Host supplied voltage range 2.7-3.6 volts*/
 	Checkpattern	= 0x42,
 
 	/* SELECT_CARD */
 	Rcashift	= 16,
-
-	/* SD_SEND_OP_COND */
-	Hcs	= 1<<30,	/* host supports SDHC & SDXC */
-	Ccs	= 1<<30,	/* card is SDHC or SDXC */
-	V3_3	= 3<<20,	/* 3.2-3.4 volts */
 
 	/* SD_SET_BUS_WIDTH */
 	Width1	= 0<<0,
@@ -63,8 +60,18 @@ enum {
 	Setfunc		= 0x80FFFFF0,
 	Funcbytes	= 64,
 
+	/* SWITCH */
+	MMCSetSDTiming	= 0x3B90000,
+	MMCSetHSTiming	= 0x3B90100,
+	MMCSetBusWidth1	= 0x3B70000,
+	MMCSetBusWidth4	= 0x3B70100,
+	MMCSetBusWidth8	= 0x3B70200,
+
 	/* OCR (operating conditions register) */
 	Powerup	= 1<<31,
+	Hcs	= 1<<30,	/* Host capacity support */
+	Ccs	= 1<<30,	/* Card capacity status */
+	V3_3	= 3<<20,	/* 3.2-3.4 volts */
 };
 
 enum {
@@ -76,12 +83,13 @@ enum {
 	SDfreqhs	= 50000000,	/* highspeed frequency */
 };
 
-typedef struct Ctlr Ctlr;
-struct Ctlr {
+typedef struct Card Card;
+struct Card {
 	SDev	*dev;
 	SDio	*io;
 
 	int	ismmc;
+	int	specver;
 
 	int	buswidth;
 	int	busspeed;
@@ -118,7 +126,7 @@ static SDev*
 init1(void)
 {
 	SDev *sdev;
-	Ctlr *ctlr;
+	Card *card;
 	SDio *io;
 	int more;
 
@@ -126,12 +134,12 @@ init1(void)
 		return nil;
 	if((sdev = malloc(sizeof(SDev))) == nil)
 		return nil;
-	if((ctlr = malloc(sizeof(Ctlr))) == nil){
+	if((card = malloc(sizeof(Card))) == nil){
 		free(sdev);
 		return nil;
 	}
 	if((io = malloc(sizeof(SDio))) == nil){
-		free(ctlr);
+		free(card);
 		free(sdev);
 		return nil;
 	}
@@ -144,7 +152,7 @@ Next:
 				goto Next;
 
 			free(io);
-			free(ctlr);
+			free(card);
 			free(sdev);
 			return nil;
 		}
@@ -154,9 +162,9 @@ Next:
 	sdev->idno = 'M';
 	sdev->ifc = &sdmmcifc;
 	sdev->nunit = 1;
-	sdev->ctlr = ctlr;
-	ctlr->dev = sdev;
-	ctlr->io = io;
+	sdev->ctlr = card;
+	card->dev = sdev;
+	card->io = io;
 	return sdev;
 }
 
@@ -172,9 +180,9 @@ mmcpnp(void)
 }
 
 static void
-readextcsd(Ctlr *ctlr)
+readextcsd(Card *card)
 {
-	SDio *io = ctlr->io;
+	SDio *io = card->io;
 	u32int r[4];
 	uchar *buf;
 
@@ -186,7 +194,7 @@ readextcsd(Ctlr *ctlr)
 	(*io->iosetup)(io, 0, buf, 512, 1);
 	(*io->cmd)(io, &SEND_EXT_CSD, 0, r);
 	(*io->io)(io, 0, buf, 512);
-	memmove(ctlr->ext_csd, buf, sizeof ctlr->ext_csd);
+	memmove(card->ext_csd, buf, sizeof card->ext_csd);
 	sdfree(buf);
 	poperror();
 }
@@ -223,27 +231,90 @@ rbytes(uchar *p, uint start, uint len)
 static void
 identify(SDunit *unit)
 {
-	Ctlr *ctlr = unit->dev->ctlr;
+	Card *card = unit->dev->ctlr;
 	uint csize, mult;
+	uvlong capacity;
 
-#define CSD(end, start)	rbits(ctlr->csd, start, (end)-(start)+1)
+#define CSD(end, start)	rbits(card->csd, start, (end)-(start)+1)
+	mult = CSD(49, 47);
+	csize = CSD(73, 62);
+	unit->sectors = (csize+1) * (1<<(mult+2));
 	unit->secsize = 1 << CSD(83, 80);
-	switch(CSD(127, 126)){
-	case 0:				/* CSD version 1 */
-		csize = CSD(73, 62);
-		mult = CSD(49, 47);
-		unit->sectors = (csize+1) * (1<<(mult+2));
-		break;
-	case 1:				/* CSD version 2 */
-		csize = CSD(69, 48);
-		unit->sectors = (csize+1) * 0x80000LL / unit->secsize;
-		break;
-	default:
-		readextcsd(ctlr);
-#define EXT_CSD(end, start) rbytes(ctlr->ext_csd, start, (end)-(start)+1)
-		unit->sectors = EXT_CSD(215, 212);
-		unit->secsize = 512;
+
+	card->specver = 0;
+
+	if(card->ismmc){
+		switch(CSD(125, 122)){
+		case 0:
+		default:
+			card->specver = 120;	/* 1.2 */
+			break;
+		case 1:
+			card->specver = 140;	/* 1.4 */
+			break;
+		case 2:
+			card->specver = 122;	/* 1.22 */
+			break;
+		case 3:
+			card->specver = 300;	/* 3.0 */
+			break;
+		case 4:
+			card->specver = 400;	/* 4.0 */
+			break;
+		}
+		switch(CSD(127, 126)){
+		case 2:				/* MMC CSD Version 1.2 */
+		case 3:				/* MMC Version coded in EXT_CSD */
+			if(card->specver < 400)
+				break;
+			readextcsd(card);
+#define EXT_CSD(end, start) rbytes(card->ext_csd, start, (end)-(start)+1)
+			switch(EXT_CSD(192, 192)){
+			case 8:
+				card->specver = 510;	/* 5.1 */
+				break;
+			case 7:
+				card->specver = 500;	/* 5.0 */
+				break;
+			case 6:
+				card->specver = 450;	/* 4.5/4.51 */
+				break;
+			case 5:
+				card->specver = 441;	/* 4.41 */
+				break;
+			case 3:
+				card->specver = 430;	/* 4.3 */
+				break;
+			case 2:
+				card->specver = 420;	/* 4.2 */
+				break;
+			case 1:
+				card->specver = 410;	/* 4.1 */
+				break;
+			case 0:
+				card->specver = 400;	/* 4.0 */
+				break;
+			}
+		}
+		if(card->specver >= 420) {
+			capacity = EXT_CSD(215, 212) * 512ULL;
+			if(capacity > 0x80000000ULL)
+				unit->sectors = capacity / unit->secsize;
+		}
+	} else {
+		switch(CSD(127, 126)){
+		case 0:				/* SD Version 1.0 */
+			card->specver = 100;
+			break;
+		case 1:				/* SD Version 2.0 */
+			card->specver = 200;
+			csize = CSD(69, 48);
+			capacity = (csize+1) * 0x80000ULL;
+			unit->sectors = capacity / unit->secsize;
+			break;
+		}
 	}
+
 	if(unit->secsize == 1024){
 		unit->sectors <<= 1;
 		unit->secsize = 512;
@@ -253,8 +324,8 @@ identify(SDunit *unit)
 static int
 mmcverify(SDunit *unit)
 {
-	Ctlr *ctlr = unit->dev->ctlr;
-	SDio *io = ctlr->io;
+	Card *card = unit->dev->ctlr;
+	SDio *io = card->io;
 	int n;
 
 	n = (*io->inquiry)(io, (char*)&unit->inquiry[8], sizeof(unit->inquiry)-8);
@@ -269,16 +340,37 @@ mmcverify(SDunit *unit)
 static int
 mmcenable(SDev* dev)
 {
-	Ctlr *ctlr = dev->ctlr;
-	SDio *io = ctlr->io;
+	Card *card = dev->ctlr;
+	SDio *io = card->io;
 	(*io->enable)(io);
 	return 1;
 }
 
 static void
-switchfunc(Ctlr *ctlr, int arg)
+mmcswitch(Card *card, u32int arg)
 {
-	SDio *io = ctlr->io;
+	SDio *io = card->io;
+	u32int r[4];
+	int i;
+
+	(*io->cmd)(io, &SWITCH, arg, r);
+
+	for(i=0; i<10;i++){
+		tsleep(&up->sleep, return0, nil, 100);
+
+		(*io->cmd)(io, &SEND_STATUS, card->rca<<Rcashift, r);
+		if(r[0] & (1<<7))
+			error(Eio);
+		if(r[0] & (1<<8))
+			return;
+	}
+	error(Eio);
+}
+
+static void
+sdswitchfunc(Card *card, int arg)
+{
+	SDio *io = card->io;
 	u32int r[4];
 	uchar *buf;
 	int n;
@@ -292,12 +384,10 @@ switchfunc(Ctlr *ctlr, int arg)
 	(*io->iosetup)(io, 0, buf, n, 1);
 	(*io->cmd)(io, &SWITCH_FUNC, arg, r);
 	if((arg & 0xFFFFFFF0) == Setfunc){
-		ctlr->busspeed = (arg & Hispeed) != 0? SDfreqhs: SDfreq;
-		if(io->bus != nil){
-			tsleep(&up->sleep, return0, nil, 10);
-			(*io->bus)(io, 0, ctlr->busspeed);
-			tsleep(&up->sleep, return0, nil, 10);
-		}
+		card->busspeed = (arg & Hispeed) != 0? SDfreqhs: SDfreq;
+		tsleep(&up->sleep, return0, nil, 10);
+		(*io->bus)(io, 0, card->busspeed);
+		tsleep(&up->sleep, return0, nil, 10);
 	}
 	(*io->io)(io, 0, buf, n);
 	sdfree(buf);
@@ -305,129 +395,159 @@ switchfunc(Ctlr *ctlr, int arg)
 }
 
 static int
-cardinit(Ctlr *ctlr)
+cardinit(Card *card)
 {
-	SDio *io = ctlr->io;
-	u32int r[4];
-	int i, hcs;
+	SDio *io = card->io;
+	u32int r[4], ocr;
+	int i;
 
-	ctlr->buswidth = 1;
-	ctlr->busspeed = Initfreq;
-	if(io->bus != nil)
-		(*io->bus)(io, ctlr->buswidth, ctlr->busspeed);
+	card->buswidth = 1;
+	card->busspeed = Initfreq;
+	(*io->bus)(io, card->buswidth, card->busspeed);
+	tsleep(&up->sleep, return0, nil, 10);
 
 	(*io->cmd)(io, &GO_IDLE_STATE, 0, r);
 
 	/* card type unknown */
-	ctlr->ismmc = -1;
+	card->ismmc = -1;
 
 	if(!waserror()){	/* try SD card first */
-		hcs = 0;
+		ocr = V3_3;
 		if(!waserror()){
 			(*io->cmd)(io, &SD_SEND_IF_COND, Voltage|Checkpattern, r);
-			if(r[0] == (Voltage|Checkpattern))	/* SD 2.0 or above */
-				hcs = Hcs;
-
-			ctlr->ismmc = 0;	/* this is SD card */
+			if(r[0] == (Voltage|Checkpattern)){	/* SD 2.0 or above */
+				ocr |= Hcs;
+				card->ismmc = 0;		/* this is SD card */
+			}
 			poperror();
 		}
 		for(i = 0; i < Inittimeout; i++){
 			tsleep(&up->sleep, return0, nil, 100);
 			(*io->cmd)(io, &APP_CMD, 0, r);
-			(*io->cmd)(io, &SD_SEND_OP_COND, hcs|V3_3, r);
+			(*io->cmd)(io, &SD_SEND_OP_COND, ocr, r);
 			if(r[0] & Powerup)
 				break;
 		}
-		ctlr->ismmc = 0;	/* this is SD card */
+		card->ismmc = 0;	/* this is SD card */
 		poperror();
 		if(i == Inittimeout)
 			return 2;
-	} else if(ctlr->ismmc) {	/* try MMC if not ruled out */
+	} else if(card->ismmc) {	/* try MMC if not ruled out */
 		(*io->cmd)(io, &GO_IDLE_STATE, 0, r);
 
+		ocr = Hcs|V3_3;
 		for(i = 0; i < Inittimeout; i++){
 			tsleep(&up->sleep, return0, nil, 100);
-			(*io->cmd)(io, &SEND_OP_COND, 0x80ff8080, r);
+			(*io->cmd)(io, &SEND_OP_COND, ocr, r);
 			if(r[0] & Powerup)
 				break;
 		}
-		ctlr->ismmc = 1;	/* this is MMC */
+		card->ismmc = 1;	/* this is MMC */
 		if(i == Inittimeout)
 			return 2;
 	}
 
-	ctlr->ocr = r[0];
+	card->ocr = r[0];
 	(*io->cmd)(io, &ALL_SEND_CID, 0, r);
-	memmove(ctlr->cid, r, sizeof ctlr->cid);
-	(*io->cmd)(io, &SET_RELATIVE_ADDR, 0, r);
-	ctlr->rca = r[0]>>16;
-	(*io->cmd)(io, &SEND_CSD, ctlr->rca<<Rcashift, r);
-	memmove(ctlr->csd, r, sizeof ctlr->csd);
+	memmove(card->cid, r, sizeof card->cid);
+
+	if(card->ismmc){
+		card->rca = 0;
+		(*io->cmd)(io, &SET_RELATIVE_ADDR, card->rca<<16, r);
+	} else {
+		(*io->cmd)(io, &SEND_RELATIVE_ADDR, 0, r);
+		card->rca = r[0]>>16;
+	}
+
+	(*io->cmd)(io, &SEND_CSD, card->rca<<Rcashift, r);
+	memmove(card->csd, r, sizeof card->csd);
+
 	return 1;
 }
 
 static void
 retryproc(void *arg)
 {
-	Ctlr *ctlr = arg;
+	Card *card = arg;
 	int i = 0;
 
 	while(waserror())
 		;
-	if(i++ < ctlr->retry)
-		cardinit(ctlr);
+	if(i++ < card->retry)
+		cardinit(card);
 	USED(i);
-	ctlr->retry = 0;
+	card->retry = 0;
 	pexit("", 1);
 }
 
 static int
 mmconline(SDunit *unit)
 {
-	Ctlr *ctlr = unit->dev->ctlr;
-	SDio *io = ctlr->io;
+	Card *card = unit->dev->ctlr;
+	SDio *io = card->io;
 	u32int r[4];
 
 	assert(unit->subno == 0);
-	if(ctlr->retry)
+	if(card->retry)
 		return 0;
 	if(waserror()){
 		unit->sectors = 0;
-		if(ctlr->retry++ == 0)
-			kproc(unit->name, retryproc, ctlr);
+		if(card->retry++ == 0)
+			kproc(unit->name, retryproc, card);
 		return 0;
 	}
 	if(unit->sectors != 0){
-		(*io->cmd)(io, &SEND_STATUS, ctlr->rca<<Rcashift, r);
+		(*io->cmd)(io, &SEND_STATUS, card->rca<<Rcashift, r);
 		poperror();
 		return 1;
 	}
-	if(cardinit(ctlr) != 1){
+	if(cardinit(card) != 1){
 		poperror();
 		return 2;
 	}
-	(*io->cmd)(io, &SELECT_CARD, ctlr->rca<<Rcashift, r);
+	(*io->cmd)(io, &SELECT_CARD, card->rca<<Rcashift, r);
+	tsleep(&up->sleep, return0, nil, 10);
 
-	ctlr->busspeed = SDfreq;
-	if(io->bus != nil){
-		tsleep(&up->sleep, return0, nil, 10);
-		(*io->bus)(io, 0, ctlr->busspeed);
-		tsleep(&up->sleep, return0, nil, 10);
-	}
+	(*io->bus)(io, 0, card->busspeed = SDfreq);
+	tsleep(&up->sleep, return0, nil, 10);
 
 	identify(unit);
-
 	(*io->cmd)(io, &SET_BLOCKLEN, unit->secsize, r);	
 
-	if(!ctlr->ismmc){
-		(*io->cmd)(io, &APP_CMD, ctlr->rca<<Rcashift, r);
-		(*io->cmd)(io, &SD_SET_BUS_WIDTH, Width4, r);
-		ctlr->buswidth = 4;
-		if(io->bus != nil)
-			(*io->bus)(io, ctlr->buswidth, 0);
-
+	if(card->ismmc && card->specver >= 400){
 		if(!waserror()){
-			switchfunc(ctlr, Hispeed|Setfunc);
+			mmcswitch(card, MMCSetHSTiming);
+			(*io->bus)(io, 0, card->busspeed = SDfreqhs);
+			tsleep(&up->sleep, return0, nil, 10);
+			readextcsd(card);
+			poperror();
+		} else {
+			mmcswitch(card, MMCSetSDTiming);
+			(*io->bus)(io, 0, card->busspeed = SDfreq);
+			tsleep(&up->sleep, return0, nil, 10);
+			readextcsd(card);
+		}
+		if(!waserror()){
+			mmcswitch(card, MMCSetBusWidth8);
+			(*io->bus)(io, card->buswidth = 8, 0);
+			readextcsd(card);
+			poperror();
+		} else if(!waserror()){
+			mmcswitch(card, MMCSetBusWidth4);
+			(*io->bus)(io, card->buswidth = 4, 0);
+			readextcsd(card);
+			poperror();
+		} else {
+			mmcswitch(card, MMCSetBusWidth1);
+			(*io->bus)(io, card->buswidth = 1, 0);
+			readextcsd(card);
+		}
+	} else if(!card->ismmc) {
+		(*io->cmd)(io, &APP_CMD, card->rca<<Rcashift, r);
+		(*io->cmd)(io, &SD_SET_BUS_WIDTH, Width4, r);
+		(*io->bus)(io, card->buswidth = 4, 0);
+		if(!waserror()){
+			sdswitchfunc(card, Hispeed|Setfunc);
 			poperror();
 		}
 	}
@@ -438,8 +558,9 @@ mmconline(SDunit *unit)
 static int
 mmcrctl(SDunit *unit, char *p, int l)
 {
-	Ctlr *ctlr = unit->dev->ctlr;
-	int i, n;
+	Card *card = unit->dev->ctlr;
+	char *s = p, *e = s + l;
+	int i;
 
 	assert(unit->subno == 0);
 	if(unit->sectors == 0){
@@ -447,26 +568,29 @@ mmcrctl(SDunit *unit, char *p, int l)
 		if(unit->sectors == 0)
 			return 0;
 	}
-	n = snprint(p, l, "rca %4.4ux ocr %8.8ux", ctlr->rca, ctlr->ocr);
+	p = seprint(p, e, "version %s %d.%2.2d\n", card->ismmc? "MMC": "SD",
+		card->specver/100, card->specver%100);
 
-	n += snprint(p+n, l-n, "\ncid ");
-	for(i = nelem(ctlr->cid)-1; i >= 0; i--)
-		n += snprint(p+n, l-n, "%8.8ux", ctlr->cid[i]);
+	p = seprint(p, e, "rca %4.4ux ocr %8.8ux", card->rca, card->ocr);
 
-	n += snprint(p+n, l-n, "\ncsd ");
-	for(i = nelem(ctlr->csd)-1; i >= 0; i--)
-		n += snprint(p+n, l-n, "%8.8ux", ctlr->csd[i]);
+	p = seprint(p, e, "\ncid ");
+	for(i = nelem(card->cid)-1; i >= 0; i--)
+		p = seprint(p, e, "%8.8ux", card->cid[i]);
 
-	n += snprint(p+n, l-n, "\ngeometry %llud %ld\n",
+	p = seprint(p, e, "\ncsd ");
+	for(i = nelem(card->csd)-1; i >= 0; i--)
+		p = seprint(p, e, "%8.8ux", card->csd[i]);
+
+	p = seprint(p, e, "\ngeometry %llud %ld\n",
 		unit->sectors, unit->secsize);
-	return n;
+	return p - s;
 }
 
 static long
 mmcbio(SDunit *unit, int lun, int write, void *data, long nb, uvlong bno)
 {
-	Ctlr *ctlr = unit->dev->ctlr;
-	SDio *io = ctlr->io;
+	Card *card = unit->dev->ctlr;
+	SDio *io = card->io;
 	int len, tries;
 	u32int r[4];
 	uchar *buf;
@@ -490,7 +614,7 @@ mmcbio(SDunit *unit, int lun, int write, void *data, long nb, uvlong bno)
 			nexterror();
 		}
 		(*io->cmd)(io, write? &WRITE_MULTIPLE_BLOCK: &READ_MULTIPLE_BLOCK,
-			ctlr->ocr & Ccs? b: b * len, r);
+			card->ocr & Ccs? b: b * len, r);
 		(*io->io)(io, write, buf, nb * len);
 		poperror();
 		(*io->cmd)(io, &STOP_TRANSMISSION, 0, r);
@@ -500,7 +624,7 @@ mmcbio(SDunit *unit, int lun, int write, void *data, long nb, uvlong bno)
 		for(b = bno; b < bno + nb; b++){
 			(*io->iosetup)(io, write, buf, len, 1);
 			(*io->cmd)(io, write? &WRITE_SINGLE_BLOCK: &READ_SINGLE_BLOCK,
-				ctlr->ocr & Ccs? b: b * len, r);
+				card->ocr & Ccs? b: b * len, r);
 			(*io->io)(io, write, buf, len);
 			buf += len;
 		}
