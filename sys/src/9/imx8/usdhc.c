@@ -374,6 +374,8 @@ usdhccmd(SDio *io, SDiocmd *cmd, u32int arg, u32int *resp)
 	int i;
 	ulong now;
 
+	if(0)print("%s: %s (%ux)\n", io->name, cmd->name, arg);
+
 	/* using Autocmd12 */
 	if(cmd == &STOP_TRANSMISSION)
 		return 0;
@@ -408,8 +410,8 @@ usdhccmd(SDio *io, SDiocmd *cmd, u32int arg, u32int *resp)
 	}
 
 	if(RR(ctlr, Status) & Cmdinhibit){
-		print("usdhccmd: need to reset Cmdinhibit intr %ux stat %ux\n",
-			RR(ctlr, Interrupt), RR(ctlr, Status));
+		print("%s: need to reset Cmdinhibit intr %ux stat %ux\n",
+			io->name, RR(ctlr, Interrupt), RR(ctlr, Status));
 		WR(ctlr, Control1, RR(ctlr, Control1) | Srstcmd);
 		while(RR(ctlr, Control1) & Srstcmd)
 			;
@@ -418,8 +420,8 @@ usdhccmd(SDio *io, SDiocmd *cmd, u32int arg, u32int *resp)
 	}
 	if((RR(ctlr, Status) & Datinhibit) &&
 	   ((c & Isdata) || (c & Respmask) == Resp48busy)){
-		print("usdhccmd: need to reset Datinhibit intr %ux stat %ux\n",
-			RR(ctlr, Interrupt), RR(ctlr, Status));
+		print("%s: need to reset Datinhibit intr %ux stat %ux\n",
+			io->name, RR(ctlr, Interrupt), RR(ctlr, Status));
 		WR(ctlr, Control1, RR(ctlr, Control1) | Srstdata);
 		while(RR(ctlr, Control1) & Srstdata)
 			;
@@ -431,7 +433,7 @@ usdhccmd(SDio *io, SDiocmd *cmd, u32int arg, u32int *resp)
 	WR(ctlr, Arg1, arg);
 	if((i = (RR(ctlr, Interrupt) & ~Cardintr)) != 0){
 		if(i != Cardinsert)
-			print("usdhccmd: before command, intr was %ux\n", i);
+			print("%s: before command, intr was %ux\n", io->name, i);
 		WR(ctlr, Interrupt, i);
 	}
 	WR(ctlr, Mixctrl, (RR(ctlr, Mixctrl) & ~MixCmdMask) | (c & MixCmdMask));
@@ -442,9 +444,9 @@ usdhccmd(SDio *io, SDiocmd *cmd, u32int arg, u32int *resp)
 		if(MACHP(0)->ticks - now > HZ)
 			break;
 	if((i&(Cmddone|Err)) != Cmddone){
-		if((i&~(Err|Cardintr)) != Ctoerr)
-			print("usdhccmd: %s cmd %ux arg %ux error intr %ux stat %ux\n",
-				cmd->name, c, arg, i, RR(ctlr, Status));
+		if((i&Err) != Ctoerr)
+			print("%s: %s cmd %ux arg %ux error intr %ux stat %ux\n",
+				io->name, cmd->name, c, arg, i, RR(ctlr, Status));
 		WR(ctlr, Interrupt, i);
 		if(RR(ctlr, Status)&Cmdinhibit){
 			WR(ctlr, Control1, RR(ctlr, Control1)|Srstcmd);
@@ -468,18 +470,6 @@ usdhccmd(SDio *io, SDiocmd *cmd, u32int arg, u32int *resp)
 	case Respnone:
 		resp[0] = 0;
 		break;
-	}
-	if((c & Respmask) == Resp48busy){
-		WR(ctlr, Irpten, RR(ctlr, Irpten)|Datadone|Err);
-		tsleep(&ctlr->r, datadone, ctlr, 1000);
-		i = RR(ctlr, Interrupt);
-		if((i & Datadone) == 0)
-			print("usdhcio: no Datadone in %x after %s\n",
-				i, cmd->name);
-		if(i & Err)
-			print("usdhcio: %s error interrupt %ux\n",
-				cmd->name, RR(ctlr, Interrupt));
-		if(i != 0) WR(ctlr, Interrupt, i);
 	}
 	return 0;
 }
@@ -510,7 +500,10 @@ usdhcio(SDio *io, int write, uchar *buf, int len)
 	u32int i;
 
 	WR(ctlr, Irpten, RR(ctlr, Irpten) | Datadone|Err);
-	tsleep(&ctlr->r, datadone, ctlr, 3000);
+	while(waserror())
+		;
+	sleep(&ctlr->r, datadone, ctlr);
+	poperror();
 	WR(ctlr, Irpten, RR(ctlr, Irpten) & ~(Datadone|Err));
 	i = RR(ctlr, Interrupt);
 	if((i & (Datadone|Err)) != Datadone){
