@@ -436,16 +436,20 @@ transforward(Proto *p, Ipht *ht, uchar *sa, int sp, uchar *da, int dp, Route *r)
 		}
 	}
 
-	/* Bad source address? */
-	if(ipismulticast(sa) || ipforme(p->f, sa) != 0){
-		netlog(p->f, Logtrans, "trans: bad source address: %s!%I!%d -> %I!%d\n",
+	/* No route means dont make a new entry */
+	if(r == nil)
+		return nil;
+
+	/* Bad forward route? */
+	if((ifc = r->ifc) == nil){
+		netlog(p->f, Logtrans, "trans: no interface: %s!%I!%d -> %I!%d\n",
 			p->name, sa, sp, da, dp);
 		return nil;
 	}
 
-	/* Bad forward route? */
-	if(r == nil || (ifc = r->ifc) == nil){
-		netlog(p->f, Logtrans, "trans: no forward route: %s!%I!%d -> %I!%d\n",
+	/* Bad source address? */
+	if(ipismulticast(sa) || ipforme(p->f, sa) != 0){
+		netlog(p->f, Logtrans, "trans: bad source address: %s!%I!%d -> %I!%d\n",
 			p->name, sa, sp, da, dp);
 		return nil;
 	}

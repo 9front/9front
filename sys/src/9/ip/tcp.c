@@ -3292,6 +3292,10 @@ tcpforward(Proto *tcp, Block *bp, Route *r)
 	dp = nhgets(h4->tcpdport);
 	sp = nhgets(h4->tcpsport);
 
+	/* don't make new translation when not syn packet */
+	if((h4->tcpflag[1] & (ACK|RST|SYN|FIN)) != SYN)
+		r = nil;
+
 	qlock(tcp);
 	q = transforward(tcp, &((Tcppriv*)tcp->priv)->ht, sa, sp, da, dp, r);
 	if(q == nil){
