@@ -120,12 +120,12 @@ _f2v(Vlong *y, float f)
 double
 _v2d(Vlong x)
 {
+	if(!x.lo) {
+		return (long)x.hi*4294967296.;
+	}
 	if(x.hi & SIGN(32)) {
-		if(x.lo) {
-			x.lo = -x.lo;
-			x.hi = ~x.hi;
-		} else
-			x.hi = -x.hi;
+		x.lo = -x.lo;
+		x.hi = ~x.hi;
 		return -((long)x.hi*4294967296. + x.lo);
 	}
 	return (long)x.hi*4294967296. + x.lo;
