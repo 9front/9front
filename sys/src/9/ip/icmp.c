@@ -564,6 +564,17 @@ icmpforward(Proto *icmp, Block *bp, Route *r)
 	Translation *q;
 
 	p = (Icmp*)(bp->rp);
+	switch(p->type){
+	case EchoRequest:
+	case Timestamp:
+	case InfoRequest:
+	case AddrMaskRequest:
+		break;
+	default:
+		/* no icmpid, can't translate back */
+		freeblist(bp);
+		return nil;
+	}
 	v4tov6(sa, p->src);
 	v4tov6(da, p->dst);
 	id = nhgets(p->icmpid);
