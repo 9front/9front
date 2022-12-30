@@ -269,7 +269,7 @@ identify(SDunit *unit)
 				break;
 			readextcsd(card);
 #define EXT_CSD(end, start) rbytes(card->ext_csd, start, (end)-(start)+1)
-			switch(EXT_CSD(192, 192)){
+			switch((uchar)EXT_CSD(192, 192)){
 			case 8:
 				card->specver = 510;	/* 5.1 */
 				break;
