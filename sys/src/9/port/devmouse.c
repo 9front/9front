@@ -88,7 +88,7 @@ static Dirtab mousedir[]={
 	".",	{Qdir, 0, QTDIR},	0,			DMDIR|0555,
 	"cursor",	{Qcursor},	0,			0666,
 	"mouse",	{Qmouse},	0,			0666,
-	"mousein",	{Qmousein},	0,			0220,
+	"mousein",	{Qmousein},	0,			0660,
 	"mousectl",	{Qmousectl},	0,			0220,
 };
 
@@ -207,7 +207,9 @@ mouseclose(Chan *c)
 		return;
 	switch((ulong)c->qid.path){
 	case Qmousein:
+		ilock(&mouse);
 		mouse.inbuttons &= ~((Mousestate*)c->aux)->buttons;
+		iunlock(&mouse);
 		free(c->aux);	/* Mousestate */
 		c->aux = nil;
 		return;
@@ -232,6 +234,7 @@ mouseread(Chan *c, void *va, long n, vlong off)
 	Cursor curs;
 	Mousestate m;
 	int b;
+	char t;
 
 	p = va;
 	switch((ulong)c->qid.path){
@@ -272,23 +275,39 @@ mouseread(Chan *c, void *va, long n, vlong off)
 			m = mouse.Mousestate;
 		iunlock(&mouse);
 
+		if(0){
+	case Qmousein:
+			if(offset != 0)
+				return 0;
+
+			ilock(&mouse);
+			m = mouse.Mousestate;
+			iunlock(&mouse);
+
+			t = 'm';
+		} else {
+			/* Qmouse */
+			mouse.lastcounter = m.counter;
+			if(mouse.resize){
+				mouse.resize = 0;
+				t = 'r';
+			} else {
+				t = 'm';
+			}
+		}
+
 		b = buttonmap[m.buttons&7];
 		/* put buttons 4 and 5 back in */
 		b |= m.buttons & (3<<3);
+
 		if (scrollswap)
 			if (b == 8)
 				b = 16;
 			else if (b == 16)
 				b = 8;
-		sprint(buf, "m%11d %11d %11d %11ld ",
-			m.xy.x, m.xy.y, b, m.msec);
 
-		mouse.lastcounter = m.counter;
-		if(mouse.resize){
-			mouse.resize = 0;
-			buf[0] = 'r';
-		}
-
+		snprint(buf, sizeof(buf), "%c%11d %11d %11d %11ld ",
+			t, m.xy.x, m.xy.y, b, m.msec);
 		if(n > 1+4*12)
 			n = 1+4*12;
 		memmove(va, buf, n);
@@ -446,8 +465,11 @@ mousewrite(Chan *c, void *va, long n, vlong)
 		m->msec = msec;
 		b ^= m->buttons;
 		m->buttons ^= b;
+
+		ilock(&mouse);
 		mouse.inbuttons = (m->buttons & b) | (mouse.inbuttons & ~b);
 		b = mouse.buttons & ~b;
+		iunlock(&mouse);
 
 		/* include wheel */
 		b &= ~(8|16);
