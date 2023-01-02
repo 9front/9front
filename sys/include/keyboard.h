@@ -24,7 +24,7 @@ enum {
 	Spec=	0xF800,
 	PF=	Spec|0x20,	/* num pad function key */
 	Kview=	Spec|0x00,	/* view (shift window up) */
-	/* KF|1, KF|2, ..., KF|0xC is F1, F2, ..., F12 */
+	/* KF|1, KF|2, ..., KF|0xC is F12 */
 	Khome=	KF|0x0D,
 	Kup=	KF|0x0E,
 	Kdown=	Kview,
