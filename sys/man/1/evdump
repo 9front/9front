@@ -1,0 +1,24 @@
+.TH EVDUMP 1
+.SH NAME
+evdump \- dump input and window events
+.SH SYNOPSIS
+.B evdump
+.SH DESCRIPTION
+.PP
+.I Evdump
+creates a new window, grabs the input and prints incoming
+keyboard, mouse and window events in a human-readable form.
+.PP
+It can be useful in a situation where a keyboard does not
+seem to produce any rune when a certain key is pressed. The
+event printed out, in this case, provides enough information
+to set a required rune via
+.IR /dev/kbmap .
+.SH SEE ALSO
+.IR rio (1) ,
+.IR kbdfs (8)
+.SH SOURCE
+.B /sys/src/cmd/evdump.c
+.SH HISTORY
+.I Evdump
+first appeared in 9front (January, 2023).
