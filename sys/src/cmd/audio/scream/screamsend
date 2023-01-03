@@ -10,4 +10,4 @@ if(! ~ $#* 0){
 	exit 'usage'
 }
 if(~ $#lifc 0) lifc=`{awk '/4u/{print $1}' /net/ipselftab}
-exec audio/screamenc < /dev/audio | exec aux/dial -o^'addmulti '^$lifc udp!239.255.77.77!4010 >/dev/null
+exec aux/dial -o^'addmulti '^$lifc udp!239.255.77.77!4010 rc -c 'audio/screamenc < /dev/audio'
