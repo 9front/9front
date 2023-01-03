@@ -4,6 +4,10 @@ dial - connect to a remote service
 .SH SYNOPSIS
 .B aux/dial
 .RB [ -e ]
+[
+.B -o
+.I msg
+]...
 .I addr
 [
 .I cmd
@@ -33,9 +37,15 @@ If
 is given, then
 .I cmd
 is executed with standard input and output connected to
-the network connection.
+.PP
+The -o option cause protocol-specific control messages
+to be written to the control file of the network connection
+(see
+.IR ip (3)).
+It can be specified multiple times.
 .SH SOURCE
 .B /sys/src/cmd/aux/dial.c
 .SH SEE ALSO
 .IR dial (2),
-.IR listen (8)
+.IR listen (8),
+.IR ip (3)
