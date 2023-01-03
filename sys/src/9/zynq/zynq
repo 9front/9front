@@ -13,7 +13,7 @@ dev
 	dup
 	ether	netif
 	bridge	log
-	ip	arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium inferno
+	ip	arp chandial igmp ip ipv6 ipaux iproute netlog nullmedium pktmedium inferno
 	tls
 	cap
 	kprof

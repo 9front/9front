@@ -16,7 +16,7 @@ dev
 	rtc
 
 	ether		netif
-	ip		arp chandial ip ipv6 ipaux iproute netif netlog nullmedium pktmedium inferno
+	ip		arp chandial igmp ip ipv6 ipaux iproute netif netlog nullmedium pktmedium inferno
 
 link
 	pcimtx
