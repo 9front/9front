@@ -118,7 +118,7 @@ audioproc(void *)
 					n = (long)(mixrp - s->rp);
 					if(n > NBUF && (s->used == 0 || sweep))
 						s->run = 0;
-					if(n >= NDELAY)
+					if(n > 0)
 						rwakeup(s);
 				}
 			}
@@ -202,7 +202,7 @@ fsread(Req *r)
 			s->run = 1;
 		}
 		m = (long)(mixrp - s->rp);
-		if(m < NDELAY){
+		if(m <= 0){
 			s->run = 1;
 			rsleep(s);
 			continue;
