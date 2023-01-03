@@ -150,8 +150,8 @@ main(int argc, char **argv)
 	if(*argv){
 		dup(fd, 0);
 		dup(fd, 1);
-		if(fd > 1)
-			close(fd);
+		/* dup(fd, 2); keep stderr */
+		if(fd > 2) close(fd);
 		exec(*argv, argv);
 		sysfatal("exec: %r");
 	}
