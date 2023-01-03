@@ -19,7 +19,7 @@ dev
 
 	xenstore
 	ether		netif
-	ip		arp chandial igmp ip ipv6 ipaux iproute netlog nullmedium pktmedium inferno
+	ip		arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium inferno
 
 	sd
 
@@ -41,6 +41,7 @@ ip
 	ipifc
 	icmp
 	icmp6
+	igmp
 	gre
 	ipmux
 	esp

@@ -15,7 +15,7 @@ dev
 	irq
 
 	ether		netif
-	ip		arp chandial igmp ip ipv6 ipaux iproute netif netlog nullmedium pktmedium inferno
+	ip		arp chandial ip ipv6 ipaux iproute netif netlog nullmedium pktmedium inferno
 
 link
 	etherfcc		ethermii
@@ -33,6 +33,7 @@ ip
 	ipifc
 	icmp
 	icmp6
+	igmp
 
 port
 	int cpuserver = 1;

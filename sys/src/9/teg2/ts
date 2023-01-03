@@ -22,7 +22,7 @@ dev
 #	flash
 
 	ether		netif
-	ip		arp chandial igmp ip ipv6 ipaux iproute netlog nullmedium pktmedium inferno
+	ip		arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium inferno
 
 #	draw		screen
 #	dss
@@ -49,6 +49,7 @@ ip
 	ipifc
 	icmp
 	icmp6
+	igmp
 	ipmux
 	gre
 	esp
