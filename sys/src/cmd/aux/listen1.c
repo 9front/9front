@@ -105,7 +105,7 @@ main(int argc, char **argv)
 	if(!trusted)
 		becomenone();
 
-	print("listen started\n");
+	fprint(2, "listen started\n");
 	ctl = announce(argv[0], dir);
 	if(ctl < 0)
 		sysfatal("announce %s: %r", argv[0]);
@@ -166,7 +166,7 @@ main(int argc, char **argv)
 			exits("accept");
 		}
 
-		print("incoming call for %s from %s in %s\n", argv[0], remoteaddr(ndir), ndir);
+		fprint(2, "incoming call for %s from %s in %s\n", argv[0], remoteaddr(ndir), ndir);
 
 		for(i = 0; i < ncopts; i++)
 			write(nctl, copts[i], strlen(copts[i]));
@@ -181,7 +181,7 @@ main(int argc, char **argv)
 		dup(fd, 0);
 		dup(fd, 1);
 		/* dup(fd, 2); keep stderr */
-		close(fd);
+		if(fd > 2) close(fd);
 		exec(argv[1], argv+1);
 		if(argv[1][0] != '/')
 			exec(smprint("/bin/%s", argv[1]), argv+1);
