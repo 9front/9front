@@ -16,6 +16,7 @@ struct Stream
 {
 	int	used;
 	int	mode;
+	int	flush;
 	int	run;
 	ulong	rp;
 	ulong	wp;
@@ -66,6 +67,7 @@ fsopen(Req *r)
 		if(s->used == 0 && s->run == 0){
 			s->used = 1;
 			s->mode = r->ifcall.mode;
+			s->flush = 0;
 			qunlock(s);
 
 			r->fid->aux = s;
@@ -75,6 +77,23 @@ fsopen(Req *r)
 		qunlock(s);
 	}
 	respond(r, "all streams in use");
+}
+
+void
+fsflush(Req *r)
+{
+	Fid *f = r->oldreq->fid;
+	Stream *s;
+
+	if(f->file != nil && strcmp(f->file->name, "audio") == 0 && (s = f->aux) != nil){
+		qlock(s);
+		if(s->used && s->run){
+			s->flush = 1;
+			rwakeup(s);
+		}
+		qunlock(s);
+	}
+	respond(r, nil);
 }
 
 void
@@ -203,6 +222,8 @@ fsread(Req *r)
 		}
 		m = (long)(mixrp - s->rp);
 		if(m <= 0){
+			if(s->flush)
+				break;
 			s->run = 1;
 			rsleep(s);
 			continue;
@@ -225,6 +246,7 @@ fsread(Req *r)
 
 		n -= m;
 	}
+	s->flush = 0;
 	qunlock(s);
 	respond(r, nil);
 	srvacquire(srv);
@@ -255,6 +277,8 @@ fswrite(Req *r)
 		m = NBUF-1 - (long)(s->wp - mixrp);
 
 		if(m <= 0){
+			if(s->flush)
+				break;
 			s->run = 1;
 			rsleep(s);
 			continue;
@@ -274,10 +298,11 @@ fswrite(Req *r)
 
 		n -= m;
 	}
-	if((long)(s->wp - mixrp) >= NDELAY){
+	if((long)(s->wp - mixrp) >= NDELAY && !s->flush){
 		s->run = 1;
 		rsleep(s);
 	}
+	s->flush = 0;
 	qunlock(s);
 	respond(r, nil);
 	srvacquire(srv);
@@ -329,6 +354,7 @@ Srv fs = {
 	.write=		fswrite,
 	.stat=		fsstat,
 	.destroyfid=	fsclunk,
+	.flush=		fsflush,
 	.start=		fsstart,
 	.end=		fsend,
 };
