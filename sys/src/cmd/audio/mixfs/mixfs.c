@@ -15,8 +15,9 @@ typedef struct Stream Stream;
 struct Stream
 {
 	int	used;
+	int	mode;
 	int	run;
-	int	rd;
+	ulong	rp;
 	ulong	wp;
 	QLock;
 	Rendez;
@@ -64,9 +65,9 @@ fsopen(Req *r)
 		qlock(s);
 		if(s->used == 0 && s->run == 0){
 			s->used = 1;
+			s->mode = r->ifcall.mode;
 			qunlock(s);
 
-			s->rd = (r->ifcall.mode&OWRITE) == 0;
 			r->fid->aux = s;
 			respond(r, nil);
 			return;
@@ -105,13 +106,21 @@ audioproc(void *)
 		for(s = streams; s < streams+nelem(streams); s++){
 			qlock(s);
 			if(s->run){
-				n = (long)(s->wp - mixrp);
-				if(n <= 0 && (s->used == 0 || sweep))
-					s->run = 0;
-				else if(n < m)
-					m = n;
-				if(n < NDELAY)
-					rwakeup(s);
+				if(s->mode & OWRITE){
+					n = (long)(s->wp - mixrp);
+					if(n <= 0 && (s->used == 0 || sweep))
+						s->run = 0;
+					else if(n < m)
+						m = n;
+					if(n < NDELAY)
+						rwakeup(s);
+				} else {
+					n = (long)(mixrp - s->rp);
+					if(n > NBUF && (s->used == 0 || sweep))
+						s->run = 0;
+					if(n >= NDELAY)
+						rwakeup(s);
+				}
 			}
 			qunlock(s);
 		}
@@ -189,26 +198,29 @@ fsread(Req *r)
 	qlock(s);
 	while(n > 0){
 		if(s->run == 0){
-			s->wp = mixrp;
+			s->rp = mixrp;
 			s->run = 1;
 		}
-		m = NBUF-1 - (long)(s->wp - mixrp);
-
-		if(m <= 0){
+		m = (long)(mixrp - s->rp);
+		if(m < NDELAY){
 			s->run = 1;
 			rsleep(s);
 			continue;
+		}
+		if(m > NBUF){
+			m = NBUF;
+			s->rp = mixrp - m;
 		}
 		if(m > n)
 			m = n;
 
 		for(i=0; i<m; i++){
 			for(j=0; j<NCHAN; j++){
-				v = lbbuf[s->wp % NBUF][j];
+				v = lbbuf[s->rp % NBUF][j];
 				*p++ = v & 0xFF;
 				*p++ = v >> 8;
 			}
-			s->wp++;
+			s->rp++;
 		}
 
 		n -= m;
@@ -299,7 +311,7 @@ fsstart(Srv *)
 	Stream *s;
 
 	for(s=streams; s < streams+nelem(streams); s++){
-		s->used = s->run = s->rd = 0;
+		s->used = s->run = 0;
 		s->Rendez.l = &s->QLock;
 	}
 	proccreate(audioproc, nil, 16*1024);
