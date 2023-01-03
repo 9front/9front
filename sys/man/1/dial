@@ -23,13 +23,13 @@ Dial connects to the remote network address
 and if no
 .I cmd
 is specified, copies data from the connection to standard output,
-and from standard input to the connection.
+and from standard input to the network connection.
 .PP
 By default, dial exists when end of file is reached on
 standard input or on the network connection.
 The
 .B -e
-flag cuses dial to exit only in response to end of file on
+flag causes dial to exit only in response to end of file on
 the network connection.
 .PP
 If
@@ -37,6 +37,7 @@ If
 is given, then
 .I cmd
 is executed with standard input and output connected to
+the network connection.
 .PP
 The -o option cause protocol-specific control messages
 to be written to the control file of the network connection
