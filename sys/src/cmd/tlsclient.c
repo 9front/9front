@@ -152,7 +152,9 @@ main(int argc, char **argv)
 		dup(fd, 1);
 		/* dup(fd, 2); keep stderr */
 		if(fd > 2) close(fd);
-		exec(*argv, argv);
+		exec(argv[0], argv);
+		if(argv[0][0] != '/')
+			exec(smprint("/bin/%s", argv[0]), argv);
 		sysfatal("exec: %r");
 	}
 
@@ -168,5 +170,5 @@ main(int argc, char **argv)
 		break;
 	}
 	postnote(PNGROUP, getpid(), "die yankee pig dog");
-	exits(0);
+	exits(nil);
 }
