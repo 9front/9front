@@ -25,7 +25,7 @@ and if no
 is specified, copies data from the connection to standard output,
 and from standard input to the network connection.
 .PP
-By default, dial exists when end of file is reached on
+By default, dial exits when end of file is reached on
 standard input or on the network connection.
 The
 .B -e
