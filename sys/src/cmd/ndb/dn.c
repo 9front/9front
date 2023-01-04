@@ -144,7 +144,6 @@ static void
 ding(void*, char *msg)
 {
 	if(strstr(msg, "alarm") != nil) {
-		stats.alarms++;
 		noted(NCONT);		/* resume with system call error */
 	} else
 		noted(NDFLT);		/* die */

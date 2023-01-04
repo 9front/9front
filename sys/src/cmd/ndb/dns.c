@@ -103,8 +103,8 @@ static char *respond(Job*, Mfile*, RR*, char*, int, int);
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-FnorRs] [-a maxage] [-f ndb-file] [-N target] "
-		"[-T forwip] [-x netmtpt] [-z refreshprog]\n", argv0);
+	fprint(2, "usage: %s [-FnorR] [-a maxage] [-f ndb-file] [-N target] "
+		"[-T forwip] [-x netmtpt] [-z refreshprog] [-s [addrs...]]\n", argv0);
 	exits("usage");
 }
 
@@ -167,12 +167,13 @@ main(int argc, char *argv[])
 		usage();
 		break;
 	}ARGEND
-	if(argc != 0)
+
+	if(argc != 0 && !cfg.serve)
 		usage();
 
 	rfork(RFREND|RFNOTEG);
 
-	cfg.inside = (*mntpt == '\0' || strcmp(mntpt, "/net") == 0);
+	cfg.inside = strcmp(mntpt, "/net") == 0;
 
 	/* start syslog before we fork */
 	fmtinstall('F', fcallfmt);
@@ -203,10 +204,16 @@ main(int argc, char *argv[])
 	if (cfg.straddle && !seerootns())
 		dnslog("straddle server misconfigured; can't see root name servers");
 
-	if(cfg.serve)
-		dnudpserver(mntpt);
+	if(cfg.serve){
+		if(argc == 0)
+			dnudpserver(mntpt, "*");
+		else {
+			while(argc-- > 0)
+				dnudpserver(mntpt, *argv++);
+		}
+	}
 	if(sendnotifies)
-		notifyproc();
+		notifyproc(mntpt);
 
 	io();
 	_exits(0);

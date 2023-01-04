@@ -73,7 +73,7 @@ getips(char *name, uchar *ips, int maxips, Request *req)
 
 /* notify a slave that an area has changed. */
 static void
-send_notify(char *slave, RR *soa, Request *req)
+send_notify(char *mntpt, char *slave, RR *soa, Request *req)
 {
 	int i, j, len, n, reqno, fd, nips, send;
 	uchar ips[8*IPaddrlen], ibuf[Maxudp+Udphdrsize], obuf[Maxudp+Udphdrsize];
@@ -91,7 +91,7 @@ send_notify(char *slave, RR *soa, Request *req)
 	reqno = rand();
 	n = mkreq(soa->owner, Cin, obuf, Fauth | Onotify, reqno);
 
-	fd = udpport(nil);
+	fd = udpport(mntpt);
 	if(fd < 0)
 		return;
 
@@ -130,7 +130,7 @@ send_notify(char *slave, RR *soa, Request *req)
 
 /* send notifies for any updated areas */
 static void
-notify_areas(Area *a, Request *req)
+notify_areas(char *mntpt, Area *a, Request *req)
 {
 	Server *s;
 
@@ -140,7 +140,7 @@ notify_areas(Area *a, Request *req)
 
 		/* send notifies to all slaves */
 		for(s = a->soarr->soa->slaves; s != nil; s = s->next)
-			send_notify(s->name, a->soarr, req);
+			send_notify(mntpt, s->name, a->soarr, req);
 		a->neednotify = 0;
 	}
 }
@@ -150,7 +150,7 @@ notify_areas(Area *a, Request *req)
  *  (also reads in new databases)
  */
 void
-notifyproc(void)
+notifyproc(char *mntpt)
 {
 	Request req;
 
@@ -169,7 +169,7 @@ notifyproc(void)
 
 	for(;;){
 		getactivity(&req, 0);
-		notify_areas(owned, &req);
+		notify_areas(mntpt, owned, &req);
 		putactivity(0);
 		sleep(60*1000);
 	}

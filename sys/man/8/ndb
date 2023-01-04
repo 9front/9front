@@ -57,7 +57,7 @@ query, ipquery, mkhash, mkdb, mkhosts, cs, csquery, dns, dnstcp, dnsquery, dnsde
 .br
 .B ndb/dns
 [
-.B -norRs
+.B -norR
 ] [
 .B -a
 .I maxage
@@ -73,6 +73,11 @@ query, ipquery, mkhash, mkdb, mkhosts, cs, csquery, dns, dnstcp, dnsquery, dnsde
 ] [
 .B -z
 .I program
+] [
+.B -s
+[
+.I addrs...
+]
 ]
 .br
 .B ndb/dnstcp
@@ -390,7 +395,13 @@ ignore the `recursive' bit on incoming requests.
 Do not complete lookups on behalf of remote systems.
 .TP
 .B -s
-also answer domain requests sent to UDP port 53.
+also answer domain requests sent to IP
+.I addrs
+on UDP port 53.
+If no IP
+.I addrs
+are given, listen on any interface on network mount point
+.IR netmtpt .
 .TP
 .B -x
 specifies the mount point of the

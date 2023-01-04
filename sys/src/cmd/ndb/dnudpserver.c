@@ -7,7 +7,7 @@ enum {
 	Logqueries = 0,
 };
 
-static int	udpannounce(char*);
+static int	udpannounce(char*, char*);
 static void	reply(int, uchar*, DNSmsg*, Request*);
 
 typedef struct Inprogress Inprogress;
@@ -30,8 +30,6 @@ struct Forwtarg {
 };
 Forwtarg forwtarg[10];
 int forwtcount;
-
-static char *hmsg = "headers";
 
 /*
  *  record client id and ignore retransmissions.
@@ -129,9 +127,9 @@ redistrib(uchar *buf, int len)
  *  a process to act as a dns server for outside reqeusts
  */
 void
-dnudpserver(char *mntpt)
+dnudpserver(char *mntpt, char *addr)
 {
-	volatile int fd, len, op, rcode;
+	volatile int fd, len, op, rcode, served;
 	char *volatile err;
 	volatile char tname[32];
 	volatile uchar buf[Udphdrsize + Maxudp + 1024];
@@ -153,15 +151,16 @@ dnudpserver(char *mntpt)
 		return;
 	}
 
-	fd = -1;
+	served = 0;
 restart:
-	procsetname("udp server announcing");
-	if(fd >= 0)
-		close(fd);
-	while((fd = udpannounce(mntpt)) < 0)
-		sleep(5000);
+	procsetname("%s: udp server announcing %s", mntpt, addr);
+	if((fd = udpannounce(mntpt, addr)) < 0){
+		warning("can't announce %s on %s: %r", addr, mntpt);
+		do {
+			sleep(5000);
+		} while((fd = udpannounce(mntpt, addr)) < 0);
+	}
 
-//	procsetname("udp server");
 	memset(&req, 0, sizeof req);
 	if(setjmp(req.mret))
 		putactivity(0);
@@ -171,16 +170,17 @@ restart:
 
 	/* loop on requests */
 	for(;; putactivity(0)){
-		procsetname("served %lud udp; %lud alarms",
-			stats.qrecvdudp, stats.alarms);
+		procsetname("%s: udp server %s: served %d", mntpt, addr, served);
 		memset(&repmsg, 0, sizeof repmsg);
 		memset(&reqmsg, 0, sizeof reqmsg);
 
 		alarm(60*1000);
 		len = read(fd, buf, sizeof buf);
 		alarm(0);
-		if(len <= Udphdrsize)
+		if(len <= Udphdrsize){
+			close(fd);
 			goto restart;
+		}
 
 		if(forwtcount > 0)
 			redistrib(buf, len);
@@ -194,6 +194,8 @@ restart:
 		req.aborttime = timems() + Maxreqtm;
 		req.from = smprint("%I", buf);
 		rcode = 0;
+
+		served++;
 		stats.qrecvdudp++;
 
 		err = convM2DNS(&buf[Udphdrsize], len, &reqmsg, &rcode);
@@ -279,39 +281,33 @@ freereq:
  *  announce on well-known dns udp port and set message style interface
  */
 static int
-udpannounce(char *mntpt)
+udpannounce(char *mntpt, char *addr)
 {
-	int data, ctl;
-	char dir[64], datafile[64+6];
-	static int whined;
+	static char hmsg[] = "headers";
+	static char imsg[] = "ignoreadvice";
 
-	/* get a udp port */
-	sprint(datafile, "%s/udp!*!dns", mntpt);
+	char dir[64], datafile[64+6];
+	int data, ctl;
+
+	snprint(datafile, sizeof(datafile), "%s/udp!%s!dns", mntpt, addr);
 	ctl = announce(datafile, dir);
-	if(ctl < 0){
-		if(!whined++)
-			warning("can't announce on %s", datafile);
+	if(ctl < 0)
 		return -1;
-	}
 
 	/* turn on header style interface */
-	if(write(ctl, hmsg, strlen(hmsg)) != strlen(hmsg)){
+	if(write(ctl, hmsg, sizeof(hmsg)-1) < 0){
+		warning("can't enable %s on %s: %r", hmsg, datafile);
 		close(ctl);
-		if(!whined++)
-			warning("can't enable headers on %s", datafile);
 		return -1;
 	}
+
+	/* ignore ICMP advice */
+	write(ctl, imsg, sizeof(imsg)-1);
 
 	snprint(datafile, sizeof(datafile), "%s/data", dir);
 	data = open(datafile, ORDWR);
-	if(data < 0){
-		close(ctl);
-		if(!whined++)
-			warning("can't open %s to announce on dns udp port",
-				datafile);
-		return -1;
-	}
-
+	if(data < 0)
+		warning("can't open udp port %s: %r", datafile);
 	close(ctl);
 	return data;
 }

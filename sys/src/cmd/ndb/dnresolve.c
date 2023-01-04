@@ -473,38 +473,40 @@ walkup(char *name)
 }
 
 /*
- *  Get a udp port for sending requests and reading replies.  Put the port
- *  into "headers" mode.
+ *  Get a udp port for sending requests and reading replies.
+ *  Put the port into "headers" mode.
  */
-static char *hmsg = "headers";
-
 int
-udpport(char *mtpt)
+udpport(char *mntpt)
 {
-	int fd, ctl;
+	static char hmsg[] = "headers";
+	static char imsg[] = "ignoreadvice";
+
 	char ds[64], adir[64];
+	int fd, ctl;
 
 	/* get a udp port */
-	snprint(ds, sizeof ds, "%s/udp!*!0", (mtpt && *mtpt) ? mtpt : "/net");
+	snprint(ds, sizeof ds, "%s/udp!*!0", mntpt);
 	ctl = announce(ds, adir);
-	if(ctl < 0){
-		/* warning("can't get udp port"); */
+	if(ctl < 0)
+		return -1;
+
+	/* turn on header style interface */
+	if(write(ctl, hmsg, sizeof(hmsg)-1) < 0){
+		warning("can't enable %s on %s: %r", hmsg, adir);
+		close(ctl);
 		return -1;
 	}
 
-	/* turn on header style interface */
-	if(write(ctl, hmsg, strlen(hmsg)) != strlen(hmsg)){
-		close(ctl);
-		warning(hmsg);
-		return -1;
-	}
+	/* ignore ICMP advice */
+	write(ctl, imsg, sizeof(imsg)-1);
 
 	/* grab the data file */
 	snprint(ds, sizeof ds, "%s/data", adir);
 	fd = open(ds, ORDWR);
-	close(ctl);
 	if(fd < 0)
 		warning("can't open udp port %s: %r", ds);
+	close(ctl);
 	return fd;
 }
 

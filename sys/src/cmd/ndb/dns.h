@@ -392,7 +392,6 @@ typedef struct {
 	ulong	qrecvdudp;
 	ulong	qsent;
 	ulong	qrecvd9prpc;	/* packet count */
-	ulong	alarms;
 	/* reply times by count */
 	ulong	under10ths[3*10+2];	/* under n*0.1 seconds, n is index */
 	ulong	tmout;
@@ -527,11 +526,11 @@ void	initdnsmsg(DNSmsg *mp, RR *rp, int flags, ushort reqno);
 
 /* dnserver.c */
 void	dnserver(DNSmsg*, DNSmsg*, Request*, uchar *, int);
-void	dnudpserver(char*);
+void	dnudpserver(char*, char*);
 
 /* dnnotify.c */
 void	dnnotify(DNSmsg*, DNSmsg*, Request*);
-void	notifyproc(void);
+void	notifyproc(char*);
 
 /* convDNS2M.c */
 int	convDNS2M(DNSmsg*, uchar*, int);
