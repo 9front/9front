@@ -10,15 +10,18 @@
 enum {
 	Qroot,
 	Qusbevent,
+	Qusbhubctl,
 	Qmax
 };
 
 char *names[] = {
 	"",
 	"usbevent",
+	"usbhubctl",
 };
 
 static char Enonexist[] = "does not exist";
+static char Eperm[] = "permission denied";
 
 typedef struct Event Event;
 
@@ -146,12 +149,19 @@ dirgen(int n, Dir *d, void *)
 		return -1;
 	d->qid.path = n + 1;
 	d->qid.vers = 0;
-	if(n >= 0){
-		d->qid.type = 0;
-		d->mode = 0444;
-	}else{
+	switch((ulong)d->qid.path){
+	case Qroot:
 		d->qid.type = QTDIR;
 		d->mode = 0555 | DMDIR;
+		break;
+	case Qusbevent:
+		d->qid.type = 0;
+		d->mode = 0444;
+		break;
+	case Qusbhubctl:
+		d->qid.type = 0;
+		d->mode = 0222;
+		break;
 	}
 	d->uid = estrdup9p(getuser());
 	d->gid = estrdup9p(d->uid);
@@ -211,6 +221,69 @@ usbdread(Req *req)
 }
 
 static void
+usbdwrite(Req *req)
+{
+	extern QLock hublock;
+	extern Hub *hubs;
+	Hub *hub;
+	Cmdbuf *cb;
+	int hubid, port, feature, on;
+
+	if((long)req->fid->qid.path != Qusbhubctl){
+		respond(req, Enonexist);
+		return;
+	}
+	cb = parsecmd(req->ifcall.data, req->ifcall.count);
+	if(cb->nf < 4){
+		respond(req, "not enougth arguments");
+		goto out;
+	}
+	if(strcmp(cb->f[0], "portpower") == 0)
+		feature = Fportpower;
+	else if(strcmp(cb->f[0], "portindicator") == 0)
+		feature = Fportindicator;
+	else {
+		respond(req, "unnown feature");
+		goto out;
+	}
+	hubid = atoi(cb->f[1]);
+	port = atoi(cb->f[2]);
+	if(strcmp(cb->f[3], "on") == 0)
+		on = 1;
+	else if(strcmp(cb->f[3], "off") == 0)
+		on = 0;
+	else
+		on = atoi(cb->f[3]) != 0;
+
+	qlock(&hublock);
+	for(hub = hubs; hub != nil; hub = hub->next)
+		if(hub->dev->id == hubid)
+			break;
+	if(hub == nil){
+		qunlock(&hublock);
+		respond(req, "unknown hub");
+		goto out;
+	}
+	if(port < 1 || port > hub->nport){
+		qunlock(&hublock);
+		respond(req, "unknown port");
+		goto out;
+	}
+	if(feature == Fportpower && hub->pwrmode != 1
+	|| feature == Fportindicator && !hub->leds){
+		qunlock(&hublock);
+		respond(req, "not supported");
+		goto out;
+	}
+	portfeature(hub, port, feature, on);
+	qunlock(&hublock);
+	req->ofcall.count = req->ifcall.count;
+	respond(req, nil);
+out:
+	free(cb);
+}
+
+static void
 usbdstat(Req *req)
 {
 	if(dirgen(req->fid->qid.path - 1, &req->d, nil) < 0)
@@ -265,10 +338,14 @@ static void
 usbdopen(Req *req)
 {
 	extern QLock hublock;
+	Event *e;
 
-	if(req->fid->qid.path == Qusbevent){
-		Event *e;
-
+	switch((ulong)req->fid->qid.path){
+	case Qusbevent:
+		if(req->ifcall.mode != OREAD){
+			respond(req, Eperm);
+			return;
+		}
 		qlock(&hublock);
 		qlock(&evlock);
 
@@ -279,6 +356,13 @@ usbdopen(Req *req)
 
 		qunlock(&evlock);
 		qunlock(&hublock);
+		break;
+	case Qusbhubctl:
+		if((req->ifcall.mode&~OTRUNC) != OWRITE){
+			respond(req, Eperm);
+			return;
+		}
+		break;
 	}
 	respond(req, nil);
 }
@@ -350,6 +434,7 @@ Srv usbdsrv = {
 	.attach = usbdattach,
 	.walk1 = usbdwalk,
 	.read = usbdread,
+	.write = usbdwrite,
 	.stat = usbdstat,
 	.open = usbdopen,
 	.flush = usbdflush,

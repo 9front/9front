@@ -4,3 +4,4 @@ void	work(void);
 Hub*	newhub(char *, Dev*);
 int	hname(char *);
 void	checkidle(void);
+int	portfeature(Hub*, int, int, int);

@@ -13,8 +13,8 @@ static int pollms = Pollms;
 
 static char *dsname[] = { "disabled", "attached", "configed" };
 
-static int
-hubfeature(Hub *h, int port, int f, int on)
+int
+portfeature(Hub *h, int port, int f, int on)
 {
 	int cmd;
 
@@ -202,12 +202,12 @@ newhub(char *fn, Dev *d)
 		devctl(h->dev, "info hub csp %#08ulx ports %d vid %#.4ux did %#.4ux %q %q",
 			ud->csp, h->nport, ud->vid, ud->did, ud->vendor, ud->product);
 		for(i = 1; i <= h->nport; i++)
-			if(hubfeature(h, i, Fportpower, 1) < 0)
+			if(portfeature(h, i, Fportpower, 1) < 0)
 				fprint(2, "%s: %s: power: %r\n", argv0, fn);
 		sleep(h->pwrms);
 		for(i = 1; i <= h->nport; i++)
 			if(h->leds != 0)
-				hubfeature(h, i, Fportindicator, 1);
+				portfeature(h, i, Fportindicator, 1);
 	}
 	h->next = hubs;
 	hubs = h;
@@ -374,7 +374,7 @@ portattach(Hub *h, int p, u32int sts)
 		sp = "super";
 	} else {
 		sleep(Enabledelay);
-		if(hubfeature(h, p, Fportreset, 1) < 0){
+		if(portfeature(h, p, Fportreset, 1) < 0){
 			dprint(2, "%s: %s: port %d: reset: %r\n", argv0, d->dir, p);
 			goto Fail;
 		}
@@ -384,7 +384,7 @@ portattach(Hub *h, int p, u32int sts)
 			goto Fail;
 		if((sts & PSenable) == 0){
 			dprint(2, "%s: %s: port %d: not enabled?\n", argv0, d->dir, p);
-			hubfeature(h, p, Fportenable, 1);
+			portfeature(h, p, Fportenable, 1);
 			sts = portstatus(h, p);
 			if((sts & PSenable) == 0)
 				goto Fail;
@@ -468,7 +468,7 @@ Fail:
 	if(pp->hub != nil)
 		pp->hub = nil;	/* hub closed by enumhub */
 	if(!h->dev->isusb3)
-		hubfeature(h, p, Fportenable, 0);
+		portfeature(h, p, Fportenable, 0);
 	if(nd != nil)
 		devctl(nd, "detach");
 	closedev(nd);
@@ -549,7 +549,7 @@ portreset(Hub *h, int p)
 	d = h->dev;
 	pp = &h->port[p];
 	dprint(2, "%s: %s: port %d: resetting\n", argv0, d->dir, p);
-	if(hubfeature(h, p, Fportreset, 1) < 0){
+	if(portfeature(h, p, Fportreset, 1) < 0){
 		dprint(2, "%s: %s: port %d: reset: %r\n", argv0, d->dir, p);
 		goto Fail;
 	}
@@ -587,7 +587,7 @@ Fail:
 	pp->sts = 0;
 	portdetach(h, p);
 	if(!d->isusb3)
-		hubfeature(h, p, Fportenable, 0);
+		portfeature(h, p, Fportenable, 0);
 }
 
 static int
@@ -627,7 +627,7 @@ enumhub(Hub *h, int p)
 	onhubs = nhubs;
 	if(!h->dev->isusb3){
 		if((sts & PSsuspend) != 0){
-			if(hubfeature(h, p, Fportsuspend, 0) < 0)
+			if(portfeature(h, p, Fportsuspend, 0) < 0)
 				dprint(2, "%s: %s: port %d: unsuspend: %r\n", argv0, d->dir, p);
 			sleep(Enabledelay);
 			sts = portstatus(h, p);
