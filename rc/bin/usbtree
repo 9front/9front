@@ -1,0 +1,50 @@
+#!/bin/rc
+rfork e
+
+cd '#u/usb'
+
+root=()
+for(ep in ep*.0){
+	< $ep/ctl {
+		info1=`{read}
+		info2=`{read}
+	}	
+	info1_^$ep=$info1
+	info2_^$ep=$info2
+	if(~ $info1(18) hub){
+		hub=$info1(19)
+		if(~ $hub 0)
+			root=($root $ep)
+		if not {
+			hub=ep^$hub^'.0'
+			devhub_^$ep=$hub
+			if(~ $info1(20) port){
+				port=$info1(21)
+				portdev_^$hub^_^$port=$ep
+			}
+		}
+	}
+}
+
+fn indent {
+	sed 's/^/	/g'
+}
+
+fn printdev {
+	info2=info2_^$1
+	info2=$$info2
+	echo $1^':' $info2
+	if(~ $info2(1) *hub){
+		for(port in `{seq 1 16}){
+			x=portdev_^$1^_^$port
+			if(~ $#$x 1){
+				echo '  port'^$port^': '
+				printdev $$x | indent
+			}
+		}
+	}
+}
+
+for(ep in $root) {
+	printdev $ep
+}
