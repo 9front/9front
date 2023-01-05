@@ -199,8 +199,8 @@ newhub(char *fn, Dev *d)
 		devctl(h->dev, "info roothub csp %#08ux ports %d",
 			0x000009, h->nport);
 	else{
-		devctl(h->dev, "info hub csp %#08ulx ports %d %q %q",
-			ud->csp, h->nport, ud->vendor, ud->product);
+		devctl(h->dev, "info hub csp %#08ulx ports %d vid %#.4ux did %#.4ux %q %q",
+			ud->csp, h->nport, ud->vid, ud->did, ud->vendor, ud->product);
 		for(i = 1; i <= h->nport; i++)
 			if(hubfeature(h, i, Fportpower, 1) < 0)
 				fprint(2, "%s: %s: power: %r\n", argv0, fn);
