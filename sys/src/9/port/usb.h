@@ -187,6 +187,7 @@ struct Udev
 	int	ishub;		/* hubs can allocate devices */
 	int	isroot;		/* is a root hub */
 	int	speed;		/* Full/Low/High/Super/No -speed */
+	int	hubnb;		/* USB device number for the parent hub */
 	int	hub;		/* device address for the parent hub */
 	int	port;		/* port number in the parent hub */
 	int	addr;		/* device address */

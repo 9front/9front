@@ -298,7 +298,7 @@ seprintep(char *s, char *se, Ep *ep, int all)
 	s = seprint(s, se, " samplesz %ld", ep->samplesz);
 	s = seprint(s, se, " hz %ld", ep->hz);
 	s = seprint(s, se, " uframes %d", ep->uframes);
-	s = seprint(s, se, " hub %d", ep->dev->hub);
+	s = seprint(s, se, " hub %d", ep->dev->hubnb);
 	s = seprint(s, se, " port %d", ep->dev->port);
 	s = seprint(s, se, " rootport %d", ep->dev->rootport);
 	s = seprint(s, se, " addr %d", ep->dev->addr);
@@ -1277,6 +1277,7 @@ epctl(Ep *ep, Chan *c, void *a, long n)
 			nep->maxpkt = 512;
 		else if(l != Lowspeed)
 			nep->maxpkt = 64;	/* assume full speed */
+		nep->dev->hubnb = d->nb;
 		nep->dev->hub = d->addr;
 		nep->dev->port = atoi(cb->f[2]);
 		nep->dev->depth = d->depth+1;
