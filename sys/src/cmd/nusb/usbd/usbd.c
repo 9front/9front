@@ -227,7 +227,8 @@ usbdwrite(Req *req)
 	extern Hub *hubs;
 	Hub *hub;
 	Cmdbuf *cb;
-	int hubid, port, feature, on;
+	char hubid[16];
+	int port, feature, on;
 
 	if((long)req->fid->qid.path != Qusbhubctl){
 		respond(req, Enonexist);
@@ -246,7 +247,6 @@ usbdwrite(Req *req)
 		respond(req, "unnown feature");
 		goto out;
 	}
-	hubid = atoi(cb->f[1]);
 	port = atoi(cb->f[2]);
 	if(strcmp(cb->f[3], "on") == 0)
 		on = 1;
@@ -256,9 +256,13 @@ usbdwrite(Req *req)
 		on = atoi(cb->f[3]) != 0;
 
 	qlock(&hublock);
-	for(hub = hubs; hub != nil; hub = hub->next)
-		if(hub->dev->id == hubid)
+	for(hub = hubs; hub != nil; hub = hub->next){
+		if(hub->dev->hname != nil && strcmp(hub->dev->hname, cb->f[1]) == 0)
 			break;
+		snprint(hubid, sizeof(hubid), "%d", hub->dev->id);
+		if(strcmp(hubid, cb->f[1]) == 0)
+			break;
+	}
 	if(hub == nil){
 		qunlock(&hublock);
 		respond(req, "unknown hub");
@@ -441,7 +445,7 @@ Srv usbdsrv = {
 	.destroyfid = usbddestroyfid,
 };
 
-static void
+void
 assignhname(Dev *dev)
 {
 	extern Hub *hubs;
@@ -462,6 +466,13 @@ assignhname(Dev *dev)
 	/* check for collisions */
 	col = 0;
 	for(h = hubs; h != nil; h = h->next){
+		if(ud->class == Clhub){
+			if(h->dev->hname == nil)
+				continue;
+			if(strncmp(h->dev->hname, buf, n) == 0)
+				col++;
+			continue;
+		}
 		for(i = 1; i <= h->nport; i++){
 			if(h->port[i].dev == nil)
 				continue;
