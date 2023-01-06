@@ -66,7 +66,7 @@ readcons(char *prompt, char *def, int raw)
 				fprint(fdout, "\n%s: ", prompt);
 			while(p > s)
 				*p-- = 0;
-		} else if(*p >= ' ')
+		} else if((*p & 0xff) >= ' ')
 			p++;
 	}
 	free(s);
