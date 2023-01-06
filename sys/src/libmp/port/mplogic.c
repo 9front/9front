@@ -34,7 +34,7 @@ mplogic(mpint *b1, mpint *b2, mpint *sum, int fl)
 		t = b1;
 		b1 = b2;
 		b2 = t;
-		fl = fl >> 2 & 0x03 | fl << 2 & 0x0c | fl & 0x30;
+		fl = ((fl >> 2) & 0x03) | ((fl << 2) & 0x0c) | (fl & 0x30);
 	}
 	mpbits(sum, b1->top*Dbits+1);
 	dp1 = b1->p;
@@ -165,7 +165,7 @@ mptrunc(mpint *b, int n, mpint *r)
 			for(i = 0; i < d; i++)
 				r->p[i] = b->p[i];
 		if(m != 0)
-			r->p[d] = b->p[d] & (1<<m)-1;
+			r->p[d] = b->p[d] & ((1<<m)-1);
 	}
 	r->sign = 1;
 	mpnorm(r);

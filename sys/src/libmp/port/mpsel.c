@@ -21,7 +21,7 @@ mpsel(int s, mpint *b1, mpint *b2, mpint *res)
 	mpbits(res, Dbits*(n >= m ? n : m));
 	res->top = n >= m ? n : m;
 
-	s = (-s^s|s)>>(sizeof(s)*8-1);
+	s = ((-s^s)|s)>>(sizeof(s)*8-1);
 	res->sign = (b1->sign & s) | (b2->sign & ~s);
 
 	d = -((mpdigit)s & 1);

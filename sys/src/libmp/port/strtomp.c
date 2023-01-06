@@ -53,7 +53,7 @@ from8(char *a, mpint *b)
 Digout:
 			i -= Dbits;
 			b->p[b->top++] = x;
-			x = y >> 3-i;
+			x = y >> (3-i);
 		}
 	}
 	if(i > 0)

@@ -33,7 +33,7 @@ topow2(mpint *b, char *buf, int len, int s)
 	for(p = &b->p[b->top-1]; p >= b->p; p--){
 		x = *p;
 		for(i = Dbits-s; i >= 0; i -= s){
-			j = x >> i & sn - 1;
+			j = (x >> i) & (sn - 1);
 			if(j != 0 || out != buf){
 				if(out >= eout)
 					return -1;
@@ -130,7 +130,7 @@ Digout:			i -= 3;
 			else if(x != 0)
 				return -1;
 			*out = '0' + (x & 7);
-			x = y >> Dbits-i;
+			x = y >> (Dbits-i);
 		}
 	}
 	if(i > 0)

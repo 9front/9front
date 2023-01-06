@@ -26,5 +26,5 @@ mpcmp(mpint *b1, mpint *b2)
 	int sign;
 
 	sign = (b1->sign - b2->sign) >> 1;	// -1, 0, 1
-	return sign | (sign&1)-1 & mpmagcmp(b1, b2)*b1->sign;
+	return sign | (((sign&1)-1) & mpmagcmp(b1, b2)*b1->sign);
 }
