@@ -124,7 +124,7 @@ memellipse(Memimage *dst, Point c, int a, int b, int t, Memimage *src, Point sp,
 	p.op = op;
 
 	u = (t<<1)*(a-b);
-	if(b<a && u>b*b || a<b && -u>a*a) {
+	if((b<a && u>b*b) || (a<b && -u>a*a)) {
 /*	if(b<a&&(t<<1)>b*b/a || a<b&&(t<<1)>a*a/b)	# very thick */
 		bellipse(b, newstate(&in, a, b), &p);
 		return;
@@ -207,7 +207,7 @@ erect(int x0, int y0, int x1, int y1, Param *p)
 {
 	Rectangle r;
 
-/*	print("R %d,%d %d,%d\n", x0, y0, x1, y1); /**/
+/*	print("R %d,%d %d,%d\n", x0, y0, x1, y1); */
 	r = Rect(p->c.x+x0, p->c.y+y0, p->c.x+x1+1, p->c.y+y1+1);
 	memdraw(p->dst, r, p->src, addpt(p->sp, r.min), memopaque, ZP, p->op);
 }
@@ -222,7 +222,7 @@ epoint(int x, int y, Param *p)
 	Point p0;
 	Rectangle r;
 
-/*	print("P%d %d,%d\n", p->t, x, y);	/**/
+/*	print("P%d %d,%d\n", p->t, x, y); */
 	p0 = Pt(p->c.x+x, p->c.y+y);
 	r = Rpt(addpt(p0, p->disc->r.min), addpt(p0, p->disc->r.max));
 	memdraw(p->dst, r, p->src, addpt(p->sp, r.min), p->disc, p->disc->r.min, p->op);
@@ -235,7 +235,7 @@ static
 void
 eline(int x0, int y0, int x1, int y1, Param *p)
 {
-/*	print("L%d %d,%d %d,%d\n", p->t, x0, y0, x1, y1); /**/
+/*	print("L%d %d,%d %d,%d\n", p->t, x0, y0, x1, y1); */
 	if(x1 > x0+1)
 		erect(x0+1, y0-p->t, x1-1, y1+p->t, p);
 	else if(y1 > y0+1)

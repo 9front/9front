@@ -13,15 +13,6 @@ enum
 
 static
 int
-lmin(int a, int b)
-{
-	if(a < b)
-		return a;
-	return b;
-}
-
-static
-int
 lmax(int a, int b)
 {
 	if(a > b)
@@ -30,6 +21,16 @@ lmax(int a, int b)
 }
 
 #ifdef NOTUSED
+
+static
+int
+lmin(int a, int b)
+{
+	if(a < b)
+		return a;
+	return b;
+}
+
 /*
  * Rather than line clip, we run the Bresenham loop over the full line,
  * and clip on each pixel.  This is more expensive but means that
