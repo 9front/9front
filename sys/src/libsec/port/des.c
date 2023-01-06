@@ -369,7 +369,7 @@ keycompperm(u32int left, u32int right, ulong *ek)
 }
 
 void
-des_key_setup(uchar key[8], ulong *ek)
+des_key_setup(uchar key[8], ulong ek[32])
 {
 	u32int left, right, v0, v1;
 
@@ -471,7 +471,7 @@ des64to56(uchar *k64, uchar *k56)
 }
 
 void
-key_setup(uchar key[7], ulong *ek)
+key_setup(uchar key[7], ulong ek[32])
 {
 	uchar k64[8];
 
