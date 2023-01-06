@@ -560,7 +560,7 @@ greiput(Proto *proto, Ipifc *, Block *bp)
 
 	qlock(proto);
 
-	if(eproto != 0x880B && BLEN(bp) - hdrlen >= sizeof(Ip4hdr)){
+	if(eproto == 0x0800 && BLEN(bp) - hdrlen >= sizeof(Ip4hdr)){
 		ip = (Ip4hdr *)(bp->rp + hdrlen);
 
 		/*
