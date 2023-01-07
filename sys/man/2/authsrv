@@ -1,6 +1,6 @@
 .TH AUTHSRV 2
 .SH NAME
-authdial, passtokey, nvcsum, readnvram, convT2M, convM2T, convTR2M, convM2TR, convA2M, convM2A, convPR2M, convM2PR, _asgetticket, _asrequest, _asgetresp, _asrdresp, _asgetpakkey, authpak_hash, authpak_new, authpak_finish \- routines for communicating with authentication servers
+authdial, passtokey, nvcsum, readnvram, readcons, convT2M, convM2T, convTR2M, convM2TR, convA2M, convM2A, convPR2M, convM2PR, _asgetticket, _asrequest, _asgetresp, _asrdresp, _asgetpakkey, authpak_hash, authpak_new, authpak_finish \- routines for communicating with authentication servers
 .SH SYNOPSIS
 .nf
 .PP
@@ -22,7 +22,10 @@ uchar	nvcsum(void *mem, int len)
 .PP
 .B
 int	readnvram(Nvrsafe *nv, int flag);
-.PPP
+.PP
+.B
+char*	readcons(char *prompt, char *def, int raw);
+.PP
 .B
 int	convT2M(Ticket *t, char *msg, int len, Authkey *key)
 .PP
@@ -216,6 +219,27 @@ will write the values in
 .I *nv
 back to the storage area.
 .PP
+The
+.I readcons
+function prompts the user for a string on the console with a possible default response.
+The
+.I prompt
+argument points to a string describing what is asked for.
+The
+.I def
+argument is the default that will be suggested and returned when the user
+hits enter without tying anything.
+When
+.I raw
+is non-zero, echo will be disabled on the console.
+This is used for password prompts.
+The users anwer is returned as a
+.IR malloc (2)
+allocated string.
+On error,
+.B nil
+is returned.
+.PP
 .IR ConvT2M ,
 .IR convA2M ,
 .IR convTR2M ,
@@ -282,7 +306,7 @@ The randomly generated private key is returned in the
 .I PAKpriv
 structure passed in
 .IR p ,
-while the pakhash encrytped public key is returned in
+while the pakhash encrypted public key is returned in
 .IR y .
 .PP
 .I Authpak_finish
