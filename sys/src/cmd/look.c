@@ -8,9 +8,7 @@
 #define	isalpha(r)	(isupper(r) || islower(r))
 #define	islatin1(r)	(0xC0 <= (r) && (r) <= 0xFF)
 
-#define	isdigit(r)	(L'0' <= (r) && (r) <= L'9')
-
-#define	isalnum(r)	(isalpha(r) || isdigit(r))
+#define	isalnum(r)	(isalpha(r) || (L'0' <= (r) && (r) <= L'9'))
 
 #define	isspace(r)	((r) == L' ' || (r) == L'\t' \
 			|| (0x0A <= (r) && (r) <= 0x0D))
@@ -18,6 +16,7 @@
 #define	tolower(r)	((r)-'A'+'a')
 
 #define	sgn(v)		((v) < 0 ? -1 : ((v) > 0 ? 1 : 0))
+#define	notcase(v)	(v != L'a'-L'A' && v != L'A'-L'a')
 
 #define	WORDSIZ	4000
 char	*filename = "/lib/words";
@@ -29,6 +28,7 @@ int	fold;
 int	direc;
 int	exact;
 int	iflag;
+int	base;
 int	rev = 1;	/*-1 for reverse-ordered file, not implemented*/
 int	(*compare)(Rune*, Rune*);
 Rune	tab = '\t';
@@ -65,6 +65,7 @@ int	getword(Biobuf*, Rune *rp, int n);
 void	torune(char*, Rune*);
 void	rcanon(Rune*, Rune*);
 int	ncomp(Rune*, Rune*);
+int	isdigit(Rune);
 
 void
 usage(void)
@@ -81,7 +82,12 @@ main(int argc, char *argv[])
 	Binit(&bin, 0, OREAD);
 	Binit(&bout, 1, OWRITE);
 	compare = acomp;
+	base = 10;
 	ARGBEGIN{
+	case 'b':
+		base = atoi(EARGF(usage()));
+		compare = ncomp;
+		break;
 	case 'd':
 		direc++;
 		break;
@@ -299,7 +305,7 @@ ncomp(Rune *s, Rune *t)
 	a = 0;
 	if(ssgn == tsgn)
 		while(it>t && is>s)
-			if(b = *--it - *--is)
+			if((b = *--it - *--is) && notcase(b))
 				a = b;
 	while(is > s)
 		if(*--is != '0')
@@ -315,7 +321,7 @@ ncomp(Rune *s, Rune *t)
 		t++;
 	if(ssgn == tsgn)
 		while(isdigit(*s) && isdigit(*t))
-			if(a = *t++ - *s++)
+			if((a = *t++ - *s++) && notcase(a))
 				return sgn(a)*ssgn;
 	while(isdigit(*s))
 		if(*s++ != '0')
@@ -342,5 +348,22 @@ getword(Biobuf *f, Rune *rp, int n)
 		*rp++ = c;
 	}
 	fprint(2, "Look: word too long.  Bailing out.\n");
+	return 0;
+}
+
+int
+isdigit(Rune r)
+{
+	int v;
+
+	v = base;
+	if(L'0'<=r && r<=L'9')
+		v = r - L'0';
+	else if(L'a'<=r && r<=L'z')
+		v = r - L'a' + 10;
+	else if(L'A'<=r && r<=L'Z')
+		v = r - L'A' + 10;
+	if(v < base)
+		return 1;
 	return 0;
 }

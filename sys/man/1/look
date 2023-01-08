@@ -4,7 +4,15 @@ look \- find lines in a sorted list
 .SH SYNOPSIS
 .B look
 [
-.BI -dfnixt c
+.BI -dfnix
+]
+[
+.B -t
+.I c
+]
+[
+.B -b
+.I base
 ]
 [
 .I string
@@ -52,6 +60,11 @@ Upper case letters compare equal to lower case.
 .B -n
 Numeric comparison with initial string of digits, optional minus sign,
 and optional decimal point.
+.TP
+.B -b \f2base\f1
+Change the base for numeric comparison. Implies the
+.B -n
+flag.
 .TP
 .BR -t [ \f2c\f1 ]
 Character
