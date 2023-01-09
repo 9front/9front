@@ -1445,7 +1445,7 @@ threadmain(int argc, char **argv)
 
 	ssh(argc, argv);
 
-	threadpostmountsrv(&fs, service, mtpt, MREPL);
+	threadpostmountsrv(&fs, service, mtpt, MBEFORE);
 
 	threadexits(nil);
 }

@@ -34,7 +34,7 @@ establishes an SSH connection and, rather than execute a remote command,
 presents the remote server's TCP stack as a network stack
 (see the discussion of TCP in
 .IR ip (3))
-mounted at
+mounted before
 .I mtpt
 (default
 .BR /net ),
