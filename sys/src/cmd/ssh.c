@@ -1171,7 +1171,7 @@ kfmt(Fmt *f)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-dR] [-t thumbfile] [-T tries] [-u user] [-h] [user@]host [-W remote!port] [cmd args...]\n", argv0);
+	fprint(2, "usage: %s [-drRX] [-t thumbfile] [-T tries] [-u user] [-h] [user@]host [-W remote!port] [cmd args...]\n", argv0);
 	exits("usage");
 }
 

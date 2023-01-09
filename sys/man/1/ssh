@@ -4,11 +4,7 @@ ssh - secure shell remote login client
 .SH SYNOPSIS
 .B ssh 
 [
-.B -d
-] [
-.B -R
-] [
-.B -r
+.B -drRX
 ] [
 .B -t
 .I thumbfile
@@ -80,11 +76,11 @@ a terminal emulator like
 a pseudo terminal will be requested for the shell.
 This can be disabled with the
 .B -R
-option.
+flag.
 A pseudo-terminal can be requested in all cases
 with the
 .B -r
-option.
+flag.
 .PP
 With the
 .B -W
@@ -98,7 +94,17 @@ programs, see
 .PP
 The
 .B -d
-option enables debug output.
+flag enables debug output.
+.PP
+The
+.B -X
+flag enables mux mode, which after establishing
+the tunnel, relies the raw SSH protocol
+messages on file-descriptor 0 and 1.
+This is used by programs such as
+.IR sshnet (4)
+and
+.IR sshfs (4).
 .SH FILES
 .TF $home/lib/sshthumbs
 .TP
