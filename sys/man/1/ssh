@@ -99,7 +99,7 @@ flag enables debug output.
 The
 .B -X
 flag enables mux mode, which after establishing
-the tunnel, relies the raw SSH protocol
+the tunnel, relays the plaintext SSH protocol
 messages on file-descriptor 0 and 1.
 This is used by programs such as
 .IR sshnet (4)
