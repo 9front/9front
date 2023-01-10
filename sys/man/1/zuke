@@ -177,7 +177,7 @@ Generate a playlist:
 .EX
 audio/mkplist /usr/glenda/music \\
 	file.mp3 \\
-	http://stream.nauticradio.net:14280/ > music.plist
+	http://anonradio.net:8000/anonradio > music.plist
 .EE
 .PP
 Playing a playlist:
