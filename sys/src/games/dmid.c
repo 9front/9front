@@ -77,14 +77,15 @@ struct Trk{
 	u8int *s;
 	u8int *p;
 	u8int *e;
-	uvlong t;
+	vlong Δ;
+	vlong t;
 	int ev;
 };
 Trk *tr;
 
+int trace;
 double freq[128];
 int mfmt, ntrk, div = 1, tempo, opl2, stream;
-uvlong T;
 Biobuf *ib;
 
 void *
@@ -129,6 +130,20 @@ bread(void *u, int n)
 		sysfatal("bread: short read");
 }
 
+void
+dprint(char *fmt, ...)
+{
+	char s[256];
+	va_list arg;
+
+	if(!trace)
+		return;
+	va_start(arg, fmt);
+	vseprint(s, s+sizeof s, fmt, arg);
+	va_end(arg);
+	fprint(2, "%s", s);
+}
+
 u8int
 get8(Trk *x)
 {
@@ -140,7 +155,9 @@ get8(Trk *x)
 	}
 	if(x->p >= x->e)
 		sysfatal("track overflow");
-	return *x->p++;
+	v = *x->p++;
+	dprint("%02ux", v);
+	return v;
 }
 
 u16int
@@ -326,10 +343,10 @@ resetchan(Chan *c)
 		}
 }
 
-uvlong
-tc(int n)
+double
+tc(double n)
 {
-	return ((uvlong)n * tempo * Rate / div) / 1000000;
+	return (n * tempo * Rate / div) / 1e6;
 }
 
 void
@@ -356,29 +373,19 @@ getvar(Trk *x)
 	return v;
 }
 
-int
-peekvar(Trk *x)
-{
-	int v;
-	uchar *p;
-
-	p = x->p;
-	v = getvar(x);
-	x->p = p;
-	return v;
-}
-
 void
-samp(uvlong t´)
+samp(double n)
 {
-	int dt;
-	static uvlong t;
+	vlong t;
+	double Δ;
+	static double ε;
 
-	dt = t´ - t;
-	t += dt;
-	while(dt > 0){
-		putcmd(0, 0, dt > 0xffff ? 0xffff : dt);
-		dt -= 0xffff;
+	Δ = tc(n) + ε;
+	t = Δ;
+	ε = Δ - t;
+	while(t > 0){
+		putcmd(0, 0, t > 0xffff ? 0xffff : t);
+		t -= 0xffff;
 	}
 }
 
@@ -388,7 +395,7 @@ ev(Trk *x)
 	int e, n, m;
 	Chan *c;
 
-	samp(x->t += tc(getvar(x)));
+	dprint(" [%zd] ", x - tr);
 	e = get8(x);
 	if((e & 0x80) == 0){
 		x->p--;
@@ -398,6 +405,7 @@ ev(Trk *x)
 	}else
 		x->ev = e;
 	c = chan + (e & 15);
+	dprint("(%02ux) ", e);
 	n = get8(x);
 	switch(e >> 4){
 	case 0x8: noteoff(c, n, get8(x)); break;
@@ -408,7 +416,7 @@ ev(Trk *x)
 		case 0x00: case 0x01: case 0x20: break;
 		case 0x07: c->v = m; resetchan(c); break;
 		case 0x0a: c->pan = m < 32 ? 1<<4 : m > 96 ? 1<<5 : 3<<4; resetchan(c); break;
-		default: fprint(2, "unknown controller %d\n", n);
+		default: dprint("\nunknown controller %d", n);
 		}
 		break;
 	case 0xc: c->i = inst + n; break;
@@ -421,11 +429,11 @@ ev(Trk *x)
 		if((e & 0xf) == 0){
 			while(get8(x) != 0xf7)
 				;
-			return;
+			break;
 		}
 		m = get8(x);
 		switch(n){
-		case 0x2f: x->p = x->e; return;
+		case 0x2f: x->p = x->e; break;
 		case 0x51: tempo = get16(x) << 8; tempo |= get8(x); break;
 		default: skip(x, m);
 		}
@@ -434,6 +442,7 @@ ev(Trk *x)
 	case 0xd: get8(x); break;
 	default: sysfatal("invalid event %#ux\n", e >> 4);
 	}
+	dprint("\n");
 }
 
 void
@@ -489,7 +498,7 @@ readinst(char *file)
 void
 readmid(char *file)
 {
-	u32int n;
+	u32int n, z;
 	uchar *s;
 	Trk *x;
 
@@ -506,7 +515,7 @@ readmid(char *file)
 		sysfatal("unsupported format %d", mfmt);
 	div = get16(nil);
 	tr = emalloc(ntrk * sizeof *tr);
-	for(x=tr; x<tr+ntrk; x++){
+	for(x=tr, z=-1UL; x<tr+ntrk; x++){
 		if(get32(nil) != 0x4d54726b)
 			sysfatal("invalid track");
 		n = get32(nil);
@@ -515,31 +524,38 @@ readmid(char *file)
 		x->s = s;
 		x->p = s;
 		x->e = s + n;
+		x->Δ = getvar(x);	/* prearm */
+		if(x->Δ < z)
+			z = x->Δ;
 	}
+	for(x=tr; x<tr+ntrk; x++)
+		x->Δ -= z;
 	Bterm(ib);
 }
 
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-2s] [-i inst] [mid]\n", argv0);
+	fprint(2, "usage: %s [-2Ds] [-i inst] [mid]\n", argv0);
 	exits("usage");
 }
 
 void
 threadmain(int argc, char **argv)
 {
-	int n, t, mint;
+	int n, end, debug;
 	char *i;
 	double f;
 	uchar u[4];
 	Chan *c;
 	Opl *o;
-	Trk xs, *x, *minx;
+	Trk xs, *x;
 
 	i = "/mnt/wad/genmidi";
+	debug = 0;
 	ARGBEGIN{
 	case '2': opl2 = 1; ople = opl + 9; break;
+	case 'D': debug = 1; break;
 	case 'i': i = EARGF(usage()); break;
 	case 's': stream = 1; break;
 	default: usage();
@@ -560,6 +576,7 @@ threadmain(int argc, char **argv)
 	tempo = 500000;
 	putcmd(Rwse, Mwse, 0);
 	putcmd(Rop3, 1, 0);
+	trace = debug;
 	if(stream){
 		if(proccreate(tproc, nil, mainstacksize) < 0)
 			sysfatal("proccreate: %r");
@@ -574,20 +591,22 @@ threadmain(int argc, char **argv)
 		}
 		threadexitsall(n < 0 ? "read: %r" : nil);
 	}
-	for(;;){
-		minx = nil;
-		mint = 0;
+	for(end=0; !end;){
+		end = 1;
 		for(x=tr; x<tr+ntrk; x++){
 			if(x->p >= x->e)
 				continue;
-			t = x->t + tc(peekvar(x));
-			if(t < mint || minx == nil){
-				mint = t;
-				minx = x;
+			end = 0;
+			x->Δ--;
+			x->t += tc(1);
+			while(x->Δ <= 0){
+				ev(x);
+				if(x->p >= x->e)
+					break;
+				x->Δ = getvar(x);
 			}
 		}
-		if(minx == nil)
-			exits(nil);
-		ev(minx);
+		samp(1);
 	}
+	exits(nil);
 }
