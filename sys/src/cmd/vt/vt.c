@@ -421,10 +421,9 @@ emulate(void)
 				operand[0] = number(buf, &i);
 				noperand = 1;
 				while(buf[0] == ';' || buf[0] == '?'){
-					if(noperand < nelem(operand)){
-						noperand++;
-						operand[noperand-1] = number(buf, nil);
-					} else
+					if(noperand < nelem(operand))
+						operand[noperand++] = number(buf, nil);
+					else
 						number(buf, nil);
 				}
 
@@ -834,6 +833,11 @@ emulate(void)
 						case 'l':
 							break;
 						}
+						break;
+					case '>':	/* Set/reset key modifier options (XTMODKEYS), xterm. */
+						number(buf, nil);
+						if(buf[0] != 'm')
+							number(buf, nil);
 						break;
 				}
 
