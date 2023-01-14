@@ -210,11 +210,6 @@ show(Biobuf *fd, char *type, char **addrs, int naddrs)
 			continue;
 		w += Bprint(fd, "%s%s", sep, addrs[i]);
 		sep = ", ";
-		if(w > 50 && i < naddrs-1){
-			w = 0;
-			sep = "";
-			Bprint(fd, "\n%s: ", type);
-		}
 	}
 	Bprint(fd, "\n");
 }
