@@ -370,7 +370,7 @@ YYSTYPE getblk(obj *p, char *s)	/* find union type for s in p */
 	static YYSTYPE bug;
 	struct symtab *stp;
 
-	if (p->o_type != BLOCK) {
+	if (p == NULL || p->o_type != BLOCK) {
 		ERROR ".%s is not in that block", s WARNING;
 		return(bug);
 	}
