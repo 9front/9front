@@ -413,13 +413,13 @@ ev(Trk *x)
 	case 0xb:
 		m = get8(x);
 		switch(n){
-		case 0x00: case 0x01: case 0x20: break;
+		case 0x00: if(m < Ninst) c->i = inst + m; break;
 		case 0x07: c->v = m; resetchan(c); break;
 		case 0x0a: c->pan = m < 32 ? 1<<4 : m > 96 ? 1<<5 : 3<<4; resetchan(c); break;
 		default: dprint("\nunknown controller %d", n);
 		}
 		break;
-	case 0xc: c->i = inst + n; break;
+	case 0xc: if(n < Ninst) c->i = inst + n; break;
 	case 0xe:
 		n = get8(x) << 7 | n;
 		c->bend = n - 0x4000 / 2;
