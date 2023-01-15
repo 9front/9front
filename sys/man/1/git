@@ -622,7 +622,7 @@ git/init myrepo
 To clone an existing repository from a git server, run:
 .PP
 .EX
-git/clone git://github.com/Harvey-OS/harvey
+git/clone https://github.com/Harvey-OS/harvey
 cd harvey
 # edit files
 git/commit foo.c
