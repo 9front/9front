@@ -397,7 +397,7 @@ ev(Trk *x)
 
 	dprint(" [%zd] ", x - tr);
 	e = get8(x);
-	if((e & 0x80) == 0){
+	if(!stream && (e & 0x80) == 0){
 		x->p--;
 		e = x->ev;
 		if((e & 0x80) == 0)
@@ -580,13 +580,12 @@ threadmain(int argc, char **argv)
 	if(stream){
 		if(proccreate(tproc, nil, mainstacksize) < 0)
 			sysfatal("proccreate: %r");
-		xs.p = u;
-		xs.e = u + sizeof u;
 		for(;;){
 			if((n = Bread(ib, u, sizeof u)) != sizeof u)
 				break;
-			u[0] = 0;
 			xs.p = u;
+			xs.e = u + n;
+			getvar(&xs);
 			ev(&xs);
 		}
 		threadexitsall(n < 0 ? "read: %r" : nil);
