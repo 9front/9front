@@ -271,6 +271,9 @@ sdgetunit(SDev* sdev, int subno)
 	SDunit *unit;
 	char buf[32];
 
+	if(subno < 0 || subno >= sdev->nunit)
+		return nil;
+
 	/*
 	 * Associate a unit with a given device and sub-unit
 	 * number on that device.
@@ -278,11 +281,6 @@ sdgetunit(SDev* sdev, int subno)
 	 * successfully accessed.
 	 */
 	qlock(&sdev->unitlock);
-	if(subno > sdev->nunit){
-		qunlock(&sdev->unitlock);
-		return nil;
-	}
-
 	unit = sdev->unit[subno];
 	if(unit == nil){
 		/*
@@ -313,7 +311,7 @@ sdgetunit(SDev* sdev, int subno)
 		 * called before the unit is made available in the
 		 * sdunit[] array.
 		 */
-		if(sdev->enabled == 0 || unit->dev->ifc->verify(unit) == 0){
+		if(sdev->enabled == 0 || sdev->ifc->verify(unit) == 0){
 			poperror();
 		Error:
 			qunlock(&sdev->unitlock);
@@ -544,11 +542,10 @@ sdgen(Chan* c, char*, Dirtab*, int, int s, Dir* dp)
 		incref(&sdev->r);
 		qunlock(&devslock);
 
-		if((unit = sdev->unit[s]) == nil)
-			if((unit = sdgetunit(sdev, s)) == nil){
-				decref(&sdev->r);
-				return 0;
-			}
+		if((unit = sdgetunit(sdev, s)) == nil){
+			decref(&sdev->r);
+			return 0;
+		}
 
 		mkqid(&q, QID(sdev->idno, s, 0, Qunitdir), 0, QTDIR);
 		if(emptystr(unit->user))
@@ -1633,8 +1630,8 @@ unconfigure(char* spec)
 	if(sdev->enabled && sdev->ifc->disable)
 		sdev->ifc->disable(sdev);
 
-	for(i = 0; i != sdev->nunit; i++){
-		if(unit = sdev->unit[i]){
+	for(i = 0; i < sdev->nunit; i++){
+		if((unit = sdev->unit[i]) != nil){
 			free(unit->name);
 			free(unit->user);
 			free(unit);
