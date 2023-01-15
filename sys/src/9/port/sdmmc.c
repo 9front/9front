@@ -85,6 +85,8 @@ enum {
 
 typedef struct Card Card;
 struct Card {
+	QLock;
+
 	SDev	*dev;
 	SDio	*io;
 
@@ -101,6 +103,9 @@ struct Card {
 	u32int	csd[4];
 
 	u8int	ext_csd[512];
+
+	uvlong	sectors[3];
+	uint	secsize;
 
 	int	retry;
 };
@@ -159,12 +164,12 @@ Next:
 		if(more > 0)
 			isdio--;	/* try again */
 	}
-	sdev->idno = 'M';
-	sdev->ifc = &sdmmcifc;
-	sdev->nunit = 1;
-	sdev->ctlr = card;
 	card->dev = sdev;
 	card->io = io;
+	sdev->idno = 'M';
+	sdev->ifc = &sdmmcifc;
+	sdev->nunit = nelem(card->sectors);
+	sdev->ctlr = card;
 	return sdev;
 }
 
@@ -229,17 +234,18 @@ rbytes(uchar *p, uint start, uint len)
 }
 
 static void
-identify(SDunit *unit)
+identify(Card *card)
 {
-	Card *card = unit->dev->ctlr;
 	uint csize, mult;
 	uvlong capacity;
 
 #define CSD(end, start)	rbits(card->csd, start, (end)-(start)+1)
 	mult = CSD(49, 47);
 	csize = CSD(73, 62);
-	unit->sectors = (csize+1) * (1<<(mult+2));
-	unit->secsize = 1 << CSD(83, 80);
+	card->secsize = 1 << CSD(83, 80);
+	card->sectors[0] = (csize+1) * (1<<(mult+2));
+	card->sectors[1] = 0;
+	card->sectors[2] = 0;
 
 	card->specver = 0;
 
@@ -299,7 +305,11 @@ identify(SDunit *unit)
 		if(card->specver >= 420) {
 			capacity = EXT_CSD(215, 212) * 512ULL;
 			if(capacity > 0x80000000ULL)
-				unit->sectors = capacity / unit->secsize;
+				card->sectors[0] = capacity / card->secsize;
+
+			capacity = EXT_CSD(226, 226) * 0x20000ULL;
+			card->sectors[1] = capacity / card->secsize;
+			card->sectors[2] = capacity / card->secsize;
 		}
 	} else {
 		switch(CSD(127, 126)){
@@ -310,14 +320,16 @@ identify(SDunit *unit)
 			card->specver = 200;
 			csize = CSD(69, 48);
 			capacity = (csize+1) * 0x80000ULL;
-			unit->sectors = capacity / unit->secsize;
+			card->sectors[0] = capacity / card->secsize;
 			break;
 		}
 	}
 
-	if(unit->secsize == 1024){
-		unit->sectors <<= 1;
-		unit->secsize = 512;
+	if(card->secsize == 1024){
+		card->secsize = 512;
+		card->sectors[0] <<= 1;
+		card->sectors[1] <<= 1;
+		card->sectors[2] <<= 1;
 	}
 }
 
@@ -328,7 +340,14 @@ mmcverify(SDunit *unit)
 	SDio *io = card->io;
 	int n;
 
+	eqlock(card);
+	if(waserror()){
+		qunlock(card);
+		nexterror();
+	}
 	n = (*io->inquiry)(io, (char*)&unit->inquiry[8], sizeof(unit->inquiry)-8);
+	qunlock(card);
+	poperror();
 	if(n < 0)
 		return 0;
 	unit->inquiry[0] = 0x00;	/* direct access (disk) */
@@ -401,6 +420,11 @@ cardinit(Card *card)
 	u32int r[4], ocr;
 	int i;
 
+	card->secsize = 0;
+	card->sectors[0] = 0;
+	card->sectors[1] = 0;
+	card->sectors[2] = 0;
+
 	card->buswidth = 1;
 	card->busspeed = Initfreq;
 	(*io->bus)(io, card->buswidth, card->busspeed);
@@ -471,12 +495,15 @@ retryproc(void *arg)
 	Card *card = arg;
 	int i = 0;
 
+	qlock(card);
 	while(waserror())
 		;
 	if(i++ < card->retry)
 		cardinit(card);
 	USED(i);
 	card->retry = 0;
+	qunlock(card);
+
 	pexit("", 1);
 }
 
@@ -487,21 +514,32 @@ mmconline(SDunit *unit)
 	SDio *io = card->io;
 	u32int r[4];
 
-	assert(unit->subno == 0);
 	if(card->retry)
 		return 0;
+
+	eqlock(card);
 	if(waserror()){
 		unit->sectors = 0;
 		if(card->retry++ == 0)
 			kproc(unit->name, retryproc, card);
+		qunlock(card);
 		return 0;
 	}
-	if(unit->sectors != 0){
+	if(card->secsize != 0 && card->sectors[0] != 0){
+		unit->secsize = card->secsize;
+		unit->sectors = card->sectors[unit->subno];
+		if(unit->sectors == 0){
+			qunlock(card);
+			poperror();
+			return 0;
+		}
 		(*io->cmd)(io, &SEND_STATUS, card->rca<<Rcashift, r);
+		qunlock(card);
 		poperror();
 		return 1;
 	}
 	if(cardinit(card) != 1){
+		qunlock(card);
 		poperror();
 		return 2;
 	}
@@ -511,8 +549,11 @@ mmconline(SDunit *unit)
 	(*io->bus)(io, 0, card->busspeed = SDfreq);
 	tsleep(&up->sleep, return0, nil, 10);
 
-	identify(unit);
-	(*io->cmd)(io, &SET_BLOCKLEN, unit->secsize, r);	
+	identify(card);
+	unit->secsize = card->secsize;
+	unit->sectors = card->sectors[unit->subno];
+
+	(*io->cmd)(io, &SET_BLOCKLEN, card->secsize, r);
 
 	if(card->ismmc && card->specver >= 400){
 		if(!waserror()){
@@ -551,6 +592,7 @@ mmconline(SDunit *unit)
 			poperror();
 		}
 	}
+	qunlock(card);
 	poperror();
 	return 1;
 }
@@ -562,12 +604,11 @@ mmcrctl(SDunit *unit, char *p, int l)
 	char *s = p, *e = s + l;
 	int i;
 
-	assert(unit->subno == 0);
-	if(unit->sectors == 0){
+	if(card->sectors[0] == 0)
 		mmconline(unit);
-		if(unit->sectors == 0)
-			return 0;
-	}
+	if(unit->sectors == 0)
+		return 0;
+
 	p = seprint(p, e, "version %s %d.%2.2d\n", card->ismmc? "MMC": "SD",
 		card->specver/100, card->specver%100);
 
@@ -580,6 +621,11 @@ mmcrctl(SDunit *unit, char *p, int l)
 	p = seprint(p, e, "\ncsd ");
 	for(i = nelem(card->csd)-1; i >= 0; i--)
 		p = seprint(p, e, "%8.8ux", card->csd[i]);
+
+	if(card->ismmc)
+		p = seprint(p, e, "\nboot %s",
+			((card->ext_csd[179]>>3)&7) == (unit->subno==0? 7: unit->subno)?
+			"enabled": "disabled" );
 
 	p = seprint(p, e, "\ngeometry %llud %ld\n",
 		unit->sectors, unit->secsize);
@@ -597,9 +643,21 @@ mmcbio(SDunit *unit, int lun, int write, void *data, long nb, uvlong bno)
 	ulong b;
 
 	USED(lun);
-	assert(unit->subno == 0);
 	if(unit->sectors == 0)
 		error(Echange);
+
+	eqlock(card);
+	if(waserror()){
+		qunlock(card);
+		nexterror();
+	}
+
+	if(card->ismmc && unit->subno != (card->ext_csd[179]&7)){
+		b = (card->ext_csd[179] & ~7) | unit->subno;
+		mmcswitch(card, 3<<24 | 179<<16 | b<<8);
+		card->ext_csd[179] = b;
+	}
+
 	buf = data;
 	len = unit->secsize;
 	if(Multiblock && (!write || !io->nomultiwrite)){
@@ -629,6 +687,10 @@ mmcbio(SDunit *unit, int lun, int write, void *data, long nb, uvlong bno)
 			buf += len;
 		}
 	}
+
+	qunlock(card);
+	poperror();
+
 	return (b - bno) * len;
 }
 
