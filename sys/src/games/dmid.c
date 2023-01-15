@@ -80,6 +80,7 @@ struct Trk{
 	vlong Δ;
 	vlong t;
 	int ev;
+	int ended;
 };
 Trk *tr;
 
@@ -153,7 +154,7 @@ get8(Trk *x)
 		Bread(ib, &v, 1);
 		return v;
 	}
-	if(x->p >= x->e)
+	if(x->p >= x->e || x->ended)
 		sysfatal("track overflow");
 	v = *x->p++;
 	dprint("%02ux", v);
@@ -389,27 +390,29 @@ samp(double n)
 	}
 }
 
-void
-ev(Trk *x)
+int
+ev(Trk *x, vlong t)
 {
 	int e, n, m;
 	Chan *c;
 
 	dprint(" [%zd] ", x - tr);
 	e = get8(x);
-	if(!stream && (e & 0x80) == 0){
-		x->p--;
-		e = x->ev;
-		if((e & 0x80) == 0)
-			sysfatal("invalid event");
-	}else
-		x->ev = e;
+	if(x != nil){
+		if((e & 0x80) == 0){
+			x->p--;
+			e = x->ev;
+			if((e & 0x80) == 0)
+				sysfatal("invalid event");
+		}else
+			x->ev = e;
+	}
 	c = chan + (e & 15);
 	dprint("(%02ux) ", e);
 	n = get8(x);
 	switch(e >> 4){
 	case 0x8: noteoff(c, n, get8(x)); break;
-	case 0x9: noteon(c, n, get8(x), x->t); break;
+	case 0x9: noteon(c, n, get8(x), t); break;
 	case 0xb:
 		m = get8(x);
 		switch(n){
@@ -433,7 +436,7 @@ ev(Trk *x)
 		}
 		m = get8(x);
 		switch(n){
-		case 0x2f: x->p = x->e; break;
+		case 0x2f: dprint("it\'s over.\n"); return -1;
 		case 0x51: tempo = get16(x) << 8; tempo |= get8(x); break;
 		default: skip(x, m);
 		}
@@ -443,6 +446,7 @@ ev(Trk *x)
 	default: sysfatal("invalid event %#ux\n", e >> 4);
 	}
 	dprint("\n");
+	return 0;
 }
 
 void
@@ -546,10 +550,9 @@ threadmain(int argc, char **argv)
 	int n, end, debug;
 	char *i;
 	double f;
-	uchar u[4];
 	Chan *c;
 	Opl *o;
-	Trk xs, *x;
+	Trk *x;
 
 	i = "/mnt/wad/genmidi";
 	debug = 0;
@@ -581,27 +584,25 @@ threadmain(int argc, char **argv)
 		if(proccreate(tproc, nil, mainstacksize) < 0)
 			sysfatal("proccreate: %r");
 		for(;;){
-			if((n = Bread(ib, u, sizeof u)) != sizeof u)
+			getvar(nil);
+			if(ev(nil, 0) < 0)
 				break;
-			xs.p = u;
-			xs.e = u + n;
-			getvar(&xs);
-			ev(&xs);
 		}
 		threadexitsall(n < 0 ? "read: %r" : nil);
 	}
 	for(end=0; !end;){
 		end = 1;
 		for(x=tr; x<tr+ntrk; x++){
-			if(x->p >= x->e)
+			if(x->ended)
 				continue;
 			end = 0;
 			x->Δ--;
 			x->t += tc(1);
 			while(x->Δ <= 0){
-				ev(x);
-				if(x->p >= x->e)
+				if(x->ended = ev(x, x->t)){
+					x->p = x->e;
 					break;
+				}
 				x->Δ = getvar(x);
 			}
 		}
