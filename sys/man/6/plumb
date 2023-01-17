@@ -344,7 +344,7 @@ The following is a modest, representative file of plumbing rules.
 # these are generally in order from most specific to least,
 # since first rule that fires wins.
 
-addr=':(#?[0-9]+)'
+addr=':(#?[0-9]+):?'
 protocol='(https?|ftp|file|gopher|mailto|news|nntp|telnet|wais)'
 domain='[a-zA-Z0-9_@]+([.:][a-zA-Z0-9_@]+)*/?[a-zA-Z0-9_?,%#~&/\e-]+'
 file='([:.][a-zA-Z0-9_?,%#~&/\e-]+)*'
