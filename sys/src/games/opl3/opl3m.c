@@ -13,25 +13,31 @@ enum{
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-r rate] [file]\n", argv0);
+	fprint(2, "usage: %s [-s] [-r rate] [file]\n", argv0);
 	exits("usage");
 }
 
 void
 main(int argc, char **argv)
 {
-	int rate, n, r, v, fd, pfd[2];
-	uchar sb[65536 * 4], u[5];
-	double f, dt;
+	int rate, stream, n, r, v, fd, pfd[2];
+	uchar sb[64*1024], u[5];
+	double f;
+	vlong dt, T;
 	Biobuf *bi;
+	QLock slock;
 
 	fd = 0;
+	stream = 0;
 	rate = OPLrate;
 	ARGBEGIN{
 	case 'r':
 		rate = atoi(EARGF(usage()));
 		if(rate <= 0 || rate > OPLrate)
 			usage();
+		break;
+	case 's':
+		stream = 1;
 		break;
 	default:
 		usage();
@@ -60,19 +66,44 @@ main(int argc, char **argv)
 	}
 	f = (double)OPLrate / rate;
 	dt = 0;
+	T = nsec();
+	if(stream){
+		switch(rfork(RFPROC|RFMEM)){
+		case -1:
+			sysfatal("rfork: %r");
+		case 0:
+			for(;;){
+				qlock(&slock);
+				n = OPLrate / 1e3;
+				T += n * (1e9 / OPLrate);
+				n *= 4;
+				opl3out(sb, n);
+				n = write(pfd[1], sb, n);
+				dt = (T - nsec()) / 1e6;
+				qunlock(&slock);
+				if(n <= 0)
+					break;
+				if(dt > 0)
+					sleep(dt);
+			}
+		}
+	}
 	while((n = Bread(bi, u, sizeof u)) > 0){
 		r = u[1] << 8 | u[0];
 		v = u[2];
 		opl3wr(r, v);
 		dt += (u[4] << 8 | u[3]) * f;
+		qlock(&slock);
 		while((n = dt) > 0){
 			if(n > sizeof sb / 4)
 				n = sizeof sb / 4;
 			dt -= n;
+			T += n * (1e9 / OPLrate);
 			n *= 4;
 			opl3out(sb, n);
 			write(pfd[1], sb, n);
 		}
+		qunlock(&slock);
 	}
 	if(n < 0)
 		sysfatal("read: %r");
