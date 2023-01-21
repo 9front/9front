@@ -450,24 +450,6 @@ ev(Trk *x, vlong t)
 }
 
 void
-tproc(void *)
-{
-	uvlong t, Δt;
-	uchar u[4];
-	Trk x;
-
-	x.e = u + sizeof u;
-	t = nsec();
-	for(;;){
-		putcmd(0, 0, 1);
-		t += 10000000 / (Rate / 100);
-		Δt = (t - nsec()) / 1000000;
-		if(Δt > 0)
-			sleep(Δt);
-	}
-}
-
-void
 readinst(char *file)
 {
 	int n;
@@ -581,14 +563,11 @@ threadmain(int argc, char **argv)
 	putcmd(Rop3, 1, 0);
 	trace = debug;
 	if(stream){
-		if(proccreate(tproc, nil, mainstacksize) < 0)
-			sysfatal("proccreate: %r");
 		for(;;){
 			getvar(nil);
 			if(ev(nil, 0) < 0)
-				break;
+				threadexits(nil);
 		}
-		threadexitsall(n < 0 ? "read: %r" : nil);
 	}
 	for(end=0; !end;){
 		end = 1;
