@@ -4,6 +4,8 @@ opl3 \- OPL3 chip emulator
 .SH SYNOPSIS
 .B opl3
 [
+.B -s
+] [
 .B -r
 .I rate
 ] [
@@ -11,10 +13,10 @@ opl3 \- OPL3 chip emulator
 ]
 .SH DESCRIPTION
 .I Opl3
-is an emulator of a single Yamaha 262 chip, also known as
+is an emulator of a single Yamaha YMF262 chip, also known as
 .SM OPL3.
 .PP
-The emulated chip is programmed by a stream of commands either from
+The emulated chip is programmed by a series of commands either from
 .I file
 or from standard in.
 It then synthesizes stereo 16-bit little-endian PCM samples
@@ -24,6 +26,13 @@ resamples them to
 default 44.1 kHz rate,
 and writes them to standard out.
 .PP
+The
+.B -s
+flag enables streaming mode,
+in which the input is a pipe streaming commands
+in identical format and semantics as described below,
+but in real time.
+.SS "Command format"
 Commands are 5 bytes wide, in little-endian byte order:
 .PP
 .RS
@@ -55,6 +64,7 @@ sets the input sampling rate.
 .SH SOURCE
 .B /sys/src/games/opl3
 .SH "SEE ALSO"
+.IR dmid (1) ,
 .IR audio (3)
 .PP
 Yamaha

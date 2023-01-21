@@ -20,7 +20,9 @@ and produces
 .SM OPL3
 instructions suitable for playback by
 .IR opl3 (1).
-To program instruments, an OPL2 instrument bank formatted as
+To program instruments, an
+.SM OPL2
+instrument bank in the same format as
 .SM GENMIDI
 lumps from
 .I doom
@@ -36,9 +38,11 @@ command line option.
 The
 .B -s
 flag enables streaming mode,
-in which the input file is a stream of MIDI events.
-The file needn't provide any timing information such as MIDI tics.
-This is suitable for MIDI instruments.
+in which the input is a
+.IR pipe (3)
+streaming MIDI events.
+It needn't provide any timing information such as MIDI timing clocks.
+This is suitable for MIDI devices transmitting in real time.
 .PP
 In
 .SM GENMIDI
@@ -58,17 +62,16 @@ Play a MUS file from a
 file:
 .IP
 .EX
-% games/wadfs /sys/games/lib/doom/doom2.wad
-createfile SW18_7: file already exists
-% games/mus /mnt/wad/d_doom | games/dmid | games/opl3 >/dev/audio
+% games/wadfs /sys/games/lib/doom/doom1.wad >[2]/dev/null
+% games/mus /mnt/wad/d_e1m8 | games/dmid | games/opl3 >/dev/audio
 .EE
 .PP
 Play a MIDI stream from a USB device (see
 .IR usb (3)):
 .IP
 .EX
-% games/wadfs /sys/games/lib/doom/doom2.wad >[2]/dev/null
-% games/dmid -s /dev/usb/ep10.1/data | games/opl3 >/dev/audio
+% games/wadfs /sys/games/lib/doom/doom1.wad >[2]/dev/null
+% games/dmid -s /dev/usb/ep10.1/data | games/opl3 -s >/dev/audio
 .EE
 .SH SOURCE
 .B /sys/src/games/dmid.c
@@ -77,6 +80,7 @@ Play a MIDI stream from a USB device (see
 .IR mus (1) ,
 .IR opl3 (1) ,
 .IR audio (3) ,
+.IR pipe (3) ,
 .IR usb (3) ,
 .IR wadfs (4)
 .SH HISTORY
