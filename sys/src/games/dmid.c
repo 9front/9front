@@ -1,7 +1,6 @@
 #include <u.h>
 #include <libc.h>
 #include <bio.h>
-#include <thread.h>
 
 typedef struct Inst Inst;
 typedef struct Opl Opl;
@@ -436,7 +435,7 @@ ev(Trk *x, vlong t)
 		}
 		m = get8(x);
 		switch(n){
-		case 0x2f: dprint("it\'s over.\n"); return -1;
+		case 0x2f: dprint(" -- so long!\n"); return -1;
 		case 0x51: tempo = get16(x) << 8; tempo |= get8(x); break;
 		default: skip(x, m);
 		}
@@ -527,7 +526,7 @@ usage(void)
 }
 
 void
-threadmain(int argc, char **argv)
+main(int argc, char **argv)
 {
 	int n, end, debug;
 	char *i;
@@ -566,7 +565,7 @@ threadmain(int argc, char **argv)
 		for(;;){
 			getvar(nil);
 			if(ev(nil, 0) < 0)
-				threadexits(nil);
+				exits(nil);
 		}
 	}
 	for(end=0; !end;){
