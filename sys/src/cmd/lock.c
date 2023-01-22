@@ -35,6 +35,7 @@ waitfor(int pid)
 		}
 		if (w->pid == pid)
 			return w;
+		free(w);
 	}
 }
 
@@ -141,7 +142,8 @@ main(int argc, char *argv[])
 		error("wait");
 
 	postnote(PNPROC, lckpid, "die");
-	waitfor(lckpid);
+	free(waitfor(lckpid));
+
 	if(w->msg[0]){
 		p = utfrune(w->msg, ':');
 		if(p && p[1])
