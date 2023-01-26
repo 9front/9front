@@ -44,7 +44,8 @@ Srv fs;
 
 char *mapn[] = {
 	"things", "linedefs", "sidedefs", "vertexes", "segs",
-	"ssectors", "nodes", "sectors", "reject", "blockmap"
+	"ssectors", "nodes", "sectors", "reject", "blockmap",
+	"behavior"
 };
 
 void
