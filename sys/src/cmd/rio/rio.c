@@ -392,6 +392,7 @@ keyboardtap(void*)
 	char *e;
 	char *watched;
 	Window *w, *cur;
+	static char keys[64];
 
 	threadsetname("keyboardtap");
 	enum { Awin, Actl, Afrom, Adev, Ato, Ainp, Awatch, NALT };
@@ -408,22 +409,28 @@ keyboardtap(void*)
 
 	cur = nil;
 	watched = nil;
+	keys[0] = 0;
 	for(;;)
 		switch(alt(alts)){
 		case Awin:
 			cur = w;
 			if(cur != nil){
 				alts[Ainp].c = cur->ck;
-				if(tapseats[OREAD] == Tapoff)	
-					goto Reset;
-				if(alts[Awatch].op == CHANSND)
-					free(watched);
-				watched = smprint("%c%d", Tapfocus, cur->id);
-				alts[Awatch].op = CHANSND;
+				if(tapseats[OREAD] != Tapoff){	
+					if(alts[Awatch].op == CHANSND)
+						free(watched);
+					watched = smprint("%c%d", Tapfocus, cur->id);
+					alts[Awatch].op = CHANSND;
+				}
 			}
 			if(alts[Ainp].op != CHANNOP || alts[Ato].op != CHANNOP)
 				free(s);
-			goto Reset;
+			if(cur == nil)
+				goto Reset;
+			s = smprint("K%s", keys);
+			alts[Ainp].op = CHANSND;
+			alts[Ato].op = CHANNOP;
+			break;
 		case Actl:
 			e = tapctlmsg(ctl);
 			sendp(resptap, e);
@@ -444,6 +451,8 @@ keyboardtap(void*)
 			alts[Ainp].op = CHANSND;
 			break;
 		case Adev:
+			if(*s == 'k' || *s == 'K')
+				strcpy(keys, s+1);
 			if(tapseats[OWRITE] == Tapoff && cur == nil){
 				free(s);
 				break;
