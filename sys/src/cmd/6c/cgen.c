@@ -1400,7 +1400,7 @@ sugen(Node *n, Node *nn, long w)
 	Prog *p1;
 	Node nod0, nod1, nod2, nod3, nod4, *l, *r;
 	Type *t;
-	int v, c, mt, mo;
+	int v, c, mt, mo, re;
 	vlong o0, o1;
 
 	if(n == Z || n->type == T)
@@ -1683,12 +1683,19 @@ copy:
 		}
 		o0 = n->xoffset;
 		o1 = nn->xoffset;
+		re = w % ewidth[mt];
 		w /= ewidth[mt];
 		while(--w >= 0) {
 			gins(mo, n, &nod0);
 			gins(mo, &nod0, nn);
 			n->xoffset += ewidth[mt];
 			nn->xoffset += ewidth[mt];
+		}
+		while(--re >= 0) {
+			gins(AMOVB, n, &nod0);
+			gins(AMOVB, &nod0, nn);
+			n->xoffset += 1;
+			nn->xoffset += 1;
 		}
 		n->xoffset = o0;
 		nn->xoffset = o1;
