@@ -845,7 +845,7 @@ usbreadproc(void *)
 
 	nerr = 0;
 	for(;;){
-		/* receive allocates buffer and calls etheriq(b, 1); */
+		/* receive allocates buffer and calls etheriq */
 		if((*epreceive)(epin) < 0){
 			rerrstr(err, sizeof(err));
 			if(strstr(err, "interrupted") || strstr(err, "timed out"))
@@ -881,6 +881,7 @@ usage(void)
 extern int aueinit(Dev *);
 extern int a88178init(Dev *);
 extern int a88772init(Dev *);
+extern int a88179init(Dev *);
 extern int smscinit(Dev *);
 extern int lan78xxinit(Dev *);
 extern int cdcinit(Dev *);
@@ -896,6 +897,7 @@ static struct {
 	"lan78xx",	lan78xxinit,
 	"a88178",	a88178init,
 	"a88772",	a88772init,
+	"a88179",	a88179init,
 	"aue",		aueinit,
 	"url",		urlinit,
 	"rndis",	rndisinit,
