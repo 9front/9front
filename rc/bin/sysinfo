@@ -23,7 +23,7 @@ fn print{
 	logprog aux/icanhasmsi
 	logprog aux/icanhasvmx -v
 	logprog aux/pcmcia
-	logprog cat '#u/usb/ctl'
+	logprog usbtree
 	logprog cat '#S/sdctl'
 	for(i in '#S'/sd[A-Z][0-9]*/ctl)
 		logprog cat $i
