@@ -898,11 +898,78 @@ readerproc(void* a)
 }
 
 static void
+gaomons620(Hiddev *f)
+{
+	static uchar descr[] = {
+		0x05, 0x0D,	/* Usage Page (Digitizer),	*/
+		0x09, 0x01,	/* Usage (Digitizer),		*/
+		0xA1, 0x01,	/* Collection (Application),	*/
+		0x85, 0x08,	/* Report ID (8),		*/
+		0x09, 0x20,	/* Usage (Stylus),		*/
+		0xA0,		/* Collection (Physical),	*/
+		0x14,		/*	Logical Minimum (0),	*/
+		0x25, 0x01,	/*	Logical Maximum (1),	*/
+		0x75, 0x01,	/*	Report Size (1),	*/
+		0x09, 0x42,	/*	Usage (Tip Switch),	*/
+		0x09, 0x44,	/*	Usage (Barrel Switch),	*/
+		0x09, 0x45,	/*	Usage (Eraser),		*/
+		0x95, 0x03,	/*	Report Count (3),	*/
+		0x81, 0x02,	/*	Input (Variable),	*/
+
+		0x95, 0x04,	/*	Report Count (4),	*/
+		0x81, 0x03,	/*	Input (Constant, Variable), */
+
+		0x09, 0x32,	/*	Usage (In Range),	*/
+		0x95, 0x01,	/*	Report Count (1),	*/
+		0x81, 0x02,	/*	Input (Variable),	*/
+
+		0xA4,		/*	Push,			*/
+		0x05, 0x01,	/*	Usage Page (Desktop),	*/
+		0x65, 0x13,	/*	Unit (Inch),		*/
+		0x55, 0xFD,	/*	Unit Exponent (-3),	*/
+		0x75, 0x10,	/*	Report Size (16),	*/
+		0x34,		/*	Physical Minimum (0),	*/
+		0x09, 0x30,	/*	Usage (X),		*/
+		0x27, 0x00, 0x80, 0x00, 0x00,	/*	Logical Maximum, */
+		0x47, 0x00, 0x80, 0x00, 0x00,	/*	Physical Maximum, */
+		0x81, 0x02,	/*	Input (Variable),	*/
+
+		0x09, 0x31,	/*	Usage (Y),		*/
+		0x27, 0x00, 0x50, 0x00, 0x00,	/*	Logical Maximum, */
+		0x47, 0x00, 0x50, 0x00, 0x00,	/*	Physical Maximum, */
+		0x81, 0x02,	/*	Input (Variable),	*/
+
+		0xB4,		/*	Pop,			*/
+		0x09, 0x30,	/*	Usage (Tip Pressure),	*/
+		0x75, 0x10,	/*	Report Size (16),	*/
+		0x27, 0x00, 0x00, 0x01, 0x00,	/*	Logical Maximum, */
+		0x81, 0x02,	/*	Input (Variable),	*/
+		0xC0,		/* End Collection,		*/
+		0xC0		/* End Collection		*/
+	};
+	static int idx[] = { 0x64, 0x65, 0x6e, 0x79, 0x7a, 0x7b, 0xc8, 0xc9 };
+	Dev *d = f->dev;	
+	int i;
+
+	/* we have to fetch a bunch of strings to switch to non-phone mode */
+	for(i=0; i < nelem(idx); i++)
+		free(loaddevstr(d, idx[i]));
+
+	/* override report descriptor */
+	memmove(f->rep, descr, f->nrep = sizeof(descr));
+}
+
+static void
 quirks(Hiddev *f)
 {
 	Dev *d;
 	
 	d = f->dev;
+
+	if(d->usb->vid == 0x256c && d->usb->did == 0x006d){
+		gaomons620(f);
+		return;
+	}
 	
 	/* Elecom trackball report descriptor lies by
 	 * omission, failing to mention all its buttons.
@@ -921,6 +988,7 @@ quirks(Hiddev *f)
 		f->rep[13] = 8;
 		f->rep[21] = 8;
 		f->rep[31] = 0;
+		return;
 	}
 }
 
