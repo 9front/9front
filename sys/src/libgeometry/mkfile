@@ -1,23 +1,22 @@
 </$objtype/mkfile
 
 LIB=/$objtype/lib/libgeometry.a
+
 OFILES=\
-	arith3.$O\
+	point.$O\
 	matrix.$O\
-	qball.$O\
 	quaternion.$O\
-	transform.$O\
-	tstack.$O\
+	rframe.$O\
+	triangle.$O\
+	utils.$O\
+	fmt.$O\
 
-HFILES=/sys/include/geometry.h
-
-</sys/src/cmd/mksyslib
+HFILES=\
+	/sys/include/geometry.h
 
 UPDATE=\
 	mkfile\
 	$HFILES\
 	${OFILES:%.$O=%.c}\
-	${LIB:/$objtype/%=/386/%}\
 
-listing:V:
-	pr mkfile $HFILES $CFILES|lp -du
+</sys/src/cmd/mksyslib

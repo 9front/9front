@@ -1,0 +1,804 @@
+.TH GEOMETRY 2
+.SH NAME
+Flerp, fclamp, Pt2, Vec2, addpt2, subpt2, mulpt2, divpt2, lerp2, dotvec2, vec2len, normvec2, edgeptcmp, ptinpoly, Pt3, Vec3, addpt3, subpt3, mulpt3, divpt3, lerp3, dotvec3, crossvec3, vec3len, normvec3, identity, addm, subm, mulm, smulm, transposem, detm, tracem, adjm, invm, xform, identity3, addm3, subm3, mulm3, smulm3, transposem3, detm3, tracem3, adjm3, invm3, xform3, Quat, Quatvec, addq, subq, mulq, smulq, sdivq, dotq, invq, qlen, normq, slerp, qrotate, rframexform, rframexform3, invrframexform, invrframexform3, centroid, barycoords, centroid3, vfmt, Vfmt, GEOMfmtinstall \- computational geometry library
+.SH SYNOPSIS
+.de PB
+.PP
+.ft L
+.nf
+..
+.PB
+#include <u.h>
+#include <libc.h>
+#include <geometry.h>
+.PB
+#define DEG 0.01745329251994330	/* π/180 */
+.PB
+typedef struct Point2 Point2;
+typedef struct Point3 Point3;
+typedef double Matrix[3][3];
+typedef double Matrix3[4][4];
+typedef struct Quaternion Quaternion;
+typedef struct RFrame RFrame;
+typedef struct RFrame3 RFrame3;
+typedef struct Triangle2 Triangle2;
+typedef struct Triangle3 Triangle3;
+.PB
+struct Point2 {
+	double x, y, w;
+};
+.PB
+struct Point3 {
+	double x, y, z, w;
+};
+.PB
+struct Quaternion {
+	double r, i, j, k;
+};
+.PB
+struct RFrame {
+	Point2 p;
+	Point2 bx, by;
+};
+.PB
+struct RFrame3 {
+	Point3 p;
+	Point3 bx, by, bz;
+};
+.PB
+struct Triangle2
+{
+	Point2 p0, p1, p2;
+};
+.PB
+struct Triangle3 {
+	Point3 p0, p1, p2;
+};
+.PB
+/* utils */
+double flerp(double a, double b, double t);
+double fclamp(double n, double min, double max);
+.PB
+/* Point2 */
+Point2 Pt2(double x, double y, double w);
+Point2 Vec2(double x, double y);
+Point2 addpt2(Point2 a, Point2 b);
+Point2 subpt2(Point2 a, Point2 b);
+Point2 mulpt2(Point2 p, double s);
+Point2 divpt2(Point2 p, double s);
+Point2 lerp2(Point2 a, Point2 b, double t);
+double dotvec2(Point2 a, Point2 b);
+double vec2len(Point2 v);
+Point2 normvec2(Point2 v);
+int edgeptcmp(Point2 e0, Point2 e1, Point2 p);
+int ptinpoly(Point2 p, Point2 *pts, ulong npts)
+.PB
+/* Point3 */
+Point3 Pt3(double x, double y, double z, double w);
+Point3 Vec3(double x, double y, double z);
+Point3 addpt3(Point3 a, Point3 b);
+Point3 subpt3(Point3 a, Point3 b);
+Point3 mulpt3(Point3 p, double s);
+Point3 divpt3(Point3 p, double s);
+Point3 lerp3(Point3 a, Point3 b, double t);
+double dotvec3(Point3 a, Point3 b);
+Point3 crossvec3(Point3 a, Point3 b);
+double vec3len(Point3 v);
+Point3 normvec3(Point3 v);
+.PB
+/* Matrix */
+void identity(Matrix m);
+void addm(Matrix a, Matrix b);
+void subm(Matrix a, Matrix b);
+void mulm(Matrix a, Matrix b);
+void smulm(Matrix m, double s);
+void transposem(Matrix m);
+double detm(Matrix m);
+double tracem(Matrix m);
+void adjm(Matrix m);
+void invm(Matrix m);
+Point2 xform(Point2 p, Matrix m);
+.PB
+/* Matrix3 */
+void identity3(Matrix3 m);
+void addm3(Matrix3 a, Matrix3 b);
+void subm3(Matrix3 a, Matrix3 b);
+void mulm3(Matrix3 a, Matrix3 b);
+void smulm3(Matrix3 m, double s);
+void transposem3(Matrix3 m);
+double detm3(Matrix3 m);
+double tracem3(Matrix3 m);
+void adjm3(Matrix3 m);
+void invm3(Matrix3 m);
+Point3 xform3(Point3 p, Matrix3 m);
+.PB
+/* Quaternion */
+Quaternion Quat(double r, double i, double j, double k);
+Quaternion Quatvec(double r, Point3 v);
+Quaternion addq(Quaternion a, Quaternion b);
+Quaternion subq(Quaternion a, Quaternion b);
+Quaternion mulq(Quaternion q, Quaternion r);
+Quaternion smulq(Quaternion q, double s);
+Quaternion sdivq(Quaternion q, double s);
+double dotq(Quaternion q, Quaternion r);
+Quaternion invq(Quaternion q);
+double qlen(Quaternion q);
+Quaternion normq(Quaternion q);
+Quaternion slerp(Quaternion q, Quaternion r, double t);
+Point3 qrotate(Point3 p, Point3 axis, double θ);
+.PB
+/* RFrame */
+Point2 rframexform(Point2 p, RFrame rf);
+Point3 rframexform3(Point3 p, RFrame3 rf);
+Point2 invrframexform(Point2 p, RFrame rf);
+Point3 invrframexform3(Point3 p, RFrame3 rf);
+.PB
+/* Triangle2 */
+Point2 centroid(Triangle2 t);
+Point3 barycoords(Triangle2 t, Point2 p);
+.PB
+/* Triangle3 */
+Point3 centroid3(Triangle3 t);
+.PB
+/* Fmt */
+#pragma varargck type "v" Point2
+#pragma varargck type "V" Point3
+int vfmt(Fmt*);
+int Vfmt(Fmt*);
+void GEOMfmtinstall(void);
+.SH DESCRIPTION
+This library provides routines to operate with homogeneous coordinates
+in 2D and 3D projective spaces by means of points, matrices,
+quaternions and frames of reference.
+.PP
+Besides their many mathematical properties and applications, the data
+structures and algorithms used here to represent these abstractions
+are specifically tailored to the world of computer graphics and
+simulators, and so it uses the conventions associated with these
+fields, such as the right-hand rule for coordinate systems and column
+vectors for matrix operations.
+.SS UTILS
+These utility functions provide extra floating-point operations that
+are not available in the standard libc.
+.TP
+Name
+Description
+.TP
+.B flerp
+Performs a linear interpolation by a factor of
+.I t
+between
+.I a
+and
+.IR b ,
+and returns the result.
+.TP
+.B fclamp
+Constrains
+.I n
+to a value between
+.I min
+and
+.IR max ,
+and returns the result.
+.SS Points
+A point
+.B (x,y,w)
+in projective space results in the point
+.B (x/w,y/w)
+in Euclidean space. Vectors are represented by setting
+.B w
+to zero, since they don't belong to any projective plane themselves.
+.TP
+Name
+Description
+.TP
+.B Pt2
+Constructor function for a Point2 point.
+.TP
+.B Vec2
+Constructor function for a Point2 vector.
+.TP
+.B addpt2
+Creates a new 2D point out of the sum of
+.IR a 's
+and
+.IR b 's
+components.
+.TP
+subpt2
+Creates a new 2D point out of the substraction of
+.IR a 's
+by
+.IR b 's
+components.
+.TP
+mulpt2
+Creates a new 2D point from multiplying
+.IR p 's
+components by the scalar
+.IR s .
+.TP
+divpt2
+Creates a new 2D point from dividing
+.IR p 's
+components by the scalar
+.IR s .
+.TP
+lerp2
+Performs a linear interpolation between the 2D points
+.I a
+and
+.I b
+by a factor of
+.IR t ,
+and returns the result.
+.TP
+dotvec2
+Computes the dot product of vectors
+.I a
+and
+.IR b .
+.TP
+vec2len
+Computes the length—magnitude—of vector
+.IR v .
+.TP
+normvec2
+Normalizes the vector
+.I v
+and returns a new 2D point.
+.TP
+edgeptcmp
+Performs a comparison between an edge, defined by a directed line from
+.I e0
+to
+.IR e1 ,
+and the point
+.IR p .
+If the point is to the right of the line, the result is >0; if it's to
+the left, the result is <0; otherwise—when the point is on the line—,
+it returns 0.
+.TP
+ptinpoly
+Returns 1 if the 2D point
+.I p
+lies within the
+.IR npts -vertex
+polygon defined by
+.IR pts ,
+0 otherwise.
+.TP
+Pt3
+Constructor function for a Point3 point.
+.TP
+Vec3
+Constructor function for a Point3 vector.
+.TP
+addpt3
+Creates a new 3D point out of the sum of
+.IR a 's
+and
+.IR b 's
+components.
+.TP
+subpt3
+Creates a new 3D point out of the substraction of
+.IR a 's
+by
+.IR b 's
+components.
+.TP
+mulpt3
+Creates a new 3D point from multiplying
+.IR p 's
+components by the scalar
+.IR s .
+.TP
+divpt3
+Creates a new 3D point from dividing
+.IR p 's
+components by the scalar
+.IR s .
+.TP
+lerp3
+Performs a linear interpolation between the 3D points
+.I a
+and
+.I b
+by a factor of
+.IR t ,
+and returns the result.
+.TP
+dotvec3
+Computes the dot/inner product of vectors
+.I a
+and
+.IR b .
+.TP
+crossvec3
+Computes the cross/outer product of vectors
+.I a
+and
+.IR b .
+.TP
+vec3len
+Computes the length—magnitude—of vector
+.IR v .
+.TP
+normvec3
+Normalizes the vector
+.I v
+and returns a new 3D point.
+.SS Matrices
+.TP
+Name
+Description
+.TP
+identity
+Initializes
+.I m
+into an identity, 3x3 matrix.
+.TP
+addm
+Sums the matrices
+.I a
+and
+.I b
+and stores the result back in
+.IR a .
+.TP
+subm
+Substracts the matrix
+.I a
+by
+.I b
+and stores the result back in
+.IR a .
+.TP
+mulm
+Multiplies the matrices
+.I a
+and
+.I b
+and stores the result back in
+.IR a .
+.TP
+smulm
+Multiplies every element of
+.I m
+by the scalar
+.IR s ,
+storing the result in m.
+.TP
+transposem
+Transforms the matrix
+.I m
+into its transpose.
+.TP
+detm
+Computes the determinant of
+.I m
+and returns the result.
+.TP
+tracem
+Computes the trace of
+.I m
+and returns the result.
+.TP
+adjm
+Transforms the matrix
+.I m
+into its adjoint.
+.TP
+invm
+Transforms the matrix
+.I m
+into its inverse.
+.TP
+xform
+Transforms the point
+.I p
+by the matrix
+.I m
+and returns the new 2D point.
+.TP
+identity3
+Initializes
+.I m
+into an identity, 4x4 matrix.
+.TP
+addm3
+Sums the matrices
+.I a
+and
+.I b
+and stores the result back in
+.IR a .
+.TP
+subm3
+Substracts the matrix
+.I a
+by
+.I b
+and stores the result back in
+.IR a .
+.TP
+mulm3
+Multiplies the matrices
+.I a
+and
+.I b
+and stores the result back in
+.IR a .
+.TP
+smulm3
+Multiplies every element of
+.I m
+by the scalar
+.IR s ,
+storing the result in m.
+.TP
+transposem3
+Transforms the matrix
+.I m
+into its transpose.
+.TP
+detm3
+Computes the determinant of
+.I m
+and returns the result.
+.TP
+tracem3
+Computes the trace of
+.I m
+and returns the result.
+.TP
+adjm3
+Transforms the matrix
+.I m
+into its adjoint.
+.TP
+invm3
+Transforms the matrix
+.I m
+into its inverse.
+.TP
+xform3
+Transforms the point
+.I p
+by the matrix
+.I m
+and returns the new 3D point.
+.SS Quaternions
+Quaternions are an extension of the complex numbers conceived as a
+tool to analyze 3-dimensional points.  They are most commonly used to
+orient and rotate objects in 3D space.
+.TP
+Name
+Description
+.TP
+Quat
+Constructor function for a Quaternion.
+.TP
+Quatvec
+Constructor function for a Quaternion that takes the imaginary part in
+the form of a vector
+.IR v .
+.TP
+addq
+Creates a new quaternion out of the sum of
+.IR a 's
+and
+.IR b 's
+components.
+.TP
+subq
+Creates a new quaternion from the substraction of
+.IR a 's
+by
+.IR b 's
+components.
+.TP
+mulq
+Multiplies
+.I a
+and
+.I b
+and returns a new quaternion.
+.TP
+smulq
+Multiplies each of the components of
+.I q
+by the scalar
+.IR s ,
+returning a new quaternion.
+.TP
+sdivq
+Divides each of the components of
+.I q
+by the scalar
+.IR s ,
+returning a new quaternion.
+.TP
+dotq
+Computes the dot-product of
+.I q
+and
+.IR r ,
+and returns the result.
+.TP
+invq
+Computes the inverse of
+.I q
+and returns a new quaternion out of it.
+.TP
+qlen
+Computes
+.IR q 's
+length—magnitude—and returns the result.
+.TP
+normq
+Normalizes
+.I q
+and returns a new quaternion out of it.
+.TP
+slerp
+Performs a spherical linear interpolation between the quaternions
+.I q
+and
+.I r
+by a factor of
+.IR t ,
+and returns the result.
+.TP
+qrotate
+Returns the result of rotating the point
+.I p
+around the vector
+.I axis
+by
+.I θ
+radians.
+.SS Frames of reference
+A frame of reference in a
+.IR n -dimensional
+space is made out of n+1 points, one being the origin
+.IR p ,
+relative to some other frame of reference, and the remaining being the
+basis vectors
+.I b1,⋯,bn
+that define the metric within that frame.
+.PP
+Every one of these routines assumes the origin reference frame
+.B O
+has an orthonormal basis when performing an inverse transformation;
+it's up to the user to apply a forward transformation to the resulting
+point with the proper reference frame if that's not the case.
+.TP
+Name
+Description
+.TP
+rframexform
+Transforms the point
+.IR p ,
+relative to origin O, into the frame of reference
+.I rf
+with origin in
+.BR rf.p ,
+which is itself also relative to O. It then returns the new 2D point.
+.TP
+rframexform3
+Transforms the point
+.IR p ,
+relative to origin O, into the frame of reference
+.I rf
+with origin in
+.BR rf.p ,
+which is itself also relative to O. It then returns the new 3D point.
+.TP
+invrframexform
+Transforms the point
+.IR p ,
+relative to
+.BR rf.p ,
+into the frame of reference O, assumed to have an orthonormal basis.
+.TP
+invrframexform3
+Transforms the point
+.IR p ,
+relative to
+.BR rf.p ,
+into the frame of reference O, assumed to have an orthonormal basis.
+.SS Triangles
+.TP
+Name
+Description
+.TP
+centroid
+Returns the geometric center of
+.B Triangle2
+.IR t .
+.TP
+barycoords
+Returns a 3D point that represents the barycentric coordinates of the
+2D point
+.I p
+relative to the triangle
+.IR t .
+.TP
+centroid3
+Returns the geometric center of
+.B Triangle3
+.IR t .
+.SH EXAMPLE
+The following is a common example of an
+.B RFrame
+being used to define the coordinate system of a
+.IR rio (3)
+window.  It places the origin at the center of the window and sets up
+an orthonormal basis with the
+.IR y -axis
+pointing upwards, to contrast with the window system where
+.IR y -values
+grow downwards (see
+.IR graphics (2)).
+.PP
+.EX
+#include <u.h>
+#include <libc.h>
+#include <draw.h>
+#include <geometry.h>
+
+RFrame screenrf;
+
+Point
+toscreen(Point2 p)
+{
+	p = invrframexform(p, screenrf);
+	return Pt(p.x,p.y);
+}
+
+Point2
+fromscreen(Point p)
+{
+	return rframexform(Pt2(p.x,p.y,1), screenrf);
+}
+
+void
+main(void)
+	⋯
+	screenrf.p = Pt2(screen->r.min.x+Dx(screen->r)/2,screen->r.max.y-Dy(screen->r)/2,1);
+	screenrf.bx = Vec2(1, 0);
+	screenrf.by = Vec2(0,-1);
+	⋯
+.EE
+.PP
+The following snippet shows how to use the
+.B RFrame
+declared earlier to locate and draw a ship based on its orientation,
+for which we use matrix translation
+.B T
+and rotation
+.BR R
+transformations.
+.PP
+.EX
+⋯
+typedef struct Ship Ship;
+typedef struct Shipmdl Shipmdl;
+
+struct Ship
+{
+	RFrame;
+	double θ; /* orientation (yaw) */
+	Shipmdl mdl;
+};
+
+struct Shipmdl
+{
+	Point2 pts[3]; /* a free-form triangle */
+};
+
+Ship *ship;
+
+void
+redraw(void)
+{
+	int i;
+	Point pts[3+1];
+	Point2 *p;
+	Matrix T = {
+		1, 0, ship->p.x,
+		0, 1, ship->p.y,
+		0, 0, 1,
+	}, R = {
+		cos(ship->θ), -sin(ship->θ), 0,
+		sin(ship->θ),  cos(ship->θ), 0,
+		0, 0, 1,
+	};
+
+	mulm(T, R); /* rotate, then translate */
+	p = ship->mdl.pts;
+	for(i = 0; i < nelem(pts)-1; i++)
+		pts[i] = toscreen(xform(p[i], T));
+	pts[i] = pts[0];
+	draw(screen, screen->r, display->white, nil, ZP);
+	poly(screen, pts, nelem(pts), 0, 0, 0, display->black, ZP);
+}
+⋯
+main(void)
+	⋯
+	ship = malloc(sizeof(Ship));
+	ship->p = Pt2(0,0,1); /* place it at the origin */
+	ship->θ = 45*DEG; /* counter-clockwise */
+	ship->mdl.pts[0] = Pt2( 10, 0,1);
+	ship->mdl.pts[1] = Pt2(-10, 5,1);
+	ship->mdl.pts[2] = Pt2(-10,-5,1);
+	⋯
+	redraw();
+⋯
+.EE
+.PP
+Notice how we could've used the
+.B RFrame
+embedded in the
+.B ship
+to transform the
+.B Shipmdl
+into the window.  Instead of applying the matrices to every point, the
+ship's local frame of reference can be rotated, effectively changing
+the model coordinates after an
+.IR invrframexform .
+We are also getting rid of the
+.B θ
+variable, since it's no longer needed.
+.PP
+.EX
+⋯
+struct Ship
+{
+	RFrame;
+	Shipmdl mdl;
+};
+⋯
+redraw(void)
+	⋯
+		pts[i] = toscreen(invrframexform(p[i], *ship));
+⋯
+main(void)
+	⋯
+	Matrix R = {
+		cos(45*DEG), -sin(45*DEG), 0,
+		sin(45*DEG),  cos(45*DEG), 0,
+		0, 0, 1,
+	};
+	⋯
+	//ship->θ = 45*DEG; /* counter-clockwise */
+	ship->bx = xform(ship->bx, R);
+	ship->by = xform(ship->by, R);
+⋯
+.EE
+.SH SOURCE
+.B /sys/src/libgeometry
+.SH SEE ALSO
+.IR sin (2),
+.IR floor (2),
+.IR graphics (2)
+.br
+Philip J. Schneider, David H. Eberly,
+“Geometric Tools for Computer Graphics”,
+.I
+Morgan Kaufmann Publishers, 2003.
+.br
+Jonathan Blow,
+“Understanding Slerp, Then Not Using it”,
+.I
+The Inner Product, April 2004.
+.br
+https://www.3dgep.com/understanding-quaternions/
+.SH BUGS
+No care is taken to avoid numeric overflows.
+.SH HISTORY
+Libgeometry first appeared in Plan 9 from Bell Labs.  It was revamped
+for 9front in January of 2023.
