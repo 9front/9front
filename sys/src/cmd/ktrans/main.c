@@ -696,7 +696,7 @@ kbdtap(void*)
 {
 	char m[Msgsize];
 	char buf[128];
-	char *p, *e;
+	char *p;
 	int n;
 
 	threadsetname("kbdtap");
@@ -705,7 +705,7 @@ kbdtap(void*)
 		n = read(kbdin, buf, sizeof buf);
 		if(n < 0)
 			break;
-		for(p = buf; p < buf+n;){
+		for(p = buf; p < buf+n; p += strlen(p) + 1){
 			switch(*p){
 			case 'c': case 'k': case 'K':
 			case 'z':
@@ -713,10 +713,7 @@ kbdtap(void*)
 			default:
 				goto Drop;
 			}
-			*m = *p++;
-			e = utfecpy(m+1, m + Msgsize - 1, p);
-			p += e - m;
-			p++;
+			strcpy(m, p);
 			if(send(input, m) == -1)
 				return;
 		}
