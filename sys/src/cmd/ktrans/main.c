@@ -408,6 +408,8 @@ emitutf(Channel *out, char *u, int nrune)
 	return e - b;
 }
 
+static int compacting = 0;
+
 static void
 dictthread(void*)
 {
@@ -437,6 +439,7 @@ dictthread(void*)
 
 	threadsetname("dict");
 	while(recv(dictch, m) != -1){
+		compacting = 1;
 		for(p = m+1; *p; p += n){
 			n = chartorune(&r, p);
 			switch(r){
@@ -478,7 +481,8 @@ dictthread(void*)
 				}
 				if(kouho[selected] == nil){
 					/* cycled through all matches; bail */
-					emitutf(output, backspace, utflen(okuri.b));
+					if(utflen(okuri.b) != 0)
+						emitutf(output, backspace, utflen(okuri.b));
 					emitutf(output, backspace, utflen(last.b));
 					emitutf(output, line.b, 0);
 					emitutf(output, okuri.b, 0);
@@ -547,6 +551,7 @@ dictthread(void*)
 			hmapget(dict, line.b, kouho);
 			send(displaych, kouho);
 		}
+		compacting = 0;
 	}
 }
 
@@ -623,6 +628,8 @@ keythread(void*)
 		}
 
 		for(p = m+1; *p; p += n){
+			while(compacting)
+				yield();
 			n = chartorune(&r, p);
 			if(checklang(&lang, r)){
 				emitutf(dictch, "", 1);
@@ -718,6 +725,7 @@ kbdtap(void*)
 				return;
 		}
 	}
+	threadexitsall(nil);
 }
 
 static void
