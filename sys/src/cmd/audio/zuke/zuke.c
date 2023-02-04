@@ -754,8 +754,6 @@ restart:
 		}else{
 			execl("/bin/play", "play", "-o", "/fd/1", path, nil);
 		}
-		close(0);
-		close(1);
 		exits("%r");
 	}
 	if(pid < 0)
@@ -1393,7 +1391,6 @@ threadmain(int argc, char **argv)
 		fprint(2, "playlist: %r\n");
 		sysfatal("playlist error");
 	}
-	close(0);
 
 	m.buttons = 0;
 	scrolling = 0;
