@@ -57,8 +57,9 @@ loop1:
 				excise(r);
 				t++;
 			}
-		}
-		if(p->as == ASXTW){
+		} else
+		if(p->as == ASXTW
+		&& regtyp(&p->from) && regtyp(&p->to)){
 			r1 = findpre(r, &p->from);
 			if(r1 != R){
 				p1 = r1->prog;
@@ -68,11 +69,22 @@ loop1:
 				case AMOVH:
 				case AMOVHU:
 				case AMOVW:
-					p->as = AMOVW;
+					if(p1->to.type == p->from.type)
+						p->as = AMOVW;
 					break;
 				}
 			}
+		} else
+		if((p->as == AMOVB || p->as == AMOVBU || p->as == AMOVH || p->as == AMOVHU || p->as == AMOVWU)
+		&& regtyp(&p->from) && regtyp(&p->to)){
+			r1 = findpre(r, &p->from);
+			if(r1 != R){
+				p1 = r1->prog;
+				if(p1->as == p->as && p1->to.type == p->from.type)
+					p->as = AMOV;
+			}
 		}
+
 		if(p->as == AMOV || p->as == AMOVW || p->as == AFMOVS || p->as == AFMOVD)
 		if(regtyp(&p->to)) {
 			if(p->from.type == D_CONST)
@@ -441,7 +453,12 @@ subprop(Reg *r0)
 		case AFSQRTD:
 		case AFMOVS:
 		case AFMOVD:
+		case AMOVB:
+		case AMOVBU:
+		case AMOVH:
+		case AMOVHU:
 		case AMOVW:
+		case AMOVWU:
 		case AMOV:
 		case ASXTW:
 			if(p->to.type == v1->type)
@@ -541,12 +558,12 @@ copy1(Adr *v1, Adr *v2, Reg *r, int f)
 		switch(t) {
 		case 2:	/* rar, cant split */
 			if(debug['P'])
-				print("; %Drar; return 0\n", v2);
+				print("; %D rar; return 0\n", v2);
 			return 0;
 
 		case 3:	/* set */
 			if(debug['P'])
-				print("; %Dset; return 1\n", v2);
+				print("; %D set; return 1\n", v2);
 			return 1;
 
 		case 1:	/* used, substitute */
@@ -555,9 +572,9 @@ copy1(Adr *v1, Adr *v2, Reg *r, int f)
 				if(!debug['P'])
 					return 0;
 				if(t == 4)
-					print("; %Dused+set and f=%d; return 0\n", v2, f);
+					print("; %D used+set and f=%d; return 0\n", v2, f);
 				else
-					print("; %Dused and f=%d; return 0\n", v2, f);
+					print("; %D used and f=%d; return 0\n", v2, f);
 				return 0;
 			}
 			if(copyu(p, v2, v1)) {
@@ -569,7 +586,7 @@ copy1(Adr *v1, Adr *v2, Reg *r, int f)
 				print("; sub%D/%D", v2, v1);
 			if(t == 4) {
 				if(debug['P'])
-					print("; %Dused+set; return 1\n", v2);
+					print("; %D used+set; return 1\n", v2);
 				return 1;
 			}
 			break;
@@ -579,7 +596,7 @@ copy1(Adr *v1, Adr *v2, Reg *r, int f)
 			if(!f && (t == 2 || t == 3 || t == 4)) {
 				f = 1;
 				if(debug['P'])
-					print("; %Dset and !f; f=%d", v1, f);
+					print("; %D set and !f; f=%d", v1, f);
 			}
 		}
 		if(debug['P'])

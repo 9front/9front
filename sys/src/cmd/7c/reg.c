@@ -1058,9 +1058,26 @@ paint3(Reg *r, int bn, long rb, int rn)
 		p = r->prog;
 
 		if(r->use1.b[z] & bb) {
+			int et = var[bn].etype;
+
 			if(debug['R'])
 				print("%P", p);
 			addreg(&p->from, rn);
+
+			/*
+			 * avoid type converting move instructions when variable type matches.
+			 * the register is already loaded with the correct type conversion
+			 * and type conversing move instructions prevent the peephole optimizer
+			 * from eleminating redundant moves.
+			 */
+			if(p->as == AMOVB && et == TCHAR
+			|| p->as == AMOVBU && et == TUCHAR
+			|| p->as == AMOVH && et == TSHORT
+			|| p->as == AMOVHU && et == TUSHORT
+			|| p->as == AMOVW && (et == TLONG || et == TINT)
+			|| p->as == AMOVWU && (et == TULONG || et == TUINT))
+				p->as = AMOV;
+
 			if(debug['R'])
 				print("\t.c%P\n", p);
 		}
