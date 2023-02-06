@@ -247,7 +247,6 @@ xfidopen(Xfid *x)
 {
 	Fcall t;
 	Window *w;
-	char *s;
 
 	w = x->f->w;
 	if(w != nil && w->deleted){
@@ -313,12 +312,23 @@ xfidopen(Xfid *x)
 		}
 		break;
 	case Qtap:
-		chanprint(ctltap, "%c%c", Tapon, x->mode);
-		s = recvp(resptap);
-		if(s == nil)
-			break;
-		filsysrespond(x->fs, x, &t, s);
-		return;
+		if((x->mode == OWRITE || x->mode == ORDWR) && fromtap != nil){
+			filsysrespond(x->fs, x, &t, Einuse);
+			return;
+		}
+		if(x->mode == OREAD || x->mode == ORDWR){
+			if(totap != nil){
+				filsysrespond(x->fs, x, &t, Einuse);
+				return;
+			}
+			totap = chancreate(sizeof(char*), 32);
+			sendp(opentap, totap);
+		}
+		if(x->mode == OWRITE || x->mode == ORDWR){
+			fromtap = chancreate(sizeof(char*), 32);
+			sendp(opentap, fromtap);
+		}
+		break;
 	}
 	t.qid = x->f->qid;
 	t.iounit = messagesize-IOHDRSZ;
@@ -374,8 +384,10 @@ xfidclose(Xfid *x)
 			w->wctlopen = FALSE;
 		break;
 	case Qtap:
-		chanprint(ctltap, "%c%c", Tapoff, x->f->mode);
-		recvp(resptap);
+		if(fromtap != nil && (x->f->mode == OWRITE || x->f->mode == ORDWR))
+			sendp(closetap, fromtap);
+		if(totap != nil && (x->f->mode == OREAD || x->f->mode == ORDWR))
+			sendp(closetap, totap);
 		break;
 	}
 	if(w)
@@ -592,8 +604,7 @@ xfidwrite(Xfid *x)
 				fc.count = p - x->data;
 				filsysrespond(x->fs, x, &fc, "null message type");
 				return;
-			case Tapfocus:
-				/* cleanup our own pollution */
+			case 'z':	/* ignore context change */
 				break;
 			default:
 				chanprint(fromtap, "%s", p);
@@ -727,6 +738,7 @@ xfidread(Xfid *x)
 		break;
 
 	case Qtap:
+		assert(totap != nil);
 		alts[Adata].c = totap;
 		alts[Adata].v = &t;
 		alts[Adata].op = CHANRCV;

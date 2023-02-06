@@ -83,14 +83,12 @@ wcurrent(Window *w)
 	Channel *c;
 
 	if(input == nil){
-		sendp(wintap, w);
 		input = w;
 		return;
 	}
 	if(w == input)
 		return;
 	incref(input);
-	sendp(wintap, w);
 	c = chancreate(sizeof(Window*), 0);
 	wsendctlmesg(input, Repaint, ZR, c);
 	sendp(c, w);		/* send the new input */
@@ -1305,7 +1303,6 @@ wclunk(Window *w)
 		return;
 	w->deleted = TRUE;
 	if(w == input){
-		sendp(wintap, nil);
 		input = nil;
 		riosetcursor(nil);
 	}
@@ -1384,11 +1381,12 @@ wctlmesg(Window *w, int m, Rectangle r, void *p)
 			Channel *c = p;
 			input = recvp(c);
 
-			/* when we lost input, release mouse buttons */
+			/* when we lost input, release mouse and keyboard buttons */
 			if(w->mc.buttons){
 				w->mc.buttons = 0;
 				w->mouse.counter++;
 			}
+			w->keyup = w->kbdopen;
 			w->wctlready = 1;
 
 			sendp(c, w);
@@ -1559,9 +1557,9 @@ winctl(void *arg)
 			alts[WWread].op = CHANNOP;
 			alts[WCread].op = CHANNOP;
 		} else {
-			alts[WKbdread].op = (w->kbdopen && kbdqw != kbdqr) ?
+			alts[WKbdread].op = w->kbdopen && (kbdqw != kbdqr || w->keyup) ?
 				CHANSND : CHANNOP;
-			alts[WMouseread].op = (w->mouseopen && w->mouse.counter != w->mouse.lastcounter) ? 
+			alts[WMouseread].op = w->mouseopen && w->mouse.counter != w->mouse.lastcounter ? 
 				CHANSND : CHANNOP;
 			alts[WCwrite].op = w->scrolling || w->mouseopen || (w->qh <= w->org+w->nchars) ?
 				CHANSND : CHANNOP;
@@ -1614,6 +1612,11 @@ winctl(void *arg)
 				free(kbds);
 				nb += i;
 				kbdqr++;
+			}
+			if(w->keyup && nb+2 <= pair.ns){
+				w->keyup = 0;
+				memmove((char*)pair.s + nb, "K", 2);
+				nb += 2;
 			}
 			pair.ns = nb;
 			send(crm.c2, &pair);
