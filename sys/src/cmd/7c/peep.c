@@ -5,6 +5,101 @@ int xtramodes(Reg*, Adr*);
 Reg* findpre(Reg *r, Adr *v);
 Reg* findinc(Reg *r, Reg *r2, Adr *v);
 
+static int
+isu32op(Prog *p)
+{
+	switch(p->as){
+	case AADCSW:
+	case AADCW:
+	case AADDSW:
+	case AADDW:
+	case AANDSW:
+	case AANDW:
+	case AASRW:
+	case ABFIW:
+	case ABFMW:
+	case ABFXILW:
+	case ABICSW:
+	case ABICW:
+	case ACBNZW:
+	case ACBZW:
+	case ACCMNW:
+	case ACCMPW:
+	case ACINCW:
+	case ACINVW:
+	case ACLSW:
+	case ACLZW:
+	case ACMNW:
+	case ACNEGW:
+	case ACRC32CW:
+	case ACRC32W:
+	case ACSELW:
+	case ACSETMW:
+	case ACSETW:
+	case ACSINCW:
+	case ACSINVW:
+	case ACSNEGW:
+	case AEONW:
+	case AEORW:
+	case AEXTRW:
+	case ALDARW:
+	case ALDAXPW:
+	case ALDAXRW:
+	case ALDXRW:
+	case ALDXPW:
+	case ALSLW:
+	case ALSRW:
+	case AMADDW:
+	case AMNEGW:
+	case AMOVKW:
+	case AMOVNW:
+	case AMOVZW:
+	case AMSUBW:
+	case AMULW:
+	case AMVNW:
+	case ANEGSW:
+	case ANEGW:
+	case ANGCSW:
+	case ANGCW:
+	case AORNW:
+	case AORRW:
+	case ARBITW:
+	case AREMW:
+	case AREV16W:
+	case AREVW:
+	case ARORW:
+	case ASBCSW:
+	case ASBCW:
+	case ASBFIZW:
+	case ASBFMW:
+	case ASBFXW:
+	case ASDIVW:
+	case ASTXPW:
+	case ASTXRW:
+	case ASTLPW:
+	case ASTLRW:
+	case ASTLXPW:
+	case ASTLXRW:
+	case ASUBSW:
+	case ASUBW:
+	case ASXTBW:
+	case ASXTHW:
+	case ATSTW:
+	case AUBFIZW:
+	case AUBFMW:
+	case AUBFXW:
+	case AUDIVW:
+	case AUREMW:
+	case AUMULL:
+	case AUXTW:
+	case AUXTBW:
+	case AUXTHW:
+	case AMOVWU:
+		return 1;
+	}
+	return 0;
+}
+
 void
 peep(void)
 {
@@ -58,8 +153,7 @@ loop1:
 				t++;
 			}
 		} else
-		if(p->as == ASXTW
-		&& regtyp(&p->from) && regtyp(&p->to)){
+		if(p->as == ASXTW && p->from.type == D_REG && p->to.type == D_REG){
 			r1 = findpre(r, &p->from);
 			if(r1 != R){
 				p1 = r1->prog;
@@ -69,19 +163,21 @@ loop1:
 				case AMOVH:
 				case AMOVHU:
 				case AMOVW:
-					if(p1->to.type == p->from.type)
+					if(p1->to.type == p->from.type && p1->to.reg == p->from.reg)
 						p->as = AMOVW;
 					break;
 				}
 			}
 		} else
 		if((p->as == AMOVB || p->as == AMOVBU || p->as == AMOVH || p->as == AMOVHU || p->as == AMOVWU)
-		&& regtyp(&p->from) && regtyp(&p->to)){
+		&& (p->from.type == D_REG && p->to.type == D_REG)){
 			r1 = findpre(r, &p->from);
 			if(r1 != R){
 				p1 = r1->prog;
-				if(p1->as == p->as && p1->to.type == p->from.type)
-					p->as = AMOV;
+				if(p1->to.type == p->from.type && p1->to.reg == p->from.reg){
+					if(p1->as == p->as || p->as == AMOVWU && isu32op(p1))
+						p->as = AMOVW;
+				}
 			}
 		}
 
