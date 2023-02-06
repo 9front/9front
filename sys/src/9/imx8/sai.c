@@ -392,17 +392,6 @@ saiprobe(Audio *adev)
 	adev->status = saistatus;
 	adev->ctl = saictl;
 
-	intrenable(IRQsai2, saiinterrupt, ctlr, BUSUNKNOWN, "sai2");
-	ctlr->hp = gpioin(GPIO_PIN(4, 21));
-	gpiointrenable(GPIO_PIN(4, 21), GpioEdge, jacksense, ctlr);
-	saireset(ctlr);
-
-	return 0;
-}
-
-void
-sailink(void)
-{
 	iomuxpad("pad_sai2_rxfs", "gpio4_io21", "SION ~LVTTL HYS ~PUE ~ODE FAST 45_OHM");
 	iomuxpad("pad_sai2_rxc", "sai2_rx_bclk", "~LVTTL HYS PUE ~ODE FAST 45_OHM");
 	iomuxpad("pad_sai2_rxd0", "sai2_rx_data0", "~LVTTL HYS PUE ~ODE FAST 45_OHM");
@@ -414,5 +403,16 @@ sailink(void)
 	setclkrate("sai2.ipg_clk", "audio_pll1_clk", 25*Mhz);
 	setclkgate("sai2.ipg_clk", 1);
 
+	intrenable(IRQsai2, saiinterrupt, ctlr, BUSUNKNOWN, "sai2");
+	ctlr->hp = gpioin(GPIO_PIN(4, 21));
+	gpiointrenable(GPIO_PIN(4, 21), GpioEdge, jacksense, ctlr);
+	saireset(ctlr);
+
+	return 0;
+}
+
+void
+sailink(void)
+{
 	addaudiocard("sai", saiprobe);
 }
