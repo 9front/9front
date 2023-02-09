@@ -69,6 +69,8 @@ fn play1 {
 			midi
 		case *audio/mus*
 			games/mus | midi
+		case *audio/x-voc*
+			audio/vocdec
 		case *pls*
 			awk 'BEGIN {FS="="} /^File/{print $2}' | play1 list plain
 		case *
