@@ -89,7 +89,7 @@ setconfenv(void)
 
 	if(nconf < 0){
 		/* use defaults when there was no configuration */
-		ksetenv("console", "0", 0);
+		ksetenv("console", "0", 1);
 		return;
 	}
 
