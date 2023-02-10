@@ -80,9 +80,10 @@ void
 main(int argc, char **argv)
 {
 	Block b;
-	uchar buf[20];
+	static uchar buf[2048];
 	char fmt[32], size[32];
 	ushort chksum, ver;
+	int n;
 
 	ARGBEGIN{
 	default:
@@ -99,9 +100,10 @@ main(int argc, char **argv)
 	if(~ver + 0x1234 != chksum)
 		sysfatal("invalid checksum");
 
+	memset(&b, 0, sizeof b);
 	for(;;){
-		b.type = get();
-		if(b.type == 0)
+		/* files may end without a proper block */
+		if(read(0, &b.type, 1) != 1 || b.type == 0)
 			break;
 		b.size = get3();
 
@@ -112,16 +114,27 @@ main(int argc, char **argv)
 			b.chan = 1;
 			b.size -= 2;
 			break;
+		case 2:
+			if(b.freq == 0)
+				sysfatal("block 2 without defined codec");
+			break;
 		case 9:
 			b.freq = get4();
 			b.bits = get();
 			b.chan = get();
 			b.codec = get2();
-			get(); /* reserved */
-			b.size -= 4+1+1+2+1;
+			get4(); /* reserved */
+			b.size -= 4+1+1+2+4;
 			break;
 		default:
-			sysfatal("unsupported blocktype");
+			while(b.size != 0){
+				n = b.size;
+				if(n > sizeof buf)
+					n = sizeof buf;
+				if(readn(0, buf, n) != n)
+					break;
+				b.size -= n;
+			}
 			break;
 		}
 
