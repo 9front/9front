@@ -5,7 +5,7 @@
 #include "dat.h"
 #include "fns.h"
 
-u8int ppustate, ppuy;
+u8int ppustate, ppuy, ppuw;
 ulong hblclock, rendclock;
 jmp_buf mainjmp, renderjmp;
 static int cyc, done, ppux, ppux0;
@@ -118,8 +118,8 @@ ppurender(void)
 		}while(m > 8);
 		if(win == -1){
 			win = 1;
-			ta = 0x1800 | reg[LCDC] << 4 & 0x400 | ppuy - reg[WY] << 2 & 0x3e0;
-			y = ppuy - reg[WY] << 1 & 14;
+			ta = 0x1800 | reg[LCDC] << 4 & 0x400 | ppuw - reg[WY] << 2 & 0x3e0;
+			y = ppuw - reg[WY] << 1 & 14;
 			cyc += 2;
 			m = 175 - reg[WX];
 			goto restart;
@@ -292,6 +292,8 @@ hblanktick(void *)
 	switch(ppustate){
 	case 0:
 		hblclock = clock + evhblank.time;
+		if(reg[WX] <= 166 && reg[WY] <= 143)
+			ppuw++;
 		if(++ppuy == 144){
 			ppustate = 1;
 			if((reg[STAT] & IRQM1) != 0)
@@ -310,8 +312,11 @@ hblanktick(void *)
 		break;
 	case 1:
 		hblclock = clock + evhblank.time;
+		if(reg[WX] <= 166 && reg[WY] <= 143)
+			ppuw++;
 		if(++ppuy == 154){
 			ppuy = 0;
+			ppuw = 0;
 			ppustate = 2;
 			if((reg[STAT] & IRQM2) != 0)
 				reg[IF] |= IRQLCDS;

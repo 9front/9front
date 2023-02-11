@@ -109,6 +109,7 @@ regwrite(u8int a, u8int v)
 		ppusync();
 		if((~v & reg[a] & LCDEN) != 0){
 			ppuy = 0;
+			ppuw = 0;
 			ppustate = 0;
 			delevent(&evhblank);
 		}

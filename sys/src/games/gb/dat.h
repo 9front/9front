@@ -14,7 +14,7 @@ extern u32int divclock;
 extern Event *elist;
 extern ulong clock;
 
-extern u8int ppuy, ppustate;
+extern u8int ppuy, ppustate, ppuw;
 
 extern u8int apustatus;
 
