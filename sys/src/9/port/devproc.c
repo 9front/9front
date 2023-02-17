@@ -1127,7 +1127,7 @@ procread(Chan *c, void *va, long n, vlong off)
 				n = i;
 			memmove(va, p->note[0]->msg, n-1);
 			((char*)va)[n-1] = '\0';
-			free(p->note[0]);
+			freenote(p->note[0]);
 			if(--p->nnote == 0)
 				p->notepending = 0;
 			else
