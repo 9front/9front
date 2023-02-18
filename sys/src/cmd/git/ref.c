@@ -126,7 +126,7 @@ paint(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres, in
 
 	for(i = 0; i < nhead; i++){
 		if((o = readobject(head[i])) == nil){
-			fprint(2, "warning: %H does not point at commit\n", o->hash);
+			fprint(2, "warning: %H does not point at commit\n", head[i]);
 			werrstr("read head %H: %r", head[i]);
 			return -1;
 		}
