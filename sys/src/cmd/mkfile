@@ -73,5 +73,5 @@ clean:V: cleancmds clean.dirs
 nuke:V: cleancmds nuke.dirs
 	rm -f *.acid
 
-test:VQ: test.dirs
+test:VQ: test.dirs cmds
 	@{cd test && mk $MKFLAGS test}
