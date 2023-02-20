@@ -36,3 +36,8 @@ update:V:
 		echo update $i
 		cd $i && mk 'UPDATEFLAGS='$"UPDATEFLAGS update
 	}
+
+test:
+	for(d in $DIRS) @{
+		cd $d && mk $MKFLAGS test
+	}

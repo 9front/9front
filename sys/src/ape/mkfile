@@ -27,3 +27,6 @@ cmd.%:V:
 9src.%:V:
 	cd 9src
 	mk $stem
+
+test:VQ:
+	# nothing

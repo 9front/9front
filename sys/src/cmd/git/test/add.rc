@@ -1,0 +1,34 @@
+#!/bin/rc
+
+. util.rc
+
+rm -fr scratch
+mkdir -p scratch/repo
+
+echo @@ abs paths @@
+@{
+	rfork ne
+	cd scratch/repo
+	pwd=`{pwd}
+	$G/init
+	mkdir dir
+	mkdir another
+	mkdir more
+	mkdir extra
+	touch a b c
+	touch dir/^(a b c)
+	touch another/^(a b c)
+	touch more/^(a b c)
+	touch extra/^(a b c)
+	$G/add a
+	$G/add $pwd/b
+	$G/add dir/a
+	$G/add $pwd/dir/b
+	$G/add more
+	@{cd more && $G/add ../extra/a}
+	@{cd more && $G/add $pwd/extra/b}
+	$G/$O.fs
+	$G/$O.walk > ../added
+}
+
+diff -c scratch/added add.expected >/dev/null || die wrong files

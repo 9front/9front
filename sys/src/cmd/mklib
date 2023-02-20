@@ -46,3 +46,9 @@ clean:V:
 
 update:V:
 	update $UPDATEFLAGS $UPDATE
+
+test:VQ: $LIB
+	if(test -d ./test)
+		cd test && mk $MKFLAGS test
+	if not
+		status=()

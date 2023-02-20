@@ -39,3 +39,6 @@ everything:V:
 		mk $MKFLAGS install
 	}
 	rm -f */*.[$OS]
+
+test:VQ:
+	# nothing

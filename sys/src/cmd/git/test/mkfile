@@ -1,0 +1,11 @@
+</$objtype/mkfile
+
+TEST=\
+	add\
+	basic\
+	export\
+	lca\
+	merge\
+	range
+
+</sys/src/cmd/mktest

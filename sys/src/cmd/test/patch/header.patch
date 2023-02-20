@@ -1,0 +1,54 @@
+diff should handle headers just fine, so
+this file contains a few lines of header
+and footer, with a couple of false starts,
+consisting of lines starting with
+--- some words
+but no immediately following 
++++ words
+lines
+
+--- header.in
++++ header.out
+@@ -1,3 +1,5 @@
++1
++2
+ 3
+ 4
+ 5
+@@ -10,8 +12,8 @@
+ 12
+ 13
+ 14
+-13
+-12
++15
++16
+ 17
+ 18
+ 19
+@@ -35,6 +37,8 @@
+ 37
+ 38
+ 39
++40
++41
+ 42
+ 43
+ 44
+@@ -80,6 +84,7 @@
+ 84
+ 85
+ 86
++87
+ 88
+ 89
+ 90
+@@ -91,3 +96,5 @@
+ 96
+ 97
+ 98
++99
++100
+-- signature footer: should not get picked up
+and here is the footer that should
+also be ignored.

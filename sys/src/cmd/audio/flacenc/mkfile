@@ -19,3 +19,6 @@ clean:V:
 
 install:V: $O.$TARGET
 	cp $O.$TARGET $BIN/$TARGET
+
+test:VQ:
+	# nothing

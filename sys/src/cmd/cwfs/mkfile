@@ -13,3 +13,6 @@ cwfs64x.%:V:
 	cd cwfs64x && mk $stem
 
 cleanall:V: clean emelie.clean fs64.clean cwfs64.clean cwfs64x.clean
+
+test:VQ:
+	# nothing

@@ -60,3 +60,9 @@ safeinstallall:V:
 		cd $i
 		mk clean
 	}
+
+test:V:
+	for (i in $DIRS) @{
+		cd $i
+		mk test
+	}

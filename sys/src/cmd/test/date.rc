@@ -1,0 +1,91 @@
+#!/bin/rc
+
+rfork en
+cat /adm/timezone/GMT > /env/timezone
+
+nl='
+'
+
+fn check {
+	r=`$nl{../$O.seconds $1}
+	if(! ~ $r $2){
+		echo "$"r"
+		echo "$"2"
+		echo $status
+		>[1=2] echo fail: $1: got $r expected $2
+		exit 'fail'
+	}
+}
+
+# examples from manpage, and shuffles
+rfork ne
+check '23 may 2011' 			1306108800
+check 'may 23 2011' 			1306108800
+check 'may 2011 23' 			1306108800
+check '23 2011 may' 			1306108800
+check '2011 may 23'			1306108800
+check '2011 23 may'			1306108800
+
+# now with timezones
+check '23 may 2011 edt'			1306123200
+check '23 may 2011 gmt'			1306108800
+
+# If the tz is present, the results should stay
+# the same if we change zones.
+@{
+	rfork en
+	cat /adm/timezone/US_Pacific >/env/timezone
+	check '23 may 2011 edt'			1306123200
+	check '23 may 2011 gmt'			1306108800
+}
+
+# now with all variations on times.
+check 'may 23 2011 0'			1306108800
+check 'may 23 2011 0:1'			1306108860
+check 'may 23 2011 0:1:2'		1306108862
+
+# now with times and timezones
+check '23 may 2011 edt'			1306123200
+check '23 may 2011 gmt'			1306108800
+
+# formats from ../$O.date(1)
+check 'Sun, 14 Jun 2020 22:08:48 -0700'	1592197728
+check 'Sun, 14 Jun 2020 -0700'		1592118000
+check '2020-06-14'			1592092800
+check '2020-06-14T22:14:17-07:00'	1592198057
+
+# colloquial american format (eww)
+check '06/14/2020'			1592092800
+check '06/01/2020'			1590969600
+
+
+# Arizona has no DST
+@{
+	rfork en
+	cat /adm/timezone/US_Arizona >/env/timezone
+	check 'Mon, Jun 21 17:38:02 MST 2020' 1592786282
+}
+
+# CET is a timezone with no hard-coded
+# timezone name -- it should round trip
+@{
+	rfork en
+	cat /adm/timezone/CET >/env/timezone
+	tm=1592782682
+	ds=`{../$O.date $tm}
+	r=`{../$O.seconds $"ds}
+	if(! ~ $tm $r)
+		>[1=2] echo fail: CET: got $r expected $tm
+}
+
+# The other EST should also round trip.
+@{
+	rfork en
+	cat /adm/timezone/Australia_ACT >/env/timezone
+	tm=1592782682
+	ds=`$nl{../$O.date $tm}
+	r=`$nl{../$O.seconds $ds}
+	if(! ~ $tm $r)
+		>[1=2] echo fail: Austraila_ACT: got $r expected $tm
+}
+exit ''

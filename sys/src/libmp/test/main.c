@@ -50,4 +50,5 @@ main()
 	
 	convtests();
 	tests();
+	exits(nil);
 }

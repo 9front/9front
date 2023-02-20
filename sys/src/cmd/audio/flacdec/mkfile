@@ -4,7 +4,7 @@
 TARGET=flacdec
 
 CC=pcc
-CFLAGS=-I. -I../libFLAC -I../libFLAC/FLAC -D_POSIX_SOURCE -D_BSD_EXTENSION -DPlan9 -c
+CFLAGS=-I. -I../libFLAC -I../libFLAC/FLAC -D_POSIX_SOURCE -D_BSD_EXTENSION -DPlan9
 
 %.$O: %.c
 	$CC $CFLAGS -c $stem.c
@@ -19,3 +19,6 @@ clean:V:
 
 install:V: $O.$TARGET
 	cp $O.$TARGET $BIN/$TARGET
+
+test:VQ:
+	# nothing

@@ -1,0 +1,8 @@
+</$objtype/mkfile
+
+TEST=\
+	date\
+	pow\
+	strchr\
+
+</sys/src/cmd/mktest

@@ -1,0 +1,92 @@
+#!/bin/rc
+
+. util.rc
+
+rm -fr scratch
+mkdir -p scratch
+cd scratch
+c='foo
+bar
+baz
+'
+
+# setup test repo
+@{
+	rfork ne
+	q $G/init a
+
+	cd a
+	echo hello > a
+	echo goodbye > b
+	echo -n $c > c
+	chmod +x a
+	q $G/add a b c
+	q $G/commit -m v1 .
+	cd ..
+	pwd
+	q $G/clone `{pwd}^/a b
+}
+
+echo @@ merge different files @@
+@{
+	rfork ne
+	@{
+		cd a
+		echo x > a
+		q $G/commit -m diverge1a a
+	}
+	@{
+		cd b
+		echo y > b
+		q $G/commit -m diverge1b b
+	}
+
+	@{
+		cd b
+		qq $G/pull
+		$G/merge origin/front || status=''
+		q $G/commit -m merged .
+	}
+}
+
+flag +x
+~ `{cat b/a} x || die merge 1.a
+~ `{cat b/b} y || die merge 1.b
+~ `''{cat b/c} $c || die merge 1.c
+test -x b/a || die merge preserve exec
+! test -x b/b || die merge preserve nonexec b
+! test -x b/c || die merge preserve nonexec c
+
+echo @@ merge concurent edits @@
+@{
+	rfork ne
+	@{
+		cd a
+		chmod -x a
+		chmod +x b
+		echo quux >>c
+		q $G/commit -m diverge2a a b c
+	}
+	@{
+		cd b
+		sed s/foo/FOO/ <c >c.new
+		mv c.new c
+		q $G/commit -m diverge2b c
+
+		qq $G/pull
+		qq $G/merge origin/front
+		q $G/commit -m merge c
+	}
+}
+
+c='FOO
+bar
+baz
+quux
+'
+~ `{cat b/a} x || die	# commit from a
+~ `{cat b/b} y || die # commit from b
+~ `''{cat b/c} $c || {diff -u b/c <{echo $c}; die merge 1.c}
+! test -x b/a || die merge remove exec
+test -x b/b || die merge add exec
+! test -x b/c || die merge preserve nonexec c

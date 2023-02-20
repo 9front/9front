@@ -60,3 +60,12 @@ $MAN/%:    %.man
 	cp $prereq $target
 
 man:V:    $MAN/$TARG
+
+test:QV: $O.out $TESTDEP
+	if(test -d ./test){
+		pwd
+		@{cd ./test && mk $MKFLAGS test}
+	}
+	if not
+		status=()
+

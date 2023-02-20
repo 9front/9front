@@ -28,9 +28,3 @@ compat.$O:	../cc/compat
 
 x:V:	$O.out
 	$O.out -la -o/dev/null x.v
-
-test:V:	$O.out
-	rm -f xxx
-	mv $O.out xxx
-	./xxx $OFILES
-	cmp $O.out xxx

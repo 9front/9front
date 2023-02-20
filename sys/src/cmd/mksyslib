@@ -41,3 +41,9 @@ nuke:V:
 
 update:V:
 	update $UPDATEFLAGS $UPDATE
+
+test:VQ:
+	if(test -d ./test)
+		cd test && mk $MKFLAGS test
+	if not
+		status=()

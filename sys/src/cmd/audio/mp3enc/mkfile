@@ -59,7 +59,3 @@ LDFLAGS= # -p
 
 testcase.new.mp3: testcase.wav $O.out
 	$O.out --nores -h testcase.wav testcase.new.mp3
-
-test:V: testcase.new.mp3
-	cmp -l testcase.new.mp3 testcase.mp3 | wc -l
-	rm testcase.new.mp3

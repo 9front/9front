@@ -1,0 +1,40 @@
+#!/bin/rc
+
+. util.rc
+
+rm -fr scratch
+mkdir -p scratch
+cd scratch
+
+# setup test repo
+@{
+	rfork ne
+	q $G/init a
+
+	cd a
+	echo hello > a
+	echo goodbye > b
+	q $G/add a b
+	q $G/commit -m v1 .
+	cd ..
+	pwd
+	q $G/clone `{pwd}^/a b
+}
+
+echo @@ export and apply @@
+@{
+	rfork ne
+	@{
+		cd b
+		echo hihi > b
+		q $G/commit -m export1 b
+		$G/export > ../export1.patch
+	}
+
+	@{
+		cd a
+		q $G/import ../export1.patch
+	}
+}
+
+~ `{cd a && $G/$O.query HEAD} `{cd b && $G/$O.query HEAD} || die 'mismatched export'

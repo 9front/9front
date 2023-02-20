@@ -27,4 +27,7 @@ nuke:V:
 $BIN/%: %.rc
 	cp $stem.rc $BIN/$stem
 
+test:VQ:
+	# nothing
+
 <../mkupas

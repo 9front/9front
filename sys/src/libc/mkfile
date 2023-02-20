@@ -49,3 +49,6 @@ everything:V:
 		mk $MKFLAGS install
 	}
 	rm -f */*.[012456789kqvxz]
+
+test:V:
+	cd test && mk $MKFLAGS test

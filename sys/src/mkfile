@@ -50,7 +50,7 @@ SUBSYS=ape\
 none:VQ:
 	echo mk all, install, clean, nuke, release, kernels, or libs
 
-all install clean nuke:VQ:
+all install clean nuke test:VQ:
 	date
 	for (i in $LIBS $SUBSYS $CMDS) @{
 		cd $i

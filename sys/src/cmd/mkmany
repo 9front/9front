@@ -79,3 +79,10 @@ clean:V:
 	cp $stem.man $MAN/$stem
 
 man:V:	$MANFILES
+
+test:VQ: $PROGS
+	if(test -d ./test)
+		cd test && mk $MKFLAGS test
+	if not
+		status=()
+

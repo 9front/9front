@@ -1,0 +1,17 @@
+fn q {
+	{$* > /tmp/out.$pid && rm /tmp/out.$pid} || cat /tmp/out
+}
+fn qq {
+	$* >/dev/null >[2]/dev/null
+}
+
+fn die {
+	st=$status
+	if(! ~ $st ''){
+		*=($* : $st)
+		echo $"*
+		exit $"*
+	}
+}
+
+G=`{cleanname `{pwd}^/..}

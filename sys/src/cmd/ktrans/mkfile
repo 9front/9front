@@ -11,6 +11,3 @@ OFILES=\
 
 $O.test: test.$O
 	$LD $LDFLAGS -o $target $prereq
-
-test:V: $O.test $O.out
-	$O.test $O.out

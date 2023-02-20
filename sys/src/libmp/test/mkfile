@@ -1,8 +1,9 @@
 </$objtype/mkfile
 
-TARG=test
+TEST=\
+	main
+
 OFILES=\
-	main.$O\
 	ld.$O\
 	gen.tab.$O\
 	convtest.$O\
@@ -11,7 +12,7 @@ HFILES=dat.h fns.h
 
 CLEANFILES=gen.tab.c
 
-</sys/src/cmd/mkone
+</sys/src/cmd/mktest
 
 gen.tab.c:D: testgen.rc
 	rc testgen.rc >gen.tab.c

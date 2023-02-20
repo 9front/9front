@@ -1,0 +1,5 @@
+</$objtype/mkfile
+
+TEST=patch
+
+</sys/src/cmd/mktest

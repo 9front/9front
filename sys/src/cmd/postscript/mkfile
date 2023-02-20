@@ -48,3 +48,6 @@ $TARGETS:V:
 		cd $i;
 		mk $target
 	}
+
+test:VQ:
+	# nothing

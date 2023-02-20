@@ -1,0 +1,75 @@
+#!/bin/rc
+
+. util.rc
+
+rm -fr scratch
+mkdir -p scratch
+cd scratch
+
+fn commit {
+	$G/$O.save -n regress -e regress $* f
+}
+
+# h→g→f
+# ↓   ↓
+# e→d→c→b→a
+echo @@ test range @@
+@{
+	q $G/init a
+	cd a
+	touch f
+
+	a=`{commit -m a}
+	b=`{commit -m b -p $a}
+	c=`{commit -m c -p $b}
+	d=`{commit -m d -p $c}
+	e=`{commit -m e -p $d}
+	f=`{commit -m f -p $c}
+	g=`{commit -m g -p $f}
+	h=`{commit -m h -p $e -p $g}
+	map='
+		s/^'$a'$/a/
+		s/^'$b'$/b/
+		s/^'$c'$/c/
+		s/^'$d'$/d/
+		s/^'$e'$/e/
+		s/^'$f'$/f/
+		s/^'$g'$/g/
+		s/^'$h'$/h/
+	'
+
+	diff -u <{echo d; echo e; echo g; echo h} \
+		<{$G/$O.query $f..$h | sed -e $map} || die range
+}
+
+#       b
+#      ↙ ↖
+# f←e←d   a
+#      ↖ ↙
+#       c
+echo @@ test range 2 @@
+@{
+	q $G/init b
+	cd b
+	touch f
+
+	a=`{commit -m a}
+	b=`{commit -m b -p $a}
+	c=`{commit -m c -p $a}
+	d=`{commit -m d -p $b -p $c}
+	e=`{commit -m e -p $d}
+	f=`{commit -m f -p $e}
+	map='
+		s/^'$a'$/a/
+		s/^'$b'$/b/
+		s/^'$c'$/c/
+		s/^'$d'$/d/
+		s/^'$e'$/e/
+		s/^'$f'$/f/
+	'
+
+	diff -u <{echo c; echo d; echo e; echo f} \
+		<{$G/$O.query $b..$f | sed -e $map} || die range
+	diff -u <{echo b; echo d; echo e; echo f} \
+		<{$G/$O.query $c..$f | sed -e $map} || die range
+}

@@ -39,8 +39,3 @@ nuke:V:
 
 clean:V:
 	rm -f *.[$OS] [$OS].out [$OS].pcode y.tab.? y.debug y.output $TARG
-
-test:V:	$O.out brspell
-	time ./$O.out -b -f brspell </dev/null >y
-	time ./$O.out -b -f brspell <x >z
-	cmp y z

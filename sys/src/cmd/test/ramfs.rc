@@ -1,0 +1,40 @@
+#!/bin/rc
+rfork e
+
+attach='
+Tversion 8192 9P2000
+Rversion 8192 9P2000
+Tattach 1 -1 '^$user^' ''''
+Rattach {0,0,d}
+Twalk 1 2
+Rwalk
+'
+
+fn assert{
+	aux/9pcon -ac '../6.ramfs -i' >/dev/null || exit $status
+}
+
+
+# attach
+assert <<.
+$attach
+.
+
+# create/write/read
+assert <<.
+$attach
+Tcreate 2 testfile 777 2
+Rcreate {1,0,0} 0
+Twrite 2 0 hello
+Rwrite 5
+Tclunk 2
+Rclunk
+Twalk 1 2 testfile
+Rwalk {1,2,0}
+Topen 2 0
+Ropen {1,2,0} 0
+Tread 2 0 5
+Rread hello
+Tclunk 2
+Rclunk
+.

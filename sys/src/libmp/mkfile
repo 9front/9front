@@ -33,6 +33,11 @@ everything:V:
 	}
 	rm -f */*.[$OS]
 
+test:VQ:
+	cd test && mk test
+	
+
+# really dev tools more than tests
 test.$O: test.c /$objtype/include/u.h /sys/include/mp.h port/dat.h
 	$CC -Iport test.c
 

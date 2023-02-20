@@ -43,3 +43,14 @@ safeinstallall:V:
 		cd $i
 		mk safeinstallall
 	}
+
+test:V:
+	for (i in $LIBS) @{
+		cd $i
+		mk test
+	}
+	for (i in $PROGS) @{
+		cd $i
+		mk test
+	}
+
