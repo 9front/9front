@@ -10,7 +10,7 @@ YFLAGS=-d
 
 PCONLY=vmx
 POWERLESS=dtracy  # until someone fixes the build for power
-NOMK=$NOMK `{~ $objtype (386 amd64) || echo $PCONLY} `{~ $objtype power && echo $POWERLESS}
+NOMK=$NOMK test `{~ $objtype (386 amd64) || echo $PCONLY} `{~ $objtype power && echo $POWERLESS}
 DIRS=`{echo */mkfile | sed 's,/mkfile *,\n,g' | grep -v '-e^'^('' $NOMK)^'$'}
 
 usage:VQ:
