@@ -34,12 +34,12 @@ l3:
 l4:
 	MOVW	(R3), R5
 	ADDU	$4, R3
-	AND	R6,R5, R1
-	AND	R7,R5, R2
+	AND	$0xff,R5, R1
+	AND	$0xff00,R5, R2
 	BEQ	R1, b0
-	AND	$0xff00,R5, R1
+	AND	R7, R5, R1
 	BEQ	R2, b1
-	AND	$0xff,R5, R2
+	AND	R6, R5, R2
 	BEQ	R1, b2
 	BNE	R2, l4
 
