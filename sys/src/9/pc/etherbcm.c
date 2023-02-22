@@ -32,6 +32,7 @@ struct Ctlr {
 	ulong recvreti, recvprodi, sendri, sendcleani;
 	Block **sends, **recvs;
 	int active, duplex;
+	int phy;
 };
 
 enum {
@@ -218,13 +219,14 @@ enum {
 	BCM5705_2 = 0x1654, 
 	BCM5717 = 0x1655, 
 	BCM5718 = 0x1656, 
-	BCM5720 = 0x1658, 
+	BCM5719 = 0x1657,
 	BCM5721 = 0x1659, 
 	BCM5722 = 0x165a, 
 	BCM5723 = 0x165b, 
 	BCM5724 = 0x165c, 
 	BCM5705M = 0x165d, 
 	BCM5705M_2 = 0x165e, 
+	BCM5720 = 0x165f,
 	BCM5714 = 0x1668, 
 	BCM5780 = 0x166a, 
 	BCM5780S = 0x166b, 
@@ -290,10 +292,24 @@ dummyread(ulong x)
 }
 
 static int
+phyno(Ctlr *ctlr)
+{
+	switch(ctlr->pdev->did) {
+	case BCM5717:
+	case BCM5718:
+	case BCM5719:
+	case BCM5720:
+		return BUSFNO(ctlr->pdev->tbdf) + 1;
+	}
+
+	return 1;
+}
+
+static int
 miir(Ctlr *ctlr, int ra)
 {
 	while(csr32(ctlr, MIComm) & (1<<29));
-	csr32(ctlr, MIComm) = (ra << 16) | (1 << 21) | (1 << 27) | (1 << 29);
+	csr32(ctlr, MIComm) = (ra << 16) | (ctlr->phy << 21) | (1 << 27) | (1 << 29);
 	while(csr32(ctlr, MIComm) & (1<<29));
 	if(csr32(ctlr, MIComm) & (1<<28)) return -1;
 	return csr32(ctlr, MIComm) & 0xFFFF;
@@ -303,7 +319,7 @@ static int
 miiw(Ctlr *ctlr, int ra, int value)
 {
 	while(csr32(ctlr, MIComm) & (1<<29));
-	csr32(ctlr, MIComm) = (value & 0xFFFF) | (ra << 16) | (1 << 21) | (1 << 27) | (1 << 29);
+	csr32(ctlr, MIComm) = (value & 0xFFFF) | (ra << 16) | (ctlr->phy << 21) | (1 << 27) | (1 << 29);
 	while(csr32(ctlr, MIComm) & (1<<29));
 	return 0;
 }
@@ -599,8 +615,22 @@ bcminit(Ether *edev)
 	pa = PCIWADDR(ctlr->recvprod);
 	csr32(ctlr, ReceiveBDHostAddr + 0) = pa >> 32;
 	csr32(ctlr, ReceiveBDHostAddr + 4) = pa;
-	csr32(ctlr, ReceiveBDFlags) = RecvProdRingLen << 16;
-	csr32(ctlr, ReceiveBDNIC) = 0x6000;
+	switch(ctlr->pdev->did) {
+		case BCM5717:
+		case BCM5718:
+		case BCM5719:
+		case BCM5720:
+			/* 5717 series have a different receive bd nic addr,
+			 * and a max frame length field in bits 2 to 15. */
+			csr32(ctlr, ReceiveBDFlags) = RecvProdRingLen << 16 | 1536 << 2;
+			csr32(ctlr, ReceiveBDNIC) = 0x40000;
+			break;
+
+		default:
+			csr32(ctlr, ReceiveBDFlags) = RecvProdRingLen << 16;
+			csr32(ctlr, ReceiveBDNIC) = 0x6000;
+	}
+
 	csr32(ctlr, ReceiveBDRepl) = 25;
 	csr32(ctlr, SendBDRingHostIndex) = 0;
 	csr32(ctlr, SendBDRingHostIndex+4) = 0;
@@ -743,13 +773,14 @@ bcmpci(void)
 		case BCM5705_2:
 		case BCM5717:
 		case BCM5718:
-		case BCM5720:
+		case BCM5719:
 		case BCM5721:
 		case BCM5722:
 		case BCM5723:
 		case BCM5724:
 		case BCM5705M:
 		case BCM5705M_2:
+		case BCM5720:
 		case BCM5714:
 		case BCM5780:
 		case BCM5780S:
@@ -833,6 +864,7 @@ bcmpci(void)
 		ctlr->recvprod = xspanalloc(32 * RecvProdRingLen, 16, 0);
 		ctlr->recvret = xspanalloc(32 * RecvRetRingLen, 16, 0);
 		ctlr->sendr = xspanalloc(16 * SendRingLen, 16, 0);
+		ctlr->phy = phyno(ctlr);
 		if(bcmhead != nil)
 			bcmtail->link = ctlr;
 		else
