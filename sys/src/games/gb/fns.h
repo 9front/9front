@@ -26,3 +26,5 @@ void sndwrite(u8int, u8int);
 u8int waveread(u8int);
 void wavewrite(u8int, u8int);
 u8int timread(void);
+void serialwrite(void);
+void serialinit(int, char *);

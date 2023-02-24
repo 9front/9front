@@ -262,6 +262,8 @@ void
 threadmain(int argc, char **argv)
 {
 	int t;
+	int lis = -1;
+	char *addr = nil;
 
 	colinit();
 	ARGBEGIN {
@@ -280,11 +282,22 @@ threadmain(int argc, char **argv)
 	case 'x':
 		fixscale = strtol(EARGF(usage()), nil, 0);
 		break;
+	case 'l':
+		lis = 1;
+		addr = EARGF(usage());
+		break;
+	case 'i':
+		lis = 0;
+		addr = EARGF(usage());
+		break;
 	default:
 		usage();
 	} ARGEND;
 	if(argc < 1)
 		usage();
+
+	if(lis == 0 || lis == 1)
+		serialinit(lis, addr);
 
 	loadrom(argv[0]);
 	initemu(PICW, PICH, 4, XRGB32, 1, nil);

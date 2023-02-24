@@ -6,7 +6,8 @@
 
 Event evhblank, evtimer, evenv;
 extern Event evsamp, chev[4];
-Event *events[NEVENT] = {&evhblank, &evtimer, &evenv, &evsamp, &chev[0], &chev[1], &chev[2], &chev[3]};
+extern Event evse;
+Event *events[NEVENT] = {&evhblank, &evtimer, &evenv, &evsamp, &chev[0], &chev[1], &chev[2], &chev[3], &evse};
 Event *elist;
 static int timshtab[4] = {10, 4, 6, 8}, timsh;
 ulong timclock;

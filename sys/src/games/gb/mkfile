@@ -11,6 +11,7 @@ OFILES=\
 	state.$O\
 	apu.$O\
 	eui.$O\
+	serial.$O\
 
 HFILES=dat.h fns.h
 

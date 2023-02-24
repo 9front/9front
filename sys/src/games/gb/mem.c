@@ -83,7 +83,11 @@ regwrite(u8int a, u8int v)
 
 	switch(a){
 	case JOYP: v |= 0xcf; break;
-	case SC: v |= 0x7c; break;
+	case SC:
+		if((reg[a] & 0x80) == 0 && (v & 0x80))
+			serialwrite();
+		reg[a] = v;
+		return;
 	case DIV:
 		divclock = clock;
 		v = 0;

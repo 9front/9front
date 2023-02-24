@@ -12,6 +12,9 @@ gb, gba, nes, snes \- emulators
 ] [
 .B -x
 .I scale
+] [
+.B -li
+.I addr
 ]
 .I romfile
 .br
@@ -103,6 +106,14 @@ Run GB roms in DMG mode. GBC-only roms will not run in this mode; others will ru
 .TP
 .BI -C nnnnnn,nnnnnn,nnnnnn,nnnnnn
 Select a color palette. Has no effect on roms in color mode. The syntax is of the form -C ffffff,aaaaaa,555555,000000 (using HTML style rrggbb notation).
+.TP
+.BI -li addr
+These enable serial port connectivity emulation using the network. The
+.B -l
+flag configures the listening partner, whereas
+.B -i
+configures the dialing partner. The connection is established before the rom starts.
+Communication is synchronous, emulation will stall while waiting for the other partner.
 .PP
 .B gba
 options:
@@ -163,6 +174,8 @@ The SNES horizontal hires mode is supported only with
 scaling.
 .br
 All emulators assume a North American (i.e. NTSC) system. PAL games (and in some cases Japanese games) are not supported.
+.br
+The serial link emulation has issues with desynchronization in timing dependent scenarios.
 .SH HISTORY
 .I Gb
 first appeared in 9front (April, 2012).
