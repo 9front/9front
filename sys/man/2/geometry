@@ -164,7 +164,7 @@ are not available in the standard libc.
 Name
 Description
 .TP
-.B flerp
+.B flerp(\fIa\fP,\fIb\fP,\fIt\fP)
 Performs a linear interpolation by a factor of
 .I t
 between
@@ -173,7 +173,7 @@ and
 .IR b ,
 and returns the result.
 .TP
-.B fclamp
+.B fclamp(\fIn\fP,\fImin\fP,\fImax\fP)
 Constrains
 .I n
 to a value between
@@ -193,39 +193,39 @@ to zero, since they don't belong to any projective plane themselves.
 Name
 Description
 .TP
-.B Pt2
+.B Pt2(\fIx\fP,\fIy\fP,\fIw\fP)
 Constructor function for a Point2 point.
 .TP
-.B Vec2
+.B Vec2(\fIx\fP,\fIy\fP)
 Constructor function for a Point2 vector.
 .TP
-.B addpt2
+.B addpt2(\fIa\fP,\fIb\fP)
 Creates a new 2D point out of the sum of
 .IR a 's
 and
 .IR b 's
 components.
 .TP
-subpt2
+.B subpt2(\fIa\fP,\fIb\fP)
 Creates a new 2D point out of the substraction of
 .IR a 's
 by
 .IR b 's
 components.
 .TP
-mulpt2
+.B mulpt2(\fIp\fP,\fIs\fP)
 Creates a new 2D point from multiplying
 .IR p 's
 components by the scalar
 .IR s .
 .TP
-divpt2
+.B divpt2(\fIp\fP,\fIs\fP)
 Creates a new 2D point from dividing
 .IR p 's
 components by the scalar
 .IR s .
 .TP
-lerp2
+.B lerp2(\fIa\fP,\fIb\fP,\fIt\fP)
 Performs a linear interpolation between the 2D points
 .I a
 and
@@ -234,22 +234,22 @@ by a factor of
 .IR t ,
 and returns the result.
 .TP
-dotvec2
+.B dotvec2(\fIa\fP,\fIb\fP)
 Computes the dot product of vectors
 .I a
 and
 .IR b .
 .TP
-vec2len
+.B vec2len(\fIv\fP)
 Computes the length—magnitude—of vector
 .IR v .
 .TP
-normvec2
+.B normvec2(\fIv\fP)
 Normalizes the vector
 .I v
 and returns a new 2D point.
 .TP
-edgeptcmp
+.B edgeptcmp(\fIe0\fP,\fIe1\fP,\fIp\fP)
 Performs a comparison between an edge, defined by a directed line from
 .I e0
 to
@@ -260,7 +260,7 @@ If the point is to the right of the line, the result is >0; if it's to
 the left, the result is <0; otherwise—when the point is on the line—,
 it returns 0.
 .TP
-ptinpoly
+.B ptinpoly(\fIp\fP,\fIpts\fP,\fInpts\fP)
 Returns 1 if the 2D point
 .I p
 lies within the
@@ -269,39 +269,39 @@ polygon defined by
 .IR pts ,
 0 otherwise.
 .TP
-Pt3
+.B Pt3(\fIx\fP,\fIy\fP,\fIz\fP,\fIw\fP)
 Constructor function for a Point3 point.
 .TP
-Vec3
+.B Vec3(\fIx\fP,\fIy\fP,\fIz\fP)
 Constructor function for a Point3 vector.
 .TP
-addpt3
+.B addpt3(\fIa\fP,\fIb\fP)
 Creates a new 3D point out of the sum of
 .IR a 's
 and
 .IR b 's
 components.
 .TP
-subpt3
+.B subpt3(\fIa\fP,\fIb\fP)
 Creates a new 3D point out of the substraction of
 .IR a 's
 by
 .IR b 's
 components.
 .TP
-mulpt3
+.B mulpt3(\fIp\fP,\fIs\fP)
 Creates a new 3D point from multiplying
 .IR p 's
 components by the scalar
 .IR s .
 .TP
-divpt3
+.B divpt3(\fIp\fP,\fIs\fP)
 Creates a new 3D point from dividing
 .IR p 's
 components by the scalar
 .IR s .
 .TP
-lerp3
+.B lerp3(\fIa\fP,\fIb\fP,\fIt\fP)
 Performs a linear interpolation between the 3D points
 .I a
 and
@@ -310,23 +310,23 @@ by a factor of
 .IR t ,
 and returns the result.
 .TP
-dotvec3
-Computes the dot/inner product of vectors
+.B dotvec3(\fIa\fP,\fIb\fP)
+Computes the dot product of vectors
 .I a
 and
 .IR b .
 .TP
-crossvec3
-Computes the cross/outer product of vectors
+.B crossvec3(\fIa\fP,\fIb\fP)
+Computes the cross product of vectors
 .I a
 and
 .IR b .
 .TP
-vec3len
+.B vec3len(\fIv\fP)
 Computes the length—magnitude—of vector
 .IR v .
 .TP
-normvec3
+.B normvec3(\fIv\fP)
 Normalizes the vector
 .I v
 and returns a new 3D point.
@@ -335,12 +335,12 @@ and returns a new 3D point.
 Name
 Description
 .TP
-identity
+.B identity(\fIm\fP)
 Initializes
 .I m
 into an identity, 3x3 matrix.
 .TP
-addm
+.B addm(\fIa\fP,\fIb\fP)
 Sums the matrices
 .I a
 and
@@ -348,7 +348,7 @@ and
 and stores the result back in
 .IR a .
 .TP
-subm
+.B subm(\fIa\fP,\fIb\fP)
 Substracts the matrix
 .I a
 by
@@ -356,7 +356,7 @@ by
 and stores the result back in
 .IR a .
 .TP
-mulm
+.B mulm(\fIa\fP,\fIb\fP)
 Multiplies the matrices
 .I a
 and
@@ -364,51 +364,51 @@ and
 and stores the result back in
 .IR a .
 .TP
-smulm
+.B smulm(\fIm\fP,\fIs\fP)
 Multiplies every element of
 .I m
 by the scalar
 .IR s ,
 storing the result in m.
 .TP
-transposem
+.B transposem(\fIm\fP)
 Transforms the matrix
 .I m
 into its transpose.
 .TP
-detm
+.B detm(\fIm\fP)
 Computes the determinant of
 .I m
 and returns the result.
 .TP
-tracem
+.B tracem(\fIm\fP)
 Computes the trace of
 .I m
 and returns the result.
 .TP
-adjm
+.B adjm(\fIm\fP)
 Transforms the matrix
 .I m
 into its adjoint.
 .TP
-invm
+.B invm(\fIm\fP)
 Transforms the matrix
 .I m
 into its inverse.
 .TP
-xform
+.B xform(\fIp\fP,\fIm\fP)
 Transforms the point
 .I p
 by the matrix
 .I m
 and returns the new 2D point.
 .TP
-identity3
+.B identity3(\fIm\fP)
 Initializes
 .I m
 into an identity, 4x4 matrix.
 .TP
-addm3
+.B addm3(\fIa\fP,\fIb\fP)
 Sums the matrices
 .I a
 and
@@ -416,7 +416,7 @@ and
 and stores the result back in
 .IR a .
 .TP
-subm3
+.B subm3(\fIa\fP,\fIb\fP)
 Substracts the matrix
 .I a
 by
@@ -424,7 +424,7 @@ by
 and stores the result back in
 .IR a .
 .TP
-mulm3
+.B mulm3(\fIa\fP,\fIb\fP)
 Multiplies the matrices
 .I a
 and
@@ -432,39 +432,39 @@ and
 and stores the result back in
 .IR a .
 .TP
-smulm3
+.B smulm3(\fIm\fP,\fIs\fP)
 Multiplies every element of
 .I m
 by the scalar
 .IR s ,
 storing the result in m.
 .TP
-transposem3
+.B transposem3(\fIm\fP)
 Transforms the matrix
 .I m
 into its transpose.
 .TP
-detm3
+.B detm3(\fIm\fP)
 Computes the determinant of
 .I m
 and returns the result.
 .TP
-tracem3
+.B tracem3(\fIm\fP)
 Computes the trace of
 .I m
 and returns the result.
 .TP
-adjm3
+.B adjm3(\fIm\fP)
 Transforms the matrix
 .I m
 into its adjoint.
 .TP
-invm3
+.B invm3(\fIm\fP)
 Transforms the matrix
 .I m
 into its inverse.
 .TP
-xform3
+.B xform3(\fIp\fP,\fIm\fP)
 Transforms the point
 .I p
 by the matrix
@@ -478,72 +478,72 @@ orient and rotate objects in 3D space.
 Name
 Description
 .TP
-Quat
+.B Quat(\fIr\fP,\fIi\fP,\fIj\fP,\fIk\fP)
 Constructor function for a Quaternion.
 .TP
-Quatvec
+.B Quatvec(\fIr\fP,\fIv\fP)
 Constructor function for a Quaternion that takes the imaginary part in
 the form of a vector
 .IR v .
 .TP
-addq
+.B addq(\fIa\fP,\fIb\fP)
 Creates a new quaternion out of the sum of
 .IR a 's
 and
 .IR b 's
 components.
 .TP
-subq
+.B subq(\fIa\fP,\fIb\fP)
 Creates a new quaternion from the substraction of
 .IR a 's
 by
 .IR b 's
 components.
 .TP
-mulq
+.B mulq(\fIa\fP,\fIb\fP)
 Multiplies
 .I a
 and
 .I b
 and returns a new quaternion.
 .TP
-smulq
+.B smulq(\fIq\fP,\fIs\fP)
 Multiplies each of the components of
 .I q
 by the scalar
 .IR s ,
 returning a new quaternion.
 .TP
-sdivq
+.B sdivq(\fIq\fP,\fIs\fP)
 Divides each of the components of
 .I q
 by the scalar
 .IR s ,
 returning a new quaternion.
 .TP
-dotq
+.B dotq(\fIq\fP,\fIr\fP)
 Computes the dot-product of
 .I q
 and
 .IR r ,
 and returns the result.
 .TP
-invq
+.B invq(\fIq\fP)
 Computes the inverse of
 .I q
 and returns a new quaternion out of it.
 .TP
-qlen
+.B qlen(\fIq\fP)
 Computes
 .IR q 's
 length—magnitude—and returns the result.
 .TP
-normq
+.B normq(\fIq\fP)
 Normalizes
 .I q
 and returns a new quaternion out of it.
 .TP
-slerp
+.B slerp(\fIq\fP,\fIr\fP,\fIt\fP)
 Performs a spherical linear interpolation between the quaternions
 .I q
 and
@@ -552,7 +552,7 @@ by a factor of
 .IR t ,
 and returns the result.
 .TP
-qrotate
+.B qrotate(\fIp\fP,\fIaxis\fP,\fIθ\fP)
 Returns the result of rotating the point
 .I p
 around the vector
@@ -579,7 +579,7 @@ point with the proper reference frame if that's not the case.
 Name
 Description
 .TP
-rframexform
+.B rframexform(\fIp\fP,\fIrf\fP)
 Transforms the point
 .IR p ,
 relative to origin O, into the frame of reference
@@ -588,7 +588,7 @@ with origin in
 .BR rf.p ,
 which is itself also relative to O. It then returns the new 2D point.
 .TP
-rframexform3
+.B rframexform3(\fIp\fP,\fIrf\fP)
 Transforms the point
 .IR p ,
 relative to origin O, into the frame of reference
@@ -597,14 +597,14 @@ with origin in
 .BR rf.p ,
 which is itself also relative to O. It then returns the new 3D point.
 .TP
-invrframexform
+.B invrframexform(\fIp\fP,\fIrf\fP)
 Transforms the point
 .IR p ,
 relative to
 .BR rf.p ,
 into the frame of reference O, assumed to have an orthonormal basis.
 .TP
-invrframexform3
+.B invrframexform3(\fIp\fP,\fIrf\fP)
 Transforms the point
 .IR p ,
 relative to
@@ -615,19 +615,19 @@ into the frame of reference O, assumed to have an orthonormal basis.
 Name
 Description
 .TP
-centroid
+.B centroid(\fIt\fP)
 Returns the geometric center of
 .B Triangle2
 .IR t .
 .TP
-barycoords
+.B barycoords(\fIt\fP,\fIp\fP)
 Returns a 3D point that represents the barycentric coordinates of the
 2D point
 .I p
 relative to the triangle
 .IR t .
 .TP
-centroid3
+.B centroid3(\fIt\fP)
 Returns the geometric center of
 .B Triangle3
 .IR t .
