@@ -149,13 +149,12 @@ get8(Trk *x)
 {
 	u8int v;
 
-	if(x == nil){
+	if(x == nil || x->p == nil)
 		Bread(ib, &v, 1);
-		return v;
-	}
-	if(x->p >= x->e || x->ended)
+	else if(x->p >= x->e || x->ended)
 		sysfatal("track overflow");
-	v = *x->p++;
+	else
+		v = *x->p++;
 	dprint("%02ux", v);
 	return v;
 }
@@ -397,17 +396,17 @@ ev(Trk *x, vlong t)
 
 	dprint(" [%zd] ", x - tr);
 	e = get8(x);
-	if(x != nil){
-		if((e & 0x80) == 0){
+	if((e & 0x80) == 0){
+		if(x->p != nil)
 			x->p--;
-			e = x->ev;
-			if((e & 0x80) == 0)
-				sysfatal("invalid event");
-		}else
-			x->ev = e;
-	}
+		e = x->ev;
+		dprint(" *%02ux ", e);
+		if((e & 0x80) == 0)
+			sysfatal("invalid event %#ux", e);
+	}else
+		x->ev = e;
 	c = chan + (e & 15);
-	dprint("(%02ux) ", e);
+	dprint("| %02ux ", e);
 	n = get8(x);
 	switch(e >> 4){
 	case 0x8: noteoff(c, n, get8(x)); break;
@@ -562,13 +561,16 @@ main(int argc, char **argv)
 	putcmd(Rop3, 1, 0);
 	trace = debug;
 	if(stream){
+		Trk ☺;
+		memset(&☺, 0, sizeof ☺);
+		tr = &☺;
 		for(;;){
-			getvar(nil);
-			if(ev(nil, 0) < 0)
+			getvar(&☺);
+			if(ev(&☺, 0) < 0)
 				exits(nil);
 		}
 	}
-	for(end=0; !end;){
+	for(;;){
 		end = 1;
 		for(x=tr; x<tr+ntrk; x++){
 			if(x->ended)
@@ -584,6 +586,8 @@ main(int argc, char **argv)
 				x->Δ = getvar(x);
 			}
 		}
+		if(end)
+			break;
 		samp(1);
 	}
 	exits(nil);
