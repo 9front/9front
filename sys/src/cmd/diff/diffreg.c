@@ -66,29 +66,6 @@
 *	3*(number of k-candidates installed),  typically about
 *	6n words for files of length n. 
 */
-typedef struct Cand Cand;
-
-struct Cand {
-	int x;
-	int y;
-	int pred;
-};
-
-Cand cand;
-Line *file[2], line;
-int len[2];
-int binary;
-Line *sfile[2];	/*shortened by pruning common prefix and suffix*/
-int slen[2];
-int pref, suff;	/*length of prefix and suffix*/
-int *class;	/*will be overlaid on file[0]*/
-int *member;	/*will be overlaid on file[1]*/
-int *klist;	/*will be overlaid on file[0] after class*/
-Cand *clist;	/* merely a free storage pot for candidates */
-int clen;
-int *J;		/*will be overlaid on class*/
-long *ixold;	/*will be overlaid on klist*/
-long *ixnew;	/*will be overlaid on file[1]*/
 
 static void	
 sort(Line *a, int n)	/*shellsort CACM #201*/
@@ -137,21 +114,21 @@ unsort(Line *f, int l, int *b)
 }
 
 static void
-prune(void)
+prune(Diff *d)
 {
 	int i,j;
 
-	for(pref=0;pref<len[0]&&pref<len[1]&&
-		file[0][pref+1].value==file[1][pref+1].value;
-		pref++ ) ;
-	for(suff=0;suff<len[0]-pref&&suff<len[1]-pref&&
-		file[0][len[0]-suff].value==file[1][len[1]-suff].value;
-		suff++) ;
+	for(d->pref = 0; d->pref < d->len[0] && d->pref < d->len[1] &&
+		d->file[0][d->pref+1].value == d->file[1][d->pref+1].value;
+		d->pref++) ;
+	for(d->suff=0; d->suff < d->len[0] - d->pref && d->suff < d->len[1] - d->pref &&
+		d->file[0][d->len[0] - d->suff].value == d->file[1][d->len[1] - d->suff].value;
+		d->suff++) ;
 	for(j=0;j<2;j++) {
-		sfile[j] = file[j]+pref;
-		slen[j] = len[j]-pref-suff;
-		for(i=0;i<=slen[j];i++)
-			sfile[j][i].serial = i;
+		d->sfile[j] = d->file[j]+d->pref;
+		d->slen[j] = d->len[j]-d->pref-d->suff;
+		for(i=0;i<=d->slen[j];i++)
+			d->sfile[j][i].serial = i;
 	}
 }
 
@@ -184,30 +161,30 @@ equiv(Line *a, int n, Line *b, int m, int *c)
 }
 
 static int
-newcand(int x, int  y, int pred)
+newcand(Diff *d, int x, int  y, int pred)
 {
 	Cand *q;
 
-	clist = erealloc(clist, (clen+1)*sizeof(Cand));
-	q = clist + clen;
+	d->clist = erealloc(d->clist, (d->clen+1)*sizeof(Cand));
+	q = d->clist + d->clen;
 	q->x = x;
 	q->y = y;
 	q->pred = pred;
-	return clen++;
+	return d->clen++;
 }
 
 static int
-search(int *c, int k, int y)
+search(Diff *d, int *c, int k, int y)
 {
 	int i, j, l;
 	int t;
 
-	if(clist[c[k]].y < y)	/*quick look for typical case*/
+	if(d->clist[c[k]].y < y)	/*quick look for typical case*/
 		return k+1;
 	i = 0;
 	j = k+1;
 	while((l=(i+j)/2) > i) {
-		t = clist[c[l]].y;
+		t = d->clist[c[l]].y;
 		if(t > y)
 			j = l;
 		else if(t < y)
@@ -219,7 +196,7 @@ search(int *c, int k, int y)
 }
 
 static int
-stone(int *a, int n, int *b, int *c)
+stone(Diff *d, int *a, int n, int *b, int *c)
 {
 	int i, k,y;
 	int j, l;
@@ -227,7 +204,7 @@ stone(int *a, int n, int *b, int *c)
 	int oldl;
 
 	k = 0;
-	c[0] = newcand(0,0,0);
+	c[0] = newcand(d, 0, 0, 0);
 	for(i=1; i<=n; i++) {
 		j = a[i];
 		if(j==0)
@@ -236,20 +213,20 @@ stone(int *a, int n, int *b, int *c)
 		oldl = 0;
 		oldc = c[0];
 		do {
-			if(y <= clist[oldc].y)
+			if(y <= d->clist[oldc].y)
 				continue;
-			l = search(c, k, y);
+			l = search(d, c, k, y);
 			if(l!=oldl+1)
 				oldc = c[l-1];
 			if(l<=k) {
-				if(clist[c[l]].y <= y)
+				if(d->clist[c[l]].y <= y)
 					continue;
 				tc = c[l];
-				c[l] = newcand(i,y,oldc);
+				c[l] = newcand(d, i, y, oldc);
 				oldc = tc;
 				oldl = l;
 			} else {
-				c[l] = newcand(i,y,oldc);
+				c[l] = newcand(d, i,y,oldc);
 				k++;
 				break;
 			}
@@ -259,59 +236,21 @@ stone(int *a, int n, int *b, int *c)
 }
 
 static void
-unravel(int p)
+unravel(Diff *d, int p)
 {
 	int i;
 	Cand *q;
 
-	for(i=0; i<=len[0]; i++) {
-		if (i <= pref)
-			J[i] = i;
-		else if (i > len[0]-suff)
-			J[i] = i+len[1]-len[0];
+	for(i=0; i<=d->len[0]; i++) {
+		if (i <= d->pref)
+			d->J[i] = i;
+		else if (i > d->len[0]-d->suff)
+			d->J[i] = i+d->len[1] - d->len[0];
 		else
-			J[i] = 0;
+			d->J[i] = 0;
 	}
-	for(q=clist+p;q->y!=0;q=clist+q->pred)
-		J[q->x+pref] = q->y+pref;
-}
-
-static void
-output(void)
-{
-	int m, i0, i1, j0, j1;
-
-	m = len[0];
-	J[0] = 0;
-	J[m+1] = len[1]+1;
-	if (mode != 'e') {
-		for (i0 = 1; i0 <= m; i0 = i1+1) {
-			while (i0 <= m && J[i0] == J[i0-1]+1)
-				i0++;
-			j0 = J[i0-1]+1;
-			i1 = i0-1;
-			while (i1 < m && J[i1+1] == 0)
-				i1++;
-			j1 = J[i1+1]-1;
-			J[i1] = j1;
-			change(i0, i1, j0, j1);
-		}
-	} else {
-		for (i0 = m; i0 >= 1; i0 = i1-1) {
-			while (i0 >= 1 && J[i0] == J[i0+1]-1 && J[i0])
-				i0--;
-			j0 = J[i0+1]-1;
-			i1 = i0+1;
-			while (i1 > 1 && J[i1-1] == 0)
-				i1--;
-			j1 = J[i1-1]+1;
-			J[i1] = j1;
-			change(i1 , i0, j1, j0);
-		}
-	}
-	if (m == 0)
-		change(1, 0, 1, len[1]);
-	flushchanges();
+	for(q=d->clist+p; q->y != 0; q= d->clist + q->pred)
+		d->J[q->x+d->pref] = q->y+d->pref;
 }
 
 #define BUF 4096
@@ -361,21 +300,20 @@ cmp(Biobuf* b1, Biobuf* b2)
 }
 
 void
-diffreg(char *f, char *fo, char *t, char *to)
+calcdiff(Diff *d, char *f, char *fo, char *t, char *to)
 {
 	Biobuf *b0, *b1;
 	int k;
 
-	binary = 0;
-	b0 = prepare(0, f, fo);
+	b0 = prepare(d, 0, f, fo);
 	if (!b0)
 		return;
-	b1 = prepare(1, t, to);
+	b1 = prepare(d, 1, t, to);
 	if (!b1) {
 		Bterm(b0);
 		return;
 	}
-	if (binary){
+	if (d->binary){
 		// could use b0 and b1 but this is simpler.
 		if (cmp(b0, b1))
 			print("binary files %s %s differ\n", f, t);
@@ -383,38 +321,91 @@ diffreg(char *f, char *fo, char *t, char *to)
 		Bterm(b1);
 		return;
 	}
-	clen = 0;
-	prune();
-	sort(sfile[0], slen[0]);
-	sort(sfile[1], slen[1]);
+	d->clen = 0;
+	prune(d);
+	sort(d->sfile[0], d->slen[0]);
+	sort(d->sfile[1], d->slen[1]);
 
-	member = (int *)file[1];
-	equiv(sfile[0], slen[0], sfile[1], slen[1], member);
-	member = erealloc(member, (slen[1]+2)*sizeof(int));
+	d->member = (int *)d->file[1];
+	equiv(d->sfile[0], d->slen[0], d->sfile[1], d->slen[1], d->member);
+	d->member = erealloc(d->member, (d->slen[1]+2)*sizeof(int));
 
-	class = (int *)file[0];
-	unsort(sfile[0], slen[0], class);
-	class = erealloc(class, (slen[0]+2)*sizeof(int));
+	d->class = (int *)d->file[0];
+	unsort(d->sfile[0], d->slen[0], d->class);
+	d->class = erealloc(d->class, (d->slen[0]+2)*sizeof(int));
 
-	klist = emalloc((slen[0]+2)*sizeof(int));
-	clist = emalloc(sizeof(Cand));
-	k = stone(class, slen[0], member, klist);
-	free(member);
-	free(class);
+	d->klist = emalloc((d->slen[0]+2)*sizeof(int));
+	d->clist = emalloc(sizeof(Cand));
+	k = stone(d, d->class, d->slen[0], d->member, d->klist);
+	free(d->member);
+	free(d->class);
 
-	J = emalloc((len[0]+2)*sizeof(int));
-	unravel(klist[k]);
-	free(clist);
-	free(klist);
+	d->J = emalloc((d->len[0]+2)*sizeof(int));
+	unravel(d, d->klist[k]);
+	free(d->clist);
+	free(d->klist);
 
-	ixold = emalloc((len[0]+2)*sizeof(long));
-	ixnew = emalloc((len[1]+2)*sizeof(long));
+	d->ixold = emalloc((d->len[0]+2)*sizeof(long));
+	d->ixnew = emalloc((d->len[1]+2)*sizeof(long));
 	Bseek(b0, 0, 0); Bseek(b1, 0, 0);
-	check(b0, b1);
-	output();
-	free(J);
-	free(ixold);
-	free(ixnew);
-	Bterm(b0);
-	Bterm(b1);
+	check(d, b0, b1);
+}
+
+static void
+output(Diff *d)
+{
+	int m, i0, i1, j0, j1;
+
+	m = d->len[0];
+	d->J[0] = 0;
+	d->J[m+1] = d->len[1]+1;
+	if (mode != 'e') {
+		for (i0 = 1; i0 <= m; i0 = i1+1) {
+			while (i0 <= m && d->J[i0] == d->J[i0-1]+1)
+				i0++;
+			j0 = d->J[i0-1]+1;
+			i1 = i0-1;
+			while (i1 < m && d->J[i1+1] == 0)
+				i1++;
+			j1 = d->J[i1+1]-1;
+			d->J[i1] = j1;
+			change(d, i0, i1, j0, j1);
+		}
+	} else {
+		for (i0 = m; i0 >= 1; i0 = i1-1) {
+			while (i0 >= 1 && d->J[i0] == d->J[i0+1]-1 && d->J[i0])
+				i0--;
+			j0 = d->J[i0+1]-1;
+			i1 = i0+1;
+			while (i1 > 1 && d->J[i1-1] == 0)
+				i1--;
+			j1 = d->J[i1-1]+1;
+			d->J[i1] = j1;
+			change(d, i1 , i0, j1, j0);
+		}
+	}
+	if (m == 0)
+		change(d, 1, 0, 1, d->len[1]);
+	flushchanges(d);
+}
+
+void
+diffreg(char *f, char *fo, char *t, char *to)
+{
+	Diff d;
+
+	memset(&d, 0, sizeof(d));
+	calcdiff(&d, f, fo, t, to);
+	output(&d);
+	freediff(&d);
+}
+
+void
+freediff(Diff *d)
+{
+	Bterm(d->input[0]);
+	Bterm(d->input[1]);
+	free(d->J);
+	free(d->ixold);
+	free(d->ixnew);
 }

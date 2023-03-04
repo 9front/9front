@@ -111,3 +111,45 @@ diffdir(char *f, char *t, int level)
 	free(dirf);
 	free(dirt);
 }
+
+void
+diff(char *f, char *t, int level)
+{
+	char *fp, *tp, *p, fb[MAXPATHLEN+1], tb[MAXPATHLEN+1];
+	Dir *fsb, *tsb;
+
+	fsb = nil;
+	tsb = nil;
+	if ((fp = statfile(f, &fsb)) == 0)
+		goto Return;
+	if ((tp = statfile(t, &tsb)) == 0)
+		goto Return;
+	if (DIRECTORY(fsb) && DIRECTORY(tsb)) {
+		if (rflag || level == 0)
+			diffdir(fp, tp, level);
+		else
+			Bprint(&stdout, "Common subdirectories: %s and %s\n", fp, tp);
+	}
+	else if (REGULAR_FILE(fsb) && REGULAR_FILE(tsb))
+		diffreg(fp, f, tp, t);
+	else {
+		if (REGULAR_FILE(fsb)) {
+			if ((p = utfrrune(f, '/')) == 0)
+				p = f;
+			else
+				p++;
+			if (mkpathname(tb, tp, p) == 0)
+				diffreg(fp, f, tb, t);
+		} else {
+			if ((p = utfrrune(t, '/')) == 0)
+				p = t;
+			else
+				p++;
+			if (mkpathname(fb, fp, p) == 0)
+				diffreg(fb, f, tp, t);
+		}
+	}
+Return:
+	free(fsb);
+	free(tsb);
+}

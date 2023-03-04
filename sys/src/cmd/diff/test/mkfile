@@ -1,0 +1,7 @@
+</$objtype/mkfile
+
+TEST=\
+	diff\
+	merge
+
+</sys/src/cmd/mktest
