@@ -1,0 +1,30 @@
+BIN=/sys/games/lib/gba
+
+default:V:	$TARG.gba
+
+all:V:	$TARG.gba
+
+$TARG.gba:	$O.out
+	games/aout2gba -o $target $prereq
+
+$O.out:	l.5 $OFILES $LIB
+	$LD $LDFLAGS -o $target $prereq
+
+%.$O:	$HFILES
+
+l.5:	/sys/src/games/gba/rom/l.s
+	$AS $AFLAGS $prereq
+
+%.$O:	%.c
+	$CC $CFLAGS $stem.c
+
+%.$O:	%.s
+	$AS $AFLAGS $stem.s
+
+install:V:	$BIN/$TARG.gba
+
+$BIN/$TARG.gba:	$TARG.gba
+	cp $prereq $target
+
+clean:V:
+	rm -f *.[$OS] [$OS].out y.tab.? lex.yy.c y.debug y.output $TARG.gba $CLEANFILES

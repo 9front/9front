@@ -1,0 +1,7 @@
+</sys/src/mkfile.proto
+
+CC=tc
+LD=tl
+LDFLAGS=-T 0x080000C0 -R 0x4
+O=t
+AS=5a
