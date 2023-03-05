@@ -261,3 +261,4 @@ You'll need an HTML5 capable browser to see this content.
 [9fans] Power mac support
 We are grateful to Charles Forsyth for his advice regarding this work, and to the new Plan 9 secret society.
 Plan 9 can also run Go binaries, but, again, not really sure we're talking about the same thing as nginx-level scale.
+Running Rust code on Plan 9 using webassembly
