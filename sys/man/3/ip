@@ -883,8 +883,8 @@ declared in
 typedef struct Udphdr Udphdr;
 struct Udphdr
 {
-	uchar	raddr[16];	/* V6 remote address and port */
-	uchar	laddr[16];	/* V6 local address and port */
+	uchar	raddr[16];	/* V6 remote address */
+	uchar	laddr[16];	/* V6 local address */
 	uchar	ifcaddr[16];	/* V6 interface address (receive only) */
 	uchar	rport[2];	/* remote port */
 	uchar	lport[2];	/* local port */
