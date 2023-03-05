@@ -956,7 +956,7 @@ mbmain(void *cmd)
 	showlist();
 	fprint(mbox.ctl, "dump %s\n", cmd);
 	fprint(mbox.ctl, "clean\n");
-	procrfork(eventread, nil, Stack, RFNOTEG);
+	proccreate(eventread, nil, Stack);
 	while(1){
 		switch(alt(a)){
 		case Cevent:
@@ -1048,13 +1048,13 @@ threadmain(int argc, char **argv)
 	plumbshowmailfd = plumbopen("showmail", OREAD|OCEXEC);
 
 	mbload();
-	procrfork(plumbseemail, nil, Stack, RFNOTEG);
-	procrfork(plumbshowmail, nil, Stack, RFNOTEG);
+	proccreate(plumbseemail, nil, Stack);
+	proccreate(plumbshowmail, nil, Stack);
 
 	/* avoid duplicate sends when multiple mailboxes are open */
 	if(sender || strcmp(mailbox, "mbox") == 0){
 		plumbsendmailfd = plumbopen("sendmail", OREAD|OCEXEC);
-		procrfork(plumbsendmail, nil, Stack, RFNOTEG);
+		proccreate(plumbsendmail, nil, Stack);
 	}
 	threadcreate(execlog, nil, Stack);
 	threadcreate(mbmain, cmd, Stack);
