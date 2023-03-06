@@ -49,11 +49,13 @@ typedef signed long long s64int;
 union FPdbleword
 {
 	double	x;
-	struct {	/* big endian */
-		ulong hi;
+	struct {	/* little endian */
 		ulong lo;
+		ulong hi;
 	};
 };
+
+
 
 /* stdarg */
 typedef	char*	va_list;
@@ -65,7 +67,7 @@ typedef	char*	va_list;
 	USED(list)
 #define va_arg(list, mode)\
 	((sizeof(mode) == 1)?\
-		((list += 4), (mode*)list)[-1]:\
+		((list += 4), (mode*)list)[-4]:\
 	(sizeof(mode) == 2)?\
-		((list += 4), (mode*)list)[-1]:\
+		((list += 4), (mode*)list)[-2]:\
 		((list += sizeof(mode)), (mode*)list)[-1])
