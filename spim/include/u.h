@@ -55,8 +55,6 @@ union FPdbleword
 	};
 };
 
-
-
 /* stdarg */
 typedef	char*	va_list;
 #define va_start(list, start) list =\
