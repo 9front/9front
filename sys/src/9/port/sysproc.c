@@ -358,6 +358,7 @@ sysexec(va_list list)
 				case S_MAGIC:	/* 2MB segment alignment for amd64 */
 					align = 0x1fffff;
 					break;
+				case P_MAGIC:	/* 16K segment alignment for spim */
 				case V_MAGIC:	/* 16K segment alignment for mips */
 					align = 0x3fff;
 					break;
