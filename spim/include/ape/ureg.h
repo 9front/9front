@@ -1,3 +1,5 @@
+#ifndef __UREG_H
+#define __UREG_H
 #if !defined(_PLAN9_SOURCE)
     This header file is an extension to ANSI/POSIX
 #endif
