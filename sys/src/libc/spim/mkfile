@@ -14,11 +14,9 @@ MIPSSFILES=\
 	setjmp.s\
 	strcmp.s\
 	strcpy.s\
-	tas.s\
 
 MIPSCFILES=\
 	cycles.c\
-	lock.c\
 	notejmp.c\
 
 SFILES=\
@@ -26,6 +24,7 @@ SFILES=\
 	memchr.s\
 	memcmp.s\
 	strchr.s\
+	tas.s\
 	vlop.s\
 
 CFILES=\
