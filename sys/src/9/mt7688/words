@@ -1,0 +1,84 @@
+9 Front kernel for the MediaTek MT7688
+
+currently tested on;
+Onion Omega 2
+Hi-Link HKL7688A
+
+
+
+FPU Emulation;
+The MIPS24KEc core used in the MT7688 does 
+not have a FPU.  Because of the way Mips 
+does branch delay slots, tos.h needs to 
+include a scratch space for fpimips.c
+
+	/* scratch space for kernel use (e.g., mips fp delay-slot execution) */
+	ulong	kscr[4];
+	/* top of stack is here */
+
+Since lots of things use tos.h, the enitre 
+spim environment needs to be nuked and reinstalled 
+to keep things consistent.
+
+
+Build Environment;
+Because libc for spim ends up using a combination 
+of portable code, and mips and spim machine specific 
+code, I have seen some issues where things being 
+built in the wrong order causes failure in the 
+kernel.  For best results;
+
+cd /sys/src
+objtype=spim
+mk nuke
+mk libs
+mk install
+
+
+Drivers;
+The first UART, often documented as 
+"UART Lite" or "UARTL", is set up, but no others.
+
+The MT7688 has 1 Ethernet device wired directly 
+into a 7 port switch, usually on port 5.  Port 0 
+is typically used as the WAN port on routers, and 
+ports 1-4 are the LAN ports.  
+
+Right now, the Ethernet driver, ether7688.c, just 
+sets up the switch to run ports 1-5 as a simple 
+unmanaged switch to allow outside connections.  
+This has been tested on the HKL7688A, but not on 
+the Onion Omega 2 with the Ethernet expansion.
+
+WiFi, SPI, I²C, GPIO, USB, MMC, and a dedicated 
+switch driver are works in progress.
+
+
+u-boot;
+The kernel currently assumes that it will be 
+loaded at 0x80020000 and that plan9.ini will 
+be loaded at 0x80010000 (CONFADDR)
+
+
+nvram;
+In order to connect to your auth and fileserver, 
+copy a nvram with the credentials you want into 
+a file, and add the location of that file (ex. /usr/
+glenda/nvram) to the bootdir section of the kernel 
+configuration file (mt7688).
+
+In plan9.ini, specify to use the nvram in the 
+/boot directory in the kernel;
+nvram=/boot/nvram
+nvroff=0
+nvrlen=512
+
+
+Erratum 48;
+There is a known issue with the 24K series cores, 
+where data is lost if 3 cache writes are done in 
+a row.  The mips linker in some legacy Plan 9 
+distributions has a change in vl/noop.c where it 
+can be set to insert a no-op between stores to 
+avoid this issue.
+
