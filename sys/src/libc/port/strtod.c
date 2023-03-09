@@ -40,6 +40,8 @@ enum
 	S7,			// _+#.#e+#	#S7
 };
 
+#define	SIGN	(1<<31)
+
 static	int	xcmp(char*, char*);
 static	int	fpcmp(char*, ulong*);
 static	void	frnorm(ulong*);
@@ -60,7 +62,7 @@ strtod(char *as, char **aas)
 {
 	int na, ona, ex, dp, bp, c, i, flag, state;
 	ulong low[Prec], hig[Prec], mid[Prec], num, den;
-	double d;
+	FPdbleword d;
 	char *s, a[Ndig];
 
 	flag = 0;	// Fsign, Fesign, Fdpoint
@@ -150,12 +152,12 @@ strtod(char *as, char **aas)
 	 */
 	switch(state) {
 	case S0:
+	case S1:
 		if(xcmp(s, "nan") == 0) {
 			if(aas != nil)
 				*aas = s+3;
 			goto retnan;
 		}
-	case S1:
 		if(xcmp(s, "infinity") == 0) {
 			if(aas != nil)
 				*aas = s+8;
@@ -283,24 +285,28 @@ strtod(char *as, char **aas)
 		mid[Prec-1] += Sigbit;
 		frnorm(mid);
 	}
-	d = 0;
+	d.x = 0;
 	for(i=0; i<Prec; i++)
-		d = d*One + mid[i];
+		d.x = d.x*One + mid[i];
 	if(flag & Fsign)
-		d = -d;
-	d = ldexp(d, bp - Prec*Nbits);
-	return d;
+		d.x = -d.x;
+	d.x = ldexp(d.x, bp - Prec*Nbits);
+	return d.x;
 
 ret0:
-	return 0;
+	d.x = 0;
+	if(flag & Fsign)
+		d.hi |= SIGN;
+	return d.x;
 
 retnan:
-	return NaN();
+	d.x = NaN();
+	if(flag & Fsign)
+		d.hi |= SIGN;
+	return d.x;
 
 retinf:
-	if(flag & Fsign)
-		return Inf(-1);
-	return Inf(+1);
+	return Inf(-(flag & Fsign));
 }
 
 static void

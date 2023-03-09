@@ -11,6 +11,8 @@ enum
 	NEXP10	= 308,
 };
 
+#define	SIGN	(1<<31)
+
 static int
 xadd(char *a, int n, int v)
 {
@@ -55,34 +57,26 @@ static void
 xdtoa(Fmt *fmt, char *s2, double f)
 {
 	char s1[NSIGNIF+10];
+	FPdbleword a;
 	double g, h;
 	int e, d, i, n;
-	int c1, c2, c3, c4, ucase, sign, chr, prec;
+	int c1, c2, c3, c4, ucase, sign, chr, prec, isnan, isinf;
 
 	prec = FDEFLT;
 	if(fmt->flags & FmtPrec)
 		prec = fmt->prec;
 	if(prec > FDIGIT)
 		prec = FDIGIT;
-	if(isNaN(f)) {
-		strcpy(s2, "NaN");
-		return;
-	}
-	if(isInf(f, 1)) {
-		strcpy(s2, "+Inf");
-		return;
-	}
-	if(isInf(f, -1)) {
-		strcpy(s2, "-Inf");
-		return;
-	}
-	sign = 0;
-	if(f < 0) {
-		f = -f;
-		sign++;
-	}
+	a.x = f;
+	sign = a.hi & SIGN;
 	ucase = 0;
 	chr = fmt->r;
+	isnan = isNaN(f);
+	isinf = isInf(f, 0);
+	if(isnan || isinf)
+		goto found;
+	if(sign)
+		f = -f;
 	if(isupper(chr)) {
 		ucase = 1;
 		chr = tolower(chr);
@@ -179,6 +173,15 @@ found:
 		s2[d++] = '+';
 	else if(fmt->flags & FmtSpace)
 		s2[d++] = ' ';
+
+	if(isnan){
+		strcpy(s2+d, "NaN");
+		return;
+	}
+	if(isinf){
+		strcpy(s2+d, "Inf");
+		return;
+	}
 
 	/*
 	 * copy into final place
