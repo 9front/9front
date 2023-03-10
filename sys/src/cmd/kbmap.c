@@ -99,14 +99,16 @@ drawmap(int i)
 void
 geometry(void)
 {
-	int i, rows;
+	int i, rows, cols;
 	Rectangle r;
 
 	rows = (Dy(screen->r)-2*MARGIN+PAD)/(font->height+PAD);
 	if(rows < 1)
 		rows = 1;
-
-	r = Rect(0,0,(Dx(screen->r)-2*MARGIN), font->height);
+	cols = (nmap+rows-1)/rows;
+	if(cols < 1)
+		cols = 1;
+	r = Rect(0,0,(Dx(screen->r)-2*MARGIN+PAD)/cols-PAD, font->height);
 	for(i=0; i<nmap; i++)
 		map[i].r = rectaddpt(rectaddpt(r, Pt(MARGIN+(PAD+Dx(r))*(i/rows),
 					MARGIN+(PAD+Dy(r))*(i%rows))), screen->r.min);
