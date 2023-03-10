@@ -53,7 +53,7 @@ each open represents a new private channel to
 when read lists the protocols available
 .TP
 .B confirm
-for confiming the use of key
+for confirming the use of key
 .TP
 .B needkey
 allows external programs to control the addition of new keys
@@ -692,7 +692,7 @@ see above
 the write is too short, get more data from the
 other party and retry the write.
 .I n
-specifies the maximun total number of bytes.
+specifies the maximum total number of bytes.
 .TP
 .B "phase \fIstring\fP
 its not your turn to write, get some data from
