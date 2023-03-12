@@ -87,6 +87,7 @@ imaptmp(void)
 static char *etab[] = {
 	"not found",
 	"does not exist",
+	"file locked",		// hjfs
 	"file is locked",
 	"exclusive lock",
 	"already exists",
