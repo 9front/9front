@@ -23,7 +23,7 @@ window with a fresh instance of the program
 .I cmd
 (or the
 .IR rc (1)
-shell when omited)
+shell when omitted)
 running within an emulation of a DEC VT-100 terminal.
 .SS Options
 .TF m

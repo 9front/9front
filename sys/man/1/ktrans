@@ -146,7 +146,7 @@ as part of the lookup sequence itself. So to write
 .ft
 the user types "watashiNO[^\e]neko[^\e]". Note that in both cases
 we have successfully communicated to krans when to reset the explicit
-match buffer without needing to explicitily give a ctl-l character.
+match buffer without needing to explicitly give a ctl-l character.
 .SH CHINESE
 The Wubizixing input method is used. No implicit conversion is done,
 explicit conversion interprets Latin characters as their Wubi counterparts

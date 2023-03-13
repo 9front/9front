@@ -71,7 +71,7 @@ When started, a mailbox, by default
 .IR /mail/fs/mbox ,
 is presented.
 In the message list, the tag bar commands typically affect
-the selected messsage.
+the selected message.
 In the message and composition views, they typically apply
 to the current message.
 

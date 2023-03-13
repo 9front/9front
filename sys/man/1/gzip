@@ -132,7 +132,7 @@ If the process fails, the faulty output files are removed.
 The options are:
 .TP 0.6i
 .B -a
-Automaticialy creates directories as needed, needed for zip files
+Automatically creates directories as needed, needed for zip files
 created by broken implementations which omit directories.
 .TP
 .B -c

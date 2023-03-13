@@ -90,7 +90,7 @@ The valid operators are listed below, in decreasing precedence. Note that logica
 .TP "\w'\fL<\fR, \fL<=\fR, \fL>\fR, \fL>=\fR  'u"
 \fL[]\fR
 Array indexing. The syntax is \fIvar\fL[\fIa\fL:\fIb\fR], with \fIa\fR denoting the MSB and \fIb\fR denoting the LSB.
-Omiting \fL:\fIb\fR addresses a single bit.
+Omitting \fL:\fIb\fR addresses a single bit.
 The result is always treated as unsigned.
 .TP
 \fL!\fR, \fL~\fR, \fL+\fR, \fL-\fR
@@ -107,7 +107,7 @@ Addition, subtraction.
 Left shift, arithmetic right shift. Because of promotion, this is effectively a logical right shift on unsigned variables.
 .TP
 \fL<\fR, \fL<=\fR, \fL>\fR, \fL>=\fR
-Less than, less than or equal to, greater than, greather than or equal to.
+Less than, less than or equal to, greater than, greater than or equal to.
 .TP
 \fL==\fR, \fL!=\fR
 Equal to, not equal to.
@@ -186,7 +186,7 @@ to confirm this using
 	obviously c < a <=> c != a+b;
 .EE
 .PP
-Here the statement to be proved is "\fIc\fR is less than \fIa\fR if and only if \fIc\fR does not equal the mathematical sum \fIa\fR + \fIb\fR (i.e. overflow has occured)".
+Here the statement to be proved is "\fIc\fR is less than \fIa\fR if and only if \fIc\fR does not equal the mathematical sum \fIa\fR + \fIb\fR (i.e. overflow has occurred)".
 .SH SOURCE
 .B /sys/src/cmd/forp
 .SH "SEE ALSO"

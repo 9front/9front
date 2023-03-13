@@ -68,7 +68,7 @@ Executes
 and writes the canvas to its standard input.
 .TP
 .BI | command
-Transforms the canvas by piping it thru
+Transforms the canvas by piping it through
 .I command.
 .TP
 .B q

@@ -148,7 +148,7 @@ and invokes
 .IR acme (1)
 on them.  When the editor exits,
 .I ipso
-prompts the user to confirm copying modifed or newly created files back to
+prompts the user to confirm copying modified or newly created files back to
 .I secstore.
 If no
 .I file
@@ -183,7 +183,7 @@ option of
 .I ipso
 invokes
 .IR sam (1)
-as the editor insted of
+as the editor instead of
 .BR acme ;
 the
 .B -a

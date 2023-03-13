@@ -35,7 +35,7 @@ section.
 By default,
 .I bar
 is placed at the bottom right corner of the screen.  This can be
-changed by speicifying option
+changed by specifying option
 .I -p
 with first letters of the required placement:
 .I l

@@ -178,7 +178,7 @@ for system aliases, see
 .PP
 .I Marshal
 uses the login name as the reply address.  This
-can be overriden using the environment variable
+can be overridden using the environment variable
 .BR upasname .
 Its value will become both the envelope
 and

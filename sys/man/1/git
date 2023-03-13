@@ -342,7 +342,7 @@ flag opens an editor to finalize the commit message, regardless of
 whether or not it was specified explicitly or reused.
 To amend a commit message,
 .B -r
-can be used in conjuction with
+can be used in conjunction with
 .B -m
 or
 .BR -e .
@@ -373,7 +373,7 @@ When passed the
 option, the branch is deleted.
 .PP
 When switching branches, git/branch will refuse to clobber
-modificiations.
+modifications.
 Passing the
 .B -m
 option will cause git9 to attempt to merge the changes between
@@ -438,7 +438,7 @@ date information.
 .B Git/merge
 takes two branches and merges them filewise using
 .IR ape/diff3 .
-The next commit made will be a merge commmit.
+The next commit made will be a merge commit.
 
 .PP
 .B Git/rebase
@@ -599,7 +599,7 @@ and
 .IR hjgit:// .
 Both are the
 .I git://
-protocol, tunnelled over tls.
+protocol, tunneled over tls.
 .I Hjgit://
 authenticates with the server using Plan 9 authentication,
 using

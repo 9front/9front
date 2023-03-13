@@ -67,7 +67,7 @@ option selects some other dump file system such as
 The
 .B -f
 option is accepted
-but ignored by compatibilty with other history implementations.
+but ignored by compatibility with other history implementations.
 .PP
 Finally, the
 .B -s

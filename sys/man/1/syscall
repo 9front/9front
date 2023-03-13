@@ -16,7 +16,7 @@ invokes the system call
 .I entry
 with the given arguments.
 The return value is printed.
-If an error occured, the error string is also printed.
+If an error occurred, the error string is also printed.
 .PP
 For convenience,
 .IR write (2)

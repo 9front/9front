@@ -64,7 +64,7 @@ to copy everything through.
 .PP
 .I Expect
 reads standard input looking for one of the strings given
-as arguments.  Reading the first string causes a successul exit
+as arguments.  Reading the first string causes a successful exit
 status.  Reading any of the others causes an exit status equal to
 the string.  The command also terminates on a timeout.  The options
 are:

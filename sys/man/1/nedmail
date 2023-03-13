@@ -228,7 +228,7 @@ If
 doesn't start with a `/', it is interpreted relative to the directory in which the mailbox resides.
 If
 .I mfile
-is a directory then the destination is a file in that directry.
+is a directory then the destination is a file in that directory.
 If the MIME header specifies a file name, that one is used.
 Otherwise, one is generated using
 .IR mktemp (2)
@@ -257,7 +257,7 @@ Exit, without changing the mailbox file.
 .B y
 Synchronize with the mail box.  Any deleted
 messages are purged and any new messages read.
-This is equivalent to quiting nedmail and restarting.
+This is equivalent to quitting nedmail and restarting.
 .TP
 .BI | command
 Run the

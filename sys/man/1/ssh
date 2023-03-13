@@ -1,6 +1,6 @@
 .TH SSH 1
 .SH NAME
-ssh - secure shell remote login client
+ssh \- secure shell remote login client
 .SH SYNOPSIS
 .B ssh 
 [

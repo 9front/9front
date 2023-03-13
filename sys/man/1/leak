@@ -88,7 +88,7 @@ If the
 .B -d
 option is given,
 .I leak 
-will print information as decribed above,
+will print information as described above,
 but for all free blocks,
 i.e. those freed,
 or those that are not yet

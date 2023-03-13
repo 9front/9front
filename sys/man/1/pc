@@ -124,7 +124,7 @@ digits.
 .TP
 \fL<\fR \fIn\fR
 Set the default input base to \fIn\fR (default 10).
-The input base can always be overriden by the base prefixes defined above.
+The input base can always be overridden by the base prefixes defined above.
 .TP
 \fL>\fR \fIn\fR
 Set the output base to \fIn\fR.

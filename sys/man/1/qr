@@ -27,7 +27,7 @@ is the highest level.
 The default is
 .BR -M .
 .PP
-The QR standard defines different sizes labelled version 1 to version 40.
+The QR standard defines different sizes labeled version 1 to version 40.
 By default the smallest possible is chosen automatically.
 The
 .B -v
