@@ -30,8 +30,6 @@ run(char **a)
 void
 main(int argc, char *argv[])
 {
-	int fd;
-
 	ARGBEGIN{
 	case 'd':
 		newnsdebug = 1;

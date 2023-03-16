@@ -124,7 +124,6 @@ int
 snooptype(int fd)
 {
 	char buf[128];
-	int i;
 	
 	if(filetype(fd, buf, sizeof(buf)) < 0)
 		return -1;

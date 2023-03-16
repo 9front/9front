@@ -44,7 +44,7 @@ void	note(char *s);
 void
 main(int argc, char *argv[])
 {
-	int i, aflag = 0, nflag = 0;
+	int i;
 	int doupdate = 1;
 	int printall = 0;
 	void (*printer)(char*) = print_item;

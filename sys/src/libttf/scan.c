@@ -409,7 +409,7 @@ ttfscan(TTGlyph *g)
 int
 ttfgetcontour(TTGlyph *g, int i, float **fp, int *np)
 {
-	float offx, offy, scale;
+	float offy, scale;
 	float *nf;
 	int n, j;
 	TTPoint p, q, r;
@@ -425,11 +425,9 @@ ttfgetcontour(TTGlyph *g, int i, float **fp, int *np)
 	}
 	if(g->bit != nil){
 		scale = 1.0f / 64;
-		offx = g->xminpx;
 		offy = g->yminpx;
 	}else{
 		scale = 1.0f * g->font->ppem / g->font->u->emsize;
-		offx = 0;
 		offy = 0;
 	}
 	p = g->pt[g->confst[i]];
