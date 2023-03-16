@@ -249,3 +249,4 @@ This past winter, as a side project, I spent some time getting up to speed on su
 So it sounds like everyone is in favor of the entire generics proposal and all the semantics, and all we have left to hammer out is the bracket characters? Do I have that right?
 Or perhaps Go will earn a reputation for doing telemetry well and people will say things like "Go is the only software with telemetry you don't need to worry about." I think it's too early to say which would happen.
 I am not suggesting that instrumentation be added by the Go compiler to all Go programs in the world: that's clearly inappropriate.
+The plan9 port is becoming increasingly difficult to maintain and holds back non-plan9 development.
