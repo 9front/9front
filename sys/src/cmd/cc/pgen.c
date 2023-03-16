@@ -165,6 +165,22 @@ loop:
 		cgen(n, Z);
 		break;
 
+	case OFUNC:
+		complex(n);
+		cgen(n, Z);
+		if((n->type->garb & GNORET) == 0)
+			break;
+
+		canreach = 0;
+		warnreach = !suppress;
+		/* existing assumption that branches are at least two jumps */
+		scc = pc;
+		gbranch(OGOTO);
+		patch(p, pc);
+		gbranch(OGOTO);
+		patch(p, scc);
+		break;
+
 	case OLIST:
 	case OCOMMA:
 		gen(n->left);

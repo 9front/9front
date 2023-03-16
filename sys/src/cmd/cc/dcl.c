@@ -950,6 +950,8 @@ rsametype(Type *t1, Type *t2, int n, int f)
 		et = t1->etype;
 		if(et != t2->etype)
 			return 0;
+		if((t1->garb & GNORET) != (t2->garb & GNORET))
+			return 0;
 		if(et == TFUNC) {
 			if(!rsametype(t1->link, t2->link, n, 0))
 				return 0;

@@ -168,6 +168,8 @@ simpleg(long b)
 		return GVOLATILE;
 	case BVOLATILE|BCONSTNT:
 		return GCONSTNT|GVOLATILE;
+	case BNORET:
+		return GNORET;
 	}
 	return GXXX;
 }
@@ -1351,7 +1353,7 @@ Init	thashinit[] =
 	TSTRUCT,	0x7c2da3bf,	0,
 	TUNION,		0x3eb25e98,	0,
 	TENUM,		0x44b54f61,	0,
-	TFILE,		0x19242ac3,	0,
+	TNORET,		0x19242ac3,	0,
 	TOLD,		0x22b15988,	0,
 	TDOT,		0x0204f6b3,	0,
 	-1,		0,		0,
@@ -1394,7 +1396,7 @@ Init	tnamesinit[] =
 	TSTRUCT,	0,	"STRUCT",
 	TUNION,		0,	"UNION",
 	TENUM,		0,	"ENUM",
-	TFILE,		0,	"FILE",
+	TNORET,		0,	"NORET",
 	TOLD,		0,	"OLD",
 	TDOT,		0,	"DOT",
 	-1,		0,	0,
@@ -1407,6 +1409,7 @@ Init	gnamesinit[] =
 	GCONSTNT,		0,	"CONST",
 	GVOLATILE,		0,	"VOLATILE",
 	GVOLATILE|GCONSTNT,	0,	"CONST-VOLATILE",
+	GNORET,			0,	"NORET",
 	-1,			0,	0,
 };
 
@@ -1445,7 +1448,7 @@ Init	qnamesinit[] =
 	TUNSIGNED,	0,	"UNSIGNED",
 	TSIGNED,	0,	"SIGNED",
 	TDOT,		0,	"DOT",
-	TFILE,		0,	"FILE",
+	TNORET,		0,	"NORET",
 	TOLD,		0,	"OLD",
 	-1,		0,	0,
 };
