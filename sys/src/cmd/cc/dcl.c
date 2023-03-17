@@ -732,6 +732,30 @@ loop:
 }
 
 void
+fndecls(Node *f, int pass)
+{
+	static Sym *funcsym;
+	Node *n;
+
+	if(pass == 0){
+		n = new(ONAME, Z, Z);
+		n->type = typ(TARRAY, garbt(types[TCHAR], BCONSTNT));
+		n->type->width = 0;
+		n->sym = slookup("__func__");
+		n->sym->type = n->type;
+		funcsym = dodecl(adecl, CLOCAL, n->type, n)->sym;
+	}else if(funcsym->aused){
+		n = new(OSTRING, Z, Z);
+		n->cstring = f->left->sym->name;
+		n->type = copytyp(funcsym->type);
+		n->type->width = strlen(n->cstring)+1;
+		n->etype = TARRAY;
+		n->class = CSTATIC;
+		doinit(funcsym, funcsym->type, 0L, n);
+	}
+}
+
+void
 markdcl(void)
 {
 	Decl *d;

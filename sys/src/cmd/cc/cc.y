@@ -95,11 +95,13 @@ xdecl:
 	pdecl
 	{
 		argmark($2, 1);
+		fndecls($2, 0);
 	}
 	block
 	{
 		Node *n;
 
+		fndecls($2, 1);
 		n = revertdcl();
 		if(n)
 			$6 = new(OLIST, n, $6);

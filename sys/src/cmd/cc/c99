@@ -18,6 +18,7 @@ Done:
 11, 30, 31, 32. restrict, inline
 12. Allow declarations anywhere.
 15. for loop declarations
+23. __func__ identifier
 28. structs ending in incomplete type.
 
 Unneeded (already had):
@@ -42,5 +43,4 @@ Unwanted:
 5. __STDC_IEC_559__, __STDC_IEC_559_COMPLEX__,
 	__STDC_ISO_10646__
 13. Digraph tokens
-23. __func__ identifier
 

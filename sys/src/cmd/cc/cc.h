@@ -583,6 +583,7 @@ Type*	dotag(Sym*, int, int);
 void	edecl(int, Type*, Sym*);
 Type*	fnproto(Node*);
 Type*	fnproto1(Node*);
+void	fndecls(Node*, int);
 void	markdcl(void);
 Type*	paramconv(Type*, int);
 void	pdecl(int, Type*, Sym*);
