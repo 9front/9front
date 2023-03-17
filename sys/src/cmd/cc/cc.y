@@ -82,7 +82,7 @@ xdecl:
 	{
 		lastdcl = T;
 		firstarg = S;
-		dodecl(xdecl, lastclass, lasttype, $2);
+		thisfnnode = dodecl(xdecl, lastclass, lasttype, $2);
 		if(lastdcl == T || lastdcl->etype != TFUNC) {
 			diag($2, "not a function");
 			lastdcl = types[TFUNC];
@@ -95,13 +95,13 @@ xdecl:
 	pdecl
 	{
 		argmark($2, 1);
-		fndecls($2, 0);
+		fndecls(0);
 	}
 	block
 	{
 		Node *n;
 
-		fndecls($2, 1);
+		fndecls(1);
 		n = revertdcl();
 		if(n)
 			$6 = new(OLIST, n, $6);

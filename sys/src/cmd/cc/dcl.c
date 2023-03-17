@@ -732,7 +732,7 @@ loop:
 }
 
 void
-fndecls(Node *f, int pass)
+fndecls(int pass)
 {
 	static Sym *funcsym;
 	Node *n;
@@ -746,7 +746,7 @@ fndecls(Node *f, int pass)
 		funcsym = dodecl(adecl, CLOCAL, n->type, n)->sym;
 	}else if(funcsym->aused){
 		n = new(OSTRING, Z, Z);
-		n->cstring = f->left->sym->name;
+		n->cstring = thisfnnode->sym->name;
 		n->type = copytyp(funcsym->type);
 		n->type->width = strlen(n->cstring)+1;
 		n->etype = TARRAY;
