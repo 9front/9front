@@ -1209,7 +1209,7 @@ struct
 	"inline",	LINLINE,	0,
 	"int",		LINT,		TINT,
 	"long",		LLONG,		TLONG,
-	"NORET",	LNORET,		0,
+	"_Noreturn",	LNORET,		0,
 	"register",	LREGISTER,	0,
 	"restrict",	LRESTRICT,	0,
 	"return",	LRETURN,	0,
