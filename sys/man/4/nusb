@@ -221,9 +221,10 @@ such as
 .BR url ,
 .BR lan78xx ,
 .BR aue ,
-.BR a88772
+.BR a88772,
+.BR a88178,
 or
-.BR a88178
+.BR a88179
 (see
 .IR nusbrc (8)).
 On devices that support it, the mac address can be set using
