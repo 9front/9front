@@ -168,7 +168,7 @@ loop:
 	case OFUNC:
 		complex(n);
 		cgen(n, Z);
-		if((n->type->garb & GNORET) == 0)
+		if(n->type == nil || (n->type->garb & GNORET) == 0)
 			break;
 
 		canreach = 0;
