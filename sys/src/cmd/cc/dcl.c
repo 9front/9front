@@ -737,6 +737,8 @@ fndecls(int pass)
 	static Sym *funcsym;
 	Node *n;
 
+	if(thisfnnode->etype != TFUNC)
+		return;
 	if(pass == 0){
 		n = new(ONAME, Z, Z);
 		n->type = typ(TARRAY, garbt(types[TCHAR], BCONSTNT));
