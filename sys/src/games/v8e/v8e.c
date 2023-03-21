@@ -85,7 +85,7 @@ setupstack(char **argv)
 }
 
 static int
-shload(int fd, char *file, char **argv, char **envp)
+shload(int fd, char **argv, char **envp)
 {
 	char buf[256];
 	char *s, *a;
@@ -139,7 +139,7 @@ load(char *file, char **argv, char **envp)
 	if(fd < 0) return -1;
 	if(readn(fd, hdr, 2) < 2) return -1;
 	if(hdr[0] == '#' && hdr[1] == '!')
-		return shload(fd, file, argv, envp);
+		return shload(fd, argv, envp);
 	if(readn(fd, hdr + 2, 30) < 30) return -1;
 	hmagic = U32(&hdr[0]);
 	htext = U32(&hdr[4]);
@@ -180,7 +180,8 @@ load(char *file, char **argv, char **envp)
 static void
 usage(void)
 {
-	sysfatal("usage");
+	fprint(2, "usage: %s file\n", argv0);
+	exits("usage");
 }
 
 void
