@@ -2,6 +2,7 @@
 #define	OBS	4096		/* outbut buffer */
 #define	NARG	64		/* Max number arguments to a macro */
 #define	NINCLUDE 64		/* Max number of include directories (-I) */
+#define	NONCE	256		/* Max number of #pragma once directives */
 #define	NIF	32		/* depth of nesting of #if */
 #ifndef EOF
 #define	EOF	(-1)
@@ -153,4 +154,6 @@ extern	int verbose;
 extern	int Cplusplus;
 extern	Nlist *kwdefined;
 extern	Includelist includelist[NINCLUDE];
+extern	Qid incblocked[NONCE];
+extern	int nblocked;
 extern	char wd[];

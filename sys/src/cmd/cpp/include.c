@@ -6,12 +6,16 @@ Includelist	includelist[NINCLUDE];
 
 char	*objname;
 
+Qid	incblocked[NONCE];
+int	nblocked = 0;
+
 void
 doinclude(Tokenrow *trp)
 {
 	char fname[256], iname[256], *p;
 	Includelist *ip;
 	int angled, len, fd, i;
+	Dir *d;
 
 	trp->tp += 1;
 	if (trp->tp>=trp->lp)
@@ -87,6 +91,15 @@ doinclude(Tokenrow *trp)
 		write(1,"\n",1);
 	}
 	if (fd >= 0) {
+		d = dirfstat(fd);
+		if (d == nil)
+			error(FATAL, "Out of memory from dirfstat");
+		for (i=0; i<nblocked; i++)
+			if (incblocked[i].path == d->qid.path && incblocked[i].type == d->qid.type) {
+				free(d);
+				return;
+			}
+		free(d);
 		if (++incdepth > 20)
 			error(FATAL, "#include too deeply nested");
 		setsource((char*)newstring((uchar*)iname, strlen(iname), 0), fd, NULL);

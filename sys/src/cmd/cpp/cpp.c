@@ -85,6 +85,7 @@ control(Tokenrow *trp)
 {
 	Nlist *np;
 	Token *tp;
+	Dir *d;
 
 	tp = trp->tp;
 	if (tp->type!=NAME) {
@@ -148,7 +149,17 @@ control(Tokenrow *trp)
 		break;
 
 	case KPRAGMA:
-		return;
+		tp += 1;
+		if (tp->type!=NAME || tp->len < 4 || memcmp(tp->t, "once", 4) != 0)
+			return;
+		if (nblocked >= NONCE)
+			error(FATAL, "#pragma once list max length exceeded");
+		d = dirfstat(cursource->fd);
+		if (d == nil)
+			error(FATAL, "Out of memory from dirfstat");
+		incblocked[nblocked++] = d->qid;
+		free(d);
+		break;
 
 	case KIFDEF:
 	case KIFNDEF:
