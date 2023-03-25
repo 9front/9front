@@ -577,7 +577,6 @@ returnmail(char **av, Wdir *w, char *name, char *msg)
 	char buf[256], attachment[Pathlen], *sender;
 	int fd, pfd[2];
 	long n;
-	Waitmsg *wm;
 	String *s;
 
 	if(av[1] == 0 || av[2] == 0){
@@ -634,16 +633,14 @@ returnmail(char **av, Wdir *w, char *name, char *msg)
 				break;
 			if(write(pfd[1], buf, n) != n){
 				close(fd);
-				wm = wait();
-				free(wm);
+				waitpid();
 				return -1;
 			}
 		}
 		close(fd);
 	}
 	close(pfd[1]);
-	wm = wait();
-	free(wm);
+	waitpid();
 	return 0;
 }
 
