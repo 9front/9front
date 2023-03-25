@@ -73,6 +73,12 @@ typedef struct nlist {
 	char	flag;		/* is defined, is pp name */
 } Nlist;
 
+typedef	struct nonce {
+	Qid qid;
+	uint type;
+	uint dev;
+} Once;
+
 typedef	struct	includelist {
 	char	deleted;
 	char	always;
@@ -154,6 +160,6 @@ extern	int verbose;
 extern	int Cplusplus;
 extern	Nlist *kwdefined;
 extern	Includelist includelist[NINCLUDE];
-extern	Qid incblocked[NONCE];
+extern	Once incblocked[NONCE];
 extern	int nblocked;
 extern	char wd[];

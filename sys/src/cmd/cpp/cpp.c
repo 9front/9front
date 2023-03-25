@@ -86,6 +86,7 @@ control(Tokenrow *trp)
 	Nlist *np;
 	Token *tp;
 	Dir *d;
+	Once n;
 
 	tp = trp->tp;
 	if (tp->type!=NAME) {
@@ -157,7 +158,10 @@ control(Tokenrow *trp)
 		d = dirfstat(cursource->fd);
 		if (d == nil)
 			error(FATAL, "Out of memory from dirfstat");
-		incblocked[nblocked++] = d->qid;
+		n.qid = d->qid;
+		n.type = d->type;
+		n.dev = d->dev;
+		incblocked[nblocked++] = n;
 		free(d);
 		break;
 
