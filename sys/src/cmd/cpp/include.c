@@ -13,7 +13,6 @@ static int
 oncecmp(Once *a, Once *b)
 {
 	if(a->qid.path == b->qid.path)
-	if(a->qid.vers == b->qid.vers)
 	if(a->qid.type == b->qid.type)
 	if(a->dev == b->dev)
 	if(a->type == b->type)
