@@ -39,6 +39,9 @@ char*	utfwbreak(char *s)
 .SH DESCRIPTION
 These routines help in handling
 graphemes that may span multiple runes.
+These routines are for use in font rendering
+and advanced text search; most programs do not
+need to perform normalization.
 .PP
 .IR Runecomp ,
 .IR runedecomp ,
@@ -114,3 +117,5 @@ Unicode® Standard Annex #29
 .IR rune (2),
 .IR utf (6),
 .IR tcs (1)
+.SH HISTORY
+This implementation was written for 9front (March, 2023).
