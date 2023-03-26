@@ -597,7 +597,7 @@ returnmail(char **av, Wdir *w, char *name, char *msg)
 		return -1;
 	}
 
-	switch(rfork(RFFDG|RFPROC|RFENVG)){
+	switch(rfork(RFFDG|RFPROC|RFENVG|RFNOWAIT)){
 	case -1:
 		logit("runq - fork failed", w, name, av);
 		return -1;
@@ -633,14 +633,12 @@ returnmail(char **av, Wdir *w, char *name, char *msg)
 				break;
 			if(write(pfd[1], buf, n) != n){
 				close(fd);
-				waitpid();
 				return -1;
 			}
 		}
 		close(fd);
 	}
 	close(pfd[1]);
-	waitpid();
 	return 0;
 }
 
