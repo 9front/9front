@@ -1,0 +1,116 @@
+.TH RUNECOMP 2
+.SH NAME
+runecomp, runedecomp, fullrunenorm, runegbreak, runewbreak, utfcomp, utfdecomp, fullutfnorm, utfgbreak, utfwbreak \- multi-rune graphemes
+.SH SYNOPSIS
+.ta \w'\fLchar*xx'u
+.B #include <u.h>
+.br
+.B #include <libc.h>
+.PP
+.B
+int	runecomp(Rune *dst, Rune *src, int max)
+.PP
+.B
+int	runedecomp(Rune *dst, Rune *src, int max)
+.PP
+.B
+Rune*	fullrunenorm(Rune *s, int n)
+.PP
+.B
+Rune*	runegbreak(Rune *s)
+.PP
+.B
+Rune*	runewbreak(Rune *s)
+.PP
+.B
+int	utfcomp(char *dst, char *src, int max)
+.PP
+.B
+int	utfdecomp(char *dst, char *src, int max)
+.PP
+.B
+char*	fullutfnorm(char *s, int n)
+.PP
+.B
+char*	utfgbreak(char *s)
+.PP
+.B
+char*	utfwbreak(char *s)
+.SH DESCRIPTION
+These routines help in handling
+graphemes that may span multiple runes.
+.PP
+.IR Runecomp ,
+.IR runedecomp ,
+.IR utfcomp ,
+and
+.I utfdecomp
+perform Unicode® normalization on
+.IR src ,
+storing the result in
+.IR dst .
+No more than
+.I max
+elements will be written, and the resulting string
+will always be null terminated. The return value
+is always the total number of elements required to
+store the transformation. If this value is larger
+than the supplied
+.I max
+the caller can assume the result has been truncated.
+.I Runecomp
+and
+.I utfcomp
+perform NFC normalization while
+.I runedecomp
+and
+.I utfdecomp
+perform NFD normalization.
+.PP
+.IR Fullrunenorm ,
+and
+.I fullutfnorm
+determine if enough elements are present in
+.I s
+to perform normalization. If enough are present,
+a pointer is returned to the first element that begins
+the next context. Otherwise
+.I s
+is returned. No more then
+.I n
+elements will be read. In order to find the boundary, the
+first element of the next context must be peeked.
+.PP
+.I Runegbreak
+and
+.I utfgbreak
+search
+.B s
+for the next grapheme break opportunity.
+If none is found before the end of the string,
+.I s
+is returned.
+.PP
+.I Runewbreak
+and
+.I utfwbreak
+search
+.B s
+for the next word break opportunity.
+If none is found before the end of the string,
+.I s
+is returned.
+.SH SOURCE
+.B /sys/src/libc/port/mkrunetype.c
+.br
+.B /sys/src/libc/port/runenorm.c
+.br
+.B /sys/src/libc/port/runebreak.c
+.SH SEE ALSO
+Unicode® Standard Annex #15
+.br
+Unicode® Standard Annex #29
+.br
+.IR rune (2),
+.IR utf (6),
+.IR tcs (1)

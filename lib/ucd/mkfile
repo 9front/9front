@@ -1,0 +1,85 @@
+</$objtype/mkfile
+
+VERSION='15.0.0'
+URL='https://www.unicode.org/Public/'$VERSION'/ucd/'
+
+TXT=\
+	ArabicShaping.txt\
+	BidiBrackets.txt\
+	BidiMirroring.txt\
+	BidiTest.txt\
+	Blocks.txt\
+	CJKRadicals.txt\
+	CaseFolding.txt\
+	CompositionExclusions.txt\
+	DerivedAge.txt\
+	DerivedCoreProperties.txt\
+	DerivedNormalizationProps.txt\
+	EastAsianWidth.txt\
+	EmojiSources.txt\
+	EquivalentUnifiedIdeograph.txt\
+	HangulSyllableType.txt\
+	Index.txt\
+	IndicPositionalCategory.txt\
+	IndicSyllabicCategory.txt\
+	Jamo.txt\
+	LineBreak.txt\
+	NameAliases.txt\
+	NamedSequences.txt\
+	NamedSequencesProv.txt\
+	NamesList.txt\
+	NormalizationCorrections.txt\
+	NushuSources.txt\
+	PropList.txt\
+	PropertyAliases.txt\
+	PropertyValueAliases.txt\
+	ScriptExtensions.txt\
+	Scripts.txt\
+	SpecialCasing.txt\
+	StandardizedVariants.txt\
+	TangutSources.txt\
+	USourceData.txt\
+	UnicodeData.txt\
+	VerticalOrientation.txt\
+
+TEST=\
+	NormalizationTest.txt\
+	BidiCharacterTest.txt\
+
+PDF=\
+	USourceGlyphs.pdf\
+	USourceRSChart.pdf\
+
+AUX=\
+	WordBreakProperty.txt\
+	GraphemeBreakProperty.txt\
+
+ucd:V: UnicodeData.txt
+
+%.txt:
+	hget $URL^$target > $target >[2]/dev/null
+%.pdf:
+	hget $URL^$target > $target
+
+emoji-data.txt:
+	hget $URL^emoji/^$target > $target
+
+WordBreakProperty.txt:
+	hget $URL^'auxiliary/'^$target > $target
+
+GraphemeBreakProperty.txt:
+	hget $URL^'auxiliary/'^$target > $target
+
+WordBreakTest.txt:
+	hget $URL^'auxiliary/'^$target > $target
+
+GraphemeBreakTest.txt:
+	hget $URL^'auxiliary/'^$target > $target
+
+txt:V: $TXT
+
+pdf:V: $PDF
+
+test:V: $TEST
+
+all:V: $TXT $PDF $TEST

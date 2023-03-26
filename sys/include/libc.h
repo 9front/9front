@@ -77,6 +77,18 @@ extern	Rune*	runestrrchr(Rune*, Rune);
 extern	long	runestrlen(Rune*);
 extern	Rune*	runestrstr(Rune*, Rune*);
 
+extern	int	runecomp(Rune*, Rune*, int);
+extern	int	runedecomp(Rune*, Rune*, int);
+extern	int	utfcomp(char*, char*, int);
+extern	int	utfdecomp(char*, char*, int);
+extern	char*	fullutfnorm(char*,int);
+extern	Rune*	fullrunenorm(Rune*,int);
+
+extern	Rune*	runewbreak(Rune*);
+extern	char*	utfwbreak(char*);
+extern	Rune*	runegbreak(Rune*);
+extern	char*	utfgbreak(char*);
+
 extern	Rune	tolowerrune(Rune);
 extern	Rune	totitlerune(Rune);
 extern	Rune	toupperrune(Rune);

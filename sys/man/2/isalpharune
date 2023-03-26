@@ -48,7 +48,11 @@ The names are self-explanatory.
 .PP
 The case-conversion routines return the character unchanged if it has no case.
 .SH SOURCE
-.B /sys/src/libc/port/runetype.c
+.B /sys/src/libc/port/mkrunetype.c
+.br
+.B /sys/src/libc/port/runeistype.c
+.br
+.B /sys/src/libc/port/runetotype.c
 .SH "SEE ALSO
 .IR ctype (2) ,
 .IR "The Unicode Standard" .

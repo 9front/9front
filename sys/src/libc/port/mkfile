@@ -62,6 +62,9 @@ CFILES=\
 	rand.c\
 	readn.c\
 	rune.c\
+	runebreak.c\
+	runeistype.c\
+	runenorm.c\
 	runestrcat.c\
 	runestrchr.c\
 	runestrcmp.c\
@@ -74,7 +77,7 @@ CFILES=\
 	runestrrchr.c\
 	runestrlen.c\
 	runestrstr.c\
-	runetype.c\
+	runetotype.c\
 	sin.c\
 	sinh.c\
 	sqrt.c\
@@ -127,3 +130,26 @@ UPDATE=mkfile\
 </sys/src/cmd/mksyslib
 
 profile.$O: /sys/include/tos.h
+
+runenorm.$O:	runenormdata runenorm.c
+runetotype.$O:	runetotypedata runetotype.c
+runeistype.$O:	runeistypedata runeistype.c
+runebreak.$O:	runebreakdata runebreak.c
+
+UCD=\
+	/lib/ucd/WordBreakProperty.txt\
+	/lib/ucd/GraphemeBreakProperty.txt\
+	/lib/ucd/emoji-data.txt\
+	/lib/ucd/CompositionExclusions.txt\
+	/lib/ucd/UnicodeData.txt\
+
+/lib/ucd/%:
+	cd /lib/ucd && mk $stem
+
+runenormdata runetotypedata runeistypedata runebreakdata:	mkrunetype.c $UCD
+	@{
+		eval `{grep '^[A-Z]' /$cputype/mkfile}
+		$CC $CFLAGS -o mkrunetype.$O mkrunetype.c
+		$LD $LDFLAGS -o $O.mkrunetype mkrunetype.$O
+		$O.mkrunetype
+	}
