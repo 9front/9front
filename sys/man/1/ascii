@@ -36,7 +36,7 @@ ascii, unicode \- interpret ASCII, Unicode characters
 .PP
 .B look
 .I hex
-.B /lib/unicode
+.B /lib/ucd/UnicodeData.txt
 .SH DESCRIPTION
 .I Ascii
 prints the
@@ -119,7 +119,7 @@ and
 may be unhelpful if the characters printed are not available in the current font.
 .PP
 The file
-.B /lib/unicode
+.B /lib/ucd/UnicodeData.txt
 contains a
 table of characters and descriptions, sorted in hexadecimal order,
 suitable for
@@ -140,12 +140,12 @@ Print the hex value of `p'.
 .B "unicode 2200-22f1"
 Print a table of miscellaneous mathematical symbols.
 .TP
-.B "look 039 /lib/unicode"
+.B "look 0039 /lib/ucd/UnicodeData.txt"
 See the start of the Greek alphabet's encoding in the Unicode Standard.
 .SH FILES
-.TF \fL/lib/unicode
+.TF \fL/lib/ucd/UnicodeData.txt
 .TP
-.B /lib/unicode
+.B /lib/ucd/UnicodeData.txt
 table of characters and descriptions.
 .SH SOURCE
 .B /sys/src/cmd/ascii.c

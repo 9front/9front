@@ -87,9 +87,9 @@ In the inverse mapping,
 any sequence except those described above
 is incorrect and is converted to rune hexadecimal FFFD.
 .SH FILES
-.TF "/lib/unicode "
+.TF "/lib/ucd/UnicodeData.txt "
 .TP
-.B /lib/unicode
+.B /lib/ucd/UnicodeData.txt
 table of characters and descriptions, suitable for
 .IR look (1).
 .SH "SEE ALSO"
