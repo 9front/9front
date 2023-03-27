@@ -144,6 +144,12 @@ IBM PC: CP 437
 .TP
 .B atari
 Atari-ST character set
+.TP
+.B nfd
+Unicode Normalization Form D
+.TP
+.B nfc
+Unicode Normalization Form C
 .SH EXAMPLES
 .TP
 .B tcs -f 8859-1

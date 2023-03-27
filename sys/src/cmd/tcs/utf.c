@@ -69,6 +69,46 @@ utf_out(Rune *base, int n, long *)
 }
 
 void
+utfnorm_out(Rune *base, int n, int (*fn)(Rune*,Rune*,int))
+{
+	static Rune rbuf[32];
+	static int nremain = 0;
+	Rune src[N + 1 + nelem(rbuf)];
+	Rune dst[N + 1 + nelem(rbuf)];
+	Rune *p, *p2, *e;
+	int i;
+
+	e = base+n;
+	for(i = 0; i < nremain; i++,n++)
+		src[i] = rbuf[i];
+	nremain = 0;
+	for(p2 = p = base; n > 0;){
+		p2 = fullrunenorm(p, n);
+		if(p == p2)
+			break;
+		n -= p2-p;
+		for(;p < p2; p++)
+			src[i++] = *p;
+	}
+	src[i] = 0;
+	utf_out(dst, fn(dst, src, sizeof dst), nil);
+	for(; p2 < e; p2++)
+		rbuf[nremain++] = *p2;
+}
+
+void
+utfnfc_out(Rune *base, int n, long *)
+{
+	utfnorm_out(base, n, runecomp);
+}
+
+void
+utfnfd_out(Rune *base, int n, long *)
+{
+	utfnorm_out(base, n, runedecomp);
+}
+
+void
 isoutf_in(int fd, long *, struct convert *out)
 {
 	char buf[N];

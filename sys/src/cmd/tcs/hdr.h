@@ -23,6 +23,8 @@ int fixsurrogate(Rune *rp, Rune r2);
 
 void utf_in(int, long *, struct convert *);
 void utf_out(Rune *, int, long *);
+void utfnfc_out(Rune *, int, long *);
+void utfnfd_out(Rune *, int, long *);
 void isoutf_in(int, long *, struct convert *);
 void isoutf_out(Rune *, int, long *);
 
