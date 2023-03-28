@@ -166,8 +166,10 @@ compilesub(TFont *f, TSubfont *s)
 			g = 0;
 		else
 			g = ttffindchar(t, s->start + i);
-		gs[i] = ttfgetglyph(t, g, 1);
-		w += gs[i]->width;
+		if((gs[i] = ttfgetglyph(t, g, 1)) == nil && g != 0)
+			gs[i] = ttfgetglyph(t, 0, 1);
+		assert(gs[i] != nil);
+	   w += gs[i]->width;
 	}
 	sz = 5 * 12 + (w+7>>3) * h + 3 * 12 + (n + 1) * 6;
 	d = emalloc(sz);
