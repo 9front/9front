@@ -146,10 +146,12 @@ UCD=\
 /lib/ucd/%:
 	cd /lib/ucd && mk $stem
 
-runenormdata runetotypedata runeistypedata runebreakdata:	mkrunetype.c $UCD
+runenormdata runetotypedata runeistypedata runebreakdata:
 	@{
 		eval `{grep '^[A-Z]' /$cputype/mkfile}
 		$CC $CFLAGS -o mkrunetype.$O mkrunetype.c
 		$LD $LDFLAGS -o $O.mkrunetype mkrunetype.$O
 		$O.mkrunetype
 	}
+
+regen:V:	runenormdata runetotypedata runeistypedata runebreakdata mkrunetype.c $UCD
