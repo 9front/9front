@@ -97,5 +97,26 @@ read(p[1], buf, sizeof buf);
 .EE
 .PP
 in the above process.
+.PP
+Create a disposable
+.B /srv
+and start a
+.IR factotum (4)
+and a
+.IR rio (1)
+in it.
+.IP
+.EX
+<[3]/srv/clone{
+	id=`{<[0=3]read}
+	<[3=0]@{ #hide clone fd
+		rfork n
+		bind -c /srv/$id /srv
+		auth/factotum -s factotum
+		rio
+	}
+}
+.EE
+.PP
 .SH SOURCE
 .B /sys/src/9/port/devsrv.c
