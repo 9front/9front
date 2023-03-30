@@ -99,6 +99,8 @@ enum {
  */
 struct FPsave
 {
+	/* scratch space for kernel use (e.g., mips fp delay-slot execution) */
+	ulong	kscr[4];
 	/* /dev/proc expects the registers to be first in FPsave */
 	ulong	reg[Nfpregs];		/* the canonical bits */
 	union {
