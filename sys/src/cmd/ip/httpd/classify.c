@@ -48,7 +48,7 @@ Country goodc[] =
 	{ "gr",	"greece" },
 	{ "es",	"spain" },
 	{ "pt",	"portugal" },
-	{ "au",	"australia" },
+	{ "at",	"austria" },
 	{ "fi",	"finland" },
 	{ "se",	"sweden" },
 
