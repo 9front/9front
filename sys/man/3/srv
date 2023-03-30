@@ -109,7 +109,7 @@ in it.
 .EX
 <[3]/srv/clone{
 	id=`{<[0=3]read}
-	<[3=0]@{ #hide clone fd
+	<[3=]@{ # close the clone fd
 		rfork n
 		bind -c /srv/$id /srv
 		auth/factotum -s factotum
