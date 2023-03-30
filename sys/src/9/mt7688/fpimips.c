@@ -30,7 +30,7 @@
 #include	"fns.h"
 #include	"ureg.h"
 #include	"fpi.h"
-#include	"tos.h"
+//#include	"tos.h"
 
 #ifdef FPEMUDEBUG
 #define DBG(bits) (fpemudebug & (bits))
@@ -799,7 +799,7 @@ static void
 dsexec(Instr *ip, Ureg *ur, FPsave *ufp)
 {
 	ulong dsaddr, wpaddr;
-	Tos *tos;
+//	Tos *tos;
 
 	/*
 	 * copy delay slot, EHB, EHB, EHB to tos->kscr, flush caches,
@@ -809,19 +809,27 @@ dsexec(Instr *ip, Ureg *ur, FPsave *ufp)
 	 * executed at any address.
 	 */
 	dsaddr = ip->pc + 4;
-	tos = (Tos*)(USTKTOP-sizeof(Tos));
-	tos->kscr[0] = *(ulong *)dsaddr;
-	tos->kscr[1] = 0xc0;		/* EHB; we could use some trap instead */
-	tos->kscr[2] = 0xc0;			/* EHB */
-	tos->kscr[3] = 0xc0;			/* EHB */
-	dcflush(tos->kscr, sizeof tos->kscr);
-	icflush(tos->kscr, sizeof tos->kscr);
+//	tos = (Tos*)(USTKTOP-sizeof(Tos));
+//	tos->kscr[0] = *(ulong *)dsaddr;
+//	tos->kscr[1] = 0xc0;		/* EHB; we could use some trap instead */
+//	tos->kscr[2] = 0xc0;			/* EHB */
+//	tos->kscr[3] = 0xc0;			/* EHB */
+//	dcflush(tos->kscr, sizeof tos->kscr);
+//	icflush(tos->kscr, sizeof tos->kscr);
 
-	wpaddr = (ulong)&tos->kscr[2] & ~7;	/* clear I/R/W bits */
+	ufp->kscr[0] = *(ulong *)dsaddr;
+	ufp->kscr[1] = 0xc0;		/* EHB; we could use some trap instead */
+	ufp->kscr[2] = 0xc0;			/* EHB */
+	ufp->kscr[3] = 0xc0;			/* EHB */
+	dcflush(ufp->kscr, sizeof ufp->kscr);
+	icflush(ufp->kscr, sizeof ufp->kscr);
+
+
+	wpaddr = (ulong)&ufp->kscr[2] & ~7;	/* clear I/R/W bits */
 	ufp->fpdelayexec = 1;
 	ufp->fpdelaypc = ip->pc;		/* remember branch ip->pc */
 	ufp->fpdelaysts = ufp->fpstatus;	/* remember state of FPCOND */
-	ur->pc = (ulong)tos->kscr;		/* restart in tos */
+	ur->pc = (ulong)ufp->kscr;		/* restart in tos */
 	qlock(&watchlock);			/* wait for first watchpoint */
 	setwatchlo0(wpaddr | 1<<2);	/* doubleword addr(!); i-fetches only */
 	setwatchhi0(TLBPID(tlbvirt())<<16);	/* asid; see mmu.c */
