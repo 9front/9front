@@ -7,6 +7,7 @@ TARG=exsort\
 	mkfs\
 	partfs\
 	cryptsetup\
+	qcowfs\
 
 DIRS=\
 	9660\

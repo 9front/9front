@@ -1,0 +1,63 @@
+.TH QCOWFS 8
+.SH NAME
+qcowfs \- QCOW2 file system
+.SH SYNOPSIS
+.B disk/qcowfs
+[
+.B -n
+.I size
+]
+[
+.B -m
+.I mtpt
+]
+[
+.B -s
+.I service
+]
+.I diskimage
+.SH DESCRIPTION
+.I Qcowfs
+exposes a
+.B data
+file using the provided
+.I diskimage
+as the backing store.
+.PP
+The
+.B -n
+flag truncates
+.I imagefile
+with the specified
+.I size
+(in bytes) before using it.
+The
+.B -m
+flag sets the
+.I mtpt
+(default /mnt/qcow).
+The
+.B -s
+flag causes
+.I qcowfs
+to post its 9P service as
+.BI /srv/ service \fR.
+.SH EXAMPLES
+Create a new QCOW2 diskimage and partition it
+.IP
+.EX
+disk/qcowfs -n $size image.qcow2
+disk/partfs /mnt/qcow/data
+disk/mbr -m /386/mbr /dev/sdXX/data
+disk/fdisk -baw /dev/sdXX/data
+disk/prep /dev/sdXX/plan9
+.EE
+.SH SOURCE
+.B /sys/src/cmd/disk/qcowfs.c
+.SH SEE ALSO
+.IR partfs (8),
+.IR disksim (8),
+.IR prep (8)
+.SH HISTORY
+.I qcowfs
+first appeared in 9front (April, 2023).
