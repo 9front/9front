@@ -162,6 +162,8 @@ main(int argc, char **argv)
 	memset(&r, 0, sizeof(r));
 	calcdiff(&l, argv[1], argv[1], argv[0], argv[0]);
 	calcdiff(&r, argv[1], argv[1], argv[2], argv[2]);
+	if(l.binary || r.binary)
+		sysfatal("cannot merge binaries");
 	x = merge(&l, &r);
 	freediff(&l);
 	freediff(&r);

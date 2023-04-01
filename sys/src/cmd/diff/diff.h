@@ -27,6 +27,7 @@ struct Diff {
 	Line *file[2], line;
 	int len[2];
 	int binary;
+	int bindiff;
 	Line *sfile[2];	/*shortened by pruning common prefix and suffix*/
 	int slen[2];
 	int pref, suff;	/*length of prefix and suffix*/

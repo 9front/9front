@@ -315,8 +315,8 @@ calcdiff(Diff *d, char *f, char *fo, char *t, char *to)
 	}
 	if (d->binary){
 		// could use b0 and b1 but this is simpler.
-		if (cmp(b0, b1))
-			print("binary files %s %s differ\n", f, t);
+		if(cmp(b0, b1))
+			d->bindiff = 1;
 		Bterm(b0);
 		Bterm(b1);
 		return;
@@ -356,6 +356,10 @@ output(Diff *d)
 {
 	int m, i0, i1, j0, j1;
 
+	if(d->bindiff){
+		print("binary files %s %s differ\n", d->file1, d->file2);
+		return;
+	}
 	m = d->len[0];
 	d->J[0] = 0;
 	d->J[m+1] = d->len[1]+1;
@@ -403,8 +407,10 @@ diffreg(char *f, char *fo, char *t, char *to)
 void
 freediff(Diff *d)
 {
-	Bterm(d->input[0]);
-	Bterm(d->input[1]);
+	if(d->input[0] != nil)
+		Bterm(d->input[0]);
+	if(d->input[1] != nil)
+		Bterm(d->input[1]);
 	free(d->J);
 	free(d->ixold);
 	free(d->ixnew);

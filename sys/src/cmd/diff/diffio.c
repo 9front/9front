@@ -109,6 +109,11 @@ prepare(Diff *d, int i, char *arg, char *orig)
 	int nbytes;
 	Rune r;
 
+	if (i == 0) {
+		d->file1 = orig;
+		d->firstchange = 0;
+	} else
+		d->file2 = orig;
 	bp = Bopen(arg, OREAD);
 	if (!bp) {
 		sysfatal("cannot open %s: %r", arg);
@@ -138,11 +143,6 @@ prepare(Diff *d, int i, char *arg, char *orig)
 	d->len[i] = j;
 	d->file[i] = p;
 	d->input[i] = bp;
-	if (i == 0) {
-		d->file1 = orig;
-		d->firstchange = 0;
-	} else
-		d->file2 = orig;
 	return bp;
 }
 
