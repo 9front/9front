@@ -842,6 +842,7 @@ struct	FILE_STRING
 	"!<arch>\n__.SYMDEF",	"archive random library",	16,	OCTET,
 	"!<arch>\n",		"archive",			8,	OCTET,
 	"070707",		"cpio archive - ascii header",	6,	OCTET,
+	"QFI\xfb",		"QCOW disk image",		4,	OCTET,
 	"%!",			"postscript",			2,	"application/postscript",
 	"\004%!",		"postscript",			3,	"application/postscript",
 	"x T post",		"troff output for post",	8,	"application/troff",
