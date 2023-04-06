@@ -973,8 +973,11 @@ int format(char **pbuf, int *pbufsize, char *s, Node *a)	/* printf-like conversi
 	}
 	*p = '\0';
 	free(fmt);
-	for ( ; a; a = a->nnext)		/* evaluate any remaining args */
-		execute(a);
+	for ( ; a; a = a->nnext) {		/* evaluate any remaining args */
+		x = execute(a);
+		if (istemp(x))
+			tfree(x);
+	}
 	*pbuf = buf;
 	*pbufsize = bufsize;
 	return p - buf;
