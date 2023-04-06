@@ -438,10 +438,12 @@ Cell *getline(Node **a, int n)	/* get next line from specific input */
 			n = getrec(&record, &recsize, 1);
 		else {			/* getline var */
 			n = getrec(&buf, &bufsize, 0);
-			x = execute(a[0]);
-			setsval(x, buf);
-			if (istemp(x))
-				tfree(x);
+			if (n > 0) {
+				x = execute(a[0]);
+				setsval(x, buf);
+				if (istemp(x))
+					tfree(x);
+			}
 		}
 	}
 	setfval(r, (Awkfloat) n);
