@@ -164,7 +164,7 @@ hzclock(Ureg *ur)
 		return;
 
 	if(active.exiting)
-		exit(0);
+		exit(panicking);
 
 	if(m->machno == 0)
 		checkalarms();

@@ -266,6 +266,11 @@ exit(int)
 {
 	cpushutdown();
 	splhi();
+
+	/* clear secrets */
+	zeroprivatepages();
+	poolreset(secrmem);
+
 	arcs(0x18);	/* reboot */
 }
 

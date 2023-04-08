@@ -230,20 +230,26 @@ exit(int)
 {
 	cpushutdown();
 	splfhi();
-	if(m->machno == 0)
-		archreboot();
-	rebootjump(0, 0, 0);
+
+	if(m->machno)
+		rebootjump(0, 0, 0);
+
+	/* clear secrets */
+	zeroprivatepages();
+	poolreset(secrmem);
+
+	archreboot();
 }
 
 void
 reboot(void *entry, void *code, ulong size)
 {
 	writeconf();
+
 	while(m->machno != 0){
 		procwired(up, 0);
 		sched();
 	}
-
 	cpushutdown();
 	delay(2000);
 
@@ -259,6 +265,10 @@ reboot(void *entry, void *code, ulong size)
 	clockshutdown();
 	wdogoff();
 	intrsoff();
+
+	/* clear secrets */
+	zeroprivatepages();
+	poolreset(secrmem);
 
 	/* off we go - never to return */
 	rebootjump(entry, code, size);

@@ -171,7 +171,7 @@ mallocsummary(void)
 /*	non tracing
  *
 enum {
-	Npadlong	= 0,
+	Npadlong = 0,
 	MallocOffset = 0,
 	ReallocOffset = 0,
 };
@@ -180,7 +180,7 @@ enum {
 
 /* tracing */
 enum {
-	Npadlong	= 2,
+	Npadlong = 2,
 	MallocOffset = 0,
 	ReallocOffset = 1
 };
@@ -228,12 +228,14 @@ mallocz(ulong size, int clr)
 	void *v;
 
 	v = poolalloc(mainmem, size+Npadlong*sizeof(ulong));
-	if(Npadlong && v != nil){
+	if(v == nil)
+		return nil;
+	if(Npadlong){
 		v = (ulong*)v+Npadlong;
 		setmalloctag(v, getcallerpc(&size));
 		setrealloctag(v, 0);
 	}
-	if(clr && v != nil)
+	if(clr)
 		memset(v, 0, size);
 	return v;
 }
@@ -244,13 +246,14 @@ mallocalign(ulong size, ulong align, long offset, ulong span)
 	void *v;
 
 	v = poolallocalign(mainmem, size+Npadlong*sizeof(ulong), align, offset-Npadlong*sizeof(ulong), span);
-	if(Npadlong && v != nil){
+	if(v == nil)
+		return nil;
+	if(Npadlong){
 		v = (ulong*)v+Npadlong;
 		setmalloctag(v, getcallerpc(&size));
 		setrealloctag(v, 0);
 	}
-	if(v)
-		memset(v, 0, size);
+	memset(v, 0, size);
 	return v;
 }
 
@@ -268,10 +271,10 @@ realloc(void *v, ulong size)
 
 	if(v != nil)
 		v = (ulong*)v-Npadlong;
-	if(Npadlong !=0 && size != 0)
+	if(Npadlong && size != 0)
 		size += Npadlong*sizeof(ulong);
-
-	if(nv = poolrealloc(mainmem, v, size)){
+	nv = poolrealloc(mainmem, v, size);
+	if(nv != nil){
 		nv = (ulong*)nv+Npadlong;
 		setrealloctag(nv, getcallerpc(&v));
 		if(v == nil)

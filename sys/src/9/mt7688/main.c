@@ -247,10 +247,14 @@ init0(void)
 void
 exit(int)
 {
-	iprint("main exit called\n");
-	delay(50);
 	cpushutdown();
 	splhi();
+	if(m->machno == 0){
+		/* clear secrets */
+		zeroprivatepages();
+		poolreset(secrmem);
+	}
+	for(;;);
 }
 
 void

@@ -427,14 +427,19 @@ exit(int)
 {
 	cpushutdown();
 	splhi();
-	if (m->machno == 0)
-		archreboot();
-	else {
+
+	if(m->machno){
 		intrcpushutdown();
 		stopcpu(m->machno);
 		for (;;)
 			idlehands();
 	}
+
+	/* clear secrets */
+	zeroprivatepages();
+	poolreset(secrmem);
+
+	archreboot();
 }
 
 int
@@ -489,7 +494,7 @@ reboot(void *entry, void *code, ulong size)
 	 * the boot processor is cpu0.  execute this function on it
 	 * so that the new kernel has the same cpu0.
 	 */
-	if (m->machno != 0) {
+	while(m->machno != 0){
 		procwired(up, 0);
 		sched();
 	}
@@ -513,6 +518,10 @@ reboot(void *entry, void *code, ulong size)
 
 	splhi();
 	intrshutdown();
+
+	/* clear secrets */
+	zeroprivatepages();
+	poolreset(secrmem);
 
 	/* setup reboot trampoline function */
 	f = (void*)REBOOTADDR;

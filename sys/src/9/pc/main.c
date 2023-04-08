@@ -316,7 +316,6 @@ rebootjump(uintptr entry, uintptr code, ulong size)
 	void (*f)(uintptr, uintptr, ulong);
 	ulong *pdb;
 
-	splhi();
 	arch->introff();
 
 	/*
@@ -342,8 +341,15 @@ void
 exit(int)
 {
 	cpushutdown();
+	splhi();
+
 	if(m->machno)
 		rebootjump(0, 0, 0);
+
+	/* clear secrets */
+	zeroprivatepages();
+	poolreset(secrmem);
+
 	arch->reset();
 }
 
@@ -359,7 +365,7 @@ reboot(void *entry, void *code, ulong size)
 	 * because the hardware has a notion of which processor was the
 	 * boot processor and we look at it at start up.
 	 */
-	if (m->machno != 0) {
+	if(m->machno){
 		procwired(up, 0);
 		sched();
 	}
@@ -372,6 +378,10 @@ reboot(void *entry, void *code, ulong size)
 
 	/* shutdown devices */
 	chandevshutdown();
+
+	/* clear secrets */
+	zeroprivatepages();
+	poolreset(secrmem);
 
 	/* disable pci devices */
 	pcireset();

@@ -169,7 +169,6 @@ Page*
 newpage(int clear, Segment **s, uintptr va)
 {
 	Page *p, **l;
-	KMap *k;
 	int color;
 
 	lock(&palloc);
@@ -229,11 +228,8 @@ newpage(int clear, Segment **s, uintptr va)
 	p->modref = 0;
 	inittxtflush(p);
 
-	if(clear) {
-		k = kmap(p);
-		memset((void*)VA(k), 0, BY2PG);
-		kunmap(k);
-	}
+	if(clear)
+		zeropage(p);
 
 	return p;
 }
@@ -263,6 +259,16 @@ copypage(Page *f, Page *t)
 	memmove((void*)VA(kd), (void*)VA(ks), BY2PG);
 	kunmap(ks);
 	kunmap(kd);
+}
+
+void
+zeropage(Page *p)
+{
+	KMap *k;
+
+	k = kmap(p);
+	memset((void*)VA(k), 0, BY2PG);
+	kunmap(k);
 }
 
 void
@@ -391,4 +397,30 @@ freepte(Segment*, Pte *p)
 		pg++;
 	}
 	free(p);
+}
+
+void
+zeroprivatepages(void)
+{
+	Page *p, *pe;
+
+	/*
+	 * in case of a panic, we might not have a process
+	 * context to do the clearing of the private pages.
+	 */
+	if(up == nil){
+		assert(panicking);
+		return;
+	}
+
+	lock(&palloc);
+	pe = palloc.pages + palloc.user;
+	for(p = palloc.pages; p != pe; p++) {
+		if(p->modref & PG_PRIV){
+			incref(p);
+			zeropage(p);
+			decref(p);
+		}
+	}
+	unlock(&palloc);
 }

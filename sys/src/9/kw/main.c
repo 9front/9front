@@ -308,6 +308,13 @@ exit(int)
 {
 	cpushutdown();
 	splhi();
+
+	if(m->machno == 0){
+		/* clear secrets */
+		zeroprivatepages();
+		poolreset(secrmem);
+	}
+
 	archreboot();
 }
 
@@ -333,6 +340,10 @@ reboot(void *entry, void *code, ulong size)
 	clockshutdown();
 
 	splhi();
+
+	/* clear secrets */
+	zeroprivatepages();
+	poolreset(secrmem);
 
 	/* setup reboot trampoline function */
 	f = (void*)REBOOTADDR;

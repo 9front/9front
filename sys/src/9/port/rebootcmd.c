@@ -33,8 +33,18 @@ rebootcmd(int argc, char *argv[])
 	ulong magic, text, rtext, entry, data, size, align;
 	uchar *p;
 
-	if(argc == 0)
+	if(argc == 0){
+		/*
+		 * call exit() from cpu0, so zeroprivatepages()
+		 * has our user process for kmap().
+		 */
+		while(m->machno != 0){
+			procwired(up, 0);
+			sched();
+		}
 		exit(0);
+		return;
+	}
 
 	c = namec(argv[0], Aopen, OEXEC, 0);
 	if(waserror()){

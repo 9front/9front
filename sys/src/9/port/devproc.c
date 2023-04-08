@@ -1474,6 +1474,14 @@ procctlreq(Proc *p, char *va, int n)
 		break;
 	case CMprivate:
 		p->privatemem = 1;
+		/*
+		 * pages will now get marked private
+		 * when faulted in for writing
+		 * so force a tlb flush.
+		 */
+		p->newtlb = 1;
+		if(p == up)
+			flushmmu();
 		break;
 	case CMprofile:
 		s = p->seg[TSEG];

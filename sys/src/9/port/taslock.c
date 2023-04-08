@@ -36,7 +36,6 @@ dumplockmem(char *tag, Lock *l)
 void
 lockloop(Lock *l, uintptr pc)
 {
-	extern int panicking;
 	Proc *p;
 
 	if(panicking)

@@ -467,7 +467,6 @@ Found:
 static Segment*
 fixedseg(uintptr va, ulong len)
 {
-	KMap *k;
 	Segment *s;
 	Page **f, *p, *l, *h, *t;
 	ulong n, i;
@@ -522,15 +521,11 @@ fixedseg(uintptr va, ulong len)
 			p++;
 			p->ref = 1;
 			p->va = va;
+			va += BY2PG;
 			p->modref = 0;
 			settxtflush(p, 1);
-			
-			k = kmap(p);
-			memset((void*)VA(k), 0, BY2PG);
-			kunmap(k);
-			
+			zeropage(p);
 			segpage(s, p);
-			va += BY2PG;
 		} while(p != l);
 		poperror();
 		return s;

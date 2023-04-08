@@ -245,7 +245,7 @@ pageout(Proc *p, Segment *s)
 			continue;
 		for(pg = l->first; pg <= l->last; pg++) {
 			entry = *pg;
-			if(pagedout(entry))
+			if(pagedout(entry) || entry->modref & PG_PRIV)
 				continue;
 			if(entry->modref & PG_REF) {
 				entry->modref &= ~PG_REF;

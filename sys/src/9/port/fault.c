@@ -209,12 +209,12 @@ fixfault(Segment *s, uintptr addr, int read)
 		/* wet floor */
 	case SG_STICKY:			/* Never paged out */
 		mmuphys = PPN((*pg)->pa) | PTEWRITE | PTECACHED | PTEVALID;
-		(*pg)->modref = PG_MOD|PG_REF;
+		(*pg)->modref |= up->privatemem? PG_PRIV|PG_MOD|PG_REF: PG_MOD|PG_REF;
 		break;
 
 	case SG_FIXED:			/* Never paged out */
 		mmuphys = PPN((*pg)->pa) | PTEWRITE | PTEUNCACHED | PTEVALID;
-		(*pg)->modref = PG_MOD|PG_REF;
+		(*pg)->modref |= up->privatemem? PG_PRIV|PG_MOD|PG_REF: PG_MOD|PG_REF;
 		break;
 	}
 

@@ -380,6 +380,10 @@ reboot(void *entry, void *code, ulong size)
 	/* shutdown devices */
 	chandevshutdown();
 
+	/* clear secrets */
+	zeroprivatepages();
+	poolreset(secrmem);
+
 	/* reboot(0, ...) on Xen causes domU shutdown */
 	if(entry == 0)
 		HYPERVISOR_shutdown(0);
@@ -398,5 +402,11 @@ void
 exit(int)
 {
 	cpushutdown();
+	splhi();
+
+	/* clear secrets */
+	zeroprivatepages();
+	poolreset(secrmem);
+
 	arch->reset();
 }

@@ -322,6 +322,7 @@ enum
 {
 	PG_MOD		= 0x01,		/* software modified bit */
 	PG_REF		= 0x02,		/* software referenced bit */
+	PG_PRIV		= 0x04,		/* private page */
 };
 
 struct Page
@@ -808,6 +809,7 @@ extern	uchar	initcode[];
 extern	Queue*	kprintoq;
 extern	int	nsyscall;
 extern	Palloc	palloc;
+extern	int	panicking;
 extern	Queue*	serialoq;
 extern	char*	statename[];
 extern	Image	swapimage;

@@ -357,8 +357,13 @@ exit(int)
 	cpushutdown();
 	splfhi();
 
-	if(m->machno == 0)
+	if(m->machno == 0){
+		/* clear secrets */
+		zeroprivatepages();
+		poolreset(secrmem);
+
 		u.r0 = 0x84000009;	/* SYSTEM RESET */
+	}
 	smccall(&u);
 }
 
@@ -407,6 +412,10 @@ reboot(void*, void *code, ulong size)
 	/* stop the clock */
 	clockshutdown();
 	intrsoff();
+
+	/* clear secrets */
+	zeroprivatepages();
+	poolreset(secrmem);
 
 	/* off we go - never to return */
 	rebootjump((void*)(KTZERO-KZERO), code, size);

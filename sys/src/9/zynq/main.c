@@ -20,6 +20,12 @@ void
 exit(int)
 {
 	cpushutdown();
+	splhi();
+	if(m->machno == 0){
+		/* clear secrets */
+		zeroprivatepages();
+		poolreset(secrmem);
+	}
 	for(;;) idlehands();
 }
 
