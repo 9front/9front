@@ -1345,6 +1345,43 @@ poolisoverlap(Pool *p, void *v, ulong n)
 	return a != nil;
 }
 
+void
+poolreset(Pool *p)
+{
+	Arena *a;
+
+	if(p == nil)
+		return;
+
+	p->lock(p);
+	paranoia {
+		poolcheckl(p);
+	}
+	verbosity {
+		pooldumpl(p);
+	}
+	p->cursize = 0;
+	p->curfree = 0;
+	p->curalloc = 0;
+	p->lastcompact = p->nfree = 0;
+	p->freeroot = nil;
+	a = p->arenalist;
+	p->arenalist = nil;
+	LOG(p, "poolreset %p\n", p);
+	p->unlock(p);
+
+	while(a != nil){
+		Arena *next = a->down;
+		ulong asize = a->asize;
+		antagonism {
+			memmark(a, 0xFF, asize);
+		}
+		if(p->free)
+			p->free(a, asize);
+		a = next;
+	}
+}
+
 /*
  * Debugging
  */

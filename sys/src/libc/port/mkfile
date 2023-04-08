@@ -131,6 +131,8 @@ UPDATE=mkfile\
 
 profile.$O: /sys/include/tos.h
 
+malloc.$O pool.$O: /sys/include/pool.h
+
 runenorm.$O:	runenormdata runenorm.c
 runetotype.$O:	runetotypedata runetotype.c
 runeistype.$O:	runeistypedata runeistype.c

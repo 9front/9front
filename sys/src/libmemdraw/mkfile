@@ -29,6 +29,8 @@ UPDATE=\
 
 </sys/src/cmd/mksyslib
 
+alloc.$O draw.$O: /sys/include/pool.h
+
 $O.drawtest: drawtest.$O $LIB
 	$LD -o $target $prereq
  

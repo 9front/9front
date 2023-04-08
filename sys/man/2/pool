@@ -28,6 +28,9 @@ ulong	poolmsize(Pool* pool, void* ptr)
 int	poolisoverlap(Pool* pool, void* ptr, ulong len)
 .PP
 .B
+void	poolreset(Pool* pool)
+.PP
+.B
 void*	poolrealloc(Pool* pool, void* ptr, ulong size)
 .PP
 .B
@@ -119,6 +122,18 @@ overlaps the arenas of the specified
 .BR pool ,
 returning non-zero when there is overlap or zero if none.
 .PP
+.I Poolreset
+clears the pool counters and frees all arenas.
+The arenas are filled with a pattern before
+freeing them when the
+.B POOL_ANTAGONISM
+flag is set.
+When the
+.B free
+function of the pool is non-nil,
+it is called for each arena,
+passing its pointer and size.
+.PP
 The 
 .I poolblockcheck
 and
@@ -156,6 +171,7 @@ struct Pool {
 	void*	(*alloc)(ulong);
 	int	(*merge)(void*, void*);
 	void	(*move)(void* from, void* to);
+	void	(*free)(void*, ulong);
 	void	(*lock)(Pool*);
 	void	(*unlock)(Pool*);
 	void	(*print)(Pool*, char*, ...);
@@ -279,12 +295,15 @@ Specifically, each 32-bit word of the memory is marked with a pointer value excl
 with a constant.
 The pointer value is the pointer to the beginning of the allocated block
 and the constant varies in order to distinguish different markings.
-Freed blocks use the constant 
+Freed blocks use the constant
 .BR 0xF7000000 ,
 newly allocated blocks
 .BR 0xF9000000 ,
 and newly created unallocated blocks
-.BR 0xF1000000 .
+.BR 0xF1000000 ,
+freed arenas after
+.I poolreset
+.BR 0xFF000000 .
 For example, if 
 .B POOL_ANTAGONISM 
 is set and

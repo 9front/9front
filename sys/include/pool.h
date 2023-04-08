@@ -17,6 +17,7 @@ struct Pool {
 	void*	(*alloc)(ulong);
 	int	(*merge)(void*, void*);
 	void	(*move)(void* from, void* to);
+	void	(*free)(void*, ulong);
 
 	int	flags;
 	int	nfree;
@@ -36,6 +37,7 @@ extern void*	poolallocalign(Pool*, ulong, ulong, long, ulong);
 extern void	poolfree(Pool*, void*);
 extern ulong	poolmsize(Pool*, void*);
 extern int	poolisoverlap(Pool*, void*, ulong);
+extern void	poolreset(Pool*);
 extern void*	poolrealloc(Pool*, void*, ulong);
 extern void	poolcheck(Pool*);
 extern int	poolcompact(Pool*);
