@@ -294,6 +294,7 @@ enum {
 };
 extern Flag edidflags[];
 extern void printflags(Flag *f, int b);
+extern uchar* edidshift(uchar*);
 extern Edid* parseedid128(void *v);
 extern void printedid(Edid *e);
 

@@ -501,22 +501,22 @@ snarf(Vga* vga, Ctlr* ctlr)
 			igfx->dp[x].ctl	= snarfreg(igfx, 0xE4000 + 0x100*x);
 
 		igfx->hdmi[1].ctl	= snarfreg(igfx, 0x0E1140);	/* HDMI_CTL_B */
-		igfx->hdmi[1].bufctl[0]	= snarfreg(igfx, 0x0FC810);	/* HTMI_BUF_CTL_0 */
-		igfx->hdmi[1].bufctl[1]	= snarfreg(igfx, 0x0FC81C);	/* HTMI_BUF_CTL_1 */
-		igfx->hdmi[1].bufctl[2]	= snarfreg(igfx, 0x0FC828);	/* HTMI_BUF_CTL_2 */
-		igfx->hdmi[1].bufctl[3]	= snarfreg(igfx, 0x0FC834);	/* HTMI_BUF_CTL_3 */
+		igfx->hdmi[1].bufctl[0]	= snarfreg(igfx, 0x0FC810);	/* HDMI_BUF_CTL_0 */
+		igfx->hdmi[1].bufctl[1]	= snarfreg(igfx, 0x0FC81C);	/* HDMI_BUF_CTL_1 */
+		igfx->hdmi[1].bufctl[2]	= snarfreg(igfx, 0x0FC828);	/* HDMI_BUF_CTL_2 */
+		igfx->hdmi[1].bufctl[3]	= snarfreg(igfx, 0x0FC834);	/* HDMI_BUF_CTL_3 */
 
 		igfx->hdmi[2].ctl	= snarfreg(igfx, 0x0E1150);	/* HDMI_CTL_C */
-		igfx->hdmi[2].bufctl[0]	= snarfreg(igfx, 0x0FCC00);	/* HTMI_BUF_CTL_4 */
-		igfx->hdmi[2].bufctl[1]	= snarfreg(igfx, 0x0FCC0C);	/* HTMI_BUF_CTL_5 */
-		igfx->hdmi[2].bufctl[2]	= snarfreg(igfx, 0x0FCC18);	/* HTMI_BUF_CTL_6 */
-		igfx->hdmi[2].bufctl[3]	= snarfreg(igfx, 0x0FCC24);	/* HTMI_BUF_CTL_7 */
+		igfx->hdmi[2].bufctl[0]	= snarfreg(igfx, 0x0FCC00);	/* HDMI_BUF_CTL_4 */
+		igfx->hdmi[2].bufctl[1]	= snarfreg(igfx, 0x0FCC0C);	/* HDMI_BUF_CTL_5 */
+		igfx->hdmi[2].bufctl[2]	= snarfreg(igfx, 0x0FCC18);	/* HDMI_BUF_CTL_6 */
+		igfx->hdmi[2].bufctl[3]	= snarfreg(igfx, 0x0FCC24);	/* HDMI_BUF_CTL_7 */
 
 		igfx->hdmi[3].ctl	= snarfreg(igfx, 0x0E1160);	/* HDMI_CTL_D */
-		igfx->hdmi[3].bufctl[0]	= snarfreg(igfx, 0x0FD000);	/* HTMI_BUF_CTL_8 */
-		igfx->hdmi[3].bufctl[1]	= snarfreg(igfx, 0x0FD00C);	/* HTMI_BUF_CTL_9 */
-		igfx->hdmi[3].bufctl[2]	= snarfreg(igfx, 0x0FD018);	/* HTMI_BUF_CTL_10 */
-		igfx->hdmi[3].bufctl[3]	= snarfreg(igfx, 0x0FD024);	/* HTMI_BUF_CTL_11 */
+		igfx->hdmi[3].bufctl[0]	= snarfreg(igfx, 0x0FD000);	/* HDMI_BUF_CTL_8 */
+		igfx->hdmi[3].bufctl[1]	= snarfreg(igfx, 0x0FD00C);	/* HDMI_BUF_CTL_9 */
+		igfx->hdmi[3].bufctl[2]	= snarfreg(igfx, 0x0FD018);	/* HDMI_BUF_CTL_10 */
+		igfx->hdmi[3].bufctl[3]	= snarfreg(igfx, 0x0FD024);	/* HDMI_BUF_CTL_11 */
 
 		igfx->lvds		= snarfreg(igfx, 0x0E1180);	/* LVDS_CTL */
 		goto PCHcommon;
@@ -2193,6 +2193,7 @@ rdpaux(Igfx *igfx, Dp *dp, int addr)
 		return -1;
 	return buf[0];
 }
+
 static int
 wdpaux(Igfx *igfx, Dp *dp, int addr, uchar val)
 {
@@ -2202,15 +2203,95 @@ wdpaux(Igfx *igfx, Dp *dp, int addr, uchar val)
 }
 
 static int
+trainpatt(Igfx *igfx, Dp *dp, int w, int rd, int tr0, int mask1, int mask2)
+{
+	int ln[4], tr[4], retry, try, i, r;
+
+	ln[0] = ln[1] = ln[2] = ln[3] = 0;
+	tr[0] = tr[1] = tr[2] = tr[3] = tr0;
+	for(try=0;; try++){
+		if(try > 5)
+			goto FailPatt;
+		sleep(1 << rd);
+		for(i=0; i<=w; i++)
+			wdpaux(igfx, dp, 0x103 + i, tr[i]);
+		sleep(1 << rd);
+		if((r = rdpaux(igfx, dp, 0x202)) < 0)
+			goto FailPatt;
+		trace("lane 0,1 status is %x\n", r);
+		retry = 0;
+		ln[1] = (r & mask1 << 4) >> 4;
+		ln[0] = r & mask1;
+		if(r & 0x11){
+			if(((r = rdpaux(igfx, dp, 0x204)) & 1) == 0){
+				trace("lane 0,1 align status is %x\n", r);
+				if((r = rdpaux(igfx, dp, 0x206)) >= 0){
+					trace("adjust tr[0,1] %x\n", r);
+					if(tr[0] != (r & mask2) << 1){
+						tr[0] = (r & mask2) << 1;
+						retry++;
+					}
+					if(tr[1] != ((r & mask2 << 4) >> 4) << 1){
+						tr[1] = ((r & mask2 << 4) >> 4) << 1;
+						retry++;
+					}
+				}
+			}
+		}
+		if(w > 1){
+			if((r = rdpaux(igfx, dp, 0x202)) < 0)
+				goto FailPatt;
+			trace("lane 2,3 status is %x\n", r);
+			ln[2] = r & mask1;
+			ln[3] = (r & mask1 << 4) >> 4;
+			if(r & 0x11){
+				if((r = rdpaux(igfx, dp, 0x204)) & 0x80){
+					trace("lane 2,3 align status is %x\n", r);
+					if((r = rdpaux(igfx, dp, 0x207)) >= 0){
+						trace("adjust tr[2,3] %x\n", r);
+						if(tr[2] != (r & mask2) << 1){
+							tr[2] = (r & mask2) << 1;
+							retry++;
+						}
+						if(tr[3] != ((r & mask2 << 4) >> 4) << 1){
+							tr[3] = ((r & mask2 << 4) >> 4) << 1;
+							retry++;
+						}
+					}
+				}
+			}
+		}
+		for(i=0; i<=w; i++)
+			if(ln[i] != mask1)
+				retry++;
+		if(!retry)
+			break;
+	}
+	trace("pattern finished after try %d: %x %x %x %x\n", try, ln[0], ln[1], ln[2], ln[3]);
+	return 0;
+
+FailPatt:
+	trace("training pattern failed on try %d: %x %x %x %x\n", try, ln[0], ln[1], ln[2], ln[3]);
+	/* disable port */
+	dp->ctl.v &= ~(1<<31);
+	loadreg(igfx, dp->ctl);
+	wdpaux(igfx, dp, 0x102, 0x00);
+	return -1;
+}
+
+static int
 enabledp(Igfx *igfx, Dp *dp)
 {
-	int try, r;
+	int r, rd, try;
 	u32int w;
 
 	if(dp->ctl.a == 0)
 		return 0;
 	if((dp->ctl.v & (1<<31)) == 0)
 		return 0;
+
+	r = rdpaux(igfx, dp, 0x0);
+	trace("DPCD Rev. 1.%d%c\n", (r & ~0xf) >> 4 & 0xf, (r & 0xf) + 0x60);
 
 	/* Link configuration */
 	for(try=0; try<30; try++)
@@ -2219,46 +2300,37 @@ enabledp(Igfx *igfx, Dp *dp)
 	if(try >= 30)
 		trace("can\'t start training\n");
 	w = dp->bufctl.v >> (igfx->type == TypeHSW ? 1 : 19) & 7;
+	if(igfx->type == TypeIVB)
+		w = (dp->ctl.v >> 19) & 7;
+	trace("using %x lane(s)\n", w+1);
 	wdpaux(igfx, dp, 0x101, w+1);
 
-	r = 0;
+	rd = rdpaux(igfx, dp, 0x0e);
+	trace("read interval is %x\n", rd);
 
-	/* Link training pattern 1 */
+	/* Link training pattern 1, see DisplayPort 1.2 Spec, p. 356ff. */
+	trace("link training pattern 	\n");
 	dp->ctl.v &= ~(7<<8);
 	loadreg(igfx, dp->ctl);
-	for(try = 0;;try++){
-		if(try > 5)
-			goto Fail;
-		/* Link training pattern 1 */
-		wdpaux(igfx, dp, 0x102, 0x01);
-		sleep(100);
-		if((r = rdpaux(igfx, dp, 0x202)) < 0)
-			goto Fail;
-		if(r & 1)	/* LANE0_CR_DONE */
-			break;
-	}
-	trace("pattern1 finished: %x\n", r);
+	wdpaux(igfx, dp, 0x102, 0x10001);
+	wdpaux(igfx, dp, 0x102, 0x21);
+	if(trainpatt(igfx, dp, w, rd, 0x1, 0x1, 0x3))
+		return -1;
 
-	/* Link training pattern 2 */
+	/* Link training pattern 2, see DisplayPort 1.2 Spec, p. 358ff.  */
+	trace("link training pattern 2\n");
 	dp->ctl.v &= ~(7<<8);
 	dp->ctl.v |= 1<<8;
 	loadreg(igfx, dp->ctl);
-	for(try = 0;;try++){
-		if(try > 5)
-			goto Fail;
-		/* Link training pattern 2 */
-		wdpaux(igfx, dp, 0x102, 0x02);
-		sleep(100);
-		if((r = rdpaux(igfx, dp, 0x202)) < 0)
-			goto Fail;
-		if((r & 7) == 7)
-			break;
-	}
-	trace("pattern2 finished: %x\n", r);
+	wdpaux(igfx, dp, 0x102, 0x10002);
+	wdpaux(igfx, dp, 0x102, 0x22);
+	if(trainpatt(igfx, dp, w, rd, 0x8, 0x7, 0xc))
+		return -1;
 
 	if(igfx->type == TypeHSW){
 		/* set link training to idle pattern and wait for 5 idle
 		 * patterns */
+		trace("idle pattern\n");
 		dp->ctl.v &= ~(7<<8);
 		dp->ctl.v |= 2<<8;
 		loadreg(igfx, dp->ctl);
@@ -2272,34 +2344,6 @@ enabledp(Igfx *igfx, Dp *dp)
 	/* stop training */
 	wdpaux(igfx, dp, 0x102, 0x00);
 	return 1;
-
-Fail:
-	trace("training failed: %x\n", r);
-
-	/* disable port */
-	dp->ctl.v &= ~(1<<31);
-	loadreg(igfx, dp->ctl);
-	wdpaux(igfx, dp, 0x102, 0x00);
-	return -1;
-}
-
-static uchar*
-edidshift(uchar buf[256])
-{
-	uchar tmp[256];
-	int i;
-
-	/* shift if neccesary so edid block is at the start */
-	for(i=0; i<256-8; i++){
-		if(buf[i+0] == 0x00 && buf[i+1] == 0xFF && buf[i+2] == 0xFF && buf[i+3] == 0xFF
-		&& buf[i+4] == 0xFF && buf[i+5] == 0xFF && buf[i+6] == 0xFF && buf[i+7] == 0x00){
-			memmove(tmp, buf, i);
-			memmove(buf, buf + i, 256 - i);
-			memmove(buf + (256 - i), tmp, i);
-			break;
-		}
-	}
-	return buf;
 }
 
 static Edid*

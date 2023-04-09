@@ -6,6 +6,8 @@
 #include "pci.h"
 #include "vga.h"
 
+static uchar magic[8] = { 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00 };
+
 static void
 addmode(Modelist **l, Mode m)
 {
@@ -180,10 +182,42 @@ decodesti(Mode *m, uchar *p)
 	return vesalookup(m, str);
 }
 
+uchar*
+edidshift(uchar buf[256])
+{
+	uchar tmp[263];
+	int i = 256;
+	if(memcmp(buf, magic, 8) == 0)
+		return buf;
+
+	/*
+	 * Some devices (e.g., igfx) access address space which has
+	 * wrapped values, so shift if needed.  Comparing and copying is
+	 * easier by extending temp buffer slightly.
+	 */
+	memcpy(tmp, buf, 256);
+	memcpy(tmp+256, buf, 7);
+	while(--i > 0)
+		if(memcmp(tmp+i, magic, 8) == 0){
+			trace("magic begins at index %d, shifting\n", i);
+			memcpy(buf, tmp+i, 256-i);
+			memcpy(buf+(256-i), tmp, i);
+			break;
+		}
+
+	trace("edid:\n");
+	for(i=0; i<256; i++){
+		trace("\t%x", buf[i]);
+		if ( (i+1) % 16 == 0)
+			trace("\n");
+	}
+
+	return buf;
+}
+
 Edid*
 parseedid128(void *v)
 {
-	static uchar magic[8] = { 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00 };
 	uchar *p, *q, sum;
 	int dpms, estab, i, m, vid;
 	Mode mode;

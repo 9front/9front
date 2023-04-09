@@ -638,7 +638,7 @@ vbesnarf(Vbe *vbe, Vga *vga)
 		u.bx = 0x200;
 		if(vbecall(vbe, &u) < 0)
 			u.cx = 0;
-		dspcon = u.cx >> 8; /* CH = connected, CL = available? */
+		dspcon = (u.cx >> 8) & 0xf;
 
 		/* detect active display devices */
 		vbesetup(vbe, &u, 0x5F64);
