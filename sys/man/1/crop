@@ -145,3 +145,6 @@ crop -c 255 255 255 -i -10 -b 255 150 150 imagefile > cropped
 .I Iconv
 should be able to do Floyd-Steinberg error diffusion or dithering
 when converting to small image depths.
+.I Iconv
+won't always generate compressed images, see the BUGS section in
+.IR memdraw (2).

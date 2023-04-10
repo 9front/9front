@@ -448,3 +448,9 @@ of hardware acceleration.
 .I Memimagestring
 is unusual in using a subfont rather than a font,
 and in having no parameter to align the source.
+.I Writememimage
+won't write compressed images if the compressed block size of the
+resulting image is greater than 8000 bytes, in order to avoid
+exceeding the iounit when loading it into a
+.IR draw (3)
+device.
