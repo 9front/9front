@@ -326,19 +326,15 @@ stsstr(int sts, int isusb3)
 }
 
 static int
-getmaxpkt(Dev *d, int islow)
+getmaxpkt(Dev *d)
 {
-	uchar buf[64];	/* More room to try to get device-specific descriptors */
+	uchar buf[8];
 	DDev *dd;
 
 	if(d->isusb3)
 		return 512;
 	dd = (DDev*)buf;
-	if(islow)
-		dd->bMaxPacketSize0 = 8;
-	else
-		dd->bMaxPacketSize0 = 64;
-	if(usbcmd(d, Rd2h|Rstd|Rdev, Rgetdesc, Ddev<<8|0, 0, buf, sizeof(buf)) < 0)
+	if(usbcmd(d, Rd2h|Rstd|Rdev, Rgetdesc, Ddev<<8|0, 0, buf, sizeof(buf)) != sizeof(buf))
 		return -1;
 	return dd->bMaxPacketSize0;
 }
@@ -440,7 +436,7 @@ portattach(Hub *h, int p, u32int sts)
 		dprint(2, "%s: %s: port %d: set address: %r\n", argv0, d->dir, p);
 		goto Fail;
 	}
-	mp=getmaxpkt(nd, strcmp(sp, "low") == 0);
+	mp=getmaxpkt(nd);
 	if(mp < 0){
 		dprint(2, "%s: %s: port %d: getmaxpkt: %r\n", argv0, d->dir, p);
 		goto Fail;
