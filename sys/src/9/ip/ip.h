@@ -668,6 +668,7 @@ extern void	arprelease(Arp*, Arpent *a);
 extern void	arpcontinue(Arp*, Arpent *a);
 extern Block*	arpresolve(Arp*, Arpent *a, uchar *mac, Routehint *rh);
 extern int	arpenter(Fs*, int version, uchar *ip, uchar *mac, int n, uchar *ia, Ipifc *ifc, int refresh);
+extern int	arpforme(Fs*, int version, uchar *targ, uchar *src, Ipifc *ifc);
 extern void	ndpsendsol(Fs*, Arpent*);
 
 /*
@@ -725,7 +726,6 @@ extern int	ipv4local(Ipifc *ifc, uchar *local, int prefixlen, uchar *remote);
 extern int	ipv6local(Ipifc *ifc, uchar *local, int prefixlen, uchar *remote);
 extern Iplifc*	iplocalonifc(Ipifc *ifc, uchar *ip);
 extern Iplifc*	ipremoteonifc(Ipifc *ifc, uchar *ip);
-extern int	ipproxyifc(Fs *f, Ipifc *ifc, uchar *ip);
 extern Ipmulti*	ipifcgetmulti(Fs *f, Ipifc *ifc, uchar *ma);
 extern void	ipifcremmulti(Conv *c, uchar *ma, uchar *ia);
 extern void	ipifcaddmulti(Conv *c, uchar *ma, uchar *ia);

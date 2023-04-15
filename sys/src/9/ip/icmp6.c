@@ -636,21 +636,6 @@ err:
 	return 0;
 }
 
-static int
-targettype(Fs *f, Ipifc *ifc, uchar *target)
-{
-	Iplifc *lifc;
-	int t;
-
-	if((lifc = iplocalonifc(ifc, target)) != nil)
-		t = lifc->tentative? Tunitent: Tunirany;
-	else if(ipproxyifc(f, ifc, target))
-		t = Tuniproxy;
-	else
-		t = 0;
-	return t;
-}
-
 static void
 icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 {
@@ -745,12 +730,11 @@ icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 		pktflags = 0;
 		if(ifc->sendra6)
 			pktflags |= Rflag;
-		switch (targettype(icmp->f, ifc, np->target)) {
-		case Tunirany:
+		switch(arpforme(icmp->f, V6, np->target, np->src, ifc)){
+		case Runi:
 			pktflags |= Oflag;
-			/* fall through */
-
-		case Tuniproxy:
+			/* wet floor */
+		case Rproxy:
 			if(ipv6local(ifc, ia, 0, np->src)) {
 				if(arpenter(icmp->f, V6, np->src, np->lnaddr, 8*np->olen-2, ia, ifc, 0) < 0)
 					break;
@@ -759,12 +743,6 @@ icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 				ipmove(ia, np->target);
 			icmpna6(icmp->f, ia, (pktflags & Sflag)? np->src: v6allnodesL,
 				np->target, ifc->mac, pktflags);
-			break;
-		case Tunitent:
-			/*
-			 * not clear what needs to be done. send up
-			 * an icmp mesg saying don't use this address?
-			 */
 			break;
 		}
 		freeblist(bp);

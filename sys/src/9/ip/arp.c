@@ -383,6 +383,42 @@ arpenter(Fs *fs, int version, uchar *ip, uchar *mac, int n, uchar *ia, Ipifc *if
 	return 1;
 }
 
+/*
+ * arpforme() checks if we should respond to arp/ndp on a specific interface.
+ * 
+ * returns Runi if targ is a non-tentative local address on ifc.
+ * returns Rproxy if we have a proxy route for targ to another interface.
+ */
+int
+arpforme(Fs *fs, int version, uchar *targ, uchar *src, Ipifc *ifc)
+{
+	uchar ipv6[IPaddrlen];
+	Iplifc *lifc;
+	Route *r;
+
+	if(version == V4) {
+		v4tov6(ipv6, targ);
+		targ = ipv6;
+	}
+	lifc = iplocalonifc(ifc, targ);
+	if(lifc != nil){
+		if(lifc->tentative)
+			return 0;
+		return Runi;
+	}
+	if(ipremoteonifc(ifc, targ) == nil)
+		return 0;
+	if(version == V4){
+		targ += IPv4off;
+		r = v4lookup(fs, targ, src, nil);
+	} else {
+		r = v6lookup(fs, targ, src, nil);
+	}
+	if(r == nil || r->ifc == ifc && r->ifcid == ifc->ifcid)
+		return 0;
+	return r->type & Rproxy;
+}
+
 int
 arpwrite(Fs *fs, char *s, int len)
 {
@@ -552,8 +588,7 @@ ndpsendsol(Fs *f, Arpent *a)
 	if(a->last != nil){
 		ipmove(src, ((Ip6hdr*)a->last->rp)->src);
 		arpcontinue(f->arp, a);
-
-		if(iplocalonifc(ifc, src) != nil || ipproxyifc(f, ifc, src))
+		if(arpforme(f, V6, src, targ, ifc))
 			goto send;
 	} else {
 		arpcontinue(f->arp, a);

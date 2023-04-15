@@ -508,7 +508,6 @@ recvarp(Ipifc *ifc)
 	int forme;
 	Block *ebp, *rbp;
 	Etherarp *e, *r;
-	uchar ip[IPaddrlen];
 	static uchar eprinted[4];
 	Etherrock *er = ifc->arg;
 
@@ -529,8 +528,7 @@ recvarp(Ipifc *ifc)
 			break;
 
 		/* check for machine using my ip address */
-		v4tov6(ip, e->spa);
-		if(iplocalonifc(ifc, ip) != nil || ipproxyifc(er->f, ifc, ip)){
+		if(arpforme(er->f, V4, e->spa, e->tpa, ifc)){
 			if(memcmp(e->sha, ifc->mac, sizeof(e->sha)) != 0){
 				print("arprep: 0x%E/0x%E also has ip addr %V\n",
 					e->s, e->sha, e->spa);
@@ -552,8 +550,7 @@ recvarp(Ipifc *ifc)
 			break;
 
 		/* check for machine using my ip or ether address */
-		v4tov6(ip, e->spa);
-		if(iplocalonifc(ifc, ip) != nil || ipproxyifc(er->f, ifc, ip)){
+		if(arpforme(er->f, V4, e->spa, e->tpa, ifc)){
 			if(memcmp(e->sha, ifc->mac, sizeof(e->sha)) != 0){
 				if(memcmp(eprinted, e->spa, sizeof(e->spa)) != 0){
 					/* print only once */
@@ -576,8 +573,7 @@ recvarp(Ipifc *ifc)
 		 * enter senders address into arp table and reply, otherwise just
 		 * refresh the senders address.
 		 */
-		v4tov6(ip, e->tpa);
-		forme = iplocalonifc(ifc, ip) != nil || ipproxyifc(er->f, ifc, ip);
+		forme = arpforme(er->f, V4, e->tpa, e->spa, ifc);
 		if(arpenter(er->f, V4, e->spa, e->sha, sizeof(e->sha), e->tpa, ifc, !forme) < 0 || !forme)
 			break;
 

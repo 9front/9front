@@ -569,12 +569,16 @@ ipifcadd(Ipifc *ifc, char **argv, int argc, int tentative, Iplifc *lifcp)
 
 	addselfcache(f, ifc, lifc, ip, Runi);
 
-	/* register proxy */
+	/* register point-to-point proxy */
 	if(type & Rptpt){
 		if(type & Rproxy)
 			ipifcregisterproxy(f, ifc, rem, 1);
 		goto done;
 	}
+
+	/* register local ip if proxy */
+	if(type & Rproxy)
+		ipifcregisterproxy(f, ifc, ip, 1);
 
 	if(type & Rv4) {
 		/* add subnet directed broadcast address to the self cache */
@@ -667,12 +671,16 @@ ipifcremlifc(Ipifc *ifc, Iplifc **l)
 				lifc->remote, lifc->type, ifc, tifc);
 	}
 
-	/* unregister proxy */
+	/* unregister point-to-point proxy */
 	if(lifc->type & Rptpt){
 		if(lifc->type & Rproxy)
 			ipifcregisterproxy(f, ifc, lifc->remote, 0);
 		goto done;
 	}
+
+	/* unregister local ip if proxy */
+	if(lifc->type & Rproxy)
+		ipifcregisterproxy(f, ifc, lifc->local, 0);
 
 	/* remove route for all nodes multicast */
 	if((lifc->type & Rv4) == 0){
@@ -902,6 +910,7 @@ addselfcache(Fs *f, Ipifc *ifc, Iplifc *lifc, uchar *a, int type)
 	Ipself *p;
 	int h;
 
+	if(type == Runi) type |= (lifc->type & Rproxy);
 	type |= (lifc->type & Rv4);
 
 	qlock(f->self);
@@ -1448,22 +1457,6 @@ iplinklocalifc(Ipifc *ifc)
 			return lifc;
 
 	return nil;
-}
-
-/*
- *  See if we're proxying for this address on this interface
- */
-int
-ipproxyifc(Fs *f, Ipifc *ifc, uchar *ip)
-{
-	Route *r;
-
-	/* see if this is a direct connected pt to pt address */
-	r = v6lookup(f, ip, ip, nil);
-	if(r == nil || (r->type & (Rifc|Rproxy)) != (Rifc|Rproxy))
-		return 0;
-
-	return ipremoteonifc(ifc, ip) != nil;
 }
 
 /*

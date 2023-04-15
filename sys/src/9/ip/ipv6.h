@@ -94,10 +94,6 @@ enum {
 	TARG_UNI	= 2,
 	TARG_MULTI	= 3,
 
-	Tunitent	= 1,
-	Tuniproxy	= 2,
-	Tunirany	= 3,
-
 	/* Node constants */
 	MAX_MULTICAST_SOLICIT	= 3,
 	RETRANS_TIMER		= 1000,
