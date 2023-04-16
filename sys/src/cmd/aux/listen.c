@@ -216,7 +216,7 @@ listendir(char *srvdir, int trusted)
 				for(;;){
 					ctl = announce(ds, dir);
 					if(ctl < 0) {
-						errstr(err, sizeof err);
+						rerrstr(err, sizeof err);
 						if (!whined)
 							syslog(1, listenlog,
 							   "giving up on %s: %r",
