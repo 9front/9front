@@ -51,6 +51,14 @@ s_xBCPE_process(stream_state * st, stream_cursor_read * pr,
 	byte ch = *++p;
 
 	if (ch <= 31 && escaped[ch]) {
+	    /* Make sure we have space to store two characters in the write buffer,
+	     * if we don't then exit without consuming the input character, we'll process
+	     * that on the next time round.
+	     */
+	    if (pw->limit - q < 2) {
+		p--;
+		break;
+	    }
 	    if (p == rlimit) {
 		p--;
 		break;
