@@ -125,6 +125,8 @@ paint(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres, in
 	nskip = 0;
 
 	for(i = 0; i < nhead; i++){
+		if(hasheq(&head[i], &Zhash))
+			continue;
 		if((o = readobject(head[i])) == nil){
 			fprint(2, "warning: %H does not point at commit\n", head[i]);
 			werrstr("read head %H: %r", head[i]);
@@ -140,6 +142,8 @@ paint(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres, in
 		unref(o);
 	}		
 	for(i = 0; i < ntail; i++){
+		if(hasheq(&head[i], &Zhash))
+			continue;
 		if((o = readobject(tail[i])) == nil){
 			werrstr("read tail %H: %r", tail[i]);
 			return -1;
