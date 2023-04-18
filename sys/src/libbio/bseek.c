@@ -9,9 +9,7 @@ Bseek(Biobufhdr *bp, vlong offset, int base)
 
 	switch(bp->state) {
 	default:
-		fprint(2, "Bseek: unknown state %d\n", bp->state);
-		return Beof;
-
+		abort();
 	case Bracteof:
 		bp->state = Bractive;
 		bp->icount = 0;
