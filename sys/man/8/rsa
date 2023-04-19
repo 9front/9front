@@ -43,6 +43,11 @@ rsagen, rsafill, asn12rsa, rsa2asn1, rsa2pub, rsa2ssh, rsa2x509, rsa2csr, rsa2jw
 .I file
 ]
 .PP
+.B ssh2rsa
+[
+.I file
+]
+.PP
 .B rsa2ssh
 [
 .B -c
@@ -191,6 +196,17 @@ auth/pemdecode 'RSA PRIVATE KEY' | auth/asn12rsa
 extracts the key section from a textual ASN.1/DER/PEM key
 into binary ASN.1/DER format and then
 converts it to a Plan 9 RSA key.
+.PP
+.I Ssh2rsa
+reads an RSA private key stored in the binary OpenSSH key format
+and prints a Plan 9 RSA key. The command:
+.IP
+.EX
+auth/pemdecode 'OPENSSH PRIVATE KEY' id_rsa | auth/ssh2rsa
+.EE
+.LP
+converts an id_rsa, as output by Unix ssh-keygen, to a
+Plan 9 RSA key.
 .PP
 .I Rsa2pub
 reads a Plan 9 RSA public or private key,
