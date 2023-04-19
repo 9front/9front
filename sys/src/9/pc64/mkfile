@@ -138,7 +138,6 @@ ethervgbe.$O:			../port/ethermii.h
 ethervt6102.$O:			../port/ethermii.h
 ethervt6105m.$O:		../port/ethermii.h
 
-etheriwl.$O:			../port/wifi.h
 etherwpi.$O:			../port/wifi.h
 etherrt2860.$O: 		../port/wifi.h
 

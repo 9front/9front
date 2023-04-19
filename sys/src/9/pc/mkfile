@@ -134,7 +134,6 @@ ethervgbe.$O:			../port/ethermii.h
 ethervt6102.$O:			../port/ethermii.h
 ethervt6105m.$O:		../port/ethermii.h
 etherm10g.$O:			etherm10g2k.i etherm10g4k.i
-etheriwl.$O:			../port/wifi.h
 etherwpi.$O:			../port/wifi.h
 etherrt2860.$O: 		../port/wifi.h
 l.$O rebootcode.$O apbootstrap.$O:	mem.h

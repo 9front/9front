@@ -28,6 +28,7 @@ dev
 link
 	usbxhciimx	usbxhci
 	etherimx	ethermii
+	etheriwl	pci wifi
 	ethermedium
 	loopbackmedium
 	netdevmedium

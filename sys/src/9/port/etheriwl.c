@@ -510,6 +510,7 @@ struct TXQ
 struct RXQ
 {
 	uint	i;
+	int	psz;
 	Block	**b;
 	uchar	*s;
 	uchar	*p;
@@ -1686,14 +1687,16 @@ rbplant(Ctlr *ctlr, uint i)
 	if(b == nil)
 		return -1;
 	b->rp = b->wp = (uchar*)ROUND((uintptr)b->base, Rbufsize);
-	memset(b->rp, 0, Rdscsize);
-
+	memset(b->rp, 0, Rbufsize);
+	dmaflush(1, b->rp, Rbufsize);
+	coherence();
 	ctlr->rx.b[i] = b;
 
 	if(ctlr->mqrx)
 		put64(ctlr->rx.p + (i<<3), PCIWADDR(b->rp));
 	else
 		put32(ctlr->rx.p + (i<<2), PCIWADDR(b->rp) >> 8);
+	dmaflush(1, ctlr->rx.p + i*ctlr->rx.psz, ctlr->rx.psz);
 
 	return 0;
 }
@@ -1732,25 +1735,22 @@ initmem(Ctlr *ctlr)
 	if(ctlr->mqrx){
 		if(rx->u == nil)
 			rx->u = mallocalign(4 * Nrx, 4096, 0, 0);
-		if(rx->p == nil)
-			rx->p = mallocalign(8 * Nrx, 4096, 0, 0);
-		if(rx->u == nil || rx->p == nil)
+		if(rx->u == nil)
 			return "no memory for rx rings";
 		memset(rx->u, 0, 4 * Nrx);
-		memset(rx->p, 0, 8 * Nrx);
+		dmaflush(1, rx->u, 4 * Nrx);
+		rx->psz = 8;
 	} else {
 		rx->u = nil;
-		if(rx->p == nil)
-			rx->p = mallocalign(4 * Nrx, 256, 0, 0);
-		if(rx->p == nil)
-			return "no memory for rx rings";
-		memset(rx->p, 0, 4 * Nrx);
+		rx->psz = 4;
 	}
+	if(rx->p == nil)
+		rx->p = mallocalign(rx->psz*Nrx, 4096, 0, 0);
 	if(rx->s == nil)
 		rx->s = mallocalign(Rstatsize, 4096, 0, 0);
 	if(rx->b == nil)
 		rx->b = malloc(sizeof(Block*) * Nrx);
-	if(rx->b == nil || rx->s == nil)
+	if(rx->p == nil || rx->b == nil || rx->s == nil)
 		return "no memory for rx ring";
 	memset(rx->s, 0, Rstatsize);
 	for(i=0; i<Nrx; i++){
@@ -1779,6 +1779,7 @@ initmem(Ctlr *ctlr)
 	if(ctlr->sched.s == nil)
 		return "no memory for sched buffer";
 	memset(ctlr->sched.s, 0, (256+64)*2 * ctlr->ntxq);
+	dmaflush(1, ctlr->sched.s, (256+64)*2 * ctlr->ntxq);
 
 	for(q=0; q < nelem(ctlr->tx); q++){
 		tx = &ctlr->tx[q];
@@ -1791,7 +1792,9 @@ initmem(Ctlr *ctlr)
 		if(tx->b == nil || tx->d == nil || tx->c == nil)
 			return "no memory for tx ring";
 		memset(tx->d, 0, Tdscsize * Ntx);
+		dmaflush(1, tx->d, Tdscsize * Ntx);
 		memset(tx->c, 0, Tcmdsize * Ntx);
+		dmaflush(1, tx->c, Tcmdsize * Ntx);
 		for(i=0; i<Ntx; i++){
 			if(tx->b[i] != nil){
 				freeblist(tx->b[i]);
@@ -1808,6 +1811,7 @@ initmem(Ctlr *ctlr)
 	if(ctlr->kwpage == nil)
 		return "no memory for kwpage";		
 	memset(ctlr->kwpage, 0, 4096);
+	dmaflush(1, ctlr->kwpage, 4096);
 
 	return nil;
 }
@@ -1882,6 +1886,8 @@ reset(Ctlr *ctlr)
 
 	if((err = niclock(ctlr)) != nil)
 		return err;
+
+	dmaflush(1, ctlr->rx.s, Rstatsize);
 
 	if(ctlr->mqrx){
 		/* Stop RX DMA. */
@@ -2113,10 +2119,12 @@ sendpagingcmd(Ctlr *ctlr)
 	put32(p, ctlr->fwmem.nblock);
 	p += 4;
 
+	dmaflush(1, ctlr->fwmem.css, FWPagesize);
 	put32(p, PCIWADDR(ctlr->fwmem.css) >> FWPageshift);
 	p += 4;
 
 	for(i = 0; i < ctlr->fwmem.nblock; i++){
+		dmaflush(1, ctlr->fwmem.block[i].p, ctlr->fwmem.block[i].size);
 		put32(p, PCIWADDR(ctlr->fwmem.block[i].p) >> FWPageshift);
 		p += 4;
 	}
@@ -3216,10 +3224,11 @@ loadfirmware1(Ctlr *ctlr, u32int dst, uchar *data, int size)
 		dst += Maxchunk;
 	}
 
-	dma = mallocalign(size, 16, 0, 0);
+	dma = mallocalign(size, 4096, 0, 0);
 	if(dma == nil)
 		return "no memory for dma";
 	memmove(dma, data, size);
+	dmaflush(1, dma, size);
 	coherence();
 	
 	if((err = niclock(ctlr)) != nil){
@@ -3306,6 +3315,7 @@ static char*
 ucodestart(Ctlr *ctlr)
 {
 	memset(&ctlr->fwinfo, 0, sizeof(ctlr->fwinfo));
+	coherence();
 	if(ctlr->family >= 8000)
 		return setloadstatus(ctlr, -1);
 	csr32w(ctlr, Reset, 0);
@@ -3331,9 +3341,11 @@ boot(Ctlr *ctlr)
 
 			tsleep(&up->sleep, return0, 0, 100);
 
-			if(irqwait(ctlr, Ierr|Ialive, 5000) != Ialive|| !ctlr->fwinfo.valid){
+			if(irqwait(ctlr, Ierr|Ialive, 5000) != Ialive)
 				return "init firmware boot failed";
-			}
+			if(!ctlr->fwinfo.valid)
+				return "invalid fw info";
+
 			if((err = postboot(ctlr)) != nil)
 				return err;
 			if((err = reset(ctlr)) != nil)
@@ -3342,13 +3354,15 @@ boot(Ctlr *ctlr)
 
 		if((err = loadsections(ctlr, fw->main.sect, fw->main.nsect)) != nil)
 			return err;
-		if((err= ucodestart(ctlr)) != nil)
+		if((err = ucodestart(ctlr)) != nil)
 			return err;
 
 		tsleep(&up->sleep, return0, 0, 100);
 
-		if(irqwait(ctlr, Ierr|Ialive, 5000) != Ialive || !ctlr->fwinfo.valid)
+		if(irqwait(ctlr, Ierr|Ialive, 5000) != Ialive)
 			return "main firmware boot failed";
+		if(!ctlr->fwinfo.valid)
+			return "invalid main fw info";
 
 		return postboot(ctlr);
 	}
@@ -3357,7 +3371,7 @@ boot(Ctlr *ctlr)
 		return "wrong firmware image";
 
 	size = ROUND(fw->init.data.size, 16) + ROUND(fw->init.text.size, 16);
-	dma = mallocalign(size, 16, 0, 0);
+	dma = mallocalign(size, 64, 0, 0);
 	if(dma == nil)
 		return "no memory for dma";
 
@@ -3368,11 +3382,13 @@ boot(Ctlr *ctlr)
 
 	p = dma;
 	memmove(p, fw->init.data.data, fw->init.data.size);
+	dmaflush(1, p, fw->init.data.size);
 	coherence();
 	prphwrite(ctlr, BsmDramDataAddr, PCIWADDR(p) >> 4);
 	prphwrite(ctlr, BsmDramDataSize, fw->init.data.size);
 	p += ROUND(fw->init.data.size, 16);
 	memmove(p, fw->init.text.data, fw->init.text.size);
+	dmaflush(1, p, fw->init.text.size);
 	coherence();
 	prphwrite(ctlr, BsmDramTextAddr, PCIWADDR(p) >> 4);
 	prphwrite(ctlr, BsmDramTextSize, fw->init.text.size);
@@ -3416,7 +3432,7 @@ boot(Ctlr *ctlr)
 	free(dma);
 
 	size = ROUND(fw->main.data.size, 16) + ROUND(fw->main.text.size, 16);
-	dma = mallocalign(size, 16, 0, 0);
+	dma = mallocalign(size, 64, 0, 0);
 	if(dma == nil)
 		return "no memory for dma";
 	if((err = niclock(ctlr)) != nil){
@@ -3425,11 +3441,13 @@ boot(Ctlr *ctlr)
 	}
 	p = dma;
 	memmove(p, fw->main.data.data, fw->main.data.size);
+	dmaflush(1, p, fw->main.data.size);
 	coherence();
 	prphwrite(ctlr, BsmDramDataAddr, PCIWADDR(p) >> 4);
 	prphwrite(ctlr, BsmDramDataSize, fw->main.data.size);
 	p += ROUND(fw->main.data.size, 16);
 	memmove(p, fw->main.text.data, fw->main.text.size);
+	dmaflush(1, p, fw->main.text.size);
 	coherence();
 	prphwrite(ctlr, BsmDramTextAddr, PCIWADDR(p) >> 4);
 	prphwrite(ctlr, BsmDramTextSize, fw->main.text.size | (1<<31));
@@ -3528,19 +3546,20 @@ qcmd(Ctlr *ctlr, uint qid, uint code, uchar *data, int size, Block *block)
 
 	/* build descriptor */
 	d = q->d + q->i * Tdscsize;
-	*d++ = 0;
-	*d++ = 0;
-	*d++ = 0;
-	*d++ = 1 + (block != nil); /* nsegs */
-	put32(d, PCIWADDR(c));	d += 4;
-	put16(d, size << 4); d += 2;
+	d[0] = 0;
+	d[1] = 0;
+	d[2] = 0;
+	d[3] = 1 + (block != nil); /* nsegs */
+	dmaflush(1, c, size);
+	put32(d+4, PCIWADDR(c));
+	put16(d+8, size << 4);
 	if(block != nil){
 		size = BLEN(block);
-		put32(d, PCIWADDR(block->rp)); d += 4;
-		put16(d, size << 4); d += 2;
+		dmaflush(1, block->rp, size);
+		put32(d+10, PCIWADDR(block->rp));
+		put16(d+14, size << 4);
 	}
-	USED(d);
-
+	dmaflush(1, d, Tdscsize);
 	coherence();
 
 	q->i = (q->i+1) % Ntx;
@@ -4125,7 +4144,9 @@ receive(Ctlr *ctlr)
 	if(ctlr->broken || rx->s == nil || rx->b == nil)
 		return;
 
-	for(hw = get16(rx->s) % Nrx; rx->i != hw; rx->i = (rx->i + 1) % Nrx){
+	dmaflush(0, rx->s, Rstatsize);
+	hw = get16(rx->s);
+	for(hw %= Nrx; rx->i != hw; rx->i = (rx->i + 1) % Nrx){
 		int type, flags, idx, qid, len;
 
 		b = rx->b[rx->i];
@@ -4133,6 +4154,7 @@ receive(Ctlr *ctlr)
 			continue;
 
 		d = b->rp;
+		dmaflush(0, d, Rbufsize);
 		len = get32(d); d += 4;
 		type = *d++;
 		flags = *d++;
@@ -4444,8 +4466,8 @@ iwlpci(void)
 			family = 7000;
 			fwname = "iwm-7260-17";
 			break;
-		case 0x95a:	/* Wireless AC 7265 */
-		case 0x95b:	/* Wireless AC 7265 */
+		case 0x095a:	/* Wireless AC 7265 */
+		case 0x095b:	/* Wireless AC 7265 */
 			family = 7000;
 			fwname = "iwm-7265-17";
 			break;
