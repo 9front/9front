@@ -8,7 +8,7 @@
 
 char	*noname		= "<none>";
 char	symname[]	= SYMDEF;
-char	thechar		= '5';
+char	thechar		= 't';
 char	*thestring 	= "arm";
 
 /*
@@ -111,7 +111,7 @@ main(int argc, char *argv[])
 	USED(argc);
 
 	if(*argv == 0) {
-		diag("usage: 5l [-options] objects");
+		diag("usage: tl [-options] objects");
 		errorexit();
 	}
 	if(!debug['9'] && !debug['U'] && !debug['B'])
