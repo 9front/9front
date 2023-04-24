@@ -53,4 +53,5 @@ enum {
 };
 
 #define BUSUNKNOWN (-1)
-#define	PCIWADDR(x)	PADDR(x)
+#define PCIWINDOW	0
+#define	PCIWADDR(x)	(PADDR(x)+PCIWINDOW)

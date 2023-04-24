@@ -227,7 +227,7 @@ pcicfgrw8(int tbdf, int rno, int data, int read)
 }
 
 static u16int msimsg;
-#define MSI_TARGET_ADDR		PADDR(&msimsg)
+#define MSI_TARGET_ADDR		PCIWADDR(&msimsg)
 
 enum {
 	MSI_CAP_ID		= 0x50/4,
