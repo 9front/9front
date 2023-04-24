@@ -878,7 +878,7 @@ static Clock clocks[] = {
 	{ "sim_main.cm4clk", ARM_M4_CLK_ROOT },
 	{ "sim_main.enetclk", ENET_AXI_CLK_ROOT, 64 },
 	{ "sim_main.mainclk", MAIN_AXI_CLK_ROOT, 66 },
-	{ "sim_main,mainclk_r", MAIN_AXI_CLK_ROOT, 66 },
+	{ "sim_main.mainclk_r", MAIN_AXI_CLK_ROOT, 66 },
 	{ "sim_main.per_mclk", AHB_CLK_ROOT, 65 },
 	{ "sim_main.per_sclk", AHB_CLK_ROOT, 67 },
 	{ "sim_main.usdhcclk", NAND_USDHC_BUS_CLK_ROOT, 65 },
@@ -963,6 +963,10 @@ static Clock clocks[] = {
 
 	{ "wdog3.ipg_clk", WDOG_CLK_ROOT, 85 },
 	{ "wdog3.ipg_clk_s", WDOG_CLK_ROOT, 85 },
+
+	{ "vpu_g1.clk", VPU_G1_CLK_ROOT, 86 },
+	{ "vpu_g2.clk", VPU_G2_CLK_ROOT,  90 },
+	{ "vpu_dec.clk", VPU_BUS_CLK_ROOT, 99 },
 
 	{ 0 }
 };
