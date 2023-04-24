@@ -93,7 +93,7 @@ enum {
 };
 
 static u32int*
-qcmd(WS *ws, Ctlr *ctlr, int adm, u32int opc, u32int nsid, void *mptr, void *data, ulong len)
+qcmd(WS *ws, Ctlr *ctlr, int adm, u32int opc, u32int nsid, void *data, ulong len)
 {
 	u32int cid, *e;
 	u64int pa;
@@ -129,14 +129,8 @@ qcmd(WS *ws, Ctlr *ctlr, int adm, u32int opc, u32int nsid, void *mptr, void *dat
 	e[1] = nsid;
 	e[2] = 0;
 	e[3] = 0;
-	if(mptr != nil){
-		pa = PCIWADDR(mptr);
-		e[4] = pa;
-		e[5] = pa>>32;
-	} else {
-		e[4] = 0;
-		e[5] = 0;
-	}
+	e[4] = 0;
+	e[5] = 0;
 	if(len > 0){
 		dmaflush(1, data, len);
 		pa = PCIWADDR(data);
@@ -264,7 +258,7 @@ nvmebio(SDunit *u, int lun, int write, void *a, long count, uvlong lba)
 		m = (2*ctlr->mps - ((uintptr)p & ctlr->mps-1)) / s;
 		if((n = count) > m)
 			n = m;
-		e = qcmd(&ws, ctlr, 0, write ? 0x01 : 0x02, nsid, nil, p, n*s);
+		e = qcmd(&ws, ctlr, 0, write ? 0x01 : 0x02, nsid, p, n*s);
 		e[10] = lba;
 		e[11] = lba>>32;
 		e[12] = n-1;
@@ -322,7 +316,7 @@ nvmeonline(SDunit *u)
 	if((info = mallocalign(0x1000, ctlr->mps, 0, 0)) == nil)
 		return 0;
 
-	e = qcmd(&ws, ctlr, 1, 0x06, ctlr->nsid[u->subno], nil, info, 0x1000);
+	e = qcmd(&ws, ctlr, 1, 0x06, ctlr->nsid[u->subno], info, 0x1000);
 	e[10] = 0; // identify namespace
 	if(wcmd(&ws, e) != 0){
 		free(info);
@@ -414,7 +408,7 @@ setupqueues(Ctlr *ctlr)
 	/* CQID1: shared completion queue */
 	cq = &ctlr->cq[1];
 	cqalloc(ctlr, cq, lgsize);
-	e = qcmd(&ws, ctlr, 1, 0x05, 0, nil, cq->base, 1<<lgsize);
+	e = qcmd(&ws, ctlr, 1, 0x05, 0, cq->base, 1<<lgsize);
 	e[10] = (cq - ctlr->cq) | cq->mask<<16;
 	e[11] = 3; /* IEN | PC */
 	checkstatus(wcmd(&ws, e), "create completion queue");
@@ -425,7 +419,7 @@ setupqueues(Ctlr *ctlr)
 	for(i=1; i<=conf.nmach; i++){
 		sq = &ctlr->sq[i];
 		sqalloc(ctlr, sq, 12);
-		e = qcmd(&ws, ctlr, 1, 0x01, 0, nil, sq->base, 0x1000);
+		e = qcmd(&ws, ctlr, 1, 0x01, 0, sq->base, 0x1000);
 		e[10] = i | sq->mask<<16;
 		e[11] = (cq - ctlr->cq)<<16 | 1;	/* CQID<<16 | PC */
 		st = wcmd(&ws, e);
@@ -460,12 +454,12 @@ identify(Ctlr *ctlr)
 		if((ctlr->nsid = mallocalign(0x1000, ctlr->mps, 0, 0)) == nil)
 			error(Enomem);
 
-	e = qcmd(&ws, ctlr, 1, 0x06, 0, nil, ctlr->ident, 0x1000);
+	e = qcmd(&ws, ctlr, 1, 0x06, 0, ctlr->ident, 0x1000);
 	e[10] = 1; // identify controller
 	checkstatus(wcmd(&ws, e), "identify controller");
 	dmaflush(0, ctlr->ident, 0x1000);
 
-	e = qcmd(&ws, ctlr, 1, 0x06, 0, nil, ctlr->nsid, 0x1000);
+	e = qcmd(&ws, ctlr, 1, 0x06, 0, ctlr->nsid, 0x1000);
 	e[10] = 2; // namespace list 
 	if(wcmd(&ws, e) == 0) {
 		dmaflush(0, ctlr->nsid, 0x1000);
