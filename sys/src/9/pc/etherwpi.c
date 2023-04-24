@@ -1786,6 +1786,7 @@ wpipci(void)
 		switch(pdev->did){
 		default:
 			continue;
+		case 0x4222:
 		case 0x4227:
 			break;
 		}
