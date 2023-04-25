@@ -386,11 +386,11 @@ displaythread(void*)
 				p.y += f->height;
 			}
 
-			p.x = r.min.x - stringwidth(f, "出口")/2;
+			p.x = r.min.x - stringwidth(f, "終了")/2;
 			p.y = screen->r.max.y - f->height;
 			exitr = Rpt(Pt(0, p.y), screen->r.max);
 			draw(screen, exitr, board, nil, ZP);
-			string(screen, p, text, ZP, f, "出口");
+			string(screen, p, text, ZP, f, "終了");
 			flushimage(display, 1);
 			break;
 		}
