@@ -41,6 +41,7 @@ ALL=\
 	port\
 	colophon\
 	nupas/nupas\
+	nssec\
 
 ALLPS=${ALL:%=%.ps}
 HTML=${ALL:%=%.html} release3.html release4.html
