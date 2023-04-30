@@ -242,13 +242,13 @@ creating backing store for the menu, writing the menu directly on the display, a
 restoring the display when the menu is removed.
 .PP
 .I Enter
-is a multithreded version of the
-.I eenter
+is a multithreaded version of the
+.I enter
 function described in
 .IR event (2).
 Like
 .I menuhit,
-it has a optional
+it has an optional
 .B scr
 argument to create a window. Keyboard input is read from the channel in the
 .B Keyboardctl *kc
