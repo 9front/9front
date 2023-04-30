@@ -138,7 +138,7 @@ rwalk(void)
 				if(isroot(dp->addr))
 					f->qid.path = f->xf->rootqid.path;
 				else
-					f->qid.path = QIDPATH(dp);
+					f->qid.path = QIDPATH(dp, f->xf);
 			}
 		}else{
 			fixname(req->wname[rep->nwqid]);
@@ -155,7 +155,7 @@ rwalk(void)
 			if(r < 0)
 				goto error;
 			memmove(f->ptr, dp, sizeof(Dosptr));
-			f->qid.path = QIDPATH(dp);
+			f->qid.path = QIDPATH(dp, f->xf);
 			f->qid.type = QTFILE;
 			if(isroot(dp->addr))
 				f->qid.path = f->xf->rootqid.path;
@@ -457,7 +457,7 @@ badperm:
 	 */
 	f->ptr = ndp;
 	f->qid.type = QTFILE;
-	f->qid.path = QIDPATH(ndp);
+	f->qid.path = QIDPATH(ndp, f->xf);
 
 //ZZZ set type for excl, append?
 	if(req->perm & DMDIR){
@@ -567,7 +567,7 @@ doremove(Xfs *xf, Dosptr *dp)
 	}
 	if(prevdo < 0 && dp->prevaddr != -1){
 		p = getsect(xf, dp->prevaddr);
-		for(prevdo = ((Dosbpb*)xf->ptr)->sectsize-DOSDIRSIZE; prevdo >= 0; prevdo -= DOSDIRSIZE){
+		for(prevdo = xf->sectsize-DOSDIRSIZE; prevdo >= 0; prevdo -= DOSDIRSIZE){
 			if(p->iobuf[prevdo+11] != 0xf)
 				break;
 			p->iobuf[prevdo] = DOSEMPTY;
@@ -636,17 +636,17 @@ out:
 static int
 dostat(Xfile *f, Dir *d)
 {
-	Dosptr *dp;
+	Xfs *xf = f->xf;
+	Dosptr *dp = f->ptr;
 	Iosect *p;
 	char *name, namebuf[DOSNAMELEN];
 	int islong, sum, prevdo;
 
-	dp = f->ptr;
 	if(isroot(dp->addr)){
 		memset(d, 0, sizeof(Dir));
 		d->name = "/";
 		d->qid.type = QTDIR;
-		d->qid.path = f->xf->rootqid.path;
+		d->qid.path = xf->rootqid.path;
 		d->mode = DMDIR|0777;
 		d->uid = "bill";
 		d->muid = "bill";
@@ -664,17 +664,17 @@ dostat(Xfile *f, Dir *d)
 			name = getnamesect(namebuf, name, &dp->p->iobuf[prevdo], &islong, &sum, -1);
 		}
 		if(prevdo < 0 && dp->prevaddr != -1){
-			p = getsect(f->xf, dp->prevaddr);
+			p = getsect(xf, dp->prevaddr);
 			if(p == nil)
 				return -1;
-			for(prevdo = ((Dosbpb*)f->xf->ptr)->sectsize-DOSDIRSIZE; prevdo >= 0; prevdo -= DOSDIRSIZE){
+			for(prevdo = xf->sectsize-DOSDIRSIZE; prevdo >= 0; prevdo -= DOSDIRSIZE){
 				if(p->iobuf[prevdo+11] != 0xf)
 					break;
 				name = getnamesect(namebuf, name, &p->iobuf[prevdo], &islong, &sum, -1);
 			}
 			putsect(p);
 		}
-		getdir(f->xf, d, dp->d, dp->addr, dp->offset);
+		getdir(xf, d, dp->d, dp->addr, dp->offset);
 		if(islong && sum == -1 && nameok(namebuf))
 			strcpy(d->name, namebuf);
 	}
@@ -894,7 +894,7 @@ rwstat(void)
 		/*
 		 * relocate up other fids to the same file, if it moved
 		 */
-		f->qid.path = QIDPATH(dp);
+		f->qid.path = QIDPATH(dp, pf.xf);
 		if(oaddr != dp->addr || ooffset != dp->offset)
 			dosptrreloc(f, dp, oaddr, ooffset);
 

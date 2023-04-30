@@ -39,9 +39,10 @@ isdosfs(uchar *buf)
 int
 dosfs(Xfs *xf)
 {
-	Iosect *p, *p1;
-	Dosboot *b;
+	Iosect *p1;
 	Fatinfo *fi;
+	uchar	buf[512];
+	Dosboot *b;
 	Dosboot32 *b32;
 	Dosbpb *bp;
 	long fisec, extflags;
@@ -72,22 +73,28 @@ dosfs(Xfs *xf)
 		isdos['&'] = 1;
 	}
 
-	p = getsect(xf, 0);
-	if(p == nil)
+	/* don't use getsect() before we we determinted real values */
+	xf->sectsize = 512;
+	xf->sect2trk = 9;
+	devread(xf, 0, buf, sizeof(buf));
+
+	if(!isdosfs(buf))
 		return -1;
 
-	b = (Dosboot*)p->iobuf;
-	if(b->clustsize == 0 || isdosfs(p->iobuf) == 0){
-		putsect(p);
+	b = (Dosboot*)buf;
+
+	xf->sectsize = GSHORT(b->sectsize);
+	if(xf->sectsize < 32)
 		return -1;
-	}
+
+	xf->sect2trk = GSHORT(b->trksize);
+	if(xf->sect2trk < 1)
+		return -1;
 
 	bp = malloc(sizeof(Dosbpb));
 	memset(bp, 0, sizeof(Dosbpb));	/* clear lock */
 	xf->ptr = bp;
 	xf->fmt = 1;
-
-	bp->sectsize = GSHORT(b->sectsize);
 	bp->clustsize = b->clustsize;
 	bp->nresrv = GSHORT(b->nresrv);
 	bp->nfats = b->nfats;
@@ -102,13 +109,12 @@ dosfs(Xfs *xf)
 	bp->fatinfo = 0;
 
 	if(bp->fatsize == 0){	/* is FAT32 */
+		b32 = (Dosboot32*)buf;
 		if(chatty)
-			bootsecdump32(2, xf, (Dosboot32*)b);
+			bootsecdump32(2, xf, b32);
 		xf->isfat32 = 1;
-		b32 = (Dosboot32*)b;
 		bp->fatsize = GLONG(b32->fatsize32);
 		if(bp->fatsize == 0){
-			putsect(p);
 			if(chatty)
 				fprint(2, "fatsize 0\n");
 			return -1;
@@ -155,7 +161,7 @@ dosfs(Xfs *xf)
 			bootdump(2, b);
 		bp->rootaddr = bp->fataddr + bp->nfats*bp->fatsize;
 		bp->rootstart = 0;
-		bp->dataaddr = bp->rootaddr + (bp->rootsize*DOSDIRSIZE + bp->sectsize-1)/bp->sectsize;
+		bp->dataaddr = bp->rootaddr + (bp->rootsize*DOSDIRSIZE + xf->sectsize-1)/xf->sectsize;
 		bp->freeptr = FATRESRV;
 	}
 	bp->fatclusters = FATRESRV + (bp->volsize - bp->dataaddr)/bp->clustsize;
@@ -172,7 +178,6 @@ dosfs(Xfs *xf)
 		chat("fat %d: %lld...", i, bp->fataddr+i*bp->fatsize);
 	chat("root: %lld...", bp->rootaddr);
 	chat("data: %lld...", bp->dataaddr);
-	putsect(p);
 	return 0;
 }
 
@@ -215,8 +220,8 @@ getfile(Xfile *f)
 	 */
 	dp->d = nil;
 	if(!isroot(dp->addr)){
-		if(f->qid.path != QIDPATH(dp)){
-			chat("qid mismatch f=%#llux d=%#llux...", f->qid.path, QIDPATH(dp));
+		if(f->qid.path != QIDPATH(dp, f->xf)){
+			chat("qid mismatch f=%#llux d=%#llux...", f->qid.path, QIDPATH(dp, f->xf));
 			putsect(p);
 			errno = Enonexist;
 			return -1;
@@ -265,33 +270,29 @@ putstart(Xfs *xf, Dosdir *d, long start)
 long
 fileclust(Xfile *f, long iclust, int cflag)
 {
-	Dosbpb *bp;
-	Dosptr *dp;
-	Dosdir *d;
-	long start, clust, nskip, next;
-
-	bp = f->xf->ptr;
-	dp = f->ptr;
-	d = dp->d;
-	next = 0;
+	Xfs *xf = f->xf;
+	Dosbpb *bp = xf->ptr;
+	Dosptr *dp = f->ptr;
+	Dosdir *d = dp->d;
+	long start, clust, nskip, next = 0;
 
 	/* 
 	 * asking for the cluster of the root directory
 	 * is not a well-formed question, since the root directory
 	 * does not begin on a cluster boundary.
 	 */
-	if(!f->xf->isfat32 && isroot(dp->addr))
+	if(!xf->isfat32 && isroot(dp->addr))
 		return -1;
 
-	if(f->xf->isfat32 && isroot(dp->addr)){
+	if(xf->isfat32 && isroot(dp->addr)){
 		start = bp->rootstart;
 	}else{
-		start = getstart(f->xf, d);
+		start = getstart(xf, d);
 		if(start == 0){
 			if(!cflag)
 				return -1;
 			mlock(bp);
-			start = falloc(f->xf);
+			start = falloc(xf);
 			unmlock(bp);
 			if(start <= 0)
 				return -1;
@@ -315,7 +316,7 @@ fileclust(Xfile *f, long iclust, int cflag)
 	if(nskip > 0){
 		mlock(bp);
 		while(--nskip >= 0){
-			next = getfat(f->xf, clust);
+			next = getfat(xf, clust);
 			if(chatty > 1)
 				chat("->%#lx", next);
 			if(next > 0){
@@ -329,10 +330,10 @@ fileclust(Xfile *f, long iclust, int cflag)
 					break;
 				/* cfalloc will call putfat for us, since clust may change */
 			} else {
-				next = falloc(f->xf);
+				next = falloc(xf);
 				if(next < 0)
 					break;
-				putfat(f->xf, clust, next);
+				putfat(xf, clust, next);
 			}
 			clust = next;
 		}
@@ -353,14 +354,15 @@ fileclust(Xfile *f, long iclust, int cflag)
 vlong
 fileaddr(Xfile *f, long isect, int cflag)
 {
+	Xfs *xf = f->xf;
 	Dosbpb *bp;
 	Dosptr *dp;
 	long clust;
 
-	bp = f->xf->ptr;
+	bp = xf->ptr;
 	dp = f->ptr;
 	if(!f->xf->isfat32 && isroot(dp->addr)){
-		if(isect*bp->sectsize >= bp->rootsize*DOSDIRSIZE)
+		if(isect*xf->sectsize >= bp->rootsize*DOSDIRSIZE)
 			return -1;
 		return bp->rootaddr + isect;
 	}
@@ -512,14 +514,12 @@ searchdir(Xfile *f, char *name, Dosptr *dp, int cflag, int longtype)
 {
 	Xfs *xf;
 	Iosect *p;
-	Dosbpb *bp;
 	Dosdir *d;
 	char buf[261], *bname;
 	int isect, o, o1, islong, have, need, sum;
 	vlong addr, addr1, addr2, prevaddr, prevaddr1;
 
 	xf = f->xf;
-	bp = xf->ptr;
 	addr1 = -1;
 	addr2 = -1;
 	prevaddr1 = -1;
@@ -548,7 +548,7 @@ searchdir(Xfile *f, char *name, Dosptr *dp, int cflag, int longtype)
 		p = getsect(xf, addr);
 		if(p == nil)
 			break;
-		for(o=0; o<bp->sectsize; o+=DOSDIRSIZE){
+		for(o=0; o<xf->sectsize; o+=DOSDIRSIZE){
 			d = (Dosdir *)&p->iobuf[o];
 			if(d->name[0] == 0x00){
 				chat("end dir(0)...");
@@ -569,7 +569,7 @@ searchdir(Xfile *f, char *name, Dosptr *dp, int cflag, int longtype)
 					prevaddr1 = prevaddr;
 					o1 = o;
 				}
-				if(addr2 < 0 && (bp->sectsize-o)/DOSDIRSIZE + have < need){
+				if(addr2 < 0 && (xf->sectsize-o)/DOSDIRSIZE + have < need){
 					addr2 = fileaddr(f, isect+1, cflag);
 					if(addr2 < 0)
 						goto breakout;
@@ -641,7 +641,6 @@ int
 emptydir(Xfile *f)
 {
 	Xfs *xf = f->xf;
-	Dosbpb *bp = xf->ptr;
 	int isect, o;
 	vlong addr;
 	Iosect *p;
@@ -654,7 +653,7 @@ emptydir(Xfile *f)
 		p = getsect(xf, addr);
 		if(p == nil)
 			return -1;
-		for(o=0; o<bp->sectsize; o+=DOSDIRSIZE){
+		for(o=0; o<xf->sectsize; o+=DOSDIRSIZE){
 			d = (Dosdir *)&p->iobuf[o];
 			if(d->name[0] == 0x00){
 				putsect(p);
@@ -678,7 +677,6 @@ long
 readdir(Xfile *f, void *vbuf, vlong offset, long count)
 {
 	Xfs *xf;
-	Dosbpb *bp;
 	Dir dir;
 	int isect, o, islong, sum;
 	vlong addr;
@@ -691,7 +689,6 @@ readdir(Xfile *f, void *vbuf, vlong offset, long count)
 	buf = vbuf;
 	rcnt = 0;
 	xf = f->xf;
-	bp = xf->ptr;
 	if(count <= 0)
 		return 0;
 	islong = 0;
@@ -704,7 +701,7 @@ readdir(Xfile *f, void *vbuf, vlong offset, long count)
 		p = getsect(xf, addr);
 		if(p == nil)
 			return -1;
-		for(o=0; o<bp->sectsize; o+=DOSDIRSIZE){
+		for(o=0; o<xf->sectsize; o+=DOSDIRSIZE){
 			d = (Dosdir *)&p->iobuf[o];
 			if(d->name[0] == 0x00){
 				putsect(p);
@@ -763,15 +760,14 @@ readdir(Xfile *f, void *vbuf, vlong offset, long count)
 int
 walkup(Xfile *f, Dosptr *ndp)
 {
-	Dosbpb *bp;
-	Dosptr *dp;
+	Xfs *xf = f->xf;
+	Dosbpb *bp = xf->ptr;
+	Dosptr *dp = f->ptr;
 	Dosdir *xd;
 	Iosect *p;
 	long o, so, start, pstart, ppstart, st, ppclust;
 	vlong k;
 
-	bp = f->xf->ptr;
-	dp = f->ptr;
 	memset(ndp, 0, sizeof(Dosptr));
 	ndp->prevaddr = -1;
 	ndp->naddr = -1;
@@ -789,12 +785,12 @@ walkup(Xfile *f, Dosptr *ndp)
 	/*
 	 * find the start of our parent's directory
 	 */
-	p = getsect(f->xf, dp->paddr);
+	p = getsect(xf, dp->paddr);
 	if(p == nil)
 		goto error;
 	xd = (Dosdir *)&p->iobuf[dp->poffset];
 	dirdump(xd);
-	start = getstart(f->xf, xd);
+	start = getstart(xf, xd);
 	chat("start=%#lx...", start);
 	if(start == 0)
 		goto error;
@@ -808,7 +804,7 @@ walkup(Xfile *f, Dosptr *ndp)
 		goto error;
 	xd = (Dosdir *)p->iobuf;
 	dirdump(xd);
-	st = getstart(f->xf, xd);
+	st = getstart(xf, xd);
 	if(xd->name[0]!='.' || xd->name[1]!=' ' || start!=st)
 		goto error;
 
@@ -819,26 +815,26 @@ walkup(Xfile *f, Dosptr *ndp)
 	dirdump(xd);
 	if(xd->name[0] != '.' || xd->name[1] != '.')
 		goto error;
-	pstart = getstart(f->xf, xd);
+	pstart = getstart(xf, xd);
 	putsect(p);
 
 	/*
 	 * we're done if parent is root
 	 */
-	if(pstart == 0 || f->xf->isfat32 && pstart == bp->rootstart)
+	if(pstart == 0 || xf->isfat32 && pstart == bp->rootstart)
 		return 0;
 
 	/*
 	 * verify that parent's . points to itself
 	 */
-	p = getsect(f->xf, clust2sect(bp, pstart));
+	p = getsect(xf, clust2sect(bp, pstart));
 	if(p == nil){
 		chat("getsect %ld failed\n", pstart);
 		goto error;
 	}
 	xd = (Dosdir *)p->iobuf;
 	dirdump(xd);
-	st = getstart(f->xf, xd);
+	st = getstart(xf, xd);
 	if(xd->name[0]!='.' || xd->name[1]!=' ' || pstart!=st)
 		goto error;
 
@@ -849,7 +845,7 @@ walkup(Xfile *f, Dosptr *ndp)
 	dirdump(xd);
 	if(xd->name[0] != '.' || xd->name[1] != '.')
 		goto error;
-	ppstart = getstart(f->xf, xd);
+	ppstart = getstart(xf, xd);
 	putsect(p);
 
 	/*
@@ -857,12 +853,12 @@ walkup(Xfile *f, Dosptr *ndp)
 	 * need this to find parent's parent's addr and offset
 	 */
 	ppclust = ppstart;
-	if(f->xf->isfat32 && ppclust == 0){
+	if(xf->isfat32 && ppclust == 0){
 		ppclust = bp->rootstart;
 		chat("ppclust 0, resetting to rootstart\n");
 	}
 	k = ppclust ? clust2sect(bp, ppclust) : bp->rootaddr;
-	p = getsect(f->xf, k);
+	p = getsect(xf, k);
 	if(p == nil){
 		chat("getsect %lld failed\n", k);
 		goto error;
@@ -870,12 +866,12 @@ walkup(Xfile *f, Dosptr *ndp)
 	xd = (Dosdir *)p->iobuf;
 	dirdump(xd);
 	if(ppstart){
-		st = getstart(f->xf, xd);
+		st = getstart(xf, xd);
 		if(xd->name[0]!='.' || xd->name[1]!=' ' || ppstart!=st)
 			goto error;
 	}
 	for(so=1;; so++){
-		for(o=0; o<bp->sectsize; o+=DOSDIRSIZE){
+		for(o=0; o<xf->sectsize; o+=DOSDIRSIZE){
 			xd = (Dosdir *)&p->iobuf[o];
 			if(xd->name[0] == 0x00){
 				chat("end dir\n");
@@ -883,14 +879,14 @@ walkup(Xfile *f, Dosptr *ndp)
 			}
 			if(xd->name[0] == DOSEMPTY)
 				continue;
-			st = getstart(f->xf, xd);
+			st = getstart(xf, xd);
 			if(st == pstart)
 				goto out;
 		}
 		if(ppclust){
 			if(so%bp->clustsize == 0){
 				mlock(bp);
-				ppclust = getfat(f->xf, ppclust);
+				ppclust = getfat(xf, ppclust);
 				unmlock(bp);
 				if(ppclust < 0){
 					chat("getfat %ld failed\n", ppclust);
@@ -899,12 +895,12 @@ walkup(Xfile *f, Dosptr *ndp)
 			}
 			k = clust2sect(bp, ppclust) + so%bp->clustsize;
 		}else{
-			if(so*bp->sectsize >= bp->rootsize*DOSDIRSIZE)
+			if(so*xf->sectsize >= bp->rootsize*DOSDIRSIZE)
 				goto error;
 			k = bp->rootaddr + so;
 		}
 		putsect(p);
-		p = getsect(f->xf, k);
+		p = getsect(xf, k);
 		if(p == nil){
 			chat("getsect %lld failed\n", k);
 			goto error;
@@ -926,7 +922,6 @@ long
 readfile(Xfile *f, void *vbuf, vlong offset, long count)
 {
 	Xfs *xf = f->xf;
-	Dosbpb *bp = xf->ptr;
 	Dosptr *dp = f->ptr;
 	Dosdir *d = dp->d;
 	int isect, o, c;
@@ -947,13 +942,13 @@ readfile(Xfile *f, void *vbuf, vlong offset, long count)
 		return 0;
 	if(offset+count >= length)
 		count = length - offset;
-	isect = offset/bp->sectsize;
-	o = offset%bp->sectsize;
+	isect = offset/xf->sectsize;
+	o = offset%xf->sectsize;
 	while(count > 0){
 		addr = fileaddr(f, isect++, 0);
 		if(addr < 0)
 			break;
-		c = bp->sectsize - o;
+		c = xf->sectsize - o;
 		if(c > count)
 			c = count;
 		p = getsect(xf, addr);
@@ -989,16 +984,16 @@ writefile(Xfile *f, void *vbuf, vlong offset, long count)
 	rcnt = 0;
 	addr = 0;
 	buf = vbuf;
-	isect = offset/bp->sectsize;
-	o = offset%bp->sectsize;
+	isect = offset/xf->sectsize;
+	o = offset%xf->sectsize;
 	while(count > 0){
 		addr = fileaddr(f, isect++, 1);
 		if(addr < 0)
 			break;
-		c = bp->sectsize - o;
+		c = xf->sectsize - o;
 		if(c > count)
 			c = count;
-		if(c == bp->sectsize){
+		if(c == xf->sectsize){
 			p = getosect(xf, addr);
 			p->flags = 0;
 		}else{
@@ -1020,7 +1015,7 @@ writefile(Xfile *f, void *vbuf, vlong offset, long count)
 	if(rcnt > 0)
 		length = offset+rcnt;
 	else if(dp->addr && dp->clust){
-		c = bp->clustsize*bp->sectsize;
+		c = bp->clustsize*xf->sectsize;
 		if(dp->iclust > (dlen+c-1)/c)
 			length = (ulong)c*dp->iclust;
 	}
@@ -1045,18 +1040,18 @@ truncfile(Xfile *f, vlong length)
 		return -1;
 
 	mlock(bp);
-	clust = getstart(f->xf, d);
+	clust = getstart(xf, d);
 	n = length;
 	if(n <= 0)
-		putstart(f->xf, d, 0);
+		putstart(xf, d, 0);
 	else
-		n -= bp->sectsize;
+		n -= xf->sectsize;
 	while(clust > 0){
 		next = getfat(xf, clust);
 		if(n <= 0)
 			putfat(xf, clust, 0);
 		else
-			n -= bp->clustsize*bp->sectsize;
+			n -= bp->clustsize*xf->sectsize;
 		clust = next;
 	}
 	unmlock(bp);
@@ -1089,7 +1084,7 @@ putdir(Dosdir *d, Dir *dp)
  * creation and access dates
  */
 void
-getdir(Xfs *xfs, Dir *dp, Dosdir *d, vlong addr, int offset)
+getdir(Xfs *xf, Dir *dp, Dosdir *d, vlong addr, int offset)
 {
 	if(d == nil || addr == 0)
 		panic("getdir on root");
@@ -1097,7 +1092,7 @@ getdir(Xfs *xfs, Dir *dp, Dosdir *d, vlong addr, int offset)
 	dp->dev = 0;
 	getname(dp->name, d);
 
-	dp->qid.path = addr*(Sectorsize/DOSDIRSIZE) +
+	dp->qid.path = addr*(xf->sectsize/DOSDIRSIZE) +
 			offset/DOSDIRSIZE;
 	dp->qid.vers = 0;
 
@@ -1116,7 +1111,7 @@ getdir(Xfs *xfs, Dir *dp, Dosdir *d, vlong addr, int offset)
 		dp->length = GLONG(d->length);
 	if(d->attr & DSYSTEM){
 		dp->mode |= DMEXCL;
-		if(iscontig(xfs, d))
+		if(iscontig(xf, d))
 			dp->mode |= DMAPPEND;
 	}
 
@@ -1308,7 +1303,6 @@ aliassum(Dosdir *d)
 int
 putlongname(Xfs *xf, Dosptr *ndp, char *name, char sname[13])
 {
-	Dosbpb *bp;
 	Dosdir tmpd;
 	Rune longname[DOSNAMELEN+1];
 	int i, first, sum, nds, len;
@@ -1317,7 +1311,6 @@ putlongname(Xfs *xf, Dosptr *ndp, char *name, char sname[13])
 	putname(sname, &tmpd);
 	sum = aliassum(&tmpd);
 
-	bp = xf->ptr;
 	first = 1;
 	len = utftorunes(longname, name, DOSNAMELEN);
 	if(chatty){
@@ -1330,7 +1323,7 @@ putlongname(Xfs *xf, Dosptr *ndp, char *name, char sname[13])
 		putnamesect(&ndp->p->iobuf[ndp->offset], longname, nds, first, sum);
 		first = 0;
 		ndp->offset += 32;
-		if(ndp->offset == bp->sectsize){
+		if(ndp->offset == xf->sectsize){
 			chat("long name moving over sector boundary\n");
 			ndp->p->flags |= BMOD;
 			putsect(ndp->p);
@@ -1368,15 +1361,15 @@ getfat(Xfs *xf, long n)
 		return -1;
 	fb = bp->fatbits;
 	k = (fb * n) >> 3;
-	if(k >= bp->fatsize*bp->sectsize)
+	if(k >= bp->fatsize*xf->sectsize)
 		panic("getfat");
-	sect = k/bp->sectsize + bp->fataddr;
-	o = k%bp->sectsize;
+	sect = k/xf->sectsize + bp->fataddr;
+	o = k%xf->sectsize;
 	p = getsect(xf, sect);
 	if(p == nil)
 		return -1;
 	k = p->iobuf[o++];
-	if(o >= bp->sectsize){
+	if(o >= xf->sectsize){
 		putsect(p);
 		p = getsect(xf, sect+1);
 		if(p == nil)
@@ -1426,12 +1419,12 @@ putfat(Xfs *xf, int n, ulong val)
 	if(n < FATRESRV || n >= bp->fatclusters)
 		panic("putfat n=%d", n);
 	k = (bp->fatbits * n) >> 3;
-	if(k >= bp->fatsize*bp->sectsize)
+	if(k >= bp->fatsize*xf->sectsize)
 		panic("putfat");
-	sect = k/bp->sectsize + bp->fataddr;
+	sect = k/xf->sectsize + bp->fataddr;
 	esect = sect + bp->nfats * bp->fatsize;
 	for(; sect<esect; sect+=bp->fatsize){
-		o = k%bp->sectsize;
+		o = k%xf->sectsize;
 		p = getsect(xf, sect);
 		if(p == nil)
 			continue;
@@ -1440,7 +1433,7 @@ putfat(Xfs *xf, int n, ulong val)
 			if(n&1){
 				p->iobuf[o] &= 0x0f;
 				p->iobuf[o++] |= val<<4;
-				if(o >= bp->sectsize){
+				if(o >= xf->sectsize){
 					p->flags |= BMOD;
 					putsect(p);
 					p = getsect(xf, sect+1);
@@ -1451,7 +1444,7 @@ putfat(Xfs *xf, int n, ulong val)
 				p->iobuf[o] = val>>4;
 			}else{
 				p->iobuf[o++] = val;
-				if(o >= bp->sectsize){
+				if(o >= xf->sectsize){
 					p->flags |= BMOD;
 					putsect(p);
 					p = getsect(xf, sect+1);
@@ -1633,7 +1626,7 @@ makecontig(Xfile *f, int nextra)
 				return -1;
 			wp = getosect(xf, ws);
 			assert(wp != nil);
-			memmove(wp->iobuf, rp->iobuf, bp->sectsize);
+			memmove(wp->iobuf, rp->iobuf, xf->sectsize);
 			wp->flags = BMOD;
 			putsect(rp);
 			putsect(wp);
@@ -1702,7 +1695,7 @@ falloc(Xfs *xf)
 	k = clust2sect(bp, n);
 	for(i=0; i<bp->clustsize; i++){
 		p = getosect(xf, k+i);
-		memset(p->iobuf, 0, bp->sectsize);
+		memset(p->iobuf, 0, xf->sectsize);
 		p->flags = BMOD;
 		putsect(p);
 	}

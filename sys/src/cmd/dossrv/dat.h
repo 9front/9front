@@ -118,7 +118,6 @@ struct Fatinfo
  */
 struct Dosbpb{
 	MLock;				/* access to fat */
-	int	sectsize;		/* in bytes */
 	int	clustsize;		/* in sectors */
 	int	nresrv;			/* sectors */
 	int	nfats;			/* usually 2; modified to 1 if fat mirroring disabled */
@@ -190,7 +189,7 @@ struct Dosptr{
 	Dosdir *d;
 };
 
-#define	QIDPATH(p)	((p)->addr*(Sectorsize/DOSDIRSIZE) + \
+#define	QIDPATH(p, xf)	((p)->addr*((xf)->sectsize/DOSDIRSIZE) + \
 			 (p)->offset/DOSDIRSIZE)
 
 struct Xfs{
@@ -203,6 +202,8 @@ struct Xfs{
 	uchar	isfat32;	/* is a fat 32 file system? */
 	short	dev;
 	short	fmt;
+	int	sectsize;
+	int	sect2trk;
 	vlong	offset;
 	void	*ptr;
 };

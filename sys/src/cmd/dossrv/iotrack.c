@@ -4,6 +4,9 @@
 #include "dat.h"
 #include "fns.h"
 
+static MLock	freelock;
+static Iosect *	freelist;
+
 #define	HIOB		31	/* a prime */
 #define	NIOBUF		80
 
@@ -19,6 +22,10 @@ static Iotrack	iobuf[NIOBUF];		/* the real ones */
 
 #define	TOFRONT(h, p)	((h)->next  != (p) && (UNLINK(p, next, prev), LINK(h,p, next, prev)))
 
+static Iotrack *getiotrack(Xfs*, vlong);
+static Iosect *getiosect(Xfs*, vlong, int);
+static void purgetrack(Iotrack*);
+
 Iosect *
 getsect(Xfs *xf, vlong addr)
 {
@@ -31,19 +38,21 @@ getosect(Xfs *xf, vlong addr)
 	return getiosect(xf, addr, 0);
 }
 
-Iosect *
+static Iosect *
 getiosect(Xfs *xf, vlong addr, int rflag)
 {
-	Iotrack *t;
 	vlong taddr;
 	int toff;
+	Iotrack *t;
 	Iosect *p;
 
 	if(addr < 0)
 		return nil;
-	toff = addr % Sect2trk;
+	toff = addr % xf->sect2trk;
 	taddr = addr - toff;
 	t = getiotrack(xf, taddr);
+	if(t == nil)
+		return nil;
 	if(rflag && (t->flags&BSTALE)){
 		if(tread(t) < 0){
 			unmlock(&t->lock);
@@ -51,16 +60,31 @@ getiosect(Xfs *xf, vlong addr, int rflag)
 		}
 		t->flags &= ~BSTALE;
 	}
-	t->ref++;
-	p = t->tp->p[toff];
-	if(p == 0){
-		p = newsect();
-		t->tp->p[toff] = p;
+	p = t->tp[toff];
+	if(p == nil){
+		mlock(&freelock);
+		p = freelist;
+		if(p != nil)
+			freelist = p->next;
+		else {
+			p = malloc(sizeof(Iosect));
+			if(p == nil) {
+				unmlock(&freelock);
+				unmlock(&t->lock);
+				return nil;
+			}
+		}
+		p->next = nil;
+		unmlock(&freelock);
+
 		p->flags = t->flags&BSTALE;
 		p->lock.key = 0;
+		p->iobuf = ((uchar*)&t->tp[xf->sect2trk]) + toff*xf->sectsize;
 		p->t = t;
-		p->iobuf = t->tp->buf[toff];
+
+		t->tp[toff] = p;
 	}
+	t->ref++;
 	unmlock(&t->lock);
 	mlock(&p->lock);
 	return p;
@@ -87,7 +111,7 @@ putsect(Iosect *p)
 	unmlock(&p->lock);
 }
 
-Iotrack *
+static Iotrack *
 getiotrack(Xfs *xf, vlong addr)
 {
 	Iotrack *hp, *p;
@@ -142,8 +166,14 @@ loop:
 		goto loop;
 	}
 	purgetrack(p);
-	p->addr = addr;
+	p->tp = malloc(xf->sect2trk*sizeof(Iosect*) + xf->sect2trk*xf->sectsize);
+	if(p->tp == nil){
+		unmlock(&p->lock);
+		return nil;
+	}
+	memset(p->tp, 0, xf->sect2trk*sizeof(Iosect*));
 	p->xf = xf;
+	p->addr = addr;
 	p->flags = BSTALE;
 out:
 	mlock(&hp->lock);
@@ -155,39 +185,55 @@ out:
 	return p;
 }
 
-void
+static void
 purgetrack(Iotrack *t)
 {
-	int i, ref = Sect2trk;
-	Iosect *p;
+	if(t->tp != nil){
+		Xfs *xf = t->xf;
+		int i, ref = xf->sect2trk;
 
-	for(i=0; i<Sect2trk; i++){
-		p = t->tp->p[i];
-		if(p == 0){
-			--ref;
-			continue;
+		for(i=0; i<xf->sect2trk; i++){
+			Iosect *p = t->tp[i];
+			if(p == nil){
+				--ref;
+				continue;
+			}
+			if(canmlock(&p->lock)){
+				t->tp[i] = nil;
+
+				mlock(&freelock);
+				p->next = freelist;
+				freelist = p;
+				unmlock(&freelock);
+				--ref;
+			}
 		}
-		if(canmlock(&p->lock)){
-			freesect(p);
-			--ref;
-			t->tp->p[i] = 0;
-		}
+		if(t->ref != ref)
+			panic("purgetrack");
+		if(ref != 0)
+			return;
+
+		free(t->tp);
 	}
-	if(t->ref != ref)
-		panic("purgetrack");
+	assert(t->ref == 0);
+	t->tp = nil;
+	t->xf = nil;
+	t->addr = -1;
+	t->flags = 0;
 }
 
 int
 twrite(Iotrack *t)
 {
-	int i, ref;
+	Xfs *xf = t->xf;
 
-	chat("[twrite %lld...", t->addr);
+	chat("[twrite %lld+%lld...", t->addr, xf->offset);
 	if(t->flags & BSTALE){
-		for(ref=0,i=0; i<Sect2trk; i++)
-			if(t->tp->p[i])
+		int i, ref = 0;
+		for(i=0; i<xf->sect2trk; i++)
+			if(t->tp[i] != nil)
 				++ref;
-		if(ref < Sect2trk){
+		if(ref < xf->sect2trk){
 			if(tread(t) < 0){
 				chat("error]");
 				return -1;
@@ -195,7 +241,7 @@ twrite(Iotrack *t)
 		}else
 			t->flags &= ~BSTALE;
 	}
-	if(devwrite(t->xf, t->addr, t->tp->buf, Trksize) < 0){
+	if(devwrite(xf, t->addr, (uchar*)&t->tp[xf->sect2trk], xf->sect2trk*xf->sectsize) < 0){
 		chat("error]");
 		return -1;
 	}
@@ -206,33 +252,31 @@ twrite(Iotrack *t)
 int
 tread(Iotrack *t)
 {
+	Xfs *xf = t->xf;
 	int i, ref = 0;
-	uchar buf[Sect2trk][Sectorsize];
 
-	for(i=0; i<Sect2trk; i++)
-		if(t->tp->p[i])
+	chat("[tread %lld+%lld...", t->addr, xf->offset);
+	for(i=0; i<xf->sect2trk; i++)
+		if(t->tp[i] != nil)
 			++ref;
-	chat("[tread %lld+%lld...", t->addr, t->xf->offset);
 	if(ref == 0){
-		if(devread(t->xf, t->addr, t->tp->buf, Trksize) < 0){
+		if(devread(xf, t->addr, (uchar*)&t->tp[xf->sect2trk], xf->sect2trk*xf->sectsize) < 0){
 			chat("error]");
 			return -1;
 		}
-		chat("done]");
-		t->flags &= ~BSTALE;
-		return 0;
-	}
-	if(devread(t->xf, t->addr, buf, Trksize) < 0){
-		chat("error]");
-		return -1;
-	}
-	for(i=0; i<Sect2trk; i++)
-		if(t->tp->p[i] == 0){
-			memmove(t->tp->buf[i], buf[i], Sectorsize);
+	} else {
+		for(i=0; i<xf->sect2trk; i++){
+			if(t->tp[i] != nil)
+				continue;
+			if(devread(xf, t->addr + i, ((uchar*)&t->tp[xf->sect2trk]) + i*xf->sectsize, xf->sectsize) < 0){
+				chat("error]");
+				return -1;
+			}
 			chat("%d ", i);
 		}
-	chat("done]");
+	}
 	t->flags &= ~BSTALE;
+	chat("done]");
 	return 0;
 }
 
@@ -285,34 +329,6 @@ iotrack_init(void)
 		p->hprev = p->hnext = p;
 		p->prev = p->next = p;
 		TOFRONT(mp, p);
-		p->tp = sbrk(sizeof(Track));
-		memset(p->tp->p, 0, sizeof p->tp->p);
+		purgetrack(p);
 	}
-}
-
-static MLock	freelock;
-static Iosect *	freelist;
-
-Iosect *
-newsect(void)
-{
-	Iosect *p;
-
-	mlock(&freelock);
-	if(p = freelist)	/* assign = */
-		freelist = p->next;
-	else
-		p = malloc(sizeof(Iosect));
-	unmlock(&freelock);
-	p->next = 0;
-	return p;
-}
-
-void
-freesect(Iosect *p)
-{
-	mlock(&freelock);
-	p->next = freelist;
-	freelist = p;
-	unmlock(&freelock);
 }

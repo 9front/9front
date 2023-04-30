@@ -44,7 +44,8 @@ getxfs(char *user, char *name)
 			errno = Enofilsys;
 			return 0;
 		}
-		offset *= Sectorsize;
+		/* FIXME: should probably use devices sector size? */
+		offset *= 512;
 	}
 
 	if(readonly)
@@ -82,8 +83,6 @@ getxfs(char *user, char *name)
 		if(!eqqid(xf->qid, dqid))
 			continue;
 		if(strcmp(xf->name, name) != 0 || xf->dev < 0)
-			continue;
-		if(devcheck(xf) < 0) /* look for media change */
 			continue;
 		if(offset && xf->offset != offset)
 			continue;
@@ -239,7 +238,7 @@ dosptrreloc(Xfile *f, Dosptr *dp, vlong addr, ulong offset)
 				memmove(xdp, dp, sizeof(Dosptr));
 				xdp->p = nil;
 				xdp->d = nil;
-				p->qid.path = QIDPATH(xdp);
+				p->qid.path = QIDPATH(xdp, f->xf);
 			}
 		}
 	}
