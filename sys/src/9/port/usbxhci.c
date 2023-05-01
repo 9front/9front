@@ -815,6 +815,10 @@ ctlrcmd(Ctlr *ctlr, u32int c, u32int s, u64int p, u32int *er)
 		qunlock(&ctlr->cmdlock);
 		return Erecover;
 	}
+	if(ctlr->cr->base == nil || ctlr->cr->ctlr != ctlr){
+		qunlock(&ctlr->cmdlock);
+		return Egreg;
+	}
 	ctlr->cr->stopped = 0;
 	queuetd(ctlr->cr, c, s, p, w);
 	err = waittd(w, 5000);
@@ -832,6 +836,9 @@ completering(Ctlr *ctlr, Ring *r, u32int *er)
 	Wait *w, **wp;
 	u32int *td, x;
 	u64int pa;
+
+	if(r->base == nil || r->ctlr != ctlr)
+		return;
 
 	pa = (*(u64int*)er) & ~15ULL;
 	ilock(r);
@@ -876,7 +883,7 @@ interrupt(Ureg*, void *arg)
 	Slot *slot;
 	u32int *irs, *td, x;
 
-	if(ring->base == nil)
+	if(ring->base == nil || ring->ctlr != ctlr)
 		return;
 
 	irs = &ctlr->rts[IR0];
@@ -899,7 +906,7 @@ interrupt(Ureg*, void *arg)
 			if(x == 0 || x > ctlr->nslots)
 				break;
 			slot = ctlr->slot[x];
-			if(slot == nil)
+			if(slot == nil || slot->ctlr != ctlr)
 				break;
 			completering(ctlr, &slot->epr[(td[3]>>16)-1&31], td);
 			break;
@@ -935,7 +942,7 @@ freeslot(void *arg)
 	if(arg == nil)
 		return;
 	slot = arg;
-	if(slot->id != 0){
+	if(slot->id > 0){
 		Ctlr *ctlr = slot->ctlr;
 		qlock(&ctlr->slotlock);
 		if(ctlr->slot != nil
@@ -1464,7 +1471,6 @@ isowrite(Ep *ep, uchar *p, long n)
 static char*
 unstall(Ep *ep, Ring *r)
 {
-	Ctlr *ctlr = r->slot->ctlr;
 	char *err;
 
 	switch(r->ctx[0]&7){
@@ -1474,16 +1480,15 @@ unstall(Ep *ep, Ring *r)
 	}
 	if(ep->clrhalt){
 		ep->clrhalt = 0;
-		err = ctlrcmd(ctlr, CR_RESETEP | (r->id<<16) | (r->slot->id<<24), 0, 0, nil);
-		dmaflush(0, r->ctx, 8*4 << ctlr->csz);
+		err = ctlrcmd(r->ctlr, CR_RESETEP | (r->id<<16) | (r->slot->id<<24), 0, 0, nil);
+		dmaflush(0, r->ctx, 8*4 << r->ctlr->csz);
 		if(err != nil)
 			return err;
 		r->stopped = 1;
 	}
 	if(r->stopped){
-		err = ctlrcmd(ctlr, CR_SETTRDQP | (r->id<<16) | (r->slot->id<<24), 0,
-			resetring(r), nil);
-		dmaflush(0, r->ctx, 8*4 << ctlr->csz);
+		err = ctlrcmd(r->ctlr, CR_SETTRDQP | (r->id<<16) | (r->slot->id<<24), 0, resetring(r), nil);
+		dmaflush(0, r->ctx, 8*4 << r->ctlr->csz);
 		if(err != nil)
 			return err;
 		r->stopped = 0;
