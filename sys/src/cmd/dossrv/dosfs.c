@@ -45,9 +45,12 @@ rattach(void)
 	root->xf = xf = getxfs(req->uname, req->aname);
 	if(!xf)
 		goto error;
-	if(xf->fmt == 0 && dosfs(xf) < 0){
-		errno = Eformat;
-		goto error;
+	if(xf->fmt == 0){
+		if(dosfs(xf) < 0){
+			errno = Eformat;
+			goto error;
+		}
+		xf->fmt = 1;
 	}
 	root->qid.type = QTDIR;
 	root->qid.path = 0;

@@ -109,6 +109,8 @@ getxfs(char *user, char *name)
 	fxf->qid = dqid;
 	fxf->dev = fd;
 	fxf->fmt = 0;
+	fxf->sectsize = 0;
+	fxf->sect2trk = 0;
 	fxf->offset = offset;
 	fxf->ptr = nil;
 	fxf->isfat32 = 0;

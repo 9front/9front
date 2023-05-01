@@ -41,7 +41,7 @@ dosfs(Xfs *xf)
 {
 	Iosect *p1;
 	Fatinfo *fi;
-	uchar	buf[512];
+	uchar buf[512];
 	Dosboot *b;
 	Dosboot32 *b32;
 	Dosbpb *bp;
@@ -73,28 +73,31 @@ dosfs(Xfs *xf)
 		isdos['&'] = 1;
 	}
 
-	/* don't use getsect() before we we determinted real values */
-	xf->sectsize = 512;
-	xf->sect2trk = 9;
-	devread(xf, 0, buf, sizeof(buf));
+	/* don't use getsect() before determining sector size */
+	if(devread(xf, 0, buf, sizeof(buf)) < 0)
+		return -1;
 
 	if(!isdosfs(buf))
 		return -1;
 
-	b = (Dosboot*)buf;
-
-	xf->sectsize = GSHORT(b->sectsize);
-	if(xf->sectsize < 32)
-		return -1;
-
-	xf->sect2trk = GSHORT(b->trksize);
-	if(xf->sect2trk < 1)
-		return -1;
-
 	bp = malloc(sizeof(Dosbpb));
+	if(bp == nil)
+		return -1;
 	memset(bp, 0, sizeof(Dosbpb));	/* clear lock */
-	xf->ptr = bp;
-	xf->fmt = 1;
+
+	b = (Dosboot*)buf;
+	xf->sectsize = GSHORT(b->sectsize);
+	if(xf->sectsize < 32){
+		if(chatty)
+			fprint(2, "sectsize %d\n", xf->sectsize);
+		goto badfmt;
+	}
+	xf->sect2trk = GSHORT(b->trksize);
+	if(xf->sect2trk == 0){
+		if(chatty)
+			fprint(2, "sect2trk %d\n", xf->sect2trk);
+		goto badfmt;
+	}
 	bp->clustsize = b->clustsize;
 	bp->nresrv = GSHORT(b->nresrv);
 	bp->nfats = b->nfats;
@@ -117,7 +120,7 @@ dosfs(Xfs *xf)
 		if(bp->fatsize == 0){
 			if(chatty)
 				fprint(2, "fatsize 0\n");
-			return -1;
+			goto badfmt;
 		}
 		bp->dataaddr = bp->fataddr + bp->nfats*bp->fatsize;
 		bp->rootaddr = 0;
@@ -164,6 +167,16 @@ dosfs(Xfs *xf)
 		bp->dataaddr = bp->rootaddr + (bp->rootsize*DOSDIRSIZE + xf->sectsize-1)/xf->sectsize;
 		bp->freeptr = FATRESRV;
 	}
+	if(bp->clustsize == 0){
+		if(chatty)
+			fprint(2, "clustsize 0\n");
+		goto badfmt;
+	}
+	if(bp->volsize < bp->dataaddr){
+		if(chatty)
+			fprint(2, "volsize < dataaddr\n");
+		goto badfmt;
+	}
 	bp->fatclusters = FATRESRV + (bp->volsize - bp->dataaddr)/bp->clustsize;
 
 	if(xf->isfat32)
@@ -178,7 +191,12 @@ dosfs(Xfs *xf)
 		chat("fat %d: %lld...", i, bp->fataddr+i*bp->fatsize);
 	chat("root: %lld...", bp->rootaddr);
 	chat("data: %lld...", bp->dataaddr);
+
+	xf->ptr = bp;
 	return 0;
+badfmt:
+	free(bp);
+	return -1;
 }
 
 /*
