@@ -24,6 +24,10 @@ if(~ $"m 011ce50d){
 	echo hjfs
 	exit
 }
+if(~ $"m 67656673){
+	echo gefs
+	exit
+}
 m=`{dd -if /env/block -bs 16 -count 1 -skip 16 >[2]/dev/null}
 if(~ $"m 'kfs wren device'){
 	echo kfs
