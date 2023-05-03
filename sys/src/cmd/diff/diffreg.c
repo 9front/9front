@@ -356,10 +356,10 @@ output(Diff *d)
 {
 	int m, i0, i1, j0, j1;
 
-	if(d->bindiff){
+	if(d->bindiff)
 		print("binary files %s %s differ\n", d->file1, d->file2);
+	if(d->binary)
 		return;
-	}
 	m = d->len[0];
 	d->J[0] = 0;
 	d->J[m+1] = d->len[1]+1;
