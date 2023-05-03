@@ -74,7 +74,7 @@ struct Disk {
 };
 
 #define PUT2(p, u) (p)[0] = (u)>>8, (p)[1] = (u)
-#define GET2(p) (u16int)(p)[2] | (u16int)(p)[1]<<8
+#define GET2(p) (u16int)(p)[1] | (u16int)(p)[0]<<8
 #define PUT4(p, u) (p)[0] = (u)>>24, (p)[1] = (u)>>16, (p)[2] = (u)>>8, (p)[3] = (u)
 #define GET4(p)	(u32int)(p)[3] | (u32int)(p)[2]<<8 | (u32int)(p)[1]<<16 | (u32int)(p)[0]<<24
 
