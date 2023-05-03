@@ -106,7 +106,7 @@ While effective we found this to be too large a hammer in practice. Doing as its
 .CW RFNOMNT
 also prevents a process from performing any mounts or binds. This in practice creates a single
 point in time in which a process gives up all of its control, instead of the idealized gradual
-process. This makes it quite hard to make use of in practice, only a singly program in a chain
+process. This makes it quite hard to make use of in practice, only a single program in a chain
 may be the one to invoke
 .CW RFNOMNT
 or must hope that no other program further in the chain may want to make use of its namespace.
@@ -150,7 +150,7 @@ and bind operations.
 For the implementation, we extended the existing
 .CW RFNOMNT
 flag attached to the process namespace group
-in to a bit vector. Each bit representing a index
+into a bit vector. Each bit representing an index
 into
 .CW devtab .
 The following function illustrates how this vector is set.
@@ -212,10 +212,10 @@ devallowed(Pgrp *pgrp, int r)
 }
 .P2
 .LP
-We found that once removal is made a core verb of these sharp
+We found that once removal is made to a core verb of these sharp
 devices it becomes easy to start to view access to them
 as capabilities. This is aided by system functionally already neatly
-organized in to the various devices themselves. For example, one could
+organized into the various devices themselves. For example, one could
 say a process is capable of accessing the broader internet if it has access
 to the
 .CW devip
@@ -302,7 +302,7 @@ with a freshly allocated one.
 Also like devip, once the last reference to the file descriptor returned by opening
 .CW clone
 is closed the board is closed and posters to that board receive an EOF. It is important
-to bake this kind of ownership in to the design, as self referential users of
+to bake this kind of ownership into the design, as self referential users of
 .CW /srv
 are quite common in current code.
 .LP
@@ -331,9 +331,9 @@ accepts a
 file, a text file containing a description of file tree, and uses it to provide
 dummy files mimicking the structure. These dummies can then be used by a process as targets
 for bind mounts of its current namespace, providing the illusion of trimming all but select
-pieces. This new root can not be simply bound over the real one, that still allows an unmount
-to escape back to the real system but rexporting the namespace still works. To illustrate a
-more involved setup then before.
+pieces. This new root cannot be simply bound over the real one, that still allows an unmount
+to escape back to the real system, but rexporting the namespace still works. To illustrate a
+more involved setup than before:
 .P1
 # We want to provide our web server
 # with /bin, /lib/www and /lib/git
