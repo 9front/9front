@@ -1122,7 +1122,6 @@ copyu(Prog *p, Adr *v, Adr *s)
 	case AFABSS:
 	case AFSQRTD:
 	case AFSQRTS:
-	case ACASE:
 #ifdef YYY
 		if(p->scond&(C_WBIT|C_PBIT))
 		if(v->type == D_REG) {
@@ -1303,6 +1302,9 @@ copyu(Prog *p, Adr *v, Adr *s)
 		if(v->type == D_REG)
 			if(v->reg == REGARG)
 				return 3;
+		return 0;
+
+	case ACASE:
 		return 0;
 	}
 }
