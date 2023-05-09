@@ -1,0 +1,4 @@
+TEXT	sqrt(SB), $0
+	FMOVD	a+0(FP), F0
+	FSQRTD	F0, F0
+	RETURN
