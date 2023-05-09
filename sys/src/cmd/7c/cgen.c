@@ -738,8 +738,11 @@ boolgen(Node *n, int true, Node *nn)
 		if(true)
 			o = OEQ;
 		if(typefd[n->type->etype]) {
-			gopcode(true ? o | BTRUE : o, nodfconst(0), &nod, Z);
-		} else
+			regalloc(&nod1, n, Z);
+			gmove(nodfconst(0.0), &nod1);
+			gopcode(true ? o | BTRUE : o, &nod1, &nod, Z);
+			regfree(&nod1);
+		}else
 			gopcode(o, nodconst(0), &nod, Z);
 		regfree(&nod);
 		goto com;
