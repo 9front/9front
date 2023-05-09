@@ -248,27 +248,6 @@ ExecTable exectab[] =
 
 Mach	*mach = &mi386;			/* Global current machine table */
 
-static ExecTable*
-couldbe4k(ExecTable *mp)
-{
-	Dir *d;
-	ExecTable *f;
-
-	if((d=dirstat("/proc/1/regs")) == nil)
-		return mp;
-	if(d->length < 32*8){		/* R3000 */
-		free(d);
-		return mp;
-	}
-	free(d);
-	for (f = exectab; f->magic; f++)
-		if(f->magic == M_MAGIC) {
-			f->name = "mips plan 9 executable on mips2 kernel";
-			return f;
-		}
-	return mp;
-}
-
 int
 crackhdr(int fd, Fhdr *fp)
 {
@@ -301,9 +280,6 @@ crackhdr(int fd, Fhdr *fp)
 		if(mp->_magic){
 			if(mp->magic != (magic & ~DYN_MAGIC))
 				continue;
-
-			if(mp->magic == V_MAGIC)
-				mp = couldbe4k(mp);
 
 			if ((magic & DYN_MAGIC) && mp->dlmname != nil)
 				fp->name = mp->dlmname;
