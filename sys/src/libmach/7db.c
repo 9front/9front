@@ -49,8 +49,8 @@ Machdata arm64mach =
 	riscframe,	/* Frame finder */
 	arm64excep,	/* print exception */
 	0,		/* breakpoint fixup */
-	0,		/* single precision float printer */
-	0,		/* double precision float printer */
+	leieeesftos,		/* single precision float printer */
+	leieeedftos,		/* double precision float printer */
 	arm64foll,	/* following addresses */
 	arm64inst,	/* print instruction */
 	arm64das,	/* dissembler */
@@ -258,6 +258,12 @@ static Opcode opcodes[] =
 	"11010101000000110100xxxx11111111",	"MSR",		"$%x,DAIFClr",
 	"11010101000YYYYYYYYYYYYYYYYddddd",	"MSR",		"R%d,%Y",
 	"11010101001YYYYYYYYYYYYYYYYddddd",	"MRS",		"%Y,R%d",
+	"FF11110101uuuuuuuuuuuu11111ddddd",	"FMOV%F",	"%u(SP),F%d",
+	"FF11110101uuuuuuuuuuuunnnnnddddd",	"FMOV%F",	"%u(R%n),F%d",
+	"FF111100010ooooooooo0011111ddddd",	"FMOV%F",	"%o(SP),F%d",
+	"FF111100010ooooooooo00nnnnnddddd",	"FMOV%F",	"%o(R%n),F%d",
+	"W0011110ZZ111000000000nnnnnddddd",	"FCVTZS%Z%W",	"F%n,R%d",
+	"W0011110ZZ111001000000nnnnnddddd",	"FCVTZU%Z%W",	"F%n,R%d",
 	"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",	"WORD",		"$%x",
 };
 
@@ -471,6 +477,11 @@ format(char *mnemonic, Instr *i, char *f)
 				*i->curr++ = "BHW"[u];
 			break;
 
+		case 'F':	// FP width
+			u &= 3;
+			*i->curr++ = "BHSD"[u];
+			break;
+
 		case 'd':	// Register Numbers
 		case 'n':
 		case 'a':
@@ -590,6 +601,10 @@ format(char *mnemonic, Instr *i, char *f)
 			case SYSARG5(3,0,4,2,0): bprint(i, "SPSel"); break;
 			default: bprint(i, "SPR(%lux)", i->w & m);
 			}
+			break;
+
+		case 'Z': // FP type
+			*i->curr++ = "SD?H"[u];
 			break;
 
 		case '\0':

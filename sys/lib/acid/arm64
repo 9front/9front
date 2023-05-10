@@ -48,6 +48,43 @@ defn gpr()			// print general purpose registers
 	print("R30\t", *R30, "\n");
 }
 
+defn fprF()
+{
+	print("FPSR  ", *FPSR, "   FPCR  ", *FPCR, "\n");
+	print("F0\t", *F0, " F1\t", *F1, " F2\t", *F2, "\n");
+	print("F3\t", *F3, " F4\t", *F4, " F5\t", *F5, "\n");
+	print("F6\t", *F6, " F7\t", *F7, " F8\t", *F8, "\n");
+	print("F9\t", *F9, " F10\t", *F10, " F11\t", *F11, "\n");
+	print("F12\t", *F12, " F13\t", *F13, " F14\t", *F14, "\n");
+	print("F15\t", *F15, " F16\t", *F16, " F17\t", *F17, "\n");
+	print("F18\t", *F18, " F19\t", *F19, " F20\t", *F20, "\n");
+	print("F21\t", *F21, " F22\t", *F22, " F23\t", *F23, "\n");
+	print("F24\t", *F24, " F25\t", *F25, " F26\t", *F26, "\n");
+	print("F27\t", *F27, " F28\t", *F28, " F29\t", *F29, "\n");
+	print("F30\t", *F30, " F31\t", *F31, "\n");
+}
+
+defn fprf()
+{
+	print("FPSR  ", *FPSR, "   FPCR  ", *FPCR, "\n");
+	print("f0\t", *f0, " f1\t", *f1, " f2\t", *f2, "\n");
+	print("f3\t", *f3, " f4\t", *f4, " f5\t", *f5, "\n");
+	print("f6\t", *f6, " f7\t", *f7, " f8\t", *f8, "\n");
+	print("f9\t", *f9, " f10\t", *f10, " f11\t", *f11, "\n");
+	print("f12\t", *f12, " f13\t", *f13, " f14\t", *f14, "\n");
+	print("f15\t", *f15, " f16\t", *f16, " f17\t", *f17, "\n");
+	print("f18\t", *f18, " f19\t", *f19, " f20\t", *f20, "\n");
+	print("f21\t", *f21, " f22\t", *f22, " f23\t", *f23, "\n");
+	print("f24\t", *f24, " f25\t", *f25, " f26\t", *f26, "\n");
+	print("f27\t", *f27, " f28\t", *f28, " f29\t", *f29, "\n");
+	print("f30\t", *f30, " f31\t", *f31, "\n");
+}
+
+defn fpr()
+{
+	fprF();
+}
+
 defn regs()				// print all registers
 {
 	gpr();
