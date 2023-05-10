@@ -14,8 +14,10 @@ int malformed(uchar*, int, int);
 int pppoe(char*);
 void execppp(int);
 
+int forked;
 int alarmed;
 int debug;
+int rflag;
 int sessid;
 char *keyspec;
 int primary;
@@ -34,8 +36,25 @@ char *baud;
 void
 usage(void)
 {
-	fprint(2, "usage: pppoe [-PdcC] [-A acname] [-S srvname] [-k keyspec] [-m mtu] [-b baud] [-x pppnet] [ether0]\n");
+	fprint(2, "usage: %s [-rPdcC] [-A acname] [-S srvname] [-k keyspec] [-m mtu] [-b baud] [-x pppnet] [ether0]\n", argv0);
 	exits("usage");
+}
+
+void
+fatal(char *fmt, ...)
+{
+	va_list a;
+
+	fprint(2, "%s: ", argv0);
+
+	va_start(a, fmt);
+	vfprint(2, fmt, a);
+	va_end(a);
+
+	if(forked)
+		postnote(PNGROUP, getpid(), "die");
+
+	exits("fatal");
 }
 
 int
@@ -55,7 +74,6 @@ catchalarm(void *a, char *msg)
 void
 main(int argc, char **argv)
 {
-	int fd;
 	char *dev;
 
 	ARGBEGIN{
@@ -67,6 +85,9 @@ main(int argc, char **argv)
 		break;
 	case 'S':
 		srvname = EARGF(usage());
+		break;
+	case 'r':
+		rflag++;
 		break;
 	case 'd':
 		debug++;
@@ -107,8 +128,7 @@ main(int argc, char **argv)
 	fmtinstall('E', eipfmt);
 
 	atnotify(catchalarm, 1);
-	fd = pppoe(dev);
-	execppp(fd);
+	execppp(pppoe(dev));
 }
 
 typedef struct Etherhdr Etherhdr;
@@ -160,6 +180,7 @@ enum {
 	CodeDiscOffer = 0x07,	/* discovery offer */
 	CodeDiscReq = 0x19,	/* discovery request */
 	CodeDiscSess = 0x65,	/* session confirmation */
+	CodeDiscTerm = 0xa7,
 
 	/* Session codes */
 	CodeSession = 0x00,
@@ -253,7 +274,7 @@ ewrite(int fd, void *buf, int nbuf)
 		rerrstr(e, sizeof e);
 		strcpy(path, "unknown");
 		fd2path(fd, path, sizeof path);
-		sysfatal("write %d to %s: %s", nbuf, path, e);
+		fatal("write %d to %s: %s\n", nbuf, path, e);
 	}
 }
 
@@ -264,7 +285,7 @@ emalloc(long n)
 
 	v = malloc(n);
 	if(v == nil)
-		sysfatal("out of memory");
+		fatal("out of memory\n");
 	return v;
 }
 
@@ -280,9 +301,9 @@ aread(int timeout, int fd, void *buf, int nbuf)
 	if(alarmed)
 		return -1;
 	if(n < 0)
-		sysfatal("read: %r");
+		fatal("read: %r\n");
 	if(n == 0)
-		sysfatal("short read");
+		fatal("short read\n");
 	return n;
 }
 
@@ -417,22 +438,36 @@ wantsession(uchar *pkt)
 }
 
 int
+wantterm(uchar *pkt)
+{
+	Pppoehdr *ph;
+
+	ph = (Pppoehdr*)(pkt+EtherHdrSz);
+	if(ph->code != CodeDiscTerm)
+		return bad("not a PADT");
+	if(nhgets(ph->sessid) != sessid)
+		return bad("bad session id");
+	return 1;
+}
+
+int
 pppoe(char *ether)
 {
-	char buf[64];
+	char buf[128];
 	uchar pkt[1520];
-	int dfd, p[2], n, sfd, sz, timeout;
+	int dfd, sfd, p[2], n, sz, timeout;
 	Pppoehdr *ph;
 
 	ph = (Pppoehdr*)(pkt+EtherHdrSz);
 	snprint(buf, sizeof buf, "%s!%d", ether, EtherPppoeDiscovery);
 	if((dfd = dial(buf, nil, nil, nil)) < 0)
-		sysfatal("dial %s: %r", buf);
+		fatal("dial %s: %r\n", buf);
 
 	snprint(buf, sizeof buf, "%s!%d", ether, EtherPppoeSession);
 	if((sfd = dial(buf, nil, nil, nil)) < 0)
-		sysfatal("dial %s: %r", buf);
+		fatal("dial %s: %r\n", buf);
 
+Restart:
 	for(timeout=250; timeout<16000; timeout*=2){
 		clearstate();
 		memset(pkt, 0, sizeof pkt);
@@ -456,23 +491,70 @@ pppoe(char *ether)
 
 		if(pktread(timeout, dfd, pkt, sizeof pkt, wantsession) < 0)
 			continue;
-
 		break;
 	}
-	if(sessid < 0)
-		sysfatal("could not establish session");
+	if(sessid < 0){
+		if(rflag) {
+			if(forked || rfork(RFFDG|RFREND|RFPROC|RFNOWAIT|RFNOTEG) == 0){
+				forked = 1;
+				goto Restart;
+			}
+			fprint(2, "%s: warning: could not establish session, retrying\n", argv0);
+			exits(nil);
+		}
+		fatal("could not establish session\n");
+	}
 
-	rfork(RFNOTEG);
 	if(pipe(p) < 0)
-		sysfatal("pipe: %r");
+		fatal("pipe: %r\n");
+
+	switch(rfork(RFFDG|RFREND|RFPROC|RFNOWAIT|RFNOTEG)){
+	case -1:
+		fatal("fork: %r\n");
+	case 0:
+		forked = 1;
+		close(p[1]);
+		break;
+	default:
+		forked = 0;
+		close(dfd);
+		close(sfd);
+		close(p[0]);
+		return p[1];
+	}
 
 	switch(fork()){
 	case -1:
-		sysfatal("fork: %r");
+		fatal("fork: %r\n");
 	default:
 		break;
 	case 0:
-		close(p[1]);
+		close(dfd);
+		while((n = read(sfd, pkt, sizeof pkt)) > 0){
+			if(malformed(pkt, n, EtherPppoeSession)
+			|| ph->code != 0x00 || nhgets(ph->sessid) != sessid){
+				if(debug)
+					fprint(2, "malformed session pkt: %r\n");
+				if(debug)
+					dumppkt(pkt);
+				continue;
+			}
+			if(write(p[0], pkt+Hdr, nhgets(ph->length)) < 0){
+				if(debug)
+					fprint(2, "write to ppp failed: %r\n");
+				break;
+			}
+		}
+		exits(nil);
+	}
+
+	switch(fork()){
+	case -1:
+		fatal("fork: %r\n");
+	default:
+		break;
+	case 0:
+		close(dfd);
 		while((n = read(p[0], pkt+Hdr, sizeof pkt-Hdr)) > 0){
 			etherhdr(pkt, etherdst, EtherPppoeSession);
 			pppoehdr(pkt+EtherHdrSz, 0x00, sessid);
@@ -487,38 +569,38 @@ pppoe(char *ether)
 			if(write(sfd, pkt, sz) < 0){
 				if(debug)
 					fprint(2, "write to ether failed: %r");
-				_exits(nil);
+				break;
 			}
 		}
-		_exits(nil);
+		exits(nil);
 	}
+	close(p[0]);
 
 	switch(fork()){
 	case -1:
-		sysfatal("fork: %r");
+		fatal("fork: %r\n");
 	default:
 		break;
 	case 0:
-		close(p[1]);
-		while((n = read(sfd, pkt, sizeof pkt)) > 0){
-			if(malformed(pkt, n, EtherPppoeSession)
-			|| ph->code != 0x00 || nhgets(ph->sessid) != sessid){
-				if(debug)
-					fprint(2, "malformed session pkt: %r\n");
-				if(debug)
-					dumppkt(pkt);
-				continue;
-			}
-			if(write(p[0], pkt+Hdr, nhgets(ph->length)) < 0){
-				if(debug)
-					fprint(2, "write to ppp failed: %r\n");
-				_exits(nil);
-			}
+		close(sfd);
+		for (;;) {
+			if(pktread(0, dfd, pkt, sizeof pkt, wantterm) > 0)
+				break;
 		}
-		_exits(nil);
+		exits(nil);
 	}
-	close(p[0]);
-	return p[1];
+
+	/* wait for any of our children to exit */
+	waitpid();
+	postnote(PNGROUP, getpid(), "die");
+	if(!rflag)
+		exits(nil);
+
+	/* wait for all to exit, then restart */
+	sleep(5000);
+	waitpid();
+	waitpid();
+	goto Restart;
 }
 
 void
@@ -558,7 +640,7 @@ execppp(int fd)
 	dup(fd, 0);
 	dup(fd, 1);
 	exec(pppname, argv);
-	sysfatal("exec: %r");
+	fatal("exec: %r\n");
 }
 
 uchar*
@@ -659,8 +741,7 @@ dumppkt(uchar *pkt)
 	ph = (Pppoehdr*)(pkt+EtherHdrSz);
 	et = nhgets(eh->type);
 
-	fprint(2, "%E -> %E type 0x%x\n", 
-		eh->src, eh->dst, et);
+	fprint(2, "%E -> %E type 0x%x\n",  eh->src, eh->dst, et);
 	switch(et){
 	case EtherPppoeDiscovery:
 	case EtherPppoeSession:
