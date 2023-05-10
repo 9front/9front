@@ -817,7 +817,7 @@ asmout(Prog *p, Optab *o)
 		o1 = ADR(0, d, p->to.reg);
 		break;
 
-	case 62:	/* case Rv, Rt -> adr tab, Rl; movw Rl[R<<2], Rt; add Rt, Rl; br (Rl) */
+	case 62:	/* case Rv, Rt -> adr tab, REGTMP; movw REGTMP[R<<2], Rt; add Rt, REGTMP; br (REGTMP) */
 		o1 = ADR(0, 4*4, REGTMP);	/* adr 4(pc), REGTMP */
 		o2 = (2<<30)|(7<<27)|(2<<22)|(1<<21)|(3<<13)|(1<<12)|(2<<10)|(p->from.reg<<16)|(REGTMP<<5)|p->to.reg;	/* movw REGTMP[Rv<<2], Rt */
 		o3 = oprrr(AADD) | (p->to.reg<<16) | (REGTMP<<5) | REGTMP;	/* add Rt, REGTMP */
