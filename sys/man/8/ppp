@@ -34,7 +34,7 @@ ppp, pppoe, pptp, pptpd \- point-to-point protocol
 .PP
 .B ip/pppoe
 [
-.B -PdcC
+.B -PdcCr
 ]
 [
 .B -A
@@ -217,6 +217,21 @@ and pass
 .B -d
 to 
 .I ppp
+.TP
+.B r
+by default,
+.I pppoe
+exits after trying PPPoE discovery for 16 seconds
+with no answer or when
+.I ppp
+terminates the session.
+This option directs
+.I pppoe
+instead to fork a background process that keeps
+trying forever, and also re-establishes the session
+when
+.I ppp
+terminates.
 .TP
 .B S
 insist on a service named
