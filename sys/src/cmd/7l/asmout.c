@@ -817,11 +817,9 @@ asmout(Prog *p, Optab *o)
 		o1 = ADR(0, d, p->to.reg);
 		break;
 
-	case 62:	/* case Rv, Rt -> adr tab, Rt; movw Rt[R<<2], Rl; add Rt, Rl; br (Rl) */
-		if(p->from.reg == p->to.reg)
-			diag("invalid SWITCH\n%P", p);
-		o1 = ADR(0, 4*4, p->to.reg);	/* adr 4(pc), Rt */
-		o2 = (2<<30)|(7<<27)|(2<<22)|(1<<21)|(3<<13)|(1<<12)|(2<<10)|(p->from.reg<<16)|(p->to.reg<<5)|REGTMP;	/* movw Rt[Rv<<2], REGTMP */
+	case 62:	/* case Rv, Rt -> adr tab, Rl; movw Rl[R<<2], Rt; add Rt, Rl; br (Rl) */
+		o1 = ADR(0, 4*4, REGTMP);	/* adr 4(pc), REGTMP */
+		o2 = (2<<30)|(7<<27)|(2<<22)|(1<<21)|(3<<13)|(1<<12)|(2<<10)|(p->from.reg<<16)|(REGTMP<<5)|p->to.reg;	/* movw REGTMP[Rv<<2], Rt */
 		o3 = oprrr(AADD) | (p->to.reg<<16) | (REGTMP<<5) | REGTMP;	/* add Rt, REGTMP */
 		o4 = (0x6b<<25)|(0x1F<<16)|(REGTMP<<5);	/* br (REGTMP) */
 		lastcase = p;
