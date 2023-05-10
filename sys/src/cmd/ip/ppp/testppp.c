@@ -20,7 +20,7 @@ pppopen(int fd, char *net, char *local, char *remote)
 	switch(fork()){
 	case -1:
 		fprint(2, "testppp: can't fork: %r\n");
-		exits(0);
+		exits("fork");
 	case 0:
 		return;
 	default:
@@ -89,7 +89,7 @@ xfer(int from, int to)
 		n = read(from, buf, sizeof(buf));
 		if(n <= 0){
 			fprint(2, "%d -> %d EOF\n", from, to);
-			exits(0);
+			exits("read");
 		}
 		modified = 0;
 		if(errrate){
@@ -121,7 +121,7 @@ xfer(int from, int to)
 		n = write(to, buf, n);
 		if(n < 0){
 			fprint(2, "%d -> %d write err\n", from, to);
-			exits(0);
+			exits("write");
 		}
 	}
 }
@@ -193,6 +193,6 @@ main(int argc, char **argv)
 
 	xfer(pfd1[1], pfd2[1]);
 	xfer(pfd2[1], pfd1[1]);
-	exits(0);
+	exits(nil);
 }
 

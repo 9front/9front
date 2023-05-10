@@ -111,7 +111,7 @@ static	void		rejopts(PPP*, Pstate*, Block*, int);
 static	void		sendechoreq(PPP*, Pstate*);
 static	void		sendtermreq(PPP*, Pstate*);
 static	void		setphase(PPP*, int);
-static	void		terminate(PPP*, int);
+static	void		terminate(PPP*, char *);
 static	int		validv4(Ipaddr);
 static  void		dmppkt(char *s, uchar *a, int na);
 
@@ -152,8 +152,8 @@ pppopen(PPP *ppp, int mediain, int mediaout, char *net,
 		sysfatal("forking mediainproc");
 	case 0:
 		mediainproc(ppp);
-		terminate(ppp, 1);
-		_exits(0);
+		terminate(ppp, "mediainproc");
+		exits(nil);
 	}
 }
 
@@ -200,7 +200,7 @@ init(PPP* ppp)
 			sysfatal("forking ppptimer");
 		case 0:
 			ppptimer(ppp);
-			_exits(0);
+			exits(nil);
 		}
 	}
 
@@ -221,9 +221,7 @@ setphase(PPP *ppp, int phase)
 	default:
 		sysfatal("ppp: unknown phase %d", phase);
 	case Pdead:
-		/* restart or exit? */
-		pinit(ppp, ppp->lcp);
-		setphase(ppp, Plink);
+		terminate(ppp, "protocol");
 		break;
 	case Plink:
 		/* link down */
@@ -263,9 +261,6 @@ setphase(PPP *ppp, int phase)
 		pinit(ppp, ppp->ccp);
 		pinit(ppp, ppp->ipcp);
 		break;
-	case Pterm:
-		/* what? */
-		break;
 	}
 }
 
@@ -293,6 +288,7 @@ pinit(PPP *ppp, Pstate *p)
 			p->optmask &= ~Fpc;
 			ppp->ipcp->optmask &= ~Fipcompress;
 		}
+		p->echoack = 0;
 		p->echotimeout = 0;
 
 		/* quality goo */
@@ -342,7 +338,7 @@ newstate(PPP *ppp, Pstate *p, int state)
 		p->proto, snames[p->state], snames[state], ppp->rctlmap,
 		ppp->xctlmap, p->flags,
 		ppp->mtu, ppp->mru);
-	syslog(0, "ppp", "%ux %s->%s ctlmap %lux/%lux flags %lux mtu %ld mru %ld",
+	syslog(0, LOG, "%ux %s->%s ctlmap %lux/%lux flags %lux mtu %ld mru %ld",
 		p->proto, snames[p->state], snames[state], ppp->rctlmap,
 		ppp->xctlmap, p->flags,
 		ppp->mtu, ppp->mru);
@@ -710,7 +706,7 @@ config(PPP *ppp, Pstate *p, int newid)
 		break;
 	case Pipcp:
 		if(p->optmask & Fipaddr){
-			syslog(0, "ppp", "requesting %I", ppp->local);
+			syslog(0, LOG, "requesting %I", ppp->local);
 			putv4o(b, Oipaddr, ppp->local);
 		}
 		primary = 1;
@@ -1117,7 +1113,7 @@ rejopts(PPP *ppp, Pstate *p, Block *b, int code)
 		case Pipcp:
 			switch(o->type){
 			case Oipaddr:
-syslog(0, "ppp", "rejected addr %I with %V", ppp->local, o->data);
+				syslog(0, LOG, "rejected addr %I with %V", ppp->local, o->data);
 				/* if we're a server, don't let other end change our addr */
 				if(ppp->localfrozen){
 					dropoption(p, o);
@@ -1456,9 +1452,23 @@ authtimer(PPP* ppp)
 	if(ppp->chap->id < 21)
 		putpaprequest(ppp);
 	else {
-		terminate(ppp, 0);
 		netlog("ppp: pap timed out--not authorized\n");
+		terminate(ppp, "pap timeout");
 	}
+}
+
+static void
+pingtimer(PPP* ppp)
+{
+	if(ppp->lcp->echotimeout == 0 || ppp->lcp->echoack)
+		ppp->lcp->echotimeout = (3*4*1000+Period-1)/Period;
+	else if(--(ppp->lcp->echotimeout) <= 0){
+		netlog("ppp: echo request timeout\n");
+		terminate(ppp, "echo timeout");
+		return;
+	}
+	ppp->lcp->echoack = 0;
+	sendechoreq(ppp, ppp->lcp);
 }
 
 
@@ -1479,6 +1489,8 @@ ppptimer(PPP *ppp)
 			case Pnet:
 				ptimer(ppp, ppp->ccp);
 				ptimer(ppp, ppp->ipcp);
+
+				pingtimer(ppp);
 				break;
 			case Pauth:
 				authtimer(ppp);
@@ -1567,8 +1579,8 @@ ipopen(PPP *ppp)
 			sysfatal("forking ipinproc");
 		case 0:
 			ipinproc(ppp);
-			terminate(ppp, 1);
-			_exits(0);
+			terminate(ppp, "ipinproc");
+			exits(nil);
 		}
 	} else {
 		/* we may have changed addresses */
@@ -1578,14 +1590,14 @@ ipopen(PPP *ppp)
 			snprint(buf, sizeof buf, "remove %I 255.255.255.255 %I",
 			    ppp->curlocal, ppp->curremote);
 			if(fprint(ppp->ipcfd, "%s", buf) < 0)
-				syslog(0, "ppp", "can't %s: %r", buf);
+				syslog(0, LOG, "can't %s: %r", buf);
 			snprint(buf, sizeof buf, "add %I 255.255.255.255 %I %lud proxy",
 			    ppp->local, ppp->remote, ppp->mtu-10);
 			if(fprint(ppp->ipcfd, "%s", buf) < 0)
-				syslog(0, "ppp", "can't %s: %r", buf);
+				syslog(0, LOG, "can't %s: %r", buf);
 			defroute(ppp->net, "add", ppp->remote, ppp->local);
 		}
-		syslog(0, "ppp", "%I/%I -> %I/%I", ppp->curlocal, ppp->curremote,
+		syslog(0, LOG, "%I/%I -> %I/%I", ppp->curlocal, ppp->curremote,
 		   ppp->local, ppp->remote);
 	}
 	ipmove(ppp->curlocal, ppp->local);
@@ -1744,8 +1756,16 @@ pppwrite(PPP *ppp, Block *b)
 }
 
 static void
-terminate(PPP *ppp, int kill)
+terminate(PPP *ppp, char *why)
 {
+	if(dying++)
+		return;
+
+	syslog(0, LOG, "ppp: terminated: %s", why);
+
+	if(ppp->net != nil && validv4(ppp->curremote) && validv4(ppp->curlocal))
+		defroute(ppp->net, "remove", ppp->curremote, ppp->curlocal);
+
 	close(ppp->ipfd);
 	ppp->ipfd = -1;
 	close(ppp->ipcfd);
@@ -1754,10 +1774,7 @@ terminate(PPP *ppp, int kill)
 	close(ppp->mediaout);
 	ppp->mediain = -1;
 	ppp->mediaout = -1;
-	dying = 1;
-
-	if(kill)
-		postnote(PNGROUP, getpid(), "die");
+	postnote(PNGROUP, getpid(), "die");
 }
 
 typedef struct Iphdr Iphdr;
@@ -2172,7 +2189,7 @@ getchap(PPP *ppp, Block *b)
 			n = snprint((char*)resp, sizeof(resp), "S=%.20H", c->ai->secret+16);
 			if(len - 4 < n || tsmemcmp(m->data, resp, n) != 0){
 				netlog("ppp: chap: bad authenticator\n");
-				terminate(ppp, 0);
+				terminate(ppp, "chap: bad authenticator");
 				break;
 			}
 		}
@@ -2182,7 +2199,7 @@ getchap(PPP *ppp, Block *b)
 		break;
 	case Cfailure:
 		netlog("ppp: chap failed\n");
-		terminate(ppp, 0);
+		terminate(ppp, "chap failed");
 		break;
 	default:
 		syslog(0, LOG, "chap code %d?", m->code);
@@ -2270,7 +2287,7 @@ getpap(PPP *ppp, Block *b)
 		&& m->id <= ppp-> chap->id){
 			netlog("ppp: pap failed (%d:%.*s)\n",
 				m->data[0], utfnlen((char*)m->data+1, m->data[0]), (char*)m->data+1);
-			terminate(ppp, 0);
+			terminate(ppp, "pap failed");
 		}
 		break;
 	default:
@@ -2447,8 +2464,10 @@ sendechoreq(PPP *ppp, Pstate *p)
 	Lcpmsg *m;
 
 	p->termid = ++(p->id);
-	b = alloclcp(Lechoreq, p->id, 4, &m);
-	hnputs(m->len, 4);
+	b = alloclcp(Lechoreq, p->id, 8, &m);
+	hnputl(b->wptr, ppp->magic);
+	b->wptr += 4;
+	hnputs(m->len, 8);
 	putframe(ppp, p->proto, b);
 	freeb(b);
 }
@@ -2593,7 +2612,7 @@ connect(int fd, int cfd)
 		sysfatal("forking xfer");
 	case 0:
 		xfer(fd);
-		_exits(nil);
+		exits(nil);
 	}
 
 	for(;;){
@@ -2801,7 +2820,7 @@ main(int argc, char **argv)
 	if(primary)
 		putndb(ppp, net);
 
-	exits(0);
+	exits(nil);
 }
 
 void

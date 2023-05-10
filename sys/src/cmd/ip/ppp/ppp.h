@@ -70,7 +70,6 @@ enum {
 	Plink,				/* doing LCP */
 	Pauth,				/* doing chap */
 	Pnet,				/* doing IPCP, CCP */
-	Pterm,				/* closing down */
 
 	/* PPP protocol types */
 	Pip=		0x21,		/* ip v4 */

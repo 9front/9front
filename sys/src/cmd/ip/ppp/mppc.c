@@ -487,7 +487,7 @@ uncomp(PPP *ppp, Block *b, int *protop, Block **r)
 	*protop = 0;
 	s = ppp->uncstate;
 	if(BLEN(b) < 2){
-		syslog(0, "ppp", ": mppc: short packet");
+		syslog(0, LOG, ": mppc: short packet");
 		freeb(b);
 		return nil;
 	}
@@ -506,7 +506,7 @@ uncomp(PPP *ppp, Block *b, int *protop, Block **r)
 	}
 
 	if(BLEN(b) < 2){
-		syslog(0, "ppp", ": mppc: short packet");
+		syslog(0, LOG, ": mppc: short packet");
 		freeb(b);
 		*protop = 0;
 		return nil;
@@ -559,7 +559,7 @@ netlog("******* bad count - got %ux expected %ux\n", count&0xfff, ecount);
 		n += 16;
 //netlog("mppc count = %ux oldcount %ux n = %d\n", count, s->count, n);
 	if(n < 0 || n > 1) {
-		syslog(0, "ppp", ": mppc bad count %ux, %ux", count, s->count);
+		syslog(0, LOG, ": mppc bad count %ux, %ux", count, s->count);
 		freeb(b);
 		return nil;
 	}
