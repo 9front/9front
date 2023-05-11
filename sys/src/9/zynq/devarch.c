@@ -262,6 +262,7 @@ plcopy(uchar *d, long n)
 		cleandse(plbuf, plbuf + nn);
 		clean2pa(pa, pa + nn);
 		n -= plwrite(pa, nn);
+		d += nn;
 	}
 
 	qunlock(&plwlock);
