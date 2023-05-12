@@ -90,7 +90,7 @@ int docache = 0;
 void
 usage(void)
 {
-	fprint(2, "ftpfs [-/dqnt] [-a passwd] [-m mountpoint] [-e ext] [-k keyspec] [-o os] [-r root] [net!]address\n");
+	fprint(2, "ftpfs [-/dqnt] [-a passwd] [-m mountpoint] [-e ext] [-k keyspec] [-o os] [-r root] address\n");
 	exits("usage");
 }
 

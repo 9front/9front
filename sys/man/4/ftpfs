@@ -33,7 +33,7 @@ remoteroot
 .I system
 .SH DESCRIPTION
 .I Ftpfs
-dials the TCP file transfer protocol (FTP) port, 21, on
+dials
 .I system
 and mounts itself (see
 .IR bind (2))
