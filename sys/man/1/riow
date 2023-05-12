@@ -66,6 +66,9 @@ option.
 Spawn a new
 .IR window (1).
 .TP
+.B Kmod4+shift+q
+Delete the current window.
+.TP
 .B Kmod4+h/j/k/l
 Focus left/down/up/right.
 .TP

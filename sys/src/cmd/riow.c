@@ -261,6 +261,18 @@ arrowaction(int x, int y)
 	close(f);
 }
 
+static void
+delete(void)
+{
+	int f;
+
+	wsupdate();
+	if(wcur == nil || (f = wwctl(wcur->id, OWRITE)) < 0)
+		return;
+	fprint(f, "delete");
+	close(f);
+}
+
 static struct {
 	int x, y;
 }cyclectx;
@@ -354,6 +366,10 @@ keyevent(char c, Rune r)
 		}
 		if(r == 'k' && mod == Mmod4){
 			cycleaction(0, -1);
+			return 0;
+		}
+		if(r == 'Q' && mod == (Mmod4|Mshift)){
+			delete();
 			return 0;
 		}
 		if(r >= '0' && r <= '9' && (mod & Mctl) == 0){
