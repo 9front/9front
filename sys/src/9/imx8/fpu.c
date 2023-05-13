@@ -20,18 +20,6 @@ fpuinit(void)
 }
 
 void
-fpon(void)
-{
-	syswr(CPACR_EL1, 3<<20);
-}
-
-void
-fpoff(void)
-{
-	syswr(CPACR_EL1, 0<<20);
-}
-
-void
 fpinit(void)
 {
 	fpon();
