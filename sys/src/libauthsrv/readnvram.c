@@ -171,6 +171,7 @@ readnvram(Nvrsafe *safep, int flag)
 {
 	int err;
 	char buf[512];		/* 512 for floppy i/o */
+	char *dodes;
 	Nvrsafe *safe;
 	Nvrwhere loc;
 
@@ -256,11 +257,18 @@ readnvram(Nvrsafe *safep, int flag)
 				goto Out;
 			if(ask("password", pass, sizeof pass, 1))
 				goto Out;
+			if((dodes = readcons("enable legacy p9sk1", "no", 0)) == nil)
+				goto Out;
 			passtokey(&k, pass);
 			memset(pass, 0, sizeof pass);
-			memmove(safe->machkey, k.des, DESKEYLEN);
+			if(dodes[0] == 'y' || dodes[0] == 'Y')
+				memmove(safe->machkey, k.des, DESKEYLEN);
+			else
+				memset(safe->machkey, 0, DESKEYLEN);
 			memmove(safe->aesmachkey, k.aes, AESKEYLEN);
 			memset(&k, 0, sizeof k);
+			memset(dodes, 0, strlen(dodes));
+			free(dodes);
 		}
 
 		safe->machsum = nvcsum(safe->machkey, DESKEYLEN);
