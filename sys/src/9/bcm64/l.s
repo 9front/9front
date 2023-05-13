@@ -382,6 +382,19 @@ TEXT tlbivmalle1(SB), 1, $-4
 	ISB	$SY
 	RETURN
 
+/*
+ * floating-point support.
+ */
+TEXT fpon(SB), 1, $-4
+	MOVW $(3<<20), R0
+	MSR R0, CPACR_EL1
+	RETURN
+
+TEXT fpoff(SB), 1, $-4
+	MOVW $(0<<20), R0
+	MSR R0, CPACR_EL1
+	RETURN
+
 TEXT fpsaveregs(SB), 1, $-4
 	WORD	$(1<<30 | 3 << 26 | 2<<22 | 0x1F<<16 | 3<<10 | 0<<5 | 0)  /* MOV { V0, V1, V2, V3  }, (R0)64! */
 	WORD	$(1<<30 | 3 << 26 | 2<<22 | 0x1F<<16 | 3<<10 | 0<<5 | 4)  /* MOV { V4, V5, V6, V7  }, (R0)64! */

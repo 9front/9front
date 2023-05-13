@@ -14,6 +14,8 @@ extern void touser(uintptr sp);
 extern void forkret(void);
 extern void noteret(void);
 extern void returnto(void*);
+extern void fpon(void);
+extern void fpoff(void);
 extern void fpsaveregs(void*);
 extern void fploadregs(void*);
 
