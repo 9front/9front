@@ -1247,7 +1247,7 @@ setupAESstate(AESstate *s, uchar key[], int nkey, uchar *ivec)
 		nkey = AESmaxkey;
 	memmove(s->key, key, nkey);
 	s->keybytes = nkey;
-	s->ekey = s->storage+16 - (s->storage - (uchar*)0 & 15);
+	s->ekey = s->storage+16 - ((s->storage - (uchar*)0) & 15);
 	s->dkey = (uchar*)s->ekey + 16*(AESmaxrounds+1);
 	s->rounds = (*aes_setup)(s->ekey, s->dkey, s->key, nkey);
 	if(ivec != nil)
