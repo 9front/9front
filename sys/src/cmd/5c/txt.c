@@ -1216,6 +1216,7 @@ gopcode(int o, Node *f1, Node *f2, Node *t)
 		print("%P\n", p);
 }
 
+int
 samaddr(Node *f, Node *t)
 {
 
