@@ -18,7 +18,6 @@ static 	int	pppframing = 1;
 static	int	noipcompress;
 static	int	server;
 static	int noauth;
-static	int	nip;		/* number of ip interfaces */
 static	int	dying;		/* flag to signal to all threads its time to go */
 static	int	primary;	/* this is the primary IP interface */
 static	char	*chatfile;
@@ -26,11 +25,6 @@ static	char	*chatfile;
 int	debug;
 char*	LOG = "ppp";
 char*	keyspec = "";
-
-enum
-{
-	Rmagic=	0x12345
-};
 
 /*
  * Calculate FCS - rfc 1331
@@ -84,6 +78,7 @@ static char *snames[] =
 static	void		authtimer(PPP*);
 static	void		chapinit(PPP*);
 static	void		config(PPP*, Pstate*, int);
+static	int		euitov6(Ipaddr, uchar*, int);
 static	uchar*		escapeuchar(PPP*, ulong, uchar*, ushort*);
 static	void		getchap(PPP*, Block*);
 static	Block*		getframe(PPP*, int*);
@@ -96,7 +91,6 @@ static	void		ipinproc(PPP*);
 static	char*		ipopen(PPP*);
 static	void		mediainproc(PPP*);
 static	void		newstate(PPP*, Pstate*, int);
-static	int		nipifcs(char*);
 static	void		papinit(PPP*);
 static	void		pinit(PPP*, Pstate*);
 static	void		ppptimer(PPP*);
@@ -104,15 +98,17 @@ static	void		printopts(Pstate*, Block*, int);
 static	void		ptimer(PPP*, Pstate*);
 static	int		putframe(PPP*, int, Block*);
 static	void		putlqm(PPP*);
-static	void		putndb(PPP*, char*);
+static	void		putndb(PPP*);
+static	void		refresh(char*);
 static	void		putpaprequest(PPP*);
 static	void		rcv(PPP*, Pstate*, Block*);
 static	void		rejopts(PPP*, Pstate*, Block*, int);
 static	void		sendechoreq(PPP*, Pstate*);
 static	void		sendtermreq(PPP*, Pstate*);
 static	void		setphase(PPP*, int);
-static	void		terminate(PPP*, char *);
+static	void		terminate(PPP*, char*, int);
 static	int		validv4(Ipaddr);
+static	int		validv6(Ipaddr);
 static  void		dmppkt(char *s, uchar *a, int na);
 
 void
@@ -131,15 +127,26 @@ pppopen(PPP *ppp, int mediain, int mediaout, char *net,
 	invalidate(ppp->wins[0]);
 	invalidate(ppp->wins[1]);
 
+	invalidate(ppp->local6);
+	invalidate(ppp->remote6);
+	invalidate(ppp->curremote6);
+	invalidate(ppp->curlocal6);
+
 	ppp->mediain = mediain;
 	ppp->mediaout = mediaout;
 	if(validv4(remip)){
 		ipmove(ppp->remote, remip);
 		ppp->remotefrozen = 1;
+	} else if(validv6(remip)){
+		ipmove(ppp->remote6, remip);
+		ppp->remote6frozen = 1;
 	}
 	if(validv4(ipaddr)){
 		ipmove(ppp->local, ipaddr);
 		ppp->localfrozen = 1;
+	} else if(validv6(ipaddr)){
+		ipmove(ppp->local6, ipaddr);
+		ppp->local6frozen = 1;
 	}
 	ppp->mtu = Defmtu;
 	ppp->mru = mtu;
@@ -149,10 +156,10 @@ pppopen(PPP *ppp, int mediain, int mediaout, char *net,
 	init(ppp);
 	switch(rfork(RFPROC|RFMEM|RFNOWAIT)){
 	case -1:
-		sysfatal("forking mediainproc");
+		terminate(ppp, "forking mediainproc", 1);
 	case 0:
 		mediainproc(ppp);
-		terminate(ppp, "mediainproc");
+		terminate(ppp, "mediainproc", 0);
 		exits(nil);
 	}
 }
@@ -187,6 +194,12 @@ init(PPP* ppp)
 		ppp->ipcp->proto = Pipcp;
 		ppp->ipcp->state = Sclosed;
 
+		ppp->ipv6cp = mallocz(sizeof(*ppp->ipv6cp), 1);
+		if(ppp->ipv6cp == nil)
+			abort();
+		ppp->ipv6cp->proto = Pipv6cp;
+		ppp->ipv6cp->state = Sclosed;
+
 		ppp->chap = mallocz(sizeof(*ppp->chap), 1);
 		if(ppp->chap == nil)
 			abort();
@@ -197,7 +210,7 @@ init(PPP* ppp)
 
 		switch(rfork(RFPROC|RFMEM|RFNOWAIT)){
 		case -1:
-			sysfatal("forking ppptimer");
+			terminate(ppp, "forking ppptimer", 1);
 		case 0:
 			ppptimer(ppp);
 			exits(nil);
@@ -219,9 +232,9 @@ setphase(PPP *ppp, int phase)
 	ppp->phase = phase;
 	switch(phase){
 	default:
-		sysfatal("ppp: unknown phase %d", phase);
+		terminate(ppp, "phase error", 1);
 	case Pdead:
-		terminate(ppp, "protocol");
+		terminate(ppp, "protocol", 0);
 		break;
 	case Plink:
 		/* link down */
@@ -237,6 +250,7 @@ setphase(PPP *ppp, int phase)
 			ppp->chap->state = Cunauth;
 			newstate(ppp, ppp->ccp, Sclosed);
 			newstate(ppp, ppp->ipcp, Sclosed);
+			newstate(ppp, ppp->ipv6cp, Sclosed);
 		}
 		break;
 	case Pauth:
@@ -260,6 +274,7 @@ setphase(PPP *ppp, int phase)
 	case Pnet:
 		pinit(ppp, ppp->ccp);
 		pinit(ppp, ppp->ipcp);
+		pinit(ppp, ppp->ipv6cp);
 		break;
 	}
 }
@@ -288,6 +303,8 @@ pinit(PPP *ppp, Pstate *p)
 			p->optmask &= ~Fpc;
 			ppp->ipcp->optmask &= ~Fipcompress;
 		}
+		ppp->ipv6cp->state = Sclosed;
+		ppp->ipv6cp->optmask = 0xffffffff;
 		p->echoack = 0;
 		p->echotimeout = 0;
 
@@ -319,6 +336,9 @@ pinit(PPP *ppp, Pstate *p)
 	case Pipcp:
 		p->optmask = 0xffffffff;
 		ppp->ctcp = compress_init(ppp->ctcp);
+		break;
+	case Pipv6cp:
+		p->optmask = 0xffffffff;
 		break;
 	}
 	p->confid = p->rcvdconfid = -1;
@@ -367,13 +387,13 @@ newstate(PPP *ppp, Pstate *p, int state)
 		}
 	}
 
-	if(p->proto == Pipcp && state == Sopened) {
+	if((p->proto == Pipcp || p->proto == Pipv6cp) && state == Sopened) {
 		if(server && !noauth && ppp->chap->state != Cauthok)
 			abort();
 
 		err = ipopen(ppp);
 		if(err != nil)
-			sysfatal("%s", err);
+			terminate(ppp, err, 1);
 	}
 
 	p->state = state;
@@ -653,6 +673,15 @@ puto(Block *b, int type)
 	*b->wptr++ = 2;
 }
 
+static void
+putoeui64(Block *b, int type, uchar data[8])
+{
+	*b->wptr++ = type;
+	*b->wptr++ = 8+2;
+	memmove(b->wptr, data, 8);
+	b->wptr += 8;
+}
+
 /*
  *  send configuration request
  */
@@ -706,17 +735,16 @@ config(PPP *ppp, Pstate *p, int newid)
 		break;
 	case Pipcp:
 		if(p->optmask & Fipaddr){
-			syslog(0, LOG, "requesting %I", ppp->local);
+			syslog(0, LOG, "requesting IPv4 %I", ppp->local);
 			putv4o(b, Oipaddr, ppp->local);
 		}
-		primary = 1;
-		if(primary && (p->optmask & Fipdns))
+		if(p->optmask & Fipdns)
 			putv4o(b, Oipdns, ppp->dns[0]);
-		if(primary && (p->optmask & Fipdns2))
+		if(p->optmask & Fipdns2)
 			putv4o(b, Oipdns2, ppp->dns[1]);
-		if(primary && (p->optmask & Fipwins))
+		if(p->optmask & Fipwins)
 			putv4o(b, Oipwins, ppp->wins[0]);
-		if(primary && (p->optmask & Fipwins2))
+		if(p->optmask & Fipwins2)
 			putv4o(b, Oipwins2, ppp->wins[1]);
 		/*
 		 * don't ask for header compression while data compression is still pending.
@@ -729,6 +757,12 @@ config(PPP *ppp, Pstate *p, int newid)
 			b->wptr += 2;
 			*b->wptr++ = MAX_STATES-1;
 			*b->wptr++ = 1;
+		}
+		break;
+	case Pipv6cp:
+		if(p->optmask & Fipv6eui){
+			syslog(0, LOG, "requesting IPv6 %I", ppp->local6);
+			putoeui64(b, Oipv6eui, &ppp->local6[8]);
 		}
 		break;
 	}
@@ -785,7 +819,7 @@ getopts(PPP *ppp, Pstate *p, Block *b)
 	ulong x;
 	Block *repb;
 	Comptype *ctype;
-	Ipaddr ipaddr;
+	Ipaddr ipaddr, ipaddr6;
 
 	rejecting = 0;
 	nacking = 0;
@@ -793,6 +827,7 @@ getopts(PPP *ppp, Pstate *p, Block *b)
 
 	/* defaults */
 	invalidate(ipaddr);
+	invalidate(ipaddr6);
 	mtu = ppp->mtu;
 	ctlmap = 0xffffffff;
 	period = 0;
@@ -809,7 +844,7 @@ getopts(PPP *ppp, Pstate *p, Block *b)
 	/* look for options we don't recognize or like */
 	for(cp = m->data; cp < b->wptr; cp += o->len){
 		o = (Lcpopt*)cp;
-		if(cp + o->len > b->wptr || o->len==0){
+		if(cp + o->len > b->wptr || o->len < 2){
 			freeb(repb);
 			netlog("ppp: bad option length %ux\n", o->type);
 			return -1;
@@ -965,6 +1000,24 @@ getopts(PPP *ppp, Pstate *p, Block *b)
 				continue;
 			}
 			break;
+		case Pipv6cp:
+			switch(o->type){
+			case Oipv6eui:	
+				euitov6(ipaddr6, o->data, o->len-2);
+				if(!validv6(ppp->remote6))
+					continue;
+				if(!validv6(ipaddr6) && !rejecting){
+					/* other side requesting an address */
+					if(!nacking){
+						nacking = 1;
+						repb->wptr = repm->data;
+						repm->code = Lconfnak;
+					}
+					putoeui64(repb, Oipv6eui, &ppp->remote6[8]);
+				}
+				continue;
+			}
+			break;
 		}
 
 		/* come here if option is not recognized */
@@ -1006,6 +1059,10 @@ getopts(PPP *ppp, Pstate *p, Block *b)
 			if(validv4(ipaddr) && ppp->remotefrozen == 0)
  				ipmove(ppp->remote, ipaddr);
 			break;
+		case Pipv6cp:
+			if(validv6(ipaddr6) && ppp->remote6frozen == 0)
+ 				ipmove(ppp->remote6, ipaddr6);
+			break;
 		}
 		p->flags = flags;
 	}
@@ -1034,28 +1091,36 @@ dmppkt(char *s, uchar *a, int na)
 static void
 dropoption(Pstate *p, Lcpopt *o)
 {
-	unsigned n = o->type;
-
-	switch(n){
-	case Oipaddr:
+	switch(p->proto){
+	case Pipcp:
+		switch(o->type){
+		case Oipaddr:
+			/* never drop it */
+			return;
+		case Oipdns:
+			p->optmask &= ~Fipdns;
+			return;
+		case Oipwins:
+			p->optmask &= ~Fipwins;
+			return;
+		case Oipdns2:
+			p->optmask &= ~Fipdns2;
+			return;
+		case Oipwins2:
+			p->optmask &= ~Fipwins2;
+			return;
+		}
 		break;
-	case Oipdns:
-		p->optmask &= ~Fipdns;
-		break;
-	case Oipwins:
-		p->optmask &= ~Fipwins;
-		break;
-	case Oipdns2:
-		p->optmask &= ~Fipdns2;
-		break;
-	case Oipwins2:
-		p->optmask &= ~Fipwins2;
-		break;
-	default:
-		if(o->type < 8*sizeof(p->optmask))
-			p->optmask &= ~(1<<o->type);
+	case Pipv6cp:
+		switch(o->type){
+		case Oipv6eui:
+			/* never drop it */
+			return;
+		}
 		break;
 	}
+	if(o->type < 8*sizeof(p->optmask))
+		p->optmask &= ~(1<<o->type);
 }
 
 /*
@@ -1067,13 +1132,13 @@ rejopts(PPP *ppp, Pstate *p, Block *b, int code)
 {
 	Lcpmsg *m;
 	Lcpopt *o;
-	uchar newip[IPaddrlen];
+	Ipaddr newip;
 
 	/* just give up trying what the other side doesn't like */
 	m = (Lcpmsg*)b->rptr;
 	for(b->rptr = m->data; b->rptr < b->wptr; b->rptr += o->len){
 		o = (Lcpopt*)b->rptr;
-		if(b->rptr + o->len > b->wptr){
+		if(b->rptr + o->len > b->wptr || o->len < 2){
 			netlog("ppp: bad roption length %ux\n", o->type);
 			return;
 		}
@@ -1094,12 +1159,10 @@ rejopts(PPP *ppp, Pstate *p, Block *b, int code)
 			case Oauth:
 				/* don't allow client to request no auth */
 				/* could try different auth protocol here */
-				fprint(2, "ppp: can not reject CHAP\n");
-				exits("ppp: CHAP");
-				break;
+				terminate(ppp, "chap rejected", 0);
+				return;
 			default:
-				if(o->type < 8*sizeof(p->optmask))
-					p->optmask &= ~(1<<o->type);
+				dropoption(p, o);
 				break;
 			};
 			break;
@@ -1113,7 +1176,8 @@ rejopts(PPP *ppp, Pstate *p, Block *b, int code)
 		case Pipcp:
 			switch(o->type){
 			case Oipaddr:
-				syslog(0, LOG, "rejected addr %I with %V", ppp->local, o->data);
+				v4tov6(newip, o->data);
+				syslog(0, LOG, "rejected IPv4 addr %I with %I", ppp->local, newip);
 				/* if we're a server, don't let other end change our addr */
 				if(ppp->localfrozen){
 					dropoption(p, o);
@@ -1122,20 +1186,19 @@ rejopts(PPP *ppp, Pstate *p, Block *b, int code)
 
 				/* accept whatever server tells us */
 				if(!validv4(ppp->local)){
-					v4tov6(ppp->local, o->data);
+					ipmove(ppp->local, newip);
 					dropoption(p, o);
 					break;
 				}
 
 				/* if he didn't like our addr, ask for a generic one */
-				v4tov6(newip, o->data);
 				if(!validv4(newip)){
 					invalidate(ppp->local);
 					break;
 				}
 
 				/* if he gives us something different, use it anyways */
-				v4tov6(ppp->local, o->data);
+				ipmove(ppp->local, newip);
 				dropoption(p, o);
 				break;
 			case Oipdns:
@@ -1199,6 +1262,36 @@ rejopts(PPP *ppp, Pstate *p, Block *b, int code)
 				break;
 			}
 			break;
+		case Pipv6cp:
+			switch(o->type){
+			case Oipv6eui:
+				euitov6(newip, o->data, o->len-2);
+				syslog(0, LOG, "rejected IPv6 addr %I with %I", ppp->local6, newip);
+
+				/* if we're a server, don't let other end change our addr */
+				if(ppp->local6frozen){
+					dropoption(p, o);
+					break;
+				}
+				/* accept whatever server tells us */
+				if(!validv6(ppp->local6)){
+					ipmove(ppp->local6, newip);
+					dropoption(p, o);
+					break;
+				}
+				/* if he didn't like our addr, ask for a generic one */
+				if(!validv6(newip)){
+					invalidate(ppp->local6);
+					break;
+				}
+				/* if he gives us something different, use it anyways */
+				ipmove(ppp->local6, newip);
+				dropoption(p, o);
+				break;
+			default:
+				dropoption(p, o);
+				break;
+			}
 		}
 	}
 }
@@ -1316,6 +1409,8 @@ rcv(PPP *ppp, Pstate *p, Block *b)
 		case Sacksent:
 			printopts(p, b, 0);
 			rejopts(ppp, p, b, m->code);
+			if(dying)
+				break;
 			config(ppp, p, 1);
 			break;
 		}
@@ -1453,7 +1548,7 @@ authtimer(PPP* ppp)
 		putpaprequest(ppp);
 	else {
 		netlog("ppp: pap timed out--not authorized\n");
-		terminate(ppp, "pap timeout");
+		terminate(ppp, "pap timeout", 0);
 	}
 }
 
@@ -1464,7 +1559,7 @@ pingtimer(PPP* ppp)
 		ppp->lcp->echotimeout = (3*4*1000+Period-1)/Period;
 	else if(--(ppp->lcp->echotimeout) <= 0){
 		netlog("ppp: echo request timeout\n");
-		terminate(ppp, "echo timeout");
+		terminate(ppp, "echo timeout", 0);
 		return;
 	}
 	ppp->lcp->echoack = 0;
@@ -1489,6 +1584,7 @@ ppptimer(PPP *ppp)
 			case Pnet:
 				ptimer(ppp, ppp->ccp);
 				ptimer(ppp, ppp->ipcp);
+				ptimer(ppp, ppp->ipv6cp);
 
 				pingtimer(ppp);
 				break;
@@ -1511,18 +1607,50 @@ ppptimer(PPP *ppp)
 static void
 defroute(char *net, char *verb, Ipaddr gate, Ipaddr local)
 {
-	int fd;
 	char path[128];
+	int fd;
 
 	snprint(path, sizeof path, "%s/iproute", net);
 	fd = open(path, ORDWR);
 	if(fd < 0)
 		return;
-	fprint(fd, "tag ppp");
-	if(primary)
-		fprint(fd, "%s 0.0.0.0 0.0.0.0 %I", verb, gate);
-	fprint(fd, "%s 0.0.0.0 0.0.0.0 %I %I 255.255.255.255", verb, gate, local);
+	fprint(fd, "tag ppp\n");
+	fprint(fd, "%s 0.0.0.0 0.0.0.0 %I %I 255.255.255.255\n", verb, gate, local);
 	close(fd);
+}
+
+static int
+addip(int cfd, char *net, Ipaddr local, Ipaddr remote, int mtu)
+{
+	if(validv4(local) && validv4(remote)){
+		netlog("ppp: setting up IPv4 interface local %I remote %I\n", local, remote);
+
+		if(fprint(cfd, "add %I 255.255.255.255 %I %d proxy", local, remote, mtu-10) < 0)
+			return -1;
+
+		defroute(net, "add", remote, local);
+	} else if(validv6(local) && validv6(remote)){
+		netlog("ppp: setting up IPv6 interface local %I remote %I\n", local, remote);
+
+		if(fprint(cfd, "add %I /64 %I %d", local, remote, mtu-10) < 0)
+			return -1;
+	}
+	return 0;
+}
+
+static int
+removeip(int cfd, char *net, Ipaddr local, Ipaddr remote)
+{
+	if(validv4(local) && validv4(remote)){
+		defroute(net, "remove", remote, local);
+
+		if(fprint(cfd, "remove %I 255.255.255.255 %I", local, remote) < 0)
+			return -1;
+	} else if(validv6(local) && validv6(remote)){
+		if(fprint(cfd, "remove %I /64 %I", local, remote) < 0)
+			return -1;
+	}
+	return 0;
 }
 
 static char*
@@ -1545,63 +1673,77 @@ ipopen(PPP *ppp)
 			return "can't open ip interface";
 		}
 		buf[n] = 0;
-
-		netlog("ppp: setting up IP interface local %I remote %I (valid %d)\n",
-			ppp->local, ppp->remote, validv4(ppp->remote));
-		if(!validv4(ppp->remote))
-			ipmove(ppp->remote, ppp->local);
-
 		snprint(path, sizeof path, "%s/ipifc/%s/data", ppp->net, buf);
 		fd = open(path, ORDWR);
 		if(fd < 0){
 			close(cfd);
 			return "can't open ip interface";
 		}
-
-		if(fprint(cfd, "bind pkt") < 0)
-			return "binding pkt to ip interface";
-		if(fprint(cfd, "add %I 255.255.255.255 %I %lud proxy", ppp->local,
-			ppp->remote, ppp->mtu-10) < 0){
+		if(fprint(cfd, "bind pkt") < 0){
+			close(fd);
 			close(cfd);
-			return "can't set addresses";
+			return "binding pkt to ip interface";
+		}
+		if(validv4(ppp->local)){
+			if(!validv4(ppp->remote))
+				ipmove(ppp->remote, ppp->local);
+			if(addip(cfd, ppp->net, ppp->local, ppp->remote, ppp->mtu) < 0){
+				close(fd);
+				close(cfd);
+				return "can't set addresses";
+			}
+			syslog(0, LOG, "%I/%I", ppp->local, ppp->remote);
+		}
+		if(validv6(ppp->local6) && validv6(ppp->remote6)){
+			if(addip(cfd, ppp->net, ppp->local6, ppp->remote6, ppp->mtu) < 0){
+				close(fd);
+				close(cfd);
+				return "can't set addresses";
+			}
+			syslog(0, LOG, "%I/%I", ppp->local6, ppp->remote6);
 		}
 		if(baud)
 			fprint(cfd, "speed %d", baud);
-		defroute(ppp->net, "add", ppp->remote, ppp->local);
 		ppp->ipfd = fd;
 		ppp->ipcfd = cfd;
+		putndb(ppp);
+		refresh(ppp->net);
 
 		/* signal main() that ip is configured */
-		rendezvous((void*)Rmagic, 0);
+		rendezvous(ppp, 0);
 
 		switch(ipinprocpid = rfork(RFPROC|RFMEM|RFNOWAIT)){
 		case -1:
-			sysfatal("forking ipinproc");
+			terminate(ppp, "forking ipinproc", 1);
 		case 0:
 			ipinproc(ppp);
-			terminate(ppp, "ipinproc");
+			terminate(ppp, "ipinproc", 0);
 			exits(nil);
 		}
 	} else {
 		/* we may have changed addresses */
-		if(ipcmp(ppp->local, ppp->curlocal) != 0 ||
-		   ipcmp(ppp->remote, ppp->curremote) != 0){
-			defroute(ppp->net, "remove", ppp->curremote, ppp->curlocal);
-			snprint(buf, sizeof buf, "remove %I 255.255.255.255 %I",
-			    ppp->curlocal, ppp->curremote);
-			if(fprint(ppp->ipcfd, "%s", buf) < 0)
-				syslog(0, LOG, "can't %s: %r", buf);
-			snprint(buf, sizeof buf, "add %I 255.255.255.255 %I %lud proxy",
-			    ppp->local, ppp->remote, ppp->mtu-10);
-			if(fprint(ppp->ipcfd, "%s", buf) < 0)
-				syslog(0, LOG, "can't %s: %r", buf);
-			defroute(ppp->net, "add", ppp->remote, ppp->local);
+		if(ipcmp(ppp->local, ppp->curlocal) != 0 || ipcmp(ppp->remote, ppp->curremote) != 0){
+			removeip(ppp->ipcfd, ppp->net, ppp->curlocal, ppp->curremote);
+			addip(ppp->ipcfd, ppp->net, ppp->local, ppp->remote, ppp->mtu);
+
+			syslog(0, LOG, "%I/%I -> %I/%I", ppp->curlocal, ppp->curremote,
+				ppp->local, ppp->remote);
 		}
-		syslog(0, LOG, "%I/%I -> %I/%I", ppp->curlocal, ppp->curremote,
-		   ppp->local, ppp->remote);
+		if(ipcmp(ppp->local6, ppp->curlocal6) != 0 || ipcmp(ppp->remote6, ppp->curremote6) != 0){
+			removeip(ppp->ipcfd, ppp->net, ppp->curlocal6, ppp->curremote6);
+			addip(ppp->ipcfd, ppp->net, ppp->local6, ppp->remote6, ppp->mtu);
+
+			syslog(0, LOG, "%I/%I -> %I/%I", ppp->curlocal6, ppp->curremote6,
+				ppp->local6, ppp->remote6);
+		}
+		putndb(ppp);
+		refresh(ppp->net);
 	}
+
 	ipmove(ppp->curlocal, ppp->local);
 	ipmove(ppp->curremote, ppp->remote);
+	ipmove(ppp->curlocal6, ppp->local6);
+	ipmove(ppp->curremote6, ppp->remote6);
 
 	return nil;
 }
@@ -1630,11 +1772,20 @@ Again:
 		case Pipcp:
 			rcv(ppp, ppp->ipcp, b);
 			break;
+		case Pipv6cp:
+			rcv(ppp, ppp->ipv6cp, b);
+			break;
 		case Pip:
 			if(ppp->ipcp->state == Sopened)
 				return b;
-			netlog("ppp: IP recved: link not up\n");
 			freeb(b);
+			netlog("ppp: IP recved: link not up\n");
+			break;
+		case Pipv6:
+			if(ppp->ipv6cp->state == Sopened)
+				return b;
+			freeb(b);
+			netlog("ppp: IPv6 recved: link not up\n");
 			break;
 		case Plqm:
 			getlqm(ppp, b);
@@ -1703,80 +1854,6 @@ Again:
 	return nil;
 }
 
-/* transmit an IP packet */
-int
-pppwrite(PPP *ppp, Block *b)
-{
-	int proto;
-	int len;
-
-	qlock(ppp);
-	/* can't send ip packets till we're established */
-	if(ppp->ipcp->state != Sopened) {
-		qunlock(ppp);
-		syslog(0, LOG, "IP write: link not up");
-		len = blen(b);
-		freeb(b);
-		return len;
-	}
-
-	proto = Pip;
-	ppp->stat.ipsend++;
-
-	if(ppp->ipcp->flags & Fipcompress){
-		b = compress(ppp->ctcp, b, &proto);
-		if(b == nil){
-			qunlock(ppp);
-			return 0;
-		}
-		if(proto != Pip)
-			ppp->stat.vjout++;
-	}
-
-	if(ppp->ctype != nil) {
-		len = blen(b);
-		b = (*ppp->ctype->compress)(ppp, proto, b, &proto);
-		if(proto == Pcdata) {
-			ppp->stat.comp++;
-			ppp->stat.compin += len;
-			ppp->stat.compout += blen(b);
-		}
-	} 
-
-	if(putframe(ppp, proto, b) < 0) {
-		qunlock(ppp);
-		freeb(b);
-		return -1;
-	}
-	qunlock(ppp);
-
-	len = blen(b);
-	freeb(b);
-	return len;
-}
-
-static void
-terminate(PPP *ppp, char *why)
-{
-	if(dying++)
-		return;
-
-	syslog(0, LOG, "ppp: terminated: %s", why);
-
-	if(ppp->net != nil && validv4(ppp->curremote) && validv4(ppp->curlocal))
-		defroute(ppp->net, "remove", ppp->curremote, ppp->curlocal);
-
-	close(ppp->ipfd);
-	ppp->ipfd = -1;
-	close(ppp->ipcfd);
-	ppp->ipcfd = -1;
-	close(ppp->mediain);
-	close(ppp->mediaout);
-	ppp->mediain = -1;
-	ppp->mediaout = -1;
-	postnote(PNGROUP, getpid(), "die");
-}
-
 typedef struct Iphdr Iphdr;
 struct Iphdr
 {
@@ -1792,27 +1869,125 @@ struct Iphdr
 	uchar	dst[4];		/* Ip destination (uchar ordering unimportant) */
 };
 
+/* transmit an IP packet */
+int
+pppwrite(PPP *ppp, Block *b)
+{
+	int proto;
+	int len, tot;
+	Iphdr *ip;
+	Ip6hdr *ip6;
+
+	len = blen(b);
+	ip = (Iphdr*)b->rptr;
+	switch(ip->vihl & 0xF0){
+	default:
+	Badhdr:
+		freeb(b);
+		return len;
+	case IP_VER4:
+		if(len < IPV4HDR_LEN || (tot = nhgets(ip->length)) < IPV4HDR_LEN)
+			goto Badhdr;
+		b = btrim(b, 0, tot);
+		if(b == nil)
+			return len;
+
+		qlock(ppp);
+		if(ppp->ipcp->state != Sopened)
+			goto Drop;
+		proto = Pip;
+		if(ppp->ipcp->flags & Fipcompress){
+			b = compress(ppp->ctcp, b, &proto);
+			if(b == nil){
+				qunlock(ppp);
+				return len;
+			}
+			if(proto != Pip)
+				ppp->stat.vjout++;
+		}
+		break;
+	case IP_VER6:
+		if(len < IPV6HDR_LEN)
+			goto Badhdr;
+		ip6 = (Ip6hdr*)ip;
+		b = btrim(b, 0, IPV6HDR_LEN + nhgets(ip6->ploadlen));
+		if(b == nil)
+			return len;
+
+		qlock(ppp);
+		if(ppp->ipv6cp->state != Sopened)
+			goto Drop;
+		proto = Pipv6;
+		break;
+	}
+	ppp->stat.ipsend++;
+
+	if(ppp->ctype != nil) {
+		b = (*ppp->ctype->compress)(ppp, proto, b, &proto);
+		if(proto == Pcdata) {
+			ppp->stat.comp++;
+			ppp->stat.compin += len;
+			ppp->stat.compout += blen(b);
+		}
+	} 
+
+	if(putframe(ppp, proto, b) < 0) {
+		qunlock(ppp);
+		freeb(b);
+		return -1;
+	}
+Drop:
+	qunlock(ppp);
+	freeb(b);
+	return len;
+}
+
+static void
+terminate(PPP *ppp, char *why, int fatal)
+{
+	if(dying++)
+		return;
+
+	syslog(0, LOG, "ppp: terminated: %s", why);
+
+	if(validv4(ppp->curremote) && validv4(ppp->curlocal)){
+		defroute(ppp->net, "remove", ppp->curremote, ppp->curlocal);
+		invalidate(ppp->remote);
+		invalidate(ppp->local);
+		putndb(ppp);
+	}
+
+	close(ppp->ipfd);
+	ppp->ipfd = -1;
+	close(ppp->ipcfd);
+	ppp->ipcfd = -1;
+	close(ppp->mediain);
+	close(ppp->mediaout);
+	ppp->mediain = -1;
+	ppp->mediaout = -1;
+	postnote(PNGROUP, getpid(), "die");
+
+	/* interface gone, notify cs */
+	refresh(ppp->net);
+
+	if(fatal)
+		sysfatal("%s", why);
+}
+
 static void
 ipinproc(PPP *ppp)
 {
 	Block *b;
-	int m, n;
-	Iphdr *ip;
+	int n;
 
 	while(!dying){
-
 		b = allocb(Buflen);
 		n = read(ppp->ipfd, b->wptr, b->lim-b->wptr);
-		if(n < 0)
+		if(n < 1){
+			freeb(b);
 			break;
-
-		/* trim packet if there's padding (e.g. from ether) */
-		ip = (Iphdr*)b->rptr;
-		m = nhgets(ip->length);
-		if(m < n && m > 0)
-			n = m;
+		}
 		b->wptr += n;
-
 		if(pppwrite(ppp, b) < 0)
 			break;
 	}
@@ -1855,7 +2030,6 @@ static void
 mediainproc(PPP *ppp)
 {
 	Block *b;
-	Ipaddr remote;
 
 	notify(catchdie);
 	while(!dying){
@@ -1865,20 +2039,6 @@ mediainproc(PPP *ppp)
 			break;
 		}
 		ppp->stat.iprecv++;
-		if(ppp->ipcp->state != Sopened) {
-			ppp->stat.iprecvnotup++;
-			freeb(b);
-			continue;
-		}
-
-		if(server) {
-			v4tov6(remote, b->rptr+12);
-			if(ipcmp(remote, ppp->remote) != 0) {
-				ppp->stat.iprecvbadsrc++;
-				freeb(b);
-				continue;
-			}
-		}
 		if(debug > 1){
 			netlog("ip write pkt %p %d\n", b->rptr, blen(b));
 			hexdump(b->rptr, blen(b));
@@ -1888,12 +2048,11 @@ mediainproc(PPP *ppp)
 			freeb(b);
 			break;
 		}
-
 		freeb(b);
 	}
 
-	netlog(": remote=%I: ppp shutting down\n", ppp->remote);
-	syslog(0, LOG, ": remote=%I: ppp shutting down", ppp->remote);
+	netlog(": remote=%I/%I: ppp shutting down\n", ppp->remote, ppp->remote6);
+	syslog(0, LOG, ": remote=%I/%I: ppp shutting down", ppp->remote, ppp->remote6);
 	syslog(0, LOG, "\t\tppp send = %lud/%lud recv= %lud/%lud",
 		ppp->out.packets, ppp->out.uchars,
 		ppp->in.packets, ppp->in.uchars);
@@ -2003,8 +2162,11 @@ chapinit(PPP *ppp)
 		auth_freeAI(c->ai);
 		c->ai = nil;
 	}
-	if((c->cs = auth_challenge("proto=%q role=server", getaproto(c->proto))) == nil)
-		sysfatal("auth_challenge: %r");
+	if((c->cs = auth_challenge("proto=%q role=server", getaproto(c->proto))) == nil){
+		char err[ERRMAX];
+		snprint(err, sizeof(err), "auth_challenge: %r");
+		terminate(ppp, err, 1);
+	}
 	syslog(0, LOG, ": remote=%I: sending %d byte challenge", ppp->remote, c->cs->nchal);
 	len = 4 + 1 + c->cs->nchal + strlen(ppp->chapname);
 	b = alloclcp(Cchallenge, c->id, len, &m);
@@ -2032,13 +2194,13 @@ setppekey(PPP *ppp, int isserver)
 	switch(c->proto){
 	case APmschap:
 		if(c->ai == nil || c->ai->nsecret != 16)
-			sysfatal("could not get the encryption key");
+			terminate(ppp, "could not get the encryption key", 1);
 		memmove(ppp->sendkey, c->ai->secret, 16);
 		memmove(ppp->recvkey, c->ai->secret, 16);
 		break;
 	case APmschapv2:
 		if(c->ai == nil || c->ai->nsecret != 16+20)
-			sysfatal("could not get the encryption key + authenticator");
+			terminate(ppp, "could not get the encryption key + authenticator", 1);
 		getasymkey(ppp->sendkey, c->ai->secret, 1, isserver);
 		getasymkey(ppp->recvkey, c->ai->secret, 0, isserver);
 		break;
@@ -2078,9 +2240,13 @@ getchap(PPP *ppp, Block *b)
 			ppp->chapname, sizeof(ppp->chapname), 
 			resp, sizeof(resp), &c->ai,
 			auth_getkey,
-			"proto=%s role=client service=ppp %s", getaproto(c->proto), keyspec);
-		if(nresp < 0)
-			sysfatal("auth_respond: %r");
+			"proto=%s role=client service=ppp %s",
+			getaproto(c->proto), keyspec);
+		if(nresp < 0){
+			char err[ERRMAX];
+			snprint(err, sizeof(err), "auth_respond: %r");
+			terminate(ppp, err, 1);
+		}
 		if(c->proto == APmschap || c->proto == APmschapv2)
 			while(nresp < 49) resp[nresp++] = 0;
 		freeb(b);
@@ -2102,6 +2268,7 @@ getchap(PPP *ppp, Block *b)
 		}
 		switch(c->proto) {
 		default:
+			terminate(ppp, "unknown chap protocol", 0);
 			sysfatal("unknown chap protocol: %d", c->proto);
 		case APmd5:
 			if(vlen > len - 5 || vlen != 16) {
@@ -2189,7 +2356,7 @@ getchap(PPP *ppp, Block *b)
 			n = snprint((char*)resp, sizeof(resp), "S=%.20H", c->ai->secret+16);
 			if(len - 4 < n || tsmemcmp(m->data, resp, n) != 0){
 				netlog("ppp: chap: bad authenticator\n");
-				terminate(ppp, "chap: bad authenticator");
+				terminate(ppp, "chap: bad authenticator", 0);
 				break;
 			}
 		}
@@ -2199,7 +2366,7 @@ getchap(PPP *ppp, Block *b)
 		break;
 	case Cfailure:
 		netlog("ppp: chap failed\n");
-		terminate(ppp, "chap failed");
+		terminate(ppp, "chap failed", 0);
 		break;
 	default:
 		syslog(0, LOG, "chap code %d?", m->code);
@@ -2219,9 +2386,11 @@ putpaprequest(PPP *ppp)
 	int len, nlen, slen;
 
 	up = auth_getuserpasswd(auth_getkey, "proto=pass service=ppp %s", keyspec);
-	if(up == nil)
-		sysfatal("auth_getuserpasswd: %r");
-
+	if(up == nil){
+		char err[ERRMAX];
+		snprint(err, sizeof(err), "auth_getuserpasswd: %r");
+		terminate(ppp, err, 1);
+	}
 	c = ppp->chap;
 	c->id++;
 	netlog("ppp: pap: send authreq %d %s %s\n", c->id, up->user, "****");
@@ -2239,9 +2408,13 @@ putpaprequest(PPP *ppp)
 	b->wptr += slen;
 	hnputs(m->len, len);
 
+	memset(up->user, 0, nlen);	/* no leaks */
+	memset(up->passwd, 0, slen);	/* no leaks */
 	free(up);
 
 	putframe(ppp, Ppasswd, b);
+
+	memset(b->rptr, 0, BLEN(b));	/* no leaks */
 	freeb(b);
 }
 
@@ -2287,7 +2460,7 @@ getpap(PPP *ppp, Block *b)
 		&& m->id <= ppp-> chap->id){
 			netlog("ppp: pap failed (%d:%.*s)\n",
 				m->data[0], utfnlen((char*)m->data+1, m->data[0]), (char*)m->data+1);
-			terminate(ppp, "pap failed");
+			terminate(ppp, "pap failed", 0);
 		}
 		break;
 	default:
@@ -2324,7 +2497,7 @@ printopts(Pstate *p, Block *b, int send)
 
 	for(cp = m->data; cp < b->wptr; cp += o->len){
 		o = (Lcpopt*)cp;
-		if(cp + o->len > b->wptr){
+		if(cp + o->len > b->wptr || o->len < 2){
 			netlog("\tbad option length %ux\n", o->type);
 			return;
 		}
@@ -2436,6 +2609,16 @@ printopts(Pstate *p, Block *b, int send)
 				break;
 			case Oipwins2:	
 				netlog("\twins2 addr %V\n", o->data);
+				break;
+			}
+			break;
+		case Pipv6cp:
+			switch(o->type){
+			default:
+				netlog("\tunknown %d len=%d\n", o->type, o->len);
+				break;
+			case Oipv6eui:	
+				netlog("\tipv6eui %.*H\n", o->len, o->data);
 				break;
 			}
 			break;
@@ -2757,10 +2940,6 @@ main(int argc, char **argv)
 		usage();
 	}
 
-	nip = nipifcs(net);
-	if(nip == 0 && !server)
-		primary = 1;
-
 	if(dev != nil){
 		mediain = open(dev, ORDWR);
 		if(mediain < 0){
@@ -2814,11 +2993,7 @@ main(int argc, char **argv)
 	pppopen(ppp, mediain, mediaout, net, ipaddr, remip, mtu, framing);
 
 	/* wait until ip is configured */
-	rendezvous((void*)Rmagic, 0);
-
-	/* create a /net/ndb entry */
-	if(primary)
-		putndb(ppp, net);
+	rendezvous(ppp, 0);
 
 	exits(nil);
 }
@@ -2860,52 +3035,75 @@ invalidate(Ipaddr addr)
 	ipmove(addr, IPnoaddr);
 }
 
+static uchar v6llprefix[16] = {
+	0xfe, 0x80, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00,
+};
+
+enum {
+	v6llprefixlen = 8,
+};
+
 /*
- *  return number of networks
+ *  return non-zero when addr is a valid link-local ipv6 address
  */
 static int
-nipifcs(char *net)
+validv6(Ipaddr addr)
 {
-	static Ipifc *ifc;
-	Ipifc *nifc;
-	Iplifc *lifc;
-	int n;
-
-	n = 0;
-	ifc = readipifc(net, ifc, -1);
-	for(nifc = ifc; nifc != nil; nifc = nifc->next)
-		for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next)
-			n++;
-	return n;
+	return memcmp(addr, v6llprefix, v6llprefixlen) == 0 && memcmp(addr, v6llprefix, IPaddrlen) != 0;
 }
 
 /*
- *   make an ndb entry and put it into /net/ndb for the servers to see
+ *  convert EUI-64 or EUI-48 to link-local ipv6 address,
+ *  return non-zero when successfull or zero on failure.
+ */
+static int
+euitov6(Ipaddr addr, uchar *data, int len)
+{
+	if(len < 1 || len > IPaddrlen-v6llprefixlen){
+		invalidate(addr);
+		return 0;
+	}
+	ipmove(addr, v6llprefix);
+	memmove(&addr[IPaddrlen-len], data, len);
+	return memcmp(addr, v6llprefix, IPaddrlen) != 0;
+}
+
+/*
+ *  make an ndb entry and put it into /net/ndb for the servers to see
  */
 static void
-putndb(PPP *ppp, char *net)
+putndb(PPP *ppp)
 {
 	static char buf[16*1024];
-	char file[64], *p, *e;
+	char file[128], *p, *e;
 	Ndbtuple *t, *nt;
 	Ndb *db;
 	int fd;
 
+	if(!primary)
+		return;
+
 	e = buf + sizeof(buf);
 	p = buf;
-	p = seprint(p, e, "ip=%I ipmask=255.255.255.255 ipgw=%I\n",
-		ppp->local, ppp->remote);
-	if(validv4(ppp->dns[0]))
-		p = seprint(p, e, "\tdns=%I\n", ppp->dns[0]);
-	if(validv4(ppp->dns[1]))
-		p = seprint(p, e, "\tdns=%I\n", ppp->dns[1]);
-	if(validv4(ppp->wins[0]))
-		p = seprint(p, e, "\twins=%I\n", ppp->wins[0]);
-	if(validv4(ppp->wins[1]))
-		p = seprint(p, e, "\twins=%I\n", ppp->wins[1]);
 
-	/* append preexisting entries not matching our ip */
-	snprint(file, sizeof file, "%s/ndb", net);
+	if(validv4(ppp->local) && validv4(ppp->remote)){
+		p = seprint(p, e, "ip=%I ipmask=255.255.255.255 ipgw=%I\n",
+			ppp->local, ppp->remote);
+		if(validv4(ppp->dns[0]))
+			p = seprint(p, e, "\tdns=%I\n", ppp->dns[0]);
+		if(validv4(ppp->dns[1]))
+			p = seprint(p, e, "\tdns=%I\n", ppp->dns[1]);
+		if(validv4(ppp->wins[0]))
+			p = seprint(p, e, "\twins=%I\n", ppp->wins[0]);
+		if(validv4(ppp->wins[1]))
+			p = seprint(p, e, "\twins=%I\n", ppp->wins[1]);
+	}
+
+	/* append preexisting entries not matching our old or new ip */
+	snprint(file, sizeof file, "%s/ndb", ppp->net);
 	db = ndbopen(file);
 	if(db != nil ){
 		while((t = ndbparse(db)) != nil){
@@ -2913,7 +3111,7 @@ putndb(PPP *ppp, char *net)
 
 			if((nt = ndbfindattr(t, t, "ip")) == nil
 			|| parseip(ip, nt->val) == -1
-			|| ipcmp(ip, ppp->local) != 0){
+			|| (ipcmp(ip, ppp->local) != 0 && ipcmp(ip, ppp->curlocal) != 0)){
 				p = seprint(p, e, "\n");
 				for(nt = t; nt != nil; nt = nt->entry)
 					p = seprint(p, e, "%s=%s%s", nt->attr, nt->val,
@@ -2928,6 +3126,13 @@ putndb(PPP *ppp, char *net)
 		return;
 	write(fd, buf, p-buf);
 	close(fd);
+}
+
+static void
+refresh(char *net)
+{
+	char file[128];
+	int fd;
 
 	snprint(file, sizeof file, "%s/cs", net);
 	if((fd = open(file, OWRITE)) >= 0){

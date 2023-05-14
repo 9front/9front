@@ -121,8 +121,12 @@ comp(PPP *ppp, ushort proto, Block *b, int *protop)
 
 	/* put ack and protocol into b */
 	n = BLEN(b);
-	if(b->rptr - (2+4) < b->base)
-		sysfatal("thwack: not enough header in block");
+	if(b->rptr - (2+4) < b->base){
+		fprint(2, "thwack: not enough header in block\n");
+		freeb(b);
+		return nil;
+	}
+
 	acked = 0;
 	if(ppp->unctype == &uncthwack){
 		uncs = ppp->uncstate;

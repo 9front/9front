@@ -104,8 +104,7 @@ for transfer over serial lines or other protocol connections.
 can run either as a client or, with the
 .I \-S
 option, as a server.  The only differences between a client and a server is
-that the server will not believe any local address the client tries to
-supply it and that the server always initiates the authentication of the
+that the server always initiates the authentication of the
 client.
 .PP
 With no option,

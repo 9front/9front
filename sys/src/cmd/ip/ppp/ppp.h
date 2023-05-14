@@ -78,6 +78,7 @@ enum {
 	Pvjutcp=	0x2f,		/* uncompressing van jacobson tcp */
 	Pcdata=		0xfd,		/* compressed datagram */
 	Pipcp=		0x8021,		/* ip control */
+	Pipv6cp=	0x8057,		/* ipv6 control */
 	Pecp=		0x8053,		/* encryption control */
 	Pccp=		0x80fd,		/* compressed datagram control */
 	Plcp=		0xc021,		/* link control */
@@ -178,6 +179,9 @@ enum {
 	Oipdns2=	131,
 	Oipwins2=	132,
 
+	/* ipv6cp configure options */
+	Oipv6eui=	1,
+
 	/* ipcp flags */
 	Fipaddrs=	1<<Oipaddrs,
 	Fipcompress=	1<<Oipcompress,
@@ -186,6 +190,9 @@ enum {
 	Fipwins=	1<<9,	// Oipwins,
 	Fipdns2=	1<<10,	// Oipdns2,
 	Fipwins2=	1<<11,	// Oipwins2,
+
+	/* ipv6cp flags */
+	Fipv6eui=	1<<Oipv6eui,
 
 	Period=		5*1000,	/* period of retransmit process (in ms) */
 	Timeout=	20,	/* xmit timeout (in Periods) */
@@ -262,10 +269,17 @@ struct PPP
 	int		framing;	/* non-zero to use framing characters */
 	Ipaddr		local;
 	Ipaddr		curlocal;
-	int		localfrozen;
 	Ipaddr		remote;
 	Ipaddr		curremote;
-	int		remotefrozen;
+	Ipaddr		local6;
+	Ipaddr		curlocal6;
+	Ipaddr		remote6;
+	Ipaddr		curremote6;
+
+	char		localfrozen;
+	char		remotefrozen;
+	char		local6frozen;
+	char		remote6frozen;
 
 	Ipaddr		dns[2];		/* dns servers */
 	Ipaddr		wins[2];	/* wins servers */
@@ -280,6 +294,7 @@ struct PPP
 	Pstate*		lcp;		/* lcp state */
 	Pstate*		ccp;		/* ccp state */
 	Pstate*		ipcp;		/* ipcp state */
+	Pstate*		ipv6cp;		/* ipv6cp state */
 	Chap*		chap;		/* chap state */
 	Tcpc*		ctcp;		/* tcp compression state */
 	ulong		mtu;		/* maximum xmit size */
