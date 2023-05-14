@@ -848,7 +848,7 @@ asmout(Prog *p, Optab *o)
 		o2 = olsr12u(opldr12(p->as), 0, REGTMP, p->to.reg);
 		break;
 
-	case 66:	/* movpT (R)O!,R; movpT O(R)!, R -> ldrT */
+	case 66:	/* movpT (R)O!,R,R; movpT O(R)!,R,R; movpT (R)O,R,R -> ldpT */
 		o1 = opldrpp(p->as);
 		v = p->from.offset >> 2 + ((o1 & S64) != 0);
 		if(v < -128 || v > 127)
@@ -859,10 +859,10 @@ asmout(Prog *p, Optab *o)
 			o1 |= 3<<23;
 		else
 			o1 |= 2<<23;
-		o1 |= ((v&0x7F)<<15) | (p->from.reg<<5) | p->reg | (p->to.reg<<10);
+		o1 |= (v&0x7F)<<15 | p->from.reg<<5 | p->reg | p->to.reg<<10;
 		break;
 
-	case 67:	/* movpT R,(R)O!; movpT O(R)!, R -> strT */
+	case 67:	/* movpT R,R,(R)O!; movpT R,R,O(R)!; movpT R,R,O(R) -> stpT */
 		o1 = LD2STR(opldrpp(p->as));
 		v = p->to.offset >> 2 + ((o1 & S64) != 0);
 		if(v < -128 || v > 127)
@@ -873,7 +873,7 @@ asmout(Prog *p, Optab *o)
 			o1 |= 3<<23;
 		else
 			o1 |= 2<<23;
-		o1 |= ((v&0x7F)<<15) | (p->to.reg<<5) | p->from.reg | (p->reg<<10);
+		o1 |= (v&0x7F)<<15 | p->to.reg<<5 | p->from.reg | p->reg<<10;
 		break;
 	}
 
@@ -1580,9 +1580,11 @@ opldrpp(int a)
 	case AMOVHU:	return 1<<30 | 7<<27 | 0<<26 | 0<<24 | 1<<22;
 	case AMOVB:	return 0<<30 | 7<<27 | 0<<26 | 0<<24 | 2<<22;
 	case AMOVBU:	return 0<<30 | 7<<27 | 0<<26 | 0<<24 | 1<<22;
-	case AMOVPW:	return 0<<30 | 5<<27 | 0<<26 | 0<<23 | 1<<22;
+	case AMOVPW:	return 0<<30 | 5<<27 | 0<<26 | 0<<23 | 1<<22;	/* simm7<<15 | Rt2<<10 | Rn<<5 | Rt */
 	case AMOVPSW:	return 1<<30 | 5<<27 | 0<<26 | 0<<23 | 1<<22;
 	case AMOVP:	return 2<<30 | 5<<27 | 0<<26 | 0<<23 | 1<<22;
+	case AMOVPS:	return 0<<30 | 5<<27 | 1<<26 | 0<<23 | 1<<22;
+	case AMOVPD:	return 1<<30 | 5<<27 | 1<<26 | 0<<23 | 1<<22;
 	}
 	diag("bad opldr %A\n%P", a, curp);
 	return 0;

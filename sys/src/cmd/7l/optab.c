@@ -323,6 +323,20 @@ Optab	optab[] =
 	{ AMOVP, 	C_REG,		C_REG, C_XPOST,		67, 4, 0 },
 	{ AMOVP, 	C_REG,		C_REG, C_XPRE,		67, 4, 0 },
 
+	{ AMOVPS, 	C_PPAUTO,	C_FREG,	C_FREG,		66, 4, 0 },
+	{ AMOVPS, 	C_PPOREG,	C_FREG,	C_FREG,		66, 4, 0 },
+	{ AMOVPS, 	C_NPAUTO,	C_FREG,	C_FREG,		66, 4, 0 },
+	{ AMOVPS, 	C_NPOREG,	C_FREG,	C_FREG,		66, 4, 0 },
+	{ AMOVPS, 	C_XPOST,	C_FREG,	C_FREG,		66, 4, 0 },
+	{ AMOVPS, 	C_XPRE,		C_FREG,	C_FREG,		66, 4, 0 },
+
+	{ AMOVPS, 	C_FREG,		C_FREG, C_PPAUTO,	67, 4, 0 },
+	{ AMOVPS, 	C_FREG,		C_FREG, C_PPOREG,	67, 4, 0 },
+	{ AMOVPS, 	C_FREG,		C_FREG, C_NPAUTO,	67, 4, 0 },
+	{ AMOVPS, 	C_FREG,		C_FREG, C_NPOREG,	67, 4, 0 },
+	{ AMOVPS, 	C_FREG,		C_FREG, C_XPOST,	67, 4, 0 },
+	{ AMOVPS, 	C_FREG,		C_FREG, C_XPRE,		67, 4, 0 },
+
 	/* special */
 	{ AMOV,		C_SPR,	C_NONE,	C_REG,		35, 4, 0 },
 	{ AMRS,		C_SPR,	C_NONE,	C_REG,		35, 4, 0 },

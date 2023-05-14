@@ -692,6 +692,17 @@ aclass(Adr *a)
 	return C_GOK;
 }
 
+static int
+asregclass(ushort as)
+{
+	switch(as){
+	case AMOVPS:
+	case AMOVPD:
+	case AMOVPQ: return C_FREG;
+	}
+	return C_REG;
+}
+
 Optab*
 oplook(Prog *p)
 {
@@ -716,7 +727,7 @@ oplook(Prog *p)
 	a3--;
 	a2 = C_NONE;
 	if(p->reg != NREG)
-		a2 = C_REG;
+		a2 = asregclass(p->as);
 	r = p->as;
 	o = oprange[r].start;
 	if(o == 0) {
@@ -1351,6 +1362,11 @@ buildop(void)
 		case AMOVP:
 			oprange[AMOVPW] = t;
 			oprange[AMOVPSW] = t;
+			break;
+
+		case AMOVPS:
+			oprange[AMOVPS] = t;
+			oprange[AMOVPD] = t;
 			break;
 		}
 	}
