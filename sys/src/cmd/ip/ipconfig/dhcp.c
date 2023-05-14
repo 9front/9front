@@ -950,6 +950,11 @@ parseoptions(uchar *p, int n)
 	int code, len, nin = n;
 
 	while (n > 0) {
+		/* Android shouldn't be sending us this garbage; filter it out */
+		if(strncmp((char*)p, "ANDROID_METERED", n) == 0){
+			p += strlen("ANDROID_METERED");
+			continue;
+		}
 		code = *p++;
 		n--;
 		if(code == OBend)
