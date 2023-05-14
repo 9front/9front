@@ -875,6 +875,18 @@ asmout(Prog *p, Optab *o)
 			o1 |= 2<<23;
 		o1 |= (v&0x7F)<<15 | p->to.reg<<5 | p->from.reg | p->reg<<10;
 		break;
+
+	case 68:	/* movT R(R),R; movT R[R],R -> ldrT */
+		v = p->from.offset;
+		o1 = olsxrr(p->as, v&31, p->from.reg, p->to.reg);
+		o1 |= ((v>>8)&7)<<13 | ((v>>16)&1)<<12;
+		break;
+
+	case 69:	/* movT R,R(R); movT R,R[R] -> strT */
+		v = p->to.offset;
+		o1 = LD2STR(olsxrr(p->as, v&31, p->to.reg, p->from.reg));
+		o1 |= ((v>>8)&7)<<13 | ((v>>16)&1)<<12;
+		break;
 	}
 
 	if(debug['a'] > 1)
@@ -1580,6 +1592,8 @@ opldrpp(int a)
 	case AMOVHU:	return 1<<30 | 7<<27 | 0<<26 | 0<<24 | 1<<22;
 	case AMOVB:	return 0<<30 | 7<<27 | 0<<26 | 0<<24 | 2<<22;
 	case AMOVBU:	return 0<<30 | 7<<27 | 0<<26 | 0<<24 | 1<<22;
+	case AFMOVS:	return 2<<30 | 7<<27 | 1<<26 | 0<<24 | 1<<22;
+	case AFMOVD:	return 3<<30 | 7<<27 | 1<<26 | 0<<24 | 1<<22;
 	case AMOVPW:	return 0<<30 | 5<<27 | 0<<26 | 0<<23 | 1<<22;	/* simm7<<15 | Rt2<<10 | Rn<<5 | Rt */
 	case AMOVPSW:	return 1<<30 | 5<<27 | 0<<26 | 0<<23 | 1<<22;
 	case AMOVP:	return 2<<30 | 5<<27 | 0<<26 | 0<<23 | 1<<22;

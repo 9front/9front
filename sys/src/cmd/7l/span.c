@@ -1365,8 +1365,8 @@ buildop(void)
 			break;
 
 		case AMOVPS:
-			oprange[AMOVPS] = t;
 			oprange[AMOVPD] = t;
+			oprange[AMOVPQ] = t;
 			break;
 		}
 	}

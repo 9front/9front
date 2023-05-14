@@ -157,6 +157,20 @@ Optab	optab[] =
 
 	{ ACCMN,		C_COND,	C_REG,	C_LCON,		19, 4, 0 },	/* from3 either C_REG or C_LCON */
 
+	/* register offset load */
+
+	{ AMOV,		C_ROFF,	C_NONE,	C_REG,	68, 4, 0 },
+	{ AMOVW,	C_ROFF,	C_NONE,	C_REG,	68, 4, 0 },
+	{ AFMOVS,	C_ROFF,	C_NONE,	C_FREG,	68, 4, 0 },
+	{ AFMOVD,	C_ROFF,	C_NONE,	C_FREG,	68, 4, 0 },
+
+	/* register offset store */
+
+	{ AMOV,		C_REG,	C_NONE,	C_ROFF,	69, 4, 0 },
+	{ AMOVW,	C_REG,	C_NONE,	C_ROFF,	69, 4, 0 },
+	{ AFMOVS,	C_FREG,	C_NONE,	C_ROFF,	69, 4, 0 },
+	{ AFMOVD,	C_FREG,	C_NONE,	C_ROFF,	69, 4, 0 },
+
 	/* scaled 12-bit unsigned displacement store */
 
 	{ AMOVB,	C_REG,	C_NONE,	C_SEXT1,		20, 4, REGSB },  // 
