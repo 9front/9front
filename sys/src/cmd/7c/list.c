@@ -42,25 +42,28 @@ static char *conds[] = {
 int
 Pconv(Fmt *fp)
 {
-	char str[STRINGSZ];
+	char str[STRINGSZ], *s, *e;
 	Prog *p;
 	int a;
 
 	p = va_arg(fp->args, Prog*);
 	a = p->as;
+	s = str;
+	e = str + sizeof(str);
+	s = seprint(s, e, "	%A	%D", a, &p->from);
 	if(a == ADATA)
-		snprint(str, sizeof(str), "	%A	%D/%d,%D", a, &p->from, p->reg, &p->to);
-	else
-	if(p->as == ATEXT)
-		snprint(str, sizeof(str), "	%A	%D,%d,%D", a, &p->from, p->reg, &p->to);
-	else
-	if(p->reg == NREG)
-		snprint(str, sizeof(str), "	%A	%D,%D", a, &p->from, &p->to);
-	else
-	if(p->from.type != D_FREG)
-		snprint(str, sizeof(str), "	%A	%D,R%d,%D", a, &p->from, p->reg, &p->to);
-	else
-		snprint(str, sizeof(str), "	%A	%D,F%d,%D", a, &p->from, p->reg, &p->to);
+		s = seprint(s, e, "/%d", p->reg);
+	else if(p->as == ATEXT)
+		s = seprint(s, e, ",%d", p->reg);
+	else if(p->reg != NREG)
+		if(p->from.type != D_FREG && p->from.type != D_FCONST)
+			s = seprint(s, e, ",R%d", p->reg);
+		else
+			s = seprint(s, e, ",F%d", p->reg);
+	if(p->to.type != D_NONE)
+		s = seprint(s, e, s[-1] == '\t' ? "%D" : ",%D", &p->to);
+	if(s[-1] == '\t')
+		s[-1] = 0;
 	return fmtstrcpy(fp, str);
 }
 
