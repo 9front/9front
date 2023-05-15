@@ -47,6 +47,7 @@ pktunbind(Ipifc*)
 static void
 pktbwrite(Ipifc *ifc, Block *bp, int, uchar*, Routehint*)
 {
+	ifc->out++;
 	/* enqueue onto the conversation's rq */
 	if(ifc->conv->snoopers.ref > 0)
 		qpass(ifc->conv->sq, copyblock(bp, BLEN(bp)));
@@ -59,6 +60,7 @@ pktbwrite(Ipifc *ifc, Block *bp, int, uchar*, Routehint*)
 static void
 pktin(Fs *f, Ipifc *ifc, Block *bp)
 {
+	ifc->in++;
 	if(ifc->lifc == nil)
 		freeb(bp);
 	else {
