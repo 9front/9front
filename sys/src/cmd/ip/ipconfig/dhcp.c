@@ -951,10 +951,10 @@ parseoptions(uchar *p, int n)
 
 	while (n > 0) {
 		/* Android shouldn't be sending us this garbage; filter it out */
-		if(strncmp((char*)p, "ANDROID_METERED", n) == 0){
-			p += strlen("ANDROID_METERED");
-			continue;
-		}
+		static char garbage[] = "ANDROID_METERED";
+		if(n >= sizeof(garbage)-1 && memcmp(p, garbage, sizeof(garbage)-1) == 0)
+			memset(p, OBpad, sizeof(garbage)-1);
+
 		code = *p++;
 		n--;
 		if(code == OBend)
