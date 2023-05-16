@@ -262,6 +262,7 @@ static Opcode opcodes[] =
 	"FF11110101uuuuuuuuuuuunnnnnddddd",	"FMOV%F",	"%u(R%n),F%d",
 	"FF111100010ooooooooo0011111ddddd",	"FMOV%F",	"%o(SP),F%d",
 	"FF111100010ooooooooo00nnnnnddddd",	"FMOV%F",	"%o(R%n),F%d",
+	"FF11110100uuuuuuuuuuuu11111ddddd",	"FMOV%F",	"F%d,%u(SP)",
 	"FF11110100uuuuuuuuuuuunnnnnddddd",	"FMOV%F",	"F%d,%u(R%n)",
 	"00011110ZZ100000010000nnnnnddddd",	"FMOV%Z",	"F%m,F%d",
 	"00011110ZZ1ffffffff10000000ddddd",	"FMOV%Z",	"$%f,F%d",
