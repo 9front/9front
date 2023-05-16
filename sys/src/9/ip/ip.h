@@ -667,7 +667,7 @@ extern Arpent*	arpget(Arp*, Block *bp, int version, Ipifc *ifc, uchar *ip, uchar
 extern void	arprelease(Arp*, Arpent *a);
 extern void	arpcontinue(Arp*, Arpent *a);
 extern Block*	arpresolve(Arp*, Arpent *a, uchar *mac, Routehint *rh);
-extern int	arpenter(Fs*, int version, uchar *ip, uchar *mac, int n, uchar *ia, Ipifc *ifc, int refresh);
+extern int	arpenter(Fs*, int version, uchar *ip, uchar *mac, int maclen, uchar *ia, Ipifc *ifc, int refresh);
 extern int	arpforme(Fs*, int version, uchar *targ, uchar *src, Ipifc *ifc);
 extern void	ndpsendsol(Fs*, Arpent*);
 

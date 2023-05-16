@@ -708,7 +708,7 @@ etherareg(Fs *f, Ipifc *ifc, Iplifc *lifc, uchar *ip)
 		return;
 
 	if(!lifc->tentative){
-		icmpna6(f, lifc->local, v6allnodesL, ip, ifc->mac, 1<<5);
+		icmpna6(f, lifc->local, v6allnodesL, ip, ifc->mac, 6, 1<<5);
 		return;
 	}
 
@@ -722,7 +722,7 @@ etherareg(Fs *f, Ipifc *ifc, Iplifc *lifc, uchar *ip)
 		remroute(f, a, IPallbits, v6Unspecified, IPallbits, ip, Rmulti, ifc, tdad);
 		nexterror();
 	}
-	icmpns6(f, 0, SRC_UNSPEC, ip, TARG_MULTI, ifc->mac);
+	icmpns6(f, 0, SRC_UNSPEC, ip, TARG_MULTI, ifc->mac, 6);
 	poperror();
 	remroute(f, a, IPallbits, v6Unspecified, IPallbits, ip, Rmulti, ifc, tdad);
 }

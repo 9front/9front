@@ -118,11 +118,8 @@ struct Ndpkt {
 	uchar	otype;
 	uchar	olen;		/* length in units of 8 octets(incl type, code),
 				 * 1 for IEEE 802 addresses */
-	uchar	lnaddr[6];	/* link-layer address */
-	uchar	payload[];
+	uchar	lnaddr[];	/* link-layer address */
 };
-
-#define NDPKTSZ offsetof(Ndpkt, payload[0])
 
 typedef struct Icmppriv6
 {
@@ -310,7 +307,7 @@ icmpctl6(Conv *c, char **argv, int argc)
 }
 
 static void
-goticmpkt6(Proto *icmp, Block *bp, int muxkey)
+goticmpkt6(Proto *icmp, Ipifc *ifc, Block *bp, int muxkey)
 {
 	ushort recid;
 	uchar *addr;
@@ -327,6 +324,7 @@ goticmpkt6(Proto *icmp, Block *bp, int muxkey)
 	for(c = icmp->conv; (s = *c) != nil; c++){
 		if(s->lport == recid)
 		if(ipcmp(s->laddr, p->dst) == 0 || ipcmp(s->raddr, addr) == 0)
+		if(!islinklocal(s->laddr) || iplocalonifc(ifc, s->laddr) != nil)
 			qpass(s->rq, copyblock(bp, blocklen(bp)));
 	}
 	freeblist(bp);
@@ -358,14 +356,15 @@ mkechoreply6(Block *bp, Ipifc *ifc)
  * 	and tuni == TARG_UNI => neighbor reachability.
  */
 void
-icmpns6(Fs *f, uchar* src, int suni, uchar* targ, int tuni, uchar* mac)
+icmpns6(Fs *f, uchar* src, int suni, uchar* targ, int tuni, uchar* mac, int maclen)
 {
 	Block *nbp;
 	Ndpkt *np;
 	Proto *icmp = f->t2p[ICMPv6];
 	Icmppriv6 *ipriv = icmp->priv;
+	int olen = (2+maclen+7)/8;
 
-	nbp = newIPICMP(NDPKTSZ);
+	nbp = newIPICMP(NDISCSZ + olen*8);
 	np = (Ndpkt*) nbp->rp;
 
 	if(suni == SRC_UNSPEC)
@@ -383,10 +382,10 @@ icmpns6(Fs *f, uchar* src, int suni, uchar* targ, int tuni, uchar* mac)
 	ipmove(np->target, targ);
 	if(suni != SRC_UNSPEC) {
 		np->otype = SRC_LLADDR;
-		np->olen = 1;		/* 1+1+6 = 8 = 1 8-octet */
-		memmove(np->lnaddr, mac, sizeof(np->lnaddr));
+		np->olen = olen;
+		memmove(np->lnaddr, mac, maclen);
 	} else
-		nbp->wp -= NDPKTSZ - NDISCSZ;
+		nbp->wp -= olen*8;
 
 	set_cksum(nbp);
 	ipriv->out[NbrSolicit]++;
@@ -398,14 +397,15 @@ icmpns6(Fs *f, uchar* src, int suni, uchar* targ, int tuni, uchar* mac)
  * sends out an ICMPv6 neighbor advertisement. pktflags == RSO flags.
  */
 void
-icmpna6(Fs *f, uchar* src, uchar* dst, uchar* targ, uchar* mac, uchar flags)
+icmpna6(Fs *f, uchar* src, uchar* dst, uchar* targ, uchar* mac, int maclen, uchar flags)
 {
 	Block *nbp;
 	Ndpkt *np;
 	Proto *icmp = f->t2p[ICMPv6];
 	Icmppriv6 *ipriv = icmp->priv;
+	int olen = (2+maclen+7)/8;
 
-	nbp = newIPICMP(NDPKTSZ);
+	nbp = newIPICMP(NDISCSZ + olen*8);
 	np = (Ndpkt*)nbp->rp;
 
 	ipmove(np->src, src);
@@ -417,8 +417,8 @@ icmpna6(Fs *f, uchar* src, uchar* dst, uchar* targ, uchar* mac, uchar flags)
 	ipmove(np->target, targ);
 
 	np->otype = TARGET_LLADDR;
-	np->olen = 1;
-	memmove(np->lnaddr, mac, sizeof(np->lnaddr));
+	np->olen = olen;
+	memmove(np->lnaddr, mac, maclen);
 
 	set_cksum(nbp);
 	ipriv->out[NbrAdvert]++;
@@ -700,7 +700,7 @@ icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 			}
 		}
 		bp->rp -= IPICMPSZ;
-		goticmpkt6(icmp, bp, 0);
+		goticmpkt6(icmp, ifc, bp, 0);
 		break;
 
 	case TimeExceedV6:
@@ -712,7 +712,7 @@ icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 			snprint(msg = m2, sizeof m2, "frag time exceeded at %I", p->src);
 			goto Advise;
 		}
-		goticmpkt6(icmp, bp, 0);
+		goticmpkt6(icmp, ifc, bp, 0);
 		break;
 
 	case PacketTooBigV6:
@@ -722,10 +722,12 @@ icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 
 	case RouterAdvert:
 	case RouterSolicit:
-		goticmpkt6(icmp, bp, p->type);
+		goticmpkt6(icmp, ifc, bp, p->type);
 		break;
 
 	case NbrSolicit:
+		if(ifc->m->maclen == 0)
+			goto raise;
 		np = (Ndpkt*)p;
 		pktflags = 0;
 		if(ifc->sendra6)
@@ -742,15 +744,16 @@ icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 			} else
 				ipmove(ia, np->target);
 			icmpna6(icmp->f, ia, (pktflags & Sflag)? np->src: v6allnodesL,
-				np->target, ifc->mac, pktflags);
+				np->target, ifc->mac, ifc->m->maclen, pktflags);
 			break;
 		}
 		freeblist(bp);
 		break;
 
 	case NbrAdvert:
+		if(ifc->m->maclen == 0)
+			goto raise;
 		np = (Ndpkt*)p;
-
 		/*
 		 * if the target address matches one of the local interface
 		 * addresses and the local interface address has tentative bit
@@ -767,7 +770,7 @@ icmpiput6(Proto *icmp, Ipifc *ifc, Block *bp)
 		break;
 
 	default:
-		goticmpkt6(icmp, bp, 0);
+		goticmpkt6(icmp, ifc, bp, 0);
 		break;
 	}
 	return;

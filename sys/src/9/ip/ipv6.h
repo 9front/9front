@@ -165,8 +165,8 @@ extern int v6aNpreflen;
 extern int v6aLpreflen;
 
 void ipv62smcast(uchar *, uchar *);
-void icmpns6(Fs *f, uchar* src, int suni, uchar* targ, int tuni, uchar* mac);
-void icmpna6(Fs *f, uchar* src, uchar* dst, uchar* targ, uchar* mac, uchar flags);
+void icmpns6(Fs *f, uchar* src, int suni, uchar* targ, int tuni, uchar* mac, int maclen);
+void icmpna6(Fs *f, uchar* src, uchar* dst, uchar* targ, uchar* mac, int maclen, uchar flags);
 void icmpnohost6(Fs *f, Ipifc *ifc, Block *bp, Routehint *rh);
 void icmpnoconv6(Fs *f, Ipifc *ifc, Block *bp);
 void icmpttlexceeded6(Fs *f, Ipifc *ifc, Block *bp);

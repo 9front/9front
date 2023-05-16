@@ -324,7 +324,7 @@ arpresolve(Arp *arp, Arpent *a, uchar *mac, Routehint *rh)
 }
 
 int
-arpenter(Fs *fs, int version, uchar *ip, uchar *mac, int n, uchar *ia, Ipifc *ifc, int refresh)
+arpenter(Fs *fs, int version, uchar *ip, uchar *mac, int maclen, uchar *ia, Ipifc *ifc, int refresh)
 {
 	Routehint rh;
 	uchar v6ip[IPaddrlen];
@@ -333,7 +333,7 @@ arpenter(Fs *fs, int version, uchar *ip, uchar *mac, int n, uchar *ia, Ipifc *if
 	Route *r;
 	Arp *arp;
 
-	if(ifc->m == nil || ifc->m->maclen != n || ifc->m->maclen == 0)
+	if(ifc->m == nil || maclen < ifc->m->maclen || ifc->m->maclen == 0)
 		return -1;
 
 	rh.r = nil;
@@ -597,7 +597,7 @@ ndpsendsol(Fs *f, Arpent *a)
 		return;
 send:
 	if(!waserror()){
-		icmpns6(f, src, SRC_UNI, targ, TARG_MULTI, ifc->mac);
+		icmpns6(f, src, SRC_UNI, targ, TARG_MULTI, ifc->mac, ifc->m->maclen);
 		poperror();
 	}
 }

@@ -317,6 +317,10 @@ ipifcadjustburst(Ipifc *ifc)
 	ifc->burst = burst;
 }
 
+/*
+ *  change an interface's burst delay
+ *  ifc must be bound and wlock'd
+ */
 static void
 ipifcsetdelay(Ipifc *ifc, int delay)
 {
@@ -328,6 +332,10 @@ ipifcsetdelay(Ipifc *ifc, int delay)
 	ipifcadjustburst(ifc);
 }
 
+/*
+ *  change an interface's baud rate
+ *  ifc must be bound and wlock'd
+ */
 static void
 ipifcsetspeed(Ipifc *ifc, int speed)
 {
@@ -336,6 +344,20 @@ ipifcsetspeed(Ipifc *ifc, int speed)
 	ifc->speed = speed;
 	ifc->load = 0;
 	ipifcadjustburst(ifc);
+}
+
+/*
+ *  change an interface's mtu
+ *  ifc must be bound and wlock'd
+ */
+static char*
+ipifcsetmtu(Ipifc *ifc, int mtu)
+{
+	if(mtu < ifc->m->mintu || mtu > ifc->m->maxtu)
+		return Ebadarg;
+	ifc->maxtu = mtu;
+	ipifcadjustburst(ifc);
+	return nil;
 }
 
 void
@@ -418,23 +440,6 @@ ipifcclose(Conv *c)
 
 	if(m != nil && m->unbindonclose)
 		ipifcunbind(ifc);
-}
-
-/*
- *  change an interface's mtu
- */
-static char*
-ipifcsetmtu(Ipifc *ifc, int mtu)
-{
-	Medium *m = ifc->m;
-
-	if(m == nil)
-		return Eunbound;
-	if(mtu < m->mintu || mtu > m->maxtu)
-		return Ebadarg;
-	ifc->maxtu = mtu;
-	ipifcadjustburst(ifc);
-	return nil;
 }
 
 /*
@@ -761,7 +766,11 @@ ipifcconnect(Conv* c, char **argv, int argc)
 	return nil;
 }
 
-char*
+/*
+ *  change ipv6 router parameters
+ *  ifc must be bound and wlock'd
+ */
+static char*
 ipifcra6(Ipifc *ifc, char **argv, int argc)
 {
 	int i, argsleft;
@@ -802,7 +811,6 @@ ipifcra6(Ipifc *ifc, char **argv, int argc)
 			rp.routerlt = atoi(argv[i+1]);
 		else
 			return Ebadarg;
-
 		argsleft -= 2;
 		i += 2;
 	}
@@ -825,44 +833,45 @@ static char*
 ipifcctl(Conv* c, char **argv, int argc)
 {
 	Ipifc *ifc = (Ipifc*)c->ptcl;
+	char *err = nil;
 
-	if(strcmp(argv[0], "add") == 0)
-		return ipifcadd(ifc, argv, argc, 0, nil);
-	else if(strcmp(argv[0], "try") == 0)
-		return ipifcadd(ifc, argv, argc, 1, nil);
-	else if(strcmp(argv[0], "remove") == 0)
-		return ipifcrem(ifc, argv, argc);
-	else if(strcmp(argv[0], "unbind") == 0)
-		return ipifcunbind(ifc);
-	else if(strcmp(argv[0], "mtu") == 0)
-		return ipifcsetmtu(ifc, argc>1? strtoul(argv[1], 0, 0): 0);
-	else if(strcmp(argv[0], "speed") == 0){
-		ipifcsetspeed(ifc, argc>1? atoi(argv[1]): 0);
-		return nil;
-	}
-	else if(strcmp(argv[0], "delay") == 0){
-		ipifcsetdelay(ifc, argc>1? atoi(argv[1]): 0);
-		return nil;
-	}
-	else if(strcmp(argv[0], "iprouting") == 0){
+	if(strcmp(argv[0], "iprouting") == 0)
 		iprouting(c->p->f, argc>1? atoi(argv[1]): 1);
-		return nil;
-	}
-	else if(strcmp(argv[0], "reflect") == 0){
-		ifc->reflect = argc>1? atoi(argv[1]): 1;
-		return nil;
-	}
-	else if(strcmp(argv[0], "reassemble") == 0){
-		ifc->reassemble = argc>1? atoi(argv[1]): 1;
-		return nil;
-	}
+	else if(strcmp(argv[0], "add") == 0)
+		err = ipifcadd(ifc, argv, argc, 0, nil);
+	else if(strcmp(argv[0], "try") == 0)
+		err = ipifcadd(ifc, argv, argc, 1, nil);
+	else if(strcmp(argv[0], "remove") == 0)
+		err = ipifcrem(ifc, argv, argc);
+	else if(strcmp(argv[0], "unbind") == 0)
+		err = ipifcunbind(ifc);
 	else if(strcmp(argv[0], "add6") == 0)
-		return ipifcadd6(ifc, argv, argc);
+		err = ipifcadd6(ifc, argv, argc);
 	else if(strcmp(argv[0], "remove6") == 0)
-		return ipifcremove6(ifc, argv, argc);
-	else if(strcmp(argv[0], "ra6") == 0)
-		return ipifcra6(ifc, argv, argc);
-	return "unsupported ctl";
+		err = ipifcremove6(ifc, argv, argc);
+	else {
+		wlock(ifc);
+		if(ifc->m == nil){
+			wunlock(ifc);
+			return Eunbound;
+		}
+		if(strcmp(argv[0], "mtu") == 0)
+			err = ipifcsetmtu(ifc, argc>1? strtoul(argv[1], 0, 0): 0);
+		else if(strcmp(argv[0], "speed") == 0)
+			ipifcsetspeed(ifc, argc>1? atoi(argv[1]): 0);
+		else if(strcmp(argv[0], "delay") == 0)
+			ipifcsetdelay(ifc, argc>1? atoi(argv[1]): 0);
+		else if(strcmp(argv[0], "reflect") == 0)
+			ifc->reflect = argc>1? atoi(argv[1]): 1;
+		else if(strcmp(argv[0], "reassemble") == 0)
+			ifc->reassemble = argc>1? atoi(argv[1]): 1;
+		else if(strcmp(argv[0], "ra6") == 0)
+			err = ipifcra6(ifc, argv, argc);
+		else
+			err = "unsupported ctl";
+		wunlock(ifc);
+	}
+	return err;
 }
 
 int
@@ -1661,7 +1670,6 @@ ipifcadd6(Ipifc *ifc, char **argv, int argc)
 	char *params[3];
 	uchar prefix[IPaddrlen];
 	Iplifc lifc;
-	Medium *m;
 
 	lifc.onlink = 1;
 	lifc.autoflag = 1;
@@ -1694,14 +1702,28 @@ ipifcadd6(Ipifc *ifc, char **argv, int argc)
 	    plen > 64 || islinklocal(prefix))
 		return Ebadarg;
 
-	/* issue "add" ctl msg for v6 link-local addr and prefix len */
-	m = ifc->m;
-	if(m == nil || m->pref2addr == nil)
+	rlock(ifc);
+	if(ifc->m == nil){
+		runlock(ifc);
 		return Eunbound;
-	(*m->pref2addr)(prefix, ifc->mac);	/* mac → v6 link-local addr */
+	}
+	if(ifc->m->pref2addr != nil && ifc->m->maclen > 0) {
+		/* mac → v6 link-local addr */
+		(*ifc->m->pref2addr)(prefix, ifc->mac);
+	} else {
+		/* copy from existing v6 link-local address */
+		Iplifc *llifc = iplinklocalifc(ifc);
+		if(llifc == nil){
+			runlock(ifc);
+			return Eunbound;
+		}
+		memmove(prefix+8, llifc->local+8, 8);
+	}
+	runlock(ifc);
 
-	sprint(addr, "%I", prefix);
-	sprint(preflen, "/%d", plen);
+	/* issue "add" ctl msg for v6 link-local addr and prefix len */
+	snprint(addr, sizeof addr, "%I", prefix);
+	snprint(preflen, sizeof preflen, "/%d", plen);
 	params[0] = "add";
 	params[1] = addr;
 	params[2] = preflen;
