@@ -262,8 +262,19 @@ static Opcode opcodes[] =
 	"FF11110101uuuuuuuuuuuunnnnnddddd",	"FMOV%F",	"%u(R%n),F%d",
 	"FF111100010ooooooooo0011111ddddd",	"FMOV%F",	"%o(SP),F%d",
 	"FF111100010ooooooooo00nnnnnddddd",	"FMOV%F",	"%o(R%n),F%d",
+	"FF11110100uuuuuuuuuuuunnnnnddddd",	"FMOV%F",	"F%d,%u(R%n)",
+	"00011110ZZ100000010000nnnnnddddd",	"FMOV%Z",	"F%m,F%d",
+	"00011110ZZ1ffffffff10000000ddddd",	"FMOV%Z",	"$%f,F%d",
 	"W0011110ZZ111000000000nnnnnddddd",	"FCVTZS%Z%W",	"F%n,R%d",
 	"W0011110ZZ111001000000nnnnnddddd",	"FCVTZU%Z%W",	"F%n,R%d",
+	"00011110ZZ10001zz10000nnnnnddddd",	"FCVT%Z%z",	"F%n,F%d",
+	"00011110ZZ100000001000nnnnn01000",	"FCMP%Z",	"$0.0,F%n",
+	"00011110ZZ1mmmmm001000nnnnn00000",	"FCMP%Z",	"F%m,F%n",
+	"W0011110ZZ100010000000nnnnnddddd",	"SCVTF%W%Z",	"R%n,F%d",
+	"00011110ZZ1mmmmm000010nnnnnddddd",	"FMUL%Z",	"F%m,F%n,F%d",
+	"00011110ZZ1mmmmm000110nnnnnddddd",	"FDIV%Z",	"F%m,F%n,F%d",
+	"00011110ZZ1mmmmm001010nnnnnddddd",	"FADD%Z",	"F%m,F%n,F%d",
+	"00011110ZZ1mmmmm001110nnnnnddddd",	"FSUB%Z",	"F%m,F%n,F%d",
 	"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",	"WORD",		"$%x",
 };
 
@@ -450,6 +461,7 @@ format(char *mnemonic, Instr *i, char *f)
 	Symbol s;
 	uvlong v;
 	ulong w, u, m;
+	char sf[16];
 
 	if(mnemonic)
 		format(0, i, mnemonic);
@@ -517,6 +529,13 @@ format(char *mnemonic, Instr *i, char *f)
 				bprint(i, "(%lux<<%ld)", u, w*(*f == 'I' ? 12 : 16));
 			else
 				bprint(i, "%lud", u);
+			break;
+
+		case 'f':	// Floating point immediate
+			u = ((u & 0x80)<<8 | ((u & 0x40) ? 0x3e00 : 0x4000) | (u & 0x3f)<<3) << 16;
+			strcpy(sf, "???");
+			ieeesftos(sf, sizeof(sf), u);
+			bprint(i, "%s", sf + (*sf == ' '));
 			break;
 
 		case 'o':	// Signed byte offset
@@ -604,6 +623,7 @@ format(char *mnemonic, Instr *i, char *f)
 			break;
 
 		case 'Z': // FP type
+		case 'z':
 			*i->curr++ = "SD?H"[u];
 			break;
 
