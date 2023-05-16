@@ -742,12 +742,11 @@ asmout(Prog *p, Optab *o)
 		o1 = oprrr(p->as);
 		if(p->from.type == D_FCONST) {
 			rf = chipfloat(p->from.ieee);
-			if(rf < 0 || 1){
+			if(rf < 0)
 				diag("invalid floating-point immediate\n%P", p);
-				rf = 0;
-			}
-			rf |= (1<<3);
-		} else
+			rf = rf<<(13-5) | 1<<(12-5);
+			o1 &= ~(0x10<<10);
+		}else
 			rf = p->from.reg;
 		rt = p->to.reg;
 		r = p->reg;
@@ -756,7 +755,7 @@ asmout(Prog *p, Optab *o)
 			rf = 0;
 		}else if(r == NREG)
 			r = rt;
-		o1 |= (rf << 16) | (r<<5) | rt;
+		o1 |= rf<<16 | r<<5 | rt;
 		break;
 
 	case 56:	/* floating point compare */

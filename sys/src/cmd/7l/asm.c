@@ -589,27 +589,17 @@ datblk(long s, long n, int str)
 	write(cout, buf.dbuf, n);
 }
 
-static Ieee chipfloats[] = {
-	{0x00000000, 0x00000000}, /* 0 */
-	{0x00000000, 0x3ff00000}, /* 1 */
-	{0x00000000, 0x40000000}, /* 2 */
-	{0x00000000, 0x40080000}, /* 3 */
-	{0x00000000, 0x40100000}, /* 4 */
-	{0x00000000, 0x40140000}, /* 5 */
-	{0x00000000, 0x3fe00000}, /* .5 */
-	{0x00000000, 0x40240000}, /* 10 */
-};
-
 int
 chipfloat(Ieee *e)
 {
-	Ieee *p;
-	int n;
+	int n, Bbbbbbbbb;
 
-	for(n = sizeof(chipfloats)/sizeof(chipfloats[0]); --n >= 0;){
-		p = &chipfloats[n];
-		if(p->l == e->l && p->h == e->h && 0)
-			return n;		/* TO DO: return imm8 encoding */
-	}
-	return -1;
+	if(e->l != 0 || (e->h & 0xffffU) != 0)
+		return -1;
+	n = e->h >> 16;
+	Bbbbbbbbb = (n>>6) & 0x1ff;
+	if(Bbbbbbbbb != 0x100 && Bbbbbbbbb != 0xff)
+		return -1;
+	n = (n & 0x8000) >> 8 | (n & 0x7f);
+	return n;
 }
