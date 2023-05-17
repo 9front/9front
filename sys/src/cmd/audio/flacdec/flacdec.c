@@ -10,6 +10,7 @@
 static int ifd = 1;
 static int pid = -1;
 static int sts;
+static int silence;
 
 static void
 flushout(void)
@@ -147,7 +148,7 @@ decoutput(FLAC__StreamDecoder *dec, FLAC__Frame *frame, FLAC__int32 *buffer[], v
 		}
 	}
 	n = b * chans * len;
-	if(n > 0 && write(ifd, buf, n) != n)
+	if(!silence && n > 0 && write(ifd, buf, n) != n)
 		return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
 
 	return FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE;
@@ -192,6 +193,7 @@ int main(int argc, char *argv[])
 	FLAC__stream_decoder_init_stream(dec, decinput, decseek, dectell, declen, checkeof, decoutput, NULL, decerror, NULL);
 	if(seek > 0.0){
 		FLAC__uint64 srate;
+		silence = 1;
 		do{
 			if(!FLAC__stream_decoder_process_single(dec))
 				break;
@@ -201,6 +203,7 @@ int main(int argc, char *argv[])
 			FLAC__stream_decoder_flush(dec);
 			seek = 0.0;
 		}
+		silence = 0;
 		fprintf(stderr, "time: %g\n", seek);
 	}
 	FLAC__stream_decoder_process_until_end_of_stream(dec);
