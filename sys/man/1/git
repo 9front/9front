@@ -486,7 +486,7 @@ is a tool for querying the git configuration.
 The configuration key is provided as a dotted string. Spaces
 are accepted. For example, to find the URL of the origin
 repository, one might pass
-.IR 'remote\ "origin".url'.
+.IR 'remote\ \C'"'origin\C'"'.url' .
 When given the
 .B -r
 option, the root of the current repository is printed.
