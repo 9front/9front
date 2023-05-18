@@ -18,6 +18,8 @@ void*		amlval(void *);
 uvlong		amlint(void *);
 int		amllen(void *);
 
+char*	amleisaid(void *v);
+
 void*		amlnew(char tag, int len);
 
 void		amlinit(void);
