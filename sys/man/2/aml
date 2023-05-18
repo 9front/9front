@@ -1,6 +1,6 @@
 .TH AML 2
 .SH NAME
-amltag, amlval, amlint, amllen, amlnew, amlinit, amlexit, amlload, amlwalk, amleval, amlenum, amltake, amldrop - ACPI machine language interpreter
+amltag, amlval, amlint, amllen, amlnew, amlinit, amlexit, amlload, amlwalk, amleval, amlenum, amltake, amldrop, amleisaid - ACPI machine language interpreter
 .SH SYNOPSIS
 .\" .ta 0.75i 1.5i 2.25i 3i 3.75i 4.5i
 .ta 0.7i +0.7i +0.7i +0.7i +0.7i +0.7i +0.7i
@@ -26,6 +26,8 @@ void	amlenum(void *dot, char *seg, int (*proc)(void *, void *), void *arg);
 
 void	amltake(void *);
 void	amldrop(void *);
+
+char*	amleisaid(void *);
 
 void*	amlroot;
 int	amldebug;
@@ -203,6 +205,13 @@ needs be called.
 Objects stay valid as long as they are reachable from
 .IR amlroot .
 .bp
+.TP
+.BI amleisaid( p )
+.I Amleisaid
+returns the string value of an EISA id.
+For strings, it simply returns the string.
+For integers, it decodes the compressed EISA id into it's string representation.
+For any other type, the return value is nil.
 .PP
 The aml library can be linked into userspace programs
 and the kernel which have different means of hardware access

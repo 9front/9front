@@ -2463,3 +2463,38 @@ amldrop(void *p)
 	if(p != nil)
 		D2H(p)->mark &= ~2;
 }
+
+char*
+amleisaid(void *v)
+{
+	int i;
+	ulong l, m, n;
+	static char s[8];
+
+	if(amltag(v) == 's')
+		return v;
+
+	if(amltag(v) == 'i') {
+		m = 0;
+		l = amlint(v);
+		for(i = 24; i >= 0; i -= 8) {
+			m |= (l & 0xff) << i;
+			l >>= 8;
+		}
+
+		s[7] = 0;
+		for(i = 6; i >= 3; i--) {
+			n = m & 0xf;
+			s[i] = "0123456789ABCDEF"[n]; m >>= 4;
+		}
+
+		for(i = 2; i >= 0; i--) {
+			n = m & 0x1f;
+			s[i] = '@' + n; m >>= 5;
+		}
+
+		return s;
+	}
+
+	return nil;
+}

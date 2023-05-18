@@ -274,26 +274,6 @@ Foundbus:
 	bus->aintr = ai;
 }
 
-static char*
-eisaid(void *v)
-{
-	static char id[8];
-	ulong b, l;
-	int i;
-
-	if(amltag(v) == 's')
-		return v;
-	b = amlint(v);
-	for(l = 0, i=24; i>=0; i -= 8, b >>= 8)
-		l |= (b & 0xFF) << i;
-	id[7] = 0;
-	for(i=6; i>=3; i--, l >>= 4)
-		id[i] = "0123456789ABCDEF"[l & 0xF];
-	for(i=2; i>=0; i--, l >>= 5)
-		id[i] = '@' + (l & 0x1F);
-	return id;
-}
-
 static int
 pcibusno(void *dot)
 {
@@ -305,7 +285,7 @@ pcibusno(void *dot)
 	id = nil;
 	if((x = amlwalk(dot, "^_HID")) != nil)
 		if((p = amlval(x)) != nil)
-			id = eisaid(p);
+			id = amleisaid(p);
 	if((x = amlwalk(dot, "^_BBN")) == nil)
 		if((x = amlwalk(dot, "^_ADR")) == nil)
 			return -1;
@@ -515,7 +495,7 @@ enumec(void *dot, void *)
 	char *id;
 
 	b = nil;
-	id = eisaid(amlval(amlwalk(dot, "^_HID")));
+	id = amleisaid(amlval(amlwalk(dot, "^_HID")));
 	if(id == nil || strcmp(id, "PNP0C09") != 0)
 		return 1;
 	if((x = amlwalk(dot, "^_CRS")) == nil)
