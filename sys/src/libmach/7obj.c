@@ -70,8 +70,11 @@ _read7(Biobuf *bp, Prog *p)
 		p->kind = aText;
 	else if(as == AGLOBL)
 		p->kind = aData;
-	skip(bp, 5);		/* reg(1) lineno(4) */
+	n = (uchar)Bgetc(bp);	/* reg and flag (1) */
+	skip(bp, 4);		/* lineno(4) */
 	a = addr(bp);
+	if(n & 0x40)
+		addr(bp);	/* from3 */
 	addr(bp);
 	if(a.type != D_OREG || a.name != D_STATIC && a.name != D_EXTERN)
 		p->kind = aNone;
