@@ -76,7 +76,6 @@ isu32op(Prog *p)
 	case ASDIVW:
 	case ASTXPW:
 	case ASTXRW:
-	case ASTLPW:
 	case ASTLRW:
 	case ASTLXPW:
 	case ASTLXRW:

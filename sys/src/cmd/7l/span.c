@@ -1325,20 +1325,36 @@ buildop(void)
 			break;
 
 		case ALDXR:
-			oprange[ALDXRB] = t;
-			oprange[ALDXRH] = t;
 			oprange[ALDXRW] = t;
+			oprange[ALDXRH] = t;
+			oprange[ALDXRB] = t;
+			break;
+		case ALDAXR:
+			oprange[ALDAXRW] = t;
+			oprange[ALDAXRH] = t;
+			oprange[ALDAXRB] = t;
 			break;
 		case ALDXP:
 			oprange[ALDXPW] = t;
 			break;
+		case ALDAXP:
+			oprange[ALDAXPW] = t;
+			break;
 		case ASTXR:
-			oprange[ASTXRB] = t;
-			oprange[ASTXRH] = t;
 			oprange[ASTXRW] = t;
+			oprange[ASTXRH] = t;
+			oprange[ASTXRB] = t;
+			break;
+		case ASTLXR:
+			oprange[ASTLXRW] = t;
+			oprange[ASTLXRH] = t;
+			oprange[ASTLXRB] = t;
 			break;
 		case ASTXP:
 			oprange[ASTXPW] = t;
+			break;
+		case ASTLXP:
+			oprange[ASTLXPW] = t;
 			break;
 
 		case AAESD:

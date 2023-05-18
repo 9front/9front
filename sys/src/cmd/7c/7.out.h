@@ -223,8 +223,8 @@ enum	as
 	ASTXP,
 	ASTXPW,
 	ASTXRW,
-	ASTLP,
-	ASTLPW,
+	ASTLP,	/* not an instruction */
+	ASTLPW, /* kept for order */
 	ASTLR,
 	ASTLRB,
 	ASTLRH,
