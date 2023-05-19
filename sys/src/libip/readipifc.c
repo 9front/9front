@@ -63,7 +63,7 @@ _readipifc(char *file, Ipifc **l, int index)
 	Iplifc *lifc, **ll;
 
 	/* read the file */
-	fd = open(file, OREAD);
+	fd = open(file, OREAD|OCEXEC);
 	if(fd < 0)
 		return l;
 	n = 0;
@@ -177,7 +177,7 @@ readipifc(char *net, Ipifc *ifc, int index)
 		snprint(buf, sizeof(buf), "%s/%d/status", directory, index);
 		_readipifc(buf, l, index);
 	} else {
-		fd = open(directory, OREAD);
+		fd = open(directory, OREAD|OCEXEC);
 		if(fd < 0)
 			return nil;
 		n = dirreadall(fd, &dir);

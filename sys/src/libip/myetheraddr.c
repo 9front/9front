@@ -13,7 +13,7 @@ myetheraddr(uchar *to, char *dev)
 	else
 		snprint(buf, sizeof buf, "/net/%s/addr", dev);
 
-	fd = open(buf, OREAD);
+	fd = open(buf, OREAD|OCEXEC);
 	if(fd < 0)
 		return -1;
 
