@@ -610,7 +610,9 @@ ipclose(Chan* c)
 
 enum
 {
-	Statelen=	32*1024,
+	Maxstring=	128,
+	Maxstate=	32*1024,
+	Maxstats=	32*1024,
 };
 
 static long
@@ -647,42 +649,54 @@ ipread(Chan *ch, void *a, long n, vlong off)
 		return netlogread(f, a, offset, n);
 	case Qctl:
 		buf = smalloc(16);
+		if(waserror()){
+			free(buf);
+			nexterror();
+		}
 		snprint(buf, 16, "%lud", CONV(ch->qid));
+	Readstr:
 		rv = readstr(offset, p, n, buf);
 		free(buf);
+		poperror();
 		return rv;
 	case Qremote:
-		buf = smalloc(Statelen);
+		buf = smalloc(Maxstring);
+		if(waserror()){
+			free(buf);
+			nexterror();
+		}
 		x = f->p[PROTO(ch->qid)];
 		c = x->conv[CONV(ch->qid)];
 		if(x->remote == nil) {
-			snprint(buf, Statelen, "%I!%d\n", c->raddr, c->rport);
+			snprint(buf, Maxstring, "%I!%d\n", c->raddr, c->rport);
 		} else {
-			(*x->remote)(c, buf, Statelen-2);
+			(*x->remote)(c, buf, Maxstring);
 		}
-		rv = readstr(offset, p, n, buf);
-		free(buf);
-		return rv;
+		goto Readstr;
 	case Qlocal:
-		buf = smalloc(Statelen);
+		buf = smalloc(Maxstring);
+		if(waserror()){
+			free(buf);
+			nexterror();
+		}
 		x = f->p[PROTO(ch->qid)];
 		c = x->conv[CONV(ch->qid)];
 		if(x->local == nil) {
-			snprint(buf, Statelen, "%I!%d\n", c->laddr, c->lport);
+			snprint(buf, Maxstring, "%I!%d\n", c->laddr, c->lport);
 		} else {
-			(*x->local)(c, buf, Statelen-2);
+			(*x->local)(c, buf, Maxstring);
 		}
-		rv = readstr(offset, p, n, buf);
-		free(buf);
-		return rv;
+		goto Readstr;
 	case Qstatus:
-		buf = smalloc(Statelen);
+		buf = smalloc(Maxstate);
+		if(waserror()){
+			free(buf);
+			nexterror();
+		}
 		x = f->p[PROTO(ch->qid)];
 		c = x->conv[CONV(ch->qid)];
-		(*x->state)(c, buf, Statelen-2);
-		rv = readstr(offset, p, n, buf);
-		free(buf);
-		return rv;
+		(*x->state)(c, buf, Maxstate);
+		goto Readstr;
 	case Qdata:
 		c = f->p[PROTO(ch->qid)]->conv[CONV(ch->qid)];
 		return qread(c->rq, a, n);
@@ -696,11 +710,13 @@ ipread(Chan *ch, void *a, long n, vlong off)
 		x = f->p[PROTO(ch->qid)];
 		if(x->stats == nil)
 			error("stats not implemented");
-		buf = smalloc(Statelen);
-		(*x->stats)(x, buf, Statelen);
-		rv = readstr(offset, p, n, buf);
-		free(buf);
-		return rv;
+		buf = smalloc(Maxstats);
+		if(waserror()){
+			free(buf);
+			nexterror();
+		}
+		(*x->stats)(x, buf, Maxstats);
+		goto Readstr;
 	}
 }
 
