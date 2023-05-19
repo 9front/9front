@@ -258,6 +258,7 @@ ipifcstate(Conv *c, char *state, int n)
 	int m;
 
 	ifc = (Ipifc*)c->ptcl;
+	rlock(ifc);
 	m = snprint(state, n, sfixedformat,
 		ifc->dev, ifc->maxtu, ifc->sendra6, ifc->recvra6,
 		ifc->rp.mflag, ifc->rp.oflag, ifc->rp.maxraint,
@@ -266,7 +267,6 @@ ipifcstate(Conv *c, char *state, int n)
 		ifc->in, ifc->out, ifc->inerr, ifc->outerr,
 		ifc->speed, ifc->delay);
 
-	rlock(ifc);
 	for(lifc = ifc->lifc; lifc != nil && n > m; lifc = lifc->next)
 		m += snprint(state+m, n - m, slineformat, lifc->local,
 			lifc->mask, lifc->remote, lifc->validlt, lifc->preflt);
