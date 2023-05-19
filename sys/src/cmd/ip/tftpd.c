@@ -204,7 +204,7 @@ main(int argc, char **argv)
  				exits(0);
 			remoteaddr(ldir, raddr, sizeof(raddr));
 			pid = getpid();
-			syslog(0, flog, "tftp %d connection from %s dir %s",
+			syslog(0, flog, "tftpd %d connection from %s dir %s",
 				pid, raddr, ldir);
 			doserve(dfd);
 			exits("done");
@@ -227,7 +227,7 @@ handleopt(int fd, char *name, char *val)
 			n = strtol(val, nil, 10);
 			if (n < op->min || n > op->max) {
 				nak(fd, Errbadopt, "option value out of range");
-				syslog(dbg, flog, "tftp bad option value from "
+				syslog(dbg, flog, "tftpd bad option value from "
 					"client: %s %s", name, val);
 				sysfatal("bad option value from client: %s %s",
 					name, val);
