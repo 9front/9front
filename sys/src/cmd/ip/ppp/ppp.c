@@ -113,9 +113,11 @@ static  void		dmppkt(char *s, uchar *a, int na);
 
 void
 pppopen(PPP *ppp, int mediain, int mediaout, char *net,
-	Ipaddr ipaddr, Ipaddr remip,
+	Ipaddr ipaddr[2], Ipaddr remip[2],
 	int mtu, int framing)
 {
+	int i;
+
 	ppp->ipfd = -1;
 	ppp->ipcfd = -1;
 	invalidate(ppp->remote);
@@ -134,20 +136,24 @@ pppopen(PPP *ppp, int mediain, int mediaout, char *net,
 
 	ppp->mediain = mediain;
 	ppp->mediaout = mediaout;
-	if(validv4(remip)){
-		ipmove(ppp->remote, remip);
-		ppp->remotefrozen = 1;
-	} else if(validv6(remip)){
-		ipmove(ppp->remote6, remip);
-		ppp->remote6frozen = 1;
+
+	for(i=0; i<2; i++){
+		if(validv4(ipaddr[i])){
+			ipmove(ppp->local, ipaddr[i]);
+			ppp->localfrozen = 1;
+		} else if(validv6(ipaddr[i])){
+			ipmove(ppp->local6, ipaddr[i]);
+			ppp->local6frozen = 1;
+		}
+		if(validv4(remip[i])){
+			ipmove(ppp->remote, remip[i]);
+			ppp->remotefrozen = 1;
+		} else if(validv6(remip[i])){
+			ipmove(ppp->remote6, remip[i]);
+			ppp->remote6frozen = 1;
+		}
 	}
-	if(validv4(ipaddr)){
-		ipmove(ppp->local, ipaddr);
-		ppp->localfrozen = 1;
-	} else if(validv6(ipaddr)){
-		ipmove(ppp->local6, ipaddr);
-		ppp->local6frozen = 1;
-	}
+
 	ppp->mtu = Defmtu;
 	ppp->mru = mtu;
 	ppp->framing = framing;
@@ -2843,7 +2849,7 @@ void
 main(int argc, char **argv)
 {
 	int mtu, framing, user, mediain, mediaout, cfd;
-	Ipaddr ipaddr, remip;
+	Ipaddr ipaddr[2], remip[2];
 	char *dev, *modemcmd;
 	char net[128];
 	PPP *ppp;
@@ -2858,8 +2864,10 @@ main(int argc, char **argv)
 
 	dev = nil;
 
-	invalidate(ipaddr);
-	invalidate(remip);
+	invalidate(ipaddr[0]);
+	invalidate(ipaddr[1]);
+	invalidate(remip[0]);
+	invalidate(remip[1]);
 
 	mtu = Defmtu;
 	framing = 0;
@@ -2928,12 +2936,29 @@ main(int argc, char **argv)
 	}ARGEND;
 
 	switch(argc){
-	case 2:
-		if (parseip(remip, argv[1]) == -1)
-			sysfatal("bad remote ip %s", argv[1]);
-	case 1:
-		if (parseip(ipaddr, argv[0]) == -1)
+	case 4:	/* [local [remote [local2 [remote2]]]] */
+		if (parseip(remip[1], argv[3]) == -1)
+			sysfatal("bad ip %s", argv[3]);
+	case 3:	/* [local [remote [local2]]]
+		if (parseip(ipaddr[1], argv[2]) == -1)
+			sysfatal("bad ip %s", argv[2]);
+	case 2:	/* [local [remote]]
+		if (parseip(remip[0], argv[1]) == -1)
+			sysfatal("bad ip %s", argv[1]);
+	case 1:	/* [local] */
+		if (parseip(ipaddr[0], argv[0]) == -1)
 			sysfatal("bad ip %s", argv[0]);
+
+		if (argc == 2 && isv4(ipaddr[0]) != isv4(remip[0])){
+			ipmove(ipaddr[1], remip[0]);
+			invalidate(remip[0]);
+		} else if(argc > 2 && isv4(ipaddr[0]) != isv4(remip[0]) && isv4(remip[0]) != isv4(ipaddr[1])) {
+			Ipaddr tmp;
+
+			ipmove(tmp, remip[0]);
+			ipmove(remip[0], ipaddr[1]);
+			ipmove(ipaddr[1], tmp);
+		}
 	case 0:
 		break;
 	default:

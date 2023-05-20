@@ -345,7 +345,7 @@ struct PPP
 
 extern Block*	pppread(PPP*);
 extern int	pppwrite(PPP*, Block*);
-extern void	pppopen(PPP*, int, int, char*, Ipaddr, Ipaddr, int, int);
+extern void	pppopen(PPP*, int, int, char*, Ipaddr[2], Ipaddr[2], int, int);
 
 struct Lcpmsg
 {
