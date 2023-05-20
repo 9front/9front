@@ -483,6 +483,16 @@ unstall(Dev *dev, Dev *ep, int dir)
 }
 
 int
+setconf(Dev *d, Conf *c)
+{
+	if(usbcmd(d, Rh2d|Rstd|Rdev, Rsetconf, c->cval, 0, nil, 0) > 0) {
+		werrstr("setconf: %s: %r", d->dir);
+		return -1;
+	}
+	return 0;
+}
+
+int
 setalt(Dev *d, Iface *ifc)
 {
 	if(usbcmd(d, Rh2d|Rstd|Riface, Rsetiface, ifc->alt, ifc->id, nil, 0) < 0){

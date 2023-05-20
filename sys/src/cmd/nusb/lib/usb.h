@@ -353,6 +353,7 @@ int	parsedev(Dev *xd, uchar *b, int n);
 int	unstall(Dev *dev, Dev *ep, int dir);
 int	usbcmd(Dev *d, int type, int req, int value, int index, uchar *data, int count);
 Dev*	getdev(char *devid);
+int	setconf(Dev *d, Conf *c);
 int	setalt(Dev *d, Iface *ifc);
 
 extern int usbdebug;	/* more messages for bigger values */
