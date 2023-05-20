@@ -256,6 +256,7 @@ static void
 poweroff(void)
 {
 	int n;
+	void *tts, *pts;
 
 	if(facp == 0){
 		werrstr("no FACP");
@@ -263,6 +264,16 @@ poweroff(void)
 	}
 
 	wirecpu0();
+
+	/* The ACPI spec requires we call _TTS and _PTS to prepare
+	 * the system to go to _S5 state. If they fail, too bad,
+	 * try to go to _S5 state anyway. */
+	pts = amlval(amlwalk(amlroot, "_PTS"));
+	tts = amlval(amlwalk(amlroot, "_TTS"));
+	if(pts)
+		amleval(pts, "i", 5, nil);
+	if(tts)
+		amleval(tts, "i", 5, nil);
 
 	/* disable GPEs */
 	for(n = 0; GPE0_BLK > 0 && n < GPE0_BLK_LEN/2; n += 2){
