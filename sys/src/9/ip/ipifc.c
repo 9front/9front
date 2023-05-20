@@ -267,7 +267,7 @@ ipifcstate(Conv *c, char *state, int n)
 		ifc->in, ifc->out, ifc->inerr, ifc->outerr,
 		ifc->speed, ifc->delay);
 
-	for(lifc = ifc->lifc; lifc != nil && n > m; lifc = lifc->next)
+	for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next)
 		m += snprint(state+m, n - m, slineformat, lifc->local,
 			lifc->mask, lifc->remote, lifc->validlt, lifc->preflt);
 	if(ifc->lifc == nil)

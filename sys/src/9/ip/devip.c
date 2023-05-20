@@ -93,7 +93,7 @@ ip3gen(Chan *c, int i, Dir *dp)
 		p = "remote";
 		break;
 	case Qsnoop:
-		if(strcmp(cv->p->name, "ipifc") != 0)
+		if(cv->p != ipfs[c->dev]->ipifc)
 			return -1;
 		devdir(c, q, "snoop", qlen(cv->sq), cv->owner, 0400, dp);
 		return 1;
@@ -674,13 +674,22 @@ ipread(Chan *ch, void *a, long n, vlong off)
 		}
 		goto Readstr;
 	case Qlocal:
+		x = f->p[PROTO(ch->qid)];
+		c = x->conv[CONV(ch->qid)];
+		if(x == f->ipifc && x->local != nil){
+			buf = smalloc(Maxstate);
+			if(waserror()){
+				free(buf);
+				nexterror();
+			}
+			(*x->local)(c, buf, Maxstate);
+			goto Readstr;
+		}
 		buf = smalloc(Maxstring);
 		if(waserror()){
 			free(buf);
 			nexterror();
 		}
-		x = f->p[PROTO(ch->qid)];
-		c = x->conv[CONV(ch->qid)];
 		if(x->local == nil) {
 			snprint(buf, Maxstring, "%I!%d\n", c->laddr, c->lport);
 		} else {
