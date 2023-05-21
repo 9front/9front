@@ -157,7 +157,7 @@ pppopen(PPP *ppp, int mediain, int mediaout, int shellin, char *net, char *dev,
 		}
 	}
 
-	ppp->mtu = Defmtu;
+	ppp->mtu = mtu;
 	ppp->mru = mtu;
 	ppp->framing = framing;
 	ppp->net = net;
@@ -294,7 +294,7 @@ pinit(PPP *ppp, Pstate *p)
 		ppp->period = 0;
 		p->optmask = 0xffffffff;
 		if(!server)
-			p->optmask &=  ~(Fauth|Fmtu);
+			p->optmask &=  ~Fauth;
 		ppp->rctlmap = 0;
 		ppp->ipcp->state = Sclosed;
 		ppp->ipcp->optmask = 0xffffffff;
