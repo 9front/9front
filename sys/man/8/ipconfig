@@ -6,6 +6,8 @@ ipconfig, rip, linklocal \- Internet configuration and routing
 .ti -0.25i
 .B ip/ipconfig
 .RB [ -6DGNOPdnprtuX ]
+.RB [ -U
+.IR duid ]
 .RB [ -b
 .IR baud ]
 .RB [ -c
@@ -18,6 +20,8 @@ ipconfig, rip, linklocal \- Internet configuration and routing
 .IR mtu ]
 .RB [ -o
 .IR dhcp-opt ]
+.RB [ -s
+.IR dnsserver ]
 .RB [ -f
 .IR dbfile ]
 .RB [ -x
@@ -160,6 +164,11 @@ May be repeated to specify multiple control writes.
 .TP
 .B d
 use DHCP to determine any unspecified configuration parameters.
+For the
+.B ra6
+verb with non-zero
+.BR recvra ,
+this enables DHCPv6 address configuration.
 .TP
 .B D
 turn on debugging.
@@ -197,7 +206,7 @@ for the IP parameters for the specified
 .I local
 IP address or if
 .I local
-is omited and the device is an ethernet then all IP parameters
+is omitted and the device is an ethernet then all IP parameters
 associated with the MAC address. IPv6 addresses are added only
 if a IPv6 link-local address exists on the interface or the
 .B 6
@@ -223,9 +232,24 @@ This option directs
 .I ipconfig
 instead to fork a background process that keeps trying forever.
 .TP
+.B s
+add
+.I dnsserver
+to the 
+.B /net/ndb
+configuration.
+.TP
 .B t
 enable source address translation on the interface and default route.
-(only usefull for IPv4).
+(only useful for IPv4).
+.TP
+.B U
+specify the DHCPv6 client identifier.
+When omitted, the MAC address is used to generate a link-layer
+based duid (DUID-LL).
+Note that the
+.B -d
+flag must also be given to enable DHCPv6.
 .TP
 .B u
 disable IPv6 duplicate discovery detection,
@@ -247,7 +271,7 @@ don't fork a process to keep the DHCP lease alive.
 .TP
 .B o
 adds
-.I dhcpoption
+.I dhcp-opt
 to the list of paramters requested of the DHCP server.  The
 result will appear in
 .B /net/ndb

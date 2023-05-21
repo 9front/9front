@@ -35,6 +35,8 @@ struct Conf
 	int	hwalen;
 	uchar	cid[32];
 	int	cidlen;
+	uchar	duid[2+128];
+	int	duidlen;
 	char	*baud;
 
 	/* learned info */
@@ -99,6 +101,7 @@ struct Ctl
 extern Conf	conf;
 extern int	myifc;
 extern int	noconfig;
+extern int	dodhcp;
 
 extern int	debug;
 extern int	dolog;
@@ -129,7 +132,7 @@ int	pnames(uchar*, int, char*);
 int	gnames(char*, int, uchar*, int);
 Ndb*	opendatabase(void);
 void	ndb2conf(Ndb *db, uchar *ip);
-void	putndb(void);
+void	putndb(int);
 void	refresh(void);
 ulong	randint(ulong low, ulong hi);
 int	validip(uchar*);
@@ -155,3 +158,9 @@ void	doipv6(int);
 void	ea2lla(uchar *lla, uchar *ea);
 int	findllip(uchar *ip, Ipifc *ifc);
 int	ip6cfg(void);
+
+/*
+ * DHCPv6
+ */
+void	dhcpv6init(void);
+void	dhcpv6query(void);

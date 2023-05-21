@@ -448,24 +448,15 @@ sendrs(int fd, uchar *dst)
 	}
 }
 
-/*
- * a router receiving a router adv from another
- * router calls this; it is basically supposed to
- * log the information in the ra and raise a flag
- * if any parameter value is different from its configured values.
- *
- * doing nothing for now since I don't know where to log this yet.
- */
-static void
-recvrarouter(uchar buf[], int pktlen)
-{
-	USED(buf, pktlen);
-}
-
 static void
 ewrite(int fd, char *str)
 {
 	int n;
+
+	if(noconfig){
+		DEBUG("ewrite: %s\n", str);
+		return;
+	}
 
 	if(fd < 0)
 		return;
@@ -561,7 +552,7 @@ static Route	*routelist;
 /*
  * host receiving a router advertisement calls this
  */
-static void
+static int
 recvrahost(uchar buf[], int pktlen)
 {
 	char dnsdomain[sizeof(conf.dnsdomain)];
@@ -578,18 +569,23 @@ recvrahost(uchar buf[], int pktlen)
 	m = sizeof *ra;
 	ra = (Routeradv*)buf;
 	if(pktlen < m)
-		return;
+		return -1;
 
 	if(!ISIPV6LINKLOCAL(ra->src))
-		return;
+		return -1;
 
 	conf.ttl = ra->cttl;
-	conf.mflag = (MFMASK & ra->mor);
-	conf.oflag = (OCMASK & ra->mor);
+	conf.mflag = (MFMASK & ra->mor) != 0;
+	conf.oflag = (OCMASK & ra->mor) != 0;
 	conf.routerlt = nhgets(ra->routerlt);
 	conf.reachtime = nhgetl(ra->rchbltime);
 	conf.rxmitra = nhgetl(ra->rxmtimer);
 	conf.linkmtu = DEFMTU;
+
+	if(conf.routerlt == 0)
+		ipmove(conf.gaddr, IPnoaddr);
+	else
+		ipmove(conf.gaddr, ra->src);
 
 	memset(conf.dns, 0, sizeof(conf.dns));
 	memset(conf.fs, 0, sizeof(conf.fs));
@@ -602,7 +598,7 @@ recvrahost(uchar buf[], int pktlen)
 		optype = buf[n];
 		m += 8 * buf[n+1];
 		if(m <= n || pktlen < m)
-			return;
+			return -1;
 
 		switch (optype) {
 		case V6nd_srclladdr:
@@ -660,7 +656,7 @@ recvrahost(uchar buf[], int pktlen)
 		|| ipcmp(r->src, ra->src) == 0 && r->routerlt != 0 && conf.routerlt == 0){
 			DEBUG("purging RA from %I on %s; pfx %I %M",
 				r->src, conf.dev, r->laddr, r->mask);
-			if(validip(r->gaddr))
+			if(!noconfig && validip(r->gaddr))
 				removedefroute(r->gaddr, conf.lladdr, r->laddr, r->mask);
 			*rr = r->next;
 			free(r);
@@ -678,7 +674,7 @@ recvrahost(uchar buf[], int pktlen)
 		optype = buf[n];
 		m += 8 * buf[n+1];
 		if(m <= n || pktlen < m)
-			return;
+			return -1;
 
 		if(optype != V6nd_pfxinfo)
 			continue;
@@ -760,17 +756,19 @@ recvrahost(uchar buf[], int pktlen)
 		DEBUG("got RA from %I on %s; pfx %I %M",
 			ra->src, conf.dev, conf.v6pref, conf.mask);
 
+		if(noconfig)
+			continue;
+
 		if(validip(conf.gaddr)
 		&& ipcmp(conf.gaddr, conf.laddr) != 0
 		&& ipcmp(conf.gaddr, conf.lladdr) != 0)
 			adddefroute(conf.gaddr, conf.lladdr, conf.laddr, conf.mask);
 
-		if(noconfig)
-			continue;
-
-		putndb();
+		putndb(1);
 		refresh();
 	}
+
+	return 0;
 }
 
 /*
@@ -838,7 +836,10 @@ recvra6(void)
 			exits(nil);
 		}
 
-		if(recvra6on(ifc) == IsHostNoRecv || noconfig && sendrscnt < 0){
+		switch(recvra6on(ifc)){
+		case IsHostRecv:
+			break;
+		default:
 			warning("recvra6: recvra off, quitting on %s", conf.dev);
 			if(recvracnt == 0)
 				rendezvous(recvra6, (void*)-1);
@@ -859,18 +860,27 @@ recvra6(void)
 			continue;
 		}
 
-		switch (recvra6on(ifc)) {
-		case IsRouter:
-			recvrarouter(buf, n);
-			break;
-		case IsHostRecv:
-			recvrahost(buf, n);
-			break;
-		}
+		if(recvrahost(buf, n) < 0)
+			continue;
 
 		/* got at least initial ra; no whining */
-		if(recvracnt == 0)
+		if(recvracnt == 0){
+			if(dodhcp && conf.mflag){
+				dhcpv6query();
+				if(noconfig || !validip(conf.laddr))
+					continue;
+				fprint(conf.rfd, "tag dhcp");
+				if(ip6cfg() < 0){
+					fprint(conf.rfd, "tag ra6");
+					continue;
+				}
+				putndb(1);
+				refresh();
+				rendezvous(recvra6, (void*)1);
+				exits(nil);
+			}
 			rendezvous(recvra6, (void*)1);
+		}
 
 		if(recvracnt < Maxv6initras)
 			recvracnt++;

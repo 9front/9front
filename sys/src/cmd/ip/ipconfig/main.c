@@ -39,6 +39,7 @@ char	*dbfile;
 
 static char logfile[] = "ipconfig";
 
+static void	openiproute(void);
 static void	binddevice(void);
 static void	controldevice(void);
 extern void	pppbinddev(void);
@@ -54,8 +55,8 @@ static int	Ufmt(Fmt*);
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-6dDGnNOpPrtuX][-b baud][-c ctl]* [-g gw]"
-		"[-h host][-m mtu]\n"
+	fprint(2, "usage: %s [-6dDGnNOpPrtuX][-b baud][-c ctl]* [-U duid] [-g gw]"
+		"[-h host][-m mtu][-s dns]...\n"
 		"\t[-f dbfile][-x mtpt][-o dhcpopt] type dev [verb] [laddr [mask "
 		"[raddr [fs [auth]]]]]\n", argv0);
 	exits("usage");
@@ -277,10 +278,10 @@ findifc(char *net, char *dev)
 	Ipifc *nifc;
 
 	ifc = readipifc(net, ifc, -1);
-	for(nifc = ifc; nifc != nil; nifc = nifc->next)
+	for(nifc = ifc; nifc != nil; nifc = nifc->next){
 		if(strcmp(nifc->dev, dev) == 0)
 			return nifc->index;
-
+	}
 	return -1;
 }
 
@@ -305,6 +306,15 @@ mkclientid(void)
 		conf.cid[0] = conf.hwatype;
 		memmove(&conf.cid[1], conf.hwa, conf.hwalen);
 		conf.cidlen = conf.hwalen+1;
+		if(conf.duidlen == 0){
+			/* DUID-LL */
+			conf.duid[0] = 0x00;
+			conf.duid[1] = 0x03;
+			conf.duid[2] = conf.hwatype >> 8;
+			conf.duid[3] = conf.hwatype;
+			memmove(conf.duid+4, conf.hwa, conf.hwalen);
+			conf.duidlen = conf.hwalen+4;
+		}
 	} else {
 		conf.hwatype = -1;
 		snprint((char*)conf.cid, sizeof conf.cid,
@@ -318,8 +328,10 @@ mkclientid(void)
 void
 main(int argc, char **argv)
 {
+	uchar ip[IPaddrlen];
 	int action;
 	Ctl *cp;
+	char *s;
 
 	init();
 	ARGBEGIN {
@@ -384,11 +396,22 @@ main(int argc, char **argv)
 	case 'r':
 		rflag = 1;
 		break;
+	case 's':
+		if(parseip(ip, EARGF(usage())) == -1)
+			usage();
+		addaddrs(conf.dns, sizeof(conf.dns), ip, sizeof(ip));
+		break;
 	case 't':
 		tflag = 1;
 		break;
 	case 'u':		/* IPv6: duplicate neighbour disc. off */
 		dupl_disc = 0;
+		break;
+	case 'U':		/* device unique id used for dhcpv6 */
+		s = EARGF(usage());
+		conf.duidlen = dec16(conf.duid, sizeof(conf.duid), s, strlen(s));
+		if(conf.duidlen <= 0)
+			usage();
 		break;
 	case 'x':
 		setnetmtpt(conf.mpoint, sizeof conf.mpoint, EARGF(usage()));
@@ -399,13 +422,13 @@ main(int argc, char **argv)
 	default:
 		usage();
 	} ARGEND;
-	argv0 = "ipconfig";		/* boot invokes us as tcp? */
 
 	action = parseargs(argc, argv);
 
-	if(beprimary == -1 && (ipv6auto || parseverb(conf.type) == Vloopback))
+	if(beprimary == -1 && (ipv6auto || ISIPV6LINKLOCAL(conf.laddr) || parseverb(conf.type) == Vloopback))
 		beprimary = 0;
 
+	openiproute();
 	myifc = findifc(conf.mpoint, conf.dev);
 	if(myifc < 0) {
 		switch(action){
@@ -416,9 +439,15 @@ main(int argc, char **argv)
 			controldevice();
 			binddevice();
 			myifc = findifc(conf.mpoint, conf.dev);
-		case Vremove:
 		case Vunbind:
 			break;
+		case Vremove:
+			/*
+			 * interface gone, just remove
+			 * default route and ndb entries.
+			 */
+			doremove();
+			exits(nil);
 		}
 		if(myifc < 0)
 			sysfatal("interface not found for: %s", conf.dev);
@@ -478,6 +507,7 @@ doadd(void)
 		} else
 			sysfatal("no success with DHCP");
 	}
+
 	DEBUG("adding address %I %M on %s", conf.laddr, conf.mask, conf.dev);
 	if(noconfig)
 		return;
@@ -493,7 +523,7 @@ doadd(void)
 	}
 
 	/* leave everything we've learned somewhere other procs can find it */
-	putndb();
+	putndb(1);
 	refresh();
 }
 
@@ -504,11 +534,18 @@ doremove(void)
 		sysfatal("remove requires an address");
 
 	DEBUG("removing address %I %M on %s", conf.laddr, conf.mask, conf.dev);
-	if(conf.cfd < 0)
+	if(noconfig)
 		return;
 
-	if(fprint(conf.cfd, "remove %I %M", conf.laddr, conf.mask) < 0)
+	if(validip(conf.gaddr))
+		removedefroute(conf.gaddr, conf.laddr, conf.laddr, conf.mask);
+
+	if(conf.cfd >= 0 && fprint(conf.cfd, "remove %I %M", conf.laddr, conf.mask) < 0)
 		warning("can't remove %I %M: %r", conf.laddr, conf.mask);
+
+	/* remove ndb entries matching our ip address */
+	putndb(0);
+	refresh();
 }
 
 static void
@@ -519,6 +556,15 @@ dounbind(void)
 
 	if(fprint(conf.cfd, "unbind") < 0)
 		warning("can't unbind %s: %r", conf.dev);
+}
+
+static void
+openiproute(void)
+{
+	char buf[127];
+
+	snprint(buf, sizeof buf, "%s/iproute", conf.mpoint);
+	conf.rfd = open(buf, OWRITE);
 }
 
 /* send some ctls to a device */
@@ -570,8 +616,6 @@ binddevice(void)
 		if(fprint(conf.cfd, "bind %s %s", conf.type, conf.dev) < 0)
 			sysfatal("%s: bind %s %s: %r", buf, conf.type, conf.dev);
 	}
-	snprint(buf, sizeof buf, "%s/iproute", conf.mpoint);
-	conf.rfd = open(buf, OWRITE);
 }
 
 /* add a logical interface to the ip stack */
@@ -624,9 +668,6 @@ ipunconfig(void)
 	if(!validip(conf.mask))
 		ipmove(conf.mask, defmask(conf.laddr));
 
-	if(validip(conf.gaddr))
-		removedefroute(conf.gaddr, conf.laddr, conf.laddr, conf.mask);
-
 	doremove();
 
 	ipmove(conf.laddr, IPnoaddr);
@@ -671,7 +712,7 @@ putnames(char *p, char *e, char *attr, char *s)
 
 /* make an ndb entry and put it into /net/ndb for the servers to see */
 void
-putndb(void)
+putndb(int doadd)
 {
 	static char buf[16*1024];
 	char file[64], *p, *e, *np;
@@ -684,32 +725,35 @@ putndb(void)
 
 	p = buf;
 	e = buf + sizeof buf;
-	p = seprint(p, e, "ip=%I ipmask=%M ipgw=%I\n",
-		conf.laddr, conf.mask, conf.gaddr);
-	if(np = strchr(conf.hostname, '.')){
-		if(*conf.domainname == 0)
-			strcpy(conf.domainname, np+1);
-		*np = 0;
-	}
-	if(*conf.hostname)
-		p = seprint(p, e, "\tsys=%U\n", conf.hostname);
-	if(*conf.domainname)
-		p = seprint(p, e, "\tdom=%U.%U\n",
-			conf.hostname, conf.domainname);
-	if(*conf.dnsdomain)
-		p = putnames(p, e, "\tdnsdomain", conf.dnsdomain);
-	if(validip(conf.dns))
-		p = putaddrs(p, e, "\tdns", conf.dns, sizeof conf.dns);
-	if(validip(conf.fs))
-		p = putaddrs(p, e, "\tfs", conf.fs, sizeof conf.fs);
-	if(validip(conf.auth))
-		p = putaddrs(p, e, "\tauth", conf.auth, sizeof conf.auth);
-	if(validip(conf.ntp))
-		p = putaddrs(p, e, "\tntp", conf.ntp, sizeof conf.ntp);
-	if(ndboptions)
-		p = seprint(p, e, "%s\n", ndboptions);
 
-	/* append preexisting entries not matching our ip */
+	if(doadd){
+		p = seprint(p, e, "ip=%I ipmask=%M ipgw=%I\n",
+			conf.laddr, conf.mask, conf.gaddr);
+		if(np = strchr(conf.hostname, '.')){
+			if(*conf.domainname == 0)
+				strcpy(conf.domainname, np+1);
+			*np = 0;
+		}
+		if(*conf.hostname)
+			p = seprint(p, e, "\tsys=%U\n", conf.hostname);
+		if(*conf.domainname)
+			p = seprint(p, e, "\tdom=%U.%U\n",
+				conf.hostname, conf.domainname);
+		if(*conf.dnsdomain)
+			p = putnames(p, e, "\tdnsdomain", conf.dnsdomain);
+		if(validip(conf.dns))
+			p = putaddrs(p, e, "\tdns", conf.dns, sizeof conf.dns);
+		if(validip(conf.fs))
+			p = putaddrs(p, e, "\tfs", conf.fs, sizeof conf.fs);
+		if(validip(conf.auth))
+			p = putaddrs(p, e, "\tauth", conf.auth, sizeof conf.auth);
+		if(validip(conf.ntp))
+			p = putaddrs(p, e, "\tntp", conf.ntp, sizeof conf.ntp);
+		if(ndboptions)
+			p = seprint(p, e, "%s\n", ndboptions);
+	}
+
+	/* write preexisting entries not matching our ip */
 	snprint(file, sizeof file, "%s/ndb", conf.mpoint);
 	db = ndbopen(file);
 	if(db != nil ){
@@ -728,7 +772,6 @@ putndb(void)
 		}
 		ndbclose(db);
 	}
-
 	if((fd = open(file, OWRITE|OTRUNC)) < 0)
 		return;
 	write(fd, buf, p-buf);
