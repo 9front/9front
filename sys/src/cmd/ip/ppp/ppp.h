@@ -262,15 +262,20 @@ struct PPP
 	QLock;
 
 	int		ipfd;		/* fd to ip stack */
-	int		ipcfd;		/* fd to control channel of ip stack */
 	int		mediain;	/* fd to media */
 	int		mediaout;	/* fd to media */
+	int		shellin;	/* fd to rc shell for running ipconfig */
+
 	char		*net;		/* ip stack to use */
+	char		*dev;		/* the device */
+	char		*duid;		/* dhcpv6 uid */	
+
 	int		framing;	/* non-zero to use framing characters */
 	Ipaddr		local;
 	Ipaddr		curlocal;
 	Ipaddr		remote;
 	Ipaddr		curremote;
+
 	Ipaddr		local6;
 	Ipaddr		curlocal6;
 	Ipaddr		remote6;
@@ -345,7 +350,7 @@ struct PPP
 
 extern Block*	pppread(PPP*);
 extern int	pppwrite(PPP*, Block*);
-extern void	pppopen(PPP*, int, int, char*, Ipaddr[2], Ipaddr[2], int, int);
+extern void	pppopen(PPP*, int, int, int, char*, char *dev, Ipaddr[2], Ipaddr[2], int, int, char*);
 
 struct Lcpmsg
 {

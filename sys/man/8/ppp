@@ -20,12 +20,18 @@ ppp, pppoe, pptp, pptpd \- point-to-point protocol
 ] [
 .B -p
 .I dev
+|
+.B -e
+.I dev
 ] [
 .B -x
 .I netmntpt
 ] [
 .B -t
 .I modemcmd
+] [
+.B -U
+.I duid
 ] [
 .I local
 [
@@ -35,48 +41,41 @@ ppp, pppoe, pptp, pptpd \- point-to-point protocol
 .B ip/pppoe
 [
 .B -PdcCr
-]
-[
+] [
 .B -A
 .I acname
-]
-[
+] [
 .B -S
 .I srvname
-]
-[
+] [
+.B -U
+.I duid
+] [
 .B -k
 .I keyspec
-]
-[
+] [
 .B -m
 .I mtu
-]
-[
+] [
 .B -b
 .I baud
-]
-[
+] [
 .B -x
 .I pppnetmntpt
-]
-[
+] [
 .I ether
 ]
 .PP
 .B ip/pptp
 [
 .B -dP
-]
-[
+] [
 .B -k
 .I keyspec
-]
-[
+] [
 .B -w
 .I window
-]
-[
+] [
 .B -x
 .I pppnetmntpt
 ]
@@ -98,7 +97,6 @@ ppp, pppoe, pptp, pptpd \- point-to-point protocol
 .I tcp-dir
 .SH DESCRIPTION
 The Point-to-Point Protocol is used to encapsulate Internet Protocol packets
-in IPv4 packets
 for transfer over serial lines or other protocol connections.
 .I Ppp
 can run either as a client or, with the
@@ -129,6 +127,12 @@ disallow packet compression
 .TP
 .B C
 disallow IP header compression
+.TP
+.B e
+assigns
+.I dev
+to the packet interface device (for identification only),
+but otherwise communicates over standard I/O.
 .TP
 .B f
 make PPP add HDLC framing.  This is necessary when using
@@ -168,6 +172,20 @@ run as a server
 before starting the PPP protocol, write
 .I modemcmd
 to the device
+.TP
+.B U
+use
+.I duid
+as the DHCPv6 client identier.
+.I Pppoe
+creates the
+.I duid
+from the ethernet address (DUID-LL) of
+.I dev
+when not specified and passes it on to
+.IR ppp .
+See also
+.IR ipconfig (8)).
 .TP
 .B u
 before starting the PPP protocol with the remote end, shuttle
@@ -291,6 +309,8 @@ set the receive window to
 .br
 .B /sys/src/cmd/ip/pppoe.c
 .SH SEE ALSO
+.IR ipconfig (8),
 .I gre
 in
 .IR ip (3)
+

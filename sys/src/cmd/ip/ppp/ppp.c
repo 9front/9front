@@ -17,9 +17,9 @@ static	int	nocompress;
 static 	int	pppframing = 1;
 static	int	noipcompress;
 static	int	server;
-static	int noauth;
+static	int	noauth;
 static	int	dying;		/* flag to signal to all threads its time to go */
-static	int	primary;	/* this is the primary IP interface */
+static	int	primary;
 static	char	*chatfile;
 
 int	debug;
@@ -98,8 +98,6 @@ static	void		printopts(Pstate*, Block*, int);
 static	void		ptimer(PPP*, Pstate*);
 static	int		putframe(PPP*, int, Block*);
 static	void		putlqm(PPP*);
-static	void		putndb(PPP*);
-static	void		refresh(char*);
 static	void		putpaprequest(PPP*);
 static	void		rcv(PPP*, Pstate*, Block*);
 static	void		rejopts(PPP*, Pstate*, Block*, int);
@@ -112,14 +110,14 @@ static	int		validv6(Ipaddr);
 static  void		dmppkt(char *s, uchar *a, int na);
 
 void
-pppopen(PPP *ppp, int mediain, int mediaout, char *net,
+pppopen(PPP *ppp, int mediain, int mediaout, int shellin, char *net, char *dev,
 	Ipaddr ipaddr[2], Ipaddr remip[2],
-	int mtu, int framing)
+	int mtu, int framing, char *duid)
 {
 	int i;
 
 	ppp->ipfd = -1;
-	ppp->ipcfd = -1;
+
 	invalidate(ppp->remote);
 	invalidate(ppp->local);
 	invalidate(ppp->curremote);
@@ -134,8 +132,13 @@ pppopen(PPP *ppp, int mediain, int mediaout, char *net,
 	invalidate(ppp->curremote6);
 	invalidate(ppp->curlocal6);
 
+	ppp->dev = dev;
+	ppp->duid = duid;
+
 	ppp->mediain = mediain;
 	ppp->mediaout = mediaout;
+
+	ppp->shellin = shellin;
 
 	for(i=0; i<2; i++){
 		if(validv4(ipaddr[i])){
@@ -160,14 +163,8 @@ pppopen(PPP *ppp, int mediain, int mediaout, char *net,
 	ppp->net = net;
 
 	init(ppp);
-	switch(rfork(RFPROC|RFMEM|RFNOWAIT)){
-	case -1:
-		terminate(ppp, "forking mediainproc", 1);
-	case 0:
-		mediainproc(ppp);
-		terminate(ppp, "mediainproc", 0);
-		exits(nil);
-	}
+	mediainproc(ppp);
+	terminate(ppp, "mediainproc", 0);
 }
 
 static void
@@ -781,26 +778,29 @@ config(PPP *ppp, Pstate *p, int newid)
 static void
 getipinfo(PPP *ppp)
 {
+	char buf[32];
 	char *av[3];
 	int ndns, nwins;
-	char ip[64];
 	Ndbtuple *t, *nt;
+	Ipaddr ip;
 
 	if(!validv4(ppp->local))
 		return;
 
 	av[0] = "dns";
 	av[1] = "wins";
-	sprint(ip, "%I", ppp->local);
-	t = csipinfo(ppp->net, "ip", ip, av, 2);
+	snprint(buf, sizeof buf, "%I", ppp->local);
+	t = csipinfo(ppp->net, "ip", buf, av, 2);
 	ndns = nwins = 0;
 	for(nt = t; nt != nil; nt = nt->entry){
+		if (parseip(ip, nt->val) == -1 || !validv4(ip))
+			continue;
 		if(strcmp(nt->attr, "dns") == 0){
 			if(ndns < 2)
-				parseip(ppp->dns[ndns++], nt->val);
+				ipmove(ppp->dns[ndns++], ip);
 		} else if(strcmp(nt->attr, "wins") == 0){
 			if(nwins < 2)
-				parseip(ppp->wins[nwins++], nt->val);
+				ipmove(ppp->wins[nwins++], ip);
 		}
 	}
 	if(t != nil)
@@ -1611,52 +1611,65 @@ ppptimer(PPP *ppp)
 }
 
 static void
-defroute(char *net, char *verb, Ipaddr gate, Ipaddr local)
+ipconfig(int shell, char *net, char *dev, int mtu, Ipaddr gate, Ipaddr dns[2], char *duid)
 {
-	char path[128];
-	int fd;
+	fprint(shell, "ip/ipconfig -x %q ", net);
+	if(!primary){
+		/* don't write /net/ndb */
+		fprint(shell, "-P ");
+	} else {
+		/* write dns servers in /net/ndb */
+		if(dns != nil){
+			int i;
 
-	snprint(path, sizeof path, "%s/iproute", net);
-	fd = open(path, ORDWR);
-	if(fd < 0)
+			for(i = 0; i < 2; i++){
+				if(validv4(dns[i]))
+					fprint(shell, "-s %I ", dns[i]);
+			}
+		}
+		/* set default gateway */
+		if(gate != nil)
+			fprint(shell, "-g %I ", gate);
+	}
+	/* allow dhcpv6 */
+	if(duid != nil)
+		fprint(shell, "-dU %q ", duid);
+	if(mtu > 0)
+		fprint(shell, "-m %d ", mtu);
+	fprint(shell, "pkt %q ", dev);
+}
+
+static void
+addip(int shell, char *net, char *dev, Ipaddr local, Ipaddr remote, int mtu, Ipaddr *dns)
+{
+	if(validv4(local) && validv4(remote)){
+		ipconfig(shell, net, dev, mtu, remote, dns, nil);
+		fprint(shell, "add %I 255.255.255.255 %I\n", local, remote);
+	} else if(validv6(local)){
+		ipconfig(shell, net, dev, mtu, nil, nil, nil);
+		fprint(shell, "add %I /64\n", local);
+	}
+}
+
+static void
+removeip(int shell, char *net, char *dev, Ipaddr local, Ipaddr remote)
+{
+	if(validv4(local) && validv4(remote)){
+		ipconfig(shell, net, dev, 0, remote, nil, nil);
+		fprint(shell, "remove %I 255.255.255.255\n", local);
+	} else if(validv6(local)){
+		ipconfig(shell, net, dev, 0, nil, nil, nil);
+		fprint(shell, "remove %I /64\n", local);
+	}
+}
+
+static void
+v6autoconfig(int shell, char *net, char *dev, Ipaddr remote, char *duid)
+{
+	if(server || !validv6(remote))
 		return;
-	fprint(fd, "tag ppp\n");
-	fprint(fd, "%s 0.0.0.0 0.0.0.0 %I %I 255.255.255.255\n", verb, gate, local);
-	close(fd);
-}
-
-static int
-addip(int cfd, char *net, Ipaddr local, Ipaddr remote, int mtu)
-{
-	if(validv4(local) && validv4(remote)){
-		netlog("ppp: setting up IPv4 interface local %I remote %I\n", local, remote);
-
-		if(fprint(cfd, "add %I 255.255.255.255 %I %d proxy", local, remote, mtu-10) < 0)
-			return -1;
-
-		defroute(net, "add", remote, local);
-	} else if(validv6(local) && validv6(remote)){
-		netlog("ppp: setting up IPv6 interface local %I remote %I\n", local, remote);
-
-		if(fprint(cfd, "add %I /64 %I %d", local, remote, mtu-10) < 0)
-			return -1;
-	}
-	return 0;
-}
-
-static int
-removeip(int cfd, char *net, Ipaddr local, Ipaddr remote)
-{
-	if(validv4(local) && validv4(remote)){
-		defroute(net, "remove", remote, local);
-
-		if(fprint(cfd, "remove %I 255.255.255.255 %I", local, remote) < 0)
-			return -1;
-	} else if(validv6(local) && validv6(remote)){
-		if(fprint(cfd, "remove %I /64 %I", local, remote) < 0)
-			return -1;
-	}
-	return 0;
+	ipconfig(shell, net, dev, 0, remote, nil, duid);
+	fprint(shell, "ra6 recvra 1\n");
 }
 
 static char*
@@ -1685,39 +1698,20 @@ ipopen(PPP *ppp)
 			close(cfd);
 			return "can't open ip interface";
 		}
-		if(fprint(cfd, "bind pkt") < 0){
+
+		if(ppp->dev == nil)
+			ppp->dev = smprint("%s/ipifc/%s", ppp->net, buf);
+
+		if(fprint(cfd, "bind pkt %s", ppp->dev) < 0){
 			close(fd);
 			close(cfd);
 			return "binding pkt to ip interface";
 		}
-		if(validv4(ppp->local)){
-			if(!validv4(ppp->remote))
-				ipmove(ppp->remote, ppp->local);
-			if(addip(cfd, ppp->net, ppp->local, ppp->remote, ppp->mtu) < 0){
-				close(fd);
-				close(cfd);
-				return "can't set addresses";
-			}
-			syslog(0, LOG, "%I/%I", ppp->local, ppp->remote);
-		}
-		if(validv6(ppp->local6) && validv6(ppp->remote6)){
-			if(addip(cfd, ppp->net, ppp->local6, ppp->remote6, ppp->mtu) < 0){
-				close(fd);
-				close(cfd);
-				return "can't set addresses";
-			}
-			syslog(0, LOG, "%I/%I", ppp->local6, ppp->remote6);
-		}
 		if(baud)
 			fprint(cfd, "speed %d", baud);
+		close(cfd);
+
 		ppp->ipfd = fd;
-		ppp->ipcfd = cfd;
-		putndb(ppp);
-		refresh(ppp->net);
-
-		/* signal main() that ip is configured */
-		rendezvous(ppp, 0);
-
 		switch(ipinprocpid = rfork(RFPROC|RFMEM|RFNOWAIT)){
 		case -1:
 			terminate(ppp, "forking ipinproc", 1);
@@ -1726,24 +1720,38 @@ ipopen(PPP *ppp)
 			terminate(ppp, "ipinproc", 0);
 			exits(nil);
 		}
+
+		if(validv4(ppp->local)){
+			if(!validv4(ppp->remote))
+				ipmove(ppp->remote, ppp->local);
+			syslog(0, LOG, "%I/%I", ppp->local, ppp->remote);
+			addip(ppp->shellin, ppp->net, ppp->dev, ppp->local, ppp->remote, ppp->mtu, ppp->dns);
+		}
+		if(validv6(ppp->local6) && validv6(ppp->remote6)){
+			syslog(0, LOG, "%I/%I", ppp->local6, ppp->remote6);
+			addip(ppp->shellin, ppp->net, ppp->dev, ppp->local6, ppp->remote6, ppp->mtu, nil);
+			v6autoconfig(ppp->shellin, ppp->net, ppp->dev, ppp->remote6, ppp->duid);
+		}
+
+		/* fork in background, main returns */
+		fprint(ppp->shellin, "rc </fd/0 &; exit ''\n");
 	} else {
 		/* we may have changed addresses */
 		if(ipcmp(ppp->local, ppp->curlocal) != 0 || ipcmp(ppp->remote, ppp->curremote) != 0){
-			removeip(ppp->ipcfd, ppp->net, ppp->curlocal, ppp->curremote);
-			addip(ppp->ipcfd, ppp->net, ppp->local, ppp->remote, ppp->mtu);
-
+			if(!validv4(ppp->remote))
+				ipmove(ppp->remote, ppp->local);
 			syslog(0, LOG, "%I/%I -> %I/%I", ppp->curlocal, ppp->curremote,
 				ppp->local, ppp->remote);
+			removeip(ppp->shellin, ppp->net, ppp->dev, ppp->curlocal, ppp->curremote);
+			addip(ppp->shellin, ppp->net, ppp->dev, ppp->local, ppp->remote, ppp->mtu, ppp->dns);
 		}
 		if(ipcmp(ppp->local6, ppp->curlocal6) != 0 || ipcmp(ppp->remote6, ppp->curremote6) != 0){
-			removeip(ppp->ipcfd, ppp->net, ppp->curlocal6, ppp->curremote6);
-			addip(ppp->ipcfd, ppp->net, ppp->local6, ppp->remote6, ppp->mtu);
-
 			syslog(0, LOG, "%I/%I -> %I/%I", ppp->curlocal6, ppp->curremote6,
 				ppp->local6, ppp->remote6);
+			removeip(ppp->shellin, ppp->net, ppp->dev, ppp->curlocal6, ppp->curremote6);
+			addip(ppp->shellin, ppp->net, ppp->dev, ppp->local6, ppp->remote6, ppp->mtu, nil);
+			v6autoconfig(ppp->shellin, ppp->net, ppp->dev, ppp->remote6, ppp->duid);
 		}
-		putndb(ppp);
-		refresh(ppp->net);
 	}
 
 	ipmove(ppp->curlocal, ppp->local);
@@ -1956,25 +1964,22 @@ terminate(PPP *ppp, char *why, int fatal)
 
 	syslog(0, LOG, "ppp: terminated: %s", why);
 
-	if(validv4(ppp->curremote) && validv4(ppp->curlocal)){
-		defroute(ppp->net, "remove", ppp->curremote, ppp->curlocal);
-		invalidate(ppp->remote);
-		invalidate(ppp->local);
-		putndb(ppp);
+	if(ppp->dev != nil){
+		removeip(ppp->shellin, ppp->net, ppp->dev, ppp->curlocal, ppp->curremote);
+		removeip(ppp->shellin, ppp->net, ppp->dev, ppp->curlocal6, ppp->curremote6);
 	}
+	fprint(ppp->shellin, "exit %q\n", why);
+	close(ppp->shellin);
+	ppp->shellin = -1;
 
 	close(ppp->ipfd);
 	ppp->ipfd = -1;
-	close(ppp->ipcfd);
-	ppp->ipcfd = -1;
 	close(ppp->mediain);
 	close(ppp->mediaout);
 	ppp->mediain = -1;
 	ppp->mediaout = -1;
-	postnote(PNGROUP, getpid(), "die");
 
-	/* interface gone, notify cs */
-	refresh(ppp->net);
+	postnote(PNGROUP, getpid(), "die");
 
 	if(fatal)
 		sysfatal("%s", why);
@@ -2840,7 +2845,7 @@ void
 usage(void)
 {
 	fprint(2, "usage: ppp [-CPSacdfu] [-b baud] [-k keyspec] [-m mtu] "
-		"[-M chatfile] [-p dev] [-x netmntpt] [-t modemcmd] "
+		"[-M chatfile] [-p dev | -e etherdev] [-x netmntpt] [-t modemcmd] [-U duid] "
 		"[local-addr [remote-addr]]\n");
 	exits("usage");
 }
@@ -2848,29 +2853,30 @@ usage(void)
 void
 main(int argc, char **argv)
 {
+	static PPP ppp[1];
 	int mtu, framing, user, mediain, mediaout, cfd;
 	Ipaddr ipaddr[2], remip[2];
-	char *dev, *modemcmd;
+	char *dev, *ether, *duid, *modemcmd;
 	char net[128];
-	PPP *ppp;
+	int pfd[2];
 	char buf[128];
 
-	rfork(RFREND|RFNOTEG|RFNAMEG);
-
+	quotefmtinstall();
 	fmtinstall('I', eipfmt);
 	fmtinstall('V', eipfmt);
 	fmtinstall('E', eipfmt);
 	fmtinstall('H', encodefmt);
-
-	dev = nil;
 
 	invalidate(ipaddr[0]);
 	invalidate(ipaddr[1]);
 	invalidate(remip[0]);
 	invalidate(remip[1]);
 
+	dev = nil;
+	ether = nil;
 	mtu = Defmtu;
 	framing = 0;
+	duid = nil;
 	setnetmtpt(net, sizeof(net), nil);
 	user = 0;
 	modemcmd = nil;
@@ -2892,6 +2898,9 @@ main(int argc, char **argv)
 		break;
 	case 'd':
 		debug++;
+		break;
+	case 'e':
+		ether = EARGF(usage());
 		break;
 	case 'f':
 		framing = 1;
@@ -2915,7 +2924,7 @@ main(int argc, char **argv)
 	case 'p':
 		dev = EARGF(usage());
 		break;
-	case 'P':
+	case 'P':	/* this seems reversed compared to ipconfig */
 		primary = 1;
 		break;
 	case 'S':
@@ -2923,6 +2932,9 @@ main(int argc, char **argv)
 		break;
 	case 't':
 		modemcmd = EARGF(usage());
+		break;
+	case 'U':
+		duid = EARGF(usage());
 		break;
 	case 'u':
 		user = 1;
@@ -2970,11 +2982,11 @@ main(int argc, char **argv)
 		if(mediain < 0){
 			if(strchr(dev, '!')){
 				if((mediain = dial(dev, 0, 0, &cfd)) == -1){
-					fprint(2, "ppp: couldn't dial %s: %r\n", dev);
+					fprint(2, "%s: couldn't dial %s: %r\n", argv0, dev);
 					exits(dev);
 				}
 			} else {
-				fprint(2, "ppp: couldn't open %s\n", dev);
+				fprint(2, "%s: couldn't open %s\n", argv0, dev);
 				exits(dev);
 			}
 		} else {
@@ -2997,30 +3009,52 @@ main(int argc, char **argv)
 			if(user || chatfile)
 				connect(mediain, -1);
 		}
-		mediaout = mediain;
+		mediaout = dup(mediain, -1);
 	} else {
 		mediain = open("/fd/0", OREAD);
 		if(mediain < 0){
-			fprint(2, "ppp: couldn't open /fd/0\n");
+			fprint(2, "%s: couldn't open /fd/0\n", argv0);
 			exits("/fd/0");
 		}
 		mediaout = open("/fd/1", OWRITE);
 		if(mediaout < 0){
-			fprint(2, "ppp: couldn't open /fd/0\n");
+			fprint(2, "%s: couldn't open /fd/0\n", argv0);
 			exits("/fd/1");
 		}
+		/* use the ethernet from pppoe to identify the interface */
+		dev = ether;
 	}
-
 	if(modemcmd != nil && mediaout >= 0)
 		fprint(mediaout, "%s\r", modemcmd);
 
-	ppp = mallocz(sizeof(*ppp), 1);
-	pppopen(ppp, mediain, mediaout, net, ipaddr, remip, mtu, framing);
+	if(pipe(pfd) < 0){
+		fprint(2, "%s: can't create pipe\n", argv0);
+		exits("pipe");
+	}
+	switch(rfork(RFFDG|RFREND|RFPROC|RFNOTEG|RFNOWAIT)){
+	case -1:
+		fprint(2, "%s: can't fork\n", argv0);
+		exits("fork");
+	case 0:
+		close(pfd[0]);
+		pppopen(ppp, mediain, mediaout, pfd[1], net, dev, ipaddr, remip, mtu, framing, duid);
+		exits(nil);
+	default:
+		/* read commands from pipe */
+		dup(pfd[0], 0);
 
-	/* wait until ip is configured */
-	rendezvous(ppp, 0);
+		close(pfd[0]);
+		close(pfd[1]);
+		close(mediain);
+		close(mediaout);
 
-	exits(nil);
+		/* stdout to stderr */
+		dup(2, 1);
+	}
+
+	/* become a shell, reading commands from pipe */
+	execl("/bin/rc", "rc", nil);
+	exits("exec");
 }
 
 void
@@ -3094,79 +3128,4 @@ euitov6(Ipaddr addr, uchar *data, int len)
 	ipmove(addr, v6llprefix);
 	memmove(&addr[IPaddrlen-len], data, len);
 	return memcmp(addr, v6llprefix, IPaddrlen) != 0;
-}
-
-/*
- *  make an ndb entry and put it into /net/ndb for the servers to see
- */
-static void
-putndb(PPP *ppp)
-{
-	static char buf[16*1024];
-	char file[128], *p, *e;
-	Ndbtuple *t, *nt;
-	Ndb *db;
-	int fd;
-
-	if(!primary)
-		return;
-
-	e = buf + sizeof(buf);
-	p = buf;
-
-	if(validv4(ppp->local) && validv4(ppp->remote)){
-		p = seprint(p, e, "ip=%I ipmask=255.255.255.255 ipgw=%I\n",
-			ppp->local, ppp->remote);
-		if(validv4(ppp->dns[0]))
-			p = seprint(p, e, "\tdns=%I\n", ppp->dns[0]);
-		if(validv4(ppp->dns[1]))
-			p = seprint(p, e, "\tdns=%I\n", ppp->dns[1]);
-		if(validv4(ppp->wins[0]))
-			p = seprint(p, e, "\twins=%I\n", ppp->wins[0]);
-		if(validv4(ppp->wins[1]))
-			p = seprint(p, e, "\twins=%I\n", ppp->wins[1]);
-	}
-
-	/* append preexisting entries not matching our old or new ip */
-	snprint(file, sizeof file, "%s/ndb", ppp->net);
-	db = ndbopen(file);
-	if(db != nil ){
-		while((t = ndbparse(db)) != nil){
-			uchar ip[IPaddrlen];
-
-			if((nt = ndbfindattr(t, t, "ip")) == nil
-			|| parseip(ip, nt->val) == -1
-			|| (ipcmp(ip, ppp->local) != 0 && ipcmp(ip, ppp->curlocal) != 0)){
-				p = seprint(p, e, "\n");
-				for(nt = t; nt != nil; nt = nt->entry)
-					p = seprint(p, e, "%s=%s%s", nt->attr, nt->val,
-						nt->entry==nil? "\n": nt->line!=nt->entry? "\n\t": " ");
-			}
-			ndbfree(t);
-		}
-		ndbclose(db);
-	}
-
-	if((fd = open(file, OWRITE|OTRUNC)) < 0)
-		return;
-	write(fd, buf, p-buf);
-	close(fd);
-}
-
-static void
-refresh(char *net)
-{
-	char file[128];
-	int fd;
-
-	snprint(file, sizeof file, "%s/cs", net);
-	if((fd = open(file, OWRITE)) >= 0){
-		write(fd, "refresh", 7);
-		close(fd);
-	}
-	snprint(file, sizeof file, "%s/dns", net);
-	if((fd = open(file, OWRITE)) >= 0){
-		write(fd, "refresh", 7);
-		close(fd);
-	}
 }

@@ -12,15 +12,16 @@ uchar *findtag(uchar*, int, int*, int);
 void hexdump(uchar*, int);
 int malformed(uchar*, int, int);
 int pppoe(char*);
-void execppp(int);
+void execppp(char*, int);
 
+int primary;
 int forked;
 int alarmed;
 int debug;
 int rflag;
 int sessid;
+char *duid;
 char *keyspec;
-int primary;
 char *pppnetmtpt;
 char *acname;
 char *pppname = "/bin/ip/ppp";
@@ -29,6 +30,7 @@ char *wantac;
 uchar *cookie;
 int cookielen;
 uchar etherdst[6];
+uchar ethersrc[6];
 int mtu = 1492;
 int pktcompress, hdrcompress;
 char *baud;
@@ -36,7 +38,7 @@ char *baud;
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-rPdcC] [-A acname] [-S srvname] [-k keyspec] [-m mtu] [-b baud] [-x pppnet] [ether0]\n", argv0);
+	fprint(2, "usage: %s [-rPdcC] [-A acname] [-S srvname] [-U duid] [-k keyspec] [-m mtu] [-b baud] [-x pppnet] [/net/ether0]\n", argv0);
 	exits("usage");
 }
 
@@ -110,6 +112,9 @@ main(int argc, char **argv)
 	case 'x':
 		pppnetmtpt = EARGF(usage());
 		break;
+	case 'U':
+		duid = EARGF(usage());
+		break;
 	default:
 		usage();
 	}ARGEND
@@ -118,7 +123,7 @@ main(int argc, char **argv)
 	default:
 		usage();
 	case 0:
-		dev = "ether0";
+		dev = "/net/ether0";
 		break;
 	case 1:
 		dev = argv[0];
@@ -127,8 +132,15 @@ main(int argc, char **argv)
 
 	fmtinstall('E', eipfmt);
 
+	/* generate DUID-LL when not specified */
+	if(myetheraddr(ethersrc, dev) != -1 && duid == nil){
+		static char buf[32];
+		snprint(buf, sizeof buf, "00030001%E", ethersrc);
+		duid = buf;
+	}
+
 	atnotify(catchalarm, 1);
-	execppp(pppoe(dev));
+	execppp(dev, pppoe(dev));
 }
 
 typedef struct Etherhdr Etherhdr;
@@ -604,11 +616,11 @@ Restart:
 }
 
 void
-execppp(int fd)
+execppp(char *dev, int fd)
 {
-	char *argv[16];
-	int argc;
 	char smtu[10];
+	char *argv[20];
+	int argc;
 
 	argc = 0;
 	argv[argc++] = pppname;
@@ -617,6 +629,10 @@ execppp(int fd)
 	argv[argc++] = "-F";
 	if(debug)
 		argv[argc++] = "-d";
+	if(dev){
+		argv[argc++] = "-e";
+		argv[argc++] = dev;
+	}
 	if(primary)
 		argv[argc++] = "-P";
 	if(baud){
@@ -634,6 +650,10 @@ execppp(int fd)
 	if(keyspec){
 		argv[argc++] = "-k";
 		argv[argc++] = keyspec;
+	}
+	if(duid){
+		argv[argc++] = "-U";
+		argv[argc++] = duid;
 	}
 	argv[argc] = nil;
 
