@@ -20,9 +20,6 @@ ppp, pppoe, pptp, pptpd \- point-to-point protocol
 ] [
 .B -p
 .I dev
-|
-.B -e
-.I dev
 ] [
 .B -x
 .I netmntpt
@@ -127,12 +124,6 @@ disallow packet compression
 .TP
 .B C
 disallow IP header compression
-.TP
-.B e
-assigns
-.I dev
-to the packet interface device (for identification only),
-but otherwise communicates over standard I/O.
 .TP
 .B f
 make PPP add HDLC framing.  This is necessary when using

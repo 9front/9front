@@ -2845,7 +2845,7 @@ void
 usage(void)
 {
 	fprint(2, "usage: ppp [-CPSacdfu] [-b baud] [-k keyspec] [-m mtu] "
-		"[-M chatfile] [-p dev | -e etherdev] [-x netmntpt] [-t modemcmd] [-U duid] "
+		"[-M chatfile] [-p dev] [-x netmntpt] [-t modemcmd] [-U duid] "
 		"[local-addr [remote-addr]]\n");
 	exits("usage");
 }
@@ -2856,7 +2856,7 @@ main(int argc, char **argv)
 	static PPP ppp[1];
 	int mtu, framing, user, mediain, mediaout, cfd;
 	Ipaddr ipaddr[2], remip[2];
-	char *dev, *ether, *duid, *modemcmd;
+	char *dev, *duid, *modemcmd;
 	char net[128];
 	int pfd[2];
 	char buf[128];
@@ -2873,7 +2873,6 @@ main(int argc, char **argv)
 	invalidate(remip[1]);
 
 	dev = nil;
-	ether = nil;
 	mtu = Defmtu;
 	framing = 0;
 	duid = nil;
@@ -2898,9 +2897,6 @@ main(int argc, char **argv)
 		break;
 	case 'd':
 		debug++;
-		break;
-	case 'e':
-		ether = EARGF(usage());
 		break;
 	case 'f':
 		framing = 1;
@@ -3021,8 +3017,6 @@ main(int argc, char **argv)
 			fprint(2, "%s: couldn't open /fd/0\n", argv0);
 			exits("/fd/1");
 		}
-		/* use the ethernet from pppoe to identify the interface */
-		dev = ether;
 	}
 	if(modemcmd != nil && mediaout >= 0)
 		fprint(mediaout, "%s\r", modemcmd);

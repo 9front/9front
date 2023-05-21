@@ -12,7 +12,7 @@ uchar *findtag(uchar*, int, int*, int);
 void hexdump(uchar*, int);
 int malformed(uchar*, int, int);
 int pppoe(char*);
-void execppp(char*, int);
+void execppp(int);
 
 int primary;
 int forked;
@@ -140,7 +140,7 @@ main(int argc, char **argv)
 	}
 
 	atnotify(catchalarm, 1);
-	execppp(dev, pppoe(dev));
+	execppp(pppoe(dev));
 }
 
 typedef struct Etherhdr Etherhdr;
@@ -616,7 +616,7 @@ Restart:
 }
 
 void
-execppp(char *dev, int fd)
+execppp(int fd)
 {
 	char smtu[10];
 	char *argv[20];
@@ -629,10 +629,6 @@ execppp(char *dev, int fd)
 	argv[argc++] = "-F";
 	if(debug)
 		argv[argc++] = "-d";
-	if(dev){
-		argv[argc++] = "-e";
-		argv[argc++] = dev;
-	}
 	if(primary)
 		argv[argc++] = "-P";
 	if(baud){
