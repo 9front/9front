@@ -9,6 +9,7 @@ typedef struct Batstat Batstat;
 typedef struct Bat Bat;
 typedef struct Tbl Tbl;
 typedef struct Therm Therm;
+typedef struct FACP FACP;
 
 struct Batstat {
 	int rate;
@@ -45,6 +46,31 @@ struct Therm {
 	void *tmp;
 };
 
+struct FACP {
+	int ok;
+
+	uvlong pm1a;
+	int pm1aspace;
+	int pm1awid;
+
+	uvlong pm1b;
+	int pm1bspace;
+	int pm1bwid;
+
+	uvlong gpe0;
+	ulong gpe0len;
+	int gpe0space;
+	int gpe0wid;
+
+	uvlong gpe1;
+	ulong gpe1len;
+	int gpe1space;
+	int gpe1wid;
+
+	ulong slpa;
+	ulong slpb;
+};
+
 enum {
 	Tblsz = 4+4+1+1+6+8+4+4+4,
 
@@ -56,12 +82,11 @@ enum {
 	SLP_TM = 0x1c00,
 };
 
-static ulong PM1a_CNT_BLK, PM1b_CNT_BLK, SLP_TYPa, SLP_TYPb;
-static ulong GPE0_BLK, GPE1_BLK, GPE0_BLK_LEN, GPE1_BLK_LEN;
-static int ec, mem, iofd[5], nbats, ntherms, facp;
+static int ec, mem, iofd[5], nbats, ntherms;
 static char *uid = "pm", *units[] = {"mW", "mA"};
 static Therm therms[16];
 static Bat bats[4];
+static FACP facp;
 
 static int
 enumec(void *dot, void *)
@@ -240,16 +265,32 @@ wirecpu0(void)
 	close(ctl);
 }
 
-static void
-outw(long addr, ushort val)
+static ulong
+get32(uchar *p)
 {
-	uchar buf[2];
+	return p[3]<<24 | p[2]<<16 | p[1]<<8 | p[0];
+}
 
-	if(addr == 0)
-		return;
-	buf[0] = val;
-	buf[1] = val >> 8;
-	pwrite(iofd[2], buf, 2, addr);
+static uvlong
+get64(uchar *p)
+{
+	return ((uvlong)p[7]<<56) | ((uvlong)p[6]<<48)
+			| ((uvlong)p[5]<<40) | ((uvlong)p[4]<<32)
+			| ((uvlong)p[3]<<24) | ((uvlong)p[2]<<16)
+			| ((uvlong)p[1]<<8) | ((uvlong)p[0]);
+}
+
+static void
+amlwrite(Amlio *io, int addr, int wid, uvlong v)
+{
+	uchar b[8];
+
+	b[0] = v; b[1] = v >> 8;
+	b[2] = v >> 16; b[3] = v >> 24;
+	b[4] = v >> 32; b[5] = v >> 40;
+	b[6] = v >> 48; b[7] = v >> 56;
+
+	(*io->write)(io, b, 1<<(wid-1), addr);
 }
 
 static void
@@ -257,8 +298,9 @@ poweroff(void)
 {
 	int n;
 	void *tts, *pts;
+	Amlio ioa, iob;
 
-	if(facp == 0){
+	if(facp.ok == 0){
 		werrstr("no FACP");
 		return;
 	}
@@ -276,17 +318,32 @@ poweroff(void)
 		amleval(tts, "i", 5, nil);
 
 	/* disable GPEs */
-	for(n = 0; GPE0_BLK > 0 && n < GPE0_BLK_LEN/2; n += 2){
-		outw(GPE0_BLK + GPE0_BLK_LEN/2 + n, 0); /* EN */
-		outw(GPE0_BLK + n, 0xffff); /* STS */
-	}
-	for(n = 0; GPE1_BLK > 0 && n < GPE1_BLK_LEN/2; n += 2){
-		outw(GPE1_BLK + GPE1_BLK_LEN/2 + n, 0); /* EN */
-		outw(GPE1_BLK + n, 0xffff); /* STS */
+	ioa.space = facp.gpe0space;
+	iob.space = facp.gpe1space;
+	ioa.off = facp.gpe0;
+	iob.off = facp.gpe1;
+	amlmapio(&ioa);
+	amlmapio(&iob);
+
+	for(n = 0; facp.gpe0 > 0 && n < facp.gpe0len/2; n += facp.gpe0wid){
+		amlwrite(&ioa, facp.gpe0len/2 + n, facp.gpe0wid, 0);
+		amlwrite(&ioa, n, facp.gpe0wid, ~0);
 	}
 
-	outw(PM1a_CNT_BLK, ((SLP_TYPa << 10) & SLP_TM) | SLP_EN);
-	outw(PM1b_CNT_BLK, ((SLP_TYPb << 10) & SLP_TM) | SLP_EN);
+	for(n = 0; facp.gpe1 > 0 && n < facp.gpe1len/2; n += facp.gpe1wid){
+		amlwrite(&iob, facp.gpe1len/2 + n, facp.gpe1wid, 0);
+		amlwrite(&iob, n, facp.gpe1wid, ~0);
+	}
+
+	ioa.space = facp.pm1aspace;
+	iob.space = facp.pm1bspace;
+	ioa.off = facp.pm1a;
+	iob.off = facp.pm1b;
+	amlmapio(&ioa);
+	amlmapio(&iob);
+
+	amlwrite(&ioa, 0, facp.pm1awid, ((facp.slpa << 10) & SLP_TM) | SLP_EN);
+	amlwrite(&iob, 0, facp.pm1bwid, ((facp.slpb << 10) & SLP_TM) | SLP_EN);
 	sleep(100);
 
 	/*
@@ -298,9 +355,10 @@ poweroff(void)
 	 * PM1a_CNT_BLK seems to have no effect but 0x7 seems
 	 * to work fine. So trying the following as a last effort.
 	 */
-	SLP_TYPa |= SLP_TYPb;
-	outw(PM1a_CNT_BLK, ((SLP_TYPa << 10) & SLP_TM) | SLP_EN);
-	outw(PM1b_CNT_BLK, ((SLP_TYPa << 10) & SLP_TM) | SLP_EN);
+
+	facp.slpa |= facp.slpb;
+	amlwrite(&ioa, 0, facp.pm1awid, ((facp.slpa << 10) & SLP_TM) | SLP_EN);
+	amlwrite(&iob, 0, facp.pm1bwid, ((facp.slpa << 10) & SLP_TM) | SLP_EN);
 	sleep(100);
 
 	werrstr("acpi failed");
@@ -371,11 +429,7 @@ static Srv fs = {
 	.write = fswrite,
 };
 
-static ulong
-get32(uchar *p)
-{
-	return p[3]<<24 | p[2]<<16 | p[1]<<8 | p[0];
-}
+
 
 void
 threadmain(int argc, char **argv)
@@ -442,19 +496,58 @@ threadmain(int argc, char **argv)
 		}else if(memcmp("SSDT", t->sig, 4) == 0){
 			amlload(t->data, l);
 		}else if(memcmp("FACP", t->sig, 4) == 0){
-			facp = 1;
-			PM1a_CNT_BLK = get32(((uchar*)t) + 64);
-			PM1b_CNT_BLK = get32(((uchar*)t) + 68);
-			GPE0_BLK = get32(((uchar*)t) + 80);
-			GPE1_BLK = get32(((uchar*)t) + 84);
-			GPE0_BLK_LEN = *(((uchar*)t) + 92);
-			GPE1_BLK_LEN = *(((uchar*)t) + 93);
+			facp.ok = 1;
+			if(t->rev >= 2) {
+				/* try the ACPI 2.0 method */
+				facp.pm1aspace = *(((uchar*)t) + 172);
+				facp.pm1awid = *(((uchar*)t) + 175);
+				facp.pm1a = get64(((uchar*)t) + 176);
+
+				facp.pm1bspace = *(((uchar*)t) + 184);
+				facp.pm1bwid = *(((uchar*)t) + 187);
+				facp.pm1b = get64(((uchar*)t) + 188);
+
+				facp.gpe0space = *(((uchar*)t) + 220);
+				facp.gpe0wid = *(((uchar*)t) + 223);
+				facp.gpe0 = get64(((uchar*)t) + 224);
+
+				facp.gpe1space = *(((uchar*)t) + 232);
+				facp.gpe1wid = *(((uchar*)t) + 235);
+				facp.gpe1 = get64(((uchar*)t) + 236);
+			}
+
+			/* fall back to the ACPI 1.0 io port method */
+			if(!facp.pm1a) {
+				facp.pm1aspace = IoSpace;
+				facp.pm1awid = 2;
+				facp.pm1a = get32(((uchar*)t) + 64);
+			}
+
+			if(!facp.pm1b) {
+				facp.pm1bspace = IoSpace;
+				facp.pm1bwid = 2;
+				facp.pm1b = get32(((uchar*)t) + 68);
+			}
+
+			if(!facp.gpe0) {
+				facp.gpe0space = IoSpace;
+				facp.gpe0wid = 2;
+				facp.gpe0 = get32(((uchar*)t) + 80);
+				facp.gpe0len = *(((uchar*)t) + 92);
+			}
+
+			if(!facp.gpe1) {
+				facp.gpe1space = IoSpace;
+				facp.gpe1wid = 2;
+				facp.gpe1 = get32(((uchar*)t) + 84);
+				facp.gpe1len = *(((uchar*)t) + 93);
+			}
 		}
 	}
 	if(amleval(amlwalk(amlroot, "_S5"), "", &r) >= 0 && amltag(r) == 'p' && amllen(r) >= 2){
 		rr = amlval(r);
-		SLP_TYPa = amlint(rr[0]);
-		SLP_TYPb = amlint(rr[1]);
+		facp.slpa = amlint(rr[0]);
+		facp.slpb = amlint(rr[1]);
 	}
 	close(fd);
 
