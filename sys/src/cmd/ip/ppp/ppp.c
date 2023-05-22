@@ -170,42 +170,28 @@ pppopen(PPP *ppp, int mediain, int mediaout, int shellin, char *net, char *dev,
 static void
 init(PPP* ppp)
 {
-	if(ppp->inbuf == nil){
-		ppp->inbuf = allocb(4096);
-		if(ppp->inbuf == nil)
-			abort();
-
-		ppp->outbuf = allocb(4096);
-		if(ppp->outbuf == nil)
-			abort();
+	if(ppp->lcp == nil){
+		/* prevent them from being free'd */
+		ppp->inbuf[0] = *allocb(Buflen);
+		ppp->outbuf[0] = *allocb(Buflen);
 
 		ppp->lcp = mallocz(sizeof(*ppp->lcp), 1);
-		if(ppp->lcp == nil)
-			abort();
 		ppp->lcp->proto = Plcp;
 		ppp->lcp->state = Sclosed;
 
 		ppp->ccp = mallocz(sizeof(*ppp->ccp), 1);
-		if(ppp->ccp == nil)
-			abort();
 		ppp->ccp->proto = Pccp;
 		ppp->ccp->state = Sclosed;
 
 		ppp->ipcp = mallocz(sizeof(*ppp->ipcp), 1);
-		if(ppp->ipcp == nil)
-			abort();
 		ppp->ipcp->proto = Pipcp;
 		ppp->ipcp->state = Sclosed;
 
 		ppp->ipv6cp = mallocz(sizeof(*ppp->ipv6cp), 1);
-		if(ppp->ipv6cp == nil)
-			abort();
 		ppp->ipv6cp->proto = Pipv6cp;
 		ppp->ipv6cp->state = Sclosed;
 
 		ppp->chap = mallocz(sizeof(*ppp->chap), 1);
-		if(ppp->chap == nil)
-			abort();
 		ppp->chap->proto = APmschapv2;
 		ppp->chap->state = Cunauth;
 		auth_freechal(ppp->chap->cs);
@@ -402,47 +388,42 @@ newstate(PPP *ppp, Pstate *p, int state)
 	p->state = state;
 }
 
-/* returns (protocol, information) */
+/*
+ * getframe returns (protocol, information)
+ */
 static Block*
 getframe(PPP *ppp, int *protop)
 {
 	uchar *p, *from, *to;
-	int n, len, proto;
+	int n, proto;
 	ulong c;
 	ushort fcs;
 	Block *buf, *b;
 
 	*protop = 0;
 	if(ppp->framing == 0) {
-		/* assume data is already framed */
-		b = allocb(2000);
-		len = b->lim - b->wptr;
-		n = read(ppp->mediain, b->wptr, len);
- 		dmppkt("RX", b->wptr, n);
-		if(n <= 0 || n == len){
-			freeb(b);
+		/* reuse inbuf to avoid allocation */
+		b = resetb(ppp->inbuf);
 
+		n = read(ppp->mediain, b->wptr, BALLOC(b));
+		if(n <= 0){
+			syslog(0, LOG, "medium read returns %d: %r", n);
 			return nil;
 		}
+		dmppkt("RX", b->wptr, n);
 		b->wptr += n;
-
-		/* should probably copy to another block if small */
 
 		if(pppframing && b->rptr[0] == PPP_addr && b->rptr[1] == PPP_ctl)
 			b->rptr += 2;
 		proto = *b->rptr++;
 		if((proto & 0x1) == 0)
 			proto = (proto<<8) | *b->rptr++;
-
-		if(b->rptr >= b->wptr){
-			freeb(b);
+		if(b->rptr >= b->wptr)
 			return nil;
-		}
 
 		ppp->in.uchars += n;
 		ppp->in.packets++;
 		*protop = proto;
-		netlog("getframe 0x%x\n", proto);
 		return b;
 	}
 
@@ -455,9 +436,7 @@ getframe(PPP *ppp, int *protop)
 					break;
 			if(p != buf->wptr)
 				break;
-
-			len = buf->lim - buf->wptr;
-			n = read(ppp->mediain, buf->wptr, len);
+			n = read(ppp->mediain, buf->wptr, BALLOC(buf));
 			if(n <= 0){
 				syslog(0, LOG, "medium read returns %d: %r", n);
 				buf->wptr = buf->rptr;
@@ -501,7 +480,6 @@ getframe(PPP *ppp, int *protop)
 				ppp->in.uchars += n;
 				ppp->in.packets++;
 				*protop = proto;
-				netlog("getframe 0x%x\n", proto);
 				return b;
 			}
 		} else if(BLEN(b) > 0){
@@ -521,12 +499,10 @@ getframe(PPP *ppp, int *protop)
 static int
 putframe(PPP *ppp, int proto, Block *b)
 {
-	Block *buf;
 	uchar *to, *from;
 	ushort fcs;
 	ulong ctlmap;
 	uchar c;
-	Block *bp;
 
 	ppp->out.packets++;
 
@@ -536,10 +512,7 @@ putframe(PPP *ppp, int proto, Block *b)
 		ctlmap = ppp->xctlmap;
 
 	/* make sure we have head room */
-	if(b->rptr - b->base < 4){
-		b = padb(b, 4);
-		b->rptr += 4;
-	}
+	assert(b->rptr - b->base >= 4);
 
 	netlog("ppp: putframe 0x%ux %zd\n", proto, BLEN(b));
 
@@ -554,37 +527,26 @@ putframe(PPP *ppp, int proto, Block *b)
 	}
 
 	qlock(&ppp->outlock);
-	buf = ppp->outbuf;
+	if(ppp->framing == 0)
+		to = b->wptr;
+	else {
+		to = ppp->outbuf->rptr;
 
-	if(ppp->framing == 0) {
-		to = buf->rptr;
-		for(bp = b; bp; bp = bp->next){
-			if(bp != b)
-				from = bp->rptr;
-			memmove(to, from, bp->wptr-from);
-			to += bp->wptr-from;
-		}
-	} else {
 		/* escape and checksum the body */
 		fcs = PPP_initfcs;
-		to = buf->rptr;
 	
 		/* add frame marker */
 		*to++ = HDLC_frame;
 
-		for(bp = b; bp; bp = bp->next){
-			if(bp != b)
-				from = bp->rptr;
-			for(; from < bp->wptr; from++){
-				c = *from;
-				if(c == HDLC_frame || c == HDLC_esc
-				   || (c < 0x20 && ((1<<c) & ctlmap))){
-					*to++ = HDLC_esc;
-					*to++ = c ^ 0x20;
-				} else 
-					*to++ = c;
-				fcs = (fcs >> 8) ^ fcstab[(fcs ^ c) & 0xff];
-			}
+		for(; from < b->wptr; from++){
+			c = *from;
+			if(c == HDLC_frame || c == HDLC_esc
+			   || (c < 0x20 && ((1<<c) & ctlmap))){
+				*to++ = HDLC_esc;
+				*to++ = c ^ 0x20;
+			} else 
+				*to++ = c;
+			fcs = (fcs >> 8) ^ fcstab[(fcs ^ c) & 0xff];
 		}
 
 		/* add on and escape the checksum */
@@ -606,17 +568,16 @@ putframe(PPP *ppp, int proto, Block *b)
 	
 		/* add frame marker */
 		*to++ = HDLC_frame;
-	}
 
-	/* send */
-	buf->wptr = to;
- 	dmppkt("TX", buf->rptr, BLEN(buf));
-	if(write(ppp->mediaout, buf->rptr, BLEN(buf)) < 0){
+		from = ppp->outbuf->rptr;
+ 	}
+
+	dmppkt("TX", from, to - from);
+	if(write(ppp->mediaout, from, to - from) < 0){
 		qunlock(&ppp->outlock);
 		return -1;
 	}
-	ppp->out.uchars += BLEN(buf);
-
+	ppp->out.uchars += to - from;
 	qunlock(&ppp->outlock);
 	return 0;
 }
@@ -1774,8 +1735,67 @@ pppread(PPP *ppp)
 		b = getframe(ppp, &proto);
 		if(b == nil)
 			return nil;
-
+		netlog("ppp: getframe 0x%ux %zd\n", proto, BLEN(b));
 Again:
+		switch(proto){
+		case Pip:
+			if(ppp->ipcp->state == Sopened)
+				return b;
+			netlog("ppp: IP recved: link not up\n");
+			freeb(b);
+			continue;
+
+		case Pipv6:
+			if(ppp->ipv6cp->state == Sopened)
+				return b;
+			netlog("ppp: IPv6 recved: link not up\n");
+			freeb(b);
+			continue;
+
+		case Pvjctcp:
+		case Pvjutcp:
+			if(ppp->ipcp->state != Sopened){
+				netlog("ppp: VJ tcp recved: link not up\n");
+				freeb(b);
+				continue;
+			}
+			ppp->stat.vjin++;
+			b = tcpuncompress(ppp->ctcp, b, proto);
+			if(b != nil)
+				return b;
+			ppp->stat.vjfail++;
+			continue;
+
+		case Pcdata:
+			ppp->stat.uncomp++;
+			if(ppp->ccp->state != Sopened){
+				netlog("ppp: compressed data recved: link not up\n");
+				freeb(b);
+				continue;
+			}
+			if(ppp->unctype == nil) {
+				netlog("ppp: compressed data recved: no compression\n");
+				freeb(b);
+				continue;
+			}
+			len = BLEN(b);
+			reply = nil;
+			b = (*ppp->unctype->uncompress)(ppp, b, &proto, &reply);
+			if(reply != nil){
+				/* send resetreq */
+				ppp->stat.uncompreset++;
+				putframe(ppp, Pccp, reply);
+				freeb(reply);
+			}
+			if(b == nil)
+				continue;
+			ppp->stat.uncompin += len;
+			ppp->stat.uncompout += BLEN(b);
+			netlog("ppp: uncompressed frame %ux %d %d (%zd uchars)\n",
+				proto, b->rptr[0], b->rptr[1], BLEN(b));
+			goto Again;
+		}
+
 		switch(proto){
 		case Plcp:
 			rcv(ppp, ppp->lcp, b);
@@ -1789,18 +1809,6 @@ Again:
 		case Pipv6cp:
 			rcv(ppp, ppp->ipv6cp, b);
 			break;
-		case Pip:
-			if(ppp->ipcp->state == Sopened)
-				return b;
-			freeb(b);
-			netlog("ppp: IP recved: link not up\n");
-			break;
-		case Pipv6:
-			if(ppp->ipv6cp->state == Sopened)
-				return b;
-			freeb(b);
-			netlog("ppp: IPv6 recved: link not up\n");
-			break;
 		case Plqm:
 			getlqm(ppp, b);
 			break;
@@ -1810,45 +1818,6 @@ Again:
 		case Ppasswd:
 			getpap(ppp, b);
 			break;
-		case Pvjctcp:
-		case Pvjutcp:
-			if(ppp->ipcp->state != Sopened){
-				netlog("ppp: VJ tcp recved: link not up\n");
-				freeb(b);
-				break;
-			}
-			ppp->stat.vjin++;
-			b = tcpuncompress(ppp->ctcp, b, proto);
-			if(b != nil)
-				return b;
-			ppp->stat.vjfail++;
-			break;
-		case Pcdata:
-			ppp->stat.uncomp++;
-			if(ppp->ccp->state != Sopened){
-				netlog("ppp: compressed data recved: link not up\n");
-				freeb(b);
-				break;
-			}
-			if(ppp->unctype == nil) {
-				netlog("ppp: compressed data recved: no compression\n");
-				freeb(b);
-				break;
-			}
-			len = BLEN(b);
-			b = (*ppp->unctype->uncompress)(ppp, b, &proto, &reply);
-			if(reply != nil){
-				/* send resetreq */
-				ppp->stat.uncompreset++;
-				putframe(ppp, Pccp, reply);
-				freeb(reply);
-			}
-			if(b == nil)
-				break;
-			ppp->stat.uncompin += len;
-			ppp->stat.uncompout += BLEN(b);
-/* netlog("ppp: uncompressed frame %ux %d %d (%d uchars)\n", proto, b->rptr[0], b->rptr[1], BLEN(b)); /* */
-			goto Again;	
 		default:
 			syslog(0, LOG, "unknown proto %ux", proto);
 			if(ppp->lcp->state == Sopened){
@@ -1892,7 +1861,7 @@ pppwrite(PPP *ppp, Block *b)
 	Iphdr *ip;
 	Ip6hdr *ip6;
 
-	len = blen(b);
+	len = BLEN(b);
 	ip = (Iphdr*)b->rptr;
 	switch(ip->vihl & 0xF0){
 	default:
@@ -1902,9 +1871,9 @@ pppwrite(PPP *ppp, Block *b)
 	case IP_VER4:
 		if(len < IPV4HDR_LEN || (tot = nhgets(ip->length)) < IPV4HDR_LEN)
 			goto Badhdr;
-		b = btrim(b, 0, tot);
-		if(b == nil)
-			return len;
+		if(b->wptr < (uchar*)ip + tot)
+			goto Badhdr;
+		b->wptr = (uchar*)ip + tot;
 
 		qlock(ppp);
 		if(ppp->ipcp->state != Sopened)
@@ -1912,10 +1881,8 @@ pppwrite(PPP *ppp, Block *b)
 		proto = Pip;
 		if(ppp->ipcp->flags & Fipcompress){
 			b = compress(ppp->ctcp, b, &proto);
-			if(b == nil){
-				qunlock(ppp);
-				return len;
-			}
+			if(b == nil)
+				goto Drop;
 			if(proto != Pip)
 				ppp->stat.vjout++;
 		}
@@ -1924,9 +1891,10 @@ pppwrite(PPP *ppp, Block *b)
 		if(len < IPV6HDR_LEN)
 			goto Badhdr;
 		ip6 = (Ip6hdr*)ip;
-		b = btrim(b, 0, IPV6HDR_LEN + nhgets(ip6->ploadlen));
-		if(b == nil)
-			return len;
+		tot = IPV6HDR_LEN + nhgets(ip6->ploadlen);
+		if(b->wptr < (uchar*)ip6 + tot)
+			goto Badhdr;
+		b->wptr = (uchar*)ip6 + tot;
 
 		qlock(ppp);
 		if(ppp->ipv6cp->state != Sopened)
@@ -1941,15 +1909,12 @@ pppwrite(PPP *ppp, Block *b)
 		if(proto == Pcdata) {
 			ppp->stat.comp++;
 			ppp->stat.compin += len;
-			ppp->stat.compout += blen(b);
+			ppp->stat.compout += BLEN(b);
 		}
 	} 
 
-	if(putframe(ppp, proto, b) < 0) {
-		qunlock(ppp);
-		freeb(b);
-		return -1;
-	}
+	if(putframe(ppp, proto, b) < 0)
+		len = -1;
 Drop:
 	qunlock(ppp);
 	freeb(b);
@@ -1988,19 +1953,17 @@ terminate(PPP *ppp, char *why, int fatal)
 static void
 ipinproc(PPP *ppp)
 {
-	Block *b;
+	Block b[1] = *allocb(Buflen);
 	int n;
 
 	while(!dying){
-		b = allocb(Buflen);
-		n = read(ppp->ipfd, b->wptr, b->lim-b->wptr);
-		if(n < 1){
-			freeb(b);
+		n = read(ppp->ipfd, b->wptr, BALLOC(b));
+		if(n <= 0)
 			break;
-		}
 		b->wptr += n;
 		if(pppwrite(ppp, b) < 0)
 			break;
+		resetb(b);
 	}
 }
 
@@ -2051,12 +2014,11 @@ mediainproc(PPP *ppp)
 		}
 		ppp->stat.iprecv++;
 		if(debug > 1){
-			netlog("ip write pkt %p %d\n", b->rptr, blen(b));
-			hexdump(b->rptr, blen(b));
+			netlog("ip write pkt %p %zd\n", b->rptr, BLEN(b));
+			hexdump(b->rptr, BLEN(b));
 		}
-		if(write(ppp->ipfd, b->rptr, blen(b)) < 0) {
+		if(write(ppp->ipfd, b->rptr, BLEN(b)) < 0) {
 			syslog(0, LOG, "error writing to pktifc");
-			freeb(b);
 			break;
 		}
 		freeb(b);

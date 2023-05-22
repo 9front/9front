@@ -439,12 +439,8 @@ tcpuncompress(Tcpc *comp, Block *b, int type)
 	 *  We assume the packet we were handed has enough space to prepend
 	 *  up to 128 uchars of header.
 	 */
-	b->rptr = cp;
-	if(b->rptr - b->base < len){
-		b = padb(b, len);
-		b = pullup(b, blen(b));
-	} else
-		b->rptr -= len;
+	b->rptr = cp - len;
+	assert(b->rptr >= b->base);
 	hnputs(ip->length, BLEN(b));
 	memmove(b->rptr, ip, len);
 	

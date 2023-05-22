@@ -19,41 +19,17 @@ typedef uchar Ipaddr[IPaddrlen];
  */
 struct Block
 {
-	Block	*next;
-	Block	*flist;
-	Block	*list;			/* chain of block lists */
 	uchar	*rptr;			/* first unconsumed uchar */
 	uchar	*wptr;			/* first empty uchar */
 	uchar	*lim;			/* 1 past the end of the buffer */
 	uchar	*base;			/* start of the buffer */
-	uchar	flags;
-	void	*flow;
-	ulong	pc;
-	ulong	bsz;
 };
 #define BLEN(b)	((b)->wptr-(b)->rptr)
-
-enum
-{
-	/* block flags */
-	S_DELIM 	= (1<<0),
-	S_HANGUP	= (1<<1),
-	S_RHANGUP	= (1<<2),
-
-	/* queue states */
-	QHUNGUP		= (1<<0),
-	QFLOW		= (1<<1),	/* queue is flow controlled */
-};
+#define BALLOC(b) ((b)->lim-(b)->wptr)
 
 Block*	allocb(int);
+Block*	resetb(Block*);
 void	freeb(Block*);
-Block*	concat(Block*);
-int	blen(Block*);
-Block*	pullup(Block*, int);
-Block*	padb(Block*, int);
-Block*	btrim(Block*, int, int);
-Block*	copyb(Block*, int);
-int	pullb(Block**, int);
 
 enum {
 	HDLC_frame=	0x7e,
@@ -289,8 +265,9 @@ struct PPP
 	Ipaddr		dns[2];		/* dns servers */
 	Ipaddr		wins[2];	/* wins servers */
 
-	Block*		inbuf;		/* input buffer */
-	Block*		outbuf;		/* output buffer */
+	Block		inbuf[1];	/* input buffer - never free'd */
+	Block		outbuf[1];	/* output buffer - never free'd */
+
 	QLock		outlock;	/*  and its lock */
 	ulong		magic;		/* magic number to detect loop backs */
 	ulong		rctlmap;	/* map of chars to ignore in rcvr */
@@ -392,7 +369,6 @@ extern Block*	tcpcompress(Tcpc*, Block*, int*);
 extern Block*	tcpuncompress(Tcpc*, Block*, int);
 extern Block*	alloclcp(int, int, int, Lcpmsg**);
 extern ushort	ptclcsum(Block*, int, int);
-extern ushort	ptclbsum(uchar*, int);
 extern ushort	ipcsum(uchar*);
 
 void getasymkey(uchar *key, uchar *masterkey, int send, int server);
