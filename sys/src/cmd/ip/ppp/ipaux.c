@@ -8,10 +8,18 @@ ushort
 ptclcsum(Block *bp, int offset, int len)
 {
 	uchar *addr;
-	int blen;
+	ulong losum, hisum;
+	ushort csum;
+	int odd, blen, x;
 
-	if(bp == nil || bp->rptr + offset >= bp->wptr)
+	/* Correct to front of data area */
+	while(bp != nil && offset && offset >= BLEN(bp)) {
+		offset -= BLEN(bp);
+		bp = bp->next;
+	}
+	if(bp == nil)
 		return 0;
+
 	addr = bp->rptr + offset;
 	blen = BLEN(bp) - offset;
 	if(blen < len)

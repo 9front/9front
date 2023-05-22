@@ -150,7 +150,7 @@ enum {
 	Oindex, Omatch, Omutex, Oevent,
 	Ocfld, Ocfld0, Ocfld1, Ocfld2, Ocfld4, Ocfld8,
 	Oif, Oelse, Owhile, Obreak, Oret, Ocall, 
-	Ostore, Oderef, Ootype, Osize, Oref, Ocref, Ocat,
+	Ostore, Oderef, Ootype, Osize, Oref, Ocref, Ocat, Ocatr, Omid,
 	Oacq, Osignal, Orel, Ostall, Osleep, Oload, Ounload,
 	Otodec, Otohex, Otoint, Otostr,
 };
@@ -1711,6 +1711,66 @@ evalcat(void)
 }
 
 static void*
+evalcatres(void)
+{
+	void *r, *a, *b;
+	int n, m;
+	uchar c[2];
+
+	a = FP->arg[0];
+	b = FP->arg[1];
+	if(a == nil)
+		a = copy('b', a);
+	if(b == nil)
+		b = copy('b', b);
+	if(TAG(a) != 'b' || TAG(b) != 'b')
+		return nil;
+
+	n = SIZE(a);
+	m = SIZE(b);
+	r = mk('b', n + m + 2);
+	memmove(r, a, n);
+	memmove((uchar*)r + n, b, m);
+
+	c[0] = 0x78;
+	c[1] = 0;
+	memmove((uchar*)r + n + m, c, 2);
+
+	store(r, FP->arg[2]);
+	return r;
+}
+
+static void*
+evalmid(void)
+{
+	void *r, *a;
+	int n, m;
+
+	a = FP->arg[1];
+	n = ival(FP->arg[1]);
+	m = ival(FP->arg[2]);
+	if(a == nil)
+		a = copy('b', a);
+
+	switch(TAG(a)) {
+	default:
+		return nil; /* botch */
+	case 's':
+	case 'b':
+		if(n > SIZE(a))
+			n = SIZE(a);
+		if((n + m) > SIZE(a))
+			m = SIZE(a) - n;
+
+		r = mk(TAG(a), m); memmove(r, (uchar*)a + n, m);
+		break;
+	}
+
+	store(r, FP->arg[3]);
+	return r;
+}
+
+static void*
 evalindex(void)
 {
 	Field *f;
@@ -2150,6 +2210,8 @@ static Op optab[] = {
 	[Ocref]		"CondRefOf",		"@@",		evalcondref,
 	[Oderef]	"DerefOf",		"@",		evalderef,
 	[Ocat]		"Concatenate",		"**@",		evalcat,
+	[Ocatr]		"ConcatenateRes",	"***",		evalcatres,
+	[Omid]		"Mid",				"*ii@",		evalmid,
 
 	[Oacq]		"Acquire",		"@2",		evalnop,
 	[Osignal]	"Signal",		"@",		evalnop,
@@ -2182,10 +2244,10 @@ static uchar octab1[] = {
 /* 68 */	Oenv,	Oenv,	Oenv,	Oenv,	Oenv,	Oenv,	Oenv,	Obad,
 /* 70 */	Ostore,	Oref,	Oadd,	Ocat,	Osub,	Oinc,	Odec,	Omul,
 /* 78 */	Odiv,	Oshl,	Oshr,	Oand,	Onand,	Oor,	Onor,	Oxor,
-/* 80 */	Onot,	Olbit,	Orbit,	Oderef,	Obad,	Omod,	Obad,	Osize,
+/* 80 */	Onot,	Olbit,	Orbit,	Oderef,	Ocatr,	Omod,	Obad,	Osize,
 /* 88 */	Oindex,	Omatch,	Ocfld4,	Ocfld2,	Ocfld1,	Ocfld0,	Ootype,	Ocfld8,
 /* 90 */	Oland,	Olor,	Olnot,	Oleq,	Olgt,	Ollt,	Obad,	Otodec,
-/* 98 */	Otohex,	Otoint,	Obad,	Obad,	Otostr,	Obad,	Obad,	Obad,
+/* 98 */	Otohex,	Otoint,	Obad,	Obad,	Otostr,	Obad,	Omid,	Obad,
 /* A0 */	Oif,	Oelse,	Owhile,	Onop,	Oret,	Obreak,	Obad,	Obad,
 /* A8 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
 /* B0 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,

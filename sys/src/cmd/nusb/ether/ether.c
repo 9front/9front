@@ -642,15 +642,18 @@ findendpoints(Dev *d, Ep **ein, Ep **eout)
 		ctlif = datif = nil;
 		for(j = 0; j < nelem(c->iface); j++){
 			for(iface = c->iface[j]; iface != nil; iface = iface->next){
-				if(iface->id == ctlid)
+				if(ctlif == nil && iface->id == ctlid)
 					ctlif = iface;
-				if(iface->id == datid)
+				if(datif == nil && iface->id == datid)
 					datif = iface;
 			}
 			if(datif != nil && ctlif != nil){
-				if(Subclass(ctlif->csp) == Scether)
+				if(Subclass(ctlif->csp) == Scether) {
+					if(setconf(d, c) < 0)
+						break;
 					if(ifaceinit(d, datif, ein, eout) != -1)
 						return 0;
+				}
 				break;
 			}
 		}		
@@ -659,6 +662,8 @@ findendpoints(Dev *d, Ep **ein, Ep **eout)
 	/* try any other one that seems to be ok */
 	for(i = 0; i < nelem(ud->conf); i++){
 		if((c = ud->conf[i]) != nil){
+			if(setconf(d, c) < 0)
+				break;
 			for(j = 0; j < nelem(c->iface); j++){
 				for(datif = c->iface[j]; datif != nil; datif = datif->next){
 					if(ifaceinit(d, datif, ein, eout) != -1)

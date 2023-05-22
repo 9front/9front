@@ -444,7 +444,7 @@ void
 main(int argc, char **argv)
 {
 	char b[128];
-	int i, j, n;
+	int i, j, n, r;
 
 	for(n = 0; sticky[n] != nil; n++)
 		;
@@ -468,18 +468,19 @@ main(int argc, char **argv)
 		ws[i].vd = vd;
 	fprint(3, "%d\n", vd);
 
-	for(i = 0;;){
-		if((n = read(0, b+i, sizeof(b)-i)) <= 0)
+	for(n = 0;;){
+		if((r = read(0, b+n, sizeof(b)-n-1)) <= 0)
 			break;
-		n += i;
-		for(j = 0; j < n; j++){
+		n += r;
+		b[n] = 0;
+		for(i = j = 0; j <= n; j++){
 			if(b[j] == 0){
 				process(b+i);
 				i = j+1;
 			}
 		}
-		memmove(b, b+i, j-i);
-		i -= j;
+		n = j-i;
+		memmove(b, b+i, n);
 	}
 
 	exits(nil);
