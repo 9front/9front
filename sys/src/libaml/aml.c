@@ -1732,7 +1732,7 @@ evalcatres(void)
 	memmove(r, a, n);
 	memmove((uchar*)r + n, b, m);
 
-	c[0] = ResEnd;
+	c[0] = 0x78;
 	c[1] = 0;
 	memmove((uchar*)r + n + m, c, 2);
 
