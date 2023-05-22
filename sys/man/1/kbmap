@@ -1,11 +1,22 @@
 .TH KBMAP 1
 .SH NAME
-kbmap \- show a list of available keyboard maps and switch between them.
+kbmap, kbremap \- show a list of available keyboard maps and switch between them.
 .SH SYNOPSIS
 .B kbmap
 [
 .IR file ...
 ]
+.PP
+.B kbremap
+[
+.B -m
+.I mod
+]
+[
+.B -k
+.I scancode
+]
+map1 map2 ...
 .SH DESCRIPTION
 .I Kbmap
 shows a single column consisting of the names of keyboard maps for different
@@ -18,16 +29,49 @@ Clicking the right mouse button will highlight the entry and force the
 keyboard mapping defined in the corresponding file to become current
 for the system; typing 'q' quits.
 .PP
+.I Kbremap
+reads keyboard events from standard input, filters out a shortcut
+to change the keyboard map, and writes the result to standard
+output. The shortcut cycles through the keyboard maps provided
+as arguments. By default this shortcut is mapped to
+.LR Ctrl
++
+.LR Space .
+The
+.B -m
+and
+.B -k
+flags change the default mod and key used respectfully.
+.I Mod
+is given as a numeric shift layer as understood by
+.IR kbdfs (8).
+.PP
 .I Kbmap
-requires that the file
+and
+.I kbremap
+require that the file
 .B /dev/kbmap
 served by 
 .IR kbdfs (8)
 exists and is writable.
-..SH FILES
-.TF /lib/kbmap/*
+.SH EXAMPLES
+Use
+.I kbremap
+with
+.B /dev/kbdtap
+provided by
+.IR rio (4):
+.IP
+.EX
+kbremap us de uk </dev/kbdtap >/dev/kbdtap
+.EE
+.PP
+.SH FILES
+.B /sys/lib/kbmap/*
 .SH SOURCE
 .B /sys/src/cmd/kbmap.c
+.br
+.B /sys/src/cmd/kbremap.c
 .SH "SEE ALSO"
 .IR kbdfs (8)
 .SH BUGS
