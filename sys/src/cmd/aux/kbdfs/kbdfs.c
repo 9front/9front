@@ -18,6 +18,18 @@ enum {
 	Qconsctl,
 	Nqid,
 
+	Lnone = 0,
+	Lshift,
+	Lesc1,
+	Laltgr,
+	Lctl,
+	Lctrlesc1,
+	Lshiftesc1,
+	Lshiftaltgr,
+	Lmod4,
+	Laltgrmod4,
+	Nlayers,
+
 	Rawon=	0,
 	Rawoff,
 
@@ -123,213 +135,219 @@ Channel *conschan;	/* chan(char*) */
 Channel *kbdchan;	/* chan(char*) */
 Channel *intchan;	/* chan(int) */
 
-/*
- * The codes at 0x79 and 0x7b are for the (無)変換 "(Mu)henkan" keys
- * used by OADG 109(A) keyboards. The PFU Happy Hacking keyboard
- * has only one layout and will produce these for otherwise unmarked
- * keys. The default mappings for the HHKB on other systems map
- * these to Kdown and Kup. The jp kbmap will instead map these
- * (along with 0x70) to control characters that ktrans understands.
- */
-Rune kbtab[Nscan] = 
-{
-[0x00]	0,	Kesc,	'1',	'2',	'3',	'4',	'5',	'6',
-[0x08]	'7',	'8',	'9',	'0',	'-',	'=',	'\b',	'\t',
-[0x10]	'q',	'w',	'e',	'r',	't',	'y',	'u',	'i',
-[0x18]	'o',	'p',	'[',	']',	'\n',	Kctl,	'a',	's',
-[0x20]	'd',	'f',	'g',	'h',	'j',	'k',	'l',	';',
-[0x28]	'\'',	'`',	Kshift,	'\\',	'z',	'x',	'c',	'v',
-[0x30]	'b',	'n',	'm',	',',	'.',	'/',	Kshift,	'*',
-[0x38]	Kalt,	' ',	Kctl,	KF|1,	KF|2,	KF|3,	KF|4,	KF|5,
-[0x40]	KF|6,	KF|7,	KF|8,	KF|9,	KF|10,	Knum,	Kscroll,'7',
-[0x48]	'8',	'9',	'-',	'4',	'5',	'6',	'+',	'1',
-[0x50]	'2',	'3',	'0',	'.',	0,	0,	0,	KF|11,
-[0x58]	KF|12,	0,	0,	0,	0,	0,	0,	0,
-[0x60]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x68]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x70]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x78]	0,	Kdown,	0,	Kup,	0,	0,	0,	0,
+/* /sys/lib/kbmap/ascii defaults */
+Rune ascii[Nlayers][Nscan] = {
+
+	/*
+	 * The codes at 0x79 and 0x7b are for the (無)変換 "(Mu)henkan" keys
+	 * used by OADG 109(A) keyboards. The PFU Happy Hacking keyboard
+	 * has only one layout and will produce these for otherwise unmarked
+	 * keys. The default mappings for the HHKB on other systems map
+	 * these to Kdown and Kup. The jp kbmap will instead map these
+	 * (along with 0x70) to control characters that ktrans understands.
+	 */
+	[Lnone]
+	{
+	[0x00]	0,	Kesc,	'1',	'2',	'3',	'4',	'5',	'6',
+	[0x08]	'7',	'8',	'9',	'0',	'-',	'=',	'\b',	'\t',
+	[0x10]	'q',	'w',	'e',	'r',	't',	'y',	'u',	'i',
+	[0x18]	'o',	'p',	'[',	']',	'\n',	Kctl,	'a',	's',
+	[0x20]	'd',	'f',	'g',	'h',	'j',	'k',	'l',	';',
+	[0x28]	'\'',	'`',	Kshift,	'\\',	'z',	'x',	'c',	'v',
+	[0x30]	'b',	'n',	'm',	',',	'.',	'/',	Kshift,	'*',
+	[0x38]	Kalt,	' ',	Kctl,	KF|1,	KF|2,	KF|3,	KF|4,	KF|5,
+	[0x40]	KF|6,	KF|7,	KF|8,	KF|9,	KF|10,	Knum,	Kscroll,'7',
+	[0x48]	'8',	'9',	'-',	'4',	'5',	'6',	'+',	'1',
+	[0x50]	'2',	'3',	'0',	'.',	0,	0,	0,	KF|11,
+	[0x58]	KF|12,	0,	0,	0,	0,	0,	0,	0,
+	[0x60]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x68]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x70]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x78]	0,	Kdown,	0,	Kup,	0,	0,	0,	0,
+	},
+
+	[Lshift]
+	{
+	[0x00]	0,	Kesc,	'!',	'@',	'#',	'$',	'%',	'^',
+	[0x08]	'&',	'*',	'(',	')',	'_',	'+',	'\b',	'\t',
+	[0x10]	'Q',	'W',	'E',	'R',	'T',	'Y',	'U',	'I',
+	[0x18]	'O',	'P',	'{',	'}',	'\n',	Kctl,	'A',	'S',
+	[0x20]	'D',	'F',	'G',	'H',	'J',	'K',	'L',	':',
+	[0x28]	'"',	'~',	Kshift,	'|',	'Z',	'X',	'C',	'V',
+	[0x30]	'B',	'N',	'M',	'<',	'>',	'?',	Kshift,	'*',
+	[0x38]	Kalt,	' ',	Kctl,	KF|1,	KF|2,	KF|3,	KF|4,	KF|5,
+	[0x40]	KF|6,	KF|7,	KF|8,	KF|9,	KF|10,	Knum,	Kscroll,'7',
+	[0x48]	'8',	'9',	'-',	'4',	'5',	'6',	'+',	'1',
+	[0x50]	'2',	'3',	'0',	'.',	0,	0,	0,	KF|11,
+	[0x58]	KF|12,	0,	0,	0,	0,	0,	0,	0,
+	[0x60]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x68]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x70]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x78]	0,	Kdown,	0,	Kup,	0,	0,	0,	0,
+	},
+
+	[Lesc1]
+	{
+	[0x00]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x08]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x10]	Ksbwd,	Kbrtdn,	0,	0,	0,	0,	0,	0,
+	[0x18]	0,	Ksfwd,	Kbrtup,	0,	'\n',	Kctl,	0,	0,
+	[0x20]	Kmute,	0,	Kpause,	0,	0,	0,	0,	0,
+	[0x28]	0,	0,	0,	0,	0,	0,	Kvoldn,	0,
+	[0x30]	Kvolup,	0,	0,	0,	0,	'/',	0,	Kprint,
+	[0x38]	Kaltgr,	0,	0,	0,	0,	0,	0,	0,
+	[0x40]	0,	0,	0,	0,	0,	0,	Kbreak,	Khome,
+	[0x48]	Kup,	Kpgup,	0,	Kleft,	0,	Kright,	0,	Kend,
+	[0x50]	Kdown,	Kpgdown,Kins,	Kdel,	0,	0,	0,	0,
+	[0x58]	0,	0,	0,	Kmod4,	0,	0,	0,	0,
+	[0x60]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x68]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x70]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x78]	0,	Kup,	0,	0,	0,	0,	0,	0,
+	},
+
+	[Lshiftesc1]
+	{
+	[0x00]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x08]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x10]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x18]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x20]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x28]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x30]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x38]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x40]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x48]	Kup,	0,	0,	0,	0,	0,	0,	0,
+	[0x50]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x58]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x60]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x68]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x70]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x78]	0,	Kup,	0,	0,	0,	0,	0,	0,
+	},
+
+	[Lctrlesc1]
+	{
+	[0x00]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x08]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x10]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x18]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x20]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x28]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x30]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x38]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x40]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x48]	Kup,	0,	0,	0,	0,	0,	0,	0,
+	[0x50]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x58]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x60]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x68]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x70]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x78]	0,	Kup,	0,	0,	0,	0,	0,	0,
+	},
+
+	[Laltgr]
+	{
+	[0x00]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x08]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x10]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x18]	0,	0,	0,	0,	'\n',	Kctl,	0,	0,
+	[0x20]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x28]	0,	0,	Kshift,	0,	0,	0,	0,	0,
+	[0x30]	0,	0,	0,	0,	0,	'/',	0,	Kprint,
+	[0x38]	Kaltgr,	0,	0,	0,	0,	0,	0,	0,
+	[0x40]	0,	0,	0,	0,	0,	0,	Kbreak,	Khome,
+	[0x48]	Kup,	Kpgup,	0,	Kleft,	0,	Kright,	0,	Kend,
+	[0x50]	Kdown,	Kpgdown,Kins,	Kdel,	0,	0,	0,	0,
+	[0x58]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x60]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x68]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x70]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x78]	0,	Kup,	0,	0,	0,	0,	0,	0,
+	},
+
+	[Lctl]
+	{
+	[0x00]	0,	'', 	'', 	'', 	'', 	'', 	'', 	'', 
+	[0x08]	'', 	'', 	'', 	'', 	'', 	'', 	'\b',	'\t',
+	[0x10]	'', 	'', 	'', 	'', 	'', 	'', 	'', 	'\t',
+	[0x18]	'', 	'', 	'', 	'', 	'\n',	Kctl,	'', 	'', 
+	[0x20]	'', 	'', 	'', 	'\b',	'\n',	'', 	'', 	'', 
+	[0x28]	'', 	0, 	Kshift,	'', 	'', 	'', 	'', 	'', 
+	[0x30]	'', 	'', 	'', 	'', 	'', 	'', 	Kshift,	'\n',
+	[0x38]	Kalt,	0, 	Kctl,	'', 	'', 	'', 	'', 	'', 
+	[0x40]	'', 	'', 	'', 	'', 	'', 	'', 	'', 	'', 
+	[0x48]	'', 	'', 	'', 	'', 	'', 	'', 	'', 	'', 
+	[0x50]	'', 	'', 	'', 	'', 	0,	0,	0,	'', 
+	[0x58]	'', 	0,	0,	0,	0,	0,	0,	0,
+	[0x60]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x68]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x70]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x78]	0,	'', 	0,	'\b',	0,	0,	0,	0,
+	},
+
+	[Lshiftaltgr]
+	{
+	[0x00]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x08]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x10]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x18]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x20]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x28]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x30]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x38]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x40]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x48]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x50]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x58]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x60]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x68]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x70]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x78]	0,	0,	0,	0,	0,	0,	0,	0,
+	},
+
+	[Lmod4]
+	{
+	[0x00]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x08]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x10]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x18]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x20]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x28]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x30]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x38]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x40]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x48]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x50]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x58]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x60]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x68]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x70]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x78]	0,	0,	0,	0,	0,	0,	0,	0,
+	},
+
+	[Laltgrmod4]
+	{
+	[0x00]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x08]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x10]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x18]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x20]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x28]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x30]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x38]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x40]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x48]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x50]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x58]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x60]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x68]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x70]	0,	0,	0,	0,	0,	0,	0,	0,
+	[0x78]	0,	0,	0,	0,	0,	0,	0,	0,
+	},
 };
 
-Rune kbtabshift[Nscan] =
-{
-[0x00]	0,	Kesc,	'!',	'@',	'#',	'$',	'%',	'^',
-[0x08]	'&',	'*',	'(',	')',	'_',	'+',	'\b',	'\t',
-[0x10]	'Q',	'W',	'E',	'R',	'T',	'Y',	'U',	'I',
-[0x18]	'O',	'P',	'{',	'}',	'\n',	Kctl,	'A',	'S',
-[0x20]	'D',	'F',	'G',	'H',	'J',	'K',	'L',	':',
-[0x28]	'"',	'~',	Kshift,	'|',	'Z',	'X',	'C',	'V',
-[0x30]	'B',	'N',	'M',	'<',	'>',	'?',	Kshift,	'*',
-[0x38]	Kalt,	' ',	Kctl,	KF|1,	KF|2,	KF|3,	KF|4,	KF|5,
-[0x40]	KF|6,	KF|7,	KF|8,	KF|9,	KF|10,	Knum,	Kscroll,'7',
-[0x48]	'8',	'9',	'-',	'4',	'5',	'6',	'+',	'1',
-[0x50]	'2',	'3',	'0',	'.',	0,	0,	0,	KF|11,
-[0x58]	KF|12,	0,	0,	0,	0,	0,	0,	0,
-[0x60]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x68]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x70]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x78]	0,	Kdown,	0,	Kup,	0,	0,	0,	0,
-};
-
-Rune kbtabesc1[Nscan] =
-{
-[0x00]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x08]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x10]	Ksbwd,	Kbrtdn,	0,	0,	0,	0,	0,	0,
-[0x18]	0,	Ksfwd,	Kbrtup,	0,	'\n',	Kctl,	0,	0,
-[0x20]	Kmute,	0,	Kpause,	0,	0,	0,	0,	0,
-[0x28]	0,	0,	0,	0,	0,	0,	Kvoldn,	0,
-[0x30]	Kvolup,	0,	0,	0,	0,	'/',	0,	Kprint,
-[0x38]	Kaltgr,	0,	0,	0,	0,	0,	0,	0,
-[0x40]	0,	0,	0,	0,	0,	0,	Kbreak,	Khome,
-[0x48]	Kup,	Kpgup,	0,	Kleft,	0,	Kright,	0,	Kend,
-[0x50]	Kdown,	Kpgdown,Kins,	Kdel,	0,	0,	0,	0,
-[0x58]	0,	0,	0,	Kmod4,	0,	0,	0,	0,
-[0x60]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x68]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x70]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x78]	0,	Kup,	0,	0,	0,	0,	0,	0,
-};
-
-Rune kbtabshiftesc1[Nscan] =
-{
-[0x00]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x08]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x10]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x18]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x20]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x28]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x30]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x38]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x40]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x48]	Kup,	0,	0,	0,	0,	0,	0,	0,
-[0x50]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x58]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x60]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x68]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x70]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x78]	0,	Kup,	0,	0,	0,	0,	0,	0,
-};
-
-Rune kbtabctrlesc1[Nscan] =
-{
-[0x00]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x08]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x10]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x18]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x20]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x28]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x30]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x38]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x40]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x48]	Kup,	0,	0,	0,	0,	0,	0,	0,
-[0x50]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x58]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x60]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x68]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x70]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x78]	0,	Kup,	0,	0,	0,	0,	0,	0,
-};
-
-Rune kbtabaltgr[Nscan] =
-{
-[0x00]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x08]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x10]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x18]	0,	0,	0,	0,	'\n',	Kctl,	0,	0,
-[0x20]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x28]	0,	0,	Kshift,	0,	0,	0,	0,	0,
-[0x30]	0,	0,	0,	0,	0,	'/',	0,	Kprint,
-[0x38]	Kaltgr,	0,	0,	0,	0,	0,	0,	0,
-[0x40]	0,	0,	0,	0,	0,	0,	Kbreak,	Khome,
-[0x48]	Kup,	Kpgup,	0,	Kleft,	0,	Kright,	0,	Kend,
-[0x50]	Kdown,	Kpgdown,Kins,	Kdel,	0,	0,	0,	0,
-[0x58]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x60]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x68]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x70]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x78]	0,	Kup,	0,	0,	0,	0,	0,	0,
-};
-
-Rune kbtabctl[Nscan] =
-{
-[0x00]	0,	'', 	'', 	'', 	'', 	'', 	'', 	'', 
-[0x08]	'', 	'', 	'', 	'', 	'', 	'', 	'\b',	'\t',
-[0x10]	'', 	'', 	'', 	'', 	'', 	'', 	'', 	'\t',
-[0x18]	'', 	'', 	'', 	'', 	'\n',	Kctl,	'', 	'', 
-[0x20]	'', 	'', 	'', 	'\b',	'\n',	'', 	'', 	'', 
-[0x28]	'', 	0, 	Kshift,	'', 	'', 	'', 	'', 	'', 
-[0x30]	'', 	'', 	'', 	'', 	'', 	'', 	Kshift,	'\n',
-[0x38]	Kalt,	0, 	Kctl,	'', 	'', 	'', 	'', 	'', 
-[0x40]	'', 	'', 	'', 	'', 	'', 	'', 	'', 	'', 
-[0x48]	'', 	'', 	'', 	'', 	'', 	'', 	'', 	'', 
-[0x50]	'', 	'', 	'', 	'', 	0,	0,	0,	'', 
-[0x58]	'', 	0,	0,	0,	0,	0,	0,	0,
-[0x60]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x68]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x70]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x78]	0,	'', 	0,	'\b',	0,	0,	0,	0,
-};
-
-Rune kbtabshiftaltgr[Nscan] =
-{
-[0x00]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x08]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x10]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x18]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x20]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x28]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x30]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x38]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x40]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x48]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x50]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x58]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x60]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x68]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x70]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x78]	0,	0,	0,	0,	0,	0,	0,	0,
-};
-
-Rune kbtabmod4[Nscan] =
-{
-[0x00]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x08]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x10]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x18]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x20]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x28]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x30]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x38]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x40]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x48]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x50]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x58]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x60]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x68]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x70]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x78]	0,	0,	0,	0,	0,	0,	0,	0,
-};
-
-Rune kbtabaltgrmod4[Nscan] =
-{
-[0x00]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x08]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x10]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x18]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x20]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x28]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x30]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x38]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x40]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x48]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x50]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x58]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x60]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x68]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x70]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x78]	0,	0,	0,	0,	0,	0,	0,	0,
-};
+Rune kbtabs[Nlayers][Nscan];
 
 char*
 dev(char *file)
@@ -415,31 +433,31 @@ kbdputsc(Scan *scan, int c)
 	if(c != 0 && strchr("GHIKMOPQRS", c) != nil)
 		scan->esc1 |= !scan->num;
 
-	if(scan->esc1 && scan->ctl && kbtabctrlesc1[c] != 0)
-		key.r = kbtabctrlesc1[c];
-	else if(scan->esc1 && scan->shift && kbtabshiftesc1[c] != 0)
-		key.r = kbtabshiftesc1[c];
+	if(scan->esc1 && scan->ctl && kbtabs[Lctrlesc1][c] != 0)
+		key.r = kbtabs[Lctrlesc1][c];
+	else if(scan->esc1 && scan->shift && kbtabs[Lshiftesc1][c] != 0)
+		key.r = kbtabs[Lshiftesc1][c];
 	else if(scan->esc1)
-		key.r = kbtabesc1[c];
-	else if(scan->altgr && scan->mod4 && kbtabaltgrmod4[c] != 0)
-		key.r = kbtabaltgrmod4[c];
-	else if(scan->mod4 && kbtabmod4[c] != 0)
-		key.r = kbtabmod4[c];
-	else if(scan->shift && scan->altgr && kbtabshiftaltgr[c] != 0)
-		key.r = kbtabshiftaltgr[c];
+		key.r = kbtabs[Lesc1][c];
+	else if(scan->altgr && scan->mod4 && kbtabs[Laltgrmod4][c] != 0)
+		key.r = kbtabs[Laltgrmod4][c];
+	else if(scan->mod4 && kbtabs[Lmod4][c] != 0)
+		key.r = kbtabs[Lmod4][c];
+	else if(scan->shift && scan->altgr && kbtabs[Lshiftaltgr][c] != 0)
+		key.r = kbtabs[Lshiftaltgr][c];
 	else if(scan->shift)
-		key.r = kbtabshift[c];
+		key.r = kbtabs[Lshift][c];
 	else if(scan->altgr)
-		key.r = kbtabaltgr[c];
+		key.r = kbtabs[Laltgr][c];
 	else if(scan->ctl)
-		key.r = kbtabctl[c];
+		key.r = kbtabs[Lctl][c];
 	else
-		key.r = kbtab[c];
+		key.r = kbtabs[Lnone][c];
 
-	if(scan->esc1 || kbtab[c] == 0)
+	if(scan->esc1 || kbtabs[Lnone][c] == 0)
 		key.b = key.r;
 	else
-		key.b = kbtab[c];
+		key.b = kbtabs[Lnone][c];
 
 	if(scan->caps && key.r<='z' && key.r>='a')
 		key.r += 'A' - 'a';
@@ -518,12 +536,12 @@ Nextmsg:
 		k.b = 0;
 		k.down = (p[0] == 'r');
 		for(i=0; i<Nscan; i++){
-			if(kbtab[i] == k.r || kbtabshift[i] == k.r || (i >= 16 && kbtabctl[i] == k.r)){
+			if(kbtabs[Lnone][i] == k.r || kbtabs[Lshift][i] == k.r || (i >= 16 && kbtabs[Lctl][i] == k.r)){
 				/* assign button from kbtab */
-				k.b = kbtab[i];
+				k.b = kbtabs[Lnone][i];
 				/* handle ^X forms */
-				if(k.r == kbtab[i] && kbtabctl[i] && !a->shift && !a->altgr && a->ctl)
-					k.r = kbtabctl[i];
+				if(k.r == kbtabs[Lnone][i] && kbtabs[Lctl][i] && !a->shift && !a->altgr && a->ctl)
+					k.r = kbtabs[Lctl][i];
 				break;
 			}
 		}
@@ -1146,20 +1164,8 @@ ctlproc(void *)
 Rune*
 kbmapent(int t, int sc)
 {
-	static Rune *tabs[] = {	
-	/* 0 */	kbtab,
-	/* 1 */	kbtabshift,
-	/* 2 */	kbtabesc1,
-	/* 3 */	kbtabaltgr,
-	/* 4 */	kbtabctl,
-	/* 5 */	kbtabctrlesc1,
-	/* 6 */	kbtabshiftesc1,
-	/* 7 */	kbtabshiftaltgr,
-	/* 8 */ kbtabmod4,
-	/* 9 */ kbtabaltgrmod4,
-	};
-	if(t >= 0 && t < nelem(tabs) && sc >= 0 && sc < Nscan)
-		return &tabs[t][sc];
+	if(t >= 0 && t < nelem(kbtabs) && sc >= 0 && sc < Nscan)
+		return &kbtabs[t][sc];
 	return nil;
 }
 
@@ -1359,6 +1365,10 @@ fsopen(Req *r)
 	else{
 		f->aux = nil;
 		switch((ulong)f->qid.path){
+		case Qkbmap:
+			if(r->ifcall.mode & OTRUNC)
+				memcpy(kbtabs, ascii, sizeof kbtabs);
+			break;
 		case Qkbd:
 			if(kbdopen){
 				respond(r, Einuse);
@@ -1562,6 +1572,7 @@ fsstart(Srv*)
 {
 	killfd = procopen(getpid(), "notepg", OWRITE);
 	elevate();
+	memcpy(kbtabs, ascii, sizeof kbtabs);
 	proccreate(ctlproc, nil, STACK);
 }
 
