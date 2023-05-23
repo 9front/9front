@@ -348,6 +348,10 @@ nvmerctl(SDunit *u, char *p, int l)
 {
 	Ctlr *ctlr;
 	char *e, *s;
+	u8int *data;
+	u32int *q;
+	u64int n;
+	WS ws;
 
 	if((ctlr = u->dev->ctlr) == nil || ctlr->ident == nil)
 		return 0;
@@ -359,6 +363,37 @@ nvmerctl(SDunit *u, char *p, int l)
 	p = seprint(p, e, "serial\t%.20s\n", (char*)ctlr->ident+4);
 	p = seprint(p, e, "firm\t%.8s\n", (char*)ctlr->ident+64);
 	p = seprint(p, e, "geometry %llud %lud\n", u->sectors, u->secsize);
+
+	/* SMART/health */
+	if((data = mallocalign(0x1000, ctlr->mps, 0, 0)) != nil){
+		q = qcmd(&ws, ctlr, 1, 0x02, 0xffffffff, data, 0x1000);
+		q[10] = (512/4)<<16 | 0x2;
+		q[11] = 0;
+		q[12] = 0;
+		q[13] = 0;
+		q[14] = 0;
+		if(wcmd(&ws, q) == 0){
+			dmaflush(0, data, 0x1000);
+			p = seprint(p, e, "temperature\t%d\n", (data[2]<<8 | data[1]) - 273);
+			p = seprint(p, e, "spare\t%d%%\n", data[3]);
+			p = seprint(p, e, "used\t%d%%\n", data[5]);
+			/* 16 bytes long, ignore the upper half */
+			n = data[144]<<0 | data[145]<<8 | data[146]<<16 | data[147]<<24
+				| (u64int)data[148]<<32
+				| (u64int)data[149]<<40
+				| (u64int)data[150]<<48
+				| (u64int)data[151]<<56;
+			p = seprint(p, e, "unsafe shutdowns\t%llud\n", n);
+			/* 16 bytes long, ignore the upper half */
+			n = data[160]<<0 | data[161]<<8 | data[162]<<16 | data[163]<<24
+				| (u64int)data[164]<<32
+				| (u64int)data[165]<<40
+				| (u64int)data[166]<<48
+				| (u64int)data[167]<<56;
+			p = seprint(p, e, "integrity errors\t%llud\n", n);
+		}
+		free(data);
+	}
 
 	return p-s;
 }
