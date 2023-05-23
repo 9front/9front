@@ -10,16 +10,32 @@ writemap(char *file)
 {
 	int i, fd, ofd;
 	char buf[8192];
+	int n;
+	char *p;
 
 	if((fd = open(file, OREAD)) < 0)
 		sysfatal("cannot open %s: %r", file);
 
-	if((ofd = open("/dev/kbmap", OWRITE)) < 0)
+	if((ofd = open("/dev/kbmap", OWRITE|OTRUNC)) < 0)
 		sysfatal("cannot open /dev/kbmap: %r");
 
-	while((i = read(fd, buf, sizeof buf)) > 0)
-		if(write(ofd, buf, i) != i)
+	/* do not write half lines */
+	n = 0;
+	while((i = read(fd, buf + n, sizeof buf - 1 - n)) > 0){
+		n += i;
+		buf[n] = '\0';
+		p = strrchr(buf, '\n');
+		if(p == nil){
+			if(n == sizeof buf - 1)
+				sysfatal("writing /dev/kbmap: line too long");
+			continue;
+		}
+		p++;
+		if(write(ofd, buf, p - buf) !=  p - buf)
 			sysfatal("writing /dev/kbmap: %r");
+		n -= p - buf;
+		memmove(buf, p, n);
+	}
 
 	fprint(ofd, "%s\t%s\t0x%X\n", mod, key, Kswitch);
 	close(fd);
@@ -56,7 +72,6 @@ main(int argc, char **argv)
 		usage();
 
 	chdir("/sys/lib/kbmap");
-	writemap("ascii");
 	writemap(argv[0]);
 	for(;;){
 		n = read(0, buf, sizeof buf - 1);
@@ -66,13 +81,12 @@ main(int argc, char **argv)
 		for(p = buf; p < buf+n; p += strlen(p) + 1){
 			chartorune(&r, p+1);
 			if(*p != 'c' || r != Kswitch){
-				write(1, p, strlen(p));
+				write(1, p, strlen(p) + 1);
 				continue;
 			}
 			index++;
 			if(argv[index] == nil)
 				index = 0;
-			writemap("ascii");
 			writemap(argv[index]);
 		}
 	}

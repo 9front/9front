@@ -74,6 +74,3 @@ kbremap us de uk </dev/kbdtap >/dev/kbdtap
 .B /sys/src/cmd/kbremap.c
 .SH "SEE ALSO"
 .IR kbdfs (8)
-.SH BUGS
-Not all keyboards map the entire set of characters, so one has to
-switch back to the default map before changing to another.

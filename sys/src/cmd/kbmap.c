@@ -140,21 +140,39 @@ writemap(char *file)
 {
 	int i, fd, ofd;
 	char buf[8192];
+	int n;
+	char *p;
 
 	if((fd = open(file, OREAD)) < 0){
-		fprint(2, "cannot open %s: %r", file);
+		fprint(2, "cannot open %s: %r\n", file);
 		return -1;
 	}
-	if((ofd = open("/dev/kbmap", OWRITE)) < 0) {
-		fprint(2, "cannot open /dev/kbmap: %r");
+	if((ofd = open("/dev/kbmap", OWRITE|OTRUNC)) < 0){
+		fprint(2, "cannot open /dev/kbmap: %r\n");
 		close(fd);
 		return -1;
 	}
-	while((i = read(fd, buf, sizeof buf)) > 0)
-		if(write(ofd, buf, i) != i){
-			fprint(2, "writing /dev/kbmap: %r");
+	/* do not write half lines */
+	n = 0;
+	while((i = read(fd, buf + n, sizeof buf - 1 - n)) > 0){
+		n += i;
+		buf[n] = '\0';
+		p = strrchr(buf, '\n');
+		if(p == nil){
+			if(n == sizeof buf - 1){
+				fprint(2, "writing /dev/kbmap: line too long\n");
+				break;
+			}
+			continue;
+		}
+		p++;
+		if(write(ofd, buf, p - buf) !=  p - buf){
+			fprint(2, "writing /dev/kbmap: %r\n");
 			break;
 		}
+		n -= p - buf;
+		memmove(buf, p, n);
+	}
 
 	close(fd);
 	close(ofd);
@@ -165,7 +183,6 @@ void
 click(Mouse m)
 {
 	int i, j;
-	char buf[128];
 
 	if(m.buttons == 0 || (m.buttons & ~4))
 		return;
@@ -193,9 +210,6 @@ click(Mouse m)
 	if(j != i)
 		return;
 
-	/* since maps are often just a delta of the distributed map... */
-	snprint(buf, sizeof buf, "%s/ascii", dir);
-	writemap(buf);
 	writemap(map[i].file);
 
 	/* clean the previous current map */
