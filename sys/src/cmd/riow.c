@@ -389,7 +389,7 @@ keyevent(char c, Rune r)
 	return -1;
 }
 
-static void
+static int
 process(char *s)
 {
 	char b[128], *p;
@@ -414,7 +414,6 @@ process(char *s)
 			n = strlen(p);
 			memmove(b+o, p, n);
 			o += n;
-			p += n;
 			break;
 		}
 
@@ -423,14 +422,8 @@ process(char *s)
 			o += n;
 		}
 	}
-
-	/* all runes filtered out - ignore completely */
-	if(o == 1 && p-s > 1)
-		return;
-
 	b[o++] = 0;
-	if(write(1, b, o) != o)
-		exits(nil);
+	return (o > 1 && write(1, b, o) <= 0) ? -1 : 0;
 }
 
 static void
@@ -444,7 +437,7 @@ void
 main(int argc, char **argv)
 {
 	char b[128];
-	int i, j, n, r;
+	int i, n;
 
 	for(n = 0; sticky[n] != nil; n++)
 		;
@@ -468,19 +461,12 @@ main(int argc, char **argv)
 		ws[i].vd = vd;
 	fprint(3, "%d\n", vd);
 
-	for(n = 0;;){
-		if((r = read(0, b+n, sizeof(b)-n-1)) <= 0)
+	for(;;){
+		if((n = read(0, b, sizeof(b)-1)) <= 0)
 			break;
-		n += r;
 		b[n] = 0;
-		for(i = j = 0; j <= n; j++){
-			if(b[j] == 0){
-				process(b+i);
-				i = j+1;
-			}
-		}
-		n = j-i;
-		memmove(b, b+i, n);
+		if(process(b) != 0)
+			break;
 	}
 
 	exits(nil);
