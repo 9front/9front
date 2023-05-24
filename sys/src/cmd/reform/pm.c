@@ -33,6 +33,8 @@ enum
 
 	Lcd = 0,
 	Kbd,
+	Tb,
+	Nlights = 5, /* trackball has 5 leds */
 
 	PWMSAR = 0x0c/4,
 	PWMPR = 0x10/4,
@@ -81,10 +83,12 @@ enum
 static char *uid = "pm";
 static Reqqueue *lpcreq;
 static u32int *pwm2, *tmu, *spi2;
-static int kbdlight = 0;
-static int kbdhidfd = -1;
+static int kbdlight = 0, tbleds[5] = {0};
+static int hidkb = -1, hidtb = -1;
 static Memimage *kbdoled, *image;
 static u8int kbdoledraw[4+KbdoledW*KbdoledH/8] = {'W', 'B', 'I', 'T', 0};
+static char udidkb[] = "Reform Keyboard";
+static char udidtb[] = "Reform Trackball";
 
 static void
 wr(u32int *base, int reg, u32int v)
@@ -128,27 +132,28 @@ readall(int f)
 }
 
 static int
-openkbdhid(void)
+openhidctl(int *fd, char *match)
 {
 	char path[32], *s, *k, *e;
 	int f;
 
-	if(kbdhidfd < 0 && (f = open("/dev/usb/ctl", OREAD)) >= 0){
+	if(*fd < 0 && (f = open("/dev/usb/ctl", OREAD)) >= 0){
 		if((s = readall(f)) != nil &&
-			(k = strstr(s, "MNT 'Reform Keyboard'")) != nil &&
-			(e = strchr(k+22, ' ')) != nil){
+			(k = strstr(s, match)) != nil &&
+			(k = strstr(k+strlen(match), "' ")) != nil &&
+			(e = strchr(k+2, ' ')) != nil){
 			*e = 0;
-			snprint(path, sizeof(path), "/dev/hidU%sctl", k+22);
-			if((kbdhidfd = open(path, OWRITE)) >= 0 && write(kbdhidfd, "rawon", 5) != 5){
-				close(kbdhidfd);
-				kbdhidfd = -1;
+			snprint(path, sizeof(path), "/dev/hidU%sctl", k+2);
+			if((*fd = open(path, OWRITE)) >= 0 && write(*fd, "rawon", 5) != 5){
+				close(*fd);
+				*fd = -1;
 			}
 		}
 		free(s);
 		close(f);
 	}
 
-	return kbdhidfd < 0;
+	return *fd < 0;
 }
 
 static int
@@ -160,10 +165,10 @@ loadkbdoled(char *data, int offset, int size)
 	u8int *p, q;
 	ulong chan;
 
-	if(openkbdhid() != 0)
+	if(openhidctl(&hidkb, udidkb) != 0)
 		return -1;
 	if(size == 0)
-		return write(kbdhidfd, "WCLR", 4);
+		return write(hidkb, "WCLR", 4);
 
 	used = 0;
 	if(offset == 0){
@@ -228,54 +233,69 @@ loadkbdoled(char *data, int offset, int size)
 		}
 	}
 
-	if(write(kbdhidfd, kbdoledraw, sizeof(kbdoledraw)) != sizeof(kbdoledraw))
+	if(write(hidkb, kbdoledraw, sizeof(kbdoledraw)) != sizeof(kbdoledraw))
 		return -1;
 
 	return used;
 }
 
 static int
-setlight(int k, int p)
+setlight(int k, int *p)
 {
-	u32int v;
+	u32int v, i;
 
-	if(p < 0)
-		p = 0;
-	if(p > 100)
-		p = 100;
+	for(i = 0; i < Nlights; i++){
+		if(p[i] < 0)
+			p[i] = 0;
+		else if(k == Tb)
+			p[i] = p[i] > 0;
+		else if(p[i] > 100)
+			p[i] = 100;
+	}
 
 	if(k == Lcd){
 		v = Pwmsrcclk / rd(pwm2, PWMSAR);
-		wr(pwm2, PWMPR, (Pwmsrcclk/(v*p/100))-2);
+		wr(pwm2, PWMPR, (Pwmsrcclk/(v*p[0]/100))-2);
 		return 0;
-	}else if(k == Kbd && openkbdhid() == 0){
-		v = Kbdlightmax*p/100;
-		if(fprint(kbdhidfd, "LITE%c", '0'+v) > 0){
-			kbdlight = v;
+	}else if(k == Kbd && openhidctl(&hidkb, udidkb) == 0){
+		v = Kbdlightmax*p[0]/100;
+		if(fprint(hidkb, "LITE%d", v) > 0){
+			kbdlight = p[0];
 			return 0;
 		}
-		close(kbdhidfd);
-		kbdhidfd = -1;
-		kbdlight = 0;
+		close(hidkb);
+		hidkb = -1;
+	}else if(k == Tb && openhidctl(&hidtb, udidtb) == 0){
+		if(fprint(hidtb, "LEDS%d%d%d%d%d", p[0], p[1], p[2], p[3], p[4]) > 0){
+			memmove(tbleds, p, sizeof(tbleds));
+			return 0;
+		}
+		close(hidtb);
+		hidtb = -1;
 	}
 
 	return -1;
 }
 
-static int
-getlight(int k)
+static void
+getlight(int k, int *v)
 {
-	u32int m, v;
+	u32int m;
+	int i;
 
-	SET(m, v);
+	SET(m);
 	if(k == Lcd){
 		m = Pwmsrcclk / rd(pwm2, PWMSAR);
-		v = Pwmsrcclk / (rd(pwm2, PWMPR)+2);
+		v[0] = Pwmsrcclk / (rd(pwm2, PWMPR)+2);
 	}else if(k == Kbd){
-		m = Kbdlightmax;
-		v = kbdlight;
+		m = 100;
+		v[0] = kbdlight;
+	}else if(k == Tb){
+		m = 100;
+		memmove(v, tbleds, sizeof(tbleds));
 	}
-	return v*100/m;
+	for(i = 0; i < Nlights; i++)
+		v[i] = v[i]*100/m;
 }
 
 static int
@@ -423,9 +443,8 @@ readbattery(Req *r)
 		}
 		break;
 	case Smissing:
-		respond(r, "battery is missing");
-		return;
-		
+		state = "missing";
+		break;
 	}
 
 	snprint(msg, sizeof(msg), "%d mA %d %d %d %d ? mV %d ? %02d:%02d:%02d %s\n",
@@ -461,11 +480,12 @@ readpmctl(Req *r)
 	s = msg;
 	e = s+sizeof(msg);
 	s = seprint(s, e, "version %s\n", lpcfw);
+	s = seprint(s, e, "voltage(mV) %d\n", (s16int)(q[0] | q[1]<<8));
+	s = seprint(s, e, "current(mA) %d\n", (s16int)(q[2] | q[3]<<8));
 	s = seprint(s, e, "cells(mV)");
 	for(i = 0; i < 16; i += 2)
 		s = seprint(s, e, " %d", v[i] | v[i+1]<<8);
 	s = seprint(s, e, "\n");
-	s = seprint(s, e, "current(mA) %d\n", (s16int)(q[2] | q[3]<<8));
 	USED(s);
 
 	readstr(r, msg);
@@ -475,15 +495,21 @@ readpmctl(Req *r)
 static void
 fsread(Req *r)
 {
+	int c, v[2+Nlights];
 	char msg[256];
 	void *aux;
-	int c;
 
 	msg[0] = 0;
 	if(r->ifcall.offset == 0){
 		aux = r->fid->file->aux;
 		if(aux == (void*)Light){
-			snprint(msg, sizeof(msg), "lcd %d\nkbd %d\n", getlight(Lcd), getlight(Kbd));
+			getlight(Lcd, v);
+			getlight(Kbd, v+1);
+			getlight(Tb, v+2);
+			snprint(msg, sizeof(msg),
+				"lcd %d\nkbd %d\ntb %d %d %d %d %d\n",
+				v[0], v[1], v[2], v[3], v[4], v[5], v[6]
+			);
 		}else if(aux == (void*)Temp){
 			if((c = getcputemp()) < 0){
 				responderror(r);
@@ -506,19 +532,19 @@ fsread(Req *r)
 static void
 fswrite(Req *r)
 {
-	char msg[256], *f[4];
-	int nf, v, p, k;
+	int nf, v[Nlights], p, k, i;
+	char msg[256], *f[1+Nlights];
 	void *aux;
 
 	aux = r->fid->file->aux;
 
 	if(aux == (void*)Kbdoled){
-		if((v = loadkbdoled(r->ifcall.data, r->ifcall.offset, r->ifcall.count)) < 0){
+		if((k = loadkbdoled(r->ifcall.data, r->ifcall.offset, r->ifcall.count)) < 0){
 Err:
 			responderror(r);
 			return;
 		}
-		r->ofcall.count = v;
+		r->ofcall.count = k;
 		respond(r, nil);
 		return;
 	}
@@ -535,11 +561,17 @@ Bad:
 			k = Lcd;
 		else if(strcmp(f[0], "kbd") == 0)
 			k = Kbd;
+		else if(strcmp(f[0], "tb") == 0)
+			k = Tb;
 		else
 			goto Bad;
-		v = atoi(f[1]);
-		if(*f[1] == '+' || *f[1] == '-')
-			v += getlight(k);
+
+		getlight(k, v);
+		for(i = 0; i < nf-1; i++){
+			if(*f[i+1] != '+' && *f[i+1] != '-')
+				v[i] = 0;
+			v[i] += atoi(f[i+1]);
+		}
 		if(setlight(k, v) != 0)
 			goto Err;
 	}else if(aux == (void*)Pmctl){
@@ -550,9 +582,10 @@ Bad:
 				 * LPC firmware might not be up to date so try
 				 * shutting down through the keyboard first
 				 */
-				if(openkbdhid() == 0){
-					write(kbdhidfd, "PWR0", 4);
+				if(openhidctl(&hidkb, udidkb) == 0){
+					write(hidkb, "PWR0", 4);
 					sleep(2000); /* give it a chance */
+					p = 1; /* fall back to lpc shutdown */
 				}
 			}
 		}

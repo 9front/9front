@@ -115,11 +115,12 @@ the keyboard OLED.  Zero-length write clears the display.
 .TP
 .B light
 Provides a way to control the backlight of the built-in LCD by
-writing \fIlcd [-+]N\fR or \fIkbd [-+]N\fR,
+writing \fIlcd [-+]N\fR, \fIkbd [-+]N\fR, or \fItb N N N N N\fR,
 where
 .I N
 is expressed in percentage, either as an absolute value (0-100) or
-relative to the current brightness - by prefixing with a sign.
+relative to the current brightness - by prefixing with a sign. For the
+trackball (\fItb\fR) only 0 and 1 are valid values.
 Reading
 .B light
 returns the current brightness.
