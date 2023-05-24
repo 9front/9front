@@ -585,8 +585,8 @@ Bad:
 				if(openhidctl(&hidkb, udidkb) == 0){
 					write(hidkb, "PWR0", 4);
 					sleep(2000); /* give it a chance */
-					p = 1; /* fall back to lpc shutdown */
 				}
+				p = 1; /* fall back to lpc shutdown */
 			}
 		}
 		if(p < 0)
