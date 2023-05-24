@@ -521,18 +521,18 @@ nvmedisable(SDev *sd)
 
 	/* notify normal power off */
 	ctlr->reg[CCfg] = (ctlr->reg[CCfg] & ~(3<<14)) | 1<<14;
-	for(i = 0; i < 30; i++){
+	for(i = 0; i < 3000; i++){
 		if((ctlr->reg[CSts] & 0xc) == 0x8)
 			break;
-		tsleep(&up->sleep, return0, nil, 100);
+		delay(1);
 	}
 
 	/* disable controller */
 	ctlr->reg[CCfg] = 0;
-	for(i = 0; i < 10; i++){
+	for(i = 0; i < 1000; i++){
 		if((ctlr->reg[CSts] & 1) == 0)
 			break;
-		tsleep(&up->sleep, return0, nil, 100);
+		delay(1);
 	}
 
 	snprint(name, sizeof(name), "%s (%s)", sd->name, sd->ifc->name);
