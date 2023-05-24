@@ -31,13 +31,14 @@ sleep 1
 
 c=`{ls /srv/cwfs*cmd >[2]/dev/null}
 h=`{ls /srv/hjfs*cmd >[2]/dev/null}
+s=`{awk '/^sd./ {print substr($1,3,1)}' <'#S/sdctl' >[2]/dev/null}
 
 # for scram, don't scram other systems
 bind -b '#P' /dev >[2]/dev/null
 if(! ~ $reboot yes){
-	if (test -e '#P'/apm)
+	if(test -e '#P'/apm)
 		scram=yes
-	if (test -e '#P'/acpitbls -a -e '#P'/iow)
+	if(test -e '#P'/acpitbls -a -e '#P'/iow)
 		scram=yes
 }
 
@@ -66,9 +67,9 @@ bind /tmp /bin
 fn x {
 	echo
 	echo -n halting...
-	for (i in $c $h)
+	for(i in $c $h)
 		echo halt >>$i
-	for (i in $c $h){
+	for(i in $c $h){
 		echo -n $i...
 		while(test -e $i)
 			sleep 1
@@ -76,15 +77,19 @@ fn x {
 	echo
 	echo done halting
 
-	if (~ $reboot yes) {
+	# turn off disk drives
+	for(i in $s)
+		echo config spec $i switch off >>'#S/sdctl'
+
+	if(~ $reboot yes){
 		echo rebooting...
 		echo reboot $bootf >'#c/reboot'
 	}
-	if not if (test -e /dev/pmctl) {
-		echo power off >>/dev/pmctl
-	}
-	if (~ $scram yes){
-		scram
+	if not {
+		if (test -e /dev/pmctl)
+			echo power off >>/dev/pmctl
+		if (~ $scram yes)
+			scram
 		echo 'It''s now safe to turn off your computer'
 	}
 }

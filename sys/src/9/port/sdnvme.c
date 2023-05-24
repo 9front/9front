@@ -208,9 +208,8 @@ wcmd(WS *ws, u32int *e)
 	SQ *sq = ws->queue;
 	Ctlr *ctlr = sq->ctlr;
 
-	if(e != nil) {
+	if(e != nil)
 		dmaflush(1, e, 64);
-	}
 	coherence();
 	ctlr->reg[DBell + ((sq-ctlr->sq)*2+0 << ctlr->dstrd)] = sq->tail & sq->mask;
 	if(sq > ctlr->sq) {
@@ -270,9 +269,8 @@ nvmebio(SDunit *u, int lun, int write, void *a, long count, uvlong lba)
 		count -= n;
 		lba += n;
 	}
-	if(!write) {
+	if(!write)
 		dmaflush(0, a, p - (uchar*)a);
-	}
 	return p - (uchar*)a;
 }
 
@@ -521,9 +519,16 @@ nvmedisable(SDev *sd)
 	ctlr->reg[IntMs] = ~ctlr->ints;
 	iunlock(&ctlr->intr);
 
+	/* notify normal power off */
+	ctlr->reg[CCfg] = (ctlr->reg[CCfg] & ~(3<<14)) | 1<<14;
+	for(i = 0; i < 30; i++){
+		if((ctlr->reg[CSts] & 0xc) == 0x8)
+			break;
+		tsleep(&up->sleep, return0, nil, 100);
+	}
+
 	/* disable controller */
 	ctlr->reg[CCfg] = 0;
-
 	for(i = 0; i < 10; i++){
 		if((ctlr->reg[CSts] & 1) == 0)
 			break;
