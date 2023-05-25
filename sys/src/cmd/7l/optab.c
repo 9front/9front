@@ -161,6 +161,9 @@ Optab	optab[] =
 
 	{ AMOV,		C_ROFF,	C_NONE,	C_REG,	68, 4, 0 },
 	{ AMOVW,	C_ROFF,	C_NONE,	C_REG,	68, 4, 0 },
+	{ AMOVH,	C_ROFF,	C_NONE,	C_REG,	68, 4, 0 },
+	{ AMOVB,	C_ROFF,	C_NONE,	C_REG,	68, 4, 0 },
+	{ AMOVBU,	C_ROFF,	C_NONE,	C_REG,	68, 4, 0 },
 	{ AFMOVS,	C_ROFF,	C_NONE,	C_FREG,	68, 4, 0 },
 	{ AFMOVD,	C_ROFF,	C_NONE,	C_FREG,	68, 4, 0 },
 
@@ -168,6 +171,9 @@ Optab	optab[] =
 
 	{ AMOV,		C_REG,	C_NONE,	C_ROFF,	69, 4, 0 },
 	{ AMOVW,	C_REG,	C_NONE,	C_ROFF,	69, 4, 0 },
+	{ AMOVH,	C_REG,	C_NONE,	C_ROFF,	69, 4, 0 },
+	{ AMOVB,	C_REG,	C_NONE,	C_ROFF,	69, 4, 0 },
+	{ AMOVBU,	C_REG,	C_NONE,	C_ROFF,	69, 4, 0 },
 	{ AFMOVS,	C_FREG,	C_NONE,	C_ROFF,	69, 4, 0 },
 	{ AFMOVD,	C_FREG,	C_NONE,	C_ROFF,	69, 4, 0 },
 
