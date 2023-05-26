@@ -789,7 +789,6 @@ ataclear(SDev *sdev)
 	if (sdev->unit)
 		free(sdev->unit);
 	free(ctlr);
-	free(sdev);
 }
 
 static char *
