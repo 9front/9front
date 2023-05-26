@@ -496,7 +496,7 @@ threadmain(int argc, char **argv)
 			amlload(t->data, l);
 		}else if(memcmp("FACP", t->sig, 4) == 0){
 			facp.ok = 1;
-			if(t->rev >= 2) {
+			if(t->rev >= 3) {
 				/* try the ACPI 2.0 method */
 				facp.pm1aspace = *(((uchar*)t) + 172);
 				facp.pm1awid = *(((uchar*)t) + 175);
