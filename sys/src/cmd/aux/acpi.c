@@ -516,26 +516,26 @@ threadmain(int argc, char **argv)
 			}
 
 			/* fall back to the ACPI 1.0 io port method */
-			if(!facp.pm1a) {
+			if(facp.pm1a == 0 || facp.pm1awid == 0) {
 				facp.pm1aspace = IoSpace;
 				facp.pm1awid = 2;
 				facp.pm1a = get32(((uchar*)t) + 64);
 			}
 
-			if(!facp.pm1b) {
+			if(facp.pm1b == 0 || facp.pm1bwid == 0) {
 				facp.pm1bspace = IoSpace;
 				facp.pm1bwid = 2;
 				facp.pm1b = get32(((uchar*)t) + 68);
 			}
 
-			if(!facp.gpe0) {
+			if(facp.gpe0 == 0 || facp.gpe0wid == 0) {
 				facp.gpe0space = IoSpace;
 				facp.gpe0wid = 2;
 				facp.gpe0 = get32(((uchar*)t) + 80);
 				facp.gpe0len = *(((uchar*)t) + 92);
 			}
 
-			if(!facp.gpe1) {
+			if(facp.gpe1 == 0 || facp.gpe1wid == 0) {
 				facp.gpe1space = IoSpace;
 				facp.gpe1wid = 2;
 				facp.gpe1 = get32(((uchar*)t) + 84);
