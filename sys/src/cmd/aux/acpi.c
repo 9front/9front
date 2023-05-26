@@ -459,8 +459,7 @@ threadmain(int argc, char **argv)
 	}ARGEND
 
 	if((ec = open("/dev/ec", ORDWR)) < 0)
-		if((ec = open("#P/ec", ORDWR)) < 0)
-			goto fail;
+		ec = open("#P/ec", ORDWR);
 	if((mem = open("/dev/acpimem", ORDWR)) < 0)
 		mem = open("#P/acpimem", ORDWR);
 	if((iofd[1] = open("/dev/iob", ORDWR)) < 0)
@@ -618,8 +617,8 @@ amlmapio(Amlio *io)
 {
 	switch(io->space){
 	case EbctlSpace:
-		io->read = readec;
-		io->write = writeec;
+		io->read = ec >= 0 ? readec : dummy;
+		io->write = ec >= 0 ? writeec : dummy;
 		break;
 	case IoSpace:
 		io->read = readio;
