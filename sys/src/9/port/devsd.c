@@ -356,10 +356,10 @@ sdadddevs(SDev *sdev)
 		if(sdev->unit == nil || sdev->unitflg == nil){
 			print("sdadddevs: out of memory\n");
 		giveup:
-			free(sdev->unit);
-			free(sdev->unitflg);
 			if(sdev->ifc->clear)
 				sdev->ifc->clear(sdev);
+			free(sdev->unit);
+			free(sdev->unitflg);
 			free(sdev);
 			continue;
 		}
@@ -1630,6 +1630,10 @@ unconfigure(char* spec)
 	if(sdev->enabled && sdev->ifc->disable)
 		sdev->ifc->disable(sdev);
 
+	/* free controller specific info */
+	if(sdev->ifc->clear)
+		sdev->ifc->clear(sdev);
+
 	for(i = 0; i < sdev->nunit; i++){
 		if((unit = sdev->unit[i]) != nil){
 			free(unit->name);
@@ -1637,10 +1641,8 @@ unconfigure(char* spec)
 			free(unit);
 		}
 	}
-
-	if(sdev->ifc->clear)
-		sdev->ifc->clear(sdev);
-
+	free(sdev->unit);
+	free(sdev->unitflg);
 	free(sdev);
 	return 0;
 }

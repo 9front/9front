@@ -170,7 +170,6 @@ struct Ctlr {
 };
 
 static	Ctlr	iactlr[NCtlr];
-static	SDev	*sdevs;
 static	int	niactlr;
 
 static	Drive	*iadrive[NDrive];
@@ -2167,9 +2166,6 @@ iapnp(void)
 	}
 
 	memset(olds, 0xff, sizeof olds);
-	sdevs = malloc(sizeof(SDev)*NCtlr);
-	if(sdevs == nil)
-		return nil;
 	p = nil;
 	while((p = pcimatch(p, 0, 0)) != nil){
 		if((type = didtype(p)) == -1)
@@ -2183,9 +2179,13 @@ iapnp(void)
 			break;
 		}
 		c = iactlr + niactlr;
-		s = sdevs + niactlr;
-		memset(c, 0, sizeof *c);
+		s = malloc(sizeof(SDev));
+		if(s == nil){
+			print("iapnp: %s: can't allocate SDev\n", tname[type]);
+			break;
+		}
 		memset(s, 0, sizeof *s);
+		memset(c, 0, sizeof *c);
 		c->mmio = vmap(io, p->mem[Abar].size);
 		if(c->mmio == nil){
 			print("%s: can't map %llux\n", Tname(c), io);

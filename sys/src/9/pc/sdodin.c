@@ -543,7 +543,6 @@ struct Ctlr {
 };
 
 static	Ctlr	msctlr[Nctlr];
-static	SDev	*sdevs;
 static	uint	nmsctlr;
 static	Drive	*msdrive[Ndrive];
 static	uint	nmsdrive;
@@ -2646,16 +2645,17 @@ mspnp(void)
 		return nil;
 	s0 = nil;
 	ll = &s0;
-	sdevs = malloc(sizeof(SDev)*NCtlr);
-	if(sdevs == nil)
-		return nil;
 	for(p = nil; (p = pcimatch(p, 0x11ab, 0x6485)) != nil; ){
 		if(nmsctlr == Nctlr){
 			print("sdodin: too many controllers\n");
 			break;
 		}
 		c = msctlr + nmsctlr;
-		s = sdevs + nmsctlr;
+		s = malloc(sizeof(SDev));
+		if(s == nil){
+			print("sdodin: can't allocate SDev\n");
+			break;
+		}
 		memset(c, 0, sizeof *c);
 		memset(s, 0, sizeof *s);
 		if((c->reg = map(p, Mebar)) == nil){

@@ -782,12 +782,6 @@ ataclear(SDev *sdev)
 		free(ctlr->drive[0]);
 	if (ctlr->drive[1])
 		free(ctlr->drive[1]);
-	if (sdev->name)
-		free(sdev->name);
-	if (sdev->unitflg)
-		free(sdev->unitflg);
-	if (sdev->unit)
-		free(sdev->unit);
 	free(ctlr);
 }
 
