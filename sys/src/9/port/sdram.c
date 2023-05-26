@@ -169,7 +169,7 @@ rampnp(void)
 {
 	SDev *sdev;
 
-	sdev = xalloc(sizeof(SDev));
+	sdev = malloc(sizeof(SDev));
 	if(sdev == nil)
 		return nil;
 
