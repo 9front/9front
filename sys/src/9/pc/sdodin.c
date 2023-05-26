@@ -543,7 +543,7 @@ struct Ctlr {
 };
 
 static	Ctlr	msctlr[Nctlr];
-static	SDev	sdevs[Nctlr];
+static	SDev	*sdevs;
 static	uint	nmsctlr;
 static	Drive	*msdrive[Ndrive];
 static	uint	nmsdrive;
@@ -2646,6 +2646,9 @@ mspnp(void)
 		return nil;
 	s0 = nil;
 	ll = &s0;
+	sdevs = malloc(sizeof(SDev)*NCtlr);
+	if(sdevs == nil)
+		return nil;
 	for(p = nil; (p = pcimatch(p, 0x11ab, 0x6485)) != nil; ){
 		if(nmsctlr == Nctlr){
 			print("sdodin: too many controllers\n");

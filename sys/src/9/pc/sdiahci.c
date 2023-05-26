@@ -170,7 +170,7 @@ struct Ctlr {
 };
 
 static	Ctlr	iactlr[NCtlr];
-static	SDev	sdevs[NCtlr];
+static	SDev	*sdevs;
 static	int	niactlr;
 
 static	Drive	*iadrive[NDrive];
@@ -2167,6 +2167,9 @@ iapnp(void)
 	}
 
 	memset(olds, 0xff, sizeof olds);
+	sdevs = malloc(sizeof(SDev)*NCtlr);
+	if(sdevs == nil)
+		return nil;
 	p = nil;
 	while((p = pcimatch(p, 0, 0)) != nil){
 		if((type = didtype(p)) == -1)
