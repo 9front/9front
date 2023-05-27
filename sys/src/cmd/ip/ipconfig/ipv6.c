@@ -406,7 +406,7 @@ Again:
 static int
 recvra6on(Ipifc *ifc)
 {
-	if(ifc == nil)
+	if(!myip(ifc, conf.lladdr))
 		return 0;
 	else if(ifc->sendra6 > 0)
 		return IsRouter;
@@ -483,6 +483,9 @@ static void
 issuerara6(Conf *cf)
 {
 	char *cfg;
+
+	myifc->sendra6 = cf->sendra;
+	myifc->recvra6 = cf->recvra;
 
 	cfg = smprint("ra6 sendra %d recvra %d maxraint %d minraint %d",
 		cf->sendra, cf->recvra, cf->maxraint, cf->minraint);
@@ -779,20 +782,12 @@ recvra6(void)
 {
 	int fd, n, sendrscnt, recvracnt, sleepfor;
 	uchar buf[4096];
-	Ipifc *ifc;
-
-	ifc = readipifc(conf.mpoint, nil, myifc);
-	if(ifc == nil)
-		sysfatal("can't read ipifc: %r");
-
-	if(!findllip(conf.lladdr, ifc))
-		sysfatal("no link local address");
 
 	fd = dialicmpv6(v6allnodesL, ICMP6_RA);
 	if(fd < 0)
 		sysfatal("can't open icmp_ra connection: %r");
 
-	switch(rfork(RFPROC|RFMEM|RFFDG|RFNOWAIT|RFNOTEG)){
+	switch(rfork(RFPROC|RFFDG|RFNOWAIT|RFNOTEG)){
 	case -1:
 		sysfatal("can't fork: %r");
 	default:
@@ -809,7 +804,7 @@ recvra6(void)
 
 	recvracnt = 0;
 	sendrscnt = 0;
-	if(recvra6on(ifc) == IsHostRecv){
+	if(recvra6on(myifc) == IsHostRecv){
 		sendrs(fd, v6allroutersL);
 		sendrscnt = Maxv6rss;
 	}
@@ -827,8 +822,8 @@ recvra6(void)
 
 		sleepfor = Maxv6radelay;
 
-		ifc = readipifc(conf.mpoint, ifc, myifc);
-		if(ifc == nil) {
+		myifc = readipifc(conf.mpoint, myifc, myifc->index);
+		if(myifc == nil) {
 			warning("recvra6: can't read router params on %s, quitting on %s",
 				conf.mpoint, conf.dev);
 			if(recvracnt == 0)
@@ -836,7 +831,7 @@ recvra6(void)
 			exits(nil);
 		}
 
-		switch(recvra6on(ifc)){
+		switch(recvra6on(myifc)){
 		case IsHostRecv:
 			break;
 		default:
@@ -1057,25 +1052,17 @@ sendra6(void)
 {
 	int fd, n, sleepfor, nquitmsgs;
 	uchar buf[4096], dst[IPaddrlen];
-	Ipifc *ifc;
 	Ndb *db;
 
 	db = opendatabase();
 	if(db == nil)
 		warning("couldn't open ndb: %r");
 
-	ifc = readipifc(conf.mpoint, nil, myifc);
-	if(ifc == nil)
-		sysfatal("can't read ipifc: %r");
-
-	if(!findllip(conf.lladdr, ifc))
-		sysfatal("no link local address");
-
 	fd = dialicmpv6(v6allroutersL, ICMP6_RS);
 	if(fd < 0)
 		sysfatal("can't open icmp_rs connection: %r");
 
-	switch(rfork(RFPROC|RFMEM|RFFDG|RFNOWAIT|RFNOTEG)){
+	switch(rfork(RFPROC|RFFDG|RFNOWAIT|RFNOTEG)){
 	case -1:
 		sysfatal("can't fork: %r");
 	default:
@@ -1096,24 +1083,24 @@ sendra6(void)
 		n = read(fd, buf, sizeof buf);
 		sleepfor = alarm(0);
 
-		if(ifc->sendra6 > 0 && n > 0 && recvrs(buf, n, dst) > 0)
-			sendra(fd, dst, 1, ifc, db);
+		if(myifc->sendra6 > 0 && n > 0 && recvrs(buf, n, dst) > 0)
+			sendra(fd, dst, 1, myifc, db);
 
 		/* wait for alarm to expire */
 		if(sleepfor > 100)
 			continue;
 		sleepfor = Minv6interradelay;
 
-		ifc = readipifc(conf.mpoint, ifc, myifc);
-		if(ifc == nil) {
+		myifc = readipifc(conf.mpoint, myifc, myifc->index);
+		if(myifc == nil || !myip(myifc, conf.lladdr)) {
 			warning("sendra6: can't read router params on %s, quitting on %s",
 				conf.mpoint, conf.dev);
 			exits(nil);
 		}
-		if(ifc->sendra6 <= 0){
+		if(myifc->sendra6 <= 0){
 			if(nquitmsgs > 0) {
 				nquitmsgs--;
-				sendra(fd, v6allnodesL, 0, ifc, nil);
+				sendra(fd, v6allnodesL, 0, myifc, nil);
 				continue;
 			}
 			warning("sendra6: sendra off on %s, quitting on %s",
@@ -1121,14 +1108,17 @@ sendra6(void)
 			exits(nil);
 		}
 		db = opendatabase();
-		sendra(fd, v6allnodesL, 1, ifc, db);
-		sleepfor = randint(ifc->rp.minraint, ifc->rp.maxraint);
+		sendra(fd, v6allnodesL, 1, myifc, db);
+		sleepfor = randint(myifc->rp.minraint, myifc->rp.maxraint);
 	}
 }
 
 static void
 startra6(void)
 {
+	if(!findllip(conf.lladdr, myifc))
+		sysfatal("no link local address");
+
 	if(conf.recvra > 0)
 		recvra6();
 

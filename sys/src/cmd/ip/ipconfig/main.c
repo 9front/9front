@@ -12,10 +12,9 @@
 #include <libsec.h> /* genrandom() */
 
 Conf	conf;
-int	myifc = -1;
+Ipifc*	myifc;
 int	beprimary = -1;
 int	noconfig;
-Ipifc	*ifc;
 Ctl	*firstctl, **ctll = &firstctl;
 
 int	debug;
@@ -272,17 +271,37 @@ parseargs(int argc, char **argv)
 	return action;
 }
 
-static int
-findifc(char *net, char *dev)
+/* all interfaces on conf.mpoint stack */
+static Ipifc *allifcs;
+
+static Ipifc*
+findmyifc(void)
 {
 	Ipifc *nifc;
 
-	ifc = readipifc(net, ifc, -1);
-	for(nifc = ifc; nifc != nil; nifc = nifc->next){
-		if(strcmp(nifc->dev, dev) == 0)
-			return nifc->index;
+	allifcs = readipifc(conf.mpoint, allifcs, -1);
+	for(nifc = allifcs; nifc != nil; nifc = nifc->next){
+		if(strcmp(nifc->dev, conf.dev) == 0){
+			myifc = readipifc(conf.mpoint, myifc, nifc->index);
+			return myifc;
+		}
 	}
-	return -1;
+	return nil;
+}
+
+int
+myip(Ipifc *ifc, uchar *ip)
+{
+	Iplifc *lifc;
+
+	for(; ifc != nil; ifc = ifc->next) {
+		for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
+			if(ipcmp(ip, lifc->ip) == 0)
+				return 1;
+		}
+	}
+
+	return 0;
 }
 
 int
@@ -429,8 +448,7 @@ main(int argc, char **argv)
 		beprimary = 0;
 
 	openiproute();
-	myifc = findifc(conf.mpoint, conf.dev);
-	if(myifc < 0) {
+	if(findmyifc() == nil) {
 		switch(action){
 		default:
 			if(noconfig)
@@ -438,7 +456,7 @@ main(int argc, char **argv)
 			/* bind new interface */
 			controldevice();
 			binddevice();
-			myifc = findifc(conf.mpoint, conf.dev);
+			findmyifc();
 		case Vunbind:
 			break;
 		case Vremove:
@@ -449,7 +467,7 @@ main(int argc, char **argv)
 			doremove();
 			exits(nil);
 		}
-		if(myifc < 0)
+		if(myifc == nil)
 			sysfatal("interface not found for: %s", conf.dev);
 	} else if(!noconfig) {
 		/* open old interface */
@@ -597,9 +615,9 @@ binddevice(void)
 {
 	char buf[256];
 
-	if(myifc >= 0){
+	if(myifc != nil){
 		/* open the old interface */
-		snprint(buf, sizeof buf, "%s/ipifc/%d/ctl", conf.mpoint, myifc);
+		snprint(buf, sizeof buf, "%s/ipifc/%d/ctl", conf.mpoint, myifc->index);
 		conf.cfd = open(buf, ORDWR);
 		if(conf.cfd < 0)
 			sysfatal("open %s: %r", buf);
@@ -753,7 +771,10 @@ putndb(int doadd)
 			p = seprint(p, e, "%s\n", ndboptions);
 	}
 
-	/* write preexisting entries not matching our ip */
+	/* for myip() */
+	allifcs = readipifc(conf.mpoint, allifcs, -1);
+
+	/* write valid pre-existing entries not matching our ip */
 	snprint(file, sizeof file, "%s/ndb", conf.mpoint);
 	db = ndbopen(file);
 	if(db != nil ){
@@ -762,8 +783,9 @@ putndb(int doadd)
 
 			if((nt = ndbfindattr(t, t, "ip")) == nil
 			|| parseip(ip, nt->val) == -1
-			|| ipcmp(ip, conf.laddr) != 0){
-				p = seprint(p, e, "\n");
+			|| ipcmp(ip, conf.laddr) != 0 && myip(allifcs, ip)){
+				if(p > buf)
+					p = seprint(p, e, "\n");
 				for(nt = t; nt != nil; nt = nt->entry)
 					p = seprint(p, e, "%s=%s%s", nt->attr, nt->val,
 						nt->entry==nil? "\n": nt->line!=nt->entry? "\n\t": " ");
@@ -1193,7 +1215,7 @@ ndbconfig(void)
 		sysfatal("no ip addresses found in ndb");
 
 	/* add link local address first, if not already done */
-	if(!findllip(conf.lladdr, ifc)){
+	if(!findllip(conf.lladdr, myifc)){
 		for(i = 0; i < n; i++){
 			ipmove(conf.laddr, dbips+i*IPaddrlen);
 			if(ISIPV6LINKLOCAL(conf.laddr)){

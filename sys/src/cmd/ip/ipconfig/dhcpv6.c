@@ -221,6 +221,9 @@ dhcpv6query(void)
 {
 	int fd;
 
+	if(!dodhcp || conf.duidlen <= 0)
+		return;
+
 	fd = openlisten();
 	if(transaction(fd, SOLICIT, 5000) < 0)
 		goto out;

@@ -98,8 +98,10 @@ struct Ctl
 	char	*ctl;
 };
 
+/* my interface on conf.mpoint stack */
+extern Ipifc*	myifc;
+
 extern Conf	conf;
-extern int	myifc;
 extern int	noconfig;
 extern int	dodhcp;
 
@@ -122,6 +124,7 @@ void	ipunconfig(void);
 void	adddefroute(uchar*, uchar*, uchar*, uchar*);
 void	removedefroute(uchar*, uchar*, uchar*, uchar*);
 
+int	myip(Ipifc*, uchar*);
 int	isether(void);
 long	jitter(void);
 void	catch(void*, char*);
