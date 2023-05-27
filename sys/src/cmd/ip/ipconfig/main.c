@@ -880,6 +880,11 @@ refresh(void)
 		write(fd, "refresh", 7);
 		close(fd);
 	}
+
+	/* dns unaffected, no need to refresh dns */
+	if(!beprimary)
+		return;
+
 	snprint(file, sizeof file, "%s/dns", conf.mpoint);
 	if((fd = open(file, OWRITE)) >= 0){
 		write(fd, "refresh", 7);
