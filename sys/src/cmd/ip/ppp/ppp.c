@@ -2909,10 +2909,10 @@ main(int argc, char **argv)
 	case 4:	/* [local [remote [local2 [remote2]]]] */
 		if (parseip(remip[1], argv[3]) == -1)
 			sysfatal("bad ip %s", argv[3]);
-	case 3:	/* [local [remote [local2]]]
+	case 3:	/* [local [remote [local2]]] */
 		if (parseip(ipaddr[1], argv[2]) == -1)
 			sysfatal("bad ip %s", argv[2]);
-	case 2:	/* [local [remote]]
+	case 2:	/* [local [remote]] */
 		if (parseip(remip[0], argv[1]) == -1)
 			sysfatal("bad ip %s", argv[1]);
 	case 1:	/* [local] */
