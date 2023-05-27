@@ -1252,7 +1252,7 @@ kbmapwrite(Req *req)
 				lp++;
 			for(e = lp; strchr("\t ", *e) == nil; e++)
 				;
-			if(e == lp)
+			if(e == lp || *e == '\0')
 				goto Badarg;
 			*e = '\0';
 			for(t = 0; t < nelem(layertab); t++){
@@ -1260,10 +1260,15 @@ kbmapwrite(Req *req)
 					continue;
 				break;
 			}
-			if(t == nelem(layertab))
-				t = strtoul(lp, nil, 0);
-			lp = e + 1;
-			sc = strtoul(lp, &lp, 0);
+			if(t == nelem(layertab)){
+				t = strtoul(lp, &e, 0);
+				if(e == lp)
+					goto Badarg;
+			}
+			e++;
+			sc = strtoul(e, &lp, 0);
+			if(e == lp)
+				goto Badarg;
 			while(*lp == ' ' || *lp == '\t')
 				lp++;
 			if((rp = kbmapent(t, sc)) == nil)
