@@ -208,8 +208,9 @@ wcmd(WS *ws, u32int *e)
 	SQ *sq = ws->queue;
 	Ctlr *ctlr = sq->ctlr;
 
-	if(e != nil)
+	if(e != nil){
 		dmaflush(1, e, 64);
+	}
 	coherence();
 	ctlr->reg[DBell + ((sq-ctlr->sq)*2+0 << ctlr->dstrd)] = sq->tail & sq->mask;
 	if(sq > ctlr->sq) {
@@ -269,8 +270,9 @@ nvmebio(SDunit *u, int lun, int write, void *a, long count, uvlong lba)
 		count -= n;
 		lba += n;
 	}
-	if(!write)
+	if(!write){
 		dmaflush(0, a, p - (uchar*)a);
+	}
 	return p - (uchar*)a;
 }
 
