@@ -4,7 +4,7 @@ ppp, pppoe, pptp, pptpd \- point-to-point protocol
 .SH SYNOPSIS
 .B ip/ppp
 [
-.B -CPSacdfu
+.B -CPSacdfuy
 ] [
 .B -b
 .I baud
@@ -190,6 +190,11 @@ takes over
 .B x
 use the IP stack mounted at
 .I netmntpt
+.TP
+.B y
+ARP proxy the interface.
+(see
+.IR ipconfig (8)).
 .PD
 .PP
 If both the

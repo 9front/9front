@@ -20,6 +20,7 @@ static	int	server;
 static	int	noauth;
 static	int	dying;		/* flag to signal to all threads its time to go */
 static	int	primary;
+static	int	proxy;
 static	char	*chatfile;
 
 int	debug;
@@ -1572,7 +1573,7 @@ ppptimer(PPP *ppp)
 }
 
 static void
-ipconfig(int shell, char *net, char *dev, int mtu, Ipaddr gate, Ipaddr dns[2], char *duid)
+ipconfig(int shell, char *net, char *dev, int mtu, int proxy, Ipaddr gate, Ipaddr dns[2], char *duid)
 {
 	fprint(shell, "ip/ipconfig -x %q ", net);
 	if(!primary){
@@ -1597,6 +1598,8 @@ ipconfig(int shell, char *net, char *dev, int mtu, Ipaddr gate, Ipaddr dns[2], c
 		fprint(shell, "-dU %q ", duid);
 	if(mtu > 0)
 		fprint(shell, "-m %d ", mtu);
+	if(proxy)
+		fprint(shell, "-y ");
 	fprint(shell, "pkt %q ", dev);
 }
 
@@ -1604,10 +1607,10 @@ static void
 addip(int shell, char *net, char *dev, Ipaddr local, Ipaddr remote, int mtu, Ipaddr *dns)
 {
 	if(validv4(local) && validv4(remote)){
-		ipconfig(shell, net, dev, mtu, remote, dns, nil);
+		ipconfig(shell, net, dev, mtu, proxy, remote, dns, nil);
 		fprint(shell, "add %I 255.255.255.255 %I\n", local, remote);
 	} else if(validv6(local)){
-		ipconfig(shell, net, dev, mtu, nil, nil, nil);
+		ipconfig(shell, net, dev, mtu, 0, nil, nil, nil);
 		fprint(shell, "add %I /64\n", local);
 	}
 }
@@ -1616,10 +1619,10 @@ static void
 removeip(int shell, char *net, char *dev, Ipaddr local, Ipaddr remote)
 {
 	if(validv4(local) && validv4(remote)){
-		ipconfig(shell, net, dev, 0, remote, nil, nil);
+		ipconfig(shell, net, dev, 0, 0, remote, nil, nil);
 		fprint(shell, "remove %I 255.255.255.255\n", local);
 	} else if(validv6(local)){
-		ipconfig(shell, net, dev, 0, nil, nil, nil);
+		ipconfig(shell, net, dev, 0, 0, nil, nil, nil);
 		fprint(shell, "remove %I /64\n", local);
 	}
 }
@@ -1629,7 +1632,7 @@ v6autoconfig(int shell, char *net, char *dev, Ipaddr remote, char *duid)
 {
 	if(server || !validv6(remote))
 		return;
-	ipconfig(shell, net, dev, 0, remote, nil, duid);
+	ipconfig(shell, net, dev, 0, proxy, remote, nil, duid);
 	fprint(shell, "ra6 recvra 1\n");
 }
 
@@ -2806,7 +2809,7 @@ int interactive;
 void
 usage(void)
 {
-	fprint(2, "usage: ppp [-CPSacdfu] [-b baud] [-k keyspec] [-m mtu] "
+	fprint(2, "usage: ppp [-CPSacdfuy] [-b baud] [-k keyspec] [-m mtu] "
 		"[-M chatfile] [-p dev] [-x netmntpt] [-t modemcmd] [-U duid] "
 		"[local-addr [remote-addr]]\n");
 	exits("usage");
@@ -2899,6 +2902,9 @@ main(int argc, char **argv)
 		break;
 	case 'x':
 		setnetmtpt(net, sizeof net, EARGF(usage()));
+		break;
+	case 'y':
+		proxy = 1;
 		break;
 	default:
 		fprint(2, "unknown option %c\n", ARGC());
