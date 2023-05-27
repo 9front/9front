@@ -15,6 +15,7 @@ typedef struct	Ipmulti	Ipmulti;
 typedef struct	Ipifc	Ipifc;
 typedef struct	Iphash	Iphash;
 typedef struct	Ipht	Ipht;
+typedef struct	Ndb	Ndb;
 typedef struct	Netlog	Netlog;
 typedef struct	Medium	Medium;
 typedef struct	Proto	Proto;
@@ -457,6 +458,14 @@ struct Proto
 
 int unusedlport(Proto *p);
 
+struct Ndb
+{
+	QLock;
+	char	*buf;
+	int	len;
+	int	vers;
+	long	mtime;
+};
 
 /*
  *  one per IP protocol stack
@@ -483,9 +492,7 @@ struct Fs
 
 	Netlog	*alog;
 
-	char	ndb[1024];		/* an ndb entry for this interface */
-	int	ndbvers;
-	long	ndbmtime;
+	Ndb	ndb;			/* an ndb entry for this interface */
 };
 
 struct v6params

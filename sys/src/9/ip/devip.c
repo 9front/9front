@@ -57,7 +57,10 @@ Queue	*qlog;
 
 extern	void nullmediumlink(void);
 extern	void pktmediumlink(void);
-	long ndbwrite(Fs *f, char *a, ulong off, int n);
+
+static void ndbopen(Ndb *ndb, int omode);
+static long ndbwrite(Ndb *ndb, char *a, ulong off, int n);
+static long ndbread(Ndb *ndb, char *a, ulong off, int n);
 
 static int
 ip3gen(Chan *c, int i, Dir *dp)
@@ -149,8 +152,8 @@ ip1gen(Chan *c, int i, Dir *dp)
 		break;
 	case Qndb:
 		p = "ndb";
-		len = strlen(f->ndb);
-		q.vers = f->ndbvers;
+		len = f->ndb.len;
+		q.vers = f->ndb.vers;
 		break;
 	case Qiproute:
 		p = "iproute";
@@ -165,8 +168,8 @@ ip1gen(Chan *c, int i, Dir *dp)
 		break;
 	}
 	devdir(c, q, p, len, network, prot, dp);
-	if(i == Qndb && f->ndbmtime > kerndate)
-		dp->mtime = f->ndbmtime;
+	if(i == Qndb && f->ndb.mtime > kerndate)
+		dp->mtime = f->ndb.mtime;
 	return 1;
 }
 
@@ -355,10 +358,7 @@ ipopen(Chan* c, int omode)
 	default:
 		break;
 	case Qndb:
-		if((omode & (OWRITE|OTRUNC)) != 0 && !iseve())
-			error(Eperm);
-		if((omode & (OWRITE|OTRUNC)) == (OWRITE|OTRUNC))
-			f->ndb[0] = 0;
+		ndbopen(&f->ndb, omode);
 		break;
 	case Qlog:
 		netlogopen(f);
@@ -640,7 +640,7 @@ ipread(Chan *ch, void *a, long n, vlong off)
  	case Qbootp:
  		return bootpread(a, offset, n);
  	case Qndb:
-		return readstr(offset, a, n, f->ndb);
+		return ndbread(&f->ndb, a, offset, n);
 	case Qiproute:
 		return routeread(f, a, offset, n);
 	case Qipselftab:
@@ -1167,7 +1167,7 @@ ipwrite(Chan* ch, void *v, long n, vlong off)
 		netlogctl(f, a, n);
 		return n;
 	case Qndb:
-		return ndbwrite(f, a, offset, n);
+		return ndbwrite(&f->ndb, a, offset, n);
 		break;
 	case Qctl:
 		x = f->p[PROTO(ch->qid)];
@@ -1488,17 +1488,72 @@ Fsnewcall(Conv *c, uchar *raddr, ushort rport, uchar *laddr, ushort lport, uchar
 	return nc;
 }
 
-long
-ndbwrite(Fs *f, char *a, ulong off, int n)
+static void
+ndbopen(Ndb *ndb, int omode)
 {
-	if(off > strlen(f->ndb))
+	int trunc;
+
+	trunc = omode & OTRUNC;
+	omode = openmode(omode);
+
+	if((omode == OWRITE || omode == ORDWR || trunc) && !iseve())
+		error(Eperm);
+
+	if(trunc){
+		qlock(ndb);
+		free(ndb->buf);
+		ndb->buf = nil;
+		ndb->len = 0;
+		ndb->vers++;
+		ndb->mtime = seconds();
+		qunlock(ndb);
+	}
+}
+
+static long
+ndbwrite(Ndb *ndb, char *a, ulong off, int n)
+{
+	qlock(ndb);
+	if(waserror()){
+		qunlock(ndb);
+		nexterror();
+	}
+	if(off > ndb->len || off+n >= 32*1024)
 		error(Eio);
-	if(off+n >= sizeof(f->ndb))
-		error(Eio);
-	memmove(f->ndb+off, a, n);
-	f->ndb[off+n] = 0;
-	f->ndbvers++;
-	f->ndbmtime = seconds();
+	if(n > 0){
+		if(off+n > ndb->len){
+			char *nb = realloc(ndb->buf, off+n);
+			if(nb == nil)
+				error(Enomem);
+			ndb->buf = nb;
+			ndb->len = off+n;
+		}
+		memmove(ndb->buf+off, a, n);
+		ndb->vers++;
+		ndb->mtime = seconds();
+	}
+	qunlock(ndb);
+	poperror();
+	return n;
+}
+
+static long
+ndbread(Ndb *ndb, char *a, ulong off, int n)
+{
+	qlock(ndb);
+	if(waserror()){
+		qunlock(ndb);
+		nexterror();
+	}
+	if(off >= ndb->len)
+		n = 0;
+	else {
+		if(off+n > ndb->len)
+			n = ndb->len - off;
+		memmove(a, ndb->buf+off, n);
+	}
+	qunlock(ndb);
+	poperror();
 	return n;
 }
 
