@@ -136,6 +136,7 @@ enum{
 	Tag_acronym,
 	Tag_address,
 	Tag_applet,
+	Tag_article,
 	Tag_audio,
 	Tag_b,
 	Tag_base,
@@ -155,6 +156,8 @@ enum{
 	Tag_dt,
 	Tag_em,
 	Tag_embed,
+	Tag_figure,
+	Tag_figcaption,
 	Tag_font,
 	Tag_form,
 	Tag_frame,	/* rm 5.8.97 */

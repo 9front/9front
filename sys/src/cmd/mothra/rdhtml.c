@@ -1013,6 +1013,9 @@ void plrdhtml(char *name, int fd, Www *dst, int killimgs){
 			g.state->font=BOLD;
 			g.spacc=0;
 			break;
+		case Tag_figcaption:
+			g.linebrk=1;
+			break;
 		case Tag_font:
 			/* more to come */
 			break;
@@ -1212,6 +1215,7 @@ void plrdhtml(char *name, int fd, Www *dst, int killimgs){
 		case Tag_table:
 			g.linebrk=1;
 			break;
+		case Tag_article:
 		case Tag_pre:
 			pl_linespace(&g);
 			break;
