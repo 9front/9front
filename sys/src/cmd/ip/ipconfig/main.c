@@ -24,6 +24,7 @@ int	plan9 = 1;
 int	Oflag;
 int	rflag;
 int	tflag;
+int	yflag;
 
 int	dodhcp;
 int	nodhcpwatch;
@@ -54,7 +55,7 @@ static int	Ufmt(Fmt*);
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-6dDGnNOpPrtuX][-b baud][-c ctl]* [-U duid] [-g gw]"
+	fprint(2, "usage: %s [-6dDGnNOpPrtuXy][-b baud][-c ctl]* [-U duid] [-g gw]"
 		"[-h host][-m mtu][-s dns]...\n"
 		"\t[-f dbfile][-x mtpt][-o dhcpopt] type dev [verb] [laddr [mask "
 		"[raddr [fs [auth]]]]]\n", argv0);
@@ -438,6 +439,9 @@ main(int argc, char **argv)
 	case 'X':
 		nodhcpwatch = 1;
 		break;
+	case 'y':
+		yflag = 1;
+		break;
 	default:
 		usage();
 	} ARGEND;
@@ -657,8 +661,10 @@ ip4cfg(void)
 		maskip(conf.laddr, conf.mask, conf.raddr);
 	n += snprint(buf+n, sizeof buf-n, " %I", conf.raddr);
 	n += snprint(buf+n, sizeof buf-n, " %d", conf.mtu);
+	if(yflag)
+		n += snprint(buf+n, sizeof buf-n, " proxy");
 	if(tflag)
-		n += snprint(buf+n, sizeof buf-n, " trans");
+		n += snprint(buf+n, sizeof buf-n, "%strans", yflag? ",": " ");
 
 	DEBUG("ip4cfg: %.*s", n, buf);
 	if(write(conf.cfd, buf, n) < 0){

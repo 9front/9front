@@ -110,6 +110,7 @@ extern int	dolog;
 
 extern int	plan9;
 extern int	Oflag;
+extern int	yflag;
 
 extern int	dupl_disc;
 

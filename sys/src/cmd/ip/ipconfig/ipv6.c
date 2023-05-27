@@ -376,6 +376,8 @@ Again:
 		maskip(conf.laddr, conf.mask, conf.raddr);
 	n += snprint(buf+n, sizeof buf-n, " %I", conf.raddr);
 	n += snprint(buf+n, sizeof buf-n, " %d", conf.mtu);
+	if(yflag)
+		n += snprint(buf+n, sizeof buf-n, " proxy");
 
 	DEBUG("ip6cfg: %.*s", n, buf);
 	if(write(conf.cfd, buf, n) < 0){

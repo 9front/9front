@@ -5,7 +5,7 @@ ipconfig, rip, linklocal \- Internet configuration and routing
 .in +0.25i
 .ti -0.25i
 .B ip/ipconfig
-.RB [ -6DGNOPdnprtuX ]
+.RB [ -6DGNOPdnprtuXy ]
 .RB [ -U
 .IR duid ]
 .RB [ -b
@@ -268,6 +268,12 @@ instead of at
 .TP
 .B X
 don't fork a process to keep the DHCP lease alive.
+.TP
+.B y
+When adding an address,
+ARP proxy the new network on other interfaces
+if the sub-net falls within a super-net
+on the other interface.
 .TP
 .B o
 adds
