@@ -6,15 +6,17 @@ int	debug;
 long	errrate;
 long	droprate;
 int	framing;
+int	noauth;
 int	nocompress;
 int	noipcompress;
-char	*ppp = "8.out";
+int	proxy;
+char	*ppp = "6.out";
 char	*mtu;
 
 void
 pppopen(int fd, char *net, char *local, char *remote)
 {
-	char *argv[16];
+	char *argv[32];
 	int argc;
 
 	switch(fork()){
@@ -29,11 +31,19 @@ pppopen(int fd, char *net, char *local, char *remote)
 
 	dup(fd, 0);
 	dup(fd, 1);
-
 	argc = 0;
 	argv[argc++] = ppp;
 	if(debug)
 		argv[argc++] = "-d";
+	if(local){
+		/* server */
+		argv[argc++] = "-S";
+		if(noauth)
+			argv[argc++] = "-a";
+	} else {
+		/* client */
+		argv[argc++] = "-P";
+	}
 	if(framing)
 		argv[argc++] = "-f";
 	if(nocompress)
@@ -46,12 +56,15 @@ pppopen(int fd, char *net, char *local, char *remote)
 	}
 	argv[argc++] = "-x";
 	argv[argc++] = net;
+	if(proxy){
+		argv[argc++] = "-y";
+	}
 	if(local){
 		argv[argc++] = local;
 		if(remote)
 			argv[argc++] = remote;
 	}
-	argv[argc] = 0;
+	argv[argc] = nil;
 	exec(ppp, argv);
 }
 
@@ -129,7 +142,7 @@ xfer(int from, int to)
 void
 usage(void)
 {
-	fprint(2, "usage: testppp [-cCDf] [-e errrate] [-d droprate] [-m mtu] [-p ppp]\n");
+	fprint(2, "usage: testppp [-cCDf] [-e errrate] [-d droprate] [-m mtu] [-p ppp] local remote\n");
 	exits("usage");
 }
 
@@ -143,6 +156,9 @@ main(int argc, char **argv)
 	errrate = 0;
 	droprate = 0;
 	ARGBEGIN{
+	case 'a':
+		noauth = 1;
+		break;
 	case 'c':
 		nocompress = 1;
 		break;
@@ -173,19 +189,21 @@ main(int argc, char **argv)
 		if(ppp == nil)
 			usage();
 		break;
+	case 'y':
+		proxy = 1;
+		break;
 	default:
 		usage();
 		break;
 	}ARGEND
-	if(argc)
+
+	if(argc != 2)
 		usage();
 
 	pipe(pfd1);
 	pipe(pfd2);
 
-	bind("#I2", "/net.alt2", MCREATE);
-	bind("#I1", "/net.alt", MCREATE);
-	pppopen(pfd1[0], "/net.alt2", "135.104.99.1", "135.104.99.2");
+	pppopen(pfd1[0], "/net", argv[0], argv[1]);
 	pppopen(pfd2[0], "/net.alt", 0, 0);
 
 	close(pfd1[0]);
