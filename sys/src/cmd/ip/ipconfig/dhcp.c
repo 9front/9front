@@ -553,7 +553,9 @@ dhcprecv(void)
 
 		/* get plan9-specific options */
 		n = optgetvec(bp->optdata, OBvendorinfo, vopts, sizeof vopts-1);
-		if(n > 0 && parseoptions(vopts, n) == 0){
+		if(n >= 15 && memcmp(vopts, "ANDROID_METERED", 15) == 0){
+			/* Android shouldn't be sending us this garbage; ignore it */
+		} else if(n > 0 && parseoptions(vopts, n) == 0){
 			if(!(Oflag && validip(conf.fs))){
 				n = optgetp9addrs(vopts, OP9fs, taddr, 2);
 				if(n < 2)
@@ -950,11 +952,6 @@ parseoptions(uchar *p, int n)
 	int code, len, nin = n;
 
 	while (n > 0) {
-		/* Android shouldn't be sending us this garbage; filter it out */
-		static char garbage[] = "ANDROID_METERED";
-		if(n >= sizeof(garbage)-1 && memcmp(p, garbage, sizeof(garbage)-1) == 0)
-			memset(p, OBpad, sizeof(garbage)-1);
-
 		code = *p++;
 		n--;
 		if(code == OBend)
