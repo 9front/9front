@@ -135,6 +135,19 @@ Channel *conschan;	/* chan(char*) */
 Channel *kbdchan;	/* chan(char*) */
 Channel *intchan;	/* chan(int) */
 
+char *layertab[Nlayers] = {
+	[Lnone]		"none",
+	[Lshift]	"shift",
+	[Lesc1]		"esc",
+	[Laltgr]	"altgr",
+	[Lctl]		"ctl",
+	[Lctrlesc1]	"ctlesc",
+	[Lshiftesc1]	"shiftesc",
+	[Lshiftaltgr]	"shiftaltgr",
+	[Lmod4]		"mod4",
+	[Laltgrmod4]	"altgrmod4",
+};
+
 /* /sys/lib/kbmap/ascii defaults */
 Rune ascii[Nlayers][Nscan] = {
 
@@ -1208,7 +1221,7 @@ kbcompat(Rune r)
 void
 kbmapwrite(Req *req)
 {
-	char line[100], *lp, *b;
+	char line[100], *lp, *b, *e;
 	Rune r, *rp;
 	int sc, t, l;
 	Fid *f;
@@ -1232,14 +1245,24 @@ kbmapwrite(Req *req)
 				respond(req, Ebadarg);
 				return;
 			}
-			if(*line == '\n' || *line == '#'){
-				lp = line;
-				continue;
-			}
 			lp = line;
+			if(*line == '\n' || *line == '#')
+				continue;
 			while(*lp == ' ' || *lp == '\t')
 				lp++;
-			t = strtoul(line, &lp, 0);
+			for(e = lp; strchr("\t ", *e) == nil; e++)
+				;
+			if(e == lp)
+				goto Badarg;
+			*e = '\0';
+			for(t = 0; t < nelem(layertab); t++){
+				if(strcmp(lp, layertab[t]) != 0)
+					continue;
+				break;
+			}
+			if(t == nelem(layertab))
+				t = strtoul(lp, nil, 0);
+			lp = e + 1;
 			sc = strtoul(lp, &lp, 0);
 			while(*lp == ' ' || *lp == '\t')
 				lp++;
