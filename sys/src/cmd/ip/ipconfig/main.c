@@ -882,7 +882,7 @@ refresh(void)
 	}
 
 	/* dns unaffected, no need to refresh dns */
-	if(!beprimary)
+	if(!beprimary && !dondbconfig)
 		return;
 
 	snprint(file, sizeof file, "%s/dns", conf.mpoint);
