@@ -1,6 +1,6 @@
 .TH NDB 2
 .SH NAME
-ndbopen, ndbcat, ndbchanged, ndbclose, ndbreopen, ndbsearch, ndbsnext, ndbgetvalue, ndbfree, ipattr, mkptrname, ndbgetipaddr, ndbipinfo, csipinfo, ndbhash, ndbparse, csgetvalue, ndbfindattr, dnsquery, ndbdiscard, ndbconcatenate, ndbreorder, ndbsubstitute, ndbdedup \- network database
+ndbopen, ndbcat, ndbchanged, ndbclose, ndbreopen, ndbsearch, ndbsnext, ndbgetvalue, ndbfree, ipattr, mkptrname, ndbgetipaddr, ndbipinfo, csipinfo, ndbhash, ndbparse, csgetvalue, ndbfindattr, dnsquery, ndbdiscard, ndbconcatenate, ndbreorder, ndbsubstitute, ndbdedup, ndbsetmalloctag, ndbvalfmt \- network database
 .SH SYNOPSIS
 .B #include <u.h>
 .br
@@ -94,6 +94,9 @@ Ndbtuple*	ndbdedup(Ndbtuple *t)
 .PP
 .B
 void	ndbsetmalloctag(Ndbtuple *t, uintptr tag)
+.PP
+.B
+int	ndbvalfmt(Fmt*)
 .SH DESCRIPTION
 These routines are used by network administrative programs to search
 the network database.
@@ -523,6 +526,27 @@ of each tuple in the list
 .I t
 to
 .IR tag .
+.PP
+.I Ndbvalfmt
+formats a
+.B char*
+string
+of a
+.I Ndbtuple
+val,
+adding " quoting if necessary.
+It is typically enabled by calling:
+.IP
+.EX
+fmtinstall('$', ndbvalfmt);
+.EE
+.PP
+And then used like:
+.IP
+.EX
+Ndbtuple *t = ...
+print("%s=%$", t->attr, t->val);
+.EE
 .SH FILES
 .BR /lib/ndb "    directory of network database files
 .SH SOURCE

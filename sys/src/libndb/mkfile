@@ -23,6 +23,7 @@ OFILES=\
 	ndbreorder.$O\
 	ndbsubstitute.$O\
 	ndbdedup.$O\
+	ndbvalfmt.$O\
 
 HFILES=\
 	/sys/include/ndb.h\

@@ -151,3 +151,4 @@ Ndbtuple*	ndbsnext(Ndbs*, char*, char*);
 Ndbtuple*	ndbsubstitute(Ndbtuple*, Ndbtuple*, Ndbtuple*);
 Ndbtuple*	ndbdedup(Ndbtuple*);
 void		ndbsetmalloctag(Ndbtuple*, uintptr);
+int		ndbvalfmt(Fmt*);
