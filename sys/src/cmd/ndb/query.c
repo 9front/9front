@@ -26,6 +26,9 @@ prmatch(Ndbtuple *nt, char *rattr)
 			Bprint(&bout, "%s\n", nt->val);
 }
 
+/* for ndbvalfmt */
+#pragma varargck type "$" char*
+
 void
 search(Ndb *db, char *attr, char *val, char *rattr)
 {
@@ -58,7 +61,7 @@ search(Ndb *db, char *attr, char *val, char *rattr)
 	/* all entries */
 	for(t = ndbsearch(db, &s, attr, val); t; t = ndbsnext(&s, attr, val)){
 		for(nt = t; nt; nt = nt->entry)
-			Bprint(&bout, "%s=%s ", nt->attr, nt->val);
+			Bprint(&bout, "%s=%$ ", nt->attr, nt->val);
 		Bprint(&bout, "\n");
 		ndbfree(t);
 	}
@@ -71,6 +74,8 @@ main(int argc, char **argv)
 	char *rattr = nil, *dbfile = nil;
 	Ndb *db;
 	
+	fmtinstall('$', ndbvalfmt);
+
 	ARGBEGIN{
 	case 'a':
 		all++;
