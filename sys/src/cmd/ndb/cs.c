@@ -6,7 +6,6 @@
 #include <ctype.h>
 #include <ndb.h>
 #include <ip.h>
-#include <String.h>
 
 enum
 {
@@ -187,6 +186,22 @@ char *mysysname;
 Network *netlist;		/* networks ordered by preference */
 Network *last;
 
+#pragma varargck type "$" char*
+#pragma varargck type "N" Ndbtuple*
+
+static int
+ndblinefmt(Fmt *f)
+{
+	Ndbtuple *t;
+
+	for(t = va_arg(f->args, Ndbtuple*); t != nil; t = t->entry) {
+		fmtprint(f, "%s=%$ ", t->attr, t->val);
+		if(t->line != t->entry)
+			break;
+	}
+	return 0;
+}
+
 static void
 nstrcpy(char *to, char *from, int len)
 {
@@ -240,6 +255,9 @@ main(int argc, char *argv[])
 	fmtinstall('I', eipfmt);
 	fmtinstall('M', eipfmt);
 	fmtinstall('F', fcallfmt);
+
+	fmtinstall('$', ndbvalfmt);
+	fmtinstall('N', ndblinefmt);
 
 	ndbinit();
 	netinit(0);
@@ -1775,23 +1793,21 @@ qmatch(Ndbtuple *t, char **attr, char **val, int n)
 void
 qreply(Mfile *mf, Ndbtuple *t)
 {
-	Ndbtuple *nt;
-	String *s;
+	while(mf->nreply < Nreply && t != nil) {
+		char *line = smprint("%N", t);
+		if(line == nil)
+			break;
+		mf->reply[mf->nreply] = line;
+		mf->replylen[mf->nreply++] = strlen(line);
 
-	s = s_new();
-	for(nt = t; mf->nreply < Nreply && nt != nil; nt = nt->entry){
-		s_append(s, nt->attr);
-		s_append(s, "=");
-		s_append(s, nt->val);
-
-		if(nt->line != nt->entry){
-			mf->replylen[mf->nreply] = s_len(s);
-			mf->reply[mf->nreply++] = estrdup(s_to_c(s));
-			s_restart(s);
-		} else
-			s_append(s, " ");
+		/* skip to next line */
+		do {
+			Ndbtuple *l = t->line;
+			t = t->entry;
+			if(t != l)
+				break;
+		} while(t != nil);
 	}
-	s_free(s);
 }
 
 enum
