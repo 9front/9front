@@ -570,13 +570,15 @@ challenge(JSON *j, char *authurl, JSON *id, char *dom[], int ndom, int *matched,
 	if((tok = jsonbyname(j, "token")) == nil)
 		return -1;
 
-	if(ty->t != JSONString || url->t != JSONString || tok->t != JSONString)
+	if(ty->t != JSONString || url->t != JSONString || tok->t != JSONString) {
+		werrstr("invalid challenge");
 		return -1;
+	}
 
 	if((dn = jsonbyname(id, "value")) == nil)
 		return -1;
 	if(dn->t != JSONString) {
-		werrstr("key 'value' not a string");
+		werrstr("invalid identifier");
 		return -1;
 	}
 
@@ -684,7 +686,7 @@ dochallenges(char *dom[], int ndom, JSON *order)
 				werrstr("could not complete challenge: %r");
 		}
 		if(!matched)
-			sysfatal("no matching auth type");
+			sysfatal("no matching auth type: %r");
 		jsonfree(chals);
 		free(resp);
 	}
