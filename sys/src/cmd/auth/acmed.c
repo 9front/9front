@@ -435,8 +435,7 @@ submitorder(char **dom, int ndom, Hdr *hdr)
 		sep = ",";
 	}
 	req = seprint(req, rbuf+sizeof(rbuf),
-		"  ],"
-		"  \"wildcard\": false"
+		"  ]"
 		"}");
 	if(req - rbuf < 2)
 		sysfatal("truncated order");
@@ -558,7 +557,7 @@ dnschallenge(char *ty, char *dom, char *tok, int *matched)
 }
 
 static int
-challenge(JSON *j, char *authurl, JSON *id, char *dom[], int ndom, int *matched)
+challenge(JSON *j, char *authurl, JSON *id, char *dom[], int ndom, int *matched, int wild)
 {
 	JSON *dn, *ty, *url, *tok, *poll, *state;
 	char *resp;
@@ -576,11 +575,17 @@ challenge(JSON *j, char *authurl, JSON *id, char *dom[], int ndom, int *matched)
 
 	if((dn = jsonbyname(id, "value")) == nil)
 		return -1;
-	if(dn->t != JSONString)
+	if(dn->t != JSONString) {
+		werrstr("key 'value' not a string");
 		return -1;
+	}
 
 	/* make sure the identifier matches the csr */
 	for(i = 0; i < ndom; i++){
+		/* if we got a wildcard certificate, the returned identifier has the *. removed */
+		if(wild && strncmp(dom[i], "*.", 2) == 0)
+			dom[i] += 2;
+
 		if(cistrcmp(idn(dom[i]), dn->s) == 0)
 			break;
 	}
@@ -628,9 +633,9 @@ challenge(JSON *j, char *authurl, JSON *id, char *dom[], int ndom, int *matched)
 static int
 dochallenges(char *dom[], int ndom, JSON *order)
 {
-	JSON *chals, *j, *cl, *id;
+	JSON *chals, *j, *cl, *id, *wc;
 	JSONEl *ae, *ce;
-	int nresp, matched;
+	int nresp, matched, wild;
 	char *resp;
 
 	if((j = jsonbyname(order, "authorizations")) == nil){
@@ -664,9 +669,16 @@ dochallenges(char *dom[], int ndom, JSON *order)
 			jsonfree(chals);
 			return -1;
 		}
+
+		wild = 0;
+		if((wc = jsonbyname(chals, "wildcard")) != nil){
+			if(wc->t == JSONBool && wc->n == 1)
+				wild = 1;
+		}
+
 		matched = 0;
 		for(ce = cl->first; ce != nil; ce = ce->next){
-			if(challenge(ce->val, ae->val->s, id, dom, ndom, &matched) == 0)
+			if(challenge(ce->val, ae->val->s, id, dom, ndom, &matched, wild) == 0)
 				break;
 			if(matched)
 				werrstr("could not complete challenge: %r");
