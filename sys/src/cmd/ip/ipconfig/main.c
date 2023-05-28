@@ -51,6 +51,8 @@ static void	ndbconfig(void);
 
 static int	Ufmt(Fmt*);
 #pragma varargck type "U" char*
+/* for ndbvalfmt */
+#pragma varargck type "$" char*
 
 void
 usage(void)
@@ -73,6 +75,8 @@ init(void)
 	fmtinstall('M', eipfmt);
 	fmtinstall('V', eipfmt);
 	fmtinstall('U', Ufmt);
+	fmtinstall('$', ndbvalfmt);
+
 	nsec();			/* make sure time file is open before forking */
 
 	conf.cfd = -1;
@@ -787,13 +791,14 @@ putndb(int doadd)
 		while((t = ndbparse(db)) != nil){
 			uchar ip[IPaddrlen];
 
-			if((nt = ndbfindattr(t, t, "ip")) == nil
+			if(ndbfindattr(t, t, "ipnet") != nil
+			|| (nt = ndbfindattr(t, t, "ip")) == nil
 			|| parseip(ip, nt->val) == -1
 			|| ipcmp(ip, conf.laddr) != 0 && myip(allifcs, ip)){
 				if(p > buf)
 					p = seprint(p, e, "\n");
 				for(nt = t; nt != nil; nt = nt->entry)
-					p = seprint(p, e, "%s=%s%s", nt->attr, nt->val,
+					p = seprint(p, e, "%s=%$%s", nt->attr, nt->val,
 						nt->entry==nil? "\n": nt->line!=nt->entry? "\n\t": " ");
 			}
 			ndbfree(t);
