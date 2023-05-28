@@ -310,10 +310,10 @@ poweroff(void)
 	/* The ACPI spec requires we call _TTS and _PTS to prepare
 	 * the system to go to _S5 state. If they fail, too bad,
 	 * try to go to _S5 state anyway. */
-	pts = amlval(amlwalk(amlroot, "_PTS"));
-	tts = amlval(amlwalk(amlroot, "_TTS"));
+	pts = amlwalk(amlroot, "_PTS");
 	if(pts)
 		amleval(pts, "i", 5, nil);
+	tts = amlwalk(amlroot, "_TTS");
 	if(tts)
 		amleval(tts, "i", 5, nil);
 
