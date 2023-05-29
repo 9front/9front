@@ -201,7 +201,7 @@ will cause to send a
 up before the
 .LR Del
 key.
-This is usefull for programs like
+This is useful for programs like
 .IR vnc (1)
 and
 .IR vmx (1).
@@ -263,25 +263,77 @@ Raw scancodes can be written to the
 .BR kbin
 file for external keyboard input (used for USB keyboards).
 .SS "Keyboard map"
-Scancodes are mapped to Unicode characters with a number of
-translation tables. These tables can be accessed with the
+PS/2 keyboards generate one and two byte scancodes sequences
+which give keyboard events relative to physical key location.
+These codes are then translated to Unicode runes using a series
+of tables hereafter referred to as layers. The true mapping
+of scancodes is locale and potentially device specific.
+.PP
+The PS/2 interface presents two physical layers, switched on if
+the input scancode is one or two bytes. This second "escaped" layer
+is typically generated for keys like
+.LR Home
+and
+.LR Ins .
+.IR Kbdfs
+additionally maintains eight more virtual layers that are switched on
+.LR Shift ,
+.LR Ctl ,
+.LR AltGr ,
+and
+.LR Mod4
+modifier key state. Not all permutations of these modifiers are represented
+as layers, the exhaustive list is as follows:
+.TP \w'shiftaltgr\ \ \ \ \ 'u
+.I none
+Key
+.PD 0
+.TP
+.I shift
+Shift + Key
+.TP
+.I esc
+Escaped Key
+.TP
+.I altgr
+AltGr + Key
+.TP
+.I ctl
+Ctl + Key
+.TP
+.I ctlesc
+Ctl + Escaped Key
+.TP
+.I shiftesc
+Shift + Escaped Key
+.TP
+.I shiftaltgr
+Shift + AltGr + Key
+.TP
+.I mod4
+Mod4 + Key
+.TP
+.I altgrmod4
+AltGr + Mod4 + Key
+.PD
+.PP
+These layers can be accessed with the
 .BR kbmap
-file.
+file. A map entry is a line containing
+three whitespace separated fields:
+the layer name, the scancode, and the resulting
+Unicode value. A layer may also historically
+be addressed by its numeric index in the above list.
+A Unicode value of zero indicates to drop that particular
+input.
 .PP
 Reads return the current contents of the map.
-Each entry is one line containing three 11 character numeric fields,
-each followed by a space:
-a table number, an index into the table (scan code), and the decimal value
-of the corresponding Unicode character (0 if none).
-The table numbers are platform dependent; they typically distinguish
-between unshifted and shifted keys.
-The scan code values are hardware dependent and can vary
-from keyboard to keyboard.
+Each map entry has its fields padded to 11
+characters.
 .PP
-Writes to the file change the map.
-Lines written to the file must contain three space-separated fields,
-representing the table number, scan code index, and Unicode character.
-Values are taken to be decimal unless they start with
+Writes accept new map entries.
+Numeric values are taken to be decimal
+unless they start with
 .B 0x
 (hexadecimal) or
 .B 0

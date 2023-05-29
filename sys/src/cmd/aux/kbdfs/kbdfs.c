@@ -1194,7 +1194,7 @@ kbmapread(Req *req)
 	t = off/Nscan;
 	sc = off%Nscan;
 	if(rp = kbmapent(t, sc)){
-		sprint(tmp, "%11d %11d %11d\n", t, sc, *rp);
+		sprint(tmp, "%11s %11d %11d\n", layertab[t], sc, *rp);
 		n = strlen(&tmp[soff]);
 		if(req->ifcall.count < n)
 			n = req->ifcall.count;
