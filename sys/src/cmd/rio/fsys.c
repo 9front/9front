@@ -417,7 +417,8 @@ filsyswalk(Filsys *fs, Xfid *x, Fid *f)
 				type = QTDIR;
 				qunlock(&all);
 				incref(w);
-				sendp(winclosechan, f->w);
+				if(f->w)
+					sendp(winclosechan, f->w);
 				f->w = w;
 				dir = dirtab;
 				goto Accept;
