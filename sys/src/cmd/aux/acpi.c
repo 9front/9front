@@ -293,7 +293,7 @@ amlwrite(Amlio *io, int addr, int wid, uvlong v)
 	(*io->write)(io, b, 1<<(wid-1), addr);
 }
 
-static void
+static int
 poweroff(void)
 {
 	int n;
@@ -302,7 +302,7 @@ poweroff(void)
 
 	if(facp.ok == 0){
 		werrstr("no FACP");
-		return;
+		return -1;
 	}
 
 	wirecpu0();
@@ -362,6 +362,7 @@ poweroff(void)
 	sleep(100);
 
 	werrstr("acpi failed");
+	return -1;
 }
 
 static void
@@ -420,7 +421,7 @@ fswrite(Req *r)
 static void
 usage(void)
 {
-	fprint(2, "usage: aux/acpi [-Dp] [-m mountpoint] [-s service]\n");
+	fprint(2, "usage: aux/acpi [-DHp] [-m mountpoint] [-s service]\n");
 	exits("usage");
 }
 
@@ -436,11 +437,12 @@ threadmain(int argc, char **argv)
 {
 	char *mtpt, *srv;
 	void *r, **rr;
-	int fd, n, l;
+	int fd, n, l, halt;
 	Tbl *t;
 
 	mtpt = "/dev";
 	srv = nil;
+	halt = 0;
 	ARGBEGIN{
 	case 'D':
 		chatty9p = 1;
@@ -453,6 +455,9 @@ threadmain(int argc, char **argv)
 		break;
 	case 'p':
 		amldebug++;
+		break;
+	case 'H':
+		halt = 1;
 		break;
 	default:
 		usage();
@@ -549,6 +554,9 @@ threadmain(int argc, char **argv)
 		facp.slpb = amlint(rr[1]);
 	}
 	close(fd);
+
+	if(halt && poweroff() < 0)
+		sysfatal("%r");
 
 	amlenum(amlroot, "_HID", enumec, nil);
 	amlenum(amlroot, "_BIF", enumbat, nil);

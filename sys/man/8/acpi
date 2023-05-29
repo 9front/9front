@@ -7,6 +7,9 @@ acpi \- Advanced Configuration and Power Interface
 .PP
 .B aux/acpi
 [
+.B -H
+]
+[
 .B -m
 .I mountpoint
 ]
@@ -26,6 +29,12 @@ is specified, the interface will be
 posted at
 .BI /srv/ service 
 as well.
+.PP
+With the
+.B -H
+option,
+.I aux/acpi
+will turn off the power immediately.
 .PP
 The directory contains the following files.
 .TP
@@ -57,7 +66,7 @@ will turn off the power.
 .SH SOURCE
 .B /sys/src/cmd/aux/acpi.c
 .SH SEE ALSO
-.IR imx8pm (8)
+.IR reform (1)
 .SH BUGS
 ACPI itself.
 .SH HISTORY
