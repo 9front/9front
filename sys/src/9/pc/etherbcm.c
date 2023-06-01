@@ -246,6 +246,8 @@ enum {
 	BCM5761e = 0x1680, 
 	BCM5761 = 0x1681, 
 	BCM5764M = 0x1684, 
+	BCM57766 = 0x1686,
+	BCM5762 = 0x1687,
 	BCM57760 = 0x1690, 
 	BCM57788 = 0x1691, 
 	BCM57780 = 0x1692, 
@@ -616,19 +618,28 @@ bcminit(Ether *edev)
 	csr32(ctlr, ReceiveBDHostAddr + 0) = pa >> 32;
 	csr32(ctlr, ReceiveBDHostAddr + 4) = pa;
 	switch(ctlr->pdev->did) {
-		case BCM5717:
-		case BCM5718:
-		case BCM5719:
-		case BCM5720:
-			/* 5717 series have a different receive bd nic addr,
-			 * and a max frame length field in bits 2 to 15. */
-			csr32(ctlr, ReceiveBDFlags) = RecvProdRingLen << 16 | 1536 << 2;
-			csr32(ctlr, ReceiveBDNIC) = 0x40000;
-			break;
+	case BCM5717:
+	case BCM5718:
+	case BCM5719:
+	case BCM5720:
+		/* 5717 series have a different receive bd nic addr,
+		 * and a max frame length field in bits 2 to 15. */
+		csr32(ctlr, ReceiveBDFlags) = RecvProdRingLen << 16 | 1536 << 2;
+		csr32(ctlr, ReceiveBDNIC) = 0x40000;
+		break;
 
-		default:
-			csr32(ctlr, ReceiveBDFlags) = RecvProdRingLen << 16;
-			csr32(ctlr, ReceiveBDNIC) = 0x6000;
+	case BCM5762:
+	case BCM57765:
+	case BCM57766:
+		/* 57765 series have the max frame length field,
+		 * but not the different receive bd addr */
+		csr32(ctlr, ReceiveBDFlags) = RecvProdRingLen << 16 | 1536 << 2;
+		csr32(ctlr, ReceiveBDNIC) = 0x6000;
+		break;
+
+	default:
+		csr32(ctlr, ReceiveBDFlags) = RecvProdRingLen << 16;
+		csr32(ctlr, ReceiveBDNIC) = 0x6000;
 	}
 
 	csr32(ctlr, ReceiveBDRepl) = 25;
@@ -800,6 +811,8 @@ bcmpci(void)
 		case BCM5761e:
 		case BCM5761:
 		case BCM5764M:
+		case BCM57766:
+		case BCM5762:
 		case BCM57760:
 		case BCM57788:
 		case BCM57780:
