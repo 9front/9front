@@ -294,11 +294,106 @@ nvmerio(SDreq *r)
 	return r->status = SDok;
 }
 
+static u64int
+get64(uchar *p)
+{
+	return p[0] | p[1]<<8 | p[2]<<16 | p[3]<<24
+		| (u64int)p[4]<<32
+		| (u64int)p[5]<<40
+		| (u64int)p[6]<<48
+		| (u64int)p[7]<<56;
+}
+
+static long
+readsmart(SDunit *u, Chan *, void *a, long n, vlong off)
+{
+	Ctlr *ctlr = u->dev->ctlr;
+	char *buf, *p, *e;
+	uchar *info;
+	u32int nsid, *q;
+	WS ws;
+
+	buf = smalloc(READSTR);
+	if(waserror()){
+		free(buf);
+		nexterror();
+	}
+	p = buf;
+	e = buf + READSTR;
+
+	info = mallocalign(0x1000, ctlr->mps, 0, 0);
+	if(info == nil)
+		error(Enomem);
+	if(waserror()){
+		free(info);
+		nexterror();
+	}
+
+	/*
+	 * Log Page Attributes (LPA) Bit0: If set to '1' then te controller
+	 * supports SMART / Health information log page on a per namespace basis.
+	 */
+	nsid = (ctlr->ident[261] & 1) != 0 ? ctlr->nsid[u->subno] : 0xffffffff;
+
+	q = qcmd(&ws, ctlr, 1, 0x02, nsid, info, 0x1000);
+	q[10] = (512/4)<<16 | 0x2;
+	q[11] = 0;
+	q[12] = 0;
+	q[13] = 0;
+	q[14] = 0;
+	checkstatus(wcmd(&ws, q), "read SMART/health info");
+	dmaflush(0, info, 0x1000);
+
+	p = seprint(p, e, "Critical Warning:\t");
+	if(info[0]&(1<<0))
+		p = seprint(p, e, "Available Spare,");
+	if(info[0]&(1<<1))
+		p = seprint(p, e, "Temperature Exceeded,");
+	if(info[0]&(1<<2))
+		p = seprint(p, e, "Reliability Degraded,");
+	if(info[0]&(1<<3))
+		p = seprint(p, e, "Read only mode,");
+	if(info[0]&(1<<4))
+		p = seprint(p, e, "Backup failed,");
+	p[-1] = '\n';
+
+	p = seprint(p, e, "Temperature:\t%d\n", (info[2]<<8 | info[1]) - 273);
+
+	p = seprint(p, e, "Available Spare:\t%d%%\n", info[3]);
+	p = seprint(p, e, "Available Spare Threshold:\t%d%%\n", info[4]);
+
+	p = seprint(p, e, "Percentage Used:\t%d%%\n", info[5]);
+
+	p = seprint(p, e, "Data Units Read:\t%llud\n", get64(info+32));
+	p = seprint(p, e, "Data Units Written:\t%llud\n", get64(info+48));
+	p = seprint(p, e, "Host Read Commands:\t%llud\n", get64(info+64));
+	p = seprint(p, e, "Host Write Commands:\t%llud\n", get64(info+80));
+	p = seprint(p, e, "Controller Busy Time:\t%llud:%.2d\n", get64(info+96)/60, (int)(get64(info+96)%60));
+	p = seprint(p, e, "Power Cycles:\t%llud\n", get64(info+112));
+	p = seprint(p, e, "Power On Hours:\t%llud\n", get64(info+128));
+	p = seprint(p, e, "Unsafe Shutdowns:\t%llud\n", get64(info+144));
+	p = seprint(p, e, "Media Errors:\t%llud\n", get64(info+160));
+	USED(p);
+
+	free(info);
+	poperror();
+
+	n = readstr(off, a, n, buf);
+	free(buf);
+	poperror();
+
+	return n;
+}
+
 static int
 nvmeverify(SDunit *u)
 {
 	Ctlr *ctlr = u->dev->ctlr;
-	return u->subno < ctlr->nnsid;
+
+	if(u->subno >= ctlr->nnsid)
+		return 0;
+	sdaddfile(u, "smart", 0440, eve, readsmart, nil);
+	return 1;
 }
 
 static int
@@ -323,12 +418,7 @@ nvmeonline(SDunit *u)
 		return 0;
 	}
 	dmaflush(0, info, 0x1000);
-	p = info;
-	u->sectors = p[0] | p[1]<<8 | p[2]<<16 | p[3]<<24
-		| (u64int)p[4]<<32
-		| (u64int)p[5]<<40
-		| (u64int)p[6]<<48
-		| (u64int)p[7]<<56;
+	u->sectors = get64(info);
 	p = &info[128 + 4*(info[26]&15)];
 	lbaf = p[0] | p[1]<<8 | p[2]<<16 | p[3]<<24;
 	u->secsize = 1<<((lbaf>>16)&0xFF);
@@ -348,10 +438,6 @@ nvmerctl(SDunit *u, char *p, int l)
 {
 	Ctlr *ctlr;
 	char *e, *s;
-	u8int *data;
-	u32int *q;
-	u64int n;
-	WS ws;
 
 	if((ctlr = u->dev->ctlr) == nil || ctlr->ident == nil)
 		return 0;
@@ -363,37 +449,6 @@ nvmerctl(SDunit *u, char *p, int l)
 	p = seprint(p, e, "serial\t%.20s\n", (char*)ctlr->ident+4);
 	p = seprint(p, e, "firm\t%.8s\n", (char*)ctlr->ident+64);
 	p = seprint(p, e, "geometry %llud %lud\n", u->sectors, u->secsize);
-
-	/* SMART/health */
-	if((data = mallocalign(0x1000, ctlr->mps, 0, 0)) != nil){
-		q = qcmd(&ws, ctlr, 1, 0x02, 0xffffffff, data, 0x1000);
-		q[10] = (512/4)<<16 | 0x2;
-		q[11] = 0;
-		q[12] = 0;
-		q[13] = 0;
-		q[14] = 0;
-		if(wcmd(&ws, q) == 0){
-			dmaflush(0, data, 0x1000);
-			p = seprint(p, e, "temperature\t%d\n", (data[2]<<8 | data[1]) - 273);
-			p = seprint(p, e, "spare\t%d%%\n", data[3]);
-			p = seprint(p, e, "used\t%d%%\n", data[5]);
-			/* 16 bytes long, ignore the upper half */
-			n = data[144]<<0 | data[145]<<8 | data[146]<<16 | data[147]<<24
-				| (u64int)data[148]<<32
-				| (u64int)data[149]<<40
-				| (u64int)data[150]<<48
-				| (u64int)data[151]<<56;
-			p = seprint(p, e, "unsafe shutdowns\t%llud\n", n);
-			/* 16 bytes long, ignore the upper half */
-			n = data[160]<<0 | data[161]<<8 | data[162]<<16 | data[163]<<24
-				| (u64int)data[164]<<32
-				| (u64int)data[165]<<40
-				| (u64int)data[166]<<48
-				| (u64int)data[167]<<56;
-			p = seprint(p, e, "integrity errors\t%llud\n", n);
-		}
-		free(data);
-	}
 
 	return p-s;
 }

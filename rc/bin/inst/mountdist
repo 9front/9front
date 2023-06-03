@@ -73,7 +73,7 @@ case go
 	echo Please wait... Scanning storage devices...
 
 	parts=`{ls /dev/sd*/* /srv/sd*/*.iso >[2]/dev/null |
-		grep -v '/(plan9.*|nvram|ctl|log|raw)$'}
+		grep -v '/(plan9.*|nvram|ctl|log|led|raw|smart)$'}
 	for (i in $parts) {
 		echo -n '	'^$i
 		t=`{fstype $i}
