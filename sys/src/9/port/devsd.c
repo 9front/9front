@@ -78,6 +78,36 @@ enum {
 #define QID(d,u, p, t)	(((d)<<DevSHIFT)|((u)<<UnitSHIFT)|\
 					 ((p)<<PartSHIFT)|((t)<<TypeSHIFT))
 
+static void
+freeperm(SDperm *perm)
+{
+	free(perm->name);
+	perm->name = nil;
+	free(perm->user);
+	perm->user = nil;
+}
+
+static void
+freeunit(SDunit *unit)
+{
+	int i;
+
+	if(unit == nil)
+		return;
+
+	for(i = 0; i < unit->nefile; i++)
+		freeperm(&unit->efile[i]);
+
+	for(i = 0; i < unit->npart; i++)
+		freeperm(&unit->part[i]);
+	free(unit->part);
+
+	freeperm(&unit->ctlperm);
+	freeperm(&unit->rawperm);
+	freeperm(unit);
+
+	free(unit);
+}
 
 static void
 sdaddpart(SDunit* unit, char* name, uvlong start, uvlong end)
@@ -204,8 +234,9 @@ sdinitpart(SDunit* unit)
 		return 0;
 	}
 
-	if(unit->dev->ifc->online)
-		unit->dev->ifc->online(unit);
+	if(unit->dev->ifc->online != nil)
+		(*unit->dev->ifc->online)(unit);
+
 	if(unit->sectors){
 		sdincvers(unit);
 		sdaddpart(unit, "data", 0, unit->sectors);
@@ -220,7 +251,7 @@ sdinitpart(SDunit* unit)
 		 */
 		snprint(buf, sizeof buf, "%spart", unit->name);
 		for(p = getconf(buf); p != nil; p = q){
-			if(q = strchr(p, '/'))
+			if((q = strchr(p, '/')) != nil)
 				*q++ = '\0';
 			nf = tokenize(p, f, nelem(f));
 			if(nf < 3)
@@ -259,7 +290,7 @@ sdgetdev(int idno)
 		return nil;
 
 	qlock(&devslock);
-	if(sdev = devs[i])
+	if((sdev = devs[i]) != nil)
 		incref(&sdev->r);
 	qunlock(&devslock);
 	return sdev;
@@ -303,21 +334,19 @@ sdgetunit(SDev* sdev, int subno)
 
 		if(waserror())
 			goto Error;
-		if(sdev->enabled == 0)
-			sdev->enabled = sdev->ifc->enable == nil || sdev->ifc->enable(sdev);
+		if(!sdev->enabled)
+			sdev->enabled = sdev->ifc->enable == nil || (*sdev->ifc->enable)(sdev);
 
 		/*
 		 * No need to lock anything here as this is only
 		 * called before the unit is made available in the
 		 * sdunit[] array.
 		 */
-		if(sdev->enabled == 0 || sdev->ifc->verify(unit) == 0){
+		if(!sdev->enabled || (*sdev->ifc->verify)(unit) == 0){
 			poperror();
 		Error:
 			qunlock(&sdev->unitlock);
-			free(unit->name);
-			free(unit->user);
-			free(unit);
+			freeunit(unit);
 			return nil;
 		}
 		poperror();
@@ -351,15 +380,15 @@ sdadddevs(SDev *sdev)
 	for(; sdev; sdev=next){
 		next = sdev->next;
 
-		sdev->unit = malloc(sdev->nunit * sizeof(SDunit*));
-		sdev->unitflg = malloc(sdev->nunit * sizeof(int));
+		sdev->unit = malloc(sdev->nunit * sizeof(sdev->unit[0]));
+		sdev->unitflg = malloc(sdev->nunit * sizeof(sdev->unitflg[0]));
 		if(sdev->unit == nil || sdev->unitflg == nil){
 			print("sdadddevs: out of memory\n");
 		giveup:
-			if(sdev->ifc->clear)
-				sdev->ifc->clear(sdev);
-			free(sdev->unit);
+			if(sdev->ifc->clear != nil)
+				(*sdev->ifc->clear)(sdev);
 			free(sdev->unitflg);
+			free(sdev->unit);
 			free(sdev);
 			continue;
 		}
@@ -384,15 +413,6 @@ sdadddevs(SDev *sdev)
 		}
 	}
 }
-
-// void
-// sdrmdevs(SDev *sdev)
-// {
-// 	char buf[2];
-//
-// 	snprint(buf, sizeof buf, "%c", sdev->idno);
-// 	unconfigure(buf);
-// }
 
 static int
 sd2gen(Chan* c, SDunit *unit, int i, Dir* dp)
@@ -464,7 +484,7 @@ sd1gen(Chan* c, int i, Dir* dp)
 		mkqid(&q, QID(0, 0, 0, Qtopctl), 0, QTFILE);
 		qlock(&topctlunit.ctl);
 		p = &topctlunit.ctlperm;
-		if(p->user == nil || p->user[0] == 0){
+		if(emptystr(p->user)){
 			kstrdup(&p->name, "sdctl");
 			kstrdup(&p->user, eve);
 			p->perm = 0640;
@@ -579,7 +599,7 @@ sdgen(Chan* c, char*, Dirtab*, int, int s, Dir* dp)
 		 * Online is a bit of a large hammer but does the job.
 		 */
 		if(unit->sectors == 0
-		|| (unit->dev->ifc->online && unit->dev->ifc->online(unit) > 1))
+		|| (unit->dev->ifc->online != nil && (*unit->dev->ifc->online)(unit) > 1))
 			sdinitpart(unit);
 
 		i = s+Qunitbase;
@@ -657,7 +677,7 @@ sdattach(char* spec)
 	if(subno < 0 || p == &spec[3])
 		error(Ebadspec);
 
-	if((sdev=sdgetdev(idno)) == nil)
+	if((sdev = sdgetdev(idno)) == nil)
 		error(Enonexist);
 	if(waserror()){
 		decref(&sdev->r);
@@ -838,7 +858,7 @@ sdbio(Chan* c, int write, char* a, long len, uvlong off)
 
 	if(write){
 		if(hard){
-			l = unit->dev->ifc->bio(unit, 0, 0, b, nb, bno);
+			l = (*unit->dev->ifc->bio)(unit, 0, 0, b, nb, bno);
 			if(l < 0)
 				error(Eio);
 			if(l < (nb*unit->secsize)){
@@ -850,7 +870,7 @@ sdbio(Chan* c, int write, char* a, long len, uvlong off)
 		}
 		if(allocd)
 			memmove(b+offset, a, len);
-		l = unit->dev->ifc->bio(unit, 0, 1, b, nb, bno);
+		l = (*unit->dev->ifc->bio)(unit, 0, 1, b, nb, bno);
 		if(l < 0)
 			error(Eio);
 		if(l < offset)
@@ -859,7 +879,7 @@ sdbio(Chan* c, int write, char* a, long len, uvlong off)
 			len = l - offset;
 	}
 	else{
-		l = unit->dev->ifc->bio(unit, 0, 0, b, nb, bno);
+		l = (*unit->dev->ifc->bio)(unit, 0, 0, b, nb, bno);
 		if(l < 0)
 			error(Eio);
 		if(l < offset)
@@ -928,7 +948,7 @@ sdrio(SDreq* r, void* a, long n)
 	}
 	if(f == nil)
 		error(errstr);
-	rv = f(r);
+	rv = (*f)(r);
 	if(r->flags & SDvalidsense){
 		memmove(u->rsense, r->sense, sizeof u->rsense);
 		u->haversense = 1;
@@ -1215,8 +1235,8 @@ sdread(Chan *c, void *a, long n, vlong off)
 			sdev = devs[i];
 			if(sdev == nil)
 				continue;
-			if(sdev->ifc->rtopctl)
-				p = sdev->ifc->rtopctl(sdev, p, e);
+			if(sdev->ifc->rtopctl != nil)
+				p = (*sdev->ifc->rtopctl)(sdev, p, e);
 			else
 				p = deftopctl(sdev, p, e);
 		}
@@ -1251,20 +1271,19 @@ sdread(Chan *c, void *a, long n, vlong off)
 		 * provide all information pertaining to night geometry
 		 * and the garscadden trains.
 		 */
-		if(unit->dev->ifc->rctl)
-			p += unit->dev->ifc->rctl(unit, p, e - p);
+		if(unit->dev->ifc->rctl != nil)
+			p += (*unit->dev->ifc->rctl)(unit, p, e - p);
 		if(unit->sectors == 0)
 			sdinitpart(unit);
 		if(unit->sectors){
 			if(unit->dev->ifc->rctl == nil)
 				p = seprint(p, e, "geometry %llud %lud\n",
 					unit->sectors, unit->secsize);
-			pp = unit->part;
 			for(i = 0; i < unit->npart; i++){
+				pp = &unit->part[i];
 				if(pp->valid)
 					p = seprint(p, e, "part %s %llud %llud\n",
 						pp->name, pp->start, pp->end);
-				pp++;
 			}
 		}
 		qunlock(&unit->ctl);
@@ -1358,7 +1377,7 @@ sdwrite(Chan* c, void* a, long n, vlong off)
 		 */
 		ifc = nil;
 		sdev = nil;
-		for(i=0; sdifc[i]; i++){
+		for(i=0; sdifc[i] != nil; i++){
 			if(strcmp(sdifc[i]->name, f0) == 0){
 				ifc = sdifc[i];
 				sdev = nil;
@@ -1384,8 +1403,8 @@ sdwrite(Chan* c, void* a, long n, vlong off)
 				decref(&sdev->r);
 			nexterror();
 		}
-		if(ifc->wtopctl)
-			ifc->wtopctl(sdev, cb);
+		if(ifc->wtopctl != nil)
+			(*ifc->wtopctl)(sdev, cb);
 		else
 			error(Ebadctl);
 		if(sdev != nil)
@@ -1423,8 +1442,8 @@ sdwrite(Chan* c, void* a, long n, vlong off)
 				error(Ebadctl);
 			sddelpart(unit, cb->f[1]);
 		}
-		else if(unit->dev->ifc->wctl)
-			unit->dev->ifc->wctl(unit, cb);
+		else if(unit->dev->ifc->wctl != nil)
+			(*unit->dev->ifc->wctl)(unit, cb);
 		else
 			error(Ebadctl);
 		qunlock(&unit->ctl);
@@ -1558,10 +1577,11 @@ sdwstat(Chan* c, uchar* dp, int n)
 		error(Eperm);
 	if(!emptystr(d[0].muid) || !emptystr(d[0].name))
 		error(Eperm);
-	if(!emptystr(d[0].uid))
-		kstrdup(&perm->user, d[0].uid);
 	if(!emptystr(d[0].gid) && strcmp(d[0].gid, eve) != 0)
 		error(Eperm);
+	/* committed */
+	if(!emptystr(d[0].uid))
+		kstrdup(&perm->user, d[0].uid);
 	if(d[0].mode != ~0UL)
 		perm->perm = (perm->perm & ~0777) | (d[0].mode & 0777);
 	qunlock(&unit->ctl);
@@ -1591,14 +1611,14 @@ configure(char* spec, DevConf* cf)
 			break;
 	if(sdifc[i] == nil)
 		error("sd type not found");
-	if(p)
+	if(p != nil)
 		*(p-1) = '/';
 
 	if(sdifc[i]->probe == nil)
 		error("sd type cannot probe");
 
 	sdev = sdifc[i]->probe(cf);
-	for(s=sdev; s; s=s->next)
+	for(s = sdev; s != nil; s = s->next)
 		s->idno = *spec;
 	sdadddevs(sdev);
 	return 0;
@@ -1609,7 +1629,6 @@ unconfigure(char* spec)
 {
 	int i;
 	SDev *sdev;
-	SDunit *unit;
 
 	if((i = sdindex(*spec)) < 0)
 		error(Enonexist);
@@ -1627,23 +1646,21 @@ unconfigure(char* spec)
 	qunlock(&devslock);
 
 	/* make sure no interrupts arrive anymore before removing resources */
-	if(sdev->enabled && sdev->ifc->disable)
-		sdev->ifc->disable(sdev);
+	if(sdev->enabled && sdev->ifc->disable != nil)
+		(*sdev->ifc->disable)(sdev);
 
 	/* free controller specific info */
-	if(sdev->ifc->clear)
-		sdev->ifc->clear(sdev);
+	if(sdev->ifc->clear != nil)
+		(*sdev->ifc->clear)(sdev);
 
-	for(i = 0; i < sdev->nunit; i++){
-		if((unit = sdev->unit[i]) != nil){
-			free(unit->name);
-			free(unit->user);
-			free(unit);
-		}
-	}
-	free(sdev->unit);
+	/* free units and their files */
+	for(i = 0; i < sdev->nunit; i++)
+		freeunit(sdev->unit[i]);
+
 	free(sdev->unitflg);
+	free(sdev->unit);
 	free(sdev);
+
 	return 0;
 }
 
@@ -1675,10 +1692,8 @@ sdaddfile(SDunit *unit, char *s, int perm, char *u, SDrw *r, SDrw *w)
 	if(i >= unit->nefile)
 		unit->nefile = i + 1;
 	e = unit->efile + i;
-	if(e->name == nil)
-		kstrdup(&e->name, s);
-	if(e->user == nil)
-		kstrdup(&e->user, u);
+	kstrdup(&e->name, s);
+	kstrdup(&e->user, u);
 	e->perm = perm;
 	e->r = r;
 	e->w = w;
@@ -1690,17 +1705,17 @@ static void
 sdshutdown(void)
 {
 	int i;
-	SDev *sd;
+	SDev *sdev;
 
 	for(i = 0; i < nelem(devs); i++){
-		sd = devs[i];
-		if(sd == nil)
+		sdev = devs[i];
+		if(sdev == nil)
 			continue;
-		if(sd->ifc->disable == nil){
+		if(sdev->ifc->disable == nil){
 			print("#S/sd%c: no disable function\n", devletters[i]);
 			continue;
 		}
-		sd->ifc->disable(sd);
+		(*sdev->ifc->disable)(sdev);
 	}
 }
 

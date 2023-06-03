@@ -73,7 +73,7 @@ struct SDev {
 	int	enabled;
 	int	nunit;			/* Number of units */
 	QLock	unitlock;		/* `Loading' of units */
-	int*	unitflg;		/* Unit flags */
+	char*	unitflg;		/* Unit flags */
 	SDunit**unit;
 };
 
