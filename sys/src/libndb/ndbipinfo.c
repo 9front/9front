@@ -154,6 +154,20 @@ subnet(Ndb *db, uchar *net, Ndbtuple *f, int prefix)
 }
 
 static Ndbtuple*
+ndbline(Ndbtuple *t)
+{
+	Ndbtuple *nt;
+
+	for(nt = t; nt != nil; nt = nt->entry){
+		if(nt->entry == nil)
+			nt->line = t;
+		else
+			nt->line = nt->entry;
+	}
+	return t;
+}
+
+static Ndbtuple*
 netinfo(Ndb *db, Ndbtuple *t, char **alist, int n)
 {
 	uchar ip[IPaddrlen], net[IPaddrlen];
@@ -219,7 +233,7 @@ netinfo(Ndb *db, Ndbtuple *t, char **alist, int n)
 
 	ndbfree(f);
 	ndbsetmalloctag(t, getcallerpc(&db));
-	return t;
+	return ndbline(t);
 }
 
 /*
