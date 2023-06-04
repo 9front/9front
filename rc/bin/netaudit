@@ -1,10 +1,16 @@
 #!/bin/rc
 rfork e
+net=/net
+if(~ $#* 1)
+	net=$1
+fn query {
+	ndb/query -x $net -cia $*
+}
 fn checkether {
 	echo -n '	'$1'='$2
 	if(! ~ $2 [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f])
 		echo ' has wrong format'
-	if not if(! grep -s $i /net/ether*/addr)
+	if not if(! grep -s $i $net/ether*/addr)
 		echo ' does not belong to any network interface'
 	if not
 		echo ' looks ok'
@@ -39,7 +45,7 @@ fn checkhost {
 	}
 	checksys 'env var $sysname' $sysname
 	echo 'checking this host''s tuple:'
-	sys=`{ndb/ipquery sys $sysname sys | sed 's/sys=//g'}
+	sys=`{query sys $sysname sys}
 	if(! ~ $sysname $sys)
 		echo '	no sys= entry'
 	if not {
@@ -47,7 +53,7 @@ fn checkhost {
 			checksys sys $i
 		}
 	}
-	ip=`{ndb/ipquery sys $sysname ip | sed 's/ip=//g'}
+	ip=`{query sys $sysname ip}
 	if(~ $ip '')
 		echo '	no ip= entry'
 	if not {
@@ -55,7 +61,7 @@ fn checkhost {
 			checkip ip $i
 		}
 	}
-	dom=`{ndb/ipquery sys $sysname dom | sed 's/dom=//g'}
+	dom=`{query sys $sysname dom}
 	if(~ $dom '')
 		echo '	no dom= entry'
 	if not {
@@ -65,7 +71,7 @@ fn checkhost {
 				echo '	dom='$i 'does not start with' $sysname^'; it''s supposed to be the FQDN, not the domain name!'
 		}
 	}
-	ether=`{ndb/ipquery sys $sysname ether | sed 's/ether=//g'}
+	ether=`{query sys $sysname ether}
 	if(~ $ether '')
 		echo '	no ether entry'
 	if not {
@@ -76,14 +82,14 @@ fn checkhost {
 }
 fn checknet {
 	echo 'checking the network tuple:'
-	ipnet=`{ndb/ipquery sys $sysname ipnet | sed 's/ipnet=//g'}
+	ipnet=`{query sys $sysname ipnet}
 	if(~ $ipnet ''){
 		echo '	we are not in an ipnet, so looking for entries in host tuple only'
 	}
 	if not {
 		echo '	we are in ' 'ipnet='^$ipnet
 	}
-	ipgw=`{ndb/ipquery sys $sysname ipgw | sed 's/ipgw=//g'}
+	ipgw=`{query sys $sysname ipgw}
 	if(~ $ipgw '' '::'){
 		echo '	we do not have an internet gateway, no ipgw= entry'
 	}
@@ -92,7 +98,7 @@ fn checknet {
 			checkip ipgw $i
 		}
 	}
-	dns=`{ndb/ipquery sys $sysname dns | sed 's/dns=//g'}
+	dns=`{query sys $sysname dns}
 	if(~ $dns '')
 		echo '	no dns= entry'
 	if not {
@@ -103,7 +109,7 @@ fn checknet {
 				echo '	dns='$i 'looks ok'
 		}
 	}
-	auth=`{ndb/ipquery sys $sysname auth | sed 's/auth=//g'}
+	auth=`{query sys $sysname auth}
 	if(~ $auth '')
 		echo '	no auth= entry'
 	if not {
@@ -116,7 +122,7 @@ fn checknet {
 			}
 		}
 	}
-	fs=`{ndb/ipquery sys $sysname fs | sed 's/fs=//g'}
+	fs=`{query sys $sysname fs}
 	if(~ $fs '')
 		echo '	no fs= entry (needed for tls boot)'
 	if not {
@@ -147,7 +153,7 @@ fn checkauth {
 			echo '	auth/keyfs is not running, try reboot'
 		if not
 			echo '	auth/keyfs is running'
-		if(! grep -s 'Listen *567' <{netstat -n})
+		if(! grep -s 'Listen *567' <{netstat -n $net})
 			echo '	no one listening on port 567, try reboot'
 		if not {
 			echo '	someone is listening on port 567'
@@ -164,7 +170,7 @@ fn checkauth {
 }
 fn checksec {
 	echo 'checking basic security:'
-	for(fs in `{ndb/ipquery sys $sysname fs | sed 's/fs=//g'}) @{
+	for(fs in `{query sys $sysname fs}) @{
 		rfork n
 		if(srv $fs netaudit.$pid >[2] /dev/null || srvtls $fs netaudit.$pid >[2] /dev/null){
 			if(mount -N /srv/netaudit.$pid /n/netaudit >/dev/null >[2=1])

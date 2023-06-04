@@ -3,6 +3,9 @@
 netaudit - network configuration checker
 .SH SYNOPSIS
 netaudit
+[
+.I netmtpt
+]
 .SH DESCRIPTION
 .I Netaudit
 checks the effective network configuration on the
