@@ -161,6 +161,7 @@ main(int argc, char **argv)
 {
 	int fd;
 	RSApriv *p;
+	char *s;
 	uchar buf[64];
 
 	fd = 0;
@@ -189,11 +190,15 @@ main(int argc, char **argv)
 	if((p = fill()) == nil)
 		sysfatal("fill: %r");
 
-	print("%s size=%d ek=%B !dk=%B n=%B !p=%B !q=%B !kp=%B !kq=%B !c2=%B\n",
+	s = smprint("%s size=%d ek=%B !dk=%B n=%B !p=%B !q=%B !kp=%B !kq=%B !c2=%B\n",
 		"key service=ssh proto=rsa",
 		mpsignif(p->pub.n), p->pub.ek,
 		p->dk, p->pub.n, p->p, p->q,
 		p->kp, p->kq, p->c2);
+	if(s == nil)
+		sysfatal("smprint: %r");
+	if(write(1, s, strlen(s)) != strlen(s))
+		sysfatal("write: %r");
 
 	exits(nil);
 }

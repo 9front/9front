@@ -38,6 +38,7 @@ main(int argc, char **argv)
 	if(cert == nil)
 		sysfatal("X509rsareq: %r");
 
-	write(1, cert, len);
+	if(write(1, cert, len) != len)
+		sysfatal("write: %r");
 	exits(0);
 }

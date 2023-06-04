@@ -16,7 +16,7 @@ void
 main(int argc, char **argv)
 {
 	RSApriv *k;
-	char *comment;
+	char *comment, *s;
 	uchar buf[8192], *p;
 
 	fmtinstall('B', mpfmt);
@@ -46,7 +46,11 @@ main(int argc, char **argv)
 	p = putmp2(p, k->pub.ek);
 	p = putmp2(p, k->pub.n);
 
-	print("ssh-rsa %.*[ %s\n", (int)(p-buf), buf, comment);
+	s = smprint("ssh-rsa %.*[ %s\n", (int)(p-buf), buf, comment);
+	if(s == nil)
+		sysfatal("smprint: %r");
+	if(write(1, s, strlen(s)) != strlen(s))
+		sysfatal("write: %r");
 
 	exits(nil);
 }

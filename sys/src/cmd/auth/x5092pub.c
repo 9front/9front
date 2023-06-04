@@ -20,6 +20,7 @@ void
 main(int argc, char **argv)
 {
 	int tot, n;
+	char *s;
 	uchar *buf;
 	RSApub *pub;
 
@@ -58,6 +59,10 @@ main(int argc, char **argv)
 		pub = X509toRSApub(buf, tot, subject, sizeof(subject));
 	if(pub == nil)
 		sysfatal("X509toRSApub: %r");
-	print("key proto=rsa size=%d ek=%B n=%B subject=%q \n", mpsignif(pub->n), pub->ek, pub->n, subject);
+	s = smprint("key proto=rsa size=%d ek=%B n=%B subject=%q \n", mpsignif(pub->n), pub->ek, pub->n, subject);
+	if(s == nil)
+		sysfatal("smprint: %r");
+	if(write(1, s, strlen(s)) != strlen(s))
+		sysfatal("write: %r");
 	exits(nil);
 }

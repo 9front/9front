@@ -46,7 +46,7 @@ void
 main(int argc, char **argv)
 {
 	uchar nbuf[8192], ebuf[512];
-	char *nstr, *estr;
+	char *nstr, *estr, *s;
 	RSApriv *k;
 	int nlen, elen;
 
@@ -76,12 +76,16 @@ main(int argc, char **argv)
 	mptobe(k->pub.ek, ebuf, elen, nil);
 	estr = encurl64(ebuf, elen);
 
-	print(
+	s = smprint(
 		"{"
 		"\"kty\": \"RSA\","
 		"\"n\": \"%s\","
 		"\"e\": \"%s\""
 		"}\n",
 		nstr, estr);
+	if(s == nil)
+		sysfatal("smprint: %r");
+	if(write(1, s, strlen(s))  != strlen(s))
+		sysfatal("write: %r");
 	exits(nil);
 }
