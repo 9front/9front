@@ -1913,7 +1913,7 @@ ipinfoquery(Mfile *mf, char **list, int n)
 {
 	int i, nresolve;
 	uchar resolve[Maxattr];
-	Ndbtuple *t, *nt, **l;
+	Ndbtuple *t, *nt, *next;
 	char *attr, *val;
 
 	/* skip 'ipinfo' */
@@ -1958,41 +1958,24 @@ ipinfoquery(Mfile *mf, char **list, int n)
 		return "no match";
 
 	if(nresolve != 0){
-		for(l = &t; *l != nil;){
-			nt = *l;
+		for(nt = t; nt !=nil; nt = next) {
+			next = nt->entry;
 
 			/* already an address? */
-			if(strcmp(ipattr(nt->val), "ip") == 0){
-				l = &(*l)->entry;
+			if(strcmp(ipattr(nt->val), "ip") == 0)
 				continue;
-			}
-
 			/* user wants it resolved? */
 			for(i = 0; i < n; i++)
 				if(strcmp(list[i], nt->attr) == 0)
 					break;
-			if(i >= n || resolve[i] == 0){
-				l = &(*l)->entry;
+			if(i >= n || resolve[i] == 0)
 				continue;
-			}
-
-			/* resolve address and replace entry */
-			*l = ipresolve(nt->attr, nt->val);
-			while(*l != nil)
-				l = &(*l)->entry;
-			*l = nt->entry;
-
-			nt->entry = nil;
-			ndbfree(nt);
+			t = ndbsubstitute(t, nt, ipresolve(nt->attr, nt->val));
 		}
-
 		t = ndbdedup(t);
 	}
-
-	/* make it all one line */
-	t = ndbline(t);
-
 	qreply(mf, t);
+	ndbfree(t);
 
 	return nil;
 }
