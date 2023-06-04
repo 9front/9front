@@ -138,16 +138,19 @@ rsaread(Fsstate *fss, void *va, uint *n)
 	default:
 		return phaseerror(fss, "read");
 	case CHavePub:
-		if(s->key){
-			closekey(s->key);
-			s->key = nil;
-		}
-		mkkeyinfo(&ki, fss, nil);
-		ki.skip = s->off;
-		ki.noconf = 1;
-		if(findkey(&s->key, &ki, nil) != RpcOk)
-			return failure(fss, nil);
-		s->off++;
+		do {
+			if(s->key){
+				closekey(s->key);
+				s->key = nil;
+			}
+			mkkeyinfo(&ki, fss, nil);
+			ki.skip = s->off;
+			ki.noconf = 1;
+			if(findkey(&s->key, &ki, nil) != RpcOk)
+				return failure(fss, nil);
+			s->off++;
+			/* need private key */
+		} while(s->key->privattr == nil);
 		priv = s->key->priv;
 		*n = snprint(va, *n, "%B %B", priv->pub.n, priv->pub.ek);
 		return RpcOk;
