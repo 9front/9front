@@ -4,7 +4,10 @@ query, ipquery, mkhash, mkdb, mkhosts, cs, csquery, dns, dnstcp, dnsquery, dnsde
 .SH SYNOPSIS
 .B ndb/query
 [
-.B -am
+.B -acim
+] [
+.B -x
+.I netmtpt
 ] [
 .B -f
 .I dbfile
@@ -12,10 +15,7 @@ query, ipquery, mkhash, mkdb, mkhosts, cs, csquery, dns, dnstcp, dnsquery, dnsde
 .I "attr value"
 [
 .I rattr
-.\" [
-.\" .I reps
-.\" ]
-]
+]...
 .br
 .B ndb/ipquery
 .I "attr value"
@@ -134,36 +134,81 @@ network programs such as
 etc.
 .PP
 .I Ndb/query
-searches the database
-.I dbfile
-.RB ( /lib/ndb/local
-by default)
+searches the network database
 for an attribute of type
 .I attr
 and value
 .IR value .
-If
+If a single
 .I rattr
-is not specified, all entries matched by the search are printed.
-If
+is specified, only the value of the first matching pair
+with attribute
 .I rattr
-is specified, the value of the first pair with attribute
-.I rattr
-of all the matched entries normally is printed.
+is printed.
 Under
-.B -m
-and
-.IR rattr ,
+.BR -m ,
 the values of all pairs with a
 .I rattr
 attribute within the first matching entry are printed.
 Under
 .B -a
-and
+and with a single
 .IR rattr ,
 all values of pairs with a
 .I rattr
 attribute within all entries are printed.
+If none or more than one
+.I rattr
+where specified,
+all entries matched by the search are printed in
+.IR ndb (6)
+format.
+When the
+.B -i
+flag is present,
+the type attribute
+.I attr
+and its
+.I value
+are relating to systems with
+.B ip=
+tuples,
+and the search will return
+.I rattr
+attributes inherited from their corresponding
+.B ipnet=
+entries.
+(see the
+.I ndbipinfo
+and
+.I csipinfo
+functions in
+.IR ndb (2)).
+The
+.B -i
+flag requires at least one
+.IR rattr .
+When
+.B -c
+flag is specified,
+instead of opening the network database files directly,
+the connection server mounted on
+.I netmtpt
+is consulted.
+The
+.I netmtpt
+can be changed using the
+.B -x
+option
+(default
+.BR /net ).
+Without the
+.B -c
+flag,
+the network database is searched directly by opening
+.I dbfile
+.RB ( /lib/ndb/local
+by default).
 .PP
 .I Ndb/ipquery
 uses
@@ -172,7 +217,7 @@ uses
 .IR ndb (2))
 to search for the values of the attributes
 .I rattr
-corresponding to the system
+corresponding to the systems
 with entries of attribute type
 .I attr
 and

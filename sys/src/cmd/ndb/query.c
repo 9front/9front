@@ -6,114 +6,169 @@
 #include <bio.h>
 #include <ndb.h>
 
-static int all, multiple;
+/* for ndbvalfmt */
+#pragma varargck type "$" char*
+
+static int all, multiple, ipinfo, csinfo;
+static Ndb *db = nil;
+static char *net = nil;
 static Biobuf bout;
 
-void
-usage(void)
+static char*
+skipat(char *s)
 {
-	fprint(2, "usage: query [-am] [-f ndbfile] attr value "
-		"[returned-attr [reps]]\n");
-	exits("usage");
+	if(*s == '@')
+		s++;
+	return s;
+}
+
+static int
+match(char *attr, char **rattr, int nrattr)
+{
+	int i;
+
+	if(nrattr == 0)
+		return 1;
+	for(i = 0; i < nrattr; i++){
+		if(strcmp(attr, skipat(rattr[i])) == 0)
+			return 1;
+	}
+	return 0;
 }
 
 /* print values of nt's attributes matching rattr */
 static void
-prmatch(Ndbtuple *nt, char *rattr)
+prmatch(Ndbtuple *nt, char **rattr, int nrattr)
 {
-	for(; nt; nt = nt->entry)
-		if (strcmp(nt->attr, rattr) == 0)
-			Bprint(&bout, "%s\n", nt->val);
+	if(nt == nil)
+		return;
+
+	if(nrattr == 1) {
+		for(; nt != nil; nt = nt->entry){
+			if(match(nt->attr, rattr, nrattr)){
+				Bprint(&bout, "%s\n", nt->val);
+				if(!multiple && !all)
+					break;
+			}
+		}
+	} else {
+		for(; nt != nil; nt = nt->entry){
+			if(match(nt->attr, rattr, nrattr)){
+				Bprint(&bout, "%s=%$ ", nt->attr, nt->val);
+				if(nt->entry != nt->line)
+					Bprint(&bout, "\n\t");
+			}
+		}
+		Bprint(&bout, "\n");
+	}
 }
 
-/* for ndbvalfmt */
-#pragma varargck type "$" char*
-
-void
-search(Ndb *db, char *attr, char *val, char *rattr)
+static void
+search(char *attr, char *val, char **rattr, int nrattr)
 {
 	char *p;
 	Ndbs s;
-	Ndbtuple *t, *nt;
+	Ndbtuple *t;
 
-	/* first entry with a matching rattr */
-	if(rattr && !all){
-		p = ndbgetvalue(db, &s, attr, val, rattr, &t);
-		if (multiple)
-			prmatch(t, rattr);
-		else if(p)
+	if(ipinfo){
+		if(csinfo)
+			t = csipinfo(net, attr, val, rattr, nrattr);
+		else
+			t = ndbipinfo(db, attr, val, rattr, nrattr);
+		prmatch(t, rattr, nrattr);
+		ndbfree(t);
+		return;
+	}
+
+	if(nrattr == 1 && !all){
+		if(csinfo)
+			p = csgetvalue(net, attr, val, rattr[0], &t);
+		else
+			p = ndbgetvalue(db, &s, attr, val, rattr[0], &t);
+		if(p != nil && !multiple)
 			Bprint(&bout, "%s\n", p);
+		else
+			prmatch(t, rattr, nrattr);
 		ndbfree(t);
 		free(p);
 		return;
 	}
 
-	/* all entries with matching rattrs */
-	if(rattr) {
-		for(t = ndbsearch(db, &s, attr, val); t != nil;
-		    t = ndbsnext(&s, attr, val)){
-			prmatch(t, rattr);
-			ndbfree(t);
-		}
+	if(csinfo)
 		return;
-	}
 
-	/* all entries */
-	for(t = ndbsearch(db, &s, attr, val); t; t = ndbsnext(&s, attr, val)){
-		for(nt = t; nt; nt = nt->entry)
-			Bprint(&bout, "%s=%$ ", nt->attr, nt->val);
-		Bprint(&bout, "\n");
+	for(t = ndbsearch(db, &s, attr, val); t != nil; t = ndbsnext(&s, attr, val)){
+		prmatch(t, rattr, nrattr);
 		ndbfree(t);
+		if(!all)
+			break;
 	}
+}
+
+static void
+usage(void)
+{
+	fprint(2, "usage: %s [-acim] [-x netmtpt] [-f ndbfile] attr value [rattr]...\n", argv0);
+	exits("usage");
 }
 
 void
 main(int argc, char **argv)
 {
-	int reps = 1;
-	char *rattr = nil, *dbfile = nil;
-	Ndb *db;
-	
-	fmtinstall('$', ndbvalfmt);
+	char *dbfile = nil;
 
 	ARGBEGIN{
 	case 'a':
-		all++;
+		all = 1;
 		break;
-	case 'm':
-		multiple++;
+	case 'c':
+		csinfo = 1;
 		break;
 	case 'f':
 		dbfile = EARGF(usage());
+		break;
+	case 'i':
+		ipinfo = 1;
+		break;
+	case 'm':
+		multiple = 1;
+		break;
+	case 'x':
+		net = EARGF(usage());
 		break;
 	default:
 		usage();
 	}ARGEND;
 
 	switch(argc){
-	case 4:
-		reps = atoi(argv[3]);	/* wtf use is this? */
-		/* fall through */
-	case 3:
-		rattr = argv[2];
+	case 0:
+	case 1:
+		usage();
 		break;
 	case 2:
-		rattr = nil;
+		if(ipinfo)
+			usage();
+		csinfo = 0;
 		break;
 	default:
-		usage();
+		break;
 	}
+
+	fmtinstall('$', ndbvalfmt);
 
 	if(Binit(&bout, 1, OWRITE) == -1)
 		sysfatal("Binit: %r");
-	db = ndbopen(dbfile);
-	if(db == nil){
-		fprint(2, "%s: no db files\n", argv0);
-		exits("no db");
-	}
-	while(reps--)
-		search(db, argv[0], argv[1], rattr);
-	ndbclose(db);
 
-	exits(0);
+	if(csinfo)
+		search(argv[0], argv[1], argv+2, argc-2);
+	else {
+		db = ndbopen(dbfile);
+		if(db == nil){
+			fprint(2, "%s: no db files\n", argv0);
+			exits("no db");
+		}
+		search(argv[0], argv[1], argv+2, argc-2);
+		ndbclose(db);
+	}
+	exits(nil);
 }
