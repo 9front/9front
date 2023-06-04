@@ -1,0 +1,5 @@
+#!/bin/rc
+if(test -e /dev/pmctl)
+	echo power off >>/dev/pmctl
+
+aux/acpi -H

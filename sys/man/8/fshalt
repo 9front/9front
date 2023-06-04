@@ -49,14 +49,18 @@ kernel directly instead of returning to the system rom. (see
 .IR cons (3)).
 .PP
 .I Scram
-shuts down the machine it is invoked on.
+shuts down the machine it is invoked on by writing
+.I power off
+to
+.BR /dev/pmctl .
 .SH SOURCE
 .B /rc/bin/fshalt
 .br
 .B /rc/bin/reboot
 .br
-.B /sys/src/cmd/scram.c
+.B /rc/bin/scram
 .SH SEE ALSO
+.IR acpi (8),
 .IR cons (3),
 .IR reboot (8)
 .SH BUGS
@@ -65,7 +69,12 @@ after invoking bare
 .IR fshalt .
 
 .I Scram
-is limited to the PC and requires APM or ACPI.
+falls back to trying
+.I aux/acpi
+if writing to
+.B /dev/pmctl
+fails.
+
 .SH HISTORY
 .I Scram
 first appeared in 9front (May, 2011).

@@ -3,7 +3,6 @@
 #	and optionally reboot
 rfork en
 reboot=no
-scram=no
 bootf=()
 if(~ $1 -r){
 	reboot=yes
@@ -35,12 +34,6 @@ s=`{awk '/^sd./ && /nvme/ {print substr($1,3,1)}' <'#S/sdctl' >[2]/dev/null}
 
 # for scram, don't scram other systems
 bind -b '#P' /dev >[2]/dev/null
-if(! ~ $reboot yes){
-	if(test -e '#P'/apm)
-		scram=yes
-	if(test -e '#P'/acpitbls -a -e '#P'/iow)
-		scram=yes
-}
 
 # halting (binaries we run can't be on the fs we're halting)
 ramfs
@@ -52,13 +45,18 @@ cp /bin/ns /tmp
 cp /bin/rc /tmp
 cp /bin/sed /tmp
 cp /bin/sleep /tmp
-cp /bin/scram /tmp
 cp /bin/test /tmp
 if(~ $#bootf 1){
 	if(! cp $bootf /tmp/bootf)
 		exit 'failed to copy kernel'
 	bootf=/bin/bootf
 }
+if not {
+	mkdir /tmp/aux
+	cp /bin/aux/acpi /tmp/aux
+	cp /bin/scram /tmp
+}
+
 bind /tmp /rc
 bind /tmp /bin
 
@@ -86,10 +84,7 @@ fn x {
 		echo reboot $bootf >'#c/reboot'
 	}
 	if not {
-		if (test -e /dev/pmctl)
-			echo power off >>/dev/pmctl
-		if (~ $scram yes)
-			scram
+		scram
 		echo 'It''s now safe to turn off your computer'
 	}
 }
