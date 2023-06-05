@@ -52,12 +52,15 @@ prmatch(Ndbtuple *nt, char **rattr, int nrattr)
 			}
 		}
 	} else {
+		char *sep = "";
+
 		for(; nt != nil; nt = nt->entry){
 			if(match(nt->attr, rattr, nrattr)){
-				Bprint(&bout, "%s=%$ ", nt->attr, nt->val);
-				if(nt->entry != nt->line)
-					Bprint(&bout, "\n\t");
+				Bprint(&bout, "%s%s=%$", sep, nt->attr, nt->val);
+				sep = " ";
 			}
+			if(nt->entry != nt->line)
+				sep = "\n\t";
 		}
 		Bprint(&bout, "\n");
 	}
