@@ -192,12 +192,14 @@ Network *last;
 static int
 ndblinefmt(Fmt *f)
 {
+	char *sep = "";
 	Ndbtuple *t;
 
 	for(t = va_arg(f->args, Ndbtuple*); t != nil; t = t->entry) {
-		fmtprint(f, "%s=%$ ", t->attr, t->val);
+		fmtprint(f, "%s%s=%$", sep, t->attr, t->val);
 		if(t->line != t->entry)
 			break;
+		sep = " ";
 	}
 	return 0;
 }
