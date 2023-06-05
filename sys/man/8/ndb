@@ -6,11 +6,11 @@ query, ipquery, mkhash, mkdb, mkhosts, cs, csquery, dns, dnstcp, dnsquery, dnsde
 [
 .B -acim
 ] [
-.B -x
-.I netmtpt
-] [
 .B -f
 .I dbfile
+] [
+.B -x
+.I netmtpt
 ]
 .I "attr value"
 [
@@ -187,7 +187,12 @@ functions in
 The
 .B -i
 flag requires at least one
-.IR rattr .
+.I rattr
+and each
+.I rattr
+prefixed with a
+.B @
+is resolved to an IP address.
 When
 .B -c
 flag is specified,
