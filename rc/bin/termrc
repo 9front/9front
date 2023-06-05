@@ -93,4 +93,9 @@ screenrc
 if(test -f /dev/apm)
 	aux/apm
 
+if(~ $terminal *reform*){
+	reform/pm
+	reform/audio
+}
+
 dontkill '^(ipconfig|factotum|mntgen|venti|hjfs|kfs|cfs|cwfs.*|9660srv|dossrv|paqfs|cs|dns|listen|reboot|usbd|kb|disk|ether|wpa)$'
