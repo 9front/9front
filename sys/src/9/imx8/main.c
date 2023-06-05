@@ -140,11 +140,13 @@ isaconfig(char *, int, ISAConf *)
 void
 init0(void)
 {
-	char **sp;
+	char buf[2*KNAMELEN], **sp;
 
 	chandevinit();
 
 	if(!waserror()){
+		snprint(buf, sizeof(buf), "%s %s", "ARM64", conffile);
+		ksetenv("terminal", buf, 0);
 		ksetenv("cputype", "arm64", 0);
 		if(cpuserver)
 			ksetenv("service", "cpu", 0);
