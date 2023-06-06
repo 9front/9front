@@ -315,6 +315,7 @@ void
 main(int argc, char *argv[])
 {
 	uchar ibuf[4096], obuf[4096];
+	Iplifc *lifc;
 	Req r[1];
 	int fd, n, i;
 
@@ -363,7 +364,8 @@ main(int argc, char *argv[])
 			continue;
 		if((r->ifc = findifc(netmtpt, r->udp->ifcaddr)) == nil)
 			continue;
-		if(localonifc(r->ifc, r->udp->raddr) == nil)
+		lifc = localonifc(r->ifc, r->udp->raddr);
+		if(lifc == nil)
 			continue;
 
 		memmove(obuf, ibuf, Udphdrsize);
@@ -376,8 +378,8 @@ main(int argc, char *argv[])
 		r->req.t = r->req.p[0];
 
 		if(debug)
-		fprint(2, "%I->%I(%s) typ=%d tra=%x\n",
-			r->udp->raddr, r->udp->laddr, r->ifc->dev,
+		fprint(2, "%I->%I(%I %s) typ=%d tra=%x\n",
+			r->udp->raddr, r->udp->laddr, lifc->ip, r->ifc->dev,
 			r->req.t, r->tra);
 
 		switch(r->req.t){
@@ -421,6 +423,9 @@ main(int argc, char *argv[])
 
 		addoption(r, 3);
 		addoption(r, 6);
+
+		if(ISIPV6MCAST(((Udphdr*)obuf)->laddr))
+			ipmove(((Udphdr*)obuf)->laddr, lifc->ip);
 
 		write(fd, obuf, r->resp.p-obuf);
 		if(debug) fprint(2, "\n");
