@@ -21,6 +21,11 @@ static K k[10*128];
 static int nk;
 static int kbd;
 static Biobuf *kbmap, *wctl;
+static char *layertab[] = {
+	"none", "shift", "esc", "altgr",
+	"ctl", "ctlesc", "shiftesc", "shiftaltgr",
+	"mod4", "altgrmod4",
+};
 
 static char *
 k2s(Rune r)
@@ -235,9 +240,9 @@ void
 threadmain(int argc, char **argv)
 {
 	Mousectl *mctl;
-	char tmp[32];
+	char tmp[32], *f[4], *s;
+	int nf, e;
 	Mouse m;
-	char *s;
 	enum { Cmouse, Cresize, Numchan };
 	Alt a[Numchan+1] = {
 		[Cmouse] = { nil, &m, CHANRCV },
@@ -255,12 +260,32 @@ threadmain(int argc, char **argv)
 
 	if((kbmap = Bopen("/dev/kbmap", OREAD)) == nil)
 		sysfatal("%r");
-	for(nk = 0; nk < nelem(k); nk++){
+
+	nk = 0;
+	for(;;){
 		if((s = Brdline(kbmap, '\n')) == nil)
 			break;
-		k[nk].e = strtoul(s, &s, 10);
-		k[nk].c = strtoul(s, &s, 10);
-		k[nk].r = strtoul(s, &s, 10);
+		s[Blinelen(kbmap)-1] = '\0';
+		nf = getfields(s, f, nelem(f), 1, " \t");
+		if(nf < 3)
+			continue;
+		for(e = 0; e < nelem(layertab); e++)
+			if(strcmp(f[0], layertab[e]) == 0)
+				break;
+		if(e >= nelem(layertab)){
+			e = strtoul(f[0], &s, 0);
+			if(*s != '\0')
+				continue;
+		}
+		k[nk].e = e;
+		k[nk].c = strtoul(f[1], &s, 0);
+		if(*s != '\0')
+			continue;
+		k[nk].r = strtoul(f[2], &s, 0);
+		if(*s != '\0')
+			continue;
+		if(++nk >= nelem(k))
+			break;
 	}
 	Bterm(kbmap);
 
