@@ -309,12 +309,23 @@ kbdlayout(char *fn)
 		return;
 	}
 	for(;; free(s)){
+		static char *tab[] = {
+			"none", "shift", "esc", "altgr",
+			"ctl", "ctlesc", "shiftesc", "shiftaltgr",
+			"mod4", "altgrmod4",
+		};
 		s = Brdstr(bp, '\n', 1);
 		if(s == nil) break;
 		nf = getfields(s, f, nelem(f), 1, " \t");
 		if(nf < 3) continue;
-		x = strtol(f[0], &p, 0);
-		if(*p != 0) continue;
+		for(x = 0; x < nelem(tab); x++)
+			if(strcmp(f[0], tab[x]) == 0)
+				break;
+		if(x >= nelem(tab)){
+			x = strtol(f[0], &p, 0);
+			if(*p != 0)
+				continue;
+		}
 		y = strtol(f[1], &p, 0);
 		if(*p != 0) continue;
 		if(*f[2] == '\'' || *f[2] == '^'){
