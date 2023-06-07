@@ -100,7 +100,7 @@ kmreset(void *, char *)
 {
 	int i;
 
-	for(i = 0; i <= nk; i++)
+	for(i = 0; i < nk; i++)
 		Bprint(kbmap, "%d\t%d\t%d\n", k[i].e, k[i].c, k[i].r);
 	Bflush(kbmap);
 
@@ -112,7 +112,7 @@ kmset(void)
 {
 	int i;
 
-	for(i = 0; i <= nk; i++)
+	for(i = 0; i < nk; i++)
 		Bprint(kbmap, "%d\t%d\t%d\n", k[i].e, k[i].c, Kmbase+i);
 	Bflush(kbmap);
 }
