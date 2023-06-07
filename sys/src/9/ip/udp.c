@@ -212,9 +212,22 @@ udpkick(void *x, Block *bp)
 		bp->rp += IPaddrlen;
 		ipmove(laddr, bp->rp);
 		bp->rp += IPaddrlen;
-		/* pick interface closest to dest */
-		if(ipforme(f, laddr) != Runi)
+		switch(ipforme(f, laddr)){
+		case Runi:
+			break;
+		case Rmulti:
+		case Rbcast:
+			/* use ifc address for bcast/mcast reply */
+			if(ipcmp(bp->rp, IPnoaddr) != 0
+			&& ipforme(f, bp->rp) == Runi
+			&& v6lookup(f, raddr, bp->rp, nil) != nil){
+				ipmove(laddr, bp->rp);
+				break;
+			}
+		default:
+			/* pick interface closest to dest */
 			findlocalip(f, laddr, raddr);
+		}
 		bp->rp += IPaddrlen;		/* Ignore ifc address */
 		rport = nhgets(bp->rp);
 		bp->rp += 2+2;			/* Ignore local port */
