@@ -452,7 +452,7 @@ assignhname(Dev *dev)
 	char buf[64];
 	Usbdev *ud;
 	Hub *h;
-	int col;
+	int col, nr;
 	int i, n;
 
 	ud = dev->usb;
@@ -469,8 +469,11 @@ assignhname(Dev *dev)
 		if(ud->class == Clhub){
 			if(h->dev->hname == nil)
 				continue;
-			if(strncmp(h->dev->hname, buf, n) == 0)
-				col++;
+			if(strncmp(h->dev->hname, buf, n) == 0){
+				nr = atoi(h->dev->hname+n)+1;
+				if(nr > col)
+					col = nr;
+			}
 			continue;
 		}
 		for(i = 1; i <= h->nport; i++){
@@ -478,8 +481,11 @@ assignhname(Dev *dev)
 				continue;
 			if(h->port[i].dev->hname == nil || h->port[i].dev == dev)
 				continue;
-			if(strncmp(h->port[i].dev->hname, buf, n) == 0)
-				col++;
+			if(strncmp(h->port[i].dev->hname, buf, n) == 0){
+				nr = atoi(h->port[i].dev->hname+n)+1;
+				if(nr > col)
+					col = nr;
+			}
 		}
 	}
 
