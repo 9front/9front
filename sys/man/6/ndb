@@ -15,6 +15,11 @@ Each line starting without white space starts a new tuple.
 Lines starting with
 .B #
 are comments.
+A
+.I value
+containing white spaces or
+.B #
+characters must be quoted using " double quotes.
 .PP
 The file
 .B /lib/ndb/local
