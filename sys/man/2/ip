@@ -1,6 +1,6 @@
 .TH IP 2
 .SH NAME
-eipfmt, parseip, parseipmask, parseipandmask, v4parseip, parseether, myipaddr, myetheraddr, maskip, equivip4, equivip6, defmask, isv4, v4tov6, v6tov4, nhgetv, nhgetl, nhgets, hnputv, hnputl, hnputs, ptclbsum, readipifc \- Internet Protocol addressing
+eipfmt, parseip, parseipmask, parseipandmask, v4parseip, parseether, myipaddr, myetheraddr, maskip, equivip4, equivip6, defmask, isv4, v4tov6, v6tov4, nhgetv, nhgetl, nhgets, hnputv, hnputl, hnputs, ptclbsum, readipifc, iplocalonifc, ipremoteonifc \- Internet Protocol addressing
 .SH SYNOPSIS
 .B #include <u.h>
 .br
@@ -76,6 +76,12 @@ ushort	ptclbsum(uchar *a, int n)
 .PP
 .B
 Ipifc*	readipifc(char *net, Ipifc *ifc, int index)
+.PP
+.B
+Iplifc*	iplocalonifc(Ipifc *ifc, uchar *ip)
+.PP
+.B
+Iplifc*	ipremoteonifc(Ipifc *ifc, uchar *ip)
 .PP
 .B
 uchar	IPv4bcast[IPaddrlen];
@@ -372,6 +378,33 @@ is
 if the network is multipoint or
 the remote address if the network is
 point to point.
+.PP
+.I Iplocalonifc
+looks up the first local address structure
+that matches
+.I ip
+on the interface
+.IR ifc .
+E.g.
+.I ip
+is one of our local ip addresses on
+.IR ifc .
+.I Ipremoteonifc
+returns the first local address structure
+with a subnet that
+.I ip
+is a member of.
+E.g.
+.I ip
+is a directly reachable remote address on
+.IR ifc .
+Both
+.I iplocalonifc
+and
+.I ipremoteonifc
+return
+.B nil
+when no local address structrue is found.
 .SH SOURCE
 .B /sys/src/libip
 .SH SEE ALSO

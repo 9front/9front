@@ -350,7 +350,8 @@ proto(Req *rp, int n)
 		rp->gii.ifc = nil;
 	} else {
 		/* no gateway, directly connected */
-		if(ipcmp(rp->up->laddr, IPv4bcast) != 0 && localonifc(rp->up->laddr, rp->ifc) == nil){
+		if(ipcmp(rp->up->laddr, IPv4bcast) != 0
+		&& ipremoteonifc(rp->ifc, rp->up->laddr) == nil){
 			warning("wrong network %I->%I on %s",
 				rp->up->raddr, rp->up->laddr, rp->ifc->dev);
 			return;
@@ -1135,7 +1136,7 @@ miscoptions(Req *rp, uchar *ip)
 		maskopt(rp, OBmask, rp->ii.ipmask);
 	else if(validip(rp->gii.ipmask))
 		maskopt(rp, OBmask, rp->gii.ipmask);
-	else if((lifc = localonifc(ip, rp->ifc)) != nil)
+	else if((lifc = ipremoteonifc(rp->ifc, ip)) != nil)
 		maskopt(rp, OBmask, lifc->mask);
 
 	if(validip(rp->ii.gwip)){

@@ -297,15 +297,10 @@ findmyifc(void)
 int
 myip(Ipifc *ifc, uchar *ip)
 {
-	Iplifc *lifc;
-
 	for(; ifc != nil; ifc = ifc->next) {
-		for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
-			if(ipcmp(ip, lifc->ip) == 0)
-				return 1;
-		}
+		if(iplocalonifc(ifc, ip) != nil)
+			return 1;
 	}
-
 	return 0;
 }
 

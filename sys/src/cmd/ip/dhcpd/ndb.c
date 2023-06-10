@@ -37,29 +37,10 @@ Ipifc*
 findifc(uchar *ip)
 {
 	Ipifc *ifc;
-	Iplifc *lifc;
 
 	for(ifc = ipifcs; ifc != nil; ifc = ifc->next){
-		for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next)
-			if(ipcmp(ip, lifc->ip) == 0)
-				return ifc;
-	}
-	return nil;
-}
-
-Iplifc*
-localonifc(uchar *ip, Ipifc *ifc)
-{
-	uchar x[IPaddrlen];
-	Iplifc *lifc;
-
-	if(ifc == nil)
-		return nil;
-
-	for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
-		maskip(ip, lifc->mask, x);
-		if(ipcmp(x, lifc->net) == 0)
-			return lifc;
+		if(iplocalonifc(ifc, ip) != nil)
+			return ifc;
 	}
 	return nil;
 }
@@ -69,12 +50,11 @@ localip(uchar *laddr, uchar *raddr, Ipifc *ifc)
 {
 	Iplifc *lifc;
 
-	if((lifc = localonifc(raddr, ifc)) != nil)
+	if((lifc = ipremoteonifc(ifc, raddr)) != nil)
 		ipmove(laddr, lifc->ip);
 	else if(ipcmp(laddr, IPv4bcast) == 0)
 		ipmove(laddr, IPnoaddr);
 }
-
 
 static void
 setipaddr(uchar *addr, char *ip)

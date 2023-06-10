@@ -177,23 +177,15 @@ syncbinding(Binding *b, int returnfd)
 extern int
 samenet(uchar *ip, Info *iip)
 {
-	uchar x[IPaddrlen];
+	uchar net[IPaddrlen];
 
 	/* directly connected, check local networks */
-	if(iip->ifc != nil){
-		Iplifc *lifc;
-
-		for(lifc = iip->ifc->lifc; lifc != nil; lifc = lifc->next){
-			maskip(lifc->mask, ip, x);
-			if(ipcmp(x, lifc->net) == 0)
-				return 1;
-		}
-		return 0;
-	}
+	if(iip->ifc != nil)
+		return ipremoteonifc(iip->ifc, ip) != nil;
 
 	/* relay agent, check upstream network */
-	maskip(iip->ipmask, ip, x);
-	return ipcmp(x, iip->ipnet) == 0;
+	maskip(ip, iip->ipmask, net);
+	return ipcmp(net, iip->ipnet) == 0;
 }
 
 /*

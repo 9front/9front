@@ -73,7 +73,6 @@ extern int	lookup(Bootp*, Info*, Info*);
 extern int	lookupip(uchar*, char*, char*, Info*, int);
 extern void	lookupname(char*, int, Ndbtuple*);
 extern Ipifc*	findifc(uchar*);
-extern Iplifc*	localonifc(uchar*, Ipifc*);
 extern void	localip(uchar*, uchar*, Ipifc*);
 extern int	lookupserver(char*, uchar**, int, Ndbtuple *t);
 extern Ndbtuple* lookupinfo(uchar *ipaddr, char **attr, int n);

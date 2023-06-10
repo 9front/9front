@@ -171,6 +171,8 @@ int	equivip4(uchar*, uchar*);
 int	equivip6(uchar*, uchar*);
 
 Ipifc*	readipifc(char*, Ipifc*, int);
+Iplifc*	iplocalonifc(Ipifc *, uchar *);
+Iplifc*	ipremoteonifc(Ipifc *, uchar *);
 
 void	hnputv(void*, uvlong);
 void	hnputl(void*, uint);

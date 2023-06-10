@@ -12,6 +12,8 @@ OFILES=\
 	bo.$O\
 	readipifc.$O\
 	ipaux.$O\
+	iplocalonifc.$O\
+	ipremoteonifc.$O\
 	ptclbsum.$O\
 
 HFILES=\

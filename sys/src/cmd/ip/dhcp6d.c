@@ -103,29 +103,12 @@ static Ipifc*
 findifc(char *net, uchar ip[IPaddrlen])
 {
 	Ipifc *ifc;
-	Iplifc *lifc;
 
 	ipifcs = readipifc(net, ipifcs, -1);
-	for(ifc = ipifcs; ifc != nil; ifc = ifc->next)
-		for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next)
-			if(ipcmp(lifc->ip, ip) == 0)
-				return ifc;
-
-	return nil;
-}
-
-static Iplifc*
-localonifc(Ipifc *ifc, uchar ip[IPaddrlen])
-{
-	Iplifc *lifc;
-	uchar net[IPaddrlen];
-
-	for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
-		maskip(ip, lifc->mask, net);
-		if(ipcmp(net, lifc->net) == 0)
-			return lifc;
+	for(ifc = ipifcs; ifc != nil; ifc = ifc->next){
+		if(iplocalonifc(ifc, ip) != nil)
+			return ifc;
 	}
-
 	return nil;
 }
 
@@ -364,8 +347,7 @@ main(int argc, char *argv[])
 			continue;
 		if((r->ifc = findifc(netmtpt, r->udp->ifcaddr)) == nil)
 			continue;
-		lifc = localonifc(r->ifc, r->udp->raddr);
-		if(lifc == nil)
+		if((lifc = ipremoteonifc(r->ifc, r->udp->raddr)) == nil)
 			continue;
 
 		memmove(obuf, ibuf, Udphdrsize);

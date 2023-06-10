@@ -325,22 +325,6 @@ logPacket(Packet *p)
 	syslog(0, AUTHLOG, "%s", pbuf);
 }
 
-static uchar*
-getipv4addr(void)
-{
-	Ipifc *nifc;
-	Iplifc *lifc;
-	static Ipifc *ifc;
-
-	ifc = readipifc("/net", ifc, -1);
-	for(nifc = ifc; nifc; nifc = nifc->next)
-		for(lifc = nifc->lifc; lifc; lifc = lifc->next)
-			if (ipcmp(lifc->ip, IPnoaddr) != 0 &&
-			    ipcmp(lifc->ip, v4prefix) != 0)
-				return lifc->ip;
-	return nil;
-}
-
 extern Ndb *db;
 
 /* returns 0 on success, error message on failure */
@@ -350,7 +334,7 @@ secureidcheck(char *user, char *response)
 	char *radiussecret = nil;
 	char *rv = "authentication failed";
 	char dest[3*IPaddrlen+20], ruser[64];
-	uchar *ip;
+	uchar ip[IPaddrlen];
 	uchar x[16];
 	ulong u[4];
 	Ndbs s;
@@ -394,9 +378,12 @@ secureidcheck(char *user, char *response)
 		goto out;
 	shared.s = (uchar*)radiussecret;
 	shared.len = strlen(radiussecret);
-	ip = getipv4addr();
-	if(ip == nil){
+	if(myipaddr(ip, "/net") < 0){
 		syslog(0, AUTHLOG, "no interfaces: %r");
+		goto out;
+	}
+	if(!isv4(ip)){
+		syslog(0, AUTHLOG, "no ipv4 address");
 		goto out;
 	}
 	if(setAttribute(req, R_NASIPAddress, ip + IPv4off, 4) < 0)

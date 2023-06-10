@@ -900,15 +900,12 @@ int
 myip(uchar *ip)
 {
 	Ipifc *ifc;
-	Iplifc *lifc;
 
 	qlock(&ipifclock);
 	for(ifc = ipifcs; ifc != nil; ifc = ifc->next){
-		for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
-			if(ipcmp(ip, lifc->ip) == 0){
-				qunlock(&ipifclock);
-				return 1;
-			}
+		if(iplocalonifc(ifc, ip) != nil){
+			qunlock(&ipifclock);
+			return 1;
 		}
 	}
 	qunlock(&ipifclock);
