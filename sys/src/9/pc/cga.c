@@ -201,6 +201,9 @@ screeninit(void)
 {
 	static int once;
 
+	if(getconf("*nocga"))
+		return;
+
 	cgapos = cgaregr(0x0E)<<8;
 	cgapos |= cgaregr(0x0F);
 	cgapos *= 2;

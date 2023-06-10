@@ -1,6 +1,8 @@
 /* handy strings in l.s */
 extern char origin[];
 extern char uart;
+extern char nocga;
+extern char nokbd;
 extern char hex[];
 extern char bootname[];
 

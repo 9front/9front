@@ -14,7 +14,7 @@ initialization and load the kernel from the boot media into memory.
 After reading the configuration, the loader will automatically 
 attempt to boot the kernel that was specified by the
 .B bootfile=
-parameter. If there is no such parameter, a key
+parameter. If there is no such parameter, any key
 gets pressed on the keyboard or the kernel file was not
 found then the loader enters the interactive
 boot console.
@@ -183,6 +183,22 @@ is read from.
 .IR ndb (6)
 .br
 .I https://uefi.org
+.SH BUGS
+The uart number is picked up from
+.B console=
+but the parameters are ignored as BIOS allows
+only a maximum baud-rate of 9600 so the setting
+.B "b9660 l8 s1"
+is assumed.
+Some BIOS emulate/redirect keyboard input
+and CGA output to the serial console,
+which causes doubling of characters.
+This can be avoided using
+.B *nokbd=
+and
+.B *nocga=
+parameters.
+Serial console is not supported by EFI.
 .SH HISTORY
 9boot first appeared in 9front (April, 2011).
 EFI support first appeared in 9front (Oct, 2014).

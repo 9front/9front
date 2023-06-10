@@ -6,8 +6,9 @@
 void
 putc(int c)
 {
-	cgaputc(c);
-	if(uart != -1)
+	if(!nocga)
+		cgaputc(c);
+	if(uart >= 0)
 		uartputc(uart, c);
 }
 
@@ -111,10 +112,11 @@ memset(void *dst, int v, int n)
 int
 getc(void)
 {
-	int c;
+	int c = 0;
 
-	c = kbdgetc();
-	if(c == 0 && uart != -1)
+	if(!nokbd)
+		c = kbdgetc();
+	if(c == 0 && uart >= 0)
 		c = uartgetc(uart);
 	return c;
 }
@@ -284,6 +286,10 @@ Loop:
 			apmconf(line[3] - '0');
 			continue;
 		}
+		if(memcmp("*nocga", line, 6) == 0)
+			nocga = 1;
+		if(memcmp("*nokbd", line, 6) == 0)
+			nokbd = 1;
 		if(memcmp("console", line, 8) == 0)
 			uartconf(p);
 

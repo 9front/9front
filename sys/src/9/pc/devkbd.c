@@ -382,6 +382,9 @@ kbdreset(void)
 		panic("kbdreset");
 	qnoblock(kbd.q, 1);
 
+	if(getconf("*nokbd"))
+		return;
+
 	/* wait for a quiescent controller */
 	try = 1000;
 	while(try-- > 0 && (c = inb(Status)) & (Outbusy | Inready)) {
