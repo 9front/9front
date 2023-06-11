@@ -481,6 +481,7 @@ subprop(Reg *r0)
 		case ALSL:
 		case ALSR:
 		case AASR:
+		case AROR:
 		case AORR:
 		case AAND:
 		case AANDS:
@@ -502,6 +503,7 @@ subprop(Reg *r0)
 		case ALSLW:
 		case ALSRW:
 		case AASRW:
+		case ARORW:
 		case AORRW:
 		case AANDW:
 		case AANDSW:
@@ -1173,6 +1175,8 @@ copyu(Prog *p, Adr *v, Adr *s)
 	case ALSRW:
 	case AASR:
 	case AASRW:
+	case AROR:
+	case ARORW:
 	case AORR:
 	case AORRW:
 	case AAND:
@@ -1331,6 +1335,8 @@ a2type(Prog *p)
 	case ALSRW:
 	case AASR:
 	case AASRW:
+	case AROR:
+	case ARORW:
 	case AORR:
 	case AORRW:
 	case AAND:

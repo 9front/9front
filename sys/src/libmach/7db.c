@@ -159,6 +159,7 @@ static Opcode opcodes[] =
 	"1001001101000000011111nnnnnddddd",	"SXTW",		"R%n,R%d",
 	"0101001100iiiiii011111nnnnnddddd",	"LSRW",		"$%i,R%n,R%d",
 	"1101001101iiiiii111111nnnnnddddd",	"LSR",		"$%i,R%n,R%d",
+	"W00100111-0mmmmmiiiiiinnnnnddddd",	"EXTR%W",	"$%i,R%m,R%n,R%d",
 	"W00100110-iiiiiijjjjjjnnnnnddddd",	"SBFM%W",	"$%i,$%j,R%n,R%d",
 	"W01100110-iiiiiijjjjjjnnnnnddddd",	"BFM%W",	"$%i,$%j,R%n,R%d",
 	"W10100110-iiiiiijjjjjjnnnnnddddd",	"UBFM%W",	"$%i,$%j,R%n,R%d",

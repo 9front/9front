@@ -1037,6 +1037,16 @@ gopcode(int o, Node *f1, Node *f2, Node *t)
 			a = AORR;
 		break;
 
+	case OROL:
+		if(isv(et)){
+			a = AROR;
+			f1->vconst = 64-f1->vconst;
+		} else {
+			a = ARORW;
+			f1->vconst = 32-f1->vconst;
+		}
+		break;
+
 	case OASAND:
 	case OAND:
 		a = AANDW;

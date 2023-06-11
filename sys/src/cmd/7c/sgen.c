@@ -181,6 +181,18 @@ xcom(Node *n)
 		simplifyshift(n);
 		break;
 
+	case OOR:
+		xcom(l);
+		xcom(r);
+		switch(n->type->etype){
+		case TUINT:
+		case TULONG:
+		case TUVLONG:
+			rolor(n);
+			break;
+		}
+		break;
+
 	default:
 		if(l != Z)
 			xcom(l);

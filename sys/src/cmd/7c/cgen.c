@@ -199,6 +199,7 @@ cgenrel(Node *n, Node *nn, int inrel)
 	case OADD:
 	case OAND:
 	case OOR:
+	case OROL:
 	case OLSHR:
 	case OASHL:
 	case OASHR:
