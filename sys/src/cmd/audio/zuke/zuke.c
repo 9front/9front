@@ -133,7 +133,7 @@ static int Coversz;
 static char *
 matchvname(char **s)
 {
-	char *names[] = {"master", "pcm out"};
+	char *names[] = {"mix", "master", "pcm out"};
 	int i, l;
 
 	for(i = 0; i < nelem(names); i++){
