@@ -2,8 +2,11 @@
 
 int xtramodes(Reg*, Adr*);
 
+Reg* findset(Reg *r, Adr *v);
 Reg* findpre(Reg *r, Adr *v);
 Reg* findinc(Reg *r, Reg *r2, Adr *v);
+static void
+storeprop(int as, Adr *a, Adr *v, Reg *r);
 
 static int
 isu32op(Prog *p)
@@ -142,8 +145,14 @@ loop1:
 	t = 0;
 	for(r=firstr; r!=R; r=r->link) {
 		p = r->prog;
-		if(p->as == ALSL || p->as == ALSR || p->as == AASR ||
-		   p->as == ALSLW || p->as == ALSRW || p->as == AASRW) {
+
+		/* registerize local loads following stores */
+		if(p->as == AMOV || p->as == AMOVW || p->as == AMOVWU || p->as == AFMOVS || p->as == AFMOVD)
+			if(p->from.type == D_REG && p->to.type == D_OREG && (p->to.name == D_AUTO || p->to.name == D_PARAM))
+				storeprop(p->as, &p->from, &p->to, r->s1);
+
+		if(p->as == ALSL || p->as == ALSR || p->as == AASR
+		|| p->as == ALSLW || p->as == ALSRW || p->as == AASRW) {
 			/*
 			 * elide shift into D_SHIFT operand of subsequent instruction
 			 */
@@ -153,8 +162,7 @@ loop1:
 			}
 		} else
 		if(p->as == ASXTW && p->from.type == D_REG && p->to.type == D_REG){
-			r1 = findpre(r, &p->from);
-			if(r1 != R){
+			if((r1 = findset(r, &p->from)) != R){
 				p1 = r1->prog;
 				switch(p1->as){
 				case AMOVB:
@@ -170,8 +178,7 @@ loop1:
 		} else
 		if((p->as == AMOVB || p->as == AMOVBU || p->as == AMOVH || p->as == AMOVHU || p->as == AMOVWU)
 		&& (p->from.type == D_REG && p->to.type == D_REG)){
-			r1 = findpre(r, &p->from);
-			if(r1 != R){
+			if((r1 = findset(r, &p->from)) != R){
 				p1 = r1->prog;
 				if(p1->to.type == p->from.type && p1->to.reg == p->from.reg){
 					if(p1->as == p->as || p->as == AMOVWU && isu32op(p1))
@@ -745,6 +752,48 @@ constprop(Adr *c1, Adr *v1, Reg *r)
 }
 
 /*
+ * Registerize loads from local variables:
+ *
+ * MOV a, v
+ * ... (a and v not touched)
+ * MOV v, b
+ * ----
+ * MOV a, v
+ * ... (a and v not touched)
+ * MOV a, b
+ */
+static void
+storeprop(int as, Adr *a, Adr *v, Reg *r)
+{
+	Prog *p;
+
+	for(; r != R; r = r->s1) {
+		if(uniqp(r) == R)
+			return;
+
+		p = r->prog;
+		if((as == p->as
+		|| (as == AMOV && (p->as == AMOVW || p->as == AMOVWU))
+		|| (as == AMOVW && p->as == AMOVWU)
+		|| (as == AMOVWU && p->as == AMOVW))
+		&& copyas(&p->from, v)){
+			p->from = *a;
+			continue;
+		}
+
+		if(copyu(p, a, A) > 1)
+			return;
+
+		if(p->to.type == D_OREG || p->to.type == D_XPRE || p->to.type == D_XPOST)
+			if(p->to.name == D_NONE || copyas(&p->to, v))
+				return;
+
+		if(r->s2)
+			storeprop(as, a, v, r->s2);
+	}
+}
+
+/*
  * ALSL x,y,w
  * .. (not use w, not set x y w)
  * AXXX w,a,b (a != w)
@@ -862,6 +911,21 @@ shiftprop(Reg *r)
 	if(debug['H'])
 		print("\t=>%P\tSUCCEED\n", p2);
 	return 1;
+}
+
+Reg*
+findset(Reg *r, Adr *v)
+{
+
+	Reg *r1;
+
+	for(r1=uniqp(r); r1!=R; r=r1,r1=uniqp(r)) {
+		if(uniqs(r1) != r)
+			return R;
+		if(copyu(r1->prog, v, A) > 1)
+			return r1;
+	}
+	return R;
 }
 
 Reg*
@@ -1387,7 +1451,7 @@ copyas(Adr *a, Adr *v)
 		if(a->type == v->type)
 		if(a->reg == v->reg)
 			return 1;
-	} else if(v->type == D_CONST) {		/* for constprop */
+	} else {
 		if(a->type == v->type)
 		if(a->name == v->name)
 		if(a->sym == v->sym)
