@@ -11,6 +11,9 @@ enum {
 	FREQ = 44100,
 };
 
+#define MIN(a,b) ((a)<(b)?(a):(b))
+#define MAX(a,b) ((a)>(b)?(a):(b))
+
 typedef struct Stream Stream;
 struct Stream
 {
@@ -32,6 +35,10 @@ int	mixbuf[NBUF][NCHAN];
 Lock	mixlock;
 
 Stream	streams[16];
+
+int	volfd;
+int	volume[2] = {100, 100};
+int	vol64k[2] = {65536, 65536};
 
 int
 s16(uchar *p)
@@ -101,10 +108,9 @@ fsclunk(Fid *f)
 {
 	Stream *s;
 
-	if(f->file != nil && strcmp(f->file->name, "audio") == 0 && (s = f->aux) != nil){
-		f->aux = nil;
+	if(f->file != nil && strcmp(f->file->name, "audio") == 0 && (s = f->aux) != nil)
 		s->used = 0;
-	}
+	f->aux = nil;
 }
 
 void
@@ -179,7 +185,7 @@ audioproc(void *)
 		rp = mixrp;
 		for(i=0; i<m; i++){
 			for(j=0; j<NCHAN; j++){
-				v = clip16(mixbuf[rp % NBUF][j]);
+				v = clip16(mixbuf[rp % NBUF][j])*vol64k[j] / 65536;
 				lbbuf[rp % NBUF][j] = v;
 				mixbuf[rp % NBUF][j] = 0;
 				*p++ = v & 0xFF;
@@ -204,6 +210,18 @@ fsread(Req *r)
 	int i, j, n, m, v;
 	Stream *s;
 	uchar *p;
+
+	if(r->fid->file->aux == &volfd){
+		static char svol[4096];
+		if(r->ifcall.offset == 0){
+			m = snprint(svol, sizeof(svol), "mix %d %d\n", volume[0], volume[1]);
+			if((n = pread(volfd, svol+m, sizeof(svol)-m-1, 0)) > 0)
+				svol[m+n] = 0;
+		}
+		readstr(r, svol);
+		respond(r, nil);
+		return;
+	}
 
 	p = (uchar*)r->ofcall.data;
 	n = r->ifcall.count;
@@ -260,6 +278,39 @@ fswrite(Req *r)
 	Stream *s;
 	uchar *p;
 
+	if(r->fid->file->aux == &volfd){
+		char msg[64], *f[5];
+		int x[2], nf;
+
+		r->ofcall.count = r->ifcall.count;
+		snprint(msg, sizeof(msg), "%.*s",
+			utfnlen((char*)r->ifcall.data, r->ifcall.count), (char*)r->ifcall.data);
+		nf = tokenize(msg, f, nelem(f));
+		if(nf > 1 && strcmp(f[0], "mix") == 0){
+			x[0] = atoi(f[1]);
+			x[1] = nf < 3 ? x[0] : atoi(f[2]);
+			if(f[1][0] == '+' || f[1][0] == '-'){
+				x[0] += volume[0];
+				x[1] += volume[1];
+			}
+			volume[0] = MIN(MAX(0, x[0]), 100);
+			volume[1] = MIN(MAX(0, x[1]), 100);
+			/* ≈60dB dynamic range; [0-100] → [0-65536] */
+			vol64k[0] = 65.536 * (exp(volume[0] * 0.0690876) - 1.0);
+			vol64k[1] = 65.536 * (exp(volume[1] * 0.0690876) - 1.0);
+		}else if(volfd >= 0){
+			if(write(volfd, r->ifcall.data, r->ifcall.count) < 0){
+				responderror(r);
+				return;
+			}
+		}else{
+			respond(r, "bad msg");
+			return;
+		}
+		respond(r, nil);
+		return;
+	}
+
 	p = (uchar*)r->ifcall.data;
 	n = r->ifcall.count;
 	r->ofcall.count = n;
@@ -313,17 +364,12 @@ fsstat(Req *r)
 {
 	Stream *s;
 
-	if(r->fid->file == nil){
-		respond(r, "bug");
-		return;
-	}
-	if(strcmp(r->fid->file->name, "audio") == 0 && (s = r->fid->aux) != nil){
+	r->d.length = 0;
+	if(r->fid->file != nil && strcmp(r->fid->file->name, "audio") == 0 && (s = r->fid->aux) != nil){
 		qlock(s);
 		if(s->run){
 			r->d.length = (long)(s->wp - mixrp);
 			r->d.length *= NCHAN*2;
-		} else {
-			r->d.length = 0;
 		}
 		qunlock(s);
 	}
@@ -362,7 +408,7 @@ Srv fs = {
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-D] [-s srvname] [-m mtpt]\n", argv0);
+	fprint(2, "usage: %s [-D] [-v] [-s srvname] [-m mtpt]\n", argv0);
 	exits("usage");
 }
 
@@ -370,7 +416,7 @@ void
 threadmain(int argc, char **argv)
 {
 	char *srv = nil;
-	char *mtpt = "/mnt/mix";
+	char *m, *mtpt = "/mnt/mix";
 
 	ARGBEGIN{
 	case 'D':
@@ -389,14 +435,23 @@ threadmain(int argc, char **argv)
 	if(argc)
 		usage();
 
+	volfd = open("/dev/volume", ORDWR);
 	fs.tree = alloctree(nil, nil, DMDIR|0777, nil);
 	createfile(fs.tree->root, "audio", nil, 0666, nil);
+	createfile(fs.tree->root, "volume", nil, 0666, &volfd);
 	threadpostmountsrv(&fs, srv, mtpt, MREPL);
 
-	mtpt = smprint("%s/audio", mtpt);
-	if(bind(mtpt, "/dev/audio", MREPL) < 0)
+	m = smprint("%s/audio", mtpt);
+	if(bind(m, "/dev/audio", MREPL) < 0)
 		sysfatal("bind: %r");
-	free(mtpt);
+	free(m);
+
+	if(volfd >= 0){
+		m = smprint("%s/volume", mtpt);
+		if(bind(m, "/dev/volume", MREPL) < 0)
+			sysfatal("bind: %r");
+		free(m);
+	}
 
 	threadexits(0);
 }

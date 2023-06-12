@@ -346,8 +346,13 @@ mounts itself on
 .B /mnt/mix
 and then binds
 .B /mnt/mix/audio
+and
+.B /mnt/mix/volume
 over
 .BR /dev .
+.B /dev/volume
+from the parent namespace is proxied with an additional control "mix"
+which is used to set the output volume of the mixer.
 A alternative mountpoint 
 .I mtpt
 can be specified with the
