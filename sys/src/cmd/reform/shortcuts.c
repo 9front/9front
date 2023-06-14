@@ -42,10 +42,6 @@ process(char *s)
 				fprint(light, "lcd %+d", -lightstep);
 			else if(r == Kbrtup)
 				fprint(light, "lcd %+d", lightstep);
-			else if(r == Kvoldn)
-				fprint(vol, "master %+d", -volstep);
-			else if(r == Kvolup)
-				fprint(vol, "master %+d", volstep);
 			else if(r == Kmute)
 				fprint(actl, "master toggle");
 			else if(r == Ksbwd)
@@ -54,8 +50,15 @@ process(char *s)
 				aplumb("key >");
 			else if(r == Kpause)
 				aplumb("key p");
-			else
+			else if(r == Kvoldn){
+				if(fprint(vol, "mix %+d", -volstep) < 0)
+					fprint(vol, "master %+d", -volstep);
+			}else if(r == Kvolup){
+				if(fprint(vol, "mix %+d", volstep) < 0)
+					fprint(vol, "master %+d", volstep);
+			}else{
 				skip = 0;
+			}
 		}
 
 		if(!skip){

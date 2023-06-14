@@ -158,7 +158,8 @@ skips to the previous track, (un)pauses or skips to the next track in
 .I Hyper+F10
 (un)mutes the audio,
 .I Hyper+F11/F12
-decreases/increases "master" volume.  Optionally, a single step amount
+decreases/increases "mix" volume, or "master" if former isn't
+available.  Optionally, a single step amount
 can be set with
 .I -l
 for LCD light level (default is 5) and
