@@ -673,6 +673,16 @@ iosetname(va_list *)
 	return 0;
 }
 
+static int
+clip16(int v)
+{
+	if(v > 0x7fff)
+		return 0x7fff;
+	if(v < -0x8000)
+		return -0x8000;
+	return v;
+}
+
 static void
 gain(double g, char *buf, long n)
 {
@@ -680,8 +690,8 @@ gain(double g, char *buf, long n)
 
 	if(g != 1.0)
 		for(f = (s16int*)buf; n >= 4; n -= 4){
-			*f = g * *f++;
-			*f = g * *f++;
+			*f++ = clip16(*f * g);
+			*f++ = clip16(*f * g);
 		}
 }
 
