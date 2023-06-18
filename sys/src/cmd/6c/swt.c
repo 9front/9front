@@ -350,7 +350,7 @@ zname(Biobuf *b, Sym *s, int t)
 	char *n;
 	ulong sig;
 
-	if(debug['T'] && t == D_EXTERN && s->sig != SIGDONE && s->type != types[TENUM] && s != symrathole){
+	if(debug['T'] && t == D_EXTERN && s->sig != SIGDONE){
 		sig = sign(s);
 		Bputc(b, ASIGNAME);
 		Bputc(b, ASIGNAME>>8);

@@ -1016,17 +1016,14 @@ cgen(Node *n, Node *nn)
 		break;
 
 	case ODOT:
-		sugen(l, nodrat, l->type->width);
+		regsalloc(&nod, l);
+		sugen(l, &nod, l->type->width);
 		if(nn == Z)
 			break;
-		warn(n, "non-interruptable temporary");
-		nod = *nodrat;
 		if(!r || r->op != OCONST) {
 			diag(n, "DOT and no offset");
 			break;
 		}
-		nod.xoffset += (long)r->vconst;
-		nod.type = n->type;
 		cgen(&nod, nn);
 		break;
 
@@ -1409,9 +1406,6 @@ sugen(Node *n, Node *nn, long w)
 		prtree(nn, "sugen lhs");
 		prtree(n, "sugen");
 	}
-	if(nn == nodrat)
-		if(w > nrathole)
-			nrathole = w;
 	switch(n->op) {
 	case OIND:
 		if(nn == Z) {
@@ -1427,18 +1421,15 @@ sugen(Node *n, Node *nn, long w)
 
 	case ODOT:
 		l = n->left;
-		sugen(l, nodrat, l->type->width);
+		regsalloc(&nod1, l);
+		sugen(l, &nod1, l->type->width);
 		if(nn == Z)
 			break;
-		warn(n, "non-interruptable temporary");
-		nod1 = *nodrat;
 		r = n->right;
 		if(!r || r->op != OCONST) {
 			diag(n, "DOT and no offset");
 			break;
 		}
-		nod1.xoffset += (long)r->vconst;
-		nod1.type = n->type;
 		sugen(&nod1, nn, w);
 		break;
 
@@ -1524,15 +1515,17 @@ sugen(Node *n, Node *nn, long w)
 			break;
 		}
 
-		sugen(n->right, nodrat, w);
+		regsalloc(&nod0, n->right);
+		sugen(n->right, &nod0, w);
 		warn(n, "non-interruptable temporary");
-		sugen(nodrat, n->left, w);
-		sugen(nodrat, nn, w);
+		sugen(&nod0, n->left, w);
+		sugen(&nod0, nn, w);
 		break;
 
 	case OFUNC:
 		if(nn == Z) {
-			sugen(n, nodrat, w);
+			regsalloc(&nod0, n);
+			sugen(n, &nod0, w);
 			break;
 		}
 		if(nn->op != OIND) {
