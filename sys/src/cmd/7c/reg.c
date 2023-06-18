@@ -1133,7 +1133,7 @@ addreg(Adr *a, int rn)
  *	0	R9
  *	1	R10
  *	...	...
- *	6	R15
+ *	14	R23
  */
 long
 RtoB(int r)
@@ -1146,7 +1146,8 @@ RtoB(int r)
 int
 BtoR(long b)
 {
-	b &= 0x07fL;
+	b &= (1 << (1+REGMAX-REGMIN))-1;
+	b &= ~(1 << (REGTMP-REGMIN));
 	if(b == 0)
 		return 0;
 	return bitno(b) + REGMIN;
@@ -1162,7 +1163,7 @@ BtoR(long b)
 long
 FtoB(int f)
 {
-	if(f < FREGMIN || f > FREGEXT)
+	if(f < FREGMIN || f >= FREGEXT)
 		return 0;
 	return 1L << (f - FREGMIN + 22);
 }
@@ -1171,7 +1172,7 @@ int
 BtoF(long b)
 {
 
-	b &= 0x3fc00000L;
+	b &= ((1 << (FREGEXT - FREGMIN))-1) << 22;
 	if(b == 0)
 		return 0;
 	return bitno(b) - 22 + FREGMIN;

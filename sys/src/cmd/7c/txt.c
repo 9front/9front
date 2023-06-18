@@ -291,7 +291,7 @@ void
 regalloc(Node *n, Node *tn, Node *o)
 {
 	int i, j;
-	static int lasti;
+	static int lasti, lastf;
 
 	switch(tn->type->etype) {
 	case TCHAR:
@@ -316,6 +316,7 @@ regalloc(Node *n, Node *tn, Node *o)
 				j = REGRET+1;
 			if(reg[j] == 0 && resvreg[j] == 0) {
 				i = j;
+				lasti = (i - REGRET) % 5;
 				goto out;
 			}
 			j++;
@@ -330,12 +331,13 @@ regalloc(Node *n, Node *tn, Node *o)
 			if(i >= NREG && i < NREG+NFREG)
 				goto out;
 		}
-		j = lasti + NREG;
+		j = lastf + NREG;
 		for(i=NREG; i<NREG+NFREG; i++) {
 			if(j >= NREG+NFREG)
 				j = NREG;
 			if(reg[j] == 0) {
 				i = j;
+				lastf = (i - NREG-1) % 5;
 				goto out;
 			}
 			j++;
@@ -350,8 +352,6 @@ err:
 out:
 	reg[i]++;
 	lasti++;
-	if(lasti >= 5)
-		lasti = 0;
 	nodreg(n, tn, i);
 }
 

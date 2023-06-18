@@ -8,6 +8,24 @@ Reg* findinc(Reg *r, Reg *r2, Adr *v);
 static void
 storeprop(int as, Adr *a, Adr *v, Reg *r);
 
+static void
+swapprog(Prog *p1, Prog *p2)
+{
+	Prog tmp = *p1;
+
+	p1->as = p2->as;
+	p1->scond = p2->scond;
+	p1->from = p2->from;
+	p1->to = p2->to;
+	p1->reg = p2->reg;
+
+	p2->as = tmp.as;
+	p2->scond = tmp.scond;
+	p2->from = tmp.from;
+	p2->to = tmp.to;
+	p2->reg = tmp.reg;
+}
+
 static int
 isu32op(Prog *p)
 {
@@ -102,6 +120,74 @@ isu32op(Prog *p)
 	return 0;
 }
 
+static int
+independent(Prog *p1, Prog *p2)
+{
+	switch(p1->as){
+	case ACMP:
+	case ACMPW:
+	case AFCMPS:
+	case AFCMPD:
+
+	case AB:
+	case ABL:
+	case ARET:
+	case ARETURN:
+		return 0;
+	}
+
+	if(regtyp(&p1->to)){
+		if(!copyu(p2, &p1->to, A))
+			return 1;
+		return 0;
+	}
+
+	if(p2->from.type == D_CONST || p2->from.type == D_FCONST)
+		return 1;
+
+	if(p1->to.type == D_OREG){
+		int w;
+
+		if(p2->from.type != D_OREG)
+			return 1;
+
+		switch(p1->as){
+		default:
+			return 0;
+		case AMOV:
+		case AFMOVD:
+			w = 8;
+			break;
+		case AMOVW:
+		case AMOVWU:
+		case AFMOVS:
+			w = 4;
+			break;
+		case AMOVH:
+		case AMOVHU:
+			w = 2;
+			break;
+		case AMOVB:
+		case AMOVBU:
+			w = 1;
+			break;
+		}
+
+		if(p1->to.reg != REGSP && p1->to.name <= D_NONE)
+			return 0;
+		if(p2->from.reg != REGSP && p2->from.name <= D_NONE)
+			return 0;
+
+		if(p1->to.name != p2->from.name
+		|| p1->to.reg != p2->from.reg
+		|| abs(p1->to.offset - p2->from.offset) >= w)
+			return 1;
+	}
+
+	/* assume not independent */
+	return 0;
+}
+
 void
 peep(void)
 {
@@ -146,10 +232,11 @@ loop1:
 	for(r=firstr; r!=R; r=r->link) {
 		p = r->prog;
 
-		/* registerize local loads following stores */
-		if(p->as == AMOV || p->as == AMOVW || p->as == AMOVWU || p->as == AFMOVS || p->as == AFMOVD)
-			if(p->from.type == D_REG && p->to.type == D_OREG && (p->to.name == D_AUTO || p->to.name == D_PARAM))
+		/* registerize variable loads following stores */
+		if(p->as == AMOV || p->as == AMOVW || p->as == AMOVWU || p->as == AFMOVS || p->as == AFMOVD){
+			if(p->from.type == D_REG && p->to.type == D_OREG && p->to.name > D_NONE)
 				storeprop(p->as, &p->from, &p->to, r->s1);
+		}
 
 		if(p->as == ALSL || p->as == ALSR || p->as == AASR
 		|| p->as == ALSLW || p->as == ALSRW || p->as == AASRW) {
@@ -189,7 +276,7 @@ loop1:
 
 		if(p->as == AMOV || p->as == AMOVW || p->as == AFMOVS || p->as == AFMOVD)
 		if(regtyp(&p->to)) {
-			if(p->from.type == D_CONST)
+			if(p->from.type == D_CONST || p->from.type == D_FCONST)
 				constprop(&p->from, &p->to, r->s1);
 			else if(regtyp(&p->from))
 			if(p->from.type == p->to.type) {
@@ -219,6 +306,7 @@ loop1:
 	}
 	if(t)
 		goto loop1;
+
 	/*
 	 * look for MOVB x,R; MOVB R,R
 	 */
@@ -359,6 +447,86 @@ loop1:
 		}
 	}
 #endif
+
+	/*
+	 * software pipeline loads:
+	 *
+	 * insert a independent instruction (YYY) after a load:
+	 * MOV v, r1
+	 * XXX r1, x
+	 * YYY ... (not reading x or touching r1)
+	 * ---
+	 * MOV v, r1
+	 * YYY ... (not reading x or touching r1)
+	 * XXX r1, x
+	 */
+	for(r=firstr; r!=R; r=r->link) {
+		p = r->prog;
+		switch(p->as){
+		default:
+			continue;
+		case AFMOVD:
+		case AFMOVS:
+			if(p->from.type != D_OREG || p->to.type != D_FREG)
+				continue;
+			break;
+		case AMOV:
+		case AMOVW:
+		case AMOVWU:
+		case AMOVH:
+		case AMOVHU:
+		case AMOVB:
+		case AMOVBU:
+			if(p->from.type != D_OREG || p->to.type != D_REG)
+				continue;
+			break;
+		}
+		for(r1 = uniqs(r); r1 != R && r1->prog->as == ANOP; r1 = uniqs(r1)){
+			if(uniqp(r1) == R){
+				r1 = R;
+				break;
+			}
+		}
+		if(r1 == R || uniqp(r1) == R)
+			continue;
+		p1 = r1->prog;
+		if(!copyu(p1, &p->to, A))
+			continue;
+
+		for(r2 = uniqs(r1); r2 != R && r2->prog->as == ANOP; r2 = uniqs(r2)){
+			if(uniqp(r2) == R){
+				r2 = R;
+				break;
+			}
+		}
+		if(r2 == R || uniqp(r2) == R)
+			continue;
+		if(copyu(r2->prog, &p->to, A))
+			continue;
+
+		if(!independent(p1, r2->prog))
+			continue;
+		if(!independent(r2->prog, p1))
+			continue;
+
+		/*
+		 * if YYY happens to be a move from v, use register:
+		 * MOV v, r1
+		 * MOV v, r2
+		 * ---
+		 * MOV v, r1
+		 * MOV r1, r2
+		 */
+		if(p->as == r2->prog->as
+		&& (p->from.reg == REGSP || p->from.name > D_NONE)
+		&& copyas(&p->from, &r2->prog->from))
+			r2->prog->from = p->to;
+
+		swapprog(p1, r2->prog);
+		t++;
+	}
+	if(t)
+		goto loop1;
 
 #ifdef XXX
 	predicate();
@@ -724,8 +892,13 @@ constprop(Adr *c1, Adr *v1, Reg *r)
 {
 	Prog *p;
 
+	/* should be encodable with ZR */
+	if(c1->type == D_CONST && c1->sym == S && c1->offset == 0)
+		return;
+
 	if(debug['C'])
 		print("constprop %D->%D\n", c1, v1);
+
 	for(; r != R; r = r->s1) {
 		p = r->prog;
 		if(debug['C'])
@@ -735,7 +908,8 @@ constprop(Adr *c1, Adr *v1, Reg *r)
 				print("; merge; return\n");
 			return;
 		}
-		if(p->as == AMOVW && copyas(&p->from, c1)) {
+		if((p->as == AMOVW || p->as == AMOVWU || p->as == AMOV || p->as == AFMOVD || p->as == AFMOVS)
+		&& copyas(&p->from, c1)) {
 			if(debug['C'])
 				print("; sub%D/%D", &p->from, v1);
 			p->from = *v1;
@@ -785,7 +959,7 @@ storeprop(int as, Adr *a, Adr *v, Reg *r)
 			return;
 
 		if(p->to.type == D_OREG || p->to.type == D_XPRE || p->to.type == D_XPOST)
-			if(p->to.name == D_NONE || copyas(&p->to, v))
+			if(p->to.name <= D_NONE || copyas(&p->to, v))
 				return;
 
 		if(r->s2)
@@ -1446,7 +1620,6 @@ a2type(Prog *p)
 int
 copyas(Adr *a, Adr *v)
 {
-
 	if(regtyp(v)) {
 		if(a->type == v->type)
 		if(a->reg == v->reg)
@@ -1455,9 +1628,13 @@ copyas(Adr *a, Adr *v)
 		if(a->type == v->type)
 		if(a->name == v->name)
 		if(a->sym == v->sym)
-		if(a->reg == v->reg)
-		if(a->offset == v->offset)
-			return 1;
+		if(a->reg == v->reg){
+			if(a->type == D_FCONST){
+				if(a->dval == v->dval)
+					return 1;
+			} else if(a->offset == v->offset)
+				return 1;
+		}
 	}
 	return 0;
 }
@@ -1468,7 +1645,6 @@ copyas(Adr *a, Adr *v)
 int
 copyau(Adr *a, Adr *v)
 {
-
 	if(copyas(a, v))
 		return 1;
 	if(v->type == D_REG) {

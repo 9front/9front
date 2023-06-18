@@ -12,14 +12,10 @@
 #define	REGRET		0
 #define	REGARG		0
 /* R1 to R7 are potential parameter/return registers */
-#define	REGIRL		8	/* indirect result location (TO DO) */
-/* compiler allocates R9 up as temps */
-/* compiler allocates register variables R10 up */
+/* compiler allocates register variables R9 up */
 #define	REGMIN		9
-#define	REGMAX		15
-#define	REGIP0		16
-#define	REGIP1		17
-#define	REGTMP		REGIP1
+#define	REGMAX		23
+#define	REGTMP		17
 /* compiler allocates external registers R27 down */
 #define	REGEXT		27
 #define	REGSB		28
