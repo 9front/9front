@@ -165,7 +165,6 @@ main(uintptr arg0)
 		cpuidprint();
 		synccycles();
 		timersinit();
-		flushtlb();
 		mmu1init();
 		m->ticks = MACHP(0)->ticks;
 		schedinit();
@@ -197,8 +196,6 @@ main(uintptr arg0)
 	chandevreset();
 	userinit();
 	mpinit();
-	mmu0clear((uintptr*)L1);
-	flushtlb();
 	mmu1init();
 	schedinit();
 }
@@ -211,7 +208,7 @@ rebootjump(void *entry, void *code, ulong size)
 	intrcpushutdown();
 
 	/* redo identity map */
-	mmuidmap((uintptr*)L1);
+	setttbr(PADDR(L1BOT));
 
 	/* setup reboot trampoline function */
 	f = (void*)REBOOTADDR;
