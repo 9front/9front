@@ -246,11 +246,8 @@ meminit(void)
 	 * the proper sizes.
 	 */
 	coherence();
-	for(va = INITMAP+KZERO; va != 0; va += PGLSZ(1)){
-		pa = va-KZERO;
-		((uintptr*)L1)[PTL1X(pa, 1)] = 0;
+	for(va = INITMAP+KZERO; va != 0; va += PGLSZ(1))
 		((uintptr*)L1)[PTL1X(va, 1)] = 0;
-	}
 	flushtlb();
 
 	pa = PGROUND((uintptr)end)-KZERO;
