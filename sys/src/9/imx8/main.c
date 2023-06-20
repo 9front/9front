@@ -173,7 +173,6 @@ confinit(void)
 	int i;
 
 	conf.nmach = MAXMACH;
-
 	if(p = getconf("service")){
 		if(strcmp(p, "cpu") == 0)
 			cpuserver = 1;
@@ -241,7 +240,6 @@ mpinit(void)
 	extern void _start(void);
 	int i;
 
-	splhi();
 	for(i = 1; i < conf.nmach; i++){
 		Ureg u = {0};
 
@@ -255,7 +253,6 @@ mpinit(void)
 		smccall(&u);
 	}
 	synccycles();
-	spllo();
 }
 
 void
@@ -314,7 +311,6 @@ main(void)
 		cpuidprint();
 		synccycles();
 		timersinit();
-		flushtlb();
 		mmu1init();
 		m->ticks = MACHP(0)->ticks;
 		schedinit();
@@ -338,15 +334,12 @@ main(void)
 	procinit0();
 	initseg();
 	links();
-	chandevreset();
-	gpioinit();
 	lcdinit();
 	tmuinit();
 	lpcspiinit();
+	chandevreset();
 	userinit();
 	mpinit();
-	mmu0clear((uintptr*)L1);
-	flushtlb();
 	mmu1init();
 	schedinit();
 }
@@ -377,7 +370,7 @@ rebootjump(void *entry, void *code, ulong size)
 	intrcpushutdown();
 
 	/* redo identity map */
-	mmuidmap((uintptr*)L1);
+	setttbr(PADDR(L1BOT));
 
 	/* setup reboot trampoline function */
 	f = (void*)REBOOTADDR;

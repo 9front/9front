@@ -57,6 +57,10 @@
 
 #define KSEG0		(0xFFFFFFFE00000000ULL)
 
+/* temporary identity map for TTBR0 (using only top-level) */
+#define L1BOT		((L1-L1TOPSIZE)&-BY2PG)
+
+/* shared kernel page table for TTBR1 */
 #define L1		(L1TOP-L1SIZE)
 #define L1SIZE		((L1TABLES+PTLEVELS-2)*BY2PG)
 #define L1TOP		((MACHADDR(MAXMACH-1)-L1TOPSIZE)&-BY2PG)

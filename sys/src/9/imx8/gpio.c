@@ -157,7 +157,7 @@ gpiointerrupt(Ureg *, void *arg)
 }
 
 void
-gpioinit(void)
+gpiolink(void)
 {
 	intrenable(IRQgpio1l, gpiointerrupt, &ctlrs[0], BUSUNKNOWN, "gpio1");
 	intrenable(IRQgpio1h, gpiointerrupt, &ctlrs[0], BUSUNKNOWN, "gpio1");

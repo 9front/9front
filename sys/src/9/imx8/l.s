@@ -34,7 +34,7 @@ TEXT _start(SB), 1, $-4
 	CBNZ	R1, _startup
 
 	/* clear page table and machs */
-	MOV	$(L1-KZERO), R1
+	MOV	$(L1BOT-KZERO), R1
 	MOV	$(MACHADDR(-1)-KZERO), R2
 _zerol1:
 	MOV	ZR, (R1)8!
@@ -50,6 +50,9 @@ _zerobss:
 	BNE	_zerobss
 
 	/* setup page tables */
+	MOV	$(L1BOT-KZERO), R0
+	BL	mmuidmap(SB)
+
 	MOV	$(L1-KZERO), R0
 	BL	mmu0init(SB)
 
@@ -211,10 +214,11 @@ TEXT mmuenable<>(SB), 1, $-4
 	ISB	$SY
 
 	/* load the page tables */
-	MOV	$(L1TOP-KZERO), R0
+	MOV	$(L1BOT-KZERO), R0
+	MOV	$(L1TOP-KZERO), R1
 	ISB	$SY
 	MSR	R0, TTBR0_EL1
-	MSR	R0, TTBR1_EL1
+	MSR	R1, TTBR1_EL1
 	ISB	$SY
 
 	/* enable MMU and caches */

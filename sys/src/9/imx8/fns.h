@@ -74,7 +74,6 @@ extern void* vmap(uvlong, vlong);
 extern void vunmap(void*, vlong);
 
 extern void mmu0init(uintptr*);
-extern void mmu0clear(uintptr*);
 extern void mmuidmap(uintptr*);
 extern void mmu1init(void);
 extern void meminit(void);
@@ -162,7 +161,6 @@ extern void gpioout(uint pin, int set);
 extern int gpioin(uint pin);
 void gpiointrenable(uint pin, int mode, void (*f)(uint pin, void *a), void *a);
 void gpiointrdisable(uint pin);
-void gpioinit(void);
 
 /* pciimx */
 extern int pcicfgrw8(int tbdf, int rno, int data, int read);

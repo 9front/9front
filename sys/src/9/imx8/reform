@@ -36,6 +36,7 @@ link
 	pciimx		pci
 	sai
 	usdhc
+	gpio
 
 ip
 	tcp
@@ -50,7 +51,6 @@ misc
 	ccm
 	gic
 	gpc
-	gpio
 	lcd
 	uartimx
 	iomux

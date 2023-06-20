@@ -5,19 +5,42 @@
 #include "fns.h"
 #include "sysreg.h"
 
+#define INITMAP	(ROUND((uintptr)end + BY2PG, PGLSZ(1))-KZERO)
+
+/*
+ * Create initial identity map in top-level page table
+ * (L1BOT) for TTBR0. This page table is only used until
+ * mmu1init() loads m->mmutop.
+ */
+void
+mmuidmap(uintptr *l1bot)
+{
+	uintptr pa, pe, attr;
+
+	/* VDRAM */
+	attr = PTEWRITE | PTEAF | PTEKERNEL | PTEUXN | PTESH(SHARE_INNER);
+	pe = -KZERO;
+	for(pa = VDRAM - KZERO; pa < pe; pa += PGLSZ(PTLEVELS-1))
+		l1bot[PTLX(pa, PTLEVELS-1)] = pa | PTEVALID | PTEBLOCK | attr;
+}
+
+/*
+ * Create initial shared kernel page table (L1) for TTBR1.
+ * This page table coveres the INITMAP and VIRTIO,
+ * and later we fill the ram mappings in meminit().
+ */
 void
 mmu0init(uintptr *l1)
 {
 	uintptr va, pa, pe, attr;
 
-	/* VDRAM */
+	/* DRAM - INITMAP */
 	attr = PTEWRITE | PTEAF | PTEKERNEL | PTEUXN | PTESH(SHARE_INNER);
-	pe = -KZERO;
-	for(pa = VDRAM - KZERO, va = VDRAM; pa < pe; pa += PGLSZ(1), va += PGLSZ(1)){
+	pe = INITMAP;
+	for(pa = VDRAM - KZERO, va = VDRAM; pa < pe; pa += PGLSZ(1), va += PGLSZ(1))
 		l1[PTL1X(va, 1)] = pa | PTEVALID | PTEBLOCK | attr;
-		l1[PTL1X(pa, 1)] = pa | PTEVALID | PTEBLOCK | attr;
-	}
 
+	/* VIRTIO */
 	attr = PTEWRITE | PTEAF | PTEKERNEL | PTEUXN | PTEPXN | PTESH(SHARE_OUTER) | PTEDEVICE;
 	pe = VDRAM - KZERO;
 	for(pa = VIRTIO - KZERO, va = VIRTIO; pa < pe; pa += PGLSZ(1), va += PGLSZ(1)){
@@ -35,47 +58,10 @@ mmu0init(uintptr *l1)
 	if(PTLEVELS > 2)
 	for(va = KSEG0; va != 0; va += PGLSZ(2))
 		l1[PTL1X(va, 2)] = (uintptr)&l1[L1TABLEX(va, 1)] | PTEVALID | PTETABLE;
+
 	if(PTLEVELS > 3)
 	for(va = KSEG0; va != 0; va += PGLSZ(3))
 		l1[PTL1X(va, 3)] = (uintptr)&l1[L1TABLEX(va, 2)] | PTEVALID | PTETABLE;
-}
-
-void
-mmu0clear(uintptr *l1)
-{
-	uintptr va, pa, pe;
-
-	pe = -VDRAM;
-	for(pa = VDRAM - KZERO, va = VDRAM; pa < pe; pa += PGLSZ(1), va += PGLSZ(1))
-		if(PTL1X(pa, 1) != PTL1X(va, 1))
-			l1[PTL1X(pa, 1)] = 0;
-
-	if(PTLEVELS > 2)
-	for(pa = VDRAM - KZERO, va = VDRAM; pa < pe; pa += PGLSZ(2), va += PGLSZ(2))
-		if(PTL1X(pa, 2) != PTL1X(va, 2))
-			l1[PTL1X(pa, 2)] = 0;
-	if(PTLEVELS > 3)
-	for(pa = VDRAM - KZERO, va = VDRAM; pa < pe; pa += PGLSZ(3), va += PGLSZ(3))
-		if(PTL1X(pa, 3) != PTL1X(va, 3))
-			l1[PTL1X(pa, 3)] = 0;
-}
-
-void
-mmuidmap(uintptr *l1)
-{
-	uintptr va, pa, pe;
-
-	pe = -VDRAM;
-	for(pa = VDRAM - KZERO, va = VDRAM; pa < pe; pa += PGLSZ(1), va += PGLSZ(1))
-		l1[PTL1X(pa, 1)] = l1[PTL1X(va, 1)];
-	if(PTLEVELS > 2)
-	for(pa = VDRAM - KZERO, va = VDRAM; pa < pe; pa += PGLSZ(2), va += PGLSZ(2))
-		l1[PTL1X(pa, 2)] = l1[PTL1X(va, 2)];
-	if(PTLEVELS > 3)
-	for(pa = VDRAM - KZERO, va = VDRAM; pa < pe; pa += PGLSZ(3), va += PGLSZ(3))
-		l1[PTL1X(pa, 3)] = l1[PTL1X(va, 3)];
-	setttbr(PADDR(&l1[L1TABLEX(0, PTLEVELS-1)]));
-	flushtlb();
 }
 
 void
@@ -140,8 +126,6 @@ void
 kmapinval(void)
 {
 }
-
-#define INITMAP	(ROUND((uintptr)end + BY2PG, PGLSZ(1))-KZERO)
 
 static void*
 rampage(void)
@@ -215,21 +199,6 @@ kmapram(uintptr base, uintptr limit)
 void
 meminit(void)
 {
-	uintptr va, pa;
-
-	/*
-	 * now we know the real memory regions, unmap
-	 * everything above INITMAP and map again with
-	 * the proper sizes.
-	 */
-	coherence();
-	for(va = INITMAP+KZERO; va != 0; va += PGLSZ(1)){
-		pa = va-KZERO;
-		((uintptr*)L1)[PTL1X(pa, 1)] = 0;
-		((uintptr*)L1)[PTL1X(va, 1)] = 0;
-	}
-	flushtlb();
-
 	/* DDR Memory (All modules) */
 	conf.mem[0].base = PGROUND((uintptr)end - KZERO);
 
