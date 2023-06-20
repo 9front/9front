@@ -565,16 +565,22 @@ A frame of reference in a
 .IR n -dimensional
 space is made out of n+1 points, one being the origin
 .IR p ,
-relative to some other frame of reference, and the remaining being the
+and the remaining being the
 basis vectors
 .I b1,⋯,bn
 that define the metric within that frame.
 .PP
-Every one of these routines assumes the origin reference frame
-.B O
-has an orthonormal basis when performing an inverse transformation;
-it's up to the user to apply a forward transformation to the resulting
-point with the proper reference frame if that's not the case.
+The origin point and the bases are all defined in terms of an origin
+frame of reference O. Applying a forward transformation
+.RI ( rframexform
+and
+.IR rframexform3 )
+to a point relative to O will result in a point relative to the new frame.
+Applying an inverse transformation
+.RI ( invrframexform
+and
+.IR invrframexform3 )
+to that same point—now defined in terms of the new frame—will bring it back to O.
 .TP
 Name
 Description
@@ -582,34 +588,32 @@ Description
 .B rframexform(\fIp\fP,\fIrf\fP)
 Transforms the point
 .IR p ,
-relative to origin O, into the frame of reference
-.I rf
-with origin in
-.BR rf.p ,
-which is itself also relative to O. It then returns the new 2D point.
+relative to some origin frame of reference O, into the frame of reference
+.IR rf .
+It then returns the new 2D point.
 .TP
 .B rframexform3(\fIp\fP,\fIrf\fP)
 Transforms the point
 .IR p ,
-relative to origin O, into the frame of reference
-.I rf
-with origin in
-.BR rf.p ,
-which is itself also relative to O. It then returns the new 3D point.
+relative to some origin frame of reference O, into the frame of reference
+.IR rf .
+It then returns the new 3D point.
 .TP
 .B invrframexform(\fIp\fP,\fIrf\fP)
 Transforms the point
 .IR p ,
 relative to
-.BR rf.p ,
-into the frame of reference O, assumed to have an orthonormal basis.
+.IR rf ,
+into a point relative to the origin frame of reference O.
+It then returns the new 2D point.
 .TP
 .B invrframexform3(\fIp\fP,\fIrf\fP)
 Transforms the point
 .IR p ,
 relative to
-.BR rf.p ,
-into the frame of reference O, assumed to have an orthonormal basis.
+.IR rf ,
+into a point relative to the origin frame of reference O.
+It then returns the new 3D point.
 .SS Triangles
 .TP
 Name
@@ -650,27 +654,29 @@ grow downwards (see
 #include <draw.h>
 #include <geometry.h>
 
-RFrame screenrf;
+RFrame worldrf;
 
-Point
-toscreen(Point2 p)
+/* from screen... */
+Point2
+toworld(Point p)
 {
-	p = invrframexform(p, screenrf);
-	return Pt(p.x,p.y);
+	return rframexform(p, worldrf);
 }
 
-Point2
-fromscreen(Point p)
+/* ...to screen */
+Point
+fromworld(Point2 p)
 {
-	return rframexform(Pt2(p.x,p.y,1), screenrf);
+	p = invrframexform(Pt2(p.x,p.y,1), worldrf);
+	return Pt(p.x,p.y);
 }
 
 void
 main(void)
 	⋯
-	screenrf.p = Pt2(screen->r.min.x+Dx(screen->r)/2,screen->r.max.y-Dy(screen->r)/2,1);
-	screenrf.bx = Vec2(1, 0);
-	screenrf.by = Vec2(0,-1);
+	worldrf.p = Pt2(screen->r.min.x+Dx(screen->r)/2,screen->r.max.y-Dy(screen->r)/2,1);
+	worldrf.bx = Vec2(1, 0);
+	worldrf.by = Vec2(0,-1);
 	⋯
 .EE
 .PP
@@ -721,7 +727,7 @@ redraw(void)
 	mulm(T, R); /* rotate, then translate */
 	p = ship->mdl.pts;
 	for(i = 0; i < nelem(pts)-1; i++)
-		pts[i] = toscreen(xform(p[i], T));
+		pts[i] = fromworld(xform(p[i], T));
 	pts[i] = pts[0];
 	draw(screen, screen->r, display->white, nil, ZP);
 	poly(screen, pts, nelem(pts), 0, 0, 0, display->black, ZP);
@@ -764,7 +770,7 @@ struct Ship
 ⋯
 redraw(void)
 	⋯
-		pts[i] = toscreen(invrframexform(p[i], *ship));
+		pts[i] = fromworld(invrframexform(p[i], *ship));
 ⋯
 main(void)
 	⋯
