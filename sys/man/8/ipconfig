@@ -271,9 +271,7 @@ don't fork a process to keep the DHCP lease alive.
 .TP
 .B y
 When adding an address,
-ARP proxy the new network on other interfaces
-if the sub-net falls within a super-net
-on the other interface.
+ARP proxy the new network on other interfaces.
 .TP
 .B o
 adds

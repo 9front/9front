@@ -406,8 +406,6 @@ arpforme(Fs *fs, int version, uchar *targ, uchar *src, Ipifc *ifc)
 			return 0;
 		return Runi;
 	}
-	if(ipremoteonifc(ifc, targ) == nil)
-		return 0;
 	if(version == V4){
 		targ += IPv4off;
 		r = v4lookup(fs, targ, src, nil);
