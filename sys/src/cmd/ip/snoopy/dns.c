@@ -181,6 +181,7 @@ void freealldn(void);
 static Proto dnsqd, dnsan, dnsns, dnsar;
 
 static void donext(Msg*);
+static void dolast(Msg*);
 static DNSmsg dm;
 
 static int
@@ -190,6 +191,8 @@ p_seprint(Msg *m)
 
 	if((e = convM2DNS(m->ps, m->pe-m->ps, &dm, nil)) != nil){
 		m->p = seprint(m->p, m->e, "error: %s", e);
+		free(e);
+		dolast(m);
 		return 0;
 	}
 	m->p = seprint(m->p, m->e, "id=%d flags=%#ux", dm.id, dm.flags);
@@ -208,11 +211,16 @@ donext(Msg *m)
 		m->pr = &dnsns;
 	else if(dm.ar)
 		m->pr = &dnsar;
-	else{
-		freealldn();
-		memset(&dm, 0, sizeof dm);
-		m->pr = nil;
-	}
+	else
+		dolast(m);
+}
+
+static void
+dolast(Msg *m)
+{
+	freealldn();
+	memset(&dm, 0, sizeof dm);
+	m->pr = nil;
 }
 
 static int
