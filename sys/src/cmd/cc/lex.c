@@ -782,16 +782,18 @@ talph:
 tnum:
 	c1 = 0;
 	cp = symb;
+	vv = 0;
 	if(c != '0') {
 		c1 |= Numdec;
 		for(;;) {
+			if(!isdigit(c))
+				goto dc;
+
+			vv = vv*10 + c-'0';
 			if(cp >= &symb[NSYMB-1])
 				goto toolong;
 			*cp++ = c;
 			c = GETC();
-			if(isdigit(c))
-				continue;
-			goto dc;
 		}
 	}
 	*cp++ = c;
@@ -802,27 +804,47 @@ tnum:
 				goto toolong;
 			*cp++ = c;
 			c = GETC();
-			if(isdigit(c))
+			if(isdigit(c)){
+				vv = vv*16 + c-'0';
 				continue;
-			if(c >= 'a' && c <= 'f')
+			}
+			if(c >= 'a' && c <= 'f'){
+				vv = vv*16 + c + 10 - 'a';
 				continue;
-			if(c >= 'A' && c <= 'F')
+			}
+			if(c >= 'A' && c <= 'F'){
+				vv = vv*16 + c + 10 - 'A';
 				continue;
+			}
 			if(cp == symb+2)
 				yyerror("malformed hex constant");
+			goto ncu;
+		}
+	if(c == 'b' || c == 'B')
+		for(;;) {
+			if(cp >= &symb[NSYMB-1])
+				goto toolong;
+			*cp++ = c;
+			c = GETC();
+			if(c == '0' || c == '1'){
+				vv = vv*2 + c-'0';
+				continue;
+			}
+			if(cp == symb+2)
+				yyerror("malformed binary constant");
 			goto ncu;
 		}
 	if(c < '0' || c > '7')
 		goto dc;
 	for(;;) {
-		if(c >= '0' && c <= '7') {
-			if(cp >= &symb[NSYMB-1])
-				goto toolong;
-			*cp++ = c;
-			c = GETC();
-			continue;
-		}
-		goto ncu;
+		if(c < '0' || c > '7')
+			goto ncu;
+
+		vv = vv*8 + c-'0';
+		if(cp >= &symb[NSYMB-1])
+			goto toolong;
+		*cp++ = c;
+		c = GETC();
 	}
 
 dc:
@@ -846,10 +868,7 @@ ncu:
 	}
 	*cp = 0;
 	peekc = c;
-	if(mpatov(symb, &yylval.vval))
-		yyerror("overflow in constant");
 
-	vv = yylval.vval;
 	/*
 	 * c99 is silly: decimal constants stay signed,
 	 * hex and octal go unsigned before widening.
@@ -950,75 +969,6 @@ toolong:
 	yyerror("token too long: %.*s...", utfnlen(symb, cp-symb), symb);
 	errorexit();
 	return -1;
-}
-
-/*
- * convert a string, s, to vlong in *v
- * return conversion overflow.
- * required syntax is [0[x]]d*
- */
-int
-mpatov(char *s, vlong *v)
-{
-	vlong n, nn;
-	int c;
-
-	n = 0;
-	c = *s;
-	if(c == '0')
-		goto oct;
-	while(c = *s++) {
-		if(c >= '0' && c <= '9')
-			nn = n*10 + c-'0';
-		else
-			goto bad;
-		if(n < 0 && nn >= 0)
-			goto bad;
-		n = nn;
-	}
-	goto out;
-
-oct:
-	s++;
-	c = *s;
-	if(c == 'x' || c == 'X')
-		goto hex;
-	while(c = *s++) {
-		if(c >= '0' && c <= '7')
-			nn = n*8 + c-'0';
-		else
-			goto bad;
-		if(n < 0 && nn >= 0)
-			goto bad;
-		n = nn;
-	}
-	goto out;
-
-hex:
-	s++;
-	while(c = *s++) {
-		if(c >= '0' && c <= '9')
-			c += 0-'0';
-		else
-		if(c >= 'a' && c <= 'f')
-			c += 10-'a';
-		else
-		if(c >= 'A' && c <= 'F')
-			c += 10-'A';
-		else
-			goto bad;
-		nn = n*16 + c;
-		if(n < 0 && nn >= 0)
-			goto bad;
-		n = nn;
-	}
-out:
-	*v = n;
-	return 0;
-
-bad:
-	*v = ~0;
-	return 1;
 }
 
 int
