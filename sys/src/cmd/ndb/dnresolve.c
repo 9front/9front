@@ -337,6 +337,10 @@ issuequery(Query *qp, char *name, int class, int depth, int recurse)
 		if(nsrp){
 			rrfreelistptr(&dbnsrp);
 
+			/* hack: stop search if ns is authoritative in db */
+			if(cfg.cachedb && nsrp->db && nsrp->auth)
+				cp = "";
+
 			/* query the name servers found in cache */
 			if(netqueryns(qp, depth+1, nsrp) > Answnone)
 				return rrlookup(qp->dp, qp->type, OKneg);
