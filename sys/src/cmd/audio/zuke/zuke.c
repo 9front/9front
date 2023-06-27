@@ -493,7 +493,7 @@ static void
 coverload(void *player_)
 {
 	int p[2], pid, fd, i;
-	char *prog, *path, *s, tmp[32];
+	char *prog, *path, *s, tmp[64];
 	Meta *m;
 	Channel *ch;
 	Player *player;
@@ -507,25 +507,20 @@ coverload(void *player_)
 	fd = -1;
 	prog = nil;
 
-	if(m->imagefmt != nil && m->imagereader == 0){
-		if(strcmp(m->imagefmt, "image/png") == 0)
-			prog = "png";
-		else if(strcmp(m->imagefmt, "image/jpeg") == 0)
-			prog = "jpg";
-	}
-
-	if(prog == nil){
+	if(m->imagefmt != nil)
+		prog = "audio/readtags -i";
+	else{
 		path = strdup(m->path);
 		if(path != nil && (s = utfrrune(path, '/')) != nil){
 			*s = 0;
 
 			for(i = 0; i < nelem(covers) && prog == nil; i++){
 				if((s = smprint("%s/%s.jpg", path, covers[i])) != nil && (fd = open(s, OREAD|OCEXEC)) >= 0)
-					prog = "jpg";
+					prog = "jpg -9t";
 				free(s);
 				s = nil;
 				if(fd < 0 && (s = smprint("%s/%s.png", path, covers[i])) != nil && (fd = open(s, OREAD|OCEXEC)) >= 0)
-					prog = "png";
+					prog = "png -9t";
 				free(s);
 			}
 		}
@@ -534,11 +529,9 @@ coverload(void *player_)
 
 	if(prog == nil)
 		goto done;
-
-	if(fd < 0){
+	if(fd < 0)
 		fd = open(m->path, OREAD|OCEXEC);
-		seek(fd, m->imageoffset, 0);
-	}
+	snprint(tmp, sizeof(tmp), "%s | resample -x%d", prog, Coversz);
 	pipe(p);
 	if((pid = rfork(RFPROC|RFFDG|RFNOTEG|RFCENVG|RFNOWAIT)) == 0){
 		dup(fd, 0); close(fd);
@@ -547,7 +540,6 @@ coverload(void *player_)
 			dup(fd = open("/dev/null", OWRITE), 2);
 			close(fd);
 		}
-		snprint(tmp, sizeof(tmp), "%s -9t | resample -x%d", prog, Coversz);
 		execl("/bin/rc", "rc", "-c", tmp, nil);
 		sysfatal("execl: %r");
 	}
@@ -556,6 +548,7 @@ coverload(void *player_)
 
 	if(pid > 0){
 		newcover = readimage(display, p[0], 1);
+		/* if readtags fails, readimage will also fail, and we send nil over ch */
 		sendp(ch, newcover);
 	}
 	close(p[0]);
@@ -1206,7 +1199,7 @@ plumbaudio(void *kbd)
 				for(; (i = chartorune(&c, s)) > 0 && c != Runeerror; s += i)
 					sendul(kbd, c);
 				continue;
-			} 
+			}
 			if(*s != '/' && m->wdir != nil)
 				s = smprint("%s/%.*s", m->wdir, m->ndata, m->data);
 

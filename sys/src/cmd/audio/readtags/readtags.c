@@ -24,10 +24,47 @@ static const char *t2s[] =
 	[Timage] = "image",
 };
 
+static int image;
+
 static void
 tag(Tagctx *ctx, int t, const char *k, const char *v, int offset, int size, Tagread f)
 {
-	USED(ctx); USED(k); USED(f);
+	char *prog, *buf, tmp[32];
+	int p[2], n, pid;
+	Waitmsg *w;
+
+	USED(k);
+	if(image){
+		if(t != Timage)
+			return;
+		prog = nil;
+		if(strcmp(v, "image/jpeg") == 0)
+			prog = "jpg";
+		else if(strcmp(v, "image/png") == 0)
+			prog = "png";
+		else
+			sysfatal("unknown image type: %s", v);
+		if((buf = malloc(size)) == nil)
+			sysfatal("no memory");
+		if(ctx->seek(ctx, offset, 0) != offset || (n = ctx->read(ctx, buf, size)) != size)
+			sysfatal("image load failed");
+		if(f != nil)
+			n = f(buf, &n);
+		pipe(p);
+		if((pid = rfork(RFPROC|RFFDG|RFNOTEG|RFCENVG)) < 0)
+			sysfatal("rfork: %r");
+		if(pid == 0){
+			dup(p[0], 0); close(p[0]);
+			close(p[1]);
+			snprint(tmp, sizeof(tmp), "/bin/%s", prog);
+			execl(tmp, prog, "-9t", nil);
+			sysfatal("execl: %r");
+		}
+		close(p[0]);
+		write(p[1], buf, n);
+		close(p[1]);
+		exits((w = wait()) != nil ? w->msg : nil);
+	}
 	if(t == Timage)
 		print("%-12s %s %d %d\n", t2s[t], v, offset, size);
 	else if(t != Tunknown)
@@ -57,7 +94,7 @@ ctxseek(Tagctx *ctx, int offset, int whence)
 static void
 usage(void)
 {
-	fprint(2, "usage: %s FILE...\n", argv0);
+	fprint(2, "usage: %s [-i] [file ...]\n", argv0);
 	exits("usage");
 }
 
@@ -79,21 +116,29 @@ main(int argc, char **argv)
 	};
 
 	ARGBEGIN{
+	case 'i':
+		image++;
+		break;
 	default:
 		usage();
 	}ARGEND
 
-	if(argc < 1)
-		usage();
+	i = 0;
+	if(argc < 1){
+		aux.fd = 0;
+		goto stdin;
+	}
 
-	for(i = 0; i < argc; i++){
-		print("*** %s\n", argv[i]);
+	for(; i < argc; i++){
+		if(!image)
+			print("*** %s\n", argv[i]);
 		if((aux.fd = open(argv[i], OREAD)) < 0)
 			print("failed to open\n");
 		else{
-			if(tagsget(&ctx) != 0)
+stdin:
+			if(tagsget(&ctx) != 0 && !image)
 				print("no tags or failed to read tags\n");
-			else{
+			else if(!image){
 				if(ctx.duration > 0)
 					print("%-12s %d ms\n", "duration", ctx.duration);
 				if(ctx.samplerate > 0)
@@ -105,8 +150,11 @@ main(int argc, char **argv)
 			}
 			close(aux.fd);
 		}
-		print("\n");
+		if(!image)
+			print("\n");
 	}
+	if(image)
+		sysfatal("no image found");
 
 	exits(nil);
 }
