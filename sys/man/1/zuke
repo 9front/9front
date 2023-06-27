@@ -8,6 +8,12 @@ mkplist, zuke \- graphical music player
 ]
 .I directory/file/URL [...]
 .br
+.B audio/readtags
+[
+.B -i
+]
+.I [file ...]
+.br
 .B audio/zuke
 [
 .B -s
@@ -171,6 +177,12 @@ will write its tags to
 each column separated by a tab character.  If playback is stopped, an
 empty line is written instead.  This can be used for scrobbling or
 displaying the current track in another window.
+.PP
+.I Readtags
+prints tags stored within audio files. When option
+.B -i
+is specified, it will try to extract the cover image and write it to
+standard output as a Plan 9 image instead.
 .SH EXAMPLES
 Generate a playlist:
 .IP
