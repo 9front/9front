@@ -2217,7 +2217,7 @@ number(int nonzero)
 static void
 logit(char *o)
 {
-	char *s, *p, *q;
+	char *s, *p;
 
 	if(!debug)
 		return;
@@ -2225,15 +2225,9 @@ logit(char *o)
 	p = strchr(s, ' ');
 	if(!p)
 		goto emit;
-	q = strchr(++p, ' ');
-	if(!q)
-		goto emit;
-	if(!cistrncmp(p, "login", 5)){
-		q = strchr(++q, ' ');
-		if(!q)
-			goto emit;
-		for(q = q + 1; *q != ' ' && *q; q++)
-			*q = '*';
+	if(cistrncmp(p, "login ", 6) == 0){
+		free(s);
+		return;
 	}
 emit:
 	for(p = s + strlen(s) - 1; p >= s && (/**p == '\r' ||*/ *p == '\n'); )
