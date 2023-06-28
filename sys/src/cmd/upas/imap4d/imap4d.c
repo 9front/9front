@@ -1169,7 +1169,7 @@ searchucmd(char *tg, char *cmd, int uids)
 	crnl();
 	uid = "";
 	if(uids)
-		uid = "UID ";		/* android needs caps */
+		uid = "UID ";
 	if(rock.next != nil && rock.next->key == SKcharset){
 		if(cistrcmp(rock.next->s, "utf-8") != 0
 		&& cistrcmp(rock.next->s, "us-ascii") != 0){
@@ -1180,7 +1180,7 @@ searchucmd(char *tg, char *cmd, int uids)
 		}
 		rock.next = rock.next->next;
 	}
-	Bprint(&bout, "* search");
+	Bprint(&bout, "* SEARCH");
 	if(m = mailappsucks(rock.next))
 			goto cheat;
 	ld = searchld(rock.next);
