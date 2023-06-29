@@ -8,6 +8,8 @@ void	opl3init(int);
 
 enum{
 	OPLrate = 49716,	/* 14318180Hz master clock / 288 */
+	Devrate = 44100,
+	Srate = Devrate / 100,
 };
 
 void
@@ -22,10 +24,8 @@ main(int argc, char **argv)
 {
 	int rate, stream, n, r, v, fd, pfd[2];
 	uchar sb[64*1024], u[5];
-	double f;
-	vlong dt, T;
+	double s, f, dt, T;
 	Biobuf *bi;
-	QLock slock;
 
 	fd = 0;
 	stream = 0;
@@ -73,15 +73,13 @@ main(int argc, char **argv)
 			sysfatal("rfork: %r");
 		case 0:
 			for(;;){
-				qlock(&slock);
-				n = OPLrate / 1e3;
-				T += n * (1e9 / OPLrate);
+				n = Srate;
+				s = 1e9 * n / OPLrate;
+				T += s;
+				dt = floor((T - nsec()) / 1e6);
 				n *= 4;
 				opl3out(sb, n);
-				n = write(pfd[1], sb, n);
-				dt = (T - nsec()) / 1e6;
-				qunlock(&slock);
-				if(n <= 0)
+				if(write(pfd[1], sb, n) != n)
 					break;
 				if(dt > 0)
 					sleep(dt);
@@ -92,18 +90,18 @@ main(int argc, char **argv)
 		r = u[1] << 8 | u[0];
 		v = u[2];
 		opl3wr(r, v);
+		if(stream)
+			continue;
 		dt += (u[4] << 8 | u[3]) * f;
-		qlock(&slock);
 		while((n = dt) > 0){
 			if(n > sizeof sb / 4)
 				n = sizeof sb / 4;
 			dt -= n;
-			T += n * (1e9 / OPLrate);
+			T += n * 1e9 / OPLrate;
 			n *= 4;
 			opl3out(sb, n);
 			write(pfd[1], sb, n);
 		}
-		qunlock(&slock);
 	}
 	if(n < 0)
 		sysfatal("read: %r");
