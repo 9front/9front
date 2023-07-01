@@ -263,3 +263,5 @@ We are grateful to Charles Forsyth for his advice regarding this work, and to th
 Plan 9 can also run Go binaries, but, again, not really sure we're talking about the same thing as nginx-level scale.
 Running Rust code on Plan 9 using webassembly
 [9fans] How to access this 9fans group from 9front?
+After loss of traction, the Harvey team has decided to retire Harvey and move on.
+We have created something new that we named R9, an OS strongly inspired by Plan 9, written in the Rust programming language.
