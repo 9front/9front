@@ -392,11 +392,13 @@ TEXT tlbivmalle1(SB), 1, $-4
 TEXT fpon(SB), 1, $-4
 	MOVW $(3<<20), R0
 	MSR R0, CPACR_EL1
+	ISB	$SY
 	RETURN
 
 TEXT fpoff(SB), 1, $-4
 	MOVW $(0<<20), R0
 	MSR R0, CPACR_EL1
+	ISB	$SY
 	RETURN
 
 TEXT fpsaveregs(SB), 1, $-4
