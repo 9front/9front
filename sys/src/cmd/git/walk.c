@@ -5,7 +5,6 @@
 #define NCACHE 4096
 #define TDIR ".git/index9/tracked"
 #define RDIR ".git/index9/removed"
-#define HDIR ".git/fs/HEAD/tree"
 typedef struct Cache	Cache;
 typedef struct Wres	Wres;
 struct Cache {
@@ -29,7 +28,10 @@ enum {
 
 Cache seencache[NCACHE];
 int quiet;
+int useindex;
 int printflg;
+char *base = "HEAD";
+char *bdir;
 char *rstr = "R ";
 char *tstr = "T ";
 char *mstr = "M ";
@@ -209,7 +211,7 @@ mismatch:
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-qbc] [-f filt] [paths...]\n", argv0);
+	fprint(2, "usage: %s [-qbc] [-f filt] [-b base] [paths...]\n", argv0);
 	exits("usage");
 }
 
@@ -220,7 +222,10 @@ main(int argc, char **argv)
 	char *p, *e;
 	int i, dirty;
 	Wres r;
+	Hash h;
 	Dir *d;
+
+	gitinit();
 
 	ARGBEGIN{
 	case 'q':
@@ -242,16 +247,24 @@ main(int argc, char **argv)
 			default:	usage();		break;
 		}
 		break;
+	case 'b':
+		useindex = 0;
+		base = EARGF(usage());
+		break;
 	default:
 		usage();
 	}ARGEND
 
+	gitinit();
 	if(findrepo(repo, sizeof(repo)) == -1)
 		sysfatal("find root: %r");
 	if(chdir(repo) == -1)
 		sysfatal("chdir: %r");
 	if(access(".git/fs/ctl", AEXIST) != 0)
 		sysfatal("no running git/fs");
+	if(resolveref(&h, base) == -1)
+		sysfatal("no such ref '%s'", base);
+	bdir = smprint(".git/fs/object/%H/tree", h);
 	dirty = 0;
 	memset(&r, 0, sizeof(r));
 	if(printflg == 0)
@@ -261,20 +274,25 @@ main(int argc, char **argv)
 			sysfatal("read tracked: %r");
 		if(access(RDIR, AEXIST) == 0 && readpaths(&r, RDIR, "") == -1)
 			sysfatal("read removed: %r");
+		if(access(bdir, AEXIST) == 0 && readpaths(&r, bdir, "") == -1)
+			sysfatal("read base: %r");
 	}else{
 		for(i = 0; i < argc; i++){
 			tpath = smprint(TDIR"/%s", argv[i]);
 			rpath = smprint(RDIR"/%s", argv[i]);
-			if((d = dirstat(tpath)) == nil && (d = dirstat(rpath)) == nil)
+			bpath = smprint("%s/%s", bdir, argv[i]);
+			if((d = dirstat(tpath)) == nil && (d = dirstat(rpath)) == nil && (d = dirstat(bpath)) == nil)
 				goto nextarg;
 			if(d->mode & DMDIR){
 				readpaths(&r, TDIR, argv[i]);
 				readpaths(&r, RDIR, argv[i]);
+				readpaths(&r, bdir, argv[i]);
 			}else{
 				grow(&r);
 				r.path[r.npath++] = estrdup(argv[i]);
 			}
 nextarg:
+			free(bpath);
 			free(tpath);
 			free(rpath);
 			free(d);
@@ -289,13 +307,13 @@ nextarg:
 			goto next;
 		rpath = smprint(RDIR"/%s", p);
 		tpath = smprint(TDIR"/%s", p);
-		bpath = smprint(HDIR"/%s", p);
+		bpath = smprint("%s/%s", bdir, p);
 		/* Fast path: we don't want to force access to the rpath. */
-		if(d && sameqid(d, tpath)) {
+		if(useindex && d && sameqid(d, tpath)) {
 			if(!quiet && (printflg & Tflg))
 				print("%s%s\n", tstr, p);
 		}else{
-			if(d == nil || access(rpath, AEXIST) == 0 ){
+			if(d == nil || (useindex && access(rpath, AEXIST) == 0)){
 				if(access(bpath, AEXIST) == 0){
 					dirty |= Rflg;
 					if(!quiet && (printflg & Rflg))
@@ -308,7 +326,8 @@ nextarg:
 			}else if(samedata(p, bpath)){
 				if(!quiet && (printflg & Tflg))
 					print("%s%s\n", tstr, p);
-				writeqid(d, tpath);
+				if(useindex)
+					writeqid(d, tpath);
 			}else{
 				dirty |= Mflg;
 				if(!quiet && (printflg & Mflg))
