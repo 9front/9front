@@ -509,21 +509,18 @@ that have changed in the commits are printed.
 
 .PP
 .B Git/walk
-is a tool for walking the list of tracked objects and printing their status.
-With no arguments, it prints a list of paths prefixed with the status character.
-When given the
+shows the status of files in the repository.
+It prints a list of paths prefixed with the status character.
+It exits with a non-empty status if the repository is not clean.
+The
 .B -c
-character, only the paths are printed.
-When given the
+option suppresses the status, so only the paths are printed.
+The
 .B -q
-option, all output is suppressed.
-When given the
+option suppresses all output.
+The
 .B -f
-option, the output is filtered by status code, and only matching items are printed.
-When given the a branch as a parameter to the
-.B -b
-option, the specified branch is used as the base of the comparison, instead of
-HEAD.
+option filters files by status, and only matching items are printed.
 
 .PP
 The status characters are as follows:
