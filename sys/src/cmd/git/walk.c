@@ -30,8 +30,7 @@ Cache seencache[NCACHE];
 int quiet;
 int useindex;
 int printflg;
-char *base = "HEAD";
-char *bdir;
+char *bdir = ".git/fs/HEAD/tree";
 char *rstr = "R ";
 char *tstr = "T ";
 char *mstr = "M ";
@@ -218,7 +217,7 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	char *rpath, *tpath, *bpath, buf[8], repo[512];
+	char *rpath, *tpath, *bpath, *base, buf[8], repo[512];
 	char *p, *e;
 	int i, dirty;
 	Wres r;
@@ -250,6 +249,9 @@ main(int argc, char **argv)
 	case 'b':
 		useindex = 0;
 		base = EARGF(usage());
+		if(resolveref(&h, base) == -1)
+			sysfatal("no such ref '%s'", base);
+		bdir = smprint(".git/fs/object/%H/tree", h);
 		break;
 	default:
 		usage();
@@ -262,9 +264,6 @@ main(int argc, char **argv)
 		sysfatal("chdir: %r");
 	if(access(".git/fs/ctl", AEXIST) != 0)
 		sysfatal("no running git/fs");
-	if(resolveref(&h, base) == -1)
-		sysfatal("no such ref '%s'", base);
-	bdir = smprint(".git/fs/object/%H/tree", h);
 	dirty = 0;
 	memset(&r, 0, sizeof(r));
 	if(printflg == 0)
