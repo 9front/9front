@@ -252,11 +252,14 @@ loop1:
 			if((r1 = findset(r, &p->from)) != R){
 				p1 = r1->prog;
 				switch(p1->as){
-				case AMOVB:
-				case AMOVBU:
-				case AMOVH:
-				case AMOVHU:
 				case AMOVW:
+					/* MOVW $const,r; does not sign extend */
+					if(p1->from.type == D_CONST && (p1->from.offset & 0x80000000) != 0)
+						break;
+				case AMOVB:
+				case AMOVH:
+				case AMOVBU:
+				case AMOVHU:
 					if(p1->to.type == p->from.type && p1->to.reg == p->from.reg)
 						p->as = AMOVW;
 					break;
