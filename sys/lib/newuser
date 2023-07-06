@@ -64,7 +64,7 @@ case con
 }
 !
 cat > lib/plumbing <<!
-# to update: cp /usr/$user/lib/plumbing /mnt/plumb/rules
+# to update: cp $$home/lib/plumbing /mnt/plumb/rules
 
 editor = sam
 browser = mothra
