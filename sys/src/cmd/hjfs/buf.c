@@ -240,7 +240,9 @@ bufinit(int nbuf)
 	Buf *b;
 
 	fmtinstall('T', Tfmt);
-	b = emalloc(sizeof(*b) * nbuf);
+	b = sbrk(sizeof(*b) * (vlong)nbuf);
+	if(b == (void*)-1)
+		sysfatal("sbrk: %r");
 	bfree.fnext = bfree.fprev = &bfree;
 	while(nbuf--)
 		markfree(b++);
