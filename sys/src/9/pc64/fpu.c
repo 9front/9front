@@ -210,12 +210,15 @@ fpuinit(void)
 	u64int cr4;
 	ulong regs[4];
 
+	m->xcr0 = 0;
 	cr4 = getcr4() | CR4Osfxsr|CR4Oxmmex;
 	if((m->cpuidcx & (Xsave|Avx)) == (Xsave|Avx) && getconf("*noavx") == nil){
 		cr4 |= CR4Oxsave;
 		putcr4(cr4);
-		m->xcr0 = 7; /* x87, sse, avx */
+
+		m->xcr0 = 7;	/* x87, sse, avx */
 		putxcr0(m->xcr0);
+
 		cpuid(0xd, 1, regs);
 		if(regs[0] & Xsaves){
 			fpsave = fpxsaves;
@@ -228,7 +231,9 @@ fpuinit(void)
 			fprestore = fpxrestore;
 		}
 	} else {
+		cr4 &= ~CR4Oxsave;
 		putcr4(cr4);
+
 		fpsave = fpssesave;
 		fprestore = fpsserestore;
 	}

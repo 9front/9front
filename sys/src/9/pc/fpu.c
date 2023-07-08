@@ -9,6 +9,7 @@
 enum {
 	CR4Osfxsr  = 1 << 9,
 	CR4Oxmmex  = 1 << 10,
+	CR4Oxsave  = 1 << 18,
 };
 
 /* from l.s */
@@ -297,15 +298,23 @@ fpuinit(void)
 {
 	uintptr cr4;
 
+	m->xcr0 = 0;
+	cr4 = getcr4();
+	cr4 &= ~CR4Oxsave;
 	if((m->cpuiddx & (Sse|Fxsr)) == (Sse|Fxsr)){ /* have sse fp? */
+		cr4 |= CR4Osfxsr|CR4Oxmmex;
+		putcr4(cr4);
+
 		fpsave = fpssesave;
 		fprestore = fpsserestore;
-		cr4 = getcr4() | CR4Osfxsr|CR4Oxmmex;
-		putcr4(cr4);
 	} else {
+		cr4 &= ~(CR4Osfxsr|CR4Oxmmex);
+		putcr4(cr4);
+
 		fpsave = fpx87save;
 		fprestore = fpx87restore;
 	}
+	fpoff();
 }
 
 void
