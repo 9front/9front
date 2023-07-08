@@ -39,12 +39,13 @@ int	ecwrite(uchar addr, uchar val);
 void	fpinit(void);
 void	(*fprestore)(FPsave*);
 void	(*fpsave)(FPsave*);
-void	fpuprocsetup(Proc*);
+FPsave*	fpukenter(Ureg*);
+void	fpukexit(Ureg*, FPsave*);
 void	fpuprocfork(Proc*);
-void	fpuprocsave(Proc*);
 void	fpuprocrestore(Proc*);
-int	fpusave(void);
-void	fpurestore(int);
+void	fpuprocsave(Proc*);
+void	fpuprocsetup(Proc*);
+
 u64int	getcr0(void);
 u64int	getcr2(void);
 u64int	getcr3(void);

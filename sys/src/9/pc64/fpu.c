@@ -30,6 +30,8 @@ extern void _fwait(void);
 extern void _ldmxcsr(u32int);
 extern void _stts(void);
 
+static void mathemu(Ureg *ureg, void*);
+
 static void
 fpssesave(FPsave *s)
 {
@@ -76,6 +78,21 @@ fpxsaveopt(FPsave *s)
 	_stts();
 }
 
+/*
+ *  Turn the FPU on and initialise it for use.
+ *  Set the precision and mask the exceptions
+ *  we don't care about from the generic Mach value.
+ */
+void
+fpinit(void)
+{
+	_clts();
+	_fninit();
+	_fwait();
+	_fldcw(0x0232);
+	_ldmxcsr(0x1900);
+}
+
 static char* mathmsg[] =
 {
 	nil,	/* handled below */
@@ -87,7 +104,7 @@ static char* mathmsg[] =
 };
 
 static void
-mathnote(ulong status, uintptr pc)
+mathnote(ulong status, uintptr pc, int kernel)
 {
 	char *msg, note[ERRMAX];
 	int i;
@@ -112,8 +129,10 @@ mathnote(ulong status, uintptr pc)
 		}else
 			msg = "invalid operation";
 	}
-	snprint(note, sizeof note, "sys: fp: %s fppc=%#p status=0x%lux",
-		msg, pc, status);
+	snprint(note, sizeof note, "sys: fp: %s fppc=%#p status=0x%lux", msg, pc, status);
+	if(kernel)
+		panic("%s", note);
+
 	postnote(up, 1, note, NDebug);
 }
 
@@ -121,14 +140,21 @@ mathnote(ulong status, uintptr pc)
  *  math coprocessor error
  */
 static void
-matherror(Ureg *, void*)
+matherror(Ureg *ureg, void*)
 {
-	/*
-	 * Save FPU state to check out the error.
-	 */
-	fpsave(up->fpsave);
-	up->fpstate = FPinactive | (up->fpstate & (FPnouser|FPkernel|FPindexm));
-	mathnote(up->fpsave->fsw, up->fpsave->rip);
+	if(!userureg(ureg)){
+		if(up == nil)
+			mathnote(m->fpsave->fsw, m->fpsave->rip, 1);
+		else
+			mathnote(up->kfpsave->fsw, up->kfpsave->rip, 1);
+		return;
+	}
+	if(up->fpstate != FPinactive){
+		_clts();
+		fpsave(up->fpsave);
+		up->fpstate = FPinactive;
+	}
+	mathnote(up->fpsave->fsw, up->fpsave->rip, 0);
 }
 
 /*
@@ -137,98 +163,30 @@ matherror(Ureg *, void*)
 static void
 simderror(Ureg *ureg, void*)
 {
-	fpsave(up->fpsave);
-	up->fpstate = FPinactive | (up->fpstate & (FPnouser|FPkernel|FPindexm));
-	mathnote(up->fpsave->mxcsr & 0x3f, ureg->pc);
-}
-
-void
-fpinit(void)
-{
-	/*
-	 * A process tries to use the FPU for the
-	 * first time and generates a 'device not available'
-	 * exception.
-	 * Turn the FPU on and initialise it for use.
-	 * Set the precision and mask the exceptions
-	 * we don't care about from the generic Mach value.
-	 */
-	_clts();
-	_fninit();
-	_fwait();
-	_fldcw(0x0232);
-	_ldmxcsr(0x1900);
-}
-
-/*
- *  math coprocessor emulation fault
- */
-static void
-mathemu(Ureg *ureg, void*)
-{
-	ulong status, control;
-	int index;
-
-	if(up->fpstate & FPillegal){
-		/* someone did floating point in a note handler */
-		postnote(up, 1, "sys: floating point in note handler", NDebug);
+	if(!userureg(ureg)){
+		if(up == nil)
+			mathnote(m->fpsave->mxcsr & 0x3f, ureg->pc, 1);
+		else
+			mathnote(up->kfpsave->mxcsr & 0x3f, ureg->pc, 1);
 		return;
 	}
-	switch(up->fpstate & ~(FPnouser|FPkernel|FPindexm)){
-	case FPactive	| FPpush:
+	if(up->fpstate != FPinactive){
 		_clts();
 		fpsave(up->fpsave);
-	case FPinactive	| FPpush:
-		up->fpstate += FPindex1;
-	case FPinit	| FPpush:
-	case FPinit:
-		fpinit();
-		index = up->fpstate >> FPindexs;
-		if(index < 0 || index > (FPindexm>>FPindexs))
-			panic("fpslot index overflow: %d", index);
-		if(userureg(ureg)){
-			if(index != 0)
-				panic("fpslot index %d != 0 for user", index);
-		} else {
-			if(index == 0)
-				up->fpstate |= FPnouser;
-			up->fpstate |= FPkernel;
-		}
-		while(up->fpslot[index] == nil)
-			up->fpslot[index] = mallocalign(sizeof(FPsave), FPalign, 0, 0);
-		up->fpsave = up->fpslot[index];
-		up->fpstate = FPactive | (up->fpstate & (FPnouser|FPkernel|FPindexm));
-		break;
-	case FPinactive:
-		/*
-		 * Before restoring the state, check for any pending
-		 * exceptions, there's no way to restore the state without
-		 * generating an unmasked exception.
-		 * More attention should probably be paid here to the
-		 * exception masks and error summary.
-		 */
-		status = up->fpsave->fsw;
-		control = up->fpsave->fcw;
-		if((status & ~control) & 0x07F){
-			mathnote(status, up->fpsave->rip);
-			break;
-		}
-		fprestore(up->fpsave);
-		up->fpstate = FPactive | (up->fpstate & (FPnouser|FPkernel|FPindexm));
-		break;
-	case FPactive:
-		panic("math emu pid %ld %s pc %#p", 
-			up->pid, up->text, ureg->pc);
-		break;
+		up->fpstate = FPinactive;
 	}
+	mathnote(up->fpsave->mxcsr & 0x3f, ureg->pc, 0);
 }
 
 /*
  *  math coprocessor segment overrun
  */
 static void
-mathover(Ureg*, void*)
+mathover(Ureg *ureg, void*)
 {
+	if(!userureg(ureg))
+		panic("math overrun");
+
 	pexit("math overrun", 0);
 }
 
@@ -244,7 +202,7 @@ mathinit(void)
 }
 
 /*
- * fpuinit(), called from cpuidentify() for each cpu.
+ *  fpuinit(), called from cpuidentify() for each cpu.
  */
 void
 fpuinit(void)
@@ -274,13 +232,35 @@ fpuinit(void)
 		fpsave = fpssesave;
 		fprestore = fpsserestore;
 	}
+
+	m->fpsave = nil;
+	m->fpstate = FPinit;
+	_stts();
+}
+
+static FPsave*
+fpalloc(void)
+{
+	FPsave *save;
+
+	while((save = mallocalign(sizeof(FPsave), FPalign, 0, 0)) == nil){
+		spllo();
+		resrcwait("no memory for FPsave");
+		splhi();
+	}
+	return save;
+}
+
+static void
+fpfree(FPsave *save)
+{
+	free(save);
 }
 
 void
 fpuprocsetup(Proc *p)
 {
 	p->fpstate = FPinit;
-	_stts();
 }
 
 void
@@ -288,21 +268,19 @@ fpuprocfork(Proc *p)
 {
 	int s;
 
-	/* save floating point state */
 	s = splhi();
 	switch(up->fpstate & ~FPillegal){
-	case FPactive	| FPpush:
+	case FPprotected:
 		_clts();
+		/* wet floor */
 	case FPactive:
 		fpsave(up->fpsave);
-		up->fpstate = FPinactive | (up->fpstate & FPpush);
-	case FPactive	| FPkernel:
-	case FPinactive	| FPkernel:
-	case FPinactive	| FPpush:
+		up->fpstate = FPinactive;
+		/* wet floor */
 	case FPinactive:
-		while(p->fpslot[0] == nil)
-			p->fpslot[0] = mallocalign(sizeof(FPsave), FPalign, 0, 0);
-		memmove(p->fpsave = p->fpslot[0], up->fpslot[0], sizeof(FPsave));
+		if(p->fpsave == nil)
+			p->fpsave = fpalloc();
+		memmove(p->fpsave, up->fpsave, sizeof(FPsave));
 		p->fpstate = FPinactive;
 	}
 	splx(s);
@@ -311,63 +289,224 @@ fpuprocfork(Proc *p)
 void
 fpuprocsave(Proc *p)
 {
-	switch(p->fpstate & ~(FPnouser|FPkernel|FPindexm)){
-	case FPactive	| FPpush:
-		_clts();
-	case FPactive:
-		if(p->state == Moribund){
+	if(p->state == Moribund){
+		if(p->fpstate == FPactive || p->kfpstate == FPactive){
 			_fnclex();
 			_stts();
-			break;
 		}
-		/*
-		 * Fpsave() stores without handling pending
-		 * unmasked exeptions. Postnote() can't be called
-		 * so the handling of pending exceptions is delayed
-		 * until the process runs again and generates an
-		 * emulation fault to activate the FPU.
-		 */
-		fpsave(p->fpsave);
-		p->fpstate = FPinactive | (p->fpstate & ~FPactive);
-		break;
+		fpfree(p->fpsave);
+		fpfree(p->kfpsave);
+		p->fpsave = p->kfpsave = nil;
+		p->fpstate = p->kfpstate = FPinit;
+		return;
 	}
+	if(p->kfpstate == FPactive){
+		fpsave(p->kfpsave);
+		p->kfpstate = FPinactive;
+		return;
+	}
+	if(p->fpstate == FPprotected)
+		_clts();
+	else if(p->fpstate != FPactive)
+		return;
+	fpsave(p->fpsave);
+	p->fpstate = FPinactive;
 }
 
 void
 fpuprocrestore(Proc*)
 {
+	/*
+	 * when the scheduler switches,
+	 * we can discard its fp state.
+	 */
+	switch(m->fpstate){
+	case FPactive:
+		_fnclex();
+		_stts();
+		/* wet floor */
+	case FPinactive:
+		fpfree(m->fpsave);
+		m->fpsave = nil;
+		m->fpstate = FPinit;
+	}
 }
-
 
 /*
- * Fpusave and fpurestore lazily save and restore FPU state across
- * system calls and the pagefault handler so that we can take
- * advantage of SSE instructions such as AES-NI in the kernel.
+ *  Protect or save FPU state and setup new state
+ *  (lazily in the case of user process) for the kernel.
+ *  All syscalls, traps and interrupts (except mathemu()!)
+ *  are handled between fpukenter() and fpukexit(),
+ *  so they can use floating point and vector instructions.
  */
-int
-fpusave(void)
+FPsave*
+fpukenter(Ureg *)
 {
-	int ostate = up->fpstate;
-	if((ostate & ~(FPnouser|FPkernel|FPindexm)) == FPactive)
-		_stts();
-	up->fpstate = FPpush | (ostate & ~FPillegal);
-	return ostate;
-}
-void
-fpurestore(int ostate)
-{
-	int astate = up->fpstate;
-	if(astate == (FPpush | (ostate & ~FPillegal))){
-		if((ostate & ~(FPnouser|FPkernel|FPindexm)) == FPactive)
-			_clts();
-	} else {
-		if(astate == FPinit)	/* don't restore on procexec()/procsetup() */
-			return;
-		if((astate & ~(FPnouser|FPkernel|FPindexm)) == FPactive)
-			_stts();
-		up->fpsave = up->fpslot[ostate>>FPindexs];
-		if(ostate & FPactive)
-			ostate = FPinactive | (ostate & ~FPactive);
+	if(up == nil){
+		switch(m->fpstate){
+		case FPactive:
+			fpsave(m->fpsave);
+			/* wet floor */
+		case FPinactive:
+			m->fpstate = FPinit;
+			return m->fpsave;
+		}
+		return nil;
 	}
-	up->fpstate = ostate;
+
+	switch(up->fpstate){
+	case FPactive:
+		up->fpstate = FPprotected;
+		_stts();
+		/* wet floor */
+	case FPprotected:
+		return nil;
+	}
+
+	switch(up->kfpstate){
+	case FPactive:
+		fpsave(up->kfpsave);
+		/* wet floor */
+	case FPinactive:
+		up->kfpstate = FPinit;
+		return up->kfpsave;
+	}
+	return nil;
+}
+
+void
+fpukexit(Ureg *ureg, FPsave *save)
+{
+	if(up == nil){
+		switch(m->fpstate){
+		case FPactive:
+			_fnclex();
+			_stts();
+			/* wet floor */
+		case FPinactive:
+			fpfree(m->fpsave);
+			m->fpstate = FPinit;
+		}
+		m->fpsave = save;
+		if(save != nil)
+			m->fpstate = FPinactive;
+		return;
+	}
+
+	if(up->fpstate == FPprotected){
+		if(userureg(ureg)){
+			up->fpstate = FPactive;
+			_clts();
+		}
+		return;
+	}
+
+	switch(up->kfpstate){
+	case FPactive:
+		_fnclex();
+		_stts();
+		/* wet floor */
+	case FPinactive:
+		fpfree(up->kfpsave);
+		up->kfpstate = FPinit;
+	}
+	up->kfpsave = save;
+	if(save != nil)
+		up->kfpstate = FPinactive;
+}
+
+/*
+ *  Before restoring the state, check for any pending
+ *  exceptions, there's no way to restore the state without
+ *  generating an unmasked exception.
+ *  More attention should probably be paid here to the
+ *  exception masks and error summary.
+ */
+static int
+fpcheck(FPsave *save, int kernel)
+{
+	ulong status, control;
+
+	status = save->fsw;
+	control = save->fcw;
+	if((status & ~control) & 0x07F){
+		mathnote(status, save->rip, kernel);
+		return 1;
+	}
+	return 0;
+}
+
+/*
+ *  math coprocessor emulation fault
+ */
+static void
+mathemu(Ureg *ureg, void*)
+{
+	if(!userureg(ureg)){
+		if(up == nil){
+			switch(m->fpstate){
+			case FPinit:
+				m->fpsave = fpalloc();
+				m->fpstate = FPactive;
+				fpinit();
+				break;
+			case FPinactive:
+				fpcheck(m->fpsave, 1);
+				fprestore(m->fpsave);
+				m->fpstate = FPactive;
+				break;
+			default:
+				panic("floating point error in irq");
+			}
+			return;
+		}
+
+		if(up->fpstate == FPprotected){
+			_clts();
+			fpsave(up->fpsave);
+			up->fpstate = FPinactive;
+		}
+
+		switch(up->kfpstate){
+		case FPinit:
+			up->kfpsave = fpalloc();
+			up->kfpstate = FPactive;
+			fpinit();
+			break;
+		case FPinactive:
+			fpcheck(up->kfpsave, 1);
+			fprestore(up->kfpsave);
+			up->kfpstate = FPactive;
+			break;
+		default:
+			panic("floating point error in trap");
+		}
+		return;
+	}
+
+	if(up->fpstate & FPillegal){
+		postnote(up, 1, "sys: floating point in note handler", NDebug);
+		return;
+	}
+	switch(up->fpstate){
+	case FPinit:
+		if(up->fpsave == nil)
+			up->fpsave = fpalloc();
+		up->fpstate = FPactive;
+		fpinit();
+		break;
+	case FPinactive:
+		if(fpcheck(up->fpsave, 0))
+			break;
+		fprestore(up->fpsave);
+		up->fpstate = FPactive;
+		break;
+	case FPprotected:
+		up->fpstate = FPactive;
+		_clts();
+		break;
+	case FPactive:
+		postnote(up, 1, "sys: floating point error", NDebug);
+		break;
+	}
 }

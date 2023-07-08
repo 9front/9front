@@ -18,6 +18,9 @@ enum
 	Qctl,
 	Qfd,
 	Qfpregs,
+#ifdef KFPSTATE
+	Qkfpregs,
+#endif
 	Qkregs,
 	Qmem,
 	Qnote,
@@ -86,6 +89,9 @@ Dirtab procdir[] =
 	"ctl",		{Qctl},		0,			0000,
 	"fd",		{Qfd},		0,			0444,
 	"fpregs",	{Qfpregs},	sizeof(FPsave),		0000,
+#ifdef KFPSTATE
+	"kfpregs",	{Qkfpregs},	sizeof(FPsave),		0400,
+#endif
 	"kregs",	{Qkregs},	sizeof(Ureg),		0400,
 	"mem",		{Qmem},		0,			0000,
 	"note",		{Qnote},	0,			0000,
@@ -418,6 +424,9 @@ procopen(Chan *c, int omode0)
 	case Qstatus:
 	case Qppid:
 	case Qproc:
+#ifdef KFPSTATE
+	case Qkfpregs:
+#endif
 	case Qkregs:
 	case Qsegment:
 	case Qns:
@@ -967,7 +976,14 @@ procread(Chan *c, void *va, long n, vlong off)
 		rptr = (uchar*)&kur;
 		rsize = sizeof(Ureg);
 		goto regread;
-
+#ifdef KFPSTATE
+	case Qkfpregs:
+		if(p->kfpstate != FPinactive)
+			error(Enoreg);
+		rptr = (uchar*)p->kfpsave;
+		rsize = sizeof(FPsave);
+		goto regread;
+#endif
 	case Qfpregs:
 		if(p->fpstate != FPinactive)
 			error(Enoreg);

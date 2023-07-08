@@ -656,6 +656,9 @@ newproc(void)
 
 	p->psstate = "New";
 	p->fpstate = FPinit;
+#ifdef KFPSTATE
+	p->kfpstate = FPinit;
+#endif
 	p->procctl = 0;
 	p->ureg = nil;
 	p->dbgreg = nil;
@@ -1025,10 +1028,8 @@ popnote(Ureg *u)
 
 	if(up->notify == nil || up->notified){
 		qunlock(&up->debug);
-		if(up->lastnote->flag == NDebug){
-			up->fpstate &= ~FPillegal;
+		if(up->lastnote->flag == NDebug)
 			pprint("suicide: %s\n", up->lastnote->msg);
-		}
 		pexit(up->lastnote->msg, up->lastnote->flag!=NDebug);
 	}
 	up->notified = 1;
@@ -1202,7 +1203,6 @@ pexit(char *exitstr, int freemem)
 	Chan *dot;
 	void (*pt)(Proc*, int, vlong);
 
-	up->fpstate &= ~FPillegal;
 	up->alarm = 0;
 	timerdel(up);
 	pt = proctrace;
@@ -1592,7 +1592,6 @@ procctl(void)
 	switch(up->procctl) {
 	case Proc_exitbig:
 		spllo();
-		up->fpstate &= ~FPillegal;
 		pprint("Killed: Insufficient physical memory\n");
 		pexit("Killed: Insufficient physical memory", 1);
 

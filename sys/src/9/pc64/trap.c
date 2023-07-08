@@ -129,14 +129,17 @@ usertrap(int vno)
 	return 0;
 }
 
-/* go to user space */
 void
 trap(Ureg *ureg)
 {
 	int vno, user;
+	FPsave *f = nil;
 
-	user = kenter(ureg);
 	vno = ureg->type;
+	user = kenter(ureg);
+	if(vno != VectorCNA)
+		f = fpukenter(ureg);
+
 	if(!irqhandled(ureg, vno) && (!user || !usertrap(vno))){
 		if(!user){
 			void (*pc)(void);
@@ -150,12 +153,12 @@ trap(Ureg *ureg)
 				if(vno == VectorGPF){
 					ureg->bp = -1;
 					ureg->pc += 2;
-					return;
+					goto out;
 				}
 			} else if(pc == _peekinst){
 				if(vno == VectorGPF || vno == VectorPF){
 					ureg->pc += 2;
-					return;
+					goto out;
 				}
 			}
 
@@ -173,13 +176,15 @@ trap(Ureg *ureg)
 			panic("%s", excname[vno]);
 		panic("unknown trap/intr: %d", vno);
 	}
+out:
 	splhi();
-
 	if(user){
 		if(up->procctl || up->nnote)
 			notify(ureg);
 		kexit(ureg);
 	}
+	if(vno != VectorCNA)
+		fpukexit(ureg, f);
 }
 
 void
@@ -372,45 +377,35 @@ static void
 faultamd64(Ureg* ureg, void*)
 {
 	uintptr addr;
-	int read, user, n, insyscall, f;
+	int read, user;
 	char buf[ERRMAX];
 
 	addr = getcr2();
 	read = !(ureg->error & 2);
 	user = userureg(ureg);
-	if(!user){
-		{
-			extern void _peekinst(void);
-			
-			if((void(*)(void))ureg->pc == _peekinst){
-				ureg->pc += 2;
-				return;
-			}
+	if(user)
+		up->insyscall = 1;
+	else {
+		extern void _peekinst(void);
+
+		if((void(*)(void))ureg->pc == _peekinst){
+			ureg->pc += 2;
+			return;
 		}
 		if(addr >= USTKTOP)
 			panic("kernel fault: bad address pc=%#p addr=%#p", ureg->pc, addr);
 		if(up == nil)
 			panic("kernel fault: no user process pc=%#p addr=%#p", ureg->pc, addr);
-	}
-	if(up == nil)
-		panic("user fault: up=0 pc=%#p addr=%#p", ureg->pc, addr);
-
-	insyscall = up->insyscall;
-	up->insyscall = 1;
-	f = fpusave();
-	if(!user && waserror()){
-		if(up->nerrlab == 0){
-			pprint("suicide: sys: %s\n", up->errstr);
-			pexit(up->errstr, 1);
+		if(waserror()){
+			if(up->nerrlab == 0){
+				pprint("suicide: sys: %s\n", up->errstr);
+				pexit(up->errstr, 1);
+			}
+			nexterror();
 		}
-		int s = splhi();
-		fpurestore(f);
-		up->insyscall = insyscall;
-		splx(s);
-		nexterror();
 	}
-	n = fault(addr, ureg->pc, read);
-	if(n < 0){
+
+	if(fault(addr, ureg->pc, read) < 0){
 		if(!user){
 			dumpregs(ureg);
 			panic("fault: %#p", addr);
@@ -420,10 +415,11 @@ faultamd64(Ureg* ureg, void*)
 			read ? "read" : "write", addr);
 		postnote(up, 1, buf, NDebug);
 	}
-	if(!user) poperror();
-	splhi();
-	fpurestore(f);
-	up->insyscall = insyscall;
+
+	if(user)
+		up->insyscall = 0;
+	else
+		poperror();
 }
 
 /*
@@ -440,21 +436,21 @@ syscall(Ureg* ureg)
 	char *e;
 	uintptr	sp;
 	long long ret;
-	int	i, s, f;
+	int i, s;
 	ulong scallnr;
 	vlong startns, stopns;
 
 	if(!kenter(ureg))
 		panic("syscall: cs 0x%4.4lluX", ureg->cs);
+	fpukenter(ureg);
 
 	m->syscall++;
 	up->insyscall = 1;
-	up->pc = ureg->pc;
 
+	up->pc = ureg->pc;
 	sp = ureg->sp;
 	scallnr = ureg->bp;	/* RARG */
 	up->scallnr = scallnr;
-	f = fpusave();
 	spllo();
 
 	ret = -1;
@@ -518,13 +514,7 @@ syscall(Ureg* ureg)
 		splx(s);
 	}
 
-	splhi();
-	fpurestore(f);
-	up->insyscall = 0;
-	up->psstate = 0;
-
 	if(scallnr == NOTED){
-		noted(ureg, *((ulong*)up->s.args));
 		/*
 		 * normally, syscall() returns to forkret()
 		 * not restoring general registers when going
@@ -534,17 +524,28 @@ syscall(Ureg* ureg)
 		 * to it when returning form syscall()
 		 */
 		((void**)&ureg)[-1] = (void*)noteret;
-	}
 
-	if(scallnr!=RFORK && (up->procctl || up->nnote)){
-		notify(ureg);
-		((void**)&ureg)[-1] = (void*)noteret;	/* loads RARG */
+		noted(ureg, *((ulong*)up->s.args));
+		splhi();
+		up->fpstate &= ~FPillegal;
 	}
+	else
+		splhi();
+
+	if(scallnr != RFORK && (up->procctl || up->nnote) && notify(ureg))
+		((void**)&ureg)[-1] = (void*)noteret;	/* loads RARG */
+
+	up->insyscall = 0;
+	up->psstate = nil;
 
 	/* if we delayed sched because we held a lock, sched now */
-	if(up->delaysched)
+	if(up->delaysched){
 		sched();
+		splhi();
+	}
+
 	kexit(ureg);
+	fpukexit(ureg, nil);
 }
 
 /*
@@ -561,6 +562,7 @@ notify(Ureg* ureg)
 		procctl();
 	if(up->nnote == 0)
 		return 0;
+
 	spllo();
 	qlock(&up->debug);
 	msg = popnote(ureg);
@@ -579,7 +581,6 @@ if(0) print("%s %lud: notify %#p %#p %#p %s\n",
 	if(!okaddr((uintptr)up->notify, 1, 0)
 	|| !okaddr(sp-ERRMAX-4*BY2WD, sizeof(Ureg)+ERRMAX+4*BY2WD, 1)){
 		qunlock(&up->debug);
-		up->fpstate &= ~FPillegal;
 		pprint("suicide: bad address in notify\n");
 		pexit("Suicide", 0);
 	}
@@ -600,10 +601,7 @@ if(0) print("%s %lud: notify %#p %#p %#p %s\n",
 	ureg->ss = UDSEL;
 	qunlock(&up->debug);
 	splhi();
-	if(up->fpstate == FPactive){
-		fpsave(up->fpsave);
-		up->fpstate = FPinactive;
-	}
+	fpuprocsave(up);
 	up->fpstate |= FPillegal;
 	return 1;
 }
@@ -617,8 +615,6 @@ noted(Ureg* ureg, ulong arg0)
 	Ureg *nureg;
 	uintptr oureg, sp;
 
-	up->fpstate &= ~FPillegal;
-	spllo();
 	qlock(&up->debug);
 	if(arg0!=NRSTR && !up->notified) {
 		qunlock(&up->debug);
@@ -663,7 +659,6 @@ if(0) print("%s %lud: noted %#p %#p\n",
 		}
 		qunlock(&up->debug);
 		sp = oureg-4*BY2WD-ERRMAX;
-		splhi();
 		ureg->sp = sp;
 		ureg->bp = oureg;		/* arg 1 passed in RARG */
 		((uintptr*)sp)[1] = oureg;	/* arg 1 0(FP) is ureg* */

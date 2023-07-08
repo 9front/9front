@@ -81,32 +81,22 @@ struct FPsave
 
 enum
 {
-	/* this is a state */
-	FPinit=		0,
-	FPactive=	1,
-	FPinactive=	2,
+	FPinit,
+	FPactive,
+	FPinactive,
+	FPprotected,
 
-	/*
-	 * the following are bits that can be or'd into the state.
-	 *
-	 * this is biased so that FPinit, FPactive and FPinactive
-	 * without any flags refer to user fp state in fpslot[0].
-	 */
-	FPillegal=	1<<8,	/* fp forbidden in note handler */
-	FPpush=		2<<8,	/* trap on use and initialize new fpslot */
-	FPnouser=	4<<8,	/* fpslot[0] is kernel regs */
-	FPkernel=	8<<8,	/* fp use in kernel (user in fpslot[0] when !FPnouser) */
-
-	FPindexs=	16,
-	FPindex1=	1<<FPindexs,
-	FPindexm=	3<<FPindexs,
+	FPillegal=	0x100,	/* fp forbidden in note handler */
 };
+
+#define KFPSTATE
 
 struct PFPU
 {
 	int	fpstate;
-	FPsave	*fpsave;	/* fpslot[fpstate>>FPindexs] */
-	FPsave	*fpslot[(FPindexm+1)>>FPindexs];
+	int	kfpstate;
+	FPsave	*fpsave;
+	FPsave	*kfpsave;
 };
 
 struct Confmem
@@ -215,6 +205,9 @@ struct Mach
 	char	havepge;
 	char	havewatchpt8;
 	char	havenx;
+
+	int	fpstate;		/* FPU state for interrupts */
+	FPsave	*fpsave;
 
 	u64int*	pml4;			/* pml4 base for this processor (va) */
 	Tss*	tss;			/* tss for this processor */

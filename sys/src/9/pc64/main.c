@@ -169,6 +169,9 @@ init0(void)
 	sp[3] = sp[2] = nil;
 	strcpy(sp[1] = (char*)&sp[4], "boot");
 	sp[0] = nil;
+
+	splhi();
+	fpukexit(nil, nil);
 	touser(sp);
 }
 
@@ -192,18 +195,18 @@ main(void)
 	ramdiskinit();
 	confinit();
 	xinit();
+	trapinit();
+	mathinit();
 	if(i8237alloc != nil)
 		i8237alloc();
 	pcicfginit();
 	bootscreeninit();
-	trapinit();
 	printinit();
 	cpuidprint();
 	mmuinit();
 	if(arch->intrinit)
 		arch->intrinit();
 	timersinit();
-	mathinit();
 	if(arch->clockenable)
 		arch->clockenable();
 	procinit0();
