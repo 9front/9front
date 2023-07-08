@@ -223,7 +223,6 @@ TEXT mmuenable<>(SB), 1, $-4
 	B	cacheiinv(SB)
 
 TEXT touser(SB), 1, $-4
-	MSR	$0x3, DAIFSet	// interrupts off
 	MOVWU	$0x10028, R1	// entry
 	MOVWU	$0, R2		// psr
 	MSR	R0, SP_EL0	// sp
