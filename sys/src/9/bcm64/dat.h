@@ -68,11 +68,14 @@ struct FPsave
 	ulong	status;
 };
 
+#define KFPSTATE
+
 struct PFPU
 {
-	FPsave	fpsave[1];
-
 	int	fpstate;
+	int	kfpstate;
+	FPsave	*fpsave;
+	FPsave	*kfpsave;
 };
 
 enum
@@ -80,6 +83,7 @@ enum
 	FPinit,
 	FPactive,
 	FPinactive,
+	FPprotected,
 
 	/* bits or'd with the state */
 	FPillegal= 0x100,
@@ -148,6 +152,9 @@ struct Mach
 	MMMU;
 
 	PMach;
+
+	int	fpstate;
+	FPsave	*fpsave;
 
 	int	cputype;
 	ulong	delayloop;

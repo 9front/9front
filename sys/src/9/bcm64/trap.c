@@ -97,6 +97,7 @@ static char *traps[64] = {
 void
 trap(Ureg *ureg)
 {
+	FPsave *f = nil;
 	u32int type, intr;
 	int user;
 
@@ -113,6 +114,7 @@ trap(Ureg *ureg)
 	case 0x21:	// instruction abort from same level
 	case 0x24:	// data abort from lower level
 	case 0x25:	// data abort from same level
+		f = fpukenter(ureg);
 		faultarm64(ureg);
 		break;
 	case 0x07:	// SIMD/FP
@@ -121,12 +123,14 @@ trap(Ureg *ureg)
 		break;
 	case 0x00:	// unknown
 		if(intr == 1){
+			f = fpukenter(ureg);
 			if(irq(ureg) && up != nil && up->delaysched)
 				sched();
 			break;
 		}
 		if(intr == 3){
 	case 0x2F:	// SError interrupt
+			f = fpukenter(ureg);
 			if(buserror != nil && (*buserror)(ureg))
 				break;
 			dumpregs(ureg);
@@ -162,6 +166,7 @@ trap(Ureg *ureg)
 	case 0x3A:	// vector catch exception (A32 only)
 	case 0x3C:	// BRK instruction (A64 only)
 	default:
+		f = fpukenter(ureg);
 		if(!userureg(ureg)){
 			dumpregs(ureg);
 			panic("unhandled trap");
@@ -170,12 +175,15 @@ trap(Ureg *ureg)
 		postnote(up, 1, traps[type], NDebug);
 		break;
 	}
+
 	splhi();
 	if(user){
 		if(up->procctl || up->nnote)
 			notify(ureg);
 		kexit(ureg);
 	}
+	if(type != 0x07 && type != 0x2C)
+		fpukexit(ureg, f);
 }
 
 void
@@ -189,6 +197,7 @@ syscall(Ureg *ureg)
 
 	if(!kenter(ureg))
 		panic("syscall from  kernel");
+	fpukenter(ureg);
 	
 	m->syscall++;
 	up->insyscall = 1;
@@ -196,7 +205,6 @@ syscall(Ureg *ureg)
 	
 	sp = ureg->sp;
 	up->scallnr = scallnr = ureg->r0;
-
 	spllo();
 	
 	up->nerrlab = 0;
@@ -246,9 +254,9 @@ syscall(Ureg *ureg)
 		procctl();
 		splx(s);
 	}
-	
 	up->insyscall = 0;
 	up->psstate = 0;
+
 	if(scallnr == NOTED){
 		noted(ureg, *((ulong*) up->s.args));
 		/*
@@ -260,34 +268,35 @@ syscall(Ureg *ureg)
 		 * to it when returning form syscall()
 		 */
 		returnto(noteret);
-	}
 
-	if(scallnr != RFORK && (up->procctl || up->nnote)){
 		splhi();
-		notify(ureg);
+		up->fpstate &= ~FPillegal;
 	}
+	else
+		splhi();
+
+	if(scallnr != RFORK && (up->procctl || up->nnote))
+		notify(ureg);
+
 	if(up->delaysched)
 		sched();
+
 	kexit(ureg);
+	fpukexit(ureg, nil);
 }
 
 int
 notify(Ureg *ureg)
 {
-	uintptr s, sp;
+	uintptr sp;
 	char *msg;
 
 	if(up->procctl)
 		procctl();
 	if(up->nnote == 0)
 		return 0;
-	if(up->fpstate == FPactive){
-		fpsave(up->fpsave);
-		up->fpstate = FPinactive;
-	}
-	up->fpstate |= FPillegal;
 
-	s = spllo();
+	spllo();
 	qlock(&up->debug);
 	msg = popnote(ureg);
 	if(msg == nil){
@@ -324,7 +333,10 @@ notify(Ureg *ureg)
 	ureg->pc = (uintptr) up->notify;
 	ureg->link = 0;
 	qunlock(&up->debug);
-	splx(s);
+
+	splhi();
+	fpuprocsave(up);
+	up->fpstate |= FPillegal;
 	return 1;
 }
 
@@ -333,7 +345,7 @@ noted(Ureg *ureg, ulong arg0)
 {
 	Ureg *nureg;
 	uintptr oureg, sp;
-	
+
 	qlock(&up->debug);
 	if(arg0 != NRSTR && !up->notified){
 		qunlock(&up->debug);
@@ -343,7 +355,6 @@ noted(Ureg *ureg, ulong arg0)
 	up->notified = 0;
 	
 	nureg = up->ureg;
-	up->fpstate &= ~FPillegal;
 	
 	oureg = (uintptr) nureg;
 	if(!okaddr(oureg - BY2WD, BY2WD + sizeof(Ureg), 0) || (oureg & 7) != 0){
@@ -376,7 +387,6 @@ noted(Ureg *ureg, ulong arg0)
 		}
 		qunlock(&up->debug);
 		sp = oureg - 4 * BY2WD - ERRMAX;
-		splhi();
 		ureg->sp = sp;
 		ureg->r0 = (uintptr) oureg;
 		((uintptr *) sp)[1] = oureg;
@@ -399,26 +409,24 @@ faultarm64(Ureg *ureg)
 {
 	extern void checkpages(void);
 	char buf[ERRMAX];
-	int read, insyscall;
+	int user, read;
 	uintptr addr;
 
-	insyscall = up->insyscall;
-	up->insyscall = 1;
-
-	if(!userureg(ureg)){
+	user = userureg(ureg);
+	if(user)
+		up->insyscall = 1;
+	else {
 		extern void _peekinst(void);
 
 		if(ureg->pc == (uintptr)_peekinst){
 			ureg->pc = ureg->link;
-			goto out;
+			return;
 		}
-
 		if(waserror()){
 			if(up->nerrlab == 0){
 				pprint("suicide: sys: %s\n", up->errstr);
 				pexit(up->errstr, 1);
 			}
-			up->insyscall = insyscall;
 			nexterror();
 		}
 	}
@@ -446,7 +454,7 @@ faultarm64(Ureg *ureg)
 	case 61:				// first level domain fault
 	case 62:				// second level domain fault
 	default:
-		if(!userureg(ureg)){
+		if(!user){
 			dumpregs(ureg);
 			panic("fault: %s addr=%#p", read ? "read" : "write", addr);
 		}
@@ -455,11 +463,10 @@ faultarm64(Ureg *ureg)
 		postnote(up, 1, buf, NDebug);
 	}
 
-	if(!userureg(ureg))
+	if(user)
+		up->insyscall = 0;
+	else
 		poperror();
-
-out:
-	up->insyscall = insyscall;
 }
 
 int
@@ -487,28 +494,14 @@ dbgpc(Proc *)
 void
 procfork(Proc *p)
 {
-	int s;
-
-	s = splhi();
-	switch(up->fpstate & ~FPillegal){
-	case FPactive:
-		fpsave(up->fpsave);
-		up->fpstate = FPinactive;
-	case FPinactive:
-		memmove(p->fpsave, up->fpsave, sizeof(FPsave));
-		p->fpstate = FPinactive;
-	}
-	splx(s);
-
+	fpuprocfork(p);
 	p->tpidr = up->tpidr;
 }
 
 void
 procsetup(Proc *p)
 {
-	p->fpstate = FPinit;
-	fpoff();
-
+	fpuprocsetup(p);
 	p->tpidr = 0;
 	syswr(TPIDR_EL0, p->tpidr);
 }
@@ -516,23 +509,16 @@ procsetup(Proc *p)
 void
 procsave(Proc *p)
 {
-	if(p->fpstate == FPactive){
-		if(p->state == Moribund)
-			fpclear();
-		else
-			fpsave(p->fpsave);
-		p->fpstate = FPinactive;
-	}
-
+	fpuprocsave(p);
 	if(p->kp == 0)
 		p->tpidr = sysrd(TPIDR_EL0);
-
 	putasid(p);	// release asid
 }
 
 void
 procrestore(Proc *p)
 {
+	fpuprocrestore(p);
 	if(p->kp == 0)
 		syswr(TPIDR_EL0, p->tpidr);
 }
