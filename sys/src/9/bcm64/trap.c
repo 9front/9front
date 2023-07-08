@@ -406,11 +406,24 @@ noted(Ureg *ureg, ulong arg0)
 	}
 }
 
-void
-faultarm64(Ureg *ureg)
+static void
+faultnote(Ureg *ureg, char *access, uintptr addr)
 {
 	extern void checkpages(void);
 	char buf[ERRMAX];
+
+	if(!userureg(ureg)){
+		dumpregs(ureg);
+		panic("fault: %s addr=%#p", access, addr);
+	}
+	checkpages();
+	snprint(buf, sizeof(buf), "sys: trap: fault %s addr=%#p", access, addr);
+	postnote(up, 1, buf, NDebug);
+}
+
+void
+faultarm64(Ureg *ureg)
+{
 	int user, read;
 	uintptr addr;
 
@@ -456,13 +469,7 @@ faultarm64(Ureg *ureg)
 	case 61:				// first level domain fault
 	case 62:				// second level domain fault
 	default:
-		if(!user){
-			dumpregs(ureg);
-			panic("fault: %s addr=%#p", read ? "read" : "write", addr);
-		}
-		checkpages();
-		sprint(buf, "sys: trap: fault %s addr=%#p", read ? "read" : "write", addr);
-		postnote(up, 1, buf, NDebug);
+		faultnote(ureg, read? "read": "write", addr);
 	}
 
 	if(user)

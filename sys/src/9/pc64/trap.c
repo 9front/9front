@@ -122,7 +122,7 @@ usertrap(int vno)
 
 	if(vno < nelem(excname)){
 		spllo();
-		sprint(buf, "sys: trap: %s", excname[vno]);
+		snprint(buf, sizeof(buf), "sys: trap: %s", excname[vno]);
 		postnote(up, 1, buf, NDebug);
 		return 1;
 	}
@@ -332,7 +332,7 @@ debugexc(Ureg *ureg, void *)
 	m = (m >> 4 | m >> 3) & 8 | (m >> 3 | m >> 2) & 4 | (m >> 2 | m >> 1) & 2 | (m >> 1 | m) & 1;
 	m &= dr6;
 	if(m == 0){
-		sprint(buf, "sys: debug exception dr6=%#.8ullx", dr6);
+		snprint(buf, sizeof(buf), "sys: debug exception dr6=%#.8ullx", dr6);
 		postnote(up, 0, buf, NDebug);
 	}else{
 		p = buf;
@@ -355,7 +355,7 @@ debugbpt(Ureg* ureg, void*)
 		panic("kernel bpt");
 	/* restore pc to instruction that caused the trap */
 	ureg->pc--;
-	sprint(buf, "sys: breakpoint");
+	snprint(buf, sizeof(buf), "sys: breakpoint");
 	postnote(up, 1, buf, NDebug);
 }
 
@@ -371,14 +371,26 @@ unexpected(Ureg* ureg, void*)
 	print("unexpected trap %llud; ignoring\n", ureg->type);
 }
 
-extern void checkpages(void);
+static void
+faultnote(Ureg *ureg, char *access, uintptr addr)
+{
+	extern void checkpages(void);
+	char buf[ERRMAX];
+
+	if(!userureg(ureg)){
+		dumpregs(ureg);
+		panic("fault: %s addr=%#p", access, addr);
+	}
+	checkpages();
+	snprint(buf, sizeof(buf), "sys: trap: fault %s addr=%#p", access, addr);
+	postnote(up, 1, buf, NDebug);
+}
 
 static void
 faultamd64(Ureg* ureg, void*)
 {
 	uintptr addr;
 	int read, user;
-	char buf[ERRMAX];
 
 	addr = getcr2();
 	read = !(ureg->error & 2);
@@ -405,16 +417,8 @@ faultamd64(Ureg* ureg, void*)
 		}
 	}
 
-	if(fault(addr, ureg->pc, read) < 0){
-		if(!user){
-			dumpregs(ureg);
-			panic("fault: %#p", addr);
-		}
-		checkpages();
-		sprint(buf, "sys: trap: fault %s addr=%#p",
-			read ? "read" : "write", addr);
-		postnote(up, 1, buf, NDebug);
-	}
+	if(fault(addr, ureg->pc, read))
+		faultnote(ureg, read? "read": "write", addr);
 
 	if(user)
 		up->insyscall = 0;
