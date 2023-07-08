@@ -653,8 +653,8 @@ shi:
 	MOVL	$(MACHADDR+0x04), CX 		/* save PC in m->splpc */
 	MOVL	(SP), BX
 	MOVL	BX, (CX)
-alreadyhi:
 	CLI
+alreadyhi:
 	RET
 
 TEXT spllo(SB), $0
@@ -665,8 +665,8 @@ slo:
 	JNZ	alreadylo
 	MOVL	$(MACHADDR+0x04), CX		/* clear m->splpc */
 	MOVL	$0, (CX)
-alreadylo:
 	STI
+alreadylo:
 	RET
 
 TEXT splx(SB), $0
