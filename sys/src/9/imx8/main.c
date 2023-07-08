@@ -161,6 +161,9 @@ init0(void)
 	sp[3] = sp[2] = sp[1] = nil;
 	strcpy(sp[1] = (char*)&sp[4], "boot");
 	sp[0] = (void*)&sp[1];
+
+	splhi();
+	fpukexit(nil, nil);
 	touser((uintptr)sp);
 }
 
