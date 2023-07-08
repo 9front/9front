@@ -40,18 +40,18 @@ main(void)
 	ramdiskinit();
 	confinit();
 	xinit();
+	trapinit();
+	mathinit();
 	if(i8237alloc != nil)
 		i8237alloc();
 	pcicfginit();
 	bootscreeninit();
-	trapinit();
 	printinit();
 	cpuidprint();
 	mmuinit();
 	if(arch->intrinit)	/* launches other processors on an mp */
 		arch->intrinit();
 	timersinit();
-	mathinit();
 	if(arch->clockenable)
 		arch->clockenable();
 	procinit0();
