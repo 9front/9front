@@ -513,9 +513,8 @@ _splhi:
 
 	MOVQ	(SP), BX
 	MOVQ	BX, 8(RMACH) 			/* save PC in m->splpc */
-
-_alreadyhi:
 	CLI
+_alreadyhi:
 	RET
 
 TEXT spllo(SB), 1, $-4
@@ -526,9 +525,8 @@ _spllo:
 	JNZ	_alreadylo			/* use CMOVLEQ etc. here? */
 
 	MOVQ	$0, 8(RMACH)			/* clear m->splpc */
-
-_alreadylo:
 	STI
+_alreadylo:
 	RET
 
 TEXT splx(SB), 1, $-4
@@ -901,7 +899,6 @@ _vmout2:
 /*
  */
 TEXT touser(SB), 1, $-4
-	CLI
 	SWAPGS
 
 	MOVL	$0, RMACH
