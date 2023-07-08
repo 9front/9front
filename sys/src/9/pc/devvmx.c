@@ -1063,7 +1063,7 @@ vmcsinit(Vmx *vmx)
 #endif
 	fpinit();
 	fpsave(&vmx->fp);
-	vmx->xcr0 = m->xcr0;
+	vmx->xcr0 = m->xcr0 & 1;	/* x87 only */
 	splx(s);
 
 	memset(vmx->msrbits, -1, 4096);
