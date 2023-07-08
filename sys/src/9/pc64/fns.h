@@ -36,9 +36,9 @@ int	ecinit(int cmdport, int dataport);
 int	ecread(uchar addr);
 int	ecwrite(uchar addr, uchar val);
 #define	evenaddr(x)				/* x86 doesn't care */
-void	fpinit(void);
 void	(*fprestore)(FPsave*);
 void	(*fpsave)(FPsave*);
+void	fpinit(void);
 FPsave*	fpukenter(Ureg*);
 void	fpukexit(Ureg*, FPsave*);
 void	fpuprocfork(Proc*);

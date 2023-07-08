@@ -491,7 +491,7 @@ dr7write(Vmx *vmx, char *s)
 static int
 xcr0write(Vmx *vmx, char *s)
 {
-	vmx->xcr0 = parseval(s) & 7;
+	vmx->xcr0 = (parseval(s) | 1) & m->xcr0;
 	return 0;
 }
 
@@ -936,6 +936,7 @@ vmcsinit(Vmx *vmx)
 {
 	vlong msr;
 	u32int x;
+	int s;
 	
 	memset(&vmx->ureg, 0, sizeof(vmx->ureg));
 	vmx->launched = 0;
@@ -1055,8 +1056,15 @@ vmcsinit(Vmx *vmx)
 	vmcswrite(GUEST_RFLAGS, 2);
 	
 	vmx->onentry = FLUSHVPID | FLUSHEPT;
+
+	s = splhi();
+#ifdef KFPSTATE
+	fpukexit(nil, nil);
+#endif
 	fpinit();
-	vmx->xcr0 = m->xcr0 & 1; /* x87 alone */
+	fpsave(&vmx->fp);
+	vmx->xcr0 = m->xcr0;
+	splx(s);
 
 	memset(vmx->msrbits, -1, 4096);
 	vmxtrapmsr(vmx, Efer, 0);
@@ -1669,9 +1677,11 @@ vmxproc(void *vmxp)
 			}
 			if((vmx->dr[7] & ~0xd400) != 0)
 				putdr01236(vmx->dr);
-
+#ifdef KFPSTATE
+			fpukexit(nil, nil);
+#endif
 			fprestore(&vmx->fp);
-			if(m->xcr0 != 0 && vmx->xcr0 != m->xcr0)
+			if(vmx->xcr0 != m->xcr0)
 				putxcr0(vmx->xcr0);
 			if(vmx->cr2 != getcr2())
 				putcr2(vmx->cr2);
@@ -1688,10 +1698,9 @@ vmxproc(void *vmxp)
 			cycles(&end);
 			useend = vmx->procbctls & PROCB_TSCOFFSET;
 			vmx->cr2 = getcr2();
-			if(m->xcr0 != 0 && vmx->xcr0 != m->xcr0)
+			if(vmx->xcr0 != m->xcr0)
 				putxcr0(m->xcr0);
 			fpsave(&vmx->fp);
-
 			splx(x);
 			if(rc < 0)
 				error("vmlaunch failed");
