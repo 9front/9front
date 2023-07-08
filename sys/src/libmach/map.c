@@ -80,7 +80,7 @@ stacktop(int pid)
 Map*
 attachproc(int pid, int kflag, int corefd, Fhdr *fp)
 {
-	char buf[64], *regs;
+	char buf[64], *regs, *fpregs;
 	int fd;
 	Map *map;
 	uvlong n;
@@ -91,9 +91,11 @@ attachproc(int pid, int kflag, int corefd, Fhdr *fp)
 		return 0;
 	if(kflag) {
 		regs = "kregs";
+		fpregs = "kfpregs";
 		mode = OREAD;
 	} else {
 		regs = "regs";
+		fpregs = "fpregs";
 		mode = ORDWR;
 	}
 	if (mach->regsize) {
@@ -106,7 +108,7 @@ attachproc(int pid, int kflag, int corefd, Fhdr *fp)
 		setmap(map, fd, 0, mach->regsize, 0, "regs");
 	}
 	if (mach->fpregsize) {
-		sprint(buf, "/proc/%d/fpregs", pid);
+		sprint(buf, "/proc/%d/%s", pid, fpregs);
 		fd = open(buf, mode);
 		if(fd < 0)
 			fd = open("/dev/zero", OREAD);
