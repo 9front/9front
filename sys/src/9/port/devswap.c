@@ -183,12 +183,10 @@ pager(void*)
 
 		i = ageclock;
 		do {
-			p = proctab(x++);
-			if(p == nil){
+			while((p = proctab(x++)) == nil){
 				if(++ageclock == i)
 					goto Killbig;
 				x = 0;
-				continue;
 			}
 		} while(p->state == Dead || p->noswap || !canqlock(&p->seglock));
 		up->psstate = "Pageout";
