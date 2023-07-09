@@ -152,7 +152,7 @@ enum {
 	Oif, Oelse, Owhile, Obreak, Oret, Ocall, 
 	Ostore, Oderef, Ootype, Osize, Oref, Ocref, Ocat, Ocatr, Omid,
 	Oacq, Osignal, Orel, Ostall, Osleep, Oload, Ounload,
-	Otodec, Otohex, Otoint, Otostr,
+	Otodec, Otohex, Otoint, Otostr, Onotify,
 };
 
 static Op optab[];
@@ -2225,6 +2225,8 @@ static Op optab[] = {
 	[Otohex]	"ToHexString",		"*@",		evalconv,
 	[Otoint]	"ToInteger",		"*@",		evalconv,
 	[Otostr]	"ToString",		"*i@",		evaltostr,
+
+	[Onotify]	"Notify",		"@i",		evalnop,
 };
 
 static uchar octab1[] = {
@@ -2244,7 +2246,7 @@ static uchar octab1[] = {
 /* 68 */	Oenv,	Oenv,	Oenv,	Oenv,	Oenv,	Oenv,	Oenv,	Obad,
 /* 70 */	Ostore,	Oref,	Oadd,	Ocat,	Osub,	Oinc,	Odec,	Omul,
 /* 78 */	Odiv,	Oshl,	Oshr,	Oand,	Onand,	Oor,	Onor,	Oxor,
-/* 80 */	Onot,	Olbit,	Orbit,	Oderef,	Ocatr,	Omod,	Obad,	Osize,
+/* 80 */	Onot,	Olbit,	Orbit,	Oderef,	Ocatr,	Omod,	Onotify,Osize,
 /* 88 */	Oindex,	Omatch,	Ocfld4,	Ocfld2,	Ocfld1,	Ocfld0,	Ootype,	Ocfld8,
 /* 90 */	Oland,	Olor,	Olnot,	Oleq,	Olgt,	Ollt,	Obad,	Otodec,
 /* 98 */	Otohex,	Otoint,	Obad,	Obad,	Otostr,	Obad,	Omid,	Obad,
