@@ -100,6 +100,8 @@ serialtick(void *)
 	assert(theirs.c != Cgone);
 	if(theirs.c == Csync)
 		return;
+	if(leader)
+		mine.c = Cgone;
 
 	reg[SB] = theirs.b;
 	reg[SC] &= ~0x80;
