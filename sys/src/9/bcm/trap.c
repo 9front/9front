@@ -131,7 +131,7 @@ writetomem(ulong inst)
 void
 trap(Ureg *ureg)
 {
-	int clockintr, user, x, rv, rem;
+	int user, x, rv, rem;
 	ulong inst, fsr;
 	uintptr va;
 	char buf[ERRMAX];
@@ -167,7 +167,10 @@ trap(Ureg *ureg)
 			ureg->psr & PsrMask);
 		break;
 	case PsrMirq:
-		clockintr = irq(ureg);
+		if(!irq(ureg))
+			preempted();
+		else if(up != nil && up->delaysched)
+			sched();	/* can cause more traps */
 		break;
 	case PsrMabt:			/* prefetch fault */
 		x = ifsrget();
@@ -285,12 +288,6 @@ trap(Ureg *ureg)
 		break;
 	}
 	splhi();
-
-	/* delaysched set because we held a lock or because our quantum ended */
-	if(up && up->delaysched && clockintr){
-		sched();		/* can cause more traps */
-		splhi();
-	}
 
 	if(user){
 		if(up->procctl || up->nnote)

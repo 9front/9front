@@ -137,7 +137,6 @@ struct Mach
 	PMach;
 
 	vlong	fastclock;		/* last sampled value */
-	int	inclockintr;
 
 	int	cputype;
 	int	socrev;			/* system-on-chip revision */

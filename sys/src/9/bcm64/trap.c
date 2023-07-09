@@ -124,7 +124,9 @@ trap(Ureg *ureg)
 	case 0x00:	// unknown
 		if(intr == 1){
 			f = fpukenter(ureg);
-			if(irq(ureg) && up != nil && up->delaysched)
+			if(!irq(ureg))
+				preempted();
+			else if(up != nil && up->delaysched)
 				sched();
 			break;
 		}

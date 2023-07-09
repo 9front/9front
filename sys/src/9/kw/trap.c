@@ -185,13 +185,15 @@ intrdisable(int sort, int v, void (*f)(Ureg*, void*), void* a, char *name)
 /*
  *  called by trap to handle interrupts
  */
-static void
+static int
 intrs(Ureg *ur, int sort)
 {
-	int i, s;
+	int i, s, clockintr;
 	ulong ibits;
 	Handler *h;
 	Irq irq;
+
+	clockintr = 0;
 
 	assert(sort >= 0 && sort < nelem(irqs));
 	irq = irqs[sort];
@@ -206,7 +208,7 @@ intrs(Ureg *ur, int sort)
 				splhi();
 				intrtime(m, sort*32 + i);
 				if (sort == Irqbridge && i == IRQcputimer0)
-					m->inclockintr = 1;
+					clockintr = 1;
 				ibits &= ~(1<<i);
 			}
 		}
@@ -217,6 +219,8 @@ intrs(Ureg *ur, int sort)
 		*irq.irqmask &= ~ibits;
 		splx(s);
 	}
+
+	return clockintr;
 }
 
 void
@@ -382,7 +386,6 @@ trap(Ureg *ureg)
 	else
 		ureg->pc -= 4;
 
-	m->inclockintr = 0;
 	switch(ureg->type) {
 	default:
 		panic("unknown trap %ld", ureg->type);
@@ -390,7 +393,12 @@ trap(Ureg *ureg)
 	case PsrMirq:
 		ldrexvalid = 0;
 		// splflo();		/* allow fast interrupts */
-		intrs(ureg, Irqlo);
+		if(!intrs(ureg, Irqlo))
+			preempted();
+		else if(up != nil && up->delaysched){
+			ldrexvalid = 0;
+			sched();
+		}
 		m->intr++;
 		break;
 	case PsrMabt:			/* prefetch fault */
@@ -486,13 +494,6 @@ trap(Ureg *ureg)
 		break;
 	}
 	splhi();
-
-	/* delaysched set because we held a lock or because our quantum ended */
-	if(up && up->delaysched && m->inclockintr){
-		ldrexvalid = 0;
-		sched();
-		splhi();
-	}
 
 	if(user){
 		if(up->procctl || up->nnote)

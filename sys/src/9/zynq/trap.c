@@ -182,7 +182,10 @@ trap(Ureg *ureg)
 		break;
 	case PsrMirq:
 		ureg->pc -= 4;
-		intr(ureg);
+		if(!intr(ureg))
+			preempted();
+		else if(up != nil && up->delaysched)
+			sched();
 		break;
 	default:
 		iprint("cpu%d: unknown trap type %ulx\n", m->machno, ureg->type);

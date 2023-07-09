@@ -49,7 +49,7 @@ void noted(Ureg *, ulong);
 void l1switch(L1 *, int);
 void intrenable(int, void (*)(Ureg *, void *), void *, int, char *);
 void intrinit(void);
-void intr(Ureg *);
+int intr(Ureg *);
 int uartconsole(void);
 long fbctlread(Chan*,void*,long,vlong);
 long fbctlwrite(Chan*,void*,long,vlong);

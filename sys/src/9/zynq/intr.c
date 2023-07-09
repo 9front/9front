@@ -88,7 +88,7 @@ intrenable(int irq, void (*f)(Ureg *, void *), void *arg, int type, char *name)
 	mpcore[ICDABR + (irq >> 5)] |= 1 << (irq & 31);
 }
 
-void
+int
 intr(Ureg *ureg)
 {
 	ulong v;
@@ -109,13 +109,5 @@ intr(Ureg *ureg)
 		i->f(ureg, i->arg);
 	mpcore[ICCEOIR] = v;
 
-	if(up != nil){
-		if(irq == TIMERIRQ){
-			if(up->delaysched){
-				splhi();
-				sched();
-			}
-		}else
-			preempted();
-	}
+	return irq == TIMERIRQ;
 }
