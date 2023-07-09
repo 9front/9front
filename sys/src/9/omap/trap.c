@@ -446,7 +446,7 @@ void	prgpmcerrs(void);
 void
 trap(Ureg *ureg)
 {
-	int clockintr, user, x, rv, rem;
+	int user, x, rv, rem;
 	ulong inst, fsr;
 	uintptr va;
 	char buf[ERRMAX];
@@ -475,7 +475,6 @@ trap(Ureg *ureg)
 	else
 		ureg->pc -= 4;
 
-	clockintr = 0;		/* if set, may call sched() before return */
 	switch(ureg->type){
 	default:
 		panic("unknown trap; type %#lux, psr mode %#lux", ureg->type,
@@ -483,7 +482,12 @@ trap(Ureg *ureg)
 		break;
 	case PsrMirq:
 		ldrexvalid = 0;
-		clockintr = irq(ureg);
+		if(!irq(ureg))
+			preempted();
+		else if(up != nil && up->delaysched){
+			ldrexvalid = 0;
+			sched();
+		}
 		m->intr++;
 		break;
 	case PsrMabt:			/* prefetch fault */
@@ -614,14 +618,6 @@ trap(Ureg *ureg)
 		break;
 	}
 	splhi();
-
-	/* delaysched set because we held a lock or because our quantum ended */
-	if(up && up->delaysched && clockintr){
-		ldrexvalid = 0;
-		sched();		/* can cause more traps */
-		splhi();
-	}
-
 	if(user){
 		if(up->procctl || up->nnote)
 			notify(ureg);
