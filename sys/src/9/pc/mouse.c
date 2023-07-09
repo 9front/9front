@@ -270,7 +270,7 @@ setstream(int on)
 		for(i=0; i<4; i++){
 			if(i8042auxcmd(on ? 0xF4 : 0xF5) != -1)
 				break;
-			delay(50);
+			tsleep(&up->sleep, return0, 0, 50);
 		}
 		break;
 	}
