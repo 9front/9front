@@ -160,7 +160,6 @@ trap(Ureg *ureg)
 	else
 		ureg->pc -= 4;
 
-	clockintr = 0;		/* if set, may call sched() before return */
 	switch(ureg->type){
 	default:
 		panic("unknown trap; type %#lux, psr mode %#lux", ureg->type,
