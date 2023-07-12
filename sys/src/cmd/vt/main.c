@@ -893,7 +893,8 @@ exportsize(void)
 void
 setdim(int ht, int wid)
 {
-	int fd;
+	char tmp[128];
+	int n, fd;
  
 	if(wid > 0) xmax = wid-1;
 	if(ht > 0) ymax = ht-1;
@@ -927,11 +928,15 @@ setdim(int ht, int wid)
 
 	exportsize();
 
-	fd = open("/dev/wctl", OWRITE);
+	fd = open("/dev/wctl", ORDWR);
 	if(fd >= 0){
 		ht = (ymax+1) * ftsize.y + 2*INSET + 2*Borderwidth;
 		wid = (xmax+1) * ftsize.x + ftsize.x + 2*INSET + 2*Borderwidth;
-		fprint(fd, "resize -dx %d -dy %d\n", wid, ht);
+		if((n = read(fd, tmp, sizeof(tmp)-1)) < 0)
+			n = 0;
+		tmp[n] = 0;
+		if(strstr(tmp, "hidden") == nil)
+			fprint(fd, "resize -dx %d -dy %d\n", wid, ht);
 		close(fd);
 	}
 }
