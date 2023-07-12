@@ -30,6 +30,7 @@
 
 int	wraparound = 1;
 int	originrelative = 0;
+int	bracketed = 0;
 
 int	tabcol[200];
 char osc7cwd[WDIR];
@@ -492,6 +493,9 @@ emulate(void)
 							case 25:	/* text cursor off (VT220) */
 								cursoron = 0;
 								break;
+							case 2004:	/* bracketed paste mode off */
+								bracketed = 0;
+								break;
 							}
 						}
 						break;
@@ -546,6 +550,9 @@ emulate(void)
 								break;
 							case 25:	/* text cursor on (VT220) */
 								cursoron = 1;
+								break;
+							case 2004:	/* bracketed paste mode on */
+								bracketed = 1;
 								break;
 							}
 						}

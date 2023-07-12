@@ -655,6 +655,7 @@ int
 input(void)
 {
 	static char echobuf[4*BSIZE];
+	static int pasting;
 
 Again:
 	if(resize_flag)
@@ -664,9 +665,17 @@ Again:
 	if(snarffp) {
 		int c;
 
+		if(bracketed && !pasting){
+			sendnchars(6, "\033[200~");
+			pasting = 1;
+		}
 		if((c = Bgetrune(snarffp)) < 0) {
 			Bterm(snarffp);
 			snarffp = nil;
+			if(bracketed){
+				sendnchars(6, "\033[201~");
+				pasting = 0;
+			}
 			goto Again;
 		}
 		kbdchar = c;

@@ -75,6 +75,7 @@ extern Image *hicolors[];
 
 extern int cursoron;
 extern int nocolor;
+extern int bracketed;
 
 extern void setdim(int, int);
 extern void mountcons(void);
