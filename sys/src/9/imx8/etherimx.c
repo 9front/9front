@@ -435,7 +435,7 @@ rxproc(void *arg)
 		}
 		if(((s^RD_L) & (RD_L|RD_ERR)) == 0){
 			b = ctlr->rx->b[i];
-			b->wp = b->rp + (s & RD_LEN);
+			b->wp = b->rp + (s & RD_LEN) - 4;
 			dmaflush(0, b->rp, BLEN(b));
 			etheriq(edev, b);
 
