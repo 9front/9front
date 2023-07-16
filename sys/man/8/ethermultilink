@@ -34,7 +34,7 @@ bind -a '#l0' /net
 # mount the wifi
 bind -a '#l1' /net
 # create the new virtual interface with same mac as wifi
-bind -a '#l2:sink ea='^`{cat /net/ether1/addr}
+bind -a '#l2:sink ea='^`{cat /net/ether1/addr} /net
 # roam between wifi and ethernet
 ethermultilink /net/ether2 /net/ether1 /net/ether0 > /net/bridge0/ctl
 # use the new virtual interface...
