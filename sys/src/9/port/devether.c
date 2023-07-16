@@ -204,6 +204,8 @@ ethermux(Ether *ether, Block *bp, Netfile **from)
 	dispose = tome || from == nil || port > 0;
 
 	for(fp = ether->f; fp < &ether->f[Ntypes]; fp++){
+		if(fp == from)
+			continue;
 		if((f = *fp) == nil)
 			continue;
 		if(f->type != type && f->type >= 0)
@@ -211,7 +213,7 @@ ethermux(Ether *ether, Block *bp, Netfile **from)
 		if(!tome && !multi && !f->prom)
 			continue;
 		if(f->bridge){
-			if(tome || fp == from)
+			if(tome)
 				continue;
 			if(port >= 0 && port != 1+(fp - ether->f))
 				continue;
@@ -254,7 +256,7 @@ etheriq(Ether* ether, Block* bp)
 static void
 etheroq(Ether* ether, Block* bp, Netfile **from)
 {
-	if((*from)->bridge == 0)
+	if((*from)->prom == 0)
 		memmove(((Etherpkt*)bp->rp)->s, ether->ea, Eaddrlen);
 
 	bp = ethermux(ether, bp, from);

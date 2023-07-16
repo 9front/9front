@@ -1,5 +1,25 @@
 #!/bin/rc
 
+fn wifi{
+	if(grep -s '^essid: ' $1/ifstats){
+		if(~ $#essid 0)
+			essid=`{grep '^essid: ' $1/ifstats >[2]/dev/null | sed 's/^essid: //; q'}
+		if(! ~ $#essid 0){
+			x=(aux/wpa -s $"essid)
+			if(! ~ $#wpapsk 0){
+				echo 'key proto=wpapsk' `{!password=$"wpapsk whatis essid !password} > /mnt/factotum/ctl
+				wpapsk=()
+			}
+			if not {
+				x=($x -p)		
+			}
+			$x $1
+		}
+		essid=()
+		rm -f /env/^(essid wpapsk)
+	}
+}
+
 fn confignet{
 	# get primary default interface if not specified
 	if(~ $#* 0){
@@ -8,24 +28,27 @@ fn confignet{
 			*=(ether $e(1))
 	}
 
-	# setup wifi encryption if any
-	if(~ $1 ether && test -x /bin/aux/wpa){
-		essid=`{grep '^essid: ' $2/ifstats >[2]/dev/null | sed 's/^essid: //; q'}
-		if(! ~ $#essid 0){
-			if(! ~ $#wpapsk 0 || grep -s '^status: need authentication' $2/ifstats >[2]/dev/null){
-				x=(aux/wpa -s $"essid)
-				if(! ~ $#wpapsk 0){
-					echo 'key proto=wpapsk' `{!password=$"wpapsk whatis essid !password} > /mnt/factotum/ctl
-					wpapsk=()
-				}
-				if not {
-					x=($x -p)		
-				}
-				$x $2
-			}
-			essid=()
+	# if ethernet, handle wifi and multilink
+	if( ~ $1 ether gbe){
+		t=$1
+		shift
+		wifi $1
+		e=$1
+		shift
+		# if multiple ethernets specified...
+		while(~ $1 ether gbe){
+			shift
+			e=($e $1)
+			shift
 		}
-		rm -f /env/^(essid wpapsk)
+		# ...make them into a multilink bridge
+		if(! ~ $#e 1){
+			bind -a '#B15' /net
+			bind -a '#l15:sink ea='^`{cat $e(1)^/addr} /net
+			ethermultilink /net/ether15 $e > /net/bridge15/ctl
+			e=/net/ether15
+		}
+		*=($t $e $*)
 	}
 
 	if(~ $1 ether gbe && ~ $#* 2) @{
