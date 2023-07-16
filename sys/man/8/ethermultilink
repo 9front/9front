@@ -44,3 +44,11 @@ ip/ipconfig ether /net/ether2
 .B /rc/bin/ethermultilink
 .SH "SEE ALSO"
 .IR bridge (4).
+.SH BUGS
+The
+.I secondary
+interfaces should not
+be bound to an IP stack,
+only the
+.I primary
+interface should be used.
