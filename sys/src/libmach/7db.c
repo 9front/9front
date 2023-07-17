@@ -736,7 +736,7 @@ static uvlong
 jumptarg(Instr *i)
 {
 	ulong m = smask(i->op->p, 'T');
-	return i->addr + sext(unshift(i->w, m), m)*4;
+	return i->addr + sext(unshift(i->w, m), nbits(m))*4;
 }
 
 static int
@@ -751,9 +751,12 @@ arm64foll(Map *map, uvlong pc, Rgetter rget, uvlong *foll)
 	o = i->op->o;
 	if(strcmp(o, "ERET") == 0)
 		return -1;
-
 	if(strcmp(o, "RET") == 0 || strcmp(o, "BR") == 0 || strcmp(o, "BLR") == 0){
 		foll[0] = readreg(i, rget, 'n');
+		return 1;
+	}
+	if(strcmp(o, "RETURN") == 0){
+		foll[0] = rget(i->map, "R30");
 		return 1;
 	}
 	if(strcmp(o, "B") == 0 || strcmp(o, "BL") == 0){
