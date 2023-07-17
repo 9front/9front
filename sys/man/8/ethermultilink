@@ -43,7 +43,7 @@ ip/ipconfig ether /net/ether2
 .SH SOURCE
 .B /rc/bin/ethermultilink
 .SH "SEE ALSO"
-.IR bridge (4).
+.IR bridge (3).
 .SH BUGS
 The
 .I secondary
