@@ -88,10 +88,10 @@ static char *traps[64] = {
 	[0x18]	"sys: trap: illegal MSR/MRS access",
 	[0x22]	"sys: trap: misaligned pc",
 	[0x26]	"sys: trap: stack pointer misaligned",
-	[0x30]	"sys: trap: breakpoint",
-	[0x32]	"sys: trap: software step",
-	[0x34]	"sys: trap: watchpoint",
-	[0x3C]	"sys: trap: BRK instruction",
+	[0x30]	"sys: breakpoint",
+	[0x32]	"sys: software step",
+	[0x34]	"sys: watchpoint",
+	[0x3C]	"sys: breakpoint",
 };
 
 void
