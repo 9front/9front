@@ -54,10 +54,10 @@ overlaps(Change *l, Change *r)
 {
 	if(l == nil || r == nil)
 		return 0;
-	if(l->a <= r->a)
-		return l->b >= r->a;
+	if(l->c <= r->c)
+		return l->d >= r->c;
 	else
-		return r->b >= l->a;
+		return r->d >= l->c;
 }
 
 char*
