@@ -13,7 +13,7 @@ if(~ $#query 0)
 commit=`{git/query -p $query}
 
 files=`$nl{cleanname -d $gitrel $* | drop $gitroot}
-for(f in `{git/walk -c -fRM -b $query $files}){
+for(f in `$nl{git/walk -c -fRM -b $query $files}){
 	mkdir -p `{basename -d $f}
 	cp -x -- $commit/tree/$f $f
 	touch $f
