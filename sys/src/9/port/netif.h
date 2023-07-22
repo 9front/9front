@@ -38,10 +38,13 @@ struct Netfile
 	char	owner[KNAMELEN];
 
 	int	type;			/* multiplexor type */
-	int	prom;			/* promiscuous mode */
-	int	scan;			/* base station scanning interval */
-	int	bridge;			/* bridge mode */
-	int	headersonly;		/* headers only - no data */
+
+	char	prom;			/* promiscuous mode */
+	char	scan;			/* base station scanning interval */
+	char	bridge;			/* bridge mode */
+	char	bypass;			/* bypass transmission */
+	char	headersonly;		/* headers only - no data */
+
 	uchar	maddr[8];		/* bitmask of multicast addresses requested */
 	int	nmaddr;			/* number of multicast addresses */
 
@@ -70,6 +73,7 @@ struct Netif
 	char	name[KNAMELEN];		/* for top level directory */
 	int	nfile;			/* max number of Netfiles */
 	Netfile	**f;
+	Netfile	*bypass;
 
 	/* about net */
 	int	limit;			/* flow control */

@@ -172,6 +172,7 @@ ethermux(Ether *ether, Block *bp, Netfile **from)
 	len = BLEN(bp);
 	if(len < ETHERHDRSIZE)
 		goto Drop;
+
 	pkt = (Etherpkt*)bp->rp;
 	if(!(multi = pkt->d[0] & 1)){
 		tome = memcmp(pkt->d, ether->ea, Eaddrlen) == 0;
@@ -210,7 +211,7 @@ ethermux(Ether *ether, Block *bp, Netfile **from)
 			continue;
 		if(!tome && !multi && !f->prom)
 			continue;
-		if(f->bridge){
+		if(f->bridge || f->bypass){
 			if(tome || fp == from)
 				continue;
 			if(port >= 0 && port != 1+(fp - ether->f))
@@ -247,6 +248,10 @@ Drop:		freeb(bp);
 void
 etheriq(Ether* ether, Block* bp)
 {
+	if(ether->bypass != nil){
+		freeb(bp);
+		return;
+	}
 	ether->inpackets++;
 	ethermux(ether, bp, nil);
 }
@@ -254,13 +259,19 @@ etheriq(Ether* ether, Block* bp)
 static void
 etheroq(Ether* ether, Block* bp, Netfile **from)
 {
+	Netfile *x;
+
 	if((*from)->bridge == 0)
 		memmove(((Etherpkt*)bp->rp)->s, ether->ea, Eaddrlen);
 
 	bp = ethermux(ether, bp, from);
 	if(bp == nil)
 		return;
-
+	if((x = ether->bypass) != nil){
+		if(qpass(x->in, bp) < 0)
+			ether->soverflows++;
+		return;
+	}
 	ether->outpackets++;
 	qbwrite(ether->oq, bp);
 	if(ether->transmit != nil)

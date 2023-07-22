@@ -3,11 +3,6 @@
 # ethermultilink outpus bridge(3) commands to switch
 # between multiple ethernet (or wifi) interfaces
 # depending on their link status.
-# the first argument is the primary interface,
-# which is permanently added to the bridge
-# while the following arguments are for secondary
-# interfaces in increasing priority order.
-# only the highest priority active interface is bound.
 
 rfork e
 
@@ -30,44 +25,36 @@ for(i){
 
 # first interface is the primary
 primary=$1
-shift
 
-ea=`{cat $primary/addr} || missing $primary/addr
 net=`{echo $primary | sed 's!/*[^/]*$!!g'}
 test -r $net/arp || missing $net/arp
 
-# insert the primary to bridge
-echo bind ether primary 0 $primary || exit
-
 # now select secondary from the list depending on link status
 @{
-type=none
 old=/dev/null
+new=$old
 while(){
 	# interfaces are in increasing priority order
 	for(i){
-		if(! ~ $i $primary && grep -s 'link: 1' $i/stats)
-			secondary=$i
+		if(grep -s 'link: 1' $i/stats)
+			new=$i
 	}
-	if(! ~ $secondary $old){
-		echo $primary is switching from $old to $secondary >[1=2]
-
-		if(! ~ $type none){
-			echo unbind $type secondary 0
+	if(! ~ $new $old){
+		if(! ~ $old /dev/null){
+			if(! ~ $old $primary) {
+				echo unbind bypass primary 0
+				echo unbind ether secondary 0
+			}
 		}
-
-		# if the secondary has the same ea as the primary,
-		# we need to bind it in non-bridge mode
-		type=ether
-		if(~ $ea `{cat $secondary/addr})
-			type=ethermac
-
-		echo bind $type secondary 0 $secondary
-
+		if(! ~ $new $primary){
+			echo bind bypass primary 0 $primary
+			echo bind ether secondary 0 $new
+		}
 		# make switches aware of the new path
 		echo flush > $net/arp
+
+		old=$new
 	}
-	old=$secondary
 	sleep 1
 }
 } </dev/null &

@@ -334,6 +334,11 @@ netifwrite(Netif *nif, Chan *c, void *a, long n)
 		}
 	} else if(matchtoken(buf, "bridge")){
 		f->bridge = 1;
+	} else if(matchtoken(buf, "bypass")){
+		if(nif->bypass != nil)
+			error(Einuse);
+		f->bypass = 1;
+		nif->bypass = f;
 	} else if(matchtoken(buf, "headersonly")){
 		f->headersonly = 1;
 	} else if((p = matchtoken(buf, "addmulti")) != 0){
@@ -408,6 +413,12 @@ netifclose(Netif *nif, Chan *c)
 	f = nif->f[NETID(c->qid.path)];
 	qlock(f);
 	if(--(f->inuse) == 0){
+		if(f->bypass){
+			qlock(nif);
+			nif->bypass = nil;
+			qunlock(nif);
+			f->bypass = 0;
+		}
 		if(f->prom){
 			qlock(nif);
 			if(--(nif->prom) == 0 && nif->promiscuous != nil)

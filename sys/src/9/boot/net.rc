@@ -44,9 +44,8 @@ fn confignet{
 		# ...make them into a multilink bridge
 		if(! ~ $#e 1){
 			bind -a '#B15' /net
-			bind -a '#l15:sink ea='^`{cat $e(1)^/addr} /net
-			ethermultilink /net/ether15 $e > /net/bridge15/ctl
-			e=/net/ether15
+			ethermultilink $e > /net/bridge15/ctl
+			e=$e(1)
 		}
 		*=($t $e $*)
 	}

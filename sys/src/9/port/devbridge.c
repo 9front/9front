@@ -69,11 +69,13 @@ static Logflag logflags[] = {
 
 enum {
 	Tether,
+	Tbypass,
 	Ttun,
 };
 
 static char *typstr[] = {
 	"ether",
+	"bypass",
 	"tunnel",
 };
 
@@ -649,6 +651,7 @@ portbind(Bridge *b, int argc, char *argv[])
 	default:
 		error(usage);
 	case Tether:
+	case Tbypass:
 		if(argc > 4)
 			vlan = argv[4];
 		break;
@@ -682,6 +685,7 @@ portbind(Bridge *b, int argc, char *argv[])
 	default:
 		panic("portbind: unknown port type: %d", type);
 	case Tether:
+	case Tbypass:
 		snprint(path, sizeof(path), "%s/clone", dev);
 		ctl = namec(path, Aopen, ORDWR, 0);
 		if(waserror()) {
@@ -699,8 +703,14 @@ portbind(Bridge *b, int argc, char *argv[])
 		devtab[ctl->type]->write(ctl, buf, strlen(buf), 0);
 		snprint(buf, sizeof(buf), "nonblocking");
 		devtab[ctl->type]->write(ctl, buf, strlen(buf), 0);
-		snprint(buf, sizeof(buf), "promiscuous");
-		devtab[ctl->type]->write(ctl, buf, strlen(buf), 0);
+
+		if(type == Tbypass){
+			snprint(buf, sizeof(buf), "bypass");
+			devtab[ctl->type]->write(ctl, buf, strlen(buf), 0);
+		} else {
+			snprint(buf, sizeof(buf), "promiscuous");
+			devtab[ctl->type]->write(ctl, buf, strlen(buf), 0);
+		}
 		snprint(buf, sizeof(buf), "bridge");
 		devtab[ctl->type]->write(ctl, buf, strlen(buf), 0);
 

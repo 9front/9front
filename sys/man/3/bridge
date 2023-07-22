@@ -67,11 +67,12 @@ argument is explained in
 .B vlan
 command below.
 .TP
-.BI "bind ethermac " "name ownhash path [pvid[#prio][,vlans...]]"
+.BI "bind bypass " "name ownhash path [pvid[#prio][,vlans...]]"
 This is the same as
 .I ether
-above, but forwards all frames, including frames destined to the
-interfaces mac address.
+above, but bypasses the physical interface, ignoring all received
+frames from the interface and diverts all frames
+transmitted on that interface to the bridge.
 .TP
 .BI "bind tunnel " "name ownhash path path2 [pvid[#prio][,vlans...]]"
 Treat the device mounted at

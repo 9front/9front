@@ -66,9 +66,11 @@ struct Conn
 
 	int		used;
 	int		type;
-	int		prom;
-	int		bridge;
-	int		headersonly;
+
+	char		prom;
+	char		bridge;
+	char		bypass;
+	char		headersonly;
 
 	Dq		*dq;
 };
@@ -83,6 +85,7 @@ uchar bcast[Eaddrlen] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
 Stats stats;
 Conn conn[32];
+Conn *bypass;
 int nconn = 0;
 
 int nprom = 0;
@@ -397,6 +400,13 @@ fswrite(Req *r)
 		p = (char*)r->ifcall.data;
 		if(n >= 6 && memcmp(p, "bridge", 6)==0){
 			conn[NUM(path)].bridge = 1;
+		} else if(n >= 6 && memcmp(p, "bypass", 6)==0){
+			if(bypass != nil){
+				respond(r, "bypass in use");
+				return;
+			}
+			conn[NUM(path)].bypass = 1;
+			bypass = &conn[NUM(path)];
 		} else if(n >= 11 && memcmp(p, "headersonly", 11)==0){
 			conn[NUM(path)].headersonly = 1;
 		} else if(n >= 11 && memcmp(p, "promiscuous", 11)==0){
@@ -506,6 +516,7 @@ fsopen(Req *r)
 			c->type = 0;
 			c->prom = 0;
 			c->bridge = 0;
+			c->bypass = 0;
 			c->headersonly = 0;
 		}
 		if(d != nil){
@@ -581,7 +592,10 @@ fsdestroyfid(Fid *fid)
 		}
 		if(TYPE(fid->qid.path) == Qdata && c->bridge)
 			memset(mactab, 0, sizeof(mactab));
-		c->used--;
+		if(--c->used == 0){
+			if(c->bypass)
+				bypass = nil;
+		}
 		qunlock(c);
 	}
 }
@@ -791,7 +805,7 @@ ethermux(Block *bp, Conn *from)
 			continue;
 		if(!tome && !multi && !c->prom)
 			continue;
-		if(c->bridge){
+		if(c->bridge || c->bypass){
 			if(tome || c == from)
 				continue;
 			if(port >= 0 && port != 1+(c - conn))
@@ -821,6 +835,10 @@ Drop:		freeb(bp);
 void
 etheriq(Block *bp)
 {
+	if(bypass != nil){
+		freeb(bp);
+		return;
+	}
 	stats.in++;
 	ethermux(bp, nil);
 }
@@ -828,11 +846,17 @@ etheriq(Block *bp)
 static void
 etheroq(Block *bp, Conn *from)
 {
+	Conn *x;
+
 	if(!from->bridge)
 		memmove(((Etherpkt*)bp->rp)->s, macaddr, Eaddrlen);
 	bp = ethermux(bp, from);
 	if(bp == nil)
 		return;
+	if((x = bypass) != nil){
+		cpass(x, bp);
+		return;
+	}
 	stats.out++;
 	/* transmit frees buffer */
 	(*eptransmit)(epout, bp);

@@ -15,13 +15,13 @@ Ethermultilink takes a
 ethernet interface and a list of
 .I secondary
 interfaces in increasing priority order.
-It outputs
+It checks the link status of the
+secondary interfaces and if any are
+link-active, bridges the primary
+and the highest priority secondary
+interface together by outputting
 .IR bridge (4)
-commands that add the
-.I primary
-and the highest priority link-active
-.I secondary
-interface to the bridge.
+commands on standard output.
 The link status of all the secondary interfaces
 is checked once per second and the commands to
 change the active secondary are output as needed.
@@ -33,22 +33,12 @@ bind -a '#B' /net
 bind -a '#l0' /net
 # mount the wifi
 bind -a '#l1' /net
-# create the new virtual interface with same mac as wifi
-bind -a '#l2:sink ea='^`{cat /net/ether1/addr} /net
 # roam between wifi and ethernet
-ethermultilink /net/ether2 /net/ether1 /net/ether0 > /net/bridge0/ctl
-# use the new virtual interface...
-ip/ipconfig ether /net/ether2
+ethermultilink /net/ether1 /net/ether0 > /net/bridge0/ctl
+# setup ip on the primary
+ip/ipconfig ether /net/ether1
 .EE
 .SH SOURCE
 .B /rc/bin/ethermultilink
 .SH "SEE ALSO"
 .IR bridge (3).
-.SH BUGS
-The
-.I secondary
-interfaces should not
-be bound to an IP stack,
-only the
-.I primary
-interface should be used.
