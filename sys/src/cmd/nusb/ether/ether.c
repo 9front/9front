@@ -785,14 +785,14 @@ ethermux(Block *bp, Conn *from)
 	dispose = tome || from == nil || port > 0;
 
 	for(c = conn; c < &conn[nconn]; c++){
-		if(!c->used || c == from)
+		if(!c->used)
 			continue;
 		if(c->type != type && c->type >= 0)
 			continue;
 		if(!tome && !multi && !c->prom)
 			continue;
 		if(c->bridge){
-			if(tome)
+			if(tome || c == from)
 				continue;
 			if(port >= 0 && port != 1+(c - conn))
 				continue;
@@ -828,7 +828,7 @@ etheriq(Block *bp)
 static void
 etheroq(Block *bp, Conn *from)
 {
-	if(!from->prom)
+	if(!from->bridge)
 		memmove(((Etherpkt*)bp->rp)->s, macaddr, Eaddrlen);
 	bp = ethermux(bp, from);
 	if(bp == nil)
