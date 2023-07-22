@@ -1,7 +1,7 @@
 #include <u.h>
 #include <libc.h>
 #include <regexp.h>
-#include <regimpl.h>
+#include "regimpl.h"
 
 static int
 fmtprinst(Fmt *f, Reinst *inst)
