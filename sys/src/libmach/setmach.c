@@ -40,13 +40,13 @@ Machtab	machines[] =
 		A68020,
 		&m68020,
 		&m68020mach,	},
-	{	"mips2LE",			/*plan 9 mips2 little endian*/
+	{	"spim2",			/*plan 9 mips2 little endian*/
 		FMIPS2LE,
 		0,
 		AMIPS,
 		&mmips2le,
 		&mipsmach2le, 	},
-	{	"mipsLE",				/*plan 9 mips little endian*/
+	{	"spim",				/*plan 9 mips little endian*/
 		FMIPSLE,
 		0,
 		AMIPS,
