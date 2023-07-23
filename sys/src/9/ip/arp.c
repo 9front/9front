@@ -501,9 +501,9 @@ arpwrite(Fs *fs, char *s, int len)
 		}
 		runlock(ifc);
 	} else if(strcmp(f[0], "del") == 0){
-		if (n != 2)
+		if(n != 2)
 			error(Ebadarg);
-		if (parseip(ip, f[1]) == -1)
+		if(parseip(ip, f[1]) == -1)
 			error(Ebadip);
 		wlock(arp);
 		for(a = arp->hash[hashipa(ip)]; a != nil; a = x){
@@ -512,6 +512,26 @@ arpwrite(Fs *fs, char *s, int len)
 				cleanarpent(arp, a);
 		}
 		wunlock(arp);
+	} else if(strcmp(f[0], "garp") == 0){
+		Iplifc *lifc;
+
+		if(n != 2)
+			error(Ebadarg);
+		if(parseip(ip, f[1]) == -1)
+			error(Ebadip);
+
+		if((ifc = findipifc(fs, ip, ip, Runi)) == nil)
+			error("no interface");
+
+		rlock(ifc);
+		if(waserror()){
+			runlock(ifc);
+			nexterror();
+		}
+		if(ifc->m != nil && ifc->m->areg != nil && (lifc = iplocalonifc(ifc, ip)) != nil)
+			(*ifc->m->areg)(fs, ifc, lifc, ip);
+		runlock(ifc);
+		poperror();
 	} else
 		error(Ebadarp);
 
