@@ -51,8 +51,7 @@ static void *asplit ARGS((Area *ap, Block *bp, Cell *fp, Cell *fpp, int cells));
 
 /* create empty Area */
 Area *
-ainit(ap)
-	register Area *ap;
+ainit(register Area *ap)
 {
 	ap->freelist = &aempty;
 	ACHECK(ap);
@@ -61,8 +60,7 @@ ainit(ap)
 
 /* free all object in Area */
 void
-afreeall(ap)
-	register Area *ap;
+afreeall(register Area *ap)
 {
 	register Block *bp;
 	register Block *tmp;
@@ -82,9 +80,7 @@ afreeall(ap)
 
 /* allocate object from Area */
 void *
-alloc(size, ap)
-	size_t size;
-	register Area *ap;
+alloc(size_t size, register Area *ap)
 {
 	int cells, acells;
 	Block *bp = 0;
@@ -150,12 +146,7 @@ alloc(size, ap)
  * objects.  Returns the `allocated' object.
  */
 static void *
-asplit(ap, bp, fp, fpp, cells)
-	Area *ap;
-	Block *bp;
-	Cell *fp;
-	Cell *fpp;
-	int cells;
+asplit(Area *ap, Block *bp, Cell *fp, Cell *fpp, int cells)
 {
 	Cell *dp = fp;	/* allocated object */
 	int split = (fp-1)->size - cells;
@@ -184,10 +175,7 @@ asplit(ap, bp, fp, fpp, cells)
 
 /* change size of object -- like realloc */
 void *
-aresize(ptr, size, ap)
-	register void *ptr;
-	size_t size;
-	Area *ap;
+aresize(register void *ptr, size_t size, Area *ap)
 {
 	int cells;
 	Cell *dp = (Cell*) ptr;
@@ -320,9 +308,7 @@ aresize(ptr, size, ap)
 }
 
 void
-afree(ptr, ap)
-	void *ptr;
-	register Area *ap;
+afree(void *ptr, register Area *ap)
 {
 	register Block *bp;
 	register Cell *fp, *fpp;
@@ -380,9 +366,7 @@ afree(ptr, ap)
 }
 
 static void
-ablockfree(bp, ap)
-	Block *bp;
-	Area *ap;
+ablockfree(Block *bp, Area *ap)
 {
 	/* NOTE: If this code changes, similar changes may be
 	 * needed in alloc() (where realloc fails).
@@ -401,8 +385,7 @@ ablockfree(bp, ap)
 
 # if DEBUG_ALLOC
 void
-acheck(ap)
-	Area *ap;
+acheck(Area *ap)
 {
 	Block *bp, *bpp;
 	Cell *dp, *dptmp, *fp;
@@ -498,10 +481,7 @@ acheck(ap)
 }
 
 void
-aprint(ap, ptr, size)
-	register Area *ap;
-	void *ptr;
-	size_t size;
+aprint(register Area *ap, void *ptr, size_t size)
 {
 	Block *bp;
 

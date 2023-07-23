@@ -11,8 +11,7 @@ static int      tnamecmp    ARGS((void *p1, void *p2));
 
 
 unsigned int
-hash(n)
-	register const char * n;
+hash(register const char * n)
 {
 	register unsigned int h = 0;
 
@@ -22,10 +21,7 @@ hash(n)
 }
 
 void
-tinit(tp, ap, tsize)
-	register struct table *tp;
-	register Area *ap;
-	int tsize;
+tinit(register struct table *tp, register Area *ap, int tsize)
 {
 	tp->areap = ap;
 	tp->tbls = NULL;
@@ -35,9 +31,7 @@ tinit(tp, ap, tsize)
 }
 
 static void
-texpand(tp, nsize)
-	register struct table *tp;
-	int nsize;
+texpand(register struct table *tp, int nsize)
 {
 	register int i;
 	register struct tbl *tblp, **p;
@@ -69,10 +63,7 @@ texpand(tp, nsize)
 }
 
 struct tbl *
-tsearch(tp, n, h)
-	register struct table *tp;	/* table */
-	register const char *n;		/* name to enter */
-	unsigned int h;			/* hash(n) */
+tsearch(struct table *tp, const char *n, unsigned int h)
 {
 	register struct tbl **pp, *p;
 
@@ -92,10 +83,7 @@ tsearch(tp, n, h)
 }
 
 struct tbl *
-tenter(tp, n, h)
-	register struct table *tp;	/* table */
-	register const char *n;		/* name to enter */
-	unsigned int h;			/* hash(n) */
+tenter(struct table *tp, const char *n, unsigned int h)
 {
 	register struct tbl **pp, *p;
 	register int len;
@@ -134,24 +122,20 @@ tenter(tp, n, h)
 }
 
 void
-tdelete(p)
-	register struct tbl *p;
+tdelete(register struct tbl *p)
 {
 	p->flag = 0;
 }
 
 void
-twalk(ts, tp)
-	struct tstate *ts;
-	struct table *tp;
+twalk(struct tstate *ts, struct table *tp)
 {
 	ts->left = tp->size;
 	ts->next = tp->tbls;
 }
 
 struct tbl *
-tnext(ts)
-	struct tstate *ts;
+tnext(struct tstate *ts)
 {
 	while (--ts->left >= 0) {
 		struct tbl *p = *ts->next++;
@@ -162,15 +146,13 @@ tnext(ts)
 }
 
 static int
-tnamecmp(p1, p2)
-	void *p1, *p2;
+tnamecmp(void *p1, void *p2)
 {
 	return strcmp(((struct tbl *)p1)->name, ((struct tbl *)p2)->name);
 }
 
 struct tbl **
-tsort(tp)
-	register struct table *tp;
+tsort(register struct table *tp)
 {
 	register int i;
 	register struct tbl **p, **sp, **dp;
@@ -193,8 +175,7 @@ tsort(tp)
 void tprintinfo ARGS((struct table *tp));
 
 void
-tprintinfo(tp)
-	struct table *tp;
+tprintinfo(struct table *tp)
 {
 	struct tbl *te;
 	char *n;

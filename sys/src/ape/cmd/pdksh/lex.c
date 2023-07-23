@@ -95,8 +95,7 @@ static int ignore_backslash_newline;
  */
 
 int
-yylex(cf)
-	int cf;
+yylex(int cf)
 {
 	Lex_state states[STATE_BSIZE], *statep;
 	State_info state_info;
@@ -764,7 +763,7 @@ Done:
 }
 
 static void
-gethere()
+gethere(void)
 {
 	register struct ioword **p;
 
@@ -778,8 +777,7 @@ gethere()
  */
 
 static void
-readhere(iop)
-	struct ioword *iop;
+readhere(struct ioword *iop)
 {
 	register int c;
 	char *volatile eof;
@@ -864,9 +862,7 @@ yyerror(fmt, va_alist)
  */
 
 Source *
-pushs(type, areap)
-	int type;
-	Area *areap;
+pushs(int type, Area *areap)
 {
 	register Source *s;
 
@@ -889,7 +885,7 @@ pushs(type, areap)
 }
 
 static int
-getsc__()
+getsc__(void)
 {
 	register Source *s = source;
 	register int c;
@@ -990,8 +986,7 @@ getsc__()
 }
 
 static void
-getsc_line(s)
-	Source *s;
+getsc_line(Source *s)
 {
 	char *xp = Xstring(s->xs, xp);
 	int interactive = Flag(FTALKING) && s->type == SSTDIN;
@@ -1103,9 +1098,7 @@ getsc_line(s)
 }
 
 void
-set_prompt(to, s)
-	int to;
-	Source *s;
+set_prompt(int to, Source *s)
 {
 	cur_prompt = to;
 
@@ -1161,9 +1154,7 @@ set_prompt(to, s)
 
 /* See also related routine, promptlen() in edit.c */
 void
-pprompt(cp, ntruncate)
-	const char *cp;
-	int ntruncate;
+pprompt(const char *cp, int ntruncate)
 {
 #if 0
 	char nbuf[32];
@@ -1207,9 +1198,7 @@ pprompt(cp, ntruncate)
  * the :[-+?=#%] or close-brace.
  */
 static char *
-get_brace_var(wsp, wp)
-	XString *wsp;
-	char *wp;
+get_brace_var(XString *wsp, char *wp)
 {
 	enum parse_state {
 			   PS_INITIAL, PS_SAW_HASH, PS_IDENT,
@@ -1284,8 +1273,7 @@ get_brace_var(wsp, wp)
  * (Returned string double null terminated)
  */
 static int
-arraysub(strp)
-	char **strp;
+arraysub(char **strp)
 {
 	XString ws;
 	char	*wp;
@@ -1312,8 +1300,7 @@ arraysub(strp)
 
 /* Unget a char: handles case when we are already at the start of the buffer */
 static const char *
-ungetsc(c)
-	int c;
+ungetsc(int c)
 {
 	if (backslash_skip)
 		backslash_skip--;
@@ -1365,9 +1352,7 @@ getsc_bn ARGS((void))
 }
 
 static Lex_state *
-push_state_(si, old_end)
-	State_info *si;
-	Lex_state *old_end;
+push_state_(State_info *si, Lex_state *old_end)
 {
 	Lex_state	*new = alloc(sizeof(Lex_state) * STATE_BSIZE, ATEMP);
 
@@ -1378,9 +1363,7 @@ push_state_(si, old_end)
 }
 
 static Lex_state *
-pop_state_(si, old_end)
-	State_info *si;
-	Lex_state *old_end;
+pop_state_(State_info *si, Lex_state *old_end)
 {
 	Lex_state *old_base = si->base;
 

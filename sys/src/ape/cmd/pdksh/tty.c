@@ -5,9 +5,7 @@
 #undef EXTERN
 
 int
-get_tty(fd, ts)
-	int fd;
-	TTY_state *ts;
+get_tty(int fd, TTY_state *ts)
 {
 	int ret;
 
@@ -35,10 +33,7 @@ get_tty(fd, ts)
 }
 
 int
-set_tty(fd, ts, flags)
-	int fd;
-	TTY_state *ts;
-	int flags;
+set_tty(int fd, TTY_state *ts, int flags)
 {
 	int ret = 0;
 
@@ -97,8 +92,7 @@ set_tty(fd, ts, flags)
  * foreground job completion and for setting up tty process group.
  */
 void
-tty_init(init_ttystate)
-	int init_ttystate;
+tty_init(int init_ttystate)
 {
 	int	do_close = 1;
 	int	tfd;
@@ -168,7 +162,7 @@ tty_init(init_ttystate)
 }
 
 void
-tty_close()
+tty_close(void)
 {
 	if (tty_fd >= 0) {
 		close(tty_fd);

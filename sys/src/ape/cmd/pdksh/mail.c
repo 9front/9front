@@ -35,7 +35,7 @@ static mbox_t * mballoc     ARGS((char *p, char *m)); /* allocate a new mbox */
 static void     mprintit    ARGS((mbox_t *mbp));
 
 void
-mcheck()
+mcheck(void)
 {
 	register mbox_t	*mbp;
 	time_t		 now;
@@ -79,15 +79,13 @@ mcheck()
 }
 
 void
-mcset(interval)
-	long interval;
+mcset(long interval)
 {
 	mailcheck_interval = interval;
 }
 
 void
-mbset(p)
-	register char	*p;
+mbset(register char	*p)
 {
 	struct stat	stbuf;
 
@@ -105,8 +103,7 @@ mbset(p)
 }
 
 void
-mpset(mptoparse)
-	register char	*mptoparse;
+mpset(register char	*mptoparse)
 {
 	register mbox_t	*mbp;
 	register char	*mpath, *mmsg, *mval;
@@ -145,8 +142,7 @@ mpset(mptoparse)
 }
 
 static void
-munset(mlist)
-register mbox_t	*mlist;
+munset(mbox_t *mlist)
 {
 	register mbox_t	*mbp;
 
@@ -160,9 +156,7 @@ register mbox_t	*mlist;
 }
 
 static mbox_t *
-mballoc(p, m)
-	char	*p;
-	char	*m;
+mballoc(char *p, char *m)
 {
 	struct stat	stbuf;
 	register mbox_t	*mbp;
@@ -179,8 +173,7 @@ mballoc(p, m)
 }
 
 static void
-mprintit( mbp )
-mbox_t	*mbp;
+mprintit(mbox_t *mbp)
 {
 	struct tbl	*vp;
 
