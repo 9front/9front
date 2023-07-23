@@ -109,7 +109,8 @@ int exit_stat = 0;
 
 code_int getcode();
 
-Usage()
+void
+Usage(void)
 {
 #ifdef DEBUG
 	fprintf(stderr,"usage: compress [-cdfDV] [-b maxbits] [file ...]\n");
@@ -148,9 +149,18 @@ void (*bgnd_flag)(int);
 
 int do_decomp = 0;
 
-main(argc, argv)
-int argc;
-char **argv;
+void decompress(void);
+void compress(void);
+void output(code_int);
+void writeerr(void);
+void copystat(char*, char*);
+void cl_block(void);
+void cl_hash(long);
+void prratio(FILE*, long, long);
+void version(void);
+
+void
+main(int argc, char **argv)
 {
 	int overwrite = 0;	/* Do not overwrite unless given -f flag */
 	char tempname[512];
@@ -465,10 +475,11 @@ long out_count = 0;		/* # of codes output (for debugging) */
  * file size for noticeable speed improvement on small files.  Please direct
  * questions about this implementation to ames!jaw.
  */
-compress()
+void
+compress(void)
 {
 	code_int ent, hsize_reg;
-	code_int i = 0;
+	code_int i;
 	int c, disp, hshift;
 	long fcode;
 
@@ -584,8 +595,8 @@ static char buf[BITS];
 uchar lmask[9] = {0xff, 0xfe, 0xfc, 0xf8, 0xf0, 0xe0, 0xc0, 0x80, 0x00};
 uchar rmask[9] = {0x00, 0x01, 0x03, 0x07, 0x0f, 0x1f, 0x3f, 0x7f, 0xff};
 
-output( code )
-code_int  code;
+void
+output(code_int code)
 {
 #ifdef DEBUG
 	static int col = 0;
@@ -695,7 +706,8 @@ code_int  code;
  * be stored in the compressed file.  The tables used herein are shared
  * with those of the compress() routine.  See the definitions above.
  */
-decompress()
+void
+decompress(void)
 {
 	int finchar;
 	code_int code, oldcode, incode;
@@ -781,7 +793,7 @@ decompress()
  * 	code or -1 is returned.
  */
 code_int
-getcode()
+getcode(void)
 {
 	int r_off, bits;
 	code_int code;
@@ -837,7 +849,8 @@ getcode()
 }
 
 #ifdef DEBUG
-printcodes()
+void
+printcodes(void)
 {
 	/*
 	* Just print out codes from input file.  For debugging.
@@ -948,15 +961,16 @@ in_stack(int c, int stack_top)
 }
 #endif /* DEBUG */
 
-writeerr()
+void
+writeerr(void)
 {
 	perror(ofname);
 	unlink(ofname);
 	exit(1);
 }
 
-copystat(ifname, ofname)
-char *ifname, *ofname;
+void
+copystat(char *ifname, char *ofname)
 {
 	int mode;
 	time_t timep[2];
@@ -1001,7 +1015,8 @@ char *ifname, *ofname;
  * This routine returns 1 if we are running in the foreground and stderr
  * is a tty.
  */
-foreground()
+int
+foreground(void)
 {
 	if(bgnd_flag)			/* background? */
 		return 0;
@@ -1010,14 +1025,14 @@ foreground()
 }
 
 void
-onintr(int x)
+onintr(int)
 {
 	unlink(ofname);
 	exit(1);
 }
 
 void
-oops(int x)		/* wild pointer -- assume bad input */
+oops(int)		/* wild pointer -- assume bad input */
 {
 	if (do_decomp == 1)
 		fprintf(stderr, "uncompress: corrupt input\n");
@@ -1025,7 +1040,8 @@ oops(int x)		/* wild pointer -- assume bad input */
 	exit(1);
 }
 
-cl_block ()		/* table clear for block compress */
+void
+cl_block (void)		/* table clear for block compress */
 {
 	long rat;
 
@@ -1065,8 +1081,8 @@ cl_block ()		/* table clear for block compress */
 	}
 }
 
-cl_hash(hsize)		/* reset code table */
-count_int hsize;
+void
+cl_hash(count_int hsize)		/* reset code table */
 {
 	count_int *htab_p = htab+hsize;
 	long i;
@@ -1096,9 +1112,8 @@ count_int hsize;
 		*--htab_p = m1;
 }
 
-prratio(stream, num, den)
-FILE *stream;
-long num, den;
+void
+prratio(FILE *stream, long num, long den)
 {
 	int q;				/* Doesn't need to be long */
 
@@ -1113,7 +1128,8 @@ long num, den;
 	fprintf(stream, "%d.%02d%%", q / 100, q % 100);
 }
 
-version()
+void
+version(void)
 {
 	fprintf(stderr, "%s\n", rcs_ident);
 	fprintf(stderr, "Options: ");
