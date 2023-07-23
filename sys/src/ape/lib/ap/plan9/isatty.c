@@ -19,7 +19,7 @@ _isatty(int fd)
 
 /* The FD_ISTTY flag is set via _isatty in _fdsetup or open */
 int
-isatty(fd)
+isatty(int fd)
 {
 	if(_fdinfo[fd].flags&FD_ISTTY)
 		return 1;

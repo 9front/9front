@@ -116,9 +116,7 @@ listenproc(Rock *r, int fd)
 }
 
 int
-listen(fd, backlog)
-	int fd;
-	int backlog;
+listen(int fd, int backlog)
 {
 	Rock *r;
 	int n, cfd;
