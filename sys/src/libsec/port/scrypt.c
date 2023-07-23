@@ -69,9 +69,8 @@ scryptROMix(ulong R, ulong N, u32int *V, u32int *X, uchar *B)
 }
 
 char*
-scrypt(p, plen, s, slen, N, R, P, d, dlen)
-	ulong plen, slen, dlen, N, R, P;
-	uchar *p, *s, *d;
+scrypt(uchar *p, ulong plen, uchar *s, ulong slen,
+	ulong N, ulong R, ulong P, uchar *d, ulong dlen)
 {
 	static char oom[] = "out of memory";
 
