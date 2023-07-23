@@ -127,8 +127,7 @@ nomy(void) {
 }
 
 X 
-np(env)
-	E               env;
+np(E env)
 {
 	X               npv = getxx();
 	EE              nenv;
@@ -165,8 +164,7 @@ aux(E env) {
 }
 
 X 
-passive(env)
-	E               env;
+passive(E env)
 {
 	X               v = getxx();
 	v->type = "-passive";
@@ -199,8 +197,7 @@ passprep(void) {
 }
 
 X 
-vp(env)
-	E               env;
+vp(E env)
 {
 	X               vpv = getxx();
 	int             i = 0;
@@ -216,8 +213,7 @@ vp(env)
 }
 
 X 
-art(env)
-	E               env;
+art(E env)
 {
 	static char    *aspecsg[] = {"the", "the", "the", "the", "the", "this", "this", "that"};
 	static char    *aspecpl[] = {"the", "the", "the", "the", "the", "these", "those"};
@@ -252,8 +248,7 @@ art(env)
 }
 
 X 
-modal(env)
-	E               env;
+modal(E env)
 {
 	static char    *pres[] = {"can", "may", "must", "shall", "will"};
 	static char    *past[] = {"could", "might", "should", "would"};
@@ -270,8 +265,7 @@ modal(env)
 }
 
 X 
-perf(env)
-	E               env;
+perf(E env)
 {
 	X               perfv = getxx();
 	perfv->type = "-perf";
@@ -293,8 +287,7 @@ perf(env)
 }
 
 X 
-prog(env)
-	E               env;
+prog(E env)
 {
 	X               progv = getxx();
 	progv->type = "-prog";
@@ -322,8 +315,7 @@ prog(env)
 }
 
 X 
-verb(env)
-	E               env;
+verb(E env)
 {
 	/* they pres, he pres, they past, they perf, they prog, they pass */
 	static char    *ends[][6] = {{"ate", "ates", "ated", "ated", "ating", "ated"},
@@ -655,8 +647,7 @@ static char    *adjlist[] = {"concrete", "abstract", "procedural",
 	"incomplete", "concerned"};
 
 X 
-noun(env)
-	E               env;
+noun(E env)
 {
 	static char    *suff[] = {"ion", "sion", "tion", "age",
 		"ness", "ment", "ure",
@@ -709,8 +700,7 @@ adjval(void) {
 }
 
 X 
-nounal(env)
-	E               env;
+nounal(E env)
 {
 	X               nounalv = getxx();
 	int             i = 0;
@@ -786,20 +776,19 @@ root(void) {
 	return CHOOSE(root);
 }
 
-prob(f)
-	double          f;
+prob(double f)
 {
 	return (R) < (f * 32767.0);
 }
 
 char           *
-tense()
+tense(void)
 {
 	return prob(0.5) ? "pres" : "past";
 }
 
 char           *
-number()
+number(void)
 {
 	return prob(0.25) ? "plural" : "sing";
 }
@@ -820,8 +809,7 @@ getxx()
 }
 
 X 
-verbal(env)
-	E               env;
+verbal(E env)
 {
 	X               verbalv = getxx();
 	int             i = 0;
@@ -1008,8 +996,7 @@ adjective(void) {
 }
 
 X 
-adjph(env)
-	E               env;
+adjph(E env)
 {
 	X               adjv = getxx();
 	EE              nenv;
@@ -1059,8 +1046,7 @@ prep(void) {
 }
 
 X 
-comp(env)
-	E               env;
+comp(E env)
 {
 	X               v = getxx();
 	EE              nenv;
@@ -1085,8 +1071,7 @@ comp(env)
 }
 
 X 
-advp(env)
-	E               env;
+advp(E env)
 {
 	X               v = getxx();
 	v->type = "advp";
@@ -1120,8 +1105,7 @@ getenvq()
 }
 
 X 
-comma(env)
-	E               env;
+comma(E env)
 {
 	X               v = getxx();
 	static EE       empty;
@@ -1300,8 +1284,7 @@ equation(void) {
 }
 
 X 
-turgid(env)
-	E               env;
+turgid(E env)
 {
 	X               v = getxx();
 	int             i = 0;
@@ -1607,8 +1590,7 @@ main(int argc, char *argv[]) {
 }
 
 void
-pr(tree)
-	X               tree;
+pr(X tree)
 {
 	int             i;
 	if (flag ) {
@@ -1631,8 +1613,7 @@ pr(tree)
 }
 
 void
-out(s)
-	char           *s;
+out(char *s)
 {
 	if (io == 0 && *s == ' ')
 		return;
