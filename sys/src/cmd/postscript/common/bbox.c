@@ -34,10 +34,7 @@ double	matrix1[6], matrix2[6];
 
 /*****************************************************************************/
 
-cover(x, y)
-
-    double	x, y;
-
+cover(double x, double y)
 {
 
 /*
@@ -66,12 +63,7 @@ cover(x, y)
 
 /*****************************************************************************/
 
-writebbox(fp, keyword, slop)
-
-    FILE	*fp;			/* the comment is written here */
-    char	*keyword;		/* the boundingbox comment string */
-    int		slop;			/* expand (or contract?) the box a bit */
-
+writebbox(FILE *fp, char *keyword, int slop)
 {
 
     Bbox	ubbox;			/* user space bounding box */
@@ -118,10 +110,7 @@ writebbox(fp, keyword, slop)
 
 /*****************************************************************************/
 
-resetbbox(output)
-
-    int		output;
-
+resetbbox(int output)
 {
 
 /*
@@ -147,10 +136,7 @@ resetbbox(output)
 
 /*****************************************************************************/
 
-scale(sx, sy)
-
-    double	sx, sy;
-
+scale(double sx, double sy)
 {
 
 /*
@@ -172,10 +158,7 @@ scale(sx, sy)
 
 /*****************************************************************************/
 
-translate(tx, ty)
-
-    double	tx, ty;
-
+translate(double tx, double ty)
 {
 
 /*
@@ -197,10 +180,7 @@ translate(tx, ty)
 
 /*****************************************************************************/
 
-rotate(angle)
-
-    double	angle;
-
+rotate(double angle)
 {
 
 /*
@@ -223,10 +203,7 @@ rotate(angle)
 
 /*****************************************************************************/
 
-concat(m1)
-
-    double	m1[];
-
+concat(double *m1)
 {
 
     double	m2[6];

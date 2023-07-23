@@ -52,8 +52,7 @@ FILE *fp_in = NULL;
 FILE *fp_out = stdout;
 
 char *
-allocate(size)
-    int size;
+allocate(int size)
 {
     char *p;
 
@@ -62,9 +61,7 @@ allocate(size)
 }
 
 void
-puthex(c, fp)
-    unsigned char c;
-    FILE *fp;
+puthex(unsigned char c, FILE *fp)
 {
     static char hextbl[16] = {
 	'0', '1', '2', '3', '4', '5', '6', '7',
@@ -76,8 +73,7 @@ puthex(c, fp)
 }
 
 void
-setcolormap(bp)
-    int bp;
+setcolormap(int bp)
 {
     int i, entries = 1, scale = 1;
     unsigned char *p, *q;
@@ -108,8 +104,7 @@ dbprt(stderr, "%d, %d, %d\n", gcmap[i], gcmap[i+1], gcmap[i+2]);
 }
 
 void
-readgcolormap(bp)
-    int bp;
+readgcolormap(int bp)
 {
     int i, entries = 1;
     unsigned char *p, *q;
@@ -132,8 +127,7 @@ dbprt(stderr, "%d, %d, %d\n", gcmap[i], gcmap[i+1], gcmap[i+2]);
 }
 
 void
-readlcolormap(bp)
-    int bp;
+readlcolormap(int bp)
 {
     int i, entries = 1;
     unsigned char *p, *q;
@@ -156,7 +150,7 @@ dbprt(stderr, "%d, %d, %d\n", lcmap[i], lcmap[i+1], lcmap[i+2]);
 }
 
 void
-initstbl()
+initstbl(void)
 {
     int i, entries = 1, *p, *s;
 
@@ -174,7 +168,7 @@ initstbl()
 }
 
 int
-nextbyte()
+nextbyte(void)
 {
     static ibufindex;
 
@@ -202,7 +196,7 @@ int masktbl[25] = {
 };
 
 int
-getcode()
+getcode(void)
 {
     int cs, c;
     static int oldc;
@@ -221,8 +215,7 @@ getcode()
 }
 
 void
-putcode(c)
-    int c;
+putcode(int c)
 {
     if (prefix[c] != endcode) {
 	putcode(prefix[c]);
@@ -236,15 +229,14 @@ putcode(c)
 }
 
 int
-firstof(c)
-    int c;
+firstof(int c)
 {
     while (prefix[c] != endcode) c = prefix[c];
     return(suffix[c]);
 }
 
 void
-writeimage()
+writeimage(void)
 {
     int i, j, k;
 
@@ -354,7 +346,7 @@ dbprt(stderr, "pass4: %d\n", j);
 }
 
 void
-readimage()
+readimage(void)
 {
     int bytecount, zerobytecount = 0;
     int code, oldcode;
@@ -433,7 +425,7 @@ dbprt(stderr, "byte count: %d\n", bytecount);
 }
 
 void
-readextensionblock()
+readextensionblock(void)
 {
     int functioncode, bytecount, zerobytecount = 0;
 
@@ -450,7 +442,7 @@ dbprt(stderr, "byte count: %d\n", bytecount);
 }
 
 void
-writebgscr()
+writebgscr(void)
 {
     fprintf(fp_out, "%s %d %d\n", PAGE, page, printed+1);
     fputs("/saveobj save def\n", fp_out);
@@ -462,7 +454,7 @@ writebgscr()
 }
 
 void
-writeendscr()
+writeendscr(void)
 {
     if ( fp_out == stdout ) printed++;
     fputs("showpage\n", fp_out);
@@ -471,8 +463,7 @@ writeendscr()
 }
 
 void
-redirect(pg)
-    int		pg;			/* next page we're printing */
+redirect(int pg)
 {
     static FILE	*fp_null = NULL;	/* if output is turned off */
 
@@ -484,7 +475,7 @@ redirect(pg)
 }
 
 void
-readgif()
+readgif(void)
 {
     int i, j, k;
 
@@ -540,7 +531,7 @@ dbprt(stderr, "background: %d\n", background);
 }
 
 void
-init_signals()
+init_signals(void)
 {
 
     if ( signal(SIGINT, interrupt) == SIG_IGN )  {
@@ -557,7 +548,7 @@ init_signals()
 }
 
 void
-header()
+header(void)
 {
     int         ch;                     /* return value from getopt() */
     int         old_optind = optind;    /* for restoring optind - should be 1 */
@@ -586,7 +577,7 @@ header()
 }
 
 void
-options()
+options(void)
 {
     int		ch;			/* return value from getopt() */
 
@@ -688,7 +679,7 @@ options()
 }
 
 void
-setup()
+setup(void)
 {
     /*setencoding(fontencoding);*/
     fprintf(stdout, "setup\n");
@@ -705,7 +696,7 @@ setup()
 }
 
 void
-arguments()
+arguments(void)
 {
     if ( argc < 1 ) {
 	fp_in = stdin;
@@ -727,7 +718,7 @@ arguments()
 }
 
 void
-done()
+done(void)
 {
     fprintf(stdout, "%s", TRAILER);
     fprintf(stdout, "done\n");
@@ -735,9 +726,7 @@ done()
     fprintf(stdout, "%s %d\n", PAGES, printed); 
 }
 
-main(agc, agv)
-    int agc;
-    char *agv[];
+main(int agc, char *agv[])
 {
     argc = agc;
     argv = agv;

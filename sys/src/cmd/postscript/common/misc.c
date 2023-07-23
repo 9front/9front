@@ -18,10 +18,7 @@ int	olist[50];			/* processing range pairs */
 
 /*****************************************************************************/
 
-out_list(str)
-
-    char	*str;
-
+out_list(char *str)
 {
 
     int		start, stop;
@@ -54,10 +51,7 @@ out_list(str)
 
 /*****************************************************************************/
 
-in_olist(num)
-
-    int		num;
-
+in_olist(int num)
 {
 
     int		i;
@@ -81,10 +75,7 @@ in_olist(num)
 
 /*****************************************************************************/
 
-setencoding(name)
-
-    char	*name;
-
+setencoding(char *name)
 {
 
     char	path[150];
@@ -111,10 +102,7 @@ setencoding(name)
 
 /*****************************************************************************/
 
-cat(file)
-
-    char	*file;
-
+cat(char *file)
 {
 
     int		fd_in;
@@ -145,11 +133,7 @@ cat(file)
 
 /*****************************************************************************/
 
-str_convert(str, err)
-
-    char	**str;
-    int		err;
-
+str_convert(char **str, int err)
 {
 
     int		i;
@@ -173,12 +157,7 @@ str_convert(str, err)
 
 /*****************************************************************************/
 
-error(kind, mesg, a1, a2, a3)
-
-    int		kind;
-    char	*mesg;
-    unsigned	a1, a2, a3;
-
+error(int kind, char *mesg, unsigned int a1, unsigned int a2, unsigned int a3)
 {
 
 /*
@@ -207,10 +186,7 @@ error(kind, mesg, a1, a2, a3)
 
 /*****************************************************************************/
 
-void interrupt(sig)
-
-    int		sig;
-
+void interrupt(int sig)
 {
 
 /*

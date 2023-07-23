@@ -22,10 +22,7 @@ char	*requestfile = REQUESTFILE;	/* default lookup file */
 
 /*****************************************************************************/
 
-saverequest(want)
-
-    char	*want;			/* grab code for this stuff */
-
+saverequest(char *want)
 {
 
     char	*page;			/* and save it for this page */
@@ -56,11 +53,7 @@ saverequest(want)
 
 /*****************************************************************************/
 
-writerequest(page, fp_out)
-
-    int		page;			/* write everything for this page */
-    FILE	*fp_out;		/* to this file */
-
+writerequest(int page, FILE *fp_out)
 {
 
     int		i;			/* loop index */
@@ -80,12 +73,7 @@ writerequest(page, fp_out)
 
 /*****************************************************************************/
 
-dumprequest(want, file, fp_out)
-
-    char	*want;			/* look for this string */
-    char	*file;			/* in this file */
-    FILE	*fp_out;		/* and write the value out here */
-
+dumprequest(char *want, char *file, FILE *fp_out)
 {
 
     char	buf[100];		/* line buffer for reading *file */

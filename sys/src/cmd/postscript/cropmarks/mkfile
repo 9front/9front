@@ -4,6 +4,8 @@
 
 all:V:	cropmarks
 
+default:V:	cropmarks
+
 install:V:	$POSTBIN/cropmarks $POSTLIB/cropmarks.ps
 
 installall:V:	install
