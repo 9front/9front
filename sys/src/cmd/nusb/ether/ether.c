@@ -796,7 +796,7 @@ ethermux(Block *bp, Conn *from)
 
 	x = nil;
 	type = (pkt->type[0]<<8)|pkt->type[1];
-	dispose = tome || from == nil || port > 0;
+	dispose = tome || from == nil || port > 0 || from->bypass;
 
 	for(c = conn; c < &conn[nconn]; c++){
 		if(!c->used)

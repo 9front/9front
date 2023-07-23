@@ -202,7 +202,7 @@ ethermux(Ether *ether, Block *bp, Netfile **from)
 
 	x = nil;
 	type = (pkt->type[0]<<8)|pkt->type[1];
-	dispose = tome || from == nil || port > 0;
+	dispose = tome || from == nil || port > 0 || (*from)->bypass;
 
 	for(fp = ether->f; fp < &ether->f[Ntypes]; fp++){
 		if((f = *fp) == nil)
