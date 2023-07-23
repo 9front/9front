@@ -50,9 +50,11 @@ while(){
 			echo bind bypass primary 0 $primary
 			echo bind ether secondary 0 $new
 		}
-		# make switches aware of the new path
-		echo flush > $net/arp
 
+		# do gratious arp on the new path
+		for(ip in `{awk '$3=="4u" || $3=="6u" {print $1}' $net/ipselftab}){
+			echo garp $ip > $net/arp || echo flush > $net/arp
+		}
 		old=$new
 	}
 	sleep 1
