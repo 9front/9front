@@ -202,7 +202,7 @@ ethermux(Ether *ether, Block *bp, Netfile **from)
 
 	x = nil;
 	type = (pkt->type[0]<<8)|pkt->type[1];
-	dispose = tome || from == nil || port > 0 || (*from)->bypass;
+	dispose = tome || from == nil || port > 0;
 
 	for(fp = ether->f; fp < &ether->f[Ntypes]; fp++){
 		if((f = *fp) == nil)
@@ -211,7 +211,9 @@ ethermux(Ether *ether, Block *bp, Netfile **from)
 			continue;
 		if(!tome && !multi && !f->prom)
 			continue;
-		if(f->bridge || f->bypass){
+		if(f->bypass)
+			continue;
+		if(f->bridge){
 			if(tome || fp == from)
 				continue;
 			if(port >= 0 && port != 1+(fp - ether->f))
@@ -263,6 +265,9 @@ etheroq(Ether* ether, Block* bp, Netfile **from)
 
 	if((*from)->bridge == 0)
 		memmove(((Etherpkt*)bp->rp)->s, ether->ea, Eaddrlen);
+
+	if((*from)->bypass)
+		from = nil;
 
 	bp = ethermux(ether, bp, from);
 	if(bp == nil)
