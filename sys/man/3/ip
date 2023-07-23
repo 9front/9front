@@ -494,11 +494,8 @@ Writing to
 .B /net/arp
 administers the ARP information.
 The control messages are:
-.TF "\fLdel \fIIP-addr\fR"
+.TF "\fLgarp \fIIP-addr\fR"
 .PD
-.TP
-.B flush
-Remove all entries.
 .TP
 .BI add\  "type IP-addr Media-addr Interface-IP-addr"
 Add an entry or replace an existing one for the
@@ -508,6 +505,12 @@ for IPv6 link local addresses.
 .TP
 .BI del\  "IP-addr"
 Delete an individual entry.
+.TP
+.B flush
+Remove all entries.
+.TP
+.BI garp\  "IP-addr"
+Send a gratious ARP response for the specified IP address.
 .PP
 ARP entries do not time out.  The ARP table is a
 cache with an LRU replacement policy.  The IP stack
