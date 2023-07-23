@@ -71,7 +71,9 @@ char *malloc();
 extern int nbra;
 int yyparse(void);
 
-main(argc, argv) char **argv; {
+void
+main(int argc, char **argv)
+{
 	Ac = argc;
 	Argi = 1;
 	Av = argv;
@@ -102,7 +104,9 @@ yylex() {
 	return A_STRING;
 }
 
-char *rel(op, r1, r2) register char *r1, *r2; {
+char*
+rel(int op, char *r1, char *r2)
+{
 	register i;
 
 	if(ematch(r1, "-\\{0,1\\}[0-9]*$") && ematch(r2, "-\\{0,1\\}[0-9]*$"))
@@ -120,7 +124,9 @@ char *rel(op, r1, r2) register char *r1, *r2; {
 	return i? "1": "0";
 }
 
-char *arith(op, r1, r2) char *r1, *r2; {
+char*
+arith(int op, char *r1, char *r2)
+{
 	long i1, i2;
 	register char *rv;
 
@@ -140,7 +146,9 @@ char *arith(op, r1, r2) char *r1, *r2; {
 	strcpy(rv, ltoa(i1));
 	return rv;
 }
-char *conj(op, r1, r2) char *r1, *r2; {
+char*
+conj(int op, char *r1, char *r2)
+{
 	register char *rv;
 
 	switch(op) {
@@ -170,7 +178,9 @@ char *conj(op, r1, r2) char *r1, *r2; {
 	return rv;
 }
 
-char *substr(v, s, w) char *v, *s, *w; {
+char*
+substr(char *v, char *s, char *w)
+{
 register si, wi;
 register char *res;
 
@@ -186,7 +196,9 @@ register char *res;
 	return res;
 }
 
-char *length(s) register char *s; {
+char*
+length(char *s)
+{
 	register i = 0;
 	register char *rv;
 
@@ -197,7 +209,9 @@ char *length(s) register char *s; {
 	return rv;
 }
 
-char *index(s, t) char *s, *t; {
+char*
+index(char *s, char *t)
+{
 	register i, j;
 	register char *rv;
 
@@ -210,9 +224,8 @@ char *index(s, t) char *s, *t; {
 	return "0";
 }
 
-char *match(s, p)
-char *s;
-register char *p;
+char*
+match(char *s, char *p)
 {
 	register char *rv;
 
@@ -231,10 +244,8 @@ register char *p;
 #define RETURN(c)	return
 #define ERROR(c)	errxx(c)
 
-
-ematch(s, p)
-char *s;
-register char *p;
+int
+ematch(char *s, char *p)
 {
 	static char expbuf[ESIZE];
 	char *compile();
@@ -256,27 +267,25 @@ register char *p;
 	return(0);
 }
 
-errxx(c)
+errxx(int c)
 {
 	yyerror("RE error");
 }
 
 #include  "regexp.h"
-yyerror(s)
-
+yyerror(char *s)
 {
 	write(2, "expr: ", 6);
 	prt(2, s);
 	exit(2);
 }
-prt(fd, s)
-char *s;
+prt(int fd, char *s)
 {
 	write(fd, s, strlen(s));
 	write(fd, "\n", 1);
 }
-char *ltoa(l)
-long l;
+char*
+ltoa(long l)
 {
 	static char str[20];
 	register char *sp = &str[18];

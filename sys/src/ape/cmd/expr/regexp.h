@@ -37,9 +37,7 @@ char	bittab[] = {
 };
 
 char *
-compile(instring, ep, endbuf, seof)
-register char *ep;
-char *instring, *endbuf;
+compile(char *instring, char *ep, char *endbuf, int seof)
 {
 	INIT	/* Dependent declarations and initializations */
 	register c;
@@ -215,8 +213,7 @@ char *instring, *endbuf;
 	}
 }
 
-step(p1, p2)
-register char *p1, *p2;
+step(char *p1, char *p2)
 {
 	register c;
 
@@ -247,8 +244,7 @@ register char *p1, *p2;
 	return(0);
 }
 
-advance(lp, ep)
-register char *lp, *ep;
+advance(char *lp, char *ep)
 {
 	register char *curlp;
 	char c;
@@ -393,16 +389,13 @@ register char *lp, *ep;
 	}
 }
 
-getrnge(str)
-register char *str;
+getrnge(char *str)
 {
 	low = *str++ & 0377;
 	size = *str == 255 ? 20000 : (*str &0377) - low;
 }
 
-ecmp(a, b, count)
-register char	*a, *b;
-register	count;
+ecmp(char *a, char *b, int count)
 {
 	while(count--)
 		if(*a++ != *b++)	return(0);
