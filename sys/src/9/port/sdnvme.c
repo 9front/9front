@@ -484,21 +484,36 @@ sqalloc(Ctlr *ctlr, SQ *sq, u32int lgsize)
 static void
 setupqueues(Ctlr *ctlr)
 {
-	u32int lgsize, st, *e;
+	u32int mqes, lgcqsize, lgsqsize, nsq, st, *e;
 	CQ *cq;
 	SQ *sq;
 	WS ws;
 	int i;
 
-	/* Overkill */
-	lgsize = 12-6+4;
-	while(lgsize < 16+4 && lgsize < ctlr->mpsshift && 1<<lgsize < conf.nmach<<12-6+4)
-		lgsize++;
+	mqes = 1 + (ctlr->cap & 0xFFFF);
+	if(mqes < 2)
+		mqes = 2;
+	for(lgsqsize = 0; 1<<lgsqsize < mqes; lgsqsize++)
+		;
+	if(lgsqsize > 12-6)
+		lgsqsize = 12-6;
+	nsq = conf.nmach;
+	while((lgcqsize = lgsqsize) > 0){
+		while(nsq >= 1<<lgcqsize)
+			nsq >>= 1;
+		while(1<<lgcqsize < nsq<<lgsqsize)
+			lgcqsize++;
+		if(1<<lgcqsize <= mqes)
+			break;
+		lgsqsize--;
+	}
+	lgsqsize += 6;
+	lgcqsize += 4;
 
 	/* CQID1: shared completion queue */
 	cq = &ctlr->cq[1];
-	cqalloc(ctlr, cq, lgsize);
-	e = qcmd(&ws, ctlr, 1, 0x05, 0, cq->base, 1<<lgsize);
+	cqalloc(ctlr, cq, lgcqsize);
+	e = qcmd(&ws, ctlr, 1, 0x05, 0, cq->base, 1<<lgcqsize);
 	e[10] = (cq - ctlr->cq) | cq->mask<<16;
 	e[11] = 3; /* IEN | PC */
 	checkstatus(wcmd(&ws, e), "create completion queue");
@@ -506,10 +521,10 @@ setupqueues(Ctlr *ctlr)
 	st = 0;
 
 	/* SQID[1..nmach]: submission queue per cpu */
-	for(i=1; i<=conf.nmach; i++){
+	for(i=1; i<=nsq; i++){
 		sq = &ctlr->sq[i];
-		sqalloc(ctlr, sq, 12);
-		e = qcmd(&ws, ctlr, 1, 0x01, 0, sq->base, 0x1000);
+		sqalloc(ctlr, sq, lgsqsize);
+		e = qcmd(&ws, ctlr, 1, 0x01, 0, sq->base, 1<<lgsqsize);
 		e[10] = i | sq->mask<<16;
 		e[11] = (cq - ctlr->cq)<<16 | 1;	/* CQID<<16 | PC */
 		st = wcmd(&ws, e);
