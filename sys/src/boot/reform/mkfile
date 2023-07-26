@@ -6,7 +6,7 @@ clean:V:
 	rm -f $FILES
 
 flash.bin:
-	hget -o flash.bin 'https://source.mnt.re/reform/reform-boundary-uboot/-/jobs/artifacts/v3/raw/flash.bin?job=build'
+	hget -o flash.bin 'https://source.mnt.re/reform/reform-boundary-uboot/-/jobs/artifacts/stable/raw/flash.bin?job=build'
 
 boot.scr:	boot.txt
 	aux/txt2uimage -o $target $prereq
