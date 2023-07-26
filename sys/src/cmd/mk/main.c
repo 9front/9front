@@ -2,7 +2,6 @@
 
 #define		MKFILE		"mkfile"
 
-static char *version = "@(#)mk general release 4 (plan 9)";
 int debug;
 Rule *rules, *metarules;
 int nflag = 0;
