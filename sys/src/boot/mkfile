@@ -1,7 +1,9 @@
 ARCH=\
+	bcm\
 	bitsy\
 	efi\
 	pc\
+	reform\
 	zynq\
 
 all:V:
