@@ -33,14 +33,6 @@ writes a snapshot
 of the named processes to
 .I file 
 (default standard output).
-If 
-.I pid
-is a text string
-rather than a process id,
-.I snap
-will save all processes with
-that name that
-are owned by the current user.
 Both memory and text images are saved.
 .PP
 .I Snapfs
