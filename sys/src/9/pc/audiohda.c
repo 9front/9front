@@ -1758,7 +1758,9 @@ hdastart(Ctlr *ctlr)
 static Pcidev*
 hdamatch(Pcidev *p)
 {
-	while(p = pcimatch(p, 0, 0))
+	while(p = pcimatch(p, 0, 0)){
+		if(p->ccrb == 0x04 && p->ccru == 0x03)
+			return p;
 		switch((p->vid << 16) | p->did){
 		case (0x8086 << 16) | 0x2668:	/* Intel ICH6 (untested) */
 		case (0x8086 << 16) | 0x27d8:	/* Intel ICH7 */
@@ -1812,6 +1814,7 @@ hdamatch(Pcidev *p)
 		case (0x15ad << 16) | 0x1977:	/* Vmware */
 			return p;
 		}
+	}
 	return nil;
 }
 
