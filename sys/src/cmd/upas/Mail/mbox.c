@@ -461,8 +461,8 @@ printw(Biobuf *bp, char *s, int width)
 	else{
 		dots = "";
 		if(utflen(s) > width){
-			width -= 3;
-			dots = "...";
+			width -= 1;
+			dots = "…";
 		}
 		Bprint(bp, "%*.*s%s", -width, width, s, dots);
 	}
@@ -471,7 +471,7 @@ printw(Biobuf *bp, char *s, int width)
 /*
  * Message format string:
  * ======================
-  * %s: subject
+ * %s: subject
  * %f: from address
  * %F: name + from address
  * %t: to address
