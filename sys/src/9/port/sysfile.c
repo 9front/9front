@@ -1233,6 +1233,7 @@ wstat(Chan *c, uchar *d, int nd)
 {
 	long l;
 	int namelen;
+	char *p;
 
 	if(waserror()){
 		cclose(c);
@@ -1244,8 +1245,10 @@ wstat(Chan *c, uchar *d, int nd)
 		 * (which should be renamed? the mount point or the mounted Chan?).
 		 */
 		dirname(d, &namelen);
-		if(namelen)
-			nameerror(chanpath(c), Eismtpt);
+		if(namelen){
+			p = chanpath(c);
+			namelenerror(p, strlen(p), Eismtpt);
+		}
 	}
 	l = devtab[c->type]->wstat(c, d, nd);
 	poperror();
