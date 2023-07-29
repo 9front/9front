@@ -71,7 +71,7 @@ char *qroot[] = {
 };
 
 #define Eperm	"permission denied"
-#define Eexist	"does not exist"
+#define Eexist	"file does not exist"
 #define E2long	"path too long"
 #define Enodir	"not a directory"
 #define Erepo	"unable to read repo"
