@@ -108,6 +108,8 @@ fsclone(Fid *old, Fid *new, void*)
 	return nil;
 }
 
+static char Enonexist[] = "file does not exist";
+
 static char*
 fswalk1(Fid *old, char *name, void*)
 {
@@ -124,10 +126,10 @@ fswalk1(Fid *old, char *name, void*)
 		old->qid.vers = sessions++;
 		old->qid.path = mkqid(old->qid.vers, qtype(old->qid.path));
 	} else if(strcmp(name, s->name) != 0)
-		return "does not exist";
+		return Enonexist;
 
 	if(step(old, 1, &old->qid, nil) < 0)
-		return "does not exist";
+		return Enonexist;
 
 	return nil;
 }
@@ -169,7 +171,7 @@ fsstat(Req *r)
 	Qid q;
 
 	if(step(r->fid, 0, &q, &r->d) < 0)
-		respond(r, "does not exist");
+		respond(r, Enonexist);
 	respond(r, nil);
 }
 
