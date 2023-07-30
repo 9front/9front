@@ -504,24 +504,6 @@ portdetach(Hub *h, int p)
 	}
 }
 
-/*
- * The next two functions are included to
- * perform a port reset asked for by someone (usually a driver).
- * This must be done while no other device is in using the
- * configuration address and with care to keep the old address.
- * To keep drivers decoupled from usbd they write the reset request
- * to the #u/usb/epN.0/ctl file and then exit.
- * This is unfortunate because usbd must now poll twice as much.
- *
- * An alternative to this reset process would be for the driver to detach
- * the device. The next function could see that, issue a port reset, and
- * then restart the driver once to see if it's a temporary error.
- *
- * The real fix would be to use interrupt endpoints for non-root hubs
- * (would probably make some hubs fail) and add an events file to
- * the kernel to report events to usbd. This is a severe change not
- * yet implemented.
- */
 static int
 portresetwanted(Hub *h, int p)
 {
@@ -535,57 +517,6 @@ portresetwanted(Hub *h, int p)
 		return strncmp(buf, "reset", 5) == 0;
 	else
 		return 0;
-}
-
-static void
-portreset(Hub *h, int p)
-{
-	u32int sts;
-	Dev *d, *nd;
-	Port *pp;
-
-	d = h->dev;
-	pp = &h->port[p];
-	dprint(2, "%s: %s: port %d: resetting\n", argv0, d->dir, p);
-	if(portfeature(h, p, Fportreset, 1) < 0){
-		dprint(2, "%s: %s: port %d: reset: %r\n", argv0, d->dir, p);
-		goto Fail;
-	}
-	sleep(Resetdelay);
-	sts = portstatus(h, p);
-	if(sts == -1)
-		goto Fail;
-	if((sts & PSenable) == 0){
-		dprint(2, "%s: %s: port %d: not enabled?\n", argv0, d->dir, p);
-		goto Fail;
-	}
-	if((nd = pp->dev) == nil)
-		return;
-	opendevdata(nd, ORDWR);
-	if(usbcmd(nd, Rh2d|Rstd|Rdev, Rsetaddress, nd->id, 0, nil, 0) < 0){
-		dprint(2, "%s: %s: port %d: setaddress: %r\n", argv0, d->dir, p);
-		goto Fail;
-	}
-	if(devctl(nd, "address") < 0){
-		dprint(2, "%s: %s: port %d: set address: %r\n", argv0, d->dir, p);
-		goto Fail;
-	}
-	if(usbcmd(nd, Rh2d|Rstd|Rdev, Rsetconf, 1, 0, nil, 0) < 0){
-		dprint(2, "%s: %s: port %d: setconf: %r\n", argv0, d->dir, p);
-		unstall(nd, nd, Eout);
-		if(usbcmd(nd, Rh2d|Rstd|Rdev, Rsetconf, 1, 0, nil, 0) < 0)
-			goto Fail;
-	}
-	if(nd->dfd >= 0){
-		close(nd->dfd);
-		nd->dfd = -1;
-	}
-	return;
-Fail:
-	pp->sts = 0;
-	portdetach(h, p);
-	if(!d->isusb3)
-		portfeature(h, p, Fportenable, 0);
 }
 
 static int
@@ -638,9 +569,13 @@ enumhub(Hub *h, int p)
 				portdetach(h, p);
 	}else if(portgone(pp, sts)){
 		portdetach(h, p);
-	}else if(portresetwanted(h, p))
-		portreset(h, p);
-	else if(pp->sts != sts){
+	}else if(portresetwanted(h, p)){
+		portdetach(h, p);	
+		if(!d->isusb3)
+			portfeature(h, p, Fportenable, 0);
+		/* pretend it is gone, causing a re-attach and port reset */
+		sts = 0;
+	} else if(pp->sts != sts){
 		dprint(2, "%s: %s port %d: sts %s %#ux ->",
 			argv0, d->dir, p, stsstr(pp->sts, h->dev->isusb3), pp->sts);
 		dprint(2, " %s %#ux\n",stsstr(sts, h->dev->isusb3), sts);
