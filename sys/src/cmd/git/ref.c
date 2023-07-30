@@ -142,7 +142,7 @@ paint(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres, in
 		unref(o);
 	}		
 	for(i = 0; i < ntail; i++){
-		if(hasheq(&head[i], &Zhash))
+		if(hasheq(&tail[i], &Zhash))
 			continue;
 		if((o = readobject(tail[i])) == nil){
 			werrstr("read tail %H: %r", tail[i]);
