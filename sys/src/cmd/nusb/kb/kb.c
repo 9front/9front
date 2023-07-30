@@ -442,35 +442,6 @@ hdfatal(Hiddev *f, char *sts)
 }
 
 static void
-hdrecover(Hiddev *f)
-{
-	char err[ERRMAX];
-	static QLock l;
-	int i;
-
-	if(canqlock(&l)){
-		close(f->dev->dfd);
-		devctl(f->dev, "reset");
-		for(i=0; i<4; i++){
-			sleep(500);
-			if(opendevdata(f->dev, ORDWR) >= 0)
-				goto Resetdone;
-		}
-		threadexitsall(err);
-	} else {
-		/* wait for reset to complete */
-		qlock(&l);
-	}
-Resetdone:
-	if(setproto(f, f->ep->ep->iface) < 0){
-		rerrstr(err, sizeof(err));
-		qunlock(&l);
-		hdfatal(f, err);
-	}
-	qunlock(&l);
-}
-
-static void
 putscan(Hiddev *f, uchar sc, uchar up)
 {
 	uchar s[2] = {SCesc1, 0};
@@ -724,7 +695,7 @@ readerproc(void* a)
 {
 	char	err[ERRMAX], mbuf[80];
 	ushort	lastk[Nkey], uks[Nkey], dks[Nkey], nuks, ndks;
-	int	i, c, nerrs, bpress, lastb, nlastk, stopped;
+	int	i, c, bpress, lastb, nlastk, stopped;
 	int	abs, x, y, z, b;
 	Hidreport p;
 	Hidslot lasts[nelem(p.s)], *s, *l;
@@ -735,7 +706,7 @@ readerproc(void* a)
 
 	memset(&p, 0, sizeof(p));
 	memset(lasts, 0, sizeof(lasts));
-	lastb = nlastk = nerrs = 0;
+	lastb = nlastk = 0;
 
 	for(;;){
 		if(f->ep == nil)
@@ -750,14 +721,14 @@ readerproc(void* a)
 				rerrstr(err, sizeof(err));
 			else
 				strcpy(err, "zero read");
+
 			fprint(2, "%s: hid: %s: read: %s\n", argv0, f->ep->dir, err);
-			if(++nerrs <= 3){
-				hdrecover(f);
-				continue;
-			}
+
+			/* reset the whole device */
+			devctl(f->dev, "reset");
+
 			hdfatal(f, err);
 		}
-		nerrs = 0;
 
 		p.o = 0;
 		p.e = p.p + c;
