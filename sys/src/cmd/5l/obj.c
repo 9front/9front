@@ -514,6 +514,7 @@ zaddr(uchar *p, Adr *a, Sym *h[])
 		}
 
 	u = malloc(sizeof(Auto));
+	memset(u, 0, sizeof(Auto));
 	u->link = curauto;
 	curauto = u;
 	u->asym = s;
@@ -598,7 +599,9 @@ addhist(long line, int type)
 	int i, j, k;
 
 	u = malloc(sizeof(Auto));
+	memset(u, 0, sizeof(Auto));
 	s = malloc(sizeof(Sym));
+	memset(s, 0, sizeof(Sym));
 	s->name = malloc(2*(histfrogp+1) + 1);
 
 	u->asym = s;
@@ -608,12 +611,15 @@ addhist(long line, int type)
 	curhist = u;
 
 	j = 1;
+	s->name[0] = 0;
 	for(i=0; i<histfrogp; i++) {
 		k = histfrog[i]->value;
 		s->name[j+0] = k>>8;
 		s->name[j+1] = k;
 		j += 2;
 	}
+	s->name[j+0] = 0;
+	s->name[j+1] = 0;
 }
 
 void
@@ -798,7 +804,7 @@ loop:
 		goto loop;
 	}
 
-	p = malloc(sizeof(Prog));
+	p = prg();
 	p->as = o;
 	p->scond = bloc[1];
 	p->reg = bloc[2];
@@ -1081,15 +1087,12 @@ lookup(char *symb, int v)
 			return s;
 
 	s = malloc(sizeof(Sym));
+	memset(s, 0, sizeof(Sym));
 	s->name = malloc(l);
 	memmove(s->name, symb, l);
 
 	s->link = hash[h];
-	s->type = 0;
 	s->version = v;
-	s->value = 0;
-	s->sig = 0;
-	s->dupok = 0;
 	hash[h] = s;
 	return s;
 }

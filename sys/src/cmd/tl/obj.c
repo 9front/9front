@@ -279,7 +279,6 @@ out:
 	}
 	if(debug['v']) {
 		Bprint(&bso, "%5.2f cpu time\n", cputime());
-		Bprint(&bso, "%ld memory used\n", thunk);
 		Bprint(&bso, "%d sizeof adr\n", sizeof(Adr));
 		Bprint(&bso, "%d sizeof prog\n", sizeof(Prog));
 	}
@@ -496,23 +495,13 @@ zaddr(uchar *p, Adr *a, Sym *h[])
 		break;
 
 	case D_SCONST:
-		while(nhunk < NSNAME)
-			gethunk();
-		a->sval = (char*)hunk;
-		nhunk -= NSNAME;
-		hunk += NSNAME;
-
+		a->sval = malloc(NSNAME);
 		memmove(a->sval, p+4, NSNAME);
 		c += NSNAME;
 		break;
 
 	case D_FCONST:
-		while(nhunk < sizeof(Ieee))
-			gethunk();
-		a->ieee = (Ieee*)hunk;
-		nhunk -= NSNAME;
-		hunk += NSNAME;
-
+		a->ieee = malloc(sizeof(Ieee));
 		a->ieee->l = p[4] | (p[5]<<8) |
 			(p[6]<<16) | (p[7]<<24);
 		a->ieee->h = p[8] | (p[9]<<8) |
@@ -536,12 +525,8 @@ zaddr(uchar *p, Adr *a, Sym *h[])
 			return c;
 		}
 
-	while(nhunk < sizeof(Auto))
-		gethunk();
-	u = (Auto*)hunk;
-	nhunk -= sizeof(Auto);
-	hunk += sizeof(Auto);
-
+	u = malloc(sizeof(Auto));
+	memset(u, 0, sizeof(Auto));
 	u->link = curauto;
 	curauto = u;
 	u->asym = s;
@@ -626,7 +611,9 @@ addhist(long line, int type)
 	int i, j, k;
 
 	u = malloc(sizeof(Auto));
+	memset(u, 0, sizeof(Auto));
 	s = malloc(sizeof(Sym));
+	memset(s, 0, sizeof(Sym));
 	s->name = malloc(2*(histfrogp+1) + 1);
 
 	u->asym = s;
@@ -636,12 +623,15 @@ addhist(long line, int type)
 	curhist = u;
 
 	j = 1;
+	s->name[0] = 0;
 	for(i=0; i<histfrogp; i++) {
 		k = histfrog[i]->value;
 		s->name[j+0] = k>>8;
 		s->name[j+1] = k;
 		j += 2;
 	}
+	s->name[j+0] = 0;
+	s->name[j+1] = 0;
 }
 
 void
@@ -828,12 +818,7 @@ loop:
 		goto loop;
 	}
 
-	if(nhunk < sizeof(Prog))
-		gethunk();
-	p = (Prog*)hunk;
-	nhunk -= sizeof(Prog);
-	hunk += sizeof(Prog);
-
+	p = prg();
 	p->as = o;
 	p->scond = bloc[1];
 	p->reg = bloc[2];
@@ -1138,22 +1123,13 @@ lookup(char *symb, int v)
 		if(memcmp(s->name, symb, l) == 0)
 			return s;
 
-	while(nhunk < sizeof(Sym))
-		gethunk();
-	s = (Sym*)hunk;
-	nhunk -= sizeof(Sym);
-	hunk += sizeof(Sym);
-
+	s = malloc(sizeof(Sym));
+	memset(s, 0, sizeof(Sym));
 	s->name = malloc(l);
 	memmove(s->name, symb, l);
 
 	s->link = hash[h];
-	s->type = 0;
 	s->version = v;
-	s->value = 0;
-	s->sig = 0;
-	s->used = s->thumb = s->foreign = s->fnptr = 0;
-	s->use = nil;
 	hash[h] = s;
 	return s;
 }
@@ -1161,38 +1137,9 @@ lookup(char *symb, int v)
 Prog*
 prg(void)
 {
-	Prog *p;
-
-	while(nhunk < sizeof(Prog))
-		gethunk();
-	p = (Prog*)hunk;
-	nhunk -= sizeof(Prog);
-	hunk += sizeof(Prog);
-
+	Prog *p = malloc(sizeof(Prog));
 	*p = zprg;
 	return p;
-}
-
-void
-gethunk(void)
-{
-	char *h;
-	long nh;
-
-	nh = NHUNK;
-	if(thunk >= 5L*NHUNK) {
-		nh = 5L*NHUNK;
-		if(thunk >= 25L*NHUNK)
-			nh = 25L*NHUNK;
-	}
-	h = malloc(nh);
-	if(h == (char*)-1) {
-		diag("out of memory");
-		errorexit();
-	}
-	hunk = h;
-	nhunk = nh;
-	thunk += nh;
 }
 
 void
