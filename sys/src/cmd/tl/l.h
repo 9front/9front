@@ -2,6 +2,7 @@
 #include	<libc.h>
 #include	<bio.h>
 #include	"../5c/5.out.h"
+#include	"../cc/compat.h"
 
 #ifndef	EXTERN
 #define	EXTERN	extern
