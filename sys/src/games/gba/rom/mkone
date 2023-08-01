@@ -7,12 +7,12 @@ all:V:	$TARG.gba
 $TARG.gba:	$O.out
 	games/aout2gba -o $target $prereq
 
-$O.out:	l.5 $OFILES $LIB
+$O.out:	l.$O $OFILES $LIB
 	$LD $LDFLAGS -o $target $prereq
 
 %.$O:	$HFILES
 
-l.5:	/sys/src/games/gba/rom/l.s
+l.$O:	/sys/src/games/gba/rom/l.s
 	$AS $AFLAGS $prereq
 
 %.$O:	%.c
