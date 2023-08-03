@@ -405,3 +405,4 @@ Thanks for reporting it.
 I told this anecdote in an internal talk at Google. You might have seen it then.
 Let me ask, because I'm genuinely curious: Why does it matter?
 I find this situation unsatisfactory.
+Critical code needs static typing.
