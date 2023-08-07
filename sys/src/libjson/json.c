@@ -328,6 +328,13 @@ jsonparse(char *s)
 
 	j = jsonobj(&l);
 	free(l.buf);
+
+	if(peeknonspace(&l) != 0){
+		jsonfree(j);
+		werrstr("json: unexpected trailing data");
+		return nil;
+	}
+
 	return j;
 }
 
