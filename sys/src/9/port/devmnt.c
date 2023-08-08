@@ -16,7 +16,8 @@
  * connection.
  */
 
-#define MAXRPC (IOHDRSZ+8192)
+#define MAXRPC (IOHDRSZ+32768)	/* maximum size of any RPC */
+#define MAXRPC0 (IOHDRSZ+8192)	/* maximum size of Tversion/Rversion pair */
 
 struct Mntrpc
 {
@@ -146,14 +147,14 @@ mntversion(Chan *c, char *version, int msize, int returnlen)
 	f.tag = NOTAG;
 	f.msize = msize;
 	f.version = v;
-	msg = malloc(8192+IOHDRSZ);
+	msg = malloc(MAXRPC0);
 	if(msg == nil)
 		exhausted("version memory");
 	if(waserror()){
 		free(msg);
 		nexterror();
 	}
-	k = convS2M(&f, msg, 8192+IOHDRSZ);
+	k = convS2M(&f, msg, MAXRPC0);
 	if(k == 0)
 		error("bad fversion conversion on send");
 
@@ -171,8 +172,8 @@ mntversion(Chan *c, char *version, int msize, int returnlen)
 	}
 
 	/* message sent; receive and decode reply */
-	for(k = 0; k < BIT32SZ || (k < GBIT32(msg) && k < 8192+IOHDRSZ); k += l){
-		l = devtab[c->type]->read(c, msg+k, 8192+IOHDRSZ-k, c->offset);
+	for(k = 0; k < BIT32SZ || (k < GBIT32(msg) && k < MAXRPC0); k += l){
+		l = devtab[c->type]->read(c, msg+k, MAXRPC0-k, c->offset);
 		if(l <= 0)
 			error("EOF receiving fversion reply");
 		lock(c);
