@@ -222,6 +222,8 @@ getmaxlun(void)
 		max &= 017;			/* 15 is the max. allowed */
 		dprint(2, "%s: %s: maxlun %d\n", argv0, dev->dir, max);
 	}
+	/* 0e8d:1887 does not respond to followup commands without a delay */
+	sleep(1);
 	return max;
 }
 
