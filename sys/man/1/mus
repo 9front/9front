@@ -1,23 +1,40 @@
 .TH MUS 1
 .SH NAME
-mus \- MUS to MIDI converter
+mus, dmx \- MUS to MIDI converter and DMX decoder
 .SH SYNOPSIS
 .B games/mus
 [
 .I musfile
 ]
+.br
+.B games/dmx
+[
+.I dmxfile
+]
 .SH DESCRIPTION
 The MUS format is a simplified MIDI music format used in doom
 and several related games.
+DMX format is used for doom's sound effects.
 .PP
 .I Mus
 decodes MIDI music encoded in MUS format, either from
 .B musfile
 or from standard input, and produces a MIDI format file on standard output.
+.PP
+.I Dmx
+similarly transcodes its input into PCM on standard output at
+.IR audio (3)'s
+default 44.1 kHz sampling rate.
 .SH "SEE ALSO"
-.IR games (1)
+.IR games (1),
+.IR wadfs (4)
 .SH SOURCE
 .B /sys/src/games/mus.c
+.br
+.B /sys/src/games/dmx.c
 .SH HISTORY
 .I Mus
-first appeared in 9front (September, 2015).
+and
+.I dmx
+first appeared in 9front (respectively
+in September, 2015 and August, 2023).
