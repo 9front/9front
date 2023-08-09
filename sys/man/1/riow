@@ -36,7 +36,7 @@ Example of running
 .I riow
 with other programs handling input:
 .EX
-	</dev/kbdtap ktrans |
+	</dev/kbdtap ktrans -G |
 		reform/shortcuts |
 		riow >/dev/kbdtap |[3] bar
 .EE

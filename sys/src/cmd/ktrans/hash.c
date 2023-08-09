@@ -34,7 +34,7 @@ hmapalloc(int nbuckets, int size)
 	nsz = Tagsize + size;
 	store = mallocz(sizeof(*h) + (nbuckets * nsz), 1);
 	if(store == nil)
-		return nil;
+		sysfatal("hmapalloc: out of memory");
 
 	h = store;
 	h->nbs = nbuckets;
@@ -82,6 +82,8 @@ hmaprepl(Hmap **store, char *key, void *new, void *old, int freekeys)
 
 		h->cap *= 2;
 		*store = realloc(*store, sizeof(*h) + h->cap*h->nsz);
+		if(*store == nil)
+			sysfatal("hmaprepl: out of memory");
 		h = *store;
 		h->nodes = (uchar*)*store + sizeof(*h);
 		memset(h->nodes + h->len*h->nsz, 0, h->nsz);

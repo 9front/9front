@@ -1,0 +1,56 @@
+.TH KTRANS 6
+.SH NAME
+ktrans \- format of ktrans dictionaries
+.SH DESCRIPTION
+.I Ktrans
+uses two plain text file formats for lookup dictionaries, one each for
+implicit and explicit matches. Both are stored within
+.BR /lib/ktrans .
+.SS MAP
+The
+.B .map
+files provide the implicit matching information. The file is a
+sequence of lines, each of which is a single character sequence mapping.
+Each mapping is a sequence of one or more input keys and output keys, separated
+by a single tab character.
+.PP
+The following
+.B .map
+files correspond to the following conversions:
+.TP
+hira.map
+Japanese Hiragana
+.TP
+kata.map
+Japanese Katakana
+.TP
+judou.map
+Chinese punctuation
+.TP
+hangul.map
+Korean Hangul
+.TP
+telex.map
+Vietnamese Telex
+.SS DICT
+The
+.B .dict
+files provide the explicit matching information. The file is
+a sequence of lines, each of which is comprised of an input sequence,
+followed by a tab, followed by the list of all candidates. Each candidate
+is separated by a single space character.
+.PP
+The following
+.B .dict
+files correspond to the following conversions:
+.TP
+kanji.dict
+Japanese Kanji
+.TP
+wubi.dict
+Chinese Wubizixing (default)
+.TP
+pinyin.dict
+Chinese Pinyin
+.SH "SEE ALSO"
+.IR ktrans (1)

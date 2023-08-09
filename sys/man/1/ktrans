@@ -42,12 +42,6 @@ Japanese Katakana.
 .B ctl-c
 Chinese.
 .TP
-.B ctl-r
-Russian.
-.TP
-.B ctl-o
-Greek.
-.TP
 .B ctl-s
 Korean.
 .TP
@@ -75,8 +69,7 @@ be explicitly matched by cycling through a list of options.
 automatically maintains a buffer of the current series of
 key strokes being considered for an explicit match, and resets
 that buffer on logical "word" breaks depending on the language.
-However manual hints of when to reset this buffer will likely
-still be required.
+However in some cases the automatic hinting will be insufficient.
 .PP
 Input is always passed along, when a match is found
 .I Ktrans
@@ -113,7 +106,7 @@ Clear Kanji buffer (ctl-l)
 Switch to Hiragana (ctl-n)
 .TP
 .B Shift + Hiragana / Katakana
-Switch to Katakana (ctl-v)
+Switch to Katakana (ctl-k)
 .TP
 .B Hankaku / Zenkaku
 Switch to Hiragana (ctl-n)
@@ -124,7 +117,23 @@ Switch to passthrough (ctl-t)
 .B Shift + Space
 Convert to Kanji (ctl-\e).
 This is a fallback for keyboards without a physical Henkan key.
-.SH JAPANESE
+.SH DICTIONARIES
+All implicit and explicit matching dictionaries are provided as plain
+text files within
+.BR /lib/ktrans .
+The formats of which are specified within
+.IR ktrans (6).
+Users may create and or modify existing dictionaries by binding over
+the system defaults.
+.PP
+For backwards compatibility the
+.B jisho
+and
+.B zidian
+environment variables may also be set to pick explicit lookup dictionaries
+for Japanese and Chinese respectfully.
+.SH LANGUAGES
+.SS JAPANESE
 The Hiragana and Katakana modes implicitly turn Hepburn representations
 in to their Kana counterparts. Explicit conversions combine sequences
 of Hiragana in to Kanji.
@@ -145,34 +154,19 @@ as part of the lookup sequence itself. So to write
 私の猫
 .ft
 the user types "watashiNO[^\e]neko[^\e]". Note that in both cases
-we have successfully communicated to krans when to reset the explicit
+we have successfully communicated to ktrans when to reset the explicit
 match buffer without needing to explicitly give a ctl-l character.
-.SH CHINESE
-The Wubizixing input method is used. No implicit conversion is done,
-explicit conversion interprets Latin characters as their Wubi counterparts
-to do lookup of Hanzi.
-.SH RUSSIAN
-Implicit layer converts latin to Cyrillic; the transliteration is mostly
-phonetic, with
-.B '
-for
-.IR myagkij-znak
-(ь),
-.B ''
-for
-.I tverdyj-znak
-(ъ)
-.I yo
-for ё,
-.B j
-for
-.IR i-kratkaya
-(й).
-.SH VIETNAMESE
+.SS CHINESE
+Implicit conversion converts punctuation. Explicit matches
+use a dictionary to convert a series of Latin characters
+into Hanzi. By default a Wubizixing input dictionary
+is used. Additionally a Pinyin input dictionary 
+is provided.
+.SS VIETNAMESE
 Implicit conversion is modeled after Telex, supporting
 standard diacritic suffixes.
-.SH KOREAN
-Mapping is done by emulating a Dubeolsik layout, with each latin
+.SS KOREAN
+Mapping is done by emulating a Dubeolsik layout, with each Latin
 character mapping to a single Jamo. Sequences of up to three Jamo
 are automatically converted to Hangul syllables.
 .SH EXAMPLES
@@ -195,14 +189,15 @@ respectively.
 .SH SOURCE
 .B /sys/src/cmd/ktrans
 .SH SEE ALSO
-.IR rio (4)
+.IR ktrans (6),
+.IR rio (4),
 .IR kbdfs (8)
 .SH BUGS
 .PP
 There is no hint from rio when the user moves the cursor, as such
 moving it is unlikely to result in what the user expects.
 .PP
-Plan9 lacks support for rendering combinational Unicode sequences,
+Plan 9 lacks support for rendering combinational Unicode sequences,
 limiting the use of some code ranges.
 .SH HISTORY
 Ktrans was originally written by Kenji Okamoto in August of 2000 for

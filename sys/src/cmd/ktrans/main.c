@@ -198,8 +198,6 @@ enum{
 	LangEN 	= '',	// ^t
 	LangJP	= '', 	// ^n
 	LangJPK = '',	// ^k
-	LangRU 	= '',	// ^r
-	LangEL	= '',	// ^o
 	LangKO	= '',	// ^s
 	LangZH	= '',	// ^c
 	LangVN	= '',	// ^v
@@ -209,20 +207,16 @@ int deflang;
 
 Hmap *natural;
 Hmap *hira, *kata, *jisho;
-Hmap *cyril;
-Hmap *greek;
 Hmap *hangul;
-Hmap *hanzi, *zidian;
+Hmap *judou, *zidian;
 Hmap *telex;
 
 Hmap **langtab[] = {
 	[LangEN]  &natural,
 	[LangJP]  &hira,
 	[LangJPK] &kata,
-	[LangRU]  &cyril,
-	[LangEL]  &greek,
 	[LangKO]  &hangul,
-	[LangZH]  &hanzi,
+	[LangZH]  &judou,
 	[LangVN]  &telex,
 };
 
@@ -230,8 +224,6 @@ char *langcodetab[] = {
 	[LangEN]  "en",
 	[LangJP]  "jp",
 	[LangJPK] "jpk",
-	[LangRU]  "ru",
-	[LangEL]  "el",
 	[LangKO]  "ko",
 	[LangZH]  "zh",
 	[LangVN]  "vn",
@@ -527,7 +519,7 @@ dictthread(void*)
 					mode = Okuri;
 					*p = tolower(*p);
 					okuri.p = pushutf(okuri.b, strend(&okuri), p, 1);
-					goto Line;	
+					goto Line;
 				}
 
 				switch(mode){
@@ -652,7 +644,7 @@ keythread(void*)
 			switch(lang){
 			case LangZH:
 				emitutf(dictch, p, 1);
-				continue;
+				break;
 			case LangJP:
 				emitutf(dictch, p, 1);
 				if(isupper(*p))
@@ -792,12 +784,24 @@ usage(void)
 	threadexits("usage");
 }
 
+struct {
+	char *s;
+	Hmap **m;
+} inittab[] = {
+	"judou", &judou,
+	"hira", &hira,
+	"kata", &kata,
+	"hangul", &hangul,
+	"telex", &telex,
+};
+
 mainstacksize = 8192*2;
 
 void
 threadmain(int argc, char *argv[])
 {
-	int nogui;
+	int nogui, i;
+	char buf[128];
 	char *jishoname, *zidianname;
 
 	deflang = LangEN;
@@ -849,13 +853,12 @@ threadmain(int argc, char *argv[])
 		zidianname = "/lib/ktrans/wubi.dict";
 	zidian = opendict(nil, zidianname);
 
-	natural = hanzi = nil;
-	hira 	= openmap("/lib/ktrans/hira.map");
-	kata 	= openmap("/lib/ktrans/kata.map");
-	greek 	= openmap("/lib/ktrans/greek.map");
-	cyril 	= openmap("/lib/ktrans/cyril.map");
-	hangul 	= openmap("/lib/ktrans/hangul.map");
-	telex	= openmap("/lib/ktrans/telex.map");
+	natural = nil;
+	for(i = 0; i < nelem(inittab); i++){
+		snprint(buf, sizeof buf, "/lib/ktrans/%s.map", inittab[i].s);
+		if((*inittab[i].m = openmap(buf)) == nil)
+			sysfatal("failed to open map: %r");
+	}
 
 	dictch 	= chancreate(Msgsize, 0);
 	input 	= chancreate(Msgsize, 0);

@@ -25,6 +25,8 @@ lib	d775
 	font	d775
 		bit	d775
 			+
+	ktrans	d755
+		+
 	legal	d775
 		*
 	map	d775
