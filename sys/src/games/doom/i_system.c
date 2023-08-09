@@ -7,6 +7,7 @@
 #include "i_sound.h"
 #include "i_video.h"
 
+#include "d_main.h"
 #include "d_net.h"
 #include "g_game.h"
 #include "m_misc.h"

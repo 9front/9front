@@ -539,16 +539,34 @@ char            title[128];
 //
 void D_AddFile (char *file)
 {
+	int n, ext;
     int     numwadfiles;
-    char    *newfile;
+    char    *newfile, mnt[16];
 	
-    for (numwadfiles = 0 ; wadfiles[numwadfiles] ; numwadfiles++)
-	;
+	for(numwadfiles=0; wadfiles[numwadfiles]; numwadfiles++)
+		;
 
-    newfile = malloc (strlen(file)+1);
-    strcpy (newfile, file);
-	
+	ext = cistrstr(file, ".wad") != nil || cistrstr(file, ".lmp") != nil;
+	n = strlen(file) + 1;
+	if(!ext)
+		n += 4;
+	if((newfile = malloc(n)) == NULL)
+		sysfatal("malloc: %r");
+	snprintf(newfile, n, "%s%s", file, ext ? "" : ".wad");
     wadfiles[numwadfiles] = newfile;
+
+	/* all wads are piled on top of each other at /mnt/wad, iwad first;
+	 * binds are deferred to later to leave enough time for each wadfs
+	 * to properly initialize */
+	snprintf(mnt, sizeof mnt, "/mnt/wad%d", numwadfiles);
+	switch(rfork(RFPROC|RFFDG)){
+	case -1:
+		sysfatal("rfork: %r");
+	case 0:
+		close(2);
+		execl("/bin/games/wadfs", "wadfs", "-m", mnt, newfile, nil);
+		sysfatal("execl: %r");
+	}
 }
 
 
@@ -722,8 +740,10 @@ void FindResponseFile (void)
 //
 void D_DoomMain (void)
 {
-    int		p;
-    char	file[256];
+    int		i, p;
+    char	file[256], mnt[16];
+
+	rfork(RFNAMEG);
 
     FindResponseFile ();
 	
@@ -1054,6 +1074,12 @@ void D_DoomMain (void)
 	autostart = true;
     }
 	
+	for(i=0; wadfiles[i]; i++){
+		snprintf(mnt, sizeof mnt, "/mnt/wad%d", i);
+		if(bind(mnt, "/mnt/wad", MBEFORE) < 0)
+			sysfatal("bind: %r");
+	}
+    
     p = M_CheckParm ("-playdemo");
     if (p && p < myargc-1)
     {
