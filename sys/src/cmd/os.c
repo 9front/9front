@@ -20,7 +20,7 @@ enum {
 
 char *mnt = "/mnt/term/cmd";
 char *dir = nil;
-char buf[8192];
+char buf[IOUNIT];
 int fd[Nfd] = {-1};
 int pid[Npid];
 int nice, foreground = 1;

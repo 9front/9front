@@ -43,7 +43,7 @@ static void
 sum(int fd, char *name)
 {
 	int n;
-	uchar buf[8192], digest[SHA2_512dlen];
+	uchar buf[IOUNIT], digest[SHA2_512dlen];
 	DigestState *s;
 
 	s = (*shafunc)(nil, 0, nil, nil);

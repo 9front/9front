@@ -576,6 +576,7 @@ extern	int	utf2idn(char*, char*, int);
  * system calls
  *
  */
+#define IOUNIT	32768U	/* default buffer size for 9p io */
 #define	STATMAX	65535U	/* max length of machine-independent stat structure */
 #define	DIRMAX	(sizeof(Dir)+STATMAX)	/* max length of Dir structure */
 #define	ERRMAX	128	/* max length of error string */

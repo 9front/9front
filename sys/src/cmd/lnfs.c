@@ -10,7 +10,7 @@ enum
 {
 	OPERM	= 0x3,		/* mask of all permission types in open mode */
 	Maxsize	= 512*1024*1024,
-	Maxfdata	= 8192,
+	Maxfdata	= IOUNIT,
 	NAMELEN = 28,
 };
 

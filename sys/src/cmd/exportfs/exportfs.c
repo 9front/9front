@@ -83,7 +83,7 @@ main(int argc, char **argv)
 	if(messagesize == 0){
 		messagesize = iounit(0);
 		if(messagesize == 0)
-			messagesize = 8192+IOHDRSZ;
+			messagesize = IOUNIT+IOHDRSZ;
 	}
 	fhash = emallocz(sizeof(Fid*)*FHASHSIZE);
 

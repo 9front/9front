@@ -11,7 +11,7 @@ enum {
 
 int	aflag;
 
-char in[8192];
+char in[IOUNIT];
 
 int	intignore(void*, char*);
 

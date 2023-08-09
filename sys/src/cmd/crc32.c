@@ -38,7 +38,7 @@ static void
 sum(int fd, char *name)
 {
 	int n;
-	uchar buf[8192];
+	uchar buf[IOUNIT];
 	u32int crc;
 
 	crc = init ^ xor;

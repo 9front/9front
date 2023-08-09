@@ -96,7 +96,7 @@ enum
 	FPCHIP		= 1,
 	BIG		= 4096-8,
 	STRINGSZ	= 200,
-	MAXIO		= 8192,
+	MAXIO		= IOUNIT,
 	MAXHIST		= 20,				/* limit of path elements for history symbols */
 	DATBLK		= 1024,
 	NHASH		= 10007,

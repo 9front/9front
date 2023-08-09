@@ -116,7 +116,7 @@ enum
 	NHUNK		= 100000,
 	MINSIZ		= 4,
 	STRINGSZ	= 200,
-	MAXIO		= 8192,
+	MAXIO		= IOUNIT,
 	MAXHIST		= 20,				/* limit of path elements for history symbols */
 	A6OFFSET 	= 32766
 };

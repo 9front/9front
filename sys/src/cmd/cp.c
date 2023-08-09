@@ -1,8 +1,6 @@
 #include <u.h>
 #include <libc.h>
 
-#define	DEFB	(8*1024)
-
 int	buflen;
 int	failed;
 int	gflag;
@@ -125,7 +123,7 @@ copy(char *from, char *to, int todir)
 
 	buflen = iounit(fdf);
 	if(buflen <= 0)
-		buflen = DEFB;
+		buflen = IOUNIT;
 
 	if(copy1(fdf, fds < 0 ? fdt : fds, from, to)==0){
 		if(fds >= 0 && write(fds, "", 0) < 0){

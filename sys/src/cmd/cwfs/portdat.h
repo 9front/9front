@@ -22,7 +22,7 @@ typedef vlong	Devsize;	/* in bytes */
 
 /* constants that don't affect disk layout */
 enum {
-	MAXDAT		= 8192,		/* max allowable data message */
+	MAXDAT		= IOUNIT,	/* max allowable data message */
 	MB		= 1024*1024,
 };
 
