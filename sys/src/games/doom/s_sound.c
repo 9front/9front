@@ -155,7 +155,7 @@ void S_Init
 {  
   int		i;
 
-  fprintf( stderr, "S_Init: default sfx volume %d\n", sfxVolume);
+  printf("S_Init: default sfx volume %d\n", sfxVolume);
 
   // Whatever these did with DMX, these are rather dummies now.
   I_SetChannels();
