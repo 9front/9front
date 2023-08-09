@@ -54,6 +54,7 @@ int	channelstart[NUM_CHANNELS];
 **  currently unused.
 */
 int	channelhandles[NUM_CHANNELS];
+int lasthandle;
 
 /* SFX id of the playing sound effect.
 ** Used to catch duplicates (like chainsaw).
@@ -199,8 +200,10 @@ void I_UpdateSound(void)
 			channelstepremainder[i] += channelstep[i];
 			channels[i] += channelstepremainder[i] >> 16;
 			channelstepremainder[i] &= 0xffff;
-			if(channels[i] >= channelsend[i])
+			if(channels[i] >= channelsend[i]){
 				channels[i] = 0;
+				channelhandles[i] = 0;
+			}
 		}
 		for(i=0; i<AUDFREQ/SFXFREQ; i++, p+=4){
 			v = (short)(p[1] << 8 | p[0]);
@@ -268,6 +271,29 @@ int I_GetSfxLumpNum(sfxinfo_t *sfxinfo)
 	return W_GetNumForName(namebuf);
 }
 
+static void setparams(int slot, int vol, int sep)
+{
+	int leftvol, rightvol;
+
+	/* Separation, that is, orientation/stereo.
+	** range is : 1 - 256
+	*/
+	sep += 1;
+	/* Per left/right channel.
+	**  x^2 seperation,
+	**  adjust volume properly.
+	*/
+	leftvol = vol - ((vol*sep*sep) >> 16);
+	sep = sep - 257;
+	rightvol = vol - ((vol*sep*sep) >> 16);
+	if(rightvol < 0 || rightvol > 127)
+		I_Error("rightvol out of bounds");
+	if(leftvol < 0 || leftvol > 127)
+		I_Error("leftvol out of bounds");
+	channelleftvol_lookup[slot] = &vol_lookup[leftvol*256];
+	channelrightvol_lookup[slot] = &vol_lookup[rightvol*256];
+}
+
 /* This function adds a sound to the
 **  list of currently active sounds,
 **  which is maintained as a given number
@@ -277,14 +303,11 @@ int I_GetSfxLumpNum(sfxinfo_t *sfxinfo)
 static int
 addsfx(int id, int vol, int step, int sep)
 {
-	static unsigned short	handlenums = 0;
 	int			i;
 	int			rc;
 	int			oldest = gametic;
 	int			oldestnum = 0;
 	int			slot;
-	int			rightvol;
-	int			leftvol;
 
 	/* Chainsaw troubles.
 	** Play these sound effects only one at a time. */
@@ -330,63 +353,14 @@ addsfx(int id, int vol, int step, int sep)
 	else
 		slot = i;
 
-	/* Okay, in the less recent channel,
-	**  we will handle the new SFX.
-	** Set pointer to raw data.
-	*/
 	channels[slot] = (uchar*) S_sfx[id].data;
-	/* Set pointer to end of raw data. */
 	channelsend[slot] = channels[slot] + lengths[id];
-
-	/* Reset current handle number, limited to 0..100. */
-	if (!handlenums)
-		handlenums = 100;
-
-	/* Assign current handle number.
-	** Preserved so sounds could be stopped (unused).
-	*/
-	channelhandles[slot] = rc = handlenums++;
-
-	/* Set stepping???
-	** Kinda getting the impression this is never used.
-	*/
 	channelstep[slot] = step;
-	/* ??? */
 	channelstepremainder[slot] = 0;
-	/* Should be gametic, I presume. */
 	channelstart[slot] = gametic;
-
-	/* Separation, that is, orientation/stereo.
-	** range is : 1 - 256
-	*/
-	sep += 1;
-
-	/* Per left/right channel.
-	**  x^2 seperation,
-	**  adjust volume properly.
-	*/
-	leftvol = vol - ((vol*sep*sep) >> 16);	// /(256*256);
-	sep = sep - 257;
-	rightvol = vol - ((vol*sep*sep) >> 16);
-
-	/* Sanity check, clamp volume. */
-	if (rightvol < 0 || rightvol > 127)
-		I_Error("rightvol out of bounds");
-	if (leftvol < 0 || leftvol > 127)
-		I_Error("leftvol out of bounds");
-
-	/* Get the proper lookup table piece
-	**  for this volume level???
-	*/
-	channelleftvol_lookup[slot] = &vol_lookup[leftvol*256];
-	channelrightvol_lookup[slot] = &vol_lookup[rightvol*256];
-
-	/* Preserve sound SFX id,
-	**  e.g. for avoiding duplicates of chainsaw.
-	*/
+	setparams(slot, vol, sep);
 	channelids[slot] = id;
-
-	/* You tell me. */
+	channelhandles[slot] = rc = ++lasthandle;
 	return rc;
 }
 
@@ -400,24 +374,37 @@ int I_StartSound(int id, int vol, int sep, int pitch, int)
 
 void I_StopSound(int handle)
 {
-	USED(handle);
-//	printf("PORTME i_sound.c I_StopSound\n");
+	int i;
+
+	for(i=0; i<NUM_CHANNELS; i++)
+		if(channelhandles[i] == handle){
+			channels[i] = 0;
+			return;
+		}
 }
 
 int I_SoundIsPlaying(int handle)
 {
-	/* Ouch. */
-	return gametic < handle;
+	int i;
+
+	for(i=0; i<NUM_CHANNELS; i++)
+		if(channelhandles[i] == handle)
+			return channels[i] != 0;
+	return 0;
 }
 
-void I_UpdateSoundParams(int handle, int vol, int sep, int pitch)
+void I_UpdateSoundParams(int handle, int vol, int sep, int /*pitch*/)
 {
-	/* I fail to see that this is used.
-	** Would be using the handle to identify
-	**  on which channel the sound might be active,
-	**  and resetting the channel parameters.
-	*/
-	USED(handle, vol, sep, pitch);
+	int i, slot;
+
+	for(i=0, slot=0; i<NUM_CHANNELS; i++)
+		if(channelhandles[i] == handle){
+			slot = i;
+			break;
+		}
+	if(i == NUM_CHANNELS)
+		return;
+	setparams(slot, vol, sep);
 }
 
 void I_InitMusic(void)

@@ -200,6 +200,7 @@ userssave(Fs *fs, Chan *ch)
 	User *u, *v;
 	int nu, i;
 	char ubuf[USERLEN], *uname;
+	uchar bbuf[RBLOCK];
 	Biobuf buf;
 
 	rlock(&fs->udatal);
@@ -210,7 +211,7 @@ userssave(Fs *fs, Chan *ch)
 	}else
 		nu = fs->nudata;
 
-	Binit(&buf, 2, OWRITE);
+	Binits(&buf, 2, OWRITE, bbuf, sizeof(bbuf));
 	if(ch != nil)
 		Biofn(&buf, Bchanwrite);
 	buf.aux = ch;
