@@ -77,7 +77,7 @@ struct Playlist
 	int rawsz;
 };
 
-int mainstacksize = 32768;
+int mainstacksize = 65536;
 
 static int debug;
 static int audio = -1;
