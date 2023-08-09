@@ -238,22 +238,21 @@ usage(void)
 static void
 loadtext(int f)
 {
-	Biobuf *b;
+	Biobuf b;
 	int i;
 
-	if(f < 0)
+	if(f < 0 || Binit(&b, f, OREAD) != 0)
 		sysfatal("loadtext: %r");
-	if((b = Bfdopen(f, OREAD)) == nil)
-		sysfatal("loadtext: %r");
+
 	text = nil;
 	for(i = 0; i < 256; i++){
 		if((text = realloc(text, (i+1)*sizeof(char*))) == nil)
 			sysfatal("memory");
-		if((text[i] = Brdstr(b, '\n', 1)) == nil)
+		if((text[i] = Brdstr(&b, '\n', 1)) == nil)
 			break;
 	}
 
-	Bterm(b);
+	close(f);
 }
 
 void
