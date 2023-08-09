@@ -196,18 +196,18 @@ timerproc(void *c)
 static void
 auxproc(void *c)
 {
-	Biobuf b;
+	Biobuf *b;
 	char *s;
 
 	threadsetname("aux");
-	Binit(&b, 0, OREAD);
+	b = Bfdopen(0, OREAD);
 	for(;;){
-		s = Brdstr(&b, '\n', 1);
+		s = Brdstr(b, '\n', 1);
 		if(s == nil)
 			break;
 		sendp(c, s);
 	}
-	Bterm(&b);
+	Bterm(b);
 
 	threadexits(nil);
 }
