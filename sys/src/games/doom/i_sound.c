@@ -16,7 +16,7 @@
 #define	AUDFREQ		44100
 #define	SFXFREQ		11025
 #define	SAMPLECOUNT	(AUDFREQ/TICRATE)
-#define	NUM_CHANNELS	8
+#define	NUM_CHANNELS	32
 
 /* The actual lengths of all sound effects. */
 int	lengths[NUMSFX];
