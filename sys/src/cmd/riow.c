@@ -377,6 +377,9 @@ keyevent(char c, Rune r)
 			return 0;
 		}
 	}
+	/* skip redundant event */
+	if(c == 'k' && (mod & Mshift) == 0)
+		return 0;
 	/* mod4 + shift + 1…0 yields a shifted value on 'c': workaround */
 	if(c == 'k' && mod == (Mmod4|Mshift) && r >= '0' && r <= '9'){
 		vdaction(r - '0');
