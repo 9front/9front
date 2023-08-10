@@ -294,5 +294,6 @@ mdirmbox(Mailbox *mb, char *path)
 	mb->idxread = idxr;
 	mb->idxwrite = idxw;
 	mb->ctl = mdirctl;
+	mb->move = nil;
 	return nil;
 }

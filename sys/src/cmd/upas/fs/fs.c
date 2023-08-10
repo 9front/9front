@@ -1242,6 +1242,11 @@ rwrite(Fid *f)
 				return nil;
 			return flagmessages(argc - 1, argv + 1);
 		}
+		if(strcmp(argv[0], "move") == 0){
+			if(argc < 4)
+				return nil;
+			return movemessages(argc - 1, argv + 1);
+		}
 		if(strcmp(argv[0], "remove") == 0){
 			v0 = argv0;
 			flags = 0;

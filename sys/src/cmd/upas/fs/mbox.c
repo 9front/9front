@@ -1137,6 +1137,37 @@ flagmessages(int argc, char **argv)
 	return rerr;
 }
 
+char*
+movemessages(int argc, char **argv)
+{
+	char *err, *dest, *rerr;
+	int i, needwrite;
+	Mailbox *mb;
+	Message *m;
+
+	rerr = 0;
+	for(mb = mbl; mb != nil; mb = mb->next)
+		if(strcmp(*argv, mb->name) == 0)
+			break;
+	if(mb == nil)
+		return "no such mailbox";
+	if(mb->move == nil)
+		return "move not supported";
+	dest = argv[argc - 1];
+	needwrite = 0;
+	for(i = 1; i < argc - 1; i++)
+		for(m = mb->root->part; m; m = m->next)
+			if(strcmp(m->name, argv[i]) == 0){
+				if(err = mb->move(mb, m, dest))
+					rerr = err;
+				else
+					needwrite = 1;
+			}
+	if(needwrite)
+		syncmbox(mb, 1);
+	return rerr;
+}
+
 void
 msgincref(Mailbox *mb, Message *m)
 {

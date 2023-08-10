@@ -624,6 +624,7 @@ pop3mbox(Mailbox *mb, char *path)
 	mb->sync = pop3sync;
 	mb->close = pop3close;
 	mb->ctl = pop3ctl;
+	mb->move = nil;
 	mb->addfrom = 1;
 	return nil;
 }

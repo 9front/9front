@@ -414,5 +414,6 @@ plan9mbox(Mailbox *mb, char *path)
 	mb->remove = localremove;
 	mb->rename = localrename;
 	mb->decache = plan9decache;
+	mb->move = nil;
 	return nil;
 }

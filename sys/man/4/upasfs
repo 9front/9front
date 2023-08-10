@@ -206,7 +206,7 @@ is used to direct
 .I fs
 to open, close, rename, create or remove new mailboxes,
 and also to
-delete or flag groups of messages atomically.
+delete, flag, or move groups of messages atomically.
 The messages that can be written to this file are:
 .TP 2i
 .PD 0
@@ -260,6 +260,13 @@ Delete the messages with the given numbers from
 .TP
 .B "flag \fImboxname flags number ...\fP
 flag the given messages.
+.TP
+.B "move \fImboxname number ... target\fP
+Move the given messages from
+.IR mboxname
+to mailbox named
+.IR target.
+At the moment only supported with IMAP mailboxes.
 .PD
 .PP
 The

@@ -172,6 +172,7 @@ struct Mailbox {
 	ulong	waketime;
 	void	(*close)(Mailbox*);
 	void	(*decache)(Mailbox*, Message*);
+	char	*(*move)(Mailbox*, Message*, char*);
 	int	(*fetch)(Mailbox*, Message*, uvlong, ulong);
 	void	(*delete)(Mailbox*, Message*);
 	char	*(*ctl)(Mailbox*, int, char**);
@@ -215,6 +216,7 @@ Message*	newmessage(Message*);
 void		unnewmessage(Mailbox*, Message*, Message*);
 char*		delmessages(int, char**);
 char		*flagmessages(int, char**);
+char*		movemessages(int, char**);
 void		digestmessage(Mailbox*, Message*);
 
 int		wraptls(int, char*);

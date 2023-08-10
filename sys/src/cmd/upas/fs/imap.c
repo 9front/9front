@@ -1023,6 +1023,28 @@ imap4delete(Mailbox *mb, Message *m)
 	}
 	m->inmbox = 0;
 }
+static char*
+imap4move(Mailbox *mb, Message *m, char *dest)
+{
+	char *r;
+	Imap *imap;
+
+	imap = mb->aux;
+	imap4cmd(imap, "uid copy %lud %s", (ulong)m->imapuid, dest);
+	r = imap4resp(imap);
+	if(!isokay(r))
+		return r;
+	imap4cmd(imap, "uid store %lud +flags (\\Deleted)", (ulong)m->imapuid);
+	r = imap4resp(imap);
+	if(!isokay(r))
+		return r;
+	imap4cmd(imap, "expunge");
+	r = imap4resp(imap);
+	if(!isokay(r))
+		return r;
+	m->inmbox = 0;
+	return 0;
+}
 
 static char*
 imap4sync(Mailbox *mb)
@@ -1183,6 +1205,7 @@ imap4mbox(Mailbox *mb, char *path)
 	mb->delete = imap4delete;
 	mb->rename = imap4rename;
 	mb->modflags = imap4modflags;
+	mb->move = imap4move;
 	mb->addfrom = 1;
 	return nil;
 }
