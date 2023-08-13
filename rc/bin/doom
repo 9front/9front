@@ -1,0 +1,57 @@
+#!/bin/rc -e
+# set up namespace for a particular version of doom and launch it
+# default setup:
+# - $home/lib/doom: mntpt and location of config file
+# - $home/lib/doom/$game: user game directories: savegames and screenshots
+# - /sys/games/lib/doom/$game: system iwad and pwad directories
+# cwd is bound over $mntpt to allow loading stuff from there
+# example: launch doom2 with scythe.wad (both in /sys/games/lib/doom/d2)
+#	; doom d2 -file scythe.wad
+# example game version names:
+# doom.wad → /sys/games/lib/doom/d1/
+# doom2.wad → /sys/games/lib/doom/d2/
+# doom2f.wad → /sys/games/lib/doom/d2f/
+# doom1.wad → /sys/games/lib/doom/dsh/
+# plutonia.wad → /sys/games/lib/doom/plt/
+# tnt.wad → /sys/games/lib/doom/tnt/
+# doomu.wad → /sys/games/lib/doom/ud/
+
+rfork ne
+flagfmt='b,l,z,m mntpt'
+args='game [params]'
+if(! ifs=() eval `{aux/getflags $*} || ~ $#* 0){
+	aux/usage
+	exit usage
+}
+mntpt=$home/lib/doom
+if(~ $#flagm 1)
+	mntpt=$flagm
+if(! test -d $mntpt/$1)
+	mkdir -p $mntpt/$1
+bind -ac $mntpt/$1 $mntpt
+if(test -d /sys/games/lib/doom/$1)
+	bind -a /sys/games/lib/doom/$1 $mntpt
+if(! ~ $flagb 1)
+	bind -b `{pwd} $mntpt
+cd $mntpt
+
+if(~ $#vgasize 0 || ~ $flagz 1)
+	r=(-dx 328 -dy 208)
+if not
+	r=`{echo $vgasize |\
+		awk -Fx '{
+			a=$1/320;
+			b=$2/200;
+			c=int(b<a?b:a);
+			if(c*320 == $1 || c*200 == $2)
+				c--;
+			print "-dx", c*320+8, "-dy", c*200+8
+		}'
+	}
+if(! ~ $flagz 1)
+	echo resize $r >/dev/wctl
+
+if(! ~ $flagl 1)
+	games/doom $* >/dev/null
+if not
+	games/doom $* >/tmp/doomlog.$pid >[2=1]
