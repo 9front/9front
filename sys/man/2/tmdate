@@ -122,6 +122,9 @@ Otherwise, we will attempt to use the named zones listed in RFC5322.
 .B a, A
 Lower and uppercase 'am' and 'pm' specifiers, respectively.
 .TP
+.B o
+Ordinal day of month suffix specifier.
+.TP
 .B [...]
 Quoted text, copied directly to the output.
 .TP

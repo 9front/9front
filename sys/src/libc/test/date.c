@@ -278,6 +278,25 @@ main(int, char **)
 			print("bad am/pm parsed: %s != %s (%lld != %lld)\n", buf, buf1, tmnorm(&tm), tmnorm(&tt));
 	}
 
+	/* ordinal day suffix parsing and formatting */
+	for(i = 1; i < 32; i++){
+		snprint(buf, sizeof(buf), "2023 08 %d", i);
+		snprint(buf1, sizeof(buf1), "2023 08 %02d%s", i,
+			i == 1 || i == 21 || i == 31? "st": i == 2 || i == 22? "nd": i == 3 || i == 23? "rd": "th");
+		if(tmparse(&tm, "YYYY MM DD", buf, nil, nil) == nil)
+			fail("parse: %r\n");
+		if(tmparse(&tt, "YYYY MM DDo", buf1, nil, nil) == nil)
+			fail("parse: %r\n");
+		if(tmnorm(&tm) != tmnorm(&tt))
+			print("bad ordinal day suffix parsed: %s != %s (%lld != %lld)\n", buf, buf1, tmnorm(&tm), tmnorm(&tt));
+		if(tmparse(&tm, "YYYY MM DDo", buf, nil, nil) != nil)
+			print("ordinal day suffix parsed when absent\n");
+		if(snprint(buf, sizeof(buf), "%τ", tmfmt(&tm, "YYYY MM DDo")) == -1)
+			fail("format: %r");
+		if(strcmp(buf, buf1) != 0)
+			print("bad ordinal day suffix formatted: %s != %s\n", buf, buf1);
+	}
+
 	/* Time zone boundaries: entering DST */
 	if(tmtime(&tm, 1520733600, us_eastern) == nil)
 		fail("tmtime: tz boundary");

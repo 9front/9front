@@ -454,6 +454,15 @@ static int
 			default: goto badfmt;
 			}
 			break;
+		case 'o':
+			if(w != 1) goto badfmt;
+			switch(tm->mday){
+			case 1: case 21: case 31: n += fmtprint(f, "st");		break;
+			case 2: case 22: n += fmtprint(f, "nd");			break;
+			case 3: case 23: n += fmtprint(f, "rd");			break;
+			default: n += fmtprint(f, "th");
+			}
+			break;
 		case 'W':
 			switch(w){
 			case 1:	n += fmtprint(f, "%*d", pad, tm->wday + 1);		break;
@@ -696,6 +705,15 @@ tmparse(Tm *tm, char *fmt, char *str, Tzone *tz, char **ep)
 			case 2: tm->mday = getnum(&s, 2, &ok);		break;
 			default: goto badfmt;
 			}
+			break;
+		case 'o':
+			if(strncmp(s, "th", 2) == 0
+			|| strncmp(s, "rd", 2) == 0
+			|| strncmp(s, "nd", 2) == 0
+			|| strncmp(s, "st", 2) == 0)
+				s += 2;
+			else
+				goto badfmt;
 			break;
 		case 'W':
 			switch(w){
