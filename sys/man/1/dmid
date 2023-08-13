@@ -74,7 +74,7 @@ Play a MIDI stream from a USB device (see
 % games/dmid -s /dev/usb/ep10.1/data | games/opl3 -s >/dev/audio
 .EE
 .SH SOURCE
-.B /sys/src/games/dmid.c
+.B /sys/src/games/midi/dmid.c
 .SH "SEE ALSO"
 .IR games (1) ,
 .IR mus (1) ,

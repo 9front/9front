@@ -17,9 +17,7 @@ TARG=4s\
 	glendy\
 	packet\
 	mandel\
-	midi\
 	wadfs\
-	dmid\
 	dpic\
 	todpic\
 	turtle\
@@ -40,6 +38,7 @@ DIRS=\
 	gb\
 	gba\
 	mahjongg\
+	midi\
 	mines\
 	mix\
 	md\

@@ -1,15 +1,10 @@
 #include <u.h>
 #include <libc.h>
 #include <bio.h>
+#include "midifile.h"
 
-typedef struct Inst Inst;
 typedef struct Opl Opl;
-typedef struct Chan Chan;
-typedef struct Trk Trk;
 enum{
-	Rate = 49716,		/* opl3 sampling rate */
-	Ninst = 128 + 81-35+1,
-
 	Rwse = 0x01,
 		Mwse = 1<<5,	/* wave selection enable */
 	Rctl = 0x20,
@@ -37,7 +32,6 @@ struct Inst{
 	uchar i2[13];
 	s16int base[2];
 };
-Inst inst[Ninst];
 
 struct Opl{
 	Chan *c;
@@ -65,117 +59,8 @@ uchar ovol[] = {
 	126, 126, 126, 127, 127, 127, 128, 128
 };
 
-struct Chan{
-	Inst *i;
-	int v;
-	int bend;
-	int pan;
-};
-Chan chan[16];
-struct Trk{
-	u8int *s;
-	u8int *p;
-	u8int *e;
-	vlong Δ;
-	vlong t;
-	int ev;
-	int ended;
-};
-Trk *tr;
-
-int trace;
 double freq[128];
-int mfmt, ntrk, div = 1, tempo, opl2, stream;
-Biobuf *ib;
-
-void *
-emalloc(ulong n)
-{
-	void *p;
-
-	p = mallocz(n, 1);
-	if(p == nil)
-		sysfatal("mallocz: %r");
-	setmalloctag(p, getcallerpc(&n));
-	return p;
-}
-
-Biobuf *
-bfdopen(int fd, int mode)
-{
-	Biobuf *bf;
-
-	bf = Bfdopen(fd, mode);
-	if(bf == nil)
-		sysfatal("bfdopen: %r");
-	Blethal(bf, nil);
-	return bf;
-}
-
-Biobuf *
-bopen(char *file, int mode)
-{
-	int fd;
-
-	fd = open(file, mode);
-	if(fd < 0)
-		sysfatal("bopen: %r");
-	return bfdopen(fd, mode);
-}
-
-void
-bread(void *u, int n)
-{
-	if(Bread(ib, u, n) != n)
-		sysfatal("bread: short read");
-}
-
-void
-dprint(char *fmt, ...)
-{
-	char s[256];
-	va_list arg;
-
-	if(!trace)
-		return;
-	va_start(arg, fmt);
-	vseprint(s, s+sizeof s, fmt, arg);
-	va_end(arg);
-	fprint(2, "%s", s);
-}
-
-u8int
-get8(Trk *x)
-{
-	u8int v;
-
-	if(x == nil || x->p == nil)
-		Bread(ib, &v, 1);
-	else if(x->p >= x->e || x->ended)
-		sysfatal("track overflow");
-	else
-		v = *x->p++;
-	dprint("%02ux", v);
-	return v;
-}
-
-u16int
-get16(Trk *x)
-{
-	u16int v;
-
-	v = get8(x) << 8;
-	return v | get8(x);
-}
-
-u32int
-get32(Trk *x)
-{
-	u32int v;
-
-	v = get16(x) << 16;
-	return v | get16(x);
-}
+int opl2;
 
 void
 putcmd(u16int r, u8int v, u16int dt)
@@ -251,7 +136,7 @@ setoct(Opl *o)
 	e = freq[n] + (d % 0x1000) * (freq[n+1] - freq[n]) / 0x1000;
 	if(o->c->i->fixed)
 		e = (double)(int)e;
-	f = (e * (1 << 20)) / Rate;
+	f = (e * (1 << 20)) / samprate;
 	for(b=1; b<8; b++, f>>=1)
 		if(f < 1024)
 			break;
@@ -266,7 +151,7 @@ setvol(Opl *o)
 	int p, w, x;
 
 	p = port[o - opl];
-	w = o->v * o->c->v / 127;
+	w = o->v * o->c->vol / 127;
 	w = ovol[w * 64 / 127] * 63 / 128;
 	x = 63 + (o->i[5] & Mlvl) * w / 63 - w;
 	putcmd(Rsca+p, o->i[4] & Mscl | x, 0);
@@ -342,36 +227,6 @@ resetchan(Chan *c)
 		}
 }
 
-double
-tc(double n)
-{
-	return (n * tempo * Rate / div) / 1e6;
-}
-
-void
-skip(Trk *x, int n)
-{
-	while(n-- > 0)
-		get8(x);
-}
-
-int
-getvar(Trk *x)
-{
-	int v, w;
-
-	w = get8(x);
-	v = w & 0x7f;
-	while(w & 0x80){
-		if(v & 0xff000000)
-			sysfatal("invalid variable-length number");
-		v <<= 7;
-		w = get8(x);
-		v |= w & 0x7f;
-	}
-	return v;
-}
-
 void
 samp(double n)
 {
@@ -379,7 +234,7 @@ samp(double n)
 	double Δ;
 	static double ε;
 
-	Δ = tc(n) + ε;
+	Δ = delay(n) + ε;
 	t = Δ;
 	ε = Δ - t;
 	while(t > 0){
@@ -388,63 +243,25 @@ samp(double n)
 	}
 }
 
-int
-ev(Trk *x, vlong t)
+void
+event(Track *t)
 {
-	int e, n, m;
+	int e;
+	Msg msg;
 	Chan *c;
 
-	dprint(" [%zd] ", x - tr);
-	e = get8(x);
-	if((e & 0x80) == 0){
-		if(x->p != nil)
-			x->p--;
-		e = x->ev;
-		dprint(" *%02ux ", e);
-		if((e & 0x80) == 0)
-			sysfatal("invalid event %#ux", e);
-	}else
-		x->ev = e;
-	c = chan + (e & 15);
-	dprint("| %02ux ", e);
-	n = get8(x);
-	switch(e >> 4){
-	case 0x8: noteoff(c, n, get8(x)); break;
-	case 0x9: noteon(c, n, get8(x), t); break;
-	case 0xb:
-		m = get8(x);
-		switch(n){
-		case 0x00: if(m < Ninst) c->i = inst + m; break;
-		case 0x07: c->v = m; resetchan(c); break;
-		case 0x0a: c->pan = m < 32 ? 1<<4 : m > 96 ? 1<<5 : 3<<4; resetchan(c); break;
-		default: dprint("\nunknown controller %d", n);
-		}
-		break;
-	case 0xc: if(n < Ninst) c->i = inst + n; break;
-	case 0xe:
-		n = get8(x) << 7 | n;
-		c->bend = n - 0x4000 / 2;
-		resetchan(c);
-		break;
-	case 0xf:
-		if((e & 0xf) == 0){
-			while(get8(x) != 0xf7)
-				;
-			break;
-		}
-		m = get8(x);
-		switch(n){
-		case 0x2f: dprint(" -- so long!\n"); return -1;
-		case 0x51: tempo = get16(x) << 8; tempo |= get8(x); break;
-		default: skip(x, m);
-		}
-		break;
-	case 0xa:
-	case 0xd: get8(x); break;
-	default: sysfatal("invalid event %#ux\n", e >> 4);
+	e = nextev(t);
+	translate(t, e, &msg);
+	c = msg.chan;
+	switch(msg.type){
+	case Cnoteoff: noteoff(msg.chan, msg.arg1, msg.arg2); break;
+	case Cnoteon: noteon(msg.chan, msg.arg1, msg.arg2, t->t); break;
+	case Cbankmsb: if(msg.arg2 < Ninst) c->i = inst + msg.arg2; break;
+	case Cprogram: if(msg.arg2 < Ninst) c->i = inst + msg.arg1; break;
+	case Cchanvol: /* wet floor */
+	case Cpan:  /* wet floor */
+	case Cpitchbend: resetchan(c); break;
 	}
-	dprint("\n");
-	return 0;
 }
 
 void
@@ -453,68 +270,35 @@ readinst(char *file)
 	int n;
 	uchar u[8];
 	Inst *i;
+	Chan *c;
 
-	ib = bopen(file, OREAD);
-	bread(u, sizeof u);
+	inbf = eopen(file, OREAD);
+	Bread(inbf, u, sizeof u);
 	if(memcmp(u, "#OPL_II#", sizeof u) != 0)
 		sysfatal("invalid patch file");
-	for(i=inst; i<inst+nelem(inst); i++){
+	inst = emalloc(Ninst * sizeof *inst);
+	for(i=inst; i<inst+Ninst; i++){
 		n = get8(nil);
 		i->fixed = n & 1<<0;
 		i->dbl = opl2 ? 0 : n & 1<<2;
 		get8(nil);
 		i->fine = (get8(nil) - 128) * 64;
 		i->n = get8(nil);
-		bread(i->i, sizeof i->i);
+		Bread(inbf, i->i, sizeof i->i);
 		get8(nil);
 		n = get8(nil);
 		n |= get8(nil) << 8;
 		i->base[0] = (s16int)n;
-		bread(i->i2, sizeof i->i2);
+		Bread(inbf, i->i2, sizeof i->i2);
 		get8(nil);
 		n = get8(nil);
 		n |= get8(nil) << 8;
 		i->base[1] = (s16int)n;
 	}
-	Bterm(ib);
-}
-
-void
-readmid(char *file)
-{
-	u32int n, z;
-	uchar *s;
-	Trk *x;
-
-	ib = file != nil ? bopen(file, OREAD) : bfdopen(0, OREAD);
-	if(stream)
-		return;
-	if(get32(nil) != 0x4d546864 || get32(nil) != 6)
-		sysfatal("invalid header");
-	mfmt = get16(nil);
-	ntrk = get16(nil);
-	if(ntrk == 1)
-		mfmt = 0;
-	if(mfmt < 0 || mfmt > 1)
-		sysfatal("unsupported format %d", mfmt);
-	div = get16(nil);
-	tr = emalloc(ntrk * sizeof *tr);
-	for(x=tr, z=-1UL; x<tr+ntrk; x++){
-		if(get32(nil) != 0x4d54726b)
-			sysfatal("invalid track");
-		n = get32(nil);
-		s = emalloc(n);
-		bread(s, n);
-		x->s = s;
-		x->p = s;
-		x->e = s + n;
-		x->Δ = getvar(x);	/* prearm */
-		if(x->Δ < z)
-			z = x->Δ;
-	}
-	for(x=tr; x<tr+ntrk; x++)
-		x->Δ -= z;
-	Bterm(ib);
+	Bterm(inbf);
+	inbf = nil;
+	for(c=chan; c<chan+nelem(chan); c++)
+		c->i = inst;
 }
 
 void
@@ -527,68 +311,31 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	int n, end, debug;
+	int n;
 	char *i;
 	double f;
-	Chan *c;
 	Opl *o;
-	Trk *x;
 
+	samprate = 49716,		/* opl3 sampling rate */
 	i = "/mnt/wad/genmidi";
-	debug = 0;
 	ARGBEGIN{
 	case '2': opl2 = 1; ople = opl + 9; break;
-	case 'D': debug = 1; break;
+	case 'D': trace = 1; break;
 	case 'i': i = EARGF(usage()); break;
 	case 's': stream = 1; break;
 	default: usage();
 	}ARGEND
+	initmid();
 	readinst(i);
-	readmid(*argv);
+	if(readmid(*argv) < 0)
+		sysfatal("readmid: %r");
 	f = pow(2, 1./12);
 	for(n=0; n<nelem(freq); n++)
 		freq[n] = 440 * pow(f, n - 69);
-	for(c=chan; c<chan+nelem(chan); c++){
-		c->v = 0x5a;
-		c->bend = 0;
-		c->pan = 3<<4;
-		c->i = inst;
-	}
 	for(o=opl; o<ople; o++)
 		o->n = -1;
-	tempo = 500000;
 	putcmd(Rwse, Mwse, 0);
 	putcmd(Rop3, 1, 0);
-	trace = debug;
-	if(stream){
-		Trk ☺;
-		memset(&☺, 0, sizeof ☺);
-		tr = &☺;
-		for(;;){
-			getvar(&☺);
-			if(ev(&☺, 0) < 0)
-				exits(nil);
-		}
-	}
-	for(;;){
-		end = 1;
-		for(x=tr; x<tr+ntrk; x++){
-			if(x->ended)
-				continue;
-			end = 0;
-			x->Δ--;
-			x->t += tc(1);
-			while(x->Δ <= 0){
-				if(x->ended = ev(x, x->t)){
-					x->p = x->e;
-					break;
-				}
-				x->Δ = getvar(x);
-			}
-		}
-		if(end)
-			break;
-		samp(1);
-	}
+	evloop();
 	exits(nil);
 }
