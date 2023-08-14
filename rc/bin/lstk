@@ -1,0 +1,10 @@
+#!/bin/rc
+
+if(~ $#* 1)
+	p=$1
+if not if(~ $#* 0)
+	p=`{ps | grep Broken | awk '{print $2}' | sort -n | tail -n 1}
+if not
+	p 'usage: $0 [broken]' >[2=1]
+
+echo 'lstk()' | acid $p
