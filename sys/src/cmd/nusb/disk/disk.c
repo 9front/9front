@@ -652,6 +652,10 @@ dopen(Req *req)
 		lun->phase = Pcmd;
 		qunlock(lun);
 		srvacquire(req->srv);
+		/* wet floor */
+	case Qdata:
+	case Qpart:
+		req->ofcall.iounit = Maxiosize;
 		break;
 	}
 	respond(req, nil);
