@@ -19,7 +19,7 @@ typedef	struct	Init	Init;
 typedef	struct	Bits	Bits;
 
 #define	NHUNK		50000L
-#define	BUFSIZ		8192
+#define	BUFSIZ		IOUNIT
 #define	NSYMB		1500
 #define	NHASH		1024
 #define	STRINGSZ	200
