@@ -89,7 +89,7 @@ call(char *net, char *host, char *service, char **na)
 void
 rcpu(int fd, char *cmd)
 {
-	char buf[4096];
+	char buf[IOUNIT];
 	int kid, n;
 	TLSconn *conn;
 	AuthInfo *ai;
@@ -125,7 +125,7 @@ rcpu(int fd, char *cmd)
 void
 rex(int fd, char *cmd)
 {
-	char buf[4096];
+	char buf[IOUNIT];
 	int kid, n;
 	AuthInfo *ai;
 
@@ -148,7 +148,7 @@ rex(int fd, char *cmd)
 void
 tcpexec(int fd, char *addr, char *cmd)
 {
-	char *cp, *ep, *u, *ru, buf[4096];
+	char *cp, *ep, *u, *ru, buf[IOUNIT];
 	int kid, n;
 
 	/*
@@ -210,7 +210,7 @@ tcpexec(int fd, char *addr, char *cmd)
 int
 send(int fd)
 {
-	char buf[4096];
+	char buf[IOUNIT];
 	int n;
 	int kid;
 	switch(kid = fork()){
