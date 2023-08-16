@@ -142,7 +142,7 @@ main(int argc, char **argv)
 void
 xfer(int from, int to)
 {
-	char buf[12*1024];
+	char buf[IOUNIT];
 	int n;
 
 	while((n = read(from, buf, sizeof buf)) > 0){
