@@ -62,7 +62,7 @@ Fid	*fids;
 Fcall	rhdr, thdr;
 int 	blocksize;
 int 	cachesize = 20;
-int	mesgsize = 8*1024 + IOHDRSZ;
+int	mesgsize = IOUNIT + IOHDRSZ;
 Paq 	*root, *rootfile;
 Block 	*cache;
 ulong 	cacheage;
