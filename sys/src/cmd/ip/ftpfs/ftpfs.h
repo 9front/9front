@@ -107,6 +107,4 @@ extern char *user;
 #define TIMEOUT 5*60
 #define DMSYML 0x10000000
 
-#define MAXFDATA 8192
-
 extern char	net[];		/* network for connections */
