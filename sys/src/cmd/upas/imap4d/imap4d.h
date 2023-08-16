@@ -23,7 +23,7 @@ typedef struct Uidplus	Uidplus;
 enum
 {
 	Stralloc		= 32,		/* characters allocated at a time */
-	Bufsize		= 8*1024,	/* size of transfer block */
+	Bufsize		= IOUNIT,	/* size of transfer block */
 	Ndigest		= 40,		/* length of digest string */
 	Nuid		= 10,		/* length of .imp uid string */
 	Nflags		= 8,		/* length of .imp flag string */
