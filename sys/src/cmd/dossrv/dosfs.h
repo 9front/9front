@@ -1,6 +1,6 @@
 enum
 {
-	Maxfdata	= 8192,
+	Maxfdata	= IOUNIT,
 	Maxiosize	= IOHDRSZ+Maxfdata,
 };
 
