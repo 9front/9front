@@ -834,6 +834,7 @@ sendproc(void *)
 					putsreq(r);
 					break;
 				}
+				r->req->ofcall.iounit = MAXWRITE;
 				if((x & OTRUNC) != 0)
 					y |= SSH_FXF_TRUNC;
 				rlock(sf);
