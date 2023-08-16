@@ -6,7 +6,7 @@ typedef	struct	Biobufhdr	Biobufhdr;
 
 enum
 {
-	Bsize		= 8192,
+	Bsize		= IOUNIT,
 	Bungetsize	= UTFmax+1,	/* space for ungetc */
 	Bmagic		= 0x314159,
 	Beof		= -1,
