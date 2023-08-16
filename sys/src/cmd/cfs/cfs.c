@@ -49,7 +49,7 @@ struct Cfsstat  cfsstat, cfsprev;
 char	statbuf[2048];
 int	statlen;
 
-#define	MAXFDATA	8192	/* i/o size for read/write */
+#define	MAXFDATA	IOUNIT	/* i/o size for read/write */
 
 int		messagesize = MAXFDATA+IOHDRSZ;
 
