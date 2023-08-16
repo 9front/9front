@@ -77,8 +77,6 @@ struct Playlist
 	int rawsz;
 };
 
-int mainstacksize = 65536;
-
 static int debug;
 static int audio = -1;
 static int volume, rg;
@@ -152,13 +150,13 @@ chvolume(int d)
 {
 	int f, x, ox, want, try;
 	char *s, *e;
-	Biobuf b;
+	Biobufhdr b;
+	uchar buf[1024];
 	char *n;
 
 	if((f = open("/dev/volume", ORDWR|OCEXEC)) < 0)
 		return;
-	Binit(&b, f, OREAD);
-
+	Binits(&b, f, OREAD, buf, sizeof(buf));
 	want = x = -1;
 	ox = 0;
 	for(try = 0; try < 10; try++){
@@ -181,9 +179,7 @@ chvolume(int d)
 		while(Brdline(&b, '\n') != nil);
 		Bseek(&b, 0, 0);
 	}
-
 	volume = CLAMP(ox, 0, 100);
-
 	Bterm(&b);
 	close(f);
 }

@@ -24,8 +24,6 @@ struct Aux {
 	int keepfirstartist;
 };
 
-int mainstacksize = 32768;
-
 static int simplesort;
 static int moddec;
 static Channel *cmeta;
@@ -47,8 +45,10 @@ static char *fmts[] =
 	[Fmod] = "mod",
 };
 
+static int cmpmeta(void *, void *);
+
 static void
-metathread(void *)
+metathread(void *cexit)
 {
 	int max;
 	Meta *m;
@@ -63,6 +63,8 @@ metathread(void *)
 		}
 		tracks[ntracks++] = m;
 	}
+	qsort(tracks, ntracks, sizeof(Meta*), cmpmeta);
+	sendul(cexit, 0);
 
 	threadexits(nil);
 }
@@ -362,7 +364,7 @@ threadmain(int argc, char **argv)
 	char *dir, *s, wd[4096];
 	Channel *cexit;
 	int i, nproc;
-	Biobuf out;
+	static Biobuf out;
 	Meta *m;
 
 	ARGBEGIN{
@@ -388,9 +390,10 @@ threadmain(int argc, char **argv)
 		nproc = 1;
 	free(s);
 	for(i = 0; i < nproc; i++)
-		proccreate(tagreadproc, cexit, 16384);
+		proccreate(tagreadproc, cexit, 8*1024);
 
-	threadcreate(metathread, nil, 4096);
+	/* give metathread a large stack for qsort() */
+	threadcreate(metathread, cexit, 64*1024);
 
 	Binit(&out, 1, OWRITE);
 
@@ -422,8 +425,8 @@ threadmain(int argc, char **argv)
 	for(i = 0; i < nproc; i++)
 		recvul(cexit);
 	chanclose(cmeta);
+	recvul(cexit);
 
-	qsort(tracks, ntracks, sizeof(Meta*), cmpmeta);
 	for(i = 0; i < ntracks; i++){
 		if(tracks[i]->numartist < 1)
 			fprint(2, "no artists: %s\n", tracks[i]->path);
