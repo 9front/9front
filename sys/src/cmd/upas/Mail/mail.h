@@ -6,7 +6,7 @@ typedef struct Comp	Comp;
 
 enum {
 	Stack	= 64*1024,
-	Bufsz	= 8192,
+	Bufsz	= IOUNIT,
 	Eventsz	= 256*UTFmax,
 	Subjlen	= 56,
 };
