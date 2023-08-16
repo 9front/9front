@@ -2,7 +2,7 @@
 #include <libc.h>
 
 int dopipe;
-int buflen = 8192;
+int buflen;
 uvlong bc, sec;
 
 void
@@ -18,7 +18,7 @@ main(int argc, char **argv)
 	double speed;
 	int rc, cpid;
 	char *buf;
-	
+
 	ARGBEGIN {
 	case 'b':
 		buflen = atoi(EARGF(usage()));
@@ -32,9 +32,14 @@ main(int argc, char **argv)
 
 	if(argc != 0)
 		usage();
-	
+
 	bc = 0;
 	sec = 0;
+	if(buflen <= 0){
+		buflen = iounit(0);
+		if(buflen <= 0)
+			buflen = IOUNIT;
+	}
 	buf = sbrk(buflen);
 	if(buf == (void*)-1)
 		sysfatal("out of memory");
