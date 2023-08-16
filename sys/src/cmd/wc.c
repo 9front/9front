@@ -8,7 +8,7 @@
  */
 #include <u.h>
 #include <libc.h>
-#define	NBUF	(8*1024)
+#define	NBUF	IOUNIT
 uvlong nline, tnline; int pline;
 uvlong nword, tnword; int pword;
 uvlong nrune, tnrune; int prune;
