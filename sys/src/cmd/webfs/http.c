@@ -28,7 +28,7 @@ struct Hconn
 	int	tunnel;
 	int	len;
 	char	addr[128];
-	char	buf[8192+2];
+	char	buf[IOUNIT+2];
 };
 
 struct Hpool
@@ -549,7 +549,7 @@ void
 http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 {
 	int i, l, n, try, pid, fd, cfd, needlength, chunked, retry, nobody, badauth;
-	char *s, *x, buf[8192+2], status[256], method[16], *host;
+	char *s, *x, buf[IOUNIT+2], status[256], method[16], *host;
 	vlong length, offset;
 	Url ru, tu, *nu;
 	Key *k, *rhdr;
@@ -625,7 +625,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 			/* have to read it to temp file to figure out the length */
 			if(fd >= 0 && needlength && lookkey(shdr, "Content-Length") == nil){
 				seek(fd, 0, 2);
-				while((n = buread(qpost, buf, sizeof(buf))) > 0)
+				while((n = buread(qpost, buf, sizeof(buf)-2)) > 0)
 					write(fd, buf, n);
 				shdr = delkey(shdr, "Transfer-Encoding");
 			}
@@ -1007,7 +1007,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 				offset = 0;
 			}
 			while(offset < length){
-				l = sizeof(buf);
+				l = sizeof(buf)-2;
 				if(l > (length - offset))
 					l = (length - offset);
 				if((n = hread(h, buf, l)) <= 0)
