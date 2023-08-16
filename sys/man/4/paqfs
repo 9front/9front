@@ -47,7 +47,7 @@ Treat everyone as group/owner.
 The number of file system blocks to cache in memory. The default is 20 blocks.
 .TP
 .BI -M " mesgsize
-The maximum 9P message size. The default is sufficient for 8K byte read message.
+The maximum 9P message size.
 .TP
 .B -d
 Output various debugging information to
