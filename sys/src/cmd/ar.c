@@ -1087,7 +1087,7 @@ arstream(int fd, Arfile *ap)
 {
 	Armember *bp;
 	int i;
-	char buf[8192];
+	char buf[IOUNIT];
 
 	if (ap->paged) {		/* copy from disk */
 		seek(ap->fd, 0, 0);
