@@ -10,12 +10,7 @@ typedef struct Umsc Umsc;
 
 enum {					/* fundamental constants/defaults */
 	MaxDirData	= 255,		/* max. direct data returned */
-	/*
-	 * Because we are accessed via devmnt, we can never get i/o counts
-	 * larger than 8216 (Msgsize and devmnt's offered iounit) - 24
-	 * (IOHDRSZ) = 8K.
-	 */
-	Maxiosize	= 8216 - IOHDRSZ, /* max. I/O transfer size */
+	Maxiosize	= IOUNIT,	/* max. I/O transfer size */
 };
 
 typedef struct {
