@@ -16,7 +16,6 @@ TARG=\
 	cpuid\
 	consolefs\
 	data2s\
-	depend\
 	dial\
 	disksim\
 	esd\
