@@ -3,7 +3,7 @@
 #include <ctype.h>
 
 int nbuf;
-char buf[64*1024+1];
+char buf[IOUNIT+1];
 char *cset = nil;
 char *whitespace = " \t\r\n";
 
@@ -180,7 +180,7 @@ Found:
 		if(write(1, p, nbuf) != nbuf)
 			sysfatal("write: %r");
 		p = buf;
-		if((nbuf = read(0, p, sizeof(buf))) < 0)
+		if((nbuf = read(0, p, sizeof(buf)-1)) < 0)
 			sysfatal("read: %r");
 	}
 	close(1);
