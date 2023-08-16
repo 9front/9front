@@ -16,7 +16,7 @@ enum
 	OPERM	= 0x3,		/* mask of all permission types in open mode */
 	Nram	= 512,
 	Maxsize	= 512*1024*1024,
-	Maxfdata	= 8192,
+	Maxfdata= IOUNIT,
 };
 
 typedef struct Fid Fid;

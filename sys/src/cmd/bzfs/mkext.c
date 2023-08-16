@@ -27,7 +27,6 @@
 #include "bzfs.h"
 
 enum{
-	LEN	= 8*1024,
 	NFLDS	= 6,		/* filename, modes, uid, gid, mtime, bytes */
 };
 
@@ -39,8 +38,7 @@ void	error(char*, ...);
 void	warn(char*, ...);
 void	usage(void);
 char *mtpt;
-Biobufhdr bin;
-uchar	binbuf[2*LEN];
+Biobuf bin;
 
 void
 usage(void)
@@ -89,15 +87,12 @@ blockread(int in, char *first, int nfirst)
 	return -1;
 }
 
-enum { NAMELEN = 28 };
-
 void
 main(int argc, char **argv)
 {
 	char *rargv[10];
 	int rargc;
-	char *fields[NFLDS], name[2*LEN], *p, *namep;
-	char uid[NAMELEN], gid[NAMELEN];
+	char *fields[NFLDS], *p;
 	ulong mode, bytes, mtime;
 	char *file;
 	int i, n, stdin, fd, chatty;
@@ -116,7 +111,6 @@ main(int argc, char **argv)
 	rfork(RFNOTEG);
 	stdin = 0;
 	file = nil;
-	namep = name;
 	mtpt = "/root";
 	chatty = 0;
 	ARGBEGIN{
@@ -174,33 +168,29 @@ if(chatty) fprint(2, "found at %d\n", i);
 
 	fd = unbflz(unbzip(blockread(fd, blk+13, sizeof(blk)-13)));
 
-	Binits(&bin, fd, OREAD, binbuf, sizeof binbuf);
-	while(p = Brdline(&bin, '\n')){
-		p[Blinelen(&bin)-1] = '\0';
+	Binit(&bin, fd, OREAD);
+	while((p = Brdstr(&bin, '\n', 1)) != nil){
 if(chatty) fprint(2, "%s\n", p);
-		if(strcmp(p, "end of archive") == 0){
+		if(strcmp(p, "end of archive") == 0)
 			_exits(0);
-		}
 		if(getfields(p, fields, NFLDS, 0, " \t") != NFLDS){
 			warn("too few fields in file header");
 			continue;
 		}
-		strcpy(namep, fields[0]);
 		mode = strtoul(fields[1], 0, 8);
 		mtime = strtoul(fields[4], 0, 10);
 		bytes = strtoul(fields[5], 0, 10);
-		strncpy(uid, fields[2], NAMELEN);
-		strncpy(gid, fields[3], NAMELEN);
 		if(mode & DMDIR)
-			mkdir(name, mode, mtime, uid, gid);
+			mkdir(fields[0], mode, mtime, fields[2], fields[3]);
 		else
-			extract(name, mode, mtime, uid, gid, bytes);
+			extract(fields[0], mode, mtime, fields[2], fields[3], bytes);
+		free(p);
 	}
 	fprint(2, "premature end of archive\n");
 	exits("premature end of archive");
 }
 
-char buf[8192];
+char buf[IOUNIT];
 
 int
 ffcreate(char *name, ulong mode, char *uid, char *gid, ulong mtime, int length)
@@ -208,7 +198,7 @@ ffcreate(char *name, ulong mode, char *uid, char *gid, ulong mtime, int length)
 	int fd, om;
 	Dir nd;
 
-	sprint(buf, "%s/%s", mtpt, name);
+	snprint(buf, sizeof buf, "%s/%s", mtpt, name);
 	om = ORDWR;
 	if(mode&DMDIR)
 		om = OREAD;
