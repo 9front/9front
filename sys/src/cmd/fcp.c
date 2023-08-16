@@ -1,6 +1,6 @@
 #include <u.h>
 #include <libc.h>
-#define	DEFB	(8*1024)
+
 #define	Nwork	8
 
 int	buflen;
@@ -134,7 +134,7 @@ copy(char *from, char *to, int todir)
 
 	buflen = iounit(fdf);
 	if(buflen <= 0)
-		buflen = DEFB;
+		buflen = IOUNIT;
 
 	if(copy1(fdf, fdt, from, to)==0 && (xflag || gflag || uflag)){
 		nulldir(&dirt);
