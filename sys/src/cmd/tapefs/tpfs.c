@@ -21,7 +21,7 @@ struct tp {
 	unsigned char	checksum[2];
 } dir[496+8];
 
-char	buffer[8192];
+char	buffer[Maxbuf];
 int	tapefile;
 
 void

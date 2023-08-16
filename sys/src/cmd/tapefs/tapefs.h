@@ -8,8 +8,7 @@
 enum
 {
 	OPERM	= 0x3,		/* mask of all permission types in open mode */
-	Nram	= 512,
-	Maxbuf	= 8192,		/* max buffer size */
+	Maxbuf	= IOUNIT,	/* max buffer size */
 };
 
 typedef struct Fid Fid;

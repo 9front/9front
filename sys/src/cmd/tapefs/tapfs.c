@@ -18,7 +18,7 @@ struct tap {
 } dir[192];
 
 int	tapefile;
-char	buffer[8192];
+char	buffer[Maxbuf];
 long	cvtime(unsigned char *);
 extern	int verbose;
 extern	int newtap;
