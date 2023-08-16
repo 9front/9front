@@ -8,7 +8,7 @@ char *opts[16];
 void
 xfer(int from, int to)
 {
-	char buf[8192];
+	char buf[IOUNIT];
 	int n;
 
 	while((n = read(from, buf, sizeof buf)) > 0)
