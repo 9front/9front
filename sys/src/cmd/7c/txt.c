@@ -101,6 +101,7 @@ ginit(void)
 	/* don't allocate */
 	reg[REGTMP] = 1;
 	reg[REGSB] = 1;
+	reg[REGLINK] = 1;
 	reg[REGSP] = 1;
 	reg[REGZERO] = 1;
 	/* keep two external registers */
