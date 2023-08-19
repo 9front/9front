@@ -108,26 +108,6 @@ cvtbgr332tocmap8(uchar *dst, uchar *src, int npixel)
 		*dst++ = bgr8[*src++];
 }
 
-static void
-cvt16to32(uchar *dst, uchar *src, int npixel)
-{
-	uchar *ed;
-	int w, r, g, b;
-
-	ed = dst+npixel*4;
-	while(dst < ed){
-		w = src[1]<<8 | src[0];
-		b = (w >> 11) & 0x1F;
-		g = (w >> 5) & 0x3F;
-		r = (w >> 0) & 0x1F;
-		dst[0] = b<<(8-5);
-		dst[1] = g<<(8-6);
-		dst[2] = r<<(8-5);
-		dst += 4;
-		src += 2;
-	}
-}
-
 void
 choosecolor(Vnc *v)
 {
@@ -139,11 +119,6 @@ choosecolor(Vnc *v)
 	bpp = depth;
 	if((bpp / 8) * 8 != bpp)
 		sysfatal("screen not supported");
-
-	if(bpp == 32 && v->Pixfmt.bpp == 16){
-		cvtpixels = cvt16to32;
-		goto Done;
-	}
 
 	if(bpp == 24){
 		if(verbose)
@@ -180,7 +155,6 @@ choosecolor(Vnc *v)
 	if(v->red.max == 0 || v->green.max == 0 || v->blue.max == 0)
 		sysfatal("screen not supported");
 
-Done:
 	if(verbose)
 		fprint(2, "%d bpp, %d depth, 0x%lx chan, %d truecolor, %d bigendian\n",
 			v->bpp, v->depth, screen->chan, v->truecolor, v->bigendian);
