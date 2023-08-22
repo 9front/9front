@@ -196,16 +196,16 @@ timerproc(void *c)
 static void
 auxproc(void *c)
 {
-	Biobuf b;
+	u8int buf[1024];
+	Biobufhdr b;
 	char *s;
 
 	threadsetname("aux");
-	Binit(&b, 0, OREAD);
+	Binits(&b, 0, OREAD, buf, sizeof(buf));
 	for(;;){
-		s = Brdstr(&b, '\n', 1);
+		sendp(c, s = Brdstr(&b, '\n', 1));
 		if(s == nil)
 			break;
-		sendp(c, s);
 	}
 	Bterm(&b);
 
@@ -332,7 +332,7 @@ threadmain(int argc, char **argv)
 	readbattery();
 	redraw();
 	proccreate(timerproc, a[Etimer].c, 4096);
-	proccreate(auxproc, a[Eaux].c, 16384);
+	proccreate(auxproc, a[Eaux].c, 4096);
 
 	m.buttons = 0;
 	oldt = nanosec();
@@ -368,6 +368,8 @@ threadmain(int argc, char **argv)
 		case Eaux:
 			free(aux);
 			aux = s;
+			if(aux == nil)
+				threadexitsall(nil);
 			/* wet floor */
 		}
 
