@@ -1,8 +1,0 @@
-</$objtype/mkfile
-<../config
-
-OFILES=vocdec.$O
-
-TARG=vocdec
-
-</sys/src/cmd/mkone

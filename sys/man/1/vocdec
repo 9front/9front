@@ -1,0 +1,45 @@
+.TH VOCDEC 1
+.SH NAME
+vocdec, vocenc \- decode and encode VOC files
+.SH SYNOPSIS
+.B games/vocdec
+.br
+.B games/vocenc
+.I fmt
+.SH DESCRIPTION
+.I Vocdec
+and
+.I vocenc
+process and create Creative Voice formatted audio files.
+.PP
+.I Vocdec
+reads a VOC file on stdin and outputs a raw audio stream
+in the default format understood by
+.BR /dev/audio ,
+that is signed 16 bit little endian, two channels, 44.1kHz.
+.PP
+.I Vocenc
+reads raw audio on stdin and outputs a VOC formatted file
+on stdout. The
+.I fmt
+argument specifies both the input and output raw audio format
+using the same string format as
+.IR pcmconv (1).
+.SH EXAMPLES
+Create a VOC file from microphone input:
+.IP
+.EX
+</dev/audio audio/pcmconv -o u8c1r44100 | \\
+  games/vocenc u8c1r44100 >out.voc
+.EE
+.SH SOURCE
+.B /sys/src/games/vocdec.c
+.br
+.B /sys/src/games/vocenc.c
+.SH SEE ALSO
+.IR audio (1),
+.IR audio (3),
+.IR play (1)
+.SH HISTORY
+Vocdec first appeared in 9front (February, 2023).
+Vocenc was added later (August, 2023).

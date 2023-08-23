@@ -1,7 +1,7 @@
 </$objtype/mkfile
 
 LIBS=libogg libvorbis libFLAC libtags
-PROGS=pcmconv oggdec oggenc mp3dec mp3enc flacdec flacenc wavdec sundec vocdec mixfs readtags zuke scream
+PROGS=pcmconv oggdec oggenc mp3dec mp3enc flacdec flacenc wavdec sundec mixfs readtags zuke scream
 #libs must be made first
 DIRS=$LIBS $PROGS
 

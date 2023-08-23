@@ -21,6 +21,8 @@ TARG=4s\
 	dpic\
 	todpic\
 	turtle\
+	vocenc\
+	vocdec\
 
 OFILES=
 HFILES=
