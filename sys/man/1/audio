@@ -58,17 +58,11 @@ q ] [
 .br
 .B audio/flacenc
 [
-.B -b
-.I bitspersample
-] [
-.B -c
-.I channels
+.B -i
+.I fmt
 ] [
 .B -l
 .I compresslevel
-] [
-.B -s
-.I sfreq
 ] [
 .B -P
 .I padding
@@ -142,15 +136,22 @@ or
 .BR -v
 (variable bitrate, VBR).
 .PP
-.I Flacenc
-and
-.I oggenc
+.I Oggenc
 accept raw PCM in the same byte order as
 .B /dev/audio
 (little-endian),
 while
 .I mp3enc -r
 expects big-endian.
+.I Flacenc
+by default expects raw PCM in the same format as
+.BR /dev/audio ,
+but also supports signed integer samples of bit widths 4 to 32, either
+little- or big-endian, one to eight channels and arbitrary
+samplerates, see
+.B -i
+option of
+.IR pcmconv .
 .SS Encoding options
 .TF "\fB-b \fP"
 .TP
