@@ -129,7 +129,7 @@ icyget(Meta *m, int outfd, Channel **newtitle)
 		assert(aux->newtitle != nil);
 		b->aux = aux;
 		*newtitle = aux->newtitle;
-		proccreate(icyproc, b, mainstacksize);
+		proccreate(icyproc, b, 4096);
 	}
 
 	return r;
