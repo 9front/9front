@@ -32,19 +32,19 @@ static void
 icyproc(void *b_)
 {
 	char *p, *s, *e;
-	Biobuf *b, out;
+	Biobuf *b, *out;
 	int n, r, sz;
 	Icyaux *aux;
 
 	threadsetname("icy/pull");
 	b = b_;
 	aux = b->aux;
-	Binit(&out, aux->outfd, OWRITE);
+	out = Bfdopen(aux->outfd, OWRITE);
 	sz = aux->metaint > 4096 ? aux->metaint : 4096;
 	p = malloc(sz);
 	for(;;){
 		r = Breadn(b, p, aux->metaint > 0 ? aux->metaint : sz);
-		if(r < 1 || Bwrite(&out, p, r) != r)
+		if(r < 1 || Bwrite(out, p, r) != r)
 			break;
 		if(aux->metaint > 0){
 			if((n = 16*Bgetc(b)) < 0)
@@ -63,7 +63,7 @@ icyproc(void *b_)
 	}
 	free(p);
 	Bterm(b);
-	Bterm(&out);
+	Bterm(out);
 	chanclose(aux->newtitle);
 
 	threadexits(nil);
