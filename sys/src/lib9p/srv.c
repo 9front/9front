@@ -468,10 +468,15 @@ screate(Srv *srv, Req *r)
 static void
 ropen(Req *r, char *error)
 {
+	uint iounit;
+
 	if(error)
 		return;
 	if(chatty9p)
 		fprint(2, "fid mode is %x\n", (int)r->ifcall.mode);
+	iounit = r->srv->msize - IOHDRSZ;
+	if(r->ofcall.iounit > iounit)
+		r->ofcall.iounit = iounit;
 	if(r->ofcall.qid.type&QTDIR)
 		r->fid->diroffset = 0;
 	r->fid->qid = r->ofcall.qid;
@@ -481,6 +486,7 @@ ropen(Req *r, char *error)
 static void
 sread(Srv *srv, Req *r)
 {
+	uint iounit;
 	int o;
 
 	if((r->fid = lookupfid(srv->fpool, r->ifcall.fid)) == nil){
@@ -501,17 +507,18 @@ sread(Srv *srv, Req *r)
 	case OEXEC:
 		break;
 	}
-	if((int)r->ifcall.count < 0){
-		respond(r, Ebotch);
-		return;
-	}
 	if(r->ifcall.offset < 0
 	|| ((r->fid->qid.type&QTDIR) && r->ifcall.offset != 0 && r->ifcall.offset != r->fid->diroffset)){
 		respond(r, Ebadoffset);
 		return;
 	}
-	if(r->ifcall.count > srv->msize - IOHDRSZ)
-		r->ifcall.count = srv->msize - IOHDRSZ;
+	if((int)r->ifcall.count < 0){
+		respond(r, Ebotch);
+		return;
+	}
+	iounit = srv->msize - IOHDRSZ;
+	if(r->ifcall.count > iounit)
+		r->ifcall.count = iounit;
 	r->rbuf = emalloc9p(r->ifcall.count);
 	r->ofcall.data = r->rbuf;
 	if((r->fid->qid.type&QTDIR) && r->fid->file){
@@ -534,6 +541,7 @@ rread(Req *r, char *error)
 static void
 swrite(Srv *srv, Req *r)
 {
+	uint iounit;
 	int o;
 
 	if((r->fid = lookupfid(srv->fpool, r->ifcall.fid)) == nil){
@@ -557,16 +565,17 @@ swrite(Srv *srv, Req *r)
 		respond(r, Ebotch);
 		return;
 	}
-	if((int)r->ifcall.count < 0){
-		respond(r, Ebotch);
-		return;
-	}
 	if(r->ifcall.offset < 0){
 		respond(r, Ebotch);
 		return;
 	}
-	if(r->ifcall.count > srv->msize - IOHDRSZ)
-		r->ifcall.count = srv->msize - IOHDRSZ;
+	if((int)r->ifcall.count < 0){
+		respond(r, Ebotch);
+		return;
+	}
+	iounit = srv->msize - IOHDRSZ;
+	if(r->ifcall.count > iounit)
+		r->ifcall.count = iounit;
 	if(srv->write)
 		srv->write(r);
 	else

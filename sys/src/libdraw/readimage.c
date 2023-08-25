@@ -29,8 +29,11 @@ readimage(Display *d, int fd, int dolock)
 		return nil;
 	if(d != nil)
 		chunk = d->bufsize - 32;	/* a little room for header */
-	else
-		chunk = 8192;
+	else {
+		chunk = iounit(fd);
+		if(chunk <= 0)
+			chunk = IOUNIT;
+	}
 
 	/*
 	 * distinguish new channel descriptor from old ldepth.
