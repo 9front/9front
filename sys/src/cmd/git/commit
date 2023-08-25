@@ -121,7 +121,7 @@ if not if(~ $#revise 1){
 
 files=()
 if(test -f .git/index9/merge-parents)
-	files=`$nl{git/query -c `{cat .git/index9/merge-parents} | sed 's/^..//g'}
+	files=`$nl{git/query -c `{cat .git/index9/merge-parents} | sed 's/^..//'}
 if(! ~ $#* 0)
 	files=($files `$nl{git/walk -c `$nl{cleanname -d $gitrel $*}})
 if(~ $status '' || ~ $#files 0 && ! test -f .git/index9/merge-parents && ~ $#revise 0)
