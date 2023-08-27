@@ -132,8 +132,8 @@ static int
 bzip(char *file, long mtime, int ifd, Biobuf *bout)
 {
 	int e, n, done, onemore;
-	char buf[8192];
-	char obuf[8192];
+	char buf[IOUNIT];
+	char obuf[IOUNIT];
 	Biobuf bin;
 	bz_stream strm;
 

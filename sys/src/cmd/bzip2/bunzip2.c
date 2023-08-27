@@ -125,8 +125,8 @@ static int
 bunzip(int ofd, char *ofile, Biobuf *bin)
 {
 	int e, n, done, onemore;
-	char buf[8192];
-	char obuf[8192];
+	char buf[IOUNIT];
+	char obuf[IOUNIT];
 	Biobuf bout;
 	bz_stream strm;
 
