@@ -9,6 +9,8 @@ sd \- storage device interface
 .BI /dev/sd Cu /ctl
 .BI /dev/sd Cu /raw
 .BI /dev/sd Cu /data
+.BI /dev/sd Cu /led
+.BI /dev/sd Cu /smart
 \&...
 .fi
 .SH DESCRIPTION
