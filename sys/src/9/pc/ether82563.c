@@ -113,6 +113,8 @@ enum {
 enum {					/* Ctrl */
 	Lrst		= 1<<3,		/* link reset */
 	Slu		= 1<<6,		/* Set Link Up */
+	Frcspd		= 1<<11,	/* Force Speed */
+	Frcdplx		= 1<<12,	/* Force Duplex */
 	Devrst		= 1<<26,	/* Device Reset */
 	Rfce		= 1<<27,	/* Receive Flow Control Enable */
 	Tfce		= 1<<28,	/* Transmit Flow Control Enable */
@@ -1347,6 +1349,7 @@ i82563attach(Ether *edev)
 {
 	char name[KNAMELEN];
 	Ctlr *ctlr;
+	uint r;
 
 	ctlr = edev->ctlr;
 	qlock(&ctlr->alock);
@@ -1383,6 +1386,11 @@ i82563attach(Ether *edev)
 		qunlock(&ctlr->alock);
 		nexterror();
 	}
+
+	/* set link up */
+	r = csr32r(ctlr, Ctrl);
+	r &= ~(Frcspd|Frcdplx);	/* dont force */
+	csr32w(ctlr, Ctrl, Slu|r);
 
 	snprint(name, sizeof name, "#l%dl", edev->ctlrno);
 	if(csr32r(ctlr, Status) & Tbimode)
@@ -1488,9 +1496,6 @@ i82563detach(Ctlr *ctlr)
 			return -1;
 		delay(1);
 	}
-
-	r = csr32r(ctlr, Ctrl);
-	csr32w(ctlr, Ctrl, Slu|r);
 
 	r = csr32r(ctlr, Ctrlext);
 	csr32w(ctlr, Ctrlext, r|Eerst);
