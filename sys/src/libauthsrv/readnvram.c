@@ -1,6 +1,7 @@
 #include <u.h>
 #include <libc.h>
 #include <authsrv.h>
+#include <libsec.h>
 
 static long	finddosfile(int, char*);
 
@@ -247,6 +248,7 @@ readnvram(Nvrsafe *safep, int flag)
 	if((flag&(NVwrite|NVwritemem)) || (err && (flag&NVwriteonerr))){
 		if (!(flag&NVwritemem)) {
 			char pass[PASSWDLEN];
+			char pass2[PASSWDLEN];
 			Authkey k;
 
 			if(ask("authid", safe->authid, sizeof safe->authid, 0))
@@ -255,12 +257,20 @@ readnvram(Nvrsafe *safep, int flag)
 				goto Out;
 			if(ask("secstore key", safe->config, sizeof safe->config, 1))
 				goto Out;
+Again:
 			if(ask("password", pass, sizeof pass, 1))
 				goto Out;
+			if(ask("confirm password", pass2, sizeof pass2, 1))
+				goto Out;
+			if(tsmemcmp(pass, pass2, sizeof pass) != 0){
+				fprint(2, "password mismatch\n");
+				goto Again;
+			}
 			if((dodes = readcons("enable legacy p9sk1", "no", 0)) == nil)
 				goto Out;
 			passtokey(&k, pass);
 			memset(pass, 0, sizeof pass);
+			memset(pass2, 0, sizeof pass2);
 			if(dodes[0] == 'y' || dodes[0] == 'Y')
 				memmove(safe->machkey, k.des, DESKEYLEN);
 			else
