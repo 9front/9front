@@ -1,13 +1,13 @@
 .TH MUS 1
 .SH NAME
-mus, dmx \- MUS to MIDI converter and DMX decoder
+mus, dmxdec \- MUS to MIDI converter and DMX decoder
 .SH SYNOPSIS
 .B games/mus
 [
 .I musfile
 ]
 .br
-.B games/dmx
+.B games/dmxdec
 [
 .I dmxfile
 ]
@@ -21,7 +21,7 @@ decodes MIDI music encoded in MUS format, either from
 .B musfile
 or from standard input, and produces a MIDI format file on standard output.
 .PP
-.I Dmx
+.I Dmxdec
 similarly transcodes its input into PCM on standard output at
 .IR audio (3)'s
 default 44.1 kHz sampling rate.
@@ -31,10 +31,10 @@ default 44.1 kHz sampling rate.
 .SH SOURCE
 .B /sys/src/games/mus.c
 .br
-.B /sys/src/games/dmx.c
+.B /sys/src/games/dmxdec.c
 .SH HISTORY
 .I Mus
 and
-.I dmx
+.I dmxdec
 first appeared in 9front (respectively
 in September, 2015 and August, 2023).
