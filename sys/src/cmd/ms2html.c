@@ -684,13 +684,13 @@ getrune(void)
 
 	lastsrc = Input;
 	for(;;) {
-		if(ssp < sstack)
-			return -1;
 		c = Bgetrune(&ssp->in);
 		if(c >= 0){
 			r = c;
 			break;
 		}
+		if(ssp == sstack)
+			return -1;
 		close(ssp->fd);
 		ssp--;
 	}
