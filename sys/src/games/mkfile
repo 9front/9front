@@ -5,7 +5,7 @@ TARG=4s\
 	ana\
 	aout2gba\
 	catclock\
-	dmx\
+	dmxdec\
 	festoon\
 	geigerstats\
 	juggle\
