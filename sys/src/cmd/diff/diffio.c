@@ -130,7 +130,7 @@ prepare(Diff *d, int i, char *arg, char *orig)
 			 * brave new UNICODE world
 			 */
 			cp += chartorune(&r, cp);
-			if (r == 0 || (r > 0x7f && r <= 0xa0)) {
+			if(r == 0 || r == Runeerror){
 				d->binary++;
 				return bp;
 			}
