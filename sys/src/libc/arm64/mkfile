@@ -7,6 +7,8 @@ SFILES=\
 	argv0.s\
 	atom.s\
 	cycles.s\
+	fabs.s\
+	floor.s\
 	getcallerpc.s\
 	getfcr.s\
 	main9.s\
