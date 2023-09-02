@@ -48,6 +48,7 @@ static long	opstr9(int);
 static long	opldr9(int);
 static long	opxrrr(int);
 static long	olsxrr(int, int, int, int);
+static long	opfmovr(int);
 static long	oprrr(int);
 static long	opirr(int);
 static long	opldr12(int);
@@ -758,6 +759,12 @@ asmout(Prog *p, Optab *o)
 		o1 |= rf<<16 | r<<5 | rt;
 		break;
 
+	case 55:	/* fmovT Rn, Fd; fmovT Fn, Rd */
+		o1 = opfmovr(p->as) | p->from.reg<<5 | p->to.reg;
+		if(p->to.type == D_FREG)
+			o1 |= 1<<16;
+		break;
+
 	case 56:	/* floating point compare */
 		o1 = oprrr(p->as);
 		if(p->from.type == D_FCONST) {
@@ -934,6 +941,18 @@ asmout(Prog *p, Optab *o)
 		lputl(o4);
 		lputl(o5);
 		break;
+	}
+}
+
+static long
+opfmovr(int a)
+{
+	switch(a){
+	case AFMOVS:	return 0<<31 | 0x1e<<24 | 0<<22 | 1<<21 | 6<<16;
+	case AFMOVD:	return 1<<31 | 0x1e<<24 | 1<<22 | 1<<21 | 6<<16;
+	default:
+		diag("bad fmov op\n%P", curp);
+		return 0;
 	}
 }
 
