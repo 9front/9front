@@ -1259,11 +1259,11 @@ doprof2(void)
 		if(p->as == ATEXT) {
 			if(p->from.sym == s2) {
 				ps2 = p;
-				p->reg = 1;
+				p->reg = NOPROF;
 			}
 			if(p->from.sym == s4) {
 				ps4 = p;
-				p->reg = 1;
+				p->reg = NOPROF;
 			}
 		}
 	}
