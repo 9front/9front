@@ -646,6 +646,7 @@ qproduce(Queue *q, void *vp, int len)
 	if(q->len >= q->limit){
 		q->state |= Qflow;
 		iunlock(q);
+		freeb(b);
 		return -1;
 	}
 	producecnt += len;
