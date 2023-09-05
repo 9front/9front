@@ -1360,29 +1360,29 @@ nuxiinit(void)
 	for(i=0; i<4; i++) {
 		c = find1(0x04030201L, i+1);
 		if(i < 2)
-			inuxi2[i] = c;
+			inuxi[2][i] = c;
 		if(i < 1)
-			inuxi1[i] = c;
-		inuxi4[i] = c;
+			inuxi[1][i] = c;
+		inuxi[4][i] = c;
 		fnuxi4[i] = c;
-		inuxi8[i] = c;
-		inuxi8[i+4] = c+4;
+		inuxi[8][i] = c;
+		inuxi[8][i+4] = c+4;
 		fnuxi8[i] = c;
 		fnuxi8[i+4] = c+4;
 	}
 	if(debug['v']) {
 		Bprint(&bso, "inuxi = ");
 		for(i=0; i<1; i++)
-			Bprint(&bso, "%d", inuxi1[i]);
+			Bprint(&bso, "%d", inuxi[1][i]);
 		Bprint(&bso, " ");
 		for(i=0; i<2; i++)
-			Bprint(&bso, "%d", inuxi2[i]);
+			Bprint(&bso, "%d", inuxi[2][i]);
 		Bprint(&bso, " ");
 		for(i=0; i<4; i++)
-			Bprint(&bso, "%d", inuxi4[i]);
+			Bprint(&bso, "%d", inuxi[4][i]);
 		Bprint(&bso, " ");
 		for(i=0; i<8; i++)
-			Bprint(&bso, "%d", inuxi8[i]);
+			Bprint(&bso, "%d", inuxi[8][i]);
 		Bprint(&bso, "\nfnuxi = ");
 		for(i=0; i<4; i++)
 			Bprint(&bso, "%d", fnuxi4[i]);

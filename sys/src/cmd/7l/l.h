@@ -242,18 +242,14 @@ enum
 	MAXHIST		= 20,	/* limit of path elements for history symbols */
 };
 
-EXTERN union
+EXTERN struct
 {
-	struct
-	{
-		uchar	obuf[MAXIO];			/* output buffer */
-		uchar	ibuf[MAXIO];			/* input buffer */
-	} u;
-	char	dbuf[1];
+	uchar	obuf[MAXIO];			/* output buffer */
+	uchar	ibuf[MAXIO];			/* input buffer */
 } buf;
 
-#define	cbuf	u.obuf
-#define	xbuf	u.ibuf
+#define	cbuf	obuf
+#define	xbuf	ibuf
 
 EXTERN	long	HEADR;			/* length of header */
 EXTERN	int	HEADTYPE;		/* type of header */
@@ -278,12 +274,9 @@ EXTERN	char	debug[128];
 EXTERN	Prog*	etextp;
 EXTERN	Prog*	firstp;
 
-EXTERN	char	fnuxi4[4];
-EXTERN	char	fnuxi8[8];
-EXTERN	char	inuxi1[1];
-EXTERN	char	inuxi2[2];
-EXTERN	char	inuxi4[4];
-EXTERN	uchar	inuxi8[8];
+EXTERN	uchar	fnuxi4[4];
+EXTERN	uchar	fnuxi8[8];
+EXTERN	uchar	inuxi[9][8];
 
 EXTERN	Sym*	hash[NHASH];
 EXTERN	Sym*	histfrog[MAXHIST];
@@ -363,7 +356,7 @@ int	chipfloat(Ieee*);
 int	cmp(int, int);
 int	compound(Prog*);
 void	cput(int);
-void	datblk(long, long, int);
+void	datfill(uchar*, long, uchar*, long);
 void	diag(char*, ...);
 void	dodata(void);
 void	doprof1(void);

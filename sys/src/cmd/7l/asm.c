@@ -45,9 +45,10 @@ void
 asmb(void)
 {
 	Prog *p;
-	long magic, t, etext;
+	long magic, etext;
 	vlong vl;
 	Optab *o;
+	uchar *sbuf, *dbuf;
 
 	if(debug['v'])
 		Bprint(&bso, "%5.2f asm\n", cputime());
@@ -59,8 +60,7 @@ asmb(void)
 		if(p->as == ATEXT) {
 			curtext = p;
 			autosize = p->to.offset + PCSZ;
-		}
-		if(p->as == ADWORD && (pc & 7) != 0) {
+		}else if(p->as == ADWORD && (pc & 7) != 0) {
 			lputl(0);
 			pc += 4;
 		}
@@ -84,12 +84,11 @@ asmb(void)
 
 	/* output strings in text segment */
 	etext = INITTEXT + textsize;
-	for(t = pc; t < etext; t += sizeof(buf)-100) {
-		if(etext-t > sizeof(buf)-100)
-			datblk(t, sizeof(buf)-100, 1);
-		else
-			datblk(t, etext-t, 1);
-	}
+	sbuf = calloc(1, etext-pc);
+	dbuf = calloc(1, datsize);
+	datfill(sbuf, pc, dbuf, 0);
+	write(cout, sbuf, etext-pc);
+	free(sbuf);
 
 	curtext = P;
 	switch(HEADTYPE) {
@@ -110,12 +109,8 @@ asmb(void)
 		write(cout, buf, INITDAT-textsize);
 		textsize = INITDAT;
 	}
-	for(t = 0; t < datsize; t += sizeof(buf)-100) {
-		if(datsize-t > sizeof(buf)-100)
-			datblk(t, sizeof(buf)-100, 0);
-		else
-			datblk(t, datsize-t, 0);
-	}
+	write(cout, dbuf, datsize);
+	free(dbuf);
 
 	symsize = 0;
 	lcsize = 0;
@@ -465,45 +460,46 @@ asmlc(void)
 }
 
 void
-datblk(long s, long n, int str)
+datfill(uchar *sbuf, long soff, uchar *dbuf, long doff)
 {
 	Sym *v;
 	Prog *p;
-	char *cast;
+	uchar *cast, *b, *nuxi;
 	long a, l, fl, j;
 	vlong d;
 	int i, c;
 
-	memset(buf.dbuf, 0, n+100);
 	for(p = datap; p != P; p = p->link) {
-		if(str != (p->from.sym->type == SSTRING))
-			continue;
 		curp = p;
 		a = p->from.sym->value + p->from.offset;
-		l = a - s;
+		l = a;
+		if(p->from.sym->type == SSTRING){
+			b = sbuf;
+			l -= soff;
+		}else{
+			b = dbuf;
+			l -= doff;
+		}
+
 		c = p->reg;
 		i = 0;
-		if(l < 0) {
-			if(l+c <= 0)
-				continue;
-			while(l < 0) {
-				l++;
-				i++;
-			}
-		}
-		if(l >= n)
-			continue;
 		if(p->as != AINIT && p->as != ADYNT && !p->from.sym->dupok) {
 			for(j=l+(c-i)-1; j>=l; j--)
-				if(buf.dbuf[j]) {
+				if(b[j]) {
 					print("%P\n", p);
 					diag("multiple initialization");
 					break;
 				}
 		}
+		cast = nuxi = nil;
 		switch(p->to.type) {
 		default:
 			diag("unknown mode in initialization%P", p);
+			break;
+
+		case D_SCONST:
+			while(i < c)
+				b[l++] = p->to.sval[i++];
 			break;
 
 		case D_FCONST:
@@ -511,26 +507,13 @@ datblk(long s, long n, int str)
 			default:
 			case 4:
 				fl = ieeedtof(p->to.ieee);
-				cast = (char*)&fl;
-				for(; i<c; i++) {
-					buf.dbuf[l] = cast[fnuxi4[i]];
-					l++;
-				}
+				cast = (uchar*)&fl;
+				nuxi = fnuxi4;
 				break;
 			case 8:
-				cast = (char*)p->to.ieee;
-				for(; i<c; i++) {
-					buf.dbuf[l] = cast[fnuxi8[i]];
-					l++;
-				}
+				cast = (uchar*)p->to.ieee;
+				nuxi = fnuxi8;
 				break;
-			}
-			break;
-
-		case D_SCONST:
-			for(; i<c; i++) {
-				buf.dbuf[l] = p->to.sval[i];
-				l++;
 			}
 			break;
 
@@ -553,40 +536,14 @@ datblk(long s, long n, int str)
 				if(dlm)
 					dynreloc(v, a+INITDAT, 1);
 			}
-			cast = (char*)&d;
-			switch(c) {
-			default:
-				diag("bad nuxi %d %d%P", c, i, curp);
-				break;
-			case 1:
-				for(; i<c; i++) {
-					buf.dbuf[l] = cast[inuxi1[i]];
-					l++;
-				}
-				break;
-			case 2:
-				for(; i<c; i++) {
-					buf.dbuf[l] = cast[inuxi2[i]];
-					l++;
-				}
-				break;
-			case 4:
-				for(; i<c; i++) {
-					buf.dbuf[l] = cast[inuxi4[i]];
-					l++;
-				}
-				break;
-			case 8:
-				for(; i<c; i++) {
-					buf.dbuf[l] = cast[inuxi8[i]];
-					l++;
-				}
-				break;
-			}
+			cast = (uchar*)&d;
+			nuxi = inuxi[c];
 			break;
 		}
+		if(cast)
+			while(i < c)
+				b[l++] = cast[nuxi[i++]];
 	}
-	write(cout, buf.dbuf, n);
 }
 
 int
