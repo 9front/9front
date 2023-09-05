@@ -1,4 +1,4 @@
-TEXT memset(SB), $-4
+TEXT memset(SB), $0
 	MOVBU	c+8(FP), R1
 	MOV	n+16(FP), R2
 

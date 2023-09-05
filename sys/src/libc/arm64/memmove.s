@@ -1,5 +1,5 @@
 TEXT memcpy(SB), 1, $-4
-TEXT memmove(SB), $-4
+TEXT memmove(SB), $0
 	MOV	from+8(FP), R1
 	MOV	n+16(FP), R2
 
