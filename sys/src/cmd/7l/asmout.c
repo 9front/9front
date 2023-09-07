@@ -24,6 +24,7 @@
 #define	FPCCMP(m,s,type,op)	((m)<<31 | (s)<<29 | 0x1E<<24 | (type)<<22 | 1<<21 | 1<<10 | (op)<<4)
 #define	FPOP1S(m,s,type,op)	((m)<<31 | (s)<<29 | 0x1E<<24 | (type)<<22 | 1<<21 | (op)<<15 | 0x10<<10)
 #define	FPOP2S(m,s,type,op)	((m)<<31 | (s)<<29 | 0x1E<<24 | (type)<<22 | 1<<21 | (op)<<12 | 2<<10)
+#define	FPOP3S(type,op,op2)	(0x1F<<24 | (type)<<22 | (op2)<<21 | (op)<<15)
 #define	FPCVTI(sf,s,type,rmode,op)	((sf)<<31 | (s)<<29 | 0x1E<<24 | (type)<<22 | 1<<21 | (rmode)<<19 | (op)<<16 | 0<<10)
 #define	FPCVTF(sf,s,type,rmode,op,scale)	((sf)<<31 | (s)<<29 | 0x1E<<24 | (type)<<22 | 0<<21 | (rmode)<<19 | (op)<<16 | (scale)<<10)
 #define	ADR(p,o,rt)	((p)<<31 | ((o)&3)<<29 | (0x10<<24) | (((o>>2)&0x7FFFF)<<5) | (rt))
@@ -247,7 +248,7 @@ asmout(Prog *p, Optab *o)
 		o1 = instoffset;
 		break;
 
-	case 15:	/* mul/mneg/umulh/umull r,[r,]r; madd/msub Rm,Rn,Ra,Rd */
+	case 15:	/* mul/mneg/umulh/umull r,[r,]r; madd/msub Rm,Rn,[Ra,]Rd */
 		o1 = oprrr(p->as);
 		rf = p->from.reg;
 		rt = p->to.reg;
@@ -893,6 +894,17 @@ asmout(Prog *p, Optab *o)
 		o1 = LD2STR(olsxrr(p->as, v&31, p->to.reg, p->from.reg));
 		o1 |= ((v>>8)&7)<<13 | ((v>>16)&1)<<12;
 		break;
+
+	case 70:	/* fmadd/fmsub Rm,Rn,[Ra,]Rd */
+		o1 = oprrr(p->as);
+		rf = p->from.reg;
+		rt = p->to.reg;
+		r = p->from3.reg;
+		ra = p->reg;
+		if(ra == NREG)
+			ra = rt;
+		o1 |= (rf<<16) | (ra<<10) | (r<<5) | rt;
+		break;
 	}
 
 	if(debug['a'] > 1)
@@ -1149,8 +1161,17 @@ oprrr(int a)
 	case AFMAXNMD:	return FPOP2S(0, 0, 1, 6);
 	case AFMINNMS:	return FPOP2S(0, 0, 0, 7);
 	case AFMINNMD:	return FPOP2S(0, 0, 1, 7);
-	case AFNMULS:		return FPOP2S(0, 0, 0, 8);
+	case AFNMULS:	return FPOP2S(0, 0, 0, 8);
 	case AFNMULD:	return FPOP2S(0, 0, 1, 8);
+
+	case AFMADDS:	return FPOP3S(0, 0, 0);
+	case AFNMADDS:	return FPOP3S(0, 0, 1);
+	case AFMADDD:	return FPOP3S(1, 0, 0);
+	case AFNMADDD:	return FPOP3S(1, 0, 1);
+	case AFMSUBS:	return FPOP3S(0, 1, 0);
+	case AFNMSUBS:	return FPOP3S(0, 1, 1);
+	case AFMSUBD:	return FPOP3S(1, 1, 0);
+	case AFNMSUBD:	return FPOP3S(1, 1, 1);
 
 	case AFCMPS:	return FPCMP(0, 0, 0, 0, 0);
 	case AFCMPD:	return FPCMP(0, 0, 1, 0, 0);

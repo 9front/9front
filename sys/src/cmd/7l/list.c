@@ -32,15 +32,12 @@ Pconv(Fmt *fp)
 		if(p->reg == NREG && p->from3.type == D_NONE)
 			return fmtprint(fp, "(%ld)	%A	%D,%D",
 				p->line, a, &p->from, &p->to);
-		else if(p->from.type == D_FREG)
-			return fmtprint(fp, "(%ld)	%A	%D,F%d,%D",
-				p->line, a, &p->from, p->reg, &p->to);
 
 		fmtprint(fp, "(%ld)	%A	%D", p->line, a, &p->from);
 		if(p->from3.type != D_NONE)
 			fmtprint(fp, ",%D", &p->from3);
 		if(p->reg != NREG)
-			fmtprint(fp, ",R%d", p->reg);
+			fmtprint(fp, ",%c%d", p->from.type == D_FREG ? 'F' : 'R', p->reg);
 		fmtprint(fp, ",%D", &p->to);
 		return 0;
 	}

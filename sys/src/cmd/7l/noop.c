@@ -275,6 +275,7 @@ noops(void)
 				q->line = p->line;
 				q->as = AB;
 				q->from = zprg.from;
+				q->from3 = zprg.from3;
 				q->to = p->to;
 				q->cond = p->cond;
 				q->link = p->link;
@@ -284,6 +285,7 @@ noops(void)
 				p->from = zprg.from;
 				p->from.type = D_CONST;
 				p->from.offset = autosize;
+				p->from3 = zprg.from3;
 				p->to = zprg.to;
 				p->to.type = D_REG;
 				p->to.reg = REGSP;
@@ -295,6 +297,7 @@ noops(void)
 			q->line = p->line;
 			q->as = AB;
 			q->from = zprg.from;
+			q->from3 = zprg.from3;
 			q->to = p->to;
 			q->cond = p->cond;
 			q->link = p->link;
@@ -305,6 +308,7 @@ noops(void)
 			p->from.type = D_XPRE;
 			p->from.offset = -autosize;
 			p->from.reg = REGSP;
+			p->from3 = zprg.from3;
 			p->to = zprg.to;
 			p->to.type = D_REG;
 			p->to.reg = REGLINK;

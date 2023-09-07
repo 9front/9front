@@ -555,6 +555,7 @@ nopout(Prog *p)
 {
 	p->as = ANOP;
 	p->from.type = D_NONE;
+	p->from3.type = D_NONE;
 	p->to.type = D_NONE;
 }
 
@@ -1340,6 +1341,7 @@ doprof2(void)
 			 */
 			p->as = ABL;
 			p->from = zprg.from;
+			p->from3 = zprg.from3;
 			p->to = zprg.to;
 			p->to.type = D_BRANCH;
 			p->cond = ps4;

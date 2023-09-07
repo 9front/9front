@@ -417,6 +417,9 @@ Optab	optab[] =
 	{ AFMOVS,	C_FREG,	C_NONE,	C_ADDR,		64, 8, 0,	LTO },
 	{ AFMOVS,	C_ADDR,	C_NONE,	C_FREG,		65, 8, 0,	LFROM },
 
+	{ AFMADDD,	C_FREG,	C_FREG,	C_FREG,		70, 4, 0 },
+	{ AFMADDD,	C_FREG,	C_NONE,	C_FREG,		70, 4, 0 },
+
 	{ AFADDS,	C_FREG,	C_NONE,	C_FREG,		54, 4, 0 },
 	{ AFADDS,	C_FREG,	C_REG,	C_FREG,		54, 4, 0 },
 	{ AFADDS,	C_FCON,	C_NONE,	C_FREG,		54, 4, 0 },

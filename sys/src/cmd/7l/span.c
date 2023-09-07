@@ -700,6 +700,14 @@ static int
 asregclass(ushort as)
 {
 	switch(as){
+	case AFMADDD:
+	case AFMADDS:
+	case AFMSUBD:
+	case AFMSUBS:
+	case AFNMADDS:
+	case AFNMADDD:
+	case AFNMSUBS:
+	case AFNMSUBD:
 	case AMOVPS:
 	case AMOVPD:
 	case AMOVPQ: return C_FREG;
@@ -1098,6 +1106,15 @@ buildop(void)
 			oprange[ASMSUBL] = t;
 			oprange[AUMADDL] = t;
 			oprange[AUMSUBL] = t;
+			break;
+		case AFMADDD:
+			oprange[AFMADDS] = t;
+			oprange[AFMSUBD] = t;
+			oprange[AFMSUBS] = t;
+			oprange[AFNMADDS] = t;
+			oprange[AFNMADDD] = t;
+			oprange[AFNMSUBD] = t;
+			oprange[AFNMSUBS] = t;
 			break;
 		case AREM:
 			oprange[AREMW] = t;
