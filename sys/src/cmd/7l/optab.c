@@ -148,6 +148,7 @@ Optab	optab[] =
 	{ AMUL,		C_REG,	C_REG,	C_REG,		15, 4, 0 },
 	{ AMUL,		C_REG,	C_NONE,	C_REG,		15, 4, 0 },
 	{ AMADD,		C_REG,	C_REG,	C_REG,		15, 4, 0 },
+	{ AMADD,		C_REG,	C_NONE,	C_REG,		15, 4, 0 },
 
 	{ AREM,		C_REG,	C_REG,	C_REG,		16, 8, 0 },
 	{ AREM,		C_REG,	C_NONE,	C_REG,		16, 8, 0 },
