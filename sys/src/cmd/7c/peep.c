@@ -545,6 +545,7 @@ excise(Reg *r)
 	p->as = ANOP;
 	p->scond = zprog.scond;
 	p->from = zprog.from;
+	p->from3 = zprog.from3;
 	p->to = zprog.to;
 	p->reg = zprog.reg; /**/
 }

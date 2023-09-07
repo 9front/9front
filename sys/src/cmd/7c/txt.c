@@ -40,6 +40,7 @@ ginit(void)
 	zprog.from.type = D_NONE;
 	zprog.from.name = D_NONE;
 	zprog.from.reg = NREG;
+	zprog.from3 = zprog.from;
 	zprog.to = zprog.from;
 
 	regnode.op = OREGISTER;

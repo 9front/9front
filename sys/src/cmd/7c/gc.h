@@ -46,6 +46,7 @@ struct	Adr
 struct	Prog
 {
 	Adr	from;
+	Adr	from3;
 	Adr	to;
 	Prog*	link;
 	long	lineno;

@@ -60,6 +60,8 @@ Pconv(Fmt *fp)
 			s = seprint(s, e, ",R%d", p->reg);
 		else
 			s = seprint(s, e, ",F%d", p->reg);
+	if(p->from3.type != D_NONE)
+		s = seprint(s, e, ",%D", &p->from3);
 	if(p->to.type != D_NONE)
 		s = seprint(s, e, s[-1] == '\t' ? "%D" : ",%D", &p->to);
 	if(s[-1] == '\t')
