@@ -177,7 +177,7 @@ int		dir2message(Message*, int, Dirstats*);
 int		mdir2message(Message*);
 char*		extendp(char*, char*);
 char*		parsecmd(char*, Cmd*, Message*, Message*);
-void		system(char*, char**, int);
+void		system(Message*, char*, char**, int);
 int		switchmb(char *, int);
 void		closemb(void);
 Message*	dosingleton(Message*, char*);
@@ -397,7 +397,7 @@ main(int argc, char **argv)
 		av[0] = "fs";
 		av[1] = "-p";
 		av[2] = 0;
-		system("/bin/upas/fs", av, -1);
+		system(nil, "/bin/upas/fs", av, -1);
 	}
 
 	switchmb(mb, singleton);
@@ -2591,7 +2591,7 @@ fqcmd(Cmd*, Message *m)
 }
 
 void
-system(char *cmd, char **av, int in)
+system(Message *m, char *cmd, char **av, int in)
 {
 	switch(fork()){
 	case -1:
@@ -2604,6 +2604,8 @@ system(char *cmd, char **av, int in)
 		}
 		if(wd[0] != 0)
 			chdir(wd);
+		if(m != nil && strcmp(m->path, ".") != 0)
+			putenv("%", rooted(m->path));
 		exec(cmd, av);
 		eprint("!couldn't exec %s\n", cmd);
 		exits(0);
@@ -2629,7 +2631,7 @@ bangcmd(Cmd *c, Message *m)
 	av[1] = "-c";
 	av[2] = c->cmdline;
 	av[3] = 0;
-	system("/bin/rc", av, -1);
+	system(m, "/bin/rc", av, -1);
 //	Bprint(&out, "!\n");
 	return m;
 }
@@ -2655,7 +2657,7 @@ xpipecmd(Cmd *c, Message *m, char *part)
 	av[1] = "-c";
 	av[2] = c->cmdline;
 	av[3] = 0;
-	system("/bin/rc", av, fd);	/* system closes fd */
+	system(m, "/bin/rc", av, fd);	/* system closes fd */
 //	Bprint(&out, "!\n");
 	return m;
 }

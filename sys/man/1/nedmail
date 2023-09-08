@@ -277,6 +277,10 @@ Escape to the shell to do
 Print the number of the current message.
 .PD
 .PP
+Shell commands will have environment variable
+.B $%
+set to the full path of the current message.
+.PP
 Here's an example of a mail session that looks at a summary
 of the mail messages, saves away an html file added as an
 attachment to a message and then deletes the message:
