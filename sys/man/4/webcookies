@@ -33,7 +33,7 @@ and mounts itself at
 If
 .I service
 is specified, 
-.I cookiefs
+.I webcookies
 will post a service file descriptor
 in
 .BR /srv/\fIservice .
@@ -144,7 +144,7 @@ Once the request has been made, any
 lines in the HTTP response header should
 be written to the file to save them for next time.
 If
-.B cookiefs
+.B webcookies
 decides not to accept the cookie (as outlined in
 RFC2109, section 4.3.4), no indication is given.
 .SH SOURCE
