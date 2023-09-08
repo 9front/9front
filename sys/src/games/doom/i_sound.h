@@ -82,7 +82,6 @@ I_UpdateSoundParams
 //
 //  MUSIC I/O
 //
-void I_InitMusic(void);
 void I_ShutdownMusic(void);
 // Volume.
 void I_SetMusicVolume(int volume);

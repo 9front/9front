@@ -141,7 +141,6 @@ void I_InitSound(void)
 		fprint(2, "I_InitSound: disabling sound: %r\n");
 		return;
 	}
-	I_InitMusic();
 	/* Initialize external data (all sounds) at start, keep static. */
 	for (i=1 ; i<NUMSFX ; i++)
 	{
@@ -405,23 +404,6 @@ void I_UpdateSoundParams(int handle, int vol, int sep, int /*pitch*/)
 	if(i == NUM_CHANNELS)
 		return;
 	setparams(slot, vol, sep);
-}
-
-void I_InitMusic(void)
-{
-	int fd, n, sz;
-	char name[64];
-	uchar *gm;
-
-	n = W_GetNumForName("GENMIDI");
-	sz = W_LumpLength(n);
-	gm = (uchar *)W_CacheLumpNum(n, PU_STATIC);
-	snprint(name, sizeof(name), "/tmp/genmidi.%d", getpid());
-	if((fd = create(name, ORDWR|ORCLOSE, 0666)) < 0)
-		sysfatal("create: %r");
-	if(write(fd, gm, sz) != sz)
-			sysfatal("write: %r");
-	Z_Free(gm);
 }
 
 void I_ShutdownMusic(void)
