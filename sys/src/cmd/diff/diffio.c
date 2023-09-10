@@ -130,7 +130,7 @@ prepare(Diff *d, int i, char *arg, char *orig)
 			 * brave new UNICODE world
 			 */
 			cp += chartorune(&r, cp);
-			if(r == 0 || r == Runeerror){
+			if (r == 0 || (r > 0x7f && r <= 0xa0)) {
 				d->binary++;
 				return bp;
 			}
@@ -283,10 +283,10 @@ change(Diff *df, int a, int b, int c, int d)
 		if(df->nchanges%1024 == 0)
 			df->changes = erealloc(df->changes, (df->nchanges+1024)*sizeof(df->changes[0]));
 		ch = &df->changes[df->nchanges++];
-		ch->a = a;
-		ch->b = b;
-		ch->c = c;
-		ch->d = d;
+		ch->oldx = a;
+		ch->oldy = b;
+		ch->newx = c;
+		ch->newy = d;
 		return;
 	}
 	Bputc(&stdout, '\n');
@@ -308,7 +308,7 @@ enum
 int
 changeset(Diff *d, int i)
 {
-	while(i < d->nchanges && d->changes[i].b + 1 + 2*Lines > d->changes[i+1].a)
+	while(i < d->nchanges && d->changes[i].oldy + 1 + 2*Lines > d->changes[i+1].oldx)
 		i++;
 	if(i < d->nchanges)
 		return i+1;
@@ -327,10 +327,10 @@ flushchanges(Diff *df)
 	hdr = 0;
 	for(i=0; i < df->nchanges; ){
 		j = changeset(df, i);
-		a = df->changes[i].a - Lines;
-		b = df->changes[j-1].b + Lines;
-		c = df->changes[i].c - Lines;
-		d = df->changes[j-1].d + Lines;
+		a = df->changes[i].oldx - Lines;
+		b = df->changes[j-1].oldy + Lines;
+		c = df->changes[i].newx - Lines;
+		d = df->changes[j-1].newy + Lines;
 		if(a < 1)
 			a = 1;
 		if(c < 1)
@@ -363,10 +363,10 @@ flushchanges(Diff *df)
 		}
 		at = a;
 		for(; i<j; i++){
-			fetch(df, df->ixold, at, df->changes[i].a-1, df->input[0], mode == 'u' ? " " : "  ");
-			fetch(df, df->ixold, df->changes[i].a, df->changes[i].b, df->input[0], mode == 'u' ? "-" : "- ");
-			fetch(df, df->ixnew, df->changes[i].c, df->changes[i].d, df->input[1], mode == 'u' ? "+" : "+ ");
-			at = df->changes[i].b+1;
+			fetch(df, df->ixold, at, df->changes[i].oldx-1, df->input[0], mode == 'u' ? " " : "  ");
+			fetch(df, df->ixold, df->changes[i].oldx, df->changes[i].oldy, df->input[0], mode == 'u' ? "-" : "- ");
+			fetch(df, df->ixnew, df->changes[i].newx, df->changes[i].newy, df->input[1], mode == 'u' ? "+" : "+ ");
+			at = df->changes[i].oldy+1;
 		}
 		fetch(df, df->ixold, at, b, df->input[0], mode == 'u' ? " " : "  ");
 	}

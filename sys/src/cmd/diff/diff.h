@@ -16,10 +16,10 @@ struct Cand {
 
 struct Change
 {
-	int a;
-	int b;
-	int c;
-	int d;
+	int oldx;
+	int oldy;
+	int newx;
+	int newy;
 };
 
 struct Diff {

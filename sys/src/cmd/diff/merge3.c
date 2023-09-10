@@ -6,7 +6,7 @@
 static int
 changecmp(void *a, void *b)
 {
-	return ((Change*)a)->a - ((Change*)b)->a;
+	return ((Change*)a)->oldx - ((Change*)b)->oldx;
 }
 
 static void
@@ -19,10 +19,10 @@ addchange(Diff *df, int a, int b, int c, int d)
 	if(df->nchanges%1024 == 0)
 		df->changes = erealloc(df->changes, (df->nchanges+1024)*sizeof(df->changes[0]));
 	ch = &df->changes[df->nchanges++];
-	ch->a = a;
-	ch->b = b;
-	ch->c = c;
-	ch->d = d;
+	ch->oldx = a;
+	ch->oldy = b;
+	ch->newx = c;
+	ch->newy = d;
 }
 
 static void
@@ -50,19 +50,18 @@ collect(Diff *d)
 }
 
 static int
-overlaps(Change *l, Change *r)
+overlaps(int lx, int ly, int rx, int ry)
 {
-	if(l == nil || r == nil)
-		return 0;
-	if(l->c <= r->c)
-		return l->d >= r->c;
+	if(lx <= rx)
+		return ly >= rx;
 	else
-		return r->d >= l->c;
+		return ry >= lx;
 }
 
 char*
 merge(Diff *l, Diff *r)
 {
+	int lx, ly, rx, ry;
 	int il, ir, x, y, δ;
 	Change *lc, *rc;
 	char *status;
@@ -77,57 +76,68 @@ merge(Diff *l, Diff *r)
 	while(il < l->nchanges || ir < r->nchanges){
 		lc = nil;
 		rc = nil;
-		if(il < l->nchanges)
+		lx = -1;
+		ly = -1;
+		rx = -1;
+		ry = -1;
+		if(il < l->nchanges){
 			lc = &l->changes[il];
-		if(ir < r->nchanges)
+			lx = (lc->oldx < lc->oldy) ? lc->oldx : lc->oldy;
+			ly = (lc->oldx < lc->oldy) ? lc->oldy : lc->oldx;
+		}
+		if(ir < r->nchanges){
 			rc = &r->changes[ir];
-		if(overlaps(lc, rc)){
+			rx = (rc->oldx < rc->oldy) ? rc->oldx : rc->oldy;
+			ry = (rc->oldx < rc->oldy) ? rc->oldy : rc->oldx;
+		}
+		if(l != nil && r != nil && overlaps(lx, ly, rx, ry)){
 			/*
 			 * align the edges of the chunks
 			 */
-			if(lc->a < rc->a){
-				x = lc->c;
-				δ = rc->a - lc->a;
-				rc->a -= δ;
-				rc->c -= δ;
+			if(lc->oldx < rc->oldx){
+				x = lc->newx;
+				δ = rc->oldx - lc->oldx;
+				rc->oldx -= δ;
+				rc->newx -= δ;
 			}else{
-				x = rc->c;
-				δ = lc->a - rc->a;
-				lc->a -= δ;
-				lc->c -= δ;
+				x = rc->newx;
+				δ = lc->oldx - rc->oldx;
+				lc->oldx -= δ;
+				lc->newx -= δ;
 			}
-			if(lc->b > rc->b){
-				y = lc->d;
-				δ = lc->b - rc->b;
-				rc->b += δ;
-				rc->d += δ;
+			if(lc->oldy > rc->oldy){
+				y = lc->newy;
+				δ = lc->oldy - rc->oldy;
+				rc->oldy += δ;
+				rc->newy += δ;
 			}else{
-				y = rc->d;
-				δ = rc->b - lc->b;
-				lc->b += δ;
-				lc->d += δ;
+				y = rc->newy;
+				δ = rc->oldy - lc->oldy;
+				lc->oldy += δ;
+				lc->newy += δ;
 			}
 			fetch(l, l->ixold, ln, x-1, l->input[0], "");
 			Bprint(&stdout, "<<<<<<<<<< %s\n", l->file2);
-			fetch(l, l->ixnew, lc->c, lc->d, l->input[1], "");
+			fetch(l, l->ixnew, lc->newx, lc->newy, l->input[1], "");
 			Bprint(&stdout, "========== original\n");
 			fetch(l, l->ixold, x, y, l->input[0], "");
 			Bprint(&stdout, "========== %s\n", r->file2);
-			fetch(r, r->ixnew, rc->c, rc->d, r->input[1], "");
+			fetch(r, r->ixnew, rc->newx, rc->newy, r->input[1], "");
 			Bprint(&stdout, ">>>>>>>>>>\n");
 			ln = y+1;
 			il++;
 			ir++;
 			status = "conflict";
-		}else if(rc == nil || (lc != nil && lc->a < rc->a)){
-			fetch(l, l->ixold, ln, lc->a-1, l->input[0], "");
-			fetch(l, l->ixnew, lc->c, lc->d, l->input[1], "");
-			ln = lc->b+1;
+abort();
+		}else if(rc == nil || (lc != nil && lx < rx)){
+			fetch(l, l->ixold, ln, lc->oldx-1, l->input[0], "");
+			fetch(l, l->ixnew, lc->newx, lc->newy, l->input[1], "");
+			ln = lc->oldy+1;
 			il++;
-		}else if(lc == nil || (rc != nil && rc->a < lc->a)){
-			fetch(l, l->ixold, ln, rc->a-1, l->input[0], "");
-			fetch(r, r->ixnew, rc->c, rc->d, r->input[1], "");
-			ln = rc->b+1;
+		}else if(lc == nil || (rc != nil && rx < lx)){
+			fetch(l, l->ixold, ln, rc->oldx-1, l->input[0], "");
+			fetch(r, r->ixnew, rc->newx, rc->newy, r->input[1], "");
+			ln = rc->oldy+1;
 			ir++;
 		}else
 			abort();
