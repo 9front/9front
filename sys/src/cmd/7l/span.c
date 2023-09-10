@@ -289,6 +289,8 @@ relinv(int a)
 	case ACBNZ:	return ACBZ;
 	case ACBZW:	return ACBNZW;
 	case ACBNZW:	return ACBZW;
+	case ATBZ:	return ATBNZ;
+	case ATBNZ:	return ATBZ;
 	}
 	diag("unknown relation: %A", a);
 	return a;
