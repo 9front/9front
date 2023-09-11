@@ -128,6 +128,12 @@ independent(Prog *p1, Prog *p2)
 	case ACMPW:
 	case AFCMPS:
 	case AFCMPD:
+	case ACBZ:
+	case ACBZW:
+	case ACBNZ:
+	case ACBNZW:
+	case ATBZ:
+	case ATBNZ:
 
 	case AB:
 	case ABL:
@@ -1494,6 +1500,12 @@ copyu(Prog *p, Adr *v, Adr *s)
 	case ACMPW:
 	case ACMN:
 	case ACMNW:
+	case ACBZ:
+	case ACBZW:
+	case ACBNZ:
+	case ACBNZW:
+	case ATBZ:
+	case ATBNZ:
 		if(s != A) {
 			if(copysub(&p->from, v, s, 1))
 				return 1;
@@ -1562,6 +1574,12 @@ a2type(Prog *p)
 	case ACMPW:
 	case ACMN:
 	case ACMNW:
+	case ACBZ:
+	case ACBZW:
+	case ACBNZ:
+	case ACBNZW:
+	case ATBZ:
+	case ATBNZ:
 
 	case AADD:
 	case AADDW:

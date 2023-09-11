@@ -986,6 +986,35 @@ gins(int a, Node *f, Node *t)
 		print("%P\n", p);
 }
 
+static int
+zcmp(Prog *p, int as)
+{
+	if(p->from.type != D_CONST || p->from.offset != 0)
+		return 0;
+	switch(p->as){
+	case ACMP:
+		p->as = as;
+		if(as == ATBZ || as == ATBNZ){
+			p->from.offset = 63;
+			return 1;
+		}
+		break;
+	case ACMPW:
+		p->as = as;
+		if(as == ATBZ || as == ATBNZ){
+			p->from.offset = 31;
+			return 1;
+		}
+		break;
+	default:
+		return 0;
+	}
+	p->from.type = D_REG;
+	p->from.reg = p->reg;
+	p->reg = NREG;
+	return 1;
+}
+
 void
 gopcode(int o, Node *f1, Node *f2, Node *t)
 {
@@ -1186,12 +1215,18 @@ gopcode(int o, Node *f1, Node *f2, Node *t)
 		raddr(f2, p);
 		switch(o) {
 		case OEQ:
+			if(zcmp(p, a == ACMP ? ACBZ : ACBZW))
+				goto done;
 			a = ABEQ;
 			break;
 		case ONE:
+			if(zcmp(p, a == ACMP ? ACBNZ : ACBNZW))
+				goto done;
 			a = ABNE;
 			break;
 		case OLT:
+			if(zcmp(p, ATBNZ))
+				goto done;
 			a = ABLT;
 			/* ensure NaN comparison is always false */
 			if(typefd[et] && !true)
@@ -1203,6 +1238,8 @@ gopcode(int o, Node *f1, Node *f2, Node *t)
 				a = ABLS;
 			break;
 		case OGE:
+			if(zcmp(p, ATBZ))
+				goto done;
 			a = ABGE;
 			if(typefd[et] && true)
 				a = ABPL;
@@ -1216,12 +1253,16 @@ gopcode(int o, Node *f1, Node *f2, Node *t)
 			a = ABLO;
 			break;
 		case OLS:
+			if(zcmp(p, a == ACMP ? ACBZ : ACBZW))
+				goto done;
 			a = ABLS;
 			break;
 		case OHS:
 			a = ABHS;
 			break;
 		case OHI:
+			if(zcmp(p, a == ACMP ? ACBNZ : ACBNZW))
+				goto done;
 			a = ABHI;
 			break;
 		}
@@ -1241,6 +1282,7 @@ gopcode(int o, Node *f1, Node *f2, Node *t)
 	}
 	if(t != Z)
 		naddr(t, &p->to);
+done:
 	if(debug['g'])
 		print("%P\n", p);
 }
