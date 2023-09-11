@@ -128,7 +128,6 @@ merge(Diff *l, Diff *r)
 			il++;
 			ir++;
 			status = "conflict";
-abort();
 		}else if(rc == nil || (lc != nil && lx < rx)){
 			fetch(l, l->ixold, ln, lc->oldx-1, l->input[0], "");
 			fetch(l, l->ixnew, lc->newx, lc->newy, l->input[1], "");

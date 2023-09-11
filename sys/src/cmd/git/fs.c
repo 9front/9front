@@ -621,6 +621,8 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 			q->path = qpath(o, Qbranch, c->obj->id, Qcommit);
 		else
 			e = Eexist;
+		if(d != nil)
+			c->mode = d->mode & ~0222;
 		free(d);
 		break;
 	case Qobject:
