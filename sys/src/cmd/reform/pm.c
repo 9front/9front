@@ -8,8 +8,6 @@
 
 enum
 {
-	Mhz = 1000*1000,
-	Pwmsrcclk = 25*Mhz,
 	Kbdlightmax = 8,
 
 	Scharge = 0,
@@ -254,8 +252,7 @@ setlight(int k, int *p)
 	}
 
 	if(k == Lcd){
-		v = Pwmsrcclk / rd(pwm2, PWMSAR);
-		wr(pwm2, PWMPR, (Pwmsrcclk/(v*p[0]/100))-2);
+		wr(pwm2, PWMPR, (p[0] ? 100*rd(pwm2, PWMSAR)/p[0] : 0)-1);
 		return 0;
 	}else if(k == Kbd && openhidctl(&hidkb, udidkb) == 0){
 		v = Kbdlightmax*p[0]/100;
@@ -285,8 +282,9 @@ getlight(int k, int *v)
 
 	SET(m);
 	if(k == Lcd){
-		m = Pwmsrcclk / rd(pwm2, PWMSAR);
-		v[0] = Pwmsrcclk / (rd(pwm2, PWMPR)+2);
+		m = rd(pwm2, PWMPR)+1;
+		v[0] = m ? rd(pwm2, PWMSAR)*100/m : 0;
+		return;
 	}else if(k == Kbd){
 		m = 100;
 		v[0] = kbdlight;
