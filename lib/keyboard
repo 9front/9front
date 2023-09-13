@@ -387,6 +387,7 @@
 044E  @yu         ю	cyrillic small letter iu
 044F  @ya         я	cyrillic small letter ia
 0451  @yo         ё	cyrillic small letter io
+1D62  bi          ᵢ	subscript latin small letter i
 2013  en          –	en dash
 2014  em          —	em dash
 2018  l'          ‘	single turned comma quotation mark
@@ -402,6 +403,7 @@
 2026  3.          …	horizontal ellipsis
 203D  !? ?!       ‽	interrobang
 2070  s0          ⁰	superscript digit zero
+2071  si          ⁱ	superscript latin small letter i
 2074  s4          ⁴	superscript digit four
 2075  s5          ⁵	superscript digit five
 2076  s6          ⁶	superscript digit six
@@ -429,7 +431,7 @@
 208C  b=          ₌	subscript equals sign
 208D  b(          ₍	subscript opening parenthesis
 208E  b)          ₎	subscript closing parenthesis
-208F  bN          ₏	subscript latin small letter n
+2099  bN          ₙ	subscript latin small letter n
 20AC  e$          €	euro symbol
 2102  CC          ℂ	double-struck capital c
 210A  $g          ℊ	script small g
