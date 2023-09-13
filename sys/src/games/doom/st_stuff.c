@@ -600,21 +600,21 @@ ST_Responder (event_t* ev)
 	
 	if (gamemode == commercial)
 	{
-	  musnum = mus_runnin + (buf[0]-'0')*10 + buf[1]-'0' - 1;
+	  musnum = (buf[0]-'0')*10 + buf[1]-'0' - 1;
 	  
-	  if (((buf[0]-'0')*10 + buf[1]-'0') > 35)
+	  if (musnum < 0 || musnum > 34)
 	    plyr->message = STSTR_NOMUS;
 	  else
-	    S_ChangeMusic(musnum, 1);
+	    S_ChangeMusic(mus_runnin + musnum, 1);
 	}
 	else
 	{
-	  musnum = mus_e1m1 + (buf[0]-'1')*9 + (buf[1]-'1');
+	  musnum = (buf[0]-'1')*9 + buf[1]-'1';
 	  
-	  if (((buf[0]-'1')*9 + buf[1]-'1') > 31)
+	  if (musnum < 0 || musnum > 31)
 	    plyr->message = STSTR_NOMUS;
 	  else
-	    S_ChangeMusic(musnum, 1);
+	    S_ChangeMusic(mus_e1m1 + musnum, 1);
 	}
       }
       // Simplified, accepting both "noclip" and "idspispopd".
