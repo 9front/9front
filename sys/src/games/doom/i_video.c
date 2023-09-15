@@ -20,7 +20,7 @@ static Point center;
 static void kbdproc(void *);
 static void mouseproc(void *);
 
-static uchar cmap[3*256];
+static u32int cmap[256];
 
 static int kbdpid = -1;
 static int mousepid = -1;
@@ -70,9 +70,11 @@ void I_SetPalette(byte *palette)
 {
 	uchar *c;
 
-	c = cmap;
-	while(c < cmap+3*256)
-		*c++ = gammatable[usegamma][*palette++];
+	for(c = (uchar*)cmap; c < (uchar*)cmap+sizeof(cmap); c += 4){
+		c[2] = gammatable[usegamma][*palette++];
+		c[1] = gammatable[usegamma][*palette++];
+		c[0] = gammatable[usegamma][*palette++];
+	}
 }
 
 void I_UpdateNoBlit(void)
@@ -80,17 +82,19 @@ void I_UpdateNoBlit(void)
 	// DELETEME?
 }
 
+void pal2xrgb(u32int *pal, u8int *s, u32int *d, int n, int scale);
+
 static int screenconvi;
 static uchar screenconv[2][SCREENWIDTH*SCREENHEIGHT];
 
 static void
 convproc(void *p)
 {
-	static uchar buf[SCREENWIDTH*3*12];
-	int i, y, scale, oldscale;
+	static u32int buf[SCREENWIDTH*12];
+	int y, scale, oldscale;
 	Image *rowimg;
 	Rectangle r;
-	uchar *s, *e, *d, *m;
+	uchar *s;
 
 	oldscale = 0;
 	rowimg = nil;
@@ -111,33 +115,25 @@ convproc(void *p)
 		if(scale != oldscale){
 			if(rowimg != nil)
 				freeimage(rowimg);
-			rowimg = allocimage(display, Rect(0, 0, scale*SCREENWIDTH, 1), RGB24, scale > 1, DNofill);
+			rowimg = allocimage(display, Rect(0, 0, scale*SCREENWIDTH, 1), XRGB32, scale > 1, DNofill);
 			if(rowimg == nil)
 				sysfatal("allocimage: %r");
 			oldscale = scale;
 		}
 
 		for(y = 0; y < SCREENHEIGHT; y++){
-			d = buf;
-			e = s + SCREENWIDTH;
-			for(; s < e; s++){
-				m = &cmap[*s * 3];
-				for(i = 0; i < scale; i++, d += 3){
-					d[0] = m[2];
-					d[1] = m[1];
-					d[2] = m[0];
-				}
-			}
-			loadimage(rowimg, rowimg->r, buf, d - buf);
+			pal2xrgb(cmap, s, buf, SCREENWIDTH, scale);
+			s += SCREENWIDTH;
+			loadimage(rowimg, rowimg->r, (uchar*)buf, 4*scale*SCREENWIDTH);
 			draw(screen, r, rowimg, nil, ZP);
 			r.min.y += scale;
 			r.max.y += scale;
 		}
-
 		flushimage(display, 1);
 	}
 	if(rowimg != nil)
 		freeimage(rowimg);
+	chanfree(p);
 	threadexits(nil);
 }
 
@@ -145,8 +141,7 @@ void I_FinishUpdate(void)
 {
 	if(resized){
 		if(conv != nil){
-			sendp(conv, nil);
-			chanfree(conv);
+			chanclose(conv);
 			conv = nil;
 		}
 		resized = 0;

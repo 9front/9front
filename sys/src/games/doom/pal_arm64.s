@@ -1,0 +1,46 @@
+TEXT	pal2xrgb+0(SB), 1, $-4
+	MOV s+8(FP), R1
+	MOV d+16(FP), R2
+	MOVWU n+24(FP), R3
+	MOVWU scale+32(FP), R4
+	MOVWU $4, R5
+	MULW R5, R4, R6 // 4*scale
+	MULW R5, R6, R5
+	SUBW R6, R5, R5 // 3*4*scale
+	ADD R3, R1, R7 // s+n
+
+	SUB R5, R2, R8
+	ADD R6, R8, R9
+	ADD R6, R9, R10
+	ADD R6, R10, R11
+
+_l:
+	CMP R1, R7
+	BEQ _end
+
+	MOVWU (R1)4!, R3
+	UBFXW $8, $8, R3, R4
+	UBFXW $16, $8, R3, R12
+	UBFXW $24, $8, R3, R13
+	MOVBU R3, R3
+	MOVWU (R0)[R3], R3
+	ADD R5, R8
+	ADD R5, R10
+	MOVWU (R0)[R4], R4
+	ADD R5, R9
+	ADD R5, R11
+	MOVWU (R0)[R12], R12
+	ADD R6, R8, R18
+	MOVWU (R0)[R13], R13
+
+_s1:
+	CMP R8, R18
+	BEQ _l
+	MOVWU R3, (R8)4!
+	MOVWU R4, (R9)4!
+	MOVWU R12, (R10)4!
+	MOVWU R13, (R11)4!
+	B _s1
+
+_end:
+	RETURN

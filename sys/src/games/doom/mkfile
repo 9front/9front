@@ -4,6 +4,7 @@ BIN=/$objtype/bin/games
 TARG=doom
 
 OFILES=\
+	pal`{test -f pal_$objtype.s && echo -n _$objtype}.$O\
 	doomdef.$O\
 	doomstat.$O\
 	dstrings.$O\
