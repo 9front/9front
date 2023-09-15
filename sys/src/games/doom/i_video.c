@@ -8,6 +8,7 @@
 #include <draw.h>
 #include <mouse.h>
 #include <keyboard.h>
+#include <thread.h>
 
 static int resized;
 static int mouseactive;
@@ -16,28 +17,26 @@ extern int usemouse;
 static Rectangle grabout;
 static Point center;
 
-static void kbdproc(void);
-static void mouseproc(void);
+static void kbdproc(void *);
+static void mouseproc(void *);
 
 static uchar cmap[3*256];
 
 static int kbdpid = -1;
 static int mousepid = -1;
 
-static void
+static int
 catch(void *, char *msg)
 {
 	/* in case we crash, disable mouse grab */
 	if(strncmp(msg, "sys:", 4) == 0)
 		mouseactive = 0;
-	noted(NDFLT);
+	return 0;
 }
 
 void I_InitGraphics(void)
 {
-	int pid;
-
-	notify(catch);
+	threadnotify(catch, 1);
 
 	if(initdraw(nil, nil, "doom") < 0)
 		I_Error("I_InitGraphics failed");
@@ -47,27 +46,22 @@ void I_InitGraphics(void)
 	center = addpt(screen->r.min, Pt(Dx(screen->r)/2, Dy(screen->r)/2));
 	grabout = insetrect(screen->r, Dx(screen->r)/8);
 
-	if((pid = rfork(RFPROC|RFMEM)) == 0){
-		kbdproc();
-		exits(nil);
-	}
-	kbdpid = pid;
-
-	if((pid = rfork(RFPROC|RFMEM)) == 0){
-		mouseproc();
-		exits(nil);
-	}
-	mousepid = pid;
+	kbdpid = proccreate(kbdproc, nil, 4096);
+	mousepid = proccreate(mouseproc, nil, 4096);
 }
+
+static Channel *conv;
 
 void I_ShutdownGraphics(void)
 {
+	if(conv != nil)
+		chanclose(conv);
 	if(kbdpid != -1){
-		postnote(PNPROC, kbdpid, "shutdown");
+		postnote(PNPROC, threadpid(kbdpid), "shutdown");
 		kbdpid = -1;
 	}
 	if(mousepid != -1){
-		postnote(PNPROC, mousepid, "shutdown");
+		postnote(PNPROC, threadpid(mousepid), "shutdown");
 		mousepid = -1;
 	}
 }
@@ -86,15 +80,75 @@ void I_UpdateNoBlit(void)
 	// DELETEME?
 }
 
-void I_FinishUpdate(void)
+static int screenconvi;
+static uchar screenconv[2][SCREENWIDTH*SCREENHEIGHT];
+
+static void
+convproc(void *p)
 {
+	static uchar buf[SCREENWIDTH*3*12];
+	int i, y, scale, oldscale;
 	Image *rowimg;
 	Rectangle r;
-	int y, scale;
 	uchar *s, *e, *d, *m;
-	uchar buf[SCREENWIDTH*3*12];
 
+	oldscale = 0;
+	rowimg = nil;
+	for(;;){
+		if((s = recvp(p)) == nil)
+			break;
+		scale = Dx(screen->r)/SCREENWIDTH;
+		if(scale <= 0)
+			scale = 1;
+		else if(scale > 12)
+			scale = 12;
+
+		/* where to draw the scaled row */
+		r = rectsubpt(rectaddpt(Rect(0, 0, scale*SCREENWIDTH, scale), center),
+			Pt(scale*SCREENWIDTH/2, scale*SCREENHEIGHT/2));
+
+		/* the row image, y-axis gets scaled with repl flag */
+		if(scale != oldscale){
+			if(rowimg != nil)
+				freeimage(rowimg);
+			rowimg = allocimage(display, Rect(0, 0, scale*SCREENWIDTH, 1), RGB24, scale > 1, DNofill);
+			if(rowimg == nil)
+				sysfatal("allocimage: %r");
+			oldscale = scale;
+		}
+
+		for(y = 0; y < SCREENHEIGHT; y++){
+			d = buf;
+			e = s + SCREENWIDTH;
+			for(; s < e; s++){
+				m = &cmap[*s * 3];
+				for(i = 0; i < scale; i++, d += 3){
+					d[0] = m[2];
+					d[1] = m[1];
+					d[2] = m[0];
+				}
+			}
+			loadimage(rowimg, rowimg->r, buf, d - buf);
+			draw(screen, r, rowimg, nil, ZP);
+			r.min.y += scale;
+			r.max.y += scale;
+		}
+
+		flushimage(display, 1);
+	}
+	if(rowimg != nil)
+		freeimage(rowimg);
+	threadexits(nil);
+}
+
+void I_FinishUpdate(void)
+{
 	if(resized){
+		if(conv != nil){
+			sendp(conv, nil);
+			chanfree(conv);
+			conv = nil;
+		}
 		resized = 0;
 		if(getwindow(display, Refnone) < 0)
 			sysfatal("getwindow: %r");
@@ -106,86 +160,13 @@ void I_FinishUpdate(void)
 		grabout = insetrect(screen->r, Dx(screen->r)/8);
 	}
 
-	scale = Dx(screen->r)/SCREENWIDTH;
-	if(scale <= 0)
-		scale = 1;
-	else if(scale > 12)
-		scale = 12;
-
-	/* where to draw the scaled row */
-	r = rectsubpt(rectaddpt(Rect(0, 0, scale*SCREENWIDTH, scale), center),
-		Pt(scale*SCREENWIDTH/2, scale*SCREENHEIGHT/2));
-
-	/* the row image, y-axis gets scaled with repl flag */
-	rowimg = allocimage(display, Rect(0, 0, scale*SCREENWIDTH, 1), RGB24, scale > 1, DNofill);
-	if(rowimg == nil)
-		sysfatal("allocimage: %r");
-
-	s = screens[0];
-	for(y = 0; y < SCREENHEIGHT; y++){
-		d = buf;
-		e = s + SCREENWIDTH;
-		for(; s < e; s++){
-			m = &cmap[*s * 3];
-			switch(scale){
-			case 12:
-				*d++ = m[2];
-				*d++ = m[1];
-				*d++ = m[0];
-			case 11:
-				*d++ = m[2];
-				*d++ = m[1];
-				*d++ = m[0];
-			case 10:
-				*d++ = m[2];
-				*d++ = m[1];
-				*d++ = m[0];
-			case 9:
-				*d++ = m[2];
-				*d++ = m[1];
-				*d++ = m[0];
-			case 8:
-				*d++ = m[2];
-				*d++ = m[1];
-				*d++ = m[0];
-			case 7:
-				*d++ = m[2];
-				*d++ = m[1];
-				*d++ = m[0];
-			case 6:
-				*d++ = m[2];
-				*d++ = m[1];
-				*d++ = m[0];
-			case 5:
-				*d++ = m[2];
-				*d++ = m[1];
-				*d++ = m[0];
-			case 4:
-				*d++ = m[2];
-				*d++ = m[1];
-				*d++ = m[0];
-			case 3:
-				*d++ = m[2];
-				*d++ = m[1];
-				*d++ = m[0];
-			case 2:
-				*d++ = m[2];
-				*d++ = m[1];
-				*d++ = m[0];
-			case 1:
-				*d++ = m[2];
-				*d++ = m[1];
-				*d++ = m[0];
-			}
-		}
-		loadimage(rowimg, rowimg->r, buf, d - buf);
-		draw(screen, r, rowimg, nil, ZP);
-		r.min.y += scale;
-		r.max.y += scale;
+	if(conv == nil){
+		conv = chancreate(sizeof(uchar*), 0);
+		proccreate(convproc, conv, 4096);
 	}
-	freeimage(rowimg);
-
-	flushimage(display, 1);
+	memmove(screenconv[screenconvi], screens[0], sizeof(screenconv[0]));
+	if(nbsendp(conv, screenconv[screenconvi]) > 0)
+		screenconvi = (screenconvi + 1) % nelem(screenconv);
 }
 
 void I_MouseEnable(int on)
@@ -280,7 +261,7 @@ runetokey(Rune r)
 }
 
 static void
-kbdproc(void)
+kbdproc(void *)
 {
 	char buf[128], buf2[128], *s;
 	int kfd, n;
@@ -348,10 +329,11 @@ kbdproc(void)
 		}
 		strcpy(buf2, buf);
 	}
+	threadexits(nil);
 }
 
 static void
-mouseproc(void)
+mouseproc(void *)
 {
 	int fd, n, nerr;
 	Mouse m, om;
@@ -403,5 +385,6 @@ mouseproc(void)
 			break;
 		}
 	}
+	threadexits(nil);
 }
 

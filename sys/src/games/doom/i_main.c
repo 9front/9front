@@ -4,7 +4,7 @@
 #include "m_argv.h"
 #include "d_main.h"
 
-void main(int argc, char **argv)
+void threadmain(int argc, char **argv)
 {
 	myargc = argc; 
 	myargv = argv; 
