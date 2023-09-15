@@ -5,6 +5,7 @@
 #include "w_wad.h"	// W_GetNumForName()
 #include "z_zone.h"
 #include "m_argv.h"
+#include <thread.h>
 
 /* The number of internal mixing channels,
 **  the samples calculated for each mixing step,
@@ -132,6 +133,8 @@ static void* getsfx(char *sfxname, int *len)
 	return (void *)(paddedsfx + 8);
 }
 
+static void aproc(void *);
+
 void I_InitSound(void)
 {
 	int i;
@@ -160,7 +163,10 @@ void I_InitSound(void)
 			lengths[i] = lengths[S_sfx[i].link - S_sfx];
 		}
 	}
+	proccreate(aproc, nil, 4096);
 }
+
+static QLock audlock;
 
 /* This function loops all active (internal) sound
 **  channels, retrieves a given number of samples
@@ -174,19 +180,19 @@ void I_InitSound(void)
 **
 ** This function currently supports only 16bit.
 */
-void I_UpdateSound(void)
+static int
+soundtick(void)
 {
 	int l, r, i, v;
 	uchar *p;
 
-	if(audio_fd < 0)
-		return;
 	memset(mixbuf, 0, sizeof mixbuf);
 	if(mpfd[0]>=0 && !mus_paused && readn(mpfd[0], mixbuf, sizeof mixbuf) < 0){
 		fprint(2, "I_UpdateSound: disabling music: %r\n");
 		I_ShutdownMusic();
 	}
 	p = mixbuf;
+	qlock(&audlock);
 	while(p < mixbuf + sizeof mixbuf){
 		l = 0;
 		r = 0;
@@ -226,8 +232,24 @@ void I_UpdateSound(void)
 			p[3] = v >> 8;
 		}
 	}
+	qunlock(&audlock);
 	if(snd_SfxVolume|snd_MusicVolume)
-		write(audio_fd, mixbuf, sizeof mixbuf);
+		return write(audio_fd, mixbuf, sizeof mixbuf);
+	return 0;
+}
+
+static void
+aproc(void *)
+{
+	for(;;){
+		if(soundtick() < 0)
+			break;
+	}
+	threadexits(nil);
+}
+
+void I_UpdateSound(void)
+{
 }
 
 void I_ShutdownSound(void)
@@ -308,6 +330,7 @@ addsfx(int id, int vol, int step, int sep)
 	int			oldestnum = 0;
 	int			slot;
 
+	qlock(&audlock);
 	/* Chainsaw troubles.
 	** Play these sound effects only one at a time. */
 	if ( id == sfx_sawup ||
@@ -360,6 +383,7 @@ addsfx(int id, int vol, int step, int sep)
 	setparams(slot, vol, sep);
 	channelids[slot] = id;
 	channelhandles[slot] = rc = ++lasthandle;
+	qunlock(&audlock);
 	return rc;
 }
 
@@ -375,35 +399,46 @@ void I_StopSound(int handle)
 {
 	int i;
 
+	qlock(&audlock);
 	for(i=0; i<NUM_CHANNELS; i++)
 		if(channelhandles[i] == handle){
 			channels[i] = 0;
-			return;
+			break;
 		}
+	qunlock(&audlock);
 }
 
 int I_SoundIsPlaying(int handle)
 {
-	int i;
+	int i, r;
 
+	r = 0;
+	qlock(&audlock);
 	for(i=0; i<NUM_CHANNELS; i++)
-		if(channelhandles[i] == handle)
-			return channels[i] != 0;
-	return 0;
+		if(channelhandles[i] == handle){
+			r = channels[i] != 0;
+			break;
+		}
+	qunlock(&audlock);
+	return r;
 }
 
 void I_UpdateSoundParams(int handle, int vol, int sep, int /*pitch*/)
 {
 	int i, slot;
 
+	qlock(&audlock);
 	for(i=0, slot=0; i<NUM_CHANNELS; i++)
 		if(channelhandles[i] == handle){
 			slot = i;
 			break;
 		}
-	if(i == NUM_CHANNELS)
+	if(i == NUM_CHANNELS){
+		qunlock(&audlock);
 		return;
+	}
 	setparams(slot, vol, sep);
+	qunlock(&audlock);
 }
 
 void I_ShutdownMusic(void)

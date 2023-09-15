@@ -160,7 +160,7 @@ void I_FinishUpdate(void)
 		proccreate(convproc, conv, 4096);
 	}
 	memmove(screenconv[screenconvi], screens[0], sizeof(screenconv[0]));
-	if(nbsendp(conv, screenconv[screenconvi]) > 0)
+	if(sendp(conv, screenconv[screenconvi]) > 0)
 		screenconvi = (screenconvi + 1) % nelem(screenconv);
 }
 
