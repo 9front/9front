@@ -141,7 +141,7 @@ void I_FinishUpdate(void)
 {
 	if(resized){
 		if(conv != nil){
-			chanclose(conv);
+			sendp(conv, nil);
 			conv = nil;
 		}
 		resized = 0;
