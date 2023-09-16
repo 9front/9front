@@ -1,4 +1,6 @@
 typedef struct I2Cbus I2Cbus;
+typedef struct I2Cdev I2Cdev;
+
 struct I2Cbus
 {
 	char	*name;
@@ -6,13 +8,12 @@ struct I2Cbus
 
 	void	*ctlr;
 	int	(*init)(I2Cbus *bus);
-	int	(*io)(I2Cbus *bus, uchar *pkt, int olen, int ilen);
+	int	(*io)(I2Cdev *dev, uchar *pkt, int olen, int ilen);
 
 	int	probed;
 	QLock;
 };
 
-typedef struct I2Cdev I2Cdev;
 struct I2Cdev
 {
 	I2Cbus	*bus;
@@ -38,7 +39,7 @@ extern I2Cdev* i2cdev(I2Cbus *bus, int addr);
 /*
  * generic I/O
  */
-extern int i2cbusio(I2Cbus *bus, uchar *pkt, int olen, int ilen);
+extern int i2cbusio(I2Cdev *dev, uchar *pkt, int olen, int ilen);
 extern int i2crecv(I2Cdev *dev, void *data, int len, vlong addr);
 extern int i2csend(I2Cdev *dev, void *data, int len, vlong addr);
 

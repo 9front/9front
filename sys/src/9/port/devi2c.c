@@ -125,8 +125,9 @@ leavebus(I2Cbus *bus)
 }
 
 int
-i2cbusio(I2Cbus *bus, uchar *pkt, int olen, int ilen)
+i2cbusio(I2Cdev *dev, uchar *pkt, int olen, int ilen)
 {
+	I2Cbus *bus = dev->bus;
 	int user, n;
 
 	user =  enterbus(bus);
@@ -135,12 +136,12 @@ i2cbusio(I2Cbus *bus, uchar *pkt, int olen, int ilen)
 		return -1;
 	}
 	if(user && waserror()){
-		(*bus->io)(bus, nil, 0, 0);
+		(*bus->io)(dev, nil, 0, 0);
 		leavebus(bus);
 		nexterror();
 	}
 // iprint("%s: <- %.*H\n", bus->name, olen, pkt);
-	n = (*bus->io)(bus, pkt, olen, ilen);
+	n = (*bus->io)(dev, pkt, olen, ilen);
 // if(n > olen) iprint("%s: -> %.*H\n", bus->name, n - olen, pkt+olen);
 
 	leavebus(bus);
@@ -181,7 +182,7 @@ i2csend(I2Cdev *dev, void *data, int len, vlong addr)
 	if(len > 0)
 		memmove(pkt+o, data, len);
 
-	return i2cbusio(dev->bus, pkt, o + len, 0) - o;
+	return i2cbusio(dev, pkt, o + len, 0) - o;
 }
 	
 int
@@ -194,7 +195,7 @@ i2crecv(I2Cdev *dev, void *data, int len, vlong addr)
 	if(o+len > sizeof(pkt))
 		len = sizeof(pkt)-o;
 
-	len = i2cbusio(dev->bus, pkt, o, len) - o;
+	len = i2cbusio(dev, pkt, o, len) - o;
 	if(len > 0)
 		memmove(data, pkt+o, len);
 
@@ -206,7 +207,7 @@ i2cquick(I2Cdev *dev, int rw)
 {
 	uchar pkt[2];
 	int o = putaddr(dev, rw, pkt, -1);
-	if(i2cbusio(dev->bus, pkt, o, 0) != o)
+	if(i2cbusio(dev, pkt, o, 0) != o)
 		return -1;
 	return rw != 0;
 }
@@ -215,7 +216,7 @@ i2crecvbyte(I2Cdev *dev)
 {
 	uchar pkt[2+1];
 	int o = putaddr(dev, 1, pkt, -1);
-	if(i2cbusio(dev->bus, pkt, o, 1) - o != 1)
+	if(i2cbusio(dev, pkt, o, 1) - o != 1)
 		return -1;
 	return pkt[o];
 }
@@ -225,7 +226,7 @@ i2csendbyte(I2Cdev *dev, uchar b)
 	uchar pkt[2+1];
 	int o = putaddr(dev, 0, pkt, -1);
 	pkt[o] = b;
-	if(i2cbusio(dev->bus, pkt, o+1, 0) - o != 1)
+	if(i2cbusio(dev, pkt, o+1, 0) - o != 1)
 		return -1;
 	return b;
 }
@@ -234,7 +235,7 @@ i2creadbyte(I2Cdev *dev, ulong addr)
 {
 	uchar pkt[2+4+1];
 	int o = putaddr(dev, 1, pkt, addr);
-	if(i2cbusio(dev->bus, pkt, o, 1) - o != 1)
+	if(i2cbusio(dev, pkt, o, 1) - o != 1)
 		return -1;
 	return pkt[o];
 }
@@ -244,7 +245,7 @@ i2cwritebyte(I2Cdev *dev, ulong addr, uchar b)
 	uchar pkt[2+4+1];
 	int o = putaddr(dev, 0, pkt, addr);
 	pkt[o] = b;
-	if(i2cbusio(dev->bus, pkt, o+1, 0) - o != 1)
+	if(i2cbusio(dev, pkt, o+1, 0) - o != 1)
 		return -1;
 	return b;
 }
@@ -253,7 +254,7 @@ i2creadword(I2Cdev *dev, ulong addr)
 {
 	uchar pkt[2+4+2];
 	int o = putaddr(dev, 1, pkt, addr);
-	if(i2cbusio(dev->bus, pkt, o, 2) - o != 2)
+	if(i2cbusio(dev, pkt, o, 2) - o != 2)
 		return -1;
 	return pkt[o] | (ushort)pkt[o+1]<<8;
 }
@@ -264,7 +265,7 @@ i2cwriteword(I2Cdev *dev, ulong addr, ushort w)
 	int o = putaddr(dev, 0, pkt, addr);
 	pkt[o+0] = w;
 	pkt[o+1] = w>>8;
-	if(i2cbusio(dev->bus, pkt, o+2, 0) - o != 2)
+	if(i2cbusio(dev, pkt, o+2, 0) - o != 2)
 		return -1;
 	return w;
 }
@@ -273,7 +274,7 @@ i2cread32(I2Cdev *dev, ulong addr)
 {
 	uchar pkt[2+4+4];
 	int o = putaddr(dev, 1, pkt, addr);
-	if(i2cbusio(dev->bus, pkt, o, 4) - o != 4)
+	if(i2cbusio(dev, pkt, o, 4) - o != 4)
 		return -1;
 	return pkt[o] | (ulong)pkt[o+1]<<8 | (ulong)pkt[o+2]<<16 | (ulong)pkt[o+3]<<24;
 }
@@ -286,7 +287,7 @@ i2cwrite32(I2Cdev *dev, ulong addr, ulong u)
 	pkt[o+1] = u>>8;
 	pkt[o+2] = u>>16;
 	pkt[o+3] = u>>24;
-	if(i2cbusio(dev->bus, pkt, o+4, 0) - o != 4)
+	if(i2cbusio(dev, pkt, o+4, 0) - o != 4)
 		return -1;
 	return u;
 }
@@ -329,11 +330,11 @@ probebus(I2Cbus *bus)
 		if(i2cdev(bus, dummy.addr) != nil)
 			continue;
 		if(user && waserror()){
-			(*bus->io)(bus, nil, 0, 0);
+			(*bus->io)(&dummy, nil, 0, 0);
 			continue;
 		}
 		n = putaddr(&dummy, 0, pkt, -1);
-		if((*bus->io)(bus, pkt, n, 0) == n)
+		if((*bus->io)(&dummy, pkt, n, 0) == n)
 			probeddev(&dummy);
 		if(user) poperror();
 	}
@@ -343,11 +344,11 @@ probebus(I2Cbus *bus)
 		if(i2cdev(bus, dummy.addr) != nil)
 			continue;
 		if(user && waserror()){
-			(*bus->io)(bus, nil, 0, 0);
+			(*bus->io)(&dummy, nil, 0, 0);
 			continue;
 		}
 		n = putaddr(&dummy, 0, pkt, -1);
-		if((*bus->io)(bus, pkt, n, 0) == n)
+		if((*bus->io)(&dummy, pkt, n, 0) == n)
 			probeddev(&dummy);
 		if(user) poperror();
 	}

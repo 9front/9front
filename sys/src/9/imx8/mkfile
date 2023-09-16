@@ -89,6 +89,7 @@ install:V: /$objtype/$p$CONF
 
 main.$O: rebootcode.i
 
+i2cimx.$O: ../port/i2c.h
 pciimx.$O: ../port/pci.h
 usbxhciimx.$O: ../port/usbxhci.h
 

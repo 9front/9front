@@ -83,8 +83,9 @@ waitsr(Ctlr *ctlr, int inv, int mask)
 static uchar dummy;
 
 static int
-io(I2Cbus *bus, uchar *pkt, int olen, int ilen)
+io(I2Cdev *dev, uchar *pkt, int olen, int ilen)
 {
+	I2Cbus *bus = dev->bus;
 	Ctlr *ctlr = bus->ctlr;
 	uchar *regs = ctlr->regs;
 	int cr, sr, alen, o, i;
