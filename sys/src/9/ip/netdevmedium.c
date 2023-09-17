@@ -68,14 +68,14 @@ netdevunbind(Ipifc *ifc)
 	while(er->readp == (void*)-1)
 		tsleep(&up->sleep, return0, 0, 300);
 
-	if(er->readp != nil)
+	if(er->readp != nil && er->readp != up)
 		postnote(er->readp, 1, "unbind", 0);
 	poperror();
 
 	while(waserror())
 		;
 	/* wait for reader to die */
-	while(er->readp != nil)
+	while(er->readp != nil && er->readp != up)
 		tsleep(&up->sleep, return0, 0, 300);
 	poperror();
 
@@ -115,10 +115,6 @@ netdevread(void *a)
 		bp = devtab[er->mchan->type]->bread(er->mchan, ifc->maxtu, 0);
 		if(bp == nil){
 			poperror();
-			if(!waserror()){
-				static char *argv[]  = { "unbind" };
-				ifc->conv->p->ctl(ifc->conv, argv, 1);
-			}
 			break;
 		}
 		rlock(ifc);
@@ -134,7 +130,8 @@ netdevread(void *a)
 		runlock(ifc);
 		poperror();
 	}
-	er->readp = nil;
+	if(mediumunbindifc(ifc) != nil)
+		er->readp = nil;	/* someone else is doing the unbind */
 	pexit("hangup", 1);
 }
 

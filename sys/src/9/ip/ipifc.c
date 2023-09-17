@@ -123,6 +123,7 @@ ipfindmedium(char *name)
 
 /* same as nullmedium, to prevent unbind while bind or unbind is in progress */
 extern Medium unboundmedium;
+static char *ipifcunbindmedium(Ipifc *ifc, Medium *m);
 
 /*
  *  attach a device (or pkt driver) to the interface.
@@ -137,13 +138,12 @@ ipifcbind(Conv *c, char **argv, int argc)
 	if(argc < 2)
 		return Ebadarg;
 
-	ifc = (Ipifc*)c->ptcl;
-
 	/* bind the device to the interface */
 	m = ipfindmedium(argv[1]);
 	if(m == nil)
 		return "unknown interface type";
 
+	ifc = (Ipifc*)c->ptcl;
 	wlock(ifc);
 	if(ifc->m != nil){
 		wunlock(ifc);
@@ -151,10 +151,15 @@ ipifcbind(Conv *c, char **argv, int argc)
 	}
 	ifc->m = &unboundmedium;	/* fake until bound */
 	ifc->arg = nil;
+	if(m->unbindonclose == 0)
+		c->inuse++;
+	snprint(ifc->dev, sizeof ifc->dev, "%s%d", ifc->m->name, c->x);
 	wunlock(ifc);
 
 	if(waserror()){
 		wlock(ifc);
+		if(m->unbindonclose == 0)
+			c->inuse--;
 		ifc->m = nil;
 		wunlock(ifc);
 		nexterror();
@@ -163,6 +168,9 @@ ipifcbind(Conv *c, char **argv, int argc)
 	poperror();
 
 	wlock(ifc);
+	/* switch to the real medium */
+	ifc->m = m;
+
 	/* set the bound device name */
 	if(argc > 2)
 		strncpy(ifc->dev, argv[2], sizeof(ifc->dev));
@@ -171,12 +179,9 @@ ipifcbind(Conv *c, char **argv, int argc)
 	ifc->dev[sizeof(ifc->dev)-1] = 0;
 
 	/* set up parameters */
-	ifc->m = m;
-	ifc->maxtu = ifc->m->maxtu;
+	ifc->maxtu = m->maxtu;
 	ifc->delay = 40;
 	ifc->speed = 0;
-	if(ifc->m->unbindonclose == 0)
-		ifc->conv->inuse++;
 
 	/* default router paramters */
 	ifc->rp = c->p->f->v6p->rp;
@@ -194,24 +199,18 @@ ipifcbind(Conv *c, char **argv, int argc)
 }
 
 /*
- *  detach a device from an interface, close the interface
+ *  detach a medium from an interface, close the interface
+ *  ifc->conv is locked, ifc is wlocked
  */
 static char*
-ipifcunbind(Ipifc *ifc)
+ipifcunbindmedium(Ipifc *ifc, Medium *m)
 {
-	Medium *m;
-
-	wlock(ifc);
-	m = ifc->m;
-	if(m == nil || m == &unboundmedium){
-		wunlock(ifc);
+	if(m == nil || m == &unboundmedium)
 		return Eunbound;
-	}
 
 	/* disassociate logical interfaces */
 	while(ifc->lifc != nil)
 		ipifcremlifc(ifc, &ifc->lifc);
-
 
 	/* disassociate device */
 	if(m->unbind != nil){
@@ -236,12 +235,70 @@ ipifcunbind(Ipifc *ifc)
 
 	/* dissociate routes */
 	ifc->ifcid++;
+	ifc->m = nil;
+	ifc->arg = nil;
+
 	if(m->unbindonclose == 0)
 		ifc->conv->inuse--;
-	ifc->m = nil;
-	wunlock(ifc);
 
 	return nil;
+}
+
+/*
+ *  called from Ipifcproto->unbind,
+ *  with ifc->conv locked.
+ */
+static char*
+ipifcunbind(Ipifc *ifc)
+{
+	char *err;
+
+	wlock(ifc);
+	err = ipifcunbindmedium(ifc, ifc->m);
+	wunlock(ifc);
+
+	return err;
+}
+
+/*
+ *  called from medium at any time to unbind
+ *  an interface in case of an error such as
+ *  usb ethernet being un-plugged.
+ */
+char*
+mediumunbindifc(Ipifc *ifc)
+{
+	Medium *m;
+	Conv *conv;
+	char *err;
+
+	err = Eunbound;
+
+	rlock(ifc);
+	m = ifc->m;
+	if(m == &unboundmedium){
+		runlock(ifc);
+		return err;
+	}
+	conv = ifc->conv;
+	runlock(ifc);
+
+	assert(conv != nil);
+	assert(m != nil);
+	assert(m->unbindonclose == 0);
+
+	qlock(conv);
+
+	assert(conv->inuse > 0);
+	assert((Ipifc*)conv->ptcl == ifc);
+
+	wlock(ifc);
+	if(ifc->m == m)
+		err = ipifcunbindmedium(ifc, m);
+	wunlock(ifc);
+	qunlock(conv);
+
+	return err;
 }
 
 char sfixedformat[] = "device %s maxtu %d sendra %d recvra %d mflag %d oflag %d"

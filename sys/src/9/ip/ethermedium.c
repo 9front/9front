@@ -200,6 +200,12 @@ etherbind(Ipifc *ifc, int argc, char **argv)
 	kproc("recvarpproc", recvarpproc, ifc);
 }
 
+/*
+ *  called from devip due to
+ *  manual unbind or from one of the reader procs
+ *  due to read error from the ethernet device.
+ *  this is called only once!
+ */
 static void
 etherunbind(Ipifc *ifc)
 {
@@ -211,18 +217,20 @@ etherunbind(Ipifc *ifc)
 	while(er->arpp == (void*)-1 || er->read4p == (void*)-1 || er->read6p == (void*)-1)
 		tsleep(&up->sleep, return0, 0, 300);
 
-	if(er->read4p != nil)
+	if(er->read4p != nil && er->read4p != up)
 		postnote(er->read4p, 1, "unbind", 0);
-	if(er->read6p != nil)
+	if(er->read6p != nil && er->read6p != up)
 		postnote(er->read6p, 1, "unbind", 0);
-	if(er->arpp != nil)
+	if(er->arpp != nil && er->arpp != up)
 		postnote(er->arpp, 1, "unbind", 0);
 	poperror();
 
 	while(waserror())
 		;
 	/* wait for readers to die */
-	while(er->arpp != nil || er->read4p != nil || er->read6p != nil)
+	while(er->arpp != nil && er->arpp != up
+	|| er->read4p != nil && er->read4p != up
+	|| er->read6p != nil && er->read6p != up)
 		tsleep(&up->sleep, return0, 0, 300);
 	poperror();
 
@@ -323,8 +331,10 @@ etherread4(void *a)
 	if(!waserror())
 	for(;;){
 		bp = devtab[er->mchan4->type]->bread(er->mchan4, ifc->maxtu, 0);
-		if(bp == nil)
+		if(bp == nil){
+			poperror();
 			break;
+		}
 		rlock(ifc);
 		if(waserror()){
 			runlock(ifc);
@@ -340,7 +350,8 @@ etherread4(void *a)
 		runlock(ifc);
 		poperror();
 	}
-	er->read4p = nil;
+	if(mediumunbindifc(ifc) != nil)
+		er->read4p = nil;	/* someone else is doing the unbind */
 	pexit("hangup", 1);
 }
 
@@ -361,8 +372,10 @@ etherread6(void *a)
 	if(!waserror())
 	for(;;){
 		bp = devtab[er->mchan6->type]->bread(er->mchan6, ifc->maxtu, 0);
-		if(bp == nil)
+		if(bp == nil){
+			poperror();
 			break;
+		}
 		rlock(ifc);
 		if(waserror()){
 			runlock(ifc);
@@ -378,7 +391,8 @@ etherread6(void *a)
 		runlock(ifc);
 		poperror();
 	}
-	er->read6p = nil;
+	if(mediumunbindifc(ifc) != nil)
+		er->read6p = nil;	/* someone else is doing the unbind */
 	pexit("hangup", 1);
 }
 
@@ -513,7 +527,7 @@ recvarp(Ipifc *ifc)
 
 	ebp = devtab[er->achan->type]->bread(er->achan, ifc->maxtu, 0);
 	if(ebp == nil)
-		return;
+		error(Ehungup);
 
 	rlock(ifc);
 
@@ -611,7 +625,8 @@ recvarpproc(void *v)
 
 	er->arpp = up;
 	if(waserror()){
-		er->arpp = nil;
+		if(mediumunbindifc(ifc) != nil)
+			er->arpp = nil;	/* someone else is doing the unbind */
 		pexit("hangup", 1);
 	}
 	for(;;)

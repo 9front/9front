@@ -741,6 +741,8 @@ extern char*	ipifcadd(Ipifc *ifc, char **argv, int argc, int tentative, Iplifc *
 extern long	ipselftabread(Fs*, char *a, ulong offset, int n);
 extern char*	ipifcadd6(Ipifc *ifc, char**argv, int argc);
 extern char*	ipifcremove6(Ipifc *ifc, char**argv, int argc);
+extern char*	mediumunbindifc(Ipifc *ifc);
+
 /*
  *  ip.c
  */
