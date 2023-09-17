@@ -6,6 +6,7 @@ TARG=\
 	accupoint\
 	acidleak\
 	acpi\
+	aout2efi\
 	aout2uimage\
 	apm\
 	astarld\
