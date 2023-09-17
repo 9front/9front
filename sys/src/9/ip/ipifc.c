@@ -123,7 +123,6 @@ ipfindmedium(char *name)
 
 /* same as nullmedium, to prevent unbind while bind or unbind is in progress */
 extern Medium unboundmedium;
-static char *ipifcunbindmedium(Ipifc *ifc, Medium *m);
 
 /*
  *  attach a device (or pkt driver) to the interface.
@@ -151,25 +150,6 @@ ipifcbind(Conv *c, char **argv, int argc)
 	}
 	ifc->m = &unboundmedium;	/* fake until bound */
 	ifc->arg = nil;
-	if(m->unbindonclose == 0)
-		c->inuse++;
-	snprint(ifc->dev, sizeof ifc->dev, "%s%d", ifc->m->name, c->x);
-	wunlock(ifc);
-
-	if(waserror()){
-		wlock(ifc);
-		if(m->unbindonclose == 0)
-			c->inuse--;
-		ifc->m = nil;
-		wunlock(ifc);
-		nexterror();
-	}
-	(*m->bind)(ifc, argc, argv);
-	poperror();
-
-	wlock(ifc);
-	/* switch to the real medium */
-	ifc->m = m;
 
 	/* set the bound device name */
 	if(argc > 2)
@@ -185,6 +165,22 @@ ipifcbind(Conv *c, char **argv, int argc)
 
 	/* default router paramters */
 	ifc->rp = c->p->f->v6p->rp;
+	wunlock(ifc);
+
+	if(waserror()){
+		wlock(ifc);
+		ifc->m = nil;
+		wunlock(ifc);
+		nexterror();
+	}
+	(*m->bind)(ifc, argc, argv);
+	poperror();
+
+	wlock(ifc);
+	/* switch to real medium */
+	ifc->m = m;
+	if(m->unbindonclose == 0)
+		c->inuse++;
 
 	/* any ancillary structures (like routes) no longer pertain */
 	ifc->ifcid++;
@@ -216,10 +212,12 @@ ipifcunbindmedium(Ipifc *ifc, Medium *m)
 	if(m->unbind != nil){
 		ifc->m = &unboundmedium;	/* fake until unbound */
 		wunlock(ifc);
+		qunlock(ifc->conv);
 		if(!waserror()){
 			(*m->unbind)(ifc);
 			poperror();
 		}
+		qlock(ifc->conv);
 		wlock(ifc);
 	}
 
@@ -269,35 +267,21 @@ char*
 mediumunbindifc(Ipifc *ifc)
 {
 	Medium *m;
-	Conv *conv;
 	char *err;
-
-	err = Eunbound;
 
 	rlock(ifc);
 	m = ifc->m;
-	if(m == &unboundmedium){
-		runlock(ifc);
-		return err;
-	}
-	conv = ifc->conv;
 	runlock(ifc);
 
-	assert(conv != nil);
-	assert(m != nil);
-	assert(m->unbindonclose == 0);
-
-	qlock(conv);
-
-	assert(conv->inuse > 0);
-	assert((Ipifc*)conv->ptcl == ifc);
-
-	wlock(ifc);
-	if(ifc->m == m)
-		err = ipifcunbindmedium(ifc, m);
-	wunlock(ifc);
-	qunlock(conv);
-
+	err = Eunbound;
+	if(m != nil && m != &unboundmedium){
+		qlock(ifc->conv);
+		wlock(ifc);
+		if(ifc->m == m)
+			err = ipifcunbindmedium(ifc, m);
+		wunlock(ifc);
+		qunlock(ifc->conv);
+	}
 	return err;
 }
 
@@ -559,7 +543,7 @@ ipifcadd(Ipifc *ifc, char **argv, int argc, int tentative, Iplifc *lifcp)
 	}
 
 	wlock(ifc);
-	if(ifc->m == nil){
+	if(ifc->m == nil || ifc->m == &unboundmedium){
 		wunlock(ifc);
 		return Eunbound;
 	}
@@ -908,7 +892,7 @@ ipifcctl(Conv* c, char **argv, int argc)
 		err = ipifcremove6(ifc, argv, argc);
 	else {
 		wlock(ifc);
-		if(ifc->m == nil){
+		if(ifc->m == nil || ifc->m == &unboundmedium){
 			wunlock(ifc);
 			return Eunbound;
 		}
@@ -1697,7 +1681,7 @@ ipifcregisterproxy(Fs *f, Ipifc *ifc, uchar *ip, int add)
 		if(nifc == ifc || !canrlock(nifc))
 			continue;
 
-		if(nifc->m == nil
+		if(nifc->m == nil || nifc->m == &unboundmedium
 		|| (lifc = ipremoteonifc(nifc, ip)) == nil
 		|| (lifc->type & Rptpt) != 0
 		|| waserror()){
@@ -1760,7 +1744,7 @@ ipifcadd6(Ipifc *ifc, char **argv, int argc)
 		return Ebadarg;
 
 	rlock(ifc);
-	if(ifc->m == nil){
+	if(ifc->m == nil || ifc->m == &unboundmedium){
 		runlock(ifc);
 		return Eunbound;
 	}
