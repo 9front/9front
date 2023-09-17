@@ -1,11 +1,9 @@
-#!/bin/rc
-
+#!/bin/rc -b
 rfork en
-
 cd /
 if(! test -d .git)
 	bind -ac /dist/plan9front /
 if(! ~ `{git/branch} heads/front)
-	>[1=2] echo sysupdate: must be on "front" branch to pull
+	>[1=2] echo sysupdate: must be on "front" to pull
 if not
 	git/pull -u gits://git.9front.org/plan9front/plan9front
