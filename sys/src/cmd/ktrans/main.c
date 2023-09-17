@@ -536,6 +536,8 @@ dictthread(void*)
 
 			if(selected >= 0){
 				resetstr(&okuri, &last, &line, nil);
+				if(dict == zidian)
+					line.p = pushutf(line.p, strend(&line), p, 1);
 				selected = -1;
 				send(selectch, &selected);
 			}
@@ -551,43 +553,31 @@ static void
 telexlkup(Str *line)
 {
 	Map lkup;
-	char buf[UTFmax*3], *p, *e;
+	char buf[UTFmax*3], *p, *e, *dot;
 	Str out;
 	int n, ln;
 
-Again:
-	ln = utflen(line->b);
-	p = pushutf(buf, buf+sizeof buf, line->b, 1);
-	n = p-buf;
+	for(dot = line->b; (ln = utflen(dot)) >= 2; dot += n){
+		p = pushutf(buf, buf+sizeof buf, dot, 1);
+		n = p-buf;
+	
+		if(hmapget(telex, buf, &lkup) < 0)
+			continue;
+	
+		e = peekstr(line->p, line->b);
+		pushutf(p, buf+sizeof buf, e, 1);
+		if(hmapget(telex, buf, &lkup) < 0)
+			continue;
+	
+		out.p = pushutf(out.b, strend(&out), lkup.kana, 0);
+		out.p = pushutf(out.p, strend(&out), dot+n, 0);
+		popstr(&out);
 
-	if(hmapget(telex, buf, &lkup) < 0){
-		resetstr(line, nil);
-		return;
-	}
-
-	if(utflen(line->b) < 2)
-		return;
-
-	e = peekstr(line->p, line->b);
-	pushutf(p, buf+sizeof buf, e, 1);
-	if(hmapget(telex, buf, &lkup) < 0){
-		/* not correct; matches should be allowed to span vowels */
-		if(hmapget(telex, buf+n, &lkup) == 0)
-			line->p = pushutf(line->b, strend(line), buf+n, 0);
-		return;
-	}
-
-	out.p = pushutf(out.b, strend(&out), lkup.kana, 0);
-	out.p = pushutf(out.p, strend(&out), line->b+n, 0);
-	popstr(&out);
-
-	if(ln > 0)
 		emitutf(output, backspace, ln);
-	emitutf(output, out.b, 0);
-	line->p = pushutf(line->b, strend(line), out.b, 0);
-	if(utflen(lkup.kana) == 2)
+		emitutf(output, out.b, 0);
+		line->p = pushutf(line->b, strend(line), out.b, 0);
 		return;
-	goto Again;
+	}
 }
 
 static void
@@ -847,11 +837,13 @@ threadmain(int argc, char *argv[])
 
 	if((jishoname = getenv("jisho")) == nil)
 		jishoname = "/lib/ktrans/kanji.dict";
-	jisho = opendict(nil, jishoname);
+	if((jisho = opendict(nil, jishoname)) == nil)
+		sysfatal("failed to open jisho: %r");
 
 	if((zidianname = getenv("zidian")) == nil)
 		zidianname = "/lib/ktrans/wubi.dict";
-	zidian = opendict(nil, zidianname);
+	if((zidian = opendict(nil, zidianname)) == nil)
+		sysfatal("failed to open zidian: %r");
 
 	natural = nil;
 	for(i = 0; i < nelem(inittab); i++){

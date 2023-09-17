@@ -16,6 +16,33 @@ struct {
 
 	"watashiHAmainichi35funijouaruIte,saraNI10fundenshaNInoTtegakkouNIkayoImasu.\nkenkouNOijiNImoyakuDAtteimasuga,nakanakatanoshiImonodesu.\n",
 	L"私は毎日35分以上歩いて、更に10分電車に乗って学校に通います。\n健康の維持にも役だっていますが、なかなかたのしいものです。\n",
+
+	"wonengtunxiabolierbushangshenti",
+	L"我能吞下玻璃而不伤身体",
+
+	"wodeqidianchuanzhuangmanlemanyu",
+	L"我的气垫船装满了鳗鱼",
+
+	"renrenshengerziyouzaizunyanhequanlishangyilvpingdeng",
+	L"人人生而自由在尊严和权利上一律平等",
+
+	"ngang", L"ngang",
+	"sawcs", L"sắc",
+	"ngax", L"ngã",
+	"nawngj", L"nặng",
+	"trangw", L"trăng",
+	"cana", L"cân",
+	"ddeme", L"đêm",
+	"nhoo", L"nhô",
+	"mow", L"mơ",
+	"tuw", L"tư",
+	"cari xooong", L"cải xoong",
+	"huyeenf", L"huyền",
+	"hoom qua", L"hôm qua",
+	"thuws baary", L"thứ bẩy",
+	"ddaua", L"đâu",
+	"hoir", L"hỏi",
+	"giof", L"giò",
 };
 
 char*
@@ -57,7 +84,8 @@ main(int argc, char **argv)
 	bin = argv[1];
 	pipe(io1);
 	pipe(io2);
-	if(fork() == 0){
+	if(rfork(RFENVG|RFFDG|RFREND|RFPROC) == 0){
+		putenv("zidian", "/lib/ktrans/pinyin.dict");
 		dup(io1[0], 0);
 		dup(io2[0], 1);
 		close(io1[1]); close(io2[1]);
