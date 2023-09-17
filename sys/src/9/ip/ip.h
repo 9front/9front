@@ -583,7 +583,7 @@ struct	RouteTree
 	Route	*left;
 	Route	*right;
 	Ipifc	*ifc;
-	uchar	ifcid;		/* must match ifc->id */
+	uchar	ifcid;		/* must match ifc->ifcid */
 	uchar	depth;
 	ushort	type;
 	char	tag[4];
@@ -660,7 +660,7 @@ struct Arpent
 	Block	*hold;
 	Block	*last;
 	Ipifc	*ifc;
-	uchar	ifcid;			/* must match ifc->id */
+	uchar	ifcid;			/* must match ifc->ifcid */
 	uchar	state;
 	uchar	rxtsrem;		/* re-tranmissions remaining */
 	ulong	ctime;			/* time entry was created or refreshed */
