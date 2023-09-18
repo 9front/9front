@@ -22,6 +22,9 @@ static int profile, framestep;
 static int vwdx, vwdy, vwbpp;
 static ulong vwchan;
 static Image *fb;
+static Channel *conv, *sync[2];
+static uchar *screenconv[2];
+static int screenconvi;
 
 struct Kfn{
 	Rune r;
@@ -188,6 +191,7 @@ screeninit(void)
 {
 	Point p;
 
+	send(sync[0], nil);
 	if(!fixscale){
 		scale = Dx(screen->r) / vwdx;
 		if(Dy(screen->r) / vwdy < scale)
@@ -205,7 +209,12 @@ screeninit(void)
 		vwchan, scale > 1, 0);
 	free(pic);
 	pic = emalloc(vwdx * vwdy * vwbpp * scale);
-	draw(screen, screen->r, bg, nil, ZP);	
+	free(screenconv[0]);
+	free(screenconv[1]);
+	screenconv[0] = emalloc(vwdx * vwdy * vwbpp * scale);
+	screenconv[1] = emalloc(vwdx * vwdy * vwbpp * scale);
+	draw(screen, screen->r, bg, nil, ZP);
+	recv(sync[1], nil);
 }
 
 void
@@ -214,8 +223,10 @@ flushmouse(int discard)
 	Mouse m;
 
 	if(nbrecvul(mc->resizec) > 0){
+		send(sync[0], nil);
 		if(getwindow(display, Refnone) < 0)
 			sysfatal("resize failed: %r");
+		recv(sync[1], nil);
 		screeninit();
 	}
 	if(discard)
@@ -223,29 +234,60 @@ flushmouse(int discard)
 			;
 }
 
+static void
+screenproc(void*)
+{
+	uchar *p;
+	enum { Draw, Sync1, Sync2 };
+	Alt alts[] = {
+		[Draw]	{.c = conv, .v = &p, .op = CHANRCV},
+		[Sync1]	{.c = sync[0], .op = CHANRCV},
+		[Sync2]	{.c = sync[1], .op = CHANNOP},
+		{.op = CHANEND},
+	};
+
+	for(;;) switch(alt(alts)){
+	case Draw:
+		if(scale == 1){
+			loadimage(fb, fb->r, p, vwdx * vwdy * vwbpp);
+			draw(screen, picr, fb, nil, ZP);
+		} else {
+			Rectangle r;
+			uchar *s;
+			int w;
+	
+			s = p;
+			r = picr;
+			w = vwdx * vwbpp * scale;
+			while(r.min.y < picr.max.y){
+				loadimage(fb, fb->r, s, w);
+				s += w;
+				r.max.y = r.min.y+scale;
+				draw(screen, r, fb, nil, ZP);
+				r.min.y = r.max.y;
+			}
+		}
+		flushimage(display, 1);
+		break;
+	case Sync1:
+		alts[Draw].op = CHANNOP;
+		alts[Sync1].op = CHANNOP;
+		alts[Sync2].op = CHANSND;
+		break;
+	case Sync2:
+		alts[Draw].op = CHANRCV;
+		alts[Sync1].op = CHANRCV;
+		alts[Sync2].op = CHANNOP;
+		break;
+	}
+}
+
 void
 flushscreen(void)
 {
-	if(scale == 1){
-		loadimage(fb, fb->r, pic, vwdx * vwdy * vwbpp);
-		draw(screen, picr, fb, nil, ZP);
-	} else {
-		Rectangle r;
-		uchar *s;
-		int w;
-
-		s = pic;
-		r = picr;
-		w = vwdx * vwbpp * scale;
-		while(r.min.y < picr.max.y){
-			loadimage(fb, fb->r, s, w);
-			s += w;
-			r.max.y = r.min.y+scale;
-			draw(screen, r, fb, nil, ZP);
-			r.min.y = r.max.y;
-		}
-	}
-	flushimage(display, 1);
+	memmove(screenconv[screenconvi], pic, vwdx * vwdy * vwbpp * scale);
+	if(sendp(conv, screenconv[screenconvi]) > 0)
+		screenconvi = (screenconvi + 1) % 2;
 	if(profile)
 		timing();
 }
@@ -324,5 +366,9 @@ initemu(int dx, int dy, int bpp, ulong chan, int dokey, void(*kproc)(void*))
 		proccreate(joyproc, nil, mainstacksize);
 	bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
 	scale = fixscale;
+	conv = chancreate(sizeof(uchar*), 0);
+	sync[0] = chancreate(1, 0);
+	sync[1] = chancreate(1, 0);
+	proccreate(screenproc, nil, mainstacksize);
 	screeninit();
 }
