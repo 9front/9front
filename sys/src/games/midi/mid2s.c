@@ -54,7 +54,7 @@ event(Track *t)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-D] [mid]\n", argv0);
+	fprint(2, "usage: %s [-Dm] [mid]\n", argv0);
 	exits("usage");
 }
 
