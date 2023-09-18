@@ -50,8 +50,6 @@ struct Fchg {
 
 int	strip;
 int	reverse;
-void	(*addnew)(Hunk*, char*);
-void	(*addold)(Hunk*, char*);
 Fchg	*changed;
 int	nchanged;
 int	dryrun;
@@ -158,9 +156,9 @@ hunkheader(Hunk *h, char *s, char *oldpath, char *newpath, int lnum)
 		return -1;
 	e++;
 	h->newln = strtol(e, &e, 10);
+	h->newcnt = 1;
 	if(e == s)
 		return -1;
-	h->newcnt = 1;
 	if(*e == ','){
 		e++;
 		h->newcnt = strtol(e, &e, 10);
@@ -183,7 +181,7 @@ hunkheader(Hunk *h, char *s, char *oldpath, char *newpath, int lnum)
 }
 
 void
-addnewfn(Hunk *h, char *ln)
+addnew(Hunk *h, char *ln)
 {
 	int n;
 
@@ -198,7 +196,7 @@ addnewfn(Hunk *h, char *ln)
 }
 
 void
-addoldfn(Hunk *h, char *ln)
+addold(Hunk *h, char *ln)
 {
 	int n;
 
@@ -247,24 +245,37 @@ hunkcmp(void *a, void *b)
 	return ((Hunk*)a)->oldln - ((Hunk*)b)->oldln;
 }
 
+void
+swapint(int *a, int *b)
+{
+	int t;
+
+	t = *a;
+	*a = *b;
+	*b = t;
+}
+
+void
+swapstr(char **a, char **b)
+{
+	char *t;
+
+	t = *a;
+	*a = *b;
+	*b = t;
+}
+
 Patch*
 parse(Biobuf *f, char *name)
 {
-	char *ln, *old, *new, **oldp, **newp;
-	int oldcnt, newcnt, lnum;
+	char *ln, *old, *new;
+	int i, oldcnt, newcnt, lnum;
 	Patch *p;
-	Hunk h;
+	Hunk h, *ph;
 
 	ln = nil;
 	lnum = 0;
 	p = emalloc(sizeof(Patch));
-	if(!reverse){
-		oldp = &old;
-		newp = &new;
-	}else{
-		oldp = &new;
-		newp = &old;
-	}
 comment:
 	free(ln);
 	while((ln = readline(f, &lnum)) != nil){
@@ -277,13 +288,13 @@ comment:
 	goto out;
 
 patch:
-	if(fileheader(ln, "--- ", oldp) == -1)
+	if(fileheader(ln, "--- ", &old) == -1)
 		goto comment;
 	free(ln);
 
 	if((ln = readline(f, &lnum)) == nil)
 		goto out;
-	if(fileheader(ln, "+++ ", newp) == -1)
+	if(fileheader(ln, "+++ ", &new) == -1)
 		goto comment;
 	free(ln);
 
@@ -298,8 +309,10 @@ hunk:
 
 	while(1){
 		if((ln = readline(f, &lnum)) == nil){
-			if(oldcnt != h.oldcnt || newcnt != h.newcnt)
-				sysfatal("%s:%d: malformed hunk: mismatched counts", name, lnum);
+			if(oldcnt != h.oldcnt)
+				sysfatal("%s:%d: malformed hunk: mismatched -hunk size %d != %d", name, lnum, oldcnt, h.oldcnt);
+			if(newcnt != h.newcnt)
+				sysfatal("%s:%d: malformed hunk: mismatched +hunk size %d != %d", name, lnum, newcnt, h.newcnt);
 			addhunk(p, &h);
 			break;
 		}
@@ -345,6 +358,17 @@ hunk:
 	}
 
 out:
+	if(reverse){
+		for(i = 0; i < p->nhunk; i++){
+			ph = &p->hunk[i];
+			swapint(&ph->oldln, &ph->newln);
+			swapint(&ph->oldcnt, &ph->newcnt);
+			swapint(&ph->oldlen, &ph->newlen);
+			swapint(&ph->oldsz, &ph->newsz);
+			swapstr(&ph->oldpath, &ph->newpath);
+			swapstr(&ph->old, &ph->new);
+		}
+	}
 	qsort(p->hunk, p->nhunk, sizeof(Hunk), hunkcmp);
 	free(old);
 	free(new);
@@ -668,13 +692,6 @@ main(int argc, char **argv)
 		break;
 	}ARGEND;
 
-	if(reverse){
-		addnew = addoldfn;
-		addold = addnewfn;
-	}else{
-		addnew = addnewfn;
-		addold = addoldfn;
-	}
 	ok = 1;
 	if(argc == 0){
 		if((f = Bfdopen(0, OREAD)) == nil)
