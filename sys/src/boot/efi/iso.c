@@ -24,8 +24,10 @@ struct Dir
 	uchar dirlen;
 	uchar extlen;
 
-	uchar lba[8];
-	uchar len[8];
+	ulong lba;
+	ulong lbabe;
+	ulong len;
+	ulong lenbe;
 
 	uchar date[7];
 
@@ -133,7 +135,23 @@ Foundpvd:
 			break;
 		if(d.dirlen == 0)
 			continue;	/* zero padding to next sector */
-		if(read(ex, &d.dirlen + 1, Dirsz-1) != Dirsz-1)
+		if(read(ex, &d.extlen, 1) != 1)
+			break;
+		if(read(ex, &d.lba, 4) != 4)
+			break;
+		if(read(ex, &d.lbabe, 4) != 4)
+			break;
+		if(read(ex, &d.len, 4) != 4)
+			break;
+		if(read(ex, &d.lenbe, 4) != 4)
+			break;
+		if(read(ex, d.date, 7) != 7)
+			break;
+		if(read(ex, d.flags, 3) != 3)
+			break;
+		if(read(ex, d.seq, 4) != 4)
+			break;
+		if(read(ex, &d.namelen, 1) != 1)
 			break;
 		if(read(ex, name, d.namelen) != d.namelen)
 			break;
@@ -158,8 +176,8 @@ Foundpvd:
 		i = end - path;
 		if(d.namelen == i && memcmp(name, path, i) == 0){
 			ex->rp = ex->ep;
-			ex->lba = *((ulong*)d.lba);
-			ex->len = *((ulong*)d.len);
+			ex->lba = d.lba;
+			ex->len = d.len;
 			if(*end == 0)
 				return 0;
 			else if(d.flags[0] & 2){

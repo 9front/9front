@@ -10,6 +10,16 @@ void* (*open)(char *name);
 int (*read)(void *f, void *data, int len);
 void (*close)(void *f);
 
+/*
+ * on ia32 and amd64, we use IMAGE_FILE_RELOCS_STRIPPED which
+ * disables relocations, so this is a no-op.
+ *
+ * on arm64, the EFI loader can move our code, so we need to
+ * update some of our stored addresses (such as callbacks)
+ * which assume we are loaded at our requested base address.
+ */
+extern void *rebase(void *addr);
+
 void
 putc(int c)
 {
@@ -297,6 +307,10 @@ efimain(EFI_HANDLE ih, EFI_SYSTEM_TABLE *st)
 	f = nil;
 	if(pxeinit(&f) && isoinit(&f) && fsinit(&f))
 		print("no boot devices\n");
+
+	read = rebase(read);
+	close = rebase(close);
+	open = rebase(open);
 
 	for(;;){
 		kern = configure(f, path);

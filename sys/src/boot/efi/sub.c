@@ -149,11 +149,12 @@ timeout(int ms)
 	return 0;
 }
 
-#define BOOTLINE	((char*)CONFADDR)
+#define BOOTLINE	confaddr
 #define BOOTLINELEN	64
-#define BOOTARGS	((char*)(CONFADDR+BOOTLINELEN))
+#define BOOTARGS	(confaddr+BOOTLINELEN)
 #define	BOOTARGSLEN	(4096-0x200-BOOTLINELEN)
 
+extern char *confaddr;
 static char *confend;
 
 static char*
@@ -329,6 +330,13 @@ beswal(ulong l)
 	return (p[0]<<24) | (p[1]<<16) | (p[2]<<8) | p[3];
 }
 
+static uvlong
+beswall(uvlong l)
+{
+	uchar *p = (uchar*)&l;
+	return ((uvlong)p[0]<<56) | ((uvlong)p[1]<<48) | ((uvlong)p[2]<<40) | ((uvlong)p[3]<<32) | ((uvlong)p[4]<<24) | ((uvlong)p[5]<<16) | ((uvlong)p[6]<<8) | (uvlong)p[7];
+}
+
 char*
 bootkern(void *f)
 {
@@ -342,8 +350,12 @@ bootkern(void *f)
 	e = (uchar*)(beswal(ex.entry) & ~0xF0000000UL);
 	switch(beswal(ex.magic)){
 	case S_MAGIC:
-		if(readn(f, e, 8) != 8)
+	case R_MAGIC:
+		if(readn(f, &e, 8) != 8)
 			goto Error;
+		/* load low address */
+		e = (uchar*)(beswall((uvlong)e) & 0x0FFFFFFFUL);
+		break;
 	case I_MAGIC:
 		break;
 	default:
@@ -371,7 +383,7 @@ bootkern(void *f)
 	memconf(findconf("*e820=")?nil:&confend);
 	unload();
 
-	jump(e);
+	jump(e, BOOTARGS);
 
 Error:		
 	return "i/o error";
