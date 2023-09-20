@@ -105,7 +105,7 @@ main(int argc, char **argv)
 		sysfatal("infd: %r");
 	if(crackhdr(infd, &fhdr) == 0)
 		sysfatal("crackhdr: %r");
-	if(fhdr.type != FARM)
+	if(fhdr.type != FARM && fhdr.type != FARMB)
 		sysfatal("not an arm32 a.out");
 	iname = strrchr(argv[0], '/');
 	if(iname != nil)
