@@ -66,6 +66,7 @@ extern	Mach	m68020;
 extern	Mach	mi386;
 extern	Mach	mamd64;
 extern	Mach	marm;
+extern	Mach	mthumb;
 extern	Mach	marm64;
 extern	Mach	mpower;
 extern	Mach	mpower64;
@@ -303,8 +304,14 @@ crackhdr(int fd, Fhdr *fp)
 		seek(fd, mp->hsize, 0);		/* seek to end of header */
 		break;
 	}
-	if(mp->magic == 0)
+	switch(mp->magic){
+	case E_MAGIC:
+		thumbpctab(fd, fp);
+		break;
+	case 0:
 		werrstr("unknown header type");
+		break;
+	}
 	return ret;
 }
 
@@ -341,6 +348,9 @@ adotout(int fd, Fhdr *fp, ExecHdr *hp)
 static void
 commonboot(Fhdr *fp)
 {
+	/* arm needs to check for both arm and thumb */
+	if(fp->type == FARM && (fp->entry & mthumb.ktmask))
+		goto FTHUM;
 	if (!(fp->entry & mach->ktmask))
 		return;
 
@@ -355,6 +365,7 @@ commonboot(Fhdr *fp)
 		fp->name = "386 plan 9 boot image";
 		fp->dataddr = _round(fp->txtaddr+fp->txtsz, mach->pgsize);
 		break;
+	FTHUM:
 	case FARM:
 		fp->type = FARMB;
 		fp->txtaddr = (u32int)fp->entry;

@@ -1269,6 +1269,8 @@ format(char *mnemonic, Instr *i, char *f)
 	*i->curr = 0;
 }
 
+extern Machdata thumbmach;
+
 static int
 printins(Map *map, uvlong pc, char *buf, int n)
 {
@@ -1286,7 +1288,8 @@ printins(Map *map, uvlong pc, char *buf, int n)
 static int
 arminst(Map *map, uvlong pc, char modifier, char *buf, int n)
 {
-	USED(modifier);
+	if(thumbpclookup(pc))
+		return thumbmach.das(map, pc, modifier, buf, n);
 	return printins(map, pc, buf, n);
 }
 
@@ -1294,6 +1297,9 @@ static int
 armdas(Map *map, uvlong pc, char *buf, int n)
 {
 	Instr i;
+
+	if(thumbpclookup(pc))
+		return thumbmach.hexinst(map, pc, buf, n);
 
 	i.curr = buf;
 	i.end = buf+n;
@@ -1309,6 +1315,9 @@ static int
 arminstlen(Map *map, uvlong pc)
 {
 	Instr i;
+
+	if(thumbpclookup(pc))
+		return thumbmach.instsize(map, pc);
 
 	if(decode(map, pc, &i) < 0)
 		return -1;

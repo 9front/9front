@@ -10,6 +10,7 @@ FILES=\
 	access\
 	machdata\
 	setmach\
+	t\
 	v\
 	k\
 	u\
@@ -21,6 +22,7 @@ FILES=\
 	7\
 	8\
 	9\
+	tdb\
 	vdb\
 	kdb\
 	udb\
