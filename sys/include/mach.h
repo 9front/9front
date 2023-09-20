@@ -320,4 +320,6 @@ int		syminit(int, Fhdr*);
 int		symoff(char*, int, uvlong, int);
 void		textseg(uvlong, Fhdr*);
 int		textsym(Symbol*, int);
+void		thumbpctab(int, Fhdr*);
+int		thumbpclookup(uvlong);
 void		unusemap(Map*, int);
