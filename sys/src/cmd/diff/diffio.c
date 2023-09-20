@@ -229,7 +229,6 @@ fetch(Diff *d, long *f, int a, int b, Biobuf *bp, char *s)
 	while (a++ <= b) {
 		readline(bp, buf);
 		Bprint(&stdout, "%s%s\n", s, buf);
-		Bflush(&stdout);
 	}
 }
 
