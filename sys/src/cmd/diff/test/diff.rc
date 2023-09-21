@@ -3,7 +3,7 @@
 # tests with no line endings
 # are broken; fix them later
 # tests=`{seq 15}
-tests=(1 2 3 4 5 11 12 13 15)
+tests=(1 2 3 4 5 6 7 11 12 13 15)
 for(t in $tests){
 	echo ../$O.diff -u diff-t$t.1 diff-t$t.2
 	../$O.diff -u diff-t$t.1 diff-t$t.2 > diff-t$t.out

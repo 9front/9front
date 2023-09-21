@@ -22,9 +22,9 @@ readline(Biobuf *bp, char *buf)
 				return -1;
 			break;
 		}
+		*p++ = c;
 		if (c == '\n')
 			break;
-		*p++ = c;
 	} while (p < e);
 	*p = 0;
 	if (c != '\n' && c >= 0) {
@@ -180,12 +180,12 @@ check(Diff *d, Biobuf *bf, Biobuf *bt)
 	d->ixnew[0] = 0;
 	for (f = t = 1; f < d->len[0]; f++) {
 		flen = readline(bf, fbuf);
-		d->ixold[f] = d->ixold[f-1] + flen + 1;		/* ftell(bf) */
+		d->ixold[f] = d->ixold[f-1] + flen;		/* ftell(bf) */
 		if (d->J[f] == 0)
 			continue;
 		do {
 			tlen = readline(bt, tbuf);
-			d->ixnew[t] = d->ixnew[t-1] + tlen + 1;	/* ftell(bt) */
+			d->ixnew[t] = d->ixnew[t-1] + tlen;	/* ftell(bt) */
 		} while (t++ < d->J[f]);
 		if (bflag) {
 			flen = squishspace(fbuf);
@@ -196,7 +196,7 @@ check(Diff *d, Biobuf *bf, Biobuf *bt)
 	}
 	while (t < d->len[1]) {
 		tlen = readline(bt, tbuf);
-		d->ixnew[t] = d->ixnew[t-1] + tlen + 1;	/* fseek(bt) */
+		d->ixnew[t] = d->ixnew[t-1] + tlen;	/* fseek(bt) */
 		t++;
 	}
 }
@@ -213,7 +213,7 @@ void
 fetch(Diff *d, long *f, int a, int b, Biobuf *bp, char *s)
 {
 	char buf[MAXLINELEN];
-	int maxb;
+	int maxb, len;
 
 	if(a <= 1)
 		a = 1;
@@ -227,8 +227,12 @@ fetch(Diff *d, long *f, int a, int b, Biobuf *bp, char *s)
 		return;
 	Bseek(bp, f[a-1], 0);
 	while (a++ <= b) {
-		readline(bp, buf);
-		Bprint(&stdout, "%s%s\n", s, buf);
+		len = readline(bp, buf);
+		if(len == 0 || buf[len-1] != '\n'){
+			Bprint(&stdout, "%s%s\n", s, buf);
+			Bprint(&stdout, "\\ No newline at end of file\n");
+		}else
+			Bprint(&stdout, "%s%s", s, buf);
 	}
 }
 
