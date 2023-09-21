@@ -265,10 +265,23 @@ swapstr(char **a, char **b)
 	*b = t;
 }
 
+void
+trimhunk(char c, Hunk *h)
+{
+	if((c == ' ' || c == '-') && h->oldlen > 0 && h->old[h->oldlen-1] == '\n'){
+		h->oldcnt--;
+		h->oldlen--;
+	}
+	if((c == ' ' || c == '+') && h->newlen > 0 && h->new[h->newlen-1] == '\n'){
+		h->newcnt--;
+		h->newlen--;
+	}
+}
+
 Patch*
 parse(Biobuf *f, char *name)
 {
-	char *ln, *old, *new;
+	char *ln, *old, *new, c;
 	int i, oldcnt, newcnt, lnum;
 	Patch *p;
 	Hunk h, *ph;
@@ -316,10 +329,16 @@ hunk:
 			addhunk(p, &h);
 			break;
 		}
+		c = ln[0];
 		switch(ln[0]){
 		default:
 			sysfatal("%s:%d: malformed hunk: leading junk", name, lnum);
 			goto out;
+		case '\\':
+			if(strncmp(ln, "\\ No newline", nelem("\\ No newline")-1) == 0)
+				trimhunk(c, &h);
+			/* ignore unknown directives */
+			break;
 		case '-':
 			addold(&h, ln);
 			oldcnt++;
@@ -350,6 +369,8 @@ hunk:
 		addhunk(p, &h);
 		if((ln = readline(f, &lnum)) == nil)
 			goto out;
+		if(strncmp(ln, "\\ No newline", nelem("\\ No newline")-1) == 0)
+			trimhunk(c, &p->hunk[p->nhunk-1]);
 		if(strncmp(ln, "--- ", 4) == 0)
 			goto patch;
 		if(strncmp(ln, "@@ ", 3) == 0)
@@ -542,6 +563,7 @@ char*
 searchln(Fbuf *f, Hunk *h, int ln)
 {
 	int off;
+int n;
 
 	off = f->lines[ln];
 	if(off + h->oldlen > f->len)
