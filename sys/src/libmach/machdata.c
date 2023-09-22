@@ -359,6 +359,8 @@ cisctrace(Map *map, uvlong pc, uvlong sp, uvlong link, Tracer trace)
 		if(++i > 40)
 			break;
 	}
+	if(i == 0)
+		werrstr("no SP for PC %#llux", pc);
 	return i;
 }
 
@@ -395,6 +397,8 @@ risctrace(Map *map, uvlong pc, uvlong sp, uvlong link, Tracer trace)
 		if(++i > 40)
 			break;
 	}
+	if(i == 0)
+		werrstr("no SP for PC %#llux", pc);
 	return i;
 }
 

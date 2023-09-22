@@ -127,6 +127,8 @@ i386trace(Map *map, uvlong pc, uvlong sp, uvlong link, Tracer trace)
 		if(++i > 1000)
 			break;
 	}
+	if(i == 0)
+		werrstr("no SP for PC %#llux", pc);
 	return i;
 }
 
