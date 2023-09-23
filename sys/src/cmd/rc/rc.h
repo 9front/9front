@@ -19,6 +19,7 @@
 #ifndef NSIG
 #define NSIG 32
 #endif
+#define IOUNIT	32768
 #endif
 
 #define	YYMAXDEPTH	500

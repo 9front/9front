@@ -4,7 +4,7 @@
 #include "fns.h"
 
 enum {
-	NBUF = 8192,
+	NBUF = IOUNIT,
 };
 
 void
