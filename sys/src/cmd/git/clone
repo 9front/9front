@@ -87,11 +87,8 @@ fn clone{
 		git/fs
 		@ {builtin cd $tree && tar cif /fd/1 .} | @ {tar xf /fd/0} \
 			|| die 'checkout failed:' $status
-		for(f in `$nl{walk -f $tree | drop $tree}){
-			idx=.git/index9/tracked/$f
-			mkdir -p `$nl{basename -d $idx}
-			walk -eq ./$f > $idx
-		}
+		{for(f in `$nl{cd $tree && walk -f})
+			echo 'T NOQID 0 '$f} > .git/INDEX9
 	}
 	if not{
 		echo no default branch >[1=2]

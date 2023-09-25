@@ -152,10 +152,10 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	int i, j, n;
-	Hash *h;
-	char *p, *e, *s, *objpfx;
 	char query[2048], repo[512];
+	char *p, *e, *s, *objpfx;
+	int i, j, n, nrel;
+	Hash *h;
 
 	ARGBEGIN{
 	case 'd':	chattygit++;	break;
@@ -170,7 +170,7 @@ main(int argc, char **argv)
 
 	if(argc == 0)
 		usage();
-	if(findrepo(repo, sizeof(repo)) == -1)
+	if(findrepo(repo, sizeof(repo), &nrel) == -1)
 		sysfatal("find root: %r");
 	if(chdir(repo) == -1)
 		sysfatal("chdir: %r");

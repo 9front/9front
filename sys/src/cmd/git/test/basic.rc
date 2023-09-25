@@ -64,4 +64,3 @@ echo @@ version4 @@
 q diff -c scratch/upstream/file.txt scratch/downstream/file.txt || die mismatch
 ! test -e scratch/upstream/file2.txt || die mismatch
 ! test -e scratch/downstream/file2.txt || die mismatch
-

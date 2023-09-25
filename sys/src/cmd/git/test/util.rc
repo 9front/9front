@@ -1,5 +1,5 @@
 fn q {
-	{$* > /tmp/out.$pid && rm /tmp/out.$pid} || cat /tmp/out
+	{$* > /tmp/out.$pid && rm /tmp/out.$pid} || cat /tmp/out.$pid
 }
 fn qq {
 	$* >/dev/null >[2]/dev/null

@@ -21,6 +21,7 @@ typedef struct Dtab	Dtab;
 typedef struct Dblock	Dblock;
 typedef struct Objq	Objq;
 typedef struct Qelt	Qelt;
+typedef struct Idxent	Idxent;
 
 enum {
 	Pathmax		= 512,
@@ -190,6 +191,13 @@ struct Delta {
 	int	len;
 };
 
+struct Idxent {
+	char	*path;
+	Qid	qid;
+	int	mode;
+	int	order;
+	char	state;
+};
 
 #define GETBE16(b)\
 		((((b)[0] & 0xFFul) <<  8) | \
@@ -301,9 +309,10 @@ int	hparse(Hash *, char *);
 int	hassuffix(char *, char *);
 int	swapsuffix(char *, int, char *, char *, char *);
 char	*strip(char *);
-int	findrepo(char *, int);
+int	findrepo(char *, int, int*);
 int	showprogress(int, int);
 u64int	murmurhash2(void*, usize);
+Qid	parseqid(char*);
 
 /* packing */
 void	dtinit(Dtab *, Object*);

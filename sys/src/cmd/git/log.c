@@ -239,7 +239,7 @@ void
 main(int argc, char **argv)
 {
 	char path[1024], repo[1024], *p, *r;
-	int i, nrepo;
+	int i, nrel, nrepo;
 
 	ARGBEGIN{
 	case 'e':
@@ -259,7 +259,7 @@ main(int argc, char **argv)
 		break;
 	}ARGEND;
 
-	if(findrepo(repo, sizeof(repo)) == -1)
+	if(findrepo(repo, sizeof(repo), &nrel) == -1)
 		sysfatal("find root: %r");
 	nrepo = strlen(repo);
 	if(argc != 0){
