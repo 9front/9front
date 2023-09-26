@@ -352,8 +352,10 @@ redux:
 	for(i = 0; i < n; i += 2){
 		if(strcmp(f[i], "internaldate") == 0){
 			l = internaltounix(f[i + 1]);
-			if(l < 418319360)
-				abort();
+			if(l < 418319360){
+				fprint(2, "invalid date %s\n", f[i+1]);
+				l = time(nil);
+			}
 			if(idx < imap->muid)
 				imap->f[idx].dates = l;
 		}else if(strcmp(f[i], "rfc822.size") == 0){
