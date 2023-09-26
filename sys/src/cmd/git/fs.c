@@ -485,7 +485,7 @@ objwalk1(Qid *q, Object *o, Crumb *p, Crumb *c, char *name, vlong qdir, Gitaux *
 			if(!w)
 				return Ebadobj;
 			q->type = (w->type == GTree) ? QTDIR : 0;
-			q->path = qpath(c, i, w->id, qdir);
+			q->path = qpath(p, i, w->id, qdir);
 			c->mode = m;
 			c->mode |= (w->type == GTree) ? DMDIR|0755 : 0644;
 			c->obj = w;
