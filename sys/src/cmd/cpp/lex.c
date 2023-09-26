@@ -362,6 +362,8 @@ gettokens(Tokenrow *trp, int reset)
 				}
 				state &= ~QBSBIT;
 				s->inp = ip;
+				if (c=='?')
+					goto reswitch;
 				if (c=='\\') { /* line-folding */
 					if (foldline(s)) {
 						s->lineinc++;
