@@ -20,6 +20,23 @@ It replaces the corresponding reply message
 that would accompany a successful call; its tag is that
 of the failing request.
 .PP
+Any error string may be returned, but by convention, there
+should be a prefix that describes the error in a way that
+may be checked by a machine, followed by any additional
+useful information.
+.PP
+There are a handful of common error prefixes that are used:
+.TP
+.B interrupted
+The operation that was in progress was cancelled before it
+could be completed.
+.TP
+.B file not found
+A walk was not able to match the requested name
+.TP
+.B i/o on hungup channel
+The channel that was being used was closed
+.PP
 By convention, clients may truncate error messages after
 .B ERRMAX-1
 bytes;
