@@ -513,7 +513,7 @@ main(int argc, char **argv)
 					show(o, Tflg, tstr, wdir[j].path);
 				else
 					show(o, Mflg, mstr, wdir[j].path);
-			}else if(printflg & Uflg)
+			}else if(printflg & Uflg && pfxmatch(idx[i].path, argrel, argn, argc))
 				show(o, Uflg, ustr, wdir[j].path);
 			j++;
 		}
