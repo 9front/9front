@@ -106,7 +106,6 @@ void	*domalloc(int);
 void	dofree(void *);
 void	error(enum errtype, char *, ...);
 void	flushout(void);
-int	trigraph(Source *);
 int	foldline(Source *);
 Nlist	*lookup(Token *, int);
 void	control(Tokenrow *);

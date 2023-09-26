@@ -272,7 +272,7 @@ expandlex(void)
 			}
 		}
 	}
-	/* install special cases for ? (trigraphs),  \ (splicing), runes */
+	/* install special cases for \ (splicing), runes */
 	for (i=0; i<MAXSTATE; i++) {
 		for (j=0; j<0xFF; j++)
 			if (j=='?' || j=='\\' || UTF2(j) || UTF3(j) || UTF4(j)) {
@@ -362,13 +362,6 @@ gettokens(Tokenrow *trp, int reset)
 				}
 				state &= ~QBSBIT;
 				s->inp = ip;
-				if (c=='?') { 	/* check trigraph */
-					if (trigraph(s)) {
-						state = oldstate;
-						continue;
-					}
-					goto reswitch;
-				}
 				if (c=='\\') { /* line-folding */
 					if (foldline(s)) {
 						s->lineinc++;
@@ -444,43 +437,6 @@ gettokens(Tokenrow *trp, int reset)
 		tp->len = ip - tp->t;
 		tp++;
 	}
-}
-
-/* have seen ?; handle the trigraph it starts (if any) else 0 */
-int
-trigraph(Source *s)
-{
-	int c;
-
-	if (s->inp[1]!='?')
-		return 0;
-	c = 0;
-	switch(s->inp[2]) {
-	case '=':
-		c = '#'; break;
-	case '(':
-		c = '['; break;
-	case '/':
-		c = '\\'; break;
-	case ')':
-		c = ']'; break;
-	case '\'':
-		c = '^'; break;
-	case '<':
-		c = '{'; break;
-	case '!':
-		c = '|'; break;
-	case '>':
-		c = '}'; break;
-	case '-':
-		c = '~'; break;
-	}
-	if (c) {
-		*s->inp = c;
-		memmove(s->inp+1, s->inp+3, s->inl-s->inp+2);
-		s->inl -= 2;
-	}
-	return c;
 }
 
 int
