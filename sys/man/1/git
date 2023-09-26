@@ -521,6 +521,8 @@ option suppresses all output.
 The
 .B -f
 option filters files by status, and only matching items are printed.
+By default, the filters are
+.BR TRMA .
 
 .PP
 The status characters are as follows:
@@ -536,6 +538,9 @@ This file will be gone in the next commit.
 .TP
 A
 This file will be present in the next commit.
+.TP
+U
+This file is not tracked by git.
 
 .PP
 .B Git/compat
