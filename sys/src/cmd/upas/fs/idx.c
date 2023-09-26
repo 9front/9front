@@ -240,12 +240,12 @@ lose:
 int
 wridxfile(Mailbox *mb)
 {
-	char buf[Pathlen + 4];
+	char *p, buf[Pathlen + 32];
 	int r, fd;
 	Biobuf b;
-	Dir *d;
+	Dir *d, n;
 
-	snprint(buf, sizeof buf, "%s.idx", mb->path);
+	snprint(buf, sizeof buf, "%s.idx.tmp", mb->path);
 	iprint("wridxfile %s\n", buf);
 	if((fd = exopen(buf)) == -1){
 		rerrstr(buf, sizeof buf);
@@ -258,8 +258,21 @@ wridxfile(Mailbox *mb)
 	Binit(&b, fd, OWRITE);
 	r = pridx(&b, mb);
 	Bterm(&b);
+
+	/* remove and rename over the old index */
+	snprint(buf, sizeof buf, "%s.idx", mb->path);
+	remove(buf);
+
+	if((p = strrchr(mb->path, '/')) == nil)
+		sysfatal("index path is directory");
+	snprint(buf, sizeof buf, "%s.idx", p+1);
+	nulldir(&n);
+	n.name = buf;
+	if(dirfwstat(fd, &n) == -1)
+		sysfatal("dirfwstat: %r");
+
 	d = dirfstat(fd);
-	if(d == 0)
+	if(d == nil)
 		sysfatal("dirfstat: %r");
 	mb->qid = d->qid;
 	free(d);
