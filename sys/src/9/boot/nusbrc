@@ -74,8 +74,15 @@ if(! nusb/usbd)
 }
 
 # usbd removes this file once all devices have been enumerated
-while(test -e /env/usbbusy)
-	sleep 1
+if(test -e /env/usbbusy) sleep 0.6
+if(test -e /env/usbbusy) sleep 0.8
+if(test -e /env/usbbusy) sleep 1.0
+if(test -e /env/usbbusy) sleep 1.2
+if(test -e /env/usbbusy) sleep 1.4
+if(test -e /env/usbbusy) sleep 1.6
+if(test -e /env/usbbusy) sleep 1.8
+if(test -e /env/usbbusy) sleep 2.0
+if(test -e /env/usbbusy) echo $0^': warning: USB device enumeration incomplete.' >[1=2]
 
 bind -a '#σ/usb' /dev
 bind -a '#σ/usbnet' /net
