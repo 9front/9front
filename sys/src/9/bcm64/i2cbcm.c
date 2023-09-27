@@ -6,6 +6,8 @@
  *	i2c0 SDA0/SCL0 pins are not routed to P1 connector (except for early Rev 0 boards)
  *
  * maybe hardware problems lurking, see: https://github.com/raspberrypi/linux/issues/254
+ *
+ * modified by adventuresin9@gmail.com to work with 9Front's port/devi2c
  */
 
 #include	"u.h"
@@ -18,9 +20,7 @@
 #include	"../port/i2c.h"
 
 #define I2CREGS	(VIRTIO+0x804000)
-#define SDA0Pin	2
-#define	SCL0Pin	3
-#define	Alt0	0x4
+
 
 typedef struct Ctlr Ctlr;
 typedef struct Bsc Bsc;
@@ -43,9 +43,9 @@ struct Bsc {
  * Per-controller info
  */
 struct Ctlr {
-	QLock lock;
 	Bsc	*regs;
 	Rendez r;
+	Lock ilock;
 };
 
 static Ctlr ctlr;
@@ -72,6 +72,10 @@ enum {
 	Txw	= 1<<2,			/* TX fifo needs writing */
 	Done	= 1<<1,		/* transfer done */
 	Ta	= 1<<0,			/* Transfer active */
+
+	/* pin settings */
+	SDA0Pin	= 2,
+	SCL0Pin	= 3,
 };
 
 static void
@@ -80,6 +84,7 @@ i2cinterrupt(Ureg*, void*)
 	Bsc *r;
 	int st;
 
+	ilock(&ctlr.ilock);
 	r = ctlr.regs;
 	st = 0;
 	if((r->ctrl & Intr) && (r->stat & Rxd))
@@ -92,6 +97,7 @@ i2cinterrupt(Ureg*, void*)
 		r->ctrl &= ~st;
 		wakeup(&ctlr.r);
 	}
+	iunlock(&ctlr.ilock);
 }
 
 static int
@@ -129,54 +135,42 @@ i2cio(I2Cdev *dev, uchar *pkt, int olen, int ilen)
 	uchar *p;
 	int st;
 	int o;
-//print("enter io\n");
-//	r->ctrl = 0;						/* Shutdown ctrl incase it was left in bad state */
-
-/* arguements from Miller's i2cio() */
 	int rw, len;
 	uint addr;
 	o = 0;
 
-	if(dev->subaddr > 0){
-//print("subaddr\n");
+	if(dev->subaddr > 0){				/* subaddressing in not implemented */
 		return -1;
 	}
 
 	if((pkt[0] & 0xF8) == 0xF0){		/* b11110xxx reserved for 10bit addressing*/
-//print("10bit\n");
-		r->ctrl = 0;
 		return -1;
 	}
 
 	rw = pkt[0] & 1;					/* rw bit is first bit of pkt[0], read == 1 */
 	addr = dev->addr;
 	pkt++;								/* move past device addr packet */
-	o++;								/* have to atleast return processing the dev addr */
+	o++;								/* have to at least return processing the dev addr */
 
-//print("addr=%ux rw=%d olen=%d ilen=%d\n", addr, rw, olen, ilen);
-/* 
- * If 9Front is just running a probe
- * return 1,
- * else the controller throws an NAK error
- * when doing a write with just the dev addr
- */
+	/* 
+	 * If 9Front is just running a probe
+	 * return 1,
+	 * else the controller throws an NAK error
+	 * when doing a write with just the dev addr
+	 */
 
 	if((olen == 1) && (ilen == 0)){
 		return 1;
 	}
 
-	qlock(&ctlr.lock);
 	r = ctlr.regs;
 	r->ctrl = I2cen | Clear;
 	r->addr = addr;
 	r->stat = Clkt|Err|Done;
 
-
 	len = (olen - 1) + ilen;
 	r->dlen = len;
 	r->ctrl = I2cen | Start | Intd | rw;
-
-//print("len=%d\n", len);
 
 	p = pkt;
 	st = rw == Read? Rxd : Txd;
@@ -186,8 +180,6 @@ i2cio(I2Cdev *dev, uchar *pkt, int olen, int ilen)
 			sleep(&ctlr.r, i2cready, (void*)(st|Done));
 		}
 		if(r->stat & (Err|Clkt)){
-			qunlock(&ctlr.lock);
-			//print("error1\n");
 			r->ctrl = 0;
 			return -1;
 		}
@@ -209,13 +201,10 @@ i2cio(I2Cdev *dev, uchar *pkt, int olen, int ilen)
 	while((r->stat & Done) == 0)
 		sleep(&ctlr.r, i2cready, (void*)Done);
 	if(r->stat & (Err|Clkt)){
-		qunlock(&ctlr.lock);
-		//print("error2 %ux\n", r->stat);
 		r->ctrl = 0;
 		return -1;
 	}
 	r->ctrl = 0;
-	qunlock(&ctlr.lock);
 	return o;
 }
 
@@ -223,6 +212,6 @@ i2cio(I2Cdev *dev, uchar *pkt, int olen, int ilen)
 void
 i2cbcmlink(void)
 {
-	static I2Cbus i2c = {"i2c", 400000, &ctlr, i2cinit, i2cio};
+	static I2Cbus i2c = {"i2c1", 400000, &ctlr, i2cinit, i2cio};
 	addi2cbus(&i2c);
 }
