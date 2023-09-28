@@ -73,6 +73,9 @@ git/pull, git/rm, git/serve
 .PP
 .B git/import
 [
+.B -n
+]
+[
 .I commits...
 ]
 .PP
@@ -432,7 +435,10 @@ can apply.
 .PP
 .B Git/import
 imports a commit with message, author, and
-date information.
+date information. When passed the
+.B -n
+option, applies the contents of the commit without
+committing to the branch.
 
 .PP
 .B Git/merge
