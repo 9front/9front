@@ -7,6 +7,7 @@ enum {
 	LENHDR = 4,
 
 	MAGIC = 0xFF | ('S'<<8) | ('M'<<16) | ('B'<<24),
+	MAGIC_SMB2 = 0xFE | ('S'<<8) | ('M'<<16) | ('B'<<24),
 
 	SMB_FLAGS_CASE_INSENSITIVE = 0x08,
 	SMB_FLAGS_CANONICALIZED_PATHS = 0x10,
@@ -88,8 +89,8 @@ receive(uchar *h, uchar *e)
 		exits("botch");
 		return;
 	}
-	if(magic != MAGIC){
-		logit("bad smb magic");
+	if(magic != MAGIC) {
+		logit("bad smb magic [%x] %s", magic, (magic == MAGIC_SMB2 ? "(SMB2/3 not supported)" : ""));
 		exits("botch");
 		return;
 	}

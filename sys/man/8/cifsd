@@ -1,6 +1,6 @@
 .TH CIFSD 8
 .SH NAME
-cifsd \- CIFS/SMB network daemon
+cifsd \- CIFS/SMBv1 network daemon
 .SH SYNOPSIS
 .PP
 .B ip/cifsd
@@ -25,6 +25,7 @@ cifsd \- CIFS/SMB network daemon
 exports filesystems to
 .SM CIFS or
 .SM SMB
+version 1
 clients like Microsoft \(tm Windows.
 .PP
 It is normally started by the network listen process via the

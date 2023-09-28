@@ -135,7 +135,7 @@ smbsessionsetupandx(Req *r, uchar *h, uchar *p, uchar *e)
 			free(mcr);
 		}
 		remoteuser = getuser();
-		logit("auth successfull");
+		logit("auth successful");
 		break;
 	}
 	sessionuid = (namehash(getuser()) & 0x7FFF) | 1;
@@ -791,6 +791,12 @@ smbdeletedirectory(Req *r, uchar *h, uchar *p, uchar *e)
 out:
 	free(name);
 	free(path);
+}
+
+void
+smbstatusnotimplemented(Req *r, uchar *, uchar *, uchar *)
+{
+	r->respond(r, STATUS_NOT_IMPLEMENTED);
 }
 
 void
@@ -1711,7 +1717,7 @@ unsup:
 void
 smbnoandxcommand(Req *r, uchar *, uchar *, uchar *)
 {
-	r->respond(r, (r->cmd == 0xFF) ? STATUS_INVALID_SMB : 0);
+	r->respond(r, (r->cmd == 0xFF) ? STATUS_SMB_BAD_COMMAND : 0);
 }
 
 struct {
@@ -1731,12 +1737,17 @@ struct {
 	[0x23] { "SMB_COM_QUERY_INFORMATION2", smbqueryinformation2 },
 	[0x24] { "SMB_COM_LOCKING_ANDX", smblockingandx },
 	[0x25] { "SMB_COM_TRANSACTION", smbtransaction },
+	[0x27] { "SMB_COM_IOCTL", smbstatusnotimplemented },
+	[0x28] { "SMB_COM_IOCTL_SECONDARY", smbstatusnotimplemented },
+	[0x29] { "SMB_COM_COPY", smbstatusnotimplemented },
+	[0x2a] { "SMB_COM_MOVE", smbstatusnotimplemented },
 	[0x2b] { "SMB_COM_ECHO", smbecho },
 	[0x2d] { "SMB_COM_OPEN_ANDX", smbopenandx },
 	[0x2e] { "SMB_COM_READ_ANDX", smbreadandx },
 	[0x2f] { "SMB_COM_WRITE_ANDX", smbwriteandx },
 	[0x32] { "SMB_COM_TRANSACTION2", smbtransaction },
 	[0x34] { "SMB_COM_FIND_CLOSE2", smbcloseflush },
+	[0x40] { "SMB_IOS", smbnoandxcommand },
 	[0x71] { "SMB_COM_DISCONNECT_TREE", smbdisconnecttree },
 	[0x72] { "SMB_COM_NEGOTIATE", smbnegotiate },
 	[0x73] { "SMB_COM_SESSION_SETUP_ANX", smbsessionsetupandx },
@@ -1750,6 +1761,7 @@ struct {
 void
 smbcmd(Req *r, int cmd, uchar *h, uchar *p, uchar *e)
 {
+	logit("processing [%.2x] command", cmd);
 	if((cmd >= nelem(optab)) || (optab[cmd].fun == nil)){
 		logit("[%.2x] command not implemented", cmd);
 		r->respond(r, STATUS_NOT_SUPPORTED);
