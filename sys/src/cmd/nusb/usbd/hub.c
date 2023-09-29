@@ -176,20 +176,20 @@ newhub(char *fn, Dev *d)
 	if(h->isroot){
 		h->dev = opendev(fn);
 		if(h->dev == nil){
-			fprint(2, "%s: opendev: %s: %r", argv0, fn);
+			fprint(2, "%s: %s: opendev: %r", argv0, fn);
 			goto Fail;
 		}
 		h->dev->depth = -1;
 		configroothub(h);	/* never fails */
 		if(opendevdata(h->dev, ORDWR) < 0){
-			fprint(2, "%s: opendevdata: %s: %r\n", argv0, fn);
+			fprint(2, "%s: %s: opendevdata: %r\n", argv0, fn);
 			closedev(h->dev);
 			goto Fail;
 		}
 	}else{
 		h->dev = d;
 		if(confighub(h) < 0){
-			fprint(2, "%s: %s: config: %r\n", argv0, fn);
+			fprint(2, "%s: %s: confighub: %r\n", argv0, fn);
 			goto Fail;
 		}
 	}
@@ -363,9 +363,7 @@ portattach(Hub *h, int p, u32int sts)
 	if(h->dev->isusb3){
 		sleep(Enabledelay);
 		sts = portstatus(h, p);
-		if(sts == -1)
-			goto Fail;
-		if((sts & PSenable) == 0){
+		if(sts == -1 || (sts & PSenable) == 0){
 			dprint(2, "%s: %s: port %d: not enabled?\n", argv0, d->dir, p);
 			goto Fail;
 		}
@@ -378,13 +376,11 @@ portattach(Hub *h, int p, u32int sts)
 		}
 		sleep(Resetdelay);
 		sts = portstatus(h, p);
-		if(sts == -1)
-			goto Fail;
-		if((sts & PSenable) == 0){
+		if(sts == -1 || (sts & PSenable) == 0){
 			dprint(2, "%s: %s: port %d: not enabled?\n", argv0, d->dir, p);
 			portfeature(h, p, Fportenable, 1);
 			sts = portstatus(h, p);
-			if((sts & PSenable) == 0)
+			if(sts == -1 || (sts & PSenable) == 0)
 				goto Fail;
 		}
 		sp = "full";
@@ -401,11 +397,8 @@ portattach(Hub *h, int p, u32int sts)
 	}
 	seek(d->cfd, 0, 0);
 	nr = read(d->cfd, buf, sizeof(buf)-1);
-	if(nr == 0){
-		fprint(2, "%s: %s: port %d: newdev: eof\n", argv0, d->dir, p);
-		goto Fail;
-	}
-	if(nr < 0){
+	if(nr <= 0){
+		if(nr == 0) werrstr("eof");
 		fprint(2, "%s: %s: port %d: newdev: %r\n", argv0, d->dir, p);
 		goto Fail;
 	}
@@ -420,13 +413,17 @@ portattach(Hub *h, int p, u32int sts)
 	nd->isusb3 = h->dev->isusb3;
 	if(usbdebug > 2)
 		devctl(nd, "debug 1");
-	for(i=0;; i++){
+	for(i=1;; i++){
 		if(opendevdata(nd, ORDWR) >= 0)
 			break;
-		fprint(2, "%s: %s: opendevdata: %r\n", argv0, nd->dir);
-		if(i >= 4)
+		if(i >= 10){
+			fprint(2, "%s: %s: opendevdata: %r\n", argv0, nd->dir);
 			goto Fail;
-		sleep(500);
+		}
+		sts = portstatus(h, p);
+		if(sts == -1 || (sts & PSenable) == 0)
+			goto Fail;
+		sleep(i*50);
 	}
 	if(usbcmd(nd, Rh2d|Rstd|Rdev, Rsetaddress, nd->id, 0, nil, 0) < 0){
 		dprint(2, "%s: %s: port %d: setaddress: %r\n", argv0, d->dir, p);
@@ -467,9 +464,10 @@ Fail:
 		pp->hub = nil;	/* hub closed by enumhub */
 	if(!h->dev->isusb3)
 		portfeature(h, p, Fportenable, 0);
-	if(nd != nil)
+	if(nd != nil){
 		devctl(nd, "detach");
-	closedev(nd);
+		closedev(nd);
+	}
 	return nil;
 }
 
