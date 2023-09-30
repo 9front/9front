@@ -10,6 +10,7 @@ QLock hublock;
 static int nhubs;
 static int mustdump;
 static int pollms = Pollms;
+static ulong nowms;
 
 static char *dsname[] = { "disabled", "attached", "configed" };
 
@@ -358,6 +359,20 @@ portattach(Hub *h, int p, u32int sts)
 	d = h->dev;
 	pp = &h->port[p];
 	nd = nil;
+
+	/*
+	 * prevent repeated attaches in short succession as it is a indication
+	 * for a reset loop or a very flanky device.
+	 */
+	if(pp->acount && nowms - pp->atime >= Attachdelay)
+		pp->acount = 0;
+	pp->atime = nowms;
+	if(++pp->acount > Attachcount){
+		fprint(2, "%s: %s: port %d: too many attaches in short succession\n",
+			argv0, d->dir, p);
+		goto Fail;
+	}
+
 	pp->state = Pattached;
 	dprint(2, "%s: %s: port %d attach sts %#ux\n", argv0, d->dir, p, sts);
 	if(h->dev->isusb3){
@@ -558,7 +573,12 @@ enumhub(Hub *h, int p)
 				dprint(2, "%s: %s: port %d: unsuspend: %r\n", argv0, d->dir, p);
 			sleep(Enabledelay);
 			sts = portstatus(h, p);
-			fprint(2, "%s: %s: port %d: unsuspended (sts %#ux)\n", argv0, d->dir, p, sts);
+			if(sts == -1){
+				hubfail(h);
+				return -1;
+			}
+			fprint(2, "%s: %s: port %d: unsuspended sts: %s %#ux\n", argv0, d->dir, p,
+				stsstr(sts, h->dev->isusb3), sts);
 		}
 	}
 	if((pp->sts & PSpresent) == 0 && (sts & PSpresent) != 0){
@@ -568,7 +588,7 @@ enumhub(Hub *h, int p)
 	}else if(portgone(pp, sts)){
 		portdetach(h, p);
 	}else if(portresetwanted(h, p)){
-		portdetach(h, p);	
+		portdetach(h, p);
 		if(!d->isusb3)
 			portfeature(h, p, Fportenable, 0);
 		/* pretend it is gone, causing a re-attach and port reset */
@@ -614,7 +634,7 @@ work(void)
 	 * Do not use hub interrupt endpoint because we
 	 * have to poll the root hub(s) in any case.
 	 */
-	for(;;){
+	for(;;nowms += pollms){
 		qlock(&hublock);
 Again:
 		for(h = hubs; h != nil; h = h->next)

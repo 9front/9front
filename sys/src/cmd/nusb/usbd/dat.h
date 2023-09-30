@@ -54,13 +54,13 @@ enum
 	Pconfiged,
 
 	/* Delays, timeouts (ms) */
-	Spawndelay	= 250,		/* how often may we re-spawn a driver */
 	Resetdelay	= 20,		/* how much to wait after a reset */
 	Enabledelay	= 20,		/* how much to wait after an enable */
 	Powerdelay	= 100,		/* after powering up ports */
 	Pollms		= 250, 		/* port poll interval */
-	Chgdelay	= 100,		/* waiting for port become stable */
-	Chgtmout	= 1000,		/* ...but at most this much */
+
+	Attachdelay	= 3000,		/* attach considered repeated if within Attachdelay */
+	Attachcount	= 5,		/* maximum number of repeated attaches before giving up */
 
 	/*
 	 * device tab for embedded usb drivers.
@@ -91,6 +91,8 @@ struct Port
 {
 	int	state;		/* state of the device */
 	u32int	sts;		/* old port status */
+	ulong	atime;		/* time of last attach in milliseconds */
+	int	acount;		/* rapid attach counter */
 	uchar	removable;
 	uchar	pwrctl;
 	Dev	*dev;		/* attached device (if non-nil) */
