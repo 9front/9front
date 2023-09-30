@@ -329,7 +329,7 @@ int	anyvar(Adr*);
 int	subprop(Reg*);
 int	copyprop(Reg*);
 int	shiftprop(Reg*);
-void	constprop(Adr*, Adr*, Reg*);
+void	constprop(int, Adr*, Adr*, Reg*);
 int	copy1(Adr*, Adr*, Reg*, int);
 int	copyu(Prog*, Adr*, Adr*);
 

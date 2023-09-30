@@ -286,7 +286,7 @@ loop1:
 		if(p->as == AMOV || p->as == AMOVW || p->as == AFMOVS || p->as == AFMOVD)
 		if(regtyp(&p->to)) {
 			if(p->from.type == D_CONST || p->from.type == D_FCONST)
-				constprop(&p->from, &p->to, r->s1);
+				constprop(p->as, &p->from, &p->to, r->s1);
 			else if(regtyp(&p->from))
 			if(p->from.type == p->to.type) {
 				if(copyprop(r)) {
@@ -898,7 +898,7 @@ copy1(Adr *v1, Adr *v2, Reg *r, int f)
  * The v1->v2 should be eliminated by copy propagation.
  */
 void
-constprop(Adr *c1, Adr *v1, Reg *r)
+constprop(int as, Adr *c1, Adr *v1, Reg *r)
 {
 	Prog *p;
 
@@ -918,7 +918,8 @@ constprop(Adr *c1, Adr *v1, Reg *r)
 				print("; merge; return\n");
 			return;
 		}
-		if((p->as == AMOVW || p->as == AMOVWU || p->as == AMOV || p->as == AFMOVD || p->as == AFMOVS)
+		if((p->as == as || p->as == AMOVW || p->as == AMOVWU
+		|| (p->as == AMOV && c1->offset >= 0))	/* immediate loads do not sign extend */
 		&& copyas(&p->from, c1)) {
 			if(debug['C'])
 				print("; sub%D/%D", &p->from, v1);
@@ -931,7 +932,7 @@ constprop(Adr *c1, Adr *v1, Reg *r)
 		if(debug['C'])
 			print("\n");
 		if(r->s2)
-			constprop(c1, v1, r->s2);
+			constprop(as, c1, v1, r->s2);
 	}
 }
 
