@@ -45,8 +45,8 @@ void
 asmb(void)
 {
 	Prog *p;
-	long magic, etext;
-	vlong vl;
+	long magic;
+	vlong vl, etext;
 	Optab *o;
 	uchar *sbuf, *dbuf;
 
@@ -382,9 +382,9 @@ putsymb(char *s, int t, vlong v, int ver)
 void
 asmlc(void)
 {
-	long oldpc, oldlc;
+	vlong oldpc;
 	Prog *p;
-	long v, s;
+	long v, s, oldlc;
 
 	oldpc = INITTEXT;
 	oldlc = 0;

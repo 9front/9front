@@ -162,10 +162,10 @@ main(int argc, char *argv[])
 	if (INITTEXTP == -1)
 		INITTEXTP = INITTEXT;
 	if(INITDAT != 0 && INITRND != 0)
-		print("warning: -D0x%lux is ignored because of -R0x%lux\n",
+		print("warning: -D0x%llux is ignored because of -R0x%lux\n",
 			INITDAT, INITRND);
 	if(debug['v'])
-		Bprint(&bso, "HEADER = -H0x%d -T0x%lux -D0x%lux -R0x%lux\n",
+		Bprint(&bso, "HEADER = -H0x%d -T0x%llux -D0x%llux -R0x%lux\n",
 			HEADTYPE, INITTEXT, INITDAT, INITRND);
 	Bflush(&bso);
 	zprg.as = AGOK;

@@ -21,7 +21,8 @@ span(void)
 	Sym *setext, *s;
 	Optab *o;
 	int m, bflag, i;
-	long c, otxt, v;
+	vlong c, otxt;
+	long v;
 
 	if(debug['v'])
 		Bprint(&bso, "%5.2f span\n", cputime());

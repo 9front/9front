@@ -253,10 +253,10 @@ EXTERN struct
 
 EXTERN	long	HEADR;			/* length of header */
 EXTERN	int	HEADTYPE;		/* type of header */
-EXTERN	long	INITDAT;		/* data location */
+EXTERN	vlong	INITDAT;		/* data location */
 EXTERN	long	INITRND;		/* data round above text location */
-EXTERN	long	INITTEXT;		/* text location */
-EXTERN	long	INITTEXTP;		/* text location (physical) */
+EXTERN	vlong	INITTEXT;		/* text location */
+EXTERN	vlong	INITTEXTP;		/* text location (physical) */
 EXTERN	char*	INITENTRY;		/* entry point */
 EXTERN	long	autosize;
 EXTERN	Biobuf	bso;
