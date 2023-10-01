@@ -365,6 +365,42 @@ pipebwrite(Chan *c, Block *bp, ulong)
 	return n;
 }
 
+static int
+pipewstat(Chan *c, uchar *dp, int n)
+{
+	Dir d;
+	Pipe *p;
+
+	if(waserror()){
+		/* avoid notes when pipe is a mounted queue */
+		if((c->flag & CMSG) == 0)
+			postnote(up, 1, "sys: wstat on closed pipe", NUser);
+		nexterror();
+	}
+
+	n = convM2D(dp, n, &d, nil);
+	if(n == 0)
+		error(Eshortstat);
+	if(d.length < 1 || d.length > conf.pipeqsize)
+		error(Ebadarg);
+
+	p = c->aux;
+	switch(NETTYPE(c->qid.path)){
+	case Qdir:
+		error(Eperm);
+	case Qdata0:
+	case Qdata1:
+		qsetlimit(p->q[0], d.length);
+		qsetlimit(p->q[1], d.length);
+		break;
+	default:
+		panic("pipewstat");
+	}
+
+	poperror();
+	return n;
+}
+
 Dev pipedevtab = {
 	'|',
 	"pipe",
@@ -383,5 +419,5 @@ Dev pipedevtab = {
 	pipewrite,
 	pipebwrite,
 	devremove,
-	devwstat,
+	pipewstat,
 };
