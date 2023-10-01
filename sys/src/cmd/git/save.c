@@ -201,9 +201,8 @@ blobify(Dir *d, char *path, int *mode, Hash *bh)
 int
 tracked(char *path)
 {
-	int lo, hi, mid, r;
+	int r, lo, hi, mid;
 
-	r = -1;
 	lo = 0;
 	hi = nidx-1;
 	while(lo <= hi){
@@ -214,9 +213,9 @@ tracked(char *path)
 		else if(r > 0)
 			lo = mid+1;
 		else
-			break;
+			return idx[mid].state != 'R';
 	}
-	return r == 0 && idx[mid].state != 'R';
+	return 0; 
 }
 
 int
