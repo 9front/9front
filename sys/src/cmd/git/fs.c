@@ -75,7 +75,6 @@ char *qroot[] = {
 #define E2long	"path too long"
 #define Enodir	"not a directory"
 #define Erepo	"unable to read repo"
-#define Eobject "invalid object"
 #define Egreg	"wat"
 #define Ebadobj	"invalid object"
 
@@ -305,6 +304,9 @@ gcommitgen(int i, Dir *d, void *p)
 		d->qid.path = qpath(c, i, o->id, Qauthor);
 		break;
 	default:
+		free(d->uid);
+		free(d->gid);
+		free(d->muid);
 		return -1;
 	}
 	return 0;
@@ -630,9 +632,9 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 			e = objwalk1(q, o->obj, o, c, name, Qobject, aux);
 		}else{
 			if(hparse(&h, name) == -1)
-				return Eobject;
+				return Ebadobj;
 			if((c->obj = readobject(h)) == nil)
-				return Eobject;
+				return Ebadobj;
 			if(c->obj->type == GBlob || c->obj->type == GTag){
 				c->mode = 0644;
 				q->type = 0;
