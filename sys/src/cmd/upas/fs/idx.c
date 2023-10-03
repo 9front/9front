@@ -271,7 +271,8 @@ wridxfile(Mailbox *mb)
 	if(dirfwstat(fd, &n) == -1)
 		sysfatal("dirfwstat: %r");
 
-	d = dirfstat(fd);
+	snprint(buf, sizeof buf, "%s.idx", mb->path);
+	d = dirstat(buf);
 	if(d == nil)
 		sysfatal("dirfstat: %r");
 	mb->qid = d->qid;
