@@ -371,13 +371,6 @@ pipewstat(Chan *c, uchar *dp, int n)
 	Dir d;
 	Pipe *p;
 
-	if(waserror()){
-		/* avoid notes when pipe is a mounted queue */
-		if((c->flag & CMSG) == 0)
-			postnote(up, 1, "sys: wstat on closed pipe", NUser);
-		nexterror();
-	}
-
 	n = convM2D(dp, n, &d, nil);
 	if(n == 0)
 		error(Eshortstat);
@@ -397,7 +390,6 @@ pipewstat(Chan *c, uchar *dp, int n)
 		panic("pipewstat");
 	}
 
-	poperror();
 	return n;
 }
 
