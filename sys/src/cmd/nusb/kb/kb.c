@@ -25,6 +25,7 @@ enum
 	Awakemsg = 0xdeaddead,
 	Diemsg = 0xbeefbeef,
 	Rawon = 0x0defaced,
+	Dwcidle = 8,
 };
 
 char user[] = "kb";
@@ -37,6 +38,8 @@ struct Hiddev
 
 	int	minfd;
 	int	kinfd;
+
+	int	idle;
 
 	Channel	*repeatc;	/* only for keyboard */
 
@@ -364,13 +367,7 @@ setproto(Hiddev *f, Iface *iface)
 {
 	int proto;
 
-
-	/*
-	 * DWC OTG controller misses some split transaction inputs.
-	 * Set nonzero idle time to return more frequent reports
-	 * of keyboard state, to avoid losing key up/down events.
-	 */
-	usbcmd(f->dev, Rh2d|Rclass|Riface, Setidle, 8<<8, iface->id, nil, 0);
+	usbcmd(f->dev, Rh2d|Rclass|Riface, Setidle, f->idle<<8, iface->id, nil, 0);
 
 	f->nrep = usbcmd(f->dev, Rd2h|Rstd|Riface, Rgetdesc, Dreport<<8, iface->id,
 		f->rep, sizeof(f->rep));
@@ -967,12 +964,25 @@ static int
 hdsetup(Dev *d, Ep *ep)
 {
 	Hiddev *f;
+	uchar desc[512];
+	int n;
 
 	f = emallocz(sizeof(Hiddev), 1);
 	f->minfd = -1;
 	f->kinfd = -1;
 	incref(d);
 	f->dev = d;
+	/*
+	 * DWC OTG controller misses some split transaction inputs.
+	 * Set nonzero idle time to return more frequent reports
+	 * of keyboard state, to avoid losing key up/down events.
+	 */
+	n = read(d->cfd, desc, sizeof(desc) - 1);
+	if(n > 0){
+		desc[n] = 0;
+		if(strstr((char*)desc, "dwcotg") != nil)
+			f->idle = Dwcidle;
+	}
 	if(setproto(f, ep->iface) < 0){
 		fprint(2, "%s: %s: setproto: %r\n", argv0, d->dir);
 		goto Err;
