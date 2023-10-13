@@ -20,6 +20,7 @@ dev
 	mouse	mouse
 	uart	gpio
 	gpio	gpio
+	i2c
 	pci	pci
 	sd
 	usb
@@ -35,6 +36,8 @@ link
 	loopbackmedium
 	netdevmedium
 	sdhc
+#	i2cbcm		devi2c
+	i2cgpio		devi2c gpio
 
 ip
 	tcp

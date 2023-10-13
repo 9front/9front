@@ -31,7 +31,8 @@ link
 	loopbackmedium 
 	netdevmedium
 	emmc
-	i2cbcm	devi2c
+#	i2cbcm		devi2c
+	i2cgpio		devi2c gpio
 
 ip
 	tcp
