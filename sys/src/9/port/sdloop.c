@@ -321,20 +321,16 @@ looprio(SDreq *r)
 	return r->status = SDok;
 }
 
-static int
-looprctl(SDunit *u, char *p, int l)
+static char*
+looprctl(SDunit *u, char *p, char *e)
 {
 	Ctlr *c;
-	char *e, *op;
 
 	if((c = u->dev->ctlr) == nil)
-		return 0;
-	e = p+l;
-	op = p;
-
+		return p;
 	p = seprint(p, e, "path\t%s\n", c->path);
 	p = seprint(p, e, "geometry %llud %d\n", c->sectors, c->sectsize);
-	return p - op;
+	return p;
 }
 
 static int

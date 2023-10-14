@@ -1272,7 +1272,7 @@ sdread(Chan *c, void *a, long n, vlong off)
 		 * and the garscadden trains.
 		 */
 		if(unit->dev->ifc->rctl != nil)
-			p += (*unit->dev->ifc->rctl)(unit, p, e - p);
+			p = (*unit->dev->ifc->rctl)(unit, p, e);
 		if(unit->sectors == 0)
 			sdinitpart(unit);
 		if(unit->sectors){

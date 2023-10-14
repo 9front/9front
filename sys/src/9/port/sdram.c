@@ -214,12 +214,12 @@ ramonline(SDunit *unit)
 	return 2;
 }
 
-static int
-ramrctl(SDunit *unit, char *p, int l)
+static char*
+ramrctl(SDunit *unit, char *p, char *e)
 {
 	Ramdisk *rd = &rds[unit->subno];
 
-	return snprint(p, l, "geometry %llud %ld\nalignment %lud %lud\n",
+	return seprint(p, e, "geometry %llud %ld\nalignment %lud %lud\n",
 		unit->sectors, unit->secsize,
 		(ulong)BY2PG, rd->off / unit->secsize);
 }

@@ -433,24 +433,20 @@ nvmeonline(SDunit *u)
 	return 2;
 }
 
-static int
-nvmerctl(SDunit *u, char *p, int l)
+static char*
+nvmerctl(SDunit *u, char *p, char *e)
 {
 	Ctlr *ctlr;
-	char *e, *s;
 
 	if((ctlr = u->dev->ctlr) == nil || ctlr->ident == nil)
-		return 0;
-
-	e = p+l;
-	s = p;
+		return p;
 
 	p = seprint(p, e, "model\t%.40s\n", (char*)ctlr->ident+24);
 	p = seprint(p, e, "serial\t%.20s\n", (char*)ctlr->ident+4);
 	p = seprint(p, e, "firm\t%.8s\n", (char*)ctlr->ident+64);
 	p = seprint(p, e, "geometry %llud %lud\n", u->sectors, u->secsize);
 
-	return p-s;
+	return p;
 }
 
 static void*

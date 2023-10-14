@@ -597,17 +597,16 @@ mmconline(SDunit *unit)
 	return 1;
 }
 
-static int
-mmcrctl(SDunit *unit, char *p, int l)
+static char*
+mmcrctl(SDunit *unit, char *p, char *e)
 {
 	Card *card = unit->dev->ctlr;
-	char *s = p, *e = s + l;
 	int i;
 
 	if(card->sectors[0] == 0)
 		mmconline(unit);
 	if(unit->sectors == 0)
-		return 0;
+		return p;
 
 	p = seprint(p, e, "version %s %d.%2.2d\n", card->ismmc? "MMC": "SD",
 		card->specver/100, card->specver%100);
@@ -629,7 +628,7 @@ mmcrctl(SDunit *unit, char *p, int l)
 
 	p = seprint(p, e, "\ngeometry %llud %ld\n",
 		unit->sectors, unit->secsize);
-	return p - s;
+	return p;
 }
 
 static long

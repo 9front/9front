@@ -2285,21 +2285,19 @@ capfmt(char *p, char *e, Htab *t, int n, ulong cap)
 	return p;
 }
 
-static int
-iarctl(SDunit *u, char *p, int l)
+static char*
+iarctl(SDunit *u, char *p, char *e)
 {
-	char buf[32], *e, *op;
+	char buf[32];
 	Aport *o;
 	Ctlr *c;
 	Drive *d;
 
 	if((c = u->dev->ctlr) == nil)
-		return 0;
+		return p;
 	d = c->drive[u->subno];
 	o = d->port;
 
-	e = p+l;
-	op = p;
 	if(d->state == Dready){
 		p = seprint(p, e, "model\t%s\n", d->model);
 		p = seprint(p, e, "serial\t%s\n", d->serial);
@@ -2323,7 +2321,7 @@ iarctl(SDunit *u, char *p, int l)
 	p = seprint(p, e, "alignment %d %d\n", 
 		d->secsize<<d->portm.physshift, d->portm.physalign);
 	p = seprint(p, e, "missirq\t%ud\n", c->missirq);
-	return p - op;
+	return p;
 }
 
 static void

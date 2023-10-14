@@ -2741,18 +2741,15 @@ rctldebug(char *p, char *e, Ctlr *c, Drive *d)
 	return p;
 }
 
-static int
-msrctl(SDunit *u, char *p, int l)
+static char*
+msrctl(SDunit *u, char *p, char *e)
 {
-	char *e, *op;
 	Ctlr *c;
 	Drive *d;
 
 	if((c = u->dev->ctlr) == nil)
-		return 0;
+		return p;
 	d = c->drive + u->subno;
-	e = p + l;
-	op = p;
 	p = seprint(p, e, "state\t%s\n", dstate(d->state));
 	p = seprint(p, e, "type\t%s", type[d->type]);
 	if(d->type == Sata)
@@ -2767,7 +2764,7 @@ msrctl(SDunit *u, char *p, int l)
 	}
 	p = rctldebug(p, e, c, d);
 	p = seprint(p, e, "geometry %llud %lud\n", d->sectors, u->secsize);
-	return p - op;
+	return p;
 }
 
 static void

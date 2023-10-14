@@ -2322,19 +2322,16 @@ ataonline(SDunit *unit)
 	return ret;
 }
 
-static int
-atarctl(SDunit* unit, char* p, int l)
+static char*
+atarctl(SDunit* unit, char *p, char *e)
 {
 	Ctlr *ctlr;
 	Drive *drive;
-	char *e, *op;
 
 	if((ctlr = unit->dev->ctlr) == nil || ctlr->drive[unit->subno] == nil)
-		return 0;
+		return p;
 	drive = ctlr->drive[unit->subno];
 
-	e = p+l;
-	op = p;
 	qlock(drive);
 	p = seprint(p, e, "config %4.4uX capabilities %4.4uX", drive->info[Iconfig], drive->info[Icapabilities]);
 	if(drive->dma)
@@ -2364,7 +2361,7 @@ atarctl(SDunit* unit, char* p, int l)
 	p = seprint(p, e, "nildrive	%ud\n", ctlr->nildrive);
 	qunlock(drive);
 
-	return p - op;
+	return p;
 }
 
 static int

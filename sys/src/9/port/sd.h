@@ -88,7 +88,7 @@ struct SDifc {
 	int	(*verify)(SDunit*);
 	int	(*online)(SDunit*);
 	int	(*rio)(SDreq*);
-	int	(*rctl)(SDunit*, char*, int);
+	char*	(*rctl)(SDunit*, char*, char*);
 	int	(*wctl)(SDunit*, Cmdbuf*);
 
 	long	(*bio)(SDunit*, int, int, void*, long, uvlong);

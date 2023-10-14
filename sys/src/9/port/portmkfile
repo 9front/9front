@@ -73,12 +73,16 @@ devmnt.$O:	/sys/include/fcall.h
 proc.$O proc.acid:	errstr.h
 devroot.$O:	errstr.h
 devaudio.$O:	../port/audioif.h
-devaoe.$O:	../port/sd.h /$objtype/include/ureg.h
+devaoe.$O:	../port/sd.h ../port/netif.h ../port/aoe.h /sys/include/fis.h
 devfs.$O:	../port/sd.h /$objtype/include/ureg.h
 devsd.$O:	../port/sd.h /$objtype/include/ureg.h
 sdscsi.$O:	../port/sd.h /$objtype/include/ureg.h
 sdaoe.$O:	../port/sd.h /$objtype/include/ureg.h
-sdmmc.$O:	../port/sd.h /$objtype/include/ureg.h
+sdloop.$O:	../port/sd.h ../port/netif.h
+sdmmc.$O:	../port/sd.h
+sdnvme.$O:	../port/sd.h ../port/pci.h /$objtype/include/ureg.h
+sdram.$O:	../port/sd.h
+sdvirtio10.$O:	../port/sd.h ../port/pci.h /$objtype/include/ureg.h
 trap.$O:	/$objtype/include/ureg.h
 proc.$O:	/$objtype/include/ureg.h
 devproc.$O:	/$objtype/include/ureg.h

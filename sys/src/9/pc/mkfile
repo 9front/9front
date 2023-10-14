@@ -118,7 +118,7 @@ apic.$O archmp.$O mp.$O:	mp.h
 squidboy.$O:			mp.h
 $SDEV:				../port/sd.h
 sd53c8xx.$O:			sd53c8xx.i
-sdiahci.$O:			ahci.h
+sdiahci.$O:			ahci.h ../port/led.h
 devaoe.$O sdaoe.$O:		../port/aoe.h
 main.$O:			rebootcode.i
 wavelan.$O:			wavelan.c ../pc/wavelan.c ../pc/wavelan.h
