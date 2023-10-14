@@ -8,6 +8,7 @@ mntgen -s mntexport /mnt/exportfs && chmod 666 /srv/mntexport
 bind /root /mnt/broot
 unmount /root
 
+# bind in devices
 for(i in ¤ ¶ P S f æ t b m)
 	bind -qa '#'^$i /dev
 

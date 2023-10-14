@@ -6,8 +6,8 @@ TIMESYNCARGS=(-rLa1000000)
 NPROC=`{wc -l </dev/sysstat}
 
 # bind all likely devices
-for(i in u v t m i f S P L A '$')
-	bind -a '#'^$i /dev >/dev/null >[2=1]
+for(i in P S f æ t L A J '$')
+	bind -qa '#'^$i /dev
 rm -f /env/i
 
 mount -qb /srv/cons /dev
