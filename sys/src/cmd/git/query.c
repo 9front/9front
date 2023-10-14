@@ -180,7 +180,8 @@ main(int argc, char **argv)
 	p = query;
 	e = query + nelem(query);
 	for(i = 0; i < argc; i++){
-		p = seprint(p, e, "%s%s", s, argv[i]);
+		if((p = seprint(p, e, "%s%s", s, argv[i])) == nil)
+			sysfatal("query too long");
 		s = " ";
 	}
 	if((n = resolverefs(&h, query)) == -1)
