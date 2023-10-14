@@ -211,7 +211,8 @@ idn2utf(char *name, char *buf, int nbuf)
 		if(cistrncmp(cp, "xn--", 4) == 0)
 			if((nr = punydecode(nc-4, cp+4, nelem(rb), rb)) < 0)
 				return -1;
-		dp = seprint(dp, de, "%.*S", nr, rb);
+		if((dp = seprint(dp, de, "%.*S", nr, rb)) == nil)
+			return -1;
 		if(dp >= de)
 			return -1;
 		if(cp[nc] == 0)
@@ -251,10 +252,12 @@ utf2idn(char *name, char *buf, int nbuf)
 			rb[nr++] = r;
 			nc += n;
 		}
-		if(nc == nr)
-			dp = seprint(dp, de, "%.*s", nc, cp);
-		else {
-			dp = seprint(dp, de, "xn--");
+		if(nc == nr){
+			if((dp = seprint(dp, de, "%.*s", nc, cp)) == nil)
+				return -1;
+		}else{
+			if((dp = seprint(dp, de, "xn--")) == nil)
+				return -1;
 			if((n = punyencode(nr, rb, de - dp, dp)) < 0)
 				return -1;
 			dp += n;
