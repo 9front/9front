@@ -152,8 +152,8 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	char query[2048], repo[512];
-	char *p, *e, *s, *objpfx;
+	char *query, repo[512];
+	char *p, *e, *objpfx;
 	int i, j, n, nrel;
 	Hash *h;
 
@@ -176,15 +176,16 @@ main(int argc, char **argv)
 		sysfatal("chdir: %r");
 	if((objpfx = smprint("%s/.git/fs/object/", repo)) == nil)
 		sysfatal("smprint: %r");
-	s = "";
+	for(i = 0, n = 0; i < argc; i++)
+		n += strlen(argv[i]) + 1;
+	query = emalloc(n+1);
 	p = query;
-	e = query + nelem(query);
-	for(i = 0; i < argc; i++){
-		if((p = seprint(p, e, "%s%s", s, argv[i])) == nil)
-			sysfatal("query too long");
-		s = " ";
-	}
-	if((n = resolverefs(&h, query)) == -1)
+	e = query + n;
+	for(i = 0; i < argc; i++)
+		p = seprint(p, e, "%s ", argv[i]);
+	n = resolverefs(&h, query);
+	free(query);
+	if(n == -1)
 		sysfatal("resolve: %r");
 	if(changes){
 		for(i = 1; i < n; i++)
