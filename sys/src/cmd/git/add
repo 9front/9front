@@ -14,10 +14,6 @@ if(~ $#* 0)
 	exec aux/usage
 
 paths=`$nl{cleanname -d $gitrel $* | drop $gitroot}
-if(~ $s A)
-	files=`$nl{walk -f ./$paths}
-if not
-	files=`$nl{cd .git/fs/HEAD/tree && walk -f ./$paths}
-for(f in $files)
-	echo $s NOQID 0 $f >> .git/INDEX9
+walk -f ./$paths | grep -v '^(./)?.git/' | \
+	sed 's/^/'$s' NOQID 0 /' >> .git/INDEX9
 exit ''
