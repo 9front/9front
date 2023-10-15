@@ -64,7 +64,7 @@ int	maxage = Defmaxage;
 int	mfd[2];
 int	needrefresh;
 ulong	now;
-vlong	nowns;
+uvlong	nowms;
 int	sendnotifies;
 char	*trace;
 int	traceactivity;
@@ -186,8 +186,6 @@ main(int argc, char *argv[])
 		(cfg.resolver? "resolver ": ""), mntpt);
 
 	opendatabase();
-	now = time(nil);		/* open time files before we fork */
-	nowns = nsec();
 	dnsuser = estrdup(getuser());
 
 	snprint(servefile, sizeof servefile, "/srv/dns%s", ext);
@@ -421,10 +419,6 @@ io(void)
 		if(debug)
 			dnslog("%F", &job->request);
 
-		getactivity(&req, 0);
-		req.aborttime = timems() + Maxreqtm;
-		req.from = "9p";
-
 		switch(job->request.type){
 		default:
 			warning("unknown request type %d", job->request.type);
@@ -454,9 +448,17 @@ io(void)
 			rread(job, mf);
 			break;
 		case Twrite:
-			/* &req is handed to dnresolve() */
+			getactivity(&req, 0);
+			req.aborttime = timems() + Maxreqtm;
+			req.from = "9p";
 			rwrite(job, mf, &req);
-			break;
+			freejob(job);
+			if(req.isslave){
+				putactivity(0);
+				_exits(0);
+			}
+			putactivity(0);
+			continue;
 		case Tclunk:
 			rclunk(job, mf);
 			break;
@@ -470,18 +472,7 @@ io(void)
 			rwstat(job, mf);
 			break;
 		}
-
 		freejob(job);
-
-		/*
-		 *  slave processes die after replying
-		 */
-		if(req.isslave){
-			putactivity(0);
-			_exits(0);
-		}
-
-		putactivity(0);
 	}
 }
 
@@ -702,7 +693,7 @@ rwrite(Job *job, Mfile *mf, Request *req)
 	else if(strcmp(job->request.data, "dump")==0)
 		dndump("/lib/ndb/dnsdump");
 	else if(strcmp(job->request.data, "refresh")==0)
-		needrefresh = 1;
+		needrefresh = getpid();
 	else if(strcmp(job->request.data, "stats")==0)
 		dnstats("/lib/ndb/dnsstats");
 	else if(strncmp(job->request.data, "target ", 7)==0){

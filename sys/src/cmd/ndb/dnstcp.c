@@ -19,7 +19,7 @@ int	maxage = 60*60;
 char	mntpt[Maxpath];
 int	needrefresh;
 ulong	now;
-vlong	nowns;
+uvlong	nowms;
 int	traceactivity;
 char	*zonerefreshprogram;
 
@@ -98,14 +98,13 @@ main(int argc, char *argv[])
 
 	/* loop on requests */
 	for(;; putactivity(0)){
-		now = time(nil);
 		memset(&repmsg, 0, sizeof repmsg);
 		len = readmsg(0, buf, sizeof buf);
 		if(len <= 0)
 			break;
 
 		getactivity(&req, 0);
-		req.aborttime = timems() + S2MS(15*Min);
+		req.aborttime = timems() + 15*Min*1000;
 		rcode = 0;
 		memset(&reqmsg, 0, sizeof reqmsg);
 		err = convM2DNS(buf, len, &reqmsg, &rcode);

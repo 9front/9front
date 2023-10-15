@@ -13,7 +13,7 @@ int	maxage		= 60*60;
 char mntpt[Maxpath];
 int	needrefresh	= 0;
 ulong	now		= 0;
-vlong	nowns		= 0;
+uvlong	nowms		= 0;
 int	traceactivity	= 0;
 char	*zonerefreshprogram;
 
@@ -36,7 +36,7 @@ resolve(char *name, int type)
 	memset(&req, 0, sizeof req);
 	getactivity(&req, 0);
 	req.isslave = 1;
-	req.aborttime = NS2MS(nowns) + Maxreqtm;
+	req.aborttime = timems() + Maxreqtm;
 
 	rr = dnresolve(name, Cin, type, &req, nil, 0, Recurse, 0, &status);
 	neg = rrremneg(&rr);

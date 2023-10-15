@@ -22,7 +22,7 @@ int	maxage  = 60*60;
 char	mntpt[Maxpath];
 int	needrefresh;
 ulong	now;
-vlong	nowns;
+uvlong	nowms;
 char	*trace;
 int	traceactivity;
 char	*zonerefreshprogram;
@@ -76,8 +76,6 @@ main(int argc, char *argv[])
 		usage();
 	}ARGEND
 
-	now = time(nil);
-	nowns = nsec();
 	dninit();
 	fmtinstall('P', prettyrrfmt);
 	opendatabase();
@@ -258,7 +256,7 @@ squirrelserveraddrs(void)
 		}
 		memset(&req, 0, sizeof req);
 		req.isslave = 1;
-		req.aborttime = NS2MS(nowns) + Maxreqtm;
+		req.aborttime = timems() + Maxreqtm;
 		*l = dnresolve(rp->host->name, Cin, Ta, &req, nil, 0, Recurse, 0, nil);
 		if(*l == nil)
 			*l = dnresolve(rp->host->name, Cin, Taaaa, &req,
@@ -345,7 +343,7 @@ doquery(char *name, char *tstr)
 	memset(&req, 0, sizeof req);
 	getactivity(&req, 0);
 	req.isslave = 1;
-	req.aborttime = NS2MS(nowns) + Maxreqtm;
+	req.aborttime = timems() + Maxreqtm;
 	rr = dnresolve(buf, Cin, type, &req, nil, 0, Recurse, rooted, nil);
 	if(rr){
 		print("----------------------------\n");

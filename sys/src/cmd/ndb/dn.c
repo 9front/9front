@@ -29,8 +29,8 @@ static struct {
 	Lock;
 	ulong	names;		/* names allocated */
 	ulong	oldest;		/* longest we'll leave a name around */
-	int	active;
-	int	mutex;
+	int	active;		/* number of active processes */
+	int	mutex;		/* 0 or pid of process doing garbage collection */
 	ushort	id;		/* same size as in packet */
 } dnvars;
 
@@ -149,6 +149,15 @@ ding(void*, char *msg)
 		noted(NDFLT);		/* die */
 }
 
+uvlong
+timems(void)
+{
+	uvlong ms = nsec()/1000000L;
+	now = ms/1000L;
+	nowms = ms;
+	return ms;
+}
+
 void
 dninit(void)
 {
@@ -163,6 +172,8 @@ dninit(void)
 	dnvars.oldest = maxage;
 	dnvars.names = 0;
 	dnvars.id = truerand();	/* don't start with same id every time */
+
+	timems();
 
 	notify(ding);
 }
@@ -665,19 +676,18 @@ getactivity(Request *req, int recursive)
 	if(traceactivity)
 		dnslog("get: %d active by pid %d from %p",
 			dnvars.active, getpid(), getcallerpc(&req));
-	lock(&dnvars);
+
 	/*
 	 * can't block here if we're already holding one
 	 * of the dnvars.active (recursive).  will deadlock.
 	 */
+	lock(&dnvars);
 	while(!recursive && dnvars.mutex){
 		unlock(&dnvars);
 		sleep(100);			/* tune; was 200 */
 		lock(&dnvars);
 	}
 	rv = ++dnvars.active;
-	now = time(nil);
-	nowns = nsec();
 	req->id = ++dnvars.id;
 	req->aux = nil;
 	unlock(&dnvars);
@@ -687,9 +697,11 @@ getactivity(Request *req, int recursive)
 void
 putactivity(int recursive)
 {
+	int pid = getpid();
+
 	if(traceactivity)
-		dnslog("put: %d active by pid %d",
-			dnvars.active, getpid());
+		dnslog("put: %d active by pid %d", dnvars.active, pid);
+
 	lock(&dnvars);
 	dnvars.active--;
 	assert(dnvars.active >= 0); /* "dnvars.active %d", dnvars.active */
@@ -698,15 +710,16 @@ putactivity(int recursive)
 	 *  clean out old entries and check for new db periodicly
 	 *  can't block here if being called to let go a "recursive" lock
 	 *  or we'll deadlock waiting for ourselves to give up the dnvars.active.
+	 *  also don't block if we are the 9p process (needrefresh == pid).
 	 */
-	if (recursive || dnvars.mutex ||
-	    (needrefresh == 0 && dnvars.active > 0)){
+	if(recursive || dnvars.mutex
+	|| dnvars.active > 0 && (needrefresh == 0 || needrefresh == pid)){
 		unlock(&dnvars);
 		return;
 	}
 
 	/* wait till we're alone */
-	dnvars.mutex = 1;
+	dnvars.mutex = pid;
 	while(dnvars.active > 0){
 		unlock(&dnvars);
 		sleep(100);		/* tune; was 100 */
@@ -714,13 +727,14 @@ putactivity(int recursive)
 	}
 	unlock(&dnvars);
 
-	db2cache(needrefresh);
-
+	db2cache(needrefresh != 0);
 	dnageall(0);
 
 	/* let others back in */
+	lock(&dnvars);
 	needrefresh = 0;
 	dnvars.mutex = 0;
+	unlock(&dnvars);
 }
 
 int

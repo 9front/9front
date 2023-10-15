@@ -235,7 +235,7 @@ querydestroy(Query *qp)
  * thus we don't wait very long for them.
  */
 static void
-notestats(vlong start, int tmout, int type)
+notestats(long ms, int tmout, int type)
 {
 	qlock(&stats);
 	if (tmout) {
@@ -245,7 +245,7 @@ notestats(vlong start, int tmout, int type)
 		else if (type == Tcname)
 			stats.tmoutcname++;
 	} else {
-		long wait10ths = NS2MS(nsec() - start) / 100;
+		long wait10ths = ms / 100;
 
 		if (wait10ths <= 0)
 			stats.under10ths[0]++;
@@ -559,31 +559,31 @@ freeanswers(DNSmsg *mp)
 
 /* timed read of reply.  sets srcip.  ibuf must be 64K to handle tcp answers. */
 static int
-readnet(Query *qp, int medium, uchar *ibuf, uvlong endms, uchar **replyp,
-	uchar *srcip)
+readnet(Query *qp, int medium, uchar *ibuf, uvlong endms, uchar **replyp, uchar *srcip)
 {
 	int len, fd;
 	long ms;
-	vlong startns = nsec();
+	uvlong startms;
 	uchar *reply;
 	uchar lenbuf[2];
 
-	len = -1;			/* pessimism */
 	*replyp = nil;
 	memset(srcip, 0, IPaddrlen);
-	ms = endms - NS2MS(startns);
-	if (ms <= 0)
+
+	startms = nowms;
+	ms = (long)(endms - startms);
+	if (ms < 1)
 		return -1;		/* taking too long */
 
+	len = -1;			/* pessimism */
 	reply = ibuf;
-	alarm(ms);
 	if (medium == Udp)
 		if (qp->udpfd < 0)
 			dnslog("readnet: qp->udpfd closed");
 		else {
+			alarm(ms);
 			len = read(qp->udpfd, ibuf, Udphdrsize+Maxudpin);
 			alarm(0);
-			notestats(startns, len < 0, qp->type);
 			if (len >= IPaddrlen)
 				memmove(srcip, ibuf, IPaddrlen);
 			if (len >= Udphdrsize) {
@@ -598,24 +598,28 @@ readnet(Query *qp, int medium, uchar *ibuf, uvlong endms, uchar **replyp,
 		if (fd < 0)
 			dnslog("readnet: %s: tcp fd unset for dest %I",
 				qp->dp->name, qp->tcpip);
-		else if (readn(fd, lenbuf, 2) != 2) {
-			dnslog("readnet: short read of 2-byte tcp msg size from %I",
-				qp->tcpip);
-			/* probably a time-out */
-			notestats(startns, 1, qp->type);
-		} else {
-			len = lenbuf[0]<<8 | lenbuf[1];
-			if (readn(fd, ibuf, len) != len) {
-				dnslog("readnet: short read of tcp data from %I",
-					qp->tcpip);
-				/* probably a time-out */
-				notestats(startns, 1, qp->type);
-				len = -1;
+		else {
+			alarm(ms);
+			if (readn(fd, lenbuf, 2) != 2) {
+				alarm(0);
+				dnslog("readnet: short read of 2-byte tcp msg size from %I", qp->tcpip);
+			} else {
+				len = lenbuf[0]<<8 | lenbuf[1];
+				if (readn(fd, ibuf, len) != len) {
+					alarm(0);
+					dnslog("readnet: short read of tcp data from %I", qp->tcpip);
+					len = -1;
+				} else {
+					alarm(0);
+				}
 			}
 		}
 		memmove(srcip, qp->tcpip, IPaddrlen);
 	}
-	alarm(0);
+
+	ms = (long)(timems() - startms);
+	notestats(ms, len < 0, qp->type);
+
 	*replyp = reply;
 	return len;
 }
@@ -631,14 +635,14 @@ readreply(Query *qp, int medium, ushort req, uchar *ibuf, DNSmsg *mp,
 {
 	int len;
 	char *err;
-	char tbuf[32];
 	uchar *reply;
 	uchar srcip[IPaddrlen];
 	RR *rp;
 
-	for (; timems() < endms &&
-	    (len = readnet(qp, medium, ibuf, endms, &reply, srcip)) >= 0;
-	    freeanswers(mp)){
+	for (;; freeanswers(mp)) {
+		len = readnet(qp, medium, ibuf, endms, &reply, srcip);
+		if (len < 0)
+			break;
 		/* convert into internal format  */
 		memset(mp, 0, sizeof *mp);
 		err = convM2DNS(reply, len, mp, nil);
@@ -674,20 +678,6 @@ readreply(Query *qp, int medium, ushort req, uchar *ibuf, DNSmsg *mp,
 				rp->query = qp->type;
 			return 0;
 		}
-	}
-	if (timems() >= endms) {
-		;				/* query expired */
-	} else if (0) {
-		/* this happens routinely when a read times out */
-		dnslog("readreply: %s type %s: ns %I read error or eof "
-			"(returned %d): %r", qp->dp->name, rrname(qp->type,
-			tbuf, sizeof tbuf), srcip, len);
-		if (medium == Udp)
-			for (rp = qp->nsrp; rp != nil; rp = rp->next)
-				if (rp->type == Tns)
-					dnslog("readreply: %s: query sent to "
-						"ns %s", qp->dp->name,
-						rp->host->name);
 	}
 	memset(mp, 0, sizeof *mp);
 	return -1;
@@ -985,9 +975,6 @@ xmitquery(Query *qp, int medium, int depth, uchar *obuf, int inns, int len)
 	char buf[32];
 	Dest *p;
 
-	if(timems() >= qp->req->aborttime)
-		return -1;
-
 	/*
 	 * if we send tcp query, we just take the dest ip address from
 	 * the udp header placed there by tcpquery().
@@ -1272,14 +1259,9 @@ procansw(Query *qp, DNSmsg *mp, int depth, Dest *p)
  */
 static int
 tcpquery(Query *qp, DNSmsg *mp, int depth, uchar *ibuf, uchar *obuf, int len,
-	ulong waitms, int inns, ushort req)
+	uvlong endms, int inns, ushort req)
 {
 	int rv = 0;
-	uvlong endms;
-
-	endms = timems() + waitms;
-	if(endms > qp->req->aborttime)
-		endms = qp->req->aborttime;
 
 	if (0)
 		dnslog("%s: udp reply truncated; retrying query via tcp to %I",
@@ -1338,10 +1320,13 @@ queryns(Query *qp, int depth, uchar *ibuf, uchar *obuf, ulong waitms, int inns)
 	for(ndest = 2; ndest < Maxdest; ndest += 2){
 		qp->ndest = ndest;
 		qp->tcpset = 0;
+
+		endms = nowms;
+		if(endms >= qp->req->aborttime)
+			break;
 		if (xmitquery(qp, Udp, depth, obuf, inns, len) < 0)
 			break;
-
-		endms = timems() + waitms;
+		endms += waitms;
 		if(endms > qp->req->aborttime)
 			endms = qp->req->aborttime;
 
@@ -1361,8 +1346,10 @@ queryns(Query *qp, int depth, uchar *ibuf, uchar *obuf, ulong waitms, int inns)
 			} else {
 				/* whoops, it was truncated! ask again via tcp */
 				freeanswers(&m);
+				if(nowms >= endms)
+					break;
 				rv = tcpquery(qp, &m, depth, ibuf, obuf, len,
-					waitms, inns, req);  /* answer in m */
+					endms, inns, req);  /* answer in m */
 				if (rv < 0) {
 					freeanswers(&m);
 					break;		/* failed via tcp too */
@@ -1516,8 +1503,8 @@ seerootns(void)
 	Query q;
 
 	memset(&req, 0, sizeof req);
-	req.isslave = 1;
 	req.aborttime = timems() + Maxreqtm;
+	req.isslave = 1;
 	req.from = "internal";
 	queryinit(&q, dnlookup(root, Cin, 1), Tns, &req);
 	nsrp = randomize(dblookup(root, Cin, Tns, 0, 0));

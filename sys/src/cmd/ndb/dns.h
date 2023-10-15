@@ -1,8 +1,3 @@
-#define NS2MS(ns) ((ns) / 1000000L)
-#define S2MS(s)   ((s)  * 1000LL)
-
-#define timems()	NS2MS(nsec())
-
 typedef struct Ndbtuple Ndbtuple;
 
 enum
@@ -152,7 +147,7 @@ enum
 	Maxactive=	250,
 
 	/* tune; was 8*1000; that was too short */
-	Maxreqtm=	60*1000,	/* max. ms to process a request */
+	Maxreqtm=	15*1000,	/* max. ms to process a request */
 
 	Notauthoritative = 0,
 	Authoritative,
@@ -424,10 +419,10 @@ extern Area	*delegated;
 extern char	*logfile;
 extern int	maxage;		/* age of oldest entry in cache (secs) */
 extern char	mntpt[];
-extern int	needrefresh;
+extern int	needrefresh;	/* set to pid of the process requesting flush */
 extern int	norecursion;
 extern ulong	now;		/* time base */
-extern vlong	nowns;
+extern uvlong	nowms;
 extern Area	*owned;
 extern int	sendnotifies;
 extern ulong	target;
@@ -491,6 +486,7 @@ int	rrsupported(int);
 int	rrtype(char*);
 void	slave(Request*);
 int	subsume(char*, char*);
+uvlong	timems(void);
 int	tsame(int, int);
 void	unique(RR*);
 void	warning(char*, ...);

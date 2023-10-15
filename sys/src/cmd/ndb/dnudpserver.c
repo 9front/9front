@@ -131,7 +131,7 @@ dnudpserver(char *mntpt, char *addr)
 {
 	volatile int fd, len, op, rcode, served;
 	char *volatile err;
-	volatile char tname[32];
+	volatile char tname[32], ipstr[64];
 	volatile uchar buf[Udphdrsize + Maxudp + 1024];
 	volatile DNSmsg reqmsg, repmsg;
 	Inprogress *volatile p;
@@ -165,8 +165,6 @@ restart:
 	if(setjmp(req.mret))
 		putactivity(0);
 	req.isslave = 0;
-	req.id = 0;
-	req.aborttime = 0;
 
 	/* loop on requests */
 	for(;; putactivity(0)){
@@ -188,16 +186,16 @@ restart:
 		uh = (Udphdr*)buf;
 		len -= Udphdrsize;
 
-		// dnslog("read received UDP from %I to %I",
-		//	((Udphdr*)buf)->raddr, ((Udphdr*)buf)->laddr);
+		// dnslog("read received UDP from %I to %I", uh->raddr, uh->laddr);
+		snprint(ipstr, sizeof(ipstr), "%I", uh->raddr);
 		getactivity(&req, 0);
 		req.aborttime = timems() + Maxreqtm;
-		req.from = smprint("%I", buf);
-		rcode = 0;
+		req.from = ipstr;
 
 		served++;
 		stats.qrecvdudp++;
 
+		rcode = 0;
 		err = convM2DNS(&buf[Udphdrsize], len, &reqmsg, &rcode);
 		if(err){
 			/* first bytes in buf are source IP addr */
@@ -215,8 +213,7 @@ restart:
 			}
 		op = reqmsg.flags & Omask;
 		if(op != Oquery && op != Onotify){
-			dnslog("server: op %d from %I", reqmsg.flags & Omask,
-				buf);
+			dnslog("server: op %d from %I", reqmsg.flags & Omask, buf);
 			goto freereq;
 		}
 
@@ -267,8 +264,6 @@ restart:
 
 		p->inuse = 0;
 freereq:
-		free(req.from);
-		req.from = nil;
 		freeanswers(&reqmsg);
 		if(req.isslave){
 			putactivity(0);
