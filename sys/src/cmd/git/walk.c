@@ -496,9 +496,14 @@ main(int argc, char **argv)
 			c = strcmp(idx[i].path, wdir[j].path);
 		/* exists in both index and on disk */
 		if(c == 0){
-			if(idx[i].state == 'R' && checkedin(&idx[i], 0))
-				show(o, Rflg, rstr, idx[i].path);
-			else if(idx[i].state == 'A' && !checkedin(&idx[i], 1))
+			if(idx[i].state == 'R'){
+				if(checkedin(&idx[i], 0))
+					show(o, Rflg, rstr, idx[i].path);
+				else{
+					idx[i].state = 'U';
+					staleidx = 1;
+				}
+			}else if(idx[i].state == 'A' && !checkedin(&idx[i], 1))
 				show(o, Aflg, astr, idx[i].path);
 			else if(!samedata(&idx[i], &wdir[j]))
 				show(o, Mflg, mstr, idx[i].path);
@@ -534,6 +539,8 @@ main(int argc, char **argv)
 		for(i = 0; i < nidx; i++){
 			while(i+1 < nidx && strcmp(idx[i].path, idx[i+1].path) == 0)
 				i++;
+			if(idx[i].state == 'U')
+				continue;
 			Bprint(w, "%c %Q %o %s\n",
 				idx[i].state,
 				idx[i].qid, 
