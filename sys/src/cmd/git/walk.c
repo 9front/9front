@@ -445,6 +445,11 @@ main(int argc, char **argv)
 				idx = realloc(idx, idxsz*sizeof(Idxent));
 			}
 			cleanname(parts[3]);
+			if(strncmp(parts[3], ".git/", 5) == 0){
+				staleidx = 1;
+				free(ln);
+				continue;
+			}
 			idx[nidx].state = *parts[0];
 			idx[nidx].qid = parseqid(parts[1]);
 			idx[nidx].mode = strtol(parts[2], nil, 8);
