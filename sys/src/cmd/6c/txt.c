@@ -1045,18 +1045,15 @@ gmove(Node *f, Node *t)
 /*
  * fix to float
  */
-	case CASE(	TCHAR,	TFLOAT):
 	case CASE(	TUCHAR,	TFLOAT):
-	case CASE(	TSHORT,	TFLOAT):
 	case CASE(	TUSHORT,TFLOAT):
 	case CASE(	TINT,	TFLOAT):
 	case CASE(	TLONG,	TFLOAT):
 	case CASE(	TVLONG,	TFLOAT):
 	case CASE(	TIND,	TFLOAT):
 
-	case CASE(	TCHAR,	TDOUBLE):
+
 	case CASE(	TUCHAR,	TDOUBLE):
-	case CASE(	TSHORT,	TDOUBLE):
 	case CASE(	TUSHORT,TDOUBLE):
 	case CASE(	TINT,	TDOUBLE):
 	case CASE(	TLONG,	TDOUBLE):
@@ -1078,6 +1075,20 @@ gmove(Node *f, Node *t)
 		gmove(&nod, t);
 		regfree(&nod);
 		return;
+
+	case CASE(	TCHAR,	TFLOAT):
+	case CASE(	TCHAR,	TDOUBLE):
+	case CASE(	TSHORT,	TFLOAT):
+	case CASE(	TSHORT,	TDOUBLE):
+		regalloc(&nod, f, f);
+		gins(ft == TCHAR? AMOVBLSX: AMOVWLSX, f, &nod);
+		regalloc(&nod1, t, t);
+		gins(tt == TDOUBLE? ACVTSL2SD: ACVTSL2SS, &nod, &nod1);
+		gmove(&nod1, t);
+		regfree(&nod);
+		regfree(&nod1);
+		return;
+
 
 /*
  * float to float
