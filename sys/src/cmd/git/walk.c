@@ -187,7 +187,7 @@ samedata(Idxent *a, Idxent *b)
 	db = dirfstat(fb);
 	if(da == nil || db == nil)
 		goto mismatch;
-	if(da->mode != db->mode)
+	if((da->mode&0100) != (db->mode&0100))
 		goto mismatch;
 	if(da->length != db->length)
 		goto mismatch;

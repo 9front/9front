@@ -34,7 +34,7 @@ gitmode(Dirent *e)
 		return 0160000;
 	else if(e->mode & DMDIR)
 		return 0040000;
-	else if(e->mode & 0111)
+	else if(e->mode & 0100)
 		return 0100755;
 	else
 		return 0100644;
