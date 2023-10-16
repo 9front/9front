@@ -1311,7 +1311,7 @@ isoggvorbis(void)
 		return 0;
 	if(memcmp(&buf[29], "vorbis", 6) != 0)
 		return 0;
-	print("%s\n", mime ? "audio/ogg;codecs=vorbis" : "ogg audio");
+	print("%s\n", mime ? "audio/ogg;codecs=vorbis" : "Ogg Vorbis I profile");
 	return 1;
 }
 
@@ -1322,7 +1322,7 @@ isoggopus(void)
 		return 0;
 	if(memcmp(&buf[28], "OpusHead", 8) != 0)
 		return 0;
-	print("%s\n", mime ? "audio/ogg;codecs=opus" : "ogg audio");
+	print("%s\n", mime ? "audio/ogg;codecs=opus" : "Ogg Opus profile");
 	return 1;
 }
 
