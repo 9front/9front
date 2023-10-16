@@ -190,7 +190,7 @@ extern	char	errbuf[];
 		unnamed ones and \N's)
 	*/
 
-#define	NCHARS	(8*1024)	/* maximum size of troff character set*/
+#define	NCHARS	(64*1024)	/* maximum size of troff character set*/
 
 
 	/* However for nroff you want only :
