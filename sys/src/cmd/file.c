@@ -153,6 +153,8 @@ int	islimbo(void);
 int	istga(void);
 int	ismp3(void);
 int	ismp4(void);
+int	isoggvorbis(void);
+int	isoggopus(void);
 int	ismung(void);
 int	isp9bit(void);
 int	isp9font(void);
@@ -203,6 +205,8 @@ int	(*call[])(void) =
 	isicocur,		/* windows icon or cursor file */
 	isface,		/* ascii face file */
 	istga,
+	isoggvorbis,
+	isoggopus,
 	ismp4,
 	ismp3,
 
@@ -874,7 +878,6 @@ struct	FILE_STRING
 	"\033%-12345X",		"HPJCL file",		9,	"application/hpjcl",
 	"\033Lua",		"Lua bytecode",		4,	OCTET,
 	"ID3",			"mp3 audio with id3",	3,	"audio/mpeg",
-	"OggS",			"ogg audio",		4,	"audio/ogg",
 	".snd",			"sun audio",		4,	"audio/basic",
 	"\211PNG",		"PNG image",		4,	"image/png",
 	"P1\n",			"ppm",			3,	"image/ppm",
@@ -1299,6 +1302,28 @@ ismp4(void)
 		return 1;
 	}
 	return 0;
+}
+
+int
+isoggvorbis(void)
+{
+	if(memcmp(&buf[0], "OggS", 4) != 0)
+		return 0;
+	if(memcmp(&buf[29], "vorbis", 6) != 0)
+		return 0;
+	print("%s\n", mime ? "audio/ogg;codecs=vorbis" : "ogg audio");
+	return 1;
+}
+
+int
+isoggopus(void)
+{
+	if(memcmp(&buf[0], "OggS", 4) != 0)
+		return 0;
+	if(memcmp(&buf[28], "OpusHead", 8) != 0)
+		return 0;
+	print("%s\n", mime ? "audio/ogg;codecs=opus" : "ogg audio");
+	return 1;
 }
 
 /*
