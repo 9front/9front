@@ -964,6 +964,7 @@ struct offstr
 } offstrs[] = {
 	32*1024, "\001CD001\001",	"ISO9660 CD image",	7,	"application/x-iso9660-image",
 	32*4, "DICM",	"DICOM medical imaging data",	4,	"application/dicom",
+	1080, "M.K.",	"Amiga module",	4,	"audio/mod",
 	0, 0, 0, 0, 0
 };
 
