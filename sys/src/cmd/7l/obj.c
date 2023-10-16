@@ -59,10 +59,10 @@ main(int argc, char *argv[])
 	outfile = 0;
 	nerrors = 0;
 	curtext = P;
-	HEADTYPE = -1;
 	INITTEXT = -1;
-	INITTEXTP = -1;
 	INITDAT = -1;
+	HEADTYPE = -1;
+	INITTEXTP = -1;
 	INITRND = -1;
 	INITENTRY = 0;
 
