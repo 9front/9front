@@ -66,7 +66,7 @@ Objset objcache;
 Object *lruhead;
 Object *lrutail;
 vlong	ncache;
-vlong	cachemax = 1024*MiB;
+vlong	cachemax = 128*MiB;
 Packf	*packf;
 int	npackf;
 int	openpacks;
