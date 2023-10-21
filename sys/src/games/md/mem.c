@@ -75,7 +75,7 @@ regwrite(u16int a, u16int v)
 	case 0x30f3: case 0x30f5: case 0x30f7: case 0x30f9: case 0x30fb:
 		return;
 	}
-	sysfatal("write to 0xa1%.4x (pc=%#.6ux)", a, curpc);
+	fprint(2, "write to 0xa1%.4x (pc=%#.6ux)", a, curpc);
 }
 
 void
@@ -286,7 +286,7 @@ memwrite(u32int a, u16int v, u16int m)
 		break;
 	default:
 	invalid:
-		sysfatal("write to %#.6x (pc=%#.6x)", a, curpc);
+		fprint(2, "write to %#.6x (pc=%#.6x)", a, curpc);
 	}
 }
 
@@ -404,7 +404,8 @@ z80write(u16int a, u8int v)
 			memwrite(0xc00000 | a & 0x7e, v | v << 8, (a & 1) != 0 ? 0xff : 0xff00);
 			return;
 		}
-		sysfatal("z80 write to %#.4x (pc=%#.4x)", a, scurpc);
+		fprint(2, "z80 write to %#.4x (pc=%#.4x)", a, scurpc);
+		return;
 	default:
 		memwrite(z80bank << 15 | a & 0x7ffe, v << 8 | v, (a & 1) != 0 ? 0xff : 0xff00);
 	}
