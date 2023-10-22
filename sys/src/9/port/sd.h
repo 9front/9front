@@ -164,6 +164,31 @@ struct SDiocmd {
 	char	*name;
 };
 
+/* Commands */
+extern SDiocmd GO_IDLE_STATE;
+extern SDiocmd SEND_OP_COND;
+extern SDiocmd ALL_SEND_CID;
+extern SDiocmd SET_RELATIVE_ADDR;
+extern SDiocmd SEND_RELATIVE_ADDR;
+extern SDiocmd SWITCH;
+extern SDiocmd SWITCH_FUNC;
+extern SDiocmd SELECT_CARD;
+extern SDiocmd SEND_EXT_CSD;
+extern SDiocmd SD_SEND_IF_COND;
+extern SDiocmd SEND_CSD;
+extern SDiocmd STOP_TRANSMISSION;
+extern SDiocmd SEND_STATUS;
+extern SDiocmd SET_BLOCKLEN;
+extern SDiocmd READ_SINGLE_BLOCK;
+extern SDiocmd READ_MULTIPLE_BLOCK;
+extern SDiocmd WRITE_SINGLE_BLOCK;
+extern SDiocmd WRITE_MULTIPLE_BLOCK;
+
+/* prefix for following app-specific commands */
+extern SDiocmd APP_CMD;
+extern SDiocmd SD_SET_BUS_WIDTH;
+extern SDiocmd SD_SEND_OP_COND;
+
 struct SDio {
 	char	*name;
 	int	(*init)(SDio*);

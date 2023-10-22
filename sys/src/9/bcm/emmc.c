@@ -129,6 +129,7 @@ enum {
 
 typedef struct Ctlr Ctlr;
 struct Ctlr {
+	Rendez	cardr;
 	Rendez	r;
 	int	fastclock;
 	ulong	extclk;
@@ -264,6 +265,23 @@ emmcenable(SDio *io)
 	WR(Irptmask, ~0);
 	WR(Interrupt, ~0);
 	intrenable(IRQmmc, emmcinterrupt, nil, BUSUNKNOWN, io->name);
+}
+
+int
+sdiocardintr(int wait)
+{
+	u32int *r = (u32int*)EMMCREGS;
+	int i;
+
+	WR(Interrupt, Cardintr);
+	while(((i = r[Interrupt]) & Cardintr) == 0){
+		if(!wait)
+			return 0;
+		WR(Irpten, r[Irpten] | Cardintr);
+		sleep(&emmc.cardr, cardintready, 0);
+	}
+	WR(Interrupt, Cardintr);
+	return i;
 }
 
 static int
@@ -434,21 +452,25 @@ emmcinterrupt(Ureg*, void*)
 	i = r[Interrupt];
 	if(i&(Datadone|Err))
 		wakeup(&emmc.r);
+	if(i&Cardintr)
+		wakeup(&emmc.cardr);
 	WR(Irpten, r[Irpten] & ~i);
 }
+
+
+SDio sdio = {
+	"emmc",
+	emmcinit,
+	emmcenable,
+	emmcinquiry,
+	emmccmd,
+	emmciosetup,
+	emmcio,
+	emmcbus,
+};
 
 void
 emmclink(void)
 {
-	static SDio io = {
-		"emmc",
-		emmcinit,
-		emmcenable,
-		emmcinquiry,
-		emmccmd,
-		emmciosetup,
-		emmcio,
-		emmcbus,
-	};
-	addmmcio(&io);
+	addmmcio(&sdio);
 }
