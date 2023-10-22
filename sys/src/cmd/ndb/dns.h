@@ -139,9 +139,6 @@ enum
 
 	RRnames=	8,	/* # of referenced names per RR */
 
-	RRmagic=	0xdeadbabe,
-	DNmagic=	0xa110a110,
-
 	/* parallelism: tune; was 32; allow lots */
 	Maxactive=	250,
 
@@ -188,13 +185,12 @@ struct Request
 struct DN
 {
 	DN	*next;		/* hash collision list */
-	char	*name;		/* owner */
 	RR	*rr;		/* resource records off this name */
 	ulong	ordinal;
 	ushort	class;		/* RR class */
 	uchar	respcode;	/* response code */
 	uchar	mark;		/* for mark and sweep */
-	ulong	magic;
+	char	name[];		/* owner */
 };
 
 /*
@@ -254,7 +250,6 @@ struct Txt
 struct RR
 {
 	RR	*next;
-	ulong	magic;
 	DN	*owner;		/* domain that owns this resource record */
 	uintptr	pc;		/* for tracking memory allocation */
 	ulong	ttl;		/* time to live to be passed on */

@@ -213,11 +213,11 @@ dnlookup(char *name, int class, int enter)
 {
 	DN **l;
 	DN *dp;
+	int n;
 
 	l = &ht[dnhash(name)];
 	lock(&dnlock);
 	for(dp = *l; dp; dp = dp->next) {
-		assert(dp->magic == DNmagic);
 		if(dp->class == class && cistrcmp(dp->name, name) == 0)
 			goto out;
 		l = &dp->next;
@@ -228,9 +228,9 @@ dnlookup(char *name, int class, int enter)
 		return nil;
 	}
 	dnvars.names++;
-	dp = emalloc(sizeof(*dp));
-	dp->magic = DNmagic;
-	dp->name = estrdup(name);
+	n = strlen(name) + 1;
+	dp = emalloc(sizeof(*dp) + n);
+	memmove(dp->name, name, n);
 	dp->class = class;
 	dp->rr = nil;
 	/* add new DN to tail of the hash list.  *l points to last next ptr. */
@@ -486,7 +486,7 @@ dnage(DN *dp)
 
 	l = &dp->rr;
 	while ((rp = *l) != nil){
-		assert(rp->magic == RRmagic && rp->cached);
+		assert(rp->cached);
 		if(!rp->db && ((long)(rp->expire - now) <= 0
 		|| (long)(now - (rp->expire - rp->ttl)) > dnvars.oldest))
 			rrdelhead(l); /* rp == *l before; *l == rp->next after */
@@ -585,13 +585,10 @@ dnageall(int doit)
 		l = &ht[i];
 		for(dp = *l; dp; dp = *l){
 			if(dp->mark == dnvars.mark){
-				assert(dp->magic == DNmagic);
 				assert(dp->rr == nil);
 				*l = dp->next;
 
-				free(dp->name);
 				memset(dp, 0, sizeof *dp); /* cause trouble */
-				dp->magic = ~DNmagic;
 				free(dp);
 
 				dnvars.names--;
@@ -735,10 +732,10 @@ rrattach1(RR *new, int auth)
 	DN *dp;
 	ulong ttl;
 
-	assert(new->magic == RRmagic && !new->cached);
+	assert(!new->cached);
 
 	dp = new->owner;
-	assert(dp != nil && dp->magic == DNmagic);
+	assert(dp != nil);
 	new->auth |= auth;
 	new->next = 0;
 
@@ -760,7 +757,7 @@ rrattach1(RR *new, int auth)
 	 */
 	l = &dp->rr;
 	for(rp = *l; rp; rp = *l){
-		assert(rp->magic == RRmagic && rp->cached);
+		assert(rp->cached);
 		if(rp->type == new->type)
 			break;
 		l = &rp->next;
@@ -776,7 +773,7 @@ rrattach1(RR *new, int auth)
 	 *  fields (e.g. multiple NS servers).
 	 */
 	while ((rp = *l) != nil){
-		assert(rp->magic == RRmagic && rp->cached);
+		assert(rp->cached);
 		if(rp->type != new->type)
 			break;
 
@@ -864,7 +861,6 @@ rrcopy(RR *rp, RR **last)
 	Null *null;
 	Txt *t, *nt, **l;
 
-	assert(rp->magic == RRmagic);
 	nrp = rralloc(rp->type);
 	switch(rp->type){
 	case Tsoa:
@@ -965,15 +961,13 @@ rrlookup(DN *dp, int type, int flag)
 {
 	RR *rp, *first, **last;
 
-	assert(dp->magic == DNmagic);
-
 	first = nil;
 	last = &first;
 	lock(&dnlock);
 
 	/* try for an authoritative db entry */
 	for(rp = dp->rr; rp; rp = rp->next){
-		assert(rp->magic == RRmagic && rp->cached);
+		assert(rp->cached);
 		if(rp->db)
 		if(rp->auth)
 		if(tsame(type, rp->type))
@@ -1742,15 +1736,14 @@ emalloc(int size)
 char*
 estrdup(char *s)
 {
-	int size;
 	char *p;
+	int n;
 
-	size = strlen(s);
-	p = mallocz(size+1, 0);
+	n = strlen(s) + 1;
+	p = mallocz(n, 0);
 	if(p == nil)
 		abort();
-	memmove(p, s, size);
-	p[size] = 0;
+	memmove(p, s, n);
 	setmalloctag(p, getcallerpc(&s));
 	return p;
 }
@@ -1842,13 +1835,10 @@ addserver(Server **l, char *name)
 
 	while(*l)
 		l = &(*l)->next;
-	n = strlen(name);
-	s = malloc(sizeof(Server)+n+1);
-	if(s == nil)
-		return;
+	n = strlen(name) + 1;
+	s = emalloc(sizeof(*s) + n);
 	s->name = (char*)(s+1);
 	memmove(s->name, name, n);
-	s->name[n] = 0;
 	s->next = nil;
 	*l = s;
 }
@@ -1919,7 +1909,6 @@ rralloc(int type)
 	RR *rp;
 
 	rp = emalloc(sizeof(*rp));
-	rp->magic = RRmagic;
 	rp->pc = getcallerpc(&type);
 	rp->type = type;
 	if (rp->type != type)
@@ -1971,7 +1960,7 @@ rrfree(RR *rp)
 {
 	Txt *t;
 
-	assert(rp->magic == RRmagic && !rp->cached);
+	assert(!rp->cached);
 
 	switch(rp->type){
 	case Tsoa:
@@ -2019,6 +2008,5 @@ rrfree(RR *rp)
 	}
 
 	memset(rp, 0, sizeof *rp);		/* cause trouble */
-	rp->magic = ~RRmagic;
 	free(rp);
 }

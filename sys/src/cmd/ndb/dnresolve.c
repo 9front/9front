@@ -196,7 +196,7 @@ dnresolve(char *name, int class, int type, Request *req, RR **cn, int depth,
 static void
 queryinit(Query *qp, DN *dp, int type, Request *req)
 {
-	assert(dp && dp->magic == DNmagic);
+	assert(dp != nil);
 
 	memset(qp, 0, sizeof *qp);
 	qp->udpfd = qp->tcpfd = qp->tcpctlfd = -1;
@@ -763,7 +763,6 @@ serveraddrs(Query *qp, int nd, int depth, int type)
 	mark = 1UL<<type;
 	arp = nil;
 	for(rp = qp->nsrp; rp; rp = rp->next){
-		assert(rp->magic == RRmagic);
 		if(rp->marker & mark)
 			continue;
 		arp = rrlookup(rp->host, type, NOneg);
