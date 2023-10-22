@@ -17,7 +17,7 @@ struct Inprogress
 	Udphdr	uh;
 	DN	*owner;
 	ushort	type;
-	int	id;
+	ushort	id;
 };
 Inprogress inprog[Maxactive+2];
 
@@ -162,12 +162,11 @@ restart:
 	}
 
 	memset(&req, 0, sizeof req);
-	if(setjmp(req.mret))
-		putactivity(0);
+	setjmp(req.mret);
 	req.isslave = 0;
 
 	/* loop on requests */
-	for(;; putactivity(0)){
+	for(;; putactivity(&req)){
 		procsetname("%s: udp server %s: served %d", mntpt, addr, served);
 		memset(&repmsg, 0, sizeof repmsg);
 		memset(&reqmsg, 0, sizeof reqmsg);
@@ -188,7 +187,7 @@ restart:
 
 		// dnslog("read received UDP from %I to %I", uh->raddr, uh->laddr);
 		snprint(ipstr, sizeof(ipstr), "%I", uh->raddr);
-		getactivity(&req, 0);
+		getactivity(&req);
 		req.aborttime = timems() + Maxreqtm;
 		req.from = ipstr;
 
@@ -266,7 +265,7 @@ restart:
 freereq:
 		freeanswers(&reqmsg);
 		if(req.isslave){
-			putactivity(0);
+			putactivity(&req);
 			_exits(0);
 		}
 	}

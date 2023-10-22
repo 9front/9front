@@ -34,7 +34,7 @@ resolve(char *name, int type)
 	errmsg = nil;
 
 	memset(&req, 0, sizeof req);
-	getactivity(&req, 0);
+	getactivity(&req);
 	req.isslave = 1;
 	req.aborttime = timems() + Maxreqtm;
 

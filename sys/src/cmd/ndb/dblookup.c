@@ -815,9 +815,6 @@ db2cache(int doit)
 		 */
 		dnauthdb();
 
-		/* remove old entries */
-		dnageall(1);
-
 		doit = 0;
 		lastyoungest = youngest;
 		createptrs();

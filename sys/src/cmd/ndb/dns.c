@@ -392,15 +392,15 @@ io(void)
 	Mfile *volatile mf;
 	volatile Request req;
 
-	memset(&req, 0, sizeof req);
 	/*
 	 *  a slave process is sometimes forked to wait for replies from other
 	 *  servers.  The master process returns immediately via a longjmp
 	 *  through 'mret'.
 	 */
-	if(setjmp(req.mret))
-		putactivity(0);
+	memset(&req, 0, sizeof req);
+	setjmp(req.mret);
 	req.isslave = 0;
+
 	while((n = read9pmsg(mfd[0], mdata, sizeof mdata)) != 0){
 		if(n < 0){
 			dnslog("error reading 9P from %s: %r", mntpt);
@@ -448,16 +448,16 @@ io(void)
 			rread(job, mf);
 			break;
 		case Twrite:
-			getactivity(&req, 0);
+			getactivity(&req);
 			req.aborttime = timems() + Maxreqtm;
 			req.from = "9p";
 			rwrite(job, mf, &req);
 			freejob(job);
 			if(req.isslave){
-				putactivity(0);
+				putactivity(&req);
 				_exits(0);
 			}
-			putactivity(0);
+			putactivity(&req);
 			continue;
 		case Tclunk:
 			rclunk(job, mf);
@@ -693,7 +693,7 @@ rwrite(Job *job, Mfile *mf, Request *req)
 	else if(strcmp(job->request.data, "dump")==0)
 		dndump("/lib/ndb/dnsdump");
 	else if(strcmp(job->request.data, "refresh")==0)
-		needrefresh = getpid();
+		needrefresh = 1;
 	else if(strcmp(job->request.data, "stats")==0)
 		dnstats("/lib/ndb/dnsstats");
 	else if(strncmp(job->request.data, "target ", 7)==0){

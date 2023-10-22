@@ -341,7 +341,7 @@ doquery(char *name, char *tstr)
 		strncpy(buf, name, sizeof buf);
 
 	memset(&req, 0, sizeof req);
-	getactivity(&req, 0);
+	getactivity(&req);
 	req.isslave = 1;
 	req.aborttime = timems() + Maxreqtm;
 	rr = dnresolve(buf, Cin, type, &req, nil, 0, Recurse, rooted, nil);
@@ -352,8 +352,7 @@ doquery(char *name, char *tstr)
 		print("----------------------------\n");
 	}
 	rrfreelist(rr);
-
-	putactivity(0);
+	putactivity(&req);
 }
 
 void
@@ -367,7 +366,7 @@ docmd(int n, char **f)
 
 	if(strcmp(f[0], "refresh") == 0){
 		db2cache(1);
-		dnageall(0);
+		dnageall(1);
 		return;
 	}
 

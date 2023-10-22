@@ -127,9 +127,6 @@ enum
 	Year=		52*Week,
 	DEFTTL=		Day,
 
-	/* reserved time (can't be timed out earlier) */
-	Reserved=	5*Min,
-
 	/* packet sizes */
 	Maxudp=		512,	/* maximum bytes per udp message sent */
 	Maxudpin=	2048,	/* maximum bytes per udp message rcv'd */
@@ -139,6 +136,8 @@ enum
 
 	Maxpath=	128,	/* size of mntpt */
 	Maxlcks=	10,	/* max. query-type locks per domain name */
+
+	RRnames=	8,	/* # of referenced names per RR */
 
 	RRmagic=	0xdeadbabe,
 	DNmagic=	0xa110a110,
@@ -177,7 +176,8 @@ struct Request
 	int	isslave;	/* pid of slave */
 	uvlong	aborttime;	/* time in ms at which we give up */
 	jmp_buf	mret;		/* where master jumps to after starting a slave */
-	int	id;
+	ushort	id;
+	uchar	mark;
 	char	*from;		/* who asked us? */
 	void	*aux;
 };
@@ -188,14 +188,13 @@ struct Request
 struct DN
 {
 	DN	*next;		/* hash collision list */
-	ulong	magic;
 	char	*name;		/* owner */
 	RR	*rr;		/* resource records off this name */
-	ulong	referenced;	/* time last referenced */
 	ulong	ordinal;
 	ushort	class;		/* RR class */
 	uchar	respcode;	/* response code */
 	uchar	mark;		/* for mark and sweep */
+	ulong	magic;
 };
 
 /*
@@ -446,7 +445,6 @@ void	addserver(Server**, char*);
 int	bslashfmt(Fmt*);
 Server*	copyserverlist(Server*);
 void	db2cache(int);
-void	dnage(DN*);
 void	dnageall(int);
 void	dnagedb(void);
 void	dnagenever(DN *);
@@ -464,9 +462,9 @@ void*	emalloc(int);
 char*	estrdup(char*);
 void	freeanswers(DNSmsg *mp);
 void	freeserverlist(Server*);
-int	getactivity(Request*, int);
+void	getactivity(Request*);
 Area*	inmyarea(char*);
-void	putactivity(int);
+void	putactivity(Request*);
 RR*	randomize(RR*);
 RR*	rralloc(int);
 void	rrattach(RR*, int);

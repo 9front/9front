@@ -168,9 +168,9 @@ notifyproc(char *mntpt)
 	req.isslave = 1;	/* don't fork off subprocesses */
 
 	for(;;){
-		getactivity(&req, 0);
+		getactivity(&req);
 		notify_areas(mntpt, owned, &req);
-		putactivity(0);
+		putactivity(&req);
 		sleep(60*1000);
 	}
 }

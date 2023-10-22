@@ -15,7 +15,7 @@
 enum {
 	/* these settings will trigger frequent aging */
 	Deftarget	= 4000,
-	Minage		=  5*Min,
+	Minage		=  1*Min,
 	Defagefreq	= 15*Min,	/* age names this often (seconds) */
 };
 
@@ -26,12 +26,13 @@ enum {
 DN *ht[HTLEN];
 
 static struct {
-	Lock;
+	QLock;
 	ulong	names;		/* names allocated */
 	ulong	oldest;		/* longest we'll leave a name around */
-	int	active;		/* number of active processes */
-	int	mutex;		/* 0 or pid of process doing garbage collection */
+	ulong	lastage;
 	ushort	id;		/* same size as in packet */
+	uchar	mark;		/* mark bit for gc */
+	int	active[2];	/* number of active processes per mark */
 } dnvars;
 
 /* names of RR types */
@@ -134,7 +135,7 @@ char *opname[] =
 };
 
 ulong target = Deftarget;
-Lock	dnlock;
+Lock dnlock;
 
 static ulong agefreq = Defagefreq;
 
@@ -169,11 +170,13 @@ dninit(void)
 	fmtinstall('Q', rravfmt);
 	fmtinstall('H', encodefmt);
 
-	dnvars.oldest = maxage;
-	dnvars.names = 0;
-	dnvars.id = truerand();	/* don't start with same id every time */
-
 	timems();
+
+	dnvars.names = 0;
+	dnvars.oldest = maxage;
+	dnvars.lastage = now;
+	dnvars.id = truerand();	/* don't start with same id every time */
+	dnvars.mark = 0;
 
 	notify(ding);
 }
@@ -193,6 +196,15 @@ dnhash(char *name)
 }
 
 /*
+ *  mark dn with current mark bit
+ */
+static void
+dnmark(DN *dp)
+{
+	dp->mark = (dp->mark & ~1) | dnvars.mark;
+}
+
+/*
  *  lookup a symbol.  if enter is not zero and the name is
  *  not found, create it.
  */
@@ -206,17 +218,14 @@ dnlookup(char *name, int class, int enter)
 	lock(&dnlock);
 	for(dp = *l; dp; dp = dp->next) {
 		assert(dp->magic == DNmagic);
-		if(dp->class == class && cistrcmp(dp->name, name) == 0){
-			dp->referenced = now;
-			unlock(&dnlock);
-			return dp;
-		}
+		if(dp->class == class && cistrcmp(dp->name, name) == 0)
+			goto out;
 		l = &dp->next;
 	}
 
 	if(!enter){
 		unlock(&dnlock);
-		return 0;
+		return nil;
 	}
 	dnvars.names++;
 	dp = emalloc(sizeof(*dp));
@@ -224,10 +233,11 @@ dnlookup(char *name, int class, int enter)
 	dp->name = estrdup(name);
 	dp->class = class;
 	dp->rr = nil;
-	dp->referenced = now;
 	/* add new DN to tail of the hash list.  *l points to last next ptr. */
 	dp->next = nil;
 	*l = dp;
+out:
+	dnmark(dp);
 	unlock(&dnlock);
 
 	return dp;
@@ -368,6 +378,83 @@ dnpurge(void)
 }
 
 /*
+ *  return all refernced domain names of a RR.
+ *  call with dnlock held.
+ */
+static int
+rrnames(RR *rp, DN **dn)
+{
+	int n = 0;
+
+	dn[n++] = rp->owner;
+	if(rp->negative){
+		if((dn[n] = rp->negsoaowner) != nil) n++;
+		return n;
+	}
+	switch(rp->type){
+	case Thinfo:
+		if((dn[n] = rp->cpu) != nil) n++;
+		if((dn[n] = rp->os) != nil) n++;
+	case Ttxt:
+		break;
+	case Tcname:
+	case Tmb:
+	case Tmd:
+	case Tmf:
+	case Tns:
+	case Tmx:
+	case Tsrv:
+		if((dn[n] = rp->host) != nil) n++;
+		break;
+	case Tmg:
+	case Tmr:
+		if((dn[n] = rp->mb) != nil) n++;
+		break;
+	case Tminfo:
+		if((dn[n] = rp->rmb) != nil) n++;
+		if((dn[n] = rp->mb) != nil) n++;
+		break;
+	case Trp:
+		if((dn[n] = rp->rmb) != nil) n++;
+		if((dn[n] = rp->rp) != nil) n++;
+		break;
+	case Ta:
+	case Taaaa:
+		if((dn[n] = rp->ip) != nil) n++;
+		break;
+	case Tptr:
+		if((dn[n] = rp->ptr) != nil) n++;
+		break;
+	case Tsoa:
+		if((dn[n] = rp->host) != nil) n++;
+		if((dn[n] = rp->rmb) != nil) n++;
+		break;
+	case Tsig:
+		if((dn[n] = rp->sig->signer) != nil) n++;
+		break;
+	case Tcaa:
+		if((dn[n] = rp->caa->tag) != nil) n++;
+		break;
+	}
+	return n;	
+}
+
+/*
+ *  mark all refernced domain names of an RR.
+ *  call with dnlock held.
+ */
+static void
+rrmark(RR *rp)
+{
+	DN *dn[RRnames];
+	int i, n;
+
+	n = rrnames(rp, dn);
+	for(i = 0; i < n; i++)
+		dnmark(dn[i]);
+}
+
+/*
  *  delete head of *l and free the old head.
  *  call with dnlock held.
  */
@@ -376,8 +463,6 @@ rrdelhead(RR **l)
 {
 	RR *rp;
 
-	if (canlock(&dnlock))
-		abort();	/* rrdelhead called with dnlock not held */
 	rp = *l;
 	if(rp == nil)
 		return;
@@ -390,198 +475,118 @@ rrdelhead(RR **l)
  *  check the age of resource records, free any that have timed out.
  *  call with dnlock held.
  */
-void
+static void
 dnage(DN *dp)
 {
 	RR **l, *rp;
-	ulong diff;
 
-	if (canlock(&dnlock))
-		abort();	/* dnage called with dnlock not held */
-	diff = now - dp->referenced;
-	if(diff < Reserved || dp->mark != 0)
+	/* see dnagenever() below */
+	if(dp->mark & ~1)
 		return;
 
 	l = &dp->rr;
 	while ((rp = *l) != nil){
 		assert(rp->magic == RRmagic && rp->cached);
-		if(!rp->db && ((long)(rp->expire - now) <= 0 || diff > dnvars.oldest))
+		if(!rp->db && ((long)(rp->expire - now) <= 0
+		|| (long)(now - (rp->expire - rp->ttl)) > dnvars.oldest))
 			rrdelhead(l); /* rp == *l before; *l == rp->next after */
 		else
 			l = &rp->next;
 	}
 }
 
-#define MARK(dp)	{ if (dp) (dp)->mark |= 2; }
-
 /* mark a domain name and those in its RRs as never to be aged */
 void
 dnagenever(DN *dp)
 {
+	DN *dn[RRnames];
 	RR *rp;
+	int i, n;
 
 	lock(&dnlock);
 
 	/* mark all referenced domain names */
-	MARK(dp);
 	for(rp = dp->rr; rp; rp = rp->next){
-		MARK(rp->owner);
-		if(rp->negative){
-			MARK(rp->negsoaowner);
-			continue;
-		}
-		switch(rp->type){
-		case Thinfo:
-			MARK(rp->cpu);
-			MARK(rp->os);
-			break;
-		case Ttxt:
-			break;
-		case Tcname:
-		case Tmb:
-		case Tmd:
-		case Tmf:
-		case Tns:
-		case Tmx:
-		case Tsrv:
-			MARK(rp->host);
-			break;
-		case Tmg:
-		case Tmr:
-			MARK(rp->mb);
-			break;
-		case Tminfo:
-			MARK(rp->rmb);
-			MARK(rp->mb);
-			break;
-		case Trp:
-			MARK(rp->rmb);
-			MARK(rp->rp);
-			break;
-		case Ta:
-		case Taaaa:
-			MARK(rp->ip);
-			break;
-		case Tptr:
-			MARK(rp->ptr);
-			break;
-		case Tsoa:
-			MARK(rp->host);
-			MARK(rp->rmb);
-			break;
-		case Tsig:
-			MARK(rp->sig->signer);
-			break;
-		case Tcaa:
-			MARK(rp->caa->tag);
-			break;
-		}
+		assert(rp->owner == dp);
+		n = rrnames(rp, dn);
+		for(i = 0; i < n; i++)
+			dn[i]->mark |= ~1;
 	}
 
 	unlock(&dnlock);
 }
 
-#define REF(dp)	{ if (dp) (dp)->mark |= 1; }
-
 /*
  *  periodicly sweep for old records and remove unreferenced domain names
  *
- *  only called when all other threads are locked out
+ *  this is called once all activity ceased for the non-current
+ *  mark bit (previous cycle), meaning there are no more
+ *  unaccounted references to DN's with the non-current mark
+ *  from other activity procs.
+ *
+ *  this can run concurrently to current mark bit activity procs
+ *  as DN's with current mark bit are not freed in this cycle, but
+ *  in the next cycle when the previously current mark bit activity
+ *  has ceased.
  */
 void
 dnageall(int doit)
 {
 	DN *dp, **l;
-	int i;
 	RR *rp;
-	static ulong nextage;
+	int i;
 
-	if(dnvars.names < target || ((long)(nextage - now) > 0 && !doit)){
-		dnvars.oldest = maxage;
-		return;
-	}
+	if(!doit){
+		ulong period;
 
-	if(dnvars.names >= target) {
-		dnslog("more names (%lud) than target (%lud)", dnvars.names,
-			target);
+		if(dnvars.names < target){
+			dnvars.oldest = maxage;
+			return;
+		}
+		if(dnvars.names < target*2) {
+			period = dnvars.oldest / 2;
+			if(period > agefreq)
+				period = agefreq;
+		} else {
+			period = Minage / 2;
+		}
+		if((long)(now - dnvars.lastage) < period)
+			return;
+
+		dnslog("more names (%lud) than target (%lud)", dnvars.names, target);
+
 		dnvars.oldest /= 2;
-		if (dnvars.oldest < Minage)
+		if(dnvars.oldest < Minage)
 			dnvars.oldest = Minage;		/* don't be silly */
 	}
-	if (agefreq > dnvars.oldest / 2)
-		nextage = now + dnvars.oldest / 2;
-	else
-		nextage = now + (ulong)agefreq;
+	dnvars.lastage = now;
 
 	lock(&dnlock);
 
-	/* time out all old entries (and set refs to 0) */
+	/* timeout all expired records */
 	for(i = 0; i < HTLEN; i++)
-		for(dp = ht[i]; dp; dp = dp->next){
-			dp->mark &= ~1;
+		for(dp = ht[i]; dp; dp = dp->next)
 			dnage(dp);
-		}
 
 	/* mark all referenced domain names */
 	for(i = 0; i < HTLEN; i++)
 		for(dp = ht[i]; dp; dp = dp->next)
 			for(rp = dp->rr; rp; rp = rp->next){
-				REF(rp->owner);
-				if(rp->negative){
-					REF(rp->negsoaowner);
-					continue;
-				}
-				switch(rp->type){
-				case Thinfo:
-					REF(rp->cpu);
-					REF(rp->os);
-					break;
-				case Ttxt:
-					break;
-				case Tcname:
-				case Tmb:
-				case Tmd:
-				case Tmf:
-				case Tns:
-				case Tmx:
-				case Tsrv:
-					REF(rp->host);
-					break;
-				case Tmg:
-				case Tmr:
-					REF(rp->mb);
-					break;
-				case Tminfo:
-					REF(rp->rmb);
-					REF(rp->mb);
-					break;
-				case Trp:
-					REF(rp->rmb);
-					REF(rp->rp);
-					break;
-				case Ta:
-				case Taaaa:
-					REF(rp->ip);
-					break;
-				case Tptr:
-					REF(rp->ptr);
-					break;
-				case Tsoa:
-					REF(rp->host);
-					REF(rp->rmb);
-					break;
-				case Tsig:
-					REF(rp->sig->signer);
-					break;
-				}
+				assert(rp->owner == dp);
+				rrmark(rp);
 			}
+
+	/* bump mark */
+	dnvars.mark ^= 1;
+	assert(dnvars.active[dnvars.mark] == 0);
 
 	/* sweep and remove unreferenced domain names */
 	for(i = 0; i < HTLEN; i++){
 		l = &ht[i];
 		for(dp = *l; dp; dp = *l){
-			if(dp->rr == nil && dp->mark == 0){
+			if(dp->mark == dnvars.mark){
 				assert(dp->magic == DNmagic);
+				assert(dp->rr == nil);
 				*l = dp->next;
 
 				free(dp->name);
@@ -595,7 +600,6 @@ dnageall(int doit)
 			l = &dp->next;
 		}
 	}
-
 	unlock(&dnlock);
 }
 
@@ -614,7 +618,7 @@ dnagedb(void)
 	/* time out all database entries */
 	for(i = 0; i < HTLEN; i++)
 		for(dp = ht[i]; dp; dp = dp->next) {
-			dp->mark = 0;
+			dp->mark &= 1;
 			for(rp = dp->rr; rp; rp = rp->next)
 				if(rp->db)
 					rp->expire = 0;
@@ -668,73 +672,39 @@ dnauthdb(void)
  *  keep track of other processes to know if we can
  *  garbage collect.  block while garbage collecting.
  */
-int
-getactivity(Request *req, int recursive)
+void
+getactivity(Request *req)
 {
-	int rv;
-
 	if(traceactivity)
 		dnslog("get: %d active by pid %d from %p",
-			dnvars.active, getpid(), getcallerpc(&req));
+			dnvars.active[0] + dnvars.active[1],
+			getpid(), getcallerpc(&req));
 
-	/*
-	 * can't block here if we're already holding one
-	 * of the dnvars.active (recursive).  will deadlock.
-	 */
-	lock(&dnvars);
-	while(!recursive && dnvars.mutex){
-		unlock(&dnvars);
-		sleep(100);			/* tune; was 200 */
-		lock(&dnvars);
-	}
-	rv = ++dnvars.active;
-	req->id = ++dnvars.id;
+	qlock(&dnvars);
 	req->aux = nil;
-	unlock(&dnvars);
-
-	return rv;
+	req->id = ++dnvars.id;
+	req->mark = dnvars.mark;
+	dnvars.active[req->mark]++;
+	qunlock(&dnvars);
 }
+
 void
-putactivity(int recursive)
+putactivity(Request *req)
 {
-	int pid = getpid();
-
 	if(traceactivity)
-		dnslog("put: %d active by pid %d", dnvars.active, pid);
+		dnslog("put: %d active by pid %d from %p",
+			dnvars.active[0] + dnvars.active[1],
+			getpid(), getcallerpc(&req));
 
-	lock(&dnvars);
-	dnvars.active--;
-	assert(dnvars.active >= 0); /* "dnvars.active %d", dnvars.active */
-
-	/*
-	 *  clean out old entries and check for new db periodicly
-	 *  can't block here if being called to let go a "recursive" lock
-	 *  or we'll deadlock waiting for ourselves to give up the dnvars.active.
-	 *  also don't block if we are the 9p process (needrefresh == pid).
-	 */
-	if(recursive || dnvars.mutex
-	|| dnvars.active > 0 && (needrefresh == 0 || needrefresh == pid)){
-		unlock(&dnvars);
-		return;
+	qlock(&dnvars);
+	dnvars.active[req->mark]--;
+	assert(dnvars.active[req->mark] >= 0);
+	if(dnvars.active[dnvars.mark^1] == 0){
+		db2cache(needrefresh);
+		dnageall(needrefresh);
+		needrefresh = 0;
 	}
-
-	/* wait till we're alone */
-	dnvars.mutex = pid;
-	while(dnvars.active > 0){
-		unlock(&dnvars);
-		sleep(100);		/* tune; was 100 */
-		lock(&dnvars);
-	}
-	unlock(&dnvars);
-
-	db2cache(needrefresh != 0);
-	dnageall(0);
-
-	/* let others back in */
-	lock(&dnvars);
-	needrefresh = 0;
-	dnvars.mutex = 0;
-	unlock(&dnvars);
+	qunlock(&dnvars);
 }
 
 int
@@ -1057,6 +1027,8 @@ rrlookup(DN *dp, int type, int flag)
 		}
 
 out:
+	for(rp = first; rp; rp = rp->next)
+		rrmark(rp);
 	unlock(&dnlock);
 	unique(first);
 	return first;
@@ -1557,22 +1529,10 @@ slave(Request *req)
 	if(req->isslave)
 		return;		/* we're already a slave process */
 
-	/*
-	 * These calls to putactivity cannot block.
-	 * After getactivity(), the current process is counted
-	 * twice in dnvars.active (one will pass to the child).
-	 * If putactivity tries to wait for dnvars.active == 0,
-	 * it will never happen.
-	 */
-
-	/* limit parallelism */
-	procs = getactivity(req, 1);
-	if(procs > stats.slavehiwat)
-		stats.slavehiwat = procs;
-	if(procs > Maxactive){
+	procs = dnvars.active[0] + dnvars.active[1];
+	if(procs >= Maxactive){
 		if(traceactivity)
 			dnslog("[%d] too much activity", getpid());
-		putactivity(1);
 		return;
 	}
 
@@ -1583,20 +1543,22 @@ slave(Request *req)
 	ppid = getpid();
 	switch(rfork(RFPROC|RFMEM|RFNOWAIT)){
 	case -1:
-		putactivity(1);
 		break;
 	case 0:
 		procsetname("request slave of pid %d", ppid);
- 		if(traceactivity)
+		if(traceactivity)
 			dnslog("[%d] take activity from %d", getpid(), ppid);
-		req->isslave = 1;	/* why not `= getpid()'? */
-		break;
-	default:
+
 		/*
 		 * this relies on rfork producing separate, initially-identical
 		 * stacks, thus giving us two copies of `req', one in each
 		 * process.
 		 */
+		req->isslave = 1;
+		break;
+	default:
+		if(++procs > stats.slavehiwat)
+			stats.slavehiwat = procs;
 		alarm(0);
 		longjmp(req->mret, 1);
 	}
