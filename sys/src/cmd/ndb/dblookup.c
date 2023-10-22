@@ -21,6 +21,7 @@ enum {
 };
 
 static Ndb	*db;
+static Ndbtuple	*mydoms;
 static QLock	dblock;
 
 static Ipifc	*ipifcs;
@@ -744,12 +745,47 @@ loaddomsrvs(void)
 		getpid());
 }
 
+/*
+ *  get all my xxx
+ *  caller ndbfrees the result
+ */
+Ndbtuple*
+lookupinfo(char *attr)
+{
+	Ndbtuple *t, *nt;
+	char ip[64];
+	Ipifc *ifc;
+	Iplifc *lifc;
+
+	t = nil;
+	qlock(&dblock);
+	if(opendatabase() < 0){
+		qunlock(&dblock);
+		return nil;
+	}
+	qlock(&ipifclock);
+	if(ipifcs == nil)
+		ipifcs = readipifc(mntpt, ipifcs, -1);
+	for(ifc = ipifcs; ifc != nil; ifc = ifc->next){
+		for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
+			snprint(ip, sizeof(ip), "%I", lifc->ip);
+			nt = ndbipinfo(db, "ip", ip, &attr, 1);
+			t = ndbconcatenate(t, nt);
+		}
+	}
+	qunlock(&ipifclock);
+	qunlock(&dblock);
+
+	return ndbdedup(t);
+}
+
 void
 db2cache(int doit)
 {
 	ulong youngest;
 	Ndb *ndb;
 	Dir *d;
+	static Ndbtuple *olddoms;
 	static ulong lastcheck, lastyoungest;
 
 	/* no faster than once every 2 minutes */
@@ -819,44 +855,11 @@ db2cache(int doit)
 		lastyoungest = youngest;
 		createptrs();
 	}
-
-	qunlock(&dblock);
-}
-
-extern char	mntpt[Maxpath];		/* net mountpoint */
-
-/*
- *  get all my xxx
- *  caller ndbfrees the result
- */
-Ndbtuple*
-lookupinfo(char *attr)
-{
-	Ndbtuple *t, *nt;
-	char ip[64];
-	Ipifc *ifc;
-	Iplifc *lifc;
-
-	t = nil;
-	qlock(&dblock);
-	if(opendatabase() < 0){
-		qunlock(&dblock);
-		return nil;
-	}
-	qlock(&ipifclock);
-	if(ipifcs == nil)
-		ipifcs = readipifc(mntpt, ipifcs, -1);
-	for(ifc = ipifcs; ifc != nil; ifc = ifc->next){
-		for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
-			snprint(ip, sizeof(ip), "%I", lifc->ip);
-			nt = ndbipinfo(db, "ip", ip, &attr, 1);
-			t = ndbconcatenate(t, nt);
-		}
-	}
-	qunlock(&ipifclock);
 	qunlock(&dblock);
 
-	return ndbdedup(t);
+	ndbfree(olddoms);
+	olddoms = mydoms;
+	mydoms = lookupinfo("dom");
 }
 
 /*
@@ -865,32 +868,20 @@ lookupinfo(char *attr)
 int
 baddelegation(RR *rp, RR *nsrp, uchar *addr)
 {
-	static int whined;
-	static Ndbtuple *t;
 	Ndbtuple *nt;
 
 	if(rp->type != Tns)
 		return 0;
-
-	if(t == nil)
-		t = lookupinfo("dom");
-	if(t != nil){
-		/* see if delegating to us what we don't own */
-		for(nt = t; nt != nil; nt = nt->entry)
-			if(rp->host && cistrcmp(rp->host->name, nt->val) == 0)
-				break;
-
-		if(nt != nil && !inmyarea(rp->owner->name)){
-			if (!whined) {
-				whined = 1;
-				dnslog("bad delegation %R from %I/%s; "
-					"no further logging of them",
-					rp, addr, nsrp->host->name);
-			}
-			return 1;
-		}
-	}
-	return 0;
+	/* see if delegating to us what we don't own */
+	for(nt = mydoms; nt != nil; nt = nt->entry)
+		if(rp->host && cistrcmp(rp->host->name, nt->val) == 0)
+			break;
+	if(nt == nil || inmyarea(rp->owner->name))
+		return 0;
+	dnslog("bad delegation %R from %I/%s; "
+		"no further logging of them",
+		rp, addr, nsrp->host->name);
+	return 1;
 }
 
 int
