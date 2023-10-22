@@ -1996,6 +1996,7 @@ rrfree(RR *rp)
 	case Tcaa:
 		free(rp->caa->data);
 		memset(rp->caa, 0, sizeof *rp->caa);	/* cause trouble */
+		free(rp->caa);
 		break;
 	case Ttxt:
 		while(t = rp->txt){
