@@ -342,11 +342,12 @@ DN*
 dnlookup(char *name, int class, int)
 {
 	DN *dn;
+	int n;
 
-	dn = emalloc(sizeof *dn);
-	dn->name = estrdup(name);
+	n = strlen(name) + 1;
+	dn = emalloc(sizeof(*dn) + n);
+	memmove(dn->name, name, n);
 	dn->class = class;
-	dn->magic = DNmagic;
 	dn->next = alldn;
 	alldn = dn;
 	return dn;
@@ -359,7 +360,6 @@ freealldn(void)
 
 	while(dn = alldn){
 		alldn = dn->next;
-		free(dn->name);
 		free(dn);
 	}
 }
@@ -430,7 +430,6 @@ rralloc(int type)
 	RR *rp;
 
 	rp = emalloc(sizeof(*rp));
-	rp->magic = RRmagic;
 	rp->pc = getcallerpc(&type);
 	rp->type = type;
 	setmalloctag(rp, rp->pc);
@@ -482,12 +481,10 @@ rrfree(RR *rp)
 	RR *nrp;
 	Txt *t;
 
-	assert(rp->magic = RRmagic);
 	assert(!rp->cached);
 
 	dp = rp->owner;
 	if(dp){
-		assert(dp->magic == DNmagic);
 		for(nrp = dp->rr; nrp; nrp = nrp->next)
 			assert(nrp != rp);	/* "rrfree of live rr" */
 	}
@@ -526,6 +523,7 @@ rrfree(RR *rp)
 	case Tcaa:
 		free(rp->caa->data);
 		memset(rp->caa, 0, sizeof *rp->caa);	/* cause trouble */
+		free(rp->caa);
 		break;
 	case Ttxt:
 		while(t = rp->txt){
@@ -537,7 +535,6 @@ rrfree(RR *rp)
 		break;
 	}
 
-	rp->magic = ~rp->magic;
 	memset(rp, 0, sizeof *rp);		/* cause trouble */
 	free(rp);
 }
