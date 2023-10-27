@@ -60,7 +60,7 @@ git/pull, git/rm, git/serve
 .I branch
 ]
 [
-.B -s
+.B -su
 ]
 [
 .I file...
@@ -425,6 +425,14 @@ When passed the
 .B -s
 option, only the file statuses are
 printed.
+When passed the
+.B -u
+option, untracked files are listed.
+The
+.B -u
+option
+implies
+.BR -s .
 
 .PP
 .B Git/export
