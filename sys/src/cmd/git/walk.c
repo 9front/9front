@@ -299,6 +299,8 @@ pfxmatch(char *p, char **pfx, int *pfxlen, int npfx)
 {
 	int i;
 
+	if(p == nil)
+		return 0;
 	if(npfx == 0)
 		return 1;
 	for(i = 0; i < npfx; i++){

@@ -20,7 +20,7 @@ if(! ~ $#* 0)
 	files=`{cleanname -d $gitrel $*}
 
 branch=`{git/query -p $commit}
-if(~ $summarize 1){
+if(~ $summarize 1 || ~ $uncommitted 1){
 	git/walk -f$filt $cparam $files
 	exit
 }
