@@ -171,6 +171,7 @@ fmtrr(Msg *m, RR **rrp, int quest)
 		m->p = seprint(m->p, m->e, " flags=%d tag=%s caa=\"%.*s\"",
 			rr->caa->flags, rr->caa->tag->name,
 			rr->caa->dlen, (char*)rr->caa->data);
+		break;
 	default:
 		if(rrsupported(rr->type))
 			break;
