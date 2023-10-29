@@ -46,8 +46,6 @@ errtoolong(RR *rp, Scan *sp, int remain, int need, char *where)
 	/* hack to cope with servers that don't set Ftrunc when they should */
 	if (remain < Maxudp && need > Maxudp)
 		sp->trunc = 1;
-	if (debug && rp)
-		dnslog("malformed rr: %R", rp);
 	return 0;
 }
 
@@ -304,8 +302,6 @@ mstypehack(Scan *sp, ushort type, char *where)
 {
 	if ((uchar)type == 0 && (type>>8) != 0) {
 		USED(where);
-//		dnslog("%s: byte-swapped type field in ptr rr from win2k",
-//			where);
 		if (sp->rcode == Rok)
 			sp->rcode = Rformat;
 		type >>= 8;
@@ -335,7 +331,6 @@ convM2RR(Scan *sp, char *what)
 	RR *rp;
 	Txt *t, **l;
 
-retry:
 	rp = nil;
 	NAME(dname);
 	USHORT(type);
@@ -371,11 +366,6 @@ retry:
 		len = left;
 
 	switch(type){
-	default:
-		/* unknown type, just ignore it */
-		sp->p = data + len;
-		rrfree(rp);
-		goto retry;
 	case Thinfo:
 		SYMBOL(rp->cpu);
 		SYMBOL(rp->os);
@@ -475,6 +465,12 @@ retry:
 		SYMBOL(rp->caa->tag);
 		BYTES(rp->caa->data, rp->caa->dlen);
 		break;
+	default:
+		if(rrsupported(type)){
+			sp->p = data + len;
+			break;
+		}
+		BYTES(rp->unknown->data, rp->unknown->dlen);
 	}
 	if(sp->p - data != len) {
 		char ptype[64];
@@ -497,7 +493,6 @@ retry:
 			rp = nil;
 		}
 	}
-	// if(rp) dnslog("convM2RR: got %R", rp);
 	return rp;
 }
 

@@ -6,32 +6,18 @@
 #include <ndb.h>
 #include "dns.h"
 
-enum {
-	Maxrequest=		128,
-};
-
 Cfg cfg;
 
-static char *servername;
-static RR *serveraddrs;
-
 char	*dbfile;
-int	debug;
 char	*logfile = "dnsdebug";
-int	maxage  = 60*60;
+int	debug;
 char	mntpt[Maxpath];
-int	needrefresh;
-ulong	now;
-uvlong	nowms;
-char	*trace;
-int	traceactivity;
-char	*zonerefreshprogram;
+
+static char *servername;
 
 void	docmd(int, char**);
 void	doquery(char*, char*);
-void	preloadserveraddrs(void);
 int	setserver(char*);
-void	squirrelserveraddrs(void);
 
 #pragma	varargck	type	"P"	RR*
 int	prettyrrfmt(Fmt*);
@@ -52,7 +38,6 @@ main(int argc, char *argv[])
 	char *f[4];
 
 	strcpy(mntpt, "/net");
-	cfg.inside = 1;
 
 	ARGBEGIN{
 	case 'f':
@@ -66,7 +51,6 @@ main(int argc, char *argv[])
 		break;
 	case 'd':
 		debug = 1;
-		traceactivity = 1;
 		break;
 	case 'x':
 		dbfile = "/lib/ndb/external";
@@ -81,11 +65,6 @@ main(int argc, char *argv[])
 	opendatabase();
 	srand(truerand());
 	db2cache(1);
-
-	if(cfg.resolver)
-		squirrelserveraddrs();
-
-	debug = 1;
 
 	if(argc > 0){
 		docmd(argc, argv);
@@ -160,7 +139,7 @@ logsection(char *flag, RR *rp)
 }
 
 void
-logreply(int id, uchar *addr, DNSmsg *mp)
+logreply(int id, char *rcvd, uchar *addr, DNSmsg *mp)
 {
 	RR *rp;
 	char buf[12], resp[32];
@@ -189,7 +168,7 @@ logreply(int id, uchar *addr, DNSmsg *mp)
 		break;
 	}
 
-	print("%d: rcvd %s from %I (%s%s%s%s%s)\n", id, resp, addr,
+	print("%d: %s %I %s (%s%s%s%s%s)\n", id, rcvd, addr, resp,
 		mp->flags & Fauth? "authoritative": "",
 		mp->flags & Ftrunc? " truncated": "",
 		mp->flags & Frecurse? " recurse": "",
@@ -204,12 +183,12 @@ logreply(int id, uchar *addr, DNSmsg *mp)
 }
 
 void
-logsend(int id, int subid, uchar *addr, char *sname, char *rname, int type)
+logrequest(int id, int depth, char *send, uchar *addr, char *sname, char *rname, int type)
 {
-	char buf[12];
+	char tname[32];
 
-	print("%d.%d: sending to %I/%s %s %s\n", id, subid,
-		addr, sname, rname, rrname(type, buf, sizeof buf));
+	print("%d.%d: %s %I/%s %s %s\n", id, depth, send,
+		addr, sname, rname, rrname(type, tname, sizeof tname));
 }
 
 RR*
@@ -223,62 +202,7 @@ getdnsservers(int class)
 	rr = rralloc(Tns);
 	rr->owner = dnlookup("local#dns#servers", class, 1);
 	rr->host = idnlookup(servername, class, 1);
-
 	return rr;
-}
-
-void
-squirrelserveraddrs(void)
-{
-	int v4;
-	char *attr;
-	RR *rr, *rp, **l;
-	Request req;
-
-	/* look up the resolver address first */
-	cfg.resolver = 0;
-	debug = 0;
-	if(serveraddrs){
-		rrfreelist(serveraddrs);
-		serveraddrs = nil;
-	}
-	rr = getdnsservers(Cin);
-	l = &serveraddrs;
-	for(rp = rr; rp != nil; rp = rp->next){
-		attr = ipattr(rp->host->name);
-		v4 = strcmp(attr, "ip") == 0;
-		if(v4 || strcmp(attr, "ipv6") == 0){
-			*l = rralloc(v4? Ta: Taaaa);
-			(*l)->owner = rp->host;
-			(*l)->ip = rp->host;
-			l = &(*l)->next;
-			continue;
-		}
-		memset(&req, 0, sizeof req);
-		req.isslave = 1;
-		req.aborttime = timems() + Maxreqtm;
-		*l = dnresolve(rp->host->name, Cin, Ta, &req, nil, 0, Recurse, 0, nil);
-		if(*l == nil)
-			*l = dnresolve(rp->host->name, Cin, Taaaa, &req,
-				nil, 0, Recurse, 0, nil);
-		while(*l != nil)
-			l = &(*l)->next;
-	}
-	cfg.resolver = 1;
-	debug = 1;
-}
-
-void
-preloadserveraddrs(void)
-{
-	RR *rp, **l, *first;
-
-	first = nil;
-	l = &first;
-	for(rp = serveraddrs; rp != nil; rp = rp->next){
-		rrcopy(rp, l);
-		rrattach(first, Authoritative);
-	}
 }
 
 int
@@ -291,14 +215,9 @@ setserver(char *server)
 	}
 	if(server == nil || *server == 0)
 		return 0;
-	servername = strdup(server);
-	squirrelserveraddrs();
-	if(serveraddrs == nil){
-		print("can't resolve %s\n", servername);
-		cfg.resolver = 0;
-	} else
-		cfg.resolver = 1;
-	return cfg.resolver? 0: -1;
+	servername = estrdup(server);
+	cfg.resolver = 1;
+	return 0;
 }
 
 void
@@ -308,9 +227,6 @@ doquery(char *name, char *tstr)
 	char buf[1024];
 	RR *rr, *rp;
 	Request req;
-
-	if(cfg.resolver)
-		preloadserveraddrs();
 
 	/* default to an "ip" request if alpha, "ptr" if numeric */
 	if(tstr == nil || *tstr == 0)
@@ -344,6 +260,8 @@ doquery(char *name, char *tstr)
 	getactivity(&req);
 	req.isslave = 1;
 	req.aborttime = timems() + Maxreqtm;
+	req.from = argv0;
+
 	rr = dnresolve(buf, Cin, type, &req, nil, 0, Recurse, rooted, nil);
 	if(rr){
 		print("----------------------------\n");
@@ -361,14 +279,14 @@ docmd(int n, char **f)
 	int tmpsrv;
 	char *name, *type;
 
-	name = type = nil;
-	tmpsrv = 0;
-
-	if(strcmp(f[0], "refresh") == 0){
+	if(n == 1 && strcmp(f[0], "refresh") == 0){
 		db2cache(1);
 		dnageall(1);
 		return;
 	}
+
+	name = type = nil;
+	tmpsrv = 0;
 
 	if(*f[0] == '@') {
 		if(setserver(f[0]+1) < 0)

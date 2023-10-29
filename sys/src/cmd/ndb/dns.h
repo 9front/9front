@@ -128,22 +128,20 @@ enum
 	DEFTTL=		Day,
 
 	/* packet sizes */
-	Maxudp=		512,	/* maximum bytes per udp message sent */
-	Maxudpin=	2048,	/* maximum bytes per udp message rcv'd */
-
-	/* length of domain name hash table */
-	HTLEN= 		4*1024,
+	Maxudp=		8*1024,
+	Maxtcp=		0xfffe,
+	Maxpkt=		0x10000,
 
 	Maxpath=	128,	/* size of mntpt */
 	Maxlcks=	10,	/* max. query-type locks per domain name */
-
-	RRnames=	8,	/* # of referenced names per RR */
 
 	/* parallelism: tune; was 32; allow lots */
 	Maxactive=	250,
 
 	/* tune; was 8*1000; that was too short */
 	Maxreqtm=	15*1000,	/* max. ms to process a request */
+	Minreqtm=	100,		/* min. ms to attempt a request */
+	Maxtcpdialtm=	4000,		/* max. ms to dial() tcp connection */
 
 	Notauthoritative = 0,
 	Authoritative,
@@ -164,6 +162,7 @@ typedef struct Sig	Sig;
 typedef struct Srv	Srv;
 typedef struct Txt	Txt;
 typedef struct Caa	Caa;
+typedef struct Unknown	Unknown;
 
 /*
  *  a structure to track a request and any slave process handling it
@@ -173,7 +172,7 @@ struct Request
 	int	isslave;	/* pid of slave */
 	uvlong	aborttime;	/* time in ms at which we give up */
 	jmp_buf	mret;		/* where master jumps to after starting a slave */
-	ushort	id;
+	ushort	id;		/* internal id of request (just for logging) */
 	uchar	mark;
 	char	*from;		/* who asked us? */
 	void	*aux;
@@ -234,6 +233,10 @@ struct Null
 {
 	Block;
 };
+struct Unknown
+{
+	Block;
+};
 
 /*
  *  text strings
@@ -290,6 +293,7 @@ struct RR
 		Sig	*sig;
 		Null	*null;
 		Txt	*txt;
+		Unknown	*unknown;
 	};
 };
 
@@ -357,10 +361,10 @@ struct Area
 {
 	Area	*next;
 
-	int	len;		/* strlen(area->soarr->owner->name) */
 	RR	*soarr;		/* soa defining this area */
-	int	neednotify;
-	int	needrefresh;
+	int	len;		/* strlen(area->soarr->owner->name) */
+	uchar	neednotify;
+	uchar	needrefresh;
 };
 
 typedef struct Cfg Cfg;
@@ -368,18 +372,18 @@ struct Cfg {
 	int	cachedb;
 	int	resolver;
 	int	justforw;	/* flag: pure resolver, just forward queries */
-	int	serve;		/* flag: serve udp queries */
-	int	inside;
-	int	straddle;
+	int	serve;		/* flag: serve tcp udp queries */
+	int	nonrecursive;
 };
 
-/* (udp) query stats */
+/* query stats */
 typedef struct {
-	QLock;
 	ulong	slavehiwat;	/* procs */
 	ulong	qrecvd9p;	/* query counts */
 	ulong	qrecvdudp;
-	ulong	qsent;
+	ulong	qrecvdtcp;
+	ulong	qsentudp;
+	ulong	qsenttcp;
 	ulong	qrecvd9prpc;	/* packet count */
 	/* reply times by count */
 	ulong	under10ths[3*10+2];	/* under n*0.1 seconds, n is index */
@@ -406,34 +410,28 @@ enum
 	OKneg,
 };
 
-extern Cfg	cfg;
 extern char	*dbfile;
-extern int	debug;
-extern Area	*delegated;
 extern char	*logfile;
-extern int	maxage;		/* age of oldest entry in cache (secs) */
+extern Cfg	cfg;
+extern int	debug;
 extern char	mntpt[];
-extern int	needrefresh;	/* set to pid of the process requesting flush */
-extern int	norecursion;
-extern ulong	now;		/* time base */
-extern uvlong	nowms;
-extern Area	*owned;
-extern int	sendnotifies;
-extern ulong	target;
-extern char	*trace;
-extern int	traceactivity;
-extern char	*zonerefreshprogram;
 
 #pragma	varargck	type	"\\"	uchar*
 #pragma	varargck	type	"R"	RR*
 #pragma	varargck	type	"Q"	RR*
 
-
 /* dn.c */
+extern int	needrefresh;
+extern ulong	now;		/* time base seconds */
+extern uvlong	nowms;		/* time base milliseconds */
+extern int	maxage;		/* age of oldest entry in cache (secs) */
+extern ulong	target;
+
 extern char	*rname[];
 extern unsigned	nrname;
 extern char	*opname[];
-extern Lock	dnlock;
+
+RR*	getdnsservers(int);
 
 void	abort(); /* char*, ... */;
 void	addserver(Server**, char*);
@@ -442,9 +440,7 @@ Server*	copyserverlist(Server*);
 void	db2cache(int);
 void	dnageall(int);
 void	dnagedb(void);
-void	dnagenever(DN *);
 void	dnauthdb(void);
-void	dndump(char*);
 void	dninit(void);
 DN*	dnlookup(char*, int, int);
 DN*	idnlookup(char*, int, int);
@@ -458,7 +454,6 @@ char*	estrdup(char*);
 void	freeanswers(DNSmsg *mp);
 void	freeserverlist(Server*);
 void	getactivity(Request*);
-Area*	inmyarea(char*);
 void	putactivity(Request*);
 RR*	randomize(RR*);
 RR*	rralloc(int);
@@ -470,6 +465,7 @@ int	rrfmt(Fmt*);
 void	rrfree(RR*);
 void	rrfreelist(RR*);
 RR*	rrlookup(DN*, int, int);
+RR*	rrgetzone(char*);
 char*	rrname(int, char*, int);
 RR*	rrremneg(RR**);
 RR*	rrremtype(RR**, int);
@@ -485,37 +481,38 @@ void	unique(RR*);
 void	warning(char*, ...);
 
 /* dnarea.c */
-void	refresh_areas(Area*);
-void	freearea(Area**);
-void	addarea(DN *dp, RR *rp, Ndbtuple *t);
+extern Area	*delegated;
+extern Area	*owned;
+void	addarea(RR *rp, Ndbtuple *t);
+void	freeareas(Area**);
+Area*	inmyarea(char*);
 
 /* dblookup.c */
 int	baddelegation(RR*, RR*, uchar*);
 RR*	dblookup(char*, int, int, int, int);
 RR*	dnsservers(int);
 RR*	domainlist(int);
-int	insideaddr(char *dom);
-int	insidens(uchar *ip);
 int	myip(uchar *ip);
 int	opendatabase(void);
-int	outsidensip(int, uchar *ip);
 
 /* dns.c */
 char*	walkup(char*);
-RR*	getdnsservers(int);
-void	logreply(int, uchar*, DNSmsg*);
-void	logsend(int, int, uchar*, char*, char*, int);
+void	logreply(int, char*, uchar*, DNSmsg*);
+void	logrequest(int, int, char*, uchar*, char*, char*, int);
 
 /* dnresolve.c */
 RR*	dnresolve(char*, int, int, Request*, RR**, int, int, int, int*);
 int	udpport(char *);
-int	mkreq(DN *dp, int type, uchar *buf, int flags, ushort reqno);
-int	seerootns(void);
-void	initdnsmsg(DNSmsg *mp, RR *rp, int flags, ushort reqno);
+int	mkreq(DN *dp, int type, uchar *pkt, int flags, ushort reqno);
 
 /* dnserver.c */
 void	dnserver(DNSmsg*, DNSmsg*, Request*, uchar *, int);
+
+/* dnudpserver.c */
 void	dnudpserver(char*, char*);
+
+/* dntcpserver.c */
+void	dntcpserver(char*, char*);
 
 /* dnnotify.c */
 void	dnnotify(DNSmsg*, DNSmsg*, Request*);
@@ -528,3 +525,5 @@ int	convDNS2M(DNSmsg*, uchar*, int);
 char*	convM2DNS(uchar*, int, DNSmsg*, int*);
 
 #pragma varargck argpos dnslog 1
+#pragma varargck argpos warning 1
+#pragma varargck argpos dnsdebug 1

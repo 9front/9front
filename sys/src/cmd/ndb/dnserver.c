@@ -6,9 +6,6 @@
 static RR*	doextquery(DNSmsg*, Request*, int);
 static void	hint(RR**, RR*);
 
-/* set in dns.c */
-int	norecursion;		/* don't allow recursive requests */
-
 /*
  *  answer a dns request
  */
@@ -22,7 +19,7 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 	Area *myarea;
 	RR *tp, *neg, *rp;
 
-	recursionflag = norecursion? 0: Fcanrec;
+	recursionflag = cfg.nonrecursive? 0: Fcanrec;
 	memset(repp, 0, sizeof(*repp));
 	repp->id = reqp->id;
 	repp->flags = Fresp | recursionflag | Oquery;
@@ -37,22 +34,24 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 		errmsg = "";
 		if (rcode >= 0 && rcode < nrname)
 			errmsg = rname[rcode];
-		dnslog("server: response code 0%o (%s), req from %I",
-			rcode, errmsg, srcip);
+		dnslog("%d: server: response code 0%o (%s), req from %I",
+			req->id, rcode, errmsg, srcip);
 		/* provide feedback to clients who send us trash */
 		repp->flags = (rcode&Rmask) | Fresp | Fcanrec | Oquery;
 		return;
 	}
 	if(!rrsupported(repp->qd->type)){
-		dnslog("server: unsupported request %s from %I",
-			rrname(repp->qd->type, tname, sizeof tname), srcip);
+		if(debug)
+			dnslog("%d: server: unsupported request %s from %I",
+				req->id, rrname(repp->qd->type, tname, sizeof tname), srcip);
 		repp->flags = Runimplimented | Fresp | Fcanrec | Oquery;
 		return;
 	}
 
 	if(repp->qd->owner->class != Cin){
-		dnslog("server: unsupported class %d from %I",
-			repp->qd->owner->class, srcip);
+		if(debug)
+			dnslog("%d: server: unsupported class %d from %I",
+				req->id, repp->qd->owner->class, srcip);
 		repp->flags = Runimplimented | Fresp | Fcanrec | Oquery;
 		return;
 	}
@@ -60,15 +59,15 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 	myarea = inmyarea(repp->qd->owner->name);
 	if(myarea != nil) {
 		if(repp->qd->type == Tixfr || repp->qd->type == Taxfr){
-			dnslog("server: unsupported xfr request %s for %s from %I",
-				rrname(repp->qd->type, tname, sizeof tname),
-				repp->qd->owner->name, srcip);
-			repp->flags = Runimplimented | Fresp | recursionflag |
-				Oquery;
+			if(debug)
+				dnslog("%d: server: unsupported xfr request %s for %s from %I",
+					req->id, rrname(repp->qd->type, tname, sizeof tname),
+					repp->qd->owner->name, srcip);
+			repp->flags = Runimplimented | Fresp | recursionflag | Oquery;
 			return;
 		}
 	}
-	if(myarea == nil && norecursion) {
+	if(myarea == nil && cfg.nonrecursive) {
 		/* we don't recurse and we're not authoritative */
 		repp->flags = Rok | Fresp | Oquery;
 		neg = nil;
@@ -114,8 +113,9 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 				break;
 			}
 
-			if (strncmp(nsdp->name, "local#", 6) == 0)
-				dnslog("returning %s as nameserver", nsdp->name);
+			if(strncmp(nsdp->name, "local#", 6) == 0)
+				dnslog("%d: returning %s as nameserver",
+					req->id, nsdp->name);
 			repp->ns = dblookup(cp, repp->qd->owner->class, Tns, 0, 0);
 			if(repp->ns)
 				break;

@@ -7,15 +7,9 @@
 
 Cfg cfg;
 char *dbfile;
-int debug		= 0;
 char *logfile		= "dnsgetip";
-int	maxage		= 60*60;
+int debug		= 0;
 char mntpt[Maxpath];
-int	needrefresh	= 0;
-ulong	now		= 0;
-uvlong	nowms		= 0;
-int	traceactivity	= 0;
-char	*zonerefreshprogram;
 
 int aflag = 0;
 int addresses = 0;
@@ -35,8 +29,9 @@ resolve(char *name, int type)
 
 	memset(&req, 0, sizeof req);
 	getactivity(&req);
-	req.isslave = 1;
 	req.aborttime = timems() + Maxreqtm;
+	req.isslave = 1;
+	req.from = argv0;
 
 	rr = dnresolve(name, Cin, type, &req, nil, 0, Recurse, 0, &status);
 	neg = rrremneg(&rr);
@@ -58,6 +53,7 @@ resolve(char *name, int type)
 	}
 
 	rrfreelist(rr);
+	putactivity(&req);
 
 	return errmsg;
 }
@@ -75,7 +71,6 @@ main(int argc, char **argv)
 	char *e4, *e6;
 
 	strcpy(mntpt, "/net");
-	cfg.inside = 1;
 	cfg.resolver = 1;
 
 	ARGBEGIN{
@@ -120,5 +115,5 @@ getdnsservers(int class)
 
 /* stubs */
 void syslog(int, char*, char*, ...){}
-void logreply(int, uchar*, DNSmsg*){}
-void logsend(int, int, uchar*, char*, char*, int){}
+void logreply(int, char*, uchar*, DNSmsg*){}
+void logrequest(int, int, char*, uchar*, char*, char*, int){}

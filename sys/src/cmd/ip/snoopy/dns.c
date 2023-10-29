@@ -98,8 +98,6 @@ fmtrr(Msg *m, RR **rrp, int quest)
 		rr->owner->name, rr->ttl);
 	if(!quest)
 	switch(rr->type){
-	default:
-		break;
 	case Thinfo:
 		m->p = seprint(m->p, m->e, " cpu=%s os=%s",
 			rr->cpu->name, rr->os->name);
@@ -173,6 +171,11 @@ fmtrr(Msg *m, RR **rrp, int quest)
 		m->p = seprint(m->p, m->e, " flags=%d tag=%s caa=\"%.*s\"",
 			rr->caa->flags, rr->caa->tag->name,
 			rr->caa->dlen, (char*)rr->caa->data);
+	default:
+		if(rrsupported(rr->type))
+			break;
+		m->p = seprint(m->p, m->e, " unknown=%.*H",
+			rr->unknown->dlen, rr->unknown->data);
 	}
 	rrfree(rr);
 }
@@ -364,9 +367,6 @@ freealldn(void)
 	}
 }
 
-int debug;				/* for ndb/dns.h */
-ulong now = 0;
-
 void
 dnslog(char *fmt, ...)			/* don't log */
 {
@@ -377,6 +377,11 @@ dnslog(char *fmt, ...)			/* don't log */
  * Everything below here is copied from /sys/src/cmd/ndb/dn.c
  * without modification and can be recopied to update.
  */
+int
+rrsupported(int type)
+{
+	return type >= 0 && type < nelem(rrtname) && rrtname[type] != nil;
+}
 
 /*
  *  convert an integer RR type to it's ascii name
@@ -387,7 +392,7 @@ rrname(int type, char *buf, int len)
 	char *t;
 
 	t = nil;
-	if(type >= 0 && type <= Tall)
+	if(type >= 0 && type < nelem(rrtname))
 		t = rrtname[type];
 	if(t==nil){
 		snprint(buf, len, "%d", type);
@@ -409,7 +414,6 @@ rrfreelist(RR *rp)
 		rrfree(rp);
 	}
 }
-
 void
 freeserverlist(Server *s)
 {
@@ -464,6 +468,11 @@ rralloc(int type)
 		rp->null = emalloc(sizeof(*rp->null));
 		setmalloctag(rp->null, rp->pc);
 		break;
+	default:
+		if(rrsupported(rp->type))
+			break;
+		rp->unknown = emalloc(sizeof(*rp->unknown));
+		setmalloctag(rp->unknown, rp->pc);
 	}
 	rp->ttl = 0;
 	rp->expire = 0;
@@ -532,6 +541,13 @@ rrfree(RR *rp)
 			memset(t, 0, sizeof *t);	/* cause trouble */
 			free(t);
 		}
+		break;
+	default:
+		if(rrsupported(rp->type))
+			break;
+		free(rp->unknown->data);
+		memset(rp->unknown, 0, sizeof *rp->unknown);	/* cause trouble */
+		free(rp->unknown);
 		break;
 	}
 

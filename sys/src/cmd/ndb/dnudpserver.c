@@ -3,10 +3,6 @@
 #include <ip.h>
 #include "dns.h"
 
-enum {
-	Logqueries = 0,
-};
-
 static int	udpannounce(char*, char*);
 static void	reply(int, uchar*, DNSmsg*, Request*);
 
@@ -19,29 +15,18 @@ struct Inprogress
 	ushort	type;
 	ushort	id;
 };
-Inprogress inprog[Maxactive+2];
 
-typedef struct Forwtarg Forwtarg;
-struct Forwtarg {
-	char	*host;
-	uchar	addr[IPaddrlen];
-	int	fd;
-	ulong	lastdial;
-};
-Forwtarg forwtarg[10];
-int forwtcount;
+static Inprogress inprog[Maxactive+2];
 
 /*
  *  record client id and ignore retransmissions.
  *  we're still single thread at this point.
  */
 static Inprogress*
-clientrxmit(DNSmsg *req, uchar *buf)
+clientrxmit(DNSmsg *mp, Udphdr *uh, Request *req)
 {
 	Inprogress *p, *empty;
-	Udphdr *uh;
 
-	uh = (Udphdr *)buf;
 	empty = nil;
 	for(p = inprog; p < &inprog[Maxactive]; p++){
 		if(p->inuse == 0){
@@ -49,78 +34,23 @@ clientrxmit(DNSmsg *req, uchar *buf)
 				empty = p;
 			continue;
 		}
-		if(req->id == p->id)
-		if(req->qd->owner == p->owner)
-		if(req->qd->type == p->type)
+		if(mp->id == p->id)
+		if(mp->qd->owner == p->owner)
+		if(mp->qd->type == p->type)
 		if(memcmp(uh, &p->uh, Udphdrsize) == 0)
 			return nil;
 	}
 	if(empty == nil)
 		return nil; /* shouldn't happen: see slave() & Maxactive def'n */
 
-	empty->id = req->id;
-	empty->owner = req->qd->owner;
-	empty->type = req->qd->type;
-	if (empty->type != req->qd->type)
-		dnslog("clientrxmit: bogus req->qd->type %d", req->qd->type);
+	empty->id = mp->id;
+	empty->owner = mp->qd->owner;
+	empty->type = mp->qd->type;
+	if(empty->type != mp->qd->type)
+		dnslog("%d: clientrxmit: bogus req->qd->type %d", req->id, mp->qd->type);
 	memmove(&empty->uh, uh, Udphdrsize);
 	empty->inuse = 1;
 	return empty;
-}
-
-int
-addforwtarg(char *host)
-{
-	Forwtarg *tp;
-
-	if (forwtcount >= nelem(forwtarg)) {
-		dnslog("too many forwarding targets");
-		return -1;
-	}
-	tp = forwtarg + forwtcount;
-	if(parseip(tp->addr, host) == -1) {
-		dnslog("can't parse ip %s", host);
-		return -1;
-	}
-	tp->lastdial = time(nil);
-	tp->fd = udpport(mntpt);
-	if (tp->fd < 0)
-		return -1;
-
-	free(tp->host);
-	tp->host = estrdup(host);
-	forwtcount++;
-	return 0;
-}
-
-/*
- * fast forwarding of incoming queries to other dns servers.
- * intended primarily for debugging.
- */
-static void
-redistrib(uchar *buf, int len)
-{
-	uchar save[Udphdrsize];
-	Forwtarg *tp;
-	Udphdr *uh;
-
-	memmove(save, buf, Udphdrsize);
-
-	uh = (Udphdr *)buf;
-	for (tp = forwtarg; tp < forwtarg + forwtcount; tp++)
-		if (tp->fd >= 0) {
-			memmove(uh->raddr, tp->addr, sizeof tp->addr);
-			hnputs(uh->rport, 53);		/* dns port */
-			if (write(tp->fd, buf, len) != len) {
-				close(tp->fd);
-				tp->fd = -1;
-			}
-		} else if (tp->host && time(nil) - tp->lastdial > 60) {
-			tp->lastdial = time(nil);
-			tp->fd = udpport(mntpt);
-		}
-
-	memmove(buf, save, Udphdrsize);
 }
 
 /*
@@ -131,8 +61,8 @@ dnudpserver(char *mntpt, char *addr)
 {
 	volatile int fd, len, op, rcode, served;
 	char *volatile err;
-	volatile char tname[32], ipstr[64];
-	volatile uchar buf[Udphdrsize + Maxudp + 1024];
+	volatile char caller[64];
+	volatile uchar pkt[Udphdrsize + Maxudp];
 	volatile DNSmsg reqmsg, repmsg;
 	Inprogress *volatile p;
 	volatile Request req;
@@ -167,97 +97,78 @@ restart:
 
 	/* loop on requests */
 	for(;; putactivity(&req)){
-		procsetname("%s: udp server %s: served %d", mntpt, addr, served);
-		memset(&repmsg, 0, sizeof repmsg);
 		memset(&reqmsg, 0, sizeof reqmsg);
+		procsetname("%s: udp server %s: served %d", mntpt, addr, served);
 
-		alarm(60*1000);
-		len = read(fd, buf, sizeof buf);
-		alarm(0);
+		len = read(fd, pkt, sizeof pkt);
 		if(len <= Udphdrsize){
 			close(fd);
 			goto restart;
 		}
 
-		if(forwtcount > 0)
-			redistrib(buf, len);
-
-		uh = (Udphdr*)buf;
+		uh = (Udphdr*)pkt;
 		len -= Udphdrsize;
 
-		// dnslog("read received UDP from %I to %I", uh->raddr, uh->laddr);
-		snprint(ipstr, sizeof(ipstr), "%I", uh->raddr);
+		snprint(caller, sizeof(caller), "%I", uh->raddr);
 		getactivity(&req);
 		req.aborttime = timems() + Maxreqtm;
-		req.from = ipstr;
+		req.from = caller;
 
 		served++;
 		stats.qrecvdudp++;
 
 		rcode = 0;
-		err = convM2DNS(&buf[Udphdrsize], len, &reqmsg, &rcode);
+		err = convM2DNS(&pkt[Udphdrsize], len, &reqmsg, &rcode);
 		if(err){
 			/* first bytes in buf are source IP addr */
-			dnslog("server: input error: %s from %I", err, buf);
+			dnslog("%d: server: input err, len %d: %s from %s",
+				req.id, len, err, caller);
 			free(err);
 			goto freereq;
 		}
 		if (rcode == 0)
 			if(reqmsg.qdcount < 1){
-				dnslog("server: no questions from %I", buf);
+				dnslog("%d: server: no questions from %s",
+					req.id, caller);
 				goto freereq;
 			} else if(reqmsg.flags & Fresp){
-				dnslog("server: reply not request from %I", buf);
+				dnslog("%d: server: reply not request from %s",
+					req.id, caller);
 				goto freereq;
 			}
 		op = reqmsg.flags & Omask;
 		if(op != Oquery && op != Onotify){
-			dnslog("server: op %d from %I", reqmsg.flags & Omask, buf);
+			dnslog("%d: server: op %d from %s",
+				req.id, reqmsg.flags & Omask, caller);
 			goto freereq;
 		}
 
 		if(reqmsg.qd == nil){
-			dnslog("server: no question RR from %I", buf);
+			dnslog("%d: server: no question RR from %s",
+				req.id, caller);
 			goto freereq;
 		}
 
-		if(debug || (trace && subsume(trace, reqmsg.qd->owner->name)))
-			dnslog("%d: serve (%I/%d) %d %s %s",
-				req.id, buf, uh->rport[0]<<8 | uh->rport[1],
-				reqmsg.id, reqmsg.qd->owner->name,
-				rrname(reqmsg.qd->type, tname, sizeof tname));
-
-		p = clientrxmit(&reqmsg, buf);
-		if(p == nil){
-			if(debug)
-				dnslog("%d: duplicate", req.id);
+		p = clientrxmit(&reqmsg, uh, &req);
+		if(p == nil)
 			goto freereq;
-		}
 
-		if (Logqueries) {
-			RR *rr;
+		logrequest(req.id, 0, "rcvd", uh->raddr, caller,
+			reqmsg.qd->owner->name, reqmsg.qd->type);
 
-			for (rr = reqmsg.qd; rr; rr = rr->next)
-				syslog(0, "dnsq", "id %d: (%I/%d) %d %s %s",
-					req.id, buf, uh->rport[0]<<8 |
-					uh->rport[1], reqmsg.id,
-					reqmsg.qd->owner->name,
-					rrname(reqmsg.qd->type, tname,
-					sizeof tname));
-		}
 		/* loop through each question */
 		while(reqmsg.qd){
 			memset(&repmsg, 0, sizeof repmsg);
 			switch(op){
 			case Oquery:
-				dnserver(&reqmsg, &repmsg, &req, buf, rcode);
+				dnserver(&reqmsg, &repmsg, &req, uh->raddr, rcode);
 				break;
 			case Onotify:
 				dnnotify(&reqmsg, &repmsg, &req);
 				break;
 			}
-			/* send reply on fd to address in buf's udp hdr */
-			reply(fd, buf, &repmsg, &req);
+			/* send reply on fd to address in pkt's udp hdr */
+			reply(fd, pkt, &repmsg, &req);
 			freeanswers(&repmsg);
 		}
 
@@ -271,6 +182,20 @@ freereq:
 	}
 }
 
+static void
+reply(int fd, uchar *pkt, DNSmsg *rep, Request *req)
+{
+	int len;
+
+	logreply(req->id, "send", pkt, rep);
+
+	len = convDNS2M(rep, &pkt[Udphdrsize], Maxudp);
+	len += Udphdrsize;
+	if(write(fd, pkt, len) != len)
+		dnslog("%d: error sending reply to %I: %r",
+			req->id, pkt);
+}
+
 /*
  *  announce on well-known dns udp port and set message style interface
  */
@@ -280,17 +205,17 @@ udpannounce(char *mntpt, char *addr)
 	static char hmsg[] = "headers";
 	static char imsg[] = "ignoreadvice";
 
-	char dir[64], datafile[64+6];
+	char adir[NETPATHLEN], buf[NETPATHLEN];
 	int data, ctl;
 
-	snprint(datafile, sizeof(datafile), "%s/udp!%s!dns", mntpt, addr);
-	ctl = announce(datafile, dir);
+	snprint(buf, sizeof(buf), "%s/udp!%s!53", mntpt, addr);
+	ctl = announce(buf, adir);
 	if(ctl < 0)
 		return -1;
 
 	/* turn on header style interface */
 	if(write(ctl, hmsg, sizeof(hmsg)-1) < 0){
-		warning("can't enable %s on %s: %r", hmsg, datafile);
+		warning("can't enable %s on %s: %r", hmsg, adir);
 		close(ctl);
 		return -1;
 	}
@@ -298,29 +223,10 @@ udpannounce(char *mntpt, char *addr)
 	/* ignore ICMP advice */
 	write(ctl, imsg, sizeof(imsg)-1);
 
-	snprint(datafile, sizeof(datafile), "%s/data", dir);
-	data = open(datafile, ORDWR);
+	snprint(buf, sizeof(buf), "%s/data", adir);
+	data = open(buf, ORDWR|OCEXEC);
 	if(data < 0)
-		warning("can't open udp port %s: %r", datafile);
+		warning("can't open udp port %s: %r", adir);
 	close(ctl);
 	return data;
-}
-
-static void
-reply(int fd, uchar *buf, DNSmsg *rep, Request *reqp)
-{
-	int len;
-	char tname[32];
-
-	if(debug || (trace && subsume(trace, rep->qd->owner->name)))
-		dnslog("%d: reply (%I/%d) %d %s %s qd %R an %R ns %R ar %R",
-			reqp->id, buf, buf[4]<<8 | buf[5],
-			rep->id, rep->qd->owner->name,
-			rrname(rep->qd->type, tname, sizeof tname),
-			rep->qd, rep->an, rep->ns, rep->ar);
-
-	len = convDNS2M(rep, &buf[Udphdrsize], Maxudp);
-	len += Udphdrsize;
-	if(write(fd, buf, len) != len)
-		dnslog("error sending reply: %r");
 }

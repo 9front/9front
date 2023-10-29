@@ -1414,7 +1414,7 @@ ipreorder(Ndbtuple *t)
 				if(parseip(ip, nt->val) == -1)
 					continue;
 				maskip(ip, lifc->mask, tnet);
-				if(memcmp(net, tnet, IPaddrlen) == 0){
+				if(ipcmp(net, tnet) == 0){
 					qunlock(&ipifclock);
 					return ndbreorder(t, nt);
 				}

@@ -1,6 +1,6 @@
 .TH NDB 8
 .SH NAME
-query, ipquery, mkhash, mkdb, mkhosts, cs, csquery, dns, dnstcp, dnsquery, dnsdebug, dnsgetip, inform \- network database
+query, ipquery, mkhash, mkdb, mkhosts, cs, csquery, dns, dnsquery, dnsdebug, dnsgetip, inform \- network database
 .SH SYNOPSIS
 .B ndb/query
 [
@@ -57,7 +57,7 @@ query, ipquery, mkhash, mkdb, mkhosts, cs, csquery, dns, dnstcp, dnsquery, dnsde
 .br
 .B ndb/dns
 [
-.B -norR
+.B -FnrR
 ] [
 .B -a
 .I maxage
@@ -71,26 +71,10 @@ query, ipquery, mkhash, mkdb, mkhosts, cs, csquery, dns, dnstcp, dnsquery, dnsde
 .B -x
 .I netmtpt
 ] [
-.B -z
-.I program
-] [
 .B -s
 [
 .I addrs...
 ]
-]
-.br
-.B ndb/dnstcp
-[
-.B -arR
-] [
-.B -f
-.I dbfile
-] [
-.B -x
-.I netmtpt
-] [
-.I conn-dir
 ]
 .br
 .B ndb/dnsquery
@@ -403,31 +387,6 @@ sets the goal for the number of domain names cached to
 .I target
 rather than the default of 8,000.
 .TP
-.B -o
-used with
-.BR -s ,
-.B -o
-causes
-.I dns
-to assume that it straddles inside and outside networks
-and that the outside network is mounted on
-.BR /net.alt .
-Queries for inside addresses will be sent via
-.B /net/udp
-(or
-.B /net/tcp
-in response to truncated replies)
-and those for outside addresses via
-.B /net.alt/udp
-(or
-.BR /net.alt/tcp ).
-This makes
-.I dns
-suitable for serving non-Plan-9 systems in an organization with
-firewalls, DNS proxies, etc.,
-particularly if they don't work very well.
-See `Straddling Server' below for details.
-.TP
 .B -r
 act as a resolver only:
 send `recursive' queries, asking the other servers
@@ -447,20 +406,14 @@ Do not complete lookups on behalf of remote systems.
 .B -s
 also answer domain requests sent to IP
 .I addrs
-on UDP port 53.
+on UDP/TCP port 53.
 If no IP
 .I addrs
 are given, listen on any interface on network mount point
 .IR netmtpt .
 .TP
 .B -x
-specifies the mount point of the
-network.
-.TP
-.B -z
-whenever we receive a UDP NOTIFY message, run
-.I program
-with the domain name of the area as its argument.
+specifies the mount point of the network.
 .PD
 .PP
 When the
@@ -655,87 +608,13 @@ makes
 .BI www. ...
 a synonym for the canonical name
 .BI anna. ... .
-.SS "Straddling Server"
-Many companies have an inside network
-protected from outside access with firewalls.
-They usually provide internal `root' DNS servers
-(of varying reliability and correctness)
-that serve internal domains and pass on DNS queries for
-outside domains to the outside, relaying the results
-back and caching them for future use.
-Some companies don't even let DNS queries nor replies through
-their firewalls at all, in either direction.
-.PP
-In such a situation, running
-.B "dns -so"
-on a machine that imports access to the outside network via
-.B /net.alt
-from a machine that straddles the firewalls,
-or that straddles the firewalls itself,
-will let internal machines query such a machine
-and receive answers from outside nameservers for outside addresses
-and inside nameservers for inside addresses, giving the appearance
-of a unified domain name space,
-while bypassing the corporate DNS proxies or firewalls.
-This is different from running
-.B "dns -s"
-and
-.B "dns -sRx /net.alt -f /lib/ndb/external"
-on the same machine,
-which keeps the inside and outside namespaces entirely separate.
-.PP
-Under
-.BR -o ,
-several
-.I sys
-names are significant:
-.BR inside-dom ,
-.BR inside-ns ,
-and
-.BR outside-ns .
-.I Inside-dom
-should contain a series of
-.B dom
-pairs naming domains internal to the organization.
-.I Inside-ns
-should contain a series of
-.B ip
-pairs naming the internal DNS `root' servers.
-.I Outside-ns
-should contain a series of
-.B ip
-pairs naming the external DNS servers to consult.
 .SS "Zone Transfers and TCP"
-.I Dnstcp
-is invoked,
-usually from
-.BR /rc/bin/service/tcp53 ,
-to answer DNS queries with long answers via TCP,
-notably to transfer a zone within the database
-.I dbfile
-(default
-.BR /lib/ndb/local )
-to its invoker on the network at
-.I netmtpt
-(default
-.BR /net ).
-Standard input will be read for DNS requests and the DNS answers
-will appear on standard output.
-Recursion is disabled by
-.BR -R ;
-acting as a pure resolver is enabled by
-.BR -r .
-Unless the
-.B -a
-flag is provided, clients requesting DNS zone transfer must be listed
-with a
+TCP clients requesting DNS zone transfer must be listed with a
 .B dnsslave
 attribute for the relevant domain.
-If
-.I conn-dir
-is provided, it is assumed to be a directory within
-.IB netmtpt /tcp
-and is used to find the caller's address.
+A value of
+.B *
+means any client is accepted.
 .SS "DNS Queries and Debugging"
 .I Ndb/dnsquery
 can be used to query

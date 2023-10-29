@@ -8,30 +8,30 @@
  *  this comment used to say `our target is 4000 names cached, this should
  *  be larger on large servers'.  dns at Bell Labs starts off with
  *  about 1780 names.
- *
- * aging seems to corrupt the cache, so raise the trigger from 4000 until we
- * figure it out.
  */
 enum {
 	/* these settings will trigger frequent aging */
 	Deftarget	= 4000,
-	Minage		=  1*Min,
+	Defmaxage	= 60*Min,	/* default domain name max. age */
 	Defagefreq	= 15*Min,	/* age names this often (seconds) */
+	Minage		=  1*Min,
+
+	/* length of domain name hash table */
+	HTLEN		= 4*1024,
 };
 
 /*
- *  Hash table for domain names.  The hash is based only on the
- *  first element of the domain name.
+ *  Hash table for domain names.
  */
-DN *ht[HTLEN];
+static DN *ht[HTLEN];
 
 static struct {
 	QLock;
 	ulong	names;		/* names allocated */
 	ulong	oldest;		/* longest we'll leave a name around */
-	ulong	lastage;
+	ulong	lastage;	/* time of lask dnageall() */
 	ushort	id;		/* same size as in packet */
-	uchar	mark;		/* mark bit for gc */
+	uchar	mark;		/* current mark bit for gc */
 	int	active[2];	/* number of active processes per mark */
 } dnvars;
 
@@ -134,9 +134,13 @@ char *opname[] =
 [Oupdate]	"update",
 };
 
+int maxage = Defmaxage;
 ulong target = Deftarget;
-Lock dnlock;
+int needrefresh;
+ulong now;
+uvlong nowms;
 
+static Lock dnlock;
 static ulong agefreq = Defagefreq;
 
 static int rrequiv(RR *r1, RR *r2);
@@ -172,10 +176,13 @@ dninit(void)
 
 	timems();
 
+	if (maxage <= 0)
+		maxage = Defmaxage;
+
 	dnvars.names = 0;
 	dnvars.oldest = maxage;
 	dnvars.lastage = now;
-	dnvars.id = truerand();	/* don't start with same id every time */
+	dnvars.id = 0;
 	dnvars.mark = 0;
 
 	notify(ding);
@@ -201,6 +208,8 @@ dnhash(char *name)
 static void
 dnmark(DN *dp)
 {
+	if(dp == nil)
+		return;
 	dp->mark = (dp->mark & ~1) | dnvars.mark;
 }
 
@@ -282,78 +291,6 @@ rronlist(RR *rp, RR *lp)
 }
 
 /*
- * dump the stats
- */
-void
-dnstats(char *file)
-{
-	int i, fd;
-
-	fd = create(file, OWRITE, 0666);
-	if(fd < 0)
-		return;
-
-	qlock(&stats);
-	fprint(fd, "# system %s\n", sysname());
-	fprint(fd, "# slave procs high-water mark\t%lud\n", stats.slavehiwat);
-	fprint(fd, "# queries received by 9p\t%lud\n", stats.qrecvd9p);
-	fprint(fd, "# queries received by udp\t%lud\n", stats.qrecvdudp);
-	fprint(fd, "# queries answered from memory\t%lud\n", stats.answinmem);
-	fprint(fd, "# queries sent by udp\t%lud\n", stats.qsent);
-	for (i = 0; i < nelem(stats.under10ths); i++)
-		if (stats.under10ths[i] || i == nelem(stats.under10ths) - 1)
-			fprint(fd, "# responses arriving within %.1f s.\t%lud\n",
-				(double)(i+1)/10, stats.under10ths[i]);
-	fprint(fd, "\n# queries sent & timed-out\t%lud\n", stats.tmout);
-	fprint(fd, "# cname queries timed-out\t%lud\n", stats.tmoutcname);
-	fprint(fd, "# ipv6  queries timed-out\t%lud\n", stats.tmoutv6);
-	fprint(fd, "\n# negative answers received\t%lud\n", stats.negans);
-	fprint(fd, "# negative answers w Rserver set\t%lud\n", stats.negserver);
-	fprint(fd, "# negative answers w bad delegation\t%lud\n",
-		stats.negbaddeleg);
-	fprint(fd, "# negative answers w bad delegation & no answers\t%lud\n",
-		stats.negbdnoans);
-	fprint(fd, "# negative answers w no Rname set\t%lud\n", stats.negnorname);
-	fprint(fd, "# negative answers cached\t%lud\n", stats.negcached);
-	qunlock(&stats);
-
-	lock(&dnlock);
-	fprint(fd, "\n# domain names %lud target %lud\n", dnvars.names, target);
-	unlock(&dnlock);
-	close(fd);
-}
-
-/*
- *  dump the cache
- */
-void
-dndump(char *file)
-{
-	int i, fd;
-	DN *dp;
-	RR *rp;
-
-	fd = create(file, OWRITE, 0666);
-	if(fd < 0)
-		return;
-
-	lock(&dnlock);
-	for(i = 0; i < HTLEN; i++)
-		for(dp = ht[i]; dp; dp = dp->next){
-			fprint(fd, "%s\n", dp->name);
-			for(rp = dp->rr; rp; rp = rp->next) {
-				fprint(fd, "\t%R %c%c %ld/%lud\n",
-					rp, rp->auth? 'A': 'U',
-					rp->db? 'D': 'N', (long)(rp->expire - now), rp->ttl);
-				if (rronlist(rp, rp->next))
-					fprint(fd, "*** duplicate:\n");
-			}
-		}
-	unlock(&dnlock);
-	close(fd);
-}
-
-/*
  *  purge all records
  */
 void
@@ -378,23 +315,22 @@ dnpurge(void)
 }
 
 /*
- *  return all refernced domain names of a RR.
+ *  mark all refernced domain names of an RR.
  *  call with dnlock held.
  */
-static int
-rrnames(RR *rp, DN **dn)
+static void
+rrmark(RR *rp)
 {
-	int n = 0;
-
-	dn[n++] = rp->owner;
+	dnmark(rp->owner);
 	if(rp->negative){
-		if((dn[n] = rp->negsoaowner) != nil) n++;
-		return n;
+		dnmark(rp->negsoaowner);
+		return;
 	}
 	switch(rp->type){
 	case Thinfo:
-		if((dn[n] = rp->cpu) != nil) n++;
-		if((dn[n] = rp->os) != nil) n++;
+		dnmark(rp->cpu);
+		dnmark(rp->os);
+		break;
 	case Ttxt:
 		break;
 	case Tcname:
@@ -404,54 +340,38 @@ rrnames(RR *rp, DN **dn)
 	case Tns:
 	case Tmx:
 	case Tsrv:
-		if((dn[n] = rp->host) != nil) n++;
+		dnmark(rp->host);
 		break;
 	case Tmg:
 	case Tmr:
-		if((dn[n] = rp->mb) != nil) n++;
+		dnmark(rp->mb);
 		break;
 	case Tminfo:
-		if((dn[n] = rp->rmb) != nil) n++;
-		if((dn[n] = rp->mb) != nil) n++;
+		dnmark(rp->rmb);
+		dnmark(rp->mb);
 		break;
 	case Trp:
-		if((dn[n] = rp->rmb) != nil) n++;
-		if((dn[n] = rp->rp) != nil) n++;
+		dnmark(rp->rmb);
+		dnmark(rp->rp);
 		break;
 	case Ta:
 	case Taaaa:
-		if((dn[n] = rp->ip) != nil) n++;
+		dnmark(rp->ip);
 		break;
 	case Tptr:
-		if((dn[n] = rp->ptr) != nil) n++;
+		dnmark(rp->ptr);
 		break;
 	case Tsoa:
-		if((dn[n] = rp->host) != nil) n++;
-		if((dn[n] = rp->rmb) != nil) n++;
+		dnmark(rp->host);
+		dnmark(rp->rmb);
 		break;
 	case Tsig:
-		if((dn[n] = rp->sig->signer) != nil) n++;
+		dnmark(rp->sig->signer);
 		break;
 	case Tcaa:
-		if((dn[n] = rp->caa->tag) != nil) n++;
+		dnmark(rp->caa->tag);
 		break;
 	}
-	return n;	
-}
-
-/*
- *  mark all refernced domain names of an RR.
- *  call with dnlock held.
- */
-static void
-rrmark(RR *rp)
-{
-	DN *dn[RRnames];
-	int i, n;
-
-	n = rrnames(rp, dn);
-	for(i = 0; i < n; i++)
-		dnmark(dn[i]);
 }
 
 /*
@@ -472,7 +392,13 @@ rrdelhead(RR **l)
 }
 
 /*
- *  check the age of resource records, free any that have timed out.
+ *  check the age of resource records,
+ *  delete any that have timed out and
+ *  mark referenced domain names of the remaining records.
+ *
+ *  note that db records are handled by dbagedb()/dnauthdb()
+ *  so they are ignored here.
+ *
  *  call with dnlock held.
  */
 static void
@@ -480,40 +406,19 @@ dnage(DN *dp)
 {
 	RR **l, *rp;
 
-	/* see dnagenever() below */
-	if(dp->mark & ~1)
-		return;
-
 	l = &dp->rr;
 	while ((rp = *l) != nil){
 		assert(rp->cached);
+		assert(rp->owner == dp);
+
 		if(!rp->db && ((long)(rp->expire - now) <= 0
 		|| (long)(now - (rp->expire - rp->ttl)) > dnvars.oldest))
 			rrdelhead(l); /* rp == *l before; *l == rp->next after */
-		else
+		else {
 			l = &rp->next;
+			rrmark(rp);
+		}
 	}
-}
-
-/* mark a domain name and those in its RRs as never to be aged */
-void
-dnagenever(DN *dp)
-{
-	DN *dn[RRnames];
-	RR *rp;
-	int i, n;
-
-	lock(&dnlock);
-
-	/* mark all referenced domain names */
-	for(rp = dp->rr; rp; rp = rp->next){
-		assert(rp->owner == dp);
-		n = rrnames(rp, dn);
-		for(i = 0; i < n; i++)
-			dn[i]->mark |= ~1;
-	}
-
-	unlock(&dnlock);
 }
 
 /*
@@ -522,9 +427,9 @@ dnagenever(DN *dp)
  *  this is called once all activity ceased for the non-current
  *  mark bit (previous cycle), meaning there are no more
  *  unaccounted references to DN's with the non-current mark
- *  from other activity procs.
+ *  from other activity slaves.
  *
- *  this can run concurrently to current mark bit activity procs
+ *  this can run concurrently to current mark bit activity slaves
  *  as DN's with current mark bit are not freed in this cycle, but
  *  in the next cycle when the previously current mark bit activity
  *  has ceased.
@@ -533,7 +438,6 @@ void
 dnageall(int doit)
 {
 	DN *dp, **l;
-	RR *rp;
 	int i;
 
 	if(!doit){
@@ -563,18 +467,14 @@ dnageall(int doit)
 
 	lock(&dnlock);
 
-	/* timeout all expired records */
+	/*
+	 * delete all expired records and
+	 * mark referenced domain names
+	 * of the remaining records.
+	 */
 	for(i = 0; i < HTLEN; i++)
 		for(dp = ht[i]; dp; dp = dp->next)
 			dnage(dp);
-
-	/* mark all referenced domain names */
-	for(i = 0; i < HTLEN; i++)
-		for(dp = ht[i]; dp; dp = dp->next)
-			for(rp = dp->rr; rp; rp = rp->next){
-				assert(rp->owner == dp);
-				rrmark(rp);
-			}
 
 	/* bump mark */
 	dnvars.mark ^= 1;
@@ -612,10 +512,8 @@ dnagedb(void)
 
 	lock(&dnlock);
 
-	/* time out all database entries */
 	for(i = 0; i < HTLEN; i++)
 		for(dp = ht[i]; dp; dp = dp->next) {
-			dp->mark &= 1;
 			for(rp = dp->rr; rp; rp = rp->next)
 				if(rp->db)
 					rp->expire = 0;
@@ -632,14 +530,12 @@ void
 dnauthdb(void)
 {
 	int i;
-	ulong minttl;
 	Area *area;
 	DN *dp;
 	RR *rp, **l;
 
 	lock(&dnlock);
 
-	/* time out all database entries */
 	for(i = 0; i < HTLEN; i++)
 		for(dp = ht[i]; dp; dp = dp->next){
 			area = inmyarea(dp->name);
@@ -651,12 +547,16 @@ dnauthdb(void)
 						continue;
 					}
 					if(area){
-						minttl = area->soarr->soa->minttl;
+						ulong minttl = area->soarr->soa->minttl;
 						if(rp->ttl < minttl)
 							rp->ttl = minttl;
 						rp->auth = 1;
 					} else if(rp->type == Tns && inmyarea(rp->host->name))
 						rp->auth = 1;
+				} else if(area){
+					/* no outside spoofing */
+					rrdelhead(l);
+					continue;
 				}
 				l = &rp->next;
 			}
@@ -672,11 +572,6 @@ dnauthdb(void)
 void
 getactivity(Request *req)
 {
-	if(traceactivity)
-		dnslog("get: %d active by pid %d from %p",
-			dnvars.active[0] + dnvars.active[1],
-			getpid(), getcallerpc(&req));
-
 	qlock(&dnvars);
 	req->aux = nil;
 	req->id = ++dnvars.id;
@@ -688,11 +583,6 @@ getactivity(Request *req)
 void
 putactivity(Request *req)
 {
-	if(traceactivity)
-		dnslog("put: %d active by pid %d from %p",
-			dnvars.active[0] + dnvars.active[1],
-			getpid(), getcallerpc(&req));
-
 	qlock(&dnvars);
 	dnvars.active[req->mark]--;
 	assert(dnvars.active[req->mark] >= 0);
@@ -702,17 +592,6 @@ putactivity(Request *req)
 		needrefresh = 0;
 	}
 	qunlock(&dnvars);
-}
-
-int
-rrlistlen(RR *rp)
-{
-	int n;
-
-	n = 0;
-	for(; rp; rp = rp->next)
-		++n;
-	return n;
 }
 
 /*
@@ -737,7 +616,7 @@ rrattach1(RR *new, int auth)
 	dp = new->owner;
 	assert(dp != nil);
 	new->auth |= auth;
-	new->next = 0;
+	new->next = nil;
 
 	/*
 	 * try not to let responses expire before we
@@ -758,6 +637,7 @@ rrattach1(RR *new, int auth)
 	l = &dp->rr;
 	for(rp = *l; rp; rp = *l){
 		assert(rp->cached);
+		assert(rp->owner == dp);
 		if(rp->type == new->type)
 			break;
 		l = &rp->next;
@@ -774,6 +654,7 @@ rrattach1(RR *new, int auth)
 	 */
 	while ((rp = *l) != nil){
 		assert(rp->cached);
+		assert(rp->owner == dp);
 		if(rp->type != new->type)
 			break;
 
@@ -832,15 +713,14 @@ void
 rrattach(RR *rp, int auth)
 {
 	RR *next;
-	DN *dp;
 
 	lock(&dnlock);
 	for(; rp; rp = next){
 		next = rp->next;
 		rp->next = nil;
-		dp = rp->owner;
 		/* avoid any outside spoofing */
-		if(cfg.cachedb && !rp->db && inmyarea(dp->name))
+		if(cfg.cachedb && !rp->db && inmyarea(rp->owner->name)
+		|| !rrsupported(rp->type))
 			rrfree(rp);
 		else
 			rrattach1(rp, auth);
@@ -932,6 +812,8 @@ rrcopy(RR *rp, RR **last)
 		}
 		break;
 	default:
+		/* cache must only contain supported RR's */
+		assert(rrsupported(rp->type));
 		*nrp = *rp;
 		break;
 	}
@@ -939,6 +821,9 @@ rrcopy(RR *rp, RR **last)
 	setmalloctag(nrp, nrp->pc);
 	nrp->cached = 0;
 	nrp->next = nil;
+
+	rrmark(nrp);
+
 	*last = nrp;
 	return &nrp->next;
 }
@@ -1021,10 +906,69 @@ rrlookup(DN *dp, int type, int flag)
 		}
 
 out:
-	for(rp = first; rp; rp = rp->next)
-		rrmark(rp);
 	unlock(&dnlock);
 	unique(first);
+	return first;
+}
+
+static int
+inzone(DN *dp, char *name, int namelen, int depth)
+{
+	int n;
+
+	for(n = 0; dp->name[n]; n++)
+		if(dp->name[n] == '.')
+			depth--;
+
+	if(depth != 1 || n < namelen)
+		return 0;
+	if(cistrcmp(name, dp->name + n - namelen) != 0)
+		return 0;
+	if(n > namelen && dp->name[n - namelen - 1] != '.')
+		return 0;
+	return 1;
+}
+
+/*
+ *  return all resources (except SOA) of a zone.
+ */
+RR*
+rrgetzone(char *name)
+{	
+	int found, depth, h, n;
+	RR *rp, *first, **l;
+	DN *dp;
+
+	for(n = 0, depth = 1; name[n]; n++)
+		if(name[n] == '.')
+			depth++;
+
+	first = nil;
+	l = &first;
+	lock(&dnlock);
+	do {
+		found = 0;
+		for(h = 0; h < HTLEN; h++)
+			for(dp = ht[h]; dp; dp = dp->next)
+				if(inzone(dp, name, n, depth)){
+					for(rp = dp->rr; rp; rp = rp->next){
+						/*
+						 * there shouldn't be negatives,
+						 * but just in case.
+						 * don't send any soa's,
+						 * ns's are enough.
+						 */
+						if (rp->negative ||
+						    rp->type == Tsoa)
+							continue;
+						l = rrcopy(rp, l);
+					}
+					found = 1;
+				}
+		depth++;
+	} while(found);
+	unlock(&dnlock);
+
 	return first;
 }
 
@@ -1340,6 +1284,15 @@ rrfmt(Fmt *f)
 				rp->caa->flags, dnname(rp->caa->tag),
 				rp->caa->dlen, rp->caa->data);
 		break;
+	default:
+		if(rrsupported(rp->type))
+			break;
+		if (rp->unknown == nil)
+			fmtprint(&fstr, "\t<null>");
+		else
+			fmtprint(&fstr, "\t%.*H",
+				rp->unknown->dlen,
+				rp->unknown->data);
 	}
 out:
 	strp = fmtstrflush(&fstr);
@@ -1479,6 +1432,13 @@ rravfmt(Fmt *f)
 				rp->caa->flags, dnname(rp->caa->tag),
 				rp->caa->dlen, rp->caa->data);
 		break;
+	default:
+		if (rp->unknown == nil)
+			fmtprint(&fstr, " type%d=<null>", rp->type);
+		else
+			fmtprint(&fstr, " type%d=%.*H", rp->type,
+				rp->unknown->dlen,
+				rp->unknown->data);
 	}
 out:
 	strp = fmtstrflush(&fstr);
@@ -1525,8 +1485,7 @@ slave(Request *req)
 
 	procs = dnvars.active[0] + dnvars.active[1];
 	if(procs >= Maxactive){
-		if(traceactivity)
-			dnslog("[%d] too much activity", getpid());
+		dnslog("%d: [%d] too much activity", req->id, getpid());
 		return;
 	}
 
@@ -1540,8 +1499,6 @@ slave(Request *req)
 		break;
 	case 0:
 		procsetname("request slave of pid %d", ppid);
-		if(traceactivity)
-			dnslog("[%d] take activity from %d", getpid(), ppid);
 
 		/*
 		 * this relies on rfork producing separate, initially-identical
@@ -1626,6 +1583,9 @@ rrequiv(RR *r1, RR *r2)
 		return txtequiv(r1->txt, r2->txt);
 	case Tcaa:
 		return r1->caa->flags == r2->caa->flags && r1->caa->tag == r2->caa->tag && blockequiv(r1->caa, r2->caa);
+	default:
+		if(!rrsupported(r1->type))
+			return 0;	/* unknown never equal */
 	}
 	return 1;
 }
@@ -1775,7 +1735,7 @@ void	bytes2nibbles(uchar *nibbles, uchar *bytes, int nbytes);
  *  pointer records for them.
  */
 void
-dnptr(uchar *net, uchar *mask, char *dom, int forwtype, int subdoms, int ttl)
+dnptr(uchar *net, uchar *mask, char *dom, int type, int subdoms, int ttl)
 {
 	int i, j, len;
 	char *p, *e;
@@ -1783,48 +1743,54 @@ dnptr(uchar *net, uchar *mask, char *dom, int forwtype, int subdoms, int ttl)
 	uchar *ipp;
 	uchar ip[IPaddrlen], nnet[IPaddrlen];
 	uchar nibip[IPaddrlen*2];
+	RR *rp, *first, **l;
 	DN *dp;
-	RR *rp, *nrp, *first, **l;
 
 	l = &first;
 	first = nil;
-	for(i = 0; i < HTLEN; i++)
-		for(dp = ht[i]; dp; dp = dp->next)
+
+	lock(&dnlock);
+	for(i = 0; i < HTLEN; i++){
+		for(dp = ht[i]; dp; dp = dp->next){
 			for(rp = dp->rr; rp; rp = rp->next){
-				if(rp->type != forwtype || rp->negative)
+				if(rp->type != type || rp->negative)
 					continue;
-				parseip(ip, rp->ip->name);
+				if(parseip(ip, rp->ip->name) == -1)
+					continue;
 				maskip(ip, mask, nnet);
 				if(ipcmp(net, nnet) != 0)
 					continue;
-
-				ipp = ip;
-				len = IPaddrlen;
-				if (forwtype == Taaaa) {
-					bytes2nibbles(nibip, ip, IPaddrlen);
-					ipp = nibip;
-					len = 2*IPaddrlen;
-				}
-
-				p = ptr;
-				e = ptr+sizeof(ptr);
-				for(j = len - 1; j >= len - subdoms; j--)
-					p = seprint(p, e, (forwtype == Ta?
-						"%d.": "%x."), ipp[j]);
-				seprint(p, e, "%s", dom);
-
-				nrp = mkptr(dp, ptr, ttl);
-				*l = nrp;
-				l = &nrp->next;
+				l = rrcopy(rp, l);
 			}
-
-	for(rp = first; rp != nil; rp = nrp){
-		nrp = rp->next;
-		rp->next = nil;
-		dp = rp->owner;
-		rrattach(rp, Authoritative);
-		dnagenever(dp);
+		}
 	}
+	unlock(&dnlock);
+
+	for(rp = first; rp; rp = rp->next){
+		if(parseip(ip, rp->ip->name) == -1)
+			continue;
+		maskip(ip, mask, nnet);
+		if(ipcmp(net, nnet) != 0)
+			continue;
+
+		ipp = ip;
+		len = IPaddrlen;
+		if (type == Taaaa) {
+			bytes2nibbles(nibip, ip, IPaddrlen);
+			ipp = nibip;
+			len = 2*IPaddrlen;
+		}
+
+		p = ptr;
+		e = ptr+sizeof(ptr);
+		for(j = len - 1; j >= len - subdoms; j--)
+			p = seprint(p, e, (type == Ta?
+				"%d.": "%x."), ipp[j]);
+		seprint(p, e, "%s", dom);
+
+		rrattach(mkptr(rp->owner, ptr, ttl), Authoritative);
+	}
+	rrfreelist(first);
 }
 
 void
@@ -1908,11 +1874,10 @@ rralloc(int type)
 {
 	RR *rp;
 
+	assert((type & ~0xFFFF) == 0);
 	rp = emalloc(sizeof(*rp));
 	rp->pc = getcallerpc(&type);
 	rp->type = type;
-	if (rp->type != type)
-		dnslog("rralloc: bogus type %d", type);
 	setmalloctag(rp, rp->pc);
 	switch(type){
 	case Tsoa:
@@ -1945,10 +1910,15 @@ rralloc(int type)
 		rp->null = emalloc(sizeof(*rp->null));
 		setmalloctag(rp->null, rp->pc);
 		break;
+	default:
+		if(rrsupported(type))
+			break;
+		rp->unknown = emalloc(sizeof(*rp->unknown));
+		setmalloctag(rp->unknown, rp->pc);
 	}
 	rp->ttl = 0;
 	rp->expire = 0;
-	rp->next = 0;
+	rp->next = nil;
 	return rp;
 }
 
@@ -2006,8 +1976,14 @@ rrfree(RR *rp)
 			free(t);
 		}
 		break;
+	default:
+		if(rrsupported(rp->type))
+			break;
+		free(rp->unknown->data);
+		memset(rp->unknown, 0, sizeof *rp->unknown);	/* cause trouble */
+		free(rp->unknown);
+		break;
 	}
-
 	memset(rp, 0, sizeof *rp);		/* cause trouble */
 	free(rp);
 }

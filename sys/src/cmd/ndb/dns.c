@@ -2,7 +2,6 @@
 #include <libc.h>
 #include <auth.h>
 #include <fcall.h>
-#include <bio.h>
 #include <ip.h>
 #include "dns.h"
 
@@ -12,8 +11,6 @@ enum
 	Maxreply=		8192,		/* was 512 */
 	Maxrrr=			32,		/* was 16 */
 	Maxfdata=		8192,
-
-	Defmaxage=		60*60,	/* default domain name max. age */
 
 	Qdir=			0,
 	Qdns=			1,
@@ -60,22 +57,14 @@ struct {
 
 Cfg	cfg;
 int	debug;
-int	maxage = Defmaxage;
 int	mfd[2];
-int	needrefresh;
-ulong	now;
-uvlong	nowms;
 int	sendnotifies;
-char	*trace;
-int	traceactivity;
-char	*zonerefreshprogram;
 
 char	*logfile = "dns";	/* or "dns.test" */
 char	*dbfile;
 char	*dnsuser;
 char	mntpt[Maxpath];
 
-int	addforwtarg(char *);
 int	fillreply(Mfile*, int);
 void	freejob(Job*);
 void	io(void);
@@ -103,15 +92,15 @@ static char *respond(Job*, Mfile*, RR*, char*, int, int);
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-FnorR] [-a maxage] [-f ndb-file] [-N target] "
-		"[-T forwip] [-x netmtpt] [-z refreshprog] [-s [addrs...]]\n", argv0);
+	fprint(2, "usage: %s [-FnrR] [-a maxage] [-f ndb-file] [-N target] "
+		"[-x netmtpt] [-s [addrs...]]\n", argv0);
 	exits("usage");
 }
 
 void
 main(int argc, char *argv[])
 {
-	char servefile[Maxpath], ext[Maxpath];
+	char ext[Maxpath], servefile[Maxpath];
 	Dir *dir;
 
 	setnetmtpt(mntpt, sizeof mntpt, nil);
@@ -119,12 +108,9 @@ main(int argc, char *argv[])
 	ARGBEGIN{
 	case 'a':
 		maxage = atol(EARGF(usage()));
-		if (maxage <= 0)
-			maxage = Defmaxage;
 		break;
 	case 'd':
 		debug = 1;
-		traceactivity = 1;
 		break;
 	case 'f':
 		dbfile = EARGF(usage());
@@ -140,28 +126,19 @@ main(int argc, char *argv[])
 		if (target < 1000)
 			target = 1000;
 		break;
-	case 'o':
-		cfg.straddle = 1;	/* straddle inside & outside networks */
-		break;
 	case 'r':
 		cfg.resolver = 1;
 		break;
 	case 'R':
-		norecursion = 1;
+		cfg.nonrecursive = 1;
 		break;
 	case 's':
 		cfg.serve = 1;		/* serve network */
 		cfg.cachedb = 1;
 		break;
-	case 'T':
-		addforwtarg(EARGF(usage()));
-		break;
 	case 'x':
 		setnetmtpt(mntpt, sizeof mntpt, EARGF(usage()));
 		setext(ext, sizeof ext, mntpt);
-		break;
-	case 'z':
-		zonerefreshprogram = EARGF(usage());
 		break;
 	default:
 		usage();
@@ -171,17 +148,13 @@ main(int argc, char *argv[])
 	if(argc != 0 && !cfg.serve)
 		usage();
 
-	rfork(RFREND|RFNOTEG);
-
-	cfg.inside = strcmp(mntpt, "/net") == 0;
-
 	/* start syslog before we fork */
 	fmtinstall('F', fcallfmt);
 	dninit();
-	dnslog("starting %s%sdns %s%s%son %s",
-		(cfg.straddle? "straddling ": ""),
+	dnslog("starting %s%s%sdns %s%son %s",
 		(cfg.cachedb? "caching ": ""),
-		(cfg.serve?   "udp server ": ""),
+		(cfg.nonrecursive? "non-recursive ": ""),
+		(cfg.serve?   "server ": ""),
 		(cfg.justforw? "forwarding-only ": ""),
 		(cfg.resolver? "resolver ": ""), mntpt);
 
@@ -199,15 +172,16 @@ main(int argc, char *argv[])
 	srand(truerand());
 	db2cache(1);
 
-	if (cfg.straddle && !seerootns())
-		dnslog("straddle server misconfigured; can't see root name servers");
-
 	if(cfg.serve){
-		if(argc == 0)
+		if(argc == 0) {
 			dnudpserver(mntpt, "*");
-		else {
-			while(argc-- > 0)
-				dnudpserver(mntpt, *argv++);
+			dntcpserver(mntpt, "*");
+		} else {
+			while(argc-- > 0){
+				dnudpserver(mntpt, *argv);
+				dntcpserver(mntpt, *argv);
+				argv++;
+			}
 		}
 	}
 	if(sendnotifies)
@@ -258,7 +232,7 @@ mountinit(char *service, char *mntpt)
 		sysfatal("write %s failed: %r", service);
 
 	/* copy namespace to avoid a deadlock */
-	switch(rfork(RFFDG|RFPROC|RFNAMEG)){
+	switch(rfork(RFFDG|RFPROC|RFNAMEG|RFREND|RFNOTEG)){
 	case 0:			/* child: start main proc */
 		close(p[1]);
 		procsetname("%s", mntpt);
@@ -686,19 +660,15 @@ rwrite(Job *job, Mfile *mf, Request *req)
 	 *  special commands
 	 */
 	if(debug)
-		dnslog("rwrite got: %s", job->request.data);
+		dnslog("%d: rwrite got: %s", req->id, job->request.data);
 	send = 1;
 	if(strcmp(job->request.data, "debug")==0)
 		debug ^= 1;
-	else if(strcmp(job->request.data, "dump")==0)
-		dndump("/lib/ndb/dnsdump");
 	else if(strcmp(job->request.data, "refresh")==0)
 		needrefresh = 1;
-	else if(strcmp(job->request.data, "stats")==0)
-		dnstats("/lib/ndb/dnsstats");
 	else if(strncmp(job->request.data, "target ", 7)==0){
 		target = atol(job->request.data + 7);
-		dnslog("target set to %ld", target);
+		dnslog("%d: target set to %ld", req->id, target);
 	} else
 		send = 0;
 	if (send)
@@ -722,19 +692,6 @@ query:
 		goto send;
 	} else
 		*atype++ = 0;
-
-	/*
-	 *  tracing request
-	 */
-	if(strcmp(atype, "trace") == 0){
-		if(trace)
-			free(trace);
-		if(*job->request.data)
-			trace = estrdup(job->request.data);
-		else
-			trace = 0;
-		goto send;
-	}
 
 	/* normal request: domain [type] */
 	stats.qrecvd9p++;
@@ -911,34 +868,40 @@ sendmsg(Job *job, char *err)
  *  the following varies between dnsdebug and dns
  */
 void
-logreply(int id, uchar *addr, DNSmsg *mp)
+logreply(int id, char *rcvd, uchar *addr, DNSmsg *mp)
 {
 	RR *rp;
 
-	dnslog("%d: rcvd %I flags:%s%s%s%s%s", id, addr,
+	if(!debug)
+		return;
+
+	dnslog("%d: %s %I flags:%s%s%s%s%s", id, rcvd, addr,
 		mp->flags & Fauth? " auth": "",
 		mp->flags & Ftrunc? " trunc": "",
 		mp->flags & Frecurse? " rd": "",
 		mp->flags & Fcanrec? " ra": "",
 		(mp->flags & (Fauth|Rmask)) == (Fauth|Rname)? " nx": "");
 	for(rp = mp->qd; rp != nil; rp = rp->next)
-		dnslog("%d: rcvd %I qd %s", id, addr, rp->owner->name);
+		dnslog("%d: %s %I qd %s", id, rcvd, addr, rp->owner->name);
 	for(rp = mp->an; rp != nil; rp = rp->next)
-		dnslog("%d: rcvd %I an %R", id, addr, rp);
+		dnslog("%d: %s %I an %R", id, rcvd, addr, rp);
 	for(rp = mp->ns; rp != nil; rp = rp->next)
-		dnslog("%d: rcvd %I ns %R", id, addr, rp);
+		dnslog("%d: %s %I ns %R", id, rcvd, addr, rp);
 	for(rp = mp->ar; rp != nil; rp = rp->next)
-		dnslog("%d: rcvd %I ar %R", id, addr, rp);
+		dnslog("%d: %s %I ar %R", id, rcvd, addr, rp);
 }
 
 void
-logsend(int id, int subid, uchar *addr, char *sname, char *rname, int type)
+logrequest(int id, int depth, char *send, uchar *addr, char *sname, char *rname, int type)
 {
-	char buf[12];
+	char tname[32];
 
-	dnslog("[%d] %d.%d: sending to %I/%s %s %s",
-		getpid(), id, subid, addr, sname, rname,
-		rrname(type, buf, sizeof buf));
+	if(!debug)
+		return;
+
+	dnslog("%d.%d: %s %I/%s %s %s",
+		id, depth, send, addr, sname, rname,
+		rrname(type, tname, sizeof tname));
 }
 
 RR*

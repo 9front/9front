@@ -166,6 +166,11 @@ p_seprint(Msg *m)
 	sport = NetS(h->sport);
 	demux(p_mux, sport, dport, m, &dump);
 
+	/* drop the 2-byte length field as
+	 * proto dns assumes udp format */
+	if(strcmp(m->pr->name, "dns") == 0)
+		m->ps += 2;
+
 	m->p = seprint(m->p, m->e, "s=%d d=%d seq=%lud ack=%lud fl=%s win=%d ck=%4.4ux",
 			NetS(h->sport), dport,
 			(ulong)NetL(h->seq), (ulong)NetL(h->ack),

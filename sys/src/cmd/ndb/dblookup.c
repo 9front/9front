@@ -57,9 +57,6 @@ static int	implemented[] =
 	[Tcaa]		1,
 };
 
-/* straddle server configuration */
-static Ndbtuple *indoms, *innmsrvs, *outnmsrvs;
-
 static void
 nstrcpy(char *to, char *from, int len)
 {
@@ -260,7 +257,8 @@ dblookup1(char *name, int type, int auth, int ttl)
 		f = caarr;
 		break;
 	default:
-//		dnslog("dblookup1(%s) bad type", name);
+		if(debug)
+			dnslog("dblookup1(%s) bad type", name);
 		return nil;
 	}
 
@@ -659,10 +657,8 @@ dbpair2cache(DN *dp, Ndbtuple *entry, Ndbtuple *pair)
 	}
 	else if(strcmp(pair->attr, "ns") == 0)
 		rp = nsrr(entry, pair);
-	else if(strcmp(pair->attr, "soa") == 0) {
+	else if(strcmp(pair->attr, "soa") == 0)
 		rp = soarr(entry, pair);
-		addarea(dp, rp, pair);
-	}
 	else if(strcmp(pair->attr, "mx") == 0)
 		rp = mxrr(entry, pair);
 	else if(strcmp(pair->attr, "srv") == 0)
@@ -681,9 +677,11 @@ dbpair2cache(DN *dp, Ndbtuple *entry, Ndbtuple *pair)
 	rp->owner = dp;
 	rp->db = 1;
 	rp->ttl = intval(entry, pair, "ttl", rp->ttl);
+	if(rp->type == Tsoa)
+		addarea(rp, pair);
 	rrattach(rp, Notauthoritative);
-	dnagenever(dp);
 }
+
 static void
 dbtuple2cache(Ndbtuple *t)
 {
@@ -720,29 +718,6 @@ dbfile2cache(Ndb *db)
 		dbtuple2cache(t);
 		ndbfree(t);
 	}
-}
-
-/* called with dblock held */
-static void
-loaddomsrvs(void)
-{
-	Ndbs s;
-
-	if (!cfg.inside || !cfg.straddle || !cfg.serve)
-		return;
-	if (indoms) {
-		ndbfree(indoms);
-		ndbfree(innmsrvs);
-		ndbfree(outnmsrvs);
-		indoms = innmsrvs = outnmsrvs = nil;
-	}
-	if (db == nil)
-		opendatabase();
-	free(ndbgetvalue(db, &s, "sys", "inside-dom", "dom", &indoms));
-	free(ndbgetvalue(db, &s, "sys", "inside-ns",  "ip",  &innmsrvs));
-	free(ndbgetvalue(db, &s, "sys", "outside-ns", "ip",  &outnmsrvs));
-	dnslog("[%d] ndb changed: reloaded inside-dom, inside-ns, outside-ns",
-		getpid());
 }
 
 /*
@@ -786,13 +761,12 @@ db2cache(int doit)
 	Ndb *ndb;
 	Dir *d;
 	static Ndbtuple *olddoms;
+	static Area *oldowned, *olddelegated;
 	static ulong lastcheck, lastyoungest;
 
 	/* no faster than once every 2 minutes */
 	if(now < lastcheck + 2*Min && !doit)
 		return;
-
-	refresh_areas(owned);
 
 	qlock(&dblock);
 	if(opendatabase() < 0){
@@ -824,20 +798,20 @@ db2cache(int doit)
 			}
 		if(!doit && youngest == lastyoungest)
 			break;
-
-		/* forget our area definition */
-		freearea(&owned);
-		freearea(&delegated);
+		doit = 0;
+		lastyoungest = youngest;
 
 		/* reopen all the files (to get oldest for time stamp) */
 		for(ndb = db; ndb; ndb = ndb->next)
 			ndbreopen(ndb);
 
-		/* reload straddle-server configuration */
-		loaddomsrvs();
-
 		/* mark all db records as timed out */
 		dnagedb();
+
+		/* forget our area definition */
+		freeareas(&oldowned), freeareas(&olddelegated);
+		oldowned = owned, olddelegated = delegated;
+		owned = nil, delegated = nil;
 
 		if(cfg.cachedb){
 			/* read in new entries */
@@ -851,8 +825,6 @@ db2cache(int doit)
 		 */
 		dnauthdb();
 
-		doit = 0;
-		lastyoungest = youngest;
 		createptrs();
 	}
 	qunlock(&dblock);
@@ -915,8 +887,8 @@ addlocaldnsserver(DN *dp, int class, char *addr, int i)
 		return;
 	}
 
-	/* reject our own ip addresses so we don't query ourselves via udp */
-	if(myip(ip)){
+	/* reject our own ip addresses so we don't query ourselves */
+	if(cfg.serve && myip(ip)){
 		dnslog("rejecting my ip %I as local dns server", ip);
 		return;
 	}
@@ -953,16 +925,13 @@ addlocaldnsserver(DN *dp, int class, char *addr, int i)
 	rp->db = 1;
 	rp->ttl = 10*Min;
 	rrattach(rp, Authoritative);	/* will not attach rrs in my area */
-	dnagenever(dp);
 
 	rp = rralloc(type);
 	rp->ip = ipdp;
 	rp->owner = nsdp;
-	rp->local = 1;
 	rp->db = 1;
 	rp->ttl = 10*Min;
 	rrattach(rp, Authoritative);	/* will not attach rrs in my area */
-	dnagenever(nsdp);
 
 	dnslog("added local dns server %s at %I", buf, ip);
 }
@@ -1018,7 +987,6 @@ addlocaldnsdomain(DN *dp, int class, char *domain)
 	rp->db = 1;
 	rp->ttl = 10*Min;
 	rrattach(rp, Authoritative);
-	dnagenever(dp);
 }
 
 /*
@@ -1212,77 +1180,4 @@ createptrs(void)
 {
 	createv4ptrs();
 	createv6ptrs();
-}
-
-/*
- * is this domain (or DOMAIN or Domain or dOMAIN)
- * internal to our organisation (behind our firewall)?
- * only inside straddling servers care, everybody else gets told `yes',
- * so they'll use mntpt for their queries.
- */
-int
-insideaddr(char *dom)
-{
-	int domlen, vallen, rv;
-	Ndbtuple *t;
-
-	if (!cfg.inside || !cfg.straddle || !cfg.serve)
-		return 1;
-	if (dom[0] == '\0' || strcmp(dom, ".") == 0)	/* dns root? */
-		return 1;			/* hack for initialisation */
-
-	qlock(&dblock);
-	if (indoms == nil)
-		loaddomsrvs();
-	if (indoms == nil) {
-		qunlock(&dblock);
-		return 1;  /* no "inside-dom" sys, try inside nameservers */
-	}
-
-	rv = 0;
-	domlen = strlen(dom);
-	for (t = indoms; t != nil; t = t->entry) {
-		if (strcmp(t->attr, "dom") != 0)
-			continue;
-		vallen = strlen(t->val);
-		if (cistrcmp(dom, t->val) == 0 ||
-		    domlen > vallen &&
-		     cistrcmp(dom + domlen - vallen, t->val) == 0 &&
-		     dom[domlen - vallen - 1] == '.') {
-			rv = 1;
-			break;
-		}
-	}
-	qunlock(&dblock);
-	return rv;
-}
-
-int
-insidens(uchar *ip)
-{
-	uchar ipa[IPaddrlen];
-	Ndbtuple *t;
-
-	for (t = innmsrvs; t != nil; t = t->entry)
-		if (strcmp(t->attr, "ip") == 0) {
-			if (parseip(ipa, t->val) != -1 && ipcmp(ipa, ip) == 0)
-				return 1;
-		}
-	return 0;
-}
-
-int
-outsidensip(int n, uchar *ip)
-{
-	int i;
-	Ndbtuple *t;
-
-	i = 0;
-	for (t = outnmsrvs; t != nil; t = t->entry)
-		if (strcmp(t->attr, "ip") == 0 && i++ == n) {
-			if (parseip(ip, t->val) == -1)
-				return -1;
-			return 0;
-		}
-	return -1;
 }

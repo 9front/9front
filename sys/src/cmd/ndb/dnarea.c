@@ -44,15 +44,16 @@ inmyarea(char *name)
  *  we serve
  */
 void
-addarea(DN *dp, RR *rp, Ndbtuple *t)
+addarea(RR *rp, Ndbtuple *t)
 {
+	DN *dp;
 	Area *s;
 	Area **l;
 	int len;
 
+	dp = rp->owner;
 	len = strlen(dp->name);
 
-	lock(&dnlock);
 	if(t->val[0])
 		l = &delegated;
 	else
@@ -61,10 +62,8 @@ addarea(DN *dp, RR *rp, Ndbtuple *t)
 	for (s = *l; s != nil; l = &s->next, s = s->next){
 		if(s->len < len)
 			break;
-		if(s->soarr->owner == dp) {
-			unlock(&dnlock);
+		if(s->soarr->owner == dp)
 			return;		/* we've already got one */
-		}
 	}
 
 	/*
@@ -75,9 +74,6 @@ addarea(DN *dp, RR *rp, Ndbtuple *t)
 	s = emalloc(sizeof(*s));
 	s->len = len;
 	rrcopy(rp, &s->soarr);
-	s->soarr->owner = dp;
-	s->soarr->db = 1;
-	s->soarr->ttl = Hour;
 	s->neednotify = 1;
 	s->needrefresh = 0;
 
@@ -87,59 +83,17 @@ addarea(DN *dp, RR *rp, Ndbtuple *t)
 
 	s->next = *l;
 	*l = s;
-	unlock(&dnlock);
 }
 
 void
-freearea(Area **l)
+freeareas(Area **l)
 {
 	Area *s;
 
-	lock(&dnlock);
 	while(s = *l){
 		*l = s->next;
 		rrfree(s->soarr);
 		memset(s, 0, sizeof *s);	/* cause trouble */
 		free(s);
-	}
-	unlock(&dnlock);
-}
-
-/*
- * refresh all areas that need it
- *  this entails running a command 'zonerefreshprogram'.  This could
- *  copy over databases from elsewhere or just do a zone transfer.
- */
-void
-refresh_areas(Area *s)
-{
-	int pid;
-	Waitmsg *w;
-
-	for(; s != nil; s = s->next){
-		if(!s->needrefresh)
-			continue;
-
-		if(zonerefreshprogram == nil){
-			s->needrefresh = 0;
-			continue;
-		}
-
-		pid = fork();
-		if (pid == -1) {
-			sleep(1000);	/* don't fork again immediately */
-			continue;
-		}
-		if (pid == 0){
-			execl(zonerefreshprogram, "zonerefresh",
-				s->soarr->owner->name, nil);
-			exits("exec zonerefresh failed");
-		}
-		while ((w = wait()) != nil && w->pid != pid)
-			free(w);
-		if (w && w->pid == pid)
-			if(w->msg == nil || *w->msg == '\0')
-				s->needrefresh = 0;
-		free(w);
 	}
 }
