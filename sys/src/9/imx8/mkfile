@@ -87,6 +87,9 @@ ARM64FILES=`{../port/mkfilelist ../arm64}
 ^($ARM64FILES)\.$O:R:	'../arm64/\1.c'
 	$CC $CFLAGS -I. -. ../arm64/$stem1.c
 
+cache.v8.$O:	../arm64/cache.v8.s
+	$AS $AFLAGS -I. -. ../arm64/cache.v8.s
+
 <../boot/bootmkfile
 <../port/portmkfile
 <|../port/mkbootrules $CONF
