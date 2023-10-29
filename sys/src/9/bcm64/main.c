@@ -6,7 +6,7 @@
 #include "fns.h"
 #include "../port/error.h"
 #include "io.h"
-#include "sysreg.h"
+#include "../arm64/sysreg.h"
 #include "rebootcode.i"
 
 #include <pool.h>

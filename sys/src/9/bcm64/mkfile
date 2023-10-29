@@ -88,8 +88,16 @@ install:V: /$objtype/$p$CONF
 /$objtype/$p$CONF:D: $p$CONF s$p$CONF
 	cp -x $p$CONF s$p$CONF /$objtype/
 
+ARM64FILES=`{../port/mkfilelist ../arm64}
+^($ARM64FILES)\.$O:R:	'../arm64/\1.c'
+	$CC $CFLAGS -I. -. ../arm64/$stem1.c
 
-REPCC=`{../port/mkfilelist ../bcm}
+cache.v8.$O:	../arm64/cache.v8.s
+	$AS $AFLAGS -I. -. ../arm64/cache.v8.s
+init9.$O:	../arm64/init9.s
+	$AS $AFLAGS -I. -. ../arm64/init9.s
+
+REPCC=`{../port/mkfilelist ../bcm | sed 's/(fpu|trap)[|)]//g'}
 ^($REPCC)\.$O:R:	'../bcm/\1.c'
 	$CC $CFLAGS -I. -. ../bcm/$stem1.c
 
@@ -101,7 +109,7 @@ arch.$O clock.$O fpiarm.$O main.$O mmu.$O screen.$O syscall.$O trap.$O: \
 	/$objtype/include/ureg.h
 trap.$O main.$O: /sys/include/tos.h
 l.$O cache.v8.$O mmu.$O rebootcode.$O: mem.h
-l.$O cache.v8.$O archbcm3.$O clock.$O fpu.$O trap.$O mmu.$O rebootcode.$O: sysreg.h
+l.$O cache.v8.$O archbcm3.$O clock.$O fpu.$O trap.$O mmu.$O rebootcode.$O: ../arm64/sysreg.h
 main.$O: rebootcode.i
 pcibcm.$O: ../port/pci.h
 

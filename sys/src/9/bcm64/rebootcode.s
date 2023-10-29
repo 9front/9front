@@ -1,5 +1,5 @@
 #include "mem.h"
-#include "sysreg.h"
+#include "../arm64/sysreg.h"
 
 #undef	SYSREG
 #define	SYSREG(op0,op1,Cn,Cm,op2)	SPR(((op0)<<19|(op1)<<16|(Cn)<<12|(Cm)<<8|(op2)<<5))

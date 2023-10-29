@@ -10,7 +10,7 @@
 #include "../port/error.h"
 #include "io.h"
 #include "../port/pci.h"
-#include "sysreg.h"
+#include "../arm64/sysreg.h"
 
 typedef struct Mbox Mbox;
 typedef struct Mboxes Mboxes;
