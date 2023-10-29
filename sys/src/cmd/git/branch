@@ -52,7 +52,7 @@ deleted=`$nl{git/query -c HEAD $base | grep '^-' | subst '^..'}
 if(~ $delete 1 && ~ `{git/query HEAD} `{git/query $branch})
 	die 'cannot delete current branch'
 # if we're not merging, don't clobber existing changes.
-if(~ $#merge 0 && ! $delete){
+if(~ $#merge 0 && ~ $#delete 0){
 	if(! ~ $#modified 0 || ! ~ $#deleted 0){
 		git/walk -fRMA $modified $deleted || 
 			die 'uncommitted changes would be clobbered'
