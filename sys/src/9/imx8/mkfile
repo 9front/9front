@@ -47,6 +47,7 @@ OBJ=\
 	fpu.$O\
 	main.$O\
 	mmu.$O\
+	mem.$O\
 	sysreg.$O\
 	random.$O\
 	trap.$O\
@@ -102,7 +103,7 @@ i2cimx.$O: ../port/i2c.h
 pciimx.$O: ../port/pci.h
 usbxhciimx.$O: ../port/usbxhci.h
 
-l.$O main.$O mmu.$O clock.$O gic.$O cache.v8.$O fpu.$O trap.$O rebootcode.$O: ../arm64/sysreg.h
+l.$O main.$O clock.$O gic.$O cache.v8.$O fpu.$O trap.$O rebootcode.$O: ../arm64/sysreg.h
 
 initcode.out:		init9.$O initcode.$O /$objtype/lib/libc.a
 	$LD -l -R1 -s -o $target $prereq

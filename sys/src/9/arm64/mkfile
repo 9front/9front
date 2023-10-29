@@ -47,6 +47,7 @@ OBJ=\
 	fpu.$O\
 	main.$O\
 	mmu.$O\
+	mem.$O\
 	sysreg.$O\
 	random.$O\
 	trap.$O\
