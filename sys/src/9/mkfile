@@ -1,4 +1,5 @@
 ARCH=\
+	arm64\
 	bcm\
 	bcm64\
 	cycv\

@@ -3,6 +3,7 @@ ARCH=\
 	bitsy\
 	efi\
 	pc\
+	qemu\
 	reform\
 	zynq\
 

@@ -32,6 +32,19 @@ cd:V:	/tmp/9front.386.iso.gz
 	mv $target.$pid.disk $target
 	}
 
+%.arm64.qcow2: /n/src9/sys/src/boot/qemu/boot.scr
+	@{
+	objtype=arm64
+	kernel=/n/src9/$objtype/9qemu.u
+	> /env/plan9.ini {
+		echo 'console=0'
+	}
+	fatfiles=(/n/src9/sys/src/boot/qemu/boot.scr /env/plan9.ini $kernel)
+	mb=3770
+	mk $target.$pid.disk
+	mv $target.$pid.disk $target
+	}
+
 %.pi.img:
 	@{
 	objtype=arm
@@ -148,7 +161,7 @@ cd:V:	/tmp/9front.386.iso.gz
 	mk binds
 	rm -f $target
 	s=`{basename $target}
-	if(~ $target *.amd64.qcow2.*){
+	if(~ $target *.qcow2.*){
 		disk/qcowfs -n `{echo $mb '*1048576' | pc} $target
 		disk/partfs -m /n/$s /mnt/qcow/data
 	}
@@ -172,7 +185,7 @@ cd:V:	/tmp/9front.386.iso.gz
 		disk/prep -bw -a^(nvram fs) $d/plan9
 		disk/format -d $d/dos $fatfiles
 	}
-	if not if(~ $target *.reform.img.*){
+	if not if(~ $target *.reform.img.* *.arm64.qcow2.*){
 		{
 			echo 'a p1 4M 100M'
 			echo 't p1 FAT32'
