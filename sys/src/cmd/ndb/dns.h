@@ -526,4 +526,3 @@ char*	convM2DNS(uchar*, int, DNSmsg*, int*);
 
 #pragma varargck argpos dnslog 1
 #pragma varargck argpos warning 1
-#pragma varargck argpos dnsdebug 1
