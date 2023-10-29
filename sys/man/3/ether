@@ -119,5 +119,24 @@ connections can be set to bridge mode by writing
 to the
 .B ctl
 file.
+.PP
+For
+.IR bridge (3)
+and
+.IR ethermultilink (8),
+the physical interface can be bypassed by writing
+.B bypass
+to the
+.B ctl
+file.
+This means that packets transmitted on the interface
+are not physically sent out but looped back to the bypass
+.B data
+file and packets
+received on the physical interface are ignored.
+Writing a packet to the bypass
+.B data
+file loops it back as if it was received
+on the physical interface.
 .SH SOURCE
-.B /sys/src/9/*/devether.c
+.B /sys/src/9/port/devether.c
