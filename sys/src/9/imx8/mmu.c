@@ -3,7 +3,7 @@
 #include "mem.h"
 #include "dat.h"
 #include "fns.h"
-#include "sysreg.h"
+#include "../arm64/sysreg.h"
 
 #define INITMAP	(ROUND((uintptr)end + BY2PG, PGLSZ(1))-KZERO)
 

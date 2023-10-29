@@ -8,7 +8,7 @@
 
 #include <tos.h>
 #include "ureg.h"
-#include "sysreg.h"
+#include "../arm64/sysreg.h"
 
 int	(*buserror)(Ureg*);
 

@@ -6,7 +6,7 @@
 #include "io.h"
 #include "../port/pci.h"
 #include "ureg.h"
-#include "sysreg.h"
+#include "../arm64/sysreg.h"
 #include "../port/error.h"
 
 enum {

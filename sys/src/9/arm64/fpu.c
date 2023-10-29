@@ -5,7 +5,7 @@
 #include "fns.h"
 
 #include "ureg.h"
-#include "sysreg.h"
+#include "../arm64/sysreg.h"
 
 /* libc */
 extern ulong getfcr(void);

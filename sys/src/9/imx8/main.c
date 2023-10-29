@@ -7,7 +7,7 @@
 #include "../port/error.h"
 #include "pool.h"
 #include "io.h"
-#include "sysreg.h"
+#include "../arm64/sysreg.h"
 #include "ureg.h"
 
 #include "rebootcode.i"
