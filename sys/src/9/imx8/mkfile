@@ -89,6 +89,10 @@ ARM64FILES=`{../port/mkfilelist ../arm64}
 
 cache.v8.$O:	../arm64/cache.v8.s
 	$AS $AFLAGS -I. -. ../arm64/cache.v8.s
+init9.$O:	../arm64/init9.s
+	$AS $AFLAGS -I. -. ../arm64/init9.s
+rebootcode.$O:	../arm64/rebootcode.s
+	$AS $AFLAGS -I. -. ../arm64/rebootcode.s
 
 <../boot/bootmkfile
 <../port/portmkfile
