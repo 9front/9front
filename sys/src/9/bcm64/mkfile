@@ -47,6 +47,7 @@ OBJ=\
 	fpu.$O\
 	main.$O\
 	mmu.$O\
+	mem.$O\
 	sysreg.$O\
 	random.$O\
 	trap.$O\
@@ -97,7 +98,7 @@ cache.v8.$O:	../arm64/cache.v8.s
 init9.$O:	../arm64/init9.s
 	$AS $AFLAGS -I. -. ../arm64/init9.s
 
-REPCC=`{../port/mkfilelist ../bcm | sed 's/(fpu|trap)[|)]//g'}
+REPCC=`{../port/mkfilelist ../bcm | sed 's/(mmu|fpu|trap)[|)]//g'}
 ^($REPCC)\.$O:R:	'../bcm/\1.c'
 	$CC $CFLAGS -I. -. ../bcm/$stem1.c
 
@@ -108,8 +109,8 @@ REPCC=`{../port/mkfilelist ../bcm | sed 's/(fpu|trap)[|)]//g'}
 arch.$O clock.$O fpiarm.$O main.$O mmu.$O screen.$O syscall.$O trap.$O: \
 	/$objtype/include/ureg.h
 trap.$O main.$O: /sys/include/tos.h
-l.$O cache.v8.$O mmu.$O rebootcode.$O: mem.h
-l.$O cache.v8.$O archbcm3.$O clock.$O fpu.$O trap.$O mmu.$O rebootcode.$O: ../arm64/sysreg.h
+l.$O cache.v8.$O mmu.$O mem.$O rebootcode.$O: mem.h
+l.$O cache.v8.$O archbcm3.$O clock.$O fpu.$O trap.$O rebootcode.$O: ../arm64/sysreg.h
 main.$O: rebootcode.i
 pcibcm.$O: ../port/pci.h
 

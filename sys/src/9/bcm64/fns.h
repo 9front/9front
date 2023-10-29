@@ -68,15 +68,17 @@ extern void kmapinval(void);
 #define	VA(k)	((uintptr)(k))
 extern KMap *kmap(Page*);
 extern void kunmap(KMap*);
+extern void kmapram(uintptr, uintptr);
 extern uintptr mmukmap(uintptr, uintptr, usize);
 extern void* vmap(uvlong, vlong);
 extern void vunmap(void*, vlong);
-
-extern void mmu0init(uintptr*);
 extern void mmu1init(void);
-extern void meminit(void);
-
 extern void putasid(Proc*);
+
+/* mem */
+extern void mmuidmap(uintptr*);
+extern void mmu0init(uintptr*);
+extern void meminit(void);
 
 /* clock */
 extern void clockinit(void);

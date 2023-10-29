@@ -54,6 +54,7 @@
 #define	ARMLOCAL	(0xFFFFFFFFBF800000ULL)	/* -		0x40000000	0xFF800000 */
 
 #define	VGPIO		(0xFFFFFFFFBFA00000ULL|PTEUNCACHED)	/* virtual gpio for pi3 ACT LED */
+#define VDRAM		KZERO
 
 #define	KZERO		(0xFFFFFFFFC0000000ULL)	/* kernel address space */
 
