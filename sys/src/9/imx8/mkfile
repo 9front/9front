@@ -83,6 +83,10 @@ install:V: /$objtype/$p$CONF
 /$objtype/$p$CONF:D: $p$CONF $p$CONF.u
 	cp -x $p$CONF $p$CONF.u /$objtype/
 
+ARM64FILES=`{../port/mkfilelist ../arm64}
+^($ARM64FILES)\.$O:R:	'../arm64/\1.c'
+	$CC $CFLAGS -I. -. ../arm64/$stem1.c
+
 <../boot/bootmkfile
 <../port/portmkfile
 <|../port/mkbootrules $CONF
