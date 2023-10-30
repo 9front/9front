@@ -502,14 +502,21 @@ initdnsmsg(DNSmsg *mp, RR *rp, int flags, ushort reqno)
 RR*
 getednsopt(DNSmsg *mp)
 {
-	RR *rp;
+	RR *rp, *x;
 
 	rp = rrremtype(&mp->ar, Topt);
 	if(rp == nil)
 		return nil;
 	mp->arcount--;
+	while((x = rp->next) != nil){
+		rp->next = x->next;
+		rrfree(x);
+		mp->arcount--;
+	}
+
 	if(rp->udpsize < 512)
 		rp->udpsize = 512;
+
 	return rp;
 }
 
