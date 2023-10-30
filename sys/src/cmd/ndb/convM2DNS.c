@@ -338,10 +338,14 @@ convM2RR(Scan *sp, char *what)
 
 	type = mstypehack(sp, type, "convM2RR");
 	rp = rralloc(type);
-	rp->owner = dnlookup(dname, class, 1);
-	rp->type = type;
-
-	ULONG(rp->ttl);
+	if(type == Topt) {
+		rp->owner = dnlookup(dname, Cin, 1);
+		rp->udpsize = class;
+		ULONG(rp->eflags);
+	} else {
+		rp->owner = dnlookup(dname, class, 1);
+		ULONG(rp->ttl);
+	}
 	USHORT(len);			/* length of data following */
 	data = sp->p;
 	assert(data != nil);
@@ -464,6 +468,9 @@ convM2RR(Scan *sp, char *what)
 		UCHAR(rp->caa->flags);
 		SYMBOL(rp->caa->tag);
 		BYTES(rp->caa->data, rp->caa->dlen);
+		break;
+	case Topt:
+		BYTES(rp->opt->data, rp->opt->dlen);
 		break;
 	default:
 		if(rrsupported(type)){
@@ -592,6 +599,7 @@ convM2DNS(uchar *buf, int len, DNSmsg *m, int *codep)
 	if (sp->err)
 		err = strdup(sp->err);		/* live with bad ar's */
 	m->ar = rrloop(sp, "hints",	m->arcount, 0);
+	m->edns = nil;
 	if (sp->trunc)
 		m->flags |= Ftrunc;
 	if (sp->stop)

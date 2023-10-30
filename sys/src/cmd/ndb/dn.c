@@ -718,9 +718,10 @@ rrattach(RR *rp, int auth)
 	for(; rp; rp = next){
 		next = rp->next;
 		rp->next = nil;
-		/* avoid any outside spoofing */
-		if(cfg.cachedb && !rp->db && inmyarea(rp->owner->name)
-		|| !rrsupported(rp->type))
+		if(rp->type == Tall
+		|| rp->type == Topt
+		|| !rrsupported(rp->type)
+		|| cfg.cachedb && !rp->db && inmyarea(rp->owner->name))
 			rrfree(rp);
 		else
 			rrattach1(rp, auth);
@@ -1283,6 +1284,10 @@ rrfmt(Fmt *f)
 			fmtprint(&fstr, "\t%d %s %.*\\",
 				rp->caa->flags, dnname(rp->caa->tag),
 				rp->caa->dlen, rp->caa->data);
+		break;
+	case Topt:
+		fmtprint(&fstr, "\t%#lux %d %.*H", rp->eflags, rp->udpsize,
+			rp->opt->dlen, rp->opt->data);
 		break;
 	default:
 		if(rrsupported(rp->type))
@@ -1910,6 +1915,10 @@ rralloc(int type)
 		rp->null = emalloc(sizeof(*rp->null));
 		setmalloctag(rp->null, rp->pc);
 		break;
+	case Topt:
+		rp->opt = emalloc(sizeof(*rp->opt));
+		setmalloctag(rp->opt, rp->pc);
+		break;
 	default:
 		if(rrsupported(type))
 			break;
@@ -1975,6 +1984,11 @@ rrfree(RR *rp)
 			memset(t, 0, sizeof *t);	/* cause trouble */
 			free(t);
 		}
+		break;
+	case Topt:
+		free(rp->opt->data);
+		memset(rp->opt, 0, sizeof *rp->opt);	/* cause trouble */
+		free(rp->opt);
 		break;
 	default:
 		if(rrsupported(rp->type))

@@ -115,6 +115,11 @@ enum
 	Frecurse=	1<<8,	/* request recursion */
 	Fcanrec=	1<<7,	/* server can recurse */
 
+	/* EDNS flags (eflags) */
+	Ercode=		0xff<<24,
+	Evers=		0xff<<16,
+	Ednssecok=	1<<15,
+
 	Domlen=		256,	/* max domain name length (with NULL) */
 	Labellen=	64,	/* max domain label length (with NULL) */
 	Strlen=		256,	/* max string length (with NULL) */
@@ -163,6 +168,7 @@ typedef struct Srv	Srv;
 typedef struct Txt	Txt;
 typedef struct Caa	Caa;
 typedef struct Unknown	Unknown;
+typedef struct Opt	Opt;
 
 /*
  *  a structure to track a request and any slave process handling it
@@ -237,6 +243,10 @@ struct Unknown
 {
 	Block;
 };
+struct Opt
+{
+	Block;
+};
 
 /*
  *  text strings
@@ -272,6 +282,7 @@ struct RR
 		DN	*mb;	/* mailbox - mg, minfo */
 		DN	*ip;	/* ip address - a, aaaa */
 		DN	*rp;	/* rp arg - rp */
+		ulong	eflags;	/* EDNS(0) flags - opt */
 		uintptr	arg0;	/* arg[01] are compared to find dups in dn.c */
 	};
 	union {			/* discriminated by negative & type */
@@ -282,6 +293,7 @@ struct RR
 		ulong	pref;	/* preference value - mx */
 		ulong	local;	/* ns served from local database - ns */
 		ushort	port;	/* - srv */
+		ushort	udpsize;/* requester's UDP payload size - opt */
 		uintptr	arg1;	/* arg[01] are compared to find dups in dn.c */
 	};
 	union {			/* discriminated by type */
@@ -294,6 +306,7 @@ struct RR
 		Null	*null;
 		Txt	*txt;
 		Unknown	*unknown;
+		Opt	*opt;
 	};
 };
 
@@ -330,13 +343,6 @@ struct Srv
 	ushort	weight;
 };
 
-typedef struct Rrlist Rrlist;
-struct Rrlist
-{
-	int	count;
-	RR	*rrs;
-};
-
 /*
  *  domain messages
  */
@@ -352,6 +358,7 @@ struct DNSmsg
 	RR	*ns;
 	int	arcount;	/* hints */
 	RR	*ar;
+	RR	*edns;		/* edns option */
 };
 
 /*
@@ -503,7 +510,9 @@ void	logrequest(int, int, char*, uchar*, char*, char*, int);
 /* dnresolve.c */
 RR*	dnresolve(char*, int, int, Request*, RR**, int, int, int, int*);
 int	udpport(char *);
-int	mkreq(DN *dp, int type, uchar *pkt, int flags, ushort reqno);
+int	mkreq(DN*, int type, uchar *pkt, int flags, ushort);
+RR*	mkednsopt(void);
+RR*	getednsopt(DNSmsg*);
 
 /* dnserver.c */
 void	dnserver(DNSmsg*, DNSmsg*, Request*, uchar *, int);

@@ -499,6 +499,41 @@ initdnsmsg(DNSmsg *mp, RR *rp, int flags, ushort reqno)
 		mp->qdcount = 1;
 }
 
+RR*
+getednsopt(DNSmsg *mp)
+{
+	RR *rp;
+
+	rp = rrremtype(&mp->ar, Topt);
+	if(rp == nil)
+		return nil;
+	mp->arcount--;
+	if(rp->udpsize < 512)
+		rp->udpsize = 512;
+	return rp;
+}
+
+RR*
+mkednsopt(void)
+{
+	RR *rp;
+
+	rp = rralloc(Topt);
+	rp->owner = dnlookup("", Cin, 1);
+	rp->eflags = 0;
+
+	/*
+	 * Advertise a safe UDP response size
+	 * instead of Maxudp as that is just
+	 * the worst case we can accept.
+	 *
+	 * 1232 = MTU(1280)-IPv6(40)-UDP(8).
+	 */
+	rp->udpsize = 1232;
+
+	return rp;
+}
+
 /* generate a DNS UDP query packet, return size of request (without Udphdr) */
 int
 mkreq(DN *dp, int type, uchar *pkt, int flags, ushort id)
@@ -516,7 +551,9 @@ mkreq(DN *dp, int type, uchar *pkt, int flags, ushort id)
 	rp = rralloc(type);
 	rp->owner = dp;
 	initdnsmsg(&m, rp, flags, id);
+	m.edns = mkednsopt();
 	len = convDNS2M(&m, &pkt[Udphdrsize], Maxudp);
+	rrfreelist(m.edns);
 	rrfreelist(rp);
 	return len;
 }
@@ -925,13 +962,22 @@ procansw(Query *qp, Dest *p, DNSmsg *mp)
 	Query nq;
 	DN *ndp;
 	RR *tp, *soarr;
-	int rv;
+	int rv, rcode;
 
 	if(mp->an == nil)
 		stats.negans++;
 
+	/* get the rcode */
+	rcode = mp->flags & Rmask;
+
+	/* get extended rcode from edns */
+	if((tp = getednsopt(mp)) != nil){
+		rcode = (rcode & 15) | (tp->eflags & Ercode) >> 20;
+		rrfreelist(tp);
+	}
+
 	/* ignore any error replies */
-	switch(mp->flags & Rmask){
+	switch(rcode){
 	case Rrefused:
 	case Rserver:
 		stats.negserver++;
@@ -1023,7 +1069,7 @@ procansw(Query *qp, Dest *p, DNSmsg *mp)
 		 *  they can legitimately come from a cache.
 		 */
 		if( /* (mp->flags & Fauth) && */ mp->an == nil)
-			cacheneg(qp->dp, qp->type, (mp->flags & Rmask), soarr);
+			cacheneg(qp->dp, qp->type, rcode, soarr);
 		else
 			rrfreelist(soarr);
 		return 1;
@@ -1034,7 +1080,7 @@ procansw(Query *qp, Dest *p, DNSmsg *mp)
 		 *  negative responses need not be authoritative:
 		 *  they can legitimately come from a cache.
 		 */
-		cacheneg(qp->dp, qp->type, (mp->flags & Rmask), soarr);
+		cacheneg(qp->dp, qp->type, rcode, soarr);
 		return 1;
 	}
 	stats.negnorname++;
@@ -1203,11 +1249,11 @@ udpqueryns(Query *qp, int fd, uchar *pkt)
 			/* exponential backoff of requests */
 			if((1UL<<p->nx) > ndest)
 				continue;
-			if(writenet(qp, Udp, fd, pkt, len, p) == 0)
-				n++;
 			p->nx++;
+			if(writenet(qp, Udp, fd, pkt, len, p) < 0)
+				continue;
+			n++;
 		}
-
 		/* nothing left to send to */
 		if (n == 0)
 			break;

@@ -112,7 +112,7 @@ dblookup(char *name, int class, int type, int auth, int ttl)
 
 	/* so far only internet lookups are implemented */
 	if(class != Cin)
-		return 0;
+		return nil;
 
 	err = Rname;
 	rp = nil;
@@ -131,7 +131,7 @@ dblookup(char *name, int class, int type, int auth, int ttl)
 	if(opendatabase() < 0)
 		goto out;
 	if(dp->rr)
-		err = 0;
+		err = Rok;
 
 	/* first try the given name */
 	if(cfg.cachedb)
@@ -146,7 +146,7 @@ dblookup(char *name, int class, int type, int auth, int ttl)
 		snprint(buf, sizeof buf, "*%s", wild);
 		ndp = idnlookup(buf, class, 1);
 		if(ndp->rr)
-			err = 0;
+			err = Rok;
 		if(cfg.cachedb)
 			rp = rrlookup(ndp, type, NOneg);
 		else

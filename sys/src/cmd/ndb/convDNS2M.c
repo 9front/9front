@@ -198,14 +198,17 @@ convRR2M(RR *rp, uchar *p, uchar *ep, Dict *dp)
 
 	NAME(rp->owner->name);
 	USHORT(rp->type);
-	USHORT(rp->owner->class);
-
-	if(rp->db || (ttl = (long)(rp->expire - now)) > rp->ttl)
-		ttl = rp->ttl;
-	if(ttl < 0)
-		ttl = 0;
-	ULONG(ttl);
-
+	if(rp->type == Topt) {
+		USHORT(rp->udpsize);
+		ULONG(rp->eflags);
+	} else {
+		if(rp->db || (ttl = (long)(rp->expire - now)) > rp->ttl)
+			ttl = rp->ttl;
+		if(ttl < 0)
+			ttl = 0;
+		USHORT(rp->owner->class);
+		ULONG(ttl);
+	}
 	lp = p;			/* leave room for the rdata length */
 	p += 2;
 	data = p;
@@ -301,6 +304,13 @@ convRR2M(RR *rp, uchar *p, uchar *ep, Dict *dp)
 		SYMBOL(rp->caa->tag->name);
 		BYTES(rp->caa->data, rp->caa->dlen);
 		break;
+	case Topt:
+		BYTES(rp->opt->data, rp->opt->dlen);
+		break;
+	default:
+		if(rrsupported(rp->type))
+			break;
+		BYTES(rp->unknown->data, rp->unknown->dlen);
 	}
 
 	/* stuff in the rdata section length */
@@ -361,7 +371,17 @@ convDNS2M(DNSmsg *m, uchar *buf, int len)
 	p = rrloop(m->qd, &m->qdcount, p, ep, &d, 1);
 	p = rrloop(m->an, &m->ancount, p, ep, &d, 0);
 	p = rrloop(m->ns, &m->nscount, p, ep, &d, 0);
+	if(m->edns) {
+		assert(m->edns->next == nil);
+		m->edns->next = m->ar;
+		m->ar = m->edns;
+	}
 	p = rrloop(m->ar, &m->arcount, p, ep, &d, 0);
+	if(m->edns) {
+		assert(m->edns == m->ar);
+		m->ar = m->edns->next;
+		m->edns->next = nil;
+	}
 	if(p > ep) {
 		trunc = Ftrunc;
 		dnslog("udp packet full; truncating my reply");

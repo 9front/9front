@@ -6,6 +6,18 @@
 static RR*	doextquery(DNSmsg*, Request*, int);
 static void	hint(RR**, RR*);
 
+static void
+setflags(DNSmsg *repp, int rcode, int flags)
+{
+	if(repp->edns){
+		repp->edns->eflags = (rcode >> 4) << 24;
+		rcode &= 15;
+	}
+	rcode &= Rmask;
+	flags &= ~Rmask;
+	repp->flags |= rcode | flags;
+}
+
 /*
  *  answer a dns request
  */
@@ -20,7 +32,6 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 	RR *tp, *neg, *rp;
 
 	recursionflag = cfg.nonrecursive? 0: Fcanrec;
-	memset(repp, 0, sizeof(*repp));
 	repp->id = reqp->id;
 	repp->flags = Fresp | recursionflag | Oquery;
 
@@ -37,14 +48,14 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 		dnslog("%d: server: response code 0%o (%s), req from %I",
 			req->id, rcode, errmsg, srcip);
 		/* provide feedback to clients who send us trash */
-		repp->flags = (rcode&Rmask) | Fresp | Fcanrec | Oquery;
+		setflags(repp, rcode, Fresp | Fcanrec | Oquery);
 		return;
 	}
-	if(!rrsupported(repp->qd->type)){
+	if(repp->qd->type == Topt || !rrsupported(repp->qd->type)){
 		if(debug)
 			dnslog("%d: server: unsupported request %s from %I",
 				req->id, rrname(repp->qd->type, tname, sizeof tname), srcip);
-		repp->flags = Runimplimented | Fresp | Fcanrec | Oquery;
+		setflags(repp, Runimplimented, Fresp | Fcanrec | Oquery);
 		return;
 	}
 
@@ -52,7 +63,7 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 		if(debug)
 			dnslog("%d: server: unsupported class %d from %I",
 				req->id, repp->qd->owner->class, srcip);
-		repp->flags = Runimplimented | Fresp | Fcanrec | Oquery;
+		setflags(repp, Runimplimented, Fresp | Fcanrec | Oquery);
 		return;
 	}
 
@@ -63,13 +74,13 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 				dnslog("%d: server: unsupported xfr request %s for %s from %I",
 					req->id, rrname(repp->qd->type, tname, sizeof tname),
 					repp->qd->owner->name, srcip);
-			repp->flags = Runimplimented | Fresp | recursionflag | Oquery;
+			setflags(repp, Runimplimented, Fresp | recursionflag | Oquery);
 			return;
 		}
 	}
 	if(myarea == nil && cfg.nonrecursive) {
 		/* we don't recurse and we're not authoritative */
-		repp->flags = Rok | Fresp | Oquery;
+		setflags(repp, Rok, Fresp | Oquery);
 		neg = nil;
 	} else {
 		/*
@@ -89,7 +100,7 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 			dp = dnlookup(repp->qd->owner->name, repp->qd->owner->class, 0);
 			if(dp->rr == nil)
 				if(reqp->flags & Frecurse)
-					repp->flags |= dp->respcode | Fauth;
+					setflags(repp, dp->respcode, Fauth);
 		}
 	}
 
@@ -145,7 +156,7 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 				tp = rrlookup(neg->negsoaowner, Tsoa, NOneg);
 				rrcat(&repp->ns, tp);
 			}
-			repp->flags |= neg->negrcode;
+			setflags(repp, neg->negrcode, repp->flags);
 		}
 	}
 

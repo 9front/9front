@@ -4,7 +4,7 @@
 #include "dns.h"
 
 static int	udpannounce(char*, char*);
-static void	reply(int, uchar*, DNSmsg*, Request*);
+static void	reply(int, uchar*, int, DNSmsg*, Request*);
 
 typedef struct Inprogress Inprogress;
 struct Inprogress
@@ -65,6 +65,7 @@ dnudpserver(char *mntpt, char *addr)
 	volatile uchar pkt[Udphdrsize + Maxudp];
 	volatile DNSmsg reqmsg, repmsg;
 	Inprogress *volatile p;
+	volatile RR *edns;
 	volatile Request req;
 	Udphdr *volatile uh;
 
@@ -98,6 +99,8 @@ restart:
 	/* loop on requests */
 	for(;; putactivity(&req)){
 		memset(&reqmsg, 0, sizeof reqmsg);
+		edns = nil;
+
 		procsetname("%s: udp server %s: served %d", mntpt, addr, served);
 
 		len = read(fd, pkt, sizeof pkt);
@@ -156,24 +159,35 @@ restart:
 		logrequest(req.id, 0, "rcvd", uh->raddr, caller,
 			reqmsg.qd->owner->name, reqmsg.qd->type);
 
+		/* determine response size */
+		len = 512;	/* default */
+		if((reqmsg.edns = getednsopt(&reqmsg)) != nil){
+			if(reqmsg.edns->eflags & Evers)
+				rcode = Rbadvers;
+			edns = mkednsopt();
+			len = Maxudp;
+			if(edns->udpsize < len)
+				len = edns->udpsize;
+			if(reqmsg.edns->udpsize < len)
+				len = reqmsg.edns->udpsize;
+		}
+
 		/* loop through each question */
 		while(reqmsg.qd){
 			memset(&repmsg, 0, sizeof repmsg);
-			switch(op){
-			case Oquery:
-				dnserver(&reqmsg, &repmsg, &req, uh->raddr, rcode);
-				break;
-			case Onotify:
+			repmsg.edns = edns;
+			if(rcode == Rok && op == Onotify)
 				dnnotify(&reqmsg, &repmsg, &req);
-				break;
-			}
-			/* send reply on fd to address in pkt's udp hdr */
-			reply(fd, pkt, &repmsg, &req);
+			else
+				dnserver(&reqmsg, &repmsg, &req, uh->raddr, rcode);
+			reply(fd, pkt, len, &repmsg, &req);
 			freeanswers(&repmsg);
 		}
+		rrfreelist(edns);
 
 		p->inuse = 0;
 freereq:
+		rrfreelist(reqmsg.edns);
 		freeanswers(&reqmsg);
 		if(req.isslave){
 			putactivity(&req);
@@ -183,13 +197,11 @@ freereq:
 }
 
 static void
-reply(int fd, uchar *pkt, DNSmsg *rep, Request *req)
+reply(int fd, uchar *pkt, int len, DNSmsg *rep, Request *req)
 {
-	int len;
-
 	logreply(req->id, "send", pkt, rep);
 
-	len = convDNS2M(rep, &pkt[Udphdrsize], Maxudp);
+	len = convDNS2M(rep, &pkt[Udphdrsize], len);
 	len += Udphdrsize;
 	if(write(fd, pkt, len) != len)
 		dnslog("%d: error sending reply to %I: %r",

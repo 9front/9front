@@ -23,6 +23,7 @@ dntcpserver(char *mntpt, char *addr)
 	volatile uchar pkt[Maxpkt], callip[IPaddrlen];
 	volatile DNSmsg reqmsg, repmsg;
 	volatile Request req;
+	volatile RR *edns;
 	char *volatile err;
 
 	/*
@@ -54,22 +55,23 @@ dntcpserver(char *mntpt, char *addr)
 	/* loop on requests */
 	for(;; putactivity(&req)){
 		memset(&reqmsg, 0, sizeof reqmsg);
+		edns = nil;
 
 		ms = (long)(req.aborttime - nowms);
 		if(ms < Minreqtm){
-		noreq:
+		hangup:
 			close(fd);
 			_exits(0);
 		}
 		alarm(ms);
 		if(readn(fd, pkt, 2) != 2){
 			alarm(0);
-			goto noreq;
+			goto hangup;
 		}
 		len = pkt[0]<<8 | pkt[1];
 		if(len <= 0 || len > Maxtcp || readn(fd, pkt+2, len) != len){
 			alarm(0);
-			goto noreq;
+			goto hangup;
 		}
 		alarm(0);
 
@@ -111,10 +113,17 @@ dntcpserver(char *mntpt, char *addr)
 		logrequest(req.id, 0, "rcvd", callip, caller,
 			reqmsg.qd->owner->name, reqmsg.qd->type);
 
+		if((reqmsg.edns = getednsopt(&reqmsg)) != nil){
+			if(reqmsg.edns->eflags & Evers)
+				rcode = Rbadvers;
+			edns = mkednsopt();
+		}
+
 		/* loop through each question */
 		while(reqmsg.qd){
 			memset(&repmsg, 0, sizeof(repmsg));
-			if(reqmsg.qd->type == Taxfr)
+			repmsg.edns = edns;
+			if(rcode == Rok && reqmsg.qd->type == Taxfr)
 				rv = dnzone(fd, pkt, &reqmsg, &repmsg, &req, callip);
 			else {
 				dnserver(&reqmsg, &repmsg, &req, callip, rcode);
@@ -124,10 +133,14 @@ dntcpserver(char *mntpt, char *addr)
 			if(rv < 0)
 				goto out;
 		}
+		rrfreelist(edns);
+		rrfreelist(reqmsg.edns);
 		freeanswers(&reqmsg);
 	}
 out:
 	close(fd);
+	rrfreelist(edns);
+	rrfreelist(reqmsg.edns);
 	freeanswers(&reqmsg);
 	putactivity(&req);
 	_exits(0);

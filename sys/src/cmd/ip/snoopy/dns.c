@@ -92,7 +92,13 @@ fmtrr(Msg *m, RR **rrp, int quest)
 	if(rr == nil)
 		return;
 	*rrp = rr->next;
-
+	if(rr->type == Topt){
+		m->p = seprint(m->p, m->e, "opt eflags=%#lux udpsize=%d data=%.*H",
+			rr->eflags, rr->udpsize,
+			rr->opt->dlen, rr->opt->data);
+		rrfree(rr);
+		return;
+	}
 	m->p = seprint(m->p, m->e, "%s name=%s ttl=%lud",
 		rrtypestr(rr->type),
 		rr->owner->name, rr->ttl);
@@ -469,6 +475,10 @@ rralloc(int type)
 		rp->null = emalloc(sizeof(*rp->null));
 		setmalloctag(rp->null, rp->pc);
 		break;
+	case Topt:
+		rp->opt = emalloc(sizeof(*rp->opt));
+		setmalloctag(rp->opt, rp->pc);
+		break;
 	default:
 		if(rrsupported(rp->type))
 			break;
@@ -542,6 +552,11 @@ rrfree(RR *rp)
 			memset(t, 0, sizeof *t);	/* cause trouble */
 			free(t);
 		}
+		break;
+	case Topt:
+		free(rp->opt->data);
+		memset(rp->opt, 0, sizeof *rp->opt);	/* cause trouble */
+		free(rp->opt);
 		break;
 	default:
 		if(rrsupported(rp->type))
