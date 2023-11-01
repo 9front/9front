@@ -92,7 +92,7 @@ static char *respond(Job*, Mfile*, RR*, char*, int, int);
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-FnrR] [-a maxage] [-f ndb-file] [-N target] "
+	fprint(2, "usage: %s [-FnrLR] [-a maxage] [-f ndb-file] [-N target] "
 		"[-x netmtpt] [-s [addrs...]]\n", argv0);
 	exits("usage");
 }
@@ -129,8 +129,13 @@ main(int argc, char *argv[])
 	case 'r':
 		cfg.resolver = 1;
 		break;
+	case 'L':
+		cfg.localrecursive = 1;
+		cfg.nonrecursive = 0;
+		break;
 	case 'R':
 		cfg.nonrecursive = 1;
+		cfg.localrecursive = 0;
 		break;
 	case 's':
 		cfg.serve = 1;		/* serve network */
@@ -151,9 +156,10 @@ main(int argc, char *argv[])
 	/* start syslog before we fork */
 	fmtinstall('F', fcallfmt);
 	dninit();
-	dnslog("starting %s%s%sdns %s%son %s",
+	dnslog("starting %s%s%s%sdns %s%son %s",
 		(cfg.cachedb? "caching ": ""),
 		(cfg.nonrecursive? "non-recursive ": ""),
+		(cfg.localrecursive? "local-recursive ": ""),
 		(cfg.serve?   "server ": ""),
 		(cfg.justforw? "forwarding-only ": ""),
 		(cfg.resolver? "resolver ": ""), mntpt);

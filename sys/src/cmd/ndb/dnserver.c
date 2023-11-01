@@ -19,8 +19,6 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 
 	repp->id = reqp->id;
 	repp->flags = Fresp | (reqp->flags & Omask);
-	if(!cfg.nonrecursive && (reqp->flags & Omask) == Oquery)
-		repp->flags |= Fcanrec;
 	setercode(repp, Rok);
 
 	/* move one question from reqp to repp */
@@ -29,7 +27,7 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 	rp->next = nil;
 	repp->qd = rp;
 
-	if(rcode){
+	if(rcode != Rok || (reqp->flags & Omask) != Oquery){
 		dnslog("%d: server: response code %d %s, req from %I",
 			req->id, rcode, rcname(rcode), srcip);
 		/* provide feedback to clients who send us trash */
@@ -43,7 +41,6 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 		setercode(repp, Runimplimented);
 		return;
 	}
-
 	if(repp->qd->owner->class != Cin){
 		if(debug)
 			dnslog("%d: server: unsupported class %d from %I",
@@ -62,31 +59,31 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 			setercode(repp, Runimplimented);
 			return;
 		}
-	}
-	if(myarea == nil && cfg.nonrecursive) {
-		/* we don't recurse and we're not authoritative */
-		repp->flags &= ~(Fauth|Fcanrec);
-		neg = nil;
+		repp->flags |= Fauth;
+		neg = doextquery(repp, req, Dontrecurse);
 	} else {
-		int recurse = (reqp->flags & Frecurse) && (repp->flags & Fcanrec);
+		if(cfg.nonrecursive
+		|| cfg.localrecursive && !localip(srcip)){
+			/* we don't recurse and we're not authoritative */
+			neg = nil;
+		} else {
+			repp->flags |= Fcanrec;
+			if(reqp->flags & Frecurse){
+				neg = doextquery(repp, req, Recurse);
 
-		/*
-		 *  get the answer if we can, in *repp
-		 */
-		neg = doextquery(repp, req, recurse? Recurse: Dontrecurse);
+				/* pass on error codes */
+				if(repp->an == nil && repp->qd->owner->rr == nil){
+					repp->flags |= Fauth;
+					setercode(repp, repp->qd->owner->respcode);
+				}
+			} else
+				neg = doextquery(repp, req, Dontrecurse);
 
-		/* authority is transitive */
-		if(myarea || (repp->an && repp->an->auth))
-			repp->flags |= Fauth;
-
-		/* pass on error codes */
-		if(recurse && repp->an == nil && repp->qd->owner->rr == nil){
-			repp->flags |= Fauth;
-			setercode(repp, repp->qd->owner->respcode);
+			/* authority is transitive */
+			if(repp->an && repp->an->auth)
+				repp->flags |= Fauth;
 		}
-	}
 
-	if(myarea == nil){
 		/*
 		 *  add name server if we know
 		 */

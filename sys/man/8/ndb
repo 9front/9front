@@ -57,7 +57,7 @@ query, ipquery, mkhash, mkdb, mkhosts, cs, csquery, dns, dnsquery, dnsdebug, dns
 .br
 .B ndb/dns
 [
-.B -FnrR
+.B -FnrLR
 ] [
 .B -a
 .I maxage
@@ -400,8 +400,17 @@ otherwise optional
 attributes name DNS servers to forward queries to.
 .TP
 .B -R
-ignore the `recursive' bit on incoming requests.
+ignore the `recursive' bit on all incoming requests.
 Do not complete lookups on behalf of remote systems.
+.TP
+.B -L
+ignore the `recursive' bit on incoming requests
+from non-local IP addresses.
+IP addresses are local when they are contained
+within the network prefix of an interface.
+This allows running as a authoritative server
+while also serving recursive queries for systems
+on local networks.
 .TP
 .B -s
 also answer domain requests sent to IP
@@ -409,7 +418,8 @@ also answer domain requests sent to IP
 on UDP/TCP port 53.
 If no IP
 .I addrs
-are given, listen on any interface on network mount point
+are given,
+listen on any interface on network mount point
 .IR netmtpt .
 .TP
 .B -x

@@ -873,6 +873,23 @@ myip(uchar *ip)
 	return 0;
 }
 
+int
+localip(uchar *ip)
+{
+	Ipifc *ifc;
+
+	qlock(&ipifclock);
+	for(ifc = ipifcs; ifc != nil; ifc = ifc->next){
+		if(ipremoteonifc(ifc, ip) != nil){
+			qunlock(&ipifclock);
+			return 1;
+		}
+	}
+	qunlock(&ipifclock);
+
+	return 0;
+}
+
 static void
 addlocaldnsserver(DN *dp, int class, char *addr, int i)
 {

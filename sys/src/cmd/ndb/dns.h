@@ -376,11 +376,12 @@ struct Area
 
 typedef struct Cfg Cfg;
 struct Cfg {
-	int	cachedb;
-	int	resolver;
-	int	justforw;	/* flag: pure resolver, just forward queries */
-	int	serve;		/* flag: serve tcp udp queries */
-	int	nonrecursive;
+	char	cachedb;
+	char	resolver;
+	char	justforw;	/* flag: pure resolver, just forward queries */
+	char	serve;		/* flag: serve tcp udp queries */
+	char	nonrecursive;	/* flag: never serve recursive queries */
+	char	localrecursive;	/* flag: serve recursive queries for local ip's */
 };
 
 /* query stats */
@@ -496,7 +497,8 @@ int	baddelegation(RR*, RR*, uchar*);
 RR*	dblookup(char*, int, int, int, int);
 RR*	dnsservers(int);
 RR*	domainlist(int);
-int	myip(uchar *ip);
+int	myip(uchar *);
+int	localip(uchar *);
 int	opendatabase(void);
 
 /* dns.c */
