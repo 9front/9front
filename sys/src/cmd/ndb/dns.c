@@ -736,29 +736,29 @@ static char *
 lookupquery(Job *job, Mfile *mf, Request *req, char *errbuf, char *p,
 	int wantsav, int rooted)
 {
-	int status;
+	int rcode;
 	RR *rp, *neg;
 
-	status = Rok;
-	rp = dnresolve(p, Cin, mf->type, req, nil, 0, Recurse, rooted, &status);
+	rcode = Rok;
+	rp = dnresolve(p, Cin, mf->type, req, nil, 0, Recurse, rooted, &rcode);
 
 	neg = rrremneg(&rp);
 	if(neg){
-		status = neg->negrcode;
+		rcode = neg->negrcode;
 		rrfreelist(neg);
 	}
 
-	return respond(job, mf, rp, errbuf, status, wantsav);
+	return respond(job, mf, rp, errbuf, rcode, wantsav);
 }
 
 static char *
-respond(Job *job, Mfile *mf, RR *rp, char *errbuf, int status, int wantsav)
+respond(Job *job, Mfile *mf, RR *rp, char *errbuf, int rcode, int wantsav)
 {
 	long n;
 	RR *tp;
 
 	if(rp == nil)
-		switch(status){
+		switch(rcode){
 		case Rname:
 			return "name does not exist";
 		case Rserver:
@@ -766,7 +766,8 @@ respond(Job *job, Mfile *mf, RR *rp, char *errbuf, int status, int wantsav)
 		case Rok:
 		default:
 			snprint(errbuf, ERRMAX,
-				"resource does not exist; negrcode %d", status);
+				"resource does not exist; negrcode %d (%s)",
+					rcode, rcname(rcode));
 			return errbuf;
 		}
 
@@ -874,8 +875,7 @@ logreply(int id, char *rcvd, uchar *addr, DNSmsg *mp)
 
 	if(!debug)
 		return;
-
-	dnslog("%d: %s %I flags:%s%s%s%s%s", id, rcvd, addr,
+	dnslog("%d: %s %I %s (%s%s%s%s%s)", id, rcvd, addr, rcname(getercode(mp)),
 		mp->flags & Fauth? " auth": "",
 		mp->flags & Ftrunc? " trunc": "",
 		mp->flags & Frecurse? " rd": "",

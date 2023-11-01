@@ -14,18 +14,12 @@ char mntpt[Maxpath];
 int aflag = 0;
 int addresses = 0;
 
-char Ebotch[] = "dns botch";
-
 char*
 resolve(char *name, int type)
 {
-	int status;
-	char *errmsg;
+	int rcode;
 	Request req;
 	RR *rr, *rp, *neg;
-
-	status = Rok;
-	errmsg = nil;
 
 	memset(&req, 0, sizeof req);
 	getactivity(&req);
@@ -33,15 +27,11 @@ resolve(char *name, int type)
 	req.isslave = 1;
 	req.from = argv0;
 
-	rr = dnresolve(name, Cin, type, &req, nil, 0, Recurse, 0, &status);
+	rcode = Rok;
+	rr = dnresolve(name, Cin, type, &req, nil, 0, Recurse, 0, &rcode);
 	neg = rrremneg(&rr);
-	if(rr == nil || neg != nil){
-		if(neg != nil)
-			status = neg->negrcode;
-		errmsg = Ebotch;
-		if(status > 0 && status < nrname)
-			errmsg = rname[status];
-	}
+	if(neg != nil)
+		rcode = neg->negrcode;
 
 	rrfreelist(neg);
 
@@ -55,7 +45,7 @@ resolve(char *name, int type)
 	rrfreelist(rr);
 	putactivity(&req);
 
-	return errmsg;
+	return rcode!=Rok? rcname(rcode): nil;
 }
 
 void

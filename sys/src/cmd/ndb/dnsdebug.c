@@ -109,10 +109,10 @@ longtime(long t)
 int
 prettyrrfmt(Fmt *f)
 {
-	int rv;
-	char *strp, *t, buf[32];
+	char tname[32], *strp, *t;
 	Fmt fstr;
 	RR *rp;
+	int rv;
 
 	fmtstrinit(&fstr);
 	rp = va_arg(f->args, RR*);
@@ -123,7 +123,7 @@ prettyrrfmt(Fmt *f)
 	else
 		rv = fmtprint(f, "%-32.32s %-15.15s %-5.5s%s",
 			rp->owner->name, longtime(rp->ttl),
-			rrname(rp->type, buf, sizeof buf), t);
+			rrname(rp->type, tname, sizeof tname), t);
 	free(strp);
 	return rv;
 }
@@ -141,34 +141,10 @@ logsection(char *flag, RR *rp)
 void
 logreply(int id, char *rcvd, uchar *addr, DNSmsg *mp)
 {
+	char tname[32];
 	RR *rp;
-	char buf[12], resp[32];
 
-	switch(mp->flags & Rmask){
-	case Rok:
-		strcpy(resp, "OK");
-		break;
-	case Rformat:
-		strcpy(resp, "Format error");
-		break;
-	case Rserver:
-		strcpy(resp, "Server failed");
-		break;
-	case Rname:
-		strcpy(resp, "Nonexistent");
-		break;
-	case Runimplimented:
-		strcpy(resp, "Unimplemented");
-		break;
-	case Rrefused:
-		strcpy(resp, "Refused");
-		break;
-	default:
-		sprint(resp, "%d", mp->flags & Rmask);
-		break;
-	}
-
-	print("%d: %s %I %s (%s%s%s%s%s)\n", id, rcvd, addr, resp,
+	print("%d: %s %I %s (%s%s%s%s%s)\n", id, rcvd, addr, rcname(getercode(mp)),
 		mp->flags & Fauth? "authoritative": "",
 		mp->flags & Ftrunc? " truncated": "",
 		mp->flags & Frecurse? " recurse": "",
@@ -176,7 +152,7 @@ logreply(int id, char *rcvd, uchar *addr, DNSmsg *mp)
 		(mp->flags & (Fauth|Rmask)) == (Fauth|Rname)? " nx": "");
 	for(rp = mp->qd; rp != nil; rp = rp->next)
 		print("\tQ:    %s %s\n", rp->owner->name,
-			rrname(rp->type, buf, sizeof buf));
+			rrname(rp->type, tname, sizeof tname));
 	logsection("Ans:  ", mp->an);
 	logsection("Auth: ", mp->ns);
 	logsection("Hint: ", mp->ar);

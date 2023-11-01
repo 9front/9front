@@ -36,8 +36,7 @@ static struct {
 } dnvars;
 
 /* names of RR types */
-static char *rrtname[] =
-{
+static char *rrnametab[] = {
 [Ta]		"ip",
 [Tns]		"ns",
 [Tmd]		"md",
@@ -102,8 +101,7 @@ static char *rrtname[] =
 };
 
 /* names of response codes */
-char *rname[Rmask+1] =
-{
+static char *rcnametab[] = {
 [Rok]			"ok",
 [Rformat]		"format error",
 [Rserver]		"server failure",
@@ -122,16 +120,6 @@ char *rname[Rmask+1] =
 [Rbadmode]		"bad mode",
 [Rbadname]		"duplicate key name",
 [Rbadalg]		"bad algorithm",
-};
-unsigned nrname = nelem(rname);
-
-/* names of op codes */
-char *opname[] =
-{
-[Oquery]	"query",
-[Oinverse]	"inverse query (retired)",
-[Ostatus]	"status",
-[Oupdate]	"update",
 };
 
 int maxage = Defmaxage;
@@ -718,9 +706,7 @@ rrattach(RR *rp, int auth)
 	for(; rp; rp = next){
 		next = rp->next;
 		rp->next = nil;
-		if(rp->type == Tall
-		|| rp->type == Topt
-		|| !rrsupported(rp->type)
+		if(rp->type == Tall || rp->type == Topt || !rrsupported(rp->type)
 		|| cfg.cachedb && !rp->db && inmyarea(rp->owner->name))
 			rrfree(rp);
 		else
@@ -981,8 +967,8 @@ rrtype(char *atype)
 {
 	int i;
 
-	for(i = 0; i < nelem(rrtname); i++)
-		if(rrtname[i] && strcmp(rrtname[i], atype) == 0)
+	for(i = 0; i < nelem(rrnametab); i++)
+		if(rrnametab[i] && strcmp(rrnametab[i], atype) == 0)
 			return i;
 
 	/* make any a synonym for all */
@@ -1000,9 +986,9 @@ rrtype(char *atype)
 int
 rrsupported(int type)
 {
-	if(type < 0 || type >= nelem(rrtname))
+	if(type < 0 || type >= nelem(rrnametab))
 		return 0;
-	return rrtname[type] != nil;
+	return rrnametab[type] != nil;
 }
 
 /*
@@ -1188,7 +1174,7 @@ rrfmt(Fmt *f)
 		rrname(rp->type, buf, sizeof buf));
 
 	if(rp->negative){
-		fmtprint(&fstr, "\tnegative - rcode %d", rp->negrcode);
+		fmtprint(&fstr, "\tnegative - rcode %d %s", rp->negrcode, rcname(rp->negrcode));
 		goto out;
 	}
 
@@ -1826,6 +1812,21 @@ copyserverlist(Server *s)
 
 
 /* from here down is copied to ip/snoopy/dns.c periodically to update it */
+/*
+ *  convert a integer response code to ascii name
+ */
+char*
+rcname(int rcode)
+{
+	char *s;
+
+	s = nil;
+	if(rcode >= 0 && rcode < nelem(rcnametab))
+		s = rcnametab[rcode];
+	if(s==nil)
+		s = "";
+	return s;
+}
 
 /*
  *  convert an integer RR type to it's ascii name
@@ -1833,16 +1834,16 @@ copyserverlist(Server *s)
 char*
 rrname(int type, char *buf, int len)
 {
-	char *t;
+	char *s;
 
-	t = nil;
-	if(type >= 0 && type < nelem(rrtname))
-		t = rrtname[type];
-	if(t==nil){
+	s = nil;
+	if(type >= 0 && type < nelem(rrnametab))
+		s = rrnametab[type];
+	if(s==nil){
 		snprint(buf, len, "%d", type);
-		t = buf;
+		s = buf;
 	}
-	return t;
+	return s;
 }
 
 /*

@@ -6,56 +6,41 @@
 static RR*	doextquery(DNSmsg*, Request*, int);
 static void	hint(RR**, RR*);
 
-static void
-setflags(DNSmsg *repp, int rcode, int flags)
-{
-	if(repp->edns){
-		repp->edns->eflags = (rcode >> 4) << 24;
-		rcode &= 15;
-	}
-	rcode &= Rmask;
-	flags &= ~Rmask;
-	repp->flags |= rcode | flags;
-}
-
 /*
  *  answer a dns request
  */
 void
 dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 {
-	int recursionflag;
-	char *cp, *errmsg;
-	char tname[32];
-	DN *nsdp, *dp;
+	char tname[32], *cp;
+	DN *nsdp;
 	Area *myarea;
-	RR *tp, *neg, *rp;
+	RR *rp, *neg;
 
-	recursionflag = cfg.nonrecursive? 0: Fcanrec;
 	repp->id = reqp->id;
-	repp->flags = Fresp | recursionflag | Oquery;
+	repp->flags = Fresp | (reqp->flags & Omask);
+	if(!cfg.nonrecursive && (reqp->flags & Omask) == Oquery)
+		repp->flags |= Fcanrec;
+	setercode(repp, Rok);
 
 	/* move one question from reqp to repp */
-	tp = reqp->qd;
-	reqp->qd = tp->next;
-	tp->next = nil;
-	repp->qd = tp;
+	rp = reqp->qd;
+	reqp->qd = rp->next;
+	rp->next = nil;
+	repp->qd = rp;
 
-	if (rcode) {
-		errmsg = "";
-		if (rcode >= 0 && rcode < nrname)
-			errmsg = rname[rcode];
-		dnslog("%d: server: response code 0%o (%s), req from %I",
-			req->id, rcode, errmsg, srcip);
+	if(rcode){
+		dnslog("%d: server: response code %d %s, req from %I",
+			req->id, rcode, rcname(rcode), srcip);
 		/* provide feedback to clients who send us trash */
-		setflags(repp, rcode, Fresp | Fcanrec | Oquery);
+		setercode(repp, rcode);
 		return;
 	}
 	if(repp->qd->type == Topt || !rrsupported(repp->qd->type)){
 		if(debug)
 			dnslog("%d: server: unsupported request %s from %I",
 				req->id, rrname(repp->qd->type, tname, sizeof tname), srcip);
-		setflags(repp, Runimplimented, Fresp | Fcanrec | Oquery);
+		setercode(repp, Runimplimented);
 		return;
 	}
 
@@ -63,44 +48,41 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 		if(debug)
 			dnslog("%d: server: unsupported class %d from %I",
 				req->id, repp->qd->owner->class, srcip);
-		setflags(repp, Runimplimented, Fresp | Fcanrec | Oquery);
+		setercode(repp, Runimplimented);
 		return;
 	}
 
 	myarea = inmyarea(repp->qd->owner->name);
-	if(myarea != nil) {
+	if(myarea){
 		if(repp->qd->type == Tixfr || repp->qd->type == Taxfr){
 			if(debug)
 				dnslog("%d: server: unsupported xfr request %s for %s from %I",
 					req->id, rrname(repp->qd->type, tname, sizeof tname),
 					repp->qd->owner->name, srcip);
-			setflags(repp, Runimplimented, Fresp | recursionflag | Oquery);
+			setercode(repp, Runimplimented);
 			return;
 		}
 	}
 	if(myarea == nil && cfg.nonrecursive) {
 		/* we don't recurse and we're not authoritative */
-		setflags(repp, Rok, Fresp | Oquery);
+		repp->flags &= ~(Fauth|Fcanrec);
 		neg = nil;
 	} else {
+		int recurse = (reqp->flags & Frecurse) && (repp->flags & Fcanrec);
+
 		/*
 		 *  get the answer if we can, in *repp
 		 */
-		if(reqp->flags & Frecurse)
-			neg = doextquery(repp, req, Recurse);
-		else
-			neg = doextquery(repp, req, Dontrecurse);
+		neg = doextquery(repp, req, recurse? Recurse: Dontrecurse);
 
 		/* authority is transitive */
-		if(myarea != nil || (repp->an && repp->an->auth))
+		if(myarea || (repp->an && repp->an->auth))
 			repp->flags |= Fauth;
 
 		/* pass on error codes */
-		if(repp->an == nil){
-			dp = dnlookup(repp->qd->owner->name, repp->qd->owner->class, 0);
-			if(dp->rr == nil)
-				if(reqp->flags & Frecurse)
-					setflags(repp, dp->respcode, Fauth);
+		if(recurse && repp->an == nil && repp->qd->owner->rr == nil){
+			repp->flags |= Fauth;
+			setercode(repp, repp->qd->owner->respcode);
 		}
 	}
 
@@ -124,9 +106,6 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 				break;
 			}
 
-			if(strncmp(nsdp->name, "local#", 6) == 0)
-				dnslog("%d: returning %s as nameserver",
-					req->id, nsdp->name);
 			repp->ns = dblookup(cp, repp->qd->owner->class, Tns, 0, 0);
 			if(repp->ns)
 				break;
@@ -137,10 +116,10 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 	 *  add ip addresses as hints
 	 */
 	if(repp->qd->type != Taxfr && repp->qd->type != Tixfr){
-		for(tp = repp->ns; tp; tp = tp->next)
-			hint(&repp->ar, tp);
-		for(tp = repp->an; tp; tp = tp->next)
-			hint(&repp->ar, tp);
+		for(rp = repp->ns; rp; rp = rp->next)
+			hint(&repp->ar, rp);
+		for(rp = repp->an; rp; rp = rp->next)
+			hint(&repp->ar, rp);
 	}
 
 	/*
@@ -148,15 +127,15 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 	 *  with negative caching
 	 */
 	if(repp->an == nil){
-		if(myarea != nil){
-			rrcopy(myarea->soarr, &tp);
-			rrcat(&repp->ns, tp);
+		if(myarea){
+			rrcopy(myarea->soarr, &rp);
+			rrcat(&repp->ns, rp);
 		} else if(neg != nil) {
 			if(neg->negsoaowner != nil) {
-				tp = rrlookup(neg->negsoaowner, Tsoa, NOneg);
-				rrcat(&repp->ns, tp);
+				rp = rrlookup(neg->negsoaowner, Tsoa, NOneg);
+				rrcat(&repp->ns, rp);
 			}
-			setflags(repp, neg->negrcode, repp->flags);
+			setercode(repp, neg->negrcode);
 		}
 	}
 

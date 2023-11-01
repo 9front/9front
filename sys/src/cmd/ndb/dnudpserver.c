@@ -120,7 +120,7 @@ restart:
 		served++;
 		stats.qrecvdudp++;
 
-		rcode = 0;
+		rcode = Rok;
 		err = convM2DNS(&pkt[Udphdrsize], len, &reqmsg, &rcode);
 		if(err){
 			/* first bytes in buf are source IP addr */
@@ -129,7 +129,7 @@ restart:
 			free(err);
 			goto freereq;
 		}
-		if (rcode == 0)
+		if(rcode == Rok)
 			if(reqmsg.qdcount < 1){
 				dnslog("%d: server: no questions from %s",
 					req.id, caller);
@@ -161,16 +161,15 @@ restart:
 
 		/* determine response size */
 		len = 512;	/* default */
-		if((reqmsg.edns = getednsopt(&reqmsg)) != nil){
-			if(reqmsg.edns->eflags & Evers)
-				rcode = Rbadvers;
-			edns = mkednsopt();
-			len = Maxudp;
-			if(edns->udpsize < len)
-				len = edns->udpsize;
-			if(reqmsg.edns->udpsize < len)
-				len = reqmsg.edns->udpsize;
-		}
+		if(rcode == Rok)
+			if((reqmsg.edns = getednsopt(&reqmsg, &rcode)) != nil){
+				edns = mkednsopt();
+				len = Maxudp;
+				if(edns->udpsize < len)
+					len = edns->udpsize;
+				if(reqmsg.edns->udpsize < len)
+					len = reqmsg.edns->udpsize;
+			}
 
 		/* loop through each question */
 		while(reqmsg.qd){
@@ -204,8 +203,7 @@ reply(int fd, uchar *pkt, int len, DNSmsg *rep, Request *req)
 	len = convDNS2M(rep, &pkt[Udphdrsize], len);
 	len += Udphdrsize;
 	if(write(fd, pkt, len) != len)
-		dnslog("%d: error sending reply to %I: %r",
-			req->id, pkt);
+		dnslog("%d: error sending reply to %I: %r", req->id, pkt);
 }
 
 /*

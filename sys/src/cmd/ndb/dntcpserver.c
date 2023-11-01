@@ -81,7 +81,7 @@ dntcpserver(char *mntpt, char *addr)
 
 		stats.qrecvdtcp++;
 
-		rcode = 0;
+		rcode = Rok;
 		err = convM2DNS(pkt+2, len, &reqmsg, &rcode);
 		if(err){
 			dnslog("%d: server: input err, len %d: %s from %s",
@@ -89,7 +89,7 @@ dntcpserver(char *mntpt, char *addr)
 			free(err);
 			break;
 		}
-		if(rcode == 0)
+		if(rcode == Rok)
 			if(reqmsg.qdcount < 1){
 				dnslog("%d: server: no questions from %s",
 					req.id, caller);
@@ -113,11 +113,9 @@ dntcpserver(char *mntpt, char *addr)
 		logrequest(req.id, 0, "rcvd", callip, caller,
 			reqmsg.qd->owner->name, reqmsg.qd->type);
 
-		if((reqmsg.edns = getednsopt(&reqmsg)) != nil){
-			if(reqmsg.edns->eflags & Evers)
-				rcode = Rbadvers;
-			edns = mkednsopt();
-		}
+		if(rcode == Rok)
+			if((reqmsg.edns = getednsopt(&reqmsg, &rcode)) != nil)
+				edns = mkednsopt();
 
 		/* loop through each question */
 		while(reqmsg.qd){
@@ -222,6 +220,7 @@ dnzone(int fd, uchar *pkt, DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *call
 	repp->flags = Fauth | Fresp | Oquery;
 	if(!cfg.nonrecursive)
 		repp->flags |= Fcanrec;
+	setercode(repp, Rok);
 	dp = repp->qd->owner;
 
 	/* send the soa */

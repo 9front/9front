@@ -15,10 +15,11 @@ dnnotify(DNSmsg *reqp, DNSmsg *repp, Request *req)
 	/* move one question from reqp to repp */
 	tp = reqp->qd;
 	reqp->qd = tp->next;
-	tp->next = 0;
+	tp->next = nil;
 	repp->qd = tp;
 	repp->id = reqp->id;
 	repp->flags = Fresp  | Onotify | Fauth;
+	setercode(repp, Rok);
 
 	/* make sure its the right type */
 	if(repp->qd->type != Tsoa)

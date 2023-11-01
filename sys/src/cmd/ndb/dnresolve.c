@@ -103,7 +103,7 @@ rrfreelistptr(RR **rpp)
  */
 RR*
 dnresolve(char *name, int class, int type, Request *req, RR **cn, int depth,
-	int recurse, int rooted, int *status)
+	int recurse, int rooted, int *rcode)
 {
 	RR *rp, *nrp, *drp;
 	DN *dp;
@@ -111,8 +111,8 @@ dnresolve(char *name, int class, int type, Request *req, RR **cn, int depth,
 	char *procname;
 	char nname[Domlen];
 
-	if(status)
-		*status = Rok;
+	if(rcode)
+		*rcode = Rok;
 
 	if(depth > 12)			/* in a recursive loop? */
 		return nil;
@@ -129,7 +129,7 @@ dnresolve(char *name, int class, int type, Request *req, RR **cn, int depth,
 			snprint(nname, sizeof nname, "%s.%s", name,
 				nrp->ptr->name);
 			rp = dnresolve(nname, class, type, req, cn, depth+1,
-				recurse, rooted, status);
+				recurse, rooted, rcode);
 			rrfreelist(rrremneg(&rp));
 		}
 		if(drp != nil)
@@ -174,8 +174,8 @@ dnresolve(char *name, int class, int type, Request *req, RR **cn, int depth,
 			}
 
 		/* distinction between not found and not good */
-		if(rp == nil && status != nil && dp->respcode != Rok)
-			*status = dp->respcode;
+		if(rp == nil && rcode != nil && dp->respcode != Rok)
+			*rcode = dp->respcode;
 	}
 	procsetname("%s", procname);
 	free(procname);
@@ -500,24 +500,47 @@ initdnsmsg(DNSmsg *mp, RR *rp, int flags, ushort reqno)
 }
 
 RR*
-getednsopt(DNSmsg *mp)
+getednsopt(DNSmsg *mp, int *rcode)
 {
 	RR *rp, *x;
 
 	rp = rrremtype(&mp->ar, Topt);
 	if(rp == nil)
 		return nil;
+
 	mp->arcount--;
 	while((x = rp->next) != nil){
 		rp->next = x->next;
 		rrfree(x);
 		mp->arcount--;
+		*rcode = Rformat;
 	}
+
+	if(rp->eflags & Evers)
+		*rcode = Rbadvers;
 
 	if(rp->udpsize < 512)
 		rp->udpsize = 512;
 
 	return rp;
+}
+
+int
+getercode(DNSmsg *mp)
+{
+	if(mp->edns == nil)
+		return mp->flags & Rmask;
+	return (mp->flags & 0xF) | (mp->edns->eflags & Ercode) >> 20;
+}
+
+void
+setercode(DNSmsg *mp, int rcode)
+{
+	if(mp->edns){
+		mp->edns->eflags = (mp->edns->eflags & ~Ercode) | ((rcode << 20) & Ercode);
+		rcode &= 0xF;
+	}
+	mp->flags = (mp->flags & ~Rmask) | (rcode & Rmask);
 }
 
 RR*
@@ -897,14 +920,6 @@ cacheneg(DN *dp, int type, int rcode, RR *soarr)
 	rrattach(rp, Authoritative);
 }
 
-/* is mp a cachable negative response (with Rname set)? */
-static int
-isnegrname(DNSmsg *mp)
-{
-	/* TODO: could add || cfg.justforw to RHS of && */
-	return mp->an == nil && (mp->flags & Rmask) == Rname;
-}
-
 static int
 filterhints(RR *rp, void *arg)
 {
@@ -974,19 +989,19 @@ procansw(Query *qp, Dest *p, DNSmsg *mp)
 	if(mp->an == nil)
 		stats.negans++;
 
-	/* get the rcode */
-	rcode = mp->flags & Rmask;
-
-	/* get extended rcode from edns */
-	if((tp = getednsopt(mp)) != nil){
-		rcode = (rcode & 15) | (tp->eflags & Ercode) >> 20;
-		rrfreelist(tp);
-	}
+	/* get extended rcode */
+	rcode = Rok;
+	mp->edns = getednsopt(mp, &rcode);
+	if(rcode == Rok)
+		rcode = getercode(mp);
+	rrfreelistptr(&mp->edns);
 
 	/* ignore any error replies */
 	switch(rcode){
+	case Rformat:
 	case Rrefused:
 	case Rserver:
+	case Rbadvers:
 		stats.negserver++;
 		freeanswers(mp);
 		p->code = Rserver;
@@ -1065,7 +1080,7 @@ procansw(Query *qp, Dest *p, DNSmsg *mp)
 	 *  A negative response now also terminates the search.
 	 */
 	if(mp->an || (mp->flags & Fauth) && mp->ns == nil){
-		if(isnegrname(mp))
+		if(mp->an == nil && rcode == Rname)
 			qp->dp->respcode = Rname;
 		else
 			qp->dp->respcode = Rok;
@@ -1080,7 +1095,7 @@ procansw(Query *qp, Dest *p, DNSmsg *mp)
 		else
 			rrfreelist(soarr);
 		return 1;
-	} else if (isnegrname(mp)) {
+	} else if (mp->an == nil && rcode == Rname) {
 		qp->dp->respcode = Rname;
 		/*
 		 *  cache negative response.
@@ -1279,16 +1294,11 @@ udpqueryns(Query *qp, int fd, uchar *pkt)
 			if(readreply(qp, Udp, fd, endms, &m, srcip) < 0)
 				break;
 
-			if(debug)
-				dnslog("%d: got reply from %I", qp->req->id, srcip);
-
 			/* find responder */
 			for(p = dest; p < edest; p++)
 				if(ipcmp(p->a, srcip) == 0)
 					break;
 			if(p >= edest){
-				dnslog("%d: response from %I but no destination",
-					qp->req->id, srcip);
 				freeanswers(&m);
 				continue;
 			}

@@ -118,7 +118,7 @@ enum
 	/* EDNS flags (eflags) */
 	Ercode=		0xff<<24,
 	Evers=		0xff<<16,
-	Ednssecok=	1<<15,
+	Edo=		1<<15,	/* DNSSEC ok */
 
 	Domlen=		256,	/* max domain name length (with NULL) */
 	Labellen=	64,	/* max domain label length (with NULL) */
@@ -434,10 +434,6 @@ extern uvlong	nowms;		/* time base milliseconds */
 extern int	maxage;		/* age of oldest entry in cache (secs) */
 extern ulong	target;
 
-extern char	*rname[];
-extern unsigned	nrname;
-extern char	*opname[];
-
 RR*	getdnsservers(int);
 
 void	abort(); /* char*, ... */;
@@ -463,6 +459,7 @@ void	freeserverlist(Server*);
 void	getactivity(Request*);
 void	putactivity(Request*);
 RR*	randomize(RR*);
+char*	rcname(int);
 RR*	rralloc(int);
 void	rrattach(RR*, int);
 int	rravfmt(Fmt*);
@@ -512,7 +509,9 @@ RR*	dnresolve(char*, int, int, Request*, RR**, int, int, int, int*);
 int	udpport(char *);
 int	mkreq(DN*, int type, uchar *pkt, int flags, ushort);
 RR*	mkednsopt(void);
-RR*	getednsopt(DNSmsg*);
+RR*	getednsopt(DNSmsg*, int*);
+int	getercode(DNSmsg*);
+void	setercode(DNSmsg*, int);
 
 /* dnserver.c */
 void	dnserver(DNSmsg*, DNSmsg*, Request*, uchar *, int);
