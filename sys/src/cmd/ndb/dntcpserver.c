@@ -216,10 +216,8 @@ dnzone(int fd, uchar *pkt, DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *call
 	repp->id = reqp->id;
 	repp->qd = reqp->qd;
 	reqp->qd = reqp->qd->next;
-	repp->qd->next = 0;
+	repp->qd->next = nil;
 	repp->flags = Fauth | Fresp | Oquery;
-	if(!cfg.nonrecursive)
-		repp->flags |= Fcanrec;
 	setercode(repp, Rok);
 	dp = repp->qd->owner;
 
@@ -233,12 +231,10 @@ dnzone(int fd, uchar *pkt, DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *call
 		repp->an = nil;
 	}
 	rv = reply(fd, pkt, repp, req, callip);
-	if(repp->an == nil)
+	if(rv < 0 || repp->an == nil)
 		goto out;
 	rrfreelist(repp->an);
 	repp->an = nil;
-	if(rv < 0)
-		goto out;
 
 	repp->an = rrgetzone(dp->name);
 	while(repp->an != nil) {
@@ -254,9 +250,9 @@ dnzone(int fd, uchar *pkt, DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *call
 	/* resend the soa */
 	repp->an = rrlookup(dp, Tsoa, NOneg);
 	rv = reply(fd, pkt, repp, req, callip);
+out:
 	rrfreelist(repp->an);
 	repp->an = nil;
-out:
 	rrfree(repp->qd);
 	repp->qd = nil;
 	return rv;
