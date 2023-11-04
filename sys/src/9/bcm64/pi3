@@ -13,6 +13,7 @@ dev
 	tls
 	cap
 	fs
+	ether	netif
 	bridge	log
 	ip	arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium inferno
 	draw	screen swcursor
@@ -27,6 +28,7 @@ dev
 link
 	archbcm3
 	usbdwc
+#	ether4330
 	ethermedium
 	loopbackmedium 
 	netdevmedium

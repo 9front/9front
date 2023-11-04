@@ -38,8 +38,8 @@ link
 	netdevmedium
 #	i2cbcm		devi2c
 	i2cgpio		devi2c gpio
-	sdhc
 	emmc
+	sdhc
 
 ip
 	tcp
@@ -54,7 +54,7 @@ ip
 misc
 	uartmini
 	uartpl011
-	sdmmc	sdhc emmc
+	sdmmc	emmc sdhc
 	dma
 	gic
 	vcore
