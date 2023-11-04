@@ -451,8 +451,8 @@ sdioinit(Ctlr *ctl)
 	int i;
 
 	if(ctl->sdio == nil){
-		/* take over /dev/sdN (emmc) */
-		ctl->sdio = annexsdio("N");
+		/* take over /dev/sdM (emmc) */
+		ctl->sdio = annexsdio("M");
 
 		/* disconnect emmc from SD card (connect sdhost instead) */
 		for(i = 48; i <= 53; i++)
