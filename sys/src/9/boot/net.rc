@@ -13,7 +13,7 @@ fn wifi{
 			if not {
 				x=($x -p)		
 			}
-			$x $1
+			$x $wpaopts $1
 		}
 		essid=()
 		rm -f /env/^(essid wpapsk)
