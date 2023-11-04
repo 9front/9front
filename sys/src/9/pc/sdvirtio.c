@@ -683,7 +683,6 @@ SDifc sdvirtioifc = {
 	"virtio",			/* name */
 
 	viopnp,				/* pnp */
-	nil,				/* legacy */
 	vioenable,			/* enable */
 	viodisable,			/* disable */
 

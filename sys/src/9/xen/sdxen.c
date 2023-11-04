@@ -339,7 +339,6 @@ SDifc sdxenifc = {
 	"xen",				/* name */
 
 	xenpnp,				/* pnp */
-	0,			/* legacy */
 	0,			/* enable */
 	0,			/* disable */
 

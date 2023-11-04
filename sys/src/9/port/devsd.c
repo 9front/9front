@@ -110,6 +110,20 @@ freeunit(SDunit *unit)
 }
 
 static void
+freesdev(SDev *sdev)
+{
+	int i;
+
+	/* free units and their files */
+	for(i = 0; i < sdev->nunit; i++)
+		freeunit(sdev->unit[i]);
+
+	free(sdev->unitflg);
+	free(sdev->unit);
+	free(sdev);
+}
+
+static void
 sdaddpart(SDunit* unit, char* name, uvlong start, uvlong end)
 {
 	SDpart *pp;
@@ -393,7 +407,7 @@ sdadddevs(SDev *sdev)
 			continue;
 		}
 		id = sdindex(sdev->idno);
-		if(id == -1){
+		if(id < 0){
 			print("sdadddevs: bad id number %d (%C)\n", id, id);
 			goto giveup;
 		}
@@ -1653,13 +1667,7 @@ unconfigure(char* spec)
 	if(sdev->ifc->clear != nil)
 		(*sdev->ifc->clear)(sdev);
 
-	/* free units and their files */
-	for(i = 0; i < sdev->nunit; i++)
-		freeunit(sdev->unit[i]);
-
-	free(sdev->unitflg);
-	free(sdev->unit);
-	free(sdev);
+	freesdev(sdev);
 
 	return 0;
 }
@@ -1717,6 +1725,46 @@ sdshutdown(void)
 		}
 		(*sdev->ifc->disable)(sdev);
 	}
+}
+
+/*
+ *  find a SDdev, make sure its enabled and free it,
+ *  returning its controller. This is used by
+ *  annexsdio() to take over sdio from devsd.
+ */
+void*
+sdannexctlr(char *spec, SDifc *ifc)
+{
+	int i;
+	SDev *sdev;
+	void *ctlr;
+
+	if((i = sdindex(*spec)) < 0)
+		error(Enonexist);
+
+	qlock(&devslock);
+	if((sdev = devs[i]) == nil){
+		qunlock(&devslock);
+		error(Enonexist);
+	}
+	if(sdev->ifc != ifc){
+		qunlock(&devslock);
+		error(Enonexist);
+	}
+	if(sdev->r.ref){
+		qunlock(&devslock);
+		error(Einuse);
+	}
+	devs[i] = nil;
+	qunlock(&devslock);
+
+	if(!sdev->enabled && ifc->enable != nil)
+		(*ifc->enable)(sdev);
+
+	ctlr = sdev->ctlr;
+	freesdev(sdev);
+
+	return ctlr;
 }
 
 Dev sddevtab = {

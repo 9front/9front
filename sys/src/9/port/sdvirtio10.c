@@ -792,7 +792,6 @@ SDifc sdvirtio10ifc = {
 	"virtio10",			/* name */
 
 	viopnp,				/* pnp */
-	nil,				/* legacy */
 	vioenable,			/* enable */
 	viodisable,			/* disable */
 

@@ -32,13 +32,14 @@ link
 	archbcm4	pci
 	usbxhcipci	pci usbxhci archbcm4 
 	ethergenet	ethermii
-	ether4330	emmc
+	ether4330
 	ethermedium
 	loopbackmedium
 	netdevmedium
-	sdhc
 #	i2cbcm		devi2c
 	i2cgpio		devi2c gpio
+	sdhc
+	emmc
 
 ip
 	tcp
@@ -53,7 +54,7 @@ ip
 misc
 	uartmini
 	uartpl011
-	sdmmc	sdhc
+	sdmmc	sdhc emmc
 	dma
 	gic
 	vcore

@@ -7,7 +7,6 @@
 #include "mem.h"
 #include "dat.h"
 #include "fns.h"
-#include "io.h"
 #include "../port/error.h"
 #include "../port/netif.h"
 #include "../port/sd.h"
@@ -15,11 +14,8 @@
 
 #define CACHELINESZ 64	/* temp */
 
-extern SDio	sdio;
-extern int	sdiocardintr(int);
-
-SDiocmd IO_SEND_OP_COND	= {  5, 3, 0, 0, "IO_SEND_OP_COND" };
-SDiocmd IO_RW_DIRECT	= { 52, 1, 0, 0, "IO_RW_DIRECT" };
+static SDiocmd IO_SEND_OP_COND	= {  5, 3, 0, 0, "IO_SEND_OP_COND" };
+static SDiocmd IO_RW_DIRECT	= { 52, 1, 0, 0, "IO_RW_DIRECT" };
 
 enum{
 	SDIODEBUG = 0,
@@ -152,11 +148,14 @@ typedef struct WKey WKey;
 struct WKey
 {
 	ushort	len;
-	char	dat[WKeyLen];
+	uchar	dat[WKeyLen];
 };
 
 struct Ctlr {
-	Ether*	edev;
+	Ether	*edev;
+	SDio	*sdio;
+	int	iodebug;
+	QLock	sdiolock;
 	QLock	cmdlock;
 	QLock	pktlock;
 	QLock	tlock;
@@ -263,7 +262,7 @@ struct Cmd {
 static char config40181[] = "bcmdhd.cal.40181";
 static char config40183[] = "bcmdhd.cal.40183.26MHz";
 
-struct {
+static struct {
 	int chipid;
 	int chiprev;
 	char *fwfile;
@@ -279,9 +278,6 @@ struct {
 	{ 0x4345, 6, "brcmfmac43455-sdio.bin", "brcmfmac43455-sdio.txt", "brcmfmac43455-sdio.clm_blob" },
 	{ 0x4345, 9, "brcmfmac43456-sdio.bin", "brcmfmac43456-sdio.txt", "brcmfmac43456-sdio.clm_blob" },
 };
-
-static QLock sdiolock;
-static int iodebug;
 
 static void etherbcmintr(void *);
 static void bcmevent(Ctlr*, uchar*, int);
@@ -335,50 +331,43 @@ dump(char *s, void *a, int n)
  * SDIO communication with dongle
  */
 static ulong
-sdiocmd_locked(SDiocmd *cmd, ulong arg)
+sdiocmd(Ctlr *ctl, SDiocmd *cmd, ulong arg)
 {
 	u32int resp[4];
+	SDio *io;
 
-	sdio.cmd(&sdio, cmd, arg, resp);
-	return resp[0];
-}
-
-static ulong
-sdiocmd(SDiocmd *cmd, ulong arg)
-{
-	ulong r;
-
-	qlock(&sdiolock);
+	qlock(&ctl->sdiolock);
 	if(waserror()){
 		if(SDIODEBUG) print("sdiocmd error: cmd %s arg %lux\n", cmd->name, arg);
-		qunlock(&sdiolock);
+		qunlock(&ctl->sdiolock);
 		nexterror();
 	}
-	r = sdiocmd_locked(cmd, arg);
-	qunlock(&sdiolock);
+	io = ctl->sdio;
+	(*io->cmd)(io, cmd, arg, resp);
+	qunlock(&ctl->sdiolock);
 	poperror();
-	return r;
+	return resp[0];
 
 }
 
 static ulong
-trysdiocmd(SDiocmd *cmd, ulong arg)
+trysdiocmd(Ctlr *ctl, SDiocmd *cmd, ulong arg)
 {
 	ulong r;
 
 	if(waserror())
 		return 0;
-	r = sdiocmd(cmd, arg);
+	r = sdiocmd(ctl, cmd, arg);
 	poperror();
 	return r;
 }
 
 static int
-sdiord(int fn, int addr)
+sdiord(Ctlr *ctl, int fn, int addr)
 {
 	int r;
 
-	r = sdiocmd(&IO_RW_DIRECT, (0<<31)|((fn&7)<<28)|((addr&0x1FFFF)<<9));
+	r = sdiocmd(ctl, &IO_RW_DIRECT, (0<<31)|((fn&7)<<28)|((addr&0x1FFFF)<<9));
 	if(r & 0xCF00){
 		print("ether4330: sdiord(%x, %x) fail: %2.2ux %2.2ux\n", fn, addr, (r>>8)&0xFF, r&0xFF);
 		error(Eio);
@@ -387,26 +376,14 @@ sdiord(int fn, int addr)
 }
 
 static void
-sdiowr(int fn, int addr, int data)
+sdiowr(Ctlr *ctl, int fn, int addr, int data)
 {
 	int r;
 	int retry;
-	ulong arg;
 
 	r = 0;
 	for(retry = 0; retry < 10; retry++){
-		arg = (1<<31)|((fn&7)<<28)|((addr&0x1FFFF)<<9)|(data&0xFF);
-		if((arg & ~0xFF) == (1<<31|0<<28|7<<9)){
-			switch(arg&3){
-			case 0:
-				sdio.bus(&sdio, 1, 0);
-				break;
-			case 2:
-				sdio.bus(&sdio, 4, 0);
-				break;
-			}
-		}
-		r = sdiocmd(&IO_RW_DIRECT, arg);
+		r = sdiocmd(ctl, &IO_RW_DIRECT, (1<<31)|((fn&7)<<28)|((addr&0x1FFFF)<<9)|(data&0xFF));
 		if((r & 0xCF00) == 0)
 			return;
 	}
@@ -415,10 +392,12 @@ sdiowr(int fn, int addr, int data)
 }
 
 static void
-sdiorwext(int fn, int write, void *a, int len, int addr, int incr)
+sdiorwext(Ctlr *ctl, int fn, int write, void *a, int len, int addr, int incr)
 {
-	int bsize, blk, bcount, m;
 	SDiocmd cmd = { 53, 1, 0, 0, "IO_RW_EXTENDED" };
+	int bsize, blk, bcount, m;
+	u32int resp[4];
+	SDio *io;
 
 	bsize = fn == Fn2? 512 : 64;
 	while(len > 0){
@@ -435,21 +414,22 @@ sdiorwext(int fn, int write, void *a, int len, int addr, int incr)
 			bcount = len;
 			m = bcount;
 		}
-		qlock(&sdiolock);
+		qlock(&ctl->sdiolock);
 		if(waserror()){
 			print("ether4330: sdiorwext fail: %s\n", up->errstr);
-			qunlock(&sdiolock);
+			qunlock(&ctl->sdiolock);
 			nexterror();
 		}
+		io = ctl->sdio;
 		cmd.data = write? 2 : 1;	/* Host2card : Card2host */
 		if(blk){
 			cmd.data += 2;		/* Multiblock | Blkcnten */
-			sdio.iosetup(&sdio, write, a, bsize, bcount);
+			(*io->iosetup)(io, write, a, bsize, bcount);
 		}else
-			sdio.iosetup(&sdio, write, a, bcount, 1);
-		sdiocmd_locked(&cmd, write<<31 | (fn&7)<<28 | blk<<27 | incr<<26 | (addr&0x1FFFF)<<9 | (bcount&0x1FF));
-		sdio.io(&sdio, write, a, m);
-		qunlock(&sdiolock);
+			(*io->iosetup)(io, write, a, bcount, 1);
+		(*io->cmd)(io, &cmd, write<<31 | (fn&7)<<28 | blk<<27 | incr<<26 | (addr&0x1FFFF)<<9 | (bcount&0x1FF), resp);
+		(*io->io)(io, write, a, m);
+		qunlock(&ctl->sdiolock);
 		poperror();
 		len -= m;
 		a = (char*)a + m;
@@ -459,53 +439,60 @@ sdiorwext(int fn, int write, void *a, int len, int addr, int incr)
 }
 
 static void
-sdioset(int fn, int addr, int bits)
+sdioset(Ctlr *ctl, int fn, int addr, int bits)
 {
-	sdiowr(fn, addr, sdiord(fn, addr) | bits);
+	sdiowr(ctl, fn, addr, sdiord(ctl, fn, addr) | bits);
 }
 	
 static void
-sdioinit(void)
+sdioinit(Ctlr *ctl)
 {
 	ulong ocr, rca;
 	int i;
 
-	/* disconnect emmc from SD card (connect sdhost instead) */
-	for(i = 48; i <= 53; i++)
-		gpiosel(i, Alt0);
-	/* connect emmc to wifi */
-	for(i = 34; i <= 39; i++){
-		gpiosel(i, Alt3);
-		if(i == 34)
-			gpiopulloff(i);
-		else
-			gpiopullup(i);
+	if(ctl->sdio == nil){
+		/* take over /dev/sdN (emmc) */
+		ctl->sdio = annexsdio("N");
+
+		/* disconnect emmc from SD card (connect sdhost instead) */
+		for(i = 48; i <= 53; i++)
+			gpiosel(i, Alt0);
+		/* connect emmc to wifi */
+		for(i = 34; i <= 39; i++){
+			gpiosel(i, Alt3);
+			if(i == 34)
+				gpiopulloff(i);
+			else
+				gpiopullup(i);
+		}
 	}
-	sdio.init(&sdio);
-	sdio.enable(&sdio);
-	sdiocmd(&GO_IDLE_STATE, 0);
-	ocr = trysdiocmd(&IO_SEND_OP_COND, 0);
+	(*ctl->sdio->bus)(ctl->sdio, 1, SDfreq);
+
+	sdiocmd(ctl, &GO_IDLE_STATE, 0);
+	ocr = trysdiocmd(ctl, &IO_SEND_OP_COND, 0);
 	i = 0;
 	while((ocr & (1<<31)) == 0){
 		if(++i > 5){
 			print("ether4330: no response to sdio access: ocr = %lux\n", ocr);
 			error(Eio);
 		}
-		ocr = trysdiocmd(&IO_SEND_OP_COND, V3_3);
+		ocr = trysdiocmd(ctl, &IO_SEND_OP_COND, V3_3);
 		tsleep(&up->sleep, return0, nil, 100);
 	}
-	rca = sdiocmd(&SEND_RELATIVE_ADDR, 0) >> Rcashift;
-	sdiocmd(&SELECT_CARD, rca << Rcashift);
-	sdio.bus(&sdio, 0, SDfreq);
-	sdioset(Fn0, Highspeed, 2);
-	sdioset(Fn0, Busifc, 2);	/* bus width 4 */
-	sdiowr(Fn0, Fbr1+Blksize, 64);
-	sdiowr(Fn0, Fbr1+Blksize+1, 64>>8);
-	sdiowr(Fn0, Fbr2+Blksize, 512);
-	sdiowr(Fn0, Fbr2+Blksize+1, 512>>8);
-	sdioset(Fn0, Ioenable, 1<<Fn1);
-	sdiowr(Fn0, Intenable, 0);
-	for(i = 0; !(sdiord(Fn0, Ioready) & 1<<Fn1); i++){
+	rca = sdiocmd(ctl, &SEND_RELATIVE_ADDR, 0) >> Rcashift;
+	sdiocmd(ctl, &SELECT_CARD, rca << Rcashift);
+	sdioset(ctl, Fn0, Highspeed, 2);
+	sdioset(ctl, Fn0, Busifc, 2);	/* bus width 4 */
+
+	(*ctl->sdio->bus)(ctl->sdio, 4, SDfreqhs);
+
+	sdiowr(ctl, Fn0, Fbr1+Blksize, 64);
+	sdiowr(ctl, Fn0, Fbr1+Blksize+1, 64>>8);
+	sdiowr(ctl, Fn0, Fbr2+Blksize, 512);
+	sdiowr(ctl, Fn0, Fbr2+Blksize+1, 512>>8);
+	sdioset(ctl, Fn0, Ioenable, 1<<Fn1);
+	sdiowr(ctl, Fn0, Intenable, 0);
+	for(i = 0; !(sdiord(ctl, Fn0, Ioready) & 1<<Fn1); i++){
 		if(i == 10){
 			print("ether4330: can't enable SDIO function\n");
 			error(Eio);
@@ -515,15 +502,15 @@ sdioinit(void)
 }
 
 static void
-sdioreset(void)
+sdioreset(Ctlr *ctl)
 {
-	sdiowr(Fn0, Ioabort, 1<<3);	/* reset */
+	sdiowr(ctl, Fn0, Ioabort, 1<<3);	/* reset */
 }
 
 static void
-sdioabort(int fn)
+sdioabort(Ctlr *ctl, int fn)
 {
-	sdiowr(Fn0, Ioabort, fn);
+	sdiowr(ctl, Fn0, Ioabort, fn);
 }
 
 /*
@@ -531,32 +518,32 @@ sdioabort(int fn)
  */
 
 static void
-cfgw(ulong off, int val)
+cfgw(Ctlr *ctl, ulong off, int val)
 {
-	sdiowr(Fn1, off, val);
+	sdiowr(ctl, Fn1, off, val);
 }
 
 static int
-cfgr(ulong off)
+cfgr(Ctlr *ctl, ulong off)
 {
-	return sdiord(Fn1, off);
+	return sdiord(ctl, Fn1, off);
 }
 
 static ulong
-cfgreadl(int fn, ulong off)
+cfgreadl(Ctlr *ctl, int fn, ulong off)
 {
 	uchar cbuf[2*CACHELINESZ];
 	uchar *p;
 
 	p = (uchar*)ROUND((uintptr)cbuf, CACHELINESZ);
 	memset(p, 0, 4);
-	sdiorwext(fn, 0, p, 4, off|Sb32bit, 1);
+	sdiorwext(ctl, fn, 0, p, 4, off|Sb32bit, 1);
 	if(SDIODEBUG) print("cfgreadl %lux: %2.2x %2.2x %2.2x %2.2x\n", off, p[0], p[1], p[2], p[3]);
 	return p[0] | p[1]<<8 | p[2]<<16 | p[3]<<24;
 }
 
 static void
-cfgwritel(int fn, ulong off, u32int data)
+cfgwritel(Ctlr *ctl, int fn, ulong off, u32int data)
 {
 	uchar cbuf[2*CACHELINESZ];
 	uchar *p;
@@ -568,25 +555,25 @@ cfgwritel(int fn, ulong off, u32int data)
 	retry = 0;
 	while(waserror()){
 		print("ether4330: cfgwritel retry %lux %ux\n", off, data);
-		sdioabort(fn);
+		sdioabort(ctl, fn);
 		if(++retry == 3)
 			nexterror();
 	}
-	sdiorwext(fn, 1, p, 4, off|Sb32bit, 1);
+	sdiorwext(ctl, fn, 1, p, 4, off|Sb32bit, 1);
 	poperror();
 }
 
 static void
-sbwindow(ulong addr)
+sbwindow(Ctlr *ctl, ulong addr)
 {
 	addr &= ~(Sbwsize-1);
-	cfgw(Sbaddr, addr>>8);
-	cfgw(Sbaddr+1, addr>>16);
-	cfgw(Sbaddr+2, addr>>24);
+	cfgw(ctl, Sbaddr, addr>>8);
+	cfgw(ctl, Sbaddr+1, addr>>16);
+	cfgw(ctl, Sbaddr+2, addr>>24);
 }
 
 static void
-sbrw(int fn, int write, uchar *buf, int len, ulong off)
+sbrw(Ctlr *ctl, int fn, int write, uchar *buf, int len, ulong off)
 {
 	int n;
 	USED(fn);
@@ -599,13 +586,13 @@ sbrw(int fn, int write, uchar *buf, int len, ulong off)
 		if(len >= 4){
 			n = len;
 			n &= ~3;
-			sdiorwext(Fn1, write, buf, n, off|Sb32bit, 1);
+			sdiorwext(ctl, Fn1, write, buf, n, off|Sb32bit, 1);
 			off += n;
 			buf += n;
 			len -= n;
 		}
 		while(len > 0){
-			sdiowr(Fn1, off|Sb32bit, *buf);
+			sdiowr(ctl, Fn1, off|Sb32bit, *buf);
 			off++;
 			buf++;
 			len--;
@@ -614,13 +601,13 @@ sbrw(int fn, int write, uchar *buf, int len, ulong off)
 		if(len >= 4){
 			n = len;
 			n &= ~3;
-			sdiorwext(Fn1, write, buf, n, off|Sb32bit, 1);
+			sdiorwext(ctl, Fn1, write, buf, n, off|Sb32bit, 1);
 			off += n;
 			buf += n;
 			len -= n;
 		}
 		while(len > 0){
-			*buf = sdiord(Fn1, off|Sb32bit);
+			*buf = sdiord(ctl, Fn1, off|Sb32bit);
 			off++;
 			buf++;
 			len--;
@@ -630,7 +617,7 @@ sbrw(int fn, int write, uchar *buf, int len, ulong off)
 }
 
 static void
-sbmem(int write, uchar *buf, int len, ulong off)
+sbmem(Ctlr *ctl, int write, uchar *buf, int len, ulong off)
 {
 	ulong n;
 
@@ -640,8 +627,8 @@ sbmem(int write, uchar *buf, int len, ulong off)
 	while(len > 0){
 		if(n > len)
 			n = len;
-		sbwindow(off);
-		sbrw(Fn1, write, buf, n, off & (Sbwsize-1));
+		sbwindow(ctl, off);
+		sbrw(ctl, Fn1, write, buf, n, off & (Sbwsize-1));
 		off += n;
 		buf += n;
 		len -= n;
@@ -650,7 +637,7 @@ sbmem(int write, uchar *buf, int len, ulong off)
 }
 
 static void
-packetrw(int write, uchar *buf, int len)
+packetrw(Ctlr *ctl, int write, uchar *buf, int len)
 {
 	int n;
 	int retry;
@@ -661,11 +648,11 @@ packetrw(int write, uchar *buf, int len)
 			n = ROUND(len, 4);
 		retry = 0;
 		while(waserror()){
-			sdioabort(Fn2);
+			sdioabort(ctl, Fn2);
 			if(++retry == 3)
 				nexterror();
 		}
-		sdiorwext(Fn2, write, buf, n, Enumbase, 0);
+		sdiorwext(ctl, Fn2, write, buf, n, Enumbase, 0);
 		poperror();
 		buf += n;
 		len -= n;
@@ -677,39 +664,41 @@ packetrw(int write, uchar *buf, int len)
  */
 
 static void
-sbdisable(ulong regs, int pre, int ioctl)
+sbdisable(Ctlr *ctl, ulong regs, int pre, int ioctl)
 {
-	sbwindow(regs);
-	if((cfgreadl(Fn1, regs + Resetctrl) & 1) != 0){
-		cfgwritel(Fn1, regs + Ioctrl, 3|ioctl);
-		cfgreadl(Fn1, regs + Ioctrl);
+	sbwindow(ctl, regs);
+	if((cfgreadl(ctl, Fn1, regs + Resetctrl) & 1) != 0){
+		cfgwritel(ctl, Fn1, regs + Ioctrl, 3|ioctl);
+		cfgreadl(ctl, Fn1, regs + Ioctrl);
 		return;
 	}
-	cfgwritel(Fn1, regs + Ioctrl, 3|pre);
-	cfgreadl(Fn1, regs + Ioctrl);
-	cfgwritel(Fn1, regs + Resetctrl, 1);
+	cfgwritel(ctl, Fn1, regs + Ioctrl, 3|pre);
+	cfgreadl(ctl, Fn1, regs + Ioctrl);
+	cfgwritel(ctl, Fn1, regs + Resetctrl, 1);
 	microdelay(10);
-	while((cfgreadl(Fn1, regs + Resetctrl) & 1) == 0)
+	while((cfgreadl(ctl, Fn1, regs + Resetctrl) & 1) == 0)
 		;
-	cfgwritel(Fn1, regs + Ioctrl, 3|ioctl);
-	cfgreadl(Fn1, regs + Ioctrl);
+	cfgwritel(ctl, Fn1, regs + Ioctrl, 3|ioctl);
+	cfgreadl(ctl, Fn1, regs + Ioctrl);
 }
 
 static void
-sbreset(ulong regs, int pre, int ioctl)
+sbreset(Ctlr *ctl, ulong regs, int pre, int ioctl)
 {
-	sbdisable(regs, pre, ioctl);
-	sbwindow(regs);
+	sbdisable(ctl, regs, pre, ioctl);
+	sbwindow(ctl, regs);
 	if(SBDEBUG) print("sbreset %#lux %#lux %#lux ->", regs,
-		cfgreadl(Fn1, regs+Ioctrl), cfgreadl(Fn1, regs+Resetctrl));
-	while((cfgreadl(Fn1, regs + Resetctrl) & 1) != 0){
-		cfgwritel(Fn1, regs + Resetctrl, 0);
+		cfgreadl(ctl, Fn1, regs+Ioctrl),
+		cfgreadl(ctl, Fn1, regs+Resetctrl));
+	while((cfgreadl(ctl, Fn1, regs + Resetctrl) & 1) != 0){
+		cfgwritel(ctl, Fn1, regs + Resetctrl, 0);
 		microdelay(40);
 	}
-	cfgwritel(Fn1, regs + Ioctrl, 1|ioctl);
-	cfgreadl(Fn1, regs + Ioctrl);
+	cfgwritel(ctl, Fn1, regs + Ioctrl, 1|ioctl);
+	cfgreadl(ctl, Fn1, regs + Ioctrl);
 	if(SBDEBUG) print("%#lux %#lux\n",
-		cfgreadl(Fn1, regs+Ioctrl), cfgreadl(Fn1, regs+Resetctrl));
+		cfgreadl(ctl, Fn1, regs+Ioctrl),
+		cfgreadl(ctl, Fn1, regs+Resetctrl));
 }
 
 static void
@@ -722,7 +711,7 @@ corescan(Ctlr *ctl, ulong r)
 	buf = sdmalloc(Corescansz);
 	if(buf == nil)
 		error(Enomem);
-	sbmem(0, buf, Corescansz, r);
+	sbmem(ctl, 0, buf, Corescansz, r);
 	coreid = 0;
 	corerev = 0;
 	for(i = 0; i < Corescansz; i += 4){
@@ -788,14 +777,14 @@ ramscan(Ctlr *ctl)
 
 	if(ctl->armcore == ARMcr4){
 		r = ctl->armregs;
-		sbwindow(r);
-		n = cfgreadl(Fn1, r + Cr4Cap);
+		sbwindow(ctl, r);
+		n = cfgreadl(ctl, Fn1, r + Cr4Cap);
 		if(SBDEBUG) print("cr4 banks %lux\n", n);
 		banks = ((n>>4) & 0xF) + (n & 0xF);
 		size = 0;
 		for(i = 0; i < banks; i++){
-			cfgwritel(Fn1, r + Cr4Bankidx, i);
-			n = cfgreadl(Fn1, r + Cr4Bankinfo);
+			cfgwritel(ctl, Fn1, r + Cr4Bankidx, i);
+			n = cfgreadl(ctl, Fn1, r + Cr4Bankinfo);
 			if(SBDEBUG) print("bank %d reg %lux size %lud\n", i, n, 8192 * ((n & 0x3F) + 1));
 			size += 8192 * ((n & 0x3F) + 1);
 		}
@@ -807,24 +796,24 @@ ramscan(Ctlr *ctl)
 		print("ether4330: SOCRAM rev %d not supported\n", ctl->socramrev);
 		error(Eio);
 	}
-	sbreset(ctl->socramctl, 0, 0);
+	sbreset(ctl, ctl->socramctl, 0, 0);
 	r = ctl->socramregs;
-	sbwindow(r);
-	n = cfgreadl(Fn1, r + Coreinfo);
+	sbwindow(ctl, r);
+	n = cfgreadl(ctl, Fn1, r + Coreinfo);
 	if(SBDEBUG) print("socramrev %d coreinfo %lux\n", ctl->socramrev, n);
 	banks = (n>>4) & 0xF;
 	size = 0;
 	for(i = 0; i < banks; i++){
-		cfgwritel(Fn1, r + Bankidx, i);
-		n = cfgreadl(Fn1, r + Bankinfo);
+		cfgwritel(ctl, Fn1, r + Bankidx, i);
+		n = cfgreadl(ctl, Fn1, r + Bankinfo);
 		if(SBDEBUG) print("bank %d reg %lux size %lud\n", i, n, 8192 * ((n & 0x3F) + 1));
 		size += 8192 * ((n & 0x3F) + 1);
 	}
 	ctl->socramsize = size;
 	ctl->rambase = 0;
 	if(ctl->chipid == 43430){
-		cfgwritel(Fn1, r + Bankidx, 3);
-		cfgwritel(Fn1, r + Bankpda, 0);
+		cfgwritel(ctl, Fn1, r + Bankidx, 3);
+		cfgwritel(ctl, Fn1, r + Bankpda, 0);
 	}
 }
 
@@ -835,8 +824,8 @@ sbinit(Ctlr *ctl)
 	int chipid;
 	char buf[16];
 
-	sbwindow(Enumbase);
-	r = cfgreadl(Fn1, Enumbase);
+	sbwindow(ctl, Enumbase);
+	r = cfgreadl(ctl, Fn1, Enumbase);
 	chipid = r & 0xFFFF;
 	sprint(buf, chipid > 43000 ? "%d" : "%#x", chipid);
 	print("ether4330: chip %s rev %ld type %ld\n", buf, (r>>16)&0xF, (r>>28)&0xF);
@@ -852,48 +841,48 @@ sbinit(Ctlr *ctl)
 			print("ether4330: chipid %#x (%d) not supported\n", chipid, chipid);
 			error(Eio);
 	}
-	r = cfgreadl(Fn1, Enumbase + 63*4);
+	r = cfgreadl(ctl, Fn1, Enumbase + 63*4);
 	corescan(ctl, r);
 	if(ctl->armctl == 0 || ctl->d11ctl == 0 ||
 	   (ctl->armcore == ARMcm3 && (ctl->socramctl == 0 || ctl->socramregs == 0)))
 		error("corescan didn't find essential cores\n");
 	if(ctl->armcore == ARMcr4)
-		sbreset(ctl->armctl, Cr4Cpuhalt, Cr4Cpuhalt);
+		sbreset(ctl, ctl->armctl, Cr4Cpuhalt, Cr4Cpuhalt);
 	else	
-		sbdisable(ctl->armctl, 0, 0);
-	sbreset(ctl->d11ctl, 8|4, 4);
+		sbdisable(ctl, ctl->armctl, 0, 0);
+	sbreset(ctl, ctl->d11ctl, 8|4, 4);
 	ramscan(ctl);
 	if(SBDEBUG) print("ARM %#lux D11 %#lux SOCRAM %#lux,%#lux %lud bytes @ %#lux\n",
 		ctl->armctl, ctl->d11ctl, ctl->socramctl, ctl->socramregs, ctl->socramsize, ctl->rambase);
-	cfgw(Clkcsr, 0);
+	cfgw(ctl, Clkcsr, 0);
 	microdelay(10);
-	if(SBDEBUG) print("chipclk: %x\n", cfgr(Clkcsr));
-	cfgw(Clkcsr, Nohwreq | ReqALP);
-	while((cfgr(Clkcsr) & (HTavail|ALPavail)) == 0)
+	if(SBDEBUG) print("chipclk: %x\n", cfgr(ctl, Clkcsr));
+	cfgw(ctl, Clkcsr, Nohwreq | ReqALP);
+	while((cfgr(ctl, Clkcsr) & (HTavail|ALPavail)) == 0)
 		microdelay(10);
-	cfgw(Clkcsr, Nohwreq | ForceALP);
+	cfgw(ctl, Clkcsr, Nohwreq | ForceALP);
 	microdelay(65);
-	if(SBDEBUG) print("chipclk: %x\n", cfgr(Clkcsr));
-	cfgw(Pullups, 0);
-	sbwindow(ctl->chipcommon);
-	cfgwritel(Fn1, ctl->chipcommon + Gpiopullup, 0);
-	cfgwritel(Fn1, ctl->chipcommon + Gpiopulldown, 0);
+	if(SBDEBUG) print("chipclk: %x\n", cfgr(ctl, Clkcsr));
+	cfgw(ctl, Pullups, 0);
+	sbwindow(ctl, ctl->chipcommon);
+	cfgwritel(ctl, Fn1, ctl->chipcommon + Gpiopullup, 0);
+	cfgwritel(ctl, Fn1, ctl->chipcommon + Gpiopulldown, 0);
 	if(ctl->chipid != 0x4330 && ctl->chipid != 43362)
 		return;
-	cfgwritel(Fn1, ctl->chipcommon + Chipctladdr, 1);
-	if(cfgreadl(Fn1, ctl->chipcommon + Chipctladdr) != 1)
+	cfgwritel(ctl, Fn1, ctl->chipcommon + Chipctladdr, 1);
+	if(cfgreadl(ctl, Fn1, ctl->chipcommon + Chipctladdr) != 1)
 		print("ether4330: can't set Chipctladdr\n");
 	else{
-		r = cfgreadl(Fn1, ctl->chipcommon + Chipctldata);
-		if(SBDEBUG) print("chipcommon PMU (%lux) %lux", cfgreadl(Fn1, ctl->chipcommon + Chipctladdr), r);
+		r = cfgreadl(ctl, Fn1, ctl->chipcommon + Chipctldata);
+		if(SBDEBUG) print("chipcommon PMU (%lux) %lux", cfgreadl(ctl, Fn1, ctl->chipcommon + Chipctladdr), r);
 		/* set SDIO drive strength >= 6mA */
 		r &= ~0x3800;
 		if(ctl->chipid == 0x4330)
 			r |= 3<<11;
 		else
 			r |= 7<<11;
-		cfgwritel(Fn1, ctl->chipcommon + Chipctldata, r);
-		if(SBDEBUG) print("-> %lux (= %lux)\n", r, cfgreadl(Fn1, ctl->chipcommon + Chipctldata));
+		cfgwritel(ctl, Fn1, ctl->chipcommon + Chipctldata, r);
+		if(SBDEBUG) print("-> %lux (= %lux)\n", r, cfgreadl(ctl, Fn1, ctl->chipcommon + Chipctldata));
 	}
 }
 
@@ -903,31 +892,33 @@ sbenable(Ctlr *ctl)
 	int i;
 
 	if(SBDEBUG) print("enabling HT clock...");
-	cfgw(Clkcsr, 0);
+	cfgw(ctl, Clkcsr, 0);
 	delay(1);
-	cfgw(Clkcsr, ReqHT);
-	for(i = 0; (cfgr(Clkcsr) & HTavail) == 0; i++){
+	cfgw(ctl, Clkcsr, ReqHT);
+	for(i = 0; (cfgr(ctl, Clkcsr) & HTavail) == 0; i++){
 		if(i == 50){
-			print("ether4330: can't enable HT clock: csr %x\n", cfgr(Clkcsr));
+			print("ether4330: can't enable HT clock: csr %x\n",
+				cfgr(ctl, Clkcsr));
 			error(Eio);
 		}
 		tsleep(&up->sleep, return0, nil, 100);
 	}
-	cfgw(Clkcsr, cfgr(Clkcsr) | ForceHT);
+	cfgw(ctl, Clkcsr, cfgr(ctl, Clkcsr) | ForceHT);
 	delay(10);
-	if(SBDEBUG) print("chipclk: %x\n", cfgr(Clkcsr));
-	sbwindow(ctl->sdregs);
-	cfgwritel(Fn1, ctl->sdregs + Sbmboxdata, 4 << 16);	/* protocol version */
-	cfgwritel(Fn1, ctl->sdregs + Intmask, FrameInt | MailboxInt | Fcchange);
-	sdioset(Fn0, Ioenable, 1<<Fn2);
-	for(i = 0; !(sdiord(Fn0, Ioready) & 1<<Fn2); i++){
+	if(SBDEBUG) print("chipclk: %x\n", cfgr(ctl, Clkcsr));
+	sbwindow(ctl, ctl->sdregs);
+	cfgwritel(ctl, Fn1, ctl->sdregs + Sbmboxdata, 4 << 16);	/* protocol version */
+	cfgwritel(ctl, Fn1, ctl->sdregs + Intmask, FrameInt | MailboxInt | Fcchange);
+	sdioset(ctl, Fn0, Ioenable, 1<<Fn2);
+	for(i = 0; !(sdiord(ctl, Fn0, Ioready) & 1<<Fn2); i++){
 		if(i == 10){
-			print("ether4330: can't enable SDIO function 2 - ioready %x\n", sdiord(Fn0, Ioready));
+			print("ether4330: can't enable SDIO function 2 - ioready %x\n",
+				sdiord(ctl, Fn0, Ioready));
 			error(Eio);
 		}
 		tsleep(&up->sleep, return0, nil, 100);
 	}
-	sdiowr(Fn0, Intenable, (1<<Fn1) | (1<<Fn2) | 1);
+	sdiowr(ctl, Fn0, Intenable, (1<<Fn1) | (1<<Fn2) | 1);
 }
 
 
@@ -1045,7 +1036,7 @@ upload(Ctlr *ctl, char *file, int isconfig)
 			memmove(ctl->resetvec.c, buf, sizeof(ctl->resetvec.c));
 		while(n&3)
 			buf[n++] = 0;
-		sbmem(1, buf, n, ctl->rambase + off);
+		sbmem(ctl, 1, buf, n, ctl->rambase + off);
 		if(isconfig)
 			break;
 		off += n;
@@ -1062,7 +1053,7 @@ upload(Ctlr *ctl, char *file, int isconfig)
 			while(n&3)
 				buf[n++] = 0;
 			}
-			sbmem(0, cbuf, n, ctl->rambase + off);
+			sbmem(ctl, 0, cbuf, n, ctl->rambase + off);
 			if(memcmp(buf, cbuf, n) != 0){
 				print("ether4330: firmware load failed offset %d\n", off);
 				error(Eio);
@@ -1152,11 +1143,11 @@ fwload(Ctlr *ctl)
 		}
 	}
 	ctl->regufile = firmware[i].regufile;
-	cfgw(Clkcsr, ReqALP);
-	while((cfgr(Clkcsr) & ALPavail) == 0)
+	cfgw(ctl, Clkcsr, ReqALP);
+	while((cfgr(ctl, Clkcsr) & ALPavail) == 0)
 		microdelay(10);
 	memset(buf, 0, 4);
-	sbmem(1, buf, 4, ctl->rambase + ctl->socramsize - 4);
+	sbmem(ctl, 1, buf, 4, ctl->rambase + ctl->socramsize - 4);
 	if(FWDEBUG) print("firmware load...");
 	upload(ctl, firmware[i].fwfile, 0);
 	if(FWDEBUG) print("config load...");
@@ -1164,25 +1155,25 @@ fwload(Ctlr *ctl)
 	n /= 4;
 	n = (n & 0xFFFF) | (~n << 16);
 	put4(buf, n);
-	sbmem(1, buf, 4, ctl->rambase + ctl->socramsize - 4);
+	sbmem(ctl, 1, buf, 4, ctl->rambase + ctl->socramsize - 4);
 	if(ctl->armcore == ARMcr4){
-		sbwindow(ctl->sdregs);
-		cfgwritel(Fn1, ctl->sdregs + Intstatus, ~0);
+		sbwindow(ctl, ctl->sdregs);
+		cfgwritel(ctl, Fn1, ctl->sdregs + Intstatus, ~0);
 		if(ctl->resetvec.i != 0){
 			if(SBDEBUG) print("%ux\n", ctl->resetvec.i);
-			sbmem(1, ctl->resetvec.c, sizeof(ctl->resetvec.c), 0);
+			sbmem(ctl, 1, ctl->resetvec.c, sizeof(ctl->resetvec.c), 0);
 		}
-		sbreset(ctl->armctl, Cr4Cpuhalt, 0);
+		sbreset(ctl, ctl->armctl, Cr4Cpuhalt, 0);
 	}else
-		sbreset(ctl->armctl, 0, 0);
+		sbreset(ctl, ctl->armctl, 0, 0);
 }
 
 /*
  * Communication of data and control packets
  */
 
-void
-intwait(Ctlr *ctlr, int wait)
+static void
+intwait(Ctlr *ctl, int wait)
 {
 	ulong ints, mbox;
 	int i;
@@ -1190,19 +1181,20 @@ intwait(Ctlr *ctlr, int wait)
 	if(waserror())
 		return;
 	for(;;){
-		sdiocardintr(wait);
-		sbwindow(ctlr->sdregs);
-		i = sdiord(Fn0, Intpend);
+		if(ctl->sdio->cardintr != nil)
+			(*ctl->sdio->cardintr)(ctl->sdio, wait);
+		sbwindow(ctl, ctl->sdregs);
+		i = sdiord(ctl, Fn0, Intpend);
 		if(i == 0){
 			tsleep(&up->sleep, return0, 0, 10);
 			continue;
 		}
-		ints = cfgreadl(Fn1, ctlr->sdregs + Intstatus);
-		cfgwritel(Fn1, ctlr->sdregs + Intstatus, ints);
-		if(0) print("INTS: (%x) %lux -> %lux\n", i, ints, cfgreadl(Fn1, ctlr->sdregs + Intstatus));
+		ints = cfgreadl(ctl, Fn1, ctl->sdregs + Intstatus);
+		cfgwritel(ctl, Fn1, ctl->sdregs + Intstatus, ints);
+		if(0) print("INTS: (%x) %lux -> %lux\n", i, ints, cfgreadl(ctl, Fn1, ctl->sdregs + Intstatus));
 		if(ints & MailboxInt){
-			mbox = cfgreadl(Fn1, ctlr->sdregs + Hostmboxdata);
-			cfgwritel(Fn1, ctlr->sdregs + Sbmbox, 2);	/* ack */
+			mbox = cfgreadl(ctl, Fn1, ctl->sdregs + Hostmboxdata);
+			cfgwritel(ctl, Fn1, ctl->sdregs + Sbmbox, 2);	/* ack */
 			if(mbox & 0x8)
 				print("ether4330: firmware ready\n");
 		}
@@ -1223,7 +1215,7 @@ wlreadpkt(Ctlr *ctl)
 	p = (Sdpcm*)b->wp;
 	qlock(&ctl->pktlock);
 	for(;;){
-		packetrw(0, b->wp, Sdpcmsz);
+		packetrw(ctl, 0, b->wp, Sdpcmsz);
 		len = p->len[0] | p->len[1]<<8;
 		if(len == 0){
 			freeb(b);
@@ -1234,15 +1226,15 @@ wlreadpkt(Ctlr *ctl)
 		if(lenck != (len ^ 0xFFFF) ||
 		   len < Sdpcmsz || len > 2048){
 			print("ether4330: wlreadpkt error len %.4x lenck %.4x\n", len, lenck);
-			cfgw(Framectl, Rfhalt);
-			while(cfgr(Rfrmcnt+1))
+			cfgw(ctl, Framectl, Rfhalt);
+			while(cfgr(ctl, Rfrmcnt+1))
 				;
-			while(cfgr(Rfrmcnt))
+			while(cfgr(ctl, Rfrmcnt))
 				;
 			continue;
 		}
 		if(len > Sdpcmsz)
-			packetrw(0, b->wp + Sdpcmsz, len - Sdpcmsz);
+			packetrw(ctl, 0, b->wp + Sdpcmsz, len - Sdpcmsz);
 		b->wp += len;
 		break;
 	}
@@ -1292,19 +1284,20 @@ txstart(Ether *edev)
 		p->seq = ctl->txseq;
 		p->doffset = off;
 		put4(b->rp + off, 0x20);	/* BDC header */
-		if(iodebug) dump("send", b->rp, len);
+		if(ctl->iodebug) dump("send", b->rp, len);
 		qlock(&ctl->pktlock);
 		if(waserror()){
-			if(iodebug) print("halt frame %x %x\n", cfgr(Wfrmcnt+1), cfgr(Wfrmcnt+1));
-			cfgw(Framectl, Wfhalt);
-			while(cfgr(Wfrmcnt+1))
+			if(ctl->iodebug) print("halt frame %x %x\n",
+				cfgr(ctl, Wfrmcnt+1), cfgr(ctl, Wfrmcnt+1));
+			cfgw(ctl, Framectl, Wfhalt);
+			while(cfgr(ctl, Wfrmcnt+1))
 				;
-			while(cfgr(Wfrmcnt))
+			while(cfgr(ctl, Wfrmcnt))
 				;
 			qunlock(&ctl->pktlock);
 			nexterror();
 		}
-		packetrw(1, b->rp, len);
+		packetrw(ctl, 1, b->rp, len);
 		ctl->txseq++;
 		poperror();
 		qunlock(&ctl->pktlock);
@@ -1356,7 +1349,7 @@ rproc(void *a)
 		}
 		switch(p->chanflg & 0xF){
 		case 0:
-			if(iodebug) dump("rsp", b->rp, BLEN(b));
+			if(ctl->iodebug) dump("rsp", b->rp, BLEN(b));
 			if(BLEN(b) < Sdpcmsz + Cmdsz)
 				break;
 			q = (Cmd*)(b->rp + Sdpcmsz);
@@ -1366,7 +1359,7 @@ rproc(void *a)
 			wakeup(&ctl->cmdr);
 			continue;
 		case 1:
-			if(iodebug) dump("event", b->rp, BLEN(b));
+			if(ctl->iodebug) dump("event", b->rp, BLEN(b));
 			if(BLEN(b) > p->doffset + 4){
 				bdc = 4 + (b->rp[p->doffset + 3] << 2);
 				if(BLEN(b) > p->doffset + bdc){
@@ -1375,11 +1368,11 @@ rproc(void *a)
 					break;
 				}
 			}
-			if(iodebug && BLEN(b) != p->doffset)
+			if(ctl->iodebug && BLEN(b) != p->doffset)
 				print("short event %lld %d\n", BLEN(b), p->doffset);
 			break;
 		case 2:
-			if(iodebug) dump("packet", b->rp, BLEN(b));
+			if(ctl->iodebug) dump("packet", b->rp, BLEN(b));
 			if(BLEN(b) > p->doffset + 4){
 				bdc = 4 + (b->rp[p->doffset + 3] << 2);
 				if(BLEN(b) >= p->doffset + bdc + ETHERHDRSIZE){
@@ -1645,8 +1638,8 @@ wlcmd(Ctlr *ctl, int write, int op, void *data, int dlen, void *res, int rlen)
 		memmove(b->wp + dlen, res, rlen);
 	b->wp += tlen;
 
-	if(iodebug) dump("cmd", b->rp, len);
-	packetrw(1, b->rp, len);
+	if(ctl->iodebug) dump("cmd", b->rp, len);
+	packetrw(ctl, 1, b->rp, len);
 	ctl->txseq++;
 	qunlock(&ctl->pktlock);
 	freeb(b);
@@ -1990,6 +1983,20 @@ lproc(void *a)
 }
 
 static void
+rxmode(Ether *edev, int prom)
+{
+	Ctlr *ctlr = edev->ctlr;
+
+	wlsetint(ctlr, "allmulti", edev->nmaddr > 0);
+
+	/* SET_PROMISC */
+	wlcmdint(ctlr, 10, prom);
+
+	wlsetint(ctlr, "arp_ol", !prom);
+	wlsetint(ctlr, "ndoe", !prom);
+}
+
+static void
 wlinit(Ether *edev, Ctlr *ctlr)
 {
 	uchar ea[Eaddrlen];
@@ -2036,7 +2043,9 @@ wlinit(Ether *edev, Ctlr *ctlr)
 	if(0) print("ether4330: %s\n", version);
 	wlsetint(ctlr, "roam_off", 1);
 	wlcmdint(ctlr, 0x14, 1);	/* SET_INFRA 1 */
-	wlcmdint(ctlr, 10, 0);		/* SET_PROMISC */
+
+	rxmode(edev, edev->prom);
+
 	//wlcmdint(ctlr, 0x8e, 0);	/* SET_BAND 0 */
 	//wlsetint(ctlr, "wsec", 1);
 	wlcmdint(ctlr, 2, 1);		/* UP */
@@ -2051,7 +2060,7 @@ wlinit(Ether *edev, Ctlr *ctlr)
 static long
 etherbcmifstat(Ether* edev, void* a, long n, ulong offset)
 {
-	Ctlr *ctlr;
+	Ctlr *ctl;
 	char *p;
 	int l;
 	static char *cryptoname[4] = {
@@ -2067,19 +2076,19 @@ etherbcmifstat(Ether* edev, void* a, long n, ulong offset)
 		[Connected] = "associated",
 	};
 
-	ctlr = edev->ctlr;
-	if(ctlr == nil)
+	ctl = edev->ctlr;
+	if(ctl == nil)
 		return 0;
 	p = malloc(READSTR);
 	l = 0;
 
-	l += snprint(p+l, READSTR-l, "channel: %d\n", ctlr->chanid);
-	l += snprint(p+l, READSTR-l, "essid: %s\n", ctlr->essid);
-	l += snprint(p+l, READSTR-l, "crypt: %s\n", cryptoname[ctlr->cryptotype]);
+	l += snprint(p+l, READSTR-l, "channel: %d\n", ctl->chanid);
+	l += snprint(p+l, READSTR-l, "essid: %s\n", ctl->essid);
+	l += snprint(p+l, READSTR-l, "crypt: %s\n", cryptoname[ctl->cryptotype]);
 	l += snprint(p+l, READSTR-l, "oq: %d\n", qlen(edev->oq));
-	l += snprint(p+l, READSTR-l, "txwin: %d\n", ctlr->txwindow);
-	l += snprint(p+l, READSTR-l, "txseq: %d\n", ctlr->txseq);
-	l += snprint(p+l, READSTR-l, "status: %s\n", connectstate[ctlr->status]);
+	l += snprint(p+l, READSTR-l, "txwin: %d\n", ctl->txwindow);
+	l += snprint(p+l, READSTR-l, "txseq: %d\n", ctl->txseq);
+	l += snprint(p+l, READSTR-l, "status: %s\n", connectstate[ctl->status]);
 	USED(l);
 	n = readstr(offset, a, n, p);
 	free(p);
@@ -2089,106 +2098,55 @@ etherbcmifstat(Ether* edev, void* a, long n, ulong offset)
 static void
 etherbcmtransmit(Ether *edev)
 {
-	Ctlr *ctlr;
-
-	ctlr = edev->ctlr;
-	if(ctlr == nil)
+	if(edev->ctlr == nil)
 		return;
 	txstart(edev);
 }
 
 static int
-parsehex(char *buf, int buflen, char *a)
+wepparsekey(WKey* key, char *s) 
 {
-	int i, k, n;
+	uchar buf[WMaxKeyLen];
+	int len;
 
-	k = 0;
-	for(i = 0;k < buflen && *a; i++){
-		if(*a >= '0' && *a <= '9')
-			n = *a++ - '0';
-		else if(*a >= 'a' && *a <= 'f')
-			n = *a++ - 'a' + 10;
-		else if(*a >= 'A' && *a <= 'F')
-			n = *a++ - 'A' + 10;
-		else
-			break;
-
-		if(i & 1){
-			buf[k] |= n;
-			k++;
-		}
-		else
-			buf[k] = n<<4;
-	}
-	if(i & 1)
-		return -1;
-	return k;
-}
-
-static int
-wepparsekey(WKey* key, char* a) 
-{
-	int i, k, len, n;
-	char buf[WMaxKeyLen];
-
-	len = strlen(a);
+	len = strlen(s);
 	if(len == WMinKeyLen || len == WMaxKeyLen){
-		memset(key->dat, 0, sizeof(key->dat));
-		memmove(key->dat, a, len);
 		key->len = len;
-
+		memmove(key->dat, s, len);
 		return 0;
 	}
 	else if(len == WMinKeyLen*2 || len == WMaxKeyLen*2){
-		k = 0;
-		for(i = 0; i < len; i++){
-			if(*a >= '0' && *a <= '9')
-				n = *a++ - '0';
-			else if(*a >= 'a' && *a <= 'f')
-				n = *a++ - 'a' + 10;
-			else if(*a >= 'A' && *a <= 'F')
-				n = *a++ - 'A' + 10;
-			else
-				return -1;
-	
-			if(i & 1){
-				buf[k] |= n;
-				k++;
-			}
-			else
-				buf[k] = n<<4;
+		len /= 2;
+		if(dec16(buf, len, s, len*2) == len){
+			key->len = len;
+			memmove(key->dat, buf, len);
+			memset(buf, 0, sizeof buf);
+			return 0;
 		}
-
-		memset(key->dat, 0, sizeof(key->dat));
-		memmove(key->dat, buf, k);
-		key->len = k;
-
-		return 0;
 	}
-
 	return -1;
 }
 
 static int
-wpaparsekey(WKey *key, uvlong *ivp, char *a)
+wpaparsekey(WKey *key, uvlong *ivp, char *s)
 {
+	uchar buf[WKeyLen];
 	int len;
 	char *e;
 
-	if(cistrncmp(a, "tkip:", 5) == 0 || cistrncmp(a, "ccmp:", 5) == 0)
-		a += 5;
+	if(cistrncmp(s, "tkip:", 5) == 0 || cistrncmp(s, "ccmp:", 5) == 0)
+		s += 5;
 	else
 		return 1;
-	len = parsehex(key->dat, sizeof(key->dat), a);
+	if((e = strchr(s, '@')) == nil)
+		return 1;
+	len = dec16(buf, sizeof buf, s, e - s);
 	if(len <= 0)
 		return 1;
 	key->len = len;
-	a += 2*len;
-	if(*a++ != '@')
-		return 1;
-	*ivp = strtoull(a, &e, 16);
-	if(e == a)
-		return -1;
+	memmove(key->dat, buf, len);
+	memset(buf, 0, sizeof buf);
+	*ivp = strtoull(++e, nil, 16);
 	return 0;
 }
 
@@ -2198,7 +2156,7 @@ setauth(Ctlr *ctlr, Cmdbuf *cb, char *a)
 	uchar wpaie[32];
 	int i;
 
-	i = parsehex((char*)wpaie, sizeof wpaie, a);
+	i = dec16(wpaie, sizeof wpaie, a, strlen(a));
 	if(i < 2 || i != wpaie[1] + 2)
 		cmderror(cb, "bad wpa ie syntax");
 	if(wpaie[0] == 0xdd)
@@ -2310,6 +2268,7 @@ etherbcmctl(Ether* edev, void* buf, long n)
 		i = ct->index - CMkey1;
 		if(wepparsekey(&ctlr->keys[i], cb->f[1]))
 			cmderror(cb, "bad WEP key syntax");
+		memset(cb->f[1], 0, strlen(cb->f[1]));
 		wlsetint(ctlr, "wsec", 1);	/* wep enabled */
 		wlwepkey(ctlr, i);
 		break;
@@ -2323,10 +2282,11 @@ etherbcmctl(Ether* edev, void* buf, long n)
 			cmderror(cb, "bad ether addr");
 		if(wpaparsekey(&ctlr->keys[0], &iv, cb->f[2]))
 			cmderror(cb, "bad wpa key");
+		memset(cb->f[2], 0, strlen(cb->f[2]));
 		wlwpakey(ctlr, ct->index, iv, ea);
 		break;
 	case CMdebug:
-		iodebug = atoi(cb->f[1]);
+		ctlr->iodebug = atoi(cb->f[1]);
 		break;
 	}
 	poperror();
@@ -2348,39 +2308,54 @@ etherbcmscan(void *a, uint secs)
 static void
 etherbcmattach(Ether* edev)
 {
-	Ctlr *ctlr;
+	Ctlr *ctl;
 
-	ctlr = edev->ctlr;
-	qlock(&ctlr->alock);
+	ctl = edev->ctlr;
+	qlock(&ctl->alock);
 	if(waserror()){
-		//print("ether4330: attach failed: %s\n", up->errstr);
-		qunlock(&ctlr->alock);
+		qunlock(&ctl->alock);
 		nexterror();
 	}
-	if(ctlr->edev == nil){
-		if(ctlr->chipid == 0){
-			sdioinit();
-			sbinit(ctlr);
+	if(ctl->edev == nil){
+		if(ctl->chipid == 0){
+			sdioinit(ctl);
+			sbinit(ctl);
 		}
-		fwload(ctlr);
-		sbenable(ctlr);
+		fwload(ctl);
+		sbenable(ctl);
+		ctl->edev = edev;
 		kproc("wifireader", rproc, edev);
 		kproc("wifitimer", lproc, edev);
-		if(ctlr->regufile)
-			reguload(ctlr, ctlr->regufile);
-		wlinit(edev, ctlr);
-		ctlr->edev = edev;
+		if(ctl->regufile)
+			reguload(ctl, ctl->regufile);
+		wlinit(edev, ctl);
 	}
-	qunlock(&ctlr->alock);
+	qunlock(&ctl->alock);
 	poperror();
 }
 
 static void
-etherbcmshutdown(Ether*)
+etherbcmshutdown(Ether *edev)
 {
-	sdioreset();
+	Ctlr *ctl = edev->ctlr;
+
+	if(ctl->sdio != nil)
+		sdioreset(ctl);
 }
 
+static void
+etherbcmprom(void *arg, int on)
+{
+	Ether *edev = arg;
+	rxmode(edev, on);
+}
+
+static void
+etherbcmmulti(void *arg, uchar*, int)
+{
+	Ether *edev = arg;
+	rxmode(edev, edev->prom);
+}
 
 static int
 etherbcmpnp(Ether* edev)
@@ -2399,6 +2374,8 @@ etherbcmpnp(Ether* edev)
 	edev->ctl = etherbcmctl;
 	edev->scanbs = etherbcmscan;
 	edev->shutdown = etherbcmshutdown;
+	edev->promiscuous = etherbcmprom;
+	edev->multicast = etherbcmmulti;
 	edev->arg = edev;
 
 	return 0;

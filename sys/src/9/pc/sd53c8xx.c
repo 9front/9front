@@ -2231,7 +2231,6 @@ SDifc sd53c8xxifc = {
 	"53c8xx",			/* name */
 
 	sd53c8xxpnp,			/* pnp */
-	nil,				/* legacy */
 	sd53c8xxenable,			/* enable */
 	nil,				/* disable */
 

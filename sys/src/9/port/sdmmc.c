@@ -184,6 +184,34 @@ mmcpnp(void)
 	return list;
 }
 
+static SDio*
+freecard(Card *card)
+{
+	SDio *io = card->io;
+
+	/* wait for retryproc() */
+	do {
+		qlock(card);
+		qunlock(card);
+	} while(card->retry);
+
+	free(card);
+
+	return io;
+}
+
+SDio*
+annexsdio(char *spec)
+{
+	return freecard(sdannexctlr(spec, &sdmmcifc));
+}
+
+static void
+mmcclear(SDev *sdev)
+{
+	free(freecard(sdev->ctlr));
+}
+
 static void
 readextcsd(Card *card)
 {
@@ -716,4 +744,5 @@ SDifc sdmmcifc = {
 	.rctl	= mmcrctl,
 	.bio	= mmcbio,
 	.rio	= mmcrio,
+	.clear	= mmcclear,
 };

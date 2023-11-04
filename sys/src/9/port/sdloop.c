@@ -383,7 +383,6 @@ SDifc sdloopifc = {
 	"loop",
 
 	pnp,
-	nil,		/* legacy */
 	nil,		/* enable */
 	nil,		/* disable */
 

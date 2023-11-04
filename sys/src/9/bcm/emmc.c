@@ -267,8 +267,8 @@ emmcenable(SDio *io)
 	intrenable(IRQmmc, emmcinterrupt, nil, BUSUNKNOWN, io->name);
 }
 
-int
-sdiocardintr(int wait)
+static int
+emmccardintr(SDio*, int wait)
 {
 	u32int *r = (u32int*)EMMCREGS;
 	int i;
@@ -458,7 +458,7 @@ emmcinterrupt(Ureg*, void*)
 }
 
 
-SDio sdio = {
+static SDio sdio = {
 	"emmc",
 	emmcinit,
 	emmcenable,
@@ -467,6 +467,7 @@ SDio sdio = {
 	emmciosetup,
 	emmcio,
 	emmcbus,
+	emmccardintr,
 };
 
 void

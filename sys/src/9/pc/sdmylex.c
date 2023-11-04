@@ -1247,7 +1247,6 @@ SDifc sdmylexifc = {
 	"mylex",			/* name */
 
 	mylexpnp,			/* pnp */
-	nil,				/* legacy */
 	mylexenable,			/* enable */
 	nil,				/* disable */
 

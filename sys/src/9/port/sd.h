@@ -81,7 +81,6 @@ struct SDifc {
 	char*	name;
 
 	SDev*	(*pnp)(void);
-	SDev*	(*xxlegacy)(int, int);		/* unused.  remove me */
 	int	(*enable)(SDev*);
 	int	(*disable)(SDev*);
 
@@ -198,11 +197,13 @@ struct SDio {
 	void	(*iosetup)(SDio*, int, void*, int, int);
 	void	(*io)(SDio*, int, uchar*, int);
 	void	(*bus)(SDio*, int, int);
+	int	(*cardintr)(SDio*, int);
 	char	nomultiwrite;	/* quirk for usdhc */
 	void	*aux;
 };
 
 extern void addmmcio(SDio *io);
+extern SDio* annexsdio(char*);
 
 /* devsd.c */
 extern void sdadddevs(SDev*);
@@ -210,6 +211,7 @@ extern int sdsetsense(SDreq*, int, int, int, int);
 extern int sdfakescsi(SDreq*);
 extern int sdfakescsirw(SDreq*, uvlong*, int*, int*);
 extern int sdaddfile(SDunit*, char*, int, char*, SDrw*, SDrw*);
+extern void* sdannexctlr(char*, SDifc*);
 
 /* sdscsi.c */
 extern int scsiverify(SDunit*);

@@ -2431,7 +2431,6 @@ SDifc sdideifc = {
 	"ide",				/* name */
 
 	atapnp,				/* pnp */
-	nil,				/* legacy */
 	ataenable,			/* enable */
 	atadisable,			/* disable */
 

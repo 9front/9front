@@ -521,7 +521,6 @@ SDifc sdaoeifc = {
 	"aoe",
 
 	aoepnp,
-	nil,		/* legacy */
 	nil,		/* enable */
 	nil,		/* disable */
 

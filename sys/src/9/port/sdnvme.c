@@ -785,7 +785,6 @@ SDifc sdnvmeifc = {
 	"nvme",				/* name */
 
 	nvmepnp,			/* pnp */
-	nil,				/* legacy */
 	nvmeenable,			/* enable */
 	nvmedisable,			/* disable */
 

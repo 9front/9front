@@ -2520,7 +2520,6 @@ SDifc sdiahciifc = {
 	"ahci",
 
 	iapnp,
-	nil,		/* legacy */
 	iaenable,
 	iadisable,
 

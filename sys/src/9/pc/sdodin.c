@@ -2828,7 +2828,6 @@ mswtopctl(SDev*, Cmdbuf *cmd)
 SDifc sdodinifc = {
 	"odin",
 	mspnp,
-	nil,
 	msenable,
 	msdisable,
 	msverify,
