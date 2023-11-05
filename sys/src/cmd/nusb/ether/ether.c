@@ -315,6 +315,7 @@ fsread(Req *r)
 	char buf[200];
 	char e[ERRMAX];
 	ulong path;
+	int mbps;
 
 	path = r->fid->qid.path;
 
@@ -335,13 +336,17 @@ fsread(Req *r)
 		break;
 
 	case Qstats:
+		if(eplinkspeed == nil)
+			mbps = 10;	/* default */
+		else
+			mbps = (*eplinkspeed)(epctl);
 		snprint(buf, sizeof(buf),
 			"in: %d\n"
-			"link: 1\n"	/* for stats(8) */
+			"link: %d\n"	/* for stats(8) */
 			"out: %d\n"
 			"mbps: %d\n"
 			"addr: %E\n",
-			stats.in, stats.out, 10, macaddr);
+			stats.in, mbps != 0, stats.out, mbps, macaddr);
 		readstr(r, buf);
 		respond(r, nil);
 		break;

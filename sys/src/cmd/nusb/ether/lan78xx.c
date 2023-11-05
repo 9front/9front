@@ -97,7 +97,9 @@ enum {
 		Fulldpx	= 1<<8,
 		Speed1000= 1<<6,
 	Bmsr		= 1,
-	Advertise	= 4,
+		BmsrLs		= 0x0004,	/* Link Status */
+	Anar		= 4,
+	Anlpar		= 5,
 		Adcsma	= 0x0001,
 		Ad10h	= 0x0020,
 		Ad10f	= 0x0040,
@@ -110,6 +112,9 @@ enum {
 	Ctrl1000	= 9,
 		Ad1000h = 0x0400,
 		Ad1000f = 0x0200,
+	Mssr		= 10,
+		Mssr1000THD= 0x0400,	/* Link Partner 1000BASE-T HD able */
+		Mssr1000TFD= 0x0800,	/* Link Partner 1000BASE-T FD able */
 	Ledmodes	= 29,
 		Led0shift = 0,
 		Led1shift = 4,
@@ -202,7 +207,7 @@ phyinit(Dev *d)
 			break;
 		sleep(10);
 	}
-	miiwr(d, Advertise, Adcsma|Adall|Adpause|Adpauseasym);
+	miiwr(d, Anar, Adcsma|Adall|Adpause|Adpauseasym);
 	miiwr(d, Ctrl1000, Ad1000f);
 	miiwr(d, Phyintmask, 0);
 	miiwr(d, Ledmodes, (Linkact<<Led1shift) | (Link1000<<Led0shift));
@@ -298,6 +303,18 @@ lan78xxmulticast(Dev *d, uchar *, int)
 	return wr(d, Rfectl, rxctl);
 }
 
+static int
+lan78xxlinkspeed(Dev *d)
+{
+	if((miird(d, Bmsr) & BmsrLs) == 0)
+		return 0;	/* link down */
+	if(miird(d, Mssr) & (Mssr1000THD|Mssr1000TFD))
+		return 1000;
+	if(miird(d, Anlpar) & (Ad100h|Ad100f))
+		return 100;
+	return 10;
+}
+
 int
 lan78xxinit(Dev *d)
 {
@@ -361,6 +378,7 @@ lan78xxinit(Dev *d)
 	epreceive = lan78xxreceive;
 	eppromiscuous = lan78xxpromiscuous;
 	epmulticast = lan78xxmulticast;
+	eplinkspeed = lan78xxlinkspeed;
 
 	return 0;
 }

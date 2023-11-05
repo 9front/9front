@@ -63,3 +63,4 @@ int	(*epreceive)(Dev*);
 void	(*eptransmit)(Dev*, Block*);
 int 	(*eppromiscuous)(Dev*, int);
 int	(*epmulticast)(Dev*, uchar*, int);
+int	(*eplinkspeed)(Dev*);

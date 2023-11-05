@@ -85,7 +85,9 @@ enum {
 		Anrestart= 1<<9,
 		Fulldpx	= 1<<8,
 	Bmsr		= 1,
-	Advertise	= 4,
+		BmsrLs		= 0x0004,	/* Link Status */
+	Anar	= 4,
+	Anlpar	= 5,
 		Adcsma	= 0x0001,
 		Ad10h	= 0x0020,
 		Ad10f	= 0x0040,
@@ -94,6 +96,7 @@ enum {
 		Adpause	= 0x0400,
 		Adpauseasym= 0x0800,
 		Adall	= Ad10h|Ad10f|Ad100h|Ad100f,
+
 	Phyintsrc	= 29,
 	Phyintmask	= 30,
 		Anegcomp= 1<<6,
@@ -180,8 +183,8 @@ phyinit(Dev *d)
 			break;
 		sleep(10);
 	}
-	miiwr(d, Advertise, Adcsma|Adall|Adpause|Adpauseasym);
-//	miiwr(d, Advertise, Adcsma|Ad10f|Ad10h|Adpause|Adpauseasym);
+	miiwr(d, Anar, Adcsma|Adall|Adpause|Adpauseasym);
+//	miiwr(d, Anar, Adcsma|Ad10f|Ad10h|Adpause|Adpauseasym);
 	miird(d, Phyintsrc);
 	miiwr(d, Phyintmask, Anegcomp|Linkdown);
 	miiwr(d, Bmcr, miird(d, Bmcr)|Anenable|Anrestart);
@@ -275,6 +278,16 @@ smscmulticast(Dev *d, uchar *, int)
 	return wr(d, Maccr, rxctl);
 }
 
+static int
+smsclinkspeed(Dev *d)
+{
+	if((miird(d, Bmsr) & BmsrLs) == 0)
+		return 0;
+	if(miird(d, Anlpar) & (Ad100h|Ad100f))
+		return 100;
+	return 10;
+}
+
 int
 smscinit(Dev *d)
 {
@@ -314,6 +327,7 @@ smscinit(Dev *d)
 	epreceive = smscreceive;
 	eppromiscuous = smscpromiscuous;
 	epmulticast = smscmulticast;
+	eplinkspeed = smsclinkspeed;
 
 	return 0;
 }
