@@ -337,6 +337,7 @@ fsread(Req *r)
 	case Qstats:
 		snprint(buf, sizeof(buf),
 			"in: %d\n"
+			"link: 1\n"	/* for stats(8) */
 			"out: %d\n"
 			"mbps: %d\n"
 			"addr: %E\n",
