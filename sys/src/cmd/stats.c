@@ -64,8 +64,7 @@ struct Machine
 	int		remote;
 	int		statsfd;
 	int		swapfd;
-	int		etherfd;
-	int		ifstatsfd;
+	int		etherfd[10];
 	int		batteryfd;
 	int		bitsybatfd;
 	int		tempfd;
@@ -79,7 +78,6 @@ struct Machine
 	uvlong		netetherstats[8];
 	uvlong		prevetherstats[8];
 	uvlong		batterystats[2];
-	uvlong		netetherifstats[2];
 	uvlong		temp[10];
 
 	/* big enough to hold /dev/sysstat even with many processors */
@@ -128,7 +126,6 @@ enum Menu2
 	Msyscall,
 	Mtlbmiss,
 	Mtlbpurge,
-	Msignal,
 	Mtemp,
 	Nmenu2,
 };
@@ -153,7 +150,6 @@ char	*menu2str[Nmenu2+1] = {
 	"add  syscall ",
 	"add  tlbmiss ",
 	"add  tlbpurge",
-	"add  802.11b ",
 	"add  temp    ",
 	nil,
 };
@@ -178,7 +174,6 @@ void	contextval(Machine*, uvlong*, uvlong*, int),
 	tlbmissval(Machine*, uvlong*, uvlong*, int),
 	tlbpurgeval(Machine*, uvlong*, uvlong*, int),
 	batteryval(Machine*, uvlong*, uvlong*, int),
-	signalval(Machine*, uvlong*, uvlong*, int),
 	tempval(Machine*, uvlong*, uvlong*, int);
 
 Menu	menu2 = {menu2str, nil};
@@ -203,7 +198,6 @@ void	(*newvaluefn[Nmenu2])(Machine*, uvlong*, uvlong*, int init) = {
 	syscallval,
 	tlbmissval,
 	tlbpurgeval,
-	signalval,
 	tempval,
 };
 
@@ -553,9 +547,10 @@ ilog10(uvlong j)
 int
 initmach(Machine *m, char *name)
 {
-	int n;
+	int n, i, j, fd;
 	uvlong a[MAXNUM];
 	char *p, mpt[256], buf[256];
+	Dir *d;
 
 	p = strchr(name, '!');
 	if(p)
@@ -606,18 +601,27 @@ initmach(Machine *m, char *name)
 		m->nproc = 1;
 	m->lgproc = ilog10(m->nproc);
 
-	snprint(buf, sizeof buf, "%s/net/ether0/stats", mpt);
-	m->etherfd = open(buf, OREAD);
-	if(loadbuf(m, &m->etherfd) && readnums(m, nelem(m->netetherstats), a, 1))
-		memmove(m->netetherstats, a, sizeof m->netetherstats);
-
-	snprint(buf, sizeof buf, "%s/net/ether0/ifstats", mpt);
-	m->ifstatsfd = open(buf, OREAD);
-	if(loadbuf(m, &m->ifstatsfd)){
-		/* need to check that this is a wavelan interface */
-		if(strncmp(m->buf, "Signal: ", 8) == 0 && readnums(m, nelem(m->netetherifstats), a, 1))
-			memmove(m->netetherifstats, a, sizeof m->netetherifstats);
+	/* find all the ethernets */
+	n = 0;
+	snprint(buf, sizeof buf, "%s/net/", mpt);
+	if((fd = open(buf, OREAD)) >= 0){
+		for(d = nil; (i = dirread(fd, &d)) > 0; free(d)){
+			for(j=0; j<i; j++){
+				if(strncmp(d[j].name, "ether", 5))
+					continue;
+				snprint(buf, sizeof buf, "%s/net/%s/stats", mpt, d[j].name);
+				if((m->etherfd[n] = open(buf, OREAD)) < 0)
+					continue;
+				if(++n >= nelem(m->etherfd))
+					break;
+			}
+			if(n >= nelem(m->etherfd))
+				break;
+		}
+		close(fd);
 	}
+	while(n < nelem(m->etherfd))
+		m->etherfd[n++] = -1;
 
 	snprint(buf, sizeof buf, "%s/mnt/apm/battery", mpt);
 	m->batteryfd = open(buf, OREAD);
@@ -694,12 +698,6 @@ needbattery(int init)
 }
 
 int
-needsignal(int init)
-{
-	return init | present[Msignal];
-}
-
-int
 needtemp(int init)
 {
 	static uint step = 0;
@@ -713,9 +711,18 @@ needtemp(int init)
 }
 
 void
+vadd(uvlong *a, uvlong *b, int n)
+{
+	int i;
+
+	for(i=0; i<n; i++)
+		a[i] += b[i];
+}
+
+void
 readmach(Machine *m, int init)
 {
-	int n, i;
+	int n;
 	uvlong a[nelem(m->devsysstat)];
 	char buf[32];
 
@@ -745,15 +752,15 @@ readmach(Machine *m, int init)
 		memmove(m->prevsysstat, m->devsysstat, sizeof m->devsysstat);
 		memset(m->devsysstat, 0, sizeof m->devsysstat);
 		for(n=0; n<m->nproc && readnums(m, nelem(m->devsysstat), a, 0); n++)
-			for(i=0; i<nelem(m->devsysstat); i++)
-				m->devsysstat[i] += a[i];
+			vadd(m->devsysstat, a, nelem(m->devsysstat));
 	}
-	if(needether(init) && loadbuf(m, &m->etherfd) && readnums(m, nelem(m->netetherstats), a, 1)){
+	if(needether(init)){
 		memmove(m->prevetherstats, m->netetherstats, sizeof m->netetherstats);
-		memmove(m->netetherstats, a, sizeof m->netetherstats);
-	}
-	if(needsignal(init) && loadbuf(m, &m->ifstatsfd) && strncmp(m->buf, "Signal: ", 8)==0 && readnums(m, nelem(m->netetherifstats), a, 1)){
-		memmove(m->netetherifstats, a, sizeof m->netetherifstats);
+		memset(m->netetherstats, 0, sizeof(m->netetherstats));
+		for(n=0; n<nelem(m->etherfd) && m->etherfd[n] >= 0; n++){
+			if(loadbuf(m, &m->etherfd[n]) && readnums(m, nelem(m->netetherstats), a, 1))
+				vadd(m->netetherstats, a, nelem(m->netetherstats));
+		}
 	}
 	if(needbattery(init)){
 		if(loadbuf(m, &m->batteryfd) && readnums(m, nelem(m->batterystats), a, 0))
@@ -935,23 +942,6 @@ batteryval(Machine *m, uvlong *v, uvlong *vmax, int)
 		*vmax = 184;		// at least on my bitsy...
 	else
 		*vmax = 100;
-}
-
-void
-signalval(Machine *m, uvlong *v, uvlong *vmax, int)
-{
-	ulong l;
-
-	*vmax = sleeptime;
-	l = m->netetherifstats[0];
-	/*
-	 * Range is seen to be from about -45 (strong) to -95 (weak); rescale
-	 */
-	if(l == 0){	/* probably not present */
-		*v = 0;
-		return;
-	}
-	*v = 20*(l+95);
 }
 
 void
@@ -1381,9 +1371,6 @@ main(int argc, char *argv[])
 	case 't':
 		addgraph(Mtlbmiss);
 		addgraph(Mtlbpurge);
-		break;
-	case '8':
-		addgraph(Msignal);
 		break;
 	case 'w':
 		addgraph(Mswap);

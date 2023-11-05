@@ -96,11 +96,6 @@ number of valid pages on the swap device.
 The swap is displayed as a
 fraction of the number of swap pages configured by the machine.
 .TP
-.B "8 802.11b
-display the signal strength detected by the 802.11b wireless ether card; the value
-is usually below 50% unless the receiver is in the same room as the transmitter, so
-a midrange value represents a strong signal.
-.TP
 .B "z temp
 current temperature reported by the cpu.
 .PD
@@ -162,7 +157,7 @@ matters for graphs such as memory that have machine-specific
 maxima.
 .PD
 .SH FILES
-.B /net/ether0/0/stats
+.B /net/ether*/stats
 .br
 .B #c/swap
 .br
