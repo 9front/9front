@@ -110,7 +110,7 @@ static int
 i2cinit(I2Cbus*)
 {
 	ctlr.regs = (Bsc*)I2CREGS;
-	ctlr.regs->clkdiv = 2500;
+	ctlr.regs->clkdiv = getclkrate(ClkCore) / 100000;
 
 	gpiosel(SDA0Pin, Alt0);
 	gpiosel(SCL0Pin, Alt0);
