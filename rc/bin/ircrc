@@ -173,8 +173,8 @@ fn pretty {
 			line = `{echo -n $line | misc}
 		case *NOTICE*
 			line = `{echo -n $line | notice}
-		case *PING*
-			echo -n $line | sed 's/PING/PONG/' > $netdir/data
+		case PING* # *PING* could also be CASEMAPPING
+			echo PONG $line(2) > $netdir/data
 			line = ()
 		case *
 			line = `{echo -n $line | numeric}
