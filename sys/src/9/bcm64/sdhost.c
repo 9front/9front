@@ -72,7 +72,6 @@ static u32int
 RD(int reg)
 {
 	u32int *r = (u32int*)SDHOSTREGS;
-	coherence();
 	return r[reg];
 }
 
@@ -137,13 +136,13 @@ sdhostinit(SDio*)
 }
 
 static int
-sdhostinquiry(SDio *, char *inquiry, int inqlen)
+sdhostinquiry(SDio*, char *inquiry, int inqlen)
 {
 	return snprint(inquiry, inqlen, "BCM SD Host Controller");
 }
 
 static void
-sdhostenable(SDio *io)
+sdhostenable(SDio*)
 {
 	WR(HC_POWER, 1);
 	WR(HC_HOSTCONFIG, HC_HSTCF_INTBUS_WIDE|HC_HSTCF_SLOW_CARD);
@@ -218,7 +217,7 @@ sdhostcmd(SDio*, SDiocmd *cmd, u32int arg, u32int *resp)
 }
 
 static void
-sdhostiosetup(SDio*, int write, void *buf, int bsize, int bcount)
+sdhostiosetup(SDio*, int, void *, int bsize, int bcount)
 {
 	WR(HC_BLOCKSIZE, bsize);
 	WR(HC_BLOCKCOUNT, bcount);
