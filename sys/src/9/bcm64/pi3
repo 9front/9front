@@ -28,11 +28,12 @@ dev
 link
 	archbcm3
 	usbdwc
-#	ether4330
+	ether4330
 	ethermedium
 	loopbackmedium 
 	netdevmedium
 	emmc
+	sdhost
 #	i2cbcm		devi2c
 	i2cgpio		devi2c gpio
 
