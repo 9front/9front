@@ -452,7 +452,6 @@ sdhciosetup(SDio*, int write, void *buf, int bsize, int bcount)
 	else
 		cachedwbinvse(buf, len);
 	WR(Dmadesc, sdhc.busdram + (PADDR(sdhc.dma) - PHYSDRAM));
-	okay(1);
 }
 
 static void
@@ -461,10 +460,6 @@ sdhcio(SDio*, int write, uchar *buf, int len)
 	u32int *r = (u32int*)SDHCREGS;
 	int i;
 
-	if(waserror()){
-		okay(0);
-		nexterror();
-	}
 	WR(Irpten, r[Irpten] | Datadone|Err);
 	tsleep(&sdhc.r, datadone, 0, 3000);
 	WR(Irpten, r[Irpten] & ~(Datadone|Err));
@@ -478,8 +473,6 @@ sdhcio(SDio*, int write, uchar *buf, int len)
 	WR(Interrupt, i);
 	if(!write)
 		cachedinvse(buf, len);
-	poperror();
-	okay(0);
 }
 
 static void
@@ -494,6 +487,12 @@ sdhcinterrupt(Ureg*, void*)
 	WR(Irpten, r[Irpten] & ~i);
 }
 
+static void
+sdhcled(SDio*, int on)
+{
+	okay(on);
+}
+
 void
 sdhclink(void)
 {
@@ -506,6 +505,7 @@ sdhclink(void)
 		sdhciosetup,
 		sdhcio,
 		sdhcbus,
+		sdhcled,
 	};
 	addmmcio(&io);
 }

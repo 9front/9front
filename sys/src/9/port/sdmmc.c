@@ -675,9 +675,13 @@ mmcbio(SDunit *unit, int lun, int write, void *data, long nb, uvlong bno)
 
 	eqlock(card);
 	if(waserror()){
+		if(io->led != nil)
+			(*io->led)(io, 0);
 		qunlock(card);
 		nexterror();
 	}
+	if(io->led != nil)
+		(*io->led)(io, 1);
 
 	if(card->ismmc && unit->subno != (card->ext_csd[179]&7)){
 		b = (card->ext_csd[179] & ~7) | unit->subno;
@@ -714,7 +718,8 @@ mmcbio(SDunit *unit, int lun, int write, void *data, long nb, uvlong bno)
 			buf += len;
 		}
 	}
-
+	if(io->led != nil)
+		(*io->led)(io, 0);
 	qunlock(card);
 	poperror();
 

@@ -197,6 +197,7 @@ struct SDio {
 	void	(*iosetup)(SDio*, int, void*, int, int);
 	void	(*io)(SDio*, int, uchar*, int);
 	void	(*bus)(SDio*, int, int);
+	void	(*led)(SDio*, int);
 	int	(*cardintr)(SDio*, int);
 	char	nomultiwrite;	/* quirk for usdhc */
 	void	*aux;

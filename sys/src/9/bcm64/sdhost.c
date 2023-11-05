@@ -240,6 +240,12 @@ sdhostio(SDio*, int write, uchar *buf, int len)
 		sdhosterror(i);
 }
 
+static void
+sdhostled(SDio*, int on)
+{
+	okay(on);
+}
+
 void
 sdhostlink(void)
 {
@@ -252,6 +258,7 @@ sdhostlink(void)
 		sdhostiosetup,
 		sdhostio,
 		sdhostbus,
+		sdhostled,
 	};
 	addmmcio(&io);
 }

@@ -409,11 +409,6 @@ emmcio(SDio*, int write, uchar *buf, int len)
 	int i;
 
 	assert((len&3) == 0);
-	okay(1);
-	if(waserror()){
-		okay(0);
-		nexterror();
-	}
 	if(write)
 		dmastart(DmaChanEmmc, DmaDevEmmc, DmaM2D,
 			buf, &r[Data], len);
@@ -439,8 +434,6 @@ emmcio(SDio*, int write, uchar *buf, int len)
 	}
 	if(i)
 		WR(Interrupt, i);
-	poperror();
-	okay(0);
 }
 
 static void
@@ -457,6 +450,11 @@ emmcinterrupt(Ureg*, void*)
 	WR(Irpten, r[Irpten] & ~i);
 }
 
+static void
+emmcled(SDio*, int on)
+{
+	okay(on);
+}
 
 static SDio sdio = {
 	"emmc",
@@ -467,6 +465,7 @@ static SDio sdio = {
 	emmciosetup,
 	emmcio,
 	emmcbus,
+	emmcled,
 	emmccardintr,
 };
 
