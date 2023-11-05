@@ -82,3 +82,4 @@ install:V:	$p$CONF
 main.$O trap.$O: /sys/include/tos.h
 devusb.$O usbehci.$O usbehcizynq.$O: ../port/usb.h
 usbehci.$O usbehcizynq.$O: usbehci.h
+emmc.$O: ../port/sd.h

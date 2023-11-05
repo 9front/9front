@@ -113,6 +113,7 @@ main.$O: errstr.h rebootcode.i
 devmouse.$O mouse.$O screen.$O: screen.h
 usbdwc.$O: dwcotg.h ../port/usb.h
 i2cbcm.$O i2cgpio.$O: ../port/i2c.h
+emmc.$O ether4330.$O: ../port/sd.h
 arch.$O archbcm.$O archbcm2.$O clock.$O coproc.$O fpiarn.$O mmu.$O trap.$O vfp3.$O rebootcode.$O: arm.h mem.h
 rebootcode.$O: arm.s cache.v7.s
 

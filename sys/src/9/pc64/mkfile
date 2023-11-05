@@ -76,7 +76,7 @@ LIB=\
 ETHER=`{cd ../pc; echo devether.c ether*.c | sed 's/\.c/.'$O'/g'}
 AUDIO=`{cd ../pc; echo devaudio.c audio*.c | sed 's/\.c/.'$O'/g'}
 VGA=`{cd ../pc; echo devvga.c screen.c vga*.c | sed 's/\.c/.'$O'/g'}
-SDEV=`{cd ../pc; echo devsd.c sd*.c | sed 's/\.c/.'$O'/g'}
+SDEV=`{cd ../pc; echo sd*.c | sed 's/\.c/.'$O'/g'}
 
 $p$CONF:	$OBJ $CONF.$O $LIB
 	$LD -o $target -T$KTZERO -R4096 -l $prereq
@@ -121,7 +121,7 @@ sd53c8xx.$O:			../pc/sd53c8xx.i
 ../pc/sd53c8xx.i:		../pc/sd53c8xx.n
 	cd ../pc && mk sd53c8xx.i
 
-$SDEV:				../port/sd.h
+$SDEV pmmc.$O:			../port/sd.h
 sdiahci.$O:			ahci.h
 devaoe.$O sdaoe.$O:		../port/aoe.h
 main.$O:			rebootcode.i

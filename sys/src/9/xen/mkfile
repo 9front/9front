@@ -91,7 +91,7 @@ LIB=\
 
 ETHER=`{echo devether.c ether*.c | sed 's/\.c/.'$O'/g'}
 VGA=`{echo devvga.c screen.c vga*.c | sed 's/\.c/.'$O'/g'}
-SDEV=`{echo devsd.c sd*.c | sed 's/\.c/.'$O'/g'}
+SDEV=`{echo sd*.c | sed 's/\.c/.'$O'/g'}
 
 PAE=`{echo $PAE | sed 's/yes/yes[extended-cr3]/'}
 XENELF='LOADER=generic,XEN_VER=xen-3.0,ELF_PADDR_OFFSET=0,VIRT_BASE='$KZERO',VIRT_ENTRY='$KTZERO',PAE='$PAE
