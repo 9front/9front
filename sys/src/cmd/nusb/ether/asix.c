@@ -46,6 +46,9 @@ enum
 		Bmcranena	= 0x1000,	/* auto neg. enable */
 		Bmcrar		= 0x0200,	/* announce restart */
 
+	Miibmsr			= 0x01,
+		Bmsrlink	= 0x0004,
+
 	Miiad			= 0x04,		/* advertise reg. */
 		Adcsma		= 0x0001,
 		Ad1000f		= 0x0200,
@@ -421,11 +424,11 @@ enum
 	Aphy			= 0x02,
 		Physts		= 0x02,
 		Phyid		= 0x03,
+		Phyfd		= 0x11,
 
 	/* Control */
 	Crxctl			= 0x0b,
 	Cmed			= 0x22,		/* medium status register */
-
 	Cmmsr			= 0x24,		/* control monitor */	
 		Mrwmp		= 0x04,
 		Mpmepol		= 0x20,
@@ -436,17 +439,23 @@ enum
 		Cphyiprl	= 0x0020,
 
 	Cblkinq			= 0x2e,
-
 	Csclk			= 0x33,		/* select clock */
 		Sclkbcs		= 0x01,
 		Sclkacs		= 0x02,
 
 	Cpwtrl			= 0x54,
 	Cpwtrh			= 0x55,
+	Capo			= 0x91,		/* auto-power off phy */
 
-	Usbss 		= 0x04,
-	Usbhs		= 0x02,
+	/* USB/Link conn. */
 	Usbfs		= 0x01,
+	Usbhs		= 0x02,
+	Usbss 		= 0x04,
+	Link10		= 0x10,
+	Link100		= 0x20,
+	Link1000	= 0x40,
+
+	Linkfd		= 0x2000,
 };
 
 static int
@@ -580,6 +589,24 @@ a179getrxctl(Dev *d)
 }
 
 static int
+a179linkup(Dev *d)
+{
+	int timeout;
+	ushort link;
+
+	timeout = 5000;
+	do{
+		link = a179miiread(d, Miibmsr);
+		if(link & Bmsrlink)
+			return 0;
+		sleep(50);
+	}while(timeout -= 50);
+
+	fprint(2, "%s: a179linkup: no link\n", argv0);
+	return -1;
+}
+
+static int
 a179promiscuous(Dev *d, int on)
 {
 	ushort rxctl;
@@ -605,6 +632,21 @@ a179multicast(Dev *d, uchar*, int)
 	return a179set2(d, Crxctl, rxctl);
 }
 
+static int
+a179linkspeed(Dev *d)
+{
+	uchar link;
+
+	a179get(d, Amac, Physts, 1, &link, 1);
+	if(link & Link1000)
+		return 1000;
+	if(link & Link100)
+		return 100;
+	if(link & Link10)
+		return 10;
+	return 0;
+}
+
 int
 a88179init(Dev *d)
 {
@@ -614,15 +656,15 @@ a88179init(Dev *d)
 		{0x07, 0xae, 0x07, 0x04, 0xff},
 		{0x07, 0xcc, 0x4c, 0x04, 0x08}
 	};
+	ushort mode, fd;
 	uchar link;
-	int bmcr, spd;
+	int spd;
 
 	a179set2(d, Cphy, 0);
 	a179set2(d, Cphy, Cphyiprl);
 	sleep(200);
 	a179set1(d, Csclk, Sclkacs|Sclkbcs);
 	sleep(100);
-	a179set(d, Amac, Cblkinq, 5, qctrl[0], 5);
 	a179set1(d, Cpwtrl, 0x34);
 	a179set1(d, Cpwtrh, 0x52);
 	if(setmac){
@@ -634,29 +676,40 @@ a88179init(Dev *d)
 		return -1;
 	if(a179set1(d, Cmmsr, Mpmetyp|Mpmepol|Mrwmp) < 0)
 		return -1;
-	if(a179set2(d, Cmed, Mall179) < 0)
+	if(a179set(d, Capo, 0, 0, nil, 0) < 0)
 		return -1;
 
+	if(a179linkup(d) < 0)
+		return -1;
+
+	spd = 3;	/* default bulkinq */
+	mode = Mtfc | Mrfc | Mre;
 	a179get(d, Amac, Physts, 1, &link, 1);
-	switch(link){
-		case Usbss: 		spd = 0; break;
-		case Usbhs: 		spd = 1; break;
-		case Usbss|Usbhs:	spd = 2; break;
-		default:		spd = 3;
-	}
+	if(link & Link1000){
+		mode |= Mgm|Mmhz|Mjfe|Munk;
+		if(link & Usbss)
+			spd = 0;
+		else if(link & Usbhs)
+			spd = 1;
+	}else if(link & Link100){
+		mode |= Mps;
+		if(link & (Usbss|Usbhs))
+			spd = 2;
+	} /* Link10 */
 	a179set(d, Amac, Cblkinq, 5, qctrl[spd], 5);
 	a179bufsz = 1024*(qctrl[spd][3]+2);
+	fd = a179miiread(d, Phyfd);
+	if(fd & Linkfd)
+		mode |= Mfd;
 
-	bmcr = a179miiread(d, Miibmcr);
-	if((bmcr & Bmcranena) != 0){
-		bmcr |= Bmcrar;
-		a179miiwrite(d, Miibmcr, bmcr);
-	}	
+	if(a179set2(d, Cmed, mode) < 0)
+		return -1;
 
 	epreceive = a179receive;
 	eptransmit = a179transmit;
 	eppromiscuous = a179promiscuous;
 	epmulticast = a179multicast;
+	eplinkspeed = a179linkspeed;
 
 	return 0;
 }
