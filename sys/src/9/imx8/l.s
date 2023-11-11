@@ -21,17 +21,21 @@ TEXT _start(SB), 1, $-4
 	BL	l2cacheuwbinv(SB)
 	BL	cacheiinv(SB)
 
+	/* get machno in R0 */
+	MRS	MPIDR_EL1, R0
+	BL	mpidindex(SB)
+
+	/* get MACHP(R0) in R27 */
 	MOV	$(MACHADDR(0)-KZERO), R27
-	MRS	MPIDR_EL1, R1
-	ANDW	$(MAXMACH-1), R1
 	MOVWU	$MACHSIZE, R2
-	MULW	R1, R2, R2
+	MULW	R0, R2, R2
 	SUB	R2, R27
 
-	ADD	$(MACHSIZE-16), R27, R2
-	MOV	R2, SP
+	/* set the stack pointer */
+	ADD	$(MACHSIZE-16), R27, R1
+	MOV	R1, SP
 
-	CBNZ	R1, _startup
+	CBNZ	R0, _startup
 
 	/* clear page table and machs */
 	MOV	$(L1BOT-KZERO), R1
@@ -73,6 +77,24 @@ TEXT	stop<>(SB), 1, $-4
 _stop:
 	WFE
 	B	_stop
+
+TEXT	mpidindex(SB), 1, $-4
+	MOV	R0,R1
+	MOV	$0,R0
+	MOV	$(MPIDMASK),R2
+_mpidindex0:
+	CBZ	R2,_mpidindex1
+	LSR	$63,R2,R3
+	CBZ	R3,_mpidindex2
+	LSR	$63,R1,R3
+	LSLW	$1,R0
+	ORRW	R3,R0,R0
+_mpidindex2:
+	LSL	$1,R1
+	LSL	$1,R2
+	B	_mpidindex0
+_mpidindex1:
+	RETURN
 
 TEXT	aaa<>(SB), 1, $-4
 xxx:

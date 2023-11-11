@@ -237,20 +237,38 @@ machinit(void)
 	active.machs[m->machno] = 1;
 }
 
+static uvlong
+machmpid(int machno)
+{
+	uvlong mpid = 0;
+	int i;
+
+	for(i = 0; i < 64; i++){
+		if(MPIDMASK & (1ULL<<i)){
+			mpid |= (machno & 1ULL) << i;
+			machno >>= 1;
+		}
+	}
+	return mpid;
+}
+
 void
 mpinit(void)
 {
+	extern int mpidindex(uvlong);
 	extern void _start(void);
 	int i;
 
 	for(i = 1; i < conf.nmach; i++){
 		Ureg u = {0};
 
+		assert(mpidindex(machmpid(i)) == i);
+
 		MACHP(i)->machno = i;
 		cachedwbinvse(MACHP(i), MACHSIZE);
 
 		u.r0 = 0x84000003;	/* CPU_ON */
-		u.r1 = (sysrd(MPIDR_EL1) & ~0xFF) | i;
+		u.r1 = (sysrd(MPIDR_EL1) & ~MPIDMASK) | machmpid(i);
 		u.r2 = PADDR(_start);
 		u.r3 = i;
 		smccall(&u);

@@ -32,6 +32,7 @@
 #define L1TABLE(v, l)	(L1TABLES - ((PTLX(v, 2) % L1TABLES) >> (((l)-1)*PTSHIFT)) + (l)-1)
 #define L1TOPSIZE	(1ULL << (EVASHIFT - PTLEVELS*PTSHIFT))
 
+#define MPIDMASK	3ULL			/* MPIDR_EL1 affinity bits signifying the CPUID */
 #define	MAXMACH		4			/* max # cpus system can run */
 #define	MACHSIZE	(8*KiB)
 
