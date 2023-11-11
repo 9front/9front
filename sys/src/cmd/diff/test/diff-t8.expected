@@ -1,5 +1,5 @@
---- diff-t8.1
-+++ diff-t8.2
+--- diff-t8.l
++++ diff-t8.r
 @@ -1,4 +1,5 @@
 -/*	$NetBSD: kern_malloc.c,v 1.11 1995/05/01 22:39:11 cgd Exp $	*/
 +/*	$OpenBSD: t8.2,v 1.1 2003/07/17 21:04:04 otto Exp $	*/

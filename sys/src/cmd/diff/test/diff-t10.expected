@@ -1,5 +1,5 @@
---- diff-t10.1
-+++ diff-t10.2
+--- diff-t10.l
++++ diff-t10.r
 @@ -1 +1 @@
 -a line of text
 +Another line of text

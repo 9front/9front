@@ -1,5 +1,5 @@
---- diff-t6.1
-+++ diff-t6.2
+--- diff-t6.l
++++ diff-t6.r
 @@ -6,4 +6,4 @@
  Before reporting a bug, please try to reproduce it with the latest
  version of the code.  With bug reports, please try to ensure that

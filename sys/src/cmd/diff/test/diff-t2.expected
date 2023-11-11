@@ -1,5 +1,5 @@
---- diff-t2.1
-+++ diff-t2.2
+--- diff-t2.l
++++ diff-t2.r
 @@ -3,7 +3,7 @@
  
  It is important to specify the year of the copyright.  Additional years

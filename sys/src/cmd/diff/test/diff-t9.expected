@@ -1,5 +1,5 @@
---- diff-t9.1
-+++ diff-t9.2
+--- diff-t9.l
++++ diff-t9.r
 @@ -1,4 +1,5 @@
 -/*	$NetBSD: vfs_syscalls.c,v 1.57 1995/10/07 06:28:51 mycroft Exp $	*/
 +/*	$OpenBSD: t9.2,v 1.2 2013/12/01 16:40:56 krw Exp $	*/

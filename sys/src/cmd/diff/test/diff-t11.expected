@@ -1,5 +1,5 @@
---- diff-t11.1
-+++ diff-t11.2
+--- diff-t11.l
++++ diff-t11.r
 @@ -1,1003 +1,908 @@
 -.\"	$OpenBSD: t11.1,v 1.2 2007/11/27 16:22:12 martynas Exp $
 -.\"	$NetBSD: ed.1,v 1.13 1995/03/21 09:04:38 cgd Exp $

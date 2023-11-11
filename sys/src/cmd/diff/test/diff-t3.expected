@@ -1,5 +1,5 @@
---- diff-t3.1
-+++ diff-t3.2
+--- diff-t3.l
++++ diff-t3.r
 @@ -1,0 +1,25 @@
 +Below is an example license to be used for new code in OpenBSD,
 +modeled after the ISC license.

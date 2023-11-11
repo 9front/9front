@@ -1,5 +1,5 @@
---- diff-t13.1
-+++ diff-t13.2
+--- diff-t13.l
++++ diff-t13.r
 @@ -1,11 +1,9 @@
  A line of text
 -.
