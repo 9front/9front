@@ -1,4 +1,4 @@
---- multifile2.in
+--- multifile2.in.tmp
 +++ multifile2.out
 @@ -1,21 +1,19 @@
 -77777
@@ -31,7 +31,7 @@
 
 of course, each patch can have its own comment
 lines mixed in, so we should handle these.
---- multifile1.in
+--- multifile1.in.tmp
 +++ multifile1.out
 @@ -14,16 +14,6 @@
  12

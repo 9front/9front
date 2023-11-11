@@ -23,9 +23,11 @@ seq 12 > delete.out
 ../../$O.patch delete.patch
 test ! -f delete.out
 
-rm -f multifile^(1 2)^.out
-chmod 640 multifile1.in
-chmod 400 multifile2.in
+rm -f multifile^(1 2)^.out multifile^(1 2)^.in.tmp
+cp multifile1.in multifile1.in.tmp
+cp multifile2.in multifile2.in.tmp
+chmod 640 multifile1.in.tmp
+chmod 400 multifile2.in.tmp
 ../../$O.patch multifile.patch
 check multifile1.out multifile1.expected
 check multifile2.out multifile2.expected
@@ -34,6 +36,4 @@ if(! ~ `{walk -ex multifile1.out} --rw-r-----)
 	exit misperm1
 if(! ~ `{walk -ex multifile2.out} --rw-------)
 	exit misperm2
-
-
 status=()
