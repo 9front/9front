@@ -30,8 +30,6 @@ typedef struct Ctlr {
 	int irq, iena;
 } Ctlr;
 
-Uart* uartenable(Uart *);
-
 extern PhysUart zynqphysuart;
 
 static Ctlr zctlr[1] = {
@@ -53,9 +51,11 @@ static Uart zuart[1] = {
 };
 
 void
-uartinit(void)
+uartconsinit(void)
 {
 	consuart = zuart;
+	uartctl(consuart, "l8 pn s1");
+	uartputs(kmesg.buf, kmesg.n);
 }
 
 static Uart *
@@ -145,22 +145,6 @@ zuartputc(Uart *uart, int c)
 		;
 	ct->r[FIFO] = c;
 	return;
-}
-
-int
-uartconsole(void)
-{
-	Uart *uart = zuart;
-
-	if(up == nil)
-		return -1;
-
-	if(uartenable(uart) != nil){
-		serialoq = uart->oq;
-		uart->opens++;
-		consuart = uart;
-	}
-	return 0;
 }
 
 int

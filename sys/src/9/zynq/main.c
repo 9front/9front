@@ -206,7 +206,6 @@ init0(void)
 	int i;
 
 	chandevinit();
-	uartconsole();
 	
 	if(!waserror()){
 		ksetenv("cputype", "arm", 0);
@@ -321,7 +320,7 @@ main(void)
 		schedinit();
 		return;
 	}
-	uartinit();
+	uartconsinit();
 	mmuinit();
 	l2init();
 	intrinit();

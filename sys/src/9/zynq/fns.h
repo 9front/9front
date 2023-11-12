@@ -24,7 +24,7 @@ void kunmap(KMap *);
 #define VA(k) ((void*)(k))
 #define PTR2UINT(p) ((uintptr)(p))
 
-void uartinit(void);
+void uartconsinit(void);
 void mmuinit(void);
 uintptr ttbget(void);
 void ttbput(uintptr);
@@ -50,7 +50,6 @@ void l1switch(L1 *, int);
 void intrenable(int, void (*)(Ureg *, void *), void *, int, char *);
 void intrinit(void);
 int intr(Ureg *);
-int uartconsole(void);
 long fbctlread(Chan*,void*,long,vlong);
 long fbctlwrite(Chan*,void*,long,vlong);
 void fpoff(void);
