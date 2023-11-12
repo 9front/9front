@@ -286,12 +286,12 @@ main(void)
 		schedinit();
 		return;
 	}
+	uartconsinit();
 	quotefmtinstall();
 	bootargsinit();
 	meminit();
 	confinit();
 	xinit();
-	uartconsinit();
 	printinit();
 	print("\nPlan 9\n");
 	trapinit();

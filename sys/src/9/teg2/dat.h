@@ -19,8 +19,6 @@ enum {
 #define MS2TMR(t)	((ulong)(((uvlong)(t) * m->cpuhz)/1000))
 #define US2TMR(t)	((ulong)(((uvlong)(t) * m->cpuhz)/1000000))
 
-#define CONSOLE 0
-
 typedef struct Conf	Conf;
 typedef struct Confmem	Confmem;
 typedef struct FPsave	FPsave;
@@ -244,7 +242,6 @@ extern uchar *l2pages;
 extern Mach* machaddr[MAXMACH];
 extern ulong memsize;
 extern int navailcpus;
-extern int normalprint;
 
 /*
  *  a parsed plan9.ini line

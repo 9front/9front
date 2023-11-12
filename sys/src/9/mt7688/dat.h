@@ -221,11 +221,8 @@ extern register Proc	*up;
 
 extern Mach* machaddr[MAXMACH];
 #define	MACHP(n)	(machaddr[n])
-extern int	normalprint;
 
 extern FPsave initfp;
-
-#define CONSOLE	0
 
 /*
  *  hardware info about a device

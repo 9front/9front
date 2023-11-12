@@ -9,8 +9,7 @@ struct Ether;
 extern int led(int, int);
 extern void ledexit(int);
 extern void delay(int);
-extern void _uartputs(char*, int);
-extern int _uartprint(char*, ...);
+extern void uartconsinit(void);
 
 #pragma	varargck argpos	_uartprint 1
 
@@ -104,8 +103,6 @@ extern void putauxctl(ulong);
 extern void _reset(void);
 extern void screenclockson(void);
 extern void screeninit(void);
-extern void serialputc(int c);
-extern void serialputs(char* s, int n);
 extern void setcachelvl(int);
 extern void setsp(uintptr);
 extern void setr13(int, u32int*);
@@ -137,7 +134,6 @@ extern void vtable(void);
  */
 extern void archconfinit(void);
 extern void clockinit(void);
-extern int i8250console(void);
 extern void links(void);
 extern void mmuinit(void);
 extern void touser(uintptr);

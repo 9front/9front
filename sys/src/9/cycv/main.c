@@ -212,7 +212,7 @@ main(void)
 		schedinit();
 		return;
 	}
-	uartinit();
+	uartconsinit();
 	mmuinit();
 	intrinit();
 	options();

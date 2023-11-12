@@ -462,13 +462,6 @@ i8250break(Uart* uart, int ms)
 }
 
 static void
-emptyoutstage(Uart *uart, int n)
-{
-	_uartputs((char *)uart->op, n);
-	uart->op = uart->oe = uart->ostage;
-}
-
-static void
 i8250kick(Uart* uart)
 {
 	int i;
@@ -476,14 +469,6 @@ i8250kick(Uart* uart)
 
 	if(/* uart->cts == 0 || */ uart->blocked)
 		return;
-
-	if(!normalprint) {			/* early */
-		if (uart->op < uart->oe)
-			emptyoutstage(uart, uart->oe - uart->op);
-		while ((i = uartstageoutput(uart)) > 0)
-			emptyoutstage(uart, i);
-		return;
-	}
 
 	/* nothing more to send? then disable xmit intr */
 	ctlr = uart->regs;
@@ -509,12 +494,6 @@ i8250kick(Uart* uart)
 		ctlr->sticky[Ier] |= Ethre;
 		csr8w(ctlr, Ier, 0);			/* intr when done */
 	}
-}
-
-void
-serialkick(void)
-{
-	uartkick(&i8250uart[CONSOLE]);
 }
 
 static void
@@ -612,9 +591,6 @@ i8250enable(Uart* uart, int ie)
 	int mode;
 	Ctlr *ctlr;
 
-	if (up == nil)
-		return;				/* too soon */
-
 	ctlr = uart->regs;
 
 	/* omap only: set uart/irda/cir mode to uart */
@@ -710,17 +686,6 @@ i8250putc(Uart* uart, int c)
 	int i;
 	Ctlr *ctlr;
 
-	if (!normalprint) {		/* too early; use brute force */
-		int s = splhi();
-
-		while (!(((ulong *)PHYSCONS)[Lsr] & Thre))
-			;
-		((ulong *)PHYSCONS)[Thr] = c;
-		coherence();
-		splx(s);
-		return;
-	}
-
 	ctlr = uart->regs;
 	for(i = 0; !(csr8r(ctlr, Lsr) & Thre) && i < 128; i++)
 		delay(1);
@@ -730,39 +695,11 @@ i8250putc(Uart* uart, int c)
 }
 
 void
-serialputc(int c)
+uartconsinit(void)
 {
-	i8250putc(&i8250uart[CONSOLE], c);
+	consuart = &i8250uart[0];
+	uartctl(consuart, "b115200 l8 pn r1 s1 i1");
 }
-
-void
-serialputs(char* s, int n)
-{
-	_uartputs(s, n);
-}
-
-#ifdef notdef
-static void
-i8250poll(Uart* uart)
-{
-	Ctlr *ctlr;
-
-	/*
-	 * If PhysUart has a non-nil .poll member, this
-	 * routine will be called from the uartclock timer.
-	 * If the Ctlr .poll member is non-zero, when the
-	 * Uart is enabled interrupts will not be enabled
-	 * and the result is polled input and output.
-	 * Not very useful here, but ports to new hardware
-	 * or simulators can use this to get serial I/O
-	 * without setting up the interrupt mechanism.
-	 */
-	ctlr = uart->regs;
-	if(ctlr->iena || !ctlr->poll)
-		return;
-	i8250interrupt(nil, uart);
-}
-#endif
 
 PhysUart i8250physuart = {
 	.name		= "i8250",
@@ -782,67 +719,4 @@ PhysUart i8250physuart = {
 	.fifo		= i8250fifo,
 	.getc		= i8250getc,
 	.putc		= i8250putc,
-//	.poll		= i8250poll,		/* only in 9k, not 9 */
 };
-
-static void
-i8250dumpregs(Ctlr* ctlr)
-{
-	int dlm, dll;
-	int _uartprint(char*, ...);
-
-	csr8w(ctlr, Lcr, Dlab);
-	dlm = csr8r(ctlr, Dlm);
-	dll = csr8r(ctlr, Dll);
-	csr8w(ctlr, Lcr, 0);
-
-	_uartprint("dlm %#ux dll %#ux\n", dlm, dll);
-}
-
-Uart*	uartenable(Uart *p);
-
-/* must call this from a process's context */
-int
-i8250console(void)
-{
-	Uart *uart = &i8250uart[CONSOLE];
-
-	if (up == nil)
-		return -1;			/* too early */
-
-	if(uartenable(uart) != nil /* && uart->console */){
-		// iprint("i8250console: enabling console uart\n");
-		serialoq = uart->oq;
-		uart->opens++;
-		consuart = uart;
-	}
-	uartctl(uart, "b115200 l8 pn r1 s1 i1");
-	return 0;
-}
-
-void
-_uartputs(char* s, int n)
-{
-	char *e;
-
-	for(e = s+n; s < e; s++){
-		if(*s == '\n')
-			i8250putc(&i8250uart[CONSOLE], '\r');
-		i8250putc(&i8250uart[CONSOLE], *s);
-	}
-}
-
-int
-_uartprint(char* fmt, ...)
-{
-	int n;
-	va_list arg;
-	char buf[PRINTSIZE];
-
-	va_start(arg, fmt);
-	n = vseprint(buf, buf+sizeof(buf), fmt, arg) - buf;
-	va_end(arg);
-	_uartputs(buf, n);
-
-	return n;
-}

@@ -55,7 +55,6 @@ uartconsinit(void)
 {
 	consuart = zuart;
 	uartctl(consuart, "l8 pn s1");
-	uartputs(kmesg.buf, kmesg.n);
 }
 
 static Uart *

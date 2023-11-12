@@ -379,7 +379,6 @@ uartconsinit(void)
 	consuart = &uart1;
 	consuart->console = 1;
 	uartctl(consuart, "l8 pn s1");
-	uartputs(kmesg.buf, kmesg.n);
 }
 
 PhysUart imxphysuart = {

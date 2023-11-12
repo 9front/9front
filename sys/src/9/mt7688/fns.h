@@ -73,7 +73,7 @@ void	wrcount(ulong);
 
 void	_uartputs(char*, int);
 int		_uartprint(char*, ...);
-void	uartinit(void);
+void	uartconsinit(void);
 void	zoot(void);
 void	idle(void);
 ulong	getstatus(void);

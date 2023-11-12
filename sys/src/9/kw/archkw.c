@@ -472,13 +472,6 @@ archreboot(void)
 }
 
 void
-archconsole(void)
-{
-//	uartconsole(0, "b115200");
-//serialputs("uart0 console @ 115200\n", strlen("uart0 console @ 115200\n"));
-}
-
-void
 archflashwp(Flash*, int)
 {
 }

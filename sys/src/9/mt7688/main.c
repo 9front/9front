@@ -20,8 +20,6 @@ static Softtlb stlb[MAXMACH][STLBSIZE];
 Conf	conf;
 Mach* machaddr[MAXMACH];
 
-int normalprint;
-
 static void
 checkclock0(void)
 {
@@ -114,21 +112,19 @@ main(void)
 {
 	savefpregs(&initfp);
 
-	uartinit();
+	uartconsinit();
 	quotefmtinstall();
 
 	confinit();
 	machinit();			/* calls clockinit */
 	active.exiting = 0;
 	active.machs[0] = 1;
-	normalprint = 1;
 
 	kmapinit();
 	xinit();
 	timersinit();
 	plan9iniinit();
 	intrinit();
-
 
 	iprint("\nPlan 9 \n");
 	prcpuid();
@@ -214,8 +210,6 @@ void
 init0(void)
 {
 	char buf[128], **sp;
-
-	i8250console();
 
 	chandevinit();
 

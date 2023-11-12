@@ -6,10 +6,7 @@
 extern int led(int, int);
 extern void ledexit(int);
 extern void delay(int);
-extern void _uartputs(char*, int);
-extern int _uartprint(char*, ...);
-
-#pragma	varargck argpos	_uartprint 1
+extern void uartconsinit(void);
 
 extern void archreboot(void);
 extern void archreset(void);
@@ -75,7 +72,6 @@ extern void procfork(Proc*);
 extern void _reset(void);
 extern void screenclockson(void);
 extern void screeninit(void);
-extern void serialputs(char* s, int n);
 extern void setcachelvl(int);
 extern void setr13(int, u32int*);
 extern int tas(void *);

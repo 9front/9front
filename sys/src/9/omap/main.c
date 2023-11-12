@@ -165,6 +165,7 @@ main(void)
 	vfy = 0;
 
 wave('l');
+	uartconsinit();
 	machinit();
 	mmuinit();
 
@@ -217,8 +218,6 @@ wave('l');
 	conf.monitor = 1;
 	screeninit();
 	chandevreset();			/* most devices are discovered here */
-
-//	i8250console();			/* too early; see init0 */
 
 	pageinit();
 	userinit();
@@ -349,10 +348,6 @@ init0(void)
 
 	dmatest();		/* needs `up' set, so can't do it earlier */
 	chandevinit();
-	i8250console();		/* might be redundant, but harmless */
-	if(serialoq == nil)
-		panic("init0: nil serialoq");
-	normalprint = 1;
 
 	if(!waserror()){
 		snprint(buf, sizeof(buf), "%s %s", "ARM", conffile);

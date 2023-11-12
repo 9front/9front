@@ -18,12 +18,6 @@ enum {
 #define MS2TMR(t)	((ulong)(((uvlong)(t) * m->cpuhz)/1000))
 #define US2TMR(t)	((ulong)(((uvlong)(t) * m->cpuhz)/1000000))
 
-/*
- * we ignore the first 2 uarts on the omap3530 (see uarti8250.c) and use the
- * third one but call it 0.
- */
-#define CONSOLE 0
-
 typedef struct Conf	Conf;
 typedef struct Confmem	Confmem;
 typedef struct FPsave	FPsave;
@@ -198,7 +192,6 @@ extern register Proc* up;			/* R9 */
 extern uintptr kseg0;
 extern Mach* machaddr[MAXMACH];
 extern ulong memsize;
-extern int normalprint;
 
 /*
  *  a parsed plan9.ini line

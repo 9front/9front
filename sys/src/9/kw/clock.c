@@ -104,7 +104,7 @@ clockinit(void)
 	}
 	splx(s);
 	if (ticks == 0) {
-		serialputc('?');
+		uartputc('?');
 		if (tmr->timer0 == 0)
 			panic("clock not interrupting");
 		else if (tmr->timer0 == tmr->reload0)

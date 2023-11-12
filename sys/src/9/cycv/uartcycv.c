@@ -32,8 +32,6 @@ typedef struct Ctlr {
 	int irq, iena;
 } Ctlr;
 
-Uart* uartenable(Uart *);
-
 extern PhysUart cycvphysuart;
 
 static Ctlr vctlr[1] = {
@@ -55,7 +53,7 @@ static Uart vuart[1] = {
 };
 
 void
-uartinit(void)
+uartconsinit(void)
 {
 	consuart = vuart;
 }
@@ -155,22 +153,6 @@ vuartputc(Uart *uart, int c)
 		;
 	ct->r[RBR] = c;
 	return;
-}
-
-int
-uartconsole(void)
-{
-	Uart *uart = vuart;
-
-	if(up == nil)
-		return -1;
-
-	if(uartenable(uart) != nil){
-		serialoq = uart->oq;
-		uart->opens++;
-		consuart = uart;
-	}
-	return 0;
 }
 
 int

@@ -25,7 +25,7 @@ static Dirtab *uartdir;
 static int uartndir;
 static Timer *uarttimer;
 
-struct Uartalloc {
+static struct Uartalloc {
 	Lock;
 	Uart *elist;	/* list of enabled interfaces */
 } uartalloc;
@@ -36,7 +36,7 @@ static void	uartflow(void*);
 /*
  *  enable/disable uart and add/remove to list of enabled uarts
  */
-Uart*
+static Uart*
 uartenable(Uart *p)
 {
 	Uart **l;
@@ -264,7 +264,6 @@ uartreset(void)
 						consuart = p;
 						uartputs(kmesg.buf, kmesg.n);
 					}
-					serialoq = p->oq;
 				}
 				p->opens++;
 			}
@@ -281,6 +280,13 @@ uartreset(void)
 	}
 }
 
+static void
+uartinit(void)
+{
+	/* now that the timers are ticking, enable buffered uart */
+	if(serialoq == nil && consuart != nil)
+		serialoq = consuart->oq;
+}
 
 static Chan*
 uartattach(char *spec)
@@ -594,7 +600,7 @@ uartwstat(Chan *c, uchar *dp, int n)
 	return n;
 }
 
-void
+static void
 uartpower(int on)
 {
 	Uart *p;
@@ -610,7 +616,7 @@ Dev uartdevtab = {
 	"uart",
 
 	uartreset,
-	devinit,
+	uartinit,
 	devshutdown,
 	uartattach,
 	uartwalk,

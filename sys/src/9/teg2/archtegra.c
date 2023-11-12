@@ -675,8 +675,8 @@ cpustart(void)
 
 	up = nil;
 	if (active.machs[m->machno]) {
-		serialputc('?');
-		serialputc('r');
+		uartputc('?');
+		uartputc('r');
 		panic("cpu%d: resetting after start", m->machno);
 	}
 	assert(m->machno != 0);

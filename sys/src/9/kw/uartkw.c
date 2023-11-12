@@ -300,6 +300,13 @@ kw_putc(Uart *uart, int c)
 	coherence();
 }
 
+void
+uartconsinit(void)
+{
+	consuart = &kirkwooduart[0];
+	uartctl(consuart, "b115200 l8 pn s1 i1");
+}
+
 PhysUart kwphysuart = {
 	.name		= "kirkwood",
 	.pnp		= kw_pnp,
@@ -319,44 +326,3 @@ PhysUart kwphysuart = {
 	.getc		= kw_getc,
 	.putc		= kw_putc,
 };
-
-void
-uartkirkwoodconsole(void)
-{
-	Uart *uart;
-
-	uart = &kirkwooduart[0];
-	(*uart->phys->enable)(uart, 0);
-	uartctl(uart, "b115200 l8 pn s1 i1");
-	uart->console = 1;
-	consuart = uart;
-//serialputs("uart0 kirkwood\n", strlen("uart0 kirkwood\n"));
-}
-
-void
-serialputc(int c)
-{
-	int cnt, s;
-	UartReg *regs = (UartReg *)soc.uart[0];
-
-	s = splhi();
-	cnt = m->cpuhz;
-	if (cnt <= 0)			/* cpuhz not set yet? */
-		cnt = 1000000;
-	while((regs->lsr & LSRthre) == 0 && --cnt > 0)
-		;
-	regs->thr = c;
-	coherence();
-	delay(1);
-	splx(s);
-}
-
-void
-serialputs(char *p, int len)
-{
-	while(--len >= 0) {
-		if(*p == '\n')
-			serialputc('\r');
-		serialputc(*p++);
-	}
-}

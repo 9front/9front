@@ -182,8 +182,6 @@ spiprobe(void)
 //	print("spi flash at %#ux: memory reads enabled\n", PHYSSPIFLASH);
 }
 
-void	archconsole(void);
-
 /* dummy for usb */
 int
 isaconfig(char *, int, ISAConf *)
@@ -217,13 +215,13 @@ main(Mach* mach)
 	vfy = 0;
 
 wave('9');
+	uartconsinit();
 	machinit();
 	archreset();
 	mmuinit();
+uartputc(' ');
 
 	quotefmtinstall();
-	archconsole();
-wave(' ');
 
 	/* want plan9.ini to be able to affect memory sizing in confinit */
 	plan9iniinit();		/* before we step on plan9.ini in low memory */
@@ -249,7 +247,6 @@ wave(' ');
 	clockinit();
 
 	printinit();
-	uartkirkwoodconsole();
 	/* only now can we print */
 	print("from Bell Labs\n\n");
 

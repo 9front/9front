@@ -6,11 +6,7 @@
 extern int led(int, int);
 extern void ledexit(int);
 extern void delay(int);
-extern void _uartputs(char*, int);
-extern int _uartprint(char*, ...);
-extern void uartkirkwoodconsole(void);
-extern void serialputs(char *, int);
-extern void serialputc(int c);
+extern void uartconsinit(void);
 
 #pragma	varargck argpos	_uartprint 1
 

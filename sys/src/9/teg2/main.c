@@ -42,7 +42,6 @@ Memcache cachel[8];		/* arm arch v7 supports 1-7 */
 Lowmemcache *cacheconf;
 
 int vflag;
-int normalprint;
 char debug[256];
 
 static Lock testlock;
@@ -181,19 +180,19 @@ machinit(void)
 	Mach *m0;
 
 	if (m == 0) {
-		serialputc('?');
-		serialputc('m');
-		serialputc('0');
+		uartputc('?');
+		uartputc('m');
+		uartputc('0');
 	}
 	if(machaddr[m->machno] != m) {
-		serialputc('?');
-		serialputc('m');
-		serialputc('m');
+		uartputc('?');
+		uartputc('m');
+		uartputc('m');
 	}
 
 	if (canlock(&testlock)) {
-		serialputc('?');
-		serialputc('l');
+		uartputc('?');
+		uartputc('l');
 		panic("cpu%d: locks don't work", m->machno);
 	}
 
@@ -220,8 +219,8 @@ void
 mach0init(void)
 {
 	if (m == 0) {
-		serialputc('?');
-		serialputc('m');
+		uartputc('?');
+		uartputc('m');
 	}
 	conf.nmach = 0;
 
@@ -306,15 +305,8 @@ void
 main(void)
 {
 	int cpu;
-	static ulong vfy = 0xcafebabe;
 
 	up = nil;
-	if (vfy != 0xcafebabe) {
-		serialputc('?');
-		serialputc('d');
-		panic("data segment misaligned");
-	}
-
 	memset(edata, 0, end - edata);
 
 	/*
@@ -322,6 +314,7 @@ main(void)
 	 * until l1 & l2 are on.  too bad.  l1 is on, l2 will soon be.
 	 */
 	smpon();
+	uartconsinit();
 	iprint("ll Labs ");
 	cacheinit();
 
@@ -398,7 +391,6 @@ main(void)
 	iprint("ok\n");
 
 	chandevreset();			/* most devices are discovered here */
-//	i8250console();			/* too early; see init0 */
 
 	pageinit();			/* prints "1020M memory: ⋯ */
 	userinit();
@@ -545,10 +537,6 @@ init0(void)
 	int i;
 
 	chandevinit();
-	i8250console();		/* might be redundant, but harmless */
-	if(serialoq == nil)
-		panic("init0: nil serialoq");
-	normalprint = 1;
 
 	if(!waserror()){
 		snprint(buf, sizeof(buf), "%s %s", "ARM", conffile);
