@@ -307,10 +307,10 @@ emmccmd(SDio*, SDiocmd *cmd, u32int arg, u32int *resp)
 		emmc.datadone = 0;
 		r[Irpten] = 0;
 		if((i & Datadone) == 0)
-			print("emmcio: no Datadone after CMD%d\n", cmd);
+			print("emmcio: no Datadone after %s\n", cmd->name);
 		if(i & Err)
-			print("emmcio: CMD%d error interrupt %ux\n",
-				cmd, r[Interrupt]);
+			print("emmcio: %s error interrupt %ux\n",
+				cmd->name, r[Interrupt]);
 		r[Interrupt] = i;
 	}
 	return 0;
