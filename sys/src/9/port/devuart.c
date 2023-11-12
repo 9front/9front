@@ -143,10 +143,11 @@ uartmouse(char *which, int (*putc)(Queue*, int), int setb1200)
 
 	p = uartport(which);
 	qlock(p);
-	if(p->opens++ == 0 && uartenable(p) == nil){
+	if(p->opens == 0 && uartenable(p) == nil){
 		qunlock(p);
 		error(Enodev);
 	}
+	p->opens++;
 	if(setb1200)
 		uartctl(p, "b1200");
 	p->putc = putc;
@@ -321,11 +322,12 @@ uartopen(Chan *c, int omode)
 	case Ndataqid:
 		p = uart[NETID(c->qid.path)];
 		qlock(p);
-		if(p->opens++ == 0 && uartenable(p) == nil){
+		if(p->opens == 0 && uartenable(p) == nil){
 			qunlock(p);
 			c->flag &= ~COPEN;
 			error(Enodev);
 		}
+		p->opens++;
 		qunlock(p);
 		break;
 	}
