@@ -1,4 +1,5 @@
 proto=/n/src9/sys/lib/sysconfig/proto/distproto
+bootproto=/n/src9/sys/lib/sysconfig/proto/9bootproto
 
 cd:V:	/tmp/9front.386.iso.gz
 
@@ -132,7 +133,7 @@ cd:V:	/tmp/9front.386.iso.gz
 	echo 'bootfile='^`{echo $kernel | sed 's!^/n/src9!!'}} > /env/plan9.ini
 	bind /env/plan9.ini /n/src9/cfg/plan9.ini
 	disk/mk9660 -c9j -B 386/9bootiso -E 386/efiboot.fat \
-		-p <{cat $proto /n/src9/sys/lib/sysconfig/proto/9bootproto} \
+		-p <{cat $proto $bootproto} \
 		-s /n/src9 -v 'Plan 9 Front ('^$objtype^')' $target
 	if(test -r /n/src9/386/9boothyb){
 		dd -if /dev/zero -bs 2048 -count 1024 >> $target
@@ -224,7 +225,7 @@ cd:V:	/tmp/9front.386.iso.gz
 		sleep 1
 	} >> /srv/$s.cmd
 	mount -N -c /srv/$s /n/newfs
-	disk/mkfs -z 4096 -U -s /n/src9 -d /n/newfs $proto
+	disk/mkfs -z 4096 -U -s /n/src9 -d /n/newfs <{cat $proto $bootproto}
 	echo sync >> /srv/$s.cmd
 	echo halt >> /srv/$s.cmd
 	while(test -e /srv/$s.cmd) sleep 1
