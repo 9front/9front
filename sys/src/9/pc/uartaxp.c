@@ -545,7 +545,7 @@ axpkick(Uart* uart)
 	Ccb *ccb;
 	uchar *ep, *mem, *rp, *wp, *bp;
 
-	if(uart->cts == 0 || uart->blocked)
+	if(uart->cts == 0)
 		return;
 
 	cc = uart->regs;

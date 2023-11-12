@@ -167,8 +167,6 @@ kick(Uart *u)
 	u32int *regs = (u32int*)u->regs;
 
 	while(u->op < u->oe || uartstageoutput(u)){
-		if(u->blocked)
-			break;
 		if((regs[USR1] & SR1_TRDY) == 0){
 			regs[UCR1] |= CR1_TRDYEN;
 			return;

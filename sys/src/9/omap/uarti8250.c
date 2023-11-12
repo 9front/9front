@@ -467,9 +467,6 @@ i8250kick(Uart* uart)
 	int i;
 	Ctlr *ctlr;
 
-	if(/* uart->cts == 0 || */ uart->blocked)
-		return;
-
 	/* nothing more to send? then disable xmit intr */
 	ctlr = uart->regs;
 	if (uart->op >= uart->oe && qlen(uart->oq) == 0 &&

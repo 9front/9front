@@ -393,9 +393,6 @@ smckick(Uart *uart)
 	UartData *ud;
 	int i;
 
-	if(uart->blocked)
-		return;
-
 	ud = uart->regs;
 	txb = ud->txb;
 

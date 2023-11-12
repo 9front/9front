@@ -9,11 +9,6 @@
 #include "fns.h"
 #include "io.h"
 
-enum {
-	Pollstuckoutput = 1,
-};
-
-
 enum {					/* registers */
 	Rbr		= 0,		/* Receiver Buffer (RO) */
 	Thr		= 0,		/* Transmitter Holding (WO) */
@@ -443,9 +438,6 @@ i8250kick(Uart* uart)
 {
 	int i;
 	Ctlr *ctlr;
-
-	if(/* uart->cts == 0 || */ uart->blocked)
-		return;
 
 	/* nothing more to send? then disable xmit intr */
 	ctlr = uart->regs;

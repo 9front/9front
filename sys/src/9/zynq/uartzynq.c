@@ -69,8 +69,6 @@ zuartkick(Uart *uart)
 	Ctlr *ct;
 	int i;
 
-	if(uart->blocked)
-		return;
 	ct = uart->regs;
 	for(i = 0; i < 128; i++){
 		if((ct->r[CHANSTAT] & TXFULL) != 0)
@@ -99,7 +97,7 @@ zuartintr(Ureg *, void *arg)
 			uartrecv(uart, c);
 		}
 	if((fl & TXEMPTY) != 0)
-		zuartkick(uart);
+		uartkick(uart);
 }
 
 static void

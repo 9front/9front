@@ -419,7 +419,7 @@ i8250kick(Uart* uart)
 	int i;
 	Ctlr *ctlr;
 
-	if(uart->cts == 0 || uart->blocked)
+	if(uart->cts == 0)
 		return;
 
 	/*

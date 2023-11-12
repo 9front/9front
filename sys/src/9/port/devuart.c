@@ -70,6 +70,7 @@ uartenable(Uart *p)
 
 	/* assume we can send */
 	p->cts = 1;
+	p->blocked = 0;
 	p->ctsbackoff = 0;
 
 	if(p->bits == 0)
@@ -655,6 +656,9 @@ uartstageoutput(Uart *p)
 {
 	int n;
 
+	if(!p->enabled || p->blocked)
+		return 0;
+
 	n = qconsume(p->oq, p->ostage, Stagesize);
 	if(n <= 0)
 		return 0;
@@ -779,7 +783,7 @@ uartclock(void)
 		if(p->ctsbackoff){
 			ilock(&p->tlock);
 			if(p->ctsbackoff){
-				if(--(p->ctsbackoff) == 0)
+				if(--(p->ctsbackoff) == 0 && !p->blocked)
 					(*p->phys->kick)(p);
 			}
 			iunlock(&p->tlock);

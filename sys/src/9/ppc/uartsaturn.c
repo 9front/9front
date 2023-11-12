@@ -278,9 +278,6 @@ sukick(Uart *uart)
 	Saturnuart *su;
 	int i;
 
-	if(uart->blocked)
-		return;
-
 	su = ((UartData*)uart->regs)->su;
 	if((su->iir & Iir_txempty) == 0)
 		return;

@@ -173,8 +173,6 @@ kick(Uart *uart)
 {
 	u32int *reg = (u32int*)uart->regs;
 
-	if(uart->blocked)
-		return;
 	coherence();
 	while((reg[FR] & TXFF) == 0){
 		if(uart->op >= uart->oe && uartstageoutput(uart) == 0)

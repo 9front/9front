@@ -121,10 +121,8 @@ kick(Uart *uart)
 {
 	u32int *ap;
 
-	ap = (u32int*)uart->regs;
-	if(uart->blocked)
-		return;
 	coherence();
+	ap = (u32int*)uart->regs;
 	while(ap[MuLsr] & TxRdy){
 		if(uart->op >= uart->oe && uartstageoutput(uart) == 0)
 			break;

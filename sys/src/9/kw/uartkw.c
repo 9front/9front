@@ -195,9 +195,6 @@ kw_kick(Uart* uart)
 	UartReg *regs = ctlr->regs;
 	int i;
 
-	if(uart->cts == 0 || uart->blocked)
-		return;
-
 	for(i = 0; i < 16; i++) {
 		if((regs->lsr & LSRthre) == 0 ||
 		    uart->op >= uart->oe && uartstageoutput(uart) == 0)

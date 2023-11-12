@@ -70,8 +70,6 @@ vuartkick(Uart *uart)
 	Ctlr *ct;
 	int i;
 
-	if(uart->blocked)
-		return;
 	ct = uart->regs;
 	if((ct->r[LSR] & LSR_THRE) == 0)
 		return;
@@ -102,7 +100,7 @@ vuartintr(Ureg *, void *arg)
 			}
 			break;
 		case 2:
-			vuartkick(uart);
+			uartkick(uart);
 			break;
 		default:
 			return;
