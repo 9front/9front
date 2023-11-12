@@ -285,7 +285,7 @@ static void
 uartinit(void)
 {
 	/* now that the timers are ticking, enable buffered uart */
-	if(serialoq == nil && consuart != nil)
+	if(serialoq == nil && consuart != nil && consuart->enabled)
 		serialoq = consuart->oq;
 }
 
