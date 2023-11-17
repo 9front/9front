@@ -1,0 +1,6 @@
+</$objtype/mkfile
+
+TEST=\
+	edges
+
+</sys/src/cmd/mktest

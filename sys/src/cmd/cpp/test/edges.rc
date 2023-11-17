@@ -1,0 +1,3 @@
+#!/bin/rc
+
+../6.out edges.in > edges.out && cmp edges.out edges.expected

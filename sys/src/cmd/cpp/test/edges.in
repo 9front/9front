@@ -23,6 +23,7 @@ FOO
 
 /* Expected: a bc d */
 CAT(a b, c d)
+WUT
 
 /*
  * CURRENTLY BROKEN:
