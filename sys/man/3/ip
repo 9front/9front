@@ -210,8 +210,8 @@ incoming connections and proxying them with
 .IR trampoline (8)
 to a different ip stack. 
 .TP
-.BI remove\  "local mask"
-Remove a local IP address from an interface.
+.BI del\  "local mask"
+Delete a local IP address from an interface.
 .TP
 .BI mtu\  n
 Set the maximum transfer unit for this device to
@@ -271,8 +271,8 @@ Treat the multicast
 .I Media-addr
 on this interface as a local address.
 .TP
-.BI remmulti\  Media-addr
-Remove the multicast address
+.BI delmulti\  Media-addr
+Delete the multicast address
 .I Media-addr
 from this interface.
 .TP
@@ -310,8 +310,8 @@ preferred life-time in seconds
 .RE
 .PD
 .TP
-.B remove6
-Remove local IPv6 addresses that have expired ther
+.B del6
+Delete local IPv6 addresses that have expired ther
 valid life-time.
 .TP
 .BI "ra6 " "keyword value ..."
@@ -465,20 +465,20 @@ IP address on the desired interface or as a
 .B "-"
 when unspecified.
 .TP
-.BI remove\  "target mask"
+.BI del\  "target mask"
 .TP
-.BI remove\  "target mask nexthop"
+.BI del\  "target mask nexthop"
 .TP
-.BI remove\  "target mask source smask"
+.BI del\  "target mask source smask"
 .TP
-.BI remove\  "target mask nexthop source smask"
+.BI del\  "target mask nexthop source smask"
 .TP
-.BI remove\  "target mask nexthop interface source smask"
+.BI del\  "target mask nexthop interface source smask"
 .TP
-.BI remove\  "target mask nexthop flags interface source smask"
+.BI del\  "target mask nexthop flags interface source smask"
 .TP
-.BI remove\  "target mask nexthop flags tag interface source smask"
-Remove the matching route.
+.BI del\  "target mask nexthop flags tag interface source smask"
+Delete the matching route.
 .
 .SS "Address resolution
 The file
@@ -662,7 +662,7 @@ file (see
 to receive incoming calls.
 .PP
 The following control messages are supported:
-.TF "\fLremmulti \fIip\fR"
+.TF "\fLdelmulti \fIip\fR"
 .PD
 .TP
 .BI connect\  ip-address ! port "!r " local
@@ -760,8 +760,8 @@ If
 is present,
 use it as the interface's multicast address.
 .TP
-.BI remmulti\  ip
-Remove the address
+.BI delmulti\  ip
+Delete the address
 .I ip
 from this multicast interface.
 .PP

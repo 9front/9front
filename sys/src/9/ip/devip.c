@@ -571,7 +571,7 @@ closeconv(Conv *cv)
 	cv->perm = 0660;
 
 	while((mp = cv->multi) != nil)
-		ipifcremmulti(cv, mp->ma, mp->ia);
+		ipifcdelmulti(cv, mp->ma, mp->ia);
 
 	if(cv->p->close != nil)
 		(*cv->p->close)(cv);
@@ -1210,15 +1210,16 @@ ipwrite(Chan* ch, void *v, long n, vlong off)
 					error(Ebadip);
 				ipifcaddmulti(c, ma, ia);
 			}
-		} else if(strcmp(cb->f[0], "remmulti") == 0){
+		} else if (strcmp(cb->f[0], "delmulti") == 0
+			|| strcmp(cb->f[0], "remmulti") == 0){
 			if(cb->nf < 2)
-				error("remmulti needs interface address");
+				error("delmulti needs interface address");
 			if (parseip(ia, cb->f[1]) == -1)
 				error(Ebadip);
 			if(ipcmp(c->raddr, IPnoaddr) == 0 || ipismulticast(c->laddr))
-				ipifcremmulti(c, c->laddr, ia);
+				ipifcdelmulti(c, c->laddr, ia);
 			else
-				ipifcremmulti(c, c->raddr, ia);
+				ipifcdelmulti(c, c->raddr, ia);
 		} else if(x->ctl != nil) {
 			p = (*x->ctl)(c, cb->f, cb->nf);
 			if(p != nil)

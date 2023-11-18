@@ -23,7 +23,7 @@ static void	etherbind(Ipifc *ifc, int argc, char **argv);
 static void	etherunbind(Ipifc *ifc);
 static void	etherbwrite(Ipifc *ifc, Block *bp, int version, uchar *ip, Routehint *rh);
 static void	etheraddmulti(Ipifc *ifc, uchar *a, uchar *ia);
-static void	etherremmulti(Ipifc *ifc, uchar *a, uchar *ia);
+static void	etherdelmulti(Ipifc *ifc, uchar *a, uchar *ia);
 static void	etherareg(Fs *f, Ipifc *ifc, Iplifc *lifc, uchar *ip);
 static Block*	multicastarp(Fs *f, Arpent *a, uchar *mac, Routehint *rh);
 static Block*	newEARP(void);
@@ -43,7 +43,7 @@ Medium ethermedium =
 .unbind=	etherunbind,
 .bwrite=	etherbwrite,
 .addmulti=	etheraddmulti,
-.remmulti=	etherremmulti,
+.delmulti=	etherdelmulti,
 .areg=		etherareg,
 .pref2addr=	etherpref2addr,
 };
@@ -59,7 +59,7 @@ Medium gbemedium =
 .unbind=	etherunbind,
 .bwrite=	etherbwrite,
 .addmulti=	etheraddmulti,
-.remmulti=	etherremmulti,
+.delmulti=	etherdelmulti,
 .areg=		etherareg,
 .pref2addr=	etherpref2addr,
 };
@@ -419,7 +419,7 @@ etheraddmulti(Ipifc *ifc, uchar *a, uchar *)
 }
 
 static void
-etherremmulti(Ipifc *ifc, uchar *a, uchar *)
+etherdelmulti(Ipifc *ifc, uchar *a, uchar *)
 {
 	uchar mac[6];
 	char buf[64];
@@ -436,7 +436,7 @@ etherremmulti(Ipifc *ifc, uchar *a, uchar *)
 		devtab[er->cchan6->type]->write(er->cchan6, buf, strlen(buf), 0);
 		break;
 	default:
-		panic("etherremmulti: version %d", version);
+		panic("etherdelmulti: version %d", version);
 	}
 }
 
@@ -734,10 +734,10 @@ etherareg(Fs *f, Ipifc *ifc, Iplifc *lifc, uchar *ip)
 	ipv62smcast(a, ip);
 	addroute(f, a, IPallbits, v6Unspecified, IPallbits, ip, Rmulti, ifc, tdad);
 	if(waserror()){
-		remroute(f, a, IPallbits, v6Unspecified, IPallbits, ip, Rmulti, ifc, tdad);
+		delroute(f, a, IPallbits, v6Unspecified, IPallbits, ip, Rmulti, ifc, tdad);
 		nexterror();
 	}
 	icmpns6(f, 0, SRC_UNSPEC, ip, TARG_MULTI, ifc->mac, 6);
 	poperror();
-	remroute(f, a, IPallbits, v6Unspecified, IPallbits, ip, Rmulti, ifc, tdad);
+	delroute(f, a, IPallbits, v6Unspecified, IPallbits, ip, Rmulti, ifc, tdad);
 }

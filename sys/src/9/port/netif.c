@@ -341,13 +341,14 @@ netifwrite(Netif *nif, Chan *c, void *a, long n)
 		nif->bypass = f;
 	} else if(matchtoken(buf, "headersonly")){
 		f->headersonly = 1;
-	} else if((p = matchtoken(buf, "addmulti")) != 0){
+	} else if((p = matchtoken(buf, "addmulti")) != nil){
 		if(parseaddr(binaddr, p, nif->alen) < 0)
 			error("bad address");
 		p = netmulti(nif, f, binaddr, 1);
 		if(p)
 			error(p);
-	} else if((p = matchtoken(buf, "remmulti")) != 0){
+	} else if((p = matchtoken(buf, "delmulti")) != nil
+		||(p = matchtoken(buf, "remmulti")) != nil){
 		if(parseaddr(binaddr, p, nif->alen) < 0)
 			error("bad address");
 		p = netmulti(nif, f, binaddr, 0);
