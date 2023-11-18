@@ -45,7 +45,7 @@ static void	controldevice(void);
 extern void	pppbinddev(void);
 
 static void	doadd(void);
-static void	doremove(void);
+static void	dodel(void);
 static void	dounbind(void);
 static void	ndbconfig(void);
 
@@ -171,7 +171,7 @@ parseverb(char *name)
 {
 	static char *verbs[] = {
 		[Vadd]		"add",
-		[Vremove]	"remove",
+		[Vdel]		"del",
 		[Vunbind]	"unbind",
 		[Vether]	"ether",
 		[Vgbe]		"gbe",
@@ -188,6 +188,10 @@ parseverb(char *name)
 	for(i = 0; i < nelem(verbs); i++)
 		if(verbs[i] != nil && strcmp(name, verbs[i]) == 0)
 			return i;
+
+	if(strcmp(name, "remove")==0)
+		return Vdel;
+
 	return -1;
 }
 
@@ -248,7 +252,7 @@ parseargs(int argc, char **argv)
 		case Vpkt:
 			sysfatal("medium %s already specified", conf.type);
 		case Vadd:
-		case Vremove:
+		case Vdel:
 		case Vunbind:
 		case Vaddpref6:
 		case Vra6:
@@ -262,7 +266,7 @@ parseargs(int argc, char **argv)
 	/* get verb-dependent arguments */
 	switch (action) {
 	case Vadd:
-	case Vremove:
+	case Vdel:
 	case Vunbind:
 		parsenorm(argc, argv);
 		break;
@@ -462,12 +466,12 @@ main(int argc, char **argv)
 			findmyifc();
 		case Vunbind:
 			break;
-		case Vremove:
+		case Vdel:
 			/*
 			 * interface gone, just remove
 			 * default route and ndb entries.
 			 */
-			doremove();
+			dodel();
 			exits(nil);
 		}
 		if(myifc == nil)
@@ -493,8 +497,8 @@ main(int argc, char **argv)
 		mkclientid();
 		doipv6(action);
 		break;
-	case Vremove:
-		doremove();
+	case Vdel:
+		dodel();
 		break;
 	case Vunbind:
 		dounbind();
@@ -549,20 +553,21 @@ doadd(void)
 }
 
 static void
-doremove(void)
+dodel(void)
 {
 	if(!validip(conf.laddr))
-		sysfatal("remove requires an address");
+		sysfatal("del requires an address");
 
-	DEBUG("removing address %I %M on %s", conf.laddr, conf.mask, conf.dev);
+	DEBUG("deleting address %I %M on %s", conf.laddr, conf.mask, conf.dev);
 	if(noconfig)
 		return;
 
 	if(validip(conf.gaddr))
-		removedefroute(conf.gaddr, conf.laddr, conf.laddr, conf.mask);
+		deldefroute(conf.gaddr, conf.laddr, conf.laddr, conf.mask);
 
+	/* use "remove" verb instead of "del" for older kernels */
 	if(conf.cfd >= 0 && fprint(conf.cfd, "remove %I %M", conf.laddr, conf.mask) < 0)
-		warning("can't remove %I %M: %r", conf.laddr, conf.mask);
+		warning("can't delete %I %M: %r", conf.laddr, conf.mask);
 
 	/* remove ndb entries matching our ip address */
 	putndb(0);
@@ -691,7 +696,7 @@ ipunconfig(void)
 	if(!validip(conf.mask))
 		ipmove(conf.mask, defmask(conf.laddr));
 
-	doremove();
+	dodel();
 
 	ipmove(conf.laddr, IPnoaddr);
 	ipmove(conf.raddr, IPnoaddr);
@@ -870,8 +875,9 @@ adddefroute(uchar *gaddr, uchar *ia, uchar *src, uchar *smask)
 }
 
 void
-removedefroute(uchar *gaddr, uchar *ia, uchar *src, uchar *smask)
+deldefroute(uchar *gaddr, uchar *ia, uchar *src, uchar *smask)
 {
+	/* use "remove" verb instead of "del" for older kernels */
 	defroutectl("remove", gaddr, ia, src, smask);
 }
 

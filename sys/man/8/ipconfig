@@ -100,15 +100,15 @@ the device can be any byte stream device.
 The verb (default
 .IR add )
 determines the action performed.  The usual verbs are:
-.TF remove
+.TF del
 .TP
 .B add
 if the device is not bound to the IP stack, bind it.
 Add the given local address, mask, and remote address to the interface.
 An interface may have multiple addresses.
 .TP
-.B remove
-remove the address from the device interface.
+.B del
+delete the address from the device interface.
 .TP
 .B unbind
 unbind the device interface and all its addresses from the
@@ -253,7 +253,7 @@ flag must also be given to enable DHCPv6.
 .TP
 .B u
 disable IPv6 duplicate discovery detection,
-which removes any existing ARP table entry for one of our IPv6 addresses
+which deletes any existing ARP table entry for one of our IPv6 addresses
 before adding new ones.
 .TP
 .B f
@@ -309,7 +309,7 @@ are always requested.
 If DHCP is requested, a process is forked
 off to renew the lease before it
 runs out.  If the lease does run out, this
-process will remove any configured addresses
+process will delete any configured addresses
 from the interface.
 .PP
 .I Rip

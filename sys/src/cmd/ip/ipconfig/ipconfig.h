@@ -3,7 +3,7 @@ enum
 {
 	/* commands */
 	Vadd,
-	Vremove,
+	Vdel,
 	Vunbind,
 	Vaddpref6,
 	Vra6,
@@ -123,7 +123,7 @@ int	ip4cfg(void);
 void	ipunconfig(void);
 
 void	adddefroute(uchar*, uchar*, uchar*, uchar*);
-void	removedefroute(uchar*, uchar*, uchar*, uchar*);
+void	deldefroute(uchar*, uchar*, uchar*, uchar*);
 
 int	myip(Ipifc*, uchar*);
 int	isether(void);
