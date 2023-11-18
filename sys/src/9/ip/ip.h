@@ -309,7 +309,7 @@ struct Medium
 
 	/* for arming interfaces to receive multicast */
 	void	(*addmulti)(Ipifc *ifc, uchar *a, uchar *ia);
-	void	(*remmulti)(Ipifc *ifc, uchar *a, uchar *ia);
+	void	(*delmulti)(Ipifc *ifc, uchar *a, uchar *ia);
 
 	/* process packets written to 'data' */
 	void	(*pktin)(Fs *f, Ipifc *ifc, Block *bp);
@@ -478,7 +478,7 @@ struct Fs
 	int	np;
 	Proto*	p[Maxproto+1];		/* list of supported protocols */
 	Proto*	t2p[256];		/* vector of all protocols */
-	Proto*	ipifc;			/* kludge for ipifcremroute & ipifcaddroute */
+	Proto*	ipifc;			/* kludge for findipifc */
 	Proto*	ipmux;			/* kludge for finding an ip multiplexor */
 
 	IP	*ip;
@@ -623,7 +623,7 @@ struct Route
 };
 
 extern void	addroute(Fs *f, uchar *a, uchar *mask, uchar *s, uchar *smask, uchar *gate, int type, Ipifc *ifc, char *tag);
-extern void	remroute(Fs *f, uchar *a, uchar *mask, uchar *s, uchar *smask, uchar *gate, int type, Ipifc *ifc, char *tag);
+extern void	delroute(Fs *f, uchar *a, uchar *mask, uchar *s, uchar *smask, uchar *gate, int type, Ipifc *ifc, char *tag);
 extern Route*	v4lookup(Fs *f, uchar *a, uchar *s, Routehint *rh);
 extern Route*	v6lookup(Fs *f, uchar *a, uchar *s, Routehint *rh);
 extern Route*	v4source(Fs *f, uchar *a, uchar *s);
@@ -734,13 +734,13 @@ extern int	ipv6local(Ipifc *ifc, uchar *local, int prefixlen, uchar *remote);
 extern Iplifc*	iplocalonifc(Ipifc *ifc, uchar *ip);
 extern Iplifc*	ipremoteonifc(Ipifc *ifc, uchar *ip);
 extern Ipmulti*	ipifcgetmulti(Fs *f, Ipifc *ifc, uchar *ma);
-extern void	ipifcremmulti(Conv *c, uchar *ma, uchar *ia);
 extern void	ipifcaddmulti(Conv *c, uchar *ma, uchar *ia);
-extern char*	ipifcrem(Ipifc *ifc, char **argv, int argc);
+extern void	ipifcdelmulti(Conv *c, uchar *ma, uchar *ia);
 extern char*	ipifcadd(Ipifc *ifc, char **argv, int argc, int tentative, Iplifc *lifcp);
+extern char*	ipifcdel(Ipifc *ifc, char **argv, int argc);
 extern long	ipselftabread(Fs*, char *a, ulong offset, int n);
 extern char*	ipifcadd6(Ipifc *ifc, char**argv, int argc);
-extern char*	ipifcremove6(Ipifc *ifc, char**argv, int argc);
+extern char*	ipifcdel6(Ipifc *ifc, char**argv, int argc);
 extern char*	mediumunbindifc(Ipifc *ifc);
 
 /*

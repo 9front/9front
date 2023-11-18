@@ -421,7 +421,7 @@ fswrite(Req *r)
 				if(nprom++ == 0 && eppromiscuous != nil)
 					(*eppromiscuous)(epctl, 1);
 			}
-		} else if(n >= 9+12 && (memcmp(p, "addmulti ", 9)==0 || memcmp(p, "remmulti ", 9)==0)){
+		} else if(n >= 9+12 && (memcmp(p, "addmulti ", 9)==0 || memcmp(p, "delmulti ", 9)==0 || memcmp(p, "remmulti ", 9)==0)){
 			uchar ea[Eaddrlen];
 			int i;
 
@@ -431,7 +431,7 @@ fswrite(Req *r)
 			}
 			i = activemulti(ea);
 			if(i >= 0){
-				if(*p == 'r'){
+				if(*p != 'a'){
 					memmove(multiaddr[i], multiaddr[--nmulti], Eaddrlen);
 					if(epmulticast != nil)
 						(*epmulticast)(epctl, ea, 0);

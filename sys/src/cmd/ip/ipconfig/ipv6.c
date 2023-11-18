@@ -662,7 +662,7 @@ recvrahost(uchar buf[], int pktlen)
 			DEBUG("purging RA from %I on %s; pfx %I %M",
 				r->src, conf.dev, r->laddr, r->mask);
 			if(!noconfig && validip(r->gaddr))
-				removedefroute(r->gaddr, conf.lladdr, r->laddr, r->mask);
+				deldefroute(r->gaddr, conf.lladdr, r->laddr, r->mask);
 			*rr = r->next;
 			free(r);
 			continue;
