@@ -537,7 +537,7 @@ delroute(Fs *f, uchar *a, uchar *mask, uchar *s, uchar *smask, uchar *gate, int 
 
 /*
  * get the outgoing interface for route r,
- * interface is returned rlocked.
+ * interface is returned rlock'd.
  */
 static Ipifc*
 routefindipifc(Route *r, Fs *f)

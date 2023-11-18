@@ -18,7 +18,7 @@ enum {
 	QMAX		= 192*1024-1,
 };
 
-Medium *media[Maxmedia] = { 0 };
+static Medium *media[Maxmedia] = { 0 };
 void (*multicastreportfn)(Fs*, Ipifc*, uchar*, uchar*, int);
 
 /*
@@ -285,11 +285,11 @@ mediumunbindifc(Ipifc *ifc)
 	return err;
 }
 
-char sfixedformat[] = "device %s maxtu %d sendra %d recvra %d mflag %d oflag %d"
+static char sfixedformat[] = "device %s maxtu %d sendra %d recvra %d mflag %d oflag %d"
 " maxraint %d minraint %d linkmtu %d reachtime %d rxmitra %d ttl %d routerlt %d"
 " pktin %lud pktout %lud errin %lud errout %lud speed %d delay %d\n";
 
-char slineformat[] = "	%-40I %-10M %-40I %-12lud %-12lud\n";
+static char slineformat[] = "	%-40I %-10M %-40I %-12lud %-12lud\n";
 
 static int
 ipifcstate(Conv *c, char *state, int n)
@@ -1229,7 +1229,7 @@ ipforme(Fs *f, uchar *addr)
 
 /*
  *  find the ifc on same net as the remote system.
- *  returns the rlocked ifc, otherwise nil.
+ *  returns the rlock'd ifc, otherwise nil.
  */
 Ipifc*
 findipifc(Fs *f, uchar *local, uchar *remote, int type)
