@@ -488,7 +488,6 @@ has complete control of the window:
 it interprets all mouse events, gets all keyboard characters,
 and determines what appears on the screen.
 .SH FILES
-.TF /srv/riowctl.\fIuser\fP.\fIpid\fP
 .TP
 .B /lib/font/bit/*
 font directories
@@ -505,11 +504,6 @@ files)
 .B /srv/rio.\fIuser\fP.\fIpid\fP
 Server end of
 .IR rio .
-.TP
-.B /srv/riowctl.\fIuser\fP.\fIpid\fP
-Named pipe for
-.I wctl
-messages.
 .SH SOURCE
 .TF /sys/src/cmd/rio
 .TP
