@@ -825,6 +825,7 @@ parseauthor(char **str, int *nstr, char **name, vlong *time)
 {
 	char buf[128];
 	Resub m[4];
+	vlong tz;
 	char *p;
 	int n, nm;
 
@@ -845,10 +846,16 @@ parseauthor(char **str, int *nstr, char **name, vlong *time)
 	memcpy(*name, m[1].sp, nm);
 	buf[nm] = 0;
 	
+	nm = m[3].ep - m[3].sp;
+	memcpy(buf, m[3].sp, nm);
+	buf[nm] = 0;
+	tz = atoll(buf);
+
 	nm = m[2].ep - m[2].sp;
 	memcpy(buf, m[2].sp, nm);
 	buf[nm] = 0;
-	*time = atoll(buf);
+	*time = atoll(buf) + 3600*(tz/100) + 60*(tz%100);
+
 	return 0;
 }
 
