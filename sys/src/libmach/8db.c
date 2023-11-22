@@ -423,6 +423,7 @@ static Optable optab660F[256]=
 [0x71]	RMOP,0,		optab660F71,
 [0x72]	RMOP,0,		optab660F72,
 [0x73]	RMOP,0,		optab660F73,
+[0x7D]	RM,0,		"HSUBPD	%x,%X",
 [0x7E]	RM,0,		"MOV%S	%X,%e",
 [0x7F]	RM,0,		"MOVO	%X,%x",
 [0xC4]	RM,Ib,		"PINSRW	%i,%e,%X",
