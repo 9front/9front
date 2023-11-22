@@ -234,11 +234,17 @@ loadent(char *dir, Dir *d, int fullpath)
 	if(path == nil)
 		sysfatal("smprint: %r");
 
+	cleanname(path);
+	if(strncmp(path, ".git/", 5) == 0){
+		free(path);
+		return 0;
+	}
 	ret = 0;
 	isdir = d->qid.type & QTDIR;
-	cleanname(path);
-	if((printflg & Uflg) == 0 && !indexed(path, isdir))
+	if((printflg & Uflg) == 0 && !indexed(path, isdir)){
+		free(path);
 		return 0;
+	}
 	if(isdir){
 		ret = loadwdir(path);
 		free(path);
@@ -267,7 +273,6 @@ loadwdir(char *path)
 	d = nil;
 	e = nil;
 	ret = -1;
-
 	cleanname(path);
 	if(strncmp(path, ".git/", 5) == 0)
 		return 0;
