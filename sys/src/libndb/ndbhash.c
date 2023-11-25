@@ -29,13 +29,13 @@ ndbhash(char *vp, int hlen)
  *  read a hash file with buffering
  */
 static uchar*
-hfread(Ndbhf *hf, long off, int len)
+hfread(Ndbhf *hf, ulong off, int len)
 {
 	if(off < hf->off || off + len > hf->off + hf->len){
-		if(seek(hf->fd, off, 0) < 0
-		|| (hf->len = read(hf->fd, hf->buf, sizeof(hf->buf))) < len){
-			hf->off = -1;
-			return 0;
+		if((hf->len = pread(hf->fd, hf->buf, sizeof(hf->buf), off)) < len){
+			hf->off = 0;
+			hf->len = 0;
+			return nil;
 		}
 		hf->off = off;
 	}
@@ -95,7 +95,7 @@ hfopen(Ndb *db, char *attr)
 		if(p != nil){
 			hf->dbmtime = NDBGETUL(p);
 			hf->hlen = NDBGETUL(p+NDBULLEN);
-			if(hf->dbmtime == db->mtime){
+			if(hf->hlen > 0 && hf->dbmtime == db->mtime){
 				hf->next = db->hf;
 				db->hf = hf;
 				return hf;
@@ -174,12 +174,11 @@ ndbsnext(Ndbs *s, char *attr, char *val)
 	Ndbtuple *t;
 	Ndb *db;
 	uchar *p;
+	ulong nchain;
 
+	nchain = 0;
 	db = s->db;
-	if(s->ptr == NDBNAP)
-		goto nextfile;
-
-	for(;;){
+	for(;;) {
 		if(s->type == Dptr){
 			if(Bseek(&db->b, s->ptr, 0) < 0)
 				break;
@@ -203,7 +202,18 @@ ndbsnext(Ndbs *s, char *attr, char *val)
 			ndbfree(t);
 		} else if(s->type == Cptr1){
 			if(s->ptr & NDBCHAIN){	/* hash chain continuation */
+				if(s->ptr == NDBNAP)
+					break;
+				/* chain in a loop? */
+				if(++nchain > s->hf->hlen)
+					break;
 				s->ptr &= ~NDBCHAIN;
+				/* must be multiple of NDBPLEN */
+				if(s->ptr % NDBPLEN)
+					break;
+				/* must not overlap hash table */
+				if(s->ptr / NDBPLEN < s->hf->hlen)
+					break;
 				p = hfread(s->hf, s->ptr+NDBHLEN, 2*NDBPLEN);
 				if(p == nil)
 					break;
@@ -222,10 +232,12 @@ ndbsnext(Ndbs *s, char *attr, char *val)
 				ndbfree(t);
 				break;
 			}
+		} else {
+			/* shouldnt happen */
+			break;
 		}
 	}
 
-nextfile:
 	/* nothing left to search? */
 	s->ptr = NDBNAP;
 	if(db->next == nil)
