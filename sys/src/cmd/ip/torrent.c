@@ -29,7 +29,8 @@ struct File
 {
 	File	*next;
 	char	*name;
-	int	fd;
+	int	rfd;
+	int	wfd;
 	vlong	off;
 	vlong	len;
 };
@@ -204,7 +205,7 @@ rwpiece(int wr, int index, uchar *data, int len, int poff)
 			break;
 	off -= f->off;
 	n = ((off + len) > f->len) ? f->len - off : len;
-	if((n = (wr ? pwrite(f->fd, data, n, off) : pread(f->fd, data, n, off))) <= 0)
+	if((n = (wr ? pwrite(f->wfd, data, n, off) : pread(f->rfd, data, n, off))) <= 0)
 		return -1;
 	if((m = rwpiece(wr, index, data + n, len - n, poff + n)) < 0)
 		return -1;
@@ -1292,6 +1293,7 @@ main(int argc, char *argv[])
 			f = mallocz(sizeof(*f), 1);
 			f->len = atoll(s);
 			f->name = dstr(dlook(info, "name"));
+			f->rfd = f->wfd = -1;
 			for(di = dlook(d->val, "path"); di && di->typ == 'l'; di = di->next)
 				if(s = dstr(di->val))
 					f->name = f->name ? smprint("%s/%s", f->name, s) : s;
@@ -1302,6 +1304,7 @@ main(int argc, char *argv[])
 		f = mallocz(sizeof(*f), 1);
 		f->len = atoll(s);
 		f->name = dstr(dlook(info, "name"));
+		f->rfd = f->wfd = -1;
 		*fp = f;
 	}
 	len = 0;
@@ -1310,10 +1313,10 @@ main(int argc, char *argv[])
 			sysfatal("bogus file entry in meta info");
 		s = fixnamedup(f->name);
 		if(vflag) fprint(pflag ? 2 : 1, "%s\n", s);
-		if((f->fd = open(s, ORDWR)) < 0){
+		if((f->rfd = open(s, OREAD)) < 0){
 			if(mkdirs(s) < 0)
 				sysfatal("mkdirs: %r");
-			if((f->fd = create(s, ORDWR, 0666)) < 0)
+			if((f->wfd = f->rfd = create(s, ORDWR, 0666)) < 0)
 				sysfatal("create: %r");
 		}
 		f->off = len;
@@ -1358,8 +1361,12 @@ main(int argc, char *argv[])
 	while(waitpid() >= 0)
 		;
 
-	if(finished() && !sflag)
-		exits(0);
+	if(finished()){
+		if(!sflag)
+			exits(nil);
+	} else for(f = files; f; f = f->next)
+		if(f->wfd < 0 && (open(fixnamedup(f->name), OWRITE) < 0))
+			sysfatal("create: %r");
 
 	srand(truerand());
 	atnotify(catch, 1);
