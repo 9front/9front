@@ -1263,7 +1263,7 @@ main(int argc, char *argv[])
 
 	if(d = dlook(torrent, "url-list")){
 		if(d->typ == 's')
-			wlist = scons(dstr(d->val), wlist);
+			wlist = scons(dstr(d), wlist);
 		else for(l = d; l && l->typ == 'l'; l = l->next)
 			wlist = scons(dstr(l->val), wlist);
 		/* make wlist into a ring */
