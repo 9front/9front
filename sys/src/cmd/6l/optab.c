@@ -395,6 +395,11 @@ uchar	yxmq[] =
 	Yxm,	Yxr,	Zm_r_xm,	2,
 	0
 };
+uchar	yxmi3[] =
+{
+	Yxm,	Yxr,	Zm_r_i_xm,	3,
+	0
+};
 uchar	yxr[] = 
 {
 	Yxr,	Yxr,	Zm_r_xm,	1,
@@ -522,6 +527,10 @@ Optab optab[] =
 	{ AADDSD,	yxm,	Pf2, 0x58 },
 	{ AADDSS,	yxm,	Pf3, 0x58 },
 	{ AADDW,	yaddl,	Pe, 0x83,(00),0x05,0x81,(00),0x01,0x03 },
+	{ AHADDPD,	yxm,	Pq, 0x7c },
+	{ AHADDPS,	yxm,	Pf2, 0x7c },
+	{ AADDSUBPD,	yxm,	Pq, 0xd0 },
+	{ AADDSUBPS,	yxm,	Pf2, 0xd0 },
 	{ AADJSP },
 	{ AANDB,	yxorb,	Pb, 0x24,0x80,(04),0x20,0x22 },
 	{ AANDL,	yxorl,	Px, 0x83,(04),0x25,0x81,(04),0x21,0x23 },
@@ -1011,6 +1020,8 @@ Optab optab[] =
 	{ ASUBSD,	yxm,	Pf2, 0x5c },
 	{ ASUBSS,	yxm,	Pf3, 0x5c },
 	{ ASUBW,	yaddl,	Pe, 0x83,(05),0x2d,0x81,(05),0x29,0x2b },
+	{ AHSUBPD,	yxm,	Pq, 0x7d },
+	{ AHSUBPS,	yxm,	Pf2, 0x7d },
 	{ ASWAPGS,	ynone,	Pm, 0x01,0xf8 },
 	{ ASYSCALL,	ynone,	Px, 0x0f,0x05 },	/* fast syscall */
 	{ ATESTB,	ytestb,	Pb, 0xa8,0xf6,(00),0x84,0x84 },
@@ -1039,6 +1050,12 @@ Optab optab[] =
 	{ AXORPS,	yxm,	Pm, 0x57 },
 	{ AXORQ,	yxorl,	Pw, 0x83,(06),0x35,0x81,(06),0x31,0x33 },
 	{ AXORW,	yxorl,	Pe, 0x83,(06),0x35,0x81,(06),0x31,0x33 },
+	{ AROUNDSD,	yxmi3,	Pe, 0x0f,0x3a,0x0b },
+	{ AROUNDSS,	yxmi3,	Pe, 0x0f,0x3a,0x0a },
+	{ AROUNDPD,	yxmi3,	Pe, 0x0f,0x3a,0x09 },
+	{ AROUNDPS,	yxmi3,	Pe, 0x0f,0x3a,0x08 },
+	{ ADPPD,	yxmi3,	Pe, 0x0f,0x3a,0x41 },
+	{ ADPPS,	yxmi3,	Pe, 0x0f,0x3a,0x40 },
 
 	{ AFMOVB,	yfmvx,	Px, 0xdf,(04) },
 	{ AFMOVBP,	yfmvp,	Px, 0xdf,(06) },

@@ -379,7 +379,12 @@ static Optable optab660F38[256] = {
 };
 
 static Optable optab660F3A[128] = {
+[0x08]	RM,Ib,		"ROUNDPS	%i,%x,%X",
+[0x09]	RM,Ib,		"ROUNDPD	%i,%x,%X",
+[0x0A]	RM,Ib,		"ROUNDSS	%i,%x,%X",
+[0x0B]	RM,Ib,		"ROUNDSD	%i,%x,%X",
 [0x41]	RM,Ib,		"DPPD	%i,%x,%X",
+[0x40]	RM,Ib,		"DPPS	%i,%x,%X",
 };
 
 static Optable optab660F71[8]=
@@ -410,7 +415,7 @@ static Optable optab660F[256]=
 [0x2E]	RM,0,		"UCOMISD	%x,%X",
 [0x2F]	RM,0,		"COMISD	%x,%X",
 [0x38]	AUX,0,		optab660F38,
-[0x3A]	AUXMM,0,	optab660F3A,		/* SSE4 */
+[0x3A]	AUXMM,0,	optab660F3A,		/* SSSE3/SSE4 */
 [0x5A]	RM,0,		"CVTPD2PS	%x,%X",
 [0x5B]	RM,0,		"CVTPS2PL	%x,%X",
 [0x6A]	RM,0,		"PUNPCKHLQ %x,%X",
@@ -423,12 +428,14 @@ static Optable optab660F[256]=
 [0x71]	RMOP,0,		optab660F71,
 [0x72]	RMOP,0,		optab660F72,
 [0x73]	RMOP,0,		optab660F73,
+[0x7C]	RM,0,		"HADDPD	%x,%X",
 [0x7D]	RM,0,		"HSUBPD	%x,%X",
 [0x7E]	RM,0,		"MOV%S	%X,%e",
 [0x7F]	RM,0,		"MOVO	%X,%x",
 [0xC4]	RM,Ib,		"PINSRW	%i,%e,%X",
 [0xC5]	RMR,Ib,		"PEXTRW	%i,%X,%e",
 [0xC7]	RMM,0,		"VMCLEAR	%e",
+[0xD0]	RM,0,		"ADDSUBPD	%x,%X",
 [0xD4]	RM,0,		"PADDQ	%x,%X",
 [0xD5]	RM,0,		"PMULLW	%x,%X",
 [0xD6]	RM,0,		"MOVQ	%X,%x",
@@ -447,7 +454,10 @@ static Optable optabF20F[256]=
 [0x5A]	RM,0,		"CVTSD2SS	%x,%X",
 [0x6F]	RM,0,		"MOVOU	%x,%X",
 [0x70]	RM,Ib,		"PSHUFLW	%i,%x,%X",
+[0x7C]	RM,0,		"HADDPS	%x,%X",
+[0x7D]	RM,0,		"HSUBPS	%x,%X",
 [0x7F]	RM,0,		"MOVOU	%X,%x",
+[0xD0]	RM,0,		"ADDSUBPS	%x,%X",
 [0xD6]	RM,0,		"MOVQOZX	%M,%X",
 [0xE6]	RM,0,		"CVTPD2PL	%x,%X",
 };

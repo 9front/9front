@@ -1014,6 +1014,10 @@ mediaop(Optab *o, int op, int osize, int z)
 	default:
 		if(andptr == and || andptr[-1] != Pm)
 			*andptr++ = Pm;
+		if(op == 0x38 || op == 0x3a){ /* 3-byte opcode escapes */
+			*andptr++ = op;
+			op = o->op[++z];
+		}
 		break;
 	}
 	*andptr++ = op;
