@@ -2,8 +2,7 @@
 .SH NAME
 git, git/conf, git/query, git/walk, git/clone, git/branch,
 git/commit, git/diff, git/init, git/log, git/merge, git/push,
-git/pull, git/rm, git/serve
-\- Manage git repositories.
+git/pull, git/rm, git/serve \- Manage git repositories.
 
 .SH SYNOPSIS
 .PP
