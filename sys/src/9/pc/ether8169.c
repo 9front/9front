@@ -125,7 +125,7 @@ enum {					/* Tcr */
 	Macv40		= 0x4c000000,	/* RTL8168G */
 	Macv42		= 0x50800000,	/* RTL8168GU */
 	Macv44		= 0x5c800000,	/* RTL8411B */
-	Macv45		= 0x54000000,	/* RTL8111HN */
+	Macv45		= 0x54000000,	/* RTL8111HN/8168H */
 	Macv51		= 0x50000000,	/* RTL8168EP */
 
 	Ifg0		= 0x01000000,	/* Interframe Gap 0 */
@@ -714,7 +714,9 @@ rtl8169init(Ether* edev)
 	cplusc |= Txenb|Mulrw;
 	switch(ctlr->macv){
 	case Macv40:
+	case Macv42:
 	case Macv44:
+	case Macv45:
 	case Macv51:
 		cplusc |= Macstatdis;
 		break;
@@ -732,7 +734,20 @@ rtl8169init(Ether* edev)
 	csr32w(ctlr, Rdsar+4, pa>>32);
 	csr32w(ctlr, Rdsar, pa);
 
-	csr8w(ctlr, Cr, Te|Re);
+	/* pre-RTL8168G controllers need TX/RX before configuration */
+	switch(ctlr->macv){
+	case Macv40:
+	case Macv42:
+	case Macv44:
+	case Macv45:
+	case Macv51:
+		/* RXDV gating */
+		i = csr32r(ctlr, 0x00F0);
+		csr32w(ctlr, 0x00F0, i&~0x00080000);
+		break;
+	default:
+		csr8w(ctlr, Cr, Te|Re);
+	}
 
 	csr32w(ctlr, Tcr, Ifg1|Ifg0|Mtxdmaunlimited);
 	ctlr->tcr = csr32r(ctlr, Tcr);
@@ -769,6 +784,16 @@ rtl8169init(Ether* edev)
 
 	csr32w(ctlr, Mpc, 0);
 
+	switch(ctlr->macv){
+	case Macv40:
+	case Macv42:
+	case Macv44:
+	case Macv45:
+	case Macv51:
+		csr8w(ctlr, Cr, Te|Re);
+	default:
+		break;
+	}
 	iunlock(ctlr);
 }
 
