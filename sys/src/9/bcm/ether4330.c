@@ -1773,6 +1773,17 @@ wljoin(Ctlr *ctl, char *ssid, int chan)
 	uchar *p;
 	int n;
 
+	if(ctl->edev->bypass != nil){
+		/*
+		 * firmware appears to be sending broadcast frames
+		 * with unknown ethertype 0x0006 when connected,
+		 * so avoid joining while the interface is bypassed
+		 * to avoid generating traffic.
+		 */
+		ctl->status = Disconnected;
+		return;
+	}
+
 	if(chan != 0)
 		chan |= 0x2b00;		/* 20Mhz channel width */
 	p = params;
