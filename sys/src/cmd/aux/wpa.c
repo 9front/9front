@@ -1242,8 +1242,13 @@ Connect:
 		 * at once and not chunked up on fprint buffer.
 		 */
 		n = sprint((char*)buf, "auth %.*H", rsnelen, rsne);
-		if(write(cfd, buf, n) != n)
+		if(write(cfd, buf, n) != n){
+			if(forked){
+				sleep(500);
+				goto Connect;
+			}
 			sysfatal("write auth: %r");
+		}
 	} else {
 		authtype = AuthNone;
 	}
