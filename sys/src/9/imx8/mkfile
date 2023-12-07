@@ -103,6 +103,7 @@ i2cimx.$O: ../port/i2c.h
 pciimx.$O: ../port/pci.h
 usbxhciimx.$O: ../port/usbxhci.h
 usdhc.$O: ../port/sd.h
+etherimx.$O: ../port/netif.h ../port/etherif.h
 
 l.$O main.$O clock.$O gic.$O cache.v8.$O fpu.$O trap.$O rebootcode.$O: ../arm64/sysreg.h
 

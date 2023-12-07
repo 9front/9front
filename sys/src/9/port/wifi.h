@@ -83,8 +83,6 @@ struct Wifi
 	Wnode	*bss;
 
 	Wnode	node[32];
-
-	DMAT	dmat;
 };
 
 struct Wifipkt

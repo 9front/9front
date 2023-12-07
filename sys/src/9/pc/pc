@@ -146,8 +146,6 @@ misc
 	vgatvp3026	=cur
 	vgavesa
 	vgavmware	+cur
-
-	wifi		dmat
 	
 	dtracysys
 	dtracytimer

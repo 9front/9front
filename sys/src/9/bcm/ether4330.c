@@ -196,7 +196,6 @@ struct Ctlr {
 	uchar	txwindow;
 	uchar	txseq;
 	uchar	rxseq;
-	DMAT	dmat;
 };
 
 enum{
@@ -1274,7 +1273,6 @@ txstart(Ether *edev)
 		b = qget(edev->oq);
 		if(b == nil)
 			break;
-		dmatproxy(b, 1, edev->ea, &ctl->dmat);
 		off = ((uintptr)b->rp & 3) + Sdpcmsz;
 		b = padblock(b, off + 4);
 		len = BLEN(b);
@@ -1379,7 +1377,6 @@ rproc(void *a)
 				bdc = 4 + (b->rp[p->doffset + 3] << 2);
 				if(BLEN(b) >= p->doffset + bdc + ETHERHDRSIZE){
 					b->rp += p->doffset + bdc;	/* skip BDC header */
-					dmatproxy(b, 0, edev->ea, &ctl->dmat);
 					etheriq(edev, b);
 					continue;
 				}
@@ -2380,6 +2377,7 @@ etherbcmpnp(Ether* edev)
 
 	ctlr = malloc(sizeof(Ctlr));
 	ctlr->chanid = Wifichan;
+	edev->dmat = malloc(sizeof(DMAT));
 	edev->ctlr = ctlr;
 	edev->attach = etherbcmattach;
 	edev->transmit = etherbcmtransmit;

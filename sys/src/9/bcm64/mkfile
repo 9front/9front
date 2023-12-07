@@ -118,6 +118,7 @@ devmouse.$O mouse.$O screen.$O: screen.h
 usbdwc.$O: dwcotg.h ../port/usb.h
 i2cbcm.$O i2cgpio.$O: ../port/i2c.h
 emmc.$O sdhc.$O sdhost.$O ether4330.$O: ../port/sd.h
+ethergenet.$O ether4330.$O: ../port/netif.h ../port/etherif.h
 
 io.h:	../bcm/io.h
 	touch $target

@@ -3,6 +3,21 @@ enum {
 	Ntypes		= 8,
 };
 
+typedef struct	DMAT	DMAT;
+struct DMTE
+{
+	uchar	ip[16];
+	uchar	mac[Eaddrlen];
+	uchar	valid;
+};
+
+typedef struct	DMTE	DMTE;
+struct DMAT
+{
+	DMTE	tab[127];	/* prime */
+	uvlong	map;
+};
+
 typedef struct Macent Macent;
 struct Macent
 {
@@ -33,6 +48,8 @@ struct Ether {
 
 	uchar	ea[Eaddrlen];
 	Macent	mactab[127];		/* for bridge */
+
+	DMAT*	dmat;
 };
 
 extern void etheriq(Ether*, Block*);
@@ -44,20 +61,3 @@ extern int parseether(uchar*, char*);
 #define PREV(x, l)	(((x) == 0) ? (l)-1: (x)-1)
 #define	HOWMANY(x, y)	(((x)+((y)-1))/(y))
 #define ROUNDUP(x, y)	(HOWMANY((x), (y))*(y))
-
-typedef struct	DMAT	DMAT;
-struct DMTE
-{
-	uchar	ip[16];
-	uchar	mac[Eaddrlen];
-	uchar	valid;
-};
-
-typedef struct	DMTE	DMTE;
-struct DMAT
-{
-	DMTE	tab[127];	/* prime */
-	uvlong	map;
-};
-
-extern void dmatproxy(Block*, int, uchar*, DMAT*);

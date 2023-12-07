@@ -148,7 +148,6 @@ wifiiq(Wifi *wifi, Block *b)
 		memmove(e->d, dstaddr(&h), Eaddrlen);
 		memmove(e->s, srcaddr(&h), Eaddrlen);
 		memmove(e->type, s.type, 2);
-		dmatproxy(b, 0, wifi->ether->ea, &wifi->dmat);
 		etheriq(wifi->ether, b);
 		return;
 	}
@@ -579,7 +578,6 @@ wifideauth(Wifi *wifi, Wnode *wn)
 	/* deassociate node, clear keys */
 	setstatus(wifi, wn, Sunauth);
 	freewifikeys(wifi, wn);
-	memset(&wifi->dmat, 0, sizeof(wifi->dmat));
 	wn->aid = 0;
 
 	if(wn == wifi->bss){
@@ -730,8 +728,6 @@ wifietheroq(Wifi *wifi, Block *b)
 	if((wn = wifi->bss) == nil)
 		goto drop;
 
-	dmatproxy(b, 1, wifi->ether->ea, &wifi->dmat);
-
 	memmove(&e, b->rp, ETHERHDRSIZE);
 	b->rp += ETHERHDRSIZE;
 	if(wn->status == Sblocked){
@@ -856,6 +852,8 @@ wifiattach(Ether *ether, void (*transmit)(Wifi*, Wnode*, Block*))
 		free(wifi);
 		error(Enomem);
 	}
+	if(ether->dmat == nil)
+		ether->dmat = malloc(sizeof(DMAT));
 	wifi->ether = ether;
 	wifi->transmit = transmit;
 
