@@ -144,6 +144,8 @@ misc
 	vgavesa
 #	vgavmware	+cur
 
+	wifi		dmat
+
 	dtracysys
 	dtracytimer
 	dtracydev

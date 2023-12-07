@@ -28,7 +28,7 @@ dev
 link
 	archbcm3
 	usbdwc
-	ether4330
+	ether4330	dmat
 	ethermedium
 	loopbackmedium 
 	netdevmedium

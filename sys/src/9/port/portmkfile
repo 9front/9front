@@ -110,12 +110,13 @@ devsdp.$O:	/sys/include/libsec.h
 devtls.$O:	/sys/include/libsec.h
 devswap.$O:	/sys/include/libsec.h
 random.$O:	/sys/include/libsec.h
-wifi.$O:	/sys/include/libsec.h ../ip/ip.h ../ip/ipv6.h
+wifi.$O:	/sys/include/libsec.h 
+dmat.$O:	../ip/ip.h ../ip/ipv6.h
 devaoe.$O sdaoe.$O:	/sys/include/fis.h
 sysproc.$O:	/sys/include/a.out.h
 syscallfmt.$O:	/sys/src/libc/9syscall/sys.h
 devusb.$O usbxhci.$O usbxhcipci.$O:	../port/usb.h
 usbxhci.$O usbxhcipci.$O:	../port/usbxhci.h
-devether.$O ethersink.$O etheriwl.$O wifi.$O:	../port/netif.h ../port/etherif.h
+devether.$O ethersink.$O etheriwl.$O wifi.$O dmat.$O:	../port/netif.h ../port/etherif.h
 etheriwl.$O wifi.$O:	../port/wifi.h
 ethermii.$O:	../port/ethermii.h

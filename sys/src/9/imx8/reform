@@ -57,6 +57,7 @@ misc
 	iomux
 	sdnvme	pci
 	sdmmc	usdhc
+	wifi	dmat
 port
 	int cpuserver = 0;
 bootdir
