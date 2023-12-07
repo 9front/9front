@@ -25,6 +25,7 @@ for(i){
 
 # first interface is the primary
 primary=$1
+shift
 
 net=`{echo $primary | sed 's!/*[^/]*$!!g'}
 test -r $net/arp || missing $net/arp
@@ -32,9 +33,9 @@ test -r $net/arp || missing $net/arp
 # now select secondary from the list depending on link status
 @{
 old=/dev/null
-new=$old
 while(){
 	# interfaces are in increasing priority order
+	new=$primary
 	for(i){
 		if(grep -s 'link: 1' $i/stats)
 			new=$i
