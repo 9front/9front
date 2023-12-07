@@ -9,8 +9,8 @@
 #include "fns.h"
 #include "../port/error.h"
 #include "../port/netif.h"
-#include "../port/sd.h"
 #include "../port/etherif.h"
+#include "../port/sd.h"
 
 #define CACHELINESZ 64	/* temp */
 
@@ -1398,9 +1398,10 @@ linkdown(Ctlr *ctl)
 	int i;
 
 	edev = ctl->edev;
-	if(edev == nil || ctl->status != Connected)
+	if(edev == nil || ctl->status == Disconnected)
 		return;
 	ctl->status = Disconnected;
+	edev->link = 0;
 	/* send eof to aux/wpa */
 	for(i = 0; i < edev->nfile; i++){
 		f = edev->f[i];
@@ -1549,8 +1550,10 @@ bcmevent(Ctlr *ctl, uchar *p, int len)
 		wakeup(&ctl->joinr);
 		break;
 	case 16:	/* E_LINK */
-		if(flags&1)	/* link up */
+		if(flags&1){	/* link up */
+			ctl->edev->link = 1;
 			break;
+		}
 	/* fall through */
 	case 5:		/* E_DEAUTH */
 	case 6:		/* E_DEAUTH_IND */
@@ -1773,17 +1776,6 @@ wljoin(Ctlr *ctl, char *ssid, int chan)
 	uchar *p;
 	int n;
 
-	if(ctl->edev->bypass != nil){
-		/*
-		 * firmware appears to be sending broadcast frames
-		 * with unknown ethertype 0x0006 when connected,
-		 * so avoid joining while the interface is bypassed
-		 * to avoid generating traffic.
-		 */
-		ctl->status = Disconnected;
-		return;
-	}
-
 	if(chan != 0)
 		chan |= 0x2b00;		/* 20Mhz channel width */
 	p = params;
@@ -1821,6 +1813,7 @@ wljoin(Ctlr *ctl, char *ssid, int chan)
 	ctl->status = Connecting;
 	switch(waitjoin(ctl)){
 		case 0:
+			ctl->edev->link = 1;
 			ctl->status = Connected;
 			break;
 		case 3:
@@ -2099,7 +2092,13 @@ etherbcmifstat(Ether* edev, void* a, long n, ulong offset)
 	l += snprint(p+l, READSTR-l, "oq: %d\n", qlen(edev->oq));
 	l += snprint(p+l, READSTR-l, "txwin: %d\n", ctl->txwindow);
 	l += snprint(p+l, READSTR-l, "txseq: %d\n", ctl->txseq);
-	l += snprint(p+l, READSTR-l, "status: %s\n", connectstate[ctl->status]);
+	/*
+	 * hack: prevent aux/wpa from trying to connect while bypassed
+	 * as wljoin() generates spurious traffic which poisons the
+	 * switch port tables.
+	 */
+	if(edev->bypass == nil)
+		l += snprint(p+l, READSTR-l, "status: %s\n", connectstate[ctl->status]);
 	USED(l);
 	n = readstr(offset, a, n, p);
 	free(p);
