@@ -4,7 +4,7 @@ date, clock \- date and time
 .SH SYNOPSIS
 .B date
 [
-.I -unitm
+.I -unit
 ] [
 .B -f
 .I format

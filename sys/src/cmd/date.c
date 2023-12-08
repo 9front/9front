@@ -8,7 +8,7 @@ enum {
 void
 usage(void)
 {
-	fprint(2, "usage: date [-itunm] [-f fmt] [seconds]\n");
+	fprint(2, "usage: date [-itun] [-f fmt] [seconds]\n");
 	exits("usage");
 }
 
