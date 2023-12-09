@@ -273,8 +273,11 @@ etheroq(Ether* ether, Block* bp, Netfile **from)
 	if((*from)->bridge == 0)
 		memmove(((Etherpkt*)bp->rp)->s, ether->ea, Eaddrlen);
 
-	if((*from)->bypass)
+	if((*from)->bypass){
+		if(ether->dmat != nil)
+			dmatproxy(bp, 0, ether->ea, ether->dmat);
 		from = nil;
+	}
 
 	bp = ethermux(ether, bp, from);
 	if(bp == nil)
