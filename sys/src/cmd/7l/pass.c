@@ -234,7 +234,7 @@ loop:
 			}
 			if(isbranch(a) || isreturn(a))
 				goto copy;
-			if(q->cond == nil || (q->cond->mark&FOLL))
+			if(q->cond == P || (q->cond->mark&FOLL))
 				continue;
 			if(a != ABEQ && a != ABNE)
 				continue;

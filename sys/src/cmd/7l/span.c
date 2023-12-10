@@ -3,13 +3,13 @@
 #define	BIT(n)	((uvlong)1<<(n))
 
 static struct {
-	ulong	start;
-	ulong	size;
+	vlong	start;
+	vlong	size;
 } pool;
 
 static void	checkpool(Prog*, int);
 static void 	flushpool(Prog*, int);
-static int	ispcdisp(long);
+static int	ispcdisp(vlong);
 
 static Optab *badop;
 static Oprang	oprange[ALAST];
@@ -155,7 +155,7 @@ span(void)
 
 /*
  * when the first reference to the literal pool threatens
- * to go out of range of a 1Mb PC-relative offset
+ * to go out of range of a 1MB PC-relative offset
  * drop the pool now, and branch round it.
  */
 static void
@@ -175,7 +175,7 @@ flushpool(Prog *p, int skip)
 	if(blitrl) {
 		if(skip){
 			if(debug['v'] && skip == 1)
-				print("note: flush literal pool at %#llux: len=%lud ref=%lux\n", p->pc+4, pool.size, pool.start);
+				print("note: flush literal pool at %#llux: len=%lld ref=%llx\n", p->pc+4, pool.size, pool.start);
 			q = prg();
 			q->as = AB;
 			q->to.type = D_BRANCH;
@@ -183,12 +183,12 @@ flushpool(Prog *p, int skip)
 			q->link = blitrl;
 			blitrl = q;
 		}
-		else if(p->pc+pool.size-pool.start < 1024*1024)
+		else if(p->pc+pool.size-pool.start < 0x100000)
 			return;
 		elitrl->link = p->link;
 		p->link = blitrl;
-		blitrl = 0;	/* BUG: should refer back to values until out-of-range */
-		elitrl = 0;
+		blitrl = P;	/* BUG: should refer back to values until out-of-range */
+		elitrl = P;
 		pool.size = 0;
 		pool.start = 0;
 	}
@@ -319,10 +319,10 @@ regoff(Adr *a)
 }
 
 static int
-ispcdisp(long v)
+ispcdisp(vlong v)
 {
-	/* pc-relative addressing will reach? */
-	return v >= -0xfffff && v <= 0xfffff && (v&3) == 0;
+	/* pc-relative addressing (using TBZ imm14) will reach? */
+	return v >= -0x7fff && v <= 0x7fff && (v&3) == 0;
 }
 
 static int
