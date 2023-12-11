@@ -22,9 +22,9 @@ SFILES=\
 	strcmp.s\
 	strcpy.s\
 	strlen.s\
+	tas.s\
 
 CFILES=\
-	cycles.c\
 	notejmp.c\
 	vlrt.c\
 

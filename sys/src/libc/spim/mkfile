@@ -16,7 +16,6 @@ MIPSSFILES=\
 	strcpy.s\
 
 MIPSCFILES=\
-	cycles.c\
 	notejmp.c\
 
 SFILES=\
