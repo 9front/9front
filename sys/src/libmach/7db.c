@@ -222,6 +222,8 @@ static Opcode opcodes[] =
 	"10011011101mmmmm111111nnnnnddddd",	"UMNEGL",	"R%m,R%n,R%d",
 	"10011011101mmmmm0aaaaannnnnddddd",	"UMADDL",	"R%m,R%n,R%a,R%d",
 	"10011011101mmmmm1aaaaannnnnddddd",	"UMSUBL",	"R%m,R%n,R%a,R%d",
+	"b0110110bbbbbTTTTTTTTTTTTTTddddd",	"TBZ",		"$%b,R%d,%T",
+	"b0110111bbbbbTTTTTTTTTTTTTTddddd",	"TBNZ",		"$%b,R%d,%T",
 	"W0110100TTTTTTTTTTTTTTTTTTTddddd",	"CBZ%W",	"R%d,%T",
 	"W0110101TTTTTTTTTTTTTTTTTTTddddd",	"CBNZ%W",	"R%d,%T",
 	"01010100TTTTTTTTTTTTTTTTTTT0CCCC",	"B%C",		"%T",
@@ -498,6 +500,9 @@ format(char *mnemonic, Instr *i, char *f)
 			*i->curr++ = "BHSD"[u];
 			break;
 
+		case 'b':	// Bit position
+			u = (u & 1)<<5 | (u >> 1);
+			/* wet floor */
 		case 'd':	// Register Numbers
 		case 'n':
 		case 'a':
