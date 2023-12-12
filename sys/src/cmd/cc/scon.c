@@ -587,8 +587,16 @@ addo(Node *n)
 	switch(n->op) {
 
 	case OCAST:
-		if(nilcast(n->left->type, n->type))
-			return 1;
+		if(nilcast(n->left->type, n->type)){
+			/*
+			 * must not cross casts from unsigned
+			 * when the modulus changes to handle
+			 * overflow correctly.
+			 */
+			if(!typeu[n->left->type->etype]
+			|| ewidth[n->left->type->etype] == ewidth[n->type->etype])
+				return 1;
+		}
 		break;
 
 	case ONEG:
