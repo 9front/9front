@@ -1761,7 +1761,6 @@ struct {
 void
 smbcmd(Req *r, int cmd, uchar *h, uchar *p, uchar *e)
 {
-	logit("processing [%.2x] command", cmd);
 	if((cmd >= nelem(optab)) || (optab[cmd].fun == nil)){
 		logit("[%.2x] command not implemented", cmd);
 		r->respond(r, STATUS_NOT_SUPPORTED);
