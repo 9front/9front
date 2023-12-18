@@ -79,6 +79,7 @@ qlock(QLock *q)
 	lock(&q->use);
 	rwstats.qlock++;
 	if(!q->locked) {
+		q->use.pc = getcallerpc(&q);
 		q->locked = 1;
 		unlock(&q->use);
 		return;
