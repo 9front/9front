@@ -528,7 +528,11 @@ static void
 promiscuous(void *arg, int on)
 {
 	Ether *edev = arg;
+	Ctlr *ctlr = edev->ctlr;
 	uchar b[1];
+
+	if((ctlr->feat[0] & (Fctrlvq|Fctrlrx)) != (Fctrlvq|Fctrlrx))
+		return;
 
 	b[0] = on != 0;
 	vctlcmd(edev, CtrlRx, CmdPromisc, b, sizeof(b));
@@ -538,7 +542,11 @@ static void
 multicast(void *arg, uchar*, int)
 {
 	Ether *edev = arg;
+	Ctlr *ctlr = edev->ctlr;
 	uchar b[1];
+
+    if((ctlr->feat[0] & (Fctrlvq|Fctrlrx)) != (Fctrlvq|Fctrlrx))
+		return;
 
 	b[0] = edev->nmaddr > 0;
 	vctlcmd(edev, CtrlRx, CmdAllmulti, b, sizeof(b));
@@ -774,11 +782,9 @@ reset(Ether* edev)
 	edev->attach = attach;
 	edev->shutdown = shutdown;
 	edev->ifstat = ifstat;
+	edev->multicast = multicast;
+	edev->promiscuous = promiscuous;
 
-	if((ctlr->feat[0] & (Fctrlvq|Fctrlrx)) == (Fctrlvq|Fctrlrx)){
-		edev->multicast = multicast;
-		edev->promiscuous = promiscuous;
-	}
 
 	pcisetbme(ctlr->pcidev);
 	intrenable(edev->irq, interrupt, edev, edev->tbdf, edev->name);
