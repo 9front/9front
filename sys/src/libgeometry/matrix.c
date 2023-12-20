@@ -99,7 +99,7 @@ minorm(Matrix m, int row, int col)
 double
 cofactorm(Matrix m, int row, int col)
 {
-	return minorm(m, row, col)*((row+col)&1 == 0? 1: -1);
+	return minorm(m, row, col)*((row+col & 1) == 0? 1: -1);
 }
 
 void
@@ -272,7 +272,7 @@ minorm3(Matrix3 m, int row, int col)
 double
 cofactorm3(Matrix3 m, int row, int col)
 {
-	return minorm3(m, row, col)*((row+col)&1 == 0? 1: -1);
+	return minorm3(m, row, col)*((row+col & 1) == 0? 1: -1);
 }
 
 void
