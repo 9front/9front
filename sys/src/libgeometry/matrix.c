@@ -84,6 +84,24 @@ tracem(Matrix m)
 	return m[0][0] + m[1][1] + m[2][2];
 }
 
+double
+minorm(Matrix m, int row, int col)
+{
+	int i, j;
+	double subm[2][2];
+
+	for(i = 0; i < 3-1; i++)
+		for(j = 0; j < 3-1; j++)
+			subm[i][j] = m[i < row? i: i+1][j < col? j: j+1];
+	return subm[0][0]*subm[1][1] - subm[0][1]*subm[1][0];
+}
+
+double
+cofactorm(Matrix m, int row, int col)
+{
+	return minorm(m, row, col)*((row+col)&1 == 0? 1: -1);
+}
+
 void
 adjm(Matrix m)
 {
@@ -236,6 +254,25 @@ double
 tracem3(Matrix3 m)
 {
 	return m[0][0] + m[1][1] + m[2][2] + m[3][3];
+}
+
+double
+minorm3(Matrix3 m, int row, int col)
+{
+	int i, j;
+	Matrix subm;
+
+	memset(subm, 0, sizeof subm);
+	for(i = 0; i < 4-1; i++)
+		for(j = 0; j < 4-1; j++)
+			subm[i][j] = m[i < row? i: i+1][j < col? j: j+1];
+	return detm(subm);
+}
+
+double
+cofactorm3(Matrix3 m, int row, int col)
+{
+	return minorm3(m, row, col)*((row+col)&1 == 0? 1: -1);
 }
 
 void

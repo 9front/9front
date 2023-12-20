@@ -1,6 +1,6 @@
 .TH GEOMETRY 2
 .SH NAME
-Flerp, fclamp, Pt2, Vec2, addpt2, subpt2, mulpt2, divpt2, lerp2, dotvec2, vec2len, normvec2, edgeptcmp, ptinpoly, Pt3, Vec3, addpt3, subpt3, mulpt3, divpt3, lerp3, dotvec3, crossvec3, vec3len, normvec3, identity, addm, subm, mulm, smulm, transposem, detm, tracem, adjm, invm, xform, identity3, addm3, subm3, mulm3, smulm3, transposem3, detm3, tracem3, adjm3, invm3, xform3, Quat, Quatvec, addq, subq, mulq, smulq, sdivq, dotq, invq, qlen, normq, slerp, qrotate, rframexform, rframexform3, invrframexform, invrframexform3, centroid, barycoords, centroid3, vfmt, Vfmt, GEOMfmtinstall \- computational geometry library
+Flerp, fclamp, Pt2, Vec2, addpt2, subpt2, mulpt2, divpt2, lerp2, dotvec2, vec2len, normvec2, edgeptcmp, ptinpoly, Pt3, Vec3, addpt3, subpt3, mulpt3, divpt3, lerp3, dotvec3, crossvec3, vec3len, normvec3, identity, addm, subm, mulm, smulm, transposem, detm, tracem, minorm, cofactorm, adjm, invm, xform, identity3, addm3, subm3, mulm3, smulm3, transposem3, detm3, tracem3, minorm3, cofactorm3, adjm3, invm3, xform3, Quat, Quatvec, addq, subq, mulq, smulq, sdivq, dotq, invq, qlen, normq, slerp, qrotate, rframexform, rframexform3, invrframexform, invrframexform3, centroid, barycoords, centroid3, vfmt, Vfmt, GEOMfmtinstall \- computational geometry library
 .SH SYNOPSIS
 .de PB
 .PP
@@ -95,6 +95,8 @@ void smulm(Matrix m, double s);
 void transposem(Matrix m);
 double detm(Matrix m);
 double tracem(Matrix m);
+double minorm(Matrix m, int row, int col);
+double cofactorm(Matrix m, int row, int col);
 void adjm(Matrix m);
 void invm(Matrix m);
 Point2 xform(Point2 p, Matrix m);
@@ -108,6 +110,8 @@ void smulm3(Matrix3 m, double s);
 void transposem3(Matrix3 m);
 double detm3(Matrix3 m);
 double tracem3(Matrix3 m);
+double minorm3(Matrix3 m, int row, int col);
+double cofactorm3(Matrix3 m, int row, int col);
 void adjm3(Matrix3 m);
 void invm3(Matrix3 m);
 Point3 xform3(Point3 p, Matrix3 m);
@@ -386,6 +390,16 @@ Computes the trace of
 .I m
 and returns the result.
 .TP
+.B minorm(\fIm\fP,\fIrow\fP,\fIcol\fP)
+Computes the minor of
+.I m
+and returns the result.
+.TP
+.B cofactorm(\fIm\fP,\fIrow\fP,\fIcol\fP)
+Computes the cofactor of
+.I m
+and returns the result.
+.TP
 .B adjm(\fIm\fP)
 Transforms the matrix
 .I m
@@ -451,6 +465,16 @@ and returns the result.
 .TP
 .B tracem3(\fIm\fP)
 Computes the trace of
+.I m
+and returns the result.
+.TP
+.B minorm3(\fIm\fP,\fIrow\fP,\fIcol\fP)
+Computes the minor of
+.I m
+and returns the result.
+.TP
+.B cofactorm3(\fIm\fP,\fIrow\fP,\fIcol\fP)
+Computes the cofactor of
 .I m
 and returns the result.
 .TP
