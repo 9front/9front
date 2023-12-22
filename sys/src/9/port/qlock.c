@@ -19,19 +19,23 @@ void
 eqlock(QLock *q)
 {
 	Proc *p;
+	uintptr pc;
+
+	pc = getcallerpc(&q);
 
 	if(m->ilockdepth != 0)
-		print("eqlock: %#p: ilockdepth %d\n", getcallerpc(&q), m->ilockdepth);
+		print("eqlock: %#p: ilockdepth %d\n", pc, m->ilockdepth);
 	if(up != nil && up->nlocks)
-		print("eqlock: %#p: nlocks %d\n", getcallerpc(&q), up->nlocks);
+		print("eqlock: %#p: nlocks %d\n", pc, up->nlocks);
 	if(up != nil && up->eql != nil)
-		print("eqlock: %#p: eql %p\n", getcallerpc(&q), up->eql);
+		print("eqlock: %#p: eql %p\n", pc, up->eql);
 	if(q->use.key == 0x55555555)
-		panic("eqlock: q %#p, key 5*", q);
+		panic("eqlock: %#p: q %#p, key 5*", pc, q);
 
 	lock(&q->use);
 	rwstats.qlock++;
 	if(!q->locked) {
+		q->pc = pc;
 		q->locked = 1;
 		unlock(&q->use);
 		return;
@@ -52,7 +56,7 @@ eqlock(QLock *q)
 	q->tail = up;
 	up->eql = q;
 	up->qnext = nil;
-	up->qpc = getcallerpc(&q);
+	up->qpc = pc;
 	up->state = Queueing;
 	unlock(&q->use);
 	sched();
@@ -67,19 +71,22 @@ void
 qlock(QLock *q)
 {
 	Proc *p;
+	uintptr pc;
+
+	pc = getcallerpc(&q);
 
 	if(m->ilockdepth != 0)
-		print("qlock: %#p: ilockdepth %d\n", getcallerpc(&q), m->ilockdepth);
+		print("qlock: %#p: ilockdepth %d\n", pc, m->ilockdepth);
 	if(up != nil && up->nlocks)
-		print("qlock: %#p: nlocks %d\n", getcallerpc(&q), up->nlocks);
+		print("qlock: %#p: nlocks %d\n", pc, up->nlocks);
 	if(up != nil && up->eql != nil)
-		print("qlock: %#p: eql %p\n", getcallerpc(&q), up->eql);
+		print("qlock: %#p: eql %p\n", pc, up->eql);
 	if(q->use.key == 0x55555555)
-		panic("qlock: q %#p, key 5*", q);
+		panic("qlock: %#p: q %#p, key 5*", pc, q);
 	lock(&q->use);
 	rwstats.qlock++;
 	if(!q->locked) {
-		q->use.pc = getcallerpc(&q);
+		q->pc = pc;
 		q->locked = 1;
 		unlock(&q->use);
 		return;
@@ -95,8 +102,8 @@ qlock(QLock *q)
 	q->tail = up;
 	up->eql = nil;
 	up->qnext = nil;
+	up->qpc = pc;
 	up->state = Queueing;
-	up->qpc = getcallerpc(&q);
 	unlock(&q->use);
 	sched();
 }
@@ -111,6 +118,7 @@ canqlock(QLock *q)
 		return 0;
 	}
 	q->locked = 1;
+	q->pc = getcallerpc(&q);
 	unlock(&q->use);
 	return 1;
 }
@@ -126,6 +134,7 @@ qunlock(QLock *q)
 			getcallerpc(&q));
 	p = q->head;
 	if(p != nil){
+		q->pc = p->qpc;
 		q->head = p->qnext;
 		if(q->head == nil)
 			q->tail = nil;
@@ -184,6 +193,7 @@ runlock(RWlock *q)
 	q->head = p->qnext;
 	if(q->head == nil)
 		q->tail = nil;
+	q->wpc = p->qpc;
 	q->writer = 1;
 	unlock(&q->use);
 	ready(p);
@@ -193,13 +203,15 @@ void
 wlock(RWlock *q)
 {
 	Proc *p;
+	uintptr pc;
+
+	pc = getcallerpc(&q);
 
 	lock(&q->use);
 	rwstats.wlock++;
 	if(q->readers == 0 && q->writer == 0){
 		/* noone waiting, go for it */
-		q->wpc = getcallerpc(&q);
-		q->wproc = up;
+		q->wpc = pc;
 		q->writer = 1;
 		unlock(&q->use);
 		return;
@@ -216,6 +228,7 @@ wlock(RWlock *q)
 		p->qnext = up;
 	q->tail = up;
 	up->qnext = nil;
+	up->qpc = pc;
 	up->state = QueueingW;
 	unlock(&q->use);
 	sched();
@@ -235,6 +248,7 @@ wunlock(RWlock *q)
 	}
 	if(p->state == QueueingW){
 		/* start waiting writer */
+		q->wpc = p->qpc;
 		q->head = p->qnext;
 		if(q->head == nil)
 			q->tail = nil;

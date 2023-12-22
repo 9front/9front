@@ -78,6 +78,7 @@ struct QLock
 	Lock	use;		/* to access Qlock structure */
 	Proc	*head;		/* next process waiting for object */
 	Proc	*tail;		/* last process waiting for object */
+	uintptr	pc;		/* pc of owner */
 	int	locked;		/* flag */
 };
 
@@ -93,9 +94,8 @@ struct RWlock
 	Proc	*head;		/* list of waiting processes */
 	Proc	*tail;
 	uintptr	wpc;		/* pc of writer */
-	Proc	*wproc;		/* writing proc */
-	int	readers;	/* number of readers */
 	int	writer;		/* number of writers */
+	int	readers;	/* number of readers */
 };
 
 struct Alarms
