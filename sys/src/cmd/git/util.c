@@ -351,6 +351,7 @@ qput(Objq *q, Object *o, int color)
 	Qelt t;
 	int i;
 
+	assert(o->type == GCommit);
 	if(q->nheap == q->heapsz){
 		q->heapsz *= 2;
 		q->heap = earealloc(q->heap, q->heapsz, sizeof(Qelt));

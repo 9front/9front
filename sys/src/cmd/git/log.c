@@ -207,6 +207,8 @@ showcommits(char *c)
 		sysfatal("resolve %s: %r", c);
 	if((o = readobject(h)) == nil)
 		sysfatal("load %H: %r", h);
+	if(o->type != GCommit)
+		sysfatal("%s: not a commit", c);
 	qinit(&objq);
 	osinit(&done);
 	qput(&objq, o, 0);
@@ -291,5 +293,6 @@ main(int argc, char **argv)
 		showquery(queryexpr);
 	else
 		showcommits(commitid);
+	Bterm(out);
 	exits(nil);
 }
