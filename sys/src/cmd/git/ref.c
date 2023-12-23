@@ -188,6 +188,10 @@ paint(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres, in
 			break;
 		}
 		o = readobject(e.o->hash);
+		if(o->type != GCommit){
+			werrstr("not a commit: %H", o->hash);
+			goto error;
+		}
 		for(i = 0; i < o->commit->nparent; i++){
 			if((c = readobject(e.o->commit->parent[i])) == nil)
 				goto error;
@@ -305,6 +309,10 @@ parent(Eval *ev)
 	Object *o, *p;
 
 	o = pop(ev);
+	if(o->type != GCommit){
+		werrstr("not a commit: %H", o->hash);
+		return -1;
+	}
 	/* Special case: first commit has no parent. */
 	if(o->commit->nparent == 0)
 		p = emptydir();
