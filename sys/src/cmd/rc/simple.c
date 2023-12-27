@@ -18,7 +18,7 @@ exitnext(void){
 loop:
 	c=&p->code[p->pc];
 	while(1){
-		if(c->f==Xpopredir || c->f==Xunlocal)
+		if(c->f==Xpopredir || c->f==Xunlocal || c->f==Xeflag)
 			c++;
 		else if(c->f==Xsrcline)
 			c += 2;
