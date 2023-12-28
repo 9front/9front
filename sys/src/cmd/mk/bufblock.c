@@ -25,6 +25,8 @@ newbuf(void)
 void
 freebuf(Bufblock *p)
 {
+	assert(p->current >= p->start);
+	p->current = 0;
 	p->next = freelist;
 	freelist = p;
 }
@@ -39,6 +41,7 @@ growbuf(Bufblock *p)
 	n = p->end-p->start+QUANTA;
 		/* search the free list for a big buffer */
 	for (f = freelist; f; f = f->next) {
+		assert(f->current == 0);
 		if (f->end-f->start >= n) {
 			memcpy(f->start, p->start, p->end-p->start);
 			cp = f->start;
@@ -47,7 +50,6 @@ growbuf(Bufblock *p)
 			cp = f->end;
 			f->end = p->end;
 			p->end = cp;
-			f->current = f->start;
 			break;
 		}
 	}
@@ -59,9 +61,17 @@ growbuf(Bufblock *p)
 }
 
 void
-bufcpy(Bufblock *buf, char *cp, int n)
+bufcpy(Bufblock *buf, char *cp)
 {
+	int c;
 
+	while (c = *cp++)
+		insert(buf, c);
+}
+
+void
+bufncpy(Bufblock *buf, char *cp, int n)
+{
 	while (n--)
 		insert(buf, *cp++);
 }
@@ -69,7 +79,6 @@ bufcpy(Bufblock *buf, char *cp, int n)
 void
 insert(Bufblock *buf, int c)
 {
-
 	if (buf->current >= buf->end)
 		growbuf(buf);
 	*buf->current++ = c;

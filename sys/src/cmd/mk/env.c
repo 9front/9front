@@ -1,10 +1,10 @@
 #include	"mk.h"
 
 enum {
-	ENVQUANTA=10
+	ENVQUANTA=64
 };
 
-Envy	*envy;
+static Symtab **envy;
 static int nextv;
 
 static char	*myenv[] =
@@ -36,72 +36,66 @@ initenv(void)
 	char **p;
 
 	for(p = myenv; *p; p++)
-		symlook(*p, S_INTERNAL, (void *)"");
+		symlook(*p, S_INTERNAL, 1)->u.ptr = 0;
 	readenv();				/* o.s. dependent */
-}
-
-static void
-envinsert(char *name, Word *value)
-{
-	static int envsize;
-
-	if (nextv >= envsize) {
-		envsize += ENVQUANTA;
-		envy = (Envy *) Realloc((char *) envy, envsize*sizeof(Envy));
-	}
-	envy[nextv].name = name;
-	envy[nextv++].values = value;
 }
 
 static void
 envupd(char *name, Word *value)
 {
-	Envy *e;
+	Symtab *sym = symlook(name, S_INTERNAL, 0);
+	assert(sym != 0);
+	delword(sym->u.ptr);
+	sym->u.ptr = value;
+}
 
-	for(e = envy; e->name; e++)
-		if(strcmp(name, e->name) == 0){
-			delword(e->values);
-			e->values = value;
-			return;
-		}
-	e->name = name;
-	e->values = value;
-	envinsert(0,0);
+static void
+envinsert(Symtab *sym)
+{
+	static int envsize;
+
+	if (nextv >= envsize) {
+		envsize += ENVQUANTA;
+		envy = (Symtab **) Realloc(envy, envsize*sizeof(Symtab*));
+	}
+	envy[nextv++] = sym;
+}
+
+static void
+ereset(Symtab *s)
+{
+	delword(s->u.ptr);
+	s->u.ptr = 0;
+	envinsert(s);
 }
 
 static void
 ecopy(Symtab *s)
 {
-	char **p;
-
 	if(symlook(s->name, S_NOEXPORT, 0))
 		return;
-	for(p = myenv; *p; p++)
-		if(strcmp(*p, s->name) == 0)
-			return;
-	envinsert(s->name, s->u.ptr);
+	if(symlook(s->name, S_INTERNAL, 0))
+		return;
+	envinsert(s);
 }
 
-void
+Symtab**
 execinit(void)
 {
-	char **p;
-
 	nextv = 0;
-	for(p = myenv; *p; p++)
-		envinsert(*p, stow(""));
-
+	symtraverse(S_INTERNAL, ereset);
 	symtraverse(S_VAR, ecopy);
-	envinsert(0, 0);
+	envinsert(0);
+	return envy;
 }
 
-Envy*
+Symtab**
 buildenv(Job *j, int slot)
 {
 	char **p, *cp, *qp;
 	Word *w, *v, **l;
+	char num[16];
 	int i;
-	char buf[256];
 
 	envupd("target", wdup(j->t));
 	if(j->r->attr&REGEXP)
@@ -109,10 +103,10 @@ buildenv(Job *j, int slot)
 	else
 		envupd("stem", newword(j->stem));
 	envupd("prereq", wdup(j->p));
-	snprint(buf, sizeof buf, "%d", getpid());
-	envupd("pid", newword(buf));
-	snprint(buf, sizeof buf, "%d", slot);
-	envupd("nproc", newword(buf));
+	snprint(num, sizeof num, "%d", getpid());
+	envupd("pid", newword(num));
+	snprint(num, sizeof num, "%d", slot);
+	envupd("nproc", newword(num));
 	envupd("newprereq", wdup(j->np));
 	envupd("alltarget", wdup(j->at));
 	l = &v;
@@ -129,10 +123,7 @@ buildenv(Job *j, int slot)
 				continue;
 			}
 		}
-		*l = w->next;
-		free(w->s);
-		free(w);
-		w = *l;
+		*l = w = popword(w);
 	}
 	envupd("newmember", v);
 		/* update stem0 -> stem9 */

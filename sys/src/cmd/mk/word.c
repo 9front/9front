@@ -5,85 +5,109 @@ static	Word	*nextword(char**);
 Word*
 newword(char *s)
 {
-	Word *w;
-
-	w = (Word *)Malloc(sizeof(Word));
-	w->s = strdup(s);
+	int n = strlen(s)+1;
+	Word *w = (Word *)Malloc(sizeof(Word) + n);
+	memcpy(w->s, s, n);
 	w->next = 0;
-	return(w);
+	return w;
+}
+
+Word*
+popword(Word *w)
+{
+	Word *x = w->next;
+	free(w);
+	return x;
 }
 
 Word *
 stow(char *s)
 {
-	Word *head, *w, *new;
+	Word *w, *h, **l;
 
-	w = head = 0;
-	while(*s){
-		new = nextword(&s);
-		if(new == 0)
-			break;
-		if (w)
-			w->next = new;
-		else
-			head = w = new;
+	h = 0;
+	l = &h;
+	while(*s && (*l = w = nextword(&s))){
 		while(w->next)
 			w = w->next;
-		
+		l = &w->next;
 	}
-	if (!head)
-		head = newword("");
-	return(head);
+	return h;
 }
 
 char *
-wtos(Word *w, int sep)
+wtos(Word *w)
 {
 	Bufblock *buf;
-	char *cp;
+	char *s;
 
 	buf = newbuf();
-	for(; w; w = w->next){
-		for(cp = w->s; *cp; cp++)
-			insert(buf, *cp);
-		if(w->next)
-			insert(buf, sep);
-	}
+	bufcpyw(buf, w);
 	insert(buf, 0);
-	cp = strdup(buf->start);
+	s = Strdup(buf->start);
 	freebuf(buf);
-	return(cp);
+	return s;
+}
+
+void
+bufcpyw(Bufblock *buf, Word *w)
+{
+	for(; w; w = w->next){
+		bufcpyq(buf, w->s);
+		if(w->next)
+			insert(buf, ' ');
+	}
+}
+
+int
+empty(Word *w)
+{
+	return w == 0 || w->s[0] == 0;
+}
+
+int
+wadd(Word **l, char *s)
+{
+	Word *w;
+
+	while(w = *l){
+		if(strcmp(w->s, s) == 0)
+			return 1;
+		l = &w->next;
+	}
+	*l = newword(s);
+	return 0;
+}
+
+int
+wcmp(Word *a, Word *b)
+{
+	for(; a && b; a = a->next, b = b->next)
+		if(strcmp(a->s, b->s))
+			return 1;
+	return(a || b);
 }
 
 Word*
 wdup(Word *w)
 {
-	Word *v, *new, *base;
+	Word *h, **l;
 
-	v = base = 0;
+	h = 0;
+	l = &h;
 	while(w){
-		new = newword(w->s);
-		if(v)
-			v->next = new;
-		else
-			base = new;
-		v = new;
+		*l = newword(w->s);
+		l = &(*l)->next;
 		w = w->next;
 	}
-	return base;
+	return h;
 }
 
 void
 delword(Word *w)
 {
-	Word *v;
-
-	while(v = w){
-		w = w->next;
-		if(v->s)
-			free(v->s);
-		free(v);
-	}
+	while(w)
+		w = popword(w);
 }
 
 /*
@@ -93,19 +117,20 @@ delword(Word *w)
 static Word*
 nextword(char **s)
 {
+	Word *head, *tail, **link, *w, *t;
 	Bufblock *b;
-	Word *head, *tail, *w;
-	Rune r;
-	char *cp;
 	int empty;
+	char *cp;
+	Rune r;
 
 	cp = *s;
 	b = newbuf();
-restart:
+	empty = 1;
 	head = tail = 0;
+	link = &head;
+restart:
 	while(*cp == ' ' || *cp == '\t')		/* leading white space */
 		cp++;
-	empty = 1;
 	while(*cp){
 		cp += chartorune(&r, cp);
 		switch(r)
@@ -117,12 +142,12 @@ restart:
 		case '\\':
 		case '\'':
 		case '"':
-			empty = 0;
 			cp = expandquote(cp, r, b);
 			if(cp == 0){
 				fprint(2, "missing closing quote: %s\n", *s);
 				Exit();
 			}
+			empty = 0;
 			break;
 		case '$':
 			w = varsub(&cp);
@@ -133,47 +158,48 @@ restart:
 			}
 			empty = 0;
 			if(b->current != b->start){
-				bufcpy(b, w->s, strlen(w->s));
+				bufcpy(b, w->s);
 				insert(b, 0);
-				free(w->s);
-				w->s = strdup(b->start);
+				t = popword(w);
+				w = newword(b->start);
+				w->next = t;
 				b->current = b->start;
 			}
-			if(head){
-				bufcpy(b, tail->s, strlen(tail->s));
-				bufcpy(b, w->s, strlen(w->s));
+			if(tail){
+				bufcpy(b, tail->s);
+				bufcpy(b, w->s);
 				insert(b, 0);
-				free(tail->s);
-				tail->s = strdup(b->start);
-				tail->next = w->next;
-				free(w->s);
-				free(w);
+				delword(tail);
+				*link = tail = newword(b->start);
+				tail->next = popword(w);
 				b->current = b->start;
 			} else
-				tail = head = w;
-			while(tail->next)
+				*link = tail = w;
+			while(tail->next){
+				link = &tail->next;
 				tail = tail->next;
+			}
 			break;
 		default:
-			empty = 0;
 			rinsert(b, r);
 			break;
 		}
 	}
 out:
 	*s = cp;
-	if(b->current != b->start){
-		if(head){
-			cp = b->current;
-			bufcpy(b, tail->s, strlen(tail->s));
-			bufcpy(b, b->start, cp-b->start);
+	if(b->current != b->start || !empty){
+		insert(b, 0);
+		if(tail){
+			cp = Strdup(b->start);
+			b->current = b->start;
+			bufcpy(b, tail->s);
+			bufcpy(b, cp);
+			free(cp);
 			insert(b, 0);
-			free(tail->s);
-			tail->s = strdup(cp);
-		} else {
-			insert(b, 0);
-			head = newword(b->start);
-		}
+			delword(tail);
+			*link = newword(b->start);
+		} else
+			*link = newword(b->start);
 	}
 	freebuf(b);
 	return head;

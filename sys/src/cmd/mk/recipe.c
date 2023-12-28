@@ -9,7 +9,7 @@ dorecipe(Node *node)
 	Node *n;
 	Rule *r = 0;
 	Symtab *s;
-	Word head, ahead, lp, ln, *w, *ww, *aw;
+	Word *head, *ahead, *lp, *ln, *w, **ww, **aw;
 
 	aa = 0;
 	/*
@@ -45,24 +45,21 @@ dorecipe(Node *node)
 		build the node list
 	*/
 	node->next = 0;
-	head.next = 0;
-	ww = &head;
-	ahead.next = 0;
-	aw = &ahead;
+	head = 0, ww = &head;
+	ahead = 0, aw = &ahead;
 	if(r->attr&REGEXP){
-		ww->next = newword(node->name);
-		aw->next = newword(node->name);
+		*ww = newword(node->name);
+		*aw = newword(node->name);
 	} else {
 		for(w = r->alltargets; w; w = w->next){
 			if(r->attr&META)
 				subst(aa->stem, w->s, buf, sizeof(buf));
 			else
 				strecpy(buf, buf + sizeof buf - 1, w->s);
-			aw->next = newword(buf);
-			aw = aw->next;
+			*aw = newword(buf), aw = &(*aw)->next;
 			if((s = symlook(buf, S_NODE, 0)) == 0)
 				continue;	/* not a node we are interested in */
-			n = s->u.ptr;
+			n = (Node*)s->u.ptr;
 			if(aflag == 0 && n->time) {
 				for(a = n->prereqs; a; a = a->next)
 					if(a->n && outofdate(n, a, 0))
@@ -70,8 +67,7 @@ dorecipe(Node *node)
 				if(a == 0)
 					continue;
 			}
-			ww->next = newword(buf);
-			ww = ww->next;
+			*ww = newword(buf), ww = &(*ww)->next;
 			if(n == node) continue;
 			n->next = node->next;
 			node->next = n;
@@ -83,38 +79,24 @@ dorecipe(Node *node)
 	/*
 		gather the params for the job
 	*/
-	lp.next = ln.next = 0;
+	lp = ln = 0;
 	for(n = node; n; n = n->next){
 		for(a = n->prereqs; a; a = a->next){
 			if(a->n){
-				addw(&lp, a->n->name);
+				wadd(&lp, a->n->name);
 				if(outofdate(n, a, 0)){
-					addw(&ln, a->n->name);
+					wadd(&ln, a->n->name);
 					if(explain)
 						fprint(1, "%s(%ld) < %s(%ld)\n",
 							n->name, n->time, a->n->name, a->n->time);
 				}
 			} else {
 				if(explain)
-					fprint(1, "%s has no prerequisites\n",
-							n->name);
+					fprint(1, "%s has no prerequisites\n", n->name);
 			}
 		}
 		MADESET(n, BEINGMADE);
 	}
-/*	print("lt=%s ln=%s lp=%s\n",wtos(head.next, ' '),wtos(ln.next, ' '),wtos(lp.next, ' '));/**/
-	run(newjob(r, node, aa->stem, aa->match, lp.next, ln.next, head.next, ahead.next));
+	run(newjob(r, node, aa->stem, aa->match, lp, ln, head, ahead));
 	return(1);
-}
-
-void
-addw(Word *w, char *s)
-{
-	Word *lw;
-
-	for(lw = w; w = w->next; lw = w){
-		if(strcmp(s, w->s) == 0)
-			return;
-	}
-	lw->next = newword(s);
 }

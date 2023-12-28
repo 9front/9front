@@ -40,12 +40,12 @@ run(Job *j)
 static void
 sched(void)
 {
-	char *flags;
-	Job *j;
+	char *t, *flags;
 	Bufblock *buf;
-	int slot;
+	Symtab **env;
 	Node *n;
-	Envy *e;
+	Job *j;
+	int slot;
 
 	if(jobs == 0){
 		usage();
@@ -54,14 +54,16 @@ sched(void)
 	j = jobs;
 	jobs = j->next;
 	if(DEBUG(D_EXEC))
-		fprint(1, "firing up job for target %s\n", wtos(j->t, ' '));
+		fprint(1, "firing up job for target %s\n",
+			t = wtos(j->t)),
+			free(t);
 	slot = nextslot();
 	events[slot].job = j;
 	buf = newbuf();
-	e = buildenv(j, slot);
-	shprint(j->r->recipe, e, buf);
+	env = buildenv(j, slot);
+	shprint(j->r->recipe, buf);
 	if(!tflag && (nflag || !(j->r->attr&QUIET)))
-		Bwrite(&bout, buf->start, (long)strlen(buf->start));
+		Bwrite(&bout, buf->start, strlen(buf->start));
 	freebuf(buf);
 	if(nflag||tflag){
 		for(n = j->n; n; n = n->next){
@@ -82,18 +84,19 @@ sched(void)
 			flags = 0;
 		else
 			flags = "-e";
-		events[slot].pid = execsh(flags, j->r->recipe, 0, e);
+		events[slot].pid = execsh(j->r->recipe, flags, env, 0);
 		usage();
 		nrunning++;
 		if(DEBUG(D_EXEC))
-			fprint(1, "pid for target %s = %d\n", wtos(j->t, ' '), events[slot].pid);
+			fprint(1, "pid for target %s = %d\n",
+				t = wtos(j->t), events[slot].pid),
+				free(t);
 	}
 }
 
 int
 waitup(int echildok, int *retstatus)
 {
-	Envy *e;
 	int pid;
 	int slot;
 	Symtab *s;
@@ -140,13 +143,14 @@ again:		/* rogue processes */
 		goto again;
 	}
 	j = events[slot].job;
+	events[slot].job = 0;
+	events[slot].pid = -1;
 	usage();
 	nrunning--;
-	events[slot].pid = -1;
 	if(buf[0]){
-		e = buildenv(j, slot);
+		buildenv(j, slot);
 		bp = newbuf();
-		shprint(j->r->recipe, e, bp);
+		shprint(j->r->recipe, bp);
 		front(bp->start);
 		fprint(2, "mk: %s: exit status=%s", bp->start, buf);
 		freebuf(bp);
@@ -169,8 +173,9 @@ again:		/* rogue processes */
 	for(w = j->t; w; w = w->next){
 		if((s = symlook(w->s, S_NODE, 0)) == 0)
 			continue;	/* not interested in this node */
-		update(uarg, s->u.ptr);
+		update(uarg, (Node*)s->u.ptr);
 	}
+	freejob(j);
 	if(nrunning < nproclimit)
 		sched();
 	return(0);
@@ -179,21 +184,17 @@ again:		/* rogue processes */
 void
 nproc(void)
 {
-	Symtab *sym;
 	Word *w;
 
-	if(sym = symlook("NPROC", S_VAR, 0)) {
-		w = sym->u.ptr;
-		if (w && w->s && w->s[0])
-			nproclimit = atoi(w->s);
-	}
+	if(!empty(w = getvar("NPROC")))
+		nproclimit = atoi(w->s);
 	if(nproclimit < 1)
 		nproclimit = 1;
 	if(DEBUG(D_EXEC))
 		fprint(1, "nprocs = %d\n", nproclimit);
 	if(nproclimit > nevents){
 		if(nevents)
-			events = (Event *)Realloc((char *)events, nproclimit*sizeof(Event));
+			events = (Event *)Realloc(events, nproclimit*sizeof(Event));
 		else
 			events = (Event *)Malloc(nproclimit*sizeof(Event));
 		while(nevents < nproclimit)
@@ -281,7 +282,7 @@ usage(void)
 	long t;
 
 	time(&t);
-	if(tick)
+	if(tick && nrunning < nelem(tslot))
 		tslot[nrunning] += (t-tick);
 	tick = t;
 }
@@ -292,6 +293,6 @@ prusage(void)
 	int i;
 
 	usage();
-	for(i = 0; i <= nevents; i++)
+	for(i = 0; i <= nevents && i < nelem(tslot); i++)
 		fprint(1, "%d: %ld\n", i, tslot[i]);
 }

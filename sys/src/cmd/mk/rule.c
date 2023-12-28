@@ -1,48 +1,52 @@
 #include	"mk.h"
 
 static Rule *lr, *lmr;
-static rcmp(Rule *r, char *target, Word *tail);
 static int nrules = 0;
 
 void
-addrule(char *head, Word *tail, char *body, Word *ahead, int attr, int hline, char *prog)
+addrule(char *head, Word *tail, char *body, Word *ahead, int attr, int line, char *prog)
 {
-	Rule *r;
-	Rule *rr;
+	Rule *r, *rr;
 	Symtab *sym;
 	int reuse;
 
 	r = 0;
 	reuse = 0;
-	if(sym = symlook(head, S_TARGET, 0)){
-		for(r = sym->u.ptr; r; r = r->chain)
-			if(rcmp(r, head, tail) == 0){
+	sym = symlook(head, S_TARGET, 0);
+	if(sym){
+		for(r = sym->u.ptr; r; r = r->chain){
+			if(wcmp(r->tail, tail) == 0){
 				reuse = 1;
 				break;
 			}
+		}
 	}
 	if(r == 0)
 		r = (Rule *)Malloc(sizeof(Rule));
-	r->target = head;
+
 	r->tail = tail;
 	r->recipe = body;
-	r->line = hline;
-	r->file = infile;
+	r->line = line;
+	r->file = mkinfile;
 	r->attr = attr;
 	r->alltargets = ahead;
 	r->prog = prog;
 	r->rule = nrules++;
 
 	if(!reuse){
-		rr = symlook(head, S_TARGET, r)->u.ptr;
-		if(rr != r){
+		r->next = 0;
+		r->chain = 0;
+		if(sym == 0){
+			sym = symlook(head, S_TARGET, 1);
+			sym->u.ptr = r;
+		} else {
+			rr = sym->u.ptr;
 			r->chain = rr->chain;
 			rr->chain = r;
-		} else
-			r->chain = 0;
+		}
 	}
-	if(!reuse)
-		r->next = 0;
+	r->target = sym;
+
 	if((attr&REGEXP) || charin(head, "%&")){
 		r->attr |= META;
 		if(reuse)
@@ -73,28 +77,19 @@ addrule(char *head, Word *tail, char *body, Word *ahead, int attr, int hline, ch
 void
 dumpr(char *s, Rule *r)
 {
+	char *t;
+
 	Bprint(&bout, "%s: start=%p\n", s, r);
 	for(; r; r = r->next){
 		Bprint(&bout, "\tRule %p: %s:%d attr=%x next=%p chain=%p alltarget='%s'",
-			r, r->file, r->line, r->attr, r->next, r->chain, wtos(r->alltargets, ' '));
+			r, r->file, r->line, r->attr, r->next, r->chain,
+			t = wtos(r->alltargets)), free(t);
 		if(r->prog)
 			Bprint(&bout, " prog='%s'", r->prog);
-		Bprint(&bout, "\n\ttarget=%s: %s\n", r->target, wtos(r->tail,' '));
+		Bprint(&bout, "\n\ttarget=%s: %s\n", r->target->name,
+			t = wtos(r->tail)), free(t);
 		Bprint(&bout, "\trecipe@%p='%s'\n", r->recipe, r->recipe);
 	}
-}
-
-static int
-rcmp(Rule *r, char *target, Word *tail)
-{
-	Word *w;
-
-	if(strcmp(r->target, target))
-		return 1;
-	for(w = r->tail; w && tail; w = w->next, tail = tail->next)
-		if(strcmp(w->s, tail->s))
-			return 1;
-	return(w || tail);
 }
 
 char *

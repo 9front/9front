@@ -3,36 +3,29 @@
 #define		MKFILE		"mkfile"
 
 int debug;
-Rule *rules, *metarules;
 int nflag = 0;
+int sflag = 0;
 int tflag = 0;
 int iflag = 0;
 int kflag = 0;
 int aflag = 0;
 int uflag = 0;
+int nreps = 1;
 char *explain = 0;
 Word *target1;
-int nreps = 1;
 Job *jobs;
+Rule *rules, *patrule, *metarules;
 Biobuf bout;
-Rule *patrule;
+
 void badusage(void);
-#ifdef	PROF
-short buf[10000];
-#endif
 
 void
 main(int argc, char **argv)
 {
-	Word *w;
-	char *s, *temp;
-	char *files[256], **f = files, **ff;
-	int sflag = 0;
-	int i;
-	int tfd = -1;
-	Biobuf tb;
-	Bufblock *buf;
+	Word **link, *flags, *files, *args;
 	Bufblock *whatif;
+	char *s;
+	int i;
 
 	/*
 	 *  start with a copy of the current environment variables
@@ -40,13 +33,14 @@ main(int argc, char **argv)
 	 */
 
 	Binit(&bout, 1, OWRITE);
-	buf = newbuf();
 	whatif = 0;
 	USED(argc);
-	for(argv++; *argv && (**argv == '-'); argv++)
+
+	flags = 0;
+	link = &flags;
+	for(argv++; *argv && (**argv == '-'); argv++, link = &(*link)->next)
 	{
-		bufcpy(buf, argv[0], strlen(argv[0]));
-		insert(buf, ' ');
+		*link = newword(*argv);
 		switch(argv[0][1])
 		{
 		case 'a':
@@ -67,11 +61,12 @@ main(int argc, char **argv)
 			explain = &argv[0][2];
 			break;
 		case 'f':
-			if(*++argv == 0)
+			argv++;
+			if(*argv == 0 || **argv == 0)
 				badusage();
-			*f++ = *argv;
-			bufcpy(buf, argv[0], strlen(argv[0]));
-			insert(buf, ' ');
+			link = &(*link)->next;
+			*link = newword(*argv);
+			wadd(&files, *argv);
 			break;
 		case 'i':
 			iflag = 1;
@@ -97,23 +92,19 @@ main(int argc, char **argv)
 			else
 				insert(whatif, ' ');
 			if(argv[0][2])
-				bufcpy(whatif, &argv[0][2], strlen(&argv[0][2]));
+				bufcpy(whatif, &argv[0][2]);
 			else {
 				if(*++argv == 0)
 					badusage();
-				bufcpy(whatif, &argv[0][0], strlen(&argv[0][0]));
+				bufcpy(whatif, &argv[0][0]);
+				link = &(*link)->next;
+				*link = newword(*argv);
 			}
 			break;
 		default:
 			badusage();
 		}
 	}
-#ifdef	PROF
-	{
-		extern etext();
-		monitor(main, etext, buf, sizeof buf, 300);
-	}
-#endif
 
 	if(aflag)
 		iflag = 1;
@@ -124,54 +115,30 @@ main(int argc, char **argv)
 	/*
 		assignment args become null strings
 	*/
-	temp = 0;
+	mkinfile = "command line args";
 	for(i = 0; argv[i]; i++) if(utfrune(argv[i], '=')){
-		bufcpy(buf, argv[i], strlen(argv[i]));
-		insert(buf, ' ');
-		if(tfd < 0){
-			temp = maketmp();
-			if(temp == 0) {
-				perror("temp file");
-				Exit();
-			}
-			if((tfd = create(temp, ORDWR, 0600)) < 0){
-				perror(temp);
-				Exit();
-			}
-			Binit(&tb, tfd, OWRITE);
-		}
-		Bprint(&tb, "%s\n", argv[i]);
+		if(!wadd(&flags, argv[i]))
+			varoverride(argv[i]);
 		*argv[i] = 0;
 	}
-	if(tfd >= 0){
-		Bflush(&tb);
-		LSEEK(tfd, 0L, 0);
-		parse("command line args", tfd, 1);
-		remove(temp);
-	}
+	setvar("MKFLAGS", flags);
 
-	if (buf->current != buf->start) {
-		buf->current--;
-		insert(buf, 0);
-	}
-	symlook("MKFLAGS", S_VAR, (void *) stow(buf->start));
-	buf->current = buf->start;
+	args = 0;
+	link = &args;
 	for(i = 0; argv[i]; i++){
 		if(*argv[i] == 0) continue;
-		if(i)
-			insert(buf, ' ');
-		bufcpy(buf, argv[i], strlen(argv[i]));
+		*link = newword(argv[i]);
+		link = &(*link)->next;
 	}
-	insert(buf, 0);
-	symlook("MKARGS", S_VAR, (void *) stow(buf->start));
-	freebuf(buf);
+	setvar("MKARGS", args);
 
-	if(f == files){
-		if(access(MKFILE, 4) == 0)
-			parse(MKFILE, open(MKFILE, 0), 0);
-	} else
-		for(ff = files; ff < f; ff++)
-			parse(*ff, open(*ff, 0), 0);
+	if(files == 0){
+		if(access(MKFILE, AEXIST) == 0)
+			parse(MKFILE, open(MKFILE, OREAD|OCEXEC));
+	} else {
+		for(; files; files = popword(files))
+			parse(files->s, open(files->s, OREAD|OCEXEC));
+	}
 	if(DEBUG(D_PARSE)){
 		dumpw("default targets", target1);
 		dumpr("rules", rules);
@@ -184,44 +151,26 @@ main(int argc, char **argv)
 		freebuf(whatif);
 	}
 	execinit();
-	/* skip assignment args */
-	while(*argv && (**argv == 0))
-		argv++;
 
 	catchnotes();
-	if(*argv == 0){
-		if(target1)
-			for(w = target1; w; w = w->next)
-				mk(w->s);
-		else {
+	if(args == 0){
+		if(target1 == 0){
 			fprint(2, "mk: nothing to mk\n");
 			Exit();
 		}
+		for(; target1; target1 = popword(target1))
+			mk(target1->s);
 	} else {
+		args = wdup(args);
 		if(sflag){
-			for(; *argv; argv++)
-				if(**argv)
-					mk(*argv);
+			for(; args; args = popword(args))
+				mk(args->s);
 		} else {
-			Word *head, *tail, *t;
-
-			/* fake a new rule with all the args as prereqs */
-			tail = 0;
-			t = 0;
-			for(; *argv; argv++)
-				if(**argv){
-					if(tail == 0)
-						tail = t = newword(*argv);
-					else {
-						t->next = newword(*argv);
-						t = t->next;
-					}
-				}
-			if(tail->next == 0)
-				mk(tail->s);
+			if(args->next == 0)
+				mk(args->s);
 			else {
-				head = newword("command line arguments");
-				addrules(head, tail, strdup(""), VIR, mkinline, 0);
+				Word *head = newword(mkinfile);
+				addrules(head, args, Strdup(""), VIR, 0, 0);
 				mk(head->s);
 			}
 		}
@@ -234,7 +183,6 @@ main(int argc, char **argv)
 void
 badusage(void)
 {
-
 	fprint(2, "usage: mk [-f file] [-n] [-a] [-e] [-t] [-k] [-i] [-d[egp]] [targets ...]\n");
 	Exit();
 }
@@ -242,13 +190,14 @@ badusage(void)
 void *
 Malloc(int n)
 {
-	register void *s;
+	void *s;
 
 	s = malloc(n);
 	if(!s) {
 		fprint(2, "mk: cannot alloc %d bytes\n", n);
 		Exit();
 	}
+	setmalloctag(s, getcallerpc(&n));
 	return(s);
 }
 
@@ -263,7 +212,18 @@ Realloc(void *s, int n)
 		fprint(2, "mk: cannot alloc %d bytes\n", n);
 		Exit();
 	}
+	setrealloctag(s, getcallerpc(&s));
 	return(s);
+}
+
+char *
+Strdup(char *s)
+{
+	int n = strlen(s)+1;
+	char *d = Malloc(n);
+	memcpy(d, s, n);
+	setmalloctag(d, getcallerpc(&s));
+	return d;
 }
 
 void
@@ -274,6 +234,6 @@ regerror(char *s)
 			patrule->file, patrule->line, s);
 	else
 		fprint(2, "mk: %s:%d: regular expression error; %s\n",
-			infile, mkinline, s);
+			mkinfile, mkinline, s);
 	Exit();
 }

@@ -172,7 +172,7 @@ update(int fake, Node *node)
 	Arc *a;
 
 	MADESET(node, fake? BEINGMADE : MADE);
-	if(((node->flags&VIRTUAL) == 0) && (access(node->name, 0) == 0)){
+	if(((node->flags&VIRTUAL) == 0) && (access(node->name, AEXIST) == 0)){
 		node->time = timeof(node->name, 1);
 		node->flags &= ~(CANPRETEND|PRETENDING);
 		for(a = node->prereqs; a; a = a->next)
@@ -188,14 +188,12 @@ update(int fake, Node *node)
 }
 
 static
-pcmp(char *prog, char *p, char *q)
+pcmp(char *cmd)
 {
-	char buf[3*NAMEBLOCK];
 	int pid;
 
 	Bflush(&bout);
-	snprint(buf, sizeof buf, "%s '%s' '%s'\n", prog, p, q);
-	pid = pipecmd(buf, 0, 0);
+	pid = pipecmd(cmd, 0, 0, 0);
 	while(waitup(-3, &pid) >= 0)
 		;
 	return(pid? 2:1);
@@ -204,25 +202,28 @@ pcmp(char *prog, char *p, char *q)
 int
 outofdate(Node *node, Arc *arc, int eval)
 {
-	char buf[3*NAMEBLOCK], *str;
-	Symtab *sym;
-	int ret;
-
-	str = 0;
 	if(arc->prog){
-		snprint(buf, sizeof buf, "%s%c%s", node->name, 0377,
-			arc->n->name);
-		sym = symlook(buf, S_OUTOFDATE, 0);
+		Bufblock *cmd;
+		Symtab *sym;
+		int ret;
+
+		cmd = newbuf();
+		bufcpy(cmd, arc->prog);
+		insert(cmd, ' ');
+		bufcpyq(cmd, node->name);
+		insert(cmd, ' ');
+		bufcpyq(cmd, arc->n->name);
+		insert(cmd, '\n');
+		insert(cmd, 0);
+		sym = symlook(cmd->start, S_OUTOFDATE, 0);
 		if(sym == 0 || eval){
+			ret = pcmp(cmd->start);
 			if(sym == 0)
-				str = strdup(buf);
-			ret = pcmp(arc->prog, node->name, arc->n->name);
-			if(sym)
-				sym->u.value = ret;
-			else
-				symlook(str, S_OUTOFDATE, (void *)ret);
+				sym = symlook(cmd->start, S_OUTOFDATE, 1);
+			sym->u.value = ret;
 		} else
 			ret = sym->u.value;
+		freebuf(cmd);
 		return(ret-1);
 	} else if(strchr(arc->n->name, '(') && arc->n->time == 0)  /* missing archive member */
 		return 1;

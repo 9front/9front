@@ -1,8 +1,6 @@
 #include	"mk.h"
 
-char	*termchars = "'= \t";	/*used in parse.c to isolate assignment attribute*/
-char	*shflags = "-I";	/* rc flag to force non-interactive mode */
-int	IWS = '\1';		/* inter-word separator in env - not used in plan 9 */
+char	termchars[] = "'= \t";	/*used in parse.c to isolate assignment attribute*/
 
 /*
  *	This file contains functions that depend on rc's syntax.  Most
@@ -172,4 +170,41 @@ copyq(char *s, Rune q, Bufblock *buf)
 			s = copysingle(s, buf);	/* copy quoted string */
 	}
 	return s;
+}
+
+static int
+needquotes(char *s)
+{
+	Rune r;
+
+	if(*s == 0)
+		return 1;
+	while(*s){
+		s += chartorune(&r, s);
+		if(needsrcquote(r))
+			return 1;
+	}
+	return 0;
+}
+
+/*
+ *	append string s into buffer buf with rc quoting as neccessary.
+ */
+void
+bufcpyq(Bufblock *buf, char *s)
+{
+	Rune r;
+
+	if(!needquotes(s)){
+		bufcpy(buf, s);
+		return;
+	}
+	insert(buf, '\'');
+	while(*s){
+		s += chartorune(&r, s);
+		if(r == '\'')
+			rinsert(buf, r);
+		rinsert(buf, r);
+	}
+	insert(buf, '\'');
 }

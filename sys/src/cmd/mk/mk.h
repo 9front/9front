@@ -15,21 +15,39 @@ typedef struct Bufblock
 
 typedef struct Word
 {
-	char 		*s;
 	struct Word 	*next;
+	char 		s[1];
 } Word;
 
-typedef struct Envy
+typedef struct Symtab
 {
-	char 		*name;
-	Word 		*values;
-} Envy;
+	union{
+		void	*ptr;
+		uintptr	value;
+	} u;
+	struct Symtab	*next;
+	unsigned char	space;
+	char		name[1];
+} Symtab;
 
-extern Envy *envy;
+enum {
+	S_VAR,		/* variable -> value */
+	S_TARGET,	/* target -> rule */
+	S_TIME,		/* file -> time */
+	S_NODE,		/* target name -> node */
+	S_AGG,		/* aggregate -> time */
+	S_BITCH,	/* bitched about aggregate not there */
+	S_NOEXPORT,	/* var -> noexport */
+	S_OVERRIDE,	/* can't override */
+	S_OUTOFDATE,	/* "cmp 'file1' 'file2'\n" -> 2(outofdate) or 1(not outofdate) */
+	S_BULKED,	/* directory; we have bulked */
+	S_WESET,	/* variable; we set in the mkfile */
+	S_INTERNAL,	/* variable -> value; an internal mk variable (e.g., stem, target) */
+};
 
 typedef struct Rule
 {
-	char 		*target;	/* one target */
+	Symtab 		*target;	/* one target */
 	Word 		*tail;		/* constituents of targets */
 	char 		*recipe;	/* do it ! */
 	short 		attr;		/* attributes */
@@ -112,50 +130,17 @@ typedef struct Job
 } Job;
 extern Job *jobs;
 
-typedef struct Symtab
-{
-	short		space;
-	char		*name;
-	union{
-		void		*ptr;
-		uintptr	value;
-	} u;
-	struct Symtab	*next;
-} Symtab;
-
-enum {
-	S_VAR,		/* variable -> value */
-	S_TARGET,	/* target -> rule */
-	S_TIME,		/* file -> time */
-	S_PID,		/* pid -> products */
-	S_NODE,		/* target name -> node */
-	S_AGG,		/* aggregate -> time */
-	S_BITCH,	/* bitched about aggregate not there */
-	S_NOEXPORT,	/* var -> noexport */
-	S_OVERRIDE,	/* can't override */
-	S_OUTOFDATE,	/* n1\377n2 -> 2(outofdate) or 1(not outofdate) */
-	S_MAKEFILE,	/* target -> node */
-	S_MAKEVAR,	/* dumpable mk variable */
-	S_EXPORTED,	/* var -> current exported value */
-	S_BULKED,	/* we have bulked this dir */
-	S_WESET,	/* variable; we set in the mkfile */
-	S_INTERNAL,	/* an internal mk variable (e.g., stem, target) */
-};
-
 extern	int	debug;
 extern	int	nflag, tflag, iflag, kflag, aflag, mflag;
 extern	int	mkinline;
-extern	char	*infile;
+extern	char	*mkinfile;
 extern	int	nreps;
 extern	char	*explain;
-extern	char	*termchars;
-extern	char 	*shell;
-extern	char 	*shellname;
-extern	char 	*shflags;
-extern	int	IWS;
+extern	char	termchars[];
+extern	char 	shell[];
+extern	char 	shellname[];
 
-#define	SYNERR(l)	(fprint(2, "mk: %s:%d: syntax error; ", infile, ((l)>=0)?(l):mkinline))
-#define	RERR(r)		(fprint(2, "mk: %s:%d: rule error; ", (r)->file, (r)->line))
+#define	SYNERR(l)	(fprint(2, "mk: %s:%d: syntax error; ", mkinfile, ((l)>=0)?(l):mkinline))
 #define	NAMEBLOCK	1000
 #define	BIGBLOCK	20000
 

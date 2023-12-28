@@ -1,110 +1,133 @@
 #include	"mk.h"
 
-char *infile;
+char *mkinfile;
 int mkinline;
+
+static void ipush(char *file);
+static void ipop(void);
+static void doassign(Word *, Word *, int, int);
 static int rhead(char *, Word **, Word **, int *, char **);
 static char *rbody(Biobuf*);
 extern Word *target1;
 
 void
-parse(char *f, int fd, int varoverride)
+parse(char *f, int fd)
 {
-	int hline;
-	char *body;
+	int hline, attr, pid, newfd;
 	Word *head, *tail;
-	int attr, set, pid;
 	char *prog, *p;
-	int newfd;
-	Biobuf in;
 	Bufblock *buf;
+	Biobuf in;
 
 	if(fd < 0){
 		perror(f);
 		Exit();
 	}
-	ipush();
-	infile = strdup(f);
-	mkinline = 1;
 	Binit(&in, fd, OREAD);
+	ipush(f);
 	buf = newbuf();
 	while(assline(&in, buf)){
 		hline = mkinline;
 		switch(rhead(buf->start, &head, &tail, &attr, &prog))
 		{
 		case '<':
-			p = wtos(tail, ' ');
+			p = wtos(tail);
 			if(*p == 0){
 				SYNERR(-1);
 				fprint(2, "missing include file name\n");
 				Exit();
 			}
-			newfd = open(p, OREAD);
+			newfd = open(p, OREAD|OCEXEC);
 			if(newfd < 0){
 				fprint(2, "warning: skipping missing include file: ");
 				perror(p);
 			} else
-				parse(p, newfd, 0);
+				parse(p, newfd);
+			free(p);
 			break;
 		case '|':
-			p = wtos(tail, ' ');
+			p = wtos(tail);
 			if(*p == 0){
 				SYNERR(-1);
 				fprint(2, "missing include program name\n");
 				Exit();
 			}
-			execinit();
-			pid=pipecmd(p, envy, &newfd);
+			pid=pipecmd(p, 0, execinit(), &newfd);
 			if(newfd < 0){
 				fprint(2, "warning: skipping missing program file: ");
 				perror(p);
 			} else
-				parse(p, newfd, 0);
+				parse(p, newfd);
 			while(waitup(-3, &pid) >= 0)
 				;
 			if(pid != 0){
 				fprint(2, "bad include program status\n");
 				Exit();
 			}
+			free(p);
 			break;
 		case ':':
-			body = rbody(&in);
-			addrules(head, tail, body, attr, hline, prog);
-			break;
+			addrules(head, tail, rbody(&in), attr, hline, prog);
+			continue;	/* don't free head and tail */
 		case '=':
-			if(head->next){
-				SYNERR(-1);
-				fprint(2, "multiple vars on left side of assignment\n");
-				Exit();
-			}
-			if(symlook(head->s, S_OVERRIDE, 0)){
-				set = varoverride;
-			} else {
-				set = 1;
-				if(varoverride)
-					symlook(head->s, S_OVERRIDE, (void *)"");
-			}
-			if(set){
-/*
-char *cp;
-dumpw("tail", tail);
-cp = wtos(tail, ' '); print("assign %s to %s\n", head->s, cp); free(cp);
-*/
-				setvar(head->s, (void *) tail);
-				symlook(head->s, S_WESET, (void *)"");
-			}
-			if(attr)
-				symlook(head->s, S_NOEXPORT, (void *)"");
-			break;
+			doassign(head, tail, attr, 0);
+			continue;
 		default:
 			SYNERR(hline);
 			fprint(2, "expected one of :<=\n");
 			Exit();
 			break;
 		}
+		delword(head);
+		delword(tail);
 	}
-	close(fd);
 	freebuf(buf);
 	ipop();
+	close(fd);
+}
+
+static void
+doassign(Word *head, Word *tail, int attr, int override)
+{
+	int set;
+
+	if(head->next){
+		SYNERR(-1);
+		fprint(2, "multiple vars on left side of assignment\n");
+		Exit();
+	}
+	if(symlook(head->s, S_OVERRIDE, 0)){
+		set = override;
+	} else {
+		set = 1;
+		if(override)
+			symlook(head->s, S_OVERRIDE, 1);
+	}
+	if(set){
+		setvar(head->s, tail);
+		symlook(head->s, S_WESET, 1);
+		tail = 0;	/* don't free */
+	}
+	if(attr)
+		symlook(head->s, S_NOEXPORT, 1);
+	delword(head);
+	delword(tail);
+}
+
+void
+varoverride(char *line)
+{
+	Word *head, *tail;
+	char *dummy;
+	int attr;
+	
+	head = tail = 0;
+	if(rhead(line, &head, &tail, &attr, &dummy) == '='){
+		doassign(head, tail, attr, 1);
+		return;
+	}
+	delword(head);
+	delword(tail);
 }
 
 void
@@ -135,6 +158,10 @@ rhead(char *line, Word **h, Word **t, int *attr, char **prog)
 	int n;
 	Word *w;
 
+	*h = *t = 0;
+	*attr = 0;
+	*prog = 0;
+
 	p = charin(line,":=<");
 	if(p == 0)
 		return('?');
@@ -144,8 +171,6 @@ rhead(char *line, Word **h, Word **t, int *attr, char **prog)
 		sep = '|';
 		p++;
 	}
-	*attr = 0;
-	*prog = 0;
 	if(sep == '='){
 		pp = charin(p, termchars);	/* termchars is shell-dependent */
 		if (pp && *pp == '=') {
@@ -195,7 +220,7 @@ rhead(char *line, Word **h, Word **t, int *attr, char **prog)
 				if (pp == 0 || *pp == 0)
 					goto eos;
 				*pp = 0;
-				*prog = strdup(p);
+				*prog = Strdup(p);
 				*pp = ':';
 				p = pp;
 				break;
@@ -221,7 +246,7 @@ rhead(char *line, Word **h, Word **t, int *attr, char **prog)
 		}
 	}
 	*h = w = stow(line);
-	if(*w->s == 0 && sep != '<' && sep != '|') {
+	if(empty(w) && sep != '<' && sep != '|') {
 		SYNERR(mkinline-1);
 		fprint(2, "no var on left side of assignment/rule\n");
 		Exit();
@@ -257,7 +282,7 @@ rbody(Biobuf *in)
 			mkinline++;
 	}
 	insert(buf, 0);
-	p = strdup(buf->start);
+	p = Strdup(buf->start);
 	freebuf(buf);
 	return p;
 }
@@ -270,40 +295,29 @@ struct input
 };
 static struct input *inputs = 0;
 
-void
-ipush(void)
+static void
+ipush(char *file)
 {
-	struct input *in, *me;
+	struct input *i;
 
-	me = (struct input *)Malloc(sizeof(*me));
-	me->file = infile;
-	me->line = mkinline;
-	me->next = 0;
-	if(inputs == 0)
-		inputs = me;
-	else {
-		for(in = inputs; in->next; )
-			in = in->next;
-		in->next = me;
-	}
+	i = (struct input *)Malloc(sizeof(*i));
+	i->file = mkinfile;
+	i->line = mkinline;
+	i->next = inputs;
+	inputs = i;
+
+	mkinfile = Strdup(file);
+	mkinline = 1;
 }
 
-void
+static void
 ipop(void)
 {
-	struct input *in, *me;
+	struct input *i;
 
-	assert(/*pop input list*/ inputs != 0);
-	if(inputs->next == 0){
-		me = inputs;
-		inputs = 0;
-	} else {
-		for(in = inputs; in->next->next; )
-			in = in->next;
-		me = in->next;
-		in->next = 0;
-	}
-	infile = me->file;
-	mkinline = me->line;
-	free((char *)me);
+	i = inputs;
+	inputs = i->next;
+	mkinfile = i->file;
+	mkinline = i->line;
+	free(i);
 }

@@ -89,8 +89,7 @@ bquote(Biobuf *bp, Bufblock *buf)
 			insert(buf, '\n');
 			insert(buf,0);
 			buf->current = buf->start+start;
-			execinit();
-			execsh(0, buf->current, buf, envy);
+			execsh(buf->current, 0, execinit(), buf);
 			return 1;
 		}
 		if(c == '\n')

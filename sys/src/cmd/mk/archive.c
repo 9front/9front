@@ -7,9 +7,9 @@ static char *split(char*, char**);
 long
 atimeof(int force, char *name)
 {
+	char buf[512], *archive, *member;
 	Symtab *sym;
 	long t;
-	char *archive, *member, buf[512];
 
 	archive = split(name, &member);
 	if(archive == 0)
@@ -26,7 +26,7 @@ atimeof(int force, char *name)
 	else{
 		atimes(archive);
 		/* mark the aggegate as having been done */
-		symlook(strdup(archive), S_AGG, "")->u.value = t;
+		symlook(archive, S_AGG, 1)->u.value = t;
 	}
 		/* truncate long member name to sizeof of name field in archive header */
 	snprint(buf, sizeof(buf), "%s(%.*s)", archive, utfnlen(member, SARNAME), member);
@@ -113,7 +113,7 @@ atimes(char *ar)
 			i--;
 		h.name[i+1]=0;		/* can stomp on date field */
 		snprint(buf, sizeof buf, "%s(%s)", ar, h.name);
-		symlook(strdup(buf), S_TIME, (void*)t)->u.value = t;
+		symlook(buf, S_TIME, 1)->u.value = t;
 		t = atol(h.size);
 		if(t&01) t++;
 		LSEEK(fd, t, 1);
@@ -131,7 +131,7 @@ type(char *file)
 	if(fd < 0){
 		if(symlook(file, S_BITCH, 0) == 0){
 			Bprint(&bout, "%s doesn't exist: assuming it will be an archive\n", file);
-			symlook(file, S_BITCH, (void *)file);
+			symlook(file, S_BITCH, 1);
 		}
 		return 1;
 	}
@@ -148,7 +148,7 @@ split(char *name, char **member)
 {
 	char *p, *q;
 
-	p = strdup(name);
+	p = Strdup(name);
 	q = utfrune(p, '(');
 	if(q){
 		*q++ = 0;
@@ -159,8 +159,8 @@ split(char *name, char **member)
 			*q = 0;
 		if(type(p))
 			return p;
-		free(p);
 		fprint(2, "mk: '%s' is not an archive\n", name);
 	}
+	free(p);
 	return 0;
 }

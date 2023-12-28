@@ -41,7 +41,6 @@ applyrules(char *target, char *cnt)
 	sym = symlook(target, S_NODE, 0);
 	if(sym)
 		return sym->u.ptr;
-	target = strdup(target);
 	node = newnode(target);
 	head.n = 0;
 	head.next = 0;
@@ -49,8 +48,7 @@ applyrules(char *target, char *cnt)
 	memset((char*)rmatch, 0, sizeof(rmatch));
 	for(r = sym? sym->u.ptr:0; r; r = r->chain){
 		if(r->attr&META) continue;
-		if(strcmp(target, r->target)) continue;
-		if((!r->recipe || !*r->recipe) && (!r->tail || !r->tail->s || !*r->tail->s)) continue;	/* no effect; ignore */
+		if((!r->recipe || !*r->recipe) && empty(r->tail)) continue;	/* no effect; ignore */
 		if(cnt[r->rule] >= nreps) continue;
 		cnt[r->rule]++;
 		node->flags |= PROBABLE;
@@ -62,19 +60,20 @@ applyrules(char *target, char *cnt)
  *		if(r->attr&DEL)
  *			node->flags |= DELETE;
  */
-		if(!r->tail || !r->tail->s || !*r->tail->s) {
+		if(empty(r->tail)) {
 			a->next = newarc((Node *)0, r, "", rmatch);
 			a = a->next;
-		} else
+		} else {
 			for(w = r->tail; w; w = w->next){
 				a->next = newarc(applyrules(w->s, cnt), r, "", rmatch);
 				a = a->next;
+			}
 		}
 		cnt[r->rule]--;
 		head.n = node;
 	}
 	for(r = metarules; r; r = r->next){
-		if((!r->recipe || !*r->recipe) && (!r->tail || !r->tail->s || !*r->tail->s)) continue;	/* no effect; ignore */
+		if((!r->recipe || !*r->recipe) && empty(r->tail)) continue;	/* no effect; ignore */
 		if ((r->attr&NOVIRT) && a != &head && (a->r->attr&VIR))
 			continue;
 		if(r->attr&REGEXP){
@@ -84,7 +83,7 @@ applyrules(char *target, char *cnt)
 			if(regexec(r->pat, node->name, rmatch, NREGEXP) == 0)
 				continue;
 		} else {
-			if(!match(node->name, r->target, stem)) continue;
+			if(!match(node->name, r->target->name, stem)) continue;
 		}
 		if(cnt[r->rule] >= nreps) continue;
 		cnt[r->rule]++;
@@ -96,7 +95,7 @@ applyrules(char *target, char *cnt)
  *		if(r->attr&DEL)
  *			node->flags |= DELETE;
  */
-		if(!r->tail || !r->tail->s || !*r->tail->s) {
+		if(empty(r->tail)){
 			a->next = newarc((Node *)0, r, stem, rmatch);
 			a = a->next;
 		} else
@@ -118,20 +117,20 @@ applyrules(char *target, char *cnt)
 static void
 togo(Node *node)
 {
-	Arc *la, *a;
+	Arc **l, *a;
 
 	/* delete them now */
-	la = 0;
-	for(a = node->prereqs; a; la = a, a = a->next)
+	l = &node->prereqs;
+	while(a = *l){
 		if(a->flag&TOGO){
-			if(a == node->prereqs)
-				node->prereqs = a->next;
-			else
-				la->next = a->next, a = la;
-		}
+			*l = a->next;
+			freearc(a);
+		} else
+			l = &a->next;
+	}
 }
 
-static
+static int
 vacuous(Node *node)
 {
 	Arc *la, *a;
@@ -149,9 +148,8 @@ vacuous(Node *node)
 	for(a = node->prereqs; a; a = a->next)
 		if((a->flag&TOGO) == 0)
 			for(la = node->prereqs; la; la = la->next)
-				if((la->flag&TOGO) && (la->r == a->r)){
+				if((la->flag&TOGO) && (la->r == a->r))
 					la->flag &= ~TOGO;
-				}
 	togo(node);
 	if(vac)
 		node->flags |= VACUOUS;
@@ -161,15 +159,17 @@ vacuous(Node *node)
 static Node *
 newnode(char *name)
 {
-	register Node *node;
+	Symtab *sym;
+	Node *node;
 
+	sym = symlook(name, S_NODE, 1);
 	node = (Node *)Malloc(sizeof(Node));
-	symlook(name, S_NODE, (void *)node);
-	node->name = name;
+	node->name = sym->name;
 	node->time = timeof(name, 0);
 	node->prereqs = 0;
 	node->flags = node->time? PROBABLE : 0;
 	node->next = 0;
+	sym->u.ptr = node;
 	return(node);
 }
 

@@ -1,10 +1,20 @@
 #include	"mk.h"
 
-void
-setvar(char *name, void *value)
+Word*
+getvar(char *name)
 {
-	symlook(name, S_VAR, value)->u.ptr = value;
-	symlook(name, S_MAKEVAR, (void*)"");
+	Symtab *sym = symlook(name, S_VAR, 0);
+	if(sym)
+		return sym->u.ptr;
+	return 0;
+}
+
+void
+setvar(char *name, Word *value)
+{
+	Symtab *sym = symlook(name, S_VAR, 1);
+	delword(sym->u.ptr);
+	sym->u.ptr = value;
 }
 
 static void

@@ -21,14 +21,14 @@ timeof(char *name, int force)
 		return mtime(name);
 
 	sym = symlook(name, S_TIME, 0);
-	if (sym)
+	if(sym)
 		return sym->u.value;		/* uggh */
 
 	t = mkmtime(name, 0);
 	if(t == 0)
 		return 0;
 
-	symlook(name, S_TIME, (void*)t);		/* install time in cache */
+	symlook(name, S_TIME, 1)->u.value = t;		/* install time in cache */
 	return t;
 }
 
@@ -76,7 +76,7 @@ timeinit(char *s)
 		} while(*s);
 		c = *s;
 		*s = 0;
-		symlook(strdup(cp), S_TIME, (void *)t)->u.value = t;
+		symlook(cp, S_TIME, 1)->u.value = t;
 		if (c)
 			*s++ = c;
 		while(*s){

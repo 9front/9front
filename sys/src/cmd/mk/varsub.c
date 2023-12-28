@@ -5,7 +5,6 @@ static	Word		*expandvar(char**);
 static	Bufblock	*varname(char**);
 static	Word		*extractpat(char*, char**, char*, char*);
 static	int		submatch(char*, Word*, Word*, int*, char**);
-static	Word		*varmatch(char *);
 
 Word *
 varsub(char **s)
@@ -15,14 +14,12 @@ varsub(char **s)
 
 	if(**s == '{')		/* either ${name} or ${name: A%B==C%D}*/
 		return expandvar(s);
-
 	b = varname(s);
 	if(b == 0)
 		return 0;
-
-	w = varmatch(b->start);
+	w = getvar(b->start);
 	freebuf(b);
-	return w;
+	return wdup(w);
 }
 
 /*
@@ -45,7 +42,7 @@ varname(char **s)
 		rinsert(b, r);
 		cp += n;
 	}
-	if (b->current == b->start){
+	if(b->current == b->start){
 		SYNERR(-1);
 		fprint(2, "missing variable name <%s>\n", *s);
 		freebuf(b);
@@ -57,49 +54,32 @@ varname(char **s)
 }
 
 static Word*
-varmatch(char *name)
-{
-	Word *w;
-	Symtab *sym;
-	
-	sym = symlook(name, S_VAR, 0);
-	if(sym){
-			/* check for at least one non-NULL value */
-		for (w = sym->u.ptr; w; w = w->next)
-			if(w->s && *w->s)
-				return wdup(w);
-	}
-	return 0;
-}
-
-static Word*
 expandvar(char **s)
 {
 	Word *w;
 	Bufblock *buf;
-	Symtab *sym;
 	char *cp, *begin, *end;
 
 	begin = *s;
 	(*s)++;						/* skip the '{' */
 	buf = varname(s);
-	if (buf == 0)
+	if(buf == 0)
 		return 0;
 	cp = *s;
-	if (*cp == '}') {				/* ${name} variant*/
+	if(*cp == '}') {				/* ${name} variant*/
 		(*s)++;					/* skip the '}' */
-		w = varmatch(buf->start);
+		w = getvar(buf->start);
 		freebuf(buf);
-		return w;
+		return wdup(w);
 	}
-	if (*cp != ':') {
+	if(*cp != ':') {
 		SYNERR(-1);
 		fprint(2, "bad variable name <%s>\n", buf->start);
 		freebuf(buf);
 		return 0;
 	}
 	cp++;
-	end = charin(cp , "}");
+	end = charin(cp, "}");
 	if(end == 0){
 		SYNERR(-1);
 		fprint(2, "missing '}': %s\n", begin);
@@ -107,21 +87,17 @@ expandvar(char **s)
 	}
 	*end = 0;
 	*s = end+1;
-	
-	sym = symlook(buf->start, S_VAR, 0);
-	if(sym == 0 || sym->u.value == 0)
-		w = newword(buf->start);
-	else
-		w = subsub(sym->u.ptr, cp, end);
+	w = getvar(buf->start);
 	freebuf(buf);
+	if(w)
+		w = subsub(w, cp, end);
 	return w;
 }
 
 static Word*
 extractpat(char *s, char **r, char *term, char *end)
 {
-	int save;
-	char *cp;
+	char save, *cp;
 	Word *w;
 
 	cp = charin(s, term);
@@ -144,7 +120,7 @@ static Word*
 subsub(Word *v, char *s, char *end)
 {
 	int nmid;
-	Word *head, *tail, *w, *h;
+	Word *head, *tail, *w, *h, **l;
 	Word *a, *b, *c, *d;
 	Bufblock *buf;
 	char *cp, *enda;
@@ -164,47 +140,52 @@ subsub(Word *v, char *s, char *end)
 	buf = newbuf();
 	for(; v; v = v->next){
 		h = w = 0;
+		l = &h;
 		if(submatch(v->s, a, b, &nmid, &enda)){
 			/* enda points to end of A match in source;
 			 * nmid = number of chars between end of A and start of B
 			 */
 			if(c){
-				h = w = wdup(c);
-				while(w->next)
+				*l = w = wdup(c);
+				while(w->next){
+					l = &w->next;
 					w = w->next;
+				}
 			}
 			if(PERCENT(*cp) && nmid > 0){	
 				if(w){
-					bufcpy(buf, w->s, strlen(w->s));
-					bufcpy(buf, enda, nmid);
+					bufcpy(buf, w->s);
+					bufncpy(buf, enda, nmid);
 					insert(buf, 0);
-					free(w->s);
-					w->s = strdup(buf->start);
+					delword(w);
+					*l = w = newword(buf->start);
 				} else {
-					bufcpy(buf, enda, nmid);
+					bufncpy(buf, enda, nmid);
 					insert(buf, 0);
-					h = w = newword(buf->start);
+					*l = w = newword(buf->start);
 				}
 				buf->current = buf->start;
 			}
-			if(d && *d->s){
+			if(!empty(d)){
 				if(w){
-
-					bufcpy(buf, w->s, strlen(w->s));
-					bufcpy(buf, d->s, strlen(d->s));
+					bufcpy(buf, w->s);
+					bufcpy(buf, d->s);
 					insert(buf, 0);
-					free(w->s);
-					w->s = strdup(buf->start);
+					delword(w);
+					*l = w = newword(buf->start);
 					w->next = wdup(d->next);
-					while(w->next)
-						w = w->next;
 					buf->current = buf->start;
-				} else
-					h = w = wdup(d);
+				} else {
+					*l = w = wdup(d);
+				}
+				while(w->next){
+					l = &w->next;
+					w = w->next;
+				}
 			}
 		}
 		if(w == 0)
-			h = w = newword(v->s);
+			*l = w = newword(v->s);
 	
 		if(head == 0)
 			head = h;
@@ -223,9 +204,9 @@ subsub(Word *v, char *s, char *end)
 static int
 submatch(char *s, Word *a, Word *b, int *nmid, char **enda)
 {
+	char *end;
 	Word *w;
 	int n;
-	char *end;
 
 	n = 0;
 	for(w = a; w; w = w->next){

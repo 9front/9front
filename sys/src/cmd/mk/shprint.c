@@ -1,9 +1,9 @@
 #include	"mk.h"
 
-static char *vexpand(char*, Envy*, Bufblock*);
+static char *vexpand(char*, Bufblock*);
 
 void
-shprint(char *s, Envy *env, Bufblock *buf)
+shprint(char *s, Bufblock *buf)
 {
 	int n;
 	Rune r;
@@ -11,7 +11,7 @@ shprint(char *s, Envy *env, Bufblock *buf)
 	while(*s) {
 		n = chartorune(&r, s);
 		if (r == '$')
-			s = vexpand(s, env, buf);
+			s = vexpand(s, buf);
 		else {
 			rinsert(buf, r);
 			s += n;
@@ -21,25 +21,26 @@ shprint(char *s, Envy *env, Bufblock *buf)
 	insert(buf, 0);
 }
 
-static char *
-mygetenv(char *name, Envy *env)
+static Symtab*
+mygetenv(char *name)
 {
-	if (!env)
-		return 0;
-	if (symlook(name, S_WESET, 0) == 0 && symlook(name, S_INTERNAL, 0) == 0)
-		return 0;
-		/* only resolve internal variables and variables we've set */
-	for(; env->name; env++){
-		if (strcmp(env->name, name) == 0)
-			return wtos(env->values, ' ');
+	Symtab *s;
+
+	/* only resolve internal variables and variables we've set */
+	s = symlook(name, S_INTERNAL, 0);
+	if(s == 0){
+		s = symlook(name, S_VAR, 0);
+		if(s == 0 || !symlook(name, S_WESET, 0))
+			return  0;
 	}
-	return 0;
+	return s;
 }
 
 static char *
-vexpand(char *w, Envy *env, Bufblock *buf)
+vexpand(char *w, Bufblock *buf)
 {
-	char *s, carry, *p, *q;
+	char carry, *p, *q;
+	Symtab *s;
 
 	assert(/*vexpand no $*/ *w == '$');
 	p = w+1;	/* skip dollar sign */
@@ -52,15 +53,14 @@ vexpand(char *w, Envy *env, Bufblock *buf)
 		q = shname(p);
 	carry = *q;
 	*q = 0;
-	s = mygetenv(p, env);
+	s = mygetenv(p);
 	*q = carry;
 	if (carry == '}')
 		q++;
-	if (s) {
-		bufcpy(buf, s, strlen(s));
-		free(s);
-	} else 		/* copy name intact*/
-		bufcpy(buf, w, q-w);
+	if(s)
+		bufcpyw(buf, s->u.ptr);
+	else 		/* copy $name intact */
+		bufncpy(buf, w, q-w);
 	return(q);
 }
 
@@ -71,7 +71,7 @@ front(char *s)
 	int i, j;
 	char *flds[512];
 
-	q = strdup(s);
+	q = Strdup(s);
 	i = getfields(q, flds, nelem(flds), 0, " \t\n");
 	if(i > 5){
 		flds[4] = flds[i-1];

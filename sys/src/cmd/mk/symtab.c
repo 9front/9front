@@ -5,7 +5,7 @@
 static Symtab *hash[NHASH];
 
 Symtab *
-symlook(char *sym, int space, void *install)
+symlook(char *sym, int space, int install)
 {
 	long h;
 	char *p;
@@ -17,17 +17,17 @@ symlook(char *sym, int space, void *install)
 		h = ~h;
 	h %= NHASH;
 	for(s = hash[h]; s; s = s->next)
-		if((s->space == space) && (strcmp(s->name, sym) == 0))
-			return(s);
+		if(s->space == space && strcmp(s->name, sym) == 0)
+			return s;
 	if(install == 0)
-		return(0);
-	s = (Symtab *)Malloc(sizeof(Symtab));
+		return 0;
+	s = (Symtab *)Malloc(sizeof(Symtab) + (++p - sym));
 	s->space = space;
-	s->name = sym;
-	s->u.ptr = install;
+	s->u.ptr = 0;
+	memcpy(s->name, sym, p - sym);
 	s->next = hash[h];
 	hash[h] = s;
-	return(s);
+	return s;
 }
 
 void

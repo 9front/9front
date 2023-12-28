@@ -8,12 +8,19 @@ newarc(Node *n, Rule *r, char *stem, Resub *match)
 	a = (Arc *)Malloc(sizeof(Arc));
 	a->n = n;
 	a->r = r;
-	a->stem = strdup(stem);
+	a->stem = Strdup(stem);
 	rcopy(a->match, match, NREGEXP);
 	a->next = 0;
 	a->flag = 0;
 	a->prog = r->prog;
 	return(a);
+}
+
+void
+freearc(Arc *a)
+{
+	free(a->stem);
+	free(a);
 }
 
 void
@@ -36,15 +43,10 @@ dumpa(char *s, Arc *a)
 void
 nrep(void)
 {
-	Symtab *sym;
 	Word *w;
 
-	sym = symlook("NREP", S_VAR, 0);
-	if(sym){
-		w = sym->u.ptr;
-		if (w && w->s && *w->s)
-			nreps = atoi(w->s);
-	}
+	if(!empty(w = getvar("NREP")))
+		nreps = atoi(w->s);
 	if(nreps < 1)
 		nreps = 1;
 	if(DEBUG(D_GRAPH))
