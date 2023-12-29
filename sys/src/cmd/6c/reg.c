@@ -752,7 +752,7 @@ mkvar(Reg *r, Adr *a)
 	s = a->sym;
 	if(s == S)
 		goto none;
-	if(s->name[0] == '.' && s != nodret->sym)
+	if(s->name[0] == '.' && strcmp(s->name, ".ret") != 0)
 		goto none;
 	et = a->etype;
 	o = a->offset;

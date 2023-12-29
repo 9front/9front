@@ -545,7 +545,7 @@ mkvar(Adr *a, int docon)
 		v++;
 	}
 	if(s)
-		if(s->name[0] == '.')
+		if(s->name[0] == '.' && strcmp(s->name, ".ret") != 0)
 			goto none;
 	if(nvar >= NVAR) {
 		if(debug['w'] > 1 && s)

@@ -27,7 +27,7 @@ codgen(Node *n, Node *nn)
 	sp = p;
 
 	if(typecmplx[thisfn->link->etype]) {
-		if(nodret == nil) {
+		if(nodret == Z) {
 			nodret = new(ONAME, Z, Z);
 			nodret->sym = slookup(".ret");
 			nodret->class = CPARAM;

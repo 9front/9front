@@ -150,7 +150,6 @@ EXTERN	int	mnstring;
 EXTERN	Node*	nodrat;
 EXTERN	Node*	nodret;
 EXTERN	Node*	nodsafe;
-EXTERN	Node*	nodretv;
 EXTERN	long	nrathole;
 EXTERN	long	nstring;
 EXTERN	Prog*	p;

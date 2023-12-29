@@ -65,6 +65,14 @@ ginit(void)
 	nodsafe->class = CAUTO;
 	complex(nodsafe);
 
+	nodret = new(ONAME, Z, Z);
+	nodret->sym = slookup(".ret");
+	nodret->type = types[TIND];
+	nodret->etype = TIND;
+	nodret->class = CPARAM;
+	nodret = new(OIND, nodret, Z);
+	complex(nodret);
+
 	t = typ(TARRAY, types[TCHAR]);
 	symrathole = slookup(".rathole");
 	symrathole->class = CGLOBL;
