@@ -163,7 +163,7 @@ checkpool(Prog *p, int skip)
 {
 	if(pool.size >= 0xffff0 || !ispcdisp(p->pc+4+pool.size - pool.start+8))
 		flushpool(p, skip);
-	else if(p->link == P)
+	else if(p->link == P || p->link->as == ACASE)
 		flushpool(p, 2);
 }
 
