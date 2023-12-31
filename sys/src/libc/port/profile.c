@@ -235,7 +235,7 @@ _profinit(int entries, int what)
 }
 
 void
-_profmain(void)
+_profmain(int argc, char **argv)
 {
 	char ename[50];
 	int n, f;
@@ -274,6 +274,9 @@ _profmain(void)
 	_tos->prof.pid = _tos->pid;
 	atexit(_profdump);
 	_tos->clock = 1;
+	_tos->prof.pp = _tos->prof.next;
+	extern void main(int, char**);
+	main(argc, argv);
 }
 
 void prof(void (*fn)(void*), void *arg, int entries, int what)

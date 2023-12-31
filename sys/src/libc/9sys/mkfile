@@ -5,6 +5,7 @@ OFILES=\
 	abort.$O\
 	access.$O\
 	announce.$O\
+	callmain.$O\
 	convD2M.$O\
 	convM2D.$O\
 	convM2S.$O\
