@@ -442,6 +442,7 @@ waskernel:
 wasuser:				/* get kernel stack for this user process */
 	GETMACH	(SP)
 	MOVW	8(SP), SP		/*  m->proc */
+	SUBU	$(UREGSIZE), SP
 
 dosave:
 	MOVW	R31, 0x28(SP)
