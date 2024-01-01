@@ -726,20 +726,21 @@ sendoffer(Req *rp, uchar *ip, int offer)
 	bp = rp->bp;
 	up = rp->up;
 
-	localip(up->laddr, ip, rp->ifc);
-
 	flags = nhgets(bp->flags);
 	if(validip(rp->giaddr)){
 		ipmove(up->raddr, rp->giaddr);
 		hnputs(up->rport, 67);
-	} else if(flags & Fbroadcast){
-		ipmove(up->raddr, IPv4bcast);
-		hnputs(up->rport, 68);
 	} else {
-		ipmove(up->raddr, ip);
-		if(bp->htype == 1)
-			arpenter(up->raddr, bp->chaddr, up->laddr);
-		hnputs(up->rport, 68);
+		localip(up->laddr, ip, rp->ifc);
+		if(flags & Fbroadcast){
+			ipmove(up->raddr, IPv4bcast);
+			hnputs(up->rport, 68);
+		} else {
+			ipmove(up->raddr, ip);
+			if(bp->htype == 1)
+				arpenter(up->raddr, bp->chaddr, up->laddr);
+			hnputs(up->rport, 68);
+		}
 	}
 
 	/*
@@ -785,20 +786,21 @@ sendack(Req *rp, uchar *ip, int offer, int sendlease)
 	bp = rp->bp;
 	up = rp->up;
 
-	localip(up->laddr, ip, rp->ifc);
-
 	flags = nhgets(bp->flags);
 	if(validip(rp->giaddr)){
 		ipmove(up->raddr, rp->giaddr);
 		hnputs(up->rport, 67);
-	} else if(flags & Fbroadcast){
-		ipmove(up->raddr, IPv4bcast);
-		hnputs(up->rport, 68);
 	} else {
-		ipmove(up->raddr, ip);
-		if(bp->htype == 1)
-			arpenter(up->raddr, bp->chaddr, up->laddr);
-		hnputs(up->rport, 68);
+		localip(up->laddr, ip, rp->ifc);
+		if(flags & Fbroadcast){
+			ipmove(up->raddr, IPv4bcast);
+			hnputs(up->rport, 68);
+		} else {
+			ipmove(up->raddr, ip);
+			if(bp->htype == 1)
+				arpenter(up->raddr, bp->chaddr, up->laddr);
+			hnputs(up->rport, 68);
+		}
 	}
 
 	/*
@@ -844,8 +846,6 @@ sendnak(Req *rp, uchar *ip, char *msg)
 	bp = rp->bp;
 	up = rp->up;
 
-	localip(up->laddr, ip, rp->ifc);
-
 	/*
 	 *  set destination (always broadcast)
 	 */
@@ -853,6 +853,7 @@ sendnak(Req *rp, uchar *ip, char *msg)
 		ipmove(up->raddr, rp->giaddr);
 		hnputs(up->rport, 67);
 	} else {
+		localip(up->laddr, ip, rp->ifc);
 		ipmove(up->raddr, IPv4bcast);
 		hnputs(up->rport, 68);
 	}
@@ -973,20 +974,21 @@ bootp(Req *rp)
 		rp->p += 128-4;
 	}
 
-	localip(up->laddr, iip->ipaddr, iip->ifc);
-
 	flags = nhgets(bp->flags);
 	if(validip(rp->giaddr)){
 		ipmove(up->raddr, rp->giaddr);
 		hnputs(up->rport, 67);
-	} else if(flags & Fbroadcast){
-		ipmove(up->raddr, IPv4bcast);
-		hnputs(up->rport, 68);
 	} else {
-		v4tov6(up->raddr, bp->yiaddr);
-		if(bp->htype == 1)
-			arpenter(up->raddr, bp->chaddr, up->laddr);
-		hnputs(up->rport, 68);
+		localip(up->laddr, iip->ipaddr, rp->ifc);
+		if(flags & Fbroadcast){
+			ipmove(up->raddr, IPv4bcast);
+			hnputs(up->rport, 68);
+		} else {
+			v4tov6(up->raddr, bp->yiaddr);
+			if(bp->htype == 1)
+				arpenter(up->raddr, bp->chaddr, up->laddr);
+			hnputs(up->rport, 68);
+		}
 	}
 
 	/*
