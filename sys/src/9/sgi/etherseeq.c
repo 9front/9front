@@ -142,7 +142,8 @@ struct Ctlr
 	Ring	tx;
 };
 
-static int reset(Ether*);
+static void startup(Ether*);
+static void shutdown(Ether*);
 
 static void
 txintr(Ctlr *ctlr)
@@ -240,7 +241,8 @@ rxproc(void *arg)
 			if(err != nil){
 				print("%s: %s; reseting\n", up->text, err);
 				splhi();
-				reset(edev);
+				shutdown(edev);
+				startup(edev);
 				spllo();
 			}
 			tsleep(&ctlr->rx, notempty, ctlr, 500);
@@ -333,8 +335,8 @@ allocring(Ring *r, int n)
 	p[-1].next = PADDR(r->head);
 }
 
-static int
-reset(Ether *edev)
+static void
+startup(Ether *edev)
 {
 	Ctlr *ctlr;
 	Desc *p;
@@ -343,18 +345,6 @@ reset(Ether *edev)
 
 	ctlr = edev->ctlr;
 	io = ctlr->io;
-
-	ctlr->txerr = nil;
-	ctlr->txwdog = 0;
-
-	io->csx = Xreg0;
-	io->rstat = 0;
-	io->xstat = 0;
-	io->ctl = Cnormal | Creset | Cint;
-	delay(10);
-	io->ctl = Cnormal;
-	io->csx = 0;
-	io->csr = 0;
 
 	io->dmacfg |= HPC_FIX_INTR | HPC_FIX_EOP | HPC_FIX_RXDC;
 
@@ -390,22 +380,25 @@ reset(Ether *edev)
 
 	wakeup(&ctlr->rx);
 	wakeup(&ctlr->tx);
-
-	return 0;
-
 }
 
-static int
-init(Ether *edev)
+static void
+shutdown(Ether *edev)
 {
-	Ctlr *ctlr;
+	Ctlr *ctlr = edev->ctlr;
+	Hio *io = ctlr->io;
 
-	ctlr = edev->ctlr;
-	ctlr->io = IO(Hio, edev->port);
-	allocring(&ctlr->rx, 256);
-	allocring(&ctlr->tx, 64);
+	ctlr->txerr = nil;
+	ctlr->txwdog = 0;
 
-	return reset(edev);
+	io->csx = Xreg0;
+	io->rstat = 0;
+	io->xstat = 0;
+	io->ctl = Cnormal | Creset | Cint;
+	delay(10);
+	io->ctl = Cnormal;
+	io->csx = 0;
+	io->csr = 0;
 }
 
 /*
@@ -430,6 +423,9 @@ attach(Ether *edev)
 	if(ctlr->attach)
 		return;
 	ctlr->attach = 1;
+	splhi();
+	startup(edev);
+	spllo();
 	kproc("#l0rx", rxproc, edev);
 	kproc("#l0tx", txproc, edev);
 }
@@ -437,7 +433,8 @@ attach(Ether *edev)
 static int
 pnp(Ether *edev)
 {
-	static Ctlr ct;
+	static Ctlr ctlr0;
+	Ctlr *ctlr;
 	char *s;
 
 	/* only one controller */
@@ -448,22 +445,23 @@ pnp(Ether *edev)
 	if((s = getconf("eaddr")) != nil)
 		parseether(edev->ea, s);
 
-	edev->ctlr = &ct;
+	ctlr = &ctlr0;
+	edev->ctlr = ctlr;
 	edev->port = HPC3_ETHER;
 	edev->irq = IRQENET;
-	edev->ctlr = &ct;
+	edev->ctlr = ctlr;
 	edev->promiscuous = promiscuous;
 	edev->multicast = multicast;
 	edev->attach = attach;
+	edev->shutdown = shutdown;
 	edev->arg = edev;
 	edev->mbps = 10;
 	edev->link = 1;
 
-	if(init(edev) < 0){
-		edev->ctlr = nil;
-		return -1;
-	}
-
+	ctlr->io = IO(Hio, edev->port);
+	allocring(&ctlr->rx, 256);
+	allocring(&ctlr->tx, 64);
+	shutdown(edev);
 	intrenable(hpc3irqlevel(edev->irq), interrupt, edev);
 
 	return 0;
