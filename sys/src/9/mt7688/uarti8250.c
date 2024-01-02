@@ -20,8 +20,7 @@ enum {					/* registers */
 	Lsr		= 5,		/* Line Status */
 	Msr		= 6,		/* Modem Status */
 	Scr		= 7,		/* Scratch Pad */
-//	Mdr		= 8,		/* Mode Def'n (omap rw) missing on mt7688*/
-//	Usr		= 31,		/* Uart Status Register; missing in omap? */
+//	Mdr		= 8,		/* Mode Def'n (missing on mt7688)*/
 	Dll		= 0,		/* Divisor Latch LSB */
 	Dlm		= 1,		/* Divisor Latch MSB */
 };
@@ -52,7 +51,7 @@ enum {					/* Fcr */
 	FIFOena		= 0x01,		/* FIFO enable */
 	FIFOrclr	= 0x02,		/* clear Rx FIFO */
 	FIFOtclr	= 0x04,		/* clear Tx FIFO */
-//	FIFOdma		= 0x08,
+	FIFOdma		= 0x08,
 	FIFO1		= 0x00,		/* Rx FIFO trigger level 1 byte */
 	FIFO4		= 0x40,		/*	4 bytes */
 	FIFO8		= 0x80,		/*	8 bytes */
@@ -76,8 +75,8 @@ enum {					/* Lcr */
 enum {					/* Mcr */
 	Dtr		= 0x01,		/* Data Terminal Ready */
 	Rts		= 0x02,		/* Ready To Send */
-	Out1		= 0x04,		/* no longer in use */
-//	Ie		= 0x08,		/* IRQ Enable (cd_sts_ch on omap) */
+	Out1	= 0x04,		/* no longer in use */
+	Out2	= 0x08,
 	Dm		= 0x10,		/* Diagnostic Mode loopback */
 };
 
@@ -439,14 +438,7 @@ i8250kick(Uart* uart)
 	int i;
 	Ctlr *ctlr;
 
-	/* nothing more to send? then disable xmit intr */
 	ctlr = uart->regs;
-	if (uart->op >= uart->oe && qlen(uart->oq) == 0 &&
-	    csr8r(ctlr, Lsr) & Temt) {
-		ctlr->sticky[Ier] &= ~Ethre;
-		csr8w(ctlr, Ier, 0);
-		return;
-	}
 
 	/*
 	 *  128 here is an arbitrary limit to make sure
@@ -460,8 +452,6 @@ i8250kick(Uart* uart)
 		if(uart->op >= uart->oe && uartstageoutput(uart) == 0)
 			break;
 		csr8o(ctlr, Thr, *uart->op++);		/* start tx */
-		ctlr->sticky[Ier] |= Ethre;
-		csr8w(ctlr, Ier, 0);			/* intr when done */
 	}
 }
 
@@ -602,15 +592,14 @@ i8250enable(Uart* uart, int ie)
 			intrenable(ctlr->irq, i8250interrupt, uart, 0, uart->name);
 			ctlr->iena = 1;
 		}
-		ctlr->sticky[Ier] = Erda;
-//		ctlr->sticky[Mcr] |= Ie;		/* not on omap */
+		ctlr->sticky[Ier] = Ethre|Erda;
 		ctlr->sticky[Mcr] = 0;
 	}
 	else{
 		ctlr->sticky[Ier] = 0;
 		ctlr->sticky[Mcr] = 0;
 	}
-	csr8w(ctlr, Ier, 0);
+	csr8w(ctlr, Ier, ctlr->sticky[Ier]);
 	csr8w(ctlr, Mcr, 0);
 
 	(*uart->phys->dtr)(uart, 1);
