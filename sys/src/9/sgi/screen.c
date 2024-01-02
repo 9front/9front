@@ -13,6 +13,12 @@
 #include "screen.h"
 
 /*
+ * MAME screws up hardware cursor,
+ * so use software cursor for now.
+ */
+#define SWCURSOR 1
+
+/*
  * Register constant below from XFree86 driver.
  */ 
 
@@ -431,7 +437,6 @@ static Newport *regs = IO(Newport, GIO_NEWPORT);
 static Newport *regsgo = IO(Newport, GIO_NEWPORT|0x800);
 
 Memimage *gscreen;
-static Point curoff;
 
 static void 
 vc2set(uchar r, ushort val)
@@ -452,6 +457,71 @@ vc2get(uchar r)
 	return regs->dcbdata0 >> 16;
 }
 
+static void
+hwcursoroff(void)
+{
+	int s;
+
+	s = splhi();
+	vc2set(VC2_IREG_CONTROL, vc2get(VC2_IREG_CONTROL) & ~VC2_CTRL_ECDISP);
+	splx(s);
+}
+
+#ifdef SWCURSOR
+
+/* swcursor.c */
+extern void	swcursorhide(int);
+extern void	swcursoravoid(Rectangle);
+extern void	swcursordraw(Point);
+extern void	swcursorload(Cursor *);
+extern void	swcursorinit(void);
+
+void
+cursoron(void)
+{
+	swcursorhide(0);
+	swcursordraw(mousexy());
+}
+
+void
+cursoroff(void)
+{
+	swcursorhide(0);
+}
+
+void
+setcursor(Cursor* curs)
+{
+	swcursorload(curs);
+}
+
+int
+hwdraw(Memdrawparam *par)
+{
+	Memimage *dst, *src, *mask;
+	uchar *scrd;
+
+	if((dst = par->dst) == nil || dst->data == nil)
+		return 0;
+	if((src = par->src) && src->data == nil)
+		src = nil;
+	if((mask = par->mask) && mask->data == nil)
+		mask = nil;
+
+	scrd = gscreen->data->bdata;
+	if(dst->data->bdata == scrd)
+		swcursoravoid(par->r);
+	if(src && src->data->bdata == scrd)
+		swcursoravoid(par->sr);
+	if(mask && mask->data->bdata == scrd)
+		swcursoravoid(par->mr);
+
+	return 0;
+}
+
+#else
+
+static Point curoff;
 
 void
 cursoron(void)
@@ -471,11 +541,7 @@ cursoron(void)
 void
 cursoroff(void)
 {
-	int s;
-
-	s = splhi();
-	vc2set(VC2_IREG_CONTROL, vc2get(VC2_IREG_CONTROL) & ~VC2_CTRL_ECDISP);
-	splx(s);
+	hwcursoroff();
 }
 
 void
@@ -515,7 +581,9 @@ setcursor(Cursor *curs)
 		regs->dcbdata0 = *(ushort*)(&mem[i]) << 16;
 	}
 	splx(s);
-}	
+}
+
+#endif	
 
 static void
 setmode(void)
@@ -531,7 +599,7 @@ setmode(void)
 	regs->dcbmode = (DCB_XMAP_ALL | W_DCB_XMAP9_PROTOCOL |
 		XM9_CRS_MODE_REG_DATA | NPORT_DMODE_W4);
 	regs->dcbdata0 = (XM9_MREG_PIX_SIZE_24BPP | 
-		XM9_MREG_PIX_MODE_RGB1 | XM9_MREG_GAMMA_BYPASS);
+		XM9_MREG_PIX_MODE_RGB0 | XM9_MREG_GAMMA_BYPASS);
 
 	while(regs->stat & NPORT_STAT_BBUSY)
 		;
@@ -568,6 +636,10 @@ flushmemscreen(Rectangle r)
 		modeset = 1;
 		arcsoff();
 		setmode();
+#ifdef SWCURSOR
+		hwcursoroff();
+		swcursorinit();
+#endif
 	}
 
 	while(regs->stat & NPORT_STAT_GBUSY)

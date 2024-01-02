@@ -16,7 +16,7 @@ dev
 	cap
 	kprof
 #	sd
-	draw screen
+	draw screen swcursor
 	mouse
 	kbd
 	
