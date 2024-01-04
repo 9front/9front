@@ -134,6 +134,8 @@ qunlock(QLock *q)
 			getcallerpc(&q));
 	p = q->head;
 	if(p != nil){
+		if(p->state != Queueing)
+			panic("qunlock");
 		q->pc = p->qpc;
 		q->head = p->qnext;
 		if(q->head == nil)
