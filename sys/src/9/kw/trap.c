@@ -391,15 +391,9 @@ trap(Ureg *ureg)
 		panic("unknown trap %ld", ureg->type);
 		break;
 	case PsrMirq:
-		ldrexvalid = 0;
-		// splflo();		/* allow fast interrupts */
-		if(!intrs(ureg, Irqlo))
-			preempted();
-		else if(up != nil && up->delaysched){
-			ldrexvalid = 0;
-			sched();
-		}
 		m->intr++;
+		ldrexvalid = 0;
+		preempted(intrs(ureg, Irqlo));
 		break;
 	case PsrMabt:			/* prefetch fault */
 		ldrexvalid = 0;

@@ -482,12 +482,7 @@ trap(Ureg *ureg)
 		break;
 	case PsrMirq:
 		ldrexvalid = 0;
-		if(!irq(ureg))
-			preempted();
-		else if(up != nil && up->delaysched){
-			ldrexvalid = 0;
-			sched();
-		}
+		preempted(irq(ureg));
 		m->intr++;
 		break;
 	case PsrMabt:			/* prefetch fault */

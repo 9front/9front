@@ -637,6 +637,7 @@ irq(Ureg* ureg)
 	Intrcpuregs *icp = (Intrcpuregs *)soc.intr;
 	Vctl *v;
 
+	m->intr++;
 	ticks = perfticks();
 	handled = 0;
 	ack = intack(icp);
@@ -814,7 +815,7 @@ datafault(Ureg *ureg, int user)
 void
 trap(Ureg *ureg)
 {
-	int clockintr, user, rem;
+	int user, rem;
 	uintptr va, ifar, ifsr;
 
 	splhi();			/* paranoia */
@@ -841,17 +842,13 @@ trap(Ureg *ureg)
 	else
 		ureg->pc -= 4;
 
-	clockintr = 0;		/* if set, may call sched() before return */
 	switch(ureg->type){
 	default:
 		panic("unknown trap; type %#lux, psr mode %#lux", ureg->type,
 			ureg->psr & PsrMask);
 		break;
 	case PsrMirq:
-		m->intr++;
-		clockintr = irq(ureg);
-		if(0 && up && !clockintr)
-			preempted();	/* this causes spurious suicides */
+		preempted(irq(ureg));
 		break;
 	case PsrMabt:			/* prefetch (instruction) fault */
 		va = ureg->pc;
@@ -907,12 +904,6 @@ trap(Ureg *ureg)
 		break;
 	}
 	splhi();
-
-	/* delaysched set because we held a lock or because our quantum ended */
-	if(up && up->delaysched && clockintr){
-		sched();		/* can cause more traps */
-		splhi();
-	}
 
 	if(user){
 		if(up->procctl || up->nnote)

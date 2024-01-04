@@ -221,12 +221,6 @@ intr(Ureg* ur)
 	if(cause != 0)
 		iprint("unhandled interrupts %lux\n", cause);
 
-	
-
-	/* preemptive scheduling */
-	if(up != nil && !clockintr)
-		preempted();
-	/* if it was a clockintr, sched will be called at end of trap() */
 	return clockintr;
 }
 

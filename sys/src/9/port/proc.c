@@ -252,24 +252,23 @@ hzsched(void)
 }
 
 /*
- *  here at the end of non-clock interrupts to see if we should preempt the
- *  current process.  Returns 1 if preempted, 0 otherwise.
+ *  here at the end of interrupts to see if we should preempt the
+ *  current process.
  */
-int
-preempted(void)
+void
+preempted(int clockintr)
 {
-	if(up != nil && up->state == Running)
-	if(up->preempted == 0)
-	if(anyhigher())
-	if(!active.exiting){
+	if(up == nil || up->state != Running || active.exiting)
+		return;
+	if(!clockintr){
+		if(up->preempted || !anyhigher())
+			return;
 		m->readied = nil;	/* avoid cooperative scheduling */
 		up->preempted = 1;
 		sched();
-		splhi();
 		up->preempted = 0;
-		return 1;
-	}
-	return 0;
+	} else if(up->delaysched)
+		sched();		/* quantum ended or we held a lock */
 }
 
 /*

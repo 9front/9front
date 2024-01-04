@@ -223,9 +223,11 @@ trap(Ureg *ureg)
 	switch(ecode) {
 	case CEI:
 		intr(ureg);
+		preempted(0);
 		break;
 	case CDEC:
 		clockintr(ureg);
+		preempted(1);
 		break;
 	case CSYSCALL:
 		if(!user)
@@ -294,12 +296,6 @@ trap(Ureg *ureg)
 
 	/* restoreureg must execute at high IPL */
 	splhi();
-
-	/* delaysched set because we held a lock or because our quantum ended */
-	if(up && up->delaysched && ecode == CDEC){
-		sched();
-		splhi();
-	}
 
 	if(user) {
 		notify(ureg);
@@ -391,9 +387,6 @@ intr(Ureg *ureg)
 	}
 	if(ctl->eoi)
 		ctl->eoi(vno);
-
-	if(up)
-		preempted();
 }
 
 char*

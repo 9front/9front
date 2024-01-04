@@ -147,7 +147,7 @@ kvce(Ureg *ur, int ecode)
 void
 trap(Ureg *ur)
 {
-	int ecode, clockintr, user, cop, x, fpchk;
+	int ecode, user, cop, x, fpchk;
 	ulong fpfcr31;
 	char buf[2*ERRMAX], buf1[ERRMAX], *fpexcep;
 	static int dumps;
@@ -170,10 +170,9 @@ trap(Ureg *ur)
 		panic("trap: tlb shutdown");
 	ecode = (ur->cause>>2)&EXCMASK;
 	fpchk = 0;
-	clockintr = 0;
 	switch(ecode){
 	case CINT:
-		clockintr = intr(ur);
+		preempted(intr(ur));
 		break;
 
 	case CFPE:
@@ -259,12 +258,6 @@ trap(Ureg *ur)
 	}
 
 	splhi();
-
-	/* delaysched set because we held a lock or because our quantum ended */
-	if(up && up->delaysched && clockintr){
-		sched();
-		splhi();
-	}
 
 	if(user){
 		notify(ur);

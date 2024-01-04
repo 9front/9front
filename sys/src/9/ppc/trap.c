@@ -155,9 +155,11 @@ trap(Ureg *ureg)
 	case CEI:
 		m->intr++;
 		intr(ureg);
+		preempted(0);
 		break;
 	case CDEC:
 		clockintr(ureg);
+		preempted(1);
 		break;
 	case CDSI:
 		m->pfault++;
@@ -278,12 +280,6 @@ trap(Ureg *ureg)
 
 	/* restoreureg must execute at high IPL */
 	splhi();
-
-	/* delaysched set because we held a lock or because our quantum ended */
-	if(up && up->delaysched && ecode == CDEC){
-		sched();
-		splhi();
-	}
 
 	if(user) {
 		if (up->fpstate == FPactive && (ureg->srr1 & MSR_FP) == 0){

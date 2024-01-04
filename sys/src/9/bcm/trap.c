@@ -166,10 +166,7 @@ trap(Ureg *ureg)
 			ureg->psr & PsrMask);
 		break;
 	case PsrMirq:
-		if(!irq(ureg))
-			preempted();
-		else if(up != nil && up->delaysched)
-			sched();	/* can cause more traps */
+		preempted(irq(ureg));
 		break;
 	case PsrMabt:			/* prefetch fault */
 		x = ifsrget();

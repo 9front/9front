@@ -63,16 +63,7 @@ irqhandled(Ureg *ureg, int vno)
 		if(ctl->eoi != nil)
 			(*ctl->eoi)(vno);
 		intrtime(m, vno);
-
-		if(up != nil){
-			if(ctl == vclock){
-				/* delaysched set because we held a lock or because our quantum ended */
-				if(up->delaysched)
-					sched();
-			} else {
-				preempted();
-			}
-		}
+		preempted(ctl == vclock);
 		return 1;
 	}
 

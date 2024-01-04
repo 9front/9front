@@ -109,13 +109,5 @@ intr(Ureg *ureg)
 		i->f(ureg, i->arg);
 	mpcore[ICCEOIR] = v;
 
-	if(up != nil){
-		if(irq == TIMERIRQ){
-			if(up->delaysched){
-				splhi();
-				sched();
-			}
-		}else
-			preempted();
-	}
+	preempted(irq == TIMERIRQ);
 }
