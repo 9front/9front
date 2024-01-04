@@ -1296,7 +1296,7 @@ proctext(Chan *c, Proc *p)
 		qunlock(&p->seglock);
 		nexterror();
 	}
-	if(p->state == Dead || p->pid != PID(c->qid))
+	if(p->state <= New || p->pid != PID(c->qid))
 		error(Eprocdied);
 	if((s = p->seg[TSEG]) == nil)
 		error(Enonexist);
@@ -1647,7 +1647,7 @@ procctlmemio(Chan *c, Proc *p, uintptr offset, void *a, long n, int read)
 		qunlock(&p->seglock);
 		nexterror();
 	}
-	if(p->state == Dead || p->pid != PID(c->qid))
+	if(p->state <= New || p->pid != PID(c->qid))
 		error(Eprocdied);
 
 	for(i = 0; i < NSEG; i++) {

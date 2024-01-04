@@ -42,6 +42,7 @@ char *statename[] =
 {	/* BUG: generate automatically */
 	"Dead",
 	"Moribund",
+	"New",
 	"Ready",
 	"Scheding",
 	"Running",
@@ -80,15 +81,13 @@ schedinit(void)		/* never returns */
 			ready(up);
 			break;
 		case Moribund:
+			mmurelease(up);
 			up->state = Dead;
 			edfstop(up);
 			if(up->edf != nil){
 				free(up->edf);
 				up->edf = nil;
 			}
-
-			mmurelease(up);
-
 			lock(&procalloc);
 			up->mach = nil;
 			up->qnext = procalloc.free;
@@ -456,8 +455,20 @@ ready(Proc *p)
 	Schedq *rq;
 	void (*pt)(Proc*, int, vlong);
 
-	if(p->state == Ready){
-		print("double ready %s %lud pc %p\n", p->text, p->pid, getcallerpc(&p));
+	switch(p->state){
+	case Running:
+		if(p == up)
+			break;
+		/* wet floor */
+	case Dead:
+	case Moribund:
+	case Scheding:
+		print("ready %s %s %lud pc %p\n", statename[p->state],
+			p->text, p->pid, getcallerpc(&p));
+		return;
+	case Ready:
+		print("double ready %s %lud pc %p\n",
+			p->text, p->pid, getcallerpc(&p));
 		return;
 	}
 
@@ -649,11 +660,13 @@ newproc(void)
 		p->index = procalloc.nextindex++;
 		procalloc.tab[p->index] = p;
 	}
+	assert(p->state == Dead);
 	procalloc.free = p->qnext;
 	p->qnext = nil;
 	unlock(&procalloc);
 
-	p->psstate = "New";
+	p->psstate = nil;
+	p->state = New;
 	p->fpstate = FPinit;
 #ifdef KFPSTATE
 	p->kfpstate = FPinit;
@@ -930,7 +943,8 @@ procinterrupt(Proc *p)
 		/* try for the second lock */
 		if(canlock(r)){
 			if(p->state != Wakeme || r->p != p)
-				panic("procinterrupt: state %d %d %d", r->p != p, p->r != r, p->state);
+				panic("procinterrupt: state %d %d %d",
+					r->p != p, p->r != r, p->state);
 			p->r = nil;
 			r->p = nil;
 			ready(p);
@@ -1022,6 +1036,7 @@ popnote(Ureg *u)
 	if(u != nil && up->lastnote->ref == 1 && strncmp(up->lastnote->msg, "sys:", 4) == 0){
 		int l = strlen(up->lastnote->msg);
 		assert(l < ERRMAX);
+		assert(userureg(u));
 		snprint(up->lastnote->msg+l, ERRMAX-l, " pc=%#p", u->pc);
 	}
 
@@ -1051,7 +1066,7 @@ mknote(char *msg, int flag)
 int
 pushnote(Proc *p, Note *n)
 {
-	if(p->pid == 0){
+	if(p->state <= New || p->state == Broken || p->pid == 0){
 		freenote(n);
 		return 0;
 	}
@@ -1095,12 +1110,10 @@ postnotepg(ulong noteid, char *msg, int flag)
 
 	n = mknote(msg, flag);
 	for(i = 0; (p = proctab(i)) != nil; i++){
-		if(p == up)
-			continue;
-		if(p->noteid != noteid || p->kp)
+		if(p == up || p->noteid != noteid || p->kp)
 			continue;
 		qlock(&p->debug);
-		if(p->noteid == noteid){
+		if(p->noteid == noteid && !p->kp){
 			incref(n);
 			pushnote(p, n);
 		}
@@ -1424,7 +1437,7 @@ procflushmmu(int (*match)(Proc*, void*), void *a)
 	memset(await, 0, conf.nmach*sizeof(await[0]));
 	nwait = 0;
 	for(i = 0; (p = proctab(i)) != nil; i++){
-		if(p->state != Dead && (*match)(p, a)){
+		if(p->state > New && (*match)(p, a)){
 			p->newtlb = 1;
 			for(nm = 0; nm < conf.nmach; nm++){
 				if(MACHP(nm)->proc == p){
@@ -1574,7 +1587,6 @@ kproc(char *name, void (*func)(void *), void *arg)
 
 	procpriority(p, PriKproc, 0);
 
-	p->psstate = nil;
 	ready(p);
 }
 
@@ -1606,7 +1618,7 @@ procctl(void)
 	case Proc_stopme:
 		up->procctl = 0;
 		state = up->psstate;
-		up->psstate = "Stopped";
+		up->psstate = statename[Stopped];
 		/* free a waiting debugger */
 		s = spllo();
 		qlock(&up->debug);
@@ -1691,7 +1703,7 @@ killbig(char *why)
 	max = 0;
 	kp = nil;
 	for(i = 0; (p = proctab(i)) != nil; i++) {
-		if(p->state == Dead || p->kp || p->parentpid == 0)
+		if(p->state <= New || p->kp || p->parentpid == 0)
 			continue;
 		if((p->noswap || (p->procmode & 0222) == 0) && strcmp(eve, p->user) == 0)
 			continue;
@@ -1706,7 +1718,7 @@ killbig(char *why)
 	print("%lud: %s killed: %s\n", kp->pid, kp->text, why);
 	qlock(&kp->seglock);
 	for(i = 0; (p = proctab(i)) != nil; i++) {
-		if(p->state == Dead || p->kp)
+		if(p->state <= New || p->kp)
 			continue;
 		if(p != kp && p->seg[BSEG] != nil && p->seg[BSEG] == kp->seg[BSEG])
 			p->procctl = Proc_exitbig;

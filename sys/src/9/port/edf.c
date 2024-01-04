@@ -372,7 +372,7 @@ edfadmit(Proc *p)
 
 	/* Look for another proc with the same period to synchronize to */
 	for(i=0; (r = proctab(i)) != nil; i++) {
-		if(r->state == Dead || r == p)
+		if(r->state <= New || r == p)
 			continue;
 		if(r->edf == nil || (r->edf->flags & Admitted) == 0)
 			continue;

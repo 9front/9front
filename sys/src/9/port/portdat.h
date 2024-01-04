@@ -607,6 +607,7 @@ enum
 {
 	Dead = 0,		/* Process states */
 	Moribund,
+	New,
 	Ready,
 	Scheding,
 	Running,
