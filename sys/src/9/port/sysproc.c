@@ -236,7 +236,6 @@ sysrfork(va_list list)
 	wm = up->wired;
 	if(wm != nil)
 		procwired(p, wm->machno);
-	p->psstate = nil;
 	ready(p);
 	sched();
 	return pid;
@@ -1141,19 +1140,15 @@ semacquire(Segment *s, long *addr, int block)
 		return 1;
 	if(!block)
 		return 0;
-
-	acquired = 0;
 	semqueue(s, addr, &phore);
-	for(;;){
-		phore.waiting = 1;
-		coherence();
-		if(canacquire(addr)){
-			acquired = 1;
-			break;
+	if(acquired = !waserror()){
+		for(;;){
+			phore.waiting = 1;
+			coherence();
+			if(canacquire(addr))
+				break;
+			sleep(&phore, semawoke, &phore);
 		}
-		if(waserror())
-			break;
-		sleep(&phore, semawoke, &phore);
 		poperror();
 	}
 	semdequeue(s, &phore);
@@ -1169,7 +1164,7 @@ semacquire(Segment *s, long *addr, int block)
 static int
 tsemacquire(Segment *s, long *addr, ulong ms)
 {
-	int acquired, timedout;
+	int timedout, acquired;
 	ulong t;
 	Sema phore;
 
@@ -1177,36 +1172,32 @@ tsemacquire(Segment *s, long *addr, ulong ms)
 		return 1;
 	if(ms == 0)
 		return 0;
-	acquired = timedout = 0;
+	timedout = 0;
 	semqueue(s, addr, &phore);
-	for(;;){
-		phore.waiting = 1;
-		coherence();
-		if(canacquire(addr)){
-			acquired = 1;
-			break;
+	if(acquired = !waserror()){
+		for(;;){
+			phore.waiting = 1;
+			coherence();
+			if(canacquire(addr))
+				break;
+			t = MACHP(0)->ticks;
+			tsleep(&phore, semawoke, &phore, ms);
+			t = TK2MS(MACHP(0)->ticks - t);
+			if(t >= ms){
+				timedout = 1;
+				break;
+			}
+			ms -= t;
 		}
-		if(waserror())
-			break;
-		t = MACHP(0)->ticks;
-		tsleep(&phore, semawoke, &phore, ms);
-		t = TK2MS(MACHP(0)->ticks - t);
 		poperror();
-		if(t >= ms){
-			timedout = 1;
-			break;
-		}
-		ms -= t;
 	}
 	semdequeue(s, &phore);
 	coherence();	/* not strictly necessary due to lock in semdequeue */
 	if(!phore.waiting)
 		semwakeup(s, addr, 1);
-	if(timedout)
-		return 0;
 	if(!acquired)
 		nexterror();
-	return 1;
+	return !timedout;
 }
 
 uintptr

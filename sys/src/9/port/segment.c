@@ -109,6 +109,9 @@ putseg(Segment *s)
 	} else if(decref(s) != 0)
 		return;
 
+	assert(s->sema.prev == &s->sema);
+	assert(s->sema.next = &s->sema);
+
 	if(s->mapsize > 0){
 		emap = &s->map[s->mapsize];
 		for(pte = s->map; pte < emap; pte++)
