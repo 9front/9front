@@ -241,7 +241,7 @@ char*		popnote(Ureg*);
 int		postnote(Proc*, int, char*, int);
 void		postnotepg(ulong, char*, int);
 int		pprint(char*, ...);
-int		preempted(void);
+void		preempted(int);
 void		prflush(void);
 void		printinit(void);
 ulong		procalarm(ulong);
