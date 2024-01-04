@@ -188,7 +188,7 @@ pager(void*)
 					goto Killbig;
 				x = 0;
 			}
-		} while(p->state == Dead || p->noswap || !canqlock(&p->seglock));
+		} while(p->state <= New || p->noswap || !canqlock(&p->seglock));
 		up->psstate = "Pageout";
 		for(i = 0; i < NSEG; i++) {
 			if((s = p->seg[i]) != nil) {
@@ -274,7 +274,7 @@ canflush(Proc *p, Segment *s)
 	 * entries for this segment will be flushed if we succeed in paging it out
 	 */
 	for(x = 0; (p = proctab(x)) != nil; x++){
-		if(p->state == Dead)
+		if(p->state <= New)
 			continue;
 		for(i = 0; i < NSEG; i++){
 			if(p->seg[i] == s)
