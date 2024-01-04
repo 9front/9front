@@ -110,7 +110,7 @@ putseg(Segment *s)
 		return;
 
 	assert(s->sema.prev == &s->sema);
-	assert(s->sema.next = &s->sema);
+	assert(s->sema.next == &s->sema);
 
 	if(s->mapsize > 0){
 		emap = &s->map[s->mapsize];
