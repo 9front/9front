@@ -72,7 +72,6 @@ struct Dev
 	char	rbuf[Nrbuf];
 	char	*rp;
 	char	*wp;
-	long	pid;
 };
 
 enum
@@ -1159,7 +1158,7 @@ monitor(Dev *d)
 	int n;
 	char *p;
 	char file[256];
-	int background;
+	int background, pid;
 
 	background = 0;
 	d->ctl = d->data = -1;
@@ -1178,12 +1177,13 @@ monitor(Dev *d)
 
 		if(!background){
 			background = 1;
-			switch(d->pid = rfork(RFPROC|RFMEM)){
+			switch(pid = rfork(RFPROC|RFMEM)){
 			case -1:
 				error("out of processes");
 			case 0:
 				break;
 			default:
+				d->monitoring = pid;
 				return;
 			}
 		}
