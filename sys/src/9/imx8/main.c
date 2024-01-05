@@ -268,7 +268,7 @@ mpinit(void)
 		cachedwbinvse(MACHP(i), MACHSIZE);
 
 		u.r0 = 0x84000003;	/* CPU_ON */
-		u.r1 = (sysrd(MPIDR_EL1) & ~MPIDMASK) | machmpid(i);
+		u.r1 = machmpid(i);
 		u.r2 = PADDR(_start);
 		u.r3 = i;
 		smccall(&u);
