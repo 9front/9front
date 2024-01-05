@@ -769,7 +769,6 @@ struct Proc
 	ulong	cpu;		/* cpu average */
 	ulong	lastupdate;
 	uchar	yield;		/* non-zero if the process just did a sleep(0) */
-	ulong	readytime;	/* time process came ready */
 	int	preempted;	/* true if this process hasn't finished the interrupt
 				 *  that last preempted it
 				 */

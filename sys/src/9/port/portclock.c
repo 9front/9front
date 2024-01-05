@@ -136,7 +136,7 @@ timerdel(Timer *dt)
 
 	/* rare, but tf can still be active on another cpu */
 	while(dt->tactive == mp && dt->tt == nil)
-		if(up->nlocks == 0 && islo())
+		if(up->state == Running && up->nlocks == 0 && islo())
 			sched();
 }
 

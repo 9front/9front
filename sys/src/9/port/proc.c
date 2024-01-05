@@ -12,8 +12,8 @@
 int	schedgain = 30;	/* units in seconds */
 int	nrdy;
 
-void updatecpu(Proc*);
-int reprioritize(Proc*);
+static void updatecpu(Proc*);
+static int reprioritize(Proc*);
 
 ulong	delayedscheds;	/* statistics */
 ulong	skipscheds;
@@ -78,31 +78,28 @@ schedinit(void)		/* never returns */
 			updatecpu(up);
 			break;
 		case Running:
+			up->state = Scheding;
 			ready(up);
 			break;
 		case Moribund:
 			mmurelease(up);
-			up->state = Dead;
-			edfstop(up);
-			if(up->edf != nil){
-				free(up->edf);
-				up->edf = nil;
-			}
 			lock(&procalloc);
+			up->state = Dead;
 			up->mach = nil;
 			up->qnext = procalloc.free;
 			procalloc.free = up;
 			/* proc is free now, make sure unlock() wont touch it */
 			up = procalloc.Lock.p = nil;
 			unlock(&procalloc);
-
-			sched();
+			goto out;
 		}
 		coherence();
 		up->mach = nil;
 		up = nil;
 	}
+out:
 	sched();
+	panic("schedinit");
 }
 
 int
@@ -164,15 +161,12 @@ procswitch(void)
 void
 sched(void)
 {
-	Proc *p;
-
 	if(m->ilockdepth)
-		panic("cpu%d: ilockdepth %d, last lock %#p at %#p, sched called from %#p",
+		panic("cpu%d: ilockdepth %d, last lock %#p at %#p",
 			m->machno,
 			m->ilockdepth,
 			up != nil ? up->lastilock: nil,
-			(up != nil && up->lastilock != nil) ? up->lastilock->pc: 0,
-			getcallerpc(&p+2));
+			(up != nil && up->lastilock != nil) ? up->lastilock->pc: 0);
 	if(up != nil) {
 		/*
 		 * Delay the sched until the process gives up the locks
@@ -204,18 +198,15 @@ sched(void)
 		spllo();
 		return;
 	}
-	p = runproc();
-	if(p->edf == nil){
-		updatecpu(p);
-		p->priority = reprioritize(p);
-	}
-	if(p != m->readied)
+	up = runproc();
+	if(up->edf == nil)
+		up->priority = reprioritize(up);
+	if(up != m->readied)
 		m->schedticks = m->ticks + HZ/10;
 	m->readied = nil;
-	up = p;
-	up->state = Running;
-	up->mach = MACHP(m->machno);
 	m->proc = up;
+	up->mach = up->mp = MACHP(m->machno);
+	up->state = Running;
 	mmuswitch(up);
 	gotolabel(&up->sched);
 }
@@ -310,7 +301,7 @@ preempted(int clockintr)
  * to maintain accurate cpu usage statistics.  It can be called
  * at any time to bring the stats for a given proc up-to-date.
  */
-void
+static void
 updatecpu(Proc *p)
 {
 	ulong t, ocpu, n, D;
@@ -348,11 +339,12 @@ updatecpu(Proc *p)
  * of 3 means you're just right.  Having a higher priority (up to p->basepri) 
  * means you're not using as much as you could.
  */
-int
+static int
 reprioritize(Proc *p)
 {
 	int fairshare, n, load, ratio;
 
+	updatecpu(p);
 	load = MACHP(0)->load;
 	if(load == 0)
 		return p->basepri;
@@ -378,25 +370,99 @@ reprioritize(Proc *p)
 /*
  * add a process to a scheduling queue
  */
-void
+static int
 queueproc(Schedq *rq, Proc *p)
 {
-	int pri;
+	int pri = rq - runq;
 
-	pri = rq - runq;
 	lock(runq);
+	switch(p->state){
+	case New:
+	case Queueing:
+	case QueueingR:
+	case QueueingW:
+	case Wakeme:
+	case Broken:
+	case Stopped:
+	case Rendezvous:
+		if(p != up)
+			break;
+		/* wet floor */
+	case Dead:
+	case Moribund:
+	case Ready:
+	case Running:
+	case Waitrelease:
+		unlock(runq);
+		return -1;
+	}
+	p->state = Ready;
 	p->priority = pri;
-	p->rnext = nil;
-	if(rq->tail != nil)
-		rq->tail->rnext = p;
-	else
-		rq->head = p;
-	rq->tail = p;
+	if(pri == PriEdf){
+		Proc *pp, *l;
+
+		/* insert in queue in earliest deadline order */
+		l = nil;
+		for(pp = rq->head; pp != nil; pp = pp->rnext){
+			if(pp->edf->d > p->edf->d)
+				break;
+			l = pp;
+		}
+		p->rnext = pp;
+		if(l == nil)
+			rq->head = p;
+		else
+			l->rnext = p;
+		if(pp == nil)
+			rq->tail = p;
+	} else {
+		p->rnext = nil;
+		if(rq->tail != nil)
+			rq->tail->rnext = p;
+		else
+			rq->head = p;
+		rq->tail = p;
+	}
 	rq->n++;
 	nrdy++;
 	runvec |= 1<<pri;
 	unlock(runq);
+	return 0;
 }
+
+/*
+ *  ready(p) picks a new priority for a process and sticks it in the
+ *  runq for that priority.
+ */
+void
+ready(Proc *p)
+{
+	int s, pri;
+
+	s = splhi();
+	switch(edfready(p)){
+	default:
+		splx(s);
+		return;
+	case 0:
+		pri = reprioritize(p);
+		break;
+	case 1:
+		pri = PriEdf;
+		break;
+	}
+	if(queueproc(&runq[pri], p) < 0){
+		iprint("ready %s %lud %s pc %p\n",
+			p->text, p->pid, statename[p->state], getcallerpc(&p));
+	} else {
+		void (*pt)(Proc*, int, vlong);
+		pt = proctrace;
+		if(pt != nil)
+			pt(p, SReady, 0);
+	}
+	splx(s);
+}
+
 
 /*
  *  try to remove a process from a scheduling queue (called splhi)
@@ -437,60 +503,13 @@ dequeueproc(Schedq *rq, Proc *tp)
 		runvec &= ~(1<<(rq-runq));
 	rq->n--;
 	nrdy--;
-	if(p->state != Ready)
-		print("dequeueproc %s %lud %s\n", p->text, p->pid, statename[p->state]);
-
+	if(p->state != Ready){
+		iprint("dequeueproc %s %lud %s pc %p\n",
+			p->text, p->pid, statename[p->state], getcallerpc(&rq));
+		p = nil;
+	}
 	unlock(runq);
 	return p;
-}
-
-/*
- *  ready(p) picks a new priority for a process and sticks it in the
- *  runq for that priority.
- */
-void
-ready(Proc *p)
-{
-	int s, pri;
-	Schedq *rq;
-	void (*pt)(Proc*, int, vlong);
-
-	switch(p->state){
-	case Running:
-		if(p == up)
-			break;
-		/* wet floor */
-	case Dead:
-	case Moribund:
-	case Scheding:
-		print("ready %s %s %lud pc %p\n", statename[p->state],
-			p->text, p->pid, getcallerpc(&p));
-		return;
-	case Ready:
-		print("double ready %s %lud pc %p\n",
-			p->text, p->pid, getcallerpc(&p));
-		return;
-	}
-
-	s = splhi();
-	if(edfready(p)){
-		splx(s);
-		return;
-	}
-
-	if(up != p && (p->wired == nil || p->wired == MACHP(m->machno)))
-		m->readied = p;	/* group scheduling */
-
-	updatecpu(p);
-	pri = reprioritize(p);
-	p->priority = pri;
-	rq = &runq[pri];
-	p->state = Ready;
-	queueproc(rq, p);
-	pt = proctrace;
-	if(pt != nil)
-		pt(p, SReady, 0);
-	splx(s);
 }
 
 /*
@@ -516,7 +535,7 @@ ulong balancetime;
 static void
 rebalance(void)
 {
-	int pri, npri, x;
+	int pri, npri;
 	Schedq *rq;
 	Proc *p;
 	ulong t;
@@ -526,6 +545,8 @@ rebalance(void)
 		return;
 	balancetime = t;
 
+	assert(!islo());
+
 	for(pri=0, rq=runq; pri<Npriq; pri++, rq++){
 another:
 		p = rq->head;
@@ -533,15 +554,16 @@ another:
 			continue;
 		if(pri == p->basepri)
 			continue;
-		updatecpu(p);
 		npri = reprioritize(p);
 		if(npri != pri){
-			x = splhi();
 			p = dequeueproc(rq, p);
-			if(p != nil)
-				queueproc(&runq[npri], p);
-			splx(x);
-			goto another;
+			if(p != nil){
+				p->state = Scheding;
+				if(queueproc(&runq[npri], p) < 0)
+					iprint("rebalance: queueproc %lud %s %s\n",
+						p->pid, p->text, statename[p->state]);
+				goto another;
+			}
 		}
 	}
 }
@@ -606,10 +628,6 @@ found:
 	p = dequeueproc(rq, p);
 	if(p == nil)
 		goto loop;
-
-	p->state = Scheding;
-	p->mp = MACHP(m->machno);
-
 	if(edflock(p)){
 		edfrun(p, rq == &runq[PriEdf]);	/* start deadline timer and do admin */
 		edfunlock();
@@ -831,12 +849,6 @@ interrupted(void)
 	error(Eintr);
 }
 
-static int
-tfn(void *arg)
-{
-	return up->trend == nil || up->tfn(arg);
-}
-
 void
 twakeup(Ureg*, Timer *t)
 {
@@ -851,6 +863,12 @@ twakeup(Ureg*, Timer *t)
 	}
 }
 
+static int
+tfn(void *arg)
+{
+	return up->trend == nil || up->tfn(arg);
+}
+
 void
 tsleep(Rendez *r, int (*fn)(void*), void *arg, ulong ms)
 {
@@ -860,8 +878,8 @@ tsleep(Rendez *r, int (*fn)(void*), void *arg, ulong ms)
 		timerdel(up);
 	}
 	up->tns = MS2NS(ms);
-	up->tf = twakeup;
 	up->tmode = Trelative;
+	up->tf = twakeup;
 	up->ta = up;
 	up->trend = r;
 	up->tfn = fn;
@@ -1342,6 +1360,10 @@ pexit(char *exitstr, int freemem)
 	qunlock(&up->seglock);
 
 	edfstop(up);
+	if(up->edf != nil){
+		free(up->edf);
+		up->edf = nil;
+	}
 	up->state = Moribund;
 	sched();
 	panic("pexit");

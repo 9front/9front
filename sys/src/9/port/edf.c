@@ -209,7 +209,6 @@ static void
 releaseintr(Ureg *u, Timer *t)
 {
 	Proc *p;
-	Schedq *rq;
 
 	if(panicking || active.exiting)
 		return;
@@ -224,21 +223,17 @@ releaseintr(Ureg *u, Timer *t)
 		return;
 	case Ready:
 		/* remove proc from current runq */
-		rq = &runq[p->priority];
-		if(dequeueproc(rq, p) != p){
+		if(dequeueproc(&runq[p->priority], p) != p){
 			DPRINT("releaseintr: can't find proc or lock race\n");
 			release(p);	/* It'll start best effort */
 			edfunlock();
 			return;
 		}
-		p->state = Waitrelease;
 		/* fall through */
 	case Waitrelease:
+		p->state = Scheding;
 		release(p);
 		edfunlock();
-		if(p->state == Wakeme){
-			iprint("releaseintr: wakeme\n");
-		}
 		ready(p);
 		if(up){
 			up->delaysched++;
@@ -412,13 +407,13 @@ edfadmit(Proc *p)
 			DPRINT("%lud edfadmit other %lud[%s], release at %lud\n",
 				now, p->pid, statename[p->state], e->t);
 			if(e->tt == nil){
-				e->tf = releaseintr;
-				e->ta = p;
 				tns = e->t - now;
 				if(tns < 20)
 					tns = 20;
 				e->tns = 1000LL * tns;
 				e->tmode = Trelative;
+				e->tf = releaseintr;
+				e->ta = p;
 				timeradd(e);
 			}
 		}
@@ -476,8 +471,8 @@ edfyield(void)
 	if(n < 20)
 		n = 20;
 	up->tns = 1000LL * n;
-	up->tf = releaseintr;
 	up->tmode = Trelative;
+	up->tf = releaseintr;
 	up->ta = up;
 	up->trend = &up->sleep;
 	timeradd(up);
@@ -488,6 +483,8 @@ edfyield(void)
 		nexterror();
 	}
 	sleep(&up->sleep, yfn, nil);
+	up->trend = nil;
+	timerdel(up);
 	poperror();
 }
 
@@ -495,17 +492,10 @@ int
 edfready(Proc *p)
 {
 	Edf *e;
-	Schedq *rq;
-	Proc *l, *pp;
-	void (*pt)(Proc*, int, vlong);
 	long n;
 
 	if((e = edflock(p)) == nil)
 		return 0;
-
-	if(p->state == Wakeme && p->r){
-		iprint("edfready: wakeme\n");
-	}
 	if(e->d - now <= 0){
 		/* past deadline, arrange for next release */
 		if((e->flags & Sporadic) == 0){
@@ -550,7 +540,7 @@ edfready(Proc *p)
 				now, p->pid, statename[p->state], e->t);
 			p->state = Waitrelease;
 			edfunlock();
-			return 1;	/* Make runnable later */
+			return -1;	/* Make runnable later */
 		}
 		DPRINT("%lud edfready %lud %s release now\n", now, p->pid, statename[p->state]);
 		/* release now */
@@ -558,31 +548,6 @@ edfready(Proc *p)
 	}
 	edfunlock();
 	DPRINT("^");
-	rq = &runq[PriEdf];
-	/* insert in queue in earliest deadline order */
-	lock(runq);
-	l = nil;
-	for(pp = rq->head; pp; pp = pp->rnext){
-		if(pp->edf->d > e->d)
-			break;
-		l = pp;
-	}
-	p->rnext = pp;
-	if (l == nil)
-		rq->head = p;
-	else
-		l->rnext = p;
-	if(pp == nil)
-		rq->tail = p;
-	rq->n++;
-	nrdy++;
-	runvec |= 1 << PriEdf;
-	p->priority = PriEdf;
-	p->readytime = m->ticks;
-	p->state = Ready;
-	unlock(runq);
-	if(p->trace && (pt = proctrace))
-		pt(p, SReady, 0);
 	return 1;
 }
 
