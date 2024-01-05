@@ -26,7 +26,7 @@ killchat(void)
 void
 chatsrv(char *name)
 {
-	int n, sfd, pfd[2];
+	int n, sfd, pid, pfd[2];
 	char *p, buf[256];
 
 	if(name && *name)
@@ -44,13 +44,14 @@ chatsrv(char *name)
 	sfd = create(nbuf, OWRITE, 0600);
 	if(sfd < 0)
 		panic("chatsrv create %s", nbuf);
-	chatpid = rfork(RFPROC|RFMEM);
-	switch(chatpid){
+	pid = rfork(RFPROC|RFMEM);
+	switch(pid){
 	case -1:
 		panic("chatsrv fork");
 	case 0:
 		break;
 	default:
+		chatpid = pid;
 		atexit(killchat);
 		return;
 	}
