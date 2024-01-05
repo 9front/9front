@@ -1616,14 +1616,14 @@ addip(int shell, char *net, char *dev, Ipaddr local, Ipaddr remote, int mtu, Ipa
 }
 
 static void
-removeip(int shell, char *net, char *dev, Ipaddr local, Ipaddr remote)
+delip(int shell, char *net, char *dev, Ipaddr local, Ipaddr remote)
 {
 	if(validv4(local) && validv4(remote)){
 		ipconfig(shell, net, dev, 0, 0, remote, nil, nil);
-		fprint(shell, "remove %I 255.255.255.255\n", local);
+		fprint(shell, "del %I 255.255.255.255\n", local);
 	} else if(validv6(local)){
 		ipconfig(shell, net, dev, 0, 0, nil, nil, nil);
-		fprint(shell, "remove %I /64\n", local);
+		fprint(shell, "del %I /64\n", local);
 	}
 }
 
@@ -1698,7 +1698,7 @@ ipopen(PPP *ppp)
 		}
 
 		/* fork in background, main returns */
-		fprint(ppp->shellin, "rc </fd/0 &; exit ''\n");
+		fprint(ppp->shellin, "rc -I </fd/0 &; exit ''\n");
 	} else {
 		/* we may have changed addresses */
 		if(ipcmp(ppp->local, ppp->curlocal) != 0 || ipcmp(ppp->remote, ppp->curremote) != 0){
@@ -1706,13 +1706,13 @@ ipopen(PPP *ppp)
 				ipmove(ppp->remote, ppp->local);
 			syslog(0, LOG, "%I/%I -> %I/%I", ppp->curlocal, ppp->curremote,
 				ppp->local, ppp->remote);
-			removeip(ppp->shellin, ppp->net, ppp->dev, ppp->curlocal, ppp->curremote);
+			delip(ppp->shellin, ppp->net, ppp->dev, ppp->curlocal, ppp->curremote);
 			addip(ppp->shellin, ppp->net, ppp->dev, ppp->local, ppp->remote, ppp->mtu, ppp->dns);
 		}
 		if(ipcmp(ppp->local6, ppp->curlocal6) != 0 || ipcmp(ppp->remote6, ppp->curremote6) != 0){
 			syslog(0, LOG, "%I/%I -> %I/%I", ppp->curlocal6, ppp->curremote6,
 				ppp->local6, ppp->remote6);
-			removeip(ppp->shellin, ppp->net, ppp->dev, ppp->curlocal6, ppp->curremote6);
+			delip(ppp->shellin, ppp->net, ppp->dev, ppp->curlocal6, ppp->curremote6);
 			addip(ppp->shellin, ppp->net, ppp->dev, ppp->local6, ppp->remote6, ppp->mtu, nil);
 			v6autoconfig(ppp->shellin, ppp->net, ppp->dev, ppp->remote6, ppp->duid);
 		}
@@ -1933,8 +1933,8 @@ terminate(PPP *ppp, char *why, int fatal)
 	syslog(0, LOG, "ppp: terminated: %s", why);
 
 	if(ppp->dev != nil){
-		removeip(ppp->shellin, ppp->net, ppp->dev, ppp->curlocal, ppp->curremote);
-		removeip(ppp->shellin, ppp->net, ppp->dev, ppp->curlocal6, ppp->curremote6);
+		delip(ppp->shellin, ppp->net, ppp->dev, ppp->curlocal, ppp->curremote);
+		delip(ppp->shellin, ppp->net, ppp->dev, ppp->curlocal6, ppp->curremote6);
 	}
 	fprint(ppp->shellin, "exit %q\n", why);
 	close(ppp->shellin);
