@@ -204,13 +204,13 @@ unlock(Lock *l)
 	coherence();
 	l->key = 0;
 
-	if(up && --up->nlocks == 0 && up->delaysched && islo()){
-		/*
-		 * Call sched if the need arose while locks were held
-		 * But, don't do it from interrupt routines, hence the islo() test
-		 */
+	/*
+	 * Call sched if the need arose while locks were held
+	 * But, don't do it from interrupt routines, hence the islo() test
+	 */
+	if(up && --up->nlocks == 0)
+	if(up->state == Running && up->delaysched && islo())
 		sched();
-	}
 }
 
 uintptr ilockpcs[0x100] = { [0xff] = 1 };
