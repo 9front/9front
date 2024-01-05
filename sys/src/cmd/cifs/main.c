@@ -1325,10 +1325,11 @@ connected:
 	if(Nshares == 0)
 		fprint(2, "no available shares\n");
 
-	if((Keeppid = rfork(RFPROC|RFMEM|RFNOTEG|RFFDG|RFNAMEG)) == 0){
+	if((i = rfork(RFPROC|RFMEM|RFNOTEG|RFFDG|RFNAMEG)) == 0){
 		keepalive();
 		exits(nil);
 	}
+	Keeppid = i;
 	postmountsrv(&fs, svs, mtpt, MREPL|MCREATE);
 	exits(nil);
 }
