@@ -1640,7 +1640,7 @@ static char*
 ipopen(PPP *ppp)
 {
 	static int ipinprocpid;
-	int n, cfd, fd;
+	int n, cfd, fd, pid;
 	char path[128];
 	char buf[128];
 
@@ -1676,7 +1676,7 @@ ipopen(PPP *ppp)
 		close(cfd);
 
 		ppp->ipfd = fd;
-		switch(ipinprocpid = rfork(RFPROC|RFMEM|RFNOWAIT)){
+		switch(pid = rfork(RFPROC|RFMEM|RFNOWAIT)){
 		case -1:
 			terminate(ppp, "forking ipinproc", 1);
 		case 0:
@@ -1684,6 +1684,7 @@ ipopen(PPP *ppp)
 			terminate(ppp, "ipinproc", 0);
 			exits(nil);
 		}
+		ipinprocpid = pid;
 
 		if(validv4(ppp->local)){
 			if(!validv4(ppp->remote))
