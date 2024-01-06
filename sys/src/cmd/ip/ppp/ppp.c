@@ -1524,7 +1524,7 @@ static void
 pingtimer(PPP* ppp)
 {
 	if(ppp->lcp->echotimeout == 0 || ppp->lcp->echoack)
-		ppp->lcp->echotimeout = (3*4*1000+Period-1)/Period;
+		ppp->lcp->echotimeout = Echotimeout;
 	else if(--(ppp->lcp->echotimeout) <= 0){
 		netlog("ppp: echo request timeout\n");
 		terminate(ppp, "echo timeout", 0);
