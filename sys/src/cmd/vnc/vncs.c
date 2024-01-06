@@ -164,6 +164,7 @@ main(int argc, char **argv)
 	/* rebuild /dev because the underlying connection might go away (ick) */
 	unmount(nil, "/dev");
 	bind("#c", "/dev", MREPL);
+	bind("#¶", "/dev", MAFTER);
 
 	/* mount exporter */
 	if(mounter("/dev", MBEFORE, fd, exnum) < 0)
