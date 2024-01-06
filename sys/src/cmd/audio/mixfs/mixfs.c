@@ -6,7 +6,8 @@
 
 enum {
 	NBUF = 8*1024,
-	NDELAY = 2048,
+	NDELAY = 512,	/* ~11.6ms */
+	NQUANTA = 64,	/* ~1.45ms */
 	NCHAN = 2,
 	FREQ = 44100,
 };
@@ -34,9 +35,13 @@ int	lbbuf[NBUF][NCHAN];
 int	mixbuf[NBUF][NCHAN];
 Lock	mixlock;
 
-Stream	streams[16];
+Stream	streams[64];
 
-int	volfd;
+char	*devaudio;
+QLock	devlock;
+int	audiofd = -1;
+int	volfd = -1;
+
 int	volume[2] = {100, 100};
 int	vol64k[2] = {65536, 65536};
 
@@ -58,6 +63,86 @@ clip16(int v)
 	if(v < -0x8000)
 		return -0x8000;
 	return v;
+}
+
+void
+closeaudiodev(void)
+{
+	qlock(&devlock);
+	if(audiofd >= 0){
+		close(audiofd);
+		audiofd = -1;
+	}
+	qunlock(&devlock);
+}
+
+int
+reopendevs(char *name)
+{
+	static char dir[] = "/dev/";
+	int i, n, dfd, afd;
+	char *p;
+	Dir *d;
+
+	if(name != nil){
+		if(name != devaudio){
+			/* hack: restrict to known audio device names */
+			if((strncmp(name, "/dev/audio", 10) != 0 || strchr(name+10, '/') != nil)
+			&& (strncmp(name, "#u/audio", 8) != 0 || strchr(name+8, '/') != nil)
+			&& (strncmp(name, "#A/audio", 8) != 0 || strchr(name+8, '/') != nil)){
+				werrstr("name doesnt look like an audio device");
+				return -1;
+			}
+		}
+		if((afd = open(name, OWRITE)) >= 0){
+			name = strdup(name);
+			goto found;
+		}
+		if(name != devaudio)
+			return -1;
+	}
+	if((dfd = open(dir, OREAD)) >= 0){
+		while((n = dirread(dfd, &d)) > 0){
+			for(i = 0; i < n; i++){
+				if((d[i].mode & DMDIR) != 0
+				|| strncmp(d[i].name, "audio", 5) != 0)
+					continue;
+				name = smprint("%s%s", dir, d[i].name);
+				if((afd = open(name, OWRITE)) >= 0){
+					close(dfd);
+					free(d);
+					goto found;
+				}
+				free(name);
+			}
+			free(d);
+		}
+		close(dfd);
+		werrstr("no devices found");
+	}
+	return -1;
+found:
+	qlock(&devlock);
+	free(devaudio);
+	devaudio = name;
+	audiofd = dup(afd, audiofd);
+	qunlock(&devlock);
+
+	close(afd);
+	if(volfd >= 0){
+		close(volfd);
+		volfd = -1;
+	}
+	if((p = utfrrune(name, '/')) != nil)
+		p++;
+	else
+		p = name;
+	if(strncmp(p, "audio", 5) == 0){
+		name = smprint("%.*svolume%s", (int)(p - name), name, p+5);
+		volfd = open(name, ORDWR);
+		free(name);
+	}
+	return 0;
 }
 
 void
@@ -117,14 +202,13 @@ void
 audioproc(void *)
 {
 	static uchar buf[NBUF*NCHAN*2];
-	int sweep, fd, i, j, n, m, v;
+	int sweep, i, j, n, m, v;
 	ulong rp;
 	Stream *s;
 	uchar *p;
 
 	threadsetname("audioproc");
 
-	fd = -1;
 	sweep = 0;
 	for(;;){
 		m = NBUF;
@@ -155,18 +239,14 @@ audioproc(void *)
 			int ms;
 
 			ms = 100;
-			if(fd >= 0){
-				if(sweep){
-					close(fd);
-					fd = -1;
-				} else {
+			if(audiofd >= 0){
+				if(sweep)
+					closeaudiodev();
+				else {
 					/* attempt to sleep just shortly before buffer underrun */
-					ms = seek(fd, 0, 2);
-					if(ms > 0){
-						ms *= 800;
-						ms /= FREQ*NCHAN*2;
-					} else
-						ms = 4;
+					ms = seek(audiofd, 0, 2);
+					ms *= 800;
+					ms /= FREQ*NCHAN*2;
 				}
 				sweep = 1;
 			}
@@ -174,12 +254,14 @@ audioproc(void *)
 			continue;
 		}
 		sweep = 0;
-		if(fd < 0)
-		if((fd = open("/dev/audio", OWRITE)) < 0){
-			fprint(2, "%s: open /dev/audio: %r\n", argv0);
+		if(audiofd < 0 && reopendevs(devaudio) < 0){
+			fprint(2, "%s: reopendevs: %r\n", argv0);
 			sleep(1000);
 			continue;
 		}
+
+		if(m > NQUANTA)
+			m = NQUANTA;
 
 		p = buf;
 		rp = mixrp;
@@ -199,7 +281,9 @@ audioproc(void *)
 		mixrp = rp;
 		unlock(&rplock);
 
-		write(fd, buf, p - buf);
+		n = p - buf;
+		if(write(audiofd, buf, n) != n)
+			closeaudiodev();
 	}
 }
 
@@ -214,8 +298,11 @@ fsread(Req *r)
 	if(r->fid->file->aux == &volfd){
 		static char svol[4096];
 		if(r->ifcall.offset == 0){
-			m = snprint(svol, sizeof(svol), "mix %d %d\n", volume[0], volume[1]);
-			if((n = pread(volfd, svol+m, sizeof(svol)-m-1, 0)) > 0)
+			n = 0;
+			m = snprint(svol, sizeof(svol), "dev %s\nmix %d %d\n",
+				devaudio?devaudio:"",
+				volume[0], volume[1]);
+			if(volfd < 0 || (n = pread(volfd, svol+m, sizeof(svol)-m-1, 0)) > 0)
 				svol[m+n] = 0;
 		}
 		readstr(r, svol);
@@ -286,7 +373,12 @@ fswrite(Req *r)
 		snprint(msg, sizeof(msg), "%.*s",
 			utfnlen((char*)r->ifcall.data, r->ifcall.count), (char*)r->ifcall.data);
 		nf = tokenize(msg, f, nelem(f));
-		if(nf > 1 && strcmp(f[0], "mix") == 0){
+		if(nf > 1 && strcmp(f[0], "dev") == 0){
+			if(reopendevs(f[1]) < 0){
+				responderror(r);
+				return;
+			}
+		}else if(nf > 1 && strcmp(f[0], "mix") == 0){
 			x[0] = atoi(f[1]);
 			x[1] = nf < 3 ? x[0] : atoi(f[2]);
 			if(f[1][0] == '+' || f[1][0] == '-'){
@@ -432,26 +524,22 @@ threadmain(int argc, char **argv)
 		usage();
 	}ARGEND;
 
-	if(argc)
+	if(argc > 1)
 		usage();
 
-	volfd = open("/dev/volume", ORDWR);
+	reopendevs(argv[0]);
+	closeaudiodev();
+
 	fs.tree = alloctree(nil, nil, DMDIR|0777, nil);
 	createfile(fs.tree->root, "audio", nil, 0666, nil);
 	createfile(fs.tree->root, "volume", nil, 0666, &volfd);
 	threadpostmountsrv(&fs, srv, mtpt, MREPL);
 
+	bind(mtpt, "/dev", MAFTER);
 	m = smprint("%s/audio", mtpt);
-	if(bind(m, "/dev/audio", MREPL) < 0)
-		sysfatal("bind: %r");
-	free(m);
-
-	if(volfd >= 0){
-		m = smprint("%s/volume", mtpt);
-		if(bind(m, "/dev/volume", MREPL) < 0)
-			sysfatal("bind: %r");
-		free(m);
-	}
+	bind(m, "/dev/audio", MREPL);
+	m = smprint("%s/volume", mtpt);
+	bind(m, "/dev/volume", MREPL);
 
 	threadexits(0);
 }

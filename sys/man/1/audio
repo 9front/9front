@@ -92,6 +92,8 @@ q ] [
 ] [
 .B -m
 .I mtpt
+] [
+/dev/audio
 ]
 .PP
 .SH DESCRIPTION
@@ -352,6 +354,8 @@ over
 .B /dev/volume
 from the parent namespace is proxied with an additional control "mix"
 which is used to set the output volume of the mixer.
+Another additional control "dev" can be used to switch between
+audio devices.
 A alternative mountpoint 
 .I mtpt
 can be specified with the
