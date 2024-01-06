@@ -395,9 +395,9 @@ Foundaltc:
 	devctl(d, "sampledelay %d", audiodelay);
 	devctl(d, "hz %d", speed);
 	if(e->dir==Ein)
-		devctl(d, "name audioin");
+		devctl(d, "name audioinU%s", audiodev->hname);
 	else
-		devctl(d, "name audio");
+		devctl(d, "name audioU%s", audiodev->hname);	
 	return d;
 }
 
@@ -549,7 +549,8 @@ main(int argc, char *argv[])
 		sysfatal("no output stream found");
 
 	fs.tree = alloctree(user, "usb", DMDIR|0555, nil);
-	createfile(fs.tree->root, "volume", user, 0666, nil);
+	snprint(buf, sizeof buf, "volumeU%s", audiodev->hname);
+	createfile(fs.tree->root, buf, user, 0666, nil);
 
 	snprint(buf, sizeof buf, "%d.audio", audiodev->id);
 	postsharesrv(&fs, nil, "usb", buf);

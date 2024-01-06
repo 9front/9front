@@ -272,8 +272,12 @@ and
 configures and manages a USB audio device.
 It implements a file system (normally seen under
 .BR /dev ),
-compatible with
-.IR audio (3).
+exporting
+.BN audioU N
+and
+.BI volumeU N
+files that have the same semantics as
+.IR audio (1)).
 .SS Camera devices
 .I Cam
 configures and exposes a USB camera device's capabilities,
