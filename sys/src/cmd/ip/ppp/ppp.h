@@ -172,7 +172,7 @@ enum {
 
 	Period=		5*1000,	/* period of retransmit process (in ms) */
 	Timeout=	20,	/* xmit timeout (in Periods) */
-	Echotimeout=	2,	/* echo timeout (in Periods) */
+	Echotimeout=	5,	/* echo timeout (in Periods) */
 	Buflen=		4096,
 
 	MAX_STATES=	16,		/* van jacobson compression states */
