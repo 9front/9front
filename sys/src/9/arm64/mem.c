@@ -67,13 +67,16 @@ void
 meminit(void)
 {
 	char *p;
+	uintptr l = GiB + 128 * MiB;
 
-	conf.mem[0].base = PGROUND((uintptr)end - KZERO);
-	conf.mem[0].limit = GiB + 128 * MiB;
 	if(p = getconf("*maxmem"))
-		conf.mem[0].limit = strtoull(p, 0, 0);
+		l = strtoull(p, 0, 0);
+	conf.mem[0].base = PGROUND((uintptr)end - KZERO);
+	conf.mem[0].limit = l;
 
-	kmapram(conf.mem[0].base, conf.mem[0].limit);
+	if(l > KLIMIT)
+		l = KLIMIT;
+	kmapram(conf.mem[0].base, l);
 
 	conf.mem[0].npage = (conf.mem[0].limit - conf.mem[0].base)/BY2PG;
 }

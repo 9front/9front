@@ -18,7 +18,7 @@
 #define	PGROUND(s)	ROUND(s, BY2PG)
 
 /* effective virtual address space */
-#define EVASHIFT	34
+#define EVASHIFT	36
 #define EVAMASK		((1ULL<<EVASHIFT)-1)
 
 #define PTSHIFT		(PGSHIFT-3)
@@ -32,12 +32,14 @@
 #define L1TABLE(v, l)	(L1TABLES - ((PTLX(v, 2) % L1TABLES) >> (((l)-1)*PTSHIFT)) + (l)-1)
 #define L1TOPSIZE	(1ULL << (EVASHIFT - PTLEVELS*PTSHIFT))
 
-#define	MAXMACH		24			/* max # cpus system can run */
+#define	MAXMACH		16			/* max # cpus system can run */
 #define	MACHSIZE	(8*KiB)
 
 #define KSTACK		(8*KiB)
 #define STACKALIGN(sp)	((sp) & ~7)		/* bug: assure with alloc */
 #define TRAPFRAMESIZE	(38*8)
+
+#define DTBADDR		0x40000000
 
 #define VDRAM		(0xFFFFFFFFC0000000ULL)	/* 0x40000000 - 0x80000000 */
 #define	KTZERO		(VDRAM + 0x100000)	/* 0x40100000 - kernel text start */
@@ -53,6 +55,8 @@
 
 #define KMAPEND		(0xFFFFFFFF00000000ULL)	/* 0x140000000 */
 #define KMAP		(0xFFFFFFFE00000000ULL)	/*  0x40000000 */
+
+#define KLIMIT		(VDRAM - KZERO + KMAPEND - KMAP)	/* 0x140000000 */
 
 #define KSEG0		(0xFFFFFFFE00000000ULL)
 

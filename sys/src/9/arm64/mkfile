@@ -51,6 +51,7 @@ OBJ=\
 	sysreg.$O\
 	random.$O\
 	trap.$O\
+	bootargs.$O\
 	$CONF.root.$O\
 	$CONF.rootc.$O\
 	$DEVS\
