@@ -630,6 +630,7 @@ extern Route*	v4source(Fs *f, uchar *a, uchar *s);
 extern Route*	v6source(Fs *f, uchar *a, uchar *s);
 extern long	routeread(Fs *f, char*, ulong, int);
 extern long	routewrite(Fs *f, Chan*, char*, int);
+extern void	flushrouteifc(Fs *f, Ipifc *ifc);
 extern void	routetype(int type, char p[8]);
 
 /*

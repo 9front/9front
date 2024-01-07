@@ -672,7 +672,7 @@ drop(Fs *f, Block *bp)
 		else
 			r = v6lookup(f, ((Ip6hdr*)bp->rp)->src, ((Ip6hdr*)bp->rp)->dst, &rh);
 		if(r != nil && (ifc = r->ifc) != nil && canrlock(ifc)){
-			if(!waserror()){
+			if(ifc->ifcid == r->ifcid && !waserror()){
 				if((bp->rp[0]&0xF0) == IP_VER4)
 					icmpnohost(f, ifc, bp, &rh);
 				else

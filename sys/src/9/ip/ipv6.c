@@ -85,7 +85,7 @@ ipoput6(Fs *f, Block *bp, Ipifc *gating, int ttl, int tos, Routehint *rh)
 		nexterror();
 	}
 
-	if(ifc->m == nil)
+	if(ifc->m == nil || r->ifcid != ifc->ifcid)
 		goto raise;
 
 	medialen = ifc->maxtu - ifc->m->hsize;

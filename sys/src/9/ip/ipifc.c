@@ -183,7 +183,7 @@ ipifcbind(Conv *c, char **argv, int argc)
 		c->inuse++;
 
 	/* any ancillary structures (like routes) no longer pertain */
-	ifc->ifcid++;
+	flushrouteifc(c->p->f, ifc);
 
 	/* reopen all the queues closed by a previous unbind */
 	qreopen(c->rq);
@@ -201,6 +201,8 @@ ipifcbind(Conv *c, char **argv, int argc)
 static char*
 ipifcunbindmedium(Ipifc *ifc, Medium *m)
 {
+	Conv *c = ifc->conv;
+
 	if(m == nil || m == &unboundmedium)
 		return Eunbound;
 
@@ -212,12 +214,12 @@ ipifcunbindmedium(Ipifc *ifc, Medium *m)
 	if(m->unbind != nil){
 		ifc->m = &unboundmedium;	/* fake until unbound */
 		wunlock(ifc);
-		qunlock(ifc->conv);
+		qunlock(c);
 		if(!waserror()){
 			(*m->unbind)(ifc);
 			poperror();
 		}
-		qlock(ifc->conv);
+		qlock(c);
 		wlock(ifc);
 	}
 
@@ -227,17 +229,17 @@ ipifcunbindmedium(Ipifc *ifc, Medium *m)
 	ifc->reassemble = 0;
 
 	/* close queues to stop queuing of packets */
-	qclose(ifc->conv->rq);
-	qclose(ifc->conv->wq);
-	qclose(ifc->conv->sq);
+	qclose(c->rq);
+	qclose(c->wq);
+	qclose(c->sq);
 
 	/* dissociate routes */
-	ifc->ifcid++;
+	flushrouteifc(c->p->f, ifc);
 	ifc->m = nil;
 	ifc->arg = nil;
 
 	if(m->unbindonclose == 0)
-		ifc->conv->inuse--;
+		c->inuse--;
 
 	return nil;
 }
@@ -1246,8 +1248,7 @@ findipifc(Fs *f, uchar *local, uchar *remote, int type)
 	xspec = 0;
 	for(cp = f->ipifc->conv; *cp != nil; cp++){
 		ifc = (Ipifc*)(*cp)->ptcl;
-		if(!canrlock(ifc))
-			continue;
+		rlock(ifc);
 		for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
 			if(type & Runi){
 				if(ipcmp(remote, lifc->local) == 0)
@@ -1258,7 +1259,8 @@ findipifc(Fs *f, uchar *local, uchar *remote, int type)
 			}
 			maskip(remote, lifc->mask, gnet);
 			if(ipcmp(gnet, lifc->net) == 0){
-				spec = comprefixlen(remote, lifc->local, IPaddrlen);
+				spec = comprefixlen(remote, lifc->local, IPaddrlen)<<8;
+				spec += comprefixlen(local, lifc->local, IPaddrlen);
 				if(spec > xspec){
 					x = ifc;
 					xifcid = ifc->ifcid;
@@ -1268,7 +1270,8 @@ findipifc(Fs *f, uchar *local, uchar *remote, int type)
 		}
 		runlock(ifc);
 	}
-	if(x != nil && canrlock(x)){
+	if(x != nil){
+		rlock(x);
 		if(x->ifcid == xifcid)
 			return x;
 		runlock(x);

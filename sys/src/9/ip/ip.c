@@ -131,7 +131,7 @@ ipoput4(Fs *f, Block *bp, Ipifc *gating, int ttl, int tos, Routehint *rh)
 		runlock(ifc);
 		nexterror();
 	}
-	if(ifc->m == nil)
+	if(ifc->m == nil || ifc->ifcid != r->ifcid)
 		goto raise;
 
 	medialen = ifc->maxtu - ifc->m->hsize;
