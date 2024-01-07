@@ -3,5 +3,4 @@ TEXT	_main(SB), 1, $0
 	MOVQ	$main(SB), RARG
 	PUSHQ	RARG
 	PUSHQ	$0
-	MOVQ	$_callmain(SB), AX
-	JMP*	AX
+	JMPF	_callmain(SB)

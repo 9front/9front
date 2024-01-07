@@ -136,7 +136,7 @@ loop:
 		return;
 	if(p->as == ATEXT)
 		curtext = p;
-	if(p->as == AJMP)
+	if(p->as == AJMP || p->as == AJMPF)
 	if((q = p->pcond) != P) {
 		p->mark = 1;
 		p = q;
@@ -303,7 +303,7 @@ patch(void)
 	for(p = firstp; p != P; p = p->link) {
 		if(p->as == ATEXT)
 			curtext = p;
-		if(p->as == ACALL || p->as == ARET) {
+		if(p->as == ACALL || p->as == ARET || p->as == AJMPF) {
 			s = p->to.sym;
 			if(s) {
 				if(debug['c'])

@@ -158,6 +158,7 @@ enum
 	Zil_rp,
 	Zilo_m,
 	Zjmp,
+	Zjmpf,
 	Zloop,
 	Zm_o,
 	Zm_r,

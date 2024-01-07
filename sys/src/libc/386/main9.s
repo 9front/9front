@@ -3,5 +3,4 @@ TEXT	_main(SB), 1, $0
 	MOVL	$main(SB), AX
 	PUSHL	AX
 	PUSHL	$0
-	MOVL	$_callmain(SB), AX
-	JMP*	AX
+	JMPF	_callmain(SB)

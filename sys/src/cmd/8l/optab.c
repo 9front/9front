@@ -240,6 +240,11 @@ uchar	yjmp[] =
 	Ynone,	Ybr,	Zjmp,	1,
 	0
 };
+uchar	yjmpf[] =
+{
+	Ynone,	Ybr,	Zjmp,	1,
+	0
+};
 
 uchar	yfmvd[] =
 {
@@ -563,6 +568,7 @@ Optab optab[] =
 	{ AJLT,		yjcond,	Px, 0x7c,0x8c },
 	{ AJMI,		yjcond,	Px, 0x78,0x88 },
 	{ AJMP,		yjmp,	Px, 0xff,(04),0xeb,0xe9 },
+	{ AJMPF,	yjmpf,	Px, 0xe9 },
 	{ AJNE,		yjcond,	Px, 0x75,0x85 },
 	{ AJOC,		yjcond,	Px, 0x71,0x81,(00) },
 	{ AJOS,		yjcond,	Px, 0x70,0x80,(00) },

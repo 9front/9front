@@ -3,8 +3,7 @@ TEXT	_mainp(SB), 1, $0
 	MOVL	$_profmain(SB), AX
 	PUSHL	AX
 	PUSHL	$0
-	MOVL	$_callmain(SB), AX
-	JMP*	AX
+	JMPF	_callmain(SB)
 	MOVL	$_profin(SB), AX	/* force loading of profile */
 
 TEXT	_saveret(SB), 1, $0

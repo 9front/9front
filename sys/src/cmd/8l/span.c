@@ -1151,6 +1151,7 @@ found:
 		}
 		break;
 
+	case Zjmpf:
 	case Zcall:
 		q = p->pcond;
 		if(q) {

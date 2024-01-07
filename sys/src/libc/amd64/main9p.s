@@ -3,8 +3,7 @@ TEXT	_mainp(SB), 1, $0
 	MOVQ	$_profmain(SB), RARG
 	PUSHQ	RARG
 	PUSHQ	$0
-	MOVQ	$_callmain(SB), AX
-	JMP*	AX
+	JMPF	_callmain(SB)
 
 	MOVQ	$_profin(SB), AX	/* force loading of profile */
 

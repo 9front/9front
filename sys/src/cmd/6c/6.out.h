@@ -713,6 +713,8 @@ enum	as
 	ADPPD,
 	ADPPS,
 
+	AJMPF,
+
 	ALAST
 };
 
