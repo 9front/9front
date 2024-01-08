@@ -20,6 +20,16 @@ static	uchar	*linebuf;
 static	int	vpixb;
 static	int	pixb;
 static	void	(*pixcp)(uchar*, uchar*);
+static double scalex;
+static double scaley;
+
+static void
+vncsetscale(Vnc *v)
+{
+	scalex = (v->dim.max.x - v->dim.min.x) / (double)(screen->r.max.x - screen->r.min.x);
+	scaley = (v->dim.max.y - v->dim.min.y) / (double)(screen->r.max.y - screen->r.min.y);
+	if(verbose > 1) fprint(2, "scaling %fx%f\n", scalex, scaley);
+}
 
 static void
 vncsetdim(Vnc *v, Rectangle dim)
@@ -79,7 +89,7 @@ requestupdate(Vnc *v, int incremental)
 
 	lockdisplay(display);
 	flushimage(display, 1);
-	r = rectsubpt(screen->r, screen->r.min);
+	r = autoscale ? v->dim : rectsubpt(screen->r, screen->r.min);
 	unlockdisplay(display);
 	vnclock(v);
 	if(incremental == 0 && (v->canresize&2)!=0 && !eqrect(r, v->dim)){
@@ -94,7 +104,7 @@ requestupdate(Vnc *v, int incremental)
 	} else 
 		rectclip(&r, v->dim);
 	vncwrchar(v, MFrameReq);
-	vncwrchar(v, incremental);
+	vncwrchar(v, autoscale ? 0 : incremental);
 	vncwrrect(v, r);
 	vncflush(v);
 	vncunlock(v);
@@ -167,7 +177,8 @@ fillrect(Rectangle r, int stride, uchar *color)
 static void
 loadbuf(Vnc *v, Rectangle r, int stride)
 {
-	int off, y;
+	int off;
+	double x, y, endy;
 
 	if(cvtpixels){
 		y = r.min.y;
@@ -184,6 +195,12 @@ loadbuf(Vnc *v, Rectangle r, int stride)
 			vncrdbytes(v, &pixbuf[off], Dx(r) * pixb);
 			off += stride;
 		}
+	}
+	if(autoscale){
+		endy = off/(double)stride;
+		for(y = 0; y < endy; y += scaley)
+			for(x = 0; x < stride; x+=scalex)
+				memmove(&pixbuf[(int)(y/scaley)*stride+(int)(x/scalex)/pixb*pixb], &pixbuf[(int)(y)*stride+(int)(x/pixb)*pixb], pixb);
 	}
 }
 
@@ -286,12 +303,15 @@ dorectangle(Vnc *v)
 
 	if(!rectinrect(r, v->dim))
 		sysfatal("bad rectangle from server: %R not in %R", r, v->dim);
-	maxr = rectsubpt(r, r.min);
+	maxr = autoscale ? rectsubpt(v->dim, v->dim.min) : rectsubpt( r, r.min );
+	maxr.max.x = Dx(maxr); maxr.min.x = 0;
+	maxr.max.y = Dy(maxr); maxr.min.y = 0;
 	stride = maxr.max.x * pixb;
+	if(verbose > 2) fprint(2, "maxr.max.x %d; maxr.max.y %d; maxr.min.x %d; maxr.min.y %d, pixb: %d, stride: %ld, type: %lx\n", maxr.max.x, maxr.max.y, maxr.min.x, maxr.min.y, pixb, stride, type);
 
 	switch(type){
 	default:
-		sysfatal("bad rectangle encoding from server");
+		sysfatal("bad rectangle encoding from server: %lx", type);
 		break;
 	case EncRaw:
 		loadbuf(v, maxr, stride);
@@ -399,6 +419,8 @@ readfromserver(Vnc *v)
 			sysfatal("bad message from server: %x", type);
 			break;
 		case MFrameUpdate:
+			if(autoscale)
+				vncsetscale(v);
 			vncrdchar(v);
 			n = vncrdshort(v);
 			while(n-- > 0)

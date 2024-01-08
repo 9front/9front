@@ -48,7 +48,7 @@ resized(int first)
 	if(getwindow(display, Refnone) < 0)
 		sysfatal("internal error: can't get the window image");
 	if((vnc->canresize&2) == 0)
-		adjustwin(vnc, first);
+		adjustwin(vnc, !autoscale && first);
 	unlockdisplay(display);
 	requestupdate(vnc, 0);
 }
@@ -154,8 +154,12 @@ readmouse(Vnc *v)
 			if(*start == 'm'){
 				m.xy.x = atoi(start+1);
 				m.xy.y = atoi(start+1+12);
-				m.buttons = atoi(start+1+2*12) & 0x1F;
 				m.xy = subpt(m.xy, screen->r.min);
+				if(autoscale){
+					m.xy.x *= (v->dim.max.x - v->dim.min.x) / (double)(screen->r.max.x - screen->r.min.x);
+					m.xy.y *= (v->dim.max.y - v->dim.min.y) / (double)(screen->r.max.y - screen->r.min.y);
+				}
+				m.buttons = atoi(start+1+2*12) & 0x1F;
 				if(ptinrect(m.xy, v->dim)){
 					mouseevent(v, m);
 					/* send wheel button *release* */ 

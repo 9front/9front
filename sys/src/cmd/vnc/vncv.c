@@ -4,6 +4,7 @@
 
 char*		charset = "utf-8";
 char*		encodings = "copyrect hextile corre rre raw mousewarp desktopsize xdesktopsize";
+int		autoscale;
 int		bpp12;
 int		shared;
 int		verbose;
@@ -74,7 +75,7 @@ vnchungup(Vnc*)
 void
 usage(void)
 {
-	fprint(2, "usage: vncv [-e encodings] [-k keypattern] [-l charset] [-csv] host[:n]\n");
+	fprint(2, "usage: vncv [-acstv] [-e encodings] [-l charset] [-k keypattern] host[:n]\n");
 	exits("usage");
 }
 
@@ -87,6 +88,9 @@ main(int argc, char **argv)
 	keypattern = nil;
 	shared = 0;
 	ARGBEGIN{
+	case 'a':
+		autoscale = 1;
+		break;
 	case 'c':
 		bpp12 = 1;
 		break;

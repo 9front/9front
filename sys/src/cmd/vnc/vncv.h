@@ -13,6 +13,7 @@ extern	uchar	zero[];
 /* vncv.c */
 extern	char		*charset;
 extern	char		*encodings;
+extern	int		autoscale;
 extern	int		bpp12;
 extern	Vnc*		vnc;
 extern	int		mousefd;

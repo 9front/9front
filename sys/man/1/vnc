@@ -44,7 +44,7 @@ vncs, vncv \- remote frame buffer server and viewer for Virtual Network Computin
 .PP
 .B vncv
 [
-.B -cstv
+.B -acstv
 ]
 [
 .B -e
@@ -146,9 +146,13 @@ kills the VNC server running on display
 provides access to remote display
 .IB host : n \fR.
 It resizes its window to be the smaller of the
-remote frame buffer size and the local screen.
+remote frame buffer size and the local screen
+when not using the autoscaling option.
 .PP
 The options are:
+.TP
+.B -a
+autoscale remote frame buffer to local screen window size.
 .TP
 .B -c
 when connecting to 8-bit displays, request
@@ -166,7 +170,10 @@ The default (and full) set is
 .B corre
 .B hextile
 .B rre
-.BR raw .
+.B raw
+.B mousewarp
+.B desktopsize
+.BR xdesktopsize .
 The encodings should be given as a single space-separated argument
 (quoted when using the shell).
 .TP
@@ -199,7 +206,8 @@ print verbose output to standard error.
 .B http://www.uk.research.att.com/vnc
 .SH BUGS
 If the remote frame buffer is larger than the local screen,
-only the upper left corner can be accessed.
+and autoscaling is disabled, only the upper left corner can be accessed.
+Autoscaling is only implemented for raw encoding.
 .PP
 .I Vncs
 and
