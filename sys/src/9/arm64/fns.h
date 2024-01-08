@@ -162,7 +162,7 @@ extern int gpioin(uint pin);
 void gpiointrenable(uint pin, int mode, void (*f)(uint pin, void *a), void *a);
 void gpiointrdisable(uint pin);
 
-/* pciimx */
+/* pciqemu */
 extern int pcicfgrw8(int tbdf, int rno, int data, int read);
 extern int pcicfgrw16(int tbdf, int rno, int data, int read);
 extern int pcicfgrw32(int tbdf, int rno, int data, int read);

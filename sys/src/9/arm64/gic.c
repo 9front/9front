@@ -311,7 +311,7 @@ intrenable(int irq, void (*f)(Ureg*, void*), void *a, int tbdf, char *)
 }
 
 void
-intrdisable(int tbdf, void (*f)(Ureg*, void*), void *a, int, char*)
+intrdisable(int, void (*f)(Ureg*, void*), void *a, int tbdf, char*)
 {
 	if(BUSTYPE(tbdf) == BusPCI){
 		pciintrdisable(tbdf, f, a);
