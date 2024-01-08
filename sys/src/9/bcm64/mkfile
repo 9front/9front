@@ -89,7 +89,7 @@ install:V: /$objtype/$p$CONF
 /$objtype/$p$CONF:D: $p$CONF s$p$CONF
 	cp -x $p$CONF s$p$CONF /$objtype/
 
-ARM64FILES=`{../port/mkfilelist ../arm64}
+ARM64FILES=`{../port/mkfilelist ../arm64 | sed 's/(bootargs)[|)]//g'}
 ^($ARM64FILES)\.$O:R:	'../arm64/\1.c'
 	$CC $CFLAGS -I. -. ../arm64/$stem1.c
 
