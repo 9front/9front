@@ -391,6 +391,7 @@ peer(int fd, int incoming, char *addr)
 	int workpiece, workoffset;
 	int i, o, l, x, n;
 
+	procsetname("peer %s: %s", addr, incoming ? "incoming" : "outgoing");
 	if(debug) fprint(2, "peer %s: %s connected\n", addr, incoming ? "incoming" : "outgoing");
 
 	for(i=0; i<2; i++){
@@ -617,6 +618,8 @@ server(void)
 	}
 	if(rfork(RFFDG|RFPROC|RFMEM))
 		return;
+
+	procsetname("server");
 	for(;;){
 		if((lfd = listen(adir, ldir)) < 0){
 			fprint(2, "listen: %r");
@@ -699,6 +702,7 @@ client(char *ip, char *port)
 		if(d == nil)
 			exits(0);
 		addr = d->str;
+		procsetname("client %s", addr);
 		if(debug) fprint(2, "client %s\n", addr);
 		if((fd = dial(addr, nil, nil, nil)) >= 0){
 			peer(fd, 0, addr);
@@ -758,6 +762,7 @@ webseed(Dict *w, File *f)
 	if(rfork(RFPROC|RFMEM))
 		return;
 	w0 = w;
+	procsetname("webseed %s %s", w->str, f->name);
 Retry:
 	if(debug) fprint(2, "webseed %s %s\n", w->str, f->name);
 	s = strrchr(w->str, '/');
@@ -842,6 +847,7 @@ webtracker(char *url)
 
 	if(rfork(RFPROC|RFMEM))
 		return;
+	procsetname("webtracker %s", url);
 	if(debug) fprint(2, "webtracker %s\n", url);
 
 	event = "&event=started";
@@ -925,6 +931,7 @@ udptracker(char *url)
 		return;
 	if(rfork(RFPROC|RFMEM))
 		return;
+	procsetname("udptracker %s", addr);
 	if(debug) fprint(2, "udptracker %s\n", addr);
 
 	event = 1;
@@ -1369,7 +1376,6 @@ main(int argc, char *argv[])
 			sysfatal("create: %r");
 
 	srand(truerand());
-	atnotify(catch, 1);
 	switch(i = rfork(RFPROC|RFMEM|RFNOTEG)){
 	case -1:
 		sysfatal("fork: %r");
@@ -1388,6 +1394,7 @@ main(int argc, char *argv[])
 		break;
 	default:
 		killgroup = i;
+		atnotify(catch, 1);
 		do {
 			sleep(1000);
 			if(pflag)
