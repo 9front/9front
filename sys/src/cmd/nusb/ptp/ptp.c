@@ -75,9 +75,8 @@ static Dev *usbep[Setup+1];
 
 static int debug = 0;
 static ulong time0;
-static int maxpacket = 64;
-static int sessionId = 1;
-static int transId = 1;
+static int sessionId;
+static int transId;
 
 static Node **nodes;
 static int nnodes;
@@ -556,7 +555,7 @@ getnode(Req *r, uvlong path)
 		}
 
 		/*
-		 * another proc migh'v come in and done it for us,
+		 * another proc might've come in and done it for us,
 		 * so check the cache again.
 		 */
 		if(y = cachednode(path, &f))
@@ -1048,6 +1047,7 @@ threadmain(int argc, char **argv)
 	sendp(iochan, ioproc());
 
 	sessionId = getpid();
+	transId   = 0;
 	if(ptprpc(nil, OpenSession, 1, sessionId) < 0)
 		sysfatal("open session: %r");
 

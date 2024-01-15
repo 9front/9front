@@ -194,6 +194,10 @@ and
 The
 .B ctl
 file supplies the device geometry and partitions when read.
+.I Ptp
+configures and exposes a camera's (and often a mobile
+device's) storage to allow transferring data via the
+Picture Transfer Protocol (PTP).
 .SS Ethernet
 .I Ether
 handles USB ethernet devices. The file system provided is
