@@ -1227,9 +1227,10 @@ udpqueryns(Query *qp, int fd, uchar *pkt)
 	for(rp = qp->nsrp; rp; rp = rp->next)
 		rp->marker = 0;
 
-	/* request recursion only for local dns servers */
+	/* request recursion only for local/override dns servers */
 	flag = Oquery;
-	if(strncmp(qp->nsrp->owner->name, "local#", 6) == 0)
+	if(strncmp(qp->nsrp->owner->name, "local#", 6) == 0
+	|| strncmp(qp->nsrp->owner->name, "override#", 9) == 0)
 		flag |= Frecurse;
 
 	/* pack request into a udp message */

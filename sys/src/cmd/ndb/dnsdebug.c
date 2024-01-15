@@ -170,15 +170,27 @@ logrequest(int id, int depth, char *send, uchar *addr, char *sname, char *rname,
 RR*
 getdnsservers(int class)
 {
-	RR *rr;
+	uchar ip[IPaddrlen];
+	DN *nsdp;
+	RR *rp;
 
 	if(servername == nil)
 		return dnsservers(class);
-
-	rr = rralloc(Tns);
-	rr->owner = dnlookup("local#dns#servers", class, 1);
-	rr->host = idnlookup(servername, class, 1);
-	return rr;
+	if(parseip(ip, servername) == -1){
+		nsdp = idnlookup(servername, class, 1);
+	} else {
+		nsdp = dnlookup("local#dns#server", class, 1);
+		rp = rralloc(isv4(ip) ? Ta : Taaaa);
+		rp->owner = nsdp;
+		rp->ip = ipalookup(ip, class, 1);
+		rp->db = 1;
+		rp->ttl = 10*Min;
+		rrattach(rp, Authoritative);
+	}
+	rp = rralloc(Tns);
+	rp->owner = dnlookup("override#dns#servers", class, 1);
+	rp->host = nsdp;
+	return rp;
 }
 
 int
