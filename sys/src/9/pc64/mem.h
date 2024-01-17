@@ -156,6 +156,8 @@
 #define	PTERONLY	(0ull<<1)
 #define	PTEKERNEL	(0ull<<2)
 #define	PTEUSER		(1ull<<2)
+#define	PTEACCESSED	(1ull<<5)
+#define	PTEDIRTY	(1ull<<6)
 #define	PTESIZE		(1ull<<7)
 #define	PTEGLOBAL	(1ull<<8)
 #define	PTENOEXEC	((uvlong)m->havenx<<63)

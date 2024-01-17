@@ -341,6 +341,7 @@ pmap(uintptr pa, uintptr va, vlong size)
 	flags = pa;
 	pa = PPN(pa);
 	flags -= pa;
+	flags |= PTEACCESSED|PTEDIRTY;
 	if(va >= KZERO)
 		flags |= PTEGLOBAL;
 	while(size > 0){
@@ -504,7 +505,7 @@ putmmu(uintptr va, uintptr pa, Page *)
 	if(pte == 0)
 		panic("putmmu: bug: va=%#p pa=%#p", va, pa);
 	old = *pte;
-	*pte = pa | PTEUSER;
+	*pte = pa | PTEACCESSED|PTEDIRTY|PTEUSER;
 	splx(x);
 	if(old & PTEVALID)
 		invlpg(va);
@@ -553,7 +554,7 @@ kmap(Page *page)
 	pte = mmuwalk(m->pml4, va, 0, 1);
 	if(pte == 0 || (*pte & PTEVALID) != 0)
 		panic("kmap: pa=%#p va=%#p", pa, va);
-	*pte = pa | PTEWRITE|PTENOEXEC|PTEVALID;
+	*pte = pa | PTEACCESSED|PTEDIRTY|PTEWRITE|PTENOEXEC|PTEVALID;
 	splx(x);
 	invlpg(va);
 	return (KMap*)va;
