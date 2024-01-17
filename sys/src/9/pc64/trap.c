@@ -349,14 +349,11 @@ debugexc(Ureg *ureg, void *)
 static void
 debugbpt(Ureg* ureg, void*)
 {
-	char buf[ERRMAX];
-
 	if(up == 0)
 		panic("kernel bpt");
 	/* restore pc to instruction that caused the trap */
 	ureg->pc--;
-	snprint(buf, sizeof(buf), "sys: breakpoint");
-	postnote(up, 1, buf, NDebug);
+	postnote(up, 1, "sys: breakpoint", NDebug);
 }
 
 static void
@@ -478,9 +475,7 @@ syscall(Ureg* ureg)
 			splx(s);
 			startns = todget(nil);
 		}
-		if(scallnr >= nsyscall || systab[scallnr] == 0){
-			pprint("bad sys call number %lud pc %#p\n",
-				scallnr, ureg->pc);
+		if(scallnr >= nsyscall || systab[scallnr] == nil){
 			postnote(up, 1, "sys: bad sys call", NDebug);
 			error(Ebadarg);
 		}

@@ -141,7 +141,7 @@ TEXT _warp64<>(SB), 1, $-4
 	MOVL	DX, PDPO(KZERO+GiB)(AX)
 
 	ADDL	$PTSZ, AX			/* PD0 at PML4 + 2*PTSZ */
-	MOVL	$(PTESIZE|PTEGLOBAL|PTEWRITE|PTEVALID), DX
+	MOVL	$(PTEACCESSED|PTEDIRTY|PTESIZE|PTEGLOBAL|PTEWRITE|PTEVALID), DX
 	MOVL	DX, PDO(0)(AX)			/* PDE for double-map */
 
 	/*
@@ -942,7 +942,6 @@ TEXT syscallentry(SB), 1, $-4
 	CALL	syscall(SB)
 
 TEXT forkret(SB), 1, $-4
-	CLI
 	SWAPGS
 
 	MOVQ	8(SP), AX			/* return value */
@@ -1001,7 +1000,7 @@ _intrnested:
 	PUSHQ	SP
 	CALL	trap(SB)
 
-TEXT _intrr(SB), 1, $-4
+TEXT noteret(SB), 1, $-4
 _intrestore:
 	POPQ	AX
 
@@ -1030,10 +1029,6 @@ _intrestore:
 _iretnested:
 	ADDQ	$40, SP
 	IRETQ
-
-TEXT noteret(SB), 1, $-4
-	CLI
-	JMP	_intrestore
 
 TEXT vectortable(SB), $0
 	CALL _strayintr(SB); BYTE $0x00		/* divide error */
