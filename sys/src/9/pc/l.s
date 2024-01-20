@@ -1071,11 +1071,9 @@ TEXT _syscallintr(SB), $0
 	MOVW	AX, DS
 	MOVW	AX, ES
 
-	MOVL	$syscall(SB), AX
-
 	PUSHL	SP			/* Ureg* argument to syscall */
 	PUSHL	$forkret(SB)		/* return pc */
-	JMP	*AX
+	JMPF	syscall(SB)
 
 TEXT vectortable(SB), $0
 	CALL _strayintr(SB); BYTE $0x00		/* divide error */
