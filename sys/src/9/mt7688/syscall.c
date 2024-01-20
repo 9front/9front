@@ -42,17 +42,12 @@ syscall(Ureg* ureg)
 	ret = -1;
 
 	if(!waserror()){
+		if(sp < (USTKTOP-BY2PG) || sp > (USTKTOP-sizeof(Sargs)))
+			validaddr(sp, sizeof(Sargs), 0);
 
-		if(scallnr >= nsyscall){
-			iprint("bad sys call number %lud pc %#lux\n",
-				scallnr, ureg->pc);
-			postnote(up, 1, "sys: bad sys call", NDebug);
-			error(Ebadarg);
-		}
+		up->s = *((Sargs*)(sp));	/* spim's libc is different to mips ... */
 
 		if(up->procctl == Proc_tracesyscall){
-			iprint("tracesyscall\n");
-			delay(50);
 			syscallfmt(scallnr, ureg->pc, (va_list)up->s.args);
 			s = splhi();
 			up->procctl = Proc_stopme;
@@ -61,16 +56,11 @@ syscall(Ureg* ureg)
 			startns = todget(nil);
 		}
 
-		if(sp < (USTKTOP-BY2PG) || sp > (USTKTOP-sizeof(Sargs)))
-			validaddr(sp, sizeof(Sargs), 0);
-
-		up->s = *((Sargs*)(sp));	/* spim's libc is different to mips ... */
+		if(scallnr >= nsyscall || systab[scallnr] == nil){
+			postnote(up, 1, "sys: bad sys call", NDebug);
+			error(Ebadarg);
+		}
 		up->psstate = sysctab[scallnr];
-
-//		iprint("[%luX] %s: syscall %s\n", (ulong)&ureg, up->text, sysctab[scallnr]?sysctab[scallnr]:"huh?");
-//		delay(20);
-//		dumpregs(ureg);
-
 		ret = systab[scallnr]((va_list)up->s.args);
 		poperror();
 	}else{
@@ -120,6 +110,7 @@ syscall(Ureg* ureg)
 	/* if we delayed sched because we held a lock, sched now */
 	if(up->delaysched){
 		sched();
+		splhi();
 	}
 
 	kexit(ureg);

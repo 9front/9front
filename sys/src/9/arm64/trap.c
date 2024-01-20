@@ -226,7 +226,6 @@ syscall(Ureg *ureg)
 		}
 		
 		if(scallnr >= nsyscall || systab[scallnr] == nil){
-			pprint("bad sys call number %lud pc %#p", scallnr, ureg->pc);
 			postnote(up, 1, "sys: bad sys call", NDebug);
 			error(Ebadarg);
 		}

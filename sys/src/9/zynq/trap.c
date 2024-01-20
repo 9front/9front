@@ -236,9 +236,7 @@ syscall(Ureg *ureg)
 			splx(s);
 			startns = todget(nil);
 		}
-		
-		if(scallnr >= nsyscall || systab[scallnr] == 0){
-			pprint("bad sys call number %lud pc %lux", scallnr, ureg->pc);
+		if(scallnr >= nsyscall || systab[scallnr] == nil){
 			postnote(up, 1, "sys: bad sys call", NDebug);
 			error(Ebadarg);
 		}
@@ -272,14 +270,14 @@ syscall(Ureg *ureg)
 	if(scallnr == NOTED)
 		noted(ureg, *((ulong *) up->s.args));
 
-	if(scallnr != RFORK && (up->procctl || up->nnote)){
-		splhi();
-		notify(ureg);
-	}
-	if(up->delaysched)
-		sched();
-	kexit(ureg);
 	splhi();
+	if(scallnr != RFORK && (up->procctl || up->nnote))
+		notify(ureg);
+	if(up->delaysched){
+		sched();
+		splhi();
+	}
+	kexit(ureg);
 }
 
 int

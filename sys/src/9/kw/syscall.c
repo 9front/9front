@@ -188,16 +188,11 @@ syscall(Ureg* ureg)
 			splx(s);
 			startns = todget(nil);
 		}
-		if(scallnr >= nsyscall){
-			pprint("bad sys call number %d pc %#lux\n",
-				scallnr, ureg->pc);
+		if(scallnr >= nsyscall || systab[scallnr] == nil){
 			postnote(up, 1, "sys: bad sys call", NDebug);
 			error(Ebadarg);
 		}
 		up->psstate = sysctab[scallnr];
-
-	/*	iprint("%s: syscall %s\n", up->text, sysctab[scallnr]?sysctab[scallnr]:"huh?"); */
-
 		ret = systab[scallnr]((va_list)up->s.args);
 		poperror();
 	}else{

@@ -136,20 +136,6 @@ trap(Ureg *ureg)
 	uintptr va;
 	char buf[ERRMAX];
 
-	assert(!islo());
-	if(up != nil)
-		rem = ((char*)ureg)-((char*)up - KSTACK);
-	else
-		rem = ((char*)ureg)-((char*)m+sizeof(Mach));
-	if(rem < 256) {
-		iprint("trap: %d stack bytes left, up %#p ureg %#p at pc %#lux\n",
-			rem, up, ureg, ureg->pc);
-		delay(1000);
-		dumpstack();
-		panic("trap: %d stack bytes left, up %#p ureg %#p at pc %#lux",
-			rem, up, ureg, ureg->pc);
-	}
-
 	user = kenter(ureg);
 	/*
 	 * All interrupts/exceptions should be resumed at ureg->pc-4,

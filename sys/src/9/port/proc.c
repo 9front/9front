@@ -111,6 +111,19 @@ kenter(Ureg *ureg)
 	if(user){
 		up->dbgreg = ureg;
 		cycles(&up->kentry);
+	} else {
+		int rem;
+
+		if((uchar*)&ureg < (uchar*)ureg){
+			/* stack grows down */
+			rem = (int)((uintptr)ureg - (up!=nil? (uintptr)up - KSTACK: (uintptr)m->stack));
+		} else {
+			/* stack grows up */
+			rem = (int)((up!=nil? (uintptr)up: (uintptr)m + MACHSIZE) - (uintptr)ureg);
+		}
+		if(rem < 256)
+			panic("kenter: %d stack bytes left, up %#p ureg %#p at pc %#p",
+				rem, up, ureg, ureg->pc);
 	}
 	return user;
 }

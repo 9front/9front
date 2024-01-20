@@ -613,18 +613,16 @@ syscall(Ureg* ureg)
 	up->nerrlab = 0;
 	ret = -1;
 	if(!waserror()){
-		if(scallnr >= nsyscall || systab[scallnr] == nil){
-			pprint("bad sys call number %d pc %lux\n", scallnr, ureg->pc);
-			postnote(up, 1, "sys: bad sys call", NDebug);
-			error(Ebadarg);
-		}
-
 		if(sp<(USTKTOP-BY2PG) || sp>(USTKTOP-sizeof(Sargs)-BY2WD))
 			validaddr(sp, sizeof(Sargs)+BY2WD, 0);
 
 		up->s = *((Sargs*)(sp+BY2WD));
-		up->psstate = sysctab[scallnr];
 
+		if(scallnr >= nsyscall || systab[scallnr] == nil){
+			postnote(up, 1, "sys: bad sys call", NDebug);
+			error(Ebadarg);
+		}
+		up->psstate = sysctab[scallnr];
 		ret = systab[scallnr](up->s.args);
 		poperror();
 	}else{

@@ -633,12 +633,12 @@ static int
 irq(Ureg* ureg)
 {
 	int clockintr, ack;
-	uint irqno, handled, t, ticks;
+	uint irqno, handled;
 	Intrcpuregs *icp = (Intrcpuregs *)soc.intr;
 	Vctl *v;
 
 	m->intr++;
-	ticks = perfticks();
+	m->perf.intrts = perfticks();
 	handled = 0;
 	ack = intack(icp);
 	irqno = ack & Intrmask;
@@ -677,17 +677,6 @@ irq(Ureg* ureg)
 			iprint("cpu%d: unexpected interrupt %d, now masked\n",
 				m->machno, irqno);
 		}
-	t = perfticks();
-	if (0) {			/* left over from another port? */
-		ilock(&nintrlock);
-		ninterrupt++;
-		if(t < ticks)
-			ninterruptticks += ticks-t;
-		else
-			ninterruptticks += t-ticks;
-		iunlock(&nintrlock);
-	}
-	USED(t, ticks);
 	clockintr = m->inclockintr == 1;
 	if (irqno == Loctmrirq)
 		m->inclockintr--;
@@ -818,20 +807,6 @@ trap(Ureg *ureg)
 	int user, rem;
 	uintptr va, ifar, ifsr;
 
-	splhi();			/* paranoia */
-	if(up != nil)
-		rem = ((char*)ureg)-((char*)up-KSTACK);
-	else
-		rem = ((char*)ureg)-((char*)m+sizeof(Mach));
-	if(rem < 1024) {
-		iprint("trap: %d stack bytes left, up %#p ureg %#p m %#p cpu%d at pc %#lux\n",
-			rem, up, ureg, m, m->machno, ureg->pc);
-		dumpstackwithureg(ureg);
-		panic("trap: %d stack bytes left, up %#p ureg %#p at pc %#lux",
-			rem, up, ureg, ureg->pc);
-	}
-
-	m->perf.intrts = perfticks();
 	user = kenter(ureg);
 	/*
 	 * All interrupts/exceptions should be resumed at ureg->pc-4,

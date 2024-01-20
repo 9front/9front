@@ -193,6 +193,7 @@ intrs(Ureg *ur, int sort)
 	Handler *h;
 	Irq irq;
 
+	m->perf.intrts = perfticks();
 	clockintr = 0;
 
 	assert(sort >= 0 && sort < nelem(irqs));
@@ -369,16 +370,6 @@ trap(Ureg *ureg)
 	u32int fsr;
 	uintptr va;
 	char buf[ERRMAX];
-
-	if(up != nil)
-		rem = (char*)ureg - ((char*)up - KSTACK);
-	else
-		rem = (char*)ureg - ((char*)m + sizeof(Mach));
-	if(rem < 256) {
-		dumpstack();
-		panic("trap %d bytes remaining, up %#p ureg %#p at pc %#lux",
-			rem, up, ureg, ureg->pc);
-	}
 
 	user = kenter(ureg);
 	if(ureg->type == PsrMabt+1)

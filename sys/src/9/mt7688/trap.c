@@ -152,19 +152,6 @@ trap(Ureg *ur)
 	char buf[2*ERRMAX], buf1[ERRMAX], *fpexcep;
 	static int dumps;
 
-	if (up && (char *)(ur) - ((char *)up - KSTACK) < 1024 && dumps++ == 0) {
-		iprint("trap: proc %ld kernel stack getting full\n", up->pid);
-		dumpregs(ur);
-		dumpstack();
-		for(;;);
-	}
-	if (up == nil &&
-	    (char *)(ur) - (char *)m->stack < 1024 && dumps++ == 0) {
-		iprint("trap: cpu%d kernel stack getting full\n", m->machno);
-		dumpregs(ur);
-		dumpstack();
-		for(;;);
-	}
 	user = kenter(ur);
 	if (ur->cause & TS)
 		panic("trap: tlb shutdown");

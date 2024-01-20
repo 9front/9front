@@ -158,21 +158,7 @@ trap(Ureg *ur)
 	int ecode, user, cop, x, fpchk;
 	ulong fpfcr31;
 	char buf[2*ERRMAX], buf1[ERRMAX], *fpexcep;
-	static int dumps;
 
-	if (up && (char *)(ur) - ((char *)up - KSTACK) < 1024 && dumps++ == 0) {
-		iprint("trap: proc %ld kernel stack getting full\n", up->pid);
-		dumpregs(ur);
-		dumpstack();
-		for(;;);
-	}
-	if (up == nil &&
-	    (char *)(ur) - (char *)m->stack < 1024 && dumps++ == 0) {
-		iprint("trap: cpu%d kernel stack getting full\n", m->machno);
-		dumpregs(ur);
-		dumpstack();
-		for(;;);
-	}
 	user = kenter(ur);
 	if (ur->cause & TS)
 		panic("trap: tlb shutdown");
@@ -662,16 +648,7 @@ syscall(Ureg *ur)
 	up->nerrlab = 0;
 	ret = -1;
 	if(!waserror()) {
-		if(scallnr >= nsyscall || systab[scallnr] == 0){
-			pprint("bad sys call number %ld pc %#lux\n",
-				scallnr, ur->pc);
-			postnote(up, 1, "sys: bad sys call", NDebug);
-			error(Ebadarg);
-		}
-
 		if(sp & (BY2WD-1)){
-			pprint("odd sp in sys call pc %#lux sp %#lux\n",
-				ur->pc, ur->sp);
 			postnote(up, 1, "sys: odd stack", NDebug);
 			error(Ebadarg);
 		}
@@ -680,6 +657,10 @@ syscall(Ureg *ur)
 			validaddr(sp, sizeof(Sargs)+BY2WD, 0);
 
 		up->s = *((Sargs*)(sp+BY2WD));
+		if(scallnr >= nsyscall || systab[scallnr] == nil){
+			postnote(up, 1, "sys: bad sys call", NDebug);
+			error(Ebadarg);
+		}
 		up->psstate = sysctab[scallnr];
 
 		ret = systab[scallnr]((va_list)up->s.args);
@@ -714,8 +695,10 @@ syscall(Ureg *ur)
 	if(scallnr!=RFORK && (up->procctl || up->nnote))
 		notify(ur);
 	/* if we delayed sched because we held a lock, sched now */
-	if(up->delaysched)
+	if(up->delaysched){
 		sched();
+		splhi();
+	}
 	/* replicate fpstate to ureg status */
 	if(up->fpstate != FPactive)
 		ur->status &= ~CU1;

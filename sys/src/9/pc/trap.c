@@ -382,14 +382,11 @@ debugexc(Ureg *ureg, void *)
 static void
 debugbpt(Ureg* ureg, void*)
 {
-	char buf[ERRMAX];
-
 	if(up == 0)
 		panic("kernel bpt");
 	/* restore pc to instruction that caused the trap */
 	ureg->pc--;
-	sprint(buf, "sys: breakpoint");
-	postnote(up, 1, buf, NDebug);
+	postnote(up, 1, "sys: breakpoint", NDebug);
 }
 
 static void
@@ -500,9 +497,7 @@ syscall(Ureg* ureg)
 			startns = todget(nil);
 		}
 
-		if(scallnr >= nsyscall || systab[scallnr] == 0){
-			pprint("bad sys call number %lud pc %lux\n",
-				scallnr, ureg->pc);
+		if(scallnr >= nsyscall || systab[scallnr] == nil){
 			postnote(up, 1, "sys: bad sys call", NDebug);
 			error(Ebadarg);
 		}
@@ -548,13 +543,14 @@ syscall(Ureg* ureg)
 	if(scallnr == NOTED)
 		noted(ureg, *((ulong*)up->s.args));
 
-	if(scallnr!=RFORK && (up->procctl || up->nnote)){
-		splhi();
+	splhi();
+	if(scallnr!=RFORK && (up->procctl || up->nnote))
 		notify(ureg);
-	}
 	/* if we delayed sched because we held a lock, sched now */
-	if(up->delaysched)
+	if(up->delaysched){
 		sched();
+		splhi();
+	}
 	kexit(ureg);
 }
 
