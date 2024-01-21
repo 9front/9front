@@ -365,7 +365,7 @@ writetomem(ulong inst)
 void
 trap(Ureg *ureg)
 {
-	int user, x, rv, rem;
+	int user, x, rv;
 	ulong inst;
 	u32int fsr;
 	uintptr va;

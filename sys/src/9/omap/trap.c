@@ -446,7 +446,7 @@ void	prgpmcerrs(void);
 void
 trap(Ureg *ureg)
 {
-	int user, x, rv, rem;
+	int user, x, rv;
 	ulong inst, fsr;
 	uintptr va;
 	char buf[ERRMAX];
