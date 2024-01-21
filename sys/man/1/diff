@@ -1,6 +1,6 @@
 .TH DIFF 1 
 .SH NAME
-diff \- differential file comparator
+diff, merge3 \- differential file comparisons
 .SH SYNOPSIS
 .B diff
 [
