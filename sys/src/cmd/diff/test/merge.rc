@@ -1,6 +1,6 @@
 #!/bin/rc
 
-tests=`{seq 9}
+tests=`{seq 11}
 for(t in $tests){
 	echo ../$O.merge3 merge-t$t.l merge-t$t.c merge-t$t.r
 	../$O.merge3 merge-t$t.l merge-t$t.c merge-t$t.r > merge-t$t.out

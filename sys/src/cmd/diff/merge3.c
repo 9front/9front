@@ -58,6 +58,33 @@ overlaps(int lx, int ly, int rx, int ry)
 		return ry >= lx;
 }
 
+static int
+same(Diff *l, Change *lc, Diff *r, Change *rc)
+{
+	char lbuf[MAXLINELEN], rbuf[MAXLINELEN];
+	int i, ll, rl, lx, ly, rx, ry;
+
+	lx = lc->newx;
+	ly = lc->newy;
+	rx = rc->newx;
+	ry = rc->newy;
+	if(ly - lx != ry - rx)
+		return 0;
+	assert(lx <= ly && ly < l->len[1]);
+	assert(rx <= ry && ry < r->len[1]);
+	Bseek(l->input[1], l->ixnew[lx-1], 0);
+	Bseek(r->input[1], r->ixnew[rx-1], 0);
+	for(i = 0; i <= (ly - lx); i++){
+		ll = readline(l->input[1], lbuf, sizeof(lbuf));
+		rl = readline(r->input[1], rbuf, sizeof(rbuf));
+		if(ll != rl)
+			return 0;
+		if(memcmp(lbuf, rbuf, ll) != 0)
+			return 0;
+	}
+	return 1;
+}
+
 char*
 merge(Diff *l, Diff *r)
 {
@@ -116,14 +143,19 @@ merge(Diff *l, Diff *r)
 				lc->oldy += δ;
 				lc->newy += δ;
 			}
-			fetch(l, l->ixold, ln, x-1, l->input[0], "");
-			Bprint(&stdout, "<<<<<<<<<< %s\n", l->file2);
-			fetch(l, l->ixnew, lc->newx, lc->newy, l->input[1], "");
-			Bprint(&stdout, "========== original\n");
-			fetch(l, l->ixold, x, y, l->input[0], "");
-			Bprint(&stdout, "========== %s\n", r->file2);
-			fetch(r, r->ixnew, rc->newx, rc->newy, r->input[1], "");
-			Bprint(&stdout, ">>>>>>>>>>\n");
+			if(same(l, lc, r, rc)){
+				fetch(l, l->ixold, ln, x-1, l->input[0], "");
+				fetch(l, l->ixnew, lc->newx, lc->newy, l->input[1], "");
+			}else{
+				fetch(l, l->ixold, ln, x-1, l->input[0], "");
+				Bprint(&stdout, "<<<<<<<<<< %s\n", l->file2);
+				fetch(l, l->ixnew, lc->newx, lc->newy, l->input[1], "");
+				Bprint(&stdout, "========== original\n");
+				fetch(l, l->ixold, x, y, l->input[0], "");
+				Bprint(&stdout, "========== %s\n", r->file2);
+				fetch(r, r->ixnew, rc->newx, rc->newy, r->input[1], "");
+				Bprint(&stdout, ">>>>>>>>>>\n");
+			}
 			ln = y+1;
 			il++;
 			ir++;

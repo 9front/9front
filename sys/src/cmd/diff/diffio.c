@@ -4,17 +4,16 @@
 #include <ctype.h>
 #include "diff.h"
 
-#define MAXLINELEN	4096
 #define MIN(x, y)	((x) < (y) ? (x): (y))
 
-static int
-readline(Biobuf *bp, char *buf)
+int
+readline(Biobuf *bp, char *buf, int nbuf)
 {
 	int c;
 	char *p, *e;
 
 	p = buf;
-	e = p + MAXLINELEN-1;
+	e = p + nbuf-1;
 	do {
 		c = Bgetc(bp);
 		if (c < 0) {
@@ -44,7 +43,7 @@ readline(Biobuf *bp, char *buf)
  * summing 1-s complement in 16-bit hunks 
  */
 static int
-readhash(Biobuf *bp, char *buf)
+readhash(Biobuf *bp, char *buf, int nbuf)
 {
 	long sum;
 	unsigned shift;
@@ -53,7 +52,7 @@ readhash(Biobuf *bp, char *buf)
 
 	sum = 1;
 	shift = 0;
-	if ((len = readline(bp, buf)) == -1)
+	if ((len = readline(bp, buf, nbuf)) == -1)
 		return 0;
 	p = buf;
 	switch(bflag)	/* various types of white space handling */
@@ -138,7 +137,7 @@ prepare(Diff *d, int i, char *arg, char *orig)
 		Bseek(bp, 0, 0);
 	}
 	p = emalloc(3*sizeof(Line));
-	for (j = 0; h = readhash(bp, buf); p[j].value = h)
+	for (j = 0; h = readhash(bp, buf, sizeof(buf)); p[j].value = h)
 		p = erealloc(p, (++j+3)*sizeof(Line));
 	d->len[i] = j;
 	d->file[i] = p;
@@ -179,12 +178,12 @@ check(Diff *d, Biobuf *bf, Biobuf *bt)
 	d->ixold[0] = 0;
 	d->ixnew[0] = 0;
 	for (f = t = 1; f < d->len[0]; f++) {
-		flen = readline(bf, fbuf);
+		flen = readline(bf, fbuf, sizeof(fbuf));
 		d->ixold[f] = d->ixold[f-1] + flen;		/* ftell(bf) */
 		if (d->J[f] == 0)
 			continue;
 		do {
-			tlen = readline(bt, tbuf);
+			tlen = readline(bt, tbuf, sizeof(tbuf));
 			d->ixnew[t] = d->ixnew[t-1] + tlen;	/* ftell(bt) */
 		} while (t++ < d->J[f]);
 		if (bflag) {
@@ -195,7 +194,7 @@ check(Diff *d, Biobuf *bf, Biobuf *bt)
 			d->J[f] = 0;
 	}
 	while (t < d->len[1]) {
-		tlen = readline(bt, tbuf);
+		tlen = readline(bt, tbuf, sizeof(tbuf));
 		d->ixnew[t] = d->ixnew[t-1] + tlen;	/* fseek(bt) */
 		t++;
 	}
@@ -227,7 +226,7 @@ fetch(Diff *d, long *f, int a, int b, Biobuf *bp, char *s)
 		return;
 	Bseek(bp, f[a-1], 0);
 	while (a++ <= b) {
-		len = readline(bp, buf);
+		len = readline(bp, buf, sizeof(buf));
 		if(len == 0 || buf[len-1] != '\n'){
 			Bprint(&stdout, "%s%s\n", s, buf);
 			Bprint(&stdout, "\\ No newline at end of file\n");

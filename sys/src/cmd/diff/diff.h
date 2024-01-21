@@ -57,6 +57,7 @@ extern int anychange;
 extern Biobuf	stdout;
 
 #define MAXPATHLEN	1024
+#define MAXLINELEN	4096
 
 #define	DIRECTORY(s)		((s)->qid.type&QTDIR)
 #define	REGULAR_FILE(s)		((s)->type == 'M' && !DIRECTORY(s))
@@ -76,3 +77,4 @@ void change(Diff *, int, int, int, int);
 void freediff(Diff *);
 void flushchanges(Diff *);
 void fetch(Diff *d, long *f, int a, int b, Biobuf *bp, char *s);
+int readline(Biobuf*, char*, int);
