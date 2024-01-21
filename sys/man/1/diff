@@ -5,8 +5,11 @@ diff \- differential file comparator
 .B diff
 [
 .B -abcefmnruw
-] 
+]
 .I file1 ... file2
+.PP
+.B merge3
+.I left common right
 .SH DESCRIPTION
 .I Diff
 tells what lines must be changed in two files to bring them
@@ -165,6 +168,44 @@ Except in rare circumstances,
 .I diff
 finds a smallest sufficient set of file
 differences.
+.PP
+Merge3 merges the contents of
+.I left
+and
+.I right
+using
+.I common
+as a common reference between the two files.
+Changes between
+.IR left ,
+.I right
+and
+.I common
+are computed.
+Any change which does not conflict is output directly.
+When a change does conflict, that is to say,
+affects the same lines of the output file,
+then the change is output with conflict markers.
+The conflict markers look like this:
+.IP
+.EX
+leading content
+<<<<<<<<<< leftfile
+this is an edit made
+to the left file
+========== original
+this is the initial content
+========== rightfile
+here is something that was
+written into the right file
+>>>>>>>>>>
+trailing content
+.EE
+.PP
+If no conflicts are detected,
+.I merge3
+exits with a nil status,
+otherwise it exits with a status of "conflicted".
 .SH FILES
 .B /tmp/diff[12]
 .SH SOURCE

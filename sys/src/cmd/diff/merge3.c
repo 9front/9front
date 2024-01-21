@@ -155,11 +155,11 @@ merge(Diff *l, Diff *r)
 				Bprint(&stdout, "========== %s\n", r->file2);
 				fetch(r, r->ixnew, rc->newx, rc->newy, r->input[1], "");
 				Bprint(&stdout, ">>>>>>>>>>\n");
+				status = "conflict";
 			}
 			ln = y+1;
 			il++;
 			ir++;
-			status = "conflict";
 		}else if(rc == nil || (lc != nil && lx < rx)){
 			fetch(l, l->ixold, ln, lc->oldx-1, l->input[0], "");
 			fetch(l, l->ixnew, lc->newx, lc->newy, l->input[1], "");
