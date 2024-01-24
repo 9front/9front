@@ -16,7 +16,7 @@
  */
 #define isv6mcast(addr)	  ((addr)[0] == 0xff)
 #define islinklocal(addr) ((addr)[0] == 0xfe && ((addr)[1] & 0xc0) == 0x80)
-#define isula(addr)		  ((addr)[0] == 0xfd)
+#define isula(addr)       (((addr)[0] & 0xfe) == 0xfc)
 
 #define optexsts(np)	(nhgets((np)->ploadlen) > 24)
 #define issmcast(addr)	(memcmp((addr), v6solicitednode, 13) == 0)
