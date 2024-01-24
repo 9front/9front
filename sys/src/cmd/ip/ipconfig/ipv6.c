@@ -24,6 +24,7 @@ enum {
 
 	MFMASK = 1 << 7,
 	OCMASK = 1 << 6,
+
 	OLMASK = 1 << 7,
 	AFMASK = 1 << 6,
 	RFMASK = 1 << 5,
@@ -151,6 +152,7 @@ uchar v6solpfx[IPaddrlen] = {
 	0xff, 0, 0, 0,
 };
 
+#define isula(addr)       (((addr)[0] & 0xfe) == 0xfc)
 
 void
 v6paraminit(Conf *cf)
@@ -587,11 +589,6 @@ recvrahost(uchar buf[], int pktlen)
 	conf.rxmitra = nhgetl(ra->rxmtimer);
 	conf.linkmtu = DEFMTU;
 
-	if(conf.routerlt == 0)
-		ipmove(conf.gaddr, IPnoaddr);
-	else
-		ipmove(conf.gaddr, ra->src);
-
 	memset(conf.dns, 0, sizeof(conf.dns));
 	memset(conf.fs, 0, sizeof(conf.fs));
 	memset(conf.auth, 0, sizeof(conf.auth));
@@ -696,17 +693,11 @@ recvrahost(uchar buf[], int pktlen)
 		maskip(prfo->pref, conf.mask, conf.v6pref);
 		memmove(conf.laddr, conf.v6pref, 8);
 		memmove(conf.laddr+8, conf.lladdr+8, 8);
+		ipmove(conf.gaddr, (prfo->lar & RFMASK) != 0? prfo->pref: ra->src);
 		conf.onlink = (prfo->lar & OLMASK) != 0;
 		conf.autoflag = (prfo->lar & AFMASK) != 0;
 		conf.validlt = nhgetl(prfo->validlt);
 		conf.preflt = nhgetl(prfo->preflt);
-
-		if(conf.routerlt == 0)
-			ipmove(conf.gaddr, IPnoaddr);
-		else if((prfo->lar & RFMASK) != 0)
-			ipmove(conf.gaddr, prfo->pref);
-		else
-			ipmove(conf.gaddr, ra->src);
 
 		seen = 0;
 		sha1((uchar*)&conf, sizeof(conf), hash, nil);
@@ -722,6 +713,12 @@ recvrahost(uchar buf[], int pktlen)
 			r = malloc(sizeof(*r));
 
 		memmove(r->hash, hash, SHA1dlen);
+
+		if(conf.routerlt == 0
+		|| isula(conf.laddr)
+		|| ipcmp(conf.gaddr, conf.laddr) == 0
+		|| ipcmp(conf.gaddr, conf.lladdr) == 0)
+			ipmove(conf.gaddr, IPnoaddr);
 
 		ipmove(r->src, ra->src);
 		ipmove(r->gaddr, conf.gaddr);
@@ -764,9 +761,7 @@ recvrahost(uchar buf[], int pktlen)
 		if(noconfig)
 			continue;
 
-		if(validip(conf.gaddr)
-		&& ipcmp(conf.gaddr, conf.laddr) != 0
-		&& ipcmp(conf.gaddr, conf.lladdr) != 0)
+		if(validip(conf.gaddr))
 			adddefroute(conf.gaddr, conf.lladdr, conf.laddr, conf.mask);
 
 		putndb(1);
