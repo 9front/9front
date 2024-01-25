@@ -44,7 +44,7 @@ that we want to get a certificate for.
 On success,
 .I acmed
 outputs the new certificate in
-PEM format to stdandard output.
+PEM format to standard output.
 .PP
 .I Acmed
 accepts the following options:
@@ -56,7 +56,7 @@ Specifies that
 is used to sign requests to the
 .I provider
 in place of the default
-.BI /sys/lib/tls/acme/ acctname .pub
+.BI /sys/lib/tls/acmed/ acctname .pub
 file.
 The key must be a JWK formatted RSA public key
 (see
@@ -114,7 +114,7 @@ It defaults to
 .TP
 .B -t
 .I type
-Specifies that the challenge type. Supported challenge
+Specifies the challenge type. Supported challenge
 types are currently
 .B http
 and
@@ -203,7 +203,7 @@ database=
 	file=/lib/ndb/dnschallenge
 .EE
 .PP
-In addition, the domains that you like to get verified
+In addition, the domain that you like to get verified
 needs to have a certificate authority authorization record
 of your ACME provider declared:
 .IP
