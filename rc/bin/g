@@ -21,7 +21,7 @@ if(~ $#* 0) {
 pattern=$1
 shift
 
-suffixes='\.([bcChlmsy]|asm|awk|cc|cgi|cpp|cs|go|goc|ha|hs|java|lua|lx|mk|ml|mli|ms|myr|pl|py|rc|sh|tex|xy)$'
+suffixes='\.([bcChlmsy]|asm|awk|cc|cgi|cpp|cs|go|goc|ha|hs|java|lua|lx|mk|ml|mli|ms|myr|pl|py|rc|sh|tex|xy|txt)$'
 fullnames='(^|/)mkfile$'
 repodirs='(^|/)(.git|.hg)($|/)'
 switch($#*){
