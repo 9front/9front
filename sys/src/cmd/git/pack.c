@@ -1217,10 +1217,8 @@ indexpack(char *pack, char *idx, Hash ph)
 			if(objectcrc(f, o) == -1)
 				return -1;
 		}
-		if(n == nvalid){
+		if(n == nvalid)
 			sysfatal("fix point reached too early: %d/%d: %r", nvalid, nobj);
-			goto error;
-		}
 		nvalid = n;
 	}
 	if(interactive)

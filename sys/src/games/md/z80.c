@@ -503,7 +503,6 @@ ed(void)
 	case 0x4f: return 9;
 	}
 	sysfatal("undefined z80 opcode ed%.2x at pc=%#.4x", op, scurpc);
-	return 0;
 }
 
 static int
@@ -579,7 +578,6 @@ index(int n)
 	case 0x2e: ix[n] = ix[n] & 0xff00 | fetch8(); return 11;
 	}
 	sysfatal("undefined z80 opcode %.2x%.2x at pc=%#.4x", n ? 0xfd : 0xdd, op, scurpc);
-	return 0;
 }
 
 int
@@ -817,5 +815,4 @@ z80step(void)
 	case 0xff: return call(0x38, 1);
 	}
 	sysfatal("undefined z80 opcode %#.2x at pc=%#.4x", op, scurpc);
-	return 0;
 }

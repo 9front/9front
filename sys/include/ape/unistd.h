@@ -90,7 +90,7 @@ extern int execle(const char *, const char *, const char *,  ...);
 extern int execve(const char *, const char **, const char **);
 extern int execlp(const char *, const char *, ...);
 extern int execvp(const char *, const char **);
-extern void _exit(int);
+extern _Noreturn void _exit(int);
 extern unsigned int alarm(unsigned int);
 extern int pause(void);
 extern unsigned int sleep(unsigned int);

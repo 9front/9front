@@ -333,7 +333,6 @@ hunk:
 		switch(ln[0]){
 		default:
 			sysfatal("%s:%d: malformed hunk: leading junk", name, lnum);
-			goto out;
 		case '\\':
 			if(strncmp(ln, "\\ No newline", nelem("\\ No newline")-1) == 0)
 				trimhunk(c, &h);
@@ -563,7 +562,6 @@ char*
 searchln(Fbuf *f, Hunk *h, int ln)
 {
 	int off;
-int n;
 
 	off = f->lines[ln];
 	if(off + h->oldlen > f->len)
@@ -601,7 +599,6 @@ search(Fbuf *f, Hunk *h, char *fname)
 		}
 	}
 	sysfatal("%s:%d: unable to find hunk offset in %s", fname, h->lnum, h->oldpath);
-	return nil;
 }
 
 char*

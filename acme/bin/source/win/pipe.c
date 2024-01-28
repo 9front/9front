@@ -52,7 +52,6 @@ pipecommand(Window *w, char *s)
 	if(strcmp(s, "Delete")==0){
 		windel(w, 1);
 		threadexits(nil);
-		return 1;
 	}
 	if(strcmp(s, "Del")==0){
 		if(windel(w, 0))

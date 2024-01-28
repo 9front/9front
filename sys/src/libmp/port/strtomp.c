@@ -191,7 +191,6 @@ strtomp(char *a, char **pp, int base, mpint *b)
 		break;
 	default:
 		abort();
-		return nil;
 	}
 
 	if(pp != nil)

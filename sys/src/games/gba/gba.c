@@ -150,7 +150,6 @@ typename(char *s, int type, int size)
 		break;
 	default:
 		sysfatal("typestr: unknown type %d -- shouldn't happen", type);
-		return;
 	}
 	snprint(s, BACKTYPELEN, "%s%d%s", st, size/128, id);
 }

@@ -205,7 +205,6 @@ evalop(int op, int sign, vlong v1, vlong v2)
 	case OPLOR: return v1 || v2; break;
 	default:
 		sysfatal("cfold: unknown op %.2x", op);
-		return 0;
 	}
 
 }
@@ -289,7 +288,7 @@ calcrecsize(Node *n)
 				break;
 			}
 			break;
-		default: sysfatal("calcrecsize: unknown symbol type %d", n->sym->type); return nil;
+		default: sysfatal("calcrecsize: unknown symbol type %d", n->sym->type);
 		}
 		break;
 	case OBIN:
@@ -315,7 +314,7 @@ calcrecsize(Node *n)
 		n->recsize = min(n->typ->size, n->n1->recsize + n->n2->recsize + n->n3->recsize);
 		break;
 	case ORECORD:
-	default: sysfatal("calcrecsize: unknown type %α", n->type); return nil;
+	default: sysfatal("calcrecsize: unknown type %α", n->type);
 	}
 	return n;
 }
@@ -347,7 +346,7 @@ insrecord(Node *n)
 		n->n3 = insrecord(n->n3);
 		break;
 	case ORECORD:
-	default: sysfatal("insrecord: unknown type %α", n->type); return nil;
+	default: sysfatal("insrecord: unknown type %α", n->type);
 	}
 	return n;
 }

@@ -109,7 +109,7 @@ amode(int s)
 	case 13: v = fetch16(); return memread32(r[c & 15] + (s16int) v);
 	case 14: v = fetch32(); return (u32int)(r[c & 15] + v);
 	case 15: v = fetch32(); return memread32(r[c & 15] + v);
-	default: sysfatal("unimplemented addressing mode %.2x", c); return -1;
+	default: sysfatal("unimplemented addressing mode %.2x", c);
 	}
 }
 
@@ -136,7 +136,7 @@ readm(vlong a, int s)
 	case 0: return memread8(a);
 	case 1: return memread16(a);
 	case 2: return memread32(a);
-	default: sysfatal("readm: unimplemented size %d (a=%.llx, pc=%.8x)", s, a, curpc); return -1;
+	default: sysfatal("readm: unimplemented size %d (a=%.llx, pc=%.8x)", s, a, curpc);
 	}
 }
 
@@ -233,7 +233,6 @@ add(u32int a, u32int b, int s)
 		return v;
 	default:
 		sysfatal("subtract: unimplemented size %d", s);
-		return 0;
 	}
 }
 
@@ -280,7 +279,6 @@ subtract(u32int a, u32int b, int s)
 		return v;
 	default:
 		sysfatal("subtract: unimplemented size %d", s);
-		return 0;
 	}
 }
 
@@ -349,7 +347,6 @@ mul(u32int a, u32int b, int s)
 		return v;
 	default:
 		sysfatal("mul: unimplemented size %d", s);
-		return 0;
 	}
 }
 
@@ -383,7 +380,6 @@ div(u32int a, u32int b, int s)
 		return v;
 	default:
 		sysfatal("div: unimplemented size %d", s);
-		return 0;
 	}
 }
 
@@ -422,7 +418,6 @@ alu(int o, int r, int s)
 		break;
 	default:
 		sysfatal("alu: unimplemented %d", r);
-		return;
 	}
 	switch(o){
 	case ADD: v = add(a, b, s); break;
@@ -435,7 +430,7 @@ alu(int o, int r, int s)
 	case BIS: v = a | b; ps &= ~FLAGV; break;
 	case XOR: v = a ^ b; ps &= ~FLAGV; break;
 	case BIT: nzv(a & b, s); return;
-	default: sysfatal("unimplemented %d in alu", o); v = 0;
+	default: sysfatal("unimplemented %d in alu", o);
 	}
 	nz(v, s);
 	writem(c, v, s);

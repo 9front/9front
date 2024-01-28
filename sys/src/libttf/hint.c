@@ -533,7 +533,7 @@ h_binop(Hint *h)
 	case 0x63: r = (vlong)(int)a * (vlong)(int)b >> 6; break;
 	case 0x8b: r = a < b ? b : a; break;
 	case 0x8c: r = a < b ? a : b; break;
-	default: SET(r); abort();
+	default: abort();
 	}
 	push(h, r);
 }
@@ -553,7 +553,7 @@ h_unop(Hint *h)
 	case 0x66: r = a & -64; break;
 	case 0x67: r = -(-a & -64); break;
 	case 0x68: case 0x69: case 0x6a: case 0x6b: r = ttround(h, a); break;
-	default: SET(r); abort();
+	default: abort();
 	}
 	push(h, r);
 }

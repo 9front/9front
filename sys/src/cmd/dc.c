@@ -1453,7 +1453,6 @@ loop:
 		goto loop;
 	}
 	exits(0);
-	return 0;	/* shut up ken */
 }
 
 void

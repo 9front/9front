@@ -165,7 +165,6 @@ unbzip(int in)
 
 	_unbzip(in, out);
 	_exits(0);
-	return -1;	/* not reached */
 }
 
 int bz_config_ok ( void )

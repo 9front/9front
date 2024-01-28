@@ -325,7 +325,6 @@ checknext(int dir, int x, int y)
 	default:
 		sysfatal("andrey messed up big time");
 	}
-	return 1000;
 }
 /* the following two routines constitute the "game AI"
 * they score the field based on the number of moves

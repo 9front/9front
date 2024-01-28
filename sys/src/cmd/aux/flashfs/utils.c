@@ -35,7 +35,6 @@ putc3(uchar *buff, ulong v)
 
 	fprint(2, "%s: putc3 fail 0x%lux, called from %#p\n", prog, v, getcallerpc(&buff));
 	abort();
-	return -1;
 }
 
 int

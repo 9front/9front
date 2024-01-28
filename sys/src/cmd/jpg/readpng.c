@@ -144,10 +144,8 @@ zread(void *va)
 		}
 		if(type[0] & PropertyBit)
 			goto Again;  /* skip auxiliary chunks fornow */
-		if(strcmp(type,"IDAT")){
+		if(strcmp(type,"IDAT"))
 			sysfatal("unrecognized mandatory chunk %s", type);
-			goto Again;
-		}
 	}
 	return *z->p++;
 }
@@ -407,7 +405,6 @@ readslave(Biobuf *b)
 
 	bpc = *h++;
 	colorfmt = *h++;
-	nchan = 0;
 	if(*h++ != 0)
 		sysfatal("only deflate supported for now [%d]", h[-1]);
 	if(*h++ != FilterNone)
@@ -417,7 +414,6 @@ readslave(Biobuf *b)
 
 	image = pngmalloc(sizeof(Rawimage), 1);
 	image->r = Rect(0, 0, dx, dy);
-	nout = 0;
 	switch(colorfmt){
 	case 0:	/* grey */
 		if(bpc != 1 && bpc != 2 && bpc != 4 && bpc != 8 && bpc != 16)

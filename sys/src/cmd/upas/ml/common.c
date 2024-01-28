@@ -157,9 +157,6 @@ startmailer(char *name)
 	av[ac] = 0;
 	exec("/bin/upas/send", av);
 	sysfatal("execing mailer: %r");
-
-	/* not reached */
-	return -1;
 }
 
 void

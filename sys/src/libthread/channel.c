@@ -311,7 +311,6 @@ runop(int op, Channel *c, void *v, int nb)
 	default:
 		fprint(2, "ERROR: channel alt returned %d\n", r);
 		abort();
-		return -1;
 	}
 }
 
@@ -511,7 +510,6 @@ altexecbuffered(Alt *a, int willreplace)
 		return v;
 	}
 	abort();
-	return nil;
 }
 
 static void

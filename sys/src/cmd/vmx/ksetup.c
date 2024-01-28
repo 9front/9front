@@ -691,7 +691,6 @@ obsdcmdline(int argc, char **argv)
 usage:
 	fprint(2, "openbsd cmdline usage: kernel [-asdc] [var=value ...]\nsupported vars: device tty db_console\n");
 	threadexitsall("usage");
-	return 0;
 }
 
 static int

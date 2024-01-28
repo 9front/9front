@@ -17,7 +17,7 @@ _sysfatalimpl(char *fmt, va_list arg)
 
 void (*_sysfatal)(char *fmt, va_list arg) = _sysfatalimpl;
 
-void
+_Noreturn void
 sysfatal(char *fmt, ...)
 {
 	va_list arg;

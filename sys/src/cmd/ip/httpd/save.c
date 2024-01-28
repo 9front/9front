@@ -131,7 +131,6 @@ main(int argc, char **argv)
 	if(htmlfd < 0 || (dir = dirfstat(htmlfd)) == nil){
 		hfail(c, HNotFound, c->req.uri);
 		exits("failed");
-		return;
 	}
 
 	snprint(fn, nfn, "/usr/web/save/%s.data", c->req.uri);

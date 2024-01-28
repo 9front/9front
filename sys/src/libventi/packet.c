@@ -974,8 +974,6 @@ memfree(Mem *m)
 static int
 memhead(Mem *m, uchar *rp, int n)
 {
-	fprint(2, "memhead called\n");
-	abort();
 	lock(&m->lk);
 	if(m->rp != rp) {
 		unlock(&m->lk);
@@ -989,8 +987,6 @@ memhead(Mem *m, uchar *rp, int n)
 static int
 memtail(Mem *m, uchar *wp, int n)
 {
-	fprint(2, "memtail called\n");
-	abort();
 	lock(&m->lk);
 	if(m->wp != wp) {
 		unlock(&m->lk);

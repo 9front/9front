@@ -235,7 +235,6 @@ _packarena(Arena *arena, u8int *buf, int forceext)
 		break;
 	default:
 		sysfatal("packarena unknown version %d", arena->version);
-		return -1;
 	}
 
 	p = buf;
@@ -370,7 +369,6 @@ packarenahead(ArenaHead *head, u8int *buf)
 		break;
 	default:
 		sysfatal("packarenahead unknown version %d", head->version);
-		return -1;
 	}
 
 	p = buf;

@@ -36,10 +36,8 @@ erealloc(void *p, unsigned n)
 int
 mkpathname(char *pathname, char *path, char *name)
 {
-	if (strlen(path) + strlen(name) > MAXPATHLEN) {
+	if (strlen(path) + strlen(name) > MAXPATHLEN)
 		sysfatal("pathname %s/%s too long", path, name);
-		return 1;
-	}
 	sprint(pathname, "%s/%s", path, name);
 	return 0;
 }
@@ -59,19 +57,15 @@ mktmpfile(int input, Dir **sb)
 	 * the system will remove the file for us.
 	 */
 	fd = create(p, OWRITE|ORCLOSE, 0600);
-	if (fd < 0) {
+	if (fd < 0)
 		sysfatal("cannot create %s: %r", p);
-		return 0;
-	}
 	while ((i = read(input, buf, sizeof(buf))) > 0) {
 		if ((i = write(fd, buf, i)) < 0)
 			break;
 	}
 	*sb = dirfstat(fd);
-	if (i < 0) {
+	if (i < 0)
 		sysfatal("cannot read/write %s: %r", p);
-		return 0;
-	}
 	return p;
 }
 
@@ -83,18 +77,14 @@ statfile(char *file, Dir **sb)
 
 	dir = dirstat(file);
 	if(dir == nil) {
-		if (strcmp(file, "-") || (dir = dirfstat(0)) == nil) {
+		if (strcmp(file, "-") || (dir = dirfstat(0)) == nil)
 			sysfatal("cannot stat %s: %r", file);
-			return 0;
-		}
 		free(dir);
 		return mktmpfile(0, sb);
 	} else if (!REGULAR_FILE(dir) && !DIRECTORY(dir)) {
 		free(dir);
-		if ((input = open(file, OREAD)) == -1) {
+		if ((input = open(file, OREAD)) == -1)
 			sysfatal("cannot open %s: %r", file);
-			return 0;
-		}
 		file = mktmpfile(input, sb);
 		close(input);
 	} else

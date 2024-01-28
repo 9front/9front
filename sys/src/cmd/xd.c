@@ -74,7 +74,6 @@ main(int argc, char *argv[])
 	Binit(&bout, 1, OWRITE);
 	Blethal(&bout, nil);
 	err = 0;
-	ap = 0;
 	while(argc>1 && argv[1][0]=='-' && argv[1][1]){
 		--argc;
 		argv++;

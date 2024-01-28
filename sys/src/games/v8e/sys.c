@@ -113,7 +113,6 @@ sysexit(void)
 	no = arg(0);
 	if(no == 0) exits(nil);
 	exits(smprint("%d", no));
-	return 0;
 }
 
 static int

@@ -273,10 +273,8 @@ sendpkt(char *fmt, ...)
 	va_start(a, fmt);
 	n = vpack(send.b, sizeof(send.b), fmt, a);
 	va_end(a);
-	if(n < 0) {
+	if(n < 0)
 toobig:		sysfatal("sendpkt: message too big");
-		return;
-	}
 	send.r = send.b;
 	send.w = send.b+n;
 
@@ -978,7 +976,6 @@ dispatch(void)
 		if(unpack(recv.r, recv.w-recv.r, "_us", &c, &s, &n) < 0)
 			break;
 		sysfatal("disconnect: (%d) %.*s", c, utfnlen(s, n), s);
-		return;
 	case MSG_DEBUG:
 		if(unpack(recv.r, recv.w-recv.r, "__sb", &s, &n, &c) < 0)
 			break;

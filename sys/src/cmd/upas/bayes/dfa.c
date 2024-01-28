@@ -743,7 +743,6 @@ egetnum(Biobuf *b, int want, jmp_buf jb)
 	}
 	werrstr("unexpected eof");
 	longjmp(jb, 1);
-	return -1;
 }
 
 Dreprog*

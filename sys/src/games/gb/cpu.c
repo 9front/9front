@@ -551,5 +551,4 @@ step(void)
 	case 0xff: return call(0x38, -1);
 	}
 	sysfatal("undefined opcode %#.2x at pc=%#.4x", op, curpc);
-	return 0;
 }

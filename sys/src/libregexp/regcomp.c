@@ -69,7 +69,6 @@ e3(Parselex *plex)
 		regerror(error);
 		longjmp(plex->exitenv, 1);
 	}
-	return nil;
 }
 
 static Renode*

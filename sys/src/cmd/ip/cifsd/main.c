@@ -87,12 +87,10 @@ receive(uchar *h, uchar *e)
 		&r.cmd, &r.flags, &r.flags2, &hpid, &sig, &r.tid, &r.pid, &r.uid, &r.mid)) == 0){
 		logit("bad smb header");
 		exits("botch");
-		return;
 	}
 	if(magic != MAGIC) {
 		logit("bad smb magic [%x] %s", magic, (magic == MAGIC_SMB2 ? "(SMB2/3 not supported)" : ""));
 		exits("botch");
-		return;
 	}
 	r.pid |= hpid<<16;
 	r.lh = buffer;

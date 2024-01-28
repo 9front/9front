@@ -50,10 +50,8 @@ void*
 erealloc(void *v, ulong sz)
 {
 	v = realloc(v, sz);
-	if(v == nil){
+	if(v == nil)
 		sysfatal("realloc: %r");
-		threadexitsall("memory");
-	}
 	return v;
 }
 

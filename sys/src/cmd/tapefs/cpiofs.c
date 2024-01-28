@@ -169,7 +169,6 @@ rdmagic(void)
 		return rdsysiii;
 
 	sysfatal("Out of phase--get MERT help");
-	return nil;
 }
 
 void

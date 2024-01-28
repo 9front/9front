@@ -114,10 +114,8 @@ prepare(Diff *d, int i, char *arg, char *orig)
 	} else
 		d->file2 = orig;
 	bp = Bopen(arg, OREAD);
-	if (!bp) {
+	if (!bp)
 		sysfatal("cannot open %s: %r", arg);
-		return 0;
-	}
 	if (d->binary)
 		return bp;
 	nbytes = Bread(bp, buf, MIN(1024, MAXLINELEN));

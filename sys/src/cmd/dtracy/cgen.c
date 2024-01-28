@@ -182,7 +182,7 @@ egen(Node *n)
 			rt = regalloc();
 			emit(DTE(DTE_LDV, n->sym->idx, rt, 0));
 			return rt;
-		default: sysfatal("egen: unknown symbol type %d", n->sym->type); return 0;
+		default: sysfatal("egen: unknown symbol type %d", n->sym->type);
 		}
 	case OBIN:
 		switch(/*oper*/n->op){
@@ -204,7 +204,7 @@ egen(Node *n)
 		case OPLT: op = DTE_SLT; break;
 		case OPLE: op = DTE_SLE; break;
 		case OPXNOR: op = DTE_XNOR; break;
-		default: sysfatal("egen: unknown op %d", n->op); return 0;
+		default: sysfatal("egen: unknown op %d", n->op);
 		}
 		r1 = egen(n->n1);
 		r2 = egen(n->n2);
@@ -240,7 +240,7 @@ egen(Node *n)
 		}
 	case ORECORD:
 	case OSTR:
-	default: sysfatal("egen: unknown type %α", n->type); return 0;
+	default: sysfatal("egen: unknown type %α", n->type);
 	}
 }
 
@@ -307,7 +307,7 @@ tracegen(Node *n, DTActGr *g, int *recoff)
 		n->num = *recoff;
 		*recoff += n->typ->size;
 		return n;
-	default: sysfatal("tracegen: unknown type %α", n->type); return nil;
+	default: sysfatal("tracegen: unknown type %α", n->type);
 	}
 	return n;
 }

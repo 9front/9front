@@ -281,5 +281,4 @@ vaddr(ulong addr)
 	}
 	Bprint(bioout, "User TLB miss vaddr 0x%.8lux\n", addr);
 	longjmp(errjmp, 0);
-	return 0;		/*to stop compiler whining*/
 }

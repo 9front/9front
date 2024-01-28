@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <signal.h>
 
-void
+_Noreturn void
 abort(void)
 {
 	kill(getpid(), SIGABRT);

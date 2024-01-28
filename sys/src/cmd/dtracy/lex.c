@@ -385,10 +385,10 @@ type(int typ, ...)
 		case 0x41: return &typs32;
 		case 0x80: return &typu64;
 		case 0x81: return &typs64;
-		default: sysfatal("type: invalid (size,sign) = (%d,%d)\n", size, sign); return nil;
+		default: sysfatal("type: invalid (size,sign) = (%d,%d)\n", size, sign);
 		}
 	case TYPSTRING: return &typstr;
 	case TYPPTR: return mkptr(va_arg(va, Type *));
-	default: sysfatal("type: unknown %t", typ); return nil;
+	default: sysfatal("type: unknown %t", typ);
 	}
 }

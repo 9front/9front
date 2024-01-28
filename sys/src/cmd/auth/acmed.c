@@ -271,10 +271,8 @@ endpoints(void)
 	jsonfree(j);
 	free(s);
 	if(epnewnonce==nil|| epnewacct==nil || epneworder==nil
-	|| eprevokecert==nil || epkeychange==nil){
+	|| eprevokecert==nil || epkeychange==nil)
 		sysfatal("missing directory entries");
-		return -1;
-	}
 	return 0;
 }
 

@@ -10,10 +10,7 @@ emalloc(ulong n)
 
 	v = mallocz(n, 1);
 	if(v == nil)
-{
-abort();
 		sysfatal("out of memory");
-}
 	setmalloctag(v, getcallerpc(&n));
 	return v;
 }
@@ -23,10 +20,7 @@ erealloc(void *v, ulong n)
 {
 	v = realloc(v, n);
 	if(v == nil)
-{
-abort();
 		sysfatal("out of memory");
-}
 	setrealloctag(v, getcallerpc(&n));
 	return v;
 }

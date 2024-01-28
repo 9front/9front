@@ -84,7 +84,6 @@ blockread(int in, char *first, int nfirst)
 			break;
 	}
 	_exits(0);
-	return -1;
 }
 
 void

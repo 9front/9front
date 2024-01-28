@@ -123,5 +123,4 @@ main(int argc, char **argv)
 		else
 			exits(w->msg);
 	}
-	assert(0);
 }

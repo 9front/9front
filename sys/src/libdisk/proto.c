@@ -514,7 +514,6 @@ loop:
 	if(memchr(p, 0, Blinelen(mkaux->b)) != nil){
 		warn(mkaux, "null bytes in proto");
 		longjmp(mkaux->jmp, 1);
-		return nil;
 	}
 	while((c = *p++) != '\n')
 		if(c == ' ')

@@ -1206,5 +1206,4 @@ armalloc(int n)
 	} while (getspace());
 	fprint(2, "ar: out of memory\n");
 	exits("malloc");
-	return 0;
 }

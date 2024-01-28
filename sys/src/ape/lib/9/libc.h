@@ -160,7 +160,7 @@ extern	vlong	_NSEC(void);
 
 int errstr(char*, unsigned int);
 void rerrstr(char*, unsigned int);
-extern void sysfatal(char*, ...);
+extern _Noreturn void sysfatal(char*, ...);
 
 extern	void		setmalloctag(void*, uintptr_t);
 extern	void		setrealloctag(void*, uintptr_t);

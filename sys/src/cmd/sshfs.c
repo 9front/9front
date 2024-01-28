@@ -358,10 +358,8 @@ sendpkt(char *fmt, ...)
 	va_start(a, fmt);
 	n = vpack(buf+4, sizeof(buf)-4, fmt, a);
 	va_end(a);
-	if(n < 0) {
+	if(n < 0)
 		sysfatal("sendpkt: message too big");
-		return;
-	}
 	PUT4(buf, n);
 	n += 4;
 

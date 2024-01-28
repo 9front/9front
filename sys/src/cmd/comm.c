@@ -173,5 +173,4 @@ openfil(char *s)
 		return b;
 	fprint(2,"comm: cannot open %s: %r\n",s);
 	exits("open");
-	return 0;	/* shut up ken */
 }

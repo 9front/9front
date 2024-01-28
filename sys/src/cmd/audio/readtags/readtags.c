@@ -37,7 +37,6 @@ tag(Tagctx *ctx, int t, const char *k, const char *v, int offset, int size, Tagr
 	if(image){
 		if(t != Timage)
 			return;
-		prog = nil;
 		if(strcmp(v, "image/jpeg") == 0)
 			prog = "jpg";
 		else if(strcmp(v, "image/png") == 0)

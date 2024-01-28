@@ -1,6 +1,6 @@
 #include <u.h>
 #include <libc.h>
-void
+_Noreturn void
 abort(void)
 {
 	while(*(int*)0)

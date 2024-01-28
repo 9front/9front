@@ -235,7 +235,6 @@ out:
 	return t != TEOF;
 syntax:
 	sysfatal("syntax error");
-	return 0;
 }
 
 int oneflag, multiflag;

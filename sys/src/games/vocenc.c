@@ -54,7 +54,6 @@ mkdesc(char *f)
 	return d;
 Bad:
 	sysfatal("bad format: %s", f);
-	return d;
 }
 
 int
@@ -72,7 +71,6 @@ codec(Rune r)
 	default:
 		sysfatal("bad format");
 	}
-	return -1;
 }
 
 void

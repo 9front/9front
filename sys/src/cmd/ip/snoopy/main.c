@@ -251,7 +251,6 @@ _filterpkt(Filter *f, Msg *m)
 		return _filterpkt(f->l, m);
 	}
 	sysfatal("internal error: filterpkt op: %d", f->op);
-	return 0;
 }
 int
 filterpkt(Filter *f, uchar *ps, uchar *pe, Proto *pr, int needroot)

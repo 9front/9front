@@ -246,7 +246,6 @@ lex(char **s)
 			return t;
 		}
 	sysfatal("syntax error at %s", *s);
-	return nil;
 }
 
 void

@@ -30,7 +30,6 @@ codec(int c)
 	default:
 		sysfatal("unsupported");
 	}
-	return nil;
 }
 
 void

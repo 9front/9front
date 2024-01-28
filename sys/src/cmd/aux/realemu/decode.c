@@ -555,7 +555,6 @@ otherlen(int a)
 	else if(a == 4)
 		return 2;
 	abort();
-	return 0;
 }
 
 void

@@ -127,7 +127,6 @@ main(int argc, char **argv)
 		relocs = 1;
 		break;
 	default:
-		SET(arch, chars);
 		sysfatal("archloch");
 	}
 	szofdat = fhdr.txtsz + fhdr.datsz;

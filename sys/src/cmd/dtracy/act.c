@@ -378,10 +378,10 @@ receval(Node *n, uchar *p, uchar *e, Enab *en)
 				return mkval(VALINT, v);
 			case DTV_PROBE:
 				return mkval(VALSTR, en->probe);
-			default: sysfatal("receval: unknown variable %d", n->type); return mkval(VALINT, 0LL);
+			default: sysfatal("receval: unknown variable %d", n->type);
 			}
 			break;
-		default: sysfatal("receval: unknown symbol type %d", n->type); return mkval(VALINT, 0LL);
+		default: sysfatal("receval: unknown symbol type %d", n->type);
 		}
 	case ONUM: return mkval(VALINT, n->num);
 	case OBIN:
@@ -420,7 +420,6 @@ receval(Node *n, uchar *p, uchar *e, Enab *en)
 		}
 	default:
 		sysfatal("receval: unknown type %α", n->type);
-		return mkval(VALINT, 0LL);
 	}
 }
 

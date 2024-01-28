@@ -45,7 +45,6 @@ regread(u16int a)
 		return (~z80bus & BUSACK) >> 1;
 	}
 	sysfatal("read from 0xa1%.4ux (pc=%#.6ux)", a, curpc);
-	return 0;
 }
 
 void
@@ -191,7 +190,6 @@ memread(u32int a)
 	default:
 	invalid:
 		sysfatal("read from %#.6ux (pc=%#.6ux)", a, curpc);
-		return 0;
 	}
 }
 

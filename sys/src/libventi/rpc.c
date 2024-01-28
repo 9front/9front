@@ -168,7 +168,6 @@ muxrpc(VtConn *z, Packet *p)
 	tag = top[1];
 	if((r = z->wait[tag]) == nil){
 		fprint(2, "libventi: unexpected packet tag %d in vtrpc\n", tag);
-abort();
 		packetfree(p);
 		return;
 	}

@@ -416,7 +416,7 @@ extern	int	dec16chr(int);
 extern	int	enc16chr(int);
 
 extern	int	encodefmt(Fmt*);
-extern	void	exits(char*);
+extern	_Noreturn void	exits(char*);
 extern	double	frexp(double, int*);
 extern	uintptr	getcallerpc(void*);
 extern	char*	getenv(char*);
@@ -427,7 +427,7 @@ extern	char*	getwd(char*, int);
 extern	int	iounit(int);
 extern	long	labs(long);
 extern	double	ldexp(double, int);
-extern	void	longjmp(jmp_buf, int);
+extern	_Noreturn void	longjmp(jmp_buf, int);
 extern	char*	mktemp(char*);
 extern	double	modf(double, double*);
 extern	int	netcrypt(void*, void*);
@@ -443,7 +443,7 @@ extern	long	strtol(char*, char**, int);
 extern	ulong	strtoul(char*, char**, int);
 extern	vlong	strtoll(char*, char**, int);
 extern	uvlong	strtoull(char*, char**, int);
-extern	void	sysfatal(char*, ...);
+extern	_Noreturn void	sysfatal(char*, ...);
 #pragma	varargck	argpos	sysfatal	1
 extern	void	syslog(int, char*, char*, ...);
 #pragma	varargck	argpos	syslog	3
@@ -690,9 +690,9 @@ struct IOchunk
 	ulong	len;
 } IOchunk;
 
-extern	void	_exits(char*);
+extern	_Noreturn void	_exits(char*);
 
-extern	void	abort(void);
+extern	_Noreturn void	abort(void);
 extern	int	access(char*, int);
 extern	long	alarm(ulong);
 extern	int	await(char*, int);

@@ -40,7 +40,6 @@ static int	no_box;
 extern int	ntrail, s_trail, pno, depth;
 extern Symbol	*oFname;
 
-extern void	exit(int);
 extern void	putpostlude(void);
 
 static void	putpages(void);

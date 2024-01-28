@@ -165,7 +165,6 @@ setup(int *v6net, int *tunp)
 
 	cl = smprint("%s/ipifc/clone", inside);
 	cfd = open(cl, ORDWR);			/* allocate a conversation */
-	n = 0;
 	if (cfd < 0 || (n = read(cfd, buf, sizeof buf - 1)) <= 0)
 		sysfatal("can't make packet interface %s: %r", cl);
 	if (debug)

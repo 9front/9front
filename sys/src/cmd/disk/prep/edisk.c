@@ -368,10 +368,8 @@ getblock(Disk *disk, vlong addr)
 			return b->data;
 	}
 	b = malloc(sizeof(Block) + 2*disk->secsize);
-	if(pread(disk->fd, b->data, disk->secsize, disk->secsize*addr) != disk->secsize){
+	if(pread(disk->fd, b->data, disk->secsize, disk->secsize*addr) != disk->secsize)
 		sysfatal("getblock %llud: %r", addr);
-		return nil;
-	}
 	b->save = &b->data[disk->secsize];
 	memmove(b->save, b->data, disk->secsize);
 

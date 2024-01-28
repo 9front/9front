@@ -60,7 +60,7 @@ Edit edit = {
  * Catch the obvious error routines to fix up the disk.
  */
 void
-sysfatal(char *fmt, ...)
+diskfatal(char *fmt, ...)
 {
 	char buf[1024];
 	va_list arg;
@@ -79,11 +79,25 @@ sysfatal(char *fmt, ...)
 	exits(buf);
 }
 
-void
-abort(void)
+void*
+errmalloc(ulong sz)
 {
-	fprint(2, "abort\n");
-	recover(&edit);
+	void *v;
+
+	v = malloc(sz);
+	if(v == nil)
+		diskfatal("malloc %lud fails", sz);
+	memset(v, 0, sz);
+	return v;
+}
+
+char*
+errstrdup(char *s)
+{
+	s = strdup(s);
+	if(s == nil)
+		diskfatal("strdup (%.10s) fails", s);
+	return s;
 }
 
 void
@@ -375,9 +389,9 @@ static void
 diskread(Disk *disk, void *data, int ndata, u32int sec, u32int off)
 {
 	if(seek(disk->fd, (vlong)sec*disk->secsize+off, 0) != (vlong)sec*disk->secsize+off)
-		sysfatal("diskread seek %lud.%lud: %r", (ulong)sec, (ulong)off);
+		diskfatal("diskread seek %lud.%lud: %r", (ulong)sec, (ulong)off);
 	if(readn(disk->fd, data, ndata) != ndata)
-		sysfatal("diskread %lud at %lud.%lud: %r", (ulong)ndata, (ulong)sec, (ulong)off);
+		diskfatal("diskread %lud at %lud.%lud: %r", (ulong)ndata, (ulong)sec, (ulong)off);
 }
 
 static int
@@ -403,11 +417,11 @@ mkpart(char *name, vlong lba, vlong size, Tentry *t, vlong ebrstart, int ebrtype
 	Dospart *p;
 
 	primary = (ebrstart == 0) && (ebrtype == 0);
-	p = emalloc(sizeof(*p));
+	p = errmalloc(sizeof(*p));
 	if(name)
-		p->name = estrdup(name);
+		p->name = errstrdup(name);
 	else{
-		p->name = emalloc(20);
+		p->name = errmalloc(20);
 		sprint(p->name, "%c%d", primary ? 'p' : 's', ++n);
 	}
 
@@ -452,7 +466,7 @@ addrecover(Table t, ulong lba)
 	if((nrtab%8) == 0) {
 		rtab = realloc(rtab, (nrtab+8)*sizeof(rtab[0]));
 		if(rtab == nil)
-			sysfatal("out of memory");
+			diskfatal("out of memory");
 	}
 	rtab[nrtab] = (Recover){t, lba};
 	nrtab++;
@@ -550,7 +564,7 @@ findmbr(Edit *edit)
 
 	diskread(edit->disk, &table, Tablesize, 0, Toffset);
 	if(table.magic[0] != Magic0 || table.magic[1] != Magic1)
-		sysfatal("did not find master boot record");
+		diskfatal("did not find master boot record");
 }
 
 static int
@@ -693,7 +707,7 @@ plan9print(Dospart *part, int fd)
 		sep = "";
 
 	i = 0;
-	name = emalloc(strlen(vname)+10);
+	name = errmalloc(strlen(vname)+10);
 
 	sprint(name, "%s", vname);
 	do {
@@ -707,7 +721,7 @@ plan9print(Dospart *part, int fd)
 		}
 	} while(ok == 0);
 
-	n = emalloc(sizeof(*n));
+	n = errmalloc(sizeof(*n));
 	n->name = name;
 	n->link = namelist;
 	namelist = n;
@@ -1130,7 +1144,7 @@ wrpart(Edit *edit)
 		memset(tp, 0, sizeof(*tp));
 		
 	if(i != edit->npart)
-		sysfatal("cannot happen #1");
+		diskfatal("cannot happen #1");
 
 	if(diskwrite(disk, &table, Tablesize, 0, Toffset) < 0)
 		recover(edit);

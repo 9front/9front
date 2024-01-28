@@ -181,7 +181,6 @@ conv(char *name, int from)
 			return(c);
 	}
 	sysfatal("charset `%s' unknown", name);
-	return(0);	/* just shut the compiler up */
 }
 
 static int

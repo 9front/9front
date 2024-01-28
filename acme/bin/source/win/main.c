@@ -98,7 +98,6 @@ command(Window *w, char *s)
 	if(strcmp(s, "Delete")==0 || strcmp(s, "Del")==0){
 		windel(w, 1);
 		threadexitsall(nil);
-		return 1;
 	}
 	if(EQUAL(s, "scroll")){
 		ctlprint(w->ctl, "scroll\nshow");

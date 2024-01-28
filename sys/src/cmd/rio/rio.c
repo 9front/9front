@@ -335,8 +335,6 @@ shutdown(void *, char *msg)
 		}
 	fprint(2, "rio %d: abort: %s\n", getpid(), msg);
 	abort();
-	exits(msg);
-	return 0;
 }
 
 void

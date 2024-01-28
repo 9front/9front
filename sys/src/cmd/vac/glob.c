@@ -131,7 +131,6 @@ loadexcludefile(char *file)
 			continue;
 		}
 		
-		inc = 0;
 		if(strncmp(p, "include ", 8) == 0){
 			inc = 1;
 		}else if(strncmp(p, "exclude ", 8) == 0){

@@ -165,7 +165,6 @@ scribctl(Control *c, CParse *cp)
 	cmd = _ctllookup(cp->args[0], cmds, nelem(cmds));
 	switch(cmd){
 	default:
-		abort();
 		ctlerror("%q: unrecognized message '%s'", b->name, cp->str);
 		break;
 	case EAlign:

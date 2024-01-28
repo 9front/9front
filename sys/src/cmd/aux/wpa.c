@@ -241,10 +241,8 @@ buildrsne(uchar rsne[258])
 		return 0;	/* not an error, might be old kernel */
 
 	brsnelen = hextob(buf, nil, brsne, sizeof(brsne));
-	if(brsnelen <= 4){
+	if(brsnelen <= 4)
 trunc:		sysfatal("invalid or truncated RSNE; brsne: %s", buf);
-		return 0;
-	}
 
 	w = rsne;
 	p = brsne;
@@ -257,10 +255,8 @@ trunc:		sysfatal("invalid or truncated RSNE; brsne: %s", buf);
 		*w++ = 0;	/* length */
 	} else if(p[0] == 0xDD){
 		p += 2;
-		if((e - p) < 4 || memcmp(p, wpa1oui, 4) != 0){
+		if((e - p) < 4 || memcmp(p, wpa1oui, 4) != 0)
 			sysfatal("unrecognized WPAIE type; brsne: %s", buf);
-			return 0;
-		}
 
 		/* WPA */
 		*w++ = 0xDD;
@@ -269,10 +265,8 @@ trunc:		sysfatal("invalid or truncated RSNE; brsne: %s", buf);
 		memmove(w, wpa1oui, 4);
 		w += 4;
 		p += 4;
-	} else {
+	} else
 		sysfatal("unrecognized RSNE type; brsne: %s", buf);
-		return 0;
-	}
 
 	if((e - p) < 6)
 		goto trunc;
@@ -285,15 +279,11 @@ trunc:		sysfatal("invalid or truncated RSNE; brsne: %s", buf);
 			groupcipher = &ccmp;
 		else if(memcmp(p, rsntkipoui, 4) == 0)
 			groupcipher = &tkip;
-		else {
+		else
 			sysfatal("unrecognized RSN group cipher; brsne: %s", buf);
-			return 0;
-		}
 	} else {
-		if(memcmp(p, wpatkipoui, 4) != 0){
+		if(memcmp(p, wpatkipoui, 4) != 0)
 			sysfatal("unrecognized WPA group cipher; brsne: %s", buf);
-			return 0;
-		}
 		groupcipher = &tkip;
 	}
 
@@ -365,10 +355,8 @@ trunc:		sysfatal("invalid or truncated RSNE; brsne: %s", buf);
 		}
 		p += 4;
 	}
-	if(i >= n){
+	if(i >= n)
 		sysfatal("auth suite is not PSK or WPA; brsne: %s", buf);
-		return 0;
-	}
 
 	memmove(w, p, 4);
 	w += 4;
@@ -1146,7 +1134,6 @@ background(void)
 		exits(nil);
 	case -1:
 		sysfatal("fork: %r");
-		return;
 	case 0:
 		break;
 	}

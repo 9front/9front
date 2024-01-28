@@ -101,10 +101,8 @@ adddirec(Direc *root, char *name, XDir *d)
 	if((p = strrchr(name, '/')) != nil) {
 		*p = '\0';
 		root = walkdirec(root, name);
-		if(root == nil) {
+		if(root == nil)
 			sysfatal("error in proto file: no entry for /%s but /%s/%s", name, name, p+1);
-			return nil;
-		}
 		*p = '/';
 		p++;
 	} else

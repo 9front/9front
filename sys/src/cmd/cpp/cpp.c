@@ -34,7 +34,6 @@ main(int argc, char **argv)
 	flushout();
 	fflush(stderr);
 	exits(nerrs? "errors" : 0);
-	return 0;
 }
 
 void

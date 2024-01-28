@@ -268,8 +268,6 @@ mail(Fs *f, char *rcvr, char *user, long et)
 
 	/* just in case */
 	sysfatal("can't exec send: %r");
-
-	return 0;		/* for compiler */
 }
 
 void

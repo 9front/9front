@@ -162,7 +162,6 @@ walk(uchar score[VtScoreSize], uint type, int base)
 	}
 	if(!rewrite && memcmp(score, nscore, VtScoreSize) != 0){
 		fprint(2, "not rewriting: wrote %V got %V\n", score, nscore);
-		abort();
 		sysfatal("not rewriting: wrote %V got %V", score, nscore);
 	}
 	

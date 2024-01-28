@@ -293,7 +293,6 @@ editquit(Edit *edit, int argc, char**)
 	}
 
 	exits(0);
-	return nil;	/* not reached */
 }
 
 char*

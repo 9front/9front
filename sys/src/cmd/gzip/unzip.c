@@ -536,7 +536,6 @@ findCDir(Biobuf *bin, char *file)
 	if(ecoff < 0){
 		fprint(2, "unzip: can't seek to contents of %s\n", file);
 		longjmp(seekjmp, 1);
-		return -1;
 	}
 	if(setjmp(zjmp))
 		return -1;
@@ -545,7 +544,6 @@ findCDir(Biobuf *bin, char *file)
 		if(ecoff <= 0 || off >= 1024){
 			fprint(2, "unzip: cannot find end of table of contents in %s\n", file);
 			longjmp(seekjmp, 1);
-			return -1;
 		}
 		off++;
 		ecoff--;
@@ -572,7 +570,6 @@ findCDir(Biobuf *bin, char *file)
 	if(Bseek(bin, off, 0) != off){
 		fprint(2, "unzip: can't seek to start of contents of %s\n", file);
 		longjmp(seekjmp, 1);
-		return -1;
 	}
 
 	return entries;

@@ -569,7 +569,6 @@ mkdesc(char *f)
 	return d;
 Bad:
 	sysfatal("bad format: %s", f);
-	return d;
 }
 
 int
@@ -608,8 +607,8 @@ main(int argc, char *argv[])
 	int k, n, m, nin, nout;
 	vlong l;
 
-	void (*oconv)(int *, uchar *, int, int, int) = nil;
-	void (*iconv)(int *, uchar *, int, int, int) = nil;
+	void (*oconv)(int *, uchar *, int, int, int);
+	void (*iconv)(int *, uchar *, int, int, int);
 
 	o = mkdesc("s16c2r44100");
 	i = o;

@@ -236,5 +236,4 @@ vaddr(ulong addr)
 	}
 	Bprint(bioout, "data_access_MMU_miss [addr 0x%.8lux]\n", addr);
 	longjmp(errjmp, 0);
-	return 0;		/*to stop compiler whining*/
 }

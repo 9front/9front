@@ -87,8 +87,8 @@ int	sendp(Channel *c, void *v);
 int	sendul(Channel *c, ulong v);
 int	threadcreate(void (*f)(void *arg), void *arg, uint stacksize);
 void**	threaddata(void);
-void	threadexits(char *);
-void	threadexitsall(char *);
+_Noreturn void	threadexits(char *);
+_Noreturn void	threadexitsall(char *);
 int	threadgetgrp(void);	/* return thread group of current thread */
 char*	threadgetname(void);
 void	threadint(int);		/* interrupt thread */

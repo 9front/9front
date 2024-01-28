@@ -10,7 +10,7 @@ int _sessleader = 0;
 
 static char exitstatus[ERRMAX];
 
-void
+_Noreturn void
 _exit(int status)
 {
 	_finish(status, 0);

@@ -133,7 +133,6 @@ getcmd(char *l)
 			return cmd;
 	}
 	sysfatal("getcmd: no such command %s", l);
-	return NOCMD;
 }
 
 void

@@ -34,7 +34,6 @@ getfolder(Biobuf *out)
 			return f;
 	}
 	sysfatal("folder.c:ftab too small");
-	return 0;
 }
 
 static int

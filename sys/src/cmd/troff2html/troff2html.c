@@ -490,7 +490,6 @@ setnum(Biobuf *b, char *name, int min, int max)
 	if(min<=i && i<max)
 		return i;
 	sysfatal("value of %s is %d; min %d max %d at %s:#%d", name, i, min, max, filename, cno);
-	return i;
 }
 
 void

@@ -169,7 +169,6 @@ value(int c, int f)
 		return(-1);
 	fprint(2, "%s: bad input char %c\n", argv0, c);
 	exits("bad");
-	return 0;	/* to keep ken happy */
 }
 int
 isnum(char *s)

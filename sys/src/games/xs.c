@@ -887,5 +887,4 @@ threadmain(int argc, char *argv[])
 			points, getuser(), starttime, endtime-starttime);
 	}
 	threadexitsall(nil);
-	exits(0);
 }

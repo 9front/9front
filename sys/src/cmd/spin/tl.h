@@ -95,7 +95,6 @@ void	a_stats(void);
 void	addtrans(Graph *, char *, Node *, char *);
 void	cache_stats(void);
 void	dump(Node *);
-void	exit(int);
 void	Fatal(char *, char *);
 void	fatal(char *, char *);
 void	fsm_print(void);

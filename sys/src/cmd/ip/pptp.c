@@ -701,7 +701,6 @@ thread(void(*f)(void*), void *a)
 		return pid;
 	(*f)(a);
 	_exits(nil);
-	return 0; // never reaches here
 }
 
 void

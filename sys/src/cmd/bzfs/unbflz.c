@@ -104,5 +104,4 @@ unbflz(int in)
 	close(in);
 	close(out);
 	_exits(0);
-	return -1;
 }

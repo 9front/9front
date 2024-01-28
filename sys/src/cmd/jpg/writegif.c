@@ -566,7 +566,6 @@ gifmalloc(ulong sz)
 	v = malloc(sz);
 	if(v == nil) {
 		fprint(2, "WriteGIF: out of memory allocating %ld\n", sz);
-abort();
 		exits("mem");
 	}
 	memset(v, 0, sz);

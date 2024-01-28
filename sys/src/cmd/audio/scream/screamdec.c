@@ -53,7 +53,6 @@ main(void)
 					dup(pfd[0], 0);
 					execl("/bin/audio/pcmconv", "pcmconv", "-i", fmt, nil);
 					sysfatal("exec: %r");
-					return;
 				}
 				close(pfd[0]);
 			}

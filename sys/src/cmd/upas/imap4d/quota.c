@@ -21,7 +21,6 @@ openpipe(int *pip, char *cmd, char *av[])
 		exec(cmd, av);
 		ilog("exec: %r");
 		_exits("b0rked");
-		return -1;
 	default:
 		*pip = fd[0];
 		close(fd[1]);

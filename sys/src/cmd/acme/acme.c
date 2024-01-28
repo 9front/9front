@@ -286,7 +286,6 @@ shutdown(void*, char *msg)
 			threadexitsall(msg);
 	print("acme: %s\n", msg);
 	abort();
-	return 0;
 }
 
 void

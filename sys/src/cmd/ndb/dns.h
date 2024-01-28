@@ -437,7 +437,6 @@ extern ulong	target;
 
 RR*	getdnsservers(int);
 
-void	abort(); /* char*, ... */;
 void	addserver(Server**, char*);
 int	bslashfmt(Fmt*);
 Server*	copyserverlist(Server*);

@@ -36,7 +36,6 @@ main(int argc, char **argv)
 	if(argc > 1)
 		usage();
 
-	n = -1;
 	if((k = getrsakey(argc, argv, privatekey, nil)) == nil)
 		sysfatal("%r");
 	if(privatekey){

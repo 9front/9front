@@ -628,7 +628,6 @@ conssim(void)
 		close(fd);
 	}
 	exits(0);
-	return -1;
 }
 
 int

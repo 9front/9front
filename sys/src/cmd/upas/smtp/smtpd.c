@@ -474,7 +474,6 @@ hello(String *himp, int extended)
 		rejectcount++;
 		reply("554 5.7.0 Liar!\r\n");
 		exits("client pretended to be us");
-		return;
 	}
 
 	if(strchr(him, '.') == 0 && nci != nil && strchr(nci->rsys, '.') != nil)

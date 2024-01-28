@@ -235,7 +235,6 @@ getcol(Meta *m, int c)
 	static char tmp[32];
 	char *s;
 
-	s = nil;
 	switch(c){
 	case Palbum: s = m->album; break;
 	case Partist: s = m->artist[0]; break;

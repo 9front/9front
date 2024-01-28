@@ -228,7 +228,6 @@ send(int fd)
 		write(fd, buf, 0);
 
 	exits(0);
-	return 0;			/* to keep compiler happy */
 }
 
 void

@@ -16,7 +16,6 @@ main(int argc, char *argv[])
 	usage:
 		fprint(2, "usage: chgrp [ -uo ] group file ....\n");
 		exits("usage");
-		return;
 	case 'u':
 	case 'o':
 		uflag++;

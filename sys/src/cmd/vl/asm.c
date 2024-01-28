@@ -1472,7 +1472,6 @@ opirr(int a)
 	case AADDVU:		return SP(3,1);
 	}
 	diag("bad irr %d", a);
-abort();
 	return 0;
 }
 

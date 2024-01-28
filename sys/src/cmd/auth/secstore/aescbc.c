@@ -149,5 +149,4 @@ main(int argc, char **argv)
 	if(Bflush(&bout) != 0)
 		sysfatal("write: %r");
 	exits(nil);
-	return 1;  /* keep  other compilers happy */
 }

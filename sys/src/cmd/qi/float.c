@@ -468,7 +468,6 @@ fcmp(ulong ir)
 		if(trace)
 			itrace("fcmpo\tcr%d,f%d,f%d", rd, ra, rb);
 		if(isNaN(reg.fd[ra]) || isNaN(reg.fd[rb])) {	/* BUG: depends whether quiet or signalling ... */
-			fc = CRFU;
 			Bprint(bioout, "invalid_fp_register\n");
 			longjmp(errjmp, 0);
 		}

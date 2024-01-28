@@ -343,10 +343,8 @@ mkasn1(uchar *asn1, char *alg, uchar *d, uint dlen)
 	}else if(strcmp(alg, "sha256") == 0){
 		obj = oidsha256;
 		olen = sizeof(oidsha256);
-	}else{
+	}else
 		sysfatal("bad alg in mkasn1");
-		return -1;
-	}
 
 	p = asn1;
 	*p++ = 0x30;		/* sequence */

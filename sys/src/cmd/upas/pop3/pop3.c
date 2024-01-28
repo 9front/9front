@@ -488,7 +488,6 @@ quitcmd(char*)
 {
 	synccmd(nil);
 	exits(nil);
-	return 0;
 }
 
 static int

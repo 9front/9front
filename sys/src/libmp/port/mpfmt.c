@@ -243,7 +243,6 @@ mptoa(mpint *b, int base, char *buf, int len)
 		break;
 	default:
 		abort();
-		return nil;
 	}
 	if(rv < 0){
 		if(alloced)

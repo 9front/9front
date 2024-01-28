@@ -66,10 +66,8 @@ main(int argc, char *argv[])
 
 	if (argc > 0) {
 		close(0);
-		if (open(argv[0], 0) != 0) {
+		if (open(argv[0], 0) != 0)
 			sysfatal("can't open %s: %r", argv[0]);
-			exits("open failure");
-		}
 		if(dotrack)
 			track = argv[0];
 	}

@@ -83,7 +83,6 @@ msg(Biobuf *b)
 		sleep(1000);
 		while(!die && (k = eread(Ekeyboard|Emouse, &e))) {
 			if(nokill==0 && k == Ekeyboard && (e.kbdc == Kdel || e.kbdc == Ketx)) {
-				die = 1;
 				postnote(PNPROC, parent, "interrupt");
 				_exits("interrupt");
 			}

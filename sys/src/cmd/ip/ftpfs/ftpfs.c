@@ -253,7 +253,6 @@ kaproc(void)
 	}
 
 	_exits(0);
-	return -1;
 }
 
 void

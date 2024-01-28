@@ -6,7 +6,7 @@
 char *_threadexitsallstatus;
 Channel *_threadwaitchan;
 
-void
+_Noreturn void
 threadexits(char *exitstr)
 {
 	Proc *p;
@@ -21,7 +21,7 @@ threadexits(char *exitstr)
 	_sched();
 }
 
-void
+_Noreturn void
 threadexitsall(char *exitstr)
 {
 	Proc *p;

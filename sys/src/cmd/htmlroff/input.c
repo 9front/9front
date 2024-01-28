@@ -194,10 +194,8 @@ top:
 			goto top;
 		}
 		r = c;
-	}else{
-		r = 0;
+	}else
 		sysfatal("getrune - can't happen");
-	}
 	if(r == '\n')
 		istack->lineno++;	
 	return r;
