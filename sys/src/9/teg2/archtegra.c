@@ -850,18 +850,9 @@ archflashwp(Flash*, int)
  * return -1 on error (no flash)
  */
 int
-archflashreset(int bank, Flash *f)
+archflashreset(int bank, Flash *)
 {
 	if(bank != 0)
 		return -1;
-panic("archflashreset: rewrite for nor & nand flash on ts");
-	/*
-	 * this is set up for the igepv2 board.
-	 */
-	f->type = "onenand";
-	f->addr = (void*)VIRTNOR;		/* mapped here by archreset */
-	f->size = 0;				/* done by probe */
-	f->width = 1;
-	f->interleave = 0;
-	return 0;
+	panic("archflashreset: rewrite for nor & nand flash on ts");
 }

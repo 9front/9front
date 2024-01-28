@@ -804,8 +804,8 @@ datafault(Ureg *ureg, int user)
 void
 trap(Ureg *ureg)
 {
-	int user, rem;
 	uintptr va, ifar, ifsr;
+	int user;
 
 	user = kenter(ureg);
 	/*

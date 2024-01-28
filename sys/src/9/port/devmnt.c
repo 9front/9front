@@ -362,7 +362,6 @@ static Chan*
 noattach(char *)
 {
 	error(Enoattach);
-	return nil;
 }
 
 static Chan*
@@ -1281,7 +1280,6 @@ alloctag(void)
 		return i<<TAGSHIFT | j;
 	}
 	panic("no friggin tags left");
-	return NOTAG;
 }
 
 static void

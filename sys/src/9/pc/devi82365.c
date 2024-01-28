@@ -802,7 +802,6 @@ i82365read(Chan *c, void *a, long n, vlong off)
 		return n;
 	}
 	error(Ebadarg);
-	return -1;	/* not reached */
 }
 
 static long
@@ -877,7 +876,6 @@ i82365write(Chan *c, void *a, long n, vlong off)
 		return n;
 	}
 	error(Ebadarg);
-	return -1;	/* not reached */
 }
 
 Dev i82365devtab = {

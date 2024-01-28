@@ -403,7 +403,6 @@ udpiput(Proto *udp, Ipifc *ifc, Block *bp)
 		break;
 	default:
 		panic("udpiput: version %d", version);
-		return;	/* to avoid a warning */
 	}
 
 	qlock(udp);
@@ -498,7 +497,6 @@ Noconv:
 		bp = trimblock(bp, UDP6_IPHDR_SZ+UDP_UDPHDR_SZ, len);
 		break;
 	default:
-		bp = nil;
 		panic("udpiput4: version %d", version);
 	}
 	if(bp == nil){

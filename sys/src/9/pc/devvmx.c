@@ -1201,7 +1201,6 @@ cmdquit(VmCmd *p, va_list va)
 	
 	cmdrelease(p, 0);
 	pexit(Equit, 1);
-	return 0;
 }
 
 static void
@@ -2118,7 +2117,6 @@ vmxread(Chan* c, void* a, long n, vlong off)
 		error(Egreg);
 		break;
 	}
-	return 0;
 }
 
 static long

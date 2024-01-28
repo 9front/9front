@@ -993,7 +993,6 @@ findfirmware(char *file)
 		c = namec(nbuf, Aopen, OREAD, 0);
 		poperror();
 	}else{
-		c = nil;
 		snprint(up->genbuf, sizeof up->genbuf, "can't find %s in /boot or /lib/firmware", file);
 		error(up->genbuf);
 	}

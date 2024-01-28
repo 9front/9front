@@ -876,7 +876,6 @@ isotiming(Ep *ep)
 		break;
 	default:
 		error(Egreg);
-		return;
 	}
 
 	if(ep->ntds <= 0)

@@ -349,7 +349,6 @@ arpenter(Fs *fs, int version, uchar *ip, uchar *mac, int maclen, uchar *ia, Ipif
 		break;
 	default:
 		panic("arpenter: version %d", version);
-		return -1;	/* to supress warnings */
 	}
 
 	if(r == nil || r->ifc != ifc || (r->type & (Rbcast|Rmulti)) != 0)

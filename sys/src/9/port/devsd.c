@@ -1389,8 +1389,6 @@ sdwrite(Chan* c, void* a, long n, vlong off)
 		 * "ata arg..." invokes sdifc[i]->wtopctl(nil, cb),
 		 * where sdifc[i]->name=="ata" and cb contains the args.
 		 */
-		ifc = nil;
-		sdev = nil;
 		for(i=0; sdifc[i] != nil; i++){
 			if(strcmp(sdifc[i]->name, f0) == 0){
 				ifc = sdifc[i];

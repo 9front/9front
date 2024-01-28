@@ -2720,7 +2720,6 @@ tcpoutput(Conv *s)
 			hbp = htontcp6(&seg, bp, &tcb->protohdr.tcp6hdr, tcb);
 			break;
 		default:
-			hbp = nil;	/* to suppress a warning */
 			panic("tcpoutput: version %d", version);
 		}
 

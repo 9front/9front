@@ -1461,7 +1461,6 @@ parsehashalg(char *p)
 		if(strcmp(p, ha->name) == 0)
 			return ha;
 	error("unsupported hash algorithm");
-	return nil;
 }
 
 typedef struct Encalg Encalg;
@@ -1562,7 +1561,6 @@ parseencalg(char *p)
 		if(strcmp(p, ea->name) == 0)
 			return ea;
 	error("unsupported encryption algorithm");
-	return nil;
 }
 
 static long
@@ -1613,7 +1611,6 @@ tlswrite(Chan *c, void *a, long n, vlong off)
 		break;
 	default:
 		error(Ebadusefd);
-		return -1;
 	}
 
 	cb = parsecmd(a, n);

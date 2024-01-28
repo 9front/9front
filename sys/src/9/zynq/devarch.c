@@ -304,7 +304,6 @@ archread(Chan *c, void *a, long n, vlong offset)
 		return fbctlread(c, a, n, offset);
 	default:
 		error(Egreg);
-		return -1;
 	}
 }
 
@@ -318,7 +317,6 @@ archwrite(Chan *c, void *a, long n, vlong offset)
 		return fbctlwrite(c, a, n, offset);
 	default:
 		error(Egreg);
-		return -1;
 	}
 }
 

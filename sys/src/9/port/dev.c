@@ -443,7 +443,6 @@ Chan*
 devcreate(Chan*, char*, int, ulong)
 {
 	error(Eperm);
-	return 0;
 }
 
 Block*
@@ -489,7 +488,6 @@ int
 devwstat(Chan*, uchar*, int)
 {
 	error(Eperm);
-	return 0;
 }
 
 void
@@ -502,5 +500,4 @@ int
 devconfig(int, char *, DevConf *)
 {
 	error(Eperm);
-	return 0;
 }

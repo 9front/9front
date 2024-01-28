@@ -110,8 +110,6 @@ archread(Chan *c, void *a, long n, vlong offset)
 		error(Eperm);
 		break;
 	}
-
-	return 0;
 }
 
 static long
@@ -122,8 +120,6 @@ archwrite(Chan *c, void *a, long n, vlong offset)
 	if(c->qid.path < narchdir && (fn = writefn[c->qid.path]))
 		return fn(c, a, n, offset);
 	error(Eperm);
-
-	return 0;
 }
 
 void archinit(void);

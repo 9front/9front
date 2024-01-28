@@ -220,7 +220,7 @@ iprint(char *fmt, ...)
 	return n;
 }
 
-void
+_Noreturn void
 panic(char *fmt, ...)
 {
 	int s;
@@ -617,7 +617,6 @@ consread(Chan *c, void *buf, long n, vlong off)
 	
 	case Qmordor:
 		error("one does not simply read from mordor");
-		return 0;
 
 	case Qosversion:
 		snprint(tmp, sizeof tmp, "2000");
@@ -628,7 +627,6 @@ consread(Chan *c, void *buf, long n, vlong off)
 		print("consread %#llux\n", c->qid.path);
 		error(Egreg);
 	}
-	return -1;		/* never reached */
 }
 
 static long
@@ -787,7 +785,6 @@ conswrite(Chan *c, void *va, long n, vlong off)
 	
 	case Qmordor:
 		error("one does not simply write into mordor");
-		return 0;
 
 	default:
 		print("conswrite: %#llux\n", c->qid.path);

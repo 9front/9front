@@ -227,7 +227,6 @@ qspiread(Chan *c, void *a, long n, vlong offset)
 		return doread(offset, a, n);
 	default:
 		error(Egreg);
-		return -1;
 	}
 }
 
@@ -239,7 +238,6 @@ qspiwrite(Chan *c, void *a, long n, vlong offset)
 		return dowrite(offset, a, n);
 	default:
 		error(Egreg);
-		return -1;
 	}
 }
 

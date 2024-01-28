@@ -388,7 +388,6 @@ floppyread(Chan *c, void *a, long n, vlong off)
 	if(c->qid.type & QTDIR)
 		return devdirread(c, a, n, floppydir, 1+fl.ndrive*NFDIR, devgen);
 
-	rv = 0;
 	dp = &fl.d[c->qid.path & ~Qmask];
 	switch ((int)(c->qid.path & Qmask)) {
 	case Qdata:
@@ -439,7 +438,6 @@ floppywrite(Chan *c, void *a, long n, vlong off)
 	Cmdtab *ct;
 	ulong offset = off;
 
-	rv = 0;
 	dp = &fl.d[c->qid.path & ~Qmask];
 	switch ((int)(c->qid.path & Qmask)) {
 	case Qdata:

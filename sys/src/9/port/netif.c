@@ -247,7 +247,6 @@ netifread(Netif *nif, Chan *c, void *a, long n, ulong offset)
 		return 0;
 	}
 	error(Ebadarg);
-	return -1;	/* not reached */
 }
 
 Block*
@@ -548,7 +547,6 @@ openfile(Netif *nif, int id)
 		return fp - nif->f;
 	}
 	error(Enodev);
-	return -1;	/* not reached */
 }
 
 /*

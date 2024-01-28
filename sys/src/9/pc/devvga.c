@@ -177,8 +177,6 @@ vgaread(Chan* c, void* a, long n, vlong off)
 		error(Egreg);
 		break;
 	}
-
-	return 0;
 }
 
 static char Ebusy[] = "vga already configured";
@@ -416,8 +414,6 @@ vgawrite(Chan* c, void* a, long n, vlong off)
 		error(Egreg);
 		break;
 	}
-
-	return 0;
 }
 
 Dev vgadevtab = {

@@ -169,7 +169,6 @@ mpinit(void)
 
 	if(apic == nil){
 		panic("mpinit: no bootstrap processor");
-		return;
 	}
 	apic->online = 1;
 

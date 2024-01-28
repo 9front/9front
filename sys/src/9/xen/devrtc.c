@@ -30,7 +30,6 @@ rtcread(Chan *c, void *a, long n, vlong offset)
 		return readnum((ulong)offset, a, n, xenwallclock(), 12);
 	}
 	error(Ebadarg);
-	return 0;
 }
 
 static long
@@ -41,7 +40,6 @@ rtcwrite(Chan*c, void*, long n, vlong)
 		return n;
 	}
 	error(Eperm);
-	return 0;
 }
 
 static Chan*

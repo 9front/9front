@@ -231,7 +231,6 @@ paddr(void *v)
 	if((uintptr)v >= KZERO)
 		return (uintptr)v-KZERO;
 	panic("paddr: va=%#p pc=%#p", v, getcallerpc(&v));
-	return 0;
 }
 
 void *
@@ -242,7 +241,6 @@ kaddr(uintptr u)
 	if(u < (uintptr)-KZERO)
 		return (void *)(u + KZERO);
 	panic("kaddr: pa=%#p pc=%#p", u, getcallerpc(&u));
-	return nil;
 }
 
 uintptr
@@ -296,7 +294,6 @@ kmap(Page *page)
 			return (KMap *) (KMAP + i * BY2PG);
 		}
 	panic("out of kmap");
-	return nil;
 }
 
 void
@@ -346,7 +343,6 @@ tmpmap(ulong pa)
 			return (void *) ((u - ub) * BY2PG + TMAP);
 		}
 	panic("tmpmap: full (pa=%#.8lux)", pa);
-	return nil;
 }
 
 void

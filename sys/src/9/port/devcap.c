@@ -187,7 +187,6 @@ capread(Chan *c, void *va, long n, vlong)
 		error(Eperm);
 		break;
 	}
-	return n;
 }
 
 static long

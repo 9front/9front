@@ -402,7 +402,6 @@ static long
 ctl(Ether *, void *, long)
 {
 	error(Ebadarg);
-	return -1;
 }
 
 #define Next(x, m)	(((x)+1) & (m))

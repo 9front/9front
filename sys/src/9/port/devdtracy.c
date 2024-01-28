@@ -389,7 +389,6 @@ dtracyread(Chan *c, void *a, long n, vlong off)
 		break;
 	default:
 		error(Egreg);
-		return 0;
 	}
 out:
 	qunlock(&dtracylock);
@@ -422,7 +421,6 @@ dtracywrite(Chan *c, void *a, long n, vlong)
 	switch(FILE(c->qid)){
 	case Qdir:
 		error(Eperm);
-		return 0;
 	case Qctl:
 		cb = parsecmd(a, n);
 		if(waserror()){
@@ -458,7 +456,6 @@ dtracywrite(Chan *c, void *a, long n, vlong)
 		}
 	default:
 		error(Egreg);
-		return 0;
 	}
 	qunlock(&dtracylock);
 	poperror();

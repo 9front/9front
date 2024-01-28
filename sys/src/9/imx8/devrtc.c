@@ -154,7 +154,6 @@ rtcread(Chan* c, void* buf, long n, vlong off)
 		return readnum(offset, buf, n, rtctime(), 12);
 	}
 	error(Ebadarg);
-	return 0;
 }
 
 #define PUTBCD(n,o) bcdclock[o] = (n % 10) | (((n / 10) % 10)<<4)
@@ -204,7 +203,6 @@ rtcwrite(Chan* c, void* buf, long n, vlong off)
 		return n;
 	}
 	error(Ebadarg);
-	return 0;
 }
 
 Dev rtcdevtab = {

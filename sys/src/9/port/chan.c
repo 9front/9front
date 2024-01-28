@@ -1135,7 +1135,6 @@ createdir(Chan *c, Mhead *m)
 		}
 	}
 	error(Enocreate);
-	return 0;
 }
 
 void
@@ -1761,5 +1760,4 @@ dirchanstat(Chan *c)
 		poperror();
 	}
 	error(Eshortstat);
-	return nil;
 }

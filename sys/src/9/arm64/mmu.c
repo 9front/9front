@@ -23,7 +23,6 @@ paddr(void *va)
 	if((uintptr)va >= KZERO)
 		return (uintptr)va-KZERO;
 	panic("paddr: va=%#p pc=%#p", va, getcallerpc(&va));
-	return 0;
 }
 
 uintptr
@@ -40,7 +39,6 @@ kaddr(uintptr pa)
 	if(pa < (uintptr)-KZERO)
 		return (void*)(pa + KZERO);
 	panic("kaddr: pa=%#p pc=%#p", pa, getcallerpc(&pa));
-	return nil;
 }
 
 static void*

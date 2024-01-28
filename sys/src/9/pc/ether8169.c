@@ -425,7 +425,6 @@ rtl8169mii(Ether *edev)
 	
 	if(mii(ctlr->mii, (1<<1)) == 0 || (phy = ctlr->mii->curphy) == nil){
 		error("no phy");
-		return;
 	}
 
 	print("#l%d: rtl8169: oui %#ux phyno %d, macv = %#8.8ux phyv = %#4.4ux\n",

@@ -335,7 +335,6 @@ fault386(Ureg* ureg, void*)
 		//dumpregs(ureg);
 		dumpstack();
 		panic("fault386");
-		exit(1);
 	}
 	
 	user = (ureg->cs & 0xFFFF) == UESEL;

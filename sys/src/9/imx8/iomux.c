@@ -1036,7 +1036,6 @@ iomuxpad(char *pads, char *sel, char *cfg)
 			goto Padok;
 
 	panic("iomuxpad: %s not defined", pads);
-	return;
 Padok:
 	val = 0;
 	mask = 0;
@@ -1090,7 +1089,6 @@ Padok:
 				goto Muxok;
 		}
 		panic("iomuxpad: %s not muxable to %s", pads, sel);
-		return;
 Muxok:
 		val = (val & ~MUX_MODE) | alt;
 		mask |= MUX_MODE;
@@ -1101,7 +1099,6 @@ Muxok:
 
 	if(pad < PAD_PMIC_STBY_REQ){
 		panic("iomuxpad: %s has no mux control", pads);
-		return;
 	}
 
 	reg = &iomuxc[IOMUXC_SW_MUX_CTL_PAD_PMIC_STBY_REQ + (pad - PAD_PMIC_STBY_REQ)];

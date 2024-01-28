@@ -106,7 +106,6 @@ getrregs(int machno)
 		rregs += (0x20000/4);
 	}
 	panic("getrregs: no re-distributor for cpu %d\n", machno);
-	return nil;
 }
 
 void

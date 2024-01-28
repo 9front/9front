@@ -680,7 +680,6 @@ sysexits(va_list list)
 
 	}
 	pexit(status, 1);
-	return 0;	/* not reached */
 }
 
 uintptr
@@ -822,7 +821,6 @@ syssegbrk(va_list list)
 		}
 	}
 	error(Ebadarg);
-	return 0;	/* not reached */
 }
 
 uintptr
@@ -864,7 +862,6 @@ syssegdetach(va_list list)
 		nexterror();
 	}
 
-	s = nil;
 	for(i = 0; i < NSEG; i++)
 		if((s = up->seg[i]) != nil) {
 			qlock(s);

@@ -332,7 +332,6 @@ etherxenctl(Ether *ether, void *buf, long n)
 	}
 	free(cb);
 	error(Ebadctl);
-	return -1;	/* not reached */
 }
 
 static void

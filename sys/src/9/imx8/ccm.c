@@ -978,9 +978,6 @@ enablefracpll(u32int *reg, int ref_sel, int ref_freq, int freq)
 	u32int cfg0, cfg1;
 	vlong v;
 
-	cfg0 = reg[0];
-	cfg1 = reg[1];
-
 	error = freq;
 	for(divq = 2; divq <= 64; divq += 2){
 		for(divr = 2; divr <= 64; divr++){
@@ -1113,7 +1110,6 @@ setanapllout(int input, int freq)
 		if(anapllout_input[mux].input == input)
 			goto Muxok;
 	panic("setanapllout: bad input clock\n");
-	return;
 Muxok:
 	anatop[CCM_ANALOG_PLLOUT_MONITOR_CFG] = mux;
 	if(freq <= 0)
@@ -1121,7 +1117,6 @@ Muxok:
 	div = input_clk_freq[input] / freq;
 	if(div < 1 || div > 8){
 		panic("setanapllout: divider out of range\n");
-		return;
 	}
 	enablepll(input);
 	reg = anapllout_input[mux].reg;
@@ -1130,7 +1125,6 @@ Muxok:
 		anatop[reg] = (anatop[reg] & ~(7<<shift)) | ((div-1)<<shift);
 	} else if(div != 1){
 		panic("setanapllout: bad frequency\n");
-		return;
 	}
 	anatop[CCM_ANALOG_PLLOUT_MONITOR_CFG] |= PLLOUT_MONITOR_CLK_CKE;
 }
@@ -1444,5 +1438,4 @@ getclkrate(char *name)
 		return input_clk_freq[input];
 
 	panic("getclkrate: clock %s not defined", name);
-	return -1;
 }

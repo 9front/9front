@@ -209,7 +209,6 @@ archread(Chan *c, void *a, long n, vlong)
 		return devdirread(c, a, n, archdir, narchdir, devgen);
 	default:
 		error(Egreg);
-		return -1;
 	}
 }
 
@@ -222,7 +221,6 @@ archwrite(Chan *c, void *a, long n, vlong)
 		return n;
 	default:
 		error(Egreg);
-		return -1;
 	}
 }
 

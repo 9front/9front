@@ -160,7 +160,6 @@ fixfault(Segment *s, uintptr addr, int read)
 	switch(s->type & SG_TYPE) {
 	default:
 		panic("fault");
-		return -1;
 
 	case SG_TEXT: 			/* Demand load */
 		if(pagedout(*pg))

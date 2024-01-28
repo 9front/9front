@@ -270,7 +270,6 @@ flashread(Chan *c, void *buf, long n, vlong offset)
 		return n;
 	}
 	error(Egreg);
-	return 0;		/* not reached */
 }
 
 enum {
@@ -383,7 +382,6 @@ flashwrite(Chan *c, void *buf, long n, vlong offset)
 		return n;
 	}
 	error(Egreg);
-	return 0;		/* not reached */
 }
 
 static char*

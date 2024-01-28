@@ -233,7 +233,6 @@ kbdread(Chan *c, void *a, long n, vlong)
 		return devdirread(c, a, n, kbdtab, nelem(kbdtab), devgen);
 
 	error(Egreg);
-	return 0;
 }
 
 static long

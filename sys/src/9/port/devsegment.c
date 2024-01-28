@@ -322,7 +322,6 @@ segmentread(Chan *c, void *a, long n, vlong voff)
 	default:
 		panic("segmentread");
 	}
-	return 0;	/* not reached */
 }
 
 static long
@@ -387,7 +386,6 @@ segmentwrite(Chan *c, void *a, long n, vlong voff)
 	default:
 		panic("segmentwrite");
 	}
-	return 0;	/* not reached */
 }
 
 static int
@@ -532,7 +530,6 @@ fixedseg(uintptr va, ulong len)
 	}
 	unlock(&palloc);
 	error(Enomem);
-	return nil;
 }
 
 Dev segmentdevtab = {

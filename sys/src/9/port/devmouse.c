@@ -498,7 +498,6 @@ mousewrite(Chan *c, void *va, long n, vlong)
 	}
 
 	error(Egreg);
-	return -1;
 }
 
 Dev mousedevtab = {

@@ -1232,7 +1232,7 @@ freenotes(Proc *p)
 	}
 }
 
-void
+_Noreturn void
 pexit(char *exitstr, int freemem)
 {
 	Proc *p;
@@ -1673,7 +1673,7 @@ procctl(void)
 
 #include "errstr.h"
 
-void
+_Noreturn void
 error(char *err)
 {
 	spllo();
@@ -1684,7 +1684,7 @@ error(char *err)
 	nexterror();
 }
 
-void
+_Noreturn void
 nexterror(void)
 {
 	assert(up->nerrlab > 0);

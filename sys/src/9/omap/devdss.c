@@ -137,7 +137,6 @@ screenread(Chan *c, void *a, long n, vlong off)
 	default:
 		error(Egreg);
 	}
-	return 0;
 }
 
 static long
@@ -155,7 +154,6 @@ screenwrite(Chan *c, void *a, long n, vlong off)
 	default:
 		error(Egreg);
 	}
-	return 0;
 }
 
 Dev dssdevtab = {

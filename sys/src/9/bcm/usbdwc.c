@@ -802,7 +802,6 @@ epopen(Ep *ep)
 	switch(ep->ttype){
 	default:
 		error("endpoint type not supported");
-		return;
 	case Tintr:
 		assert(ep->pollival > 0);
 		/* fall through */

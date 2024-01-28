@@ -114,14 +114,12 @@ dupread(Chan *c, void *va, long n, vlong offset)
 		return readstr((ulong)offset, va, n, buf);
 	}
 	panic("dupread");
-	return 0;
 }
 
 static long
 dupwrite(Chan*, void*, long, vlong)
 {
 	error(Eperm);
-	return 0;		/* not reached */
 }
 
 Dev dupdevtab = {

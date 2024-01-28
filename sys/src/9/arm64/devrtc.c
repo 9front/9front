@@ -76,14 +76,12 @@ rtcread(Chan* c, void* buf, long n, vlong off)
 		return readnum(offset, buf, n, rtctime(), 12);
 	}
 	error(Ebadarg);
-	return 0;
 }
 
 static long	 
 rtcwrite(Chan*, void*, long, vlong)
 {
 	error(Eperm);
-	return 0;
 }
 
 Dev rtcdevtab = {

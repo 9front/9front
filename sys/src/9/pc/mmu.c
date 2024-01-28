@@ -831,7 +831,6 @@ kmap(Page *page)
 		}
 	}
 	panic("out of kmap");
-	return nil;
 }
 
 void

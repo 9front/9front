@@ -143,7 +143,6 @@ fdtochan(int fd, int mode, int chkmnt, int iref)
 	Chan *c;
 	Fgrp *f;
 
-	c = nil;
 	f = up->fgrp;
 
 	lock(f);
@@ -847,7 +846,6 @@ sseek(int fd, vlong o, int type)
 	if(devtab[c->type]->dc == L'|')
 		error(Eisstream);
 
-	off = 0;
 	switch(type){
 	case 0:
 		off = o;
@@ -1393,12 +1391,10 @@ uintptr
 sys_wstat(va_list)
 {
 	error("old wstat system call - recompile");
-	return (uintptr)-1;
 }
 
 uintptr
 sys_fwstat(va_list)
 {
 	error("old fwstat system call - recompile");
-	return (uintptr)-1;
 }

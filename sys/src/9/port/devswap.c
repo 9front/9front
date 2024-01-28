@@ -554,7 +554,6 @@ swapread(Chan *c, void *va, long n, vlong off)
 		return n;
 	}
 	error(Egreg);
-	return 0;
 }
 
 static long
@@ -587,7 +586,6 @@ swapwrite(Chan *c, void *va, long n, vlong off)
 		return n;
 	}
 	error(Egreg);
-	return 0;
 }
 
 Dev swapdevtab = {

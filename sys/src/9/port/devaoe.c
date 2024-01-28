@@ -814,7 +814,6 @@ unit2dev(ulong unit)
 		}
 	runlock(&devs);
 	error("unit lookup failure");
-	return nil;
 }
 
 static int

@@ -77,7 +77,7 @@ xenuartputs(char *s, int n)
  * Handle channel event from console
  */
 static void
-interrupt(Ureg*, void *arg)
+interrupt(Ureg*, void*)
 {
 	char c;
 	unsigned long cons;

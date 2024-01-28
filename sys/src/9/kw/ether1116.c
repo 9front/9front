@@ -999,9 +999,11 @@ ctl(Ether *e, void *p, long n)
 		if(strcmp(cb->f[1], "on") == 0) {
 			/* incoming packet queue doesn't expect jumbo frames */
 			error("jumbo disabled");
+/*
 			reg->psc0 = (reg->psc0 & ~PSC0mrumask) |
 				PSC0mru(PSC0mru9022);
 			e->maxmtu = 9022;
+*/
 		} else if(strcmp(cb->f[1], "off") == 0) {
 			reg->psc0 = (reg->psc0 & ~PSC0mrumask) |
 				PSC0mru(PSC0mru1522);

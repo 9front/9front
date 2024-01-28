@@ -922,7 +922,6 @@ parsekey(char *s)
 		break;
 	default:
 		error(Ebadkey);
-		return nil;
 	}
 
 	memset(key, 0, sizeof(key));

@@ -1681,7 +1681,6 @@ epread(Ep *ep, void *a, long count)
 	default:
 		panic("epread: bad ep ttype %d", ep->ttype);
 	}
-	return -1;
 }
 
 /*
@@ -1913,7 +1912,6 @@ epwrite(Ep *ep, void *a, long count)
 	default:
 		panic("ohci: epwrite: bad ep ttype %d", ep->ttype);
 	}
-	return -1;
 }
 
 static Ed*

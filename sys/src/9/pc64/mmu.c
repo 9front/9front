@@ -155,7 +155,6 @@ paddr(void *v)
 	if(va >= VMAP)
 		return va-VMAP;
 	panic("paddr: va=%#p pc=%#p", va, getcallerpc(&v));
-	return 0;
 }
 
 static MMU*

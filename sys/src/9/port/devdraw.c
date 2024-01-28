@@ -512,7 +512,6 @@ drawlookupscreen(Client *client, int id, CScreen **cs)
 		s = s->next;
 	}
 	error(Enodrawscreen);
-	return 0;
 }
 
 DImage*

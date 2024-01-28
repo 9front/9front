@@ -193,7 +193,6 @@ pciread(Chan *c, void *va, long n, vlong offset)
 	default:
 		error(Egreg);
 	}
-	return n;
 }
 
 static long
@@ -242,7 +241,6 @@ pciwrite(Chan *c, void *va, long n, vlong offset)
 	default:
 		error(Egreg);
 	}
-	return n;
 }
 
 Dev pcidevtab = {

@@ -240,7 +240,6 @@ static long
 rootwrite(Chan*, void*, long, vlong)
 {
 	error(Egreg);
-	return 0;
 }
 
 Dev rootdevtab = {

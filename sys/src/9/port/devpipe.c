@@ -276,7 +276,6 @@ piperead(Chan *c, void *va, long n, vlong)
 	default:
 		panic("piperead");
 	}
-	return -1;	/* not reached */
 }
 
 static Block*
@@ -357,7 +356,6 @@ pipebwrite(Chan *c, Block *bp, ulong)
 		break;
 
 	default:
-		n = 0;
 		panic("pipebwrite");
 	}
 

@@ -506,7 +506,6 @@ i2cwrite(Chan *c, void *data, long len, vlong offset)
 	switch(TYPE(c->qid)){
 	default:
 		error(Egreg);
-		return -1;
 	case Qctl:
 		dev = c->aux;
 		return i2cwrctl(dev, data, len);
