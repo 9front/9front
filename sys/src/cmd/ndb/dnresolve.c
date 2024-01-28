@@ -29,6 +29,10 @@ enum
 	 */
 	Maxtrans=	5,	/* maximum transmissions to a server */
 	Maxretries=	10,	/* cname+actual resends: was 32; have pity on user */
+
+	Maxtcpfree=	4,	/* maximum number of tcp connections kept alive */
+	Maxtcpresuetm=	5000,	/* connection resue timeout */
+
 };
 
 struct Dest
@@ -1172,39 +1176,27 @@ writenet(Query *qp, int medium, int fd, uchar *pkt, int len, Dest *p)
 	return rv;
 }
 
-enum {
-	Maxfree = 4,
-};
-
-struct {
-	QLock lk;
-	struct {
-		uvlong when;
-		char *dest;
-		int fd;
-	} l[Maxfree];
-} tcpfree;
-
 /*
- * send a query via tcp to a single address
+ * send a query via tcp or tls to a single address
  * and read the answer(s) into mp->an.
  */
 static int
 tcpquery(Query *qp, uchar *pkt, int len, Dest *p, uvlong endms, DNSmsg *mp, int tls)
 {
+	static struct {
+		QLock lk;
+		struct {
+			uvlong when;
+			char *dest;
+			int fd;
+		} l[Maxtcpfree];
+	} tcpfree;
+
 	char buf[NETPATHLEN];
 	int fd, rv, i, retry;
 	long ms;
-	TLSconn conn;
-	Thumbprint *thumb;
 
 	memset(mp, 0, sizeof *mp);
-
-	ms = (long)(endms - nowms);
-	if(ms < Minreqtm)
-		return -1;	/* takes too long */
-	if(ms > Maxtcpdialtm)
-		ms = Maxtcpdialtm;
 
 	procsetname("%s query to %I/%s for %s %s", tls ? "tls" : "tcp", p->a, p->s->name,
 		qp->dp->name, rrname(qp->type, buf, sizeof buf));
@@ -1212,26 +1204,31 @@ tcpquery(Query *qp, uchar *pkt, int len, Dest *p, uvlong endms, DNSmsg *mp, int 
 	snprint(buf, sizeof buf, "%s/tcp!%I!%s", mntpt, p->a, tls ? "853" : "53");
 
 	fd = -1;
-	retry = 0;
 	qlock(&tcpfree.lk);
 	for(i = 0; i < nelem(tcpfree.l); i++){
-		if(tcpfree.l[i].dest == nil || tcpfree.l[i].fd == -1)
+		if(tcpfree.l[i].dest == nil || tcpfree.l[i].fd < 0)
 			continue;
 		if(strcmp(tcpfree.l[i].dest, buf) != 0)
 			continue;
-		/* RFC does not specify connection reuse timeout */
-		if(nowms - tcpfree.l[i].when < 5000){
+		if(nowms - tcpfree.l[i].when < Maxtcpresuetm){
 			fd = tcpfree.l[i].fd;
 			tcpfree.l[i].fd = -1;
-			retry++;
 			break;
 		}
 	}
 	qunlock(&tcpfree.lk);
-	if(fd != -1)
-		goto Found;
-
+	if(fd >= 0){
+		retry = 1;
+		goto Connected;
+	}
 Retry:
+	retry = 0;
+	ms = (long)(endms - nowms);
+	if(ms < Minreqtm)
+		return -1;	/* takes too long */
+	if(ms > Maxtcpdialtm)
+		ms = Maxtcpdialtm;
+
 	alarm(ms);
 	fd = dial(buf, nil, nil, nil);
 	if(fd < 0){
@@ -1241,21 +1238,32 @@ Retry:
 		return -1;
 	}
 	if(tls){
+		static char thumbfile[] = "/sys/lib/tls/dns";
+		Thumbprint *thumb;
+		TLSconn conn;
+
 		memset(&conn, 0, sizeof conn);
 		rv = tlsClient(fd, &conn);
 		alarm(0);
 		if(rv >= 0){
 			fd = rv;
-			thumb = initThumbprints("/sys/lib/tls/dns", nil, "x509");
-			if(thumb == nil || !okCertificate(conn.cert, conn.certlen, thumb)){
-				dnslog("%d: invalid fingerprint for %s; echo 'x509 %r' >>/sys/lib/tls/dns",
-					qp->req->id, buf);
+
+			thumb = initThumbprints(thumbfile, nil, "x509");
+			if(thumb == nil){
+				dnslog("%d: can't load thumb file %s: %r",
+					qp->req->id, thumbfile);
 				rv = -1;
+			} else {
+				if(!okCertificate(conn.cert, conn.certlen, thumb)){
+					dnslog("%d: invalid fingerprint for %s; echo 'x509 %r' >>%s",
+						qp->req->id, buf, thumbfile);
+					rv = -1;
+				}
+				freeThumbprints(thumb);
 			}
-			free(conn.cert);
-			free(conn.sessionID);
-			freeThumbprints(thumb);
 		}
+		free(conn.cert);
+		free(conn.sessionID);
 		if(rv < 0){
 			close(fd);
 			return -1;
@@ -1264,7 +1272,7 @@ Retry:
 		alarm(0);
 	}
 
-Found:
+Connected:
 	rv = writenet(qp, Tcp, fd, pkt, len, p);
 	if(rv == 0){
 		timems();	/* account for time dialing and sending */
@@ -1273,10 +1281,8 @@ Found:
 
 	if(rv < 0){
 		close(fd);
-		if(retry){
-			retry = 0;
+		if(retry)
 			goto Retry;
-		}
 		return rv;
 	}
 
