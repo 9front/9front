@@ -547,7 +547,6 @@ i8250disable(Uart* uart)
 static void
 i8250enable(Uart* uart, int ie)
 {
-	int mode;
 	Ctlr *ctlr;
 
 	ctlr = uart->regs;
