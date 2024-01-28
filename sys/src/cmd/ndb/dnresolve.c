@@ -1312,8 +1312,10 @@ tlsqueryns(Query *qp, uchar *pkt, int len)
 	n = 0;
 	n = serveraddrs(qp, dest, n, Ta);
 	n = serveraddrs(qp, dest, n, Taaaa);
-	endms = nowms + 500;
 	for(p = dest; p < dest+n; p++){
+		endms = timems() + Maxtcpdialtm + 500;
+		if(endms > qp->req->aborttime)
+			endms = qp->req->aborttime;
 		if(tcpquery(qp, pkt, len, p, endms, &m, 1) == 0){
 			/* free or incorporate RRs in m */
 			rv = procansw(qp, p, &m);
