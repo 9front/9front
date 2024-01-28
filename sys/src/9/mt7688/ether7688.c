@@ -191,7 +191,7 @@ swwr(int offset, u32int val)
 
 
 static int
-miird(Mii *mii, int pa, int ra)
+miird(Mii*, int pa, int ra)
 {
 	int val = 0;
 	int	timeout;
@@ -220,7 +220,7 @@ miird(Mii *mii, int pa, int ra)
 
 
 static int
-miiwr(Mii *mii, int pa, int ra, int val)
+miiwr(Mii*, int pa, int ra, int val)
 {
 	int timeout;
 
@@ -542,10 +542,7 @@ initmii(Ctlr *ctlr)
  * 	is handled by the switch start up
  */
 
-	MiiPhy *phy;
-	Ether	*edev = ctlr->edev;
-	int		i, buf;
-	
+	Ether	*edev = ctlr->edev;	
 
 	if((ctlr->mii = malloc(sizeof(Mii))) == nil)
 		return -1;
@@ -554,7 +551,7 @@ initmii(Ctlr *ctlr)
 	ctlr->mii->mir	= miird;
 	ctlr->mii->miw	= miiwr;
 
-	if(mii(ctlr->mii, ~0) == 0 || (phy = ctlr->mii->curphy) == nil){
+	if(mii(ctlr->mii, ~0) == 0 || ctlr->mii->curphy == nil){
 		iprint("#l%d: init mii failure\n", edev->ctlrno);
 		free(ctlr->mii);
 		ctlr->mii = nil;
@@ -747,7 +744,6 @@ ifstat(Ether* edev, void* a, long n, ulong offset)
 	char* p;
 	Ctlr* ctlr;
 	int l;
-	Desc	*t, *r;
 
 	ctlr = edev->ctlr;
 
