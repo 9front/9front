@@ -98,7 +98,7 @@ intr(Ureg *ureg)
 	v = mpcore[ICCIAR];
 	irq = v & 0x3ff;
 	if(irq == 0x3ff)
-		return;
+		return 0;
 		
 	m->intr++;
 	m->lastintr = irq;
