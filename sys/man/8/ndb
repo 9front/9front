@@ -437,6 +437,9 @@ When a certificate
 .I cert.pem
 is specified, also listen on TCP port 853 and handle
 DNS requests over TLS.
+Clients wanting to connect to this service must
+add the certificate or public key thumbprint into
+.BR /sys/lib/tls/dns .
 .TP
 .B -x
 specifies the mount point of the network.
@@ -794,7 +797,13 @@ Print the names of all systems that boot via PXE.
 .TF /lib/ndb/local.*xxx
 .TP
 .B /env/DNSSERVER
-resolver's DNS servers' IP addresses.
+resolver's DNS servers' IP addresses
+.TP
+.B /env/DOTSERVER
+resolver's DNS over TLS servers' IP addresses
+.TP
+.B /sys/lib/tls/dns
+resolver's certificate / public-key thumbprints
 .TP
 .B /lib/ndb/local
 first database file searched
