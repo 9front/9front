@@ -232,7 +232,13 @@ There may be multiple
 pairs.
 .TP
 .B dns
-a DNS server to use (for DNS and DHCP)
+a DNS server to use for resolving (for DNS and DHCP)
+.TP
+.B dot
+a DNS over TLS server to use for resolving (for DNS).
+If found,
+.B dns
+entries are ignored.
 .TP
 .B ntp
 an NTP server to use (for DHCP)

@@ -3,6 +3,8 @@
 #include <bio.h>
 #include <ndb.h>
 #include <ip.h>
+#include <mp.h>
+#include <libsec.h>
 #include "dns.h"
 
 enum {
@@ -12,10 +14,10 @@ enum {
 static int	readmsg(int, uchar*, int);
 static int	reply(int, uchar *, DNSmsg*, Request*, uchar*);
 static int	dnzone(int, uchar *, DNSmsg*, DNSmsg*, Request*, uchar*);
-static int	tcpannounce(char *mntpt, char *addr, char caller[128]);
+static int	tcpannounce(char *mntpt, char *addr, char caller[128], char *cert);
 
 void
-dntcpserver(char *mntpt, char *addr)
+dntcpserver(char *mntpt, char *addr, char *cert)
 {
 	volatile int fd, len, rcode, rv;
 	volatile long ms;
@@ -40,7 +42,7 @@ dntcpserver(char *mntpt, char *addr)
 	}
 
 	procsetname("%s: tcp server %s", mntpt, addr);
-	if((fd = tcpannounce(mntpt, addr, caller)) < 0){
+	if((fd = tcpannounce(mntpt, addr, caller, cert)) < 0){
 		warning("can't announce %s on %s: %r", addr, mntpt);
 		_exits(0);
 	}
@@ -259,13 +261,20 @@ out:
 }
 
 static int
-tcpannounce(char *mntpt, char *addr, char caller[128])
+tcpannounce(char *mntpt, char *addr, char caller[128], char *cert)
 {
 	char adir[NETPATHLEN], ldir[NETPATHLEN], buf[128];
 	int acfd, lcfd, dfd, wfd, rfd, procs;
+	PEMChain *chain = nil;
+
+	if(cert != nil){
+		chain = readcertchain(cert);
+		if(chain == nil)
+			return -1;
+	}
 
 	/* announce tcp dns port */
-	snprint(buf, sizeof(buf), "%s/tcp!%s!53", mntpt, addr);
+	snprint(buf, sizeof(buf), "%s/tcp!%s!%s", mntpt, addr, cert == nil ? "53" : "853");
 	acfd = announce(buf, adir);
 	if(acfd < 0)
 		return -1;
@@ -277,7 +286,6 @@ tcpannounce(char *mntpt, char *addr, char caller[128])
 		close(acfd);
 		return -1;
 	}
-
 	procs = 0;
 	for(;;) {
 		if(procs >= Maxprocs || (procs % 8) == 0){
@@ -314,7 +322,23 @@ tcpannounce(char *mntpt, char *addr, char caller[128])
 			close(lcfd);
 			if(dfd < 0)
 				_exits(0);
+			if(chain != nil){
+				TLSconn conn;
+				int fd;
 
+				memset(&conn, 0, sizeof conn);
+				conn.cert = emalloc(conn.certlen = chain->pemlen);
+				memmove(conn.cert, chain->pem, conn.certlen);
+				conn.chain = chain->next;
+				fd = tlsServer(dfd, &conn);
+				if(fd < 0){
+					close(dfd);
+					_exits(0);
+				}
+				free(conn.cert);
+				free(conn.sessionID);
+				dfd = fd;
+			}
 			/* get the callers ip!port */
 			memset(caller, 0, 128);
 			snprint(buf, sizeof(buf), "%s/remote", ldir);
@@ -322,7 +346,6 @@ tcpannounce(char *mntpt, char *addr, char caller[128])
 				read(rfd, caller, 128-1);
 				close(rfd);
 			}
-
 			/* child returns */
 			return dfd;
 		default:

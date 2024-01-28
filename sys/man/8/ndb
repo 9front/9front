@@ -62,6 +62,9 @@ query, ipquery, mkhash, mkdb, mkhosts, cs, csquery, dns, dnsquery, dnsdebug, dns
 .B -a
 .I maxage
 ] [
+.B -c
+.I cert.pem
+] [
 .B -f
 .I dbfile
 ] [
@@ -393,11 +396,18 @@ send `recursive' queries, asking the other servers
 to complete lookups.
 If present,
 .B /env/DNSSERVER
-must be a space-separated list of such DNS servers' IP addresses,
+or
+.B /env/DOTSERVER
+must be a space-separated list of such DNS (or DoT) servers' IP addresses,
 otherwise optional
 .IR ndb (6)
 .B dns
 attributes name DNS servers to forward queries to.
+Note that when
+.B DOTSERVER
+is specified,
+.B DNSSERVER
+are ignored.
 .TP
 .B -R
 ignore the `recursive' bit on all incoming requests.
@@ -421,6 +431,12 @@ If no IP
 are given,
 listen on any interface on network mount point
 .IR netmtpt .
+.TP
+.B -c
+When a certificate
+.I cert.pem
+is specified, also listen on TCP port 853 and handle
+DNS requests over TLS.
 .TP
 .B -x
 specifies the mount point of the network.

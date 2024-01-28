@@ -172,14 +172,18 @@ getdnsservers(int class)
 {
 	uchar ip[IPaddrlen];
 	DN *nsdp;
-	RR *rp;
+	RR *rp, *ns;
+	char name[64];
 
 	if(servername == nil)
 		return dnsservers(class);
-	if(parseip(ip, servername) == -1){
-		nsdp = idnlookup(servername, class, 1);
+
+	snprint(name, sizeof name, "override#%s#server", servername[0] == '!' ? "dot" : "dns");
+	ns = rralloc(Tns);
+	if(parseip(ip, servername+1) == -1){
+		nsdp = idnlookup(servername+1, class, 1);
 	} else {
-		nsdp = dnlookup("local#dns#server", class, 1);
+		nsdp = dnlookup(name, class, 1);
 		rp = rralloc(isv4(ip) ? Ta : Taaaa);
 		rp->owner = nsdp;
 		rp->ip = ipalookup(ip, class, 1);
@@ -187,10 +191,9 @@ getdnsservers(int class)
 		rp->ttl = 10*Min;
 		rrattach(rp, Authoritative);
 	}
-	rp = rralloc(Tns);
-	rp->owner = dnlookup("override#dns#servers", class, 1);
-	rp->host = nsdp;
-	return rp;
+	ns->owner = dnlookup(name, class, 1);
+	ns->host = nsdp;
+	return ns;
 }
 
 int
@@ -201,7 +204,7 @@ setserver(char *server)
 		servername = nil;
 		cfg.resolver = 0;
 	}
-	if(server == nil || *server == 0)
+	if(server == nil || server[0] == 0 || server[1] == 0)
 		return 0;
 	servername = estrdup(server);
 	cfg.resolver = 1;
@@ -276,8 +279,8 @@ docmd(int n, char **f)
 	name = type = nil;
 	tmpsrv = 0;
 
-	if(*f[0] == '@') {
-		if(setserver(f[0]+1) < 0)
+	if(*f[0] == '@' || *f[0] == '!') {
+		if(setserver(f[0]) < 0)
 			return;
 
 		switch(n){
@@ -306,5 +309,5 @@ docmd(int n, char **f)
 	doquery(name, type);
 
 	if(tmpsrv)
-		setserver("");
+		setserver("@");
 }

@@ -522,7 +522,7 @@ void	dnserver(DNSmsg*, DNSmsg*, Request*, uchar *, int);
 void	dnudpserver(char*, char*);
 
 /* dntcpserver.c */
-void	dntcpserver(char*, char*);
+void	dntcpserver(char*, char*, char*);
 
 /* dnnotify.c */
 void	dnnotify(DNSmsg*, DNSmsg*, Request*);

@@ -5,6 +5,8 @@
 #include <libc.h>
 #include <ip.h>
 #include <bio.h>
+#include <mp.h>
+#include <libsec.h>
 #include <ndb.h>
 #include "dns.h"
 
@@ -79,7 +81,7 @@ procgetname(void)
 	return strdup(lp+1);
 }
 
-void
+static void
 rrfreelistptr(RR **rpp)
 {
 	RR *rp;
@@ -267,9 +269,13 @@ issuequery(Query *qp, char *name, int class, int recurse)
 	 */
 	if(cfg.resolver){
 		nsrp = randomize(getdnsservers(class));
-		if(nsrp != nil)
+		if(nsrp != nil){
+			int dot = strncmp(nsrp->owner->name, "local#dot#server", 16) == 0;
 			if(netqueryns(qp, nsrp) > Answnone)
 				return rrlookup(qp->dp, qp->type, OKneg);
+			else if(dot)
+				return nil;	/* do not fall-back for DoT */
+		}
 	}
 
 	/*
@@ -733,7 +739,7 @@ readreply(Query *qp, int medium, int fd, uvlong endms,
 /*
  *	return non-0 if first list includes second list
  */
-int
+static int
 contains(RR *rp1, RR *rp2)
 {
 	RR *trp1, *trp2;
@@ -753,7 +759,7 @@ contains(RR *rp1, RR *rp2)
 /*
  *  return multicast version if any
  */
-int
+static int
 ipisbm(uchar *ip)
 {
 	if(isv4(ip)){
@@ -1166,16 +1172,31 @@ writenet(Query *qp, int medium, int fd, uchar *pkt, int len, Dest *p)
 	return rv;
 }
 
+enum {
+	Maxfree = 4,
+};
+
+struct {
+	QLock lk;
+	struct {
+		uvlong when;
+		char *dest;
+		int fd;
+	} l[Maxfree];
+} tcpfree;
+
 /*
  * send a query via tcp to a single address
  * and read the answer(s) into mp->an.
  */
 static int
-tcpquery(Query *qp, uchar *pkt, int len, Dest *p, uvlong endms, DNSmsg *mp)
+tcpquery(Query *qp, uchar *pkt, int len, Dest *p, uvlong endms, DNSmsg *mp, int tls)
 {
 	char buf[NETPATHLEN];
-	int fd, rv;
+	int fd, rv, i, retry;
 	long ms;
+	TLSconn conn;
+	Thumbprint *thumb;
 
 	memset(mp, 0, sizeof *mp);
 
@@ -1185,26 +1206,123 @@ tcpquery(Query *qp, uchar *pkt, int len, Dest *p, uvlong endms, DNSmsg *mp)
 	if(ms > Maxtcpdialtm)
 		ms = Maxtcpdialtm;
 
-	procsetname("tcp query to %I/%s for %s %s", p->a, p->s->name,
+	procsetname("%s query to %I/%s for %s %s", tls ? "tls" : "tcp", p->a, p->s->name,
 		qp->dp->name, rrname(qp->type, buf, sizeof buf));
 
-	snprint(buf, sizeof buf, "%s/tcp!%I!53", mntpt, p->a);
+	snprint(buf, sizeof buf, "%s/tcp!%I!%s", mntpt, p->a, tls ? "853" : "53");
 
+	fd = -1;
+	retry = 0;
+	qlock(&tcpfree.lk);
+	for(i = 0; i < nelem(tcpfree.l); i++){
+		if(tcpfree.l[i].dest == nil || tcpfree.l[i].fd == -1)
+			continue;
+		if(strcmp(tcpfree.l[i].dest, buf) != 0)
+			continue;
+		/* RFC does not specify connection reuse timeout */
+		if(nowms - tcpfree.l[i].when < 5000){
+			fd = tcpfree.l[i].fd;
+			tcpfree.l[i].fd = -1;
+			retry++;
+			break;
+		}
+	}
+	qunlock(&tcpfree.lk);
+	if(fd != -1)
+		goto Found;
+
+Retry:
 	alarm(ms);
 	fd = dial(buf, nil, nil, nil);
-	alarm(0);
-	if (fd < 0) {
+	if(fd < 0){
+		alarm(0);
 		dnslog("%d: can't dial %s for %I/%s: %r",
 			qp->req->id, buf, p->a, p->s->name);
 		return -1;
 	}
+	if(tls){
+		memset(&conn, 0, sizeof conn);
+		rv = tlsClient(fd, &conn);
+		alarm(0);
+		if(rv >= 0){
+			fd = rv;
+			thumb = initThumbprints("/sys/lib/tls/dns", nil, "x509");
+			if(thumb == nil || !okCertificate(conn.cert, conn.certlen, thumb)){
+				dnslog("%d: invalid fingerprint for %s; echo 'x509 %r' >>/sys/lib/tls/dns",
+					qp->req->id, buf);
+				rv = -1;
+			}
+			free(conn.cert);
+			free(conn.sessionID);
+			freeThumbprints(thumb);
+		}
+		if(rv < 0){
+			close(fd);
+			return -1;
+		}
+	} else {
+		alarm(0);
+	}
+
+Found:
 	rv = writenet(qp, Tcp, fd, pkt, len, p);
 	if(rv == 0){
 		timems();	/* account for time dialing and sending */
 		rv = readreply(qp, Tcp, fd, endms, mp, pkt);
 	}
-	close(fd);
+
+	if(rv < 0){
+		close(fd);
+		if(retry){
+			retry = 0;
+			goto Retry;
+		}
+		return rv;
+	}
+
+	qlock(&tcpfree.lk);
+	if(tcpfree.l[nelem(tcpfree.l)-1].dest != nil){
+		close(tcpfree.l[nelem(tcpfree.l)-1].fd);
+		free(tcpfree.l[nelem(tcpfree.l)-1].dest);
+	}
+	memmove(tcpfree.l + 1, tcpfree.l, sizeof(tcpfree.l[0])*(nelem(tcpfree.l)-1));
+	tcpfree.l[0].when = nowms;
+	tcpfree.l[0].fd = fd;
+	tcpfree.l[0].dest = estrdup(buf);
+	qunlock(&tcpfree.lk);
+
 	return rv;
+}
+
+static int
+tlsqueryns(Query *qp, uchar *pkt, int len)
+{
+	Dest dest[Maxdest], *p;
+	int rv, n;
+	uvlong endms;
+	DNSmsg m;
+
+	/* populates dest with v4 and v6 addresses. */
+	n = 0;
+	n = serveraddrs(qp, dest, n, Ta);
+	n = serveraddrs(qp, dest, n, Taaaa);
+	endms = nowms + 500;
+	for(p = dest; p < dest+n; p++){
+		if(tcpquery(qp, pkt, len, p, endms, &m, 1) == 0){
+			/* free or incorporate RRs in m */
+			rv = procansw(qp, p, &m);
+			if(rv > Answnone)
+				return rv;
+		}
+	}
+
+	/* if all servers returned failure, propagate it */
+	qp->dp->respcode = Rserver;
+	for(p = dest; p < dest+n; p++)
+		if(p->code != Rserver)
+			qp->dp->respcode = Rok;
+
+	return Answnone;
 }
 
 /*
@@ -1213,29 +1331,14 @@ tcpquery(Query *qp, uchar *pkt, int len, Dest *p, uvlong endms, DNSmsg *mp)
  *  name server, recurse.
  */
 static int
-udpqueryns(Query *qp, int fd, uchar *pkt)
+udpqueryns(Query *qp, int fd, uchar *pkt, int len)
 {
 	Dest dest[Maxdest], *edest, *p, *np;
-	int ndest, replywaits, len, flag, rv, n;
+	int ndest, replywaits, rv, n;
 	uchar srcip[IPaddrlen];
 	char buf[32];
 	uvlong endms;
 	DNSmsg m;
-	RR *rp;
-
-	/* prepare server RR's for incremental lookup */
-	for(rp = qp->nsrp; rp; rp = rp->next)
-		rp->marker = 0;
-
-	/* request recursion only for local/override dns servers */
-	flag = Oquery;
-	if(strncmp(qp->nsrp->owner->name, "local#", 6) == 0
-	|| strncmp(qp->nsrp->owner->name, "override#", 9) == 0)
-		flag |= Frecurse;
-
-	/* pack request into a udp message */
-	qp->id = rand();
-	len = mkreq(qp->dp, qp->type, pkt, flag, qp->id);
 
 	/* no destination yet */
 	edest = dest;
@@ -1307,7 +1410,7 @@ udpqueryns(Query *qp, int fd, uchar *pkt)
 			/* if response was truncated, try tcp */
 			if(m.flags & Ftrunc){
 				freeanswers(&m);
-				if(tcpquery(qp, pkt, len, p, endms, &m) < 0)
+				if(tcpquery(qp, pkt, len, p, endms, &m, 0) < 0)
 					break;	/* failed via tcp too */
 				if(m.flags & Ftrunc){
 					freeanswers(&m);
@@ -1336,27 +1439,44 @@ udpqueryns(Query *qp, int fd, uchar *pkt)
 	return Answnone;
 }
 
-/*
- * in principle we could use a single descriptor for a udp port
- * to send all queries and receive all the answers to them,
- * but we'd have to sort out the answers by dns-query id.
- */
 static int
-udpquery(Query *qp)
+doquery(Query *qp)
 {
-	int fd, rv;
+	int fd, rv, len, flag;
 	uchar *pkt;
+	RR *rp;
 
 	pkt = emalloc(Maxudp+Udphdrsize);
-	fd = udpport(mntpt);
-	if (fd < 0) {
-		dnslog("%d: can't get udpport for %s query of name %s: %r",
-			qp->req->id, mntpt, qp->dp->name);
-		rv = -1;
-		goto Out;
+	/* prepare server RR's for incremental lookup */
+	for(rp = qp->nsrp; rp; rp = rp->next)
+		rp->marker = 0;
+	/* request recursion only for local/override dns servers */
+	flag = Oquery;
+	if(strncmp(qp->nsrp->owner->name, "local#", 6) == 0
+	|| strncmp(qp->nsrp->owner->name, "override#", 9) == 0)
+		flag |= Frecurse;
+	/* pack request into a udp message */
+	qp->id = rand();
+	len = mkreq(qp->dp, qp->type, pkt, flag, qp->id);
+	if(strncmp(qp->nsrp->owner->name, "local#dot#server", 16) == 0
+	|| strncmp(qp->nsrp->owner->name, "override#dot#server", 16) == 0){
+		rv = tlsqueryns(qp, pkt, len);
+	} else {
+		/*
+		 * in principle we could use a single descriptor for a udp port
+		 * to send all queries and receive all the answers to them,
+		 * but we'd have to sort out the answers by dns-query id.
+		 */
+		fd = udpport(mntpt);
+		if (fd < 0) {
+			dnslog("%d: can't get udpport for %s query of name %s: %r",
+				qp->req->id, mntpt, qp->dp->name);
+			rv = -1;
+			goto Out;
+		}
+		rv = udpqueryns(qp, fd, pkt, len);
+		close(fd);
 	}
-	rv = udpqueryns(qp, fd, pkt);
-	close(fd);
 Out:
 	free(pkt);
 	return rv;
@@ -1383,5 +1503,5 @@ netquery(Query *qp)
 	if(!qp->req->isslave && strcmp(qp->req->from, "9p") == 0)
 		return Answnone;
 
-	return udpquery(qp);
+	return doquery(qp);
 }

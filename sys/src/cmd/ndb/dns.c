@@ -92,7 +92,7 @@ static char *respond(Job*, Mfile*, RR*, char*, int, int);
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-FnrLR] [-a maxage] [-f ndb-file] [-N target] "
+	fprint(2, "usage: %s [-FnrLR] [-a maxage] [-c cert.pem] [-f ndb-file] [-N target] "
 		"[-x netmtpt] [-s [addrs...]]\n", argv0);
 	exits("usage");
 }
@@ -101,10 +101,12 @@ void
 main(int argc, char *argv[])
 {
 	char ext[Maxpath], servefile[Maxpath];
+	char *cert;
 	Dir *dir;
 
 	setnetmtpt(mntpt, sizeof mntpt, nil);
 	ext[0] = 0;
+	cert = nil;
 	ARGBEGIN{
 	case 'a':
 		maxage = atol(EARGF(usage()));
@@ -140,6 +142,9 @@ main(int argc, char *argv[])
 	case 's':
 		cfg.serve = 1;		/* serve network */
 		cfg.cachedb = 1;
+		break;
+	case 'c':
+		cert = EARGF(usage());
 		break;
 	case 'x':
 		setnetmtpt(mntpt, sizeof mntpt, EARGF(usage()));
@@ -181,11 +186,15 @@ main(int argc, char *argv[])
 	if(cfg.serve){
 		if(argc == 0) {
 			dnudpserver(mntpt, "*");
-			dntcpserver(mntpt, "*");
+			dntcpserver(mntpt, "*", nil);
+			if(cert != nil)
+				dntcpserver(mntpt, "*", cert);
 		} else {
 			while(argc-- > 0){
 				dnudpserver(mntpt, *argv);
-				dntcpserver(mntpt, *argv);
+				dntcpserver(mntpt, *argv, nil);
+				if(cert != nil)
+					dntcpserver(mntpt, *argv, cert);
 				argv++;
 			}
 		}

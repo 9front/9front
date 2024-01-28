@@ -916,7 +916,7 @@ addlocaldnsserver(DN *dp, int class, char *addr, int i)
 
 	/* check duplicate ip */
 	for(n = 0; n < i; n++){
-		snprint(buf, sizeof buf, "local#dns#server%d", n);
+		snprint(buf, sizeof buf, "%s#%d", dp->name, n);
 		nsdp = dnlookup(buf, class, 0);
 		if(nsdp == nil)
 			continue;
@@ -931,7 +931,7 @@ addlocaldnsserver(DN *dp, int class, char *addr, int i)
 		rrfreelist(rp);
 	}
 
-	snprint(buf, sizeof buf, "local#dns#server%d", i);
+	snprint(buf, sizeof buf, "%s#%d", dp->name, i);
 	nsdp = dnlookup(buf, class, 1);
 
 	/* ns record for name server, make up an impossible name */
@@ -967,6 +967,33 @@ dnsservers(int class)
 	RR *nsrp;
 	DN *dp;
 
+	/* try first DoT servers */
+	dp = dnlookup("local#dot#servers", class, 1);
+	nsrp = rrlookup(dp, Tns, NOneg);
+	if(nsrp != nil)
+		return nsrp;
+
+	p = getenv("DOTSERVER");		/* list of ip addresses */
+	if(p != nil && (n = tokenize(p, args, nelem(args))) > 0){
+		for(i = 0; i < n; i++)
+			addlocaldnsserver(dp, class, args[i], i);
+	} else {
+		t = lookupinfo("@dot");		/* @dot=ip1 ... */
+		if(t == nil)
+			return nil;
+		i = 0;
+		for(nt = t; nt != nil; nt = nt->entry){
+			addlocaldnsserver(dp, class, nt->val, i);
+			i++;
+		}
+		ndbfree(t);
+	}
+
+	nsrp = rrlookup(dp, Tns, NOneg);
+	if(nsrp != nil)
+		return nsrp;
+
+	/* try regular local DNS servers */
 	dp = dnlookup("local#dns#servers", class, 1);
 	nsrp = rrlookup(dp, Tns, NOneg);
 	if(nsrp != nil)
