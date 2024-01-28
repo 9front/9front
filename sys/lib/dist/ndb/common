@@ -257,6 +257,7 @@ tcp=ticket port=567
 tcp=esmtp port=587
 tcp=ldaps port=636
 tcp=fmclient port=729
+tcp=dot port=853
 tcp=ftps-data port=989
 tcp=ftps port=990
 tcp=imaps port=993
