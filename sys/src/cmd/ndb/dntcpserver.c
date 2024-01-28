@@ -41,13 +41,15 @@ dntcpserver(char *mntpt, char *addr, char *cert)
 		return;
 	}
 
-	procsetname("%s: tcp server %s", mntpt, addr);
+	procsetname("%s: %s server %s",
+		mntpt, cert == nil? "tcp": "tls", addr);
 	if((fd = tcpannounce(mntpt, addr, caller, cert)) < 0){
 		warning("can't announce %s on %s: %r", addr, mntpt);
 		_exits(0);
 	}
 	parseip(callip, caller);
-	procsetname("%s: tcp server %s serving %s", mntpt, addr, caller);
+	procsetname("%s: %s server %s serving %s",
+		mntpt, cert == nil? "tcp": "tls", addr, caller);
 
 	memset(&req, 0, sizeof req);
 	req.isslave = 1;
@@ -331,12 +333,12 @@ tcpannounce(char *mntpt, char *addr, char caller[128], char *cert)
 				memmove(conn.cert, chain->pem, conn.certlen);
 				conn.chain = chain->next;
 				fd = tlsServer(dfd, &conn);
+				free(conn.cert);
+				free(conn.sessionID);
 				if(fd < 0){
 					close(dfd);
 					_exits(0);
 				}
-				free(conn.cert);
-				free(conn.sessionID);
 				dfd = fd;
 			}
 			/* get the callers ip!port */
