@@ -952,7 +952,7 @@ mbmain(void *cmd)
 
 	threadsetname("mbox %s", mbox.path);
 	wininit(&mbox, mbox.path);
-	wintagwrite(&mbox, "Put Mail Delmesg Undelmesg Next ");
+	wintagwrite(&mbox, "Put Mail Delmesg Undelmesg Next Mark +s");
 	showlist();
 	fprint(mbox.ctl, "dump %s\n", cmd);
 	fprint(mbox.ctl, "clean\n");
