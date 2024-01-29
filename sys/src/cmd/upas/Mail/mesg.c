@@ -251,6 +251,7 @@ mesgshow(Mesg *m)
 	}
 	Bprint(wfd, "From: %s\n", m->fromcolon);
 	Bprint(wfd, "To:   %s\n", m->to);
+	Bprint(wfd, "Cc:   %s\n", m->cc);
 	Bprint(wfd, "Date: %s\n", m->date);
 	Bprint(wfd, "Subject: %s\n\n", m->subject);
 
