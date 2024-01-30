@@ -1,0 +1,33 @@
+.TH VDIFF 1
+.SH NAME
+vdiff \- a visual diff viewer
+.SH SYNOPSIS
+.B vdiff
+[
+.B -b
+]
+.SH DESCRIPTION
+.I vdiff
+reads unified diff output from standard input and displays a colored version. Right clicking on a line will send a 
+.IR plumb (6)
+message to the
+.B edit
+port. Pressing
+.B q
+or
+.B del
+will exit
+.B vdiff
+.PP
+The
+.B \-b
+flag changes the color scheme to white text on a black background.
+.SH EXAMPLE
+% git/diff |vdiff
+.SH SOURCE
+/sys/src/cmd/vdiff.c
+.SH SEE ALSO
+.IR diff (1)
+.SH HISTORY
+vdiff first appeared in 9front (January, 2024).
+
