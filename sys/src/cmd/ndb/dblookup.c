@@ -979,8 +979,6 @@ dnsservers(int class)
 			addlocaldnsserver(dp, class, args[i], i);
 	} else {
 		t = lookupinfo("@dot");		/* @dot=ip1 ... */
-		if(t == nil)
-			return nil;
 		i = 0;
 		for(nt = t; nt != nil; nt = nt->entry){
 			addlocaldnsserver(dp, class, nt->val, i);
@@ -1005,8 +1003,6 @@ dnsservers(int class)
 			addlocaldnsserver(dp, class, args[i], i);
 	} else {
 		t = lookupinfo("@dns");		/* @dns=ip1 @dns=ip2 ... */
-		if(t == nil)
-			return nil;
 		i = 0;
 		for(nt = t; nt != nil; nt = nt->entry){
 			addlocaldnsserver(dp, class, nt->val, i);
