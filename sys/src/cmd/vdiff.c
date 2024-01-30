@@ -75,7 +75,7 @@ plumb(char *f, int l)
 		return;
 	for(i = 0; i < nstrip; i++)
 		if((p = strchr(f, '/')) != nil)
-			f = p;
+			f = p+1;
 	getwd(wd, sizeof wd);
 	snprint(addr, sizeof addr, "%s:%d", f, l);
 	plumbsendtext(fd, "vdiff", "edit", wd, addr);
