@@ -6,6 +6,10 @@ vdiff \- a visual diff viewer
 [
 .B -b
 ]
+[
+.B -p
+.I strip
+]
 .SH DESCRIPTION
 .I vdiff
 reads unified diff output from standard input and displays a colored version. Right clicking on a line will send a 
@@ -22,6 +26,13 @@ will exit
 The
 .B \-b
 flag changes the color scheme to white text on a black background.
+.PP
+The
+.B \-p
+.I nstrip
+flag removes
+.I nstrip
+path elements from path before plumbing.
 .SH EXAMPLE
 % git/diff |vdiff
 .SH SOURCE

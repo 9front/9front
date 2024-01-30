@@ -61,17 +61,21 @@ int lsize;
 int lcount;
 int maxlength;
 int Δpan;
+int nstrip;
 const char ellipsis[] = "...";
 
 void
 plumb(char *f, int l)
 {
-	int fd;
-	char wd[256], addr[300]={0};
+	int fd, i;
+	char *p, wd[256], addr[300]={0};
 
 	fd = plumbopen("send", OWRITE);
 	if(fd<0)
 		return;
+	for(i = 0; i < nstrip; i++)
+		if((p = strchr(f, '/')) != nil)
+			f = p;
 	getwd(wd, sizeof wd);
 	snprint(addr, sizeof addr, "%s:%d", f, l);
 	plumbsendtext(fd, "vdiff", "edit", wd, addr);
@@ -415,7 +419,7 @@ parse(int fd)
 void
 usage(void)
 {
-	fprint(2, "%s [-b]\n", argv0);
+	fprint(2, "%s [-b] [-p n]\n", argv0);
 	exits("usage");
 }
 
@@ -439,6 +443,9 @@ threadmain(int argc, char *argv[])
 	ARGBEGIN{
 	case 'b':
 		b = 1;
+		break;
+	case 'p':
+		nstrip = atoi(EARGF(usage()));
 		break;
 	default:
 		usage();
