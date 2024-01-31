@@ -8,8 +8,6 @@ TEXT	_mainp(SB), 1, $0
 	MOV	$0, R30
 	B	_callmain(SB)
 
-	MOV	$_profin(SB), R0
-
 TEXT	_callpc(SB), 1, $-4
 	MOV	0(SP), R0
 TEXT	_saveret(SB), 1, $-4

@@ -6,7 +6,6 @@ TEXT	_mainp(SB), 1, $0
 	MOVW	$_profmain(SB), R1
 	MOVW	$0, R31
 	JMP	_callmain(SB)
-	MOVW	$_profin(SB), R0	/* force loading of profile */
 
 TEXT	_saveret(SB), 1, $0
 TEXT	_savearg(SB), 1, $0

@@ -16,7 +16,6 @@ TEXT	_mainp(SB), 1, $0
 	MOVW	$0, R15
 	JMP	(R24)
 	MOVW	$_mul(SB), R8		/* force loading of muldiv */
-	MOVW	$_profin(SB), R9	/* force loading of profile */
 
 TEXT	_saveret(SB), 1, $0
 TEXT	_savearg(SB), 1, $0

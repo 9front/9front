@@ -5,8 +5,6 @@ TEXT	_mainp(SB), 1, $0
 	PUSHQ	$0
 	JMPF	_callmain(SB)
 
-	MOVQ	$_profin(SB), AX	/* force loading of profile */
-
 TEXT	_savearg(SB), 1, $0
 	MOVQ	RARG, AX
 	RET

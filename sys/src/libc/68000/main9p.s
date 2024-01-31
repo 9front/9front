@@ -4,7 +4,6 @@ TEXT	_mainp(SB), 1, $0
 	PEA	_profmain(SB)
 	MOVL	$0, TOS
 	JMP	_callmain(SB)
-	LEA	_profin(SB), A0		/* force loading of profile */
 
 TEXT	_saveret(SB), 1, $0
 TEXT	_savearg(SB), 1, $0

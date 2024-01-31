@@ -13,7 +13,6 @@ TEXT	_mainp(SB), 1, $0
 	B	_callmain(SB)
 
 	MOVW	$_div(SB), R(arg)	/* force loading of div */
-	MOVW	$_profin(SB), R(arg)	/* force loading of profile */
 
 TEXT	_saveret(SB), 1, $0
 TEXT	_savearg(SB), 1, $0

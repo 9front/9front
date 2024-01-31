@@ -4,7 +4,6 @@ TEXT	_mainp(SB), 1, $0
 	PUSHL	AX
 	PUSHL	$0
 	JMPF	_callmain(SB)
-	MOVL	$_profin(SB), AX	/* force loading of profile */
 
 TEXT	_saveret(SB), 1, $0
 TEXT	_savearg(SB), 1, $0
