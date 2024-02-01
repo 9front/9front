@@ -46,8 +46,10 @@ case 9pio
 	srv -nq tcp!9p.io 9pio && mount -nC /srv/9pio /n/9pio
 case 9front
 	9fs tcp!9front.org!9000
-	for(i in 9front extra fqa iso lists sites)
+	for(i in 9front fqa iso lists sites)
 		bind /n/9front.org!9000/$i /n/$i
+	9fs tcp!plan9.stanleylieber.com!9000
+		bind /n/plan9.stanleylieber.com!9000/extra /n/extra
 case 9contrib
 	9fs tcp!contrib.9front.org!9000 /n/contrib
 case 9grep
