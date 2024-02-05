@@ -12,7 +12,7 @@ vdiff \- a visual diff viewer
 ]
 .SH DESCRIPTION
 .I vdiff
-reads unified diff output from standard input and displays a colored version. Right clicking on a line will send a 
+reads unified diff output from standard input and displays a colored version. Each file diff is displayed in a separate block that can be collapsed by a click on the file name. Right clicking on a line will send a 
 .IR plumb (6)
 message to the
 .B edit
@@ -21,7 +21,7 @@ port. Pressing
 or
 .B del
 will exit
-.B vdiff
+.B vdiff.
 .PP
 The
 .B \-b
