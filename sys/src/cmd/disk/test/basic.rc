@@ -1,0 +1,28 @@
+#!/bin/rc
+
+# read fresh disk
+../$O.qcowfs -n 4294967296 /tmp/qcow
+dd -ibs 389120 -skip 1 -obs 8192 -count 1 < /mnt/qcow/data >/dev/null
+../$O.qcowfs -n 4294967296 /tmp/qcow
+dd -ibs 389120 -skip 1 -obs 15473 -count 1 < /mnt/qcow/data >/dev/null
+
+# write
+../$O.qcowfs -n 4294967296 /tmp/qcow
+dd -ibs 389120 -skip 1 -obs 8192 -count 1 -if /dev/random -of /mnt/qcow/data # start, power of two
+dd -ibs 389120 -skip 1 -obs 15473 -count 1 -if /dev/random -of /mnt/qcow/data # random prime
+dd -ibs 389120 -skip 1 -obs 8192 -seek 524287 -count 1 -if /dev/random -of /mnt/qcow/data  # end
+
+# read written disk
+dd -ibs 389120 -skip 1 -obs 8192 -count 1 < /mnt/qcow/data >/dev/null
+dd -ibs 389120 -skip 1 -obs 15473 -count 1 < /mnt/qcow/data >/dev/null
+
+# read and write some data
+cat /bin/cat > /mnt/qcow/data
+sz = `{walk -es /bin/cat}
+xhash=`{cat /bin/cat | sha1sum}
+rhash=`{read -c $sz /mnt/qcow/data | sha1sum}
+if(! ~ $xhash $rhash){
+	>[1=2] echo mismatched data
+	exit mishash
+}
+exit ''

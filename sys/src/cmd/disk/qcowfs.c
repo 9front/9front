@@ -463,14 +463,15 @@ fsread(Req *r)
 	rem = len;
 	while(rem != 0){
 		phys_off = xlate(d, off, nil);
-		if(phys_off <= 0)
-			d = nil;
+		if(phys_off == -1){
+			responderror(r);
+			return;
+		}
 		cluster_off = off % disk->clustersz;
 		sz = disk->clustersz - cluster_off;
 		if(sz > rem)
 			sz = rem;
-
-		if(!d)
+		if(phys_off == 0)
 			memset(buf, 0, sz);
 		else
 			sz = pread(d->fd, buf, sz, phys_off);
