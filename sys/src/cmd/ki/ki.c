@@ -51,6 +51,8 @@ main(int argc, char **argv)
 	cmd();
 }
 
+#define SEGROUND mach->pgsize
+
 void
 initmap(void)
 {
@@ -58,10 +60,10 @@ initmap(void)
 	ulong t, d, b, bssend;
 	Segment *s;
 
-	t = (fhdr.txtaddr+fhdr.txtsz+(BY2PG-1)) & ~(BY2PG-1);
-	d = (t + fhdr.datsz + (BY2PG-1)) & ~(BY2PG-1);
+	t = (fhdr.txtaddr+fhdr.txtsz+(SEGROUND-1)) & ~(SEGROUND-1);
+	d = (t + fhdr.datsz + (SEGROUND-1)) & ~(SEGROUND-1);
 	bssend = t + fhdr.datsz + fhdr.bsssz;
-	b = (bssend + (BY2PG-1)) & ~(BY2PG-1);
+	b = (bssend + (SEGROUND-1)) & ~(SEGROUND-1);
 
 	s = &memory.seg[Text];
 	s->type = Text;

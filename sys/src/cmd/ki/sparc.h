@@ -155,6 +155,8 @@ void		putmem_b(ulong, uchar);
 ulong		getmem_4(ulong);
 ulong		getmem_2(ulong);
 void		putmem_h(ulong, short);
+void		putmem_v(ulong, uvlong);
+uvlong		getmem_v(ulong);
 Mul		mul(long, long);
 Mulu		mulu(ulong, ulong);
 void		isum(void);

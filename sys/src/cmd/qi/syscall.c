@@ -306,14 +306,7 @@ sys_read(void)
 void
 syspread(void)
 {
-	union {
-		vlong v;
-		ulong u[2];
-	} o;
-
-	o.u[0] = getmem_w(reg.r[REGSP]+16);
-	o.u[1] = getmem_w(reg.r[REGSP]+20);
-	sysread(o.v);
+	sysread(getmem_v(reg.r[REGSP]+16));
 }
 
 void
@@ -322,24 +315,20 @@ sysseek(void)
 	int fd;
 	ulong mode;
 	ulong retp;
-	union {
-		vlong v;
-		ulong u[2];
-	} o;
+	vlong v;
 
 	retp = getmem_w(reg.r[REGSP]+4);
 	fd = getmem_w(reg.r[REGSP]+8);
-	o.u[0] = getmem_w(reg.r[REGSP]+12);
-	o.u[1] = getmem_w(reg.r[REGSP]+16);
+	v = getmem_v(reg.r[REGSP]+12);
 	mode = getmem_w(reg.r[REGSP]+20);
 	if(sysdbg)
-		itrace("seek(%d, %lld, %d)", fd, o.v, mode);
+		itrace("seek(%d, %lld, %d)", fd, v, mode);
 
-	o.v = seek(fd, o.v, mode);
-	if(o.v < 0)
-		errstr(errbuf, sizeof errbuf);	
+	v = seek(fd, v, mode);
+	if(v < 0)
+		errstr(errbuf, sizeof errbuf);
 
-	memio((char*)o.u, retp, sizeof(vlong), MemWrite);
+	putmem_v(retp, v);
 }
 
 void
@@ -524,14 +513,7 @@ sys_write(void)
 void
 syspwrite(void)
 {
-	union {
-		vlong v;
-		ulong u[2];
-	} o;
-
-	o.u[0] = getmem_w(reg.r[REGSP]+16);
-	o.u[1] = getmem_w(reg.r[REGSP]+20);
-	syswrite(o.v);
+	syswrite(getmem_v(reg.r[REGSP]+16));
 }
 
 void

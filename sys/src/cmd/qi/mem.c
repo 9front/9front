@@ -239,17 +239,17 @@ vaddr(ulong addr)
 				fatal(0, "vaddr");
 			case Text:
 				*p = emalloc(BY2PG);
-				if(seek(text, s->fileoff+(off*BY2PG), 0) < 0)
-					fatal(1, "vaddr text seek");
-				if(read(text, *p, BY2PG) < 0)
+				if(pread(text, *p, BY2PG, s->fileoff+off*BY2PG) < 0)
 					fatal(1, "vaddr text read");
 				return *p;
 			case Data:
 				*p = emalloc(BY2PG);
 				foff = s->fileoff+(off*BY2PG);
-				if(seek(text, foff, 0) < 0)
-					fatal(1, "vaddr text seek");
-				n = read(text, *p, BY2PG);
+				if(foff >= s->fileend){
+					memset(*p, 0, BY2PG);
+					return *p;
+				}
+				n = pread(text, *p, BY2PG, foff);
 				if(n < 0)
 					fatal(1, "vaddr text read");
 				if(foff + n > s->fileend) {
