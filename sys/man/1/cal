@@ -29,8 +29,6 @@ is omitted, the current month or year is used.
 If only one argument is given, and it is a number larger than 12,
 a calendar for all twelve months of the given year is produced;
 otherwise a calendar for just one month is printed.
-The calendar
-produced is that for England and her colonies.
 .PP
 .B -s
 .I N
