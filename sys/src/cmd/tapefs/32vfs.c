@@ -131,7 +131,7 @@ doread(Ram *r, vlong off, long cnt)
 		bno++;
 		i++;
 	}
-	return buf;
+	return buf+off;
 }
 
 void
@@ -208,10 +208,12 @@ bmap(Ram *r, long bno)
 	if (bno < VNADDR-3)
 		return ((long*)r->data)[bno];
 	if (bno < VNADDR*LNINDIR) {
-		seek(tapefile, ((long *)r->data)[(bno-(VNADDR-3))/LNINDIR]*BLSIZE, 0);
+		seek(tapefile, ((long *)r->data)[(bno-(VNADDR-3))/LNINDIR+(VNADDR-3)]*BLSIZE, 0);
 		if (read(tapefile, (char *)indbuf, BLSIZE) != BLSIZE)
 			return 0;
-		return ((indbuf[bno%LNINDIR][1]<<8) + indbuf[bno%LNINDIR][0]);
+
+		return ((indbuf[(bno-(VNADDR-3))%LNINDIR][2]<<16) + (indbuf[(bno-(VNADDR-3))%LNINDIR][1]<<8)
+			+ indbuf[(bno-(VNADDR-3))%LNINDIR][0]);
 	}
 	return 0;
 }

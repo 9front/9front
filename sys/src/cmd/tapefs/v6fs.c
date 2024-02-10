@@ -123,7 +123,7 @@ doread(Ram *r, vlong off, long cnt)
 		bno++;
 		i++;
 	}
-	return buf;
+	return buf+off;
 }
 
 void
