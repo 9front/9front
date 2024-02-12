@@ -1,0 +1,61 @@
+</$objtype/mkfile
+
+TARG=ext4srv
+CFLAGS=$CFLAGS -D__${objtype}__ -p -Iinclude
+
+OFILES=\
+	ext4.$O\
+	ext4_balloc.$O\
+	ext4_bcache.$O\
+	ext4_bitmap.$O\
+	ext4_block_group.$O\
+	ext4_blockdev.$O\
+	ext4_crc32.$O\
+	ext4_debug.$O\
+	ext4_dir.$O\
+	ext4_dir_idx.$O\
+	ext4_extent.$O\
+	ext4_fs.$O\
+	ext4_hash.$O\
+	ext4_ialloc.$O\
+	ext4_inode.$O\
+	ext4_journal.$O\
+	ext4_mbr.$O\
+	ext4_mkfs.$O\
+	ext4_super.$O\
+	ext4_trans.$O\
+	ext4srv.$O\
+	group.$O\
+	part.$O\
+
+HFILES=\
+	common.h\
+	group.h\
+	include/ext4.h\
+	include/ext4_balloc.h\
+	include/ext4_bcache.h\
+	include/ext4_bitmap.h\
+	include/ext4_block_group.h\
+	include/ext4_blockdev.h\
+	include/ext4_config.h\
+	include/ext4_crc32.h\
+	include/ext4_debug.h\
+	include/ext4_dir.h\
+	include/ext4_dir_idx.h\
+	include/ext4_extent.h\
+	include/ext4_fs.h\
+	include/ext4_hash.h\
+	include/ext4_ialloc.h\
+	include/ext4_inode.h\
+	include/ext4_journal.h\
+	include/ext4_mbr.h\
+	include/ext4_misc.h\
+	include/ext4_mkfs.h\
+	include/ext4_super.h\
+	include/ext4_trans.h\
+	include/ext4_types.h\
+	include/queue.h\
+	include/tree.h\
+
+BIN=/$objtype/bin
+</sys/src/cmd/mkone

@@ -1,0 +1,142 @@
+.TH EXT4SRV 4
+.SH NAME
+ext4srv \- ext4 file system
+.SH SYNOPSIS
+.B ext4srv
+[
+.B -Clrs
+] [
+.B -g
+.I groupfile
+] [
+.B -R
+.I uid
+] [
+.I service
+]
+.PP
+.B ext4srv
+.B -M
+.I (2|3|4)
+[
+.B -L
+.I label
+] [
+.B -b
+.I blksize
+] [
+.B -N
+.I numinodes
+] [
+.B -I
+.I inodesize
+]
+.I device
+.SH DESCRIPTION
+.I Ext4srv
+is a file server that interprets the Linux Second, Third and Fourth
+Extended File Systems.
+A single instance of
+.I ext4srv
+can provide access to multiple ext2, ext3 and ext4 partitions
+simultaneously.
+.PP
+.I Ext4srv
+posts a file descriptor named
+.I service
+(default
+.BR ext4 )
+in the
+.B /srv
+directory.
+To access an ext4 file system on a device, use
+.B mount
+with the
+.I spec
+argument
+(see
+.IR bind (1))
+the name of the file holding the raw ext4 file system, typically the disk or partition.
+If
+.I spec
+is undefined in the
+.BR mount ,
+.I ext4srv
+will use
+.I file
+as the default name for the device holding the file system.
+.PP
+Normally
+.I ext4srv
+creates a pipe to act as the communications channel between
+itself and its clients.
+The
+.B -s
+flag instructs
+.I ext4srv
+to use its standard input and output instead.
+This flag also prevents the creation of an explicit service file in
+.BR /srv .
+.PP
+The
+.B -r
+flag (recommended) makes the file system read-only.
+The optional
+.B -g
+flags specify Unix-format group file that give the mapping between the
+numeric user- and group-ID numbers in the ext4 file system and the
+strings reported by Plan 9 status inquiries.
+.PP
+With
+.B -R
+option the filesystem can be mounted in "root" mode, allowing full access regardless
+of permissions. The usual
+.I uid
+in this case is
+.IR 0 .
+.PP
+Optional flag
+.B -l
+enables symlink resolving, otherwise symlinks are hidden by
+default entirely, as Plan 9 does not have that concept.
+.PP
+Some file system state is cached in memory, and may
+be flushed only when the file system is unmounted if
+.B -C
+flag is used, which enabled write-back cache.
+Therefore if
+.I ext4srv
+is stopped or the machine is rebooted while an ext4 file system is
+still mounted, the superblock on the device will have been marked `not
+valid'
+(unless the
+.B -r
+flag was used).
+.SH MKFS
+A different mode of
+.I ext4srv
+is enabled with
+.B -M
+option that accepts the file system version
+.RI ( 2
+for
+.I ext2
+and so on).
+In this mode filesystem is initialized on the specified
+.I device
+and all existing data on it is destroyed.
+.PP
+Additional options may be specified, for example
+.B -L
+may be used to set the filesystem label.
+.SH BUGS
+Yes.
+.PP
+Permission checking is very basic and may not be complete.
+There may be many bugs.
+It is advisable to use
+.I ext4srv
+in read-only mode whenever possible.
+.SH HISTORY
+.I Ext4srv
+first appeared in 9front (February, 2024).

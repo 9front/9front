@@ -33,7 +33,7 @@ PIECES=\
 	dossrv\
 	echo\
 	ed\
-	ext2srv\
+	ext4srv\
 #	fcp\
 	grep\
 	hget\

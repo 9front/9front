@@ -1,0 +1,5 @@
+Based on https://github.com/gkostka/lwext4
+
+None of the sources are GPL-licensed:
+ * xattr handling removed altogether
+ * extents logic replaced with a BSD-3 licensed one found in https://github.com/ngkaho1234/lwext
