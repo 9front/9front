@@ -13,6 +13,8 @@ enum {
 	O_EXCL = 0200,
 	O_TRUNC = 01000,
 	O_APPEND = 02000,
+
+	O_WRMASK = O_WRONLY | O_RDWR,
 };
 
 #if defined(__mips__) || defined(__power__) || defined(__power64__) || defined(__sparc__) || defined(__sparc64__)

@@ -1566,7 +1566,7 @@ int ext4_ftruncate(ext4_file *f, u64int size)
 		return -1;
 	}
 
-	if (f->flags & O_RDONLY) {
+	if ((f->flags & O_WRMASK) == 0) {
 		werrstr(Eperm);
 		return -1;
 	}
@@ -1770,7 +1770,7 @@ int ext4_fwrite(ext4_file *file, const void *buf, usize size, usize *wcnt)
 		return -1;
 	}
 
-	if (file->flags & O_RDONLY) {
+	if ((file->flags & O_WRMASK) == 0) {
 		werrstr(Eperm);
 		return -1;
 	}
