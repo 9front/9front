@@ -80,7 +80,7 @@ int
 reopendevs(char *name)
 {
 	static char dir[] = "/dev/";
-	int i, n, dfd, afd;
+	int i, n, dfd, afd, len;
 	char *p;
 	Dir *d;
 
@@ -104,8 +104,12 @@ reopendevs(char *name)
 	if((dfd = open(dir, OREAD)) >= 0){
 		while((n = dirread(dfd, &d)) > 0){
 			for(i = 0; i < n; i++){
+				len = strlen(d[i].name);
 				if((d[i].mode & DMDIR) != 0
-				|| strncmp(d[i].name, "audio", 5) != 0)
+				|| len < 5
+				|| strncmp(d[i].name, "audio", 5) != 0
+				|| strcmp(d[i].name+len-3, "ctl") == 0
+				|| strcmp(d[i].name+len-4, "stat") == 0)
 					continue;
 				name = smprint("%s%s", dir, d[i].name);
 				if((afd = open(name, OWRITE)) >= 0){
@@ -298,11 +302,10 @@ fsread(Req *r)
 	if(r->fid->file->aux == &volfd){
 		static char svol[4096];
 		if(r->ifcall.offset == 0){
-			n = 0;
 			m = snprint(svol, sizeof(svol), "dev %s\nmix %d %d\n",
 				devaudio?devaudio:"",
 				volume[0], volume[1]);
-			if(volfd < 0 || (n = pread(volfd, svol+m, sizeof(svol)-m-1, 0)) > 0)
+			if(volfd >= 0 && (n = pread(volfd, svol+m, sizeof(svol)-m-1, 0)) > 0)
 				svol[m+n] = 0;
 		}
 		readstr(r, svol);
