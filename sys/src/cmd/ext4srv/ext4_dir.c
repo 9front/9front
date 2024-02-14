@@ -462,6 +462,7 @@ int ext4_dir_find_entry(struct ext4_dir_search_result *result,
 			return r;
 	}
 
+	werrstr(Enotfound);
 	return EXT4_ERR_NOT_FOUND;
 }
 
@@ -636,6 +637,7 @@ int ext4_dir_find_in_block(struct ext4_block *block, struct ext4_sblock *sb,
 	}
 
 	/* Entry not found */
+	werrstr(Enotfound);
 	return EXT4_ERR_NOT_FOUND;
 }
 

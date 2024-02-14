@@ -161,8 +161,8 @@ readfile(Part *p, char *path, usize *sz)
 	d = nil;
 	while(*path == '/')
 		path++;
-	s = smprint("%M/%s", p, path);
-	r = ext4_fopen2(&f, s, O_RDONLY);
+	s = smprint("/%s", path);
+	r = ext4_fopen2(&p->mp, &f, s, O_RDONLY);
 	free(s);
 
 	if(r == 0){
@@ -197,47 +197,37 @@ error:
 static int
 mountpart(Part *p, Opts *opts)
 {
+	struct ext4_mountpoint *mp;
 	usize sz;
 	char *gr;
 	int r;
 
-	r = 0;
-	if(snprint(p->dev, sizeof(p->dev), "%Ð", p) >= sizeof(p->dev)){
-		werrstr("part path too long");
-		goto error;
-	}
-	if(snprint(p->mnt, sizeof(p->mnt), "%M/", p) >= sizeof(p->mnt)){
-		werrstr("part path too long");
-		goto error;
-	}
-	if(ext4_device_register(&p->bdev, p->dev) < 0){
-		werrstr("register: %r");
-		goto error;
-	}
-	if(ext4_mount(p->dev, p->mnt, opts->rdonly) < 0){
+	mp = &p->mp;
+	if(ext4_mount(mp, &p->bdev, opts->rdonly) < 0){
 		werrstr("mount: %r");
 		goto error;
 	}
-	if(ext4_mount_setup_locks(p->mnt, &p->oslocks) < 0){
+	if(ext4_mount_setup_locks(mp, &p->oslocks) < 0){
 		werrstr("locks: %r");
 		goto error;
 	}
-	if(ext4_recover(p->mnt) < 0){
+	if(ext4_recover(mp) < 0){
 		werrstr("recover: %r");
 		goto error;
 	}
-	if(ext4_journal_start(p->mnt) < 0){
+	if(ext4_journal_start(mp) < 0){
 		werrstr("journal: %r");
 		goto error;
 	}
 	if(opts->cachewb)
-		ext4_cache_write_back(p->mnt, 1);
+		ext4_cache_write_back(mp, 1);
 
-	if(ext4_get_sblock(p->mnt, &p->sb) < 0){
+	if(ext4_get_sblock(mp, &p->sb) < 0){
 		werrstr("sblock: %r");
 		goto error;
 	}
 
+	r = 0;
 	if(opts->group != nil){
 		r = loadgroups(&p->groups, opts->group);
 	}else if((gr = readfile(p, "/etc/group", &sz)) != nil){
@@ -287,9 +277,6 @@ openpart(char *dev, Opts *opts)
 	p = nil;
 	s = nil;
 	qlock(&sv);
-
-	fmtinstall(L'Ð', fmtpart);
-	fmtinstall('M', fmtpart);
 
 	f = open(dev, ORDWR);
 	if(f < 0 || (d = dirfstat(f)) == nil)
@@ -367,13 +354,14 @@ error:
 static void
 _closepart(Part *p)
 {
-	ext4_cache_write_back(p->mnt, 0);
-	if(ext4_journal_stop(p->mnt) < 0)
-		fprint(2, "closepart: journal %s: %r\n", p->mnt);
-	if(ext4_umount(p->mnt) < 0)
-		fprint(2, "closepart: umount %s: %r\n", p->mnt);
-	if(ext4_device_unregister(p->dev) < 0)
-		fprint(2, "closepart: unregister %s: %r\n", p->dev);
+	struct ext4_mountpoint *mp;
+
+	mp = &p->mp;
+	ext4_cache_write_back(mp, 0);
+	if(ext4_journal_stop(mp) < 0)
+		fprint(2, "closepart: journal: %s: %r\n", p->partdev);
+	if(ext4_umount(mp) < 0)
+		fprint(2, "closepart: umount %s: %r\n", p->partdev);
 	close(p->f);
 	if(p->prev != nil)
 		p->prev = p->next;
@@ -411,7 +399,7 @@ statallparts(void)
 
 	qlock(&sv);
 	for(p = sv.ps; p != nil; p = p->next){
-		if(ext4_mount_point_stats(p->mnt, &s) < 0){
+		if(ext4_mount_point_stats(&p->mp, &s) < 0){
 			fprint(2, "%s: %r\n", p->partdev);
 		}else{
 			print(
@@ -447,7 +435,7 @@ syncallparts(void)
 	Part *p;
 	qlock(&sv);
 	for(p = sv.ps; p != nil; p = p->next){
-		if(ext4_cache_flush(p->mnt) < 0)
+		if(ext4_cache_flush(&p->mp) < 0)
 			fprint(2, "%s: %r\n", p->partdev);
 	}
 	qunlock(&sv);

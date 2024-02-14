@@ -661,6 +661,7 @@ static int ext4_dir_dx_next_block(struct ext4_inode_ref *inode_ref,
 		p->position = p->entries;
 	}
 
+	werrstr(Enotfound);
 	return EXT4_ERR_NOT_FOUND;
 }
 

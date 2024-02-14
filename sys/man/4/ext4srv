@@ -4,7 +4,7 @@ ext4srv \- ext4 file system
 .SH SYNOPSIS
 .B ext4srv
 [
-.B -Clrs
+.B -Crs
 ] [
 .B -g
 .I groupfile
@@ -95,11 +95,6 @@ of permissions. The usual
 in this case is
 .IR 0 .
 .PP
-Optional flag
-.B -l
-enables symlink resolving, otherwise symlinks are hidden by
-default entirely, as Plan 9 does not have that concept.
-.PP
 Some file system state is cached in memory, and may
 be flushed only when the file system is unmounted if
 .B -C
@@ -133,6 +128,7 @@ may be used to set the filesystem label.
 Yes.
 .PP
 Permission checking is very basic and may not be complete.
+Symlinks are not resolved.
 There may be many bugs.
 It is advisable to use
 .I ext4srv
