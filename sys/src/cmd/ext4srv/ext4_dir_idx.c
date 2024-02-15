@@ -185,11 +185,11 @@ static u32int ext4_dir_dx_checksum(struct ext4_inode_ref *inode_ref, void *de,
 		orig_cum = t->checksum;
 		t->checksum = 0;
 		/* First calculate crc32 checksum against fs uuid */
-		csum = ext4_crc32c(EXT4_CRC32_INIT, sb->uuid, sizeof(sb->uuid));
+		csum = inode_ref->fs->uuid_crc32c;
 		/* Then calculate crc32 checksum against inode number
 		 * and inode generation */
-		csum = ext4_crc32c(csum, &ino_index, sizeof(ino_index));
-		csum = ext4_crc32c(csum, &ino_gen, sizeof(ino_gen));
+		csum = ext4_crc32_u(csum, ino_index);
+		csum = ext4_crc32_u(csum, ino_gen);
 		/* After that calculate crc32 checksum against all the dx_entry */
 		csum = ext4_crc32c(csum, de, sz);
 		/* Finally calculate crc32 checksum for dx_tail */

@@ -9,6 +9,7 @@ struct ext4_fs {
 
 	struct ext4_blockdev *bdev;
 	struct ext4_sblock sb;
+	u32int uuid_crc32c;
 
 	u64int inode_block_limits[4];
 	u64int inode_blocks_per_level[4];

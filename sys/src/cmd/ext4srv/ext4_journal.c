@@ -126,9 +126,8 @@ static u32int jbd_sb_csum(struct jbd_sb *jbd_sb)
 	if (jbd_has_csum(jbd_sb)) {
 		u32int orig_checksum = jbd_sb->checksum;
 		jbd_set32(jbd_sb, checksum, 0);
-		/* Calculate crc32c checksum against tho whole superblock */
-		checksum = ext4_crc32c(EXT4_CRC32_INIT, jbd_sb,
-				JBD_SUPERBLOCK_SIZE);
+		/* Calculate crc32c checksum against the whole superblock */
+		checksum = ext4_crc32c(EXT4_CRC32_INIT, jbd_sb, JBD_SUPERBLOCK_SIZE);
 		jbd_sb->checksum = orig_checksum;
 	}
 	return checksum;
@@ -165,11 +164,9 @@ static u32int jbd_meta_csum(struct jbd_fs *jbd_fs,
 		tail->checksum = 0;
 
 		/* First calculate crc32c checksum against fs uuid */
-		checksum = ext4_crc32c(EXT4_CRC32_INIT, jbd_fs->sb.uuid,
-				       sizeof(jbd_fs->sb.uuid));
+		checksum = jbd_fs->uuid_crc32c;
 		/* Calculate crc32c checksum against tho whole block */
-		checksum = ext4_crc32c(checksum, bhdr,
-				block_size);
+		checksum = ext4_crc32c(checksum, bhdr, block_size);
 		tail->checksum = orig_checksum;
 	}
 	return checksum;
@@ -217,11 +214,9 @@ static u32int jbd_commit_csum(struct jbd_fs *jbd_fs,
 		header->chksum[0] = 0;
 
 		/* First calculate crc32c checksum against fs uuid */
-		checksum = ext4_crc32c(EXT4_CRC32_INIT, jbd_fs->sb.uuid,
-				       sizeof(jbd_fs->sb.uuid));
+		checksum = jbd_fs->uuid_crc32c;
 		/* Calculate crc32c checksum against tho whole block */
-		checksum = ext4_crc32c(checksum, header,
-				block_size);
+		checksum = ext4_crc32c(checksum, header, block_size);
 
 		header->chksum_type = orig_checksum_type;
 		header->chksum_size = orig_checksum_size;
@@ -264,20 +259,16 @@ static u32int jbd_block_csum(struct jbd_fs *jbd_fs, const void *buf,
 	if (jbd_has_csum(&jbd_fs->sb)) {
 		u32int block_size = jbd_get32(&jbd_fs->sb, blocksize);
 		/* First calculate crc32c checksum against fs uuid */
-		checksum = ext4_crc32c(EXT4_CRC32_INIT, jbd_fs->sb.uuid,
-				       sizeof(jbd_fs->sb.uuid));
+		checksum = jbd_fs->uuid_crc32c;
 		/* Then calculate crc32c checksum against sequence no. */
-		checksum = ext4_crc32c(checksum, &sequence,
-				sizeof(u32int));
-		/* Calculate crc32c checksum against tho whole block */
-		checksum = ext4_crc32c(checksum, buf,
-				block_size);
+		checksum = ext4_crc32_u(checksum, sequence);
+		/* Calculate crc32c checksum against the whole block */
+		checksum = ext4_crc32c(checksum, buf, block_size);
 	} else if (JBD_HAS_INCOMPAT_FEATURE(&jbd_fs->sb,
 				     JBD_FEATURE_COMPAT_CHECKSUM)) {
 		u32int block_size = jbd_get32(&jbd_fs->sb, blocksize);
-		/* Calculate crc32c checksum against tho whole block */
-		checksum = ext4_crc32(csum, buf,
-				block_size);
+		/* Calculate crc32 checksum against the whole block */
+		checksum = ext4_crc32(csum, buf, block_size);
 	}
 	return checksum;
 }

@@ -41,32 +41,30 @@ u64int ext4_balloc_get_block_of_bgid(struct ext4_sblock *s,
 	return baddr;
 }
 
-static u32int ext4_balloc_bitmap_csum(struct ext4_sblock *sb,
-					void *bitmap)
+static u32int ext4_balloc_bitmap_csum(struct ext4_fs *fs, void *bitmap)
 {
 	u32int checksum = 0;
-	if (ext4_sb_feature_ro_com(sb, EXT4_FRO_COM_METADATA_CSUM)) {
-		u32int blocks_per_group = ext4_get32(sb, blocks_per_group);
+	if (ext4_sb_feature_ro_com(&fs->sb, EXT4_FRO_COM_METADATA_CSUM)) {
+		u32int blocks_per_group = ext4_get32(&fs->sb, blocks_per_group);
 
 		/* First calculate crc32 checksum against fs uuid */
-		checksum = ext4_crc32c(EXT4_CRC32_INIT, sb->uuid,
-				sizeof(sb->uuid));
+		checksum = fs->uuid_crc32c;
 		/* Then calculate crc32 checksum against block_group_desc */
 		checksum = ext4_crc32c(checksum, bitmap, blocks_per_group / 8);
 	}
 	return checksum;
 }
 
-void ext4_balloc_set_bitmap_csum(struct ext4_sblock *sb,
-				 struct ext4_bgroup *bg,
-				 void *bitmap)
+void ext4_balloc_set_bitmap_csum(struct ext4_fs *fs,
+				struct ext4_bgroup *bg,
+				void *bitmap)
 {
-	int desc_size = ext4_sb_get_desc_size(sb);
-	u32int checksum = ext4_balloc_bitmap_csum(sb, bitmap);
+	int desc_size = ext4_sb_get_desc_size(&fs->sb);
+	u32int checksum = ext4_balloc_bitmap_csum(fs, bitmap);
 	u16int lo_checksum = to_le16(checksum & 0xFFFF),
 		 hi_checksum = to_le16(checksum >> 16);
 
-	if (!ext4_sb_feature_ro_com(sb, EXT4_FRO_COM_METADATA_CSUM))
+	if (!ext4_sb_feature_ro_com(&fs->sb, EXT4_FRO_COM_METADATA_CSUM))
 		return;
 
 	/* See if we need to assign a 32bit checksum */
@@ -77,12 +75,13 @@ void ext4_balloc_set_bitmap_csum(struct ext4_sblock *sb,
 }
 
 static bool
-ext4_balloc_verify_bitmap_csum(struct ext4_sblock *sb,
-			       struct ext4_bgroup *bg,
-			       void *bitmap)
+ext4_balloc_verify_bitmap_csum(struct ext4_fs *fs,
+					struct ext4_bgroup *bg,
+					void *bitmap)
 {
+	struct ext4_sblock *sb = &fs->sb;
 	int desc_size = ext4_sb_get_desc_size(sb);
-	u32int checksum = ext4_balloc_bitmap_csum(sb, bitmap);
+	u32int checksum = ext4_balloc_bitmap_csum(fs, bitmap);
 	u16int lo_checksum = to_le16(checksum & 0xFFFF),
 		 hi_checksum = to_le16(checksum >> 16);
 
@@ -127,7 +126,7 @@ int ext4_balloc_free_block(struct ext4_inode_ref *inode_ref, ext4_fsblk_t baddr)
 		return rc;
 	}
 
-	if (!ext4_balloc_verify_bitmap_csum(sb, bg, bitmap_block.data)) {
+	if (!ext4_balloc_verify_bitmap_csum(fs, bg, bitmap_block.data)) {
 		ext4_dbg(DEBUG_BALLOC,
 			DBG_WARN "Bitmap checksum failed."
 			"Group: %ud\n",
@@ -136,7 +135,7 @@ int ext4_balloc_free_block(struct ext4_inode_ref *inode_ref, ext4_fsblk_t baddr)
 
 	/* Modify bitmap */
 	ext4_bmap_bit_clr(bitmap_block.data, index_in_group);
-	ext4_balloc_set_bitmap_csum(sb, bg, bitmap_block.data);
+	ext4_balloc_set_bitmap_csum(fs, bg, bitmap_block.data);
 	ext4_trans_set_block_dirty(bitmap_block.buf);
 
 	/* Release block with bitmap */
@@ -228,7 +227,7 @@ int ext4_balloc_free_blocks(struct ext4_inode_ref *inode_ref,
 			return rc;
 		}
 
-		if (!ext4_balloc_verify_bitmap_csum(sb, bg, blk.data)) {
+		if (!ext4_balloc_verify_bitmap_csum(fs, bg, blk.data)) {
 			ext4_dbg(DEBUG_BALLOC,
 				DBG_WARN "Bitmap checksum failed."
 				"Group: %ud\n",
@@ -242,7 +241,7 @@ int ext4_balloc_free_blocks(struct ext4_inode_ref *inode_ref,
 
 		/* Modify bitmap */
 		ext4_bmap_bits_free(blk.data, idx_in_bg_first, free_cnt);
-		ext4_balloc_set_bitmap_csum(sb, bg, blk.data);
+		ext4_balloc_set_bitmap_csum(fs, bg, blk.data);
 		ext4_trans_set_block_dirty(blk.buf);
 
 		count -= free_cnt;
@@ -308,7 +307,8 @@ int ext4_balloc_alloc_block(struct ext4_inode_ref *inode_ref,
 	u32int rel_blk_idx = 0;
 	u64int free_blocks;
 	int r;
-	struct ext4_sblock *sb = &inode_ref->fs->sb;
+	struct ext4_fs *fs = inode_ref->fs;
+	struct ext4_sblock *sb = &fs->sb;
 
 	/* Load block group number for goal and relative index */
 	u32int bg_id = ext4_balloc_get_bgid_of_block(sb, goal);
@@ -318,7 +318,7 @@ int ext4_balloc_alloc_block(struct ext4_inode_ref *inode_ref,
 	struct ext4_block_group_ref bg_ref;
 
 	/* Load block group reference */
-	r = ext4_fs_get_block_group_ref(inode_ref->fs, bg_id, &bg_ref);
+	r = ext4_fs_get_block_group_ref(fs, bg_id, &bg_ref);
 	if (r != 0)
 		return r;
 
@@ -343,13 +343,13 @@ int ext4_balloc_alloc_block(struct ext4_inode_ref *inode_ref,
 	/* Load block with bitmap */
 	bmp_blk_adr = ext4_bg_get_block_bitmap(bg_ref.block_group, sb);
 
-	r = ext4_trans_block_get(inode_ref->fs->bdev, &b, bmp_blk_adr);
+	r = ext4_trans_block_get(fs->bdev, &b, bmp_blk_adr);
 	if (r != 0) {
 		ext4_fs_put_block_group_ref(&bg_ref);
 		return r;
 	}
 
-	if (!ext4_balloc_verify_bitmap_csum(sb, bg, b.data)) {
+	if (!ext4_balloc_verify_bitmap_csum(fs, bg, b.data)) {
 		ext4_dbg(DEBUG_BALLOC,
 			DBG_WARN "Bitmap checksum failed."
 			"Group: %ud\n",
@@ -359,10 +359,9 @@ int ext4_balloc_alloc_block(struct ext4_inode_ref *inode_ref,
 	/* Check if goal is free */
 	if (ext4_bmap_is_bit_clr(b.data, idx_in_bg)) {
 		ext4_bmap_bit_set(b.data, idx_in_bg);
-		ext4_balloc_set_bitmap_csum(sb, bg_ref.block_group,
-					    b.data);
+		ext4_balloc_set_bitmap_csum(fs, bg_ref.block_group, b.data);
 		ext4_trans_set_block_dirty(b.buf);
-		r = ext4_block_set(inode_ref->fs->bdev, &b);
+		r = ext4_block_set(fs->bdev, &b);
 		if (r != 0) {
 			ext4_fs_put_block_group_ref(&bg_ref);
 			return r;
@@ -384,9 +383,9 @@ int ext4_balloc_alloc_block(struct ext4_inode_ref *inode_ref,
 		if (ext4_bmap_is_bit_clr(b.data, tmp_idx)) {
 			ext4_bmap_bit_set(b.data, tmp_idx);
 
-			ext4_balloc_set_bitmap_csum(sb, bg, b.data);
+			ext4_balloc_set_bitmap_csum(fs, bg, b.data);
 			ext4_trans_set_block_dirty(b.buf);
-			r = ext4_block_set(inode_ref->fs->bdev, &b);
+			r = ext4_block_set(fs->bdev, &b);
 			if (r != 0) {
 				ext4_fs_put_block_group_ref(&bg_ref);
 				return r;
@@ -402,9 +401,9 @@ int ext4_balloc_alloc_block(struct ext4_inode_ref *inode_ref,
 	r = ext4_bmap_bit_find_clr(b.data, idx_in_bg, blk_in_bg, &rel_blk_idx, &no_space);
 	if (r == 0) {
 		ext4_bmap_bit_set(b.data, rel_blk_idx);
-		ext4_balloc_set_bitmap_csum(sb, bg_ref.block_group, b.data);
+		ext4_balloc_set_bitmap_csum(fs, bg_ref.block_group, b.data);
 		ext4_trans_set_block_dirty(b.buf);
-		r = ext4_block_set(inode_ref->fs->bdev, &b);
+		r = ext4_block_set(fs->bdev, &b);
 		if (r != 0) {
 			ext4_fs_put_block_group_ref(&bg_ref);
 			return r;
@@ -415,7 +414,7 @@ int ext4_balloc_alloc_block(struct ext4_inode_ref *inode_ref,
 	}
 
 	/* No free block found yet */
-	r = ext4_block_set(inode_ref->fs->bdev, &b);
+	r = ext4_block_set(fs->bdev, &b);
 	if (r != 0) {
 		ext4_fs_put_block_group_ref(&bg_ref);
 		return r;
@@ -433,7 +432,7 @@ goal_failed:
 	u32int count = block_group_count;
 
 	while (count > 0) {
-		r = ext4_fs_get_block_group_ref(inode_ref->fs, bgid, &bg_ref);
+		r = ext4_fs_get_block_group_ref(fs, bgid, &bg_ref);
 		if (r != 0)
 			return r;
 
@@ -446,13 +445,13 @@ goal_failed:
 
 		/* Load block with bitmap */
 		bmp_blk_adr = ext4_bg_get_block_bitmap(bg, sb);
-		r = ext4_trans_block_get(inode_ref->fs->bdev, &b, bmp_blk_adr);
+		r = ext4_trans_block_get(fs->bdev, &b, bmp_blk_adr);
 		if (r != 0) {
 			ext4_fs_put_block_group_ref(&bg_ref);
 			return r;
 		}
 
-		if (!ext4_balloc_verify_bitmap_csum(sb, bg, b.data)) {
+		if (!ext4_balloc_verify_bitmap_csum(fs, bg, b.data)) {
 			ext4_dbg(DEBUG_BALLOC,
 				DBG_WARN "Bitmap checksum failed."
 				"Group: %ud\n",
@@ -472,9 +471,9 @@ goal_failed:
 		r = ext4_bmap_bit_find_clr(b.data, idx_in_bg, blk_in_bg, &rel_blk_idx, &no_space);
 		if (r == 0) {
 			ext4_bmap_bit_set(b.data, rel_blk_idx);
-			ext4_balloc_set_bitmap_csum(sb, bg, b.data);
+			ext4_balloc_set_bitmap_csum(fs, bg, b.data);
 			ext4_trans_set_block_dirty(b.buf);
-			r = ext4_block_set(inode_ref->fs->bdev, &b);
+			r = ext4_block_set(fs->bdev, &b);
 			if (r != 0) {
 				ext4_fs_put_block_group_ref(&bg_ref);
 				return r;
@@ -484,7 +483,7 @@ goal_failed:
 			goto success;
 		}
 
-		r = ext4_block_set(inode_ref->fs->bdev, &b);
+		r = ext4_block_set(fs->bdev, &b);
 		if (r != 0) {
 			ext4_fs_put_block_group_ref(&bg_ref);
 			return r;
@@ -563,7 +562,7 @@ int ext4_balloc_try_alloc_block(struct ext4_inode_ref *inode_ref,
 		return rc;
 	}
 
-	if (!ext4_balloc_verify_bitmap_csum(sb, bg_ref.block_group, b.data)) {
+	if (!ext4_balloc_verify_bitmap_csum(fs, bg_ref.block_group, b.data)) {
 		ext4_dbg(DEBUG_BALLOC,
 			DBG_WARN "Bitmap checksum failed."
 			"Group: %ud\n",
@@ -576,7 +575,7 @@ int ext4_balloc_try_alloc_block(struct ext4_inode_ref *inode_ref,
 	/* Allocate block if possible */
 	if (*free) {
 		ext4_bmap_bit_set(b.data, index_in_group);
-		ext4_balloc_set_bitmap_csum(sb, bg_ref.block_group, b.data);
+		ext4_balloc_set_bitmap_csum(fs, bg_ref.block_group, b.data);
 		ext4_trans_set_block_dirty(b.buf);
 	}
 

@@ -4,11 +4,11 @@
 #include "ext4_types.h"
 
 /**@brief Calculate and set checksum of inode bitmap.
- * @param sb superblock pointer.
+ * @param fs fs pointer.
  * @param bg block group
  * @param bitmap bitmap buffer
  */
-void ext4_ialloc_set_bitmap_csum(struct ext4_sblock *sb, struct ext4_bgroup *bg,
+void ext4_ialloc_set_bitmap_csum(struct ext4_fs *fs, struct ext4_bgroup *bg,
 				 void *bitmap);
 
 /**@brief Free i-node number and modify filesystem data structers.

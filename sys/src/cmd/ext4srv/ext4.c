@@ -8,6 +8,7 @@
 #include "ext4_block_group.h"
 #include "ext4_dir_idx.h"
 #include "ext4_journal.h"
+#include "ext4_crc32.h"
 
 char Eexists[] = "file exists";
 char Einval[] = "invalid operation";
@@ -244,6 +245,7 @@ int ext4_mount(struct ext4_mountpoint *mp, struct ext4_blockdev *bd, bool read_o
 	struct ext4_bcache *bc;
 
 	memset(mp, 0, sizeof(*mp));
+	ext4_crc32_init();
 
 	r = ext4_block_init(bd);
 	if (r != 0)

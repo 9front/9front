@@ -40,18 +40,14 @@ static u32int ext4_extent_block_csum(struct ext4_inode_ref *inode_ref,
 		u32int ino_gen =
 			to_le32(ext4_inode_get_generation(inode_ref->inode));
 		/* First calculate crc32 checksum against fs uuid */
-		checksum = ext4_crc32c(EXT4_CRC32_INIT, sb->uuid,
-				sizeof(sb->uuid));
+		checksum = inode_ref->fs->uuid_crc32c;
 		/* Then calculate crc32 checksum against inode number
 		 * and inode generation */
-		checksum = ext4_crc32c(checksum, &ino_index,
-				     sizeof(ino_index));
-		checksum = ext4_crc32c(checksum, &ino_gen,
-				     sizeof(ino_gen));
+		checksum = ext4_crc32_u(checksum, ino_index);
+		checksum = ext4_crc32_u(checksum, ino_gen);
 		/* Finally calculate crc32 checksum against
 		 * the entire extent block up to the checksum field */
-		checksum = ext4_crc32c(checksum, eh,
-		    EXT4_EXTENT_TAIL_OFFSET(eh));
+		checksum = ext4_crc32c(checksum, eh, EXT4_EXTENT_TAIL_OFFSET(eh));
 	}
 	return checksum;
 }

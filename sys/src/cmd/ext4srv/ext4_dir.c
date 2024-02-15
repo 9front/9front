@@ -33,16 +33,15 @@ static u32int ext4_dir_csum(struct ext4_inode_ref *inode_ref,
 			      struct ext4_dir_en *dirent, int size)
 {
 	u32int csum;
-	struct ext4_sblock *sb = &inode_ref->fs->sb;
 	u32int ino_index = to_le32(inode_ref->index);
 	u32int ino_gen = to_le32(ext4_inode_get_generation(inode_ref->inode));
 
 	/* First calculate crc32 checksum against fs uuid */
-	csum = ext4_crc32c(EXT4_CRC32_INIT, sb->uuid, sizeof(sb->uuid));
+	csum = inode_ref->fs->uuid_crc32c;
 	/* Then calculate crc32 checksum against inode number
 	 * and inode generation */
-	csum = ext4_crc32c(csum, &ino_index, sizeof(ino_index));
-	csum = ext4_crc32c(csum, &ino_gen, sizeof(ino_gen));
+	csum = ext4_crc32_u(csum, ino_index);
+	csum = ext4_crc32_u(csum, ino_gen);
 	/* Finally calculate crc32 checksum against directory entries */
 	csum = ext4_crc32c(csum, dirent, size);
 	return csum;

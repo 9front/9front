@@ -25,9 +25,9 @@ ext4_fsblk_t ext4_balloc_get_block_of_bgid(struct ext4_sblock *s,
  * @param bg block group
  * @param bitmap bitmap buffer
  */
-void ext4_balloc_set_bitmap_csum(struct ext4_sblock *sb,
-				 struct ext4_bgroup *bg,
-				 void *bitmap);
+void ext4_balloc_set_bitmap_csum(struct ext4_fs *fs,
+				struct ext4_bgroup *bg,
+				void *bitmap);
 
 /**@brief   Free block from inode.
  * @param   inode_ref inode reference

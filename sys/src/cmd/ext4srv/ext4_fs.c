@@ -80,6 +80,9 @@ int ext4_fs_init(struct ext4_fs *fs, struct ext4_blockdev *bdev,
 		ext4_set16(&fs->sb, mount_count, ext4_get16(&fs->sb, mount_count) + 1);
 	}
 
+	if(r == 0)
+		fs->uuid_crc32c = ext4_crc32c(EXT4_CRC32_INIT, fs->sb.uuid, sizeof(fs->sb.uuid));
+
 	return r;
 }
 
@@ -250,7 +253,8 @@ static void ext4_fs_mark_bitmap_end(int start_bit, int end_bit, void *bitmap)
  */
 static int ext4_fs_init_block_bitmap(struct ext4_block_group_ref *bg_ref)
 {
-	struct ext4_sblock *sb = &bg_ref->fs->sb;
+	struct ext4_fs *fs = bg_ref->fs;
+	struct ext4_sblock *sb = &fs->sb;
 	struct ext4_bgroup *bg = bg_ref->block_group;
 	int rc;
 
@@ -274,7 +278,7 @@ static int ext4_fs_init_block_bitmap(struct ext4_block_group_ref *bg_ref)
 	u32int inode_table_bcnt = inodes_per_group * inode_size / block_size;
 
 	struct ext4_block block_bitmap;
-	rc = ext4_trans_block_get_noread(bg_ref->fs->bdev, &block_bitmap, bmp_blk);
+	rc = ext4_trans_block_get_noread(fs->bdev, &block_bitmap, bmp_blk);
 	if (rc != 0)
 		return rc;
 
@@ -333,11 +337,11 @@ static int ext4_fs_init_block_bitmap(struct ext4_block_group_ref *bg_ref)
         ext4_fs_mark_bitmap_end(group_blocks, block_size * 8, block_bitmap.data);
 	ext4_trans_set_block_dirty(block_bitmap.buf);
 
-	ext4_balloc_set_bitmap_csum(sb, bg_ref->block_group, block_bitmap.data);
+	ext4_balloc_set_bitmap_csum(fs, bg_ref->block_group, block_bitmap.data);
 	bg_ref->dirty = true;
 
 	/* Save bitmap */
-	return ext4_block_set(bg_ref->fs->bdev, &block_bitmap);
+	return ext4_block_set(fs->bdev, &block_bitmap);
 }
 
 /**@brief Initialize i-node bitmap in block group.
@@ -376,7 +380,7 @@ static int ext4_fs_init_inode_bitmap(struct ext4_block_group_ref *bg_ref)
 
 	ext4_trans_set_block_dirty(b.buf);
 
-	ext4_ialloc_set_bitmap_csum(sb, bg, b.data);
+	ext4_ialloc_set_bitmap_csum(bg_ref->fs, bg, b.data);
 	bg_ref->dirty = true;
 
 	/* Save bitmap */
@@ -451,9 +455,10 @@ static ext4_fsblk_t ext4_fs_get_descriptor_block(struct ext4_sblock *s,
  * @param bg   Block group to compute checksum for
  * @return Checksum value
  */
-static u16int ext4_fs_bg_checksum(struct ext4_sblock *sb, u32int bgid,
-				    struct ext4_bgroup *bg)
+static u16int ext4_fs_bg_checksum(struct ext4_fs *fs, u32int bgid, struct ext4_bgroup *bg)
 {
+	struct ext4_sblock *sb = &fs->sb;
+
 	/* If checksum not supported, 0 will be returned */
 	u16int crc = 0;
 
@@ -468,10 +473,9 @@ static u16int ext4_fs_bg_checksum(struct ext4_sblock *sb, u32int bgid,
 		bg->checksum = 0;
 
 		/* First calculate crc32 checksum against fs uuid */
-		checksum = ext4_crc32c(EXT4_CRC32_INIT, sb->uuid,
-				sizeof(sb->uuid));
+		checksum = fs->uuid_crc32c;
 		/* Then calculate crc32 checksum against bgid */
-		checksum = ext4_crc32c(checksum, &le32_bgid, sizeof(bgid));
+		checksum = ext4_crc32_u(checksum, le32_bgid);
 		/* Finally calculate crc32 checksum against block_group_desc */
 		checksum = ext4_crc32c(checksum, bg, ext4_sb_get_desc_size(sb));
 		bg->checksum = orig_checksum;
@@ -514,14 +518,14 @@ static u16int ext4_fs_bg_checksum(struct ext4_sblock *sb, u32int bgid,
 	return crc;
 }
 
-static bool ext4_fs_verify_bg_csum(struct ext4_sblock *sb,
-				   u32int bgid,
-				   struct ext4_bgroup *bg)
+static bool ext4_fs_verify_bg_csum(struct ext4_fs *fs,
+				u32int bgid,
+				struct ext4_bgroup *bg)
 {
-	if (!ext4_sb_feature_ro_com(sb, EXT4_FRO_COM_METADATA_CSUM))
+	if (!ext4_sb_feature_ro_com(&fs->sb, EXT4_FRO_COM_METADATA_CSUM))
 		return true;
 
-	return ext4_fs_bg_checksum(sb, bgid, bg) == to_le16(bg->checksum);
+	return ext4_fs_bg_checksum(fs, bgid, bg) == to_le16(bg->checksum);
 }
 
 int ext4_fs_get_block_group_ref(struct ext4_fs *fs, u32int bgid,
@@ -547,7 +551,7 @@ int ext4_fs_get_block_group_ref(struct ext4_fs *fs, u32int bgid,
 	ref->dirty = false;
 	struct ext4_bgroup *bg = ref->block_group;
 
-	if (!ext4_fs_verify_bg_csum(&fs->sb, bgid, bg)) {
+	if (!ext4_fs_verify_bg_csum(fs, bgid, bg)) {
 		ext4_dbg(DEBUG_FS,
 			 DBG_WARN "Block group descriptor checksum failed."
 			 "Block group index: %ud\n",
@@ -595,8 +599,7 @@ int ext4_fs_put_block_group_ref(struct ext4_block_group_ref *ref)
 	if (ref->dirty) {
 		/* Compute new checksum of block group */
 		u16int cs;
-		cs = ext4_fs_bg_checksum(&ref->fs->sb, ref->index,
-					 ref->block_group);
+		cs = ext4_fs_bg_checksum(ref->fs, ref->index, ref->block_group);
 		ref->block_group->checksum = to_le16(cs);
 
 		/* Mark block dirty for writing changes to physical device */
@@ -625,12 +628,11 @@ static u32int ext4_fs_inode_checksum(struct ext4_inode_ref *inode_ref)
 		ext4_inode_set_csum(sb, inode_ref->inode, 0);
 
 		/* First calculate crc32 checksum against fs uuid */
-		checksum = ext4_crc32c(EXT4_CRC32_INIT, sb->uuid,
-				       sizeof(sb->uuid));
+		checksum = inode_ref->fs->uuid_crc32c;
 		/* Then calculate crc32 checksum against inode number
 		 * and inode generation */
-		checksum = ext4_crc32c(checksum, &ino_index, sizeof(ino_index));
-		checksum = ext4_crc32c(checksum, &ino_gen, sizeof(ino_gen));
+		checksum = ext4_crc32_u(checksum, ino_index);
+		checksum = ext4_crc32_u(checksum, ino_gen);
 		/* Finally calculate crc32 checksum against
 		 * the entire inode */
 		checksum = ext4_crc32c(checksum, inode_ref->inode, inode_size);

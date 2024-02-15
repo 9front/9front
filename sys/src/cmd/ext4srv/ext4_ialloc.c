@@ -48,29 +48,29 @@ static u32int ext4_ialloc_get_bgid_of_inode(struct ext4_sblock *sb,
 	return (inode - 1) / inodes_per_group;
 }
 
-static u32int ext4_ialloc_bitmap_csum(struct ext4_sblock *sb,	void *bitmap)
+static u32int ext4_ialloc_bitmap_csum(struct ext4_fs *fs, void *bitmap)
 {
 	u32int csum = 0;
-	if (ext4_sb_feature_ro_com(sb, EXT4_FRO_COM_METADATA_CSUM)) {
+	if (ext4_sb_feature_ro_com(&fs->sb, EXT4_FRO_COM_METADATA_CSUM)) {
 		u32int inodes_per_group =
-			ext4_get32(sb, inodes_per_group);
+			ext4_get32(&fs->sb, inodes_per_group);
 
 		/* First calculate crc32 checksum against fs uuid */
-		csum = ext4_crc32c(EXT4_CRC32_INIT, sb->uuid, sizeof(sb->uuid));
+		csum = fs->uuid_crc32c;
 		/* Then calculate crc32 checksum against inode bitmap */
 		csum = ext4_crc32c(csum, bitmap, (inodes_per_group + 7) / 8);
 	}
 	return csum;
 }
 
-void ext4_ialloc_set_bitmap_csum(struct ext4_sblock *sb, struct ext4_bgroup *bg, void *bitmap)
+void ext4_ialloc_set_bitmap_csum(struct ext4_fs *fs, struct ext4_bgroup *bg, void *bitmap)
 {
-	int desc_size = ext4_sb_get_desc_size(sb);
-	u32int csum = ext4_ialloc_bitmap_csum(sb, bitmap);
+	int desc_size = ext4_sb_get_desc_size(&fs->sb);
+	u32int csum = ext4_ialloc_bitmap_csum(fs, bitmap);
 	u16int lo_csum = to_le16(csum & 0xFFFF),
 		 hi_csum = to_le16(csum >> 16);
 
-	if (!ext4_sb_feature_ro_com(sb, EXT4_FRO_COM_METADATA_CSUM))
+	if (!ext4_sb_feature_ro_com(&fs->sb, EXT4_FRO_COM_METADATA_CSUM))
 		return;
 
 	/* See if we need to assign a 32bit checksum */
@@ -81,14 +81,14 @@ void ext4_ialloc_set_bitmap_csum(struct ext4_sblock *sb, struct ext4_bgroup *bg,
 }
 
 static bool
-ext4_ialloc_verify_bitmap_csum(struct ext4_sblock *sb, struct ext4_bgroup *bg, void *bitmap)
+ext4_ialloc_verify_bitmap_csum(struct ext4_fs *fs, struct ext4_bgroup *bg, void *bitmap)
 {
-	int desc_size = ext4_sb_get_desc_size(sb);
-	u32int csum = ext4_ialloc_bitmap_csum(sb, bitmap);
+	int desc_size = ext4_sb_get_desc_size(&fs->sb);
+	u32int csum = ext4_ialloc_bitmap_csum(fs, bitmap);
 	u16int lo_csum = to_le16(csum & 0xFFFF),
 		 hi_csum = to_le16(csum >> 16);
 
-	if (!ext4_sb_feature_ro_com(sb, EXT4_FRO_COM_METADATA_CSUM))
+	if (!ext4_sb_feature_ro_com(&fs->sb, EXT4_FRO_COM_METADATA_CSUM))
 		return true;
 
 	if (bg->inode_bitmap_csum_lo != lo_csum)
@@ -124,7 +124,7 @@ int ext4_ialloc_free_inode(struct ext4_fs *fs, u32int index, bool is_dir)
 	if (rc != 0)
 		return rc;
 
-	if (!ext4_ialloc_verify_bitmap_csum(sb, bg, b.data)) {
+	if (!ext4_ialloc_verify_bitmap_csum(fs, bg, b.data)) {
 		ext4_dbg(DEBUG_IALLOC,
 			DBG_WARN "Bitmap checksum failed."
 			"Group: %ud\n",
@@ -134,7 +134,7 @@ int ext4_ialloc_free_inode(struct ext4_fs *fs, u32int index, bool is_dir)
 	/* Free i-node in the bitmap */
 	u32int index_in_group = ext4_ialloc_inode_to_bgidx(sb, index);
 	ext4_bmap_bit_clr(b.data, index_in_group);
-	ext4_ialloc_set_bitmap_csum(sb, bg, b.data);
+	ext4_ialloc_set_bitmap_csum(fs, bg, b.data);
 	ext4_trans_set_block_dirty(b.buf);
 
 	/* Put back the block with bitmap */
@@ -217,7 +217,7 @@ int ext4_ialloc_alloc_inode(struct ext4_fs *fs, u32int *idx, bool is_dir)
 				return rc;
 			}
 
-			if (!ext4_ialloc_verify_bitmap_csum(sb, bg, b.data)) {
+			if (!ext4_ialloc_verify_bitmap_csum(fs, bg, b.data)) {
 				ext4_dbg(DEBUG_IALLOC,
 					DBG_WARN "Bitmap checksum failed."
 					"Group: %ud\n",
@@ -249,8 +249,7 @@ int ext4_ialloc_alloc_inode(struct ext4_fs *fs, u32int *idx, bool is_dir)
 			ext4_bmap_bit_set(b.data, idx_in_bg);
 
 			/* Free i-node found, save the bitmap */
-			ext4_ialloc_set_bitmap_csum(sb,bg,
-						    b.data);
+			ext4_ialloc_set_bitmap_csum(fs, bg, b.data);
 			ext4_trans_set_block_dirty(b.buf);
 
 			ext4_block_set(fs->bdev, &b);
