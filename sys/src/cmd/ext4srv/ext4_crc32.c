@@ -136,8 +136,10 @@ u32int ext4_crc32(u32int crc, const void *buf, u32int size)
 u32int ext4_crc32c(u32int crc, const void *buf, u32int size)
 {
 	const u8int *p = (const u8int *)buf;
-	while(size > 0 && ((uintptr)p & 3) != 0)
+	while(size > 0 && ((uintptr)p & 3) != 0){
+		size--;
 		crc = crc32c_tab[0][(crc ^ *p++) & 0xFF] ^ (crc >> 8);
+	}
 
 	const u32int *p32 = (const u32int *)p;
 	while(size >= 4){

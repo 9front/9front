@@ -19,6 +19,7 @@ extern u32int crc32c_tab[4][256];
  * @return	updated crc32c value*/
 u32int ext4_crc32c(u32int crc, const void *buf, u32int size);
 
+#ifndef CONFIG_BIG_ENDIAN
 #define ext4_crc32_u(crc, x) ( \
 	(crc) = (crc) ^ (x), \
 	crc32c_tab[0][(crc)>>24] ^ \
@@ -26,5 +27,14 @@ u32int ext4_crc32c(u32int crc, const void *buf, u32int size);
 	crc32c_tab[2][((crc)>>8) & 0xff] ^ \
 	crc32c_tab[3][(crc) & 0xff] \
 )
+#else
+#define ext4_crc32_u(crc, x) ( \
+	(crc) = (crc) ^ (x), \
+	crc32c_tab[0][(crc) & 0xff] ^ \
+	crc32c_tab[1][((crc)>>8) & 0xff] ^ \
+	crc32c_tab[2][((crc)>>16) & 0xff] ^ \
+	crc32c_tab[3][(crc)>>24] \
+)
+#endif
 
 void ext4_crc32_init(void);
