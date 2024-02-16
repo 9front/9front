@@ -8,25 +8,20 @@ void ext4_bmap_bits_free(u8int *bmap, u32int sbit, u32int bcnt)
 {
 	u32int i = sbit;
 
-	while (i & 7) {
-
-		if (!bcnt)
+	while(i & 7){
+		if(bcnt-- == 0)
 			return;
-
-		ext4_bmap_bit_clr(bmap, i);
-
-		bcnt--;
-		i++;
+		ext4_bmap_bit_clr(bmap, i++);
 	}
 	sbit = i;
 	bmap += sbit >> 3;
 
 	memset(bmap, 0, bcnt >> 3);
 	bmap += bcnt >> 3;
+	bcnt &= 7;
 
-	for (i = 0; i < bcnt; ++i) {
-		ext4_bmap_bit_clr(bmap, i);
-	}
+	while(bcnt > 0)
+		ext4_bmap_bit_clr(bmap, --bcnt);
 }
 
 int ext4_bmap_bit_find_clr(u8int *bmap, u32int sbit, u32int ebit,
