@@ -119,30 +119,28 @@ static int ext4_link(struct ext4_mountpoint *mp, struct ext4_inode_ref *parent,
 	if (is_dir && !rename) {
 		/* Initialize directory index if supported */
 		if (ext4_sb_feature_com(&mp->fs.sb, EXT4_FCOM_DIR_INDEX)) {
+			ext4_inode_set_flag(ch->inode, EXT4_INODE_FLAG_INDEX);
 			r = ext4_dir_dx_init(ch, parent);
 			if (r != 0)
 				return r;
+		} else {
+			r = ext4_dir_add_entry(ch, ".", strlen("."), ch);
+			if (r != 0) {
+				ext4_dir_remove_entry(parent, n, strlen(n));
+				return r;
+			}
 
-			ext4_inode_set_flag(ch->inode, EXT4_INODE_FLAG_INDEX);
-			ch->dirty = true;
-		} else
-
-		r = ext4_dir_add_entry(ch, ".", strlen("."), ch);
-		if (r != 0) {
-			ext4_dir_remove_entry(parent, n, strlen(n));
-			return r;
-		}
-
-		r = ext4_dir_add_entry(ch, "..", strlen(".."), parent);
-		if (r != 0) {
-			ext4_dir_remove_entry(parent, n, strlen(n));
-			ext4_dir_remove_entry(ch, ".", strlen("."));
-			return r;
+			r = ext4_dir_add_entry(ch, "..", strlen(".."), parent);
+			if (r != 0) {
+				ext4_dir_remove_entry(parent, n, strlen(n));
+				ext4_dir_remove_entry(ch, ".", strlen("."));
+				return r;
+			}
 		}
 
 		/*New empty directory. Two links (. and ..) */
-		ext4_inode_set_links_cnt(ch->inode, 2);
 		ext4_fs_inode_links_count_inc(parent);
+		ext4_inode_set_links_cnt(ch->inode, 2);
 		ch->dirty = true;
 		parent->dirty = true;
 		return r;
@@ -1675,7 +1673,10 @@ out_fsize:
 	}
 
 Finish:
-	r = ext4_fs_put_inode_ref(&ref);
+	if(r == 0)
+		ext4_inode_set_modif_time(ref.inode, time(nil));
+
+	ext4_fs_put_inode_ref(&ref);
 
 	if (r != 0)
 		ext4_trans_abort(file->mp);
@@ -2530,6 +2531,7 @@ int ext4_dir_mk(struct ext4_mountpoint *mp, const char *path)
 	/*Check if exist.*/
 	r = ext4_generic_open(mp, &f, path, "r", false, nil);
 	if (r == 0) {
+		ext4_fclose(&f);
 		werrstr(Eexists);
 		r = -1;
 		goto Finish;
@@ -2537,6 +2539,8 @@ int ext4_dir_mk(struct ext4_mountpoint *mp, const char *path)
 
 	/*Create new directory.*/
 	r = ext4_generic_open(mp, &f, path, "w", false, nil);
+	if(r == 0)
+		ext4_fclose(&f);
 
 Finish:
 	EXT4_MP_UNLOCK(mp);
