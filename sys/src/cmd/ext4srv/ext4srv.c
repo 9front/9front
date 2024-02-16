@@ -640,6 +640,9 @@ rwstat(Req *r)
 	if(r->d.gid != nil && r->d.gid[0] != 0 && ext4_owner_set(mp, a->path, uid, gid) < 0)
 		goto error;
 
+	/* inode changed - update the time */
+	ext4_ctime_set(mp, a->path, time(nil));
+
 	respond(r, nil);
 	return;
 
