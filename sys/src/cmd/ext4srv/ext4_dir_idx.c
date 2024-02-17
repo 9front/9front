@@ -232,10 +232,6 @@ ext4_dir_dx_get_climit(struct ext4_inode_ref *inode_ref,
 	return (struct ext4_dir_idx_climit *)(((char *)dirent) + count_offset);
 }
 
-/*
- * BIG FAT NOTES:
- *       Currently we do not verify the checksum of HTree node.
- */
 static bool ext4_dir_dx_csum_verify(struct ext4_inode_ref *inode_ref,
 				    struct ext4_dir_en *de)
 {
@@ -262,7 +258,7 @@ static bool ext4_dir_dx_csum_verify(struct ext4_inode_ref *inode_ref,
 
 		u32int c = to_le32(ext4_dir_dx_checksum(inode_ref, de, coff, cnt, t));
 		if (t->checksum != c)
-			return true; // FIXME lwext4 does not set correct checksums sometimes
+			return false;
 	}
 	return true;
 }
@@ -292,8 +288,7 @@ static void ext4_dir_set_dx_csum(struct ext4_inode_ref *inode_ref,
 		}
 
 		t = (void *)(((struct ext4_dir_idx_entry *)climit) + limit);
-		t->checksum = to_le32(ext4_dir_dx_checksum(inode_ref, dirent,
-					coff, count, t));
+		t->checksum = to_le32(ext4_dir_dx_checksum(inode_ref, dirent, coff, count, t));
 	}
 }
 
@@ -388,6 +383,7 @@ int ext4_dir_dx_init(struct ext4_inode_ref *dir, struct ext4_inode_ref *parent)
 
 	if (ext4_sb_feature_ro_com(sb, EXT4_FRO_COM_METADATA_CSUM)) {
 		int len = block_size - sizeof(struct ext4_dir_entry_tail);
+		memset(be, 0, len);
 		ext4_dir_en_set_entry_len(be, len);
 		ext4_dir_en_set_name_len(sb, be, 0);
 		ext4_dir_en_set_inode_type(sb, be, EXT4_DE_UNKNOWN);
@@ -1211,6 +1207,8 @@ int ext4_dir_dx_add_entry(struct ext4_inode_ref *parent,
 			 "Block: %ud\n",
 			 parent->index,
 			 (u32int)0);
+		werrstr("htree root checksum mismatch");
+		return EXT4_ERR_BAD_DX_DIR;
 	}
 
 	/* Initialize hinfo structure (mainly compute hash) */
@@ -1263,6 +1261,9 @@ int ext4_dir_dx_add_entry(struct ext4_inode_ref *parent,
 				"Block: %ud\n",
 				parent->index,
 				leaf_block_idx);
+		r = -1;
+		werrstr("htree leaf block checksum mismatch");
+		goto release_index;
 	}
 
 	/* Check if insert operation passed */

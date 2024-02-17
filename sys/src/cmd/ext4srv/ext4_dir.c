@@ -58,14 +58,16 @@ bool ext4_dir_csum_verify(struct ext4_inode_ref *inode_ref,
 		t = ext4_dir_get_tail(inode_ref, dirent);
 		if (!t) {
 			/* There is no space to hold the checksum */
+			werrstr("no space for checksum");
 			return false;
 		}
 
 		intptr diff = (char *)t - (char *)dirent;
 		u32int csum = ext4_dir_csum(inode_ref, dirent, diff);
-		if (t->checksum != to_le32(csum))
+		if (t->checksum != to_le32(csum)) {
+			werrstr("checksum does not match");
 			return false;
-
+		}
 	}
 	return true;
 }
@@ -92,8 +94,7 @@ void ext4_dir_set_csum(struct ext4_inode_ref *inode_ref,
 		}
 
 		intptr diff = (char *)t - (char *)dirent;
-		u32int csum = ext4_dir_csum(inode_ref, dirent, diff);
-		t->checksum = to_le32(csum);
+		t->checksum = to_le32(ext4_dir_csum(inode_ref, dirent, diff));
 	}
 }
 
@@ -305,9 +306,8 @@ int ext4_dir_add_entry(struct ext4_inode_ref *parent, const char *name,
 			/* Needed to clear dir index flag if corrupted */
 			ext4_inode_clear_flag(parent->inode, EXT4_INODE_FLAG_INDEX);
 			parent->dirty = true;
-		} else if (r == 0) {
-			return 0;
 		}
+		return r;
 	}
 
 	/* Linear algorithm */
@@ -377,8 +377,7 @@ int ext4_dir_add_entry(struct ext4_inode_ref *parent, const char *name,
 		ext4_dir_write_entry(sb, blk_en, el, child, name, name_len);
 		ext4_dir_init_entry_tail(EXT4_DIRENT_TAIL(b.data, block_size));
 	} else {
-		ext4_dir_write_entry(sb, blk_en, block_size, child, name,
-				name_len);
+		ext4_dir_write_entry(sb, blk_en, block_size, child, name, name_len);
 	}
 
 	ext4_dir_set_csum(parent, (void *)b.data);
@@ -408,9 +407,8 @@ int ext4_dir_find_entry(struct ext4_dir_search_result *result,
 			/* Needed to clear dir index flag if corrupted */
 			ext4_inode_clear_flag(parent->inode, EXT4_INODE_FLAG_INDEX);
 			parent->dirty = true;
-		} else if (r == 0) {
-			return 0;
 		}
+		return r;
 	}
 
 	/* Linear algorithm */
