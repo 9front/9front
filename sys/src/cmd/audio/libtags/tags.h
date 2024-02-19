@@ -18,6 +18,8 @@ enum
 	Ttrackpeak,
 	Tgenre,
 	Timage,
+	Tcomposer,
+	Tcomment,
 };
 
 /* Format of the audio file. */

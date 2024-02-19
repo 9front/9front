@@ -4,31 +4,39 @@
  */
 #include "tagspriv.h"
 
+static const struct {
+	char *s;
+	int type;
+}t[] = {
+	{"album", Talbum},
+	{"title", Ttitle},
+	{"artist", Tartist},
+	{"tracknumber", Ttrack},
+	{"date", Tdate},
+	{"replaygain_track_peak", Ttrackpeak},
+	{"replaygain_track_gain", Ttrackgain},
+	{"r128_track_gain", Ttrackgain},
+	{"replaygain_album_peak", Talbumpeak},
+	{"replaygain_album_gain", Talbumgain},
+	{"r128_album_gain", Talbumgain},
+	{"genre", Tgenre},
+	{"composer", Tcomposer},
+	{"comment", Tcomment},
+};
+
 void
 cbvorbiscomment(Tagctx *ctx, char *k, char *v){
+	int i;
+
 	if(*v == 0)
 		return;
-	if(cistrcmp(k, "album") == 0)
-		txtcb(ctx, Talbum, k, v);
-	else if(cistrcmp(k, "title") == 0)
-		txtcb(ctx, Ttitle, k, v);
-	else if(cistrcmp(k, "artist") == 0)
-		txtcb(ctx, Tartist, k, v);
-	else if(cistrcmp(k, "tracknumber") == 0)
-		txtcb(ctx, Ttrack, k, v);
-	else if(cistrcmp(k, "date") == 0)
-		txtcb(ctx, Tdate, k, v);
-	else if(cistrcmp(k, "replaygain_track_peak") == 0)
-		txtcb(ctx, Ttrackpeak, k, v);
-	else if(cistrcmp(k, "replaygain_track_gain") == 0 || cistrcmp(k, "r128_track_gain") == 0)
-		txtcb(ctx, Ttrackgain, k, v);
-	else if(cistrcmp(k, "replaygain_album_peak") == 0)
-		txtcb(ctx, Talbumpeak, k, v);
-	else if(cistrcmp(k, "replaygain_album_gain") == 0 || cistrcmp(k, "r128_album_gain") == 0)
-		txtcb(ctx, Talbumgain, k, v);
-	else if(cistrcmp(k, "genre") == 0)
-		txtcb(ctx, Tgenre, k, v);
-	else
+	for(i = 0; i < nelem(t); i++){
+		if(cistrcmp(k, t[i].s) == 0){
+			txtcb(ctx, t[i].type, k, v);
+			break;
+		}
+	}
+	if(i == nelem(t))
 		txtcb(ctx, Tunknown, k, v);
 }
 

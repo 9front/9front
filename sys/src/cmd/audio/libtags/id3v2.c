@@ -29,6 +29,8 @@ v2cb(Tagctx *ctx, char *k, char *v)
 		txtcb(ctx, Ttrack, k-1, v);
 	else if(strcmp(k, "LEN") == 0)
 		ctx->duration = atoi(v);
+	else if(strcmp(k, "CM") == 0 || strcmp(k, "COM") == 0)
+		txtcb(ctx, Tcomposer, k-1, v);
 	else if(strcmp(k, "CO") == 0 || strcmp(k, "CON") == 0){
 		for(; v[0]; v++){
 			if(v[0] == '(' && v[1] <= '9' && v[1] >= '0'){
@@ -62,6 +64,8 @@ v2cb(Tagctx *ctx, char *k, char *v)
 			txtcb(ctx, type, k-1, v+5);
 		else
 			return 0;
+	}else if(strcmp(k-1, "COM") == 0 || strcmp(k-1, "COMM") == 0){
+		txtcb(ctx, Tcomment, k-1, v);
 	}else{
 		txtcb(ctx, Tunknown, k-1, v);
 	}

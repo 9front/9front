@@ -93,6 +93,10 @@ tagm4a(Tagctx *ctx)
 			type = Timage;
 		else if(memcmp(d, "trkn", 4) == 0)
 			type = Ttrack;
+		else if(memcmp(d, "\251wrt", 4) == 0)
+			type = Tcomposer;
+		else if(memcmp(d, "\251cmt", 4) == 0)
+			type = Tcomment;
 		else if(memcmp(d, "mdhd", 4) == 0){
 			if(ctx->read(ctx, d, 4) != 4)
 				return -1;

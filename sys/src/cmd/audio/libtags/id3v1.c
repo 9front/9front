@@ -36,6 +36,9 @@ tagid3v1(Tagctx *ctx)
 	if((ctx->found & 1<<Tdate) == 0 && in[93] != 0)
 		txtcb(ctx, Tdate, "", &in[93]);
 
+	if((ctx->found & 1<<Tcomment) == 0 && in[97] != 0)
+		txtcb(ctx, Tcomment, "", &in[97]);
+
 	if((ctx->found & 1<<Ttrack) == 0 && in[125] == 0 && in[126] > 0){
 		snprint((char*)out, Outsz, "%d", in[126]);
 		txtcb(ctx, Ttrack, "", out);

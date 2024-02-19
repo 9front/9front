@@ -2,7 +2,7 @@
 
 #define le16u(d) (u16int)((d)[0] | (d)[1]<<8)
 
-static struct {
+static const struct {
 	char *s;
 	int type;
 }t[] = {
@@ -12,6 +12,7 @@ static struct {
 	{"INAM", Ttitle},
 	{"IPRD", Talbum},
 	{"ITRK", Ttrack},
+	{"ICMT", Tcomment},
 	{"????", Tunknown},
 };
 

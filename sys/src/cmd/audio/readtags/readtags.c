@@ -22,6 +22,8 @@ static const char *t2s[] =
 	[Ttrackpeak] = "trackpeak",
 	[Tgenre] = "genre",
 	[Timage] = "image",
+	[Tcomposer] = "composer",
+	[Tcomment] = "comment",
 };
 
 static int image;
