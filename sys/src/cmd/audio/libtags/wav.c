@@ -12,6 +12,7 @@ static struct {
 	{"INAM", Ttitle},
 	{"IPRD", Talbum},
 	{"ITRK", Ttrack},
+	{"????", Tunknown},
 };
 
 int
@@ -68,11 +69,12 @@ tagwav(Tagctx *ctx)
 			continue;
 		}else if(info){
 			for(n = 0; n < nelem(t); n++){
-				if(memcmp(d, t[n].s, 4) == 0){
-					if(ctx->read(ctx, d, csz) != (int)csz)
+				if(memcmp(d, t[n].s, 4) == 0 || t[n].type == Tunknown){
+					if(ctx->read(ctx, d+5, csz) != (int)csz)
 						return -1;
-					d[csz-1] = 0;
-					txtcb(ctx, t[n].type, "", d);
+					d[4] = 0;
+					d[5+csz-1] = 0;
+					txtcb(ctx, t[n].type, t[n].type == Tunknown ? (char*)d : "", d+5);
 					csz = 0;
 					break;
 				}
