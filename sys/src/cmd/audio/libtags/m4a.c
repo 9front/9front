@@ -137,7 +137,7 @@ tagm4a(Tagctx *ctx)
 			sz -= 4;
 			snprint((char*)d, ctx->bufsz, "%d", beuint(d));
 			txtcb(ctx, type, "", d);
-		}else if(type == Tgenre){
+		}else if(type == Tgenre && dtype != 1){
 			if(ctx->read(ctx, d, 2) != 2)
 				return -1;
 			sz -= 2;
