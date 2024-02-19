@@ -67,13 +67,13 @@ tagwav(Tagctx *ctx)
 		}else if(memcmp(d, "LIST", 4) == 0){
 			sz = csz - 4;
 			continue;
-		}else if(info){
+		}else if(info && csz < (u32int)ctx->bufsz){
 			for(n = 0; n < nelem(t); n++){
 				if(memcmp(d, t[n].s, 4) == 0 || t[n].type == Tunknown){
 					if(ctx->read(ctx, d+5, csz) != (int)csz)
 						return -1;
 					d[4] = 0;
-					d[5+csz-1] = 0;
+					d[5+csz] = 0;
 					txtcb(ctx, t[n].type, t[n].type == Tunknown ? (char*)d : "", d+5);
 					csz = 0;
 					break;
