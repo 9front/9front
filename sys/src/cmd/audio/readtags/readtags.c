@@ -66,8 +66,10 @@ tag(Tagctx *ctx, int t, const char *k, const char *v, int offset, int size, Tagr
 	}
 	if(t == Timage)
 		print("%-12s %s %d %d\n", t2s[t], v, offset, size);
-	else if(t != Tunknown)
-		print("%-12s %s\n", t2s[t], v);
+	else if(t == Tunknown)
+		print("%-12s %s\n", k, v);
+	else
+ 		print("%-12s %s\n", t2s[t], v);
 }
 
 static void
