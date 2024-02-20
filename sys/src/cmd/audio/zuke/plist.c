@@ -15,6 +15,8 @@ printmeta(Biobuf *b, Meta *m)
 		Bprint(b, "%c %s\n", Palbum, m->album);
 	if(m->title != nil)
 		Bprint(b, "%c %s\n", Ptitle, m->title);
+	if(m->composer != nil)
+		Bprint(b, "%c %s\n", Pcomposer, m->composer);
 	if(m->date != nil)
 		Bprint(b, "%c %s\n", Pdate, m->date);
 	if(m->track != nil)

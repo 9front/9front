@@ -238,6 +238,7 @@ getcol(Meta *m, int c)
 	switch(c){
 	case Palbum: s = m->album; break;
 	case Partist: s = m->artist[0]; break;
+	case Pcomposer: s = m->composer; break;
 	case Pdate: s = m->date; break;
 	case Ptitle: s = (!colspath && (m->title == nil || *m->title == 0)) ? m->basename : m->title; break;
 	case Ptrack: snprint(tmp, sizeof(tmp), "%4s", m->track); s = m->track ? tmp : nil; break;
@@ -975,6 +976,8 @@ addit:
 			if(m->path != nil){
 				if(m->filefmt == nil)
 					m->filefmt = "";
+				if(m->numartist == 0 && m->composer != nil)
+					m->artist[m->numartist++] = m->composer;
 				pl->n++;
 				m++;
 			}
@@ -994,13 +997,14 @@ addit:
 			if(m->numartist < Maxartist)
 				m->artist[m->numartist++] = s;
 			break;
-		case Pfilefmt: m->filefmt = s; break;
-		case Palbum:   m->album = s; break;
-		case Pdate:    m->date = s; break;
-		case Ptitle:   m->title = s; break;
-		case Ptrack:   m->track = s; break;
-		case Prgtrack: m->rgtrack = atof(s); break;
-		case Prgalbum: m->rgalbum = atof(s); break;
+		case Pcomposer: m->composer = s; break;
+		case Pfilefmt:  m->filefmt = s; break;
+		case Palbum:    m->album = s; break;
+		case Pdate:     m->date = s; break;
+		case Ptitle:    m->title = s; break;
+		case Ptrack:    m->track = s; break;
+		case Prgtrack:  m->rgtrack = atof(s); break;
+		case Prgalbum:  m->rgalbum = atof(s); break;
 		case Ppath:
 			m->path = s;
 			m->basename = (b = utfrrune(s, '/')) == nil ? s : b+1;

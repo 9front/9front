@@ -104,6 +104,10 @@ cb(Tagctx *ctx, int t, const char *k, const char *v, int offset, int size, Tagre
 		if(aux->album == nil)
 			aux->album = strdup(v);
 		break;
+	case Tcomposer:
+		if(aux->composer == nil)
+			aux->composer = strdup(v);
+		break;
 	case Ttitle:
 		if(aux->title == nil)
 			aux->title = strdup(v);
@@ -331,6 +335,11 @@ cmpmeta(void *a_, void *b_)
 				return x;
 		}
 	}
+	if(i == 0 && a->composer != nil || b->composer != nil){
+		if(a->composer == nil && a->composer != nil) return -1;
+		if(a->composer != nil && a->composer == nil) return 1;
+		if((x = cistrcmp(a->composer, b->composer)) != 0) return x;
+	}
 
 	if(a->date != nil || b->date != nil){
 		if(a->date == nil && b->date != nil) return -1;
@@ -428,8 +437,8 @@ threadmain(int argc, char **argv)
 	recvul(cexit);
 
 	for(i = 0; i < ntracks; i++){
-		if(tracks[i]->numartist < 1)
-			fprint(2, "no artists: %s\n", tracks[i]->path);
+		if(tracks[i]->numartist < 1 && tracks[i]->composer == nil)
+			fprint(2, "no artists/composer: %s\n", tracks[i]->path);
 		if(tracks[i]->title == nil)
 			fprint(2, "no title: %s\n", tracks[i]->path);
 		printmeta(&out, tracks[i]);

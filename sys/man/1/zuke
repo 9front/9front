@@ -53,13 +53,16 @@ option:
 .TF "c"
 .TP
 .B A
-Artist
+Artist (displays composer if no artist has been set)
 .TP
 .B a
 Album
 .TP
 .B b
 File basename
+.TP
+.B C
+Composer
 .TP
 .B t
 Title

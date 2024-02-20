@@ -14,6 +14,7 @@ enum
 	Palbum=			'a',
 	Partist=		'A',
 	Pbasename=		'b',
+	Pcomposer=		'C',
 	Pdate=			'd',
 	Pduration=		'D',
 	Pfilefmt=		'f',
@@ -37,6 +38,7 @@ struct Meta
 {
 	char *artist[Maxartist];
 	char *album;
+	char *composer;
 	char *title;
 	char *date;
 	char *track;
