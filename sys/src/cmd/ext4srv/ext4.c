@@ -364,8 +364,10 @@ int ext4_recover(struct ext4_mountpoint *mp)
 	int r;
 
 	EXT4_MP_LOCK(mp);
-	if (!ext4_sb_feature_com(&mp->fs.sb, EXT4_FCOM_HAS_JOURNAL))
-		return 0;
+	if (!ext4_sb_feature_com(&mp->fs.sb, EXT4_FCOM_HAS_JOURNAL)){
+		r = 0;
+		goto Finish;
+	}
 
 	struct jbd_fs *jbd_fs = ext4_calloc(1, sizeof(struct jbd_fs));
 	if (!jbd_fs) {
