@@ -30,6 +30,7 @@ if(! nusb/usbd)
 		case 12092301 # keyboardio model 01 (IAD)
 			nusb/kb $id
 		# prevent attachment to nusb/kb for:
+		case 048d5702 # ITE RGB LED Controller
 		case 054c0268 # sony dualshock 3 (ps3) controller
 		case *
 			switch($4){
