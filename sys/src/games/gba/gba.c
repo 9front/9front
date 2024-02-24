@@ -255,7 +255,7 @@ flush(void)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-a] [-s savetype] [-b biosfile] [-x scale] rom\n", argv0);
+	fprint(2, "usage: %s [-a] [-s savetype] [-b biosfile] [-x scale] [-g gpiotype] rom\n", argv0);
 	exits("usage");
 }
 
@@ -281,6 +281,11 @@ threadmain(int argc, char **argv)
 	case 'x':
 		fixscale = strtol(EARGF(usage()), nil, 0);
 		break;
+	case 'g':
+		s = EARGF(usage());
+		if(strcmp(s, "rtc") == 0)
+			gpiogame = 1;
+		break;
 	default:
 		usage();
 	} ARGEND;
@@ -289,6 +294,7 @@ threadmain(int argc, char **argv)
 
 	loadbios();
 	loadrom(argv[0]);
+	gpioident();
 	initemu(240, 160, 2, CHAN4(CIgnore, 1, CBlue, 5, CGreen, 5, CRed, 5), 1, nil);
 	regkey("b", 'z', 1<<1);
 	regkey("a", 'x', 1<<0);

@@ -263,7 +263,21 @@ memread(u32int a, int n, int seq)
 		b = a & sizeof(oam) - 1;
 		cyc++;
 		return ar16read(oam + b/2, b & 1, n);
-	case 8: case 9: case 10: case 11: case 12: case 13:
+	case 8:
+		if(!gpiogame)
+			goto Rom;
+		b = a & 0xffffff;
+		switch(b){
+		case 0xC4:
+			return gpiordata();
+		case 0xC6:
+			return gpiordir();
+		case 0xC8:
+			return gpiorcontrol();
+		}
+		/* fallthrough */
+	case 9: case 10: case 11: case 12: case 13:
+	Rom:
 		b = a & 0x1ffffff;
 		cyc += waitst[(a >> 25) - 4 | seq << 2 | (n > 2) << 3];
 		if(b >= nrom){
@@ -290,7 +304,7 @@ memread(u32int a, int n, int seq)
 void
 memwrite(u32int a, u32int v, int n)
 {
-	u32int b;
+	u32int b, t;
 	assert((a & n-1) == 0);
 
 	switch(a >> 24){
@@ -342,7 +356,29 @@ memwrite(u32int a, u32int v, int n)
 		if(n != 1)
 			ar16write(oam + b/2, b & 1, v, n);
 		return;
-	case 8: case 9: case 10: case 11: case 12: case 13:
+	case 8:
+		if(!gpiogame)
+			goto Rom;
+		b = a & 0xffffff;
+		switch(b){
+		case 0xC4:
+			t = v&0xFFFF;
+			gpiowdata(t);
+			if(n <= 2)
+				return;
+			v>>=16;
+		case 0xC6:
+			t = v&0xFFFF;
+			gpiowdir(t);
+			return;
+		case 0xC8:
+			t = v&0xFFFF;
+			gpiowcontrol(t);
+			return;
+		}
+		/* fallthrough */
+	case 9: case 10: case 11: case 12: case 13:
+	Rom:
 		if(backup == EEPROM){
 			b = a & 0x01ffffff;
 			if(b >= eepstart)

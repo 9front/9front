@@ -28,6 +28,9 @@ gb, gba, nes, snes \- emulators
 .B -s
 .I savetype
 ] [
+.B -g
+.I gpiotype
+] [
 .B -x
 .I scale
 ]
@@ -127,6 +130,10 @@ Some roms require a specific flash device id which may need to be set manually f
 Valid formats and corresponding ids are:
 flash512 (SST), flash512mx (Macronix 64K), flash512pan (Panasonic), flash512atm (Atmel),
 flash1024 (Macronix 128K), flash1024san (Sanyo).
+.TP
+.B -g
+GPIO hardware used by the original game. The only valid type currently is rtc (real time clock).
+By default, the emulator attempts to automatically detect the GPIO hardware using the game code found in the rom header.
 .PP
 .B nes
 options:

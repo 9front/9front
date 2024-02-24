@@ -9,7 +9,7 @@ extern u16int pram[], oam[];
 extern u16int reg[];
 extern uchar *rom, *back;
 extern int nrom, nback, backup;
-extern int flashid;
+extern int flashid, gpiogame;
 
 extern int hblank, ppuy;
 
