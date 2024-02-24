@@ -268,10 +268,11 @@ openpart(char *dev, Opts *opts)
 	struct ext4_mkfs_info info;
 	struct ext4_fs fs;
 	u32int blksz;
+	ulong rn;
+	int f, i;
 	Part *p;
 	char *s;
 	Dir *d;
-	int f;
 
 	d = nil;
 	p = nil;
@@ -313,7 +314,11 @@ openpart(char *dev, Opts *opts)
 			snprint(info.label, sizeof(info.label), opts->label);
 			info.inode_size = opts->inodesz;
 			info.inodes = opts->ninode;
-			info.journal = true;
+			info.journal = opts->fstype > 2;
+			for(i = 0; i < 16; i += 4){
+				rn = truerand();
+				memcpy(info.uuid+i, &rn, 4);
+			}
 			if(ext4_mkfs(&fs, &p->bdev, &info, opts->fstype) < 0){
 				werrstr("mkfs: %r");
 				goto error;
