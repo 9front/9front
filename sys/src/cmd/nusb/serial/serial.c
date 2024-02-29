@@ -398,7 +398,7 @@ dwalk(Fid *fid, char *name, Qid *qidp)
 			*qidp = fid->qid;
 			return nil;
 		}
-	return "does not exist";
+	return "file does not exist";
 }
 
 static void

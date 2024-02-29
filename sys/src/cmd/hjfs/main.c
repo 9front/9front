@@ -7,7 +7,7 @@
 
 char Eio[] = "i/o error";
 char Enotadir[] = "not a directory";
-char Enoent[] = "not found";
+char Enoent[] = "file does not exist";
 char Einval[] = "invalid operation";
 char Eperm[] = "permission denied";
 char Eexists[] = "file exists";

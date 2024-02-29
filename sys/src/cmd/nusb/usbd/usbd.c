@@ -20,7 +20,7 @@ char *names[] = {
 	"usbhubctl",
 };
 
-static char Enonexist[] = "does not exist";
+static char Enonexist[] = "file does not exist";
 static char Eperm[] = "permission denied";
 
 typedef struct Event Event;

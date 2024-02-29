@@ -541,12 +541,12 @@ dwalk(Fid *fid, char *name, Qid *qid)
 				*qid = fid->qid;
 				return nil;
 			}
-		return "does not exist";
+		return "file does not exist";
 	}
 	lun = ums->lun + (fid->qid.path >> 16) - 1;
 	p = lookpart(lun, name);
 	if(p == nil)
-		return "does not exist";
+		return "file does not exist";
 	fid->qid.path |= p->id;
 	fid->qid.vers = p->vers;
 	fid->qid.type = p->mode >> 24;
