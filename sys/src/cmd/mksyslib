@@ -28,6 +28,7 @@ installall:V:
 	for(objtype in $CPUS) mk $stem
 
 clean:V:
+	test -d ./test && @{cd test && mk $MKFLAGS clean}
 	rm -f *.[$OS] [$OS].out $CLEANFILES
 
 %.clean:V:

@@ -67,6 +67,7 @@ nuke:V:
 	rm -f *.[$OS] y.tab.? lex.yy.c y.debug y.output [$OS].??* *.acid $TARG $CLEANFILES
 
 clean:V:
+	test -d ./test && @{cd test && mk $MKFLAGS clean}
 	rm -f *.[$OS] *.a[$OS] y.tab.? lex.yy.c y.debug y.output [$OS].??* $TARG $CLEANFILES
 
 %.clean:V:

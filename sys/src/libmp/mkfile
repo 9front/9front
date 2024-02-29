@@ -11,6 +11,11 @@ install clean all:V:
 		mk $MKFLAGS $target
 	}
 
+cleantest:V:
+	@{cd test && mk $MKFLAGS clean}
+
+clean:V: cleantest
+
 nuke:V: clean
 	rm -f /$objtype/lib/libmp.a
 

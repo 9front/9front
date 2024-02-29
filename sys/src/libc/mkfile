@@ -12,7 +12,7 @@ all install:V:
 	}
 
 clean:V:
-	for(i in $DIRS)@{
+	for(i in $DIRS $OLDCPUS test)@{
 		echo $i
 		cd $i
 		mk $MKFLAGS clean

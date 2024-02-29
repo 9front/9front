@@ -40,6 +40,7 @@ nuke:V:
 	rm -f *.[$OS] [$OS].out y.tab.? lex.yy.c y.debug y.output *.acid $TARG $CLEANFILES
 
 clean:V:
+	test -d ./test && @{cd test && mk $MKFLAGS clean}
 	rm -f *.[$OS] [$OS].out y.tab.? lex.yy.c y.debug y.output $TARG $CLEANFILES
 
 safeinstall:V: $O.out

@@ -51,6 +51,9 @@ $BIN/init: $O.init  # hack, install location is not target
 		mk $MKFLAGS $stem
 	}
 
+%.tests:V:
+	@{cd test && mk $MKFLAGS $stem}
+
 cmds:V: $O.cp $O.yacc ${TARG:%=$O.%}
 
 all:V: cmds
@@ -68,10 +71,11 @@ installall:V: install.cpus
 cleancmds:V:
 	rm -f *.[$OS] [$OS].* y.tab.? y.debug y.output $YTARG.c *.tab.h
 
-clean:V: cleancmds clean.dirs
+clean:V: cleancmds clean.dirs clean.tests
 
 nuke:V: cleancmds nuke.dirs
 	rm -f *.acid
 
-test:VQ: test.dirs cmds
-	@{cd test && mk $MKFLAGS test}
+test.dirs test.tests:V: cmds
+
+test:VQ: test.dirs test.tests

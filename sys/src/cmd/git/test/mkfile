@@ -9,3 +9,7 @@ TEST=\
 	range
 
 </sys/src/cmd/mktest
+
+clean:V:
+	rm -f *.[$OS] *.out *.a[$OS] y.tab.? lex.yy.c y.debug y.output [$OS].??* $TARG
+	rm -fr scratch
