@@ -28,7 +28,8 @@ or
 is omitted, the current month or year is used.
 If only one argument is given, and it is a number larger than 12,
 a calendar for all twelve months of the given year is produced;
-otherwise a calendar for just one month is printed.
+otherwise a calendar for just one month is printed. The calendar
+produced follows the Calendar (New Style) Act of 1750.
 .PP
 .B -s
 .I N
