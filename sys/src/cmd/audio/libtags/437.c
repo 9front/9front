@@ -1,12 +1,12 @@
 /* https://en.wikipedia.org/wiki/Code_page_437 */
 #include "tagspriv.h"
 
-static Rune rh[] =
+static Rune rh[129] =
 	L"ΔÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ¢£¥₧"
-	L"ƒáíóúñÑªº¿⌐¬½¼¡«»░▒▓│d┤╡╢╖╕╣║╗╝╜"
+	L"ƒáíóúñÑªº¿⌐¬½¼¡«»░▒▓│┤╡╢╖╕╣║╗╝╜"
 	L"╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌"
-	L"▐▀αßeΓπfΣgσµhτΦΘΩiδj∞φkεl∩≡±≥≤⌠m"
-	L"⌡÷≈°∙n·√oⁿ²■ ";
+	L"▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠"
+	L"⌡÷≈°∙·√ⁿ²■ ";
 
 int
 cp437toutf8(char *o, int osz, const char *s, int sz)
