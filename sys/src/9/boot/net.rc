@@ -5,7 +5,8 @@ fn wifi{
 		if(~ $#essid 0)
 			essid=`{grep '^essid: ' $1/ifstats >[2]/dev/null | sed 's/^essid: //; q'}
 		if(! ~ $#essid 0){
-			x=(aux/wpa -s $"essid)
+			essid=$"essid
+			x=(aux/wpa -s $essid)
 			if(! ~ $#wpapsk 0){
 				echo 'key proto=wpapsk' `{!password=$"wpapsk whatis essid !password} > /mnt/factotum/ctl
 				wpapsk=()
