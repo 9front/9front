@@ -45,7 +45,7 @@ tagflac(Tagctx *ctx)
 			sz -= 8;
 			n = beuint(&d[4]);
 			mime = ctx->buf+20;
-			if(n >= sz || n >= ctx->bufsz-1 || ctx->read(ctx, mime, n) != n)
+			if(n >= sz || n >= ctx->bufsz-20 || ctx->read(ctx, mime, n) != n)
 				return -1;
 			sz -= n;
 			mime[n] = 0;

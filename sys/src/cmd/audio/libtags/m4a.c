@@ -19,7 +19,7 @@ tagm4a(Tagctx *ctx)
 	sz = beuint(d) - 4; /* already have 8 bytes */
 
 	for(;;){
-		if(ctx->seek(ctx, sz, 1) < 0)
+		if(sz < 0 || ctx->seek(ctx, sz, 1) < 0)
 			return -1;
 		if(ctx->read(ctx, d, 4) != 4) /* size */
 			break;
@@ -58,6 +58,8 @@ tagm4a(Tagctx *ctx)
 					return -1;
 				sz -= 8;
 				skip = beuint(d) - 8;
+				if(skip < 0)
+					return -1;
 
 				if(memcmp(&d[4], "mp4a", 4) == 0){ /* audio */
 					n = 6+2 + 2+4+2 + 2+2 + 2+2 + 4; /* read a bunch at once */

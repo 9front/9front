@@ -53,7 +53,7 @@ tagopus(Tagctx *ctx)
 			if(pgend < ctx->seek(ctx, 0, 1)+sz)
 				break;
 
-			if(ctx->bufsz < sz+1){
+			if(sz > ctx->bufsz-1){
 				if(ctx->seek(ctx, sz, 1) < 0)
 					return -1;
 				continue;

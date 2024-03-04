@@ -35,7 +35,7 @@ v2cb(Tagctx *ctx, char *k, char *v)
 		for(; v[0]; v++){
 			if(v[0] == '(' && v[1] <= '9' && v[1] >= '0'){
 				int i = atoi(&v[1]);
-				if(i < Numgenre)
+				if(i >= 0 && i < Numgenre)
 					txtcb(ctx, Tgenre, k-1, id3genres[i]);
 				for(v++; v[0] && v[0] != ')'; v++);
 				v--;
