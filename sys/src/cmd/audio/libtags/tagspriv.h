@@ -30,7 +30,7 @@ int utf16to8(uchar *out, int osz, const uchar *src, int sz);
 /*
  * Same as utf16to8, but CP437 to UTF-8.
  */
-int cp437toutf8(char *o, int osz, const char *s, int sz);
+int cp437toutf8(uchar *o, int osz, const uchar *s, int sz);
 
 /*
  * This one is common for both vorbis.c and flac.c
@@ -42,3 +42,15 @@ void cbvorbiscomment(Tagctx *ctx, char *k, char *v);
 void tagscallcb(Tagctx *ctx, int type, const char *k, char *s, int offset, int size, Tagread f);
 
 #define txtcb(ctx, type, k, s) tagscallcb(ctx, type, k, (char*)s, 0, 0, nil)
+
+int tagflac(Tagctx *ctx);
+int tagid3v1(Tagctx *ctx);
+int tagid3v2(Tagctx *ctx);
+int tagit(Tagctx *ctx);
+int tagm4a(Tagctx *ctx);
+int tagopus(Tagctx *ctx);
+int tags3m(Tagctx *ctx);
+int tagvorbis(Tagctx *ctx);
+int tagwav(Tagctx *ctx);
+int tagxm(Tagctx *ctx);
+int tagmod(Tagctx *ctx);

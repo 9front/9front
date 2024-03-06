@@ -124,7 +124,7 @@ tagm4a(Tagctx *ctx)
 		if(type < 0)
 			continue;
 
-		if(ctx->seek(ctx, 8, 1) < 0) /* skip size and "data" */
+		if(sz < 16 || ctx->seek(ctx, 8, 1) < 0) /* skip size and "data" */
 			return -1;
 		sz -= 8;
 		if(ctx->read(ctx, d, 8) != 8) /* read data type and 4 bytes of whatever else */
@@ -148,7 +148,7 @@ tagm4a(Tagctx *ctx)
 		}else if(dtype == 1){ /* text */
 			if(sz >= ctx->bufsz) /* skip tags that can't fit into memory. ">=" because of '\0' */
 				continue;
-			if(ctx->read(ctx, d, sz) != sz)
+			if(sz < 0 || ctx->read(ctx, d, sz) != sz)
 				return -1;
 			d[sz] = 0;
 			txtcb(ctx, type, "", d);

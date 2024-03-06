@@ -164,7 +164,8 @@ nontext(Tagctx *ctx, uchar *d, int tsz, int unsync)
 	f = unsync ? unsyncread : nil;
 	if(strcmp((char*)d, "APIC") == 0){
 		offset = ctx->seek(ctx, 0, 1);
-		if((n = ctx->read(ctx, tag, 256)) == 256){ /* APIC mime and description should fit */
+		if((n = ctx->read(ctx, tag, 255)) == 255){ /* APIC mime and description should fit */
+			tag[255] = 0;
 			b = tag + 1; /* mime type */
 			for(n = 1 + strlen(b) + 2; n < 253; n++){
 				if(tag[0] == 0 || tag[0] == 3){ /* one zero byte */
@@ -195,7 +196,8 @@ nontext(Tagctx *ctx, uchar *d, int tsz, int unsync)
 					break;
 				}
 			}
-			tagscallcb(ctx, Timage, "PIC", strcmp(b, "JPG") == 0 ? "image/jpeg" : "image/png", offset+n, tsz-n, f);
+			if(tsz > n)
+				tagscallcb(ctx, Timage, "PIC", strcmp(b, "JPG") == 0 ? "image/jpeg" : "image/png", offset+n, tsz-n, f);
 			n = 256;
 		}
 	}else if(strcmp((char*)d, "RVA2") == 0 && tsz >= 6+5){
@@ -212,7 +214,9 @@ text(Tagctx *ctx, uchar *d, int tsz, int unsync)
 {
 	char *b, *tag;
 
-	if(ctx->bufsz >= tsz+1){
+	if(tsz < 0)
+		return -1;
+	if(ctx->bufsz > tsz){
 		/* place the data at the end to make best effort at charset conversion */
 		tag = &ctx->buf[ctx->bufsz - tsz - 1];
 		if(ctx->read(ctx, tag, tsz) != tsz)
@@ -304,7 +308,7 @@ getduration(Tagctx *ctx, int offset)
 	uint x;
 	int xversion, xlayer, xbitrate, i;
 
-	if(ctx->read(ctx, ctx->buf, 256) != 256)
+	if(ctx->duration != 0 || ctx->read(ctx, ctx->buf, 256) != 256)
 		return;
 
 	x = beuint((uchar*)ctx->buf);
@@ -372,8 +376,8 @@ tagid3v2(Tagctx *ctx)
 {
 	int sz, exsz, framesz;
 	int ver, unsync, offset;
-	int oldpos, newpos;
-	uchar d[10], *b;
+	int newpos, oldpos;
+	uchar d[10], *b, *e;
 
 	if(ctx->read(ctx, d, sizeof(d)) != sizeof(d))
 		return -1;
@@ -403,7 +407,7 @@ header:
 			if(ctx->read(ctx, d, 4) != 4)
 				return -1;
 			exsz = (ver >= 3) ? beuint(d) : synchsafe(d);
-			if(ctx->seek(ctx, exsz, 1) < 0)
+			if(exsz < 6 || ctx->seek(ctx, exsz-4, 1) < 0)
 				return -1;
 			sz -= exsz;
 		}
@@ -454,6 +458,7 @@ header:
 
 	offset = ctx->seek(ctx, sz, 1);
 	sz = ctx->bufsz <= 2048 ? ctx->bufsz : 2048;
+	e = (uchar*)ctx->buf + sz - 3;
 	b = nil;
 	for(exsz = 0; exsz < 2048; exsz += sz){
 		if(ctx->read(ctx, ctx->buf, sz) != sz)
@@ -462,12 +467,12 @@ header:
 			newpos = ctx->seek(ctx, (char*)b - ctx->buf + offset + exsz, 0);
 			if(ctx->read(ctx, d, sizeof(d)) != sizeof(d))
 				return 0;
-			if(isid3(d) && newpos != oldpos){
+			if(isid3(d) && newpos > oldpos){
 				oldpos = newpos;
 				goto header;
 			}
 		}
-		for(b = (uchar*)ctx->buf; (b = memchr(b, 0xff, sz-3)) != nil; b++){
+		for(b = (uchar*)ctx->buf; b < e && (b = memchr(b, 0xff, e-b)) != nil; b++){
 			if((b[1] & 0xe0) == 0xe0){
 				offset = ctx->seek(ctx, (char*)b - ctx->buf + offset + exsz, 0);
 				exsz = 2048;

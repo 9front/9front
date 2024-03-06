@@ -20,9 +20,7 @@ int
 tagwav(Tagctx *ctx)
 {
 	uchar *d;
-	int i, n, info;
-	u32int csz, x;
-	uvlong sz;
+	int i, n, info, csz, x, sz;
 
 	d = (uchar*)ctx->buf;
 
@@ -49,7 +47,7 @@ tagwav(Tagctx *ctx)
 			break;
 		sz -= 4+4;
 		csz = leuint(d+4);
-		if(sz < csz)
+		if(sz < csz || csz < 0)
 			break;
 		sz -= csz;
 
@@ -66,12 +64,14 @@ tagwav(Tagctx *ctx)
 				return -1;
 			ctx->duration = sz*1000 / x;
 		}else if(memcmp(d, "LIST", 4) == 0){
+			if(csz < 4)
+				return -1;
 			sz = csz - 4;
 			continue;
-		}else if(info && csz < (u32int)ctx->bufsz){
+		}else if(info && csz < ctx->bufsz-5){
 			for(n = 0; n < nelem(t); n++){
 				if(memcmp(d, t[n].s, 4) == 0 || t[n].type == Tunknown){
-					if(ctx->read(ctx, d+5, csz) != (int)csz)
+					if(ctx->read(ctx, d+5, csz) != csz)
 						return -1;
 					d[4] = 0;
 					d[5+csz] = 0;
@@ -87,6 +87,10 @@ tagwav(Tagctx *ctx)
 		if(ctx->seek(ctx, csz, 1) < 0)
 			return -1;
 	}
+
+	/* some software may append an id3v2 tag */
+	if(i > 0 && ctx->read(ctx, d, 8) == 8 && memcmp(d, "id3 ", 4) == 0)
+		tagid3v2(ctx);
 
 	return i > 0 ? 0 : -1;
 }

@@ -34,7 +34,7 @@ static int ntracks;
 static char *fmts[] =
 {
 	[Fmp3] = "mp3",
-	[Fogg] = "ogg",
+	[Fvorbis] = "ogg",
 	[Fflac] = "flac",
 	[Fm4a] = "m4a",
 	[Fopus] = "opus",

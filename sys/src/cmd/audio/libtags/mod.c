@@ -16,6 +16,9 @@ static char *variants[] =
 	"CD81",
 	"OCTA",
 	"OKTA",
+	"4CHN",
+	"6CHN",
+	"8CHN",
 	"10CH",
 	"16CN",
 	"32CN",
@@ -42,7 +45,7 @@ tagmod(Tagctx *ctx)
 		return -1;
 	if(ctx->read(ctx, d, 20) != 20)
 		return -1;
-	if(iso88591toutf8(o, sizeof(o), d, 20) > 0)
+	if(cp437toutf8(o, sizeof(o), d, 20) > 0)
 		txtcb(ctx, Ttitle, "", o);
 
 	return 0;

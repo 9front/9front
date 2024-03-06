@@ -32,7 +32,8 @@ tagflac(Tagctx *ctx)
 		if(ctx->read(ctx, d, 4) != 4)
 			return -1;
 
-		sz = beu3(&d[1]);
+		if((sz = beu3(&d[1])) < 0)
+			return -1;
 		if((d[0] & 0x80) != 0)
 			last = 1;
 
@@ -40,12 +41,12 @@ tagflac(Tagctx *ctx)
 			int n, offset;
 			char *mime;
 
-			if(sz < 16 || ctx->read(ctx, d, 8) != 8) /* type, mime length */
+			if(sz < 8+4+20 || ctx->read(ctx, d, 8) != 8) /* type, mime length */
 				return -1;
 			sz -= 8;
 			n = beuint(&d[4]);
 			mime = ctx->buf+20;
-			if(n >= sz || n >= ctx->bufsz-20 || ctx->read(ctx, mime, n) != n)
+			if(n < 0 || n >= sz-4-20 || n >= ctx->bufsz-20 || ctx->read(ctx, mime, n) != n)
 				return -1;
 			sz -= n;
 			mime[n] = 0;
@@ -54,8 +55,10 @@ tagflac(Tagctx *ctx)
 			offset = beuint(d) + ctx->seek(ctx, 0, 1) + 20;
 			ctx->read(ctx, d, 20);
 			sz -= 20;
-			n = beuint(&d[16]);
-			tagscallcb(ctx, Timage, "", mime, offset, n, nil);
+			if((n = beuint(&d[16])) < 0)
+				return -1;
+			if(n > 0)
+				tagscallcb(ctx, Timage, "", mime, offset, n, nil);
 			if(ctx->seek(ctx, sz, 1) <= 0)
 				return -1;
 		}else if((d[0] & 0x7f) == 4){ /* 4 = vorbis comment */
@@ -80,11 +83,11 @@ tagflac(Tagctx *ctx)
 					return -1;
 				tagsz = leuint(d);
 				sz -= 4;
-				if(tagsz > sz)
+				if(tagsz < 0 || tagsz > sz)
 					return -1;
 
 				/* if it doesn't fit, ignore it */
-				if(tagsz+1 > ctx->bufsz){
+				if(tagsz == 0 || tagsz >= ctx->bufsz){
 					if(ctx->seek(ctx, tagsz, 1) < 0)
 						return -1;
 					continue;

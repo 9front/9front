@@ -8,23 +8,11 @@ struct Getter
 	int format;
 };
 
-extern int tagflac(Tagctx *ctx);
-extern int tagid3v1(Tagctx *ctx);
-extern int tagid3v2(Tagctx *ctx);
-extern int tagit(Tagctx *ctx);
-extern int tagm4a(Tagctx *ctx);
-extern int tagopus(Tagctx *ctx);
-extern int tags3m(Tagctx *ctx);
-extern int tagvorbis(Tagctx *ctx);
-extern int tagwav(Tagctx *ctx);
-extern int tagxm(Tagctx *ctx);
-extern int tagmod(Tagctx *ctx);
-
 static const Getter g[] =
 {
 	{tagid3v2, Fmp3},
 	{tagid3v1, Fmp3},
-	{tagvorbis, Fogg},
+	{tagvorbis, Fvorbis},
 	{tagflac, Fflac},
 	{tagm4a, Fm4a},
 	{tagopus, Fopus},

@@ -12,9 +12,9 @@ enum
 	Ttitle,
 	Tdate, /* "2014", "2015/02/01", but the year goes first */
 	Ttrack, /* "1", "01", "1/4", but the track number goes first */
-	Talbumgain,
+	Talbumgain, /* see GAIN note */
 	Talbumpeak,
-	Ttrackgain,
+	Ttrackgain, /* see GAIN note */
 	Ttrackpeak,
 	Tgenre,
 	Timage,
@@ -22,12 +22,22 @@ enum
 	Tcomment,
 };
 
+/* GAIN note:
+ *
+ * Even though the gain value may be expected to look as "52 dB", it
+ * very well may be a plain integer (such as "12032") for R128_* tags.
+ * To do things correctly you will have to check 'const char *k' argument
+ * passed into your callback and parse it accordingly.
+ *
+ * FIXME the output gain (opus) is not parsed, btw.
+ */
+
 /* Format of the audio file. */
 enum
 {
 	Funknown = -1,
 	Fmp3,
-	Fogg,
+	Fvorbis,
 	Fflac,
 	Fm4a,
 	Fopus,
@@ -78,7 +88,7 @@ struct Tagctx
 	int samplerate; /* Hz */
 	int bitrate; /* Bitrate, bits/s. */
 	int duration; /* ms */
-	int format; /* Fmp3, Fogg, Fflac, Fm4a */
+	int format; /* Fmp3, Fvorbis, Fflac, Fm4a */
 
 	/* Private, don't touch. */
 	int found;

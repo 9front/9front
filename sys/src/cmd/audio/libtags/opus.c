@@ -17,7 +17,7 @@ tagopus(Tagctx *ctx)
 
 		/* calculate the size of the packet */
 		nsegs = d[26];
-		if(ctx->read(ctx, d, nsegs+8) != nsegs+8)
+		if(nsegs > ctx->bufsz-8 || ctx->read(ctx, d, nsegs+8) != nsegs+8)
 			return -1;
 		for(sz = i = 0; i < nsegs; sz += d[i++]);
 

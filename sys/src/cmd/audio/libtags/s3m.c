@@ -3,7 +3,7 @@
 int
 tags3m(Tagctx *ctx)
 {
-	char d[28+1+1], o[28*UTFmax+1], *s;
+	uchar d[28+1+1], o[28*UTFmax+1], *s;
 
 	if(ctx->read(ctx, d, 28+1+1) != 28+1+1 || (d[28] != 0x1a && d[28] != 0) || d[29] != 0x10)
 		return -1;
