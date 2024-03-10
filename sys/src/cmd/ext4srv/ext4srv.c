@@ -24,6 +24,7 @@ struct Aux {
 		ext4_dir *dir;
 	};
 	int type;
+	bool rclose;
 };
 
 enum {
@@ -60,6 +61,7 @@ haveperm(Aux *a, int p, struct ext4_inode *inodeout)
 	case OREAD:
 		p = AREAD;	
 		break;
+	case ORCLOSE:
 	case OWRITE:
 		p = AWRITE;
 		break;
@@ -225,6 +227,7 @@ ropen(Req *r)
 			responderror(r);
 			return;
 		}
+		a->rclose = (r->ifcall.mode & ORCLOSE) != 0;
 		break;
 
 Nomem:
@@ -721,12 +724,13 @@ rclone(Fid *oldfid, Fid *newfid)
 
 	a = oldfid->aux;
 
-	if((c = calloc(1, sizeof(*c))) == nil)
+	if((c = malloc(sizeof(*c))) == nil)
 		return "memory";
 	memmove(c, a, sizeof(*c));
 	c->path = estrdup9p(a->path);
 	c->file = nil;
 	c->dir = nil;
+	c->rclose = false;
 
 	incref(c->p);
 	newfid->aux = c;
@@ -750,6 +754,8 @@ rdestroyfid(Fid *fid)
 	}else if(a->type == Afile && a->file != nil){
 		ext4_fclose(a->file);
 		free(a->file);
+		if(a->rclose)
+			ext4_fremove(&a->p->mp, a->path);
 	}
 
 	if(decref(a->p) < 1)
