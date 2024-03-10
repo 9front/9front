@@ -22,6 +22,8 @@ static const struct {
 	{"genre", Tgenre},
 	{"composer", Tcomposer},
 	{"comment", Tcomment},
+	{"albumartist", Talbumartist},
+	{"album artist", Talbumartist}, // some legacy leftovers
 };
 
 void

@@ -87,6 +87,8 @@ tagm4a(Tagctx *ctx)
 			type = Talbum;
 		else if(memcmp(d, "\251ART", 4) == 0)
 			type = Tartist;
+		else if(memcmp(d, "aART", 4) == 0)
+			type = Talbumartist;
 		else if(memcmp(d, "\251gen", 4) == 0 || memcmp(d, "gnre", 4) == 0)
 			type = Tgenre;
 		else if(memcmp(d, "\251day", 4) == 0)

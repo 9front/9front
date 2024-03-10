@@ -24,6 +24,7 @@ static const char *t2s[] =
 	[Timage] = "image",
 	[Tcomposer] = "composer",
 	[Tcomment] = "comment",
+	[Talbumartist] = "albumartist",
 };
 
 static int image;

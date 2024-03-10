@@ -79,11 +79,14 @@ cb(Tagctx *ctx, int t, const char *k, const char *v, int offset, int size, Tagre
 
 	switch(t){
 	case Tartist:
+	case Talbumartist:
 		if(aux->numartist < Maxartist){
 			iscomposer = strcmp(k, "TCM") == 0 || strcmp(k, "TCOM") == 0;
-			/* prefer lead performer/soloist, helps when TP2/TPE2 is the first one and is set to "VA" */
-			/* always put composer first, if available */
-			if(iscomposer || (!aux->keepfirstartist && (strcmp(k, "TP1") == 0 || strcmp(k, "TPE1") == 0))){
+			/* prefer lead performer/soloist, helps when TP2/TPE2
+			 * (album artist) is the first one and is set to "VA";
+			 * always put composer first, if available
+			 */
+			if(iscomposer || (!aux->keepfirstartist && t == Tartist)){
 				if(aux->numartist > 0)
 					aux->artist[aux->numartist] = aux->artist[aux->numartist-1];
 				aux->artist[0] = strdup(v);

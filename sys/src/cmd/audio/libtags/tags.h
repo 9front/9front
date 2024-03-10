@@ -20,6 +20,7 @@ enum
 	Timage,
 	Tcomposer,
 	Tcomment,
+	Talbumartist,
 };
 
 /* GAIN note:
