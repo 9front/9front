@@ -266,6 +266,7 @@ loop1:
 				case AMOVH:
 				case AMOVBU:
 				case AMOVHU:
+				case ASXTW:
 					if(p1->to.type == p->from.type && p1->to.reg == p->from.reg)
 						p->as = AMOVW;
 					break;
@@ -962,6 +963,8 @@ storeprop(int as, Adr *a, Adr *v, Reg *r)
 		|| (as == AMOVW && p->as == AMOVWU)
 		|| (as == AMOVWU && p->as == AMOVW))
 		&& copyas(&p->from, v)){
+			if(p->as == AMOVW)
+				p->as = ASXTW;
 			p->from = *a;
 			continue;
 		}
