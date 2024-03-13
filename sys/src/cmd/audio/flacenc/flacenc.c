@@ -64,7 +64,6 @@ main(int argc, char *argv[])
 	int i, n, j, r, be, bits, chan, level, sfreq, framesz;
 	FLAC__StreamMetadata_VorbisComment_Entry vc;
 	FLAC__StreamMetadata *m[2];
-	uint32_t beef = 0xdeadbeef;
 	FLAC__StreamEncoder *enc;
 	FLAC__int32 x, *o, *obuf;
 	char *p, *fmt;
@@ -97,7 +96,7 @@ main(int argc, char *argv[])
 				be = 1;
 			}else{
 Bad:
-				fprintf(stderr, "bad format: %s", fmt);
+				fprintf(stderr, "bad format: %s\n", fmt);
 				exit(1);
 			}
 		}
