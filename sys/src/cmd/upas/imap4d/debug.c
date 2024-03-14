@@ -1,6 +1,6 @@
 #include "imap4d.h"
 
-char	logfile[28]	= "imap4";
+char	logfile[28]	= "imap4d";
 
 void
 debuglog(char *fmt, ...)
