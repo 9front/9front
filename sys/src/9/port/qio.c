@@ -1165,7 +1165,7 @@ qwrite(Queue *q, void *vp, int len)
 		print("qwrite hi %#p\n", getcallerpc(&q));
 
 	/* stop queue bloat before allocating blocks */
-	if(q->len/2 >= q->limit && q->noblock == 0 && q->bypass == nil){
+	if(q->len >= q->limit && q->noblock == 0 && q->bypass == nil){
 		while(waserror()){
 			if(up->procctl == Proc_exitme || up->procctl == Proc_exitbig)
 				error(Egreg);
@@ -1222,10 +1222,7 @@ qiwrite(Queue *q, void *vp, int len)
 
 		ilock(q);
 
-		/* we use an artificially high limit for kernel prints since anything
-		 * over the limit gets dropped
-		 */
-		if((q->state & Qclosed) != 0 || q->len/2 >= q->limit){
+		if((q->state & Qclosed) != 0 || q->len >= q->limit){
 			iunlock(q);
 			freeb(b);
 			break;
