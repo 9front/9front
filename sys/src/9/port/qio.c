@@ -1163,9 +1163,14 @@ qwrite(Queue *q, void *vp, int len)
 
 	QDEBUG if(!islo())
 		print("qwrite hi %#p\n", getcallerpc(&q));
-
-	/* stop queue bloat before allocating blocks */
-	if(q->len >= q->limit && q->noblock == 0 && q->bypass == nil){
+	/*
+	 * when the queue length grew over twice the limit,
+	 * block here before allocating more blocks.
+	 * this can happen when qflow() is getting
+	 * interrupted by notes, preventing effective
+	 * flow control.
+	 */
+	if(q->len/2 >= q->limit && q->noblock == 0 && q->bypass == nil){
 		while(waserror()){
 			if(up->procctl == Proc_exitme || up->procctl == Proc_exitbig)
 				error(Egreg);
