@@ -39,12 +39,10 @@ Dirtab pipedir[] =
 static void
 pipeinit(void)
 {
-	if(conf.pipeqsize == 0){
-		if(conf.nmach > 1)
-			conf.pipeqsize = 256*1024;
-		else
-			conf.pipeqsize = 32*1024;
-	}
+	if(conf.pipeqsize == 0)
+		conf.pipeqsize = 256*1024;
+	/* make pipeqsize a multiple of our i/o unit */
+	conf.pipeqsize = qiomaxatomic * ((conf.pipeqsize + qiomaxatomic-1)/qiomaxatomic);
 }
 
 /*
