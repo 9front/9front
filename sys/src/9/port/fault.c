@@ -5,7 +5,7 @@
 #include	"fns.h"
 #include	"../port/error.h"
 
-static void
+_Noreturn static void
 faulterror(char *s, Chan *c)
 {
 	char buf[ERRMAX];

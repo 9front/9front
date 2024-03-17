@@ -1202,7 +1202,7 @@ parsename(char *aname, Elemlist *e)
 	}
 }
 
-void
+_Noreturn void
 namelenerror(char *aname, int len, char *err)
 {
 	char *ename, *name, *next;
