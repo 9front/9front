@@ -51,6 +51,15 @@ lerp2(Point2 a, Point2 b, double t)
 	);
 }
 
+Point2
+berp2(Point2 a, Point2 b, Point2 c, Point3 bc)
+{
+	return addpt2(addpt2(
+		mulpt2(a, bc.x),
+		mulpt2(b, bc.y)),
+		mulpt2(c, bc.z));
+}
+
 double
 dotvec2(Point2 a, Point2 b)
 {
@@ -163,6 +172,15 @@ lerp3(Point3 a, Point3 b, double t)
 		flerp(a.z, b.z, t),
 		flerp(a.w, b.w, t)
 	);
+}
+
+Point3
+berp3(Point3 a, Point3 b, Point3 c, Point3 bc)
+{
+	return addpt3(addpt3(
+		mulpt3(a, bc.x),
+		mulpt3(b, bc.y)),
+		mulpt3(c, bc.z));
 }
 
 double

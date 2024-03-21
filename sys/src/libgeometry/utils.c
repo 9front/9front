@@ -9,6 +9,12 @@ flerp(double a, double b, double t)
 }
 
 double
+fberp(double a, double b, double c, Point3 bc)
+{
+	return dotvec3(Vec3(a,b,c), bc);
+}
+
+double
 fclamp(double n, double min, double max)
 {
 	return n < min? min: n > max? max: n;

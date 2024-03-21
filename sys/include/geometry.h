@@ -46,6 +46,7 @@ struct Triangle3 {
 
 /* utils */
 double flerp(double, double, double);
+double fberp(double, double, double, Point3);
 double fclamp(double, double, double);
 
 /* Point2 */
@@ -56,6 +57,7 @@ Point2 subpt2(Point2, Point2);
 Point2 mulpt2(Point2, double);
 Point2 divpt2(Point2, double);
 Point2 lerp2(Point2, Point2, double);
+Point2 berp2(Point2, Point2, Point2, Point3);
 double dotvec2(Point2, Point2);
 double vec2len(Point2);
 Point2 normvec2(Point2);
@@ -70,6 +72,7 @@ Point3 subpt3(Point3, Point3);
 Point3 mulpt3(Point3, double);
 Point3 divpt3(Point3, double);
 Point3 lerp3(Point3, Point3, double);
+Point3 berp3(Point3, Point3, Point3, Point3);
 double dotvec3(Point3, Point3);
 Point3 crossvec3(Point3, Point3);
 double vec3len(Point3);

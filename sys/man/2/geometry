@@ -1,6 +1,6 @@
 .TH GEOMETRY 2
 .SH NAME
-Flerp, fclamp, Pt2, Vec2, addpt2, subpt2, mulpt2, divpt2, lerp2, dotvec2, vec2len, normvec2, edgeptcmp, ptinpoly, Pt3, Vec3, addpt3, subpt3, mulpt3, divpt3, lerp3, dotvec3, crossvec3, vec3len, normvec3, identity, addm, subm, mulm, smulm, transposem, detm, tracem, minorm, cofactorm, adjm, invm, xform, identity3, addm3, subm3, mulm3, smulm3, transposem3, detm3, tracem3, minorm3, cofactorm3, adjm3, invm3, xform3, Quat, Quatvec, addq, subq, mulq, smulq, sdivq, dotq, invq, qlen, normq, slerp, qrotate, rframexform, rframexform3, invrframexform, invrframexform3, centroid, barycoords, centroid3, vfmt, Vfmt, GEOMfmtinstall \- computational geometry library
+Flerp, fberp, fclamp, Pt2, Vec2, addpt2, subpt2, mulpt2, divpt2, lerp2, berp2, dotvec2, vec2len, normvec2, edgeptcmp, ptinpoly, Pt3, Vec3, addpt3, subpt3, mulpt3, divpt3, lerp3, berp3, dotvec3, crossvec3, vec3len, normvec3, identity, addm, subm, mulm, smulm, transposem, detm, tracem, minorm, cofactorm, adjm, invm, xform, identity3, addm3, subm3, mulm3, smulm3, transposem3, detm3, tracem3, minorm3, cofactorm3, adjm3, invm3, xform3, Quat, Quatvec, addq, subq, mulq, smulq, sdivq, dotq, invq, qlen, normq, slerp, qrotate, rframexform, rframexform3, invrframexform, invrframexform3, centroid, barycoords, centroid3, vfmt, Vfmt, GEOMfmtinstall \- computational geometry library
 .SH SYNOPSIS
 .de PB
 .PP
@@ -57,6 +57,7 @@ struct Triangle3 {
 .PB
 /* utils */
 double flerp(double a, double b, double t);
+double fberp(double a, double b, double c, Point3 bc);
 double fclamp(double n, double min, double max);
 .PB
 /* Point2 */
@@ -67,6 +68,7 @@ Point2 subpt2(Point2 a, Point2 b);
 Point2 mulpt2(Point2 p, double s);
 Point2 divpt2(Point2 p, double s);
 Point2 lerp2(Point2 a, Point2 b, double t);
+Point2 berp2(Point2 a, Point2 b, Point2 c, Point3 bc);
 double dotvec2(Point2 a, Point2 b);
 double vec2len(Point2 v);
 Point2 normvec2(Point2 v);
@@ -81,6 +83,7 @@ Point3 subpt3(Point3 a, Point3 b);
 Point3 mulpt3(Point3 p, double s);
 Point3 divpt3(Point3 p, double s);
 Point3 lerp3(Point3 a, Point3 b, double t);
+Point3 berp3(Point3 a, Point3 b, Point3 c, Point3 bc);
 double dotvec3(Point3 a, Point3 b);
 Point3 crossvec3(Point3 a, Point3 b);
 double vec3len(Point3 v);
@@ -177,6 +180,15 @@ and
 .IR b ,
 and returns the result.
 .TP
+.B fberp(\fIa\fP,\fIb\fP,\fIc\fP,\fIbc\fP)
+Performs a barycentric interpolation of the values in
+.IR a ,
+.I b
+and
+.IR c ,
+based on the weights provided by
+.IR bc .
+.TP
 .B fclamp(\fIn\fP,\fImin\fP,\fImax\fP)
 Constrains
 .I n
@@ -237,6 +249,15 @@ and
 by a factor of
 .IR t ,
 and returns the result.
+.TP
+.B berp2(\fIa\fP,\fIb\fP,\fIc\fP,\fIbc\fP)
+Performs a barycentric interpolation between the 2D points
+.IR a ,
+.I b
+and
+.IR c ,
+using the weights in
+.IR bc .
 .TP
 .B dotvec2(\fIa\fP,\fIb\fP)
 Computes the dot product of vectors
@@ -313,6 +334,15 @@ and
 by a factor of
 .IR t ,
 and returns the result.
+.TP
+.B berp3(\fIa\fP,\fIb\fP,\fIc\fP,\fIbc\fP)
+Performs a barycentric interpolation between the 3D points
+.IR a ,
+.I b
+and
+.IR c ,
+using the weights in
+.IR bc .
 .TP
 .B dotvec3(\fIa\fP,\fIb\fP)
 Computes the dot product of vectors
