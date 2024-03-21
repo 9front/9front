@@ -454,13 +454,13 @@ ac97match(Pcidev *p)
 	/* not all of the matched devices have been tested */
 	while(p = pcimatch(p, 0, 0))
 		switch((p->vid<<16)|p->did){
-		case (0x1039<<16)|0x7012:
-		case (0x1022<<16)|0x746d:
 		case (0x1022<<16)|0x7445:
-		case (0x10de<<16)|0x01b1:
+		case (0x1022<<16)|0x746d:
+		case (0x1039<<16)|0x7012:
 		case (0x10de<<16)|0x006a:
 		case (0x10de<<16)|0x00da:
 		case (0x10de<<16)|0x00ea:
+		case (0x10de<<16)|0x01b1:
 		case (0x8086<<16)|0x2415:
 		case (0x8086<<16)|0x2425:
 		case (0x8086<<16)|0x2445:
@@ -469,6 +469,7 @@ ac97match(Pcidev *p)
 		case (0x8086<<16)|0x24d5:
 		case (0x8086<<16)|0x25a6:
 		case (0x8086<<16)|0x266e:
+		case (0x8086<<16)|0x27de:
 		case (0x8086<<16)|0x7195:
 			return p;
 		}
