@@ -370,8 +370,6 @@ pipewstat(Chan *c, uchar *dp, int n)
 	n = convM2D(dp, n, &d, nil);
 	if(n == 0)
 		error(Eshortstat);
-	if(d.length < 1 || d.length > conf.pipeqsize)
-		error(Ebadarg);
 
 	p = c->aux;
 	switch(NETTYPE(c->qid.path)){
@@ -379,6 +377,8 @@ pipewstat(Chan *c, uchar *dp, int n)
 		error(Eperm);
 	case Qdata0:
 	case Qdata1:
+		if((uvlong)d.length > conf.pipeqsize)
+			error(Ebadarg);
 		qsetlimit(p->q[0], d.length);
 		qsetlimit(p->q[1], d.length);
 		break;

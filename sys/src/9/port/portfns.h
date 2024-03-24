@@ -301,7 +301,6 @@ Block*		qremove(Queue*);
 void		qreopen(Queue*);
 void		qsetlimit(Queue*, int);
 void		qunlock(QLock*);
-int		qwindow(Queue*);
 int		qwrite(Queue*, void*, int);
 void		qnoblock(Queue*, int);
 void		randominit(void);
