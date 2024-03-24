@@ -339,8 +339,8 @@ cmpmeta(void *a_, void *b_)
 		}
 	}
 	if(i == 0 && a->composer != nil || b->composer != nil){
-		if(a->composer == nil && a->composer != nil) return -1;
-		if(a->composer != nil && a->composer == nil) return 1;
+		if(a->composer == nil && b->composer != nil) return -1;
+		if(a->composer != nil && b->composer == nil) return 1;
 		if((x = cistrcmp(a->composer, b->composer)) != 0) return x;
 	}
 
