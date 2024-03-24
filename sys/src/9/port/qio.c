@@ -5,7 +5,7 @@
 #include	"fns.h"
 #include	"../port/error.h"
 
-#define QDEBUG	if(1)
+#define QDEBUG	if(0)
 
 /*
  *  IO queues
