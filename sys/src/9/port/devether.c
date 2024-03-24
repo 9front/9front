@@ -133,7 +133,7 @@ etherrtrace(Netfile* f, Etherpkt* pkt, int len)
 {
 	Block *bp;
 
-	if(qwindow(f->in) <= 0)
+	if(qfull(f->in))
 		return;
 	bp = iallocb(64);
 	if(bp == nil)
