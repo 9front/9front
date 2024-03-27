@@ -3,13 +3,14 @@
 #include <fcall.h>
 #include <thread.h>
 #include <9p.h>
+#include <pcm.h>
 
 enum {
 	NBUF = 8*1024,
 	NDELAY = 512,	/* ~11.6ms */
 	NQUANTA = 64,	/* ~1.45ms */
 	NCHAN = 2,
-	FREQ = 44100,
+	ABUF = NBUF*NCHAN*2,
 };
 
 #define MIN(a,b) ((a)<(b)?(a):(b))
@@ -44,6 +45,7 @@ int	volfd = -1;
 
 int	volume[2] = {100, 100};
 int	vol64k[2] = {65536, 65536};
+int	newrate;
 
 int
 s16(uchar *p)
@@ -74,6 +76,23 @@ closeaudiodev(void)
 		audiofd = -1;
 	}
 	qunlock(&devlock);
+}
+
+void
+updrate(void)
+{
+	static char svol[4*1024];
+	int n, rate;
+	char *s;
+
+	rate = pcmdescdef.rate;
+	if(volfd >= 0 && (n = pread(volfd, svol+1, sizeof(svol)-2, 0)) > 8){
+		svol[0] = '\n';
+		svol[1+n] = 0;
+		if((s = strstr(svol, "\nspeed ")) != nil && (n = strtol(s+6, &s, 10)) > 0)
+			rate = n;
+	}
+	newrate = rate;
 }
 
 int
@@ -145,6 +164,7 @@ found:
 		name = smprint("%.*svolume%s", (int)(p - name), name, p+5);
 		volfd = open(name, ORDWR);
 		free(name);
+		updrate();
 	}
 	return 0;
 }
@@ -205,15 +225,20 @@ fsclunk(Fid *f)
 void
 audioproc(void *)
 {
-	static uchar buf[NBUF*NCHAN*2];
+	static uchar buf[ABUF];
+	static Pcmdesc desc;
 	int sweep, i, j, n, m, v;
 	ulong rp;
 	Stream *s;
-	uchar *p;
+	uchar *p, *bufconv;
+	Pcmconv	*conv;
 
 	threadsetname("audioproc");
-
+	desc = pcmdescdef;
+	conv = nil;
+	bufconv = nil;
 	sweep = 0;
+
 	for(;;){
 		m = NBUF;
 		for(s = streams; s < streams+nelem(streams); s++){
@@ -244,13 +269,13 @@ audioproc(void *)
 
 			ms = 100;
 			if(audiofd >= 0){
-				if(sweep)
+				if(sweep){
 					closeaudiodev();
-				else {
+				} else {
 					/* attempt to sleep just shortly before buffer underrun */
 					ms = seek(audiofd, 0, 2);
 					ms *= 800;
-					ms /= FREQ*NCHAN*2;
+					ms /= desc.rate*NCHAN*2;
 				}
 				sweep = 1;
 			}
@@ -285,8 +310,27 @@ audioproc(void *)
 		mixrp = rp;
 		unlock(&rplock);
 
+		if(desc.rate != newrate){
+			desc.rate = newrate;
+			free(bufconv);
+			bufconv = nil;
+			freepcmconv(conv);
+			if((conv = allocpcmconv(&pcmdescdef, &desc)) == nil ||
+			   (n = pcmratio(conv, ABUF)) < 0 ||
+			   (bufconv = malloc(n)) == nil){
+				fprint(2, "%s: %r\n", devaudio);
+				freepcmconv(conv);
+				conv = nil;
+			}
+		}
+
 		n = p - buf;
-		if(write(audiofd, buf, n) != n)
+		p = buf;
+		if(conv != nil){
+			n = pcmconv(conv, buf, bufconv, n);
+			p = bufconv;
+		}
+		if(write(audiofd, p, n) != n)
 			closeaudiodev();
 	}
 }
@@ -530,6 +574,7 @@ threadmain(int argc, char **argv)
 	if(argc > 1)
 		usage();
 
+	newrate = pcmdescdef.rate;
 	reopendevs(argv[0]);
 	closeaudiodev();
 
