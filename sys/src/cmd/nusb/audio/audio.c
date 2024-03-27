@@ -360,11 +360,18 @@ parsestream(Dev *d, Iface *ac, int id)
 }
 
 Dev*
-setupep(Dev *d, Iface *ac, Ep *e, int speed)
+setupep(Dev *d, Iface *ac, Ep *e, int *speed, int force)
 {
 	int dir = e->dir;
-	Aconf *c;
+	Aconf *c, *bestc;
 	Range *f;
+	Ep *beste;
+	int closest, sp;
+
+	bestc = nil;
+	beste = nil;
+	closest = 1<<30;
+	sp = *speed;
 
 	for(;e != nil; e = e->next){
 		c = e->iface->aux;
@@ -372,32 +379,48 @@ setupep(Dev *d, Iface *ac, Ep *e, int speed)
 			continue;
 		if(c->format != 1 || c->bits != audiores || 8*c->bps != audiores || c->channels != audiochan)
 			continue;
-		for(f = c->freq; f != c->freq+c->nfreq; f++)
-			if(speed >= f->min && speed <= f->max)
+		for(f = c->freq; f != c->freq+c->nfreq; f++){
+			if(sp >= f->min && sp <= f->max)
 				goto Foundaltc;
+			if(force)
+				continue;
+			if(f->min >= sp && closest-sp >= f->min-sp){
+				closest = f->min;
+				bestc = c;
+				beste = e;
+			}else if(bestc == nil || (f->max < sp && closest < sp && sp-closest > sp-f->max)){
+				closest = f->max;
+				bestc = c;
+				beste = e;
+			}
+		}
 	}
-	werrstr("no altc found");
-	return nil;
+	if(bestc == nil){
+		werrstr("no altc found");
+		return nil;
+	}
+	e = beste;
+	c = bestc;
+	sp = closest;
 
 Foundaltc:
-	if(setalt(d, e->iface) < 0)
+	if(setalt(d, e->iface) < 0){
+		fprint(2, "setalt: %r\n");
 		return nil;
-	if(setclock(d, ac, c, speed) < 0){
+	}
+	if(setclock(d, ac, c, sp) < 0){
 		werrstr("setclock: %r");
 		return nil;
 	}
-
 	if((d = openep(d, e)) == nil){
 		werrstr("openep: %r");
 		return nil;
 	}
 	devctl(d, "samplesz %d", audiochan*audiores/8);
 	devctl(d, "sampledelay %d", audiodelay);
-	devctl(d, "hz %d", speed);
-	if(e->dir==Ein)
-		devctl(d, "name audioinU%s", audiodev->hname);
-	else
-		devctl(d, "name audioU%s", audiodev->hname);	
+	devctl(d, "hz %d", sp);
+	devctl(d, "name audio%sU%s", e->dir==Ein ? "in" : "", audiodev->hname);
+	*speed = sp;
 	return d;
 }
 
@@ -430,15 +453,15 @@ fswrite(Req *r)
 
 		speed = atoi(f[1]);
 Setup:
-		if((d = setupep(audiodev, audiocontrol, audioepout, speed)) == nil){
+		if((d = setupep(audiodev, audiocontrol, audioepout, &speed, 1)) == nil){
 			responderror(r);
 			return;
 		}
+		audiofreq = speed;
 		closedev(d);
 		if(audioepin != nil)
-			if(d = setupep(audiodev, audiocontrol, audioepin, speed))
+			if(d = setupep(audiodev, audiocontrol, audioepin, &speed, 1))
 				closedev(d);
-		audiofreq = speed;
 	} else if(strcmp(f[0], "delay") == 0){
 		audiodelay = atoi(f[1]);
 		speed = audiofreq;
@@ -534,7 +557,7 @@ main(int argc, char *argv[])
 			audioepout = e;
 			break;
 		}
-		if((ed = setupep(d, ac, e, audiofreq)) == nil){
+		if((ed = setupep(d, ac, e, &audiofreq, 0)) == nil){
 			fprint(2, "setupep: %r\n");
 
 			if(e == audioepin)
