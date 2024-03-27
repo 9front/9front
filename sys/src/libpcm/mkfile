@@ -1,0 +1,18 @@
+</$objtype/mkfile
+
+LIB=/$objtype/lib/libpcm.a
+OFILES=\
+	conv.$O\
+	desc.$O\
+
+HFILES=\
+	/sys/include/pcm.h\
+	fir.h\
+
+UPDATE=\
+	mkfile\
+	$HFILES\
+	${OFILES:%.$O=%.c}\
+	${LIB:/$objtype/%=/386/%}\
+
+</sys/src/cmd/mksyslib
