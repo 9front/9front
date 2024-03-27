@@ -711,8 +711,9 @@ uartstageinput(Uart *p)
 			p->ir = p->iw;
 		}
 		if((n = qproduce(p->iq, ir, iw - ir)) < 0){
+			if(p->modem)
+				(*p->phys->rts)(p, 0);
 			p->serr++;
-			(*p->phys->rts)(p, 0);
 		}
 		else if(n == 0)
 			p->berr++;
