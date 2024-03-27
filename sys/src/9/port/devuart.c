@@ -499,6 +499,8 @@ uartctl(Uart *p, char *cmd)
 			break;
 		case 'Q':
 		case 'q':
+			if(n < 0 || n > 1024*1024)
+				return -1;
 			if(p->iq != nil)
 				qsetlimit(p->iq, n);
 			if(p->oq != nil)
