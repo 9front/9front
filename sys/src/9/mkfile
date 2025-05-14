@@ -3,11 +3,11 @@ ARCH=\
 	bcm64\
 	cycv\
 	kw\
-	mtx\
+	#mtx\
 	omap\
 	pc\
 	pc64\
-	ppc\
+	#ppc\
 	sgi\
 	teg2\
 	xen\
