@@ -311,7 +311,7 @@ forkchild(Proc *p, Ureg *ureg)
 	Ureg *cureg;
 
 //print("%lud setting up for forking child %lud\n", up->pid, p->pid);
-	p->sched.sp = (ulong)p->kstack+KSTACK-sizeof(Ureg);
+	p->sched.sp = (ulong)p-sizeof(Ureg);
 	p->sched.pc = (ulong)forkret;
 
 	cureg = (Ureg*)(p->sched.sp);

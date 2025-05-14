@@ -160,7 +160,7 @@ trap(Ureg *ur)
 	char buf[2*ERRMAX], buf1[ERRMAX], *fpexcep;
 	static int dumps;
 
-	if (up && (char *)(ur) - up->kstack < 1024 && dumps++ == 0) {
+	if (up && (char *)(ur) - ((char *)up - KSTACK) < 1024 && dumps++ == 0) {
 		iprint("trap: proc %ld kernel stack getting full\n", up->pid);
 		dumpregs(ur);
 		dumpstack();
@@ -421,7 +421,7 @@ _dumpstack(Ureg *ureg)
 	if(up == nil)
 		top = (ulong)MACHADDR + MACHSIZE;
 	else
-		top = (ulong)up->kstack + KSTACK;
+		top = (ulong)up;
 	i = 0;
 	for(l=ureg->sp; l < top; l += BY2WD) {
 		v = *(ulong*)l;
@@ -764,7 +764,7 @@ forkchild(Proc *p, Ureg *ur)
 {
 	Ureg *cur;
 
-	p->sched.sp = (ulong)p->kstack+KSTACK-UREGSIZE;
+	p->sched.sp = (ulong)p - UREGSIZE;
 	p->sched.pc = (ulong)forkret;
 
 	cur = (Ureg*)(p->sched.sp+2*BY2WD);
@@ -780,7 +780,7 @@ void
 kprocchild(Proc *p, void (*entry)(void))
 {
 	p->sched.pc = (ulong)entry;
-	p->sched.sp = (ulong)p->kstack+KSTACK;
+	p->sched.sp = (ulong)p;
 }
 
 /* set up user registers before return from exec() */

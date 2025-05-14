@@ -424,8 +424,8 @@ _dumpstack(Ureg *ureg)
 		sl = el-KSTACK;
 	}
 	else{
-		sl = (ulong)up->kstack;
-		el = sl + KSTACK;
+		el = (ulong)up;
+		sl = el-KSTACK;
 	}
 	if(l > el || l < sl){
 		el = (ulong)m+BY2PG;
@@ -462,7 +462,7 @@ dumpregs(Ureg *ur)
 	if(up) {
 		print("registers for %s %ld\n", up->text, up->pid);
 		if((ur->srr1 & MSR_PR) == 0)
-		if(ur->usp < (ulong)up->kstack || ur->usp > (ulong)up->kstack+KSTACK)
+		if(ur->usp < (ulong)up - KSTACK || ur->usp > (ulong)up)
 			print("invalid stack ptr\n");
 	}
 	else
@@ -480,7 +480,7 @@ void
 kprocchild(Proc *p, void (*entry)(void))
 {
 	p->sched.pc = (ulong)entry;
-	p->sched.sp = (ulong)p->kstack+KSTACK;
+	p->sched.sp = (ulong)p;
 }
 
 /*
@@ -517,7 +517,7 @@ forkchild(Proc *p, Ureg *ur)
 {
 	Ureg *cur;
 
-	p->sched.sp = (ulong)p->kstack+KSTACK-UREGSIZE;
+	p->sched.sp = (ulong)p - UREGSIZE;
 	p->sched.pc = (ulong)forkret;
 
 	cur = (Ureg*)(p->sched.sp+2*BY2WD);

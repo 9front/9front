@@ -412,9 +412,7 @@ TEXT	trapvec(SB), $-4
 	RLWNM	$0, R1, $~KZERO, R1		/* PADDR(m->) */
 	MOVW	8(R1), R1				/* m->proc  */
 	RLWNM	$0, R1, $~KZERO, R1		/* PADDR(m->proc) */
-	MOVW	8(R1), R1				/* m->proc->kstack */
-	RLWNM	$0, R1, $~KZERO, R1		/* PADDR(m->proc->kstack) */
-	ADD	$(KSTACK-UREGSIZE), R1
+	SUB	$UREGSIZE, R1			/* make room on stack */
 	MOVW	R0, R2
 	BL	saveureg(SB)
 	BL	trap(SB)

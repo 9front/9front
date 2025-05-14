@@ -293,9 +293,9 @@ _dumpstack(Ureg *ureg)
 	x += iprint("ktrace /kernel/path %.8lux %.8lux <<EOF\n", ureg->pc, ureg->sp);
 	i = 0;
 	if(up
-	&& (uintptr)&l >= (uintptr)up->kstack
-	&& (uintptr)&l <= (uintptr)up->kstack+KSTACK)
-		estack = (uintptr)up->kstack+KSTACK;
+	&& (uintptr)&l >= (uintptr)up - KSTACK
+	&& (uintptr)&l <= (uintptr)up)
+		estack = (uintptr)up;
 	else if((uintptr)&l >= (uintptr)m->stack
 	&& (uintptr)&l <= (uintptr)m+MACHSIZE)
 		estack = (uintptr)m+MACHSIZE;
@@ -775,7 +775,7 @@ kprocchild(Proc *p, void (*entry)(void))
 	 * to linkproc().
 	 */
 	p->sched.pc = (ulong)entry;
-	p->sched.sp = (ulong)p->kstack+KSTACK-BY2WD;
+	p->sched.sp = (ulong)p - BY2WD;
 }
 
 void
@@ -788,7 +788,7 @@ forkchild(Proc *p, Ureg *ureg)
 	 *  - the return PC
 	 *  - trap's argument (ur)
 	 */
-	p->sched.sp = (ulong)p->kstack+KSTACK-(sizeof(Ureg)+2*BY2WD);
+	p->sched.sp = (ulong)p - (sizeof(Ureg)+2*BY2WD);
 	p->sched.pc = (ulong)forkret;
 
 	cureg = (Ureg*)(p->sched.sp+2*BY2WD);

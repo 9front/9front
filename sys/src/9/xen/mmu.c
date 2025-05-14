@@ -237,10 +237,10 @@ mmuswitch(Proc* proc)
 		//XXX doesn't work for some reason, but it's not needed for uniprocessor
 		//pdb = (ulong*)proc->mmupdb->va;
 		//xenupdate(&pdb[PDX(MACHADDR)], m->pdb[PDX(MACHADDR)]);
-		taskswitch(proc->mmupdb, (ulong)(proc->kstack+KSTACK));
+		taskswitch(proc->mmupdb, (ulong)proc);
 	}
 	else
-		taskswitch(0, (ulong)(proc->kstack+KSTACK));
+		taskswitch(0, (ulong)proc);
 }
 
 void

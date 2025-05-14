@@ -26,9 +26,9 @@ _dumpstack(Ureg *ureg)
 	x += iprint("ktrace /arm/9cycv %.8lux %.8lux %.8lux <<EOF\n", ureg->pc, ureg->sp, ureg->r14);
 	i = 0;
 	if(up
-	&& (uintptr)&l >= (uintptr)up->kstack
-	&& (uintptr)&l <= (uintptr)up->kstack+KSTACK)
-		estack = (uintptr)up->kstack+KSTACK;
+	&& (uintptr)&l >= (uintptr)up - KSTACK
+	&& (uintptr)&l <= (uintptr)up)
+		estack = (uintptr)up;
 	else if((uintptr)&l >= (uintptr)m->stack
 	&& (uintptr)&l <= (uintptr)m+MACHSIZE)
 		estack = (uintptr)m+MACHSIZE;
@@ -522,7 +522,7 @@ void
 kprocchild(Proc *p, void (*entry)(void))
 {
 	p->sched.pc = (uintptr) entry;
-	p->sched.sp = (uintptr) p->kstack + KSTACK;
+	p->sched.sp = (uintptr) p;
 }
 
 void
@@ -531,7 +531,7 @@ forkchild(Proc *p, Ureg *ureg)
 	Ureg *cureg;
 
 	p->sched.pc = (uintptr) forkret;
-	p->sched.sp = (uintptr) p->kstack + KSTACK - sizeof(Ureg);
+	p->sched.sp = (uintptr) p - sizeof(Ureg);
 
 	cureg = (Ureg*) p->sched.sp;
 	memmove(cureg, ureg, sizeof(Ureg));

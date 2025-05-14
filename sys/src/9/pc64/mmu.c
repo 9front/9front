@@ -471,7 +471,7 @@ mmuswitch(Proc *proc)
 		m->mmumap[p->index/MAPBITS] |= 1ull<<(p->index%MAPBITS);
 		m->pml4[p->index] = PADDR(p->page) | PTEUSER|PTEWRITE|PTEVALID;
 	}
-	taskswitch((uintptr)proc->kstack+KSTACK);
+	taskswitch((uintptr)proc);
 }
 
 void

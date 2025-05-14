@@ -648,7 +648,6 @@ newproc(void)
 		}
 		p = (Proc*)(b + KSTACK);
 		p->index = procalloc.nextindex++;
-		p->kstack = b;
 		procalloc.tab[p->index] = p;
 	}
 	procalloc.free = p->qnext;

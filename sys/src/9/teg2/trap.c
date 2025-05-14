@@ -819,7 +819,7 @@ trap(Ureg *ureg)
 
 	splhi();			/* paranoia */
 	if(up != nil)
-		rem = ((char*)ureg)-up->kstack;
+		rem = ((char*)ureg)-((char*)up-KSTACK);
 	else
 		rem = ((char*)ureg)-((char*)m+sizeof(Mach));
 	if(rem < 1024) {
@@ -957,9 +957,9 @@ dumpstackwithureg(Ureg *ureg)
 	delay(20);
 	i = 0;
 	if(up
-	&& (uintptr)&l >= (uintptr)up->kstack
-	&& (uintptr)&l <= (uintptr)up->kstack+KSTACK)
-		estack = (uintptr)up->kstack+KSTACK;
+	&& (uintptr)&l >= (uintptr)up - KSTACK
+	&& (uintptr)&l <= (uintptr)up)
+		estack = (uintptr)up;
 	else if((uintptr)&l >= (uintptr)m->stack
 	&& (uintptr)&l <= (uintptr)m+MACHSIZE)
 		estack = (uintptr)m+MACHSIZE;

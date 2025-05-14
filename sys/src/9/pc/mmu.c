@@ -298,9 +298,9 @@ mmuswitch(Proc* proc)
 		pdb = tmpmap(proc->mmupdb);
 		pdb[PDX(MACHADDR)] = m->pdb[PDX(MACHADDR)];
 		tmpunmap(pdb);
-		taskswitch(proc->mmupdb->pa, (ulong)(proc->kstack+KSTACK));
+		taskswitch(proc->mmupdb->pa, (ulong)proc);
 	}else
-		taskswitch(PADDR(m->pdb), (ulong)(proc->kstack+KSTACK));
+		taskswitch(PADDR(m->pdb), (ulong)proc);
 
 	memmove(&m->gdt[PROCSEG0], proc->gdt, sizeof(proc->gdt));
 	if((x = (ulong)proc->ldt) && (n = proc->nldt) > 0){

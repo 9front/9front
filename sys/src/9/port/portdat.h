@@ -653,7 +653,7 @@ struct Schedq
 struct Proc
 {
 	Label	sched;		/* known to l.s */
-	char	*kstack;	/* known to l.s */
+
 	Mach	*mach;		/* machine running this proc */
 	char	*text;
 	char	*user;

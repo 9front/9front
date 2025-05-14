@@ -138,7 +138,7 @@ trap(Ureg *ureg)
 
 	assert(!islo());
 	if(up != nil)
-		rem = ((char*)ureg)-up->kstack;
+		rem = ((char*)ureg)-((char*)up - KSTACK);
 	else
 		rem = ((char*)ureg)-((char*)m+sizeof(Mach));
 	if(rem < 256) {
@@ -343,14 +343,14 @@ dumpstackwithureg(Ureg *ureg)
 		ureg->pc, ureg->sp, ureg->r14);
 	delay(2000);
 	i = 0;
-	if(up != nil && (uintptr)&l <= (uintptr)up->kstack+KSTACK)
-		estack = (uintptr)up->kstack+KSTACK;
+	if(up != nil && (uintptr)&l <= (uintptr)up)
+		estack = (uintptr)up;
 	else if((uintptr)&l >= (uintptr)m->stack
 	     && (uintptr)&l <= (uintptr)m+MACHSIZE)
 		estack = (uintptr)m+MACHSIZE;
 	else{
 		if(up != nil)
-			iprint("&up->kstack %#p &l %#p\n", up->kstack, &l);
+			iprint("&up %#p &l %#p\n", up, &l);
 		else
 			iprint("&m %#p &l %#p\n", m, &l);
 		return;
@@ -420,10 +420,9 @@ dumpregs(Ureg* ureg)
 	iprint("pc %#lux link %#lux\n", ureg->pc, ureg->link);
 
 	if(up)
-		iprint("user stack: %#p-%#p\n", up->kstack, up->kstack+KSTACK-4);
+		iprint("user stack: %#p-%#p\n", (char*)up - KSTACK, up);
 	else
-		iprint("kernel stack: %8.8lux-%8.8lux\n",
-			(ulong)(m+1), (ulong)m+BY2PG-4);
+		iprint("kernel stack: %8.8lux-%8.8lux\n", (ulong)(m+1), (ulong)m+BY2PG);
 	dumplongs("stack", (ulong *)(ureg + 1), 16);
 	delay(2000);
 	dumpstack();

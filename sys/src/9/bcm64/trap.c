@@ -566,7 +566,7 @@ void
 kprocchild(Proc *p, void (*entry)(void))
 {
 	p->sched.pc = (uintptr) entry;
-	p->sched.sp = (uintptr) p->kstack + KSTACK - 16;
+	p->sched.sp = (uintptr) p - 16;
 	*(void**)p->sched.sp = kprocchild;	/* fake */
 }
 
@@ -576,7 +576,7 @@ forkchild(Proc *p, Ureg *ureg)
 	Ureg *cureg;
 
 	p->sched.pc = (uintptr) forkret;
-	p->sched.sp = (uintptr) p->kstack + KSTACK - TRAPFRAMESIZE;
+	p->sched.sp = (uintptr) p - TRAPFRAMESIZE;
 
 	cureg = (Ureg*) (p->sched.sp + 16);
 	memmove(cureg, ureg, sizeof(Ureg));
@@ -661,12 +661,12 @@ dumpstackwithureg(Ureg *ureg)
 		sp = (uintptr)&ureg;
 
 	estack = (uintptr)m+MACHSIZE;
-	if(up != nil && sp <= (uintptr)up->kstack+KSTACK)
-		estack = (uintptr)up->kstack+KSTACK;
+	if(up != nil && sp <= (uintptr)up)
+		estack = (uintptr)up;
 
 	if(sp > estack){
 		if(up != nil)
-			iprint("&up->kstack %#p sp %#p\n", up->kstack, sp);
+			iprint("&up %#p sp %#p\n", up, sp);
 		else
 			iprint("&m %#p sp %#p\n", m, sp);
 		return;

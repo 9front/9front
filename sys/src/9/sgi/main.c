@@ -321,7 +321,7 @@ procsave(Proc *p)
 }
 
 void
-procrestore(Proc *p)
+procrestore(Proc *)
 {
 }
 

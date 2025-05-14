@@ -918,10 +918,9 @@ TEXT touser(SB), 1, $-4
 TEXT syscallentry(SB), 1, $-4
 	SWAPGS
 	BYTE $0x65; MOVQ 0, AX			/* m-> (MOVQ GS:0x0, AX) */
-	MOVQ	16(AX), BX			/* m->proc */
+	MOVQ	16(AX), BX
 	MOVQ	SP, R13
-	MOVQ	16(BX), SP			/* m->proc->kstack */
-	ADDQ	$KSTACK, SP
+	MOVQ	BX, SP
 
 	PUSHQ	$UDSEL				/* old stack segment */
 	PUSHQ	R13				/* old sp */
