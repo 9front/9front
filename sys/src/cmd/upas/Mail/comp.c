@@ -97,8 +97,14 @@ postmesg(Comp *c, char **, int nf)
 static void
 compquit(Comp *c, char **, int)
 {
-	if(c->quitting == 0)
+    /* Read acme dirty flag from compose window ctl file */
+	char d;
+	pread(c->ctl, &d, 1, 58);
+
+	if(d == '1' && c->quitting == 0)
 		fprint(2, "composing message\n");
+	if(d != '1')
+		c->quitting++;
 	c->quitting++;
 }
 
