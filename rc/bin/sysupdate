@@ -1,9 +1,26 @@
 #!/bin/rc -b
+
 rfork en
 cd /
+
+if(! test -d /dist/9front/.git) {
+	>[1=2] {
+		echo 'the repo has been modified; pray we do not modify it further'
+		echo 'in order to update, run the following commands:'
+		echo '	mkdir /dist/9front && cd /dist/9front && \'
+		echo '	hget https://git.9front.org/static/9front-scrubbed.tar.gz | tar xz'
+		echo 'once that has been done, you may delete /dist/plan9front.'
+		exit upgrade
+	}
+}
+
 if(! test -d .git)
-	bind -ac /dist/plan9front /
+	bind -ac /dist/9front /
+if(! grep -s git.9front.org/plan9front/9front /.git/config){
+	>[1=2] echo 'repo does not point at 9front'
+	exit wrongrepo
+}
 if(! ~ `{git/branch} heads/front)
 	>[1=2] echo sysupdate: must be on "front" to pull
 if not
-	git/pull -u gits://git.9front.org/plan9front/plan9front
+	git/pull -u gits://git.9front.org/plan9front/9front
