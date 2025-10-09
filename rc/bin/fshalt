@@ -31,6 +31,7 @@ sleep 1
 c=`{ls /srv/cwfs*cmd >[2]/dev/null}
 h=`{ls /srv/hjfs*cmd >[2]/dev/null}
 e=`{ls /srv/ext4*cmd >[2]/dev/null}
+f=`{ls /srv/fscons* >[2]/dev/null}
 g=`{ls /srv/gefs*cmd >[2]/dev/null}
 s=`{awk '/^sd./ {print substr($1,3,1)}' '#S/sdctl' >[2]/dev/null}
 
@@ -69,6 +70,10 @@ fn x {
 	echo -n halting...
 	for(i in $c $h $e $g)
 		echo halt >>$i
+	for(i in $f){
+		echo fsys all halt >> $i
+		sleep 2
+	}
 	for(i in $c $h $e $g){
 		echo -n $i...
 		while(test -e $i)
