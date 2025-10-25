@@ -108,8 +108,8 @@ scroll(Flayer *l, int but)
 	int in = 0, oin;
 	long tot = scrtotal(l);
 	Rectangle scr, r, s, rt;
-	int x, y, my, oy, h;
-	long p0;
+	int x, y, my, oy, n;
+	long p0, o;
 
 	if(l->visible==None)
 		return;
@@ -155,23 +155,15 @@ scroll(Flayer *l, int but)
 		}
 	}while(but <= 3 && button(but));
 	if(in){
-		h = s.max.y-s.min.y;
 		scrunmark(l, r);
-		p0 = 0;
-		if(but == 1 || but == 4){
-			but = 1;
-			p0 = (long)(my-s.min.y)/l->f.font->height+1;
-		}else if(but == 2){
-			if(tot > 1024L*1024L)
-				p0 = ((tot>>10)*(y-s.min.y)/h)<<10;
-			else
-				p0 = tot*(y-s.min.y)/h;
-		}else if(but == 3 || but == 5){
-			but = 3;
-			p0 = l->origin+frcharofpt(&l->f, Pt(s.max.x, my));
-			if(p0 > tot)
-				p0 = tot;
+		if(but == 2){
+			n = 0;
+			o = (tot / (s.max.y - s.min.y)) * (my - s.min.y);
+		}else{
+			n = (my - s.min.y)/l->f.font->height;
+			n *= (but == 1 || but == 4)? -1: 1;
+			o = l->origin;
 		}
-		scrorigin(l, but, p0);
+		center(l, o, n);
 	}
 }

@@ -15,6 +15,7 @@ int	got;
 int	block;
 int	kbdc;
 int	resized;
+int	scrselecting;
 uchar	*hostp;
 uchar	*hoststop;
 uchar	*plumbbase;
@@ -44,6 +45,13 @@ initio(void)
 	}
 	hoststart();
 	plumbstart();
+}
+
+void
+flushdisplay(void)
+{
+	if(display->bufp > display->buf)
+		flushimage(display, 1);
 }
 
 void
@@ -128,8 +136,8 @@ again:
 
 	if(got & ~block)
 		return got & ~block;
-	if(display->bufp > display->buf)
-		flushimage(display, 1);
+	if(!scrselecting)
+		flushdisplay();
 	type = alt(alts);
 	switch(type){
 	case RHost:
@@ -182,7 +190,6 @@ frscroll(Frame *f, int n)
 {
 	Flayer *l = which;
 	Text *t = l->user1;
-	long p;
 
 	if(nbrecv(mousectl->c, &mousectl->Mouse) < 0)
 		panic("mouse");
@@ -195,11 +202,14 @@ frscroll(Frame *f, int n)
 			l->p0 = sel;
 			l->p1 = l->origin+f->p0;
 		}
-		scrorigin(l, 1, -n+1);
 	}else if(n == 0){
+		flushdisplay();
 		sleep(25);
 		return;
 	}else{
+		/* don't scroll off the end */
+		if(l->origin+f->nchars == t->rasp.nrunes)
+			return;
 		if(sel >= l->origin+f->p1){
 			l->p0 = l->origin+f->p1;
 			l->p1 = sel;
@@ -207,20 +217,24 @@ frscroll(Frame *f, int n)
 			l->p0 = sel;
 			l->p1 = l->origin+f->p1;
 		}
-		p = l->origin;
-		if(l->origin+f->nchars != t->rasp.nrunes)
-			p += frcharofpt(f, Pt(l->scroll.max.x, l->scroll.min.y + n * f->font->height));
-		scrorigin(l, 2, p);
 	}
+
+	flushdisplay();
+	center(l, l->origin, n);
+	if(n > 0 && !t->lock)
+		/* no msg sent */
+		return;
 
 	/*
 	 * we must pull io from host while we are in frame(2)
 	 */
+	scrselecting = 1;
 	do{
 		block = ~(1 << RHost);
 		waitforio();
 		rcv();
 	}while(t->lock);
+	scrselecting = 0;
 }
 
 int

@@ -207,8 +207,11 @@ inmesg(Hmesg type, int count)
 		if(m == cmd.tag){
 			for(i=0; i<NL; i++){
 				lp = &cmd.l[i];
-				if(lp->textfn)
-					center(lp, l>=0? l : lp->p1);
+				if(lp->textfn){
+					l = l >= 0? l: lp->p1;
+					if(l < lp->origin || l > lp->origin+lp->f.nchars)
+						center(lp, l, -1);
+				}
 			}
 		}
 		break;
