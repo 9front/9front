@@ -36,7 +36,7 @@ int	flprepare(Flayer*);
 Rectangle flrect(Flayer*, Rectangle);
 void	flrefresh(Flayer*, Rectangle, int);
 void	flresize(Rectangle);
-int	flselect(Flayer*, ulong*);
+int	flselect(Flayer*);
 void	flsetselect(Flayer*, long, long);
 void	flstart(Rectangle);
 void	flupfront(Flayer*);
@@ -49,4 +49,4 @@ Flayer	*flwhich(Point);
 extern	Image	*maincols[NCOL];
 extern	Image	*cmdcols[NCOL];
 
-extern	int	sel;
+extern	ulong	sel;

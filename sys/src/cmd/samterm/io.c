@@ -16,6 +16,7 @@ int	block;
 int	kbdc;
 int	resized;
 int	scrselecting;
+int	shifted;
 uchar	*hostp;
 uchar	*hoststop;
 uchar	*plumbbase;
@@ -23,10 +24,75 @@ uchar	*plumbp;
 uchar	*plumbstop;
 Channel	*plumbc;
 Channel	*hostc;
-Mousectl	*mousectl;
+Mousectl *mousectl;
 Mouse	*mousep;
-Keyboardctl *keyboardctl;
-void	panic(char*);
+Channel *kbdchan;
+
+static void
+kbdproc(void *arg)
+{
+	Channel *c = arg;
+	char buf[1024], *p;
+	int cfd, kfd, n;
+
+	threadsetname("kbdproc");
+	if((cfd = open("/dev/consctl", OWRITE)) < 0){
+		chanprint(c, "%r");
+		return;
+	} 
+	fprint(cfd, "rawon");
+
+	if(sendp(c, nil) <= 0)
+		return;
+
+	if((kfd = open("/dev/kbd", OREAD)) >= 0)
+		while((n = read(kfd, buf, sizeof(buf))) > 0)
+			for(p = buf; p < buf+n; p += strlen(p)+1)
+				chanprint(c, "%s", p);
+}
+
+static Channel*
+initkbd(void)
+{
+	Channel *c;
+	char *e;
+
+	c = chancreate(sizeof(char*), 20);
+	procrfork(kbdproc, c, 4096, RFCFDG);
+	if(e = recvp(c)){
+		chanfree(c);
+		c = nil;
+		werrstr("%s", e);
+		free(e);
+	}
+	return c;
+}
+
+void
+kbdkey(char *s)
+{
+	Rune r;
+	int type;
+
+	if(s == nil)
+		return;
+
+	type = *s++;
+	chartorune(&r, s);
+	if(r != Runeerror){
+		switch(type){
+		case 'k':
+		case 'K':
+			shifted = r == Kshift;
+			kbdc = -1;
+			break;
+		case 'c':
+			kbdc = r;
+			break;
+		}
+	}
+	free(s);
+}
 
 void
 initio(void)
@@ -38,11 +104,7 @@ initio(void)
 		threadexitsall("mouse");
 	}
 	mousep = mousectl;
-	keyboardctl = initkeyboard(nil);
-	if(keyboardctl == nil){
-		fprint(2, "samterm: keyboard init failed: %r\n");
-		threadexitsall("kbd");
-	}
+	kbdchan = initkbd();
 	hoststart();
 	plumbstart();
 }
@@ -82,7 +144,7 @@ int
 waitforio(void)
 {
 	Alt alts[NRes+1];
-	Rune r;
+	char *s;
 	int i;
 	ulong type;
 
@@ -100,8 +162,8 @@ again:
 	if(block & (1<<RHost))
 		alts[RHost].op = CHANNOP;
 
-	alts[RKeyboard].c = keyboardctl->c;
-	alts[RKeyboard].v = &r;
+	alts[RKeyboard].c = kbdchan;
+	alts[RKeyboard].v = &s;
 	alts[RKeyboard].op = CHANRCV;
 	if(block & (1<<RKeyboard))
 		alts[RKeyboard].op = CHANNOP;
@@ -135,7 +197,7 @@ again:
 		externload(i);
 		break;
 	case RKeyboard:
-		kbdc = r;
+		kbdkey(s);
 		break;
 	case RMouse:
 		break;
@@ -268,12 +330,12 @@ int kpeekc = -1;
 int
 ecankbd(void)
 {
-	Rune r;
+	char *s;
 
 	if(kpeekc >= 0)
 		return 1;
-	if(nbrecv(keyboardctl->c, &r) > 0){
-		kpeekc = r;
+	if(nbrecv(kbdchan, &s) > 0){
+		kbdkey(s);
 		return 1;
 	}
 	return 0;
@@ -283,18 +345,19 @@ int
 ekbd(void)
 {
 	int c;
-	Rune r;
+	char *s;
 
 	if(kpeekc >= 0){
 		c = kpeekc;
 		kpeekc = -1;
 		return c;
 	}
-	if(recv(keyboardctl->c, &r) < 0){
+	if(recv(kbdchan, &s) < 0){
 		fprint(2, "samterm: keybard recv error: %r\n");
 		panic("kbd");
 	}
-	return r;
+	kbdkey(s);
+	return kpeekc;
 }
 
 int

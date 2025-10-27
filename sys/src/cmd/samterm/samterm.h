@@ -89,6 +89,7 @@ extern int	plumbfd;
 extern int	exiting;
 extern int	autoindent;
 extern int	spacesindent;
+extern int	shifted;
 
 Rune	*gettext(Flayer*, long, ulong*);
 void	*alloc(ulong n);
@@ -119,6 +120,7 @@ void	center(Flayer*, long, int);
 int	xmenuhit(int, Menu*);
 void	buttons(int);
 int	getr(Rectangle*);
+void	extendsel(Flayer*);
 void	current(Flayer*);
 void	duplicate(Flayer*, Rectangle, Font*, int);
 void	startfile(Text*);
