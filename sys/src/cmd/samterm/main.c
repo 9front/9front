@@ -239,7 +239,8 @@ void
 buttons(int updown)
 {
 	while(((mousep->buttons&7)!=0) != updown)
-		getmouse();
+		if(readmouse(mousectl) < 0)
+			panic("mouse");
 }
 
 int

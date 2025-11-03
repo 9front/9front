@@ -100,15 +100,14 @@ void	setlock(void);
 void	outcmd(void);
 void	rinit(Rasp*);
 void	startnewfile(int, Text*);
-void	getmouse(void);
 void	mouseunblock(void);
 void	kbdblock(void);
 void	hoststart(void);
 int	plumbstart(void);
-int	button(int but);
 int	load(char*, int);
 int	waitforio(void);
 int	rcvchar(void);
+void	forcenter(Flayer*, ulong, int);
 void	frscroll(Frame*, int);
 int	getch(void);
 int	kbdchar(void);
@@ -162,7 +161,7 @@ void	Strncpy(Rune*, Rune*, long);
 void	flushtyping(int);
 void	dumperrmsg(int, int, int, int);
 int	screensize(int*,int*);
-void	getmouse(void);
+void	flushdisplay(void);
 
 #include "mesg.h"
 

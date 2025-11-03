@@ -55,13 +55,6 @@ flushdisplay(void)
 }
 
 void
-getmouse(void)
-{
-	if(readmouse(mousectl) < 0)
-		panic("mouse");
-}
-
-void
 mouseunblock(void)
 {
 	got &= ~(1<<RMouse);
@@ -71,13 +64,6 @@ void
 kbdblock(void)
 {		/* ca suffit */
 	block = (1<<RKeyboard)|(1<<RPlumb);
-}
-
-int
-button(int but)
-{
-	getmouse();
-	return mousep->buttons&(1<<(but-1));
 }
 
 void
@@ -185,6 +171,29 @@ rcvstring(void)
 	return (char*)hostp;
 }
 
+/*
+ * when doing consecutive scrolling operations outside of the main loop
+ * in threadmain(), we need to wait for any RHost messages we've sent to
+ * come back from the host.
+ */
+void
+forcenter(Flayer *l, ulong a, int n)
+{
+	Text *t = l->user1;
+
+	flushdisplay();
+	center(l, a, n);
+	if(n > 0 && !t->lock)
+		/* no msg sent */
+		return;
+
+	do{
+		block = ~(1 << RHost);
+		waitforio();
+		rcv();
+	}while(t->lock);
+}
+
 void
 frscroll(Frame *f, int n)
 {
@@ -218,22 +227,8 @@ frscroll(Frame *f, int n)
 			l->p1 = l->origin+f->p1;
 		}
 	}
-
-	flushdisplay();
-	center(l, l->origin, n);
-	if(n > 0 && !t->lock)
-		/* no msg sent */
-		return;
-
-	/*
-	 * we must pull io from host while we are in frame(2)
-	 */
 	scrselecting = 1;
-	do{
-		block = ~(1 << RHost);
-		waitforio();
-		rcv();
-	}while(t->lock);
+	forcenter(l, l->origin, n);
 	scrselecting = 0;
 }
 
