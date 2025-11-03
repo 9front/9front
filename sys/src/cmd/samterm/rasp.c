@@ -89,7 +89,7 @@ splitsect(Rasp *r, Section *s, long n0)
 		s->next->text = 0;
 	else{
 		s->next->text = alloc(RUNESIZE*(TBLOCKSIZE+1));
-		Strcpy(s->next->text, s->text+n0);
+		runestrcpy(s->next->text, s->text+n0);
 		s->text[n0] = 0;
 	}
 	s->next->nrunes = s->nrunes-n0;
@@ -161,17 +161,11 @@ rclean(Rasp *r)
 			if(s->text){
 				if(s->nrunes+s->next->nrunes>TBLOCKSIZE)
 					break;
-				Strcpy(s->text+s->nrunes, s->next->text);
+				runestrcpy(s->text+s->nrunes, s->next->text);
 			}
 			s->nrunes += s->next->nrunes;
 			rsdelete(r, s->next);
 		}
-}
-
-void
-Strcpy(Rune *to, Rune *from)
-{
-	do; while(*to++ = *from++);
 }
 
 Rune*

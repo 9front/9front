@@ -333,18 +333,7 @@ paste(Text *t, int w)
 int
 alnum(int c)
 {
-	/*
-	 * Hard to get absolutely right.  Use what we know about ASCII
-	 * and assume anything above the Latin control characters is
-	 * potentially an alphanumeric.
-	 */
-	if(c<=' ')
-		return 0;
-	if(0x7F<=c && c<=0xA0)
-		return 0;
-	if(utfrune("!\"#$%&'()*+,-./:;<=>?@[\\]^`{|}~", c))
-		return 0;
-	return 1;
+	return isalpharune(c) || isdigitrune(c);
 }
 
 int

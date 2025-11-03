@@ -158,8 +158,6 @@ void	rclean(Rasp*);
 long	scrtotal(Flayer*);
 void	flnewlyvisible(Flayer*);
 char	*rcvstring(void);
-void	Strcpy(Rune*, Rune*);
-void	Strncpy(Rune*, Rune*, long);
 void	flushtyping(int);
 void	dumperrmsg(int, int, int, int);
 int	screensize(int*,int*);
