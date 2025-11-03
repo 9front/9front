@@ -150,6 +150,12 @@ menu2hit(void)
 }
 
 void
+setmenuhit(int m)
+{
+	menu3.lasthit = m + NMENU3;
+}
+
+void
 menu3hit(void)
 {
 	Rectangle r;
@@ -289,7 +295,7 @@ menuins(int n, uchar *s, Text *t, int m, int tg)
 	name[n][0] = m;
 	strcpy((char*)name[n]+1, (char*)s);
 	nname++;
-	menu3.lasthit = n+NMENU3;
+	setmenuhit(n);
 }
 
 void
