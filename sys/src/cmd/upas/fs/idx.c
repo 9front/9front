@@ -229,6 +229,23 @@ lose:
 	return 0;
 }
 
+static int
+mkparentdir(char *path)
+{
+	int fd;
+	char *p;
+	for(p = strchr(path+1, '/'); p; p = strchr(p+1, '/')){
+		*p = 0;
+		fd = create(path, OEXCL, DMDIR|0777);
+		*p = '/';
+
+		if(fd < 0 && bad(ecreate))
+			return fd;
+		close(fd);
+	}
+	return 0;
+}
+
 /*
  * n.b.: we don't ensure this is the index version we last read.
  *
@@ -245,6 +262,10 @@ wridxfile(Mailbox *mb)
 	Biobuf b;
 	Dir *d, n;
 
+	if(access(mb->path, AEXIST) != 0 && mkparentdir(mb->path) < 0){
+		eprint("wridxfile: mkdir %s/..: %r\n", mb->path);
+		return -1;
+	}
 	snprint(buf, sizeof buf, "%s.idx.tmp", mb->path);
 	iprint("wridxfile %s\n", buf);
 	if((fd = exopen(buf)) == -1){
