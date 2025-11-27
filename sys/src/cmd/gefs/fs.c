@@ -3094,7 +3094,9 @@ runtasks(int tid, void *)
 		sleep(5000);
 		if(agetl(&fs->rdonly))
 			continue;
+		epochstart(tid);
 		if(waserror()){
+			epochend(tid);
 			fprint(2, "task error: %s\n", errmsg());
 			continue;
 		}
@@ -3106,7 +3108,6 @@ runtasks(int tid, void *)
 		tmnow(&tm, nil);
 		now = tmnorm(&tm);
 
-		epochstart(tid);
 		for(mnt = agetp(&fs->mounts); mnt != nil; mnt = mnt->next){
 			if(!(mnt->flag & Lmut))
 				continue;
