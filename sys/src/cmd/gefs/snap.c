@@ -408,8 +408,16 @@ tagsnap(Tree *t, char *name, int flg)
 		n->ht = t->ht;
 		n->bp = t->bp;
 		n->succ = -1;
+		/*
+		 * Because we can have blocks in-flight with gen==memgen,
+		 * which both sides of the fork can free, we need to make
+		 * sure that we don't deadlist them in the new snapshot.
+		 *
+		 * As a result, we need to use memgen, and not gen, in
+		 * order to prevent the potential for a double free.
+		 */
 		n->pred = t->gen;
-		n->base = t->gen;
+		n->base = t->memgen;
 		n->gen = fs->nextgen++;
 		n->memgen = fs->nextgen++;
 
