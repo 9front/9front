@@ -886,7 +886,7 @@ Again:
 		if((e & Eactive) && e != (ge | Eactive)){
 			if(delay == 1000)
 				fprint(2, "stalled epoch %lx [worker %d]\n", e, i);
-			sleep(delay);
+			sleep(delay++);
 			goto Again;
 		}
 	}
