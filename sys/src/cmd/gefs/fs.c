@@ -2787,6 +2787,7 @@ setconf(int fd, int op, char *snap, char *key, char *val)
 	m.nv = strlen(val);
 	qlock(&fs->mutlk);
 	if(!waserror()){
+		fprint(fd, "set %q: %q", key, val);
 		btupsert(t, &m, 1);
 		poperror();
 	}else
