@@ -82,6 +82,9 @@ faultarm(Ureg *ureg, ulong fsr, uintptr addr)
 
 	read = (fsr & (1<<11)) == 0;
 	switch(fsr & 0x1F){
+	case 0x02:
+		postnote(up, 1, "sys: breakpoint", NDebug);
+		break;
 	case 0x05:	/* translation fault L1 */
 	case 0x07:	/* translation fault L2 */
 	case 0x03:	/* access flag fault L1 */
