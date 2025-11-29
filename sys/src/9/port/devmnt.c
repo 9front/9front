@@ -38,6 +38,9 @@ enum
 	TAGSHIFT = 5,
 	TAGMASK = (1<<TAGSHIFT)-1,
 	NMASK = (64*1024)>>TAGSHIFT,
+
+	/* offset to data in Twrite request */
+	Twritehdr = BIT32SZ+BIT8SZ+BIT16SZ+BIT32SZ+BIT64SZ+BIT32SZ,
 };
 
 static struct Mntalloc
@@ -666,37 +669,97 @@ static void
 mntcache(Mntrpc *r)
 {
 	ulong n, m;
-	vlong off;
+	vlong o;
 	Block *b;
-	Chan *c;
 
-	c = r->c;
-	if(!cachedchan(c))
-		return;
-	off = r->request.offset;
+	n = r->request.count;
+	o = r->request.offset;
+	if(r->reply.count < n)
+		n = r->reply.count;
 	switch(r->reply.type){
 	case Rread:
-		m = r->reply.count;
-		if(m > r->request.count)
-			m = r->request.count;
-		for(b = r->b; m > 0 && b != nil; m -= n, b = b->next) {
-			n = BLEN(b);
-			if(m < n)
-				n = m;
-			cupdate(c, b->rp, n, off);
-			off += n;
+		for(b = r->b; n > 0 && b != nil; n -= m, b = b->next) {
+			m = BLEN(b);
+			if(n < m)
+				m = n;
+			cupdate(r->c, b->rp, m, o);
+			o += m;
 		}
 		break;
 	case Rwrite:
-		b = r->w;
-		if(convM2S(b->rp, BLEN(b), &r->request) == 0)
-			panic("convM2S");
-		m = r->reply.count;
-		if(m > r->request.count)
-			m = r->request.count;
-		cwrite(c, (uchar*)r->request.data, m, off);
+		if((b = r->w) != nil)	/* saved Twrite request */
+			cwrite(r->c, b->rp + Twritehdr, n, o);
 		break;
 	}
+}
+
+static Block*
+mntbread(Chan *c, long n, ulong off)
+{
+	Mnt *m;
+ 	Mntrpc *r;
+	Block *b;
+
+	if(n > c->iounit || cachedchan(c))
+		return devbread(c, n, off);
+
+	m = mntchk(c);
+	r = mntralloc(c);
+	if(waserror()) {
+		mntfree(r);
+		nexterror();
+	}
+	r->request.type = Tread;
+	r->request.fid = c->fid;
+	r->request.offset = off;
+	r->request.count = n;
+	mountrpc(m, r);
+	b = concatblock(r->b);
+	r->b = nil;
+	if(r->reply.count < n)
+		n = r->reply.count;
+	if(BLEN(b) > n)
+		b->wp = b->rp + n;
+	mntfree(r);
+	poperror();
+
+	return b;
+}
+
+static long
+mntbwrite(Chan *c, Block *b, ulong off)
+{
+	Mnt *m;
+ 	Mntrpc *r;
+	long n;
+
+	n = BLEN(b);
+	if(n > c->iounit || cachedchan(c))
+		return devbwrite(c, b, off);
+
+	m = mntchk(c);
+	r = mntralloc(c);
+	if(waserror()) {
+		mntfree(r);
+		nexterror();
+	}
+	r->request.type = Twrite;
+	r->request.fid = c->fid;
+	r->request.offset = off;
+	r->request.count = n;
+	/* prepend Twrite header */
+	b = padblock(b, Twritehdr);
+	r->request.data = (char*)b->rp + Twritehdr;
+	r->w = b;
+	if(convS2M(&r->request, b->rp, BLEN(b)) <= 0)
+		error(Emsize);
+	mountrpc(m, r);
+	if(r->reply.count < n)
+		n = r->reply.count;
+	mntfree(r);
+	poperror();
+
+	return n;
 }
 
 static long
@@ -704,7 +767,7 @@ mntrdwr(int type, Chan *c, void *buf, long n, vlong off)
 {
 	Mnt *m;
  	Mntrpc *r;
-	char *uba;
+	uchar *uba;
 	ulong cnt, nr, nreq;
 
 	m = mntchk(c);
@@ -717,7 +780,7 @@ mntrdwr(int type, Chan *c, void *buf, long n, vlong off)
 			nreq = c->iounit;
 
 		if(type == Tread && cachedchan(c)) {
-			nr = cread(c, (uchar*)uba, nreq, off);
+			nr = cread(c, uba, nreq, off);
 			if(nr > 0) {
 				nreq = nr;
 				goto Next;
@@ -732,15 +795,16 @@ mntrdwr(int type, Chan *c, void *buf, long n, vlong off)
 		r->request.type = type;
 		r->request.fid = c->fid;
 		r->request.offset = off;
-		r->request.data = uba;
+		r->request.data = (char*)uba;
 		r->request.count = nreq;
 		mountrpc(m, r);
-		mntcache(r);
+		if(cachedchan(c))
+			mntcache(r);
 		nr = r->reply.count;
 		if(nr > nreq)
 			nr = nreq;
 		if(type == Tread)
-			nr = readblist(r->b, (uchar*)uba, nr, 0);
+			nr = readblist(r->b, uba, nr, 0);
 		mntfree(r);
 		poperror();
 
@@ -1037,19 +1101,27 @@ mountio(Mnt *m, Mntrpc *r)
 	unlock(m);
 
 	/* Transmit a file system rpc */
-	n = sizeS2M(&r->request);
-	b = allocb(n);
-	if(waserror()){
-		freeb(b);
-		nexterror();
+	if((b = r->w) != nil) {
+		/* Already converted by mntbwrite() */
+		r->w = nil;
+	} else {
+		n = sizeS2M(&r->request);
+		b = allocb(n);
+		if(waserror()){
+			freeb(b);
+			nexterror();
+		}
+		n = convS2M(&r->request, b->wp, n);
+		if(n <= 0 || n > m->msize)
+			error(Emsize);
+		b->wp += n;
+
+		/* Save request for mntcache() */
+		if(r->request.type == Twrite && cachedchan(r->c))
+			r->w = copyblock(b, n);
+
+		poperror();
 	}
-	n = convS2M(&r->request, b->wp, n);
-	if(n <= 0 || n > m->msize)
-		error(Emsize);
-	b->wp += n;
-	if(r->request.type == Twrite && cachedchan(r->c))
-		r->w = copyblock(b, n);
-	poperror();
 	devtab[m->c->type]->bwrite(m->c, b, 0);
 
 	/* Gate readers onto the mount point one at a time */
@@ -1417,9 +1489,9 @@ Dev mntdevtab = {
 	mntcreate,
 	mntclose,
 	mntread,
-	devbread,
+	mntbread,
 	mntwrite,
-	devbwrite,
+	mntbwrite,
 	mntremove,
 	mntwstat,
 };
