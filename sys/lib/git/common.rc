@@ -86,7 +86,7 @@ fn merge1 {@{
 		theirs=/dev/null
 
 	if(mergeperm $ours $base $theirs){
-		mkdir -p `{basename -d $tmp}
+		mkdir -p `$nl{basename -d $tmp}
 		if(! merge3 $ours $base $theirs > $tmp)
 			echo merge needed: $out >[1=2]
 		mv $tmp $out
@@ -100,11 +100,11 @@ fn merge1 {@{
 }}
 
 fn gitup{
-	gitroot=`{git/conf -r >[2]/dev/null}
+	gitroot=`$nl{git/conf -r >[2]/dev/null}
 	if(~ $#gitroot 0)
 		die 'not a git repository'
 	gitfs=$gitroot/.git/fs
-	gitrel=`{pwd | drop $gitroot | sed 's@^/@@'}
+	gitrel=`$nl{pwd | drop $gitroot | sed 's@^/@@'}
 	if(~ $#gitrel 0)
 		gitrel='.'
 	if(! cd $gitroot)
