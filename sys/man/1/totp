@@ -4,6 +4,9 @@ auth/userpasswd, auth/totp \- authentication agent
 .SH SYNOPSIS
 .PP
 .B auth/userpasswd
+[
+.B -n
+]
 .I fmt
 .PP
 .B auth/totp
@@ -24,14 +27,19 @@ The key tuple is selected using the provided label.
 This can be used to authenticate with services that require time based OTP.
 .PP
 .I Userpasswd
-queries and prints a cleartext user/password pair from factotum
+queries and prints a cleartext user/password pair from
+.IR factotum (4)
 for the
 .B proto=pass
 key tuple specified in
 .IR fmt .
-This can be used by shell scripts to do cleartext password
-authentication.
-Using plain password authentication with factotum is discouraged,
+Option
+.B -n
+suppresses prompting for the key if it doesn't exist.
+.I Userpasswd
+can be used by shell scripts to do cleartext password
+authentication;
+using plain password authentication with factotum is discouraged,
 as it reveals the secrets in plain text.
 .SH EXAMPLES
 .PP
@@ -55,3 +63,5 @@ Retrieving a password from factotum:
 % auth/userpasswd 'server=setec service=ssh user=ori'
 toomanysecrets
 .EE
+.SH SEE ALSO
+.IR factotum (4)
