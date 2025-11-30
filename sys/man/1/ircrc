@@ -8,10 +8,6 @@ ircrc \- internet relay chat client
 .I port
 ]
 [
-.B -P
-.I server password
-]
-[
 .B -r
 .I realname
 ]
@@ -24,7 +20,7 @@ ircrc \- internet relay chat client
 .I nick
 ]
 [
-.B -T
+.B -u
 ] [
 .I server
 ]
@@ -34,7 +30,9 @@ is an IRC client.
 Messages are sent from standard input and
 received from standard output.
 The default server is
-.BR irc.oftc.net .
+.BR irc.oftc.net ,
+and tls is used by default through
+.IR tlssrv (8).
 The arguments
 .B bitlbee
 and
@@ -44,14 +42,23 @@ are expanded to
 and
 .BR irc.oftc.net ,
 respectively.
+.PP
+The NickServ and server passwords are read if
+available via the authentication agent
+.IR factotum (4)
+and are searched for using the following keyspecs,
+respectively:
+.IP
+.EX
+proto=pass server=$server service=irc user=$nick
+proto=pass server=$server service=ircsrv user=$nick
+.EE
+.PP
 The options are:
 .TP
 .BI -p " port
 Change the default port
-.RB ( 6667 ).
-.TP
-.BI -P " server password
-Specify a password for the remote server.
+.RB ( 6697 ).
 .TP
 .BI -r " realname
 Change the default name
@@ -70,10 +77,9 @@ unless they are commands.
 Change the default nickname
 .RB ( $user ).
 .TP
-.BI -T
+.BI -u
 .br
-Use tls through
-.IR tlssrv (8).
+Disable tls.
 .SS Commands
 .I Ircrc
 commands begin with a slash.
@@ -177,6 +183,8 @@ Join two channels on login:
 .SH SOURCE
 .B /rc/bin/ircrc
 .SH SEE ALSO
+.IR factotum (4)
+.br
 .B http://tools.ietf.org/html/rfc1459
 .br
 .B http://tools.ietf.org/html/rfc2812

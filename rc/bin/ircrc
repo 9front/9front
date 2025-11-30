@@ -3,13 +3,13 @@
 rfork ne
 
 server=irc.oftc.net
-port=6667
+port=6697
 realname='<nil>'
 target=''
 netdir=()
 nick=$user
 pass=()
-tls=0
+tls=1
 serverpass=()
 
 fn sighup {
@@ -31,12 +31,12 @@ fn etime {
 }
 
 fn work {
-        if(~ $#serverpass 1)
-                echo PASS $serverpass
+	if(~ $#serverpass 1)
+		echo PASS $serverpass
 	echo USER $user foo bar :$realname
 	echo NICK $nick
 	if (~ $#pass 1)
-		echo PRIVMSG 'nickserv :'identify $"pass
+		echo PRIVMSG NickServ :IDENTIFY $pass
 	if(! ~ $target ''){
 		title
 		echo JOIN $target
@@ -202,9 +202,6 @@ while (~ $1 -*) {
 	case -p
 		port=$2
 		shift
-        case -P
-                serverpass=$2
-                shift
 	case -r
 		realname=$2
 		shift
@@ -212,9 +209,10 @@ while (~ $1 -*) {
 		target=$2
 		shift
 	case -T
-		tls=1
+	case -u
+		tls=0
 	case -*
-		echo 'usage: ircrc  [-p port] [-P server password] [-r realname] [-t target] [-n nick] [-T] [server]' >[1=2]
+		echo 'usage: ircrc  [-p port] [-r realname] [-t target] [-n nick] [-u] [server]' >[1=2]
 		exit 'usage'	
 	}
 	shift
@@ -232,11 +230,12 @@ if (~ $#* 1) {
 }
 
 title
-userpass=`{auth/userpasswd 'server='^$server^' service=irc user='^$nick >[2]/dev/null}
-if(~ $#userpass 2) {
-	nick=$userpass(1)
+userpass=`{auth/userpasswd -n 'server='^$server^' service=irc user='^$nick >[2]/dev/null}
+if(~ $#userpass 2)
 	pass=$userpass(2)
-}
+userpass=`{auth/userpasswd -n 'server='^$server^' service=ircsrv user='^$nick >[2]/dev/null}
+if(~ $#userpass 2)
+	serverpass=$userpass(2)
 
 p='/n/ircrc'
 bind '#|' $p
