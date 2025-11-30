@@ -742,10 +742,17 @@ cmount(Chan *new, Chan *old, int flag, char *spec)
 				putmhead(m);
 				nexterror();
 			}
-			m->mount = newmount(old, 0, nil);
+			f = newmount(old, 0, nil);
+			f->umh = m;
+			m->mount = f;
+			pgrpinsert(pg, f);
 			poperror();
 		}
 		*l = m;
+	}
+	for(f = nm; f != nil; f = f->next){
+		f->umh = m;
+		pgrpinsert(pg, f);
 	}
 	wlock(&m->lock);
 	um = m->mount;
@@ -764,6 +771,8 @@ cmount(Chan *new, Chan *old, int flag, char *spec)
 		m->mount = nm;
 	}
 	wunlock(&m->lock);
+	for(f = um; f != nil; f = f->next)
+		pgrpremove(pg, f);
 	wunlock(&pg->ns);
 	poperror();
 
@@ -807,19 +816,23 @@ cunmount(Chan *mnt, Chan *mounted)
 	}
 
 	wlock(&m->lock);
-	f = m->mount;
 	if(mounted == nil){
-		*l = m->hash;
+		for(f = m->mount; f != nil; f = f->next)
+			pgrpremove(pg, f);
+		f = m->mount;
 		m->mount = nil;
+		*l = m->hash;
 		wunlock(&m->lock);
 		wunlock(&pg->ns);
 		mountfree(f);
 		putmhead(m);
 		return;
 	}
-	for(p = &m->mount; f != nil; f = f->next){
+	p = &m->mount;
+	for(f = m->mount; f != nil; f = f->next){
 		if(eqchan(f->to, mounted, 1) ||
 		  (f->to->mchan != nil && eqchan(f->to->mchan, mounted, 1))){
+			pgrpremove(pg, f);
 			*p = f->next;
 			f->next = nil;
 			if(m->mount == nil){

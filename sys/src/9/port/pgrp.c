@@ -9,19 +9,6 @@ enum {
 	Whinesecs = 10,		/* frequency of out-of-resources printing */
 };
 
-uvlong
-nextmount(void)
-{
-	static uvlong next = 0;
-	static Lock lk;
-	uvlong n;
-
-	lock(&lk);
-	n = ++next;
-	unlock(&lk);
-	return n;
-}
-
 Pgrp*
 newpgrp(void)
 {
@@ -31,6 +18,7 @@ newpgrp(void)
 	if(p == nil)
 		error(Enomem);
 	p->ref = 1;
+	p->mntordertail = &p->mntorder;
 	return p;
 }
 
@@ -77,41 +65,44 @@ closepgrp(Pgrp *p)
 	free(p);
 }
 
-static void
-pgrpinsert(Mount **order, Mount *m)
+void
+pgrpinsert(Pgrp *pg, Mount *m)
 {
-	Mount *f;
-
 	m->order = nil;
-	for(f = *order; f != nil; f = f->order) {
-		if(m->mountid < f->mountid) {
-			m->order = f;
-			*order = m;
-			return;
-		}
-		order = &f->order;
-	}
-	*order = m;
+	*pg->mntordertail = m;
+	pg->mntordertail = &m->order;
 }
 
-/*
- * pgrpcpy MUST preserve the mountid allocation order of the parent group
- */
+void
+pgrpremove(Pgrp *pg, Mount *m)
+{
+	Mount *f, **l = &pg->mntorder;
+
+	for(f = pg->mntorder; f != nil; f = f->order) {
+		if(f == m){
+			if((*l = f->order) == nil)
+				pg->mntordertail = l;
+			f->order = nil;
+			return;
+		}
+		l = &f->order;
+	}
+}
+
 void
 pgrpcpy(Pgrp *to, Pgrp *from)
 {
-	Mount *n, *m, **link, *order;
+	Mount *n, *m, **link;
 	Mhead *f, **l, *mh;
 	int i;
 
 	wlock(&to->ns);
-	rlock(&from->ns);
+	wlock(&from->ns);	/* must wlock to protect from->mntorder->norder */
 	if(waserror()){
-		runlock(&from->ns);
+		wunlock(&from->ns);
 		wunlock(&to->ns);
 		nexterror();
 	}
-	order = nil;
 	for(i = 0; i < MNTHASH; i++) {
 		l = &to->mnthash[i];
 		for(f = from->mnthash[i]; f != nil; f = f->hash) {
@@ -125,28 +116,23 @@ pgrpcpy(Pgrp *to, Pgrp *from)
 			l = &mh->hash;
 			link = &mh->mount;
 			for(m = f->mount; m != nil; m = m->next) {
-				n = malloc(sizeof(Mount)+strlen(m->spec)+1);
-				if(n == nil)
-					error(Enomem);
-				n->mountid = m->mountid;
-				n->mflag = m->mflag;
-				n->to = m->to;
-				incref(n->to);
-				strcpy(n->spec, m->spec);
-				pgrpinsert(&order, n);
+				n = newmount(m->to, m->mflag, m->spec);
+				n->umh = mh;
 				*link = n;
 				link = &n->next;
+				m->norder = n;	/* for from->mntorder loop below */
 			}
 			runlock(&f->lock);
 			poperror();
 		}
 	}
-	/*
-	 * Allocate mount ids in the same sequence as the parent group
-	 */
-	for(m = order; m != nil; m = m->order)
-		m->mountid = nextmount();
-	runlock(&from->ns);
+	/* add mounts in original mntorder */
+	for(m = from->mntorder; m != nil; m = m->order){
+		n = m->norder;
+		m->norder = nil;
+		pgrpinsert(to, n);
+	}
+	wunlock(&from->ns);
 	wunlock(&to->ns);
 	poperror();
 }
@@ -272,7 +258,6 @@ newmount(Chan *to, int flag, char *spec)
 		error(Enomem);
 	m->to = to;
 	incref(to);
-	m->mountid = nextmount();
 	m->mflag = flag;
 	strcpy(m->spec, spec);
 	setmalloctag(m, getcallerpc(&to));

@@ -245,6 +245,8 @@ void		pathclose(Path*);
 ulong		perfticks(void);
 _Noreturn void	pexit(char*, int);
 void		pgrpcpy(Pgrp*, Pgrp*);
+void		pgrpinsert(Pgrp*, Mount *);
+void		pgrpremove(Pgrp*, Mount *);
 ulong		pidalloc(Proc*);
 #define		waserror()		setlabel(&up->errlab[up->nerrlab++])
 #define		poperror()		up->nerrlab--

@@ -642,9 +642,7 @@ static int
 readns1(Chan *c, Proc *p, char *buf, int nbuf)
 {
 	Pgrp *pg;
-	Mount *t, *cm;
-	Mhead *f, *mh;
-	ulong minid, bestmid;
+	Mount *f;
 	char flag[10], *srv;
 	int i;
 
@@ -652,49 +650,35 @@ readns1(Chan *c, Proc *p, char *buf, int nbuf)
 	if(pg == nil || p->dot == nil || p->pid != PID(c->qid))
 		error(Eprocdied);
 
-	bestmid = ~0;
-	minid = c->nrock;
-	if(minid == bestmid)
+	if(c->nrock < 0)
 		return 0;
 
 	rlock(&pg->ns);
 
-	mh = nil;
-	cm = nil;
-	for(i = 0; i < MNTHASH; i++) {
-		for(f = pg->mnthash[i]; f != nil; f = f->hash) {
-			rlock(&f->lock);
-			for(t = f->mount; t != nil; t = t->next) {
-				if(t->mountid >= minid && t->mountid < bestmid) {
-					bestmid = t->mountid;
-					cm = t;
-					mh = f;
-				}
-			}
-			runlock(&f->lock);
-		}
+	i = 0;
+	for(f = pg->mntorder; f != nil; f = f->order) {
+		if(i++ >= c->nrock)
+			break;
 	}
 
-	if(bestmid == ~0) {
-		c->nrock = bestmid;
+	if(f == nil) {
+		c->nrock = -1;
 		i = snprint(buf, nbuf, "cd %q\n", p->dot->path->s);
 	} else {
-		c->nrock = bestmid+1;
-
-		int2flag(cm->mflag, flag);
-		if(strcmp(cm->to->path->s, "#M") == 0){
-			srv = cm->to->mchan->srvname;
+		c->nrock = i;
+		int2flag(f->mflag, flag);
+		if(strcmp(f->to->path->s, "#M") == 0){
+			srv = f->to->mchan->srvname;
 			if(srv == nil)
-				srv = cm->to->mchan->path->s;
-			i = snprint(buf, nbuf, *cm->spec?
+				srv = f->to->mchan->path->s;
+			i = snprint(buf, nbuf, *f->spec?
 				"mount %s %q %q %q\n": "mount %s %q %q\n", flag,
-				srv, mh->from->path->s, cm->spec);
+				srv, f->umh->from->path->s, f->spec);
 		}else{
 			i = snprint(buf, nbuf, "bind %s %q %q\n", flag,
-				cm->to->path->s, mh->from->path->s);
+				f->to->path->s, f->umh->from->path->s);
 		}
 	}
-
 	runlock(&pg->ns);
 
 	return i;

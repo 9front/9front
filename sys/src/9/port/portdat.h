@@ -260,11 +260,12 @@ struct Walkqid
 
 struct Mount
 {
-	uvlong	mountid;
-	int	mflag;
-	Mount*	next;
-	Mount*	order;
+	Mount*	order;			/* Pgrp.mntorder chain */
+	Mount*	norder;			/* forward pointer for pgrpcpy() */
+	Mount*	next;			/* Mhead.mount chain */
+	Mhead*	umh;			/* the union we belong to */ 
 	Chan*	to;			/* channel replacing channel */
+	int	mflag;
 	char	spec[];
 };
 
@@ -281,10 +282,9 @@ struct Mntrah
 {
 	Rendez;
 
-	ulong	vers;
-
 	vlong	off;
 	vlong	seq;
+	ulong	vers;
 
 	uint	i;
 	Mntrpc	*r[8];
@@ -513,6 +513,8 @@ struct Pgrp
 	Ref;
 	RWLock	ns;			/* Namespace n read/one write lock */
 	u64int	notallowed[4];		/* Room for 256 devices */
+	Mount	*mntorder;		/* Ordered list of mounts */
+	Mount	**mntordertail;
 	Mhead	*mnthash[MNTHASH];
 };
 
