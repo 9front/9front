@@ -211,7 +211,7 @@ checkdlist(int fd)
 			break;
 		kv2dlist(&s.kv, &dl);
 		if(!checklog(fd, dl.hd))
-			print("bad dlist %P: %s\n", &s.kv, errmsg());
+			fprint(fd, "bad dlist %P: %s\n", &s.kv, errmsg());
 	}
 	btexit(&s);
 	return 0;

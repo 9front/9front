@@ -30,13 +30,13 @@ loadarena(Arena *a, Bptr hd)
 		h0 = getblk(bp, 0);
 		poperror();
 	}else
-		print("loading arena primary header: %s\n", errmsg());
+		fprint(2, "loading arena primary header: %s\n", errmsg());
 	bp.addr += Blksz;
 	if(!waserror()){
 		h1 = getblk(bp, 0);
 		poperror();
 	}else
-		print("loading arena backup header: %s\n", errmsg());
+		fprint(2, "loading arena backup header: %s\n", errmsg());
 
 	/* if neither head nor tail is consistent, we're hosed */
 	b = (h0 != nil) ? h0 : h1;
