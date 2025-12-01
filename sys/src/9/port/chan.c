@@ -1337,7 +1337,7 @@ namec(char *aname, int amode, int omode, ulong perm)
 		up->genbuf[n] = '\0';
 		n = chartorune(&r, up->genbuf+1)+1;
 		t = devno(r);
-		if(t == -1)
+		if(t < 0)
 			error(Ebadsharp);
 		/*
 		 * When sandboxing, unmounting a sharp from a union is a valid
@@ -1346,7 +1346,7 @@ namec(char *aname, int amode, int omode, ulong perm)
 		 * about the existence of files.
 		 */
 		if((amode != Aunmount || up->genbuf[n] || *name)
-		&& !devallowed(up->pgrp, r))
+		&& devmasked(up->pgrp, t))
 			error(Enoattach);
 
 		c = devtab[t]->attach(up->genbuf+n);

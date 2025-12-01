@@ -512,7 +512,7 @@ struct Pgrp
 {
 	Ref;
 	RWLock	ns;			/* Namespace n read/one write lock */
-	u64int	notallowed[4];		/* Room for 256 devices */
+	uchar	devmask[256/8];		/* Room for 256 devices */
 	Mount	*mntorder;		/* Ordered list of mounts */
 	Mount	**mntordertail;
 	Mhead	*mnthash[MNTHASH];

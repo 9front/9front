@@ -91,10 +91,7 @@ sysrfork(va_list list)
 		/* Process group */
 		if(flag & (RFNAMEG|RFCNAMEG)) {
 			up->pgrp = newpgrp();
-			if(flag & RFNAMEG)
-				pgrpcpy(up->pgrp, opg);
-			/* inherit notallowed */
-			memmove(up->pgrp->notallowed, opg->notallowed, sizeof up->pgrp->notallowed);
+			pgrpcpy(up->pgrp, opg, flag);
 		}
 
 		/* Rendezvous group */
@@ -218,10 +215,7 @@ sysrfork(va_list list)
 	/* Process groups */
 	if(flag & (RFNAMEG|RFCNAMEG)) {
 		p->pgrp = newpgrp();
-		if(flag & RFNAMEG)
-			pgrpcpy(p->pgrp, up->pgrp);
-		/* inherit notallowed */
-		memmove(p->pgrp->notallowed, up->pgrp->notallowed, sizeof p->pgrp->notallowed);
+		pgrpcpy(p->pgrp, up->pgrp, flag);
 	}
 	else {
 		p->pgrp = up->pgrp;

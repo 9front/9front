@@ -593,15 +593,12 @@ consread(Chan *c, void *buf, long n, vlong off)
 	case Qdrivers:
 		b = smalloc(READSTR);
 		k = 0;
-		
-		rlock(&up->pgrp->ns);
 		for(i = 0; devtab[i] != nil; i++){
-			if(up->pgrp->notallowed[i/(sizeof(u64int)*8)] & 1<<i%(sizeof(u64int)*8))
+			if(devmasked(up->pgrp, i))
 				continue;
 			k += snprint(b+k, READSTR-k, "#%C %s\n",
 				devtab[i]->dc, devtab[i]->name);
 		}
-		runlock(&up->pgrp->ns);
 		if(waserror()){
 			free(b);
 			nexterror();
@@ -634,7 +631,6 @@ conswrite(Chan *c, void *va, long n, vlong off)
 {
 	char buf[256];
 	long l, bp;
-	int invert;
 	char *a;
 	Mach *mp;
 	int id;
@@ -705,27 +701,21 @@ conswrite(Chan *c, void *va, long n, vlong off)
 			error(Ebadarg);
 		if(cb->nf == 1)
 			error(Ebadarg);
-
-		invert = 1;
-		a = "";
 		switch(cb->f[1][0]){
 		case '&':
 			if(cb->nf != 3)
 				error(Ebadarg);
-			a = cb->f[2];
-			if(cb->f[1][1] == '~')
-				invert--;
+			devmask(up->pgrp, cb->f[1][1] != '~', cb->f[2]);
 			break;
 		case '~':
 			if(cb->nf != 2)
 				error(Ebadarg);
+			devmask(up->pgrp, 1, "");
 			break;
 		default:
 			error(Ebadarg);
 			break;
 		}
-
-		devmask(up->pgrp, invert, a);
 		poperror();
 		free(cb);
 		break;

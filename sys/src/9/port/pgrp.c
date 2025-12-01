@@ -90,7 +90,7 @@ pgrpremove(Pgrp *pg, Mount *m)
 }
 
 void
-pgrpcpy(Pgrp *to, Pgrp *from)
+pgrpcpy(Pgrp *to, Pgrp *from, int flag)
 {
 	Mount *n, *m, **link;
 	Mhead *f, **l, *mh;
@@ -103,6 +103,13 @@ pgrpcpy(Pgrp *to, Pgrp *from)
 		wunlock(&to->ns);
 		nexterror();
 	}
+
+	/* always inherit devmask unconditionally */
+	memmove(to->devmask, from->devmask, sizeof from->devmask);
+
+	if((flag & RFNAMEG) == 0)
+		goto Done;
+
 	for(i = 0; i < MNTHASH; i++) {
 		l = &to->mnthash[i];
 		for(f = from->mnthash[i]; f != nil; f = f->hash) {
@@ -132,9 +139,51 @@ pgrpcpy(Pgrp *to, Pgrp *from)
 		m->norder = nil;
 		pgrpinsert(to, n);
 	}
+Done:
 	wunlock(&from->ns);
 	wunlock(&to->ns);
 	poperror();
+}
+
+int
+canmount(Pgrp *pgrp)
+{
+	/*
+	 * Devmnt is not usable directly from user procs, so
+	 * having it masked is interpreted to block any mounts.
+	 */
+	return !devmasked(pgrp, devno('M'));
+}
+
+int
+devmasked(Pgrp *pgrp, int i)
+{
+	return (pgrp->devmask[i>>3] & 1<<(i&7)) != 0;
+}
+
+void
+devmask(Pgrp *pgrp, int invert, char *devs)
+{
+	uchar mask[sizeof pgrp->devmask];
+	Rune r;
+	int i;
+
+	if(invert)
+		invert = 0xFF;
+
+	memset(mask, 0, sizeof mask);		
+	while(*devs != '\0') {
+		devs += chartorune(&r, devs);
+		i = devno(r);
+		if(i < 0)
+			continue;
+		mask[i>>3] |= 1<<(i&7);
+	}
+
+	wlock(&pgrp->ns);
+	for(i=0; i < sizeof mask; i++)
+		pgrp->devmask[i] |= mask[i] ^ invert;
+	wunlock(&pgrp->ns);
 }
 
 Fgrp*
