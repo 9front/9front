@@ -19,7 +19,7 @@ enum {
 
 static Dirtab archdir[Qmax] = {
 	".",		{ Qdir, 0, QTDIR },	0,	0555,
-	"temp",		{ Qtemp, 0},		0,	0440,
+	"cputemp",	{ Qtemp, 0},		0,	0440,
 	"pl",		{ Qpl, 0 }, 		0,	0660,
 	"fbctl",	{ Qfbctl, 0 }, 		0,	0660,
 };
