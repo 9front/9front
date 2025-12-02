@@ -58,16 +58,16 @@ fn work {
 			msg = (MODE `{mshift $cmd})
 		case /N
 			cmd = `{mshift $cmd}
-			if (! ~ $#cmd 0)
+			if (! ~ $#cmd 0 1)
 				msg = (NOTICE $cmd(1) : `{mshift $cmd})
 		case /T
 			msg = (TOPIC `{mshift $cmd})
 		case /W
 			msg = (WHOIS `{mshift $cmd})
 		case /a
-			msg =  (AWAY : `{mshift $cmd})
+			msg = (AWAY : `{mshift $cmd})
 		case /j
-			if (~ $#cmd 2) {
+			if (~ $#cmd 2 3) {
 				target=$cmd(2)
 				title
 				msg = (JOIN `{mshift $cmd})
@@ -78,23 +78,24 @@ fn work {
 			msg = (LIST `{mshift $cmd})
 		case /m
 			cmd = `{mshift $cmd}
-			if (! ~ $#cmd 0) {
+			if (! ~ $#cmd 0 1) {
 				to = $cmd(1)
 				cmd = `{mshift $cmd}
 				out =  '('^$to^')	⇐	'^$"cmd
-				msg = 'PRIVMSG '^$to^' :'^$"cmd
+				msg = (PRIVMSG $to :^$"cmd)
 			}
 		case /n
 			nick = `{mshift $cmd}
-			msg =  (NICK $nick)
+			msg = (NICK $nick)
 		case /p
 			cmd = `{mshift $cmd}
 			if (! ~ $#cmd 0)
 				msg = (PART $cmd(1) : `{mshift $cmd})
 		case /q
-			msg =  `{mshift $cmd}
+			msg = `{mshift $cmd}
 		case /t
-			target = `{mshift $cmd}
+			cmd = $cmd(2)
+			target = $"cmd
 			title
 		case /u
 			msg = (USERS `{mshift $cmd})
@@ -106,13 +107,14 @@ fn work {
 		case /*
 			echo unknown command >/dev/cons
 		case *
-			msg = 'PRIVMSG '^$target^' :'^$"cmd
-			out = '('^$target^')	⇐	'^$"cmd
+			msg = (PRIVMSG $target :^$"cmd)
+			if (! ~ $#cmd 0)
+				out = '('^$target^')	⇐	'^$"cmd
 		}
 		if (! ~ $#msg 0)
 			echo $msg
 		if (! ~ $#out 0)
-			echo `{etime}^' '^$out >/dev/cons
+			echo `{etime} $out >/dev/cons
 	}
 }
 
