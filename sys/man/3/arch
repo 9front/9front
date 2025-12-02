@@ -8,6 +8,7 @@ arch \- architecture-specific information and control
 .B /dev/acpitbls
 .B /dev/archctl
 .B /dev/cputype
+.B /dev/cputemp
 .B /dev/ec
 .B /dev/ioalloc
 .B /dev/iob
@@ -19,6 +20,17 @@ arch \- architecture-specific information and control
 .SH DESCRIPTION
 This device presents textual information about PC hardware and allows
 user-level control of the I/O ports on x86-class machines.
+.PP
+Reads from
+.I cputemp
+return the current temperature reported by the CPU,
+one line per core.
+Each line contains two integers separated by a \(+- character,
+the reading and its resolution, both in degrees Celsius.
+An
+.L alarm
+status string preceded by a space character
+may be appended to the line in case critical temperature levels are detected.
 .PP
 Reads from
 .I cputype
