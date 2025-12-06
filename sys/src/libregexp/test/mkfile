@@ -1,0 +1,9 @@
+</$objtype/mkfile
+
+TEST=basic
+
+</sys/src/cmd/mktest
+
+$O.regexec: regexec.$O
+
+%.test: $O.regexec
