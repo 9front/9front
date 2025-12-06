@@ -31,8 +31,10 @@ Messages are sent from standard input and
 received from standard output.
 The default server is
 .BR irc.oftc.net ,
-and tls is used by default through
-.IR tlssrv (8).
+and TLS is used by default through
+.I tlsclient
+(see
+.IR tlssrv (8)).
 The arguments
 .B bitlbee
 and
@@ -79,87 +81,136 @@ Change the default nickname
 .TP
 .BI -u
 .br
-Disable tls.
+Disable TLS.
 .SS Commands
 .I Ircrc
 commands begin with a slash.
 Unrecognized commands result in an error message
 and send nothing to the server.
 The commands are:
+.TF "/M target \(+-flag…"
 .TP
-.BI /! " cmd
+.BI "/! " cmd
 Send the output of the shell command
 .I cmd
 to the current target.
 .TP
-.B /M
-.B MODE
-command.
+.BI "/M " "target \(+-flag…"
+.LR MODE :
+set
+.RB ( + )
+or remove
+.RB ( - )
+a mode
+.I flag
+for
+.IR target .
+Multiple flags may be joined together and followed by an optional arguments list.
 .TP
-.B /N
-.B NOTICE
-command.
+.BI "/N " target\ msg
+.LR NOTICE :
+send the notice
+.I msg
+to
+.IR target .
 .TP
-.B /T
-.B TOPIC
-command.
+.BI "/T " chan [ :topic ]
+.LR TOPIC :
+set the channel
+.IR chan 's
+.IR topic ,
+or clear it if empty.
+With only the
+.I chan
+argument,
+print the current topic.
 .TP
-.B /W
-.B WHOIS
-command.
+.BI "/W [" server ] user
+.LR WHOIS :
+query
+.I server
+for information about
+.IR user .
+If
+.I server
+is unspecified, query the current server.
 .TP
-.B /a
-.B AWAY
-command.
+.BI "/a [" text ]
+.LR AWAY :
+set away status to
+.I text
+if provided, or clear it otherwise.
 .TP
-.B /j
-.B JOIN
-command.
+.BI "/j " chans [ keys ]
+.LR JOIN :
+join a comma-separated channel list
+.IR chans ,
+optionally providing a corresponding key list
+.I keys
+in the same order and format.
+Providing channel name
+.L 0
+parts all joined channels.
 .TP
-.B /l
-.B LIST
-command.
+.BI "/l [" chans ]
+.LR LIST :
+list information about visible channels in the comma-separated list
+.I chans
+or all visible channels if empty.
+The argument may instead be a list of conditions to filter results by.
 .TP
-.B /m
-.B PRIVMSG
-command.
+.BI "/m " "target text"
+.LR PRIVMSG :
+send the message
+.I text
+to
+.IR target .
 .TP
-.B /n
-.B NICK
-command.
+.BI "/n " name
+.LR NICK :
+change nickname to
+.IR name .
 .TP
-.B /p
-.B PART
-command.
+.BI "/p " chans [ msg ]
+.LR PART :
+part comma-separated channel list
+.IR chans ,
+with parting message
+.I msg
+if provided.
 .TP
-.BI /q " cmd
+.BI "/q " cmd
 Send the raw IRC command
 .I cmd
 to the server.
 .TP
-.BI /t " target
-Set
-.IR target .
-If
-.I target
-is more than one channel,
-any messages are sent to all of them.
+.BI "/t [" targets ]
+Push all subsequent messages to a comma-separated list of
+.IR targets ,
+or clear if empty.
 .TP
-.B /u
-.B USERS
-command.
+.BI "/u [" server ]
+.LR USERS :
+query user statistics for
+.IR server ,
+or current one if empty.
 .TP
-.B /w
-.B WHO
-command.
+.BI "/w " mask
+.LR WHO :
+query for visible users matching
+.IR mask ,
+or if
+.I mask
+is a channel, list it's members.
 .TP
-.B /x
-.B QUIT
-command.
+.BI "/x [" message ]
+.LR QUIT :
+terminate the session with a quit
+.I message
+if provided.
 Control-D also sends this command.
 .PP
-See RFC 1459 and RFC 2812 for detailed information about
-IRC commands.
+Unless noted otherwise, command targets may be either users or channels.
 .SH EXAMPLES
 Default usage:
 .IP
@@ -183,11 +234,16 @@ Join two channels on login:
 .SH SOURCE
 .B /rc/bin/ircrc
 .SH SEE ALSO
-.IR factotum (4)
+.IR factotum (4),
+.IR tlssrv (8)
 .br
 .B http://tools.ietf.org/html/rfc1459
 .br
 .B http://tools.ietf.org/html/rfc2812
+.br
+.B https://modern.ircdocs.horse
+.br
+HELP command and specific server documentation.
 .SH BUGS
 .PP
 Some fonts do not support the nickname delimiters.
