@@ -54,11 +54,11 @@ Awkfloat *RLENGTH;	/* length of same */
 Cell	*nrloc;		/* NR */
 Cell	*nfloc;		/* NF */
 Cell	*fnrloc;	/* FNR */
-Array	*ARGVtab;	/* symbol table containing ARGV[...] */
 Array	*ENVtab;	/* symbol table containing ENVIRON[...] */
 Cell	*rstartloc;	/* RSTART */
 Cell	*rlengthloc;	/* RLENGTH */
 Cell	*symtabloc;	/* SYMTAB */
+Cell	*argvloc;	/* ARGV */
 
 Cell	*nullloc;	/* a guaranteed empty cell */
 Node	*nullnode;	/* zero&null, converted into a node for comparisons */
@@ -98,20 +98,22 @@ void syminit(void)	/* initialize symbol table with builtin vars */
 void arginit(int ac, char **av)	/* set up ARGV and ARGC */
 {
 	Cell *cp;
+	Array *ap;
 	int i;
 	char temp[50];
 	Awkfloat f;
 
 	AARGC = &setsymtab("ARGC", EMPTY, (Awkfloat) ac, NUM, symtab)->fval;
 	cp = setsymtab("ARGV", EMPTY, 0.0, ARR, symtab);
-	ARGVtab = makesymtab(NSYMTAB);	/* could be (int) ARGC as well */
-	cp->sval = (char *) ARGVtab;
+	argvloc = cp;
+	ap = makesymtab(NSYMTAB);	/* could be (int) ARGC as well */
+	cp->sval = (char *) ap;
 	for (i = 0; i < ac; i++) {
 		sprint(temp, "%d", i);
 		if (to_number(*av, &f, nil))
-			setsymtab(temp, *av, f, STR|NUM, ARGVtab);
+			setsymtab(temp, *av, f, STR|NUM, ap);
 		else
-			setsymtab(temp, *av, 0.0, STR, ARGVtab);
+			setsymtab(temp, *av, 0.0, STR, ap);
 		av++;
 	}
 }

@@ -81,6 +81,7 @@ extern Cell	*fnrloc;	/* FNR */
 extern Cell	*nfloc;		/* NF */
 extern Cell	*rstartloc;	/* RSTART */
 extern Cell	*rlengthloc;	/* RLENGTH */
+extern Cell	*argvloc;	/* ARGV */
 
 /* Cell.tval values: */
 #define	NUM	01	/* number value is valid */

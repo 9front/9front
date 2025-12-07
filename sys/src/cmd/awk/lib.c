@@ -214,11 +214,16 @@ int readrec(char **pbuf, int *pbufsize, Biobuf *inf)	/* read one record into buf
 char *getargv(int n)	/* get ARGV[n] */
 {
 	Cell *x;
+	Array *ap;
 	char *s, temp[50];
-	extern Array *ARGVtab;
 
+	ap = (Array *) argvloc->sval;
+	if (ap == nil)
+		return EMPTY;
 	sprint(temp, "%d", n);
-	x = setsymtab(temp, EMPTY, 0.0, STR, ARGVtab);
+	x = lookup(temp, ap);
+	if (x == nil)
+		return EMPTY;
 	s = getsval(x);
 	dprint( ("getargv(%d) returns |%s|\n", n, s) );
 	return s;
