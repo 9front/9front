@@ -39,6 +39,9 @@ char*	utfrrune(char *s, long c)
 .PP
 .B
 char*	utfutf(char *s1, char *s2)
+.PP
+.B
+int	utfncmp(char *s1, char *s2, long n)
 .SH DESCRIPTION
 These routines convert to and from a
 .SM UTF
@@ -184,6 +187,24 @@ is the null string,
 .I utfutf
 returns
 .IR s1 .
+.PP
+.I Utfncmp
+compares at most the first
+.I n
+runes contained within the
+.SM UTF
+strings
+.I s1
+and
+.IR s2 .
+Returning less than, equal to, or greater than 0 depending on the lexographical ordering of the runes.
+Callers are responsible for ensuring that
+.I s1
+and
+.I s2
+contain at least
+.I n
+runes.
 .SH SOURCE
 .B /sys/src/libc/port/rune.c
 .br
@@ -198,6 +219,8 @@ returns
 .B /sys/src/libc/port/utfnlen.c
 .br
 .B /sys/src/libc/port/utfutf.c
+.br
+.B /sys/src/libc/port/utfncmp.c
 .SH SEE ALSO
 .IR utf (6),
 .IR tcs (1)

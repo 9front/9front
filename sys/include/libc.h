@@ -63,6 +63,7 @@ extern	char*	utfrune(char*, long);
 extern	char*	utfrrune(char*, long);
 extern	char*	utfutf(char*, char*);
 extern	char*	utfecpy(char*, char*, char*);
+extern	int	utfncmp(char*, char*, long);
 
 extern	Rune*	runestrcat(Rune*, Rune*);
 extern	Rune*	runestrchr(Rune*, Rune);

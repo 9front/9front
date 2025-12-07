@@ -106,6 +106,7 @@ CFILES=\
 	toupper.c\
 	utfecpy.c\
 	utflen.c\
+	utfncmp.c\
 	utfnlen.c\
 	utfrune.c\
 	utfrrune.c\
