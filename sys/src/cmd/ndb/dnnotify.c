@@ -48,7 +48,7 @@ getips(char *name, uchar *ips, int maxips, Request *req)
 	int nips;
 
 	nips = 0;
-	if(nips <= maxips)
+	if(nips >= maxips)
 		return nips;
 
 	if(strcmp(name, "*") == 0)
