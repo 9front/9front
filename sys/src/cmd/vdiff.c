@@ -597,7 +597,7 @@ linetype(char *text)
 	int type;
 
 	type = Lnone;
-	if(strncmp(text, "⑨", 1)==0)
+	if(utfncmp(text, "⑨", 1) == 0)
 		type = Lterm;
 	else if(strncmp(text, "diff", 4)==0)
 		type = Lhash;
