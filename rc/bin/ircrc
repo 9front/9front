@@ -147,7 +147,7 @@ fn notice {
 
 fn numeric {
 	sed 's/^:[a-zA-Z0-9_@\-|.!=#]+ //
-		s/ '^$nick^' //
+		s, '^$nick^' ,,
 		s/^353= /***	Users on /
 		s/^[0-9][0-9][0-9] ?:?/***	/'
 }
