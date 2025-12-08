@@ -1114,6 +1114,7 @@ flush(Tree *t, Path *path, int npath)
 			trybalance(t, p, pp, p->idx);
 			/* If we merged the root node, break out. */
 			if(up == path && pp != nil && pp->op == POmerge && p->b->nval == 2){
+				pp->npull = p->npull;
 				rp = pp;
 				goto Out;
 			}
