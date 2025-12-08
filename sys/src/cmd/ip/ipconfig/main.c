@@ -555,6 +555,12 @@ doadd(void)
 			dhcpwatch(0);
 	}
 
+	/*
+	 * for point-to-point links, conf.raddr wont match our local ip,
+	 * so calculate network address from our local ip before writing ndb.
+	 */
+	maskip(conf.laddr, conf.mask, conf.raddr);
+
 	/* leave everything we've learned somewhere other procs can find it */
 	putndb(1);
 	refresh();
