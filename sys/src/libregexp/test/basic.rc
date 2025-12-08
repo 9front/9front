@@ -1,7 +1,5 @@
 #!/bin/rc
 
-x=./$O.regexec
-
 fn fail {
 	echo $* >[1=2]
 	exit $"*
@@ -9,8 +7,14 @@ fn fail {
 
 fn M {
 	sub=`'('{echo $3}
-	if(! match=`'('{$x $1 $2 $#sub}) {
-		fail 'did not match:' $*
+	if(! match=`'('{./$O.regexec $1 $2 $#sub}) {
+		fail 'regexec did not match:' $*
+	}
+	if(! rmatch=`'('{./$O.rregexec $1 $2 $#sub}) {
+		fail 'rregexec did not match:' $*
+	}
+	if(! ~ $"match $"rmatch) {
+		fail 'inconsistent' 'regexec:' $"match 'rregexec:' $"rmatch
 	}
 	match=$match(1-$#sub)
 	if(! ~ $"match $"sub){
