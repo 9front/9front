@@ -18,6 +18,7 @@ enum {
 typedef long long vlong;
 typedef unsigned long ulong;
 typedef unsigned long long uvlong;
+typedef unsigned char uchar;
 
 #include	"/sys/include/tos.h"
 
@@ -26,6 +27,9 @@ extern	long	_callpc(void**);
 extern	void*	_saveret(void);
 extern	void*	_savearg(void);
 extern	void	_cycles(uvlong*);	/* 64-bit value of the cycle counter if there is one, 0 if there isn't */
+extern	void	_envsetup(void);
+
+extern	char	**environ;
 
 static ulong	khz;
 static ulong	perr;
@@ -164,28 +168,23 @@ void
 _profdump(void)
 {
 	int f;
-	long n;
+	vlong n;
 	Plink *p;
 	char *vp;
+	long pid;
 	char filename[64];
+	uchar hdr[3+1+8] = {'p', 'r', 0x0f, 0x2};
 
 	if (_tos->prof.what == 0)
 		return;	/* No profiling */
 	if (_tos->prof.pid != 0 && _tos->pid != _tos->prof.pid)
 		return;	/* Not our process */
-	if(perr)
-		err("%lud Prof errors\n", perr);
+
+	/* make sure data gets dumped once */
 	_tos->prof.pp = NULL;
-	if (_tos->prof.pid)
-		snprintf(filename, sizeof filename - 1, "prof.%ld", _tos->prof.pid);
-	else
-		snprintf(filename, sizeof filename - 1, "prof.out");
-	f = creat(filename, 0666);
-	if(f < 0) {
-		err("%s: cannot create - %s\n", filename, strerror(errno));
-		return;
-	}
-	_tos->prof.pid = ~0;	/* make sure data gets dumped once */
+	pid = _tos->prof.pid;
+	_tos->prof.pid = ~0;
+
 	switch(_tos->prof.what){
 	case Profkernel:
 		_cycles((uvlong*)&_tos->prof.first->time);
@@ -202,8 +201,30 @@ _profdump(void)
 		_tos->prof.first->time = _tos->clock;
 		break;
 	}
-	vp = (char*)_tos->prof.first;
 
+	if(perr)
+		err("%lud Prof errors\n", perr);
+	if (pid)
+		snprintf(filename, sizeof filename - 1, "prof.%ld", pid);
+	else
+		snprintf(filename, sizeof filename - 1, "prof.out");
+	f = creat(filename, 0666);
+	if(f < 0) {
+		err("%s: cannot create - %s\n", filename, strerror(errno));
+		return;
+	}
+
+	hdr[4+0] = _tos->cyclefreq>>56;
+	hdr[4+1] = _tos->cyclefreq>>48;
+	hdr[4+2] = _tos->cyclefreq>>40;
+	hdr[4+3] = _tos->cyclefreq>>32;
+	hdr[4+4] = _tos->cyclefreq>>24;
+	hdr[4+5] = _tos->cyclefreq>>16;
+	hdr[4+6] = _tos->cyclefreq>>8;
+	hdr[4+7] = _tos->cyclefreq;
+	write(f, hdr, sizeof hdr);
+ 
+	vp = (char*)_tos->prof.first;
 	for(p = _tos->prof.first; p <= _tos->prof.next; p++) {
 
 		/*
@@ -248,16 +269,16 @@ _profdump(void)
 		/*
 		 * vlong time
 		 */
-		if (havecycles){
-			n = (vlong)(p->time / (vlong)khz);
-		}else
-			n = p->time;
-
-		vp[0] = n>>24;
-		vp[1] = n>>16;
-		vp[2] = n>>8;
-		vp[3] = n;
-		vp += 4;
+		n = p->time;
+		vp[0] = n>>56;
+		vp[1] = n>>48;
+		vp[2] = n>>40;
+		vp[3] = n>>32;
+		vp[4] = n>>24;
+		vp[5] = n>>16;
+		vp[6] = n>>8;
+		vp[7] = n;
+		vp += 8;
 	}
 	write(f, (char*)_tos->prof.first, vp - (char*)_tos->prof.first);
 	close(f);
@@ -283,11 +304,7 @@ _profmain(int argc, char **argv)
 	char ename[50];
 	int n, f;
 
-	n = 2000;
-	if (_tos->cyclefreq != 0LL){
-		khz = _tos->cyclefreq / 1000;	/* Report times in milliseconds */
-		havecycles = 1;
-	}
+	n = 256*1024;
 	f = open("/env/profsize", OREAD|OCEXEC);
 	if(f >= 0) {
 		memset(ename, 0, sizeof(ename));
@@ -310,16 +327,17 @@ _profmain(int argc, char **argv)
 		else if (strcmp(ename, "sample") == 0)
 			_tos->prof.what = Profsample;
 	}
+	_tos->prof.pp = NULL;
+	_envsetup();
 	_tos->prof.first = sbrk(n*sizeof(Plink));
 	_tos->prof.last = sbrk(0);
 	_tos->prof.next = _tos->prof.first;
-	_tos->prof.pp = NULL;
 	_tos->prof.pid = _tos->pid;
 	atexit(_profdump);
 	_tos->clock = 1;
 	_tos->prof.pp = _tos->prof.next;
-	extern int _apemain(int, char**);
-	return _apemain(argc, argv);
+	extern int main(int, char**, char**);
+	return main(argc, argv, environ);
 }
 
 void prof(void (*fn)(void*), void *arg, int entries, int what)

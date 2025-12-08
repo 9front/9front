@@ -27,6 +27,8 @@ enum {
 	Envhunk=7000,
 };
 
+#pragma profile off
+
 void
 _envsetup(void)
 {
@@ -134,3 +136,5 @@ sigsetup(char *s, char *se)
 			_sighdlr[sig] = SIG_IGN;
 	}
 }
+
+#pragma profile on
