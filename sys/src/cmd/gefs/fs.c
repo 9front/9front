@@ -701,7 +701,7 @@ Bad:			memset(mnt->cron, 0, sizeof(mnt->cron));
 		loadhist(mnt, &mnt->cron[i]);
 }
 
-Mount *
+Mount*
 getmount(char *name)
 {
 	Mount *mnt, *hd;
@@ -2763,10 +2763,11 @@ sweeptree(Tree *t)
 void
 setconf(int fd, int op, char *snap, char *key, char *val)
 {
-	char kbuf[128];
+	char kbuf[128], xbuf[Kvmax];
 	Mount *mnt;
 	Tree *t;
 	Msg m;
+	Kvp x;
 
 	mnt = nil;
 	t = &fs->snap;
@@ -2787,8 +2788,11 @@ setconf(int fd, int op, char *snap, char *key, char *val)
 	m.nv = strlen(val);
 	qlock(&fs->mutlk);
 	if(!waserror()){
-		fprint(fd, "set %q: %q", key, val);
-		btupsert(t, &m, 1);
+		if(op == Oinsert || btlookup(t, &m, &x, xbuf, sizeof(xbuf))){
+			fprint(fd, "set %s → %s\n", key, val[0]?val:"delete");
+			btupsert(t, &m, 1);
+		}else
+			fprint(fd, "set %s: no such key\n", key);
 		poperror();
 	}else
 		fprint(fd, "error setting config: %s\n", errmsg());
