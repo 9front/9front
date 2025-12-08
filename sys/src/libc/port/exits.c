@@ -3,8 +3,6 @@
 
 void (*_onexit)(void);
 
-#pragma profile off
-
 _Noreturn void
 exits(char *s)
 {

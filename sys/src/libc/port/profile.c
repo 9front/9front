@@ -123,25 +123,18 @@ _profdump(void)
 	Plink *p;
 	char *vp;
 	char filename[64];
+	long pid;
 	uchar hdr[3+1+8] = {'p', 'r', 0x0f, 0x2};
 
 	if (_tos->prof.what == 0)
 		return;	/* No profiling */
 	if (_tos->prof.pid != 0 && _tos->pid != _tos->prof.pid)
 		return;	/* Not our process */
-	if(perr)
-		fprint(2, "%lud Prof errors\n", perr);
+	/* make sure data gets dumped once */
 	_tos->prof.pp = nil;
-	if (_tos->prof.pid)
-		snprint(filename, sizeof filename - 1, "prof.%ld", _tos->prof.pid);
-	else
-		snprint(filename, sizeof filename - 1, "prof.out");
-	f = create(filename, OWRITE|OCEXEC, 0666);
-	if(f < 0) {
-		perror("create prof.out");
-		return;
-	}
-	_tos->prof.pid = ~0;	/* make sure data gets dumped once */
+	pid = _tos->prof.pid;
+	_tos->prof.pid = ~0;
+	
 	switch(_tos->prof.what){
 	case Profkernel:
 		cycles((uvlong*)&_tos->prof.first->time);
@@ -158,6 +151,19 @@ _profdump(void)
 		_tos->prof.first->time = _tos->clock;
 		break;
 	}
+
+	if(perr)
+		fprint(2, "%lud Prof errors\n", perr);
+	if (pid)
+		snprint(filename, sizeof filename - 1, "prof.%ld", pid);
+	else
+		snprint(filename, sizeof filename - 1, "prof.out");
+	f = create(filename, OWRITE|OCEXEC, 0666);
+	if(f < 0) {
+		perror("create prof.out");
+		return;
+	}
+
 	hdr[4+0] = _tos->cyclefreq>>56;
 	hdr[4+1] = _tos->cyclefreq>>48;
 	hdr[4+2] = _tos->cyclefreq>>40;
