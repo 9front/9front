@@ -581,11 +581,11 @@ main(int argc, char **argv)
 		usage();
 		break;
 	}ARGEND
-	if(argc < 1)
+	if(argc != 1)
 		usage();
 
 	if(nflag){
-		if((fd = create(argv[0], ORDWR, 0666)) < 0)
+		if((fd = create(argv[0], OEXCL|ORDWR, 0666)) < 0)
 			sysfatal("create: %r");
 		qc2create(fd, size);
 		seek(fd, 0, 0);
