@@ -19,24 +19,12 @@ regexec(Reprog *p, char *str, Resub *sem, int msize)
 	char *sp, *ep, endc;
 	int i, matchgen, gen;
 
-	memset(p->threads, 0, sizeof(Rethread)*p->nthr);
 	if(msize > NSUBEXPM)
 		msize = NSUBEXPM;
 	if(p->startinst->gen != 0) {
 		for(ci = p->startinst; ci < p->startinst + p->len; ci++)
 			ci->gen = 0;
 	}
-
-	clist = lists;
-	clist->head = nil;
-	clist->tail = &clist->head;
-	nlist = lists + 1;
-	nlist->head = nil;
-	nlist->tail = &nlist->head;
-
-	pool = p->threads;
-	avail = nil;
-	gen = matchgen = 0;
 
 	sp = str;
 	ep = nil;
@@ -51,20 +39,35 @@ regexec(Reprog *p, char *str, Resub *sem, int msize)
 		}
 	}
 
+	avail = nil;
+	pool = p->threads;
+
+	clist = lists;
+	clist->head = nil;
+	clist->tail = &clist->head;
+	nlist = lists + 1;
+	nlist->head = nil;
+	nlist->tail = &nlist->head;
+
+	gen = matchgen = 0;
 	for(r = L'☺'; r != L'\0'; sp += i) {
-		i = chartorune(&r, sp);
+		if((r = *sp) < Runeself)
+			i = 1;
+		else
+			i = chartorune(&r, sp);
 		gen++;
 		if(matchgen == 0) {
 			if(avail == nil) {
 				assert(pool < p->threads + p->nthr);
+				memset(pool, 0, sizeof(Rethread));
 				t = pool++;
 			} else {
+				if(msize > 0)
+					memset(avail->sem, 0, sizeof(Resub)*msize);
 				t = avail;
 				avail = avail->next;
 			}
 			t->i = p->startinst;
-			if(msize > 0)
-				memset(t->sem, 0, sizeof(Resub)*msize);
 			t->next = nil;
 			t->gen = gen;
 			*clist->tail = t;
@@ -79,16 +82,34 @@ Again:
 			goto Done;
 		ci->gen = gen;
 		switch(ci->op) {
+		default:
+			abort();
 		case ORUNE:
-			if(r != ci->r)
-				goto Done;
-		case OANY: /* fallthrough */
-			next = t->next;
-			t->i = ci + 1;
-			t->next = nil;
-			*nlist->tail = t;
-			nlist->tail = &t->next;
-			goto Next;
+			if(r != ci->r) {
+			Done:
+				next = t->next;
+				t->next = avail;
+				avail = t;
+			} else {
+		case OANY:
+			ci++;
+			Switch:
+				next = t->next;
+				t->next = nil;
+				t->i = ci;
+				*nlist->tail = t;
+				nlist->tail = &t->next;
+			}
+			if(next == nil)
+				break;
+			if(matchgen && next->gen > matchgen) {
+				*clist->tail = avail;
+				avail = next;
+				break;
+			}
+			t = next;
+			ci = t->i;
+			goto Again;
 		case OCLASS:
 		Class:
 			if(r < ci->r)
@@ -97,12 +118,8 @@ Again:
 				ci++;
 				goto Class;
 			}
-			next = t->next;
-			t->i = ci->a;
-			t->next = nil;
-			*nlist->tail = t;
-			nlist->tail = &t->next;
-			goto Next;
+			ci = ci->a;
+			goto Switch;
 		case ONOTNL:
 			if(r != L'\n') {
 				ci++;
@@ -127,14 +144,15 @@ Again:
 		case OSPLIT:
 			if(avail == nil) {
 				assert(pool < p->threads + p->nthr);
+				memset(pool, 0, sizeof(Rethread));
 				next = pool++;
 			} else {
 				next = avail;
 				avail = avail->next;
 			}
-			next->i = ci->b;
 			if(msize > 0)
 				memcpy(next->sem, t->sem, sizeof(Resub)*msize);
+			next->i = ci->b;
 			next->next = t->next;
 			next->gen = t->gen;
 			t->next = next;
@@ -157,21 +175,6 @@ Again:
 			if(ci->sub < msize)
 				t->sem[ci->sub].ep = sp;
 			ci++;
-			goto Again;
-		Done:
-			next = t->next;
-			t->next = avail;
-			avail = t;
-		Next:
-			if(next == nil)
-				break;
-			if(matchgen && next->gen > matchgen) {
-				*clist->tail = avail;
-				avail = next;
-				break;
-			}
-			t = next;
-			ci = t->i;
 			goto Again;
 		}
 		tmp = clist;
