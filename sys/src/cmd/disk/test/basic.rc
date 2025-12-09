@@ -4,13 +4,15 @@
 rfork en
 
 # read fresh disk
-../$O.qcowfs -n 4294967296 /tmp/qcow
+../$O.qcowfs -n 4294967296 /tmp/qcow.$pid
 dd -ibs 389120 -skip 1 -obs 8192 -count 1 < /mnt/qcow/data >/dev/null
-../$O.qcowfs -n 4294967296 /tmp/qcow
+rm -f /tmp/qcow.$pid
+../$O.qcowfs -n 4294967296 /tmp/qcow.$pid
 dd -ibs 389120 -skip 1 -obs 15473 -count 1 < /mnt/qcow/data >/dev/null
 
 # write
-../$O.qcowfs -n 4294967296 /tmp/qcow
+rm -f /tmp/qcow.$pid
+../$O.qcowfs -n 4294967296 /tmp/qcow.$pid
 dd -ibs 389120 -skip 1 -obs 8192 -count 1 -if /dev/random -of /mnt/qcow/data # start, power of two
 dd -ibs 389120 -skip 1 -obs 15473 -count 1 -if /dev/random -of /mnt/qcow/data # random prime
 dd -ibs 389120 -skip 1 -obs 8192 -seek 524287 -count 1 -if /dev/random -of /mnt/qcow/data  # end
@@ -28,4 +30,5 @@ if(! ~ $xhash $rhash){
 	>[1=2] echo mismatched data
 	exit mishash
 }
+rm -f /tmp/qcow.$pid
 exit ''
