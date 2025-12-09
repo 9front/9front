@@ -248,7 +248,11 @@ dupseg(Segment **seg, int segno, int share)
 	case SG_FIXED:
 	case SG_STICKY:
 	default:
-		goto sameseg;
+	sameseg:
+		incref(s);
+		qunlock(s);
+		poperror();
+		return s;
 
 	case SG_STACK:
 		n = newseg(s->type, s->base, s->size);
@@ -296,12 +300,6 @@ dupseg(Segment **seg, int segno, int share)
 	qunlock(s);
 	poperror();
 	return n;
-
-sameseg:
-	incref(s);
-	qunlock(s);
-	poperror();
-	return s;
 }
 
 /*
