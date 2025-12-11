@@ -21,7 +21,12 @@ ircrc \- internet relay chat client
 ]
 [
 .B -u
-] [
+.I user
+]
+[
+.B -U
+]
+[
 .I server
 ]
 .SH DESCRIPTION
@@ -79,7 +84,11 @@ unless they are commands.
 Change the default nickname
 .RB ( $user ).
 .TP
-.BI -u
+.BI -u " user
+Change the default username
+.RB ( $user ).
+.TP
+.BI -U
 .br
 Disable TLS.
 .SS Commands

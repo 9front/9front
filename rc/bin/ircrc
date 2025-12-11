@@ -8,6 +8,7 @@ realname='<nil>'
 target=''
 netdir=()
 nick=$user
+username=$user
 pass=()
 tls=1
 serverpass=()
@@ -33,7 +34,7 @@ fn etime {
 fn work {
 	if(~ $#serverpass 1)
 		echo PASS $serverpass
-	echo USER $user foo bar :$realname
+	echo USER $username foo bar :$realname
 	echo NICK $nick
 	if (~ $#pass 1)
 		echo PRIVMSG NickServ :IDENTIFY $pass
@@ -147,7 +148,7 @@ fn notice {
 
 fn numeric {
 	sed 's/^:[a-zA-Z0-9_@\-|.!=#]+ //
-		s, '^$nick^' ,,
+		s/ '^$nick^' //
 		s/^353= /***	Users on /
 		s/^[0-9][0-9][0-9] ?:?/***	/'
 }
@@ -210,12 +211,15 @@ while (~ $1 -*) {
 	case -t
 		target=$2
 		shift
-	case -T
 	case -u
+		username=$2
+		shift
+	case -T
+	case -U
 		tls=0
 	case -*
-		echo 'usage: ircrc  [-p port] [-r realname] [-t target] [-n nick] [-u] [server]' >[1=2]
-		exit 'usage'	
+		echo 'usage: ircrc  [-p port] [-r realname] [-t target] [-n nick] [-u username] [-U] [server]' >[1=2]
+		exit 'usage'
 	}
 	shift
 }
