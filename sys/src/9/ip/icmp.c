@@ -309,7 +309,7 @@ goticmpkt(Proto *icmp, Block *bp, Ipifc *ifc)
 	recid = nhgets(p->icmpid);
 
 	qlock(icmp);
-	iph = iphtlook(&((Icmppriv*)icmp->priv)->ht, src, recid, dst, recid);
+	iph = iphtlook(icmp->ht, src, recid, dst, recid);
 	if(iph != nil){
 		Routehint *rh;
 		Translation *q;
@@ -526,7 +526,7 @@ icmpadvise(Proto *icmp, Block *bp, Ipifc *ifc, char *msg)
 	recid = nhgets(p->icmpid);
 
 	qlock(icmp);
-	iph = iphtlook(&((Icmppriv*)icmp->priv)->ht, dst, recid, src, recid);
+	iph = iphtlook(icmp->ht, dst, recid, src, recid);
 	if(iph != nil){
 		Translation *q;
 
@@ -583,7 +583,7 @@ icmpforward(Proto *icmp, Block *bp, Route *r)
 	id = nhgets(p->icmpid);
 
 	qlock(icmp);
-	q = transforward(icmp, &((Icmppriv*)icmp->priv)->ht, sa, id, da, id, r);
+	q = transforward(icmp, sa, id, da, id, r);
 	if(q == nil){
 		qunlock(icmp);
 		freeblist(bp);
@@ -624,6 +624,7 @@ icmpinit(Fs *fs)
 
 	icmp = smalloc(sizeof(Proto));
 	icmp->priv = smalloc(sizeof(Icmppriv));
+	icmp->ht = &((Icmppriv*)icmp->priv)->ht;
 	icmp->name = "icmp";
 	icmp->connect = icmpconnect;
 	icmp->announce = icmpannounce;

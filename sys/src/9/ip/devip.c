@@ -21,6 +21,7 @@ enum
 	Qprotobase,
 	Qclone=		Qprotobase,
 	Qstats,
+	Qtrans,
 
 	Qconvdir,			/* directory for a conversation */
 	Qconvbase,
@@ -124,6 +125,13 @@ ip2gen(Chan *c, int i, Dir *dp)
 	case Qstats:
 		mkqid(&q, QID(PROTO(c->qid), 0, Qstats), 0, QTFILE);
 		devdir(c, q, "stats", 0, network, 0444, dp);
+		return 1;
+	case Qtrans:
+		i = transfsize(ipfs[c->dev]->p[PROTO(c->qid)]);
+		if(i < 0)
+			return -1;
+		mkqid(&q, QID(PROTO(c->qid), 0, Qtrans), 0, QTFILE);
+		devdir(c, q, "trans", i, network, 0664, dp);
 		return 1;
 	}
 	return -1;
@@ -234,6 +242,7 @@ ipgen(Chan *c, char*, Dirtab*, int, int s, Dir *dp)
 		return ip2gen(c, s+Qprotobase, dp);
 	case Qclone:
 	case Qstats:
+	case Qtrans:
 		return ip2gen(c, TYPE(c->qid), dp);
 	case Qconvdir:
 		if(s == DEVDOTDOT){
@@ -393,6 +402,12 @@ ipopen(Chan* c, int omode)
 	case Qarp:
 		if(omode != OREAD && !iseve())
 			error(Eperm);
+		break;
+	case Qtrans:
+		if(omode != OREAD && !iseve())
+			error(Eperm);
+		if(omode & OTRUNC)
+			transwrite(f->p[PROTO(c->qid)], nil, 0, 0);
 		break;
 	case Qtopdir:
 	case Qprotodir:
@@ -751,6 +766,8 @@ ipread(Chan *ch, void *a, long n, vlong off)
 		}
 		(*x->stats)(x, buf, Maxstats);
 		goto Readstr;
+	case Qtrans:
+		return transread(f->p[PROTO(ch->qid)], a, offset, n);
 	}
 }
 
@@ -826,7 +843,7 @@ Inuse:
 /*
  * is lport in use by anyone?
  */
-static int
+int
 lportinuse(Proto *p, ushort lport)
 {
 	Translation *q;
@@ -1188,6 +1205,8 @@ ipwrite(Chan* ch, void *v, long n, vlong off)
 		return arpwrite(f, a, n);
 	case Qiproute:
 		return routewrite(f, ch, a, n);
+	case Qtrans:
+		return transwrite(f->p[PROTO(ch->qid)], a, offset, n);
 	case Qlog:
 		netlogctl(f, a, n);
 		return n;

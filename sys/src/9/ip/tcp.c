@@ -2923,7 +2923,7 @@ tcpadvise(Proto *tcp, Block *bp, Ipifc *ifc, char *msg)
 
 	/* Look for a connection (source/dest reversed; this is the original packet we sent) */
 	qlock(tcp);
-	iph = iphtlook(&((Tcppriv*)tcp->priv)->ht, dest, pdest, source, psource);
+	iph = iphtlook(tcp->ht, dest, pdest, source, psource);
 	if(iph == nil || iph->match != IPmatchexact)
 		goto raise;
 	if(iph->trans){
@@ -2978,7 +2978,7 @@ tcpforward(Proto *tcp, Block *bp, Route *r)
 		r = nil;
 
 	qlock(tcp);
-	q = transforward(tcp, &((Tcppriv*)tcp->priv)->ht, sa, sp, da, dp, r);
+	q = transforward(tcp, sa, sp, da, dp, r);
 	if(q == nil){
 		qunlock(tcp);
 		freeblist(bp);
@@ -3169,6 +3169,7 @@ tcpinit(Fs *fs)
 
 	tcp = smalloc(sizeof(Proto));
 	tcp->priv = tpriv = smalloc(sizeof(Tcppriv));
+	tcp->ht = &tpriv->ht;
 	tcp->name = "tcp";
 	tcp->connect = tcpconnect;
 	tcp->announce = tcpannounce;

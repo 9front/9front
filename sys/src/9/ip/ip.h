@@ -242,8 +242,12 @@ struct Translation
 	Routehint;
 };
 
-Translation *transforward(Proto *p, Ipht *ht, uchar *sa, int sp, uchar *da, int dp, Route *r);
+Translation *transforward(Proto *p, uchar *sa, int sp, uchar *da, int dp, Route *r);
 Translation *transbackward(Proto *p, Iphash *iph);
+
+extern long transread(Proto*, char *, ulong, int);
+extern long transwrite(Proto*, char *, ulong, int);
+extern long transfsize(Proto*);
 
 /*
  *  one per conversation directory
@@ -453,12 +457,15 @@ struct Proto
 
 	/* network address translation */
 	Translation*	translations;
+	Translation*	freetranslations;
 	Block*		(*forward)(Proto*, Block*, Route*);
+	Ipht		*ht;
 
 	void		*priv;
 };
 
-int unusedlport(Proto *p);
+extern int lportinuse(Proto *p, ushort lport);
+extern int unusedlport(Proto *p);
 
 struct Ndb
 {

@@ -33,6 +33,7 @@ ip, esp, gre, icmp, icmpv6, ipmux, rudp, tcp, udp, il \- network protocols over 
 .sp 0.3v
 .B /net/tcp/clone
 .B /net/tcp/stats
+.B /net/tcp/trans
 .BI /net/tcp/ n
 .BI /net/tcp/ n /data
 .BI /net/tcp/ n /ctl
@@ -767,6 +768,21 @@ given protocol.
 See
 .IR dial (2).
 .
+.SS "Network address translation"
+Some protocols such as
+.B tcp
+expose their network address translation tables in a
+.B trans
+file, which is formatted as 6 space-separated fields:
+destination-ip, destination-port, source-ip, source-port,
+local-ip and local-port.
+Reading the
+.B trans
+file returns as many entries as can fit in the buffer.
+The translation tables are mutable: A single entry
+is appended per write.
+Truncating the file or doing a zero-length write
+at offset zero clears the translation table.
 .SS TCP
 TCP connections are reliable point-to-point byte streams; there are no
 message delimiters.

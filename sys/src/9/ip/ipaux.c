@@ -381,6 +381,49 @@ iphtlook(Ipht *ht, uchar *sa, ushort sp, uchar *da, ushort dp)
 	return nil;
 }
 
+static Translation*
+deltrans(Proto *p, Translation *q)
+{
+	netlog(p->f, Logtrans, "trans: removing %s!%I!%d -> %I!%d -> %I!%d\n",
+		p->name,
+		q->forward.raddr, q->forward.rport,
+		q->backward.laddr, q->backward.lport,
+		q->forward.laddr, q->forward.lport);
+
+	iphtrem(p->ht, &q->forward);
+	iphtrem(p->ht, &q->backward);
+
+	return q;
+}
+
+static Translation*
+newtrans(Proto *p)
+{
+	Translation *q;
+	ulong now;
+	int num;
+
+	/* Use freelist */
+	if((q = p->freetranslations) != nil)
+		return q;
+
+	/* Reuse expired entries */
+	num = 0;
+	now = NOW;
+	for(q = p->translations; q != nil; q = q->next) {
+		if(++num >= 1000 || (now - q->time) >= 5*60*1000)
+			return deltrans(p, q);
+	}
+
+	/* Allocate, never freed */
+	q = malloc(sizeof(*q));
+	if(q == nil)
+		return nil;
+	q->next = nil;
+	q->link = nil;
+	return q;
+}
+
 /*
  * Move entry to front of Proto.translations
  * and update the timestamp.
@@ -392,17 +435,63 @@ transupdate(Proto *p, Translation *q)
 {
 	q->time = NOW;
 
-	/* unlink */
+	/* already head of translations list? */
+	if(q->link == &p->translations)
+		return q;
+
+	/* unlink (from translations or freelist) */
 	if(q->link != nil && (*q->link = q->next) != nil)
 		q->next->link = q->link;
 
-	/* link to front */
+	/* link to front of translations list */
 	if((q->next = p->translations) != nil)
 		q->next->link = &q->next;
 	p->translations = q;
 	q->link = &p->translations;
 
 	return q;
+}
+
+static Translation*
+addtrans(Proto *p, uchar *da, int dp, uchar *sa, int sp, uchar *la, int lp, Routehint rh)
+{
+	Translation *q;
+
+	if((q = newtrans(p)) == nil)
+		return nil;
+
+	/* Match what needs to be forwarded */
+	q->forward.trans = 1;
+	q->forward.lport = dp;
+	q->forward.rport = sp;
+	ipmove(q->forward.laddr, da);
+	ipmove(q->forward.raddr, sa);
+
+	/* Match what comes back to us */
+	q->backward.trans = 2;
+	q->backward.lport = lp;
+	ipmove(q->backward.laddr, la);
+	if(p->ipproto == 1 || p->ipproto == 17){
+		/* ICMP and UDP allow reply from anyone (for hole punching) */
+		q->backward.rport = 0;
+		ipmove(q->backward.raddr, IPnoaddr);
+	} else {
+		q->backward.rport = dp;
+		ipmove(q->backward.raddr, da);
+	}
+
+	netlog(p->f, Logtrans, "trans: adding %s!%I!%d -> %I!%d -> %I!%d\n",
+		p->name,
+		q->forward.raddr, q->forward.rport,
+		q->backward.laddr, q->backward.lport,
+		q->forward.laddr, q->forward.lport);
+
+	memmove(&q->Routehint, &rh, sizeof(rh));
+
+	iphtadd(p->ht, &q->forward);
+	iphtadd(p->ht, &q->backward);
+
+	return transupdate(p, q);
 }
 
 /*
@@ -413,19 +502,16 @@ transupdate(Proto *p, Translation *q)
  * Proto is locked.
  */
 Translation*
-transforward(Proto *p, Ipht *ht, uchar *sa, int sp, uchar *da, int dp, Route *r)
+transforward(Proto *p, uchar *sa, int sp, uchar *da, int dp, Route *r)
 {
-	uchar ia[IPaddrlen];
+	uchar la[IPaddrlen];
 	Routehint rh;
-	Translation *q;
 	Iphash *iph;
 	Ipifc *ifc;
-	int lport;
-	ulong now;
-	int num;
+	int lp;
 
 	/* Translation already exists? */
-	iph = iphtlook(ht, sa, sp, da, dp);
+	iph = iphtlook(p->ht, sa, sp, da, dp);
 	if(iph != nil){
 		if(iph->trans == 1)
 			return transupdate(p, iphforward(iph));
@@ -456,8 +542,8 @@ transforward(Proto *p, Ipht *ht, uchar *sa, int sp, uchar *da, int dp, Route *r)
 
 	/* Find a source address on the destination interface */
 	rlock(ifc);
-	memmove(ia, v4prefix, IPv4off);
-	if(!ipv4local(ifc, ia+IPv4off, 0, (r->type & (Rifc|Runi|Rbcast|Rmulti))? da+IPv4off: r->v4.gate)){
+	memmove(la, v4prefix, IPv4off);
+	if(!ipv4local(ifc, la+IPv4off, 0, (r->type & (Rifc|Runi|Rbcast|Rmulti))? da+IPv4off: r->v4.gate)){
 		runlock(ifc);
 		netlog(p->f, Logtrans, "trans: no source ip: %s!%I!%d -> %I!%d\n",
 			p->name, sa, sp, da, dp);
@@ -469,77 +555,24 @@ transforward(Proto *p, Ipht *ht, uchar *sa, int sp, uchar *da, int dp, Route *r)
 	rh.a = nil;
 	rh.r = nil;
 	if(ipismulticast(da))
-		r = v4lookup(p->f, sa+IPv4off, ia+IPv4off, nil);
+		r = v4lookup(p->f, sa+IPv4off, la+IPv4off, nil);
 	else
 		r = v4lookup(p->f, sa+IPv4off, da+IPv4off, &rh);
 	if(r == nil || (r->ifc == ifc && !ifc->reflect)){
 		netlog(p->f, Logtrans, "trans: bad backward route: %s!%I!%d <- %I <- %I!%d\n",
-			p->name, sa, sp, ia, da, dp);
+			p->name, sa, sp, la, da, dp);
 		return nil;
 	}
 
 	/* Find local port */
-	lport = unusedlport(p);
-	if(lport <= 0){
+	lp = unusedlport(p);
+	if(lp <= 0){
 		netlog(p->f, Logtrans, "trans: no local port: %s!%I!%d <- %I <- %I!%d\n",
-			p->name, sa, sp, ia, da, dp);
+			p->name, sa, sp, la, da, dp);
 		return nil;
 	}
 
-	/* Reuse expired entries */
-	num = 0;
-	now = NOW;
-	for(q = p->translations; q != nil; q = q->next) {
-		if(++num >= 1000 || (now - q->time) >= 5*60*1000){
-			netlog(p->f, Logtrans, "trans: removing %s!%I!%d -> %I!%d -> %I!%d\n",
-				p->name,
-				q->forward.raddr, q->forward.rport,
-				q->backward.laddr, q->backward.lport,
-				q->forward.laddr, q->forward.lport);
-
-			iphtrem(ht, &q->forward);
-			iphtrem(ht, &q->backward);
-			break;
-		}
-	}
-	if(q == nil){
-		q = malloc(sizeof(*q));
-		if(q == nil)
-			return nil;
-		q->link = nil;
-	}
-
-	/* Match what needs to be forwarded */
-	q->forward.trans = 1;
-	q->forward.lport = dp;
-	q->forward.rport = sp;
-	ipmove(q->forward.laddr, da);
-	ipmove(q->forward.raddr, sa);
-
-	/* Match what comes back to us */
-	q->backward.trans = 2;
-	q->backward.lport = lport;
-	ipmove(q->backward.laddr, ia);
-	if(p->ipproto == 1 || p->ipproto == 17){
-		/* ICMP and UDP allow reply from anyone (for hole punching) */
-		q->backward.rport = 0;
-		ipmove(q->backward.raddr, IPnoaddr);
-	} else {
-		q->backward.rport = dp;
-		ipmove(q->backward.raddr, da);
-	}
-	memmove(&q->Routehint, &rh, sizeof(rh));
-
-	netlog(p->f, Logtrans, "trans: adding %s!%I!%d -> %I!%d -> %I!%d\n",
-		p->name,
-		q->forward.raddr, q->forward.rport,
-		q->backward.laddr, q->backward.lport,
-		q->forward.laddr, q->forward.lport);
-
-	iphtadd(ht, &q->forward);
-	iphtadd(ht, &q->backward);
-
-	return transupdate(p, q);
+	return addtrans(p, da, dp, sa, sp, la, lp, rh);
 }
 
 /*
@@ -553,8 +586,168 @@ transbackward(Proto *p, Iphash *iph)
 {
 	if(iph == nil || iph->trans != 2)
 		return nil;
-
 	return transupdate(p, iphbackward(iph));
+}
+
+enum {
+	Transfmtsize = 3*16 + 3*6,	/* excluding \0 */
+};
+
+long
+transfsize(Proto *p)
+{
+	Translation *q;
+	int n = 0;
+
+	if(p->ht == nil || p->forward == nil)
+		return -1;
+
+	qlock(p);
+	for(q = p->translations; q != nil; q = q->next)
+		n += Transfmtsize;
+	qunlock(p);
+
+	return n;
+}
+
+long
+transread(Proto *p, char *a, ulong off, int n)
+{
+	Translation *q;
+	char *b, *s;
+	int m;
+
+	if(n > READSTR)
+		n = READSTR;
+
+	if((b = s = malloc(n+1)) == nil)
+		error(Enomem);
+
+	qlock(p);
+	for(q = p->translations; q != nil; q = q->next){
+		if(n < Transfmtsize)
+			break;
+		m = snprint(s, n+1, "%-15I %5d %-15I %5d %-15I %5d\n",
+			q->forward.laddr, q->forward.lport,	/* da, dp */
+			q->forward.raddr, q->forward.rport,	/* sa, sp */
+			q->backward.laddr, q->backward.lport);	/* la, lp */
+		if(off) {
+			if(m < off)
+				off -= m;
+			else
+				off = 0;
+			continue;
+		}
+		s += m;
+		n -= m;
+	}
+	qunlock(p);
+
+	/* copy outside of lock */
+	if(waserror()){
+		free(b);
+		nexterror();
+	}
+	n = s - b;
+	memmove(a, b, n);
+	free(b);
+	poperror();
+
+	return n;
+}
+
+static void
+flushtrans(Proto *p)
+{
+	Translation *q, *l;
+
+	/* Delete all active translations */
+	l = nil;
+	for(q = p->translations; q != nil; q = q->next)
+		l = deltrans(p, q);
+	if(l == nil)
+		return;
+
+	/* Tanslation list becomes freelist */
+	q = p->translations;
+	p->translations = nil;
+	if((l->next = p->freetranslations) != nil)
+		l->next->link = &l->next;
+	q->link = &p->freetranslations;
+	p->freetranslations = q;
+}
+
+long
+transwrite(Proto *p, char *a, ulong off, int n)
+{
+	char buf[Transfmtsize+1], *f[6];
+	uchar da[IPaddrlen], sa[IPaddrlen], la[IPaddrlen];
+	int dp, sp, lp;
+	Routehint rh;
+	Route *r;
+
+	if(p->ht == nil || p->forward == nil)
+		error("protocol does not support translations");
+
+	if(n == 0 && off == 0){
+		qlock(p);
+		flushtrans(p);
+		qunlock(p);
+		return n;
+	}
+	if((uint)n >= sizeof(buf))
+		error(Ebadctl);
+	memmove(buf, a, n);
+	buf[n] = '\0';
+	if(tokenize(buf, f, 6) != 6)
+		error(Ebadctl);
+
+	if(parseip(da, f[0]) == -1 || !isv4(da))
+		error(Ebadctl);
+	if((dp = strtoul(f[1], nil, 0)) & ~0xffff)
+		error(Ebadctl);
+	if(parseip(sa, f[2]) == -1 || !isv4(sa))
+		error(Ebadctl);
+	if((sp = strtoul(f[3], nil, 0)) & ~0xffff)
+		error(Ebadctl);
+	if(parseip(la, f[4]) == -1 || !isv4(la))
+		error(Ebadctl);
+	if((lp = strtoul(f[5], nil, 0)) & ~0xffff)
+		error(Ebadctl);
+
+	if(ipforme(p->f, la) != Runi)
+		error("local ip not found");
+
+	if(ipismulticast(sa) || ipforme(p->f, sa) != 0)
+		error("bad source address");
+
+	/* check forward route */
+	r = v4lookup(p->f, da+IPv4off, sa+IPv4off, nil);
+	if(r == nil || (r->type & Rtrans) == 0)
+		error("no translating route to desination");
+
+	/* check backward route */
+	rh.a = nil;
+	rh.r = nil;
+	if(ipismulticast(da))
+		r = v4lookup(p->f, sa+IPv4off, la+IPv4off, nil);
+	else
+		r = v4lookup(p->f, sa+IPv4off, da+IPv4off, &rh);
+	if(r == nil)
+		error("no route to soruce address");
+
+	qlock(p);
+	if(waserror()){
+		qunlock(p);
+		nexterror();
+	}
+	if(lportinuse(p, lp))
+		error("local port in use");
+	addtrans(p, da, dp, sa, sp, la, lp, rh);
+	qunlock(p);
+	poperror();
+
+	return n;
 }
 
 /*
