@@ -476,7 +476,7 @@ main(int argc, char **argv)
 	xlaunch(runcons, (void*)ctlfd, aincl(&fs->nworker, 1), "ctl");
 	xlaunch(runmutate, nil, aincl(&fs->nworker, 1), "mutate");
 	xlaunch(runsweep, nil, aincl(&fs->nworker, 1), "sweep");
-	xlaunch(runtasks, nil, aincl(&fs->nworker, 1), "tasks");
+	xlaunch(runtasks, nil, -1, "tasks");
 	for(i = 0; i < fs->nreaders; i++)
 		xlaunch(runread, fs->rdchan[i], aincl(&fs->nworker, 1), "readio");
 	for(i = 0; i < fs->nsyncers; i++)

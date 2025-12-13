@@ -3086,7 +3086,7 @@ cronsync(char *name, Cron *c, Tm *tm, vlong now)
 }
 
 void
-runtasks(int tid, void *)
+runtasks(int, void *)
 {
 	vlong now;
 	Mount *mnt;
@@ -3099,9 +3099,7 @@ runtasks(int tid, void *)
 		sleep(5000);
 		if(agetl(&fs->rdonly))
 			continue;
-		epochstart(tid);
 		if(waserror()){
-			epochend(tid);
 			fprint(2, "task error: %s\n", errmsg());
 			continue;
 		}
@@ -3119,8 +3117,6 @@ runtasks(int tid, void *)
 			for(i = 0; i < nelem(mnt->cron); i++)
 				cronsync(mnt->name, &mnt->cron[i], &tm, now);
 		}
-		epochend(tid);
-		epochclean();
 		poperror();
 	}
 }
