@@ -1,6 +1,53 @@
 #include <u.h>
 #include <libc.h>
-#include <bio.h>
+
+char*
+slurp(char *file)
+{
+	char *p;
+	int n, r, sz;
+	int fd;
+
+	n = 0;
+	sz = 8192;
+	fd = open(file, OREAD);
+	if(fd < 0)
+		sysfatal("slurp: %r");
+	if((p = malloc(sz+1)) == nil)
+		abort();
+	for(;;){
+		if(n == sz){
+			sz *= 2;
+			if((p = realloc(p, sz+1)) == nil)
+				abort();
+		}
+		r = read(fd, p+n, sz-n);
+		if(r < 0)
+			sysfatal("slurp: %r");
+		if(r == 0)
+			break;
+		n += r;
+	}
+	p[n] = 0;
+	return p;
+}
+
+char*
+nextln(char **p)
+{
+	char *hd;
+
+	if(*p == nil)
+		return nil;
+	hd = *p;
+	*p = strchr(*p, '\n');
+	if(*p != nil){
+		**p = 0;
+		*p += 1;
+		return hd;
+	}
+	return nil;
+}
 
 enum{
 	NRUNES = 1<<21
@@ -389,16 +436,14 @@ enum {
 };
 
 static int
-getunicodeline(Biobuf *in, char **fields)
+getunicodeline(char **src, char **fields)
 {
 	char *p;
 
-	if((p = Brdline(in, '\n')) == nil)
+	if((p = nextln(src)) == nil)
 		return 0;
 
-	p[Blinelen(in)-1] = '\0';
-
-	if (getfields(p, fields, NFIELDS + 1, 0, ";") != NFIELDS)
+	if(getfields(p, fields, NFIELDS + 1, 0, ";") != NFIELDS)
 		sysfatal("bad number of fields");
 
 	return 1;
@@ -417,15 +462,13 @@ estrtoul(char *s, int base)
 }
 
 static char*
-getextraline(Biobuf *b, int *s, int *e)
+getextraline(char **src, int *s, int *e)
 {
 	char *dot, *p;
 
 again:
-	p = Brdline(b, '\n');
-	if(p == nil)
+	if((p = nextln(src)) == nil)
 		return nil;
-	p[Blinelen(b)-1] = 0;
 	if(p[0] == 0 || p[0] == '#')
 		goto again;
 	if((dot = strstr(p, "..")) != nil){
@@ -443,16 +486,13 @@ again:
 static void
 markbreak(void)
 {
-	Biobuf *b;
+	char *b, *ob;
 	char *dot;
 	int i, s, e;
 	uchar v;
 
-	b = Bopen("/lib/ucd/WordBreakProperty.txt", OREAD);
-	if(b == nil)
-		sysfatal("could not load word breaks: %r");
-
-	while((dot = getextraline(b, &s, &e)) != nil){
+	ob = b = slurp("/lib/ucd/WordBreakProperty.txt");
+	while((dot = getextraline(&b, &s, &e)) != nil){
 		v = 0;
 		if(strstr(dot, "ExtendNumLet") != nil)
 			v = ExtendNumLet;
@@ -479,12 +519,9 @@ markbreak(void)
 		for(i = s; i <= e; i++)
 			mybreak[i] = v;
 	}
-	Bterm(b);
-	b = Bopen("/lib/ucd/GraphemeBreakProperty.txt", OREAD);
-	if(b == nil)
-		sysfatal("could not load Grapheme breaks: %r");
-
-	while((dot = getextraline(b, &s, &e)) != nil){
+	free(ob);
+	ob = b = slurp("/lib/ucd/GraphemeBreakProperty.txt");
+	while((dot = getextraline(&b, &s, &e)) != nil){
 		v = 0;
 		if(strstr(dot, "; Prepend #") != nil)
 			v = PREPEND;
@@ -509,26 +546,18 @@ markbreak(void)
 		for(i = s; i <= e; i++)
 			mybreak[i] |= v;
 	}
-	Bterm(b);
-
-	b = Bopen("/lib/ucd/emoji-data.txt", OREAD);
-	if(b == nil)
-		sysfatal("could not load emoji-data: %r");
-
-	while((dot = getextraline(b, &s, &e)) != nil){
+	free(ob);
+	ob = b = slurp("/lib/ucd/emoji-data.txt");
+	while((dot = getextraline(&b, &s, &e)) != nil){
 		v = 0;
 		if(strstr(dot, "; Extended_Pictographic") != nil)
 			v = EMOJIEX;
 		for(i = s; i <= e; i++)
 			mybreak[i] |= v;
 	}
-	Bterm(b);
-
-	b = Bopen("/lib/ucd/DerivedNormalizationProps.txt", OREAD);
-	if(b == nil)
-		sysfatal("could not load emoji-data: %r");
-
-	while((dot = getextraline(b, &s, &e)) != nil){
+	free(ob);
+	ob = b = slurp("/lib/ucd/DerivedNormalizationProps.txt");
+	while((dot = getextraline(&b, &s, &e)) != nil){
 		v = 0;
 		if(strstr(dot, "; NFC_QC; N") != nil)
 			v = NFC_QC_No;
@@ -542,23 +571,19 @@ markbreak(void)
 		for(i = s; i <= e; i++)
 			myqc[i] |= v;
 	}
-	Bterm(b);
+	free(ob);
 }
 
 static void
 markexclusions(void)
 {
-	Biobuf *b;
+	char *b, *ob;
 	char *p;
 	int i;
 	uint x;
 
-	b = Bopen("/lib/ucd/CompositionExclusions.txt", OREAD);
-	if(b == nil)
-		sysfatal("could not load composition exclusions: %r");
-
-	while((p = Brdline(b, '\n')) != nil){
-		p[Blinelen(b)-1] = 0;
+	ob = b = slurp("/lib/ucd/CompositionExclusions.txt");
+	while(p = nextln(&b)){
 		if(p[0] == 0 || p[0] == '#')
 			continue;
 		x = estrtoul(p, 16);
@@ -577,7 +602,7 @@ markexclusions(void)
 			}
 		}
 	}
-	Bterm(b);
+	free(ob);
 }
 
 static void
@@ -604,16 +629,13 @@ main(int, char)
 	static char myisupper[NRUNES];
 	static char myislower[NRUNES];
 	static char myistitle[NRUNES];
-	Biobuf *in;
+	char *in, *oin;
 	char *fields[NFIELDS + 1], *fields2[NFIELDS + 1];
 	char *p, *d;
 	int i, code, last;
 	int decomp[2], *ip;
 
-	in = Bopen("/lib/ucd/UnicodeData.txt", OREAD);
-	if(in == nil)
-		sysfatal("can't open UnicodeData.txt: %r");
-
+	oin = in = slurp("/lib/ucd/UnicodeData.txt");
 	for(i = 0; i < NRUNES; i++){
 		mytoupper[i] = -1;
 		mytolower[i] = -1;
@@ -633,7 +655,7 @@ main(int, char)
 
 	last = -1;
 	nspecial = nrecomp = nrecompext =  0;
-	while(getunicodeline(in, fields)){
+	while(getunicodeline(&in, fields)){
 		code = estrtoul(fields[FIELD_CODE], 16);
 		if (code >= NRUNES)
 			sysfatal("code-point value too big: %x", code);
@@ -643,7 +665,7 @@ main(int, char)
 
 		p = fields[FIELD_CATEGORY];
 		if(strstr(fields[FIELD_NAME], ", First>") != nil){
-			if(!getunicodeline(in, fields2))
+			if(!getunicodeline(&in, fields2))
 				sysfatal("range start at eof");
 			if (strstr(fields2[FIELD_NAME], ", Last>") == nil)
 				sysfatal("range start not followed by range end");
@@ -721,8 +743,7 @@ main(int, char)
 			myccc[code] = estrtoul(fields[FIELD_COMBINING], 10);
 		}
 	}
-
-	Bterm(in);
+	free(oin);
 	findlongchain();
 	markexclusions();
 
