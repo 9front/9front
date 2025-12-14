@@ -206,8 +206,7 @@ repositories hosted in git.
 .SH CONCEPTS
 Git stores snapshots of the working directory.
 Files can either be in a tracked or untracked state.
-Each commit takes the current version of all tracked files and
-adds them to a new commit.
+Untracked files will be ignored.
 .PP
 This history is stored in the
 .B .git
