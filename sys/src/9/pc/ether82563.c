@@ -2027,6 +2027,7 @@ didtype(int d)
 	case 0x0d4c:		/* i219-lm */
 	case 0x15bc:		/* i219-v */
 	case 0x0d4f:		/* i219-v */
+	case 0x0d4e:		/* i219-lm */
 		return i219;
 	case 0x151f:		/* i350 “powerville” eeprom-less */
 	case 0x1521:		/* i350 copper */
