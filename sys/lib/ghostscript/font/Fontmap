@@ -149,9 +149,9 @@ WNCYSC10 (/sys/lib/postscript/font/ams/wncysc10.pfa) ;
 WNCYSS10 (/sys/lib/postscript/font/ams/wncyss10.pfa) ;
 % fonts added by user
 GaramondNo8-Reg (/sys/lib/postscript/font/useradded/ugmr8a.pfb) ;
-GaramondNo8-RegItal (/sys/lib/postscript/font/useradded/ugmmi8a.pfb) ;
+GaramondNo8-RegItal (/sys/lib/postscript/font/useradded/ugmri8a.pfb) ;
 GaramondNo8-Med (/sys/lib/postscript/font/useradded/ugmm8a.pfb) ;
-GaramondNo8-MedItal (/sys/lib/postscript/font/useradded//ugmmi8a.pfb) ;
+GaramondNo8-MedItal (/sys/lib/postscript/font/useradded/ugmmi8a.pfb) ;
 % Copyright (C) 1996, 1999 Aladdin Enterprises.  All rights reserved.
 % 
 % This file is part of Aladdin Ghostscript.
