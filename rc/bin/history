@@ -70,6 +70,8 @@ if(~ $#flags 0)
 if(~ $#flagu 1)
 	flagu=-u
 
+9fs $dump
+
 # probably gefs
 if(test -e /n/$dump/adm){
 	fn list { ls -Qqr /n/$dump/$tag@day.*/$1  >[2] /dev/null }
@@ -79,8 +81,6 @@ if not {
 	fn list { ls -Qqr /n/$dump/*/*/$1  >[2] /dev/null }
 	since=`{date -f 'YYYY\/MMDD' `{seconds -f 'YYYYMMDD' $flags}}
 }
-
-9fs $dump
 
 for(arg in $*)
 	ysearch $arg
