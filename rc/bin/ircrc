@@ -112,10 +112,10 @@ fn work {
 			if (! ~ $#cmd 0)
 				out = '('^$target^')	⇐	'^$"cmd
 		}
-		if (! ~ $#msg 0)
-			echo $msg
 		if (! ~ $#out 0)
 			echo `{etime} $out >/dev/cons
+		if (! ~ $#msg 0)
+			echo $msg
 	}
 }
 
