@@ -365,7 +365,6 @@ int		splhi(void);
 int		spllo(void);
 void		splx(int);
 void		splxpc(int);
-char*		srvname(Chan*);
 void		srvrenameuser(char*, char*);
 void		shrrenameuser(char*, char*);
 int		swapcount(uintptr);
