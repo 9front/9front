@@ -459,6 +459,7 @@ umsrequest(Umsc *umsc, ScsiPtr *cmd, ScsiPtr *data, int *status)
 		}
 	}
 
+Again:
 	/* read the transfer's status */
 	n = read(ums->epin->dfd, &csw, CswLen);
 	if(n <= 0){
@@ -472,8 +473,8 @@ umsrequest(Umsc *umsc, ScsiPtr *cmd, ScsiPtr *data, int *status)
 		goto Fail;
 	}
 	if(csw.tag != cbw.tag){
-		dprint(2, "%s: status tag mismatch\n", argv0);
-		goto Fail;
+		dprint(2, "%s: status tag mismatch: %lux != %lux\n", argv0, csw.tag, cbw.tag);
+		goto Again;
 	}
 	if(csw.status >= CswPhaseErr){
 		dprint(2, "%s: phase error\n", argv0);
