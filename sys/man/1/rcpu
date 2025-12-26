@@ -79,6 +79,9 @@ rcpu, rimport, rexport, rconnect \- connection to CPU server
 .I keypattern
 ] [
 .B -p
+] [
+.B -t
+.I seconds
 ]
 .I host
 .I remotescript
@@ -197,6 +200,11 @@ tunnel. If the remote host has
 set (see
 .IR ndb (6))
 the remote listeners will be restricted to the given port range.
+.TP
+.B -t \fIseconds
+Specifies the maximum
+.IR aan (8)
+idle timeout in seconds (default is one day).
 .SH FILES
 .B /rc/bin/service/tcp17019
 .SH SOURCE
