@@ -192,7 +192,11 @@ to select a key to authenticate to the remote side (see
 .B -p
 Protect the connection against connection resets by establishing
 .IR aan (8)
-tunnel.
+tunnel. If the remote host has
+.B aanport
+set (see
+.IR ndb (6))
+the remote listeners will be restricted to the given port range.
 .SH FILES
 .B /rc/bin/service/tcp17019
 .SH SOURCE

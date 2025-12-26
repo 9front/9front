@@ -304,6 +304,16 @@ was needed by
 (see
 .IR ndb (8))
 in tuples for hosts that supported the IL protocol
+.TP
+.B aanport
+a range of ports to restrict 
+.IR aan (8)
+listeners started by incoming
+.IR rcpu (1)
+connections to; in the form of
+.B aanport=low-high.
+Single ports are also allowed, as well as multiple
+entries of either kind.
 .PD
 .PP
 .I Cs
