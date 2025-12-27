@@ -1071,32 +1071,27 @@ rsametype(Type *t1, Type *t2, int n, int f)
 }
 
 typedef struct Typetab Typetab;
-
 struct Typetab{
-	int n;
+	int m, n;
 	Type **a;
 };
 
 static int
 sigind(Type *t, Typetab *tt)
 {
-	int n;
-	Type **a, **na, **p, **e;
+	Type **p, **e;
 
-	n = tt->n;
-	a = tt->a;
-	e = a+n;
 	/* linear search seems ok */
-	for(p = a ; p < e; p++)
+	e = tt->a+tt->n;
+	for(p = tt->a; p < e; p++){
 		if(sametype(*p, t))
-			return p-a;
-	if((n&15) == 0){
-		na = malloc((n+16)*sizeof(Type*));
-		memmove(na, a, n*sizeof(Type*));
-		free(a);
-		a = tt->a = na;
+			return p - tt->a;
 	}
-	a[tt->n++] = t;
+	if(tt->n == tt->m){
+		tt->a = allocn(tt->a, tt->n*sizeof(Type*), 16*sizeof(Type*));
+		tt->m += 16;
+	}
+	tt->a[tt->n++] = t;
 	return -1;
 }
 
@@ -1141,14 +1136,10 @@ signat(Type *t, Typetab *tt)
 ulong
 signature(Type *t)
 {
-	ulong s;
-	Typetab tt;
+	static Typetab tt;
 
-	tt.n = 0;
-	tt.a = nil;
-	s = signat(t, &tt);
-	free(tt.a);
-	return s;
+	tt.n = 0;	/* reset table */
+	return signat(t, &tt);
 }
 
 ulong
