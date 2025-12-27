@@ -713,7 +713,7 @@ correlate(Sampler *s, Point p)
 	return r<<24|g<<16|b<<8|a;
 }
 
-int
+void
 memaffinewarp(Memimage *d, Rectangle r, Memimage *s, Point sp0, Warp m, int smooth)
 {
 	ulong (*sample)(Sampler*, Point) = sample1;
@@ -726,11 +726,11 @@ memaffinewarp(Memimage *d, Rectangle r, Memimage *s, Point sp0, Warp m, int smoo
 	dr = d->clipr;
 	rectclip(&dr, d->r);
 	if(rectclip(&r, dr) == 0)
-		return 0;
+		return;
 
 	samp.r = s->clipr;
 	if(rectclip(&samp.r, s->r) == 0)
-		return 0;
+		return;
 
 	if(smooth)
 		sample = bilinear;
@@ -744,7 +744,10 @@ memaffinewarp(Memimage *d, Rectangle r, Memimage *s, Point sp0, Warp m, int smoo
 	 * 	Lee, S., Lee, GG., Jang, E.S., Kim, WY,
 	 * 	Intelligent Computing.  ICIC 2006. LNCS, vol 4113.
 	 */
-	p2 = p2₀ = xform((Point){int2fix(r.min.x - dr.min.x) + (1<<6), int2fix(r.min.y - dr.min.y) + (1<<6)}, m);
+	p2 = p2₀ = xform((Point){
+		int2fix(r.min.x - d->r.min.x) + (1<<6),
+		int2fix(r.min.y - d->r.min.y) + (1<<6)
+	}, m);
 	for(dp.y = r.min.y; dp.y < r.max.y; dp.y++){
 	for(dp.x = r.min.x; dp.x < r.max.x; dp.x++){
 		samp.Δx = fixfrac(p2.x);
@@ -762,7 +765,6 @@ memaffinewarp(Memimage *d, Rectangle r, Memimage *s, Point sp0, Warp m, int smoo
 		p2.x = p2₀.x += m[0][1];
 		p2.y = p2₀.y += m[1][1];
 	}
-	return 0;
 }
 
 static double

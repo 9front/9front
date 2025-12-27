@@ -45,29 +45,6 @@ profend(void)
 	}
 }
 
-#define min(a,b)	((a)<(b)?(a):(b))
-#define max(a,b)	((a)>(b)?(a):(b))
-Rectangle
-getbbox(Rectangle *sr, Matrix m)
-{
-	Point2 p0, p1, p2, p3;
-
-	p0 = Pt2(sr->min.x, sr->min.y, 1);
-	p0 = xform(p0, m);
-	p1 = Pt2(sr->max.x, sr->min.y, 1);
-	p1 = xform(p1, m);
-	p2 = Pt2(sr->min.x, sr->max.y, 1);
-	p2 = xform(p2, m);
-	p3 = Pt2(sr->max.x, sr->max.y, 1);
-	p3 = xform(p3, m);
-
-	p0.x = min(min(min(p0.x, p1.x), p2.x), p3.x);
-	p0.y = min(min(min(p0.y, p1.y), p2.y), p3.y);
-	p1.x = max(max(max(p1.x, p1.x), p2.x), p3.x);
-	p1.y = max(max(max(p1.y, p1.y), p2.y), p3.y);
-	return Rect(p0.x, p0.y, p1.x, p1.y);
-}
-
 void
 initworkrects(Rectangle *wr, int nwr, Rectangle *fbr)
 {
@@ -157,8 +134,7 @@ main(int argc, char *argv[])
 	mulm(S, R);
 	mulm(T, S);
 
-//	dr = getbbox(&src->r, T);
-	dr = src->r;
+	dr = rectaddpt(src->r, Pt(100, 300));
 	dst = allocmemimage(dr, src->chan);
 	memfillcolor(dst, DTransparent);
 
@@ -179,8 +155,7 @@ main(int argc, char *argv[])
 			case -1:
 				sysfatal("rfork: %r");
 			case 0:
-				if(memaffinewarp(dst, wr[i], src, src->r.min, w, smooth) < 0)
-					fprint(2, "[%d] memaffinewarp: %r\n", getpid());
+				memaffinewarp(dst, wr[i], src, src->r.min, w, smooth);
 				exits(nil);
 			}
 		}
@@ -189,24 +164,24 @@ main(int argc, char *argv[])
 
 		free(wr);
 	}else{
-		if(memaffinewarp(dst, dr, src, src->r.min, w, smooth) < 0)
-			sysfatal("memaffinewarp: %r");
+//		memaffinewarp(dst, dr, src, src->r.min, w, smooth);
 
-//		dr = rectaddpt(Rect(0,0,Dx(dst->r)/2,Dy(dst->r)/2), dst->r.min);
-//		dst->clipr = dr;
-//		if(memaffinewarp(dst, dr, src, src->r.min, w, smooth) < 0)
-//			sysfatal("memaffinewarp: %r");
-//		dr = rectaddpt(Rect(Dx(dst->r)/2+1,0,Dx(dst->r),Dy(dst->r)/2), dst->r.min);
-//		dst->clipr = dst->r;
-//		if(memaffinewarp(dst, dr, src, src->r.min, w, smooth) < 0)
-//			sysfatal("memaffinewarp: %r");
-//		dr = rectaddpt(Rect(0,Dy(dst->r)/2+1,Dx(dst->r)/2,Dy(dst->r)), dst->r.min);
-//		if(memaffinewarp(dst, dr, src, src->r.min, w, smooth) < 0)
-//			sysfatal("memaffinewarp: %r");
-//		dr = rectaddpt(Rect(Dx(dst->r)/2+1,Dy(dst->r)/2+1,Dx(dst->r),Dy(dst->r)), dst->r.min);
-//		dst->clipr = dr;
-//		if(memaffinewarp(dst, dr, src, src->r.min, w, smooth) < 0)
-//			sysfatal("memaffinewarp: %r");
+		dr = rectaddpt(Rect(0,0,Dx(dst->r)/2,Dy(dst->r)/2), dst->r.min);
+		memaffinewarp(dst, dr, src, src->r.min, w, smooth);
+		dr = rectaddpt(Rect(Dx(dst->r)/2+1,0,Dx(dst->r),Dy(dst->r)/2), dst->r.min);
+		memaffinewarp(dst, dr, src, src->r.min, w, smooth);
+		dr = rectaddpt(Rect(0,Dy(dst->r)/2+1,Dx(dst->r)/2,Dy(dst->r)), dst->r.min);
+		memaffinewarp(dst, dr, src, src->r.min, w, smooth);
+		dr = Rect(Dx(dst->r)/2+1,Dy(dst->r)/2+1,Dx(dst->r),Dy(dst->r));
+		Matrix T₂ = {
+			1, 0, dr.min.x,
+			0, 1, dr.min.y,
+			0, 0, 1,
+		};
+		mulm(T₂, T);
+		mkwarp(w, T₂);
+		dr = rectaddpt(dr, dst->r.min);
+		memaffinewarp(dst, dr, src, src->r.min, w, smooth);
 	}
 	profend();
 	writememimage(1, dst);

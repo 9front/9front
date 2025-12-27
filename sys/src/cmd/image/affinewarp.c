@@ -219,8 +219,7 @@ main(int argc, char *argv[])
 			case -1:
 				sysfatal("rfork: %r");
 			case 0:
-				if(memaffinewarp(dst, wr[i], src, src->r.min, w, smooth) < 0)
-					fprint(2, "[%d] memaffinewarp: %r\n", getpid());
+				memaffinewarp(dst, wr[i], src, src->r.min, w, smooth);
 				exits(nil);
 			}
 		}
@@ -229,8 +228,7 @@ main(int argc, char *argv[])
 
 		free(wr);
 	}else
-		if(memaffinewarp(dst, dr, src, src->r.min, w, smooth) < 0)
-			sysfatal("memaffinewarp: %r");
+		memaffinewarp(dst, dr, src, src->r.min, w, smooth);
 
 	ewritememimage(1, dst);
 

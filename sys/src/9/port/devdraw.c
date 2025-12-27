@@ -1375,6 +1375,13 @@ printmesg(char *fmt, uchar *a, int plsprnt)
 			q += sprint(q, " [%d %d]", BGLONG(a), BGLONG(a+4));
 			a += 8;
 			break;
+		case 'M':
+			q += sprint(q, " [[%d %d %d][%d %d %d][%d %d %d]]",
+				BGLONG(a),    BGLONG(a+ 4), BGLONG(a+ 8),
+				BGLONG(a+12), BGLONG(a+16), BGLONG(a+20),
+				BGLONG(a+24), BGLONG(a+28), BGLONG(a+32));
+			a += 36;
+			break;
 		case 'b':
 			q += sprint(q, " %d", *a++);
 			break;
@@ -1509,7 +1516,7 @@ drawmesg(Client *client, void *av, int n)
 
 		/* apply affine transform: 'a' dstid[4] R[4*4] srcid[4] P[2*4] M[3*3*4] smooth[1] */
 		case 'a':
-			printmesg(fmt="LRLPM", a, 0);
+			printmesg(fmt="LRLPMb", a, 0);
 			m = 1+4+4*4+4+2*4+3*3*4+1;
 			if(n < m)
 				error(Eshortdraw);
@@ -1519,8 +1526,7 @@ drawmesg(Client *client, void *av, int n)
 			src = drawimage(client, a+21);
 			drawpoint(&p, a+25);
 			drawwarp(w, a+33);
-			if(memaffinewarp(dst, r, src, p, w, a[33+3*3*4]) < 0)
-				error("memaffinewarp failed");
+			memaffinewarp(dst, r, src, p, w, a[33+3*3*4]);
 			dstflush(dstid, dst, r);
 			continue;
 
