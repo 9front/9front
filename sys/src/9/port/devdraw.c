@@ -1526,7 +1526,7 @@ drawmesg(Client *client, void *av, int n)
 			src = drawimage(client, a+21);
 			drawpoint(&p, a+25);
 			drawwarp(w, a+33);
-			memaffinewarp(dst, r, src, p, w, a[33+3*3*4]);
+			memlaffinewarp(dst, r, src, p, w, a[33+3*3*4]);
 			dstflush(dstid, dst, r);
 			continue;
 
