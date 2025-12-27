@@ -81,8 +81,8 @@ int	memlorigin(Memimage *i, Point log, Point phys)
 void	memdraw(Memimage *dst, Rectangle r,
 .br
 .B
-		   Memimage *src, Point sp, Memimage *mask, Point mp, Drawop op)
-.fi
+		Memimage *src, Point sp, Memimage *mask, Point mp, Drawop op)
+.PP
 .B
 int	memload(Memimage *i, Rectangle r,
 .br
@@ -95,6 +95,11 @@ int	memunload(Memimage *i, Rectangle r,
 .B
 		uchar *buf, int n)
 .PP
+.B
+void	memlaffinewarp(Memimage *dst, Rectangle r,
+.br
+.B
+		Memimage *src, Point sp, Warp w, int smooth)
 .SH DESCRIPTION
 These functions build upon the
 .IR memdraw (2)
@@ -260,15 +265,17 @@ When a window is created, its logical and physical coordinates are the same, so
 .EE
 would be a no-op.
 .PP
-.I Memdraw
-and
+.IR Memdraw ,
 .I memline
+and
+.I memlaffinewarp
 are implemented in the layer library but provide the main entry points for drawing on
 memory-resident windows.
 They have the signatures of
-.I memimagedraw
-and
+.IR memimagedraw ,
 .I memimageline
+and
+.I memaffinewarp
 (see
 .IR memdraw (2))
 but accept
