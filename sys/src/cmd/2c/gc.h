@@ -15,7 +15,6 @@
 #define	SZ_DOUBLE	8
 
 #define	ALLOP	OEND
-#define	NRGN	300
 #define	FNX	100
 #define	INDEXED	9
 
@@ -206,8 +205,6 @@ EXTERN	long	nstring;
 EXTERN	int	nvar;
 EXTERN	Prog*	p;
 EXTERN	long	pc;
-EXTERN	Rgn	region[NRGN];
-EXTERN	Rgn*	rgp;
 EXTERN	char	string[NSNAME];
 EXTERN	Sym*	symrathole;
 EXTERN	Sym*	symstatic;

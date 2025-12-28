@@ -120,7 +120,6 @@ struct	Reg
 };
 #define	R	((Reg*)0)
 
-#define	NRGN	600
 struct	Rgn
 {
 	Reg*	enter;
@@ -168,9 +167,6 @@ EXTERN	long	exfregoffset;
 #define	CINF	1000
 #define	LOOP	3
 
-EXTERN	Rgn	region[NRGN];
-EXTERN	Rgn*	rgp;
-EXTERN	int	nregion;
 EXTERN	int	nvar;
 
 EXTERN	Bits	externs;

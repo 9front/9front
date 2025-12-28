@@ -122,7 +122,6 @@ struct	Renv
 	Node*	scope;
 };
 
-#define	NRGN	600
 struct	Rgn
 {
 	Reg*	enter;
@@ -170,9 +169,6 @@ EXTERN	long	exfregoffset;
 #define	CINF	1000
 #define	LOOP	3
 
-EXTERN	Rgn	region[NRGN];
-EXTERN	Rgn*	rgp;
-EXTERN	int	nregion;
 EXTERN	int	nvar;
 
 EXTERN	Bits	externs;

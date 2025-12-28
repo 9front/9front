@@ -33,9 +33,12 @@ rcmp(const void *a1, const void *a2)
 void
 regopt(Prog *p)
 {
+	static int maxregion;
+	static Rgn *region;
+	Rgn *rgp;
 	Reg *r, *r1, *r2;
 	Prog *p1;
-	int i, z;
+	int i, z, nregion;
 	long initpc, val, npc;
 	ulong vreg;
 	Bits bit;
@@ -502,8 +505,11 @@ loop2:
 		print("\nprop structure:\n");
 	for(r = firstr; r != R; r = r->link)
 		r->act = zbits;
-	rgp = region;
 	nregion = 0;
+	if(region == nil){
+		maxregion = 300;
+		region = alloc(maxregion * sizeof(Rgn));
+	}
 	for(r = firstr; r != R; r = r->link) {
 		if(debug['R'] && debug['v']) {
 			print("%P\t", r->prog);
@@ -529,6 +535,7 @@ loop2:
 			bit.b[z] = LOAD(r) & ~(r->act.b[z] | addrs.b[z]);
 		while(bany(&bit)) {
 			i = bnum(bit);
+			rgp = &region[nregion];
 			rgp->enter = r;
 			rgp->varno = i;
 			change = 0;
@@ -544,14 +551,12 @@ loop2:
 			}
 			rgp->cost = change;
 			nregion++;
-			if(nregion >= NRGN) {
-				warn(Z, "too many regions");
-				goto brk;
+			if(nregion >= maxregion) {
+				region = allocn(region, maxregion * sizeof(Rgn), 128*sizeof(Rgn));
+				maxregion += 128;
 			}
-			rgp++;
 		}
 	}
-brk:
 	qsort(region, nregion, sizeof(region[0]), rcmp);
 
 	/*

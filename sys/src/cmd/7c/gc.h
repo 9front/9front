@@ -125,7 +125,6 @@ struct	Reg
 };
 #define	R	((Reg*)0)
 
-#define	NRGN	1000		/* was 600; raised for paranoia.c */
 struct	Rgn
 {
 	Reg*	enter;
@@ -177,9 +176,6 @@ EXTERN	uchar	typechlpv[NTYPE];
 #define	CINF	1000
 #define	LOOP	3
 
-EXTERN	Rgn	region[NRGN];
-EXTERN	Rgn*	rgp;
-EXTERN	int	nregion;
 EXTERN	int	nvar;
 
 EXTERN	Bits	externs;
