@@ -88,8 +88,6 @@ sync(int id)
 	Tree *r;
 	int i;
 
-	if(agetl(&fs->rdonly))
-		return;
 	qlock(&fs->synclk);
 	if(waserror()){
 		fprint(2, "failed to sync: %s\n", errmsg());
@@ -2834,6 +2832,10 @@ runsweep(int id, void*)
 				for(i = 0; i < 4; i++){
 					epochwait();
 					epochclean();
+				}
+				if(waserror()){
+					fprint(2, "halt failed: %s\n", errmsg());
+					break;
 				}
 				sync(id);
 			}
