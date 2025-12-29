@@ -713,8 +713,8 @@ read(int fd, uchar *p, long n, vlong *offp)
 		unlock(c);
 	}
 
-	poperror();
 	cclose(c);
+	poperror();
 	return nnn;
 }
 
@@ -793,8 +793,8 @@ write(int fd, void *buf, long len, vlong *offp)
 		unlock(c);
 	}
 
-	poperror();
 	cclose(c);
+	poperror();
 	return m;
 }
 
@@ -983,8 +983,8 @@ sysfstat(va_list list)
 	r = devtab[c->type]->stat(c, s, l);
 	if((name = pathlast(c->path)) != nil)
 		r = dirsetname(name, strlen(name), s, r, l);
-	poperror();
 	cclose(c);
+	poperror();
 	return r;
 }
 
@@ -1009,8 +1009,8 @@ sysstat(va_list list)
 	r = devtab[c->type]->stat(c, s, l);
 	if((name = pathlast(c->path)) != nil)
 		r = dirsetname(name, strlen(name), s, r, l);
-	poperror();
 	cclose(c);
+	poperror();
 	return r;
 }
 
@@ -1031,68 +1031,66 @@ syschdir(va_list list)
 static int
 bindmount(int ismount, int fd, int afd, char* arg0, char* arg1, int flag, char* spec)
 {
-	int ret;
 	Chan *c0, *c1, *ac, *bc;
+	int ret;
 
 	if((flag&~MMASK) || (flag&MORDER)==(MBEFORE|MAFTER))
 		error(Ebadarg);
 
 	if(ismount){
+		if(!canmount(up->pgrp))
+			error(Enoattach);
+
 		validaddr((uintptr)spec, 1, 0);
 		spec = validnamedup(spec, 1);
 		if(waserror()){
 			free(spec);
 			nexterror();
 		}
-
-		if(!canmount(up->pgrp))
-			error(Enoattach);
-
-		ac = nil;
 		bc = fdtochan(fd, ORDWR, 0, 1);
-		if(waserror()) {
-			if(ac != nil)
-				cclose(ac);
+		if(waserror()){
 			cclose(bc);
 			nexterror();
 		}
-
-		if(afd >= 0)
+		ac = nil;
+		if(afd >= 0){
 			ac = fdtochan(afd, ORDWR, 0, 1);
-
+			if(waserror()){
+				cclose(ac);
+				nexterror();
+			}
+		}
 		c0 = mntattach(bc, ac, spec, flag&MCACHE);
-		poperror();	/* ac bc */
-		if(ac != nil)
+		if(ac != nil){
 			cclose(ac);
+			poperror();
+		}
 		cclose(bc);
+		poperror();
 	}else{
 		spec = nil;
 		validaddr((uintptr)arg0, 1, 0);
 		c0 = namec(arg0, Abind, 0, 0);
 	}
-
 	if(waserror()){
 		cclose(c0);
 		nexterror();
 	}
-
 	validaddr((uintptr)arg1, 1, 0);
 	c1 = namec(arg1, Amount, 0, 0);
 	if(waserror()){
 		cclose(c1);
 		nexterror();
 	}
-
 	ret = cmount(c0, c1, flag, spec);
-
-	poperror();
 	cclose(c1);
 	poperror();
 	cclose(c0);
+	poperror();
 	if(ismount){
-		fdclose(fd, 0);
-		poperror();
 		free(spec);
+		poperror();
+		fdclose(fd, 0);
 	}
 	return ret;
 }
@@ -1147,24 +1145,27 @@ sysunmount(va_list list)
 	name = va_arg(list, char*);
 	old = va_arg(list, char*);
 
-	cmounted = nil;
 	validaddr((uintptr)old, 1, 0);
 	cmount = namec(old, Amount, 0, 0);
-	if(waserror()) {
+	if(waserror()){
 		cclose(cmount);
-		if(cmounted != nil)
-			cclose(cmounted);
 		nexterror();
 	}
-	if(name != nil) {
+	if(name == nil)
+		cunmount(cmount, nil);
+	else{
 		validaddr((uintptr)name, 1, 0);
 		cmounted = namec(name, Aunmount, OREAD, 0);
-	}
-	cunmount(cmount, cmounted);
-	poperror();
-	cclose(cmount);
-	if(cmounted != nil)
+		if(waserror()){
+			cclose(cmounted);
+			nexterror();
+		}
+		cunmount(cmount, cmounted);
 		cclose(cmounted);
+		poperror();
+	}
+	cclose(cmount);
+	poperror();
 	return 0;
 }
 
@@ -1181,7 +1182,7 @@ syscreate(va_list list)
 	openmode(mode&~OEXCL);	/* error check only; OEXCL okay here */
 	validaddr((uintptr)name, 1, 0);
 	c = namec(name, Acreate, mode, perm);
-	if(waserror()) {
+	if(waserror()){
 		cclose(c);
 		nexterror();
 	}
@@ -1220,8 +1221,8 @@ sysremove(va_list list)
 	 * so fake it up.  rootclose() is known to be a nop.
 	 */
 	c->type = 0;
-	poperror();
 	cclose(c);
+	poperror();
 	return 0;
 }
 
@@ -1248,8 +1249,8 @@ wstat(Chan *c, uchar *d, int nd)
 		}
 	}
 	l = devtab[c->type]->wstat(c, d, nd);
-	poperror();
 	cclose(c);
+	poperror();
 	return l;
 }
 
@@ -1347,10 +1348,10 @@ sys_stat(va_list list)
 	if((name = pathlast(c->path)) != nil)
 		d->name = name;
 	packoldstat(s, d);
-	poperror();
 	free(d);
 	poperror();
 	cclose(c);
+	poperror();
 	return 0;
 }
 
@@ -1379,10 +1380,10 @@ sys_fstat(va_list list)
 	if((name = pathlast(c->path)) != nil)
 		d->name = name;
 	packoldstat(s, d);
-	poperror();
 	free(d);
 	poperror();
 	cclose(c);
+	poperror();
 	return 0;
 }
 
