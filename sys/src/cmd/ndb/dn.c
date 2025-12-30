@@ -1368,7 +1368,7 @@ rravfmt(Fmt *f)
 		break;
 	case Tsrv:
 		srv = rp->srv;
-		fmtprint(&fstr, " pri=%ud weight=%ud port=%ud target=%s",
+		fmtprint(&fstr, " pri=%ud weight=%ud port=%ud srv=%s",
 			(srv? srv->pri: 0), (srv? srv->weight: 0),
 			rp->port, idnname(rp->host, buf, sizeof(buf)));
 		break;

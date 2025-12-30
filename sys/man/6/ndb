@@ -258,7 +258,7 @@ also
 .BR pref .
 .TP
 .B srv
-service location (for DNS);
+host name of service location (for DNS);
 also
 .BR pri ,
 .B weight
