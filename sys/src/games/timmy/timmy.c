@@ -8,6 +8,7 @@
 #include "dat.h"
 #include "fns.h"
 
+Image *scrb;
 Screen *scr;
 Image *work, *tray;
 Image *grey;
@@ -64,15 +65,17 @@ drawtray(void)
 	
 	for(o = trayo.next; o != &trayo; o = o->next)
 		o->tab->draw(o, tray);
+	draw(screen, rectaddpt(scrb->r, screen->r.min), scrb, nil, ZP);
 }
 
 static void
 screeninit(void)
 {
 	grey = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
-	scr = allocscreen(screen, display->white, 0);
-	work = allocwindow(scr, Rect(screen->r.min.x, screen->r.min.y, screen->r.max.x, screen->r.max.y - TrayH), 0, 0xFFFFFFFF);
-	tray = allocwindow(scr, Rect(screen->r.min.x, screen->r.max.y - TrayH, screen->r.max.x, screen->r.max.y), 0, 0xCCCCCCFF);
+	scrb = allocimage(display, rectsubpt(screen->r, screen->r.min), screen->chan, 0, DWhite);
+	scr = allocscreen(scrb, display->white, 0);
+	work = allocwindow(scr, Rect(scrb->r.min.x, scrb->r.min.y, scrb->r.max.x, scrb->r.max.y - TrayH), 0, 0xFFFFFFFF);
+	tray = allocwindow(scr, Rect(scrb->r.min.x, scrb->r.max.y - TrayH, scrb->r.max.x, scrb->r.max.y), 0, 0xCCCCCCFF);
 }
 
 static Obj *
@@ -96,6 +99,7 @@ workdraw(void)
 		o->tab->draw(o, work);
 	if(carry != nil && showcarry)
 		carry->tab->draw(carry, work);
+	draw(screen, rectaddpt(scrb->r, screen->r.min), scrb, nil, ZP);
 	flushimage(display, 1);
 }
 
@@ -107,6 +111,7 @@ rundraw(void)
 	draw(work, work->r, display->white, nil, ZP);
 	for(o = runo.next; o != &runo; o = o->next)
 		o->tab->draw(o, work);
+	draw(screen, rectaddpt(scrb->r, screen->r.min), scrb, nil, ZP);
 	flushimage(display, 1);
 }
 
@@ -166,10 +171,21 @@ place(void)
 }
 
 static void
+resized(void)
+{
+	if(getwindow(display, Refnone) < 0)
+		sysfatal("could not reattach to window");
+	rundraw();
+	workdraw();
+}
+
+static void
 mouse(void)
 {
 	static int lbut = -1;
 	Point p;
+
+	mc->xy = subpt(mc->xy, screen->r.min);
 	
 	if(lbut < 0)
 		lbut = mc->buttons;
@@ -233,17 +249,20 @@ run(void)
 	for(;;){
 		Alt a[] = {
 			{mc->c, &mc->Mouse, CHANRCV},
+			{mc->resizec, nil, CHANRCV},
 			{kc->c, &r, CHANRCV},
 			{nil, nil, CHANNOBLK}
 		};
 		
 		switch(alt(a)){
 		case 0: mouse(); break;
-		case 1:
+		case 1: resized(); break;
+		case 2:
 			switch(r){
 			case ' ': goto out;
 			case Kdel: threadexitsall(nil);
 			}
+			break;
 		}
 		
 		physstep();
@@ -288,7 +307,6 @@ usage(void)
 void
 threadmain(int argc, char **argv)
 {
-	void simpleinit(void);
 	Rune r;
 	char *s;
 	
@@ -316,13 +334,15 @@ threadmain(int argc, char **argv)
 	for(;;){
 		Alt a[] = {
 			{mc->c, &mc->Mouse, CHANRCV},
+			{mc->resizec, nil, CHANRCV},
 			{kc->c, &r, CHANRCV},
 			{nil, nil, CHANEND}
 		};
 		
 		switch(alt(a)){
 		case 0: mouse(); break;
-		case 1: key(r); break;
+		case 1: resized(); break;
+		case 2: key(r); break;
 		}
 	}
 }

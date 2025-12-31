@@ -23,3 +23,4 @@ void addtray(ObjT *, ...);
 void physstep(void);
 int hinged(Obj *, Obj *);
 void copyhinges(Obj *, Obj *);
+void simpleinit(void);
