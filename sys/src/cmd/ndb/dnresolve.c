@@ -1467,7 +1467,7 @@ doquery(Query *qp)
 	qp->id = rand();
 	len = mkreq(qp->dp, qp->type, pkt, flag, qp->id);
 	if(strncmp(qp->nsrp->owner->name, "local#dot#server", 16) == 0
-	|| strncmp(qp->nsrp->owner->name, "override#dot#server", 16) == 0){
+	|| strncmp(qp->nsrp->owner->name, "override#dot#server", 19) == 0){
 		rv = tlsqueryns(qp, pkt, len);
 	} else {
 		/*
