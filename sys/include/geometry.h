@@ -10,8 +10,6 @@ typedef double Matrix3[4][4];
 typedef struct Quaternion Quaternion;
 typedef struct RFrame RFrame;
 typedef struct RFrame3 RFrame3;
-typedef struct Triangle2 Triangle2;
-typedef struct Triangle3 Triangle3;
 
 struct Point2 {
 	double x, y, w;
@@ -35,14 +33,8 @@ struct RFrame3 {
 	Point3 bx, by, bz;
 };
 
-struct Triangle2
-{
-	Point2 p0, p1, p2;
-};
-
-struct Triangle3 {
-	Point3 p0, p1, p2;
-};
+extern Point2	ZP2;
+extern Point3	ZP3;
 
 /* utils */
 double flerp(double, double, double);
@@ -61,6 +53,8 @@ Point2 berp2(Point2, Point2, Point2, Point3);
 double dotvec2(Point2, Point2);
 double vec2len(Point2);
 Point2 normvec2(Point2);
+Point2 centroid(Point2, Point2, Point2);
+Point3 barycoords(Point2, Point2, Point2, Point2);
 int edgeptcmp(Point2, Point2, Point2);
 int ptinpoly(Point2, Point2*, ulong);
 
@@ -77,6 +71,7 @@ double dotvec3(Point3, Point3);
 Point3 crossvec3(Point3, Point3);
 double vec3len(Point3);
 Point3 normvec3(Point3);
+Point3 centroid3(Point3, Point3, Point3);
 int lineXsphere(Point3*, Point3, Point3, Point3, double, int);
 int ptincylinder(Point3, Point3, Point3, double);
 int ptincone(Point3, Point3, Point3, double);
@@ -135,13 +130,6 @@ Point2 rframexform(Point2, RFrame);
 Point3 rframexform3(Point3, RFrame3);
 Point2 invrframexform(Point2, RFrame);
 Point3 invrframexform3(Point3, RFrame3);
-
-/* Triangle2 */
-Point2 centroid(Triangle2);
-Point3 barycoords(Triangle2, Point2);
-
-/* Triangle3 */
-Point3 centroid3(Triangle3);
 
 /* Fmt */
 #pragma varargck type "v" Point2

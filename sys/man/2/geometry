@@ -21,8 +21,6 @@ typedef double Matrix3[4][4];
 typedef struct Quaternion Quaternion;
 typedef struct RFrame RFrame;
 typedef struct RFrame3 RFrame3;
-typedef struct Triangle2 Triangle2;
-typedef struct Triangle3 Triangle3;
 .PB
 struct Point2 {
 	double x, y, w;
@@ -46,14 +44,8 @@ struct RFrame3 {
 	Point3 bx, by, bz;
 };
 .PB
-struct Triangle2
-{
-	Point2 p0, p1, p2;
-};
-.PB
-struct Triangle3 {
-	Point3 p0, p1, p2;
-};
+extern Point2	ZP2;
+extern Point3	ZP3;
 .PB
 /* utils */
 double flerp(double a, double b, double t)
@@ -72,6 +64,8 @@ Point2 berp2(Point2 a, Point2 b, Point2 c, Point3 bc)
 double dotvec2(Point2 a, Point2 b)
 double vec2len(Point2 v)
 Point2 normvec2(Point2 v)
+Point2 centroid(Point2 p0, Point2 p1, Point2 p2)
+Point3 barycoords(Point2 p0, Point2 p1, Point2 p2, Point2 p)
 int edgeptcmp(Point2 e0, Point2 e1, Point2 p)
 int ptinpoly(Point2 p, Point2 *pts, ulong npts)
 .PB
@@ -88,6 +82,7 @@ double dotvec3(Point3 a, Point3 b)
 Point3 crossvec3(Point3 a, Point3 b)
 double vec3len(Point3 v)
 Point3 normvec3(Point3 v)
+Point3 centroid3(Point3 p0, Point3 p1, Point3 p2)
 int lineXsphere(Point3 *rp, Point3 p0, Point3 p1,
 		Point3 c, double rad, int isaray)
 int ptincylinder(Point3 p, Point3 p0, Point3 p1, double r)
@@ -147,13 +142,6 @@ Point2 rframexform(Point2 p, RFrame rf)
 Point3 rframexform3(Point3 p, RFrame3 rf)
 Point2 invrframexform(Point2 p, RFrame rf)
 Point3 invrframexform3(Point3 p, RFrame3 rf)
-.PB
-/* Triangle2 */
-Point2 centroid(Triangle2 t)
-Point3 barycoords(Triangle2 t, Point2 p)
-.PB
-/* Triangle3 */
-Point3 centroid3(Triangle3 t)
 .PB
 /* Fmt */
 #pragma varargck type "v" Point2
@@ -282,6 +270,15 @@ Normalizes the vector
 .I v
 and returns a new 2D point.
 .TP
+.B centroid(\fIp0\fP,\fIp1\fP,\fIp2\fP)
+Returns the geometric center of a triangle defined by three points.
+.TP
+.B barycoords(\fIp0\fP,\fIp1\fP,\fIp2\fP,\fIp\fP)
+Returns a 3D point that represents the barycentric coordinates of the
+2D point
+.I p
+relative to the triangle defined by the first three points.
+.TP
 .B edgeptcmp(\fIe0\fP,\fIe1\fP,\fIp\fP)
 Performs a comparison between an edge, defined by a directed line from
 .I e0
@@ -372,6 +369,9 @@ Computes the length—magnitude—of vector
 Normalizes the vector
 .I v
 and returns a new 3D point.
+.TP
+.B centroid3(\fIp0\fP,\fIp1\fP,\fIp2\fP)
+Returns the geometric center of a triangle defined by three points.
 .TP
 .B lineXsphere(\fIrp\fP,\fIp0\fP,\fIp1\fP,\fIc\fP,\fIrad\fP,\fIisaray\fP)
 Finds the intersection between the line defined by
@@ -728,27 +728,6 @@ relative to
 .IR rf ,
 into a point relative to the origin rframe O.
 It then returns the new 3D point.
-.SS Triangles
-.TP
-Name
-Description
-.TP
-.B centroid(\fIt\fP)
-Returns the geometric center of
-.B Triangle2
-.IR t .
-.TP
-.B barycoords(\fIt\fP,\fIp\fP)
-Returns a 3D point that represents the barycentric coordinates of the
-2D point
-.I p
-relative to the triangle
-.IR t .
-.TP
-.B centroid3(\fIt\fP)
-Returns the geometric center of
-.B Triangle3
-.IR t .
 .SH EXAMPLES
 .PP
 Rotate a point p by θ, scale it 2x, then translate it by vector v:
