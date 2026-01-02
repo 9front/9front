@@ -202,11 +202,11 @@ restart:
 		p = divpt(addpt(screen->r.min, screen->r.max), 2);
 		q = divpt(subpt(i->r.max, i->r.min), 2);
 		r = (Rectangle){subpt(p, q), addpt(p, q)};
-		lockdisplay(display);
+		rlockdisplay(display);
 		draw(disp, r, i, nil, i->r.min);
 		freeimage(i);
 		flushimage(display, 1);
-		unlockdisplay(display);
+		runlockdisplay(display);
 	}
 	fprint(2, "readimage: %r\n");
 	close(fd);
@@ -234,18 +234,17 @@ threadmain(int argc, char **argv)
 	if(mc == nil) sysfatal("initmouse: %r");
 	threadcreate(resizethread, nil, mainstacksize);
 	proccreate(videoproc, nil, mainstacksize);
-	display->locking = 1;
 	flushimage(display, 1);
 	unlockdisplay(display);
 	while(recv(mc->c, &mc->Mouse) >= 0){
 		if(mc->buttons == 0)
 			continue;
-		lockdisplay(display);
+		rlockdisplay(display);
 		if((mc->buttons & 4) != 0)
 			rmb();
 		else if((mc->buttons & 2) != 0)
 			mmb();
 		flushimage(display, 1);
-		unlockdisplay(display);
+		runlockdisplay(display);
 	}
 }

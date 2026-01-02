@@ -5,6 +5,7 @@
 #include <fcall.h>
 #include <draw.h>
 #include <event.h>
+#include <keyboard.h>
 #include <ip.h>
 #include "icmp.h"
 
@@ -828,13 +829,11 @@ resize(void)
 void
 eresized(int new)
 {
-	lockdisplay(display);
 	if(new && getwindow(display, Refnone) < 0) {
 		fprint(2, "%s: can't reattach to window\n", argv0);
 		killall("reattach");
 	}
 	resize();
-	unlockdisplay(display);
 }
 
 void
@@ -906,25 +905,6 @@ dobutton1(Mouse *m)
 }
 
 void
-mouseproc(void*)
-{
-	Mouse mouse;
-
-	for(;;){
-		mouse = emouse();
-		if(mouse.buttons == 4){
-			lockdisplay(display);
-			dobutton2(&mouse);
-			unlockdisplay(display);
-		} else if(mouse.buttons == 1){
-			lockdisplay(display);
-			dobutton1(&mouse);
-			unlockdisplay(display);
-		}
-	}
-}
-
-void
 startproc(void (*f)(void*), void *arg)
 {
 	int pid;
@@ -944,7 +924,8 @@ startproc(void (*f)(void*), void *arg)
 void
 main(int argc, char *argv[])
 {
-	int i, j;
+	Event e;
+	int i, j, Etimer;
 	long v, vmax, mark;
 	char flags[10], *f, *p;
 
@@ -996,30 +977,38 @@ main(int argc, char *argv[])
 		fprint(2, "%s: initdraw failed: %r\n", argv0);
 		exits("initdraw");
 	}
-	display->locking = 1;	/* tell library we're using the display lock */
 	colinit();
-	einit(Emouse);
-	startproc(mouseproc, 0);
-
+	einit(Emouse|Ekeyboard);
+	Etimer = etimer(0, pinginterval/nmach);
 	resize();
 
 	starttime = time(0);
+	j = 0;
 
-	unlockdisplay(display); /* display is still locked from initdraw() */
-	for(j = 0; ; j++){
-		lockdisplay(display);
-		if(j == nmach){
-			parity = 1-parity;
-			j = 0;
-			for(i=0; i<nmach*ngraph; i++){
-				graph[i].newvalue(graph[i].mach, &v, &vmax, &mark);
-				graph[i].update(&graph[i], v, vmax, mark);
+	for(;;)
+		switch(eread(Emouse|Ekeyboard|Etimer, &e)){
+		case Emouse:
+			if(e.mouse.buttons == 4)
+				dobutton2(&e.mouse);
+			else if(e.mouse.buttons == 1)
+				dobutton1(&e.mouse);
+			break;
+		case Ekeyboard:
+			if(e.kbdc==Kdel || e.kbdc=='q')
+				killall(nil);
+			break;
+		default: /* Etimer */
+			if(j == nmach){
+				parity = 1-parity;
+				j = 0;
+				for(i=0; i<nmach*ngraph; i++){
+					graph[i].newvalue(graph[i].mach, &v, &vmax, &mark);
+					graph[i].update(&graph[i], v, vmax, mark);
+				}
+				starttime = time(0);
 			}
-			starttime = time(0);
+			flushimage(display, 1);
+			pingsend(&mach[j%nmach]);
+			j++;
 		}
-		flushimage(display, 1);
-		unlockdisplay(display);
-		pingsend(&mach[j%nmach]);
-		sleep(pinginterval/nmach);
-	}
 }

@@ -71,7 +71,6 @@ redraw(void)
 	int i, w, maxw;
 	char t[256];
 
-	lockdisplay(display);
 	draw(screen, screen->r, display->white, nil, ZP);
 	p = screen->r.min;
 
@@ -105,7 +104,6 @@ redraw(void)
 	string(screen, p, display->black, ZP, font, t);
 
 	flushimage(display, 1);
-	unlockdisplay(display);
 }
 
 static int
@@ -203,7 +201,6 @@ newfont(void)
 {
 	char t[512];
 
-	lockdisplay(display);
 	if(f != nil)
 		freefont(f);
 	if(cdir->isttf)
@@ -212,7 +209,6 @@ newfont(void)
 		snprint(t, sizeof(t), "%s/%s/%s.font", cdir->prefix, cdir->name, cdir->fonts[cdir->ifont]);
 	if((f = openfont(display, t)) == nil)
 		snprint(lasterr, sizeof(lasterr), "%r");
-	unlockdisplay(display);
 }
 
 static char *
@@ -294,8 +290,6 @@ threadmain(int argc, char **argv)
 		sysfatal("initmouse: %r");
 	a[Cmouse].c = mctl->c;
 	a[Cresize].c = mctl->resizec;
-	display->locking = 1;
-	unlockdisplay(display);
 
 	memset(&menu, 0, sizeof(menu));
 	cdir = &dirs[0];

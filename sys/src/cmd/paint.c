@@ -777,10 +777,8 @@ main(int argc, char *argv[])
 					free(filename);
 					filename = strdup(s);
 				Readimage:
-					unlockdisplay(display);
-					img = readimage(display, fd, 1);
+					img = readimage(display, fd, 0);
 					close(fd);
-					lockdisplay(display);
 					if(img == nil){
 						werrstr("readimage: %r");
 						goto Error;

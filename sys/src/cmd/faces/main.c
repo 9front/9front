@@ -711,7 +711,6 @@ main(int argc, char *argv[])
 		addmaildir(maildir);
 	init();
 	unlockdisplay(display);	/* initdraw leaves it locked */
-	display->locking = 1;	/* tell library we're using the display lock */
 	setdate();
 	eresized(0);
 

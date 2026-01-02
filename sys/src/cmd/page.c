@@ -907,11 +907,8 @@ loadpage(Page *p)
 		}
 		if(p->image == nil)
 			p->open = nil;
-		else {
-			lockdisplay(display);
+		else
 			imemsize += imagesize(p->image);
-			unlockdisplay(display);
-		}
 	}
 }
 
@@ -924,10 +921,8 @@ unloadpage(Page *p)
 
 	if(p->open == nil || p->image == nil)
 		return;
-	lockdisplay(display);
 	imemsize -= imagesize(p->image);
 	freeimage(p->image);
-	unlockdisplay(display);
 	p->image = nil;
 }
 
@@ -967,9 +962,7 @@ loadpages(Page *p, int oviewgen)
 				newwin = 0;
 				resizewin(size);
 			}
-			lockdisplay(display);
 			drawpage(p);
-			unlockdisplay(display);
 		}
 		qunlock(p);
 	next:
@@ -1323,29 +1316,13 @@ showpage1(Page *p)
 	nproc++;
 }
 
-/* recursive display lock, called from main proc only */
-void
-drawlock(int dolock){
-	static int ref = 0;
-	if(dolock){
-		if(ref++ == 0)
-			lockdisplay(display);
-	} else {
-		if(--ref == 0)
-			unlockdisplay(display);
-	}
-}
-
-
 void
 showpage(Page *p)
 {
 	if(p == nil)
 		return;
-	drawlock(0);
 	unloadpages(imemlimit);
 	showpage1(p);
-	drawlock(1);
 }
 
 void
@@ -1356,7 +1333,6 @@ zerox(Page *p)
 
 	if(p == nil)
 		return;
-	drawlock(0);
 	qlock(p);
 	if((fd = openpage(p)) < 0)
 		goto Out;
@@ -1372,7 +1348,6 @@ zerox(Page *p)
 	close(fd);
 Out:
 	qunlock(p);
-	drawlock(1);
 }
 
 void
@@ -1388,7 +1363,6 @@ showext(Page *p)
 	ps = Pt(0, 0);
 	if(p->image != nil)
 		ps = addpt(subpt(p->image->r.max, p->image->r.min), Pt(24, 24));
-	drawlock(0);
 	if((fd = p->fd) < 0){
 		if(p->open != popenfile)
 			return;
@@ -1415,7 +1389,6 @@ showext(Page *p)
 		exits(0);
 	}
 	close(fd);
-	drawlock(1);
 }
 
 void
@@ -1423,7 +1396,6 @@ eresized(int new)
 {
 	Page *p;
 
-	drawlock(1);
 	if(new && getwindow(display, Refnone) == -1)
 		sysfatal("getwindow: %r");
 	if((p = current) != nil){
@@ -1432,7 +1404,6 @@ eresized(int new)
 			qunlock(p);
 		}
 	}
-	drawlock(0);
 }
 
 int cohort = -1;
@@ -1472,10 +1443,8 @@ docmd(int i, Mouse *m)
 		rotate = 0;
 	Unload:
 		viewgen++;
-		drawlock(0);
 		unloadpages(0);
 		showpage1(current);
-		drawlock(1);
 		break;
 	case Cupsidedown:
 		rotate += 90;
@@ -1676,8 +1645,6 @@ main(int argc, char *argv[])
 	paper = display->white;
 	frame = display->black;
 	ground = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x777777FF);
-	display->locking = 1;
-	unlockdisplay(display);
 
 	einit(Ekeyboard|Emouse);
 	eplumb(Eplumb, "image");
@@ -1696,11 +1663,8 @@ main(int argc, char *argv[])
 	for(i=0; i<NPROC/4; i++)	/* rice */
 		showpage1(current);
 
-	drawlock(1);
 	for(;;){
-		drawlock(0);
 		i=event(&e);
-		drawlock(1);
 
 		switch(i){
 		case Emouse:
@@ -1804,9 +1768,7 @@ main(int argc, char *argv[])
 				j = trywalk(s, plumblookup(pm->attr, "addr"));
 				if(j == nil){
 					current = root;
-					drawlock(0);
 					j = addpage(root, s, popenfile, s, fd);
-					drawlock(1);
 				}
 				forward = 0;
 				showpage(j);
