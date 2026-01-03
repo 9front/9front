@@ -4,7 +4,6 @@ typedef struct FPsave	FPsave;
 typedef struct PFPU	PFPU;
 typedef struct ISAConf	ISAConf;
 typedef struct Label	Label;
-typedef struct Lock	Lock;
 typedef struct Mach	Mach;
 typedef struct Page	Page;
 typedef struct PCArch	PCArch;
@@ -28,16 +27,6 @@ typedef long		Tval;
 /*
  *  machine dependent definitions used by ../port/dat.h
  */
-
-struct Lock
-{
-	ulong	key;
-	ulong	sr;
-	ulong	pc;
-	Proc	*p;
-	Mach	*m;
-	ushort	isilock;
-};
 
 struct Label
 {

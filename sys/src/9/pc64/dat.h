@@ -7,7 +7,6 @@ typedef struct FPsave	FPsave;
 typedef struct PFPU	PFPU;
 typedef struct ISAConf	ISAConf;
 typedef struct Label	Label;
-typedef struct Lock	Lock;
 typedef struct MMU	MMU;
 typedef struct Mach	Mach;
 typedef struct PCArch	PCArch;
@@ -31,17 +30,6 @@ typedef struct Vctl	Vctl;
  *  parameters for sysproc.c
  */
 #define AOUT_MAGIC	(S_MAGIC)
-
-struct Lock
-{
-	ulong	key;
-	ulong	sr;
-	uintptr	pc;
-	Proc	*p;
-	Mach	*m;
-	ushort	isilock;
-	long	lockcycles;
-};
 
 struct Label
 {

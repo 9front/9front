@@ -6,7 +6,6 @@ typedef struct KMap	KMap;
 typedef struct Lance	Lance;
 typedef struct Lancemem	Lancemem;
 typedef struct Label	Label;
-typedef struct Lock	Lock;
 typedef struct Mach	Mach;
 typedef struct MMU	MMU;
 typedef struct PMMU	PMMU;
@@ -28,16 +27,6 @@ typedef uvlong		Tval;
 /*
  *  machine dependent definitions used by ../port/dat.h
  */
-
-struct Lock
-{
-	ulong	key;			/* semaphore (non-zero = locked) */
-	ulong	sr;
-	ulong	pc;
-	Proc	*p;
-	Mach	*m;
-	ushort	isilock;
-};
 
 struct Label
 {

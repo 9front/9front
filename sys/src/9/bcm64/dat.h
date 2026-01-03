@@ -19,7 +19,6 @@ typedef struct FPsave	FPsave;
 typedef struct PFPU	PFPU;
 typedef struct ISAConf	ISAConf;
 typedef struct Label	Label;
-typedef struct Lock	Lock;
 typedef struct Memcache	Memcache;
 typedef struct MMMU	MMMU;
 typedef struct Mach	Mach;
@@ -44,16 +43,6 @@ typedef void		KMap;
  *  parameters for sysproc.c
  */
 #define AOUT_MAGIC	(R_MAGIC)
-
-struct Lock
-{
-	ulong	key;
-	u32int	sr;
-	uintptr	pc;
-	Proc*	p;
-	Mach*	m;
-	int	isilock;
-};
 
 struct Label
 {

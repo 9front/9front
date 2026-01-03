@@ -13,6 +13,7 @@ typedef struct Evalue	Evalue;
 typedef struct Fgrp	Fgrp;
 typedef struct DevConf	DevConf;
 typedef struct Image	Image;
+typedef struct Lock	Lock;
 typedef struct Log	Log;
 typedef struct Logflag	Logflag;
 typedef struct Mntcache Mntcache;
@@ -64,6 +65,16 @@ typedef int    Devgen(Chan*, char*, Dirtab*, int, int, Dir*);
 #pragma incomplete Tos
 
 #include <fcall.h>
+
+struct Lock
+{
+	ulong	key;
+	ulong	sr;
+	uintptr	pc;
+	Proc	*p;
+	Mach	*m;
+	ushort	isilock;
+};
 
 struct Ref
 {

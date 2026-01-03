@@ -4,7 +4,6 @@ typedef struct FPsave	FPsave;
 typedef struct PFPU	PFPU;
 typedef struct L1	L1;
 typedef struct Label	Label;
-typedef struct Lock	Lock;
 typedef struct KMap	KMap;
 typedef struct MMMU	MMMU;
 typedef struct Mach	Mach;
@@ -21,16 +20,6 @@ typedef uvlong		Tval;
 #define MAXSYSARG	5	/* for mount(fd, mpt, flag, arg, srv) */
 
 #define AOUT_MAGIC	(E_MAGIC)
-
-struct Lock
-{
-	ulong	key;
-	u32int	sr;
-	uintptr	pc;
-	Proc*	p;
-	Mach*	m;
-	int	isilock;
-};
 
 struct Label
 {

@@ -5,7 +5,6 @@ typedef struct PFPU	PFPU;
 typedef struct ISAConf	ISAConf;
 typedef struct Imap	Imap;
 typedef struct Label	Label;
-typedef struct Lock	Lock;
 typedef struct Mach	Mach;
 typedef struct PCArch	PCArch;
 typedef struct PMMU	PMMU;
@@ -30,16 +29,6 @@ typedef long		Tval;
 /*
  *  machine dependent definitions used by ../port/dat.h
  */
-
-struct Lock
-{
-	ulong	key;			/* semaphore (non-zero = locked) */
-	ulong	sr;
-	ulong	pc;
-	Proc	*p;
-	ulong	pid;
-	ushort	isilock;
-};
 
 struct Label
 {

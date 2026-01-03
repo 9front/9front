@@ -27,7 +27,6 @@ typedef struct PFPU	PFPU;
 typedef struct ISAConf	ISAConf;
 typedef struct Isolated Isolated;
 typedef struct Label	Label;
-typedef struct Lock	Lock;
 typedef struct Lowmemcache Lowmemcache;
 typedef struct Memcache	Memcache;
 typedef struct MMMU	MMMU;
@@ -54,16 +53,6 @@ typedef uvlong		Tval;
  *  parameters for sysproc.c
  */
 #define AOUT_MAGIC	(E_MAGIC)
-
-struct Lock
-{
-	ulong	key;
-	u32int	sr;
-	uintptr	pc;
-	Proc*	p;
-	Mach*	m;
-	int	isilock;
-};
 
 struct Label
 {
