@@ -28,6 +28,8 @@ OFILES=\
 	fmt.$O\
 	font.$O\
 	freesubfont.$O\
+	genenter.$O\
+	genmenuhit.$O\
 	getdefont.$O\
 	getrect.$O\
 	getsubfont.$O\
