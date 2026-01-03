@@ -10,8 +10,7 @@ eval `''{aux/getflags $*} || exec aux/usage
 
 modified=()
 deleted=()
-idxchange=.git/INDEX9.changes
-touch $idxchange
+failed=()
 if(~ $#* 0){
 	if(~ $#listall 0)
 		awk '$1=="branch"{print $2}' < $gitfs/ctl
@@ -87,34 +86,36 @@ if not {
 			cleanpaths=($cleanpaths $p)
 }
 
-for(d in $deleted){
-	if(! test -d $d){
-		rm -f $d
-		echo R NOQID 0 $d >> $idxchange
+>>[3].git/INDEX9{
+	for(d in $deleted){
+		if(! test -d $d){
+			rm -f $d
+			echo R NOQID 0 $d >>[1=3]
+		}
 	}
-}
-
-for(m in $cleanpaths){
-	d=`$nl{basename -d $m}
-	mkdir -p $d
-	# Modifications can turn a file into
-	# a directory, or vice versa, so we
-	# need to delete and copy the files
-	# over.
-	a=dir
-	b=dir
-	if(test -f $m)
-		a=file
-	if(test -f $basedir/tree/$m)
-		b=file
-	if(! ~ $a $b){
-		rm -rf $m
-		echo R NOQID 0 $m >> $idxchange
-	}
-	if(~ $b file){
-		cp -x -- $basedir/tree/$m $m
-		echo T NOQID 0 $m >> $idxchange
-		touch $m
+	
+	for(m in $cleanpaths){
+		d=`$nl{basename -d $m}
+		mkdir -p $d
+		# Modifications can turn a file into
+		# a directory, or vice versa, so we
+		# need to delete and copy the files
+		# over.
+		a=dir
+		b=dir
+		if(test -f $m)
+			a=file
+		if(test -f $basedir/tree/$m)
+			b=file
+		if(! ~ $a $b){
+			rm -rf $m
+			echo R NOQID 0 $m >>[1=3]
+		}
+		if(~ $b file){
+			echo T NOQID 0 $m >>[1=3]
+			cp -x -- $basedir/tree/$m $m || {echo cp failed: $f; failed=1}
+			touch $m || {echo touch failed: $f; failed=1}
+		}
 	}
 }
 
@@ -131,9 +132,10 @@ if(~ $new */*)
 echo $commit > .git/$new
 if(! ~ $#stay 0)
 	exit
-
-cat $idxchange >> .git/INDEX9
+if(~ $failed 1){
+	echo 'pull failed: fix errors and try again' >[1=2]
+	exit nopull
+}
 echo ref: $new > .git/HEAD
 echo $new: `{git/query $new}
-rm -f $idxchange
 exit ''
