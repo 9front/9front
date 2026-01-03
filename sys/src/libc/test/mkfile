@@ -3,6 +3,7 @@
 TEST=\
 	atomic\
 	date\
+	lock\
 	pow\
 	runebreak\
 	runenorm\
