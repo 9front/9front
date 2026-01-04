@@ -4,16 +4,24 @@ tput \- measure read throughput
 .SH SYNOPSIS
 .B tput
 [
+.B -pw
+]
+[
 .B -b
 .I buflen
-] [
-.B -p
 ]
 .SH DESCRIPTION
 .I Tput
 continuously reads standard input writing throughput statistics
 to standard error. The throughput value is calculated and written
 once per second and automatically scaled to kilo-, mega- or gigabytes.
+.PP
+By default, tput will print the average throughput since the
+stream has started.
+When passed the
+.B -w
+flag,
+tput will print the throughput over the last 1 second window.
 .PP
 When the
 .B -p
