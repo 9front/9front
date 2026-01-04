@@ -109,5 +109,5 @@ main(void)
 		free(wait());
 	}
 	assert(counter == 0);
-
+	exits(nil);
 }
