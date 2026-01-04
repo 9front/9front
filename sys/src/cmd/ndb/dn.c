@@ -1003,25 +1003,14 @@ tsame(int t1, int t2)
 /*
  *  Add resource records to a list.
  */
-RR*
-rrcat(RR **start, RR *rp)
+void
+rrcat(RR **l, RR *rp)
 {
-	RR *olp, *nlp;
-	RR **last;
-
-	/* check for duplicates */
-	for (olp = *start; 0 && olp; olp = olp->next)
-		for (nlp = rp; nlp; nlp = nlp->next)
-			if (rrsame(nlp, olp))
-				dnslog("rrcat: duplicate RR: %R", nlp);
-	USED(olp);
-
-	last = start;
-	while(*last != nil)
-		last = &(*last)->next;
-
-	*last = rp;
-	return *start;
+	if(rp == nil)
+		return;
+	while(*l != nil)
+		l = &(*l)->next;
+	*l = rp;
 }
 
 RR*

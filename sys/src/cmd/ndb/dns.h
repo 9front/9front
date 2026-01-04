@@ -359,6 +359,8 @@ struct DNSmsg
 	int	arcount;	/* hints */
 	RR	*ar;
 	RR	*edns;		/* edns option */
+
+	void	*responder;	/* responding server */
 };
 
 /*
@@ -463,7 +465,7 @@ char*	rcname(int);
 RR*	rralloc(int);
 void	rrattach(RR*, int);
 int	rravfmt(Fmt*);
-RR*	rrcat(RR**, RR*);
+void	rrcat(RR**, RR*);
 RR**	rrcopy(RR*, RR**);
 int	rrfmt(Fmt*);
 void	rrfree(RR*);

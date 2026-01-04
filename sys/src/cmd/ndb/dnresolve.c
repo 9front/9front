@@ -931,16 +931,48 @@ cacheneg(DN *dp, int type, int rcode, RR *soarr)
 }
 
 static int
+inbaliwick(RR *nsrp, RR *rr)
+{
+	char *zone;
+
+	if(nsrp == nil)
+		return 0;
+	if(nsrp->owner == rr->owner)
+		return 1;
+	zone = nsrp->owner->name;
+	if(strncmp(zone, "local#", 6) == 0)
+		return 1;
+	if(strncmp(zone, "override#", 9) == 0)
+		return 1;
+	return subsume(zone, rr->owner->name);
+}
+
+static int
 filterhints(RR *rp, void *arg)
 {
-	RR *nsrp;
+	DNSmsg *mp = arg;
+	RR *rr;
 
 	if(rp->type != Ta && rp->type != Taaaa)
 		return 0;
 
-	for(nsrp = arg; nsrp; nsrp = nsrp->next)
-		if(nsrp->type == Tns && rp->owner == nsrp->host)
+	for(rr = mp->ns; rr != nil; rr = rr->next){
+		if(rr->type == Tns && rr->host == rp->owner)
 			return 1;
+	}
+
+	for(rr = mp->an; rr != nil; rr = rr->next){
+		switch(rr->type){
+		case Tns:
+		case Tmx:
+		case Tsrv:
+		case Tcname:
+			if(rr->host == rp->owner){
+				Dest *dest = mp->responder;
+				return dest != nil && inbaliwick(dest->n, rp);
+			}
+		}
+	}
 
 	return 0;
 }
@@ -956,20 +988,13 @@ filterauth(RR *rp, void *arg)
 	if(nsrp == nil)
 		return 0;
 
-	if(rp->type == Tsoa && rp->owner != nsrp->owner
-	&& !subsume(nsrp->owner->name, rp->owner->name)
-	&& strncmp(nsrp->owner->name, "local#", 6) != 0)
+	if(rp->type == Tsoa && !inbaliwick(nsrp, rp))
 		return 1;
 
 	if(rp->type != Tns)
 		return 0;
 
-	if(rp->owner != nsrp->owner
-	&& !subsume(nsrp->owner->name, rp->owner->name)
-	&& strncmp(nsrp->owner->name, "local#", 6) != 0)
-		return 1;
-
-	return baddelegation(rp, nsrp, dest->a);
+	return !inbaliwick(nsrp, rp) || baddelegation(rp, nsrp, dest->a);
 }
 
 static void
@@ -996,6 +1021,7 @@ procansw(Query *qp, Dest *p, DNSmsg *mp)
 	RR *tp, *soarr;
 	int rv, rcode;
 
+	mp->responder = p;
 	if(mp->an == nil)
 		stats.negans++;
 
@@ -1061,8 +1087,8 @@ procansw(Query *qp, Dest *p, DNSmsg *mp)
 		rrattach(mp->an, (mp->flags & Fauth) != 0);
 	}
 	if(mp->ar){
-		/* restrict hints to address rr's for nameservers only */
-		if((tp = rrremfilter(&mp->ar, filterhints, mp->ns)) != 0){
+		/* restrict hints to address rr's related to answer */
+		if((tp = rrremfilter(&mp->ar, filterhints, mp)) != 0){
 			reportandfree(mp->ar, "hint", p);
 			mp->ar = tp;
 		}
