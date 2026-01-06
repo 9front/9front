@@ -278,12 +278,17 @@ colinit(void)
 void
 checkhung(void)
 {
-	static char Ehungup[] = "i/o on hungup channel";
+	static char *Etab[] = {
+		"i/o on hungup channel",
+		"tls error",
+	};
 	char err[ERRMAX];
+	int i;
 
 	rerrstr(err, sizeof(err));
-	if(strncmp(err, Ehungup, sizeof(Ehungup)-1) == 0)
-		exits("restart");	/* let supervisor handle restart */
+	for(i = 0; i < nelem(Etab); i++)
+		if(strncmp(err, Etab[i], strlen(Etab[i])) == 0)
+			exits("restart");	/* let supervisor handle restart */
 }
 
 int
