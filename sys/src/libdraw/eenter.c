@@ -7,7 +7,7 @@
 extern int genenter(char *ask, char *buf, int len, Mouse *m, void *kc, int (*_input)(Mouse*, void*, Rune*), Screen *scr);
 
 static int
-_input(Mouse *m, void *kc, Rune *k)
+_input(Mouse *m, void *, Rune *k)
 {
 	Event ev;
 

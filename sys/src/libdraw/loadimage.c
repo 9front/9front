@@ -30,7 +30,7 @@ loadimage(Image *i, Rectangle r, uchar *data, int ndata)
 			dy = chunk/bpl;
 		if(dy <= 0){
 			dy = 1;
-			dx = ((chunk*dx)/bpl) & ~7;
+			dx = (((vlong)chunk*dx)/bpl) & ~7;
 			n = bytesperline(Rect(r.min.x, r.min.y, r.min.x+dx, r.min.y+dy), i->depth);
 			if(loadimage(i, Rect(r.min.x+dx, r.min.y, r.max.x, r.min.y+dy), data+n, bpl-n) < 0)
 				return -1;

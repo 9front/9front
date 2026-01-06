@@ -15,7 +15,7 @@ badrect(Rectangle r)
 	y = Dy(r);
 	if(x > 0 && y > 0){
 		z = x*y;
-		if(z/x == y && z < 0x10000000)
+		if(z/x == y)
 			return 0;
 	}
 	return 1;
