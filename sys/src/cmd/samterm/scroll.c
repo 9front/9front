@@ -104,6 +104,8 @@ scroll(Flayer *l, int but)
 			o = (tot / (s.max.y - s.min.y)) * my;
 			n = 0;
 			forcenter(l, o, n);
+			if(readmouse(mousectl) < 0)
+				panic("mouse");
 		}else{
 			o = l->origin;
 			n = my/l->f.font->height;
@@ -120,8 +122,8 @@ scroll(Flayer *l, int but)
 				sleep(175);
 			}
 			sleep(25);
+			if(nbrecv(mousectl->c, mousectl) < 0)
+				panic("mouse");
 		}
-		if(nbrecv(mousectl->c, mousectl) < 0)
-			panic("mouse");
 	}while(mousectl->buttons & (1 << (but-1)));
 }
