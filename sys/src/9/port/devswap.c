@@ -170,7 +170,7 @@ killbig(void)
 	qunlock(&kp->debug);
 	if(s != nil && s->ref > 1){
 		for(i = 0; (p = proctab(i)) != nil; i++) {
-			if(p == kp || !matchseg(p, s) || !canqlock(&p->debug))
+			if(p == kp || p->seg[BSEG] != s || !canqlock(&p->debug))
 				continue;
 			killproc(p, Proc_exitbig);
 			qunlock(&p->debug);
