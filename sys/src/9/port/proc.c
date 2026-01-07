@@ -1343,6 +1343,16 @@ pexit(char *exitstr, int freemem)
 		addbroken();
 	}
 
+	qlock(&up->seglock);
+	for(i = 0; i < NSEG; i++){
+		s = up->seg[i];
+		if(s != nil){
+			up->seg[i] = nil;
+			putseg(s);
+		}
+	}
+	qunlock(&up->seglock);
+
 	qlock(&up->debug);
 
 	lock(&up->exl);		/* Prevent my children from leaving waits */
@@ -1379,16 +1389,6 @@ pexit(char *exitstr, int freemem)
 	}
 	up->nwatchpt = 0;
 	qunlock(&up->debug);
-
-	qlock(&up->seglock);
-	for(i = 0; i < NSEG; i++){
-		s = up->seg[i];
-		if(s != nil){
-			up->seg[i] = nil;
-			putseg(s);
-		}
-	}
-	qunlock(&up->seglock);
 
 	edfstop(up);
 	if(up->edf != nil){
@@ -1655,7 +1655,7 @@ procctl(void)
 	switch(up->procctl) {
 	case Proc_exitbig:
 		spllo();
-		pprint("Killed: Insufficient physical memory\n");
+		print("%s %lud: Killed: Insufficient physical memory\n", up->text, up->pid);
 		pexit("Killed: Insufficient physical memory", 1);
 
 	case Proc_exitme:
@@ -1730,51 +1730,6 @@ procpagecount(Proc *p)
 			pages += s->used;
 	}
 	return pages;
-}
-
-void
-killbig(void)
-{
-	int i;
-	Segment *s;
-	ulong l, max;
-	Proc *p, *kp;
-
-	max = 0;
-	kp = nil;
-	for(i = 0; (p = proctab(i)) != nil; i++) {
-		if(p->state <= New || p->kp || p->parentpid == 0)
-			continue;
-		if((p->noswap || (p->procmode & 0222) == 0) && strcmp(eve, p->user) == 0)
-			continue;
-		l = procpagecount(p);
-		if(l > max){
-			kp = p;
-			max = l;
-		}
-	}
-	if(kp == nil)
-		return;
-	if(!canqlock(&kp->debug))
-		return;
-	if(!canqlock(&kp->seglock)){
-		qunlock(&kp->debug);
-		return;
-	}
-	s = kp->seg[BSEG];
-	if(kp->procctl != Proc_exitbig)
-		killproc(kp, Proc_exitbig);
-	qunlock(&kp->debug);
-	if(s != nil && s->ref > 1){
-		for(i = 0; (p = proctab(i)) != nil; i++) {
-			if(p == kp || !matchseg(p, s) || !canqlock(&p->debug))
-				continue;
-			if(p->procctl != Proc_exitbig)
-				killproc(p, Proc_exitbig);
-			qunlock(&p->debug);
-		}
-	}
-	qunlock(&kp->seglock);
 }
 
 /*

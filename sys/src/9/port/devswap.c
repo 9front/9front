@@ -129,6 +129,56 @@ kickpager(void)
 	wakeup(&swapalloc.r);
 }
 
+static void
+killbig(void)
+{
+	int i;
+	Segment *s;
+	ulong l, max;
+	Proc *p, *kp;
+
+	max = 0;
+	kp = nil;
+	for(i = 0; (p = proctab(i)) != nil; i++) {
+		if(p->state <= New || p->kp || p->parentpid == 0)
+			continue;
+		if(p->procctl == Proc_exitbig)
+			return;	/* try later when done exiting */
+		if((p->noswap || (p->procmode & 0222) == 0) && strcmp(eve, p->user) == 0)
+			continue;
+		l = procpagecount(p);
+		if(l > max){
+			kp = p;
+			max = l;
+		}
+	}
+	if(kp == nil)
+		return;
+	if(!canqlock(&kp->debug))
+		return;
+	if(!canqlock(&kp->seglock)){
+		qunlock(&kp->debug);
+		return;
+	}
+	if(!needpages(nil)){
+		qunlock(&kp->seglock);
+		qunlock(&kp->debug);
+		return;
+	}
+	s = kp->seg[BSEG];
+	killproc(kp, Proc_exitbig);
+	qunlock(&kp->debug);
+	if(s != nil && s->ref > 1){
+		for(i = 0; (p = proctab(i)) != nil; i++) {
+			if(p == kp || !matchseg(p, s) || !canqlock(&p->debug))
+				continue;
+			killproc(p, Proc_exitbig);
+			qunlock(&p->debug);
+		}
+	}
+	qunlock(&kp->seglock);
+}
+
 static int
 reclaim(void)
 {

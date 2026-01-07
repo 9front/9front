@@ -170,7 +170,6 @@ Physseg*	findphysseg(char*);
 int		kenter(Ureg*);
 void		kexit(Ureg*);
 void		kickpager(void);
-void		killbig(void);
 void		killproc(Proc*,int);
 void		kproc(char*, void(*)(void*), void*);
 void		kprocchild(Proc*, void (*)(void));
