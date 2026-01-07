@@ -772,8 +772,11 @@ dread(Req *req)
 			break;
 		case Pstatus:
 			n = snprint(buf, sizeof buf, "%11.0ud ", lun->status);
-			readbuf(req, buf, n);
+			if(n < count)
+				count = n;
 			lun->phase = Pcmd;
+			req->ofcall.count = count;
+			memmove(data, buf, count);
 			respond(req, nil);
 			break;
 		}
