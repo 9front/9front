@@ -17,6 +17,10 @@ wraptls(int ofd, char *host)
 		close(ofd);
 		return -1;
 	}
+	if (nocertcheck) {
+		syslog(0, "mail", "ignoring cert for %s", host);
+		return fd;
+	}
 	thumb = initThumbprints("/sys/lib/tls/mail", "/sys/lib/tls/mail.exclude", "x509");
 	if(thumb != nil){
 		if(!okCertificate(conn.cert, conn.certlen, thumb)){

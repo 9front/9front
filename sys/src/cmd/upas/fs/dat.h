@@ -220,6 +220,7 @@ char*		movemessages(int, char**);
 void		digestmessage(Mailbox*, Message*);
 
 int		wraptls(int, char*);
+int		nocertcheck;
 
 void		eprint(char*, ...);
 void		iprint(char *, ...);

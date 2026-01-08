@@ -308,6 +308,9 @@ main(int argc, char *argv[])
 	case 's':
 		srvpost = 1;
 		break;
+	case 'C':
+		nocertcheck = 1;
+		break;
 	default:
 		usage();
 	}ARGEND
