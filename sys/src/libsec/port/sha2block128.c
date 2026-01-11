@@ -62,7 +62,7 @@ _sha2block128(uchar *p, ulong len, u64int *s)
 #define STEP(a,b,c,d,e,f,g,h,i) \
 	if(i < 16) { \
 		w[i] = 	(u64int)(p[0]<<24 | p[1]<<16 | p[2]<<8 | p[3])<<32 | \
-			(p[4]<<24 | p[5]<<16 | p[6]<<8 | p[7]); \
+			(u32int)(p[4]<<24 | p[5]<<16 | p[6]<<8 | p[7]); \
 		p += 8; \
 	} else { \
 		u64int s0, s1; \
