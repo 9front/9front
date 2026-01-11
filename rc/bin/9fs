@@ -58,7 +58,7 @@ case 9grep
 	9fs tcp!9front.org!7734
 	bind -b /n/9front.org!7734 /n/lists
 case iso
-	srv -nq iso.only9fans.com iso /n/iso
+	srv -nq build.9front.org iso /n/iso
 # arbitrary venti archives
 case vac:*
 	vacfs <{echo $1}
