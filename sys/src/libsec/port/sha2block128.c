@@ -66,9 +66,9 @@ _sha2block128(uchar *p, ulong len, u64int *s)
 		p += 8; \
 	} else { \
 		u64int s0, s1; \
-		s1 = sigma1(w[i-2&15]); \
-		s0 = sigma0(w[i-15&15]); \
-		w[i&15] += s1 + w[i-7&15] + s0; \
+		s1 = sigma1(w[(i-2)&15]); \
+		s0 = sigma0(w[(i-15)&15]); \
+		w[i&15] += s1 + w[(i-7)&15] + s0; \
 	} \
 	h += SIGMA1(e) + Ch(e,f,g) + K512[i] + w[i&15]; \
 	d += h; \
