@@ -129,6 +129,12 @@ Ordinal day of month suffix specifier.
 .TP
 .B [...]
 Quoted text, copied directly to the output.
+To quote a literal
+.B [
+or
+.BR ] ,
+prepend it with a backslash
+.RB ( \e ).
 .TP
 .B _
 When formatting, this inserts padding into the date format.

@@ -70,6 +70,12 @@ Default timezone file, copied by
 into
 .BR /env/timezone .
 .PD
+.SH EXAMPLES
+Print the current zero-padded hour and minute in brackets:
+.IP
+.EX
+% date -f '[\e[]hh:mm[\e]]'
+.EE
 .SH SOURCE
 .B /sys/src/cmd/date.c
 .br
