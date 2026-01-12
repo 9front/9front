@@ -457,7 +457,7 @@ readsegment(Header *h, int *markerp)
 		return 0;
 	}
 	if(Bread(h->fd, tmp, 2) != 2)
-    Readerr:
+Readerr:
 		jpgerror(h, readerr);
 	n = int2(tmp, 0);
 	if(n < 2)
@@ -574,7 +574,7 @@ outF25:
 		t->shift[v] = 8-cnt;
 		t->value[v] = t->val[t->valptr[i]+(code-t->mincode[i])];
 
-    continueBytes:
+continueBytes:
 		v++;
 	}
 
@@ -899,16 +899,15 @@ static
 void
 progressivedc(Header *h, int comp, int Ah, int Al)
 {
-	int Ns, z, ri, mcu,  nmcu;
+	int Ns, z, ri, mcu, nmcu;
 	int block, t, diff, qt, *dc, bn;
+	int x, y, H, V, nhor, nver, q;
 	Huffman *dcht;
 	uchar *ss;
-	int i, Td[3], DC[3], blockno[3];
+	int i, j, Td[4], DC[4], scancomp[4], blockno[4];
 
 	ss= h->ss;
 	Ns = ss[0];
-	if(Ns!=1 && Ns!=h->Nf)
-		jpgerror(h, "ReadJPG: can't handle progressive with Ns!=1 and Nf!=Ns in DC scan");
 
 	/* initialize data structures */
 	h->cnt = 0;
@@ -916,47 +915,81 @@ progressivedc(Header *h, int comp, int Ah, int Al)
 	h->peek = -1;
 
 	for(i=0; i<Ns; i++){
-		/*
-		 * JPEG requires scan components to be in same order as in frame,
-		 * so if both have 3 we know scan is Y Cb Cr and there's no need to
-		 * reorder
-		 */
 		nibbles(ss[2+2*i], &Td[i], &z);	/* z is ignored */
 		DC[i] = 0;
+		for(j=0; j<h->Nf; j++)
+			if(h->comp[j].C == ss[1+2*i]){
+				scancomp[i] = j;
+				break;
+			}
+		if(j == h->Nf)
+			jpgerror(h, "ReadJPG: bad component selector in scan");
 	}
 
 	ri = h->ri;
 
-	nmcu = h->nacross*h->ndown;
-	memset(blockno, 0, sizeof blockno);
-	for(mcu=0; mcu<nmcu; ){
-		for(i=0; i<Ns; i++){
-			if(Ns != 1) comp = i;
-
-			dcht = &h->dcht[Td[i]];
-			qt = h->qt[h->comp[comp].Tq][0];
-			dc = h->dccoeff[comp];
-			bn = blockno[i];
-
-			for(block=0; block<h->nblock[comp]; block++){
+	if(Ns == 1){
+		/* ITU-T.81 A.2.2: scan in raster order if Ns = 1*/
+		comp = scancomp[0];
+		H = h->comp[comp].H;
+		V = h->comp[comp].V;
+		q = 8*h->Hmax/H;
+		nhor = (h->X+q-1)/q;
+		q = 8*h->Vmax/V;
+		nver = (h->Y+q-1)/q;
+		dcht = &h->dcht[Td[0]];
+		qt = h->qt[h->comp[comp].Tq][0];
+		dc = h->dccoeff[comp];
+		mcu = 0;
+		for(y=0; y<nver; y++){
+			for(x=0; x<nhor; x++){
+				bn = (x/H + h->nacross*(y/V))*H*V + H*(y%V) + x%H;
 				if(Ah == 0){
 					t = decode(h, dcht);
 					diff = receive(h, t);
-					DC[i] += diff;
-					dc[bn] = qt*DC[i]<<Al;
+					DC[0] += diff;
+					dc[bn] = qt*DC[0]<<Al;
 				}else
 					dc[bn] |= qt*receivebit(h)<<Al;
-				bn++;
+				/* process restart marker, if present */
+				mcu++;
+				if(ri>0 && mcu%ri==0){
+					restart(h, mcu);
+					DC[0] = 0;
+				}
 			}
-			blockno[i] = bn;
 		}
-
-		/* process restart marker, if present */
-		mcu++;
-		if(ri>0 && mcu<nmcu && mcu%ri==0){
-			restart(h, mcu);
-			for(i=0; i<Ns; i++)
-				DC[i] = 0;
+	}else{
+		/* ITU-T.81 A.2.3: scan in MCU order otherwise */
+		nmcu = h->nacross*h->ndown;
+		memset(blockno, 0, sizeof blockno);
+		for(mcu=0; mcu<nmcu; ){
+			for(i=0; i<Ns; i++){
+				comp = scancomp[i];
+				dcht = &h->dcht[Td[i]];
+				qt = h->qt[h->comp[comp].Tq][0];
+				dc = h->dccoeff[comp];
+				bn = blockno[i];
+				for(block=0; block<h->nblock[comp]; block++){
+					if(Ah == 0){
+						t = decode(h, dcht);
+						diff = receive(h, t);
+						DC[i] += diff;
+						dc[bn] = qt*DC[i]<<Al;
+					}else
+						dc[bn] |= qt*receivebit(h)<<Al;
+					bn++;
+				}
+				blockno[i] = bn;
+			}
+	
+			/* process restart marker, if present */
+			mcu++;
+			if(ri>0 && mcu<nmcu && mcu%ri==0){
+				restart(h, mcu);
+				for(i=0; i<Ns; i++)
+					DC[i] = 0;
+			}
 		}
 	}
 }
@@ -1003,7 +1036,7 @@ progressiveac(Header *h, int comp, int Al)
 	mcu = 0;
 	for(y=0; y<nver; y++){
 		for(x=0; x<nhor; x++){
-			/* Figure G-3  */
+			/* Figure G-3 */
 			if(eobrun > 0){
 				--eobrun;
 				continue;
@@ -1104,7 +1137,7 @@ progressiveacinc(Header *h, int comp, int Al)
 		for(x=0; x<nhor; x++){
 			/* Figure G-7 */
 
-			/*  arrange blockno to be in same sequence as original scan calculation. */
+			/* arrange blockno to be in same sequence as original scan calculation. */
 			tmcu = x/H + (nacross/H)*(y/V);
 			blockno = tmcu*H*V + H*(y%V) + x%H;
 			acc = ac[blockno];
@@ -1237,7 +1270,9 @@ colormap1(Header *h, int colorspace, Rawimage *image, int data[8*8], int mcu, in
 
 static
 void
-colormapall1(Header *h, int colorspace, Rawimage *image, int data0[8*8], int data1[8*8], int data2[8*8], int mcu, int nacross)
+colormapall1(Header *h, int colorspace, Rawimage *image,
+	int data0[8*8], int data1[8*8], int data2[8*8],
+	int mcu, int nacross)
 {
 	uchar *rpic, *gpic, *bpic, *rp, *gp, *bp;
 	int *p0, *p1, *p2;
@@ -1290,7 +1325,10 @@ colormapall1(Header *h, int colorspace, Rawimage *image, int data0[8*8], int dat
 
 static
 void
-colormap(Header *h, int colorspace, Rawimage *image, int *data0[8*8], int *data1[8*8], int *data2[8*8], int mcu, int nacross, int Hmax, int Vmax,  int *H, int *V)
+colormap(Header *h, int colorspace, Rawimage *image,
+	int *data0[8*8], int *data1[8*8], int *data2[8*8],
+	int mcu, int nacross, int Hmax, int Vmax,
+	int *H, int *V)
 {
 	uchar *rpic, *gpic, *bpic;
 	int x, y, dx, dy, minx, miny;
