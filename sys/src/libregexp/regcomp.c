@@ -164,6 +164,10 @@ regcomp1(char *regstr, int nl, int lit)
 	int regstrlen, maxthr;
 
 	regstrlen = utflen(regstr);
+	if(regstrlen == 0){
+		regstr = "^";
+		regstrlen = 1;
+	}
 	initplex(&plex, regstr, lit);
 	plex.nodes = calloc(sizeof(*plex.nodes), regstrlen*2);
 	if(plex.nodes == nil)

@@ -91,6 +91,8 @@ A
 matches the beginning of a line;
 .L $
 matches the end of the line.
+An empty regular expression behaves equivalently to
+.LR ^ .
 .PP
 The 
 .B REP

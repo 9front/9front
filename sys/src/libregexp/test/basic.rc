@@ -42,6 +42,10 @@ fn M {
 #  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 #  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+M	'^'	'abracadabracadabra'	'(0,0)'
+M	'^'	''	'(0,0)'
+M	''	'abracadabracadabra'	'(0,0)'
+M	''	''	'(0,0)'
 M	'abracadabra$'	'abracadabracadabra'	'(7,18)'
 M	'a...b'	'abababbb'	'(2,7)'
 M	'XXXXXX'	'..XXXXXX'	'(2,8)'
