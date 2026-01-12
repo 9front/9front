@@ -2,6 +2,8 @@
 
 rfork ne
 
+nl='
+'
 server=irc.oftc.net
 port=6697
 realname='<nil>'
@@ -19,16 +21,7 @@ fn sighup {
 
 fn sigint sigterm {
 	if (! ~ $#netdir 0)
-		echo  QUIT : Leaving... > $netdir/data
-}
-
-fn mshift {
-	shift
-	echo $*
-}
-
-fn etime {
-	date | awk '{print $4}' | awk -F ':' '{print "[" $1 ":" $2 "]"}'
+		echo  QUIT :Leaving... > $netdir/data
 }
 
 fn work {
@@ -39,84 +32,81 @@ fn work {
 	if (~ $#pass 1)
 		echo PRIVMSG NickServ :IDENTIFY $pass
 	if(! ~ $target ''){
-		title
+		title $target
 		echo JOIN $target
 	}
-	if(~ $target *,*)
-		target = `{echo $target | awk -F',' '{print $NF}'}
-	while (cmd=`{read}) {
-		s=$status
-		if(~ $s *eof) {
-			echo  QUIT : Leaving...
-			exit
+	awk -v 'target='^$"target '
+	BEGIN{
+		if(target ~ /.+,.+/){
+			n = split(target, a, ",")
+			target = a[n]
 		}
-		msg=()
-		out=()
-		switch ($cmd(1)) {
-		case /!
-			eval `{mshift $cmd} | while(rc=`{read})echo 'PRIVMSG '^$target^' :' $rc | tee /dev/cons
-		case /M
-			msg = (MODE `{mshift $cmd})
-		case /N
-			cmd = `{mshift $cmd}
-			if (! ~ $#cmd 0 1)
-				msg = (NOTICE $cmd(1) : `{mshift $cmd})
-		case /T
-			msg = (TOPIC `{mshift $cmd})
-		case /W
-			msg = (WHOIS `{mshift $cmd})
-		case /a
-			msg = (AWAY : `{mshift $cmd})
-		case /j
-			if (~ $#cmd 2 3) {
-				target=$cmd(2)
-				title
-				msg = (JOIN `{mshift $cmd})
-				if(~ $target *,*)
-					target = `{echo $target | awk -F',' '{print $NF}'}
-			}
-		case /l
-			msg = (LIST `{mshift $cmd})
-		case /m
-			cmd = `{mshift $cmd}
-			if (! ~ $#cmd 0 1) {
-				to = $cmd(1)
-				cmd = `{mshift $cmd}
-				out =  '('^$to^')	⇐	'^$"cmd
-				msg = (PRIVMSG $to :^$"cmd)
-			}
-		case /n
-			nick = `{mshift $cmd}
-			msg = (NICK $nick)
-		case /p
-			cmd = `{mshift $cmd}
-			if (! ~ $#cmd 0)
-				msg = (PART $cmd(1) : `{mshift $cmd})
-		case /q
-			msg = `{mshift $cmd}
-		case /t
-			cmd = $cmd(2)
-			target = $"cmd
-			title
-		case /u
-			msg = (USERS `{mshift $cmd})
-		case /w
-			msg = (WHO `{mshift $cmd})
-		case /x
-			echo  QUIT : Leaving...
-			exit
-		case /*
-			echo unknown command >/dev/cons
-		case *
-			msg = (PRIVMSG $target :^$"cmd)
-			if (! ~ $#cmd 0)
-				out = '('^$target^')	⇐	'^$"cmd
-		}
-		if (! ~ $#out 0)
-			echo `{etime} $out >/dev/cons
-		if (! ~ $#msg 0)
-			echo $msg
 	}
+	function title(){
+		system("title ''"target"''")
+	}
+	function etime(c, t){
+		c = "date -f ''[\\[]hh:mm[\\]]''"
+		c | getline t
+		close(c)
+		return t
+	}
+	function out(nskip, space, pref, echo){
+		if(nskip){
+			r = "^";
+			for(i = 0; i < nskip; i++)
+				r = r "[^\t ]+[\t ]*"
+			sub(r, "")
+		}
+		if(echo)
+			print echo $0 >"/dev/cons"
+		print pref (space&&$0 ? " " : "") $0
+	}
+	$1 !~ /^\//{
+		out(0, 0, "PRIVMSG "target" :", NF>0 ? etime()" ("target")	⇐	" : "")
+		next
+	}
+	$1 == "/!"{
+		if(NF > 1){
+			c = substr($0, index($0, $2))
+			while(c | getline)
+				out(0, 0, "PRIVMSG "target" :", "PRIVMSG "target" :")
+			close(c)
+		}
+		next
+	}
+	$1 == "/M"{ out(1, 1, "MODE"); next }
+	$1 == "/N"{ if(NF > 2) out(2, 0, "NOTICE "$2" :"); next }
+	$1 == "/T"{ if(NF > 1) out(1, 1, "TOPIC"); next }
+	$1 == "/W"{ out(1, 1, "WHOIS"); next }
+	$1 == "/a"{ out(1, 0, "AWAY :"); next }
+	$1 == "/j"{
+		if(NF == 2 || NF == 3){
+			target = $2
+			title()
+			if(target ~ /.+,.+/)
+				target = a[split(target, a, ",")]
+			out(1, 1, "JOIN")
+		}
+		next
+	}
+	$1 == "/l"{ out(1, 1, "LIST"); next }
+	$1 == "/m"{
+		if(NF > 2)
+			out(2, 0, "PRIVMSG "$2" :", etime()" ("$2")	⇐	")
+		next
+	}
+	$1 == "/n"{ nick = $2; out(1, 1, "NICK"); next }
+	$1 == "/p"{ if(NF > 1) out(2, 0, "PART "$2" :"); next }
+	$1 == "/q"{ out(1, 0); next }
+	$1 == "/t"{ target = $2; title(); next }
+	$1 == "/u"{ out(1, 1, "USERS"); next }
+	$1 == "/w"{ out(1, 1, "WHO"); next }
+	$1 == "/x"{ out(1, 0, "QUIT :"); exit }
+	{ print "unknown command" >"/dev/cons" }
+	END{ print "QUIT :Leaving..." }
+	'
+	exit
 }
 
 fn misc {
@@ -168,22 +158,23 @@ fn privmsg {
 }
 
 fn pretty {
-	while (line=`{read}) {
+	while (line=`$nl{read}) {
+		cmd=`{echo $line}
 		switch ($line) {
 		case *PRIVMSG*
-			line = `{echo -n $line | privmsg}
+			line = `$nl{echo -n $line | privmsg}
 		case *JOIN* *QUIT* *PART* *NICK*
-			line = `{echo -n $line | misc}
+			line = `$nl{echo -n $line | misc}
 		case *NOTICE*
-			line = `{echo -n $line | notice}
+			line = `$nl{echo -n $line | notice}
 		case PING* # *PING* could also be CASEMAPPING
-			echo PONG $line(2) > $netdir/data
+			echo PONG $cmd(2) > $netdir/data
 			line = ()
 		case *
-			line = `{echo -n $line | numeric}
+			line = `$nl{echo -n $line | numeric}
 		}
 		if (! ~ $#line 0)
-			echo `{etime} $line
+			echo `{date -f '[\[]hh:mm[\]]'} $line
 	}
 	exit
 }
@@ -191,10 +182,10 @@ fn pretty {
 fn title {
 	if (! ~ $#winid 0) {
 		if (test -f /mnt/acme/$winid/ctl)
-			echo name /$server/$target/-ircrc > /mnt/acme/$winid/ctl
+			echo name /$server/$"1/-ircrc > /mnt/acme/$winid/ctl
 	}
 	if not
-		label $target@$server
+		label $"1@$server
 }
 
 while (~ $1 -*) {
@@ -235,7 +226,7 @@ if (~ $#* 1) {
 	}
 }
 
-title
+title $target
 userpass=`{auth/userpasswd -n 'server='^$server^' service=irc user='^$nick >[2]/dev/null}
 if(~ $#userpass 2)
 	pass=$userpass(2)
@@ -255,4 +246,3 @@ if not {
 netdir=$p
 <$netdir/data tr -d '\x2\x8\xd\x1f' | pretty &
 >$netdir/data work
-
