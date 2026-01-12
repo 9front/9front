@@ -53,6 +53,7 @@ case go
 
 	log Creating "other" dataset
 	echo snap -m empty other >>/srv/$sname.cmd
+	sleep 1
 	echo set other retain '''''' >>/srv/$sname.cmd
 
 	log Mounting $fstype file server for $fs
