@@ -306,7 +306,7 @@ readslave(Header *header, int colorspace)
 			header->X = int2(b, 3);
 			header->Nf = b[5];
 			if(header->X == 0 || header->Y == 0)
-				jpgerror(header, "ReadJPG: image must have 1 or 3 components");
+				jpgerror(header, "ReadJPG: image must have nonzero dimensions");
 			if(header->Nf != 1 && header->Nf != 3)
 				jpgerror(header, "ReadJPG: image must have 1 or 3 components");
 			for(i=0; i<header->Nf; i++){
