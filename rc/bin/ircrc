@@ -31,19 +31,27 @@ fn work {
 	echo NICK $nick
 	if (~ $#pass 1)
 		echo PRIVMSG NickServ :IDENTIFY $pass
-	if(! ~ $target ''){
-		title $target
-		echo JOIN $target
-	}
 	awk -v 'target='^$"target '
 	BEGIN{
-		if(target ~ /.+,.+/){
-			n = split(target, a, ",")
-			target = a[n]
+		if(last = listlast(target)){
+			print "JOIN", target
+			victims[last]
+			title()
 		}
 	}
+	function listlast(list, a){
+		for(i=split(list, a, ",+"); i>=1; i--)
+			if(a[i] != "")
+				return a[i]
+		return ""
+	}
+	function mktarget(s){
+		for(v in victims)
+			s = s "," v
+		return substr(s, 2)
+	}
 	function title(){
-		system("title ''"target"''")
+		system("title ''"mktarget()"''")
 	}
 	function etime(c, t){
 		c = "date -f ''[\\[]hh:mm[\\]]''"
@@ -51,23 +59,26 @@ fn work {
 		close(c)
 		return t
 	}
-	function out(nskip, space, pref, echo){
+	function out(nskip, space, pref, echo,	line, r){
+		line = $0
 		if(nskip){
 			r = "^";
 			for(i = 0; i < nskip; i++)
 				r = r "[^\t ]+[\t ]*"
-			sub(r, "")
+			sub(r, "", line)
 		}
 		if(echo)
-			print echo $0 >"/dev/cons"
-		print pref (space&&$0 ? " " : "") $0
+			print echo line >"/dev/cons"
+		print pref (space&&line ? " " : "") line
 	}
 	$1 !~ /^\//{
+		target = mktarget()
 		out(0, 0, "PRIVMSG "target" :", NF>0 ? etime()" ("target")	⇐	" : "")
 		next
 	}
 	$1 == "/!"{
 		if(NF > 1){
+			target = mktarget()
 			c = substr($0, index($0, $2))
 			while(c | getline)
 				out(0, 0, "PRIVMSG "target" :", "PRIVMSG "target" :")
@@ -80,12 +91,11 @@ fn work {
 	$1 == "/T"{ if(NF > 1) out(1, 1, "TOPIC"); next }
 	$1 == "/W"{ out(1, 1, "WHOIS"); next }
 	$1 == "/a"{ out(1, 0, "AWAY :"); next }
-	$1 == "/j"{
-		if(NF == 2 || NF == 3){
-			target = $2
+	$1 == "/j" && (NF==2 || NF==3){
+		if(last = listlast($2)){
+			delete victims
+			victims[last]
 			title()
-			if(target ~ /.+,.+/)
-				target = a[split(target, a, ",")]
 			out(1, 1, "JOIN")
 		}
 		next
@@ -97,9 +107,26 @@ fn work {
 		next
 	}
 	$1 == "/n"{ nick = $2; out(1, 1, "NICK"); next }
-	$1 == "/p"{ if(NF > 1) out(2, 0, "PART "$2" :"); next }
+	$1 == "/p"{
+		if(NF > 1){
+			out(2, 0, "PART "$2" :")
+			split($2, a, ",+")
+			for(v in a)
+				delete victims[a[v]]
+			title()
+		}
+		next
+	}
 	$1 == "/q"{ out(1, 0); next }
-	$1 == "/t"{ target = $2; title(); next }
+	$1 == "/t"{
+		delete victims
+		split($2, a, ",+")
+		for(v in a)
+			if(a[v])
+				victims[a[v]]
+		title();
+		next
+	}
 	$1 == "/u"{ out(1, 1, "USERS"); next }
 	$1 == "/w"{ out(1, 1, "WHO"); next }
 	$1 == "/x"{ out(1, 0, "QUIT :"); exit }
