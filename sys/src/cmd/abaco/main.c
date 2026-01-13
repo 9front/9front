@@ -83,6 +83,7 @@ threadmain(int argc, char *argv[])
 		break;
 	case 'f':
 		tfnt = EARGF(usage());
+		break;
 	default:
 		usage();
 		break;
@@ -99,7 +100,8 @@ threadmain(int argc, char *argv[])
 		tfnt = getenv("font");
 		if(tfnt != nil)
 			fontnames[0] = tfnt;
-	}
+	}else
+		fontnames[0] = tfnt;
 
 	if(initdraw(derror, fontnames[0], "abaco") < 0)
 		sysfatal("can't open display: %r");
