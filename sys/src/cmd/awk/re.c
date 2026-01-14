@@ -287,9 +287,9 @@ quoted(char **s, char **to, char *end)	/* handle escaped sequence */
 			*t++ = '\\';
 		if (c == 'x') {		/* hexadecimal goo follows */
 			c = hexstr(&p);
-			if (t < end-UTFmax)
-				t += runelen(c);
-			else overflow();
+			if (t >= end - runelen(c))
+				overflow();
+			t += runetochar(t, &c);
 			*to = t;
 			*s = p;
 			return;
