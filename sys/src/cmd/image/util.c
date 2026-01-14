@@ -79,3 +79,30 @@ ewritememimage(int fd, Memimage *i)
 		sysfatal("writememimage: %r");
 	return rc;
 }
+
+Image *
+eallocimage(Display *d, Rectangle r, ulong chan, int repl, ulong col)
+{
+	Image *i;
+
+	i = allocimage(d, r, chan, repl, col);
+	if(i == nil)
+		sysfatal("allocimage: %r");
+	setmalloctag(i, getcallerpc(&d));
+	return i;
+}
+
+Image *
+memimage2image(Display *d, Memimage *m)
+{
+	Image *i;
+	Rectangle lr;
+
+	i = eallocimage(d, m->r, m->chan, 0, DNofill);
+	lr = m->r;
+	lr.max.y = lr.min.y + 1;
+	for(; lr.min.y < m->r.max.y; lr.min.y = lr.max.y++)
+		if(loadimage(i, lr, byteaddr(m, lr.min), bytesperline(lr, m->depth)) < 0)
+			sysfatal("loadimage: %r");
+	return i;
+}

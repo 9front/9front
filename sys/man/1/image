@@ -1,6 +1,6 @@
 .TH IMAGE 1
 .SH NAME
-affinewarp, correlate - image processing tools
+affinewarp, correlate, histogram - image processing tools
 .SH SYNOPSIS
 .B image/affinewarp
 [
@@ -28,6 +28,11 @@ affinewarp, correlate - image processing tools
 .I kernel
 [
 .I denom
+]
+.br
+.B image/histogram
+[
+.I file
 ]
 .SH DESCRIPTION
 Image processing tools for
@@ -104,6 +109,16 @@ probe point so that it falls back into the image (a toroidal map).
 .TP
 .B -p
 Enable parallelism.
+.PP
+.I Histogram
+reads an image from a given
+.I file
+or stdin, opens a minimal visualizer in the current window, and
+generates a histogram for each of its channels in multiple,
+independent windows.
+.br
+When in the visualizer, use LMB to move the image around, scroll up/down or
+MMB to control zoom and RMB to open a menu with some extra options.
 .SH SOURCE
 .B /sys/src/cmd/image
 .SH SEE ALSO

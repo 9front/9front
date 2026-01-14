@@ -4,6 +4,7 @@ BIN=/$objtype/bin/image
 TARG=\
 	correlate\
 	affinewarp\
+	histogram\
 
 OFILES=\
 	util.$O\
