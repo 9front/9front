@@ -187,14 +187,16 @@ fn privmsg {
 fn pretty {
 	while (line=`$nl{read}) {
 		cmd=`{echo $line}
-		switch ($line) {
-		case *PRIVMSG*
+		if(~ $cmd(1) :*)
+			cmd=$cmd(2-)
+		switch ($cmd(1)) {
+		case PRIVMSG
 			line = `$nl{echo -n $line | privmsg}
-		case *JOIN* *QUIT* *PART* *NICK*
+		case JOIN QUIT PART NICK
 			line = `$nl{echo -n $line | misc}
-		case *NOTICE*
+		case NOTICE
 			line = `$nl{echo -n $line | notice}
-		case PING* # *PING* could also be CASEMAPPING
+		case PING
 			echo PONG $cmd(2) > $netdir/data
 			line = ()
 		case *
