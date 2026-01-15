@@ -43,7 +43,7 @@ runegbreak(Rune *s)
 		goto Done;
 	if((ISG(lt, LV) || ISG(lt, V)) && (ISG(rt, V) || ISG(rt, T)))
 		goto Done;
-	if((ISG(lt, LVT) || ISG(lt, T)) && (ISG(rt, T) || ISG(rt, T)))
+	if((ISG(lt, LVT) || ISG(lt, T)) && ISG(rt, T))
 		goto Done;
 	if(ISG(rt, SPACEMK) || ISG(lt, PREPEND))
 		goto Done;
@@ -103,7 +103,7 @@ utfgbreak(char *s)
 		goto Done;
 	if((ISG(lt, LV) || ISG(lt, V)) && (ISG(rt, V) || ISG(rt, T)))
 		goto Done;
-	if((ISG(lt, LVT) || ISG(lt, T)) && (ISG(rt, T) || ISG(rt, T)))
+	if((ISG(lt, LVT) || ISG(lt, T)) && ISG(rt, T))
 		goto Done;
 	if(ISG(rt, SPACEMK) || ISG(lt, PREPEND))
 		goto Done;
