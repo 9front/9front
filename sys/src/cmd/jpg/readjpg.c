@@ -466,12 +466,14 @@ Readerr:
 
 static
 int
-huffmantable(Header *h, uchar *b)
+huffmantable(Header *h, uchar *b, int nb)
 {
 	Huffman *t;
 	int Tc, th, n, nsize, i, j, k, v, cnt, code, si, sr;
 	int *maxcode;
 
+	if(nb < 17)
+		jpgerror(h, "ReadJPG: invalid huffman table: nb(%d) < 17", nb);
 	nibbles(b[0], &Tc, &th);
 	if(Tc > 1)
 		jpgerror(h, "ReadJPG: unknown Huffman table class %d", Tc);
@@ -488,6 +490,8 @@ huffmantable(Header *h, uchar *b)
 		nsize += b[i];
 	if(nsize == 0)
 		return 0;
+	if(nb < 17+nsize)
+		jpgerror(h, "ReadJPG: invalid huffman table, %d < %d", nb, 17+nsize);
 	t->size = jpgmalloc(h, (nsize+1)*sizeof(int), 1);
 	k = 0;
 	for(i=1; i<=16; i++){
@@ -579,7 +583,7 @@ huffmantables(Header *h, uchar *b, int n)
 	int l, mt;
 
 	for(l=0; l<n; l+=17+mt)
-		mt = huffmantable(h, &b[l]);
+		mt = huffmantable(h, &b[l], n-l);
 }
 
 static
@@ -965,6 +969,8 @@ progressivedc(Header *h, int comp, int Ah, int Al)
 		for(mcu=0; mcu<nmcu; ){
 			for(i=0; i<Ns; i++){
 				comp = scancomp[i];
+				if(comp < 0 || comp >= nelem(h->comp))
+					jpgerror(h, "ReadJPG: scan component out of range");
 				dcht = &h->dcht[Td[i]];
 				qt = h->qt[h->comp[comp].Tq][0];
 				dc = h->dccoeff[comp];
