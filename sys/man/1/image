@@ -114,8 +114,8 @@ Enable parallelism.
 reads an image from a given
 .I file
 or stdin, opens a minimal visualizer in the current window, and
-generates a histogram for each of its channels in multiple,
-independent windows.
+generates a histogram for each of its channels in an independent
+window.
 .br
 When in the visualizer, use LMB to move the image around, scroll up/down or
 MMB to control zoom and RMB to open a menu with some extra options.

@@ -11,6 +11,8 @@
 enum {
 	Hmargin	= 10,
 	Vmargin = 15,
+
+	DOrange	= 0xFFA500FF,
 };
 
 typedef struct Sampler Sampler;
@@ -29,30 +31,34 @@ struct Histogram
 {
 	char	*title;
 	Image	*img;
-	Screen	*scr;
-	Image	*win;
 	uvlong	vals[256];
+	uvlong	avg;
+	uvlong	max;
 	ulong	col;
-	int	pid;
 };
 
 struct Slider
 {
 	Point2	p0;
 	Point2	p1;
-	int	left;
-	int	min;
-	int	max;
-	int	val;
+	Point2	kp;	/* knob position */
+	int	left;	/* or right */
+	int	min;	/* value at p0 */
+	int	max;	/* value at p1 */
+	int	val;	/* current value */
 };
 
 Histogram histos[4] = {
-	{ .title = "red",   .col = 0xCC0000FF },
-	{ .title = "green", .col = 0x00BB00FF },
-	{ .title = "blue",  .col = 0x0000CCFF },
 	{ .title = "alpha", .col = DBlack },
+	{ .title = "blue",  .col = 0x0000CCFF },
+	{ .title = "green", .col = 0x00BB00FF },
+	{ .title = "red",   .col = 0xCC0000FF },
 };
 
+Screen *histscr;
+Image *histwin;
+Point histspan;
+Channel *histrefc;
 Memimage *mimage;
 Image *image;
 char title[64];
@@ -60,6 +66,8 @@ char winname[128];
 Matrix warpmat;
 Warp warp;
 int smoothen;
+Rectangle region;
+Image *regioncol;
 
 int
 sgn(double n)
@@ -251,25 +259,41 @@ drawgradient(Image *dst, Rectangle r, ulong min, ulong max)
 }
 
 void
-measureimage(Memimage *i)
+measureimage(Memimage *i, Rectangle sr)
 {
+	static int inited;
 	Histogram *h;
 	Image *brush;
 	Rectangle hr, dr, gr, r;
 	Sampler s;
 	Point sp;
 	ulong c;
-	int chan, ht, j;
-	uvlong vmax;
+	int ht, j;
+
+	if(inited)
+		for(h = histos; h < histos+nelem(histos); h++){
+			memset(h->vals, 0, sizeof(h->vals));
+			h->max = h->avg = 0;
+		}
 
 	initsampler(&s, i);
-	for(sp.y = i->r.min.y; sp.y < i->r.max.y; sp.y++)
-	for(sp.x = i->r.min.x; sp.x < i->r.max.x; sp.x++){
+	for(sp.y = sr.min.y; sp.y < sr.max.y; sp.y++)
+	for(sp.x = sr.min.x; sp.x < sr.max.x; sp.x++){
 		c = getpixel(&s, sp);
 		if(i->flags & Falpha)
 			c = clralpha(c);
-		for(chan = 4-1; chan >= 0; chan--)
-			histos[4-1-chan].vals[(c >> chan*8)&0xFF]++;
+		for(h = histos; h < histos+nelem(histos); h++){
+			if(++h->vals[c&0xFF] > h->max)
+				h->max = h->vals[c&0xFF];
+			h->avg += c&0xFF;
+			c >>= 8;
+		}
+	}
+
+	for(h = histos; h < histos+nelem(histos); h++){
+		if(h->max == 0)
+			h->max = 1;
+		h->avg /= Dx(sr)*Dy(sr);
 	}
 
 	brush = eallocimage(display, Rect(0,0,1,1), RGBA32, 1, DNofill);
@@ -279,30 +303,42 @@ measureimage(Memimage *i)
 	ht = Dy(dr);
 
 	for(h = histos; h < histos+nelem(histos); h++){
-		if(loadimage(brush, brush->r, (uchar*)&h->col, 4) < 0)
-			sysfatal("loadimage2: %r");
+		if(inited)
+			draw(h->img, dr, display->white, nil, ZP);
+		else{
+			h->img = eallocimage(display, hr, screen->chan, 0, DWhite);
+			string(h->img, addpt(hr.min, Pt(4, 4)), display->black, ZP, font, h->title);
+			border(h->img, dr, -1, display->black, ZP);
+		}
 
-		h->img = eallocimage(display, hr, screen->chan, 0, DWhite);
-		string(h->img, addpt(hr.min, Pt(4, 4)), display->black, ZP, font, h->title);
-		border(h->img, dr, -1, display->black, ZP);
-
-		for(vmax = j = 0; j < 256; j++)
-			if(h->vals[j] > vmax)
-				vmax = h->vals[j];
-
+		/* draw the columns */
+		if(fillcolor(brush, h->col) < 0)
+			sysfatal("fillcolor: %r");
 		r = dr;
 		r.max.x = r.min.x + 1;
 		for(j = 0; j < 256; j++){
 			r.min.y = r.max.y;
-			r.min.y -= h->vals[j]*ht / vmax;
+			r.min.y -= h->vals[j]*ht / h->max;
 			draw(h->img, r, brush, nil, ZP);
 			r.min.x = r.max.x++;
 		}
 
-		border(h->img, gr, -1, display->black, ZP);
-		drawgradient(h->img, gr, DBlack, DWhite);
+		/* draw the avg line */
+		r = dr;
+		r.min.x += h->avg;
+		r.max.x = r.min.x + 1;
+		if(fillcolor(brush, setalpha(DOrange, 0xBF)) < 0)
+			sysfatal("fillcolor: %r");
+		draw(h->img, r, brush, nil, ZP);
+
+		if(!inited){
+			border(h->img, gr, -1, display->black, ZP);
+			drawgradient(h->img, gr, DBlack, DWhite);
+		}
 	}
 	freeimage(brush);
+	if(!inited)
+		inited++;
 }
 
 int
@@ -356,37 +392,43 @@ winsetlabel(Display *d, char *fmt, ...)
 }
 
 void
-histredraw(Histogram *h)
+histredraw(void)
 {
-	draw(h->win, h->win->r, h->img, nil, ZP);
+	Histogram *h;
+	Point off;
+
+	off = histwin->r.min;
+	off.y += histspan.y;
+	for(h = histos; h < histos+nelem(histos); h++){
+		off.y -= Dy(h->img->r);
+		draw(histwin, rectaddpt(h->img->r, off), h->img, nil, ZP);
+	}
 	flushimage(display, 1);
 }
 
 void
-histresize(Histogram *h)
+histresize(void)
 {
 	lockdisplay(display);
-	if(gengetwindow(display, winname, &h->win, &h->scr, Refnone) < 0)
+	if(gengetwindow(display, winname, &histwin, &histscr, Refnone) < 0)
 		sysfatal("gengetwindow2: %r");
 	unlockdisplay(display);
-	if((Dx(h->win->r) != Dx(h->img->r)
-	||  Dy(h->win->r) != Dy(h->img->r)))
-		winresize(display, subpt(h->img->r.max, h->img->r.min));
-	histredraw(h);
+	if(Dx(histwin->r) != histspan.x
+	|| Dy(histwin->r) != histspan.y)
+		winresize(display, histspan);
+	histredraw();
 }
 
 void
-histmouse(Histogram *h, Mousectl *mc)
+histmouse(Mousectl *mc)
 {
-	static Mouse omtab[nelem(histos)];
-	Mouse *om;
+	static Mouse om;
 
-	om = &omtab[h-histos];
-	if((om->buttons & 4) && (mc->buttons & 4)){
-		line(h->win, om->xy, mc->xy, Enddisc, Enddisc, 1, display->black, ZP);
+	if((om.buttons & 4) && (mc->buttons & 4)){
+		line(histwin, om.xy, mc->xy, Enddisc, Enddisc, 1, display->black, ZP);
 		flushimage(display, 1);
 	}
-	*om = mc->Mouse;
+	om = mc->Mouse;
 }
 
 void
@@ -400,54 +442,86 @@ histkey(Rune r)
 }
 
 void
-histproc(void *arg)
+histproc(void *)
 {
-	Histogram *histo;
 	Mousectl *mc;
 	Keyboardctl *kc;
 	Rune r;
 
-	histo = arg;
-	histo->pid = getpid();
-
-	threadsetname("%s", histo->title);
+	threadsetname("histograms");
 
 	lockdisplay(display);	/* avoid races while attaching to new window */
 	newwindow(nil);
-	winsetlabel(display, "%s", histo->title);
-	winresize(display, subpt(histo->img->r.max, histo->img->r.min));
-	winmove(display, Pt(0, (Dy(histo->img->r)+2*Borderwidth)*(histo-histos)));
+	winsetlabel(display, "histograms");
+	histspan = Pt(Dx(histos[0].img->r), Dy(histos[0].img->r)*nelem(histos));
+	winresize(display, histspan);
+	winmove(display, ZP);
 
-	if(gengetwindow(display, winname, &histo->win, &histo->scr, Refnone) < 0)
+	if(gengetwindow(display, winname, &histwin, &histscr, Refnone) < 0)
 		sysfatal("gengetwindow: %r");
 	unlockdisplay(display);
-	if((mc = initmouse(nil, histo->win)) == nil)
+	if((mc = initmouse(nil, histwin)) == nil)
 		sysfatal("initmouse2: %r");
 	if((kc = initkeyboard(nil)) == nil)
 		sysfatal("initkeyboard2: %r");
 
-	histredraw(histo);
+	histredraw();
 
-	enum { MOUSE, RESIZE, KEY };
+	enum { MOUSE, RESIZE, KEY, REFRESH };
 	Alt a[] = {
 		{mc->c, &mc->Mouse, CHANRCV},
 		{mc->resizec, nil, CHANRCV},
 		{kc->c, &r, CHANRCV},
+		{histrefc, nil, CHANRCV},
 		{nil, nil, CHANEND}
 	};
 	for(;;)
 		switch(alt(a)){
 		default: sysfatal("alt interrupted");
 		case MOUSE:
-			histmouse(histo, mc);
+			histmouse(mc);
 			break;
 		case RESIZE:
-			histresize(histo);
+			histresize();
 			break;
 		case KEY:
 			histkey(r);
 			break;
+		case REFRESH:
+			histredraw();
+			break;
 		}
+}
+
+Rectangle
+xformrect(Rectangle r, Matrix m)
+{
+	Point2 p0, p1;
+
+	p0 = (Point2){r.min.x, r.min.y, 1};
+	p1 = (Point2){r.max.x, r.max.y, 1};
+	p0 = xform(p0, m);
+	p1 = xform(p1, m);
+	return Rect(p0.x+0.5, p0.y+0.5, p1.x+0.5, p1.y+0.5);
+}
+
+int
+getregion(Mousectl *mc)
+{
+	Matrix invwarpmat;
+
+	region = getrect(3, mc);
+	if(Dx(region)*Dy(region) <= 4){
+badregion:
+		region = ZR;
+		return 0;
+	}
+	memmove(invwarpmat, warpmat, sizeof(Matrix));
+	invm(invwarpmat);
+	region = xformrect(region, invwarpmat);
+	if(!rectclip(&region, rectsubpt(image->r, image->r.min)))
+		goto badregion;
+	return 1;
 }
 
 void
@@ -457,6 +531,8 @@ redraw(void)
 
 	draw(screen, screen->r, display->black, nil, ZP);
 	affinewarp(screen, screen->r, image, image->r.min, warp, smoothen);
+	if(!eqrect(region, ZR))
+		border(screen, xformrect(region, warpmat), -1, regioncol, ZP);
 	stringbg(screen, addpt(screen->r.min, titlep), display->white, ZP, font, title, display->black, ZP);
 	flushimage(display, 1);
 }
@@ -464,29 +540,49 @@ redraw(void)
 void
 resize(void)
 {
+	Point dp;
+
+	dp = screen->r.min;
 	lockdisplay(display);
 	if(getwindow(display, Refnone) < 0)
 		fprint(2, "can't reattach to window\n");
 	unlockdisplay(display);
+	dp = subpt(screen->r.min, dp);
+	translate(warpmat, dp.x, dp.y);
+	mkwarp(warp, warpmat);
 	redraw();
 }
 
 static char *
 genrmbmenu(int idx)
 {
-	if(idx > 0)
-		return nil;
-	return smoothen? "sharpen": "smoothen";
+	switch(idx){
+	case 0: return smoothen? "sharpen": "smoothen";
+	case 1: return "select region";
+	default: return nil;
+	}
 }
 
 void
 rmb(Mousectl *mc)
 {
 	static Menu menu = { .gen = genrmbmenu };
+	static int therewas;	/* a region selected */
 
 	switch(menuhit(3, mc, &menu, _screen)){
 	case 0:
 		smoothen ^= 1;
+		break;
+	case 1:
+		if(getregion(mc)){
+			measureimage(mimage, rectaddpt(region, mimage->r.min));
+			therewas = 1;
+			nbsend(histrefc, nil);
+		}else if(therewas){
+			measureimage(mimage, mimage->r);
+			therewas = 0;
+			nbsend(histrefc, nil);
+		}
 		break;
 	}
 	redraw();
@@ -510,7 +606,7 @@ mouse(Mousectl *mc)
 		tainted++;
 	}else if(mc->buttons & 2){
 		if((om.buttons & 2) == 0)
-			p = subpt(mc->xy, screen->r.min);
+			p = mc->xy;
 		switch(sgn(mc->xy.y - om.xy.y)){
 		case  1: goto zoomout;
 		case -1: goto zoomin;
@@ -518,14 +614,14 @@ mouse(Mousectl *mc)
 	}else if((om.buttons & 4) == 0 && (mc->buttons & 4))
 		rmb(mc);
 	if(mc->buttons & 8){
-		p = subpt(mc->xy, screen->r.min);
+		p = mc->xy;
 zoomin:
 		translate(warpmat, -p.x, -p.y);
 		scale(warpmat, Scrollzoomin);
 		translate(warpmat, p.x, p.y);
 		tainted++;
 	}else if(mc->buttons & 16){
-		p = subpt(mc->xy, screen->r.min);
+		p = mc->xy;
 zoomout:
 		translate(warpmat, -p.x, -p.y);
 		scale(warpmat, Scrollzoomout);
@@ -563,7 +659,7 @@ threadmain(int argc, char *argv[])
 	Keyboardctl *kc;
 	Rune r;
 	char cs[10];
-	int fd, i;
+	int fd;
 
 	fd = 0;
 	ARGBEGIN{
@@ -588,15 +684,17 @@ threadmain(int argc, char *argv[])
 	snprint(title, sizeof title, "%s %dx%d %s",
 		chantostr(cs, image->chan)? cs: "unknown", Dx(image->r), Dy(image->r),
 		argc > 0? argv[0]: "main");
+	regioncol = eallocimage(display, Rect(0,0,1,1), XRGB32, 1, DOrange);
 	identity(warpmat);
+	translate(warpmat, screen->r.min.x, screen->r.min.y);
 	mkwarp(warp, warpmat);
 	redraw();
 
-	measureimage(mimage);
-	unlockdisplay(display);
+	measureimage(mimage, mimage->r);
 	snprint(winname, sizeof winname, "%s/winname", display->windir);
-	for(i = 0; i < nelem(histos); i++)
-		proccreate(histproc, &histos[i], mainstacksize);
+	histrefc = chancreate(sizeof(void*), 1);
+	unlockdisplay(display);
+	proccreate(histproc, nil, mainstacksize);
 
 	enum { MOUSE, RESIZE, KEY };
 	Alt a[] = {
