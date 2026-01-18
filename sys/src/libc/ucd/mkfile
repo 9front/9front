@@ -39,4 +39,4 @@ $DATA:	$UCD
 	}
 
 nuke:V:
-	rm -f $DATA *.mkrunetype
+	rm -f $CLEANFILES $DATA [$OS].mkrunetype mkrunetype.[$OS]
