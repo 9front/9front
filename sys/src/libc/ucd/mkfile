@@ -20,7 +20,10 @@ DATA=\
 	runeistypedata\
 	runebreakdata\
 
-$OFILES: $DATA
+runenorm.$O: runenormdata
+runetotype.$O: runetotypedata
+runeistype.$O: runeistypedata
+runebreak.$O: runebreakdata
 
 UCD=\
 	/lib/ucd/CompositionExclusions.txt\
