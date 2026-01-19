@@ -285,15 +285,9 @@ quoted(char **s, char **to, char *end)	/* handle escaped sequence */
 	default:
 		if (t < end-1)		/* all else must be escaped */
 			*t++ = '\\';
-		if (c == 'x') {		/* hexadecimal goo follows */
+		if (c == 'x')		/* hexadecimal goo follows */
 			c = hexstr(&p);
-			if (t >= end - runelen(c))
-				overflow();
-			t += runetochar(t, &c);
-			*to = t;
-			*s = p;
-			return;
-		} else if (isoctdigit(c)) {	/* \d \dd \ddd */
+		else if (isoctdigit(c)) {	/* \d \dd \ddd */
 			c -= '0';
 			if (isoctdigit(*p)) {
 				c = 8 * c + *p++ - '0';
@@ -303,8 +297,9 @@ quoted(char **s, char **to, char *end)	/* handle escaped sequence */
 		}
 		break;
 	}
-	if (t < end-1)
-		*t++ = c;
+	if (t >= end - runelen(c))
+		overflow();
+	t += runetochar(t, &c);
 	*s = p;
 	*to = t;
 }
