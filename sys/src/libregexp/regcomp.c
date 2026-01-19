@@ -163,13 +163,9 @@ regcomp1(char *regstr, int nl, int lit)
 	Renode *parsetr;
 	int regstrlen, maxthr;
 
-	regstrlen = utflen(regstr);
-	if(regstrlen == 0){
-		regstr = "^";
-		regstrlen = 1;
-	}
 	initplex(&plex, regstr, lit);
-	plex.nodes = calloc(sizeof(*plex.nodes), regstrlen*2);
+	regstrlen = utflen(regstr);
+	plex.nodes = calloc(sizeof(*plex.nodes), regstrlen*2+1);
 	if(plex.nodes == nil)
 		return nil;
 	plex.next = plex.nodes;
@@ -180,7 +176,7 @@ regcomp1(char *regstr, int nl, int lit)
 	}
 
 	maxthr = regstrlen + 1;
-	parsetr = node(&plex, TSUB, e0(&plex), nil);
+	parsetr = node(&plex, TSUB, regstrlen?e0(&plex):nil, nil);
 
 //	prtree(parsetr, 0, 1);
 	reprog = malloc(sizeof(Reprog) +
