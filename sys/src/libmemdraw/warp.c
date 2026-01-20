@@ -705,10 +705,10 @@ correlate(Sampler *s, Point p)
 
 		Σr += r; Σg += g; Σb += b; Σa += a;
 	}
-	r = clamp(fix2int(Σr), 0, 0xFF);
-	g = clamp(fix2int(Σg), 0, 0xFF);
-	b = clamp(fix2int(Σb), 0, 0xFF);
-	a = clamp(fix2int(Σa), 0, 0xFF);
+	r = fix2int(Σr); r = clamp(r, 0, 0xFF);
+	g = fix2int(Σg); g = clamp(g, 0, 0xFF);
+	b = fix2int(Σb); b = clamp(b, 0, 0xFF);
+	a = fix2int(Σa); a = clamp(a, 0, 0xFF);
 
 	return r<<24|g<<16|b<<8|a;
 }
