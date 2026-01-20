@@ -143,7 +143,7 @@ void t_ptout(Tchar i)
 	lead += dip->blss + lss;
 	dip->blss = 0;
 	for (k = oline; k < olinep; )
-		k += ptout0(k);	/* now passing a pointer! */
+		k += ptout0(k, olinep - k);	/* now passing a pointer! */
 	olinep = oline;
 	lead += dip->alss;
 	a = dip->alss;
@@ -154,7 +154,7 @@ void t_ptout(Tchar i)
 	OUT "n%d %d\n", b, a PUT;	/* be nice to chuck */
 }
 
-int ptout0(Tchar *pi)
+int ptout0(Tchar *pi, int np)
 {
 	int j, k, w, z, dx, dy, dx2, dy2, n;
 	int outsize;	/* size of object being printed */
@@ -207,8 +207,10 @@ int ptout0(Tchar *pi)
 			ptlead();
 		OUT "x X " PUT;
 		xon++;
-		for (j = 1; cbits(pi[j]) != XOFF; j++)
+		for (j = 1; j+1 < np && cbits(pi[j]) != XOFF; j++)
 			outascii(pi[j]);
+		if(cbits(pi[j]) != XOFF)
+			ERROR "invalid xon drawing" FATAL;
 		oput('\n');
 		xon--;
 		return j+1;
@@ -250,6 +252,8 @@ int ptout0(Tchar *pi)
 	if (k == DRAWFCN) {
 		if (esc)
 			ptesc();
+		if(np < 5)
+			ERROR "invalid draw" FATAL;
 		w = 0;
 		dx = absmot(pi[3]);
 		if (isnmot(pi[3]))
@@ -286,6 +290,8 @@ int ptout0(Tchar *pi)
 			vpos += dy;
 			break;
 		case DRAWARC:	/* arc */
+			if(np < 7)
+				ERROR "invalid draw" FATAL;
 			dx2 = absmot(pi[5]);
 			if (isnmot(pi[5]))
 				dx2 = -dx2;
@@ -310,7 +316,7 @@ int ptout0(Tchar *pi)
 				OUT "\n" PUT;
 				break;
 			}
-			for (n = 5; cbits(pi[n]) != DRAWFCN; n += 2) {
+			for (n = 5; n+1 < np && cbits(pi[n]) != DRAWFCN; n += 2) {
 				dx = absmot(pi[n]);
 				if (isnmot(pi[n]))
 					dx = -dx;
@@ -321,10 +327,12 @@ int ptout0(Tchar *pi)
 				hpos += dx;
 				vpos += dy;
 			}
+			if (cbits(pi[n]) != DRAWFCN)
+				ERROR "invalid spline drawing" FATAL;
 			OUT "\n" PUT;
 			break;
 		}
-		for (n = 3; cbits(pi[n]) != DRAWFCN; n++)
+		for (n = 3; n < np && cbits(pi[n]) != DRAWFCN; n++)
 			;
 		outsize = n + 1;
 	} else if (k < ALPHABET) {

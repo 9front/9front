@@ -294,7 +294,7 @@ Tchar	setfield(int x);
 void	t_ptinit(void);
 void	t_specnames(void);
 void	t_ptout(Tchar i);
-int	ptout0(Tchar *pi);
+int	ptout0(Tchar *pi, int);
 void	ptchname(int);
 void	ptflush(void);
 void	ptps(void);
