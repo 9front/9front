@@ -595,19 +595,21 @@ alphadraw(Memdrawparam *par)
 	isgrey = dst->flags&Fgrey;
 
 	/*
-	 * Buffering when src and dst are the same bitmap is sufficient but not 
-	 * necessary.  There are stronger conditions we could use.  We could
-	 * check to see if the rectangles intersect, and if simply moving in the
-	 * correct y direction can avoid the need to buffer.
+	 * Buffering is only necessary when src and dst are the same
+	 * bitmap and both r and sr intersect each other and begin at
+	 * the same scanline.  We could even avoid this if it was
+	 * possible to walk the scanline pixels in the -x direction.
+	 *
+	 * The vector û = sr.min - r.min determines the safest
+	 * direction to follow on each axis.
 	 */
-	needbuf = (src->data == dst->data);
+	needbuf = (src->data == dst->data && r.min.y == sr.min.y && rectXrect(r, sr));
+	dir = (src->data == dst->data && r.min.y > sr.min.y && rectXrect(r, sr)) ? -1 : 1;
 
 	ndrawbuf = 0;
 	getparam(&z->spar, src, sr, isgrey, needbuf, &ndrawbuf);
 	getparam(&z->dpar, dst, r, isgrey, needbuf, &ndrawbuf);
 	getparam(&z->mpar, mask, mr, 0, needbuf, &ndrawbuf);
-
-	dir = (needbuf && byteaddr(dst, r.min) > byteaddr(src, sr.min)) ? -1 : 1;
 	z->spar.dir = z->mpar.dir = z->dpar.dir = dir;
 
 	/*
@@ -2027,13 +2029,13 @@ rgbatoimg(Memimage *img, ulong rgba)
 		case CAlpha:
 			v |= (a>>(8-nb))<<d;
 			break;
+		case CGrey:
+			m = RGB2K(r,g,b);
+			v |= (m>>(8-nb))<<d;
+			break;
 		case CMap:
 			p = img->cmap->rgb2cmap;
 			m = p[(r>>4)*256+(g>>4)*16+(b>>4)];
-			v |= (m>>(8-nb))<<d;
-			break;
-		case CGrey:
-			m = RGB2K(r,g,b);
 			v |= (m>>(8-nb))<<d;
 			break;
 		}
