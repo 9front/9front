@@ -122,7 +122,7 @@ memimagedraw(Memimage *dst, Rectangle r, Memimage *src, Point p0, Memimage *mask
 	par.state = 0;
 	if(src->flags&Frepl){
 		par.state |= Replsrc;
-		if(Dx(src->r)==1 && Dy(src->r)==1){
+		if(src->flags & Fsimple){
 			par.sval = pixelbits(src, src->r.min);
 			par.state |= Simplesrc;
 			par.srgba = imgtorgba(src, par.sval);
@@ -134,7 +134,7 @@ memimagedraw(Memimage *dst, Rectangle r, Memimage *src, Point p0, Memimage *mask
 
 	if(mask->flags & Frepl){
 		par.state |= Replmask;
-		if(Dx(mask->r)==1 && Dy(mask->r)==1){
+		if(mask->flags & Fsimple){
 			par.mval = pixelbits(mask, mask->r.min);
 			if(par.mval == 0 && (op&DoutS))
 				return;	/* no-op successfully handled */
@@ -1875,7 +1875,10 @@ pixelbits(Memimage *i, Point pt)
 static Calcfn*
 boolcopyfn(Memimage *img, Memimage *mask)
 {
-	if(mask->flags&Frepl && Dx(mask->r)==1 && Dy(mask->r)==1 && pixelbits(mask, mask->r.min)==~0)
+	int m;
+
+	m = Frepl|Fsimple;
+	if((mask->flags&m)==m && pixelbits(mask, mask->r.min)==~0)
 		return boolmemmove;
 
 	switch(img->depth){
@@ -2063,7 +2066,7 @@ memoptdraw(Memdrawparam *par)
 	 * destination format and just replicate with memset.
 	 */
 	m = Simplesrc|Simplemask|Fullmask;
-	if((par->state&m)==m && (par->srgba&0xFF) == 0xFF && (op ==S || op == SoverD)){
+	if((par->state&m)==m && (par->srgba&0xFF) == 0xFF && (op == S || op == SoverD)){
 		int d, dwid, ppb, np, nb;
 		uchar *dp, lm, rm;
 

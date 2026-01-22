@@ -46,7 +46,7 @@ allocmemimaged(Rectangle r, ulong chan, Memdata *md)
 
 	i->r = r;
 	i->clipr = r;
-	i->flags = 0;
+	i->flags = Dx(r) == 1 && Dy(r) == 1? Fsimple: 0;
 	i->layer = nil;
 	i->cmap = memdefcmap;
 	if(memsetchan(i, chan) < 0){
