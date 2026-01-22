@@ -73,7 +73,7 @@ fn work {
 	}
 	$1 !~ /^\//{
 		target = mktarget()
-		out(0, 0, "PRIVMSG "target" :", NF>0 ? etime()" ("target")	⇐	" : "")
+		out(0, 0, "PRIVMSG "target" :", length ? etime()" ("target")	⇐	" : "")
 		next
 	}
 	$1 == "/!"{
