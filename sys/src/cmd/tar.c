@@ -1073,7 +1073,8 @@ addtoar(int ar, char *file, char *shortf)
 		sysfatal("can't fstat %s: %r", file);
 
 	hpath = file;
-	if(strlen(file) > Namsiz){
+	/* reserve 1 byte for the '/' if we have dir */
+	if(strlen(file)+1 > Namsiz){
 		if(mkpaxhdr(ar, dir, file) < 0)
 			goto Badhdr;
 		hpath = "PAXED";
