@@ -41,11 +41,11 @@ strtochan(char *s)
 {
 	char *p, *q;
 	ulong c;
-	int t, n, d;
+	int usedt, t, n, d;
 
 	c = 0;
-	d = 0;
-	p=s;
+	d = usedt = 0;
+	p = s;
 	while(*p && isspace(*p))
 		p++;
 
@@ -53,12 +53,15 @@ strtochan(char *s)
 		if((q = strchr(channames, p[0])) == nil) 
 			return 0;
 		t = q-channames;
+		if(t != CIgnore && usedt & (1<<t))
+			return 0;
 		if(p[1] < '0' || p[1] > '9')
 			return 0;
 		n = p[1]-'0';
 		d += n;
 		c = (c<<8) | __DC(t, n);
 		p += 2;
+		usedt |= 1<<t;
 	}
 	if(d==0 || (d>8 && d%8) || (d<8 && 8%d))
 		return 0;
