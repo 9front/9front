@@ -157,7 +157,6 @@ work(Node *node, Node *p, Arc *parc)
 				a->n->name, node->name, ra->n? ra->n->name : "rule with no prerequisites");
 
 			unpretend(a->n);
-			did = work(a->n, node, a) || did;
 			ready = 0;
 		}
 	if(ready == 0)	/* try later unless nothing has happened for -k's sake */
