@@ -15,6 +15,7 @@ _callmain(void (*main)(int, char**), int argc, char *arg0)
 {
 	void *privates[NPRIVATES];
 
+	memset(privates, 0, sizeof(privates));
 	_privates = privates;
 	_nprivates = NPRIVATES;
 	main(argc, &arg0);

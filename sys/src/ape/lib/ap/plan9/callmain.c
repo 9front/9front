@@ -23,6 +23,7 @@ _callmain(int (*f)(int, char**), int argc, char *arg0)
 	char err[ERRMAX];
 	void *privates[NPRIVATES];
 
+	memset(privates, 0, sizeof(privates));
 	err[0] = '\0';
 	_privates = privates;
 	_nprivates = NPRIVATES;
