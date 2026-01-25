@@ -19,12 +19,12 @@ struct Seg
 	long	d;
 };
 
-static	void	zsort(Seg **seg, Seg **ep);
+static	void	zsort(Seg**, Seg**);
 static	int	ycompare(void*, void*);
 static	int	xcompare(void*, void*);
 static	int	zcompare(void*, void*);
-static	void	xscan(Memimage *dst, Seg **seg, Seg *segtab, int nseg, int wind, Memimage *src, Point sp, int, int, int, int);
-static	void	yscan(Memimage *dst, Seg **seg, Seg *segtab, int nseg, int wind, Memimage *src, Point sp, int, int);
+static	void	xscan(Memimage*, Seg**, Seg*, int, int, Memimage*, Point, int, int, int);
+static	void	yscan(Memimage*, Seg**, Seg*, int, int, Memimage*, Point, int, int);
 
 static void
 fillline(Memimage *dst, int left, int right, int y, Memimage *src, Point p, int op)
@@ -57,11 +57,11 @@ fillpoint(Memimage *dst, int x, int y, Memimage *src, Point p, int op)
 void
 memfillpoly(Memimage *dst, Point *vert, int nvert, int w, Memimage *src, Point sp, int op)
 {
-	_memfillpolysc(dst, vert, nvert, w, src, sp, 0, 0, 0, op);
+	_memfillpolysc(dst, vert, nvert, w, src, sp, 0, 0, op);
 }
 
 void
-_memfillpolysc(Memimage *dst, Point *vert, int nvert, int w, Memimage *src, Point sp, int detail, int fixshift, int clipped, int op)
+_memfillpolysc(Memimage *dst, Point *vert, int nvert, int w, Memimage *src, Point sp, int detail, int fixshift, int op)
 {
 	Seg **seg, *segtab;
 	Point p0;
@@ -99,7 +99,7 @@ _memfillpolysc(Memimage *dst, Point *vert, int nvert, int w, Memimage *src, Poin
 	if(!fixshift)
 		fixshift = 1;
 
-	xscan(dst, seg, segtab, nvert, w, src, sp, detail, fixshift, clipped, op);
+	xscan(dst, seg, segtab, nvert, w, src, sp, detail, fixshift, op);
 	if(detail)
 		yscan(dst, seg, segtab, nvert, w, src, sp, fixshift, op);
 
@@ -147,14 +147,12 @@ smuldivmod(long x, long y, long z, long *mod)
 }
 
 static void
-xscan(Memimage *dst, Seg **seg, Seg *segtab, int nseg, int wind, Memimage *src, Point sp, int detail, int fixshift, int clipped, int op)
+xscan(Memimage *dst, Seg **seg, Seg *segtab, int nseg, int wind, Memimage *src, Point sp, int detail, int fixshift, int op)
 {
 	long y, maxy, x, x2, xerr, xden, onehalf;
 	Seg **ep, **next, **p, **q, *s;
 	long n, i, iy, cnt, ix, ix2, minx, maxx;
 	Point pt;
-
-	USED(clipped);
 
 	for(i=0, s=segtab, p=seg; i<nseg; i++, s++) {
 		*p = s;
@@ -178,7 +176,7 @@ xscan(Memimage *dst, Seg **seg, Seg *segtab, int nseg, int wind, Memimage *src, 
 	if(n == 0)
 		return;
 	*p = 0;
-	qsort(seg, p-seg , sizeof(Seg*), ycompare);
+	qsort(seg, n, sizeof(Seg*), ycompare);
 
 	onehalf = 0;
 	if(fixshift)
@@ -308,7 +306,7 @@ yscan(Memimage *dst, Seg **seg, Seg *segtab, int nseg, int wind, Memimage *src, 
 	if(n == 0)
 		return;
 	*p = 0;
-	qsort(seg, n , sizeof(Seg*), xcompare);
+	qsort(seg, n, sizeof(Seg*), xcompare);
 
 	onehalf = 0;
 	if(fixshift)

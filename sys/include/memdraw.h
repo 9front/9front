@@ -140,7 +140,7 @@ extern void	memdraw(Memimage*, Rectangle, Memimage*, Point, Memimage*, Point, in
 extern void	memline(Memimage*, Point, Point, int, int, int, Memimage*, Point, int);
 extern void	mempoly(Memimage*, Point*, int, int, int, int, Memimage*, Point, int);
 extern void	memfillpoly(Memimage*, Point*, int, int, Memimage*, Point, int);
-extern void	_memfillpolysc(Memimage*, Point*, int, int, Memimage*, Point, int, int, int, int);
+extern void	_memfillpolysc(Memimage*, Point*, int, int, Memimage*, Point, int, int, int);
 extern void	memimagedraw(Memimage*, Rectangle, Memimage*, Point, Memimage*, Point, int);
 extern int	hwdraw(Memdrawparam*);
 extern void	memimageline(Memimage*, Point, Point, int, int, int, Memimage*, Point, int);
