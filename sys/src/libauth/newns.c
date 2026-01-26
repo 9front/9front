@@ -7,7 +7,6 @@
 
 enum
 {
-	NARG	= 15,		/* max number of arguments */
 	MAXARG	= 10*ANAMELEN,	/* max length of an argument */
 };
 
@@ -97,7 +96,7 @@ static int
 nsfile(char *fn, Biobuf *b, AuthRpc *rpc, int dfd)
 {
 	int argc;
-	char *cmd, *argv[NARG+1], argbuf[MAXARG*NARG];
+	char *cmd, *argv[16], argbuf[MAXARG*16];
 	int cdroot;
 
 	cdroot = 0;
@@ -108,7 +107,7 @@ nsfile(char *fn, Biobuf *b, AuthRpc *rpc, int dfd)
 			cmd++;
 		if(*cmd == '#')
 			continue;
-		argc = splitargs(cmd, argv, argbuf, NARG);
+		argc = splitargs(cmd, argv, argbuf, nelem(argv));
 		if(argc)
 			cdroot |= nsop(fn, argc, argv, rpc, dfd);
 	}
@@ -294,6 +293,7 @@ splitargs(char *p, char *argv[], char *argbuf, int nargv)
 			return 0;
 		unquote(argv[i]);
 	}
+	argv[n] = nil;
 	return n;
 }
 
