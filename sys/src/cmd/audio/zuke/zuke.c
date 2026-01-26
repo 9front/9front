@@ -374,6 +374,8 @@ redraw_(int full)
 		if(full || cover != ocover){
 			border(screen, r, 4, colors[Dblow].im, ZP);
 			draw(screen, insetrect(r, 4), cover, nil, ZP);
+			if(ocover != nil && !eqrect(cover->r, ocover->r))
+				full = 1;
 		}
 		bp[1] = bp[0];
 		bp[0].max.y = r.min.y;
