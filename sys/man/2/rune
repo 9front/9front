@@ -38,9 +38,6 @@ char*	utfrune(char *s, long c)
 char*	utfrrune(char *s, long c)
 .PP
 .B
-char*	utfutf(char *s1, char *s2)
-.PP
-.B
 int	utfncmp(char *s1, char *s2, long n)
 .SH DESCRIPTION
 These routines convert to and from a
@@ -170,24 +167,6 @@ The NUL byte terminating a string is considered to
 be part of the string
 .IR s .
 .PP
-.I Utfutf
-returns a pointer to the first occurrence of
-the
-.SM UTF
-string
-.I s2
-as a
-.SM UTF
-substring of
-.IR s1 ,
-or 0 if there is none.
-If
-.I s2
-is the null string,
-.I utfutf
-returns
-.IR s1 .
-.PP
 .I Utfncmp
 compares at most the first
 .I n
@@ -218,8 +197,6 @@ runes.
 .br
 .B /sys/src/libc/port/utfnlen.c
 .br
-.B /sys/src/libc/port/utfutf.c
-.br
 .B /sys/src/libc/port/utfncmp.c
 .SH SEE ALSO
 .IR utf (6),
@@ -234,3 +211,8 @@ one has to consider that encoding a
 (0xFFFD)
 that resulted from invalid encoded input can yield
 a longer UTF sequence on the output.
+.SH HISTORY
+.I Utfutf
+is deprecated.
+Historically, utfutf was written to process a UTF format that predated UTF-8.
+Given the synchronizing property of UTF-8, utfutf is the same as strstr if the arguments point to valid UTF strings.
