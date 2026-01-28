@@ -337,7 +337,7 @@ gefs# ^\\
 % chgrp -u $newuser /n/u/usr/$newuser
 % chgrp $newuser /n/u/usr/$newuser
 
-# Ceate a tmp dir in the unsnapshotted 'other'
+# Create a tmp dir in the unsnapshotted 'other'
 # dataset. If it's present, the default namespace
 # will use it.
 % mount -c /srv/gefs /n/o %other
