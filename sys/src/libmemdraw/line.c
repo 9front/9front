@@ -11,15 +11,6 @@ enum
 	Arrow3 = 3,
 };
 
-static
-int
-lmax(int a, int b)
-{
-	if(a > b)
-		return a;
-	return b;
-}
-
 static Memimage*
 membrush(int radius)
 {
@@ -38,8 +29,7 @@ membrush(int radius)
 	return brush;
 }
 
-static
-void
+static void
 discend(Point p, int radius, Memimage *dst, Memimage *src, Point dsrc, int op)
 {
 	Memimage *disc;
@@ -51,12 +41,11 @@ discend(Point p, int radius, Memimage *dst, Memimage *src, Point dsrc, int op)
 		r.min.y = p.y - radius;
 		r.max.x = p.x + radius+1;
 		r.max.y = p.y + radius+1;
-		memdraw(dst, r, src, addpt(r.min, dsrc), disc, Pt(0,0), op);
+		memdraw(dst, r, src, addpt(r.min, dsrc), disc, ZP, op);
 	}
 }
 
-static
-void
+static void
 arrowend(Point tip, Point *pp, int end, int sin, int cos, int radius)
 {
 	int x1, x2, x3;
@@ -89,15 +78,17 @@ arrowend(Point tip, Point *pp, int end, int sin, int cos, int radius)
 	pp->y = tip.y+((2*radius+1)*cos/2-x1*sin);
 }
 
+/*
+ * NOTE: Clipping is a little peculiar.  We can't use Sutherland-Cohen
+ * clipping because lines are wide.  But this is probably just fine:
+ * we do all math with the original p0 and p1, but clip when deciding
+ * what pixels to draw.  This means the layer code can call this routine,
+ * using clipr to define the region being written, and get the same set
+ * of pixels regardless of the dicing.
+ */
 void
 _memimageline(Memimage *dst, Point p0, Point p1, int end0, int end1, int radius, Memimage *src, Point sp, Rectangle clipr, int op)
 {
-	/*
-	 * BUG: We should really really pick off purely horizontal and purely
-	 * vertical lines and handle them separately with calls to memimagedraw
-	 * on rectangles.
-	 */
-
 	int hor;
 	int sin, cos, dx, dy, t;
 	Rectangle oclipr, r;
@@ -114,16 +105,7 @@ _memimageline(Memimage *dst, Point p0, Point p1, int end0, int end1, int radius,
 		return;
 	if((src->flags&Frepl)==0 && rectclip(&clipr, rectsubpt(src->r, d))==0)
 		return;
-	/* this means that only verline() handles degenerate lines (p0==p1) */
 	hor = (abs(p1.x-p0.x) > abs(p1.y-p0.y));
-	/*
-	 * Clipping is a little peculiar.  We can't use Sutherland-Cohen
-	 * clipping because lines are wide.  But this is probably just fine:
-	 * we do all math with the original p0 and p1, but clip when deciding
-	 * what pixels to draw.  This means the layer code can call this routine,
-	 * using clipr to define the region being written, and get the same set
-	 * of pixels regardless of the dicing.
-	 */
 	if((hor && p0.x>p1.x) || (!hor && p0.y>p1.y)){
 		q = p0;
 		p0 = p1;
@@ -133,26 +115,58 @@ _memimageline(Memimage *dst, Point p0, Point p1, int end0, int end1, int radius,
 		end1 = t;
 	}
 
-	if((p0.x == p1.x || p0.y == p1.y) && (end0&0x1F) == Endsquare && (end1&0x1F) == Endsquare){
+	/* handle purely vertical or horizontal lines */
+	if(p0.x == p1.x || p0.y == p1.y){
 		r.min = p0;
-		r.max = p1;
+		r.max = addpt(p1, Pt(1, 1));
 		if(p0.x == p1.x){
 			r.min.x -= radius;
-			r.max.x += radius+1;
+			r.max.x += radius;
+			cos = 0; sin = ICOSSCALE;
 		}
 		else{
 			r.min.y -= radius;
-			r.max.y += radius+1;
+			r.max.y += radius;
+			cos = ICOSSCALE; sin = 0;
 		}
 		oclipr = dst->clipr;
-		sp = addpt(r.min, d);
 		dst->clipr = clipr;
+		switch(end0 & 0x1F){
+		case Enddisc:
+			discend(p0, radius, dst, src, d, op);
+			break;
+		case Endarrow:
+			q.x = ICOSSCALE*p0.x+ICOSSCALE/2-cos/2;
+			q.y = ICOSSCALE*p0.y+ICOSSCALE/2-sin/2;
+			arrowend(q, pts, end0, -sin, -cos, radius);
+			_memfillpolysc(dst, pts, 5, ~0, src, addpt(pts[0], mulpt(d, ICOSSCALE)), 1, 10, op);
+			if(cos)
+				r.min.x = pts[0].x >> 10;
+			else
+				r.min.y = pts[0].y >> 10;
+			break;
+		}
+		switch(end1 & 0x1F){
+		case Enddisc:
+			discend(p1, radius, dst, src, d, op);
+			break;
+		case Endarrow:
+			q.x = ICOSSCALE*p1.x+ICOSSCALE/2+cos/2;
+			q.y = ICOSSCALE*p1.y+ICOSSCALE/2+sin/2;
+			arrowend(q, pts, end1, sin, cos, radius);
+			_memfillpolysc(dst, pts, 5, ~0, src, addpt(pts[0], mulpt(d, ICOSSCALE)), 1, 10, op);
+			if(cos)
+				r.max.x = pts[0].x >> 10;
+			else
+				r.max.y = pts[0].y >> 10;
+			break;
+		}
+		sp = addpt(r.min, d);
 		memimagedraw(dst, r, src, sp, memopaque, sp, op);
 		dst->clipr = oclipr;
 		return;
 	}
 
-/*    Hard: */
 	/* draw thick line using polygon fill */
 	icossin2(p1.x-p0.x, p1.y-p0.y, &cos, &sin);
 	dx = (sin*(2*radius+1))/2;
@@ -217,8 +231,7 @@ memimageline(Memimage *dst, Point p0, Point p1, int end0, int end1, int radius, 
  * Simple-minded conservative code to compute bounding box of line.
  * Result is probably a little larger than it needs to be.
  */
-static
-void
+static void
 addbbox(Rectangle *r, Point p)
 {
 	if(r->min.x > p.x)
@@ -243,6 +256,14 @@ memlineendsize(int end)
 	else
 		x3 = (end>>23) & 0x1FF;
 	return x3;
+}
+
+static int
+lmax(int a, int b)
+{
+	if(a > b)
+		return a;
+	return b;
 }
 
 Rectangle
