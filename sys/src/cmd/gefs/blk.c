@@ -280,7 +280,6 @@ logappend(Arena *a, vlong off, vlong len, int op)
 	bassert(lb, agetl(&lb->ref) > 0);
 	bassert(lb, lb->type == Tlog);
 	bassert(lb, lb->logsz >= 0);
-	dprint("logop %d: %llx+%llx@%x\n", op, off, len, lb->logsz);
 
 	if(checkflag(lb, 0, Bdirty))
 		setflag(lb, Bdirty, Bfinal);
