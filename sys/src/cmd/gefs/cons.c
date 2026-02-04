@@ -140,6 +140,7 @@ refreshusers(int fd, char **, int)
 	loadusers(fd, agetp(&mnt->root));
 	fprint(fd, "refreshed users\n");
 	clunkmount(mnt);
+	poperror();
 }
 
 static void
