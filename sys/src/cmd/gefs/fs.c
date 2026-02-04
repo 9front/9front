@@ -1211,7 +1211,7 @@ fsaccess(Fid *f, ulong fmode, int fuid, int fgid, int m)
 	/* uid none gets only other permissions */
 	if(f->permit)
 		return 0;
-	if(f->uid != noneid) {
+	if(f->uid != noneid){
 		if(f->uid == fuid)
 			if((m & (fmode>>6)) == m)
 				return 0;
@@ -1219,7 +1219,7 @@ fsaccess(Fid *f, ulong fmode, int fuid, int fgid, int m)
 			if((m & (fmode>>3)) == m)
 				return 0;
 	}
-	if((m & fmode) == m) {
+	if((m & fmode) == m){
 		if((fmode & DMDIR) && (m == DMEXEC))
 			return 0;
 		if(!ingroup(f->uid, nogroupid))
@@ -2127,7 +2127,7 @@ fsopen(Fmsg *m, int id, Amsg **ao)
 		wunlock(f->dent);
 		poperror();
 	}
-	f->mode = mode2bits(m->mode);
+	f->mode = mbits;
 	if(m->mode & ORCLOSE)
 		poperror();	/* free(f->rclose) */
 
