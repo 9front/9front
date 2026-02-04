@@ -359,6 +359,10 @@ delsnap(Tree *t, vlong succ, char *name)
 		m[nm].v = nil;
 		m[nm].nv = 0;
 		nm++;
+	}else{
+		m[nm].op = Oinsert;
+		tree2kv(t, &m[nm], buf[nm], sizeof(buf[nm]));
+		nm++;
 	}
 	assert(nm <= nelem(m));
 	dlsync();
