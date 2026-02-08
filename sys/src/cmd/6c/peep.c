@@ -1,5 +1,8 @@
 #include "gc.h"
 
+static void
+storeprop(int as, Adr *a, Adr *v, Reg *r);
+
 static int
 needc(Prog *p)
 {
@@ -100,8 +103,12 @@ loop1:
 		case AMOVQ:
 		case AMOVSS:
 		case AMOVSD:
-			if(!regtyp(&p->to))
+			if(!regtyp(&p->to)){
+				/* registerize variable loads following stores */
+				if(regtyp(&p->from) && (p->to.type == D_AUTO || p->to.type == D_PARAM))
+					storeprop(p->as, &p->from, &p->to, r->s1);
 				break;
+			}
 			if(regtyp(&p->from)) {
 				if(copyprop(r)) {
 					excise(r);
@@ -991,4 +998,46 @@ copysub(Adr *a, Adr *v, Adr *s, int f)
 		return 0;
 	}
 	return 0;
+}
+
+/*
+ * Registerize loads from local variables:
+ *
+ * MOV a, v
+ * ... (a and v not touched)
+ * MOV v, b
+ * ----
+ * MOV a, v
+ * ... (a and v not touched)
+ * MOV a, b
+ */
+static void
+storeprop(int as, Adr *a, Adr *v, Reg *r)
+{
+	Prog *p;
+
+	for(; r != R; r = r->s1) {
+		if(uniqp(r) == R)
+			return;
+
+		p = r->prog;
+		if(as == p->as
+		&& copyas(&p->from, v)){
+			p->from = *a;
+			continue;
+		}
+
+		if(copyu(p, a, A) > 1)
+			return;
+
+		if(p->to.type >= D_INDIR)	/* might modify v */
+			return;
+
+		if(p->to.type == D_AUTO || p->to.type == D_PARAM)
+			if(copyas(&p->to, v))
+				return;
+
+		if(r->s2)
+			storeprop(as, a, v, r->s2);
+	}
 }
