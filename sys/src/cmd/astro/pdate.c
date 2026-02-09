@@ -234,7 +234,7 @@ tzone(double y, Tim *z)
 	/*
 	 * return difference
 	 */
-	snprint(z->tz, sizeof(z->tz), t1.zone);
+	snprint(z->tz, sizeof(z->tz), "%s", t1.zone);
 	return y + (l2 - l1);
 }
 
