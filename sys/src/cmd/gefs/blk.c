@@ -79,7 +79,7 @@ readblk(Blk *b, Bptr bp, int flg)
 	b->type = (flg&GBraw) ? Tdat : UNPACK16(b->buf+0);
 	switch(b->type){
 	default:
-		broke("invalid block type %d @%llx", b->type, bp);
+		error("invalid block type %d @%llx", b->type, bp);
 		break;
 	case Tdat:
 	case Tsuper:
@@ -119,7 +119,7 @@ readblk(Blk *b, Bptr bp, int flg)
 		ck = blkhash(b);
 	}
 	if((flg&GBnochk) == 0 && ck != xh)
-		broke("%s: %ullx %llux != %llux", Ecorrupt, bp.addr, xh, ck);
+		error("%s: %ullx %llux != %llux", Ecorrupt, bp.addr, xh, ck);
 	bassert(b, b->magic == Magic);
 }
 
@@ -734,6 +734,10 @@ getblk(Bptr bp, int flg)
 	qlock(&fs->blklk[i]);
 	if(waserror()){
 		qunlock(&fs->blklk[i]);
+		if(flg&GBtry)
+			return nil;
+		else
+			aincl(&fs->rdonly, 1);
 		nexterror();
 	}
 	if((b = cacheget(bp.addr)) != nil){

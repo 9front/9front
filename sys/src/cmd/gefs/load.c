@@ -22,26 +22,18 @@ loadarena(Arena *a, Bptr hd)
 	Blk *h0, *h1, *b;
 	Bptr bp;
 
-	/* try to load block pointers with consistency check */
+	/* try to load block pointers, we only need one to succeed */
 	bp = hd;
-	h0 = nil;
-	h1 = nil;
-	if(!waserror()){
-		h0 = getblk(bp, 0);
-		poperror();
-	}else
-		fprint(2, "loading arena primary header: %s\n", errmsg());
+	h0 = getblk(bp, GBtry);
 	bp.addr += Blksz;
-	if(!waserror()){
-		h1 = getblk(bp, 0);
-		poperror();
-	}else
-		fprint(2, "loading arena backup header: %s\n", errmsg());
-
+	h1 = getblk(bp, GBtry);
 	/* if neither head nor tail is consistent, we're hosed */
 	b = (h0 != nil) ? h0 : h1;
 	if(b == nil)
 		error(Efs);
+	if(h0 == nil || h1 == nil)
+		fprint(2, "using fallback arena header %B\n", b->bp);
+
 
 	/* otherwise, we could have crashed mid-pass, just load the blocks */
 	bp = hd;
