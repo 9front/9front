@@ -113,7 +113,7 @@ ptime(double d)
 	h = t.ifa[3];
 	m = floor(t.ifa[4]);
 	s = floor((t.ifa[4]-m) * 60);
-	print("%.2d:%.2d:%.2d %.*s", h, m, s, utfnlen(t.tz, 3), t.tz);
+	print("%.2d:%.2d:%.2d %s", h, m, s, t.tz);
 }
 
 char*	unit[] =
@@ -306,7 +306,7 @@ convdate(Tim *t)
 	/*
 	 * kitchen clock correction
 	 */
-	strncpy(t->tz, "GMT", sizeof(t->tz));
+	snprint(t->tz, sizeof(t->tz), "GMT");
 	if(flags['k'])
 		y = tzone(y, t);
 	return y;

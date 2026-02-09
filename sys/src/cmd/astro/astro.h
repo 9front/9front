@@ -75,7 +75,7 @@ struct	Occ
 struct	Tim
 {
 	double	ifa[5];
-	char	tz[4];
+	char	tz[16];
 };
 
 double	converge;
