@@ -105,6 +105,7 @@ loop1:
 		case AMOVSD:
 			if(!regtyp(&p->to)){
 				/* registerize variable loads following stores */
+				if(0)	/* not yet */
 				if(regtyp(&p->from) && (p->to.type == D_AUTO || p->to.type == D_PARAM))
 					storeprop(p->as, &p->from, &p->to, r->s1);
 				break;
