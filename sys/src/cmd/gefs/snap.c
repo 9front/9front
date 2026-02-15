@@ -56,7 +56,6 @@ dlcachedel(Dlist *dl, int hdel)
 		dl->cprev->cnext = dl->cnext;
 	dl->cnext = nil;
 	dl->cprev = nil;
-	fs->dlcount--;
 }
 
 static Dlist*
@@ -88,6 +87,7 @@ getdl(vlong gen, vlong bgen)
 		return dl;
 	dl = emalloc(sizeof(Dlist), 1);
 	if(waserror()){
+		fs->dlcount--;
 		free(dl);
 		nexterror();
 	}
@@ -109,6 +109,7 @@ getdl(vlong gen, vlong bgen)
 	dl->hd.addr = -1;
 	dl->tl.addr = -1;
 	dl->ins = nil;
+	fs->dlcount++;
 
 	m.op = Oinsert;
 	dlist2kv(dl, &m, kvbuf, sizeof(kvbuf));
@@ -131,6 +132,7 @@ putdl(Dlist *dl)
 		return;
 	dlcachedel(dl, 0);
 	while(fs->dlcount >= fs->dlcmax && (dt = fs->dltail) != nil){
+		fs->dlcount--;
 		dlcachedel(dt, 1);
 		dlflush(dt);
 		assert(dt->ins == nil);
@@ -144,7 +146,6 @@ putdl(Dlist *dl)
 	if(fs->dlhead != nil)
 		fs->dlhead->cprev = dl;
 	fs->dlhead = dl;
-	fs->dlcount++;
 }
 
 void
