@@ -229,8 +229,7 @@ mergedl(vlong merge, vlong gen, vlong bgen)
 			d->hd = m->hd;
 			d->tl = m->tl;
 			d->ins = m->ins;
-			if(d->ins != nil)
-				holdblk(d->ins);
+			m->ins = nil;
 		}else{
 			if(m->ins != nil){
 				enqueue(m->ins);
