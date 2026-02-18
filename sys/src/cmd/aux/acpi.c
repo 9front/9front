@@ -648,3 +648,15 @@ void
 amlunmapio(Amlio *)
 {
 }
+
+void
+amldelay(uvlong us)
+{
+	sleep(us/1000);
+}
+
+uvlong
+amltime(void)
+{
+	return nsec()/100;
+}

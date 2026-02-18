@@ -2,7 +2,8 @@
 #include <libc.h>
 #include <aml.h>
 
-void
-amldelay(uvlong)
+uvlong
+amltime(void)
 {
+	return 0;
 }

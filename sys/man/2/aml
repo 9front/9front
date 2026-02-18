@@ -288,6 +288,11 @@ with the same data structure to allow freeing resources.
 is called by the interpreter with the number of microseconds
 to sleep.
 .TP
+.BI amltime()
+.I Amltime
+is called by the interpreter to get the monotonic increasing time
+tick in 100ns units (10MHz).
+.TP
 \f5amlalloc(\fIn\f5) \f5amlfree(\fIp\f5)
 .I Amlalloc
 and

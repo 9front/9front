@@ -151,7 +151,7 @@ enum {
 	Ocfld, Ocfld0, Ocfld1, Ocfld2, Ocfld4, Ocfld8,
 	Oif, Oelse, Owhile, Obreak, Oret, Ocall, 
 	Ostore, Oderef, Ootype, Osize, Oref, Ocref, Ocat, Ocatr, Omid,
-	Oacq, Osignal, Orel, Ostall, Osleep, Oload, Ounload,
+	Oacq, Osignal, Orel, Ostall, Osleep, Otimer, Oload, Ounload,
 	Otodec, Otohex, Otoint, Otostr, Onotify,
 };
 
@@ -2060,6 +2060,12 @@ evalsleep(void)
 }
 
 static void*
+evaltimer(void)
+{
+	return mki(amltime());
+}
+
+static void*
 evalconv(void)
 {
 	void *r, *a;
@@ -2218,6 +2224,7 @@ static Op optab[] = {
 	[Orel]		"Release",		"@",		evalnop,
 	[Ostall]	"Stall",		"i",		evalstall,
 	[Osleep]	"Sleep",		"i",		evalsleep,
+	[Otimer]	"Timer",		"",		evaltimer,
 	[Oload] 	"Load", 		"*@}", 		evalload,
 	[Ounload]	"Unload",		"@",		evalnop,
 
@@ -2271,7 +2278,7 @@ static uchar octab2[] = {
 /* 18 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
 /* 20 */	Oload,	Ostall,	Osleep,	Oacq,	Osignal,Obad,	Obad,	Orel,
 /* 28 */	Obad,	Obad,	Ounload,Obad,	Obad,	Obad,	Obad,	Obad,
-/* 30 */	Obad,	Odebug,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
+/* 30 */	Obad,	Odebug,	Obad,	Otimer,	Obad,	Obad,	Obad,	Obad,
 /* 38 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
 /* 40 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
 /* 48 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,

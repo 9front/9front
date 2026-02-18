@@ -1038,7 +1038,20 @@ amlfree(void *p){
 }
 
 void
-amldelay(int us)
+amldelay(uvlong us)
 {
+	while(us > 1000){
+		us -= 1000;
+		microdelay(1000);
+	}
 	microdelay(us);
+}
+
+uvlong
+amltime(void)
+{
+	uvlong hz;
+
+	/* can't use tod yet, use fastticks() */
+	return (fastticks(&hz) * 10000000ULL) / hz;
 }
