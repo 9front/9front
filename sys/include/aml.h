@@ -47,7 +47,8 @@ uvlong		amlintmask;
 extern void*	amlalloc(int);
 extern void	amlfree(void*);
 
-extern void	amldelay(int);	/* microseconds */
+extern void	amldelay(uvlong); /* microseconds */
+extern uvlong	amltime(void);
 
 enum {
 	MemSpace	= 0x00,
