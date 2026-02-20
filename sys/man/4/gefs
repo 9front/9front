@@ -32,6 +32,10 @@ gefs \- file server
 is an experimental file server.
 It attempts to be crash safe, snapshotting, and corruption-detecting,
 without giving up too much performance.
+.I Gefs
+makes use of concurrent processes,
+the allocation of which is determined by reading
+.BR $NPROC .
 .PP
 Gefs allows multiple snapshots to be mounted and maintained concurrently.
 These snapshots all share the same storage pool, but can be written to,

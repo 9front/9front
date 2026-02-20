@@ -20,6 +20,11 @@ bind -qa '#a' /net
 # usually better than 1970
 cat '#r/rtc' >/dev/time >[2]/dev/null
 
+# gefs uses $NPROC
+nl='
+'
+NPROC=`$nl{cat /dev/sysstat}; NPROC=$#NPROC
+
 # reparse variables
 for(i in `{ls -Qp /env}){
 	switch($i){
