@@ -890,7 +890,7 @@ i82563tproc(void *v)
 		if(n == i82563cleanup(ctlr)){
 			ctlr->txdw++;
 			i82563im(ctlr, Txdw);
-			sleep(&ctlr->trendez, notrim, ctlr);
+			tsleep(&ctlr->trendez, notrim, ctlr, 5);
 			continue;
 		}
 		bp = qbread(edev->oq, 100000);
@@ -1462,6 +1462,7 @@ i82563interrupt(Ureg*, void *arg)
 		}
 		if(icr & Txdw){
 			im &= ~Txdw;
+			ctlr->im &= ~Txdw;
 			ctlr->tintr++;
 			wakeup(&ctlr->trendez);
 		}
