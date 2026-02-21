@@ -357,6 +357,21 @@ relocateseg(Segment *s, uintptr offset)
 	}
 }
 
+/* remove from idle list */
+static void
+busyimage(Image *i)
+{
+	/* not on idle list? */
+	if(i->link == nil)
+		return;
+
+	if((*i->link = i->next) != nil)
+		i->next->link  = i->link;
+	i->link = nil;
+	i->next = nil;
+	imagealloc.pgidle -= i->pgref;
+	imagealloc.nidle--;
+}
 
 Image*
 attachimage(Chan *c, ulong pages)
@@ -373,6 +388,7 @@ retry:
 	for(i = ihash(c->qid.path); i != nil; i = i->hash){
 		if(eqchantdqid(c, i->type, i->dev, i->qid, 0)){
 			incref(i);
+			busyimage(i);
 			goto found;
 		}
 	}
@@ -402,24 +418,6 @@ found:
 	return i;
 }
 
-/* remove from idle list */
-static void
-busyimage(Image *i)
-{
-	/* not on idle list? */
-	if(i->link == nil)
-		return;
-
-	lock(&imagealloc);
-	if((*i->link = i->next) != nil)
-		i->next->link  = i->link;
-	i->link = nil;
-	i->next = nil;
-	imagealloc.pgidle -= i->pgref;
-	imagealloc.nidle--;
-	unlock(&imagealloc);
-}
-
 /* insert into idle list */
 static void
 idleimage(Image *i)
@@ -430,7 +428,6 @@ idleimage(Image *i)
 	if(i->link != nil)
 		return;
 
-	lock(&imagealloc);
 	l = &imagealloc.idle;
 	j = imagealloc.idle;
 	/* sort by least frequenty and most pages used first */
@@ -448,7 +445,6 @@ idleimage(Image *i)
 	*(i->link = l) = i;
 	imagealloc.pgidle += i->pgref;
 	imagealloc.nidle++;
-	unlock(&imagealloc);
 }
 
 /* putimage(): called with image locked and unlocks */
@@ -463,16 +459,18 @@ putimage(Image *i)
 		unlock(i);
 		return;
 	}
+	c = nil;
 	if(r == 0){
 		assert(i->pgref == 0);
 		assert(i->s == nil);
-		c = i->c;
-		i->c = nil;
-		busyimage(i);
 		lock(&imagealloc);
 		r = i->ref;
 		if(r == 0){
 			Image *f, **l;
+
+			c = i->c;
+			i->c = nil;
+			busyimage(i);
 
 			l = &ihash(i->qid.path);
 			for(f = *l; f != nil; f = f->hash) {
@@ -487,12 +485,14 @@ putimage(Image *i)
 	} else if(r == i->pgref) {
 		assert(i->pgref > 0);
 		assert(i->s == nil);
-		c = i->c;
-		i->c = nil;
-		idleimage(i);
-	} else {
-		c = nil;
-		busyimage(i);
+		if(i->link == nil){
+			c = i->c;
+			i->c = nil;
+
+			lock(&imagealloc);
+			idleimage(i);
+			unlock(&imagealloc);
+		}
 	}
 	unlock(i);
 
@@ -524,12 +524,12 @@ imagereclaim(ulong pages)
 		if(i == nil)
 			break;
 		incref(i);
+		busyimage(i);
 		unlock(&imagealloc);
 
 		np += pagereclaim(i);
 
 		lock(i);
-		busyimage(i);	/* force re-insert into idle list */
 		putimage(i);
 
 		lock(&imagealloc);
