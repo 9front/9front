@@ -27,6 +27,8 @@ if(! nusb/usbd $usbdebug)
 			nusb/ether -t url $etherargs $id
 		case 18d14ee3 0bb40003 10046344
 			nusb/ether -t rndis $etherargs $id
+		case 0bda8153
+			nusb/ether $id
 		case 12092301 # keyboardio model 01 (IAD)
 			nusb/kb $id
 		# prevent attachment to nusb/kb for:
