@@ -182,16 +182,13 @@ killbig(void)
 static int
 reclaim(void)
 {
-	enum {
-		Target = 4*MB/BY2PG,
-	};
 	ulong np;
 
 	for(;;){
 		np = pagereclaim(fscache);
-		if(np < Target)
-			np += imagereclaim(Target-np);
-		if(np < Target)
+		if(np < swapalloc.headroom)
+			np += imagereclaim(swapalloc.headroom-np);
+		if(np < swapalloc.headroom)
 			np += pagereclaim(swapimage);
 		if(!needpages(nil))
 			return 1;	/* have pages, done */
@@ -409,12 +406,6 @@ executeio(void)
 	}
 	ioptr = j;
 	if(j) print("executeio (%lud/%lud): %s\n", j, i, up->errstr);
-}
-
-int
-needpages(void*)
-{
-	return palloc.freecount < swapalloc.headroom;
 }
 
 static void

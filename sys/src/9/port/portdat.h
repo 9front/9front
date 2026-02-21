@@ -580,9 +580,9 @@ struct Palloc
 	Lock;
 	Page	*head;			/* freelist head */
 	ulong	freecount;		/* how many pages on free list now */
-	Page	*pages;			/* array of all pages */
 	ulong	user;			/* how many user pages */
-	Rendezq		pwait[2];	/* Queues of procs waiting for memory */
+	Page	*pages;			/* array of all pages */
+	Rendezq	pwait[2];		/* Queues of procs waiting for memory */
 };
 
 struct Waitq

@@ -162,8 +162,14 @@ Done:
 	return np;
 }
 
+int
+needpages(void*)
+{
+	return palloc.freecount < swapalloc.headroom;
+}
+
 static int
-ispages(void*)
+havepages(void*)
 {
 	return palloc.freecount > swapalloc.highwater || up->noswap && palloc.freecount > 0;
 }
@@ -175,19 +181,19 @@ newpage(uintptr va, QLock *locked)
 	int color;
 
 	lock(&palloc);
-	while(!ispages(nil)){
+	while(!havepages(nil)){
 		unlock(&palloc);
 		if(locked)
 			qunlock(locked);
 
+		kickpager();
 		if(!waserror()){
 			Rendezq *q;
 
 			q = &palloc.pwait[!up->noswap];
 			eqlock(q);	
 			if(!waserror()){
-				kickpager();
-				sleep(q, ispages, nil);
+				sleep(q, havepages, nil);
 				poperror();
 			}
 			qunlock(q);
