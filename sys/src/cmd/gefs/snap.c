@@ -86,6 +86,7 @@ getdl(vlong gen, vlong bgen)
 	if((dl = dlcacheget(gen, bgen)) != nil)
 		return dl;
 	dl = emalloc(sizeof(Dlist), 1);
+	fs->dlcount++;
 	if(waserror()){
 		fs->dlcount--;
 		free(dl);
@@ -109,7 +110,6 @@ getdl(vlong gen, vlong bgen)
 	dl->hd.addr = -1;
 	dl->tl.addr = -1;
 	dl->ins = nil;
-	fs->dlcount++;
 
 	m.op = Oinsert;
 	dlist2kv(dl, &m, kvbuf, sizeof(kvbuf));
