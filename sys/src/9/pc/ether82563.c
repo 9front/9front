@@ -1903,7 +1903,7 @@ i82563reset(Ctlr *ctlr)
 		csr32w(ctlr, Rah+i*8, 0);
 	}
 	for(i = 0; i < 128; i++)
-		csr32w(ctlr, Mta + i*4, 0);
+		csr32w(ctlr, Mta+i*4, ctlr->mta[i]);
 	if((flag & Fnofca) == 0){
 		csr32w(ctlr, Fcal, 0x00C28001);
 		csr32w(ctlr, Fcah, 0x0100);
