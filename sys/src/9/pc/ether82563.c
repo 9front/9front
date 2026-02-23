@@ -100,6 +100,7 @@ enum {
 	/* Statistics */
 
 	Statistics	= 0x4000,	/* Start of Statistics Area */
+	Mpc		= 0x10/4,	/* Missed packets Count */
 	Gorcl		= 0x88/4,	/* Good Octets Received Count */
 	Gotcl		= 0x90/4,	/* Good Octets Transmitted Count */
 	Torl		= 0xC0/4,	/* Total Octets Received */
@@ -524,6 +525,7 @@ struct Ctlr {
 	Lock	imlock;
 	int	im;			/* interrupt mask */
 
+	Proc	*lproc;
 	Rendez	lrendez;
 	int	lim;
 
@@ -544,6 +546,7 @@ struct Ctlr {
 	uchar	ra[Eaddrlen];		/* receive address */
 	u32int	mta[128];		/* multicast table array */
 
+	Proc	*rproc;
 	Rendez	rrendez;
 	int	rim;
 	int	rdfree;
@@ -554,6 +557,7 @@ struct Ctlr {
 	int	rdtr;			/* receive delay timer ring value */
 	int	radv;			/* receive interrupt absolute delay timer */
 
+	Proc	*tproc;
 	Rendez	trendez;
 	QLock	tlock;
 	int	tbusy;
@@ -566,6 +570,8 @@ struct Ctlr {
 	int	fcrth;
 
 	u32int	pba;			/* packet buffer allocation */
+
+	Proc	*wproc;			/* watchdog */
 };
 
 #define csr32r(c, r)	(*((c)->nic+((r)/4)))
@@ -649,6 +655,8 @@ static char *statistics[Nstatistics] = {
 	"Interrupt Rx Min",
 	"Interrupt Rx Overrun",
 };
+
+static void i82563recover(Ctlr*);
 
 static char*
 cname(Ctlr *c)
@@ -796,6 +804,16 @@ i82563multicast(void *arg, uchar *addr, int on)
 }
 
 static void
+procerror(Ctlr *ctlr, Proc **p)
+{	
+	print("#l%d: %s: %s: %s\n", ctlr->edev->ctlrno, cname(ctlr), up->text, up->errstr);
+
+	*p = nil;
+
+	pexit("", 1);
+}
+
+static void
 i82563im(Ctlr *ctlr, int im)
 {
 	ilock(&ctlr->imlock);
@@ -880,11 +898,14 @@ i82563tproc(void *v)
 
 	edev = v;
 	ctlr = edev->ctlr;
+	ctlr->tproc = up;
+
 	i82563txinit(ctlr);
 
 	tdt = ctlr->tdt;
 	while(waserror())
-		;
+		procerror(ctlr, &ctlr->tproc);
+
 	for(;;){
 		n = NEXT(tdt, ctlr->ntd);
 		if(n == i82563cleanup(ctlr)){
@@ -939,8 +960,11 @@ i82563replenish(Ctlr *ctlr)
 static void
 i82563rxinit(Ctlr *ctlr)
 {
+	Ether *edev;
 	int i;
 	Block *bp;
+
+	edev = ctlr->edev;
 
 	if(ctlr->rbsz <= 2048)
 		csr32w(ctlr, Rctl, Dpf|Bsize2048|Bam|RdtmsHALF);
@@ -975,6 +999,7 @@ i82563rxinit(Ctlr *ctlr)
 	csr32w(ctlr, Rdtr, ctlr->rdtr);
 	csr32w(ctlr, Radv, ctlr->radv);
 
+	ctlr->rdfree = 0;
 	for(i = 0; i < ctlr->nrd; i++)
 		if((bp = ctlr->rb[i]) != nil){
 			ctlr->rb[i] = nil;
@@ -996,6 +1021,13 @@ i82563rxinit(Ctlr *ctlr)
 	 * Enable checksum offload.
 	 */
 	csr32w(ctlr, Rxcsum, Tuofl | Ipofl | ETHERHDRSIZE);
+
+	i82563promiscuous(edev, edev->prom);
+
+	csr32w(ctlr, Rctl, csr32r(ctlr, Rctl) | Ren);
+
+	if(cttab[ctlr->type].flag & F75)
+		csr32w(ctlr, Rxdctl, csr32r(ctlr, Rxdctl) | Enable);
 }
 
 static int
@@ -1007,7 +1039,7 @@ i82563rim(void *v)
 static void
 i82563rproc(void *arg)
 {
-	uint rdh, rim, im;
+	uint rdh, rim;
 	Block *bp;
 	Ctlr *ctlr;
 	Ether *edev;
@@ -1015,26 +1047,21 @@ i82563rproc(void *arg)
 
 	edev = arg;
 	ctlr = edev->ctlr;
+	ctlr->rproc = up;
 
 	i82563rxinit(ctlr);
 
-	csr32w(ctlr, Rctl, csr32r(ctlr, Rctl) | Ren);
-	if(cttab[ctlr->type].flag & F75){
-		csr32w(ctlr, Rxdctl, csr32r(ctlr, Rxdctl) | Enable);
-		im = Rxt0|Rxo|Rxdmt0|Rxseq|Ack;
-	}else
-		im = Rxt0|Rxo|Rxdmt0|Rxseq|Ack;
-
 	while(waserror())
-		;
+		procerror(ctlr, &ctlr->rproc);
+
 	for(;;){
-		i82563im(ctlr, im);
+		i82563im(ctlr, Rxt0|Rxo|Rxdmt0|Rxseq|Ack);
 		ctlr->rsleep++;
 		i82563replenish(ctlr);
 		sleep(&ctlr->rrendez, i82563rim, ctlr);
 
 		rdh = ctlr->rdh;
-		for(;;){
+		while(rdh != ctlr->rdt){
 			rim = ctlr->rim;
 			ctlr->rim = 0;
 			rd = &ctlr->rdba[rdh];
@@ -1049,6 +1076,10 @@ i82563rproc(void *arg)
 			 * calculated and valid.
 			 */
 			bp = ctlr->rb[rdh];
+			ctlr->rb[rdh] = nil;
+			ctlr->rdfree--;
+			ctlr->rdh = rdh = NEXT(rdh, ctlr->nrd);
+
 			if((rd->status & Reop) && rd->errors == 0){
 				bp->wp += rd->length;
 				if(!(rd->status & Ixsm)){
@@ -1075,9 +1106,7 @@ i82563rproc(void *arg)
 				etheriq(edev, bp);
 			} else
 				freeb(bp);
-			ctlr->rb[rdh] = nil;
-			ctlr->rdfree--;
-			ctlr->rdh = rdh = NEXT(rdh, ctlr->nrd);
+
 			if(ctlr->nrd-ctlr->rdfree >= 32 || (rim & Rxdmt0))
 				i82563replenish(ctlr);
 		}
@@ -1211,8 +1240,10 @@ phyl79proc(void *v)
 
 	e = v;
 	c = e->ctlr;
+	c->lproc = up;
+
 	while(waserror())
-		;
+		procerror(c, &c->lproc);
 
 	while((phyno = phyprobe(c, 3<<1)) == ~0)
 		lsleep(c, Lsc);
@@ -1254,8 +1285,10 @@ phylproc(void *v)
 
 	e = v;
 	c = e->ctlr;
+	c->lproc = up;
+
 	while(waserror())
-		;
+		procerror(c, &c->lproc);
 
 	while((phyno = phyprobe(c, 3<<1)) == ~0)
 		lsleep(c, Lsc);
@@ -1315,8 +1348,10 @@ pcslproc(void *v)
 
 	e = v;
 	c = e->ctlr;
+	c->lproc = up;
+
 	while(waserror())
-		;
+		procerror(c, &c->lproc);
 
 	if(c->type == i82575 || c->type == i82576)
 		csr32w(c, Connsw, Enrgirq);
@@ -1346,8 +1381,10 @@ serdeslproc(void *v)
 
 	e = v;
 	c = e->ctlr;
+	c->lproc = up;
 	while(waserror())
-		;
+		procerror(c, &c->lproc);
+
 	for(;;){
 		rx = csr32r(c, Rxcw);
 		tx = csr32r(c, Txcw);
@@ -1363,6 +1400,66 @@ serdeslproc(void *v)
 		c->speeds[i]++;
 		lsleep(c, Lsc);
 	}
+}
+
+static uint
+missedpackets(Ctlr *ctlr)
+{
+	uint r;
+
+	r = csr32r(ctlr, Statistics + Mpc*4);
+	ctlr->statistics[Mpc] += r;
+
+	return ctlr->statistics[Mpc];
+}
+
+static void
+i82563wproc(void *v)
+{
+	Ctlr *ctlr;
+	Ether *edev;
+	uint mpc, rdh, stuck;
+
+	edev = v;
+	ctlr = edev->ctlr;
+
+	ctlr->wproc = up;
+	while(waserror())
+		procerror(ctlr, &ctlr->wproc);
+
+Again:
+	mpc = missedpackets(ctlr);
+	rdh = csr32r(ctlr, Rdh);
+	stuck = 0;
+	for(;;){
+		tsleep(&up->sleep, return0, 0, 1000);
+		if(missedpackets(ctlr) == mpc)
+			continue;
+		if(csr32r(ctlr, Rdh) != rdh)
+			goto Again;
+		if(++stuck >= 5)
+			break;
+	}
+
+	print("#l%d: %s: %s: rx stuck, recovering...\n", ctlr->edev->ctlrno, cname(ctlr), up->text);
+
+	ctlr->wproc = nil;
+	i82563recover(ctlr);
+	pexit("", 1);
+}
+
+static void
+i82563dealloc(Ctlr *ctlr)
+{
+	ctlr->rdba = nil;
+	ctlr->tdba = nil;
+
+	free(ctlr->tb);
+	ctlr->tb = nil;
+	free(ctlr->rb);
+	ctlr->rb = nil;
+	free(ctlr->alloc);
+	ctlr->alloc = nil;
 }
 
 static void
@@ -1384,29 +1481,16 @@ i82563attach(Ether *edev)
 	ctlr->alloc = malloc(ctlr->nrd*sizeof(Rd)+ctlr->ntd*sizeof(Td) + 255);
 	ctlr->rb = malloc(ctlr->nrd * sizeof(Block*));
 	ctlr->tb = malloc(ctlr->ntd * sizeof(Block*));
-	if(ctlr->alloc == nil || ctlr->rb == nil || ctlr->tb == nil){
-		free(ctlr->rb);
-		ctlr->rb = nil;
-		free(ctlr->tb);
-		ctlr->tb = nil;
-		free(ctlr->alloc);
-		ctlr->alloc = nil;
-		qunlock(&ctlr->alock);
-		error(Enomem);
-	}
-	ctlr->rdba = (Rd*)ROUNDUP((uintptr)ctlr->alloc, 256);
-	ctlr->tdba = (Td*)(ctlr->rdba + ctlr->nrd);
-
 	if(waserror()){
-		free(ctlr->tb);
-		ctlr->tb = nil;
-		free(ctlr->rb);
-		ctlr->rb = nil;
-		free(ctlr->alloc);
-		ctlr->alloc = nil;
+		i82563dealloc(ctlr);
 		qunlock(&ctlr->alock);
 		nexterror();
 	}
+	if(ctlr->alloc == nil || ctlr->rb == nil || ctlr->tb == nil)
+		error(Enomem);
+
+	ctlr->rdba = (Rd*)ROUNDUP((uintptr)ctlr->alloc, 256);
+	ctlr->tdba = (Td*)(ctlr->rdba + ctlr->nrd);
 
 	/* set link up */
 	r = csr32r(ctlr, Ctrl);
@@ -1428,6 +1512,9 @@ i82563attach(Ether *edev)
 
 	snprint(name, sizeof name, "#l%dt", edev->ctlrno);
 	kproc(name, i82563tproc, edev);
+
+	snprint(name, sizeof name, "#l%dw", edev->ctlrno);
+	kproc(name, i82563wproc, edev);
 
 	qunlock(&ctlr->alock);
 	poperror();
@@ -1815,7 +1902,6 @@ i82563reset(Ctlr *ctlr)
 		csr32w(ctlr, Ral+i*8, 0);
 		csr32w(ctlr, Rah+i*8, 0);
 	}
-	memset(ctlr->mta, 0, sizeof(ctlr->mta));
 	for(i = 0; i < 128; i++)
 		csr32w(ctlr, Mta + i*4, 0);
 	if((flag & Fnofca) == 0){
@@ -1837,6 +1923,7 @@ enum {
 	CMradv,
 	CMpause,
 	CMan,
+	CMrecover,
 };
 
 static Cmdtab i82563ctlmsg[] = {
@@ -1844,6 +1931,7 @@ static Cmdtab i82563ctlmsg[] = {
 	CMradv,	"radv",	2,
 	CMpause, "pause", 1,
 	CMan,	"an",	1,
+	CMrecover, "recover", 1,
 };
 
 static long
@@ -1886,11 +1974,47 @@ i82563ctl(Ether *edev, void *buf, long n)
 	case CMan:
 		csr32w(ctlr, Ctrl, csr32r(ctlr, Ctrl) | Lrst | Phyrst);
 		break;
+	case CMrecover:
+		i82563recover(ctlr);
+		break;
 	}
 	free(cb);
 	poperror();
 
 	return n;
+}
+
+static void
+i82563recover(Ctlr *ctlr)
+{
+	Ether *edev;
+	Proc *p;
+
+	edev = ctlr->edev;
+
+	if((p = ctlr->wproc) != nil)
+		postnote(p, 1, "recover", 0);
+	if((p = ctlr->tproc) != nil)
+		postnote(p, 1, "recover", 0);
+	if((p = ctlr->rproc) != nil)
+		postnote(p, 1, "recover", 0);
+	if((p = ctlr->lproc) != nil)
+		postnote(p, 1, "recover", 0);
+
+	while(ctlr->wproc != nil
+	|| ctlr->tproc != nil
+	|| ctlr->rproc != nil
+	|| ctlr->lproc != nil)
+		tsleep(&up->sleep, return0, 0, 10);
+
+	qlock(&ctlr->alock);
+	splhi();
+	i82563reset(ctlr);
+	i82563dealloc(ctlr);
+	spllo();
+	qunlock(&ctlr->alock);
+
+	i82563attach(edev);
 }
 
 static int
@@ -2148,7 +2272,6 @@ pnp(Ether *edev, int type)
 	 * Linkage to the generic ethernet driver.
 	 */
 	edev->attach = i82563attach;
-//	edev->transmit = i82563transmit;
 	edev->ifstat = i82563ifstat;
 	edev->ctl = i82563ctl;
 
