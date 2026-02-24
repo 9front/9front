@@ -605,35 +605,38 @@ void
 loadhist(Mount *mnt, Cron *c)
 {
 	static Tzone *tz;
-	char pfx[128], buf[128], *p;
+	char pfx[128], buf[128];
 	int i, ns;
 	Scan s;
 	Tm tm;
 
 	i = 0;
-	p = nil;
 	pfx[0] = Klabel;
+	buf[0] = 0;
 	ns = snprint(pfx+1, sizeof(pfx)-1, "%s@%s.", mnt->name, c->tag);
 	btnewscan(&s, pfx, ns+1);
 	btenter(&fs->snap, &s);
 	while(1){
 		if(!btnext(&s, &s.kv))
 			break;
-		p = buf;
-		if(c->cnt != 0){
-			if(c->lbl[i][0] != 0)
-				snapmsg(c->lbl[i], nil);
-			p = c->lbl[i];
+		if(s.kv.nk-1 >= sizeof(c->lbl[0])-1)
+			continue;
+		memcpy(buf, s.kv.k+1, s.kv.nk-1);
+		buf[s.kv.nk-1] = 0;
+
+		if(c->cnt == 0)
+			snapmsg(buf, nil);
+		else if(c->lbl[i][0] != 0){
+			assert(sizeof(buf) == sizeof(c->lbl[i]));
+			snapmsg(c->lbl[i], nil);
+			memcpy(c->lbl[i], buf, sizeof(buf));
 			i = (i+1) % c->cnt;
 		}
-		assert(s.kv.nk-1 < sizeof(c->lbl[0])-1);
-		memcpy(p, s.kv.k+1, s.kv.nk-1);
-		p[s.kv.nk-1] = 0;
 	}
 	btexit(&s);
 	if(tz == nil)
 		tz = tzload("UTC");
-	if(p != nil && tmparse(&tm, Tmfmt, p+ns, tz, nil) != nil)
+	if(buf[0] != 0 && tmparse(&tm, Tmfmt, buf+ns, tz, nil) != nil)
 		c->last = tmnorm(&tm);
 	c->i = i;
 }
@@ -645,8 +648,6 @@ loadhist(Mount *mnt, Cron *c)
 static void
 loadautos(Mount *mnt)
 {
-	static char *tagname[] = {"minute", "hour", "day"};
-	static int scale[] = {60, 3600, 24*3600};
 	char *p, pfx[32], rbuf[Kvmax+1];
 	int i, n, div, cnt, op;
 	Kvp kv, r;
@@ -661,6 +662,13 @@ loadautos(Mount *mnt)
 		p[r.nv] = 0;
 	}else
 		p = "60@m 24@h @d";
+
+	Cron crons[nelem(mnt->cron)] = {
+		{.cnt=0, .div=60, .tag="minute"},
+		{.cnt=0, .div=3600, .tag="hour"},
+		{.cnt=0, .div=24*3600, .tag="day"},
+	};
+	memcpy(mnt->cron, crons, sizeof crons);
 	while(*p){
 		cnt = 0;
 		div = 1;
@@ -683,15 +691,13 @@ Bad:			memset(mnt->cron, 0, sizeof(mnt->cron));
 			return;
 		}
 
-		switch(op){
-		case 'm':	i = 0;	break;
-		case 'h':	i = 1;	break;
-		case 'd':	i = 2;	break;
-		default:	abort();
-		}
+		for(i = 0; i < nelem(crons); i++)
+			if(crons[i].tag[0] == op)
+				break;
+		if(i == nelem(crons))
+			goto Bad;
 
-		mnt->cron[i].tag = tagname[i];
-		mnt->cron[i].div = scale[i]*div;
+		mnt->cron[i].div *= div;
 		mnt->cron[i].cnt = cnt;
 		mnt->cron[i].lbl = emalloc(cnt*sizeof(char[128]), 1);
 	}
@@ -2787,7 +2793,7 @@ setconf(int fd, int op, char *snap, char *key, char *val)
 	qlock(&fs->mutlk);
 	if(!waserror()){
 		if(op == Oinsert || btlookup(t, &m, &x, xbuf, sizeof(xbuf))){
-			fprint(fd, "set %s → %s\n", key, val[0]?val:"delete");
+			fprint(fd, "set %s → %s\n", key, op == Oinsert ? val : "delete");
 			btupsert(t, &m, 1);
 		}else
 			fprint(fd, "set %s: no such key\n", key);
@@ -3063,23 +3069,18 @@ snapmsg(char *old, char *new)
 static void
 cronsync(char *name, Cron *c, Tm *tm, vlong now)
 {
-	char *p, *e, buf[128];
+	char *p, *e;
 
-	if(c->div == 0)
+	if(c->div == 0 || c->cnt == 0)
 		return;
 	if(now/c->div == c->last/c->div)
 		return;
 
-	if(c->cnt == 0){
-		p = buf;
-		e = p + sizeof(buf);
-	}else{
-		if(c->lbl[c->i][0] != 0)
-			snapmsg(c->lbl[c->i], nil);
-		p = c->lbl[c->i];
-		e = p + sizeof(c->lbl[c->i]);
-		c->i = (c->i+1)%c->cnt;
-	}
+	if(c->lbl[c->i][0] != 0)
+		snapmsg(c->lbl[c->i], nil);
+	p = c->lbl[c->i];
+	e = p + sizeof(c->lbl[c->i]);
+	c->i = (c->i+1)%c->cnt;
 	seprint(p, e, "%s@%s.%τ",
 		name, c->tag,
 		tmfmt(tm, Tmfmt));
