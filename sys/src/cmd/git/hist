@@ -33,7 +33,7 @@ fn dodiff {
 	}
 }
 
-files=`{cleanname $*}
+files=`{cleanname -d $gitrel $*}
 args=(-s $files)
 if(! ~ $#num 0)
 	args=(-n $num $args)
