@@ -86,7 +86,7 @@ if(~ $#SERVER_NAME 2){
 	SERVER_NAME=$SERVER_NAME(1)
 }
 switch($SERVER_NAME){
-	case */* ..
+	case */* .. .
 		error 400
 		exit
 }
