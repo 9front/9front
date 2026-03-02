@@ -27,6 +27,7 @@ typedef	struct	Bits	Bits;
 #define YYMAXDEPTH	1500
 #define	NTERM		10
 #define	MAXALIGN	7
+#define	NINCLUDE	64
 
 #define	SIGN(n)		(1ULL<<(n-1))
 #define	MASK(n)		(SIGN(n)|(SIGN(n)-1))
@@ -431,7 +432,7 @@ EXTERN	Decl*	firstdcl;
 EXTERN	int	fperror;
 EXTERN	Sym*	hash[NHASH];
 EXTERN	int	hasdoubled;
-EXTERN	char*	include[20];
+EXTERN	char*	include[NINCLUDE];
 EXTERN	Io*	iofree;
 EXTERN	Io*	ionext;
 EXTERN	Io*	iostack;
