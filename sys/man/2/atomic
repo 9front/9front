@@ -1,4 +1,4 @@
-.TH atomic 2
+.TH ATOMIC 2
 .SH NAME
 agetl,
 agetv,
@@ -52,10 +52,10 @@ No non-atomic operations will be re-orded to be observable before or after an at
 and
 .I agetp
 perform an atomic read.
-.IR Asetl ,
-.IR asetv ,
+.IR Aswapl ,
+.IR aswapv ,
 and
-.I asetp
+.I aswapp
 perform an atomic swap, replacing the value with
 .B new
 then returning the previous value.
@@ -84,8 +84,6 @@ If not, the function returns 0.
 provides only the re-ordering barrier.
 
 .SH SOURCE
-.B /sys/src/libc/port/atomic.c
-.br
 .B /sys/src/libc/port/atomic64.c
 .br
 .B /sys/src/libc/$objtype/atomic.s
