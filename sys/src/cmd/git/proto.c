@@ -13,7 +13,6 @@ enum {
 	Nport	= 16,
 	Nhost	= 256,
 	Npath	= 128,
-	Nrepo	= 64,
 	Nbranch	= 32,
 };
 
@@ -172,10 +171,11 @@ grab(char *dst, int n, char *p, char *e)
 }
 
 static int
-parseuri(char *uri, char *proto, char *host, char *port, char *path, char *repo)
+parseuri(char *uri, char *proto, char *host, char *port, char *path)
 {
 	char *s, *p, *q;
-	int n, hasport;
+	int hasport;
+
 	print("uri: \"%s\"\n", uri);
 
 	p = strstr(uri, "://");
@@ -220,18 +220,8 @@ parseuri(char *uri, char *proto, char *host, char *port, char *path, char *repo)
 	}else{
 		grab(host, Nhost, s, p);
 	}
-	
+
 	snprint(path, Npath, "%s", p);
-	if((q = strrchr(p, '/')) != nil)
-		p = q + 1;
-	if(strlen(p) == 0){
-		werrstr("missing repository in uri");
-		return -1;
-	}
-	n = strlen(p);
-	if(hassuffix(p, ".git"))
-		n -= 4;
-	grab(repo, Nrepo, p, p + n);
 	return 0;
 }
 
@@ -312,19 +302,24 @@ issmarthttp(Conn *c, char *direction)
 static int
 dialhttp(Conn *c, char *host, char *port, char *path, char *direction)
 {
-	char *geturl, *suff, *hsep, *psep;
+	char *geturl, *suff, *hsep, *psep, *isep;
 
 	suff = "";
 	hsep = "";
 	psep = "";
+	isep = "";
 	if(port && strlen(port) != 0)
 		hsep = ":";
 	if(path && path[0] != '/')
 		psep = "/";
+	if(path && path[0] && path[strlen(path)-1] != '/')
+		isep = "/";
 	memset(c, 0, sizeof(*c));
-	geturl = smprint("https://%s%s%s%s%s%s/info/refs?service=git-%s-pack", host, hsep, port, psep, path, suff, direction);
+	geturl = smprint("https://%s%s%s%s%s%s%sinfo/refs?service=git-%s-pack",
+		host, hsep, port, psep, path, suff, isep, direction);
 	c->type = ConnHttp;
-	c->url = smprint("https://%s%s%s%s%s%s/git-%s-pack", host, hsep, port, psep, path, suff, direction);
+	c->url = smprint("https://%s%s%s%s%s%s%sgit-%s-pack",
+		host, hsep, port, psep, path, suff, isep, direction);
 	c->cfd = webclone(c, geturl);
 	free(geturl);
 	if(c->cfd == -1)
@@ -484,8 +479,7 @@ localrepo(char *uri, char *path, int npath)
 int
 gitconnect(Conn *c, char *uri, char *direction)
 {
-	char proto[Nproto], host[Nhost], port[Nport];
-	char repo[Nrepo], path[Npath];
+	char proto[Nproto], host[Nhost], port[Nport], path[Npath];
 
 	memset(c, 0, sizeof(Conn));
 	c->rfd = c->wfd = c->cfd = -1;
@@ -493,7 +487,7 @@ gitconnect(Conn *c, char *uri, char *direction)
 	if(localrepo(uri, path, sizeof(path)) == 0)
 		return servelocal(c, path, direction);
 
-	if(parseuri(uri, proto, host, port, path, repo) == -1){
+	if(parseuri(uri, proto, host, port, path) == -1){
 		werrstr("bad uri %s", uri);
 		return -1;
 	}

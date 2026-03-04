@@ -7,13 +7,13 @@ eval `''{aux/getflags $*} || exec aux/usage
 if(~ $debug 1)
 	debug=(-d)
 
-remote=`{echo $1 | sed  's@/*$@@'}
+remote=$1
 local=$2
 
 if(~ $#remote 0)
 	exec aux/usage
 if(~ $#local 0)
-	local=`{basename $remote .git}
+	local=`$nl{basename `$nl{echo $remote | sed 's@.*/([^/]+)/*$@\1@'} .git}
 if(~ $#branch 1)
 	branchflag=(-b $branch)
 
