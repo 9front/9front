@@ -4,3 +4,53 @@ to /env/timezone by init(8).
 
 Most of these files were provided by David Hogan.
 The Israel file was provided by Amos Shapir.
+Many other contributors have updated and fixed other timezones.
+See git for a full history.
+
+In order to convert a timezone from IANA tzdb files, fetch
+and build tzdb from:
+
+	https://data.iana.org/time-zones/releases/tzdb-2025b.tar.lz
+
+On unix, dump the DST transition dates:
+
+	zdump -c 1970,2038 -V $country | awk '/isdst=0/ { print $6, $3, $4, $5 }'
+
+Then, on 9front, run the following to convert the dates into a
+timezone file. This script will only generate the offset table,
+so the header will need to be added manually.
+
+	awk '
+	BEGIN {
+		
+		offset = ARGV[0]
+	}
+	{
+		if(NR % 6 != 1)
+			printf " "
+		c = "seconds '"$0" +0000'"
+		c | getline t
+		close(c)
+		t += offset
+		if(NR % 2 != 0)
+			t += 1
+		printf "%10d", t
+		if(NR % 6 == 0)
+			printf "\n"
+	}
+
+	END {
+		if(NR % 6 != 0)
+			printf "\n"
+	}
+	'
+
+The header takes the form:
+
+	STDABBREV offset DSTABBREV offset
+
+for example:
+
+	EST -18000 EDT -14400
+
+See ctime(2) for a full descriptioon of the format.
