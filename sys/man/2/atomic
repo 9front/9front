@@ -92,3 +92,10 @@ provides only the re-ordering barrier.
 
 .SH BUGS
 The vlong operations may be emulated in software and therefore must not be called from a note handler.
+.P
+Correct use of atomics is fundamentally hard,
+and they are generally to be avoided.
+If the intent is to use them for anything other than refcounts and id generation,
+look to
+.IR lock (2)
+for alternatives.
