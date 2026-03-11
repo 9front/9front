@@ -1,0 +1,12 @@
+</$objtype/mkfile
+
+TARG=gdbfs
+
+OFILES=\
+	main.$O\
+	gdb.$O\
+
+HFILES=dat.h
+
+BIN=/$objtype/bin
+</sys/src/cmd/mkone

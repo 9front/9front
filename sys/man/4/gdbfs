@@ -1,0 +1,96 @@
+.TH GDBFS 4
+.SH NAME
+gdbfs \- GNU debugger file system
+.SH SYNOPSIS
+.B gdbfs
+[
+.B -Dd
+]
+[
+.B -s
+.I srvname
+]
+[
+.B -m
+.I arch
+]
+[
+.B -p
+.I pid
+]
+[
+.B -t
+.I text
+]
+[
+.I addr
+]
+.SH DESCRIPTION
+.I Gdbfs
+presents a set of
+.IR proc (3)
+files under
+.BI /proc/ pid
+for debugging a remote process through the GNU debugger stub listening at
+.IR addr ,
+or connected to standard input/output if
+.I addr
+is not specified.
+If the
+.B -s
+option is given,
+.I gdbfs
+will post its channel at
+.BI /srv/ srvname
+(see
+.IR srv (3)),
+allowing the session to be shared or reattached later.
+.PP
+If the
+.B -D
+flag is specified, 9P messages will be logged to standard error.
+If the
+.B -d
+flag is specified,
+.IR gdbfs (4)
+will log gdbserver protocol messages exchanged with the remote gdbserver, along with other diagnostic information.
+.PP
+.IR Text ,
+if provided, should be a copy of the binary running on the target, in
+.IR a.out (6)
+format.
+It will be used to determine the architecture of the running target, and will be served at
+.BI /proc/ pid /text.
+If
+.I text
+is not provided, the target architecture must be specified with the
+.B -m
+flag.
+
+.SH EXAMPLES
+On drawterm, use the host unix network stack to connect to the gdbserver listening at
+.BR localhost:1234 ,
+which is a hypervisor running a a 9pc64 guest VM:
+.IP
+.EX
+	bind /mnt/term/net /net
+	gdbfs -t /amd64/9pc64 tcp!localhost!1234
+	acid 1
+.EE
+.PP
+Connect to gdbserver over a serial interface to debug an arm system:
+.IP
+.EX
+	gdbfs -m arm <>/dev/eia0
+.EE
+.SH BUGS
+Gdbfs does not consistently respond to or emit retransmit requests (character '-').
+Use a reliable transport such as TCP or a pipe for best results.
+
+Stubs which emit more than one reply per request may cause gdbfs to become stuck.
+.SH SOURCE
+/sys/src/cmd/gdbfs
+.SH "SEE ALSO"
+.IR acid (1),
+.IR db (1),
+.IR rdbfs (4)
