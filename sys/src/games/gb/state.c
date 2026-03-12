@@ -8,6 +8,8 @@
 
 extern Var cpuvars[], ppuvars[], memvars[], apuvars[], evvars[];
 extern Event *events[NEVENT], *elist;
+extern u8int *back;
+extern int nback;
 static Biobuf *bp;
 Var apuvars[] = {{nil, 0, 0}};
 
@@ -128,6 +130,8 @@ putvars(Var *v)
 void
 savestate(char *file)
 {
+	u16int nsram;
+
 	flushback();
 	bp = Bopen(file, OWRITE);
 	if(bp == nil){
@@ -141,12 +145,21 @@ savestate(char *file)
 	putvars(evvars);
 	putevents();
 	mapper(SAVE, 0);
+
+	nsram = nback;
+	Bputc(bp, nsram);
+	Bputc(bp, nsram>>8);
+	if(nsram > 0)
+		Bwrite(bp, back, nback);
 	Bterm(bp);
 }
 
 void
 loadstate(char *file)
 {
+	uchar buf[2];
+	u16int nsram;
+
 	bp = Bopen(file, OREAD);
 	if(bp == nil){
 		print("open: %r\n");
@@ -159,6 +172,14 @@ loadstate(char *file)
 	getvars(evvars);
 	getevents();
 	mapper(RSTR, 0);
+	if(Bread(bp, buf, 2) == 2){
+		nsram = buf[0] | (buf[1]<<8);
+		if(nback == nsram){
+			if(Bread(bp, back, nback) != nback)
+				sysfatal("truncated sram in save state");
+		} else
+			fprint(2, "sram count in save state (%ud) does match detected size from rom (%d)\n", nsram, nback);
+	}
 	memload();
 	Bterm(bp);
 }
