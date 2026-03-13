@@ -534,7 +534,6 @@ imagereclaim(ulong pages)
 
 		lock(&imagealloc);
 	}
-	imagealloc.pgidle -= np;
 	unlock(&imagealloc);
 
 	qunlock(&imagealloc.ireclaim);
