@@ -8,7 +8,7 @@
 #include "fns.h"
 
 u16int *prg;
-int nprg;
+u32int prgend;
 u8int *sram;
 u32int sramctl, nsram, sram0, sram1;
 int savefd = -1;
@@ -39,33 +39,54 @@ loadbat(char *file)
 		readn(savefd, sram, nsram);
 }
 
+struct {
+	char a[16];
+	int n;
+} systems[] = {
+	"SEGA MEGA DRIVE", 15,
+	"SEGA GENESIS", 12,
+	/* homebrew */
+	"SEGA SSF", 8
+};
+
 static void
 loadrom(char *file)
 {
 	static uchar hdr[512], buf[4096];
 	u32int v;
 	u16int *p;
-	int fd, rc, i;
-	
+	int fd, rc, i, n;
+	vlong r;
+
 	fd = open(file, OREAD);
 	if(fd < 0)
 		sysfatal("open: %r");
 	if(readn(fd, hdr, 512) < 512)
 		sysfatal("read: %r");
-	if(memcmp(hdr + 0x100, "SEGA MEGA DRIVE ", 16) != 0 && memcmp(hdr + 0x100, "SEGA GENESIS    ", 16) != 0)
-		sysfatal("invalid rom");
+	for(i = 0; i < nelem(systems); i++)
+		if(memcmp(hdr + 0x100, systems[i].a, systems[i].n) == 0)
+			break;
+	if(i == nelem(systems))
+		sysfatal("invalid rom system type: %.*s", 16, (char*)(hdr + 0x100));
+
 	v = hdr[0x1a0] << 24 | hdr[0x1a1] << 16 | hdr[0x1a2] << 8 | hdr[0x1a3];
 	if(v != 0)
-		sysfatal("rom starts at nonzero address");
+		sysfatal("rom starts at nonzero address: %ux", v);
 	v = hdr[0x1a4] << 24 | hdr[0x1a5] << 16 | hdr[0x1a6] << 8 | hdr[0x1a7];
-	nprg = v = v+2 & ~1;
-	if(nprg == 0)
+	prgend = v+2 & ~1;
+	if(prgend == 0)
 		sysfatal("invalid rom");
-	p = prg = malloc(v);
+	r = seek(fd, -1, 2);
+	if(r < 0)
+		sysfatal("rom seek: %r");
+	if(r > 32*1024*1024)
+		sysfatal("rom above max size of 32M");
+	n = r+2 & ~1;
+	p = prg = malloc(n);
 	if(prg == nil)
 		sysfatal("malloc: %r");
 	seek(fd, 0, 0);
-	while(v != 0){
+	for(v = n; v != 0;){
 		rc = readn(fd, buf, sizeof buf);
 		if(rc == 0)
 			break;
