@@ -108,7 +108,7 @@ memimagedraw(Memimage *dst, Rectangle r, Memimage *src, Point p0, Memimage *mask
 	if(drawclip(dst, &r, src, &p0, mask, &p1, &par.sr, &par.mr) == 0)
 		return;
 
-	if(op < Clear || op > SoverD)
+	if(op < 0 || op >= Ncomp)
 		return;
 
 	par.op = op;
@@ -196,7 +196,7 @@ drawclipnorepl(Memimage *dst, Rectangle *r, Memimage *src, Point *p0, Memimage *
 
 	if(badrect(*r))
 		return 0;
-	splitcoords = (p0->x!=p1->x) || (p0->y!=p1->y);
+	splitcoords = (p0->x != p1->x) || (p0->y != p1->y);
 	/* clip to destination */
 	rmin = r->min;
 	if(!rectclip(r, dst->r) || !rectclip(r, dst->clipr))
@@ -269,20 +269,15 @@ drawclipnorepl(Memimage *dst, Rectangle *r, Memimage *src, Point *p0, Memimage *
 int
 drawclip(Memimage *dst, Rectangle *r, Memimage *src, Point *p0, Memimage *mask, Point *p1, Rectangle *sr, Rectangle *mr)
 {
-	Point delta;
-
 	if(!drawclipnorepl(dst, r, src, p0, mask, p1, sr, mr))
 		return 0;
 
 	/* move source rectangle so sr->min is in src->r */
 	if(src->flags&Frepl) {
-		delta.x = drawreplxy(src->r.min.x, src->r.max.x, sr->min.x) - sr->min.x;
-		delta.y = drawreplxy(src->r.min.y, src->r.max.y, sr->min.y) - sr->min.y;
-		sr->min.x += delta.x;
-		sr->min.y += delta.y;
-		sr->max.x += delta.x;
-		sr->max.y += delta.y;
-		*p0 = sr->min;
+		*p0 = drawrepl(src->r, sr->min);
+		sr->max.x += p0->x - sr->min.x;
+		sr->max.y += p0->y - sr->min.y;
+		sr->min = *p0;
 	}
 
 	/* move mask point so it is in mask->r */
@@ -1009,15 +1004,13 @@ alphacalc11(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int grey, int op)
 	}
 }
 
-/*
-not used yet
-source and mask alpha 1
+/* source and mask alpha 1 */
 static void
 alphacalcS0(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int grey, int op)
 {
 	int i;
 
-	USED(op);
+	USED(bmask, op);
 	if(bsrc.delta == bdst.delta){
 		memmove(bdst.rgba, bsrc.rgba, dx*bdst.delta);
 		return;
@@ -1044,7 +1037,6 @@ alphacalcS0(Buffer bdst, Buffer bsrc, Buffer bmask, int dx, int grey, int op)
 		}
 	}
 }
-*/
 
 /* source alpha 1 */
 static void
@@ -2079,18 +2071,19 @@ memoptdraw(Memdrawparam *par)
 		case 4:
 			for(d=dst->depth; d<8; d*=2)
 				v |= (v<<d);
-			ppb = 8/dst->depth;	/* pixels per byte */
+			ppb = 8/dst->depth;		/* pixels per byte */
 			m = ppb-1;
+
 			/* left edge */
 			np = par->r.min.x&m;		/* no. pixels unused on left side of word */
 			dx -= (ppb-np);
-			nb = 8 - np * dst->depth;		/* no. bits used on right side of word */
+			nb = 8 - np * dst->depth;	/* no. bits used on right side of word */
 			lm = (1<<nb)-1;
 
 			/* right edge */
-			np = par->r.max.x&m;	/* no. pixels used on left side of word */
+			np = par->r.max.x&m;		/* no. pixels used on left side of word */
 			dx -= np;
-			nb = 8 - np * dst->depth;		/* no. bits unused on right side of word */
+			nb = 8 - np * dst->depth;	/* no. bits unused on right side of word */
 			rm = ~((1<<nb)-1);
 
 			/* lm, rm are masks that are 1 where we should touch the bits */
@@ -2157,18 +2150,13 @@ memoptdraw(Memdrawparam *par)
 	&& src->chan == dst->chan && !(src->flags&Falpha) && (op == S || op == SoverD)){
 		uchar *sp, *dp;
 		long swid, dwid, nb;
-		int dir;
-
-		if(src->data == dst->data && byteaddr(dst, par->r.min) > byteaddr(src, par->sr.min))
-			dir = -1;
-		else
-			dir = 1;
 
 		swid = src->width*sizeof(ulong);
 		dwid = dst->width*sizeof(ulong);
 		sp = byteaddr(src, par->sr.min);
 		dp = byteaddr(dst, par->r.min);
-		if(dir == -1){
+		if(src->data == dst->data && dp > sp){
+			/* walk scanlines in the opposite direction */
 			sp += (dy-1)*swid;
 			dp += (dy-1)*dwid;
 			swid = -swid;
@@ -2199,11 +2187,7 @@ memoptdraw(Memdrawparam *par)
 		swid = src->width*sizeof(ulong);
 		dwid = dst->width*sizeof(ulong);
 		mwid = par->mask->width*sizeof(ulong);
-
-		if(src->data == dst->data && byteaddr(dst, par->r.min) > byteaddr(src, par->sr.min)){
-			dir = -1;
-		}else
-			dir = 1;
+		dir = src->data == dst->data && dp > sp ? -1 : 1;
 
 		lm = 0xFF>>(par->r.min.x&7);
 		rm = 0xFF<<(8-(par->r.max.x&7));
@@ -2302,7 +2286,7 @@ chardraw(Memdrawparam *par)
 	op = par->op;
 
 	if((par->state&(Replsrc|Simplesrc|Replmask)) != (Replsrc|Simplesrc)
-	|| mask->depth != 1 || src->flags&Falpha || dst->depth<8 || dst->data==src->data
+	|| mask->chan != GREY1 || src->flags&Falpha || dst->depth<8 || dst->data==src->data
 	|| op != SoverD)
 		return 0;
 
