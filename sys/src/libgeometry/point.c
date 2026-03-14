@@ -87,9 +87,15 @@ normvec2(Point2 v)
 }
 
 Point2
-centroid(Point2 p0, Point2 p1, Point2 p2)
+centroid(Point2 *pts, ulong npts)
 {
-	return divpt2(addpt2(p0, addpt2(p1, p2)), 3);
+	Point2 p;
+	ulong i;
+
+	p = pts[0];
+	for(i = 1; i < npts; i++)
+		p = addpt2(p, pts[i]);
+	return divpt2(p, npts);
 }
 
 /*
@@ -248,9 +254,15 @@ normvec3(Point3 v)
 }
 
 Point3
-centroid3(Point3 p0, Point3 p1, Point3 p2)
+centroid3(Point3 *pts, ulong npts)
 {
-	return divpt3(addpt3(p0, addpt3(p1, p2)), 3);
+	Point3 p;
+	ulong i;
+
+	p = pts[0];
+	for(i = 1; i < npts; i++)
+		p = addpt3(p, pts[i]);
+	return divpt3(p, npts);
 }
 
 int
