@@ -121,12 +121,16 @@ memread(u32int a)
 
 	switch(a >> 21 & 7){
 	case 0: case 1:
-		if((sramctl & SRAMEN) != 0 && a >= sram0 && a <= sram1)
-			switch(sramctl & ADDRMASK){
-			case ADDREVEN: return sram[(a - sram0) >> 1] << 8;
-			case ADDRODD: return sram[(a - sram0) >> 1];
-			case ADDRBOTH: return sram[a - sram0] << 8 | sram[a - sram0 + 1];
-			}
+		if(a < sram0 || a > sram1)
+			goto rom;
+		if((sramctl & SRAMEN) == 0 && nprg > 2*1024*1024)
+			goto rom;
+		switch(sramctl & ADDRMASK){
+		case ADDREVEN: return sram[(a - sram0) >> 1] << 8;
+		case ADDRODD: return sram[(a - sram0) >> 1];
+		case ADDRBOTH: return sram[a - sram0] << 8 | sram[a - sram0 + 1];
+		}
+	rom:
 		return prg[(a % nprg) / 2];
 	case 5:
 		switch(a >> 16 & 0xff){
@@ -203,22 +207,23 @@ memwrite(u32int a, u16int v, u16int m)
 		print("%x %x %x\n", curpc, v, m);
 	switch((a >> 21) & 7){
 	case 0: case 1:
-		if((sramctl & SRAMEN) != 0 && a >= sram0 && a <= sram1){
-			switch(sramctl & ADDRMASK){
-			case ADDREVEN: sram[(a - sram0) >> 1] = v >> 8; break;
-			case ADDRODD: sram[(a - sram0) >> 1] = v; break;
-			case ADDRBOTH:
-				if((m & 0xff00) == 0xff00)
-					sram[a - sram0] = v >> 8;
-				if((m & 0xff) == 0xff)
-					sram[a + 1 - sram0] = v;
-				break;
-			}
-			if(saveclock == 0)
-				saveclock = SAVEFREQ;
-			return;
+		if(a < sram0 || a > sram1)
+			goto invalid;
+		if((sramctl & SRAMEN) == 0 && nprg > 2*1024*1024)
+			goto invalid;
+		switch(sramctl & ADDRMASK){
+		case ADDREVEN: sram[(a - sram0) >> 1] = v >> 8; break;
+		case ADDRODD: sram[(a - sram0) >> 1] = v; break;
+		case ADDRBOTH:
+			if((m & 0xff00) == 0xff00)
+				sram[a - sram0] = v >> 8;
+			if((m & 0xff) == 0xff)
+				sram[a + 1 - sram0] = v;
+			break;
 		}
-		goto invalid;
+		if(saveclock == 0)
+			saveclock = SAVEFREQ;
+		return;
 	case 5:
 		switch(a >> 16 & 0xff){
 		case 0xa0:
