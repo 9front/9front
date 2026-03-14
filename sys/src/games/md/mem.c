@@ -37,8 +37,10 @@ regread(u16int a)
 	case 0x0001: return 0xa0;
 	case 0x0003:
 		v = ~(keys & 0xffff);
-		if((ctl[0] & 0x40) == 0)
+		if((ctl[0] & 0x40) == 0){
 			v >>= 8;
+			v &= ~(0b1100);
+		}
 		return ctl[0] & 0xc0 | v & 0x3f;
 	case 0x0005:
 	case 0x0007:
