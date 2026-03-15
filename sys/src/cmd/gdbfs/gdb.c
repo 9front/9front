@@ -11,7 +11,6 @@
 #include "dat.h"
 
 static char Ebadctl[] = "bad process or channel control request";
-static char Erunning[] = "target is running";
 static char hex[] = "0123456789abcdef";
 
 /* /proc/$pid/[k]regs holds a Ureg structure for the target platform.
@@ -195,8 +194,12 @@ cmdstr(char *str)
 		chanfree(rc);
 		return nil;
 	}
-	if(sendp(rc, str) < 0)
-		sysfatal("cmdstr: sendp %s failed", str);
+	if(sendp(rc, str) < 0){
+		werrstr("interrupted");
+		free(str);
+		chanclose(rc);
+		return nil;
+	}
 
 	/* ack */
 	if(recv(rc, &err) < 0){
@@ -207,7 +210,7 @@ cmdstr(char *str)
 	if(err != nil){
 		werrstr("%s", err);
 		free(err);
-		chanfree(rc);
+		chanclose(rc);
 		return nil;
 	}
 	return rc;
@@ -249,7 +252,7 @@ reply(Channel *rc)
 		chanclose(rc);
 		return nil;
 	}
-	chanfree(rc);
+	chanclose(rc);
 
 	if(*rsp == 'E'){
 		werrstr("%s", rsp);
@@ -280,11 +283,10 @@ cmdreply(char *fmt, ...)
 	R ← G ack (nil) or err (char*)
 	if !err:
 		R ← G reply (char*) or err ("E...")
-	R ← G close
+	R → G close()
 
-   R may free the channel after the final message.
-   R may close the channel if it is interrupted.
-   G may free the channel if send() or recv() fail. 
+   R closes channel when it goes out of scope
+   G frees channel after receiving close
 */
 static void
 gdbproc(void *)
@@ -295,17 +297,14 @@ gdbproc(void *)
 
 	memset(sum, 0, sizeof sum);
 	while(rc = recvp(gdb.c)){
-		if(recv(rc, &req) < 0){
-			chanfree(rc);
-			continue;
-		}
+		if(recv(rc, &req) < 0)
+			goto next;
+
 		tries = 5;
 		do{
 			dbg("→ %s\n", req);
-			if(fprint(gdb.wfd, "%s", req) < 0){
-				chanprint(rc, "E.%r");
-				goto next;
-			}
+			if(fprint(gdb.wfd, "%s", req) < 0)
+				sysfatal("gdbproc send req: %r");
 			c = Bgetc(gdb.rb);
 			dbg("← %c\n", c);
 		} while(c == '-' && tries --> 0);
@@ -324,10 +323,9 @@ gdbproc(void *)
 		/* Skip notification packets. These are unsolicited,
 		   and must not contain the start-of-packet marker '$' */
 		if(Brdline(gdb.rb, '$') == nil
-		|| Blinelen(gdb.rb) > 0 && fprint(gdb.wfd, "+") < 0)
+		|| Blinelen(gdb.rb) > 1 && fprint(gdb.wfd, "+") < 0)
 		{
-			chanprint(rc, "E.%r");
-			goto next;
+			sysfatal("gdbproc scan '$': %r");
 		}
 
 		rsp = Brdstr(gdb.rb, '#', 1);
@@ -347,12 +345,11 @@ gdbproc(void *)
 			free(rsp);
 			rsp = smprint("E.ack %r");
 		}
-		if(sendp(rc, rsp) < 0){
-			chanfree(rc);
+		if(sendp(rc, rsp) < 0)
 			free(rsp);
-			continue;
-		}
-next:		chanclose(rc);
+next:
+		recv(rc, nil);
+		chanfree(rc);
 	}
 	chanclose(gdb.c);
 }
