@@ -1019,12 +1019,13 @@ qflow(Flow *f)
 long
 qbwrite(Queue *q, Block *b)
 {
+	void (*bypass)(void*, Block*);
 	Flow flow;
 	int len;
 
-	if(q->bypass != nil){
+	if((bypass = q->bypass) != nil){
 		len = blocklen(b);
-		(*q->bypass)(q->arg, b);
+		(*bypass)(q->arg, b);
 		return len;
 	}
 
@@ -1144,6 +1145,7 @@ qwrite(Queue *q, void *vp, int len)
 int
 qiwrite(Queue *q, void *vp, int len)
 {
+	void (*bypass)(void*, Block*);
 	int n, sofar;
 	Block *b;
 	uchar *p = vp;
@@ -1161,6 +1163,12 @@ qiwrite(Queue *q, void *vp, int len)
 			break;
 		memmove(b->wp, p+sofar, n);
 		b->wp += n;
+
+		if((bypass = q->bypass) != nil){
+			sofar += n;
+			(*bypass)(q->arg, b);
+			continue;
+		}
 
 		ilock(q);
 		if(q->state & (Qflow|Qclosed)){
