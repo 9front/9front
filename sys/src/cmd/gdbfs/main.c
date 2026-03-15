@@ -250,7 +250,16 @@ fsstat(Req *r)
 	}
 }
 
+static int rfd = 0, wfd = 1;
+
+static void
+start(Srv*)
+{
+	gdbinit(rfd, wfd);
+}
+
 Srv fs = {
+	.start	= start,
 	.open	= fsopen,
 	.read	= fsread,
 	.write	= fswrite,
@@ -262,7 +271,7 @@ Srv fs = {
 void
 threadmain(int argc, char *argv[])
 {
-	int i, rfd, wfd;
+	int i;
 	File *dir;
 	Fhdr hdr;
 	char *textfile, *arch;
@@ -304,11 +313,9 @@ threadmain(int argc, char *argv[])
 	} else
 		sysfatal("-t or -m required");
 	
-	rfd = 0;
-	wfd = 1;
 	switch(argc){
 	case 1:
-		rfd = dial(argv[0], nil, nil, nil);
+		rfd = dial(netmkaddr(argv[0], "tcp", "1234"), nil, nil, nil);
 		if(rfd == -1)
 			sysfatal("dial %s: %r", argv[1]);
 		wfd = rfd;
@@ -319,7 +326,6 @@ threadmain(int argc, char *argv[])
 		usage();
 	}
 	
-	gdbinit(rfd, wfd);
 	fs.tree = alloctree("gdbfs", "gdbfs", DMDIR|0555, nil);
 	dir = createfile(fs.tree->root, procname, "gdbfs", DMDIR|0555, 0);
 	for(i = 0; i < nelem(tab); i++)
