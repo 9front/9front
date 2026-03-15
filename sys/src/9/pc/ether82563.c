@@ -828,6 +828,7 @@ i82563txinit(Ctlr *ctlr)
 	u32int r;
 	Block *b;
 	int i;
+	uvlong pa;
 
 	if(cttab[ctlr->type].flag & F75)
 		csr32w(ctlr, Tctl, 0x0F<<CtSHIFT | Psp);
@@ -841,8 +842,9 @@ i82563txinit(Ctlr *ctlr)
 		}
 		memset(&ctlr->tdba[i], 0, sizeof(Td));
 	}
-	csr32w(ctlr, Tdbal, PCIWADDR(ctlr->tdba));
-	csr32w(ctlr, Tdbah, 0);
+	pa = PCIWADDR(ctlr->tdba);
+	csr32w(ctlr, Tdbal, pa);
+	csr32w(ctlr, Tdbah, pa>>32);
 	csr32w(ctlr, Tdlen, ctlr->ntd * sizeof(Td));
 	ctlr->tdh = PREV(0, ctlr->ntd);
 	csr32w(ctlr, Tdh, 0);
@@ -895,6 +897,7 @@ i82563tproc(void *v)
 	Ether *edev;
 	Ctlr *ctlr;
 	uint tdt, n;
+	uvlong pa;
 
 	edev = v;
 	ctlr = edev->ctlr;
@@ -916,8 +919,9 @@ i82563tproc(void *v)
 		}
 		bp = qbread(edev->oq, 100000);
 		td = &ctlr->tdba[tdt];
-		td->addr[0] = PCIWADDR(bp->rp);
-		td->addr[1] = 0;
+		pa = PCIWADDR(bp->rp);
+		td->addr[0] = pa;
+		td->addr[1] = pa>>32;
 		td->control = Ide|Rs|Ifcs|Teop|BLEN(bp);
 		coherence();
 		ctlr->tb[tdt] = bp;
@@ -963,6 +967,7 @@ i82563rxinit(Ctlr *ctlr)
 	Ether *edev;
 	int i;
 	Block *bp;
+	uvlong pa;
 
 	edev = ctlr->edev;
 
@@ -987,8 +992,9 @@ i82563rxinit(Ctlr *ctlr)
 	if(ctlr->type == i82566)
 		csr32w(ctlr, Pbs, 16);
 
-	csr32w(ctlr, Rdbal, PCIWADDR(ctlr->rdba));
-	csr32w(ctlr, Rdbah, 0);
+	pa = PCIWADDR(ctlr->rdba);
+	csr32w(ctlr, Rdbal, pa);
+	csr32w(ctlr, Rdbah, pa>>32);
 	csr32w(ctlr, Rdlen, ctlr->nrd * sizeof(Rd));
 	ctlr->rdh = 0;
 	csr32w(ctlr, Rdh, 0);
