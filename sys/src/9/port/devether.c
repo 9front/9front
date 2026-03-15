@@ -30,6 +30,21 @@ drop(void*, Block *b)
 	freeb(b);
 }
 
+static void
+bypass(void *arg, Block *b)
+{
+	Ether *ether;
+	Netfile *f;
+
+	ether = (Ether*)arg;
+	if((f = ether->bypass) == nil){
+		freeb(b);
+		return;
+	}
+	if(qpass(f->in, b) < 0)
+		ether->soverflows++;
+}
+
 Chan*
 etherattach(char* spec)
 {
@@ -276,8 +291,6 @@ etheriq(Ether* ether, Block* bp)
 static void
 etheroq(Ether* ether, Block* bp, Netfile **from)
 {
-	Netfile *x;
-
 	if((*from)->bridge == 0)
 		memmove(((Etherpkt*)bp->rp)->s, ether->ea, Eaddrlen);
 
@@ -292,11 +305,6 @@ etheroq(Ether* ether, Block* bp, Netfile **from)
 		return;
 	if(ether->dmat != nil)
 		dmatproxy(bp, 1, ether->ea, ether->dmat);
-	if((x = ether->bypass) != nil){
-		if(qpass(x->in, bp) < 0)
-			ether->soverflows++;
-		return;
-	}
 	ether->outpackets++;
 	qbwrite(ether->oq, bp);
 }
@@ -314,10 +322,10 @@ etherwrite(Chan* chan, void* buf, long n, vlong)
 		if(nn >= 0){
 			/* got bypassed? */
 			if(ether->f[NETID(chan->qid.path)]->bypass){
-				/* flush and bypass output queue */
-				qsetbypass(ether->oq, drop);
 				/* ignore mbps and use large input queue size */
 				netifsetlimit(ether, MB);
+				/* bypass output queue */
+				qsetbypass(ether->oq, bypass);
 			}
 			return nn;
 		}
