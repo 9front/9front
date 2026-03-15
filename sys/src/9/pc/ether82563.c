@@ -1245,6 +1245,11 @@ phyl79proc(void *v)
 	while(waserror())
 		procerror(c, &c->lproc);
 
+	/* wait 1.5s after first link up to avoid wedged phy */
+	while((csr32r(c, Status) & Lu) == 0)
+		lsleep(c, Lsc);
+	tsleep(&up->sleep, return0, 0, 1500);
+
 	while((phyno = phyprobe(c, 3<<1)) == ~0)
 		lsleep(c, Lsc);
 
@@ -1496,6 +1501,9 @@ i82563attach(Ether *edev)
 	r = csr32r(ctlr, Ctrl);
 	r &= ~(Frcspd|Frcdplx);	/* dont force */
 	csr32w(ctlr, Ctrl, Slu|r);
+
+	/* link is down until linkproc sets it up */
+	ethersetlink(edev, 0);
 
 	snprint(name, sizeof name, "#l%dl", edev->ctlrno);
 	if(csr32r(ctlr, Status) & Tbimode)
