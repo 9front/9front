@@ -515,8 +515,6 @@ struct Ctlr {
 
 	QLock	alock;			/* attach */
 	void	*alloc;			/* receive/transmit descriptors */
-	int	nrd;
-	int	ntd;
 	int	rbsz;
 
 	Bpool	pool;
@@ -835,7 +833,7 @@ i82563txinit(Ctlr *ctlr)
 	else
 		csr32w(ctlr, Tctl, 0x0F<<CtSHIFT | Psp | 66<<ColdSHIFT | Mulr);
 	csr32w(ctlr, Tipg, 6<<20 | 8<<10 | 8);		/* yb sez: 0x702008 */
-	for(i = 0; i < ctlr->ntd; i++){
+	for(i = 0; i < Ntd; i++){
 		if((b = ctlr->tb[i]) != nil){
 			ctlr->tb[i] = nil;
 			freeb(b);
@@ -845,8 +843,8 @@ i82563txinit(Ctlr *ctlr)
 	pa = PCIWADDR(ctlr->tdba);
 	csr32w(ctlr, Tdbal, pa);
 	csr32w(ctlr, Tdbah, pa>>32);
-	csr32w(ctlr, Tdlen, ctlr->ntd * sizeof(Td));
-	ctlr->tdh = PREV(0, ctlr->ntd);
+	csr32w(ctlr, Tdlen, Ntd * sizeof(Td));
+	ctlr->tdh = PREV(0, Ntd);
 	csr32w(ctlr, Tdh, 0);
 	ctlr->tdt = 0;
 	csr32w(ctlr, Tdt, 0);
@@ -867,7 +865,7 @@ i82563cleanup(Ctlr *c)
 	uint tdh, n;
 
 	tdh = c->tdh;
-	while(c->tdba[n = NEXT(tdh, c->ntd)].status & Tdd){
+	while(c->tdba[n = NEXT(tdh, Ntd)].status & Tdd){
 		tdh = n;
 		if((b = c->tb[tdh]) != nil){
 			c->tb[tdh] = nil;
@@ -910,7 +908,7 @@ i82563tproc(void *v)
 		procerror(ctlr, &ctlr->tproc);
 
 	for(;;){
-		n = NEXT(tdt, ctlr->ntd);
+		n = NEXT(tdt, Ntd);
 		if(n == i82563cleanup(ctlr)){
 			ctlr->txdw++;
 			i82563im(ctlr, Txdw);
@@ -939,7 +937,7 @@ i82563replenish(Ctlr *ctlr)
 	Rd *rd;
 
 	i = 0;
-	for(rdt = ctlr->rdt; NEXT(rdt, ctlr->nrd) != ctlr->rdh; rdt = NEXT(rdt, ctlr->nrd)){
+	for(rdt = ctlr->rdt; NEXT(rdt, Nrd) != ctlr->rdh; rdt = NEXT(rdt, Nrd)){
 		rd = &ctlr->rdba[rdt];
 		if(ctlr->rb[rdt] != nil)
 			break;
@@ -978,7 +976,7 @@ i82563rxinit(Ctlr *ctlr)
 		if(cttab[ctlr->type].flag & F75){
 			csr32w(ctlr, Rctl, Lpe|Dpf|Bsize2048|Bam|RdtmsHALF|Secrc);
 			if(ctlr->type != i82575)
-				i |= (ctlr->nrd/2>>4)<<20;		/* RdmsHalf */
+				i |= (Nrd/2>>4)<<20;		/* RdmsHalf */
 			csr32w(ctlr, Srrctl, i | Dropen);
 			csr32w(ctlr, Rmpl, ctlr->rbsz);
 //			csr32w(ctlr, Drxmxod, 0x7ff);
@@ -995,7 +993,7 @@ i82563rxinit(Ctlr *ctlr)
 	pa = PCIWADDR(ctlr->rdba);
 	csr32w(ctlr, Rdbal, pa);
 	csr32w(ctlr, Rdbah, pa>>32);
-	csr32w(ctlr, Rdlen, ctlr->nrd * sizeof(Rd));
+	csr32w(ctlr, Rdlen, Nrd * sizeof(Rd));
 	ctlr->rdh = 0;
 	csr32w(ctlr, Rdh, 0);
 	ctlr->rdt = 0;
@@ -1006,7 +1004,7 @@ i82563rxinit(Ctlr *ctlr)
 	csr32w(ctlr, Radv, ctlr->radv);
 
 	ctlr->rdfree = 0;
-	for(i = 0; i < ctlr->nrd; i++)
+	for(i = 0; i < Nrd; i++)
 		if((bp = ctlr->rb[i]) != nil){
 			ctlr->rb[i] = nil;
 			freeb(bp);
@@ -1084,7 +1082,7 @@ i82563rproc(void *arg)
 			bp = ctlr->rb[rdh];
 			ctlr->rb[rdh] = nil;
 			ctlr->rdfree--;
-			ctlr->rdh = rdh = NEXT(rdh, ctlr->nrd);
+			ctlr->rdh = rdh = NEXT(rdh, Nrd);
 
 			if((rd->status & Reop) && rd->errors == 0){
 				bp->wp += rd->length;
@@ -1113,7 +1111,7 @@ i82563rproc(void *arg)
 			} else
 				freeb(bp);
 
-			if(ctlr->nrd-ctlr->rdfree >= 32 || (rim & Rxdmt0))
+			if(Nrd-ctlr->rdfree >= 32 || (rim & Rxdmt0))
 				i82563replenish(ctlr);
 		}
 	}
@@ -1487,11 +1485,9 @@ i82563attach(Ether *edev)
 		return;
 	}
 
-	ctlr->nrd = Nrd;
-	ctlr->ntd = Ntd;
-	ctlr->alloc = malloc(ctlr->nrd*sizeof(Rd)+ctlr->ntd*sizeof(Td) + 255);
-	ctlr->rb = malloc(ctlr->nrd * sizeof(Block*));
-	ctlr->tb = malloc(ctlr->ntd * sizeof(Block*));
+	ctlr->alloc = mallocalign(Nrd*sizeof(Rd)+Ntd*sizeof(Td), 256, 0, 0);
+	ctlr->rb = malloc(Nrd * sizeof(Block*));
+	ctlr->tb = malloc(Ntd * sizeof(Block*));
 	if(waserror()){
 		i82563dealloc(ctlr);
 		qunlock(&ctlr->alock);
@@ -1500,8 +1496,8 @@ i82563attach(Ether *edev)
 	if(ctlr->alloc == nil || ctlr->rb == nil || ctlr->tb == nil)
 		error(Enomem);
 
-	ctlr->rdba = (Rd*)ROUNDUP((uintptr)ctlr->alloc, 256);
-	ctlr->tdba = (Td*)(ctlr->rdba + ctlr->nrd);
+	ctlr->rdba = (Rd*)ctlr->alloc;
+	ctlr->tdba = (Td*)(ctlr->rdba + Nrd);
 
 	/* set link up */
 	r = csr32r(ctlr, Ctrl);
