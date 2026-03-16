@@ -367,7 +367,7 @@ gdbinit(int rfd, int wfd)
 		sysfatal("gdbinit: %r");
 
 	gdb.c = chancreate(sizeof(Channel*), 0);
-	gdb.tid = proccreate(gdbproc, nil, 8192);
+	gdb.tid = proccreate(gdbproc, nil, mainstacksize);
 	
 	if((rsp = cmdreply("%s", qSupported)) == nil)
 		sysfatal("gdbinit: %r");
