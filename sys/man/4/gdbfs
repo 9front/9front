@@ -35,8 +35,8 @@ for debugging a remote process through the GNU debugger stub listening at
 .IR addr ,
 or connected to standard input/output if
 .I addr
-is not specified.
-If a a network or port is not specified,
+is not provided.
+If a network or port is not specified,
 .BI tcp! addr !1234
 is used.
 The
@@ -48,21 +48,13 @@ to post its channel at
 (see
 .IR srv (3)),
 allowing the session to be shared or reattached later.
-.PP
-If the
-.B -D
-flag is specified, 9P messages will be logged to standard error.
-If the
-.B -d
-flag is specified,
-.IR gdbfs (4)
-will log gdbserver protocol messages exchanged with the remote gdbserver, along with other diagnostic information.
+The -D and -d log 9P messages and gdbserver commands to standard error, respectively.
 .PP
 .IR Text ,
 if provided, should be a copy of the binary running on the target, in
 .IR a.out (6)
 format.
-It will be used to determine the architecture of the running target, and will be served at
+It will be used to determine the architecture of the running target, and served at
 .BI /proc/ pid /text.
 If
 .I text
