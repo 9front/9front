@@ -36,11 +36,14 @@ for debugging a remote process through the GNU debugger stub listening at
 or connected to standard input/output if
 .I addr
 is not specified.
-If the
+If a a network or port is not specified,
+.BI tcp! addr !1234
+is used.
+The
 .B -s
-option is given,
+option tells
 .I gdbfs
-will post its channel at
+to post its channel at
 .BI /srv/ srvname
 (see
 .IR srv (3)),
@@ -74,8 +77,8 @@ which is a hypervisor running a a 9pc64 guest VM:
 .IP
 .EX
 	bind /mnt/term/net /net
-	gdbfs -t /amd64/9pc64 tcp!localhost!1234
-	acid 1
+	gdbfs -t /amd64/9pc64 localhost
+	acid -l kernel 1
 .EE
 .PP
 Connect to gdbserver over a serial interface to debug an arm system:
@@ -88,6 +91,7 @@ Gdbfs does not consistently respond to or emit retransmit requests (character '-
 Use a reliable transport such as TCP or a pipe for best results.
 
 Stubs which emit more than one reply per request may cause gdbfs to become stuck.
+
 .SH SOURCE
 /sys/src/cmd/gdbfs
 .SH "SEE ALSO"
