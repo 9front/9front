@@ -1,6 +1,17 @@
 .TH GEOMETRY 2
 .SH NAME
-Flerp, fberp, fclamp, Pt2, Vec2, addpt2, subpt2, mulpt2, divpt2, lerp2, berp2, dotvec2, vec2len, normvec2, edgeptcmp, ptinpoly, Pt3, Vec3, addpt3, subpt3, mulpt3, divpt3, lerp3, berp3, dotvec3, crossvec3, vec3len, normvec3, identity, addm, subm, mulm, smulm, transposem, detm, tracem, minorm, cofactorm, adjm, invm, xform, identity3, addm3, subm3, mulm3, smulm3, transposem3, detm3, tracem3, minorm3, cofactorm3, adjm3, invm3, xform3, Quat, Quatvec, addq, subq, mulq, smulq, sdivq, dotq, invq, qlen, normq, slerp, qrotate, rframematrix, rframematrix3, rframexform, rframexform3, invrframexform, invrframexform3, centroid, barycoords, centroid3, vfmt, Vfmt, GEOMfmtinstall \- computational geometry library
+Flerp, fberp, fclamp, Pt2, Vec2, addpt2, subpt2, mulpt2, divpt2,
+lerp2, berp2, dotvec2, vec2len, normvec2, edgeptcmp, ptinpoly, Pt3,
+Vec3, addpt3, subpt3, mulpt3, divpt3, lerp3, berp3, dotvec3,
+crossvec3, vec3len, normvec3, lineXsphere, ptincylinder, ptincone,
+identity, addm, subm, mulm, smulm, transposem, detm, tracem, minorm,
+cofactorm, adjm, invm, xform, identity3, addm3, subm3, mulm3, smulm3,
+transposem3, detm3, tracem3, minorm3, cofactorm3, adjm3, invm3,
+xform3, Quat, Quatvec, addq, subq, mulq, smulq, sdivq, dotq, invq,
+qlen, normq, slerp, qsandwich, qsandwichpt3, qrotate, rframematrix,
+rframematrix3, rframexform, rframexform3, invrframexform,
+invrframexform3, centroid, barycoords, centroid3, vfmt, Vfmt,
+GEOMfmtinstall \- computational geometry library
 .SH SYNOPSIS
 .de PB
 .PP
