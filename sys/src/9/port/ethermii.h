@@ -138,9 +138,12 @@ typedef struct MiiPhy {
 	int	fd;
 	int	rfc;
 	int	tfc;
+
+	int	(*pagereg)(int*, int);
 };
 
 extern uint mii(Mii*, uint);
+extern MiiPhy* miiphy(Mii*, int);
 extern int miiane(MiiPhy*, int, int, int);
 extern int miianec45(MiiPhy*, int);
 extern int miimir(MiiPhy*, int);

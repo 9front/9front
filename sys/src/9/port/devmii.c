@@ -280,7 +280,7 @@ miiwrite(Chan *c, void *data, long len, vlong offset)
 	case Qmii:
 		if(len != 2)
 			error(Eshort);
-		if(offset >= 0x20)
+		if(offset & ~0xFFFF1FULL)
 			return 0;
 		miimiw(getphy(c), (int)offset, getword(data));
 		return len;
@@ -318,7 +318,7 @@ miiread(Chan *c, void *data, long len, vlong offset)
 	case Qmii:
 		if(len != 2)
 			error(Eshort);
-		if(offset >= 0x20)
+		if(offset & ~0xFFFF1FULL)
 			return 0;
 		w = miimir(getphy(c), (int)offset);
 		if(w == -1)

@@ -15,6 +15,37 @@ static void dummy(Mii*){}
 void (*addmiibus)(Mii*) = dummy;
 void (*delmiibus)(Mii*) = dummy;
 
+static MiiPhy*
+newphy(Mii *mii, int phyno)
+{
+	MiiPhy *phy;
+
+	phy = malloc(sizeof(MiiPhy));
+	if(phy == nil)
+		return nil;
+
+	phy->mii = mii;
+	phy->phyno = phyno;
+
+	phy->id = 0;
+	phy->oui = 0;
+
+	phy->anar = ~0;
+	phy->fc = ~0;
+	phy->mscr = ~0;
+
+	phy->pagereg = nil;
+
+	mii->phy[phyno] = phy;
+	if(mii->curphy == nil)
+		mii->curphy = phy;
+
+	mii->mask |= 1<<phyno;
+	mii->nphy++;
+	
+	return phy;
+}
+
 uint
 mii(Mii* mii, uint mask)
 {
@@ -51,23 +82,12 @@ mii(Mii* mii, uint mask)
 		if(oui == 0xFFFFF || oui == 0)
 			continue;
 
-		if((phy = malloc(sizeof(MiiPhy))) == nil)
+		phy = newphy(mii, phyno);
+		if(phy == nil)
 			continue;
 
-		phy->mii = mii;
 		phy->id = id;
 		phy->oui = oui;
-		phy->phyno = phyno;
-
-		phy->anar = ~0;
-		phy->fc = ~0;
-		phy->mscr = ~0;
-
-		mii->phy[phyno] = phy;
-		if(mii->curphy == nil)
-			mii->curphy = phy;
-		mii->mask |= bit;
-		mii->nphy++;
 
 		rmask |= bit;
 	}
@@ -78,27 +98,63 @@ mii(Mii* mii, uint mask)
 	return rmask;
 }
 
+MiiPhy*
+miiphy(Mii *mii, int phyno)
+{
+	MiiPhy *phy;
+
+	assert((uint)phyno < NMiiPhy);
+
+	qlock(mii);
+	if((phy = mii->phy[phyno]) == nil)
+		phy = newphy(mii, phyno);
+	qunlock(mii);
+
+	return phy;
+}
+
+static int
+setpage(MiiPhy *phy, int reg)
+{
+	Mii *mii;
+	int page, preg;
+
+	if(phy->pagereg == nil)
+		return 0;
+
+	page = (reg >> 8) & 0xFFFF;
+	reg &= 0x1F;
+	preg = (*phy->pagereg)(&page, reg);
+	if(preg < 0 || page < 0 || preg == reg)
+		return 0;
+
+	mii = phy->mii;
+	return (*mii->miw)(mii, phy->phyno, preg & 0x1F, page & 0xFFFF);
+}
+
 int
-miimir(MiiPhy *phy, int r)
+miimir(MiiPhy *phy, int reg)
 {
 	Mii *mii;
 	int ret;
 
 	if(phy == nil || (mii = phy->mii) == nil)
 		return -1;
+
 	qlock(mii);
 	if(up != nil && waserror()){
 		qunlock(mii);
 		nexterror();
 	}
-	ret = (*mii->mir)(mii, phy->phyno, r & 0x1F);
+	if((ret = setpage(phy, reg)) >= 0)
+		ret = (*mii->mir)(mii, phy->phyno, reg & 0x1F);
 	qunlock(mii);
 	if(up != nil) poperror();
 	return ret;
 }
 
 int
-miimiw(MiiPhy *phy, int r, int data)
+miimiw(MiiPhy *phy, int reg, int data)
 {
 	Mii *mii;
 	int ret;
@@ -110,7 +166,8 @@ miimiw(MiiPhy *phy, int r, int data)
 		qunlock(mii);
 		nexterror();
 	}
-	ret = (*mii->miw)(mii, phy->phyno, r & 0x1F, data & 0xFFFF);
+	if((ret = setpage(phy, reg)) >= 0)
+		ret = (*mii->miw)(mii, phy->phyno, reg & 0x1F, data & 0xFFFF);
 	qunlock(mii);
 	if(up != nil) poperror();
 	return ret;
