@@ -317,7 +317,7 @@ threadmain(int argc, char *argv[])
 	case 1:
 		rfd = dial(netmkaddr(argv[0], "tcp", "1234"), nil, nil, nil);
 		if(rfd == -1)
-			sysfatal("dial %s: %r", argv[1]);
+			sysfatal("dial %s: %r", argv[0]);
 		wfd = rfd;
 		break;
 	case 0:
