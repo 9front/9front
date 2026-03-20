@@ -13,6 +13,7 @@
 #include "../port/error.h"
 #include "../port/netif.h"
 #include "../port/etherif.h"
+#include "../port/ethermii.h"
 
 /*
  * note: the 82575, 82576 and 82580 are operated using registers aliased
@@ -175,24 +176,14 @@ enum {					/* Mdic */
 };
 
 enum {					/* phy interface */
-	Phyctl		= 0,		/* phy ctl register */
-	Physr		= 1,		/* phy status register */
-	Phyid1		= 2,		/* phy id1 */
-	Phyid2		= 3,		/* phy id2 */
 	Phyisr		= 19,		/* 82563 phy interrupt status register */
 	Phylhr		= 19,		/* 8257[12] link health register */
 	Physsr		= 17,		/* phy secondary status register */
 	Phyprst		= 193<<8 | 17,	/* 8256[34] phy port reset */
 	Phyier		= 18,		/* 82573 phy interrupt enable register */
-	Phypage		= 22,		/* 8256[34] page register */
 	Phystat		= 26,		/* 82580 phy status */
-	Phyapage	= 29,
 	Rtlink		= 1<<10,	/* realtime link status */
 	Phyan		= 1<<11,	/* phy has autonegotiated */
-
-	/* Phyctl bits */
-	Ran		= 1<<9,	/* restart auto negotiation */
-	Ean		= 1<<12,	/* enable auto negotiation */
 
 	/* Phyprst bits */
 	Prst		= 1<<0,	/* reset the port */
@@ -526,6 +517,7 @@ struct Ctlr {
 	Proc	*lproc;
 	Rendez	lrendez;
 	int	lim;
+	Mii	mii;
 
 	QLock	slock;
 	u32int	statistics[Nstatistics];
@@ -1127,9 +1119,10 @@ static int speedtab[] = {
 	10, 100, 1000, 0
 };
 
-static uint
-phyread(Ctlr *c, int phyno, int reg)
+static int
+mir(Mii *mii, int phyno, int reg)
 {
+	Ctlr *c = mii->ctlr;
 	uint phy, i;
 
 	csr32w(c, Mdic, MDIrop | phyno<<MDIpSHIFT | reg<<MDIrSHIFT);
@@ -1140,16 +1133,15 @@ phyread(Ctlr *c, int phyno, int reg)
 			break;
 		microdelay(1);
 	}
-	if((phy & (MDIe|MDIready)) != MDIready){
-		print("#l%d: %s: phy %d wedged %.8ux\n", c->edev->ctlrno, cname(c), phyno, phy);
-		return ~0;
-	}
+	if((phy & (MDIe|MDIready)) != MDIready)
+		return -1;
 	return phy & 0xffff;
 }
 
-static uint
-phywrite0(Ctlr *c, int phyno, int reg, ushort val)
+static int
+miw(Mii *mii, int phyno, int reg, int val)
 {
+	Ctlr *c = mii->ctlr;
 	uint phy, i;
 
 	csr32w(c, Mdic, MDIwop | phyno<<MDIpSHIFT | reg<<MDIrSHIFT | val);
@@ -1161,69 +1153,22 @@ phywrite0(Ctlr *c, int phyno, int reg, ushort val)
 		microdelay(1);
 	}
 	if((phy & (MDIe|MDIready)) != MDIready)
-		return ~0;
+		return -1;
 	return 0;
 }
 
-static uint
-setpage(Ctlr *c, uint phyno, uint p, uint r)
-{
-	uint pr;
-
-	if(c->type == i82563){
-		if(r >= 16 && r <= 28 && r != 22)
-			pr = Phypage;
-		else if(r == 30 || r == 31)
-			pr = Phyapage;
-		else
-			return 0;
-		return phywrite0(c, phyno, pr, p);
-	}else if(p == 0)
-		return 0;
-	return ~0;
-}
-
-static uint
-phywrite(Ctlr *c, uint phyno, uint reg, ushort v)
-{
-	if(setpage(c, phyno, reg>>8, reg & 0xff) == ~0)
-		panic("#l%d: %s: bad phy reg %.4ux", c->edev->ctlrno, cname(c), reg);
-	return phywrite0(c, phyno, reg & 0xff, v);
-}
-
 static void
-phyerrata(Ctlr *c, uint phyno)
+phyerrata(Ctlr *c, MiiPhy *p)
 {
 	if(c->edev->mbps == 0){
 		if(c->phyerrata == 0){
 			c->phyerrata++;
-			phywrite(c, phyno, Phyprst, Prst);	/* try a port reset */
+
+			miimiw(p, Phyprst, Prst);
 			print("#l%d: %s: phy port reset\n", c->edev->ctlrno, cname(c));
 		}
 	}else
 		c->phyerrata = 0;
-}
-
-static uint
-phyprobe(Ctlr *c, uint mask)
-{
-	uint phy, phyno;
-
-	for(phyno=0; mask != 0; phyno++, mask>>=1){
-		if((mask & 1) == 0)
-			continue;
-		if(phyread(c, phyno, Physr) == ~0)
-			continue;
-		phy = (phyread(c, phyno, Phyid1) & 0x3FFF)<<6;
-		phy |= phyread(c, phyno, Phyid2) >> 10;
-		if(phy == 0xFFFFF || phy == 0)
-			continue;
-		print("#l%d: %s: phy%d oui %#ux\n", c->edev->ctlrno, cname(c),
-			phyno, phy);
-		return phyno;
-	}
-	print("#l%d: %s: no phy\n", c->edev->ctlrno, cname(c));
-	return ~0;
 }
 
 static void
@@ -1235,12 +1180,27 @@ lsleep(Ctlr *c, uint m)
 	sleep(&c->lrendez, i82563lim, c);
 }
 
+/*
+ * Phy address 1 uses page register 31. Note that pageno
+ * is 11 bits and number must be written as (page << 5)
+ * into the 16-bit page register.
+ */
+static int
+i82579phy1pagereg(int *page, int reg)
+{
+	if(reg < 16)
+		return -1;
+	*page <<= 5;
+	return 31;
+}
+
 static void
 phyl79proc(void *v)
 {
-	uint i, r, phy, phyno;
 	Ctlr *c;
 	Ether *e;
+	MiiPhy *p;
+	int i, r;
 
 	e = v;
 	c = e->ctlr;
@@ -1254,26 +1214,34 @@ phyl79proc(void *v)
 		lsleep(c, Lsc);
 	tsleep(&up->sleep, return0, 0, 1500);
 
-	while((phyno = phyprobe(c, 3<<1)) == ~0)
+	/*
+	 * Phy registers are spread over two phy addresses 1 and 2.
+	 * Phy address 2 contains the ID registers.
+	 */
+	while(mii(&c->mii, 1<<2) <= 0 || (p = c->mii.curphy) == nil)
 		lsleep(c, Lsc);
 
+	miiphy(&c->mii, 1)->pagereg = i82579phy1pagereg;
+
+	addmiibus(&c->mii);
+
 	for(;;){
-		phy = 0;
+		r = 0;
 		for(i=0; i<4; i++){
 			tsleep(&up->sleep, return0, 0, 150);
-			phy = phyread(c, phyno, Phystat);
-			if(phy == ~0)
+			r = miimir(p, Phystat);
+			if(r < 0)
 				continue;
-			if(phy & Ans){
-				r = phyread(c, phyno, Phyctl);
-				if(r == ~0)
+			if(r & Ans){
+				r = miimir(p, Bmcr);
+				if(r < 0)
 					continue;
-				phywrite(c, phyno, Phyctl, r | Ran | Ean);
+				miimiw(p, Bmcr, r | BmcrRan|BmcrAne);
 			}
 			break;
 		}
-		i = (phy>>8) & 3;
-		if(i != 3 && (phy & Link) != 0){
+		i = (r>>8) & 3;
+		if(i != 3 && (r & Link) != 0){
 			ethersetspeed(e, speedtab[i]);
 			ethersetlink(e, 1);
 		}else{
@@ -1285,12 +1253,25 @@ phyl79proc(void *v)
 	}
 }
 
+static int
+i82563pagereg(int*, int reg)
+{
+	if(reg >= 30)
+		return 29;
+
+	if(reg >= 16 && reg != 22 && reg != 29)
+		return 22;
+
+	return -1;
+}
+
 static void
 phylproc(void *v)
 {
-	uint a, i, phy, phyno;
 	Ctlr *c;
 	Ether *e;
+	MiiPhy *p;
+	int i, r, a;
 
 	e = v;
 	c = e->ctlr;
@@ -1299,20 +1280,25 @@ phylproc(void *v)
 	while(waserror())
 		procerror(c, &c->lproc);
 
-	while((phyno = phyprobe(c, 3<<1)) == ~0)
+	while(mii(&c->mii, 3<<1) <= 0 || (p = c->mii.curphy) == nil)
 		lsleep(c, Lsc);
 
-	if(c->type == i82573 && (phy = phyread(c, phyno, Phyier)) != ~0)
-		phywrite(c, phyno, Phyier, phy | Lscie | Ancie | Spdie | Panie);
+	if(c->type == i82563)
+		p->pagereg = i82563pagereg;
+
+	addmiibus(&c->mii);
+
+	if(c->type == i82573 && (r = miimir(p, Phyier)) >= 0)
+		miimiw(p, Phyier, r | Lscie | Ancie | Spdie | Panie);
 
 	for(;;){
-		phy = phyread(c, phyno, Physsr);
-		if(phy == ~0){
-			phy = 0;
+		r = miimir(p, Physsr);
+		if(r < 0){
+			r = 0;
 			i = 3;
 			goto next;
 		}
-		i = (phy>>14) & 3;
+		i = (r>>14) & 3;
 		switch(c->type){
 		default:
 			a = 0;
@@ -1321,20 +1307,20 @@ phylproc(void *v)
 		case i82578:
 		case i82578m:
 		case i82583:
-			a = phyread(c, phyno, Phyisr) & Ane;
+			a = miimir(p, Phyisr) & Ane;
 			break;
 		case i82571:
 		case i82572:
 		case i82575:
 		case i82576:
-			a = phyread(c, phyno, Phylhr) & Anf;
+			a = miimir(p, Phylhr) & Anf;
 			i = (i-1) & 3;
 			break;
 		}
 		if(a)
-			phywrite(c, phyno, Phyctl, phyread(c, phyno, Phyctl) | Ran | Ean);
+			miimiw(p, Bmcr, miimir(p, Bmcr) | BmcrRan|BmcrAne);
 next:
-		if(phy & Rtlink){
+		if(r & Rtlink){
 			ethersetspeed(e, speedtab[i]);
 			ethersetlink(e, 1);
 		}else{
@@ -1343,7 +1329,7 @@ next:
 		}
 		c->speeds[i]++;
 		if(c->type == i82563)
-			phyerrata(c, phyno);
+			phyerrata(c, p);
 		lsleep(c, Lsc);
 	}
 }
@@ -2269,6 +2255,11 @@ pnp(Ether *edev, int type)
 				break;
 		}
 	}
+
+	ctlr->mii.name = edev->name;
+	ctlr->mii.ctlr = ctlr;
+	ctlr->mii.mir = mir;
+	ctlr->mii.miw = miw;
 
 	edev->ctlr = ctlr;
 	edev->port = ctlr->port;

@@ -142,6 +142,7 @@ usbehci.$O usbehcipc.$O:	usbehci.h
 trap.$O main.$O:		/sys/include/tos.h
 
 ether8169.$O:			../port/ethermii.h
+ether82563.$O:			../port/ethermii.h
 etherdp83820.$O:		../port/ethermii.h
 etheri225.$O:			../port/ethermii.h
 etherigbe.$O:			../port/ethermii.h

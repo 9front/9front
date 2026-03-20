@@ -56,7 +56,7 @@ link
 # should be obsoleted by igbe
 #	ether82543gc	pci
 #	ether82557	pci
-	ether82563	pci
+	ether82563	pci ethermii
 	ether82598	pci
 	etherx550	pci
 #	ether83815	pci
