@@ -1190,6 +1190,13 @@ i82579phy1pagereg(int *page, int reg)
 {
 	if(reg < 16)
 		return -1;
+	/*
+	 * after writing address register 800.0x11,
+	 * read or write data register 0x12 without
+	 * touching page register again.
+	 */
+	if(*page == 800 && reg == 0x12)
+		return -1;
 	*page <<= 5;
 	return 31;
 }
