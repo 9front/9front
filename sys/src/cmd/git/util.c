@@ -4,11 +4,11 @@
 
 #include "git.h"
 
-Reprog *authorpat;
-Hash Zhash;
-
-int chattygit;
-int interactive = 1;
+Reprog	*authorpat;
+Hash	Zhash;
+int	chattygit;
+int	interactive = 1;
+int	gitdirmode = -1;
 
 enum {
 	Seed		= 2928213749ULL
@@ -246,6 +246,8 @@ Qfmt(Fmt *fmt)
 void
 gitinit(void)
 {
+	Dir *d;
+
 	fmtinstall('H', Hfmt);
 	fmtinstall('T', Tfmt);
 	fmtinstall('O', Ofmt);
@@ -254,6 +256,12 @@ gitinit(void)
 	deflateinit();
 	authorpat = regcomp("[\t ]*(.*)[\t ]+([0-9]+)[\t ]*([\\-+]?[0-9]+)?");
 	osinit(&objcache);
+	if(gitdirmode == -1){
+		if((d = dirstat(".git")) == nil)
+			sysfatal("stat .git: %r");
+		gitdirmode = d->mode & 0777;
+		free(d);
+	}
 }
 
 int

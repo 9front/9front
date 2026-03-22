@@ -284,7 +284,7 @@ gcommitgen(int i, Dir *d, void *p)
 
 	switch(i){
 	case 0:
-		d->mode = 0755 | DMDIR;
+		d->mode = DMDIR | gitdirmode;
 		d->name = estrdup9p("tree");
 		d->qid.type = QTDIR;
 		d->qid.path = qpath(c, i, o->id, Qtree);
@@ -495,7 +495,7 @@ objwalk1(Qid *q, Object *o, Crumb *p, Crumb *c, char *name, vlong qdir, Gitaux *
 			q->type = (w->type == GTree) ? QTDIR : 0;
 			q->path = qpath(p, i, w->id, qdir);
 			c->mode = m;
-			c->mode |= (w->type == GTree) ? DMDIR|0755 : 0644;
+			c->mode |= (w->type == GTree) ? (DMDIR|0755) : 0644;
 			c->obj = w;
 			break;
 		}
@@ -521,7 +521,7 @@ objwalk1(Qid *q, Object *o, Crumb *p, Crumb *c, char *name, vlong qdir, Gitaux *
 			q->type = QTDIR;
 			q->path = qpath(p, 4, o->id, Qtree);
 			unref(c->obj);
-			c->mode = DMDIR | 0755;
+			c->mode = DMDIR | gitdirmode;
 			c->obj = readobject(o->commit->tree);
 			if(c->obj == nil)
 				sysfatal("could not read object %H: %r", o->commit->tree);

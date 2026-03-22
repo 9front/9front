@@ -70,7 +70,6 @@ vlong	cachemax = 128*MiB;
 Packf	*packf;
 int	npackf;
 int	openpacks;
-int	gitdirmode = -1;
 
 static void
 clear(Object *o)
@@ -958,18 +957,21 @@ parsetree(Object *o)
 		 * useful permissions, replicate the mode
 		 * of the git repo dir.
 		 */
-		a = (m & 0777)>>6;
-		t->mode = ((a<<6)|(a<<3)|a) & gitdirmode;
+		t->mode = gitdirmode;
 		t->ismod = 0;
 		t->islink = 0;
-		if(m == 0160000){
+		if(m & 0777){
+			a = (m & 0777)>>6;
+			t->mode &= ((a<<6)|(a<<3)|a);
+		}
+		if(m == 0160000){ /* module */
 			t->mode |= DMDIR;
 			t->ismod = 1;
-		}else if(m == 0120000){
+		}else if(m == 0120000){ /* symlink */
 			t->mode = 0;
 			t->islink = 1;
 		}
-		if(m & 0040000)
+		if(m & 0040000) /* dir */
 			t->mode |= DMDIR;
 		t->name = p;
 		p = memchr(p, 0, ep - p);
@@ -1130,14 +1132,7 @@ Object*
 readobject(Hash h)
 {
 	Object *o;
-	Dir *d;
 
-	if(gitdirmode == -1){
-		if((d = dirstat(".git")) == nil)
-			sysfatal("stat .git: %r");
-		gitdirmode = d->mode & 0777;
-		free(d);
-	}
 	if((o = readidxobject(nil, h, 0)) == nil)
 		return nil;
 	parseobject(o);

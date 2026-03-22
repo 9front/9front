@@ -261,6 +261,7 @@ extern vlong	cachemax;
 extern Hash	Zhash;
 extern int	chattygit;
 extern int	interactive;
+extern int	gitdirmode;
 
 #pragma varargck type "H" Hash
 #pragma varargck type "T" int
