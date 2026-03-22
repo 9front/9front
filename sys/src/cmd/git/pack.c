@@ -685,8 +685,8 @@ hashcmp(uchar *a, uchar *b, uint nbit)
 	r = memcmp(a, b, i);
 	if(r != 0 || nbit % 8 == 0)
 		return r;
-	x = (a[i+1] & 0xff00>>nbit) & 0xff;
-	y = (b[i+1] & 0xff00>>nbit) & 0xff;
+	x = a[i] >> (8 - nbit % 8); 
+	y = b[i] >> (8 - nbit % 8); 
 	return x - y;
 }
 
