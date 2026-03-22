@@ -497,7 +497,7 @@ updaterefs(Conn *c, Hash *cur, Hash *upd, char **ref, int nupd)
 			snprint(buf, sizeof(buf), "open HEAD: %r");
 			goto error;
 		}
-		if(fprint(fd, "ref: %s", ref[0]) == -1){
+		if(fprint(fd, "ref: %s", ref[newidx]) == -1){
 			snprint(buf, sizeof(buf), "write HEAD ref: %r");
 			goto error;
 		}
@@ -505,7 +505,8 @@ updaterefs(Conn *c, Hash *cur, Hash *upd, char **ref, int nupd)
 	}
 	ret = 0;
 error:
-	fmtpkt(c, "ERR %s", buf);
+	if(ret != 0)
+		fmtpkt(c, "ERR %s", buf);
 	close(lockfd);
 	werrstr(buf);
 	return ret;
