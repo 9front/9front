@@ -9,6 +9,7 @@
 
 u16int *prg;
 u32int prgend;
+u16int *cart, *tmss;
 u8int *sram;
 u32int sramctl, nsram, sram0, sram1;
 int savefd = -1;
@@ -37,6 +38,27 @@ loadbat(char *file)
 		print("open: %r\n");
 	else
 		readn(savefd, sram, nsram);
+}
+
+static void
+loadtmss(void)
+{
+	int fd;
+	u16int *p;
+	uchar buf[4096];
+	int i;
+
+	fd = open("/sys/games/lib/mdtmss.bin", OREAD);
+	if(fd < 0)
+		return;
+	p = tmss = malloc(4096);
+	if(tmss == nil)
+		sysfatal("oom");
+	if(readn(fd, buf, 4096) != 4096)
+		sysfatal("short read on tmss: %r");
+	for(i = 0; i < 4096; i += 2)
+		*p++ = buf[i] << 8 | buf[i+1];
+	close(fd);
 }
 
 struct {
@@ -82,8 +104,8 @@ loadrom(char *file)
 	if(r > 32*1024*1024)
 		sysfatal("rom above max size of 32M");
 	n = r+2 & ~1;
-	p = prg = malloc(n);
-	if(prg == nil)
+	p = cart = malloc(n);
+	if(cart == nil)
 		sysfatal("malloc: %r");
 	seek(fd, 0, 0);
 	for(v = n; v != 0;){
@@ -121,6 +143,10 @@ loadrom(char *file)
 			}
 		}
 	}
+	if(tmss != nil)
+		prg = tmss;
+	else
+		prg = cart;
 }
 
 void
@@ -147,6 +173,7 @@ threadmain(int argc, char **argv)
 	} ARGEND;
 	if(argc < 1)
 		usage();
+	loadtmss();
 	loadrom(*argv);
 	initemu(320, 224, 4, XRGB32, 1, nil);
 	regkey("a", 'c', 0x200020);

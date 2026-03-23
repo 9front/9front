@@ -9,6 +9,7 @@ extern u16int spc, scurpc;
 extern u16int ram[32768];
 extern u16int *prg;
 extern u32int prgend;
+extern u16int *cart, *tmss;
 extern u8int *sram;
 extern u32int sramctl, sram0, sram1;
 extern int savefd, saveclock;

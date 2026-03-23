@@ -11,6 +11,7 @@ u32int cramc[64];
 u8int zram[8192];
 u8int reg[32];
 u8int ctl[15];
+u16int tmssreg[2];
 
 u8int dma;
 u8int vdplatch;
@@ -54,11 +55,48 @@ padread(int port, u32int v)
 	return ctl[port] & 0xc0 | v & 0x3f;
 }
 
+u16int
+tmssread(u16int a)
+{
+	switch(a | 1){
+	case 0x4001:
+		return tmssreg[0];
+	case 0x4003:
+		return tmssreg[1];
+	case 0x4101:
+		if(prg == tmss)
+			return 0;
+		else
+			return 1;
+	}
+	sysfatal("read from 0xa1%.4ux (pc=%#.6ux)", a, curpc);
+}
+
+void
+tmsswrite(u16int a, u16int v)
+{
+	switch(a | 1){
+	case 0x4001:
+		tmssreg[0] = v;
+		return;
+	case 0x4003:
+		tmssreg[1] = v;
+		return;
+	case 0x4101:
+		if(tmss != nil && (v & 1) == 0)
+			prg = tmss;
+		else
+			prg = cart;
+		return;
+	}
+	fprint(2, "tmsswrite to 0xa1%.4x (pc=%#.6ux)", a, curpc);
+}
+
 u8int
 regread(u16int a)
 {
 	switch(a | 1){
-	case 0x0001: return 0xa0;
+	case 0x0001: return 0xa0 | (tmss != nil);
 	case 0x0003:
 		return padread(0, keys);
 	case 0x0005:
@@ -70,7 +108,7 @@ regread(u16int a)
 	case 0x1101:
 		return (~z80bus & BUSACK) >> 1;
 	}
-	sysfatal("read from 0xa1%.4ux (pc=%#.6ux)", a, curpc);
+	sysfatal("regread from 0xa1%.4ux (pc=%#.6ux)", a, curpc);
 }
 
 void
@@ -106,7 +144,7 @@ regwrite(u16int a, u16int v)
 		ssfpage[p] = v;
 		return;
 	}
-	fprint(2, "write to 0xa1%.4x (pc=%#.6ux)", a, curpc);
+	fprint(2, "regwrite to 0xa1%.4x (pc=%#.6ux)", a, curpc);
 }
 
 void
@@ -158,6 +196,8 @@ memread(u32int a)
 			goto rom;
 		if((sramctl & SRAMEN) == 0 && prgend > 2*1024*1024)
 			goto rom;
+		if(prg == tmss)
+			goto rom;
 		switch(sramctl & ADDRMASK){
 		case ADDREVEN: return sram[(a - sram0) >> 1] << 8;
 		case ADDRODD: return sram[(a - sram0) >> 1];
@@ -181,6 +221,8 @@ memread(u32int a)
 				v = 0;
 			return v << 8 | v;
 		case 0xa1:
+			if((a >> 12 & 0xfff) == 0xa14)
+				return tmssread(a);
 			v = regread(a);
 			return v << 8 | v;
 		}
@@ -233,7 +275,7 @@ memread(u32int a)
 	case 7: return ram[((u16int)a) / 2];
 	default:
 	invalid:
-		sysfatal("read from %#.6ux (pc=%#.6ux)", a, curpc);
+		sysfatal("memread from %#.6ux (pc=%#.6ux)", a, curpc);
 	}
 }
 
@@ -243,8 +285,6 @@ memwrite(u32int a, u16int v, u16int m)
 	u16int *p;
 	u16int w;
 
-	if(0 && (a & 0xe0fffe) == 0xe0df46)
-		print("%x %x %x\n", curpc, v, m);
 	switch((a >> 21) & 7){
 	case 0: case 1:
 		if(a < sram0 || a > sram1)
@@ -271,7 +311,10 @@ memwrite(u32int a, u16int v, u16int m)
 				z80write(a & 0xffff, v >> 8);
 			return;
 		case 0xa1:
-			regwrite(a, v >> 8);
+			if((a >> 12 & 0xfff) == 0xa14)
+				tmsswrite(a, v);
+			else
+				regwrite(a, v >> 8);
 			return;
 		default:
 			goto invalid;
@@ -329,7 +372,7 @@ memwrite(u32int a, u16int v, u16int m)
 		break;
 	default:
 	invalid:
-		fprint(2, "write to %#.6x (pc=%#.6x)", a, curpc);
+		fprint(2, "memwrite to %#.6ux (pc=%#.6ux)", a, curpc);
 	}
 }
 
