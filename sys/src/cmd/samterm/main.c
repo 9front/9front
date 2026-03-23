@@ -31,7 +31,7 @@ int	spacesindent;
 void
 threadmain(int argc, char *argv[])
 {
-	int i, got, nclick, scr, chord;
+	int i, got, nclick, scr, chord, noTt;
 	Text *t;
 	Rectangle r;
 	Flayer *nwhich;
@@ -55,6 +55,7 @@ threadmain(int argc, char *argv[])
 	outTs(Tversion, VERSION);
 	startnewfile(Tstartcmdfile, &cmd);
 
+	noTt = 0;
 	got = 0;
 	chord = 0;
 	for(;;got = waitforio()){
@@ -91,6 +92,9 @@ threadmain(int argc, char *argv[])
 				t = (Text *)which->user1;
 				if(!t->lock){
 					int w = which-t->l;
+					/* fire doubleclick timer */
+					if(chord&6)
+						noTt = 1;
 					if(chord&2){
 						cut(t, w, 1, 1);
 						chord &= ~2;
@@ -110,6 +114,10 @@ threadmain(int argc, char *argv[])
 						extendsel(which);
 					else{
 						t = which->user1;
+						if(noTt == 1){
+							which->click -= Clicktime;
+							noTt =0;
+						}
 						nclick = flselect(which);
 						if(nclick > 0){
 							if(nclick > 1)
