@@ -1221,6 +1221,7 @@ wselect(Window *w)
 		w->mc.msec = 0;
 		b = w->mc.buttons;
 		if(b & 6){
+			clickwin = nil;
 			if(b & 2){
 				wsnarf(w);
 				wcut(w);
