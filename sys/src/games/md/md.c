@@ -149,14 +149,18 @@ threadmain(int argc, char **argv)
 		usage();
 	loadrom(*argv);
 	initemu(320, 224, 4, XRGB32, 1, nil);
-	regkey("a", 'c', 1<<5);
-	regkey("b", 'x', 1<<4);
+	regkey("a", 'c', 0x200020);
+	regkey("b", 'x', 0x100010);
 	regkey("y", 'z', 1<<12);
 	regkey("start", '\n', 1<<13);
 	regkey("up", Kup, 0x101);
 	regkey("down", Kdown, 0x202);
 	regkey("left", Kleft, 1<<2);
 	regkey("right", Kright, 1<<3);
+	regkey("x", 'a', 1<<18);
+	regkey("l1", 's', 1<<17);
+	regkey("r1", 'd', 1<<16);
+	regkey("control", '\t', 1<<19);
 	cpureset();
 	vdpmode();
 	ymreset();
@@ -205,6 +209,7 @@ threadmain(int argc, char **argv)
 void
 flush(void)
 {
+	flushport();
 	flushmouse(1);
 	flushscreen();
 	flushaudio(audioout);

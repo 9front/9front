@@ -1,3 +1,4 @@
+void flushport(void);
 u16int memread(u32int);
 void memwrite(u32int, u16int, u16int);
 void cpureset(void);

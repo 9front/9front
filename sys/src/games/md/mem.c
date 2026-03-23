@@ -28,21 +28,41 @@ u16int ssfpage[8] = {0, 1, 2, 3, 4, 5, 6, 7};
 //#define vramdebug(a, s, a1, a2, a3) if((a & ~1) == 0xe7a0) print(s, a1, a2, a3);
 #define vramdebug(a, s, a1, a2, a3)
 
+int padclock[2];
+
+void
+flushport(void)
+{
+	padclock[0] = padclock[1] = 0;
+}
+
+u8int
+padread(int port, u32int v)
+{
+	int c;
+
+	c = ++padclock[port];
+	v = ~(v & 0xffffff);
+	if((ctl[port] & 0x40) == 0){
+		v >>= 8;
+		if(c == 6)
+			v &= ~(0b1111);
+		else
+			v &= ~(0b1100);
+	} else if(c == 7)
+		v >>= 16;
+	return ctl[port] & 0xc0 | v & 0x3f;
+}
+
 u8int
 regread(u16int a)
 {
-	u16int v;
-
 	switch(a | 1){
 	case 0x0001: return 0xa0;
 	case 0x0003:
-		v = ~(keys & 0xffff);
-		if((ctl[0] & 0x40) == 0){
-			v >>= 8;
-			v &= ~(0b1100);
-		}
-		return ctl[0] & 0xc0 | v & 0x3f;
+		return padread(0, keys);
 	case 0x0005:
+		return padread(1, keys2);
 	case 0x0007:
 		return ctl[a-3>>1] & 0xc0 | 0x3f;
 	case 0x0009: case 0x000b: case 0x000d:
