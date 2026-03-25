@@ -36,7 +36,7 @@ If neither
 .I input-file
 nor
 .I output-file
-is not specified, they read from standard input and write to standard output.
+is specified, they read from standard input and write to standard output.
 .PP
 The
 .I gs-options
