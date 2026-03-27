@@ -268,7 +268,7 @@ main(int argc, char **argv)
 		break;
 	}ARGEND;
 
-	gitinit();
+	gitinit(nil, 0, nil);
 	if(argc != 1)
 		usage();
 	if(gitconnect(&c, argv[0], "receive") == -1)

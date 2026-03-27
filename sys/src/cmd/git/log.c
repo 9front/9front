@@ -261,8 +261,7 @@ main(int argc, char **argv)
 		break;
 	}ARGEND;
 
-	if(findrepo(repo, sizeof(repo), &nrel) == -1)
-		sysfatal("find root: %r");
+	gitinit(repo, sizeof(repo), &nrel);
 	nrepo = strlen(repo);
 	if(argc != 0){
 		if(getwd(path, sizeof(path)) == nil)
@@ -286,7 +285,6 @@ main(int argc, char **argv)
 	if(chdir(repo) == -1)
 		sysfatal("chdir: %r");
 
-	gitinit();
 	tmfmtinstall();
 	out = Bfdopen(1, OWRITE);
 	if(queryexpr != nil)

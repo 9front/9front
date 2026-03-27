@@ -272,7 +272,7 @@ int Tfmt(Fmt*);
 int Ofmt(Fmt*);
 int Qfmt(Fmt*);
 
-void gitinit(void);
+void gitinit(char*, int, int*);
 
 /* object io */
 int	resolverefs(Hash **, char *);
@@ -319,7 +319,6 @@ int	hparse(Hash *, char *);
 int	hassuffix(char *, char *);
 int	swapsuffix(char *, int, char *, char *, char *);
 char	*strip(char *);
-int	findrepo(char *, int, int*);
 int	showprogress(int, int);
 u64int	murmurhash2(void*, usize);
 Qid	parseqid(char*);

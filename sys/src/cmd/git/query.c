@@ -165,13 +165,10 @@ main(int argc, char **argv)
 	default:	usage();	break;
 	}ARGEND;
 
-	gitinit();
 	fmtinstall('P', Pfmt);
-
 	if(argc == 0)
 		usage();
-	if(findrepo(repo, sizeof(repo), &nrel) == -1)
-		sysfatal("find root: %r");
+	gitinit(repo, sizeof(repo), &nrel);
 	if(chdir(repo) == -1)
 		sysfatal("chdir: %r");
 	if((objpfx = smprint("%s/.git/fs/object/", repo)) == nil)

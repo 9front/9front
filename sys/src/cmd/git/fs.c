@@ -892,9 +892,14 @@ usage(void)
 void
 main(int argc, char **argv)
 {
+	char repo[512];
+	int nelt;
 	Dir *d;
 
-	gitinit();
+	gitinit(repo, sizeof(repo), &nelt);
+	if(chdir(repo) == -1)
+		sysfatal("chdir: %r");
+
 	ARGBEGIN{
 	case 'd':
 		chatty9p++;

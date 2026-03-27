@@ -59,7 +59,7 @@ main(int argc, char **argv)
 		usage();
 	}ARGEND;
 
-	gitinit();
+	gitinit(nil, 0, nil);
 	refs = nil;
 	if((nrefs = listrefs(&refs, &names)) == -1)
 		sysfatal("load refs: %r");

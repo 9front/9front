@@ -68,16 +68,17 @@ main(int argc, char **argv)
 	default:	usage();			break;
 	}ARGEND;
 
+	gitinit(repo, sizeof(repo), &nrel);
 	if(findroot){
-		if(findrepo(repo, sizeof(repo), &nrel) == -1)
-			sysfatal("%r");
 		print("%s\n", repo);
 		exits(nil);
 	}
 	if(nfile == 0){
-		file[nfile++] = ".git/config";
+		if((file[nfile++] = smprint("%s/.git/config", repo)) == nil)
+			sysfatal("smprint: %r");
 		if((p = getenv("home")) != nil)
-			file[nfile++] = smprint("%s/lib/git/config", p);
+			if((file[nfile++] = smprint("%s/lib/git/config", p)) == nil)
+				sysfatal("smprint: %r");
 		file[nfile++] = "/sys/lib/git/config";
 	}
 

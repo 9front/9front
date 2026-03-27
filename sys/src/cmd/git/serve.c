@@ -578,7 +578,7 @@ main(int argc, char **argv)
 		break;
 	}ARGEND;
 
-	gitinit();
+	gitinit(nil, 0, nil);
 	interactive = 0;
 	if(rfork(RFNAMEG) == -1)
 		sysfatal("rfork: %r");

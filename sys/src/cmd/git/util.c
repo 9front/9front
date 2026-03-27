@@ -243,9 +243,33 @@ Qfmt(Fmt *fmt)
 		return fmtprint(fmt, "%llux.%lud.%hhx", q.path, q.vers, q.type);
 }
 
-void
-gitinit(void)
+/* Finds the directory containing the git repo. */
+static void
+findrepo(char *buf, int nbuf, int *nrel)
 {
+	char *p, *suff;
+
+	suff = "/.git/HEAD";
+	if(getwd(buf, nbuf - strlen(suff) - 1) == nil)
+		sysfatal("getwd: %r");
+
+	*nrel = 0;
+	for(p = buf + strlen(buf); p != nil; p = strrchr(buf, '/')){
+		strcpy(p, suff);
+		if(access(buf, AEXIST) == 0){
+			p[p == buf] = '\0';
+			return;
+		}
+		*nrel += 1;
+		*p = '\0';
+	}
+	sysfatal("not a git repository");
+}
+
+void
+gitinit(char *root, int nroot, int *nrel)
+{
+	char repo[512] = ".git";
 	Dir *d;
 
 	fmtinstall('H', Hfmt);
@@ -256,12 +280,14 @@ gitinit(void)
 	deflateinit();
 	authorpat = regcomp("[\t ]*(.*)[\t ]+([0-9]+)[\t ]*([\\-+]?[0-9]+)?");
 	osinit(&objcache);
-	if(gitdirmode == -1){
-		if((d = dirstat(".git")) == nil)
-			sysfatal("stat .git: %r");
-		gitdirmode = d->mode & 0777;
-		free(d);
+	if(root != nil){
+		findrepo(root, nroot, nrel);
+		snprint(repo, sizeof(repo), "%s/.git", root);
 	}
+	if((d = dirstat(repo)) == nil)
+		sysfatal("stat %s: %r", repo);
+	gitdirmode = d->mode & 0777;
+	free(d);
 }
 
 int
@@ -341,30 +367,6 @@ _dprint(char *fmt, ...)
 	va_start(ap, fmt);
 	vfprint(2, fmt, ap);
 	va_end(ap);
-}
-
-/* Finds the directory containing the git repo. */
-int
-findrepo(char *buf, int nbuf, int *nrel)
-{
-	char *p, *suff;
-
-	suff = "/.git/HEAD";
-	if(getwd(buf, nbuf - strlen(suff) - 1) == nil)
-		return -1;
-
-	*nrel = 0;
-	for(p = buf + strlen(buf); p != nil; p = strrchr(buf, '/')){
-		strcpy(p, suff);
-		if(access(buf, AEXIST) == 0){
-			p[p == buf] = '\0';
-			return 0;
-		}
-		*nrel += 1;
-		*p = '\0';
-	}
-	werrstr("not a git repository");
-	return -1;
 }
 
 int
