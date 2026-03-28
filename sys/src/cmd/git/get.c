@@ -302,10 +302,10 @@ fetchpack(Conn *c)
 	fmtcaps(c, caps, sizeof(caps));
 	for(i = 0; i < nref; i++){
 		if(hasheq(&have[i], &want[i]))
-			continue;
+			goto skip;
 		for(j = 0; j < i; j++)
 			if(hasheq(&want[i], &want[j]))
-				continue;
+				goto skip;
 		if((o = readobject(want[i])) != nil){
 			unref(o);
 			continue;
@@ -314,6 +314,7 @@ fetchpack(Conn *c)
 			sysfatal("could not send want for %H", want[i]);
 		caps[0] = 0;
 		req = 1;
+skip:;
 	}
 	flushpkt(c);
 
