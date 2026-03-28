@@ -266,7 +266,8 @@ fetchpack(Conn *c)
 		}
 		first = 0;
 
-		getfields(buf, sp, nelem(sp), 1, " \t\n\r");
+		if(getfields(buf, sp, nelem(sp), 1, " \t\n\r") < 2)
+			sysfatal("invalid ref line");
 		if(strstr(sp[1], "^{}"))
 			continue;
 		if(!okrefname(sp[1]))
