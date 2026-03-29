@@ -398,6 +398,8 @@ miimmdr(MiiPhy *phy, int a, int r)
 		nexterror();
 	}
 	a &= 0x1F;
+	if((ret = setpage(phy, Mmdctrl)) < 0)
+		goto out;
 	if((ret = (*mii->miw)(mii, phy->phyno, Mmdctrl, a)) == -1)
 		goto out;
 	if((ret = (*mii->miw)(mii, phy->phyno, Mmddata, r & 0xFFFF)) == -1)
@@ -425,6 +427,8 @@ miimmdw(MiiPhy *phy, int a, int r, int data)
 		nexterror();
 	}
 	a &= 0x1F;
+	if((ret = setpage(phy, Mmdctrl)) < 0)
+		goto out;
 	if((ret = (*mii->miw)(mii, phy->phyno, Mmdctrl, a)) == -1)
 		goto out;
 	if((ret = (*mii->miw)(mii, phy->phyno, Mmddata, r & 0xFFFF)) == -1)
