@@ -54,12 +54,14 @@ readblk(Blk *b, Bptr bp, int flg)
 
 	off = bp.addr;
 	rem = Blksz;
+	p = b->buf;
 	while(rem != 0){
-		n = pread(fs->fd, b->buf, rem, off);
+		n = pread(fs->fd, p, rem, off);
 		if(n <= 0)
 			error("%s: %r", Eio);
-		off += n;
 		rem -= n;
+		off += n;
+		p += n;
 	}
 	b->cnext = nil;
 	b->cprev = nil;
