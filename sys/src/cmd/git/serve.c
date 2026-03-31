@@ -45,7 +45,7 @@ int
 showrefs(Conn *c)
 {
 	char **names, *s, buf[256];
-	int i, r, ret, nrefs;
+	int i, ret, nrefs;
 	Hash head, *refs;
 
 	ret = -1;
@@ -53,14 +53,10 @@ showrefs(Conn *c)
 	refs = nil;
 	names = nil;
 
-	s = gethead(&head,  buf, sizeof(buf));
-	if(s != nil)
-		r = fmtpkt(c, "%H HEAD%csymref=HEAD:%s no-thin\n", head, 0, s);
-	else
-		r = fmtpkt(c, "%H HEAD%cno-thin\n", head, 0);
-	if(r == -1)
+	if((s = gethead(&head,  buf, sizeof(buf))) == nil)
 		goto error;
-
+	if(fmtpkt(c, "%H HEAD%csymref=HEAD:%s no-thin\n", head, 0, s) == -1)
+		goto error;
 	if((nrefs = listrefs(&refs, &names)) == -1)
 		fail(c, "listrefs: %r");
 	for(i = 0; i < nrefs; i++){
