@@ -12,7 +12,7 @@ if(~ $#* 0) exec aux/usage
 if(~ $#src 0)
 	src=`{git/branch}
 nflag=''
-if(~ $nocomit 1)
+if(~ $nocommit 1)
 	nflag='-n'
 	
 dst=`{git/query $1}
