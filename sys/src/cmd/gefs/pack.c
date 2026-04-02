@@ -497,7 +497,7 @@ unpacksb(Gefs *fi, char *p0, int sz)
 	fi->snapdl.gen = -1;			p += 0;
 	fi->snapdl.tl.addr = UNPACK64(p);	p += 8;
 	fi->snapdl.tl.hash = UNPACK64(p);	p += 8;
-	fi->snapdl.hd.gen = -1;			p += 0;
+	fi->snapdl.tl.gen = -1;			p += 0;
 	fi->snapdl.gen = -1;			p += 0;
 	fi->flag = UNPACK64(p);			p += 8;
 	fi->nextqid = UNPACK64(p);		p += 8;
