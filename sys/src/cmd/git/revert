@@ -16,7 +16,7 @@ files=`$nl{cleanname -d $gitrel $* | drop $gitroot}
 for(f in `$nl{git/walk -c -fRM -b $query $files}){
 	mkdir -p `{basename -d $f}
 	cp -x -- $commit/tree/$f $f
-	touch $f
+	touch -c $f
 	git/add $f
 }
 exit ''

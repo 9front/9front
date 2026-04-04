@@ -113,8 +113,8 @@ if not {
 		}
 		if(~ $b file){
 			echo T NOQID 0 $m >>[1=3]
-			cp -x -- $basedir/tree/$m $m || {echo cp failed: $f; failed=1}
-			touch $m || {echo touch failed: $f; failed=1}
+			cp -x -- $basedir/tree/$m $m || {echo cp failed: $m; failed=1}
+			touch -c $m
 		}
 	}
 }
