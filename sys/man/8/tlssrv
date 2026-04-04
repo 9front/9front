@@ -15,6 +15,10 @@ tlssrv, tlsclient, tlssrvtunnel, tlsclienttunnel \- TLS server and client
 ]
 ]
 [
+.B -T
+.I timeout
+]
+[
 .B -c
 .I cert.pem
 ]
@@ -112,6 +116,12 @@ This enables the use of TLS without certificates and also runs
 the server command as the authorized user when the
 .B -a
 flag was specified.
+A millisecond
+.I timeout
+for the TLS handshake phase can be set using the
+.B -T
+option.
+This can prevent clients from hogging connections.
 .PP
 .I Tlsclient
 is the reverse of
@@ -137,7 +147,7 @@ The
 flag writes the server's certificate to the file
 .I servercert
 in binary ASN.1 encoding.
-If the server doesnt provide a certificate, an empty
+If the server does not provide a certificate, an empty
 file is created.
 If the
 .B -t

@@ -5,7 +5,7 @@
 #include <libsec.h>
 #include <auth.h>
 
-int debug, auth;
+int debug, auth, timeout;
 char *keyspec = "";
 char *remotesys = "";
 char *logfile = nil;
@@ -32,7 +32,7 @@ reporter(char *fmt, ...)
 void
 usage(void)
 {
-	fprint(2, "usage: tlssrv [-D] -[aA] [-k keyspec]] [-c cert] [-l logfile] [-r remotesys] cmd [args...]\n");
+	fprint(2, "usage: tlssrv [-D] [ -[aA] [-k keyspec] ] [-T timeout] [-c cert] [-l logfile] [-r remotesys] cmd [args...]\n");
 	exits("usage");
 }
 
@@ -65,6 +65,9 @@ main(int argc, char *argv[])
 		break;
 	case 'r':
 		remotesys = EARGF(usage());
+		break;
+	case 'T':
+		timeout = atoi(EARGF(usage()));
 		break;
 	default:
 		usage();
@@ -117,12 +120,19 @@ main(int argc, char *argv[])
 	if(debug)
 		conn->trace = reporter;
 
+	if(timeout)
+		alarm(timeout);
+
 	fd = tlsServer(0, conn);
 	if(fd < 0){
 		if(debug)
 			reporter("failed: %r");
 		exits(0);
 	}
+
+	if(timeout)
+		alarm(0);
+
 	if(debug)
 		reporter("open");
 
