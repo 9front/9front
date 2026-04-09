@@ -46,7 +46,7 @@ as it reveals the secrets in plain text.
 Adding a TOTP key to factotum:
 .IP
 .EX
-% echo 'key proto=totp label=mylabel secret=ABCDEF123456' \\
+% echo 'key proto=totp label=mylabel !secret=ABCDEF123456' \\
 	> /mnt/factotum/ctl
 .EE
 .PP
