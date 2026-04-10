@@ -129,7 +129,9 @@ wscroll(Window *w, int but)
 	uint p0, oldp0;
 	Rectangle s;
 	int y, my, h, first;
+	ulong lastmsec, delay;
 
+	lastmsec = w->mc.msec;
 	s = insetrect(w->scrollr, 1);
 	h = s.max.y-s.min.y;
 	oldp0 = ~0;
@@ -170,11 +172,14 @@ wscroll(Window *w, int but)
 				flushimage(display, 1);
 			if(but > 3)
 				return;
-			sleep(200);
 			nbrecv(w->mc.c, &w->mc.Mouse);
+			delay = 200;
 			first = FALSE;
-		}
-		wscrsleep(w, 100);
+		}else
+			delay = 100;
+		if(w->mc.msec - lastmsec < delay)
+			wscrsleep(w, delay - w->mc.msec + lastmsec);
+		lastmsec = w->mc.msec;
 	}while(w->mc.buttons & (1<<(but-1)));
 	while(w->mc.buttons)
 		readmouse(&w->mc);
