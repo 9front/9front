@@ -86,11 +86,13 @@ scroll(Flayer *l, int but)
 	int my, n;
 	long o, tot;
 	int once;
+	ulong lastmsec, delay;
 
 	if(l->visible==None)
 		return;
 
 	once = 0;
+	lastmsec = mousep->msec;
 	s = l->scroll;
 	tot = scrtotal(l);
 	do{
@@ -106,24 +108,31 @@ scroll(Flayer *l, int but)
 			forcenter(l, o, n);
 			if(readmouse(mousectl) < 0)
 				panic("mouse");
-		}else{
-			o = l->origin;
-			n = my/l->f.font->height;
-			if(n == 0)
-				n++;
-			if(but == 1 || but == 4)
-				n = -n;
-			forcenter(l, o, n);
-			if(!once){
-				flushdisplay();
-				if(but == 4 || but == 5)
-					return;
-				once++;
-				sleep(175);
-			}
-			sleep(25);
-			if(nbrecv(mousectl->c, mousectl) < 0)
-				panic("mouse");
+			continue;
 		}
-	}while(mousectl->buttons & (1 << (but-1)));
+		o = l->origin;
+		n = my/l->f.font->height;
+		if(n == 0)
+			n++;
+		if(but == 1 || but == 4)
+			n = -n;
+		forcenter(l, o, n);
+		if(!once){
+			flushdisplay();
+			if(but == 4 || but == 5)
+				return;
+			if(nbrecv(mousectl->c, mousep) < 0)
+				panic("mouse");
+			delay = 200;
+			once++;
+		}else
+			delay = 100;
+		if(mousep->msec - lastmsec < delay)
+			sleep(delay - mousep->msec + lastmsec);
+		lastmsec = mousep->msec;
+		if(nbrecv(mousectl->c, mousep) < 0)
+			panic("mouse");
+	}while(mousep->buttons & (1 << (but-1)));
+	while(mousep->buttons)
+		readmouse(mousectl);
 }
