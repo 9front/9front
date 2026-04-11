@@ -459,7 +459,6 @@ fatal(char *s, ...)
 {
 	char buf[ERRMAX];
 	va_list arg;
-	Proc *m;
 
 	if(s != nil) {
 		va_start(arg, s);
@@ -468,8 +467,7 @@ fatal(char *s, ...)
 	}
 
 	/* Clear away the slave children */
-	for(m = Proclist; m != nil; m = m->next)
-		postnote(PNPROC, m->pid, "kill");
+	postnote(PNGROUP, getpid(), "kill");
 
 	if(s != nil) {
 		DEBUG(2, "%s\n", buf);
