@@ -729,9 +729,9 @@ tcomo(Node *n, int f)
 	t = n->type;
 	if(t == T)
 		goto bad;
-	if(t->width < 0 && !(f & ADDROP)) {
+	if(t->width < 0) {
 		snap(t);
-		if(t->width < 0) {
+		if(t->width < 0 && !(f & ADDROP)) {
 			if(typesu[t->etype] && t->tag)
 				diag(n, "structure not fully declared %s", t->tag->name);
 			else
