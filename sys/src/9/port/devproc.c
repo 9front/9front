@@ -443,6 +443,7 @@ procopen(Chan *c, int omode0)
 	case Qnoteid:
 		if(omode == OREAD)
 			break;
+		/* wet floor */
 	case Qnote:
 		if(p->kp)
 			error(Eperm);
@@ -469,7 +470,21 @@ procopen(Chan *c, int omode0)
 		print("procopen %#lux\n", QID(c->qid));
 		error(Egreg);
 	}
-	nonone(p);
+
+	/*
+	 * Skip nonone() check when we'r sharing the same note group.
+	 * This allows processes running as "none" to postnote to their
+	 * children.
+	 */
+	switch(QID(c->qid)){
+	case Qnote:
+	case Qnotepg:
+		if(p->noteid == up->noteid)
+			break;
+		/* wet floor */
+	default:
+		nonone(p);
+	}
 
 	/* Affix pid to qid */
 	if(pid == 0)
