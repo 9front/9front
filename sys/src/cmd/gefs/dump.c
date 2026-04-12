@@ -173,7 +173,7 @@ showval(Fmt *fmt, Kvp *v, int op, int flg)
 		n = fmtprint(fmt, "%.*s", v->nv, v->v);
 		break;
 	default:
-		n = fmtprint(fmt, "??? %.*H", v->nk, v->k);
+		n = fmtprint(fmt, "??? %.*H", v->nv, v->v);
 		break;
 	}
 	return n;
