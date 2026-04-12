@@ -1849,6 +1849,7 @@ fscreate(Fmsg *m)
 	runlock(de);
 
 	nm = 0;
+	d.flag = 0;
 	d.qid.type = 0;
 	if(m->perm & DMDIR)
 		d.qid.type |= QTDIR;

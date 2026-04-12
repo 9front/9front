@@ -17,6 +17,7 @@ static void
 fillxdir(Xdir *d, vlong qid, char *name, int type, int mode)
 {
 	memset(d, 0, sizeof(Xdir));
+	d->flag = 0;
 	d->qid = (Qid){qid, 0, type};
 	d->mode = mode;
 	d->atime = 0;
