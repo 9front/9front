@@ -116,7 +116,7 @@ getval(Blk *b, int i, Kvp *kv)
 Bptr
 getptr(Kvp *kv, int *fill)
 {
-	assert(kv->nv == Ptrsz || kv->nv == Ptrsz+2);
+	assert(kv->nv == Ptrsz+2);
 	*fill = UNPACK16(kv->v + Ptrsz);
 	return unpackbp(kv->v, kv->nv);
 }
@@ -899,7 +899,7 @@ spillscan(Blk *d, Blk *b, Msg *m, int *idx, int o)
 	Msg n;
 
 	used = 2*d->nbuf + d->bufsz;
-	for(i = *idx; i < b->nbuf; i++){
+	for(i = *idx-o; i < b->nbuf; i++){
 		getmsg(b, i, &n);
 		if(keycmp(m, &n) <= 0){
 			*idx = i + o;
