@@ -147,11 +147,11 @@ if none is found.
 Utfgbreak and utfwbreak are UTF
 variants of these routines.
 .SH SOURCE
-.B /sys/src/libc/port/mkrunetype.c
+.B /sys/src/libc/ucd/mkrunetype.c
 .br
-.B /sys/src/libc/port/runenorm.c
+.B /sys/src/libc/ucd/runenorm.c
 .br
-.B /sys/src/libc/port/runebreak.c
+.B /sys/src/libc/ucd/runebreak.c
 .SH SEE ALSO
 Unicode® Standard Annex #15
 .br
