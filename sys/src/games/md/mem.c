@@ -192,7 +192,7 @@ memread(u32int a)
 
 	switch(a >> 21 & 7){
 	case 0: case 1:
-		if(a < sram0 || a > sram1)
+		if(sram == nil || a < sram0 || a > sram1)
 			goto rom;
 		if((sramctl & SRAMEN) == 0 && prgend > 2*1024*1024)
 			goto rom;
@@ -287,7 +287,7 @@ memwrite(u32int a, u16int v, u16int m)
 
 	switch((a >> 21) & 7){
 	case 0: case 1:
-		if(a < sram0 || a > sram1)
+		if(sram == nil || a < sram0 || a > sram1)
 			goto invalid;
 		if((sramctl & SRAMEN) == 0 && prgend > 2*1024*1024)
 			goto invalid;
