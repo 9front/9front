@@ -68,6 +68,7 @@ enum {
 	Dlkvpsz	= Dlksz+Dlvsz,		/* full size of dlist kvp */
 	Treesz	= 4+4+4+4		/* ref, ht, flg, gen, pred, succ, base, root */
 		  +8+8+8+8+Ptrsz,
+	Xdirsz	= 8+8+4+1+4+8+8+8+4+4+4, /* flag, qpath, qvers, qtype, mode, atime, mtime, len, uid, gid, muid */
 	Kvmax	= Keymax + Inlmax,	/* Key and value */
 	Kpmax	= Keymax + Ptrsz,	/* Key and pointer */
 	Wstatmax = 4+8+8+8,		/* mode, size, atime, mtime */

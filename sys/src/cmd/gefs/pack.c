@@ -112,16 +112,15 @@ packdval(char *p, int sz, Xdir *d)
 void
 kv2dir(Kvp *kv, Xdir *d)
 {
-	char *k, *ek, *v, *ev;
+	char *v;
 
 	memset(d, 0, sizeof(Xdir));
-	k = kv->k + 9;
-	ek = kv->k + kv->nk;
-	assert(k <= ek);
-	k = unpackstr(k, ek, &d->name);
+	if(kv->nk < 9 || kv->nv != Xdirsz)
+		broke(Efs);
+
+	unpackstr(kv->k + 9, kv->k + kv->nk, &d->name);
 
 	v = kv->v;
-	ev = v + kv->nv;
 	d->flag 	= UNPACK64(v);	v += 8;
 	d->qid.path	= UNPACK64(v);	v += 8;
 	d->qid.vers	= UNPACK32(v);	v += 4;
@@ -133,11 +132,6 @@ kv2dir(Kvp *kv, Xdir *d)
 	d->uid		= UNPACK32(v);	v += 4;
 	d->gid		= UNPACK32(v);	v += 4;
 	d->muid		= UNPACK32(v);	v += 4;
-	assert(v <= ev);
-	if(k != ek)
-		broke(Efs);
-	if(v != ev)
-		broke(Efs);
 }
 
 int
