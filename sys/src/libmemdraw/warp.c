@@ -6,17 +6,17 @@
 /* perfect approximation to NTSC = .299r+.587g+.114b when 0 ≤ r,g,b < 256 */
 #define RGB2K(r,g,b)	((156763*(r)+307758*(g)+59769*(b))>>19)
 
-/* 25.7 fixed-point number operations */
+/* 19.13 fixed-point number operations */
 
-#define FMASK		((1<<7) - 1)
-#define flt2fix(n)	((long)((n)*(1<<7) + ((n) < 0? -0.5: 0.5)))
-#define fix2flt(n)	((n)/128.0)
-#define int2fix(n)	((vlong)(n)<<7)
-#define fix2int(n)	((n)>>7)
-#define fixmul(a,b)	((vlong)(a)*(vlong)(b) >> 7)
-#define fixdiv(a,b)	(((vlong)(a) << 7)/(vlong)(b))
+#define FMASK		((1<<13) - 1)
+#define flt2fix(n)	((long)((n)*(1<<13) + ((n) < 0? -0.5: 0.5)))
+#define fix2flt(n)	((n)/8192.0)
+#define int2fix(n)	((vlong)(n)<<13)
+#define fix2int(n)	((n)>>13)
+#define fixmul(a,b)	((vlong)(a)*(vlong)(b) >> 13)
+#define fixdiv(a,b)	(((vlong)(a) << 13)/(vlong)(b))
 #define fixfrac(n)	((n)&FMASK)
-#define lerp(a,b,t)	((a) + ((((b) - (a))*(t))>>7))
+#define lerp(a,b,t)	((a) + ((((b) - (a))*(t))>>13))
 
 #define clamp(a,b,c)	((a)<(b)?(b):((a)>(c)?(c):(a)))
 
@@ -745,8 +745,8 @@ memaffinewarp(Memimage *d, Rectangle r, Memimage *s, Point sp0, Warp m, int smoo
 	 * 	Intelligent Computing.  ICIC 2006. LNCS, vol 4113.
 	 */
 	p2 = p2₀ = xform((Point){
-		int2fix(r.min.x - d->r.min.x) + (1<<6),
-		int2fix(r.min.y - d->r.min.y) + (1<<6)
+		int2fix(r.min.x - d->r.min.x) + (1<<12),
+		int2fix(r.min.y - d->r.min.y) + (1<<12)
 	}, m);
 	for(dp.y = r.min.y; dp.y < r.max.y; dp.y++){
 	for(dp.x = r.min.x; dp.x < r.max.x; dp.x++){
