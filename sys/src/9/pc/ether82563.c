@@ -479,8 +479,8 @@ static Ctlrtype cttab[Nctlrtype] = {
 [i82574]	"i82574",	9018,	0,
 [i82575]	"i82575",	9728,	F75|Fflashea,
 [i82576]	"i82576",	9728,	F75,
-[i82577]	"i82577",	4096,	Fload|Fert,
-[i82577m]	"i82577",	1514,	Fload|Fert,
+[i82577]	"i82577",	4096,	Fload|Fert|F79phy,
+[i82577m]	"i82577",	1514,	Fload|Fert|F79phy,
 [i82578]	"i82578",	4096,	Fload|Fert,
 [i82578m]	"i82578",	1514,	Fload|Fert,
 [i82579]	"i82579",	9018,	Fload|Fert|F79phy|Fnofct,
@@ -1186,7 +1186,7 @@ lsleep(Ctlr *c, uint m)
  * into the 16-bit page register.
  */
 static int
-i82579phy1pagereg(int *page, int reg)
+phy1pagereg(int *page, int reg)
 {
 	if(reg < 16)
 		return -1;
@@ -1221,14 +1221,18 @@ phyl79proc(void *v)
 		lsleep(c, Lsc);
 	tsleep(&up->sleep, return0, 0, 1500);
 
-	/*
-	 * Phy registers are spread over two phy addresses 1 and 2.
-	 * Phy address 2 contains the ID registers.
-	 */
-	while(mii(&c->mii, 1<<2) <= 0 || (p = c->mii.curphy) == nil)
-		lsleep(c, Lsc);
-
-	miiphy(&c->mii, 1)->pagereg = i82579phy1pagereg;
+	if(c->type == i82580){
+		/* Phy address can be any of 0-3 */
+		while(mii(&c->mii, 0xF) <= 0 || (p = c->mii.curphy) == nil)
+			lsleep(c, Lsc);
+	} else {
+		/*
+		 * Phy registers are spread over two phy addresses 1 and 2.
+		 */
+		while(mii(&c->mii, 1<<2) <= 0 || (p = c->mii.curphy) == nil)
+			lsleep(c, Lsc);
+		miiphy(&c->mii, 1)->pagereg = phy1pagereg;
+	}
 
 	addmiibus(&c->mii);
 
@@ -1261,14 +1265,26 @@ phyl79proc(void *v)
 }
 
 static int
-i82563pagereg(int*, int reg)
+i82563pagereg(int *page, int reg)
 {
-	if(reg >= 30)
+	if(reg >= 30){
+		*page &= 0x1F;
 		return 29;
-
-	if(reg >= 16 && reg != 22 && reg != 29)
+	}
+	if(reg >= 16 && reg != 22 && reg != 29){
+		*page &= 0xFF;
 		return 22;
+	}
+	return -1;
+}
 
+static int
+i82566pagereg(int *page, int reg)
+{
+	if(reg >= 16 && reg != 22 && reg < 29){
+		*page &= 0xFF;
+		return 22;
+	}
 	return -1;
 }
 
@@ -1290,8 +1306,25 @@ phylproc(void *v)
 	while(mii(&c->mii, 3<<1) <= 0 || (p = c->mii.curphy) == nil)
 		lsleep(c, Lsc);
 
-	if(c->type == i82563)
+	switch(c->type){
+	case i82563:
 		p->pagereg = i82563pagereg;
+		break;
+	case i82566:
+	case i82567:
+	case i82567m:
+	case i82574:
+	case i210:
+		p->pagereg = i82566pagereg;
+		break;
+	case i82578:
+	case i82578m:
+		/*
+		 * Phy registers are spread over two phy addresses 1 and 2.
+		 */
+		miiphy(&c->mii, 1)->pagereg = phy1pagereg;
+		break;
+	}
 
 	addmiibus(&c->mii);
 
@@ -2106,11 +2139,11 @@ didtype(int d)
 		return i82577m;
 	case 0x10ef:		/* dc “piketon” */
 		return i82578;
+	case 0x10f0:		/* dm “king's creek” */
+		return i82578m;
 	case 0x1502:		/* lm */
 	case 0x1503:		/* v “lewisville” */
 		return i82579;
-	case 0x10f0:		/* dm “king's creek” */
-		return i82578m;
 	case 0x150e:		/* copper “barton hills” */
 	case 0x150f:		/* fiber */
 	case 0x1510:		/* serdes backplane */
