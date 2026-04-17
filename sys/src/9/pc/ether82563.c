@@ -1338,11 +1338,9 @@ phylproc(void *v)
 			i = 3;
 			goto next;
 		}
+		a = 0;
 		i = (r>>14) & 3;
 		switch(c->type){
-		default:
-			a = 0;
-			break;
 		case i82563:
 		case i82578:
 		case i82578m:
@@ -1354,6 +1352,8 @@ phylproc(void *v)
 		case i82575:
 		case i82576:
 			a = miimir(p, Phylhr) & Anf;
+			/* wet floor */
+		case i82566:
 			i = (i-1) & 3;
 			break;
 		}
@@ -1534,14 +1534,34 @@ i82563attach(Ether *edev)
 	ethersetlink(edev, 0);
 
 	snprint(name, sizeof name, "#l%dl", edev->ctlrno);
-	if(csr32r(ctlr, Status) & Tbimode)
-		kproc(name, serdeslproc, edev);		/* mac based serdes */
-	else if((csr32r(ctlr, Ctrlext) & Linkmode) == Serdes)
-		kproc(name, pcslproc, edev);		/* phy based serdes */
-	else if(cttab[ctlr->type].flag & F79phy)
-		kproc(name, phyl79proc, edev);
-	else
-		kproc(name, phylproc, edev);
+
+	switch(ctlr->type){
+	case i82563:
+	case i82571:
+	case i82572:
+		if(csr32r(ctlr, Status) & Tbimode){
+			kproc(name, serdeslproc, edev);		/* mac based serdes */
+			break;
+		}
+		/* wet floor */
+	case i82573:
+	case i82575:
+	case i82576:
+	case i82580:
+	case i210:
+	case i350:
+		if((csr32r(ctlr, Ctrlext) & Linkmode) == Serdes){
+			kproc(name, pcslproc, edev);		/* phy based serdes */
+			break;
+		}
+		/* wet floor */
+	default:
+		if(cttab[ctlr->type].flag & F79phy)
+			kproc(name, phyl79proc, edev);
+		else
+			kproc(name, phylproc, edev);
+		break;
+	}
 
 	snprint(name, sizeof name, "#l%dr", edev->ctlrno);
 	kproc(name, i82563rproc, edev);
