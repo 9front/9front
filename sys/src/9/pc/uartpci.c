@@ -165,6 +165,10 @@ uartpcipnp(void)
 				ctlrno++;
 			uart = nil;		/* don't ctlrno++ below */
 			break;
+		case (0xc120<<16)|0x1415:	/* Oxford Semi OXPCIe952 */
+			uart = uartpci(ctlrno, p, 0, 1, 1843200, 
+				"Oxford OXPCIe952", 8);
+			break;
 		case (0x9050<<16)|0x10B5:	/* Perle PCI-Fast4 series */
 		case (0x9030<<16)|0x10B5:	/* Perle Ultraport series */
 			/*
