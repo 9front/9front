@@ -482,7 +482,7 @@ threadmain(int argc, char **argv)
 
 	amlinit();
 	for(;;){
-		t = malloc9p(sizeof(*t));
+		t = emalloc9p(sizeof(*t));
 		if((n = readn(fd, t, Tblsz)) <= 0){
 			free(t);
 			break;
@@ -493,7 +493,7 @@ threadmain(int argc, char **argv)
 		if(l < Tblsz)
 			goto fail;
 		l -= Tblsz;
-		t = realloc9p(t, sizeof(*t) + l);
+		t = erealloc9p(t, sizeof(*t) + l);
 		if(readn(fd, t->data, l) != l)
 			goto fail;
 		if(memcmp("DSDT", t->sig, 4) == 0){
