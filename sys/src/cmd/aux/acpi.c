@@ -482,22 +482,26 @@ threadmain(int argc, char **argv)
 
 	amlinit();
 	for(;;){
-		t = malloc(sizeof(*t));
-		if((n = readn(fd, t, Tblsz)) <= 0)
+		t = malloc9p(sizeof(*t));
+		if((n = readn(fd, t, Tblsz)) <= 0){
+			free(t);
 			break;
+		}
 		if(n != Tblsz)
 			goto fail;
 		l = get32(t->len);
 		if(l < Tblsz)
 			goto fail;
 		l -= Tblsz;
-		t = realloc(t, sizeof(*t) + l);
+		t = realloc9p(t, sizeof(*t) + l);
 		if(readn(fd, t->data, l) != l)
 			goto fail;
 		if(memcmp("DSDT", t->sig, 4) == 0){
 			amlintmask = (~0ULL) >> (t->rev <= 1)*32;
+			/* amlload keeps pointers from t, so don't free it */
 			amlload(t->data, l);
 		}else if(memcmp("SSDT", t->sig, 4) == 0){
+			/* amlload keeps pointers from t, so don't free it */
 			amlload(t->data, l);
 		}else if(memcmp("FACP", t->sig, 4) == 0){
 			facp.ok = 1;
@@ -546,6 +550,9 @@ threadmain(int argc, char **argv)
 				facp.gpe1 = get32(((uchar*)t) + 84);
 				facp.gpe1len = *(((uchar*)t) + 93);
 			}
+			free(t);
+		}else{
+			free(t);
 		}
 	}
 	if(amleval(amlwalk(amlroot, "_S5"), "", &r) >= 0 && amltag(r) == 'p' && amllen(r) >= 2){
