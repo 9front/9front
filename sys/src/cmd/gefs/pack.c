@@ -132,6 +132,7 @@ kv2dir(Kvp *kv, Xdir *d)
 	d->uid		= UNPACK32(v);	v += 4;
 	d->gid		= UNPACK32(v);	v += 4;
 	d->muid		= UNPACK32(v);	v += 4;
+	assert(v - kv->v == Xdirsz);
 }
 
 int
