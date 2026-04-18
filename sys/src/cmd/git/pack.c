@@ -401,7 +401,7 @@ decompress(void **p, Biobuf *b, vlong *csz)
 	return d.len;
 }
 
-static int
+static vlong
 readvint(char *p, char *ep, char **pp)
 {
 	int s, c;
@@ -435,7 +435,7 @@ applydelta(Object *dst, Object *base, char *d, int nd)
 	}
 
 	nr = readvint(d, ed, &d);
-	if(nr == -1 || n >= 1LL << 31){
+	if(nr == -1 || nr >= 1LL << 31){
 		werrstr("invalid pack: %r");
 		return -1;
 	}
@@ -466,7 +466,7 @@ applydelta(Object *dst, Object *base, char *d, int nd)
 			if(d != ed && (c & 0x40)) l |= (*d++ & 0xff) << 16;
 			if(l == 0) l = 0x10000;
 
-			if(o < 0 || l < 0 || o + l > base->size){
+			if(o < 0 || l < 0 || l > er - r || o + l > base->size){
 				werrstr("garbled delta: out of bounds copy");
 				return -1;
 			}
@@ -474,7 +474,7 @@ applydelta(Object *dst, Object *base, char *d, int nd)
 			r += l;
 		/* inline data */
 		}else{
-			if(c > ed - d){
+			if(c > ed - d || c > er - r){
 				werrstr("garbled delta: write past object");
 				return -1;
 			}
@@ -565,9 +565,8 @@ error:
 static int
 readpacked(Biobuf *f, Object *o, int flag)
 {
-	int c, s, n;
+	int c, s, n, t;
 	vlong l, p;
-	int t;
 	Buf b;
 
 	p = Boffset(f);
@@ -584,7 +583,7 @@ readpacked(Biobuf *f, Object *o, int flag)
 	while(c & 0x80){
 		if((c = Bgetc(f)) == -1)
 			return -1;
-		l |= (c & 0x7f) << s;
+		l |= (vlong)(c & 0x7f) << s;
 		s += 7;
 	}
 	if(l >= (1ULL << 32)){
@@ -698,8 +697,9 @@ hashcmp(uchar *a, uchar *b, uint nbit)
 vlong
 searchindex(char *idx, int nidx, Hash h, int npfx, Hash *hret)
 {
-	int lo, hi, hidx, i, r, nent;
-	vlong o, oo;
+	uint lo, hi, hidx;
+	vlong o, oo, nent;
+	int i, r;
 	void *s;
 
 	o = 8;
@@ -726,7 +726,7 @@ searchindex(char *idx, int nidx, Hash h, int npfx, Hash *hret)
 	}
 	if(hi == lo)
 		goto notfound;
-	nent=GETBE32(idx + 8 + 255*4);
+	nent = GETBE32(idx + 8 + 255*4);
 
 	/*
 	 * Now that we know the range of hashes that the
