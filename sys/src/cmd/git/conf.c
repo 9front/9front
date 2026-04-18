@@ -62,10 +62,14 @@ main(int argc, char **argv)
 	int i, j, nrel;
 
 	ARGBEGIN{
-	case 'f':	file[nfile++]=EARGF(usage());	break;
 	case 'r':	findroot++;			break;
 	case 'a':	showall++;			break;
 	default:	usage();			break;
+	case 'f':
+		if(nfile == nelem(file))
+			sysfatal("too many configs");
+		file[nfile++]=EARGF(usage());
+		break;
 	}ARGEND;
 
 	gitinit(repo, sizeof(repo), &nrel);
