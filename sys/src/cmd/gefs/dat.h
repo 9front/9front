@@ -545,6 +545,7 @@ struct Gefs {
 
 	Chan	*wrchan;
 	Chan	*admchan;
+	Chan	*swchan;
 	Chan	**rdchan;
 
 	QLock	mutlk;
