@@ -455,7 +455,6 @@ main(int argc, char **argv)
 	loadfs(dev);
 	fs->wrchan = mkchan(32);
 	fs->admchan = mkchan(32);
-	fs->swchan = mkchan(32);
 	/*
 	 * for spinning disks, parallel sync tanks performance
 	 * for ssds, it doesn't help much.
@@ -477,7 +476,6 @@ main(int argc, char **argv)
 	xlaunch(runcons, (void*)ctlfd, aincl(&fs->nworker, 1), "ctl");
 	xlaunch(runmutate, nil, aincl(&fs->nworker, 1), "mutate");
 	xlaunch(runsweep, nil, aincl(&fs->nworker, 1), "sweep");
-	xlaunch(runadm, nil, aincl(&fs->nworker, 1), "adm");
 	xlaunch(runtasks, nil, -1, "tasks");
 	for(i = 0; i < fs->nreaders; i++)
 		xlaunch(runread, fs->rdchan[i], aincl(&fs->nworker, 1), "readio");
