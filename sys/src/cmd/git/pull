@@ -78,12 +78,11 @@ if(! ~ `{git/query HEAD $remote @} `{git/query HEAD}){
 
 oldcommit=`{git/query $local}
 newcommit=`{git/query $remote}
-git/branch -mnb $remote $local
 
-# The remote is directly ahead of the local, and we have
-# no local commits that need merging.
 if(~ $#quiet 0){
 	git/log -s -e $oldcommit'..'$newcommit
 	echo $remote':' $oldcommit '=>' $newcommit
 }
+
+git/branch -mnb $remote $local
 exit ''
