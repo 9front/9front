@@ -96,6 +96,38 @@ fn update{
 	}
 }
 
+fn pickchunks{
+	mkdir -p '/tmp/'^`{basename -d $1}
+	<[3=0] >[4]/tmp/^$1^'.patch' { diff -u .git/fs/HEAD/tree/^$1 $1 | awk '
+		function dump(){
+			if(n==0)
+				return;
+			print old;
+			print new;
+			for(i=0; i < n; i++)
+				print lines[i];
+			printf("Commit this hunk?[n]  ")
+			getline < "/fd/3"
+			if($0 !~ /[yY]/)
+				return
+			global[gn++] = old;
+			global[gn++] = new
+			for(i=0; i < n; i++) global[gn++] = lines[i]
+		}
+		function dumpg(){
+			for(i=0; i < gn; i++) print global[i] >>"/fd/4"
+		}
+		/^---/{ old=$0; next }
+		/^\+\+\+/{ new=$0; n=0; next }
+		/^@@/ { dump(); n=0 }
+		{ lines[n++] = $0 }
+		END{ dump(); dumpg() }'
+	}
+	cp .git/fs/HEAD/tree/^$1 /tmp/^$1
+	bind /tmp/^$1 $1
+	patch </tmp/^$1^'.patch'
+}
+
 fn sigexit{
 	if(! ~ $#msgfile 0)
 		rm -f $msgfile $msgfile.tmp
@@ -103,7 +135,7 @@ fn sigexit{
 
 gitup
 
-flagfmt='m:msg message, r:revise, e:edit'; args='[file ...]'
+flagfmt='m:msg message, r:revise, e:edit, p:partial'; args='[file ...]'
 eval `''{aux/getflags $*} || exec aux/usage
 
 msgfile=/tmp/git-msg.$pid
@@ -122,6 +154,11 @@ if(! ~ $#* 0)
 	files=($files `$nl{git/walk -fRMA -c `$nl{cleanname -d $gitrel $*}})
 if(~ $status '' || ~ $#files 0 && ! test -f .git/merge-parents && ~ $#revise 0)
 	die 'nothing to commit'
+if(~ $#partial 1){
+	ramfs
+	for(i in $files)
+		pickchunks $i
+}
 @{
 	flag e +
 	whoami
