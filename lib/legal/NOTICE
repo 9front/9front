@@ -3,6 +3,8 @@ reproduced in the file /lib/legal/mit.
 
 Any additions or changes (as recorded in git history) made by 9front
 are also provided under the same MIT License, unless otherwise indicated.
+Additionally, all newly submitted code must abide by the requirements listed
+in /lib/legal/contributing.
 
 The following exceptions apply:
 
