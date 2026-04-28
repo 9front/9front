@@ -96,17 +96,59 @@ fn update{
 	}
 }
 
-fn sigexit{
-	if(! ~ $#msgfile 0)
-		rm -f $msgfile $msgfile.tmp
+fn filterdiff{
+	awk '
+		function dump(){
+			if(n == 0)
+				return
+
+			print "--- a/"f >>"/fd/4"
+			print "+++ b/"f >>"/fd/4"
+			for(i = 0; i < n; i++)
+				print lines[i] >>"/fd/4"
+			printf("Commit this hunk?[n]  ") >>"/fd/4"
+			getline ans < "/fd/3"
+			if(ans ~ /[yY]/)
+				for(i = 0; i < n; i++)
+					print lines[i]
+			n = 0
+		}
+		/^---/{ next }
+		/^\+\+\+/{
+			f = substr($0, 5)
+			print "--- "f
+			print "+++ "f
+			n = 0
+			next
+		}
+		/^@@/{ dump() }
+		{ lines[n++] = $0 }
+		END{ dump() }
+	'
+}
+
+fn pickhunks{
+	d=`{basename -d $1}
+	t=$wdir/tree/
+	p=$t^$1^'.patch'
+	mkdir -p $t^$d
+	<[3=0] >[4=1] { diff -u .git/fs/HEAD/tree/$1 $1 | filterdiff >$p }
+	ln=`{wc -l $p}
+	if(test $ln(1) -lt 3)
+		die 'no hunks seleted'
+	cp .git/fs/HEAD/tree/^$1 $t^$1
+	bind -bc $t^$d $d
+	patch <$p >/dev/null || die 'failed partial patch: '^$status
 }
 
 gitup
 
-flagfmt='m:msg message, r:revise, e:edit'; args='[file ...]'
+flagfmt='m:msg message, r:revise, e:edit, p:partial'; args='[file ...]'
 eval `''{aux/getflags $*} || exec aux/usage
 
-msgfile=/tmp/git-msg.$pid
+wdir=/mnt/git
+ramfs -m $wdir
+msgfile=$wdir/git-msg.$pid
 if(~ $#msg 1)
 	echo $msg >$msgfile.tmp
 if not if(~ $#revise 1){
@@ -122,6 +164,10 @@ if(! ~ $#* 0)
 	files=($files `$nl{git/walk -fRMA -c `$nl{cleanname -d $gitrel $*}})
 if(~ $status '' || ~ $#files 0 && ! test -f .git/merge-parents && ~ $#revise 0)
 	die 'nothing to commit'
+if(~ $#partial 1)
+	for(i in $files)
+		pickhunks $i
+
 @{
 	flag e +
 	whoami

@@ -30,7 +30,7 @@ git/pull, git/rm, git/serve, git/hist \- manage git repositories
 .PP
 .B git/commit
 [
-.B -re
+.B -rep
 ]
 [
 .B -m
@@ -351,6 +351,10 @@ can be used in conjunction with
 .B -m
 or
 .BR -e .
+The
+.B -p
+option commits only portions of each file.
+Individual hunks are selected interactively.
 .PP
 .I Git/branch
 is used to list or switch branches.
