@@ -102,12 +102,12 @@ fn filterdiff{
 			if(n == 0)
 				return
 
-			print "--- a/"f >>"/fd/4"
-			print "+++ b/"f >>"/fd/4"
+			print "--- a/"f >>"/dev/cons"
+			print "+++ b/"f >>"/dev/cons"
 			for(i = 0; i < n; i++)
-				print lines[i] >>"/fd/4"
-			printf("Commit this hunk?[n]  ") >>"/fd/4"
-			getline ans < "/fd/3"
+				print lines[i] >>"/dev/cons"
+			printf("Commit this hunk?[n]  ") >>"/dev/cons"
+			getline ans < "/dev/cons"
 			if(ans ~ /[yY]/)
 				for(i = 0; i < n; i++)
 					print lines[i]
@@ -128,16 +128,31 @@ fn filterdiff{
 }
 
 fn pickhunks{
-	d=`{basename -d $1}
+	p=$wdir/patch
+	if(test -f .git/fs/HEAD/tree/$i)
+		#<[12]/fd/0 >[13]/fd/1 { diff -u .git/fs/HEAD/tree/$1 $1 | filterdiff >>$p }
+		{ diff -u .git/fs/HEAD/tree/$1 $1 | filterdiff >>$p } || status=''
+	if not
+		diff -u /dev/null $1 >>$p || status=''
+}
+
+fn apply{
 	t=$wdir/tree/
-	p=$t^$1^'.patch'
-	mkdir -p $t^$d
-	<[3=0] >[4=1] { diff -u .git/fs/HEAD/tree/$1 $1 | filterdiff >$p }
+	p=$wdir/patch
 	ln=`{wc -l $p}
 	if(test $ln(1) -lt 3)
 		die 'no hunks seleted'
-	cp .git/fs/HEAD/tree/^$1 $t^$1
-	bind -bc $t^$d $d
+	f=`{patch -n $p}
+	mkdir $t
+	@{cd .git/fs/HEAD/tree; tar c $f >[2]/dev/null} | @{cd $t; tar xT}
+	for(i in $f){
+		d=`{basename -d $i}
+		if(! ~ $d .){
+			mkdir -p $t^$d
+			bind -bc $t^$d $d
+		}
+	}
+	bind -bc $t .
 	patch <$p >/dev/null || die 'failed partial patch: '^$status
 }
 
@@ -164,9 +179,11 @@ if(! ~ $#* 0)
 	files=($files `$nl{git/walk -fRMA -c `$nl{cleanname -d $gitrel $*}})
 if(~ $status '' || ~ $#files 0 && ! test -f .git/merge-parents && ~ $#revise 0)
 	die 'nothing to commit'
-if(~ $#partial 1)
+if(~ $#partial 1){
 	for(i in $files)
 		pickhunks $i
+	apply
+}
 
 @{
 	flag e +
