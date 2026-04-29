@@ -941,6 +941,7 @@ i82557pci(void)
 		case 0x103B:		/* Intel 82562EM */
 		case 0x103C:		/* Intel 82562EM */
 		case 0x1050:		/* Intel 82562EZ */
+		case 0x1038:		/* Intel 82801CAM */
 		case 0x1039:		/* Intel 82801BD PRO/100 VE */
 		case 0x103A:		/* Intel 82562 PRO/100 VE */
 		case 0x103D:		/* Intel 82562 PRO/100 VE */
