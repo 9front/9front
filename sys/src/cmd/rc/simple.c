@@ -509,10 +509,8 @@ execwhatis(void){	/* mildly wrong -- should fork before writing */
 					}
 					free(file);
 				}
-				if(!path && !found){
-					pfmt(err, "%s: not found\n", a->word);
+				if(!path && !found)
 					setstatus("not found");
-				}
 			}
 		}
 		flushio(out);
