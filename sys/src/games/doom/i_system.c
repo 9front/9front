@@ -86,7 +86,6 @@ void I_Error (char *error, ...)
 	G_CheckDemoStatus();
 
     D_QuitNetGame ();
-    I_ShutdownNet();
     I_ShutdownSound();
     I_ShutdownMusic();
     I_ShutdownGraphics();
