@@ -176,9 +176,11 @@ extern char Elocked[];
 extern char Eauthp[];
 extern char Eauthd[];
 extern char Eauthph[];
-extern char Ephase[];
 extern char Enone[];
 extern char Enoauth[];
+extern char Ephase[];
+extern char Ecdir[];
+extern char Ectl[];
 
 extern char Ewstatb[];
 extern char Ewstatd[];

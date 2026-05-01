@@ -1839,13 +1839,18 @@ fscreate(Fmsg *m)
 	if(walk1(agetp(&f->mnt->root), f->qpath, m->name, &old, &oldlen) == 0)
 		error(Eexist);
 	rlock(de);
-	if(fsaccess(f, de->mode, de->uid, de->gid, DMWRITE) == -1){
+	if(waserror()){
 		runlock(de);
-		error(Eperm);
+		nexterror();
 	}
+	if((de->mode & DMDIR) == 0)
+		error(Ecdir);
+	if(fsaccess(f, de->mode, de->uid, de->gid, DMWRITE) == -1)
+		error(Eperm);
 	duid = de->uid;
 	dgid = de->gid;
 	dmode = de->mode;
+	poperror();
 	runlock(de);
 
 	nm = 0;
