@@ -109,8 +109,10 @@ execrfork(void)
 	} else {
 		if(arg & RFCFDG){
 			redir *rp;
-			for(rp = runq->redir; rp; rp = rp->next)
+			for(rp = runq->redir; rp; rp = rp->next){
+				rp->from = rp->to = -1;
 				rp->type = 0;
+			}
 		}
 		setstatus("");
 	}

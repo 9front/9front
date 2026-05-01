@@ -109,22 +109,24 @@ Xsimple(void)
 static void
 doredir(redir *rp)
 {
-	if(rp){
-		doredir(rp->next);
-		switch(rp->type){
-		case ROPEN:
-			if(rp->from!=rp->to){
-				Dup(rp->from, rp->to);
-				Close(rp->from);
-			}
+	if(rp==0)
+		return;
+
+	doredir(rp->next);
+
+	switch(rp->type){
+	case RDUP:
+		Dup(rp->from, rp->to);
+		break;
+	case ROPEN:
+		if(rp->from==rp->to)
 			break;
-		case RDUP:
-			Dup(rp->from, rp->to);
-			break;
-		case RCLOSE:
-			Close(rp->from);
-			break;
-		}
+		Dup(rp->from, rp->to);
+		Close(rp->from);
+		break;
+	case RCLOSE:
+		Close(rp->to);
+		break;
 	}
 }
 
@@ -285,22 +287,13 @@ execshift(void)
 	poplist();
 }
 
-int
+static int
 mapfd(int fd)
 {
 	redir *rp;
 	for(rp = runq->redir;rp;rp = rp->next){
-		switch(rp->type){
-		case RCLOSE:
-			if(rp->from==fd)
-				fd=-1;
-			break;
-		case RDUP:
-		case ROPEN:
-			if(rp->to==fd)
-				fd = rp->from;
-			break;
-		}
+		if(rp->to==fd)
+			fd = rp->from;
 	}
 	return fd;
 }
@@ -413,7 +406,7 @@ Usage:
 	}
 
 	execcmds(openiofd(fd), file, (var*)0, runq->redir);
-	pushredir(RCLOSE, fd, 0);
+	pushredir(RCLOSE, -1, fd);
 	runq->lex->qflag = qflag;
 	runq->iflag = iflag;
 	if(iflag || !bflag && flag['b']==0){

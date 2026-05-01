@@ -45,7 +45,6 @@ int	havewaitpid(int);
 int	idchr(int);
 void	inttoascii(char*, int);
 void	kinit(void);
-int	mapfd(int);
 int	match(char*, char*, int);
 char*	makepath(char*, char*);
 void	panic(char*, int);

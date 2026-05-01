@@ -151,10 +151,30 @@ count(word *w)
 	return n;
 }
 
+static int
+clobbersfd(redir *rp, int fd)
+{
+	while(rp){
+		if(rp->to==fd)
+			return 1;
+		rp = rp->next;
+	}
+	return 0;
+}
+
 void
 pushredir(int type, int from, int to)
 {
-	redir *rp = new(redir);
+	redir *rp;
+
+	/* don't let dups clobber the from fd for file redirects */
+	if(type==ROPEN && clobbersfd(runq->redir, from)){
+		pushredir(type, Dup1(from), to);
+		Close(from);
+		return;
+	}
+
+	rp = new(redir);
 	rp->type = type;
 	rp->from = from;
 	rp->to = to;
@@ -170,7 +190,8 @@ dontclose(int fd)
 	if(fd<0)
 		return;
 	for(rp = runq->redir; rp != runq->startredir; rp = rp->next){
-		if(rp->type == RCLOSE && rp->from == fd){
+		if(rp->type == RCLOSE && rp->to == fd){
+			rp->to = -1;
 			rp->type = 0;
 			break;
 		}
@@ -370,7 +391,7 @@ Xbang(void)
 void
 Xclose(void)
 {
-	pushredir(RCLOSE, runq->code[runq->pc++].i, 0);
+	pushredir(RCLOSE, -1, runq->code[runq->pc++].i);
 }
 
 void
