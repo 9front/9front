@@ -1002,8 +1002,8 @@ Found:
 		return -1;
 	}
 
-	devctl(ums->epin, "timeout 2000");
-	devctl(ums->epout, "timeout 2000");
+	devctl(ums->epin, "timeout 5000");
+	devctl(ums->epout, "timeout 5000");
 	if(usbdebug > 1 || diskdebug > 2){
 		devctl(ums->epin, "debug 1");
 		devctl(ums->epout, "debug 1");
