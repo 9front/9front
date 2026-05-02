@@ -536,11 +536,11 @@ finish(int ok)
 				goto Free;
 			}
 			if(strcmp(c->old, c->new) == 0 && remove(c->old) == -1)
-				sysfatal("remove %s: %r", c->old);
+				fail("remove %s: %r", c->old);
 			if(rename(fd, c->new) == -1)
-				sysfatal("create %s: %r", c->new);
+				fail("create %s: %r", c->new);
 			if(close(fd) == -1)
-				sysfatal("close %s: %r", c->tmp);
+				fail("close %s: %r", c->tmp);
 		}
 Print:
 		if(strcmp(c->new, "/dev/null") == 0)
