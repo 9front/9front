@@ -1114,6 +1114,8 @@ fsauth(Fmsg *m)
 		free(de);
 		return;
 	}
+	if(fs->nextqid >= Qdump)
+		error(Enoqid);
 	aswapl(&de->ref, 0);
 	de->qid.type = QTAUTH;
 	qlock(&fs->mutlk);
@@ -1590,14 +1592,8 @@ fswstat(Fmsg *m, int id, Amsg **ao)
 	nulldir = 1;
 	op = 0;
 
-	/* check validity of updated fields and construct Owstat message */
-	if(d.qid.path != ~0 || d.qid.vers != ~0){
-		nulldir = 0;
-		if(d.qid.path != de->qid.path)
-			error(Ewstatp);
-		if(d.qid.vers != de->qid.vers)
-			error(Ewstatv);
-	}
+	if(d.qid.path != ~0 || d.qid.vers != ~0 || d.qid.type != 0xff || d.type != 0xffff || d.dev != ~0)
+		error(Ewstatq);
 	if(*d.name != '\0'){
 		nulldir = 0;
 		if(strlen(d.name) > Maxname)
@@ -1613,7 +1609,7 @@ fswstat(Fmsg *m, int id, Amsg **ao)
 	}
 	if(d.length != ~0){
 		nulldir = 0;
-		if(d.length < 0)
+		if(d.length < 0 || (de->mode & DMDIR) != 0)
 			error(Ewstatl);
 		if(d.length != de->length){
 			if(d.length < de->length){
@@ -1701,6 +1697,8 @@ fswstat(Fmsg *m, int id, Amsg **ao)
 			p += 4;
 		}
 	}
+	if(*d.muid != '\0')
+		error(Eperm);
 	if(nulldir && rename == 0){
 		*ao = emalloc(sizeof(Amsg), 1);
 		(*ao)->op = AOsync;
@@ -1843,6 +1841,8 @@ fscreate(Fmsg *m)
 		runlock(de);
 		nexterror();
 	}
+	if(fs->nextqid >= Qdump)
+		error(Enoqid);
 	if((de->mode & DMDIR) == 0)
 		error(Ecdir);
 	if(fsaccess(f, de->mode, de->uid, de->gid, DMWRITE) == -1)
@@ -2076,9 +2076,14 @@ fsopen(Fmsg *m, int id, Amsg **ao)
 		error(Ephase);
 	if((f->dent->qid.type & QTEXCL) && agetl(&f->dent->ref) != 1)
 		error(Elocked);
-	if(m->mode & ORCLOSE)
+	if((f->dent->qid.type & QTDIR) && (mbits & 0222) != 0)
+		error(Eperm);
+	if(m->mode & ORCLOSE){
+		if(fsaccess(f, f->dmode, f->duid, f->dgid, DMWRITE) == -1)
+			error(Eperm);
 		if((e = candelete(f)) != nil)
 			error(e);
+	}
 	if(fsaccess(f, d.mode, d.uid, d.gid, mbits) == -1)
 		error(Eperm);
 	f->dent->length = d.length;
@@ -2341,6 +2346,8 @@ fsread(Fmsg *m)
 
 	if((f = getfid(m->conn, m->fid)) == nil)
 		error(Enofid);
+	if(f->dent->gone)
+		error(Ephase);
 	r.type = Rread;
 	r.count = 0;
 	r.data = nil;
@@ -2408,6 +2415,8 @@ fswrite(Fmsg *m, int id)
 	p = m->data;
 	o = m->offset;
 	c = m->count;
+	if(o < 0 || o >= (1ULL<<63) - c)
+		error(Ewstatl);
 	if(f->dent->mode & DMAPPEND)
 		o = f->dent->length;
 	t = agetp(&f->mnt->root);
