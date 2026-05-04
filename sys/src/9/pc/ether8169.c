@@ -926,8 +926,7 @@ rtl8169transmit(Ether* edev)
 
 	ctlr = edev->ctlr;
 
-	if(!canlock(ctlr))
-		return;
+	ilock(ctlr);
 	for(x = ctlr->tdh; ctlr->ntq > 0; x = NEXT(x, ctlr->ntd)){
 		d = &ctlr->td[x];
 		if(d->control & Own)
@@ -971,7 +970,7 @@ rtl8169transmit(Ether* edev)
 		coherence();
 		csr8w(ctlr, Tppoll, Npq);
 	}
-	unlock(ctlr);
+	iunlock(ctlr);
 }
 
 static void
