@@ -30,28 +30,6 @@ netifinit(Netif *nif, char *name, int nfile, int limit)
 }
 
 /*
- * adjust input queue sizes for all files
- */
-void
-netifsetlimit(Netif *nif, int limit)
-{
-	Netfile *f;
-	int i;
-
-	qlock(nif);
-	if(nif->limit != limit){
-		nif->limit = limit;
-		for(i = 0; i < nif->nfile; i++){
-			f = nif->f[i];
-			if(f == nil || !f->inuse)
-				continue;
-			qsetlimit(f->in, nif->limit);
-		}
-	}
-	qunlock(nif);
-}
-
-/*
  *  generate a 3 level directory
  */
 static int
@@ -541,7 +519,6 @@ openfile(Netif *nif, int id, int omode)
 			error(Eperm);
 		f->inuse++;
 		qreopen(f->in);
-		qsetlimit(f->in, nif->limit);
 		qunlock(nif);
 		poperror();
 		return id;
@@ -564,7 +541,6 @@ openfile(Netif *nif, int id, int omode)
 			continue;
 		f->inuse = 1;
 		qreopen(f->in);
-		qsetlimit(f->in, nif->limit);
 		netown(f, up->user, 0);
 		qunlock(nif);
 		poperror();

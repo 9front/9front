@@ -107,7 +107,6 @@ struct Netif
 };
 
 void	netifinit(Netif*, char*, int, int);
-void	netifsetlimit(Netif *, int);
 Walkqid*	netifwalk(Netif*, Chan*, Chan*, char **, int);
 Chan*	netifopen(Netif*, Chan*, int);
 void	netifclose(Netif*, Chan*);
