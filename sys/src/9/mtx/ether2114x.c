@@ -604,7 +604,7 @@ ctlrinit(Ether* ether)
 	bp->wp += sizeof(bi)*16;
 
 	ctlr->setupbp = bp;
-	ether->oq = qopen(256*1024, Qmsg, (void (*)(void*))transmit, ether);
+	ether->oq = qopen(256*1024, Qmsg|Qkick, (void (*)(void*))transmit, ether);
 	transmit(ether);
 }
 

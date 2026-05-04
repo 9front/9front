@@ -475,7 +475,7 @@ Nope:
 
 	q = etheroqsize(ether);
 	if(ether->oq == nil){
-		ether->oq = qopen(q, Qmsg, (void (*)(void*))ether->transmit, ether);
+		ether->oq = qopen(q, Qmsg|Qkick, (void (*)(void*))ether->transmit, ether);
 		if(ether->oq == nil)
 			panic("etherreset %s: can't allocate output queue", ether->name);
 	} else {
