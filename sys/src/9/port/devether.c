@@ -513,6 +513,10 @@ ethersetlink(Ether *ether, int new)
 		return;
 	memset(ether->mactab, 0, sizeof(ether->mactab));
 	qsetbypass(ether->oq, ether->link? nil: drop);
+
+	if(up == nil || !islo())
+		return;	/* should not print from interrupt */
+
 	if(ether->link)
 		print("#l%d: %s: link up: %dMbps\n",
 			ether->ctlrno, ether->type, ether->mbps);
