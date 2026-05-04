@@ -188,7 +188,8 @@ memimagedraw(Memimage *dst, Rectangle r, Memimage *src, Point p0, Memimage *mask
  * Return zero if the final rectangle is null.
  */
 int
-drawclipnorepl(Memimage *dst, Rectangle *r, Memimage *src, Point *p0, Memimage *mask, Point *p1, Rectangle *sr, Rectangle *mr)
+_drawclipnorepl(Rectangle *dr, Rectangle *dclipr, Rectangle *r,
+		Memimage *src, Point *p0, Memimage *mask, Point *p1, Rectangle *sr, Rectangle *mr)
 {
 	Point rmin, delta;
 	int splitcoords;
@@ -199,7 +200,7 @@ drawclipnorepl(Memimage *dst, Rectangle *r, Memimage *src, Point *p0, Memimage *
 	splitcoords = (p0->x != p1->x) || (p0->y != p1->y);
 	/* clip to destination */
 	rmin = r->min;
-	if(!rectclip(r, dst->r) || !rectclip(r, dst->clipr))
+	if(!rectclip(r, *dr) || !rectclip(r, *dclipr))
 		return 0;
 	/* move mask point */
 	p1->x += r->min.x-rmin.x;
@@ -254,9 +255,15 @@ drawclipnorepl(Memimage *dst, Rectangle *r, Memimage *src, Point *p0, Memimage *
 
 	assert(Dx(*sr) == Dx(*mr) && Dx(*mr) == Dx(*r));
 	assert(Dy(*sr) == Dy(*mr) && Dy(*mr) == Dy(*r));
-	assert(ptinrect(r->min, dst->r));
+	assert(ptinrect(r->min, *dr));
 
 	return 1;
+
+}
+int
+drawclipnorepl(Memimage *dst, Rectangle *r, Memimage *src, Point *p0, Memimage *mask, Point *p1, Rectangle *sr, Rectangle *mr)
+{
+	return _drawclipnorepl(&dst->r, &dst->clipr, r, src, p0, mask, p1, sr, mr);
 }
 
 /*
