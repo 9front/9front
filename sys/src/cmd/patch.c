@@ -484,6 +484,9 @@ blat(char *old, char *new, char *o, usize len, int mode)
 	int fd;
 
 	tmp = nil;
+	if(strcmp(old, "/dev/null") == 0 && !dryrun)
+		if(access(new, AEXIST) != -1)
+			fail("would clobber: %s", new);
 	if(strcmp(new, "/dev/null") != 0 && !dryrun){
 		if(mkpath(new) == -1)
 			fail("mkpath %s: %r", new);
@@ -509,38 +512,35 @@ int
 finish(int ok)
 {
 	Fchg *c;
-	int i, fd, r;
+	int i, fd;
 
-	r = 1;
 	for(i = 0; i < nchanged; i++){
 		c = &changed[i];
 		if(!ok){
-			if(c->tmp != nil && remove(c->tmp) == -1){
-				r = 0;
+			if(c->tmp != nil && remove(c->tmp) == -1)
 				fprint(2, "remove %s: %r\n", c->tmp);
-			}
 			goto Free;
 		}
 		if(!dryrun){
 			if(strcmp(c->new, "/dev/null") == 0){
 				if(remove(c->old) == -1){
-					r = 0;
+					ok = 0;
 					fprint(2, "remove %s: %r\n", c->old);
 					goto Free;
 				}
 				goto Print;
 			}
 			if((fd = open(c->tmp, ORDWR)) == -1){
-				r = 0;
+				ok = 0;
 				fprint(2, "open %s: %r\n", c->tmp);
 				goto Free;
 			}
-			if(strcmp(c->old, c->new) == 0 && remove(c->old) == -1)
-				fail("remove %s: %r", c->old);
-			if(rename(fd, c->new) == -1)
-				fail("create %s: %r", c->new);
-			if(close(fd) == -1)
-				fail("close %s: %r", c->tmp);
+			if(strcmp(c->old, c->new) == 0 && remove(c->old) == -1
+			|| rename(fd, c->new) == -1
+			|| close(fd) == -1){
+				ok = 0;
+				fprint(2, "cleanup: %r");
+			}
 		}
 Print:
 		if(strcmp(c->new, "/dev/null") == 0)
@@ -553,7 +553,7 @@ Free:
 		free(c->new);
 	}
 	free(changed);
-	return r;
+	return ok;
 }
 
 int
