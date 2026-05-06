@@ -4,14 +4,17 @@ rfork en
 
 gitup
 
-flagfmt='a:pushall, b:branch branch, f:force, d:debug,
-         r:remove remove, u:upstream upstream' args=''
-eval `''{aux/getflags $*} || exec aux/usage
+flagfmt='a,f,d,b branch,r remove,u upstream' args=''
+ifs=() eval `{aux/getflags $*} || exec aux/usage
+pushall=$flaga branch=$flagb force=$flagf debug=$flagd
+remove=$flagr upstream=$flagu
 if(! ~ $#* 0)
 	exec aux/usage
 
 if(~ $pushall 1)
-	branch=`$nl{cd .git/refs/heads && walk -f}
+	ifs=$nl {
+		branch=`{cd .git/refs/heads && walk -f}
+	}
 if(~ $#branch 0)
 	branch=`{git/branch}
 if(~ $#branch 0)
@@ -24,14 +27,18 @@ if(~ $debug 1)
 if(~ $#upstream 0)
 	upstream=origin
 
-remotes=`$nl{git/conf -a 'remote "'$upstream'".url'}
+ifs=$nl {
+	remotes=`{git/conf -a 'remote "'$upstream'".url'}
+}
 if(~ $#remotes 0)
 	remotes=$upstream
 branch=-b^$branch
 if(! ~ $#remove 0)
 	remove=-r^$remove
 for(remote in $remotes){
-	updates=`$nl{git/send $debug $force $branch $remove $remote} || die $status
+	ifs=$nl {
+		updates=`{git/send $debug $force $branch $remove $remote} || die $status
+	}
 	for(ln in $updates){
 		u=`{echo $ln}
 		refpath=`{echo $u(2) | subst '^refs/heads/' '.git/refs/remotes/'$upstream'/'}

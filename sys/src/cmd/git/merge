@@ -7,7 +7,9 @@ fn merge{
 	basebr=$gitfs/object/$2/tree
 	theirbr=$gitfs/object/$3/tree
 
-	all=`$nl{{git/query -c $1 $2; git/query -c $2 $3} | sed 's/^..//' | sort | uniq}
+	ifs=$nl {
+		all=`{{git/query -c $1 $2; git/query -c $2 $3} | sed 's/^..//' | sort | uniq}
+	}
 	for(f in $all){
 		ours=$ourbr/$f
 		base=$basebr/$f
@@ -19,7 +21,7 @@ fn merge{
 gitup
 
 flagfmt=''; args='theirs'
-eval `''{aux/getflags $*} || exec aux/usage
+ifs=() eval `{aux/getflags $*} || exec aux/usage
 
 if(! ~ $#* 1)
 	exec aux/usage

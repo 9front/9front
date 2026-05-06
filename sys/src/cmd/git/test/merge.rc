@@ -52,7 +52,7 @@ echo @@ merge different files @@
 flag +x
 ~ `{cat b/a} x || die merge 1.a
 ~ `{cat b/b} y || die merge 1.b
-~ `''{cat b/c} $c || die merge 1.c
+ifs=() {~ `{cat b/c} $c} || die merge 1.c
 test -x b/a || die merge preserve exec
 ! test -x b/b || die merge preserve nonexec b
 ! test -x b/c || die merge preserve nonexec c
@@ -87,7 +87,7 @@ quux
 '
 ~ `{cat b/a} x || die	# commit from a
 ~ `{cat b/b} y || die # commit from b
-~ `''{cat b/c} $c || {diff -u b/c <{echo $c}; die merge 1.c}
+ifs=() {~ `{cat b/c} $c} || {diff -u b/c <{echo $c}; die merge 1.c}
 ! test -x b/a || die merge remove exec
 test -x b/b || die merge add exec
 ! test -x b/c || die merge preserve nonexec c
@@ -114,7 +114,7 @@ echo @@ james test @@
 	q git/branch myhead
 	q git/merge front
 	q git/commit -m 'Merge front'
-	d=`''{git/diff lib/words lib/ndb/local}  # should have no output
+	ifs=() {d=`{git/diff lib/words lib/ndb/local}}  # should have no output
 	if(! ~ $d ''){
 		echo $d
 		exit diff

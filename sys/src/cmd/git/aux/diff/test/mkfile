@@ -1,0 +1,11 @@
+</$cputype/mkfile
+
+TEST=\
+	diff\
+	merge
+
+test:V: ../$O.diff ../$O.merge3
+../$O.%:
+	cd .. && mk $MKFLAGS $O.$stem
+
+<../../../test/mktest

@@ -1,0 +1,41 @@
+test:VQ:
+	echo $t
+	for(t in $TEST) @{
+		if(test -d $t)
+			@{cd $t && mk $MKFLAGS test}
+		if not
+			mk $t.test
+	}
+
+all:VQ:
+	# nothing
+
+%.test:V: $O.%
+	./$O.$stem
+
+%.test:V: %.rc
+	./$stem.rc
+
+%.$O:	$HFILES		# don't combine with following %.$O rules
+
+%.$O:	%.c
+	$CC $CFLAGS $stem.c
+
+%.$O:	%.s
+	$AS $AFLAGS $stem.s
+
+$O.%:V:	%.$O $OFILES $LIB
+	$LD $LDFLAGS -o $target $prereq
+
+# [$OS].??* avoids file names like 9.h
+nuke:V:
+	rm -f *.[$OS] y.tab.? lex.yy.c y.debug y.output [$OS].??* *.acid $TARG $CLEANFILES
+
+clean:V:
+	for(t in $TEST)
+		if(test -d $t)
+			@{cd $t && mk $MKFLAGS clean}
+	rm -f *.[$OS] *.out *.a[$OS] y.tab.? lex.yy.c y.debug y.output [$OS].??* $TARG $CLEANFILES
+
+%.clean:V:
+	rm -f $stem.[$OS] [$OS].$stem $stem.acid $stem

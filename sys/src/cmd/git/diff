@@ -4,8 +4,9 @@ rfork ne
 
 gitup
 
-flagfmt='c:commit branch, s:summarize, u:uncommitted'; args='[file ...]'
-eval `''{aux/getflags $*} || exec aux/usage
+flagfmt='s,u,c branch'; args='[file ...]'
+ifs=() eval `{aux/getflags $*} || exec aux/usage
+summarize=$flags uncommitted=$flagu commit=$flagc
 
 bparam=(-b $commit)
 if(~ $#commit 0){
@@ -31,7 +32,8 @@ showed=()
 mntgen /mnt/scratch
 bind $branch/tree/ /mnt/scratch/a
 bind . /mnt/scratch/b
-for(f in `$nl{git/walk $bparam -c -f$filt $cparam $files}){
+ifs=$nl \
+for(f in `{git/walk $bparam -c -f$filt $cparam $files}){
 	if(~ $#showed 0){
 		echo diff `{git/query $commit} uncommitted
 		showed=1

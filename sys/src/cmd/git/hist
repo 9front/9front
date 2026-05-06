@@ -4,9 +4,10 @@ rfork ne
 . /sys/lib/git/common.rc
 gitup
 
-flagfmt='n:num count'; args='files...'
-eval `''{aux/getflags $*} || exec aux/usage
+flagfmt='n count'; args='files...'
+ifs=() {eval `{aux/getflags $*}} || exec aux/usage
 if(~ $#* 0) exec aux/usage
+num=$flagn
 
 fn dodiff {
 	while(t=`{read}){

@@ -1,0 +1,33 @@
+Summary
+
+	This is a backport of the Git implementation from 9front.org
+	(git9) to the 4th Edition of Plan 9 from Bell Labs.
+
+Documentation
+
+	git(1), gitfs(4)
+	Ori Bernstein, "A Git for 9", Proceedings of the 10th
+	International Workshop on Plan 9, 2024.
+
+Notes
+
+	The code and the test suite has been changed not to rely on
+	certain newer additions like `RS{cmd} syntax in rc,
+	aux/getflags extensions or Bfdopen function in libbio.  Some
+	utillity programs like walk, patch and merge3 were brough over
+	and installed under /bin/git/aux/.
+
+	The diff against the base 9front revision is in base.diff; to
+	refresh, run:
+
+		rm base.diff; mk base.diff
+
+Caveats
+
+	There remain some minute differences in the output of commands
+	like git/log and git/export, as 4e doesn't have the advanced
+	date formatting primitives of 9front.
+
+	Due to webfs differences, the git/get, git/clone, git/pull
+	only send generic HTTP headers.  While GitHub seems to be fine
+	with that, others may not.

@@ -10,8 +10,9 @@ fn sigexit{
 
 gitup
 
-flagfmt='o:patchdir patchdir'; args='[query]'
-eval `''{aux/getflags $*} || exec aux/usage
+flagfmt='o patchdir'; args='[query]'
+ifs=() eval `{aux/getflags $*} || exec aux/usage
+patchdir=$flago
 
 if(~ $#patchdir 1 && ! test -d $patchdir)
 	mkdir -p $patchdir
@@ -31,7 +32,9 @@ mntgen /mnt/scratch >[2]/dev/null || status=''
 for(c in $commits){
 	cp=`{git/query -p $c}
 	pp=`{git/query -p $c'~'}
-	fc=`$nl{git/query -c $c~ $c | sed 's/^..//'}
+	ifs=$nl {
+		fc=`{git/query -c $c~ $c | sed 's/^..//'}
+	}
 
 	@{
 		rfork n
@@ -42,7 +45,7 @@ for(c in $commits){
 			bind $cp/tree b
 		
 		echo From: `{cat $cp/author}
-		echo Date: `{date -uf'WW, DD MMM YYYY hh:mm:ss Z' `{walk -em $cp/author}}
+		echo Date: `{date `{walk -em $cp/author}}
 		<$cp/msg awk '
 		NR == 1 {
 			n = ENVIRON["n"]

@@ -9,14 +9,16 @@ fn update{
 	dflag=()
 	if(! ~ $#debug 0)
 		dflag='-d'
-	heads=`$nl{
-		# safe to split in awk, branch names may not
-		# have spaces or newlines.
-		git/query `$nl{
-			cd .git/refs && \
-			walk -f -emp heads remotes | \
-			sort -rn | \
-			awk '{print $2}'
+	ifs=$ln {
+		heads=`{
+			# safe to split in awk, branch names may not
+			# have spaces or newlines.
+			git/query `{
+				cd .git/refs && \
+				walk -f -emp heads remotes | \
+				sort -rn | \
+				awk '{print $2}'
+			}
 		}
 	}
 	if(! ~ $#heads 0)
@@ -27,9 +29,7 @@ fn update{
 		hash=$3
 		gsub("^refs/heads", "refs/remotes/'$upstream'", ref)
 		outfile = ".git/"ref
-		print outfile > "/env/outfile"
-		system("mkdir -p `$nl{basename -d $outfile}");\
-		close("/env/outfile")
+		system("exec rc -c ''ifs=$nl {mkdir -p `{basename -d " outfile "}}''");\
 		print hash > outfile;
 		close(outfile);
 	}
@@ -38,14 +38,16 @@ fn update{
 
 gitup
 
-flagfmt='d:debug, q:quiet, f:fetchonly,
-	u:upstream upstream'
+flagfmt='d,q,f,u upstream'
 args=''
-eval `''{aux/getflags $*} || exec aux/usage
+ifs=() eval `{aux/getflags $*} || exec aux/usage
+debug=$flagd quiet=$flagq fetchonly=$flagf upstream=$flagu
 
 if(~ $#upstream 0)
 	upstream=origin
-remote=`$nl{git/conf 'remote "'$upstream'".url'}
+ifs=$nl {
+	remote=`{git/conf 'remote "'$upstream'".url'}
+}
 if(~ $#remote 0){
 	remote=$upstream
 	upstream=THEM

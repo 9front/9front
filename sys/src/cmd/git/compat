@@ -109,7 +109,10 @@ fn cmd_show-ref{
 		filter=cat
 	if not
 		filter='-e(^|/)'^$*^'$'
-	for(b in `$nl{cd $gitroot/.git/refs/ && walk -f})
+	ifs=$nl {
+		refs=`{cd $gitroot/.git/refs/ && walk -f}
+	}
+	for(b in $refs)
 		echo `{cat $gitroot/.git/refs/$b} refs/$b 
 }
 
@@ -176,7 +179,9 @@ fn cmd_show{
 fn cmd_ls-remote{
 	if(~ $1 -q)
 		shift
-	remote=`$nl{git/conf 'remote "'$1'".url'}
+	ifs=$nl {
+		remote=`{git/conf 'remote "'$1'".url'}
+	}
 	if(~ $#remote 0)
 		remote=$1
 	git/get -l $remote | awk '/^remote/{print $3"\t"$2}'
@@ -197,7 +202,7 @@ fn usage{
 
 fn die {
 	>[1=2] echo git $_cmdname: $*
-	exit $_cmdname: $*
+	exit '$_cmdname: '$"*
 }
 
 _cmdname=$1

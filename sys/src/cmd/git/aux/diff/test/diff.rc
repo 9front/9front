@@ -1,0 +1,11 @@
+#!/bin/rc
+
+# tests with no line endings
+# are broken; fix them later
+# tests=`{seq 15}
+tests=(1 2 3 4 5 6 7 11 12 13 15)
+for(t in $tests){
+	echo ../$O.diff -u diff-t$t.l diff-t$t.r
+	../$O.diff -u diff-t$t.l diff-t$t.r > diff-t$t.out
+	cmp diff-t$t.out diff-t$t.expected #|| {echo 'failed '$t; exit failed}
+}

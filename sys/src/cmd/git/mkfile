@@ -46,6 +46,10 @@ OFILES=\
 	ref.$O
 
 HFILES=git.h
+DIRS=aux
+
+BASE=\
+	http://git.9front.org/plan9front/9front/f1c2de2b318c8789d41831b2d4b1d7a69fcac9e3
 
 </sys/src/cmd/mkmany
 
@@ -61,3 +65,40 @@ install:V:
 %.rcinstall:V:
 	cp $stem $BIN/$stem
 	chmod +x $BIN/$stem
+
+all:V:	all.dirs
+dirs:V: all.dirs
+install:V: install.dirs
+installall:V: installall.dirs
+clean:V: clean.dirs test.clean
+nuke:V: nuke.dirs
+test:V: test.dirs
+
+test:V: runtest
+runtest:V:
+	cd test && mk $MKFLAGS test
+
+test.clean:V:
+	cd test && mk $MKFLAGS clean
+
+%.dirs:V:
+	for(i in $DIRS) @{
+		cd $i
+		echo mk $i
+		mk $MKFLAGS $stem
+	}
+
+# review the 4e port against its base revision
+base.diff:E:
+	{
+		diff -bc <{hget $BASE ^ /sys/lib/git/common.rc ^/raw} ../../../lib/git/common.rc
+		for(i in $RC)
+			diff -bc <{hget $BASE ^ /sys/src/cmd/git/$i ^ /raw} $i
+		for(i in *.c mkfile)
+			diff -c <{hget $BASE ^ /sys/src/cmd/git/$i ^ /raw} $i
+		for(i in aux/*.c aux/diff/*.c aux/diff/mkfile)
+			diff -c <{hget $BASE ^ /sys/src/cmd/^`{echo $i | sed 's!aux/!!'} ^ /raw} $i
+		for(i in test/*.rc test/mkfile)
+			diff -c <{hget $BASE ^ /sys/src/cmd/git/$i ^ /raw} $i
+		status = ''
+	} | tee $target

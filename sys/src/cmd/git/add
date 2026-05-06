@@ -4,16 +4,18 @@ rfork ne
 
 gitup
 
-flagfmt='r:remove'; args='file ...'
-eval `''{aux/getflags $*} || exec aux/usage
+flagfmt='r'; args='file ...'
+ifs=() eval `{aux/getflags $*} || exec aux/usage
 
 s=A
-if(~ $remove 1)
+if(~ $flagr 1)
 	s=R
 if(~ $#* 0)
 	exec aux/usage
 
-paths=`$nl{cleanname -d $gitrel $* | drop $gitroot}
+ifs=$nl {
+	paths=`{cleanname -d $gitrel $* | drop $gitroot}
+}
 walk -f ./$paths | grep -v '^(./)?.git/' | \
 	sed 's/^/'$s' NOQID 0 /' >> .git/INDEX9
 exit ''

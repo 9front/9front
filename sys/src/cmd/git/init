@@ -2,8 +2,9 @@
 rfork ne
 . /sys/lib/git/common.rc
 
-flagfmt='u:upstream upstream,b:branch branch'; args='name'
-eval `''{aux/getflags $*} || exec aux/usage
+flagfmt='u upstream,b branch'; args='name'
+ifs=() eval `{aux/getflags $*} || exec aux/usage
+upstream=$flagu branch=$flagb
 
 dir=$1
 if(~ $#dir 0)

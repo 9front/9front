@@ -1738,7 +1738,8 @@ genpack(int fd, Meta **meta, int nmeta, Hash *h, int odelta)
 	dprint(1, "generating pack\n");
 	if((fd = dup(fd, -1)) == -1)
 		return -1;
-	if((bfd = Bfdopen(fd, OWRITE)) == nil)
+	bfd = emalloc(sizeof(Biobuf));
+	if(Binit(bfd, fd, OWRITE) == -1)
 		return -1;
 	if(hwrite(bfd, "PACK", 4, &st) == -1)
 		return -1;
@@ -1798,8 +1799,13 @@ genpack(int fd, Meta **meta, int nmeta, Hash *h, int odelta)
 		goto error;
 	ret = 0;
 error:
-	if(Bterm(bfd) == -1)
+	if(Bterm(bfd) == -1){
+		free(bfd);
+		close(fd);
 		return -1;
+	}
+	free(bfd);
+	close(fd);
 	return ret;
 }
 

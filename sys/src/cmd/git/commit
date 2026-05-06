@@ -74,7 +74,7 @@ fn parents{
 }
 
 fn commit{
-	msg=`''{cat $msgfile}
+	{ifs=() {msg=`{cat $msgfile}}}
 	if(! ~ $#parents 0)
 		pflags='-p'^$parents
 	hash=`{git/save -n $"name -e $"email -m $"msg $pflags $files || die $status}
@@ -158,8 +158,9 @@ fn apply{
 
 gitup
 
-flagfmt='m:msg message, r:revise, e:edit, p:partial'; args='[file ...]'
-eval `''{aux/getflags $*} || exec aux/usage
+flagfmt='e,r,p,m message'; args='[file ...]'
+ifs=() eval `{aux/getflags $*} || exec aux/usage
+revise=$flagr edit=$flage partial=$flagp msg=$flagm
 
 wdir=/mnt/git
 ramfs -m $wdir
@@ -173,10 +174,12 @@ if not if(~ $#revise 1){
 }
 
 files=()
-if(test -f .git/merge-parents)
-	files=`$nl{git/query -c `{cat .git/merge-parents} | sed 's/^..//'}
-if(! ~ $#* 0)
-	files=($files `$nl{git/walk -fRMA -c `$nl{cleanname -d $gitrel $*}})
+ifs=$nl {
+	if(test -f .git/merge-parents)
+		files=`{git/query -c `{cat .git/merge-parents} | sed 's/^..//'}
+	if(! ~ $#* 0)
+		files=($files `{git/walk -fRMA -c `{cleanname -d $gitrel $*}})
+}
 if(~ $status '' || ~ $#files 0 && ! test -f .git/merge-parents && ~ $#revise 0)
 	die 'nothing to commit'
 if(~ $#partial 1){

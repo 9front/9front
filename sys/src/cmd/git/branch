@@ -4,9 +4,16 @@ rfork en
 
 gitup
 
-flagfmt='a:listall, b:baseref ref, r:remove, n:newbr, s:stay, m:merge, M:nomod'
+flagfmt='a,r,n,s,m,M,b ref'
 args='[branch]'
-eval `''{aux/getflags $*} || exec aux/usage
+ifs=() eval `{aux/getflags $*} || exec aux/usage
+listall=$flaga
+baseref=$flagb
+remove=$flagr
+newbr=$flagn
+stay=$flags
+merge=$flagm
+nomod=$flagM
 
 modified=()
 deleted=()
@@ -40,7 +47,9 @@ if(~ $#newbr 0){
 	if(! ~ $#baseref 0)
 		die update would clobber $branch with $baseref
 	if(! test -e .git/$new){
-		baseref=`$nl{echo -n $new | sed s@refs/heads/@refs/remotes/origin/@}
+		ifs=$nl {
+			baseref=`{echo -n $new | sed s@refs/heads/@refs/remotes/origin/@}
+		}
 		if(! base=`{git/query $baseref})
 			exit 'bad ref'
 	}
@@ -54,8 +63,10 @@ if not if(~ $#newbr 0)
 if not
 	base=`{git/query HEAD} || exit 'bad ref'
 
-modified=`$nl{git/query -c HEAD $base | grep '^[^-]' | subst '^..'}
-deleted=`$nl{git/query -c HEAD $base | grep '^-' | subst '^..'}
+ifs=$nl {
+	modified=`{git/query -c HEAD $base | grep '^[^-]' | subst '^..'}
+	deleted=`{git/query -c HEAD $base | grep '^-' | subst '^..'}
+}
 
 # if we remove the current branch without switching, bad things happen
 if(~ $remove 1 && ~ $origbranch $new)
@@ -76,7 +87,17 @@ commit=`{git/query $base} || die 'branch does not exist:' $base
 basedir=`{git/query -p $base}
 dirtypaths=()
 if(! ~ $#modified 0 || ! ~ $#deleted 0)
-	dirtypaths=`$nl{git/walk -cfRMA $modified $deleted}
+	ifs=$nl {
+		dirtypaths=`{git/walk -cfRMA $modified $deleted}
+	}
+if(~ $#dirtypaths 0)
+	cleanpaths=($modified $deleted)
+if not {
+	cleanpaths=()
+	for(p in $modified $deleted)
+		if(! ~ $p $dirtypaths)
+			cleanpaths=($cleanpaths $p)
+}
 
 >>[3].git/INDEX9{
 	for(d in $deleted){
@@ -86,7 +107,9 @@ if(! ~ $#modified 0 || ! ~ $#deleted 0)
 		}
 	}
 	for(m in $modified $deleted) if(! ~ $m $dirtypaths){
-		d=`$nl{basename -d $m}
+		ifs=$nl {
+			d=`{basename -d $m}
+		}
 		mkdir -p $d
 		# Modifications can turn a file into
 		# a directory, or vice versa, so we

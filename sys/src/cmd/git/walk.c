@@ -6,6 +6,9 @@ typedef struct Idxed	Idxed;
 typedef struct Idxent	Idxent;
 
 #define NCACHE 4096
+#ifndef IOUNIT
+#define IOUNIT 16*1024
+#endif
 
 enum {
 	Rflg	= 1 << 0,
@@ -454,8 +457,8 @@ main(int argc, char **argv)
 			if(access(".git/index9", AEXIST) == 0){
 				fprint(2, "index format conversion needed:\n");
 				fprint(2, "\tcd %s && git/fs\n", repopath);
-				fprint(2, "\t@{cd .git/index9/removed >[2]/dev/null && walk -f | sed 's/^/R NOQID 0 /'} >> .git/INDEX9\n");
-				fprint(2, "\t@{cd .git/fs/HEAD/tree && walk -f | sed 's/^/T NOQID 0 /'} >> .git/INDEX9\n");
+				fprint(2, "\t@{cd .git/index9/removed >[2]/dev/null && git/aux/walk -f | sed 's/^/R NOQID 0 /'} >> .git/INDEX9\n");
+				fprint(2, "\t@{cd .git/fs/HEAD/tree && git/aux/walk -f | sed 's/^/T NOQID 0 /'} >> .git/INDEX9\n");
 				exits("noindex");
 			}
 			staleidx = 1;
@@ -527,7 +530,8 @@ Stale:
 		loadwdir(argrel[i]);
 	qsort(wdir, nwdir, sizeof(Idxent), idxcmp);
 
-	if((o = Bfdopen(1, OWRITE)) == nil)
+	o = emalloc(sizeof(Biobuf));
+	if(Binit(o, 1, OWRITE) == -1)
 		sysfatal("open out: %r");
 
 	i = 0;
@@ -589,10 +593,13 @@ Stale:
 		}
 	}
 	Bterm(o);
+	free(o);
 
 	if(isindexed && staleidx)
 	if((wfd = create(".git/INDEX9.new", OWRITE, 0644)) != -1){
-		if((w = Bfdopen(wfd, OWRITE)) == nil){
+		w = emalloc(sizeof(Biobuf));
+		if(Binit(w, wfd, OWRITE) == -1){
+			free(w);
 			close(wfd);
 			goto Nope;
 		}
@@ -608,6 +615,8 @@ Stale:
 				idx[i].path);
 		}
 		Bterm(w);
+		free(w);
+		close(wfd);
 		nulldir(&rn);
 		rn.name = "INDEX9";
 		if(remove(".git/INDEX9") == -1)

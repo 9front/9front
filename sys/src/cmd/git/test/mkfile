@@ -1,4 +1,4 @@
-</$objtype/mkfile
+</$cputype/mkfile
 
 TEST=\
 	add\
@@ -12,10 +12,10 @@ TEST=\
 	range\
 	rebase
 
-</sys/src/cmd/mktest
+<mktest
 
 $cputype.git:
-	@{cd .. && objtype=$cputype mk install 'BIN=test/'$target}
+	@{mkdir -p $target; rfork n; bind -c $target /$objtype/bin/git; cd .. && objtype=$cputype mk install}
 
 test:V:	$cputype.git
 

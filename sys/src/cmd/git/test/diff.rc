@@ -23,22 +23,30 @@ echo @@git diff -s relative@@
 	echo >subdir/subdir2/file2.txt
 	echo >subdir3/file3.txt
 
-	out=`$nl{git/diff -s . | awk '{ print $2 }'}
+	ifs=$nl {
+		out=`{git/diff -s . | awk '{ print $2 }'}
+	}
 	~ $out(1) file.txt && ~ $out(2) subdir/file1.txt && ~ $out(3) subdir/subdir2/file2.txt \
 		~ $out(4) subdir3/file3.txt || die 'base level fail'
 
 	cd subdir
-	out=`$nl{git/diff -s .. | awk '{ print $2 }'}
+	ifs=$nl {
+		out=`{git/diff -s .. | awk '{ print $2 }'}
+	}
 	~ $out(1) ../file.txt && ~ $out(2) file1.txt && ~ $out(3) subdir2/file2.txt \
 		~ $out(4) ../subdir3/file3.txt || die 'subdir1 level fail'
 
 	cd subdir2
-	out=`$nl{git/diff -s ../.. | awk '{ print $2 }'}
+	ifs=$nl {
+		out=`{git/diff -s ../.. | awk '{ print $2 }'}
+	}
 	~ $out(1) ../../file.txt && ~ $out(2) ../file1.txt && ~ $out(3) file2.txt \
 		~ $out(4) ../../subdir3/file3.txt || die 'subdir2 level fail'
 
 	cd ../../subdir3
-	out=`$nl{git/diff -s .. | awk '{ print $2 }'}
+	ifs=$nl {
+		out=`{git/diff -s .. | awk '{ print $2 }'}
+	}
 	~ $out(1) ../file.txt && ~ $out(2) ../subdir/file1.txt && ~ $out(3) ../subdir/subdir2/file2.txt \
 		~ $out(4) file3.txt || die 'subdir3 level fail'
 

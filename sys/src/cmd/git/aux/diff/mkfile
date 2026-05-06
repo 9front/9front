@@ -1,0 +1,26 @@
+< /$objtype/mkfile
+
+TARG=diff merge3
+OFILES=\
+	diffdir.$O\
+	diffio.$O\
+	diffreg.$O\
+	util.$O
+
+HFILES=diff.h
+
+BIN=/$objtype/bin/git/aux
+</sys/src/cmd/mkmany
+
+$BIN/%: $BIN
+$BIN:
+	mkdir -p $target
+
+test:V: runtest
+runtest:V:
+	cd test && mk $MKFLAGS test
+
+test.clean:V:
+	cd test && mk $MKFLAGS clean
+
+clean:V: test.clean

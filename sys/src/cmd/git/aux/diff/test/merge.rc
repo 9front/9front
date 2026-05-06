@@ -1,0 +1,8 @@
+#!/bin/rc
+
+tests=`{seq 13}
+for(t in $tests){
+	echo ../$O.merge3 merge-t$t.l merge-t$t.c merge-t$t.r
+	../$O.merge3 merge-t$t.l merge-t$t.c merge-t$t.r > merge-t$t.out
+	cmp merge-t$t.out merge-t$t.expected #|| {echo 'failed '$t; exit failed}
+}

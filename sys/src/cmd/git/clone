@@ -2,9 +2,10 @@
 rfork en
 . /sys/lib/git/common.rc
 
-flagfmt='d:debug, b:branch branch'; args='remote [local]'
-eval `''{aux/getflags $*} || exec aux/usage
-if(~ $debug 1)
+flagfmt='d,b branch'; args='remote [local]'
+ifs=() eval `{aux/getflags $*} || exec aux/usage
+branch = $flagb
+if(~ $flagd 1)
 	debug=(-d)
 
 remote=$1
@@ -13,8 +14,10 @@ local=$2
 if(~ $#remote 0)
 	exec aux/usage
 if(~ $#local 0)
-	local=`$nl{basename `$nl{echo $remote | sed 's@.*/([^/]+)/*$@\1@'} .git}
-if(~ $#branch 1)
+	ifs=$nl {
+		local=`{basename `{echo $remote | sed 's@.*/([^/]+)/*$@\1@'} .git}
+	}
+if(~ $#flagb 1)
 	branchflag=(-b $branch)
 
 if(test -e $local && ~ `{ls $local | sed 1q | wc -l} 1)
@@ -56,7 +59,7 @@ fn clone{
 				outfile = ".git/" $2
 				outdir = outfile
 				gsub("/?[^/]*/?$", "", outdir)
-				system(sprintf("mkdir -p %q", outdir))
+				system(sprintf("mkdir -p ''%s''", outdir))
 				print $3 > outfile
 				close(outfile)
 			}
@@ -67,7 +70,7 @@ fn clone{
 				refdir = headref;
 				gsub("/?[^/]*/?$", "", refdir)
 				gsub("^refs/remotes/origin", "refs/heads", headref)
-				system("mkdir -p `{basename -d .git/"headref"}");
+				system("rc -c ''mkdir -p `{basename -d .git/"headref"}''");
 				system("cp .git/" remote " .git/" headref)
 				print "ref: " headref > ".git/HEAD"
 			}else if(headhash != ""){
@@ -87,7 +90,8 @@ fn clone{
 		git/fs
 		@ {builtin cd $tree && tar cif /fd/1 .} | @ {tar xf /fd/0} \
 			|| die 'checkout failed:' $status
-		{for(f in `$nl{cd $tree && walk -f})
+		ifs=$nl \
+		{for(f in `{cd $tree && walk -f})
 			echo 'T NOQID 0 '$f} > .git/INDEX9
 	}
 	if not{

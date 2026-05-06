@@ -5,8 +5,9 @@ rfork en
 . /sys/lib/git/common.rc
 gitup
 
-flagfmt='s:src src, n:nocommit'; args='onto'
-eval `''{aux/getflags $*} || exec aux/usage
+flagfmt='n,s src'; args='onto'
+ifs=() eval `{aux/getflags $*} || exec aux/usage
+nocommit=$flagn src=$flags
 if(~ $#* 0) exec aux/usage
 
 if(~ $#src 0)

@@ -1,0 +1,33 @@
+</$objtype/mkfile
+
+BIN=/$objtype/bin/git/aux
+TARG=walk patch
+OFILES=
+DIRS=diff
+
+</sys/src/cmd/mkmany
+
+$BIN/%: $BIN
+$BIN:
+	mkdir -p $target
+
+all:V:	dirs
+install:V: install.dirs
+installall:V: installall.dirs
+clean:V: clean.dirs
+nuke:V: nuke.dirs
+test:V: test.dirs
+
+dirs:V:
+	for(i in $DIRS) @{
+		cd $i
+		echo mk $i
+		mk $MKFLAGS all
+	}
+
+%.dirs:V:
+	for(i in $DIRS) @{
+		cd $i
+		echo mk $i
+		mk $MKFLAGS $stem
+	}

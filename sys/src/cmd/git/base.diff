@@ -1,0 +1,1012 @@
+/fd/3:49,62 - ../../../lib/git/common.rc:49,64
+  }
+  
+  fn whoami{
+- 	name=`$nl{git/conf user.name}
+- 	email=`$nl{git/conf user.email}
++ 	ifs=$nl {
++ 		name=`{git/conf user.name}
++ 		email=`{git/conf user.email}
+  	if(test -f /adm/keys.who){
+  		if(~ $name '')
+- 			name=`$nl{awk -F'|' '$1=="'$user'" {x=$3} END{print x}' </adm/keys.who}
++ 				name=`{awk -F'|' '$1=="'$user'" {x=$3} END{print x}' </adm/keys.who}
+  		if(~ $email '')
+- 			email=`$nl{awk -F'|' '$1=="'$user'" {x=$5} END{print x}' </adm/keys.who}
++ 				email=`{awk -F'|' '$1=="'$user'" {x=$5} END{print x}' </adm/keys.who}
+  	}
++ 	}
+  	if(~ $name '')
+  		name=$user
+  	if(~ $email '')
+/fd/3:86,92 - ../../../lib/git/common.rc:88,96
+  		theirs=/dev/null
+  
+  	if(mergeperm $ours $base $theirs){
+- 		mkdir -p `$nl{basename -d $tmp}
++ 		ifs=$nl {
++ 			mkdir -p `{basename -d $tmp}
++ 		}
+  		if(! merge3 $ours $base $theirs > $tmp)
+  			echo merge needed: $out >[1=2]
+  		mv $tmp $out
+/fd/3:100,113 - ../../../lib/git/common.rc:104,119
+  }}
+  
+  fn gitup{
+- 	gitroot=`$nl{git/conf -r >[2]/dev/null}
++ 	ifs=$nl {
++ 		gitroot=`{git/conf -r >[2]/dev/null}
+  	if(~ $#gitroot 0)
+  		die 'not a git repository'
+  	gitfs=$gitroot/.git/fs
+- 	gitrel=`$nl{pwd | drop $gitroot | sed 's@^/@@'}
++ 		gitrel=`{pwd | drop $gitroot | sed 's@^/@@'}
+  	if(~ $#gitrel 0)
+  		gitrel='.'
+- 	if(! cd $gitroot)
++ 	}
++ 	if(! builtin cd $gitroot)
+  		die cd $gitroot: no repo there
+  	startfs=()
+  	mkdir -p $gitfs
+/fd/3:119,122 - ../../../lib/git/common.rc:125,152
+  		git/fs >[1=2]
+  	if not
+  		status=''
++ }
++ 
++ fn walk {
++ 	git/aux/walk $*
++ }
++ 
++ fn merge3 {
++ 	git/aux/merge3 $*
++ }
++ 
++ fn patch {
++ 	git/aux/patch $*
++ }
++ 
++ fn diff {
++ 	ape/diff $*
++ }
++ 
++ fn hold {
++ 	{
++ 		echo holdon >[1=3]
++ 		cat $1 > /dev/cons
++ 		cat /dev/cons > $1
++ 	} >[3]/dev/consctl
+  }
+/fd/5:4,19 - add:4,21
+  
+  gitup
+  
+- flagfmt='r:remove'; args='file ...'
+- eval `''{aux/getflags $*} || exec aux/usage
++ flagfmt='r'; args='file ...'
++ ifs=() eval `{aux/getflags $*} || exec aux/usage
+  
+  s=A
+- if(~ $remove 1)
++ if(~ $flagr 1)
+  	s=R
+  if(~ $#* 0)
+  	exec aux/usage
+  
+- paths=`$nl{cleanname -d $gitrel $* | drop $gitroot}
++ ifs=$nl {
++ 	paths=`{cleanname -d $gitrel $* | drop $gitroot}
++ }
+  walk -f ./$paths | grep -v '^(./)?.git/' | \
+  	sed 's/^/'$s' NOQID 0 /' >> .git/INDEX9
+  exit ''
+/fd/6:4,12 - branch:4,19
+  
+  gitup
+  
+- flagfmt='a:listall, b:baseref ref, r:remove, n:newbr, s:stay, m:merge, M:nomod'
++ flagfmt='a,r,n,s,m,M,b ref'
+  args='[branch]'
+- eval `''{aux/getflags $*} || exec aux/usage
++ ifs=() eval `{aux/getflags $*} || exec aux/usage
++ listall=$flaga
++ baseref=$flagb
++ remove=$flagr
++ newbr=$flagn
++ stay=$flags
++ merge=$flagm
++ nomod=$flagM
+  
+  modified=()
+  deleted=()
+/fd/6:40,46 - branch:47,55
+  	if(! ~ $#baseref 0)
+  		die update would clobber $branch with $baseref
+  	if(! test -e .git/$new){
+- 		baseref=`$nl{echo -n $new | sed s@refs/heads/@refs/remotes/origin/@}
++ 		ifs=$nl {
++ 			baseref=`{echo -n $new | sed s@refs/heads/@refs/remotes/origin/@}
++ 		}
+  		if(! base=`{git/query $baseref})
+  			exit 'bad ref'
+  	}
+/fd/6:54,61 - branch:63,72
+  if not
+  	base=`{git/query HEAD} || exit 'bad ref'
+  
+- modified=`$nl{git/query -c HEAD $base | grep '^[^-]' | subst '^..'}
+- deleted=`$nl{git/query -c HEAD $base | grep '^-' | subst '^..'}
++ ifs=$nl {
++ 	modified=`{git/query -c HEAD $base | grep '^[^-]' | subst '^..'}
++ 	deleted=`{git/query -c HEAD $base | grep '^-' | subst '^..'}
++ }
+  
+  # if we remove the current branch without switching, bad things happen
+  if(~ $remove 1 && ~ $origbranch $new)
+/fd/6:76,82 - branch:87,103
+  basedir=`{git/query -p $base}
+  dirtypaths=()
+  if(! ~ $#modified 0 || ! ~ $#deleted 0)
+- 	dirtypaths=`$nl{git/walk -cfRMA $modified $deleted}
++ 	ifs=$nl {
++ 		dirtypaths=`{git/walk -cfRMA $modified $deleted}
++ 	}
++ if(~ $#dirtypaths 0)
++ 	cleanpaths=($modified $deleted)
++ if not {
++ 	cleanpaths=()
++ 	for(p in $modified $deleted)
++ 		if(! ~ $p $dirtypaths)
++ 			cleanpaths=($cleanpaths $p)
++ }
+  
+  >>[3].git/INDEX9{
+  	for(d in $deleted){
+/fd/6:86,92 - branch:107,115
+  		}
+  	}
+  	for(m in $modified $deleted) if(! ~ $m $dirtypaths){
+- 		d=`$nl{basename -d $m}
++ 		ifs=$nl {
++ 			d=`{basename -d $m}
++ 		}
+  		mkdir -p $d
+  		# Modifications can turn a file into
+  		# a directory, or vice versa, so we
+/fd/7:2,10 - clone:2,11
+  rfork en
+  . /sys/lib/git/common.rc
+  
+- flagfmt='d:debug, b:branch branch'; args='remote [local]'
+- eval `''{aux/getflags $*} || exec aux/usage
+- if(~ $debug 1)
++ flagfmt='d,b branch'; args='remote [local]'
++ ifs=() eval `{aux/getflags $*} || exec aux/usage
++ branch = $flagb
++ if(~ $flagd 1)
+  	debug=(-d)
+  
+  remote=$1
+/fd/7:13,20 - clone:14,23
+  if(~ $#remote 0)
+  	exec aux/usage
+  if(~ $#local 0)
+- 	local=`$nl{basename `$nl{echo $remote | sed 's@.*/([^/]+)/*$@\1@'} .git}
+- if(~ $#branch 1)
++ 	ifs=$nl {
++ 		local=`{basename `{echo $remote | sed 's@.*/([^/]+)/*$@\1@'} .git}
++ 	}
++ if(~ $#flagb 1)
+  	branchflag=(-b $branch)
+  
+  if(test -e $local && ~ `{ls $local | sed 1q | wc -l} 1)
+/fd/7:56,62 - clone:59,65
+  				outfile = ".git/" $2
+  				outdir = outfile
+  				gsub("/?[^/]*/?$", "", outdir)
+- 				system(sprintf("mkdir -p %q", outdir))
++ 				system(sprintf("mkdir -p ''%s''", outdir))
+  				print $3 > outfile
+  				close(outfile)
+  			}
+/fd/7:67,73 - clone:70,76
+  				refdir = headref;
+  				gsub("/?[^/]*/?$", "", refdir)
+  				gsub("^refs/remotes/origin", "refs/heads", headref)
+- 				system("mkdir -p `{basename -d .git/"headref"}");
++ 				system("rc -c ''mkdir -p `{basename -d .git/"headref"}''");
+  				system("cp .git/" remote " .git/" headref)
+  				print "ref: " headref > ".git/HEAD"
+  			}else if(headhash != ""){
+/fd/7:87,93 - clone:90,97
+  		git/fs
+  		@ {builtin cd $tree && tar cif /fd/1 .} | @ {tar xf /fd/0} \
+  			|| die 'checkout failed:' $status
+- 		{for(f in `$nl{cd $tree && walk -f})
++ 		ifs=$nl \
++ 		{for(f in `{cd $tree && walk -f})
+  			echo 'T NOQID 0 '$f} > .git/INDEX9
+  	}
+  	if not{
+/fd/8:74,80 - commit:74,80
+  }
+  
+  fn commit{
+- 	msg=`''{cat $msgfile}
++ 	{ifs=() {msg=`{cat $msgfile}}}
+  	if(! ~ $#parents 0)
+  		pflags='-p'^$parents
+  	hash=`{git/save -n $"name -e $"email -m $"msg $pflags $files || die $status}
+/fd/8:158,165 - commit:158,166
+  
+  gitup
+  
+- flagfmt='m:msg message, r:revise, e:edit, p:partial'; args='[file ...]'
+- eval `''{aux/getflags $*} || exec aux/usage
++ flagfmt='e,r,p,m message'; args='[file ...]'
++ ifs=() eval `{aux/getflags $*} || exec aux/usage
++ revise=$flagr edit=$flage partial=$flagp msg=$flagm
+  
+  wdir=/mnt/git
+  ramfs -m $wdir
+/fd/8:173,182 - commit:174,185
+  }
+  
+  files=()
+- if(test -f .git/merge-parents)
+- 	files=`$nl{git/query -c `{cat .git/merge-parents} | sed 's/^..//'}
+- if(! ~ $#* 0)
+- 	files=($files `$nl{git/walk -fRMA -c `$nl{cleanname -d $gitrel $*}})
++ ifs=$nl {
++ 	if(test -f .git/merge-parents)
++ 		files=`{git/query -c `{cat .git/merge-parents} | sed 's/^..//'}
++ 	if(! ~ $#* 0)
++ 		files=($files `{git/walk -fRMA -c `{cleanname -d $gitrel $*}})
++ }
+  if(~ $status '' || ~ $#files 0 && ! test -f .git/merge-parents && ~ $#revise 0)
+  	die 'nothing to commit'
+  if(~ $#partial 1){
+/fd/9:109,115 - compat:109,118
+  		filter=cat
+  	if not
+  		filter='-e(^|/)'^$*^'$'
+- 	for(b in `$nl{cd $gitroot/.git/refs/ && walk -f})
++ 	ifs=$nl {
++ 		refs=`{cd $gitroot/.git/refs/ && walk -f}
++ 	}
++ 	for(b in $refs)
+  		echo `{cat $gitroot/.git/refs/$b} refs/$b 
+  }
+  
+/fd/9:176,182 - compat:179,187
+  fn cmd_ls-remote{
+  	if(~ $1 -q)
+  		shift
+- 	remote=`$nl{git/conf 'remote "'$1'".url'}
++ 	ifs=$nl {
++ 		remote=`{git/conf 'remote "'$1'".url'}
++ 	}
+  	if(~ $#remote 0)
+  		remote=$1
+  	git/get -l $remote | awk '/^remote/{print $3"\t"$2}'
+/fd/9:197,203 - compat:202,208
+  
+  fn die {
+  	>[1=2] echo git $_cmdname: $*
+- 	exit $_cmdname: $*
++ 	exit '$_cmdname: '$"*
+  }
+  
+  _cmdname=$1
+/fd/10:4,11 - diff:4,12
+  
+  gitup
+  
+- flagfmt='c:commit branch, s:summarize, u:uncommitted'; args='[file ...]'
+- eval `''{aux/getflags $*} || exec aux/usage
++ flagfmt='s,u,c branch'; args='[file ...]'
++ ifs=() eval `{aux/getflags $*} || exec aux/usage
++ summarize=$flags uncommitted=$flagu commit=$flagc
+  
+  bparam=(-b $commit)
+  if(~ $#commit 0){
+/fd/10:31,37 - diff:32,39
+  mntgen /mnt/scratch
+  bind $branch/tree/ /mnt/scratch/a
+  bind . /mnt/scratch/b
+- for(f in `$nl{git/walk $bparam -c -f$filt $cparam $files}){
++ ifs=$nl \
++ for(f in `{git/walk $bparam -c -f$filt $cparam $files}){
+  	if(~ $#showed 0){
+  		echo diff `{git/query $commit} uncommitted
+  		showed=1
+/fd/11:10,17 - export:10,18
+  
+  gitup
+  
+- flagfmt='o:patchdir patchdir'; args='[query]'
+- eval `''{aux/getflags $*} || exec aux/usage
++ flagfmt='o patchdir'; args='[query]'
++ ifs=() eval `{aux/getflags $*} || exec aux/usage
++ patchdir=$flago
+  
+  if(~ $#patchdir 1 && ! test -d $patchdir)
+  	mkdir -p $patchdir
+/fd/11:31,37 - export:32,40
+  for(c in $commits){
+  	cp=`{git/query -p $c}
+  	pp=`{git/query -p $c'~'}
+- 	fc=`$nl{git/query -c $c~ $c | sed 's/^..//'}
++ 	ifs=$nl {
++ 		fc=`{git/query -c $c~ $c | sed 's/^..//'}
++ 	}
+  
+  	@{
+  		rfork n
+/fd/11:42,48 - export:45,51
+  			bind $cp/tree b
+  		
+  		echo From: `{cat $cp/author}
+- 		echo Date: `{date -uf'WW, DD MMM YYYY hh:mm:ss Z' `{walk -em $cp/author}}
++ 		echo Date: `{date `{walk -em $cp/author}}
+  		<$cp/msg awk '
+  		NR == 1 {
+  			n = ENVIRON["n"]
+/fd/12:4,12 - hist:4,13
+  . /sys/lib/git/common.rc
+  gitup
+  
+- flagfmt='n:num count'; args='files...'
+- eval `''{aux/getflags $*} || exec aux/usage
++ flagfmt='n count'; args='files...'
++ ifs=() {eval `{aux/getflags $*}} || exec aux/usage
+  if(~ $#* 0) exec aux/usage
++ num=$flagn
+  
+  fn dodiff {
+  	while(t=`{read}){
+/fd/13:4,15 - import:4,23
+  
+  diffpath=/tmp/gitimport.$pid.diff
+  fn sigexit {
+- 	rm -f $diffpath
++ 	rm -f $diffpath $diffpath.*
+  }
+  
+  fn apply1 {
++ 	ifs=() {
++ 		adate = `{cat $diffpath.adate}
++ 		amail = `{cat $diffpath.amail}
++ 		aname = `{cat $diffpath.aname}
++ 		msg = `{cat $diffpath.msg}
++ 	}
+  	adate=`{seconds $adate}
+- 	files=`$nl{patch -np1 < $diffpath}
++ 	ifs=$nl {
++ 		files=`{patch -np1 < $diffpath}
++ 	}
+  	if(! git/walk -q $files){
+  		>[1=2] {
+  			echo patch would clobber files:
+/fd/13:18,24 - import:26,32
+  		}
+  	}
+  	echo applying $msg | sed 1q
+- 	if(! files=`$nl{patch -p1 < $diffpath})
++ 	if(! ifs=$nl { files=`{patch -p1 < $diffpath} })
+  		die 'patch failed'
+  	for(f in $files){
+  		if(test -e $f)
+/fd/13:37,43 - import:45,50
+  	exit ''
+  }
+  	
+- 
+  fn apply @{
+  	git/fs
+  	amail=''
+/fd/13:52,74 - import:59,84
+  		refpath=.git/HEAD
+  	if not
+  		die 'invalid branch:' $branch
++ 	bind /bin/rc /$cputype/bin/ape/sh
+  	awk '
+  	function doapply(){
+  		if(aname == "" || amail == "" || date == "" || gotmsg == "")
+  			exit("missing headers");
+- 		printf "%s", aname > "/env/aname"
+- 		printf "%s", amail > "/env/amail"
+- 		printf "%s", date > "/env/adate"
++ 		printf "%s", aname > (diffpath ".aname")
++ 		printf "%s", amail > (diffpath ".amail")
++ 		printf "%s", date > (diffpath ".adate")
+  		if(system("rc -c apply1") != 0)
+  			exit("patch failed");
+- 		close("/env/aname")
+- 		close("/env/amail")
+- 		close("/env/adate")
+- 		close(ENVIRON["diffpath"])
++ 		close(diffpath ".aname")
++ 		close(diffpath ".amail")
++ 		close(diffpath ".adate")
++ 		close(diffpath ".msg")
++ 		close(diffpath)
+  		applied = 1
+  	}
+  	BEGIN{
+  		state="headers"
++ 		diffpath = ENVIRON["diffpath"]
+  	}
+  	state=="diff" && !/^[-+ @]|^diff|^$/{
+  		state="footers";
+/fd/13:93,99 - import:103,109
+  	state=="headers" && /^Subject:/{
+  		sub(/^Subject:[ \t]*([Rr][Ee]:)?[ \t]*(\[[^\]]*\][ \t]*)*/, "", $0);
+  		gotmsg = 1
+- 		print > "/env/msg"
++ 		print > (diffpath".msg")
+  	}
+  	state=="headers" && /^$/ {
+  		state="body"
+/fd/13:108,120 - import:118,130
+  	}
+  	state=="body" {
+  		if(empty)
+- 			printf "\n" > "/env/msg"
++ 			printf "\n" > (diffpath".msg")
+  		empty=0
+  		sub(/[ 	]+$/, "")
+- 		print > "/env/msg"
++ 		print > (diffpath".msg")
+  	}
+  	state=="diff" {
+- 		print > ENVIRON["diffpath"]
++ 		print > diffpath
+  	}
+  	END{
+  		if(!failed && state == "diff" && doapply() != 0){
+/fd/13:127,134 - import:137,145
+  
+  gitup
+  
+- flagfmt='n:nocommit'; args='file ...'
+- eval `''{aux/getflags $*} || exec aux/usage
++ flagfmt='n'; args='file ...'
++ ifs=() eval `{aux/getflags $*} || exec aux/usage
++ nocommit=$flagn
+  
+  patches=(/fd/0)
+  if(! ~ $#* 0)
+/fd/14:2,9 - init:2,10
+  rfork ne
+  . /sys/lib/git/common.rc
+  
+- flagfmt='u:upstream upstream,b:branch branch'; args='name'
+- eval `''{aux/getflags $*} || exec aux/usage
++ flagfmt='u upstream,b branch'; args='name'
++ ifs=() eval `{aux/getflags $*} || exec aux/usage
++ upstream=$flagu branch=$flagb
+  
+  dir=$1
+  if(~ $#dir 0)
+/fd/15:7,13 - merge:7,15
+  	basebr=$gitfs/object/$2/tree
+  	theirbr=$gitfs/object/$3/tree
+  
+- 	all=`$nl{{git/query -c $1 $2; git/query -c $2 $3} | sed 's/^..//' | sort | uniq}
++ 	ifs=$nl {
++ 		all=`{{git/query -c $1 $2; git/query -c $2 $3} | sed 's/^..//' | sort | uniq}
++ 	}
+  	for(f in $all){
+  		ours=$ourbr/$f
+  		base=$basebr/$f
+/fd/15:19,25 - merge:21,27
+  gitup
+  
+  flagfmt=''; args='theirs'
+- eval `''{aux/getflags $*} || exec aux/usage
++ ifs=() eval `{aux/getflags $*} || exec aux/usage
+  
+  if(! ~ $#* 1)
+  	exec aux/usage
+/fd/16:9,18 - pull:9,19
+  	dflag=()
+  	if(! ~ $#debug 0)
+  		dflag='-d'
+- 	heads=`$nl{
++ 	ifs=$ln {
++ 		heads=`{
+  		# safe to split in awk, branch names may not
+  		# have spaces or newlines.
+- 		git/query `$nl{
++ 			git/query `{
+  			cd .git/refs && \
+  			walk -f -emp heads remotes | \
+  			sort -rn | \
+/fd/16:19,24 - pull:20,26
+  			awk '{print $2}'
+  		}
+  	}
++ 	}
+  	if(! ~ $#heads 0)
+  		heads='-h'^$heads
+  	{git/get $dflag -u $upstream $heads $url >[2=3] || die $status} | awk '
+/fd/16:27,35 - pull:29,35
+  		hash=$3
+  		gsub("^refs/heads", "refs/remotes/'$upstream'", ref)
+  		outfile = ".git/"ref
+- 		print outfile > "/env/outfile"
+- 		system("mkdir -p `$nl{basename -d $outfile}");\
+- 		close("/env/outfile")
++ 		system("exec rc -c ''ifs=$nl {mkdir -p `{basename -d " outfile "}}''");\
+  		print hash > outfile;
+  		close(outfile);
+  	}
+/fd/16:38,51 - pull:38,53
+  
+  gitup
+  
+- flagfmt='d:debug, q:quiet, f:fetchonly,
+- 	u:upstream upstream'
++ flagfmt='d,q,f,u upstream'
+  args=''
+- eval `''{aux/getflags $*} || exec aux/usage
++ ifs=() eval `{aux/getflags $*} || exec aux/usage
++ debug=$flagd quiet=$flagq fetchonly=$flagf upstream=$flagu
+  
+  if(~ $#upstream 0)
+  	upstream=origin
+- remote=`$nl{git/conf 'remote "'$upstream'".url'}
++ ifs=$nl {
++ 	remote=`{git/conf 'remote "'$upstream'".url'}
++ }
+  if(~ $#remote 0){
+  	remote=$upstream
+  	upstream=THEM
+/fd/17:4,17 - push:4,20
+  
+  gitup
+  
+- flagfmt='a:pushall, b:branch branch, f:force, d:debug,
+-          r:remove remove, u:upstream upstream' args=''
+- eval `''{aux/getflags $*} || exec aux/usage
++ flagfmt='a,f,d,b branch,r remove,u upstream' args=''
++ ifs=() eval `{aux/getflags $*} || exec aux/usage
++ pushall=$flaga branch=$flagb force=$flagf debug=$flagd
++ remove=$flagr upstream=$flagu
+  if(! ~ $#* 0)
+  	exec aux/usage
+  
+  if(~ $pushall 1)
+- 	branch=`$nl{cd .git/refs/heads && walk -f}
++ 	ifs=$nl {
++ 		branch=`{cd .git/refs/heads && walk -f}
++ 	}
+  if(~ $#branch 0)
+  	branch=`{git/branch}
+  if(~ $#branch 0)
+/fd/17:24,30 - push:27,35
+  if(~ $#upstream 0)
+  	upstream=origin
+  
+- remotes=`$nl{git/conf -a 'remote "'$upstream'".url'}
++ ifs=$nl {
++ 	remotes=`{git/conf -a 'remote "'$upstream'".url'}
++ }
+  if(~ $#remotes 0)
+  	remotes=$upstream
+  branch=-b^$branch
+/fd/17:31,37 - push:36,44
+  if(! ~ $#remove 0)
+  	remove=-r^$remove
+  for(remote in $remotes){
+- 	updates=`$nl{git/send $debug $force $branch $remove $remote} || die $status
++ 	ifs=$nl {
++ 		updates=`{git/send $debug $force $branch $remove $remote} || die $status
++ 	}
+  	for(ln in $updates){
+  		u=`{echo $ln}
+  		refpath=`{echo $u(2) | subst '^refs/heads/' '.git/refs/remotes/'$upstream'/'}
+/fd/18:5,12 - rebase:5,13
+  . /sys/lib/git/common.rc
+  gitup
+  
+- flagfmt='s:src src, n:nocommit'; args='onto'
+- eval `''{aux/getflags $*} || exec aux/usage
++ flagfmt='n,s src'; args='onto'
++ ifs=() eval `{aux/getflags $*} || exec aux/usage
++ nocommit=$flagn src=$flags
+  if(~ $#* 0) exec aux/usage
+  
+  if(~ $#src 0)
+/fd/19:4,19 - revert:4,23
+  
+  gitup
+  
+- flagfmt='c:query query' args='file ...'
+- if (! eval `''{aux/getflags $*} || ~ $#* 0)
++ flagfmt='c query' args='file ...'
++ if (! ifs=() eval `{aux/getflags $*} || ~ $#* 0)
+  	exec aux/usage
++ query=$flagc
+  
+  if(~ $#query 0)
+  	query=HEAD
+  commit=`{git/query -p $query}
+  
+- files=`$nl{cleanname -d $gitrel $* | drop $gitroot}
+- for(f in `$nl{git/walk -c -fRM -b $query $files}){
++ ifs=$nl {
++ 	files=`{cleanname -d $gitrel $* | drop $gitroot}
++ 	walked=`{git/walk -c -fRM -b $query $files}
++ }
++ for(f in $walked){
+  	mkdir -p `{basename -d $f}
+  	cp -x -- $commit/tree/$f $f
+  	touch -c $f
+/fd/25:137,143 - log.c:137,142
+  static int
+  show(Object *o)
+  {
+- 	Tm tm;
+  	char *p, *q, *e;
+  
+  	assert(o->type == GCommit);
+/fd/25:149,161 - log.c:148,159
+  		Bwrite(out, p, q - p);
+  		Bputc(out, '\n');
+  	}else{
+- 		tmtime(&tm, o->commit->mtime, tzload("local"));
+  		Bprint(out, "Hash:\t%H\n", o->hash);
+  		Bprint(out, "Author:\t%s\n", o->commit->author);
+  		if(o->commit->committer != nil
+  		&& strcmp(o->commit->author, o->commit->committer) != 0)
+  			Bprint(out, "Committer:\t%s\n", o->commit->committer);
+- 		Bprint(out, "Date:\t%τ\n", tmfmt(&tm, "WW MMM D hh:mm:ss z YYYY"));
++ 		Bprint(out, "Date:\t%s", ctime(o->commit->mtime));
+  		Bprint(out, "\n");
+  		p = o->commit->msg;
+  		e = p + o->commit->nmsg;
+/fd/25:287,298 - log.c:285,298
+  	if(chdir(repo) == -1)
+  		sysfatal("chdir: %r");
+  
+- 	tmfmtinstall();
+- 	out = Bfdopen(1, OWRITE);
++ 	out = emalloc(sizeof(Biobuf));
++ 	if(Binit(out, 1, OWRITE) == -1)
++ 		sysfatal("open out: %r");
+  	if(queryexpr != nil)
+  		showquery(queryexpr);
+  	else
+  		showcommits(commitid);
+  	Bterm(out);
++ 	free(out);
+  	exits(nil);
+  }
+/fd/28:1738,1744 - pack.c:1738,1745
+  	dprint(1, "generating pack\n");
+  	if((fd = dup(fd, -1)) == -1)
+  		return -1;
+- 	if((bfd = Bfdopen(fd, OWRITE)) == nil)
++ 	bfd = emalloc(sizeof(Biobuf));
++ 	if(Binit(bfd, fd, OWRITE) == -1)
+  		return -1;
+  	if(hwrite(bfd, "PACK", 4, &st) == -1)
+  		return -1;
+/fd/28:1798,1805 - pack.c:1799,1811
+  		goto error;
+  	ret = 0;
+  error:
+- 	if(Bterm(bfd) == -1)
++ 	if(Bterm(bfd) == -1){
++ 		free(bfd);
++ 		close(fd);
+  		return -1;
++ 	}
++ 	free(bfd);
++ 	close(fd);
+  	return ret;
+  }
+  
+/fd/29:5,12 - proto.c:5,10
+  #include "git.h"
+  
+  #define Useragent	"useragent git/2.24.1"
+- #define Contenthdr	"headers Content-Type: application/x-git-%s-pack-request"
+- #define Accepthdr	"headers Accept: application/x-git-%s-pack-result"
+  
+  enum {
+  	Nproto	= 16,
+/fd/29:508,516 - proto.c:506,511
+  int
+  writephase(Conn *c)
+  {
+- 	char hdr[128];
+- 	int n;
+- 
+  	dprint(1, "start write phase\n");
+  	if(c->type != ConnHttp)
+  		return 0;
+/fd/29:520,531 - proto.c:515,520
+  	if(c->cfd != -1)
+  		close(c->cfd);
+  	if((c->cfd = webclone(c, c->url)) == -1)
+- 		return -1;
+- 	n = snprint(hdr, sizeof(hdr), Contenthdr, c->direction);
+- 	if(write(c->cfd, hdr, n) == -1)
+- 		return -1;
+- 	n = snprint(hdr, sizeof(hdr), Accepthdr, c->direction);
+- 	if(write(c->cfd, hdr, n) == -1)
+  		return -1;
+  	if((c->wfd = webopen(c, "postbody", OWRITE)) == -1)
+  		return -1;
+/fd/35:8,14 - serve.c:8,14
+  char	*pathpfx = nil;
+  int	allowwrite;
+  
+- _Noreturn static void
++ static void
+  fail(Conn *c, char *fmt, ...)
+  {
+  	char msg[ERRMAX];
+/fd/37:6,11 - walk.c:6,14
+  typedef struct Idxent	Idxent;
+  
+  #define NCACHE 4096
++ #ifndef IOUNIT
++ #define IOUNIT 16*1024
++ #endif
+  
+  enum {
+  	Rflg	= 1 << 0,
+/fd/37:454,461 - walk.c:457,464
+  			if(access(".git/index9", AEXIST) == 0){
+  				fprint(2, "index format conversion needed:\n");
+  				fprint(2, "\tcd %s && git/fs\n", repopath);
+- 				fprint(2, "\t@{cd .git/index9/removed >[2]/dev/null && walk -f | sed 's/^/R NOQID 0 /'} >> .git/INDEX9\n");
+- 				fprint(2, "\t@{cd .git/fs/HEAD/tree && walk -f | sed 's/^/T NOQID 0 /'} >> .git/INDEX9\n");
++ 				fprint(2, "\t@{cd .git/index9/removed >[2]/dev/null && git/aux/walk -f | sed 's/^/R NOQID 0 /'} >> .git/INDEX9\n");
++ 				fprint(2, "\t@{cd .git/fs/HEAD/tree && git/aux/walk -f | sed 's/^/T NOQID 0 /'} >> .git/INDEX9\n");
+  				exits("noindex");
+  			}
+  			staleidx = 1;
+/fd/37:527,533 - walk.c:530,537
+  		loadwdir(argrel[i]);
+  	qsort(wdir, nwdir, sizeof(Idxent), idxcmp);
+  
+- 	if((o = Bfdopen(1, OWRITE)) == nil)
++ 	o = emalloc(sizeof(Biobuf));
++ 	if(Binit(o, 1, OWRITE) == -1)
+  		sysfatal("open out: %r");
+  
+  	i = 0;
+/fd/37:589,598 - walk.c:593,605
+  		}
+  	}
+  	Bterm(o);
++ 	free(o);
+  
+  	if(isindexed && staleidx)
+  	if((wfd = create(".git/INDEX9.new", OWRITE, 0644)) != -1){
+- 		if((w = Bfdopen(wfd, OWRITE)) == nil){
++ 		w = emalloc(sizeof(Biobuf));
++ 		if(Binit(w, wfd, OWRITE) == -1){
++ 			free(w);
+  			close(wfd);
+  			goto Nope;
+  		}
+/fd/37:608,613 - walk.c:615,622
+  				idx[i].path);
+  		}
+  		Bterm(w);
++ 		free(w);
++ 		close(wfd);
+  		nulldir(&rn);
+  		rn.name = "INDEX9";
+  		if(remove(".git/INDEX9") == -1)
+/fd/38:46,52 - mkfile:46,56
+  	ref.$O
+  
+  HFILES=git.h
++ DIRS=aux
+  
++ BASE=\
++ 	http://git.9front.org/plan9front/9front/f1c2de2b318c8789d41831b2d4b1d7a69fcac9e3
++ 
+  </sys/src/cmd/mkmany
+  
+  # Override install target to install rc.
+/fd/38:61,63 - mkfile:65,104
+  %.rcinstall:V:
+  	cp $stem $BIN/$stem
+  	chmod +x $BIN/$stem
++ 
++ all:V:	all.dirs
++ dirs:V: all.dirs
++ install:V: install.dirs
++ installall:V: installall.dirs
++ clean:V: clean.dirs test.clean
++ nuke:V: nuke.dirs
++ test:V: test.dirs
++ 
++ test:V: runtest
++ runtest:V:
++ 	cd test && mk $MKFLAGS test
++ 
++ test.clean:V:
++ 	cd test && mk $MKFLAGS clean
++ 
++ %.dirs:V:
++ 	for(i in $DIRS) @{
++ 		cd $i
++ 		echo mk $i
++ 		mk $MKFLAGS $stem
++ 	}
++ 
++ # review the 4e port against its base revision
++ base.diff:E:
++ 	{
++ 		diff -bc <{hget $BASE ^ /sys/lib/git/common.rc ^/raw} ../../../lib/git/common.rc
++ 		for(i in $RC)
++ 			diff -bc <{hget $BASE ^ /sys/src/cmd/git/$i ^ /raw} $i
++ 		for(i in *.c mkfile)
++ 			diff -c <{hget $BASE ^ /sys/src/cmd/git/$i ^ /raw} $i
++ 		for(i in aux/*.c aux/diff/*.c aux/diff/mkfile)
++ 			diff -c <{hget $BASE ^ /sys/src/cmd/^`{echo $i | sed 's!aux/!!'} ^ /raw} $i
++ 		for(i in test/*.rc test/mkfile)
++ 			diff -c <{hget $BASE ^ /sys/src/cmd/git/$i ^ /raw} $i
++ 		status = ''
++ 	} | tee $target
+/fd/39:803,809 - aux/patch.c:803,810
+  			fail("open %s: %r", rejfile);
+  	}
+  	if(argc == 0){
+- 		if((f = Bfdopen(0, OREAD)) == nil)
++ 		f = emalloc(sizeof(Biobuf));
++ 		if(Binit(f, 0, OREAD) == -1)
+  			fail("open stdin: %r");
+  		if((p = parse(f, "stdin")) == nil)
+  			fail("parse patch: %r");
+/fd/39:815,820 - aux/patch.c:816,822
+  		}
+  		freepatch(p);
+  		Bterm(f);
++ 		free(f);
+  		ok = finish(ok);
+  	}else{
+  		for(i = 0; ok && i < argc; i++){
+/fd/40:271,279 - aux/walk.c:271,280
+  
+  	fmtinstall('M', dirmodefmt);
+  
+- 	if((bout = Bfdopen(1, OWRITE)) == nil)
++ 	if((bout = malloc(sizeof(Biobuf))) == nil)
++ 		sysfatal("malloc: %r");
++ 	if(Binit(bout, 1, OWRITE) == -1)
+  		sysfatal("Bfdopen: %r");
+- 	Blethal(bout, nil);
+  	if(stfmt == nil){
+  		if((stfmt = s_new()) == nil)
+  			sysfatal("s_new: %r");
+/fd/40:304,309 - aux/walk.c:305,311
+  		free(d);
+  	}
+  	Bterm(bout);
++ 	free(bout);
+  
+  	exits(nil);
+  }
+/fd/47:9,13 - aux/diff/mkfile:9,26
+  
+  HFILES=diff.h
+  
+- BIN=/$objtype/bin
++ BIN=/$objtype/bin/git/aux
+  </sys/src/cmd/mkmany
++ 
++ $BIN/%: $BIN
++ $BIN:
++ 	mkdir -p $target
++ 
++ test:V: runtest
++ runtest:V:
++ 	cd test && mk $MKFLAGS test
++ 
++ test.clean:V:
++ 	cd test && mk $MKFLAGS clean
++ 
++ clean:V: test.clean
+/fd/50:23,44 - test/diff.rc:23,52
+  	echo >subdir/subdir2/file2.txt
+  	echo >subdir3/file3.txt
+  
+- 	out=`$nl{git/diff -s . | awk '{ print $2 }'}
++ 	ifs=$nl {
++ 		out=`{git/diff -s . | awk '{ print $2 }'}
++ 	}
+  	~ $out(1) file.txt && ~ $out(2) subdir/file1.txt && ~ $out(3) subdir/subdir2/file2.txt \
+  		~ $out(4) subdir3/file3.txt || die 'base level fail'
+  
+  	cd subdir
+- 	out=`$nl{git/diff -s .. | awk '{ print $2 }'}
++ 	ifs=$nl {
++ 		out=`{git/diff -s .. | awk '{ print $2 }'}
++ 	}
+  	~ $out(1) ../file.txt && ~ $out(2) file1.txt && ~ $out(3) subdir2/file2.txt \
+  		~ $out(4) ../subdir3/file3.txt || die 'subdir1 level fail'
+  
+  	cd subdir2
+- 	out=`$nl{git/diff -s ../.. | awk '{ print $2 }'}
++ 	ifs=$nl {
++ 		out=`{git/diff -s ../.. | awk '{ print $2 }'}
++ 	}
+  	~ $out(1) ../../file.txt && ~ $out(2) ../file1.txt && ~ $out(3) file2.txt \
+  		~ $out(4) ../../subdir3/file3.txt || die 'subdir2 level fail'
+  
+  	cd ../../subdir3
+- 	out=`$nl{git/diff -s .. | awk '{ print $2 }'}
++ 	ifs=$nl {
++ 		out=`{git/diff -s .. | awk '{ print $2 }'}
++ 	}
+  	~ $out(1) ../file.txt && ~ $out(2) ../subdir/file1.txt && ~ $out(3) ../subdir/subdir2/file2.txt \
+  		~ $out(4) file3.txt || die 'subdir3 level fail'
+  
+/fd/54:52,58 - test/merge.rc:52,58
+  flag +x
+  ~ `{cat b/a} x || die merge 1.a
+  ~ `{cat b/b} y || die merge 1.b
+- ~ `''{cat b/c} $c || die merge 1.c
++ ifs=() {~ `{cat b/c} $c} || die merge 1.c
+  test -x b/a || die merge preserve exec
+  ! test -x b/b || die merge preserve nonexec b
+  ! test -x b/c || die merge preserve nonexec c
+/fd/54:87,93 - test/merge.rc:87,93
+  '
+  ~ `{cat b/a} x || die	# commit from a
+  ~ `{cat b/b} y || die # commit from b
+- ~ `''{cat b/c} $c || {diff -u b/c <{echo $c}; die merge 1.c}
++ ifs=() {~ `{cat b/c} $c} || {diff -u b/c <{echo $c}; die merge 1.c}
+  ! test -x b/a || die merge remove exec
+  test -x b/b || die merge add exec
+  ! test -x b/c || die merge preserve nonexec c
+/fd/54:114,120 - test/merge.rc:114,120
+  	q git/branch myhead
+  	q git/merge front
+  	q git/commit -m 'Merge front'
+- 	d=`''{git/diff lib/words lib/ndb/local}  # should have no output
++ 	ifs=() {d=`{git/diff lib/words lib/ndb/local}}  # should have no output
+  	if(! ~ $d ''){
+  		echo $d
+  		exit diff
+/fd/58:14,18 - test/util.rc:14,22
+  	}
+  }
+  
++ fn diff {
++ 	git/aux/diff $*
++ }
++ 
+  rfork n
+  bind $cputype.git /bin/git
+/fd/59:1,4 - test/mkfile:1,4
+- </$objtype/mkfile
++ </$cputype/mkfile
+  
+  TEST=\
+  	add\
+/fd/59:12,21 - test/mkfile:12,21
+  	range\
+  	rebase
+  
+- </sys/src/cmd/mktest
++ <mktest
+  
+  $cputype.git:
+- 	@{cd .. && objtype=$cputype mk install 'BIN=test/'$target}
++ 	@{mkdir -p $target; rfork n; bind -c $target /$objtype/bin/git; cd .. && objtype=$cputype mk install}
+  
+  test:V:	$cputype.git
+  

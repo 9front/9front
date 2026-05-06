@@ -4,12 +4,20 @@ rfork ne
 
 diffpath=/tmp/gitimport.$pid.diff
 fn sigexit {
-	rm -f $diffpath
+	rm -f $diffpath $diffpath.*
 }
 
 fn apply1 {
+	ifs=() {
+		adate = `{cat $diffpath.adate}
+		amail = `{cat $diffpath.amail}
+		aname = `{cat $diffpath.aname}
+		msg = `{cat $diffpath.msg}
+	}
 	adate=`{seconds $adate}
-	files=`$nl{patch -np1 < $diffpath}
+	ifs=$nl {
+		files=`{patch -np1 < $diffpath}
+	}
 	if(! git/walk -q $files){
 		>[1=2] {
 			echo patch would clobber files:
@@ -18,7 +26,7 @@ fn apply1 {
 		}
 	}
 	echo applying $msg | sed 1q
-	if(! files=`$nl{patch -p1 < $diffpath})
+	if(! ifs=$nl { files=`{patch -p1 < $diffpath} })
 		die 'patch failed'
 	for(f in $files){
 		if(test -e $f)
@@ -36,7 +44,6 @@ fn apply1 {
 	}
 	exit ''
 }
-	
 
 fn apply @{
 	git/fs
@@ -52,23 +59,26 @@ fn apply @{
 		refpath=.git/HEAD
 	if not
 		die 'invalid branch:' $branch
+	bind /bin/rc /$cputype/bin/ape/sh
 	awk '
 	function doapply(){
 		if(aname == "" || amail == "" || date == "" || gotmsg == "")
 			exit("missing headers");
-		printf "%s", aname > "/env/aname"
-		printf "%s", amail > "/env/amail"
-		printf "%s", date > "/env/adate"
+		printf "%s", aname > (diffpath ".aname")
+		printf "%s", amail > (diffpath ".amail")
+		printf "%s", date > (diffpath ".adate")
 		if(system("rc -c apply1") != 0)
 			exit("patch failed");
-		close("/env/aname")
-		close("/env/amail")
-		close("/env/adate")
-		close(ENVIRON["diffpath"])
+		close(diffpath ".aname")
+		close(diffpath ".amail")
+		close(diffpath ".adate")
+		close(diffpath ".msg")
+		close(diffpath)
 		applied = 1
 	}
 	BEGIN{
 		state="headers"
+		diffpath = ENVIRON["diffpath"]
 	}
 	state=="diff" && !/^[-+ @]|^diff|^$/{
 		state="footers";
@@ -93,7 +103,7 @@ fn apply @{
 	state=="headers" && /^Subject:/{
 		sub(/^Subject:[ \t]*([Rr][Ee]:)?[ \t]*(\[[^\]]*\][ \t]*)*/, "", $0);
 		gotmsg = 1
-		print > "/env/msg"
+		print > (diffpath".msg")
 	}
 	state=="headers" && /^$/ {
 		state="body"
@@ -108,13 +118,13 @@ fn apply @{
 	}
 	state=="body" {
 		if(empty)
-			printf "\n" > "/env/msg"
+			printf "\n" > (diffpath".msg")
 		empty=0
 		sub(/[ 	]+$/, "")
-		print > "/env/msg"
+		print > (diffpath".msg")
 	}
 	state=="diff" {
-		print > ENVIRON["diffpath"]
+		print > diffpath
 	}
 	END{
 		if(!failed && state == "diff" && doapply() != 0){
@@ -127,8 +137,9 @@ fn apply @{
 
 gitup
 
-flagfmt='n:nocommit'; args='file ...'
-eval `''{aux/getflags $*} || exec aux/usage
+flagfmt='n'; args='file ...'
+ifs=() eval `{aux/getflags $*} || exec aux/usage
+nocommit=$flagn
 
 patches=(/fd/0)
 if(! ~ $#* 0)

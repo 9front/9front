@@ -49,13 +49,15 @@ fn mergeperm {
 }
 
 fn whoami{
-	name=`$nl{git/conf user.name}
-	email=`$nl{git/conf user.email}
-	if(test -f /adm/keys.who){
-		if(~ $name '')
-			name=`$nl{awk -F'|' '$1=="'$user'" {x=$3} END{print x}' </adm/keys.who}
-		if(~ $email '')
-			email=`$nl{awk -F'|' '$1=="'$user'" {x=$5} END{print x}' </adm/keys.who}
+	ifs=$nl {
+		name=`{git/conf user.name}
+		email=`{git/conf user.email}
+		if(test -f /adm/keys.who){
+			if(~ $name '')
+				name=`{awk -F'|' '$1=="'$user'" {x=$3} END{print x}' </adm/keys.who}
+			if(~ $email '')
+				email=`{awk -F'|' '$1=="'$user'" {x=$5} END{print x}' </adm/keys.who}
+		}
 	}
 	if(~ $name '')
 		name=$user
@@ -86,7 +88,9 @@ fn merge1 {@{
 		theirs=/dev/null
 
 	if(mergeperm $ours $base $theirs){
-		mkdir -p `$nl{basename -d $tmp}
+		ifs=$nl {
+			mkdir -p `{basename -d $tmp}
+		}
 		if(! merge3 $ours $base $theirs > $tmp)
 			echo merge needed: $out >[1=2]
 		mv $tmp $out
@@ -100,14 +104,16 @@ fn merge1 {@{
 }}
 
 fn gitup{
-	gitroot=`$nl{git/conf -r >[2]/dev/null}
-	if(~ $#gitroot 0)
-		die 'not a git repository'
-	gitfs=$gitroot/.git/fs
-	gitrel=`$nl{pwd | drop $gitroot | sed 's@^/@@'}
-	if(~ $#gitrel 0)
-		gitrel='.'
-	if(! cd $gitroot)
+	ifs=$nl {
+		gitroot=`{git/conf -r >[2]/dev/null}
+		if(~ $#gitroot 0)
+			die 'not a git repository'
+		gitfs=$gitroot/.git/fs
+		gitrel=`{pwd | drop $gitroot | sed 's@^/@@'}
+		if(~ $#gitrel 0)
+			gitrel='.'
+	}
+	if(! builtin cd $gitroot)
 		die cd $gitroot: no repo there
 	startfs=()
 	mkdir -p $gitfs
@@ -119,4 +125,28 @@ fn gitup{
 		git/fs >[1=2]
 	if not
 		status=''
+}
+
+fn walk {
+	git/aux/walk $*
+}
+
+fn merge3 {
+	git/aux/merge3 $*
+}
+
+fn patch {
+	git/aux/patch $*
+}
+
+fn diff {
+	ape/diff $*
+}
+
+fn hold {
+	{
+		echo holdon >[1=3]
+		cat $1 > /dev/cons
+		cat /dev/cons > $1
+	} >[3]/dev/consctl
 }

@@ -1,0 +1,6 @@
+contrib/pull git
+
+# after changes:
+mk test
+rm base.diff; mk clean base.diff # mkfile
+contrib/push git

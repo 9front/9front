@@ -4,16 +4,20 @@ rfork en
 
 gitup
 
-flagfmt='c:query query' args='file ...'
-if (! eval `''{aux/getflags $*} || ~ $#* 0)
+flagfmt='c query' args='file ...'
+if (! ifs=() eval `{aux/getflags $*} || ~ $#* 0)
 	exec aux/usage
+query=$flagc
 
 if(~ $#query 0)
 	query=HEAD
 commit=`{git/query -p $query}
 
-files=`$nl{cleanname -d $gitrel $* | drop $gitroot}
-for(f in `$nl{git/walk -c -fRM -b $query $files}){
+ifs=$nl {
+	files=`{cleanname -d $gitrel $* | drop $gitroot}
+	walked=`{git/walk -c -fRM -b $query $files}
+}
+for(f in $walked){
 	mkdir -p `{basename -d $f}
 	cp -x -- $commit/tree/$f $f
 	touch -c $f

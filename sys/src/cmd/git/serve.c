@@ -8,7 +8,7 @@
 char	*pathpfx = nil;
 int	allowwrite;
 
-_Noreturn static void
+static void
 fail(Conn *c, char *fmt, ...)
 {
 	char msg[ERRMAX];

@@ -5,8 +5,6 @@
 #include "git.h"
 
 #define Useragent	"useragent git/2.24.1"
-#define Contenthdr	"headers Content-Type: application/x-git-%s-pack-request"
-#define Accepthdr	"headers Accept: application/x-git-%s-pack-result"
 
 enum {
 	Nproto	= 16,
@@ -508,9 +506,6 @@ gitconnect(Conn *c, char *uri, char *direction)
 int
 writephase(Conn *c)
 {
-	char hdr[128];
-	int n;
-
 	dprint(1, "start write phase\n");
 	if(c->type != ConnHttp)
 		return 0;
@@ -520,12 +515,6 @@ writephase(Conn *c)
 	if(c->cfd != -1)
 		close(c->cfd);
 	if((c->cfd = webclone(c, c->url)) == -1)
-		return -1;
-	n = snprint(hdr, sizeof(hdr), Contenthdr, c->direction);
-	if(write(c->cfd, hdr, n) == -1)
-		return -1;
-	n = snprint(hdr, sizeof(hdr), Accepthdr, c->direction);
-	if(write(c->cfd, hdr, n) == -1)
 		return -1;
 	if((c->wfd = webopen(c, "postbody", OWRITE)) == -1)
 		return -1;
