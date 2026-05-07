@@ -336,32 +336,20 @@ chrecv(Chan *c)
 	return a;
 }
 
-int
-chsendnb(Chan *c, void *m, int block)
+void
+chsend(Chan *c, void *m)
 {
 	long v;
-	int r;
 
 	v = agetl(&c->avail);
-	if(v == 0 || !acasl(&c->avail, v, v-1)){
-		while((r = semacquire(&c->avail.v, block)) == -1)
-			continue;
-		if(r == 0)
-			return 0;
-	}
+	if(v == 0 || !acasl(&c->avail, v, v-1))
+		semacquire(&c->avail.v, 1);
 	lock(&c->wl);
 	*c->wp = m;
 	if(++c->wp >= &c->args[c->size])
 		c->wp = c->args;
 	unlock(&c->wl);
 	semrelease(&c->count.v, 1);
-	return 1;
-}
-
-void
-chsend(Chan *c, void *m)
-{
-	chsendnb(c, m, 1);
 }
 
 static void
@@ -3070,15 +3058,7 @@ snapmsg(char *old, char *new)
 		a->delete = 1;
 	else
 		strecpy(a->new, a->new+sizeof(a->new), new);
-	/*
-	 * We're within an epoch, which means we need to guarantee
-	 * forward progress; snapshots are non-critical enough that
-	 * skipping one is the best option.
-	 */
-	if(!chsendnb(fs->admchan, a, 0)){
-		fprint(2, "skipping snapshot %s => %s (file system too busy)\n", a->old, (a->new != nil) ? a->new : "(delete)");
-		free(a);
-	}
+	chsend(fs->admchan, a);
 }
 
 static void

@@ -202,7 +202,6 @@ int	Qconv(Fmt*);
 Chan*	mkchan(int);
 void*	chrecv(Chan*);
 void	chsend(Chan*, void*);
-int	chsendnb(Chan*, void*, int);
 void	runfs(int, void*);
 void	runmutate(int, void*);
 void	runread(int, void*);
