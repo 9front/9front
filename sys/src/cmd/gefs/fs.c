@@ -623,15 +623,14 @@ loadhist(Mount *mnt, Cron *c)
 			continue;
 		memcpy(buf, s.kv.k+1, s.kv.nk-1);
 		buf[s.kv.nk-1] = 0;
-
-		if(c->cnt == 0)
+		if(c->cnt == 0){
 			snapmsg(buf, nil);
-		else if(c->lbl[i][0] != 0){
-			assert(sizeof(buf) == sizeof(c->lbl[i]));
-			snapmsg(c->lbl[i], nil);
-			memcpy(c->lbl[i], buf, sizeof(buf));
-			i = (i+1) % c->cnt;
+			continue;
 		}
+		if(c->lbl[i][0] != 0 && c->cnt > 0)
+			snapmsg(c->lbl[i], nil);
+		memcpy(c->lbl[i], buf, sizeof(buf));
+		i = (c->cnt > 0) ? (i+1) % c->cnt : 0;
 	}
 	btexit(&s);
 	if(tz == nil)
@@ -649,7 +648,7 @@ static void
 loadautos(Mount *mnt)
 {
 	char *p, pfx[32], rbuf[Kvmax+1];
-	int i, n, div, cnt, op;
+	int i, n, c, div, cnt, op;
 	Kvp kv, r;
 
 	pfx[0] = Kconf;
@@ -670,7 +669,7 @@ loadautos(Mount *mnt)
 	};
 	memcpy(mnt->cron, crons, sizeof crons);
 	while(*p){
-		cnt = 0;
+		cnt = -1;
 		div = 1;
 		op = -1;
 
@@ -685,7 +684,7 @@ loadautos(Mount *mnt)
 			op = *p++;
 		while(*p == ' ' || *p == '\t')
 			p++;
-		if(cnt < 0 || div <= 0){
+		if(div <= 0){
 Bad:			memset(mnt->cron, 0, sizeof(mnt->cron));
 			fprint(2, "invalid time spec\n");
 			return;
@@ -697,9 +696,10 @@ Bad:			memset(mnt->cron, 0, sizeof(mnt->cron));
 		if(i == nelem(crons))
 			goto Bad;
 
-		mnt->cron[i].div *= div;
+		c = (cnt <= 0) ? 1 : cnt;
 		mnt->cron[i].cnt = cnt;
-		mnt->cron[i].lbl = emalloc(cnt*sizeof(char[128]), 1);
+		mnt->cron[i].div = div*crons[i].div;
+		mnt->cron[i].lbl = emalloc(c*128, 1);
 	}
 	for(i = 0; i < nelem(mnt->cron); i++)
 		loadhist(mnt, &mnt->cron[i]);
@@ -3091,11 +3091,11 @@ cronsync(char *name, Cron *c, Tm *tm, vlong now)
 	if(now/c->div == c->last/c->div)
 		return;
 
-	if(c->lbl[c->i][0] != 0)
+	if(c->cnt > 0 && c->lbl[c->i][0] != 0)
 		snapmsg(c->lbl[c->i], nil);
 	p = c->lbl[c->i];
 	e = p + sizeof(c->lbl[c->i]);
-	c->i = (c->i+1)%c->cnt;
+	c->i = (c->cnt > 0) ? (c->i+1) % c->cnt : 0;
 	seprint(p, e, "%s@%s.%τ",
 		name, c->tag,
 		tmfmt(tm, Tmfmt));
