@@ -54,7 +54,7 @@ showrefs(Conn *c)
 	names = nil;
 
 	if((s = gethead(&head,  buf, sizeof(buf))) == nil)
-		goto error;
+		memset(&head, 0, sizeof(Hash));
 	if(fmtpkt(c, "%H HEAD%csymref=HEAD:%s no-thin\n", head, 0, s) == -1)
 		goto error;
 	if((nrefs = listrefs(&refs, &names)) == -1)
