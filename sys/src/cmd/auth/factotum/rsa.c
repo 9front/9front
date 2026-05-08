@@ -10,6 +10,8 @@
  * all numbers are hexadecimal biginits parsable with strtomp.
  *
  * Sign (PKCS #1 using hash=sha1 or hash=md5)
+ *	read public key (optional)
+ *		if you don't like it, read another, repeat
  *	write hash(msg)
  *	read signature(hash(msg))
  *
@@ -137,6 +139,7 @@ rsaread(Fsstate *fss, void *va, uint *n)
 	switch(fss->phase){
 	default:
 		return phaseerror(fss, "read");
+	case SNeedHash:
 	case CHavePub:
 		do {
 			if(s->key){
