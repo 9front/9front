@@ -15,6 +15,11 @@ case checkready checkdone
 	export ndbsetup
 
 case go
+	if(~ $#etheraddr 0){
+		echo 'No ethernet device configured.'
+		exit
+	}
+
 	echo
 	echo 'Setup network configuration'
 	echo
