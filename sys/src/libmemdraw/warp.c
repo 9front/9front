@@ -84,9 +84,9 @@ getpixel_k1(Sampler *s, Point pt)
 	ulong off, npack, v;
 
 	p = s->a + pt.y*s->bpl + (pt.x >> 3);
-	npack = 8;
-	off = pt.x % npack;
-	v = p[0] >> (npack-1-off) & 0x1;
+	npack = 8-1;
+	off = pt.x & npack;
+	v = p[0] >> (npack-off) & 0x1;
 	return v*0xFFFFFF00 | 0xFF;
 }
 
@@ -97,9 +97,9 @@ getpixel_k2(Sampler *s, Point pt)
 	ulong off, npack;
 
 	p = s->a + pt.y*s->bpl + (pt.x*2 >> 3);
-	npack = 8/2;
-	off = pt.x % npack;
-	v = p[0] >> 2*(npack-1-off) & 0x3;
+	npack = 8/2 - 1;
+	off = pt.x & npack;
+	v = p[0] >> 2*(npack-off) & 0x3;
 	return v*0x55555500 | 0xFF;
 }
 
@@ -110,9 +110,9 @@ getpixel_k4(Sampler *s, Point pt)
 	ulong off, npack;
 
 	p = s->a + pt.y*s->bpl + (pt.x*4 >> 3);
-	npack = 8/4;
-	off = pt.x % npack;
-	v = p[0] >> 4*(npack-1-off) & 0xF;
+	npack = 8/4 - 1;
+	off = pt.x & npack;
+	v = p[0] >> 4*(npack-off) & 0xF;
 	return v*0x11111100 | 0xFF;
 }
 
@@ -346,9 +346,9 @@ putpixel_k1(Blitter *blt, Point dp, ulong rgba)
 	m >>= 8-1;
 
 	mask = 0x1;
-	npack = 8;
-	off = dp.x%npack;
-	sh = npack-1-off;
+	npack = 8-1;
+	off = dp.x&npack;
+	sh = npack-off;
 	mask <<= sh;
 	m <<= sh;
 	p[0] = (p[0] ^ m) & mask ^ p[0];
@@ -369,9 +369,9 @@ putpixel_k2(Blitter *blt, Point dp, ulong rgba)
 	m >>= 8-2;
 
 	mask = 0x3;
-	npack = 8/2;
-	off = dp.x%npack;
-	sh = 2*(npack-1-off);
+	npack = 8/2 - 1;
+	off = dp.x&npack;
+	sh = 2*(npack-off);
 	mask <<= sh;
 	m <<= sh;
 	p[0] = (p[0] ^ m) & mask ^ p[0];
@@ -392,9 +392,9 @@ putpixel_k4(Blitter *blt, Point dp, ulong rgba)
 	m >>= 8-4;
 
 	mask = 0xF;
-	npack = 8/4;
-	off = dp.x%npack;
-	sh = 4*(npack-1-off);
+	npack = 8/4 - 1;
+	off = dp.x&npack;
+	sh = 4*(npack-off);
 	mask <<= sh;
 	m <<= sh;
 	p[0] = (p[0] ^ m) & mask ^ p[0];
