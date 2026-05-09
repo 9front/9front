@@ -142,6 +142,7 @@ enum {
 	RGBA32	= CHAN4(CRed, 8, CGreen, 8, CBlue, 8, CAlpha, 8),
 	ARGB32	= CHAN4(CAlpha, 8, CRed, 8, CGreen, 8, CBlue, 8),	/* stupid VGAs */
 	XRGB32	= CHAN4(CIgnore, 8, CRed, 8, CGreen, 8, CBlue, 8),
+	BGR15	= CHAN4(CIgnore, 1, CBlue, 5, CGreen, 5, CRed, 5),	/* beloved GBA */
 	BGR24	= CHAN3(CBlue, 8, CGreen, 8, CRed, 8),
 	ABGR32	= CHAN4(CAlpha, 8, CBlue, 8, CGreen, 8, CRed, 8),
 	XBGR32	= CHAN4(CIgnore, 8, CBlue, 8, CGreen, 8, CRed, 8),
