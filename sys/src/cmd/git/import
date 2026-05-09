@@ -70,7 +70,7 @@ fn apply @{
 	BEGIN{
 		state="headers"
 	}
-	state=="diff" && !/^[-+ @]|^diff|^$/{
+	state=="diff" && !/^[-+ @]|^diff|^$|^\\ No newline at end of file$/{
 		state="footers";
 		doapply();
 	}
