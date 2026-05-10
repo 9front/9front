@@ -9,11 +9,15 @@ unloadmemimage(Memimage *i, Rectangle r, uchar *data, int ndata)
 	int y, l;
 	uchar *q;
 
-	if(badrect(r) || !rectinrect(r, i->r))
+	if(badrect(r) || !rectinrect(r, i->r)){
+		werrstr("unloadmemimage: bad rectangle");
 		return -1;
+	}
 	l = bytesperline(r, i->depth);
-	if(ndata < l*Dy(r))
+	if(ndata < l*Dy(r)){
+		werrstr("unloadmemimage: buffer too small");
 		return -1;
+	}
 	ndata = l*Dy(r);
 	q = byteaddr(i, r.min);
 	for(y=r.min.y; y<r.max.y; y++){
