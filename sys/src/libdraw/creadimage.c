@@ -12,8 +12,10 @@ creadimage(Display *d, int fd, int)
 	Image *i;
 	ulong chan;
 
-	if(readn(fd, hdr, 5*12) != 5*12)
+	if(readn(fd, hdr, 5*12) != 5*12){
+		werrstr("creadimage: short header");
 		return nil;
+	}
 
 	/*
 	 * distinguish new channel descriptor from old ldepth.
@@ -71,6 +73,8 @@ creadimage(Display *d, int fd, int)
 	miny = r.min.y;
 	while(miny != r.max.y){
 		if(readn(fd, hdr, 2*12) != 2*12){
+		Shortread:
+			werrstr("creadimage: short read");
 		Errout:
 			freeimage(i);
 			free(buf);
@@ -87,7 +91,7 @@ creadimage(Display *d, int fd, int)
 			goto Errout;
 		}
 		if(readn(fd, buf, nb)!=nb)
-			goto Errout;
+			goto Shortread;
 		if(d != nil){
 			_lockdisplay(d);
 			a = bufimage(i->display, 21+nb);
