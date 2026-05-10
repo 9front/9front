@@ -201,6 +201,9 @@ render(URLwin *u, Bytes *t, Item *items, int curanchor)
 	col = 0;
 	wordi = 0;
 
+	if(u->docinfo->doctitle != nil)
+		renderrunes(t, u->docinfo->doctitle);
+
 	for(il=items; il!=nil; il=il->next){
 		if(il->state & IFbrk)
 			renderbytes(t, "\n");
