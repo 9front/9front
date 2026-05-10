@@ -68,10 +68,10 @@ and
 The input should be a Plan 9 image
 as described in 
 .IR image (6),
-and the output will be a compressed 24-bit
+and the output will be a 24-bit
 .B r8g8b8
 image.
-To uncompress the image or change the pixel format, use
+To change the pixel format, use
 .I iconv
 (see
 .IR crop (1)).
