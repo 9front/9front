@@ -137,6 +137,8 @@ To crop white edges off the picture and add a ten-pixel pink border,
 crop -c 255 255 255 -i -10 -b 255 150 150 imagefile > cropped
 .EE
 .SH SOURCE
+.B /sys/src/cmd/iconv.c
+.br
 .B /sys/src/cmd/crop.c
 .SH SEE ALSO
 .IR image (6),
