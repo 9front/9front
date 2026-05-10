@@ -18,13 +18,13 @@ readmemimage(int fd)
 	Memimage *i;
 
 	if(readn(fd, hdr, 11) != 11){
-		werrstr("readimage: short header");
+		werrstr("readmemimage: short header");
 		return nil;
 	}
 	if(memcmp(hdr, "compressed\n", 11) == 0)
 		return creadmemimage(fd);
 	if(readn(fd, hdr+11, 5*12-11) != 5*12-11){
-		werrstr("readimage: short header (2)");
+		werrstr("readmemimage: short header (2)");
 		return nil;
 	}
 
@@ -41,19 +41,19 @@ readmemimage(int fd)
 		}
 	}
 	if(hdr[11] != ' '){
-		werrstr("readimage: bad format");
+		werrstr("readmemimage: bad format");
 		return nil;
 	}
 	if(new){
 		hdr[11] = '\0';
 		if((chan = strtochan(hdr)) == 0){
-			werrstr("readimage: bad channel string %s", hdr);
+			werrstr("readmemimage: bad channel string %s", hdr);
 			return nil;
 		}
 	}else{
 		ldepth = ((int)hdr[10])-'0';
 		if(ldepth<0 || ldepth>3){
-			werrstr("readimage: bad ldepth %d", ldepth);
+			werrstr("readmemimage: bad ldepth %d", ldepth);
 			return nil;
 		}
 		chan = drawld2chan[ldepth];
@@ -64,7 +64,7 @@ readmemimage(int fd)
 	r.max.x = atoi(hdr+3*12);
 	r.max.y = atoi(hdr+4*12);
 	if(r.min.x>r.max.x || r.min.y>r.max.y){
-		werrstr("readimage: bad rectangle");
+		werrstr("readmemimage: bad rectangle");
 		return nil;
 	}
 

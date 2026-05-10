@@ -9,8 +9,10 @@ cloadmemimage(Memimage *i, Rectangle r, uchar *data, int ndata)
 	int y, bpl, c, cnt, offs;
 	uchar mem[NMEM], *memp, *omemp, *emem, *linep, *elinep, *u, *eu;
 
-	if(badrect(r) || !rectinrect(r, i->r))
+	if(badrect(r) || !rectinrect(r, i->r)){
+		werrstr("cloadmemimage: bad rectangle");
 		return -1;
+	}
 	bpl = bytesperline(r, i->depth);
 	u = data;
 	eu = data+ndata;
@@ -26,16 +28,19 @@ cloadmemimage(Memimage *i, Rectangle r, uchar *data, int ndata)
 			linep = byteaddr(i, Pt(r.min.x, y));
 			elinep = linep+bpl;
 		}
-		if(u == eu){	/* buffer too small */
+		if(u == eu){
+			werrstr("cloadmemimage: buffer too small");
 			return -1;
 		}
 		c = *u++;
 		if(c >= 128){
 			for(cnt=c-128+1; cnt!=0 ;--cnt){
-				if(u == eu){		/* buffer too small */
+				if(u == eu){
+					werrstr("cloadmemimage: buffer too small");
 					return -1;
 				}
-				if(linep == elinep){	/* phase error */
+				if(linep == elinep){
+					werrstr("cloadmemimage: phase error");
 					return -1;
 				}
 				*linep++ = *u;
@@ -45,16 +50,20 @@ cloadmemimage(Memimage *i, Rectangle r, uchar *data, int ndata)
 			}
 		}
 		else{
-			if(u == eu)	/* short buffer */
+			if(u == eu){
+				werrstr("cloadmemimage: short buffer");
 				return -1;
+			}
 			offs = *u++ + ((c&3)<<8)+1;
 			if(memp-mem < offs)
 				omemp = memp+(NMEM-offs);
 			else
 				omemp = memp-offs;
 			for(cnt=(c>>2)+NMATCH; cnt!=0; --cnt){
-				if(linep == elinep)	/* phase error */
+				if(linep == elinep){
+					werrstr("cloadmemimage: phase error");
 					return -1;
+				}
 				*linep++ = *omemp;
 				*memp++ = *omemp++;
 				if(omemp == emem)

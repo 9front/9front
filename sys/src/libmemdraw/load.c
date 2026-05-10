@@ -10,8 +10,10 @@ loadmemimage(Memimage *i, Rectangle r, uchar *data, int ndata)
 	Memdrawparam par;
 	uchar *q;
 
-	if(badrect(r) || !rectinrect(r, i->r))
+	if(badrect(r) || !rectinrect(r, i->r)){
+		werrstr("loadmemimage: bad rectangle");
 		return -1;
+	}
 
 	memset(&par, 0, sizeof par);
 	par.dst = i;
@@ -19,8 +21,10 @@ loadmemimage(Memimage *i, Rectangle r, uchar *data, int ndata)
 	hwdraw(&par);
 
 	l = bytesperline(r, i->depth);
-	if(ndata < l*Dy(r))
+	if(ndata < l*Dy(r)){
+		werrstr("loadmemimage: insufficient data");
 		return -1;
+	}
 	ndata = l*Dy(r);
 	q = byteaddr(i, r.min);
 	mx = 7/i->depth;
