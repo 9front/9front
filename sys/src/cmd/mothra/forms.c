@@ -194,9 +194,11 @@ void rdform(Hglob *g){
 		}
 		else if(cistrcmp(s, "button")==0)
 			f->type=BUTTON;
-		else if(cistrcmp(s, "file")==0)
+		else if(cistrcmp(s, "file")==0){
 			f->type=FILE;
-		else if(cistrcmp(s, "reset")==0)
+			/* Websites must not be able to set a default file path */
+			*f->value = '\0';
+		}else if(cistrcmp(s, "reset")==0)
 			f->type=RESET;
 		else if(cistrcmp(s, "hidden")==0)
 			f->type=HIDDEN;
