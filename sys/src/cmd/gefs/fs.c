@@ -615,8 +615,11 @@ loadhist(Mount *mnt, Cron *c)
 			snapmsg(buf, nil);
 			continue;
 		}
-		if(c->lbl[i][0] != 0 && c->cnt > 0)
-			snapmsg(c->lbl[i], nil);
+// FIXME: there are reports of fs corruption if we send a
+// ton of snap deletions all at once, so we should turn
+// this off until that's resolved.
+//		if(c->lbl[i][0] != 0 && c->cnt > 0)
+//			snapmsg(c->lbl[i], nil);
 		memcpy(c->lbl[i], buf, sizeof(buf));
 		i = (c->cnt > 0) ? (i+1) % c->cnt : 0;
 	}
