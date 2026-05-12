@@ -419,7 +419,7 @@ Cmd cmdtab[] = {
 	{.name="halt",		.sub=nil,	.minarg=0, .maxarg=0, .fn=haltfs},
 	{.name="help",		.sub=nil,	.minarg=0, .maxarg=0, .fn=help},
 	{.name="permit",	.sub=nil,	.minarg=1, .maxarg=1, .fn=permflip},
-	{.name="snap",		.sub=nil,	.minarg=1, .maxarg=3, .fn=snapfs, .epoch=1},
+	{.name="snap",		.sub=nil,	.minarg=1, .maxarg=3, .fn=snapfs},
 	{.name="sync",		.sub=nil,	.minarg=0, .maxarg=0, .fn=syncfs},
 	{.name="reserve",	.sub=nil,	.minarg=0, .maxarg=1, .fn=unreserve},
 	{.name="users",		.sub=nil,	.minarg=0, .maxarg=1, .fn=refreshusers, .epoch=1},
