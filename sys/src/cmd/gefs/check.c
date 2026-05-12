@@ -43,12 +43,12 @@ checktree(int fd, Blk *b, int h, Kvp *lo, Kvp *hi)
 			fprint(fd, "unbalanced leaf\n");
 			fail++;
 		}
-		if(h != 0 && b->nval < 2){
+		if(h != 0 && b->nval < 2 && debug){
 			fprint(fd, "warning: underfilled leaf %B\n", b->bp);
 			fail++;
 		}
 	}
-	if(b->type == Tpivot && b->nval < 2)
+	if(b->type == Tpivot && b->nval < 2 && debug)
 		fprint(fd, "warning: underfilled pivot %B\n", b->bp);
 	getval(b, 0, &x);
 	if(lo && keycmp(lo, &x) > 0){
