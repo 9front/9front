@@ -902,6 +902,7 @@ epochclean(void)
 {
 	ulong c, e, ge;
 	Limbo *p, *n;
+	Dlist *dl;
 	Blk *b;
 	Bfree *f;
 	Arena *a;
@@ -957,6 +958,11 @@ epochclean(void)
 			a = getarena(b->bp.addr);
 			dropblk(b);
 			qput(a->sync, qe);
+			break;
+		case DFdlist:
+			dl = (Dlist*)p;
+			freedl(dl, 1);
+			free(dl);
 			break;
 		default:
 			abort();

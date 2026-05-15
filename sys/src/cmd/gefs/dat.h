@@ -345,6 +345,7 @@ enum {
 	DFbp,
 	DFmnt,
 	DFtree,
+	DFdlist,
 };
 
 struct Limbo {
@@ -379,6 +380,7 @@ struct Msg {
 };
 
 struct Dlist {
+	Limbo;
 	Dlist	*cnext;	/* cache next entry */
 	Dlist	*cprev;	/* cache prev entry */
 	Dlist	*chain;	/* hash table chain */

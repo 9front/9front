@@ -84,7 +84,7 @@ sync(int id)
 {
 	Mount *mnt;
 	Arena *a;
-	Dlist dl;
+	Dlist *dl;
 	Tree *r;
 	int i;
 
@@ -109,9 +109,11 @@ sync(int id)
 	 *  have hit disk; once they're on disk, we
 	 *  can take a consistent snapshot.
          */
+	dl = emalloc(sizeof(Dlist), 1);
 	qlock(&fs->mutlk);
 	epochstart(id);
 	if(waserror()){
+		free(dl);
 		epochend(id);
 		aincl(&fs->rdonly, 1);
 		qunlock(&fs->mutlk);
@@ -130,11 +132,11 @@ sync(int id)
 	 * dlist; the snap tree will not change from here.
 	 */
 	dlsync();
-	dl = fs->snapdl;
+	*dl = fs->snapdl;
 	fs->snapdl.hd = Zb;
 	fs->snapdl.tl = Zb;
 	fs->snapdl.ins = nil;
-	traceb("syncdl.dl", dl.hd);
+	traceb("syncdl.dl", dl->hd);
 	traceb("syncdl.rb", fs->snap.bp);
 	for(i = 0; i < fs->narena; i++){
 		a = &fs->arenas[i];
@@ -205,8 +207,7 @@ sync(int id)
 	 */
 	tracem("snapdl");
 	wrwait();
-	epochwait();
-	freedl(&dl, 1);
+	limbo(DFdlist, dl);
 	qunlock(&fs->synclk);
 	tracem("synced");
 	poperror();
@@ -615,11 +616,8 @@ loadhist(Mount *mnt, Cron *c)
 			snapmsg(buf, nil);
 			continue;
 		}
-// FIXME: there are reports of fs corruption if we send a
-// ton of snap deletions all at once, so we should turn
-// this off until that's resolved.
-//		if(c->lbl[i][0] != 0 && c->cnt > 0)
-//			snapmsg(c->lbl[i], nil);
+		if(c->lbl[i][0] != 0 && c->cnt > 0)
+			snapmsg(c->lbl[i], nil);
 		memcpy(c->lbl[i], buf, sizeof(buf));
 		i = (c->cnt > 0) ? (i+1) % c->cnt : 0;
 	}
