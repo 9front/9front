@@ -376,6 +376,10 @@ based on the processes cpu usage.
 .B "wired\ \fIn
 Wire the process to processor
 .IR n .
+When
+.I n
+is a negative,
+pick a processor with the lowest number of processes wired to it.
 .TP 10n
 .B trace
 Without an argument, toggle trace event generation for this process into
