@@ -894,16 +894,14 @@ clunkfid(Conn *c, Fid *fid, Amsg **ao)
 		f->scan = nil;
 	}
 
-	if((*ao = f->rclose) != nil){
+	wlock(f->dent);
+	if((*ao = f->rclose) != nil && !f->dent->gone){
+		f->dent->gone = 1;
 		f->rclose = nil;
 
 		qlock(&f->dent->trunclk);
 		f->dent->trunc = 1;
 		qunlock(&f->dent->trunclk);
-
-		wlock(f->dent);
-		f->dent->gone = 1;
-		wunlock(f->dent);
 
 		aincl(&f->dent->ref, 1);
 		aincl(&f->mnt->ref, 1);
@@ -914,6 +912,7 @@ clunkfid(Conn *c, Fid *fid, Amsg **ao)
 		(*ao)->end = f->dent->length;
 		(*ao)->dent = f->dent;
 	}
+	wunlock(f->dent);
 }
 
 static void
@@ -1522,6 +1521,8 @@ fsstat(Fmsg *m)
 		putfid(f);
 		nexterror();
 	}
+	if(f->dent->gone)
+		error(Ephase);
 	n = dir2statbuf(f->dent, buf, sizeof(buf));
 	if(n == -1)
 		error(Efs);
@@ -1832,6 +1833,8 @@ fscreate(Fmsg *m)
 	}
 	if(fs->nextqid >= Qdump)
 		error(Enoqid);
+	if(de->gone)
+		error(Ephase);
 	if((de->mode & DMDIR) == 0)
 		error(Ecdir);
 	if(fsaccess(f, de->mode, de->uid, de->gid, DMWRITE) == -1)
@@ -2977,7 +2980,8 @@ Syncout:
 			if(waserror()){
 				epochend(id);
 				qunlock(&fs->mutlk);
-				nexterror();
+				fprint(2, "%s", errmsg());
+				goto Next;
 			}
 			upsert(am->mnt, mb, nm);
 			epochend(id);
