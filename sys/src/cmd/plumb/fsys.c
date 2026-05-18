@@ -105,6 +105,7 @@ static int		clock;
 static Fid		*fids[Nhash];
 static QLock	readlock;
 static QLock	queue;
+static Along	nidleprocs;
 static char	srvfile[128];
 static int		messagesize = 8192+IOHDRSZ;	/* good start */
 
@@ -248,13 +249,14 @@ fsysproc(void*)
 		buf = malloc(messagesize);	/* avoid memset of emalloc */
 		if(buf == nil)
 			error("malloc failed: %r");
+		aincl(&nidleprocs, 1);
 		qlock(&readlock);
 		n = read9pmsg(srvfd, buf, messagesize);
 		if(n == 0)
 			threadexitsall("unmounted");
 		if(n < 0)
 			error("mount read: %r");
-		if(readlock.head == nil)	/* no other processes waiting to read; start one */
+		if(aincl(&nidleprocs, -1) == 0)	/* no other processes waiting to read; start one */
 			proccreate(fsysproc, nil, Stack);
 		qunlock(&readlock);
 		if(t == nil)
