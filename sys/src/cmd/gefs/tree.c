@@ -552,7 +552,8 @@ updateleaf(Tree *t, Path *up, Path *p)
 			ok = 0;
 			if(m.op != Oclearb && m.op != Oclobber){
 				/* New keys need to start off with Oinsert */
-				assert(m.op == Oinsert);
+				if(m.op != Oinsert)
+					broke("%s: broken entry: %M\n", Efs, &m);
 				spc -= valsz(&m);
 				p->pullsz += msgsz(&m);
 				ok = 1;
@@ -757,7 +758,8 @@ splitleaf(Tree *t, Path *up, Path *p)
 			ok = 0;
 			if(m.op != Oclearb && m.op != Oclobber){
 				/* New keys need to start off with Oinsert */
-				assert(m.op == Oinsert);
+				if(m.op != Oinsert)
+					broke("%s: broken entry: %M\n", Efs, &m);
 				spc -= valsz(&m);
 				p->pullsz += msgsz(&m);
 				ok = 1;
@@ -1547,7 +1549,8 @@ Again:
 		getval(p[h-1].b, p[h-1].vi, &m);
 	}else{
 		getmsg(p[start-1].b, p[start-1].bi, &m);
-		assert(m.op == Oinsert);
+		if(m.op != Oinsert)
+			broke("%s: broken entry: %M\n", Efs, &m);
 		bufsrc = start-1;
 	}
 
