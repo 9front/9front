@@ -543,8 +543,10 @@ rudpiput(Proto *rudp, Ipifc *ifc, Block *bp)
 	 * Trim the packet down to data size
 	 */
 	len -= (UDP_RHDRSIZE-UDP_PHDRSIZE);
-	if(len < 0)
+	if(len < 0){
+		freeblist(bp);
 		goto Badlen;
+	}
 	bp = trimblock(bp, UDP_IPHDR+UDP_RHDRSIZE, len);
 	if(bp == nil) {
 Badlen:

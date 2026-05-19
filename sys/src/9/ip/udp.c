@@ -492,8 +492,10 @@ Noconv:
 	/*
 	 * Trim the packet down to data size
 	 */
-	if(len < UDP_UDPHDR_SZ)
+	if(len < UDP_UDPHDR_SZ){
+		freeblist(bp);
 		goto Badlen;
+	}
 	len -= UDP_UDPHDR_SZ;
 	switch(version){
 	case V4:
