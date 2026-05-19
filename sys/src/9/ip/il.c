@@ -922,7 +922,12 @@ ilpullup(Conv *s)
 		ic->outoforder = bp->list;
 
 		bp->list = nil;
-		dlen = nhgets(oh->illen)-IL_HDRSIZE;
+		dlen = nhgets(oh->illen);
+		if(dlen < IL_HDRSIZE){
+			freeblist(bp);
+			continue;
+		}
+		dlen -= IL_HDRSIZE;
 		bp = trimblock(bp, IL_IPSIZE+IL_HDRSIZE, dlen);
 			
 		/*

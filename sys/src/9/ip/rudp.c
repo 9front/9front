@@ -542,10 +542,12 @@ rudpiput(Proto *rudp, Ipifc *ifc, Block *bp)
 	/*
 	 * Trim the packet down to data size
 	 */
-
 	len -= (UDP_RHDRSIZE-UDP_PHDRSIZE);
+	if(len < 0)
+		goto Badlen;
 	bp = trimblock(bp, UDP_IPHDR+UDP_RHDRSIZE, len);
 	if(bp == nil) {
+Badlen:
 		netlog(f, Logrudp, "rudp: len err %I.%d -> %I.%d\n", 
 			raddr, rport, laddr, lport);
 		DPRINT("rudp: len err %I.%d -> %I.%d\n", 

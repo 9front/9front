@@ -1973,7 +1973,7 @@ tcpiput(Proto *tcp, Ipifc *ifc, Block *bp)
 		h4->ttl = ttl;
 
 		hdrlen = ntohtcp4(&seg, &bp);
-		if(hdrlen < 0){
+		if(hdrlen < 0 || hdrlen > length){
 			tpriv->stats[HlenErrs]++;
 			tpriv->stats[InErrs]++;
 			netlog(f, Logtcp, "bad tcp hdr len\n");
@@ -2009,7 +2009,7 @@ tcpiput(Proto *tcp, Ipifc *ifc, Block *bp)
 		hnputs(h6->ploadlen, length);
 
 		hdrlen = ntohtcp6(&seg, &bp);
-		if(hdrlen < 0){
+		if(hdrlen < 0 || hdrlen > length){
 			tpriv->stats[HlenErrs]++;
 			tpriv->stats[InErrs]++;
 			netlog(f, Logtcp, "bad tcpv6 hdr len\n");

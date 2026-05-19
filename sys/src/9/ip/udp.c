@@ -492,6 +492,8 @@ Noconv:
 	/*
 	 * Trim the packet down to data size
 	 */
+	if(len < UDP_UDPHDR_SZ)
+		goto Badlen;
 	len -= UDP_UDPHDR_SZ;
 	switch(version){
 	case V4:
@@ -504,6 +506,7 @@ Noconv:
 		panic("udpiput4: version %d", version);
 	}
 	if(bp == nil){
+Badlen:
 		qunlock(c);
 		netlog(f, Logudp, "udp: len err %I.%d -> %I.%d\n", raddr, rport,
 		       laddr, lport);
