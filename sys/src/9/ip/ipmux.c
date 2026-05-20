@@ -388,8 +388,8 @@ ipmuxtreefree(Ipmux *f)
 {
 	if(f == nil)
 		return;
-	ipmuxfree(f->no);
-	ipmuxfree(f->yes);
+	ipmuxtreefree(f->no);
+	ipmuxtreefree(f->yes);
 	ipmuxfree(f);
 }
 
