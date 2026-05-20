@@ -213,9 +213,10 @@ trimblock(Block *bp, int offset, int len)
 	ulong l;
 	Block *nb, *startb;
 
-	assert(len >= 0);
-	assert(offset >= 0);
-
+	if(offset < 0 || len < 0){
+		freeblist(bp);
+		return nil;
+	}
 	QDEBUG checkb(bp, "trimblock 1");
 	l = blocklen(bp);
 	if(offset == 0 && len == l)

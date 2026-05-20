@@ -895,7 +895,7 @@ ilpullup(Conv *s)
 	Ilcb *ic;
 	Ilhdr *oh;
 	Block *bp;
-	ulong oid, dlen;
+	ulong oid;
 	Ilpriv *ipriv;
 
 	ic = (Ilcb*)s->ptcl;
@@ -922,19 +922,14 @@ ilpullup(Conv *s)
 		ic->outoforder = bp->list;
 
 		bp->list = nil;
-		dlen = nhgets(oh->illen);
-		if(dlen < IL_HDRSIZE){
-			freeblist(bp);
-			continue;
-		}
-		dlen -= IL_HDRSIZE;
-		bp = trimblock(bp, IL_IPSIZE+IL_HDRSIZE, dlen);
+		bp = trimblock(bp, IL_IPSIZE+IL_HDRSIZE, nhgets(oh->illen) - IL_HDRSIZE);
 			
 		/*
 		 * Upper levels don't know about multiple-block
 		 * messages so copy all into one (yick).
 		 */
-		qpass(s->rq, packblock(concatblock(bp)));
+		if(bp != nil)
+			qpass(s->rq, packblock(concatblock(bp)));
 	}
 	qunlock(&ic->outo);
 }

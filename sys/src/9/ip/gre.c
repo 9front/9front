@@ -516,7 +516,7 @@ greuplink(Conv *c, Block *bp)
 static void
 greiput(Proto *proto, Ipifc *, Block *bp)
 {
-	int len, hdrlen;
+	int hdrlen;
 	ushort eproto, flags;
 	uchar raddr[IPaddrlen];
 	Conv *c, **p;
@@ -627,13 +627,7 @@ greiput(Proto *proto, Ipifc *, Block *bp)
 	/*
 	 * Trim the packet down to data size
 	 */
-	len = nhgets(gre->len) - GRE_IPONLY;
-	if(len < GRE_IPPLUSGRE){
-		freeb(bp);
-		return;
-	}
-
-	bp = trimblock(bp, GRE_IPONLY, len);
+	bp = trimblock(bp, GRE_IPONLY, nhgets(gre->len) - GRE_IPONLY);
 	if(bp == nil){
 		gpriv = proto->priv;
 		gpriv->lenerr++;

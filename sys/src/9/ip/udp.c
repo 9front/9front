@@ -328,7 +328,6 @@ udpkick(void *x, Block *bp)
 void
 udpiput(Proto *udp, Ipifc *ifc, Block *bp)
 {
-	int len;
 	Udp4hdr *uh4;
 	Udp6hdr *uh6;
 	Iphash *iph;
@@ -338,9 +337,8 @@ udpiput(Proto *udp, Ipifc *ifc, Block *bp)
 	ushort rport, lport;
 	Udppriv *upriv;
 	Fs *f;
-	int version;
-	int ottl, oviclfl, olen;
 	uchar *p;
+	int version, ottl, oviclfl, olen, len;
 
 	upriv = udp->priv;
 	f = udp->f;
@@ -492,10 +490,6 @@ Noconv:
 	/*
 	 * Trim the packet down to data size
 	 */
-	if(len < UDP_UDPHDR_SZ){
-		freeblist(bp);
-		goto Badlen;
-	}
 	len -= UDP_UDPHDR_SZ;
 	switch(version){
 	case V4:
@@ -508,7 +502,6 @@ Noconv:
 		panic("udpiput4: version %d", version);
 	}
 	if(bp == nil){
-Badlen:
 		qunlock(c);
 		netlog(f, Logudp, "udp: len err %I.%d -> %I.%d\n", raddr, rport,
 		       laddr, lport);
