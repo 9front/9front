@@ -34,7 +34,6 @@ Reprog	*mesgpat;
 Reprog	*filterpat;
 char	*filterflags;
 
-int	threadsort = 1;
 int	sender;
 
 int	plumbseemailfd;
@@ -158,8 +157,9 @@ nsub(Mesg *m)
 	n = 0;
 	for(i = 0; i < m->nchild; i++){
 		c = m->child[i];
+		n += nsub(c);
 		if(!(c->state & (Sdummy|Shide)))
-			n += nsub(c)+1;
+			n++;
 	}
 	return n;
 }
@@ -182,7 +182,9 @@ mesglineno(Mesg *msg, int *depth)
 		for(i = 0; i < p->nchild; i++){
 			if(p->child[i] == m)
 				break;
-			o += nsub(p->child[i]) + 1;
+			o += nsub(p->child[i]);
+			if(!(p->child[i]->state & (Sdummy|Shide)))
+				o++;
 		}
 		if(!(p->state & (Sdummy|Shide))){
 			o++;
@@ -412,7 +414,7 @@ load(char *name, char *digest, int ins)
 		addmesg(m, ins);
 	}
 
-	if(!threadsort || m->inreplyto == nil || ideq(m->messageid, m->inreplyto)){
+	if(mbox.view == Vflat || m->inreplyto == nil || ideq(m->messageid, m->inreplyto)){
 		m->state |= Stoplev;
 		return m;
 	}
@@ -710,7 +712,7 @@ relinkmsg(Mesg *p, Mesg *m)
 static void
 mbflush(char **, int)
 {
-	int i, j, ln, fd;
+	int i, j, n, ln, fd;
 	char *path;
 	Mesg *m, *p;
 
@@ -724,10 +726,14 @@ mbflush(char **, int)
 		p = m->parent;
 		if(m->state & (Sopen|Szap) || (m->flags & (Fdel|Ftodel)) == 0)
 			continue;
-
-		ln = mesglineno(m, nil);
-		fprint(mbox.addr, "%d,%d", ln, ln+nsub(m));
-		write(mbox.data, "", 0);
+		n = nsub(m);
+		if(!(m->state & (Sdummy|Shide)))
+			n++;
+		if(n > 0){
+			ln = mesglineno(m, nil);
+			fprint(mbox.addr, "%d,%d", ln, ln+n-1);
+			write(mbox.data, "", 0);
+		}
 		if(m->flags & Ftodel)
 			fprint(fd, "delete %s %d", mailbox, atoi(m->name));
 
