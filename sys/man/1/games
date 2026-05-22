@@ -137,7 +137,6 @@
 .B games/rotzoomer
 [
 .B -s
-.I smooth
 ]
 .br
 .B games/sokoban
