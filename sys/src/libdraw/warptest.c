@@ -65,11 +65,11 @@ main(int argc, char *argv[])
 	mulm(R, S);
 	mulm(T, R);
 
-	mkwarp(w, T);
+	w = mkwarp(T);
 
 	src = readimage(display, 0, 0);
 	dst = allocimage(display, src->r, src->chan, 0, DNofill);
-	affinewarp(dst, dst->r, src, src->r.min, w, smooth);
+	affinewarp(dst, dst->r, src, src->r.min, &w, smooth);
 	writeimage(1, dst, 0);
 
 	exits(nil);

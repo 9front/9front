@@ -3,15 +3,16 @@
 #include <draw.h>
 
 static void
-putwarp(uchar *a, Warp w)
+putwarp(uchar *a, Warp *w)
 {
-	BPLONG(a+0*3*4+0*4, w[0][0]); BPLONG(a+0*3*4+1*4, w[0][1]); BPLONG(a+0*3*4+2*4, w[0][2]);
-	BPLONG(a+1*3*4+0*4, w[1][0]); BPLONG(a+1*3*4+1*4, w[1][1]); BPLONG(a+1*3*4+2*4, w[1][2]);
-	BPLONG(a+2*3*4+0*4, w[2][0]); BPLONG(a+2*3*4+1*4, w[2][1]); BPLONG(a+2*3*4+2*4, w[2][2]);
+	BPLONG(a+0*3*4+0*4, w->m[0][0]); BPLONG(a+0*3*4+1*4, w->m[0][1]); BPLONG(a+0*3*4+2*4, w->m[0][2]);
+	BPLONG(a+1*3*4+0*4, w->m[1][0]); BPLONG(a+1*3*4+1*4, w->m[1][1]); BPLONG(a+1*3*4+2*4, w->m[1][2]);
+	BPLONG(a+2*3*4+0*4, w->m[2][0]); BPLONG(a+2*3*4+1*4, w->m[2][1]); BPLONG(a+2*3*4+2*4, w->m[2][2]);
+	a[3*3*4] = w->flags << 1;
 }
 
 void
-affinewarp(Image *dst, Rectangle r, Image *src, Point p, Warp w, int smooth)
+affinewarp(Image *dst, Rectangle r, Image *src, Point p, Warp *w, int smooth)
 {
 	uchar *a;
 
@@ -35,6 +36,6 @@ affinewarp(Image *dst, Rectangle r, Image *src, Point p, Warp w, int smooth)
 	BPLONG(a+25, p.x);
 	BPLONG(a+29, p.y);
 	putwarp(a+33, w);
-	a[33+3*3*4] = smooth;
+	a[33+3*3*4] |= smooth&1;
 	_unlockdisplay(dst->display);
 }
