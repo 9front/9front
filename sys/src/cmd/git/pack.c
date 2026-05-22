@@ -931,6 +931,22 @@ parsecommit(Object *o)
 	o->commit->nmsg = np;
 }
 
+static int
+validname(char *s)
+{
+	if(*s == 0)
+		return 0;
+	if(strcmp(s, ".") == 0 || strcmp(s, "..") == 0)
+		return 0;
+	for(; *s; s++){
+		if((*s&0xff) < 0x20 || *s == 0x7f || *s == '/'){
+			werrstr("invalid character in sath: %02x", *(uchar*)s);
+			return 0;
+		}
+	}
+	return 1;
+}
+
 static void
 parsetree(Object *o)
 {
@@ -978,6 +994,8 @@ parsetree(Object *o)
 		}
 		if(m & 0040000) /* dir */
 			t->mode |= DMDIR;
+		if(!validname(p))
+			sysfatal("invalid entry: %r");
 		t->name = p;
 		p = memchr(p, 0, ep - p);
 		if(p == nil || *p++ != 0 ||  ep - p < sizeof(t->h.h))
