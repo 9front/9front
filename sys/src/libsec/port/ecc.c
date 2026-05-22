@@ -441,7 +441,7 @@ ecdsaverify(ECdomain *dom, ECpub *pub, uchar *dig, int len, mpint *r, mpint *s)
 	ECpoint R, S;
 	int ret;
 
-	if(mpcmp(r, mpone) < 0 || mpcmp(s, mpone) < 0 || mpcmp(r, dom->n) >= 0 || mpcmp(r, dom->n) >= 0)
+	if(mpcmp(r, mpone) < 0 || mpcmp(s, mpone) < 0 || mpcmp(r, dom->n) >= 0 || mpcmp(s, dom->n) >= 0)
 		return 0;
 	E = betomp(dig, len, nil);
 	if(mpsignif(dom->n) < 8*len)
