@@ -1,6 +1,6 @@
 .TH GAMES 1
 .SH NAME
-4s, 5s, blabs, catclock, doom, festoon, geigerstats, glendy, juggle, life, mandel, mahjongg, memo, midi, mole, packet, sokoban, sudoku \- time wasters
+4s, 5s, blabs, catclock, doom, festoon, geigerstats, glendy, juggle, life, mandel, mahjongg, memo, midi, mole, packet, rotzoomer, sokoban, sudoku \- time wasters
 .SH SYNOPSIS
 .B games/4s
 .br
@@ -132,6 +132,12 @@
 ] [
 .B -T
 .I display-threshold
+]
+.br
+.B games/rotzoomer
+[
+.B -s
+.I smooth
 ]
 .br
 .B games/sokoban
