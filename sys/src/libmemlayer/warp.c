@@ -9,7 +9,7 @@ struct Draw
 	Memlayer	*dstlayer;
 	Memimage	*src;
 	Point		sp;
-	Warp		warp;
+	Warp		*warp;
 	int		smooth;
 };
 
@@ -39,7 +39,7 @@ ldrawop(Memimage *dst, Rectangle screenr, Rectangle clipr, void *etc, int insave
 }
 
 void
-memlaffinewarp(Memimage *dst, Rectangle r, Memimage *src, Point p0, Warp w, int smooth)
+memlaffinewarp(Memimage *dst, Rectangle r, Memimage *src, Point p0, Warp *w, int smooth)
 {
 	struct Draw d;
 	Rectangle srcr, tr;
@@ -153,7 +153,7 @@ memlaffinewarp(Memimage *dst, Rectangle r, Memimage *src, Point p0, Warp w, int 
 	d.dstlayer = dl;
 	d.src = src;
 	d.sp = p0;
-	memmove(d.warp, w, sizeof(Warp));
+	d.warp = w;
 	d.smooth = smooth;
 	_memlayerop(ldrawop, dst, r, r, &d);
 }

@@ -137,7 +137,7 @@ void	memimageline(Memimage *dst, Point p0, Point p1, int end0,
 void	memimagedraw(Memimage *dst, Rectangle r, Memimage *src,
 	   Point sp, Memimage *mask, Point mp, Drawop op)
 void	memaffinewarp(Memimage *dst, Rectangle r, Memimage *src,
-	   Point sp, Warp w, int smooth)
+	   Point sp, Warp *w, int smooth)
 Memimage*	allocmemimagekernel(double *k, int dx, int dy,
 	   double denom)
 int	memimagecorrelate(Memimage *dst, Rectangle r, Memimage *src,

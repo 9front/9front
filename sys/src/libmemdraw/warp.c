@@ -69,11 +69,11 @@ initblitter(Blitter *b, Memimage *i)
 }
 
 static Point
-xform(Point p, Warp m)
+xform(Point p, Warp *m)
 {
 	return (Point){
-		fixmul(p.x, m[0][0]) + fixmul(p.y, m[0][1]) + m[0][2],
-		fixmul(p.x, m[1][0]) + fixmul(p.y, m[1][1]) + m[1][2]
+		fixmul(p.x, m->m[0][0]) + fixmul(p.y, m->m[0][1]) + m->m[0][2],
+		fixmul(p.x, m->m[1][0]) + fixmul(p.y, m->m[1][1]) + m->m[1][2]
 	};
 }
 
@@ -748,8 +748,58 @@ correlate(Sampler *s, Point p)
 	return r<<24|g<<16|b<<8|a;
 }
 
+/*
+ * integer upscaling optimization
+ */
+static void
+intupscalewarp(Blitter *blit, Rectangle r, Sampler *samp, Point sp0, Warp *m)
+{
+	Point sp, dp, p2, scale;
+	ulong c, bpl;
+	int p2x₀, i;
+	uchar *p;
+
+	bpl = Dx(r)*blit->i->depth >> 3;
+	scale = (Point){
+		fixdiv(int2fix(1), m->m[0][0]),
+		fixdiv(int2fix(1), m->m[1][1])
+	};
+	scale.x = fix2int(scale.x + (1<<12));
+	scale.y = fix2int(scale.y + (1<<12));
+
+	p2 = xform((Point){
+		int2fix(r.min.x - blit->i->r.min.x) + (1<<12),
+		int2fix(r.min.y - blit->i->r.min.y) + (1<<12)
+	}, m);
+	p2x₀ = p2.x;
+
+	for(dp.y = r.min.y; dp.y < r.max.y; ){
+		sp.y = sp0.y + fix2int(p2.y);
+	for(dp.x = r.min.x; dp.x < r.max.x; ){
+		sp.x = sp0.x + fix2int(p2.x);
+
+		c = sample1(samp, sp);
+		for(i = 0; i < scale.x && dp.x < r.max.x; i++){
+			blit->fn(blit, dp, c);
+			dp.x++;
+			p2.x += m->m[0][0];
+		}
+	}
+		p = blit->a + dp.y*blit->bpl + (r.min.x*blit->i->depth >> 3);
+		dp.y++;
+		p2.y += m->m[1][1];
+		for(i = 1; i < scale.y && dp.y < r.max.y; i++){
+			memmove(p+blit->bpl, p, bpl);
+			p += blit->bpl;
+			dp.y++;
+			p2.y += m->m[1][1];
+		}
+		p2.x = p2x₀;
+	}
+}
+
 void
-memaffinewarp(Memimage *d, Rectangle r, Memimage *s, Point sp0, Warp m, int smooth)
+memaffinewarp(Memimage *d, Rectangle r, Memimage *s, Point sp0, Warp *m, int smooth)
 {
 	ulong (*sample)(Sampler*, Point);
 	Sampler samp;
@@ -772,6 +822,11 @@ memaffinewarp(Memimage *d, Rectangle r, Memimage *s, Point sp0, Warp m, int smoo
 	initsampler(&samp, s);
 	initblitter(&blit, d);
 
+	if(!smooth && (m->flags & WFintupscale) != 0){
+		intupscalewarp(&blit, r, &samp, sp0, m);
+		return;
+	}
+
 	/*
 	 * incremental affine warping technique from:
 	 * 	“Fast Affine Transform for Real-Time Machine Vision Applications”,
@@ -793,11 +848,11 @@ memaffinewarp(Memimage *d, Rectangle r, Memimage *s, Point sp0, Warp m, int smoo
 		c = sample(&samp, sp);
 		blit.fn(&blit, dp, c);
 
-		p2.x += m[0][0];
-		p2.y += m[1][0];
+		p2.x += m->m[0][0];
+		p2.y += m->m[1][0];
 	}
-		p2.x = p2₀.x += m[0][1];
-		p2.y = p2₀.y += m[1][1];
+		p2.x = p2₀.x += m->m[0][1];
+		p2.y = p2₀.y += m->m[1][1];
 	}
 }
 
