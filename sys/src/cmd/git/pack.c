@@ -940,7 +940,7 @@ validname(char *s)
 		return 0;
 	for(; *s; s++){
 		if((*s&0xff) < 0x20 || *s == 0x7f || *s == '/'){
-			werrstr("invalid character in sath: %02x", *(uchar*)s);
+			werrstr("invalid character in path element: %02x", *(uchar*)s);
 			return 0;
 		}
 	}
