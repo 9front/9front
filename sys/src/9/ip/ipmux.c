@@ -333,20 +333,87 @@ ipmuxvalcmp(Ipmux *a, Ipmux *b)
 	if(n != 0)
 		return n;
 	return memcmp(a->val, b->val, a->len*a->n);
-} 
+}
 
 /*
- *  add onto an existing ipmux chain in the canonical comparison
- *  order
+ *  Return 1 when when a and b overlap and the values
+ *  exclude each other, meaning if a matches, then b
+ *  is impossible.
  */
-static void
+static int
+ipmuxexcludes(Ipmux *a, Ipmux *b)
+{
+	static uchar t[] = {
+		[Tver] 0,	/* offset from header */
+		[Tproto] 0,
+		[Tiph] 0,
+		[Tdst] 0,
+		[Tsrc] 0,
+		[Tdata] 1,	/* offset from data */
+		[Tifc] 2,	/* offset from Ifc->ip */
+	};
+	int i, j, k, l, m;
+
+	if(t[a->type] != t[b->type])
+		return 0;
+
+	if(a->off + a->len <= b->off || a->off >= b->off + b->len)
+		return 0;
+
+	l = 0;
+	k = 0;
+Again:
+	j = 0;
+	i = b->off - a->off;
+	if(i < 0){
+		j = -i;
+		i = 0;
+	}
+
+	for(; i<a->len && j<b->len; i++, j++){
+		m = ~0;
+		if(a->mask != nil)
+			m &= a->mask[i];
+		if(b->mask != nil)
+			m &= b->mask[j];
+
+		if((a->val[i+k]&m) == (b->val[j+l]&m))
+			continue;
+
+		l += b->len;
+		if(l < b->len*b->n)
+			goto Again;
+		l = 0;
+
+		k += a->len;
+		if(k < a->len*a->n)
+			goto Again;
+
+		return 1;
+	}
+
+	return 0;
+}
+
+/*
+ *  add onto an existing ipmux chain in the canonical comparison order
+ */
+static int
 ipmuxchain(Ipmux **l, Ipmux *f)
 {
-	for(; *l; l = &(*l)->yes)
+	for(; *l; l = &(*l)->yes){
 		if(ipmuxcmp(f, *l) < 0)
 			break;
+		if(ipmuxexcludes(*l, f))
+			return -1;
+	}
+	if(*l != nil){
+		if(ipmuxexcludes(f, *l))
+			return -1;
+	}
 	f->yes = *l;
 	*l = f;
+	return 0;
 }
 
 /*
@@ -361,8 +428,6 @@ ipmuxcopy(Ipmux *f)
 		return nil;
 	nf = smalloc(sizeof *nf);
 	*nf = *f;
-	nf->no = ipmuxcopy(f->no);
-	nf->yes = ipmuxcopy(f->yes);
 	if(f->mask != nil){
 		nf->mask = smalloc(f->len);
 		memmove(nf->mask, f->mask, f->len);
@@ -370,6 +435,8 @@ ipmuxcopy(Ipmux *f)
 	nf->val = smalloc(f->n*f->len);
 	nf->e = nf->val + f->len*f->n;
 	memmove(nf->val, f->val, f->n*f->len);
+	nf->no = ipmuxcopy(f->no);
+	nf->yes = ipmuxcopy(f->yes);
 	return nf;
 }
 
@@ -400,7 +467,6 @@ static Ipmux*
 ipmuxmerge(Ipmux *a, Ipmux *b)
 {
 	int n;
-	Ipmux *f;
 
 	if(a == nil)
 		return b;
@@ -408,15 +474,15 @@ ipmuxmerge(Ipmux *a, Ipmux *b)
 		return a;
 	n = ipmuxcmp(a, b);
 	if(n < 0){
-		f = ipmuxcopy(b);
-		a->yes = ipmuxmerge(a->yes, b);
-		a->no = ipmuxmerge(a->no, f);
+		if(!ipmuxexcludes(a, b))
+			a->yes = ipmuxmerge(a->yes, ipmuxcopy(b));
+		a->no = ipmuxmerge(a->no, b);
 		return a;
 	}
 	if(n > 0){
-		f = ipmuxcopy(a);
-		b->yes = ipmuxmerge(b->yes, a);
-		b->no = ipmuxmerge(b->no, f);
+		if(!ipmuxexcludes(b, a))
+			b->yes = ipmuxmerge(b->yes, ipmuxcopy(a));
+		b->no = ipmuxmerge(b->no, a);
 		return b;
 	}
 	if(ipmuxvalcmp(a, b) == 0){
@@ -536,8 +602,6 @@ ipmuxconv4(Ipmux *f)
 /*
  *  connection request is a semi separated list of filters
  *  e.g. ver=4;proto=17;data[0:4]=11aa22bb;ifc=135.104.9.2&255.255.255.0
- *
- *  there's no protection against overlapping specs.
  */
 static char*
 ipmuxconnect(Conv *c, char **argv, int argc)
@@ -565,7 +629,11 @@ ipmuxconnect(Conv *c, char **argv, int argc)
 			ipmuxtreefree(chain);
 			return Ebadarg;
 		}
-		ipmuxchain(&chain, mux);
+		if(ipmuxchain(&chain, mux) < 0){
+			ipmuxfree(mux);
+			ipmuxtreefree(chain);
+			return "inconsistent filter";
+		}
 	}
 	if(chain == nil)
 		return Ebadarg;
