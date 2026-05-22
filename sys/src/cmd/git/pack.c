@@ -506,7 +506,6 @@ readrdelta(Biobuf *f, Object *o, int nd, int flag)
 		goto error;
 	if((n = decompress(&d, f, nil)) == -1)
 		goto error;
-fprint(2, "offset %lld\n", o->off);
 	o->len = Boffset(f) - o->off;
 	if(d == nil || n != nd)
 		goto error;
