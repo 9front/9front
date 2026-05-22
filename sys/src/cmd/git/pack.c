@@ -455,15 +455,15 @@ applydelta(Object *dst, Object *base, char *d, int nd)
 			o = 0;
 			l = 0;
 			/* Offset in base */
-			if(d != ed && (c & 0x01)) o |= (*d++ & 0xff) <<  0;
-			if(d != ed && (c & 0x02)) o |= (*d++ & 0xff) <<  8;
-			if(d != ed && (c & 0x04)) o |= (*d++ & 0xff) << 16;
-			if(d != ed && (c & 0x08)) o |= (*d++ & 0xff) << 24;
+			if(d != ed && (c & 0x01)) o |= *(uchar*)d++ <<  0;
+			if(d != ed && (c & 0x02)) o |= *(uchar*)d++ <<  8;
+			if(d != ed && (c & 0x04)) o |= *(uchar*)d++ << 16;
+			if(d != ed && (c & 0x08)) o |= *(uchar*)d++ << 24;
 
 			/* Length to copy */
-			if(d != ed && (c & 0x10)) l |= (*d++ & 0xff) <<  0;
-			if(d != ed && (c & 0x20)) l |= (*d++ & 0xff) <<  8;
-			if(d != ed && (c & 0x40)) l |= (*d++ & 0xff) << 16;
+			if(d != ed && (c & 0x10)) l |= *(uchar*)d++ <<  0;
+			if(d != ed && (c & 0x20)) l |= *(uchar*)d++ <<  8;
+			if(d != ed && (c & 0x40)) l |= *(uchar*)d++ << 16;
 			if(l == 0) l = 0x10000;
 
 			if(o < 0 || l < 0 || l > er - r || o + l > base->size){
@@ -506,6 +506,7 @@ readrdelta(Biobuf *f, Object *o, int nd, int flag)
 		goto error;
 	if((n = decompress(&d, f, nil)) == -1)
 		goto error;
+fprint(2, "offset %lld\n", o->off);
 	o->len = Boffset(f) - o->off;
 	if(d == nil || n != nd)
 		goto error;
@@ -1655,6 +1656,7 @@ encodedelta(Meta *m, Object *o, Object *b, void **pp)
 		d = &m->delta[j];
 		if(d->cpy){
 			n = d->off;
+			assert(n < (1ULL<<32));
 			bp = buf + 1;
 			buf[0] = 0x81;
 			buf[1] = 0x00;
@@ -1667,6 +1669,7 @@ encodedelta(Meta *m, Object *o, Object *b, void **pp)
 			}
 
 			n = d->len;
+			assert(n < (1ULL<<24));
 			if(n != 0x10000) {
 				buf[0] |= 0x1<<4;
 				for(i = 0; i < sizeof(buf)-4 && n > 0; i++){
