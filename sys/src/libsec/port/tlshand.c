@@ -2310,7 +2310,7 @@ makeciphers(int ispsk)
 	Ints *is;
 	int i, j;
 
-	is = newints(nciphers);
+	is = newints(nciphers+1);
 	j = 0;
 	for(i = 0; i < nelem(cipherAlgs); i++)
 		if(cipherAlgs[i].ok && isPSK(cipherAlgs[i].tlsid) == ispsk)
