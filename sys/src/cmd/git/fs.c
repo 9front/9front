@@ -15,7 +15,6 @@ enum {
 		Qmsg,
 		Qparent,
 		Qtree,
-		Qcdata,
 		Qhash,
 		Qauthor,
 		Qcommitter,
@@ -79,6 +78,7 @@ char *qroot[] = {
 #define Eimpl	"not implemented"
 #define Egreg	"wat"
 #define Ebadobj	"invalid object"
+#define Ename	"invalid path element"
 
 char	gitdir[512];
 char	*username;
@@ -662,11 +662,13 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 		e = objwalk1(q, o->obj, o, c, name, Qcommit, aux);
 		break;
 	case Qtree:
-		e = objwalk1(q, o->obj, o, c, name, Qtree, aux);
+		if(strcmp(name, ".git") == 0)
+			e = Ename;
+		else
+			e = objwalk1(q, o->obj, o, c, name, Qtree, aux);
 		break;
 	case Qparent:
 	case Qmsg:
-	case Qcdata:
 	case Qhash:
 	case Qauthor:
 	case Qcommitter:
@@ -812,7 +814,6 @@ gitread(Req *r)
 		break;
 	case Qcommit:
 	case Qtree:
-	case Qcdata:
 		objread(r, aux);
 		break;
 	default:
