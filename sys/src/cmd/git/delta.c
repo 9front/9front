@@ -176,12 +176,11 @@ stretch(Dtab *dt, Dblock *b, uchar *s, uchar *e, int n)
 	p = s + n;
 	q = dt->base + b->off + n;
 	p0 = p;
-	if(dt->nbase < (1<<24)-1)
-		eb = dt->base + dt->nbase;
-	else
-		eb = dt->base + (1<<24)-1;
+	eb = dt->base + dt->nbase;
 	while(1){
 		if(p == e || q == eb)
+			break;
+		if(n+(p-p0) >= (1<<24)-1)
 			break;
 		if(*p != *q)
 			break;
