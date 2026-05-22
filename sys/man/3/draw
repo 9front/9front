@@ -182,7 +182,7 @@ interface.
 .IR srcid [4]
 .IR sp [2*4]
 .IR warp [3*3*4]
-.IR smooth [1]
+.IR flags [1]
 .br
 Apply an affine image warping transformation
 .I warp
@@ -194,10 +194,11 @@ and blit the result to the subregion of image
 .I dstid
 defined by
 .IR dr .
-If the
-.I smooth
+If the first bit in the
+.I flags
 byte is set, a bilinear interpolation filter will be applied to the
-samples.
+samples.  The second bit is used to enable the integer upscaling
+optimized path; the remaining bits are reserved for future use.
 See
 .IR affinewarp (2).
 .HP

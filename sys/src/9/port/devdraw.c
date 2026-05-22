@@ -853,11 +853,12 @@ drawpoint(Point *p, uchar *a)
 }
 
 void
-drawwarp(Warp w, uchar *a)
+drawwarp(Warp *w, uchar *a)
 {
-	w[0][0] = BGLONG(a+0*3*4+0*4); w[0][1] = BGLONG(a+0*3*4+1*4); w[0][2] = BGLONG(a+0*3*4+2*4);
-	w[1][0] = BGLONG(a+1*3*4+0*4); w[1][1] = BGLONG(a+1*3*4+1*4); w[1][2] = BGLONG(a+1*3*4+2*4);
-	w[2][0] = BGLONG(a+2*3*4+0*4); w[2][1] = BGLONG(a+2*3*4+1*4); w[2][2] = BGLONG(a+2*3*4+2*4);
+	w->m[0][0] = BGLONG(a+0*3*4+0*4); w->m[0][1] = BGLONG(a+0*3*4+1*4); w->m[0][2] = BGLONG(a+0*3*4+2*4);
+	w->m[1][0] = BGLONG(a+1*3*4+0*4); w->m[1][1] = BGLONG(a+1*3*4+1*4); w->m[1][2] = BGLONG(a+1*3*4+2*4);
+	w->m[2][0] = BGLONG(a+2*3*4+0*4); w->m[2][1] = BGLONG(a+2*3*4+1*4); w->m[2][2] = BGLONG(a+2*3*4+2*4);
+	w->flags = a[3*3*4] >> 1;
 }
 
 Point
@@ -1525,8 +1526,8 @@ drawmesg(Client *client, void *av, int n)
 			drawrectangle(&r, a+5);
 			src = drawimage(client, a+21);
 			drawpoint(&p, a+25);
-			drawwarp(w, a+33);
-			memlaffinewarp(dst, r, src, p, w, a[33+3*3*4]);
+			drawwarp(&w, a+33);
+			memlaffinewarp(dst, r, src, p, &w, a[33+3*3*4]&1);
 			dstflush(dstid, dst, r);
 			continue;
 
