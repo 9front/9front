@@ -1626,7 +1626,8 @@ static int
 encodedelta(Meta *m, Object *o, Object *b, void **pp)
 {
 	char *p, *bp, buf[16];
-	int len, sz, n, i, j;
+	int len, sz, i, j;
+	vlong n;
 	Delta *d;
 
 	sz = 128;
