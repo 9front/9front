@@ -178,10 +178,10 @@ drawstrobos(Strobos *s)
 		mulm(R, T₀);
 		mulm(T₁, R);
 		mulm(S, T₁);
-		mkwarp(s->txtwp, S);
+		s->txtwp = mkwarp(S);
 	}
 
-	affinewarp(s->back, s->back->r, s->txtim, s->txtim->r.min, s->txtwp, smooth);
+	affinewarp(s->back, s->back->r, s->txtim, s->txtim->r.min, &s->txtwp, smooth);
 	draw(screenb, rectaddpt(s->back->r, addpt(screenb->r.min, s->p)), s->back, nil, ZP);
 }
 
@@ -192,11 +192,11 @@ redraw(void)
 	int i;
 
 	rlockdisplay(display);
-	affinewarp(bl->b, bl->b->r, bl->c, ZP, bl->w, 0);
+	affinewarp(bl->b, bl->b->r, bl->c, ZP, &bl->w, 0);
 	draw(screenb, screenb->r, bl->b, bg, ZP);
 	cr0 = screenb->clipr;
 	replclipr(screenb, 0, insetrect(screenb->r, 50));
-	affinewarp(screenb, screenb->clipr, sprite, sprite->r.min, warp, smooth);
+	affinewarp(screenb, screenb->clipr, sprite, sprite->r.min, &warp, smooth);
 	replclipr(screenb, 0, cr0);
 	drawstats();
 	for(i = 0; i < nstrobos; i++)
@@ -254,7 +254,7 @@ update(double f)
 	mulm(R, S);
 	mulm(T₁, R);
 	mulm(T, T₁);
-	mkwarp(warp, T);
+	warp = mkwarp(T);
 
 	/* spin it! */
 	t.x = Dx(bl->b->r)/2;
@@ -267,7 +267,7 @@ update(double f)
 	T₀[0][2] = -t.x;
 	T₀[1][2] = -t.y;
 	mulm(R₁, T₀);
-	mkwarp(bl->w, R₁);
+	bl->w = mkwarp(R₁);
 }
 
 void

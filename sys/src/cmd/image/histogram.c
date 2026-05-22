@@ -8,6 +8,11 @@
 #include <geometry.h>
 #include "fns.h"
 
+/* TODO
+ * 1. add a couple of sliders to each histogram to filter pixels
+ * 2. replace alpha histogram with a contrast one
+ */
+
 enum {
 	Hmargin	= 10,
 	Vmargin = 15,
@@ -227,10 +232,10 @@ fillcolor(Image *i, ulong c)
 {
 	uchar b[4];
 
-	b[0] = (c >> 0*8) & 0xFF;
-	b[1] = (c >> 1*8) & 0xFF;
-	b[2] = (c >> 2*8) & 0xFF;
-	b[3] = (c >> 3*8);
+	b[0] = c >> 0*8;
+	b[1] = c >> 1*8;
+	b[2] = c >> 2*8;
+	b[3] = c >> 3*8;
 	return loadimage(i, i->r, b, (i->depth+7)/8);
 }
 
@@ -530,7 +535,7 @@ redraw(void)
 	static Point titlep = {10, 10};
 
 	draw(screen, screen->r, display->black, nil, ZP);
-	affinewarp(screen, screen->r, image, image->r.min, warp, smoothen);
+	affinewarp(screen, screen->r, image, image->r.min, &warp, smoothen);
 	if(!eqrect(region, ZR))
 		border(screen, xformrect(region, warpmat), -1, regioncol, ZP);
 	stringbg(screen, addpt(screen->r.min, titlep), display->white, ZP, font, title, display->black, ZP);
@@ -549,7 +554,7 @@ resize(void)
 	unlockdisplay(display);
 	dp = subpt(screen->r.min, dp);
 	translate(warpmat, dp.x, dp.y);
-	mkwarp(warp, warpmat);
+	warp = mkwarp(warpmat);
 	redraw();
 }
 
@@ -629,7 +634,7 @@ zoomout:
 		tainted++;
 	}
 	if(tainted){
-		mkwarp(warp, warpmat);
+		warp = mkwarp(warpmat);
 		redraw();
 	}
 	om = mc->Mouse;
@@ -687,7 +692,7 @@ threadmain(int argc, char *argv[])
 	regioncol = eallocimage(display, Rect(0,0,1,1), XRGB32, 1, DOrange);
 	identity(warpmat);
 	translate(warpmat, screen->r.min.x, screen->r.min.y);
-	mkwarp(warp, warpmat);
+	warp = mkwarp(warpmat);
 	redraw();
 
 	measureimage(mimage, mimage->r);
