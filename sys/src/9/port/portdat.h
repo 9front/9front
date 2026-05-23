@@ -20,7 +20,6 @@ typedef struct Mntcache Mntcache;
 typedef struct Mount	Mount;
 typedef struct Mntrah	Mntrah;
 typedef struct Mntrpc	Mntrpc;
-typedef struct Mntproc	Mntproc;
 typedef struct Mnt	Mnt;
 typedef struct Mhead	Mhead;
 typedef struct Note	Note;
@@ -60,6 +59,7 @@ typedef int    Devgen(Chan*, char*, Dirtab*, int, int, Dir*);
 #pragma incomplete Edf
 #pragma incomplete Mntcache
 #pragma incomplete Mntrpc
+#pragma incomplete Mnt
 #pragma incomplete Queue
 #pragma incomplete Timers
 #pragma incomplete Tos
@@ -299,32 +299,6 @@ struct Mntrah
 
 	uint	i;
 	Mntrpc	*r[8];
-};
-
-struct Mntproc
-{
-	Rendez;
-
-	Mnt	*m;
-	Mntrpc	*r;
-	void	*a;
-	void	(*f)(Mntrpc*, void*);
-};
-
-struct Mnt
-{
-	Lock;
-	/* references are counted using c->ref; channels on this mount point incref(c->mchan) == Mnt.c */
-	Chan	*c;		/* Channel to file service */
-	Proc	*rip;		/* Reader in progress */
-	Mntrpc	*queue;		/* Queue of pending requests on this channel */
-	Mntproc	defered[8];	/* Worker processes for defered RPCs (read ahead) */
-	ulong	id;		/* Multiplexer id for channel check */
-	Mnt	*list;		/* Free list */
-	int	flags;		/* cache */
-	int	msize;		/* data + IOHDRSZ */
-	char	*version;	/* 9P version */
-	Queue	*q;		/* input queue */
 };
 
 enum

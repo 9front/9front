@@ -33,6 +33,32 @@ struct Mntrpc
 	char	done;		/* Rpc completed */
 };
 
+typedef struct Mntproc Mntproc;
+struct Mntproc
+{
+	Rendez;
+
+	Mnt	*m;
+	Mntrpc	*r;
+	void	*a;
+	void	(*f)(Mntrpc*, void*);
+};
+
+struct Mnt
+{
+	Lock;
+	/* references are counted using c->ref; channels on this mount point incref(c->mchan) == Mnt.c */
+	Chan	*c;		/* Channel to file service */
+	Proc	*rip;		/* Reader in progress */
+	Mntrpc	*queue;		/* Queue of pending requests on this channel */
+	Mntproc	defered[8];	/* Worker processes for defered RPCs (read ahead) */
+	ulong	id;		/* Multiplexer id for channel check */
+	int	msize;		/* data + IOHDRSZ */
+	Mnt	*list;		/* Free list */
+	char	*version;	/* 9P version */
+	Queue	*q;		/* input queue */
+};
+
 enum
 {
 	TAGSHIFT = 5,
