@@ -162,39 +162,20 @@ parseop(char **pp)
 	return f;	
 }
 
-static int
-htoi(char x)
-{
-	if(x >= '0' && x <= '9')
-		x -= '0';
-	else if(x >= 'a' && x <= 'f')
-		x -= 'a' - 10;
-	else if(x >= 'A' && x <= 'F')
-		x -= 'A' - 10;
-	else
-		x = 0;
-	return x;
-}
-
-static int
-hextoi(char *p)
-{
-	return (htoi(p[0])<<4) | htoi(p[1]);
-}
-
 static void
 parseval(uchar *v, char *p, int len)
 {
-	while(*p && len-- > 0){
-		*v++ = hextoi(p);
-		p += 2;
+	if(len == 1){
+		*v = strtoul(p, nil, 16);
+		return;
 	}
+	dec16(v, len, p, strlen(p));
 }
 
 static Ipmux*
 parsemux(char *p)
 {
-	int n;
+	int n, m;
 	Ipmux *f;
 	char *val;
 	char *mask;
@@ -263,6 +244,10 @@ parsemux(char *p)
 		case Tiph:
 			parseval(v, vals[n], f->len);
 			break;
+		}
+		if(f->mask != nil){
+			for(m = 0; m < f->len; m++)
+				v[m] &= f->mask[m];
 		}
 		v += f->len;
 	}
