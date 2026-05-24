@@ -287,7 +287,7 @@ For this example, let's assume that the root qid is 123.
 The key for
 .CW foo
 is then constructed by concatenating the root qid to the first walk name, giving the key
-.CW "Kent(123, foo)"
+.CW "Kent(123, foo)" .
 This is then looked up, giving the directory entry for 
 .CW foo .
 If the directory entry contains the qid 234, then the key
@@ -591,8 +591,8 @@ and
 .I syncer .
 Most of these processes can be replicated,
 however, there may only be one
-.IR mutator ,
-.IR sweeper ,
+.I mutator ,
+.I sweeper ,
 or
 .I console
 at a time.
@@ -869,7 +869,6 @@ The Tree
 .PP
 The tree is composed of two types of block:
 Pivot blocks, and leaf blocks.
-The block types were 
 .NH 3
 Pivot Blocks
 .PP
