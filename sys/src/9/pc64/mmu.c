@@ -406,7 +406,7 @@ punmap(uintptr va, vlong size)
 	uintptr *pte;
 	int l;
 
-	va = PPN(va);
+	va &= -PGLSZ(0);
 	while(size > 0){
 		if((va % PGLSZ(1)) != 0 || size < PGLSZ(1))
 			ptesplit(m->pml4, va);
