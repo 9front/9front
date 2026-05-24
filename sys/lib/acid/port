@@ -509,14 +509,20 @@ _asmlines = 30;
 
 defn asm(addr)
 {
-	local bound;
+	local bound, bput;
 
 	bound = fnbound(addr);
 
 	addr = fmt(addr, 'i');
 	loop 1,_asmlines do {
 		print(fmt(addr, 'a'), " ", fmt(addr, 'A'));
-		print("\t", @addr++, "\n");
+		if match(addr, bplist) >= 0 then {
+			bput = fmt(addr, bpfmt);
+			*bput = @bput;
+			print("\t", @addr++, "\n");
+			*bput = bpinst;
+		}else
+			print("\t", @addr++, "\n");
 		if bound != {} && addr >= bound[1] then {
 			lasmaddr = addr;
 			return {};
