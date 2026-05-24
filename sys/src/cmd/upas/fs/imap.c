@@ -579,7 +579,8 @@ findflag(int idx)
 static void
 imap4modflags(Mailbox *mb, Message *m, int flags)
 {
-	char buf[128], *p, *e, *fs;
+	char buf[16*Nflags+1];	/* all flags are shorter than 16 chars */
+	char *p, *e, *fs, *resp;
 	int i, f;
 	Imap *imap;
 
@@ -587,14 +588,14 @@ imap4modflags(Mailbox *mb, Message *m, int flags)
 	e = buf + sizeof buf;
 	p = buf;
 	f = flags & ~Frecent;
+	buf[0] = 0;
 	for(i = 0; i < Nflags; i++)
-		if(f & 1<<i && (fs = findflag(i)))
-			p = seprint(p, e, "%s ", fs);
-	if(p > buf){
-		p[-1] = 0;
-		imap4cmd(imap, "uid store %lud flags (%s)", (ulong)m->imapuid, buf);
-		imap4resp0(imap, mb, m);
-	}
+		if((f & 1<<i) && (fs = findflag(i)))
+			p = seprint(p, e, "%s%s", p>buf?" ":"", fs);
+	imap4cmd(imap, "uid store %lud flags (%s)", (ulong)m->imapuid, buf);
+	resp = imap4resp0(imap, mb, m);
+	if(!isokay(resp))
+		eprint("imap: flag store failed: %s\n", resp);
 }
 
 static char*
