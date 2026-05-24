@@ -13,6 +13,7 @@ int trace, paused;
 int savereq, loadreq;
 QLock pauselock;
 int scale, fixscale, warp10;
+Warp scalew;
 uchar *pic;
 Rectangle picr;
 Mousectl *mc;
@@ -23,7 +24,7 @@ static int vwdx, vwdy, vwbpp;
 static ulong vwchan;
 static Image *fb;
 static Channel *conv, *sync[2];
-static uchar *screenconv[2], *backfb;
+static uchar *screenconv[2];
 static int screenconvi;
 
 struct Kfn{
@@ -197,6 +198,18 @@ timing(void)
 }
 
 static void
+scalewarpinit(Point p0, int scale)
+{
+	double TS[3][3] = {
+		scale, 0, p0.x,
+		0, scale, p0.y,
+		0, 0, 1,
+	};
+
+	scalew = mkwarp(TS);
+}
+
+static void
 screeninit(void)
 {
 	Point p;
@@ -214,14 +227,10 @@ screeninit(void)
 	p = divpt(addpt(screen->r.min, screen->r.max), 2);
 	picr = Rpt(subpt(p, Pt(scale * vwdx/2, scale * vwdy/2)),
 		addpt(p, Pt(scale * vwdx/2, scale * vwdy/2)));
-	freeimage(fb);
-	fb = eallocimage(Rect(0, 0, scale * vwdx, scale > 1 ? 1 : vwdy),
-		vwchan, scale > 1, 0);
-	free(backfb);
+	if(fb == nil)
+		fb = eallocimage(Rect(0, 0, vwdx, vwdy), vwchan, 0, 0);
 	if(scale > 1)
-		backfb = emalloc(vwdx * vwbpp * scale);
-	else
-		backfb = nil;
+		scalewarpinit(picr.min, scale);
 	draw(screen, screen->r, bg, nil, ZP);
 	recv(sync[1], nil);
 }
@@ -257,54 +266,11 @@ screenproc(void*)
 
 	for(;;) switch(alt(alts)){
 	case Draw:
-		if(scale == 1){
-			loadimage(fb, fb->r, p, vwdx * vwdy * vwbpp);
+		loadimage(fb, fb->r, p, vwdx * vwdy * vwbpp);
+		if(scale == 1)
 			draw(screen, picr, fb, nil, ZP);
-		} else {
-			Rectangle r;
-			int w, x;
-
-			r = picr;
-			w = vwdx * vwbpp * scale;
-			while(r.min.y < picr.max.y){
-				switch(vwbpp){
-				case 4: {
-					u32int *d = (u32int *)backfb, *e, s;
-					for(x=0; x<vwdx; x++){
-						s = *(u32int *)p;
-						p += vwbpp;
-						e = d + scale;
-						while(d < e)
-							*d++ = s;
-					}
-					break;
-				} case 2: {
-					u16int *d = (u16int *)backfb, *e, s;
-					for(x=0; x<vwdx; x++){
-						s = *(u16int *)p;
-						p += vwbpp;
-						e = d + scale;
-						while(d < e)
-							*d++ = s;
-					}
-					break;
-				} case 1: {
-					u8int *d = (u8int *)backfb, *e, s;
-					for(x=0; x<vwdx; x++){
-						s = *(u8int *)p;
-						p += vwbpp;
-						e = d + scale;
-						while(d < e)
-							*d++ = s;
-					}
-					break;
-				}}
-				loadimage(fb, fb->r, backfb, w);
-				r.max.y = r.min.y+scale;
-				draw(screen, r, fb, nil, ZP);
-				r.min.y = r.max.y;
-			}
-		}
+		else
+			affinewarp(screen, picr, fb, ZP, &scalew, 0);
 		flushimage(display, 1);
 		break;
 	case Sync1:
