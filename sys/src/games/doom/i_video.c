@@ -90,49 +90,53 @@ static uchar screenconv[2][SCREENWIDTH*SCREENHEIGHT];
 static void
 convproc(void *p)
 {
-	static u32int buf[SCREENWIDTH*12];
-	int y, scale, oldscale;
-	Image *rowimg;
+	static u32int buf[SCREENWIDTH*SCREENHEIGHT];
+	static Image *fb;
+	int scale;
 	Rectangle r;
 	uchar *s;
+	Warp scalew;
 
-	oldscale = 0;
-	rowimg = nil;
+	if(fb == nil){
+		fb = allocimage(display, Rect(0, 0, SCREENWIDTH, SCREENHEIGHT), XRGB32, 0, DNofill);
+		if(fb == nil)
+			sysfatal("allocimage: %r");
+	}
+
+	scale = Dx(screen->r)/SCREENWIDTH;
+	if(Dy(screen->r)/SCREENHEIGHT < scale)
+		scale = Dy(screen->r)/SCREENHEIGHT;
+	if(scale <= 0)
+		scale = 1;
+	else if(scale > 12)
+		scale = 12;
+
+	r = rectsubpt(rectaddpt(Rect(0, 0, scale*SCREENWIDTH, scale*SCREENHEIGHT), center),
+		Pt(scale*SCREENWIDTH/2, scale*SCREENHEIGHT/2));
+
+	if(scale > 1){
+		double TS[3][3] = {
+			scale, 0, r.min.x,
+			0, scale, r.min.y,
+			0, 0, 1,
+		};
+
+		scalew = mkwarp(TS);
+	}
+
 	for(;;){
 		if((s = recvp(p)) == nil)
 			break;
-		scale = Dx(screen->r)/SCREENWIDTH;
-		if(scale <= 0)
-			scale = 1;
-		else if(scale > 12)
-			scale = 12;
 
-		/* where to draw the scaled row */
-		r = rectsubpt(rectaddpt(Rect(0, 0, scale*SCREENWIDTH, scale), center),
-			Pt(scale*SCREENWIDTH/2, scale*SCREENHEIGHT/2));
+		pal2xrgb(cmap, s, buf, SCREENWIDTH*SCREENHEIGHT, 1);
+		loadimage(fb, fb->r, (uchar*)buf, SCREENWIDTH*SCREENHEIGHT*4);
 
-		/* the row image, y-axis gets scaled with repl flag */
-		if(scale != oldscale){
-			if(rowimg != nil)
-				freeimage(rowimg);
-			rowimg = allocimage(display, Rect(0, 0, scale*SCREENWIDTH, 1), XRGB32, scale > 1, DNofill);
-			if(rowimg == nil)
-				sysfatal("allocimage: %r");
-			oldscale = scale;
-		}
-
-		for(y = 0; y < SCREENHEIGHT; y++){
-			pal2xrgb(cmap, s, buf, SCREENWIDTH, scale);
-			s += SCREENWIDTH;
-			loadimage(rowimg, rowimg->r, (uchar*)buf, 4*scale*SCREENWIDTH);
-			draw(screen, r, rowimg, nil, ZP);
-			r.min.y += scale;
-			r.max.y += scale;
-		}
+		if(scale == 1)
+			draw(screen, r, fb, nil, ZP);
+		else
+			affinewarp(screen, r, fb, ZP, &scalew, 0);
 		flushimage(display, 1);
 	}
-	if(rowimg != nil)
-		freeimage(rowimg);
 	chanfree(p);
 	threadexits(nil);
 }
