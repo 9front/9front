@@ -2300,7 +2300,7 @@ enabledp(Igfx *igfx, Dp *dp)
 	if(try >= 30)
 		trace("can\'t start training\n");
 	w = dp->bufctl.v >> (igfx->type == TypeHSW ? 1 : 19) & 7;
-	if(igfx->type == TypeIVB)
+	if(igfx->type == TypeIVB || igfx->type == TypeSNB)
 		w = (dp->ctl.v >> 19) & 7;
 	trace("using %x lane(s)\n", w+1);
 	wdpaux(igfx, dp, 0x101, w+1);
