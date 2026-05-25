@@ -90,9 +90,9 @@ difftrees(Object *a, Object *b)
 				if(npath >= nelem(path))
 					sysfatal("path too deep");
 				path[npath++] = ap->name;
-				if((a = readobject(ap->h)) == nil)
+				if((a = readobject(ap->h)) == nil && !ap->ismod)
 					sysfatal("bad hash %H", ap->h);
-				if((b = readobject(bp->h)) == nil)
+				if((b = readobject(bp->h)) == nil && !bp->ismod)
 					sysfatal("bad hash %H", bp->h);
 				difftrees(a, b);
 				unref(a);
