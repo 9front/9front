@@ -51,6 +51,13 @@ memlaffinewarp(Memimage *dst, Rectangle r, Memimage *src, Point p0, Warp *w, int
 		return;
 	}
 
+	if(badrect(r))
+		return;
+	if(!rectclip(&r, dst->r) || !rectclip(&r, dst->clipr))
+		return;
+
+	srcr = src->clipr;
+
 	/*
  	 * Convert to screen coordinates.
 	 */
@@ -84,7 +91,7 @@ memlaffinewarp(Memimage *dst, Rectangle r, Memimage *src, Point p0, Warp *w, int
 
 	/*
 	 * Now everything is in screen coordinates.
-	 * mask is an image.  dst and src are images or obscured layers.
+	 * dst and src are images or obscured layers.
 	 */
 
 	/*
@@ -109,7 +116,7 @@ memlaffinewarp(Memimage *dst, Rectangle r, Memimage *src, Point p0, Warp *w, int
 			memlhide(dst, srcr);
 		}
 		memlaffinewarp(dl->save, rectsubpt(r, dl->delta), dl->save,
-			subpt(srcr.min, src->layer->delta), w, smooth);
+			subpt(p0, sl->delta), w, smooth);
 		memlexpose(dst, r);
 		return;
 	}
