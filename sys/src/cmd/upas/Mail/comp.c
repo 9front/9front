@@ -226,8 +226,12 @@ respondto(Biobuf *fd, char *to, Mesg *r, int all)
 	int n;
 
 	rpto = to;
-	if(r != nil)
-		rpto = (strlen(r->replyto) > 0) ? r->replyto : r->from;
+	if(r != nil){
+		if(r->replyto != nil && strlen(r->replyto) > 0)
+			rpto = r->replyto;
+		else
+			rpto = r->from;
+	}
 	if(r == nil || !all){
 		Bprint(fd, "To: %s\n", rpto);
 		return;
@@ -278,9 +282,10 @@ compose(char *to, Mesg *r, int all)
 		Bprint(wfd, "Quoth %s:\n", r->fromcolon);
 		rfd = openbody(r);
 		if(rfd != nil){
-			while((ln = Brdstr(rfd, '\n', 0)) != nil)
-				if(Bprint(wfd, "> %s", ln) == -1)
-					break;
+			while((ln = Brdstr(rfd, '\n', 0)) != nil){
+				Bprint(wfd, "> %s", ln);
+				free(ln);
+			}
 			Bterm(rfd);
 		}
 	}
