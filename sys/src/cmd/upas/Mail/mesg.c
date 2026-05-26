@@ -197,7 +197,7 @@ execfmt(void *pm)
 	dup(m->fd[1], 1);
 	close(m->fd[0]);
 	close(m->fd[1]);
-	procexecl(m->sync, "/bin/htmlfmt", "htmlfmt", "-a", "-cutf-8", m->path, nil);
+	procexecl(m->sync, "/bin/htmlfmt", "htmlfmt", "-cutf-8", m->path, nil);
 }
 
 static int
