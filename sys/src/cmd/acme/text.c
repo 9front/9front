@@ -381,6 +381,8 @@ textinsert(Text *t, uint q0, Rune *r, uint n, int tofile)
 		frinsert(t, r, r+n, q0-t->org);
 	if(t->w){
 		c = 'i';
+		if(t->what == Tag)
+			t->w->tagsafe = FALSE;
 		if(t->what == Body)
 			c = 'I';
 		if(n <= EVENTSIZE)
