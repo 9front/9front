@@ -223,7 +223,9 @@ font width tables for
 .IR col (1)
 .br
 J. F. Ossanna and B. W. Kernighan,
-``Troff User's Manual''
+``Troff User's Manual'',
+.br
+.B /sys/doc/troff.pdf
 .br
 B. W. Kernighan,
 ``A Typesetter-Independent TROFF'',

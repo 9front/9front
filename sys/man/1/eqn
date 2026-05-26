@@ -322,7 +322,9 @@ font descriptions for PostScript
 .IR tbl (1)
 .br
 J. F. Ossanna and B. W. Kernighan,
-``Troff User's Manual''.
+``Troff User's Manual'',
+.br
+.B /sys/doc/troff.pdf
 .br
 B. W. Kernighan and L. L. Cherry,
 ``Typesetting Mathematics\(emUser's Guide'', 

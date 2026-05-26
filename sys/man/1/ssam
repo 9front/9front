@@ -67,6 +67,8 @@ Count frequency of words read from standard input.
 .IR regexp (6)
 .PP
 Rob Pike,
-``The text editor sam''.
+``The text editor sam'',
+.br
+.B /sys/doc/sam/sam.pdf
 .SH BUGS
 Ssam consumes all of standard input before running the script.

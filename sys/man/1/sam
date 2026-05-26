@@ -912,4 +912,13 @@ source for the separate terminal part
 .IR regexp (6).
 .PP
 Rob Pike,
-``The text editor sam''.
+``The text editor sam'',
+.br
+.B /sys/doc/sam/sam.pdf
+.PP
+Rob Pike,
+``A tutorial for the
+.B sam
+command language'',
+.br
+.B /sys/doc/sam/samtut.pdf

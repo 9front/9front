@@ -348,7 +348,9 @@ December, 1991
 .br
 Ken Thompson,
 Geoff Collyer,
-``The 64-bit Standalone Plan 9 File Server''
+``The 64-bit Standalone Plan 9 File Server'',
+.br
+.B /sys/doc/fs/fs.pdf
 .SH BUGS
 For the moment,
 the file server serves both the old (9P1) and new (9P2000) versions of 9P,

@@ -161,7 +161,10 @@ source of dump scores
 .IR venti-fmt (8),
 .IR venti-backup (8)
 .br
-.IR "Venti Backup on Blu-Ray Discs"
+Geoff Collyer,
+``Venti Backups to Blu-Ray Discs'',
+.br
+.B /sys/doc/backup.pdf
 .SH BUGS
 Assumes a single arenas partition named
 .LR arena0 .

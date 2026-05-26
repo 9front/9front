@@ -131,4 +131,7 @@ into screen fonts and character numbers
 .IR page (1)
 .br
 J. F. Ossanna and B. W. Kernighan,
-``Troff User's Manual''
+``Troff User's Manual'',
+.br
+.B /sys/doc/troff.pdf
+

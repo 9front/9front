@@ -634,7 +634,9 @@ A. Hume,
 ``Mk: a Successor to Make''.
 .PP
 Andrew G. Hume and Bob Flandrena,
-``Maintaining Files on Plan 9 with Mk''.
+``Maintaining Files on Plan 9 with Mk'',
+.br
+.B /sys/doc/mk.pdf
 .SH BUGS
 Identical recipes for regular expression meta-rules only have one target.
 .PP

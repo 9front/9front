@@ -167,7 +167,9 @@ ANSI C/POSIX library.
 .IR prof (1)
 .PP
 Howard Trickey,
-``APE \(em The ANSI/POSIX Environment''
+``APE \(em The ANSI/POSIX Environment'',
+.br
+.B /sys/doc/ape.pdf
 .SH SOURCE
 .B /sys/src/cmd/pcc.c
 .SH BUGS

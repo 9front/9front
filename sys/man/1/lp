@@ -181,7 +181,9 @@ Convert an image to a postscript file.
 .IR lp (8)
 .br
 P. Glick,
-``A Guide to the Lp Printer Spooler''.
+``A Guide to the Lp Printer Spooler'',
+.br
+.B /sys/doc/lp.pdf
 .SH BUGS
 Not all options work with all output devices.
 Any user can kill any job.

@@ -1010,7 +1010,9 @@ Site specific system rc start script
 .B /sys/src/cmd/rc
 .SH "SEE ALSO"
 Tom Duff,
-``Rc \- The Plan 9 Shell''.
+``Rc \- The Plan 9 Shell'',
+.br
+.B /sys/doc/rc.pdf
 .SH BUGS
 There should be a way to match patterns against whole lists rather than
 just single strings.

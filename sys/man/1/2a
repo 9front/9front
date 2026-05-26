@@ -52,7 +52,9 @@ etc.
 .IR 2c (1),
 .IR 2l (1).
 .PP
-Rob Pike, ``A manual for the Plan 9 assembler''
+Rob Pike, ``A manual for the Plan 9 assembler'',
+.br
+.B /sys/doc/asm.pdf
 .SH BUGS
 The list of assemblers given above is only partial,
 not all architectures are supported on all systems,

@@ -482,7 +482,9 @@ acid: cont()
 .IR snap (4)
 .br
 Phil Winterbottom,
-``Acid Manual''.
+``Acid Manual'',
+.br
+.B /sys/doc/acid.pdf
 .SH DIAGNOSTICS
 At termination, kill commands are proposed
 for processes that are still active.

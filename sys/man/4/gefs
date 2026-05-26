@@ -164,5 +164,10 @@ gefs -r $user -f /dev/sdE0/fs
 .IR gefs (8),
 .IR prep (8),
 .IR sd (3)
+.br
+Ori Bernstein,
+``GEFS, A Good Enough File System'',
+.br
+.B /sys/doc/gefs.pdf
 .SH BUGS
 Yes

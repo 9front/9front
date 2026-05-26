@@ -211,7 +211,9 @@ etc.
 .IR prof (1)
 .PP
 Rob Pike,
-``How to Use the Plan 9 C Compiler''
+``How to Use the Plan 9 C Compiler'',
+.br
+.B /sys/doc/comp.pdf
 .SH BUGS
 The list of loaders given above is only partial,
 not all architectures are supported on all systems,
