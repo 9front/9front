@@ -290,7 +290,7 @@ mesgshow(Mesg *m)
 		if((suff = strchr(name, '.')) == nil)
 			suff = "";
 		if(strcmp(a->type, "text/html") == 0)
-			Bprint(wfd, "\thtmlfmt -a %s%sbody.html\n", mbox.path, a->name);
+			Bprint(wfd, "\thtmlfmt %s%sbody.html\n", mbox.path, a->name);
 		else
 			Bprint(wfd, "\tcp %s%sbody%s %s/%s\n", mbox.path, a->name, suff, home, name);
 		continue;
