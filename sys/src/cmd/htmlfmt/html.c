@@ -16,6 +16,7 @@ int inword = 0;
 int col = 0;
 int wordi = 0;
 
+
 char*
 loadhtml(int fd)
 {
@@ -260,10 +261,13 @@ render(URLwin *u, Bytes *t, Item *items, int curanchor)
 		}
 		if(il->anchorid != 0 && il->anchorid!=curanchor){
 			for(a=u->docinfo->anchors; a!=nil; a=a->next)
-				if(aflag && a->index == il->anchorid){
-					href = fullurl(u, a->href);
-					renderbytes(t, "[%s]", href);
-					free(href);
+				if(a->index == il->anchorid){
+					if(aflag){
+						href = fullurl(u, a->href);
+						renderbytes(t, "[%s]", href);
+						free(href);
+					}else
+						renderbytes(t, "[%d]", a->index);
 					break;
 				}
 			curanchor = il->anchorid;
@@ -276,12 +280,20 @@ render(URLwin *u, Bytes *t, Item *items, int curanchor)
 void
 rerender(URLwin *u)
 {
+	char *href;
 	Bytes *t;
+	Anchor *a;
 
 	t = emalloc(sizeof(Bytes));
 
 	render(u, t, u->items, 0);
-
+	if(!aflag){
+		for(a = u->docinfo->anchors; a != nil; a = a->next){
+			href = fullurl(u, a->href);
+			renderbytes(t, "[%d] %s\n", a->index, href);
+			free(href);
+		}
+	}
 	if(t->n)
 		write(u->outfd, (char*)t->b, t->n);
 	free(t->b);

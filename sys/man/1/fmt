@@ -12,7 +12,7 @@ fmt, htmlfmt \- simple text formatters
 .PP
 .B htmlfmt
 [
-.B -a
+.B -ai
 ] [
 .B -c
 .I charset
@@ -66,8 +66,9 @@ flags and also:
 .BI -a
 Normally
 .I htmlfmt
-suppresses the contents of form fields and anchors (URLs and image files); this flag
-causes it to print them, in square brackets.
+displays the contents of form fields and anchors
+(URLs and image files) as footnotes;
+this flag causes it to print them inline.
 .TP
 .BI -c " charset
 change the default character set from iso-8859-1 to

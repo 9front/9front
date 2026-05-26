@@ -7,6 +7,7 @@
 
 char *url = "";
 int aflag;
+int inlineurl;
 int width = 70;
 char *defcharset = "latin1";
 
@@ -66,7 +67,6 @@ main(int argc, char *argv[])
 		break;
 	case 'u':
 		url = EARGF(usage());
-		aflag++;
 		break;
 	default:
 		usage();

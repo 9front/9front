@@ -433,9 +433,10 @@ static Item *getitems(ItemSource* is, uchar* data, int datalen);
 Item*
 parsehtml(uchar* data, int datalen, Rune* pagesrc, int mtype, int chset, Docinfo** pdi)
 {
-	Item *it;
+	Item		*it;
 	Docinfo*	di;
 	ItemSource*	is;
+	Anchor		*a, *p, *n;
 
 	di = newdocinfo();
 	di->src = _Strdup(pagesrc);
@@ -447,6 +448,14 @@ parsehtml(uchar* data, int datalen, Rune* pagesrc, int mtype, int chset, Docinfo
 	it = getitems(is, data, datalen);
 	freepstatestack(is->psstk);
 	free(is);
+	p = nil;
+	// Sort anchors in ascending order
+	for(a = di->anchors; a != nil; a = n){
+		n = a->next;
+		a->next = p;
+		p = a;
+	}
+	di->anchors = p;
 	return it;
 }
 
