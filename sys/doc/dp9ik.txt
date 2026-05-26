@@ -1,0 +1,313 @@
+Introduction:
+
+In Plan9, authentication is handled centrally with an authentication
+server that has a database of all user credentials. Machines,
+such as cpu servers, assume the identities of ther hostowners and
+are therefore also handled as users.
+
+The common plan9 auhentication protocol is p9sk1, which authenticates
+both the client to the server and also the server to the client and
+establishes a shared secret between the two. The authentication server
+issues two tickets containing a common random shared secret key.
+The first ticket is encrypted with the clients key and the second
+encrytped with the servers key. Server and client decrypt ther tickets
+and gain access to the shared secret.
+
+The problem is that the ticket encryption key is derived directly
+from the users password, making this key a low entropy constant that
+can be found by offline brute force using a dictionary.
+
+We propose a solution to this problem by establishing the ticket encryption
+key using a password authenticated diffie-hellman key exchange based on
+elliptic curve SPAKE2EE with Ed448.
+
+We also address the small 56-bit key size of DES, by replacing it with
+256-bit chacha20/poly1305 AEAD for the ticket encryption and 128-bit
+AES-CBC for keydb encryption.
+
+aeskey[16]:
+
+The 128-bit aeskey is derived from the password using pbkdf2_hmac_sha1 [rfc2898],
+with the salt string "Plan 9 key derivation" (not including terminating null)
+and iteration count 9001.
+
+The aeskey is stored along with the old DES key in nvram and keyfs.
+
+SPAKE2EE:
+
+# Edwards Curve Ed448-Goldilocks
+# x^2+y^2 = 1-39081x^2y^2
+# modulo p = 2^448 - 2^224 - 1
+ed448_curve(p,a,d,GX,GY) {
+	p = (1<<448) - (1<<224) - 1;
+	a = 1;
+	d = -39081;
+
+	GX = 117812161263436946737282484343310064665180535357016373416879082147939404277809514858788439644911793978499419995990477371552926308078495;
+	GY = 19;
+}
+
+#elligator2:
+#	curve a*x^2+y^2==1+d*x^2*y^2
+#	input r0
+#	n is any non-square
+#
+elligator2(p,a,d, n, r0, X,Y,Z,T) mod(p) {
+	r = n*r0*r0;
+	D = (d*r+a-d)*(d*r-a*r-d);
+	N = (r+1)*(a-2*d);
+	ND = N*D;
+	if(ND == 0) {
+		c = 1;
+		e = 0;
+	} else {
+		e = msqrt(ND, p);
+		if(e != 0) {
+			c = 1;
+			e = 1/e;
+		} else {
+			c = -1;
+			e = n*r0*misqrt(n*ND, p);
+		}
+	}
+	s = c*N*e;
+	t = -c*N*(r-1)*((a-2*d)*e)^2-1;
+	X = 2*s*t;
+	Y = (1-a*s*s)*(1+a*s*s);
+	Z = (1+a*s*s)*t;
+	T = (2*s)*(1-a*s*s);
+}
+
+# derive points PM or PN from a (password) hash
+spake2ee_h2P(p,a,d, h, PX,PY,PZ,PT){
+	# find a small non-square for elligator
+	n = 2;
+	while(legendresymbol(n, p) != -1)
+		n = n + 1;
+	PX,PY,PZ,PT = elligator2(p,a,d, n, h%p);
+}
+
+pakhash[224]:
+
+The pakhash is the concatenation of the two elliptic curve points PN and PM
+in extended format: X,Y,Z,T and derived from the user name and the aeskey.
+The aeskey and user name are hashed to a 112 byte array, which is then
+partitiond into the two 448-bit big endian integers HN and HM, which are
+separately mapped to the points PN and PM using the spake2ee_h2P function.
+The points are then stored as a byte concatenation of ther big endian integer
+components X,Y,Z,T giving the 224 byte pakhash.
+
+info = "Plan 9 AuthPAK hash";
+salt = sha2_256(user);
+HN|HM = hkdf_hmac_sha2_256(salt, info, aeskey);
+PN = X|Y|Z|T = spake2ee_h2P(HN);
+PM = X|Y|Z|T = spake2ee_h2P(HM);
+pakhash = PN|PM
+
+This calculation only needs to be done once and is reused in all
+authentication sessions of the same user. The pakhash can be stored instead
+of the aeskey or precomputed by keyfs to avoid some computational costs on
+the authentication server and prevent timing attacks on the key derivation.
+
+In the elliptic curve diffie-hellman exchange we use a special point encoding
+called decaf for the public and shared secret points. This encoding removes
+the cofactor and makes sure the points are on the curve.
+
+# negate r when n > (p-1)/2
+decaf_neg(p, n, r) {
+	mod(p) m = -r;
+	r = n > (p-1)>>1 ? m : r;
+}
+
+#	field F_p
+#	curve a*x**2+y**2==1+d*x**2*y**2
+#	input X,Y,Z,T (extended coordinates)
+decaf_encode(p,a,d, X,Y,Z,T, s) mod(p) {
+	r = misqrt((a-d)*(Z+Y)*(Z-Y), p);
+	u = (a-d)*r;
+	decaf_neg(p, -2*u*Z, r);
+	s = u*(r*(a*Z*X-d*Y*T)+Y)/a;
+	decaf_neg(p, s, s);
+}
+
+#	field F_p
+#	curve a*x**2+y**2==1+d*x**2*y**2
+#	input s
+#	output in extended coordinates
+decaf_decode(p,a,d, s, ok,X,Y,Z,T) {
+	if(s > (p-1)>>1){
+		ok = 0;
+	} else mod(p) {
+		ss = s^2;
+		Z = 1+a*ss;
+		u = Z^2 - 4*d*ss;
+		v = u*ss;
+		if(v == 0)
+			ok = 1;
+		else {
+			ok = msqrt(v, p);
+			if(ok != 0){
+				v = 1/ok;
+				ok = 1;
+			}
+		}
+		if(ok != 0) {
+			decaf_neg(p, u*v, v);
+			w = v * s * (2-Z);
+			if(s == 0)
+				w = w + 1;
+			X = 2*s;
+			Y = w * Z;
+			T = w * X;
+		}
+	}
+}
+
+# Ya = xa*G+PM, Yb = xb*G+PN
+spake2ee_1(p,a,d, x, GX,GY, PX,PY,PZ,PT, y){
+	mod(p) X,Y,Z,T = edwards_scale(p,a,d, x, GX,GY,1,GX*GY);
+	X,Y,Z,T = edwards_add(p,a,d, X,Y,Z,T, PX,PY,PZ,PT);
+	y = decaf_encode(p,a,d, X,Y,Z,T);
+}
+
+# Z = xa*(Yb-PN)
+#   = xa*(xb*G+PN-PN)
+#   = xa*xb*G
+#   = xb*xa*G
+#   = xb*(xa*G+PM-PM)
+#   = xb*(Ya-PM)
+spake2ee_2(p,a,d, PX,PY,PZ,PT, x, y, ok, z){
+	ok, X,Y,Z,T = decaf_decode(p,a,d, y);
+	if(ok != 0){
+		mod(p) X,Y,Z,T = edwards_add(p,a,d, X,Y,Z,T, -PX,PY,PZ,-PT);
+		X,Y,Z,T = edwards_scale(p,a,d, x, X,Y,Z,T);
+		z = decaf_encode(p,a,d, X,Y,Z,T);
+	}
+}
+
+pakkey[32]:
+
+The shared secret Z is hashed to get the final pakkey:
+
+info = "Plan 9 AuthPAK key"
+salt = sha2_256(Ya | Yb)
+pakkey = hkdf_hmac_sha2_256(salt, info, Z)
+
+Note that we use a hash of the concatenation of the public keys Ya|Yb
+as the salt to the key derivation function so that any manipulation on
+the public keys in the message exchange causes a pakkey mismatch.
+
+Client and server both establish new pakkeys with the authentication
+server before each ticket request.
+
+Dp9ik and authsrv protocol:
+
+Dp9ik is mostly the same as p9sk1, but at the beginning there is
+the new AuthPAK (type 19) message sent to the authentication server
+to exchange SPAKE2EE public keys YAs/YBs and YAc/YBc and derive the
+pakkeys. Ks and Kc are replaced by the pakkeys Zs and Zc. When using
+AuthPAK, chacha20 encrypted tickets are used as described below.
+
+The expression K{M} means that message M is encrypted with key K
+
+CHc	clients challenge
+CHs	servers challenge
+YAs	servers->as AuthPAK public key
+YBs	as->server AuthPAK public key
+YAc	client->as AuthPAK public key
+YBc	as->clinet AuthPAK public key
+Zs	servers pakkey
+Zc	clients pakkey
+Kn	ticket key, as random nonce
+RNs	servers random nonce
+RNc	clients random nonce
+
+/* ticket request (dp9ik) */
+C->S	CHc
+
+S->C*	AuthPAK, IDs, DN, CHs, -, -, YAs
+C->A*	AuthPAK, IDs, DN, CHs, IDc, IDr, YAs, YAc
+A->C*	YBs, YBc
+
+C->A	AuthTreq, IDs, DN, CHs, IDc, IDr
+A->C	Zc{AuthTc, CHs, IDc, IDr, Kn}, Zs{AuthTs, CHs, IDc, IDr, Kn}
+C->S*	YBs, Zs{AuthTs, CHs, IDc, IDr, Kn}, Kn{AuthAc, CHs, RNc}
+S->C	Kn{AuthAs, CHc, RNs}
+
+The AuthPAK message is used in other authsrv protocols as well,
+so we give two examples here:
+
+/* password change */
+C->A*	AuthPAK, IDc, DN, -, -, -, YAc
+A->C*	YBc
+
+C->A	AuthPass, IDc, DN, CHc, IDc, IDc
+A->C	Zc{AuthTp, CHc, IDc, IDc, Kn}
+C->A	Kn{AuthPass, old, new, changesecret, secret}
+A->C	AuthOK or AuthErr, 64-byte error message
+
+/* auth chal */
+S->A*	AuthPAK, IDs, DN, -, -, -, YAs
+A->S*	YBs
+
+S->A	AuthChal, IDs, DN, CHs, IDs, IDc
+A->S	AuthOK, challenge
+S->A	response
+A->S	AuthOK, Zs{AuthChal, IDs, DN, CHs, IDs, IDc, Kn}, Kn{AuthTs, CHs}
+
+When using AuthPAK, tickets and authenticators are generated as follows:
+
+/* ticket */
+ticket_type[8] = "form1 Tc" / "form1 Ts" / ...
+ticket_seq[4] = counter++		/* iv[12] = type|seq */
+ticket_cipher[96] {
+	ticket[96] {
+		chal[8]			/* CHs: server challenge */
+		cuid[28]		/* IDc: uid on client */
+		suid[28]		/* IDr: uid on server */
+		key[32]	= random()	/* Kn: client/server shared secret key */
+	}
+}, tag  = ccpoly_encrypt(ticket, nil, pakkey, ticket_type | ticket_seq)
+ticket_tag[16] = tag
+
+Client/server can exchange authenticators as usual with the
+random nonce from the ticket to derive encryption and mac
+keys:
+
+/* authenticator */
+authent_type[8] = "form1 Ac" / "form1 As" / ...
+authent_seq[4] = counter++		/* iv[12] = type|seq */
+authent_cipher[40] {
+	authent[40] {
+		chal[8]			/* CHx: client/server challenge */
+		rand[32] = random()	/* RNy: client/server random */
+	}
+}, tag = ccpoly_encrypt(authent, nil, ticket.key, authent_type | authent_seq)
+authent_tag[16] = tag
+
+Instead of using ticket.key directly as the session secret, for dp9ik,
+we derive a 2048-bit session secret by concatenating the random nonces
+from the authenticators and hash them with the ticket key.
+
+info = "Plan 9 session secret";
+salt = RNc | RNs
+secret[256] = hkdf_hmac_sha2_256(salt, info, ticket.key)
+
+This simplifies the implementation of establishing encryption as the
+new session secret is big enough to be used directly for TLS/SSL encryption,
+saving the roundtrip of exchanging extra nonces to get encryption keys.
+
+Integration and backwards-compatibility:
+
+It is not hard to see that there is no security improvement as long as
+the authentication server keeps issuing old DES encrypted tickets
+for p9sk1 with the user's deskey. In fact, the DES key and the password
+that it was derived from sould be considered compromized. However,
+we think it is neccesary to allow both protocols to run side by side
+for some grace period until all hostowner keys have been assigned new
+AES keys and software has been updated.
+
+References:
+
+[rfc2898] PKCS #5 Password-Based Cryptography Specification (PBKDF2)
+[rfc5869] HMAC-based Extract-and-Expand Key Derivation Function (HKDF)
