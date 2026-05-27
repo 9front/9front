@@ -2,7 +2,7 @@
 .SH NAME
 rsagen, rsafill, asn12rsa, rsa2asn1, rsa2pub, rsa2ssh, rsa2x509, rsa2csr, rsa2jwk, x5092pub \- generate and format rsa keys
 .SH SYNOPSIS
-.B rsagen
+.B auth/rsagen
 [
 .B -b
 .I nbits
@@ -12,12 +12,12 @@ rsagen, rsafill, asn12rsa, rsa2asn1, rsa2pub, rsa2ssh, rsa2x509, rsa2csr, rsa2jw
 .I tag
 ]
 .PP
-.B rsafill
+.B auth/rsafill
 [
 .I file
 ]
 .PP
-.B asn12rsa
+.B auth/asn12rsa
 [
 .B -t
 .I tag
@@ -26,7 +26,7 @@ rsagen, rsafill, asn12rsa, rsa2asn1, rsa2pub, rsa2ssh, rsa2x509, rsa2csr, rsa2jw
 .I file
 ]
 .PP
-.B rsa2asn1
+.B auth/rsa2asn1
 [
 .B -a
 ]
@@ -38,17 +38,17 @@ rsagen, rsafill, asn12rsa, rsa2asn1, rsa2pub, rsa2ssh, rsa2x509, rsa2csr, rsa2jw
 .I file
 ]
 .PP
-.B rsa2pub
+.B auth/rsa2pub
 [
 .I file
 ]
 .PP
-.B ssh2rsa
+.B auth/ssh2rsa
 [
 .I file
 ]
 .PP
-.B rsa2ssh
+.B auth/rsa2ssh
 [
 .B -c
 .I comment
@@ -57,12 +57,12 @@ rsagen, rsafill, asn12rsa, rsa2asn1, rsa2pub, rsa2ssh, rsa2x509, rsa2csr, rsa2jw
 .I file
 ]
 .PP
-.B rsa2jwk
+.B auth/rsa2jwk
 [
 .I file
 ]
 .PP
-.B rsa2x509
+.B auth/rsa2x509
 [
 .B -e
 .I expiretime
@@ -72,13 +72,13 @@ rsagen, rsafill, asn12rsa, rsa2asn1, rsa2pub, rsa2ssh, rsa2x509, rsa2csr, rsa2jw
 .I file
 ]
 .PP
-.B rsa2csr
+.B auth/rsa2csr
 .I subject
 [
 .I file
 ]
 .PP
-.B x5092pub
+.B auth/x5092pub
 [
 .B -r
 ] [
