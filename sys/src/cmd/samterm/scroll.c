@@ -80,6 +80,22 @@ scrdraw(Flayer *l, long tot)
 }
 
 void
+scrsleep(ulong dt)
+{
+	int b;
+
+	flushdisplay();
+	b = mousep->buttons;
+	while(dt-- > 0){
+		sleep(1);
+		if(nbrecv(mousectl->c, mousep) < 0)
+			panic("mouse");
+		if(mousep->buttons != b)
+			break;
+	}
+}
+
+void
 scroll(Flayer *l, int but)
 {
 	Rectangle s;
@@ -128,10 +144,8 @@ scroll(Flayer *l, int but)
 		}else
 			delay = 100;
 		if(mousep->msec - lastmsec < delay)
-			sleep(delay - mousep->msec + lastmsec);
+			scrsleep(delay - mousep->msec + lastmsec);
 		lastmsec = mousep->msec;
-		if(nbrecv(mousectl->c, mousep) < 0)
-			panic("mouse");
 	}while(mousep->buttons & (1 << (but-1)));
 	while(mousep->buttons)
 		readmouse(mousectl);
