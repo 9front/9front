@@ -202,9 +202,6 @@ render(URLwin *u, Bytes *t, Item *items, int curanchor)
 	col = 0;
 	wordi = 0;
 
-	if(u->docinfo->doctitle != nil)
-		renderrunes(t, u->docinfo->doctitle);
-
 	for(il=items; il!=nil; il=il->next){
 		if(il->state & IFbrk)
 			renderbytes(t, "\n");
@@ -286,6 +283,8 @@ rerender(URLwin *u)
 
 	t = emalloc(sizeof(Bytes));
 
+	if(u->docinfo->doctitle != nil)
+		renderrunes(t, u->docinfo->doctitle);
 	render(u, t, u->items, 0);
 	if(!aflag){
 		for(a = u->docinfo->anchors; a != nil; a = a->next){
