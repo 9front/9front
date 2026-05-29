@@ -1767,7 +1767,7 @@ dnsiplookup(char *host, Ndbs *s, int ipvers)
 	if(t == nil){
 		rerrstr(buf, sizeof buf);
 		if(strstr(buf, "exist") != nil)
-			werrstr("can't translate address: %s", buf);
+			werrstr("can't translate address %s: %s", host, buf);
 		else if(strstr(buf, "dns failure") != nil)
 			werrstr("temporary problem: %s", buf);
 	}
