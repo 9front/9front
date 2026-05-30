@@ -13,15 +13,26 @@ if(~ $#branch 0)
 if(test -e $dir/.git)
 	die $dir/.git already exists
 name=`{basename `{cleanname -d `{pwd} $dir}}
+
+mkdir -p $dir
+
+cd $dir
+
+mkdir -p .git/refs/^(heads remotes)
+mkdir -p .git/^(fs objects)
+
+>.git/INDEX9
+>.git/HEAD {
+	echo ref: refs/heads/$branch
+}
+
 if(~ $#upstream 0){
 	upstream=`{git/conf 'defaults "origin".baseurl'}
 	if(! ~ $#upstream 0)
 		upstream=$upstream/$name
 }
 
-mkdir -p $dir/.git/refs/^(heads remotes)
-mkdir -p $dir/.git/^(fs objects)
->$dir/.git/config {
+>.git/config {
 	echo '[core]'
 	echo '	repositoryformatversion = p9.0'
 	if(! ~ $#upstream 0){
@@ -30,10 +41,6 @@ mkdir -p $dir/.git/^(fs objects)
 	}
 	echo '[branch "'$branch'"]'
 	echo '	remote = origin'
-}
->$dir/.git/INDEX9
->$dir/.git/HEAD {
-	echo ref: refs/heads/$branch
 }
 
 exit ''
