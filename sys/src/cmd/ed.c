@@ -1027,7 +1027,7 @@ putline(void)
 		}
 	}
 	nl = tline;
-	tline += ((lp-linebuf) + 03) & 077776;
+	tline += ((lp-linebuf) + 03) & ~01;
 	return nl;
 }
 
@@ -1048,8 +1048,9 @@ getblock(int atl, int iof)
 	static uchar ibuff[BLKSIZE];
 	static uchar obuff[BLKSIZE];
 
+	atl &= ~01;
 	bno = atl / (BLKSIZE/sizeof(Rune));
-	off = (atl*sizeof(Rune)) & (BLKSIZE-1) & ~03;
+	off = (atl*sizeof(Rune)) & (BLKSIZE-1);
 	if(bno >= NBLK) {
 		lastc = '\n';
 		error(T);
