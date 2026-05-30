@@ -83,7 +83,7 @@ s_error(char *f, char *status)
 static void
 usage(void)
 {
-	fprint(2, "usage: smtpd [-DEadefghpqrs] [-c cert] [-k ip] [-m mailer] [-n net]\n");
+	fprint(2, "usage: smtpd [-DEadefgpqrs] [-c cert] [-h mydom] [-k ip] [-m mailer] [-n net]\n");
 	exits("usage");
 }
 

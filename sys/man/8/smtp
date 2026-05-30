@@ -31,7 +31,7 @@ smtp, smtpd \-  mail transport
 .ti -0.5i
 .B upas/smtpd
 [
-.B -adDeEfqrg
+.B -adDeEfgpqrs
 ] [
 .B -c
 .I certfile
