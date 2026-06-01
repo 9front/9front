@@ -1,0 +1,50 @@
+#!/bin/rc
+rfork ne
+
+ramfs
+@{ cd /tmp && hget https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/sha3/sha-3bytetestvectors.zip | unzip -s }
+files=/tmp/*Msg.rsp
+echo 'struct {
+	DigestState*(*x)(uchar*, ulong, uchar*, DigestState*);
+	int len;
+	char *in, *out;
+} tests[] = {'
+for(i in $files){
+	bits=`{echo $i | sed 's/.*SHA3_([0-9]+).*/\1/g'}
+	awk -v 'BITS='^$bits '
+		/^Len/{ Len=$3 }
+		/^Msg/{
+			if(Len == 0)
+				s=""
+			else
+				s=$3
+			printf("{\n\tsha3_%s,\n\tSHA3_%sdlen,\n\t\"%s\",\n", BITS, BITS, s)
+		}
+		/^MD/{
+			printf("\t\"%s\",\n},\n", $3)
+		}
+	' $i | sed 's///g;s/^/	/g'
+}
+echo '};'
+echo
+echo
+monte=/tmp/*Monte.rsp
+echo 'struct {
+	DigestState*(*x)(uchar*, ulong, uchar*, DigestState*);
+	int len;
+	char *seed;
+	char *checkp[100];
+} monte[] = {'
+for(i in $monte){
+	bits=`{echo $i | sed 's/.*SHA3_([0-9]+).*/\1/g'}
+	awk -v 'BITS='^$bits '
+		/^Seed/{
+			printf("{\n\tsha3_%s,\n\tSHA3_%sdlen,\n\t\"%s\",\n\t{\n", BITS, BITS, $3)
+		}
+		/^MD/{
+			printf("\t\t\"%s\",\n", $3)
+		}
+		END{ print "\t},\n},\n" }
+	' $i | sed 's///g;s/^/	/g'
+}
+echo '};'

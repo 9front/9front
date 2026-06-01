@@ -44,6 +44,18 @@ DS*	sha2_384(uchar *data, ulong dlen, uchar *digest, DS *state)
 .Ti
 DS*	sha2_512(uchar *data, ulong dlen, uchar *digest, DS *state)
 .Ti
+DS*	sha3_224(uchar *data, ulong dlen, uchar *digest, DS *state)
+.Ti
+DS*	sha3_256(uchar *data, ulong dlen, uchar *digest, DS *state)
+.Ti
+DS*	sha3_384(uchar *data, ulong dlen, uchar *digest, DS *state)
+.Ti
+DS*	sha3_512(uchar *data, ulong dlen, uchar *digest, DS *state)
+.Ti
+DS*	shake_128(uchar *data, ulong dlen, uchar *digest, ulong olen, DS *state)
+.Ti
+DS*	shake_256(uchar *data, ulong dlen, uchar *digest, ulong olen, DS *state)
+.Ti
 DS*	blake2s_128(uchar *data, ulong dlen, uchar *digest, DS *state)
 .Ti
 DS*	blake2s_256(uchar *data, ulong dlen, uchar *digest, DS *state)
@@ -89,6 +101,10 @@ The routines
 .IR sha2_256 ,
 .IR sha2_384 ,
 .IR sha2_512 ,
+.IR sha3_224 ,
+.IR sha3_256 ,
+.IR sha3_384 ,
+.IR sha3_512 ,
 .IR blake2s_128 ,
 .IR blake2s_256 ,
 differ only in the length of the resulting digest
@@ -121,11 +137,23 @@ The constants
 .IR SHA2_256dlen ,
 .IR SHA2_384dlen ,
 .IR SHA2_512dlen ,
+.IR SHA3_224dlen ,
+.IR SHA3_256dlen ,
+.IR SHA3_384dlen ,
+.IR SHA3_512dlen ,
 .IR BLAKE2S_128dlen ,
 .I BLAKE2S_256dlen
 and
 .I Poly1305dlen
 define the lengths of the digests.
+.PP
+.I Shake_128
+and
+.I shake_256
+are extensible output functions that use the SHA3 keccak block.
+For these functions the
+.I olen
+argument specifies how many bytes to write out to the digest.
 .PP
 .IR Hmac_md5 ,
 .IR hmac_sha1 ,
