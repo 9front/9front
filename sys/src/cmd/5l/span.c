@@ -208,6 +208,8 @@ addpool(Prog *p, Adr *a)
 	case C_LOREG:
 	case C_ROREG:
 	case C_FOREG:
+	case C_HOREG:
+	case C_HFOREG:
 	case C_SOREG:
 	case C_FAUTO:
 	case C_SAUTO:
