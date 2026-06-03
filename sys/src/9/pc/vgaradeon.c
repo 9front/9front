@@ -26,24 +26,31 @@ enum {
 	Meg	= Kilo * Kilo,
 };
 
-/* mmio access */
+/*
+ * mmio access
+ *
+ * Note: the original code used KADDR((uintptr)mmio + offset),
+ * but on amd64 kaddr() panics for addresses >= 2GB.
+ * Since mmio comes from vmap() which returns a valid kernel
+ * virtual address, we access it directly.
+ */
 
 static void
 OUTREG8(ulong *mmio, ulong offset, uchar val)
 {
-	((uchar*)KADDR((((uintptr)mmio) + offset)))[0] = val;
+	*((volatile uchar*)((uchar*)mmio + offset)) = val;
 }
 
 static void
 OUTREG(ulong *mmio, ulong offset, ulong val)
 {
-	((ulong*)KADDR((((uintptr)mmio) + offset)))[0] = val;
+	*((volatile ulong*)((uchar*)mmio + offset)) = val;
 }
 
 static ulong
 INREG(ulong *mmio, ulong offset)
 {
-	return ((ulong*)KADDR((((uintptr)mmio) + offset)))[0];
+	return *((volatile ulong*)((uchar*)mmio + offset));
 }
 
 static void
@@ -197,7 +204,7 @@ radeoncurenable(VGAscr *scr)
 {
 	ulong storage;
 
-	if(scr->mmio == 0)
+	if(scr->mmio == nil)
 		return;
 
 	radeoncurdisable(scr);
@@ -218,7 +225,7 @@ radeonblank(VGAscr* scr, int blank)
 	ulong mask;
 	char *cp;
 
-	if (scr->mmio == 0)
+	if (scr->mmio == nil)
 		return;
 
 //	iprint("radeon: hwblank(%d)\n", blank);
@@ -352,7 +359,7 @@ radeondrawinit(VGAscr*scr)
 {
 	ulong dtype, i, clock_cntl_index, mclk_cntl, rbbm_soft_reset;
 
-	if (scr->mmio == 0)
+	if (scr->mmio == nil)
 		return;
 
 	switch (scr->gscreen->depth) {
