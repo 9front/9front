@@ -1002,8 +1002,8 @@ tlsSecECDHEc(TlsSec *sec, int curve, Bytes *Ys)
 		}
 		setMasterSecret(sec, Z);
 	}else{
-		for(nc = namedcurves; nc->tlsid != curve; nc++)
-			if(nc == &namedcurves[nelem(namedcurves)])
+		for(nc = namedcurves; nc->tlsid != curve;)
+			if(++nc >= &namedcurves[nelem(namedcurves)])
 				return nil;
 		ecdominit(dom, nc->init);
 		pub = ecdecodepub(dom, Ys->data, Ys->len);
