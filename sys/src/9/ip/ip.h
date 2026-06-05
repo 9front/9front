@@ -316,9 +316,6 @@ struct Medium
 	void	(*addmulti)(Ipifc *ifc, uchar *a, uchar *ia);
 	void	(*delmulti)(Ipifc *ifc, uchar *a, uchar *ia);
 
-	/* process packets written to 'data' */
-	void	(*pktin)(Fs *f, Ipifc *ifc, Block *bp);
-
 	/* address resolution */
 	void	(*areg)(Fs *f, Ipifc *ifc, Iplifc *lifc, uchar *ip);
 

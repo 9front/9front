@@ -23,7 +23,6 @@ Medium pktmedium =
 .bind=		pktbind,
 .unbind=	pktunbind,
 .bwrite=	pktbwrite,
-.pktin=		pktin,
 .unbindonclose=	1,
 };
 
@@ -47,27 +46,10 @@ pktunbind(Ipifc*)
 static void
 pktbwrite(Ipifc *ifc, Block *bp, int, uchar*, Routehint*)
 {
-	ifc->out++;
 	/* enqueue onto the conversation's rq */
 	if(ifc->conv->snoopers.ref > 0)
 		qpass(ifc->conv->sq, copyblock(bp, BLEN(bp)));
-	qpass(ifc->conv->rq, bp);
-}
-
-/*
- *  called with ifc rlocked when someone write's to 'data'
- */
-static void
-pktin(Fs *f, Ipifc *ifc, Block *bp)
-{
-	ifc->in++;
-	if(ifc->lifc == nil)
-		freeb(bp);
-	else {
-		if(ifc->conv->snoopers.ref > 0)
-			qpass(ifc->conv->sq, copyblock(bp, BLEN(bp)));
-		ipiput4(f, ifc, bp);
-	}
+	qbwrite(ifc->conv->rq, bp);
 }
 
 void

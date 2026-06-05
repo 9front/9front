@@ -92,9 +92,7 @@ static void
 netdevbwrite(Ipifc *ifc, Block *bp, int, uchar*, Routehint*)
 {
 	Netdevrock *er = ifc->arg;
-
 	devtab[er->mchan->type]->bwrite(er->mchan, bp, 0);
-	ifc->out++;
 }
 
 /*
@@ -122,11 +120,7 @@ netdevread(void *a)
 			runlock(ifc);
 			continue;
 		}
-		ifc->in++;
-		if(ifc->lifc == nil)
-			freeb(bp);
-		else
-			ipiput4(er->f, ifc, bp);
+		ipiput4(er->f, ifc, bp);
 		runlock(ifc);
 		poperror();
 	}

@@ -128,6 +128,7 @@ ipoput4(Fs *f, Block *bp, Ipifc *gating, int ttl, int tos, Routehint *rh)
 		goto free;
 	}
 	if(waserror()){
+		ifc->outerr++;
 		runlock(ifc);
 		/* bp is freed by m->bwrite() called from ipifcoput() */
 		return -1;
@@ -286,6 +287,11 @@ ipiput4(Fs *f, Ipifc *ifc, Block *bp)
 		ipiput6(f, ifc, bp);
 		return;
 	}
+
+	if(ifc->lifc == nil)
+		goto drop;
+
+	ifc->in++;
 
 	ip = f->ip;
 	ip->stats[InReceives]++;

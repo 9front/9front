@@ -22,12 +22,7 @@ readloopback(void *x)
 			runlock(ifc);
 			continue;
 		}
-		if(ifc->lifc == nil)
-			freeb(bp);
-		else {
-			ifc->in++;
-			ipiput4(f, ifc, bp);
-		}
+		ipiput4(f, ifc, bp);
 		runlock(ifc);
 		poperror();
 	}
@@ -50,9 +45,7 @@ loopbackbind(Ipifc *ifc, int, char**)
 static void
 loopbackbwrite(Ipifc *ifc, Block *bp, int, uchar*, Routehint*)
 {
-	if(qpass(ifc->loopback, bp) < 0)
-		ifc->outerr++;
-	ifc->out++;
+	qbwrite(ifc->loopback, bp);
 }
 
 Medium loopbackmedium =

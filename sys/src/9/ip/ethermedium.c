@@ -311,7 +311,6 @@ etherbwrite(Ipifc *ifc, Block *bp, int version, uchar *ip, Routehint *rh)
 	default:
 		panic("etherbwrite2: version %d", version);
 	}
-	ifc->out++;
 }
 
 
@@ -340,8 +339,7 @@ etherread4(void *a)
 			runlock(ifc);
 			continue;
 		}
-		ifc->in++;
-		if(ifc->lifc == nil || BLEN(bp) <= ETHERHDRSIZE)
+		if(BLEN(bp) <= ETHERHDRSIZE)
 			freeb(bp);
 		else {
 			bp->rp += ETHERHDRSIZE;
@@ -381,8 +379,7 @@ etherread6(void *a)
 			runlock(ifc);
 			continue;
 		}
-		ifc->in++;
-		if(ifc->lifc == nil || BLEN(bp) <= ETHERHDRSIZE)
+		if(BLEN(bp) <= ETHERHDRSIZE)
 			freeb(bp);
 		else {
 			bp->rp += ETHERHDRSIZE;
