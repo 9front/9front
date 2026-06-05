@@ -15,7 +15,7 @@ enum {
 	Nself		= Maxmedia*5,
 	NHASH		= 1<<6,
 	NCACHE		= 256,
-	QMAX		= 192*1024-1,
+	QMAX		= 1024*1024,
 };
 
 static Medium *media[Maxmedia] = { 0 };

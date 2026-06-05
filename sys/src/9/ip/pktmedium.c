@@ -49,7 +49,7 @@ pktbwrite(Ipifc *ifc, Block *bp, int, uchar*, Routehint*)
 	/* enqueue onto the conversation's rq */
 	if(ifc->conv->snoopers.ref > 0)
 		qpass(ifc->conv->sq, copyblock(bp, BLEN(bp)));
-	qbwrite(ifc->conv->rq, bp);
+	qpass(ifc->conv->rq, bp);
 }
 
 void
