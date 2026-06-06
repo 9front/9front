@@ -754,24 +754,20 @@ correlate(Sampler *s, Point p)
 static void
 intupscalewarp(Blitter *blit, Rectangle r, Sampler *samp, Point sp0, Warp *m)
 {
-	Point sp, dp, p2, scale;
+	Point sp, dp, p2;
 	ulong c, bpl;
-	int p2x₀, i;
+	int p2x₀, i, dxdx, dydy;
 	uchar *p;
 
 	bpl = Dx(r)*blit->i->depth >> 3;
-	scale = (Point){
-		fixdiv(int2fix(1), m->m[0][0]),
-		fixdiv(int2fix(1), m->m[1][1])
-	};
-	scale.x = fix2int(scale.x + (1<<12));
-	scale.y = fix2int(scale.y + (1<<12));
 
-	p2 = xform((Point){
-		int2fix(r.min.x - blit->i->r.min.x) + (1<<12),
-		int2fix(r.min.y - blit->i->r.min.y) + (1<<12)
-	}, m);
+	p2.x = int2fix(r.min.x - blit->i->r.min.x) + (1<<12);
+	p2.y = int2fix(r.min.y - blit->i->r.min.y) + (1<<12);
+	p2 = xform(p2, m);
 	p2x₀ = p2.x;
+
+	dxdx = m->m[0][0];
+	dydy = m->m[1][1];
 
 	for(dp.y = r.min.y; dp.y < r.max.y; ){
 		sp.y = sp0.y + fix2int(p2.y);
@@ -779,20 +775,22 @@ intupscalewarp(Blitter *blit, Rectangle r, Sampler *samp, Point sp0, Warp *m)
 		sp.x = sp0.x + fix2int(p2.x);
 
 		c = sample1(samp, sp);
-		for(i = 0; i < scale.x && dp.x < r.max.x; i++){
+		for(i = fixfrac(p2.x); i < int2fix(1) && dp.x < r.max.x; i += dxdx){
 			blit->fn(blit, dp, c);
 			dp.x++;
-			p2.x += m->m[0][0];
+			p2.x += dxdx;
 		}
 	}
 		p = blit->a + dp.y*blit->bpl + (r.min.x*blit->i->depth >> 3);
 		dp.y++;
-		p2.y += m->m[1][1];
-		for(i = 1; i < scale.y && dp.y < r.max.y; i++){
+		i = fixfrac(p2.y);
+		p2.y += dydy;
+		i += dydy;
+		for(; i < int2fix(1) && dp.y < r.max.y; i += dydy){
 			memmove(p+blit->bpl, p, bpl);
 			p += blit->bpl;
 			dp.y++;
-			p2.y += m->m[1][1];
+			p2.y += dydy;
 		}
 		p2.x = p2x₀;
 	}
