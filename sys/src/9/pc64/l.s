@@ -956,6 +956,17 @@ TEXT forkret(SB), 1, $-4
 	MOVQ	(21*8)(SP), R11			/* flags */
 	MOVQ	(22*8)(SP), SP			/* sp */
 
+	MOVQ	$0, BX
+	MOVQ	$0, DX
+	MOVQ	$0, SI
+	MOVQ	$0, DI
+	MOVQ	$0, R8
+	MOVQ	$0, R9
+	MOVQ	$0, R10
+	MOVQ	$0, R12
+	MOVQ	$0, R13
+	MOVQ	$0, BP
+
 	BYTE $0x48; SYSRET			/* SYSRETQ */
 
 /*

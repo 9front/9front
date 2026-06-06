@@ -1041,6 +1041,14 @@ intrcommon:
 	CALL	trap(SB)
 
 TEXT forkret(SB), $0
+	/* has to be done before POPAL so we dont clobber the flags */
+	XORL	CX, CX
+	XORL	BX, BX
+	XORL	DX, DX
+	XORL	SI, SI
+	XORL	DI, DI
+	XORL	BP, BP
+
 	POPL	AX
 	POPAL
 TEXT _forkretpopgs(SB), $0
