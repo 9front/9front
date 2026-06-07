@@ -35,6 +35,7 @@ if(! nusb/usbd $usbdebug)
 		# prevent attachment to nusb/kb for:
 		case 048d5702 # ITE RGB LED Controller
 		case 054c0268 # sony dualshock 3 (ps3) controller
+		case 051d* # APC UPS
 		case *
 			switch($4){
 			case *03
