@@ -70,7 +70,7 @@ main(int argc, char *argv[])
 	arginit();
 
 	profileflg = 1;	/* #pragma can turn it off */
-	tufield = simplet((1L<<tfield->etype) | BUNSIGNED);
+	tufield = simplet((Spec){(1L<<tfield->etype) | BUNSIGNED, 0});
 	defs = 0;
 	ndef = 0;
 	outfile = 0;
@@ -1423,14 +1423,22 @@ FNconv(Fmt *fp)
 int
 Qconv(Fmt *fp)
 {
-	long b;
+	Spec s;
+	long t, c;
 	int i;
 
-	b = va_arg(fp->args, long);
-	while(b) {
-		i = bitno(b);
-		b &= ~(1L << i);
-		fmtprint(fp, "%s%s", qnames[i], b? " ": "");
+	s = va_arg(fp->args, Spec);
+	t = s.type;
+	c = s.class;
+	while(c) {
+		i = bitno(c);
+		c &= ~(1L << i);
+		fmtprint(fp, "%s%s", qcnames[i], (t || c)? " ": "");
+	}
+	while(t) {
+		i = bitno(t);
+		t &= ~(1L << i);
+		fmtprint(fp, "%s%s", qtnames[i], t? " ": "");
 	}
 	return 0;
 }

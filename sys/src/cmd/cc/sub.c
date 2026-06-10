@@ -144,24 +144,23 @@ copytyp(Type *t)
 }
 
 Type*
-garbt(Type *t, long b)
+garbt(Type *t, Spec s)
 {
 	Type *t1;
 
-	if(b & BGARB) {
+	if(s.class & BGARB) {
 		t1 = copytyp(t);
-		t1->garb = simpleg(b);
+		t1->garb = simpleg(s);
 		return t1;
 	}
 	return t;
 }
 
 int
-simpleg(long b)
+simpleg(Spec s)
 {
 
-	b &= BGARB;
-	switch(b) {
+	switch(s.class & BGARB) {
 	case BCONSTNT:
 		return GCONSTNT;
 	case BVOLATILE:
@@ -175,11 +174,10 @@ simpleg(long b)
 }
 
 int
-simplec(long b)
+simplec(Spec s)
 {
 
-	b &= BCLASS;
-	switch(b) {
+	switch(s.class & BCLASS) {
 	case 0:
 	case BREGISTER:
 		return CXXX;
@@ -197,16 +195,14 @@ simplec(long b)
 	case BTYPESTR:
 		return CTYPESTR;
 	}
-	diag(Z, "illegal combination of classes %Q", b);
+	diag(Z, "illegal combination of classes %Q", s);
 	return CXXX;
 }
 
 Type*
-simplet(long b)
+simplet(Spec s)
 {
-
-	b &= ~BCLASS & ~BGARB;
-	switch(b) {
+	switch(s.type) {
 	case BCHAR:
 	case BCHAR|BSIGNED:
 		return types[TCHAR];
@@ -266,7 +262,7 @@ simplet(long b)
 		return types[TVOID];
 	}
 
-	diag(Z, "illegal combination of types %Q", b);
+	diag(Z, "illegal combination of types %Q", s);
 	return types[TINT];
 }
 
@@ -1221,17 +1217,18 @@ bitno(long b)
 	return 0;
 }
 
-long
-typebitor(long a, long b)
+Spec
+typebitor(Spec a, Spec b)
 {
-	long c;
+	Spec c;
 
-	c = a | b;
-	if(a & b)
-		if((a & b) == BLONG)
-			c |= BVLONG;		/* long long => vlong */
+	c.type = a.type | b.type;
+	c.class = a.class | b.class;
+	if((a.type & b.type) || (a.class & b.class))
+		if((a.type & b.type) == BLONG)
+			c.type |= BVLONG;	/* long long => vlong */
 		else
-			warn(Z, "once is enough: %Q", a & b);
+			warn(Z, "once is enough: %Q", (Spec){a.type & b.type, a.class & b.class});
 	return c;
 }
 
@@ -1353,7 +1350,6 @@ Init	thashinit[] =
 	TSTRUCT,	0x7c2da3bf,	0,
 	TUNION,		0x3eb25e98,	0,
 	TENUM,		0x44b54f61,	0,
-	TNORET,		0x19242ac3,	0,
 	TOLD,		0x22b15988,	0,
 	TDOT,		0x0204f6b3,	0,
 	-1,		0,		0,
@@ -1396,7 +1392,6 @@ Init	tnamesinit[] =
 	TSTRUCT,	0,	"STRUCT",
 	TUNION,		0,	"UNION",
 	TENUM,		0,	"ENUM",
-	TNORET,		0,	"NORET",
 	TOLD,		0,	"OLD",
 	TDOT,		0,	"DOT",
 	-1,		0,	0,
@@ -1413,8 +1408,8 @@ Init	gnamesinit[] =
 	-1,			0,	0,
 };
 
-char*	qnames[NALLTYPES];
-Init	qnamesinit[] =
+char*	qtnames[NALLTYPES];
+Init	qtnamesinit[] =
 {
 	TXXX,		0,	"TXXX",
 	TCHAR,		0,	"CHAR",
@@ -1437,19 +1432,24 @@ Init	qnamesinit[] =
 	TUNION,		0,	"UNION",
 	TENUM,		0,	"ENUM",
 
-	TAUTO,		0,	"AUTO",
-	TEXTERN,	0,	"EXTERN",
-	TSTATIC,	0,	"STATIC",
-	TTYPEDEF,	0,	"TYPEDEF",
-	TTYPESTR,	0,	"TYPESTR",
-	TREGISTER,	0,	"REGISTER",
-	TCONSTNT,	0,	"CONSTNT",
-	TVOLATILE,	0,	"VOLATILE",
 	TUNSIGNED,	0,	"UNSIGNED",
 	TSIGNED,	0,	"SIGNED",
 	TDOT,		0,	"DOT",
-	TNORET,		0,	"NORET",
 	TOLD,		0,	"OLD",
+	-1,		0,	0,
+};
+char*	qcnames[NCGTYPE];
+Init	qcnamesinit[] =
+{
+	CGAUTO,		0,	"AUTO",
+	CGEXTERN,	0,	"EXTERN",
+	CGSTATIC,	0,	"STATIC",
+	CGTYPEDEF,	0,	"TYPEDEF",
+	CGTYPESTR,	0,	"TYPESTR",
+	CGREGISTER,	0,	"REGISTER",
+	CGCONSTNT,	0,	"CONSTNT",
+	CGVOLATILE,	0,	"VOLATILE",
+	CGNORET,	0,	"NORET",
 	-1,		0,	0,
 };
 char*	cnames[NCTYPES];
@@ -1926,9 +1926,13 @@ tinit(void)
 		urk("gnames", nelem(gnames), p->code);
 		gnames[p->code] = p->s;
 	}
-	for(p=qnamesinit; p->code >= 0; p++) {
-		urk("qnames", nelem(qnames), p->code);
-		qnames[p->code] = p->s;
+	for(p=qtnamesinit; p->code >= 0; p++) {
+		urk("qtnames", nelem(qtnames), p->code);
+		qtnames[p->code] = p->s;
+	}
+	for(p=qcnamesinit; p->code >= 0; p++) {
+		urk("qcnames", nelem(qcnames), p->code);
+		qcnames[p->code] = p->s;
 	}
 	for(p=cnamesinit; p->code >= 0; p++) {
 		urk("cnames", nelem(cnames), p->code);

@@ -17,6 +17,7 @@ typedef	struct	Hist	Hist;
 typedef	struct	Term	Term;
 typedef	struct	Init	Init;
 typedef	struct	Bits	Bits;
+typedef	struct	Spec	Spec;
 
 #define	NHUNK		50000L
 #define	BUFSIZ		IOUNIT
@@ -37,6 +38,12 @@ typedef	struct	Bits	Bits;
 struct	Bits
 {
 	ulong	b[BITS];
+};
+
+struct	Spec
+{
+	ulong type;
+	ulong class;
 };
 
 struct	Node
@@ -318,19 +325,22 @@ enum
 	TDOT,
 	NTYPE,
 
-	TAUTO	= NTYPE,
-	TEXTERN,
-	TSTATIC,
-	TTYPEDEF,
-	TTYPESTR,
-	TREGISTER,
-	TCONSTNT,
-	TVOLATILE,
-	TUNSIGNED,
+	TUNSIGNED = NTYPE,
 	TSIGNED,
-	TNORET,
 	TOLD,
 	NALLTYPES,
+
+	CGXXX = 0,
+	CGAUTO,
+	CGEXTERN,
+	CGSTATIC,
+	CGTYPEDEF,
+	CGTYPESTR,
+	CGREGISTER,
+	CGCONSTNT,
+	CGVOLATILE,
+	CGNORET,
+	NCGTYPE,
 
 	TRUNE	= sizeof(Rune)==4? TUINT: TUSHORT,
 };
@@ -382,17 +392,18 @@ enum
 	BUNION		= 1L<<TUNION,
 	BENUM		= 1L<<TENUM,
 	BDOT		= 1L<<TDOT,
-	BCONSTNT	= 1L<<TCONSTNT,
-	BVOLATILE	= 1L<<TVOLATILE,
 	BUNSIGNED	= 1L<<TUNSIGNED,
 	BSIGNED		= 1L<<TSIGNED,
-	BAUTO		= 1L<<TAUTO,
-	BEXTERN		= 1L<<TEXTERN,
-	BSTATIC		= 1L<<TSTATIC,
-	BTYPEDEF	= 1L<<TTYPEDEF,
-	BTYPESTR	= 1L<<TTYPESTR,
-	BREGISTER	= 1L<<TREGISTER,
-	BNORET		= 1L<<TNORET,
+
+	BAUTO		= 1L<<CGAUTO,
+	BEXTERN		= 1L<<CGEXTERN,
+	BSTATIC		= 1L<<CGSTATIC,
+	BTYPEDEF	= 1L<<CGTYPEDEF,
+	BTYPESTR	= 1L<<CGTYPESTR,
+	BREGISTER	= 1L<<CGREGISTER,
+	BCONSTNT	= 1L<<CGCONSTNT,
+	BVOLATILE	= 1L<<CGVOLATILE,
+	BNORET		= 1L<<CGNORET,
 
 	BINTEGER	= BCHAR|BUCHAR|BSHORT|BUSHORT|BINT|BUINT|
 				BLONG|BULONG|BVLONG|BUVLONG,
@@ -480,7 +491,8 @@ EXTERN	int	warnreach;
 EXTERN	Bits	zbits;
 
 extern	char	*onames[], *tnames[], *gnames[];
-extern	char	*cnames[], *qnames[], *bnames[];
+extern	char	*cnames[], *qtnames[], *qcnames[];
+extern	char	*bnames[];
 extern	char	tab[NTYPE][NTYPE];
 extern	char	comrel[], invrel[], logrel[];
 extern	long	ncast[], tadd[], tand[];
@@ -655,10 +667,10 @@ void	prtree(Node*, char*);
 void	prtree1(Node*, int, int);
 void	relcon(Node*, Node*);
 int	relindex(int);
-int	simpleg(long);
-Type*	garbt(Type*, long);
-int	simplec(long);
-Type*	simplet(long);
+int	simpleg(Spec);
+Type*	garbt(Type*, Spec);
+int	simplec(Spec);
+Type*	simplet(Spec);
 int	stcompat(Node*, Type*, Type*, long[]);
 int	tcompat(Node*, Type*, Type*, long[]);
 void	tinit(void);
@@ -674,7 +686,7 @@ int	vlog(Node*);
 int	topbit(ulong);
 void	simplifyshift(Node*);
 void	rolor(Node*);
-long	typebitor(long, long);
+Spec	typebitor(Spec, Spec);
 void	diag(Node*, char*, ...);
 void	warn(Node*, char*, ...);
 void	yyerror(char*, ...);
@@ -753,7 +765,7 @@ int	machcap(Node*);
 
 #pragma	varargck	type	"F"	Node*
 #pragma	varargck	type	"L"	long
-#pragma	varargck	type	"Q"	long
+#pragma	varargck	type	"Q"	Spec
 #pragma	varargck	type	"O"	int
 #pragma	varargck	type	"T"	Type*
 #pragma	varargck	type	"|"	int

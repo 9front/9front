@@ -773,7 +773,7 @@ fndecls(int pass)
 		return;
 	if(pass == 0){
 		n = new(ONAME, Z, Z);
-		n->type = typ(TARRAY, garbt(types[TCHAR], BCONSTNT));
+		n->type = typ(TARRAY, garbt(types[TCHAR], (Spec){0, BCONSTNT}));
 		n->type->width = 0;
 		n->sym = slookup("__func__");
 		n->sym->type = n->type;
