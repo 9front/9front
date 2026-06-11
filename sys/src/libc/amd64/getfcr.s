@@ -5,7 +5,7 @@ TEXT	setfcr(SB), $4
 	WAIT	/* is this needed? */
 	STMXCSR	0(SP)
 	MOVL	0(SP), AX
-	ANDL	$~0x3F, AX
+	ANDL	$0x3F, AX
 	ORL	RARG, AX
 	MOVL	AX, 0(SP)
 	LDMXCSR	0(SP)
