@@ -9,6 +9,7 @@ extern void mouseaccelerate(int);
 extern int m3mouseputc(Queue*, int);
 extern int m5mouseputc(Queue*, int);
 extern int mouseputc(Queue*, int);
+extern ulong lastmousems(void);
 
 /*
  * Generic VGA registers.

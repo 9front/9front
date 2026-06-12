@@ -89,17 +89,13 @@ ps2mouseputc(int c, int shift)
 	static short msg[4];
 	static int nb;
 	static uchar b[] = {0, 1, 4, 5, 2, 3, 6, 7, 0, 1, 2, 3, 2, 3, 6, 7 };
-	static ulong lasttick;
-	ulong m;
 	int buttons, dx, dy;
 
 	/*
 	 * Resynchronize in stream with timing; see comment above.
 	 */
-	m = MACHP(0)->ticks;
-	if(TK2SEC(m - lasttick) > 2)
+	if(lastmousems() > 2000)
 		nb = 0;
-	lasttick = m;
 
 	/* 
 	 *  check byte 0 for consistency

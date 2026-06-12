@@ -669,8 +669,8 @@ scmousetrack(int x, int y, int b, ulong msec)
 	absmousetrack(x, y, b, msec);
 }
 
-static ulong
-lastms(void)
+ulong
+lastmousems(void)
 {
 	static ulong lasttick;
 	ulong t, d;
@@ -701,7 +701,7 @@ m3mouseputc(Queue*, int c)
 	short x;
 	int dx, dy, newbuttons;
 
-	if(lastms() > 500)
+	if(lastmousems() > 500)
 		nb = 0;
 	if(nb == 3){
 		nb = 0;
@@ -749,7 +749,7 @@ m5mouseputc(Queue*, int c)
 	static uchar msg[4];
 	static int nb;
 
-	if(lastms() > 500)
+	if(lastmousems() > 500)
 		nb = 0;
 	msg[nb] = c & 0x7f;
 	if(++nb == 4){
@@ -781,7 +781,7 @@ mouseputc(Queue*, int c)
 	static uchar b[] = {0, 4, 2, 6, 1, 5, 3, 7, 0, 2, 2, 6, 1, 3, 3, 7};
 	int dx, dy, newbuttons;
 
-	if(lastms() > 500 || (c&0xF0) == 0x80)
+	if(lastmousems() > 500 || (c&0xF0) == 0x80)
 		nb = 0;
 	msg[nb] = c;
 	if(c & 0x80)
