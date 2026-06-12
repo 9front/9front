@@ -910,6 +910,9 @@ Again:
 	for(; p != nil; p = n){
 		n = p->next;
 		switch(p->op){
+		case DFclose:
+			closesnap((Tree*)p);
+			break;
 		case DFtree:
 			free(p);
 			break;

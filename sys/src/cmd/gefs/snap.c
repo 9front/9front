@@ -360,8 +360,9 @@ delsnap(Tree *t, vlong succ, char *name)
 		m[nm].nv = 0;
 		nm++;
 	}else{
-		m[nm].op = Oinsert;
-		tree2kv(t, &m[nm], buf[nm], sizeof(buf[nm]));
+		assert(name != nil);
+		m[nm].op = Orelink;
+		retag2kv(t->gen, t->succ, -1, 0, &m[nm], buf[nm], sizeof(buf[nm]));
 		nm++;
 	}
 	assert(nm <= nelem(m));
@@ -374,7 +375,7 @@ delsnap(Tree *t, vlong succ, char *name)
 			if(r->gen == t->succ)
 				r->pred = t->pred;
 			if(r->gen == t->pred)
-				r->succ = t->succ;
+				r->succ = succ;
 		}
 	}
 }
@@ -443,7 +444,6 @@ tagsnap(Tree *t, char *name, int flg)
 		retag2kv(t->gen, t->succ, 1, 0, &m[i], buf[i], sizeof(buf[i]));
 		i++;
 
-		t->pred = t->gen;
 		m[i].op = Oinsert;
 		lbl2kv(name, t->gen, flg, &m[i], buf[i], sizeof(buf[i]));
 		i++;
@@ -519,7 +519,7 @@ updatesnap(Tree *o, char *lbl, int flg)
 	/* this was the last ref to the snap */
 	if(o->nlbl == 0 && o->nref == 1)
 		delsnap(o, t->gen, nil);
-	closesnap(o);
+	limbo(DFclose, o);
 	poperror();
 	return t;
 }
@@ -531,6 +531,7 @@ Tree*
 opensnap(char *label, int *flg)
 {
 	char *p, buf[Kvmax];
+	Mount *mnt;
 	Tree *t;
 	vlong gen;
 	Kvp kv;
@@ -547,6 +548,14 @@ opensnap(char *label, int *flg)
 	gen = UNPACK64(kv.v + 1);
 	if(flg != nil)
 		*flg = UNPACK32(kv.v + 1+8);
+
+	for(mnt = agetp(&fs->mounts); mnt != nil; mnt = mnt->next){
+		t = agetp(&mnt->root);
+		if(t->gen == gen){
+			aincl(&t->memref, 1);
+			return t;
+		}
+	}
 
 	t = mallocz(sizeof(Tree), 1);
 	if(waserror()){

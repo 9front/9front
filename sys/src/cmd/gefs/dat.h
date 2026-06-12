@@ -345,6 +345,7 @@ enum {
 	DFbp,
 	DFmnt,
 	DFtree,
+	DFclose,
 	DFdlist,
 };
 
