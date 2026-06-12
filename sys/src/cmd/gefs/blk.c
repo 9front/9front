@@ -948,7 +948,7 @@ Again:
 			break;
 		case DFdlist:
 			dl = (Dlist*)p;
-			freedl(dl, 1);
+			freedl(dl);
 			free(dl);
 			break;
 		default:

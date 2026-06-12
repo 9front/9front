@@ -149,43 +149,26 @@ putdl(Dlist *dl)
 }
 
 void
-freedl(Dlist *dl, int docontents)
+freedl(Dlist *dl)
 {
-	char buf[Kvmax];
 	Arena *a;
 	Qent qe;
 	Bptr bp;
-	Msg m;
 	Blk *b;
 	char *p;
 
 	bp = dl->hd;
-	if(dl->gen != -1){
-		m.op = Odelete;
-		dlist2kv(dl, &m, buf, sizeof(buf));
-		btupsert(&fs->snap, &m, 1);
-	}
 	while(bp.addr != -1){
 		b = getblk(bp, 0);
-		/*
-		 * Because these deadlists are dead-dead at this point,
-		 * they'll never be read from again; we can avoid worrying
-		 * about deferred reclamation, and queue them up to be freed
-		 * directly, which means we don't need to worry about watiing
-		 * for a quiescent state, and the associated out-of-block
-		 * deadlocks that come with it.
-		 */
-		if(docontents){
-			for(p = b->data; p != b->data+b->logsz; p += 8){
-				qe.op = Qfree;
-				qe.bp.addr = UNPACK64(p);
-				qe.bp.hash = -1;
-				qe.bp.gen = -1;
-				qe.b = nil;
-				a = getarena(qe.bp.addr);
-				qput(a->sync, qe);
-				traceb("dlclear", qe.bp);
-			}
+		for(p = b->data; p != b->data+b->logsz; p += 8){
+			qe.op = Qfree;
+			qe.bp.addr = UNPACK64(p);
+			qe.bp.hash = -1;
+			qe.bp.gen = -1;
+			qe.b = nil;
+			a = getarena(qe.bp.addr);
+			qput(a->sync, qe);
+			traceb("dlclear", qe.bp);
 		}
 		bp = b->logp;
 		qe.op = Qfree;
@@ -196,6 +179,23 @@ freedl(Dlist *dl, int docontents)
 		traceb("dlfreeb", qe.bp);
 		dropblk(b);
 	}
+}
+
+static void
+deferdl(vlong gen, vlong bgen)
+{
+	char buf[Kvmax];
+	Dlist *d;
+	Msg m;
+
+	d = getdl(gen, bgen);
+	m.op = Odelete;
+	dlist2kv(d, &m, buf, sizeof(buf));
+	btupsert(&fs->snap, &m, 1);
+	assert(d->ins == nil);
+	dlcachedel(d, 1);
+	fs->dlcount--;
+	limbo(DFdlist, d);
 }
 
 static void
@@ -279,7 +279,7 @@ reclaimblocks(vlong gen, vlong succ, vlong prev)
 		else if(dl.bgen <= prev)
 			mergedl(prev, dl.gen, dl.bgen);
 		else
-			freedl(&dl, 1);
+			deferdl(dl.gen, dl.bgen);
 		poperror();
 	}
 	btexit(&s);
@@ -298,7 +298,7 @@ reclaimblocks(vlong gen, vlong succ, vlong prev)
 				btexit(&s);
 				nexterror();
 			}
-			freedl(&dl, 1);
+			deferdl(dl.gen, dl.bgen);
 			poperror();
 		}
 		btexit(&s);

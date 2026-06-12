@@ -78,7 +78,7 @@ void	clunkmount(Mount*);
 Tree*	updatesnap(Tree*, char*, int);
 void	tagsnap(Tree*, char*, int);
 void	delsnap(Tree*, vlong, char*);
-void	freedl(Dlist*, int);
+void	freedl(Dlist*);
 Tree*	opensnap(char*, int*);
 
 void	closesnap(Tree*);
