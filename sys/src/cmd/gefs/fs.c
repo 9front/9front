@@ -2842,10 +2842,9 @@ runsweep(int id, void*)
 			if(!agetl(&fs->rdonly)){
 				aincl(&fs->rdonly, 1);
 				/* cycle through all epochs to clear them.  */
-				for(i = 0; i < 4; i++){
-					epochwait();
-					epochclean();
-				}
+				for(i = 0; i < 3; i++)
+					while(!epochclean())
+						sleep(1);
 				if(waserror()){
 					fprint(2, "halt failed: %s\n", errmsg());
 					break;
@@ -2949,7 +2948,9 @@ Syncout:
 			sync(id);	/* t leaked on error() */
 
 			if(t != nil){
-				epochwait();
+				for(i = 0; i < 3; i++)
+					while(!epochclean())
+						sleep(1);
 				sweeptree(t);	/* t leaked on error() */
 				closesnap(t);
 			}

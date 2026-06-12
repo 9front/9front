@@ -258,7 +258,6 @@ checkfs(int fd)
 	Blk *b;
 
 	ok = 1;
-	epochwait();
 	qlock(&fs->mutlk);
 	if(waserror()){
 		fprint(fd, "error checking %s\n", errmsg());
