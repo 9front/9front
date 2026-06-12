@@ -4,6 +4,7 @@ extern Cursor cursor;
 extern void mousetrack(int, int, int, ulong);
 extern void absmousetrack(int, int, int, ulong);
 extern Point mousexy(void);
+extern ulong lastmousems(void);
 
 extern void mouseaccelerate(int);
 extern int m3mouseputc(Queue*, int);

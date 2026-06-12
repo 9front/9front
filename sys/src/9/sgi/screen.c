@@ -722,14 +722,10 @@ sgimouseputc(int c)
 	static int nb;
 	int dx, dy, newbuttons;
 	static uchar b[] = { 0, 1, 4, 5, 2, 3, 6, 7 };
-	static ulong lasttick;
-	ulong m;
 
 	/* Resynchronize in stream with timing. */
-	m = MACHP(0)->ticks;
-	if(TK2SEC(m - lasttick) > 2)
+	if(lastmousems() > 2000)
 		nb = 0;
-	lasttick = m;
 
 	msg[nb] = c;
 	if(++nb == 3){
