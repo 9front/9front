@@ -617,20 +617,20 @@ mousetrack(int dx, int dy, int b, ulong msec)
 void
 absmousetrack(int x, int y, int b, ulong msec)
 {
+	Memimage *i;
 	int lastb;
 
-	if(gscreen==nil)
+	if((i = gscreen) == nil)
 		return;
 
-	if(x < gscreen->clipr.min.x)
-		x = gscreen->clipr.min.x;
-	if(x >= gscreen->clipr.max.x)
-		x = gscreen->clipr.max.x-1;
-	if(y < gscreen->clipr.min.y)
-		y = gscreen->clipr.min.y;
-	if(y >= gscreen->clipr.max.y)
-		y = gscreen->clipr.max.y-1;
-
+	if(x < i->clipr.min.x)
+		x = i->clipr.min.x;
+	if(x >= i->clipr.max.x)
+		x = i->clipr.max.x-1;
+	if(y < i->clipr.min.y)
+		y = i->clipr.min.y;
+	if(y >= i->clipr.max.y)
+		y = i->clipr.max.y-1;
 
 	ilock(&mouse);
 	mouse.xy = Pt(x, y);
@@ -656,15 +656,16 @@ absmousetrack(int x, int y, int b, ulong msec)
 void
 scmousetrack(int x, int y, int b, ulong msec)
 {
+	Memimage *i;
 	vlong vx, vy;
 
-	if(gscreen==nil)
+	if((i = gscreen) == nil)
 		return;
 	
-	vx = (vlong)(uint)x * (gscreen->clipr.max.x - gscreen->clipr.min.x);
-	x = (vx + (1<<30) - (~vx>>31&1) >> 31) + gscreen->clipr.min.x;
-	vy = (vlong)(uint)y * (gscreen->clipr.max.y - gscreen->clipr.min.y);
-	y = (vy + (1<<30) - (~vy>>31&1) >> 31) + gscreen->clipr.min.y;
+	vx = (vlong)(uint)x * (i->clipr.max.x - i->clipr.min.x);
+	x = (vx + (1<<30) - (~vx>>31&1) >> 31) + i->clipr.min.x;
+	vy = (vlong)(uint)y * (i->clipr.max.y - i->clipr.min.y);
+	y = (vy + (1<<30) - (~vy>>31&1) >> 31) + i->clipr.min.y;
 	
 	absmousetrack(x, y, b, msec);
 }
