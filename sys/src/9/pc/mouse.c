@@ -12,6 +12,8 @@
 #include <cursor.h>
 #include "screen.h"
 
+extern Memimage* gscreen;
+
 /*
  *  mouse types
  */
@@ -22,6 +24,18 @@ enum
 	MousePS2=	2,
 };
 
+/*
+ * bytes which correspond
+ * to mouse buttons
+ */
+enum
+{
+	Mousereleas= 0x8, 
+	Mouseleft= 0x9, 
+	Mousemid= 0xc, 
+	Mouseright= 0xa
+};
+
 static QLock mousectlqlock;
 static int mousetype;
 static int intellimouse;
@@ -29,6 +43,8 @@ static int packetsize;
 static int resolution;
 static int accelerated;
 static int mousehwaccel;
+static int synaptic;
+static volatile int disabletouch;
 static char mouseport[5];
 
 enum
@@ -42,6 +58,8 @@ enum
 	CMres,
 	CMreset,
 	CMserial,
+	CMtouchpad,
+	CMsynaptic,
 };
 
 static Cmdtab mousectlmsg[] =
@@ -55,6 +73,8 @@ static Cmdtab mousectlmsg[] =
 	CMres,			"res",			0,
 	CMreset,		"reset",		1,
 	CMserial,		"serial",		0,
+	CMtouchpad,		"touchpad",		2,
+	CMsynaptic,		"synaptic",		1,
 };
 
 /*
@@ -97,7 +117,7 @@ ps2mouseputc(int c, int shift)
 	if(lastmousems() > 2000)
 		nb = 0;
 
-	/* 
+	/*
 	 *  check byte 0 for consistency
 	 */
 	if(nb==0 && (c&0xc8)!=0x08){
@@ -138,9 +158,9 @@ ps2mouseputc(int c, int shift)
 				 * and generate a single button 4 or 5 click
 				 * accordingly.
 				 */
-				if((msg[3] >> 3) & 1) 
+				if((msg[3] >> 3) & 1)
 					buttons |= 1<<3;
-				else if(msg[3] & 0x7) 
+				else if(msg[3] & 0x7)
 					buttons |= 1<<4;
 			}
 		}
@@ -148,6 +168,186 @@ ps2mouseputc(int c, int shift)
 		dy = -msg[2];
 		mousetrack(dx, dy, buttons, TK2MS(MACHP(0)->ticks));
 	}
+}
+
+static unsigned int
+diffpos(int x1, int y1, int x2, int y2)
+{
+	unsigned int dx, dy, r;
+	
+	dx = abs(x1-x2);
+	dy = abs(y1-y2);
+	r = dx*dx + dy*dy;
+	return r;
+}
+
+static void
+synmouseputc(int c, int shift)
+{
+	static short msg[6];
+	static int nb;
+	static uchar b[] = {0, 1, 4, 5, 2, 3, 6, 7, 0, 1, 2, 3, 2, 3, 6, 7};
+	static int prevx, prevy;
+	static int maxx = 0;
+	static int minx = 6143;
+	static int maxy = 0;
+	static int miny = 6143;
+	static int edgminx = 1632;
+	static int edgmaxx = 5312;
+	static int edgminy = 1568;
+	static int edgmaxy = 4288;
+	static int ignore = 0;
+	static int press;
+	Memimage *i;
+	int click[4];		
+	int buttons, x, y, t, w, z, dx, dy;
+	int deltah, deltal;
+	int dp;
+
+	deltah = 58;
+	deltal = 3;
+	click[0] = Mousereleas;
+	click[1] = Mouseleft;
+	click[2] = Mousemid;
+	click[3] = Mouseright;
+	
+	/* re-synchronize with stream in case
+	 * of packet loss
+	 */
+	if(lastmousems() > 500
+	&& nb != 0)
+		nb = 0;
+
+	/* ignore 3-6 bytes
+	 * of trailing idle packet
+	 */
+	if(nb == 2
+	&& (c&0xFF) == 0x0
+	&& msg[0] == 0x80)
+		ignore = 4;
+
+	if(ignore){
+		--ignore;
+		if(++nb == packetsize)
+			nb = 0;
+		return;
+	}
+		
+	msg[nb] = c & 0xff;
+
+	if(++nb < packetsize)
+		return;
+
+	nb = 0;
+
+	w = (msg[3]&0x4) >> 2;
+	w |= (msg[0]&0x4) >> 1;
+	w |= (msg[0]&0x30) >> 2;
+	
+	z = msg[2];
+	
+	/* handle trackpoint */
+	if(w == 3){
+		/* handle buttons */
+		if(msg[0] == 0x84
+		&& msg[3] == 0xc4){
+			switch(msg[1]){
+			case Mousereleas:
+				press = 0;
+				break;
+			case Mouseleft:
+				press = 1;
+				break;
+			case Mousemid:
+				press = 2;
+				break;
+			case Mouseright:
+				press = 3;
+			}
+		}
+
+		buttons = b[(msg[1]&7) | (shift ? 8 : 0)];
+		if(msg[1] & 0x10)
+			msg[4] |= 0xFF00;
+		if(msg[1] & 0x20)
+			msg[5] |= 0xFF00;
+		dx = msg[4];
+		dy = -msg[5];
+		mousetrack(dx, dy, buttons, TK2MS(MACHP(0)->ticks));
+		return;
+	}
+	
+	/* palm-detect */
+	if (w >= 6 || z > 110 || z < 40)
+		return;
+
+	if(w < 4
+	&& w != 2)
+		return;
+	
+	/* handle touchpad */
+	if(disabletouch == 1)
+		return;
+
+	x = msg[4];
+	x |= (msg[1]&0xF) << 8;
+	if(msg[3]&0x10)
+		x |= (1 << 12);
+
+	y = msg[5];
+	y |= (msg[1]&0xF0) << 4;
+	if(msg[3]&0x20)
+		y |= (1 << 12);
+	
+	/* compute edges */
+	if(x > maxx)
+		maxx = x;	
+	if(y > maxy)
+		maxy = y;
+	if(x < minx)
+		minx = x;	
+	if(y < miny)
+		miny = y;
+	
+	/* compute margins */
+	edgminx = (minx*57)/50;
+	edgmaxx = (maxx*121)/125;
+	edgminy = (miny*57)/50;
+	edgmaxy = (maxy*121)/125;
+	
+	if(x < edgminx
+	|| x > edgmaxx)
+		return;
+	
+	if(y < edgminy
+	|| y > edgmaxy)
+		return;
+	
+	if((i = gscreen) == nil)
+		return;
+	
+	x = ((x-edgminx)*Dx(i->clipr))/(edgmaxx-edgminx);
+	if(x < 0)
+		x = 0;
+	t = Dy(i->clipr)-(edgminy*-Dy(i->clipr))/(edgmaxy-edgminy);
+	y = t + ((y*-Dy(i->clipr))/(edgmaxy-edgminy));
+	if(y < 0)
+		y = 0;
+
+	/* ignore accidental taps */		
+	dp = diffpos(x, y, prevx, prevy);
+	if(dp > deltah*deltah
+	|| dp < deltal*deltal){
+		prevx = x;
+		prevy = y;
+		return;
+	}
+	
+	/* imitate trackpoint buttons */
+	buttons = b[(click[press]&7) | (shift ? 8 : 0)];
+	mousetrack(x-prevx, y-prevy, buttons, TK2MS(MACHP(0)->ticks));
+	prevx = x;
+	prevy = y;
 }
 
 /*
@@ -272,6 +472,33 @@ setstream(int on)
 	}
 }
 
+static void
+disstream(void)
+{
+	for(int i=0; i<4; i++){
+		if(i8042auxcmd(0xF5) != -1)
+			break;
+		tsleep(&up->sleep, return0, 0, 50);
+	}
+}
+
+static void
+setabs(void)
+{
+	disstream();
+
+	i8042auxcmd(0xE8);
+	i8042auxcmd(2);
+	i8042auxcmd(0xE8);
+	i8042auxcmd(0);
+	i8042auxcmd(0xE8);
+	i8042auxcmd(0);
+	i8042auxcmd(0xE8);
+	i8042auxcmd(1);
+	i8042auxcmd(0xF3);
+	i8042auxcmd(0x14);
+}
+
 void
 mousectl(Cmdbuf *cb)
 {
@@ -304,6 +531,21 @@ mousectl(Cmdbuf *cb)
 		intellimouse = 0;
 		ps2mouse();
 		setstream(1);
+		break;
+	case CMsynaptic:
+		intellimouse = 0;
+		setabs();
+		synaptic = 1;
+		packetsize = 6;
+		mousehwaccel = 0;
+		i8042auxenable(synmouseputc);
+		i8042auxcmd(0xF3);
+		i8042auxcmd(0xC8);
+		i8042auxcmd(0xF3);
+		i8042auxcmd(0x64);
+		i8042auxcmd(0xF3);
+		i8042auxcmd(0x50);
+		i8042auxcmd(0xF4);
 		break;
 	case CMps2intellimouse:
 		ps2mouse();
@@ -354,6 +596,17 @@ mousectl(Cmdbuf *cb)
 			mousehwaccel = 0;
 		else
 			cmderror(cb, "bad mouse control message");
+		break;
+	case CMtouchpad:
+		if(strcmp(cb->f[1], "off")==0){
+			if(synaptic==1)
+				disabletouch = 1;
+		}else if(strcmp(cb->f[1], "on")==0){
+			if(synaptic==1)
+				disabletouch = 0;
+		}else
+			cmderror(cb, "bad mouse control message");
+		break;
 	}
 
 	qunlock(&mousectlqlock);

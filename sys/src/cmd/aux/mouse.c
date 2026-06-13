@@ -328,6 +328,14 @@ main(int argc, char *argv[])
 		}
 		exits(0);
 	}
+	
+	if(strncmp(p, "synaptic", 8) == 0){
+		if(write(conf, p, strlen(p)) < 0){
+			fprint(2, "%s: error setting mouse type - %r\n", argv0);
+			exits("write conf");
+		}
+		exits(0);
+	}
 
 	type = 0;
 	for(tries = 0; type == 0 && tries < 6; tries++){
