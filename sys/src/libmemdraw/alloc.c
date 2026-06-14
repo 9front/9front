@@ -74,6 +74,10 @@ allocmemimage(Rectangle r, ulong chan)
 		return nil;
 	}
 	nw = wordsperline(r, d)*Dy(r);
+	if(nw >= ((1UL<<31)-sizeof(Memdata*)-sizeof(ulong))/sizeof(ulong)){
+		werrstr("bad rectangle %R, depth %d", r, d);
+		return nil;
+	}
 
 	md = malloc(sizeof(Memdata));
 	if(md == nil)
