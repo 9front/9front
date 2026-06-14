@@ -10,16 +10,16 @@ cron \- clock daemon
 .I Cron
 executes commands at specified dates and times according
 to instructions in the files
-.BI /cron/ user /cron\f1.
+.BR /cron/$user/cron .
 It runs only on an authentication server.
 Option
 .B -c
 causes
 .I cron
 to create
-.BI /cron/ user
+.B /cron/$user
 and
-.BI /cron/ user /cron
+.B /cron/$user/cron
 for the current user;
 it can be run from any Plan 9 machine.
 .PP
