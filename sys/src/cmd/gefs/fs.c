@@ -1902,8 +1902,7 @@ fscreate(Fmsg *m)
 
 	if(m->perm & DMDIR){
 		mb[nm].op = Oinsert;
-		if((p = packsuper(upkbuf, sizeof(upkbuf), d.qid.path)) == nil)
-			sysfatal("ream: pack super");
+		p = packsuper(upkbuf, sizeof(upkbuf), d.qid.path);
 		mb[nm].k = upkbuf;
 		mb[nm].nk = p - upkbuf;
 		p = packdkey(upvbuf, sizeof(upvbuf), f->qpath, d.name);
