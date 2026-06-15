@@ -390,7 +390,7 @@ tagsnap(Tree *t, char *name, int flg)
 {
 	char buf[3][Kvmax];
 	Msg m[3];
-	Tree *n;
+	Tree n;
 	int i;
 
 	if(strcmp(name, "dump") == 0
@@ -399,20 +399,14 @@ tagsnap(Tree *t, char *name, int flg)
 		error(Ename);
 
 	i = 0;
-	n = nil;
 	if(flg & Lmut){
-		n = emalloc(sizeof(Tree), 1);
-		if(waserror()){
-			free(n);
-			nexterror();
-		}
-		aswapl(&n->memref, 1);
-		n->dirty = 0;
-		n->nlbl = 1;
-		n->nref = 0;
-		n->ht = t->ht;
-		n->bp = t->bp;
-		n->succ = -1;
+		memset(&n, 0, sizeof(Tree));
+		n.dirty = 0;
+		n.nlbl = 1;
+		n.nref = 0;
+		n.ht = t->ht;
+		n.bp = t->bp;
+		n.succ = -1;
 		/*
 		 * Because we can have blocks in-flight with gen==memgen,
 		 * which both sides of the fork can free, we need to make
@@ -421,22 +415,21 @@ tagsnap(Tree *t, char *name, int flg)
 		 * As a result, we need to use memgen, and not gen, in
 		 * order to prevent the potential for a double free.
 		 */
-		n->pred = t->gen;
-		n->base = t->memgen;
-		n->gen = fs->nextgen++;
-		n->memgen = fs->nextgen++;
+		n.pred = t->gen;
+		n.base = t->memgen;
+		n.gen = fs->nextgen++;
+		n.memgen = fs->nextgen++;
 
 		t->nref++;
 		m[i].op = Orelink;
 		retag2kv(t->gen, t->succ, 0, 1, &m[i], buf[i], sizeof(buf[i]));
 		i++;
 		m[i].op = Oinsert;
-		lbl2kv(name, n->gen, flg, &m[i], buf[i], sizeof(buf[i]));
+		lbl2kv(name, n.gen, flg, &m[i], buf[i], sizeof(buf[i]));
 		i++;
 		m[i].op = Oinsert;
-		tree2kv(n, &m[i], buf[i], sizeof(buf[i]));
+		tree2kv(&n, &m[i], buf[i], sizeof(buf[i]));
 		i++;
-		poperror();
 	}else{
 		t->nlbl++;
 
@@ -449,7 +442,6 @@ tagsnap(Tree *t, char *name, int flg)
 		i++;
 	}
 	btupsert(&fs->snap, m, i);
-	free(n);
 }
 
 /*
