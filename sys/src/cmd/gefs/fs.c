@@ -696,7 +696,7 @@ Bad:			memset(mnt->cron, 0, sizeof(mnt->cron));
 
 /* caller must hold mountlk */
 static Mount*
-getmnt(char *name)
+mountlookup(char *name)
 {
 	Mount *mnt;
 
@@ -722,7 +722,7 @@ getmount(char *name)
 	}
 
 	qlock(&fs->mountlk);
-	mnt = getmnt(name);
+	mnt = mountlookup(name);
 	qunlock(&fs->mountlk);
 	if(mnt != nil)
 		return mnt;
@@ -749,7 +749,7 @@ getmount(char *name)
 	poperror();
 
 	qlock(&fs->mountlk);
-	if((p = getmnt(name)) != nil){
+	if((p = mountlookup(name)) != nil){
 		qunlock(&fs->mountlk);
 		closesnap(t);
 		free(mnt);
