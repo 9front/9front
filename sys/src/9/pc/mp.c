@@ -13,12 +13,11 @@
 extern void i8259init(void);
 
 /* filled in by pcmpinit or acpiinit */
-Bus* mpbus;
-Bus* mpbuslast;
 int mpisabus = -1;
 int mpeisabus = -1;
-Apic *mpioapic[MaxAPICNO+1];
-Apic *mpapic[MaxAPICNO+1];
+Bus* mpbus, **mpbusp = &mpbus;
+Apic *mpioapic, **mpioapicp = &mpioapic;
+Apic *mplapic, **mplapicp = &mplapic;
 
 int
 mpintrinit(Bus* bus, PCMPintr* intr, int vno, int /*irq*/)
@@ -126,7 +125,7 @@ syncclock(void)
 void
 mpinit(void)
 {
-	int ncpu, i;
+	int ncpu;
 	Apic *apic;
 	char *cp;
 
@@ -138,15 +137,13 @@ mpinit(void)
 		Aintr *ai;
 		PCMPintr *pi;
 
-		for(i=0; i<=MaxAPICNO; i++){
-			if(apic = mpapic[i])
-				print("LAPIC%d: pa=%lux va=%#p flags=%x\n",
-					i, apic->paddr, apic->addr, apic->flags);
-			if(apic = mpioapic[i])
-				print("IOAPIC%d: pa=%lux va=%#p flags=%x gsibase=%d mre=%d\n",
-					i, apic->paddr, apic->addr, apic->flags, apic->gsibase, apic->mre);
-		}
-		for(b = mpbus; b; b = b->next){
+		for(apic = mplapic; apic != nil; apic = apic->next)
+			print("LAPIC%d: pa=%lux va=%#p flags=%x\n",
+				apic->apicno, apic->paddr, apic->addr, apic->flags);
+		for(apic = mpioapic; apic != nil; apic = apic->next)
+			print("IOAPIC%d: pa=%lux va=%#p flags=%x gsibase=%d mre=%d\n",
+				apic->apicno, apic->paddr, apic->addr, apic->flags, apic->gsibase, apic->mre);
+		for(b = mpbus; b != nil; b = b->next){
 			print("BUS%d type=%d flags=%x\n", b->busno, b->type, b->po|b->el);
 			for(ai = b->aintr; ai; ai = ai->next){
 				if(pi = ai->intr)
@@ -157,19 +154,11 @@ mpinit(void)
 		}
 	}
 
-	apic = nil;
-	for(i=0; i<=MaxAPICNO; i++){
-		if(mpapic[i] == nil)
-			continue;
-		if(mpapic[i]->flags & PcmpBP){
-			apic = mpapic[i];
+	for(apic = mplapic; apic != nil; apic = apic->next)
+		if(apic->flags & PcmpBP)
 			break;
-		}
-	}
-
-	if(apic == nil){
+	if(apic == nil)
 		panic("mpinit: no bootstrap processor");
-	}
 	apic->online = 1;
 
 	lapicinit(apic);
@@ -197,9 +186,7 @@ mpinit(void)
 	else
 		ncpu = MAXMACH;
 	memmove((void*)APBOOTSTRAP, apbootstrap, sizeof(apbootstrap));
-	for(i=0; i<nelem(mpapic); i++){
-		if((apic = mpapic[i]) == nil)
-			continue;
+	for(apic = mplapic; apic != nil; apic = apic->next){
 		if(apic->machno >= MAXMACH)
 			continue;
 		if(ncpu <= 1)
@@ -225,8 +212,8 @@ mpinit(void)
 static int
 mpintrcpu(void)
 {
-	static Lock physidlock;
-	static int physid;
+	static Apic *apic;
+	static Lock l;
 	int i;
 
 	/*
@@ -246,19 +233,19 @@ mpintrcpu(void)
 	 * to more than one thread in a core, or to use a "noise" core.
 	 * But, as usual, Intel make that an onerous task. 
 	 */
-	lock(&physidlock);
+	lock(&l);
 	for(;;){
-		i = physid++;
-		if(physid >= nelem(mpapic))
-			physid = 0;
-		if(mpapic[i] == nil)
-			continue;
-		if(mpapic[i]->online)
+		if(apic == nil)
+			apic = mplapic;
+		if(apic->online)
 			break;
+		apic = apic->next;
 	}
-	unlock(&physidlock);
+	i = apic->apicno;
+	apic = apic->next;
+	unlock(&l);
 
-	return mpapic[i]->apicno;
+	return i;
 }
 
 /*

@@ -198,11 +198,8 @@ static Apic*
 findapic(int gsi, int *pintin)
 {
 	Apic *a;
-	int i;
 
-	for(i=0; i<=MaxAPICNO; i++){
-		if((a = mpioapic[i]) == nil)
-			continue;
+	for(a = mpioapic; a != nil; a = a->next) {
 		if((a->flags & PcmpEN) == 0)
 			continue;
 		if(gsi >= a->gsibase && gsi <= a->gsibase+a->mre){
@@ -244,11 +241,7 @@ addirq(int gsi, int type, int busno, int irq, int flags)
 		bus->po = PcmpLOW;
 		bus->el = PcmpLEVEL;
 	}
-	if(mpbus)
-		mpbuslast->next = bus;
-	else
-		mpbus = bus;
-	mpbuslast = bus;
+	*mpbusp = bus, mpbusp = &bus->next;
 
 Foundbus:
 	for(ai = bus->aintr; ai; ai = ai->next)
@@ -610,7 +603,7 @@ acpiinit(void)
 			a->flags = p[4] & PcmpEN;
 
 			/* skip disabled processors */
-			if((a->flags & PcmpEN) == 0 || mpapic[a->apicno] != nil){
+			if((a->flags & PcmpEN) == 0){
 				xfree(a);
 				break;
 			}
@@ -623,7 +616,7 @@ acpiinit(void)
 			if(a->machno == 0)
 				a->flags |= PcmpBP;
 
-			mpapic[a->apicno] = a;
+			*mplapicp = a, mplapicp = &a->next;
 			break;
 		case 0x01:	/* I/O APIC */
 			if(p[2] > MaxAPICNO)
@@ -637,7 +630,8 @@ acpiinit(void)
 				panic("acpiinit: cannot map ioapic %.8lux", a->paddr);
 			a->gsibase = get32(p+8);
 			a->flags = PcmpEN;
-			mpioapic[a->apicno] = a;
+			*mpioapicp = a, mpioapicp = &a->next;
+
 			ioapicinit(a, a->apicno);
 			break;
 		}

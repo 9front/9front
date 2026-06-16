@@ -187,6 +187,8 @@ typedef struct Apic {
 	int	machno;
 
 	int	online;
+
+	Apic	*next;
 } Apic;
 
 enum {
@@ -254,9 +256,8 @@ extern int mpintrassign(Vctl*);
 extern void mpshutdown(void);
 extern void mpstartap(Apic*);
 
-extern Bus* mpbus;
-extern Bus* mpbuslast;
 extern int mpisabus;
 extern int mpeisabus;
-extern Apic *mpioapic[];
-extern Apic *mpapic[];
+extern Bus *mpbus, **mpbusp;
+extern Apic *mpioapic, **mpioapicp;
+extern Apic *mplapic, **mplapicp;

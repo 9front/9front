@@ -42,7 +42,18 @@ mpgetbus(int busno)
 			return bus;
 
 	print("mpgetbus: can't find bus %d\n", busno);
-	return 0;
+	return nil;
+}
+
+static Apic*
+mpgetapic(Apic *a, int apicno)
+{
+	while(a != nil){	
+		if(a->apicno == apicno)
+			return a;
+		a = a->next;
+	}
+	return nil;
 }
 
 static Apic*
@@ -53,8 +64,8 @@ mkprocessor(PCMPprocessor* p)
 	Apic *apic;
 
 	apicno = p->apicno;
-	if(!(p->flags & PcmpEN) || apicno > MaxAPICNO || mpapic[apicno] != nil)
-		return 0;
+	if(!(p->flags & PcmpEN) || apicno > MaxAPICNO || mpgetapic(mplapic, apicno) != nil)
+		return nil;
 
 	if((apic = xalloc(sizeof(Apic))) == nil)
 		panic("mkprocessor: no memory for Apic");
@@ -67,7 +78,8 @@ mkprocessor(PCMPprocessor* p)
 		apic->machno = 0;
 	else
 		apic->machno = machno++;
-	mpapic[apicno] = apic;
+
+	*mplapicp = apic, mplapicp = &apic->next;
 
 	return apic;
 }
@@ -78,19 +90,14 @@ mkbus(PCMPbus* p)
 	Bus *bus;
 	int i;
 
-	for(i = 0; buses[i]; i++)
+	for(i = 0; buses[i] != nil; i++)
 		if(strncmp(buses[i], p->string, sizeof(p->string)) == 0)
 			break;
-	if(buses[i] == 0)
-		return 0;
+	if(buses[i] == nil)
+		return nil;
 
 	if((bus = xalloc(sizeof(Bus))) == nil)
 		panic("mkbus: no memory for Bus");
-	if(mpbus)
-		mpbuslast->next = bus;
-	else
-		mpbus = bus;
-	mpbuslast = bus;
 
 	bus->type = i;
 	bus->busno = p->busno;
@@ -117,6 +124,8 @@ mkbus(PCMPbus* p)
 		bus->el = PcmpEDGE;
 	}
 
+	*mpbusp = bus, mpbusp = &bus->next;
+
 	return bus;
 }
 
@@ -128,13 +137,13 @@ mkioapic(PCMPioapic* p)
 	Apic *apic;
 
 	apicno = p->apicno;
-	if(!(p->flags & PcmpEN) || apicno > MaxAPICNO || mpioapic[apicno] != nil)
-		return 0;
+	if(!(p->flags & PcmpEN) || apicno > MaxAPICNO || mpgetapic(mpioapic, apicno) != nil)
+		return nil;
 	/*
 	 * Map the I/O APIC.
 	 */
 	if((va = vmap(p->addr, 1024)) == nil)
-		return 0;
+		return nil;
 	if((apic = xalloc(sizeof(Apic))) == nil)
 		panic("mkioapic: no memory for Apic");
 	apic->type = PcmpIOAPIC;
@@ -142,7 +151,8 @@ mkioapic(PCMPioapic* p)
 	apic->addr = va;
 	apic->paddr = p->addr;
 	apic->flags = p->flags;
-	mpioapic[apicno] = apic;
+
+	*mpioapicp = apic, mpioapicp = &apic->next;
 
 	return apic;
 }
@@ -151,6 +161,7 @@ static Aintr*
 mkiointr(PCMPintr* p)
 {
 	Bus *bus;
+	Apic *apic;
 	Aintr *aintr;
 	PCMPintr* pcmpintr;
 
@@ -160,11 +171,12 @@ mkiointr(PCMPintr* p)
 	 * It's unclear how that can possibly be correct so treat it as
 	 * an error for now.
 	 */
-	if(p->apicno > MaxAPICNO || mpioapic[p->apicno] == nil)
-		return 0;
-	
-	if((bus = mpgetbus(p->busno)) == 0)
-		return 0;
+	if(p->apicno > MaxAPICNO)
+		return nil;
+	if((apic = mpgetapic(mpioapic, p->apicno)) == nil)
+		return nil;
+	if((bus = mpgetbus(p->busno)) == nil)
+		return nil;
 
 	if((aintr = xalloc(sizeof(Aintr))) == nil)
 		panic("mkiointr: no memory for Aintr");
@@ -192,7 +204,7 @@ mkiointr(PCMPintr* p)
 			aintr->intr = pcmpintr;
 		}
 	}
-	aintr->apic = mpioapic[p->apicno];
+	aintr->apic = apic;
 	aintr->next = bus->aintr;
 	aintr->bus = bus;
 	bus->aintr = aintr;
@@ -205,13 +217,13 @@ mklintr(PCMPintr* p)
 {
 	Apic *apic;
 	Bus *bus;
-	int i, intin, v;
+	int intin, v;
 
 	/*
 	 * The offsets of vectors for LINT[01] are known to be
 	 * 0 and 1 from the local APIC vector space at VectorLAPIC.
 	 */
-	if((bus = mpgetbus(p->busno)) == 0)
+	if((bus = mpgetbus(p->busno)) == nil)
 		return 0;
 	intin = p->intin;
 
@@ -225,15 +237,13 @@ mklintr(PCMPintr* p)
 		v = mpintrinit(bus, p, VectorLAPIC+intin, p->irq);
 
 	if(p->apicno == 0xFF){
-		for(i=0; i<=MaxAPICNO; i++){
-			if((apic = mpapic[i]) == nil)
-				continue;
+		for(apic = mplapic; apic != nil; apic = apic->next) {
 			if(apic->flags & PcmpEN)
 				apic->lintr[intin] = v;
 		}
 	}
 	else{
-		if(apic = mpapic[p->apicno])
+		if((apic = mpgetapic(mplapic, p->apicno)) != nil)
 			if(apic->flags & PcmpEN)
 				apic->lintr[intin] = v;
 	}
@@ -293,7 +303,6 @@ pcmpinit(void)
 	 * Map the local APIC.
 	 */
 	va = vmap(pcmp->lapicbase, 1024);
-
 	print("LAPIC: %.8lux %#p\n", pcmp->lapicbase, va);
 	if(va == nil)
 		panic("pcmpinit: cannot map lapic %.8lux", pcmp->lapicbase);
