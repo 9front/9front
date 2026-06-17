@@ -346,9 +346,10 @@ dialssh(Conn *c, char *host, char *, char *path, char *direction)
 	if(pid == -1)
 		sysfatal("unable to fork");
 	if(pid == 0){
-		close(pfd[1]);
 		dup(pfd[0], 0);
 		dup(pfd[0], 1);
+		close(pfd[0]);
+		close(pfd[1]);
 		snprint(cmd, sizeof(cmd), "git-%s-pack", direction);
 		dprint(1, "exec ssh '%s' '%s' %s\n", host, cmd, path);
 		execl("/bin/ssh", "ssh", host, cmd, path, nil);
@@ -393,9 +394,10 @@ dialhjgit(Conn *c, char *host, char *port, char *path, char *direction, int auth
 	if(pid == -1)
 		sysfatal("unable to fork");
 	if(pid == 0){
-		close(pfd[1]);
 		dup(pfd[0], 0);
 		dup(pfd[0], 1);
+		close(pfd[0]);
+		close(pfd[1]);
 		dprint(1, "exec tlsclient -a %s\n", ds);
 		if(auth)
 			execl("/bin/tlsclient", "tlsclient", "-a", ds, nil);
@@ -447,9 +449,10 @@ servelocal(Conn *c, char *path, char *direction)
 	if(pid == -1)
 		sysfatal("unable to fork");
 	if(pid == 0){
-		close(pfd[1]);
 		dup(pfd[0], 0);
 		dup(pfd[0], 1);
+		close(pfd[0]);
+		close(pfd[1]);
 		execl("/bin/git/serve", "serve", "-w", nil);
 		sysfatal("exec: %r");
 	}

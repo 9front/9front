@@ -21,7 +21,7 @@ fn update{
 	}
 	if(! ~ $#heads 0)
 		heads='-h'^$heads
-	{git/get $dflag -u $upstream $heads $url >[2=3] || die $status} | awk '
+	{git/get $dflag -u $upstream $heads $url || die $status} | awk '
 	/^remote refs\/(heads|tags)\//{
 		ref=$2
 		hash=$3
@@ -33,7 +33,7 @@ fn update{
 		print hash > outfile;
 		close(outfile);
 	}
-	' |[3] tr '\x0d' '\x0a'
+	' |[2] tr '\x0d' '\x0a'
 }
 
 gitup
