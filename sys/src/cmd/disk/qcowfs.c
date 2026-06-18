@@ -343,6 +343,7 @@ inc_refs(Disk *disk, s64int off, int newcluster)
 		PUT8(buf, l2cluster);
 		if (pwrite(disk->fd, buf, sizeof(buf), l1off) != 8)
 			sysfatal("inc_refs: failed to write ref block");
+		inc_refs(disk, l2cluster, 1);
 	}
 
 	refs = 1;
