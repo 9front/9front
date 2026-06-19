@@ -91,7 +91,7 @@ mac_blake2s_x(uchar *p, ulong len, uchar *key, ulong klen, uchar *digest, Digest
 static DigestState*
 blake2s_512(uchar *p, ulong len, uchar *digest, DigestState *s, int dlen)
 {
-	int i;
+	int i, rem;
 
 	if(s->blen){
 		i = bb - s->blen;
@@ -115,13 +115,15 @@ blake2s_512(uchar *p, ulong len, uchar *digest, DigestState *s, int dlen)
 		}
 	}
 
-	/*
-	 * the last block must always have 'flast' set,
-	 * so only go up to second to (potential) last block
-	 */
+	rem = len & (bb-1);
 	i = len & ~(bb-1);
-	if(i > bb){
+	/*
+	 * last block must have flast set,
+	 * so can't flush last block if we're on a boundary
+	 */
+	if(i && rem == 0)
 		i -= bb;
+	if(i){
 		_blake2sblock(s->state, p, i, s->len + bb, fcont);
 		s->len += i;
 		len -= i;
@@ -135,14 +137,6 @@ blake2s_512(uchar *p, ulong len, uchar *digest, DigestState *s, int dlen)
 			s->blen += len;
 		}
 		return s;
-	}
-
-	/* last block(s), might have > 1 still */
-	if(len > bb){
-		s->len += bb;
-		_blake2sblock(s->state, p, bb, s->len, fcont);
-		len -= bb;
-		p += bb;
 	}
 
 	if(s->blen){

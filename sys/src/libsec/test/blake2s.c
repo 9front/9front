@@ -97,7 +97,9 @@ main(int, char**)
 		default:
 			sysfatal("invalid test case");
 		}
-		hash((uchar*)tests[i].in, strlen(tests[i].in), (uchar*)tests[i].key, strlen(tests[i].key), digest, nil);
+		/* do two calls to test storage in the DigestState */
+		s = hash((uchar*)tests[i].in, strlen(tests[i].in), (uchar*)tests[i].key, strlen(tests[i].key), nil, nil);
+		hash(nil, 0, nil, 0, digest, s);
 		snprint(buf, sizeof buf, "%.*lH", len, digest);
 		if(strcmp(buf, tests[i].exp) != 0){
 			fprint(2, "Test: %s\nExp: %s\nGot: %s\n\n", tests[i].in, tests[i].exp, buf);
