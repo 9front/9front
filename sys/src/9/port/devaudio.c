@@ -455,7 +455,7 @@ genaudiovolwrite(Audio *adev, void *a, long n, vlong,
 				continue;
 	
 			if((ntok>2) && (!cistrcmp(tok[1], "out") || !cistrcmp(tok[1], "in")))
-				memmove(tok+1, tok+2, --ntok);
+				memmove(tok+1, tok+2, --ntok * sizeof(char*));
 
 			v[0] = 0;
 			v[1] = 0;
