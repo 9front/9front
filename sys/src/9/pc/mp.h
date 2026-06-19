@@ -238,16 +238,15 @@ extern void ioapicrdtw(Apic*, int, int, int);
 extern void lapicclock(Ureg*, void*);
 extern int lapiceoi(int);
 extern void lapicerror(Ureg*, void*);
-extern void lapicicrw(ulong, ulong);
+extern void lapicicr(uvlong);
 extern void lapicinit(Apic*);
 extern void lapicintroff(void);
 extern void lapicintron(void);
-extern int lapicisr(int);
 extern void lapicnmidisable(void);
 extern void lapicnmienable(void);
 extern void lapiconline(void);
 extern void lapicspurious(Ureg*, void*);
-extern void lapicstartap(Apic*, int);
+extern void lapicstartap(Apic*, ulong);
 extern void lapictimerset(uvlong);
 
 extern int mpintrinit(Bus*, PCMPintr*, int, int);

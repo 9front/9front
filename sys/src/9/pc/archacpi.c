@@ -548,9 +548,9 @@ acpiinit(void)
 {
 	Tbl *t;
 	Apic *a;
-	void *va;
 	uchar *s, *p, *e;
-	ulong lapicbase;
+	void *lapicva;
+	ulong lapicpa;
 	int machno, i, c;
 
 	amlinit();
@@ -577,11 +577,9 @@ acpiinit(void)
 
 	s = t->data;
 	e = s + tbldlen(t);
-	lapicbase = get32(s); s += 8;
-	va = vmap(lapicbase, 1024);
-	print("LAPIC: %.8lux %#p\n", lapicbase, va);
-	if(va == nil)
-		panic("acpiinit: cannot map lapic %.8lux", lapicbase);
+	lapicva = nil;
+	lapicpa = get32(s); s += 8;
+	upaalloc(lapicpa, 1024, 0);
 
 	machno = 0;
 	for(p = s; p < e; p += c){
@@ -592,16 +590,28 @@ acpiinit(void)
 		case 0x00:	/* Processor Local APIC */
 			if(p[3] > MaxAPICNO)
 				break;
+		case 0x09:	/* x2APIC */
 			if((a = xalloc(sizeof(Apic))) == nil)
 				panic("acpiinit: no memory for Apic");
 			a->type = PcmpPROCESSOR;
-			a->apicno = p[3];
-			a->paddr = lapicbase;
-			a->addr = va;
 			a->lintr[0] = ApicIMASK;
 			a->lintr[1] = ApicIMASK;
-			a->flags = p[4] & PcmpEN;
-
+			a->paddr = lapicpa;
+			if(*p == 0x09){
+				a->addr = nil;
+				a->apicno = get32(p+4);
+				a->flags = get32(p+8) & PcmpEN;
+			} else {
+				if(lapicva == nil){
+					lapicva = vmap(lapicpa, 1024);
+					print("LAPIC: %.8lux %#p\n", lapicpa, lapicva);
+					if(lapicva == nil)
+						panic("acpiinit: cannot map lapic %.8lux", lapicpa);
+				}
+				a->addr = lapicva;
+				a->apicno = p[3];
+				a->flags = p[4] & PcmpEN;
+			}
 			/* skip disabled processors */
 			if((a->flags & PcmpEN) == 0){
 				xfree(a);
@@ -626,6 +636,7 @@ acpiinit(void)
 			a->type = PcmpIOAPIC;
 			a->apicno = p[2];
 			a->paddr = get32(p+4);
+			upaalloc(a->paddr, 1024, 0);
 			if((a->addr = vmap(a->paddr, 1024)) == nil)
 				panic("acpiinit: cannot map ioapic %.8lux", a->paddr);
 			a->gsibase = get32(p+8);
@@ -648,17 +659,6 @@ acpiinit(void)
 		switch(*p){
 		case 0x02:	/* Interrupt Source Override */
 			addirq(get32(p+4), BusISA, 0, p[3], get16(p+8));
-			break;
-		case 0x03:	/* NMI Source */
-		case 0x04:	/* Local APIC NMI */
-		case 0x05:	/* Local APIC Address Override */
-		case 0x06:	/* I/O SAPIC */
-		case 0x07:	/* Local SAPIC */
-		case 0x08:	/* Platform Interrupt Sources */
-		case 0x09:	/* Processor Local x2APIC */
-		case 0x0A:	/* x2APIC NMI */
-		case 0x0B:	/* GIC */
-		case 0x0C:	/* GICD */
 			break;
 		}
 	}

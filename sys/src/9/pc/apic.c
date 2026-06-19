@@ -87,6 +87,7 @@ static uchar lapictdxtab[] = {		/* LapicTDCR */
 	0x0A,	/* divide by 128 */
 };
 
+/* lapicbase is nil when in x2APIC mode */
 static ulong* lapicbase;
 
 typedef struct Apictimer Apictimer;
@@ -104,15 +105,50 @@ static Apictimer lapictimer[MAXMACH];
 static ulong
 lapicr(int r)
 {
+	if(lapicbase == nil){
+		vlong v;
+		if(rdmsr(0x800 + (r>>4), &v) == -1)
+			return 0;
+		return (ulong)v;
+	}
 	return *(lapicbase+(r/sizeof(*lapicbase)));
 }
 
 static void
 lapicw(int r, ulong data)
 {
+	if(lapicbase == nil){
+		wrmsr(0x800 + (r>>4), data);
+		return;
+	}
 	*(lapicbase+(r/sizeof(*lapicbase))) = data;
 	data = *(lapicbase+(LapicID/sizeof(*lapicbase)));
 	USED(data);
+}
+
+void
+lapicicr(uvlong cmd)
+{
+	if(lapicbase == nil){
+		wrmsr(0x800 + (LapicICRLO>>4), cmd);
+		return;
+	}
+	lapicw(LapicICRHI, cmd>>32);
+	lapicw(LapicICRLO, cmd);
+}
+
+static ulong
+lapicesr(void)
+{
+	/* In x2APIC mode, writing ESR clears the error status */
+	if(lapicbase == nil){
+		ulong esr = lapicr(LapicESR);
+		lapicw(LapicESR, 0);
+		return esr;
+	}
+	/* In xAPIC mode, we must write ESR before it can be read */
+	lapicw(LapicESR, 0);
+	return lapicr(LapicESR);
 }
 
 void
@@ -194,27 +230,50 @@ Retry:
 void
 lapicinit(Apic* apic)
 {
-	ulong dfr, ldr, lvt;
+	if(lapicbase == nil){
+		vlong v;
 
-	if(lapicbase == 0)
-		lapicbase = apic->addr;
+		/*
+		 * use x2APIC when supported by cpu (cpuid cx bit 21) and:
+		 *	already enabled
+		 *	or lapic is a x2apic (apic->addr == nil)
+		 *	or *x2apic= boot parameter is specified
+		 */
+		if((m->cpuidcx & (1<<21)) != 0
+		&& rdmsr(0x1B, &v) != -1
+		&& ((v & (3<<10)) == (3<<10) || apic->addr == nil || getconf("*x2apic") != nil)){
+			/* enable x2APIC mode */
+			if((v & (3<<10)) != (3<<10)){
+				v |= 3<<10;	
+				wrmsr(0x1B, v);
+			}
+		} else {
+			lapicbase = apic->addr;
+			if(lapicbase == nil)
+				panic("lapicinit: lapic registers not mapped");
+		}
+	}
 
-	/*
-	 * These don't really matter in Physical mode;
-	 * set the defaults anyway.
-	 */
-	if(strncmp(m->cpuidid, "AuthenticAMD", 12) == 0)
-		dfr = 0xf0000000;
-	else
-		dfr = 0xffffffff;
-	ldr = 0x00000000;
+	lapicintroff();
 
-	lapicw(LapicDFR, dfr);
-	lapicw(LapicLDR, ldr);
-	lapicw(LapicTPR, 0xff);
+	/* DFR and LDR are read-only in x2APIC mode */
+	if(lapicbase != nil){
+		ulong dfr, ldr;
+
+		/*
+		 * These don't really matter in Physical mode;
+		 * set the defaults anyway.
+		 */
+		if(strncmp(m->cpuidid, "AuthenticAMD", 12) == 0)
+			dfr = 0xf0000000;
+		else
+			dfr = 0xffffffff;
+		ldr = 0x00000000;
+		lapicw(LapicDFR, dfr);
+		lapicw(LapicLDR, ldr);
+	}
+
 	lapicw(LapicSVR, LapicENABLE|(VectorPIC+IrqSPURIOUS));
-
-	lapictimerinit();
 
 	/*
 	 * Some Pentium revisions have a bug whereby spurious
@@ -232,26 +291,31 @@ lapicinit(Apic* apic)
 	 * Set the local interrupts. It's likely these should just be
 	 * masked off for SMP mode as some Pentium Pros have problems if
 	 * LINT[01] are set to ExtINT.
-	 * Acknowledge any outstanding interrupts.
+	 */
 	lapicw(LapicLINT0, apic->lintr[0]);
 	lapicw(LapicLINT1, apic->lintr[1]);
-	 */
-	lapiceoi(0);
 
-	lvt = (lapicr(LapicVER)>>16) & 0xFF;
-	if(lvt >= 4)
+	if(((lapicr(LapicVER)>>16) & 0xFF) >= 4)
 		lapicw(LapicPCINT, ApicIMASK);
 	lapicw(LapicERROR, VectorPIC+IrqERROR);
-	lapicw(LapicESR, 0);
-	lapicr(LapicESR);
+
+	lapictimerinit();
+
+	/* Acknowledge any outstanding interrupts. */
+	lapiceoi(0);
+
+	/* Clear error status register */
+	lapicesr();
 
 	/*
 	 * Issue an INIT Level De-Assert to synchronise arbitration ID's.
 	 */
-	lapicw(LapicICRHI, 0);
-	lapicw(LapicICRLO, LapicALLINC|ApicLEVEL|LapicDEASSERT|ApicINIT);
-	while(lapicr(LapicICRLO) & ApicDELIVS)
-		;
+	lapicicr(LapicALLINC|ApicLEVEL|LapicDEASSERT|ApicINIT);
+
+	if(lapicbase != nil){
+		while(lapicr(LapicICRLO) & ApicDELIVS)
+			;
+	}
 
 	/*
 	 * Do not allow acceptance of interrupts until all initialisation
@@ -259,29 +323,31 @@ lapicinit(Apic* apic)
 	 * early duing initialisation. For the application processors this should
 	 * be after the bootstrap processor has lowered priority and is accepting
 	 * interrupts.
-	lapicw(LapicTPR, 0);
+	lapicintron();
 	 */
 }
 
 void
-lapicstartap(Apic* apic, int v)
+lapicstartap(Apic* apic, ulong v)
 {
+	uvlong crhi;
 	int i;
-	ulong crhi;
+
+	/* physical destination id */
+	crhi = (uvlong)apic->apicno << 32;
+	if(lapicbase != nil && apic->apicno <= MaxAPICNO)
+		crhi <<= 24;
 
 	/* make apic's processor do a warm reset */
-	crhi = apic->apicno<<24;
-	lapicw(LapicICRHI, crhi);
-	lapicw(LapicICRLO, LapicFIELD|ApicLEVEL|LapicASSERT|ApicINIT);
+	lapicicr(crhi | LapicFIELD|ApicLEVEL|LapicASSERT|ApicINIT);
 	microdelay(200);
-	lapicw(LapicICRLO, LapicFIELD|ApicLEVEL|LapicDEASSERT|ApicINIT);
+	lapicicr(crhi | LapicFIELD|ApicLEVEL|LapicDEASSERT|ApicINIT);
 	delay(10);
 
 	/* assumes apic is not an 82489dx */
 	for(i = 0; i < 2; i++){
-		lapicw(LapicICRHI, crhi);
 		/* make apic's processor start at v in real mode */
-		lapicw(LapicICRLO, LapicFIELD|ApicEDGE|ApicSTARTUP|(v/BY2PG));
+		lapicicr(crhi | LapicFIELD|ApicEDGE|ApicSTARTUP|(v/BY2PG));
 		microdelay(200);
 	}
 }
@@ -289,10 +355,8 @@ lapicstartap(Apic* apic, int v)
 void
 lapicerror(Ureg*, void*)
 {
-	ulong esr;
+	ulong esr = lapicesr();
 
-	lapicw(LapicESR, 0);
-	esr = lapicr(LapicESR);
 	switch(m->cpuidax & 0xFFF){
 	case 0x526:				/* stepping cB1 */
 	case 0x52B:				/* stepping E0 */
@@ -309,28 +373,13 @@ lapicspurious(Ureg*, void*)
 }
 
 int
-lapicisr(int v)
+lapiceoi(int)
 {
-	ulong isr;
+	coherence();
 
-	isr = lapicr(LapicISR + (v/32));
-
-	return isr & (1<<(v%32));
-}
-
-int
-lapiceoi(int v)
-{
 	lapicw(LapicEOI, 0);
 
-	return v;
-}
-
-void
-lapicicrw(ulong hi, ulong lo)
-{
-	lapicw(LapicICRHI, hi);
-	lapicw(LapicICRLO, lo);
+	return 0;
 }
 
 void

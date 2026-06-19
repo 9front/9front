@@ -408,7 +408,6 @@ Findbus:
 			}
 		}
 
-		v->isr = lapicisr;
 		v->eoi = lapiceoi;
 
 		if((aintr->apic->flags & PcmpEN) && aintr->apic->type == PcmpIOAPIC){
@@ -520,7 +519,6 @@ msiintrenable(Vctl *v)
 
 	v->vno = allocvector();
 	v->cpu = mpintrcpu();
-	v->isr = lapicisr;
 	v->eoi = lapiceoi;
 
 	v->aux = pci;
@@ -604,7 +602,7 @@ mpshutdown(void)
 	/*
 	 * INIT all excluding self.
 	 */
-	lapicicrw(0, 0x000C0000|ApicINIT);
+	lapicicr(0x000C0000|ApicINIT);
 
 	pcireset();
 }

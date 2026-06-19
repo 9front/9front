@@ -142,6 +142,7 @@ mkioapic(PCMPioapic* p)
 	/*
 	 * Map the I/O APIC.
 	 */
+	upaalloc(p->addr, 1024, 0);
 	if((va = vmap(p->addr, 1024)) == nil)
 		return nil;
 	if((apic = xalloc(sizeof(Apic))) == nil)
@@ -226,6 +227,8 @@ mklintr(PCMPintr* p)
 	if((bus = mpgetbus(p->busno)) == nil)
 		return 0;
 	intin = p->intin;
+	if(intin > 1)
+		return 0;
 
 	/*
 	 * Pentium Pros have problems if LINT[01] are set to ExtINT
@@ -302,6 +305,7 @@ pcmpinit(void)
 	/*
 	 * Map the local APIC.
 	 */
+	upaalloc(pcmp->lapicbase, 1024, 0);
 	va = vmap(pcmp->lapicbase, 1024);
 	print("LAPIC: %.8lux %#p\n", pcmp->lapicbase, va);
 	if(va == nil)
