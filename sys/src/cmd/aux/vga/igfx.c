@@ -1679,7 +1679,7 @@ checkgtt(Igfx *igfx, Mode *m)
 	if((fd = create(buf, OREAD, DMDIR|0777)) < 0)
 		goto err;
 	close(fd);
-	strncat(buf, "/ctl", sizeof(buf)-strlen("/ctl"));
+	snprint(buf, sizeof buf, "#g/igfxtra/ctl");
 	if((fd = open(buf, ORDWR|OTRUNC)) < 0)
 		goto err;
 	snprint(buf, sizeof buf, "va 0x10000000 %#lux fixed", n - (i<<12));

@@ -2741,6 +2741,7 @@ appendaltnames(char *name, int nname, Bytes *ext, int isreq)
 	Elist *el, *l;
 	Ints *oid;
 	char *alt, *e, buf[Domlen];
+	char *np, *ne;
 	int len;
 
 	if(name == nil || nname < 1 || ext == nil)
@@ -2777,6 +2778,8 @@ appendaltnames(char *name, int nname, Bytes *ext, int isreq)
 		goto errext;
 	if(!is_seq(&ealt, &el))
 		goto erralt;
+	np = name;
+	ne = name + nname;
 	for(; el != nil; el = el->tl){
 		ext = el->hd.val.u.octetsval;
 		switch(el->hd.tag.num){
@@ -2828,9 +2831,9 @@ appendaltnames(char *name, int nname, Bytes *ext, int isreq)
 			continue;
 		}
 botch:
-		if(name[0] != '\0')
-			strncat(name, ", ", nname-1);
-		strncat(name, alt, nname-1);
+		if(np != name)
+			np = strecpy(np, ne, ", ");
+		np = strecpy(np, ne, alt);
 		free(alt);
 	}
 erralt:
