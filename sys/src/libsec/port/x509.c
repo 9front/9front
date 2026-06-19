@@ -2831,9 +2831,7 @@ appendaltnames(char *name, int nname, Bytes *ext, int isreq)
 			continue;
 		}
 botch:
-		if(np != name)
-			np = strecpy(np, ne, ", ");
-		np = strecpy(np, ne, alt);
+		np = seprint(np, ne, "%s%s", (np != name)? ", ": "", alt);
 		free(alt);
 	}
 erralt:
