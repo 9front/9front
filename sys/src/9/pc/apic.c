@@ -234,14 +234,18 @@ lapicinit(Apic* apic)
 		vlong v;
 
 		/*
-		 * use x2APIC when supported by cpu (cpuid cx bit 21) and:
-		 *	already enabled
+		 * use x2APIC when supported (cpuid cx bit 21) and:
+		 *	cpu0 already uses it (lapicbase == nil && machno != 0)
+		 *	or already enabled (on cpu0)
 		 *	or lapic is a x2apic (apic->addr == nil)
 		 *	or *x2apic= boot parameter is specified
 		 */
 		if((m->cpuidcx & (1<<21)) != 0
 		&& rdmsr(0x1B, &v) != -1
-		&& ((v & (3<<10)) == (3<<10) || apic->addr == nil || getconf("*x2apic") != nil)){
+		&& (m->machno != 0
+		|| (v & (3<<10)) == (3<<10)
+		|| apic->addr == nil
+		|| getconf("*x2apic") != nil)){
 			/* enable x2APIC mode */
 			if((v & (3<<10)) != (3<<10)){
 				v |= 3<<10;	
