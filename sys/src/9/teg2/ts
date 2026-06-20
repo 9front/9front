@@ -52,7 +52,6 @@ ip
 	igmp
 	ipmux
 	gre
-	esp
 
 misc
 	pci		pciteg

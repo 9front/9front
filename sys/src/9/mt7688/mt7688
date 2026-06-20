@@ -44,7 +44,6 @@ ip
 	icmp6
 	gre
 	ipmux
-	esp
 
 port
 	int cpuserver = 0;

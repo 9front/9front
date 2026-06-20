@@ -1,6 +1,6 @@
 .TH IP 3
 .SH NAME
-ip, esp, gre, icmp, icmpv6, ipmux, rudp, tcp, udp, il \- network protocols over IP
+ip, gre, icmp, icmpv6, ipmux, rudp, tcp, udp, il \- network protocols over IP
 .SH SYNOPSIS
 .nf
 .2C
@@ -21,7 +21,6 @@ ip, esp, gre, icmp, icmpv6, ipmux, rudp, tcp, udp, il \- network protocols over 
 .B /net/log
 .B /net/ndb
 .sp 0.3v
-.B /net/esp
 .B /net/gre
 .B /net/icmp
 .B /net/icmpv6
@@ -525,9 +524,8 @@ The possible items are:
 .BR tcpwin ,
 .BR tcprxmt ,
 .BR udpmsg ,
-.BR ipmsg ,
 and
-.BR esp .
+.BR ipmsg .
 .TP
 .BI clear\  arglist
 .I Arglist
@@ -1019,72 +1017,6 @@ field with the port number specified
 in the connect message.
 .br
 .ne 3
-.
-.SS ESP
-ESP is the Encapsulating Security Payload (RFC 1827, obsoleted by RFC 4303)
-for IPsec (RFC 4301).
-We currently implement only tunnel mode, not transport mode.
-It is used to set up an encrypted tunnel between machines.
-Like GRE, ESP has no port numbers.  Instead, the
-port number in the
-.B connect
-message is the SPI (Security Association Identifier (sic)).
-IP packets are written to and read from
-.BR data .
-The kernel encrypts any packets written to
-.BR data ,
-appends a MAC, and prefixes an ESP header before
-sending to the other end of the tunnel.
-Received packets are checked against their MAC's,
-decrypted, and queued for reading from
-.BR data .
-In the following,
-.I secret
-is the hexadecimal encoding of a key,
-without a leading
-.LR 0x .
-The control messages are:
-.TF "\fLesp \fIalg secret\fR"
-.PD
-.TP
-.BI esp\  "alg secret
-Encrypt with the algorithm,
-.IR alg ,
-using
-.I secret
-as the key.
-Possible algorithms are:
-.BR null ,
-.BR des_56_cbc ,
-.BR des3_cbc ,
-and eventually
-.BR aes_128_cbc ,
-and
-.BR aes_ctr .
-.TP
-.BI ah\  "alg secret
-Use the hash algorithm,
-.IR alg ,
-with
-.I secret
-as the key for generating the MAC.
-Possible algorithms are:
-.BR null ,
-.BR hmac_sha1_96 ,
-.BR hmac_md5_96 ,
-and eventually
-.BR aes_xcbc_mac_96 .
-.TP
-.B header
-Turn on header mode.  Every buffer read from
-.B data
-starts with 4 unused bytes, and the first 4 bytes
-of every buffer written to
-.B data
-are ignored.
-.TP
-.B noheader
-Turn off header mode.
 .
 .SS "IP packet filter
 The directory
