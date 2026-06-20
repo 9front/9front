@@ -242,6 +242,12 @@ enum
 	Poly1305dlen=		16,	/* Poly1305 digest length */
 	BLAKE2S_128dlen=	16,	/* Blake2s-128 digest length */
 	BLAKE2S_256dlen=	32,	/* Blake2s-256 digest length */
+	SHA3_224dlen=		28,	/* SHA3-224 digest length */
+	SHA3_256dlen=		32,	/* SHA3-256 digest length */
+	SHA3_384dlen=		48,	/* SHA3-384 digest length */
+	SHA3_512dlen=		64,	/* SHA3-512 digest length */
+	SHAKE_128dlen=		16,	/* SHAKE128 digest length */
+	SHAKE_256dlen=		32,	/* SHAKE256 digest length */
 
 	Hmacblksz	= 64,	/* in bytes; from rfc2104 */
 };
@@ -252,7 +258,7 @@ struct DigestState
 	uvlong	len;
 	union {
 		u32int	state[16];
-		u64int	bstate[8];
+		u64int	bstate[25];
 	};
 	uchar	buf[256];
 	int	blen;
@@ -278,6 +284,12 @@ DigestState*	sha2_384(uchar*, ulong, uchar*, DigestState*);
 DigestState*	sha2_512(uchar*, ulong, uchar*, DigestState*);
 DigestState*	blake2s_128(uchar*, ulong, uchar*, DigestState*);
 DigestState*	blake2s_256(uchar*, ulong, uchar*, DigestState*);
+DigestState*	sha3_224(uchar*, ulong, uchar*, DigestState*);
+DigestState*	sha3_256(uchar*, ulong, uchar*, DigestState*);
+DigestState*	sha3_384(uchar*, ulong, uchar*, DigestState*);
+DigestState*	sha3_512(uchar*, ulong, uchar*, DigestState*);
+DigestState*	shake_128(uchar*, ulong, uchar*, ulong, DigestState*);
+DigestState*	shake_256(uchar*, ulong, uchar*, ulong, DigestState*);
 DigestState*	hmac_x(uchar *p, ulong len, uchar *key, ulong klen,
 			uchar *digest, DigestState *s,
 			DigestState*(*x)(uchar*, ulong, uchar*, DigestState*),
