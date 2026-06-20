@@ -54,20 +54,22 @@ accessmbox(char *f, int m)
 
 	d = dirstat(f);
 	if(d == nil)
-		return -1;
+		return d_nombox;
 	n = 0;
 	if(m < nelem(accesstx))
 		n = accesstx[m];
 	if(d->mode & DMDIR)
 		n |= OEXEC;
-	r = (d->mode & n<<0) == n<<0;
 //	if(r == 0 && inlist(mygids(), d->gid) == 0)
 //		r = (d->mode & n<<3) == n<<3;
-	if(r == 0 && strcmp(getlog(), d->uid) == 0)
+	if(strcmp(getlog(), d->uid) == 0)
 		r = (d->mode & n<<6) == n<<6;
-	r--;
+	else
+		r = (d->mode & n<<0) == n<<0;
 	free(d);
-	return r;
+	if (!r)
+		return d_noperm;
+	return d_cat;
 }
 
 /*
@@ -174,10 +176,7 @@ expand_local(dest *dp)
 	 *  see if the mailbox directory exists
 	 */
 	mboxfile(dp, s, s_reset(file), "mbox");
-	if(accessmbox(s_to_c(file), OWRITE) != -1)
-		dp->status = d_cat;
-	else
-		dp->status = d_unknown;
+	dp->status = accessmbox(s_to_c(file), OWRITE);
 	s_free(file);
 	s_free(s);
 	return 0;

@@ -17,6 +17,8 @@ typedef enum {
 	d_badmbox,	/* mailbox badly formatted*/
 	d_resource,	/* ran out of something we needed*/
 	d_pipeto,	/* pipe to from a mailbox*/
+	d_nombox,	/* missing "mbox" dir at mailbox*/
+	d_noperm,	/* missing perms for user to write to mailbox */
 } d_status;
 
 /* a destination*/

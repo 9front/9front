@@ -284,6 +284,12 @@ complain_mail(dest *dp, message *mp)
 		break;
 	case d_resource:
 		return refuse(dp, mp, "out of some resource.  Try again later.", 0, 1);
+	case d_nombox:
+		msg = "missing \"mbox\" directory at target mailbox";
+		break;
+	case d_noperm:
+		msg = "you are forbidden to write to target mailbox";
+		break;
 	default:
 		msg = "unknown d_";
 		break;
