@@ -219,7 +219,7 @@ struct DES3state
 };
 
 void	setupDES3state(DES3state *s, uchar key[3][8], uchar *ivec);
-void	triple_block_cipher(ulong keys[3][32], uchar[8], int);
+void	triple_block_cipher(ulong[3][32], uchar[8], int);
 void	des3CBCencrypt(uchar*, int, DES3state*);
 void	des3CBCdecrypt(uchar*, int, DES3state*);
 void	des3ECBencrypt(uchar*, int, DES3state*);
@@ -385,8 +385,8 @@ void		rsaprivfree(RSApriv*);
 RSApub*		rsaprivtopub(RSApriv*);
 RSApub*		X509toRSApub(uchar*, int, char*, int);
 RSApub*		X509reqtoRSApub(uchar*, int, char*, int);
-RSApriv*	asn1toRSApriv(uchar*, int);
 RSApub*		asn1toRSApub(uchar*, int);
+RSApriv*	asn1toRSApriv(uchar*, int);
 void		asn1dump(uchar *der, int len);
 uchar*		decodePEM(char *s, char *type, int *len, char **new_s);
 PEMChain*	decodepemchain(char *s, char *type);
@@ -401,6 +401,7 @@ mpint*		pkcs1padbuf(uchar *buf, int len, mpint *modulus, int blocktype);
 int		pkcs1unpadbuf(uchar *buf, int len, mpint *modulus, int blocktype);
 int		asn1encodeRSApub(RSApub *pk, uchar *buf, int len);
 int		asn1encodeRSApriv(RSApriv *k, uchar *buf, int len);
+int		asn1encodeRSApubSPKI(RSApub *pk, uchar *buf, int len);
 int		asn1encodedigest(DigestState* (*fun)(uchar*, ulong, uchar*, DigestState*),
 			uchar *digest, uchar *buf, int len);
 
