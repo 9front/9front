@@ -130,5 +130,5 @@ DigestState*
 hmac_sha1(uchar *p, ulong len, uchar *key, ulong klen, uchar *digest,
 	DigestState *s)
 {
-	return hmac_x(p, len, key, klen, digest, s, sha1, SHA1dlen);
+	return hmac_x(p, len, key, klen, digest, s, sha1, SHA1dlen, 64);
 }

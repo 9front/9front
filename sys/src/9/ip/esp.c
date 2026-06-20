@@ -45,6 +45,8 @@ enum {
 
 	Aesblk	 = BITS2BYTES(128),
 	Aeskeysz = BITS2BYTES(128),
+
+	Hmacblksz = 64,
 };
 
 struct Esphdr

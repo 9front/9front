@@ -60,7 +60,7 @@ DS*	blake2s_128(uchar *data, ulong dlen, uchar *digest, DS *state)
 .Ti
 DS*	blake2s_256(uchar *data, ulong dlen, uchar *digest, DS *state)
 .Ti
-DS*	hmac_x(uchar *p, ulong len, uchar *key, ulong klen, uchar *digest, DS *s, DS*(*x)(uchar*, ulong, uchar*, DS*), int xlen)
+DS*	hmac_x(uchar *p, ulong len, uchar *key, ulong klen, uchar *digest, DS *s, DS*(*x)(uchar*, ulong, uchar*, DS*), int xlen, int B)
 .Ti
 DS*	hmac_md5(uchar *data, ulong dlen, uchar *key, ulong klen, uchar *digest, DS *state)
 .Ti
@@ -73,6 +73,14 @@ DS*	hmac_sha2_256(uchar *data, ulong dlen, uchar *key, ulong klen, uchar *digest
 DS*	hmac_sha2_384(uchar *data, ulong dlen, uchar *key, ulong klen, uchar *digest, DS *state)
 .Ti
 DS*	hmac_sha2_512(uchar *data, ulong dlen, uchar *key, ulong klen, uchar *digest, DS *state)
+.Ti
+DS*	hmac_sha3_224(uchar *data, ulong dlen, uchar *key, ulong klen, uchar *digest, DS *state)
+.Ti
+DS*	hmac_sha3_256(uchar *data, ulong dlen, uchar *key, ulong klen, uchar *digest, DS *state)
+.Ti
+DS*	hmac_sha3_384(uchar *data, ulong dlen, uchar *key, ulong klen, uchar *digest, DS *state)
+.Ti
+DS*	hmac_sha3_512(uchar *data, ulong dlen, uchar *key, ulong klen, uchar *digest, DS *state)
 .Ti
 DS*	hmac_blake2s_256(uchar *data, ulong dlen, uchar *key, ulong klen, uchar *digest, DS *state)
 .Ti

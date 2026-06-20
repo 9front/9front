@@ -160,5 +160,5 @@ Last:
 DigestState*
 hmac_blake2s_256(uchar *p, ulong len, uchar *key, ulong klen, uchar *digest, DigestState *s)
 {
-	return hmac_x(p, len, key, klen, digest, s, blake2s_256, BLAKE2S_256dlen);
+	return hmac_x(p, len, key, klen, digest, s, blake2s_256, BLAKE2S_256dlen, 64);
 }

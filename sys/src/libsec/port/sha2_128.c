@@ -180,12 +180,12 @@ DigestState*
 hmac_sha2_384(uchar *p, ulong len, uchar *key, ulong klen, uchar *digest,
 	DigestState *s)
 {
-	return hmac_x(p, len, key, klen, digest, s, sha2_384, SHA2_384dlen);
+	return hmac_x(p, len, key, klen, digest, s, sha2_384, SHA2_384dlen, 128);
 }
 
 DigestState*
 hmac_sha2_512(uchar *p, ulong len, uchar *key, ulong klen, uchar *digest,
 	DigestState *s)
 {
-	return hmac_x(p, len, key, klen, digest, s, sha2_512, SHA2_512dlen);
+	return hmac_x(p, len, key, klen, digest, s, sha2_512, SHA2_512dlen, 128);
 }

@@ -190,3 +190,31 @@ shake_256(uchar *p, ulong len, uchar *digest, ulong xoflen, DigestState *s)
 	}
 	return sha3_x(p, len, digest, s, SHAKE_256dlen, xoflen);
 }
+
+DigestState*
+hmac_sha3_224(uchar *p, ulong len, uchar *key, ulong klen, uchar *digest,
+	DigestState *s)
+{
+	return hmac_x(p, len, key, klen, digest, s, sha3_224, SHA3_224dlen, 144);
+}
+
+DigestState*
+hmac_sha3_256(uchar *p, ulong len, uchar *key, ulong klen, uchar *digest,
+	DigestState *s)
+{
+	return hmac_x(p, len, key, klen, digest, s, sha3_256, SHA3_256dlen, 136);
+}
+
+DigestState*
+hmac_sha3_384(uchar *p, ulong len, uchar *key, ulong klen, uchar *digest,
+	DigestState *s)
+{
+	return hmac_x(p, len, key, klen, digest, s, sha3_384, SHA3_384dlen, 104);
+}
+
+DigestState*
+hmac_sha3_512(uchar *p, ulong len, uchar *key, ulong klen, uchar *digest,
+	DigestState *s)
+{
+	return hmac_x(p, len, key, klen, digest, s, sha3_512, SHA3_512dlen, 72);
+}

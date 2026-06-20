@@ -240,8 +240,6 @@ enum
 	SHA3_512dlen=		64,	/* SHA3-512 digest length */
 	SHAKE_128dlen=		16,	/* SHAKE128 digest length */
 	SHAKE_256dlen=		32,	/* SHAKE256 digest length */
-
-	Hmacblksz	= 64,	/* in bytes; from rfc2104 */
 };
 
 typedef struct DigestState DigestState;
@@ -285,13 +283,17 @@ DigestState*	shake_256(uchar*, ulong, uchar*, ulong, DigestState*);
 DigestState*	hmac_x(uchar *p, ulong len, uchar *key, ulong klen,
 			uchar *digest, DigestState *s,
 			DigestState*(*x)(uchar*, ulong, uchar*, DigestState*),
-			int xlen);
+			int xlen, int B);
 DigestState*	hmac_md5(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
 DigestState*	hmac_sha1(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
 DigestState*	hmac_sha2_224(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
 DigestState*	hmac_sha2_256(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
 DigestState*	hmac_sha2_384(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
 DigestState*	hmac_sha2_512(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
+DigestState*	hmac_sha3_224(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
+DigestState*	hmac_sha3_256(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
+DigestState*	hmac_sha3_384(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
+DigestState*	hmac_sha3_512(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
 DigestState*	hmac_blake2s_256(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
 DigestState*	poly1305(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
 DigestState*	mac_blake2s_128(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
