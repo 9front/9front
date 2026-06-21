@@ -298,10 +298,7 @@ The returned image is allocated using
 .IR allocimage .
 The
 .I dolock
-flag specifies whether the
-.B Display
-should be synchronized for multithreaded access; single-threaded
-programs can leave it zero.
+flag is kept for backwards compatibility and is otherwise ignored.
 .PP
 .I Writeimage
 writes image
