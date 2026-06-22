@@ -163,26 +163,6 @@ getconf(void)
 	sysclose(bp);
 }
 
-/*
- *	match a user name.  the only meta-char is '*' which matches all
- *	characters.  we only allow it as "*", which matches anything or
- *	an * at the end of the name (e.g., "username*") which matches
- *	trailing characters.
- */
-static int
-usermatch(char *pathuser, char *specuser)
-{
-	int n;
-
-	n = strlen(specuser) - 1;
-	if(specuser[n] == '*'){
-		if(n == 0)		/* match everything */
-			return 0;
-		return strncmp(pathuser, specuser, n);
-	}
-	return strcmp(pathuser, specuser);
-}
-
 static int
 dommatch(char *pathdom, char *specdom)
 {

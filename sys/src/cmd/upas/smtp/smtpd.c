@@ -303,44 +303,6 @@ dnsexists(char *d)
 	return r;
 }
 
-/*
- * make callers from class A networks infested by spammers
- * wait longer.
- */
-
-static char netaspam[256] = {
-	[58]	1,
-	[66]	1,
-	[71]	1,
-
-	[76]	1,
-	[77]	1,
-	[78]	1,
-	[79]	1,
-	[80]	1,
-	[81]	1,
-	[82]	1,
-	[83]	1,
-	[84]	1,
-	[85]	1,
-	[86]	1,
-	[87]	1,
-	[88]	1,
-	[89]	1,
-
-	[190]	1,
-	[201]	1,
-	[217]	1,
-};
-
-static int
-delaysecs(void)
-{
-	if (netaspam[rsysip[0]])
-		return 60;
-	return 15;
-}
-
 static char *badtld[] = {
 	"localdomain",
 	"localhost",
@@ -467,7 +429,7 @@ hello(String *himp, int extended)
 		authenticate = 1;
 	}else{
 		if(Dflag)
-			sleep(delaysecs()*1000);
+			sleep(15*1000);
 		if(!qflag)
 			syslog(0, "smtpd", "Hung up on %s; claimed to be %s",
 				nci->rsys, him);
@@ -1148,7 +1110,7 @@ chkhdr(char *s, int n)
 static void
 fancymsg(int status)
 {
-	static char msg[2*ERRMAX], *p, *e;
+	static char msg[2*ERRMAX], *p;
 
 	if(!status)
 		return;
