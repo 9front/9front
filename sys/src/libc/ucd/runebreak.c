@@ -219,15 +219,17 @@ utfwbreak(char *s)
 	Rune l, r;
 	Rune peek;
 	uchar lt, rt;
+	int n;
 	char *p;
 
 	p = s;
 	p += chartorune(&l, p);
 	if(l == 0)
 		return s;
-	chartorune(&peek, p+chartorune(&r, p));
+	n = chartorune(&r, p);
 	if(r == 0)
 		return s;
+	chartorune(&peek, p + n);
 	lt = breaklkup(l);
 	rt = breaklkup(r);
 	if(l == '\r' && r == '\n')
