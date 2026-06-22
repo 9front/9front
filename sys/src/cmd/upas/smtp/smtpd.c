@@ -577,10 +577,12 @@ rdsenders(void)
 	if (sf == nil)
 		return 1;
 	while ((line = Brdline(sf, '\n')) != nil) {
-		if (line[0] == '#' || line[0] == '\n')
-			continue;
 		lnlen = Blinelen(sf);
-		line[lnlen-1] = '\0';		/* clobber newline */
+		if (lnlen == 0 || line[0] == '#' || line[0] == '\n')
+			continue;
+		line[lnlen-1] = '\0';		/* clobber nl */
+		if(lnlen > 1 && line[lnlen-2] == '\r')
+			line[lnlen-2] = '\0';		/* clobber cr */
 		nf = tokenize(line, toks, nelem(toks));
 		if (nf != nelem(toks))
 			continue;		/* malformed line */
