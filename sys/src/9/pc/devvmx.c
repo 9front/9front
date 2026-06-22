@@ -1400,7 +1400,7 @@ cmdsetfpregs(VmCmd *cmd, va_list va)
 	if(off < 0 || off >= sizeof(FPsave))
 		n = 0;
 	else if(off + n > sizeof(FPsave))
-		n = sizeof(FPsave) - n;
+		n = sizeof(FPsave) - off;
 	memmove((uchar*)&cmd->vmx->fp + off, p, n);
 	return n;
 }
