@@ -1070,7 +1070,7 @@ putcrnl(char *cp, int n)
 
 	for(; n; n--, cp++){
 		c = *cp;
-		if(c == '\n')
+		if(c == '\n' && last != '\r')
 			dBputc('\r');
 		else if(c == '.' && last=='\n')
 			dBputc('.');
