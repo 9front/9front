@@ -888,7 +888,7 @@ bangtoat(char *addr)
 
 	/* parse the '!' format address */
 	buf = s_new();
-	for(i = 0; addr; i++){
+	for(i = 0; addr && i < nelem(field); i++){
 		field[i] = addr;
 		addr = strchr(addr, '!');
 		if(addr)
