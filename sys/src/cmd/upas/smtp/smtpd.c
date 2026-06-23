@@ -445,7 +445,7 @@ hello(String *himp, int extended)
 		syslog(0, "smtpd", "%s from %s as %s", extended? "ehlo": "helo",
 			nci->rsys, him);
 	if(Dflag)
-		sleep(delaysecs()*1000);
+		sleep(15*1000);
 	reply("250%c%s you are %s\r\n", extended ? '-' : ' ', dom, him);
 	if (extended) {
 		reply("250-ENHANCEDSTATUSCODES\r\n");	/* RFCs 2034 and 3463 */
