@@ -209,6 +209,7 @@ parseinit(void)
 	yyfp = &bin;
 }
 
+int
 yylex(void)
 {
 	int c;
