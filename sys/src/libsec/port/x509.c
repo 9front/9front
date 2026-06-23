@@ -2778,7 +2778,9 @@ appendaltnames(char *name, int nname, Bytes *ext, int isreq)
 		goto errext;
 	if(!is_seq(&ealt, &el))
 		goto erralt;
-	np = name;
+	np = memchr(name, '\0', nname);
+	if(np == nil)
+		goto erralt;
 	ne = name + nname;
 	for(; el != nil; el = el->tl){
 		ext = el->hd.val.u.octetsval;
