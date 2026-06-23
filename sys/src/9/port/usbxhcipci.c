@@ -12,13 +12,6 @@
 
 static Xhci *ctlrs[Nhcis];
 
-static void
-pcidmaenable(Xhci *ctlr)
-{
-	Pcidev *pcidev = ctlr->aux;
-	pcisetbme(pcidev);
-}
-
 static u64int
 pciwaddr(void *va)
 {
@@ -67,9 +60,7 @@ scanpci(void)
 			continue;
 		}
 		ctlr->aux = p;
-		ctlr->dmaenable = pcidmaenable;
 		ctlr->dmaaddr = pciwaddr;
-
 		for(i = 0; i < nelem(ctlrs); i++)
 			if(ctlrs[i] == nil){
 				ctlrs[i] = ctlr;
@@ -86,11 +77,11 @@ init(Hci *hp)
 	Xhci *ctlr = hp->aux;
 	Pcidev *pcidev = ctlr->aux;
 
-	pcienable(pcidev);
 	if(ctlr->mmio[0] == -1){
 		pcidisable(pcidev);
 		error("controller vanished");
 	}
+	pcisetbme(pcidev);
 	xhciinit(hp);
 }
 
@@ -132,9 +123,10 @@ reset(Hci *hp)
 
 Found:
 	pcidev = ctlr->aux;
+	pcienable(pcidev);
+	xhcihandoff(ctlr);
 	hp->irq = pcidev->intl;
 	hp->tbdf = pcidev->tbdf;
-
 	xhcilinkage(hp, ctlr);
 	hp->init = init;
 	hp->shutdown = shutdown;

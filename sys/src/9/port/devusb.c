@@ -851,7 +851,7 @@ usbinit(void)
 
 		if(hp->init != nil){
 			if(waserror()){
-				print("usbinit: %s: %s\n", hp->type, up->errstr);
+				print("usbinit: %s %d: %s\n", hp->type, ctlrno, up->errstr);
 				continue;
 			}
 			(*hp->init)(hp);

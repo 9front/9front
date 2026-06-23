@@ -43,7 +43,11 @@ enum {
 		CRS	= 1<<9,		/* Controller Restore State - RW */
 		EWE	= 1<<10,	/* Enable Wrap Event - RW */
 		EU3S	= 1<<11,	/* Enable U3 MFINDEX Stop - RW */
-		USBCMD_PRES =0xfffff030,/* Reserved - RsvdP */
+		CME	= 1<<13,	/* CEM Enable - RW */
+		ETE	= 1<<14,	/* Extended TBC Enable (ETE) */
+		TSCEN	= 1<<15,	/* Extended TBC TRB Status Enable (TSC_EN) */
+		VTIOEN	= 1<<16,	/* VTIO Enable - RW */
+		USBCMD_PRES =0xfffe1070,/* Reserved - RsvdP */
 
 	USBSTS		= 0x04/4,	/* USB Status Register */
 		HCH	= 1<<0,		/* HCHalted - RO */
@@ -72,7 +76,7 @@ enum {
 	DCBAAP		= 0x30/4,	/* 64-bit */
 
 	CONFIG		= 0x38/4,	/* Configure Register (MaxSlotEn[7:0]) */
-		CONFIG_PRES =0xffffff00,/* Reserved - RsvdP */
+		CONFIG_PRES =0xfffffc00,/* Reserved - RsvdP */
 
 	/* Port Register Set */
 	PORTSC		= 0x00/4,	/* Port status and Control Register */
@@ -252,8 +256,6 @@ struct Ctlr
 	QLock	slotlock;
 	Slot	**slot;		/* slots by slot id */
 	Port	*port;
-	
-	u32int	hccparams;
 
 	int	csz;
 	int	pagesize;
@@ -378,14 +380,14 @@ resetring(Ring *r)
 }
 
 static u32int*
-xecp(Ctlr *ctlr, uchar id, u32int *p)
+xecp(Xhci *ctlr, uchar id, u32int *p)
 {
 	u32int x, *e;
 
 	e = &ctlr->mmio[ctlr->size/4];
 	if(p == nil){
 		p = ctlr->mmio;
-		x = ctlr->hccparams>>16;
+		x = ctlr->mmio[HCCPARAMS]>>16;
 	} else {
 		assert(p < e);
 		x = (*p>>8) & 255;
@@ -403,24 +405,26 @@ xecp(Ctlr *ctlr, uchar id, u32int *p)
 	return nil;
 }
 
-static void
-handoff(Ctlr *ctlr)
+void
+xhcihandoff(Xhci *ctlr)
 {
 	u32int *r;
 	int i;
 
 	if((r = xecp(ctlr, 1, nil)) == nil)
 		return;
-	if(getconf("*noxhcihandoff") == nil){
-		r[0] |= 1<<24;		/* request ownership */
-		for(i = 0; (r[0] & (1<<16)) != 0 && i<100; i++)
-			tsleep(&up->sleep, return0, nil, 10);
+	if((r[0] & (1<<16)) != 0 && getconf("*noxhcihandoff") == nil){
+		*((uchar*)r + 3) |= 1;
+		for(i = 5000; (r[0] & (1<<16)) != 0 && i>=0; i--)
+			delay(1);
+		/* clear BIOS ownership in case of timeout */
+		if(i < 0) {
+			*((uchar*)r + 2) &= ~1;
+			print("usbxhci %llux: timeout: in handoff\n", ctlr->base);
+		}
 	}
 	/* disable SMI interrupts */
 	r[1] &= 7<<1 | 255<<5 | 7<<17 | 7<<29;
-
-	/* clear BIOS ownership in case of timeout */
-	r[0] &= ~(1<<16);
 }
 
 void
@@ -430,8 +434,8 @@ xhcishutdown(Hci *hp)
 	int i;
 
 	ctlr->opr[USBCMD] &= USBCMD_PRES;
-	for(i=0; (ctlr->opr[USBSTS] & HCH) == 0 && i < 10; i++)
-		delay(10);
+	for(i=100; (ctlr->opr[USBSTS] & HCH) == 0 && i >= 0; i--)
+		delay(1);
 	intrdisable(hp->irq, hp->interrupt, hp, hp->tbdf, hp->type);
 }
 
@@ -464,7 +468,7 @@ xhciinit(Hci *hp)
 {
 	Ctlr *ctlr;
 	Port *pp;
-	u32int *x;
+	u32int *x, u;
 	uchar *p;
 	int i, j;
 
@@ -473,24 +477,27 @@ xhciinit(Hci *hp)
 	ctlr->dba = &ctlr->mmio[ctlr->mmio[DBOFF]/4];
 	ctlr->rts = &ctlr->mmio[ctlr->mmio[RTSOFF]/4];
 
-	ctlr->hccparams = ctlr->mmio[HCCPARAMS];
-	handoff(ctlr);
-
-	for(i=0; (ctlr->opr[USBSTS] & CNR) != 0 && i<100; i++)
+	for(i=500; ((u = ctlr->opr[USBSTS]) & CNR) != 0 && i>=0; i--)
 		tsleep(&up->sleep, return0, nil, 10);
+	if(i < 0) print("usbxhci %llux: timeout: not ready after handoff: %.8ux\n", ctlr->base, u);
 
-	ctlr->opr[USBCMD] = HCRST | (ctlr->opr[USBCMD] & USBCMD_PRES);
-
-	/* some intel controllers require 1ms delay after reset */
+	/* halt the controller */
+	ctlr->opr[USBCMD] &= USBCMD_PRES;
 	tsleep(&up->sleep, return0, nil, 1);
-
-	for(i=0; (ctlr->opr[USBCMD] & HCRST) != 0 && i<100; i++)
+	for(i=500; ((u = ctlr->opr[USBSTS]) & (CNR|HCH)) != HCH && i>=0; i--)
 		tsleep(&up->sleep, return0, nil, 10);
-	for(i=0; (ctlr->opr[USBSTS] & (CNR|HCH)) != HCH && i<100; i++)
-		tsleep(&up->sleep, return0, nil, 10);
+	if(i < 0) print("usbxhci %llux: timeout: not halted before reset: %.8ux\n", ctlr->base, u);
 
-	if(ctlr->dmaenable != nil)
-		(*ctlr->dmaenable)(ctlr);
+	/* reset the controller */
+	ctlr->opr[USBCMD] = HCRST | (ctlr->opr[USBCMD] & USBCMD_PRES);
+	tsleep(&up->sleep, return0, nil, 1);
+	for(i=100; ((u = ctlr->opr[USBCMD]) & HCRST) != 0 && i>=0; i--)
+		tsleep(&up->sleep, return0, nil, 10);
+	if(i < 0) print("usbxhci %llux: timeout: reset command didnt clear: %.8ux\n", ctlr->base, u);
+	for(i=500; ((u = ctlr->opr[USBSTS]) & (CNR|HCH)) != HCH && i>=0; i--)
+		tsleep(&up->sleep, return0, nil, 10);
+	if(i < 0) print("usbxhci %llux: timeout: not halted after reset: %.8ux\n", ctlr->base, u);
+
 	intrenable(hp->irq, hp->interrupt, hp, hp->tbdf, hp->type);
 
 	if(waserror()){
@@ -499,16 +506,19 @@ xhciinit(Hci *hp)
 		nexterror();
 	}
 
-	ctlr->csz = (ctlr->hccparams & CSZ) != 0;
+	ctlr->csz = (ctlr->mmio[HCCPARAMS] & CSZ) != 0;
 	ctlr->pagesize = (ctlr->opr[PAGESIZE] & 0xFFFF) << 12;
 
-	ctlr->nscratch = (ctlr->mmio[HCSPARAMS2] >> 27) & 0x1F | (ctlr->mmio[HCSPARAMS2] >> 16) & 0x3E0;
+	ctlr->nscratch = (ctlr->mmio[HCSPARAMS2] >> 27) & 0x1F | ((ctlr->mmio[HCSPARAMS2] >> 21) & 0x1F)<<5;
 	ctlr->nintrs = (ctlr->mmio[HCSPARAMS1] >> 8) & 0x7FF;
 	ctlr->nslots = (ctlr->mmio[HCSPARAMS1] >> 0) & 0xFF;
+	hp->nports = (ctlr->mmio[HCSPARAMS1] >> 24) & 0xFF;
+
+if(0)	print("usbxhci %llux: csz=%d pagesize=%d nscratch=%d nintrs=%d nslots=%d nports=%d\n", ctlr->base,
+		ctlr->csz, ctlr->pagesize, ctlr->nscratch, ctlr->nintrs, ctlr->nslots, hp->nports);
 
 	hp->highspeed = 1;
 	hp->superspeed = 0;
-	hp->nports = (ctlr->mmio[HCSPARAMS1] >> 24) & 0xFF;
 	ctlr->port = malloc(hp->nports * sizeof(Port));
 	if(ctlr->port == nil)
 		error(Enomem);
@@ -568,13 +578,13 @@ xhciinit(Hci *hp)
 	for(i=0; i<ctlr->nintrs; i++){
 		u32int *irs = &ctlr->rts[IR0 + i*8];
 
+		/* disable interrupt */
+		irs[IMAN] = irs[IMAN] & (IP | IMAN_PRES);
+		irs[IMOD] = 0;
+
 		if(i >= nelem(ctlr->er)){
 			/* disable ring */
 			irs[ERSTSZ] = 0 | (irs[ERSTSZ] & ERSTSZ_PRES);
-			irs[IMAN] = irs[IMAN] & (IP | IMAN_PRES);
-			irs[IMOD] = 0;
-			setrptr(&irs[ERSTBA], irs[ERSTBA] & ERSTBA_PRES);
-			setrptr(&irs[ERDP], 0);
 			continue;
 		}
 
@@ -590,22 +600,36 @@ xhciinit(Hci *hp)
 
 		/* just one segment */
 		irs[ERSTSZ] = 1 | (irs[ERSTSZ] & ERSTSZ_PRES);
-		irs[IMAN] = IE | (irs[IMAN] & (IP | IMAN_PRES));
-		irs[IMOD] = 0;
+		setrptr(&irs[ERDP], (*ctlr->dmaaddr)(ctlr->er[i].base) | EHB);
 		setrptr(&irs[ERSTBA], (*ctlr->dmaaddr)(ctlr->erst[i]) |
 			(irs[ERSTBA] & ERSTBA_PRES));
 
-		setrptr(&irs[ERDP], (*ctlr->dmaaddr)(ctlr->er[i].base) | EHB);
+		/* enable interrupt */
+		irs[IMAN] = IE | (irs[IMAN] & (IP | IMAN_PRES));
 	}
-	poperror();
 
 	ctlr->µframe = 0;
+
+	/* clear status events */
+	coherence();
 	ctlr->opr[USBSTS] = ctlr->opr[USBSTS] & (HSE|EINT|PCD|SRE | USBSTS_PRES);
 	coherence();
 
+	/* turn controller on */
 	ctlr->opr[USBCMD] = RUNSTOP|INTE|HSEE|EWE | (ctlr->opr[USBCMD] & USBCMD_PRES);
-	for(i=0; (ctlr->opr[USBSTS] & (CNR|HCH)) != 0 && i<100; i++)
+	for(i=500; ((u = ctlr->opr[USBSTS]) & (CNR|HCH)) != 0 && i>=0; i--)
 		tsleep(&up->sleep, return0, nil, 10);
+	if(i < 0) print("usbxhci %llux: timeout: didnt enable: %.8ux\n", ctlr->base, u);
+
+	/* wait a 100ms to see if we run into trouble */
+	for(i=10; i>=0; i--){
+		tsleep(&up->sleep, return0, nil, 10);
+		if((u = ctlr->opr[USBSTS]) & (HCH|HCE|HSE)){
+			print("usbxhci %llux: wedged after enable: %.8ux\n", ctlr->base, u);
+			error("controller wedged");
+		}
+	}
+	poperror();
 
 	kproc("xhcirecover", recover, hp);
 }
