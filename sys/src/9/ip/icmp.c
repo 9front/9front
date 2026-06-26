@@ -566,6 +566,11 @@ icmpforward(Proto *icmp, Block *bp, Route *r)
 	Icmp *p;
 	Translation *q;
 
+	if(BLEN(bp) < ICMP_IPSIZE+ICMP_HDRSIZE){
+		freeblist(bp);
+		return nil;
+	}
+
 	p = (Icmp*)(bp->rp);
 	switch(p->type){
 	case EchoRequest:

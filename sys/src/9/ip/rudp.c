@@ -27,7 +27,6 @@
 enum
 {
 	UDP_PHDRSIZE	= 12,	/* pseudo header */
-//	UDP_HDRSIZE	= 20,	/* pseudo header + udp header */
 	UDP_RHDRSIZE	= 36,	/* pseudo header + udp header + rudp header */
 	UDP_IPHDR	= 8,	/* ip header */
 	IP_UDPPROTO	= 254,
@@ -487,6 +486,13 @@ rudpiput(Proto *rudp, Ipifc *ifc, Block *bp)
 
 	upriv->ustats.rudpInDatagrams++;
 
+	if(BLEN(bp) < UDP_IPHDR+UDP_RHDRSIZE){
+		upriv->lenerr++;
+		upriv->ustats.rudpInErrors++;
+		netlog(f, Logrudp, "rudp: bad header\n");
+		freeblist(bp);
+		return;
+	}
 	uh = (Udphdr*)(bp->rp);
 
 	/* Put back pseudo header for checksum 
@@ -505,8 +511,8 @@ rudpiput(Proto *rudp, Ipifc *ifc, Block *bp)
 
 	if(nhgets(uh->udpcksum)) {
 		if(ptclcsum(bp, UDP_IPHDR, len+UDP_PHDRSIZE)) {
-			upriv->ustats.rudpInErrors++;
 			upriv->csumerr++;
+			upriv->ustats.rudpInErrors++;
 			netlog(f, Logrudp, "rudp: checksum error %I\n", raddr);
 			DPRINT("rudp: checksum error %I\n", raddr);
 			freeblist(bp);
