@@ -147,7 +147,7 @@ etherwpi.$O:			../port/wifi.h
 etherrt2860.$O: 		../port/wifi.h
 ethervirtio10.$O:		../port/virtio10.h
 l.$O rebootcode.$O apbootstrap.$O:	mem.h
-pcipc.$O pcibios.$O:		../port/pci.h io.h
+irq.$O pcipc.$O pcibios.$O:		../port/pci.h io.h
 virtio10pc.$O:			../port/virtio10.h
 
 initcode.out:		init9.$O initcode.$O /$objtype/lib/libc.a

@@ -7,6 +7,7 @@
 #include	"io.h"
 #include	"ureg.h"
 #include	"../port/error.h"
+#include	"../port/pci.h"
 
 static Lock vctllock;
 static Vctl *vclock, *vctl[256];
@@ -114,7 +115,8 @@ trapenable(int vno, void (*f)(Ureg*, void*), void* a, char *name)
 	v->tbdf = BUSUNKNOWN;
 	v->irq = -1;
 	v->vno = vno;
-	v->cpu = -1;
+	v->dest = -1;
+	v->machno = -1;
 
 	strncpy(v->name, name, KNAMELEN-1);
 	v->name[KNAMELEN-1] = 0;
@@ -166,7 +168,8 @@ intrenable(int irq, void (*f)(Ureg*, void*), void* a, int tbdf, char *name)
 	v->tbdf = tbdf;
 	v->irq = irq;
 	v->vno = -1;
-	v->cpu = -1;
+	v->dest = -1;
+	v->machno = -1;
 
 	strncpy(v->name, name, KNAMELEN-1);
 	v->name[KNAMELEN-1] = 0;
@@ -174,7 +177,7 @@ intrenable(int irq, void (*f)(Ureg*, void*), void* a, int tbdf, char *name)
 	ilock(&vctllock);
 	v->vno = (*arch->intrassign)(v);
 	if(v->vno < VectorPIC || v->vno >= nelem(vctl)){
-		print("intrenable: couldn't assign irq %d, tbdf 0x%uX for %s\n",
+		print("intrenable: couldn't assign irq %d, tbdf %T for %s\n",
 			irq, tbdf, v->name);
 Unlockandfree:
 		iunlock(&vctllock);
@@ -201,7 +204,7 @@ Unlockandfree:
 	if(v->enable != nil){
 		coherence();
 		if((*v->enable)(v, pv != &vctl[v->vno] || v->next != nil) < 0){
-			print("intrenable: couldn't enable irq %d, tbdf 0x%uX for %s\n",
+			print("intrenable: couldn't enable irq %d, tbdf %T for %s\n",
 				irq, tbdf, v->name);
 			*pv = v->next;
 			if(v == vclock)
@@ -267,7 +270,8 @@ intrdisable(int irq, void (*f)(Ureg *, void *), void *a, int tbdf, char *name)
 static long
 irqallocread(Chan*, void *a, long n, vlong offset)
 {
-	char buf[2*(11+1)+KNAMELEN+1+1];
+	char buf[3*(11+1)+20+1+KNAMELEN+1+1];
+	char tbdf[20+1];
 	int vno, m;
 	Vctl *v;
 
@@ -276,7 +280,9 @@ irqallocread(Chan*, void *a, long n, vlong offset)
 
 	for(vno = 0; vno < nelem(vctl); vno++){
 		for(v = vctl[vno]; v != nil; v = v->next){
-			m = snprint(buf, sizeof(buf), "%11d %11d %.*s\n", vno, v->irq, KNAMELEN, v->name);
+			snprint(tbdf, sizeof(tbdf), "%T", v->tbdf);
+			m = snprint(buf, sizeof(buf), "%11d %11d %11d %20s %.*s\n",
+				vno, v->irq, v->machno, tbdf, KNAMELEN, v->name);
 			offset -= m;
 			if(offset >= 0)
 				continue;

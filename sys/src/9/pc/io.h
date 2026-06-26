@@ -61,7 +61,8 @@ typedef struct Vctl {
 	int	irq;
 	int	tbdf;
 	int	vno;
-	int	cpu;
+	int	dest;			/* local APIC id of target processor */
+	int	machno;
 	int	local;
 
 	char	name[KNAMELEN];		/* of driver */

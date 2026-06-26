@@ -19,6 +19,8 @@ Bus* mpbus, **mpbusp = &mpbus;
 Apic *mpioapic, **mpioapicp = &mpioapic;
 Apic *mplapic, **mplapicp = &mplapic;
 
+static int nmplapic;
+
 int
 mpintrinit(Aintr *intr, int vno, int /*irq*/)
 {
@@ -152,11 +154,15 @@ mpinit(void)
 		}
 	}
 
+	nmplapic = 0;
+	for(apic = mplapic; apic != nil; apic = apic->next)
+		nmplapic++;
+
 	for(apic = mplapic; apic != nil; apic = apic->next)
 		if(apic->flags & PcmpBP)
 			break;
 	if(apic == nil)
-		panic("mpinit: no bootstrap processor");
+		panic("mpinit: no bootstrap processor (%d processors found)", nmplapic);
 	apic->online = 1;
 
 	lapicinit(apic);
@@ -208,7 +214,7 @@ mpinit(void)
 }
 
 static int
-mpintrcpu(void)
+allocdest(int *pmachno)
 {
 	static Apic *apic;
 	static Lock l;
@@ -232,13 +238,16 @@ mpintrcpu(void)
 	 * But, as usual, Intel make that an onerous task. 
 	 */
 	lock(&l);
-	for(;;){
+	for(i=1;;i++){
 		if(apic == nil)
 			apic = mplapic;
-		if(apic->online)
+		if(apic->online && apic->apicno <= MaxAPICNO)
 			break;
+		if(i >= nmplapic)
+			return -1;
 		apic = apic->next;
 	}
+	*pmachno = apic->machno;
 	i = apic->apicno;
 	apic = apic->next;
 	unlock(&l);
@@ -284,7 +293,7 @@ ioapicirqenable(Vctl *v, int shared)
 
 	if(shared)
 		return 0;
-	hi = v->cpu<<24;
+	hi = (v->dest & 0xFF) << 24;
 	lo = mpintrinit(aintr, v->vno, v->irq);
 	lo |= ApicPHYSICAL;			/* no-op */
  	ioapicrdtw(aintr->apic, aintr->intin, hi, lo);
@@ -384,23 +393,28 @@ Findbus:
 		 */
 		ioapicrdtr(aintr->apic, aintr->intin, &hi, &lo);
 		if(lo & ApicIMASK){
+			v->dest = allocdest(&v->machno);
+			if(v->dest < 0){
+				print("mpintrassign: no destination irq %d, tbdf %T, lo %8.8uX, hi %8.8uX\n",
+					v->irq, v->tbdf, lo, hi);
+				break;
+			}
 			v->vno = allocvector();
-			v->cpu = mpintrcpu();
 			lo = mpintrinit(aintr, v->vno, v->irq);
 			lo |= ApicPHYSICAL;			/* no-op */
 			if(lo & ApicIMASK){
-				print("mpintrassign: disabled irq %d, tbdf %uX, lo %8.8uX, hi %8.8uX\n",
+				print("mpintrassign: disabled irq %d, tbdf %T, lo %8.8uX, hi %8.8uX\n",
 					v->irq, v->tbdf, lo, hi);
 				break;
 			}
 		} else {
+			v->dest = (hi >> 24) & 0xFF;
 			v->vno = lo & 0xFF;
-			v->cpu = hi >> 24;
 			lo &= ~(ApicRemoteIRR|ApicDELIVS);
 			n = mpintrinit(aintr, v->vno, v->irq);
 			n |= ApicPHYSICAL;			/* no-op */
 			if(lo != n){
-				print("mpintrassign: multiple botch irq %d, tbdf %uX, lo %8.8uX, n %8.8uX\n",
+				print("mpintrassign: multiple botch irq %d, tbdf %T, lo %8.8uX, n %8.8uX\n",
 					v->irq, v->tbdf, lo, n);
 				break;
 			}
@@ -483,7 +497,7 @@ static int
 msiirqenable(Vctl *v, int)
 {
 	Pcidev *pci = v->aux;
-	return pcimsienable(pci, 0xFEE00000ULL | (v->cpu << 12), v->vno | (1<<14));
+	return pcimsienable(pci, 0xFEE00000ULL | (v->dest & 0xFF) << 12, v->vno | (1<<14));
 }
 
 static int
@@ -507,7 +521,7 @@ msiintrenable(Vctl *v)
 		return -1;
 	pci = pcimatchtbdf(tbdf);
 	if(pci == nil) {
-		print("msiintrenable: could not find Pcidev for tbdf %uX\n", tbdf);
+		print("msiintrenable: could not find Pcidev for tbdf %T\n", tbdf);
 		return -1;
 	}
 	if(htmsienable(pci) < 0)
@@ -515,8 +529,13 @@ msiintrenable(Vctl *v)
 	if(pcimsidisable(pci) < 0)
 		return -1;
 
+	v->dest = allocdest(&v->machno);
+	if(v->dest < 0){
+		print("msiintrenable: no destination for tbdf %T\n", tbdf);
+		return -1;
+	}
+
 	v->vno = allocvector();
-	v->cpu = mpintrcpu();
 	v->eoi = lapiceoi;
 
 	v->aux = pci;
@@ -578,7 +597,7 @@ mpintrassign(Vctl* v)
 		if(vno != -1)
 			return vno;
 	}
-	print("mpintrassign: out of choices eisa %d isa %d tbdf %uX irq %d\n",
+	print("mpintrassign: out of choices eisa %d isa %d tbdf %T irq %d\n",
 		mpeisabus, mpisabus, v->tbdf, v->irq);
 	return -1;
 }
