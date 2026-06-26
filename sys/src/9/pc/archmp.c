@@ -8,6 +8,113 @@
 
 #include "mp.h"
 
+/*
+ * MultiProcessor Specification Version 1.[14].
+ */
+typedef struct {			/* floating pointer */
+	uchar	signature[4];		/* "_MP_" */
+	long	physaddr;		/* physical address of MP configuration table */
+	uchar	length;			/* 1 */
+	uchar	specrev;		/* [14] */
+	uchar	checksum;		/* all bytes must add up to 0 */
+	uchar	type;			/* MP system configuration type */
+	uchar	imcrp;
+	uchar	reserved[3];
+} _MP_;
+
+#define _MP_sz			(4+4+1+1+1+1+1+3)
+
+typedef struct {			/* configuration table header */
+	uchar	signature[4];		/* "PCMP" */
+	ushort	length;			/* total table length */
+	uchar	version;		/* [14] */
+	uchar	checksum;		/* all bytes must add up to 0 */
+	uchar	product[20];		/* product id */
+	ulong	oemtable;		/* OEM table pointer */
+	ushort	oemlength;		/* OEM table length */
+	ushort	entry;			/* entry count */
+	ulong	lapicbase;		/* address of local APIC */
+	ushort	xlength;		/* extended table length */
+	uchar	xchecksum;		/* extended table checksum */
+	uchar	reserved;
+} PCMP;
+
+#define PCMPsz			(4+2+1+1+20+4+2+2+4+2+1+1)
+
+typedef struct {			/* processor table entry */
+	uchar	type;			/* entry type (0) */
+	uchar	apicno;			/* local APIC id */
+	uchar	version;		/* local APIC verison */
+	uchar	flags;			/* CPU flags */
+	uchar	signature[4];		/* CPU signature */
+	ulong	feature;		/* feature flags from CPUID instruction */
+	uchar	reserved[8];
+} PCMPprocessor;
+
+#define PCMPprocessorsz		(1+1+1+1+4+4+8)
+
+typedef struct {			/* bus table entry */
+	uchar	type;			/* entry type (1) */
+	uchar	busno;			/* bus id */
+	char	string[6];		/* bus type string */
+} PCMPbus;
+
+#define PCMPbussz		(1+1+6)
+
+typedef struct {			/* I/O APIC table entry */
+	uchar	type;			/* entry type (2) */
+	uchar	apicno;			/* I/O APIC id */
+	uchar	version;		/* I/O APIC version */
+	uchar	flags;			/* I/O APIC flags */
+	ulong	addr;			/* I/O APIC address */
+} PCMPioapic;
+
+#define PCMPioapicsz		(1+1+1+1+4)
+
+typedef struct {			/* interrupt table entry */
+	uchar	type;			/* entry type ([34]) */
+	uchar	intr;			/* interrupt type */
+	ushort	flags;			/* interrupt flag */
+	uchar	busno;			/* source bus id */
+	uchar	irq;			/* source bus irq */
+	uchar	apicno;			/* destination APIC id */
+	uchar	intin;			/* destination APIC [L]INTIN# */
+} PCMPintr;
+
+#define PCMPintrsz		(1+1+2+1+1+1+1)
+
+typedef struct {			/* system address space mapping entry */
+	uchar	type;			/* entry type (128) */
+	uchar	length;			/* of this entry (20) */
+	uchar	busno;			/* bus id */
+	uchar	addrtype;
+	ulong	addrbase[2];
+	ulong	addrlength[2];
+} PCMPsasm;
+
+#define PCMPsasmsz		(1+1+1+1+8+8)
+
+typedef struct {			/* bus hierarchy descriptor entry */
+	uchar	type;			/* entry type (129) */
+	uchar	length;			/* of this entry (8) */
+	uchar	busno;			/* bus id */
+	uchar	info;			/* bus info */
+	uchar	parent;			/* parent bus */
+	uchar	reserved[3];
+} PCMPhierarchy;
+
+#define PCMPhirarchysz		(1+1+1+1+1+3)
+
+typedef struct {			/* compatibility bus address space modifier entry */
+	uchar	type;			/* entry type (130) */
+	uchar	length;			/* of this entry (8) */
+	uchar	busno;			/* bus id */
+	uchar	modifier;		/* address modifier */
+	ulong	range;			/* predefined range list */
+} PCMPcbasm;
+
+#define PCMPcbasmsz		(1+1+1+1+4)
+
 static PCMP *pcmp;
 
 static char* buses[] = {
@@ -164,7 +271,6 @@ mkiointr(PCMPintr* p)
 	Bus *bus;
 	Apic *apic;
 	Aintr *aintr;
-	PCMPintr* pcmpintr;
 
 	/*
 	 * According to the MultiProcessor Specification, a destination
@@ -181,28 +287,29 @@ mkiointr(PCMPintr* p)
 
 	if((aintr = xalloc(sizeof(Aintr))) == nil)
 		panic("mkiointr: no memory for Aintr");
-	aintr->intr = p;
+
+	aintr->type = p->type;
+	aintr->intr = p->intr;
+	aintr->flags = p->flags;
+	aintr->irq = p->irq;
+	aintr->intin = p->intin;
 
 	if(0)
 		print("mkiointr: type %d intr type %d flags %#o "
 			"bus %d irq %d apicno %d intin %d\n",
-			p->type, p->intr, p->flags,
-			p->busno, p->irq, p->apicno, p->intin);
+			aintr->type, aintr->intr, aintr->flags,
+			bus->busno, aintr->irq, apic->apicno, aintr->intin);
 	/*
 	 * Hack for Intel SR1520ML motherboard, which BIOS describes
 	 * the i82575 dual ethernet controllers incorrectly.
 	 */
 	if(memcmp(pcmp->product, "INTEL   X38MLST     ", 20) == 0){
 		if(p->busno == 1 && p->intin == 16 && p->irq == 1){
-			if((pcmpintr = xalloc(sizeof(PCMPintr))) == nil)
-				panic("iointr: no memory for PCMPintr");
-			memmove(pcmpintr, p, sizeof(PCMPintr));
 			print("mkiointr: %20.20s bus %d intin %d irq %d\n",
 				(char*)pcmp->product,
-				pcmpintr->busno, pcmpintr->intin,
-				pcmpintr->irq);
-			pcmpintr->intin = 17;
-			aintr->intr = pcmpintr;
+				bus->busno, aintr->intin,
+				aintr->irq);
+			aintr->intin = 17;
 		}
 	}
 	aintr->apic = apic;
@@ -236,8 +343,18 @@ mklintr(PCMPintr* p)
 	 */
 	if(p->intr == PcmpExtINT || p->intr == PcmpNMI)
 		v = ApicIMASK;
-	else
-		v = mpintrinit(bus, p, VectorLAPIC+intin, p->irq);
+	else {
+		Aintr ai;
+
+		ai.type = p->type;
+		ai.intr = p->intr;
+		ai.flags = p->flags;
+		ai.irq = p->irq;
+		ai.intin = p->intin;
+		ai.apic = nil;
+		ai.bus = bus;
+		v = mpintrinit(&ai, VectorLAPIC+intin, p->irq);
+	}
 
 	if(p->apicno == 0xFF){
 		for(apic = mplapic; apic != nil; apic = apic->next) {
@@ -246,9 +363,10 @@ mklintr(PCMPintr* p)
 		}
 	}
 	else{
-		if((apic = mpgetapic(mplapic, p->apicno)) != nil)
+		if((apic = mpgetapic(mplapic, p->apicno)) != nil) {
 			if(apic->flags & PcmpEN)
 				apic->lintr[intin] = v;
+		}
 	}
 
 	return v;

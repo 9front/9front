@@ -218,7 +218,6 @@ addirq(int gsi, int type, int busno, int irq, int flags)
 	Apic *a;
 	Bus *bus;
 	Aintr *ai;
-	PCMPintr *pi;
 	int intin;
 
 	if((a = findapic(gsi, &intin)) == nil)
@@ -245,22 +244,17 @@ addirq(int gsi, int type, int busno, int irq, int flags)
 
 Foundbus:
 	for(ai = bus->aintr; ai; ai = ai->next)
-		if(ai->intr->irq == irq)
+		if(ai->irq == irq)
 			return;
 
-	if((pi = xalloc(sizeof(PCMPintr))) == nil)
-		panic("addirq: no memory for PCMPintr");
-	pi->type = PcmpIOINTR;
-	pi->intr = PcmpINT;
-	pi->flags = flags & (PcmpPOMASK|PcmpELMASK);
-	pi->busno = busno;
-	pi->irq = irq;
-	pi->apicno = a->apicno;
-	pi->intin = intin;
 
 	if((ai = xalloc(sizeof(Aintr))) == nil)
 		panic("addirq: no memory for Aintr");
-	ai->intr = pi;
+	ai->type = PcmpIOINTR;
+	ai->intr = PcmpINT;
+	ai->flags = flags & (PcmpPOMASK|PcmpELMASK);
+	ai->irq = irq;
+	ai->intin = intin;
 	ai->apic = a;
 	ai->next = bus->aintr;
 	ai->bus = bus;

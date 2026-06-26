@@ -20,7 +20,7 @@ Apic *mpioapic, **mpioapicp = &mpioapic;
 Apic *mplapic, **mplapicp = &mplapic;
 
 int
-mpintrinit(Bus* bus, PCMPintr* intr, int vno, int /*irq*/)
+mpintrinit(Aintr *intr, int vno, int /*irq*/)
 {
 	int el, po, v;
 
@@ -67,12 +67,12 @@ mpintrinit(Bus* bus, PCMPintr* intr, int vno, int /*irq*/)
 
 	/*
 	 */
-	if(bus->type == BusEISA && !po && !el /*&& !(i8259elcr & (1<<irq))*/){
+	if(intr->bus->type == BusEISA && !po && !el /*&& !(i8259elcr & (1<<irq))*/){
 		po = PcmpHIGH;
 		el = PcmpEDGE;
 	}
 	if(!po)
-		po = bus->po;
+		po = intr->bus->po;
 	if(po == PcmpLOW)
 		v |= ApicLOW;
 	else if(po != PcmpHIGH){
@@ -81,7 +81,7 @@ mpintrinit(Bus* bus, PCMPintr* intr, int vno, int /*irq*/)
 	}
 
 	if(!el)
-		el = bus->el;
+		el = intr->bus->el;
 	if(el == PcmpLEVEL)
 		v |= ApicLEVEL;
 	else if(el != PcmpEDGE){
@@ -135,7 +135,6 @@ mpinit(void)
 	if(getconf("*apicdebug")){
 		Bus *b;
 		Aintr *ai;
-		PCMPintr *pi;
 
 		for(apic = mplapic; apic != nil; apic = apic->next)
 			print("LAPIC%d: pa=%lux va=%#p flags=%x\n",
@@ -146,10 +145,9 @@ mpinit(void)
 		for(b = mpbus; b != nil; b = b->next){
 			print("BUS%d type=%d flags=%x\n", b->busno, b->type, b->po|b->el);
 			for(ai = b->aintr; ai; ai = ai->next){
-				if(pi = ai->intr)
-					print("\ttype=%d irq=%d (%d [%c]) apic=%d intin=%d flags=%x\n",
-						pi->type, pi->irq, pi->irq>>2, "ABCD"[pi->irq&3],
-						pi->apicno, pi->intin, pi->flags);
+				print("\ttype=%d irq=%d (%d [%c]) apic=%d intin=%d flags=%x\n",
+					ai->type, ai->irq, ai->irq>>2, "ABCD"[ai->irq&3],
+					ai->apic->apicno, ai->intin, ai->flags);
 			}
 		}
 	}
@@ -287,9 +285,9 @@ ioapicirqenable(Vctl *v, int shared)
 	if(shared)
 		return 0;
 	hi = v->cpu<<24;
-	lo = mpintrinit(aintr->bus, aintr->intr, v->vno, v->irq);
+	lo = mpintrinit(aintr, v->vno, v->irq);
 	lo |= ApicPHYSICAL;			/* no-op */
- 	ioapicrdtw(aintr->apic, aintr->intr->intin, hi, lo);
+ 	ioapicrdtw(aintr->apic, aintr->intin, hi, lo);
 	return 0;
 }
 
@@ -303,7 +301,7 @@ ioapicirqdisable(Vctl *v, int shared)
 		return 0;
 	hi = 0;
 	lo = ApicIMASK;
- 	ioapicrdtw(aintr->apic, aintr->intr->intin, hi, lo);
+ 	ioapicrdtw(aintr->apic, aintr->intin, hi, lo);
 	return 0;
 }
 
@@ -376,7 +374,7 @@ Findbus:
 	 * attached to this bus.
 	 */
 	for(aintr = bus->aintr; aintr != nil; aintr = aintr->next){
-		if(aintr->intr->irq != irq)
+		if(aintr->irq != irq)
 			continue;
 
 		/*
@@ -384,11 +382,11 @@ Findbus:
 		 * INT[A-D]# so, if already enabled, check the polarity matches
 		 * and the trigger is level.
 		 */
-		ioapicrdtr(aintr->apic, aintr->intr->intin, &hi, &lo);
+		ioapicrdtr(aintr->apic, aintr->intin, &hi, &lo);
 		if(lo & ApicIMASK){
 			v->vno = allocvector();
 			v->cpu = mpintrcpu();
-			lo = mpintrinit(aintr->bus, aintr->intr, v->vno, v->irq);
+			lo = mpintrinit(aintr, v->vno, v->irq);
 			lo |= ApicPHYSICAL;			/* no-op */
 			if(lo & ApicIMASK){
 				print("mpintrassign: disabled irq %d, tbdf %uX, lo %8.8uX, hi %8.8uX\n",
@@ -399,7 +397,7 @@ Findbus:
 			v->vno = lo & 0xFF;
 			v->cpu = hi >> 24;
 			lo &= ~(ApicRemoteIRR|ApicDELIVS);
-			n = mpintrinit(aintr->bus, aintr->intr, v->vno, v->irq);
+			n = mpintrinit(aintr, v->vno, v->irq);
 			n |= ApicPHYSICAL;			/* no-op */
 			if(lo != n){
 				print("mpintrassign: multiple botch irq %d, tbdf %uX, lo %8.8uX, n %8.8uX\n",
