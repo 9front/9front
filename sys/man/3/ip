@@ -569,7 +569,7 @@ The
 .I ip
 device
 supports IP as well as several protocols that run over it:
-TCP, UDP, RUDP, ICMP, IL, GRE, and ESP.
+TCP, UDP, RUDP, ICMP, IL and GRE.
 TCP and UDP provide the standard Internet
 protocols for reliable stream and unreliable datagram
 communication.
@@ -578,7 +578,6 @@ ICMP is IP's catch-all control protocol used to send
 low level error messages and to implement
 .IR ping (8).
 GRE is a general encapsulation protocol.
-ESP is the encapsulation protocol for IPsec.
 IL provides a reliable datagram service for communication
 between Plan 9 machines but is now deprecated.
 .PP
