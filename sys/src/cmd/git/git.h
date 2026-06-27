@@ -7,8 +7,8 @@
 typedef struct Conn	Conn;
 typedef struct Hash	Hash;
 typedef struct Delta	Delta;
-typedef struct Cinfo	Cinfo;
-typedef struct Tinfo	Tinfo;
+typedef struct Ocommit	Ocommit;
+typedef struct Otree	Otree;
 typedef struct Object	Object;
 typedef struct Objset	Objset;
 typedef struct Pack	Pack;
@@ -134,18 +134,18 @@ struct Object {
 
 	/* Significant win on memory use */
 	union {
-		Cinfo	*commit;
-		Tinfo	*tree;
+		Ocommit	*commit;
+		Otree	*tree;
 	};
 };
 
-struct Tinfo {
+struct Otree {
 	/* Tree */
 	Dirent	*ent;
 	int	nent;
 };
 
-struct Cinfo {
+struct Ocommit {
 	/* Commit */
 	Hash	*parent;
 	int	nparent;

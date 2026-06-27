@@ -24,7 +24,7 @@ emptydir(void)
 	e = emalloc(sizeof(Object));
 	e->hash = Zhash;
 	e->type = GTree;
-	e->tree = emalloc(sizeof(Tinfo));
+	e->tree = emalloc(sizeof(Otree));
 	e->tree->ent = nil;
 	e->tree->nent = 0;
 	e->flag |= Cloaded|Cparsed;
