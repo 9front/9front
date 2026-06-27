@@ -1,0 +1,8 @@
+</$objtype/mkfile
+
+TEST=\
+	drawtest\
+
+CFLAGS=$CFLAGS -I../../libmp/port
+
+</sys/src/cmd/mktest

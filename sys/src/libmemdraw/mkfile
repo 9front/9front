@@ -26,9 +26,3 @@ OFILES=\
 </sys/src/cmd/mksyslib
 
 alloc.$O draw.$O: /sys/include/pool.h
-
-$O.drawtest: drawtest.$O $LIB
-	$LD -o $target $prereq
- 
-$O.arctest: arctest.$O draw.$O arc.$O $LIB
-	$LD -o $target $prereq
