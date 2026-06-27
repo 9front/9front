@@ -147,6 +147,8 @@ parseop(char **pp)
 			return nil;
 		p++;
 		len = end - off + 1;
+		if((uint)len > 255)
+			return nil;
 	}
 	else
 		return nil;
