@@ -82,7 +82,7 @@ void I_UpdateNoBlit(void)
 	// DELETEME?
 }
 
-void pal2xrgb(u32int *pal, u8int *s, u32int *d, int n, int scale);
+void pal2xrgb(u32int *pal, u8int *s, u32int *d, int n);
 
 static int screenconvi;
 static uchar screenconv[2][SCREENWIDTH*SCREENHEIGHT];
@@ -128,7 +128,7 @@ convproc(void *p)
 		if((s = recvp(p)) == nil)
 			break;
 
-		pal2xrgb(cmap, s, buf, SCREENWIDTH*SCREENHEIGHT, 1);
+		pal2xrgb(cmap, s, buf, SCREENWIDTH*SCREENHEIGHT);
 		loadimage(fb, fb->r, (uchar*)buf, SCREENWIDTH*SCREENHEIGHT*4);
 
 		if(scale == 1)
