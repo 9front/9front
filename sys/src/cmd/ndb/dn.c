@@ -1617,15 +1617,15 @@ randomize(RR *rp)
 	if(rp == nil || rp->next == nil)
 		return rp;
 
-	/* just randomize addresses, mx's and ns's */
+	/* just randomize addresses, srv's, mx's and ns's */
 	for(x = rp; x; x = x->next)
 		if(x->type != Ta && x->type != Taaaa &&
-		    x->type != Tmx && x->type != Tns)
+		    x->type != Tsrv && x->type != Tmx && x->type != Tns)
 			return rp;
 
 	base = rp;
 
-	n = rand();
+	n = lrand();
 	last = first = nil;
 	while(rp != nil){
 		/* stop randomizing if we've moved past our class */
@@ -1655,7 +1655,7 @@ randomize(RR *rp)
 		}
 
 		/* reroll the dice */
-		n >>= 1;
+		n = (n >> 1) ^ (n << 30);
 	}
 
 	return first;
