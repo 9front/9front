@@ -13,6 +13,13 @@ cloadmemimage(Memimage *i, Rectangle r, uchar *data, int ndata)
 		werrstr("cloadmemimage: bad rectangle");
 		return -1;
 	}
+
+	/* avoid sw cursor */
+	static Memdrawparam par;
+	par.dst = i;
+	par.r = r;
+	hwdraw(&par);
+
 	bpl = bytesperline(r, i->depth);
 	u = data;
 	eu = data+ndata;

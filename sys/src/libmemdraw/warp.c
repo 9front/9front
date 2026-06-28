@@ -815,6 +815,13 @@ memaffinewarp(Memimage *d, Rectangle r, Memimage *s, Point sp0, Warp *m, int smo
 	if(rectclip(&samp.r, s->r) == 0)
 		return;
 
+	/* avoid sw cursor */
+	static Memdrawparam par;
+	par.dst = d;
+	par.src = s;
+	par.r = r;
+	hwdraw(&par);
+
 	sample = smooth? bilinear: sample1;
 
 	initsampler(&samp, s);
