@@ -574,7 +574,7 @@ Cell *matchop(Node **a, int n)	/* ~ and match() */
 {
 	Cell *x, *y;
 	char *s, *t;
-	int i;
+	int i, start, len;
 	void *p;
 
 	x = execute(a[1]);	/* a[1] = target text */
@@ -596,11 +596,14 @@ Cell *matchop(Node **a, int n)	/* ~ and match() */
 	if (istemp(x))
 		tfree(x);
 	if (n == MATCHFCN) {
-		int start = utfnlen(s, patbeg-s)+1;
-		if (patlen < 0)
-			start = 0;
+		start = 0;
+		len = patlen;
+		if (patlen >= 0) {
+			start = utfnlen(s, patbeg-s)+1;
+			len = utfnlen(patbeg, patlen);
+		}
 		setfval(rstartloc, (Awkfloat) start);
-		setfval(rlengthloc, (Awkfloat) utfnlen(patbeg, patlen));
+		setfval(rlengthloc, (Awkfloat) len);
 		x = gettemp();
 		x->tval = NUM;
 		x->fval = start;
