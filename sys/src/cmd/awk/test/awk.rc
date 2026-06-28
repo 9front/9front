@@ -1,0 +1,41 @@
+#!/bin/rc
+rfork e
+if(~ $#awk 0)
+	awk=awk
+
+fn check{
+	if(! cmp -s $1 $2){
+		echo BAD: $3 >[2=1]
+		diff -b $1 $2 | sed 's/^/	/;10q'
+	}
+	if not
+		rm $2
+	status=()
+}
+
+echo 'p.*: book tests' >[1=2]
+for(i in p.*){
+	$awk -f $i test.countries test.countries >foo.$i >[2=1]
+	check expected.$i foo.$i $i
+	if(~ $i p.47){
+		check expected.$i.tempsmall foo.tempsmall $i
+		check expected.$i.tempbig foo.tempbig $i
+	}
+}
+
+echo 't.*: general-purpose tests' >[1=2]
+for(i in t.*){
+	if(! ~ $i *.broken){
+		$awk -f $i test.data >foo.$i >[2=1]
+		check expected.$i foo.$i $i
+	}
+	if not
+		status=()
+}
+
+for(i in T.*){
+	if(! ~ $i *.broken)
+		./$i
+	if not
+		status=()
+}

@@ -1,0 +1,8 @@
+{
+	print index(1e0, $1)
+	print substr(123456789, 1e0, 3)
+	print 123456789 ~ 1e0, 1e0 ~ 123456789
+	print 1e0 in x
+	print 1e0 23 456
+	print 123456789 ~ 1e0, 1e0 ~ 123456789, 123456789 ~ "abc"
+}

@@ -1,0 +1,202 @@
+%:  ... /dev/rrp3: 	       0            0 0 0 /__
+%:  ...  	       0            0 0 0 __
+%: mel ... 17379 	   17379        mel 0 0 0 䏣_m_
+%: bwk ... 16693 	   16693        bwk 0 0 0 䄵_b_
+%: ken ... 16116 	   16116        ken 0 0 0 㻴_k_
+%: srb ... 15713 	   15713        srb 0 0 0 㵡_s_
+%: lem ... 11895 	   11895        lem 0 0 0 ⹷_l_
+%: scj ... 10409 	   10409        scj 0 0 0 ⢩_s_
+%: rhm ... 10252 	   10252        rhm 0 0 0 ⠌_r_
+%: shen ... 9853 	    9853       shen 0 0 0 ♽_s_
+%: a68 ... 9748 	    9748        a68 0 0 0 ☔_a_
+%: sif ... 9492 	    9492        sif 0 0 0 └_s_
+%: pjw ... 9190 	    9190        pjw 0 0 0 ⏦_p_
+%: nls ... 8912 	    8912        nls 0 0 0 ⋐_n_
+%: dmr ... 8895 	    8895        dmr 0 0 0 ⊿_d_
+%: cda ... 8491 	    8491        cda 0 0 0 Å_c_
+%: bs ... 8372 	    8372         bs 0 0 0 ₴_b_
+%: llc ... 8252 	    8252        llc 0 0 0 ‼_l_
+%: mb ... 7450 	    7450         mb 0 0 0 ᴚ_m_
+%: ava ... 7360 	    7360        ava 0 0 0 ᳀_a_
+%: jrv ... 7273 	    7273        jrv 0 0 0 ᱩ_j_
+%: bin ... 7080 	    7080        bin 0 0 0 ᮨ_b_
+%: greg ... 7063 	    7063       greg 0 0 0 ᮗ_g_
+%: dict ... 6567 	    6567       dict 0 0 0 ᦧ_d_
+%: lck ... 6462 	    6462        lck 0 0 0 ᤾_l_
+%: rje ... 6291 	    6291        rje 0 0 0 ᢓ_r_
+%: lwf ... 6211 	    6211        lwf 0 0 0 ᡃ_l_
+%: dave ... 5671 	    5671       dave 0 0 0 ᘧ_d_
+%: jhc ... 5373 	    5373        jhc 0 0 0 ᓽ_j_
+%: agf ... 5220 	    5220        agf 0 0 0 ᑤ_a_
+%: doug ... 5167 	    5167       doug 0 0 0 ᐯ_d_
+%: valerie ... 5007 	    5007    valerie 0 0 0 ᎏ_v_
+%: jca ... 3963 	    3963        jca 0 0 0 ཻ_j_
+%: bbs ... 3895 	    3895        bbs 0 0 0 ༷_b_
+%: moh ... 3796 	    3796        moh 0 0 0 ໔_m_
+%: xchar ... 3481 	    3481      xchar 0 0 0 ඙_x_
+%: tbl ... 3200 	    3200        tbl 0 0 0 ಀ_t_
+%: s ... 2845 	    2845          s 0 0 0 ଝ_s_
+%: tgs ... 2774 	    2774        tgs 0 0 0 ૖_t_
+%: met ... 2641 	    2641        met 0 0 0 ੑ_m_
+%: jck ... 2566 	    2566        jck 0 0 0 ਆ_j_
+%: port ... 2511 	    2511       port 0 0 0 ৏_p_
+%: sue ... 2479 	    2479        sue 0 0 0 য_s_
+%: root ... 2127 	    2127       root 0 0 0 ࡏ_r_
+%: bsb ... 1989 	    1989        bsb 0 0 0 ߅_b_
+%: jeg ... 1989 	    1989        jeg 0 0 0 ߅_j_
+%: eag ... 1933 	    1933        eag 0 0 0 ލ_e_
+%: pdj ... 1801 	    1801        pdj 0 0 0 ܉_p_
+%: tpc ... 1590 	    1590        tpc 0 0 0 ض_t_
+%: cvw ... 1385 	    1385        cvw 0 0 0 թ_c_
+%: rwm ... 1370 	    1370        rwm 0 0 0 ՚_r_
+%: avg ... 1316 	    1316        avg 0 0 0 Ԥ_a_
+%: eg ... 1205 	    1205         eg 0 0 0 ҵ_e_
+%: jam ... 1194 	    1194        jam 0 0 0 Ҫ_j_
+%: dl ... 1153 	    1153         dl 0 0 0 ҁ_d_
+%: lgm ... 1150 	    1150        lgm 0 0 0 Ѿ_l_
+%: cmb ... 1031 	    1031        cmb 0 0 0 Ї_c_
+%: jwr ... 1018 	    1018        jwr 0 0 0 Ϻ_j_
+%: gdb ... 950 	     950        gdb 0 0 0 ζ_g_
+%: marc ... 931 	     931       marc 0 0 0 Σ_m_
+%: usg ... 898 	     898        usg 0 0 0 ΂_u_
+%: ggr ... 865 	     865        ggr 0 0 0 ͡_g_
+%: daemon ... 822 	     822     daemon 0 0 0 ̶_d_
+%: mihalis ... 803 	     803    mihalis 0 0 0 ̣_m_
+%: honey ... 700 	     700      honey 0 0 0 ʼ_h_
+%: tad ... 624 	     624        tad 0 0 0 ɰ_t_
+%: acs ... 559 	     559        acs 0 0 0 ȯ_a_
+%: uucp ... 541 	     541       uucp 0 0 0 ȝ_u_
+%: raf ... 523 	     523        raf 0 0 0 ȋ_r_
+%: adh ... 495 	     495        adh 0 0 0 ǯ_a_
+%: kec ... 456 	     456        kec 0 0 0 ǈ_k_
+%: craig ... 414 	     414      craig 0 0 0 ƞ_c_
+%: donmac ... 386 	     386     donmac 0 0 0 Ƃ_d_
+%: jj ... 375 	     375         jj 0 0 0 ŷ_j_
+%: ravi ... 348 	     348       ravi 0 0 0 Ŝ_r_
+%: drw ... 344 	     344        drw 0 0 0 Ř_d_
+%: stars ... 327 	     327      stars 0 0 0 Ň_s_
+%: mrg ... 288 	     288        mrg 0 0 0 Ġ_m_
+%: jcb ... 272 	     272        jcb 0 0 0 Đ_j_
+%: ralph ... 263 	     263      ralph 0 0 0 ć_r_
+%: tom ... 253 	     253        tom 0 0 0 ý_t_
+%: sjb ... 251 	     251        sjb 0 0 0 û_s_
+%: haight ... 248 	     248     haight 0 0 0 ø_h_
+%: sharon ... 224 	     224     sharon 0 0 0 à_s_
+%: chuck ... 222 	     222      chuck 0 0 0 Þ_c_
+%: dsj ... 213 	     213        dsj 0 0 0 Õ_d_
+%: bill ... 201 	     201       bill 0 0 0 É_b_
+%: god ... 184 	     184        god 0 0 0 ¸_g_
+%: sys ... 176 	     176        sys 0 0 0 °_s_
+%: meh ... 166 	     166        meh 0 0 0 ¦_m_
+%: jon ... 163 	     163        jon 0 0 0 £_j_
+%: dan ... 144 	     144        dan 0 0 0 _d_
+%: fox ... 143 	     143        fox 0 0 0 _f_
+%: dale ... 123 	     123       dale 0 0 0 {_d_
+%: kab ... 116 	     116        kab 0 0 0 t_k_
+%: buz ... 95 	      95        buz 0 0 0 __b_
+%: asc ... 80 	      80        asc 0 0 0 P_a_
+%: jas ... 79 	      79        jas 0 0 0 O_j_
+%: trt ... 79 	      79        trt 0 0 0 O_t_
+%: wsb ... 64 	      64        wsb 0 0 0 @_w_
+%: dwh ... 62 	      62        dwh 0 0 0 >_d_
+%: ktf ... 56 	      56        ktf 0 0 0 8_k_
+%: lr ... 54 	      54         lr 0 0 0 6_l_
+%: dlc ... 47 	      47        dlc 0 0 0 /_d_
+%: dls ... 45 	      45        dls 0 0 0 -_d_
+%: jwf ... 45 	      45        jwf 0 0 0 -_j_
+%: mash ... 44 	      44       mash 0 0 0 ,_m_
+%: ars ... 43 	      43        ars 0 0 0 +_a_
+%: vgl ... 43 	      43        vgl 0 0 0 +_v_
+%: jfo ... 37 	      37        jfo 0 0 0 %_j_
+%: rab ... 32 	      32        rab 0 0 0  _r_
+%: pd ... 31 	      31         pd 0 0 0 _p_
+%: jns ... 29 	      29        jns 0 0 0 _j_
+%: spm ... 25 	      25        spm 0 0 0 _s_
+%: rob ... 22 	      22        rob 0 0 0 _r_
+%: egb ... 15 	      15        egb 0 0 0 _e_
+%: hm ... 10 	      10         hm 0 0 0 
+_h_
+%: mhb ... 10 	      10        mhb 0 0 0 
+_m_
+%: aed ... 6 	       6        aed 0 0 0 _a_
+%: cpb ... 6 	       6        cpb 0 0 0 _c_
+%: evp ... 5 	       5        evp 0 0 0 _e_
+%: ber ... 4 	       4        ber 0 0 0 _b_
+%: men ... 4 	       4        men 0 0 0 _m_
+%: mitch ... 4 	       4      mitch 0 0 0 _m_
+%: ast ... 3 	       3        ast 0 0 0 _a_
+%: jfr ... 3 	       3        jfr 0 0 0 _j_
+%: lax ... 3 	       3        lax 0 0 0 _l_
+%: nel ... 3 	       3        nel 0 0 0 _n_
+%: blue ... 2 	       2       blue 0 0 0 _b_
+%: jfk ... 2 	       2        jfk 0 0 0 _j_
+%: njas ... 2 	       2       njas 0 0 0 _n_
+%: 122sec ... 1 	       1     122sec 0 0 0 _1_
+%: ddwar ... 1 	       1      ddwar 0 0 0 _d_
+%: gopi ... 1 	       1       gopi 0 0 0 _g_
+%: jk ... 1 	       1         jk 0 0 0 _j_
+%: learn ... 1 	       1      learn 0 0 0 _l_
+%: low ... 1 	       1        low 0 0 0 _l_
+%: nac ... 1 	       1        nac 0 0 0 _n_
+%: sidor ... 1 	       1      sidor 0 0 0 _s_
+%:  ... 1root:EMpNB8Zp56:0:0:Super-User,,,,,,,:/:/bin/sh 	       1            0 0 0 1__
+%: running ... 2roottcsh:*:0:0:Super-User 	       2    running 0 0 0 2_r_
+%: V ... 3sysadm:*:0:0:System 	       3          V 0 0 0 3_V_
+%: Diagnostics:/usr/diags:/bin/csh ... 4diag:*:0:996:Hardware 	       4 Diagnostic 0 0 0 4_D_
+%:  ... 5daemon:*:1:1:daemons:/:/bin/sh 	       5            0 0 0 5__
+%: Tools ... 6bin:*:2:2:System 	       6      Tools 0 0 0 6_T_
+%:  ... 7nuucp:BJnuQbAo:6:10:UUCP.Admin:/usr/spool/uucppublic:/usr/lib/uucp/uucico 	       7            0 0 0 7__
+%:  ... 8uucp:*:3:5:UUCP.Admin:/usr/lib/uucp: 	       8            0 0 0 8__
+%: Activity ... 9sys:*:4:0:System 	       9   Activity 0 0 0 9_A_
+%: Files ... 10adm:*:5:3:Accounting 	      10      Files 0 0 0 1_F_
+%: Spooler ... 11lp:*:9:9:Print 	      11    Spooler 0 0 0 1_S_
+%: Activity ... 12auditor:*:11:0:Audit 	      12   Activity 0 0 0 1_A_
+%: Database ... 13dbadmin:*:12:0:Security 	      13   Database 0 0 0 1_D_
+%: Killian ... 14bootes:dcon:50:1:Tom 	      14    Killian 0 0 0 1_K_
+%: Killian ... 15cdjuke:dcon:51:1:Tom 	      15    Killian 0 0 0 1_K_
+%: Daemon ... 16rfindd:*:66:1:Rfind 	      16     Daemon 0 0 0 1_D_
+%: Setup:/var/sysadmdesktop/EZsetup:/bin/csh ... 17EZsetup:*:992:998:System 	      17 Setup:/var 0 0 0 1_S_
+%: User:/usr/demos:/bin/csh ... 18demos:*:993:997:Demonstration 	      18 User:/usr/ 0 0 0 1_U_
+%: User:/usr/tutor:/bin/csh ... 19tutor:*:994:997:Tutorial 	      19 User:/usr/ 0 0 0 1_U_
+%: Space ... 20tour:*:995:997:IRIS 	      20      Space 0 0 0 2_S_
+%: Account:/usr/people/guest:/bin/csh ... 21guest:nfP4/Wpvio/Rw:998:998:Guest 	      21 Account:/u 0 0 0 2_A_
+%: Account:/usr/people/4Dgifts:/bin/csh ... 224Dgifts:0nWRTZsOMt.:999:998:4Dgifts 	     224 Account:/u 0 0 0 2_A_
+%: nobody ... 23nobody:*:60001:60001:SVR4 	      23     nobody 0 0 0 2_n_
+%: no ... 24noaccess:*:60002:60002:uid 	      24         no 0 0 0 2_n_
+%: nobody ... 25nobody:*:-2:-2:original 	      25     nobody 0 0 0 2_n_
+%: Owner:/usr/spool/rje: ... 26rje:*:8:8:RJE 	      26 Owner:/usr 0 0 0 2_O_
+%: change ... 27changes:*:11:11:system 	      27     change 0 0 0 2_c_
+%: distributions:/v/adm/dist:/v/bin/sh ... 28dist:sorry:9999:4:file 	      28 distributi 0 0 0 2_d_
+%: Manual ... 29man:*:99:995:On-line 	      29     Manual 0 0 0 2_M_
+%: call ... 30phoneca:*:991:991:phone 	      30       call 0 0 0 3_c_
+%: oot ... 1r 	       1        oot 0 0 0 1_o_
+%: oottcsh ... 2r 	       2    oottcsh 0 0 0 2_o_
+%: ysadm ... 3s 	       3      ysadm 0 0 0 3_y_
+%: iag ... 4d 	       4        iag 0 0 0 4_i_
+%: aemon ... 5d 	       5      aemon 0 0 0 5_a_
+%: in ... 6b 	       6         in 0 0 0 6_i_
+%: uucp ... 7n 	       7       uucp 0 0 0 7_u_
+%: ucp ... 8u 	       8        ucp 0 0 0 8_u_
+%: ys ... 9s 	       9         ys 0 0 0 9_y_
+%: adm ... 10 	      10        adm 0 0 0 
+_a_
+%: lp ... 11 	      11         lp 0 0 0 _l_
+%: auditor ... 12 	      12    auditor 0 0 0 _a_
+%: dbadmin ... 13 	      13    dbadmin 0 0 0 _d_
+%: bootes ... 14 	      14     bootes 0 0 0 _b_
+%: cdjuke ... 15 	      15     cdjuke 0 0 0 _c_
+%: rfindd ... 16 	      16     rfindd 0 0 0 _r_
+%: EZsetup ... 17 	      17    EZsetup 0 0 0 _E_
+%: demos ... 18 	      18      demos 0 0 0 _d_
+%: tutor ... 19 	      19      tutor 0 0 0 _t_
+%: tour ... 20 	      20       tour 0 0 0 _t_
+%: guest ... 21 	      21      guest 0 0 0 _g_
+%: 4Dgifts ... 22 	      22    4Dgifts 0 0 0 _4_
+%: nobody ... 23 	      23     nobody 0 0 0 _n_
+%: noaccess ... 24 	      24   noaccess 0 0 0 _n_
+%: nobody ... 25 	      25     nobody 0 0 0 _n_
+%: rje ... 26 	      26        rje 0 0 0 _r_
+%: changes ... 27 	      27    changes 0 0 0 _c_
+%: dist ... 28 	      28       dist 0 0 0 _d_
+%: man ... 29 	      29        man 0 0 0 _m_
+%: phoneca ... 30 	      30    phoneca 0 0 0 _p_
