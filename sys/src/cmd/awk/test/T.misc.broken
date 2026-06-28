@@ -1,0 +1,94 @@
+#!/bin/rc
+echo T.misc: miscellaneous buglets now watched for >[1=2]
+
+echo x | $awk '/[/]/' >[2]foo
+grep 'nonterminated character class' foo >/dev/null || echo 'BAD: T.misc: nonterminated fails' >[1=2]
+
+# Test for RS regex matching an empty record at EOF
+echo a | $awk 1 'RS=a\n' > foo1
+cat << 'EOF' > foo2
+
+EOF
+diff foo1 foo2 || echo 'BAD: T.misc: RS regex matching an empty record at EOF fails' >[1=2]
+
+# Test for RS regex being reapplied
+echo aaa1a2a | $awk 1 'RS=^a' >foo1
+cat << 'EOF' > foo2
+
+aa1a2a
+
+EOF
+diff foo1 foo2 || echo 'BAD: T.misc: ^regex reapplied fails' >[1=2]
+
+# ^-anchored RS matching should be active at the start of each input file
+tee foo1 foo2 >foo3 << 'EOF'
+aaa
+EOF
+$awk 1 'RS=^a' foo1 foo2 foo3 >foo4
+cat << 'EOF' > foo5
+
+aa
+
+
+aa
+
+
+aa
+
+EOF
+diff foo4 foo5 || echo 'BAD: T.misc: ^RS matches the start of every input file fails' >[1=2]
+
+$awk 'BEGIN \
+	{
+		print "hello, world"
+	}
+}}}' >foo1 >[2]foo2
+grep 'source line 5' foo2 >/dev/null >[2=1] || echo 'BAD: T.misc: continuation line number' >[1=2]
+
+$awk 'BEGIN {
+	if () {
+		print "foo"
+	}
+}' >foo1 >[2]foo2
+grep 'syntax error at source line 2' foo2 >/dev/null >[2=1] || echo 'BAD: T.misc: syntax error line number' >[1=2]
+
+echo 111 222 333 >foo
+$awk '{ f[1]=1; f[2]=2; print $f[1], $f[1]++, $f[2], f[1], f[2] }' foo >foo2
+echo 111 111 222 2 2 >foo1
+cmp -s foo1 foo2 || echo 'BAD: T.misc: $f[1]++' >[1=2]
+
+# These should be syntax errors
+$awk '$' >[2]foo
+grep 'unexpected' foo >/dev/null || echo >[1=2] 'BAD: T.misc: syntax error $ fails' >[1=2]
+
+$awk '{print $' >[2]foo
+grep 'unexpected' foo >/dev/null || echo >[1=2] 'BAD: T.misc: syntax error $2 fails' >[1=2]
+
+$awk 'BEGIN {printf "%2$s %1$s\n", "a", "b"}' >foo >[2=1]
+grep '''\$'' not permitted in awk formats' foo >/dev/null || echo >[1=2] 'BAD: T.misc: ''$'' not permitted in formats' >[1=2]
+
+echo 'a
+b c
+de fg hi' >foo0
+$awk 'END { print NF, $0 }' foo0 >foo1
+awk '{ print NF, $0 }' foo0| tail -1 >foo2
+cmp -s foo1 foo2 || echo 'BAD: T.misc: END must preserve $0 (1)' >[1=2]
+
+echo 'fg hi' >foo0
+$awk 'END { print NF, $0 }' foo0 >foo1
+awk '{ print NF, $0 }' foo0| tail -1 >foo2
+cmp -s foo1 foo2 || echo 'BAD: T.misc: END must preserve $0 (2)' >[1=2]
+
+# Check handling of octal \OOO and hex \xHH esc. seqs. in strings.
+echo 'hello888
+hello
+hello
+helloxGOO
+hello
+0A' > foo1
+$awk 'BEGIN { print "hello\888" }'   > foo2
+$awk 'BEGIN { print "hello\x000A" }' >> foo2
+$awk 'BEGIN { printf "hello\x0A" }'  >> foo2
+$awk 'BEGIN { print "hello\xGOO" }'  >> foo2
+$awk 'BEGIN { print "hello\x0A0A" }' >> foo2
+cmp -s foo1 foo2 || echo 'BAD: T.misc: escape sequences in strings mishandled' >[1=2]

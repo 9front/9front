@@ -1,0 +1,137 @@
+#!/bin/rc
+echo T.split: misc tests of field splitting and split command >[1=2]
+
+TEMP0=foo0
+TEMP1=foo1
+TEMP2=foo2
+
+$awk 'BEGIN {
+	# FS changes after getline.
+	FS = ":"
+	"echo a:bc:def" | getline
+	FS = "-"
+	print FS, $1, NF
+}' > $TEMP1
+echo '- a 3' > $TEMP2
+diff $TEMP1 $TEMP2 || echo 'BAD: T.split: 0.2' >[1=2]
+
+echo '
+a
+a:b
+c:d:e
+e:f:g:h' > $TEMP0
+$awk 'BEGIN {
+	FS = ":"
+	while (getline <"'^$TEMP0^'" > 0) 
+		print NF
+}' > $TEMP1
+echo '0
+1
+2
+3
+4' > $TEMP2
+diff $TEMP1 $TEMP2 || echo 'BAD: T.split: 0.3' >[1=2]
+
+# getline var shouldn't impact fields.
+
+sed 1000q /lib/ucd/UnicodeData.txt >foo.txt
+
+echo 'abc
+de
+f
+
+     ' > $TEMP0
+who | sed 10q  >> $TEMP0
+sed 10q foo.txt >> $TEMP0
+
+$awk '
+{	n = split($0, x, "")
+	m = length($0)
+	if (m != n) print "error 1", NR
+	s = ""
+	for (i = 1; i <= m; i++)
+		s = s x[i]
+	if (s != $0) print "error 2", NR
+	print s
+}' $TEMP0 > $TEMP1
+
+diff $TEMP0 $TEMP1 || echo 'BAD: T.split: 1' >[1=2]
+
+# assumes same test.temp.0!  bad design
+
+
+$awk '
+BEGIN { FS = "" }
+{	n = split($0, x)	# will be split with FS
+	m = length($0)
+	if (m != n) print "error 1", NR
+	s = ""
+	for (i = 1; i <= m; i++)
+		s = s x[i]
+	if (s != $0) print "error 2", NR
+	print s
+}' $TEMP0 > $TEMP2
+
+diff $TEMP0 $TEMP2 || echo 'BAD: T.split: 2' >[1=2]
+
+# assumes same test.temp.0!
+
+$awk '
+BEGIN { FS = "" }
+{	n = NF
+	m = length($0)
+	if (m != n) print "error 1", NR
+	s = ""
+	for (i = 1; i <= m; i++)
+		s = s $i
+	if (s != $0) print "error 2", NR
+	print s
+}' $TEMP0 > $TEMP2
+
+diff $TEMP0 $TEMP2 || echo 'BAD: T.split: 3' >[1=2]
+
+
+$awk '
+{ n = split( $0, temp, /^@@@ +/ )
+  print n
+}' > $TEMP1 <<XXX
+@@@ xxx
+@@@ xxx
+@@@ xxx
+XXX
+echo '2
+2
+2' > $TEMP2
+diff $TEMP1 $TEMP2 || echo 'BAD: T.split: 4' >[1=2]
+
+rm -f $TEMP1 $TEMP2 $TEMP3
+
+echo '
+a
+bc
+def' > $TEMP0
+$awk '
+{ print split($0, x, "")
+}' $TEMP0 > $TEMP1
+echo '0
+1
+2
+3' > $TEMP2
+diff $TEMP1 $TEMP2 || echo 'BAD: T.split: null 3rd arg' >[1=2]
+
+rm -f $TEMP1 $TEMP2 $TEMP3
+$awk 'BEGIN {
+  a[1]="a b"
+  print split(a[1],a),a[1],a[2]
+}' > $TEMP1
+
+echo '2 a b' > $TEMP2
+diff $TEMP1 $TEMP2 || echo 'BAD: T.split: a[1],a' >[1=2]
+
+$awk 'BEGIN {
+  a = "cat\n\n\ndog"
+  split(a, b, "[\r\n]+")
+  print b[1], b[2]
+}' > $TEMP1
+echo 'cat dog' > $TEMP2
+diff $TEMP1 $TEMP2 || echo 'BAD: T.split: a, b, "[\r\n]+"' >[1=2]

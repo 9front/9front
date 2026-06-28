@@ -1,0 +1,32 @@
+#!/bin/rc
+echo T.-f-f: check multiple -f arguments >[1=2]
+
+echo 'begin
+end' >foo
+echo 'BEGIN { print "begin" }' >foo1
+echo 'END { print "end" }' >foo2
+echo xxx | $awk -f foo1 -f foo2 >foo3
+diff foo foo3 || echo 'BAD: T.-f-f: multiple -fs' >[1=2]
+
+sed 1000q /lib/ucd/UnicodeData.txt >foo.txt
+
+echo '/a/' | $awk -f - foo.txt >foo1
+$awk '/a/' foo.txt >foo2
+diff foo1 foo2 || echo 'BAD: T.-f-f: -f -' >[1=2]
+
+cp foo.txt foo1
+echo '/./ {' >foo2
+echo 'print' >foo3
+echo '}' >foo4
+$awk -f foo2 -f foo3 -f foo4 foo.txt >foo5
+diff foo1 foo5 || echo 'BAD: T.-f-f: 3 files' >[1=2]
+
+echo '/./ {' >foo2
+echo 'print' >foo3
+echo '
+
+
+
+]' >foo4
+$awk -f foo2 -f foo3 -f foo4 foo.txt >foo5 >[2]foo6
+grep 'syntax error at .*foo4' foo6 >/dev/null >[2=1] || echo 'BAD: T.-f-f: source file name' >[1=2]

@@ -1,0 +1,17 @@
+#!/bin/rc
+echo T.builtin: test miscellaneous builtin functions >[1=2]
+
+# Test for backslash handling
+cat <<'EOF' >foo0
+BEGIN {
+    print "A\
+B";
+    print "CD"
+}
+EOF
+$awk -f foo0 /dev/null >foo1
+cat <<'EOF' >foo2
+AB
+CD
+EOF
+diff foo1 foo2 || echo 'BAD: T.builtin: continuation handling (backslash)' >[1=2]

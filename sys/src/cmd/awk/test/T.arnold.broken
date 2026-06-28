@@ -1,0 +1,24 @@
+#!/bin/rc
+echo T.arnold: test fixes by Arnold Robbins 8/18 >[1=2]
+# for which many thanks
+
+rm -rf arnold-fixes
+tar xf arnold-fixes.tar
+cd arnold-fixes
+
+files=(\
+	a-format.awk\
+	decr-NF.awk\
+	ofs-rebuild.awk\
+	space.awk\
+	string-conv.awk\
+	unary-plus.awk\
+)
+
+for(i in $files){
+	name=`{basename $i .awk}
+	if(! ~ $name system-status){
+		$awk -f $name.awk >foo.$name
+		diff $name.ok foo.$name || echo 'BAD: T.arnold: '^$name >[1=2]
+	}
+}

@@ -1,0 +1,39 @@
+#!/bin/rc
+echo T.errmsg:  check some error messages >[1=2]
+
+ls >foo.glop
+awk '
+{
+	awk = ENVIRON["awk"]
+	pat = $0
+	prog = ""
+	while (getline x > 0 && x != "")
+		prog = prog "\n" x
+	print "\n"awk" ''"prog"'' <foo.glop >/dev/null >[2]foo"
+	print "grep ''"pat"'' foo >/dev/null || echo ''BAD: T.errmsg: "pat"'' >[1=2]"
+}
+' >foo.rc <<'!!!!'
+illegal break, continue, next or nextfile from END
+END { nextfile }
+
+nonterminated character class
+/[[/
+
+nonterminated character class
+/[]/
+
+syntax error in regular expression
+BEGIN { if ("x" ~ /$^/) print "ugh" }
+
+can''t use function f as argument in f
+BEGIN { f(f) }
+function f() { print "x" }
+
+this should print a BAD message
+BEGIN { print }
+!!!!
+
+rc ./foo.rc
+
+$awk -safe 'BEGIN {system("date")}' >foo >[2]foo2
+grep 'system is unsafe' foo2 >/dev/null || echo 'BAD: T.errmsg: system unsafe' >[1=2]

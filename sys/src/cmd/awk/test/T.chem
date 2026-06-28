@@ -1,0 +1,7 @@
+#!/bin/rc
+echo T.chem: test chem.awk >[1=2]
+
+for(i in lsd1.p penicil.p res.p){
+	$awk -f chem.awk $i >foo.$i
+	diff expected.T.chem.$i foo.$i || echo 'BAD: T.chem: '^$i >[1=2]
+}

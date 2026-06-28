@@ -1,0 +1,57 @@
+#!/bin/rc
+echo T.overflow: test some overflow conditions >[1=2]
+
+$awk 'BEGIN {
+ 	for (i = 0; i < 1000; i++) printf("abcdefghijklmnopqsrtuvwxyz")
+ 	printf("\n")
+ 	exit
+}' >foo1
+$awk '{print}' foo1 >foo2
+cmp -s foo1 foo2 || echo 'BAD: T.overflow: record 1' >[1=2]
+
+echo 'abcdefghijklmnopqsrtuvwxyz' >foo1
+echo hello | $awk '
+ { for (i = 1; i < 500; i++) s = s "abcdefghijklmnopqsrtuvwxyz "
+   $0 = s
+   print $1
+ }'  >foo2
+cmp -s foo1 foo2 || echo 'BAD: T.overflow: abcdef' >[1=2]
+
+# default input record 3072, fields 200:
+$awk '
+BEGIN {
+	for (j = 0; j < 2; j++) {
+		for (i = 0; i < 500; i++)
+			printf(" 123456789")
+		printf("\n");
+	}
+} ' >foo1
+$awk '{$1 = " 123456789"; print}' foo1 >foo2
+cmp -s foo1 foo2 || echo 'BAD: T.overflow: -mr -mf set $1' >[1=2]
+
+$awk '
+BEGIN {
+	for (j = 0; j < 2; j++) {
+		for (i = 0; i < 500; i++)
+			printf(" 123456789")
+		printf("\n");
+	}
+} ' >foo
+$awk  '{print NF}' foo >foo1
+echo '500
+500' >foo2
+cmp -s foo1 foo2 || echo 'BAD: T.overflow: -mr -mf NF' >[1=2]
+
+echo 0 >foo1
+$awk '
+BEGIN {
+	for (i = 0; i < 100000; i++)
+		x[i] = i
+	for (i in x)
+		delete x[i]
+	n = 0
+	for (i in x)
+		n++
+	print n
+}' >foo2
+cmp -s foo1 foo2 || echo 'BAD: T.overflow: big array' >[1=2]

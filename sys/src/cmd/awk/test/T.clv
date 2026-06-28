@@ -1,0 +1,134 @@
+#!/bin/rc
+echo T.clv: check command-line variables >[1=2]
+
+# stdin only, no cmdline asgn
+echo 'hello
+goodbye' | $awk '
+BEGIN { x=0; print x; getline; print x, $0 }
+' >foo1
+echo '0
+0 hello' >foo2
+diff foo1 foo2 || echo 'BAD: T.clv: stdin only' >[1=2]
+
+# cmdline asgn then stdin
+echo 'hello
+goodbye' | $awk '
+BEGIN { x=0; print x; getline; print x, $0 }
+' 'x=1' >foo1
+echo '0
+1 hello' >foo2
+diff foo1 foo2 || echo 'BAD: T.clv: x=1 only' >[1=2]
+
+# several cmdline asgn, then stdin
+echo 'hello
+goodbye' | $awk '
+BEGIN { x=0; print x; getline; print x, $0 }
+' 'x=1' 'x=2' 'x=3' >foo1
+echo '0
+3 hello' >foo2
+diff foo1 foo2 || echo 'BAD: T.clv: x=3 only' >[1=2]
+
+# several cmdline asgn, then file
+echo 'hello
+goodbye' >foo
+$awk '
+BEGIN { x=0; print x; getline; print x, $0 }
+' 'x=1' 'x=2' 'x=3' foo >foo1
+echo '0
+3 hello' >foo2
+diff foo1 foo2 || echo 'BAD: T.clv: x=3 only' >[1=2]
+
+# cmdline asgn then file
+echo 4 >foo1
+$awk 'BEGIN { getline; print x}' 'x=4' /dev/null >foo2
+diff foo1 foo2 || echo 'BAD: T.clv: x=4 /dev/null' >[1=2]
+
+#cmdline asgn then file but no read of it
+echo 0 >foo1
+$awk 'BEGIN { x=0; getline <"/dev/null"; print x}' 'x=5' /dev/null >foo2
+diff foo1 foo2 || echo 'BAD: T.clv: x=5 /dev/null' >[1=2]
+
+#cmdline asgn then file then read
+echo 'xxx
+yyy
+zzz' >foo
+echo '6
+end' >foo1
+$awk 'BEGIN { x=0; getline; print x}
+      END { print x }' 'x=6' foo 'x=end' >foo2
+diff foo1 foo2 || echo 'BAD: T.clv: x=6 /dev/null' >[1=2]
+
+#cmdline asgn then file then read
+echo '0
+end' >foo1
+$awk 'BEGIN { x=0; getline <"/dev/null"; print x}
+      END { print x }' 'x=7' /dev/null 'x=end' >foo2
+diff foo1 foo2 || echo 'BAD: T.clv: x=7 /dev/null' >[1=2]
+
+#cmdline asgn then file then read; _ in commandname
+echo '0
+end' >foo1
+$awk 'BEGIN { _=0; getline <"/dev/null"; print _}
+      END { print _ }' '_=7A' /dev/null '_=end' >foo2
+diff foo1 foo2 || echo 'BAD: T.clv: _=7A /dev/null' >[1=2]
+
+# illegal varname in commandname
+$awk '{ print }' '99_=foo' /dev/null >foo >[2]foo2
+grep 'can''t open.*foo' foo2 >/dev/null >[2=1] || echo 'BAD: T.clv: 7B: illegal varname' >[1=2]
+
+# these test the new -v option:  awk ... -v a=1 -v b=2 'prog' does before BEGIN
+
+echo 123 >foo1
+$awk -v 'x=123' 'BEGIN { print x }' >foo2
+diff foo1 foo2 || echo 'BAD: T.clv: x=11' >[1=2]
+
+echo 123 abc 10.99 >foo1
+$awk -v 'x=123' -v 'y=abc' -v 'z1=10.99' 'BEGIN { print x, y, z1 }' >foo2
+diff foo1 foo2 || echo 'BAD: T.clv: x=12' >[1=2]
+
+echo 123 abc 10.99 >foo1
+$awk -v 'x=123' -v 'y=abc' -v 'z1=10.99' -- 'BEGIN { print x, y, z1 }' >foo2
+diff foo1 foo2 || echo 'BAD: T.clv: x=12b' >[1=2]
+
+echo 'BEGIN { print x, y, z1 }' >foo0
+echo 123 abc 10.99 >foo1
+$awk -v 'x=123' -v 'y=abc' -f foo0 -v 'z1=10.99' >foo2
+diff foo1 foo2 || echo 'BAD: T.clv: x=13' >[1=2]
+
+echo 'BEGIN { print x, y, z1 }' >foo0
+echo 123 abc 10.99 >foo1
+$awk -f foo0 -v 'x=123' -v 'y=abc' -v 'z1=10.99' >foo2
+diff foo1 foo2 || echo 'BAD: T.clv: x=14' >[1=2]
+
+echo 'BEGIN { print x, y, z1 }
+END { print x }' >foo0
+echo '123 abc 10.99
+4567' >foo1
+$awk -f foo0 -v 'x=123' -v 'y=abc' -v 'z1=10.99' /dev/null 'x=4567' /dev/null >foo2
+diff foo1 foo2 || echo 'BAD: T.clv: x=15' >[1=2]
+
+sed 1000q /lib/ucd/UnicodeData.txt >foo.txt
+
+echo 'BEGIN { print x, y, z1 }
+NR==1 { print x }' >foo0
+echo '123 abc 10.99
+4567' >foo1
+$awk -v 'x=123' -v 'y=abc' -v 'z1=10.99' -f foo0 'x=4567' foo.txt >foo2
+diff foo1 foo2 || echo 'BAD: T.clv: x=16' >[1=2]
+
+# special chars in commandline assigned value;
+# have to use local echo to avoid quoting problems.
+
+echo 'a\\b\z' >foo1
+echo 'hello' | $awk '{print x}' 'x=\141\\\\\142\\z' >foo2
+diff foo1 foo2 || echo 'BAD: T.clv: x=17' >[1=2]
+
+echo 'a
+z' >foo1
+echo 'hello' | $awk '{print x}' 'x=a\nz' >foo2
+diff foo1 foo2 || echo 'BAD: T.clv: x=18' >[1=2]
+
+# a bit circular here...
+$awk 'BEGIN { printf("a%c%c%cz\n", "\b", "\r", "\f") }' >foo1 
+echo 'hello' | $awk '{print x}' 'x=a\b\r\fz' >foo2
+diff foo1 foo2 || echo 'BAD: T.clv: x=19' >[1=2]

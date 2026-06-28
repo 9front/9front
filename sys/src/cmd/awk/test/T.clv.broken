@@ -1,0 +1,42 @@
+#!/bin/rc
+echo T.clv: check command-line variables >[1=2]
+
+echo 123 >foo1
+$awk '-vx=123' 'BEGIN { print x }' >foo2
+diff foo1 foo2 || echo 'BAD: T.clv: x=11a' >[1=2]
+
+echo 123 abc 10.99 >foo1
+$awk '-vx=123' '-vy=abc' '-vz1=10.99' 'BEGIN { print x, y, z1 }' >foo2
+diff foo1 foo2 || echo 'BAD: T.clv: x=12a' >[1=2]
+
+echo 'BEGIN { print x, y, z1 }' >foo0
+echo 123 abc 10.99 >foo1
+$awk '-vx=123' '-vy=abc' -f foo0 '-vz1=10.99' >foo2
+diff foo1 foo2 || echo 'BAD: T.clv: x=13a' >[1=2]
+
+echo 'BEGIN { print x, y, z1 }' >foo0
+echo 123 abc 10.99 >foo1
+$awk -f foo0 '-vx=123' '-vy=abc' '-vz1=10.99' >foo2
+diff foo1 foo2 || echo 'BAD: T.clv: x=14a' >[1=2]
+
+echo 'BEGIN { print x, y, z1 }
+END { print x }' >foo0
+echo '123 abc 10.99
+4567' >foo1
+$awk -f foo0 '-vx=123' '-vy=abc' '-vz1=10.99' /dev/null 'x=4567' /dev/null >foo2
+diff foo1 foo2 || echo 'BAD: T.clv: x=15a' >[1=2]
+
+sed 1000q /lib/ucd/UnicodeData.txt >foo.txt
+
+echo 'BEGIN { print x, y, z1 }
+NR==1 { print x }' >foo0
+echo '123 abc 10.99
+4567' >foo1
+$awk '-vx=123' '-vy=abc' '-vz1=10.99' -f foo0 'x=4567' foo.txt >foo2
+diff foo1 foo2 || echo 'BAD: T.clv: x=16a' >[1=2]
+
+$awk -vx 'BEGIN {print x}' >foo >[2=1]
+grep 'invalid -v option argument: x' foo >/dev/null || echo 'BAD: T.clv: x=20' >[1=2]
+
+$awk -v x 'BEGIN {print x}' >foo >[2=1]
+grep 'invalid -v option argument: x' foo >/dev/null || echo 'BAD: T.clv: x=20a' >[1=2]

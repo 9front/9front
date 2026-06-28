@@ -1,0 +1,21 @@
+#!/bin/rc
+echo T.flags: test some commandline flags >[1=2]
+
+$awk >foo >[2=1]
+grep '[Uu]sage' foo >/dev/null || echo 'BAD: T.flags: usage' >[1=2]
+
+$awk -f >foo >[2=1]
+grep 'no program' foo >/dev/null || echo 'BAD: T.flags: no program' >[1=2]
+
+$awk -f glop/glop >foo >[2=1]
+grep 'can.t open' foo >/dev/null || echo 'BAD: T.flags: can''t open program' >[1=2]
+
+$awk -zz 'BEGIN{}' >foo >[2=1]
+grep 'unknown option' foo >/dev/null || echo 'BAD: T.flags: unknown option' >[1=2]
+
+$awk -F  >foo >[2=1]
+grep 'field separator FS is empty' foo >/dev/null || echo 'BAD: T.flags: missing field separator' >[1=2]
+
+### Awk is now like gawk and splits into separate characters if FS = ""
+# $awk -F '' >foo >[2=1]
+# grep 'field separator FS is empty' foo >/dev/null || echo 'BAD: T.flags: empty field separator' >[1=2]

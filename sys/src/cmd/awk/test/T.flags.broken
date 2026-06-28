@@ -1,0 +1,5 @@
+#!/bin/rc
+echo T.flags: test some commandline flags >[1=2]
+
+$awk -fglop/glop >foo >[2=1]
+grep 'can.t open' foo >/dev/null || echo 'BAD: T.flags: can''t open program 2' >[1=2]

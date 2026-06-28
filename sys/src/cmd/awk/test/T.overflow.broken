@@ -1,0 +1,43 @@
+#!/bin/rc
+echo T.overflow: test some overflow conditions >[1=2]
+
+$awk 'BEGIN {
+	for (i = 1; i < 1000; i++) s = s "a-z"
+	if ("x" ~ "[" s "]")
+		print "ugh"
+}' >foo >[2]foo2
+grep . foo2 >[1=2] && echo 'BAD: T.overflow: too long char class' >[1=2]
+
+echo 4000004 >foo1
+$awk '
+BEGIN {
+	x1 = sprintf("%1000000s\n", "hello")
+	x2 = sprintf("%-1000000s\n", "world")
+	x3 = sprintf("%1000000.1000000s\n", "goodbye")
+	x4 = sprintf("%-1000000.1000000s\n", "goodbye")
+	print length(x1 x2 x3 x4)
+}' >foo2
+cmp -s foo1 foo2 || echo 'BAD: T.overflow: huge sprintfs' >[1=2]
+
+echo 0 >foo1
+$awk '
+BEGIN {
+	for (i = 0; i < 100000; i++)
+		x[i] = i
+	for (i in x)
+		delete x[i]
+	n = 0
+	for (i in x)
+		n++
+	print n
+}' >foo2
+cmp -s foo1 foo2 || echo 'BAD: T.overflow: big array' >[1=2]
+
+echo x >foo1
+$awk '{print $40000000000000}' <foo1 >foo2 >[2]foo
+grep 'out of range field' foo >/dev/null || echo >[1=2] 'BAD: T.overflow: \$400000' >[1=2]
+
+rm -f foo_x*
+$awk 'BEGIN { for (i=1; i <= 1000; i++) print i >("foo_x" i) }'
+ls foo_x* | grep '1000' >/dev/null || echo >[1=2] 'BAD: T.overflow: openfiles' >[1=2]
+rm foo_x*

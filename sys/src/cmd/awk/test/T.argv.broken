@@ -1,0 +1,8 @@
+#!/bin/rc
+echo T.argv: misc tests of argc and argv >[1=2]
+
+echo >foo0
+echo 'name=value
+name=value' >foo1
+$awk 'BEGIN { print ARGV[1] } { print ARGV[1] }' 'name=value' foo0 >foo2
+diff foo1 foo2 || echo 'BAD: T.argv: assignment operand modified' >[1=2]

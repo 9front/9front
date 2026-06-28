@@ -1,0 +1,6 @@
+#!/bin/rc
+echo T.latin1: tests of 8-bit input >[1=2]
+
+$awk '{ gsub(/\351/, "\370"); print }' latin1 >foo0
+$awk '{ gsub(/é/, "ø"); print }' latin1 >foo1
+diff foo0 foo1 || echo 'BAD: T.latin1: 3' >[1=2]

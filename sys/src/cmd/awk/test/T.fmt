@@ -1,0 +1,6 @@
+#!/bin/rc
+echo T.fmt: OFMT and CONVFMT tests >[1=2]
+
+echo '  1' >foo1
+$awk 'BEGIN{ split("2 12", x, "2"); print x[1], x[2] }' >foo2
+diff foo1 foo2 || echo >[1=2] 'BAD: T.ofmt: undue conversion' >[1=2]

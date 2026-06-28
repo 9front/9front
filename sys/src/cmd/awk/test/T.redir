@@ -1,0 +1,37 @@
+#!/bin/rc
+echo T.redir: test redirections >[1=2]
+
+sed 1000q /lib/ucd/UnicodeData.txt >foo.txt
+
+$awk '{ print >"foo" }' foo.txt
+diff foo foo.txt || echo 'BAD: T.redir: print >"foo"' >[1=2]
+
+rm -f foo
+$awk '{ print >>"foo" }' foo.txt
+diff foo foo.txt || echo 'BAD: T.redir: print >>"foo"' >[1=2]
+
+rm -f foo
+$awk 'NR%2 == 1 { print >>"foo" }
+      NR%2 == 0 { print >"foo" }' foo.txt
+diff foo foo.txt || echo 'BAD: T.redir: print > and >>"foo"' >[1=2]
+
+rm -f foo
+$awk '{ print | "cat >foo" }' foo.txt
+diff foo foo.txt || echo 'BAD: T.redir: print | "cat >foo"' >[1=2]
+
+# tests flush of stdout before opening pipe
+echo '   head
+1
+2' >foo1
+$awk 'BEGIN { print "   head"
+	for (i = 1; i < 3; i++)
+		print i | "sort" }' >foo2
+diff foo1 foo2 || echo 'BAD: T.redir: buffering' >[1=2]
+
+$awk '{ print >"/fd/2" }' foo.txt >foo1 >[2]foo2
+diff foo2 foo.txt || echo 'BAD: T.redir: print >"/fd/2"'
+diff foo1 /dev/null  || echo 'BAD: T.redir: print >"/fd/2"' >[1=2]
+
+$awk '{ print >"/fd/1" }' foo.txt >foo1 >[2]foo2
+diff foo1 foo.txt || echo 'BAD: T.redir: print >"/fd/1"'
+diff foo2 /dev/null  || echo 'BAD: T.redir: print >"/fd/2"' >[1=2]

@@ -1,0 +1,19 @@
+#!/bin/rc
+echo T.fmt: OFMT and CONVFMT tests >[1=2]
+
+echo '0.333333
+0.3 0.142857 
+0.33 0.14 0.333333 
+0.33 0.14 0.3333333333  0.1428571429  0.333333 ' >foo1
+$awk '
+BEGIN{
+	print 1/3
+	OFMT="%.1g"
+	print 1/3, 1/7" "
+	OFMT="%.2g"
+	x=1/3" "
+	print 1/3, 1/7, x
+	CONVFMT="%.10f"
+	print 1/3, 1/7, 1/3" ", 1/7" ", x
+}' >foo2
+diff foo1 foo2 || echo >[1=2] 'BAD: T.ofmt: bad conversions' >[1=2]

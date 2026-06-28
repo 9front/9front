@@ -1,0 +1,14 @@
+#!/bin/rc
+echo T.system: test system built-in >[1=2]
+
+rm -f foo
+$awk 'BEGIN {
+	n = system("exit 3")
+	print n
+	exit n+1 ""
+}
+' >foo
+echo $status | sed 's/^.*: //' >>foo
+echo '1
+2' >foo1
+diff foo foo1 || echo 'BAD: T.system: 1' >[1=2]

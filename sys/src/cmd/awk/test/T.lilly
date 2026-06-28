@@ -1,0 +1,13 @@
+#!/bin/rc
+echo T.lilly: miscellaneous RE tests from Bruce Lilly >[1=2]
+
+awk '
+BEGIN { awk = ENVIRON["awk"] }
+/./ {
+	print $0 >"foo"
+	close("foo")
+	print "###", NR, $0
+	system(awk " -f foo <lilly.ifile")
+}' <lilly.progs >foo.T.lilly >[2=1]
+
+diff -b expected.T.lilly foo.T.lilly || echo 'BAD: check foo.lilly.diff' >[1=2]
