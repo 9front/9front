@@ -290,6 +290,7 @@ mkiointr(PCMPintr* p)
 
 	aintr->type = p->intr;
 	aintr->flags = p->flags;
+	aintr->gsi = -1;
 	aintr->irq = p->irq;
 	aintr->intin = p->intin;
 
@@ -347,6 +348,7 @@ mklintr(PCMPintr* p)
 
 		ai.type = p->intr;
 		ai.flags = p->flags;
+		ai.gsi = -1;
 		ai.irq = p->irq;
 		ai.intin = p->intin;
 		ai.apic = nil;

@@ -195,7 +195,7 @@ findtable(char sig[4])
 }
 
 static Apic*
-findapic(int gsi, int *pintin)
+findioapic(int gsi, int *pintin)
 {
 	Apic *a;
 
@@ -208,7 +208,7 @@ findapic(int gsi, int *pintin)
 			return a;
 		}
 	}
-	print("findapic: no ioapic found for gsi %d\n", gsi);
+	print("findioapic: no ioapic found for gsi %d\n", gsi);
 	return nil;
 }
 
@@ -220,7 +220,7 @@ addirq(int gsi, int type, int busno, int irq, int flags)
 	Aintr *ai;
 	int intin;
 
-	if((a = findapic(gsi, &intin)) == nil)
+	if((a = findioapic(gsi, &intin)) == nil)
 		return;
 
 	for(bus = mpbus; bus; bus = bus->next)
@@ -253,6 +253,7 @@ Foundbus:
 	ai->type = PcmpINT;
 	ai->flags = flags & (PcmpPOMASK|PcmpELMASK);
 	ai->irq = irq;
+	ai->gsi = gsi;
 	ai->intin = intin;
 	ai->apic = a;
 	ai->next = bus->aintr;

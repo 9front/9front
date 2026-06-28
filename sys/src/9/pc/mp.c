@@ -147,9 +147,9 @@ mpinit(void)
 		for(b = mpbus; b != nil; b = b->next){
 			print("BUS%d type=%d flags=%x\n", b->busno, b->type, b->po|b->el);
 			for(ai = b->aintr; ai; ai = ai->next){
-				print("\ttype=%d irq=%d (%d [%c]) apic=%d intin=%d flags=%x\n",
+				print("\ttype=%d irq=%d (%d [%c]) gsi=%d apic=%d intin=%d flags=%x\n",
 					ai->type, ai->irq, ai->irq>>2, "ABCD"[ai->irq&3],
-					ai->apic->apicno, ai->intin, ai->flags);
+					ai->gsi, ai->apic->apicno, ai->intin, ai->flags);
 			}
 		}
 	}

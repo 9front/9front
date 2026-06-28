@@ -62,6 +62,8 @@ typedef struct Aintr {
 	int	type;			/* interrupt type */
 	int	flags;			/* interrupt flag */
 	int	irq;			/* source bus irq */
+
+	int	gsi;			/* global system interrupt (apic->gsibase + intin) */
 	int	intin;			/* destination APIC [L]INTIN# */
 
 	Apic*	apic;
