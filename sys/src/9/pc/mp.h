@@ -59,8 +59,7 @@ typedef struct Bus {
 } Bus;
 
 typedef struct Aintr {
-	int	type;			/* entry type ([34]) */
-	int	intr;			/* interrupt type */
+	int	type;			/* interrupt type */
 	int	flags;			/* interrupt flag */
 	int	irq;			/* source bus irq */
 	int	intin;			/* destination APIC [L]INTIN# */

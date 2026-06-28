@@ -250,8 +250,7 @@ Foundbus:
 
 	if((ai = xalloc(sizeof(Aintr))) == nil)
 		panic("addirq: no memory for Aintr");
-	ai->type = PcmpIOINTR;
-	ai->intr = PcmpINT;
+	ai->type = PcmpINT;
 	ai->flags = flags & (PcmpPOMASK|PcmpELMASK);
 	ai->irq = irq;
 	ai->intin = intin;

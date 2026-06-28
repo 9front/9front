@@ -35,7 +35,7 @@ mpintrinit(Aintr *intr, int vno, int /*irq*/)
 	po = intr->flags & PcmpPOMASK;
 	el = intr->flags & PcmpELMASK;
 
-	switch(intr->intr){
+	switch(intr->type){
 	default:				/* PcmpINT */
 		v |= ApicFIXED;			/* no-op */
 		break;

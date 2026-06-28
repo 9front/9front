@@ -288,16 +288,15 @@ mkiointr(PCMPintr* p)
 	if((aintr = xalloc(sizeof(Aintr))) == nil)
 		panic("mkiointr: no memory for Aintr");
 
-	aintr->type = p->type;
-	aintr->intr = p->intr;
+	aintr->type = p->intr;
 	aintr->flags = p->flags;
 	aintr->irq = p->irq;
 	aintr->intin = p->intin;
 
 	if(0)
-		print("mkiointr: type %d intr type %d flags %#o "
+		print("mkiointr: type %d flags %#o "
 			"bus %d irq %d apicno %d intin %d\n",
-			aintr->type, aintr->intr, aintr->flags,
+			aintr->type, aintr->flags,
 			bus->busno, aintr->irq, apic->apicno, aintr->intin);
 	/*
 	 * Hack for Intel SR1520ML motherboard, which BIOS describes
@@ -346,8 +345,7 @@ mklintr(PCMPintr* p)
 	else {
 		Aintr ai;
 
-		ai.type = p->type;
-		ai.intr = p->intr;
+		ai.type = p->intr;
 		ai.flags = p->flags;
 		ai.irq = p->irq;
 		ai.intin = p->intin;
