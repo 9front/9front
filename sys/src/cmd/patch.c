@@ -332,9 +332,8 @@ parse(Biobuf *f, char *name)
 	ln = nil;
 	lnum = 0;
 	p = emalloc(sizeof(Patch));
-comment:
-	free(ln);
 	while((ln = readline(f, &lnum)) != nil){
+comment:
 		if(strncmp(ln, "--- ", 4) == 0)
 			goto patch;
 		free(ln);
@@ -356,6 +355,8 @@ patch:
 
 	if((ln = readline(f, &lnum)) == nil)
 		goto out;
+	if(strncmp(ln, "@@ ", 3) != 0)
+		goto comment;
 hunk:
 	oldcnt = 0;
 	newcnt = 0;
