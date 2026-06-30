@@ -363,9 +363,10 @@ To list all branches, pass the
 .B -a
 option.
 To switch between branches, pass a branch name.
-When passed the
+To create a new branch, pass the
 .B -n
-option, the branch will be created, overwriting existing branch.
+option.
+Note that this will clobber an existing branch of the same name.
 When passed the
 .B -b
 .I base
