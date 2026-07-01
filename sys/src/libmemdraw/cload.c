@@ -6,7 +6,7 @@
 int
 cloadmemimage(Memimage *i, Rectangle r, uchar *data, int ndata)
 {
-	int y, bpl, c, cnt, offs, r;
+	int y, bpl, c, cnt, offs;
 	uchar mem[NMEM], *memp, *omemp, *emem, *linep, *elinep, *u, *eu;
 
 	if(badrect(r) || !rectinrect(r, i->r)){
@@ -20,7 +20,6 @@ cloadmemimage(Memimage *i, Rectangle r, uchar *data, int ndata)
 	par.r = r;
 	hwdraw(&par);
 
-	r = -1;
 	bpl = bytesperline(r, i->depth);
 	u = data;
 	eu = data+ndata;
@@ -82,8 +81,5 @@ cloadmemimage(Memimage *i, Rectangle r, uchar *data, int ndata)
 			}
 		}
 	}
-	r = u-data;
-Out:
-	memset(memp, 0, emem-memp);
-	return r;
+	return u-data;
 }
