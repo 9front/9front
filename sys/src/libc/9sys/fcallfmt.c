@@ -212,7 +212,7 @@ dumpsome(char *ans, char *e, char *buf, long count)
 		if((buf[i]<32 && buf[i] !='\n' && buf[i] !='\t') || (uchar)buf[i]>127)
 			printable = 0;
 	p = ans;
-	*p++ = '\'';
+	p = seprint(p, e, "\'");
 	if(printable){
 		if(count > e-p-2)
 			count = e-p-2;
@@ -224,11 +224,9 @@ dumpsome(char *ans, char *e, char *buf, long count)
 		for(i=0; i<count; i++){
 			if(i>0 && i%4==0)
 				*p++ = ' ';
-			sprint(p, "%2.2ux", (uchar)buf[i]);
-			p += 2;
+			p = seprint(p, e, "%2.2ux", (uchar)buf[i]);
 		}
 	}
-	*p++ = '\'';
-	*p = 0;
+	p = seprint(p, e, "\'");
 	return p - ans;
 }
