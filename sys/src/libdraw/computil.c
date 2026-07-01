@@ -18,9 +18,9 @@ _twiddlecompressed(uchar *buf, int n)
 		c = *buf++;
 		if(c >= 128){
 			k = c-128+1;
-			for(j=0; j<k; j++, buf++)
+			for(j=0; j<k && buf<ebuf; j++, buf++)
 				*buf ^= 0xFF;
-		}else
+		}else if(buf < ebuf)
 			buf++;
 	}
 }
