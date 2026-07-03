@@ -283,6 +283,7 @@ checkfs(int fd)
 			break;
 		if(waserror()){
 			fprint(fd, "moving on: %s\n", errmsg());
+			ok = 0;
 			continue;
 		}
 		memcpy(name, s.kv.k+1, s.kv.nk-1);
