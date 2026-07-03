@@ -14,7 +14,7 @@ telnetd, rlogind, rexexec, ftpd, socksd, hproxy \- Internet remote access daemon
 .B ip/ftpd
 .RB [ -aAdei ]
 .RB [ -n
-.IR namepace-file ]
+.IR namespace-file ]
 .RB [ -c
 .IR cert-path ]
 .PP
@@ -189,7 +189,7 @@ will default to
 .I Hproxy
 is a simple HTTP proxy server.
 .SH FILES
-.B /lib/namepace
+.B /lib/namespace
 .br
 .BI /usr/ username /lib/namespace.ftp
 .br
