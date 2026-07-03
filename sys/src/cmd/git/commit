@@ -142,10 +142,11 @@ fn apply{
 	ln=`{wc -l $p}
 	if(test $ln(1) -lt 3)
 		die 'no hunks seleted'
-	f=`{patch -n $p}
+	# replace the global var so if no hunks were selected, we don't commit it
+	files=`{patch -n $p}
 	mkdir $t
 	@{cd .git/fs/HEAD/tree; tar c $f >[2]/dev/null} | @{cd $t; tar xT}
-	for(i in $f){
+	for(i in $files){
 		d=`{basename -d $i}
 		if(! ~ $d .){
 			mkdir -p $t^$d
