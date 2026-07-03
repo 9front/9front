@@ -11,7 +11,7 @@ static vlong	blkalloc_lk(Arena*, int);
 static vlong	blkalloc(int, uint, int);
 static void	blkdealloc_lk(Arena*, vlong);
 static Blk*	initblk(Blk*, vlong, vlong, int);
-static void	readblk(Blk*, Bptr, int);
+static void	readblk(Blk*, Bptr, int, uintptr);
 
 int
 checkflag(Blk *b, int set, int clr)
@@ -47,7 +47,7 @@ syncblk(Blk *b)
 }
 
 static void
-readblk(Blk *b, Bptr bp, int flg)
+readblk(Blk *b, Bptr bp, int flg, uintptr)
 {
 	vlong off, xh, ck, rem, n;
 	char *p;
@@ -345,7 +345,7 @@ loadlog(Arena *a, Bptr bp)
 	while(1){
 		bassert(b, checkflag(b, Bstatic, Bcached));
 		holdblk(b);
-		readblk(b, bp, 0);
+		readblk(b, bp, 0, getcallerpc(&a));
 		dprint("\tload %B chain %B\n", bp, b->logp);
 		a->nlog++;
 		for(i = 0; i < b->logsz; i += n){
@@ -748,7 +748,7 @@ getblk(Bptr bp, int flg)
 	} else {
 		b = cachepluck();
 		b->alloced = getcallerpc(&bp);
-		readblk(b, bp, flg);
+		readblk(b, bp, flg, getcallerpc(&bp));
 		b->bp.gen = bp.gen;
 		cacheins(b);
 	}
