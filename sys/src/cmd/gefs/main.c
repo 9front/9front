@@ -415,6 +415,7 @@ main(int argc, char **argv)
 	if((*errctx = mallocz(sizeof(Errctx), 1)) == nil)
 		sysfatal("malloc: %r");
 	tmfmtinstall();
+	quotefmtinstall();
 	fmtinstall('H', encodefmt);
 	fmtinstall('B', Bconv);
 	fmtinstall('M', Mconv);
@@ -446,8 +447,10 @@ main(int argc, char **argv)
 	}
 	if(checkonly){
 		loadfs(dev);
+		qlock(&fs->mutlk);
 		if(!checkfs(2))
 			sysfatal("broken fs: %r");
+		qunlock(&fs->mutlk);
 		exits(nil);
 	}
 

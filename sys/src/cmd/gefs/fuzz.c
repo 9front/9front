@@ -640,8 +640,7 @@ fzinit(void)
 
 	shadow = avlcreate(shadowcmp);
 	fz = emalloc(sizeof(Fuzz), 1);
-	if((fz->mnt = getmount("fuzz")) == nil)
-		sysfatal("getmount fuzz: %r");
+	fz->mnt = getmount("fuzz");
 	fz->nops = 0;
 
 	xsrand(&Rr, fuzzseed);

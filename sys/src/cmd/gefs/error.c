@@ -43,8 +43,13 @@ char Enone[]	= "auth -- user 'none' requires no authentication";
 char Enoauth[]	= "auth -- authentication disabled";
 char Ephase[]	= "phase error -- use after remove";
 char Ecdir[]	= "create -- in a non-directory";
-char Ectl[]	= "invalid control message";
+char Ebadctl[]	= "invalid control message";
 char Enoqid[]	= "qids exhausted";
+char Enempty[]	= "directory is not empty";
+char Enoadm[]	= "missing adm snapshot";
+
+char Esnapu[]	= "snap -- is currently mounted";
+char Esnapx[]	= "snap -- already exists";
 
 char Ewstatb[]	= "wstat -- unknown bits in qid.type/mode";
 char Ewstatd[]	= "wstat -- attempt to change directory";
@@ -52,18 +57,11 @@ char Ewstatg[]	= "wstat -- not in group";
 char Ewstatl[]	= "wstat -- attempt to make length negative";
 char Ewstatm[]	= "wstat -- attempt to change muid";
 char Ewstato[]	= "wstat -- not owner or group leader";
-char Ewstatp[]	= "wstat -- attempt to change qid.path";
-char Ewstatq[]	= "wstat -- qid.type/dir.mode mismatch";
 char Ewstatu[]	= "wstat -- not owner";
-char Ewstatv[]	= "wstat -- attempt to change qid.vers";
-char Ewstatt[]	= "wstat -- attempt to change qid.type";
-char Enempty[]	= "directory is not empty";
+char Ewstatq[]	= "wstat -- attempt to change qid";
 
-//char Echar[]		= "bad character in directory name";
 //char Eopen[]		= "read/write -- on non open fid";
 //char Ecount[]		= "read/write -- count too big";
-//char Ealloc[]		= "phase error -- directory entry not allocated";
-//char Eqid[]		= "phase error -- qid does not match";
 //char Eaccess[]	= "access permission denied";
 //char Eentry[]		= "directory entry not found";
 //char Edir1[]		= "walk -- in a non-directory";

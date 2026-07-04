@@ -120,7 +120,7 @@ loadfs(char *dev)
 
 	if((t = opensnap("adm", nil)) == nil)
 		sysfatal("load users: no adm label");
-	loadusers(2, t);
+	loadusers(t);
 	poperror();
 
 	fprint(2, "load %s:\n", dev);

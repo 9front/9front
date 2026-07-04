@@ -7,6 +7,7 @@ OFILES=\
 	cache.$O\
 	check.$O\
 	cons.$O\
+	ctl.$O\
 	dump.$O\
 	error.$O\
 	fs.$O\

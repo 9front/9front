@@ -258,7 +258,7 @@ checkfs(int fd)
 	Blk *b;
 
 	ok = 1;
-	qlock(&fs->mutlk);
+	assert(!canqlock(&fs->mutlk));
 	if(waserror()){
 		fprint(fd, "error checking %s\n", errmsg());
 		return 0;
@@ -315,7 +315,6 @@ checkfs(int fd)
 		poperror();
 	}
 	btexit(&s);
-	qunlock(&fs->mutlk);
 	poperror();
 	return ok;
 }

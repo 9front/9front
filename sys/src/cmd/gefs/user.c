@@ -91,20 +91,26 @@ uid2user(int id)
 	return nil;
 }
 
-static char*
-parseusers(int fd, char *udata)
+static void
+parseusers(char *udata)
 {
-	char *pu, *p, *f, *m, *err, buf[8192];
+	char *pu, *p, *f, *m, buf[8192];
 	int i, j, lnum, ngrp, nusers, usersz;
 	User *u, *n, *users;
 	int *g, *grp;
 
 	i = 0;
-	err = nil;
 	nusers = 0;
 	usersz = 8;
 	if((users = calloc(usersz, sizeof(User))) == nil)
-		return Enomem;
+		error(Enomem);
+	if(waserror()){
+		if(users != nil)
+			for(i = 0; i < nusers; i++)
+				free(users[i].memb);
+		free(users);
+		nexterror();
+	}
 	pu = udata;
 	lnum = 0;
 	while((p = readline(&pu, buf, sizeof(buf))) != nil){
@@ -114,24 +120,16 @@ parseusers(int fd, char *udata)
 		if(i == usersz){
 			usersz *= 2;
 			n = realloc(users, usersz*sizeof(User));
-			if(n == nil){
-				free(users);
-				return Enomem;
-			}
+			if(n == nil)
+				error(Enomem);
 			users = n;
 		}
-		if((f = getfield(&p, ':')) == nil){
-			fprint(fd, "/adm/users:%d: missing ':' after id\n", lnum);
-			err = Esyntax;
-			goto Error;
-		}
+		if((f = getfield(&p, ':')) == nil)
+			error("%s: /adm/users:%d: missing ':' after id", Esyntax, lnum);
 		u = &users[i];
 		u->id = atol(f);
-		if((f = getfield(&p, ':')) == nil){
-			fprint(fd, "/adm/users:%d: missing ':' after name\n", lnum);
-			err = Esyntax;
-			goto Error;
-		}
+		if((f = getfield(&p, ':')) == nil)
+			error("%s: /adm/users:%d: missing ':' after name", Esyntax, lnum);
 		snprint(u->name, sizeof(u->name), "%s", f);
 		u->lead = noneid;
 		u->memb = nil;
@@ -150,32 +148,21 @@ parseusers(int fd, char *udata)
 			continue;
 		getfield(&p, ':');	/* skip id */
 		getfield(&p, ':');	/* skip name */
-		if((f = getfield(&p, ':')) == nil){
-			fprint(fd, "/adm/users:%d: missing ':' after name\n", lnum);
-			err = Esyntax;
-			goto Error;
-		}
+		if((f = getfield(&p, ':')) == nil)
+			error("%s: /adm/users:%d: missing ':' after name", Esyntax, lnum);
 		if(f[0] != '\0'){
 			u = nil;
 			for(j = 0; j < nusers; j++)
 				if(strcmp(users[j].name, f) == 0)
 					u = &users[j];
-			if(u == nil){
-				fprint(fd, "/adm/users:%d: leader %s does not exist\n", lnum, f);
-				err = Enouser;
-				goto Error;
-			}
-			if(u->id == noneid){
-				fprint(fd, "/adm/users:%d: group leader may not be none\n", lnum);
-				err = Esyntax;
-				goto Error;
-			}
+			if(u == nil)
+				error("%s: /adm/users:%d: leader %s does not exist", Enouser, lnum, f);
+			if(u->id == noneid)
+				error("%s: /adm/users:%d: group leader may not be none", Esyntax, lnum);
 			users[i].lead = u->id;
 		}
-		if((f = getfield(&p, ':')) == nil){
-			err = Esyntax;
-			goto Error;
-		}
+		if((f = getfield(&p, ':')) == nil)
+			error("%s: /adm/users:%d: missing field", Esyntax, lnum);
 		grp = nil;
 		ngrp = 0;
 		while((m = getfield(&f, ',')) != nil){
@@ -186,15 +173,12 @@ parseusers(int fd, char *udata)
 				if(strcmp(users[j].name, m) == 0)
 					u = &users[j];
 			if(u == nil){
-				fprint(fd, "/adm/users:%d: user %s does not exist\n", lnum, m);
 				free(grp);
-				err = Enouser;
-				goto Error;
+				error("%s: /adm/users:%d: user %s does not exist", Enouser, lnum, m);
 			}
 			if((g = realloc(grp, (ngrp+1)*sizeof(int))) == nil){
 				free(grp);
-				err = Enomem;
-				goto Error;
+				error(Enomem);
 			}
 			grp = g;
 			grp[ngrp++] = u->id;
@@ -213,48 +197,41 @@ parseusers(int fd, char *udata)
 	users = n;
 	nusers = i;
 
-Error:
 	if(users != nil)
 		for(i = 0; i < nusers; i++)
 			free(users[i].memb);
 	free(users);
-		
-	return err;
+	poperror();
 		
 }
 
 void
-loadusers(int fd, Tree *t)
+loadusers(Tree *t)
 {
-	char *s, *e;
 	vlong len;
+	char *s;
 	Qid q;
 	User *u;
 
-	if(walk1(t, -1, "", &q, &len) == -1)
-		error(Efs);
-	if(walk1(t, q.path, "users", &q, &len) == -1)
-		error(Esrch);
-	if(q.type & QTDIR)
-		error(Etype);
-	if(len >= 1*MiB)
-		error(Efsize);
-	s = slurp(t, q.path, len);
-	e = parseusers(fd, s);
-	if(e != nil){
-		if(fs->users != nil){
-			fprint(2, "load users: %s\n", e);
-			fprint(2, "keeping old table\n");
-			error(e);
+	s = nil;
+	if(waserror()){
+		fprint(2, "user table broken: %s\n", errmsg());
+		if(fs->users != nil || !permissive){
+			free(s);
+			nexterror();
 		}
-		if(!permissive){
-			fprint(2, "user table broken: %s\n", e);
-			fprint(2, "\tnot permissive: bailing\n");
-			error(e);
-		}
-		fprint(2, "user table broken: %s\n", e);
 		fprint(2, "\tfalling back to default\n");
-		parseusers(fd, "-1:adm::\n0:none::\n");
+		parseusers("-1:adm::\n0:none::\n");
+	}else{
+		if(walk1(t, Qadmroot, "users", &q, &len) == -1)
+			error(Esrch);
+		if(q.type & QTDIR)
+			error(Etype);
+		if(len >= 1*MiB)
+			error(Efsize);
+		s = slurp(t, q.path, len);
+		parseusers(s);
+		poperror();
 	}
 	if((u = name2user("none")) != nil)
 		noneid = u->id;

@@ -6,29 +6,6 @@
 #include "dat.h"
 #include "fns.h"
 
-enum {
-	Qmainroot,
-	Qadmroot,
-	Qadmuser,
-	Nreamqid,
-};
-
-static void
-fillxdir(Xdir *d, vlong qid, char *name, int type, int mode)
-{
-	memset(d, 0, sizeof(Xdir));
-	d->flag = 0;
-	d->qid = (Qid){qid, 0, type};
-	d->mode = mode;
-	d->atime = 0;
-	d->mtime = 0;
-	d->length = 0;
-	d->name = name;
-	d->uid = -1;
-	d->gid = -1;
-	d->muid = 0;
-}
-
 static void
 initadm(Blk *r, Blk *u, int nu)
 {
@@ -47,11 +24,20 @@ initadm(Blk *r, Blk *u, int nu)
 	packbp(kv.v, kv.nv, &u->bp);
 	setval(r, &kv);
 
-	fillxdir(&d, Qadmuser, "users", QTFILE, 0664);
-	d.length = nu;
+	/* stupid quirk, we sort by length and then alphabet.. */
+	fillxdir(&d, Qctl, "ctl", QTFILE, 0664, 0);
 	dir2kv(Qadmroot, &d, &kv, vbuf, sizeof(vbuf));
 	setval(r, &kv);
-	fillxdir(&d, Qadmroot, "", QTDIR, DMDIR|0775);
+
+	fillxdir(&d, Qadmuser, "users", QTFILE, 0664, nu);
+	dir2kv(Qadmroot, &d, &kv, vbuf, sizeof(vbuf));
+	setval(r, &kv);
+
+	fillxdir(&d, Qstatus, "status", QTFILE, 0664, 0);
+	dir2kv(Qadmroot, &d, &kv, vbuf, sizeof(vbuf));
+	setval(r, &kv);
+
+	fillxdir(&d, Qadmroot, "", QTDIR, DMDIR|0775, 0);
 	dir2kv(-1, &d, &kv, vbuf, sizeof(vbuf));
 	setval(r, &kv);
 
@@ -72,7 +58,7 @@ initroot(Blk *r)
 	Xdir d;
 
 	/* nb: values must be inserted in key order */
-	fillxdir(&d, Qmainroot, "", QTDIR, DMDIR|0775);
+	fillxdir(&d, Qmainroot, "", QTDIR, DMDIR|0775, 0);
 	dir2kv(-1, &d, &kv, vbuf, sizeof(vbuf));
 	setval(r, &kv);
 
