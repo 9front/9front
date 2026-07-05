@@ -1039,7 +1039,7 @@ amlmapio(Amlio *io)
 {
 	int tbdf;
 	Pcidev *pdev;
-	char buf[64];
+	char tag[64];
 
 	switch(io->space){
 	default:
@@ -1057,8 +1057,8 @@ amlmapio(Amlio *io)
 		}
 		return 0;
 	case IoSpace:
-		snprint(buf, sizeof(buf), "%N", io->name);
-		if(ioalloc(io->off, io->len, 0, buf) < 0){
+		snprint(tag, sizeof(tag), "%N", io->name);
+		if(ioalloc(io->off, io->len, 0, tag) < 0){
 			print("amlmapio: ioalloc failed\n");
 			break;
 		}
@@ -1090,12 +1090,15 @@ amlmapio(Amlio *io)
 void
 amlunmapio(Amlio *io)
 {
+	char tag[64];
+
 	switch(io->space){
 	case MemSpace:
 		vunmap(io->va, io->len);
 		break;
 	case IoSpace:
-		iofree(io->off);
+		snprint(tag, sizeof(tag), "%N", io->name);
+		iofreetag(io->off, tag);
 		break;
 	}
 }

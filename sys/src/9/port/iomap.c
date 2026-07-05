@@ -141,6 +141,9 @@ ioalloc(ulong port, ulong size, ulong align, char *tag)
 			iomap.free = m;
 			break;
 		}
+		/* if this is ACPI resource, dont bother */
+		if(*m->tag == '\\')
+			break;
 		print("ioalloc: %lux - %lux %s: clashes with: %lux - %lux %s\n",
 			port, port+size-1, tag,
 			m->start, m->end-1, m->tag);
@@ -154,7 +157,7 @@ ioalloc(ulong port, ulong size, ulong align, char *tag)
 }
 
 void
-iofree(ulong port)
+iofreetag(ulong port, char *tag)
 {
 	IOMap *m, **l;
 
@@ -164,6 +167,12 @@ iofree(ulong port)
 	lock(&iomap);
 	for(l = &iomap.m; (m = *l) != nil; l = &m->next){
 		if(m->start == port){
+			/* don't touch ACPI when no tag given */
+			if(tag == nil && *m->tag == '\\')
+				continue;
+			/* if tag is specified, it must match */
+			if(tag != nil && strcmp(tag, m->tag) != 0)
+				continue;
 			*l = m->next;
 			m->next = iomap.free;
 			iomap.free = m;
@@ -173,6 +182,12 @@ iofree(ulong port)
 			break;
 	}
 	unlock(&iomap);
+}
+
+void
+iofree(ulong port)
+{
+	iofreetag(port, nil);
 }
 
 int

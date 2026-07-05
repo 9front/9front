@@ -157,6 +157,7 @@ void		init0(void);
 void		initseg(void);
 int		ioalloc(ulong, ulong, ulong, char*);
 void		iofree(ulong);
+void		iofreetag(ulong, char*);
 void		iomapinit(ulong);
 int		ioreserve(ulong, ulong, ulong, char*);
 int		ioreservewin(ulong, ulong, ulong, ulong, char*);
