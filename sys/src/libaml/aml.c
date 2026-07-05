@@ -894,6 +894,15 @@ Nfmt(Fmt *f)
 	n = va_arg(f->args, Name*);
 	if(n == nil)
 		return fmtprint(f, "?NIL");
+	switch(TAG(n)){
+	case 'N':
+		break;
+	case 'n':	/* unresolved name */
+	case 's':
+		return fmtprint(f, "%s", (char*)n);
+	default:
+		return fmtprint(f, "???");
+	}
 	if(n == n->up)
 		return fmtprint(f, "\\");
 	strncpy(buf, n->seg, 4);
