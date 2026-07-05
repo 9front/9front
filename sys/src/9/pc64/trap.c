@@ -219,7 +219,7 @@ dumpregs(Ureg* ureg)
 		getcr0(), getcr2(), getcr3());
 	if(m->cpuiddx & (Mce|Tsc|Pse|Vmex)){
 		iprint(" CR4 %16.16llux\n", getcr4());
-		if(ureg->type == 18)
+		if(ureg->type == VectorMC)
 			dumpmcregs();
 	}
 	iprint("  ur %#p up %#p\n", ureg, up);
