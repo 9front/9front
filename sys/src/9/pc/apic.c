@@ -230,6 +230,8 @@ Retry:
 void
 lapicinit(Apic* apic)
 {
+	assert(apic->type == PcmpPROCESSOR);
+
 	if(lapicbase == nil){
 		vlong v;
 
@@ -244,7 +246,7 @@ lapicinit(Apic* apic)
 		&& rdmsr(0x1B, &v) != -1
 		&& (m->machno != 0
 		|| (v & (3<<10)) == (3<<10)
-		|| apic->addr == nil
+		|| apic->x2apic != -1
 		|| getconf("*x2apic") != nil)){
 			/* enable x2APIC mode */
 			if((v & (3<<10)) != (3<<10)){
@@ -252,10 +254,15 @@ lapicinit(Apic* apic)
 				wrmsr(0x1B, v);
 			}
 		} else {
+			upaalloc(apic->paddr, 1024, 0);
+			if((apic->addr = vmap(apic->paddr, 1024)) == nil)
+				panic("lapicinit: vmap %llux\n", apic->paddr);
 			lapicbase = apic->addr;
-			if(lapicbase == nil)
-				panic("lapicinit: lapic registers not mapped");
+
+			print("LAPIC: %llux %p\n", apic->paddr, lapicbase);
 		}
+	} else {
+		apic->addr = lapicbase;
 	}
 
 	lapicintroff();
@@ -296,8 +303,8 @@ lapicinit(Apic* apic)
 	 * masked off for SMP mode as some Pentium Pros have problems if
 	 * LINT[01] are set to ExtINT.
 	 */
-	lapicw(LapicLINT0, apic->lintr[0]);
-	lapicw(LapicLINT1, apic->lintr[1]);
+	lapicw(LapicLINT0, mpintrinit(apic->lint[0], VectorLAPIC+0));
+	lapicw(LapicLINT1, mpintrinit(apic->lint[1], VectorLAPIC+1));
 
 	if(((lapicr(LapicVER)>>16) & 0xFF) >= 4)
 		lapicw(LapicPCINT, ApicIMASK);
@@ -421,10 +428,16 @@ ioapicrdtw(Apic* apic, int sel, int hi, int lo)
 }
 
 void
-ioapicinit(Apic* apic, int apicno)
+ioapicinit(Apic* apic)
 {
 	int hi, lo, v;
 	ulong *iowin;
+
+	assert(apic->type == PcmpIOAPIC);
+
+	upaalloc(apic->paddr, 1024, 0);
+	if((apic->addr = vmap(apic->paddr, 1024)) == nil)
+		panic("ioapicinit: vmap %llux\n", apic->paddr);
 
 	/*
 	 * Initialise the I/O APIC.
@@ -438,7 +451,7 @@ ioapicinit(Apic* apic, int apicno)
 	apic->mre = (*iowin>>16) & 0xFF;
 
 	*apic->addr = IoapicID;
-	*iowin = apicno<<24;
+	*iowin = apic->apicno<<24;
 	unlock(apic);
 
 	hi = 0;
@@ -484,16 +497,4 @@ void
 lapicintroff(void)
 {
 	lapicw(LapicTPR, 0xFF);
-}
-
-void
-lapicnmienable(void)
-{
-	lapicw(LapicPCINT, ApicNMI);
-}
-
-void
-lapicnmidisable(void)
-{
-	lapicw(LapicPCINT, ApicIMASK);
 }

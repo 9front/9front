@@ -139,34 +139,9 @@ static char* buses[] = {
 	0,
 };
 
-static Bus*
-mpgetbus(int busno)
-{
-	Bus *bus;
-
-	for(bus = mpbus; bus; bus = bus->next)
-		if(bus->busno == busno)
-			return bus;
-
-	print("mpgetbus: can't find bus %d\n", busno);
-	return nil;
-}
-
-static Apic*
-mpgetapic(Apic *a, int apicno)
-{
-	while(a != nil){	
-		if(a->apicno == apicno)
-			return a;
-		a = a->next;
-	}
-	return nil;
-}
-
 static Apic*
 mkprocessor(PCMPprocessor* p)
 {
-	static int machno = 1;
 	int apicno;
 	Apic *apic;
 
@@ -178,13 +153,8 @@ mkprocessor(PCMPprocessor* p)
 		panic("mkprocessor: no memory for Apic");
 	apic->type = PcmpPROCESSOR;
 	apic->apicno = apicno;
+	apic->x2apic = -1;
 	apic->flags = p->flags;
-	apic->lintr[0] = ApicIMASK;
-	apic->lintr[1] = ApicIMASK;
-	if(p->flags & PcmpBP)
-		apic->machno = 0;
-	else
-		apic->machno = machno++;
 
 	*mplapicp = apic, mplapicp = &apic->next;
 
@@ -194,52 +164,18 @@ mkprocessor(PCMPprocessor* p)
 static Bus*
 mkbus(PCMPbus* p)
 {
-	Bus *bus;
 	int i;
 
-	for(i = 0; buses[i] != nil; i++)
+	for(i = 0; buses[i] != nil; i++){
 		if(strncmp(buses[i], p->string, sizeof(p->string)) == 0)
-			break;
-	if(buses[i] == nil)
-		return nil;
-
-	if((bus = xalloc(sizeof(Bus))) == nil)
-		panic("mkbus: no memory for Bus");
-
-	bus->type = i;
-	bus->busno = p->busno;
-	if(bus->type == BusEISA){
-		bus->po = PcmpLOW;
-		bus->el = PcmpLEVEL;
-		if(mpeisabus != -1)
-			print("mkbus: more than one EISA bus\n");
-		mpeisabus = bus->busno;
+			return mpgetbus(i, p->busno);
 	}
-	else if(bus->type == BusPCI){
-		bus->po = PcmpLOW;
-		bus->el = PcmpLEVEL;
-	}
-	else if(bus->type == BusISA){
-		bus->po = PcmpHIGH;
-		bus->el = PcmpEDGE;
-		if(mpisabus != -1)
-			print("mkbus: more than one ISA bus\n");
-		mpisabus = bus->busno;
-	}
-	else{
-		bus->po = PcmpHIGH;
-		bus->el = PcmpEDGE;
-	}
-
-	*mpbusp = bus, mpbusp = &bus->next;
-
-	return bus;
+	return nil;
 }
 
 static Apic*
 mkioapic(PCMPioapic* p)
 {
-	void *va;
 	int apicno;
 	Apic *apic;
 
@@ -249,17 +185,12 @@ mkioapic(PCMPioapic* p)
 	/*
 	 * Map the I/O APIC.
 	 */
-	upaalloc(p->addr, 1024, 0);
-	if((va = vmap(p->addr, 1024)) == nil)
-		return nil;
 	if((apic = xalloc(sizeof(Apic))) == nil)
 		panic("mkioapic: no memory for Apic");
 	apic->type = PcmpIOAPIC;
 	apic->apicno = apicno;
-	apic->addr = va;
 	apic->paddr = p->addr;
 	apic->flags = p->flags;
-
 	*mpioapicp = apic, mpioapicp = &apic->next;
 
 	return apic;
@@ -282,7 +213,7 @@ mkiointr(PCMPintr* p)
 		return nil;
 	if((apic = mpgetapic(mpioapic, p->apicno)) == nil)
 		return nil;
-	if((bus = mpgetbus(p->busno)) == nil)
+	if((bus = mpgetbus(-1, p->busno)) == nil)
 		return nil;
 
 	if((aintr = xalloc(sizeof(Aintr))) == nil)
@@ -290,7 +221,6 @@ mkiointr(PCMPintr* p)
 
 	aintr->type = p->intr;
 	aintr->flags = p->flags;
-	aintr->gsi = -1;
 	aintr->irq = p->irq;
 	aintr->intin = p->intin;
 
@@ -313,6 +243,9 @@ mkiointr(PCMPintr* p)
 		}
 	}
 	aintr->apic = apic;
+	aintr->anext = apic->aintr;
+	apic->aintr = aintr;
+
 	aintr->next = bus->aintr;
 	aintr->bus = bus;
 	bus->aintr = aintr;
@@ -320,56 +253,49 @@ mkiointr(PCMPintr* p)
 	return aintr;
 }
 
-static int
+static void
 mklintr(PCMPintr* p)
 {
-	Apic *apic;
 	Bus *bus;
-	int intin, v;
+	Apic *apic;
+	Aintr *aintr;
+
+	if(p->intin > 1)
+		return;
 
 	/*
 	 * The offsets of vectors for LINT[01] are known to be
 	 * 0 and 1 from the local APIC vector space at VectorLAPIC.
 	 */
-	if((bus = mpgetbus(p->busno)) == nil)
-		return 0;
-	intin = p->intin;
-	if(intin > 1)
-		return 0;
+	if((bus = mpgetbus(-1, p->busno)) == nil)
+		return;
 
-	/*
-	 * Pentium Pros have problems if LINT[01] are set to ExtINT
-	 * so just bag it, SMP mode shouldn't need ExtINT anyway.
-	 */
-	if(p->intr == PcmpExtINT || p->intr == PcmpNMI)
-		v = ApicIMASK;
-	else {
-		Aintr ai;
+	for(apic = mplapic; apic != nil; apic = apic->next) {
+		if((apic->flags & PcmpEN) == 0)
+			continue;
+		if(p->apicno != 0xFF && p->apicno != apic->apicno)
+			continue;
 
-		ai.type = p->intr;
-		ai.flags = p->flags;
-		ai.gsi = -1;
-		ai.irq = p->irq;
-		ai.intin = p->intin;
-		ai.apic = nil;
-		ai.bus = bus;
-		v = mpintrinit(&ai, VectorLAPIC+intin, p->irq);
-	}
+		if(apic->lint[p->intin] != nil)
+			continue;
 
-	if(p->apicno == 0xFF){
-		for(apic = mplapic; apic != nil; apic = apic->next) {
-			if(apic->flags & PcmpEN)
-				apic->lintr[intin] = v;
+		if((aintr = xalloc(sizeof(Aintr))) == nil)
+			panic("mkiointr: no memory for Aintr");
+
+		aintr->type = p->intr;
+		aintr->flags = p->flags;
+		aintr->irq = p->irq;
+		aintr->bus = bus;
+		if(aintr->type == PcmpINT) {
+			aintr->next = bus->aintr;
+			bus->aintr = aintr;
 		}
+		aintr->intin = p->intin;
+		aintr->apic = apic;
+		aintr->anext = apic->aintr;
+		apic->aintr = aintr;
+		apic->lint[aintr->intin] = aintr;
 	}
-	else{
-		if((apic = mpgetapic(mplapic, p->apicno)) != nil) {
-			if(apic->flags & PcmpEN)
-				apic->lintr[intin] = v;
-		}
-	}
-
-	return v;
 }
 
 static void
@@ -384,7 +310,6 @@ dumpmp(uchar *p, uchar *e)
 	}
 	if((i % 16) != 0) print("\n");
 }
-
 
 static void
 mpoverride(uchar** newp, uchar** e)
@@ -418,16 +343,6 @@ pcmpinit(void)
 {
 	uchar *p, *e;
 	Apic *apic;
-	void *va;
-
-	/*
-	 * Map the local APIC.
-	 */
-	upaalloc(pcmp->lapicbase, 1024, 0);
-	va = vmap(pcmp->lapicbase, 1024);
-	print("LAPIC: %.8lux %#p\n", pcmp->lapicbase, va);
-	if(va == nil)
-		panic("pcmpinit: cannot map lapic %.8lux", pcmp->lapicbase);
 
 	p = ((uchar*)pcmp)+PCMPsz;
 	e = ((uchar*)pcmp)+pcmp->length;
@@ -452,10 +367,8 @@ pcmpinit(void)
 		break;
 
 	case PcmpPROCESSOR:
-		if(apic = mkprocessor((PCMPprocessor*)p)){
-			apic->addr = va;
+		if(apic = mkprocessor((PCMPprocessor*)p))
 			apic->paddr = pcmp->lapicbase;
-		}
 		p += PCMPprocessorsz;
 		continue;
 
@@ -466,7 +379,7 @@ pcmpinit(void)
 
 	case PcmpIOAPIC:
 		if(apic = mkioapic((PCMPioapic*)p))
-			ioapicinit(apic, apic->apicno);
+			ioapicinit(apic);
 		p += PCMPioapicsz;
 		continue;
 
@@ -506,6 +419,7 @@ PCArch archmp = {
 .reset=		mpreset,
 .intrinit=	pcmpinit,
 .intrassign=	mpintrassign,
+.intrspurious=	mpintrspurious,
 .intrirqno=	i8259irqno,
 .intron=	lapicintron,
 .introff=	lapicintroff,

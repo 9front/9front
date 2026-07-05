@@ -62,18 +62,18 @@ typedef struct Aintr {
 	int	type;			/* interrupt type */
 	int	flags;			/* interrupt flag */
 	int	irq;			/* source bus irq */
-
-	int	gsi;			/* global system interrupt (apic->gsibase + intin) */
 	int	intin;			/* destination APIC [L]INTIN# */
-
 	Apic*	apic;
+	Aintr*	anext;			/* next in apic */
 	Bus*	bus;
-	Aintr*	next;
+	Aintr*	next;			/* next in bus */
 };
 
 typedef struct Apic {
 	int	type;
 	int	apicno;
+	int	x2apic;			/* x2APIC UID */
+
 	ulong*	addr;			/* register base address */
 	ulong	paddr;
 	int	flags;			/* PcmpBP|PcmpEN */
@@ -82,9 +82,9 @@ typedef struct Apic {
 	int	mre;			/* I/O APIC: maximum redirection entry */
 	int	gsibase;		/* I/O APIC: global system interrupt base (acpi) */
 
-	int	lintr[2];		/* Local APIC */
+	Aintr*	lint[2];		/* Local APIC */
+	Aintr*	aintr;
 	int	machno;
-
 	int	online;
 
 	Apic	*next;
@@ -130,7 +130,7 @@ enum {
 	ApicIMASK	= 0x00010000,	/* [16] Interrupt Mask */
 };
 
-extern void ioapicinit(Apic*, int);
+extern void ioapicinit(Apic*);
 extern void ioapicrdtr(Apic*, int, int*, int*);
 extern void ioapicrdtw(Apic*, int, int, int);
 
@@ -141,16 +141,17 @@ extern void lapicicr(uvlong);
 extern void lapicinit(Apic*);
 extern void lapicintroff(void);
 extern void lapicintron(void);
-extern void lapicnmidisable(void);
-extern void lapicnmienable(void);
 extern void lapiconline(void);
 extern void lapicspurious(Ureg*, void*);
 extern void lapicstartap(Apic*, ulong);
 extern void lapictimerset(uvlong);
 
-extern int mpintrinit(Aintr*, int, int);
+extern Bus *mpgetbus(int, int);
+extern Apic *mpgetapic(Apic*, int);
+extern int mpintrinit(Aintr*, int);
 extern void mpinit(void);
 extern int mpintrassign(Vctl*);
+extern int mpintrspurious(int);
 extern void mpshutdown(void);
 extern void mpstartap(Apic*);
 

@@ -213,52 +213,65 @@ findioapic(int gsi, int *pintin)
 }
 
 static void
+addnmi(Apic *apic, int intin, int flags)
+{
+	Aintr *ai;
+
+	if((ai = xalloc(sizeof(Aintr))) == nil)
+		panic("addnmi: no memory for Aintr");
+
+	ai->type = PcmpNMI;
+	ai->flags = flags & (PcmpPOMASK|PcmpELMASK);
+	ai->irq = -1;
+	ai->intin = intin;
+
+	ai->apic = apic;
+	ai->anext = apic->aintr;
+	apic->aintr = ai;
+
+	if(apic->type == PcmpPROCESSOR && (uint)intin < 2)
+		apic->lint[intin] = ai;
+}
+
+static void
 addirq(int gsi, int type, int busno, int irq, int flags)
 {
-	Apic *a;
 	Bus *bus;
+	Apic *apic;
 	Aintr *ai;
 	int intin;
 
-	if((a = findioapic(gsi, &intin)) == nil)
+	if((apic = findioapic(gsi, &intin)) == nil)
 		return;
 
-	for(bus = mpbus; bus; bus = bus->next)
-		if(bus->type == type && bus->busno == busno)
-			goto Foundbus;
-
-	if((bus = xalloc(sizeof(Bus))) == nil)
-		panic("addirq: no memory for Bus");
-	bus->busno = busno;
-	bus->type = type;
-	if(type == BusISA){
-		bus->po = PcmpHIGH;
-		bus->el = PcmpEDGE;
-		if(mpisabus == -1)
-			mpisabus = busno;
-	} else {
-		bus->po = PcmpLOW;
-		bus->el = PcmpLEVEL;
+	if(type == BusISA && irq < 16){
+		for(ai = apic->aintr; ai != nil; ai = ai->anext)
+			if(ai->intin == intin)
+				return;
 	}
-	*mpbusp = bus, mpbusp = &bus->next;
 
-Foundbus:
-	for(ai = bus->aintr; ai; ai = ai->next)
+	if((bus = mpgetbus(type, busno)) == nil)
+		return;
+
+	for(ai = bus->aintr; ai != nil; ai = ai->next)
 		if(ai->irq == irq)
 			return;
 
-
 	if((ai = xalloc(sizeof(Aintr))) == nil)
 		panic("addirq: no memory for Aintr");
+
 	ai->type = PcmpINT;
 	ai->flags = flags & (PcmpPOMASK|PcmpELMASK);
+
 	ai->irq = irq;
-	ai->gsi = gsi;
-	ai->intin = intin;
-	ai->apic = a;
-	ai->next = bus->aintr;
 	ai->bus = bus;
+	ai->next = bus->aintr;
 	bus->aintr = ai;
+
+	ai->intin = intin;
+	ai->apic = apic;
+	ai->anext = apic->aintr;
+	apic->aintr = ai;
 }
 
 static int
@@ -323,36 +336,68 @@ pciaddr(void *dot)
 }
 
 static int
-getirqs(void *d, uchar pmask[32], int *pflags)
+reslen(uchar *p, uchar *e, int *ptype)
 {
-	int i, n, m;
-	uchar *p;
+	int n;
+
+	if(p >= e)
+		return -1;
+	if(p[0] & 0x80){
+		/* large resource */
+		if(p + 3 > e)
+			return -1;
+		n = 3 + get16(p+1);
+		if(ptype) *ptype = p[0];
+	} else {
+		/* small resource */
+		n = 1 + (p[0] & 7);
+		if(ptype) *ptype = (p[0]>>3)&0xF;
+	}
+	if(p + n > e)
+		return -1;
+	return n;
+}
+
+static int
+getirqs(void *d, uchar pmask[256/8], int *pflags)
+{
+	int i, c, t, n, m;
+	uchar *p, *e;
 
 	*pflags = 0;
-	memset(pmask, 0, 32);
+	memset(pmask, 0, 256/8);
 	if(amltag(d) != 'b')
 		return -1;
-	p = amlval(d);
-	if(amllen(d) >= 2 && (p[0] == 0x22 || p[0] == 0x23)){
-		pmask[0] = p[1];
-		pmask[1] = p[2];
-		if(amllen(d) >= 3 && p[0] == 0x23)
-			*pflags = ((p[3] & (1<<0)) ? PcmpEDGE : PcmpLEVEL)
-				| ((p[3] & (1<<3)) ? PcmpLOW : PcmpHIGH);
-		return 0;
-	}
-	if(amllen(d) >= 5 && p[0] == 0x89){
-		n = p[4];
-		if(amllen(d) < 5+n*4)
+	for(p = amlval(d), e = p + amllen(d); p < e; p += n) {
+		if((n = reslen(p, e, &t)) < 0)
+			break;
+		switch(t){
+		case 0x04:	/* IRQ Format Descriptor */
+			if(n < 3)
+				break;
+			pmask[0] = p[1];
+			pmask[1] = p[2];
+			if(n > 3)
+				*pflags = ((p[3] & (1<<0)) ? PcmpEDGE : PcmpLEVEL)
+					| ((p[3] & (1<<3)) ? PcmpLOW : PcmpHIGH);
+			return 0;
+		case 0x89:	/* Extended IRQ Descriptor */
+			if(n < 9)
+				break;
+			c = p[4];
+			if(5+c*4 < n)
+				break;
+			for(i=0; i<c; i++){
+				m = get32(p+5 + i*4);
+				if(m >= 0 && m < 256)
+					pmask[m/8] |= 1<<(m%8);
+			}
+			*pflags = ((p[3] & (1<<1)) ? PcmpEDGE : PcmpLEVEL)
+				| ((p[3] & (1<<2)) ? PcmpLOW : PcmpHIGH);
+			return 0;
+		case 0x0F:	/* Terminator */
 			return -1;
-		for(i=0; i<n; i++){
-			m = get32(p+5 + i*4);
-			if(m >= 0 && m < 256)
-				pmask[m/8] |= 1<<(m%8);
 		}
-		*pflags = ((p[3] & (1<<1)) ? PcmpEDGE : PcmpLEVEL)
-			| ((p[3] & (1<<2)) ? PcmpLOW : PcmpHIGH);
-		return 0;
 	}
 	return -1;
 }
@@ -360,31 +405,46 @@ getirqs(void *d, uchar pmask[32], int *pflags)
 static uchar*
 setirq(void *d, uint irq)
 {
-	uchar *p;
+	uchar *p, *e, *q;
+	int n, t;
 
 	if(amltag(d) != 'b')
 		return nil;
-	p = amlnew('b', amllen(d));
-	memmove(p, d, amllen(p));
-	if(p[0] == 0x22 || p[0] == 0x23){
-		irq = 1<<irq;
-		p[1] = irq;
-		p[2] = irq>>8;
+	for(p = amlval(d), e = p + amllen(d); p < e; p += n) {
+		if((n = reslen(p, e, &t)) < 0)
+			break;
+		switch(t){
+		case 0x04:	/* IRQ Format Descriptor */
+			if(n < 3 || irq >= 16)
+				break;
+			q = amlnew('b', n);
+			memmove(q, p, n);
+			irq = 1<<irq;
+			q[1] = irq;
+			q[2] = irq>>8;
+			return q;
+		case 0x89:	/* Extended IRQ Descriptor */
+			if(n < 9 || irq >= 256)
+				break;
+			q = amlnew('b', n);
+			memmove(q, p, n);
+			q[4] = 1;
+			q[5] = irq;
+			q[6] = irq>>8;
+			q[7] = irq>>16;
+			q[8] = irq>>24;
+			return q;
+		case 0x0F:	/* Terminator */
+			return nil;
+		}
 	}
-	if(p[0] == 0x89){
-		p[4] = 1;
-		p[5] = irq;
-		p[6] = irq>>8;
-		p[7] = irq>>16;
-		p[8] = irq>>24;
-	}
-	return p;
+	return nil;
 }
 
 static int
 setuplink(void *link, int *pflags)
 {
-	uchar im, pm[32], cm[32], *c;
+	uchar pm[256/8], cm[256/8], *c;
 	static int lastirq = 1;
 	int gsi, i;
 	void *r;
@@ -406,11 +466,8 @@ setuplink(void *link, int *pflags)
 	
 	gsi = -1;
 	for(i=0; i<256; i++){
-		im = 1<<(i%8);
-		if(pm[i/8] & im){
-			if(cm[i/8] & im)
-				gsi = i;
-		}
+		if(pm[i>>3] & cm[i>>3] & 1<<(i&7))
+			gsi = i;
 	}
 
 	if(gsi > 0 || getconf("*nopcirouting") != nil)
@@ -418,8 +475,7 @@ setuplink(void *link, int *pflags)
 
 	for(i=0; i<256; i++){
 		gsi = lastirq++ & 0xFF;	/* round robin */
-		im = 1<<(gsi%8);
-		if(pm[gsi/8] & im){
+		if(pm[gsi>>3] & 1<<(gsi&7)){
 			if((c = setirq(r, gsi)) == nil)
 				break;
 			if(amleval(amlwalk(link, "_SRS"), "b", c, nil) < 0)
@@ -470,6 +526,24 @@ enumprt(void *dot, void *)
 	}
 	amldrop(p);
 
+	return 1;
+}
+
+static int
+enumcrs(void *dot, void *)
+{
+	uchar mask[256/8];
+	int flags, irq;
+	void *p;
+
+	p = nil;
+	if(amleval(dot, "", &p) < 0)
+		return 1;
+	getirqs(p, mask, &flags);
+	for(irq=0; irq<16; irq++){
+		if(mask[irq>>3] & (1<<(irq&7)))
+			addirq(irq, BusISA, 0, irq, flags);
+	}
 	return 1;
 }
 
@@ -543,9 +617,8 @@ acpiinit(void)
 	Tbl *t;
 	Apic *a;
 	uchar *s, *p, *e;
-	void *lapicva;
-	ulong lapicpa;
-	int machno, i, c;
+	ulong lapicbase;
+	int i, c;
 
 	amlinit();
 
@@ -571,73 +644,61 @@ acpiinit(void)
 
 	s = t->data;
 	e = s + tbldlen(t);
-	lapicva = nil;
-	lapicpa = get32(s); s += 8;
-	upaalloc(lapicpa, 1024, 0);
+	lapicbase = get32(s);
 
-	machno = 0;
+	s += 8;
 	for(p = s; p < e; p += c){
 		c = p[1];
 		if(c < 2 || (p+c) > e)
 			break;
 		switch(*p){
 		case 0x00:	/* Processor Local APIC */
-			if(p[3] > MaxAPICNO)
-				break;
 		case 0x09:	/* x2APIC */
 			if((a = xalloc(sizeof(Apic))) == nil)
 				panic("acpiinit: no memory for Apic");
 			a->type = PcmpPROCESSOR;
-			a->lintr[0] = ApicIMASK;
-			a->lintr[1] = ApicIMASK;
-			a->paddr = lapicpa;
+			a->paddr = lapicbase;
 			if(*p == 0x09){
-				a->addr = nil;
 				a->apicno = get32(p+4);
 				a->flags = get32(p+8) & PcmpEN;
+				a->x2apic = get32(p+12);
 			} else {
-				if(lapicva == nil){
-					lapicva = vmap(lapicpa, 1024);
-					print("LAPIC: %.8lux %#p\n", lapicpa, lapicva);
-					if(lapicva == nil)
-						panic("acpiinit: cannot map lapic %.8lux", lapicpa);
-				}
-				a->addr = lapicva;
 				a->apicno = p[3];
+				if(a->apicno > MaxAPICNO)
+					a->apicno = -1;
 				a->flags = p[4] & PcmpEN;
+				a->x2apic = -1;
 			}
-			/* skip disabled processors */
-			if((a->flags & PcmpEN) == 0){
+			/* skip disabled processors or duplicate apic id's */
+			if((a->flags & PcmpEN) == 0
+			|| a->apicno == -1
+			|| mpgetapic(mplapic, a->apicno) != nil){
 				xfree(a);
 				break;
 			}
-			a->machno = machno++;
 
 			/*
 			 * platform firmware should list the boot processor
 			 * as the first processor entry in the MADT
 			 */
-			if(a->machno == 0)
+			if(mplapic == nil)
 				a->flags |= PcmpBP;
 
 			*mplapicp = a, mplapicp = &a->next;
 			break;
 		case 0x01:	/* I/O APIC */
-			if(p[2] > MaxAPICNO)
+			if(p[2] > MaxAPICNO || mpgetapic(mpioapic, p[2]) != nil)
 				break;
 			if((a = xalloc(sizeof(Apic))) == nil)
 				panic("acpiinit: no memory for io Apic");
 			a->type = PcmpIOAPIC;
 			a->apicno = p[2];
 			a->paddr = get32(p+4);
-			upaalloc(a->paddr, 1024, 0);
-			if((a->addr = vmap(a->paddr, 1024)) == nil)
-				panic("acpiinit: cannot map ioapic %.8lux", a->paddr);
 			a->gsibase = get32(p+8);
 			a->flags = PcmpEN;
 			*mpioapicp = a, mpioapicp = &a->next;
 
-			ioapicinit(a, a->apicno);
+			ioapicinit(a);
 			break;
 		}
 	}
@@ -654,6 +715,28 @@ acpiinit(void)
 		case 0x02:	/* Interrupt Source Override */
 			addirq(get32(p+4), BusISA, 0, p[3], get16(p+8));
 			break;
+		case 0x03:	/* Non-maskable Interrupt Source (NMI) */
+			if((a = findioapic(get32(p+4), &i)) != nil)
+				addnmi(a, i, get16(p+3));
+			break;
+		case 0x04:	/* Local APIC NMI Structure */
+			i = p[2];
+			for(a = mplapic; a != nil; a = a->next){
+				if(i == 0xFF || i == a->apicno)
+					addnmi(a, p[5], get16(p+3));
+			}
+			break;
+		case 0x05:	/* Local APIC Address Override Structure */
+			for(a = mplapic; a != nil; a = a->next)
+				a->paddr = get64(p+4);
+			break;
+		case 0x0A:	/* Local x2APIC NMI Structure */
+			i = get32(p+4);	/* Processor UID */
+			for(a = mplapic; a != nil; a = a->next){
+				if(i == -1 || i == a->x2apic)
+					addnmi(a, p[8], get16(p+2));
+			}
+			break;
 		}
 	}
 
@@ -663,7 +746,13 @@ acpiinit(void)
 	/* look for PCI interrupt mappings */
 	amlenum(amlroot, "_PRT", enumprt, nil);
 
-	/* add identity mapped legacy isa interrupts */
+	/* UNTESTED */
+	if(0) {
+		/* look for legacy ISA interrupts 0-15 */
+		amlenum(amlroot, "_CRS", enumcrs, nil);
+	}
+
+	/* add identity mapped legacy ISA interrupts */
 	for(i=0; i<16; i++)
 		addirq(i, BusISA, 0, i, 0);
 
@@ -716,6 +805,7 @@ PCArch archacpi = {
 .reset=		acpireset,
 .intrinit=	acpiinit,
 .intrassign=	mpintrassign,
+.intrspurious=	mpintrspurious,
 .intrirqno=	i8259irqno,
 .intron=	lapicintron,
 .introff=	lapicintroff,

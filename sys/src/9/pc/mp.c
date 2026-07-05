@@ -11,8 +11,8 @@
 #include "apbootstrap.i"
 
 extern void i8259init(void);
+extern int i8259isr(int);
 
-/* filled in by pcmpinit or acpiinit */
 int mpisabus = -1;
 int mpeisabus = -1;
 Bus* mpbus, **mpbusp = &mpbus;
@@ -21,64 +21,99 @@ Apic *mplapic, **mplapicp = &mplapic;
 
 static int nmplapic;
 
+Bus*
+mpgetbus(int type, int busno)
+{
+	Bus *bus;
+
+	for(bus = mpbus; bus != nil; bus = bus->next)
+		if((type == -1 || bus->type == type) && bus->busno == busno)
+			return bus;
+
+	if(type == -1)
+		return nil;
+
+	if((bus = xalloc(sizeof(Bus))) == nil)
+		panic("addirq: no memory for Bus");
+
+	bus->busno = busno;
+	bus->type = type;
+	bus->po = PcmpHIGH;
+	bus->el = PcmpEDGE;
+	if(type == BusISA){
+		if(mpisabus == -1)
+			mpisabus = busno;
+	} else if(type == BusEISA){
+		if(mpeisabus == -1)
+			mpeisabus = busno;
+	} else if(type == BusPCI) {
+		bus->po = PcmpLOW;
+		bus->el = PcmpLEVEL;
+	}
+
+	*mpbusp = bus, mpbusp = &bus->next;
+
+	return bus;
+}
+
+Apic*
+mpgetapic(Apic *a, int apicno)
+{
+	while(a != nil){	
+		if(a->apicno == apicno)
+			return a;
+		a = a->next;
+	}
+	return nil;
+}
+
+/*
+ * Parse an I/O or Local APIC interrupt and
+ * return the encoded vector.
+ */
 int
-mpintrinit(Aintr *intr, int vno, int /*irq*/)
+mpintrinit(Aintr *intr, int vno)
 {
 	int el, po, v;
 
-	/*
-	 * Parse an I/O or Local APIC interrupt table entry and
-	 * return the encoded vector.
-	 */
-	v = vno;
+	if(intr == nil)
+		return ApicIMASK;
 
 	po = intr->flags & PcmpPOMASK;
 	el = intr->flags & PcmpELMASK;
 
+	v = vno;
 	switch(intr->type){
 	default:				/* PcmpINT */
 		v |= ApicFIXED;			/* no-op */
 		break;
 
 	case PcmpNMI:
-		v |= ApicNMI;
+		v = ApicNMI;			/* vno ignored */
 		po = PcmpHIGH;
 		el = PcmpEDGE;
 		break;
 
 	case PcmpSMI:
-		v |= ApicSMI;
+		v = ApicSMI;			/* vno ignored */
 		break;
 
 	case PcmpExtINT:
-		v |= ApicExtINT;
-		/*
-		 * The AMI Goliath doesn't boot successfully with it's LINTR0
-		 * entry which decodes to low+level. The PPro manual says ExtINT
-		 * should be level, whereas the Pentium is edge. Setting the
-		 * Goliath to edge+high seems to cure the problem. Other PPro
-		 * MP tables (e.g. ASUS P/I-P65UP5 have a entry which decodes
-		 * to edge+high, so who knows.
-		 * Perhaps it would be best just to not set an ExtINT entry at
-		 * all, it shouldn't be needed for SMP mode.
-		 */
-		po = PcmpHIGH;
-		el = PcmpEDGE;
-		break;
+		/* ExtINT should be masked off */
+		return ApicIMASK;
 	}
 
-	/*
-	 */
-	if(intr->bus->type == BusEISA && !po && !el /*&& !(i8259elcr & (1<<irq))*/){
-		po = PcmpHIGH;
-		el = PcmpEDGE;
+	if(intr->bus == nil && (!po || !el)){
+		print("mpintrinit: vector %d: no bus for default trigger/polarity\n", vno);
+		return ApicIMASK;
 	}
+
 	if(!po)
 		po = intr->bus->po;
 	if(po == PcmpLOW)
 		v |= ApicLOW;
 	else if(po != PcmpHIGH){
-		print("mpintrinit: bad polarity 0x%uX\n", po);
+		print("mpintrinit: vector %d: bad polarity 0x%uX\n", vno, po);
 		return ApicIMASK;
 	}
 
@@ -87,7 +122,7 @@ mpintrinit(Aintr *intr, int vno, int /*irq*/)
 	if(el == PcmpLEVEL)
 		v |= ApicLEVEL;
 	else if(el != PcmpEDGE){
-		print("mpintrinit: bad trigger 0x%uX\n", el);
+		print("mpintrinit: vector %d: bad trigger 0x%uX\n", vno, el);
 		return ApicIMASK;
 	}
 
@@ -124,34 +159,49 @@ syncclock(void)
 	}
 }
 
+static void
+printapic(Apic *apic)
+{
+	Aintr *ai;
+
+	if(apic->type == PcmpPROCESSOR){
+		print("LAPIC%d: paddr=%llux x2apic=%x flags=%x\n",
+			apic->apicno, apic->paddr, apic->x2apic, apic->flags);
+	} else {
+		print("IOAPIC%d: paddr=%llux addr=%#p flags=%x gsibase=%d mre=%d\n",
+			apic->apicno, apic->paddr, apic->addr, apic->flags, apic->gsibase, apic->mre);
+	}
+	for(ai = apic->aintr; ai != nil; ai = ai->anext) {
+		static char *itype[] = {
+			"INT", "NMI", "SMI", "ExtINT",
+		};
+		print("\t%2d: %5s irq=%-4d flags=%x", ai->intin, itype[ai->type&3], ai->irq, ai->flags);
+		if(ai->bus == nil)
+			print("\n");
+		else if(ai->bus->type == BusPCI)
+			print(" bus: %T (INT%c)\n", MKBUS(BusPCI, ai->bus->busno, ai->irq>>2, 0),
+				"ABCD"[ai->irq&3]);
+		else
+			print(" bus: %T flags=%x\n", MKBUS(ai->bus->type, ai->bus->busno, 0, 0),
+				ai->bus->po | ai->bus->el);
+	}
+}
+
 void
 mpinit(void)
 {
-	int ncpu;
-	Apic *apic;
+	Apic *apic, *ioapic;
 	char *cp;
+	int ncpu;
 
 	i8259init();
 	syncclock();
 
 	if(getconf("*apicdebug")){
-		Bus *b;
-		Aintr *ai;
-
 		for(apic = mplapic; apic != nil; apic = apic->next)
-			print("LAPIC%d: pa=%lux va=%#p flags=%x\n",
-				apic->apicno, apic->paddr, apic->addr, apic->flags);
+			printapic(apic);
 		for(apic = mpioapic; apic != nil; apic = apic->next)
-			print("IOAPIC%d: pa=%lux va=%#p flags=%x gsibase=%d mre=%d\n",
-				apic->apicno, apic->paddr, apic->addr, apic->flags, apic->gsibase, apic->mre);
-		for(b = mpbus; b != nil; b = b->next){
-			print("BUS%d type=%d flags=%x\n", b->busno, b->type, b->po|b->el);
-			for(ai = b->aintr; ai; ai = ai->next){
-				print("\ttype=%d irq=%d (%d [%c]) gsi=%d apic=%d intin=%d flags=%x\n",
-					ai->type, ai->irq, ai->irq>>2, "ABCD"[ai->irq&3],
-					ai->gsi, ai->apic->apicno, ai->intin, ai->flags);
-			}
-		}
+			printapic(apic);
 	}
 
 	nmplapic = 0;
@@ -163,8 +213,10 @@ mpinit(void)
 			break;
 	if(apic == nil)
 		panic("mpinit: no bootstrap processor (%d processors found)", nmplapic);
-	apic->online = 1;
 
+	assert(m->machno < conf.nmach);
+	apic->machno = m->machno;
+	apic->online = 1;
 	lapicinit(apic);
 
 	/*
@@ -178,8 +230,20 @@ mpinit(void)
 	lapiconline();
 
 	/*
-	 * Initialise the application processors.
+	 * Enable I/O APIC NMI's and route to cpu0
 	 */
+	if(apic->apicno <= MaxAPICNO)
+	for(ioapic = mpioapic; ioapic != nil; ioapic = ioapic->next){
+		Aintr *ai;
+		for(ai = ioapic->aintr; ai != nil; ai = ai->anext){
+			if(ai->type == PcmpNMI)
+				ioapicrdtw(ioapic, ai->intin,
+					(apic->apicno & 0xFF) << 24,
+					mpintrinit(ai, VectorNMI) | ApicPHYSICAL);
+		}
+	}
+
+	ncpu = MAXMACH;
 	if(cp = getconf("*ncpu")){
 		ncpu = strtol(cp, 0, 0);
 		if(ncpu < 1)
@@ -187,18 +251,17 @@ mpinit(void)
 		else if(ncpu > MAXMACH)
 			ncpu = MAXMACH;
 	}
-	else
-		ncpu = MAXMACH;
+
+	/*
+	 * Initialise the application processors.
+	 */
 	memmove((void*)APBOOTSTRAP, apbootstrap, sizeof(apbootstrap));
 	for(apic = mplapic; apic != nil; apic = apic->next){
-		if(apic->machno >= MAXMACH)
-			continue;
-		if(ncpu <= 1)
-			break;
-		if((apic->flags & (PcmpBP|PcmpEN)) == PcmpEN){
+		if((apic->flags & PcmpEN) != 0 && !apic->online){
+			if(conf.nmach >= ncpu)
+				break;
+			apic->machno = conf.nmach++;
 			mpstartap(apic);
-			conf.nmach++;
-			ncpu--;
 		}
 	}
 
@@ -207,7 +270,6 @@ mpinit(void)
 	 *  here.
 	 *
 	 *  set conf.copymode here if nmach > 1.
-	 *  Should look for an ExtINT line and enable it.
 	 */
 	if(m->cpuidfamily == 3 || conf.nmach > 1)
 		conf.copymode = 1;
@@ -294,7 +356,7 @@ ioapicirqenable(Vctl *v, int shared)
 	if(shared)
 		return 0;
 	hi = (v->dest & 0xFF) << 24;
-	lo = mpintrinit(aintr, v->vno, v->irq);
+	lo = mpintrinit(aintr, v->vno);
 	lo |= ApicPHYSICAL;			/* no-op */
  	ioapicrdtw(aintr->apic, aintr->intin, hi, lo);
 	return 0;
@@ -331,9 +393,11 @@ mpintrassignx(Vctl* v, int tbdf)
 	if(type == BusPCI){
 		if((pci = pcimatchtbdf(tbdf)) != nil)
 			pin = pcicfgr8(pci, PciINTP);
-	} else if(type == BusISA)
+	} else if(type == BusISA && mpisabus != -1){
 		bno = mpisabus;
-
+	} else if(type == BusEISA && mpeisabus != -1){
+		bno = mpeisabus;
+	}
 Findbus:
 	for(bus = mpbus; bus != nil; bus = bus->next){
 		if(bus->type != type)
@@ -341,7 +405,6 @@ Findbus:
 		if(bus->busno == bno)
 			break;
 	}
-
 	if(bus == nil){
 		/*
 		 * if the PCI device is behind a bridge thats not described
@@ -383,7 +446,23 @@ Findbus:
 	 * attached to this bus.
 	 */
 	for(aintr = bus->aintr; aintr != nil; aintr = aintr->next){
-		if(aintr->irq != irq)
+		if(aintr->type != PcmpINT || aintr->irq != irq || irq == -1)
+			continue;
+
+		if(aintr->apic->type == PcmpPROCESSOR){
+			if(!aintr->apic->online)
+				continue;
+
+			/* LINT[01] already enabled by lapicinit() */
+			v->dest = aintr->apic->apicno;
+			v->machno = aintr->apic->machno;
+			v->vno = VectorLAPIC+aintr->intin;
+			v->eoi = lapiceoi;
+			v->aux = aintr;
+			return v->vno;
+		}
+
+		if(aintr->apic->type != PcmpIOAPIC)
 			continue;
 
 		/*
@@ -400,7 +479,7 @@ Findbus:
 				break;
 			}
 			v->vno = allocvector();
-			lo = mpintrinit(aintr, v->vno, v->irq);
+			lo = mpintrinit(aintr, v->vno);
 			lo |= ApicPHYSICAL;			/* no-op */
 			if(lo & ApicIMASK){
 				print("mpintrassign: disabled irq %d, tbdf %T, lo %8.8uX, hi %8.8uX\n",
@@ -411,7 +490,7 @@ Findbus:
 			v->dest = (hi >> 24) & 0xFF;
 			v->vno = lo & 0xFF;
 			lo &= ~(ApicRemoteIRR|ApicDELIVS);
-			n = mpintrinit(aintr, v->vno, v->irq);
+			n = mpintrinit(aintr, v->vno);
 			n |= ApicPHYSICAL;			/* no-op */
 			if(lo != n){
 				print("mpintrassign: multiple botch irq %d, tbdf %T, lo %8.8uX, n %8.8uX\n",
@@ -422,11 +501,9 @@ Findbus:
 
 		v->eoi = lapiceoi;
 
-		if((aintr->apic->flags & PcmpEN) && aintr->apic->type == PcmpIOAPIC){
-			v->aux = aintr;
-			v->enable = ioapicirqenable;
-			v->disable = ioapicirqdisable;
-		}
+		v->aux = aintr;
+		v->enable = ioapicirqenable;
+		v->disable = ioapicirqdisable;
 
 		return v->vno;
 	}
@@ -600,6 +677,14 @@ mpintrassign(Vctl* v)
 	print("mpintrassign: out of choices eisa %d isa %d tbdf %T irq %d\n",
 		mpeisabus, mpisabus, v->tbdf, v->irq);
 	return -1;
+}
+
+int
+mpintrspurious(int vno)
+{
+	if(vno >= VectorLAPIC)
+		return lapiceoi(vno);
+	return i8259isr(vno);
 }
 
 void
