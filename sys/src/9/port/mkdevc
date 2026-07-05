@@ -151,9 +151,15 @@ END{
 		for(i = 0; i < nphysuart; i++)
 			printf "extern PhysUart %s;\n", physuart[i];
 		printf "PhysUart* physuart[] = {\n";
-	  	for(i = 0; i < nphysuart; i++)
+		i8250=0;
+	  	for(i = 0; i < nphysuart; i++){
 			printf "\t&%s,\n", physuart[i];
+			if(physuart[i] ~ "i8250")
+				i8250++;
+		}
 	  	printf "\tnil,\n};\n\n";
+		if(i8250 == 0)
+			printf "void i8250console(void)\n{\n}\n\n";
 	}
 
 	if(devvga){
