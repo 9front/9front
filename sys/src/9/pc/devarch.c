@@ -1049,10 +1049,9 @@ dumpmcregs(void)
 static void
 nmihandler(Ureg *ureg, void*)
 {
-	iprint("cpu%d: nmi PC %#p, status %ux\n",
-		m->machno, ureg->pc, inb(0x61));
-	while(m->machno != 0)
-		;
+	int status = inb(0x61) & 0xC0;	/* Parity check, Channel check */
+	status |= inb(0x92) & 0x10;		/* Watchdog timer status */
+	iprint("cpu%d: nmi PC %#p, status %x\n", m->machno, ureg->pc, status);
 }
 
 void
@@ -1062,11 +1061,9 @@ nmienable(void)
 
 	trapenable(VectorNMI, nmihandler, nil, "nmi");
 
-	/*
-	 * Hack: should be locked with NVRAM access.
-	 */
-	outb(0x70, 0x80);		/* NMI latch clear */
-	outb(0x70, 0);
+	/* NMI latch clear */
+	nvramread(inb(0x70) | 0x80);
+	nvramread(inb(0x70) & 0x7F);
 
 	x = inb(0x61) & 0x07;		/* Enable NMI */
 	outb(0x61, 0x0C|x);

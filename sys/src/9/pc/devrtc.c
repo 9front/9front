@@ -176,8 +176,7 @@ rtctime(void)
 static long	 
 rtcread(Chan* c, void* buf, long n, vlong off)
 {
-	ulong t;
-	char *a, *start;
+	uchar *a;
 	ulong offset = off;
 
 	if(c->qid.type & QTDIR)
@@ -185,34 +184,17 @@ rtcread(Chan* c, void* buf, long n, vlong off)
 
 	switch((ulong)c->qid.path){
 	case Qrtc:
-		t = rtctime();
-		n = readnum(offset, buf, n, t, 12);
+		n = readnum(offset, buf, n, (ulong)rtctime(), 12);
 		return n;
 	case Qnvram:
-		if(n == 0)
+		if(offset >= Nvsize)
 			return 0;
-		if(n > Nvsize)
-			n = Nvsize;
-		a = start = smalloc(n);
-
-		ilock(&nvrtlock);
-		for(t = offset; t < offset + n; t++){
-			if(t >= Nvsize)
-				break;
-			outb(Paddr, Nvoff+t);
-			*a++ = inb(Pdata);
-		}
-		iunlock(&nvrtlock);
-
-		if(waserror()){
-			free(start);
-			nexterror();
-		}
-		memmove(buf, start, t - offset);
-		poperror();
-
-		free(start);
-		return t - offset;
+		if(offset+n > Nvsize)
+			n = Nvsize-offset;
+		offset += Nvoff;
+		a = buf;
+		while(n-- > 0) *a++ = nvramread(offset++);
+		return a - (uchar*)buf;
 	}
 	error(Ebadarg);
 }
@@ -222,8 +204,7 @@ rtcread(Chan* c, void* buf, long n, vlong off)
 static long	 
 rtcwrite(Chan* c, void* buf, long n, vlong off)
 {
-	int t;
-	char *a, *start;
+	uchar *a;
 	Rtc rtc;
 	ulong secs;
 	char *cp, sbuf[32];
@@ -271,30 +252,14 @@ rtcwrite(Chan* c, void* buf, long n, vlong off)
 		iunlock(&nvrtlock);
 		return n;
 	case Qnvram:
-		if(n == 0)
+		if(offset >= Nvsize)
 			return 0;
-		if(n > Nvsize)
-			n = Nvsize;
-	
-		start = a = smalloc(n);
-		if(waserror()){
-			free(start);
-			nexterror();
-		}
-		memmove(a, buf, n);
-		poperror();
-
-		ilock(&nvrtlock);
-		for(t = offset; t < offset + n; t++){
-			if(t >= Nvsize)
-				break;
-			outb(Paddr, Nvoff+t);
-			outb(Pdata, *a++);
-		}
-		iunlock(&nvrtlock);
-
-		free(start);
-		return t - offset;
+		if(offset+n > Nvsize)
+			n = Nvsize-offset;
+		offset += Nvoff;
+		a = buf;
+		while(n-- > 0) nvramwrite(offset++, *a++);
+		return a - (uchar*)buf;
 	}
 	error(Ebadarg);
 }
@@ -441,8 +406,14 @@ nvramread(int addr)
 	uchar data;
 
 	ilock(&nvrtlock);
+	addr &= 0xFF;
 	outb(Paddr, addr);
 	data = inb(Pdata);
+	if(addr & 0x80){
+		/* clear NMI disable bit */
+		outb(Paddr, 0);
+		inb(Pdata);
+	}
 	iunlock(&nvrtlock);
 
 	return data;
@@ -452,7 +423,13 @@ void
 nvramwrite(int addr, uchar data)
 {
 	ilock(&nvrtlock);
+	addr &= 0xFF;
 	outb(Paddr, addr);
 	outb(Pdata, data);
+	if(addr & 0x80){
+		/* clear NMI disable bit */
+		outb(Paddr, 0);
+		inb(Pdata);
+	}
 	iunlock(&nvrtlock);
 }
