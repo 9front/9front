@@ -24,7 +24,6 @@ dev
 
 	draw		screen vga vgax vgasoft
 	mouse		mouse
-	kbd
 	vga		pci
 
 	sd
@@ -37,6 +36,7 @@ dev
 #	i82365		cis
 	uart
 	usb
+	kbd
 	
 	segment
 	vmx
