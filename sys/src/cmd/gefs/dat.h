@@ -566,10 +566,12 @@ struct Gefs {
 
 	QLock	mutlk;
 	Along	nworker;
+
 	Along	epoch;
 	Along	lepoch[32];
 	Aptr	limbo[3]; /* Limbo* */
 	Along	nlimbo;
+	Lock	epochlk;
 
 	Syncq	syncq[32];
 

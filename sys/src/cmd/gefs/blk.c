@@ -889,6 +889,8 @@ epochclean(void)
 	Arena *a;
 	Qent qe;
 
+	if(!canlock(&fs->epochlk))
+		return 0;
 	delay = 0;
 Again:
 	c = agetl(&fs->nlimbo);
@@ -896,8 +898,10 @@ Again:
 	for(i = 0; i < agetl(&fs->nworker); i++){
 		e = agetl(&fs->lepoch[i]);
 		if((e & Eactive) && e != (ge | Eactive)){
-			if(c < fs->cmax/4)
+			if(c < fs->cmax/4){
+				unlock(&fs->epochlk);
 				return 0;
+			}
 			if(delay == 300)
 				fprint(2, "stalled epoch %lx [worker %d]\n", e, i);
 			sleep(delay++);
@@ -906,6 +910,7 @@ Again:
 	}
 	p = aswapp(&fs->limbo[(ge+1)%3], nil);
 	aswapl(&fs->epoch, (ge+1)%3);
+	unlock(&fs->epochlk);
 
 	for(; p != nil; p = n){
 		n = p->next;
