@@ -1096,11 +1096,28 @@ flush(Tree *t, Path *path, int npath)
 		 */
 		if(!filledpiv(p->b, 2)){
 			trybalance(t, p, pp, p->idx);
-			/* If we merged the root node, break out. */
-			if(up == path && pp != nil && pp->op == POmerge && p->b->nval == 2){
-				pp->npull = p->npull;
-				rp = pp;
-				goto Out;
+			/*
+			 * if we merged the root node, and the
+			 * buffer was empty, break out; if we
+			 * still have data in the buffer, pull
+			 * it down and allow for a degenerate
+			 * root node that we retry in upsert.
+			 *
+			 * if we cleared a degenerate root,
+			 * then we want to drop it from the
+			 * tree.
+			 */
+			if(up == path			/* at root */
+			&& pp != nil			/* has child */
+			&& pp->nl != nil		/* didn't drop this node */
+			&& pp->nr == nil		/* no siblings */
+			&& pp->npull == p->b->nbuf){	/* got the whole buffer */
+				if(pp->op == POmerge && p->b->nval == 2
+				|| pp->op == POmod && p->b->nval == 1){
+					pp->npull = p->npull;
+					rp = pp;
+					goto Out;
+				}
 			}
 			updatepiv(t, up, p, pp);
 			rp = p;
@@ -1243,7 +1260,7 @@ fastupsert(Tree *t, Blk *b, Msg *msg, int nmsg)
 void
 btupsert(Tree *t, Msg *msg, int nmsg)
 {
-	int i, npath, npull, dh, sz, height;
+	int i, npath, npull, dh, sz, height, degen;
 	Path *path, *rp;
 	Blk *b, *rb;
 	Kvp sep;
@@ -1265,7 +1282,7 @@ Again:
 		dropblk(b);
 		nexterror();
 	}
-	if(npull == 0 && b->type == Tpivot && !filledbuf(b, nmsg, sz)){
+	if(npull == 0 && b->type == Tpivot && b->nval > 1 && !filledbuf(b, nmsg, sz)){
 		fastupsert(t, b, msg, nmsg);
 		poperror();
 		return;
@@ -1282,6 +1299,7 @@ Again:
 		freepath(t, path, height+2, 0);	/* npath not volatile */
 		nexterror();
 	}
+	degen = 0;
 	npath = 0;
 	path[npath].b = nil;
 	path[npath].idx = -1;
@@ -1293,7 +1311,7 @@ Again:
 	path[0].lo = npull;
 	path[0].hi = nmsg;
 	while(b->type == Tpivot){
-		if(!filledbuf(b, nmsg, path[npath - 1].sz))
+		if(b->nval > 1 && !filledbuf(b, nmsg, path[npath - 1].sz))
 			break;
 		victim(b, &path[npath]);
 		getval(b, path[npath].idx, &sep);
@@ -1323,7 +1341,15 @@ Again:
 	else
 		fatal("broken path change");
 
-	bassert(rb, rb->bp.addr != 0);
+	/*
+	 * if we merged the root block, but there
+	 * was still data stuck in the buffer, we
+	 * should try again to clear out the data
+	 * in the degenerate root.
+	 */
+	if(rb->type == Tpivot && rb->nval == 1)
+		degen = 1;
+
 	bassert(rb, rb->bp.addr != 0);
 
 	lock(&t->lk);
@@ -1337,7 +1363,7 @@ Again:
 	freepath(t, path, npath, 1);
 	poperror();
 
-	if(npull != nmsg){
+	if(npull != nmsg || degen){
 		tracem("short pull");
 		goto Again;
 	}
