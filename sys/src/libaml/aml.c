@@ -227,7 +227,7 @@ static int
 gc(void)
 {
 	int i;
-	Heap *h, **hh;
+	Heap *h, *hn, **hh;
 	Frame *f;
 
 	for(h = hp; h; h = h->link)
@@ -248,6 +248,7 @@ gc(void)
 	gcmark(amlroot);
 
 	i = 0;
+	hn = nil;
 	hh = &hp;
 	while(h = *hh){
 		if(h->mark){
@@ -255,6 +256,14 @@ gc(void)
 			continue;
 		}
 		*hh = h->link;
+		if(h->tag == 'N'){
+			((Name*)H2D(h))->v = nil;
+
+			/* defer deletion until everything unmapped */
+			h->link = hn;
+			hn = h;
+			continue;
+		}
 		if(h->tag == 'r'){
 			Region *r = (void*)H2D(h);
 			if(r->mapped > 0){
@@ -270,6 +279,13 @@ gc(void)
 			r->aux = nil;
 			r->va = nil;
 		}
+		memset(h, ~0, sizeof(Heap)+h->size);
+		amlfree(h);
+		i++;
+	}
+
+	while(h = hn){
+		hn = h->link;
 		memset(h, ~0, sizeof(Heap)+h->size);
 		amlfree(h);
 		i++;
