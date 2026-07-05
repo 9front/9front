@@ -49,7 +49,8 @@ static Dirtab kbdtab[] = {
 };
 
 static Lock i8042lock;
-static uchar ccc;
+static Timer *polltimer;
+static int ccc;
 static void (*auxputc)(int, int);
 static int nokbd = 1;			/* flag: no PS/2 keyboard */
 
@@ -64,14 +65,14 @@ static struct {
 static int
 outready(void)
 {
-	int tries;
+	int tries, status;
 
-	for(tries = 0; (inb(Status) & Outbusy); tries++){
+	for(tries = 0; ((status = inb(Status)) & Outbusy); tries++){
 		if(tries > 500)
 			return -1;
 		delay(2);
 	}
-	return 0;
+	return status;
 }
 
 /*
@@ -80,14 +81,82 @@ outready(void)
 static int
 inready(void)
 {
-	int tries;
+	int tries, status;
 
-	for(tries = 0; !(inb(Status) & Inready); tries++){
+	for(tries = 0; !((status = inb(Status)) & Inready); tries++){
 		if(tries > 500)
 			return -1;
 		delay(2);
 	}
+	return status;
+}
+
+static int
+ackdata(int status)
+{
+	if(status < 0 || (status & Inready) == 0)
+		return -1;
+
+	return inb(Data);
+}
+
+static int
+indata(void)
+{
+	return ackdata(inready());
+}
+
+/*
+ *  wait for a quiescent controller
+ */
+static int
+flushdata(void)
+{
+	int tries, status;
+
+	for(tries = 0; (status = inb(Status)) & (Outbusy | Inready); tries++){
+		ackdata(status);
+		if(tries > 1000)
+			return -1;
+		delay(1);
+	}
 	return 0;
+}
+
+static int
+outdata(int data)
+{
+	if(outready() < 0)
+		return -1;
+	outb(Data, data);
+	return 0;
+}
+
+static int
+outcmd(int cmd, int data)
+{
+	if(outready() < 0)
+		return -1;
+	outb(Cmd, cmd);
+	if(data >= 0 && outdata(data) < 0)
+		return -1;
+	if(outready() < 0)
+		return -1;
+	return 0;
+}
+
+static int
+readccc(void)
+{
+	if(outcmd(0x20, -1) < 0)
+		return -1;
+	return indata();
+}
+
+static int
+writeccc(int data)
+{
+	return outcmd(0x60, data);
 }
 
 /*
@@ -106,20 +175,20 @@ i8042reset(void)
 	/*
 	 *  newer reset the machine command
 	 */
-	outready();
-	outb(Cmd, 0xFE);
-	outready();
+	ilock(&i8042lock);
+	outcmd(0xFE, -1);
+	iunlock(&i8042lock);
 
 	/*
 	 *  Pulse it by hand (old somewhat reliable)
 	 */
 	x = 0xDF;
 	for(i = 0; i < 5; i++){
+		ilock(&i8042lock);
 		x ^= 1;
-		outready();
-		outb(Cmd, 0xD1);
-		outready();
-		outb(Data, x);	/* toggle reset */
+		outcmd(0xD1, x);
+		iunlock(&i8042lock);
+
 		delay(100);
 	}
 }
@@ -127,32 +196,28 @@ i8042reset(void)
 int
 i8042auxcmd(int cmd)
 {
-	unsigned int c;
-	int tries;
+	int c, tries;
 
 	c = 0;
 	tries = 0;
+	cmd &= 0xFF;
+
+	if(nokbd)
+		return -1;
 
 	ilock(&i8042lock);
 	do{
 		if(tries++ > 2)
 			break;
-		if(outready() < 0)
+		if(outcmd(0xD4, cmd) < 0)
 			break;
-		outb(Cmd, 0xD4);
-		if(outready() < 0)
+		if((c = indata()) < 0)
 			break;
-		outb(Data, cmd);
-		if(outready() < 0)
-			break;
-		if(inready() < 0)
-			break;
-		c = inb(Data);
 	} while(c == 0xFE || c == 0);
 	iunlock(&i8042lock);
 
 	if(c != 0xFA){
-		print("i8042: %2.2ux returned to the %2.2ux command (pc=%#p)\n",
+		print("i8042: %2.2x returned to the %2.2x command (pc=%#p)\n",
 			c, cmd, getcallerpc(&cmd));
 		return -1;
 	}
@@ -176,16 +241,13 @@ setleds(int leds)
 
 	if(nokbd || leds == old)
 		return;
+
 	leds &= 7;
 	ilock(&i8042lock);
 	for(;;){
-		if(outready() < 0)
+		if(outdata(0xED) < 0)	/* `reset keyboard lock states' */
 			break;
-		outb(Data, 0xed);		/* `reset keyboard lock states' */
-		if(outready() < 0)
-			break;
-		outb(Data, leds);
-		if(outready() < 0)
+		if(outdata(leds) < 0)
 			break;
 		old = leds;
 		break;
@@ -199,67 +261,66 @@ setleds(int leds)
 static void
 i8042intr(Ureg*, void*)
 {
-	int s, c;
-	uchar b;
+	int tries, status;
+	uchar c;
 
-	/*
-	 *  get status
-	 */
-	ilock(&i8042lock);
-	s = inb(Status);
-	if(!(s&Inready)){
+	for(tries=0; tries<16; tries++){
+		ilock(&i8042lock);
+		status = inb(Status);
+		if(!(status&Inready)){
+			iunlock(&i8042lock);
+			break;
+		}
+		c = ackdata(status);
 		iunlock(&i8042lock);
-		return;
+
+		/*
+		 *  if it's the aux port...
+		 */
+		if(status & Minready){
+			if(auxputc != nil)
+				auxputc(c, 0);
+		} else {
+			qproduce(kbd.q, &c, 1);
+		}
 	}
-
-	/*
-	 *  get the character
-	 */
-	c = inb(Data);
-	iunlock(&i8042lock);
-
-	/*
-	 *  if it's the aux port...
-	 */
-	if(s & Minready){
-		if(auxputc != nil)
-			auxputc(c, 0);
-		return;
-	}
-
-	b = c & 0xff;
-	qproduce(kbd.q, &b, 1);
 }
 
 void
 i8042auxenable(void (*putc)(int, int))
 {
-	static char err[] = "i8042: aux init failed\n";
+	if(nokbd)
+		error("no PS2 controller");
 
 	ilock(&i8042lock);
+
+	/* already enabled? */
+	if((ccc & (Cauxdis|Cauxint)) == Cauxint){
+		auxputc = putc;
+		iunlock(&i8042lock);
+		return;
+	}
 
 	/* enable kbd/aux xfers and interrupts */
 	ccc &= ~Cauxdis;
 	ccc |= Cauxint;
-
-	if(outready() < 0)
-		print(err);
-	outb(Cmd, 0x60);			/* write control register */
-	if(outready() < 0)
-		print(err);
-	outb(Data, ccc);
-	if(outready() < 0)
-		print(err);
-	outb(Cmd, 0xA8);			/* auxiliary device enable */
-	if(outready() < 0){
-		print(err);
+	if(writeccc(ccc) < 0){
 		iunlock(&i8042lock);
+		print("i8042: aux init failed: writing ccc\n");
+		return;
+	}
+	if(outcmd(0xA8, -1) < 0){	/* auxiliary device enable */
+		iunlock(&i8042lock);
+		print("i8042: aux init failed: aux device enable\n");
 		return;
 	}
 	auxputc = putc;
-	intrenable(IrqAUX, i8042intr, 0, BUSUNKNOWN, "kbdaux");
-
 	iunlock(&i8042lock);
+
+	if(polltimer != nil)
+		return;
+
+	intrenable(IrqAUX, i8042intr, 0, BUSUNKNOWN, "kbdaux");
 }
 
 static void
@@ -275,14 +336,15 @@ kbdshutdown(void)
 {
 	if(nokbd)
 		return;
+
+	ilock(&i8042lock);
+
 	/* disable kbd and aux xfers and interrupts */
 	ccc &= ~(Ckbdint|Cauxint);
 	ccc |= (Cauxdis|Ckbddis);
-	outready();
-	outb(Cmd, 0x60);
-	outready();
-	outb(Data, ccc);
-	outready();
+	writeccc(ccc);
+
+	iunlock(&i8042lock);
 }
 
 static Chan *
@@ -373,9 +435,6 @@ kbdwrite(Chan *c, void *a, long n, vlong)
 static void
 kbdreset(void)
 {
-	static char initfailed[] = "i8042: kbd init failed\n";
-	int c, try;
-
 	kbd.q = qopen(1024, Qcoalesce, 0, 0);
 	if(kbd.q == nil)
 		panic("kbdreset");
@@ -384,25 +443,20 @@ kbdreset(void)
 	if(getconf("*nokbd"))
 		return;
 
+	ilock(&i8042lock);
+
 	/* wait for a quiescent controller */
-	try = 1000;
-	while(try-- > 0 && (c = inb(Status)) & (Outbusy | Inready)) {
-		if(c & Inready)
-			inb(Data);
-		delay(1);
-	}
-	if (try <= 0) {
-		print(initfailed);
+	if(flushdata() < 0){
+		iunlock(&i8042lock);
+		print("i8042: kbd init failed: flushdata timeout\n");
 		return;
 	}
 
-	/* get current controller command byte */
-	outb(Cmd, 0x20);
-	if(inready() < 0){
-		print("i8042: can't read ccc\n");
+	ccc = readccc();
+	if(ccc < 0){
+		print("i8042: could not read ccc\n");
 		ccc = 0;
-	} else
-		ccc = inb(Data);
+	}
 
 	/* enable kbd xfers and interrupts */
 	ccc &= ~Ckbddis;
@@ -412,18 +466,21 @@ kbdreset(void)
 	ccc &= ~Cauxint;
 	ccc |= Cauxdis;
 
-	if(outready() < 0) {
-		print(initfailed);
+	if(writeccc(ccc) < 0){
+		iunlock(&i8042lock);
+		print("i8042: kbd init failed: writing ccc\n");
 		return;
 	}
-	outb(Cmd, 0x60);
-	outready();
-	outb(Data, ccc);
-	outready();
 
 	nokbd = 0;
 	ioalloc(Cmd, 1, 0, "i8042.cs");
 	ioalloc(Data, 1, 0, "i8042.data");
+	iunlock(&i8042lock);
+
+	if(getconf("*kbdpoll") != nil){
+		polltimer = addclock0link(kbdpoll, 50);
+		return;
+	}
 	intrenable(IrqKBD, i8042intr, 0, BUSUNKNOWN, "kbd");
 }
 
