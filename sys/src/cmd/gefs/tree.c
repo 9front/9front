@@ -171,6 +171,7 @@ setmsg(Blk *b, Msg *m)
 
 	bassert(b, b->type == Tpivot);
 	b->bufsz += msgsz(m)-2;
+	bassert(b, 2*(b->nbuf+1) + b->bufsz <= Bufspc);
 
 	p = b->data + Pivspc + 2*b->nbuf;
 	o = Bufspc - b->bufsz;
@@ -890,53 +891,33 @@ merge(Tree *t, Path *p, Path *pp, int idx, Blk *a, Blk *b)
 }
 
 /*
- * Scan a single block for the split offset;
- * returns 1 if we'd spill out of the buffer,
- * updates *idx and returns 0 otherwise.
+ * Find the first message in buffers of l and r with key >= m.
+ * Trybalance already guarantees we have space for any split
+ * that we pick here.
  */
 static int
-spillscan(Blk *d, Blk *b, Msg *m, int *idx, int o)
+splitidx(Blk *l, Blk *r, Msg *m, int idx)
 {
-	int i, used;
+	int i;
 	Msg n;
 
-	used = 2*d->nbuf + d->bufsz;
-	for(i = *idx-o; i < b->nbuf; i++){
-		getmsg(b, i, &n);
-		if(keycmp(m, &n) <= 0){
-			*idx = i + o;
-			return 0;
-		}
-		used += msgsz(&n);
-		if(used > Bufspc)
-			return 1;
-	}
-	*idx = b->nbuf;
-	return 0;
-}
-
-/*
- * Returns whether the keys in b between
- * idx and m would spill out of the buffer
- * of d.
- */
-static int
-spillsbuf(Blk *d, Blk *l, Blk *r, Msg *m, int *idx)
-{
 	if(l->type == Tleaf)
-		return 0;
-
-	if(*idx < l->nbuf && spillscan(d, l, m, idx, 0))
-		return 1;
-	if(*idx >= l->nbuf && spillscan(d, r, m, idx, l->nbuf))
-		return 1;
-	return 0;
+		return idx;
+	for(i = idx; i < l->nbuf + r->nbuf; i++){
+		if(i < l->nbuf)
+			getmsg(l, i, &n);
+		else
+			getmsg(r, i - l->nbuf, &n);
+		if(keycmp(m, &n) <= 0)
+			break;
+	}
+	return i;
 }
 
 static void
 rotate(Tree *t, Path *p, Path *pp, int midx, Blk *a, Blk *b, int halfpiv)
 {
-	int i, o, cp, sp, idx;
+	int i, o, sz, sp;
 	Blk *d, *l, *r;
 	Msg m;
 
@@ -950,26 +931,27 @@ rotate(Tree *t, Path *p, Path *pp, int midx, Blk *a, Blk *b, int halfpiv)
 	l = newblk(t, a->type);
 	r = newblk(t, a->type);
 	d = l;
-	cp = 0;
-	sp = -1;
-	idx = 0;
+	sz = 0;
+	sp = 0;
 	for(i = 0; i < a->nval; i++){
 		getval(a, i, &m);
-		if(d == l && (cp >= halfpiv || spillsbuf(d, a, b, &m, &idx))){
-			sp = idx;
-			d = r;
+		if(d == l){
+			sp = splitidx(a, b, &m, sp);
+			if(sz >= halfpiv)
+				d = r;
 		}
 		setval(d, &m);
-		cp += valsz(&m);
+		sz += valsz(&m);
 	}
 	for(i = 0; i < b->nval; i++){
 		getval(b, i, &m);
-		if(d == l && (cp >= halfpiv || spillsbuf(d, a, b, &m, &idx))){
-			sp = idx;
-			d = r;
+		if(d == l){
+			sp = splitidx(a, b, &m, sp);
+			if(sz >= halfpiv)
+				d = r;
 		}
 		setval(d, &m);
-		cp += valsz(&m);
+		sz += valsz(&m);
 	}
 	if(a->type == Tpivot){
 		d = l;
