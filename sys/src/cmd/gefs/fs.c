@@ -2855,6 +2855,8 @@ setconf(int id, int op, char *snap, char *key, char *val)
 	if(snap[0] != 0){
 		mnt = getmount(snap);
 		t = agetp(&mnt->root);
+		if((mnt->flag & Lmut) == 0)
+			error(Eperm);
 	}
 	kbuf[0] = Kconf;
 	strecpy(kbuf+1, kbuf+sizeof(kbuf), key);
