@@ -698,15 +698,13 @@ splitleaf(Tree *t, Path *up, Path *p)
 	 * so we want to make a new block.
 	 */
 	b = p->b;
-	l = nil;
-	r = nil;
+	l = newblk(t, b->type);
+	r = newblk(t, b->type);
 	if(waserror()){
 		efreeblk(t, l);
 		efreeblk(t, r);
 		nexterror();
 	}
-	l = newblk(t, b->type);
-	r = newblk(t, b->type);
 
 	d = l;
 	i = 0;
@@ -813,15 +811,13 @@ splitpiv(Tree *t, Path *, Path *p, Path *pp)
 	 * so we want to make a new bp->lock.
 	 */
 	b = p->b;
-	l = nil;
-	r = nil;
+	l = newblk(t, b->type);
+	r = newblk(t, b->type);
 	if(waserror()){
 		efreeblk(t, l);
 		efreeblk(t, r);
 		nexterror();
 	}
-	l = newblk(t, b->type);
-	r = newblk(t, b->type);
 	d = l;
 	copied = 0;
 	halfsz = (2*b->nval + b->valsz)/2;
@@ -921,15 +917,13 @@ rotate(Tree *t, Path *p, Path *pp, int midx, Blk *a, Blk *b, int halfpiv)
 	Blk *d, *l, *r;
 	Msg m;
 
-	l = nil;
-	r = nil;
+	l = newblk(t, a->type);
+	r = newblk(t, a->type);
 	if(waserror()){
 		efreeblk(t, l);
 		efreeblk(t, r);
 		nexterror();
 	}
-	l = newblk(t, a->type);
-	r = newblk(t, a->type);
 	d = l;
 	sz = 0;
 	sp = 0;
@@ -1026,8 +1020,6 @@ trybalance(Tree *t, Path *p, Path *pp, int idx)
 	m = holdblk(pp->nl);
 	if(waserror()){
 		dropblk(m);
-		dropblk(l);
-		dropblk(r);
 		nexterror();
 	}
 	spc = (m->type == Tleaf) ? Leafspc : Pivspc;
@@ -1036,7 +1028,12 @@ trybalance(Tree *t, Path *p, Path *pp, int idx)
 		bp = getptr(&kl, &fill);
 		if(fill + blkfill(m) < spc){
 			l = getblk(bp, 0);
+			if(waserror()){
+				dropblk(l);
+				nexterror();
+			}
 			rotmerge(t, p, pp, idx-1, l, m);
+			poperror();
 			goto Done;
 		}
 	}
@@ -1045,7 +1042,12 @@ trybalance(Tree *t, Path *p, Path *pp, int idx)
 		bp = getptr(&kr, &fill);
 		if(fill + blkfill(m) < spc){
 			r = getblk(bp, 0);
+			if(waserror()){
+				dropblk(r);
+				nexterror();
+			}
 			rotmerge(t, p, pp, idx, m, r);
+			poperror();
 			goto Done;
 		}
 	}

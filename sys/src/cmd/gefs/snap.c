@@ -231,13 +231,6 @@ mergedl(vlong merge, vlong gen, vlong bgen)
 	Dlist *d, *m;
 	Msg msg[2];
 
-	d = nil;
-	m = nil;
-	if(waserror()){
-		putdl(m);
-		putdl(d);
-		nexterror();
-	}
 	d = getdl(merge, bgen);
 	m = getdl(gen, bgen);
 	splicedl(d, m);
@@ -245,10 +238,15 @@ mergedl(vlong merge, vlong gen, vlong bgen)
 	dlist2kv(m, &msg[0], buf[0], sizeof(buf[0]));
 	msg[1].op = Oinsert;
 	dlist2kv(d, &msg[1], buf[1], sizeof(buf[1]));
+	if(waserror()){
+		putdl(m);
+		putdl(d);
+		nexterror();
+	}
 	btupsert(&fs->snap, msg, 2);
+	poperror();
 	putdl(m);
 	putdl(d);
-	poperror();
 }
 
 /*
