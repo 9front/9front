@@ -39,7 +39,7 @@ fmtdf(Fmt *fmt)
 }
 
 static void
-showconf(Fmt *fmt, Tree *t, char *indent)
+showconf(Fmt *fmt, Tree *t, char *name)
 {
 	char pfx[1];
 	Scan s;
@@ -50,17 +50,40 @@ showconf(Fmt *fmt, Tree *t, char *indent)
 	while(1){
 		if(!btnext(&s, &s.kv))
 			break;
-		fmtprint(fmt, "%sconf %.*q %.*q\n", indent, (int)s.kv.nk-1, s.kv.k+1, (int)s.kv.nv, s.kv.v);
+		fmtprint(fmt, "conf %q %.*q %.*q\n",
+			name, (int)s.kv.nk-1, s.kv.k+1, (int)s.kv.nv, s.kv.v);
 	}
 	btexit(&s);
 }
 
 static void
-fmtsnaps(Fmt *fmt)
+iterconf(Fmt *fmt, int flg, char *name)
 {
-	char pfx[Snapsz], name[Keymax];
 	Mount *mnt;
 	Tree *t;
+
+	if((flg & Lmut) && !waserror()){
+		mnt = getmount(name);
+		t = agetp(&mnt->root);
+		showconf(fmt, t, name);
+		clunkmount(mnt);
+		poperror();
+	}
+}
+
+static void
+showsnap(Fmt *fmt, int flg, char *name)
+{
+	if(flg & Lmut)
+		fmtprint(fmt, "fork %q\n", name);
+	else
+		fmtprint(fmt, "snap %q\n", name);
+}
+
+static void
+itersnaps(Fmt *fmt, void(*show)(Fmt*, int, char*))
+{
+	char pfx[Snapsz], name[Keymax];
 	Scan s;
 	uint flg;
 	int sz;
@@ -75,17 +98,7 @@ fmtsnaps(Fmt *fmt)
 		flg = UNPACK32(s.kv.v+1+8);
 		memcpy(name, s.kv.k+1, s.kv.nk-1);
 		name[s.kv.nk-1] = 0;
-		fmtprint(fmt, "snap %q", name);
-		if(flg & Lmut)
-			fmtprint(fmt, "\tmutable");
-		fmtprint(fmt, "\n");
-		if(!waserror()){
-			mnt = getmount(name);
-			t = agetp(&mnt->root);
-			showconf(fmt, t, "\t");
-			clunkmount(mnt);
-			poperror();
-		}
+		show(fmt, flg, name);
 	}
 	btexit(&s);
 }
@@ -108,7 +121,8 @@ readstatus(Fmsg *m, Fid *f, Fcall *r)
 		fmtprint(&fmt, "gefs p9\n");
 		fmtdf(&fmt);
 		showconf(&fmt, &fs->snap, "");
-		fmtsnaps(&fmt);
+		itersnaps(&fmt, iterconf);
+		itersnaps(&fmt, showsnap);
 		f->aux = fmtstrflush(&fmt);
 		poperror();
 	}
