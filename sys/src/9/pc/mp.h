@@ -62,9 +62,12 @@ typedef struct Aintr {
 	int	type;			/* interrupt type */
 	int	flags;			/* interrupt flag */
 	int	irq;			/* source bus irq */
+
 	int	intin;			/* destination APIC [L]INTIN# */
+
 	Apic*	apic;
 	Aintr*	anext;			/* next in apic */
+
 	Bus*	bus;
 	Aintr*	next;			/* next in bus */
 };
@@ -75,15 +78,15 @@ typedef struct Apic {
 	int	x2apic;			/* x2APIC UID */
 
 	ulong*	addr;			/* register base address */
-	ulong	paddr;
+	uvlong	paddr;
 	int	flags;			/* PcmpBP|PcmpEN */
 
 	Lock;				/* I/O APIC: register access */
 	int	mre;			/* I/O APIC: maximum redirection entry */
 	int	gsibase;		/* I/O APIC: global system interrupt base (acpi) */
 
-	Aintr*	lint[2];		/* Local APIC */
-	Aintr*	aintr;
+	Aintr*	aintr;			/* all interrupts tied to this APIC */
+	Aintr*	lint[2];		/* Local APIC interrupts */
 	int	machno;
 	int	online;
 
