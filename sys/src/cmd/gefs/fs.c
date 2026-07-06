@@ -634,7 +634,7 @@ loadhist(Mount *mnt, Cron *c)
 static void
 loadautos(Mount *mnt)
 {
-	char *p, pfx[32], rbuf[Kvmax+1];
+	char *s, *p, pfx[32], rbuf[Kvmax+1];
 	int i, n, c, div, cnt, op;
 	Kvp kv, r;
 
@@ -644,16 +644,17 @@ loadautos(Mount *mnt)
 	kv.nk = n+1;
 	if(btlookup(agetp(&mnt->root), &kv, &r, rbuf, sizeof(rbuf)-1)
 	|| btlookup(&fs->snap, &kv, &r, rbuf, sizeof(rbuf)-1)){
-		p = r.v;
-		p[r.nv] = 0;
+		s = r.v;
+		s[r.nv] = 0;
 	}else
-		p = "60@m 24@h @d";
+		s = "60@m 24@h @d";
 
 	Cron crons[nelem(mnt->cron)] = {
 		{.cnt=0, .div=60, .tag="minute"},
 		{.cnt=0, .div=3600, .tag="hour"},
 		{.cnt=0, .div=24*3600, .tag="day"},
 	};
+	p = s;
 	memcpy(mnt->cron, crons, sizeof crons);
 	while(*p){
 		cnt = -1;
@@ -673,7 +674,7 @@ loadautos(Mount *mnt)
 			p++;
 		if(div <= 0){
 Bad:			memset(mnt->cron, 0, sizeof(mnt->cron));
-			fprint(2, "invalid time spec\n");
+			fprint(2, "ignoring invalid snap schedule %q\n", s);
 			return;
 		}
 
