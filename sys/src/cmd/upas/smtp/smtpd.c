@@ -1558,6 +1558,7 @@ starttls(void)
 	}
 	chain = readcertchain(tlscert);
 	if (chain == nil) {
+		syslog(0, "smtpd", "TLS reading certificate chain from '%s' failed", tlscert);
 		reply("454 4.7.5 TLS not available\r\n");
 		return;
 	}
