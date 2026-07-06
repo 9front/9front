@@ -201,13 +201,19 @@ sync(int id)
 		enqueue(fs->arenas[i].h1);
 
 	/*
+	 * Wait for commit: all of the previous changes
+	 * must hit disk before we start cleaing up the
+	 * state.
+	 */
+	wrwait();
+
+	/*
 	 * Pass 4: clean up the old snap tree's deadlist.
 	 * we need to wait for all the new data to hit disk
 	 * before we can free anything, otherwise it gets
 	 * clobbered.
 	 */
 	tracem("snapdl");
-	wrwait();
 	limbo(DFdlist, dl);
 	qunlock(&fs->synclk);
 	tracem("synced");
@@ -2997,7 +3003,6 @@ Syncout:
 			epochend(id);
 			qunlock(&fs->mutlk);
 			poperror();
-
 			sync(id);	/* t leaked on error() */
 
 			if(t != nil){
