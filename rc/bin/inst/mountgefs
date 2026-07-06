@@ -42,6 +42,7 @@ case go
 
 	log Starting $fstype file server for $fs
 	unmount /n/newfs >[2]/dev/null
+	unmount /n/newfs.adm
 	echo halt >>/srv/$sname.cmd >[2]/dev/null
 	rm -f /srv/$sname /srv/$sname.cmd
 
@@ -51,23 +52,18 @@ case go
 	}
 	gefs -n $sname $fsflags -SAf $fs
 
-	log Creating "other" dataset
-	echo snap -m empty other >>/srv/$sname.cmd
-	sleep 1
-	echo set other retain '''''' >>/srv/$sname.cmd
 
 	log Mounting $fstype file server for $fs
-	while(! logprog mount -c /srv/$sname /n/newfs %main)
-		sleep 2
-	while(! logprog mount -c /srv/$sname /n/newfs.adm %adm)
-		sleep 2
-	while(! logprog mount -c /srv/$sname /n/newfs.other %other)
-		sleep 2
+	logprog mount -c /srv/$sname /n/newfs %main
+	logprog mount -c /srv/$sname /n/newfs.adm %adm
+	log Creating "other" dataset
+	echo fork empty other > /n/newfs.adm/ctl
+	echo set other retain '''''' > /n/newfs.adm/ctl
+	logprog mount -c /srv/$sname /n/newfs.other %other
 	log Configuring $fstype file server for $fs
 	echo $"userfile > /n/newfs.adm/users
-	echo sync >>/srv/$sname.cmd
-	echo users >>/srv/$sname.cmd
-	sleep 1
+	echo sync > /n/newfs.adm/ctl
+	echo users > /n/newfs.adm/ctl
 	for(dir in adm dist usr){
 		logprog mkdir /n/newfs/$dir
 		usrgrp = sys
