@@ -152,7 +152,7 @@ enum {
 	Oif, Oelse, Owhile, Obreak, Oret, Ocall, 
 	Ostore, Oderef, Ootype, Osize, Oref, Ocref, Ocat, Ocatr, Omid,
 	Oacq, Osignal, Orel, Ostall, Osleep, Otimer, Oload, Ounload,
-	Otodec, Otohex, Otoint, Otostr, Onotify,
+	Otobuf, Otodec, Otohex, Otoint, Otostr, Onotify,
 };
 
 static Op optab[];
@@ -2098,6 +2098,9 @@ evalconv(void)
 	r = nil;
 	a = FP->arg[0];
 	switch(FP->op - optab){
+	case Otobuf:
+		r = copy('b', a);
+		break;
 	case Otodec:
 		if(a == nil)
 			break;
@@ -2253,6 +2256,7 @@ static Op optab[] = {
 	[Oload] 	"Load", 		"*@}", 		evalload,
 	[Ounload]	"Unload",		"@",		evalnop,
 
+	[Otobuf]	"ToBuffer",		"*@",		evalconv,
 	[Otodec]	"ToDecimalString",	"*@",		evalconv,
 	[Otohex]	"ToHexString",		"*@",		evalconv,
 	[Otoint]	"ToInteger",		"*@",		evalconv,
@@ -2280,7 +2284,7 @@ static uchar octab1[] = {
 /* 78 */	Odiv,	Oshl,	Oshr,	Oand,	Onand,	Oor,	Onor,	Oxor,
 /* 80 */	Onot,	Olbit,	Orbit,	Oderef,	Ocatr,	Omod,	Onotify,Osize,
 /* 88 */	Oindex,	Omatch,	Ocfld4,	Ocfld2,	Ocfld1,	Ocfld0,	Ootype,	Ocfld8,
-/* 90 */	Oland,	Olor,	Olnot,	Oleq,	Olgt,	Ollt,	Obad,	Otodec,
+/* 90 */	Oland,	Olor,	Olnot,	Oleq,	Olgt,	Ollt,	Otobuf,	Otodec,
 /* 98 */	Otohex,	Otoint,	Obad,	Obad,	Otostr,	Obad,	Omid,	Obad,
 /* A0 */	Oif,	Oelse,	Owhile,	Onop,	Oret,	Obreak,	Obad,	Obad,
 /* A8 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
