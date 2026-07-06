@@ -146,21 +146,28 @@ checktree(int fd, Blk *b, int h, Kvp *lo, Kvp *hi)
 }
 
 static int
-checklog(int fd, Bptr hd)
+checklog(int fd, Bptr hd, Bptr tl)
 {
-	Bptr bp, nb;
+	Bptr pb, bp, nb;
 	Blk *b;
-
-	bp = (Bptr){-1, -1, -1};
+	
+	pb = Zb;
 	for(bp = hd; bp.addr != -1; bp = nb){
 		if(waserror()){
 			fprint(fd, "error loading %B\n", bp);
 			return 0;
 		}
+		pb = bp;
 		b = getblk(bp, 0);
 		nb = b->logp;
 		dropblk(b);
 		poperror();
+		if(bp.addr == tl.addr)
+			break;
+	}
+	if(tl.addr != -1 && pb.addr != tl.addr){
+		fprint(fd, "truncated chain %B\n", hd);
+		return 0;
 	}
 	return 1;
 }
@@ -170,9 +177,9 @@ checkfree(int fd)
 {
 	Arena *a;
 	Arange *r, *n;
-	int i, fail;
+	int i, ok;
 
-	fail = 0;
+	ok = 1;
 	for(i = 0; i < fs->narena; i++){
 		a = &fs->arenas[i];
 		qlock(a);
@@ -180,19 +187,21 @@ checkfree(int fd)
 		for(n = (Arange*)avlnext(r); n != nil; n = (Arange*)avlnext(n)){
 			if(r->off >= n->off){
 				fprint(2, "misordered length %llx >= %llx\n", r->off, n->off);
-				fail++;
+				ok = 0;
 			}
 			if(r->off+r->len >= n->off){
 				fprint(2, "overlaping range %llx+%llx >= %llx\n", r->off, r->len, n->off);
-				fail++;
+				ok = 0;
 			}
 			r = n;
 		}
-		if(!checklog(fd, a->loghd))
+		if(!checklog(fd, a->loghd, Zb)){
 			fprint(fd, "arena %d: broken freelist\n", i);
+			ok = 0;
+		}
 		qunlock(a);
 	}
-	return fail;
+	return ok;
 }
 
 static int
@@ -201,8 +210,13 @@ checkdlist(int fd)
 	char pfx[1];
 	Dlist dl;
 	Scan s;
+	int ok;
 
-	checklog(fd, fs->snapdl.hd);
+	ok = 1;
+	if(!checklog(fd, fs->snapdl.hd, fs->snapdl.tl)){
+		fprint(fd, "bad snap dlist (%B, %B): %s\n", fs->snapdl.hd, fs->snapdl.tl, errmsg());
+		ok = 0;
+	}
 	pfx[0] = Kdlist;
 	btnewscan(&s, pfx, 1);
 	btenter(&fs->snap, &s);
@@ -210,11 +224,13 @@ checkdlist(int fd)
 		if(!btnext(&s, &s.kv))
 			break;
 		kv2dlist(&s.kv, &dl);
-		if(!checklog(fd, dl.hd))
+		if(!checklog(fd, dl.hd, dl.tl)){
 			fprint(fd, "bad dlist %P: %s\n", &s.kv, errmsg());
+			ok = 0;
+		}
 	}
 	btexit(&s);
-	return 0;
+	return ok;
 }
 
 static int
@@ -264,10 +280,10 @@ checkfs(int fd)
 		return 0;
 	}
 	fprint(fd, "checking freelist\n");
-	if(checkfree(fd))
+	if(!checkfree(fd))
 		ok = 0;
 	fprint(fd, "checking deadlist\n");
-	if(checkdlist(fd))
+	if(!checkdlist(fd))
 		ok = 0;
 	fprint(fd, "checking snap tree: %B\n", fs->snap.bp);
 	if((b = getroot(&fs->snap, &height)) != nil){
