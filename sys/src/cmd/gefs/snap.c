@@ -156,9 +156,11 @@ freedl(Dlist *dl)
 	Bptr bp;
 	Blk *b;
 	char *p;
+	int done;
 
 	bp = dl->hd;
-	while(bp.addr != -1){
+	done = 0;
+	while(bp.addr != -1 && !done){
 		b = getblk(bp, 0);
 		for(p = b->data; p != b->data+b->logsz; p += 8){
 			qe.op = Qfree;
@@ -170,6 +172,7 @@ freedl(Dlist *dl)
 			qput(a->sync, qe);
 			traceb("dlclear", qe.bp);
 		}
+		done = (bp.addr == dl->tl.addr);
 		bp = b->logp;
 		qe.op = Qfree;
 		qe.bp = b->bp;
@@ -181,6 +184,77 @@ freedl(Dlist *dl)
 	}
 }
 
+static void
+splicedl(Dlist *d, Dlist *m)
+{
+	Blk *b;
+
+	/*
+	 * If the dest dlist didn't exist,
+	 * just move the merge dlist over
+	 * and be done with it, otherwise
+	 * chain onto the existing dlist
+	 * tail.
+	 */
+	assert(d != m);
+	if(m->hd.addr == -1)
+		return;
+	if(d->hd.addr == -1){
+		assert(d->ins == nil);
+		d->hd = m->hd;
+		d->tl = m->tl;
+		d->ins = m->ins;
+		m->ins = nil;
+	}else{
+		if(m->ins != nil){
+			enqueue(m->ins);
+			dropblk(m->ins);
+			m->ins = nil;
+		}
+		b = getblk(d->tl, 0);
+		b->logp = m->hd;
+		d->tl = m->tl;
+		assert(d->hd.addr != m->hd.addr);
+		/* dlflush writes the tail, so we shouldn't */
+		if(b != d->ins){
+			finalize(b);
+			syncblk(b);
+		}
+		dropblk(b);
+	}
+}
+
+static void
+mergedl(vlong merge, vlong gen, vlong bgen)
+{
+	char buf[2][Kvmax];
+	Dlist *d, *m;
+	Msg msg[2];
+
+	d = nil;
+	m = nil;
+	if(waserror()){
+		putdl(m);
+		putdl(d);
+		nexterror();
+	}
+	d = getdl(merge, bgen);
+	m = getdl(gen, bgen);
+	splicedl(d, m);
+	msg[0].op = Odelete;
+	dlist2kv(m, &msg[0], buf[0], sizeof(buf[0]));
+	msg[1].op = Oinsert;
+	dlist2kv(d, &msg[1], buf[1], sizeof(buf[1]));
+	btupsert(&fs->snap, msg, 2);
+	putdl(m);
+	putdl(d);
+	poperror();
+}
+
+/*
+ * Reclaims a deadlist after the next superblock
+ * commit.
+ */
 static void
 deferdl(vlong gen, vlong bgen)
 {
@@ -195,64 +269,8 @@ deferdl(vlong gen, vlong bgen)
 	assert(d->ins == nil);
 	dlcachedel(d, 1);
 	fs->dlcount--;
-	limbo(DFdlist, d);
-}
-
-static void
-mergedl(vlong merge, vlong gen, vlong bgen)
-{
-	char buf[2][Kvmax];
-	Dlist *d, *m;
-	Msg msg[2];
-	Blk *b;
-
-	d = nil;
-	m = nil;
-	if(waserror()){
-		putdl(m);
-		putdl(d);
-		nexterror();
-	}
-	d = getdl(merge, bgen);
-	m = getdl(gen, bgen);
-	assert(d != m);
-	/*
-	 * If the dest dlist didn't exist,
-	 * just move the merge dlist over
-	 * and be done with it, otherwise
-	 * chain onto the existing dlist
-	 * tail.
-	 */
-	if(m->hd.addr != -1){
-		if(d->hd.addr == -1){
-			assert(d->ins == nil);
-			d->hd = m->hd;
-			d->tl = m->tl;
-			d->ins = m->ins;
-			m->ins = nil;
-		}else{
-			if(m->ins != nil){
-				enqueue(m->ins);
-				dropblk(m->ins);
-				m->ins = nil;
-			}
-			b = getblk(d->tl, 0);
-			b->logp = m->hd;
-			d->tl = m->tl;
-			assert(d->hd.addr != m->hd.addr);
-			finalize(b);
-			syncblk(b);
-			dropblk(b);
-		}
-	}
-	msg[0].op = Odelete;
-	dlist2kv(m, &msg[0], buf[0], sizeof(buf[0]));
-	msg[1].op = Oinsert;
-	dlist2kv(d, &msg[1], buf[1], sizeof(buf[1]));
-	btupsert(&fs->snap, msg, 2);
-	putdl(m);
-	putdl(d);
-	poperror();
+	splicedl(&fs->snapdl, d);
+	free(d);
 }
 
 static void
