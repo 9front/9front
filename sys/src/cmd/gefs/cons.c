@@ -38,7 +38,6 @@ showtree(int fd, int tid, char *name)
 	Blk *b;
 	int h;
 
-	memset(&t, 0, sizeof(t));
 	epochstart(tid);
 	if(name == nil)
 		name = "main";
