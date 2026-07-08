@@ -746,11 +746,9 @@ acpiinit(void)
 	/* look for PCI interrupt mappings */
 	amlenum(amlroot, "_PRT", enumprt, nil);
 
-	/* UNTESTED */
-	if(0) {
-		/* look for legacy ISA interrupts 0-15 */
+	/* look for legacy ISA interrupts 0-15 */
+	if(getconf("*noenumcrs") == nil)
 		amlenum(amlroot, "_CRS", enumcrs, nil);
-	}
 
 	/* add identity mapped legacy ISA interrupts */
 	for(i=0; i<16; i++)
