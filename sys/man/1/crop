@@ -142,7 +142,8 @@ crop -c 255 255 255 -i -10 -b 255 150 150 imagefile > cropped
 .B /sys/src/cmd/crop.c
 .SH SEE ALSO
 .IR image (6),
-.IR color (2)
+.IR color (2),
+.IR vcrop (1)
 .SH BUGS
 .I Iconv
 should be able to do Floyd-Steinberg error diffusion or dithering
