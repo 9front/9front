@@ -442,11 +442,11 @@ main(int argc, char **argv)
 		exits(nil);
 	}
 	if(grow){
+		loadfs(dev);
 		growfs(dev);
 		exits(nil);
 	}
 	if(checkonly){
-		loadfs(dev);
 		qlock(&fs->mutlk);
 		if(!checkfs(2))
 			sysfatal("broken fs: %r");
