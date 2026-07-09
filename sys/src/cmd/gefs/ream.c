@@ -99,8 +99,9 @@ initsnap(Blk *s, Blk *r, Blk *a)
 	t.nlbl = 1;
 	t.ht = 1;
 	t.gen = fs->nextgen++;
-	t.pred = 0;
-	t.succ = 2;
+	t.base = -1;
+	t.pred = -1;
+	t.succ = -1;
 	t.bp = r->bp;
 	p = packtree(p, e - p, &t);
 	kv.nv = p - kv.v;
@@ -119,7 +120,8 @@ initsnap(Blk *s, Blk *r, Blk *a)
 	t.nlbl = 1;
 	t.ht = 1;
 	t.gen = fs->nextgen++;
-	t.pred = 0;
+	t.base = 0;
+	t.pred = -1;
 	t.succ = -1;
 	t.bp = a->bp;
 	p = packtree(p, e - p, &t);
@@ -139,7 +141,8 @@ initsnap(Blk *s, Blk *r, Blk *a)
 	t.nlbl = 1;
 	t.ht = 1;
 	t.gen = fs->nextgen++;
-	t.pred = 0;
+	t.base = 0;
+	t.pred = -1;
 	t.succ = -1;
 	t.bp = r->bp;
 	p = packtree(p, e - p, &t);

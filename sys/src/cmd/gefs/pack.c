@@ -277,6 +277,7 @@ retag2kv(vlong gen, vlong link, int dlbl, int dref, Kvp *kv, char *buf, int nbuf
 {
 	char *p;
 
+	assert(gen != -1);
 	assert(nbuf >= 8+1+1);
 	kv->k = buf;
 	if((p = packsnap(buf, nbuf, gen)) == nil)

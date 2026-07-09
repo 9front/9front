@@ -303,6 +303,7 @@ enum {
 	Owstat,		/* update kvp dirent */
 	Orelink,	/* rechain forwards */
 	Oreprev,	/* rechain backwards */
+	Oincref,	/* adjust refs on snap */
 	Nmsgtype,	/* maximum message type */
 };
 
@@ -466,8 +467,8 @@ struct Tree {
 	int	dirty;
 
 	/* on-disk */
-	int	nref;	/* number snapshots forked/after us */
-	int	nlbl;	/* number of labels referring to us */
+	int	nref;	/* number of forks */
+	int	nlbl;	/* number of labels */
 	int	ht;	/* height of the tree */
 	uint	flag;	/* flag set */
 	Bptr	bp;	/* block pointer of root */

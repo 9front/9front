@@ -407,7 +407,6 @@ statupdate(Kvp *kv, Msg *m)
 static int
 apply(Kvp *kv, Msg *m, char *buf, int nbuf)
 {
-	vlong *pv;
 	char *p;
 	Tree t;
 
@@ -427,10 +426,14 @@ apply(Kvp *kv, Msg *m, char *buf, int nbuf)
 		return 1;
 	case Orelink:
 	case Oreprev:
+	case Oincref:
 		unpacktree(&t, kv->v, kv->nv);
 		p = m->v;
-		pv = (m->op == Orelink) ? &t.succ : &t.pred;
-		*pv = UNPACK64(p);	p += 8;
+		if(m->op == Orelink)
+			t.succ = UNPACK64(p);
+		else if(m->op == Oreprev)
+			t.pred = UNPACK64(p);
+		p += 8;
 		t.nlbl += *p;		p++;
 		t.nref += *p;		p++;
 		assert(t.nlbl >= 0 && t.nref >= 0);
