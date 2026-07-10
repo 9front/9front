@@ -270,7 +270,7 @@ shrwalk(Chan *c, Chan *nc, char **name, int nname)
 			runlock(&h->lock);
 			if(wq2 == nil)
 				error(Enonexist);
-			memmove(wq->qid + wq->nqid, wq2->qid, wq2->nqid);
+			memmove(wq->qid + wq->nqid, wq2->qid, wq2->nqid * sizeof(Qid));
 			wq->nqid += wq2->nqid;
 			if(alloc)
 				cclose(wq->clone);
