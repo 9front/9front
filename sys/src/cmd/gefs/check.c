@@ -241,7 +241,7 @@ checkdata(int, Tree *t)
 	Scan s;
 	Blk *b;
 
-	pfx[0] = Klabel;
+	pfx[0] = Kdat;
 	btnewscan(&s, pfx, 1);
 	btenter(t, &s);
 	while(1){
@@ -264,11 +264,58 @@ checkdata(int, Tree *t)
 	return 0;
 }
 
+static vlong
+countlbl(vlong id)
+{
+	char pfx[1];
+	int nref;
+	Scan s;
+
+	nref = 0;
+	pfx[0] = Klabel;
+	btnewscan(&s, pfx, 1);
+	btenter(&fs->snap, &s);
+	while(1){
+		if(!btnext(&s, &s.kv))
+			break;
+		if(s.kv.nv >= 9 && UNPACK64(s.kv.v+1) == id){
+			fprint(2, "\tlabel %.*s => %lld\n", (int)(s.kv.nk-1), s.kv.k+1, UNPACK64(s.kv.v+1));
+			nref++;
+		}
+	}
+	btexit(&s);
+	return nref;
+}
+
+static vlong
+countref(vlong id)
+{
+	char pfx[1];
+	Tree t;
+	int nref;
+	Scan s;
+
+	nref = 0;
+	pfx[0] = Ksnap;
+	btnewscan(&s, pfx, 1);
+	btenter(&fs->snap, &s);
+	while(1){
+		if(!btnext(&s, &s.kv))
+			break;
+		unpacktree(&t, s.kv.v, s.kv.nv);
+		if(t.pred == -1 && t.base == id)
+			nref++;
+	}
+	btexit(&s);
+	return nref;
+}
+
 int
 checkfs(int fd)
 {
-	int ok, height;
-	char pfx[1], name[Keymax+1];
+	int ok, height, nref, nlbl;
+	char pfx[1];
+	vlong gen;
 	Tree *t;
 	Scan s;
 	Blk *b;
@@ -291,7 +338,7 @@ checkfs(int fd)
 			ok = 0;
 		dropblk(b);
 	}
-	pfx[0] = Klabel;
+	pfx[0] = Ksnap;
 	btnewscan(&s, pfx, 1);
 	btenter(&fs->snap, &s);
 	while(1){
@@ -302,19 +349,25 @@ checkfs(int fd)
 			ok = 0;
 			continue;
 		}
-		memcpy(name, s.kv.k+1, s.kv.nk-1);
-		name[s.kv.nk-1] = 0;
-		if((t = opensnap(name, nil)) == nil){
-			fprint(2, "invalid snap label %s\n", name);
+		gen = UNPACK64(s.kv.k+1);
+		if((t = opentree(gen)) == nil){
+			fprint(2, "invalid snap id %lld\n", gen);
 			ok = 0;
 			poperror();
-			break;
+			continue;
 		}
+		fprint(fd, "checking snap %lld: %B\n", gen, t->bp);
 		if(waserror()){
 			closesnap(t);
 			nexterror();
 		}
-		fprint(fd, "checking snap %s: %B\n", name, t->bp);
+		nref = countref(gen);
+		nlbl = countlbl(gen);
+		fprint(fd, "\tnref %d nlbl %d\n", nref, nlbl);
+		if(t->nref < nref || t->nlbl < nlbl){
+			fprint(fd, "mismatched refs: (%d, %d) != (%d, %d)\n", t->nref, nref, t->nlbl, nlbl);
+			ok = 0;
+		}
 		b = getroot(t, &height);
 		if(waserror()){
 			dropblk(b);
