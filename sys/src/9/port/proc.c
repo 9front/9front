@@ -1240,7 +1240,7 @@ freenotes(Proc *p)
 {
 	while(p->nnote > 0){
 		freenote(p->note[--p->nnote]);
-		up->note[p->nnote] = nil;
+		p->note[p->nnote] = nil;
 	}
 }
 
