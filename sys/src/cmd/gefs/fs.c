@@ -1102,7 +1102,6 @@ authwrite(Fid *f, Fmsg *m)
 	r.type = Rwrite;
 	r.count = m->count;
 	respond(m, &r);
-
 }
 
 /* fsauth: must not raise error() */
@@ -1991,6 +1990,8 @@ fsremove(Fmsg *m, int id, Amsg **ao)
 	nm = 0;
 	wlock(f);
 	clunkfid(m->conn, f, ao);
+	if(agetl(&fs->rdonly))
+		error(Erdonly);
 	truncwait(f->dent, id);
 	wlock(f->dent);
 	if(waserror()){
@@ -2420,7 +2421,9 @@ fswrite(Fmsg *m, int id)
 		putfid(f);
 		poperror();
 		return;
-	}	
+	}
+	if(agetl(&fs->rdonly))
+		error(Erdonly);
 	wlock(f);
 	truncwait(f->dent, id);
 	wlock(f->dent);
@@ -2702,36 +2705,24 @@ runmutate(int id, void *)
 	Mount *mnt;
 	Fmsg *m;
 	Amsg *a;
-	Fid *f;
 
-	if(agetl(&fs->rdonly))
-		return;
-	mnt = getmount("adm");
-	migrateusers(id, mnt);
-	clunkmount(mnt);
+	if(!agetl(&fs->rdonly)){
+		mnt = getmount("adm");
+		migrateusers(id, mnt);
+		clunkmount(mnt);
+	}
 
 	while(1){
 		a = nil;
 		m = chrecv(fs->wrchan);
 		if(agetl(&fs->rdonly)){
-			/*
-			 * special case: even if Tremove fails, we need
-			 * to clunk the fid.
-			 */
-			if(m->type == Tremove){
-				if((f = getfid(m->conn, m->fid)) == nil){
-					rerror(m, Enofid);
-					continue;
-				}
-				wlock(f);
-				clunkfid(m->conn, f, &a);
-				wunlock(f);
-				putfid(f);
-				freeamsg(a);
+			switch(m->type){
+			case Tremove:	fsremove(m, id, nil);	break;
+			case Twrite:	fswrite(m, id);		break;
+			default:	rerror(m, Erdonly);	break;
 			}
-			rerror(m, Erdonly);
 			continue;
- 		}
+		}
 
 		qlock(&fs->mutlk);
 		epochstart(id);
