@@ -175,7 +175,6 @@ clrsnap(char *tag, Fmsg *m)
 	a->delete = 1;
 	a->m = m;
 	strecpy(a->old, a->old+sizeof(a->old), tag);
-	asend(AOsync, nil);
 	chsend(fs->admchan, a);
 }
 
@@ -191,7 +190,6 @@ takesnap(char *old, char *new, int flag, Fmsg *m)
 	a->m = m;
 	strecpy(a->old, a->old+sizeof(a->old), old);
 	strecpy(a->new, a->new+sizeof(a->new), new);
-	asend(AOsync, nil);
 	chsend(fs->admchan, a);
 }
 

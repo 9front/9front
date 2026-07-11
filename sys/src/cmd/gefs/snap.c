@@ -413,9 +413,11 @@ delsnap(Tree *t, vlong succ, char *name)
 void
 tagsnap(Tree *t, char *name, int flg)
 {
-	char buf[3][Kvmax];
+	char *p, buf[3][Kvmax];
+	Tree n, c;
 	Msg m[3];
-	Tree n;
+	Kvp kv;
+	Key k;
 	int i;
 
 	if(strcmp(name, "dump") == 0
@@ -425,12 +427,19 @@ tagsnap(Tree *t, char *name, int flg)
 
 	i = 0;
 	if(flg & Lmut){
+		p = packsnap(buf[0], sizeof(buf[0]), t->gen);
+		k.k = buf[0];
+		k.nk = p - buf[0];
+		if(!btlookup(&fs->snap, &k, &kv, buf[0], sizeof(buf[0])))
+			broke(Efs);
+		unpacktree(&c, kv.v, kv.nv);
+
 		memset(&n, 0, sizeof(Tree));
 		n.dirty = 0;
 		n.nlbl = 1;
 		n.nref = 0;
-		n.ht = t->ht;
-		n.bp = t->bp;
+		n.ht = c.ht;
+		n.bp = c.bp;
 		n.succ = -1;
 		n.pred = -1;
 		n.base = t->gen;
