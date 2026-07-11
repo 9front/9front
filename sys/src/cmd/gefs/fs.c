@@ -2002,8 +2002,6 @@ fsremove(Fmsg *m, int id, Amsg **ao)
 		error(Eperm);
 	if(f->dent->gone)
 		error(Ephase);
-	if((f->dent->qid.type & QTEXCL) && agetl(&f->dent->ref) != 1)
-		error(Elocked);
 	/*
 	 * we need a double check that the file is in the tree
 	 * here, because the walk to the fid is done in a reader
