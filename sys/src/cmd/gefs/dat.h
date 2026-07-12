@@ -720,11 +720,6 @@ struct Conn {
 struct Fid {
 	RWLock;
 	Fid	*next;
-	/*
-	 * if opened with OEXEC, we want to use a snapshot,
-	 * instead of the most recent root, to prevent
-	 * paging in the wrong executable.
-	 */
 	Mount	*mnt;
 	Scan	*scan;	/* in progres scan */
 	Dent	*dent;	/* (pqid, name) ref, modified on rename */
