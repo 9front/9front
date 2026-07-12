@@ -385,5 +385,9 @@ checkfs(int fd)
 	}
 	btexit(&s);
 	poperror();
+	if(ok)
+		fprint(fd, "ok\n");
+	else
+		fprint(fd, "not ok\n");
 	return ok;
 }
