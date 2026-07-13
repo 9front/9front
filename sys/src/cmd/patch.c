@@ -155,6 +155,8 @@ hunkheader(Hunk *h, char *s, char *oldpath, char *newpath, int lnum)
 {
 	char *e;
 
+	if(oldpath[0] == 0 || newpath[0] == 0)
+		sysfatal("empty path in patch");
 	memset(h, 0, sizeof(*h));
 	h->lnum = lnum;
 	h->oldpath = strdup(oldpath);
@@ -329,7 +331,6 @@ parse(Biobuf *f, char *name)
 	Patch *p;
 	Hunk h, *ph;
 
-	ln = nil;
 	lnum = 0;
 	p = emalloc(sizeof(Patch));
 	while((ln = readline(f, &lnum)) != nil){
