@@ -259,10 +259,10 @@ tile
 and layout
 .RB ( -l )
 images;
-.RB -c
+.B -c
 selects a true-color buffer image, for use with
 drawterm or in case selecting a tile obscures it completely;
-.RB -f
+.B -f
 causes mahjongg to indicate non-blocked tiles on mouse-over.
 The 
 .L N
@@ -308,6 +308,12 @@ reverses the simulation.
 and
 .L Del
 quit the simulation.
+.TP
+.B rotzoomer
+.I "TWO BILLION DOLLAS"
+worth of post-market affine psychedelia. Flag
+.B -s
+smoothes the visual gore.
 .TP
 .B sokoban
 Guide Glenda through a room full of walls, pebbles and holes to put
