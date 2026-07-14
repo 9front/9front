@@ -31,7 +31,7 @@ showdir(Hash dh, char *dname, char m)
 
 	path[npath++] = dname;
 	if((d = readobject(dh)) == nil)
-		sysfatal("bad hash %H", dh);
+		sysfatal("bad dir entry %s %H", dname, dh);
 	assert(d->type == GTree);
 	p = d->tree->ent;
 	e = p + d->tree->nent;
@@ -51,7 +51,7 @@ showdir(Hash dh, char *dname, char m)
 void
 show(Dirent *e, char m)
 {
-	if(e->mode & DMDIR)
+	if(e->mode & DMDIR && !e->ismod)
 		showdir(e->h, e->name, m);
 	else
 		print("%c %P%s\n", m, e->name);
