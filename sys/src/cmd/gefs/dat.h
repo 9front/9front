@@ -192,9 +192,12 @@ extern char Ecdir[];
 extern char Ebadctl[];
 extern char Enoqid[];
 extern char Echeck[];
+extern char Eopen[];
+extern char Eoffset[];
 
 extern char Esnapu[];
 extern char Esnapx[];
+extern char Esnapr[];
 
 extern char Ewstatt[];
 extern char Ewstatb[];

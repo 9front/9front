@@ -347,7 +347,7 @@ delsnap(Tree *t, vlong succ, char *name)
 		if(strcmp(name, "dump") == 0
 		|| strcmp(name, "empty") == 0
 		|| strcmp(name, "adm") == 0)
-			error(Ename);
+			error(Esnapr);
 
 		m[nm].op = Odelete;
 		m[nm].k = buf[nm];
