@@ -2,231 +2,68 @@
 .SH NAME
 gefs \- file server maintenance
 .SH SYNOPSIS
-.PD 0
 .PP
-.B check
-.PP
-.B df
-.PP
-.B halt
-.PP
-.B help
-.PP
-.B permit
-[
-.B on
-|
-.BR off
-]
-.PP
-.B save trace
-.I filename
-.PP
-.B set
-[
-.I snap
-]
-.I key
-.I val
-.PP
-.B clr
-[
-.I snap
-]
-.I key
-.PP
-.B snap
-[
--mdl
-]
-[
-.I old 
-[
-.I new
-]
-]
-.PP
-.B sync
-.PP
-.B users
+.nf
+.B mount /srv/gefs /adm adm
+.sp 0.3V
+.B /adm/ctl
+.B /adm/status
+.B /adm/users
+.B /srv/gefs.cmd
+.fi
 .SH DESCRIPTION
 .IR Gefs (4)
-provides an administration console on
-.IR /srv/gefs.cmd .
-By default, this console is only readable
-and writable by the owner of the file system.
-.SH CONSOLE
-.PP
-The console handles the following commands:
-.PP
-.I Check
-applies basic consistency checks to the file system,
-reporting invalid blocks, broken metadata, and other
-similar structural issues.
-.PP
-.I Df
-prints the amount of used space and total space in megabytes,
-as well as the percentage of space occupied.
-.PP
-.I Halt
-syncs all IO to disk and exits the file system.
-While the syncing occurs, the file system does not
-allow new writes.
-.PP
-.I Help
-prints a summary of the available commands.
-This table includes additional debug commands that are
-subject to change, and are intentionally undocumented.
-.PP
-.I Permit
-[
-.B on
-|
-.B off
-]
-has two effects.
-First, if the user table is broken, it allows a fallback to a default user list.
-This allows the system administrator to recover if they reboot with a broken user file.
-Second, it allows mounts to occur in permissive mode by any user.
-Permissive mounts are designated by prefixing the attach spec with a
-.I %
-sigil.
-Permissive disables permissions checks when accessing files, and allows
-.IR wstat (5)
-to modify the owner of the file.
-This may be useful during file system initialization.
-.PP
-.I Set
-or
-.I clr
-sets or clears a configuration key, respectively.
-If the
-.I snap
-name is passed, then the key is set in that snapshot.
-If not, then it is set globally.
-This key is a free form string which controls
-some aspect of file system behavior on that snapshot.
-All changes take effect after the file system is restarted.
-Currently, one configuration option is supported:
-.TP
-.BI retain 'timespec'
-sets the schedule for which snapshots are retained.
-The timespec is a sequence of counts and intervals,
-in the form <
-.BR count >@<
-.BR interval >< 
-.BR scale >.
-Every
-.BR interval ,
-a new snapshot is taken.
-Up to
-.B count
-snapshots are retained in the history, with old ones aging out.
-If the 
-.B count
-is omitted, then old snapshots are not trimmed.
-If the
-.B interval
-is omitted, it defaults to 1.
-.IP
-Snapshot timing is taken from the config key attached to the snapshot.
-If there is no key attached to the snapshot,
-the global config key is used.
-If there is no global config key, the default value
-.B `60@1m 24@1h @1d'
-is used.
-.PP
-.B Snap
-manages snapshots.
-It can be invoked as
-.I snap
-.BR -l ,
-.I snap
-.B -d
-.IR snap ,
-or
-.I snap
-[
-.B -flags
-]
-.IR "[[old] new]" ,
-which will list, delete, or create new snapshots respectively.
-By default, the
-.I snap
-command creates a snapshot of
-.IR old ,
-tagging it with the name
-.IR new .
-It accepts the following options:
-.TP
-.B -l
-Lists snapshots and their attributes.
-This flag accepts no arguments.
-.TP
-.BI "-d " snap
-Deletes a snapshot, reclaiming whatever space
-is not shared with other snapshots.
-This flag accepts a single argument,
-.IR old ,
-as the partition to delete.
-.TP
-.B -m
-Marks the newly created snapshot as mutable,
-rather than read-only.
-This flag only has an effect when tagging a new snapshot,
-and is ignored otherwise.
-.PP
-.I Sync
-writes dirty blocks in memory to the disk.
-.PP
-.B Users
-attempts to reload the user table from
-.IR /adm/users .
-.PP
-.I Save trace
-saves a trace of recent operations to a file.
-If a file is not specified, it prints to the console.
+provides a number of special files for administration in the
+.IR adm \ snapshot
+(traditionally mounted in
+.BR /adm ),
+as well as an interactive console on
+.BR /srv/gefs.cmd .
 .SH SNAPSHOTS
-Snapshots are independent views of a filesystem hierarchy.
-A snapshot may be mutable or immutable.
-Mutable snapshots can be mounted and written to;
-immutable snapshots are a view of a file system hierarchy at a point in time.
-They are referred to by name, and are selected at mount time with an attach spec.
+Snapshots are views of a filesystem hierarchy within a branching timeline.
+The branch may have a single mutable snapshot which will update the branch when written to.
+All other snapshots are immutable and frozen in time.
+Each branch evolves independently of all other branches,
+and is referred to by the label of its head snapshot.
+All branches are forked from an empty snapshot.
+.PP
+Any snapshot is mountable by label via mount(1)'s attach spec.
 When the attach spec starts with the
 .B %
-sigil, a snapshot is mounted in permissive mode.
+sigil, that snapshot is mounted in permissive mode.
 This allows the mounting user to bypass normal file system permission checks.
 In order to mount a snapshot in permissive mode, the mounting user must be in the
 .I adm
 group.
 .PP
 There are several attach names that are reserved for the file system's internal use.
-All of these other than the
+All except
 .I main
-snapshot are required for the file system to work correctly, and may not be removed.
+may not be removed by the user.
 .TP
 .I dump:
 This is the name used to mount a list of all snapshots.
 Each snapshot in the file system will be listed in a directory.
 .TP
 .I empty:
-This is a read-only empty snapshot.
+This is an empty snapshot.
 It contains no files or directories.
-The empty snapshot may be forked in order to create a new hierarchy,
-independent of other snapshots.
+All other snapshots are forked off of it.
 .TP
 .I adm:
-This is the snapshot where administrative files live.
-The
+This is the snapshot where special adminstrative files live.
+It contains the
 .I users
-file is read at gefs startup, and define the users and groups for all snapshots.
-This file is described in detail in the following section.
+file,
+the
+.I adm
+file, and the
+.I ctl
+fil
+These files are described in detail in the following sections.
 .TP
 .I main:
-This snapshot is less special than the other special snapshots.
-It is created by default at file system mount time,
-and is the snapshot which is mounted when an attach specifier is not given.
-However, it is otherwise not special.
+This branch is mounted by default if a mount spec is not provided.
 It may be deleted, created, and freely modified.
 .PP
 All snapshots are allocated from the same storage pool, and therefore
@@ -243,7 +80,6 @@ The adm snapshot would conventionally be mounted in
 It contains the
 .IR users (6)
 file.
-.IR
 The
 .I users
 file is read at file system startup, or when the
@@ -269,32 +105,141 @@ table looks like this:
 Where
 .I $user
 is specified at the time that the file system is reamed.
+.PP
+.RB The\  /adm/status
+file contains a read-only view of the configuration of the filesystem as well as a list of snapshots.
+.PP
+The control file, located at
+.BR /adm/ctl ,
+takes the following commands:
+.TF "\fLbind loopback\fR"
+.PD
+.TP
+.B check
+Check filesystem for consistency, sending results to stdout.
+.TP
+.B debug [ 0 | 1 ]
+Toggle debug output.
+.TP
+.BI delsnap\  snap
+Delete a snapshot, reclaiming whatever space is not shared with other snapshots.
+.TP
+.B halt
+Sync all IO to disk and exit the file system.
+.TP
+.B reserve [ 0 | 1 ]
+When the storage is full, it may be impossible to delete snapshots.
+With an argument of 1, temporarily allow the file system
+to use a small reserve space to recover from this scenario.
+.TP
+.BI retain\  snap\  timespec
+Set a schedule for snapshot retention of the given label.
+If the label passed is
+.I -
+the global retention is set to 
+.IR timespec ,
+from the default of
+.B `60@1m 24@1h @1d'
+.IP
+The timespec is a sequence of counts and intervals,
+in the form of
+.BI < count >@< interval >< scale\fB>\fR.
+Every
+.IR interval ,
+a new snapshot is taken.
+Up to
+.I count
+snapshots are retained in the history, with old ones aging out.
+If the 
+.I count
+is omitted, then old snapshots are not trimmed.
+If the
+.I interval
+is omitted, it defaults to 1.
+.IP
+Two special timespec values are possible.
+Specifying
+.I 'none'
+disables automatic snapshot retention,
+while
+.IR 'default'
+clears the configured retention settings for the targeted label,
+deferring to the global settings.
+.TP
+.BI snap\  name\  tag
+.PD
+Create a new snap of
+.IR name ,
+tagging it with the
+.IR tag .
+.TP
+.BI fork\  base\  new
+Create a new fork from
+.IR base ,
+giving it the name
+.IR new .
+The
+.I new
+label will be the label used to mutate the new branch.
+.TP
+.B sync
+Write dirty blocks in memory to the disk.
+The write will not return until all data that was in flight
+when the sync was issued has been written to disk.
+.TP
+.B users
+Attempt to reload the user ids from
+.IR /adm/users .
+If the user table fails to reload, the write will error.
+.SH CONSOLE
+.PP
+The console at
+.B /srv/gefs.cmd
+handles the following commands:
+.TF halt
+.PD
+.TP
+.B check
+Performs the same checks as the
+.B ctl
+file, but shows results on the cmd console,
+instead of on stdout.
+.TP
+.B halt
+Sync all IO to disk and exits the file system.
+While the syncing occurs, the file system does not
+allow new writes.
+.TP
+.B help
+Print a summary of the available commands.
+This table includes additional debug commands that are
+subject to change, and are intentionally undocumented.
 .SH EXAMPLES
 .PP
-To show current disk usage, the following may be written on the console:
+To show current disk usage:
 .IP
 .EX
-gefs# df
+grep '^usage' /adm/status
 .EE
 .PP
 To create a new snapshot:
 .IP
 .EX
-gefs# snap main myimmutable
+echo 'snap main myimmutable' > /adm/ctl
 .EE
 .PP
 To create a new mutable snapshot that does not take automatic
 checkpoints:
 .IP
 .EX
-gefs# snap -m main mymutable
-gefs# set mymutable retain ''
+echo 'fork main mymutable' > /adm/ctl
+echo 'retain mymutable none > /adm/ctl
 .EE
 .PP
 To delete a snapshot:
 .IP
 .EX
-gefs# snap -d mysnap
+echo 'delsnap mysnap' > /adm/ctl
 .EE
 .PP
 To set the snapshot retention on the main snapshot
@@ -303,14 +248,14 @@ along with 48 snapshots taken every 2 hours,
 and a daily snapshot with no trimming:
 .IP
 .EX
-gefs# set main retain '12@5m 48@2h @d'
+echo retain main 12@5m 48@2h @d > /adm/ctl
 .EE
 .PP
 To set the default snapshot retention to daily,
 with no minute or hour snapshots:
 .IP
 .EX
-gefs# set retain @d
+echo retain - @d > /adm/ctl
 .EE
 .PP
 To create a new user:
@@ -321,14 +266,10 @@ To create a new user:
 % mount /srv/gefs /adm adm
 % sam /adm/users
 
-# From the console, reload the user table.
-# if there is an error in the user file,
-# an error will be printed on the console.
-% con -C /srv/gefs.cmd
-gefs# users
-refreshed users
-gefs# ^\\
->>> q
+# Reload the user table. If there are syntax errors
+# in the file, they will be shown here and the reload
+# will be aborted; fix them and try again.
+% echo 'users' > /adm/ctl
 
 # Mount the file system in permissive mode to allow
 # changing file ownership, then create the user dir
@@ -352,4 +293,6 @@ Instead, a new label needs to be created.
 .PP
 .SH SEE ALSO
 .IR gefs (4)
+
+
 
