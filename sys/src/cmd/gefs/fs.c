@@ -249,10 +249,8 @@ snapfs(Amsg *a)
 		nexterror();
 	}
 	if(a->delete){
-		if(mnt != nil){
-			clunkmount(mnt);
+		if(mnt != nil)
 			error(Esnapu);
-		}
 		if(delsnap(t, t->succ, a->old))
 			r = t;
 		else

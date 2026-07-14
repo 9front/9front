@@ -186,11 +186,11 @@ checkfree(int fd)
 		r = (Arange*)avlmin(a->free);
 		for(n = (Arange*)avlnext(r); n != nil; n = (Arange*)avlnext(n)){
 			if(r->off >= n->off){
-				fprint(2, "misordered length %llx >= %llx\n", r->off, n->off);
+				fprint(fd, "misordered length %llx >= %llx\n", r->off, n->off);
 				ok = 0;
 			}
 			if(r->off+r->len >= n->off){
-				fprint(2, "overlaping range %llx+%llx >= %llx\n", r->off, r->len, n->off);
+				fprint(fd, "overlaping range %llx+%llx >= %llx\n", r->off, r->len, n->off);
 				ok = 0;
 			}
 			r = n;
@@ -234,7 +234,7 @@ checkdlist(int fd)
 }
 
 static int
-checkdata(int, Tree *t)
+checkdata(int fd, Tree *t)
 {
 	char pfx[1];
 	Bptr bp;
@@ -253,7 +253,7 @@ checkdata(int, Tree *t)
 		}
 		bp = unpackbp(s.kv.v, s.kv.nv);
 		if(isfree(bp.addr)){
-			fprint(2, "free block in use: %B\n", bp);
+			fprint(fd, "free block in use: %B\n", bp);
 			error("free block in use");
 		}
 		b = getblk(bp, GBraw);
@@ -265,7 +265,7 @@ checkdata(int, Tree *t)
 }
 
 static vlong
-countlbl(vlong id)
+countlbl(int fd, vlong id)
 {
 	char pfx[1];
 	int nref;
@@ -279,7 +279,7 @@ countlbl(vlong id)
 		if(!btnext(&s, &s.kv))
 			break;
 		if(s.kv.nv >= 9 && UNPACK64(s.kv.v+1) == id){
-			fprint(2, "\tlabel %.*s => %lld\n", (int)(s.kv.nk-1), s.kv.k+1, UNPACK64(s.kv.v+1));
+			fprint(fd, "\tlabel %.*s => %lld\n", (int)(s.kv.nk-1), s.kv.k+1, UNPACK64(s.kv.v+1));
 			nref++;
 		}
 	}
@@ -351,7 +351,7 @@ checkfs(int fd)
 		}
 		gen = UNPACK64(s.kv.k+1);
 		if((t = opentree(gen)) == nil){
-			fprint(2, "invalid snap id %lld\n", gen);
+			fprint(fd, "invalid snap id %lld\n", gen);
 			ok = 0;
 			poperror();
 			continue;
@@ -362,7 +362,7 @@ checkfs(int fd)
 			nexterror();
 		}
 		nref = countref(gen);
-		nlbl = countlbl(gen);
+		nlbl = countlbl(fd, gen);
 		fprint(fd, "\tnref %d nlbl %d\n", nref, nlbl);
 		if(t->nref < nref || t->nlbl < nlbl){
 			fprint(fd, "mismatched refs: (%d, %d) != (%d, %d)\n", t->nref, nref, t->nlbl, nlbl);

@@ -47,6 +47,7 @@ char Ebadctl[]	= "invalid control message";
 char Enoqid[]	= "qids exhausted";
 char Enempty[]	= "directory is not empty";
 char Enoadm[]	= "missing adm snapshot";
+char Echeck[]	= "check -- fs not ok";
 
 char Esnapu[]	= "snap -- is currently mounted";
 char Esnapx[]	= "snap -- already exists";

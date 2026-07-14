@@ -191,6 +191,7 @@ extern char Ephase[];
 extern char Ecdir[];
 extern char Ebadctl[];
 extern char Enoqid[];
+extern char Echeck[];
 
 extern char Esnapu[];
 extern char Esnapx[];

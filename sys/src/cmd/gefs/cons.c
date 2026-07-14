@@ -126,7 +126,19 @@ runcons(int tid, void *pfd)
 		nf = tokenize(buf, f, nelem(f));
 		if(nf == 0)
 			continue;
-		if(strcmp(f[0], "halt") == 0){
+		if(strcmp(f[0], "help") == 0){
+			fprint(fd, "help -- show this message\n");
+			fprint(fd, "halt -- halt the fs\n");
+			fprint(fd, "check -- check fs consistency\n");
+			fprint(fd, "show -- show debug info\n");
+			fprint(fd, "\tfree -- free blocks\n");
+			fprint(fd, "\ttrace -- trace of recent operations\n");
+			fprint(fd,"\ttree [name] -- dump tree 'name'\n");
+		}else if(strcmp(f[0], "check") == 0){
+			qlock(&fs->mutlk);
+			checkfs(fd);
+			qunlock(&fs->mutlk);
+		}else if(strcmp(f[0], "halt") == 0){
 			a = emalloc(sizeof(Amsg), 1);
 			a->op = AOhalt;
 			chsend(fs->admchan, a);		
