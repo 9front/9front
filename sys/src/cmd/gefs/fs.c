@@ -421,7 +421,7 @@ upsert(Mount *mnt, Msg *m, int nm)
 {
 	Tree *r;
 
-	if(!(mnt->flag & Lmut))
+	if(!(mnt->flag & Lmut) || agetl(&fs->rdonly))
 		error(Erdonly);
 	r = agetp(&mnt->root);
 	if(r->nlbl != 1 || r->nref != 0) {
@@ -2721,21 +2721,19 @@ runmutate(int id, void *)
 	while(1){
 		a = nil;
 		m = chrecv(fs->wrchan);
-		if(agetl(&fs->rdonly)){
-			switch(m->type){
-			case Tremove:	fsremove(m, id, nil);	break;
-			case Twrite:	fswrite(m, id);		break;
-			default:	rerror(m, Erdonly);	break;
-			}
-			continue;
-		}
-
 		qlock(&fs->mutlk);
 		epochstart(id);
 		fs->snap.dirty = 1;
 		if(waserror())
 			rerror(m, "%s", errmsg());
 		else {
+			/*
+			 * even if we're readonly, we want to allow
+			 * mutation operations through, since we need
+			 * things like writes to go through to ctl
+			 * files, auth fids, etc. the check in upsert()
+			 * should prevent actual on-disk mutation.
+			 */
 			switch(m->type){
 			case Tcreate:	fscreate(m);		break;
 			case Twrite:	fswrite(m, id);		break;
