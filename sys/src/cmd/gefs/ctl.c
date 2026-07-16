@@ -41,8 +41,10 @@ static void
 showconf(Fmt *fmt, Tree *t, char *name)
 {
 	char pfx[1];
+	int shown;
 	Scan s;
 
+	shown = 0;
 	pfx[0] = Kconf;
 	btnewscan(&s, pfx, 1);
 	btenter(t, &s);
@@ -51,8 +53,11 @@ showconf(Fmt *fmt, Tree *t, char *name)
 			break;
 		fmtprint(fmt, "conf %q %.*q %.*q\n",
 			name, (int)s.kv.nk-1, s.kv.k+1, (int)s.kv.nv, s.kv.v);
+		shown = 1;
 	}
 	btexit(&s);
+	if(name[0] == 0 && !shown)
+		fmtprint(fmt, "conf retain '' '60@m 24@h @d'\n");
 }
 
 static void
