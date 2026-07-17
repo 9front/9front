@@ -181,23 +181,19 @@ drawstrobos(Strobos *s)
 		s->txtwp = mkwarp(S);
 	}
 
-	affinewarp(s->back, s->back->r, s->txtim, s->txtim->r.min, &s->txtwp, smooth);
+	affinewarpop(s->back, s->back->r, s->txtim, nil, s->txtim->r.min, &s->txtwp, smooth, S);
 	draw(screenb, rectaddpt(s->back->r, addpt(screenb->r.min, s->p)), s->back, nil, ZP);
 }
 
 void
 redraw(void)
 {
-	Rectangle cr0;
 	int i;
 
 	rlockdisplay(display);
-	affinewarp(bl->b, bl->b->r, bl->c, ZP, &bl->w, 0);
+	affinewarp(bl->b, bl->b->r, bl->c, nil, ZP, &bl->w, 0);
 	draw(screenb, screenb->r, bl->b, bg, ZP);
-	cr0 = screenb->clipr;
-	replclipr(screenb, 0, insetrect(screenb->r, 50));
-	affinewarp(screenb, screenb->clipr, sprite, sprite->r.min, &warp, smooth);
-	replclipr(screenb, 0, cr0);
+	affinewarp(screenb, insetrect(screenb->r, 50), sprite, nil, sprite->r.min, &warp, smooth);
 	drawstats();
 	for(i = 0; i < nstrobos; i++)
 		drawstrobos(strobostab[i]);
@@ -269,7 +265,7 @@ update(double f)
 	mulm(R₁, T₀);
 	bl->w = mkwarp(R₁);
 }
-
+QLock pauselk;
 void
 clkproc(void*)
 {
@@ -278,9 +274,11 @@ clkproc(void*)
 	threadsetname("clkproc");
 
 	for(;;){
+		qlock(&pauselk);
 		t0 = nsec();
 		update(t0/1e9);
 		nbsend(drawc, nil);
+		qunlock(&pauselk);
 		Δt = nsec() - t0;
 		if(Δt < 33*1000*1000)
 			sleep(33 - Δt/1000000);
@@ -295,10 +293,16 @@ mouse(void)
 void
 key(Rune r)
 {
+	static int paused;
 	switch(r){
 	case Kdel:
 	case 'q':
 		threadexitsall(nil);
+	case ' ':
+		if(paused) qunlock(&pauselk);
+		else qlock(&pauselk);
+		paused ^= 1;
+		break;
 	}
 }
 

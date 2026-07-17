@@ -86,6 +86,19 @@ void pal2xrgb(u32int *pal, u8int *s, u32int *d, int n);
 
 static int screenconvi;
 static uchar screenconv[2][SCREENWIDTH*SCREENHEIGHT];
+static Warp scalew;
+
+static void
+scalewarpinit(Point p, int scale)
+{
+	double TS[3][3] = {
+		scale, 0, p.x,
+		0, scale, p.y,
+		0, 0, 1,
+	};
+
+	scalew = mkwarp(TS);
+}
 
 static void
 convproc(void *p)
@@ -95,7 +108,6 @@ convproc(void *p)
 	int scale;
 	Rectangle r;
 	uchar *s;
-	Warp scalew;
 
 	if(fb == nil){
 		fb = allocimage(display, Rect(0, 0, SCREENWIDTH, SCREENHEIGHT), XRGB32, 0, DNofill);
@@ -114,15 +126,7 @@ convproc(void *p)
 	r = rectsubpt(rectaddpt(Rect(0, 0, scale*SCREENWIDTH, scale*SCREENHEIGHT), center),
 		Pt(scale*SCREENWIDTH/2, scale*SCREENHEIGHT/2));
 
-	if(scale > 1){
-		double TS[3][3] = {
-			scale, 0, r.min.x,
-			0, scale, r.min.y,
-			0, 0, 1,
-		};
-
-		scalew = mkwarp(TS);
-	}
+	scalewarpinit(subpt(r.min, screen->r.min), scale);
 
 	for(;;){
 		if((s = recvp(p)) == nil)
@@ -131,10 +135,7 @@ convproc(void *p)
 		pal2xrgb(cmap, s, buf, SCREENWIDTH*SCREENHEIGHT);
 		loadimage(fb, fb->r, (uchar*)buf, SCREENWIDTH*SCREENHEIGHT*4);
 
-		if(scale == 1)
-			draw(screen, r, fb, nil, ZP);
-		else
-			affinewarp(screen, r, fb, ZP, &scalew, 0);
+		affinewarp(screen, r, fb, nil, ZP, &scalew, 0);
 		flushimage(display, 1);
 	}
 	chanfree(p);

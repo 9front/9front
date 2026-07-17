@@ -198,11 +198,11 @@ timing(void)
 }
 
 static void
-scalewarpinit(Point p0, int scale)
+scalewarpinit(Point p, int scale)
 {
 	double TS[3][3] = {
-		scale, 0, p0.x,
-		0, scale, p0.y,
+		scale, 0, p.x,
+		0, scale, p.y,
 		0, 0, 1,
 	};
 
@@ -229,8 +229,7 @@ screeninit(void)
 		addpt(p, Pt(scale * vwdx/2, scale * vwdy/2)));
 	if(fb == nil)
 		fb = eallocimage(Rect(0, 0, vwdx, vwdy), vwchan, 0, 0);
-	if(scale > 1)
-		scalewarpinit(picr.min, scale);
+	scalewarpinit(subpt(picr.min, screen->r.min), scale);
 	draw(screen, screen->r, bg, nil, ZP);
 	recv(sync[1], nil);
 }
@@ -267,10 +266,7 @@ screenproc(void*)
 	for(;;) switch(alt(alts)){
 	case Draw:
 		loadimage(fb, fb->r, p, vwdx * vwdy * vwbpp);
-		if(scale == 1)
-			draw(screen, picr, fb, nil, ZP);
-		else
-			affinewarp(screen, picr, fb, ZP, &scalew, 0);
+		affinewarp(screen, picr, fb, nil, ZP, &scalew, 0);
 		flushimage(display, 1);
 		break;
 	case Sync1:
