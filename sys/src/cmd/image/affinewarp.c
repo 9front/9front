@@ -187,7 +187,7 @@ main(int argc, char *argv[])
 			case -1:
 				sysfatal("rfork: %r");
 			case 0:
-				memaffinewarp(dst, wr[i], src, src->r.min, &w, smooth);
+				memaffinewarp(dst, dst->r.min, wr[i], src, src->r.min, nil, ZP, &w, smooth, S);
 				exits(nil);
 			}
 		}
@@ -196,7 +196,7 @@ main(int argc, char *argv[])
 
 		free(wr);
 	}else
-		memaffinewarp(dst, dr, src, src->r.min, &w, smooth);
+		memaffinewarp(dst, dst->r.min, dr, src, src->r.min, nil, ZP, &w, smooth, S);
 
 	ewritememimage(1, dst);
 

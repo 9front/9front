@@ -213,10 +213,12 @@ clralpha(ulong c)
 {
 	int r, g, b, a;
 
+	a = (c >> 0*8) & 0xFF;
+	if(a == 0)
+		return c;
 	r = (c >> 3*8) & 0xFF;
 	g = (c >> 2*8) & 0xFF;
 	b = (c >> 1*8) & 0xFF;
-	a = (c >> 0*8) & 0xFF;
 	r = (r * 255)/a;
 	g = (g * 255)/a;
 	b = (b * 255)/a;
@@ -523,6 +525,7 @@ badregion:
 	}
 	memmove(invwarpmat, warpmat, sizeof(Matrix));
 	invm(invwarpmat);
+	region = rectsubpt(region, screen->r.min);
 	region = xformrect(region, invwarpmat);
 	if(!rectclip(&region, rectsubpt(image->r, image->r.min)))
 		goto badregion;
@@ -534,10 +537,9 @@ redraw(void)
 {
 	static Point titlep = {10, 10};
 
-	draw(screen, screen->r, display->black, nil, ZP);
-	affinewarp(screen, screen->r, image, image->r.min, &warp, smoothen);
+	affinewarpop(screen, screen->r, image, nil, image->r.min, &warp, smoothen, S);
 	if(!eqrect(region, ZR))
-		border(screen, xformrect(region, warpmat), -1, regioncol, ZP);
+		border(screen, rectaddpt(xformrect(region, warpmat), screen->r.min), -1, regioncol, ZP);
 	stringbg(screen, addpt(screen->r.min, titlep), display->white, ZP, font, title, display->black, ZP);
 	flushimage(display, 1);
 }
@@ -545,16 +547,10 @@ redraw(void)
 void
 resize(void)
 {
-	Point dp;
-
-	dp = screen->r.min;
 	lockdisplay(display);
 	if(getwindow(display, Refnone) < 0)
 		fprint(2, "can't reattach to window\n");
 	unlockdisplay(display);
-	dp = subpt(screen->r.min, dp);
-	translate(warpmat, dp.x, dp.y);
-	warp = mkwarp(warpmat);
 	redraw();
 }
 
@@ -611,7 +607,7 @@ mouse(Mousectl *mc)
 		tainted++;
 	}else if(mc->buttons & 2){
 		if((om.buttons & 2) == 0)
-			p = mc->xy;
+			p = subpt(mc->xy, screen->r.min);
 		switch(sgn(mc->xy.y - om.xy.y)){
 		case  1: goto zoomout;
 		case -1: goto zoomin;
@@ -619,14 +615,14 @@ mouse(Mousectl *mc)
 	}else if((om.buttons & 4) == 0 && (mc->buttons & 4))
 		rmb(mc);
 	if(mc->buttons & 8){
-		p = mc->xy;
+		p = subpt(mc->xy, screen->r.min);
 zoomin:
 		translate(warpmat, -p.x, -p.y);
 		scale(warpmat, Scrollzoomin);
 		translate(warpmat, p.x, p.y);
 		tainted++;
 	}else if(mc->buttons & 16){
-		p = mc->xy;
+		p = subpt(mc->xy, screen->r.min);
 zoomout:
 		translate(warpmat, -p.x, -p.y);
 		scale(warpmat, Scrollzoomout);
@@ -691,7 +687,6 @@ threadmain(int argc, char *argv[])
 		argc > 0? argv[0]: "main");
 	regioncol = eallocimage(display, Rect(0,0,1,1), XRGB32, 1, DOrange);
 	identity(warpmat);
-	translate(warpmat, screen->r.min.x, screen->r.min.y);
 	warp = mkwarp(warpmat);
 	redraw();
 
