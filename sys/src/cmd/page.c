@@ -923,7 +923,6 @@ void
 resetwarp(void)
 {
 	identity(warpmat);
-	translatem(warpmat, screen->r.min.x, screen->r.min.y);
 	warp = mkwarp(warpmat);
 }
 
@@ -1117,6 +1116,15 @@ drawframe(Rectangle r)
 	flushimage(display, 1);
 }
 
+int
+hasalpha(ulong chan)
+{
+	for(; chan; chan >>= 8)
+		if(TYPE(chan) == CAlpha)
+			return 1;
+	return 0;
+}
+
 void
 drawpage(Page *p)
 {
@@ -1125,8 +1133,12 @@ drawpage(Page *p)
 
 	if((i = p->image) != nil){
 		r = xformrect(Rpt(ZP, pagesize(p)), warpmat);
-		if(rectclip(&r, screen->r))
-			affinewarp(screen, r, i, i->r.min, &warp, 0);
+		r = rectaddpt(r, screen->r.min);
+		if(rectclip(&r, screen->r)){
+			if(hasalpha(i->chan))
+				draw(screen, r, paper, nil, ZP);
+			affinewarp(screen, r, i, nil, i->r.min, &warp, 0);
+		}
 	} else {
 		r = Rpt(ZP, stringsize(font, p->name));
 		r = rectaddpt(r, addpt(subpt(divpt(subpt(screen->r.max, screen->r.min), 2),
@@ -1149,8 +1161,12 @@ translate(Page *p, Point d)
 	translatem(warpmat, d.x, d.y);
 	warp = mkwarp(warpmat);
 	r = xformrect(Rpt(ZP, pagesize(p)), warpmat);
-	if(rectclip(&r, screen->r))
-		affinewarp(screen, r, i, i->r.min, &warp, 0);
+	r = rectaddpt(r, screen->r.min);
+	if(rectclip(&r, screen->r)){
+		if(hasalpha(i->chan))
+			draw(screen, r, paper, nil, ZP);
+		affinewarp(screen, r, i, nil, i->r.min, &warp, 0);
+	}
 	drawframe(r);
 }
 
@@ -1391,14 +1407,9 @@ void
 eresized(int new)
 {
 	Page *p;
-	Point dp;
 
-	dp = screen->r.min;
 	if(new && getwindow(display, Refnone) == -1)
 		sysfatal("getwindow: %r");
-	dp = subpt(screen->r.min, dp);
-	translatem(warpmat, dp.x, dp.y);
-	warp = mkwarp(warpmat);
 	if((p = current) != nil){
 		if(canqlock(p)){
 			drawpage(p);
@@ -1433,6 +1444,7 @@ void
 docmd(int i, Mouse *m)
 {
 	char buf[NPATH], *s;
+	Point o;
 	int fd;
 
 	switch(i){
@@ -1468,20 +1480,21 @@ docmd(int i, Mouse *m)
 	case Czoomout:
 		if(current == nil || !canqlock(current))
 			break;
+		o = subpt(m->xy, screen->r.min);
 		if(i == Czoomin){
 			if(zoom < 0x1000){
 				zoom *= 2;
-				translatem(warpmat, -m->xy.x, -m->xy.y);
+				translatem(warpmat, -o.x, -o.y);
 				scalem(warpmat, 2, 2);
-				translatem(warpmat, m->xy.x, m->xy.y);
+				translatem(warpmat, o.x, o.y);
 				warp = mkwarp(warpmat);
 			}
 		}else{
 			if(zoom > 1){
 				zoom /= 2;
-				translatem(warpmat, -m->xy.x, -m->xy.y);
+				translatem(warpmat, -o.x, -o.y);
 				scalem(warpmat, 0.5, 0.5);
-				translatem(warpmat, m->xy.x, m->xy.y);
+				translatem(warpmat, o.x, o.y);
 				warp = mkwarp(warpmat);
 			}
 		}
@@ -1546,7 +1559,7 @@ scroll(int y)
 
 	if(current == nil || !canqlock(current))
 		return;
-	pos = subpt(xformpt(ZP, warpmat), screen->r.min);
+	pos = xformpt(ZP, warpmat);
 	if(y < 0){
 		if(pos.y >= 0){
 			p = prevpage(current);
