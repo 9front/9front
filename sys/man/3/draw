@@ -184,23 +184,8 @@ interface.
 .IR warp [3*3*4]
 .IR flags [1]
 .br
-Apply an affine image warping transformation
-.I warp
-to the image with id
-.I srcid
-starting at point
-.IR sp ,
-and blit the result to the subregion of image
-.I dstid
-defined by
-.IR dr .
-If the first bit in the
-.I flags
-byte is set, a bilinear interpolation filter will be applied to the
-samples.  The second bit is used to enable the integer upscaling
-optimized path; the remaining bits are reserved for future use.
-See
-.IR affinewarp (2).
+Old affine warp RPC; deprecated in favor of
+.BR w .
 .HP
 .B b 
 .IR id [4]
@@ -727,6 +712,51 @@ are moved as a group, maintaining their own order within the stack.
 .B v
 .br
 Flush changes from a soft screen, if any, to the display buffer.
+.HP
+.B w
+.IR dstid [4]
+.IR dp [2*4]
+.IR dr [4*4]
+.IR srcid [4]
+.IR sp [2*4]
+.IR maskid [4]
+.IR mp [2*4]
+.IR warp [3*3*4]
+.IR flags [1]
+.br
+Apply an affine image warping transformation
+.I warp
+to
+.I srcid
+starting at point
+.IR sp ,
+and blit the result to the subregion of
+.I dstid
+defined by
+.IR dr .
+The source is positioned so
+.I sp
+in
+.I srcid
+maps to
+.I dp
+in
+.IR dstid ,
+which is treated as the origin for the affine transformation; it's
+usually set to
+.IB dst ->r.min\fR.
+The
+.I maskid
+parameter and its associated
+.I mp
+are ignored for now.
+If the first bit in the
+.I flags
+byte is set, a bilinear interpolation filter will be applied to the
+samples.  The second bit is used to enable the integer upscaling
+optimized path; the remaining bits are reserved for future use.
+See
+.IR affinewarp (2).
 .HP
 .B y
 .IR id [4]

@@ -472,7 +472,10 @@ extern void	fillarcop(Image*, Point, int, int, Image*, Point, int, int, Drawop);
 extern void	border(Image*, Rectangle, int, Image*, Point);
 extern void	borderop(Image*, Rectangle, int, Image*, Point, Drawop);
 extern Warp	mkwarp(double[3][3]);
-extern void	affinewarp(Image*, Rectangle, Image*, Point, Warp*, int);
+extern void	affinewarp(Image*, Rectangle, Image*, Image*, Point, Warp*, int);
+extern void	affinewarpop(Image*, Rectangle, Image*, Image*, Point, Warp*, int, Drawop);
+extern void	genaffinewarp(Image*, Point, Rectangle, Image*, Point, Image*, Point, Warp*, int);
+extern void	genaffinewarpop(Image*, Point, Rectangle, Image*, Point, Image*, Point, Warp*, int, Drawop);
 
 /*
  * Font management

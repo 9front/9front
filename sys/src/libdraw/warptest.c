@@ -69,7 +69,7 @@ main(int argc, char *argv[])
 
 	src = readimage(display, 0, 0);
 	dst = allocimage(display, src->r, src->chan, 0, DNofill);
-	affinewarp(dst, dst->r, src, src->r.min, &w, smooth);
+	affinewarp(dst, dst->r, src, nil, src->r.min, &w, smooth);
 	writeimage(1, dst, 0);
 
 	exits(nil);

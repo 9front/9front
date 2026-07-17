@@ -1,9 +1,10 @@
 .TH DRAW 2
 .SH NAME
-Image, draw, gendraw, drawreplxy, drawrepl, replclipr, line, poly,
-fillpoly, bezier, bezspline, fillbezier, fillbezspline, ellipse,
-fillellipse, arc, fillarc, icossin, icossin2, border, mkwarp,
-affinewarp, string, stringn, runestring, runestringn, stringbg,
+Image, draw, drawop, gendraw, gendrawop, drawreplxy, drawrepl,
+replclipr, line, poly, fillpoly, bezier, bezspline, fillbezier,
+fillbezspline, ellipse, fillellipse, arc, fillarc, icossin, icossin2,
+border, mkwarp, affinewarp, affinewarpop, genaffinewarp,
+genaffinewarpop, string, stringn, runestring, runestringn, stringbg,
 stringnbg, runestringbg, runestringnbg, _string, ARROW, drawsetdebug
 \- graphics functions
 .de PB
@@ -168,8 +169,14 @@ void	borderop(Image *dst, Rectangle r, int i, Image *color, Point sp,
 .PB
 Warp	mkwarp(double m[3][3])
 .PB
-void	affinewarp(Image *dst, Rectangle r, Image *src, Point p, Warp *w,
-		int smooth)
+void	affinewarp(Image *dst, Rectangle r, Image *src,
+		Image *mask, Point p, Warp *w, int smooth)
+void	affinewarpop(Image *dst, Rectangle r, Image *src,
+		Image *mask, Point p, Warp *w, int smooth, Drawop op)
+void	genaffinewarp(Image *dst, Point dp, Rectangle r, Image *src,
+		Point sp, Image *mask, Point mp, Warp *w, int smooth)
+void	genaffinewarpop(Image *dst, Point dp, Rectangle r, Image *src,
+		Point sp, Image *mask, Point mp, Warp *w, int smooth, Drawop op)
 .br
 .PB
 Point	string(Image *dst, Point p, Image *src, Point sp,
@@ -763,7 +770,7 @@ ignoring the last row which is always set to
 .B "[0 0 1]"
 for affine transformations.
 .TP
-.BI affinewarp( dst\fP,\fP\ r\fP,\fP\ src\fP,\fP\ p\fP,\fP\ w\fP,\fP\ smooth\fP)
+.BI affinewarp( dst\fP,\fP\ r\fP,\fP\ src\fP,\fP\ mask\fP,\fP\ p\fP,\fP\ w\fP,\fP\ smooth\fP)
 .I Affinewarp
 applies an affine transformation defined by
 .I w
@@ -785,10 +792,49 @@ in
 corresponds to
 .IB dst ->r.min\fR,
 which is treated as the origin for the affine transformation.
+The
+.I mask
+parameter is ignored for now.
 If
 .I smooth
 is set, a bilinear interpolation filter will be used to sample
 .IR src .
+.IP
+It only supports a subset of the compositing operators, namely
+.B S
+and
+.BR SoverD .
+.TP
+.BI genaffinewarp( dst\fP,\fP\ dp\fP,\fP\ r\fP,\fP\ src\fP,\fP\ sp\fP,\fP\ mask\fP,\fP\ mp\fP,\fP\ w\fP,\fP\ smooth\fP)
+.I Genaffinewarp
+behaves like
+.I affinewarp
+with two differences:
+.RS
+.IP 1.
+Instead of mapping
+.I sp
+in src to
+.IB dst ->r.min
+it is now mapped to
+.I dp 
+as the origin for the transformation.
+.IP 2.
+The
+.I mp
+parameter is to
+.I mask
+as
+.I sp
+is to
+.IR src .
+.RE
+.IP
+Both
+.I mask
+and
+.I mp
+are currently ignored.
 .TP
 .BI string( dst\fP,\fP\ p\fP,\fP\ src\fP,\fP\ sp\fP,\fP\ font\fP,\fP\ s )
 .I String

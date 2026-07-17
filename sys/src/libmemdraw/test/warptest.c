@@ -155,7 +155,7 @@ main(int argc, char *argv[])
 			case -1:
 				sysfatal("rfork: %r");
 			case 0:
-				memaffinewarp(dst, wr[i], src, src->r.min, &w, smooth);
+				memaffinewarp(dst, dst->r.min, wr[i], src, src->r.min, nil, ZP, &w, smooth, SoverD);
 				exits(nil);
 			}
 		}
@@ -164,24 +164,17 @@ main(int argc, char *argv[])
 
 		free(wr);
 	}else{
-//		memaffinewarp(dst, dr, src, src->r.min, &w, smooth);
+//		memaffinewarp(dst, dst->r.min, dr, src, src->r.min, &w, smooth, SoverD);
 
 		dr = rectaddpt(Rect(0,0,Dx(dst->r)/2,Dy(dst->r)/2), dst->r.min);
-		memaffinewarp(dst, dr, src, src->r.min, &w, smooth);
+		memaffinewarp(dst, dst->r.min, dr, src, src->r.min, nil, ZP, &w, smooth, SoverD);
 		dr = rectaddpt(Rect(Dx(dst->r)/2+1,0,Dx(dst->r),Dy(dst->r)/2), dst->r.min);
-		memaffinewarp(dst, dr, src, src->r.min, &w, smooth);
+		memaffinewarp(dst, dst->r.min, dr, src, src->r.min, nil, ZP, &w, smooth, SoverD);
 		dr = rectaddpt(Rect(0,Dy(dst->r)/2+1,Dx(dst->r)/2,Dy(dst->r)), dst->r.min);
-		memaffinewarp(dst, dr, src, src->r.min, &w, smooth);
+		memaffinewarp(dst, dst->r.min, dr, src, src->r.min, nil, ZP, &w, smooth, SoverD);
 		dr = Rect(Dx(dst->r)/2+1,Dy(dst->r)/2+1,Dx(dst->r),Dy(dst->r));
-		Matrix T₂ = {
-			1, 0, dr.min.x,
-			0, 1, dr.min.y,
-			0, 0, 1,
-		};
-		mulm(T₂, T);
-		w = mkwarp(T₂);
 		dr = rectaddpt(dr, dst->r.min);
-		memaffinewarp(dst, dr, src, src->r.min, &w, smooth);
+		memaffinewarp(dst, dr.min, dr, src, src->r.min, nil, ZP, &w, smooth, SoverD);
 	}
 	profend();
 	writememimage(1, dst);

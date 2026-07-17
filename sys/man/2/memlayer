@@ -1,6 +1,9 @@
 .TH MEMLAYER 2
 .SH NAME
-memdraw, memlalloc, memldelete, memlexpose, memlfree, memlhide, memline, memlnorefresh, memload, memunload, memlorigin, memlsetrefresh, memltofront, memltofrontn, memltorear, memltorearn \- windows of memory-resident images
+memdraw, memlalloc, memldelete, memlexpose, memlfree, memlhide,
+memline, memlnorefresh, memload, memunload, memlorigin,
+memlsetrefresh, memltofront, memltofrontn, memltorear, memltorearn,
+memlaffinewarp \- windows of memory-resident images
 .SH SYNOPSIS
 .nf
 .B #include <u.h>
@@ -43,7 +46,10 @@ struct Memlayer
 .ta \w'\fLMemimage* 'u
 .PP
 .B
-Memimage*	memlalloc(Memscreen *s, Rectangle r, Refreshfn fn, void *arg, ulong col)
+Memimage*	memlalloc(Memscreen *s, Rectangle r, Refreshfn fn,
+.br
+.B
+		void *arg, ulong col)
 .PP
 .B void	memlnorefresh(Memimage *i, Rectangle r, void *arg)
 .PP
@@ -96,10 +102,13 @@ int	memunload(Memimage *i, Rectangle r,
 		uchar *buf, int n)
 .PP
 .B
-void	memlaffinewarp(Memimage *dst, Rectangle r,
+void	memlaffinewarp(Memimage *dst, Point dp, Rectangle r,
 .br
 .B
-		Memimage *src, Point sp, Warp w, int smooth)
+		Memimage *src, Point sp, Memimage *mask, Point mp,
+.br
+.B
+		Warp *w, int smooth, Drawop op)
 .SH DESCRIPTION
 These functions build upon the
 .IR memdraw (2)

@@ -1533,21 +1533,9 @@ drawmesg(Client *client, void *av, int n)
 			memfillcolor(i, value);
 			continue;
 
-		/* apply affine transform: 'a' dstid[4] R[4*4] srcid[4] P[2*4] M[3*3*4] smooth[1] */
+		/* DEPRECATED in favor of 'w' */
 		case 'a':
-			printmesg(fmt="LRLPMb", a, 0);
-			m = 1+4+4*4+4+2*4+3*3*4+1;
-			if(n < m)
-				error(Eshortdraw);
-			dst = drawimage(client, a+1);
-			dstid = BGLONG(a+1);
-			drawrectangle(&r, a+5);
-			src = drawimage(client, a+21);
-			drawpoint(&p, a+25);
-			drawwarp(&w, a+33);
-			memlaffinewarp(dst, r, src, p, &w, a[33+3*3*4]&1);
-			dstflush(dstid, dst, r);
-			continue;
+			error("deprecated draw command");
 
 		/* allocate screen: 'A' id[4] imageid[4] fillid[4] public[1] */
 		case 'A':
@@ -2086,6 +2074,26 @@ drawmesg(Client *client, void *av, int n)
 			printmesg(fmt="", a, 0);
 			m = 1;
 			drawflush();
+			continue;
+
+		/* apply affine transform: 'w' dstid[4] P[2*4] R[4*4] srcid[4] P[2*4] mskid[4] P[2*4] M[3*3*4] flags[1] */
+		case 'w':
+			printmesg(fmt="LPRLPLPMb", a, 0);
+			m = 1+4+2*4+4*4+4+2*4+4+2*4+3*3*4+1;
+			if(n < m)
+				error(Eshortdraw);
+			dst = drawimage(client, a+1);
+			dstid = BGLONG(a+1);
+			drawpoint(&p, a+5);
+			drawrectangle(&r, a+13);
+			src = drawimage(client, a+29);
+			drawpoint(&sp, a+33);
+			mask = drawimage(client, a+41);
+			drawpoint(&q, a+45);
+			drawwarp(&w, a+53);
+			op = drawclientop(client);
+			memlaffinewarp(dst, p, r, src, sp, mask, q, &w, a[53+3*3*4]&1, op);
+			dstflush(dstid, dst, r);
 			continue;
 
 		/* write: 'y' id[4] R[4*4] data[x*1] */
