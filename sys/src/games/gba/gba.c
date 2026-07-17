@@ -295,7 +295,7 @@ threadmain(int argc, char **argv)
 	loadbios();
 	loadrom(argv[0]);
 	gpioident();
-	initemu(240, 160, 2, CHAN4(CIgnore, 1, CBlue, 5, CGreen, 5, CRed, 5), 1, nil);
+	initemu(240, 160, 2, BGR15, 1, nil);
 	regkey("b", 'z', 1<<1);
 	regkey("a", 'x', 1<<0);
 	regkey("l1", 'a', 1<<9);
