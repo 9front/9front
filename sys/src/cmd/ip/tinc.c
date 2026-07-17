@@ -877,7 +877,7 @@ recvudp(Host *h, int fd)
 
 	if((o = (int)(seq - h->cin->seq)) > 0){
 		h->cin->seq = seq;
-		h->ooo = o < 64 ? h->ooo<<o | 1ULL : 0ULL;
+		h->ooo = o < 64 ? h->ooo<<o | 1ULL : 1ULL;
 	} else {
 		o = -o;
 		if(o >= 64 || (h->ooo & 1ULL<<o) != 0){
