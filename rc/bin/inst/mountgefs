@@ -58,7 +58,7 @@ case go
 	logprog mount -c /srv/$sname /n/newfs.adm %adm
 	log Creating "other" dataset
 	echo fork empty other > /n/newfs.adm/ctl
-	echo set other retain '''''' > /n/newfs.adm/ctl
+	echo retain other none > /n/newfs.adm/ctl
 	logprog mount -c /srv/$sname /n/newfs.other %other
 	log Configuring $fstype file server for $fs
 	echo $"userfile > /n/newfs.adm/users
