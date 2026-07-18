@@ -1160,6 +1160,7 @@ fsauth(Fmsg *m)
 		rerror(m, Efid);
 		return;
 	}
+	nf->mode = 0777;
 	putfid(nf);
 	r.type = Rauth;
 	r.aqid = de->qid;
