@@ -372,6 +372,7 @@ main(int argc, char *argv[])
 			break;
 		case REQUEST:
 		case INFOREQ:
+		case RELEASE:
 			r->resp.t = REPLY;
 			break;
 		}
