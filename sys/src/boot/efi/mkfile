@@ -7,7 +7,8 @@ PEFLAGS=$CFLAGS '-DIMAGEBASE='$IMAGEBASE
 all:V: $TARG
 
 install:V: $TARG
-	cp $prereq /386
+	cp bootia32.efi bootx64.efi efiboot.fat /386
+	cp bootaa64.efi /arm64
 
 %.8:	%.s
 	8a $PEFLAGS $stem.s
@@ -60,10 +61,11 @@ test.iso:D:	efiboot.fat
 	mkdir tmp
 	mkdir tmp/cfg
 	mkdir tmp/386
+	mkdir tmp/amd64
 	cp efiboot.fat tmp/386
 	cp /386/9bootiso tmp/386
-	cp /386/9pc tmp/386
-	echo 'bootfile=/386/9pc' >tmp/cfg/plan9.ini
+	cp /sys/src/9/pc64/9pc64 tmp/amd64
+	echo 'bootfile=/amd64/9pc64' >tmp/cfg/plan9.ini
 	disk/mk9660 -B 386/9bootiso -E 386/efiboot.fat -p <{echo +} -s tmp $target
 	rm -r tmp
 

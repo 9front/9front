@@ -170,6 +170,8 @@ is read from.
 .br
 .B /386/bootx64.efi
 .br
+.B /arm64/bootaa64.efi
+.br
 .B /386/efiboot.fat
 .SH SOURCE
 .BR /sys/src/boot/pc
