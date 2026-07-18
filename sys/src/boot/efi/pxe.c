@@ -273,6 +273,17 @@ pxeclose(void *f)
 	t->eof = 1;
 }
 
+static void
+pxestop(void)
+{
+	if(pxe != nil
+	&& pxe->Stop != nil
+	&& findconf("*nopxestop") == nil){
+		print("pxestop...");
+		eficall(pxe->Stop, pxe);
+	}
+	pxe = nil;
+}
 
 static int
 tftpopen(Tftp *t, char *path)
@@ -469,6 +480,7 @@ Found:
 	open = pxeopen;
 	read = pxeread;
 	close = pxeclose;
+	stop = pxestop;
 
 	if(pf != nil){
 		char ini[24];

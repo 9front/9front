@@ -161,6 +161,7 @@ gotit:
 	read = fsread;
 	close = fsclose;
 	open = fsopen;
+	stop = nil;
 
 	return 0;
 }

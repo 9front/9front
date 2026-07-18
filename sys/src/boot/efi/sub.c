@@ -157,7 +157,7 @@ timeout(int ms)
 extern char *confaddr;
 static char *confend;
 
-static char*
+char*
 findconf(char *s)
 {
 	char *p, *e;
@@ -378,6 +378,10 @@ bootkern(void *f)
 	memset(d, 0, t - d);
 
 	close(f);
+
+	/* stop device */
+	if(stop) (*stop)();
+
 	print("boot\n");
 
 	memconf(findconf("*e820=")?nil:&confend);
@@ -385,6 +389,6 @@ bootkern(void *f)
 
 	jump(e, BOOTARGS);
 
-Error:		
+Error:
 	return "i/o error";
 }

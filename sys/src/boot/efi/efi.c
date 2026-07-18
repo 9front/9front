@@ -9,6 +9,7 @@ EFI_SYSTEM_TABLE *ST;
 void* (*open)(char *name);
 int (*read)(void *f, void *data, int len);
 void (*close)(void *f);
+void (*stop)(void);
 
 /*
  * on ia32 and amd64, we use IMAGE_FILE_RELOCS_STRIPPED which
@@ -308,9 +309,10 @@ efimain(EFI_HANDLE ih, EFI_SYSTEM_TABLE *st)
 	if(pxeinit(&f) && isoinit(&f) && fsinit(&f))
 		print("no boot devices\n");
 
+	open = rebase(open);
 	read = rebase(read);
 	close = rebase(close);
-	open = rebase(open);
+	if(stop) stop = rebase(stop);
 
 	for(;;){
 		kern = configure(f, path);
@@ -321,6 +323,7 @@ efimain(EFI_HANDLE ih, EFI_SYSTEM_TABLE *st)
 		}
 		print(bootkern(f));
 		print("\n");
+		close(f);
 		f = nil;
 	}
 }

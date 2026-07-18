@@ -14,6 +14,7 @@ int fsinit(void **pf);
 void* (*open)(char *name);
 int (*read)(void *f, void *data, int len);
 void (*close)(void *f);
+void (*stop)(void);
 
 int readn(void *f, void *data, int len);
 void unload(void);
@@ -31,6 +32,7 @@ void print(char *s);
 
 char *configure(void *f, char *path);
 char *bootkern(void *f);
+char *findconf(char*);
 
 char *hexfmt(char *s, int i, uvlong a);
 char *decfmt(char *s, int i, ulong a);

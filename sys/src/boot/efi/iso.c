@@ -97,7 +97,7 @@ isoread(void *f, void *data, int len)
 	return len;
 }
 
-void
+static void
 isoclose(void *f)
 {
 	Extend *ex = f;
@@ -236,6 +236,7 @@ Found:
 	open = isoopen;
 	read = isoread;
 	close = isoclose;
+	stop = nil;
 
 	if(fp != nil)
 		*fp = isoopen("/cfg/plan9.ini");
