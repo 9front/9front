@@ -1,6 +1,8 @@
 .TH 9BOOT 8
 .SH NAME
-9bootfat, 9bootiso, 9boothyb, 9bootpxe, bootia32.efi, bootx64.efi, efiboot.fat \- PC bootloader for FAT, ISO and PXE network booting
+9bootfat, 9bootiso, 9boothyb, 9bootpxe, \
+bootia32.efi, bootx64.efi, bootaa64.efi, \
+efiboot.fat \- PC bootloader for FAT, ISO and PXE network booting
 .SH SYNOPSIS
 Started by PC BIOS/EFI or chainloaded by partition bootsector
 .SH DESCRIPTION
@@ -105,10 +107,12 @@ file.
 .SH EFI BOOTING
 EFI firmware looks for the files
 .I bootia32.efi
-(for 386)
-or
+(for 386),
 .I bootx64.efi
 (for amd64)
+or
+.I bootaa64.efi
+(for arm64)
 in the boot media and executes them.
 For local disk media, these files are located in the directory
 .B /efi/boot
@@ -170,9 +174,9 @@ is read from.
 .br
 .B /386/bootx64.efi
 .br
-.B /arm64/bootaa64.efi
-.br
 .B /386/efiboot.fat
+.br
+.B /arm64/bootaa64.efi
 .SH SOURCE
 .BR /sys/src/boot/pc
 .br
@@ -206,6 +210,12 @@ can produce some problems that can be avoided using the
 .B *nouartbios=
 parameter.
 Serial console is not supported by EFI.
+.PP
+Before starting the kernel, the EFI loader
+attempts to stop the network stack.
+This can be skipped by specifying
+.B *nopxestop=
+parameter.
 .PP
 .B 9bootfat
 only supports short (8+3) file-names.
