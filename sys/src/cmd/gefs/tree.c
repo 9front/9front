@@ -1556,13 +1556,16 @@ Again:
 			bp = unpackbp(kv.v, kv.nv);
 			p[i].b = getblk(bp, 0);
 		}
-	
-		/* find the minimum key along the path up */
+		ok = 1;
 		m.op = Oinsert;
 		getval(p[h-1].b, p[h-1].vi, &m);
 	}else{
 		getmsg(p[start-1].b, p[start-1].bi, &m);
-		if(m.op != Oinsert)
+		if(m.op == Oinsert)
+			ok = 1;
+		else if(m.op == Oclobber || m.op == Oclearb)
+			ok = 0;
+		else
 			broke("%s: broken entry: %M\n", Efs, &m);
 		bufsrc = start-1;
 	}
@@ -1572,6 +1575,12 @@ Again:
 			continue;
 		getmsg(p[i].b, p[i].bi, &n);
 		if(keycmp(&n, &m) < 0){
+			if(n.op == Oinsert)
+				ok = 1;
+			else if(n.op == Oclobber || n.op == Oclearb)
+				ok = 0;
+			else
+				broke("%s: broken entry: %M\n", Efs, &n);
 			bufsrc = i;
 			m = n;
 		}
@@ -1583,7 +1592,6 @@ Again:
 	}
 
 	/* scan all messages applying to the message */
-	ok = 1;
 	cpkvp(r, &m, s->kvbuf, sizeof(s->kvbuf));
 	if(bufsrc == -1)
 		p[h-1].vi++;
