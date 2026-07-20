@@ -653,6 +653,19 @@ To set a user and email for commits, run:
         email = ori@eigenstate.org
 \&'
 .EE
+.PP
+To move a branch to a different commit, combine
+.IR git/commit 's
+.B -n
+and
+.B -b
+flags. For example, to roll back the
+.I front
+branch 2 commits, run:
+.IP
+.EX
+git/branch -nb front~~ front
+.EE
 .SH FILES
 .TP
 .B $repo/.git
