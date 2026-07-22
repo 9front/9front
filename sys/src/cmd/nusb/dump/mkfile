@@ -1,0 +1,12 @@
+</$objtype/mkfile
+
+TARG=dump
+OFILES=dump.$O
+HFILES=../lib/usb.h
+
+LIB=../lib/usb.a$O
+
+BIN=/$objtype/bin/nusb
+
+</sys/src/cmd/mkone
+CFLAGS=-I../lib $CFLAGS

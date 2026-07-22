@@ -12,6 +12,7 @@ DIRS=\
 	ptp\
 	joy\
 	cam\
+	dump\
 
 default:V: all
 

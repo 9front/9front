@@ -6,6 +6,7 @@ ether,
 kb,
 serial,
 ptp,
+dump,
 usbd - Universal Serial Bus drivers
 .SH SYNOPSIS
 .B nusb/audio
@@ -60,6 +61,9 @@ usbd - Universal Serial Bus drivers
 [
 .B -dD
 ]
+.I devid
+.PP
+.B nusb/dump
 .I devid
 .PP
 .B nusb/usbd
@@ -354,6 +358,10 @@ and an optional fourth column corresponds to the range of possible numerical val
 .IR minimum / increment / maximum ).
 The same pairs can be written to the file to configure the camera.
 Currently, only the YUY2 video format is supported.
+.SS Debugging
+.I Dump
+prints information about any currently unused USB device,
+listing available interfaces, endpoints and descriptors.
 .SH SOURCE
 .B /sys/src/cmd/nusb
 .SH "SEE ALSO"
@@ -375,6 +383,9 @@ first appeared in 9front (March, 2014).
 .br
 .I Cam
 first appeared in 9front (March, 2018).
+.br
+.I Dump
+first appeared in 9front (July, 2026).
 .SH BUGS
 The various device drivers are generic USB drivers and
 may work only for certain devices of each class.
