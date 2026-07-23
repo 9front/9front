@@ -121,9 +121,11 @@ sync(int id)
 	tracem("packb");
 
 	for(mnt = agetp(&fs->mounts); mnt != nil; mnt = mnt->next){
-		r = agetp(&mnt->root);
-		r = updatesnap(r, mnt->name, mnt->flag);
-		aswapp(&mnt->root, r);
+		if(mnt->flag & Lmut){
+			r = agetp(&mnt->root);
+			r = updatesnap(r, mnt->name, mnt->flag);
+			aswapp(&mnt->root, r);
+		}
 	}
 
 	/*
@@ -234,13 +236,15 @@ snapfs(Amsg *a)
 	t = nil;
 	r = nil;
 	for(mnt = agetp(&fs->mounts); mnt != nil; mnt = mnt->next){
-		if(strcmp(a->old, mnt->name) == 0){
-			t = agetp(&mnt->root);
+		if(strcmp(a->old, mnt->name) != 0)
+			continue;
+		t = agetp(&mnt->root);
+		if(mnt->flag & Lmut){
 			t = updatesnap(t, mnt->name, mnt->flag);
-			aincl(&t->memref, 1);
 			aswapp(&mnt->root, t);
-			break;
 		}
+		aincl(&t->memref, 1);
+		break;
 	}
 	if(t == nil && (t = opensnap(a->old, nil)) == nil)
 		error(Eexist);
@@ -1403,7 +1407,7 @@ fswalk(Fmsg *m)
 	vlong up, upup, prev;
 	Dent *dent, *dir;
 	Fid *o, *f;
-	Mount *mnt;
+	Mount *mnt, *wmnt;
 	Amsg *ao;
 	Tree *t;
 	Fcall r;
@@ -1415,7 +1419,9 @@ fswalk(Fmsg *m)
 	if((o = getfid(m->conn, m->fid)) == nil)
 		error(Enofid);
 	rlock(o);
+	wmnt = nil;
 	if(waserror()){
+		clunkmount(wmnt);
 		runlock(o);
 		putfid(o);
 		nexterror();
@@ -1450,9 +1456,11 @@ fswalk(Fmsg *m)
 			}
 			findparent(t, up, &prev, &name, kbuf, sizeof(kbuf));
 		}else if(d.qid.path == Qdump){
-			mnt = getmount(name);	/* mnt leaked on error() */
+			mnt = getmount(name);
+			clunkmount(wmnt);
 			name = "";
 			prev = -1ULL;
+			wmnt = mnt;
 			t = agetp(&mnt->root);
 		}
 		up = prev;
@@ -1480,6 +1488,7 @@ fswalk(Fmsg *m)
 	}
 	poperror();
 	if(waserror()){
+		clunkmount(wmnt);
 		putfid(f);
 		nexterror();
 	}
@@ -1527,6 +1536,7 @@ fswalk(Fmsg *m)
 		wunlock(f);
 		poperror();
 	}
+	clunkmount(wmnt);
 	putfid(f);
 	poperror();
 	respond(m, &r);
@@ -2175,7 +2185,7 @@ fsopen(Fmsg *m, int id, Amsg **ao)
 static void
 readsnap(Fmsg *m, Fid *f, Fcall *r)
 {
-	char pfx[1], *p;
+	char pfx[1], name[Maxname+1], *p;
 	int n, ns;
 	Scan *s;
 	Xdir d;
@@ -2204,6 +2214,7 @@ readsnap(Fmsg *m, Fid *f, Fcall *r)
 	p = r->data;
 	n = m->count;
 	filldumpdir(&d);
+	d.name = name;
 	if(s->overflow){
 		memcpy(d.name, s->kv.k+1, s->kv.nk-1);
 		d.name[s->kv.nk-1] = 0;

@@ -485,6 +485,7 @@ updatesnap(Tree *o, char *lbl, int flg)
 	Tree *t;
 	int i;
 
+	assert(flg & Lmut);
 	if(!o->dirty)
 		return o;
 
