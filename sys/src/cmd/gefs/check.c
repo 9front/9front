@@ -23,7 +23,7 @@ isfree(vlong bp)
 }
 
 static int
-checktree(int fd, Blk *b, int h, Kvp *lo, Kvp *hi)
+checktree(int fd, Blk *b, int h, vlong pred, Kvp *lo, Kvp *hi)
 {
 	Kvp x, y;
 	Msg mx, my;
@@ -64,6 +64,8 @@ checktree(int fd, Blk *b, int h, Kvp *lo, Kvp *hi)
 		}
 		if(b->type == Tpivot){
 			bp = getptr(&x, &fill);
+			if(bp.gen <= pred)
+				goto Skip;
 			if(isfree(bp.addr)){
 				fprint(fd, "freed block in use: %llx\n", bp.addr);
 				fail++;
@@ -77,10 +79,11 @@ checktree(int fd, Blk *b, int h, Kvp *lo, Kvp *hi)
 				fprint(fd, "mismatched block fill\n");
 				fail++;
 			}
-			if(checktree(fd, c, h - 1, &x, &y))
+			if(checktree(fd, c, h - 1, pred, &x, &y))
 				fail++;
 			dropblk(c);
 		}
+Skip:
 		r = keycmp(&x, &y);
 		switch(r){
 		case -1:
@@ -99,13 +102,15 @@ checktree(int fd, Blk *b, int h, Kvp *lo, Kvp *hi)
 	if(b->type == Tpivot){
 		getval(b, b->nval-1, &y);
 		bp = getptr(&x, &fill);
-		if((c = getblk(bp, 0)) == nil){
-			fprint(fd, "corrupt block: %B\n", bp);
-			fail++;
+		if(bp.gen > pred){
+			if((c = getblk(bp, 0)) == nil){
+				fprint(fd, "corrupt block: %B\n", bp);
+				fail++;
+			}
+			if(c != nil && checktree(fd, c, h - 1, pred, &y, nil))
+				fail++;
+			dropblk(c);
 		}
-		if(c != nil && checktree(fd, c, h - 1, &y, nil))
-			fail++;
-		dropblk(c);
 		if(b->nbuf > 0){
 			getmsg(b, 0, &mx);
 			if(hi && keycmp(&mx, hi) >= 0){
@@ -234,7 +239,7 @@ checkdlist(int fd)
 }
 
 static int
-checkdata(int fd, Tree *t)
+checkdata(int fd, Tree *t, vlong pred)
 {
 	char pfx[1];
 	Bptr bp;
@@ -252,12 +257,14 @@ checkdata(int fd, Tree *t)
 			nexterror();
 		}
 		bp = unpackbp(s.kv.v, s.kv.nv);
-		if(isfree(bp.addr)){
-			fprint(fd, "free block in use: %B\n", bp);
-			error("free block in use");
+		if(bp.gen > pred){
+			if(isfree(bp.addr)){
+				fprint(fd, "free block in use: %B\n", bp);
+				error("free block in use");
+			}
+			b = getblk(bp, GBraw);
+			dropblk(b);
 		}
-		b = getblk(bp, GBraw);
-		dropblk(b);
 		poperror();
 	}
 	btexit(&s);
@@ -314,8 +321,8 @@ int
 checkfs(int fd)
 {
 	int ok, height, nref, nlbl;
-	char pfx[1];
 	vlong gen;
+	char pfx[1];
 	Tree *t;
 	Scan s;
 	Blk *b;
@@ -334,7 +341,7 @@ checkfs(int fd)
 		ok = 0;
 	fprint(fd, "checking snap tree: %B\n", fs->snap.bp);
 	if((b = getroot(&fs->snap, &height)) != nil){
-		if(checktree(fd, b, height-1, nil, 0))
+		if(checktree(fd, b, height-1, -1, nil, 0))
 			ok = 0;
 		dropblk(b);
 	}
@@ -344,12 +351,12 @@ checkfs(int fd)
 	while(1){
 		if(!btnext(&s, &s.kv))
 			break;
+		gen = UNPACK64(s.kv.k+1);
 		if(waserror()){
 			fprint(fd, "moving on: %s\n", errmsg());
 			ok = 0;
 			continue;
 		}
-		gen = UNPACK64(s.kv.k+1);
 		if((t = opentree(gen)) == nil){
 			fprint(fd, "invalid snap id %lld\n", gen);
 			ok = 0;
@@ -373,9 +380,9 @@ checkfs(int fd)
 			dropblk(b);
 			nexterror();
 		}
-		if(checktree(fd, b, height-1, nil, 0))
+		if(checktree(fd, b, height-1, t->pred, nil, 0))
 			ok = 0;
-		if(checkdata(fd, t))
+		if(checkdata(fd, t, t->pred))
 			ok = 0;
 		dropblk(b);
 		poperror();

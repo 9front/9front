@@ -150,6 +150,7 @@ enum {
 /* internal errors */
 //#define Efs	(abort(), "fs broke")
 extern char Efs[];
+extern char Enoval[];
 extern char Ecorrupt[];
 extern char Efsvers[];
 extern char Eimpl[];

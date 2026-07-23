@@ -5,6 +5,7 @@
 #include "dat.h"
 
 char Efs[]	= "internal error";
+char Enoval[]	= "message to missing key";
 char Ecorrupt[] = "block contents corrupted";
 char Efsvers[]	= "unknown fs version";
 char Eimpl[]	= "not implemented";
