@@ -490,7 +490,8 @@ ReadBMP(Biobuf *b, int *width, int *height)
 	if(num_coltab) {
 		int i; 
 		Bseek(b, bmih.size + Filehdrsz, 0);
-
+		if(num_coltab >= nelem(clut))
+			sysfatal("too many color palette entries: %d > %d\n", num_coltab, nelem(clut));
 		for(i = 0; i < num_coltab; i++) {
 			clut[i].blue  = (uchar)Bgetc(b);
 			clut[i].green = (uchar)Bgetc(b);
