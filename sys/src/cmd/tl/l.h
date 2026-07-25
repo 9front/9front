@@ -390,7 +390,6 @@ void	hput(long);
 void	lput(long);
 void	lputl(long);
 void	mkfwd(void);
-void*	mysbrk(ulong);
 void	names(void);
 void	nocache(Prog*);
 void	nuxiinit(void);

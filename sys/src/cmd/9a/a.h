@@ -156,14 +156,3 @@ void	yyerror(char*, ...);
 int	yyparse(void);
 void	setinclude(char*);
 int	assemble(char*);
-
-int	mywait(int*);
-int	mycreat(char*, int);
-int	systemtype(int);
-int	pathchar(void);
-char*	mygetwd(char*, int);
-int	myexec(char*, char*[]);
-int	mydup(int, int);
-int	myfork(void);
-int	mypipe(int*);
-void*	mysbrk(ulong);

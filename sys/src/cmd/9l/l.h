@@ -305,7 +305,6 @@ Sym*	lookup(char*, int);
 void	llput(vlong);
 void	lput(long);
 void	mkfwd(void);
-void*	mysbrk(ulong);
 void	names(void);
 void	nocache(Prog*);
 void	noops(void);
