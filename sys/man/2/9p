@@ -597,11 +597,15 @@ behaves as though it were a function that always responded
 with the error ``create prohibited''.
 .TP
 .I Remove
-.I Remove
-should mark the file as removed, whether
-by calling
+When using file trees,
 .I removefile
-when using file trees, or by updating an internal data structure.
+is called automatically if
+.I remove
+responded without an error.
+Otherwise,
+.I remove
+should mark the file as removed by updating an internal
+data structure.
 In general it is not a good idea to clean up the
 .I aux
 information associated with the corresponding
