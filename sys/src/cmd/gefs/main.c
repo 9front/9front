@@ -257,6 +257,8 @@ launch(void (*f)(int, void *), void *arg, long id, char *text)
 static void
 xlaunch(void (*f)(int, void*), void *arg, long id, char *text)
 {
+	if(waserror())
+		sysfatal("unhandled error: %s", errmsg());
 	if(launch(f, arg, id, text) == -1)
 		sysfatal("setting up initial proc set failed: %r");
 }
@@ -441,8 +443,8 @@ main(int argc, char **argv)
 		reamfs(dev);
 		exits(nil);
 	}
+	loadfs(dev);
 	if(grow){
-		loadfs(dev);
 		growfs(dev);
 		exits(nil);
 	}
@@ -453,9 +455,7 @@ main(int argc, char **argv)
 		qunlock(&fs->mutlk);
 		exits(nil);
 	}
-
 	rfork(RFNOTEG);
-	loadfs(dev);
 	fs->wrchan = mkchan(32);
 	fs->admchan = mkchan(32);
 	/*
