@@ -127,7 +127,7 @@ Delete a snapshot, reclaiming whatever space is not shared with other snapshots.
 .B halt
 Sync all IO to disk and exit the file system.
 .TP
-.B reserve [ 0 | 1 ]
+.B usereserve [ 0 | 1 ]
 When the storage is full, it may be impossible to delete snapshots.
 With an argument of 1, temporarily allow the file system
 to use a small reserve space to recover from this scenario.

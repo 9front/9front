@@ -278,7 +278,7 @@ writectl(Fmsg *m, Fid *f)
 	case 2:
 		if(strcmp(sp[0], "delsnap") == 0)
 			clrsnap(sp[1], m);
-		else if(strcmp(sp[0], "reserve") == 0){
+		else if(strcmp(sp[0], "usereserve") == 0){
 			usereserve = atoi(sp[1]);
 			respond(m, &r);
 		}else if(strcmp(sp[0], "debug") == 0){
