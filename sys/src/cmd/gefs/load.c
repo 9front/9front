@@ -79,6 +79,8 @@ loadfs(char *dev)
 
 	fs->snapmnt = dump;
 	fs->narena = 1;
+	fs->dropdl.hd = Zb;
+	fs->dropdl.tl = Zb;
 	if((fs->fd = open(dev, ORDWR)) == -1)
 		sysfatal("open %s: %r", dev);
 	if((d = dirfstat(fs->fd)) == nil)

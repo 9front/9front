@@ -128,6 +128,10 @@ putdl(Dlist *dl)
 {
 	Dlist *dt;
 
+	/*
+	 * gen==-1 indicates snapdl: cant' compare address
+	 * because the dlist struct may live on the stack.
+	 */
 	if(dl->gen == -1)
 		return;
 	dlcachedel(dl, 0);
@@ -149,7 +153,7 @@ putdl(Dlist *dl)
 }
 
 void
-freedl(Dlist *dl)
+freedl(Dlist *dl, int dofree)
 {
 	Arena *a;
 	Qent qe;
@@ -162,15 +166,17 @@ freedl(Dlist *dl)
 	done = 0;
 	while(bp.addr != -1 && !done){
 		b = getblk(bp, 0);
-		for(p = b->data; p != b->data+b->logsz; p += 8){
-			qe.op = Qfree;
-			qe.bp.addr = UNPACK64(p);
-			qe.bp.hash = -1;
-			qe.bp.gen = -1;
-			qe.b = nil;
-			a = getarena(qe.bp.addr);
-			qput(a->sync, qe);
-			traceb("dlclear", qe.bp);
+		if(dofree){
+			for(p = b->data; p != b->data+b->logsz; p += 8){
+				qe.op = Qfree;
+				qe.bp.addr = UNPACK64(p);
+				qe.bp.hash = -1;
+				qe.bp.gen = -1;
+				qe.b = nil;
+				a = getarena(qe.bp.addr);
+				qput(a->sync, qe);
+				traceb("dlclear", qe.bp);
+			}
 		}
 		done = (bp.addr == dl->tl.addr);
 		bp = b->logp;
@@ -254,7 +260,7 @@ mergedl(vlong merge, vlong gen, vlong bgen)
  * commit.
  */
 static void
-deferdl(vlong gen, vlong bgen)
+dropdl(vlong gen, vlong bgen, vlong succ)
 {
 	char buf[Kvmax];
 	Dlist *d;
@@ -267,7 +273,18 @@ deferdl(vlong gen, vlong bgen)
 	assert(d->ins == nil);
 	dlcachedel(d, 1);
 	fs->dlcount--;
-	splicedl(&fs->snapdl, d);
+	/*
+	 * if we have no successor, it's the
+	 * job of sweeptree to free the block
+	 * contents, we just need to free the
+	 * deadlist blocks; these blocks are
+	 * not part of the tree, and observing
+	 * them is protected by mutlk.
+	 */
+	if(succ == -1)
+		splicedl(&fs->dropdl, d);
+	else
+		splicedl(&fs->snapdl, d);
 	free(d);
 }
 
@@ -292,10 +309,8 @@ reclaimblocks(vlong gen, vlong succ, vlong prev)
 		}
 		if(succ != -1 && dl.bgen <= prev)
 			mergedl(succ, dl.gen, dl.bgen);
-		else if(dl.bgen <= prev)
-			mergedl(prev, dl.gen, dl.bgen);
 		else
-			deferdl(dl.gen, dl.bgen);
+			dropdl(dl.gen, dl.bgen, succ);
 		poperror();
 	}
 	btexit(&s);
@@ -314,7 +329,7 @@ reclaimblocks(vlong gen, vlong succ, vlong prev)
 				btexit(&s);
 				nexterror();
 			}
-			deferdl(dl.gen, dl.bgen);
+			dropdl(dl.gen, dl.bgen, succ);
 			poperror();
 		}
 		btexit(&s);

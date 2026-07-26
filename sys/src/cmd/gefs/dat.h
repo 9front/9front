@@ -537,7 +537,19 @@ struct Gefs {
 	int	blksz;
 	int	bufspc;
 	Tree	snap;
-	Dlist	snapdl;
+	/*
+	 * when freeing blocks, there are 3 places that
+	 * the dirty blocks may come from; we can get them
+	 * from freeing blocks when updating the snap tree,
+	 * from freeing dlists, or from dropping dlists.
+	 * 
+	 * we can't reuse the blocks until after the superblock
+	 * points at a new tree that doesn't include them, so
+	 * this is where we stash the blocks until the sync()
+	 * call completes.
+	 */
+	Dlist	snapdl;		/* on disk */
+	Dlist	dropdl;		/* in mem */
 	int	narena;
 	vlong	flag;
 	vlong	nextqid;	/* protected by mutlk */

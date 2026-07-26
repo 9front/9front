@@ -83,7 +83,7 @@ sync(int id)
 {
 	Mount *mnt;
 	Arena *a;
-	Dlist *dl;
+	Dlist *sdl, ddl;
 	Tree *r;
 	int i;
 
@@ -108,11 +108,11 @@ sync(int id)
 	 *  have hit disk; once they're on disk, we
 	 *  can take a consistent snapshot.
          */
-	dl = emalloc(sizeof(Dlist), 1);
+	sdl = emalloc(sizeof(Dlist), 1);
 	qlock(&fs->mutlk);
 	epochstart(id);
 	if(waserror()){
-		free(dl);
+		free(sdl);
 		epochend(id);
 		aincl(&fs->rdonly, 1);
 		qunlock(&fs->mutlk);
@@ -133,11 +133,15 @@ sync(int id)
 	 * dlist; the snap tree will not change from here.
 	 */
 	dlsync();
-	*dl = fs->snapdl;
+	*sdl = fs->snapdl;
+	ddl = fs->dropdl;
 	fs->snapdl.hd = Zb;
 	fs->snapdl.tl = Zb;
 	fs->snapdl.ins = nil;
-	traceb("syncdl.dl", dl->hd);
+	fs->dropdl.hd = Zb;
+	fs->dropdl.tl = Zb;
+	fs->dropdl.ins = nil;
+	traceb("syncdl.dl", sdl->hd);
 	traceb("syncdl.rb", fs->snap.bp);
 	for(i = 0; i < fs->narena; i++){
 		a = &fs->arenas[i];
@@ -216,7 +220,8 @@ sync(int id)
 	 * clobbered.
 	 */
 	tracem("snapdl");
-	limbo(DFdlist, dl);
+	freedl(&ddl, 0);
+	limbo(DFdlist, sdl);
 	qunlock(&fs->synclk);
 	tracem("synced");
 	poperror();
@@ -1312,7 +1317,7 @@ fsattach(Fmsg *m)
 		poperror();
 		if(af->uid != uid)
 			error(Ebadu);
-		m->conn->authok = 1;	/* none attach allowed now */
+		m->conn->authok = 1;
 	}else if(!fs->noauth){
 		if(uid != noneid || !m->conn->authok)
 			error(Ebadu);
