@@ -19,6 +19,8 @@ int	msgcount = -1;
 Objset	done;
 Objq	objq;
 Pfilt	*pathfilt;
+char	wdirpath[1024];
+char	repopath[1024];
 
 void
 filteradd(Pfilt *pf, char *path)
@@ -236,17 +238,39 @@ showcommits(char *c)
 	}
 }
 
+char*
+reporel(char *s)
+{
+	char *p;
+	int n;
+
+	if(*s == '/')
+		s = estrdup(s);
+	else if((s = smprint("%s/%s", wdirpath, s)) == nil)
+		sysfatal("smprint: %r");
+
+	p = cleanname(s);
+	n = strlen(repopath);
+	if(strncmp(s, repopath, n) != 0)
+		sysfatal("path outside repo: %s", s);
+	p += n;
+	if(*p == '/')
+		p++;
+	memmove(s, p, strlen(p)+1);
+	return s;
+}
+
 static void
 usage(void)
 {
 	fprint(2, "usage: %s [-s] [-e expr | -c commit] files..\n", argv0);
 	exits("usage");
 }
-	
+
 void
 main(int argc, char **argv)
 {
-	char path[1024], repo[1024], *p, *r;
+	char *r;
 	int i, nrel, nrepo;
 
 	ARGBEGIN{
@@ -267,28 +291,26 @@ main(int argc, char **argv)
 		break;
 	}ARGEND;
 
-	gitinit(repo, sizeof(repo), &nrel);
-	nrepo = strlen(repo);
+	gitinit(repopath, sizeof(repopath), &nrel);
+	nrepo = strlen(repopath);
 	if(argc != 0){
-		if(getwd(path, sizeof(path)) == nil)
+		if(getwd(wdirpath, sizeof(wdirpath)) == nil)
 			sysfatal("getwd: %r");
-		if(strncmp(path, repo, nrepo) != 0)
+		if(strncmp(wdirpath, repopath, nrepo) != 0)
 			sysfatal("path shifted??");
-		p = path + nrepo;
 		pathfilt = emalloc(sizeof(Pfilt));
 		for(i = 0; i < argc; i++){
-			if(*argv[i] == '/'){
-				if(strncmp(argv[i], repo, nrepo) != 0)
-					continue;
-				r = smprint("./%s", argv[i]+nrepo);
-			}else
-				r = smprint("./%s/%s", p, argv[i]);
-			cleanname(r);
+			r = reporel(argv[i]);
+			if(*r == '\0'){
+				pathfilt = nil;
+				free(r);
+				break;
+			}
 			filteradd(pathfilt, r);
 			free(r);
 		}
 	}
-	if(chdir(repo) == -1)
+	if(chdir(repopath) == -1)
 		sysfatal("chdir: %r");
 
 	tmfmtinstall();
