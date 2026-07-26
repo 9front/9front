@@ -12,6 +12,7 @@ struct Path {
 	/* Flowing down for flush */
 	Msg	*ins;	/* inserted values, bounded by lo..hi */
 	Blk	*b;	/* to shadow */
+	Blk	*s;	/* sibling of shadow, for merge/rotate */
 	int	idx;	/* insert at */
 	int	lo;	/* key range */
 	int	hi;	/* key range */
@@ -979,7 +980,7 @@ rotate(Tree *t, Path *p, Path *pp, int midx, Blk *a, Blk *b, int halfpiv)
 	poperror();
 }
 
-static void
+static int
 rotmerge(Tree *t, Path *p, Path *pp, int idx, Blk *a, Blk *b)
 {
 	int na, nb, ma, mb, imbalance;
@@ -999,10 +1000,14 @@ rotmerge(Tree *t, Path *p, Path *pp, int idx, Blk *a, Blk *b)
 	if(imbalance < 0)
 		imbalance *= -1;
 	/* works for leaf, because 0 always < Bufspc */
-	if(na + nb < (Pivspc - 4*Msgmax) && ma + mb < Bufspc)
+	if(na + nb < (Pivspc - 4*Msgmax) && ma + mb < Bufspc){
 		merge(t, p, pp, idx, a, b);
-	else if(imbalance > 4*Msgmax)
+		return 1;
+	}else if(imbalance > 4*Msgmax){
 		rotate(t, p, pp, idx, a, b, (na + nb)/2);
+		return 1;
+	}
+	return 0;
 }
 
 static void
@@ -1035,7 +1040,8 @@ trybalance(Tree *t, Path *p, Path *pp, int idx)
 				dropblk(l);
 				nexterror();
 			}
-			rotmerge(t, p, pp, idx-1, l, m);
+			if(rotmerge(t, p, pp, idx-1, l, m))
+				p->s = holdblk(l);
 			poperror();
 			goto Done;
 		}
@@ -1049,7 +1055,8 @@ trybalance(Tree *t, Path *p, Path *pp, int idx)
 				dropblk(r);
 				nexterror();
 			}
-			rotmerge(t, p, pp, idx, m, r);
+			if(rotmerge(t, p, pp, idx, m, r))
+				p->s = holdblk(r);
 			poperror();
 			goto Done;
 		}
@@ -1151,9 +1158,12 @@ freepath(Tree *t, Path *path, int npath, int ok)
 	Path *p;
 
 	for(p = path; p != path + npath; p++){
-		if(ok && p->b != nil)
-			freeblk(t, p->b);
+		if(ok){
+			if(p->b) freeblk(t, p->b);
+			if(p->s) freeblk(t, p->s);
+		}
 		dropblk(p->b);
+		dropblk(p->s);
 		dropblk(p->nl);
 		dropblk(p->nr);
 	}
