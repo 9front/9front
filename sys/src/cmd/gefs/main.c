@@ -257,8 +257,6 @@ launch(void (*f)(int, void *), void *arg, long id, char *text)
 static void
 xlaunch(void (*f)(int, void*), void *arg, long id, char *text)
 {
-	if(waserror())
-		sysfatal("unhandled error: %s", errmsg());
 	if(launch(f, arg, id, text) == -1)
 		sysfatal("setting up initial proc set failed: %r");
 }
