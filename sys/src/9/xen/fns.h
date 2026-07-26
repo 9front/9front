@@ -96,6 +96,8 @@ void	rdrandbuf(void*, ulong);
 
 #define	dcflush(a, b)
 
+#define nvramread(x)
+
 /* Xen functions */
 #define rmb()	coherence()
 #define wmb()	coherence()
