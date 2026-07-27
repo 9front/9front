@@ -416,8 +416,8 @@ gdbwritemem(Req *r)
 	if(gdb.pktlen > Minwrite && count > (gdb.pktlen - Minwrite)/2)
 		count = (gdb.pktlen - Minwrite)/2;
 
-	s = req = emalloc9p(count + Minwrite);
-	e = req + count + Minwrite;
+	s = req = emalloc9p(Minwrite + count * 2);
+	e = req + Minwrite + count * 2;
 	s = seprint(s, e, "$M%llux,%lux:", off2addr(r->ifcall.offset), count);
 
 	for(b = req + 1, sum = 0; b < s; b++)
