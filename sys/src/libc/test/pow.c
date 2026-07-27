@@ -5,7 +5,7 @@
 void
 main(void)
 {
-	setfcr(getfcr() & ~FPIVAL);
+	setfcr(getfcr() & ~FPINVAL);
 	/*
 	 * For any value of y (including NaN), 
 	 *	if x is +1, 1.0 shall be returned.
