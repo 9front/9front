@@ -11,7 +11,6 @@
 #include "dat.h"
 
 static char Ebadctl[] = "bad process or channel control request";
-static char hex[] = "0123456789abcdef";
 
 /* /proc/$pid/[k]regs holds a Ureg structure for the target platform.
    However, its definition will not always match the output of the
@@ -148,37 +147,6 @@ badsum(char *p, uint sum)
 	while(*p)
 		sum -= *p++;
 	return sum & 0xff;
-}
-
-static long
-hex2bin(char *dst, char *src, long len)
-{
-	int i, n, v;
-
-	for(i = n = 0; n < len && src[i]; i++){
-		switch(src[i]){
-		case '0' ... '9':
-			v = src[i] - '0';
-			break;
-		case 'a' ... 'f':
-			v = src[i] - 'a' + 10;
-			break;
-		case 'A' ... 'F':
-			v = src[i] - 'A' + 10;
-			break;
-		default:
-			/* todo: run-length encoding */
-			werrstr("bad hex digit %c", src[i]);
-			return -1;
-		}
-		dst[n] = (dst[n] << 4) + v;
-		n += i & 1;
-	}
-	if(i & 1){
-		werrstr("incomplete hex digit");
-		return -1;
-	}
-	return n;
 }
 
 static Channel *
@@ -408,8 +376,7 @@ void
 gdbwritemem(Req *r)
 {
 	Channel *rc;
-	int i, sum, lo, hi;
-	ulong count;
+	int sum, count;
 	char *rsp, *req, *s, *e, *b;
 
 	count = r->ifcall.count;
@@ -418,17 +385,11 @@ gdbwritemem(Req *r)
 
 	s = req = emalloc9p(Minwrite + count * 2);
 	e = req + Minwrite + count * 2;
-	s = seprint(s, e, "$M%llux,%lux:", off2addr(r->ifcall.offset), count);
+	s = seprint(s, e, "$M%llux,%ux:%.*lH", off2addr(r->ifcall.offset), count,
+		count, (uchar*)r->ifcall.data);
 
 	for(b = req + 1, sum = 0; b < s; b++)
 		sum += *b;
-	for(i = 0; i < count; i++){
-		hi = hex[(r->ifcall.data[i] & 0xf0) >> 4];
-		lo = hex[(r->ifcall.data[i] & 0x0f) >> 0];
-		sum += hi + lo;
-		*s++ = hi;
-		*s++ = lo;
-	}
 	seprint(s, e, "#%02x", sum & 0xff);
 
 	qlock(&gdb);
@@ -451,6 +412,7 @@ gdbwritemem(Req *r)
 void
 gdbreadreg(Req *r)
 {
+	int len;
 	char *rsp;
 	uchar *ureg;
 
@@ -467,8 +429,9 @@ gdbreadreg(Req *r)
 		responderror(r);
 		return;
 	}
-	if(hex2bin(rsp, rsp, strlen(rsp)) < 0)
-		responderror(r);
+	len = strlen(rsp);
+	if(dec16((uchar*)rsp, len+1, rsp, len) < 0)
+		respond(r, "gdbreadreg: short dst");
 	else if((ureg = bin2ureg((uchar*)rsp)) == nil)
 		responderror(r);
 	else {
@@ -509,8 +472,9 @@ gdbreadmem(Req *r)
 		responderror(r);
 		return;
 	}
-	if((n = hex2bin(r->ofcall.data, rsp, len)) < 0)
-		responderror(r);
+	n = dec16((uchar*)r->ofcall.data, len, rsp, strlen(rsp));
+	if(n < 0)
+		respond(r, "gdbreadmem: short dst");
 	else {
 		r->ofcall.count = n;
 		respond(r, nil);
