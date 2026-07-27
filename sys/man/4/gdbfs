@@ -31,7 +31,7 @@ presents a set of
 .IR proc (3)
 files under
 .BI /proc/ pid
-for debugging a remote process through the GNU debugger stub listening at
+(default 1) for debugging a remote process through the GNU debugger stub listening at
 .IR addr ,
 or connected to standard input/output if
 .I addr
@@ -48,7 +48,7 @@ to post its channel at
 (see
 .IR srv (3)),
 allowing the session to be shared or reattached later.
-The -D and -d log 9P messages and gdbserver commands to standard error, respectively.
+The -D and -d options log 9P and gdbserver messages, respectively, to standard error.
 .PP
 .IR Text ,
 if provided, should be a copy of the binary running on the target, in
