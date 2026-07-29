@@ -145,12 +145,12 @@ fn apply{
 	# replace the global var so if no hunks were selected, we don't commit it
 	files=`{patch -n $p}
 	mkdir $t
-	@{cd .git/fs/HEAD/tree; tar c $f >[2]/dev/null} | @{cd $t; tar xT}
+	@{cd .git/fs/HEAD/tree; tar c $files >[2]/dev/null} | @{cd $t; tar xT}
 	for(i in $files){
 		d=`{basename -d $i}
-		if(! ~ $d .){
-			mkdir -p $t^$d
-			bind -bc $t^$d $d
+		if(! test -d $d){
+			mkdir -p $t/$d
+			bind -bc $t/$d $d
 		}
 	}
 	bind -bc $t .
