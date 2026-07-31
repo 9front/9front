@@ -116,12 +116,16 @@ matchesfilter(Object *o)
 		r = matchesfilter1(pathfilt, t, pt);
 		unref(p);
 		unref(pt);
-		if(r)
+		if(r){
+			unref(t);
 			return 1;
+		}
 	}
+	r = 0;
 	if(o->commit->nparent == 0)
-		return matchesfilter1(pathfilt, t, nil);
-	return 0;
+		r = matchesfilter1(pathfilt, t, nil);
+	unref(t);
+	return r;
 }
 
 
