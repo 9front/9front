@@ -673,12 +673,11 @@ struct Dent {
 	Key;
 	Xdir;
 	Dent	*next;
-	QLock	trunclk;
 	Rendez	truncrz;
 	vlong	up;
 	Along	ref;
+	int	trunc;
 	char	gone;
-	char	trunc;
 
 	union {
 		char	buf[Maxent];

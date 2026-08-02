@@ -79,7 +79,7 @@ wrwait(void)
 }
 
 static void
-sync(int id)
+sync(void)
 {
 	Mount *mnt;
 	Arena *a;
@@ -110,10 +110,8 @@ sync(int id)
          */
 	sdl = emalloc(sizeof(Dlist), 1);
 	qlock(&fs->mutlk);
-	epochstart(id);
 	if(waserror()){
 		free(sdl);
-		epochend(id);
 		aincl(&fs->rdonly, 1);
 		qunlock(&fs->mutlk);
 		nexterror();
@@ -169,7 +167,6 @@ sync(int id)
 	finalize(fs->sb0);
 	finalize(fs->sb1);
 	fs->snap.dirty = 0;
-	epochend(id);
 	qunlock(&fs->mutlk);
 	poperror();
 
@@ -440,28 +437,6 @@ upsert(Mount *mnt, Msg *m, int nm)
 	btupsert(r, m, nm);
 }
 
-/*
- * When truncating a file, mutations need
- * to wait for the sweeper to finish; this
- * means the mutator needs to release the
- * mutation lock, exit the epoch, and
- * allow the sweeper to finish its job
- * before resuming.
- */
-static void
-truncwait(Dent *de, int id)
-{
-	epochend(id);
-	qunlock(&fs->mutlk);
-	qlock(&de->trunclk);
-	/* should we also return when the fs becomes read-only? */
-	while(de->trunc)
-		rsleep(&de->truncrz);
-	qunlock(&de->trunclk);
-	qlock(&fs->mutlk);
-	epochstart(id);
-}
-
 static int
 readb(Tree *t, Fid *f, char *d, vlong o, vlong n, vlong sz)
 {
@@ -581,7 +556,7 @@ getdent(Mount *mnt, vlong pqid, Xdir *d)
 	de->up = pqid;
 	de->qid = d->qid;
 	de->length = d->length;
-	de->truncrz.l = &de->trunclk;
+	de->truncrz.l = &fs->mutlk;
 	e = packdkey(de->buf, sizeof(de->buf), pqid, d->name);
 	de->k = de->buf;
 	de->nk = e - de->buf;
@@ -932,11 +907,6 @@ clunkfid(Conn *c, Fid *fid, Amsg **ao)
 	if((*ao = f->rclose) != nil && !f->dent->gone){
 		f->dent->gone = 1;
 		f->rclose = nil;
-
-		qlock(&f->dent->trunclk);
-		f->dent->trunc = 1;
-		qunlock(&f->dent->trunclk);
-
 		aincl(&f->dent->ref, 1);
 		aincl(&f->mnt->ref, 1);
 		(*ao)->op = AOrclose;
@@ -1578,7 +1548,7 @@ fsstat(Fmsg *m)
 }
 
 static void
-fswstat(Fmsg *m, int id, Amsg **ao)
+fswstat(Fmsg *m, Amsg **ao)
 {
 	char rnbuf[Kvmax], opbuf[Kvmax], upbuf[Upksz];
 	char *p, *e, strs[65535];
@@ -1604,7 +1574,6 @@ fswstat(Fmsg *m, int id, Amsg **ao)
 		nexterror();
 	}
 	de = f->dent;
-	truncwait(de, id);
 	wlock(de);
 	if(waserror()){
 		wunlock(de);
@@ -1646,16 +1615,17 @@ fswstat(Fmsg *m, int id, Amsg **ao)
 		if(d.length < 0 || (de->mode & DMDIR) != 0)
 			error(Ewstatl);
 		if(d.length != de->length){
-			if(d.length < de->length){
+			if(d.length > de->length){
+				while(de->trunc)
+					rsleep(&de->truncrz);
+			}else if(d.length < de->length){
 				*ao = emalloc(sizeof(Amsg), 1);
 				if(waserror()){
 					freeamsg(*ao);
 					*ao = nil;
 					nexterror();
 				}
-				qlock(&de->trunclk);
-				de->trunc = 1;
-				qunlock(&de->trunclk);
+				de->trunc++;
 				aincl(&de->ref, 1);
 				aincl(&f->mnt->ref, 1);
 				(*ao)->op = AOclear;
@@ -1988,7 +1958,7 @@ candelete(Fid *f)
 }
 
 static void
-fsremove(Fmsg *m, int id, Amsg **ao)
+fsremove(Fmsg *m, Amsg **ao)
 {
 	char *e, buf[Kvmax];
 	Fcall r;
@@ -2006,7 +1976,8 @@ fsremove(Fmsg *m, int id, Amsg **ao)
 	clunkfid(m->conn, f, ao);
 	if(agetl(&fs->rdonly))
 		error(Erdonly);
-	truncwait(f->dent, id);
+	while(f->dent->trunc)
+		rsleep(&f->dent->truncrz);
 	wlock(f->dent);
 	if(waserror()){
 		wunlock(f->dent);
@@ -2076,7 +2047,7 @@ fsremove(Fmsg *m, int id, Amsg **ao)
 }
 
 static void
-fsopen(Fmsg *m, int id, Amsg **ao)
+fsopen(Fmsg *m, Amsg **ao)
 {
 	char *p, *e, buf[Kvmax];
 	int mbits;
@@ -2093,7 +2064,8 @@ fsopen(Fmsg *m, int id, Amsg **ao)
 		nexterror();
 	}
 	if(m->mode & OTRUNC)
-		truncwait(f->dent, id);
+		while(f->dent->trunc)
+			rsleep(&f->dent->truncrz);
 	wlock(f->dent);
 	if(waserror()){
 		wunlock(f->dent);
@@ -2141,9 +2113,7 @@ fsopen(Fmsg *m, int id, Amsg **ao)
 			nexterror();
 		}
 		*ao = emalloc(sizeof(Amsg), 1);
-		qlock(&f->dent->trunclk);
-		f->dent->trunc = 1;
-		qunlock(&f->dent->trunclk);
+		f->dent->trunc++;
 		aincl(&f->dent->ref, 1);
 		aincl(&f->mnt->ref, 1);
 		(*ao)->op = AOclear;
@@ -2406,7 +2376,7 @@ fsread(Fmsg *m)
 }
 
 static void
-fswrite(Fmsg *m, int id)
+fswrite(Fmsg *m)
 {
 	char sbuf[Wstatmax], kbuf[Max9p/Blksz+2][Offksz], vbuf[Max9p/Blksz+2][Ptrsz];
 	Bptr bp[Max9p/Blksz + 2];
@@ -2448,7 +2418,8 @@ fswrite(Fmsg *m, int id)
 	if(agetl(&fs->rdonly))
 		error(Erdonly);
 	wlock(f);
-	truncwait(f->dent, id);
+	while(f->dent->trunc)
+		rsleep(&f->dent->truncrz);
 	wlock(f->dent);
 	if(waserror()){
 		wunlock(f->dent);
@@ -2690,7 +2661,7 @@ runfs(int, void *pc)
 }
 
 void
-migrateusers(int id, Mount *mnt)
+migrateusers(Mount *mnt)
 {
 	char buf[2][Kvmax];
 	Msg m[2];
@@ -2719,11 +2690,11 @@ migrateusers(int id, Mount *mnt)
 	qlock(&fs->mutlk);
 	upsert(mnt, m, nm);
 	qunlock(&fs->mutlk);
-	sync(id);
+	sync();
 }
 
 void
-runmutate(int id, void *)
+runmutate(int, void *)
 {
 	Mount *mnt;
 	Fmsg *m;
@@ -2731,7 +2702,7 @@ runmutate(int id, void *)
 
 	if(!agetl(&fs->rdonly)){
 		mnt = getmount("adm");
-		migrateusers(id, mnt);
+		migrateusers(mnt);
 		clunkmount(mnt);
 	}
 
@@ -2739,7 +2710,6 @@ runmutate(int id, void *)
 		a = nil;
 		m = chrecv(fs->wrchan);
 		qlock(&fs->mutlk);
-		epochstart(id);
 		fs->snap.dirty = 1;
 		if(waserror())
 			rerror(m, "%s", errmsg());
@@ -2753,16 +2723,15 @@ runmutate(int id, void *)
 			 */
 			switch(m->type){
 			case Tcreate:	fscreate(m);		break;
-			case Twrite:	fswrite(m, id);		break;
-			case Twstat:	fswstat(m, id, &a);	break;
-			case Tremove:	fsremove(m, id, &a);	break;
-			case Topen:	fsopen(m, id, &a);	break;
+			case Twrite:	fswrite(m);		break;
+			case Twstat:	fswstat(m, &a);	break;
+			case Tremove:	fsremove(m, &a);	break;
+			case Topen:	fsopen(m, &a);	break;
 			default:	abort();		break;
 			}
 			poperror();
 		}
 		assert(estacksz() == 0);
-		epochend(id);
 		qunlock(&fs->mutlk);
 		epochclean();
 
@@ -2783,12 +2752,12 @@ runread(int id, void *ch)
 			rerror(m, "%s", errmsg());
 		else {
 			switch(m->type){
-			case Tattach:	fsattach(m);		break;
-			case Twalk:	fswalk(m);		break;
-			case Tread:	fsread(m);		break;
-			case Tstat:	fsstat(m);		break;
-			case Topen:	fsopen(m, id, nil);	break;
-			default:	abort();		break;
+			case Tattach:	fsattach(m);	break;
+			case Twalk:	fswalk(m);	break;
+			case Tread:	fsread(m);	break;
+			case Tstat:	fsstat(m);	break;
+			case Topen:	fsopen(m, nil);	break;
+			default:	abort();	break;
 			}
 			poperror();
 		}
@@ -2811,8 +2780,6 @@ freetree(Bptr rb, vlong pred)
 			getval(b, i, &kv);
 			bp = unpackbp(kv.v, kv.nv);
 			freetree(bp, pred);	/* leak b on error() */
-			qlock(&fs->mutlk);
-			qunlock(&fs->mutlk);
 			epochclean();
 		}
 	}
@@ -2850,8 +2817,6 @@ sweeptree(Tree *t)
 		bp = unpackbp(s.kv.v, s.kv.nv);
 		if(bp.gen > gen)
 			freebp(nil, bp);
-		qlock(&fs->mutlk);
-		qunlock(&fs->mutlk);
 		epochclean();
 	}
 	btexit(&s);
@@ -2866,7 +2831,7 @@ sweeptree(Tree *t)
 }
 
 void
-setconf(int id, int op, char *snap, char *key, char *val)
+setconf(int op, char *snap, char *key, char *val)
 {
 	char kbuf[128], xbuf[Kvmax];
 	Mount *mnt;
@@ -2903,7 +2868,7 @@ setconf(int id, int op, char *snap, char *key, char *val)
 	}else
 		fprint(2, "error setting config: %s\n", errmsg());
 	qunlock(&fs->mutlk);
-	sync(id);
+	sync();
 	if(mnt != nil)
 		clunkmount(mnt);
 	poperror();
@@ -2934,10 +2899,10 @@ runsweep(int id, void*)
 		}
 		switch(am->op){
 		case AOsetcfg:
-			setconf(id, Oinsert, am->snap, am->key, am->val);
+			setconf(Oinsert, am->snap, am->key, am->val);
 			break;
 		case AOclrcfg:
-			setconf(id, Odelete, am->snap, am->key, "");
+			setconf(Odelete, am->snap, am->key, "");
 			break;
 		case AOhalt:
 			if(!agetl(&fs->rdonly)){
@@ -2950,7 +2915,7 @@ runsweep(int id, void*)
 					fprint(2, "halt failed: %s\n", errmsg());
 					break;
 				}
-				sync(id);
+				sync();
 			}
 			fprint(2, "gefs: ending\n");
 			postnote(PNGROUP, getpid(), "halted");
@@ -2991,14 +2956,12 @@ runsweep(int id, void*)
 				epochclean();
 			}
 
-			sync(id);	/* oldhd blocks leaked on error() */
+			sync();	/* oldhd blocks leaked on error() */
 
 			for(i = 0; i < fs->narena; i++){
 				for(bp = oldhd[i]; bp.addr != -1; bp = nb){
 					qlock(&fs->mutlk);
-					epochstart(id);
 					if(waserror()){
-						epochend(id);
 						qunlock(&fs->mutlk);
 						nexterror();
 					}
@@ -3006,7 +2969,6 @@ runsweep(int id, void*)
 					nb = b->logp;
 					freeblk(nil, b);
 					dropblk(b);
-					epochend(id);
 					qunlock(&fs->mutlk);
 					poperror();
 					epochclean();
@@ -3023,19 +2985,16 @@ Syncout:
 				goto Next;
 			}
 			qlock(&fs->mutlk);
-			epochstart(id);
 			if(waserror()){
-				epochend(id);
 				qunlock(&fs->mutlk);
 				nexterror();
 			}
 			t = snapfs(am);
-			epochend(id);
 			qunlock(&fs->mutlk);
 			poperror();
 
 			while(t != nil){
-				sync(id);	/* t leaked on error() */
+				sync();	/* t leaked on error() */
 				n = sweeptree(t);
 				closesnap(t);
 				if(n == nil)
@@ -3044,9 +3003,7 @@ Syncout:
 				ok = 0;
 				if(n->nref == 0 && n->nlbl == 0){
 					qlock(&fs->mutlk);
-					epochstart(id);
 					ok = delsnap(n, n->succ, nil);
-					epochend(id);
 					qunlock(&fs->mutlk);
 				}
 				if(!ok){
@@ -3076,15 +3033,12 @@ Syncout:
 				nm++;
 			}
 			qlock(&fs->mutlk);
-			epochstart(id);
 			if(waserror()){
-				epochend(id);
 				qunlock(&fs->mutlk);
 				fprint(2, "%s", errmsg());
 				goto Next;
 			}
 			upsert(am->mnt, mb, nm);
-			epochend(id);
 			qunlock(&fs->mutlk);
 			poperror();
 			/* fallthrough */
@@ -3099,15 +3053,6 @@ Syncout:
 				aincl(&fs->rdonly, 1);
 				break;
 			}
-			if(am->dent != nil){
-				qlock(&am->dent->trunclk);
-				if(waserror()){
-					/* what should truncwait() do now? */
-					rwakeup(&am->dent->truncrz);
-					qunlock(&am->dent->trunclk);
-					nexterror();
-				}
-			}
 			fs->snap.dirty = 1;
 			nm = 0;
 			for(off = am->off; off < am->end; off += Blksz){
@@ -3121,14 +3066,11 @@ Syncout:
 				mb[nm].nv = 0;
 				if(++nm >= nelem(mb) || off + Blksz >= am->end){
 					qlock(&fs->mutlk);
-					epochstart(id);
 					if(waserror()){
-						epochend(id);
 						qunlock(&fs->mutlk);
 						nexterror();
 					}
 					upsert(am->mnt, mb, nm);
-					epochend(id);
 					qunlock(&fs->mutlk);
 					poperror();
 					epochclean();
@@ -3136,10 +3078,10 @@ Syncout:
 				}
 			}
 			if(am->dent != nil){
-				am->dent->trunc = 0;
+				qlock(&fs->mutlk);
+				am->dent->trunc--;
 				rwakeup(&am->dent->truncrz);
-				qunlock(&am->dent->trunclk);
-				poperror();
+				qunlock(&fs->mutlk);
 			}
 			poperror();
 			break;
