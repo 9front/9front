@@ -1390,7 +1390,7 @@ main(int argc, char *argv[])
 		if(!sflag)
 			exits(nil);
 	} else for(f = files; f; f = f->next)
-		if(f->wfd < 0 && (open(fixnamedup(f->name), OWRITE) < 0))
+		if(f->wfd < 0 && ((f->wfd = open(fixnamedup(f->name), OWRITE)) < 0))
 			sysfatal("create: %r");
 
 	srand(truerand());
