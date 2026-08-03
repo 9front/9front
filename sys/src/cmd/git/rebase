@@ -17,8 +17,7 @@ if(~ $nocommit 1)
 	
 dst=`{git/query $1}
 com=`{git/query $dst  $src @}
-if(~ $dst $com)
-	die 'nothing to rebase, doofus'
+
 git/log -se $dst'..'$src  | awk '
 BEGIN{
 	src=ENVIRON["src"];
@@ -33,7 +32,7 @@ BEGIN{
 }
 END{
 	if(!done)
-		print "git/branch -nb "dst" ";
+		print "# nothing to rebase";
 	else{
 		print "git/branch -nb rebase.wip "src
 		print "git/branch -r rebase.wip";

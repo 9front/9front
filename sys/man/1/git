@@ -465,15 +465,23 @@ takes two branches and merges them filewise using
 The next commit made will be a merge commit.
 .PP
 .I Git/rebase
-prints the commands to move commits from one
-branch onto another, using
+prints the commands to move divergent commits from
+.I src
+(default is the current branch)
+onto the commit specified by
+.I onto
+using
 .I git/export
 and
 .I git/import.
 The
+.I src
+branch is updated to point to the result.
+The
 .B -n
 option is passed directly to
 .I git/import.
+The printed commands do not clean up after an error.
 .PP
 .I Git/conf
 is a tool for querying the git configuration.
