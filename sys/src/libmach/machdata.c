@@ -443,7 +443,7 @@ riscframe(Map *map, uvlong addr, uvlong pc, uvlong sp, uvlong link)
 		if (s.value == addr)
 			return sp;
 
-		if (s.type == 'L' || s.type == 'l' || pc-s.value <= mach->szaddr*2)
+		if (s.type == 'L' || s.type == 'l' || pc <= s.value+mach->pcquant)
 			pc = link;
 		else
 		if (geta(map, sp-f.value, &pc) < 0)
