@@ -1,13 +1,15 @@
 .TH SECHASH 2
 .SH NAME
 md4, md5, ripemd160,
-sha1, sha2_224, sha2_256, sha2_384, sha2_512,
+sha1, sha2_224, sha2_256, sha2_384, sha2_512, sha3_224, sha3_256, sha3_384, sha3_512,
+shake_128_in, shake_128_out, shake_128_conv, shake_128,
+shake_256_in, shake_256_out, shake_256_conv, shake_256,
 hmac_x, hmac_md5, hmac_sha1, hmac_sha2_224, hmac_sha2_256, hmac_sha2_384, hmac_sha2_512,
 blake2s_128, blake2s_256, mac_blake2s_128, mac_blake2s_256, hmac_blake2s_256,
 poly1305 \- cryptographically secure hashes
 .SH SYNOPSIS
-.nr Wd \w'\fLDS* \fP'u
-.nr In \w'\fLDS*   \fP'u
+.nr Wd \w'\fLvoid \fP'u
+.nr In \w'\fLvoid   \fP'u
 .ta \n(Wdu \w'\fLSHA1state* \fP'u +\n(Wdu +\n(Wdu +\n(Wdu +\n(Wdu
 .
 .de Ti
@@ -25,6 +27,7 @@ poly1305 \- cryptographically secure hashes
 #include <mp.h>
 #include <libsec.h>
 #define DS DigestState	/* only to abbreviate SYNOPSIS */
+#define XS XOFState	/* only to abbreviate SYNOPSIS */
 .fi
 .
 .Ti
@@ -52,9 +55,23 @@ DS*	sha3_384(uchar *data, ulong dlen, uchar *digest, DS *state)
 .Ti
 DS*	sha3_512(uchar *data, ulong dlen, uchar *digest, DS *state)
 .Ti
-DS*	shake_128(uchar *data, ulong dlen, uchar *digest, ulong olen, DS *state)
+DS*	shake_128_in(uchar *data, ulong dlen, DS *state)
 .Ti
-DS*	shake_256(uchar *data, ulong dlen, uchar *digest, ulong olen, DS *state)
+XS*	shake_128_conv(XS *out, DS *in)
+.Ti
+void shake_128_out(uchar *out, ulong olen, XS *state)
+.Ti
+DS*	shake_128(uchar *data, ulong dlen, uchar *digest, ulong olen)
+.Ti
+DS*	shake_256_in(uchar *data, ulong dlen, DS *state)
+.Ti
+XS*	shake_256_conv(XS *out, DS *in)
+.Ti
+void shake_256_out(uchar *out, ulong olen, XS *state)
+.Ti
+DS*	shake_256(uchar *data, ulong dlen, uchar *digest, ulong olen)
+.Ti
+DS*	shake_256(uchar *data, ulong dlen, uchar *digest, ulong olen)
 .Ti
 DS*	blake2s_128(uchar *data, ulong dlen, uchar *digest, DS *state)
 .Ti
@@ -155,13 +172,51 @@ and
 .I Poly1305dlen
 define the lengths of the digests.
 .PP
-.I Shake_128
+.IR Shake_128_in ,
+.IR shake_128_out ,
+.IR shake_128_conv ,
+.IR shake_256_in ,
+.IR shake_256_out ,
+and
+.I shake_256_conv
+are functions which implement the SHAKE extensible output hashes.
+They provide an incremental interface for both the input and output sides of the hash.
+The
+.I shake_128_in
+and
+.I shake_256_in
+functions provide the incremental input, mirroring the non extensible hash functions.
+They will allocate a DigestState in a similar manner if their state argument is nil.
+An explicit conversion step is required to allow for the input to be finalized and padded.
+The
+.I shake_128_conv
+and
+.I shake_256_conv
+perform that conversion, finalizing the DigestState supplied in
+.B ds
+and storing the result in
+.BR xs .
+The supplied DigestState is freed if it was malloced via a previous call,
+and a newly allocated XOFState is returned if the
+.B xs
+argument is nil.
+The
+.I shake_128_out
+and
+.I shake_256_out
+functions take a XOFState and fill the supplied
+.B out
+buffer with
+.B olen
+bytes.
+A final call with an output buffer of nil is used to free an allocated XOFState.
+.IR Shake_128 ,
 and
 .I shake_256
-are extensible output functions that use the SHA3 keccak block.
-For these functions the
+provide non incremental interfaces, hashing the input and filling
 .I olen
-argument specifies how many bytes to write out to the digest.
+bytes of
+.IR digest .
 .PP
 .IR Hmac_md5 ,
 .IR hmac_sha1 ,
@@ -217,6 +272,23 @@ s = md5("my password", 11, nil, nil);
 while((n = read(fd, buf, 256)) > 0)
 	md5(buf, n, nil, s);
 md5("drowssap ym", 11, digest, s);
+.EE
+.PP
+To give incremental input and take incremental output from
+.IR shake128 :
+.IP
+.EX
+uchar buf[256];
+uchar output[1024];
+DigestState *ds;
+XOFState *xs;
+
+for(ds = nil; (n = read(fd, buf, 256)) > 0;)
+	ds = shake_128_in(buf, n, ds);
+xs = shake_128_conv(nil, ds);
+shake_128_out(output, 512, xs);
+shake_128_out(output + 512, 512, xs);
+shake_128_out(nil, 0, xs);
 .EE
 .SH SOURCE
 .B /sys/src/libsec

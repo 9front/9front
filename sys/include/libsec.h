@@ -255,6 +255,16 @@ struct DigestState
 	char	malloced;
 	char	seeded;
 };
+typedef struct XOFState XOFState;
+struct XOFState
+{
+	uvlong	offset;
+	union {
+		u32int	state[16];
+		u64int	bstate[25];
+	};
+	char malloced;
+};
 typedef struct DigestState SHAstate;	/* obsolete name */
 typedef struct DigestState SHA1state;
 typedef struct DigestState SHA2_224state;
@@ -278,8 +288,6 @@ DigestState*	sha3_224(uchar*, ulong, uchar*, DigestState*);
 DigestState*	sha3_256(uchar*, ulong, uchar*, DigestState*);
 DigestState*	sha3_384(uchar*, ulong, uchar*, DigestState*);
 DigestState*	sha3_512(uchar*, ulong, uchar*, DigestState*);
-DigestState*	shake_128(uchar*, ulong, uchar*, ulong, DigestState*);
-DigestState*	shake_256(uchar*, ulong, uchar*, ulong, DigestState*);
 DigestState*	hmac_x(uchar *p, ulong len, uchar *key, ulong klen,
 			uchar *digest, DigestState *s,
 			DigestState*(*x)(uchar*, ulong, uchar*, DigestState*),
@@ -298,6 +306,16 @@ DigestState*	hmac_blake2s_256(uchar*, ulong, uchar*, ulong, uchar*, DigestState*
 DigestState*	poly1305(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
 DigestState*	mac_blake2s_128(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
 DigestState*	mac_blake2s_256(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
+
+DigestState*	shake_128_in(uchar*, ulong, DigestState*);
+XOFState*	shake_128_conv(XOFState*, DigestState*);
+void		shake_128_out(uchar*, ulong, XOFState*);
+void		shake_128(uchar*, ulong, uchar*, ulong);
+
+DigestState*	shake_256_in(uchar*, ulong, DigestState*);
+XOFState*	shake_256_conv(XOFState*, DigestState*);
+void		shake_256_out(uchar*, ulong, XOFState*);
+void		shake_256(uchar*, ulong, uchar*, ulong);
 
 /*
  * random number generation
