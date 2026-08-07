@@ -428,7 +428,7 @@ that takes up a fifth of the disk,
 .L "a . .+21G"
 creates a new partition starting at
 .B .
-that takes up 21 gigabytes (21×2\u\s-130\s0\d bytes),
+that takes up 21 gigabytes (21×2³⁰ bytes),
 and
 .L "a 1000 $"
 creates a new partition starting at
