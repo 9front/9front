@@ -1300,9 +1300,10 @@ doprof2(void)
 			q->cond = p->cond;
 			q->link = p->link;
 			q->reg = p->reg;
-			p->link = q;
 
 			if(p->scond != 14) {
+				p->cond = q;
+
 				q = prg();
 				q->as = ABL;
 				q->from = zprg.from;
@@ -1310,19 +1311,16 @@ doprof2(void)
 				q->to.type = D_BRANCH;
 				q->cond = ps4;
 				q->to.sym = s4;
-				q->link = p->link;
-				p->link = q;
+				q->link = p->cond;
+				p->cond = q;
 
-				p->as = brcond[p->scond^1];	/* complement */
+				p->as = brcond[p->scond];
 				p->scond = 14;
 				p->from = zprg.from;
 				p->to = zprg.to;
 				p->to.type = D_BRANCH;
-				p->cond = q->link->link;	/* successor of RET */
-				p->to.offset = q->link->link->pc;
-
-				p = q->link->link;
 			} else {
+				p->link = q;
 
 				/*
 				 * BL	profout
