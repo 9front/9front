@@ -277,6 +277,7 @@ threadmain(int argc, char *argv[])
 	char *textfile, *arch;
 
 	fmtinstall('F', fcallfmt);
+	fmtinstall('H', encodefmt);
 	textfile = arch = nil;
 	ARGBEGIN{
 	case 'D':
