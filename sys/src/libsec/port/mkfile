@@ -55,12 +55,3 @@ CFLAGS=$CFLAGS -I../../libmp/port
 	echo '#include "os.h"' > $target
 	echo '#include <mp.h>' >> $target
 	mpc $prereq >> $target
-	
-$O.rsatest: rsatest.$O
-	$LD -o $target $prereq
-
-$O.chachatest: chachatest.$O
-	$LD -o $target $prereq
-
-$O.aesgcmtest: aesgcmtest.$O
-	$LD -o $target $prereq
