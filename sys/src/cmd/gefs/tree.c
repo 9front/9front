@@ -1293,7 +1293,6 @@ btupsert(Tree *t, Msg *msg, int nmsg)
 Again:
 	b = getroot(t, &height);
 	if(waserror()){
-		aincl(&fs->rdonly, 1);
 		dropblk(b);
 		nexterror();
 	}

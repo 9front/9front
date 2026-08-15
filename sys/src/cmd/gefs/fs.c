@@ -78,19 +78,18 @@ wrwait(void)
 	tracev("flushed", agetv(&fs->qgen));
 }
 
-static void
+static int
 sync(void)
 {
 	Mount *mnt;
 	Arena *a;
 	Dlist *sdl, ddl;
 	Tree *r;
-	int i;
+	int i, ok;
 
 	qlock(&fs->synclk);
 	if(waserror()){
 		fprint(2, "failed to sync: %s\n", errmsg());
-		aincl(&fs->rdonly, 1);
 		qunlock(&fs->synclk);
 		nexterror();
 	}
@@ -112,7 +111,6 @@ sync(void)
 	qlock(&fs->mutlk);
 	if(waserror()){
 		free(sdl);
-		aincl(&fs->rdonly, 1);
 		qunlock(&fs->mutlk);
 		nexterror();
 	}
@@ -133,6 +131,7 @@ sync(void)
 	dlsync();
 	*sdl = fs->snapdl;
 	ddl = fs->dropdl;
+	ok = sdl->hd.addr== -1 && ddl.hd.addr == -1;
 	fs->snapdl.hd = Zb;
 	fs->snapdl.tl = Zb;
 	fs->snapdl.ins = nil;
@@ -222,6 +221,7 @@ sync(void)
 	qunlock(&fs->synclk);
 	tracem("synced");
 	poperror();
+	return ok;
 }
 
 /*
@@ -924,12 +924,9 @@ freeamsg(Amsg *a)
 {
 	if(a == nil)
 		return;
-	switch(a->op){
-	case AOrclose:
-	case AOclear:
+	if(a->op == AOrclose || a->op == AOclear){
 		clunkdent(a->mnt, a->dent);
 		clunkmount(a->mnt);
-		break;
 	}
 	free(a);
 }
@@ -2573,7 +2570,7 @@ putconn(Conn *c)
 			putfid(f);
 
 			if(a != nil)
-				chsend(fs->admchan, a);
+				chsend(fs->swchan, a);
 		}
 	}
 	free(c);
@@ -2655,7 +2652,7 @@ runfs(int, void *pc)
 		}
 		assert(estacksz() == 0);
 		if(a != nil)
-			chsend(fs->admchan, a);
+			chsend(fs->swchan, a);
 	}
 	putconn(c);
 }
@@ -2708,7 +2705,8 @@ runmutate(int, void *)
 
 	while(1){
 		a = nil;
-		m = chrecv(fs->wrchan);
+		if((m = chrecv(fs->wrchan)) == nil)
+			break;
 		qlock(&fs->mutlk);
 		fs->snap.dirty = 1;
 		if(waserror())
@@ -2735,9 +2733,18 @@ runmutate(int, void *)
 		qunlock(&fs->mutlk);
 		epochclean();
 
-		if(a != nil)
-			chsend(fs->admchan, a);
+		/*
+		 * can't block on a channel while holding the mutlk,
+		 * so we defer amsg to after we release it
+		 */
+		if(a != nil){
+			if(a->op == AOclear || a->op == AOrclose)
+				chsend(fs->swchan, a);
+			else
+				chsend(fs->admchan, a);
+		}
 	}
+	chsend(fs->admchan, nil);
 }
 
 void
@@ -2874,24 +2881,64 @@ setconf(int op, char *snap, char *key, char *val)
 	poperror();
 }
 
-void
-runsweep(int id, void*)
+/*	
+ * we can have stragglers in the defererd list, so 
+ * keep syncing until we cleared it out fully.
+ */
+static void
+drainsyncq(void)
 {
-	char buf[Kvmax];
-	Msg mb[Kvmax/Offksz];
+	int n;
+
+	if(waserror())
+		sysfatal("halt failed: %s\n", errmsg());
+	while(1){
+		/*
+		 * we need to cycle through the limbo lists to
+		 * enqueue the blocks, then wait for them all
+		 * pass through the write queues, so that when
+		 * sync() finally gets called, the deadlists
+		 * it processes have all the in-flight blocks.
+		 */
+		for(n = 0; n != nelem(fs->limbo); n++){
+			while(!epochclean())
+				sleep(10);
+		}
+		/*
+		 * make sure that blocks released by epochclean
+		 * make it through the syncer into the deadlists
+		 */
+		wrwait();
+		if(sync())
+			break;
+	}
+	poperror();
+}
+
+void
+runadm(int id, void *)
+{
 	Bptr bp, nb, *oldhd;
 	Tree *t, *n;
 	Fcall r;
-	int i, nm, ok;
-	vlong off;
+	int i, ok, halting;
 	Arena *a;
 	Amsg *am;
 	Blk *b;
 
+	halting = 0;
 	if((oldhd = calloc(fs->narena, sizeof(Bptr))) == nil)
 		sysfatal("malloc log heads");
 	while(1){
-		am = chrecv(fs->admchan);
+		if((am = chrecv(fs->admchan)) == nil){
+			if(halting++ == 1){
+				chsend(fs->swchan, nil);
+				continue;
+			}
+			drainsyncq();
+			postnote(PNGROUP, getpid(), "halting");
+			exits(nil);
+		}
 		if(waserror()){
 			if(am->m != nil)
 				rerror(am->m, errmsg());
@@ -2905,27 +2952,22 @@ runsweep(int id, void*)
 			setconf(Odelete, am->snap, am->key, "");
 			break;
 		case AOhalt:
-			if(!agetl(&fs->rdonly)){
-				aincl(&fs->rdonly, 1);
-				/* cycle through all epochs to clear them.  */
-				for(i = 0; i < 3; i++)
-					while(!epochclean())
-						sleep(1);
-				if(waserror()){
-					fprint(2, "halt failed: %s\n", errmsg());
-					break;
-				}
-				sync();
-			}
 			fprint(2, "gefs: ending\n");
-			postnote(PNGROUP, getpid(), "halted");
-			exits(nil);
+			if(halting)
+				goto Next;
+			if(!agetl(&fs->rdonly)){
+				chsend(fs->wrchan, nil);
+				halting++;
+				goto Next;
+			}else{
+				postnote(PNGROUP, getpid(), "halting");
+				exits(nil);
+			}
 			break;
 		case AOsync:
 			tracem("syncreq");
 			if(waserror()){
 				fprint(2, "sync error: %s\n", errmsg());
-				aincl(&fs->rdonly, 1);
 				nexterror();
 			}
 			if(!fs->snap.dirty || agetl(&fs->rdonly))
@@ -3013,6 +3055,48 @@ Syncout:
 			}
 			break;
 
+		}
+Next:
+		poperror();
+		if(am->m != nil){
+			switch(am->m->type){
+			case Twstat:
+				r.type = Rwstat;
+				break;
+			case Twrite:
+				r.type = Rwrite;
+				r.count = am->m->count;
+				break;
+			default:
+				abort();
+			}
+			respond(am->m, &r);
+		}
+		assert(estacksz() == 0);
+		freeamsg(am);
+	}
+
+}
+
+void
+runsweep(int, void*)
+{
+	char buf[Kvmax];
+	Msg mb[Kvmax/Offksz];
+	int nm;
+	vlong off;
+	Amsg *am;
+
+	while(1){
+		if((am = chrecv(fs->swchan)) == nil)
+			break;
+		if(waserror()){
+			if(am->m != nil)
+				rerror(am->m, errmsg());
+			continue;
+		}
+		assert(am->m == nil);
+		switch(am->op){
 		case AOrclose:
 			if(agetl(&fs->rdonly)){
 				fprint(2, "rclose on read only fs");
@@ -3050,7 +3134,6 @@ Syncout:
 			tracem("bgclear");
 			if(waserror()){
 				fprint(2, "clear file %llx: %s\n", am->qpath, errmsg());
-				aincl(&fs->rdonly, 1);
 				break;
 			}
 			fs->snap.dirty = 1;
@@ -3065,10 +3148,15 @@ Syncout:
 				mb[nm].v = nil;
 				mb[nm].nv = 0;
 				if(++nm >= nelem(mb) || off + Blksz >= am->end){
+Again:
 					qlock(&fs->mutlk);
 					if(waserror()){
 						qunlock(&fs->mutlk);
-						nexterror();
+						if(strcmp(errmsg(), Efull) != 0)
+							nexterror();
+						fprint(2, "waiting for sweep...\n");
+						sleep(5000);
+						goto Again;
 					}
 					upsert(am->mnt, mb, nm);
 					qunlock(&fs->mutlk);
@@ -3085,26 +3173,15 @@ Syncout:
 			}
 			poperror();
 			break;
+		default:
+			abort();
 		}
 Next:
 		poperror();
-		if(am->m != nil){
-			switch(am->m->type){
-			case Twstat:
-				r.type = Rwstat;
-				break;
-			case Twrite:
-				r.type = Rwrite;
-				r.count = am->m->count;
-				break;
-			default:
-				abort();
-			}
-			respond(am->m, &r);
-		}
 		assert(estacksz() == 0);
 		freeamsg(am);
 	}
+	chsend(fs->admchan, nil);
 }
 
 static void

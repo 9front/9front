@@ -260,7 +260,6 @@ writectl(Fmsg *m, Fid *f)
 		if(strcmp(sp[0], "sync") == 0)
 			asend(AOsync, m);
 		else if(strcmp(sp[0], "halt") == 0){
-			aincl(&fs->rdonly, 1);
 			respond(m, &r);
 			asend(AOhalt, nil);
 		}else if(strcmp(sp[0], "check") == 0){

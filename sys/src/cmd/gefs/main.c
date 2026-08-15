@@ -455,6 +455,7 @@ main(int argc, char **argv)
 	}
 	rfork(RFNOTEG);
 	fs->wrchan = mkchan(32);
+	fs->swchan = mkchan(32);
 	fs->admchan = mkchan(32);
 	/*
 	 * for spinning disks, parallel sync tanks performance
@@ -476,6 +477,7 @@ main(int argc, char **argv)
 	ctlfd = postfd(srvname, ".cmd", 0600);
 	xlaunch(runcons, (void*)ctlfd, aincl(&fs->nworker, 1), "ctl");
 	xlaunch(runmutate, nil, aincl(&fs->nworker, 1), "mutate");
+	xlaunch(runadm, nil, aincl(&fs->nworker, 1), "adm");
 	xlaunch(runsweep, nil, aincl(&fs->nworker, 1), "sweep");
 	xlaunch(runtasks, nil, -1, "tasks");
 	for(i = 0; i < fs->nreaders; i++)

@@ -213,6 +213,7 @@ void	runcons(int, void*);
 void	runtasks(int, void*);
 void	runsync(int, void*);
 void	runsweep(int, void*);
+void	runadm(int, void*);
 void	runsnap(int, void*);
 
 /* fuzzing and testing */

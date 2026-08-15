@@ -877,6 +877,7 @@ epochend(int tid)
 	aswapl(&fs->lepoch[tid], le &~ Eactive);
 }
 
+/* clears limbo lists; returns if the epoch advanced */
 int
 epochclean(void)
 {
