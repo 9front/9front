@@ -18,12 +18,11 @@ int	iprintscreenputs = 1;
 int	panicking;
 
 char	*sysname;
-vlong	fasthz;
 
 static int	readtime(ulong, char*, int);
-static int	readbintime(char*, int);
+static int	readbintime(uchar*, int);
 static int	writetime(char*, int);
-static int	writebintime(char*, int);
+static int	writebintime(uchar*, int);
 
 enum
 {
@@ -669,7 +668,7 @@ conswrite(Chan *c, void *va, long n, vlong off)
 	case Qbintime:
 		if(!iseve())
 			error(Eperm);
-		return writebintime(a, n);
+		return writebintime((uchar*)a, n);
 
 	case Qhostowner:
 		return hostownerwrite(a, n);
@@ -804,47 +803,39 @@ Dev consdevtab = {
 	devwstat,
 };
 
-static uvlong uvorder = 0x0001020304050607ULL;
-
-static uchar*
-be2vlong(vlong *to, uchar *f)
+static long
+gb32(uchar *p)
 {
-	uchar *t, *o;
-	int i;
-
-	t = (uchar*)to;
-	o = (uchar*)&uvorder;
-	for(i = 0; i < sizeof(vlong); i++)
-		t[o[i]] = f[i];
-	return f+sizeof(vlong);
+	return	(long)p[0] << 24 |
+		(long)p[1] << 16 |
+		(long)p[2] <<  8 |
+		(long)p[3];
 }
 
-static uchar*
-vlong2be(uchar *t, vlong from)
+static vlong
+gb64(uchar *p)
 {
-	uchar *f, *o;
-	int i;
-
-	f = (uchar*)&from;
-	o = (uchar*)&uvorder;
-	for(i = 0; i < sizeof(vlong); i++)
-		t[i] = f[o[i]];
-	return t+sizeof(vlong);
+	return	(vlong)p[0] << 56 |
+		(vlong)p[1] << 48 |
+		(vlong)p[2] << 40 |
+		(vlong)p[3] << 32 |
+		(vlong)p[4] << 24 |
+		(vlong)p[5] << 16 |
+		(vlong)p[6] <<  8 |
+		(vlong)p[7];
 }
 
-static long order = 0x00010203;
-
-static uchar*
-be2long(long *to, uchar *f)
+static void
+pb64(uchar *p, vlong v)
 {
-	uchar *t, *o;
-	int i;
-
-	t = (uchar*)to;
-	o = (uchar*)&order;
-	for(i = 0; i < sizeof(long); i++)
-		t[o[i]] = f[i];
-	return f+sizeof(long);
+	p[0] = v >> 56;
+	p[1] = v >> 48;
+	p[2] = v >> 40;
+	p[3] = v >> 32;
+	p[4] = v >> 24;
+	p[5] = v >> 16;
+	p[6] = v >> 8;
+	p[7] = v;
 }
 
 char *Ebadtimectl = "bad time control";
@@ -852,25 +843,21 @@ char *Ebadtimectl = "bad time control";
 /*
  *  like the old #c/time but with added info.  Return
  *
- *	secs	nanosecs	fastticks	fasthz
+ *	seconds nanoseconds fticks ftickshz uptime
  */
 static int
 readtime(ulong off, char *buf, int n)
 {
-	vlong	nsec, ticks, mono;
-	long sec;
+	vlong nsec, fticks, ftickshz, uptime;
 	char str[9*NUMSIZE];
 
-	nsec = todget(&ticks, &mono);
-	if(fasthz == 0LL)
-		fastticks((uvlong*)&fasthz);
-	sec = nsec/1000000000ULL;
+	todget(&nsec, &fticks, &ftickshz, &uptime);
 	snprint(str, sizeof(str), "%*lud %*llud %*llud %*llud %*llud ",
-		NUMSIZE-1, sec,
+		NUMSIZE-1, (long)(nsec/1000000000ULL),
 		VLNUMSIZE-1, nsec,
-		VLNUMSIZE-1, ticks,
-		VLNUMSIZE-1, fasthz,
-		VLNUMSIZE-1, mono);
+		VLNUMSIZE-1, fticks,
+		VLNUMSIZE-1, ftickshz,
+		VLNUMSIZE-1, uptime);
 	return readstr(off, buf, n, str);
 }
 
@@ -888,7 +875,7 @@ writetime(char *buf, int n)
 		error(Ebadtimectl);
 	strncpy(b, buf, n);
 	b[n] = 0;
-	i = strtol(b, 0, 0);
+	i = strtoul(b, 0, 0);
 	if(i <= 0)
 		error(Ebadtimectl);
 	now = i*1000000000LL;
@@ -897,79 +884,76 @@ writetime(char *buf, int n)
 }
 
 /*
- *  read binary time info.  all numbers are little endian.
- *  ticks and nsec are syncronized.
+ *  read binary time info.
  */
 static int
-readbintime(char *buf, int n)
+readbintime(uchar *buf, int n)
 {
-	int i;
-	vlong nsec, ticks, mono;
-	uchar *b = (uchar*)buf;
+	vlong v[4];
 
-	i = 0;
-	if(fasthz == 0LL)
-		fastticks((uvlong*)&fasthz);
-	nsec = todget(&ticks, &mono);
-	if(n >= 4*sizeof(uvlong)){
-		vlong2be(b+3*sizeof(uvlong), mono);
-		i += sizeof(uvlong);
+	if(n < 0)
+		return 0;
+
+	n /= sizeof(v[0]);
+	switch(n){
+	default:
+		n = 4;
+		/* wet floor */
+	case 4:	todget(&v[0], &v[1], &v[2], &v[3]);
+		pb64(buf+3*8, v[3]);
+	if(0){	case 3:	todget(&v[0], &v[1], &v[2], nil); }
+		pb64(buf+2*8, v[2]);
+	if(0){	case 2:	todget(&v[0], &v[1], nil, nil); }
+		pb64(buf+1*8, v[1]);
+	if(0){	case 1:	todget(&v[0], nil, nil, nil); }
+		pb64(buf+0*8, v[0]);
+		return n * sizeof(v[0]);
+	case 0:
+		return 0;
 	}
-	if(n >= 3*sizeof(uvlong)){
-		vlong2be(b+2*sizeof(uvlong), fasthz);
-		i += sizeof(uvlong);
-	}
-	if(n >= 2*sizeof(uvlong)){
-		vlong2be(b+sizeof(uvlong), ticks);
-		i += sizeof(uvlong);
-	}
-	if(n >= 8){
-		vlong2be(b, nsec);
-		i += sizeof(vlong);
-	}
-	return i;
 }
 
 /*
  *  set any of the following
- *	- time in nsec
+ *	- time in nanoseconds
  *	- nsec trim applied over some seconds
  *	- clock frequency
  */
 static int
-writebintime(char *buf, int n)
+writebintime(uchar *buf, int n)
 {
-	uchar *p;
-	vlong delta;
+	vlong delta, hz;
 	long period;
 
-	if(--n <= 0)
+	if(n < 1)
 		error(Ebadtimectl);
-	p = (uchar*)buf + 1;
-	switch(*buf){
+
+	switch((char)buf[0]){
+	default:
+		error(Ebadtimectl);
 	case 'n':
-		if(n < sizeof(vlong))
+		if(n < 1+8)
 			error(Ebadtimectl);
-		be2vlong(&delta, p);
+		delta = gb64(buf+1);
 		todset(delta, 0, 0);
 		break;
 	case 'd':
-		if(n < sizeof(vlong)+sizeof(long))
+		if(n < 1+8+4)
 			error(Ebadtimectl);
-		p = be2vlong(&delta, p);
-		be2long(&period, p);
+		delta = gb64(buf+1);
+		period = gb32(buf+1+8);
 		todset(-1, delta, period);
 		break;
 	case 'f':
-		if(n < sizeof(uvlong))
+		if(n < 1+8)
 			error(Ebadtimectl);
-		be2vlong(&fasthz, p);
-		if(fasthz <= 0)
+		hz = gb64(buf+1);
+		if(hz <= 0)
 			error(Ebadtimectl);
-		todsetfreq(fasthz);
+		todsetfreq(hz);
 		break;
 	}
-	return n+1;
+	return n;
 }
 
 void

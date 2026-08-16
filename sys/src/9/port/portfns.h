@@ -378,8 +378,7 @@ void		timerintr(Ureg*, Tval);
 void		timerset(Tval);
 ulong		tk2ms(ulong);
 #define		TK2MS(x) ((x)*(1000/HZ))
-uvlong		tod2fastticks(vlong);
-vlong		todget(vlong*, vlong*);
+void		todget(vlong*, vlong*, vlong*, vlong*);
 void		todsetfreq(vlong);
 void		todinit(void);
 void		todset(vlong, vlong, int);
@@ -434,6 +433,8 @@ void		hnputs(void*, ushort);
 uvlong		nhgetv(void*);
 uint		nhgetl(void*);
 ushort		nhgets(void*);
+vlong		nsec(void);
+vlong		uptime(void);
 ulong		µs(void);
 long		lcycles(void);
 

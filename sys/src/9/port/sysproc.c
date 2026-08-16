@@ -1428,13 +1428,13 @@ sys_nsec(va_list list)
 	/* return in register on 64bit machine */
 	if(sizeof(uintptr) == sizeof(vlong)){
 		USED(list);
-		return (uintptr)todget(nil, nil);
+		return (uintptr)nsec();
 	}
 
 	v = va_arg(list, vlong*);
 	evenaddr((uintptr)v);
 	validaddr((uintptr)v, sizeof(vlong), 1);
-	*v = todget(nil, nil);
+	*v = nsec();
 	return 0;
 }
 
@@ -1465,7 +1465,7 @@ dosyscall(ulong scallnr, Sargs *args, uintptr *retp)
 			up->procctl = Proc_stopme;
 			procctl();
 			spllo();
-			todget(nil, &startns);
+			startns = uptime();
 		}
 		if(scallnr >= nsyscall || systab[scallnr] == nil){
 			postnote(up, 1, "sys: bad sys call", NDebug);
@@ -1498,7 +1498,7 @@ dosyscall(ulong scallnr, Sargs *args, uintptr *retp)
 	}
 	*retp = ret;
 	if(up->procctl == Proc_tracesyscall){
-		todget(nil, &stopns);
+		stopns = uptime();
 		sysretfmt(scallnr, (va_list)up->s.args, ret, startns, stopns);
 		splhi();
 		up->procctl = Proc_stopme;

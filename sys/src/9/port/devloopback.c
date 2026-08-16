@@ -553,7 +553,7 @@ loopoput(Loop *lb, Link *link, Block *bp)
 	bp = padblock(bp, Tmsize);
 	if(BLEN(bp) < lb->minmtu)
 		bp = adjustblock(bp, lb->minmtu);
-	ptime(bp->rp, todget(nil, nil));
+	ptime(bp->rp, uptime());
 
 	link->packets++;
 	link->bytes += n;
@@ -570,7 +570,7 @@ looper(Loop *lb)
 	vlong t;
 	int chan;
 
-	t = todget(nil);
+	t = uptime();
 	for(chan = 0; chan < 2; chan++)
 		pushlink(&lb->link[chan], t);
 }

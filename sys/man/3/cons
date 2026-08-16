@@ -210,8 +210,8 @@ back to zero between subsequent accesses.
 A read of
 .B bintime
 returns 32 bytes, four 8 byte numbers, representing nanoseconds
-since start of epoch, clock ticks, clock frequency,
-and a monotonically increasing count of nanoseconds with an unspecified epoch.
+since start of epoch, clock ticks, clock frequency
+and monotonically increasing uptime in nanoseconds.
 .PP
 A write to
 .B bintime
@@ -263,7 +263,7 @@ The
 file holds one 32-bit number representing the seconds since start of epoch
 and four 64-bit numbers, representing nanoseconds since start of epoch,
 clock ticks, clock frequency,
-and a monotonically increasing count of nanoseconds with an unspecified epoch.
+and monotonically increasing uptime in nanoseconds.
 .PP
 A write of a decimal number to
 .B time
