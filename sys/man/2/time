@@ -1,6 +1,6 @@
 .TH TIME 2
 .SH NAME
-time, nsec \- time in seconds and nanoseconds since epoch
+time, nsec, uptime, fastticks \- time in seconds and nanoseconds
 .SH SYNOPSIS
 .B #include <u.h>
 .br
@@ -12,6 +12,12 @@ long time(long *tp)
 .PP
 .B
 vlong nsec(void)
+.PP
+.B
+vlong uptime(void)
+.PP
+.B
+uvlong fastticks(uvlong *hz)
 .SH DESCRIPTION
 Both
 .I time
@@ -26,6 +32,17 @@ if
 is not zero then
 .BI * tp
 is also set to the answer.
+.PP
+.I Uptime
+returns monotonically increasing nanoseconds since boot.
+.PP
+.I Fastticks
+returns clock cycles from the highest precision clock in the system.
+If
+.I hz
+is not nil then
+.BI * hz
+is set to the cycle frequency of the high precision clock.
 .PP
 These functions work by reading
 .BR /dev/bintime .

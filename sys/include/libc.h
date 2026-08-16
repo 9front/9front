@@ -385,7 +385,10 @@ extern	char*	ctime(long);
 extern	double	cputime(void);
 extern	long	times(long*);
 extern	long	tm2sec(Tm*);
+
 extern	vlong	nsec(void);
+extern	vlong	uptime(void);
+extern	uvlong	fastticks(uvlong*);
 
 extern	void	cycles(uvlong*);	/* 64-bit value of the cycle counter if there is one, 0 if there isn't */
 
