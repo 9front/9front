@@ -67,8 +67,8 @@ showval(Fmt *fmt, Kvp *v, int op, int flg)
 		n = fmtprint(fmt, "(%B,%d)", unpackbp(v->v, v->nv), UNPACK16(v->v+Ptrsz));
 		return n;
 	}
-	if(op == Odelete || op == Oclearb){
-		n = fmtprint(fmt, "delete");
+	if(op == Odelete || op == Oclearb || op == Oclobber){
+		n = fmtprint(fmt, "delete[%d]", v->nv);
 		return n;
 	}
 	switch(v->k[0]){
