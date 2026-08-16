@@ -2908,7 +2908,9 @@ drainsyncq(void)
 		 * make sure that blocks released by epochclean
 		 * make it through the syncer into the deadlists
 		 */
+		qlock(&fs->synclk);
 		wrwait();
+		qunlock(&fs->synclk);
 		if(sync())
 			break;
 	}
