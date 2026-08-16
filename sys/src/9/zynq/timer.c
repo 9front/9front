@@ -93,7 +93,6 @@ timerinit(void)
 	intrenable(TIMERIRQ, timerirq, nil, EDGE, "clock");
 
 	/* enable and reset cycle counter register */
-	m->cyclefreq = m->cpuhz;
 	setpmcnten((1<<31));
 	coherence();
 	setpmcr(7);
