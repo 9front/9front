@@ -194,7 +194,7 @@ initfs(vlong cachesz, int rdonly)
 	fs->cmax = cachesz/Blksz;
 	if(fs->cmax > (1<<30))
 		sysfatal("cache too big");
-	if((fs->bcache = mallocz(fs->cmax*sizeof(Bucket), 1)) == nil)
+	if((fs->bcache = mallocz(fs->cmax*sizeof(Blk*), 1)) == nil)
 		sysfatal("malloc: %r");
 
 	fs->dlcount = 0;

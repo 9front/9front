@@ -4,7 +4,6 @@ typedef struct Arena	Arena;
 typedef struct Bfree	Bfree;
 typedef struct Blk	Blk;
 typedef struct Bptr	Bptr;
-typedef struct Bucket	Bucket;
 typedef struct Chan	Chan;
 typedef struct Conn	Conn;
 typedef struct Cron	Cron;
@@ -425,10 +424,6 @@ struct Arange {
 	vlong	len;
 };
 
-struct Bucket {
-	Blk	*b;
-};
-
 struct Amsg {
 	int	op;
 	union {
@@ -616,7 +611,7 @@ struct Gefs {
 	/* block lru */
 	QLock	lrulk;
 	Rendez	lrurz;
-	Bucket	*bcache;
+	Blk	**bcache;
 	Blk	*chead;
 	Blk	*ctail;
 	usize	ccount;
