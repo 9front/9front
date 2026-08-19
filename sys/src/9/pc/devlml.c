@@ -396,7 +396,7 @@ lmlintr(Ureg *, void *x)
 		statcom = lml->codedata->statCom[fno];
 		jpgheader = (FrameHeader *)(lml->codedata->frag[fno].hdr + 2);
 		jpgheader->frameNo = lml->jpgframeno;
-		jpgheader->ftime  = todget(nil, nil);
+		jpgheader->ftime  = uptime();
 		jpgheader->frameSize = (statcom & 0x00ffffff) >> 1;
 		jpgheader->frameSeqNo = statcom >> 24;
 		wakeup(&lml->sleepjpg);
