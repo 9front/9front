@@ -144,7 +144,6 @@ clockinit(void)
 	t1 -= t0;
 	m->cpuhz = 100 * t1;
 	m->cpumhz = (m->cpuhz + Mhz/2 - 1) / Mhz;
-	m->cyclefreq = m->cpuhz;
 
 	if(m->machno == 0){
 		tn->c3 = tn->clo - 1;

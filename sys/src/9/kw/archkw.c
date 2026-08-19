@@ -381,7 +381,6 @@ void
 archconfinit(void)
 {
 	m->cpuhz = Frequency;
-	m->cyclefreq = m->cpuhz;
 	m->delayloop = m->cpuhz/2000; 	 /* initial estimate */
 	fixaddrmap();
 	if (Debug)
