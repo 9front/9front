@@ -29,39 +29,6 @@ sepfmt(Fmt *f)
 	return fmtstrcpy(f, va_arg(f->args, char*)[0] ? sep : "");
 }
 
-/*
- * nsec() is wallclock and can be adjusted by timesync
- * so need to use cycles() instead, but fall back to
- * nsec() in case we can't
- */
-static uvlong
-nanosec(void)
-{
-	static uvlong fasthz, xstart;
-	uvlong x, div;
-
-	if(fasthz == ~0ULL)
-		return nsec() - xstart;
-
-	if(fasthz == 0){
-		fasthz = _tos->cyclefreq;
-		if(fasthz == 0){
-			fasthz = ~0ULL;
-			xstart = nsec();
-			return 0;
-		}else{
-			cycles(&xstart);
-		}
-	}
-	cycles(&x);
-	x -= xstart;
-
-	/* this is ugly */
-	for(div = 1000000000ULL; x < 0x1999999999999999ULL && div > 1 ; div /= 10ULL, x *= 10ULL);
-
-	return x / (fasthz / div);
-}
-
 static void
 place(void)
 {
@@ -335,7 +302,7 @@ threadmain(int argc, char **argv)
 	proccreate(auxproc, a[Eaux].c, 4096);
 
 	m.buttons = 0;
-	oldt = nanosec();
+	oldt = uptime();
 	for(;;){
 		oldbuttons = m.buttons;
 
@@ -375,7 +342,7 @@ threadmain(int argc, char **argv)
 
 		if(0){
 		case Etimer:
-			t = nanosec();
+			t = uptime();
 			if(t - oldt >= 30000000000ULL){
 				readbattery();
 				oldt = t;
