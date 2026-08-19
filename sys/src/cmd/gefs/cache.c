@@ -31,7 +31,6 @@ lrutop(Blk *b)
 	 * to put this into the LRU, because
 	 * its now in use.
 	 */
-	bassert(b, b->magic == Magic);
 	bassert(b, checkflag(b, 0, Bstatic));
 	if(agetl(&b->ref) != 0){
 		qunlock(&fs->lrulk);
@@ -86,7 +85,6 @@ cacheins(Blk *b)
 	traceb("cache", b->bp);
 	bassert(b, checkflag(b, 0, Bstatic|Bcached));
 	setflag(b, Bcached, 0);
-	bassert(b, b->hnext == nil);
 	b->cached = getcallerpc(&b);
 	b->hnext = fs->bcache[h];
 	fs->bcache[h] = b;
@@ -108,10 +106,8 @@ cachedel_lk(vlong addr)
 	p = &fs->bcache[h];
 	for(b = *p; b != nil; b = b->hnext){
 		if(b->bp.addr == addr){
-			/* FIXME: Until we clean up snap.c, we can have dirty blocks in cache */
-			bassert(b, checkflag(b, Bcached, Bstatic)); //Bdirty));
+			bassert(b, checkflag(b, Bcached, Bstatic|Bdirty));
 			*p = b->hnext;
-			b->uncached = getcallerpc(&addr);
 			b->hnext = nil;
 			setflag(b, 0, Bcached);
 			break;
@@ -141,7 +137,6 @@ cacheget(vlong addr)
 		if(b->bp.addr == addr){
 			holdblk(b);
 			lrudel(b);
-			b->lasthold = getcallerpc(&addr);
 			break;
 		}
 	}
@@ -167,11 +162,8 @@ cachepluck(void)
 	bassert(b, agetl(&b->ref) == 0);
 	if(checkflag(b, Bcached, 0))
 		cachedel_lk(b->bp.addr);
-	bassert(b, checkflag(b, 0, Bcached));
 	lrudel(b);
 	aswapl(&b->flag, 0);
-	b->lasthold = 0;
-	b->lastdrop = 0;
 	b->freed = 0;
 	b->hnext = nil;
 	qunlock(&fs->lrulk);
