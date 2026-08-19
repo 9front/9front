@@ -16,7 +16,7 @@ nanosec(void)
 	uvlong x;
 
 	if(fasthz == ~0ULL)
-		return nsec() - xstart;
+		return uptime() - xstart;
 
 	if(fasthz == 0){
 		if(_tos->cyclefreq){
@@ -24,7 +24,7 @@ nanosec(void)
 			cycles(&xstart);
 		} else {
 			fasthz = ~0ULL;
-			xstart = nsec();
+			xstart = uptime();
 		}
 		return 0;
 	}
