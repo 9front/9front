@@ -807,7 +807,12 @@ struct Blk {
 
 	/* debug */
 	uintptr queued;
-	uintptr	cached;
+	uintptr lasthold;
+	uintptr lasthold0;
+	uintptr lastdrop;
+	uintptr	enqueued;
+	uintptr cached;
+	uintptr uncached;
 	uintptr	alloced;
 	uintptr	freed;
 

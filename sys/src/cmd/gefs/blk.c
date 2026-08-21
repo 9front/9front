@@ -251,8 +251,9 @@ mklogblk(Arena *a, vlong o)
 	aswapl(&lb->flag, Bstatic);
 	initblk(lb, o, -1, Tlog);
 	traceb("logblk" , lb->bp);
+	lb->lasthold0 = lb->lasthold;
 	lb = holdblk(lb);
-	lb->alloced = getcallerpc(&a);
+	lb->lasthold = getcallerpc(&a);
 	return lb;
 }
 
@@ -751,6 +752,7 @@ getblk(Bptr bp, int flg)
 		b->bp.gen = bp.gen;
 		cacheins(b);
 	}
+	b->lasthold = getcallerpc(&bp);
 	qunlock(&fs->blklk[i]);
 	poperror();
 
@@ -762,6 +764,7 @@ Blk*
 holdblk(Blk *b)
 {
 	aincl(&b->ref, 1);
+	b->lasthold = getcallerpc(&b);
 	return b;
 }
 
@@ -770,7 +773,7 @@ dropblk(Blk *b)
 {
 	if(b == nil)
 		return;
-	bassert(b, b->magic == Magic);
+	b->lastdrop = getcallerpc(&b);
 	if(aincl(&b->ref, -1) != 0)
 		return;
 	/*
@@ -977,7 +980,7 @@ enqueue(Blk *b)
 	}
 	holdblk(b);
 
-	b->queued = getcallerpc(&b);
+	b->enqueued = getcallerpc(&b);
 	traceb("queueb", b->bp);
 	a = getarena(b->bp.addr);
 	qe.op = Qwrite;
