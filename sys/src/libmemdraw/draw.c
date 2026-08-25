@@ -2224,7 +2224,6 @@ memoptdraw(Memdrawparam *par)
 					dp++;
 				}
 			}
-			return 1;
 		}else{
 		/* dir == -1 */
 			i = (lm!=0)+dx+(rm!=0);
