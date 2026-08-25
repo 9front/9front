@@ -1,0 +1,6 @@
+</$objtype/mkfile
+
+TEST=
+CFLAGS=$CFLAGS
+
+</sys/src/cmd/mktest
