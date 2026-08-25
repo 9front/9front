@@ -5,33 +5,23 @@
 Point
 Pt(int x, int y)
 {
-	Point p;
-
-	p.x = x;
-	p.y = y;
-	return p;
+	return (Point){x, y};
 }
 
 Rectangle
 Rect(int x, int y, int bx, int by)
 {
-	Rectangle r;
+	Point p0, p1;
 
-	r.min.x = x;
-	r.min.y = y;
-	r.max.x = bx;
-	r.max.y = by;
-	return r;
+	p0 = (Point){x, y};
+	p1 = (Point){bx, by};
+	return (Rectangle){p0, p1};
 }
 
 Rectangle
 Rpt(Point min, Point max)
 {
-	Rectangle r;
-
-	r.min = min;
-	r.max = max;
-	return r;
+	return (Rectangle){min, max};
 }
 
 Point
