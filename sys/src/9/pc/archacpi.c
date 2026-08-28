@@ -384,16 +384,16 @@ getirqs(void *d, uchar pmask[256/8], int *pflags)
 		case 0x89:	/* Extended IRQ Descriptor */
 			if(n < 9)
 				break;
+			*pflags = ((p[3] & (1<<1)) ? PcmpEDGE : PcmpLEVEL)
+				| ((p[3] & (1<<2)) ? PcmpLOW : PcmpHIGH);
 			c = p[4];
-			if(5+c*4 < n)
-				break;
 			for(i=0; i<c; i++){
+				if(5+4+i*4 > n)
+					break;
 				m = get32(p+5 + i*4);
 				if(m >= 0 && m < 256)
 					pmask[m/8] |= 1<<(m%8);
 			}
-			*pflags = ((p[3] & (1<<1)) ? PcmpEDGE : PcmpLEVEL)
-				| ((p[3] & (1<<2)) ? PcmpLOW : PcmpHIGH);
 			return 0;
 		case 0x0F:	/* Terminator */
 			return -1;
