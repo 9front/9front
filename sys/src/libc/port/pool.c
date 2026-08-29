@@ -183,6 +183,7 @@ static Free*	treesplay(Free*, ulong);
 #define antagonism	if(!(p->flags & POOL_ANTAGONISM)){}else
 #define paranoia	if(!(p->flags & POOL_PARANOIA)){}else
 #define verbosity	if(!(p->flags & POOL_VERBOSITY)){}else
+#define scrub		if(!(p->flags & POOL_SCRUB)){}else
 
 #define DPRINT	if(!(p->flags & POOL_DEBUGGING)){}else p->print
 #define LOG		if(!(p->flags & POOL_LOGGING)){}else p->print
@@ -1172,6 +1173,10 @@ poolfreel(Pool *p, void *v)
 	if(fwd->magic == FREE_MAGIC)
 		ab = blockmerge(p, ab, fwd);
 
+	scrub {
+		memset(_B2D(ab), 0x00, ab->size-sizeof(Bhdr)-sizeof(Btail));
+	}
+
 	pooladd(p, ab);
 }
 
@@ -1373,6 +1378,9 @@ poolreset(Pool *p)
 	while(a != nil){
 		Arena *next = a->down;
 		ulong asize = a->asize;
+		scrub {
+			memset(a, 0x00, asize);
+		}
 		antagonism {
 			memmark(a, 0xFF, asize);
 		}
