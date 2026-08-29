@@ -995,7 +995,7 @@ qinit(Syncq *q)
 	q->fullrz.l = &q->lk;
 	q->emptyrz.l = &q->lk;
 	q->nheap = 0;
-	q->heapsz = fs->cmax;
+	q->heapsz = 2*fs->cmax;
 	q->heap = emalloc(q->heapsz*sizeof(Qent), 1);
 }
 
