@@ -5,6 +5,7 @@ TARG=\
 	correlate\
 	affinewarp\
 	histogram\
+	crop\
 
 OFILES=\
 	util.$O\
