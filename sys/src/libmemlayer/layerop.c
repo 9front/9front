@@ -24,27 +24,31 @@ _layerop(
 		return;
 	}
 	fr = front->layer->screenr;
-	if(rectXrect(r, fr) == 0){
+	if(!rectXrect(r, fr)){
 		/* r doesn't touch this window; continue on next rearmost */
 		// assert(front && front->layer && front->layer->screen && front->layer->rear);
 		front = front->layer->rear;
 		goto Top;
 	}
-	if(fr.max.y < r.max.y){
-		RECUR(r.min, fr.max, r.max, r.max);
-		r.max.y = fr.max.y;
-	}
 	if(r.min.y < fr.min.y){
+		/* above front layer */
 		RECUR(r.min, r.min, r.max, fr.min);
 		r.min.y = fr.min.y;
 	}
-	if(fr.max.x < r.max.x){
-		RECUR(fr.max, r.min, r.max, r.max);
-		r.max.x = fr.max.x;
+	if(r.max.y > fr.max.y){
+		/* below front layer */
+		RECUR(r.min, fr.max, r.max, r.max);
+		r.max.y = fr.max.y;
 	}
 	if(r.min.x < fr.min.x){
+		/* left of front layer */
 		RECUR(r.min, r.min, fr.min, r.max);
 		r.min.x = fr.min.x;
+	}
+	if(r.max.x > fr.max.x){
+		/* right of front layer */
+		RECUR(fr.max, r.min, r.max, r.max);
+		r.max.x = fr.max.x;
 	}
 	/* r is covered by front, so put in save area */
 	(*fn)(i->layer->save, r, clipr, etc, 1);
@@ -58,7 +62,7 @@ _memlayerop(
 	void (*fn)(Memimage*, Rectangle, Rectangle, void*, int),
 	Memimage *i,
 	Rectangle screenr,	/* clipped to window boundaries */
-	Rectangle clipr,		/* clipped also to clipping rectangles of hierarchy */
+	Rectangle clipr,	/* clipped also to clipping rectangles of hierarchy */
 	void *etc)
 {
 	Memlayer *l;

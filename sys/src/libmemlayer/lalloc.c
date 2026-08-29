@@ -39,13 +39,12 @@ memlalloc(Memscreen *s, Rectangle screenr, Refreshfn refreshfn, void *refreshptr
 			return nil;
 		}
 		/* allocmemimage doesn't initialize memory; this paints save area */
-		if(val != DNofill)
-			memfillcolor(l->save, val);
+		memfillcolor(l->save, val);
 	}
 	l->refreshfn = refreshfn;
 	l->refreshptr = nil;	/* don't set it until we're done */
 	l->screenr = screenr;
-	l->delta = Pt(0,0);
+	l->delta = ZP;
 
 	n->data->ref++;
 	n->zero = s->image->zero;
