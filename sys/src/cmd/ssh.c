@@ -1448,6 +1448,8 @@ Mux:
 		 */
 		o = 0;
 		while(n > 0){
+			while(send.win == 0)
+				rsleep(&send);
 			l = send.win < n ? send.win : n;
 			sendpkt("bus", MSG_CHANNEL_DATA,
 				send.chan,
@@ -1455,8 +1457,6 @@ Mux:
 			send.win -= l;
 			o += l;
 			n -= l;
-			while(send.win == 0)
-				rsleep(&send);
 		}
 	}
 	if(send.eof++ == 0 && !mux)
