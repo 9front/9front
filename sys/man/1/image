@@ -1,6 +1,6 @@
 .TH IMAGE 1
 .SH NAME
-affinewarp, correlate, histogram - image processing tools
+affinewarp, correlate, histogram, crop - image processing tools
 .SH SYNOPSIS
 .B image/affinewarp
 [
@@ -32,6 +32,13 @@ affinewarp, correlate, histogram - image processing tools
 .br
 .B image/histogram
 [
+.I file
+]
+.br
+.B image/crop
+[
+.B -w
+] [
 .I file
 ]
 .SH DESCRIPTION
@@ -117,8 +124,38 @@ or stdin, opens a minimal visualizer in the current window, and
 generates a histogram for each of its channels in an independent
 window.
 .br
-When in the visualizer, use LMB to move the image around, scroll up/down or
-MMB to control zoom and RMB to open a menu with some extra options.
+When in the visualizer, use LMB to move the image around, scroll
+up/down or MMB to control zoom and RMB to open a menu with some extra
+options:
+.TP
+.B smoothen/sharpen
+Toggle between a bilinear and nearest neighbour drawing filter (see the
+.I smooth
+parameter in
+.IR affinewarp (2)).
+.TP
+.B "select region"
+Sweep an area in the image and update the histograms based on its
+measurement.
+.PP
+.I Crop
+reads an image from a given
+.I file
+or stdin and opens a minimal visualizer in the current window (or a
+new one when using
+.BR -w ).
+The controls in the visualizer are the same as in
+.IR histogram ,
+with the button 3 (RMB) menu presenting the following options:
+.TP
+.B crop
+Select a cropping area over the image.  The resulting rectangle can be
+finely adjusted by pointing at any of its boundaries and sweeping
+while holding LMB.
+.TP
+.B write
+Write the selected image region to stdout.  If no region is selected
+the entire image will be used instead.
 .SH SOURCE
 .B /sys/src/cmd/image
 .SH SEE ALSO
