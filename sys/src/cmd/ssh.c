@@ -1028,7 +1028,7 @@ dispatch(void)
 		if(c != recv.chan)
 			break;
 		send.win += n;
-		if(send.win >= send.pkt)
+		if(send.win >= 0)
 			rwakeup(&send);
 		return;
 	case MSG_CHANNEL_REQUEST:
@@ -1176,7 +1176,7 @@ void
 main(int argc, char *argv[])
 {
 	static QLock sl;
-	int b, n, c;
+	int b, n, c, l, o;
 	char *s;
 
 	quotefmtinstall();
@@ -1406,7 +1406,7 @@ Mux:
 	for(;;){
 		static uchar buf[MaxPacket];
 		qunlock(&sl);
-		n = read(0, buf, send.pkt);
+		n = read(0, buf, sizeof(buf));
 		qlock(&sl);
 		if(send.eof)
 			break;
@@ -1439,12 +1439,25 @@ Mux:
 			sendpkt("[", buf, n);
 			continue;
 		}
-		send.win -= n;
-		while(send.win < 0)
-			rsleep(&send);
-		sendpkt("bus", MSG_CHANNEL_DATA,
-			send.chan,
-			buf, n);
+		/*
+		 * we need to chunk the writes because dropbear
+		 * doesn't quite conform to the spec; servers
+		 * are supposed to be able to handle a 32k packet
+		 * at minimum, but dropbear sets the window to 24k,
+		 * so we can't write it out all at once.
+		 */
+		o = 0;
+		while(n > 0){
+			l = send.win < n ? send.win : n;
+			sendpkt("bus", MSG_CHANNEL_DATA,
+				send.chan,
+				buf+o, l);
+			send.win -= l;
+			o += l;
+			n -= l;
+			while(send.win == 0)
+				rsleep(&send);
+		}
 	}
 	if(send.eof++ == 0 && !mux)
 		sendpkt("bu", raw ? MSG_CHANNEL_CLOSE : MSG_CHANNEL_EOF, send.chan);
