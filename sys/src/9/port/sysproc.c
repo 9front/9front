@@ -639,11 +639,7 @@ sysexec(va_list list)
 	/* Move the stack */
 	s = up->seg[ESEG];
 	up->seg[ESEG] = nil;
-	qlock(s);
-	s->base = USTKTOP-USTKSIZE;
-	s->top = USTKTOP;
-	relocateseg(s, USTKTOP-tstk);
-	qunlock(s);
+	relocateseg(s, USTKTOP-USTKSIZE);
 	up->seg[SSEG] = s;
 	qunlock(&up->seglock);
 
@@ -1055,33 +1051,25 @@ found:
 }
 
 uintptr
+syssegflush(va_list list)
+{
+	uintptr len;
+	void *va;
+
+	va = va_arg(list, void*);
+	len = va_arg(list, ulong);
+	return segflush(va, len);
+}
+
+uintptr
 syssegfree(va_list list)
 {
-	Segment *s;
-	uintptr from, to;
+	uintptr len;
+	void *va;
 
-	from = va_arg(list, uintptr);
-	to = va_arg(list, ulong);
-	to += from;
-	if(to < from)
-		error(Ebadarg);
-	s = seg(up, from, 1);
-	if(s == nil)
-		error(Ebadarg);
-	to &= ~(BY2PG-1);
-	from = PGROUND(from);
-	if(from >= to) {
-		qunlock(s);
-		return 0;
-	}
-	if(to > s->top) {
-		qunlock(s);
-		error(Ebadarg);
-	}
-	mfreeseg(s, from, (to - from) / BY2PG);
-	qunlock(s);
-	flushmmu();
-	return 0;
+	va = va_arg(list, void*);
+	len = va_arg(list, ulong);
+	return segfree(va, len);
 }
 
 /* For binary compatibility */
@@ -1446,6 +1434,8 @@ dosyscall(ulong scallnr, Sargs *args, uintptr *retp)
 	vlong startns, stopns;
 	uintptr ret;
 	int s;
+	
+	SET(startns);
 
 	m->syscall++;
 

@@ -34,34 +34,6 @@ static struct Imagealloc
 
 Segment* (*_globalsegattach)(char*);
 
-Image*
-newimage(ulong pages)
-{
-	ulong pghsize;
-	Image *i;
-
-	/* make power of two */
-	pghsize = pages-1;
-	pghsize |= pghsize >> 16;
-	pghsize |= pghsize >> 8;
-	pghsize |= pghsize >> 4;
-	pghsize |= pghsize >> 2;
-	pghsize |= pghsize >> 1;
-	pghsize++;
-
-	if(pghsize > 1024)
-		pghsize >>= 4;
-
-	i = malloc(sizeof(Image) + pghsize * sizeof(Page*));
-	if(i == nil)
-		return nil;
-
-	i->ref = 1;
-	i->pghsize = pghsize;
-
-	return i;
-}
-
 void
 initseg(void)
 {
@@ -73,6 +45,8 @@ newseg(int type, uintptr base, ulong size)
 	Segment *s;
 	int mapsize;
 
+	assert((base & (BY2PG-1)) == 0);
+
 	if(size > (SEGMAPSIZE*PTEPERTAB))
 		error(Enovmem);
 
@@ -83,7 +57,7 @@ newseg(int type, uintptr base, ulong size)
 	s->type = type;
 	s->size = size;
 	s->base = base;
-	s->top = base+(size*BY2PG);
+	s->top = base+((uintptr)size*BY2PG);
 	s->used = s->swapped = 0;
 	s->sema.prev = &s->sema;
 	s->sema.next = &s->sema;
@@ -147,23 +121,19 @@ putseg(Segment *s)
 	assert(s->sema.next == &s->sema);
 
 	if(s->mapsize > 0){
-		Pte **pte, **emap;
-		Page *fh, *ft;
+		int i;
+		Pte *pte;
+		Page *entry, *fh, *ft;
 		ulong np;
 
 		np = 0;
 		fh = ft = nil;
 
-		emap = &s->map[s->mapsize];
-		for(pte = s->map; pte < emap; pte++){
-			Page **pg, **pe, *entry;
-
-			if(*pte == nil)
+		for(i = 0; i < s->mapsize; i++){
+			if((pte = s->map[i]) == nil)
 				continue;
-			pg = (*pte)->first;
-			pe = (*pte)->last;
-			while(pg <= pe){
-				entry = *pg++;
+			while(pte->first <= pte->last){
+				entry = *(pte->first++);
 				if(entry == nil)
 					continue;
 				if(onswap(entry)){
@@ -180,7 +150,7 @@ putseg(Segment *s)
 				ft = entry;
 				np++;
 			}
-			free(*pte);
+			free(pte);
 		}
 
 		freepages(fh, ft, np);
@@ -195,7 +165,7 @@ putseg(Segment *s)
 	free(s);
 }
 
-Pte*
+static Pte*
 ptealloc(void)
 {
 	Pte *new;
@@ -302,59 +272,124 @@ dupseg(Segment **seg, int segno, int share)
 	return n;
 }
 
+/* Must be called with s locked */
+Page*
+segpeek(Segment *s, uintptr addr)
+{
+	Pte *pte;
+	uintptr soff;
+
+	assert(addr < s->top);
+	assert(addr >= s->base);
+
+	soff = addr - s->base;
+	pte = s->map[soff/PTEMAPMEM];
+	if(pte == nil)
+		return nil;
+	return pte->pages[(soff&(PTEMAPMEM-1))/BY2PG];
+}
+
+/* Must be called with s locked */
+Page**
+segmap(Segment *s, uintptr addr)
+{
+	Pte *pte;
+	Page **pg;
+	uintptr soff;
+
+	assert(addr < s->top);
+	assert(addr >= s->base);
+
+	soff = addr - s->base;
+	pte = s->map[soff/PTEMAPMEM];
+	if(pte == nil) {
+		if((pte = ptealloc()) == nil)
+			return nil;
+		s->map[soff/PTEMAPMEM] = pte;
+	}
+
+	pg = &pte->pages[(soff&(PTEMAPMEM-1))/BY2PG];
+	if(pg < pte->first)
+		pte->first = pg;
+	if(pg > pte->last)
+		pte->last = pg;
+
+	return pg;
+}
+
 /*
- *  segpage inserts Page p into Segmnet s.
- *  on error, calls putpage() on p.
+ *  Insert new Page into Segmnet s.
+ *  On error, calls putpage(new).
  */
 void
-segpage(Segment *s, Page *p)
+segpage(Segment *s, Page *new)
 {
-	Pte **pte, *etp;
-	uintptr soff;
 	Page **pg;
 
 	qlock(s);
-	if(p->va < s->base || p->va >= s->top || s->mapsize == 0)
-		panic("segpage");
-	soff = p->va - s->base;
-	pte = &s->map[soff/PTEMAPMEM];
-	if((etp = *pte) == nil){
-		etp = ptealloc();
-		if(etp == nil){
-			qunlock(s);
-			putpage(p);
-			error(Enomem);
-		}
-		*pte = etp;
+	if((pg = segmap(s, new->va)) == nil) {
+		qunlock(s);
+		putpage(new);
+		error(Enomem);
 	}
-	pg = &etp->pages[(soff&(PTEMAPMEM-1))/BY2PG];
+	settxtflush(new, s->flushme);
 	assert(*pg == nil);
-	settxtflush(p, s->flushme);
-	*pg = p;
+	*pg = new;
 	s->used++;
-	if(pg < etp->first)
-		etp->first = pg;
-	if(pg > etp->last)
-		etp->last = pg;
 	qunlock(s);
 }
 
 void
-relocateseg(Segment *s, uintptr offset)
+relocateseg(Segment *s, uintptr base)
 {
-	Pte **pte, **emap;
-	Page **pg, **pe;
+	int i;
+	Pte *pte;
+	Page **pg;
+	uintptr offset;
 
-	emap = &s->map[s->mapsize];
-	for(pte = s->map; pte < emap; pte++) {
-		if(*pte == nil)
+	assert((base & (BY2PG-1)) == 0);
+
+	qlock(s);
+	offset = base - s->base;
+	for(i = 0; i < s->mapsize; i++) {
+		if((pte = s->map[i]) == nil)
 			continue;
-		pe = (*pte)->last;
-		for(pg = (*pte)->first; pg <= pe; pg++) {
+		for(pg = pte->first; pg <= pte->last; pg++) {
 			if(!pagedout(*pg))
 				(*pg)->va += offset;
 		}
 	}
+	s->base += offset;
+	s->top += offset;
+	qunlock(s);
+}
+
+Image*
+newimage(ulong pages)
+{
+	ulong pghsize;
+	Image *i;
+
+	/* make power of two */
+	pghsize = pages-1;
+	pghsize |= pghsize >> 16;
+	pghsize |= pghsize >> 8;
+	pghsize |= pghsize >> 4;
+	pghsize |= pghsize >> 2;
+	pghsize |= pghsize >> 1;
+	pghsize++;
+
+	if(pghsize > 1024)
+		pghsize >>= 4;
+
+	i = malloc(sizeof(Image) + pghsize * sizeof(Page*));
+	if(i == nil)
+		return nil;
+
+	i->ref = 1;
+	i->pghsize = pghsize;
+
+	return i;
 }
 
 /* remove from idle list */
@@ -541,6 +576,95 @@ imagereclaim(ulong pages)
 	return np;
 }
 
+/*
+ *  Must be called with s locked.
+ *
+ *  This relies on s->ref > 1 indicating that
+ *  the segment is shared with other processes
+ *  different from the calling one.
+ *
+ *  The calling process (up) is responsible for
+ *  flushing its own TBL by calling flushmmu()
+ *  afterwards when returning a non-zero value
+ */
+static int
+segfreemap(Segment *s, uintptr from, uintptr to)
+{
+	uintptr soff;
+	int poff, i;
+	Pte *pte;
+	Page **pg, *entry, *fh, *ft;
+	ulong np;
+	int flush;
+
+	to &= ~(BY2PG-1);
+	from = PGROUND(from);
+	if(from >= to)
+		return 0;
+
+	fh = ft = nil;
+	np = 0;
+	flush = 0;
+
+	soff = from - s->base;
+	poff = (soff & (PTEMAPMEM-1))/BY2PG;
+	for(i = soff/PTEMAPMEM; i < s->mapsize; i++, poff = 0) {
+		if((pte = s->map[i]) == nil) {
+			from = (from | (PTEMAPMEM-1))+1;
+			if(from >= to)
+				goto done;
+			continue;
+		}
+
+		for(pg = &pte->pages[poff]; pg < &pte->pages[PTEPERTAB]; pg++) {
+			if(pg == pte->first)
+				pte->first++;
+			if((entry = *pg) != nil) {
+				*pg = nil;
+				if(onswap(entry)) {
+					putswap(entry);
+					s->swapped--;
+				} else {
+					if((entry = deadpage(entry)) != nil) {
+						if(fh != nil)
+							ft->next = entry;
+						else
+							fh = entry;
+						ft = entry;
+						np++;
+					}
+					flush = 1;
+				}
+				s->used--;
+			}
+			from += BY2PG;
+			if(from >= to)
+				goto done;
+		}
+
+		if(poff == 0) {
+			s->map[i] = nil;
+			free(pte);
+		}
+	}
+done:
+	/* skip TLB flush when no pages have been changed */
+	if(flush == 0)
+		return 0;
+
+	/*
+	 * we have to make sure other processors flush the
+	 * entries from their TLBs before any pages are freed.
+	 */
+	if(s->ref > 1)
+		procflushseg(s);
+
+	freepages(fh, ft, np);
+
+	/* tell caller it should flush its TLB */
+	return 1;
+}
+
 uintptr
 ibrk(uintptr addr, int seg)
 {
@@ -580,7 +704,8 @@ ibrk(uintptr addr, int seg)
 			qunlock(s);
 			error(Einuse);
 		}
-		mfreeseg(s, newtop, (s->top-newtop)/BY2PG);
+		if(!segfreemap(s, newtop, s->top))
+			goto done;	/* skip flushmmu() */
 		s->top = newtop;
 		s->size = newsize;
 		qunlock(s);
@@ -603,7 +728,7 @@ ibrk(uintptr addr, int seg)
 		error(Enovmem);
 	}
 	mapsize = ROUND(newsize, PTEPERTAB)/PTEPERTAB;
-	if(mapsize > s->mapsize){
+	if(mapsize > s->mapsize) {
 		map = malloc(mapsize*sizeof(Pte*));
 		if(map == nil){
 			qunlock(s);
@@ -615,72 +740,11 @@ ibrk(uintptr addr, int seg)
 		s->map = map;
 		s->mapsize = mapsize;
 	}
-
+done:
 	s->top = newtop;
 	s->size = newsize;
 	qunlock(s);
 	return 0;
-}
-
-/*
- *  Must be called with s locked.
- *  This relies on s->ref > 1 indicating that
- *  the segment is shared with other processes
- *  different from the calling one.
- *  The calling process (up) is responsible for
- *  flushing its own TBL by calling flushmmu()
- *  afterwards.
- */
-void
-mfreeseg(Segment *s, uintptr start, ulong pages)
-{
-	uintptr off;
-	Pte **pte, **emap;
-	Page **pg, **pe, *entry;
-
-	if(pages == 0)
-		return;
-
-	switch(s->type&SG_TYPE){
-	case SG_PHYSICAL:
-	case SG_FIXED:
-	case SG_STICKY:
-		return;
-	}
-
-	/*
-	 * we have to make sure other processors flush the
-	 * entry from their TLBs before the page is freed.
-	 */
-	if(s->ref > 1)
-		procflushseg(s);
-
-	off = start-s->base;
-	pte = &s->map[off/PTEMAPMEM];
-	off = (off&(PTEMAPMEM-1))/BY2PG;
-	for(emap = &s->map[s->mapsize]; pte < emap; pte++, off = 0) {
-		if(*pte == nil) {
-			off = PTEPERTAB - off;
-			if(off >= pages)
-				return;
-			pages -= off;
-			continue;
-		}
-		pg = &(*pte)->pages[off];
-		for(pe = &(*pte)->pages[PTEPERTAB]; pg < pe; pg++) {
-			if((entry = *pg) != nil){
-				*pg = nil;
-				if(onswap(entry)){
-					putswap(entry);
-					s->swapped--;
-				} else
-					putpage(entry);
-				s->used--;
-			}
-			if(--pages == 0)
-				return;
-		}
-	}
 }
 
 Segment*
@@ -834,64 +898,173 @@ done:
 	return va;
 }
 
-static void
-segflush(void *va, uintptr len)
+static int
+segflush1(Segment *s, uintptr from, uintptr to)
 {
-	uintptr from, to, off;
-	Segment *s;
-	Pte *pte;
-	Page **pg, **pe;
+	if((s->type & SG_NOEXEC) != 0)
+		return 0;
 
-	from = (uintptr)va;
-	to = from + len;
+	if((s->type & SG_RONLY) != 0 && s->flushme)
+		return 0;
+
+	s->flushme = 1;
+	if(s->ref > 1)
+		procflushseg(s);
+
+	if(s->mapsize == 0)
+		return 1;
+
+	from &= ~(BY2PG);
 	to = PGROUND(to);
-	from &= ~(BY2PG-1);
-	if(to < from)
-		error(Ebadarg);
-
-	while(from < to) {
-		s = seg(up, from, 1);
-		if(s == nil)
-			error(Ebadarg);
-
-		s->flushme = 1;
-		if(s->ref > 1)
-			procflushseg(s);
-	more:
-		len = (s->top < to ? s->top : to) - from;
-		if(s->mapsize > 0){
-			off = from-s->base;
-			pte = s->map[off/PTEMAPMEM];
-			off &= PTEMAPMEM-1;
-			if(off+len > PTEMAPMEM)
-				len = PTEMAPMEM-off;
-			if(pte != nil) {
-				pg = &pte->pages[off/BY2PG];
-				pe = pg + len/BY2PG;
-				while(pg < pe) {
-					settxtflush(*pg, !pagedout(*pg));
-					pg++;
-				}
-			}
+	while(from < to){
+		Page *p = segpeek(s, from);
+		if(!pagedout(p)){
+			settxtflush(p, 1);
 		}
-		from += len;
-		if(from < to && from < s->top)
-			goto more;
+		from += BY2PG;
+	}
+
+	return 1;
+}
+
+static int
+segfree1(Segment *s, uintptr from, uintptr to)
+{
+	uintptr afrom, ato;
+	int fill;
+	Page *p;
+	KMap *k;
+
+	if((s->type & SG_RONLY) != 0 || s->mapsize == 0)
+		return 0;
+
+	fill = 0;
+	switch(s->type&SG_TYPE){
+	case SG_FIXED:
+	case SG_STICKY:
 		qunlock(s);
+		if(!waserror()){
+			memset((uchar*)from, fill, to-from);
+			poperror();
+		}
+		qlock(s);
+		/* wet floor */
+	case SG_PHYSICAL:
+	case SG_TEXT:
+		return 0;
+
+	case SG_STACK:
+		fill = 0xfe;
+		/* wet floor */
+	default:
+	case SG_BSS:
+	case SG_SHARED:
+		ato = to & ~(BY2PG-1);
+		afrom = PGROUND(from);
+
+		/* fill partial covered pages with pattern */
+		if(afrom > to)
+			afrom = ato = to;
+		if(from < afrom && segpeek(s, from) != nil){
+			qunlock(s);
+			if(!waserror()){
+				memset((uchar*)from, fill, afrom-from);
+				poperror();
+			}
+			qlock(s);
+		}
+		if(ato < to && ato >= from && segpeek(s, ato) != nil){
+			qunlock(s);
+			if(!waserror()){
+				memset((uchar*)ato, fill, to-ato);
+				poperror();
+			}
+			qlock(s);
+		}
+		return segfreemap(s, afrom, ato);
+
+	case SG_DATA:
+		ato = to & ~(BY2PG-1);
+		afrom = PGROUND(from);
+
+		/* reset partially covered pages to original image data. */
+		if(afrom > to)
+			afrom = ato = to;
+		if(from < afrom && segpeek(s, from) != nil
+		&& (p = lookpage(s->image, s->fstart + (from & ~(BY2PG-1)) - s->base)) != nil){
+			qunlock(s);
+			k = kmap(p);
+			if(!waserror()){
+				memmove((uchar*)from, (uchar*)VA(k) + (from & (BY2PG-1)), afrom-from);
+				poperror();
+			}
+			kunmap(k);
+			putpage(p);
+			qlock(s);
+		}
+		if(ato < to && ato >= from && segpeek(s, ato) != nil
+		&& (p = lookpage(s->image, s->fstart + ato - s->base)) != nil){
+			qunlock(s);
+			k = kmap(p);
+			if(!waserror()){
+				memmove((uchar*)ato, (uchar*)VA(k), to-ato);
+				poperror();
+			}
+			kunmap(k);
+			putpage(p);
+			qlock(s);
+		}
+		return segfreemap(s, afrom, ato);
 	}
 }
 
-uintptr
-syssegflush(va_list list)
+static int
+withsegrange(void *va, uintptr len, int (*fun)(Segment*, uintptr, uintptr))
 {
-	void *va;
-	ulong len;
+	uintptr from, to, top;
+	Segment *s;
+	int flush;
 
-	va = va_arg(list, void*);
-	len = va_arg(list, ulong);
-	segflush(va, len);
-	flushmmu();
+	from = (uintptr)va;
+	to = from + len;
+	if(to < from || to > USTKTOP)
+		error(Ebadarg);
+
+	flush = 0;
+	while(from < to){
+		s = seg(up, from, 1);
+		if(s == nil){
+			if(flush)
+				flushmmu();
+			error(Ebadarg);
+		}
+		top = s->top;
+		if(to <= top){
+			flush |= (*fun)(s, from, to);
+			qunlock(s);
+			break;
+		}
+		flush |= (*fun)(s, from, top);
+		qunlock(s);
+		from = top;
+	}
+
+	if(flush)
+		flushmmu();
+
 	return 0;
+}
+
+int
+segflush(void *va, uintptr len)
+{
+	return withsegrange(va, len, segflush1);
+}
+
+int
+segfree(void *va, uintptr len)
+{
+	return withsegrange(va, len, segfree1);
 }
 
 void
