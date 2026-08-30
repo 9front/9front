@@ -295,7 +295,7 @@ putmmu(uintptr va, uintptr pa, Page *pg)
 	*pte = pa | PTEPAGE | PTEUSER | PTEPXN | PTENG | PTEAF |
 		(((pa & PTEMA(7)) == PTECACHED)? PTESH(SHARE_INNER): PTESH(SHARE_OUTER));
 	if(needtxtflush(pg)){
-		cachedwbinvse(kmap(pg), BY2PG);
+		cacheduwbse(kmap(pg), BY2PG);
 		cacheiinvse((void*)va, BY2PG);
 		donetxtflush(pg);
 	}
