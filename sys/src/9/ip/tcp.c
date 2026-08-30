@@ -2700,8 +2700,9 @@ tcptimeout(void *arg)
 	default:
 		if(tcb->backoff < 8)
 			tcb->backoff++;
-		if(tcb->state == Syn_sent)
-			maxback = MAXBACKMS/2;
+		if(tcb->state == Syn_sent
+		&& tcb->backoff > 2)
+			maxback = 0;
 		else
 			maxback = MAXBACKMS;
 		tcb->backedoff += tcb->timer.start * MSPTICK;
