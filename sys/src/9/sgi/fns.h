@@ -57,7 +57,6 @@ void	tlbinit(void);
 ulong	tlbvirt(void);
 void	touser(void*);
 #define	userureg(ur) ((ur)->status & KUSER)
-void	validalign(uintptr, unsigned);
 void	wrcompare(ulong);
 void	wrcount(ulong);
 
