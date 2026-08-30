@@ -124,16 +124,14 @@ mmul1empty(void)
 }
 
 void
-mmuswitch(Proc* proc)
+mmuswitch(Proc* proc, int newtlb)
 {
 	int x;
 	PTE *l1;
 	Page *page;
 
-	if(proc != nil && proc->newtlb){
+	if(newtlb)
 		mmul2empty(proc, 1);
-		proc->newtlb = 0;
-	}
 
 	mmul1empty();
 
@@ -157,17 +155,6 @@ mmuswitch(Proc* proc)
 
 	/* lose any possible stale tlb entries */
 	mmuinvalidate();
-}
-
-void
-flushmmu(void)
-{
-	int s;
-
-	s = splhi();
-	up->newtlb = 1;
-	mmuswitch(up);
-	splx(s);
 }
 
 void

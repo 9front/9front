@@ -308,7 +308,7 @@ newtlbpid(Proc *p)
 }
 
 void
-mmuswitch(Proc *p)
+mmuswitch(Proc *p, int newtlb)
 {
 	int tp;
 	static char lasttext[32];
@@ -319,10 +319,9 @@ mmuswitch(Proc *p)
 		strncpy(lasttext, p->text, sizeof lasttext);
 	}
 
-	if(p->newtlb) {
+	if(newtlb)
 		memset(p->pidonmach, 0, sizeof p->pidonmach);
-		p->newtlb = 0;
-	}
+
 	tp = p->pidonmach[m->machno];
 	if(tp == 0)
 		tp = newtlbpid(p);
@@ -439,17 +438,6 @@ purgetlb(int pid)
 	for(i=tlbroff; i<NTLB; i++)
 		if(pidproc[TLBPID(gettlbvirt(i))] == 0)
 			TLBINVAL(i, pid);
-}
-
-void
-flushmmu(void)
-{
-	int s;
-
-	s = splhi();
-	up->newtlb = 1;
-	mmuswitch(up);
-	splx(s);
 }
 
 void

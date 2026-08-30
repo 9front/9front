@@ -151,22 +151,11 @@ newmmupid(void)
 	return pid;
 }
 
-void
-flushmmu(void)
-{
-	int x;
-
-	x = splhi();
-	up->newtlb = 1;
-	mmuswitch(up);
-	splx(x);
-}
-
 /*
  * called with splhi
  */
 void
-mmuswitch(Proc *p)
+mmuswitch(Proc *p, int newtlb)
 {
 	int i, mp;
 	ulong r;
@@ -177,10 +166,8 @@ mmuswitch(Proc *p)
 		return;
 	}
 
-	if(p->newtlb) {
+	if(newtlb)
 		p->mmupid = 0;
-		p->newtlb = 0;
-	}
 	mp = p->mmupid;
 	if(mp == 0)
 		mp = newmmupid();

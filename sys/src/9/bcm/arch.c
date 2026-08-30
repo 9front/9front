@@ -122,7 +122,7 @@ procsave(Proc* p)
 	 * resetting of the core clock at 0x4000001C which confuses local timers.
 	 */
 	if(conf.nmach > 1)
-		mmuswitch(nil);
+		mmuswitch(nil, 0);
 }
 
 void

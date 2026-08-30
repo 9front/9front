@@ -203,7 +203,7 @@ void		microdelay(int);
 uvlong		mk64fract(uvlong, uvlong);
 void		mkqid(Qid*, vlong, ulong, int);
 void		mmurelease(Proc*);
-void		mmuswitch(Proc*);
+void		mmuswitch(Proc*, int);
 Chan*		mntattach(Chan*, Chan*, char*, int);
 Chan*		mntauth(Chan*, char*);
 int		mntversion(Chan*, char*, int, int);

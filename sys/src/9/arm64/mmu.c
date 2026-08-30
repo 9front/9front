@@ -13,7 +13,7 @@ mmu1init(void)
 	if(m->mmutop == nil)
 		panic("mmu1init: no memory for mmutop");
 	memset(m->mmutop, 0, L1TOPSIZE);
-	mmuswitch(nil);
+	mmuswitch(nil, 0);
 }
 
 /* KZERO maps the first 1GB of ram */
@@ -268,7 +268,7 @@ putasid(Proc *p)
 	 * resetting of the core clock at 0x4000001C which confuses local timers.
 	 */
 	if(conf.nmach > 1)
-		mmuswitch(nil);
+		mmuswitch(nil, 0);
 
 	if(p->asid > 0)
 		p->asid = -p->asid;
@@ -319,7 +319,7 @@ mmufree(Proc *p)
 }
 
 void
-mmuswitch(Proc *p)
+mmuswitch(Proc *p, int newtlb)
 {
 	uintptr va;
 	Page *t;
@@ -332,10 +332,8 @@ mmuswitch(Proc *p)
 		return;
 	}
 
-	if(p->newtlb){
+	if(newtlb)
 		mmufree(p);
-		p->newtlb = 0;
-	}
 
 	if(allocasid(p))
 		flushasid((uvlong)p->asid<<48);
@@ -351,21 +349,10 @@ mmuswitch(Proc *p)
 void
 mmurelease(Proc *p)
 {
-	mmuswitch(nil);
+	mmuswitch(nil, 0);
 	mmufree(p);
 	freepages(p->mmufree, nil, 0);
 	p->mmufree = nil;
-}
-
-void
-flushmmu(void)
-{
-	int x;
-
-	x = splhi();
-	up->newtlb = 1;
-	mmuswitch(up);
-	splx(x);
 }
 
 void

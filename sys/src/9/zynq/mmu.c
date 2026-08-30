@@ -123,12 +123,10 @@ l2free(Proc *proc)
 }
 
 void
-mmuswitch(Proc *p)
+mmuswitch(Proc *p, int newtlb)
 {
-	if(p->newtlb){
-		p->newtlb = 0;
+	if(newtlb)
 		l2free(p);
-	}
 	if(p->l1 != nil)
 		l1switch(p->l1, 1);
 	else
@@ -189,17 +187,6 @@ putmmu(uintptr va, uintptr pa, Page *pg)
 void
 checkmmu(uintptr, uintptr)
 {
-}
-
-void
-flushmmu(void)
-{
-	int s;
-
-	s = splhi();
-	up->newtlb = 1;
-	mmuswitch(up);
-	splx(s);
 }
 
 void

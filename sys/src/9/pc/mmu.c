@@ -163,22 +163,6 @@ memglobal(void)
 }
 
 /*
- * Flush all the user-space and device-mapping mmu info
- * for this process, because something has been deleted.
- * It will be paged back in on demand.
- */
-void
-flushmmu(void)
-{
-	int s;
-
-	s = splhi();
-	up->newtlb = 1;
-	mmuswitch(up);
-	splx(s);
-}
-
-/*
  * Flush a single page mapping from the tlb.
  */
 void
@@ -283,16 +267,14 @@ taskswitch(ulong pdb, ulong stack)
 }
 
 void
-mmuswitch(Proc* proc)
+mmuswitch(Proc* proc, int newtlb)
 {
 	ulong *pdb;
 	ulong x;
 	int n;
 
-	if(proc->newtlb){
+	if(newtlb)
 		mmuptefree(proc);
-		proc->newtlb = 0;
-	}
 
 	if(proc->mmupdb != nil){
 		pdb = tmpmap(proc->mmupdb);

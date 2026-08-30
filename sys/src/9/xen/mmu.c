@@ -178,17 +178,6 @@ mmuinit(void)
 	taskswitch(0,  (ulong)m + BY2PG);
 }
 
-void
-flushmmu(void)
-{
-	int s;
-
-	s = splhi();
-	up->newtlb = 1;
-	mmuswitch(up);
-	splx(s);
-}
-
 static ulong*
 mmupdb(Page *pg, ulong va)
 {
@@ -224,14 +213,10 @@ mmuptefree(Proc* proc)
 }
 
 void
-mmuswitch(Proc* proc)
+mmuswitch(Proc* proc, int newtlb)
 {
-	//ulong *pdb;
-
-	if(proc->newtlb){
+	if(newtlb)
 		mmuptefree(proc);
-		proc->newtlb = 0;
-	}
 
 	if(proc->mmupdb){
 		//XXX doesn't work for some reason, but it's not needed for uniprocessor

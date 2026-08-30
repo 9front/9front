@@ -415,24 +415,22 @@ mmul1empty(void)
 }
 
 void
-mmuswitch(Proc* proc)
+mmuswitch(Proc* proc, int newtlb)
 {
 	int x;
 	PTE *l1;
 	Page *page;
 
 	/* do kprocs get here and if so, do they need to? */
-	if(m->mmupid == proc->pid && !proc->newtlb)
+	if(m->mmupid == proc->pid && !newtlb)
 		return;
 	m->mmupid = proc->pid;
 
 	/* write back dirty and invalidate caches */
 	l1cache->wbinv();
 
-	if(proc->newtlb){
+	if(newtlb)
 		mmul2empty(proc, 1);
-		proc->newtlb = 0;
-	}
 
 	mmul1empty();
 
@@ -459,17 +457,6 @@ mmuswitch(Proc* proc)
 	//	m->mmul1lo, m->mmul1hi, proc->kp);
 
 	wakewfi();		/* in case there's another runnable proc */
-}
-
-void
-flushmmu(void)
-{
-	int s;
-
-	s = splhi();
-	up->newtlb = 1;
-	mmuswitch(up);
-	splx(s);
 }
 
 void

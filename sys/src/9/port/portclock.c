@@ -148,9 +148,9 @@ hzclock(Ureg *ur)
 		m->proc->pc = ur->pc;
 
 	if(m->flushmmu){
+		m->flushmmu = 0;
 		if(up && up->newtlb)
 			flushmmu();
-		m->flushmmu = 0;
 	}
 
 	accounttime();

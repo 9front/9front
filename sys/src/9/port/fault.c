@@ -324,6 +324,7 @@ fault(uintptr addr, uintptr pc, int read)
 	m->pfault++;
 
 	for(;;) {
+		ulong lastflush = up->tlbflush;
 		spllo();
 
 		s = seg(up, addr, 1);		/* leaves s locked if seg != nil */
@@ -350,11 +351,15 @@ fault(uintptr addr, uintptr pc, int read)
 
 		if((attr & SG_TYPE) == SG_PHYSICAL){
 			mapphys(s, addr, attr);
-			break;
+			goto done;
 		}
 
-		if(fixfault(s, addr, read) == 0)
-			break;
+		if(fixfault(s, addr, read) == 0){
+		done:
+			if(up->tlbflush == lastflush)
+				break;
+			/* TLB might be stale, go around */
+		}
 
 		splhi();
 		switch(up->procctl){

@@ -736,6 +736,7 @@ struct Proc
 	Proc	*palarm;	/* Next alarm time */
 	ulong	alarm;		/* Time of call */
 	int	newtlb;		/* Pager has changed my pte's, I must flush */
+	ulong	tlbflush;	/* incremented on tlb flush */
 
 	uintptr	rendtag;	/* Tag for rendezvous */
 	uintptr	rendval;	/* Value for rendezvous */

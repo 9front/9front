@@ -211,7 +211,14 @@ sched(void)
 	up->mach = MACHP(m->machno);
 	up->affinity = m->machno;
 	up->state = Running;
-	mmuswitch(up);
+	m->flushmmu = 0;
+	if(up->newtlb){
+		up->tlbflush++;
+		up->newtlb = 0;
+		mmuswitch(up, 1);
+	} else {
+		mmuswitch(up, 0);
+	}
 	gotolabel(&up->sched);
 }
 
@@ -726,6 +733,9 @@ newproc(void)
 	p->nlocks = 0;
 	p->trace = 0;
 	p->delaysched = 0;
+
+	p->newtlb = 0;
+	p->tlbflush = 0;
 
 	/* sched params */
 	p->wired = 0;
@@ -1472,6 +1482,19 @@ dumpaproc(Proc *p)
 		p->pid, p->text, p->pc, dbgpc(p),  s, statename[p->state],
 		p->time[0], p->time[1], bss, p->qpc, p->nlocks, p->delaysched,
 		p->lastlock ? p->lastlock->pc : 0, p->priority);
+}
+
+void
+flushmmu(void)
+{
+	int x;
+
+	x = splhi();
+	m->flushmmu = 0;
+	up->tlbflush++;
+	up->newtlb = 0;
+	mmuswitch(up, 1);
+	splx(x);
 }
 
 /*
