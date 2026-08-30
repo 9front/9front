@@ -120,34 +120,25 @@ void
 kvce(Ureg *ur, int ecode)
 {
 	char c;
-	Pte **p;
-	Page **pg;
+	Page *p;
 	Segment *s;
-	ulong addr, soff;
 
 	c = 'D';
 	if(ecode == CVCEI)
 		c = 'I';
 	print("Trap: VCE%c: addr=%#lux\n", c, ur->badvaddr);
 	if(up && !(ur->badvaddr & KSEGM)) {
-		addr = ur->badvaddr;
+		uintptr addr = ur->badvaddr;
 		s = seg(up, addr, 0);
 		if(s == nil){
-			print("kvce: no seg for %#lux\n", addr);
+			print("kvce: no seg for %#p\n", addr);
 			for(;;);
 		}
-		addr &= ~(BY2PG-1);
-		soff = addr - s->base;
-		p = &s->map[soff/PTEMAPMEM];
-		if(*p){
-			pg = &(*p)->pages[(soff&(PTEMAPMEM-1))/BY2PG];
-			if(*pg)
-				print("kvce: pa=%#lux, va=%#lux\n",
-					(*pg)->pa, (*pg)->va);
-			else
-				print("kvce: no *pg\n");
-		}else
-			print("kvce: no *p\n");
+		p = segpeek(s, addr);
+		if(!pagedout(p))
+			print("kvce: pa=%#lux, va=%#lux\n", p->pa, p->va);
+		else
+			print("kvce: paged out\n");
 	}
 }
 
