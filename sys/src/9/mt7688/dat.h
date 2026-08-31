@@ -144,6 +144,7 @@ struct Mach
 	Proc*	proc;			/* process on this processor */
 	uintptr	splpc;			/* pc that called splhi() */
 	ulong	tlbfault;
+	ulong	tlbpurge;
 
 	/* the following is safe to move */
 	PMach;

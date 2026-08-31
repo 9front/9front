@@ -211,8 +211,8 @@ sched(void)
 	up->mach = MACHP(m->machno);
 	up->affinity = m->machno;
 	up->state = Running;
-	m->flushmmu = 0;
 	if(up->newtlb){
+		m->tlbflush++;
 		up->tlbflush++;
 		up->newtlb = 0;
 		mmuswitch(up, 1);
@@ -1490,7 +1490,7 @@ flushmmu(void)
 	int x;
 
 	x = splhi();
-	m->flushmmu = 0;
+	m->tlbflush++;
 	up->tlbflush++;
 	up->newtlb = 0;
 	mmuswitch(up, 1);
@@ -1498,11 +1498,12 @@ flushmmu(void)
 }
 
 /*
- *  wait till all matching processes have flushed their mmu
+ *  wait till all matching processes have comitted to flush their mmu
  */
 static void
 procflushmmu(int (*match)(Proc*, void*), void *a)
 {
+	ulong ticks[MAXMACH];
 	Proc *await[MAXMACH];
 	int i, nm, nwait;
 	Proc *p;
@@ -1518,7 +1519,7 @@ procflushmmu(int (*match)(Proc*, void*), void *a)
 			for(nm = 0; nm < conf.nmach; nm++){
 				if(MACHP(nm)->proc == p){
 					coherence();
-					MACHP(nm)->flushmmu = 1;
+					ticks[nm] = MACHP(nm)->ticks;
 					if(await[nm] == nil)
 						nwait++;
 					await[nm] = p;
@@ -1528,8 +1529,12 @@ procflushmmu(int (*match)(Proc*, void*), void *a)
 	}
 
 	/*
-	 *  wait for all other processors to take a clock interrupt
-	 *  and flush their mmu's
+	 *  wait for all other processors to switch task
+	 *  or take a clock interrupt and flush their mmu's
+	 *  (see hzclock()).
+	 *
+	 *  the ticks check ensures that we make progress
+	 *  when newtlb flag is set again by someone else.
 	 */
 	for(;;){
 		if(nwait == 0 || nwait == 1 && await[m->machno] != nil)
@@ -1539,7 +1544,10 @@ procflushmmu(int (*match)(Proc*, void*), void *a)
 
 		for(nm = 0; nm < conf.nmach; nm++){
 			p = await[nm];
-			if(p != nil && (MACHP(nm)->proc != p || MACHP(nm)->flushmmu == 0)){
+			if(p == nil)
+				continue;
+			if(MACHP(nm)->proc != p || p->newtlb == 0
+			|| MACHP(nm)->ticks != ticks[nm]){
 				await[nm] = nil;
 				nwait--;
 			}

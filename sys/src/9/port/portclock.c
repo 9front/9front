@@ -140,18 +140,15 @@ timerdel(Timer *dt)
 			sched();
 }
 
-void
+static void
 hzclock(Ureg *ur)
 {
 	m->ticks++;
 	if(m->proc)
 		m->proc->pc = ur->pc;
 
-	if(m->flushmmu){
-		m->flushmmu = 0;
-		if(up && up->newtlb)
-			flushmmu();
-	}
+	if(up && up->newtlb)
+		flushmmu();
 
 	accounttime();
 	dtracytick(ur);

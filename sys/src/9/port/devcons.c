@@ -754,6 +754,7 @@ conswrite(Chan *c, void *va, long n, vlong off)
 				mp->intr = 0;
 				mp->syscall = 0;
 				mp->pfault = 0;
+				mp->tlbflush = 0;
 				mp->tlbfault = 0;
 				mp->tlbpurge = 0;
 			}

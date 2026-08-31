@@ -124,6 +124,7 @@ struct Mach
 /*0x0c*/	ulong	tlbfault;	/* type of last miss */
 /*0x10*/	ulong	imiss;	/* number of instruction misses */
 /*0x14*/	ulong	dmiss;	/* number of data misses */
+/*0x18*/	ulong	tlbpurge;
 
 	/* ordering from here on irrelevant */
 	PMach;

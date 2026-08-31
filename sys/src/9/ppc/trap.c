@@ -161,7 +161,6 @@ trap(Ureg *ureg)
 		preempted(1);
 		break;
 	case CDSI:
-		m->pfault++;
 		if (up == nil){
 			dumpregs(ureg);
 			panic("kernel fault");
@@ -170,7 +169,6 @@ trap(Ureg *ureg)
 		faultpower(ureg, ureg->dar, (ureg->dsisr & BIT(6)) == 0);
 		break;
 	case CISI:
-		m->pfault++;
 		if (up == nil){
 			dumpregs(ureg);
 			panic("kernel fault");
