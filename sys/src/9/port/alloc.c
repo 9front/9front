@@ -61,7 +61,7 @@ static Pool psecrmem = {
 	.quantum=	32,
 	.alloc=	xalloc,
 	.merge=	xmerge,
-	.flags=	POOL_ANTAGONISM,
+	.flags=	POOL_SCRUB,
 
 	.lock=	plock,
 	.unlock=	punlock,

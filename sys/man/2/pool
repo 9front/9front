@@ -346,6 +346,12 @@ This provides a mechanism for external programs to search for leaks.
 (See 
 .IR leak (1)
 for one such program.)
+If
+.B POOL_SCRUB
+is set all allocated memory is explicitly set to zero on
+.I poolfree
+and on
+.IR poolreset .
 .PP
 The pool routines are strict about the amount of space callers use.
 If even a single byte is written past the end of the allotted space of a block, they
