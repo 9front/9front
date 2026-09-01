@@ -375,38 +375,30 @@ gdbshutdown(void)
 void
 gdbwritemem(Req *r)
 {
-	Channel *rc;
-	int sum, count;
-	char *rsp, *req, *s, *e, *b;
+	int count;
+	char *rsp;
 
 	count = r->ifcall.count;
 	if(gdb.pktlen > Minwrite && count > (gdb.pktlen - Minwrite)/2)
 		count = (gdb.pktlen - Minwrite)/2;
 
-	s = req = emalloc9p(Minwrite + count * 2);
-	e = req + Minwrite + count * 2;
-	s = seprint(s, e, "$M%llux,%ux:%.*lH", off2addr(r->ifcall.offset), count,
-		count, (uchar*)r->ifcall.data);
-
-	for(b = req + 1, sum = 0; b < s; b++)
-		sum += *b;
-	seprint(s, e, "#%02x", sum & 0xff);
-
 	qlock(&gdb);
 	if(gdb.state != Stopped){
 		respond(r, Ebadctl);
 		qunlock(&gdb);
-		free(req);
 		return;
 	}
-	if((rc = cmdstr(req)) == nil || (rsp = reply(rc)) == nil)
+	rsp = cmdreply("M%llux,%ux:%.*lH", off2addr(r->ifcall.offset), count,
+		count, (uchar*)r->ifcall.data);
+	qunlock(&gdb);
+
+	if(rsp == nil)
 		responderror(r);
 	else {
 		r->ofcall.count = count;
 		respond(r, nil);
 		free(rsp);
 	}
-	qunlock(&gdb);
 }
 
 void
