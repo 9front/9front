@@ -173,7 +173,17 @@ thumbaclass(Adr *a, Prog *p)
 					a->sym->name, TNAME);
 				a->sym->type = SDATA;
 			}
-			instoffset = a->sym->value + a->offset + INITDAT;
+
+			switch(a->sym->type){
+			case STEXT:
+			case SLEAF:
+			case SUNDEF:
+				instoffset = a->sym->value + a->offset;
+				break;
+			default:
+				instoffset = a->sym->value + a->offset + INITDAT;
+				break;
+			}
 			return C_LEXT;	/* INITDAT unknown at this stage */
 			// return immacon(instoffset, p, C_SEXT, C_LEXT);
 		case D_AUTO:
