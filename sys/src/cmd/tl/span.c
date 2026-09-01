@@ -369,7 +369,7 @@ span(void)
 		setext->value = c;
 		textsize = c - INITTEXT;
 	}
-	if(INITRND)
+	if(INITRND && INITDAT == 0)
 		INITDAT = rnd(c, INITRND);
 	if(debug['v'])
 		Bprint(&bso, "tsize = %lux\n", textsize);

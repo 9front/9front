@@ -183,9 +183,6 @@ main(int argc, char *argv[])
 			INITRND = 1024;
 		break;
 	}
-	if(INITDAT != 0 && INITRND != 0)
-		print("warning: -D0x%lux is ignored because of -R0x%lux\n",
-			INITDAT, INITRND);
 	if(debug['v'])
 		Bprint(&bso, "HEADER = -H0x%d -T0x%lux -D0x%lux -R0x%lux\n",
 			HEADTYPE, INITTEXT, INITDAT, INITRND);
