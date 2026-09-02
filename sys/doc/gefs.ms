@@ -38,7 +38,7 @@ It uses soft-updates for crash safety[7], an approach that has worked poorly in 
 While the bugs can be fixed as they're found, simplicity requires a rethink of the on disk data structures.
 And even after adding all this complexity, the fossil+venti system provides no way to recover space when the disk fills.
 .NH 1
-Why GEFS Is Good Enough
+Meh, GEFS Is Good Enough
 .PP
 GEFS aims to solve these problems with the above file systems.
 The data and metadata are copied on write, with atomic commits.
@@ -546,18 +546,98 @@ The value is a snapshot id.
 Labels regularly move between snapshots.
 When mounting a mutable snapshot, the label is updated to point at the latest snapshot every time the tree is synced to disk.
 .LP
-.CW "Kslink(snap, next) → ()"
-.IP
-A snap link key contains a snapshot id, and the id of one of its successors.
-Ideally, the successor would be a value, but our Bε tree requires unique keys, so we hack around it by putting both values
-into the key.
-When we have exactly one next link, and no labels that point at this snapshot, we merge with our successor.
-.LP
-.CW "Kdead(snap, gen) → (headptr, tailptr)"
+.CW "Kdlist(snap, gen) → (headptr, tailptr)"
 .IP
 A dead key contains a pair of snapshot id and deadlist generation.
 The value contains a head and tail pointer for a deadlist.
 These are used to quickly look up and merge deadlists, as described earlier in this paper.
+.NH 1
+Commit Protocol
+.PP
+In order to achieve crash safety without a great deal of complexity,
+copy on write is important, but it is not sufficient.
+If blocks were never freed, a copy on write data structure would be
+naturally crash safe, but with block reuse additional care must be taken.
+A block allocated before a sync must not be freed until the next sync has completed,
+because the previous sync may still refer to it.
+Overwriting it may have unpleasant effects.
+.PP
+As a result, the snap tree has a deadlist which is used for the blocks
+that are freed within a snapshot.
+Every free within a snapshot goes to that deadlist,
+and after a snapshot is taken, the deadlist is cleaned up.
+.PP
+The freeing of the deadlist becomes durable after the commit that is being synced,
+so shutdown must iterate commits until there were no more deadlists freed.
+.PP
+Thus, the snapshot commit protocol proceeds in a number of phases:
+.LP
+.I "1. Update Snapshots"
+.IP
+A barrier is inserted to guarantee that all in flight writes land before the snap updates.
+Then, the snap tree is updated to point to the most recent version of the dirty mutable snaps.
+.LP
+.I "2. Prepare Metadata"
+.IP
+Once the snapshots are updated, the contents of the arenas and superblocks are known.
+They're prepared in memory for syncing.
+A generation entry is inserted into the allocation log for each arena,
+so that if we crash before the superblock reaches disk,
+the log replay will discard operations from after the commit.
+At this point, tree mutation may resume.
+.LP
+.I "3. Sync Arena Headers"
+.IP
+The arena headers prepared earlier are committed.
+A barrier is inserted after the headers are synced.
+.LP
+.I "4. Sync Superblock"
+.IP
+The superblock that was prepared earlier is now enqueued.
+This is the write that commits the updated snapshots.
+If we crash after the superblock has been flushed to disk,
+the arena footers will not match the superblock,
+and the arena headers will be used.
+A barrier is also inserted after the superblock is enqueued.
+.LP
+.I "5. Sync Arena Footers"
+.IP
+After the superblock has been enqueued, the arena footers are enqueued.
+This allows for the two phase commit that allows arena headers and footers to act as back ups of each other.
+.LP
+.I "6. Wait for I/O"
+.IP
+Once all the data has been enqueued, we wait for everything in flight to hit disk.
+Once it's hit disk, everything is known to be committed,
+and the file snapshot is up to date.
+The only remaining work to do is to reclaim space.
+.LP
+.I "7. Clean Deadlists"
+.IP
+Finally, once all the data has hit disk,
+and the commit is known to be durable, the deadlists are cleaned up and the space is made reusable.
+The freed blocks will become durable on disk at the next commit.
+.PP
+It's worth noting that all of the operations in the commit protocol are handled asynchronously,
+and the only requirement for a consistent view is that the barriers are respected, up until the last stage
+where the blocks crossing a sync boundary are freed.
+This allows the sync to disk to be extremely lightweight.
+.PP
+To handwave about crash safety, consider what happens if we crash at at various points in this commit sequence.
+A crash at any point during steps 1 through 3 will leave any data reachable from the superblock untouched,
+so the previous commits will be sound.
+The first phase that starts to modify data reachable from the superblock is phase 3.
+If we crash during phase 3, the arena headers will not match what is expected by the commit.
+This is safe, because the pointers to the arena headers in the superblock will not match the on-disk version,
+and we will refuse to load them.
+Instead, we will fall back to the arena footers, which have not yet been modified.
+The converse argument holds for when step 4 is completed: The headers will match,
+but the footers will not.
+.PP
+Between phases 4 and 7, there is a window where the inter-commit deadlists are emptied,
+but not yet processed.
+If the file system crashes at this point, no data will be corrupted,
+but space will be leaked.
 .NH 1
 Block Allocation
 .PP
@@ -580,29 +660,36 @@ Since all arenas are the same, if an arena is full, we simply advance to the nex
 Process Structure
 .PP
 GEFS is implemented in a multiprocess manner.
-There are six types of proc that GEFS uses for its operation:
+There are seven types of proc that GEFS uses for its operation:
 The
 .I console ,
+.I admin,
 .I dispatch ,
 .I mutation ,
 .I sweeper ,
 .I reader ,
 and
 .I syncer .
-Most of these processes can be replicated,
+The
+.I reader ,
+and
+.I syncer ,
+processes may be replicated freely,
 however, there may only be one
 .I mutator ,
 .I sweeper ,
+.I admin ,
 or
 .I console
 at a time.
-Protocol parsing is handled by one of several dispatch procs.
-There is one of these per posted service or listener.
+.PP
+There is one dispatch proc per posted service or listener.
 Each dispatches 9p messages to the appropriate worker, depending on the 9p message type.
 Read-only messages get dispatched to one of multiple reader procs.
 Write messages get dispatched to the mutator proc, which modifies the in-memory representation of the file system.
 The mutator proc generates dirty blocks purely in memory, and sends them to the syncer procs.
 The job of the syncer proc is simply to write blocks back to disk asynchronously.
+The job of the admin proc is to process ctl messages, and to handle syncing the file system.
 There are also some tasks that may take a long time, and can be done in the background.
 These are sent to the sweeper proc.
 Because the tree is a shared data structure, the sweeper and mutator do not work in parallel.
@@ -610,14 +697,21 @@ Instead, they must hold the mutator lock to accomplish anything.
 Finally, the task proc schedules periodic maintenance operations.
 These include syncing the file system and taking automatic snapshots.
 .PP
-The work of the sweeper could be done by the mutator,
+The work of the
+.I sweeper
+and
+.I admin
+procs could theoretically be done by the mutator,
 and in early versions of the file system, it was.
 However, some operations such as removing very large files
 can involve a lot of messages being inserted into the tree,
 which may block other writers.
-As a result, the long running operations are better deferred to a
-background process, which splits them into small chunks, allowing
-the mutator to make progress between them.
+Syncing, in particular, involves waiting for the write queue to drain,
+which is a lot of dead time that would prevent deleting files,
+cleaning up trees, and similar.
+As a result, the long running operations are split between the various
+background processes, which allows them all to make progress even as
+large operations are happening.
 .PP
 Data flow through these processes is unidirectional,
 and any block that has made it out of the mutating processes is immutable.
