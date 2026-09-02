@@ -365,7 +365,6 @@ struct Ctlr {
 };
 
 static Ctlr *i225ctlr;
-static Ctlr *i225ctlrtail;
 
 #define csr32r(c, r)    (*((c)->portmmio+((r)/4)))
 #define csr32w(c, r, v)	(*((c)->portmmio+((r)/4)) = (v))
@@ -1321,9 +1320,10 @@ i225shutdown(Ether *e)
 static void
 i225pci(void)
 {
-	Ctlr *c;
+	Ctlr *c, **pc;
 	Pcidev *p;
 
+	pc = &i225ctlr;
 	for (p = nil; p = pcimatch(p, 0x8086, 0);) {
 		if (p->ccrb != 2 || p->ccru != 0)
 			continue;
@@ -1367,11 +1367,8 @@ i225pci(void)
 			continue;
 		}
 
-		i225ctlrtail = c;
-		if (i225ctlr == nil)
-			i225ctlr = c;
-		else
-			i225ctlr->link = c;
+		*pc = c;
+		pc = &c->link;
 	}
 }
 
