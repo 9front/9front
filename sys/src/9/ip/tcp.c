@@ -635,6 +635,10 @@ tcpacktimer(void *arg)
 	Conv *s = (Conv*)arg;
 	Tcpctl *tcb = (Tcpctl*)s->ptcl;
 
+	/* avoid deadlock during qsetbypass() oq->iq flush */ 
+	if(tcb->bypass != nil)
+		return;
+
 	qlock(s);
 	if(tcb->state != Closed && tcb->bypass == nil){
 		tcb->flags |= FORCE;
