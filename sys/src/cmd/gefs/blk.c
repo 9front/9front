@@ -41,7 +41,7 @@ syncblk(Blk *b)
 	bassert(b, checkflag(b, Bfinal, 0));
 	bassert(b, b->bp.addr >= 0);
 	tracex("syncblk", b->bp, b->type, -1);
-	if(pwrite(fs->fd, b->buf, Blksz, b->bp.addr) == -1)
+	if(pwrite(fs->fd, b->buf, Blksz, b->bp.addr) != Blksz)
 		broke("%B %s: %r", b->bp, Eio);
 	setflag(b, 0, Bdirty);
 }
