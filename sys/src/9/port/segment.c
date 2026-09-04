@@ -62,7 +62,7 @@ newseg(int type, uintptr base, ulong size)
 	s->sema.prev = &s->sema;
 	s->sema.next = &s->sema;
 
-	s->firstproc = 0;
+	s->firstproc = conf.nproc;
 	s->lastproc = -1;
 	s->segno = -1;
 
