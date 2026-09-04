@@ -1,0 +1,15 @@
+// Thumb (16-bit encoding for ARM)
+
+include("/sys/lib/acid/arm");
+
+defn stk()
+{
+	_stk(*PC, *SP, linkreg(0) & ~1, 0);
+}
+
+defn lstk()
+{
+	_stk(*PC, *SP, linkreg(0) & ~1, 1);
+}
+
+print("/sys/lib/acid/thumb");

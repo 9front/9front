@@ -26,6 +26,9 @@ entryvalue(void)
 	default:
 		diag("entry not text: %s", s->name);
 	}
+
+	if(s->thumb)
+		return s->value | 1;
 	return s->value;
 }
 

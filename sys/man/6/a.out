@@ -74,6 +74,7 @@ by 8 bytes containing the 64-bit virtual address of the
 program entry point and the 32-bit
 .B entry
 field is reserved for physical kernel entry point.
+For ARM binaries, if the entry point is a Thumb instruction, the least significant bit will be set.
 .PP
 The data segment starts at the first page-rounded virtual address
 after the text segment.
@@ -260,6 +261,11 @@ to be printed by the above algorithm.  The offset is associated with the
 first previous
 .B z
 symbol in the symbol table.
+.PP
+In ARM executables use the Thumb 16-bit encoding, the PC/line number table is followed by a table of ranges in the text segment which use the Thumb encoding.
+This table continues until the end of the text segment.
+Entries in this table consists of two 4-byte, big-endian offsets from the first text address.
+Instructions within the range [start, stop) should be treated as Thumb instructions.
 .PP
 In dynamically loadable modules, relocation data follows directly
 after the PC/line number table.

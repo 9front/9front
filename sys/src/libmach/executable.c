@@ -30,6 +30,7 @@ static	int	nextboot(int, Fhdr*, ExecHdr*);
 static	int	sparcboot(int, Fhdr*, ExecHdr*);
 static	int	mipsboot(int, Fhdr*, ExecHdr*);
 static	int	mips4kboot(int, Fhdr*, ExecHdr*);
+static	int	armthumb(int, Fhdr*, ExecHdr*);
 static	int	common(int, Fhdr*, ExecHdr*);
 static	int	commonllp64(int, Fhdr*, ExecHdr*);
 static	int	adotout(int, Fhdr*, ExecHdr*);
@@ -225,7 +226,7 @@ ExecTable exectab[] =
 		&marm,
 		sizeof(Exec),
 		beswal,
-		common },
+		armthumb },
 	{ (143<<16)|0413,		/* (Free|Net)BSD Arm */
 		"arm *bsd executable",
 		nil,
@@ -348,9 +349,6 @@ adotout(int fd, Fhdr *fp, ExecHdr *hp)
 static void
 commonboot(Fhdr *fp)
 {
-	/* arm needs to check for both arm and thumb */
-	if(fp->type == FARM && (fp->entry & mthumb.ktmask))
-		goto FTHUM;
 	if (!(fp->entry & mach->ktmask))
 		return;
 
@@ -365,7 +363,6 @@ commonboot(Fhdr *fp)
 		fp->name = "386 plan 9 boot image";
 		fp->dataddr = _round(fp->txtaddr+fp->txtsz, mach->pgsize);
 		break;
-	FTHUM:
 	case FARM:
 		fp->type = FARMB;
 		fp->txtaddr = (u32int)fp->entry;
@@ -418,6 +415,16 @@ common(int fd, Fhdr *fp, ExecHdr *hp)
 	}
 	commonboot(fp);
 	return 1;
+}
+
+/* Thumb executables are distinguished by setting the LSB
+   of the entry point */
+static int
+armthumb(int fd, Fhdr *fp, ExecHdr *hp)
+{
+	if(hp->e.entry & 1)
+		mach = &mthumb;
+	return common(fd, fp, hp);
 }
 
 static int

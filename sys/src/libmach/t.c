@@ -53,14 +53,14 @@ Mach mthumb =
 	0,		/* fp register set size */
 	"PC",		/* name of PC */
 	"SP",		/* name of SP */
-	"R15",		/* name of link register */
+	"R14",		/* name of link register */
 	"setR12",	/* static base register name */
 	0,		/* static base register value */
 	0x1000,		/* page size */
 	0x80000000,	/* kernel base */
-	0x88000000,	/* kernel text mask */
+	0x80000001,	/* kernel text mask */
 	0x7FFFFFFF,	/* stack top */
-	2,		/* quantization of pc */
+	4,		/* quantization of pc */
 	4,		/* szaddr */
 	4,		/* szreg */
 	4,		/* szfloat */
