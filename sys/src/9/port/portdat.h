@@ -435,6 +435,10 @@ struct Segment
 	ulong	swapped;	/* pages swapped */
 
 	Sema	sema;
+
+	int	firstproc;	/* lowest proc->index having segment attached */
+	int	lastproc;	/* highest proc->index having segment attached */
+	int	segno;		/* last attached proc->seg[segno] number */
 };
 
 struct Segio

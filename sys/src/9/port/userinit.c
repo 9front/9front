@@ -48,11 +48,14 @@ proc0(void*)
 	/*
 	 * Setup Text and Stack segments for initcode.
 	 */
-	up->seg[SSEG] = newseg(SG_STACK | SG_NOEXEC, USTKTOP-USTKSIZE, USTKSIZE / BY2PG);
-	up->seg[TSEG] = newseg(SG_TEXT | SG_RONLY, UTZERO, 1);
-	up->seg[TSEG]->flushme = 1;
+	qlock(&up->seglock);
+	attachseg(up, SSEG, newseg(SG_STACK | SG_NOEXEC, USTKTOP-USTKSIZE, USTKSIZE / BY2PG));
+	attachseg(up, TSEG, newseg(SG_TEXT | SG_RONLY, UTZERO, 1));
+	qunlock(&up->seglock);
+
 	p = newpage(UTZERO, nil);
 	k = kmap(p);
+	assert(sizeof(initcode) <= BY2PG);
 	memmove((uchar*)VA(k), initcode, sizeof(initcode));
 	memset((uchar*)VA(k)+sizeof(initcode), 0, BY2PG-sizeof(initcode));
 	kunmap(k);

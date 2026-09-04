@@ -452,8 +452,8 @@ vmemchr(void *s, int c, ulong n)
 Segment*
 seg(Proc *p, uintptr addr, int dolock)
 {
-	Segment *s;
 	int i;
+	Segment *s;
 
 	for(i = 0; i < NSEG; i++) {
 		if((s = p->seg[i]) == nil)

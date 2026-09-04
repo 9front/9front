@@ -1657,17 +1657,19 @@ procctlmemio(Chan *c, Proc *p, uintptr offset, void *a, long n, int read)
 		qunlock(s);
 		nexterror();
 	}
-	for(i = 0; i < NSEG; i++) {
-		if(p->seg[i] == s)
-			break;
-	}
-	if(i == NSEG)
+	i = segno(p, s);
+	if(i < 0)
 		error(Egreg);	/* segment gone */
 	if(!read && (s->type&SG_TYPE) == SG_TEXT) {
-		p->seg[i] = txt2data(s);
+		Segment *n = txt2data(s);
+		if(!canpage(p) || detachseg(p, i) != s){
+			putseg(n);
+			error(Egreg);
+		}
+		attachseg(p, i, n);
 		qunlock(s);
 		putseg(s);
-		s = p->seg[i];
+		s = n;
 	} else {
 		qunlock(s);
 	}
@@ -1689,9 +1691,6 @@ procctlmemio(Chan *c, Proc *p, uintptr offset, void *a, long n, int read)
 	n = segio(sio, s, a, n, offset, read);
 	putseg(s);
 	poperror();
-
-	if(!read)
-		p->newtlb = 1;
 
 	return n;
 }

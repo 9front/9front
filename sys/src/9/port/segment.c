@@ -62,7 +62,15 @@ newseg(int type, uintptr base, ulong size)
 	s->sema.prev = &s->sema;
 	s->sema.next = &s->sema;
 
-	if((type & SG_TYPE) == SG_PHYSICAL){
+	s->firstproc = 0;
+	s->lastproc = -1;
+	s->segno = -1;
+
+	switch(type & SG_TYPE){
+	case SG_TEXT:
+		s->flushme = 1;
+		break;
+	case SG_PHYSICAL:
 		s->map = nil;
 		s->mapsize = 0;
 		return s;
@@ -82,6 +90,46 @@ newseg(int type, uintptr base, ulong size)
 		s->mapsize = nelem(s->ssegmap);
 	}
 
+	return s;
+}
+
+/* Must be called with p->seglock locked. */
+void
+attachseg(Proc *p, int segno, Segment *s)
+{
+	int i = p->index;
+
+	qlock(s);
+	if(i < s->firstproc)
+		s->firstproc = i;
+	if(i > s->lastproc)
+		s->lastproc = i;
+	s->segno = segno;
+	qunlock(s);
+
+	p->seg[segno] = s;
+}
+
+int
+segno(Proc *p, Segment *s)
+{
+	int i = s->segno;
+
+	if(i < 0 || p->seg[i] == s)
+		return i;
+	for(i = 0; i < NSEG; i++) {
+		if(p->seg[i] == s)
+			return i;
+	}
+	return -1;
+}
+
+/* Must be called with p->seglock locked */
+Segment*
+detachseg(Proc *p, int segno)
+{
+	Segment *s = p->seg[segno];
+	p->seg[segno] = nil;
 	return s;
 }
 
@@ -199,13 +247,16 @@ ptecpy(Pte *new, Pte *old)
 }
 
 Segment*
-dupseg(Segment **seg, int segno, int share)
+dupseg(int segno, int share)
 {
 	int i;
 	Pte *pte;
 	Segment *n, *s;
 
-	s = seg[segno];
+	s = up->seg[segno];
+	if(s == nil || segno == ESEG)
+		return nil;
+
 	qlock(s);
 	if(waserror()){
 		qunlock(s);
@@ -666,33 +717,32 @@ done:
 }
 
 uintptr
-ibrk(uintptr addr, int seg)
+ibrk(int segno, uintptr newtop)
 {
-	Segment *s, *ns;
-	uintptr newtop;
+	Segment *s;
 	ulong newsize;
-	int i, mapsize;
+	int mapsize;
 	Pte **map;
 
-	s = up->seg[seg];
+	s = up->seg[segno];
 	if(s == nil)
 		error(Ebadarg);
 
-	if(addr == 0)
+	if(newtop == 0)
 		return s->base;
 
 	qlock(s);
 
 	/* We may start with the bss overlapping the data */
-	if(addr < s->base) {
-		if(seg != BSEG || up->seg[DSEG] == nil || addr < up->seg[DSEG]->base) {
+	if(newtop < s->base) {
+		if(segno != BSEG || up->seg[DSEG] == nil || newtop < up->seg[DSEG]->base) {
 			qunlock(s);
 			error(Enovmem);
 		}
-		addr = s->base;
+		newtop = s->base;
 	}
 
-	newtop = PGROUND(addr);
+	newtop = PGROUND(newtop);
 	newsize = (newtop-s->base)/BY2PG;
 	if(newtop < s->top) {
 		/*
@@ -713,14 +763,9 @@ ibrk(uintptr addr, int seg)
 		return 0;
 	}
 
-	for(i = 0; i < NSEG; i++) {
-		ns = up->seg[i];
-		if(ns == nil || ns == s)
-			continue;
-		if(newtop > ns->base && s->base < ns->top) {
-			qunlock(s);
-			error(Esoverlap);
-		}
+	if(isoverlap(s->top, newtop - s->top) != nil){
+		qunlock(s);
+		error(Esoverlap);
 	}
 
 	if(newsize > (SEGMAPSIZE*PTEPERTAB)) {
@@ -748,19 +793,19 @@ done:
 }
 
 Segment*
-isoverlap(uintptr va, uintptr len)
+isoverlap(uintptr base, uintptr len)
 {
 	int i;
-	Segment *ns;
-	uintptr newtop;
+	Segment *s;
+	uintptr top;
 
-	newtop = va+len;
+	top = base+len;
 	for(i = 0; i < NSEG; i++) {
-		ns = up->seg[i];
-		if(ns == nil)
+		s = up->seg[i];
+		if(s == nil)
 			continue;
-		if(newtop > ns->base && va < ns->top)
-			return ns;
+		if(top > s->base && base < s->top)
+			return s;
 	}
 	return nil;
 }
@@ -803,10 +848,22 @@ findphysseg(char *name)
 	return nil;
 }
 
+static int
+unusedsegno(int i)
+{
+	if(i < 0 || i == ESEG || up->seg[i] != nil)
+		i = 0;
+	for(; i < NSEG; i++) {
+		if(up->seg[i] == nil && i != ESEG)
+			return i;
+	}
+	return -1;
+}
+
 uintptr
 segattach(int attr, char *name, uintptr va, uintptr len)
 {
-	int sno;
+	int segno;
 	Segment *s, *os;
 	Physseg *ps;
 
@@ -819,13 +876,6 @@ segattach(int attr, char *name, uintptr va, uintptr len)
 		nexterror();
 	}
 		
-	for(sno = 0; sno < NSEG; sno++)
-		if(up->seg[sno] == nil && sno != ESEG)
-			break;
-
-	if(sno == NSEG)
-		error(Enovmem);
-
 	/*
 	 *  first look for a global segment with the
 	 *  same name
@@ -835,11 +885,11 @@ segattach(int attr, char *name, uintptr va, uintptr len)
 		if(s != nil){
 			va = s->base;
 			len = s->top - va;
-			if(isoverlap(va, len) != nil){
-				putseg(s);
+			if(isoverlap(va, len) != nil)
 				error(Esoverlap);
-			}
-			up->seg[sno] = s;
+			segno = unusedsegno(s->segno);
+			if(segno < 0)
+				error(Enovmem);
 			goto done;
 		}
 	}
@@ -882,6 +932,10 @@ segattach(int attr, char *name, uintptr va, uintptr len)
 	if(len > ps->size)
 		error(Enovmem);
 
+	segno = unusedsegno(-1);
+	if(segno < 0)
+		error(Enovmem);
+
 	/* Turn off what is not allowed */
 	attr &= ~(SG_TYPE | SG_CACHED | SG_DEVICE);
 
@@ -890,8 +944,8 @@ segattach(int attr, char *name, uintptr va, uintptr len)
 
 	s = newseg(attr, va, len/BY2PG);
 	s->pseg = ps;
-	up->seg[sno] = s;
 done:
+	attachseg(up, segno, s);
 	qunlock(&up->seglock);
 	poperror();
 
@@ -1118,7 +1172,6 @@ data2txt(Segment *s)
 	ps->image = i;
 	ps->fstart = s->fstart;
 	ps->flen = s->flen;
-	ps->flushme = 1;
 	if(i->s == nil)
 		i->s = ps;
 	incref(i);
@@ -1169,18 +1222,13 @@ static void
 segmentioproc(void *arg)
 {
 	Segio *sio = arg;
-	int done;
-	int sno;
+	int done, segno;
 
 	qlock(&up->seglock);
-	for(sno = 0; sno < NSEG; sno++)
-		if(up->seg[sno] == nil && sno != ESEG)
-			break;
-	if(sno == NSEG)
-		panic("segmentkproc");
 	sio->p = up;
 	incref(sio->s);
-	up->seg[sno] = sio->s;
+	segno = unusedsegno(sio->s->segno);
+	attachseg(up, segno, sio->s);
 	qunlock(&up->seglock);
 
 	while(waserror())
@@ -1190,14 +1238,17 @@ segmentioproc(void *arg)
 		if(waserror())
 			sio->err = up->errstr;
 		else {
-			if(sio->s != nil && up->seg[sno] != sio->s){
+			if(sio->s != nil && up->seg[segno] != sio->s){
 				Segment *tmp;
+
 				qlock(&up->seglock);
+				tmp = detachseg(up, segno);
 				incref(sio->s);
-				tmp = up->seg[sno];
-				up->seg[sno] = sio->s;
-				putseg(tmp);
+				segno = unusedsegno(sio->s->segno);
+				attachseg(up, segno, sio->s);
 				qunlock(&up->seglock);
+				putseg(tmp);
+
 				flushmmu();
 			}
 			switch(sio->cmd){

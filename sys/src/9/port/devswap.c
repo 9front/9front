@@ -234,23 +234,26 @@ pager(void*)
 			}
 		} while(p->state <= New || p->noswap || !canqlock(&p->seglock));
 		up->psstate = "Pageout";
-		for(i = 0; i < NSEG; i++) {
-			if((s = p->seg[i]) != nil) {
-				switch(s->type&SG_TYPE) {
-				case SG_TEXT:
-					/*
-					 *  imagereclaim() does not reclaim active images anymore,
-					 *  so here is no point in paging out text. it wont
-					 *  recover any pages.
-					 */
-					continue;
-				case SG_DATA:
-				case SG_BSS:
-				case SG_STACK:
-				case SG_SHARED:
-					pageout(p, s);
-					break;
-				}
+
+		/* pageout segments in reverse order */
+		for(i = NSEG-1; i >= 0; i--) {
+			s = p->seg[i];
+			if(s == nil)
+				continue;
+			switch(s->type&SG_TYPE) {
+			case SG_TEXT:
+				/*
+				 *  imagereclaim() does not reclaim active images anymore,
+				 *  so here is no point in paging out text. it wont
+				 *  recover any pages.
+				 */
+				continue;
+			case SG_DATA:
+			case SG_BSS:
+			case SG_STACK:
+			case SG_SHARED:
+				pageout(p, s);
+				break;
 			}
 		}
 		qunlock(&p->seglock);
@@ -267,25 +270,25 @@ pageout(Proc *p, Segment *s)
 {
 	int i;
 	short age;
-	Pte *l;
+	Pte *pte;
 	Page **pg, *entry;
 
 	if(!canqlock(s))	/* We cannot afford to wait, we will surely deadlock */
 		return;
 
-	if(!canflush(p, s)	/* Able to invalidate all tlbs with references */
+	if(s->used<=s->swapped	/* Anyting to swap out */
+	|| !canflush(p, s)	/* Able to invalidate all tlbs with references */
 	|| waserror()) {
 		qunlock(s);
-		putseg(s);
 		return;
 	}
 
 	/* Pass through the pte tables looking for memory pages to swap out */
 	for(i = 0; i < s->mapsize; i++) {
-		l = s->map[i];
-		if(l == nil)
+		pte = s->map[i];
+		if(pte == nil)
 			continue;
-		for(pg = l->first; pg <= l->last; pg++) {
+		for(pg = pte->first; pg <= pte->last; pg++) {
 			entry = *pg;
 			if(pagedout(entry) || entry->modref & PG_PRIV || entry->image != nil)
 				continue;
@@ -302,29 +305,27 @@ pageout(Proc *p, Segment *s)
 	}
 	qunlock(s);
 	poperror();
-	putseg(s);
 }
 
 static int
 canflush(Proc *p, Segment *s)
 {
-	int x, i;
+	int i;
 
-	if(incref(s) == 2)		/* Easy if we are the only user */
+	if(s->ref == 1)		/* Easy if proc is the only user */
 		return canpage(p);
 
 	/*
 	 * Now we must do hardwork to ensure all processes which have tlb
 	 * entries for this segment will be flushed if we succeed in paging it out
 	 */
-	for(x = 0; (p = proctab(x)) != nil; x++){
+	for(i = s->firstproc; i <= s->lastproc && (p = proctab(i)) != nil; i++){
 		if(p->state <= New)
 			continue;
-		for(i = 0; i < NSEG; i++){
-			if(p->seg[i] == s)
-				if(!canpage(p))
-					return 0;
-		}
+		if(segno(p, s) < 0)
+			continue;
+		if(!canpage(p))
+			return 0;
 	}
 	return 1;
 }
