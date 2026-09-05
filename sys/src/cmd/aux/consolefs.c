@@ -111,7 +111,7 @@ void	console(Fs*, char*, char*, int, int, int);
 void	refreshdb(Fs*);
 Fs*	fsmount(char*);
 
-void	fsreader(void*);
+void	consolereader(void*);
 void	fsrun(void*);
 Fid*	fsgetfid(Fs*, int);
 void	fsputfid(Fs*, Fid*);
@@ -407,7 +407,7 @@ fsreopen(Fs* fs, Console *c)
 
 	v[0] = fs;
 	v[1] = c;
-	proccreate(fsreader, v, Stacksize);
+	proccreate(consolereader, v, Stacksize);
 
 	return 0;
 }
@@ -591,7 +591,7 @@ handler(void*, char *msg)
  *  a process to read console output and broadcast it (one per console)
  */
 void
-fsreader(void *v)
+consolereader(void *v)
 {
 	char buf[Bufsize];
 	int n;
@@ -603,6 +603,7 @@ fsreader(void *v)
 	fs = a[0];
 	c = a[1];
 	c->pid = getpid();
+	threadsetname("%s %s", c->name, c->dev);
 	notify(handler);
 	for(;;){
 		n = read(c->fd, buf, sizeof(buf));
@@ -674,6 +675,7 @@ fsrun(void *v)
 	fs = a[0];
 	pfd = a[1];
 	fs->fd = pfd[0];
+	threadsetname("%s", consoledb);
 	notify(handler);
 	readdb(fs);
 	for(;;){
