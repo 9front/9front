@@ -16,22 +16,6 @@ int serialdebug;
 Serialport **ports;
 int nports;
 
-static void
-serialfatal(Serial *ser)
-{
-	Serialport *p;
-	int i;
-
-	dsprint(2, "serial: fatal error, closing\n");
-	for(i = 0; i < ser->nifcs; i++){
-		p = &ser->p[i];
-		if(p->w4data != nil)
-			chanclose(p->w4data);
-		if(p->gotdata != nil)
-			chanclose(p->gotdata);
-	}
-}
-
 /* I sleep with the lock... only way to drain in general */
 static void
 serialdrain(Serialport *p)
@@ -72,48 +56,40 @@ serialreset(Serial *ser)
 }
 
 /* call this if something goes wrong, must be qlocked */
-int
+void
 serialrecover(Serial *ser, Serialport *p, Dev *ep, char *err)
 {
 	if(p != nil)
-		dprint(2, "serial[%d], %s: %s, level %d\n", p->interfc,
-			p->name, err, ser->recover);
+		fprint(2, "%s: %s [%d]: %s: %s, level %d\n",
+			argv0, p->name, p->interfc, ep!=nil? ep->dir: ser->dev->dir,
+			err, ser->recover);
 	else
-		dprint(2, "serial[%s], global error, level %d\n",
-			ser->p[0].name, ser->recover);
+		fprint(2, "%s: %s: %s: %s, level %d\n",
+			argv0, ser->p[0].name, ser->dev->dir,
+			err, ser->recover);
+
 	ser->recover++;
 	if(strstr(err, "detached") != nil)
-		return -1;
-	if(ser->recover < 3){
-		if(p != nil){	
-			if(ep != nil){
-				if(ep == p->epintr)
-					unstall(ser->dev, p->epintr, Ein);
-				if(ep == p->epin)
-					unstall(ser->dev, p->epin, Ein);
-				if(ep == p->epout)
-					unstall(ser->dev, p->epout, Eout);
-				return 0;
-			}
+		threadexitsall("detached");
 
-			if(p->epintr != nil)
-				unstall(ser->dev, p->epintr, Ein);
-			if(p->epin != nil)
-				unstall(ser->dev, p->epin, Ein);
-			if(p->epout != nil)
-				unstall(ser->dev, p->epout, Eout);
-		}
-		return 0;
+	if(ser->recover < 3 && p != nil && ep != nil){
+		if(ep == p->epintr)
+			unstall(ser->dev, p->epintr, Ein);
+		if(ep == p->epin)
+			unstall(ser->dev, p->epin, Ein);
+		if(ep == p->epout)
+			unstall(ser->dev, p->epout, Eout);
+		return;
 	}
-	if(ser->recover > 4 && ser->recover < 8)
-		serialfatal(ser);
-	if(ser->recover > 8){
-		ser->reset(ser, p);
-		return 0;
+
+	if(ser->recover < 4 && ser->reset != nil){
+		if(ser->reset(ser, p) >= 0)
+			return;
 	}
-	if(serialreset(ser) < 0)
-		return -1;
-	return 0;
+
+	/* give up. request port reset */
+	devctl(ser->dev, "reset");
+	threadexitsall("reset");
 }
 
 static int
@@ -168,7 +144,8 @@ serialctl(Serialport *p, char *cmd)
 		case 'h':		/* hangup?? */
 			p->rts = p->dtr = 0;
 			lines++;
-			fprint(2, "serial: %c, unsure ctl\n", c);
+			fprint(2, "%s: %s: %s: %c, unsure ctl\n",
+				argv0, p->name, ser->dev->dir, c);
 			break;
 		case 'i':
 			++nop;
@@ -239,14 +216,23 @@ serialctl(Serialport *p, char *cmd)
 				x = CTLS;
 			else
 				x = CTLQ;
-			if(ser->wait4write != nil)
+			if(ser->wait4write != nil) {
 				nw = ser->wait4write(p, &x, 1);
-			else
-				nw = write(p->epout->dfd, &x, 1);
+				/* wait4write() unlocks */
+			} else {
+				int fd = p->epout->dfd;
+				qunlock(ser);
+				nw = write(fd, &x, 1);
+			}
 			if(nw != 1){
-				serialrecover(ser, p, p->epout, "");
+				char err[ERRMAX];
+
+				rerrstr(err, sizeof(err));
+				qlock(ser);
+				serialrecover(ser, p, p->epout, err);
 				return -1;
 			}
+			qlock(ser);
 			break;
 		}
 		/*
@@ -255,7 +241,8 @@ serialctl(Serialport *p, char *cmd)
 		 */
 		USED(nop);
 		if (0 && nop)
-			fprint(2, "serial: %c, unsupported nop ctl\n", c);
+			fprint(2, "%s: %s: %s: %c, unsupported nop ctl\n",
+				argv0, p->name, ser->dev->dir, c);
 	}
 	if(drain)
 		serialdrain(p);
@@ -433,7 +420,6 @@ Again:
 		count = ser->maxread;
 	if(ser->wait4data != nil) {
 		rcount = ser->wait4data(p, data, count);
-		qunlock(ser);
 	} else {
 		dfd = p->epin->dfd;
 		qunlock(ser);
@@ -458,7 +444,6 @@ procwrite(Req *req)
 	void *data;
 	Serial *ser;
 	Serialport *p;
-	char err[ERRMAX];
 	int dfd;
 
 	p = req->aux;
@@ -468,15 +453,16 @@ procwrite(Req *req)
 	qlock(ser);
 	if(ser->wait4write != nil) {
 		wcount = ser->wait4write(p, data, count);
-		qunlock(ser);
+		/* wait4write() unlocks */
 	} else {
 		dfd = p->epout->dfd;
 		qunlock(ser);
 		wcount = write(dfd, data, count);
 	}
 	if(wcount != count) {
-		err[0] = 0;
-		errstr(err, sizeof err);
+		char err[ERRMAX];
+
+		rerrstr(err, sizeof(err));
 		respond(req, err);
 
 		qlock(ser);
@@ -572,7 +558,8 @@ openeps(Serialport *p, Ep *epin, Ep *epout, Ep *epintr)
 	ser = p->s;
 	p->epin = openep(ser->dev, epin);
 	if(p->epin == nil){
-		fprint(2, "serial: openep %d: %r\n", epin->id);
+		fprint(2, "%s: %s: %s: openep %d: %r\n",
+			argv0, p->name, ser->dev->dir, epin->id);
 		return -1;
 	}
 	if(epin == epout){
@@ -581,14 +568,16 @@ openeps(Serialport *p, Ep *epin, Ep *epout, Ep *epintr)
 	} else
 		p->epout = openep(ser->dev, epout);
 	if(p->epout == nil){
-		fprint(2, "serial: openep %d: %r\n", epout->id);
+		fprint(2, "%s: %s: %s: openep %d: %r\n",
+			argv0, p->name, ser->dev->dir, epout->id);
 		closedev(p->epin);
 		return -1;
 	}
 	if(ser->hasepintr){
 		p->epintr = openep(ser->dev, epintr);
 		if(p->epintr == nil){
-			fprint(2, "serial: openep %d: %r\n", epintr->id);
+			fprint(2, "%s: %s: %s: openep %d: %r\n",
+				argv0, p->name, ser->dev->dir, epintr->id);
 			closedev(p->epin);
 			closedev(p->epout);
 			return -1;
@@ -607,7 +596,8 @@ openeps(Serialport *p, Ep *epin, Ep *epout, Ep *epintr)
 	}
 	if(p->epin->dfd < 0 || p->epout->dfd < 0 ||
 	    (ser->hasepintr && p->epintr->dfd < 0)){
-		fprint(2, "serial: open i/o ep data: %r\n");
+		fprint(2, "%s: %s: %s: open i/o ep data: %r\n",
+			argv0, p->name, ser->dev->dir);
 		closedev(p->epin);
 		closedev(p->epout);
 		if(ser->hasepintr)

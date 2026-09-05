@@ -266,7 +266,7 @@ vendorread(Serialport *p, int val, int index, uchar *buf)
 		val, index, buf);
 	res = usbcmd(ser->dev,  Rd2h | Rvendor | Rdev, VendorReadReq,
 		val, index, buf, 1);
-	if(res != 1) fprint(2, "serial: vendorread failed with res=%d\n", res);
+	if(res != 1) dsprint(2, "serial: vendorread failed with res=%d\n", res);
 	return res;
 }
 
@@ -281,7 +281,7 @@ vendorwrite(Serialport *p, int val, int index)
 	dsprint(2, "serial: vendorwrite val: 0x%x idx:%d\n", val, index);
 	res = usbcmd(ser->dev, Rh2d | Rvendor | Rdev, VendorWriteReq,
 		val, index, nil, 0);
-	if(res != 0) fprint(2, "serial: vendorwrite failed with res=%d\n", res);
+	if(res != 0) dsprint(2, "serial: vendorwrite failed with res=%d\n", res);
 	return res;
 }
 
@@ -345,7 +345,7 @@ plgetparam(Serialport *p)
 
 	if(res == ParamReqSz)
 		return 0;
-	fprint(2, "serial: plgetparam failed with res=%d\n", res);
+	dsprint(2, "serial: plgetparam failed with res=%d\n", res);
 	if(res >= 0) werrstr("plgetparam failed with res=%d", res);
 	return -1;
 }
@@ -374,7 +374,7 @@ plsetparam(Serialport *p)
 	res = usbcmd(ser->dev, Rh2d | Rclass | Riface, SetLineReq,
 		0, 0, buf, sizeof buf);
 	if(res != ParamReqSz){
-		fprint(2, "serial: plsetparam failed with res=%d\n", res);
+		dsprint(2, "serial: plsetparam failed with res=%d\n", res);
 		if(res >= 0) werrstr("plsetparam failed with res=%d", res);
 		return -1;
 	}
@@ -540,7 +540,6 @@ static int
 plreadstatus(Serialport *p)
 {
 	int nr, dfd;
-	char err[ERRMAX];
 	uchar buf[VendorReqSz];
 	Serial *ser;
 
@@ -550,17 +549,17 @@ plreadstatus(Serialport *p)
 	dfd = p->epintr->dfd;
 	qunlock(ser);
 	nr = read(dfd, buf, sizeof buf);
-	qlock(ser);
-	rerrstr(err, sizeof err);
-	if(nr < 0 && strstr(err, "timed out") == nil){
-		if(serialrecover(ser, nil, nil, err) < 0){
+	if(nr < 0){
+		char err[ERRMAX];
+		rerrstr(err, sizeof err);
+		dsprint(2, "serial: reading status: %s\n", err);
+		if(strstr(err, "timed out") == nil){
+			qlock(ser);
+			serialrecover(ser, nil, nil, err);
 			qunlock(ser);
-			return -1;
 		}
-	}
-	if(nr < 0)
-		dsprint(2, "serial: reading status: %r\n");
-	else if(nr >= sizeof buf - 1){
+	} else if(nr >= sizeof buf - 1){
+		qlock(ser);
 		p->dcd = buf[8] & DcdStatus;
 		p->dsr = buf[8] & DsrStatus;
 		p->cts = buf[8] & BreakerrStatus;
@@ -572,9 +571,9 @@ plreadstatus(Serialport *p)
 			p->nparityerr++;
 		if(buf[8] & OvererrStatus)
 			p->novererr++;
+		qunlock(ser);
 	} else
 		dsprint(2, "serial: bad status read %d\n", nr);
-	qunlock(ser);
 	return 0;
 }
 
@@ -589,7 +588,7 @@ statusreader(void *u)
 	threadsetname("statusreaderproc");
 	while(plreadstatus(p) >= 0)
 		;
-	fprint(2, "serial: statusreader exiting\n");
+	dsprint(2, "serial: statusreader exiting\n");
 	closedev(ser->dev);
 }
 

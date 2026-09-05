@@ -964,7 +964,7 @@ customdiv(Serial *ser)
 	else if(ser->dev->usb->vid == FTVid && ser->dev->usb->did == FTUSBUIRTDid)
 		return UirtDiv;
 
-	fprint(2, "serial: weird custom divisor\n");
+	dsprint(2, "serial: weird custom divisor\n");
 	return 0;		/* shouldn't happen, break as much as I can */
 }
 
@@ -1145,7 +1145,7 @@ ftgettype(Serial *ser)
 		 * to 0x200 when serial is 0.
 		 */
 		if(dno < 0x500)
-			fprint(2, "serial: warning: dno %d too low for "
+			dsprint(2, "serial: warning: dno %d too low for "
 				"multi-interface device\n", dno);
 	} else if(dno < 0x200) {
 		/* Old device.  Assume it is the original SIO. */
@@ -1228,10 +1228,8 @@ wait4data(Serialport *p, uchar *data, int count)
 	Serial *ser;
 
 	ser = p->s;
-
 	qunlock(ser);
 	d = sendul(p->w4data, 1);
-	qlock(ser);
 	if(d <= 0)
 		return -1;
 	if(p->ndata >= count)
@@ -1263,7 +1261,6 @@ wait4write(Serialport *p, uchar *data, int count)
 	fd = p->epout->dfd;
 	qunlock(ser);
 	count = write(fd, b, count+off);
-	qlock(ser);
 	free(b);
 	return count;
 }
@@ -1314,7 +1311,7 @@ cpdata(Serial *ser, Serialport *port, uchar *out, uchar *in, int sz)
 static void
 epreader(void *u)
 {
-	int dfd, rcount, cl, ntries, recov;
+	int dfd, rcount, cl;
 	Areader *a;
 	Channel *c;
 	Packser *pk;
@@ -1332,29 +1329,25 @@ epreader(void *u)
 	dfd = p->epin->dfd;
 	qunlock(ser);
 
-	ntries = 0;
 	pk = nil;
 	for(;;) {
 		if (pk == nil)
 			pk = emallocz(sizeof(Packser), 1);
-Eagain:
-		rcount = read(dfd, pk->b, sizeof pk->b);
-		if(serialdebug > 5)
-			dsprint(2, "%d %#ux%#ux ", rcount, p->data[0],
-				p->data[1]);
 
+		rcount = read(dfd, pk->b, sizeof pk->b);
 		if(rcount < 0){
-			if(ntries++ > 100)
-				break;
+			char err[ERRMAX];
+
+			rerrstr(err, sizeof(err));
 			qlock(ser);
-			recov = serialrecover(ser, p, nil, "epreader: bulkin error");
+			serialrecover(ser, p, p->epin, err);
 			qunlock(ser);
-			if(recov >= 0)
-				goto Eagain;
 		}
 		if(rcount == 0)
 			continue;
 		if(rcount >= ser->inhdrsz){
+			ser->recover = 0;	/* recovered */
+
 			rcount = cpdata(ser, p, pk->b, pk->b, rcount);
 			if(rcount != 0){
 				pk->nb = rcount;
@@ -1364,21 +1357,14 @@ Eagain:
 					 * if it was a time-out, I don't want
 					 * to give back an error.
 					 */
-					rcount = 0;
 					break;
 				}
 			}else
 				free(pk);
-			qlock(ser);
-			ser->recover = 0;
-			qunlock(ser);
-			ntries = 0;
 			pk = nil;
 		}
 	}
 
-	if(rcount < 0)
-		fprint(2, "%s: error reading %s: %r\n", argv0, p->name);
 	free(pk);
 	nbsendp(c, nil);
 	if(p->w4data != nil)
@@ -1516,10 +1502,8 @@ ftsendlines(Serialport *p)
 	ser = p->s;
 
 	composectl(p);
-	if(ser->dev->usb->vid == FTVid && ser->dev->usb->did ==  FTHETIRA1Did){
-		fprint(2, "serial: cannot set lines for this device\n");
+	if(ser->dev->usb->vid == FTVid && ser->dev->usb->did ==  FTHETIRA1Did)
 		return -1;
-	}
 
 	/* NB: you can not set DTR and RTS with one control message */
 	res = ftdiwrite(p, (CtlRTS<<8)|p->ctlstate, 0, FTSETMODEMCTRL);
@@ -1548,6 +1532,10 @@ ftseteps(Serialport *p)
 	s = smprint("maxpkt %d", ser->maxwtrans);
 	devctl(p->epout, s);
 	free(s);
+
+	devctl(p->epin, "timeout 10");
+	devctl(p->epout, "timeout 10");
+
 	return 0;
 }
 

@@ -120,7 +120,7 @@ extern int serialdebug;
 
 #define	dsprint	if(serialdebug)fprint
 
-int	serialrecover(Serial *ser, Serialport *p, Dev *ep, char *err);
+void	serialrecover(Serial *ser, Serialport *p, Dev *ep, char *err);
 int	serialreset(Serial *ser);
 int	findendpoints(Serial *ser, int ifc);
 int	openeps(Serialport *p, Ep *epin, Ep *epout, Ep *epintr);

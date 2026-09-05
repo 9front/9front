@@ -176,12 +176,12 @@ slmodemctl(Serialport *p, int set)
 static int
 wait4data(Serialport *p, uchar *data, int count)
 {
-	int n;
+	int fd, n;
 
+	fd = p->epin->dfd;
 	qunlock(p->s);
-	while ((n = read(p->epin->dfd, data, count)) == 0)
+	while ((n = read(fd, data, count)) == 0)
 		;
-	qlock(p->s);
 	return n;
 }
 

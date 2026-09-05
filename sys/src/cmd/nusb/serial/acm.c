@@ -72,7 +72,6 @@ acmsetparam(Serialport *p)
 	res = usbcmd(ser->dev, Rh2d | Rclass | Riface, SetLineReq,
 		0, 0, buf, sizeof buf);
 	if(res != ParamReqSz){
-		fprint(2, "serial: acmsetparam failed with res=%d\n", res);
 		if(res >= 0) werrstr("acmsetparam failed with res=%d", res);
 		return -1;
 	}
@@ -93,12 +92,12 @@ acminit(Serialport *p)
 static int
 acmwait4data(Serialport *p, uchar *data, int count)
 {
-	int n;
+	int fd, n;
 
+	fd = p->epin->dfd;
 	qunlock(p->s);
-	while ((n = read(p->epin->dfd, data, count)) == 0)
+	while ((n = read(fd, data, count)) == 0)
 		;
-	qlock(p->s);
 	return n;
 }
 
