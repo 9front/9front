@@ -22,6 +22,7 @@ struct Gdbreg
 {
 	char *name;	/* matches Reglist[].name */
 	int size;	/* may not always agree with libmach */
+	Reglist *ureg;	/* pointer into mach->reglist */
 };
 
 /* registers listed in the order output by gdbserver, no gaps */
@@ -90,18 +91,29 @@ findreg(char *rname)
 	return nil;
 }
 
-uchar *
+static int
+uregsz(char rformat)
+{
+	switch(rformat){
+	case 'x':
+		return 2;
+	case 'f':
+	case 'X':
+		return 4;
+	case 'F':
+	case 'W':
+	case 'Y':
+		return 8;
+	}
+	sysfatal("unknown rformat '%c'", rformat);
+}
+
+static uchar *
 bin2ureg(uchar *src)
 {
 	uchar *ureg;
 	Gdbreg *greg;
-	Reglist *reg;
-
-	union {
-		u16int u16;
-		u32int u32;
-		u64int u64;
-	} v;
+	u64int v;
 
 	if(mach->mtype > nelem(gdbregs) || gdbregs[mach->mtype] == nil){
 		werrstr("no register map for %s", mach->name);
@@ -112,23 +124,13 @@ bin2ureg(uchar *src)
 		return nil;
 
 	for(greg = gdbregs[mach->mtype]; greg->name != nil; greg++){
-		if((reg = findreg(greg->name)) == nil)
+		if(greg->ureg == nil)
 			continue;
 
+		v = 0;
 		memmove(&v, src, greg->size);
 		src += greg->size;
-
-		switch(reg->rformat){
-		case 'x':
-			memmove(&ureg[reg->roffs], &v.u16, sizeof v.u16);
-			break;
-		case 'X': case 'W': case 'f':
-			memmove(&ureg[reg->roffs], &v.u32, sizeof v.u32);
-			break;
-		case 'Y': case 'F':
-			memmove(&ureg[reg->roffs], &v.u64, sizeof v.u64);
-			break;
-		}
+		memmove(&ureg[greg->ureg->roffs], &v, uregsz(greg->ureg->rformat));
 	}
 	return ureg;
 }
@@ -326,9 +328,14 @@ void
 gdbinit(int rfd, int wfd)
 {
 	static char qSupported[] = "qSupported:error-message+";
+	Gdbreg *g;
 	int i, n;
 	char *rsp, *features[64], *kv[2];
-	
+
+	if(mach->mtype < nelem(gdbregs) && gdbregs[mach->mtype] != nil){
+		for(g = gdbregs[mach->mtype]; g->name != nil; g++)
+			g->ureg = findreg(g->name);
+	}
 	gdb.wfd = wfd;
 	gdb.rb = Bfdopen(rfd, OREAD);
 	if(gdb.rb == nil)
@@ -437,7 +444,61 @@ gdbreadreg(Req *r)
 void
 gdbwritereg(Req *r)
 {
-	respond(r, "not implemented");
+	int i, sz;
+	vlong off;
+	char *rsp;
+	Gdbreg *g;
+	Reglist *u;
+	uchar buf[32];
+
+	if(mach->mtype > nelem(gdbregs) || gdbregs[mach->mtype] == nil){
+		respond(r, "not implemented");
+		return;
+	}
+
+	qlock(&gdb);
+	if(gdb.state != Stopped){
+		werrstr("%s", Ebadctl);
+		goto Error;
+	}
+
+	for(i = 0, g = gdbregs[mach->mtype]; g->name != nil; g++, i++){
+		if((u = g->ureg) == nil)
+			continue;
+
+		sz = uregsz(u->rformat);
+		off = u->roffs - r->ifcall.offset;
+
+		if(off < 0 || off >= r->ifcall.count)
+			continue;
+
+		if(off + sz > r->ifcall.count){
+			werrstr("partial write at %lld:%ud",
+				r->ifcall.offset + off, sz);
+			goto Error;
+		}
+
+		/* gdb reg can be larger than ureg, so fill with 0 */
+		memset(buf, 0, g->size);
+		memmove(buf, r->ifcall.data + off, sz);
+
+		if((rsp = cmdreply("P%x=%.*lH", i, g->size, buf)) == nil)
+			goto Error;
+
+		free(rsp);
+		r->ofcall.count += sz;
+	}
+	if(r->ofcall.count != r->ifcall.count){
+		werrstr("no ureg->gdb mapping for [%lld:%ud]", r->ifcall.offset, r->ifcall.count);
+		goto Error;
+	}
+
+	qunlock(&gdb);
+	respond(r, nil);
+	return;
+
+Error:	qunlock(&gdb);
+	responderror(r);
 }
 
 void
