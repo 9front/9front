@@ -27,6 +27,7 @@ enum
 	Qdata,
 
 	Bufsize=	32*1024,	/* chars buffered per reader */
+	Stacksize=	2*Bufsize+1024,
 	Maxcons=	64,		/* maximum consoles */
 	Nhash=		64,		/* Fid hash buckets */
 };
@@ -39,7 +40,6 @@ struct Request
 {
 	Request	*next;
 	Fid	*fid;
-	Fs	*fs;
 	Fcall	f;
 	uchar	buf[1];
 };
@@ -62,7 +62,7 @@ struct Fid
 	int	attached;
 	int	open;
 	char	*user;
-	char	mbuf[Bufsize];		/* message */
+	char	mbuf[1024];		/* user message for chat */
 	int	bufn;
 	int	used;
 	Qid	qid;
@@ -107,32 +107,33 @@ struct Fs
 	int	ncons;
 };
 
-extern	void	console(Fs*, char*, char*, int, int, int);
-extern	Fs*	fsmount(char*);
+void	console(Fs*, char*, char*, int, int, int);
+void	refreshdb(Fs*);
+Fs*	fsmount(char*);
 
-extern	void	fsreader(void*);
-extern	void	fsrun(void*);
-extern	Fid*	fsgetfid(Fs*, int);
-extern	void	fsputfid(Fs*, Fid*);
-extern	int	fsdirgen(Fs*, Qid, int, Dir*, uchar*, int);
-extern	void	fsreply(Fs*, Request*, char*);
-extern	void	fskick(Fs*, Fid*);
-extern	int	fsreopen(Fs*, Console*);
+void	fsreader(void*);
+void	fsrun(void*);
+Fid*	fsgetfid(Fs*, int);
+void	fsputfid(Fs*, Fid*);
+int	fsdirgen(Fs*, Qid, int, Dir*, uchar*, int);
+void	fsreply(Fs*, Request*, char*);
+void	fskick(Fs*, Fid*);
+int	fsreopen(Fs*, Console*);
 
-extern	void	fsversion(Fs*, Request*, Fid*);
-extern	void	fsflush(Fs*, Request*, Fid*);
-extern	void	fsauth(Fs*, Request*, Fid*);
-extern	void	fsattach(Fs*, Request*, Fid*);
-extern	void	fswalk(Fs*, Request*, Fid*);
-extern	void	fsclwalk(Fs*, Request*, Fid*);
-extern	void	fsopen(Fs*, Request*, Fid*);
-extern	void	fscreate(Fs*, Request*, Fid*);
-extern	void	fsread(Fs*, Request*, Fid*);
-extern	void	fswrite(Fs*, Request*, Fid*);
-extern	void	fsclunk(Fs*, Request*, Fid*);
-extern	void	fsremove(Fs*, Request*, Fid*);
-extern	void	fsstat(Fs*, Request*, Fid*);
-extern	void	fswstat(Fs*, Request*, Fid*);
+void	fsversion(Fs*, Request*, Fid*);
+void	fsflush(Fs*, Request*, Fid*);
+void	fsauth(Fs*, Request*, Fid*);
+void	fsattach(Fs*, Request*, Fid*);
+void	fswalk(Fs*, Request*, Fid*);
+void	fsclwalk(Fs*, Request*, Fid*);
+void	fsopen(Fs*, Request*, Fid*);
+void	fscreate(Fs*, Request*, Fid*);
+void	fsread(Fs*, Request*, Fid*);
+void	fswrite(Fs*, Request*, Fid*);
+void	fsclunk(Fs*, Request*, Fid*);
+void	fsremove(Fs*, Request*, Fid*);
+void	fsstat(Fs*, Request*, Fid*);
+void	fswstat(Fs*, Request*, Fid*);
 
 
 void 	(*fcall[])(Fs*, Request*, Fid*) =
@@ -162,7 +163,7 @@ char Enofid[] = "no such fid";
 char *consoledb = "/lib/ndb/consoledb";
 char *mntpt = "/mnt/consoles";
 
-int messagesize = 8192+IOHDRSZ;
+int messagesize = Bufsize+IOHDRSZ;
 
 void
 fatal(char *fmt, ...)
@@ -181,33 +182,18 @@ fatal(char *fmt, ...)
 
 
 void*
-emalloc(uint n)
+emallocz(uint n, int zero)
 {
 	void *p;
 
-	p = malloc(n);
+	p = mallocz(n, zero);
 	if(p == nil)
 		fatal("malloc failed: %r");
-	memset(p, 0, n);
 	return p;
 }
 
 int debug;
 Ndb *db;
-
-/*
- *  any request that can get queued for a delayed reply
- */
-Request*
-allocreq(Fs *fs, int bufsize)
-{
-	Request *r;
-
-	r = emalloc(sizeof(Request)+bufsize);
-	r->fs = fs;
-	r->next = nil;
-	return r;
-}
 
 /*
  *  for maintaining lists of requests
@@ -281,8 +267,7 @@ fsdirgen(Fs *fs, Qid parent, int i, Dir *d, uchar *buf, int nbuf)
 
 	d->uid = d->gid = d->muid = "network";
 	d->length = 0;
-	d->atime = time(nil);
-	d->mtime = d->atime;
+	d->atime = d->mtime = db->mtime;
 	d->type = 'C';
 	d->dev = '0';
 
@@ -349,7 +334,7 @@ fsmount(char *mntpt)
 	int n;
 	static void *v[2];
 
-	fs = emalloc(sizeof(Fs));
+	fs = emallocz(sizeof(Fs), 1);
 
 	if(pipe(pfd) < 0)
 		fatal("opening pipe: %r");
@@ -357,7 +342,7 @@ fsmount(char *mntpt)
 	/* start up the file system process */
 	v[0] = fs;
 	v[1] = pfd;
-	proccreate(fsrun, v, 16*1024);
+	proccreate(fsrun, v, Stacksize);
 
 	/* Typically mounted before /srv exists */
 	if(access("/srv/consoles", AEXIST) < 0){
@@ -365,7 +350,7 @@ fsmount(char *mntpt)
 		if(srv < 0)
 			fatal("post: %r");
 
-		n = sprint(buf, "%d", pfd[1]);
+		n = snprint(buf, sizeof(buf), "%d", pfd[1]);
 		if(write(srv, buf, n) < 0)
 			fatal("write srv: %r");
 
@@ -387,6 +372,7 @@ fsreopen(Fs* fs, Console *c)
 	static void *v[2];
 
 	if(c->pid){
+		if(c->pid > 0)
 		if(postnote(PNPROC, c->pid, "reopen") != 0)
 			fprint(2, "postnote failed: %r\n");
 		c->pid = 0;
@@ -415,9 +401,13 @@ fsreopen(Fs* fs, Console *c)
 	snprint(buf, sizeof(buf), "%sstat", c->dev);
 	c->sfd = open(buf, OREAD);
 
+	c->pid = -1;
+	if(c->chat)
+		return 0;
+
 	v[0] = fs;
 	v[1] = c;
-	proccreate(fsreader, v, 16*1024);
+	proccreate(fsreader, v, Stacksize);
 
 	return 0;
 }
@@ -495,7 +485,7 @@ console(Fs* fs, char *name, char *dev, int speed, int cronly, int ondemand)
 		}
 	}
 #endif
-	c = emalloc(sizeof(Console));
+	c = emallocz(sizeof(Console), 1);
 	fs->cons[fs->ncons] = c;
 	fs->ncons++;
 	c->name = strdup(name);
@@ -549,29 +539,43 @@ fromconsole(Fid *f, char *p, int n)
 }
 
 /*
+ *  broadcast a message to all listeners
+ */
+void
+bcastmsg(Fs *fs, Console *c, char *msg, int n)
+{
+	Fid *fl;
+
+	for(fl = c->flist; fl != nil; fl = fl->cnext){
+		fromconsole(fl, msg, n);
+		fskick(fs, fl);
+	}
+}
+
+/*
  *  broadcast a list of members to all listeners
  */
 void
 bcastmembers(Fs *fs, Console *c, char *msg, Fid *f)
 {
-	int n;
 	Fid *fl;
-	char buf[512];
+	int n;
 
-	sprint(buf, "[%s%s", msg, f->user);
-	for(fl = c->flist; fl != nil && strlen(buf) + 64 < sizeof(buf); fl = fl->cnext){
+	n = snprint(f->mbuf, sizeof(f->mbuf), "[%s%s", msg, f->user);
+	for(fl = c->flist; fl != nil; fl = fl->cnext){
 		if(f == fl)
 			continue;
-		strcat(buf, ", ");
-		strcat(buf, fl->user);
+		n += snprint(f->mbuf+n, sizeof(f->mbuf)-n, ", %s", fl->user);
 	}
-	strcat(buf, "]\n");
+	n += snprint(f->mbuf+n, sizeof(f->mbuf)-n, "]\n");
+	bcastmsg(fs, c, f->mbuf, n);
+}
 
-	n = strlen(buf);
-	for(fl = c->flist; fl; fl = fl->cnext){
-		fromconsole(fl, buf, n);
-		fskick(fs, fl);
-	}
+void
+initmsguser(Fid *f)
+{
+	f->bufn = snprint(f->mbuf, sizeof(f->mbuf), "[%s] ", f->user);
+	f->used = 0;
 }
 
 void
@@ -589,9 +593,8 @@ handler(void*, char *msg)
 void
 fsreader(void *v)
 {
+	char buf[Bufsize];
 	int n;
-	Fid *fl;
-	char buf[1024];
 	Fs *fs;
 	Console *c;
 	void **a;
@@ -601,17 +604,12 @@ fsreader(void *v)
 	c = a[1];
 	c->pid = getpid();
 	notify(handler);
-	if(c->chat)
-		threadexits(nil);
 	for(;;){
 		n = read(c->fd, buf, sizeof(buf));
 		if(n < 0)
 			break;
 		lock(c);
-		for(fl = c->flist; fl; fl = fl->cnext){
-			fromconsole(fl, buf, n);
-			fskick(fs, fl);
-		}
+		bcastmsg(fs, c, buf, n);
 		unlock(c);
 	}
 }
@@ -653,7 +651,12 @@ readdb(Fs *fs)
 	}
 }
 
-int dbmtime;
+void
+refreshdb(Fs *fs)
+{
+	if(ndbchanged(db))
+		readdb(fs);
+}
 
 /*
  *  a request processor (one per Fs)
@@ -664,7 +667,6 @@ fsrun(void *v)
 	int n, t;
 	Request *r;
 	Fid *f;
-	Dir *d;
 	void **a = v;
 	Fs* fs;
 	int *pfd;
@@ -673,14 +675,10 @@ fsrun(void *v)
 	pfd = a[1];
 	fs->fd = pfd[0];
 	notify(handler);
+	readdb(fs);
 	for(;;){
-		d = dirstat(consoledb);
-		if(d != nil && d->mtime != dbmtime){
-			dbmtime = d->mtime;
-			readdb(fs);
-		}
-		free(d);
-		r = allocreq(fs, messagesize);
+		r = emallocz(sizeof(Request) + messagesize, 0);
+		memset(r, 0, sizeof(Request));
 		n = read9pmsg(fs->fd, r->buf, messagesize);
 		if(n == 0)
 			threadexitsall("unmounted");
@@ -706,7 +704,7 @@ fsgetfid(Fs *fs, int fid)
 	Fid *f, *nf;
 
 	lock(fs);
-	for(f = fs->hash[fid%Nhash]; f; f = f->next){
+	for(f = fs->hash[fid%Nhash]; f != nil; f = f->next){
 		if(f->fid == fid){
 			f->ref++;
 			unlock(fs);
@@ -714,7 +712,7 @@ fsgetfid(Fs *fs, int fid)
 		}
 	}
 
-	nf = emalloc(sizeof(Fid));
+	nf = emallocz(sizeof(Fid), 1);
 	nf->next = fs->hash[fid%Nhash];
 	fs->hash[fid%Nhash] = nf;
 	nf->fid = fid;
@@ -735,7 +733,7 @@ fsputfid(Fs *fs, Fid *f)
 		unlock(fs);
 		return;
 	}
-	for(l = &fs->hash[f->fid%Nhash]; nf = *l; l = &nf->next)
+	for(l = &fs->hash[f->fid%Nhash]; (nf = *l) != nil; l = &nf->next)
 		if(nf == f){
 			*l = f->next;
 			break;
@@ -759,9 +757,8 @@ fsversion(Fs *fs, Request *r, Fid*)
 		fsreply(fs, r, "message size too small");
 		return;
 	}
-	messagesize = r->f.msize;
-	if(messagesize > 8192+IOHDRSZ)
-		messagesize = 8192+IOHDRSZ;
+	if(r->f.msize < messagesize)
+		messagesize = r->f.msize;
 	r->f.msize = messagesize;
 	if(strncmp(r->f.version, "9P", 2) != 0)
 		r->f.version = "unknown";
@@ -847,6 +844,7 @@ fswalk(Fs *fs, Request *r, Fid *f)
 			if(strcmp(name, "..") == 0)
 				qid = parentqid(qid);
 			else if(strcmp(name, ".") != 0){
+				refreshdb(fs);
 				for(i = 0; ; i++){
 					n = fsdirgen(fs, qid, i, &d, nil, 0);
 					if(n < 0){
@@ -881,7 +879,8 @@ ingroup(char *user, char *group)
 	t = ndbsearch(db, &s, "group", group);
 	if(t == nil)
 		return 0;
-	for(nt = t; nt; nt = nt->entry){
+
+	for(nt = t; nt != nil; nt = nt->entry){
 		if(strcmp(nt->attr, "uid") == 0)
 		if(strcmp(nt->val, user) == 0)
 			break;
@@ -900,7 +899,7 @@ userok(char *u, char *cname)
 	if(t == nil)
 		return 0;
 
-	for(nt = t; nt; nt = nt->entry){
+	for(nt = t; nt != nil; nt = nt->entry){
 		if(strcmp(nt->attr, "uid") == 0)
 		if(strcmp(nt->val, u) == 0)
 			break;
@@ -918,20 +917,6 @@ int m2p[] ={
 	[OWRITE]	2,
 	[ORDWR]		6
 };
-
-/*
- *  broadcast a message to all listeners
- */
-void
-bcastmsg(Fs *fs, Console *c, char *msg, int n)
-{
-	Fid *fl;
-
-	for(fl = c->flist; fl; fl = fl->cnext){
-		fromconsole(fl, msg, n);
-		fskick(fs, fl);
-	}
-}
 
 void
 fsopen(Fs *fs, Request *r, Fid *f)
@@ -967,12 +952,10 @@ fsopen(Fs *fs, Request *r, Fid *f)
 		f->wp = f->buf;
 		f->c = c;
 		lock(c);
-		sprint(f->mbuf, "[%s] ", f->user);
-		f->bufn = strlen(f->mbuf);
-		f->used = 0;
 		f->cnext = c->flist;
 		c->flist = f;
 		bcastmembers(fs, c, "+", f);
+		initmsguser(f);
 		if(c->pid == 0)
 			fsreopen(fs, c);
 		unlock(c);
@@ -1030,6 +1013,8 @@ fsread(Fs *fs, Request *r, Fid *f)
 		p = r->buf + IOHDRSZ;
 		e = p + r->f.count;
 		offset = r->f.offset;
+		if(offset == 0)
+			refreshdb(fs);
 		off = 0;
 		for(i=0; p<e; i++, off+=m){
 			m = fsdirgen(fs, f->qid, i, &d, p, e-p);
@@ -1113,17 +1098,15 @@ fswrite(Fs *fs, Request *r, Fid *f)
 			if(!f->used)
 				break;
 	
-			if(f->bufn + r->f.count > Bufsize){
-				r->f.count -= (f->bufn + r->f.count) % Bufsize;
+			if(f->bufn + r->f.count > sizeof(f->mbuf)){
+				r->f.count -= (f->bufn + r->f.count) % sizeof(f->mbuf);
 				eol = 1;
 			}
-			strncat(f->mbuf, r->f.data, r->f.count);
+			memmove(f->mbuf + f->bufn, r->f.data, r->f.count);
 			f->bufn += r->f.count;
 			if(eol){
 				bcastmsg(fs, f->c, f->mbuf, f->bufn);
-				sprint(f->mbuf, "[%s] ", f->user);
-				f->bufn = strlen(f->mbuf);
-				f->used = 0;
+				initmsguser(f);
 			}
 		}
 		else
@@ -1199,8 +1182,8 @@ fswstat(Fs *fs, Request *r, Fid*)
 void
 fsreply(Fs *fs, Request *r, char *err)
 {
+	uchar buf[Bufsize+IOHDRSZ];
 	int n;
-	uchar buf[8192+IOHDRSZ];
 
 	if(err){
 		r->f.type = Rerror;
