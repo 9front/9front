@@ -44,10 +44,11 @@ char *sopts[16], *copts[16] = { "keepalive", };
 void
 usage(void)
 {
-	error("usage: aux/listen [-iq] [-d srvdir] [-t trustsrvdir]"
+	fprint(2, "usage: %s [-iq] [-d srvdir] [-t trustsrvdir]"
 		" [-n namespace] [-p maxprocs]"
 		" [-o copt] [-O sopt]"
-		" [-a addr] [proto]");
+		" [-a addr] [proto]", argv0);
+	exits("usage");
 }
 
 void
