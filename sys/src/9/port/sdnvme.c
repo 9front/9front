@@ -782,21 +782,13 @@ nvmepnp(void)
 }
 
 SDifc sdnvmeifc = {
-	"nvme",				/* name */
-
-	nvmepnp,			/* pnp */
-	nvmeenable,			/* enable */
-	nvmedisable,			/* disable */
-
-	nvmeverify,			/* verify */
-	nvmeonline,			/* online */
-	nvmerio,			/* rio */
-	nvmerctl,			/* rctl */
-	nil,				/* wctl */
-
-	nvmebio,			/* bio */
-	nil,				/* probe */
-	nil,				/* clear */
-	nil,				/* rtopctl */
-	nil,				/* wtopctl */
+	.name		= "nvme",
+	.pnp		= nvmepnp,
+	.enable		= nvmeenable,
+	.disable	= nvmedisable,
+	.verify		= nvmeverify,
+	.online		= nvmeonline,
+	.rio		= nvmerio,
+	.rctl		= nvmerctl,
+	.bio		= nvmebio,
 };

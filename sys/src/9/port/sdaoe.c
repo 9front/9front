@@ -505,21 +505,18 @@ aoewtopctl(SDev *, Cmdbuf *cmd)
 }
 
 SDifc sdaoeifc = {
-	"aoe",
+	.name		= "aoe",
 
-	aoepnp,
-	nil,		/* enable */
-	nil,		/* disable */
+	.pnp		= aoepnp,
+	.verify		= aoeverify,
+	.online		= aoeonline,
+	.rio		= aoerio,
+	.rctl		= aoerctl,
+	.wctl		= aoewctl,
 
-	aoeverify,
-	aoeonline,
-	aoerio,
-	aoerctl,
-	aoewctl,
-
-	aoebio,
-	aoeprobew,	/* probe */
-	aoeclear,	/* clear */
-	aoertopctl,
-	aoewtopctl,
+	.bio		= aoebio,
+	.probe		= aoeprobew,
+	.clear		= aoeclear,
+	.rtopctl	= aoertopctl,
+	.wtopctl	= aoewtopctl,
 };

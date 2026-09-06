@@ -680,21 +680,12 @@ viopnp(void)
 }
 
 SDifc sdvirtioifc = {
-	"virtio",			/* name */
-
-	viopnp,				/* pnp */
-	vioenable,			/* enable */
-	viodisable,			/* disable */
-
-	vioverify,			/* verify */
-	vioonline,			/* online */
-	viorio,				/* rio */
-	nil,				/* rctl */
-	nil,				/* wctl */
-
-	viobio,				/* bio */
-	nil,				/* probe */
-	nil,				/* clear */
-	nil,				/* rtopctl */
-	nil,				/* wtopctl */
+	.name	 	= "virtio",
+	.pnp		= viopnp,
+	.enable 	= vioenable,
+	.disable	= viodisable,
+	.verify		= vioverify,
+	.online		= vioonline,
+	.rio		= viorio,
+	.bio		= viobio,
 };

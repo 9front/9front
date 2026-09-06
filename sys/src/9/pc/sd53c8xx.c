@@ -2228,21 +2228,11 @@ sd53c8xxenable(SDev* sdev)
 }
 
 SDifc sd53c8xxifc = {
-	"53c8xx",			/* name */
-
-	sd53c8xxpnp,			/* pnp */
-	sd53c8xxenable,			/* enable */
-	nil,				/* disable */
-
-	scsiverify,			/* verify */
-	scsionline,			/* online */
-	sd53c8xxrio,			/* rio */
-	nil,				/* rctl */
-	nil,				/* wctl */
-
-	scsibio,			/* bio */
-	nil,				/* probe */
-	nil,				/* clear */
-	nil,				/* rtopctl */
-	nil,				/* wtopctl */
+	.name		= "53c8xx",
+	.pnp		= sd53c8xxpnp,
+	.enable		= sd53c8xxenable,
+	.verify		= scsiverify,
+	.online		= scsionline,
+	.rio		= sd53c8xxrio,
+	.bio		= scsibio,
 };

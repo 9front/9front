@@ -378,21 +378,18 @@ loopwtopctl(SDev *, Cmdbuf *cmd)
 }
 
 SDifc sdloopifc = {
-	"loop",
+	.name		= "loop",
 
-	pnp,
-	nil,		/* enable */
-	nil,		/* disable */
+	.pnp		= pnp,
+	.verify		= loopverify,
+	.online		= looponline,
+	.rio		= looprio,
+	.rctl		= looprctl,
+	.wctl		= loopwctl,
 
-	loopverify,
-	looponline,
-	looprio,
-	looprctl,
-	loopwctl,
-
-	loopbio,
-	loopprobew,	/* probe */
-	loopclear,	/* clear */
-	looprtopctl,
-	loopwtopctl,
+	.bio		= loopbio,
+	.probe		= loopprobew,
+	.clear		= loopclear,
+	.rtopctl	= looprtopctl,
+	.wtopctl	= loopwtopctl,
 };

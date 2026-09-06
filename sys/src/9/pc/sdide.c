@@ -2429,22 +2429,21 @@ atawctl(SDunit* unit, Cmdbuf* cb)
 }
 
 SDifc sdideifc = {
-	"ide",				/* name */
+	.name		= "ide",
 
-	atapnp,				/* pnp */
-	ataenable,			/* enable */
-	atadisable,			/* disable */
+	.pnp		= atapnp,
+	.enable		= ataenable,
+	.disable	= atadisable,
 
-	scsiverify,			/* verify */
-	ataonline,			/* online */
-	atario,				/* rio */
-	atarctl,			/* rctl */
-	atawctl,			/* wctl */
+	.verify		= scsiverify,
+	.online		= ataonline,
+	.rio		= atario,
+	.rctl		= atarctl,
+	.wctl		= atawctl,
 
-	scsibio,			/* bio */
-	ataprobew,			/* probe */
-	ataclear,			/* clear */
-	atastat,			/* rtopctl */
-	nil,				/* wtopctl */
-	ataataio,
+	.bio		= scsibio,
+	.probe		= ataprobew,
+	.clear		= ataclear,
+	.rtopctl	= atastat,
+	.ataio		= ataataio,
 };

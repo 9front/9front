@@ -2518,20 +2518,18 @@ iawtopctl(SDev *, Cmdbuf *cmd)
 SDifc sdiahciifc = {
 	"ahci",
 
-	iapnp,
-	iaenable,
-	iadisable,
+	.pnp		= iapnp,
+	.enable		= iaenable,
+	.disable	= iadisable,
 
-	iaverify,
-	iaonline,
-	iario,
-	iarctl,
-	iawctl,
+	.verify		= iaverify,
+	.online		= iaonline,
+	.rio		= iario,
+	.rctl		= iarctl,
+	.wctl		= iawctl,
 
-	ahcibio,
-	nil,		/* probe */
-	nil,		/* clear */
-	iartopctl,
-	iawtopctl,
-	iaataio,
+	.bio		= ahcibio,
+	.rtopctl	= iartopctl,
+	.wtopctl	= iawtopctl,
+	.ataio		= iaataio,
 };
