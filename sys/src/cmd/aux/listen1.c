@@ -3,7 +3,7 @@
 #include <auth.h>
 
 int maxprocs;
-int verbose;
+int quiet;
 int trusted;
 int oneshot;
 char *nsfile;
@@ -13,10 +13,10 @@ char *sopts[16], *copts[16] = { "keepalive", };
 void
 usage(void)
 {
-	fprint(2, "usage: listen1 [-1tv]"
+	fprint(2, "usage: %s [-1tq]"
 		" [-n namespace] [-p maxprocs]"
 		" [-O msg] [-o msg]"
-		" address cmd args...\n");
+		" address cmd args...\n", argv0);
 	exits("usage");
 }
 
@@ -69,8 +69,10 @@ main(int argc, char **argv)
 	case 't':
 		trusted = 1;
 		break;
-	case 'v':
-		verbose = 1;
+	case 'v':	/* backwards compat */
+		break;
+	case 'q':
+		quiet = 1;
 		break;
 	case 'p':
 		maxprocs = atoi(EARGF(usage()));
@@ -93,19 +95,12 @@ main(int argc, char **argv)
 	if(argc < 2)
 		usage();
 
-	if(!verbose){
-		close(1);
-		fd = open("/dev/null", OWRITE);
-		if(fd != 1){
-			dup(fd, 1);
-			close(fd);
-		}
-	}
-
 	if(!trusted)
 		becomenone();
 
-	fprint(2, "listen started\n");
+	if(!quiet)
+		fprint(2, "listen %s started\n", argv[0]);
+
 	ctl = announce(argv[0], dir);
 	if(ctl < 0)
 		sysfatal("announce %s: %r", argv[0]);
@@ -124,7 +119,9 @@ main(int argc, char **argv)
 	}
 	procs = 0;
 	for(;;){
-		if(nowait == 0 && (procs >= maxprocs || (procs % 8) == 0))
+		if(nowait == 0 && (procs >= maxprocs || (procs % 8) == 0)){
+			static int hit = 0;
+
 			while(procs > 0){
 				if(procs < maxprocs){
 					d = dirfstat(wfd);
@@ -137,6 +134,17 @@ main(int argc, char **argv)
 				if(read(wfd, wbuf, sizeof(wbuf)) > 0)
 					procs--;
 			}
+			if(procs >= maxprocs){
+				if(!quiet && !hit)
+					fprint(2, "%s: process limit of %d reached\n",
+						argv[0], maxprocs);
+
+				if(hit < 8)
+					hit++;
+				sleep(10<<hit);
+			} else if(hit > 0)
+				hit--;
+		}
 
 		nctl = listen(dir, ndir);
 		if(nctl < 0)
@@ -166,7 +174,8 @@ main(int argc, char **argv)
 			exits("accept");
 		}
 
-		fprint(2, "incoming call for %s from %s in %s\n", argv[0], remoteaddr(ndir), ndir);
+		if(!quiet)
+			fprint(2, "incoming call for %s from %s in %s\n", argv[0], remoteaddr(ndir), ndir);
 
 		for(i = 0; i < ncopts; i++)
 			write(nctl, copts[i], strlen(copts[i]));

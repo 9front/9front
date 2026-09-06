@@ -255,8 +255,8 @@ Option
 arms a one-shot listener; it terminates listen1
 upon receiving a single call.
 Option
-.B -v
-causes verbose logging on standard output.
+.B -q
+supresses affirmative logging on standard error.
 See
 .B /rc/bin/tlssrvtunnel
 for an example.
