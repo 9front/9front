@@ -18,7 +18,7 @@
 #include	"initcode.i"
 
 /*
- * The first process kernel process starts here.
+ * The first kernel process starts here.
  */
 static void
 proc0(void*)
