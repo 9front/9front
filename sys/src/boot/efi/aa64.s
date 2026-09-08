@@ -86,7 +86,7 @@ TEXT mmudisable<>(SB), 1, $-4
 
 TEXT jump(SB), 1, $-4
 	MOV	R0, R3
-	MOV	R1, R4
+	MOV	arg+8(FP), R4
 	BL	mmudisable<>(SB)
 	MOV	R4, R0
 	B	(R3)
