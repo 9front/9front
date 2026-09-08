@@ -156,7 +156,6 @@ ulong		imagecached(void);
 ulong		imagereclaim(ulong);
 long		incref(Ref*);
 void		init0(void);
-void		initseg(void);
 int		ioalloc(ulong, ulong, ulong, char*);
 void		iofree(ulong);
 void		iofreetag(ulong, char*);

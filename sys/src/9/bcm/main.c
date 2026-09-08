@@ -111,7 +111,6 @@ main(uintptr arg0)
 	vgpinit();
 
 	procinit0();
-	initseg();
 	links();
 	chandevreset();			/* most devices are discovered here */
 	pageinit();

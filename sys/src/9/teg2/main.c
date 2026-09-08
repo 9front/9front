@@ -379,7 +379,6 @@ main(void)
 	chkmissing();
 
 	procinit0();
-	initseg();
 
 //	dmainit();
 	links();

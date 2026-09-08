@@ -260,7 +260,6 @@ uartputc(' ');
 	timersinit();
 
 	procinit0();
-	initseg();
 	links();
 	chandevreset();			/* most devices are discovered here */
 

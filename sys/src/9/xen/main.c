@@ -92,7 +92,6 @@ main(void)
 	if(arch->clockenable)
 		arch->clockenable();
 	procinit0();
-	initseg();
 
 	links();
 //	conf.monitor = 1;

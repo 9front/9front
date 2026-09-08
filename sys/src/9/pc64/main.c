@@ -209,7 +209,6 @@ main(void)
 	if(arch->clockenable)
 		arch->clockenable();
 	procinit0();
-	initseg();
 	links();
 	chandevreset();
 	preallocpages();

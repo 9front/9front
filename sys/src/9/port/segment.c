@@ -34,11 +34,6 @@ static struct Imagealloc
 
 Segment* (*_globalsegattach)(char*);
 
-void
-initseg(void)
-{
-}
-
 Segment *
 newseg(int type, uintptr base, ulong size)
 {

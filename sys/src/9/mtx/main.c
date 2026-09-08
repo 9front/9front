@@ -30,7 +30,6 @@ main(void)
 	hwintrinit();
 	clockinit();
 	procinit0();
-	initseg();
 	timersinit();
 	links();
 	chandevreset();

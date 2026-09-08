@@ -193,7 +193,6 @@ main(uintptr arg0)
 	timersinit();
 	pageinit();
 	procinit0();
-	initseg();
 	links();
 	chandevreset();
 	userinit();

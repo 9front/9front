@@ -225,7 +225,6 @@ main(void)
 	todinit();
 	timersinit();
 	procinit0();
-	initseg();
 	links();
 	archinit();
 	chandevreset();

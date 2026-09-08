@@ -187,7 +187,6 @@ main(void)
 	timersinit();
 	pageinit();
 	procinit0();
-	initseg();
 	links();
 	chandevreset();
 	userinit();

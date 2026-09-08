@@ -139,7 +139,6 @@ main(void)
 
 	printinit();	/* what does this do? */
 	procinit0();
-	initseg();
 	links();
 	chandevreset();
 	userinit();

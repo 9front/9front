@@ -182,7 +182,6 @@ main(void)
 	tlbinit();
 	pageinit();
 	procinit0();
-	initseg();
 	links();
 	chandevreset();
 	userinit();

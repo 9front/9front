@@ -78,7 +78,6 @@ main(void)
 	cpuidprint();
 	print("\nPlan 9 from Bell Labs\n");
 	procinit0();
-	initseg();
 	timersinit();
 	links();
 	chandevreset();
