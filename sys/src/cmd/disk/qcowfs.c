@@ -46,7 +46,6 @@ enum{
 };
 
 struct Disk {
-	RWLock lock;
 	Disk *base;
 	Header h;
 
@@ -281,23 +280,21 @@ xlate(Disk *disk, s64int off, int *inplace)
 	 */
 	if (inplace)
 		*inplace = 0;
-	rlock(&disk->lock);
 	if (off < 0)
-		goto err;
+		return -1;
 
 	l2sz = disk->clustersz / 8;
 	l1off = (off / disk->clustersz) / l2sz;
 	if (l1off >= disk->l1sz)
-		goto err;
+		return -1;
 
 	l2tab = disk->l1[l1off];
 	l2tab &= ~QCOW2_INPLACE;
-	if (l2tab == 0) {
-		runlock(&disk->lock);
+	if (l2tab == 0)
 		return 0;
-	}
 	l2off = (off / disk->clustersz) % l2sz;
-	pread(disk->fd, buf, sizeof(buf), l2tab + l2off * 8);
+	if(pread(disk->fd, buf, sizeof(buf), l2tab + l2off * 8) != sizeof(buf))
+		return -1;
 	cluster = GET8(buf);
 	/*
 	 * cluster may be 0, but all future operations don't affect
@@ -307,15 +304,11 @@ xlate(Disk *disk, s64int off, int *inplace)
 		*inplace = !!(cluster & QCOW2_INPLACE);
 	if (cluster & QCOW2_COMPRESSED)
 		sysfatal("xlate: compressed clusters unsupported");
-	runlock(&disk->lock);
 	clusteroff = 0;
 	cluster &= ~QCOW2_INPLACE;
 	if (cluster)
 		clusteroff = off % disk->clustersz;
 	return cluster + clusteroff;
-err:
-	runlock(&disk->lock);
-	return -1;
 }
 
 static void
@@ -389,8 +382,6 @@ mkcluster(Disk *disk, Disk *base, s64int off, s64int src_phys)
 	s64int l2sz, l1off, l2tab, l2off, cluster, clusteroff, orig;
 	uchar buf[8];
 
-	wlock(&disk->lock);
-
 	/* L1 entries always exist */
 	l2sz = disk->clustersz / 8;
 	l1off = off / (disk->clustersz * l2sz);
@@ -437,7 +428,6 @@ mkcluster(Disk *disk, Disk *base, s64int off, s64int src_phys)
 		sysfatal("mkcluster: could not write l1");
 	inc_refs(disk, cluster, 1);
 
-	wunlock(&disk->lock);
 	clusteroff = off % disk->clustersz;
 	if (cluster + clusteroff < disk->clustersz)
 		sysfatal("write would clobber header");
