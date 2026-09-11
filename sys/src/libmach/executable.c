@@ -365,7 +365,7 @@ commonboot(Fhdr *fp)
 		break;
 	case FARM:
 		fp->type = FARMB;
-		fp->txtaddr = (u32int)fp->entry;
+		fp->txtaddr = (u32int)fp->entry & -mach->pgsize;
 		fp->name = "ARM plan 9 boot image";
 		fp->dataddr = _round(fp->txtaddr+fp->txtsz, mach->pgsize);
 		return;
