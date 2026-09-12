@@ -56,9 +56,9 @@ sized buffers for input and output. The array sized constants used above are def
 .IR mlkem768_keypair ,
 and
 .I mlkem1024_keypair
-generate a new key pair and writes the public key in to
+generate a new key pair and writes the public key into
 .B pk
-and writes the secret key in to
+and writes the secret key into
 .BR sk .
 These functions return 0 on success and non-zero on allocation failure.
 .PP
@@ -68,7 +68,7 @@ and
 .I mlkem1024_enc
 encapsulate a shared secret provided in
 .B ss
-in to
+into
 .B ct
 using the provided public key
 .BR pk .
@@ -80,7 +80,7 @@ and
 .I mlkem1024_dec
 decapsulate the cipher text provided in
 .B ct
-in to
+into
 .B ss
 using the provided secret key
 .BR sk .
