@@ -427,8 +427,12 @@ struct Segment
 	Image	*image;		/* text in file attached to this segment */
 	Physseg *pseg;
 	ulong	*profile;	/* Tick profile area */
-	Pte	**map;
-	int	mapsize;
+
+	Pte	**map;		/* effective map array */
+	int	mapsize;	/* effective map size */
+
+	/* pre-allocated Pte and (small-) map array as part of this Segment's allocation */
+	Pte	*freepte;
 	Pte	*ssegmap[SSEGMAPSIZE];
 
 	ulong	used;		/* pages used (swapped or not) */

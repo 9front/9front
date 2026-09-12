@@ -45,9 +45,13 @@ newseg(int type, uintptr base, ulong size)
 	if(size > (SEGMAPSIZE*PTEPERTAB))
 		error(Enovmem);
 
-	s = malloc(sizeof(Segment));
+	s = malloc(((type & SG_TYPE) != SG_PHYSICAL)?
+		sizeof(Segment)+sizeof(Pte):
+		sizeof(Segment));
+
 	if(s == nil)
 		error(Enomem);
+
 	s->ref = 1;
 	s->type = type;
 	s->size = size;
@@ -68,8 +72,12 @@ newseg(int type, uintptr base, ulong size)
 	case SG_PHYSICAL:
 		s->map = nil;
 		s->mapsize = 0;
+		s->freepte = nil;
 		return s;
 	}
+
+	/* pre-allocated Pte */
+	s->freepte = (Pte*)(s+1);
 
 	mapsize = ROUND(size, PTEPERTAB)/PTEPERTAB;
 	if(mapsize > nelem(s->ssegmap)){
@@ -193,7 +201,8 @@ putseg(Segment *s)
 				ft = entry;
 				np++;
 			}
-			free(pte);
+			if(pte != (Pte*)(s+1))
+				free(pte);
 		}
 
 		freepages(fh, ft, np);
@@ -209,15 +218,21 @@ putseg(Segment *s)
 }
 
 static Pte*
-ptealloc(void)
+ptealloc(Segment *s)
 {
 	Pte *new;
 
-	new = malloc(sizeof(Pte));
-	if(new != nil){
-		new->first = &new->pages[PTEPERTAB];
-		new->last = new->pages;
+	new = s->freepte;
+	if(new != nil)
+		s->freepte = nil;
+	else {
+		new = malloc(sizeof(Pte));
+		if(new == nil)
+			return nil;
 	}
+	new->first = &new->pages[PTEPERTAB];
+	new->last = new->pages;
+
 	return new;
 }
 
@@ -298,7 +313,7 @@ dupseg(int segno, int share)
 	}
 	for(i = 0; i < s->mapsize; i++){
 		if(s->map[i] != nil){
-			pte = ptealloc();
+			pte = ptealloc(n);
 			if(pte == nil){
 				qunlock(s);
 				poperror();
@@ -349,7 +364,7 @@ segmap(Segment *s, uintptr addr)
 	soff = addr - s->base;
 	pte = s->map[soff/PTEMAPMEM];
 	if(pte == nil) {
-		if((pte = ptealloc()) == nil)
+		if((pte = ptealloc(s)) == nil)
 			return nil;
 		s->map[soff/PTEMAPMEM] = pte;
 	}
@@ -690,7 +705,10 @@ segfreemap(Segment *s, uintptr from, uintptr to)
 
 		if(poff == 0) {
 			s->map[i] = nil;
-			free(pte);
+			if(pte == (Pte*)(s+1))
+				s->freepte = pte;
+			else
+				free(pte);
 		}
 	}
 done:
