@@ -621,6 +621,29 @@ int x25519(uchar out[32], uchar s[32], uchar u[32]);
 void curve25519_dh_new(uchar x[32], uchar y[32]);
 int curve25519_dh_finish(uchar x[32], uchar y[32], uchar z[32]);
 
+enum{
+	MLKEM512_secretbytes = 1632,
+	MLKEM512_publicbytes = 800,
+	MLKEM512_cipherbytes = 768,
+	MLKEM768_secretbytes = 2400,
+	MLKEM768_publicbytes = 1184,
+	MLKEM768_cipherbytes = 1088,
+	MLKEM1024_secretbytes = 3168,
+	MLKEM1024_publicbytes = 1568,
+	MLKEM1024_cipherbytes = 1568,
+	MLKEM_bytes = 32
+};
+
+int mlkem512_keypair(uchar pk[MLKEM512_publicbytes], uchar sk[MLKEM512_secretbytes]);
+int mlkem512_enc(uchar ct[MLKEM512_cipherbytes], uchar ss[MLKEM_bytes], uchar pk[MLKEM512_publicbytes]);
+int mlkem512_dec(uchar ss[MLKEM_bytes], uchar ct[MLKEM512_cipherbytes], uchar sk[MLKEM512_secretbytes]);
+int mlkem768_keypair(uchar pk[MLKEM768_publicbytes], uchar sk[MLKEM768_secretbytes]);
+int mlkem768_enc(uchar ct[MLKEM768_cipherbytes], uchar ss[MLKEM_bytes], uchar pk[MLKEM768_publicbytes]);
+int mlkem768_dec(uchar ss[MLKEM_bytes], uchar ct[MLKEM768_cipherbytes], uchar sk[MLKEM768_secretbytes]);
+int mlkem1024_keypair(uchar pk[MLKEM1024_publicbytes], uchar sk[MLKEM1024_secretbytes]);
+int mlkem1024_enc(uchar ct[MLKEM1024_cipherbytes], uchar ss[MLKEM_bytes], uchar pk[MLKEM1024_publicbytes]);
+int mlkem1024_dec(uchar ss[MLKEM_bytes], uchar ct[MLKEM1024_cipherbytes], uchar sk[MLKEM1024_secretbytes]);
+
 /* password-based key derivation function 2 (rfc2898) */
 void pbkdf2_x(uchar *p, ulong plen, uchar *s, ulong slen, ulong rounds, uchar *d, ulong dlen,
 	DigestState* (*x)(uchar*, ulong, uchar*, ulong, uchar*, DigestState*), int xlen);

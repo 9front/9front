@@ -1,0 +1,98 @@
+.TH MLKEM 2
+.SH NAME
+mlkem512_keypair, mlkem512_enc, mlkem512_dec,
+mlkem768_keypair, mlkem768_enc, mlkem768_dec,
+mlkem1024_keypair, mlkem1024_enc, mlkem1024_dec
+\- Module-Latice-Based Key-Encapsulation
+.SH SYNOPSIS
+.B #include <u.h>
+.br
+.B #include <libc.h>
+.br
+.B #include <mp.h>
+.br
+.B #include <libsec.h>
+.PP
+.nf
+.PB
+int mlkem512_keypair(uchar pk[MLKEM512_publicbytes],
+	uchar sk[MLKEM512_secretbytes]);
+.PB
+int mlkem512_enc(uchar ct[MLKEM512_cipherbytes], uchar ss[MLKEM_bytes],
+	uchar pk[MLKEM512_publicbytes]);
+.PB
+int mlkem512_dec(uchar ss[MLKEM_bytes], uchar ct[MLKEM512_cipherbytes],
+	uchar sk[MLKEM512_secretbytes]);
+.PP
+.PB
+int mlkem768_keypair(uchar pk[MLKEM768_publicbytes],
+	uchar sk[MLKEM768_secretbytes]);
+.PB
+int mlkem768_enc(uchar ct[MLKEM768_cipherbytes], uchar ss[MLKEM_bytes],
+	uchar pk[MLKEM768_publicbytes]);
+.PB
+int mlkem768_dec(uchar ss[MLKEM_bytes], uchar ct[MLKEM768_cipherbytes],
+	uchar sk[MLKEM768_secretbytes]);
+.PP
+.PB
+int mlkem1024_keypair(uchar pk[MLKEM1024_publicbytes],
+	uchar sk[MLKEM1024_secretbytes]);
+.PB
+int mlkem1024_enc(uchar ct[MLKEM1024_cipherbytes], uchar ss[MLKEM_bytes],
+	uchar pk[MLKEM1024_publicbytes]);
+.PB
+int mlkem1024_dec(uchar ss[MLKEM_bytes], uchar ct[MLKEM1024_cipherbytes],
+	uchar sk[MLKEM1024_secretbytes]);
+.fi
+.SH DESCRIPTION
+These functions implement module-latice-based key-encapsulation as described in the FIPS 203 standard.
+The standard defines three security levels that are represented here by the 512, 768, and 1024 function variants.
+None of these functions return allocated memory, yet must allocate memory for temporaries due to their size.
+As such, allocation failures are still possible. The callers of each function are required to provide correctly
+sized buffers for input and output. The array sized constants used above are defined within
+.BR <libsec.h> .
+.PP
+.IR Mlkem512_keypair ,
+.IR mlkem768_keypair ,
+and
+.I mlkem1024_keypair
+generate a new key pair and writes the public key in to
+.B pk
+and writes the secret key in to
+.BR sk .
+These functions return 0 on success and non-zero on allocation failure.
+.PP
+.IR Mlkem512_enc ,
+.IR mlkem768_enc ,
+and
+.I mlkem1024_enc
+encapsulate a shared secret provided in
+.B ss
+in to
+.B ct
+using the provided public key
+.BR pk .
+These functions return 0 on success and non-zero if the provided public key is malformed or if an allocation failure occured.
+.PP
+.IR Mlkem512_dec ,
+.IR mlkem768_dec ,
+and
+.I mlkem1024_dec
+decapsulate the cipher text provided in
+.B ct
+in to
+.B ss
+using the provided secret key
+.BR sk .
+Note, decapsulation itself has no checks for ensuring that the provided cipher text was properly encapsulated with the matching public key.
+These functions therefore must first perform decapsulation, then encapsulation and check if the resulting cipher text is the same.
+However even if resulting cipher texts do not match these functions do not return an error, instead they return a rejection key in accordance to the FIPS standard.
+Thus, the resulting shared secret should be used only in ways that require the other party to also assert their knowledge of the shared secret.
+Commonly this is done by using the shared secret as input to a stream cipher.
+These functions return 0 on success and non-zero if the provided secret key is malformed or if an allocation failure occured.
+.SH SOURCE
+.B /sys/src/libsec/port/mlkem.c
+.SH SEE ALSO
+FIPS 203
+.br
+``CRYSTALS -- Kyber: a CCA-secure module-lattice-based KEM'', https://ia.cr/2017/634

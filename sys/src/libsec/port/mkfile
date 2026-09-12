@@ -31,12 +31,15 @@ CFILES = des.c desmodes.c desECB.c desCBC.c des3ECB.c des3CBC.c\
 	scrypt.c\
 	hkdf.c\
 	ccpoly.c\
+	tslsel.c\
 	tsmemcmp.c\
+	tsmemsel.c\
 	secp256r1.c\
 	secp384r1.c\
 	secp256k1.c\
 	blake2s.c blake2sblock.c\
 	sha3.c keccakblock.c\
+	mlkem.c\
 
 CLEANFILES=secp256r1.c secp384r1.c secp256k1.c jacobian.c
 

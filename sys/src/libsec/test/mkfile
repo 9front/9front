@@ -13,6 +13,7 @@ TEST=\
 	sha2\
 	x25519\
 	sha3\
+	mlkem\
 
 CFLAGS=$CFLAGS -I../../libmp/port
 
