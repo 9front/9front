@@ -36,4 +36,3 @@ newwindow(char *str)
 	}
 	return 0;
 }
-

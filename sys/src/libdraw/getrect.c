@@ -109,11 +109,11 @@ drawgetrect(Rectangle rc, int up)
 			freetmp();
 	if(tmp[0] == 0){
 		r = Rect(0, 0, max(Dx(display->screenimage->r), Dx(rc)), W);
-		tmp[0] = allocimage(display, r, screen->chan, 0, -1);
-		tmp[1] = allocimage(display, r, screen->chan, 0, -1);
+		tmp[0] = allocimage(display, r, screen->chan, 0, DNofill);
+		tmp[1] = allocimage(display, r, screen->chan, 0, DNofill);
 		r = Rect(0, 0, W, max(Dy(display->screenimage->r), Dy(rc)));
-		tmp[2] = allocimage(display, r, screen->chan, 0, -1);
-		tmp[3] = allocimage(display, r, screen->chan, 0, -1);
+		tmp[2] = allocimage(display, r, screen->chan, 0, DNofill);
+		tmp[3] = allocimage(display, r, screen->chan, 0, DNofill);
 		red = allocimage(display, Rect(0,0,1,1), screen->chan, 1, DRed);
 		if(tmp[0]==0 || tmp[1]==0 || tmp[2]==0 || tmp[3]==0 || red==0){
 			freetmp();
