@@ -56,9 +56,9 @@ sized buffers for input and output. The array sized constants used above are def
 .IR mlkem768_keypair ,
 and
 .I mlkem1024_keypair
-generate a new key pair and writes the public key into
+generate a new key pair and write the public key into
 .B pk
-and writes the secret key into
+and the secret key into
 .BR sk .
 These functions return 0 on success and non-zero on allocation failure.
 .PP
@@ -72,7 +72,7 @@ into
 .B ct
 using the provided public key
 .BR pk .
-These functions return 0 on success and non-zero if the provided public key is malformed or if an allocation failure occured.
+These functions return 0 on success and non-zero if the provided public key is malformed or if an allocation failure occurred.
 .PP
 .IR Mlkem512_dec ,
 .IR mlkem768_dec ,
@@ -86,13 +86,15 @@ using the provided secret key
 .BR sk .
 Note, decapsulation itself has no checks for ensuring that the provided cipher text was properly encapsulated with the matching public key.
 These functions therefore must first perform decapsulation, then encapsulation and check if the resulting cipher text is the same.
-However even if resulting cipher texts do not match these functions do not return an error, instead they return a rejection key in accordance to the FIPS standard.
+However even if resulting cipher texts do not match these functions do not return an error, instead they return a rejection key in accordance with the FIPS standard.
 Thus, the resulting shared secret should be used only in ways that require the other party to also assert their knowledge of the shared secret.
 Commonly this is done by using the shared secret as input to a stream cipher.
-These functions return 0 on success and non-zero if the provided secret key is malformed or if an allocation failure occured.
+These functions return 0 on success and non-zero if the provided secret key is malformed or if an allocation failure occurred.
 .SH SOURCE
 .B /sys/src/libsec/port/mlkem.c
 .SH SEE ALSO
 FIPS 203
 .br
 ``CRYSTALS -- Kyber: a CCA-secure module-lattice-based KEM'', https://ia.cr/2017/634
+.SH HISTORY
+This implementation was first adapted from mlkem-native for 9front in Sept, 2026.
