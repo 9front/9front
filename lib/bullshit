@@ -83,11 +83,13 @@ virtualized ^
 extensible ^
 compliant ^
 scale-out ^
+vibe-coded ^
 session |
 content-driven |
 high-performance |
 general-purpose |
 out-scaling |
+human-in-the-loop |
 generic ^
 mobile ^
 responsive ^
@@ -116,6 +118,7 @@ lossless ^
 virtual ^
 shared ^
 stable ^
+agentic ^
 SQL *
 JSON *
 XML *
@@ -131,6 +134,7 @@ WEB2.0 *
 SSL *
 HTTP *
 TOR *
+MCP *
 ActivityPub *
 layer $
 element |
