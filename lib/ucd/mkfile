@@ -1,6 +1,6 @@
 </$objtype/mkfile
 
-VERSION='17.0.0'
+VERSION='18.0.0'
 URL='https://www.unicode.org/Public/'$VERSION'/ucd/'
 
 TXT=\
