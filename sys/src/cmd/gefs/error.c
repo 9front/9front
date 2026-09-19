@@ -5,6 +5,7 @@
 #include "dat.h"
 
 char Efs[]	= "internal error";
+char Eheight[]	= "tree exceeds max height";
 char Enoval[]	= "message to missing key";
 char Ecorrupt[] = "block contents corrupted";
 char Efsvers[]	= "unknown fs version";

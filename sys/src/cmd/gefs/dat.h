@@ -86,6 +86,7 @@ enum {
 	Msgmax  	= 1 + (Kvmax > Kpmax ? Kvmax : Kpmax),
 	Estacksz	= 64,
 	Maxprocs	= 128,
+	Maxheight	= 32,
 };
 
 enum {
@@ -149,6 +150,7 @@ enum {
 /* internal errors */
 //#define Efs	(abort(), "fs broke")
 extern char Efs[];
+extern char Eheight[];
 extern char Enoval[];
 extern char Ecorrupt[];
 extern char Efsvers[];
@@ -779,7 +781,7 @@ struct Scan {
 	Key	pfx;
 	char	kvbuf[Kvmax];
 	char	pfxbuf[Keymax];
-	Scanp	*path;
+	Scanp	path[Maxheight];
 };
 
 struct Blk {

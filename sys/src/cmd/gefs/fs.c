@@ -2336,6 +2336,7 @@ readfile(Fmsg *m, Fid *f, Fcall *r)
 static void
 fsread(Fmsg *m)
 {
+	char rbuf[IOUNIT];
 	Fcall r;
 	Fid *f;
 
@@ -2355,7 +2356,7 @@ fsread(Fmsg *m)
 		putfid(f);
 		nexterror();
 	}	
-	r.data = emalloc(m->count, 0);
+	r.data = rbuf;
 	if(f->dent->qid.type & QTAUTH)
 		authread(f, &r, r.data, m->count);
 	else if(f->dent->qid.path == Qdump)
@@ -2369,7 +2370,6 @@ fsread(Fmsg *m)
 	putfid(f);
 	poperror();
 	respond(m, &r);
-	free(r.data);
 }
 
 static void

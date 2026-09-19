@@ -1167,7 +1167,6 @@ freepath(Tree *t, Path *path, int npath, int ok)
 		dropblk(p->nl);
 		dropblk(p->nr);
 	}
-	free(path);
 }
 
 /*
@@ -1276,7 +1275,7 @@ void
 btupsert(Tree *t, Msg *msg, int nmsg)
 {
 	int i, npath, npull, dh, sz, height, degen;
-	Path *path, *rp;
+	Path *rp, path[Maxheight+2];
 	Blk *b, *rb;
 	Kvp sep;
 	Bptr bp;
@@ -1301,18 +1300,18 @@ Again:
 		poperror();
 		return;
 	}
+	poperror();
+
 	/*
 	 * The tree can grow in height by 1 when we
 	 * split, so we allocate room for one extra
 	 * node in the path.
 	 */
-	if((path = calloc((height + 2), sizeof(Path))) == nil)
-		error(Enomem);
-	poperror();
 	if(waserror()){
 		freepath(t, path, height+2, 0);	/* npath not volatile */
 		nexterror();
 	}
+	memset(path, 0, sizeof(path));
 	degen = 0;
 	npath = 0;
 	path[npath].b = nil;
@@ -1324,6 +1323,7 @@ Again:
 	path[0].ins = msg;
 	path[0].lo = npull;
 	path[0].hi = nmsg;
+	path[0].b = nil;
 	while(b->type == Tpivot){
 		if(b->nval > 1 && !filledbuf(b, nmsg, path[npath - 1].sz))
 			break;
@@ -1355,6 +1355,8 @@ Again:
 	else
 		fatal("broken path change");
 
+	if(height + dh >= Maxheight)
+		error(Eheight);
 	/*
 	 * if we merged the root block, but there
 	 * was still data stuck in the buffer, we
@@ -1389,6 +1391,7 @@ getroot(Tree *t, int *h)
 	Bptr bp;
 
 	lock(&t->lk);
+	assert(t->ht < Maxheight);
 	bp = t->bp;
 	if(h != nil)
 		*h = t->ht;
@@ -1483,10 +1486,6 @@ btenter(Tree *t, Scan *s)
 	if(s->donescan)
 		return;
 	b = getroot(t, &s->ht);
-	if((s->path = calloc(s->ht, sizeof(Scanp))) == nil){
-		dropblk(b);
-		error(Enomem);
-	}
 	if(waserror()){
 		btexit(s);
 		nexterror();
@@ -1628,7 +1627,5 @@ btexit(Scan *s)
 
 	for(i = 0; i < s->ht; i++)
 		dropblk(s->path[i].b);
-	free(s->path);
-	s->path = nil;
 	s->ht = 0;
 }
