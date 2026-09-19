@@ -61,6 +61,13 @@ names of their components, as in
 .B "ls -p directory|mc
 except that the names of subdirectories have a slash appended.
 .PP
+The 
+.B -b
+option sets the 'bartflag'.
+Acme will use a 'focus follows click' method for registering keyboard inputs,
+instead of its standard 'focus follows mouse' style.
+The last clicked textarea will continue to receive text input until a new area is selected.
+.PP
 The
 .B -f
 .RB ( -F )
@@ -138,13 +145,9 @@ Tags exist at the top of each column and across the whole display.
 pre-loads them with useful commands.
 Also, the tag across the top maintains a list of executing long-running commands.
 .SS Typing
-The behavior of typed text is similar to that in
+The default behavior of typed text is similar to that in
 .IR rio (1)
-except that the characters are delivered to the tag or body under the mouse; there is no
-`click to type'.
-(The experimental option
-.B -b
-causes typing to go to the most recently clicked-at or made window.)
+except that the characters are delivered to the tag or body under the mouse.
 The usual backspacing conventions apply.
 As in
 .IR sam (1)
