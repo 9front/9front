@@ -457,35 +457,128 @@ flushimage(Display *d, int visible)
 	return rc;
 }
 
-uchar*
-bufimage(Display *d, int n)
+static uchar*
+growcmdbuf(Display *d, uchar *e, int extra)
 {
-	uchar *p;
+	uchar *b;
 
-	if(n<0 || n>d->bufsize){
-		werrstr("bad count in bufimage");
+	if(e + extra <= d->buf + d->bufsize)
+		return e;
+	b = d->bufp;
+	if(b == d->buf || (e - b) + extra > d->bufsize){
+		werrstr("message exceeds display buffer capacity");
 		return nil;
 	}
-	if(d->bufp+n > d->buf+d->bufsize)
-		if(doflush(d) < 0)
-			return nil;
-	p = d->bufp;
-	d->bufp += n;
-	return p;
+	if(doflush(d) < 0){
+		werrstr("could not flush display buffer: %r");
+		return nil;
+	}
+	memmove(d->buf, b, e - b);
+	return d->buf + (e - b);
 }
 
-uchar*
-_bufimageop(Display *d, int n, Drawop op)
+static int
+vdrawcmd(Display *d, char *fmt, va_list va)
 {
-	uchar *a;
+	Rectangle *r;
+	Point *p;
+	Warp *w;
+	uchar *a, *v;
+	ushort s;
+	ulong l;
 
-	if(op != SoverD){
-		a = bufimage(d, 1+1+n);
-		if(a == nil)
-			return nil;
-		a[0] = 'O';
-		a[1] = op;
-		return a+2;
-	}
-	return bufimage(d, n);
+	assert(!canqlock(&d->qlock));	/* display must be locked */
+
+	a = d->bufp;
+	while(*fmt != 0)
+		switch(*fmt++){
+		case 'b':
+			if((a = growcmdbuf(d, a, 1)) == nil)
+				return -1;
+			*a++ = va_arg(va, uchar);
+			break;
+		case 's':
+			if((a = growcmdbuf(d, a, 2)) == nil)
+				return -1;
+			s = va_arg(va, ushort);
+			BPSHORT(a, s);
+			a += 2;
+			break;
+		case 'l':
+			if((a = growcmdbuf(d, a, 4)) == nil)
+				return -1;
+			l = va_arg(va, ulong);
+			BPLONG(a, l);
+			a += 4;
+			break;
+		case 'P':
+			if((a = growcmdbuf(d, a, 2*4)) == nil)
+				return -1;
+			p = va_arg(va, Point*);
+			BPLONG(a,   p->x);
+			BPLONG(a+4, p->y);
+			a += 2*4;
+			break;
+		case 'R':
+			if((a = growcmdbuf(d, a, 4*4)) == nil)
+				return -1;
+			r = va_arg(va, Rectangle*);
+			BPLONG(a,   r->min.x); BPLONG(a+4,  r->min.y);
+			BPLONG(a+8, r->max.x); BPLONG(a+12, r->max.y);
+			a += 4*4;
+			break;
+		case 'M':
+			if((a = growcmdbuf(d, a, 3*3*4)) == nil)
+				return -1;
+			w = va_arg(va, Warp*);
+			BPLONG(a,    w->m[0][0]); BPLONG(a+4,  w->m[0][1]); BPLONG(a+8,  w->m[0][2]);
+			BPLONG(a+12, w->m[1][0]); BPLONG(a+16, w->m[1][1]); BPLONG(a+20, w->m[1][2]);
+			BPLONG(a+24, w->m[2][0]); BPLONG(a+28, w->m[2][1]); BPLONG(a+32, w->m[2][2]);
+			a += 3*3*4;
+			break;
+		case 'z':
+			l = va_arg(va, uchar);
+			if((a = growcmdbuf(d, a, 1+l)) == nil)
+				return -1;
+			v = va_arg(va, void*);
+			*a++ = l;
+			memmove(a, v, l);
+			a += l;
+			break;
+		case '<':
+			l = va_arg(va, ulong);
+			if((a = growcmdbuf(d, a, l)) == nil)
+				return -1;
+			v = va_arg(va, void*);
+			memmove(a, v, l);
+			a += l;
+			break;
+		case 'O':
+			l = va_arg(va, uchar);
+			if(l == SoverD)
+				break;
+			if((a = growcmdbuf(d, a, 1+1)) == nil)
+				return -1;
+			*a++ = 'O';
+			*a++ = l;
+			break;
+		default:
+			werrstr("unknown draw cmd field format specifier");
+			return -1;
+		}
+
+	d->bufp = a;	/* commit */
+	return 0;
+}
+
+int
+drawcmd(Display *d, char *fmt, ...)
+{
+	va_list va;
+	int rc;
+
+	va_start(va, fmt);
+	rc = vdrawcmd(d, fmt, va);
+	va_end(va);
+	return rc;
 }

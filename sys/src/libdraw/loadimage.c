@@ -7,7 +7,6 @@ loadimage(Image *i, Rectangle r, uchar *data, int ndata)
 {
 	long dx, dy;
 	int n, bpl;
-	uchar *a;
 	int chunk;
 
 	chunk = i->display->bufsize - 64;
@@ -36,21 +35,15 @@ loadimage(Image *i, Rectangle r, uchar *data, int ndata)
 				return -1;
 		} else
 			n = dy*bpl;
+
 		_lockdisplay(i->display);
-		a = bufimage(i->display, 21+n);
-		if(a == nil){
+		if(drawcmd(i->display, "blPll<", 'y', i->id, &r.min, r.min.x+dx, r.min.y+dy, n, data) < 0){
 			_unlockdisplay(i->display);
 			werrstr("loadimage: %r");
 			return -1;
 		}
-		a[0] = 'y';
-		BPLONG(a+1, i->id);
-		BPLONG(a+5, r.min.x);
-		BPLONG(a+9, r.min.y);
-		BPLONG(a+13, r.min.x+dx);
-		BPLONG(a+17, r.min.y+dy);
-		memmove(a+21, data, n);
 		_unlockdisplay(i->display);
+
 		ndata += dy*bpl;
 		data += dy*bpl;
 		r.min.y += dy;

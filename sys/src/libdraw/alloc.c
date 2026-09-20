@@ -16,14 +16,11 @@ allocimage(Display *d, Rectangle r, ulong chan, int repl, ulong col)
 Image*
 _allocimage(Image *ai, Display *d, Rectangle r, ulong chan, int repl, ulong col, int screenid, int refresh)
 {
-	uchar *a;
-	char *err;
 	Image *i;
 	Rectangle clipr;
 	int id;
 	int depth;
 
-	err = nil;
 	i = nil;
 
 	if(badrect(r)){
@@ -37,44 +34,25 @@ _allocimage(Image *ai, Display *d, Rectangle r, ulong chan, int repl, ulong col,
 
 	depth = chantodepth(chan);
 	if(depth == 0){
-		err = "bad channel descriptor";
+		werrstr("bad channel descriptor");
     Error:
-		if(err != nil)
-			werrstr("allocimage: %s", err);
-		else
-			werrstr("allocimage: %r");
+		werrstr("allocimage: %r");
 		free(i);
 		return nil;
 	}
 
-	_lockdisplay(d);
-	a = bufimage(d, 1+4+4+1+4+1+4*4+4*4+4);
-	if(a == nil){
-		_unlockdisplay(d);
-		goto Error;
-	}
-	d->imageid++;
-	id = d->imageid;
-	a[0] = 'b';
-	BPLONG(a+1, id);
-	BPLONG(a+5, screenid);
-	a[9] = refresh;
-	BPLONG(a+10, chan);
-	a[14] = repl;
-	BPLONG(a+15, r.min.x);
-	BPLONG(a+19, r.min.y);
-	BPLONG(a+23, r.max.x);
-	BPLONG(a+27, r.max.y);
 	if(repl)
 		/* huge but not infinite, so various offsets will leave it huge, not overflow */
 		clipr = Rect(-0x3FFFFFFF, -0x3FFFFFFF, 0x3FFFFFFF, 0x3FFFFFFF);
 	else
 		clipr = r;
-	BPLONG(a+31, clipr.min.x);
-	BPLONG(a+35, clipr.min.y);
-	BPLONG(a+39, clipr.max.x);
-	BPLONG(a+43, clipr.max.y);
-	BPLONG(a+47, col);
+
+	_lockdisplay(d);
+	id = ++d->imageid;
+	if(drawcmd(d, "bllblbRRl", 'b', id, screenid, refresh, chan, repl, &r, &clipr, col) < 0){
+		_unlockdisplay(d);
+		goto Error;
+	}
 	_unlockdisplay(d);
 
 	if(ai != nil)
@@ -83,10 +61,7 @@ _allocimage(Image *ai, Display *d, Rectangle r, ulong chan, int repl, ulong col,
 		i = malloc(sizeof(Image));
 		if(i == nil){
 			_lockdisplay(d);
-			a = bufimage(d, 1+4);
-			if(a != nil){
-				a[0] = 'f';
-				BPLONG(a+1, id);
+			if(drawcmd(d, "bl", 'f', id) == 0){
 				_unlockdisplay(d);
 				flushimage(d, 0);
 			}else
@@ -109,40 +84,36 @@ _allocimage(Image *ai, Display *d, Rectangle r, ulong chan, int repl, ulong col,
 Image*
 namedimage(Display *d, char *name)
 {
-	uchar *a;
-	char *err, buf[12*12+1];
+	char buf[12*12+1];
 	Image *i;
 	int id, n;
 	ulong chan;
 
-	err = nil;
 	i = nil;
 
+	if(name == nil || name[0] == '\0'){
+		werrstr("namedimage: name can't be empty");
+		return nil;
+	}
+
 	n = strlen(name);
-	if(n >= 256){
-		err = "name too long";
+	if(n > 255){
+		werrstr("name too long");
     Error:
-		if(err != nil)
-			werrstr("namedimage: %s", err);
-		else
-			werrstr("namedimage: %r");
+		werrstr("namedimage: %r");
 		free(i);
 		return nil;
 	}
+
 	/* flush pending data so we don't get error allocating the image */
 	flushimage(d, 0);
+
 	_lockdisplay(d);
-	a = bufimage(d, 1+4+1+n);
-	if(a == nil){
+	id = ++d->imageid;
+	if(drawcmd(d, "blz", 'n', id, n, name) < 0){
 		_unlockdisplay(d);
 		goto Error;
 	}
-	d->imageid++;
-	id = d->imageid;
-	a[0] = 'n';
-	BPLONG(a+1, id);
-	a[5] = n;
-	memmove(a+6, name, n);
 	_unlockdisplay(d);
 	if(flushimage(d, 0) < 0)
 		goto Error;
@@ -155,14 +126,10 @@ namedimage(Display *d, char *name)
 	buf[12*12] = '\0';
 	_unlockdisplay(d);
 
-	i = malloc(sizeof(Image));
+	i = mallocz(sizeof(Image), 1);
 	if(i == nil){
-	Error1:
 		_lockdisplay(d);
-		a = bufimage(d, 1+4);
-		if(a != nil){
-			a[0] = 'f';
-			BPLONG(a+1, id);
+		if(drawcmd(d, "bl", 'f', id) == 0){
 			_unlockdisplay(d);
 			flushimage(d, 0);
 		}else
@@ -171,9 +138,10 @@ namedimage(Display *d, char *name)
 	}
 	i->display = d;
 	i->id = id;
-	if((chan=strtochan(buf+2*12))==0){
-		werrstr("bad channel '%.12s' from devdraw", buf+2*12);
-		goto Error1;
+	if((chan = strtochan(buf+2*12)) == 0){
+		werrstr("namedimage: bad channel '%.12s' from devdraw", buf+2*12);
+		freeimage(i);
+		return nil;
 	}
 	i->chan = chan;
 	i->depth = chantodepth(chan);
@@ -194,21 +162,24 @@ namedimage(Display *d, char *name)
 int
 nameimage(Image *i, char *name, int in)
 {
-	uchar *a;
 	int n;
 
+	if(name == nil || name[0] == '\0'){
+		werrstr("nameimage: name can't be empty");
+		return 0;
+	}
+
 	n = strlen(name);
+	if(n > 255){
+		werrstr("nameimage: name too long");
+		return 0;
+	}
+
 	_lockdisplay(i->display);
-	a = bufimage(i->display, 1+4+1+1+n);
-	if(a == nil){
+	if(drawcmd(i->display, "blbz", 'N', i->id, in, n, name) < 0){
 		_unlockdisplay(i->display);
 		return 0;
 	}
-	a[0] = 'N';
-	BPLONG(a+1, i->id);
-	a[5] = in;
-	a[6] = n;
-	memmove(a+7, name, n);
 	_unlockdisplay(i->display);
 	if(flushimage(i->display, 0) < 0)
 		return 0;
@@ -218,21 +189,18 @@ nameimage(Image *i, char *name, int in)
 int
 _freeimage1(Image *i)
 {
-	uchar *a;
 	Display *d;
 	Image **w;
 
 	if(i == nil || i->display == nil)
 		return 0;
+
 	d = i->display;
 	_lockdisplay(d);
-	a = bufimage(d, 1+4);
-	if(a == nil){
+	if(drawcmd(d, "bl", 'f', i->id) < 0){
 		_unlockdisplay(d);
 		return -1;
 	}
-	a[0] = 'f';
-	BPLONG(a+1, i->id);
 
 	if(i->screen != nil){
 		w = &d->windows;

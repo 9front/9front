@@ -5,23 +5,12 @@
 void
 replclipr(Image *i, int repl, Rectangle clipr)
 {
-	uchar *b;
-
 	_lockdisplay(i->display);
-	b = bufimage(i->display, 22);
-	if(b == nil){
+	if(drawcmd(i->display, "blbR", 'c', i->id, repl != 0, &clipr) < 0){
 		_unlockdisplay(i->display);
 		fprint(2, "replclipr: %r\n");
 		return;
 	}
-	b[0] = 'c';
-	BPLONG(b+1, i->id);
-	repl = repl!=0;
-	b[5] = repl;
-	BPLONG(b+6, clipr.min.x);
-	BPLONG(b+10, clipr.min.y);
-	BPLONG(b+14, clipr.max.x);
-	BPLONG(b+18, clipr.max.y);
 	_unlockdisplay(i->display);
 	i->repl = repl;
 	i->clipr = clipr;

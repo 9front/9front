@@ -58,9 +58,8 @@ runestringnop(Image *dst, Point pt, Image *src, Point sp, Font *f, Rune *r, int 
 Point
 _string(Image *dst, Point pt, Image *src, Point sp, Font *f, char *s, Rune *r, int len, Rectangle clipr, Image *bg, Point bgp, Drawop op)
 {
-	int m, n, wid, max, try;
+	int n, wid, max, try;
 	ushort cbuf[Max], *c, *ec;
-	uchar *b;
 	char *subfontname;
 	char **sptr;
 	Rune **rptr, rune;
@@ -106,43 +105,31 @@ _string(Image *dst, Point pt, Image *src, Point sp, Font *f, char *s, Rune *r, i
 		}
 		try = 0;
 
-		m = 47+2*n;
-		if(bg)
-			m += 4+2*4;
-		_lockdisplay(dst->display);
-		b = _bufimageop(dst->display, m, op);
-		if(b == nil){
-			_unlockdisplay(dst->display);
-			fprint(2, "string: %r\n");
-			break;
-		}
-		if(bg)
-			b[0] = 'x';
-		else
-			b[0] = 's';
-		BPLONG(b+1, dst->id);
-		BPLONG(b+5, src->id);
-		BPLONG(b+9, f->cacheimage->id);
-		BPLONG(b+13, pt.x);
-		BPLONG(b+17, pt.y+f->ascent);
-		BPLONG(b+21, clipr.min.x);
-		BPLONG(b+25, clipr.min.y);
-		BPLONG(b+29, clipr.max.x);
-		BPLONG(b+33, clipr.max.y);
-		BPLONG(b+37, sp.x);
-		BPLONG(b+41, sp.y);
-		BPSHORT(b+45, n);
-		b += 47;
-		if(bg){
-			BPLONG(b, bg->id);
-			BPLONG(b+4, bgp.x);
-			BPLONG(b+8, bgp.y);
-			b += 12;
-		}
+		/* encode in the right order so we can memmove */
 		ec = &cbuf[n];
-		for(c=cbuf; c<ec; c++, b+=2)
-			BPSHORT(b, *c);
+		for(c = cbuf; c < ec; c++)
+			BPSHORT((uchar*)c, *c);
+
+		_lockdisplay(dst->display);
+		if(bg){
+			if(drawcmd(dst->display, "OblllllRPslP<", op,
+			    'x', dst->id, src->id, f->cacheimage->id, pt.x, pt.y+f->ascent,
+			    &clipr, &sp, n, bg->id, &bgp, 2*n, cbuf) < 0){
+				_unlockdisplay(dst->display);
+				fprint(2, "stringbg: %r\n");
+				break;
+			}
+		}else{
+			if(drawcmd(dst->display, "OblllllRPs<", op,
+			    's', dst->id, src->id, f->cacheimage->id, pt.x, pt.y+f->ascent,
+			    &clipr, &sp, n, 2*n, cbuf) < 0){
+				_unlockdisplay(dst->display);
+				fprint(2, "string: %r\n");
+				break;
+			}
+		}
 		_unlockdisplay(dst->display);
+
 		pt.x += wid;
 		bgp.x += wid;
 		agefont(f);

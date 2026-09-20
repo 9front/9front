@@ -24,7 +24,7 @@ static
 void
 dopoly(int cmd, Image *dst, Point *pp, int np, int end0, int end1, int radius, Image *src, Point *sp, Drawop op)
 {
-	uchar *a, *t, *u;
+	uchar *t, *u;
 	int i, ox, oy;
 
 	if(np == 0)
@@ -42,24 +42,13 @@ dopoly(int cmd, Image *dst, Point *pp, int np, int end0, int end1, int radius, I
 	}
 
 	_lockdisplay(dst->display);
-	a = _bufimageop(dst->display, 1+4+2+4+4+4+4+2*4+(u-t), op);
-	if(a == nil){
+	if(drawcmd(dst->display, "OblsllllP<", op,
+	    cmd, dst->id, np-1, end0, end1, radius, src->id, sp, u-t, t) < 0){
 		_unlockdisplay(dst->display);
-		free(t);
 		fprint(2, "image poly: %r\n");
-		return;
 	}
-	a[0] = cmd;
-	BPLONG(a+1, dst->id);
-	BPSHORT(a+5, np-1);
-	BPLONG(a+7, end0);
-	BPLONG(a+11, end1);
-	BPLONG(a+15, radius);
-	BPLONG(a+19, src->id);
-	BPLONG(a+23, sp->x);
-	BPLONG(a+27, sp->y);
-	memmove(a+31, t, u-t);
 	_unlockdisplay(dst->display);
+
 	free(t);
 }
 

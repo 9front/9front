@@ -7,7 +7,6 @@ static int	screenid;
 Screen*
 allocscreen(Image *image, Image *fill, int public)
 {
-	uchar *a;
 	Screen *s;
 	int id, try;
 	Display *d;
@@ -27,17 +26,11 @@ allocscreen(Image *image, Image *fill, int public)
 	for(try=0; try<25; try++){
 		/* loop until we find a free id */
 		_lockdisplay(d);
-		a = bufimage(d, 1+4+4+4+1);
-		if(a == nil){
+		id = ++screenid & 0xffff;	/* TODO old devdraw bug—is it still there? */
+		if(drawcmd(d, "blllb", 'A', id, image->id, fill->id, public) < 0){
 			_unlockdisplay(d);
 			break;
 		}
-		id = ++screenid & 0xffff;	/* old devdraw bug */
-		a[0] = 'A';
-		BPLONG(a+1, id);
-		BPLONG(a+5, image->id);
-		BPLONG(a+9, fill->id);
-		a[13] = public;
 		_unlockdisplay(d);
 		if(flushimage(d, 0) != -1)
 			goto Found;
@@ -58,23 +51,18 @@ allocscreen(Image *image, Image *fill, int public)
 Screen*
 publicscreen(Display *d, int id, ulong chan)
 {
-	uchar *a;
 	Screen *s;
 
 	s = malloc(sizeof(Screen));
 	if(s == nil)
 		return nil;
 	_lockdisplay(d);
-	a = bufimage(d, 1+4+4);
-	if(a == nil){
+	if(drawcmd(d, "bll", 'S', id, chan) < 0){
 		_unlockdisplay(d);
-Error:
+    Error:
 		free(s);
 		return nil;
 	}
-	a[0] = 'S';
-	BPLONG(a+1, id);
-	BPLONG(a+5, chan);
 	_unlockdisplay(d);
 	if(flushimage(d, 0) < 0)
 		goto Error;
@@ -89,21 +77,17 @@ Error:
 int
 freescreen(Screen *s)
 {
-	uchar *a;
 	Display *d;
 
 	if(s == nil)
 		return 0;
 	d = s->display;
 	_lockdisplay(d);
-	a = bufimage(d, 1+4);
-	if(a == nil){
+	if(drawcmd(d, "bl", 'F', s->id) < 0){
 		_unlockdisplay(d);
 		free(s);
 		return -1;
 	}
-	a[0] = 'F';
-	BPLONG(a+1, s->id);
 	_unlockdisplay(d);
 	free(s);
 	return 1;
@@ -162,20 +146,18 @@ topbottom(Image **w, int n, int top)
 			return;
 		}
 
-	if(n==0)
-		return;
-	_lockdisplay(d);
-	b = bufimage(d, 1+1+2+4*n);
+	b = malloc(4*n);
 	if(b == nil){
-		_unlockdisplay(d);
+		fprint(2, "top/bottom: malloc: %r\n");
 		return;
 	}
-	b[0] = 't';
-	b[1] = top;
-	BPSHORT(b+2, n);
 	for(i=0; i<n; i++)
-		BPLONG(b+4+4*i, w[i]->id);
+		BPLONG(b+4*i, w[i]->id);
+
+	_lockdisplay(d);
+	drawcmd(d, "bbs<", 't', top, n, 4*n, b);
 	_unlockdisplay(d);
+	free(b);
 }
 
 void
@@ -207,21 +189,13 @@ topnwindows(Image **w, int n)
 int
 originwindow(Image *w, Point log, Point scr)
 {
-	uchar *b;
 	Point delta;
 
 	_lockdisplay(w->display);
-	b = bufimage(w->display, 1+4+2*4+2*4);
-	if(b == nil){
+	if(drawcmd(w->display, "blPP", 'o', w->id, &log, &scr) < 0){
 		_unlockdisplay(w->display);
 		return 0;
 	}
-	b[0] = 'o';
-	BPLONG(b+1, w->id);
-	BPLONG(b+5, log.x);
-	BPLONG(b+9, log.y);
-	BPLONG(b+13, scr.x);
-	BPLONG(b+17, scr.y);
 	_unlockdisplay(w->display);
 	delta = subpt(log, w->r.min);
 	w->r = rectaddpt(w->r, delta);

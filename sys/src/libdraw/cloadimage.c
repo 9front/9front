@@ -6,7 +6,6 @@ int
 cloadimage(Image *i, Rectangle r, uchar *data, int ndata)
 {
 	int m, nb, miny, maxy, ncblock;
-	uchar *a;
 
 	if(!rectinrect(r, i->r)){
 		werrstr("cloadimage: bad rectangle");
@@ -30,20 +29,14 @@ cloadimage(Image *i, Rectangle r, uchar *data, int ndata)
 			werrstr("cloadimage: bad count %d", nb);
 			return -1;
 		}
+
 		_lockdisplay(i->display);
-		a = bufimage(i->display, 21+nb);
-		if(a == nil){
+		if(drawcmd(i->display, "blllll<", 'Y', i->id, r.min.x, miny, r.max.x, maxy, nb, data) < 0){
 			_unlockdisplay(i->display);
 			return -1;
 		}
-		a[0] = 'Y';
-		BPLONG(a+1, i->id);
-		BPLONG(a+5, r.min.x);
-		BPLONG(a+9, miny);
-		BPLONG(a+13, r.max.x);
-		BPLONG(a+17, maxy);
-		memmove(a+21, data, nb);
 		_unlockdisplay(i->display);
+
 		miny = maxy;
 		data += nb;
 		ndata += nb;

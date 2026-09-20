@@ -24,7 +24,7 @@ readimage(Display *d, int fd, int)
 			goto Done;
 		return nil;
 	}
-		
+
 	if(readn(fd, hdr+11, 5*12-11) != 5*12-11)
 		return nil;
 	if(d != nil)

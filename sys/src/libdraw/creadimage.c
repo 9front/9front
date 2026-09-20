@@ -8,7 +8,7 @@ creadimage(Display *d, int fd, int)
 	char hdr[5*12+1];
 	Rectangle r;
 	int m, nb, miny, maxy, new, ldepth, ncblock;
-	uchar *buf, *a;
+	uchar *buf;
 	Image *i;
 	ulong chan;
 
@@ -93,21 +93,14 @@ creadimage(Display *d, int fd, int)
 		if(readn(fd, buf, nb)!=nb)
 			goto Shortread;
 		if(d != nil){
+			if(!new)	/* old image: flip the data bits */
+				_twiddlecompressed(buf, nb);
 			_lockdisplay(d);
-			a = bufimage(i->display, 21+nb);
-			if(a == nil){
+			if(drawcmd(i->display, "blllll<",
+			    'Y', i->id, r.min.x, miny, r.max.x, maxy, nb, buf) < 0){
 				_unlockdisplay(d);
 				goto Errout;
 			}
-			a[0] = 'Y';
-			BPLONG(a+1, i->id);
-			BPLONG(a+5, r.min.x);
-			BPLONG(a+9, miny);
-			BPLONG(a+13, r.max.x);
-			BPLONG(a+17, maxy);
-			if(!new)	/* old image: flip the data bits */
-				_twiddlecompressed(buf, nb);
-			memmove(a+21, buf, nb);
 			_unlockdisplay(d);
 		}
 		miny = maxy;

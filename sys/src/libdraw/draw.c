@@ -5,30 +5,13 @@
 static void
 draw1(Image *dst, Rectangle *r, Image *src, Point *p0, Image *mask, Point *p1, Drawop op)
 {
-	uchar *a;
-
-	_lockdisplay(dst->display);
-	a = _bufimageop(dst->display, 1+4+4+4+4*4+2*4+2*4, op);
-	if(a == nil){
-		_unlockdisplay(dst->display);
-		return;
-	}
 	if(src == nil)
 		src = dst->display->black;
 	if(mask == nil)
 		mask = dst->display->opaque;
-	a[0] = 'd';
-	BPLONG(a+1, dst->id);
-	BPLONG(a+5, src->id);
-	BPLONG(a+9, mask->id);
-	BPLONG(a+13, r->min.x);
-	BPLONG(a+17, r->min.y);
-	BPLONG(a+21, r->max.x);
-	BPLONG(a+25, r->max.y);
-	BPLONG(a+29, p0->x);
-	BPLONG(a+33, p0->y);
-	BPLONG(a+37, p1->x);
-	BPLONG(a+41, p1->y);
+
+	_lockdisplay(dst->display);
+	drawcmd(dst->display, "OblllRPP", op, 'd', dst->id, src->id, mask->id, r, p0, p1);
 	_unlockdisplay(dst->display);
 }
 

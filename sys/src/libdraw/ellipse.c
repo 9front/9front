@@ -6,27 +6,12 @@ static
 void
 doellipse(int cmd, Image *dst, Point *c, int xr, int yr, int thick, Image *src, Point *sp, int alpha, int phi, Drawop op)
 {
-	uchar *a;
-
 	_lockdisplay(dst->display);
-	a = _bufimageop(dst->display, 1+4+4+2*4+4+4+4+2*4+2*4, op);
-	if(a == nil){
+	if(drawcmd(dst->display, "ObllPlllPll", op,
+	    cmd, dst->id, src->id, c, xr, yr, thick, sp, alpha, phi) < 0){
 		_unlockdisplay(dst->display);
 		fprint(2, "image ellipse: %r\n");
-		return;
 	}
-	a[0] = cmd;
-	BPLONG(a+1, dst->id);
-	BPLONG(a+5, src->id);
-	BPLONG(a+9, c->x);
-	BPLONG(a+13, c->y);
-	BPLONG(a+17, xr);
-	BPLONG(a+21, yr);
-	BPLONG(a+25, thick);
-	BPLONG(a+29, sp->x);
-	BPLONG(a+33, sp->y);
-	BPLONG(a+37, alpha);
-	BPLONG(a+41, phi);
 	_unlockdisplay(dst->display);
 }
 
