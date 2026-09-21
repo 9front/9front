@@ -476,7 +476,8 @@ smtpcram(DS *ds)
 		return Retry;
 	p = s_to_c(reply) + 4;
 	l = dec64((uchar*)ch, sizeof ch, p, strlen(p));
-	ch[l] = 0;
+	if(l < 0)
+		return "bad base64";
 	n = auth_respond(ch, l, usr, sizeof usr, rbuf, sizeof rbuf, auth_getkey,
 		"proto=cram role=client server=%q user=%q",
 		ds->host, user);
