@@ -217,7 +217,6 @@ struct Display
 	Subfont		*defaultsubfont;
 	Image		*windows;
 	Image		*screenimage;
-	int		_isnewdisplay;
 };
 
 struct Image

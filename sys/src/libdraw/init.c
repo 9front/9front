@@ -195,7 +195,7 @@ getwindow(Display *d, int ref)
 Display*
 initdisplay(char *dev, char *win, void(*error)(Display*, char*))
 {
-	char buf[128], info[NINFO+1], *t, isnew;
+	char buf[128], info[NINFO+1], *t;
 	int n, datafd, ctlfd, reffd;
 	Display *disp;
 	Dir *dir;
@@ -231,9 +231,6 @@ initdisplay(char *dev, char *win, void(*error)(Display*, char*))
 	if(n==NINFO+1)
 		n = NINFO;
 	info[n] = '\0';
-	isnew = 0;
-	if(n < NINFO)	/* this will do for now, we need something better here */
-		isnew = 1;
 	sprint(buf, "%s/draw/%d/data", dev, atoi(info+0*12));
 	datafd = open(buf, ORDWR|OCEXEC);
 	if(datafd < 0)
@@ -277,7 +274,6 @@ initdisplay(char *dev, char *win, void(*error)(Display*, char*))
 		image->clipr.max.y = atoi(info+11*12);
 	}
 
-	disp->_isnewdisplay = isnew;
 	disp->bufsize = iounit(datafd);
 	if(disp->bufsize <= 0)
 		disp->bufsize = 8000;
@@ -285,7 +281,7 @@ initdisplay(char *dev, char *win, void(*error)(Display*, char*))
 		werrstr("iounit %d too small", disp->bufsize);
 		goto Error5;
 	}
-	disp->buf = malloc(disp->bufsize+5);	/* +5 for flush message */
+	disp->buf = malloc(disp->bufsize+1);	/* +1 for flush message */
 	if(disp->buf == nil)
 		goto Error5;
 
@@ -314,8 +310,6 @@ initdisplay(char *dev, char *win, void(*error)(Display*, char*))
 		disp->local = 1;
 		disp->dataqid = dir->qid.path;
 	}
-	if(dir!=nil && dir->qid.vers==1)	/* other way to tell */
-		disp->_isnewdisplay = 1;
 	free(dir);
 
 	return disp;
@@ -445,13 +439,8 @@ flushimage(Display *d, int visible)
 	if(d == nil)
 		return 0;
 	_lockdisplay(d);
-	if(visible){
-		*d->bufp++ = 'v';	/* five bytes always reserved for this */
-		if(d->_isnewdisplay){
-			BPLONG(d->bufp, d->screenimage->id);
-			d->bufp += 4;
-		}
-	}
+	if(visible)
+		*d->bufp++ = 'v';	/* one byte always reserved for this */
 	rc = doflush(d);
 	_unlockdisplay(d);
 	return rc;
