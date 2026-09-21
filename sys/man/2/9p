@@ -189,6 +189,8 @@ act as
 and
 .I strdup 
 but abort the program if they run out of memory.
+.IR emalloc9p 
+also zeroes the allocated memory.
 If alternate behavior is desired, clients can link against
 alternate implementations of these functions.
 .PP
