@@ -39,20 +39,16 @@ unloadimage(Image *i, Rectangle r, uchar *data, int ndata)
 
 		_lockdisplay(d);
 		if(drawcmd(d, "blPll", 'r', i->id, &r.min, r.min.x+dx, r.min.y+dy) < 0){
+    Error:
 			_unlockdisplay(d);
 			werrstr("unloadimage: %r");
 			return -1;
 		}
-		_unlockdisplay(d);
+		if(_flushimage(d) < 0)
+			goto Error;
 
-		if(flushimage(d, 0) < 0)
-			return -1;
-
-		_lockdisplay(d);
-		if(read(d->fd, data, n) < 0){
-			_unlockdisplay(d);
-			return -1;
-		}
+		if(read(d->fd, data, n) < 0)
+			goto Error;
 		_unlockdisplay(d);
 
 		data += bpl*dy;

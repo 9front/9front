@@ -21,24 +21,15 @@ _allocimage(Image *ai, Display *d, Rectangle r, ulong chan, int repl, ulong col,
 	int id;
 	int depth;
 
-	i = nil;
-
 	if(badrect(r)){
 		werrstr("bad rectangle");
-		return nil;
-	}
-	if(chan == 0){
-		werrstr("bad channel descriptor");
-		return nil;
-	}
-
-	depth = chantodepth(chan);
-	if(depth == 0){
-		werrstr("bad channel descriptor");
     Error:
 		werrstr("allocimage: %r");
-		free(i);
 		return nil;
+	}
+	if(chan == 0 || (depth = chantodepth(chan)) == 0){
+		werrstr("bad channel descriptor");
+		goto Error;
 	}
 
 	if(repl)
@@ -61,11 +52,9 @@ _allocimage(Image *ai, Display *d, Rectangle r, ulong chan, int repl, ulong col,
 		i = malloc(sizeof(Image));
 		if(i == nil){
 			_lockdisplay(d);
-			if(drawcmd(d, "bl", 'f', id) == 0){
-				_unlockdisplay(d);
-				flushimage(d, 0);
-			}else
-				_unlockdisplay(d);
+			if(drawcmd(d, "bl", 'f', id) == 0)
+				_flushimage(d);
+			_unlockdisplay(d);
 			goto Error;
 		}
 	}
@@ -89,60 +78,50 @@ namedimage(Display *d, char *name)
 	int id, n;
 	ulong chan;
 
-	i = nil;
-
 	if(name == nil || name[0] == '\0'){
-		werrstr("namedimage: name can't be empty");
+		werrstr("empty name");
+    Error1:
+		werrstr("namedimage: %r");
 		return nil;
 	}
 
 	n = strlen(name);
 	if(n > 255){
 		werrstr("name too long");
-    Error:
-		werrstr("namedimage: %r");
-		free(i);
-		return nil;
+		goto Error1;
 	}
 
-	/* flush pending data so we don't get error allocating the image */
-	flushimage(d, 0);
-
 	_lockdisplay(d);
+	/* flush pending data so we don't get error allocating the image */
+	_flushimage(d);
+
 	id = ++d->imageid;
 	if(drawcmd(d, "blz", 'n', id, n, name) < 0){
+    Error2:
 		_unlockdisplay(d);
-		goto Error;
+		goto Error1;
 	}
-	_unlockdisplay(d);
-	if(flushimage(d, 0) < 0)
-		goto Error;
+	if(_flushimage(d) < 0)
+		goto Error2;
 
-	_lockdisplay(d);
-	if(pread(d->ctlfd, buf, sizeof buf, 0) < 12*12){
-		_unlockdisplay(d);
-		goto Error;
-	}
+	if(pread(d->ctlfd, buf, sizeof buf, 0) < 12*12)
+		goto Error2;
 	buf[12*12] = '\0';
 	_unlockdisplay(d);
 
+	if((chan = strtochan(buf+2*12)) == 0){
+		werrstr("bad channel '%.12s' from devdraw", buf+2*12);
+		goto Error1;
+	}
 	i = mallocz(sizeof(Image), 1);
 	if(i == nil){
 		_lockdisplay(d);
-		if(drawcmd(d, "bl", 'f', id) == 0){
-			_unlockdisplay(d);
-			flushimage(d, 0);
-		}else
-			_unlockdisplay(d);
-		goto Error;
+		if(drawcmd(d, "bl", 'f', id) == 0)
+			_flushimage(d);
+		goto Error2;
 	}
 	i->display = d;
 	i->id = id;
-	if((chan = strtochan(buf+2*12)) == 0){
-		werrstr("namedimage: bad channel '%.12s' from devdraw", buf+2*12);
-		freeimage(i);
-		return nil;
-	}
 	i->chan = chan;
 	i->depth = chantodepth(chan);
 	i->repl = atoi(buf+3*12);
@@ -165,24 +144,28 @@ nameimage(Image *i, char *name, int in)
 	int n;
 
 	if(name == nil || name[0] == '\0'){
-		werrstr("nameimage: name can't be empty");
+		werrstr("empty name");
+    Error:
+		werrstr("nameimage: %r");
 		return 0;
 	}
 
 	n = strlen(name);
 	if(n > 255){
-		werrstr("nameimage: name too long");
-		return 0;
+		werrstr("name too long");
+		goto Error;
 	}
 
 	_lockdisplay(i->display);
 	if(drawcmd(i->display, "blbz", 'N', i->id, in, n, name) < 0){
 		_unlockdisplay(i->display);
-		return 0;
+		goto Error;
+	}
+	if(_flushimage(i->display) < 0){
+		_unlockdisplay(i->display);
+		goto Error;
 	}
 	_unlockdisplay(i->display);
-	if(flushimage(i->display, 0) < 0)
-		return 0;
 	return 1;
 }
 

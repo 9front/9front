@@ -31,9 +31,11 @@ allocscreen(Image *image, Image *fill, int public)
 			_unlockdisplay(d);
 			break;
 		}
-		_unlockdisplay(d);
-		if(flushimage(d, 0) != -1)
+		if(_flushimage(d) != -1){
+			_unlockdisplay(d);
 			goto Found;
+		}
+		_unlockdisplay(d);
 	}
 	free(s);
 	return nil;
@@ -58,14 +60,14 @@ publicscreen(Display *d, int id, ulong chan)
 		return nil;
 	_lockdisplay(d);
 	if(drawcmd(d, "bll", 'S', id, chan) < 0){
-		_unlockdisplay(d);
     Error:
+		_unlockdisplay(d);
 		free(s);
 		return nil;
 	}
-	_unlockdisplay(d);
-	if(flushimage(d, 0) < 0)
+	if(_flushimage(d) < 0)
 		goto Error;
+	_unlockdisplay(d);
 
 	s->display = d;
 	s->id = id;

@@ -413,9 +413,8 @@ drawerror(Display *d, char *s)
 	}
 }
 
-static
 int
-doflush(Display *d)
+_flushimage(Display *d)
 {
 	int n;
 
@@ -424,6 +423,7 @@ doflush(Display *d)
 		return 1;
 
 	if(write(d->fd, d->buf, n) != n){
+		werrstr("could not flush display buffer: %r");
 		d->bufp = d->buf;	/* might as well; chance of continuing */
 		return -1;
 	}
@@ -441,7 +441,7 @@ flushimage(Display *d, int visible)
 	_lockdisplay(d);
 	if(visible)
 		*d->bufp++ = 'v';	/* one byte always reserved for this */
-	rc = doflush(d);
+	rc = _flushimage(d);
 	_unlockdisplay(d);
 	return rc;
 }
@@ -458,10 +458,8 @@ growcmdbuf(Display *d, uchar *e, int extra)
 		werrstr("message exceeds display buffer capacity");
 		return nil;
 	}
-	if(doflush(d) < 0){
-		werrstr("could not flush display buffer: %r");
+	if(_flushimage(d) < 0)
 		return nil;
-	}
 	memmove(d->buf, b, e - b);
 	return d->buf + (e - b);
 }
