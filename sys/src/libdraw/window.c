@@ -26,7 +26,7 @@ allocscreen(Image *image, Image *fill, int public)
 	for(try=0; try<25; try++){
 		/* loop until we find a free id */
 		_lockdisplay(d);
-		id = ++screenid & 0xffff;	/* TODO old devdraw bug—is it still there? */
+		id = ++screenid;
 		if(drawcmd(d, "blllb", 'A', id, image->id, fill->id, public) < 0){
 			_unlockdisplay(d);
 			break;
