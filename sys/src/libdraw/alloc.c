@@ -163,7 +163,14 @@ nameimage(Image *i, char *name, int in)
 	}
 	if(_flushimage(i->display) < 0){
 		_unlockdisplay(i->display);
-		goto Error;
+		/*
+		 * XXX rio(1) used to depend on the errstr returned here to
+		 * correspond with the error message received from draw(3),
+		 * without any tracing prefixes.  this has been fixed on
+		 * rio's side, but let's try not to break compatibility with
+		 * rio derivatives that expect the same behavior.
+		 */
+		return 0;
 	}
 	_unlockdisplay(i->display);
 	return 1;

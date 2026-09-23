@@ -423,7 +423,6 @@ _flushimage(Display *d)
 		return 1;
 
 	if(write(d->fd, d->buf, n) != n){
-		werrstr("could not flush display buffer: %r");
 		d->bufp = d->buf;	/* might as well; chance of continuing */
 		return -1;
 	}
