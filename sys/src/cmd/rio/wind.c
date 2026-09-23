@@ -337,7 +337,7 @@ wsetname(Window *w)
 		if(nameimage(w->i, w->name, 1) > 0)
 			return;
 		errstr(err, sizeof err);
-		if(strcmp(err, "image name in use") != 0)
+		if(strstr(err, "image name in use") == nil)
 			break;
 		w->name[n] = i;
 		w->name[n+1] = 0;
