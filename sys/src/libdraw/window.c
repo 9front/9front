@@ -11,6 +11,11 @@ allocscreen(Image *image, Image *fill, int public)
 	int id, try;
 	Display *d;
 
+	if(image == nil || image->display == nil || fill == nil){
+		werrstr("allocscreen: invalid image or fill");
+		return nil;
+	}
+
 	d = image->display;
 	if(d != fill->display){
 		werrstr("allocscreen: image and fill on different displays");
@@ -44,8 +49,6 @@ allocscreen(Image *image, Image *fill, int public)
 	s->display = d;
 	s->id = id;
 	s->image = image;
-	assert(s->image != nil && s->image->chan != 0);
-
 	s->fill = fill;
 	return s;
 }
