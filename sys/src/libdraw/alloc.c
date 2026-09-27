@@ -27,7 +27,7 @@ _allocimage(Image *ai, Display *d, Rectangle r, ulong chan, int repl, ulong col,
 		werrstr("allocimage: %r");
 		return nil;
 	}
-	if(chan == 0 || (depth = chantodepth(chan)) == 0){
+	if((depth = chantodepth(chan)) == 0){
 		werrstr("bad channel descriptor");
 		goto Error;
 	}
