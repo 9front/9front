@@ -8,6 +8,7 @@
 #include <libc.h>
 #include <draw.h>
 #include <event.h>
+#include <keyboard.h>
 int xc, yc;
 #define	NOBJ	(1+2+6*2)
 #define	MSPEED	(V/32)				/* speed of missile relative to ship */
@@ -208,6 +209,7 @@ void kbdplayer(int c){
 	case 's': fire(P1);	break;
 	case 'z':
 	case 'x': hyper(P1);	break;
+	case Kdel:
 	case 'Q': exits("");	break;
 	}
 }
