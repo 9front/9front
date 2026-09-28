@@ -2342,20 +2342,21 @@ fsread(Fmsg *m)
 
 	if((f = getfid(m->conn, m->fid)) == nil)
 		error(Enofid);
+	if(waserror()){
+		putfid(f);
+		nexterror();
+	}
 	if(f->dent->gone)
 		error(Ephase);
 	if(f->mode == -1)
 		error(Eopen);
 	if(m->offset < 0)
 		error(Eoffset);
+	if(m->count > sizeof(rbuf))
+		error(Ebotch);
 	r.type = Rread;
 	r.count = 0;
 	r.data = nil;
-	if(waserror()){
-		free(r.data);
-		putfid(f);
-		nexterror();
-	}	
 	r.data = rbuf;
 	if(f->dent->qid.type & QTAUTH)
 		authread(f, &r, r.data, m->count);

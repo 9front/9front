@@ -1295,6 +1295,8 @@ Again:
 		dropblk(b);
 		nexterror();
 	}
+	if(height+1 >= Maxheight)
+		error(Eheight);
 	if(npull == 0 && b->type == Tpivot && b->nval > 1 && !filledbuf(b, nmsg, sz)){
 		fastupsert(t, b, msg, nmsg);
 		poperror();
@@ -1307,11 +1309,11 @@ Again:
 	 * split, so we allocate room for one extra
 	 * node in the path.
 	 */
+	memset(path, 0, sizeof(path));
 	if(waserror()){
 		freepath(t, path, height+2, 0);	/* npath not volatile */
 		nexterror();
 	}
-	memset(path, 0, sizeof(path));
 	degen = 0;
 	npath = 0;
 	path[npath].b = nil;
@@ -1354,9 +1356,6 @@ Again:
 		dh = -1;
 	else
 		fatal("broken path change");
-
-	if(height + dh >= Maxheight)
-		error(Eheight);
 	/*
 	 * if we merged the root block, but there
 	 * was still data stuck in the buffer, we
@@ -1533,7 +1532,7 @@ Again:
 	h = s->ht;
 	start = h;
 	bufsrc = -1;
-	if(p == nil || s->donescan)
+	if(s->ht == 0 || s->donescan)
 		return 0;
 	if(waserror()){
 		btexit(s);
@@ -1627,5 +1626,6 @@ btexit(Scan *s)
 
 	for(i = 0; i < s->ht; i++)
 		dropblk(s->path[i].b);
+	memset(s->path, 0, sizeof(s->path));
 	s->ht = 0;
 }
