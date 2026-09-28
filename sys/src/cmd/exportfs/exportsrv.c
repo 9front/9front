@@ -16,6 +16,8 @@ char Enomem[] = "No memory";
 char Ereadonly[] = "File system read only";
 char Enoprocs[] = "Out of processes";
 char Emsize[] = "message size too small";
+char Enwalk[] = "Too many path elements";
+char Ename[] = "Invalid character in file name";
 
 ulong messagesize;
 int readonly;
@@ -182,20 +184,19 @@ Xwalk(Fsrpc *t)
 	e = nil;
 	for(i=0; i<t->work.nwname; i++){
 		if(i == MAXWELEM){
-			e = "Too many path elements";
+			e = Enwalk;
 			break;
 		}
-
 		if(strcmp(t->work.wname[i], "..") == 0) {
 			if(f->f->parent == nil) {
 				e = Exmnt;
 				break;
 			}
+
 			wf = f->f->parent;
 			wf->ref++;
 			goto Accept;
 		}
-	
 		wf = file(f->f, t->work.wname[i]);
 		if(wf == nil){
 			errstr(err, sizeof err);
@@ -256,9 +257,11 @@ Xstat(Fsrpc *t)
 	}
 	if(f->fid >= 0)
 		d = dirfstat(f->fid);
-	else {
-		path = makepath(f->f, "");
-		d = dirstat(path);
+	else{
+		if((path = makepath(f->f, nil)) != nil)
+			d = dirstat(path);
+		else
+			d = nil;
 		free(path);
 	}
 
@@ -320,7 +323,12 @@ Xcreate(Fsrpc *t)
 	}
 	
 
-	path = makepath(f->f, t->work.name);
+	if((path = makepath(f->f, t->work.name)) == nil){
+		errstr(err, sizeof err);
+		reply(&t->work, &rhdr, err);
+		putsbuf(t);
+		return;
+	}
 	f->fid = create(path, t->work.mode, t->work.perm);
 	free(path);
 	if(f->fid < 0) {
@@ -366,9 +374,9 @@ Xremove(Fsrpc *t)
 		return;
 	}
 
-	path = makepath(f->f, "");
+	path = makepath(f->f, nil);
 	DEBUG(2, "\tremove: %s\n", path);
-	if(remove(path) < 0) {
+	if(path == nil || remove(path) < 0) {
 		free(path);
 		errstr(err, sizeof err);
 		reply(&t->work, &rhdr, err);
@@ -419,8 +427,10 @@ Xwstat(Fsrpc *t)
 	if(f->fid >= 0)
 		s = dirfwstat(f->fid, &d);
 	else {
-		path = makepath(f->f, "");
-		s = dirwstat(path, &d);
+		if((path = makepath(f->f, nil)) != nil)
+			s = dirwstat(path, &d);
+		else
+			s = -1;
 		free(path);
 	}
 	if(s < 0) {
@@ -635,16 +645,13 @@ slaveopen(Fsrpc *p)
 		f->fid = -1;
 	}
 	
-	path = makepath(f->f, "");
+	if((path = makepath(f->f, nil)) == nil)
+		goto Error;
 	DEBUG(2, "\topen: %s %d\n", path, work->mode);
 	f->fid = open(path, work->mode);
 	free(path);
-	if(f->fid < 0 || (d = dirfstat(f->fid)) == nil) {
-	Error:
-		errstr(err, sizeof err);
-		reply(work, &rhdr, err);
-		return;
-	}
+	if(f->fid < 0 || (d = dirfstat(f->fid)) == nil)
+		goto Error;
 	f->f->qid = d->qid;
 	free(d);
 	if(f->f->qid.type & QTMOUNT){	/* fork new exportfs for this */
@@ -659,6 +666,10 @@ slaveopen(Fsrpc *p)
 	rhdr.iounit = getiounit(f->fid);
 	rhdr.qid = f->f->qid;
 	reply(work, &rhdr, 0);
+	return;
+Error:
+	errstr(err, sizeof err);
+	reply(work, &rhdr, err);
 }
 
 void

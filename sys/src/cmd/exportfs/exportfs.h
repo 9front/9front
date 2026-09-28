@@ -80,9 +80,12 @@ char Enotdir[];
 char Edupfid[];
 char Eopen[];
 char Exmnt[];
+char Ename[];
 char Enomem[];
 char Emip[];
 char Enopsmt[];
+char Enwalk[];
+char Ename[];
 
 Extern int  	dbg;
 Extern File	*root;

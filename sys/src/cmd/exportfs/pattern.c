@@ -121,7 +121,7 @@ preaddir(Fid *f, uchar *data, int n, vlong offset)
 		d = &f->dir[f->cdir++];
 		if(exclude){
 			char *p = makepath(f->f, d->name);
-			if(excludefile(p)){
+			if(p == nil || excludefile(p)){
 				free(p);
 				goto skipentry;
 			}
