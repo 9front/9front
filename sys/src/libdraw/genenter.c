@@ -10,7 +10,7 @@ genenter(char *ask, char *buf, int len, Mouse *m, void *c, int (*_input)(Mouse*,
 	int done, down, tick, n, h, w, l, i;
 	Image *b, *save, *backcol, *bordcol;
 	Point p, o, t;
-	Rectangle r, sc;
+	Rectangle r, vr, sc;
 	Rune k;
 
 	backcol = allocimagemix(display, DPurpleblue, DWhite);
@@ -46,7 +46,7 @@ genenter(char *ask, char *buf, int len, Mouse *m, void *c, int (*_input)(Mouse*,
 			if(buf) p.x += w;
 			p.x += stringwidth(font, ask);
 		}
-		r = rectaddpt(insetrect(Rpt(ZP, p), -4), o);
+		r = rectaddpt(insetrect(Rpt(ZP, p), -Borderwidth-2), o);
 		p.x = 0;
 		r = rectsubpt(r, p);
 
@@ -62,27 +62,28 @@ genenter(char *ask, char *buf, int len, Mouse *m, void *c, int (*_input)(Mouse*,
 		if(r.max.y > screen->r.max.y)
 			p.y = r.max.y - screen->r.max.y;
 		r = rectsubpt(r, p);
+		vr = r;
+		rectclip(&vr, screen->r);
 
-		r = insetrect(r, -2);
 		if(scr){
 			if(b == nil)
-				b = allocwindow(scr, r, Refbackup, DWhite);
+				b = allocwindow(scr, vr, Refbackup, DWhite);
 			if(b == nil)
 				scr = nil;
 		}
 		if(scr == nil && save == nil){
 			if(b == nil)
 				b = screen;
-			save = allocimage(display, r, b->chan, 0, DNofill);
+			save = allocimage(display, vr, b->chan, 0, DNofill);
 			if(save == nil){
 				n = -1;
 				break;
 			}
-			draw(save, r, b, nil, r.min);
+			draw(save, vr, b, nil, vr.min);
 		}
-		draw(b, r, backcol, nil, ZP);
-		border(b, r, 2, bordcol, ZP);
-		p = addpt(r.min, Pt(6, 6));
+		draw(b, vr, backcol, nil, ZP);
+		border(b, vr, 2, bordcol, ZP);
+		p = addpt(r.min, Pt(Borderwidth+2, Borderwidth+2));
 		if(ask && ask[0]){
 			p = string(b, p, bordcol, ZP, font, ask);
 			if(buf) p.x += w;
