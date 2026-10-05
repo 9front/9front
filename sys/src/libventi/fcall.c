@@ -137,7 +137,7 @@ vtfcallunpack(VtFcall *f, Packet *p)
 		f->ncrypto = buf[1];
 		if(f->ncrypto){
 			f->crypto = vtmalloc(f->ncrypto);
-			if(packetconsume(p, buf, f->ncrypto) < 0)
+			if(packetconsume(p, f->crypto, f->ncrypto) < 0)
 				goto Err;
 		}
 		if(packetconsume(p, buf, 1) < 0)
@@ -145,7 +145,7 @@ vtfcallunpack(VtFcall *f, Packet *p)
 		f->ncodec = buf[0];
 		if(f->ncodec){
 			f->codec = vtmalloc(f->ncodec);
-			if(packetconsume(p, buf, f->ncodec) < 0)
+			if(packetconsume(p, f->codec, f->ncodec) < 0)
 				goto Err;
 		}
 		break;
