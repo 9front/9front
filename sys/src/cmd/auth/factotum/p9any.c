@@ -187,7 +187,7 @@ p9anyread(Fsstate *fss, void *a, uint *n)
 			return toosmall(fss, i);
 		}
 		*n = i;
-		memmove(a, s_to_c(negstr), i+1);
+		memmove(a, s_to_c(negstr), i);
 		fss->phase = SNeedProto;
 		s_free(negstr);
 		return RpcOk;
