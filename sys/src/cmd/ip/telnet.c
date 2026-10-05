@@ -515,6 +515,7 @@ int
 xlocsub(Biobuf *bp, uchar *sub, int n)
 {
 	char buf[64];
+	char *term;
 	char *p, *e;
 
 	p = buf;
@@ -529,7 +530,7 @@ xlocsub(Biobuf *bp, uchar *sub, int n)
 		term = getenv("XDISP");
 		if(term == 0 || *term == 0)
 			term = "unknown";
-		p = strncpy(p, e, term);
+		p = strecpy(p, e, term);
 		*p++ = Iac;
 		*p++ = Se;
 		return iwrite(Bfildes(bp), buf, p-buf);

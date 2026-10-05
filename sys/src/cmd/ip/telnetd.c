@@ -114,7 +114,7 @@ main(int argc, char *argv[])
 		strecpy(user, user+sizeof(user), getuser());
 		break;
 	case 'u':
-		strncpy(user, user+sizeof(user), EARGF());
+		strecpy(user, user+sizeof(user), EARGF(usage()));
 		break;
 	case 'd':
 		debug = 1;
