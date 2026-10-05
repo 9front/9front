@@ -81,6 +81,13 @@ getremote(char *dir)
 }
 
 void
+usage(void)
+{
+	fprint(2, "usge: %s [-adnptN] [-u user]\n", argv0);
+	exits("usage");
+}
+
+void
 main(int argc, char *argv[])
 {
 	char buf[1024];
@@ -104,10 +111,10 @@ main(int argc, char *argv[])
 		break;
 	case 't':
 		trusted = 1;
-		strncpy(user, getuser(), sizeof(user)-1);
+		strecpy(user, user+sizeof(user), getuser());
 		break;
 	case 'u':
-		strncpy(user, ARGF(), sizeof(user)-1);
+		strncpy(user, user+sizeof(user), EARGF());
 		break;
 	case 'd':
 		debug = 1;
@@ -115,6 +122,8 @@ main(int argc, char *argv[])
 	case 'N':
 		noworldonly = 1;
 		break;
+	default:
+		usage();
 	} ARGEND
 
 	if(argc)
@@ -511,7 +520,7 @@ termsub(Biobuf *bp, uchar *sub, int n)
 		return 0;
 	if(n >= sizeof term)
 		n = sizeof term;
-	strncpy(term, (char*)sub, n);
+	strecpy(term, term+n, (char*)sub);
 	putenv("TERM", term);
 	return 0;
 }
@@ -545,7 +554,7 @@ xlocsub(Biobuf *bp, uchar *sub, int n)
 		return 0;
 	if(n >= sizeof xloc)
 		n = sizeof xloc;
-	strncpy(xloc, (char*)sub, n);
+	strecpy(xloc, xloc+n, (char*)sub);
 	putenv("DISPLAY", xloc);
 	return 0;
 }
