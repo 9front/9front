@@ -398,7 +398,7 @@ mkdirs(char *path)
 static int
 unzipEntry(Biobuf *bin, ZipHead *czh)
 {
-	Dir *d;
+	Dir *d, wd;
 	ZipHead zh;
 	char *p;
 	vlong off;
@@ -490,12 +490,10 @@ unzipEntry(Biobuf *bin, ZipHead *czh)
 
 	if(fd >= 0 && !stdout){
 		if(settimes){
-			d = dirfstat(fd);
-			if(d != nil){
-				d->mtime = msdos2time(zh.modtime, zh.moddate);
-				if(d->mtime)
-					dirfwstat(fd, d);
-			}
+			nulldir(&wd);
+			wd.mtime = msdos2time(zh.modtime, zh.moddate);
+			if(wd.mtime)
+				dirfwstat(fd, &wd);
 		}
 		close(fd);
 	}
