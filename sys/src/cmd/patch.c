@@ -8,6 +8,8 @@ typedef struct Hunk Hunk;
 typedef struct Fbuf Fbuf;
 typedef struct Fchg Fchg;
 
+#pragma	varargck	type	"P"	char*
+
 struct Patch {
 	char	*name;
 	Hunk	*hunk;
@@ -340,7 +342,7 @@ comment:
 		free(ln);
 	}
 	if(p->nhunk == 0)
-		fail("%s: could not find start of patch", name);
+		fail("%P: could not find start of patch", name);
 	goto out;
 
 patch:
@@ -368,9 +370,9 @@ hunk:
 	while(1){
 		if((ln = readline(f, &lnum)) == nil){
 			if(oldcnt != h.oldcnt)
-				fail("%s:%d: malformed hunk: mismatched -hunk size %d != %d", name, lnum, oldcnt, h.oldcnt);
+				fail("%P:%d: malformed hunk: mismatched -hunk size %d != %d", name, lnum, oldcnt, h.oldcnt);
 			if(newcnt != h.newcnt)
-				fail("%s:%d: malformed hunk: mismatched +hunk size %d != %d", name, lnum, newcnt, h.newcnt);
+				fail("%P:%d: malformed hunk: mismatched +hunk size %d != %d", name, lnum, newcnt, h.newcnt);
 			addhunk(p, &h);
 			break;
 		}
@@ -378,7 +380,7 @@ hunk:
 		addorig(&h, ln);
 		switch(ln[0]){
 		default:
-			fail("%s:%d: malformed hunk: leading junk", name, lnum);
+			fail("%P:%d: malformed hunk: leading junk", name, lnum);
 		case '\\':
 			if(strncmp(ln, "\\ No newline", nelem("\\ No newline")-1) == 0)
 				trimhunk(c, &h);
@@ -407,7 +409,7 @@ hunk:
 		}
 		free(ln);
 		if(oldcnt > h.oldcnt || newcnt > h.newcnt)
-			fail("%s:%d: malformed hunk: oversized hunk", name, lnum);
+			fail("%P:%d: malformed hunk: oversized hunk", name, lnum);
 		if(oldcnt < h.oldcnt || newcnt < h.newcnt)
 			continue;
 
@@ -660,7 +662,7 @@ search(Fbuf *f, Hunk *h)
 void
 rejected(Hunk *h, char *fname)
 {
-	fprint(2, "%s:%d: skipping failed hunk %s:%d\n", fname, h->lnum, h->oldpath, h->oldln);
+	fprint(2, "%P:%d: skipping failed hunk %s:%d\n", fname, h->lnum, h->oldpath, h->oldln);
 	fprint(rejfd, "--- %s:%d \n", h->oldpath, h->oldln);
 	fprint(rejfd, "+++ %s:%d \n", h->newpath, h->newln);
 	fprint(rejfd, "@@ -%d,%d +%d,%d @@\n", h->oldln, h->oldcnt, h->newln, h->newcnt);
@@ -723,7 +725,7 @@ apply(Patch *p, char *fname)
 			e = search(&f, h);
 			if(e == nil){
 				if(rejfd == -1)
-					fail("%s:%d: unable to find hunk offset near %s:%d", fname, h->lnum, h->oldpath, h->oldln);
+					fail("%P:%d: unable to find hunk offset near %P:%d", fname, h->lnum, h->oldpath, h->oldln);
 				else{
 					rejected(h, fname);
 					goto Next;
@@ -763,6 +765,22 @@ freepatch(Patch *p)
 	free(p);
 }
 
+int
+Pconv(Fmt *fmt)
+{
+	char *f;
+	int n;
+
+	f = va_arg(fmt->args, char*);
+	if(workdir == nil)
+		return fmtstrcpy(fmt, f);
+	if((f = smprint("%s/%s", workdir, f)) == nil)
+		sysfatal("smprint: %r");
+	n = fmtstrcpy(fmt, cleanname(f));
+	free(f);
+	return n;
+}
+
 void
 usage(void)
 {
@@ -799,6 +817,7 @@ main(int argc, char **argv)
 	}ARGEND;
 
 	ok = 1;
+	fmtinstall('P', Pconv);
 	if(rejfile != nil){
 		rejfd = create(rejfile, OWRITE, 0644);
 		if(rejfd == -1)
