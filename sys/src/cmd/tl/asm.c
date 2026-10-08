@@ -455,7 +455,7 @@ putsymb(char *s, int t, long v, int ver)
 	}
 }
 
-#define	MINLC	4
+#define	MINLC	2
 void
 asmlc(void)
 {

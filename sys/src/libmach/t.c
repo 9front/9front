@@ -60,7 +60,7 @@ Mach mthumb =
 	0x80000000,	/* kernel base */
 	0x80000001,	/* kernel text mask */
 	0x7FFFFFFF,	/* stack top */
-	4,		/* quantization of pc */
+	2,		/* quantization of pc */
 	4,		/* szaddr */
 	4,		/* szreg */
 	4,		/* szfloat */
