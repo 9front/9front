@@ -29,6 +29,7 @@ OFILES=\
 	font.$O\
 	freesubfont.$O\
 	genenter.$O\
+	gengetrect.$O\
 	genmenuhit.$O\
 	getdefont.$O\
 	getrect.$O\
