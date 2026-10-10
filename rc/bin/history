@@ -5,8 +5,8 @@ nl='
 '
 
 fn prfile {
-	echo -n `{date $flagu -f 'MMM DD hh:mm:ss ZZZ YYYY' `{walk -e m $1}}
-	walk -e psM $1 | awk '{$NF="["$NF"]"; print " "$0}'
+	echo -n `{date $flagu -f 'MMM DD hh:mm:ss ZZZ YYYY' `{walk -n0,0 -e m $1}}
+	walk -n0,0 -e psM $1 | awk '{$NF="["$NF"]"; print " "$0}'
 }
 
 fn diffflags {
@@ -20,25 +20,25 @@ fn diffflags {
 }
 
 fn ysearch {
-	if(~ $1 /*)
-		file=$1
-	if not
-		file=`{pwd}^/$1
+	if(! ~ $1 /*)
+		*=`{pwd}^/$1
 
-	if(test -f $file)
-		prfile $file
+	if(test -e $1)
+		prfile $1
 	if not
-		echo history: warning: $file does not exist >[1=2]
+		echo history: warning: $1 does not exist >[1=2]
 
-	old=()
-	list $file |
-	sed  's/\(([^ ]*) *([^ ]*) *([^ ]*)\)/\1\2\3/p' |
-	awk '"/n/'$dump/$since'" <= $2 {next}
-	     $1 != qid {
-		qid=$1
-		gsub($1"[ \t]+", "")
-		print}' |
-	while(new=`$nl{read}){
+	list $1 >[1=2]
+	exit
+	for(new in `$nl{list $1 | awk -v 'since='$since -F '/n/'^$dump/ '{
+		a = index($2, "\.")
+		b = index($2, "/")
+		t = substr($2, a+1, b-a-1)
+		if(since > t && $1 != qid){
+			print FS $2
+			qid = $1
+		}
+	}'}){
 		prfile $new
 		if (~ $flagD 1 && ~ $#old 1){
 			diff -u `{diffflags} $new $old
@@ -65,7 +65,9 @@ if(~ $#dump 0)
 if(~ $#tag 0)
 	tag=main
 if(~ $#flags 0)
-	flags=`{date -f 'YYYYMMDD'}
+	flags=`{seconds `{date -t}}
+if not
+	flags=`{seconds -f YYYYMMDD $flags}
 
 if(~ $#flagu 1)
 	flagu=-u
@@ -74,12 +76,12 @@ if(~ $#flagu 1)
 
 # probably gefs
 if(test -e /n/$dump/adm){
-	fn list { ls -Qqr /n/$dump/$tag@day.*/$1  >[2] /dev/null }
-	since=`{date -f '[main@day.]YYYY.MM.DD[_]hh:mm:ss' `{seconds -f 'YYYYMMDD' $flags}}
+	fn list { ls -Qdqr /n/$dump/$tag@*/$1  >[2] /dev/null }
+	since=`{date -uf 'YYYY.MM.DD[_]hh:mm:ss' $flags}
 }
 if not {
-	fn list { ls -Qqr /n/$dump/*/*/$1  >[2] /dev/null }
-	since=`{date -f 'YYYY\/MMDD' `{seconds -f 'YYYYMMDD' $flags}}
+	fn list { ls -Qdqr /n/$dump/*/*/$1  >[2] /dev/null }
+	since=`{date -uf 'YYYY\/MMDD' $flags}
 }
 
 for(arg in $*)
