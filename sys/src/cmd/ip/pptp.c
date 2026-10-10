@@ -503,8 +503,8 @@ tcallout(void)
 		myfatal("Rcallreq wrong length %d != 32", nhgets(rpkt));
 	if(rpkt[16] != 1)
 		myfatal("Rcallreq error %d", rpkt[17]);
-	remid = nhgets(pkt+12);
-	remwin = nhgets(pkt+24);
+	remid = nhgets(rpkt+12);
+	remwin = nhgets(rpkt+24);
 	free(rpkt);
 }
 
