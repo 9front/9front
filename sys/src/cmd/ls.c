@@ -137,22 +137,24 @@ ls(char *s, int multi)
 void
 output(void)
 {
+	char *p;
 	int i;
-	char buf[4096];
-	char *s;
 
 	if(!nflag)
 		qsort(dirbuf, ndir, sizeof dirbuf[0], (int (*)(void*, void*))compar);
 	for(i=0; i<ndir; i++)
 		dowidths(dirbuf[i].d);
 	for(i=0; i<ndir; i++) {
-		if(!pflag && (s = dirbuf[i].prefix)) {
-			if(strcmp(s, "/") ==0)	/* / is a special case */
-				s = "";
-			sprint(buf, "%s/%s", s, dirbuf[i].name);
-			format(dirbuf[i].d, buf);
-		} else
-			format(dirbuf[i].d, dirbuf[i].name);
+		if(!pflag && dirbuf[i].prefix){
+			if(strcmp(dirbuf[i].prefix, "/") == 0)
+				p = smprint("/%s", dirbuf[i].name);
+			else
+				p = smprint("%s/%s", dirbuf[i].prefix, dirbuf[i].name);
+		}else{
+			p = smprint("%s", dirbuf[i].name);
+		}
+		format(dirbuf[i].d, p);
+		free(p);
 	}
 	ndir = 0;
 	Bflush(&bin);
@@ -165,12 +167,12 @@ dowidths(Dir *db)
 	int n;
 
 	if(sflag) {
-		n = sprint(buf, "%llud", (db->length+1023)/1024);
+		n = snprint(buf, sizeof(buf), "%llud", (db->length+1023)/1024);
 		if(n > swidth)
 			swidth = n;
 	}
 	if(qflag) {
-		n = sprint(buf, "%lud", db->qid.vers);
+		n = snprint(buf, sizeof(buf), "%lud", db->qid.vers);
 		if(n > qwidth)
 			qwidth = n;
 	}
@@ -180,16 +182,16 @@ dowidths(Dir *db)
 			mwidth = n;
 	}
 	if(lflag) {
-		n = sprint(buf, "%ud", db->dev);
+		n = snprint(buf, sizeof(buf), "%ud", db->dev);
 		if(n > vwidth)
 			vwidth = n;
-		n = sprint(buf, "%q", db->uid);
+		n = snprint(buf, sizeof(buf), "%q", db->uid);
 		if(n > uwidth)
 			uwidth = n;
-		n = sprint(buf, "%q", db->gid);
+		n = snprint(buf, sizeof(buf), "%q", db->gid);
 		if(n > gwidth)
 			gwidth = n;
-		n = sprint(buf, "%llud", db->length);
+		n = snprint(buf, sizeof(buf), "%llud", db->length);
 		if(n > lwidth)
 			lwidth = n;
 	}
