@@ -13,8 +13,8 @@ enum
 	Qdata,
 };
 
-#define TYPE(x) 	(int)( (c)->qid.path & 0x7 )
-#define SEG(x)	 	( ((c)->qid.path >> 3) & 0x3f )
+#define TYPE(c) 	(int)( (c)->qid.path & 0x7 )
+#define SEG(c)	 	( ((c)->qid.path >> 3) & 0x3f )
 #define PATH(s, t) 	( ((s)<<3) | (t) )
 
 typedef struct Globalseg Globalseg;
