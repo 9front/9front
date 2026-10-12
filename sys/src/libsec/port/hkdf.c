@@ -8,7 +8,7 @@ hkdf_x(uchar *salt, ulong nsalt, uchar *info, ulong ninfo,
 	DigestState* (*x)(uchar*, ulong, uchar*, ulong, uchar*, DigestState*), int xlen)
 {
 	uchar prk[256], tmp[256], cnt;
-	DigestState *ds;
+	DigestState ds;
 
 	assert(xlen <= sizeof(tmp));
 
@@ -17,13 +17,15 @@ hkdf_x(uchar *salt, ulong nsalt, uchar *info, ulong ninfo,
 		salt = tmp;
 		nsalt = xlen;
 	}
+	memset(&ds, 0, sizeof ds);
 	/* note that salt and key are swapped in this case */
-	(*x)(key, nkey, salt, nsalt, prk, nil);
-	ds = nil;
+	(*x)(key, nkey, salt, nsalt, prk, &ds);
+	memset(&ds, 0, sizeof ds);
 	for(cnt=1;; cnt++) {
 		if(ninfo > 0)
-			ds = (*x)(info, ninfo, prk, xlen, nil, ds);
-		(*x)(&cnt, 1, prk, xlen, tmp, ds);
+			(*x)(info, ninfo, prk, xlen, nil, &ds);
+		(*x)(&cnt, 1, prk, xlen, tmp, &ds);
+		memset(&ds, 0, sizeof ds);
 		if(dlen <= xlen){
 			memmove(d, tmp, dlen);
 			break;
@@ -31,6 +33,6 @@ hkdf_x(uchar *salt, ulong nsalt, uchar *info, ulong ninfo,
 		memmove(d, tmp, xlen);
 		dlen -= xlen;
 		d += xlen;
-		ds = (*x)(tmp, xlen, prk, xlen, nil, nil);
+		(*x)(tmp, xlen, prk, xlen, nil, &ds);
 	}
 }
