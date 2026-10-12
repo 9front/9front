@@ -98,12 +98,7 @@ setupuser(AuthInfo *ai)
 		bye(Ecantstart);
 		break;
 	case 0:
-if(!strstr(argv0, "8.out"))
 		execl("/bin/upas/fs", "upas/fs", "-np", nil);
-else{
-ilog("using /sys/src/cmd/upas/fs/8.out");
-execl("/sys/src/cmd/upas/fs/8.out", "upas/fs", "-np", nil);
-}
 		_exits(0);
 		break;
 	default:
