@@ -1561,8 +1561,13 @@ drawmesg(Client *client, void *av, int n)
 							drawuninstall(client, dstid);
 							error(Edrawmem);
 						}
+						if(waserror()){
+							free(refx);
+							nexterror();
+						}
 						refx->client = client;
 						refx->dimage = drawlookup(client, dstid, 1);
+						poperror();
 					}
 					memlsetrefresh(l, reffn, refx);
 				}
@@ -1841,6 +1846,10 @@ drawmesg(Client *client, void *av, int n)
 			pp = malloc(ni*sizeof(Point));
 			if(pp == nil)
 				error(Enomem);
+			if(waserror()){
+				free(pp);
+				nexterror();
+			}
 			doflush = 0;
 			if(dstid==0 || (screenimage && dst->layer && dst->layer->screen->image->data == screenimage->data))
 				doflush = 1;	/* simplify test in loop */
@@ -1886,6 +1895,7 @@ drawmesg(Client *client, void *av, int n)
 				mempoly(dst, pp, ni, e0, e1, j, src, sp, op);
 			else
 				memfillpoly(dst, pp, ni, e0, src, sp, op);
+			poperror();
 			free(pp);
 			m = u-a;
 			continue;
