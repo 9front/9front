@@ -125,6 +125,12 @@ ls(char *s, int multi)
 		dirbuf[ndir].name = s;
 		p = utfrrune(s, '/');
 		if(p){
+			/*
+			 * if we 'ls foo/.', we don't want to
+			 * replace '.' with the name from the
+			 * dir and get 'foo/foo'; intead, use
+			 * the name we used to get here.
+			 */
 			dirbuf[ndir].prefix = s;
 			dirbuf[ndir].name = p+1;
 			*p = 0;
