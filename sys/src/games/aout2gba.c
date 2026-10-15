@@ -64,7 +64,7 @@ io(ulong count)
 	do {
 		n2 = count > sizeof buf ? sizeof buf : count;
 		n = read(infd, buf, n2);
-		if(n <= 0)
+		if(n < 0)
 			sysfatal("read: %r");
 		if(write(outfd, buf, n) != n)
 			sysfatal("write: %r");
