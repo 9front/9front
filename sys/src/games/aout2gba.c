@@ -61,21 +61,23 @@ io(ulong count)
 	static char buf[8192];
 	long n, n2;
 
-	do {
+	while(count != 0){
 		n2 = count > sizeof buf ? sizeof buf : count;
 		n = read(infd, buf, n2);
 		if(n < 0)
 			sysfatal("read: %r");
+		if(n == 0)
+			sysfatal("read: unexpected EOF, need %uld", count);
 		if(write(outfd, buf, n) != n)
 			sysfatal("write: %r");
 		count -= n;
-	} while(count != 0);
+	}
 }
 
 static void
 usage(void)
 {
-	fprint(2, "usage: %s a.out\n", argv0);
+	fprint(2, "usage: %s [-Z rzero] [-o outfile] a.out\n", argv0);
 	exits("usage");
 }
 
@@ -85,16 +87,16 @@ main(int argc, char **argv)
 	Fhdr fhdr;
 	u32int rzero;
 	ulong ep;
-	char *ofile, *iname;
+	char *ofile;
 	char *p, *e;
 	int n;
 	char c;
 
-	ofile = nil;
+	ofile = "t.gba";
 	rzero = 0x08000000;
 	ARGBEGIN {
 	case 'Z': rzero = strtoull(EARGF(usage()), 0, 0); break;
-	case 'o': ofile = strdup(EARGF(usage())); break;
+	case 'o': ofile = EARGF(usage()); break;
 	default: usage();
 	} ARGEND;
 
@@ -107,13 +109,7 @@ main(int argc, char **argv)
 		sysfatal("crackhdr: %r");
 	if(fhdr.type != FARM && fhdr.type != FARMB)
 		sysfatal("not an arm32 a.out");
-	iname = strrchr(argv[0], '/');
-	if(iname != nil)
-		iname++;
-	else
-		iname = argv[0];
-	if(ofile == nil)
-		ofile = smprint("%s.gba", iname);
+
 	outfd = create(ofile, OWRITE|OTRUNC, 0666);
 	if(outfd < 0)
 		sysfatal("create: %r");
@@ -126,10 +122,12 @@ main(int argc, char **argv)
 	cart[0] = ep;
 
 	p = cart + 0xA0;
-	n = strlen(iname);
+	n = strlen(ofile);
+	if((e = strstr(ofile, ".gba")) != nil && e[4] == '\0')
+		n -= 4;
 	if(n > 12)
 		sysfatal("title too long");
-	memcpy(p, iname, n); //no null
+	memcpy(p, ofile, n); //no null
 
 	e = cart + 0xBD;
 	for(c = 0; p < e; p++)
@@ -142,9 +140,8 @@ main(int argc, char **argv)
 	seek(infd, fhdr.txtoff, 0);
 	io(fhdr.txtsz);
 
-	/* allignment */
-	assert(fhdr.datoff >= fhdr.txtoff + fhdr.txtsz);
-	seek(outfd, fhdr.datoff - (fhdr.txtoff + fhdr.txtsz), 1);
+	/* make sure the begining of DATA in the ROM is word aligned */
+	seek(outfd, 4 - (fhdr.txtsz & 3) & 3, 1);
 
 	seek(infd, fhdr.datoff, 0);
 	io(fhdr.datsz);

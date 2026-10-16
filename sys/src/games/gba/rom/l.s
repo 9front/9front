@@ -6,6 +6,38 @@ TEXT _main(SB), 1, $-4
 TEXT _maint(SB), 4, $-4
 	MOVW	$setR12(SB), R1	/* load the SB */
 	MOVW	R1,R12
+
+	/* all of our cart is mapped into ROM.
+	 * We expect that the linker has chosen a suitable
+	 * place in RAM for us to bootstrap DATA to. */
+	MOVW	$etext(SB), R1
+	/* assume the start of DATA in the ROM is word aligned,
+	 * aout2gba does this */
+	ADD	$3, R1
+	MOVW	$-4, R6
+	AND	R6, R1
+	MOVW	$bdata(SB), R4
+	MOVW	$edata(SB), R5
+copy:
+	CMP	R4, R5
+	BEQ	bss
+	MOVW	(R1), R6
+	MOVW	R6, (R4)
+	ADD	$4, R1
+	ADD	$4, R4
+	B	copy
+
+bss:
+	MOVW	$end(SB), R5
+	MOVW	$0, R1
+zero:
+	CMP	R4, R5
+	BEQ	done
+	MOVW	R1, (R4)
+	ADD	$4, R4
+	B	zero
+
+done:
 	B	,main(SB)
 
 TEXT _isr(SB), 1, $-4
