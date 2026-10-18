@@ -28,8 +28,6 @@ fn ysearch {
 	if not
 		echo history: warning: $1 does not exist >[1=2]
 
-	list $1 >[1=2]
-	exit
 	for(new in `$nl{list $1 | awk -v 'since='$since -F '/n/'^$dump/ '{
 		a = index($2, "\.")
 		b = index($2, "/")
