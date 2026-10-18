@@ -284,7 +284,6 @@ struct Vmx {
 	Rendez cmdwait;
 	Lock cmdlock;
 	VmCmd *firstcmd, **lastcmd;
-	VmCmd *postponed;
 	VmMem mem;
 	
 	enum {
@@ -1211,15 +1210,6 @@ killcmds(Vmx *vmx, VmCmd *notme)
 {
 	VmCmd *p, *pn;
 	
-	for(p = vmx->postponed; p != nil; p = pn){
-		pn = p->next;
-		p->next = nil;
-		if(p == notme)
-			continue;
-		kstrcpy(p->errstr, Equit, ERRMAX);
-		cmdrelease(p, CMDFFAIL);
-	}
-	vmx->postponed = nil;
 	ilock(&vmx->cmdlock);
 	for(p = vmx->firstcmd; p != nil; p = pn){
 		pn = p->next;
@@ -1703,39 +1693,11 @@ markcmddone(VmCmd *p, VmCmd ***pp)
 	}
 }
 
-static VmCmd **
-markppcmddone(VmCmd **pp)
-{
-	VmCmd *p;
-	
-	p = *pp;
-	if((p->flags & (CMDFFAIL|CMDFPOSTP)) == CMDFPOSTP)
-		return &p->next;
-	*pp = p->next;
-	p->next = nil;
-	p->flags = p->flags & ~CMDFPOSTP;
-	cmdrelease(p, 0);
-	return pp;
-}
-
-
 static void
 runcmd(Vmx *vmx)
 {
 	VmCmd *p, **pp;
 	
-	for(pp = &vmx->postponed; p = *pp, p != nil; ){
-		if(waserror()){
-			kstrcpy(p->errstr, up->errstr, ERRMAX);
-			p->flags |= CMDFFAIL;
-			pp = markppcmddone(pp);
-			continue;
-		}
-		p->flags &= ~CMDFPOSTP;
-		p->retval = p->cmd(p, p->va);
-		poperror();
-		pp = markppcmddone(pp);
-	}
 	for(;;){
 		ilock(&vmx->cmdlock);
 		p = vmx->firstcmd;
@@ -1801,7 +1763,9 @@ vmxproc(void *vmxp)
 				vmx->onentry &= ~POSTEX;
 			}
 			if((vmx->onentry & POSTIRQ) != 0 && (vmx->onentry & STEP) == 0){
-				if((vmx->onentry & POSTEX) == 0 && (vmcsread(GUEST_RFLAGS) & 1<<9) != 0 && (vmcsread(GUEST_CANINTR) & 3) == 0){
+				if((vmx->onentry & POSTEX) == 0
+				&& (vmcsread(GUEST_RFLAGS) & 1<<9) != 0
+				&& (vmcsread(GUEST_CANINTR) & 3) == 0){
 					vmcswrite(VMENTRY_INTRINFO, vmx->irq.info);
 					vmcswrite(VMENTRY_INTRCODE, vmx->irq.code);
 					vmcswrite(VMENTRY_INTRILEN, vmx->irq.ilen);
