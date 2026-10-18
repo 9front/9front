@@ -529,19 +529,14 @@ kex(int gotkexinit)
 	ds = hashstr(send.r, send.w-send.r, ds);
 
 	dohybrid = 0;
-	if(!gotkexinit){
-	Next0:	switch(recvpkt()){
-		default:
+	if(!gotkexinit)
+		while(recvpkt() != MSG_KEXINIT)
 			dispatch();
-			goto Next0;
-		case MSG_KEXINIT:
-			if(unpack(recv.r+17, recv.w-(recv.r+17), "s", &ske, &nske) < 0)
-				sysfatal("could not unpack kexalgs");
-			snprint(buf, sizeof buf, "%.*s", nske, ske);
-			if(strstr(buf, "mlkem768x25519-sha256") != nil)
-				dohybrid = 1;
-		}
-	}
+	if(unpack(recv.r+17, recv.w-(recv.r+17), "s", &ske, &nske) < 0)
+		sysfatal("could not unpack kexalgs");
+	snprint(buf, sizeof buf, "%.*s", nske, ske);
+	if(strstr(buf, "mlkem768x25519-sha256") != nil)
+		dohybrid = 1;
 	ds = hashstr(recv.r, recv.w-recv.r, ds);
 
 	if(debug){
