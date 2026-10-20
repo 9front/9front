@@ -167,7 +167,7 @@ wifitx(Wifi *wifi, Wnode *wn, Block *b)
 	seq <<= 4;
 
 	w = (Wifipkt*)b->rp;
-	w->dur[0] = 0;
+	w->dur[0] = 1;
 	w->dur[1] = 0;
 	w->seq[0] = seq;
 	w->seq[1] = seq>>8;
