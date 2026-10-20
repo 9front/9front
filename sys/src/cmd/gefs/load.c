@@ -86,6 +86,7 @@ loadfs(char *dev)
 	if((d = dirfstat(fs->fd)) == nil)
 		sysfatal("stat %s: %r", dev);
 	eb = d->length;
+	free(d);
 	eb = eb - (eb%Blksz) - Blksz;
 	bhd = (Bptr){0, -1, -1};
 	btl = (Bptr){eb, -1, -1};
