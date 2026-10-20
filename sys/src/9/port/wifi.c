@@ -262,13 +262,13 @@ putrates(uchar *p, uchar *rates, ulong valid, ulong basic)
 		/* supported rates */
 		*p++ = 1;
 		*p++ = n;
-		for(i = j = 0; j < n; i++){
+		for(i = j = 0; i < 32 && j < n; i++){
 			if(basic & (1UL<<i)){
 				*p++ = rates[i] | 0x80;
 				j++;
 			}
 		}
-		for(i = 0; j < n; i++){
+		for(i = 0; i < 32 && j < n; i++){
 			if(valid & (1UL<<i)){
 				*p++ = rates[i] & 0x7f;
 				j++;
@@ -285,13 +285,13 @@ putrates(uchar *p, uchar *rates, ulong valid, ulong basic)
 		/* extended supported rates */
 		*p++ = 50;
 		*p++ = n;
-		for(i = j = 0; j < n; i++){
+		for(i = j = 0; i < 32 && j < n; i++){
 			if(basic & (1UL<<i)){
 				*p++ = rates[i] | 0x80;
 				j++;
 			}
 		}
-		for(i = 0; j < n; i++){
+		for(i = 0; i < 32 && j < n; i++){
 			if(valid & (1UL<<i)){
 				*p++ = rates[i] & 0x7f;
 				j++;
