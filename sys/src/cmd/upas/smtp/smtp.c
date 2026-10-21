@@ -338,7 +338,8 @@ error:
 		for(i = 0; i < rcvrs - 1; i++)
 			p = seprint(p, e, "%s,", argv[i]);
 		seprint(p, e, "%s ", argv[i]);
-	}
+	}else
+		allrx[0] = 0;
 	syslog(0, "smtp.fail", "%s %s at %s %D %s failed: %s",
 		deliverytype(), allrx, addr, &mx, phase, s_to_c(reply));
 	fprint(2, "%τ connect to %s %D %s:\n%s\n", thedate(&tm), addr, &mx, phase, s_to_c(reply));
