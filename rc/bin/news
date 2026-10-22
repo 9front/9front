@@ -4,16 +4,18 @@ nl='
 '
 end=:
 
-flagfmt='a:printall, n:shownote'; args='[item...]'
+flagfmt='a:printall, n:shownote, t:tmfile tmfile'; args='[item...]'
 eval `''{aux/getflags $*} || exec aux/usage
 
 # default behavior
 body=1
-if(test -f $home/lib/newstime)
-	stale=`{walk -em $home/lib/newstime}
+if(~ $#tmfile 0)
+	tmfile=$home/lib/newstime
+if(test -f $tmfile)
+	stale=`{walk -em $tmfile}
 if not
 	stale = 0
-fn update { touch $home/lib/newstime}
+fn update { touch $tmfile}
 if(~ $#printall 1) {
 	fn update { status = () }
 	stale = 0

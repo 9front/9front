@@ -10,6 +10,10 @@ news \- print news items
 .B -n
 ]
 [
+.B -t
+.I tmfile
+]
+[
 .I item ...
 ]
 .SH DESCRIPTION
@@ -30,6 +34,13 @@ The recorded time is not changed.
 Report the names of the current items without
 printing their contents, and without changing
 the recorded time.
+.TP
+.BI -t " tmfile"
+Use the file
+.I tmfile
+to decide which news items should be printed,
+in place of the default
+.IR $home/lib/newstime .
 .PP
 Other arguments
 select particular news items.
