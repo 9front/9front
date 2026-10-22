@@ -9,7 +9,13 @@ if(! grep -s git.9front.org/plan9front/9front /.git/config){
 	>[1=2] echo 'repo does not point at 9front'
 	exit wrongrepo
 }
-if(! ~ `{git/branch} heads/front)
-	>[1=2] echo sysupdate: must be on "front" to pull
-if not
-	git/pull -u gits://git.9front.org/plan9front/9front
+if(! ~ `{git/branch} heads/front){
+	>[1=2] echo sysupdate: must be on "front" to sysupdate
+	exit wrongbranch
+}
+
+git/pull -u gits://git.9front.org/plan9front/9front || exit $status
+if(test -d /sys/lib/news){
+	bind /sys/lib/news /lib/news
+	news -t /dist/9front/.git/newstime
+}
