@@ -1,0 +1,45 @@
+#!/bin/rc
+
+nl='
+'
+end=:
+
+flagfmt='a:printall, n:shownote'; args='[item...]'
+eval `''{aux/getflags $*} || exec aux/usage
+
+# default behavior
+body=1
+if(test -f $home/lib/newstime)
+	stale=`{walk -em $home/lib/newstime}
+if not
+	stale = 0
+fn update { touch $home/lib/newstime}
+if(~ $#printall 1) {
+	fn update { status = () }
+	stale = 0
+}
+if (~ $#shownote 1){
+	fn update { status = () }
+	body=0
+}
+
+cd /lib/news
+walk -femMp | sort -n | awk '
+	BEGIN{
+		body = ENVIRON["body"]
+		if(body) end=":"
+	}
+	$1 >= '$stale'{
+		"date -f ''[\\[]YYYY-MM-DD hh:mm:ss[\\]]'' "$1 | getline mdate
+		muid = "("$2")"
+		nfile = "/lib/news/"$3
+		print mdate" "$3" "muid end
+		if(body){
+			while(getline < nfile)
+				print "\t"$0
+			close(nfile)
+		}
+	}
+'
+update
+
