@@ -572,7 +572,7 @@ Cell *intest(Node **a, int)	/* a[0] is index (list), a[1] is symtab */
 
 Cell *matchop(Node **a, int n)	/* ~ and match() */
 {
-	Cell *x, *y;
+	Cell *x, *y, *z;
 	char *s, *t;
 	int i, start, len;
 	void *p;
@@ -593,8 +593,7 @@ Cell *matchop(Node **a, int n)	/* ~ and match() */
 	else
 		i = match(p, s, s);
 	releasere(p);
-	if (istemp(x))
-		tfree(x);
+	z = x;
 	if (n == MATCHFCN) {
 		start = 0;
 		len = patlen;
@@ -607,11 +606,13 @@ Cell *matchop(Node **a, int n)	/* ~ and match() */
 		x = gettemp();
 		x->tval = NUM;
 		x->fval = start;
-		return x;
 	} else if ((n == MATCH && i == 1) || (n == NOTMATCH && i == 0))
-		return(True);
+		x = True;
 	else
-		return(False);
+		x = False;
+	if (istemp(z))
+		tfree(z);
+	return x;
 }
 
 

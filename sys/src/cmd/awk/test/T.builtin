@@ -65,8 +65,20 @@ grep 'too many arg' foo >/dev/null || echo 'BAD: T.builtin: too many args not ca
 echo 'a
 a b
 a b c' >foo0
+$awk '{ n = split($0, x); print length(x) }' <foo0 >foo1
 echo '1
 2
-3' >foo1
-$awk '{ n = split($0, x); print length(x) }' <foo0 >foo2
+3' >foo2
 diff foo1 foo2 || echo 'BAD: T.builtin: length array' >[1=2]
+
+$awk 'BEGIN{ s = substr("hello", 2); match(s, /ll/); print RSTART, RLENGTH }' >foo1
+echo '2 2' >foo2
+diff foo1 foo2 || echo 'BAD: T.builtin: match' >[1=2]
+
+$awk 'BEGIN{ match(substr("hello", 2), /ll/); print RSTART, RLENGTH }' >foo1
+echo '2 2' >foo2
+diff foo1 foo2 || echo 'BAD: T.builtin: match with temp string' >[1=2]
+
+$awk 'BEGIN{ match(substr("he⑨llo", 2), /ll/); print RSTART, RLENGTH }' >foo1
+echo '3 2' >foo2
+diff foo1 foo2 || echo 'BAD: T.builtin: match with wide temp string' >[1=2]
