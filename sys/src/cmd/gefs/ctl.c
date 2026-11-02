@@ -209,20 +209,6 @@ takesnap(char *old, char *new, int flag, Fmsg *m)
 }
 
 static void
-clrconf(char *snap, char *k, Fmsg *m)
-{
-	Amsg *a;
-
-	a = emalloc(sizeof(Amsg), 1);
-	a->op = AOclrcfg;
-	a->m = m;
-	if(snap != nil)
-		strecpy(a->snap, a->snap+sizeof(a->snap), snap);
-	strecpy(a->key, a->key+sizeof(a->key), k);
-	chsend(fs->admchan, a);
-}
-
-static void
 refreshusers(void)
 {
 	Mount *mnt;
