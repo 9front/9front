@@ -1836,8 +1836,6 @@ drawmesg(Client *client, void *av, int n)
 			printmesg(fmt="LslllLPP", a, 0);
 			m = drawunpack(a, n, "_lsllllP", &dstid, &ni, &e0, &e1, &c, &ci, &sp);
 			dst = drawimage(client, dstid);
-			if(ni < 0)
-				error("negative count in polygon");
 			j = 0;
 			if(*a == 'p' && (j = c) < 0)
 				error("negative polygon line width");
@@ -1931,6 +1929,12 @@ drawmesg(Client *client, void *av, int n)
 			printmesg(fmt="LLLPRPsLP", a, 0);
 			m = drawunpack(a, n, "_lllPRPslP", &dstid, &ci, &c, &p, &r, &sp, &ni, &j, &q);
 			}
+			if(ni == 0)
+				continue;
+			u = a+m;
+			m += ni*2;
+			if(n < m)
+				error(Eshortdraw);
 			dst = drawimage(client, dstid);
 			src = drawimage(client, ci);
 			font = drawlookup(client, c, 1);
@@ -1938,12 +1942,12 @@ drawmesg(Client *client, void *av, int n)
 				error(Enodrawimage);
 			if(font->nfchar == 0)
 				error(Enotfont);
-			u = a+m;
-			m += ni*2;
-			if(n < m)
-				error(Eshortdraw);
 			clipr = dst->clipr;
 			dst->clipr = r;
+			if(waserror()){
+				dst->clipr = clipr;
+				nexterror();
+			}
 			op = drawclientop(client);
 			bg = dst;
 			if(*a == 'x'){
@@ -1956,10 +1960,8 @@ drawmesg(Client *client, void *av, int n)
 				j = ni;
 				while(--j >= 0){
 					ci = BGSHORT(u);
-					if(ci<0 || ci>=font->nfchar){
-						dst->clipr = clipr;
+					if(ci<0 || ci>=font->nfchar)
 						error(Eindex);
-					}
 					r.max.x += font->fchar[ci].width;
 					u += 2;
 				}
@@ -1969,14 +1971,13 @@ drawmesg(Client *client, void *av, int n)
 			q = p;
 			while(--ni >= 0){
 				ci = BGSHORT(u);
-				if(ci<0 || ci>=font->nfchar){
-					dst->clipr = clipr;
+				if(ci<0 || ci>=font->nfchar)
 					error(Eindex);
-				}
 				q = drawchar(dst, bg, q, src, &sp, font, ci, op);
 				u += 2;
 			}
 			dst->clipr = clipr;
+			poperror();
 			p.y -= font->ascent;
 			dstflush(dstid, dst, Rect(p.x, p.y, q.x, p.y+Dy(font->image->r)));
 			continue;
@@ -2000,8 +2001,6 @@ drawmesg(Client *client, void *av, int n)
 		case 't':
 			printmesg(fmt="bsL", a, 0);
 			m = drawunpack(a, n, "_bs", &c, &nw);
-			if(nw < 0)
-				error(Ebadarg);
 			if(nw == 0)
 				continue;
 			u = a+m;

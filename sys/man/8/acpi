@@ -39,7 +39,7 @@ will turn off the power immediately.
 The directory contains the following files.
 .TP
 .B battery
-Contains one line for each battery in the system.  Each line lists 12
+Contains one line for each battery in the system.  Each line lists 14
 fields: the percent charge remaining, power unit used (mW or mA),
 remaining capacity, last full charge capacity, design capacity,
 warning and low capacity values,
@@ -47,12 +47,13 @@ warning and low capacity values,
 separator, present voltage, design voltage, approximate time of charge
 left as
 .BR hh:mm:ss ,
-and the status (a string, one of
+the status (a string, one of
 .BR unknown ,
 .BR critical ,
 .BR discharging
 or
-.BR charging ).
+.BR charging ) 
+and the charge start and stop limits in percent.
 .TP
 .B cputemp
 Each line provides a current temperature reading of a specific CPU.
@@ -63,12 +64,21 @@ Writing
 to
 .B pmctl
 will turn off the power.
+Writing 
+.I charge bat min max
+to
+.B pmctl
+will set the upper and lower limit for charging a battery. bat is either
+.B "all"
+for all batteries or starts with 0.
 .SH SOURCE
 .B /sys/src/cmd/aux/acpi.c
 .SH SEE ALSO
 .IR reform (1)
 .SH BUGS
 ACPI itself.
+.PP
+There are too many ways for controlling battery charging. For now it only works on Thinkpads.
 .SH HISTORY
 .I Acpi
 first appeared in 9front (October, 2016).

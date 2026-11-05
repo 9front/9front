@@ -97,11 +97,13 @@ static u32int*
 getrregs(int machno)
 {
 	u32int *rregs = (u32int*)(VIRTIO + 0xa0000);
+	u64int typer;
 
 	for(;;){
-		if((rregs[GICR_TYPER] & 0xFFFF00) == (machno << 8))
+		typer = *(u64int*)&rregs[GICR_TYPER];
+		if((typer & 0xFFFF00) == (machno << 8))
 			return rregs;
-		if(rregs[GICR_TYPER] & (1<<4))
+		if(typer & (1<<4))
 			break;
 		rregs += (0x20000/4);
 	}

@@ -1,6 +1,6 @@
 .TH ZUKE 1
 .SH NAME
-mkplist, zuke \- graphical music player
+mkplist, readtags, zuke \- graphical music player
 .SH SYNOPSIS
 .B audio/mkplist
 [

@@ -26,6 +26,8 @@ struct Bat {
 	int capacitywarn;
 	int capacitylow;
 	int voltage;
+	int chargestart;
+	int chargestop;
 };
 
 struct Tbl {
@@ -86,6 +88,7 @@ static int ec, mem, iofd[5], nbats, ntherms;
 static char *uid = "pm", *units[] = {"mW", "mA"};
 static Therm therms[16];
 static Bat bats[4];
+static void *bccs, *bcss;
 static FACP facp;
 
 static int
@@ -136,6 +139,9 @@ enumbat(void *dot, void *)
 	b->voltage = amlint(rr[4]);
 	b->capacitywarn = amlint(rr[5]);
 	b->capacitylow = amlint(rr[6]);
+	b->chargestart = 0;
+	b->chargestop = 100;
+
 	b->bst = amlwalk(dot, "^_BST");
 	if(b->bst != nil){
 		amltake(b->bst);
@@ -170,6 +176,71 @@ enumtmp(void *dot, void *)
 		therms[ntherms].cpus = cpus;
 		therms[ntherms].tmp = dot;
 		ntherms++;
+	}
+
+	return 1;
+}
+
+static int
+enumtp(void *dot, void *)
+{
+	void *p, *r;
+	char *id;
+	int i;
+	uvlong v;
+	static char *compat[] = { "IBM0068", "LEN0068", "LEN0268" };
+
+	if(ec < 0)
+		return 1;
+
+	p = amlval(amlwalk(dot, "^_HID"));
+	id = amleisaid(p);
+
+	if(id == nil)
+		return 1;
+
+	for(i = 0; i < nelem(compat); i++)
+		if(strcmp(id, compat[i]) == 0)
+			break;
+
+	if(i >= nelem(compat))
+		return 1;
+
+	if((p = amlwalk(dot, "^MHKV")) == nil)
+		return 1;
+	if(amleval(p, "", &r) < 0)
+		return 1;
+
+	switch((uint)amlint(r) >> 8){
+	case 1:
+	case 2:
+		break;
+	default:
+		return 1;
+	}
+
+	if((p = amlwalk(dot, "^BCTG")) != nil){
+		for(i = 0; i < nbats; i++){
+			if(amleval(p, "i", i+1, &r) < 0)
+				continue;
+			v = amlint(r);
+			if((v & 0x80000000) == 0 && (v & 0x100) != 0)
+				bats[i].chargestart = v & 0xff;
+		}
+		if((bccs = amlwalk(dot, "^BCCS")) != nil)
+			amltake(bccs);
+	}
+
+	if((p = amlwalk(dot, "^BCSG")) != nil){
+		for(i = 0; i < nbats; i++){
+			if(amleval(p, "i", i+1, &r) < 0)
+				continue;
+			v = amlint(r);
+			if((v & 0x80000000) == 0 && (v & 0x100) != 0)
+				bats[i].chargestop = (v&0xff)!=0?(v&0xff):100;
+		}
+		if((bcss = amlwalk(dot, "^BCSS")) != nil)
+			amltake(bcss);
 	}
 
 	return 1;
@@ -228,14 +299,63 @@ batteryread(char *s, char *e)
 		ss -= 3600 * (ss / 3600);
 		mm = ss / 60;
 		ss -= 60 * (ss / 60);
-		s = seprint(s, e, "%d %s %d %d %d %d %d %s %d %d %02d:%02d:%02d %s\n",
+		s = seprint(s, e, "%d %s %d %d %d %d %d %s %d %d %02d:%02d:%02d %s %d %d\n",
 			x,
 			bats[n].unit, st.capacity, b->fullcharge, b->capacity, b->capacitywarn, b->capacitylow,
 			"mV", st.voltage, b->voltage,
 			hh, mm, ss,
-			state
+			state, b->chargestart, b->chargestop
 		);
 	}
+}
+
+static int
+tpclampcharge(char *bat, int start, int stop)
+{
+	int i, s, lo, hi;
+	void *r;
+	Bat *b;
+
+	if(bcss == nil || bccs == nil){
+		werrstr("charge control not supported");
+		return -1;
+	}
+	if(strcmp(bat, "all") == 0){
+		lo = 0;
+		hi = nbats;
+	}else{
+		lo = atoi(bat);
+		hi = lo + 1;
+	}
+	if(lo < 0 || lo >= nbats){
+		werrstr("battery out of range");
+		return -1;
+	}
+	if(stop < 1 || stop > 100
+	|| start < 0 || start > 99
+	|| stop < start){
+		werrstr("out of range");
+		return -1;
+	}
+	for(i = lo; i < hi; i++){
+		b = &bats[i];
+		if(b->chargestart != start){
+			if(amleval(bccs, "i", ((i + 1) << 8) | start, &r) < 0 || (amlint(r) & 0x80000000) != 0){
+				werrstr("charge start");
+				return -1;
+			}
+			b->chargestart = start;
+		}
+		if(b->chargestop != stop){
+			s = (stop < 100) ? stop : 0;
+			if(amleval(bcss, "i", ((i + 1) << 8) | s, &r) < 0 || (amlint(r) & 0x80000000) != 0){
+				werrstr("charge stop");
+				return -1;
+			}
+			b->chargestop = stop;
+		}
+	}
+	return 0;
 }
 
 static void
@@ -406,14 +526,22 @@ fswrite(Req *r)
 	nf = tokenize(msg, f, nelem(f));
 	aux = r->fid->file->aux;
 	if(aux == (void*)Pmctl){
-		if(nf == 2 && strcmp(f[0], "power") == 0 && strcmp(f[1], "off") == 0)
-			poweroff(); /* should not go any further here */
-		else
-			werrstr("invalid ctl message");
-		responderror(r);
-		return;
+		if(nf == 2 && strcmp(f[0], "power") == 0 && strcmp(f[1], "off") == 0){
+			if(poweroff() < 0){
+				 /* should not go any further here */
+				responderror(r);
+				return;
+			}
+		}else if(nf == 4 && strcmp(f[0], "charge") == 0){
+			if(tpclampcharge(f[1], atoi(f[2]), atoi(f[3])) < 0){
+				responderror(r);
+				return;
+			}
+		}else{
+			respond(r, "invalid ctl message");
+			return;
+		}
 	}
-
 	r->ofcall.count = r->ifcall.count;
 	respond(r, nil);
 }
@@ -568,6 +696,7 @@ threadmain(int argc, char **argv)
 	amlenum(amlroot, "_HID", enumec, nil);
 	amlenum(amlroot, "_BIF", enumbat, nil);
 	amlenum(amlroot, "_PSL", enumtmp, nil);
+	amlenum(amlroot, "_HID", enumtp, nil);
 
 	fs.tree = alloctree(uid, uid, DMDIR|0555, nil);
 	if(nbats > 0)

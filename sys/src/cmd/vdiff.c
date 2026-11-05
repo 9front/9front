@@ -177,7 +177,7 @@ renderline(Image *b, Rectangle r, int pad, int lt, char *ls)
 				trlr.min = p0;
 				hastrl = 1;
 			}
-		}else if((p.x+Hpadding+spacew+ellipsisw>=b->r.max.x)){
+		}else if(p.x+Hpadding+spacew+ellipsisw >= b->r.max.x-Hpadding){
 			string(b, p, cols[lt].fg, ZP, font, ellipsis);
 			break;
 		}else{
