@@ -254,6 +254,9 @@ segmentcreate(Chan *c, char *name, int omode, ulong perm)
 	if(TYPE(c) != Qtopdir)
 		error(Eperm);
 
+	if(strcmp("none", up->user) == 0)
+		error(Eperm);
+
 	if(strlen(name) >= sizeof(up->genbuf))
 		error(Etoolong);
 
