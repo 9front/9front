@@ -220,20 +220,26 @@ yylex(void)
 			return 0;
 		if(debug)
 			fprint(2, "%c", c);
-		yylval.c = c = c & 0x7F;
+		if(c & 0x80){		/* commands require 7-bit ASCII text */
+			reply("500 5.5.2 8-bit byte in command\r\n");
+			exits("8-bit in command");
+		}
+		yylval.c = c;
 		if(c == '\n'){
-			return CRLF;
+			reply("500 5.5.2 bare LF not allowed\r\n");
+			exits("bare <LF> in command");
 		}
 		if(c == '\r'){
 			c = Bgetc(yyfp);
-			if(c != '\n'){
-				Bungetc(yyfp);
-				c = '\r';
-			} else {
+			if(c == '\n'){
 				if(debug)
 					fprint(2, "%c", c);
 				return CRLF;
 			}
+			if(c != -1)
+				Bungetc(yyfp);
+			reply("500 5.5.2 bare CR not allowed\r\n");
+			exits("bare <CR> in command");
 		}
 		if(isalpha(c))
 			return tolower(c);

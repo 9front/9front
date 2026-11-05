@@ -21,6 +21,7 @@ int	trusted;
 int	logged;
 int	rejectcount;
 int	hardreject;
+int	barenl;  /* non-zero if line terminator isn't <CRLF> (RFC 5321 2.3.8) */
 
 Biobuf	bin;
 
@@ -735,7 +736,7 @@ verify(String *path)
 }
 
 /*
- *  get a line that ends in crnl or cr, turn terminating crnl into a nl
+ *  get a line that ends in crnl, turn terminating crnl into a nl
  *
  *  return 0 on EOF
  */
@@ -766,10 +767,13 @@ getcrnl(String *s, Biobuf *fp)
 				s_putc(s, '\n');
 				goto out;
 			}
-			Bungetc(fp);
+			if(c != -1)
+				Bungetc(fp);
+			barenl = 1;
 			s_putc(s, '\r');
 			break;
 		case '\n':
+			barenl = 1;
 			s_putc(s, c);
 			goto out;
 		default:
@@ -1139,6 +1143,7 @@ pipemsg(int *byteswritten)
 	pipesig(&status);	/* set status to 1 on write to closed pipe */
 	sawdot = 0;
 	status = 0;
+	barenl = 0;  /* clear <CRLF> message termination violation indicator */
 	werrstr("");
 	piperror = nil;
 
@@ -1171,8 +1176,15 @@ pipemsg(int *byteswritten)
 
 		cp = s_to_c(line);
 		if(chkhdr(cp, s_len(line)) == -1){
-			status = 1;
 			piperror = "mail refused: illegal header chars";
+			status = 1;
+			break;
+		}
+
+		/* refuse bare <CR> or <LF> in header */
+		if(barenl){
+			piperror = "mail refused: illegal header line termination sequence";
+			status = 1;
 			break;
 		}
 
@@ -1208,6 +1220,13 @@ pipemsg(int *byteswritten)
 		}
 		if(n <= 0)
 			break;
+
+		/* refuse bare <CR> or <LF> in body */
+		if(barenl){
+			piperror = "mail refused: illegal body line termination sequence";
+			status = 1;
+			break;
+		}
 
 		/* a line with only a '.' ends the message */
 		cp = s_to_c(line);
