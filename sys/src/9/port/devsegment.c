@@ -217,6 +217,10 @@ segmentremove(Chan *c)
 	lock(&globalseglock);
 	x = SEG(c);
 	g = globalseg[x];
+	if(g != nil && strcmp(g->uid, up->user) && !iseve()){
+		unlock(&globalseglock);
+		error(Eperm);
+	}
 	globalseg[x] = nil;
 	unlock(&globalseglock);
 	if(g != nil)
