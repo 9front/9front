@@ -37,6 +37,7 @@ int	sflag;
 int	authenticate;
 int	authenticated;
 int	passwordinclear;
+int	tlsactive;
 char	*tlscert;
 
 uchar	rsysip[IPaddrlen];
@@ -450,7 +451,7 @@ hello(String *himp, int extended)
 	reply("250%c%s you are %s\r\n", extended ? '-' : ' ', dom, him);
 	if (extended) {
 		reply("250-ENHANCEDSTATUSCODES\r\n");	/* RFCs 2034 and 3463 */
-		if(tlscert != nil)
+		if(tlscert != nil && !tlsactive)
 			reply("250-STARTTLS\r\n");
 		if (passwordinclear)
 			reply("250 AUTH CRAM-MD5 PLAIN LOGIN\r\n");
@@ -1575,6 +1576,10 @@ starttls(void)
 		reply("500 5.5.1 illegal command or bad syntax\r\n");
 		return;
 	}
+	if (tlsactive) {		/* no nested handshake (RFC 3207 4.2) */
+		reply("503 5.5.1 TLS already active\r\n");
+		return;
+	}
 	chain = readcertchain(tlscert);
 	if (chain == nil) {
 		syslog(0, "smtpd", "TLS reading certificate chain from '%s' failed", tlscert);
@@ -1605,7 +1610,15 @@ starttls(void)
 	free(conn.cert);	/* client cert */
 	free(conn.sessionID);
 	passwordinclear = 1;
+	tlsactive = 1;
 	syslog(0, "smtpd", "started TLS with %s", him);
+	/* RFC 3207 4.2: discard all state learned before the handshake */
+	listfree(&senders);
+	listfree(&rcvers);
+	filterstate = ACCEPT;
+	logged = 0;
+	authenticated = 0;
+	him = "";		/* force client to EHLO again */
 }
 
 int
