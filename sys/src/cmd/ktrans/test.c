@@ -46,6 +46,8 @@ struct {
 
 	"gpffhdnjfemsms wlruqwksw\bgdk, wha tlstjsgks rj djqtdj?",
 	L"헬로월드는 지겹잖아, 좀 신선한 거 없어?",
+	"P O hk rt rt\b rtk rkrt rkrtk rkfrt rkfrk RK GKS rMF rk,\b",
+	L"ㅖ ㅒ ㅘ ㄱㅅ ㄱ ㄱ사 갃 각사 갉ㅅ 갈가 까 한 글 가",
 
 };
 

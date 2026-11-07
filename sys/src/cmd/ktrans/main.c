@@ -205,7 +205,6 @@ int deflang;
 
 Hmap *natural;
 Hmap *hira, *kata, *jisho;
-Hmap *hangul;
 Hmap *judou, *zidian;
 Hmap *telex;
 
@@ -213,7 +212,7 @@ Hmap **langtab[] = {
 	[LangEN]  &natural,
 	[LangJP]  &hira,
 	[LangJPK] &kata,
-	[LangKO]  &hangul,
+	[LangKO]  &natural,
 	[LangZH]  &judou,
 	[LangVN]  &telex,
 };
@@ -670,48 +669,105 @@ telexlkup(Str *line)
 	}
 }
 
+static char chotab[] = "rRseEfaqQtTdwWczxvg";
+
+static char *jungtab[] = {
+	"k", "o", "i", "O", "j", "p", "u", "P", "h", "hk", "ho",
+	"hl", "y", "n", "nj", "np", "nl", "b", "m", "ml", "l",
+};
+
+static char *jongtab[] = {
+	"", "r", "R", "rt", "s", "sw", "sg", "e", "f", "fr", "fa", "fq",
+	"ft", "fx", "fv", "fg", "a", "q", "qt", "t", "T", "d", "w", "c",
+	"z", "x", "v", "g",
+};
+
+static char *jamotab[] = {
+	"r", "R", "", "s", "", "", "e", "E", "f", "",
+	"", "", "", "", "", "", "a", "q", "Q", "",
+	"t", "T", "d", "w", "W", "c", "z", "x", "v", "g",
+};
+
+static Rune
+hangullkup(char *s)
+{
+	char *p;
+	int i, j, l, cho;
+
+	if(s[0] == '\0')
+		return 0;
+	for(i = 0; i < nelem(jamotab); i++)
+		if(strcmp(s, jamotab[i]) == 0)
+			return 0x3131 + i;
+	for(i = 0; i < nelem(jungtab); i++)
+		if(strcmp(s, jungtab[i]) == 0)
+			return 0x314f + i;
+
+	if((p = strchr(chotab, s[0])) == nil)
+		return 0;
+	cho = p - chotab;
+	s++;
+	for(i = 0; i < nelem(jungtab); i++){
+		l = strlen(jungtab[i]);
+		if(strncmp(s, jungtab[i], l) != 0)
+			continue;
+		for(j = 0; j < nelem(jongtab); j++)
+			if(strcmp(s + l, jongtab[j]) == 0)
+				return 0xac00 + (cho*21 + i)*28 + j;
+	}
+	return 0;
+}
+
+static void
+emitrune(Rune r)
+{
+	char s[UTFmax+1];
+
+	s[runetochar(s, &r)] = '\0';
+	emitutf(output, s, 1);
+}
+
 static void
 dubeolbksp(Str *line)
 {
-	Map lkup;
+	Rune r;
 
 	popstr(line);
 	/* lookup and emit remaining Jamo to output */
-	if(hmapget(hangul, line->b, &lkup) < 0)
+	if((r = hangullkup(line->b)) == 0)
 		return;
-	emitutf(output, lkup.kana, 0);
+	emitrune(r);
 }
 
 static void
 dubeollkup(Str *line)
 {
-	Map lkup;
+	Rune r, r2;
 	char buf[UTFmax*2];
 	char *e2, *e1;
 
 	e1 = peekstr(line->p, line->b);
-	if(e1 != line->b){
-		e2 = peekstr(e1, line->b);
-		pushutf(buf, buf+sizeof buf, e2, utflen(e2));
-	}else
-		pushutf(buf, buf+sizeof buf, e1, utflen(e1));
+	if((r = hangullkup(line->b)) == 0){
+		if(e1 != line->b){
+			e2 = peekstr(e1, line->b);
+			pushutf(buf, buf+sizeof buf, e2, utflen(e2));
+		}else
+			pushutf(buf, buf+sizeof buf, e1, utflen(e1));
 
-	if(hmapget(hangul, line->b, &lkup) < 0){
-		if(hmapget(hangul, buf, &lkup) < 0){
+		if((r2 = hangullkup(buf)) == 0){
+			pushutf(buf, buf+sizeof buf, e1, 1);
 			resetstr(line, nil);
-			line->p = pushutf(line->p, strend(line), e1, utflen(e1));
-			if(hmapget(hangul, line->b, &lkup) < 0)
+			if((r = hangullkup(buf)) == 0)
 				return;
+			line->p = pushutf(line->p, strend(line), buf, 1);
 		}else{
 			/* treat Jongseong as Choseong when it matches with new Jamo */
 			popstr(line);
 			popstr(line);
-			hmapget(hangul, line->b, &lkup);
+			r = hangullkup(line->b);
 			emitutf(output, backspace, 2);
-			emitutf(output, lkup.kana, 0);
-
-			hmapget(hangul, buf, &lkup);
-			emitutf(output, lkup.kana, 0);
+			emitrune(r);
+			emitrune(r2);
 			line->p = pushutf(line->b, strend(line), buf, utflen(buf));
 			return;
 		}
@@ -720,7 +776,7 @@ dubeollkup(Str *line)
 		emitutf(output, backspace, 1);
 	else
 		emitutf(output, backspace, 2);
-	emitutf(output, lkup.kana, 0);
+	emitrune(r);
 }
 
 static void
@@ -793,6 +849,10 @@ keythread(void*)
 			case LangJP:
 				emitutf(dictch, p, 1);
 				if(isupper(*p))
+					*p = tolower(*p);
+				break;
+			case LangKO:
+				if(isupper(*p) && strchr("QWERTOP", *p) == nil)
 					*p = tolower(*p);
 				break;
 			}
@@ -946,7 +1006,6 @@ struct {
 	"judou", &judou,
 	"hira", &hira,
 	"kata", &kata,
-	"hangul", &hangul,
 	"telex", &telex,
 };
 struct {
