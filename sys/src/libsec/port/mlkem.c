@@ -1087,6 +1087,8 @@ mlk_pack_ciphertext(int level, uchar *r, const mlk_polyvec *b, mlk_poly *v)
 			mlk_poly_compress_d11(r + i * MLKEM_POLYCOMPRESSEDBYTES_D11, &b->vec[i]);
 		mlk_poly_compress_d5(r + level*MLKEM_POLYCOMPRESSEDBYTES_D11, v);
 		break;
+	default:
+		abort();
 	}
 }
 
@@ -1115,6 +1117,8 @@ mlk_unpack_ciphertext(int level, mlk_polyvec *b, mlk_poly *v, const uchar *c)
 			mlk_poly_decompress_d11(&b->vec[i], c + i * MLKEM_POLYCOMPRESSEDBYTES_D11);
 		mlk_poly_decompress_d5(v, c + level*MLKEM_POLYCOMPRESSEDBYTES_D11);
 		break;
+	default:
+		abort();
 	}
 }
 
@@ -1422,7 +1426,6 @@ mlk_kem_check_sk(int level, const uchar *sk)
 int
 mlk_kem_keypair_x(int level, uchar *pk, uchar *sk, uchar *coins)
 {
-	int ret;
 	MLKEMstate *state;
 
 	state = malloc(sizeof *state);
@@ -1537,7 +1540,7 @@ cleanup:
 	memset(tmp, 0, sizeof tmp);
 	memset(kr, 0, sizeof kr);
 	memset(buf, 0, sizeof buf);
-	memset(state, 0, sizeof state);
+	memset(state, 0, sizeof *state);
 	free(state);
 
 	return ret;
