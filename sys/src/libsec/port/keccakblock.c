@@ -7,26 +7,26 @@
 
 #define GET8(p) (u64int)(p)[0] | (u64int)(p)[1]<<8 | (u64int)(p)[2]<<16 | (u64int)(p)[3]<<24 | (u64int)(p)[4]<<32 | (u64int)(p)[5]<<40 | (u64int)(p)[6]<<48 | (u64int)(p)[7]<<56
 
-#define MLK_KECCAK_ROL(x, y) \
+#define ROL(x, y) \
 	(((x) << (y)) | ((x) >> ((sizeof(u64int)*8) - (y))))
 
 enum{
-	MLK_KECCAK_NROUNDS=24,
+	NROUNDS=24,
 };
 
-static u64int mlk_KeccakF_RoundConstants[MLK_KECCAK_NROUNDS] = {
-    (u64int)0x0000000000000001ULL, (u64int)0x0000000000008082ULL,
-    (u64int)0x800000000000808aULL, (u64int)0x8000000080008000ULL,
-    (u64int)0x000000000000808bULL, (u64int)0x0000000080000001ULL,
-    (u64int)0x8000000080008081ULL, (u64int)0x8000000000008009ULL,
-    (u64int)0x000000000000008aULL, (u64int)0x0000000000000088ULL,
-    (u64int)0x0000000080008009ULL, (u64int)0x000000008000000aULL,
-    (u64int)0x000000008000808bULL, (u64int)0x800000000000008bULL,
-    (u64int)0x8000000000008089ULL, (u64int)0x8000000000008003ULL,
-    (u64int)0x8000000000008002ULL, (u64int)0x8000000000000080ULL,
-    (u64int)0x000000000000800aULL, (u64int)0x800000008000000aULL,
-    (u64int)0x8000000080008081ULL, (u64int)0x8000000000008080ULL,
-    (u64int)0x0000000080000001ULL, (u64int)0x8000000080008008ULL
+static u64int consttab[NROUNDS] = {
+    0x0000000000000001ULL, 0x0000000000008082ULL,
+    0x800000000000808aULL, 0x8000000080008000ULL,
+    0x000000000000808bULL, 0x0000000080000001ULL,
+    0x8000000080008081ULL, 0x8000000000008009ULL,
+    0x000000000000008aULL, 0x0000000000000088ULL,
+    0x0000000080008009ULL, 0x000000008000000aULL,
+    0x000000008000808bULL, 0x800000000000008bULL,
+    0x8000000000008089ULL, 0x8000000000008003ULL,
+    0x8000000000008002ULL, 0x8000000000000080ULL,
+    0x000000000000800aULL, 0x800000008000000aULL,
+    0x8000000080008081ULL, 0x8000000000008080ULL,
+    0x0000000080000001ULL, 0x8000000080008008ULL
 };
 
 void
@@ -106,7 +106,7 @@ _keccakfblock(u64int state[25], int rsize, uchar *in, int len)
 		in += rsize;
 		len -= rsize;
 
-		for (i = 0; i < MLK_KECCAK_NROUNDS; i += 2){
+		for (i = 0; i < NROUNDS; i += 2){
 			/* prepareTheta */
 			BCa = Aba ^ Aga ^ Aka ^ Ama ^ Asa;
 			BCe = Abe ^ Age ^ Ake ^ Ame ^ Ase;
@@ -115,39 +115,39 @@ _keccakfblock(u64int state[25], int rsize, uchar *in, int len)
 			BCu = Abu ^ Agu ^ Aku ^ Amu ^ Asu;
 
 			/* thetaRhoPiChiIotaPrepareTheta(i, A, E) */
-			Da = BCu ^ MLK_KECCAK_ROL(BCe, 1);
-			De = BCa ^ MLK_KECCAK_ROL(BCi, 1);
-			Di = BCe ^ MLK_KECCAK_ROL(BCo, 1);
-			Do = BCi ^ MLK_KECCAK_ROL(BCu, 1);
-			Du = BCo ^ MLK_KECCAK_ROL(BCa, 1);
+			Da = BCu ^ ROL(BCe, 1);
+			De = BCa ^ ROL(BCi, 1);
+			Di = BCe ^ ROL(BCo, 1);
+			Do = BCi ^ ROL(BCu, 1);
+			Du = BCo ^ ROL(BCa, 1);
 
 			Aba ^= Da;
 			BCa = Aba;
 			Age ^= De;
-			BCe = MLK_KECCAK_ROL(Age, 44);
+			BCe = ROL(Age, 44);
 			Aki ^= Di;
-			BCi = MLK_KECCAK_ROL(Aki, 43);
+			BCi = ROL(Aki, 43);
 			Amo ^= Do;
-			BCo = MLK_KECCAK_ROL(Amo, 21);
+			BCo = ROL(Amo, 21);
 			Asu ^= Du;
-			BCu = MLK_KECCAK_ROL(Asu, 14);
+			BCu = ROL(Asu, 14);
 			Eba = BCa ^ ((~BCe) & BCi);
-			Eba ^= (u64int)mlk_KeccakF_RoundConstants[i];
+			Eba ^= (u64int)consttab[i];
 			Ebe = BCe ^ ((~BCi) & BCo);
 			Ebi = BCi ^ ((~BCo) & BCu);
 			Ebo = BCo ^ ((~BCu) & BCa);
 			Ebu = BCu ^ ((~BCa) & BCe);
 
 			Abo ^= Do;
-			BCa = MLK_KECCAK_ROL(Abo, 28);
+			BCa = ROL(Abo, 28);
 			Agu ^= Du;
-			BCe = MLK_KECCAK_ROL(Agu, 20);
+			BCe = ROL(Agu, 20);
 			Aka ^= Da;
-			BCi = MLK_KECCAK_ROL(Aka, 3);
+			BCi = ROL(Aka, 3);
 			Ame ^= De;
-			BCo = MLK_KECCAK_ROL(Ame, 45);
+			BCo = ROL(Ame, 45);
 			Asi ^= Di;
-			BCu = MLK_KECCAK_ROL(Asi, 61);
+			BCu = ROL(Asi, 61);
 			Ega = BCa ^ ((~BCe) & BCi);
 			Ege = BCe ^ ((~BCi) & BCo);
 			Egi = BCi ^ ((~BCo) & BCu);
@@ -155,15 +155,15 @@ _keccakfblock(u64int state[25], int rsize, uchar *in, int len)
 			Egu = BCu ^ ((~BCa) & BCe);
 
 			Abe ^= De;
-			BCa = MLK_KECCAK_ROL(Abe, 1);
+			BCa = ROL(Abe, 1);
 			Agi ^= Di;
-			BCe = MLK_KECCAK_ROL(Agi, 6);
+			BCe = ROL(Agi, 6);
 			Ako ^= Do;
-			BCi = MLK_KECCAK_ROL(Ako, 25);
+			BCi = ROL(Ako, 25);
 			Amu ^= Du;
-			BCo = MLK_KECCAK_ROL(Amu, 8);
+			BCo = ROL(Amu, 8);
 			Asa ^= Da;
-			BCu = MLK_KECCAK_ROL(Asa, 18);
+			BCu = ROL(Asa, 18);
 			Eka = BCa ^ ((~BCe) & BCi);
 			Eke = BCe ^ ((~BCi) & BCo);
 			Eki = BCi ^ ((~BCo) & BCu);
@@ -171,15 +171,15 @@ _keccakfblock(u64int state[25], int rsize, uchar *in, int len)
 			Eku = BCu ^ ((~BCa) & BCe);
 
 			Abu ^= Du;
-			BCa = MLK_KECCAK_ROL(Abu, 27);
+			BCa = ROL(Abu, 27);
 			Aga ^= Da;
-			BCe = MLK_KECCAK_ROL(Aga, 36);
+			BCe = ROL(Aga, 36);
 			Ake ^= De;
-			BCi = MLK_KECCAK_ROL(Ake, 10);
+			BCi = ROL(Ake, 10);
 			Ami ^= Di;
-			BCo = MLK_KECCAK_ROL(Ami, 15);
+			BCo = ROL(Ami, 15);
 			Aso ^= Do;
-			BCu = MLK_KECCAK_ROL(Aso, 56);
+			BCu = ROL(Aso, 56);
 			Ema = BCa ^ ((~BCe) & BCi);
 			Eme = BCe ^ ((~BCi) & BCo);
 			Emi = BCi ^ ((~BCo) & BCu);
@@ -187,15 +187,15 @@ _keccakfblock(u64int state[25], int rsize, uchar *in, int len)
 			Emu = BCu ^ ((~BCa) & BCe);
 
 			Abi ^= Di;
-			BCa = MLK_KECCAK_ROL(Abi, 62);
+			BCa = ROL(Abi, 62);
 			Ago ^= Do;
-			BCe = MLK_KECCAK_ROL(Ago, 55);
+			BCe = ROL(Ago, 55);
 			Aku ^= Du;
-			BCi = MLK_KECCAK_ROL(Aku, 39);
+			BCi = ROL(Aku, 39);
 			Ama ^= Da;
-			BCo = MLK_KECCAK_ROL(Ama, 41);
+			BCo = ROL(Ama, 41);
 			Ase ^= De;
-			BCu = MLK_KECCAK_ROL(Ase, 2);
+			BCu = ROL(Ase, 2);
 			Esa = BCa ^ ((~BCe) & BCi);
 			Ese = BCe ^ ((~BCi) & BCo);
 			Esi = BCi ^ ((~BCo) & BCu);
@@ -210,39 +210,39 @@ _keccakfblock(u64int state[25], int rsize, uchar *in, int len)
 			BCu = Ebu ^ Egu ^ Eku ^ Emu ^ Esu;
 
 			/* thetaRhoPiChiIotaPrepareTheta(i+1, E, A) */
-			Da = BCu ^ MLK_KECCAK_ROL(BCe, 1);
-			De = BCa ^ MLK_KECCAK_ROL(BCi, 1);
-			Di = BCe ^ MLK_KECCAK_ROL(BCo, 1);
-			Do = BCi ^ MLK_KECCAK_ROL(BCu, 1);
-			Du = BCo ^ MLK_KECCAK_ROL(BCa, 1);
+			Da = BCu ^ ROL(BCe, 1);
+			De = BCa ^ ROL(BCi, 1);
+			Di = BCe ^ ROL(BCo, 1);
+			Do = BCi ^ ROL(BCu, 1);
+			Du = BCo ^ ROL(BCa, 1);
 
 			Eba ^= Da;
 			BCa = Eba;
 			Ege ^= De;
-			BCe = MLK_KECCAK_ROL(Ege, 44);
+			BCe = ROL(Ege, 44);
 			Eki ^= Di;
-			BCi = MLK_KECCAK_ROL(Eki, 43);
+			BCi = ROL(Eki, 43);
 			Emo ^= Do;
-			BCo = MLK_KECCAK_ROL(Emo, 21);
+			BCo = ROL(Emo, 21);
 			Esu ^= Du;
-			BCu = MLK_KECCAK_ROL(Esu, 14);
+			BCu = ROL(Esu, 14);
 			Aba = BCa ^ ((~BCe) & BCi);
-			Aba ^= (u64int)mlk_KeccakF_RoundConstants[i + 1];
+			Aba ^= (u64int)consttab[i + 1];
 			Abe = BCe ^ ((~BCi) & BCo);
 			Abi = BCi ^ ((~BCo) & BCu);
 			Abo = BCo ^ ((~BCu) & BCa);
 			Abu = BCu ^ ((~BCa) & BCe);
 
 			Ebo ^= Do;
-			BCa = MLK_KECCAK_ROL(Ebo, 28);
+			BCa = ROL(Ebo, 28);
 			Egu ^= Du;
-			BCe = MLK_KECCAK_ROL(Egu, 20);
+			BCe = ROL(Egu, 20);
 			Eka ^= Da;
-			BCi = MLK_KECCAK_ROL(Eka, 3);
+			BCi = ROL(Eka, 3);
 			Eme ^= De;
-			BCo = MLK_KECCAK_ROL(Eme, 45);
+			BCo = ROL(Eme, 45);
 			Esi ^= Di;
-			BCu = MLK_KECCAK_ROL(Esi, 61);
+			BCu = ROL(Esi, 61);
 			Aga = BCa ^ ((~BCe) & BCi);
 			Age = BCe ^ ((~BCi) & BCo);
 			Agi = BCi ^ ((~BCo) & BCu);
@@ -250,15 +250,15 @@ _keccakfblock(u64int state[25], int rsize, uchar *in, int len)
 			Agu = BCu ^ ((~BCa) & BCe);
 
 			Ebe ^= De;
-			BCa = MLK_KECCAK_ROL(Ebe, 1);
+			BCa = ROL(Ebe, 1);
 			Egi ^= Di;
-			BCe = MLK_KECCAK_ROL(Egi, 6);
+			BCe = ROL(Egi, 6);
 			Eko ^= Do;
-			BCi = MLK_KECCAK_ROL(Eko, 25);
+			BCi = ROL(Eko, 25);
 			Emu ^= Du;
-			BCo = MLK_KECCAK_ROL(Emu, 8);
+			BCo = ROL(Emu, 8);
 			Esa ^= Da;
-			BCu = MLK_KECCAK_ROL(Esa, 18);
+			BCu = ROL(Esa, 18);
 			Aka = BCa ^ ((~BCe) & BCi);
 			Ake = BCe ^ ((~BCi) & BCo);
 			Aki = BCi ^ ((~BCo) & BCu);
@@ -266,15 +266,15 @@ _keccakfblock(u64int state[25], int rsize, uchar *in, int len)
 			Aku = BCu ^ ((~BCa) & BCe);
 
 			Ebu ^= Du;
-			BCa = MLK_KECCAK_ROL(Ebu, 27);
+			BCa = ROL(Ebu, 27);
 			Ega ^= Da;
-			BCe = MLK_KECCAK_ROL(Ega, 36);
+			BCe = ROL(Ega, 36);
 			Eke ^= De;
-			BCi = MLK_KECCAK_ROL(Eke, 10);
+			BCi = ROL(Eke, 10);
 			Emi ^= Di;
-			BCo = MLK_KECCAK_ROL(Emi, 15);
+			BCo = ROL(Emi, 15);
 			Eso ^= Do;
-			BCu = MLK_KECCAK_ROL(Eso, 56);
+			BCu = ROL(Eso, 56);
 			Ama = BCa ^ ((~BCe) & BCi);
 			Ame = BCe ^ ((~BCi) & BCo);
 			Ami = BCi ^ ((~BCo) & BCu);
@@ -282,15 +282,15 @@ _keccakfblock(u64int state[25], int rsize, uchar *in, int len)
 			Amu = BCu ^ ((~BCa) & BCe);
 
 			Ebi ^= Di;
-			BCa = MLK_KECCAK_ROL(Ebi, 62);
+			BCa = ROL(Ebi, 62);
 			Ego ^= Do;
-			BCe = MLK_KECCAK_ROL(Ego, 55);
+			BCe = ROL(Ego, 55);
 			Eku ^= Du;
-			BCi = MLK_KECCAK_ROL(Eku, 39);
+			BCi = ROL(Eku, 39);
 			Ema ^= Da;
-			BCo = MLK_KECCAK_ROL(Ema, 41);
+			BCo = ROL(Ema, 41);
 			Ese ^= De;
-			BCu = MLK_KECCAK_ROL(Ese, 2);
+			BCu = ROL(Ese, 2);
 			Asa = BCa ^ ((~BCe) & BCi);
 			Ase = BCe ^ ((~BCi) & BCo);
 			Asi = BCi ^ ((~BCo) & BCu);
