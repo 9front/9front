@@ -56,9 +56,7 @@ _zerobss:
 	MOV	$(L1-KZERO), R0
 	BL	mmu0init(SB)
 
-	SEVL
 _startup:
-	WFE
 	BL	mmuenable<>(SB)
 
 	MOV	R26, R0
