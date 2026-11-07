@@ -689,9 +689,8 @@ Gfmt(Fmt* fmt)
 	char *s;
 
 	t = va_arg(fmt->args, int);
-	s = "<badtag>";
-	if(t >= 0 && t < MAXTAG)
-		s = tagnames[t];
+	if(t < 0 || t >= MAXTAG || (s = tagnames[t]) == nil)
+		s = "<badtag>";
 	return fmtstrcpy(fmt, s);
 }
 

@@ -136,13 +136,16 @@ postservice(char *name)
 {
 	char buf[3*NAMELEN];
 	int p[2];
+	Chan *c;
 
 	if(name == nil || *name == 0)
 		panic("no service name");
 
 	/* serve 9p for -s */
 	if(sfd >= 0){
-		srvchan(sfd, "stdio");
+		if((c = srvchan(sfd, "stdio")) == nil)
+			panic("srvchan for stdio failed");
+		c->authok = 1; /* none attach always allowed */
 		sfd = -1;
 	}
 
@@ -152,7 +155,10 @@ postservice(char *name)
 	snprint(buf, sizeof(buf), "/srv/%s", name);
 	srvfd(buf, 0666, p[0]);
 	close(p[0]);
-	srvchan(p[1], buf);
+
+	if((c = srvchan(p[1], buf)) == nil)
+		panic("srvchan for %s failed", buf);
+	c->authok = 1; /* none attach always allowed */
 
 	/* post cmd service */
 	if(pipe(p) < 0)

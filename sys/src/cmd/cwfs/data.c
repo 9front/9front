@@ -130,7 +130,7 @@ char*	wormscode[0x80] =
 	[0x71]	"out of range",
 };
 
-char*	tagnames[] =
+char*	tagnames[MAXTAG] =
 {
 	[Tbuck]		"Tbuck",
 	[Tdir]		"Tdir",
