@@ -85,8 +85,10 @@ ecdsainit(Proto *, Fsstate *fss)
 		return RpcNeedkey;
 	fss->ps = emalloc(sizeof(State));
 	ret = decryptkey(fss, key, password);
-	if(ret != RpcOk)
+	if(ret != RpcOk){
+		free(fss->ps);
 		return ret;
+	}
 	
 	setattrs(fss->attr, k->attr);
 	fss->phasename = phasenames;

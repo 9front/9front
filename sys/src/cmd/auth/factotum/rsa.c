@@ -95,6 +95,7 @@ rsainit(Proto*, Fsstate *fss)
 	Keyinfo ki;
 	State *s;
 	char *role;
+	int ret;
 
 	if((role = _strfindattr(fss->attr, "role")) == nil)
 		return failure(fss, "rsa role not specified");
@@ -116,12 +117,16 @@ rsainit(Proto*, Fsstate *fss)
 	case SNeedHash:
 	case VNeedHash:
 		mkkeyinfo(&ki, fss, nil);
-		if(findkey(&s->key, &ki, nil) != RpcOk)
-			return failure(fss, nil);
+		if((ret = findkey(&s->key, &ki, nil)) != RpcOk){
+			free(s);
+			return ret;
+		}
 		/* signing needs private key */
-		if(fss->phase == SNeedHash && s->key->privattr == nil)
+		if(fss->phase == SNeedHash && s->key->privattr == nil){
+			free(s);
 			return failure(fss,
 				"missing private half of key -- cannot sign");
+		}
 	}
 	return RpcOk;
 }
