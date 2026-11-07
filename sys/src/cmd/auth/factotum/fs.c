@@ -42,7 +42,6 @@ prototab[] =
 	&pass,
 	&rsa,
 	&vnc,
-	&ecdsa,
 	&wpapsk,
 	&totp,
 	nil,

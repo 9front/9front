@@ -226,6 +226,5 @@ extern Proto p9cr, vnc;			/* p9cr.c */
 extern Proto pass;			/* pass.c */
 extern Proto rsa;			/* rsa.c */
 extern Proto httpdigest;		/* httpdigest.c */
-extern Proto ecdsa;			/* ecdsa.c */
 extern Proto wpapsk;			/* wpapsk.c */
 extern Proto totp;			/* totp */
