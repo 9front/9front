@@ -904,17 +904,18 @@ clunkfid(Conn *c, Fid *fid, Amsg **ao)
 	}
 
 	wlock(f->dent);
-	if((*ao = f->rclose) != nil && !f->dent->gone){
-		f->dent->gone = 1;
-		f->rclose = nil;
+	if(f->rclose != nil && !f->dent->gone){
 		aincl(&f->dent->ref, 1);
 		aincl(&f->mnt->ref, 1);
+		(*ao) = f->rclose;
 		(*ao)->op = AOrclose;
 		(*ao)->mnt = f->mnt;
 		(*ao)->qpath = f->qpath;
 		(*ao)->off = 0;
 		(*ao)->end = f->dent->length;
 		(*ao)->dent = f->dent;
+		f->dent->gone = 1;
+		f->rclose = nil;
 	}
 	wunlock(f->dent);
 }
