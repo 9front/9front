@@ -1004,10 +1004,10 @@ qcmp(Qent *a, Qent *b)
 {
 	if(a->qgen != b->qgen)
 		return (a->qgen < b->qgen) ? -1 : 1;
-	if(a->op != b->op)
-		return (a->op < b->op) ? -1 : 1;
 	if(a->bp.addr != b->bp.addr)
 		return (a->bp.addr < b->bp.addr) ? -1 : 1;
+	if(a->op != b->op)
+		return (a->op < b->op) ? -1 : 1;
 	return 0;
 }
 
