@@ -140,7 +140,7 @@ mpinit(void)
 		MACHP(i)->machno = i;
 		cachedwbinvse(MACHP(i), MACHSIZE);
 
-		u.r0 = 0x84000003;	/* CPU_ON */
+		u.r0 = 0xC4000003;	/* CPU_ON */
 		u.r1 = (sysrd(MPIDR_EL1) & ~(0xFF0000FFULL)) | i;
 		u.r2 = PADDR(_start);
 		u.r3 = i;
