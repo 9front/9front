@@ -28,8 +28,8 @@ TARG=4s\
 OFILES=
 HFILES=
 
-</sys/src/cmd/mkmany
 BIN=/$objtype/bin/games
+</sys/src/cmd/mkmany
 
 DIRS=\
 	2600\
