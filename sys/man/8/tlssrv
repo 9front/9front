@@ -166,8 +166,8 @@ for more information. The
 .B -n
 option passes the string
 .I servername
-in the TLS hello message (Server Name Idenfitication)
-which is usefull when talking to webservers.
+in the TLS hello message (Server Name Identification)
+which is useful when talking to webservers.
 When the
 .B -o
 option was specified,
