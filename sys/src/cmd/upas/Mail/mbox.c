@@ -739,7 +739,7 @@ mbflush(char **, int)
 
 		removeid(m);
 		m->state |= Szap;
-		if(p == nil && nsub(m) != 0)
+		if(p == nil && m->nchild != 0)
 			p = placeholder(m->messageid, m->time, 1);
 		if(p != nil)
 			relinkmsg(p, m);
