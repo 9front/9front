@@ -164,12 +164,15 @@ cramauth(void)
 		writeerr();
 
 	s = authresp();
-	if(s == nil)
+	if(s == nil){
+		auth_freechal(cs);
 		return Ecancel;
-
+	}
 	t = strchr(s, ' ');
-	if(t == nil)
+	if(t == nil){
+		auth_freechal(cs);
 		return Ebadch;
+	}
 	*t++ = 0;
 	strncpy(username, s, Userlen);
 	username[Userlen - 1] = 0;
@@ -177,9 +180,11 @@ cramauth(void)
 	cs->user = username;
 	cs->resp = t;
 	cs->nresp = strlen(t);
-	if((ai = auth_response(cs)) == nil)
+	ai = auth_response(cs);
+	if(ai == nil){
+		auth_freechal(cs);
 		return Ebadau;
-	auth_freechal(cs);
+	}
 	setupuser(ai);
 	return nil;
 }
@@ -229,9 +234,9 @@ passauth(char *u, char *secret)
 	cs->resp = response;
 	cs->nresp = strlen(response);
 	ai = auth_response(cs);
+	auth_freechal(cs);
 	if(ai == nil)
 		return Ebadau;
-	auth_freechal(cs);
 	setupuser(ai);
 	return nil;
 }

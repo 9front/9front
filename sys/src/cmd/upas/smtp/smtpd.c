@@ -1640,9 +1640,9 @@ passauth(char *u, char *secret)
 	cs->resp = response;
 	cs->nresp = strlen(response);
 	ai = auth_response(cs);
+	auth_freechal(cs);
 	if(ai == nil)
 		return -1;
-	auth_freechal(cs);
 	auth_freeAI(ai);
 	return 0;
 }
