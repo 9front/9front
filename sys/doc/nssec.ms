@@ -78,7 +78,7 @@ the new user must construct a namespace from scratch.
 .LP
 Many programs, like network services, wish to drop their current user and become the special user
 .CW none
-user on startup, and in doing so must rebuild their namespace. The conventional default namespace
+on startup, and in doing so must rebuild their namespace. The conventional default namespace
 files used is /lib/namespace, but most programs allow the user to specify an alternative with a
 flag. It is here that we already can approximate a chroot style environment by changing the root
 filesystem used in a namespace file.
@@ -97,7 +97,7 @@ a process from bootstrapping a resource back. While our example code places a di
 in the namespace, nothing is preventing that process or its children from potentially rebootstrapping
 the real root filesystem back. For this issue there is a special rfork flag
 .CW RFNOMNT
-the prevents a process from accessing any almost any sharp device of consequence. This is done by
+that prevents a process from accessing almost any sharp device of consequence. This is done by
 preventing a process from walking to a device by its location within '#'. This allows existing
 binds of resources to continue working within the namespace but restricts a process from binding
 in new resources from the kernel.
@@ -214,7 +214,7 @@ devallowed(Pgrp *pgrp, int r)
 .LP
 We found that once removal is made to a core verb of these sharp
 devices it becomes easy to start to view access to them
-as capabilities. This is aided by system functionally already neatly
+as capabilities. This is aided by system functionally already being neatly
 organized into the various devices themselves. For example, one could
 say a process is capable of accessing the broader internet if it has access
 to the
