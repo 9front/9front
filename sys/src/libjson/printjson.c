@@ -19,6 +19,7 @@ printstring(Fmt *f, char *s)
 		case '\\':	n += fmtstrcpy(f, "\\\\");	break;
 		case '\f':	n += fmtstrcpy(f, "\\f");	break;
 		case '\b':	n += fmtstrcpy(f, "\\b");	break;
+		case '\t':	n += fmtstrcpy(f, "\\t");	break;
 		case '\n':	n += fmtstrcpy(f, "\\n");	break;
 		case '\r':	n += fmtstrcpy(f, "\\r");	break;
 		case '\"':	n += fmtstrcpy(f, "\\\"");	break;
