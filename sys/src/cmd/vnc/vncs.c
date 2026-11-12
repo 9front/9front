@@ -578,6 +578,7 @@ vncaccept(Vncs *v)
 	v->depth = gscreen->depth;
 	v->truecolor = 1;
 	v->bigendian = 0;
+	v->imagechan = gscreen->chan;
 	chan2fmt(v, gscreen->chan);
 	if(verbose)
 		fprint(2, "%V: bpp=%d, depth=%d, chan=%s\n", v,
@@ -983,7 +984,7 @@ updateimage(Vncs *v)
 		v->image = allocmemimage(v->dim, v->imagechan);
 		if(v->image == nil){
 			fprint(2, "%V: allocmemimage: %r; hanging up\n", v);
-			qlock(&drawlock);
+			qunlock(&drawlock);
 			vnchungup(v);
 		}
 	}
