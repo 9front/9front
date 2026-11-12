@@ -23,6 +23,13 @@ enum {
 	Nchan,
 };
 
+enum {
+	Snew   = L'★',
+	Sresp  = L'←',
+	Sseen  = L'⋯',
+	Sdel   = L'∉',
+	Stodel = L'∉',
+};
 
 char	*maildir	= "/mail/fs";
 char	*mailbox	= "mbox";
@@ -479,17 +486,18 @@ mbload(void)
 	qsort(mbox.mesg, mbox.nmesg, sizeof(Mesg*), cmpmesg);	
 }
 
-static char*
+static Rune
 getflag(Mesg *m)
 {
-	char* flag;
-
-	flag = "★";
-	if(m->flags & Fseen)	flag = " ";
-	if(m->flags & Fresp)	flag = "←";
-	if(m->flags & Fdel)	flag = "∉";
-	if(m->flags & Ftodel)	flag = "∉";
-	return flag;
+	if(m->flags & Ftodel)
+		return Stodel;
+	if(m->flags & Fdel)
+		return Sdel;
+	if(m->flags & Fresp)
+		return Sresp;
+	if(m->flags & Fseen)
+		return Sseen;
+	return Snew;
 }
 
 static void
@@ -528,7 +536,7 @@ fmtmesg(Biobuf *bp, char *fmt, Mesg *m, int depth)
 	int width, i, indent;
 	Tm tm;
 
-	Bprint(bp, "%-6s\t%s ", m->name, getflag(m));
+	Bprint(bp, "%-6s\t%C ", m->name, getflag(m));
 	for(p = fmt; *p; p++){
 		if(*p != '%'){
 			Bputc(bp, *p);
@@ -957,7 +965,7 @@ static void
 nextunread(char **, int)
 {
 	fprint(mbox.ctl, "addr=dot\n");
-	fprint(mbox.addr, "/^[0-9]+\\/ *\t★.*");
+	fprint(mbox.addr, "/^[0-9]+\\/ *\t%C.*", Snew);
 	fprint(mbox.ctl, "dot=addr\n");
 	fprint(mbox.ctl, "show\n");
 }
