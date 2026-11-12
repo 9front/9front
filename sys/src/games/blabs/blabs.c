@@ -814,7 +814,7 @@ main(int argc, char *argv[])
 	USED(c);
 
 #define DELAY 50000000LL
-	for (then = nsec();; then = nsec())
+	for (then = uptime();; then = uptime())
 	{
 		Dot	*d;
 
@@ -824,7 +824,7 @@ main(int argc, char *argv[])
 			upd(d);
 		draw(screen, screen->r, screen, nil, screen->r.min);
 		flushimage(display, 1);
-		now = nsec();
+		now = uptime();
 		if(now - then < DELAY)
 			sleep((DELAY - (now - then))/1000000);
 	}

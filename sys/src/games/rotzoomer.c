@@ -275,11 +275,11 @@ clkproc(void*)
 
 	for(;;){
 		qlock(&pauselk);
-		t0 = nsec();
+		t0 = uptime();
 		update(t0/1e9);
 		nbsend(drawc, nil);
 		qunlock(&pauselk);
-		Δt = nsec() - t0;
+		Δt = uptime() - t0;
 		if(Δt < 33*1000*1000)
 			sleep(33 - Δt/1000000);
 	}

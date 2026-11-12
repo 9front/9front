@@ -66,7 +66,7 @@ main(int argc, char **argv)
 	}
 	f = (double)OPLrate / rate;
 	dt = 0;
-	T = nsec();
+	T = uptime();
 	if(stream){
 		switch(rfork(RFPROC|RFMEM)){
 		case -1:
@@ -76,7 +76,7 @@ main(int argc, char **argv)
 				n = Srate;
 				s = 1e9 * n / OPLrate;
 				T += s;
-				dt = floor((T - nsec()) / 1e6);
+				dt = floor((T - uptime()) / 1e6);
 				n *= 4;
 				opl3out(sb, n);
 				if(write(pfd[1], sb, n) != n)

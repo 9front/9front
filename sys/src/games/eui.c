@@ -187,14 +187,14 @@ timing(void)
 		fcount = 0;
 	else
 		return;
-	new = nsec();
+	new = uptime();
 	if(new != old)
 		sprint(buf, "%6.2f%%", 1e11 / (new - old));
 	else
 		buf[0] = 0;
 	draw(screen, rectaddpt(Rect(10, 10, vwdx-40, 30), screen->r.min), bg, nil, ZP);
 	string(screen, addpt(screen->r.min, Pt(10, 10)), display->black, ZP, display->defaultfont, buf);
-	old = nsec();
+	old = uptime();
 }
 
 static void
@@ -299,14 +299,14 @@ flushaudio(int (*audioout)(void))
 	vlong new, diff;
 
 	if(audioout == nil || audioout() < 0 && !warp10){
-		new = nsec();
+		new = uptime();
 		diff = 0;
 		if(old != 0){
 			diff = BILLION/60 - (new - old) - delta;
 			if(diff >= MILLION)
 				sleep(diff/MILLION);
 		}
-		old = nsec();
+		old = uptime();
 		if(diff > 0){
 			diff = (old - new) - (diff / MILLION) * MILLION;
 			delta += (diff - delta) / 100;

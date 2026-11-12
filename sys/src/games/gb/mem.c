@@ -335,8 +335,8 @@ timerforward(MBC3Timer *t)
 {
 	vlong n, nd;
 	uint x;
-	
-	n = nsec();
+
+	n = uptime();
 	nd = n - t->ns;
 	if(nd < 0)
 		return;

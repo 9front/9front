@@ -29,7 +29,6 @@ vdpmode(void)
 static void
 pixeldraw(int x, int y, int v)
 {
-	u32int *p;
 	union { u32int l; u8int b[4]; } u;
 
 	u.b[0] = v >> 16;

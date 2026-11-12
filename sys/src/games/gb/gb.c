@@ -110,7 +110,7 @@ loadsave(char *file)
 		write(savefd, back, nback);
 		free(buf);
 		if((feat & FEATTIM) != 0){
-			timer.ns = nsec();
+			timer.ns = uptime();
 			timersave(tim);
 			write(savefd, tim, TIMERSIZ);
 		}

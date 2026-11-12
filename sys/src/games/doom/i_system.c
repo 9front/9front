@@ -30,7 +30,7 @@ byte* I_ZoneBase (int *size)
 /* returns time in 1/70th second tics */
 int I_GetTime (void)
 {
-	return (int)((nsec()*TICRATE)/1000000000);
+	return (int)((uptime()*TICRATE)/1000000000);
 }
 
 static ticcmd_t emptycmd;
