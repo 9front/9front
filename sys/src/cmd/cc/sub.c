@@ -149,8 +149,10 @@ garbt(Type *t, Spec s)
 	Type *t1;
 
 	if(s.class & BGARB) {
+		/* preserve incompleteness so that const T for an incomplete T remains incomplete */
 		t1 = copytyp(t);
 		t1->garb = simpleg(s);
+		t1->garb |= t->garb & GINCOMPLETE;
 		return t1;
 	}
 	return t;
