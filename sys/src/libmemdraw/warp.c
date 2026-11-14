@@ -831,6 +831,23 @@ intupscalewarp(Blitter *blit, Point dp0, Rectangle r, Sampler *samp, Point sp0, 
 	}
 }
 
+/*
+ * identity mapping optimization
+ */
+static void
+identitywarp(Memimage *dst, Point dp0, Rectangle r, Memimage *src, Point sp0, Warp *m, int op)
+{
+	Point sp;
+	int sx, sy;
+
+	sx = int2fix(r.min.x - dp0.x) + m->m[0][2] + (1<<12);
+	sy = int2fix(r.min.y - dp0.y) + m->m[1][2] + (1<<12);
+	sp.x = sp0.x + fix2int(sx);
+	sp.y = sp0.y + fix2int(sy);
+
+	memimagedraw(dst, r, src, sp, nil, ZP, op);
+}
+
 void
 memaffinewarp(Memimage *d, Point dp0, Rectangle r, Memimage *s, Point sp0,
 	Memimage*, Point, Warp *w, int smooth, int op)
@@ -842,6 +859,14 @@ memaffinewarp(Memimage *d, Point dp0, Rectangle r, Memimage *s, Point sp0,
 	Point sp, dp, p2, p2₀;
 	Rectangle dr;
 	ulong c;
+
+	if((op&S) != S)
+		return;
+
+	if((w->flags & WFidentity) != 0){
+		identitywarp(d, dp0, r, s, sp0, w, op);
+		return;
+	}
 
 	dr = d->clipr;
 	rectclip(&dr, d->r);

@@ -94,12 +94,12 @@ typedef enum
 	SoutD	= 2,
 	DoutS	= 1,
 
-	S		= SinD|SoutD,
+	S	= SinD|SoutD,
 	SoverD	= SinD|SoutD|DoutS,
 	SatopD	= SinD|DoutS,
 	SxorD	= SoutD|DoutS,
 
-	D		= DinS|DoutS,
+	D	= DinS|DoutS,
 	DoverS	= DinS|DoutS|SoutD,
 	DatopS	= DinS|SoutD,
 	DxorS	= DoutS|SoutD,	/* == SxorD */
@@ -122,8 +122,8 @@ enum {
 };
 
 #define __DC(type, nbits)	((((type)&15)<<4)|((nbits)&15))
-#define CHAN1(a,b)	__DC(a,b)
-#define CHAN2(a,b,c,d)	(CHAN1((a),(b))<<8|__DC((c),(d)))
+#define CHAN1(a,b)		__DC(a,b)
+#define CHAN2(a,b,c,d)		(CHAN1((a),(b))<<8|__DC((c),(d)))
 #define CHAN3(a,b,c,d,e,f)	(CHAN2((a),(b),(c),(d))<<8|__DC((e),(f)))
 #define CHAN4(a,b,c,d,e,f,g,h)	(CHAN3((a),(b),(c),(d),(e),(f))<<8|__DC((g),(h)))
 
@@ -154,11 +154,12 @@ enum {
  */
 enum {
 	WFintupscale	= 1,	/* integer upscaling */
+	WFidentity	= 2,	/* identity mapping */
 };
 
 extern	char*	chantostr(char*, ulong);
 extern	ulong	strtochan(char*);
-extern	int		chantodepth(ulong);
+extern	int	chantodepth(ulong);
 
 struct	Point
 {

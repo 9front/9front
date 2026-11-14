@@ -37,5 +37,9 @@ mkwarp(double m0[3][3])
 	&& m0[0][0] > 1 && (fract(m0[0][0]) <= ε || 1.0 - fract(m0[0][0]) <= ε)
 	&& m0[1][1] > 1 && (fract(m0[1][1]) <= ε || 1.0 - fract(m0[1][1]) <= ε))
 		w.flags |= WFintupscale;
+	if(m0[0][1] == 0 && m0[1][0] == 0
+	&& fabs(1.0 - m0[0][0]) <= ε
+	&& fabs(1.0 - m0[1][1]) <= ε)
+		w.flags |= WFidentity;
 	return w;
 }
