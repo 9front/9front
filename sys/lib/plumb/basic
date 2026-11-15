@@ -108,7 +108,7 @@ plumb start rc -c 'man -b '$2' '$1'
 
 # RFC references are looked up in /lib/rfc and passed to editor
 type is text
-data	matches 'RFC ?([0-9]+)'
+data	matches '[rR][fF][cC] ?([0-9]+)'
 arg isfile /lib/rfc/rfc$1
 data set	$file
 plumb to edit
