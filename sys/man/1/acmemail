@@ -101,6 +101,23 @@ are listed in
 .IR upasfs (4)
 .PD 0
 .TP
+.B Move folder
+Move selected messages to
+.IR folder ,
+using the
+.B move
+request of
+.IR upasfs (4).
+The move occurs at once, without waiting for
+.IR Put ;
+moved messages are shown as deleted until the next
+.IR Put .
+Messages open in a window are skipped.
+Only IMAP mailboxes are supported, and
+.I folder
+must belong to the same account.
+.PD 0
+.TP
 .B Filter [filter] [*flags]
 Shows only messages where the sender or subject match
 the
