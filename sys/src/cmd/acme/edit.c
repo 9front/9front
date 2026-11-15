@@ -55,6 +55,7 @@ struct cmdtab cmdtab[]={
 Cmd	*parsecmd(int);
 Addr	*compoundaddr(void);
 Addr	*simpleaddr(void);
+void	abortcmdxy(void);
 void	freecmd(void);
 void	okdelim(int);
 
@@ -139,6 +140,7 @@ editerror(char *fmt, ...)
 	va_start(arg, fmt);
 	s = vsmprint(fmt, arg);
 	va_end(arg);
+	abortcmdxy();	/* before freecmd (uses cp) */
 	freecmd();
 	allwindows(allelogterm, nil);	/* truncate the edit logs */
 	sendp(editerrc, s);

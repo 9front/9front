@@ -26,8 +26,8 @@ int	ncollection;
 int	append(File*, Cmd*, long);
 int	pdisplay(File*);
 void	pfilename(File*);
-void	looper(File*, Cmd*, int);
-void	filelooper(Text*, Cmd*, int);
+void	looper(File*, Cmd*);
+void	filelooper(Text*, Cmd*);
 void	linelooper(File*, Cmd*);
 Address	lineaddr(long, Address, int);
 int	filematch(File*, String*);
@@ -570,7 +570,7 @@ int
 x_cmd(Text *t, Cmd *cp)
 {
 	if(cp->re)
-		looper(t->file, cp, cp->cmdc=='x');
+		looper(t->file, cp);
 	else
 		linelooper(t->file, cp);
 	return TRUE;
@@ -579,7 +579,7 @@ x_cmd(Text *t, Cmd *cp)
 int
 X_cmd(Text *t, Cmd *cp)
 {
-	filelooper(t, cp, cp->cmdc=='X');
+	filelooper(t, cp);
 	return TRUE;
 }
 
@@ -824,12 +824,14 @@ loopcmd(File *f, Cmd *cp, Range *rp, long nrp)
 }
 
 void
-looper(File *f, Cmd *cp, int xy)
+looper(File *f, Cmd *cp)
 {
+	int xy;
 	long p, op, nrp;
 	Range r, tr;
 	Range *rp;
 
+	xy = (cp->cmdc=='x');
 	r = addr.r;
 	op= xy? -1 : r.q0;
 	nest++;
@@ -911,9 +913,10 @@ linelooper(File *f, Cmd *cp)
 struct Looper
 {
 	Cmd *cp;
-	int	XY;
 	Window	**w;
 	int	nw;
+	Window	*wsrc;	/* window that issued cmd */
+	Window	*wdst;	/* current target window */
 } loopstruct;	/* only one; X and Y can't nest */
 
 void
@@ -936,7 +939,7 @@ alllooper(Window *w, void *v)
 	/* no auto-execute on files without names */
 	if(cp->re==nil && t->file->nname==0)
 		return;
-	if(cp->re==nil || filematch(t->file, cp->re)==lp->XY){
+	if(cp->re==nil || filematch(t->file, cp->re)==(cp->cmdc=='X')){
 		lp->w = erealloc(lp->w, (lp->nw+1)*sizeof(Window*));
 		lp->w[lp->nw++] = w;
 	}
@@ -952,21 +955,23 @@ alllocker(Window *w, void *v)
 }
 
 void
-filelooper(Text *t, Cmd *cp, int XY)
+filelooper(Text *t, Cmd *cp)
 {
 	int i;
 	Text *targ;
 
 	if(Glooping++)
-		editerror("can't nest %c command", "YX"[XY]);
+		editerror("can't nest %c command", cp->cmdc);
 	nest++;
-
-	loopstruct.cp = cp;
-	loopstruct.XY = XY;
-	if(loopstruct.w)	/* error'ed out last time */
-		free(loopstruct.w);
+	/*
+	 * prepare singleton loopstruct
+	 */
+	free(loopstruct.w);	/* in case we error'ed out last time */
 	loopstruct.w = nil;
+	loopstruct.cp = cp;
 	loopstruct.nw = 0;
+	loopstruct.wsrc = t ? t->w : nil;
+	loopstruct.wdst = nil;
 	allwindows(alllooper, &loopstruct);
 	/*
 	 * add a ref to all windows to keep safe windows accessed by X
@@ -986,7 +991,9 @@ filelooper(Text *t, Cmd *cp, int XY)
 		targ = &loopstruct.w[i]->body;
 		if(targ && targ->w)
 			winlock(targ->w, cp->cmdc);
+		loopstruct.wdst = targ->w;
 		cmdexec(targ, cp->cmd);
+		loopstruct.wdst = nil;
 		if(targ && targ->w)
 			winunlock(targ->w);
 	}
@@ -999,6 +1006,26 @@ filelooper(Text *t, Cmd *cp, int XY)
 
 	--Glooping;
 	--nest;
+}
+
+/*
+ * called upon editerror to clean-up XY command window state
+ */
+void
+abortcmdxy(void)
+{
+	Window *w;
+
+	if(!globalincref)
+		return;
+	if((w = loopstruct.wdst) != nil){
+		loopstruct.wdst = nil;
+		winunlock(w);
+	}
+	if(loopstruct.wsrc != nil)
+		winlock(loopstruct.wsrc, loopstruct.cp->cmdc);
+	allwindows(alllocker, (void*)0);
+	globalincref = 0;
 }
 
 void
