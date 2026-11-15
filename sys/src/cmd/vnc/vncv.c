@@ -75,7 +75,7 @@ vnchungup(Vnc*)
 void
 usage(void)
 {
-	fprint(2, "usage: vncv [-acstv] [-e encodings] [-l charset] [-k keypattern] host[:n]\n");
+	fprint(2, "usage: vncv [-acstv] [-e encodings] [-k keypattern] [-l charset] [-T trustedkeys] host[:n]\n");
 	exits("usage");
 }
 
@@ -83,9 +83,10 @@ void
 main(int argc, char **argv)
 {
 	int p, dfd, cfd, shared;
-	char *keypattern, *label;
+	char *file, *keypattern, *label;
 
 	keypattern = nil;
+	file = nil;
 	shared = 0;
 	ARGBEGIN{
 	case 'a':
@@ -101,6 +102,10 @@ main(int argc, char **argv)
 		shared = 1;
 		break;
 	case 't':
+		tls = 1;
+		break;
+	case 'T':
+		file = EARGF(usage());
 		tls = 1;
 		break;
 	case 'v':
@@ -124,11 +129,22 @@ main(int argc, char **argv)
 		sysfatal("cannot dial %s: %r", argv[0]);
 	if(tls){
 		TLSconn conn;
+		Thumbprint *thumb;
 
+		if(file){
+			thumb = initThumbprints(file, nil, "x509");
+			if(thumb == nil)
+				sysfatal("initThumbprints: %r");
+		} else
+			thumb = nil;
 		memset(&conn, 0, sizeof(conn));
 		if((dfd = tlsClient(dfd, &conn)) < 0)
 			sysfatal("tlsClient: %r");
-		/* XXX check thumbprint */
+		if(thumb){
+			if(!okCertificate(conn.cert, conn.certlen, thumb))
+				sysfatal("cert for %s not recognized: %r", argv[0]);
+			freeThumbprints(thumb);
+		}
 		free(conn.cert);
 		free(conn.sessionID);
 	}
