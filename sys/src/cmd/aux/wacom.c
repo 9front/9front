@@ -25,8 +25,30 @@ struct Message {
 	char *msg;
 };
 
+int
+inittablet(int serctl, Tablet* t, int baud)
+{
+	uchar buf[11];
+
+	if(fprint(serctl, "b%d\nl8\nq0\nq1024\n", baud) < 0) return -1;
+	if(fprint(serctl, "f\n") < 0) return -1;
+	sleep(250);
+	if(write(t->ser, "*", 1) != 1) return -1;
+	if(fprint(serctl, "f\n") < 0) return -1;
+	do {
+		if(read(t->ser, buf, 1) < 1) return -1;
+	} while(buf[0] != 0xC0);
+	if(readn(t->ser, buf+1, 10) < 10) return -1;
+	t->xmax = (buf[1] << 9) | (buf[2] << 2) | ((buf[6] >> 5) & 3);
+	t->ymax = (buf[3] << 9) | (buf[4] << 2) | ((buf[6] >> 3) & 3);
+	t->pmax = buf[5] | (buf[6] & 7);
+	t->version = (buf[9] << 7) | buf[10];
+	if(write(t->ser, "1", 1) < 1) return -1;
+	return 0;
+}
+
 Tablet*
-newtablet(char* dev)
+newtablet(char* dev, int baud)
 {
 	int serctl;
 	char* ctl;
@@ -46,7 +68,7 @@ newtablet(char* dev)
 		close(t->ser);
 		return 0;
 	}
-	if(fprint(serctl, "b19200\n") < 0) {
+	if (inittablet(serctl, t, baud) < 0) {
 		free(t);
 		close(t->ser);
 		close(serctl);
@@ -54,24 +76,6 @@ newtablet(char* dev)
 	}
 	close(serctl);
 	return t;
-}
-
-int
-query(Tablet* t)
-{
-	uchar buf[11];
-
-	if(write(t->ser, "&0*", 3) < 3) return -1;
-	do {
-		if(read(t->ser, buf, 1) < 1) return -1;
-	} while(buf[0] != 0xC0);
-	if(readn(t->ser, buf+1, 10) < 10) return -1;
-	t->xmax = (buf[1] << 9) | (buf[2] << 2) | ((buf[6] >> 5) & 3);
-	t->ymax = (buf[3] << 9) | (buf[4] << 2) | ((buf[6] >> 3) & 3);
-	t->pmax = buf[5] | (buf[6] & 7);
-	t->version = (buf[9] << 7) | buf[10];
-	if(write(t->ser, "1", 1) < 1) return -1;
-	return 0;
 }
 
 int
@@ -100,45 +104,43 @@ screensize(Tablet* t)
 	return 0;
 }
 
-int
-findheader(Tablet* t)
-{
-	uchar c;
-	
-	do {
-		if(read(t->ser, &c, 1) < 1) return -1;
-	} while((c & 0x80) == 0);
-	return c;
-}
-
 Message*
-readpacket(Tablet* t)
+packetready(Tablet* t, uchar* buf, int ct)
 {
-	uchar buf[9];
-	int head;
-	Message *m;
+	/*
+	Touch event packets may be 5, 7, or 13 bytes long depending on the tablet,
+    with 13 being multitouch.
 
-	head = findheader(t);
-	if(head < 0) return 0;
-	if(readn(t->ser, buf, 9) < 9) return 0;
+	Stylus events are 9 bytes long.
+
+	The touch query response is 10 bytes long.
+
+    The stylus query response is 11 bytes long.
+	*/
+
+	if (ct == 9) {
+		Message *m;
+		m = calloc(sizeof(Message), 1);
+		incref(m);
 	
-	m = calloc(sizeof(Message), 1);
-	incref(m);
+		m->b = buf[0] & 7;
+		m->x = (buf[1] << 9) | (buf[2] << 2) | ((buf[6] >> 5) & 3);
+		m->y = (buf[3] << 9) | (buf[4] << 2) | ((buf[6] >> 3) & 3);
+		m->p = ((buf[6] & 7) << 7) | buf[5];
 	
-	m->b = head & 7;
-	m->x = (buf[0] << 9) | (buf[1] << 2) | ((buf[5] >> 5) & 3);
-	m->y = (buf[2] << 9) | (buf[3] << 2) | ((buf[5] >> 3) & 3);
-	m->p = ((buf[5] & 7) << 7) | buf[4];
+		m->p *= MAX;
+		m->p /= t->pmax;
+		m->x *= t->sx;
+		m->x /= t->xmax;
+		m->y *= t->sy;
+		m->y /= t->ymax;
 	
-	m->p *= MAX;
-	m->p /= t->pmax;
-	m->x *= t->sx;
-	m->x /= t->xmax;
-	m->y *= t->sy;
-	m->y /= t->ymax;
-	
-	m->msg = smprint("m %d %d %d %d\n", m->x, m->y, m->b, m->p);
-	return m;
+		m->msg = smprint("m %d %d %d %d\n", m->x, m->y, m->b, m->p);
+		return m;
+	}
+	else {
+		return 0;
+	}
 }
 
 void
@@ -313,6 +315,13 @@ tabletread(Req* req)
 	}
 }
 
+void
+usage(void)
+{
+	fprint(2, "usage: %s [ -b baud ]\n", argv0);
+	exits("usage");
+}
+
 Srv tabletsrv = {
 	.open = tabletopen,	
 	.read = tabletread,
@@ -323,12 +332,25 @@ Srv tabletsrv = {
 File *tfile;
 
 void
-main()
+main(int argc, char **argv)
 {
 	Tablet *t;
 	Message *m;
 	int fd[2];
-	
+	uchar buf[13];
+	uint ct;
+	uchar got;
+	int baud;
+
+	baud = 19200;
+	ARGBEGIN {
+	case 'b':
+		baud = atoi(ARGF());
+		break;
+	default:
+		usage();
+	} ARGEND;
+
 	pipe(fd);
 	tabletsrv.infd = tabletsrv.outfd = fd[0];
 	tabletsrv.tree = alloctree(getuser(), getuser(), 0555, 0);
@@ -339,15 +361,29 @@ main()
 		exits(nil);
 	}
 	mount(fd[1], -1, "/dev", MAFTER, "");
-	
-	t = newtablet("/dev/eia2");
+
+	t = newtablet("/dev/eia2", baud);
 	if(!t) sysfatal("%r");
 	if(screensize(t) < 0) sysfatal("%r");
-	if(query(t) < 0) sysfatal("%r");
+
+	m = 0;
+	ct = 0;
 	while(1) {
-		m = readpacket(t);
-		if(!m) sysfatal("%r");
-		sendout(m);
-		msgdecref(m);
+		got = 0;
+		if(read(t->ser, &got, 1) != 1) sysfatal("%r");
+		if((got & 0x80) == 0x80) {
+			m = packetready(t, buf, ct);
+			buf[0] = got;
+			ct = 1;
+		} else if (ct < 13) {
+			buf[ct++] = got;
+		} else {
+			ct = -1;
+		}
+		if (m) {
+			sendout(m);
+			msgdecref(m);
+			m = 0;
+		}
 	}
 }
