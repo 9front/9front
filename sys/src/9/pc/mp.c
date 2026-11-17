@@ -179,11 +179,15 @@ printapic(Apic *apic)
 		if(ai->bus == nil)
 			print("\n");
 		else if(ai->bus->type == BusPCI)
-			print(" bus: %T (INT%c)\n", MKBUS(BusPCI, ai->bus->busno, ai->irq>>2, 0),
+			print(" bus: %T (INT%c)", MKBUS(BusPCI, ai->bus->busno, ai->irq>>2, 0),
 				"ABCD"[ai->irq&3]);
 		else
-			print(" bus: %T flags=%x\n", MKBUS(ai->bus->type, ai->bus->busno, 0, 0),
+			print(" bus: %T flags=%x", MKBUS(ai->bus->type, ai->bus->busno, 0, 0),
 				ai->bus->po | ai->bus->el);
+		if(ai->from == nil)
+			print("\n");
+		else
+			print("\t%s\n", ai->from);
 	}
 }
 

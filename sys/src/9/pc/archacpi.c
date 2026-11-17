@@ -234,7 +234,7 @@ addnmi(Apic *apic, int intin, int flags)
 }
 
 static void
-addirq(int gsi, int type, int busno, int irq, int flags)
+addirq(int gsi, int type, int busno, int irq, int flags, void *from)
 {
 	Bus *bus;
 	Apic *apic;
@@ -259,6 +259,15 @@ addirq(int gsi, int type, int busno, int irq, int flags)
 
 	if((ai = xalloc(sizeof(Aintr))) == nil)
 		panic("addirq: no memory for Aintr");
+
+	/* debugging */
+	ai->from = nil;
+	if(from != nil) {
+		char buf[128];
+
+		snprint(buf, sizeof(buf), "%N", from);
+		kstrdup(&ai->from, buf);
+	}
 
 	ai->type = PcmpINT;
 	ai->flags = flags & (PcmpPOMASK|PcmpELMASK);
@@ -522,7 +531,7 @@ enumprt(void *dot, void *)
 			if(gsi <= 0)
 				continue;
 		}
-		addirq(gsi, BusPCI, bno, (dno<<2)|pin, flags);
+		addirq(gsi, BusPCI, bno, (dno<<2)|pin, flags, dot);
 	}
 	amldrop(p);
 
@@ -542,7 +551,7 @@ enumcrs(void *dot, void *)
 	getirqs(p, mask, &flags);
 	for(irq=0; irq<16; irq++){
 		if(mask[irq>>3] & (1<<(irq&7)))
-			addirq(irq, BusISA, 0, irq, flags);
+			addirq(irq, BusISA, 0, irq, flags, dot);
 	}
 	return 1;
 }
@@ -713,7 +722,7 @@ acpiinit(void)
 			break;
 		switch(*p){
 		case 0x02:	/* Interrupt Source Override */
-			addirq(get32(p+4), BusISA, 0, p[3], get16(p+8));
+			addirq(get32(p+4), BusISA, 0, p[3], get16(p+8), nil);
 			break;
 		case 0x03:	/* Non-maskable Interrupt Source (NMI) */
 			if((a = findioapic(get32(p+4), &i)) != nil)
@@ -743,16 +752,16 @@ acpiinit(void)
 	/* find embedded controller */
 	amlenum(amlroot, "_HID", enumec, nil);
 
-	/* look for PCI interrupt mappings */
-	amlenum(amlroot, "_PRT", enumprt, nil);
-
 	/* look for legacy ISA interrupts 0-15 */
 	if(getconf("*noenumcrs") == nil)
 		amlenum(amlroot, "_CRS", enumcrs, nil);
 
 	/* add identity mapped legacy ISA interrupts */
 	for(i=0; i<16; i++)
-		addirq(i, BusISA, 0, i, 0);
+		addirq(i, BusISA, 0, i, 0, nil);
+
+	/* look for PCI interrupt mappings */
+	amlenum(amlroot, "_PRT", enumprt, nil);
 
 	/* free the AML interpreter */
 	amlexit();
