@@ -410,8 +410,10 @@ mesgmain(void *mp)
 			break;
 		case 'x':
 		case 'X':
-			if((nf = tokenize(ev.text, f, nelem(f))) == 0)
-				continue;
+			if((nf = tokenize(ev.text, f, nelem(f) - 1)) == 0)
+ 				continue;
+			if(ev.flags & 0x8)
+				f[nf++] = ev.arg;
 			for(p = mesgfn; p->fn != nil; p++){
 				if(strcmp(p->name, f[0]) == 0 && p->fn != nil){
 					p->fn(m, &f[1], nf - 1);

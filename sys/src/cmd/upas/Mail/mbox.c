@@ -1039,8 +1039,10 @@ doevent(Event *ev)
 		break;
 	case 'x':
 	case 'X':
-		if((nf = tokenize(ev->text, f, nelem(f))) == 0)
+		if((nf = tokenize(ev->text, f, nelem(f) - 1)) == 0)
 			return;
+		if(ev->flags & 0x8)
+			f[nf++] = ev->arg;
 		for(p = mboxfn; p->fn != nil; p++)
 			if(strcmp(p->name, f[0]) == 0 && p->fn != nil){
 				p->fn(&f[1], nf - 1);

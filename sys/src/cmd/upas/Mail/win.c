@@ -59,11 +59,14 @@ evgetdata(Biobuf *f, Event *e)
 int
 winevent(Win *w, Event *e)
 {
+	Event ea;
 	int flags;
 
 	flags = 0;
 Again:
 	e->action = Bgetc(w->event);
+	if(e->action == Beof)
+		return -1;
 	e->type = Bgetc(w->event);
 	e->q0 = evgetnum(w->event);
 	e->q1 = evgetnum(w->event);
@@ -80,6 +83,15 @@ Again:
 		goto Again;
 	}
 	e->flags |= flags;
+	e->arg[0] = 0;
+	if((e->type == 'x' || e->type == 'X') && (e->flags & 0x8)){
+		/* chorded (1) argument and its (2) origin follow; see acme(4) */
+		if(winevent(w, &ea) == -1)	/* (1) argument */
+			return -1;
+		strecpy(e->arg, e->arg + sizeof(e->arg), ea.text);
+		if(winevent(w, &ea) == -1)	/* (2) origin */
+			return -1;
+	}
 	return e->action;
 }
 

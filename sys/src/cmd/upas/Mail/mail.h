@@ -40,6 +40,7 @@ struct Event {
 	int	flags;
 	int	ntext;
 	char	text[Eventsz + 1];
+	char	arg[Eventsz + 1];	/* chorded argument; see acme(4) */
 };
 
 struct Win {
