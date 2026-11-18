@@ -288,9 +288,13 @@ if(debug > 1)
 		for(pad=4; (5+n+pad) % 8; pad++)
 			;
 	}
+	if(n+pad > sizeof(buf)-16-5)
+		goto toobig;
 	prng(send.w, pad);
 	n = pack(buf, sizeof(buf)-16, "ub[[", 1+n+pad, pad, send.b, n, send.w, pad);
-	if(n < 0) goto toobig;
+	if(n < 0)
+		goto toobig;
+
 	if(nsid){
 		uchar otk[32];
 
@@ -492,7 +496,7 @@ kex(int gotkexinit)
 	static char macalgs[] = "";
 	static char langs[] = "";
 
-	uchar cookie[16], x[32], z[32], k[SHA2_256dlen], h[SHA2_256dlen], *ks, *sig;
+	uchar cookie[16], x[32], z[32], k[32+1], h[SHA2_256dlen], *ks, *sig;
 	uchar k12[2*ChachaKeylen];
 	int i, nk, nks, nsig;
 	DigestState *ds, *ds2;
@@ -637,7 +641,7 @@ Next1:	switch(recvpkt()){
 		ds2 = sha2_256(ss, sizeof(ss), nil, nil);
 		ds2 = sha2_256(z, 32, nil, ds2);
 		sha2_256(nil, 0, k, ds2);
-		nk = sizeof(k);
+		nk = SHA2_256dlen;
 	}
 	ds = hashstr(k, nk, ds);
 	sha2_256(nil, 0, h, ds);
