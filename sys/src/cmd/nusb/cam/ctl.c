@@ -311,7 +311,7 @@ pformatwrite(Cam *c, int, Param *, char **args, int nargs)
 	}else{
 		if(*p != 'x' || *++p == '-') return -1;
 		bpp = strtol(p, &p, 0);
-		if(*p != '-') return -1;
+		if(*p++ != '-') return -1;
 		if(strlen(p) != 4) return -1;
 		i = -1;
 		for(j = 0; j < c->nformat; j++){
