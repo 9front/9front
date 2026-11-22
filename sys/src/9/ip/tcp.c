@@ -1600,7 +1600,7 @@ tcpbypass(void *arg, Block *b)
 
 	if(o == nil || ((Tcpctl*)o->ptcl)->bypass != c){
 		freeblist(b);
-		return;
+		error(Ehungup);
 	}
 	qbwrite(o->rq, b);
 }
