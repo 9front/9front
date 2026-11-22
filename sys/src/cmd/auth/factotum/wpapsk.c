@@ -79,7 +79,7 @@ calcptk(uchar pmk[PMKlen], uchar smac[Eaddrlen], uchar amac[Eaddrlen],
 		memmove(b + Eaddrlen*0, smac, Eaddrlen);
 		memmove(b + Eaddrlen*1, amac, Eaddrlen);
 	}
-	if(memcmp(snonce, anonce, Eaddrlen) > 0){
+	if(memcmp(snonce, anonce, Noncelen) > 0){
 		memmove(b + Eaddrlen*2 + Noncelen*0, anonce, Noncelen);
 		memmove(b + Eaddrlen*2 + Noncelen*1, snonce, Noncelen);
 	} else {
