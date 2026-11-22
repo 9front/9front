@@ -192,6 +192,7 @@ struct
 	"R28",		LREG,	28,
 	"R29",		LREG,	29,
 	"R30",		LREG,	30,
+	"R31",		LREG,	31,
 	"LR",			LREG,	30,
 	"ZR",			LREG,	31,
 
