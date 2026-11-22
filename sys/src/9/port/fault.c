@@ -339,8 +339,8 @@ fault(uintptr addr, uintptr pc, int read)
 			attr |= s->pseg->attr;
 
 		if((attr & SG_FAULT) != 0
-		|| read? ((attr & SG_NOEXEC) != 0 || s->flushme == 0) && (addr & -BY2PG) == (pc & -BY2PG):
-			 (attr & SG_RONLY) != 0) {
+		|| (read ? ((attr & SG_NOEXEC) != 0 || s->flushme == 0) && (addr & -BY2PG) == (pc & -BY2PG):
+			 (attr & SG_RONLY) != 0)) {
 			qunlock(s);
 			up->psstate = sps;
 			up->insyscall = ins;
