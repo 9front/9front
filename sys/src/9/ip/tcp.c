@@ -529,7 +529,8 @@ tcpclose(Conv *c)
 		break;
 	case Established:
 		if(tcb->bypass != nil){
-			qhangup(tcb->bypass->rq, nil);
+			if(((Tcpctl*)tcb->bypass->ptcl)->bypass == c)
+				qhangup(tcb->bypass->rq, nil);
 			localclose(c, nil);
 			break;
 		}
