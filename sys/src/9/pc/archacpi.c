@@ -286,7 +286,7 @@ addirq(int gsi, int type, int busno, int irq, int flags, void *from)
 static int
 pcibusno(void *dot)
 {
-	int bno, adr, tbdf;
+	int bno, adr, tbdf, isroot;
 	Pcidev *pdev;
 	void *p, *x;
 	char *id;
@@ -295,15 +295,21 @@ pcibusno(void *dot)
 	if((x = amlwalk(dot, "^_HID")) != nil)
 		if((p = amlval(x)) != nil)
 			id = amleisaid(p);
+	isroot = id != nil && (strcmp(id, "PNP0A03") == 0 || strcmp(id, "PNP0A08") == 0);
 	if((x = amlwalk(dot, "^_BBN")) == nil)
-		if((x = amlwalk(dot, "^_ADR")) == nil)
-			return -1;
+		x = amlwalk(dot, "^_ADR");
+	if(x == nil){
+		/* QEMU omits _BBN from root bridge, default to bus 0 */
+		if(isroot)
+			return 0;
+		return -1;
+	}
 	p = nil;
 	if(amleval(x, "", &p) < 0)
 		return -1;
 	adr = amlint(p);
 	/* if root bridge, then we are done here */
-	if(id != nil && (strcmp(id, "PNP0A03")==0 || strcmp(id, "PNP0A08")==0))
+	if(isroot)
 		return adr;
 	x = amlwalk(dot, "^");
 	if(x == nil || x == dot)
