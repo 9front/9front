@@ -538,6 +538,7 @@ struct Ctlr {
 
 	char *fwname;
 	int mqrx;
+	int integrated;		/* CNVi: MAC in the PCH */
 	int family;
 	int type;
 	uint step;
@@ -1923,7 +1924,7 @@ reset(Ctlr *ctlr)
 		prphwrite(ctlr, RfhGenCfg,
 			RfhGenServiceDmaSnoop |
 			RfhGenRfhDmaSnoop |
-			RfhGenRbChunkSize128);
+			(ctlr->integrated ? RfhGenRbChunkSize64 : RfhGenRbChunkSize128));
 
 		/* Enable Q0 */
 		prphwrite(ctlr, RfhRxqActive, (1 << 16) | 1);
@@ -4510,6 +4511,10 @@ iwlpci(void)
 			family = 9000;
 			fwname = "iwm-9260-34";
 			break;
+		case 0x9df0:	/* Wireless AC 9560 (CNVi) */
+			family = 9000;
+			fwname = "iwm-9000-34";
+			break;
 		}
 
 		ctlr = malloc(sizeof(Ctlr));
@@ -4529,6 +4534,7 @@ iwlpci(void)
 		ctlr->fwname = fwname;
 		ctlr->family = family;
 		ctlr->mqrx = family >= 9000;
+		ctlr->integrated = pdev->did == 0x9df0;
 
 		if(iwlhead != nil)
 			iwltail->link = ctlr;
