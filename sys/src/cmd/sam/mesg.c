@@ -228,6 +228,7 @@ inmesg(Tmesg type)
 		break;
 
 	case Tstartcmdfile:
+		termlocked++;
 		v = invlong();		/* for 64-bit pointers */
 		journalv(0, v);
 		Strdupl(&genstr, samname);
@@ -377,6 +378,7 @@ inmesg(Tmesg type)
 		break;
 
 	case Tstartnewfile:
+		termlocked++;
 		v = invlong();
 		Strdupl(&genstr, empty);
 		f = newfile();

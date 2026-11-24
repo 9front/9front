@@ -340,6 +340,7 @@ startnewfile(int type, Text *t)
 {
 	t->tag = Untagged;
 	outTv(type, (vlong)t);			/* for 64-bit pointers */
+	setlock();
 }
 
 int
