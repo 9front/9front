@@ -25,7 +25,7 @@ fn dodiff {
 				curr=/dev/null
 			if(! test -e $prev)
 				prev=/dev/null
-			diff -u $prev $curr
+			diff -ru $prev $curr
 		}
 		echo --' '
 		echo ⑨
