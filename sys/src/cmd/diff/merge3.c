@@ -62,15 +62,11 @@ overlaps(int lx, int ly, int rx, int ry)
 }
 
 static int
-same(Diff *l, Change *lc, Diff *r, Change *rc)
+same(Diff *l, int lx, int ly, Diff *r, int rx, int ry)
 {
 	char lbuf[MAXLINELEN], rbuf[MAXLINELEN];
-	int i, ll, rl, lx, ly, rx, ry;
+	int i, ll, rl;
 
-	lx = lc->newx;
-	ly = lc->newy;
-	rx = rc->newx;
-	ry = rc->newy;
 	if(ly - lx != ry - rx)
 		return 0;
 	assert(ly <= l->len[1] && ry <= r->len[1]);
@@ -90,86 +86,101 @@ same(Diff *l, Change *lc, Diff *r, Change *rc)
 char*
 merge(Diff *l, Diff *r)
 {
-	int lx, ly, rx, ry;
-	int il, ir, δ;
-	Change *lc, *rc;
+	Change *lc, *le, *rc, *re, ml, mr;
+	int lx, ly, rx, ry, δ;
 	char *status;
 	vlong ln;
 
-	il = 0;
-	ir = 0;
 	ln = 0;
 	status = nil;
 	collect(l);
 	collect(r);
-	while(il < l->nchanges || ir < r->nchanges){
-		lc = nil;
-		rc = nil;
-		lx = -1;
-		ly = -1;
-		rx = -1;
-		ry = -1;
-		if(il < l->nchanges){
-			lc = &l->changes[il];
-			lx = (lc->oldx < lc->oldy) ? lc->oldx : lc->oldy;
-			ly = (lc->oldx < lc->oldy) ? lc->oldy : lc->oldx;
-		}
-		if(ir < r->nchanges){
-			rc = &r->changes[ir];
-			rx = (rc->oldx < rc->oldy) ? rc->oldx : rc->oldy;
-			ry = (rc->oldx < rc->oldy) ? rc->oldy : rc->oldx;
-		}
-		if(lc != nil && rc != nil && overlaps(lx, ly, rx, ry)){
+	lc = l->changes;
+	le = lc + l->nchanges;
+	rc = r->changes;
+	re = rc + r->nchanges;
+	while(lc != le || rc != re){
+		/*
+		 * internally we keep 1-based indexes, and represent
+		 * empty ranges with x=start, y=start-1; fix that up
+		 * when assigning to lx, ly.
+		 */
+		lx = (lc == le) ? -1 : lc->oldx;
+		ly = (lc == le) ? -1 : max(lc->oldx, lc->oldy);
+		rx = (rc == re) ? -1 : rc->oldx;
+		ry = (rc == re) ? -1 : max(rc->oldx, rc->oldy);
+		if(lc != le && rc != re && overlaps(lx, ly, rx, ry)){
 			/*
 			 * align the edges of the chunks, expanding them
 			 * so that when we compare for sameness, we are
 			 * comparing same-sized chunks.
 			 */
-			if(lc->oldx < rc->oldx){
-				δ = rc->oldx - lc->oldx;
-				rc->oldx = max(rc->oldx-δ, 1);
-				rc->newx = max(rc->newx-δ, 1);
+			ml = *lc;
+			mr = *rc;
+Realign:
+			if(ml.oldx < mr.oldx){
+				δ = mr.oldx - ml.oldx;
+				mr.oldx = max(mr.oldx-δ, 1);
+				mr.newx = max(mr.newx-δ, 1);
 			}else{
-				δ = lc->oldx - rc->oldx;
-				lc->oldx = max(lc->oldx-δ, 1);
-				lc->newx = max(lc->newx-δ, 1);
+				δ = ml.oldx - mr.oldx;
+				ml.oldx = max(ml.oldx-δ, 1);
+				ml.newx = max(ml.newx-δ, 1);
 			}
-			if(lc->oldy > rc->oldy){
-				δ = lc->oldy - rc->oldy;
-				rc->oldy = min(rc->oldy+δ, r->len[0]);
-				rc->newy = min(rc->newy+δ, r->len[1]);
+			if(ml.oldy > mr.oldy){
+				δ = ml.oldy - mr.oldy;
+				mr.oldy = min(mr.oldy+δ, r->len[0]);
+				mr.newy = min(mr.newy+δ, r->len[1]);
 			}else{
-				δ = rc->oldy - lc->oldy;
-				lc->oldy = min(lc->oldy+δ, l->len[0]);
-				lc->newy = min(lc->newy+δ, l->len[1]);
+				δ = mr.oldy - ml.oldy;
+				ml.oldy = min(ml.oldy+δ, l->len[0]);
+				ml.newy = min(ml.newy+δ, l->len[1]);
 			}
-			if(same(l, lc, r, rc)){
-				fetch(l, l->ixold, ln, lc->oldx-1, l->input[0], "");
-				fetch(l, l->ixnew, lc->newx, lc->newy, l->input[1], "");
+
+			/* 
+			 * if the resulting ranges overlap subsequent
+			 * chunks, expand to cover those chunks and
+			 * try again.
+			 */
+			if(lc+1 != le && ml.oldy >= (lc+1)->oldx){
+				ml.oldy = max(ml.oldy, (lc+1)->oldy);
+				ml.newy = max(ml.newy, (lc+1)->newy);
+				lc++;
+				goto Realign;
+			}
+			if(rc+1 != re && mr.oldy >= (rc+1)->oldx){
+				mr.oldy = max(mr.oldy, (rc+1)->oldy);
+				mr.newy = max(mr.newy, (rc+1)->newy);
+				rc++;
+				goto Realign;
+			}
+			if(same(l, ml.newx, ml.newy, r, mr.newx, mr.newy)){
+				fetch(l, l->ixold, ln, ml.oldx-1, l->input[0], "");
+				fetch(l, l->ixnew, ml.newx, ml.newy, l->input[1], "");
 			}else{
-				fetch(l, l->ixold, ln, lc->oldx-1, l->input[0], "");
+				fetch(l, l->ixold, ln, ml.oldx-1, l->input[0], "");
 				Bprint(&stdout, "<<<<<<<<<< %s\n", l->file2);
-				fetch(l, l->ixnew, lc->newx, lc->newy, l->input[1], "");
+				fetch(l, l->ixnew, ml.newx, ml.newy, l->input[1], "");
 				Bprint(&stdout, "========== original\n");
-				fetch(l, l->ixold, lc->oldx, lc->oldy, l->input[0], "");
+				fetch(l, l->ixold, ml.oldx, ml.oldy, l->input[0], "");
 				Bprint(&stdout, "========== %s\n", r->file2);
-				fetch(r, r->ixnew, rc->newx, rc->newy, r->input[1], "");
+				fetch(r, r->ixnew, mr.newx, mr.newy, r->input[1], "");
 				Bprint(&stdout, ">>>>>>>>>>\n");
 				status = "conflict";
 			}
-			ln = lc->oldy+1;
-			il++;
-			ir++;
-		}else if(lc != nil && (rc == nil || lx < rx)){
+			ln = ml.oldy+1;
+			lc++;
+			rc++;
+		}else if(lc != le && (rc == re || lx < rx)){
 			fetch(l, l->ixold, ln, lc->oldx-1, l->input[0], "");
 			fetch(l, l->ixnew, lc->newx, lc->newy, l->input[1], "");
 			ln = lc->oldy+1;
-			il++;
-		}else if(rc != nil && (lc == nil || rx < lx)){
+			lc++;
+		}else if(rc != re && (lc == le || rx < lx)){
 			fetch(l, r->ixold, ln, rc->oldx-1, r->input[0], "");
 			fetch(r, r->ixnew, rc->newx, rc->newy, r->input[1], "");
 			ln = rc->oldy+1;
-			ir++;
+			rc++;
 		}else
 			abort();
 	}

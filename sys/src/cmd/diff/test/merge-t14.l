@@ -1,0 +1,21 @@
+# one side with multiple conflicting changes
+1
+2
+3
+4
+5
+x
+7
+8
+9
+10
+11
+12
+13
+14
+w
+y
+z
+18
+19
+20
