@@ -85,6 +85,8 @@ menucmdhit(char *s)
 {
 	if(s == nil)
 		return;
+	outcmd();
+	setlock();
 	outstart(Tmenucmdsend);
 	outcopy(strlen(s), (uchar*)s);
 	outsend();
