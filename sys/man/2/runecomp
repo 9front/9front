@@ -141,9 +141,7 @@ a new base for the remaining combining runes.
 return the next grapheme (word) break
 opportunity in
 .BR s ,
-or
-.B s
-if none is found.
+or nil if none is found.
 Utfgbreak and utfwbreak are UTF
 variants of these routines.
 .SH SOURCE

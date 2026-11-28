@@ -14,8 +14,49 @@ estrtoul(char *s)
 	return code;
 }
 
+#pragma	   varargck    type  "V"   Rune*
+static int
+Vrunefmt(Fmt *f)
+{
+	Rune *s;
+	int n;
+
+	s = va_arg(f->args, Rune*);
+	if(s == nil)
+		return fmtprint(f, "<nil>");
+	if(*s == '\0')
+		return fmtprint(f, "(\0)");
+	n = fmtprint(f, "%S(", s);
+	for(; *s != 0; s++)
+		n += fmtprint(f, "%X%s", *s, s[1] == 0 ? "" : " ");
+	n += fmtprint(f, ")");
+	return n;
+}
+
+#pragma	   varargck    type  "v"   char*
+static int
+vrunefmt(Fmt *f)
+{
+	Rune r;
+	char *s;
+	int n;
+
+	s = va_arg(f->args, char*);
+	if(s == nil)
+		return fmtprint(f, "<nil>");
+	if(*s == '\0')
+		return fmtprint(f, "(\0)");
+	n = fmtprint(f, "%s(", s);
+	while(*s != 0){
+		s += chartorune(&r, s);
+		n += fmtprint(f, "%X%s", r, *s == 0 ? "" : " ");
+	}
+	n += fmtprint(f, ")");
+	return n;
+}
+
 static Rune*
-check(Rune *r, Rune* (*fn)(Rune*), char* (*fn2)(char*))
+check(Rune *r, char *line, Rune* (*fn)(Rune*), char* (*fn2)(char*))
 {
 	Rune *r2, *tmp;
 	char *p, *p2;
@@ -24,9 +65,15 @@ check(Rune *r, Rune* (*fn)(Rune*), char* (*fn2)(char*))
 	r2 = fn(r);
 	p2 = fn2(p);
 
+	if(r2 == nil){
+		if(p2 != nil)
+			sysfatal("utf broke when we shouldn't %v||%s\n", p2, line);
+		return r2;
+	}
+
 	tmp = runesmprint("%.*s", (int)(p2-p), p);
 	if(memcmp(r, tmp, r2-r) != 0)
-		print("utf mismstach\n");
+		sysfatal("utf mismstach %S||%S (%d)\n", r, tmp, (int)(p2-p));
 	
 	free(p);
 	free(tmp);
@@ -38,11 +85,12 @@ run(char *file, Rune* (*fn)(Rune*), char* (*fn2)(char*))
 {
 	Biobuf *b;
 	char *p, *dot;
-	char *pieces[16];
-	int i, j, n;
-	Rune stack[16], ops[16];
-	int nstack, nops;
-	Rune r, *rp, *rp2;
+	char *pieces[64];
+	int i, n;
+	Rune stack[16];
+	Rune *exp[16];
+	int nstack, nexp;
+	Rune r, *rp;
 	char *line;
 
 	b = Bopen(file, OREAD);
@@ -54,13 +102,14 @@ run(char *file, Rune* (*fn)(Rune*), char* (*fn2)(char*))
 		line = strdup(p);
 		if(p[0] == 0 || p[0] == '#')
 			continue;
-		if((dot = strstr(p, "#")) != nil)
+		if((dot = strchr(p, '#')) != nil)
 			*dot = 0;
 		n = getfields(p, pieces, nelem(pieces), 0, " ");
-		nstack = nops = 0;
-		for(i = 0; i < n; i++){
+		nexp = nstack = 0;
+		for(i = 1; i < n-1; i++){
 			chartorune(&r, pieces[i]);
-			if(r != L'÷' && r != L'×'){
+			switch(r){
+			default:
 				r = estrtoul(pieces[i]);
 				/*
 				 * Unicode v17.0 onwards wants us to handle
@@ -73,41 +122,27 @@ run(char *file, Rune* (*fn)(Rune*), char* (*fn2)(char*))
 					goto Break;
 				stack[nstack++] = r;
 				stack[nstack] = 0;
-			} else {
-				ops[nops++] = r;
-				ops[nops] = 0;
+				break;
+			case L'×':
+				break;
+			case L'÷':
+				exp[nexp++] = stack + nstack;
+				break;
 			}
+		}
+		if(nexp == 0){
+			if((rp = check(stack, line, fn, fn2)) != nil)
+				sysfatal("%s\n\tbroke when we shouldn't index(%d) (rp=%V)\n", line, (int)(rp-stack), rp);
+			continue;
 		}
 
 		rp = stack;
-		for(i = 1; i < nops-1;){
-			rp2 = check(rp, fn, fn2);
-			switch(ops[i]){
-			case L'÷':
-				if(rp2 != rp+1){
-					print("break fail %X %X || %s\n", rp[0], rp[1], line);
-					goto Break;
-				}
-				rp++;
-				i++;
-				break;
-			case L'×':
-				if(rp2 - rp == 0){
-					for(j = i; j < nops - 1; j++)
-						if(ops[j] !=  L'×')
-							print("skipped %d %d %s\n", i, nops, line);
-					goto Break;
-				}
-				for(; rp < (rp2-1); rp++, i++){
-					if(ops[i] != L'×')
-						print("skipped %d %d %s\n", i, nops, line);
-				}
-				rp = rp2;
-				i++;
-				break;
-			}
+		for(i = 0; i < nexp; i++){
+			if((rp = check(rp, line, fn, fn2)) != exp[i])
+				sysfatal("%s\n\tbreak mismatch Got(%V) Exp(%V)\n", line, rp, exp[i]);
 		}
-Break:
+
+	Break:
 		;
 	}
 }
@@ -115,6 +150,8 @@ Break:
 void
 main(int, char)
 {
+	fmtinstall('V', Vrunefmt);
+	fmtinstall('v', vrunefmt);
 	run("/lib/ucd/GraphemeBreakTest.txt", runegbreak, utfgbreak);
 	run("/lib/ucd/WordBreakTest.txt", runewbreak, utfwbreak);
 	exits(nil);

@@ -338,10 +338,10 @@ enum {
 	MidNumLet, Numeric, ExtendNumLet, WSegSpace,
 	PREPEND = 0x10, CONTROL = 0x20, EXTEND = 0x30, REGION = 0x40,
 	L = 0x50, V = 0x60, T = 0x70, LV = 0x80, LVT = 0x90, SPACEMK = 0xA0,
-	EMOJIEX = 0xB0,
+	EMOJIEX = 0xB0, INLINK = 0xC0, INCONST = 0xD0,
 
 	NFC_QC_No = 1, NFC_QC_Maybe = 2, NFD_QC_No = 4, NFD_QC_Maybe = 8,
-	
+
 };
 
 static void
@@ -489,7 +489,7 @@ markbreak(void)
 	char *b, *ob;
 	char *dot;
 	int i, s, e;
-	uchar v;
+	uchar v, t;
 
 	ob = b = slurp("/lib/ucd/WordBreakProperty.txt");
 	while((dot = getextraline(&b, &s, &e)) != nil){
@@ -522,7 +522,6 @@ markbreak(void)
 	free(ob);
 	ob = b = slurp("/lib/ucd/GraphemeBreakProperty.txt");
 	while((dot = getextraline(&b, &s, &e)) != nil){
-		v = 0;
 		if(strstr(dot, "; Prepend #") != nil)
 			v = PREPEND;
 		else if(strstr(dot, "; Control #") != nil)
@@ -543,22 +542,47 @@ markbreak(void)
 			v = LV;
 		else if(strstr(dot, "; LVT #") != nil)
 			v = LVT;
-		for(i = s; i <= e; i++)
+		else
+			continue;
+		for(i = s; i <= e; i++){
+			if((mybreak[i] & 0xF0) != 0)
+				sysfatal("grapheme break collison: %uX %uX %uX", i, mybreak[i]&0xF0, v);
 			mybreak[i] |= v;
+		}
 	}
 	free(ob);
 	ob = b = slurp("/lib/ucd/emoji-data.txt");
 	while((dot = getextraline(&b, &s, &e)) != nil){
-		v = 0;
 		if(strstr(dot, "; Extended_Pictographic") != nil)
 			v = EMOJIEX;
-		for(i = s; i <= e; i++)
+		else
+			continue;
+		for(i = s; i <= e; i++){
+			if((mybreak[i] & 0xF0) != 0)
+				sysfatal("grapheme break collison: %uX %uX %uX", i, mybreak[i]&0xF0, v);
 			mybreak[i] |= v;
+		}
+	}
+	free(ob);
+	ob = b = slurp("/lib/ucd/DerivedCoreProperties.txt");
+	while((dot = getextraline(&b, &s, &e)) != nil){
+		if(strstr(dot, "; InCB; Consonant") != nil)
+			v = INCONST;
+		else if(strstr(dot, "; InCB; Linker") != nil)
+			v = INLINK;
+		else
+			continue;
+		for(i = s; i <= e; i++){
+			t = mybreak[i] & 0xF0;
+			/* acceptable overlap, just enough room 0x30|0xC0 = 0xF0(unused) */
+			if(t != 0 && (t != EXTEND || v != INLINK))
+				sysfatal("unexpected grapheme break collison: %uX %uX %uX", i, t, v);
+			mybreak[i] |= v;
+		}
 	}
 	free(ob);
 	ob = b = slurp("/lib/ucd/DerivedNormalizationProps.txt");
 	while((dot = getextraline(&b, &s, &e)) != nil){
-		v = 0;
 		if(strstr(dot, "; NFC_QC; N") != nil)
 			v = NFC_QC_No;
 		else if(strstr(dot, "; NFC_QC; M") != nil)
@@ -567,6 +591,8 @@ markbreak(void)
 			v = NFD_QC_No;
 		else if(strstr(dot, "; NFD_QC; M") != nil)
 			v = NFD_QC_Maybe;
+		else
+			continue;
 
 		for(i = s; i <= e; i++)
 			myqc[i] |= v;
